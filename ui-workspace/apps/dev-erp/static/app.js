@@ -4421,6 +4421,13 @@ async function renderMail() {
         ${sel.source_ref ? `<div><dt>${L.mail_source_ref ?? "소스"}</dt><dd>${esc(sel.source_ref)}</dd></div>` : ""}
         ${selPreview ? `<div><dt>${L.mail_preview_meta ?? "식별 정보"}</dt><dd>${esc(selPreview)}</dd></div>` : ""}
         <div><dt>${L.detail_pointer}</dt><dd class="pointer">${esc(sel.pointer_ref ?? "-")} <button class="copy-btn" data-c="${esc(sel.pointer_ref ?? "")}">${L.copy}</button></dd></div></dl>
+      ${state.mailEdit === sel.id ? `<div class="mail-edit-form item-form" style="margin:6px 0;display:flex;gap:4px;flex-wrap:wrap">
+        <input id="meSubject" value="${esc(sel.subject ?? "")}" placeholder="${L.mail_reg_subject ?? "제목"}" />
+        <input id="meFrom" value="${esc(sel.counterpart ?? "")}" placeholder="${L.mail_reg_from ?? "상대"}" size="12" />
+        <input id="meDate" type="date" value="${esc((sel.at ?? "").slice(0, 10))}" />
+        <button id="meSave" class="fav-chip active">${L.mail_edit_save ?? "저장"}</button>
+        <button id="meCancel" class="fav-chip">${L.mail_edit_cancel ?? "취소"}</button>
+      </div>` : `<button id="mailEditBtn" class="fav-chip mini">${L.mail_edit ?? "메일 수정"}</button>`}
       <h4>${L.detail_labels}</h4>
       <div class="label-bar">${labels.map((l) => `<span class="label-chip manual ${sel.label_ids.includes(l.id) ? "on" : ""}" style="--lc:${esc(l.color)}" data-toggle="${l.id}">${esc(l.name)}</span>`).join("") || `<span class="dim">-</span>`}</div>
       <div class="detail-actions">${promotedSet.has(sel.id)
@@ -4600,6 +4607,15 @@ async function renderMail() {
     const r = await post("/api/mail/delete", { mail_id: state.mailSel });
     if (r.ok) { state.mailSel = null; toast(L.mail_deleted ?? "메일을 삭제했습니다", "ok"); render(); }
     else toast(L.mail_delete_fail ?? "메일 삭제 실패", "error");
+  });
+  $("#mailEditBtn")?.addEventListener("click", () => { state.mailEdit = state.mailSel; render(); });
+  $("#meCancel")?.addEventListener("click", () => { state.mailEdit = null; render(); });
+  $("#meSave")?.addEventListener("click", async () => {
+    const subject = $("#meSubject").value.trim();
+    if (!subject) { toast(L.mail_edit_need_subject ?? "제목을 입력하세요", "error"); return; }
+    const r = await post("/api/mail/update", { mail_id: state.mailSel, subject, counterpart: $("#meFrom").value.trim(), at: $("#meDate").value || undefined });
+    if (r.ok) { state.mailEdit = null; toast(L.mail_edited ?? "메일을 수정했습니다", "ok"); render(); }
+    else toast(L.mail_edit_fail ?? "메일 수정 실패", "error");
   });
 }
 

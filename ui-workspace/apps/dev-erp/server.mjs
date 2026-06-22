@@ -1488,6 +1488,15 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_delete", item_ref: mail_id, used_refs: ["core_mail"], data_label: "real" });
       return send(res, 200, result);
     }
+    if (path === "/api/mail/update" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { mail_id, subject, counterpart, at, pointer_ref } = JSON.parse(body || "{}");
+      if (!canAccessMail(req, mail_id)) return send(res, 403, { error: "mail_forbidden" });
+      const result = store.updateMail(mail_id, { subject, counterpart, at, pointer_ref });
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_update", item_ref: mail_id, used_refs: ["core_mail"], data_label: "real" });
+      return send(res, 200, result);
+    }
     if (path === "/api/mail/label" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mail_id, label_id, on } = JSON.parse(body || "{}");

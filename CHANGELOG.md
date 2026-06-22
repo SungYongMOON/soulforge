@@ -2,6 +2,14 @@
 
 ## 2026-06-22
 
+### Revision `working` - 메일 편집(MED) — 잘못 등록한 메일 메타 정정
+
+- 메일 상세에 '메일 수정' → 제목·상대·날짜 인라인 편집. `store.updateMail`, `POST /api/mail/update`.
+  수집(원장) 메일은 재스캔 시 원문값으로 복원될 수 있음(원문이 정본) — 주로 수동 등록 메일 정정용.
+- 이로써 메일 CRUD: 등록·분류/취소·삭제·편집 완비. node:test 235/0.
+
+## 2026-06-22
+
 ### Revision `working` - 라벨 이름 변경(MED) — 라벨 CRUD 완성
 
 - 라벨칩에 ✎(이름 변경) 추가 → prompt 로 이름 수정. `store.updateLabel`(name/color, 중복 거부),

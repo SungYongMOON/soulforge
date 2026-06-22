@@ -1032,6 +1032,18 @@ export class Store {
     return { ok: true, id: mail_id };
   }
 
+  // 메일 메타 수정(제목·상대·날짜·포인터). 잘못 등록한 메일 정정용. 수집(원장) 메일은 재스캔 시 원장값으로 되돌아갈 수 있음(원문이 정본).
+  updateMail(mail_id, patch = {}) {
+    const m = this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(mail_id);
+    if (!m) return { error: "mail_not_found" };
+    const subject = patch.subject !== undefined ? (String(patch.subject).trim() || "(제목 없음)") : m.subject;
+    const counterpart = patch.counterpart !== undefined ? (String(patch.counterpart).trim() || null) : m.counterpart;
+    const at = patch.at !== undefined && /^\d{4}-\d{2}-\d{2}/.test(String(patch.at)) ? String(patch.at) : m.at;
+    const pointer_ref = patch.pointer_ref !== undefined ? (String(patch.pointer_ref).trim() || null) : m.pointer_ref;
+    this.db.prepare("UPDATE core_mail SET subject=?, counterpart=?, at=?, pointer_ref=? WHERE id=?").run(subject, counterpart, at, pointer_ref, mail_id);
+    return { ok: true, id: mail_id };
+  }
+
   // 메일 장부 ingest 착지면(과제별 _workmeta/<code>/reports/메일_이력/메일_이력.csv 한 행 → core_mail).
   // 원문 미저장: 제목·상대·시각·단계·포인터만. project_code 가 미등록이면 stub 과제를 만들되 기존 제목은 덮지 않는다.
   // FK 안전: 모르는 코드는 project_id=null 로 둔다. P00-000_INBOX 는 예약 인박스 프로젝트로 묶는다.
