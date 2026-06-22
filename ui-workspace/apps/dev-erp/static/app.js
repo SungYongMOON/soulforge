@@ -4280,12 +4280,23 @@ async function renderMail() {
     const key = mailThreadSubject(m.subject).toLowerCase();
     subjectCounts.set(key, (subjectCounts.get(key) ?? 0) + 1);
   }
+  // 팀 전체 보기일 때 각 메일이 누구 메일함인지(차오름/문성용)를 칩으로 표시(개인 뷰에선 중복이라 생략).
+  const teamView = !state.viewScope || state.viewScope === "team";
+  const ownerScopes = (state._scopes ?? []).filter((s) => s.email && s.id !== "team");
+  const ownerLabelFor = (mailbox) => {
+    const mb = String(mailbox || "");
+    if (!mb) return null;
+    const s = ownerScopes.find((x) => mb === x.email || mb.startsWith(`${x.email}/`) || mb.startsWith(`${x.email}\\`));
+    return s ? s.label : null;
+  };
   // 한 줄 렌더. showProj=false 면 프로젝트 칩 생략(프로젝트별 그룹에선 헤더가 이미 표시).
   const mailRow = (m, showProj) => {
     const picked = checked.has(String(m.id));
     const manual = m.label_ids.map((id) => labelById.get(id)).filter(Boolean)
       .map((l) => `<span class="label-chip manual mini" style="--lc:${esc(l.color)}">${esc(l.name)}</span>`).join("");
-    const meta = (showProj ? projChip(m.project_id, clsById.get(m.project_id)) : "") + manual;
+    const owner = teamView ? ownerLabelFor(m.mailbox) : null;
+    const ownerChip = owner ? `<span class="label-chip mailbox-owner mini" title="${L.mailbox_owner ?? "메일함 주인"}">${esc(owner)}</span>` : "";
+    const meta = ownerChip + (showProj ? projChip(m.project_id, clsById.get(m.project_id)) : "") + manual;
     const threadSubject = mailThreadSubject(m.subject);
     const kind = mailThreadKind(m.subject);
     const dupe = subjectCounts.get(threadSubject.toLowerCase()) > 1;
