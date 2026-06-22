@@ -2,6 +2,14 @@
 
 ## 2026-06-23
 
+### Revision `working` - 연락처·요청 수정(MED) — 미흡기능 감사 마무리
+
+- 연락처·요청 행에 ✎(수정) 추가(연락처=이름, 요청=제목 prompt). `store.updateContact/updateRequest`,
+  `POST /api/{contacts,requests}/update`. 백엔드는 다필드 지원(향후 인라인 폼 확장 여지).
+- 이로써 2026-06-22 미흡기능 전수감사(55확정)의 HIGH 6/6 + 의미있는 MED 전부 처리. LOW 24는 백로그. node:test 235/0.
+
+## 2026-06-23
+
 ### Revision `working` - 할일 행 클릭 → 편집(MED)
 
 - 할일 행을 클릭하면 인라인 편집이 열린다(기존엔 '수정' 버튼만). 버튼·셀렉트·과제링크 클릭은 제외.

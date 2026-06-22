@@ -2064,7 +2064,7 @@ async function renderContacts() {
     <td>${esc(c.role ?? "-")}</td>
     <td>${esc(c.email ?? "-")}${c.phone ? ` · ${esc(c.phone)}` : ""}</td>
     <td>${esc(c.party_name ?? "-")}</td>
-    <td>${c.projects.map((x) => `<span class="badge">${esc(x)}</span>`).join(" ") || '<span class="dim">-</span>'} <button class="fav-chip mini danger ct-del" data-ct-del="${esc(c.id)}" title="${L.master_del ?? "삭제"}">×</button></td>
+    <td>${c.projects.map((x) => `<span class="badge">${esc(x)}</span>`).join(" ") || '<span class="dim">-</span>'} <button class="fav-chip mini ct-edit" data-ct-edit="${esc(c.id)}" title="${L.master_edit ?? "수정"}">✎</button><button class="fav-chip mini danger ct-del" data-ct-del="${esc(c.id)}" title="${L.master_del ?? "삭제"}">×</button></td>
   </tr>`).join("");
   $("#view").innerHTML = `
     <div class="filters">
@@ -2096,6 +2096,14 @@ async function renderContacts() {
     if (!(await uiConfirm(L.master_del_confirm ?? "삭제할까요? 되돌릴 수 없습니다."))) return;
     const r = await post("/api/contacts/delete", { id: b.dataset.ctDel });
     if (r.ok) { toast(L.master_deleted ?? "삭제됨", "ok"); render(); } else toast(L.master_del_fail ?? "삭제 실패", "error");
+  }));
+  $("#view").querySelectorAll(".ct-edit").forEach((b) => b.addEventListener("click", async () => {
+    const c = contacts.find((x) => x.id === b.dataset.ctEdit);
+    const nt = prompt(L.master_edit_name_ph ?? "이름", c?.name ?? "");
+    if (nt === null) return;
+    if (!nt.trim()) { toast(L.master_edit_fail ?? "수정 실패", "error"); return; }
+    const r = await post("/api/contacts/update", { id: b.dataset.ctEdit, name: nt.trim() });
+    if (r.ok) { toast(L.master_edited ?? "수정됨", "ok"); render(); } else toast(L.master_edit_fail ?? "수정 실패", "error");
   }));
 }
 
@@ -5503,7 +5511,7 @@ async function renderRequests() {
       ? `<span class="badge green">✓ ${L.item ?? "할 일"}</span>`
       : (r.project_id
         ? `<button class="fav-chip mini" data-promote-req="${esc(r.id)}">${L.req_promote ?? "할 일로"}</button>`
-        : `<span class="dim">${L.req_need_project ?? "과제 연결 필요"}</span>`)} <button class="fav-chip mini danger req-del" data-req-del="${esc(r.id)}" title="${L.master_del ?? "삭제"}">×</button></td>
+        : `<span class="dim">${L.req_need_project ?? "과제 연결 필요"}</span>`)} <button class="fav-chip mini req-edit" data-req-edit="${esc(r.id)}" title="${L.master_edit ?? "수정"}">✎</button><button class="fav-chip mini danger req-del" data-req-del="${esc(r.id)}" title="${L.master_del ?? "삭제"}">×</button></td>
   </tr>`).join("");
   $("#view").innerHTML = `
     <div class="item-form">
@@ -5542,6 +5550,14 @@ async function renderRequests() {
     if (!(await uiConfirm(L.master_del_confirm ?? "삭제할까요? 되돌릴 수 없습니다."))) return;
     const r = await post("/api/requests/delete", { id: b.dataset.reqDel });
     if (r.ok) { toast(L.master_deleted ?? "삭제됨", "ok"); render(); } else toast(L.master_del_fail ?? "삭제 실패", "error");
+  }));
+  $("#view").querySelectorAll(".req-edit").forEach((b) => b.addEventListener("click", async () => {
+    const cur = b.closest("tr")?.querySelector("td")?.textContent?.trim() ?? "";
+    const nt = prompt(L.master_edit_title_ph ?? "제목", cur);
+    if (nt === null) return;
+    if (!nt.trim()) { toast(L.master_edit_fail ?? "수정 실패", "error"); return; }
+    const r = await post("/api/requests/update", { id: b.dataset.reqEdit, title: nt.trim() });
+    if (r.ok) { toast(L.master_edited ?? "수정됨", "ok"); render(); } else toast(L.master_edit_fail ?? "수정 실패", "error");
   }));
 }
 

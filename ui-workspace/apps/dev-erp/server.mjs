@@ -1332,6 +1332,15 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "contact_delete", to: r.id, used_refs: ["contacts"], data_label: "real" });
       return send(res, 200, r);
     }
+    if (path === "/api/contacts/update" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id, name, org, role, email, phone } = JSON.parse(body || "{}");
+      const r = store.updateContact(id, { name, org, role, email, phone });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "contact_update", to: r.id, used_refs: ["contacts"], data_label: "real" });
+      return send(res, 200, r);
+    }
     if (path === "/api/contacts" && req.method === "POST") {
       if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
@@ -1609,6 +1618,15 @@ const server = createServer(async (req, res) => {
       const r = store.deleteRequest(JSON.parse(body || "{}").id);
       if (r.error) return send(res, 400, r);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "request_delete", to: r.id, used_refs: ["requests"], data_label: "real" });
+      return send(res, 200, r);
+    }
+    if (path === "/api/requests/update" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id, title, requester, category } = JSON.parse(body || "{}");
+      const r = store.updateRequest(id, { title, requester, category });
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "request_update", to: r.id, used_refs: ["requests"], data_label: "real" });
       return send(res, 200, r);
     }
     if (path === "/api/requests" && req.method === "POST") {

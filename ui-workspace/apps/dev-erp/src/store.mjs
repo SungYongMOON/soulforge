@@ -3540,6 +3540,27 @@ export class Store {
     this.db.prepare("DELETE FROM core_request WHERE id=?").run(id);
     return { ok: true, id };
   }
+  // 마스터 수정(잘못 입력 정정). 제공된 필드만 갱신.
+  updateContact(id, patch = {}) {
+    const row = this.db.prepare("SELECT * FROM core_contact WHERE id=?").get(id);
+    if (!row) return { error: "contact_not_found" };
+    const name = patch.name !== undefined ? String(patch.name).trim() : row.name;
+    if (!name) return { error: "name_required" };
+    const f = (k) => (patch[k] !== undefined ? (String(patch[k]).trim() || null) : row[k]);
+    this.db.prepare("UPDATE core_contact SET name=?, org=?, role=?, email=?, phone=? WHERE id=?")
+      .run(name, f("org"), f("role"), f("email"), f("phone"), id);
+    return { ok: true, id };
+  }
+  updateRequest(id, patch = {}) {
+    const row = this.db.prepare("SELECT * FROM core_request WHERE id=?").get(id);
+    if (!row) return { error: "request_not_found" };
+    const title = patch.title !== undefined ? String(patch.title).trim() : row.title;
+    if (!title) return { error: "title_required" };
+    const f = (k) => (patch[k] !== undefined ? (String(patch[k]).trim() || null) : row[k]);
+    this.db.prepare("UPDATE core_request SET title=?, requester=?, category=? WHERE id=?")
+      .run(title, f("requester"), f("category"), id);
+    return { ok: true, id };
+  }
   requests({ project, status } = {}) {
     const cond = [], args = [];
     if (project) { cond.push("project_id=?"); args.push(project); }
