@@ -1534,10 +1534,11 @@ const DASH_GCOLS = 12;     // 가로 12칼럼 (fine snap)
 const DASH_ROW = 22;       // 세로 행 px
 const DASH_WMIN = 2, DASH_HMIN = 3;
 const DEFAULT_DASH = [
-  { id: "projects", x: 0, y: 0, w: 12, h: 12 },
-  { id: "nudges", x: 0, y: 12, w: 6, h: 8 }, { id: "teamload", x: 6, y: 12, w: 6, h: 8 },
-  { id: "today", x: 0, y: 20, w: 3, h: 8 }, { id: "blocked", x: 3, y: 20, w: 3, h: 8 },
-  { id: "mail", x: 6, y: 20, w: 3, h: 8 }, { id: "events", x: 9, y: 20, w: 3, h: 8 }
+  // member-first: 로그인 직후 '내 할 일'+'먼저 할 일'을 최상단에 — 신규도 본인 업무를 바로 봄. 팀 현황은 상단 건강 신호등+과제표가 커버(teamload는 드로어 opt-in).
+  { id: "mine", x: 0, y: 0, w: 6, h: 10 }, { id: "nudges", x: 6, y: 0, w: 6, h: 10 },
+  { id: "projects", x: 0, y: 10, w: 12, h: 11 },
+  { id: "today", x: 0, y: 21, w: 3, h: 8 }, { id: "blocked", x: 3, y: 21, w: 3, h: 8 },
+  { id: "mail", x: 6, y: 21, w: 3, h: 8 }, { id: "events", x: 9, y: 21, w: 3, h: 8 }
 ];
 // 정해둔 위젯 배치(프리셋). 내 배치는 localStorage 자동저장 + 이름 붙인 저장 슬롯(SLOTS_KEY, 여러 개).
 const SAVED_KEY = "dev_erp_widgets_saved"; // (구) 단일 슬롯 — 첫 로드 시 SLOTS_KEY로 마이그레이션
