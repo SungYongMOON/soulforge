@@ -476,6 +476,8 @@ nav button:hover .pin-btn { opacity: 1; }
 .mail-meta:empty { display: none; }
 /* 팀 전체 보기: 메일함 주인(차오름/문성용) 칩 — accent 색으로 구분. */
 .label-chip.mailbox-owner { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* 주인 미상(개인귀속 전 옛 수집분, 서버에 없어 재수신 불가) — 회색으로 약하게. */
+.label-chip.mailbox-owner.shared { background: #94a3b8; color: #fff; border-color: #94a3b8; }
 .mail-from { font-weight: 600; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mail-from i { font-style: normal; color: var(--muted); }
 .mail-subj { max-width: 520px; min-width: 260px; }

@@ -48,6 +48,7 @@ const state = {
   lex: {},
   version: VERSION_FALLBACK,
   projectFilter: "",
+  viewScope: localStorage.getItem("dev_erp_view_scope") || null, // 보던 인원/팀 뷰(새로고침 유지)
   navTop: localStorage.getItem("dev_erp_navtop") || "work",       // L1 대분류(상단 가로)
   navGroup: localStorage.getItem("dev_erp_navgroup") || "work_mine", // L2 중분류(상단 가로, 섹터)
   knowGroup: "standards", knowSel: null, _knowCache: null, // 지식: 현재 분야그룹 / 선택 항목 / canon 캐시
@@ -67,10 +68,18 @@ const state = {
   bomBoard: "",
   itemEdit: null,
   itemLimit: 100,
-  itemOffset: 0,
+  itemOffset: Number(localStorage.getItem("dev_erp_item_offset")) || 0,
   mailLimit: 100,
-  mailOffset: 0
+  mailOffset: Number(localStorage.getItem("dev_erp_mail_offset")) || 0
 };
+// 새로고침/이동 시 "보던 페이지에서" 유지: 언로드 직전 현재 위치(페이지 offset·뷰)를 저장 → 시작 시 위에서 복원.
+window.addEventListener("beforeunload", () => {
+  try {
+    localStorage.setItem("dev_erp_mail_offset", String(state.mailOffset || 0));
+    localStorage.setItem("dev_erp_item_offset", String(state.itemOffset || 0));
+    localStorage.setItem("dev_erp_view_scope", state.viewScope ?? "");
+  } catch { /* noop */ }
+});
 
 function newChatThreadId() {
   let suffix = "";
@@ -181,7 +190,9 @@ async function ensureScopes() {
   try {
     const r = await api("/api/accounts/scopes");
     state._scopes = r.scopes || [];
-    if (!state.viewScope) state.viewScope = r.is_admin ? "team" : (r.self ?? null);
+    // 복원된 viewScope 가 무효(삭제된 계정·권한없는 team)면 기본값으로 폴백.
+    const scopeValid = state.viewScope === "team" ? !!r.is_admin : state._scopes.some((s) => s.id === state.viewScope);
+    if (!scopeValid) state.viewScope = r.is_admin ? "team" : (r.self ?? null);
   } catch { state._scopes = []; }
 }
 // 선택기 노출 조건: 로그인 + 고를 대상 2개 이상(=관리자). 팀원 1인은 굳이 안 띄움.
@@ -4283,19 +4294,21 @@ async function renderMail() {
   // 팀 전체 보기일 때 각 메일이 누구 메일함인지(차오름/문성용)를 칩으로 표시(개인 뷰에선 중복이라 생략).
   const teamView = !state.viewScope || state.viewScope === "team";
   const ownerScopes = (state._scopes ?? []).filter((s) => s.email && s.id !== "team");
-  const ownerLabelFor = (mailbox) => {
+  const ownerInfoFor = (mailbox) => {
     const mb = String(mailbox || "");
     if (!mb) return null;
     const s = ownerScopes.find((x) => mb === x.email || mb.startsWith(`${x.email}/`) || mb.startsWith(`${x.email}\\`));
-    return s ? s.label : null;
+    if (s) return { label: s.label, shared: false };
+    if (mb === "company_mailbox") return { label: L.mailbox_shared ?? "공용함", shared: true }; // 옛 메일: 주인 미상(개인귀속 전 초기 수집분, 서버에 없어 재수신 불가)
+    return null;
   };
   // 한 줄 렌더. showProj=false 면 프로젝트 칩 생략(프로젝트별 그룹에선 헤더가 이미 표시).
   const mailRow = (m, showProj) => {
     const picked = checked.has(String(m.id));
     const manual = m.label_ids.map((id) => labelById.get(id)).filter(Boolean)
       .map((l) => `<span class="label-chip manual mini" style="--lc:${esc(l.color)}">${esc(l.name)}</span>`).join("");
-    const owner = teamView ? ownerLabelFor(m.mailbox) : null;
-    const ownerChip = owner ? `<span class="label-chip mailbox-owner mini" title="${L.mailbox_owner ?? "메일함 주인"}">${esc(owner)}</span>` : "";
+    const oi = teamView ? ownerInfoFor(m.mailbox) : null;
+    const ownerChip = oi ? `<span class="label-chip mailbox-owner mini${oi.shared ? " shared" : ""}" title="${L.mailbox_owner ?? "메일함 주인"}">${esc(oi.label)}</span>` : "";
     const meta = ownerChip + (showProj ? projChip(m.project_id, clsById.get(m.project_id)) : "") + manual;
     const threadSubject = mailThreadSubject(m.subject);
     const kind = mailThreadKind(m.subject);
