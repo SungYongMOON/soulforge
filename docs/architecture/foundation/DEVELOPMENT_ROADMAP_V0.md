@@ -639,6 +639,8 @@ Start condition:
 | 19 | V0 문서 버전 승격/유지 기준 정의 | 없음 - 기준 한 장이면 충분 | `docs/architecture/foundation` |
 | 20 | knowledge/RAG 문서 통합 색인 | 분산 문서 8+건 목록 확정 | `docs/architecture/foundation`, `docs/architecture/workspace` |
 | 21 | Python 테스트 커버리지 확장 (town_crier, mail_send 등) | 없음 - synthetic fixture 로 가능 | `guild_hall` |
+| 22 | 메일 수집 계정별 owner 메타 → core_mail (개인별 메일 뷰) | 메일 수집 통합 완료(자동 15분+수동 버튼); Codex 원장 스키마에서 owner 필드 위치(신규 컬럼 vs `메일함` 재정의) 확정 | `guild_hall/gateway`, `ui-workspace/apps/dev-erp`, `docs/architecture/workspace` |
+| 23 | 메일 원장 시간 분할 + 증분 스캔 (무한 누적 대비) | owner 가 분할 단위(연/월) 정함; Codex 원장 표준 `soulforge.project_mail_history.private.v1` 변경 조율 | `guild_hall/gateway`, `docs/architecture/workspace`, `_workmeta` |
 
 후보 10~21 의 출처는 2026-06-12 Fable5 심층 검증이다. 10~17 의 상세 후보
 패킷은 `_workmeta/system/dev_worker_queue/` 에 `status: proposed`
@@ -649,6 +651,14 @@ Start condition:
 시작 조건: dev-erp 가 안정되고 owner 가 snapshot 재개를 정함. 내려갈 owner:
 `guild_hall/snapshot`, `docs/architecture/guild_hall`, `ui-workspace`. 스펙은
 위 'Active Slice 001' 절에 보존.
+
+추가(2026-06-22, dev-erp 메일 수집 통합 작업 중 발견): 후보 22 는 개인별 메일 뷰가
+비는 실제 증상이다 — 게이트웨이가 메일을 workspace 버킷(`company_mailbox`)으로 묶어
+`core_mail.mailbox` 가 계정 이메일이 아니라서, ERP "보기 대상"(계정별) 필터가 매칭하지
+못한다. owner 메타(`team_cli` 의 `event.metadata.mailbox.email`)는 후보 큐엔 있으나
+원장 21컬럼·core_mail 까지 흐르지 않는다. 후보 23 은 단일 누적 CSV 원장(`메일_이력.csv`)이
+git 추적 대상으로 무한 성장하고 scan 이 매 수집마다 전건 재파싱하는 장기 확장성 문제다.
+둘 다 Codex 소유 게이트웨이/원장 스키마라 표준 변경은 Codex 규칙과 조율한다.
 
 ## 구체화 규칙
 
