@@ -1405,14 +1405,16 @@ async function renderProjectsList() {
   if (!state._projCache) { try { state._projCache = (await api("/api/summary")).projects; } catch { state._projCache = []; } }
   const year = curProjYear() ?? projYears()[0] ?? 0;
   const list = projsOfYear(year);
-  const cards = list.map((p) => {
+  const archivedCount = list.filter((p) => p.class === "archive").length; // 보관된 과제는 기본 숨김(토글로 표시·복원)
+  const visible = state.showArchivedProj ? list : list.filter((p) => p.class !== "archive");
+  const cards = visible.map((p) => {
     const wl = [];
     if (p.overdue) wl.push(`<em class="wl over">${state.lex.proj_wl_overdue ?? "연체"} ${p.overdue}</em>`);
     if (p.due_today) wl.push(`<em class="wl due">${state.lex.proj_wl_today ?? "오늘"} ${p.due_today}</em>`);
     if (p.open) wl.push(`<em class="wl open">${state.lex.proj_wl_open ?? "열림"} ${p.open}</em>`);
     const ptitle = p.title && p.title !== p.id ? esc(p.title) : "";
-    return `<div class="proj-card" data-hub="${esc(p.id)}">
-      <div class="pc-head"><span class="pc-id">${esc(p.id)}</span>${p.provisional ? `<span class="badge mini warn">${state.lex.proj_provisional ?? "정션 미연결"}</span>` : ""}<span class="status-chip s-${p.health ?? "ok"}">${projHealthLabel(p.health)}</span></div>
+    return `<div class="proj-card${p.class === "archive" ? " archived" : ""}" data-hub="${esc(p.id)}">
+      <div class="pc-head"><span class="pc-id">${esc(p.id)}</span>${p.class === "archive" ? `<span class="badge mini">${state.lex.proj_archived_badge ?? "보관됨"}</span>` : ""}${p.provisional ? `<span class="badge mini warn">${state.lex.proj_provisional ?? "정션 미연결"}</span>` : ""}<span class="status-chip s-${p.health ?? "ok"}">${projHealthLabel(p.health)}</span></div>
       ${ptitle ? `<div class="pc-title">${ptitle}</div>` : `<div class="pc-title dim-title">—</div>`}
       <div class="pc-meta">${state.lex.proj_start ?? "시작"} ${p.start_year ?? "—"} · ${state.lex.proj_stage ?? "현재"} ${esc(p.stage_current ?? "—")}</div>
       <div class="pc-wl">${wl.join("") || `<em class="wl none">${state.lex.proj_wl_none ?? "열린 일 없음"}</em>`}</div></div>`;
@@ -1423,7 +1425,8 @@ async function renderProjectsList() {
     <button id="npAdd" class="fav-chip">${state.lex.proj_new_btn ?? "＋ 임시 과제"}</button>
     <span class="dim mini">${state.lex.proj_new_hint ?? "정션 동기화 전까지 '정션 미연결'로 표시됩니다"}</span>
   </div>`;
-  $("#view").innerHTML = `<div class="proj-list-head">${state.lex.nav_projects ?? "프로젝트 관리"} › <strong>${projYearLabel(year)}</strong> · ${state.lex.proj_path_hint ?? "과제 클릭 → facet 열림"}</div>${newForm}${list.length ? `<div class="proj-cards">${cards}</div>` : `<div class="empty">${state.lex.proj_tree_empty ?? "해당 없음"}</div>`}`;
+  $("#view").innerHTML = `<div class="proj-list-head">${state.lex.nav_projects ?? "프로젝트 관리"} › <strong>${projYearLabel(year)}</strong> · ${state.lex.proj_path_hint ?? "과제 클릭 → facet 열림"}${archivedCount ? ` <button id="projArchToggle" class="fav-chip mini">${state.showArchivedProj ? (state.lex.proj_arch_hide ?? "보관 숨기기") : `${state.lex.proj_arch_show ?? "보관 보기"} (${archivedCount})`}</button>` : ""}</div>${newForm}${visible.length ? `<div class="proj-cards">${cards}</div>` : `<div class="empty">${state.lex.proj_tree_empty ?? "해당 없음"}</div>`}`;
+  $("#projArchToggle")?.addEventListener("click", () => { state.showArchivedProj = !state.showArchivedProj; render(); });
   $("#npAdd")?.addEventListener("click", async () => {
     const id = $("#npId").value.trim(), title = $("#npTitle").value.trim();
     if (!id || !title) return;
@@ -4380,7 +4383,7 @@ async function renderMail() {
   }
 
   // run17: 분류(재배정) 대상 과제 — inbox 류 제외, 진행 과제 우선
-  const assignables = summary.projects.filter((p) => p.class !== "inbox");
+  const assignables = summary.projects.filter((p) => p.class !== "inbox" && p.class !== "archive");
   const assignOpts = assignables.map((p) =>
     `<option value="${esc(p.id)}">${esc(p.title === p.id ? p.id : `${p.id} · ${p.title}`)}</option>`).join("");
   const selectBar = `<div class="mail-selectbar">
@@ -4821,12 +4824,29 @@ async function renderProjectHub() {
       <button id="hubBack" class="fav-chip">${L.back_home}</button>
       ${PROJ_FACETS.map((f) => `<button class="hub-tab ${tab === f.key ? "on" : ""}" data-tab="${f.key}">${navTL(f)}</button>`).join("")}
       <span class="badge">${L[`class_${p.class}`] ?? esc(p.class)}</span><span class="badge dim">${esc(p.id)}${yr}</span>
+      ${p.class !== "inbox" ? `<button id="hubEdit" class="fav-chip mini">${L.proj_edit ?? "수정"}</button>
+      <button id="hubArchive" class="fav-chip mini">${p.class === "archive" ? (L.proj_unarchive ?? "복원") : (L.proj_archive ?? "보관")}</button>` : ""}
     </div>
     <div id="hubBody"></div>`;
   $("#hubBack").addEventListener("click", () => { state.view = "home"; render(); });
   $("#view").querySelectorAll(".hub-tab").forEach((b) =>
     b.addEventListener("click", () => { state.hubTab = b.dataset.tab; render(); })
   );
+  $("#hubEdit")?.addEventListener("click", async () => {
+    const nt = prompt(L.proj_edit_title_ph ?? "과제명 수정", p.title || "");
+    if (nt === null) return;
+    if (!nt.trim()) { toast(L.proj_edit_need_title ?? "과제명을 입력하세요", "error"); return; }
+    const r = await post("/api/projects/update", { id: p.id, title: nt.trim() });
+    if (r.ok) { state._projCache = null; toast(L.proj_edited ?? "과제 수정됨", "ok"); render(); }
+    else { const d = await r.json().catch(() => ({})); toast(d.error === "admin_only" ? (L.proj_new_admin ?? "관리자만 가능") : (L.proj_edit_fail ?? "과제 수정 실패"), "error"); }
+  });
+  $("#hubArchive")?.addEventListener("click", async () => {
+    const toArchive = p.class !== "archive";
+    if (toArchive && !(await uiConfirm(L.proj_archive_confirm ?? "이 과제를 보관할까요? 목록에서 숨겨집니다(메일·할일 보존, 복원 가능)."))) return;
+    const r = await post("/api/projects/archive", { id: p.id, archived: toArchive });
+    if (r.ok) { state._projCache = null; toast(toArchive ? (L.proj_archived ?? "보관됨") : (L.proj_unarchived ?? "복원됨"), "ok"); if (toArchive) state.view = "home"; render(); }
+    else { const d = await r.json().catch(() => ({})); toast(d.error === "cannot_archive_inbox" ? (L.proj_archive_inbox ?? "받은함은 보관 불가") : d.error === "admin_only" ? (L.proj_new_admin ?? "관리자만 가능") : (L.proj_archive_fail ?? "보관 실패"), "error"); }
+  });
   const mount = $("#hubBody");
   if (tab === "contacts") return hubContacts(mount, p);
   if (tab === "schedule") return hubSchedule(mount, p);

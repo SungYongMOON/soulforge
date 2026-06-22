@@ -944,6 +944,29 @@ export class Store {
     return { ok: true, project: this.db.prepare("SELECT * FROM core_project WHERE id=?").get(code) };
   }
 
+  // 과제 수정: 제목·건강도. (class 는 archive 토글로 별도 처리.)
+  updateProject(id, patch = {}) {
+    const code = String(id ?? "").trim().toUpperCase();
+    const p = this.db.prepare("SELECT * FROM core_project WHERE id=?").get(code);
+    if (!p) return { error: "project_not_found" };
+    const title = patch.title !== undefined ? String(patch.title).trim() : p.title;
+    if (!title) return { error: "title_required" };
+    const health = patch.health !== undefined && ["ok", "warn", "risk"].includes(patch.health) ? patch.health : p.health;
+    this.db.prepare("UPDATE core_project SET title=?, health=? WHERE id=?").run(title, health, code);
+    return { ok: true, project: this.db.prepare("SELECT * FROM core_project WHERE id=?").get(code) };
+  }
+
+  // 과제 보관/복원: class 를 archive↔active 로 토글(하드삭제 금지 — 메일·할일·이력 보존). inbox 는 보관 불가.
+  archiveProject(id, archived = true) {
+    const code = String(id ?? "").trim().toUpperCase();
+    const p = this.db.prepare("SELECT * FROM core_project WHERE id=?").get(code);
+    if (!p) return { error: "project_not_found" };
+    if (p.class === "inbox") return { error: "cannot_archive_inbox" };
+    const cls = archived ? "archive" : "active";
+    this.db.prepare("UPDATE core_project SET class=? WHERE id=?").run(cls, code);
+    return { ok: true, id: code, class: cls };
+  }
+
   upsertStage(s) {
     this.db
       .prepare(

@@ -535,6 +535,7 @@ nav button:hover .pin-btn { opacity: 1; }
 .proj-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .proj-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 13px; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
 .proj-card:hover { border-color: var(--accent); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+.proj-card.archived { opacity: 0.5; } /* 보관된 과제(보관 보기 토글 시 노출) */
 .pc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .pc-id { font-weight: 700; font-size: 13px; }
 .pc-title { font-size: 13.5px; margin: 5px 0 7px; }

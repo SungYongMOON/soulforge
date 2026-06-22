@@ -2,6 +2,14 @@
 
 ## 2026-06-22
 
+### Revision `working` - 미흡 기능 감사 후속 2: 프로젝트 수정·보관(복원)
+
+- 감사 high 6건 중 프로젝트 CRUD 2건 처리(추가만 되고 수정·삭제 없던 공백).
+- 과제 수정: 허브 '수정' 버튼으로 과제명 변경. `store.updateProject`, `POST /api/projects/update`.
+- 과제 보관/복원: 허브 '보관/복원' 버튼 — class active↔archive 토글(하드삭제 금지, 메일·할일 보존).
+  `store.archiveProject`(inbox 보관 불가), `POST /api/projects/archive`. 보관 과제는 목록·분류
+  드롭다운에서 숨김 + 목록 '보관 보기(N)' 토글로 복원 접근. node:test 235/0.
+
 ### Revision `working` - Codex 대화 속도(service_tier) 선택 제거 — codex 기본값 사용
 
 - "failed to load configuration ... unknown variant `priority`" 오류가 반복되던 건의 근본 차단:
