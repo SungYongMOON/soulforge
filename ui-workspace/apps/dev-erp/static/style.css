@@ -471,9 +471,8 @@ nav button:hover .pin-btn { opacity: 1; }
 .mail-table td { padding: 8px 10px; }
 .mail-row { cursor: pointer; }
 .mail-row:hover td, .mail-row.sel td { background: var(--chip); }
-.mail-meta { display: flex; gap: 4px; flex-wrap: wrap; max-width: 180px; }
-/* 프로젝트별 그룹 보기 등에서 프로젝트칩·라벨이 없으면 mail-meta 가 비는데, 빈 셀이 폭을 먹어 발신자 열이 밀린다. 비면 접는다. */
-.mail-meta:empty { display: none; }
+/* 메일함 주인·프로젝트·라벨 칩은 발신자 칸 앞에 인라인으로(별도 meta 컬럼이 빈 띠를 만들던 줄 버그 제거). */
+.mail-chips { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 6px; }
 /* 팀 전체 보기: 메일함 주인(차오름/문성용) 칩 — accent 색으로 구분. */
 .label-chip.mailbox-owner { background: var(--accent); color: #fff; border-color: var(--accent); }
 /* 주인 미상(개인귀속 전 옛 수집분, 서버에 없어 재수신 불가) — 회색으로 약하게. */

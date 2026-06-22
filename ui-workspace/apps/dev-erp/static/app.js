@@ -4317,8 +4317,7 @@ async function renderMail() {
     return `<tr class="mail-row ${kind ? "thread-child" : ""} ${state.mailSel === m.id ? "sel" : ""}" data-m="${esc(m.id)}">
       <td class="mail-check"><input type="checkbox" data-chk="${esc(m.id)}" ${picked ? "checked" : ""} />
         <button class="mail-pick ${picked ? "on" : ""}" data-pick="${esc(m.id)}" title="${picked ? "선택 해제" : "선택"}">${picked ? "해제" : "선택"}</button></td>
-      <td class="mail-meta">${meta}</td>
-      <td class="mail-from">${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
+      <td class="mail-from">${meta ? `<span class="mail-chips">${meta}</span>` : ""}${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
       <td class="mail-subj" title="${esc([m.subject, preview].filter(Boolean).join(" · "))}">
         <div class="mail-subj-main">${kind ? `<span class="mail-thread-kind">${esc(kind)}</span>` : ""}${esc(m.subject)}${dupe ? `<span class="mail-dupe" title="같은 대화/제목의 다른 메일">#${esc(mailIdTail(m.id))}</span>` : ""}${promotedSet.has(m.id) ? `<span class="mail-promoted" title="${L.promote_done ?? "할 일로 등록됨"}">✓ ${L.item}</span>` : ""}</div>
         ${preview ? `<div class="mail-preview">${esc(preview)}</div>` : ""}
@@ -4331,7 +4330,7 @@ async function renderMail() {
     let lastSec = null;
     rows = mail.map((m) => {
       const sec = section(m);
-      const head = sec !== lastSec ? `<tr class="date-sep"><td colspan="5">${L[sec]}</td></tr>` : "";
+      const head = sec !== lastSec ? `<tr class="date-sep"><td colspan="4">${L[sec]}</td></tr>` : "";
       lastSec = sec;
       return head + mailRow(m, true);
     }).join("");
@@ -4344,7 +4343,7 @@ async function renderMail() {
     }
     const ordered = [...groups.entries()].sort((a, b) => (b[1][0]?.at ?? "").localeCompare(a[1][0]?.at ?? ""));
     rows = ordered.map(([subject, ms]) => {
-      const header = `<tr class="proj-sep thread-sep"><td colspan="5"><span class="mail-thread-title">${esc(subject)}</span><span class="proj-sep-n">${ms.length}</span></td></tr>`;
+      const header = `<tr class="proj-sep thread-sep"><td colspan="4"><span class="mail-thread-title">${esc(subject)}</span><span class="proj-sep-n">${ms.length}</span></td></tr>`;
       return header + ms.map((m) => mailRow(m, true)).join("");
     }).join("");
   } else {
@@ -4366,7 +4365,7 @@ async function renderMail() {
       const headInner = none
         ? `<span class="label-chip gray">${L.unlabeled}</span>`
         : `${projChip(pid, clsById.get(pid))}${title && title !== pid ? `<span class="proj-sep-title">${esc(title)}</span>` : ""}`;
-      const header = `<tr class="proj-sep"><td colspan="5">${headInner}<span class="proj-sep-n">${ms.length}</span></td></tr>`;
+      const header = `<tr class="proj-sep"><td colspan="4">${headInner}<span class="proj-sep-n">${ms.length}</span></td></tr>`;
       return header + ms.map((m) => mailRow(m, false)).join("");
     }).join("");
   }
