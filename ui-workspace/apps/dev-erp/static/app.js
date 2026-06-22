@@ -44,7 +44,8 @@ function codexBridgePart(source = state.version?.runtime?.codex_task) {
 
 const state = {
   mode: localStorage.getItem("dev_erp_mode") || "business",
-  view: "home",
+  // 새로고침 시 보던 화면 유지. 컨텍스트(hubProject/knowSel) 필요한 project·knowledge 는 home 으로 폴백.
+  view: ["home", "projects", "items", "guide", "mail", "artifacts", "search"].includes(localStorage.getItem("dev_erp_view")) ? localStorage.getItem("dev_erp_view") : "home",
   lex: {},
   version: VERSION_FALLBACK,
   projectFilter: "",
@@ -75,6 +76,7 @@ const state = {
 // 새로고침/이동 시 "보던 페이지에서" 유지: 언로드 직전 현재 위치(페이지 offset·뷰)를 저장 → 시작 시 위에서 복원.
 window.addEventListener("beforeunload", () => {
   try {
+    localStorage.setItem("dev_erp_view", state.view || "home");
     localStorage.setItem("dev_erp_mail_offset", String(state.mailOffset || 0));
     localStorage.setItem("dev_erp_item_offset", String(state.itemOffset || 0));
     localStorage.setItem("dev_erp_view_scope", state.viewScope ?? "");
