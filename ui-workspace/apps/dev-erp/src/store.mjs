@@ -694,6 +694,7 @@ export function openStore(path = ":memory:") {
   // 기존 행 backfill: 과제번호 P{YY}- 접두 → 과제시작년도(idempotent, 명시값 보존)
   try { db.exec("UPDATE core_project SET start_year = 2000 + CAST(SUBSTR(id,2,2) AS INTEGER) WHERE start_year IS NULL AND id GLOB 'P[0-9][0-9]-*'"); } catch { /* no-op */ }
   for (const ddl of [
+    "ALTER TABLE core_mail ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0", // soft-delete(숨김) — upsert 가 hidden 미터치라 재수집/재스캔에도 보존
     "ALTER TABLE core_item ADD COLUMN guide_artifact_id INTEGER",
     "ALTER TABLE core_item ADD COLUMN guide_step_key TEXT",
     "ALTER TABLE core_item ADD COLUMN origin_mail_id TEXT",
@@ -1021,6 +1022,14 @@ export class Store {
       .run(m.id, m.project_id ?? null, m.at, m.direction ?? "in", m.subject, m.counterpart ?? null,
         m.pointer_ref ?? null, m.stage_code ?? null, m.source_ref ?? null,
         (m.mailbox ? String(m.mailbox).trim().toLowerCase() : null) || null, m.data_label ?? "synthetic");
+  }
+
+  // 메일 삭제(soft-hide): hidden=1 로 목록에서 제외. upsert 가 hidden 을 안 건드려 재수집/재스캔해도 다시 안 보인다.
+  deleteMail(mail_id) {
+    const m = this.db.prepare("SELECT id FROM core_mail WHERE id=?").get(mail_id);
+    if (!m) return { error: "mail_not_found" };
+    this.db.prepare("UPDATE core_mail SET hidden=1 WHERE id=?").run(mail_id);
+    return { ok: true, id: mail_id };
   }
 
   // 메일 장부 ingest 착지면(과제별 _workmeta/<code>/reports/메일_이력/메일_이력.csv 한 행 → core_mail).
@@ -1803,7 +1812,7 @@ export class Store {
 
   // Gmail식 확장: 기간(0=전체)/검색(제목·상대)/방향/수동라벨 필터 + 라벨 동봉
   _mailWhere({ project, days, q, direction, label_id, mailbox } = {}) {
-    const cond = [];
+    const cond = ["COALESCE(m.hidden,0)=0"]; // 삭제(숨김) 메일 제외
     const args = [];
     if (project) { cond.push("m.project_id=?"); args.push(project); }
     // 담당자별 메일 이력: mailbox=계정 이메일 또는 계정 이메일 하위 폴더(prefix)로 필터. 'team'/미지정이면 전체.

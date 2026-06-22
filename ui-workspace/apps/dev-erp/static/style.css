@@ -188,6 +188,7 @@ body[data-theme="dark"] .nav-items::before { background: var(--line); } /* 다�
   border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 13px; }
 .fav-chip.pin-cur { font-size: 14px; line-height: 1; padding: 5px 9px; }
 .fav-chip.pin-cur.on { color: var(--accent); border-color: var(--accent); }
+.fav-chip.danger { color: var(--danger); border-color: rgba(176,58,46,.4); } /* 파괴적 동작(메일 삭제 등) */
 .fav-chip.pin-cur:disabled { opacity: .35; cursor: default; }
 .brand-bar .fav-bar { flex: 0 1 auto; max-width: 40vw; }
 

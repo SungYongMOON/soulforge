@@ -2,6 +2,13 @@
 
 ## 2026-06-22
 
+### Revision `working` - 미흡 기능 감사 후속 3: 메일 삭제(soft-hide) — HIGH 6/6 완료
+
+- 마지막 high: 메일 삭제. core_mail 에 `hidden` 컬럼 추가(soft-delete). upsertMail 의 ON CONFLICT
+  가 hidden 을 안 건드려 **재수집/재스캔해도 다시 안 보임**(되살아남 방지). mail 쿼리에서 hidden 제외.
+- `store.deleteMail`(hidden=1), `POST /api/mail/delete`, 상세패널 '메일 삭제' 버튼(확인 후).
+- 이로써 감사 high 6/6 완료(라벨삭제·메일분류취소·메일함해제·자격증명정리·프로젝트수정·프로젝트보관·메일삭제). node:test 235/0.
+
 ### Revision `working` - 미흡 기능 감사 후속 2: 프로젝트 수정·보관(복원)
 
 - 감사 high 6건 중 프로젝트 CRUD 2건 처리(추가만 되고 수정·삭제 없던 공백).

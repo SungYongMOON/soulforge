@@ -4424,6 +4424,7 @@ async function renderMail() {
         <select id="assignOne">${assignOpts}</select>
         <button id="assignOneGo" class="fav-chip">${L.assign_btn}</button>
         ${sel.project_id && clsById.get(sel.project_id) !== "inbox" ? `<button id="mailUnassign" class="fav-chip mini" title="${L.mail_unassign_hint ?? "받은함으로 되돌리기"}">${L.mail_unassign ?? "분류 취소"}</button>` : ""}
+        <button id="mailDelete" class="fav-chip mini danger" title="${L.mail_delete_hint ?? "이 메일을 목록에서 삭제(재수집돼도 다시 안 보임)"}">${L.mail_delete ?? "메일 삭제"}</button>
       </div>
     </aside>` : "";
 
@@ -4566,6 +4567,12 @@ async function renderMail() {
     const r = await post("/api/mail/unassign", { mail_id: state.mailSel });
     if (r.ok) { toast(L.mail_unassigned ?? "분류를 취소했습니다(받은함)", "ok"); render(); }
     else toast(L.mail_unassign_fail ?? "분류 취소 실패", "error");
+  });
+  $("#mailDelete")?.addEventListener("click", async () => {
+    if (!(await uiConfirm(L.mail_delete_confirm ?? "이 메일을 삭제할까요? 목록에서 사라집니다(재수집돼도 다시 안 보임)."))) return;
+    const r = await post("/api/mail/delete", { mail_id: state.mailSel });
+    if (r.ok) { state.mailSel = null; toast(L.mail_deleted ?? "메일을 삭제했습니다", "ok"); render(); }
+    else toast(L.mail_delete_fail ?? "메일 삭제 실패", "error");
   });
 }
 
