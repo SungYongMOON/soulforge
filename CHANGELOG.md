@@ -2,6 +2,13 @@
 
 ## 2026-06-23
 
+### Revision `working` - UX 마찰 제거 1: 메일→분류 자동진입 + 선택잔존 정리
+
+- 페르소나 도그푸딩(6역할) 결과로 매일-루프 마찰 우선 제거. ① 메일 할일 승격 직후 '분류 필요'로
+  자동 이동(수동 '분류하러 가기' 클릭 제거) ② resetMailPaging 에 mailChecked 초기화(필터/스코프
+  변경 후 유령 '해제' 버튼 제거). 정적(무중단).
+- 다음: 완료 훅 S6 — done→Codex 대화 LLM 요약·다음액션·지식후보를 proposals 큐로 자동(자동화 핵심 레버). node:test 235/0.
+
 ### Revision `working` - 연락처·요청 수정(MED) — 미흡기능 감사 마무리
 
 - 연락처·요청 행에 ✎(수정) 추가(연락처=이름, 요청=제목 prompt). `store.updateContact/updateRequest`,
