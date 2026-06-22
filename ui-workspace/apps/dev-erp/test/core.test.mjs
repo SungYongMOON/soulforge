@@ -1416,7 +1416,7 @@ test("mail UI: assign keeps the operator in mail history", () => {
   assert.ok(start > 0 && end > start, "doAssign block must be present");
   const block = app.slice(start, end);
   assert.match(block, /post\("\/api\/mail\/assign"/);
-  assert.match(block, /state\.mailSel = null/);
+  assert.match(block, /state\.mailSel = nextSel/); // #10: 일반 분류는 nextSel 기본 null(해제), '분류하고 다음'은 다음 메일 — 어느 쪽도 메일 뷰 유지(허브로 안 튐)
   assert.doesNotMatch(block, /state\.view\s*=\s*"project"/);
   assert.doesNotMatch(block, /state\.hubProject\s*=\s*target/);
   assert.doesNotMatch(block, /state\.hubTab/);

@@ -4447,9 +4447,17 @@ async function renderMail() {
     </div>` : "";
 
   const sel = mail.find((m) => m.id === state.mailSel);
+  const selIdx = sel ? mail.findIndex((m) => m.id === sel.id) : -1; // #10: 현재 페이지 내 위치 → 이전/다음 단건 처리
+  const prevMailId = selIdx > 0 ? mail[selIdx - 1].id : null;
+  const nextMailId = selIdx >= 0 && selIdx + 1 < mail.length ? mail[selIdx + 1].id : null;
   const selPreview = sel ? mailPreviewLine(sel) : "";
   const selKind = sel ? mailThreadKind(sel.subject) : "";
   const detail = sel ? `<aside class="mail-detail">
+      <div class="mail-nav">
+        <button id="mailDetailPrev" class="fav-chip mini" ${prevMailId ? "" : "disabled"}>◀ ${L.mail_prev ?? "이전"}</button>
+        <span class="dim">${selIdx + 1} / ${mail.length}</span>
+        <button id="mailDetailNext" class="fav-chip mini" ${nextMailId ? "" : "disabled"}>${L.mail_next ?? "다음"} ▶</button>
+      </div>
       <h3>${esc(sel.subject)}</h3>
       <dl><div><dt>${L.th_counterpart}</dt><dd>${esc(sel.counterpart ?? "-")}</dd></div>
         <div><dt>${L.th_time}</dt><dd>${localTime(sel.at)} · ${sel.direction === "in" ? L.mail_in : L.mail_out}</dd></div>
@@ -4477,6 +4485,7 @@ async function renderMail() {
       <div class="assign-bar inline">
         <select id="assignOne">${assignOpts}</select>
         <button id="assignOneGo" class="fav-chip">${L.assign_btn}</button>
+        <button id="assignOneNext" class="fav-chip active" ${nextMailId ? "" : "disabled"} title="${L.assign_next_hint ?? "이 메일을 분류하고 바로 다음 메일로"}">${L.assign_next ?? "분류하고 다음 ▶"}</button>
         ${sel.project_id && clsById.get(sel.project_id) !== "inbox" ? `<button id="mailUnassign" class="fav-chip mini" title="${L.mail_unassign_hint ?? "받은함으로 되돌리기"}">${L.mail_unassign ?? "분류 취소"}</button>` : ""}
         <button id="mailDelete" class="fav-chip mini danger" title="${L.mail_delete_hint ?? "이 메일을 목록에서 삭제(재수집돼도 다시 안 보임)"}">${L.mail_delete ?? "메일 삭제"}</button>
       </div>
@@ -4633,20 +4642,24 @@ async function renderMail() {
       render();
     })
   );
-  const doAssign = async (mailIds, target, makeItems) => {
+  const doAssign = async (mailIds, target, makeItems, nextSel = null) => {
     if (!target) { toast(L.assign_need_target ?? "분류할 과제를 고르세요", "error"); return; }
     const r = await post("/api/mail/assign", { mail_ids: mailIds, project_id: target, make_items: makeItems });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || d.error) { toast(L.assign_fail ?? "분류 실패", "error"); return; }
     toast(`${mailIds.length}${L.assign_unit ?? "건"} ${L.assign_done ?? "분류 완료"}${makeItems ? ` · ${L.assign_made_short ?? "할일 생성"}` : ""}`, "ok");
     checked.clear();
-    state.mailSel = null;
+    state.mailSel = nextSel; // '분류하고 다음'이면 다음 메일 선택 유지, 일반 분류면 null(해제)
     render();
   };
   $("#assignGo")?.addEventListener("click", () =>
     doAssign([...checked], $("#assignTarget").value, $("#assignMk").checked));
   $("#assignOneGo")?.addEventListener("click", () =>
     doAssign([state.mailSel], $("#assignOne").value, true));
+  $("#assignOneNext")?.addEventListener("click", () =>
+    doAssign([state.mailSel], $("#assignOne").value, true, nextMailId)); // 분류하고 다음 메일 자동 선택
+  $("#mailDetailPrev")?.addEventListener("click", () => { if (prevMailId) { state.mailSel = prevMailId; render(); } });
+  $("#mailDetailNext")?.addEventListener("click", () => { if (nextMailId) { state.mailSel = nextMailId; render(); } });
   $("#mailUnassign")?.addEventListener("click", async () => {
     const r = await post("/api/mail/unassign", { mail_id: state.mailSel });
     if (r.ok) { toast(L.mail_unassigned ?? "분류를 취소했습니다(받은함)", "ok"); render(); }

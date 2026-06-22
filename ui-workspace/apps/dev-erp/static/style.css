@@ -507,6 +507,7 @@ nav button:hover .pin-btn { opacity: 1; }
 .proj-sep-title { color: var(--muted); font-size: 12px; margin-left: 7px; }
 .proj-sep-n { color: var(--muted); font-size: 11px; margin-left: 8px; background: var(--chip); border-radius: 999px; padding: 1px 8px; }
 .mail-detail { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; align-self: start; position: sticky; top: 12px; height: calc(100vh - 24px); overflow-y: auto; }
+.mail-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; } /* #10: 메일 단건 이전/다음 처리 */
 .mail-detail h3 { margin: 0 0 10px; font-size: 14.5px; }
 .mail-detail h4 { margin: 12px 0 6px; font-size: 12.5px; color: var(--muted); }
 .mail-detail dl { margin: 0; display: flex; flex-direction: column; gap: 6px; }
