@@ -40,8 +40,9 @@ function resolveDb(raw) {
 }
 
 function safeToken(raw, fallback) {
-  const value = String(raw || fallback || "mailbox").trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, "_").replace(/^[_\-.]+|[_\-.]+$/g, "");
-  return value.slice(0, 80) || "mailbox";
+  // 한글 등 비ASCII 값은 sanitize 후 빈 문자열이 되므로, raw 가 빈값이면 fallback 으로 내려간다(둘 다 비면 "mailbox").
+  const clean = (s) => String(s || "").trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, "_").replace(/^[_\-.]+|[_\-.]+$/g, "").slice(0, 80);
+  return clean(raw) || clean(fallback) || "mailbox";
 }
 
 function safeRelativeRef(raw) {
@@ -61,7 +62,7 @@ for (const row of rows) {
   const envRef = safeRelativeRef(row.mailbox_env_ref);
   if (!envRef) continue;
   mailboxes.push({
-    id: safeToken(row.username || row.id, row.email),
+    id: safeToken(row.id, row.email), // 계정 id(ASCII·고유) 기반 — 한글 username 충돌(duplicate_id) 방지
     account_id: row.id,
     email: String(row.email).trim().toLowerCase(),
     display_name: row.display_name || row.username,

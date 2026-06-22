@@ -2,6 +2,18 @@
 
 ## 2026-06-22
 
+### Revision `working` - 메일 계정별 귀속 — team_cli 경로로 owner 메타 흐르게
+
+- 개인별 메일 뷰(보기 대상=차오름/문성용)가 비던 원인: 수집을 단일 `cli.py`(per-env)로 해서
+  메일별 owner 메타가 안 붙고, 원장 `메일함` 이 workspace 버킷(`company_mailbox`)으로 떨어져
+  ERP 계정별 필터(`core_mail.mailbox = 계정 이메일`)가 매칭 못 함. (게이트웨이
+  `_mailbox_history_label` 은 이미 `metadata.mailbox.email` 우선 사용 → Python 변경 불필요.)
+- `tools/export_team_mailboxes.mjs`: 팀 등록부 `id` 를 한글 username 대신 account_id(ASCII·고유)
+  에서 파생(`safeToken` fallback 보강). 한글 이름 계정이 `id="mailbox"` 로 충돌해 team_cli 가
+  `duplicate_id` 로 거부하던 버그 수정.
+- `src/mail_collect.mjs`: 수집 경로를 ① 등록부 갱신 → ② `team_cli`(owner 메타 부착) → ③ scan
+  인입 으로 전환. 원장 `메일함` = 계정 이메일 → core_mail 로 ERP 계정별 뷰가 매칭된다.
+
 ### Revision `working` - dev-erp 메일 수집 통합(수동 버튼 + 자동 주기)
 
 - `src/mail_collect.mjs`: 활성·메일함 enabled 계정마다 수집기(자식 프로세스, gateway mail_fetch)로

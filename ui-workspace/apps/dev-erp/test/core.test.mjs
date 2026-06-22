@@ -5120,7 +5120,8 @@ test("MAIL-COLLECT: enabled 메일함 없으면 자식프로세스 없이 조기
   const r = await collectAllMailboxes(store, { repoRoot: ".", appDir: "." });
   assert.equal(r.ok, true);
   assert.equal(r.note, "no_enabled_mailbox");
-  assert.deepEqual(r.mailboxes, []);
+  assert.equal(r.fetch, null);          // 조기반환 — fetch/ingest 자식 프로세스 미실행
+  assert.equal(r.ingest, null);
   assert.equal(isCollecting(), false); // 조기반환 후 락 해제
 });
 
