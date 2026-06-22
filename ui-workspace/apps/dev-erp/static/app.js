@@ -1910,8 +1910,10 @@ async function renderProposals() {
   const props = await api("/api/proposals");
   const rows = props.length
     ? `<table><tbody>${props.map((p) => `<tr data-prop="${esc(p.id)}">
-        <td><span class="badge">${esc(p.kind)}</span></td>
-        <td>${esc(p.summary ?? p.payload?.title ?? p.id)}</td>
+        <td><span class="badge">${esc(p.kind === "completion_digest" ? (L.prop_kind_digest ?? "완료 요약") : p.kind)}</span></td>
+        <td>${p.kind === "completion_digest"
+          ? `${esc(p.payload?.summary ?? p.summary ?? "")}${(p.payload?.next_actions || []).length ? `<div class="dim mini">→ ${p.payload.next_actions.map(esc).join(" · ")}</div>` : ""}${p.payload?.knowledge ? `<div class="dim mini">💡 ${esc(p.payload.knowledge)}</div>` : ""}`
+          : esc(p.summary ?? p.payload?.title ?? p.id)}</td>
         <td class="dim">${esc(p.source)}</td>
         <td><button class="fav-chip prop-approve">${L.prop_approve}</button> <button class="fav-chip prop-reject">${L.prop_reject}</button> <span class="prop-msg dim"></span></td>
       </tr>`).join("")}</tbody></table>`
