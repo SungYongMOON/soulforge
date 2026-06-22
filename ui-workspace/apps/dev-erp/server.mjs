@@ -1421,6 +1421,15 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "label_create", to: result.label.name, used_refs: ["mail_label"], data_label: "real" });
       return send(res, 200, result);
     }
+    if (path === "/api/labels/delete" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id } = JSON.parse(body || "{}");
+      const result = store.deleteLabel(id);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "label_delete", to: result.name, used_refs: ["mail_label"], data_label: "real" });
+      return send(res, 200, result);
+    }
     if (path === "/api/mail/label" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mail_id, label_id, on } = JSON.parse(body || "{}");

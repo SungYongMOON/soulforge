@@ -4250,7 +4250,7 @@ async function renderMail() {
   const labelById = new Map(labels.map((l) => [l.id, l]));
 
   const labelBar = `<div class="label-bar">
-    ${labels.map((l) => `<span class="label-chip manual ${f.label === l.id ? "on" : ""}" style="--lc:${esc(l.color)}" data-l="${l.id}">${esc(l.name)}</span>`).join("")}
+    ${labels.map((l) => `<span class="label-chip manual ${f.label === l.id ? "on" : ""}" style="--lc:${esc(l.color)}" data-l="${l.id}">${esc(l.name)}<b class="chip-del" data-del-label="${l.id}" title="${L.label_delete ?? "라벨 삭제"}">×</b></span>`).join("")}
     <input id="newLabelName" placeholder="${L.label_new_ph}" size="10" />
     <button id="newLabelBtn" class="fav-chip">${L.label_add}</button>
   </div>`;
@@ -4471,6 +4471,17 @@ async function renderMail() {
   });
 	  $("#view").querySelectorAll(".label-bar [data-l]").forEach((c) =>
 	    c.addEventListener("click", () => { f.label = f.label === Number(c.dataset.l) ? null : Number(c.dataset.l); resetMailPaging(); render(); })
+	  );
+	  $("#view").querySelectorAll("[data-del-label]").forEach((b) =>
+	    b.addEventListener("click", async (e) => {
+	      e.stopPropagation(); // 칩 본체(필터 토글)로 안 번지게
+	      const id = Number(b.dataset.delLabel);
+	      const lab = labels.find((l) => l.id === id);
+	      if (!confirm((L.label_delete_confirm ?? "라벨 '%s' 삭제? 모든 메일에서도 제거됩니다.").replace("%s", lab?.name ?? id))) return;
+	      const r = await post("/api/labels/delete", { id });
+	      if (r.ok) { if (f.label === id) { f.label = null; resetMailPaging(); } toast(L.label_deleted ?? "라벨 삭제됨", "ok"); render(); }
+	      else toast(L.label_delete_fail ?? "라벨 삭제 실패", "error");
+	    })
 	  );
   $("#view").querySelectorAll(".mail-row").forEach((r) =>
     // 토글: 같은 메일 다시 누르면 오른쪽 설명 닫힘

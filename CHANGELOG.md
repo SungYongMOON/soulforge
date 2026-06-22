@@ -2,6 +2,12 @@
 
 ## 2026-06-22
 
+### Revision `working` - 라벨 삭제 기능(추가만 되고 삭제 없던 CRUD 공백 메움)
+
+- 라벨을 만들면(라벨 추가) 지울 방법이 전혀 없던 문제: 라벨칩에 × 추가 → 확인 후 삭제.
+  `store.deleteLabel`(mail_label + mail_label_map 함께 제거), `POST /api/labels/delete`,
+  lexicon label_delete/_confirm/_deleted/_fail(양 모드). 미흡 기능 전수 감사도 병행.
+
 ### Revision `working` - 메일 목록 줄 버그 수정(칩을 발신자 칸으로 인라인)
 
 - 메일함 주인·프로젝트·라벨 칩이 별도 `mail-meta` 컬럼에 있어, table-layout:auto 가 가장 넓은

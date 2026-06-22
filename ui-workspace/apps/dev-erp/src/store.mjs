@@ -2704,6 +2704,14 @@ export class Store {
     return { label: this.db.prepare("SELECT * FROM mail_label WHERE name=?").get(trimmed) };
   }
 
+  deleteLabel(labelId) {
+    const row = this.db.prepare("SELECT * FROM mail_label WHERE id=?").get(Number(labelId));
+    if (!row) return { error: "label_not_found" };
+    this.db.prepare("DELETE FROM mail_label_map WHERE label_id=?").run(Number(labelId)); // 메일 부착도 함께 제거
+    this.db.prepare("DELETE FROM mail_label WHERE id=?").run(Number(labelId));
+    return { ok: true, id: row.id, name: row.name };
+  }
+
   setMailLabel(mailId, labelId, on) {
     if (!this.db.prepare("SELECT 1 FROM core_mail WHERE id=?").get(mailId)) return { error: "mail_not_found" };
     if (!this.db.prepare("SELECT 1 FROM mail_label WHERE id=?").get(labelId)) return { error: "label_not_found" };
