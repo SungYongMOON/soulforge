@@ -2,6 +2,14 @@
 
 ## 2026-06-23
 
+### Revision `working` - 마스터 삭제(MED): 발주·연락처·요청
+
+- 추가만 되고 삭제 없던 마스터 3종에 삭제 추가: 행 끝 × 버튼 → 확인 후 삭제(링크맵도 함께 정리).
+  `store.deletePurchase/deleteContact/deleteRequest`, `POST /api/{purchases,contacts,requests}/delete`(allowSharedWrite).
+  하드삭제(이력은 event_log). lexicon master_del 류. node:test 235/0.
+
+## 2026-06-23
+
 ### Revision `working` - 라벨 색 변경 UI — 라벨 CRUD 100% 완성
 
 - 라벨칩에 색 스와치 추가: 클릭하면 LABEL_PALETTE 다음 색으로 순환(`/api/labels/update` 재사용, 지난 라운드 배포).

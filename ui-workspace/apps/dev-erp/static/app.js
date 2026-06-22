@@ -2064,7 +2064,7 @@ async function renderContacts() {
     <td>${esc(c.role ?? "-")}</td>
     <td>${esc(c.email ?? "-")}${c.phone ? ` · ${esc(c.phone)}` : ""}</td>
     <td>${esc(c.party_name ?? "-")}</td>
-    <td>${c.projects.map((x) => `<span class="badge">${esc(x)}</span>`).join(" ") || '<span class="dim">-</span>'}</td>
+    <td>${c.projects.map((x) => `<span class="badge">${esc(x)}</span>`).join(" ") || '<span class="dim">-</span>'} <button class="fav-chip mini danger ct-del" data-ct-del="${esc(c.id)}" title="${L.master_del ?? "삭제"}">×</button></td>
   </tr>`).join("");
   $("#view").innerHTML = `
     <div class="filters">
@@ -2092,6 +2092,11 @@ async function renderContacts() {
     const r = await post("/api/contacts", body).then((x) => x.json()).catch(() => ({}));
     if (r.ok) render();
   });
+  $("#view").querySelectorAll(".ct-del").forEach((b) => b.addEventListener("click", async () => {
+    if (!(await uiConfirm(L.master_del_confirm ?? "삭제할까요? 되돌릴 수 없습니다."))) return;
+    const r = await post("/api/contacts/delete", { id: b.dataset.ctDel });
+    if (r.ok) { toast(L.master_deleted ?? "삭제됨", "ok"); render(); } else toast(L.master_del_fail ?? "삭제 실패", "error");
+  }));
 }
 
 // 구매/발주 화면(mod:purchase). 거래처 마스터·발주 체인·과제 N:N·과제 필터. created_by 기록.
@@ -2118,7 +2123,7 @@ async function renderPurchase() {
       <td>${stageChip(po.stage)}${next ? ` <button class="fav-chip mini po-next" data-id="${esc(po.id)}" data-next="${next}">→ ${L[`pstage_${next}`]}</button>` : ""}</td>
       <td class="num">${po.amount != null ? Number(po.amount).toLocaleString() : "-"}</td>
       <td>${po.due ?? "-"}</td>
-      <td>${po.projects.map((x) => `<span class="badge">${esc(x)}</span>`).join(" ") || '<span class="dim">-</span>'}</td>
+      <td>${po.projects.map((x) => `<span class="badge">${esc(x)}</span>`).join(" ") || '<span class="dim">-</span>'} <button class="fav-chip mini danger po-del" data-po-del="${esc(po.id)}" title="${L.master_del ?? "삭제"}">×</button></td>
     </tr>`;
   }).join("");
   $("#view").innerHTML = `
@@ -2159,6 +2164,11 @@ async function renderPurchase() {
   });
   $("#view").querySelectorAll(".po-next").forEach((b) => b.addEventListener("click", async () => {
     await post("/api/purchases/stage", { id: b.dataset.id, stage: b.dataset.next }); render();
+  }));
+  $("#view").querySelectorAll(".po-del").forEach((b) => b.addEventListener("click", async () => {
+    if (!(await uiConfirm(L.master_del_confirm ?? "삭제할까요? 되돌릴 수 없습니다."))) return;
+    const r = await post("/api/purchases/delete", { id: b.dataset.poDel });
+    if (r.ok) { toast(L.master_deleted ?? "삭제됨", "ok"); render(); } else toast(L.master_del_fail ?? "삭제 실패", "error");
   }));
 }
 
@@ -5486,7 +5496,7 @@ async function renderRequests() {
       ? `<span class="badge green">✓ ${L.item ?? "할 일"}</span>`
       : (r.project_id
         ? `<button class="fav-chip mini" data-promote-req="${esc(r.id)}">${L.req_promote ?? "할 일로"}</button>`
-        : `<span class="dim">${L.req_need_project ?? "과제 연결 필요"}</span>`)}</td>
+        : `<span class="dim">${L.req_need_project ?? "과제 연결 필요"}</span>`)} <button class="fav-chip mini danger req-del" data-req-del="${esc(r.id)}" title="${L.master_del ?? "삭제"}">×</button></td>
   </tr>`).join("");
   $("#view").innerHTML = `
     <div class="item-form">
@@ -5521,6 +5531,11 @@ async function renderRequests() {
   $("#view").querySelectorAll("[data-promote-req]").forEach((b) =>
     b.addEventListener("click", async () => { const res = await post("/api/requests/promote", { id: b.dataset.promoteReq }); if (res.ok) render(); })
   );
+  $("#view").querySelectorAll(".req-del").forEach((b) => b.addEventListener("click", async () => {
+    if (!(await uiConfirm(L.master_del_confirm ?? "삭제할까요? 되돌릴 수 없습니다."))) return;
+    const r = await post("/api/requests/delete", { id: b.dataset.reqDel });
+    if (r.ok) { toast(L.master_deleted ?? "삭제됨", "ok"); render(); } else toast(L.master_del_fail ?? "삭제 실패", "error");
+  }));
 }
 
 // 던전 배경: 판타지 모드 + 과제 허브 진입 시 과제별 배경 이미지(/skins/dungeons/<과제번호>.jpg, 로컬·비공개).

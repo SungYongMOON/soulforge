@@ -3522,6 +3522,24 @@ export class Store {
     ).run(rid, project_id, t, requester, category, pointer_ref, data_label, new Date().toISOString());
     return { ok: true, id: rid, request: this.db.prepare("SELECT * FROM core_request WHERE id=?").get(rid) };
   }
+  // 마스터 삭제(잘못 입력 정리). 링크맵도 함께 정리. 하드삭제(이력은 event_log 에 남음).
+  deletePurchase(id) {
+    if (!this.db.prepare("SELECT 1 FROM core_purchase WHERE id=?").get(id)) return { error: "purchase_not_found" };
+    this.db.prepare("DELETE FROM purchase_project_map WHERE purchase_id=?").run(id);
+    this.db.prepare("DELETE FROM core_purchase WHERE id=?").run(id);
+    return { ok: true, id };
+  }
+  deleteContact(id) {
+    if (!this.db.prepare("SELECT 1 FROM core_contact WHERE id=?").get(id)) return { error: "contact_not_found" };
+    this.db.prepare("DELETE FROM contact_project_map WHERE contact_id=?").run(id);
+    this.db.prepare("DELETE FROM core_contact WHERE id=?").run(id);
+    return { ok: true, id };
+  }
+  deleteRequest(id) {
+    if (!this.db.prepare("SELECT 1 FROM core_request WHERE id=?").get(id)) return { error: "request_not_found" };
+    this.db.prepare("DELETE FROM core_request WHERE id=?").run(id);
+    return { ok: true, id };
+  }
   requests({ project, status } = {}) {
     const cond = [], args = [];
     if (project) { cond.push("project_id=?"); args.push(project); }

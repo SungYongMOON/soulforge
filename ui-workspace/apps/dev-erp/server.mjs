@@ -1324,6 +1324,14 @@ const server = createServer(async (req, res) => {
     if (path === "/api/bom/changes") return send(res, 200, store.bomChanges(qp.limit ? Number(qp.limit) : 20));
     // 연락처 마스터
     if (path === "/api/contacts" && req.method === "GET") return send(res, 200, store.contacts({ project: qp.project, party: qp.party }));
+    if (path === "/api/contacts/delete" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.deleteContact(JSON.parse(body || "{}").id);
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "contact_delete", to: r.id, used_refs: ["contacts"], data_label: "real" });
+      return send(res, 200, r);
+    }
     if (path === "/api/contacts" && req.method === "POST") {
       if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
@@ -1362,6 +1370,14 @@ const server = createServer(async (req, res) => {
       return send(res, 200, r);
     }
     if (path === "/api/purchases" && req.method === "GET") return send(res, 200, store.purchases({ project: qp.project, party: qp.party, stage: qp.stage }));
+    if (path === "/api/purchases/delete" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.deletePurchase(JSON.parse(body || "{}").id);
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "purchase_delete", to: r.id, used_refs: ["purchases"], data_label: "real" });
+      return send(res, 200, r);
+    }
     if (path === "/api/purchases" && req.method === "POST") {
       if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
@@ -1587,6 +1603,14 @@ const server = createServer(async (req, res) => {
 
     // ---------- 개발요청함(인입 채널) ----------
     if (path === "/api/requests" && req.method === "GET") return send(res, 200, store.requests({ project: qp.project, status: qp.status }));
+    if (path === "/api/requests/delete" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      let body = ""; for await (const chunk of req) body += chunk;
+      const r = store.deleteRequest(JSON.parse(body || "{}").id);
+      if (r.error) return send(res, 400, r);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "request_delete", to: r.id, used_refs: ["requests"], data_label: "real" });
+      return send(res, 200, r);
+    }
     if (path === "/api/requests" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body || "{}");
