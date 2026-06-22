@@ -628,6 +628,7 @@ async function openAdminPanel() {
           <input class="login-input mb-env" style="width:170px" value="${esc(a.mailbox_env_ref || "")}" placeholder="${L["mailbox_env_ref"] ?? "env ref"}" autocomplete="off" />
           <button class="fav-chip mb-save" data-id="${esc(a.id)}">${L.acct_save ?? "저장"}</button>
           <button class="fav-chip mb-connect" data-id="${esc(a.id)}" data-user="${esc(a.username)}" data-email="${esc(a.email || "")}" data-provider="${esc(a.mailbox_provider || "none")}">${L.mailbox_connect ?? "메일 연결"}</button>
+          ${(a.mailbox_provider && a.mailbox_provider !== "none") || a.mailbox_env_ref ? `<button class="fav-chip mb-disconnect" data-id="${esc(a.id)}" title="${L.mailbox_disconnect_hint ?? "연결 해제 + 비번 파일 삭제(메일·할일 보존)"}">${L.mailbox_disconnect ?? "해제"}</button>` : ""}
         </div></td>
         <td class="muted" title="${esc(a.mailbox_last_error || "")}">${esc(mailboxStatus)}<div class="mini">${esc(mailboxAt)}</div></td>
       </tr>`;
@@ -705,6 +706,13 @@ async function openAdminPanel() {
     }));
     ov.querySelectorAll(".mb-connect").forEach((b) => b.addEventListener("click", () =>
       openMailConnect({ id: b.dataset.id, username: b.dataset.user, email: b.dataset.email, provider: b.dataset.provider }, renderList)));
+    ov.querySelectorAll(".mb-disconnect").forEach((b) => b.addEventListener("click", async () => {
+      if (!(await uiConfirm(L.mailbox_disconnect_confirm ?? "메일함 연결을 해제할까요? 저장된 비밀번호 파일이 삭제됩니다. (메일·할일은 보존)"))) return;
+      errBox.textContent = "";
+      const r = await post("/api/accounts/mailbox/disconnect", { id: b.dataset.id }).then((x) => x.json()).catch(() => null);
+      if (r && r.ok) { errBox.textContent = L.mailbox_disconnected ?? "메일함 해제됨"; renderList(); }
+      else errBox.textContent = (r?.error) || (L.mailbox_disconnect_fail ?? "메일함 해제 실패");
+    }));
   };
   ov.querySelector("#acAdd").addEventListener("click", async () => {
     errBox.textContent = "";
@@ -4415,6 +4423,7 @@ async function renderMail() {
       <div class="assign-bar inline">
         <select id="assignOne">${assignOpts}</select>
         <button id="assignOneGo" class="fav-chip">${L.assign_btn}</button>
+        ${sel.project_id && clsById.get(sel.project_id) !== "inbox" ? `<button id="mailUnassign" class="fav-chip mini" title="${L.mail_unassign_hint ?? "받은함으로 되돌리기"}">${L.mail_unassign ?? "분류 취소"}</button>` : ""}
       </div>
     </aside>` : "";
 
@@ -4553,6 +4562,11 @@ async function renderMail() {
     doAssign([...checked], $("#assignTarget").value, $("#assignMk").checked));
   $("#assignOneGo")?.addEventListener("click", () =>
     doAssign([state.mailSel], $("#assignOne").value, true));
+  $("#mailUnassign")?.addEventListener("click", async () => {
+    const r = await post("/api/mail/unassign", { mail_id: state.mailSel });
+    if (r.ok) { toast(L.mail_unassigned ?? "분류를 취소했습니다(받은함)", "ok"); render(); }
+    else toast(L.mail_unassign_fail ?? "분류 취소 실패", "error");
+  });
 }
 
 function mailPromoteErrorText(error, L = state.lex) {

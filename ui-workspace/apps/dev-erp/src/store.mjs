@@ -1721,6 +1721,17 @@ export class Store {
     return { ok: true, from: mail.project_id, item_moved: linked?.id ?? null };
   }
 
+  // 분류 취소: 메일을 inbox 로 되돌린다(project_id 는 NOT NULL 이라 null 대신 inbox 버킷). 승격된 할일은 건드리지 않음.
+  unassignMail(mail_id) {
+    const mail = this.db.prepare("SELECT project_id FROM core_mail WHERE id=?").get(mail_id);
+    if (!mail) return { error: "mail_not_found" };
+    const inbox = this.db.prepare("SELECT id FROM core_project WHERE class='inbox' ORDER BY id LIMIT 1").get();
+    const inboxId = inbox?.id || "P00-000_INBOX";
+    if (mail.project_id === inboxId) return { ok: true, from: mail.project_id, to: inboxId, unchanged: true };
+    this.db.prepare("UPDATE core_mail SET project_id=? WHERE id=?").run(inboxId, mail_id);
+    return { ok: true, from: mail.project_id, to: inboxId };
+  }
+
   // run17: 묶음 분류 (+선택: 할일 생성 = 판타지 '몬스터 출몰').
   // 이미 승격된 메일은 중복 생성 없이 이동만. 결과는 메일별로 반환(이벤트는 호출자가 기록).
   assignMails(mail_ids, project_id, { make_items = false, created_by = null } = {}) {

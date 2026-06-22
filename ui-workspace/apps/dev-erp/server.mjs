@@ -611,6 +611,21 @@ const server = createServer(async (req, res) => {
       });
       return send(res, 200, r);
     }
+    // 메일함 해제: provider=none·비활성 + 비번 env 파일 삭제(비활성 후 잔존하던 보안 공백 제거). 메일/할일은 보존.
+    if (path === "/api/accounts/mailbox/disconnect" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const body = await readJson(req);
+      const before = store.listAccounts().find((a) => a.id === body.id);
+      if (!before) return send(res, 400, { error: "account_not_found" });
+      const oldRef = before.mailbox_env_ref || mailboxEnvRelPath(body.id);
+      const r = store.updateAccountMailbox(body.id, { provider: "none", enabled: false });
+      if (r.error) return send(res, 400, r);
+      let envDeleted = false;
+      try { const repoRoot = resolve(HERE, "..", "..", ".."); envDeleted = !!deleteMailboxEnv(repoRoot, oldRef).deleted; } catch { /* env 정리 실패가 해제를 막지 않음 */ }
+      store.appendEvent({ actor_ref: admin.username, actor_kind: "human", kind: "account_mailbox_disconnect", to: `none:env_deleted=${envDeleted}`, used_refs: ["auth", "mailbox_metadata", "mailbox_env"], data_label: "meta" });
+      return send(res, 200, { ok: true, env_deleted: envDeleted, mailbox: r.mailbox });
+    }
     // 메일 자격증명 등록: ERP에서 이메일+비번 입력 → env 파일에 기록(DB 아님) + 메일함 활성.
     // 비밀번호는 env 파일에만 들어가고 DB/이벤트/응답엔 남기지 않는다. 수신(fetch)은 별도 수집기 프로세스가 함(서버 외부접속 0).
     if (path === "/api/accounts/mailbox/credentials" && req.method === "POST") {
@@ -1428,6 +1443,15 @@ const server = createServer(async (req, res) => {
       const result = store.deleteLabel(id);
       if (result.error) return send(res, 400, result);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "label_delete", to: result.name, used_refs: ["mail_label"], data_label: "real" });
+      return send(res, 200, result);
+    }
+    if (path === "/api/mail/unassign" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { mail_id } = JSON.parse(body || "{}");
+      if (!canAccessMail(req, mail_id)) return send(res, 403, { error: "mail_forbidden" });
+      const result = store.unassignMail(mail_id);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_unassign", item_ref: mail_id, from: result.from, to: result.to, used_refs: ["core_mail"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/mail/label" && req.method === "POST") {

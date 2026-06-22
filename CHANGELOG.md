@@ -2,6 +2,14 @@
 
 ## 2026-06-22
 
+### Revision `working` - 미흡 기능 감사 후속 1: 메일 분류 취소 + 메일함 해제
+
+- 미흡 기능 전수 감사(워크플로) 결과 확정 55건(high 6) 중 high 처리 1차.
+- 메일 분류 취소(unassign): 과제로 분류한 메일을 받은함(inbox)으로 되돌림. `store.unassignMail`
+  (project_id NOT NULL 이라 null 대신 inbox 버킷), `POST /api/mail/unassign`, 상세패널 '분류 취소' 버튼.
+- 메일함 해제(disconnect): provider=none·비활성 + 비번 env 파일 삭제(비활성 후 비번 파일이 남던
+  보안 공백 제거). `POST /api/accounts/mailbox/disconnect`, 계정 표 '해제' 버튼. 메일·할일은 보존.
+
 ### Revision `working` - 라벨 삭제 기능(추가만 되고 삭제 없던 CRUD 공백 메움)
 
 - 라벨을 만들면(라벨 추가) 지울 방법이 전혀 없던 문제: 라벨칩에 × 추가 → 확인 후 삭제.
