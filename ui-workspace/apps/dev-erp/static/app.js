@@ -4455,7 +4455,7 @@ async function renderMail() {
   const detail = sel ? `<aside class="mail-detail">
       <div class="mail-nav">
         <button id="mailDetailPrev" class="fav-chip mini" ${prevMailId ? "" : "disabled"}>◀ ${L.mail_prev ?? "이전"}</button>
-        <span class="dim">${selIdx + 1} / ${mail.length}</span>
+        <span class="dim">${selIdx + 1} / ${mail.length} <span class="kbd-hint" title="${L.mail_kbd_hint ?? "j/k 또는 ↑↓ 이동 · Enter 분류하고 다음"}">⌨ j/k·Enter</span></span>
         <button id="mailDetailNext" class="fav-chip mini" ${nextMailId ? "" : "disabled"}>${L.mail_next ?? "다음"} ▶</button>
       </div>
       <h3>${esc(sel.subject)}</h3>
@@ -5779,7 +5779,26 @@ async function openPalette() {
 }
 
 document.addEventListener("keydown", (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
+  // #10+ 메일 단건 처리 키보드 단축키 — 마우스 없이 받은함 완주. 기존 버튼을 재사용(렌더당 리스너 누수 없음, 단일 전역 핸들러).
+  if (state.view === "mail" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (e.key === "Enter") { // 텍스트 입력 중이 아니면: 현재 과제로 '분류하고 다음'
+      if (e.target.matches("input, textarea")) return;
+      const b = document.getElementById("assignOneNext");
+      if (b && !b.disabled) { e.preventDefault(); b.click(); }
+      return;
+    }
+    if (e.target.matches("input, textarea, select")) return; // 입력/드롭다운 조작 중엔 j/k 무시
+    if (e.key === "j" || e.key === "ArrowDown") {
+      e.preventDefault();
+      const nx = document.getElementById("mailDetailNext");
+      if (nx && !nx.disabled) nx.click(); else if (!document.querySelector(".mail-detail")) document.querySelector(".mail-row")?.click(); // 선택 없으면 첫 메일
+    } else if (e.key === "k" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const pv = document.getElementById("mailDetailPrev");
+      if (pv && !pv.disabled) pv.click();
+    }
+  }
 });
 $("#paletteBtn").addEventListener("click", openPalette);
 
