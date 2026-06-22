@@ -236,7 +236,7 @@ function asPage(data, fallbackLimit = 100, fallbackOffset = 0) {
   };
 }
 function resetItemPaging() { state.itemOffset = 0; state.itemEdit = null; }
-function resetMailPaging() { state.mailOffset = 0; state.mailSel = null; }
+function resetMailPaging() { state.mailOffset = 0; state.mailSel = null; state.mailChecked = new Set(); } // 필터/스코프 변경 시 선택도 초기화(유령 '해제' 버튼 제거)
 
 // 상단 인증 UI. 계정 0(익명 파일럿)=숨김 / 로그인=사용자+로그아웃 / 계정 있고 미로그인=로그인 버튼.
 function renderAuth() {
@@ -4599,7 +4599,8 @@ async function renderMail() {
   $("#promoteBtn")?.addEventListener("click", async () => {
     const result = await promoteMailToItem(state.mailSel, { button: $("#promoteBtn") });
     if (result.ok) {
-      toast(result.already ? (L.promote_already ?? "이미 할 일로 등록됨") : (L.promote_done_next ?? "할 일로 등록됨 — '분류 필요'에서 분류하세요"), "ok");
+      toast(result.already ? (L.promote_already ?? "이미 할 일로 등록됨") : (L.promote_done_go ?? "할 일로 등록 — 분류로 이동"), "ok");
+      if (!result.already) { state.statusFilter = "unclassified"; resetItemPaging(); state.view = "items"; } // 승격 직후 '분류 필요'로 바로 진입(수동 탭 클릭 제거)
       render();
     }
   });
