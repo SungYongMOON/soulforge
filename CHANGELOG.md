@@ -2,6 +2,14 @@
 
 ## 2026-06-23
 
+### Revision `working` - #4 담당자별 처리량 분석 위젯 (analytics_w) + 과거 완료 백필
+
+- 완료 로그 backbone(2b561b82) 위에 **담당자별 처리량 분석 위젯** 구현. 예약돼 있던 analytics_w 슬롯을 ready로.
+- /api/completions 집계 소비 → 담당자별 **완료 수 + 업무종류 분해**(최근 30일, WORK_TYPE_LABELS 한글). 관리자=전체, 그 외=본인(감시경계).
+- **백필**: 훅 도입 전 완료 항목을 completion_log에 1회 멱등 보강(backfillCompletionLog, item_id 미기록분만) → 기동 시 호출. 위젯이 과거 이력도 즉시 표시.
+- WIDGET_PLAN analytics_w ready·DEFAULT_DASH 하단 추가(신규 레이아웃). 기존 사용자는 드로어 '팀' 그룹에서 추가. lexicon an_*(양 모드).
+- store(백필)·server(기동 호출)·app.js·lexicon 변경(재시작). 인메모리 E2E PASS(백필 3·멱등·담당자별 집계). 토큰은 #5b 계측 후.
+
 ### Revision `working` - 우선순위 ⭐ (urgency 재사용) — '먼저 할 일'을 명시적 우선으로
 
 - owner Q1 결정=nudges를 우선순위로 교체. **미사용 `urgency` 필드 재사용**(운영본 전건 normal·UI 미노출)→마이그레이션 0.

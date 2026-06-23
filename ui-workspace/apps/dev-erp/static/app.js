@@ -1568,7 +1568,7 @@ const WIDGET_PLAN = [
   { id: "teamload", cat: "group_team", ready: true },
   { id: "throughput", cat: "group_team", ready: true },
   { id: "requests_w", cat: "group_team", ready: true },
-  { id: "analytics_w", cat: "group_team" },
+  { id: "analytics_w", cat: "group_team", ready: true },
   { id: "proposals", cat: "group_team", ready: true }
 ];
 const WIDGET_CATALOG = WIDGET_PLAN.filter((w) => w.ready).map((w) => w.id); // 실제 보드에 올릴 수 있는 위젯
@@ -1583,7 +1583,8 @@ const DEFAULT_DASH = [
   { id: "projects", x: 0, y: 10, w: 12, h: 11 },
   { id: "unassigned", x: 0, y: 21, w: 6, h: 9 }, { id: "teamload", x: 6, y: 21, w: 6, h: 9 }, // 미배정 작업 + 팀원별 부하(관리자)
   { id: "today", x: 0, y: 30, w: 3, h: 8 }, { id: "blocked", x: 3, y: 30, w: 3, h: 8 },
-  { id: "mail", x: 6, y: 30, w: 3, h: 8 }, { id: "events", x: 9, y: 30, w: 3, h: 8 }
+  { id: "mail", x: 6, y: 30, w: 3, h: 8 }, { id: "events", x: 9, y: 30, w: 3, h: 8 },
+  { id: "analytics_w", x: 0, y: 38, w: 12, h: 9 } // 담당자별 처리량 분석(관리자) — 신규 레이아웃에 노출, 기존 사용자는 드로어에서 추가
 ];
 // 정해둔 위젯 배치(프리셋). 내 배치는 localStorage 자동저장 + 이름 붙인 저장 슬롯(SLOTS_KEY, 여러 개).
 const SAVED_KEY = "dev_erp_widgets_saved"; // (구) 단일 슬롯 — 첫 로드 시 SLOTS_KEY로 마이그레이션
@@ -3371,6 +3372,28 @@ async function renderHome() {
         ? `<div class="thr-spark" title="${(t.daily || []).map((x) => `${x.d}:${x.n}`).join("  ")}">${spark}</div>
            <div class="dim mini">${L.thr_recent ?? "최근 14일"} ${t.total}${L.thr_done ?? "건 완료"} · ${L.thr_peak ?? "최고"} ${t.max}/${L.thr_day ?? "일"}</div>`
         : `<div class="empty">${L.thr_none ?? "최근 완료 없음"}</div>` };
+    }
+    if (id === "analytics_w") {
+      // #4 담당자별 처리량 분석 — completion_log 집계(/api/completions): 담당자별 완료 수 + 업무종류 분해(최근 30일). 토큰은 #5b 계측 후.
+      const data = await api("/api/completions?days=30");
+      const stats = (data && data.stats) || [];
+      if (!stats.length) return { title: L.tile_analytics_w, html: `<div class="empty">${L.an_none ?? "최근 완료 없음"}</div>` };
+      const byA = {};
+      for (const s of stats) {
+        const a = s.assignee_ref || (L.assign_unassigned ?? "미배정");
+        (byA[a] ??= { total: 0, wt: {} });
+        byA[a].total += s.n;
+        const wt = s.work_type || "_none";
+        byA[a].wt[wt] = (byA[a].wt[wt] || 0) + s.n;
+      }
+      const rows = Object.entries(byA).sort((x, y) => y[1].total - x[1].total).map(([a, d]) => {
+        const wtStr = Object.entries(d.wt).sort((x, y) => y[1] - x[1])
+          .map(([wt, n]) => `${wt === "_none" ? (L.an_untyped ?? "기타") : (WORK_TYPE_LABELS[wt] ?? wt)} ${n}`).join(" · ");
+        return `<tr><td>${esc(a)}</td><td class="num"><strong>${d.total}</strong></td><td class="dim mini">${esc(wtStr)}</td></tr>`;
+      }).join("");
+      return { title: L.tile_analytics_w, html:
+        `<div class="dim mini" style="margin-bottom:4px">${L.an_recent ?? "최근 30일 완료"}</div>`
+        + `<table><thead><tr><th>${L.col_person}</th><th>${L.an_done ?? "완료"}</th><th>${L.an_bywt ?? "업무종류"}</th></tr></thead><tbody>${rows}</tbody></table>` };
     }
     if (id === "nudges") {
       // P-6 콕핏 알림 — '먼저 해야 할 일' 우선순위(연체>차단>오늘>미완). 연체/차단은 번쩍임.

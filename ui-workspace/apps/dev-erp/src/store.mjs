@@ -1789,6 +1789,18 @@ export class Store {
     sql += " ORDER BY COALESCE(done_at, created_at) DESC LIMIT ?"; args.push(limit);
     return this.db.prepare(sql).all(...args);
   }
+  // 훅 도입 전 완료된 항목을 completion_log 에 1회 보강(멱등 — item_id 미기록분만). 분석 위젯이 과거 이력도 보게.
+  backfillCompletionLog() {
+    const rows = this.db.prepare(
+      "SELECT id, title, assignee_ref, work_type, project_id, done_at FROM core_item WHERE status='done' AND id NOT IN (SELECT item_id FROM completion_log WHERE item_id IS NOT NULL)"
+    ).all();
+    if (!rows.length) return { ok: true, inserted: 0 };
+    const now = new Date().toISOString();
+    const ins = this.db.prepare("INSERT INTO completion_log (item_id, title, assignee_ref, work_type, project_id, done_at, completed_by, created_at) VALUES (?,?,?,?,?,?,?,?)");
+    let n = 0;
+    for (const r of rows) { ins.run(r.id, r.title ?? null, r.assignee_ref ?? null, r.work_type ?? null, r.project_id ?? null, r.done_at ?? now, "backfill", now); n++; }
+    return { ok: true, inserted: n };
+  }
 
   setItemAssignee(id, assignee_ref) {
     const prev = this.db.prepare("SELECT assignee_ref, project_id FROM core_item WHERE id=?").get(id);

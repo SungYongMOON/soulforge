@@ -114,6 +114,7 @@ const ERP_VERSION = Object.freeze({
 });
 
 const store = openStore(DB_PATH);
+try { const bf = store.backfillCompletionLog(); if (bf.inserted) console.log(`[completion_log] 과거 완료 ${bf.inserted}건 백필`); } catch { /* 백필 실패가 기동을 막지 않음 */ }
 // 분해: 정본 파티 허용목록(.party) — createItem party_ref 검증 + split-suggest 매칭에 재사용(시작 시 1회 로드).
 const PARTY_MATCH = loadPartyMonsterTypes(ROOT);
 store.setValidParties(new Set(Object.values(PARTY_MATCH.typeToParty)));
