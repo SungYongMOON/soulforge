@@ -2,6 +2,11 @@
 
 ## 2026-06-24
 
+### v1.2.0.N - 내 메모리 항목 관리 UI(투명성·감시경계)
+
+- 기초감사 후속(메모리 투명성): "내 메모리" 오버레이에 **누적 메모리 항목 보기/삭제(보관)/직접 추가** — 담당자별로 AI가 무엇을 기억하는지 본인이 확인·정리. 감시경계(본인 것만).
+- GET /api/me/memory 가 items 동반 반환 + POST /api/me/memory/item(op add/delete, 본인 스코프). 삭제=soft archive(주입 제외·보존). store 메서드는 MEM 테스트 커버. lexicon mem_* 키 + CSS. server 변경=재시작.
+
 ### v1.2.0.N - 완료기록 file-of-record(completion_ledger) — MED-1
 
 - 기초감사 MED-1: completion_log(담당자별 처리량·토큰·지식의 내구 기록)가 DB에만 있어 이식·백업 불가였음. **completion_ledger.mjs** 추가 — per-project `_workmeta/<code>/reports/완료_장부/완료_장부.csv`(작업_장부/할일_장부 가족, 무프로젝트는 _general)로 export↔apply. item_id+created_at 중복 skip=멱등. 무손실·특수문자·null·멱등 round-trip 검증.

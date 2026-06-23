@@ -303,16 +303,23 @@ function openLogin() {
 async function openMyMemory() {
   const L = state.lex;
   document.querySelector(".ui-confirm-overlay")?.remove();
-  let cur = "";
-  try { const r = await api("/api/me/memory"); cur = (r && r.content) || ""; } catch { /* 빈 메모리로 시작 */ }
+  let cur = "", items = [];
+  try { const r = await api("/api/me/memory"); cur = (r && r.content) || ""; items = (r && r.items) || []; } catch { /* 빈 메모리로 시작 */ }
+  const typeLabel = (t) => ({ preference: L.mem_t_pref ?? "선호", fact: L.mem_t_fact ?? "사실", open_thread: L.mem_t_open ?? "진행중", decision: L.mem_t_dec ?? "결정" }[t] || t);
+  const renderItems = () => items.length
+    ? items.map((it) => `<div class="mem-item" data-id="${it.id}"><span class="mem-item-type">${esc(typeLabel(it.type))}</span><span class="mem-item-text">${esc(it.text)}</span><button class="mem-item-del" data-del="${it.id}" title="${L.mem_item_del ?? "이 항목 보관(주입 제외)"}">×</button></div>`).join("")
+    : `<div class="dim mini">${L.mem_item_empty ?? "아직 누적된 항목이 없습니다. 일을 완료하면 지식이 항목으로 쌓입니다."}</div>`;
   const ov = document.createElement("div");
   ov.className = "ui-confirm-overlay";
-  ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${L.my_memory ?? "내 메모리"}" style="max-width:520px;text-align:left">
+  ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${L.my_memory ?? "내 메모리"}" style="max-width:560px;text-align:left">
     <p class="ui-confirm-msg">${L.my_memory ?? "내 메모리"}</p>
     <div class="dim mini" style="margin-bottom:6px">${L.my_memory_desc ?? "내 업무 스타일·규칙·자주 쓰는 맥락 — 할일을 시작(Codex 대화)할 때 그 담당자 메모리로 자동 주입됩니다. 평가 아님."}</div>
-    <textarea id="memText" class="login-input" style="width:100%;min-height:180px;resize:vertical" placeholder="${L.my_memory_ph ?? "예: 메일 회신은 존댓말·간결하게. 보고서는 결론부터. 자주 쓰는 약어…"}">${esc(cur)}</textarea>
+    <textarea id="memText" class="login-input" style="width:100%;min-height:140px;resize:vertical" placeholder="${L.my_memory_ph ?? "예: 메일 회신은 존댓말·간결하게. 보고서는 결론부터. 자주 쓰는 약어…"}">${esc(cur)}</textarea>
     <div class="login-err danger-text"></div>
-    <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button><button class="ui-confirm-ok">${L.act_save ?? "저장"}</button></div>
+    <div class="ui-confirm-btns" style="margin-bottom:10px"><button class="ui-confirm-cancel">${L.btn_cancel}</button><button class="ui-confirm-ok">${L.act_save ?? "저장"}</button></div>
+    <div class="mem-items-head dim mini">${L.mem_items_title ?? "누적 메모리 항목"} <span class="mem-items-n">${items.length}</span> — <span class="dim">${L.mem_items_hint ?? "완료 지식이 자동으로 쌓이고, 시작 시 관련 항목이 주입됩니다"}</span></div>
+    <div id="memItems" class="mem-items">${renderItems()}</div>
+    <div class="mem-item-add"><input id="memNewText" class="login-input" style="flex:1" placeholder="${L.mem_item_add_ph ?? "새 항목(규칙·맥락) 직접 추가…"}" /><button id="memAddBtn" class="fav-chip mini">${L.mem_item_add ?? "+ 항목"}</button></div>
   </div>`;
   document.body.appendChild(ov);
   const close = () => ov.remove();
@@ -323,6 +330,21 @@ async function openMyMemory() {
     const r = await post("/api/me/memory", { content }).then((x) => x.json()).catch(() => null);
     if (r && r.ok) { toast(L.my_memory_saved ?? "메모리 저장됨", "ok"); close(); }
     else { ov.querySelector(".login-err").textContent = (r && r.error) || "오류"; }
+  });
+  const refreshItems = () => { ov.querySelector("#memItems").innerHTML = renderItems(); ov.querySelector(".mem-items-n").textContent = items.length; wireItems(); };
+  const wireItems = () => ov.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", async () => {
+    const id = Number(b.dataset.del);
+    const r = await post("/api/me/memory/item", { op: "delete", id }).then((x) => x.json()).catch(() => null);
+    if (r && r.ok) { items = items.filter((it) => it.id !== id); refreshItems(); toast(L.mem_item_deleted ?? "항목 보관됨", "ok"); }
+    else toast((r && r.error) || "오류", "error");
+  }));
+  wireItems();
+  ov.querySelector("#memAddBtn").addEventListener("click", async () => {
+    const inp = ov.querySelector("#memNewText"); const text = inp.value.trim();
+    if (!text) return;
+    const r = await post("/api/me/memory/item", { op: "add", type: "fact", text }).then((x) => x.json()).catch(() => null);
+    if (r && r.ok) { const g = await api("/api/me/memory").catch(() => null); items = (g && g.items) || items; inp.value = ""; refreshItems(); toast(L.mem_item_added ?? "항목 추가됨", "ok"); }
+    else toast((r && r.error) || "오류", "error");
   });
 }
 function openPasswordChange() {

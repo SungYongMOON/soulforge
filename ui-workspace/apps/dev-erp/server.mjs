@@ -802,7 +802,18 @@ const server = createServer(async (req, res) => {
         const r = store.setAssigneeMemory(ref, content);
         return send(res, r.error ? 400 : 200, r);
       }
-      return send(res, 200, { ref, content: store.getAssigneeMemory(ref) });
+      return send(res, 200, { ref, content: store.getAssigneeMemory(ref), items: store.listMemoryItems(ref) });
+    }
+    if (path === "/api/me/memory/item" && req.method === "POST") {
+      // 내 누적 메모리 항목 — 본인 것만 추가/삭제(감시경계). add: {op:'add',type,text} / delete(보관): {op:'delete',id}.
+      const me = currentAccount(req);
+      if (!me) return send(res, 401, { error: "auth_required" });
+      const ref = store.accountDisplayName(me) || me.username;
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { op, id, type, text } = JSON.parse(body || "{}");
+      if (op === "delete") return send(res, 200, store.deleteMemoryItem(ref, id));
+      if (op === "add") { const r = store.addMemoryItem(ref, { type, text }); return send(res, r.error ? 400 : 200, r); }
+      return send(res, 400, { error: "bad_op" });
     }
     if (path === "/api/memory/append" && req.method === "POST") {
       // 완료 지식 → 담당자 메모리 추가. 관리자는 누구에게나, 팀원은 본인 메모리에만(남의 메모리 편집 금지).
