@@ -4,7 +4,7 @@
 
 ### v1.2.0.N - 완료기록 file-of-record(completion_ledger) — MED-1
 
-- 기초감사 MED-1: completion_log(담당자별 처리량·토큰·지식의 내구 기록)가 DB에만 있어 이식·백업 불가였음. **completion_ledger.mjs** 추가 — per-project (작업_장부/할일_장부 가족, 무프로젝트는 _general)로 export↔apply. item_id+created_at 중복 skip=멱등. 무손실·특수문자·null·멱등 round-trip 검증.
+- 기초감사 MED-1: completion_log(담당자별 처리량·토큰·지식의 내구 기록)가 DB에만 있어 이식·백업 불가였음. **completion_ledger.mjs** 추가 — per-project `_workmeta/<code>/reports/완료_장부/완료_장부.csv`(작업_장부/할일_장부 가족, 무프로젝트는 _general)로 export↔apply. item_id+created_at 중복 skip=멱등. 무손실·특수문자·null·멱등 round-trip 검증.
 - npm: dev-erp:completion-export/apply. 도구라 재시작 불요. (운영본 완료기록 4건 존재 — export 시 파일로 materialize; 정기 백업/스케줄러에 편입 권장.)
 - 남은 DB-only: ai_proposal·codex_thread(요약수준·원문미저장 정책 고려한 후속).
 
