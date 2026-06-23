@@ -3489,8 +3489,8 @@ async function renderHome() {
       const mails = (await api("/api/mail?days=3650")).filter((m) => ids.has(m.project_id)).slice(0, 30); // 최신 30건(위젯 내부 스크롤) — 새로고침 시 분류돼 빠진 만큼 다음 메일로 재충전
       // 위젯 행에서 바로 팀원 배정(권장): 담당 선택 → 그 메일을 일반업무로 옮기고 그 팀원 할 일로(받은함에서 빠짐). 미배정으로 두려면 분류 화면 사용.
       const inboxMembers = (state._scopes ?? []).filter((s) => s.id !== "team");
-      const inboxAssignOpts = `<option value="">${L.inbox_assign_ph ?? "팀원에게…"}</option>` + inboxMembers.map((m) => `<option value="${esc(m.label)}">${esc(m.label)}</option>`).join("");
-      const canAssign = inboxMembers.length > 0;
+      const inboxAssignOpts = `<option value="">${L.inbox_assign_ph ?? "배정…"}</option><option value="__UNASSIGN__">${L.assign_unassigned ?? "미배정"}</option>` + inboxMembers.map((m) => `<option value="${esc(m.label)}">${esc(m.label)}</option>`).join("");
+      const canAssign = state.account; // 최소 미배정으로는 항상 분배 가능
       const more = inboxTotal > mails.length
         ? `<div class="widget-more"><a data-inbox-all="${esc(inbox[0]?.id ?? "")}">${(L.inbox_see_all ?? "전체 %n건 분류하러 가기 →").replace("%n", inboxTotal)}</a></div>` : "";
       return { title: `${L.tile_inbox} (${inboxTotal})`, html: mails.length
@@ -3845,13 +3845,15 @@ async function renderHome() {
       sel.addEventListener("click", (e) => e.stopPropagation());
       sel.addEventListener("change", async (e) => {
         e.stopPropagation();
-        const who = sel.value; if (!who) return;
-        const resp = await post("/api/mail/assign", { mail_ids: [sel.dataset.mail], project_id: "general_work", make_items: true, assignee_ref: who });
+        const v = sel.value; if (!v) return;
+        const who = v === "__UNASSIGN__" ? "" : v; // 미배정이면 담당 없이(open 미배정 할일)
+        const resp = await post("/api/mail/assign", { mail_ids: [sel.dataset.mail], project_id: "general_work", make_items: true, assignee_ref: who, open: true });
         const d = await resp.json().catch(() => ({}));
         if (resp.ok && !d.error) {
-          toast(`${who} ${L.inbox_assign_done ?? "배정했어요"} (${INTERNAL_PROJ_LABELS["general_work"] ?? "일반업무"})`, "ok");
+          toast(`${who || (L.assign_unassigned ?? "미배정")} ${L.inbox_assign_done ?? "배정했어요"} (${INTERNAL_PROJ_LABELS["general_work"] ?? "일반업무"})`, "ok");
           $("#view").querySelector('[data-refresh="inbox"]')?.click();
           $("#view").querySelector('[data-refresh="teamload"]')?.click();
+          $("#view").querySelector('[data-refresh="unassigned"]')?.click();
         } else { toast((L.inbox_assign_fail ?? "배정 실패") + (d.error ? ` (${d.error})` : ""), "error"); sel.value = ""; }
       });
     });
@@ -4373,20 +4375,24 @@ function dndMakeRows(scope) {
 async function dndHandleDrop(data, assignee) {
   const L = state.lex;
   const me = state.account?.display_name || state.account?.username || state.account?.email || "";
-  const who = (assignee && String(assignee).trim()) || me; // 드롭 레인이 담당자를 지정하면 그 사람, 아니면 나
-  const okMsg = who === me ? (L.claim_done ?? "내 일로 가져왔습니다") : `${who}${L.claim_assigned_suffix ?? " 님에게 배정했습니다"}`;
+  const unassign = assignee === "__UNASSIGN__"; // 미배정 레인에 드롭
+  const who = unassign ? "" : ((assignee && String(assignee).trim()) || me); // 레인이 담당자면 그 사람, 아니면 나
+  const okMsg = unassign ? (L.claim_unassigned_done ?? "미배정 할일로 등록했어요")
+    : (who === me ? (L.claim_done ?? "내 일로 가져왔습니다") : `${who}${L.claim_assigned_suffix ?? " 님에게 배정했습니다"}`);
   if (data.startsWith("claim-item:")) {
-    const r = await post("/api/items/assign", { id: data.slice(11), assignee_ref: who });
+    const r = await post("/api/items/assign", { id: data.slice(11), assignee_ref: who }); // 미배정이면 빈값 → 담당 해제
     toast(r.ok ? okMsg : (L.claim_fail ?? "배정 실패"), r.ok ? "ok" : "error");
     if (r.ok) render();
   } else if (data.startsWith("claim-mail:")) {
-    // 메일 승격(unclassified) → 담당 배정 → open. 타인 open 항목이면 assign 403 → 가로채기 방지.
+    // 메일 승격 → (담당 배정) → open. 미배정 드롭이면 배정 건너뛰고 open 미배정 할일로. 타인 open 항목이면 assign 403 → 가로채기 방지.
     const pr = await post("/api/items/promote", { mail_id: data.slice(11) });
     const body = await pr.json().catch(() => ({}));
     const itemId = body.item?.id || body.item_id;
     if (!itemId) { toast(mailPromoteErrorText(body.error, L), "error"); return; }
-    const ar = await post("/api/items/assign", { id: itemId, assignee_ref: who });
-    if (!ar.ok) { toast(L.claim_taken ?? "이미 다른 사람의 할 일입니다", "error"); render(); return; }
+    if (!unassign) {
+      const ar = await post("/api/items/assign", { id: itemId, assignee_ref: who });
+      if (!ar.ok) { toast(L.claim_taken ?? "이미 다른 사람의 할 일입니다", "error"); render(); return; }
+    }
     const sr = await post("/api/items/status", { id: itemId, status: "open" });
     if (!sr.ok) { toast(L.claim_fail ?? "배정 실패", "error"); render(); return; }
     toast(okMsg, "ok");
@@ -4410,13 +4416,14 @@ function claimDropBarHtml() {
   if (!state.account) return "";
   const L = state.lex;
   const members = (state._scopes ?? []).filter((s) => s.id !== "team");
-  if (!members.length) return ""; // scopes 미로드/빈 경우 빈 드롭 바 노출 안 함
   const myId = state.account.id;
-  const lanes = members.map((m) =>
+  const memberLanes = members.map((m) =>
     `<button class="claim-lane" data-assignee="${esc(m.label)}">${esc(m.label)}${m.id === myId ? ` (${L.claim_me ?? "나"})` : ""}</button>`).join("");
+  // 미배정 레인 — 항상 제공(팀원 없어도 미배정으로 드롭 가능). 담당자 레인이 있으면 그 뒤에.
+  const unassignLane = `<button class="claim-lane claim-unassign" data-assignee="__UNASSIGN__">${esc(L.assign_unassigned ?? "미배정")}</button>`;
   return `<div class="claim-drop" id="claimDropBar">
-    <span class="claim-drop-hint">📥 ${esc(L.mail_claim_drop_multi ?? "끌어다 담당자에게 놓으면 그 사람 할 일이 됩니다")}</span>
-    <div class="claim-lanes">${lanes}</div></div>`;
+    <span class="claim-drop-hint">📥 ${esc(L.mail_claim_drop_multi ?? "끌어다 담당자나 미배정에 놓으면 그 할 일이 됩니다")}</span>
+    <div class="claim-lanes">${unassignLane}${memberLanes}</div></div>`;
 }
 function wireClaimDropBar(scope) {
   if (!state.account) return;
@@ -4809,7 +4816,7 @@ async function renderMail() {
   );
   const doAssign = async (mailIds, target, makeItems, nextSel = null, assigneeRef = null) => {
     if (!target) { toast(L.assign_need_target ?? "분류할 과제를 고르세요", "error"); return; }
-    const r = await post("/api/mail/assign", { mail_ids: mailIds, project_id: target, make_items: makeItems, assignee_ref: assigneeRef || null });
+    const r = await post("/api/mail/assign", { mail_ids: mailIds, project_id: target, make_items: makeItems, assignee_ref: assigneeRef || null, open: makeItems });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || d.error) { toast(L.assign_fail ?? "분류 실패", "error"); return; }
     const whoLabel = makeItems ? ` · ${assigneeRef ? assigneeRef : (L.assign_unassigned ?? "미배정")}` : ""; // 누구 담당으로 갔는지 피드백

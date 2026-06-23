@@ -1478,10 +1478,10 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/mail/assign" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
-      const { mail_ids, project_id, make_items, assignee_ref } = JSON.parse(body || "{}");
+      const { mail_ids, project_id, make_items, assignee_ref, open } = JSON.parse(body || "{}");
       const requestedMailIds = Array.isArray(mail_ids) ? mail_ids : [];
       if (requestedMailIds.some((mail_id) => !canAccessMail(req, mail_id))) return send(res, 403, { error: "mail_forbidden" });
-      const result = store.assignMails(mail_ids, project_id, { make_items: make_items === true, created_by: actor, assignee_ref: assignee_ref || null });
+      const result = store.assignMails(mail_ids, project_id, { make_items: make_items === true, created_by: actor, assignee_ref: assignee_ref || null, open: open === true });
       if (result.error) return send(res, 400, result);
       for (const r of result.results) {
         if (r.error || r.unchanged) continue;

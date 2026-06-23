@@ -3620,8 +3620,11 @@ test("자가검증: 락 게이트·DnD payload·담당자 레인 함수 동작 (
   const bar = B.claimDropBarHtml();
   assert.match(bar, /claim-lane/);
   assert.match(bar, /data-assignee="김철수"/);
+  assert.match(bar, /data-assignee="__UNASSIGN__"/); // 미배정 레인 항상 포함
   state._scopes = [];
-  assert.equal(B.claimDropBarHtml(), ""); // 멤버 0 → 바 미표시
+  const barNoMembers = B.claimDropBarHtml();
+  assert.match(barNoMembers, /data-assignee="__UNASSIGN__"/); // 멤버 0이어도 미배정 레인은 제공(드롭 가능)
+  assert.doesNotMatch(barNoMembers, /data-assignee="김철수"/);
 });
 
 test("챗봇 UI: ERP와 챗봇 릴리즈 번호를 별도 컴포넌트 버전으로 표시한다", () => {

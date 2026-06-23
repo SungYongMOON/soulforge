@@ -1849,7 +1849,7 @@ export class Store {
 
   // run17: 묶음 분류 (+선택: 할일 생성 = 판타지 '몬스터 출몰').
   // 이미 승격된 메일은 중복 생성 없이 이동만. 결과는 메일별로 반환(이벤트는 호출자가 기록).
-  assignMails(mail_ids, project_id, { make_items = false, created_by = null, assignee_ref = null } = {}) {
+  assignMails(mail_ids, project_id, { make_items = false, created_by = null, assignee_ref = null, open = false } = {}) {
     if (!Array.isArray(mail_ids) || mail_ids.length === 0) return { error: "mail_ids_required" };
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
     const results = [];
@@ -1859,7 +1859,11 @@ export class Store {
       const entry = { mail_id, from: moved.from, unchanged: moved.unchanged ?? false, item_moved: moved.item_moved, item_created: null };
       if (make_items && !moved.item_moved) {
         const promoted = this.promoteMail(mail_id, created_by, assignee_ref); // 분류 시 고른 담당(나/팀원/미배정)
-        if (promoted.ok) entry.item_created = promoted.item.id;
+        if (promoted.ok) {
+          entry.item_created = promoted.item.id;
+          // 분배(open=true): work_type 없이도 즉시 '열린 할일'로 — 팀원별/미배정 위젯(open만 셈)에 보이게. (분류 큐 격리 대신 바로 분배)
+          if (open) this.setItemStatus(promoted.item.id, "open");
+        }
       }
       results.push(entry);
     }
