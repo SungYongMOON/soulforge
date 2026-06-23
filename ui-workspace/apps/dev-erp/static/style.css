@@ -276,6 +276,10 @@ tr.tl-row:hover { background: rgba(31,72,212,.05); }
 /* 드롭존 강조는 초록(--ok)으로 — accent(파랑) 위젯 편집/리사이즈 외곽선과 구분해 '편집 점선' 오인 방지 */
 body.dnd-active .dnd-target { outline: 2px dashed var(--ok); outline-offset: -2px; }
 .widget-body.dnd-target.drop-active { background: rgba(44,122,75,.12); outline: 2px solid var(--ok); }
+/* 팀원별 할일 행을 드롭 대상으로: 행은 outline이 잘 안 먹어 inset box-shadow로 또렷하게(메일을 팀원 행에 직접 배정). */
+body.dnd-active tr.tl-row.dnd-target { cursor: copy; }
+tr.tl-row.dnd-target.drop-active { background: rgba(44,122,75,.18); box-shadow: inset 0 0 0 2px var(--ok); }
+tr.tl-row.dnd-target.drop-active td:first-child { font-weight: 600; }
 /* 콕핏 메일/미분류 위젯 행: 클릭 시 메일 화면에서 분류 진입(드래그도 가능). */
 [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail] { cursor: pointer; }
 [data-body="mail"] tr[data-mail]:hover, [data-body="inbox"] tr[data-mail]:hover { background: var(--chip); }

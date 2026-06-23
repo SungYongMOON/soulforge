@@ -3858,13 +3858,16 @@ async function renderHome() {
       });
     });
     // 팀원별 위젯 행 클릭 → 그 팀원의 할 일로 드릴인(보기범위 전환). 매칭 스코프 없으면 무시.
-    $("#view").querySelectorAll('[data-body="teamload"] tr.tl-row').forEach((tr) =>
+    $("#view").querySelectorAll('[data-body="teamload"] tr.tl-row').forEach((tr) => {
       tr.addEventListener("click", () => {
         if (tr.dataset.unassigned === "1") { state.viewScope = "team"; state.statusFilter = "unassigned"; resetItemPaging(); state.view = "items"; render(); return; } // (미배정) 행 → 미배정 할일 뷰
         const sc = (state._scopes ?? []).find((s) => s.label === tr.dataset.member);
         if (sc) { state.viewScope = sc.id; resetItemPaging(); state.view = "items"; render(); }
         else toast(state.lex.tl_no_scope ?? "이 팀원으로 전환할 수 없어요(보기범위 미설정)", "error");
-      }));
+      });
+      // 메일/항목 행을 이 팀원(또는 미배정) 행에 직접 드롭 → 그 사람에게 배정(open). 레인 바 없이 위젯에서 바로.
+      if (state.account) dndWireDrop(tr, tr.dataset.unassigned === "1" ? "__UNASSIGN__" : tr.dataset.member);
+    });
     // '미분류 메일함' 위젯 → 전체 보기: 받은함 프로젝트로 필터된 메일 화면(전 미분류 메일 분류용).
     $("#view").querySelectorAll("[data-inbox-all]").forEach((a) =>
       a.addEventListener("click", (e) => {
