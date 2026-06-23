@@ -3390,13 +3390,24 @@ async function renderHome() {
         : `<div class="empty">${L.empty_items}</div>` };
     }
     if (id === "teamload") {
-      // P-7 팀 부하 — 담당별 미완/차단/연체 건수(집계만, 개인 점수 미산출). NULL=(미배정).
+      // P-7 팀원별 할일 — 담당별 미완/대화/연체 + 제목 인라인(행 클릭 시 펼침). NULL=(미배정).
       const wl = await api("/api/workload");
+      // 남은 항목(=open_cnt 집합: 미분류·보관·완료 제외)을 담당자별로 묶어 제목 표시. 별도 위젯 없이 인라인.
+      const remaining = (await api("/api/items")).filter((it) => it.status !== "done");
+      const byOwner = {};
+      for (const it of remaining) { const k = (it.assignee_ref && it.assignee_ref.trim()) || "__UNASSIGN__"; (byOwner[k] ??= []).push(it); }
+      const titleRows = (key) => (byOwner[key] ?? []).slice(0, 12).map((it) =>
+        `<tr class="wrow tl-title-row" data-owner="${esc(key)}" data-item="${esc(it.id)}" data-proj="${esc(it.project_id)}" data-title="${esc(it.title)}" style="display:none">`
+        + `<td></td><td colspan="3" class="tl-title">${esc(it.title)}${it.due ? ` <span class="dim">· ${esc(it.due)}</span>` : ""}</td></tr>`).join("");
       return { title: L.tile_teamload, html: wl.length
-        ? `<table><thead><tr><th>${L.col_person}</th><th>${L.tl_remaining ?? "남은"}</th><th>${L.tl_chat ?? "대화"}</th><th>${L.overdue}</th></tr></thead><tbody>${wl.map((w) => `<tr class="wrow tl-row" data-member="${esc(w.name)}" data-unassigned="${w.assignee_ref ? "" : "1"}">
-            <td>${esc(w.name)}</td><td class="num">${w.open_cnt || '<span class="dim">0</span>'}</td>
-            <td class="num">${w.chat_cnt ? `<span class="badge">💬 ${w.chat_cnt}</span>` : '<span class="dim">·</span>'}</td>
-            <td class="num">${w.overdue_cnt ? `<span class="badge red">${w.overdue_cnt}</span>` : '<span class="dim">0</span>'}</td></tr>`).join("")}</tbody></table>`
+        ? `<table><thead><tr><th>${L.col_person}</th><th>${L.tl_remaining ?? "남은"}</th><th>${L.tl_chat ?? "대화"}</th><th>${L.overdue}</th></tr></thead><tbody>${wl.map((w) => {
+            const key = w.assignee_ref ? w.name : "__UNASSIGN__";
+            return `<tr class="wrow tl-row" data-member="${esc(w.name)}" data-owner="${esc(key)}" data-unassigned="${w.assignee_ref ? "" : "1"}">`
+              + `<td>${esc(w.name)}</td><td class="num">${w.open_cnt || '<span class="dim">0</span>'}</td>`
+              + `<td class="num">${w.chat_cnt ? `<span class="badge">💬 ${w.chat_cnt}</span>` : '<span class="dim">·</span>'}</td>`
+              + `<td class="num">${w.overdue_cnt ? `<span class="badge red">${w.overdue_cnt}</span>` : '<span class="dim">0</span>'}</td></tr>`
+              + titleRows(key);
+          }).join("")}</tbody></table>`
         : `<div class="empty">-</div>` };
     }
     if (id === "mail") {
@@ -3857,13 +3868,15 @@ async function renderHome() {
         } else { toast((L.inbox_assign_fail ?? "배정 실패") + (d.error ? ` (${d.error})` : ""), "error"); sel.value = ""; }
       });
     });
-    // 팀원별 위젯 행 클릭 → 그 팀원의 할 일로 드릴인(보기범위 전환). 매칭 스코프 없으면 무시.
+    // 팀원별 위젯 행 클릭 → 그 사람(또는 미배정)의 할 일 제목을 인라인으로 펼침/접기. 제목 행은 위임 클릭으로 열림.
     $("#view").querySelectorAll('[data-body="teamload"] tr.tl-row').forEach((tr) => {
       tr.addEventListener("click", () => {
-        if (tr.dataset.unassigned === "1") { state.viewScope = "team"; state.statusFilter = "unassigned"; resetItemPaging(); state.view = "items"; render(); return; } // (미배정) 행 → 미배정 할일 뷰
-        const sc = (state._scopes ?? []).find((s) => s.label === tr.dataset.member);
-        if (sc) { state.viewScope = sc.id; resetItemPaging(); state.view = "items"; render(); }
-        else toast(state.lex.tl_no_scope ?? "이 팀원으로 전환할 수 없어요(보기범위 미설정)", "error");
+        const owner = tr.dataset.owner ?? tr.dataset.member;
+        const body = tr.closest('[data-body="teamload"]');
+        const rows = body ? body.querySelectorAll(`tr.tl-title-row[data-owner="${CSS.escape(owner)}"]`) : [];
+        const showing = rows.length > 0 && rows[0].style.display !== "none";
+        rows.forEach((r) => { r.style.display = showing ? "none" : ""; });
+        tr.classList.toggle("tl-open", !showing);
       });
       // 메일/항목 행을 이 팀원(또는 미배정) 행에 직접 드롭 → 그 사람에게 배정(open). 레인 바 없이 위젯에서 바로.
       if (state.account) dndWireDrop(tr, tr.dataset.unassigned === "1" ? "__UNASSIGN__" : tr.dataset.member);

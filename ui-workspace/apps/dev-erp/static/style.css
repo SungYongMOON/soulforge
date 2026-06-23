@@ -280,6 +280,13 @@ body.dnd-active .dnd-target { outline: 2px dashed var(--ok); outline-offset: -2p
 body.dnd-active tr.tl-row.dnd-target { cursor: copy; }
 tr.tl-row.dnd-target.drop-active { background: rgba(44,122,75,.18); box-shadow: inset 0 0 0 2px var(--ok); }
 tr.tl-row.dnd-target.drop-active td:first-child { font-weight: 600; }
+/* 팀원별 할일 행: 클릭하면 그 사람 할일 제목을 인라인으로 펼침(셰브론으로 표시). */
+tr.tl-row { cursor: pointer; }
+tr.tl-row td:first-child::before { content: "▸"; color: var(--muted); font-size: .75em; margin-right: 4px; display: inline-block; transition: transform .12s; }
+tr.tl-row.tl-open td:first-child::before { transform: rotate(90deg); }
+tr.tl-title-row > td { padding-top: 2px; padding-bottom: 2px; }
+.tl-title { padding-left: 16px; font-size: .92em; cursor: pointer; }
+tr.tl-title-row:hover .tl-title { color: var(--accent); text-decoration: underline; }
 /* 콕핏 메일/미분류 위젯 행: 클릭 시 메일 화면에서 분류 진입(드래그도 가능). */
 [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail] { cursor: pointer; }
 [data-body="mail"] tr[data-mail]:hover, [data-body="inbox"] tr[data-mail]:hover { background: var(--chip); }
