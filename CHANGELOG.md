@@ -2,6 +2,12 @@
 
 ## 2026-06-23
 
+### v1.2.0.N - 버전 4세그먼트 자동 증가 (owner: '버전이 그대로네')
+
+- ERP 버전을 `MAJOR.MINOR.PATCH.BUILD` 4세그먼트로. **BUILD = dev-erp 경로 git 커밋수(자동)** → 매 배포(커밋)마다 자동 +1, 수동 깜빡임 없이 항상 증가. /api/version의 erp.release에 노출(예: v1.2.0.373).
+- release v1.1.0 → **v1.2.0**(이번 세션 기능 묶음=MINOR 1.2). 앞으로 기능 묶음=PATCH 수동, 매 배포=BUILD 자동. 이 '## 2026-06-23' 아래 항목들이 각 배포의 내역.
+- (참고) 메일 본문 표시 요청: core_mail·메일이력 CSV 모두 설계상 **메타데이터 전용**(본문 미저장), 본문은 어디에도 저장 안 됨 → 별도 보고로 정책/방식 결정 요청.
+
 ### Revision `working` - 도그푸딩 ④⑥: 연속 분류 과제 sticky + 막힌 일 차단사유 노출
 
 - **④ (메일실무)**: 메일 분류 과제 드롭다운이 '분류하고 다음'마다 첫 옵션으로 리셋되던 걸 → doAssign에서 `state.lastAssignProject` 기억, assignOpts가 그 과제를 selected. 같은 과제로 연속 들어오는 메일을 매번 재선택 안 해도 됨(client-only).

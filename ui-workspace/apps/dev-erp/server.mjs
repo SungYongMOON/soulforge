@@ -5,7 +5,7 @@
 // 기본: 빈 DB 는 비워 둔다. 데모 데이터는 --fixture 또는 DEV_ERP_LOAD_FIXTURE=1 일 때만 적재.
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
-import { execFile } from "node:child_process";
+import { execFile, execSync } from "node:child_process";
 import { promisify } from "node:util";
 import { readFileSync, existsSync, mkdirSync, statSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -107,9 +107,13 @@ const SKIN_ROOTS = [...new Set([
   join(ROOT, "_workspaces", "system", "dev-erp", "skins"),
   join(HERE, "static", "skins"),
 ].filter(Boolean).map((p) => resolve(p)))];
+// 4번째 버전 세그먼트 = dev-erp 경로 커밋수(자동 증가). 매 dev-erp 배포(커밋)마다 +1 → '버전이 그대로'를 수동 깜빡임 없이 방지. git 없으면 0(best-effort).
+function erpBuildSeq() {
+  try { return Number(execSync("git rev-list --count HEAD -- .", { cwd: HERE, encoding: "utf8" }).trim()) || 0; } catch { return 0; }
+}
 const ERP_VERSION = Object.freeze({
-  release: "v1.1.0",
-  build: "ui-2026.06.21-decompose.18",
+  release: `v1.2.0.${erpBuildSeq()}`,   // MAJOR.MINOR.PATCH.BUILD — 기능 묶음=PATCH 수동, 매 배포=BUILD 자동
+  build: "ui-2026.06.23",
   source: "server.mjs"
 });
 
