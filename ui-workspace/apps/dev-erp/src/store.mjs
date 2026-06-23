@@ -2932,14 +2932,15 @@ export class Store {
          COUNT(*) AS total,
          SUM(CASE WHEN status NOT IN ('done','unclassified','archived') THEN 1 ELSE 0 END) AS open_cnt,
          SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) AS blocked_cnt,
-         SUM(CASE WHEN status NOT IN ('done','unclassified','archived') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt
+         SUM(CASE WHEN status NOT IN ('done','unclassified','archived') AND due IS NOT NULL AND due < ? THEN 1 ELSE 0 END) AS overdue_cnt,
+         SUM(CASE WHEN status NOT IN ('done','archived') AND EXISTS(SELECT 1 FROM codex_thread_binding b WHERE b.item_id=core_item.id) THEN 1 ELSE 0 END) AS chat_cnt
        FROM core_item ${where} GROUP BY assignee_ref`
     ).all(todayKey, ...(scope?.args ?? []));
     const names = new Map(this.people().map((p) => [p.id, p.name]));
     return rows.map((r) => ({
       assignee_ref: r.assignee_ref ?? null,
       name: r.assignee_ref == null ? "(미배정)" : (names.get(r.assignee_ref) ?? r.assignee_ref),
-      total: r.total, open_cnt: r.open_cnt, blocked_cnt: r.blocked_cnt, overdue_cnt: r.overdue_cnt,
+      total: r.total, open_cnt: r.open_cnt, blocked_cnt: r.blocked_cnt, overdue_cnt: r.overdue_cnt, chat_cnt: r.chat_cnt,
     })).sort((a, b) => b.open_cnt - a.open_cnt);
   }
   // P-7 회의 미결 롤업 — 미완 액션이 남은 회의만(집계만).

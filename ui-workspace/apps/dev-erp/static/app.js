@@ -3393,9 +3393,9 @@ async function renderHome() {
       // P-7 팀 부하 — 담당별 미완/차단/연체 건수(집계만, 개인 점수 미산출). NULL=(미배정).
       const wl = await api("/api/workload");
       return { title: L.tile_teamload, html: wl.length
-        ? `<table><thead><tr><th>${L.col_person}</th><th>${L.open}</th><th>${L.blocked}</th><th>${L.overdue}</th></tr></thead><tbody>${wl.map((w) => `<tr>
-            <td>${esc(w.name)}</td><td class="num">${w.open_cnt}</td>
-            <td class="num">${w.blocked_cnt || '<span class="dim">0</span>'}</td>
+        ? `<table><thead><tr><th>${L.col_person}</th><th>${L.tl_remaining ?? "남은"}</th><th>${L.tl_chat ?? "대화"}</th><th>${L.overdue}</th></tr></thead><tbody>${wl.map((w) => `<tr class="${w.assignee_ref ? "wrow tl-row" : ""}" data-member="${esc(w.name)}">
+            <td>${esc(w.name)}</td><td class="num">${w.open_cnt || '<span class="dim">0</span>'}</td>
+            <td class="num">${w.chat_cnt ? `<span class="badge">💬 ${w.chat_cnt}</span>` : '<span class="dim">·</span>'}</td>
             <td class="num">${w.overdue_cnt ? `<span class="badge red">${w.overdue_cnt}</span>` : '<span class="dim">0</span>'}</td></tr>`).join("")}</tbody></table>`
         : `<div class="empty">-</div>` };
     }
@@ -3487,10 +3487,14 @@ async function renderHome() {
       const ids = new Set(inbox.map((p) => p.id));
       const inboxTotal = inbox.reduce((s, p) => s + (p.mail_cnt || 0), 0); // 실제 미분류 총건수(서버 집계)
       const mails = (await api("/api/mail?days=3650")).filter((m) => ids.has(m.project_id)).slice(0, 30); // 최신 30건(위젯 내부 스크롤) — 새로고침 시 분류돼 빠진 만큼 다음 메일로 재충전
+      // 위젯 행에서 바로 팀원 배정(권장): 담당 선택 → 그 메일을 일반업무로 옮기고 그 팀원 할 일로(받은함에서 빠짐). 미배정으로 두려면 분류 화면 사용.
+      const inboxMembers = (state._scopes ?? []).filter((s) => s.id !== "team");
+      const inboxAssignOpts = `<option value="">${L.inbox_assign_ph ?? "팀원에게…"}</option>` + inboxMembers.map((m) => `<option value="${esc(m.label)}">${esc(m.label)}</option>`).join("");
+      const canAssign = inboxMembers.length > 0;
       const more = inboxTotal > mails.length
         ? `<div class="widget-more"><a data-inbox-all="${esc(inbox[0]?.id ?? "")}">${(L.inbox_see_all ?? "전체 %n건 분류하러 가기 →").replace("%n", inboxTotal)}</a></div>` : "";
       return { title: `${L.tile_inbox} (${inboxTotal})`, html: mails.length
-        ? `<table><tbody>${mails.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}</td></tr>`).join("")}</tbody></table>${more}`
+        ? `<table><tbody>${mails.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}</td>${canAssign ? `<td class="inbox-assign-cell"><select class="inbox-assign" data-mail="${esc(m.id)}">${inboxAssignOpts}</select></td>` : ""}</tr>`).join("")}</tbody></table>${more}`
         : `<div class="empty">${L.empty_mail}</div>` };
     }
     // 최근 변경 = 사람이 읽는 변경 이력. 조회/잡음(view 등) 제외, kind 를 한국어 설명으로. 할일 변경은 클릭→빠른편집.
@@ -3834,6 +3838,29 @@ async function renderHome() {
         state.viewScope = "team"; state.projectFilter = ""; state.mailOffset = 0;
         if (state.mailFilters) state.mailFilters.q = "";
         state.view = "mail"; render();
+      }));
+    // 미분류 메일함 위젯 행에서 바로 팀원 배정 → 일반업무로 옮기고 그 팀원 할 일 생성. 위젯 드래그/행클릭과 분리.
+    $("#view").querySelectorAll('[data-body="inbox"] .inbox-assign').forEach((sel) => {
+      sel.addEventListener("mousedown", (e) => e.stopPropagation());
+      sel.addEventListener("click", (e) => e.stopPropagation());
+      sel.addEventListener("change", async (e) => {
+        e.stopPropagation();
+        const who = sel.value; if (!who) return;
+        const resp = await post("/api/mail/assign", { mail_ids: [sel.dataset.mail], project_id: "general_work", make_items: true, assignee_ref: who });
+        const d = await resp.json().catch(() => ({}));
+        if (resp.ok && !d.error) {
+          toast(`${who} ${L.inbox_assign_done ?? "배정했어요"} (${INTERNAL_PROJ_LABELS["general_work"] ?? "일반업무"})`, "ok");
+          $("#view").querySelector('[data-refresh="inbox"]')?.click();
+          $("#view").querySelector('[data-refresh="teamload"]')?.click();
+        } else { toast((L.inbox_assign_fail ?? "배정 실패") + (d.error ? ` (${d.error})` : ""), "error"); sel.value = ""; }
+      });
+    });
+    // 팀원별 위젯 행 클릭 → 그 팀원의 할 일로 드릴인(보기범위 전환). 매칭 스코프 없으면 무시.
+    $("#view").querySelectorAll('[data-body="teamload"] tr.tl-row').forEach((tr) =>
+      tr.addEventListener("click", () => {
+        const sc = (state._scopes ?? []).find((s) => s.label === tr.dataset.member);
+        if (sc) { state.viewScope = sc.id; resetItemPaging(); state.view = "items"; render(); }
+        else toast(state.lex.tl_no_scope ?? "이 팀원으로 전환할 수 없어요(보기범위 미설정)", "error");
       }));
     // '미분류 메일함' 위젯 → 전체 보기: 받은함 프로젝트로 필터된 메일 화면(전 미분류 메일 분류용).
     $("#view").querySelectorAll("[data-inbox-all]").forEach((a) =>

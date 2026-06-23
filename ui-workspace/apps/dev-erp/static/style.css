@@ -265,6 +265,11 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 .widget-more { padding: 6px 2px 2px; text-align: right; }
 .widget-more a { font-size: 12px; color: var(--accent); cursor: pointer; }
 .widget-more a:hover { text-decoration: underline; }
+/* 미분류 메일함 위젯: 행별 팀원 배정 드롭다운 + 팀원별 위젯 클릭 드릴인 */
+.inbox-assign-cell { width: 1%; white-space: nowrap; }
+.inbox-assign { max-width: 96px; font-size: 11px; padding: 1px 3px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--text); }
+tr.tl-row { cursor: pointer; }
+tr.tl-row:hover { background: rgba(31,72,212,.05); }
 /* 행-레벨 드래그(미배정 할일/메일 → '내 할 일' 위젯에 드롭). */
 .dnd-row { cursor: grab; }
 .dnd-row:active { cursor: grabbing; }
