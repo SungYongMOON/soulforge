@@ -256,6 +256,11 @@ nav button.active { background: var(--chip); font-weight: 600; color: var(--acce
 .widget-search { width: 100%; box-sizing: border-box; margin: 0 0 6px; padding: 4px 8px; font-size: 12px;
   border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
 .widget-search:focus { outline: none; border-color: var(--accent); }
+/* '내 할 일' 위젯 빠른 추가 */
+.mine-qa { display: flex; gap: 4px; padding: 4px 2px 8px; align-items: center; }
+.mine-qa .mqa-title { flex: 1; min-width: 0; padding: 4px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 12px; }
+.mine-qa .mqa-proj { max-width: 116px; padding: 4px 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 11px; }
+.mine-qa .mqa-add { white-space: nowrap; }
 /* 행-레벨 드래그(미배정 할일/메일 → '내 할 일' 위젯에 드롭). */
 .dnd-row { cursor: grab; }
 .dnd-row:active { cursor: grabbing; }

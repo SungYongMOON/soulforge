@@ -3060,6 +3060,9 @@ function openTaskCodex(itemId) {
     const msg = inputEl.value.trim();
     if (!msg) return;
     inputEl.value = "";
+    // 낙관적 echo: 입력 즉시 내 메시지를 로그에 표시(답변은 나중에 render에서 채워짐). 입력글이 답변과 함께 늦게 뜨던 문제 수정.
+    logEl.insertAdjacentHTML("beforeend", `<div class="task-codex-row user"><div class="task-codex-msg user"><b>${roleLabel("user")}</b><span>${esc(msg)}</span></div></div>`);
+    logEl.scrollTop = logEl.scrollHeight;
     suggestEl.hidden = true;
     setPending(true, "send");
     updateTaskCodexRowBadge(itemId, "waiting");
@@ -3338,7 +3341,11 @@ async function renderHome() {
       // 내 담당 할 일 — 로그인 계정 식별자(내 일 필터와 동일 경로). 익명이면 로그인 안내.
       if (!state.account) return { title: L.tile_mine, html: `<div class="empty">${L.mine_login ?? "로그인하면 내 담당 할 일이 보입니다"}</div>` };
       const mine = (await api("/api/items?mine=1")).filter((i) => i.status !== "done").slice(0, 8);
-      return { title: L.tile_mine, html: mine.length ? `<table><tbody>${mine.map((i) => itemMiniRow(i, [esc(i.due ?? "-")])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
+      const qaOpts = projects.filter((p) => p.class === "active" || p.class === "internal")
+        .map((p) => `<option value="${esc(p.id)}"${p.id === "general_work" ? " selected" : ""}>${esc(p.title === p.id ? projDisplay(p.id) : `${p.id} · ${p.title}`)}</option>`).join("");
+      const quickAdd = `<div class="mine-qa"><input class="mqa-title" placeholder="${L.mine_qa_ph ?? "빠른 할 일 추가…"}" /><select class="mqa-proj" title="${L.project}">${qaOpts}</select><button class="mqa-add fav-chip active">${L.mine_qa_add ?? "추가"}</button></div>`;
+      const list = mine.length ? `<table><tbody>${mine.map((i) => itemMiniRow(i, [esc(i.due ?? "-")])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`;
+      return { title: L.tile_mine, html: quickAdd + list };
     }
     if (id === "requests_w") {
       // 개발요청함 — 미승격 열린 요청(분류·요청자). api/requests 소비.
@@ -3826,6 +3833,21 @@ async function renderHome() {
       }));
     $("#view").querySelectorAll("[data-goreports]").forEach((b) =>
       b.addEventListener("click", (e) => { e.stopPropagation(); state.view = "mod:reports"; render(); }));
+    // '내 할 일' 위젯 빠른 추가 — 입력+과제 선택 후 바로 할일 생성(담당=본인 백필). 추가 후 그 위젯만 갱신.
+    $("#view").querySelectorAll('[data-body="mine"] .mine-qa').forEach((box) => {
+      if (box.dataset.qaBound === "1") return; box.dataset.qaBound = "1";
+      box.addEventListener("mousedown", (e) => e.stopPropagation()); // 위젯 드래그와 분리
+      const add = async () => {
+        const titleEl = box.querySelector(".mqa-title"), title = titleEl.value.trim(), proj = box.querySelector(".mqa-proj")?.value;
+        if (!title) { toast(L.mine_qa_need ?? "할 일 내용을 입력하세요", "error"); return; }
+        if (!proj) { toast(L.mine_qa_need_proj ?? "과제를 고르세요", "error"); return; }
+        const resp = await post("/api/items", { project_id: proj, title });
+        if (resp.ok) { titleEl.value = ""; toast(L.mine_qa_done ?? "할 일을 추가했어요", "ok"); $("#view").querySelector('[data-refresh="mine"]')?.click(); }
+        else { const er = await resp.json().catch(() => ({})); toast((L.mine_qa_fail ?? "추가 실패") + (er.error ? ` (${er.error})` : ""), "error"); }
+      };
+      box.querySelector(".mqa-add")?.addEventListener("click", (e) => { e.stopPropagation(); add(); });
+      box.querySelector(".mqa-title")?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); add(); } });
+    });
     $("#view").querySelectorAll(".widget-search").forEach((inp) => {
       if (inp.dataset.wsBound === "1") return; // 새로고침 시 리스너 중복 누적 방지
       inp.dataset.wsBound = "1";
@@ -6144,4 +6166,12 @@ if (!state.account) {
   refreshNotifBadge(); // 🔔 알림 배지 초기 집계
   // 배지를 세션 내내 살려둔다 — 완료 시 생기는 AI 요약 제안·새 차단/연체가 새로고침 없이 ~30초 내 벨에 뜨도록(발견성).
   setInterval(() => { if (state.account && document.visibilityState !== "hidden") refreshNotifBadge(); }, 30000);
+  // 메일 위젯(미분류 메일함·최근 메일) 자동 갱신 — 스냅샷이라 새 메일이 안 뜨던 문제. 90초 주기 + 탭 복귀 시. 위젯 검색 입력 중엔 스킵(검색어 보존).
+  const autoRefreshMailWidgets = () => {
+    if (document.visibilityState === "hidden") return;
+    if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains("widget-search")) return;
+    document.querySelectorAll('#view [data-refresh="inbox"], #view [data-refresh="mail"]').forEach((b) => b.click());
+  };
+  setInterval(autoRefreshMailWidgets, 90000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoRefreshMailWidgets(); });
 }
