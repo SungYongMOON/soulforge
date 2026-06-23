@@ -56,7 +56,7 @@ export function loadFixture(store) {
         spawn_kind: ["spawned", "fixed", "respawn"][n % 3],
         encounter_role: k === 9 ? "boss" : k % 4 === 3 ? "elite" : "normal",
         difficulty: (n % 5) + 1,
-        urgency: n % 4 === 0 ? "high" : "normal",
+        urgency: "normal", // 우선(⭐=high)은 사람이 setItemUrgency로만 지정 — 시드에 가짜 high를 박지 않음(분석·정렬·nudges 오염 방지)
         automation_level: ["manual", "assisted", "semi"][n % 3],
         assignee_ref: people[n % 5].id,
         status,

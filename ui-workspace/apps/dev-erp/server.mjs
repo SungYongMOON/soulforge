@@ -267,7 +267,9 @@ function canAccessMail(req, mail_id) {
   if (!mailbox || mailbox === "team") return true;
   if (mailbox === "__none__") return false;
   const row = store.db.prepare("SELECT mailbox FROM core_mail WHERE id=?").get(mail_id);
-  return store.mailboxMatches(row?.mailbox, mailbox);
+  if (!row) return true;
+  if (!row.mailbox || !String(row.mailbox).trim()) return true; // 메일함 메타 없는 수집 받은함 메일=로그인 팀원이 함께 분류·분배하는 공용 큐(canAccessItem unclassified 예외와 대칭)
+  return store.mailboxMatches(row.mailbox, mailbox);
 }
 
 function requestScope(req, qp = {}) {
@@ -282,6 +284,7 @@ function canAccessItem(req, item_id) {
   const row = store.db.prepare("SELECT assignee_ref,status FROM core_item WHERE id=?").get(item_id);
   if (!row) return true;
   if (row.status === "unclassified") return true; // 미분류 인입함은 로그인 팀원이 함께 분류하는 공용 큐.
+  if (!row.assignee_ref && !["done", "archived"].includes(row.status)) return true; // 미배정(주인 없는) 활성 할일 = 아무나 먼저 잡는 공용 풀
   return viewIdentities(req, {}).includes(row.assignee_ref);
 }
 
@@ -779,9 +782,9 @@ const server = createServer(async (req, res) => {
       // 완료 로그/집계(할일 로그·#4 분석). 관리자=전체, 그 외=본인 것만(감시경계).
       const scope = requestScope(req, qp);
       const days = Number(qp.days) || 30;
-      if (scope.all) return send(res, 200, { stats: store.completionStats({ days }), log: store.completionLog({ days, assignee: qp.assignee || null }) });
-      const me = (scope.assignee_any && scope.assignee_any[0]) || null;
-      return send(res, 200, { stats: store.completionStats({ days }).filter((r) => r.assignee_ref === me), log: store.completionLog({ days, assignee: me }) });
+      // 관리자=전체(assignee_any=null). 그외=본인 식별자 배열 IN 매칭(다른 스코프 경로와 동일한 scopedInClause, 빈 배열이면 1=0 fail-closed). 단일 [0] 매칭은 본인 누락+타인 누수 위험이라 폐기.
+      const assignee_any = scope.all ? null : (scope.assignee_any || []);
+      return send(res, 200, { stats: store.completionStats({ days, assignee_any }), log: store.completionLog({ days, assignee_any }) });
     }
     if (path === "/api/items/status" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;

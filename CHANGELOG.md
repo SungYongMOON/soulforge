@@ -2,6 +2,17 @@
 
 ## 2026-06-23
 
+### Revision `working` - 적대적 리뷰 후속: 최근 6슬라이스 확정 버그 8건 수정
+
+- 자율 리뷰 워크플로(24에이전트)가 확정 16건 중 HIGH·명확건 수정:
+- **완료 로그 정확도**: 완료 되돌리기 시 마지막 completion_log 행 회수(setItemStatus revert) → 재완료 중복·reverted 완료 카운트·async digest stale 동시 해소.
+- **분석 스코프(감시경계)**: /api/completions가 단일 식별자[0] 매칭(본인 누락+타인 누수+빈값 fail-open)이던 걸 **식별자 배열 IN(scopedInClause, 빈배열 1=0 fail-closed)**로. completionStats/completionLog assignee_any 시그니처.
+- **메일/항목 공용 큐**: canAccessMail이 mailbox 메타 없는 수집 받은함 메일을 팀원 전원 403으로 막던 것(분배·승격 차단) → 공용 큐 통과. canAccessItem도 미배정 활성 할일=공용(아무나 먼저).
+- **우선순위 ⭐ UX**: 메인 할일 행에 ⭐ 마커 누락 보완(위젯만 있었음). item_priority 활동 이벤트 한글화(eventDesc). nudges 주석 5단계로 정정.
+- **fixture**: 시드의 가짜 urgency='high'(1/4) 제거 → 우선은 사람 지정으로만(분석·정렬·nudges 오염 방지).
+- **분석 위젯**: stats 비어도 log 있으면 '최근 완료' 표시(빈판정을 stats·log 함께).
+- 인메모리 E2E PASS(되돌리기 회수·재완료 비중복·스코프 IN·fail-closed). 보류(보고): #8 open격리(설계상)·#10 already_promoted·#11 setMailProject보관·#16 canonical 집계.
+
 ### Revision `working` - 분석 위젯에 '최근 완료'(할일 로그) 기록 추가
 
 - analytics_w가 /api/completions의 stats만 쓰던 걸 확장 — **log(최근 완료 기록)**도 표시: 완료일·제목·담당자·요약(있으면).

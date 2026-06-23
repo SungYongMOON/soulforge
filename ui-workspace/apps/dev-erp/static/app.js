@@ -1789,6 +1789,7 @@ function eventDesc(e, L) {
     case "item_assign": return `담당 지정 → ${e.to_val ?? "(해제)"}`;
     case "item_confirm": return `할일 분류 확정${e.to_val ? ` (${e.to_val})` : ""}`;
     case "item_edit": return `할일 수정: ${e.to_val ?? ""}`;
+    case "item_priority": return e.to_val === "high" ? "우선순위 지정 (⭐)" : "우선순위 해제";
     case "item_archive": return `할일 보관(삭제): ${e.to_val ?? ""}${e.note ? ` — 사유: ${e.note}` : ""}`;
     case "item_restore": return `할일 복구: ${e.to_val ?? ""}`;
     case "item_promote": return `메일→할일 승격: ${e.to_val ?? ""}`;
@@ -3377,7 +3378,7 @@ async function renderHome() {
       // #4 담당자별 처리량 분석 — completion_log 집계(/api/completions): 담당자별 완료 수 + 업무종류 분해(최근 30일). 토큰은 #5b 계측 후.
       const data = await api("/api/completions?days=30");
       const stats = (data && data.stats) || [];
-      if (!stats.length) return { title: L.tile_analytics_w, html: `<div class="empty">${L.an_none ?? "최근 완료 없음"}</div>` };
+      if (!stats.length && !((data && data.log) || []).length) return { title: L.tile_analytics_w, html: `<div class="empty">${L.an_none ?? "최근 완료 없음"}</div>` };
       const byA = {};
       for (const s of stats) {
         const a = s.assignee_ref || (L.assign_unassigned ?? "미배정");
@@ -3398,12 +3399,12 @@ async function renderHome() {
           + `<table><tbody>${recent.map((c) => `<tr><td class="dim num">${esc(String(c.done_at || c.created_at || "").slice(5, 10))}</td><td>${esc(c.title || "")}</td><td class="dim mini">${esc(c.assignee_ref || (L.assign_unassigned ?? "미배정"))}${c.summary ? ` · ${esc(String(c.summary).slice(0, 36))}` : ""}</td></tr>`).join("")}</tbody></table>`
         : "";
       return { title: L.tile_analytics_w, html:
-        `<div class="dim mini" style="margin-bottom:4px">${L.an_recent ?? "최근 30일 완료"}</div>`
-        + `<table><thead><tr><th>${L.col_person}</th><th>${L.an_done ?? "완료"}</th><th>${L.an_bywt ?? "업무종류"}</th></tr></thead><tbody>${rows}</tbody></table>`
+        (rows ? `<div class="dim mini" style="margin-bottom:4px">${L.an_recent ?? "최근 30일 완료"}</div>`
+          + `<table><thead><tr><th>${L.col_person}</th><th>${L.an_done ?? "완료"}</th><th>${L.an_bywt ?? "업무종류"}</th></tr></thead><tbody>${rows}</tbody></table>` : "")
         + logHtml };
     }
     if (id === "nudges") {
-      // P-6 콕핏 알림 — '먼저 해야 할 일' 우선순위(연체>차단>오늘>미완). 연체/차단은 번쩍임.
+      // P-6 콕핏 알림 — '먼저 해야 할 일' 순위(연체>차단>⭐우선>오늘>미완). 연체/차단=번쩍임, ⭐우선=금색 배지.
       const ns = await api("/api/nudges?limit=6");
       const rlabel = { priority: L.prio_label ?? "우선", overdue: L.overdue, blocked: L.blocked, due_today: L.today_due, open: L.open };
       const rcls = { priority: "gold", overdue: "red", blocked: "red", due_today: "amber", open: "" };
@@ -4140,7 +4141,7 @@ async function renderItems() {
         <button class="fav-chip ie-del" data-i="${esc(i.id)}">${L.act_delete ?? "삭제"}</button>
       </div></td></tr>`
     : `<tr class="${i.parent_item_id && !orphanIds.has(i.id) ? "item-child" : ""}" data-item="${esc(i.id)}">
-	      <td>${i.parent_item_id && !orphanIds.has(i.id) ? '<span class="child-twig">↳</span> ' : ""}${esc(i.title)}${i.child_total > 0 ? ` <span class="badge child-prog" title="${esc(L.child_progress ?? "세부할일")}">${i.child_done}/${i.child_total}</span>` : ""}${i.encounter_role === "boss" ? " 👑" : ""}${codexTaskIndicatorHtml(i)}${itemAutomationHints(i)}${itemSourceTrace(i)}</td>
+	      <td>${i.parent_item_id && !orphanIds.has(i.id) ? '<span class="child-twig">↳</span> ' : ""}${i.urgency === "high" ? '<span class="prio-star" title="우선">⭐</span> ' : ""}${esc(i.title)}${i.child_total > 0 ? ` <span class="badge child-prog" title="${esc(L.child_progress ?? "세부할일")}">${i.child_done}/${i.child_total}</span>` : ""}${i.encounter_role === "boss" ? " 👑" : ""}${codexTaskIndicatorHtml(i)}${itemAutomationHints(i)}${itemSourceTrace(i)}</td>
       <td><span class="proj-link" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span></td>
       <td>${statusBadge(i.status)}</td>
       ${dueCell(i.due, todayKey)}

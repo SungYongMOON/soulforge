@@ -1746,6 +1746,8 @@ export class Store {
       this.db.prepare("UPDATE core_item SET status=?, done_at=? WHERE id=?").run(status, new Date().toISOString(), id);
     } else if (status !== "done" && prev.status === "done") {
       this.db.prepare("UPDATE core_item SET status=?, done_at=NULL WHERE id=?").run(status, id);
+      // 되돌리기: 이 항목의 마지막 완료 로그 행 회수 → done↔open 토글이 항상 0/1행 유지(분석 과대집계·reverted 완료 카운트·재완료 중복 방지).
+      this.db.prepare("DELETE FROM completion_log WHERE id=(SELECT id FROM completion_log WHERE item_id=? ORDER BY id DESC LIMIT 1)").run(id);
     } else {
       this.db.prepare("UPDATE core_item SET status=? WHERE id=?").run(status, id);
     }
@@ -1773,20 +1775,22 @@ export class Store {
     this.db.prepare(`UPDATE completion_log SET ${sets.join(", ")} WHERE id=?`).run(...args);
     return { ok: true };
   }
-  // 담당자×업무종류×일자 집계(#4 분석 위젯이 소비). days 내 완료만.
-  completionStats({ days = 30 } = {}) {
+  // 담당자×업무종류×일자 집계(#4 분석 위젯이 소비). days 내 완료만. assignee_any=null=전체(관리자), 배열=본인 식별자 IN(빈 배열→1=0 fail-closed).
+  completionStats({ days = 30, assignee_any = null } = {}) {
     const since = new Date(Date.now() - days * 86400000).toISOString();
+    const cond = ["COALESCE(done_at, created_at) >= ?"]; const args = [since];
+    if (assignee_any) { const sc = scopedInClause("assignee_ref", assignee_any); if (sc) { cond.push(sc.sql); args.push(...sc.args); } }
     return this.db.prepare(
-      "SELECT assignee_ref, work_type, substr(COALESCE(done_at, created_at),1,10) AS day, COUNT(*) AS n, SUM(COALESCE(tokens,0)) AS tokens FROM completion_log WHERE COALESCE(done_at, created_at) >= ? GROUP BY assignee_ref, work_type, day ORDER BY day"
-    ).all(since);
+      `SELECT assignee_ref, work_type, substr(COALESCE(done_at, created_at),1,10) AS day, COUNT(*) AS n, SUM(COALESCE(tokens,0)) AS tokens FROM completion_log WHERE ${cond.join(" AND ")} GROUP BY assignee_ref, work_type, day ORDER BY day`
+    ).all(...args);
   }
-  // 최근 완료 목록(할일 로그 뷰). 담당자 필터 선택.
-  completionLog({ days = 30, assignee = null, limit = 100 } = {}) {
+  // 최근 완료 목록(할일 로그 뷰). assignee_any=null=전체, 배열=본인 식별자 IN(빈 배열→fail-closed). 단일 assignee 매칭은 본인 누락·타인 누수라 폐기.
+  completionLog({ days = 30, assignee_any = null, limit = 100 } = {}) {
     const since = new Date(Date.now() - days * 86400000).toISOString();
-    let sql = "SELECT * FROM completion_log WHERE COALESCE(done_at, created_at) >= ?";
-    const args = [since];
-    if (assignee) { sql += " AND assignee_ref=?"; args.push(assignee); }
-    sql += " ORDER BY COALESCE(done_at, created_at) DESC LIMIT ?"; args.push(limit);
+    const cond = ["COALESCE(done_at, created_at) >= ?"]; const args = [since];
+    if (assignee_any) { const sc = scopedInClause("assignee_ref", assignee_any); if (sc) { cond.push(sc.sql); args.push(...sc.args); } }
+    const sql = `SELECT * FROM completion_log WHERE ${cond.join(" AND ")} ORDER BY COALESCE(done_at, created_at) DESC LIMIT ?`;
+    args.push(limit);
     return this.db.prepare(sql).all(...args);
   }
   // 훅 도입 전 완료된 항목을 completion_log 에 1회 보강(멱등 — item_id 미기록분만). 분석 위젯이 과거 이력도 보게.
