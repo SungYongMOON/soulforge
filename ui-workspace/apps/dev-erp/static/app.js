@@ -2012,7 +2012,7 @@ async function renderProposals() {
     ? `<table><tbody>${props.map((p) => `<tr data-prop="${esc(p.id)}">
         <td><span class="badge">${esc(p.kind === "completion_digest" ? (L.prop_kind_digest ?? "완료 요약") : eventKindLabel(p.kind))}</span></td>
         <td>${p.kind === "completion_digest"
-          ? `${esc(p.payload?.summary ?? p.summary ?? "")}${(p.payload?.next_actions || []).length ? `<div class="dim mini">${L.prop_next_actions ?? "다음 할 일"}</div>${p.payload.next_actions.map((a) => `<div class="digest-na"><span>${esc(a)}</span><button class="fav-chip na-add" data-na-proj="${esc(p.payload?.project_id ?? "")}" data-na-title="${esc(a)}">${L.prop_na_add ?? "+ 할일로"}</button></div>`).join("")}` : ""}${p.payload?.knowledge ? `<div class="dim mini">💡 ${esc(p.payload.knowledge)}</div>` : ""}`
+          ? `${esc(p.payload?.summary ?? p.summary ?? "")}${(p.payload?.next_actions || []).length ? `<div class="dim mini">${L.prop_next_actions ?? "다음 할 일"}</div>${p.payload.next_actions.map((a) => `<div class="digest-na"><span>${esc(a)}</span><button class="fav-chip na-add" data-na-proj="${esc(p.payload?.project_id ?? "")}" data-na-title="${esc(a)}">${L.prop_na_add ?? "+ 할일로"}</button></div>`).join("")}` : ""}${p.payload?.knowledge ? `<div class="dim mini">💡 ${esc(p.payload.knowledge)}${p.payload?.assignee_ref ? ` <button class="fav-chip mini mem-add" data-mem-ref="${esc(p.payload.assignee_ref)}" data-mem-text="${esc(p.payload.knowledge)}" title="${esc(p.payload.assignee_ref)} ${L.prop_mem_add_hint ?? "메모리에 추가 — 다음 시작에 주입"}">${L.prop_mem_add ?? "+ 메모리"}</button>` : ""}</div>` : ""}`
           : esc(p.summary ?? p.payload?.title ?? p.id)}</td>
         <td class="dim">${esc(p.source)}</td>
         <td><button class="fav-chip prop-approve">${L.prop_approve}</button> <button class="fav-chip prop-reject">${L.prop_reject}</button> <span class="prop-msg dim"></span></td>
@@ -2038,6 +2038,14 @@ async function renderProposals() {
       const resp = await post("/api/items", { project_id: proj, title });
       if (resp.ok) { b.disabled = true; b.textContent = L.prop_na_added ?? "✓ 생성됨"; toast(L.prop_na_done ?? "할 일로 만들었어요", "ok"); }
       else { const er = await resp.json().catch(() => ({})); toast((L.prop_na_fail ?? "생성 실패") + (er.error ? ` (${er.error})` : ""), "error"); }
+    });
+  });
+  $("#view").querySelectorAll(".mem-add").forEach((b) => {
+    b.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const resp = await post("/api/memory/append", { ref: b.dataset.memRef, text: b.dataset.memText });
+      if (resp.ok) { b.disabled = true; b.textContent = L.prop_mem_added ?? "✓ 메모리"; toast(`${b.dataset.memRef} ${L.prop_mem_added_toast ?? "메모리에 추가됨 — 다음 시작에 주입"}`, "ok"); }
+      else { const er = await resp.json().catch(() => ({})); toast((L.prop_mem_fail ?? "메모리 추가 실패") + (er.error ? ` (${er.error})` : ""), "error"); }
     });
   });
 }

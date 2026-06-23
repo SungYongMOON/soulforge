@@ -3019,6 +3019,16 @@ export class Store {
     ).run(key, text, new Date().toISOString());
     return { ok: true, ref: key, length: text.length };
   }
+  // 완료 지식 후보를 담당자 메모리에 한 줄 추가(자기개선 루프: 완료→지식화→메모리). 상한 초과 시 최신 유지.
+  appendAssigneeMemory(ref, text) {
+    const key = String(ref ?? "").trim();
+    const add = String(text ?? "").replace(/\s+/g, " ").trim();
+    if (!key) return { error: "ref_required" };
+    if (!add) return { error: "text_required" };
+    const prev = this.getAssigneeMemory(key);
+    const merged = ((prev ? prev + "\n" : "") + `- ${add}`).slice(-4000); // 최신 우선 보존
+    return this.setAssigneeMemory(key, merged);
+  }
   capabilityMatrix() {
     return this.people().map((p) => ({ person_id: p.id, name: p.name, role: p.role, unit_ref: p.unit_ref ?? null, capability_label: p.capability_label ?? null, skills: this.personSkills(p.id) }));
   }

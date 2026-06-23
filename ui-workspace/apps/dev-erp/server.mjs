@@ -804,6 +804,17 @@ const server = createServer(async (req, res) => {
       }
       return send(res, 200, { ref, content: store.getAssigneeMemory(ref) });
     }
+    if (path === "/api/memory/append" && req.method === "POST") {
+      // 완료 지식 → 담당자 메모리 추가. 관리자는 누구에게나, 팀원은 본인 메모리에만(남의 메모리 편집 금지).
+      const me = currentAccount(req);
+      if (!me) return send(res, 401, { error: "auth_required" });
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { ref, text } = JSON.parse(body || "{}");
+      const mine = store.accountDisplayName(me) || me.username;
+      if (!store.isAdmin(me.id) && ref !== mine) return send(res, 403, { error: "memory_forbidden" });
+      const r = store.appendAssigneeMemory(ref, text);
+      return send(res, r.error ? 400 : 200, r);
+    }
     if (path === "/api/items/status" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id, status, bottleneck_reason } = JSON.parse(body || "{}");
@@ -833,7 +844,7 @@ const server = createServer(async (req, res) => {
             store.createProposal({
               source: "completion_hook", kind: "completion_digest", target_ref: id,
               summary: digest.summary || `${it?.title ?? id} 완료`,
-              payload: { item_id: id, item_title: it?.title ?? "", project_id: it?.project_id ?? null, summary: digest.summary, next_actions: digest.next_actions, knowledge: digest.knowledge },
+              payload: { item_id: id, item_title: it?.title ?? "", project_id: it?.project_id ?? null, assignee_ref: it?.assignee_ref ?? null, summary: digest.summary, next_actions: digest.next_actions, knowledge: digest.knowledge },
               used_refs: ["items", "codex_thread_message"], data_label: "real",
             });
             store.appendEvent({ actor_ref: "completion_hook", actor_kind: "system", kind: "completion_digest", item_ref: id, used_refs: ["ai_proposal"], data_label: "real" });
