@@ -1581,8 +1581,9 @@ const DEFAULT_DASH = [
   // member-first: 로그인 직후 '내 할 일'+'먼저 할 일'을 최상단에 — 신규도 본인 업무를 바로 봄. 팀 현황은 상단 건강 신호등+과제표가 커버(teamload는 드로어 opt-in).
   { id: "mine", x: 0, y: 0, w: 6, h: 10 }, { id: "nudges", x: 6, y: 0, w: 6, h: 10 },
   { id: "projects", x: 0, y: 10, w: 12, h: 11 },
-  { id: "today", x: 0, y: 21, w: 3, h: 8 }, { id: "blocked", x: 3, y: 21, w: 3, h: 8 },
-  { id: "mail", x: 6, y: 21, w: 3, h: 8 }, { id: "events", x: 9, y: 21, w: 3, h: 8 }
+  { id: "unassigned", x: 0, y: 21, w: 6, h: 9 }, { id: "teamload", x: 6, y: 21, w: 6, h: 9 }, // 미배정 작업 + 팀원별 부하(관리자)
+  { id: "today", x: 0, y: 30, w: 3, h: 8 }, { id: "blocked", x: 3, y: 30, w: 3, h: 8 },
+  { id: "mail", x: 6, y: 30, w: 3, h: 8 }, { id: "events", x: 9, y: 30, w: 3, h: 8 }
 ];
 // 정해둔 위젯 배치(프리셋). 내 배치는 localStorage 자동저장 + 이름 붙인 저장 슬롯(SLOTS_KEY, 여러 개).
 const SAVED_KEY = "dev_erp_widgets_saved"; // (구) 단일 슬롯 — 첫 로드 시 SLOTS_KEY로 마이그레이션
@@ -3484,8 +3485,8 @@ async function renderHome() {
     }
     if (id === "inbox") {
       const ids = new Set(inbox.map((p) => p.id));
-      const inboxTotal = inbox.reduce((s, p) => s + (p.mail_cnt || 0), 0); // 실제 미분류 총건수(서버 집계) — 위젯은 최신 8건만 미리보기
-      const mails = (await api("/api/mail?days=3650")).filter((m) => ids.has(m.project_id)).slice(0, 8);
+      const inboxTotal = inbox.reduce((s, p) => s + (p.mail_cnt || 0), 0); // 실제 미분류 총건수(서버 집계)
+      const mails = (await api("/api/mail?days=3650")).filter((m) => ids.has(m.project_id)).slice(0, 30); // 최신 30건(위젯 내부 스크롤) — 새로고침 시 분류돼 빠진 만큼 다음 메일로 재충전
       const more = inboxTotal > mails.length
         ? `<div class="widget-more"><a data-inbox-all="${esc(inbox[0]?.id ?? "")}">${(L.inbox_see_all ?? "전체 %n건 분류하러 가기 →").replace("%n", inboxTotal)}</a></div>` : "";
       return { title: `${L.tile_inbox} (${inboxTotal})`, html: mails.length
@@ -4556,6 +4557,18 @@ async function renderMail() {
   const assignables = summary.projects.filter((p) => p.class !== "inbox" && p.class !== "archive");
   const assignOpts = assignables.map((p) =>
     `<option value="${esc(p.id)}">${esc(p.title === p.id ? projDisplay(p.id) : `${p.id} · ${p.title}`)}</option>`).join("");
+  // 분류 시 담당 선택(미배정/나/팀원). 값=담당자 식별 라벨(claim-drop 과 동일 소스 _scopes). 기본=나.
+  const assigneeMembers = (state._scopes ?? []).filter((s) => s.id !== "team");
+  const assigneeMyId = state.account?.id;
+  let assigneeOpts = `<option value="">${L.assign_unassigned ?? "미배정"}</option>`;
+  if (assigneeMembers.length) {
+    const meScope = assigneeMembers.find((m) => m.id === assigneeMyId);
+    if (meScope) assigneeOpts += `<option value="${esc(meScope.label)}" selected>${esc(meScope.label)} (${L.claim_me ?? "나"})</option>`;
+    for (const m of assigneeMembers) { if (m.id === assigneeMyId) continue; assigneeOpts += `<option value="${esc(m.label)}">${esc(m.label)}</option>`; }
+  } else if (state.account) {
+    const myName = state.account.display_name || state.account.username || "";
+    if (myName) assigneeOpts += `<option value="${esc(myName)}" selected>${esc(myName)} (${L.claim_me ?? "나"})</option>`;
+  }
   const selectBar = `<div class="mail-selectbar">
       <span class="dim">${pageSelected}/${mail.length} 선택 · 전체 선택 ${checked.size}</span>
       <button id="mailSelectPage" class="fav-chip mini" ${mail.length ? "" : "disabled"}>현재 페이지 전체 선택</button>
@@ -4565,6 +4578,7 @@ async function renderMail() {
   const bulkBar = checked.size ? `<div class="assign-bar">
       <strong>${checked.size}${L.assign_unit}</strong>
       <select id="assignTarget">${assignOpts}</select>
+      <select id="assignWho2" title="${L.assign_who ?? "담당"}">${assigneeOpts}</select>
       <label class="assign-mk"><input type="checkbox" id="assignMk" checked /> ${L.assign_make_items}</label>
       <button id="assignGo" class="fav-chip active">${L.assign_btn}</button>
     </div>` : "";
@@ -4607,6 +4621,7 @@ async function renderMail() {
       <h4>${L.assign_to}</h4>
       <div class="assign-bar inline">
         <select id="assignOne">${assignOpts}</select>
+        <select id="assignWho1" title="${L.assign_who ?? "담당"}">${assigneeOpts}</select>
         <button id="assignOneGo" class="fav-chip">${L.assign_btn}</button>
         <button id="assignOneNext" class="fav-chip active" ${nextMailId ? "" : "disabled"} title="${L.assign_next_hint ?? "이 메일을 분류하고 바로 다음 메일로"}">${L.assign_next ?? "분류하고 다음 ▶"}</button>
         ${sel.project_id && clsById.get(sel.project_id) !== "inbox" ? `<button id="mailUnassign" class="fav-chip mini" title="${L.mail_unassign_hint ?? "받은함으로 되돌리기"}">${L.mail_unassign ?? "분류 취소"}</button>` : ""}
@@ -4765,22 +4780,23 @@ async function renderMail() {
       render();
     })
   );
-  const doAssign = async (mailIds, target, makeItems, nextSel = null) => {
+  const doAssign = async (mailIds, target, makeItems, nextSel = null, assigneeRef = null) => {
     if (!target) { toast(L.assign_need_target ?? "분류할 과제를 고르세요", "error"); return; }
-    const r = await post("/api/mail/assign", { mail_ids: mailIds, project_id: target, make_items: makeItems });
+    const r = await post("/api/mail/assign", { mail_ids: mailIds, project_id: target, make_items: makeItems, assignee_ref: assigneeRef || null });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || d.error) { toast(L.assign_fail ?? "분류 실패", "error"); return; }
-    toast(`${mailIds.length}${L.assign_unit ?? "건"} ${L.assign_done ?? "분류 완료"}${makeItems ? ` · ${L.assign_made_short ?? "할일 생성"}` : ""}`, "ok");
+    const whoLabel = makeItems ? ` · ${assigneeRef ? assigneeRef : (L.assign_unassigned ?? "미배정")}` : ""; // 누구 담당으로 갔는지 피드백
+    toast(`${mailIds.length}${L.assign_unit ?? "건"} ${L.assign_done ?? "분류 완료"}${makeItems ? ` · ${L.assign_made_short ?? "할일 생성"}` : ""}${whoLabel}`, "ok");
     checked.clear();
     state.mailSel = nextSel; // '분류하고 다음'이면 다음 메일 선택 유지, 일반 분류면 null(해제)
     render();
   };
   $("#assignGo")?.addEventListener("click", () =>
-    doAssign([...checked], $("#assignTarget").value, $("#assignMk").checked));
+    doAssign([...checked], $("#assignTarget").value, $("#assignMk").checked, null, $("#assignWho2")?.value));
   $("#assignOneGo")?.addEventListener("click", () =>
-    doAssign([state.mailSel], $("#assignOne").value, true));
+    doAssign([state.mailSel], $("#assignOne").value, true, null, $("#assignWho1")?.value));
   $("#assignOneNext")?.addEventListener("click", () =>
-    doAssign([state.mailSel], $("#assignOne").value, true, nextMailId)); // 분류하고 다음 메일 자동 선택
+    doAssign([state.mailSel], $("#assignOne").value, true, nextMailId, $("#assignWho1")?.value)); // 분류하고 다음 + 담당 지정
   $("#mailDetailPrev")?.addEventListener("click", () => { if (prevMailId) { state.mailSel = prevMailId; render(); } });
   $("#mailDetailNext")?.addEventListener("click", () => { if (nextMailId) { state.mailSel = nextMailId; render(); } });
   $("#mailUnassign")?.addEventListener("click", async () => {

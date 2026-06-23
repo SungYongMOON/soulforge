@@ -1849,7 +1849,7 @@ export class Store {
 
   // run17: 묶음 분류 (+선택: 할일 생성 = 판타지 '몬스터 출몰').
   // 이미 승격된 메일은 중복 생성 없이 이동만. 결과는 메일별로 반환(이벤트는 호출자가 기록).
-  assignMails(mail_ids, project_id, { make_items = false, created_by = null } = {}) {
+  assignMails(mail_ids, project_id, { make_items = false, created_by = null, assignee_ref = null } = {}) {
     if (!Array.isArray(mail_ids) || mail_ids.length === 0) return { error: "mail_ids_required" };
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
     const results = [];
@@ -1858,7 +1858,7 @@ export class Store {
       if (moved.error) { results.push({ mail_id, error: moved.error }); continue; }
       const entry = { mail_id, from: moved.from, unchanged: moved.unchanged ?? false, item_moved: moved.item_moved, item_created: null };
       if (make_items && !moved.item_moved) {
-        const promoted = this.promoteMail(mail_id, created_by);
+        const promoted = this.promoteMail(mail_id, created_by, assignee_ref); // 분류 시 고른 담당(나/팀원/미배정)
         if (promoted.ok) entry.item_created = promoted.item.id;
       }
       results.push(entry);
@@ -1877,7 +1877,7 @@ export class Store {
     return s?.stage_code ?? null;
   }
 
-  promoteMail(mail_id, created_by) {
+  promoteMail(mail_id, created_by, assignee_ref = null) {
     const mail = this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(mail_id);
     if (!mail) return { error: "mail_not_found" };
     const dup = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(mail_id);
@@ -1886,9 +1886,11 @@ export class Store {
       return { error: "mail_project_missing" };
     }
     // SE단계는 프로젝트 현재상태에서(결정적). 업무유형/완료기준은 사람/LLM 분류 단계로 남김 → unclassified 유지.
+    // assignee_ref: 분류 시 사람이 고른 담당(나/팀원). null/빈값이면 미배정으로 둠(자동배정 대상 아님 — suggested_assignee_ref 미설정).
     return this.createItem({
       project_id: mail.project_id, title: mail.subject,
       origin: "mail", origin_mail_id: mail_id, created_by,
+      assignee_ref: (assignee_ref && String(assignee_ref).trim()) || null,
       anchor_stage_code: this.projectCurrentStage(mail.project_id)
     });
   }
