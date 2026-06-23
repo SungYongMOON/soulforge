@@ -774,6 +774,14 @@ const server = createServer(async (req, res) => {
       return send(res, 200, result);
     }
     if (path === "/api/throughput") return send(res, 200, store.throughput({ days: Number(qp.days) || 14, project: qp.project }));
+    if (path === "/api/completions") {
+      // 완료 로그/집계(할일 로그·#4 분석). 관리자=전체, 그 외=본인 것만(감시경계).
+      const scope = requestScope(req, qp);
+      const days = Number(qp.days) || 30;
+      if (scope.all) return send(res, 200, { stats: store.completionStats({ days }), log: store.completionLog({ days, assignee: qp.assignee || null }) });
+      const me = (scope.assignee_any && scope.assignee_any[0]) || null;
+      return send(res, 200, { stats: store.completionStats({ days }).filter((r) => r.assignee_ref === me), log: store.completionLog({ days, assignee: me }) });
+    }
     if (path === "/api/items/status" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id, status, bottleneck_reason } = JSON.parse(body || "{}");
@@ -786,16 +794,20 @@ const server = createServer(async (req, res) => {
         bottleneck_reason: bottleneck_reason ?? null, used_refs: ["items"], data_label: "real"
       });
       if (status === "done" && result.from !== "done") {
-        // S6 완료 훅: Codex 대화가 있으면 로컬 AI로 요약 → ai_proposal(completion_digest) 적재. 비차단·실패무시·외부 egress 0. '완료=비서가 다음을 준비'.
+        // 완료 로그(할일 로그): 모든 완료를 1행 기록 — 대화 유무와 무관. #4 담당자별 처리량·종류 분석 + #6 지식의 backbone.
+        const itDone = store.itemById(id);
+        const clog = store.logCompletion(itDone, { completed_by: actor });
+        // S6 완료 훅: Codex 대화가 있으면 로컬 AI로 요약 → 완료 로그 보강 + ai_proposal(completion_digest). 비차단·실패무시·외부 egress 0. '완료=비서가 다음을 준비'.
         (async () => {
           try {
             const provider = process.env.ERP_CHAT_PROVIDER || "stub";
             if (provider !== "ollama") return;
             const msgs = store.codexTaskMessages(id);
-            if (!msgs.length) return; // Codex 대화 없으면 요약할 것 없음
-            const it = store.itemById(id);
+            if (!msgs.length) return; // Codex 대화 없으면 요약할 것 없음(로그 행은 이미 기록됨)
+            const it = itDone || store.itemById(id);
             const digest = await summarizeCompletion(it, msgs, { provider });
             if (!digest.summary && !(digest.next_actions || []).length) return;
+            if (clog?.id) store.updateCompletionLog(clog.id, { summary: digest.summary, knowledge: digest.knowledge });
             store.createProposal({
               source: "completion_hook", kind: "completion_digest", target_ref: id,
               summary: digest.summary || `${it?.title ?? id} 완료`,

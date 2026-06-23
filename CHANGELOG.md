@@ -2,6 +2,15 @@
 
 ## 2026-06-23
 
+### Revision `working` - 완료 훅 허브 1단계: 완료 로그(할일 로그) backbone
+
+- owner 결정(Q2)=완료 훅을 허브로 먼저. 1단계=모든 완료를 구조화해 남기는 **completion_log** 테이블 + 기록.
+- done 전환 시(대화 유무 무관) `logCompletion`로 1행 기록: item·title·assignee_ref·work_type·project·done_at·completed_by.
+  Codex 대화가 있으면 기존 S6 요약이 `updateCompletionLog`로 summary·knowledge 보강(비차단). item 재완료·삭제와 무관한 내구 기록.
+- store: logCompletion/updateCompletionLog/completionStats(담당자×종류×일자)/completionLog. server: GET /api/completions(관리자=전체, 그 외=본인만·감시경계).
+- 이게 #4 담당자별 처리량·종류 분석 + #6 지식/메모리의 데이터 backbone. 다음 슬라이스=분석 위젯·스레드 wrap-up·토큰 계측.
+- 스키마(신규 테이블 IF NOT EXISTS)+서버 변경(재시작). 인메모리 E2E PASS, node:test 234(+서버스폰 1 부하 flaky, 격리 통과).
+
 ### Revision `working` - 팀원별 할일 위젯: 행 클릭 시 그 사람 할일 제목 인라인 펼침
 
 - owner "팀원별로 어떤 할일이 있는지 제목도 보고싶다(별도 위젯은 너무 큼)" → teamload 위젯 행 클릭 시 그 팀원(또는

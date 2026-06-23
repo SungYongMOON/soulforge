@@ -423,6 +423,21 @@ CREATE TABLE IF NOT EXISTS core_knowledge (
   pointer TEXT,                          -- 외부 원문 위치(원문 미저장)
   data_label TEXT NOT NULL DEFAULT 'real'
 );
+-- 완료 로그(할일 로그): 완료 시 1행. 담당자별 처리량·업무종류 분석 + 토큰/지식의 내구 기록(item 재완료·삭제와 무관). 원문 미저장(summary/knowledge 요약만).
+CREATE TABLE IF NOT EXISTS completion_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id TEXT,
+  title TEXT,
+  assignee_ref TEXT,
+  work_type TEXT,
+  project_id TEXT,
+  done_at TEXT,
+  completed_by TEXT,
+  summary TEXT,                          -- 완료 요약(있을 때, 원문 아님)
+  knowledge TEXT,                        -- 지식 후보 JSON(있을 때)
+  tokens INTEGER,                        -- codex 토큰(나중 계측 시)
+  created_at TEXT NOT NULL
+);
 -- P-6 능력 매트릭스: 사람↔역량(capability) N:N. 개인 평가점수 컬럼 없음(감시경계). weight=정렬용.
 CREATE TABLE IF NOT EXISTS person_skill (
   person_id TEXT NOT NULL REFERENCES core_person(id),
@@ -1736,6 +1751,43 @@ export class Store {
     }
     this.afterItemWrite?.(id); // autosync Phase 1: ERP 변경 → 할일_장부 write-through(서버가 훅 설정 시)
     return { ok: true, from: prev.status, project_id: prev.project_id };
+  }
+
+  // 완료 로그(할일 로그) — 완료 시 1행(담당자·종류·프로젝트·완료시각). #4 담당자별 처리량·종류 분석 + #6 지식의 내구 backbone(item 재완료·삭제와 무관).
+  logCompletion(item, { completed_by = null } = {}) {
+    if (!item || !item.id) return { error: "no_item" };
+    const now = new Date().toISOString();
+    const r = this.db.prepare(
+      "INSERT INTO completion_log (item_id, title, assignee_ref, work_type, project_id, done_at, completed_by, created_at) VALUES (?,?,?,?,?,?,?,?)"
+    ).run(item.id, item.title ?? null, item.assignee_ref ?? null, item.work_type ?? null, item.project_id ?? null, item.done_at ?? now, completed_by, now);
+    return { ok: true, id: Number(r.lastInsertRowid) };
+  }
+  // 완료 훅이 비동기 요약/지식/토큰을 나중에 보강(완료는 막지 않음).
+  updateCompletionLog(id, { summary, knowledge, tokens } = {}) {
+    const sets = []; const args = [];
+    if (summary !== undefined) { sets.push("summary=?"); args.push(summary ?? null); }
+    if (knowledge !== undefined) { sets.push("knowledge=?"); args.push(knowledge ? JSON.stringify(knowledge) : null); }
+    if (tokens !== undefined) { sets.push("tokens=?"); args.push(tokens ?? null); }
+    if (!sets.length) return { ok: true };
+    args.push(id);
+    this.db.prepare(`UPDATE completion_log SET ${sets.join(", ")} WHERE id=?`).run(...args);
+    return { ok: true };
+  }
+  // 담당자×업무종류×일자 집계(#4 분석 위젯이 소비). days 내 완료만.
+  completionStats({ days = 30 } = {}) {
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    return this.db.prepare(
+      "SELECT assignee_ref, work_type, substr(COALESCE(done_at, created_at),1,10) AS day, COUNT(*) AS n, SUM(COALESCE(tokens,0)) AS tokens FROM completion_log WHERE COALESCE(done_at, created_at) >= ? GROUP BY assignee_ref, work_type, day ORDER BY day"
+    ).all(since);
+  }
+  // 최근 완료 목록(할일 로그 뷰). 담당자 필터 선택.
+  completionLog({ days = 30, assignee = null, limit = 100 } = {}) {
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    let sql = "SELECT * FROM completion_log WHERE COALESCE(done_at, created_at) >= ?";
+    const args = [since];
+    if (assignee) { sql += " AND assignee_ref=?"; args.push(assignee); }
+    sql += " ORDER BY COALESCE(done_at, created_at) DESC LIMIT ?"; args.push(limit);
+    return this.db.prepare(sql).all(...args);
   }
 
   setItemAssignee(id, assignee_ref) {
