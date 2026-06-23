@@ -820,6 +820,16 @@ const server = createServer(async (req, res) => {
       }
       return send(res, 200, result);
     }
+    if (path === "/api/items/priority" && req.method === "POST") {
+      // 우선순위(⭐) 지정/해제 — urgency 재사용(high=우선). 본인 접근 가능한 항목만.
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id, urgency } = JSON.parse(body || "{}");
+      if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
+      const result = store.setItemUrgency(id, urgency);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "item_priority", item_ref: id, from: result.from, to: urgency, project_ref: result.project_id, used_refs: ["items"], data_label: "real" });
+      return send(res, 200, result);
+    }
     if (path === "/api/items/split-suggest" && req.method === "POST") {
       // S4: 로컬 LLM이 분해 '제안'만 — 자식 생성은 owner가 확인 후(/api/items). 본문 미전달, 외부 egress 없음.
       let body = ""; for await (const chunk of req) body += chunk;

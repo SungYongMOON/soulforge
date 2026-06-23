@@ -1397,7 +1397,7 @@ export class Store {
       .prepare(
         `SELECT i.*, ga.name AS guide_artifact_name, ga.stage_code AS guide_stage_code
          FROM core_item i LEFT JOIN guide_artifact ga ON ga.id = i.guide_artifact_id
-         ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT ? OFFSET ?`
+         ${where} ORDER BY (i.urgency <> 'high'), (i.due IS NULL), i.due, i.id LIMIT ? OFFSET ?`
       )
       .all(...args, page.limit, page.offset);
     return this._withChildProgress(this._withCodexTaskMeta(rows));
@@ -1410,7 +1410,7 @@ export class Store {
       .prepare(
         `SELECT i.*, ga.name AS guide_artifact_name, ga.stage_code AS guide_stage_code
          FROM core_item i LEFT JOIN guide_artifact ga ON ga.id = i.guide_artifact_id
-         ${where} ORDER BY (i.due IS NULL), i.due, i.id LIMIT ? OFFSET ?`
+         ${where} ORDER BY (i.urgency <> 'high'), (i.due IS NULL), i.due, i.id LIMIT ? OFFSET ?`
       )
       .all(...args, page.limit, page.offset);
     const total = this.db.prepare(`SELECT COUNT(*) AS n FROM core_item i ${where}`).get(...args).n;
@@ -1796,6 +1796,16 @@ export class Store {
     this.db.prepare("UPDATE core_item SET assignee_ref=? WHERE id=?").run(assignee_ref || null, id);
     this.afterItemWrite?.(id);
     return { ok: true, from: prev.assignee_ref, project_id: prev.project_id };
+  }
+
+  // 우선순위(⭐) — 기존 urgency 필드 재사용(low|normal|high). 'high'=사람이 지정한 '우선', 목록 상단 정렬·nudges 최상위.
+  setItemUrgency(id, urgency) {
+    if (!["low", "normal", "high"].includes(urgency)) return { error: "bad_urgency" };
+    const prev = this.db.prepare("SELECT urgency, project_id FROM core_item WHERE id=?").get(id);
+    if (!prev) return { error: "item_not_found" };
+    this.db.prepare("UPDATE core_item SET urgency=? WHERE id=?").run(urgency, id);
+    this.afterItemWrite?.(id);
+    return { ok: true, from: prev.urgency, project_id: prev.project_id };
   }
 
   // F2: 만든 할 일의 제목·마감 직접 수정(오타·잘못된 마감 교정). 사람이 손댄 마감은 due_overridden=1 로
@@ -2966,12 +2976,13 @@ export class Store {
     if (key) { cond.push("assignee_ref = ?"); args.push(key); }
     if (scope) { cond.push(scope.sql); args.push(...scope.args); }
     const rows = this.db.prepare(
-      `SELECT id, title, project_id, due, status, assignee_ref FROM core_item WHERE ${cond.join(" AND ")}`
+      `SELECT id, title, project_id, due, status, assignee_ref, urgency FROM core_item WHERE ${cond.join(" AND ")}`
     ).all(...args);
-    const rank = { overdue: 0, blocked: 1, due_today: 2, open: 3 };
+    const rank = { overdue: 0, blocked: 1, priority: 2, due_today: 3, open: 4 };
     const out = rows.map((r) => {
       let reason = "open";
       if (r.due === today) reason = "due_today";
+      if (r.urgency === "high") reason = "priority"; // ⭐ 우선(사람 지정)=오늘마감·일반 위. 단 연체·막힘(시스템 긴급)은 그 위로 둠
       if (r.status === "blocked") reason = "blocked";
       if (r.due && r.due < today) reason = "overdue";
       return { id: r.id, title: r.title, project_id: r.project_id, due: r.due, status: r.status, assignee_ref: r.assignee_ref, reason };

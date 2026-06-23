@@ -1772,7 +1772,7 @@ function wireTaskCodexButtons(scope) {
 
 // 위젯 할일 행 — 클릭하면 인라인 빠른편집(상태 변경/할일 이동). data-item 있으면 대시보드 click 위임이 처리.
 function itemMiniRow(i, tail = []) {
-  const title = `<span class="mini-title">${esc(i.title)}</span>${codexTaskIndicatorHtml(i)}`;
+  const title = `${i.urgency === "high" ? '<span class="prio-star" title="우선">⭐</span> ' : ""}<span class="mini-title">${esc(i.title)}</span>${codexTaskIndicatorHtml(i)}`;
   const cells = [`<td>${title}</td>`, `<td class="dim">${esc(i.project_id ?? "")}</td>`,
     ...tail.map((c) => `<td class="dim num">${c}</td>`),
     `<td class="mini-actions">${itemActionsHtml(i)}${codexTaskButtonHtml(i.id, "mini", itemStarted(i))}</td>`];
@@ -1826,6 +1826,10 @@ async function openItemQuickEdit(itemId, projectId, title) {
     <div class="qe-status" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
       ${STATUSES.map((s) => `<button class="fav-chip qe-st" data-st="${s}">${L["status_" + s] ?? s}</button>`).join("")}
     </div>
+    <div class="qe-prio" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <button class="fav-chip qe-pr" data-pr="high">${L.prio_set ?? "⭐ 우선"}</button>
+      <button class="fav-chip qe-pr" data-pr="normal">${L.prio_unset ?? "우선 해제"}</button>
+    </div>
     <div class="qe-msg dim mini" style="min-height:1em"></div>
     <div class="ui-confirm-btns">
       <button class="ui-confirm-cancel">${L.btn_cancel}</button>
@@ -1838,6 +1842,11 @@ async function openItemQuickEdit(itemId, projectId, title) {
   ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
   ov.querySelectorAll(".qe-st").forEach((b) => b.addEventListener("click", async () => {
     const r = await post("/api/items/status", { id: itemId, status: b.dataset.st });
+    if (r.ok) { close(); render(); }
+    else { const e = await r.json().catch(() => ({})); ov.querySelector(".qe-msg").textContent = e.error || "오류"; }
+  }));
+  ov.querySelectorAll(".qe-pr").forEach((b) => b.addEventListener("click", async () => {
+    const r = await post("/api/items/priority", { id: itemId, urgency: b.dataset.pr }); // ⭐ 우선(high) / 해제(normal)
     if (r.ok) { close(); render(); }
     else { const e = await r.json().catch(() => ({})); ov.querySelector(".qe-msg").textContent = e.error || "오류"; }
   }));
@@ -3366,8 +3375,8 @@ async function renderHome() {
     if (id === "nudges") {
       // P-6 콕핏 알림 — '먼저 해야 할 일' 우선순위(연체>차단>오늘>미완). 연체/차단은 번쩍임.
       const ns = await api("/api/nudges?limit=6");
-      const rlabel = { overdue: L.overdue, blocked: L.blocked, due_today: L.today_due, open: L.open };
-      const rcls = { overdue: "red", blocked: "red", due_today: "amber", open: "" };
+      const rlabel = { priority: L.prio_label ?? "우선", overdue: L.overdue, blocked: L.blocked, due_today: L.today_due, open: L.open };
+      const rcls = { priority: "gold", overdue: "red", blocked: "red", due_today: "amber", open: "" };
       return { title: L.tile_nudges, html: ns.length
         ? `<table><tbody>${ns.map((n) => `<tr class="wrow nudge-row${n.reason === "overdue" || n.reason === "blocked" ? " flash" : ""}" data-item="${esc(n.id)}" data-proj="${esc(n.project_id ?? "")}" data-title="${esc(n.title)}">
             <td><span class="badge ${rcls[n.reason]}">${rlabel[n.reason] ?? esc(n.reason)}</span></td>

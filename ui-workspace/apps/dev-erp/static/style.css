@@ -287,6 +287,9 @@ tr.tl-row.tl-open td:first-child::before { transform: rotate(90deg); }
 tr.tl-title-row > td { padding-top: 2px; padding-bottom: 2px; }
 .tl-title { padding-left: 16px; font-size: .92em; cursor: pointer; }
 tr.tl-title-row:hover .tl-title { color: var(--accent); text-decoration: underline; }
+/* 우선순위(⭐): 별 마커 + nudges '우선' 배지(금색, 자동 사유와 구분). */
+.prio-star { font-size: .9em; }
+.badge.gold { background: #c79a00; color: #1a1a1a; }
 /* 콕핏 메일/미분류 위젯 행: 클릭 시 메일 화면에서 분류 진입(드래그도 가능). */
 [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail] { cursor: pointer; }
 [data-body="mail"] tr[data-mail]:hover, [data-body="inbox"] tr[data-mail]:hover { background: var(--chip); }

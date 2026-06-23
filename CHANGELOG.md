@@ -2,6 +2,14 @@
 
 ## 2026-06-23
 
+### Revision `working` - 우선순위 ⭐ (urgency 재사용) — '먼저 할 일'을 명시적 우선으로
+
+- owner Q1 결정=nudges를 우선순위로 교체. **미사용 `urgency` 필드 재사용**(운영본 전건 normal·UI 미노출)→마이그레이션 0.
+- ⭐=urgency 'high'. 인라인 편집기에 **⭐ 우선 / 우선 해제** 토글(POST /api/items/priority). 우선 항목은 모든 목록 **최상단 정렬**(items ORDER BY urgency<>'high' 먼저) + itemMiniRow ⭐ 마커.
+- '먼저 할 일'(nudges) 사유에 **'우선'(금색 배지)** 추가. 순위=연체>막힘>**우선**>오늘마감>일반(연체·막힘 같은 시스템 긴급은 ⭐ 위, ⭐는 오늘마감·일반 위).
+- store: setItemUrgency(검증·이벤트). server: /api/items/priority(본인 접근만). lexicon: prio_label/set/unset(양 모드). css: .prio-star/.badge.gold.
+- store·server·lexicon 변경(재시작). 인메모리 E2E PASS(설정→상단정렬→nudges 순위·잘못된값 거부). P-6 nudges 테스트 보존(설계로 overdue 우선 유지).
+
 ### Revision `working` - 완료 훅 허브 1단계: 완료 로그(할일 로그) backbone
 
 - owner 결정(Q2)=완료 훅을 허브로 먼저. 1단계=모든 완료를 구조화해 남기는 **completion_log** 테이블 + 기록.
