@@ -2,6 +2,12 @@
 
 ## 2026-06-23
 
+### Revision `working` - papercut: 타임라인·활동로그 이벤트 종류 한글화
+
+- 타임라인(🕘)·활동로그가 raw kind("item_status"·"completion_digest" 등)를 그대로 노출하던 것 → 한글 라벨
+  맵(EVENT_KIND_LABELS, ~65종)으로 '상태 변경'·'완료 요약'·'메일 분류' 등 읽을 수 있게. 미등록 kind 는 원문 표시.
+- 정적(무중단). node:test 235/0.
+
 ### Revision `working` - 알림 배지 라이브 — 완료 요약이 새로고침 없이 벨에 뜸
 
 - 통합 도그푸딩 발견: refreshNotifBadge 가 시작 시 1회만 호출돼, 완료 시 생기는 AI 요약 제안(S6)·새 차단/연체가

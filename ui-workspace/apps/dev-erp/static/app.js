@@ -4782,7 +4782,7 @@ async function renderAuditLog() {
   const dayOpt = (v, lab) => `<option value="${v}" ${f.days === v ? "selected" : ""}>${lab}</option>`;
   const rows = events.map((e) => `<tr>
       <td class="dim num">${localTime(e.at)}</td>
-      <td><span class="badge mini">${esc(e.kind)}</span></td>
+      <td><span class="badge mini">${esc(eventKindLabel(e.kind))}</span></td>
       <td>${esc(eventDesc(e, L))}${e.bottleneck_reason ? ` · ${esc(e.bottleneck_reason)}` : ""}</td>
       <td class="dim">${esc(e.actor_ref)}</td>
       <td class="dim">${esc(e.project_ref ?? "")}</td>
@@ -5932,6 +5932,32 @@ function openNote() {
 }
 $("#noteBtn")?.addEventListener("click", openNote);
 
+// 이벤트 종류 한글 라벨 — 타임라인·활동로그가 raw kind("item_status" 등) 대신 읽을 수 있게(papercut). 미등록 kind 는 원문 표시.
+const EVENT_KIND_LABELS = {
+  item_status: "상태 변경", item_create: "할일 생성", create_item: "할일 생성", item_assign: "담당 배정",
+  item_confirm: "분류 확정", item_edit: "할일 수정", item_archive: "보관", item_restore: "복원",
+  item_move: "이동", item_promote: "할일 승격", completion_digest: "완료 요약", split_suggest: "분해 제안",
+  mail_assign: "메일 분류", mail_unassign: "분류 취소", mail_delete: "메일 삭제", mail_update: "메일 수정",
+  mail_register: "메일 등록", mail_collect_manual: "메일 수집", ai_proposal_approve: "제안 승인",
+  ai_proposal_reject: "제안 반려", recommender_run: "추천 실행", chat_query: "AI 질문", knowledge_upsert: "지식 갱신",
+  gate_clear: "게이트 통과", gate_mode_set: "게이트 설정", anchor_move: "단계 이동", attachment_add: "첨부 추가",
+  deliverable_add: "산출물 추가", deliverable_edit: "산출물 수정", deliverable_due_edit: "마감 수정",
+  deliverable_input: "산출물 입력", deliverable_review: "산출물 검토", guide_artifact_add: "가이드 추가",
+  task_spawn_deliverable: "산출물 할일", label_create: "라벨 생성", label_update: "라벨 수정", label_delete: "라벨 삭제",
+  contact_create: "연락처 추가", contact_update: "연락처 수정", contact_delete: "연락처 삭제",
+  request_create: "요청 등록", request_update: "요청 수정", request_delete: "요청 삭제",
+  purchase_create: "발주 생성", purchase_delete: "발주 삭제", purchase_stage: "발주 단계",
+  project_create: "과제 생성", project_update: "과제 수정", meeting_create: "회의 등록", part_upsert: "부품 갱신",
+  bom_change: "BOM 변경", stock_set: "재고 설정", person_skill_set: "역량 설정", account_create: "계정 생성",
+  account_register: "가입", account_deleted: "계정 삭제", account_mailbox_update: "메일함 설정",
+  account_mailbox_disconnect: "메일함 해제", account_mailbox_credentials_set: "메일함 인증",
+  account_password_reset: "비번 초기화", auth_login: "로그인", auth_bootstrap: "초기 설정",
+  auth_password_change: "비번 변경", codex_task_thread_open: "AI 대화 시작", codex_task_message: "AI 대화",
+  codex_task_image_attach: "이미지 첨부", embed_register: "시트 연결", schedule_spawn: "일정 생성",
+  input_upload: "입력 업로드", input_download: "입력 다운로드",
+};
+const eventKindLabel = (kind) => EVENT_KIND_LABELS[kind] ?? kind;
+
 // 🕘 타임라인 — 최근 활동(event_log) 드롭다운.
 async function openTimeline() {
   const dd = showTopDropdown("timelineBtn", `<div class="dd-head">타임라인 · 최근 활동</div><div class="dd-loading dim">불러오는 중…</div>`);
@@ -5940,7 +5966,7 @@ async function openTimeline() {
   if (!document.body.contains(dd)) return;
   const rows = evs.length
     ? evs.map((e) => `<div class="tl-row"><span class="tl-time dim">${localTime(e.at)}</span>
-        <span class="badge">${esc(e.kind)}</span>
+        <span class="badge">${esc(eventKindLabel(e.kind))}</span>
         <span class="tl-body">${esc(e.actor_ref ?? "")}${e.to_val ? ` · ${esc(String(e.to_val)).slice(0, 40)}` : ""}</span></div>`).join("")
     : `<div class="empty small">최근 활동 없음</div>`;
   dd.innerHTML = `<div class="dd-head">타임라인 · 최근 활동</div>${rows}`;
