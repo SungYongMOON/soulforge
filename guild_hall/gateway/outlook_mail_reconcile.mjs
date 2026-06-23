@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -558,39 +559,48 @@ async function readOutlookInventory({
       received: [],
     });
   }
-  const ps = buildOutlookPowerShellScript({
-    outlookSourceAlias,
-    dateWindow,
-    includeInboxSubfolders,
-    maxItems,
-    requestSendReceive: preflight.requested,
-  });
-  const result = spawnSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "-"], {
-    input: ps,
-    encoding: "utf8",
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  if (result.status !== 0) {
-    return normalizeInventory({
-      outlook_source_alias: outlookSourceAlias,
-      preflight_send_receive: { ...preflight, attempted: preflight.requested, result: "error" },
-      outlook_available: false,
-      outlook_error: String(result.stderr || result.stdout || "powershell_outlook_metadata_failed").trim(),
-      sent: [],
-      received: [],
-    });
-  }
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "soulforge-outlook-reconcile-"));
+  const scriptPath = path.join(tempRoot, "collect_outlook_metadata.ps1");
+  const outputPath = path.join(tempRoot, "outlook_inventory.json");
   try {
-    return normalizeInventory(JSON.parse(result.stdout));
-  } catch (error) {
-    return normalizeInventory({
-      outlook_source_alias: outlookSourceAlias,
-      preflight_send_receive: { ...preflight, attempted: preflight.requested, result: "json_parse_error" },
-      outlook_available: false,
-      outlook_error: `Failed to parse Outlook metadata JSON: ${error.message}`,
-      sent: [],
-      received: [],
+    const ps = buildOutlookPowerShellScript({
+      outlookSourceAlias,
+      dateWindow,
+      includeInboxSubfolders,
+      maxItems,
+      requestSendReceive: preflight.requested,
+      outputPath,
     });
+    await fs.writeFile(scriptPath, ps, "utf8");
+    const result = spawnSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath], {
+      encoding: "utf8",
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    if (result.status !== 0) {
+      return normalizeInventory({
+        outlook_source_alias: outlookSourceAlias,
+        preflight_send_receive: { ...preflight, attempted: preflight.requested, result: "error" },
+        outlook_available: false,
+        outlook_error: String(result.stderr || result.stdout || "powershell_outlook_metadata_failed").trim(),
+        sent: [],
+        received: [],
+      });
+    }
+    try {
+      const payload = (await fs.readFile(outputPath, "utf8")).replace(/^\uFEFF/u, "");
+      return normalizeInventory(JSON.parse(payload));
+    } catch (error) {
+      return normalizeInventory({
+        outlook_source_alias: outlookSourceAlias,
+        preflight_send_receive: { ...preflight, attempted: preflight.requested, result: "json_parse_error" },
+        outlook_available: false,
+        outlook_error: `Failed to parse Outlook metadata JSON: ${error.message}`,
+        sent: [],
+        received: [],
+      });
+    }
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true });
   }
 }
 
@@ -666,11 +676,13 @@ function buildOutlookPowerShellScript({
   includeInboxSubfolders,
   maxItems,
   requestSendReceive,
+  outputPath,
 }) {
   return `
 $ErrorActionPreference = 'Stop'
 $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$OutputPath = '${String(outputPath).replace(/'/gu, "''")}'
 function Get-Sha256Hex([string]$Value) {
   if ($null -eq $Value) { $Value = "" }
   $sha = [System.Security.Cryptography.SHA256]::Create()
@@ -815,7 +827,7 @@ $payload = [ordered]@{
   received = @($receivedRows)
 }
 $json = $payload | ConvertTo-Json -Depth 12
-[Console]::Out.Write($json)
+Set-Content -LiteralPath $OutputPath -Value $json -Encoding utf8
 `;
 }
 
