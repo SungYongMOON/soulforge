@@ -4143,7 +4143,13 @@ async function renderItems() {
 	      if (v(".cc-cc")) body.completion_criteria = v(".cc-cc");
 	      if (v(".cc-assignee")) body.assignee_ref = v(".cc-assignee");
 	      const res = await post("/api/items/confirm", body);
-      if (res.ok) { render(); return; }
+      if (res.ok) { // #1 분류 연속성: 등록 후 스크롤 위치 유지 → 다음 미분류 항목이 제자리로(메일 '분류하고 다음'과 같은 흐름). 맨 위로 안 튐.
+        toast(L.cls_confirmed ?? "정식 등록됨", "ok");
+        const y = window.scrollY;
+        await render();
+        requestAnimationFrame(() => window.scrollTo(0, y));
+        return;
+      }
       const err = await res.json().catch(() => ({}));
       card.querySelector(".cc-msg").textContent = err.error === "needs_se_anchor"
         ? (L.cls_need ?? "업무유형 + 연결대상(또는 단계)이 있어야 정식 등록됩니다") : (err.error ?? "등록 실패");
