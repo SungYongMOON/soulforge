@@ -14,6 +14,22 @@ const CLIENT_INFO = Object.freeze({
 
 const CODEX_BIN = process.env.DEV_ERP_CODEX_BIN || "codex";
 
+// 채팅 Codex 세션의 샌드박스/승인 정책. 기본은 안전(read-only·never) — owner가 DEV_ERP_CODEX_SANDBOX 를
+// 명시적으로 켤 때만 로컬 실행/파일 쓰기 허용(Outlook 실행 등). 값:
+//   read-only(기본): 저장소 읽기+네트워크만, 로컬 실행/쓰기 불가
+//   workspace-write: 작업 폴더 쓰기 + 명령 실행 가능(블래스트 반경=ERP 폴더)
+//   danger-full-access: 전체 접근(가드 없음)
+// ⚠ 채팅에 메일 등 외부 내용이 섞이므로, 풀수록 프롬프트 인젝션→임의 명령 실행 위험이 커진다. 필요할 때만 켜고 끝나면 read-only 로 되돌릴 것.
+const CODEX_SANDBOX_MODE = ["read-only", "workspace-write", "danger-full-access"].includes(String(process.env.DEV_ERP_CODEX_SANDBOX || "").trim())
+  ? String(process.env.DEV_ERP_CODEX_SANDBOX).trim() : "read-only";
+const CODEX_APPROVAL_POLICY = ["never", "on-request", "on-failure", "untrusted"].includes(String(process.env.DEV_ERP_CODEX_APPROVAL || "").trim())
+  ? String(process.env.DEV_ERP_CODEX_APPROVAL).trim() : "never";
+function codexSandboxPolicy() {
+  if (CODEX_SANDBOX_MODE === "danger-full-access") return { type: "dangerFullAccess" };
+  if (CODEX_SANDBOX_MODE === "workspace-write") return { type: "workspaceWrite", networkAccess: true };
+  return { type: "readOnly", networkAccess: true };
+}
+
 function quoteCmdArg(value) {
   const s = String(value);
   return /[\s"&|<>^]/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
@@ -250,15 +266,15 @@ function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, 
         await request("thread/resume", {
           threadId: activeThreadId,
           cwd,
-          approvalPolicy: "never",
-          sandbox: "read-only",
+          approvalPolicy: CODEX_APPROVAL_POLICY,
+          sandbox: CODEX_SANDBOX_MODE,
           developerInstructions,
         });
       } else {
         const started = await request("thread/start", {
           cwd,
-          approvalPolicy: "never",
-          sandbox: "read-only",
+          approvalPolicy: CODEX_APPROVAL_POLICY,
+          sandbox: CODEX_SANDBOX_MODE,
           developerInstructions,
           serviceName: "dev-erp",
           threadSource: "user",
@@ -273,8 +289,8 @@ function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, 
       const turnParams = {
         threadId: activeThreadId,
         cwd,
-        approvalPolicy: "never",
-        sandboxPolicy: { type: "readOnly", networkAccess: true },
+        approvalPolicy: CODEX_APPROVAL_POLICY,
+        sandboxPolicy: codexSandboxPolicy(),
         input: buildCodexTurnInput({ text: prompt, skills, localImages }),
         ...(selectedModel ? { model: selectedModel } : {}),
         ...(selectedEffort ? { effort: selectedEffort } : {}),

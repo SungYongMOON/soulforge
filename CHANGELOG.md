@@ -2,6 +2,15 @@
 
 ## 2026-06-23
 
+### Revision `working` - 채팅 Codex 샌드박스 env 설정화(로컬 실행 옵트인)
+
+- ERP 과제 채팅의 Codex 세션이 read-only·approval never 로 고정돼 로컬 프로그램(Outlook 등) 실행이 막혀
+  있던 것 → codex_bridge 의 sandbox/approval 을 env(DEV_ERP_CODEX_SANDBOX, DEV_ERP_CODEX_APPROVAL)로 제어.
+  코드 기본값은 안전(read-only·never) 유지 — owner 가 명시적으로 켤 때만 풀림(workspace-write/danger-full-access).
+  start-windows.bat 에 토글+경고 추가(기본 workspace-write 로 켬, 한 줄로 되돌림).
+- ⚠ 보안: 채팅에 메일 등 외부 내용이 섞이므로 풀수록 프롬프트 인젝션→임의 명령 실행 위험. 필요할 때만.
+- node:test 235/0.
+
 ### Revision `working` - 분류 연속성 — 정식 등록 후 스크롤 유지(맨 위로 안 튐)
 
 - 도그푸딩: 미분류 항목을 '정식 등록'하면 전체 재렌더로 목록 맨 위로 튀어 다음 항목을 다시 스크롤해야 했음
