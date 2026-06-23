@@ -2,6 +2,11 @@
 
 ## 2026-06-24
 
+### v1.2.0.N - 메모리 주입 맥락 관련도(retrieve 설계 완성)
+
+- 메모리 재설계 마무리: 시작/매 턴 주입 시 server 가 그 일의 맥락(제목·프로젝트·작업유형)을 memoryForInjection 에 전달 → 누적 항목을 **그 일 관련도 우선**으로 retrieve(관련도 0.6·recency 0.2·salience 0.2). 맥락 없으면 종전대로 recency+salience.
+- 관련도는 overlap-by-context(_memRel, 짧은 맥락 질의 적합), 게이트 dedup 은 Jaccard(_memSim) — 용도별 분리. node:test MEM-005(관련 항목이 최신+고salience 무관 항목을 앞섬) 추가. store·server 변경=재시작.
+
 ### v1.2.0.N - AI 제안 착지면 file-of-record(ai_proposal_ledger)
 
 - 기초감사 후속: ai_proposal(P-4 키스톤 — AI/규칙 산출 pending 착지면, 사람 approve 후 도메인 쓰기)이 DB에만 있어 이식·백업 불가였음. **ai_proposal_ledger.mjs** — system-wide _workmeta/system/ai_proposal_ledger/ai_proposal_ledger.csv export↔apply. id(TEXT PK) 중복 skip=멱등. JSON payload 내 개행·쉼표·따옴표 무손실 round-trip 검증.

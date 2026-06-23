@@ -3047,6 +3047,12 @@ export class Store {
     let inter = 0; for (const x of A) if (B.has(x)) inter++;
     return inter / (A.size + B.size - inter); // Jaccard(동일=1, 부분겹침<1 — NOOP/UPDATE 구분 가능)
   }
+  _memRel(itemText, context) { // 주입 관련도: 맥락 토큰이 항목에 얼마나 덮이나(overlap by context) — 짧은 맥락 질의에 적합(게이트의 Jaccard와 다름)
+    const I = new Set(this._memTokens(itemText)), C = new Set(this._memTokens(context));
+    if (!C.size) return 0;
+    let inter = 0; for (const x of C) if (I.has(x)) inter++;
+    return inter / C.size;
+  }
   // 누적 항목 추가 — append-blob 대신 ADD/UPDATE/NOOP 게이트(Mem0): 거의 동일=NOOP, 같은 주제=UPDATE(갱신), 새 주제=ADD. dedup·부풀림 방지.
   addMemoryItem(ref, { type = "fact", text, source_ref = null, salience = 0.5 } = {}) {
     const key = String(ref ?? "").trim();
@@ -3094,10 +3100,11 @@ export class Store {
     const recRank = new Map(byRec.map((it, i) => [it.id, n > 1 ? (n - 1 - i) / (n - 1) : 1]));
     const hasCtx = String(context).trim().length > 0;
     const scored = items.map((it) => {
-      const rel = hasCtx ? this._memSim(it.text, context) : 0;
+      const rel = hasCtx ? this._memRel(it.text, context) : 0;
       const rec = recRank.get(it.id) ?? 0;
       const sal = Math.max(0, Math.min(1, Number(it.salience) || 0));
-      const score = hasCtx ? (0.45 * rel + 0.30 * rec + 0.25 * sal) : (0.55 * rec + 0.45 * sal);
+      // 맥락 있으면 관련도 우위(시작 시 그 일에 맞는 메모리 우선), recency/salience는 동률 보조. 없으면 recency+salience.
+      const score = hasCtx ? (0.6 * rel + 0.2 * rec + 0.2 * sal) : (0.55 * rec + 0.45 * sal);
       return { ...it, score };
     }).sort((a, b) => b.score - a.score);
     const out = []; let used = 0;

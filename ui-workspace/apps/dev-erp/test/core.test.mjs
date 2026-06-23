@@ -5234,3 +5234,12 @@ test("memory: append API 는 항목층으로 라우팅(blob 무증식) + soft de
   assert.equal(store.retrieveMemoryItems("김민재", { budget: 10000 }).length, 0, "archived 는 주입 제외");
   assert.equal(store.listMemoryItems("김민재", { status: "archived" }).length, 1, "archived 보존");
 });
+
+test("memory: 맥락 주입은 관련 항목을 우선(recency·salience 높아도) (MEM-005)", () => {
+  const store = freshStore();
+  const rel = store.addMemoryItem("문성용", { text: "P26-014 도면 검토는 차오름과 함께", salience: 0.3 }); // 먼저(오래됨)·낮은 salience
+  const irrel = store.addMemoryItem("문성용", { text: "점심은 12시", salience: 1 }); // 최신+최고 salience but 무관
+  assert.equal(store.retrieveMemoryItems("문성용", { budget: 100000 })[0].id, irrel.id, "맥락 없으면 최신+고salience 가 1위");
+  const top = store.retrieveMemoryItems("문성용", { context: "P26-014 도면 작업", budget: 100000 })[0];
+  assert.equal(top.id, rel.id, "맥락 주면 관련 항목이 최신+고salience 무관 항목을 앞선다");
+});
