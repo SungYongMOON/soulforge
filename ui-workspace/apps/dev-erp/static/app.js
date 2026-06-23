@@ -3484,9 +3484,12 @@ async function renderHome() {
     }
     if (id === "inbox") {
       const ids = new Set(inbox.map((p) => p.id));
+      const inboxTotal = inbox.reduce((s, p) => s + (p.mail_cnt || 0), 0); // 실제 미분류 총건수(서버 집계) — 위젯은 최신 8건만 미리보기
       const mails = (await api("/api/mail?days=3650")).filter((m) => ids.has(m.project_id)).slice(0, 8);
-      return { title: L.tile_inbox, html: mails.length
-        ? `<table><tbody>${mails.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}</td></tr>`).join("")}</tbody></table>`
+      const more = inboxTotal > mails.length
+        ? `<div class="widget-more"><a data-inbox-all="${esc(inbox[0]?.id ?? "")}">${(L.inbox_see_all ?? "전체 %n건 분류하러 가기 →").replace("%n", inboxTotal)}</a></div>` : "";
+      return { title: `${L.tile_inbox} (${inboxTotal})`, html: mails.length
+        ? `<table><tbody>${mails.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}</td></tr>`).join("")}</tbody></table>${more}`
         : `<div class="empty">${L.empty_mail}</div>` };
     }
     // 최근 변경 = 사람이 읽는 변경 이력. 조회/잡음(view 등) 제외, kind 를 한국어 설명으로. 할일 변경은 클릭→빠른편집.
@@ -3828,6 +3831,14 @@ async function renderHome() {
         e.stopPropagation();
         state.mailSel = tr.dataset.mail;
         state.viewScope = "team"; state.projectFilter = ""; state.mailOffset = 0;
+        if (state.mailFilters) state.mailFilters.q = "";
+        state.view = "mail"; render();
+      }));
+    // '미분류 메일함' 위젯 → 전체 보기: 받은함 프로젝트로 필터된 메일 화면(전 미분류 메일 분류용).
+    $("#view").querySelectorAll("[data-inbox-all]").forEach((a) =>
+      a.addEventListener("click", (e) => {
+        e.stopPropagation();
+        state.viewScope = "team"; state.projectFilter = a.dataset.inboxAll || ""; state.mailSel = null; state.mailOffset = 0;
         if (state.mailFilters) state.mailFilters.q = "";
         state.view = "mail"; render();
       }));
