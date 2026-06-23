@@ -2,6 +2,16 @@
 
 ## 2026-06-23
 
+### Revision `working` - 도그푸딩 ④⑥: 연속 분류 과제 sticky + 막힌 일 차단사유 노출
+
+- **④ (메일실무)**: 메일 분류 과제 드롭다운이 '분류하고 다음'마다 첫 옵션으로 리셋되던 걸 → doAssign에서 `state.lastAssignProject` 기억, assignOpts가 그 과제를 selected. 같은 과제로 연속 들어오는 메일을 매번 재선택 안 해도 됨(client-only).
+
+### Revision `working` - 도그푸딩 ⑥: 막힌 일 차단사유를 콕핏(먼저 할 일)에 노출
+
+- 관리자 핵심 업무(막힌 일 풀기)인데 `bottleneck_reason`이 이벤트 로그에만 있어 매번 드릴다운해야 무엇을 풀지 알았음.
+- nudges()에 최신 bottleneck_reason 상관 서브쿼리 추가 → blocked 행에 `block_reason` 동봉. '먼저 할 일' 위젯이 막힌 일 제목 옆에 `· 사유` 표시.
+- 차단사유는 blocked 전환 시 기존 UI(app.js:4035 prompt)로 이미 입력됨. store-only(재시작). 인메모리 E2E PASS(blocked=사유 노출·open=없음). node:test 235/0.
+
 ### Revision `working` - 페르소나 도그푸딩 quick-win 2건 (담당 배정 인라인 + 미배정 위젯 활성 전체)
 
 - 3페르소나(신규·메일실무·관리자) 도그푸딩 워크플로(마찰 14건→우선순위 6) 중 검증된 quick-win:

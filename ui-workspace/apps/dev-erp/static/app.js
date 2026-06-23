@@ -3428,7 +3428,7 @@ async function renderHome() {
       return { title: L.tile_nudges, html: ns.length
         ? `<table><tbody>${ns.map((n) => `<tr class="wrow nudge-row${n.reason === "overdue" || n.reason === "blocked" ? " flash" : ""}" data-item="${esc(n.id)}" data-proj="${esc(n.project_id ?? "")}" data-title="${esc(n.title)}">
             <td><span class="badge ${rcls[n.reason]}">${rlabel[n.reason] ?? esc(n.reason)}</span></td>
-            <td>${esc(n.title)}</td><td class="dim">${esc(n.project_id)}</td><td class="dim num">${esc(n.due ?? "-")}</td></tr>`).join("")}</tbody></table>`
+            <td>${esc(n.title)}${n.block_reason ? ` <span class="dim">· ${esc(n.block_reason)}</span>` : ""}</td><td class="dim">${esc(n.project_id)}</td><td class="dim num">${esc(n.due ?? "-")}</td></tr>`).join("")}</tbody></table>`
         : `<div class="empty">${L.empty_items}</div>` };
     }
     if (id === "deadline_cal") {
@@ -4664,7 +4664,7 @@ async function renderMail() {
   // run17: 분류(재배정) 대상 과제 — inbox 류 제외, 진행 과제 우선
   const assignables = summary.projects.filter((p) => p.class !== "inbox" && p.class !== "archive");
   const assignOpts = assignables.map((p) =>
-    `<option value="${esc(p.id)}">${esc(p.title === p.id ? projDisplay(p.id) : `${p.id} · ${p.title}`)}</option>`).join("");
+    `<option value="${esc(p.id)}"${state.lastAssignProject === p.id ? " selected" : ""}>${esc(p.title === p.id ? projDisplay(p.id) : `${p.id} · ${p.title}`)}</option>`).join(""); // 직전 분류 과제 sticky(④) — 연속 분류 시 매번 재선택 불필요
   // 분류 시 담당 선택(미배정/나/팀원). 값=담당자 식별 라벨(claim-drop 과 동일 소스 _scopes). 기본=나.
   const assigneeMembers = (state._scopes ?? []).filter((s) => s.id !== "team");
   const assigneeMyId = state.account?.id;
@@ -4896,6 +4896,7 @@ async function renderMail() {
     const whoLabel = makeItems ? ` · ${assigneeRef ? assigneeRef : (L.assign_unassigned ?? "미배정")}` : ""; // 누구 담당으로 갔는지 피드백
     toast(`${mailIds.length}${L.assign_unit ?? "건"} ${L.assign_done ?? "분류 완료"}${makeItems ? ` · ${L.assign_made_short ?? "할일 생성"}` : ""}${whoLabel}`, "ok");
     checked.clear();
+    state.lastAssignProject = target; // 직전 분류 과제 기억(④) → 다음 렌더 시 드롭다운 기본값
     state.mailSel = nextSel; // '분류하고 다음'이면 다음 메일 선택 유지, 일반 분류면 null(해제)
     render();
   };

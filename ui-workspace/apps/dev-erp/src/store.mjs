@@ -3004,7 +3004,9 @@ export class Store {
     if (key) { cond.push("assignee_ref = ?"); args.push(key); }
     if (scope) { cond.push(scope.sql); args.push(...scope.args); }
     const rows = this.db.prepare(
-      `SELECT id, title, project_id, due, status, assignee_ref, urgency FROM core_item WHERE ${cond.join(" AND ")}`
+      `SELECT id, title, project_id, due, status, assignee_ref, urgency,
+         (SELECT e.bottleneck_reason FROM event_log e WHERE e.item_ref=core_item.id AND e.bottleneck_reason IS NOT NULL ORDER BY e.id DESC LIMIT 1) AS block_reason
+       FROM core_item WHERE ${cond.join(" AND ")}`
     ).all(...args);
     const rank = { overdue: 0, blocked: 1, priority: 2, due_today: 3, open: 4 };
     const out = rows.map((r) => {
@@ -3013,7 +3015,7 @@ export class Store {
       if (r.urgency === "high") reason = "priority"; // ⭐ 우선(사람 지정)=오늘마감·일반 위. 단 연체·막힘(시스템 긴급)은 그 위로 둠
       if (r.status === "blocked") reason = "blocked";
       if (r.due && r.due < today) reason = "overdue";
-      return { id: r.id, title: r.title, project_id: r.project_id, due: r.due, status: r.status, assignee_ref: r.assignee_ref, reason };
+      return { id: r.id, title: r.title, project_id: r.project_id, due: r.due, status: r.status, assignee_ref: r.assignee_ref, reason, block_reason: reason === "blocked" ? (r.block_reason || null) : null };
     });
     out.sort((a, b) => (rank[a.reason] - rank[b.reason]) || String(a.due ?? "9999-99-99").localeCompare(String(b.due ?? "9999-99-99")));
     return out.slice(0, limit);
