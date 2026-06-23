@@ -441,9 +441,22 @@ CREATE TABLE IF NOT EXISTS completion_log (
 -- 담당자별 메모리(업무 스타일·규칙·맥락). 시작 시 그 담당자 메모리를 Codex 스레드에 주입 → 사람마다 다른 규칙을 들고 감. 본인이 편집(내 메모리). 평가점수 아님(감시경계).
 CREATE TABLE IF NOT EXISTS assignee_memory (
   ref TEXT PRIMARY KEY,                  -- 담당자 식별 라벨(assignee_ref 와 동일 규약=표시명)
-  content TEXT,                          -- 자유 텍스트 메모/규칙(본인 작성)
+  content TEXT,                          -- 자유 텍스트 메모/규칙(본인 작성 = core, 항상 주입)
   updated_at TEXT
 );
+-- 담당자 누적 메모리 항목(core blob 위의 누적층). 완료 지식·학습이 '항목'으로 쌓이되, 쓰기 시 유사항목과 ADD/UPDATE/NOOP 게이트(Mem0 패턴)로 중복·부풀림(Context Bloat) 방지. 주입은 전체 blob 절단이 아니라 recency+salience(+맥락 관련도) 상위만 retrieve. blob(assignee_memory)=본인 작성 core, 이건 누적 fact 층. salience=정렬용(평가점수 아님·감시경계).
+CREATE TABLE IF NOT EXISTS assignee_memory_item (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ref TEXT NOT NULL,                     -- 담당자 라벨(assignee_memory.ref 규약)
+  type TEXT NOT NULL DEFAULT 'fact',     -- preference|fact|open_thread|decision
+  text TEXT NOT NULL,                    -- 한 항목(본문 원문 아님 — 규칙·맥락·포인터)
+  source_ref TEXT,                       -- 포인터(item:123, mailcsv:.. 등). 원문 미저장
+  salience REAL NOT NULL DEFAULT 0.5,    -- 0..1 현저성(정렬용)
+  created_at TEXT,
+  updated_at TEXT,
+  status TEXT NOT NULL DEFAULT 'active'  -- active|archived(콜드, 주입 제외·조회 가능)
+);
+CREATE INDEX IF NOT EXISTS idx_mem_item_ref ON assignee_memory_item(ref, status);
 -- P-6 능력 매트릭스: 사람↔역량(capability) N:N. 개인 평가점수 컬럼 없음(감시경계). weight=정렬용.
 CREATE TABLE IF NOT EXISTS person_skill (
   person_id TEXT NOT NULL REFERENCES core_person(id),
@@ -3009,12 +3022,92 @@ export class Store {
     const row = this.db.prepare("SELECT content FROM assignee_memory WHERE ref=?").get(key);
     return row?.content ?? "";
   }
-  // 주입용 압축 메모리 — 저장은 풍부해도 시작 주입은 바운드(컨텍스트 오염·낭비 방지). 머리(내 규칙)+꼬리(최신 학습) 보존, 중간 생략. (1단계: LLM 압축 전 결정적 버전)
-  memoryForInjection(ref, budget = 1800) {
-    const full = this.getAssigneeMemory(ref);
-    if (!full || full.length <= budget) return full;
-    const headN = Math.floor(budget * 0.6), tailN = budget - headN;
-    return `${full.slice(0, headN).trimEnd()}\n…(메모리 중략)…\n${full.slice(-tailN).trimStart()}`;
+  // 주입용 메모리 — 절단(truncate)이 아니라 검색(retrieve). core blob(본인 작성, 항상·우선) + 누적 항목 중 recency/salience(+맥락 관련도) 상위만 채워 예산 내로. (Letta core+retrieval, Anthropic context engineering)
+  memoryForInjection(ref, budget = 1800, context = "") {
+    const core = this.getAssigneeMemory(ref) || "";
+    const coreCap = Math.max(0, Math.floor(budget * 0.5));
+    let coreOut = core;
+    if (core.length > coreCap) {
+      if (coreCap === 0) coreOut = "";
+      else { const h = Math.floor(coreCap * 0.6), t = coreCap - h; coreOut = `${core.slice(0, h).trimEnd()}\n…(메모리 중략)…\n${core.slice(-t).trimStart()}`; }
+    }
+    const remaining = budget - coreOut.length - 16;
+    const items = remaining > 0 ? this.retrieveMemoryItems(ref, { context, budget: remaining }) : [];
+    if (!items.length) return coreOut;
+    const rendered = items.map((it) => `- (${it.type}) ${it.text}`).join("\n");
+    return coreOut ? `${coreOut}\n— 누적 메모리 —\n${rendered}` : rendered;
+  }
+  // 메모리 항목 토큰화/유사도(외부패키지 0 — 한/영/숫자 토큰 overlap coefficient). 게이트·관련도 공용.
+  _memTokens(s) {
+    return String(s ?? "").toLowerCase().normalize("NFKC").split(/[^0-9a-z가-힣]+/i).filter((w) => w.length >= 2);
+  }
+  _memSim(a, b) {
+    const A = new Set(this._memTokens(a)), B = new Set(this._memTokens(b));
+    if (!A.size || !B.size) return 0;
+    let inter = 0; for (const x of A) if (B.has(x)) inter++;
+    return inter / (A.size + B.size - inter); // Jaccard(동일=1, 부분겹침<1 — NOOP/UPDATE 구분 가능)
+  }
+  // 누적 항목 추가 — append-blob 대신 ADD/UPDATE/NOOP 게이트(Mem0): 거의 동일=NOOP, 같은 주제=UPDATE(갱신), 새 주제=ADD. dedup·부풀림 방지.
+  addMemoryItem(ref, { type = "fact", text, source_ref = null, salience = 0.5 } = {}) {
+    const key = String(ref ?? "").trim();
+    const body = String(text ?? "").replace(/\s+/g, " ").trim();
+    if (!key) return { error: "ref_required" };
+    if (!body) return { error: "text_required" };
+    const t = ["preference", "fact", "open_thread", "decision"].includes(type) ? type : "fact";
+    const sal = Math.max(0, Math.min(1, Number(salience)));
+    const now = new Date().toISOString();
+    const existing = this.db.prepare("SELECT id, text FROM assignee_memory_item WHERE ref=? AND status='active'").all(key);
+    let best = null, bestSim = 0;
+    for (const e of existing) { const s = this._memSim(body, e.text); if (s > bestSim) { bestSim = s; best = e; } }
+    if (best && bestSim >= 0.9) { // 거의 동일(Jaccard) → NOOP(최신성/현저성만 갱신)
+      this.db.prepare("UPDATE assignee_memory_item SET updated_at=?, salience=MAX(salience,?) WHERE id=?").run(now, sal, best.id);
+      return { ok: true, action: "noop", id: best.id, ref: key };
+    }
+    if (best && bestSim >= 0.4) { // 같은 주제 보강 → UPDATE(새 내용으로 갱신, id 유지)
+      this.db.prepare("UPDATE assignee_memory_item SET text=?, type=?, source_ref=COALESCE(?, source_ref), updated_at=?, salience=MAX(salience,?) WHERE id=?")
+        .run(body, t, source_ref, now, sal, best.id);
+      return { ok: true, action: "update", id: best.id, ref: key };
+    }
+    const r = this.db.prepare("INSERT INTO assignee_memory_item(ref,type,text,source_ref,salience,created_at,updated_at,status) VALUES(?,?,?,?,?,?,?, 'active')")
+      .run(key, t, body, source_ref, sal, now, now);
+    return { ok: true, action: "add", id: Number(r.lastInsertRowid), ref: key };
+  }
+  listMemoryItems(ref, { status = "active", limit = 500 } = {}) {
+    const key = String(ref ?? "").trim(); if (!key) return [];
+    const cols = "id,ref,type,text,source_ref,salience,created_at,updated_at,status";
+    if (status) return this.db.prepare(`SELECT ${cols} FROM assignee_memory_item WHERE ref=? AND status=? ORDER BY updated_at DESC LIMIT ?`).all(key, status, limit);
+    return this.db.prepare(`SELECT ${cols} FROM assignee_memory_item WHERE ref=? ORDER BY updated_at DESC LIMIT ?`).all(key, limit);
+  }
+  deleteMemoryItem(ref, id) { // soft delete = archived(콜드). 주입 제외하되 보존.
+    const key = String(ref ?? "").trim();
+    const r = this.db.prepare("UPDATE assignee_memory_item SET status='archived', updated_at=? WHERE id=? AND ref=?").run(new Date().toISOString(), Number(id), key);
+    return { ok: r.changes > 0, archived: r.changes };
+  }
+  // 주입 후보 검색 — score = 관련도(맥락 있을 때) + recency + salience. 예산(char) 내 상위만.
+  retrieveMemoryItems(ref, { context = "", budget = 1100, max = 20 } = {}) {
+    const key = String(ref ?? "").trim();
+    if (!key || budget <= 0) return [];
+    const items = this.db.prepare("SELECT id,type,text,salience,updated_at FROM assignee_memory_item WHERE ref=? AND status='active'").all(key);
+    if (!items.length) return [];
+    const byRec = [...items].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)) || (b.id - a.id)); // 동률 시각은 id(삽입순)로 — 높은 id=최신
+    const n = byRec.length;
+    const recRank = new Map(byRec.map((it, i) => [it.id, n > 1 ? (n - 1 - i) / (n - 1) : 1]));
+    const hasCtx = String(context).trim().length > 0;
+    const scored = items.map((it) => {
+      const rel = hasCtx ? this._memSim(it.text, context) : 0;
+      const rec = recRank.get(it.id) ?? 0;
+      const sal = Math.max(0, Math.min(1, Number(it.salience) || 0));
+      const score = hasCtx ? (0.45 * rel + 0.30 * rec + 0.25 * sal) : (0.55 * rec + 0.45 * sal);
+      return { ...it, score };
+    }).sort((a, b) => b.score - a.score);
+    const out = []; let used = 0;
+    for (const it of scored) {
+      if (out.length >= max) break;
+      const cost = String(it.text).length + 8;
+      if (used + cost > budget && out.length) break;
+      out.push(it); used += cost;
+    }
+    return out;
   }
   setAssigneeMemory(ref, content) {
     const key = String(ref ?? "").trim();
@@ -3026,15 +3119,9 @@ export class Store {
     ).run(key, text, new Date().toISOString());
     return { ok: true, ref: key, length: text.length };
   }
-  // 완료 지식 후보를 담당자 메모리에 한 줄 추가(자기개선 루프: 완료→지식화→메모리). 상한 초과 시 최신 유지.
+  // 완료 지식 후보를 담당자 메모리에 추가(자기개선 루프: 완료→지식화→메모리). blob append 대신 누적 항목층 + ADD/UPDATE/NOOP 게이트(중복·모순 방지). 시그니처 유지(append API 호환).
   appendAssigneeMemory(ref, text) {
-    const key = String(ref ?? "").trim();
-    const add = String(text ?? "").replace(/\s+/g, " ").trim();
-    if (!key) return { error: "ref_required" };
-    if (!add) return { error: "text_required" };
-    const prev = this.getAssigneeMemory(key);
-    const merged = ((prev ? prev + "\n" : "") + `- ${add}`).slice(-8000); // 저장 최신 우선 보존(주입은 별도 압축)
-    return this.setAssigneeMemory(key, merged);
+    return this.addMemoryItem(ref, { type: "fact", text });
   }
   capabilityMatrix() {
     return this.people().map((p) => ({ person_id: p.id, name: p.name, role: p.role, unit_ref: p.unit_ref ?? null, capability_label: p.capability_label ?? null, skills: this.personSkills(p.id) }));

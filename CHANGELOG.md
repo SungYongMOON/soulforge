@@ -2,6 +2,14 @@
 
 ## 2026-06-24
 
+### v1.2.0.N - 담당자 메모리 자료구조 재설계(blob→누적 항목층·게이트·retrieve)
+
+- 기초감사 HIGH-1 후속 — 자유텍스트 blob의 "Context Bloat"(Letta/Anthropic) 해소. core blob(본인 작성·항상 주입) 유지 + 누적 학습은 **assignee_memory_item** 항목층으로 분리.
+- **쓰기 게이트(Mem0)**: append-blob 폐기 → addMemoryItem 이 유사 항목과 ADD/UPDATE/NOOP(Jaccard) 결정 → 중복·모순·부풀림 방지. appendAssigneeMemory(완료지식·mem-add)가 자동으로 항목 게이트 사용.
+- **주입 retrieve(Letta/Anthropic)**: memoryForInjection = core(예산 50% cap) + 누적항목 중 recency+salience(+맥락 관련도) 상위만 채움(절단 아님). 외부패키지 0(로컬 토큰/Jaccard).
+- **파일 정본 일관**: memory_ledger 가 items도 memory_items.csv 로 왕복(항목층이 다시 DB-only 되지 않게). 무손실·멱등·특수문자 round-trip 검증.
+- node:test MEM-001~004 추가. 운영본 메모리 0행이라 마이그레이션 위험 없음. store 변경=재시작.
+
 ### v1.2.0.N - 기초 전수검사 + 담당자 메모리 파일 정본화(memory_ledger)
 
 - **기초 전수검사**(7에이전트 워크플로): 평결 설계B+/실집행C. 정본 철학(파일정본+DB ingest소비자)·검증능력은 2026 best practice 정렬. 갭=①DB전용 엔티티(담당자 메모리 등)②검사 미작동(state ~47일 stale·Windows 스케줄러 부재)③placement 정기검증 부재. 카파시/Letta/Mem0/Anthropic 연구 반영 권고.
