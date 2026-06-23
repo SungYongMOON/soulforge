@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-06-24
+
+### Revision `working` - doctor checks Codex runtime skill and Stop hooks
+
+- Extended `guild-hall:doctor` so bootstrap readiness now checks the actual local Codex runtime for the required `conversation-rule-hardening` skill and the two Soulforge Stop hook guards.
+- Added checklist entries for `knowledge_trigger_stop_guard.mjs` and `rule_hardening_stop_guard.mjs`, with doctor summary counters and fix hints when the local `~/.codex` setup is missing them.
+- Documented the new required runtime checks in the bootstrap doctor contract and doctor README.
+
 ## 2026-06-23
 
 ### v1.2.0.N - 담당자 메모리 관리 1단계: 저장≠주입 (컨텍스트 오염 방지)
