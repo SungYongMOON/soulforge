@@ -3009,10 +3009,17 @@ export class Store {
     const row = this.db.prepare("SELECT content FROM assignee_memory WHERE ref=?").get(key);
     return row?.content ?? "";
   }
+  // 주입용 압축 메모리 — 저장은 풍부해도 시작 주입은 바운드(컨텍스트 오염·낭비 방지). 머리(내 규칙)+꼬리(최신 학습) 보존, 중간 생략. (1단계: LLM 압축 전 결정적 버전)
+  memoryForInjection(ref, budget = 1800) {
+    const full = this.getAssigneeMemory(ref);
+    if (!full || full.length <= budget) return full;
+    const headN = Math.floor(budget * 0.6), tailN = budget - headN;
+    return `${full.slice(0, headN).trimEnd()}\n…(메모리 중략)…\n${full.slice(-tailN).trimStart()}`;
+  }
   setAssigneeMemory(ref, content) {
     const key = String(ref ?? "").trim();
     if (!key) return { error: "ref_required" };
-    const text = String(content ?? "").slice(0, 4000); // 메모리 상한
+    const text = String(content ?? "").slice(0, 8000); // 저장 상한(주입은 memoryForInjection 으로 별도 바운드)
     this.db.prepare(
       `INSERT INTO assignee_memory(ref, content, updated_at) VALUES(?,?,?)
        ON CONFLICT(ref) DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at`
@@ -3026,7 +3033,7 @@ export class Store {
     if (!key) return { error: "ref_required" };
     if (!add) return { error: "text_required" };
     const prev = this.getAssigneeMemory(key);
-    const merged = ((prev ? prev + "\n" : "") + `- ${add}`).slice(-4000); // 최신 우선 보존
+    const merged = ((prev ? prev + "\n" : "") + `- ${add}`).slice(-8000); // 저장 최신 우선 보존(주입은 별도 압축)
     return this.setAssigneeMemory(key, merged);
   }
   capabilityMatrix() {

@@ -450,7 +450,7 @@ function codexTaskErrorPayload(item, error) {
 }
 
 async function createCodexTaskThread({ item, actor, model, effort, serviceTier }) {
-  if (item?.assignee_ref) item.assignee_memory = store.getAssigneeMemory(item.assignee_ref); // 담당자 메모리 주입(시작 시)
+  if (item?.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref); // 담당자 메모리 주입(시작 시·압축 바운드)
   const title = store.codexThreadTitle(item);
   const result = await runCodexTaskTurn({
     mode: CODEX_TASK_BRIDGE_MODE,
@@ -1070,7 +1070,7 @@ const server = createServer(async (req, res) => {
       const item = store.itemById(item_id);
       if (!item) return send(res, 404, { error: "item_not_found" });
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
-      if (item.assignee_ref) item.assignee_memory = store.getAssigneeMemory(item.assignee_ref); // 담당자 메모리 주입(매 턴, dev instructions 일관)
+      if (item.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref); // 담당자 메모리 주입(매 턴·압축 바운드, dev instructions 일관)
       const binding = store.codexTaskBinding(item.id);
       const skills = mentionedCodexSkills(text);
       const localImages = localImagesFromAttachments(attachments);
