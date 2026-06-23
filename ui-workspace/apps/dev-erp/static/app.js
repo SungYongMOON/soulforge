@@ -6005,4 +6005,6 @@ if (!state.account) {
   await pullServerLayout();
   render();
   refreshNotifBadge(); // 🔔 알림 배지 초기 집계
+  // 배지를 세션 내내 살려둔다 — 완료 시 생기는 AI 요약 제안·새 차단/연체가 새로고침 없이 ~30초 내 벨에 뜨도록(발견성).
+  setInterval(() => { if (state.account && document.visibilityState !== "hidden") refreshNotifBadge(); }, 30000);
 }
