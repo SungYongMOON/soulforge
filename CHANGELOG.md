@@ -2,6 +2,12 @@
 
 ## 2026-06-23
 
+### Revision `working` - 분석 위젯에 '최근 완료'(할일 로그) 기록 추가
+
+- analytics_w가 /api/completions의 stats만 쓰던 걸 확장 — **log(최근 완료 기록)**도 표시: 완료일·제목·담당자·요약(있으면).
+- owner의 '할일 로그에 기록' 요구를 가시화(데이터는 completion_log에 이미 쌓임). 관리자=전체·그외 본인. app.js+lexicon(an_recent_done) 변경(재시작).
+- 참고: #5b 토큰 계측·스레드 wrap-up은 codex_bridge(turn/completed usage) 의존 — 헤드리스 검증 불가라 owner 라이브 확인 필요 영역으로 분리.
+
 ### Revision `working` - #4 담당자별 처리량 분석 위젯 (analytics_w) + 과거 완료 백필
 
 - 완료 로그 backbone(2b561b82) 위에 **담당자별 처리량 분석 위젯** 구현. 예약돼 있던 analytics_w 슬롯을 ready로.

@@ -3391,9 +3391,16 @@ async function renderHome() {
           .map(([wt, n]) => `${wt === "_none" ? (L.an_untyped ?? "기타") : (WORK_TYPE_LABELS[wt] ?? wt)} ${n}`).join(" · ");
         return `<tr><td>${esc(a)}</td><td class="num"><strong>${d.total}</strong></td><td class="dim mini">${esc(wtStr)}</td></tr>`;
       }).join("");
+      // 할일 로그: 최근 완료 기록(요약 있으면 함께) — 관리자=전체·그외=본인.
+      const recent = ((data && data.log) || []).slice(0, 8);
+      const logHtml = recent.length
+        ? `<div class="dim mini" style="margin:8px 0 2px">${L.an_recent_done ?? "최근 완료"}</div>`
+          + `<table><tbody>${recent.map((c) => `<tr><td class="dim num">${esc(String(c.done_at || c.created_at || "").slice(5, 10))}</td><td>${esc(c.title || "")}</td><td class="dim mini">${esc(c.assignee_ref || (L.assign_unassigned ?? "미배정"))}${c.summary ? ` · ${esc(String(c.summary).slice(0, 36))}` : ""}</td></tr>`).join("")}</tbody></table>`
+        : "";
       return { title: L.tile_analytics_w, html:
         `<div class="dim mini" style="margin-bottom:4px">${L.an_recent ?? "최근 30일 완료"}</div>`
-        + `<table><thead><tr><th>${L.col_person}</th><th>${L.an_done ?? "완료"}</th><th>${L.an_bywt ?? "업무종류"}</th></tr></thead><tbody>${rows}</tbody></table>` };
+        + `<table><thead><tr><th>${L.col_person}</th><th>${L.an_done ?? "완료"}</th><th>${L.an_bywt ?? "업무종류"}</th></tr></thead><tbody>${rows}</tbody></table>`
+        + logHtml };
     }
     if (id === "nudges") {
       // P-6 콕핏 알림 — '먼저 해야 할 일' 우선순위(연체>차단>오늘>미완). 연체/차단은 번쩍임.
