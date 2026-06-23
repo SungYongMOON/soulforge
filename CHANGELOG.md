@@ -2,6 +2,18 @@
 
 ## 2026-06-23
 
+### Revision `working` - 메일 수신 차단/제외 규칙 + 내부 프로젝트 한글 표시
+
+- **메일 제외 규칙(개인정보 보호)**: 급여명세서 등 개인 메일·차단 발신자를 팀 공용 ERP에 안 들어오게.
+  관리자 패널에 '메일 제외 규칙' 섹션 — 발신자·제목·수신함 기준(포함/완전일치) 규칙 CRUD. 매칭 메일은
+  수집 시 store.ingestMail 에서 저장 전 드롭 + 규칙 추가 시 이미 들어온 것도 소급 숨김(hidden=1, 재수집에도 유지).
+  본문 미저장 정책상 메타 3필드로만 매칭. admin 전용. 패턴 값은 로그/이벤트에 평문 미기록(프라이버시).
+  신규 테이블 mail_exclude_rule + Store CRUD/판정/소급 + /api/mail/exclude-rules(GET/POST/delete). 인메모리 E2E 검증.
+- **내부 프로젝트 한글 표시**: general_work→'일반업무', external_reviews→'외부 검토', system→'시스템',
+  P00-000_INBOX→'받은편지함'. 분류 카드·과제 카드·내부 목록·받은함·분류 드롭다운의 영어 코드 표시를 한글로
+  (데이터 id는 유지, 화면 텍스트만). projDisplay 맵.
+- 서버 변경(재시작). node:test 235/0.
+
 ### Revision `working` - papercut: 승인 대기 제안 종류도 한글화
 
 - 승인 대기(제안 큐)가 raw 제안 kind("create_item"·"set_artifact_requirement" 등)를 노출하던 것 →

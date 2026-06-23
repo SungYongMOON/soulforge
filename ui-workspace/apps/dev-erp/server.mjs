@@ -1545,6 +1545,28 @@ const server = createServer(async (req, res) => {
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_update", item_ref: mail_id, used_refs: ["core_mail"], data_label: "real" });
       return send(res, 200, result);
     }
+    // 메일 제외 규칙(개인메일·차단 발신자) — admin 전용. 발신자/제목/수신함 기준, 매칭 메일은 수집 시 저장 전 드롭 + 기존도 숨김.
+    if (path === "/api/mail/exclude-rules" && req.method === "GET") {
+      if (!allowSharedWrite(req, res)) return;
+      return send(res, 200, store.mailExcludeRules());
+    }
+    if (path === "/api/mail/exclude-rules" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      const { field, pattern, match, note } = await readJson(req);
+      const result = store.addMailExcludeRule({ field, pattern, match, note, created_by: actor });
+      if (result.error) return send(res, 400, result);
+      const applied = store.applyMailExcludeToExisting(); // '기존도 숨김' — 이미 들어온 매칭 메일 소급 hidden
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_rule_set", note: String(field ?? ""), used_refs: ["mail_exclude_rule"], data_label: "real" }); // 프라이버시: 패턴 값은 로그에 안 남김(필드명만)
+      return send(res, 200, { ...result, hidden: applied.hidden });
+    }
+    if (path === "/api/mail/exclude-rules/delete" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      const { id } = await readJson(req);
+      const result = store.deleteMailExcludeRule(id);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_rule_delete", used_refs: ["mail_exclude_rule"], data_label: "real" });
+      return send(res, 200, result);
+    }
     if (path === "/api/mail/label" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { mail_id, label_id, on } = JSON.parse(body || "{}");

@@ -471,6 +471,48 @@ function renderGate() {
   paint();
 }
 
+// 메일 제외 규칙 섹션(관리자 패널 내) — 발신자·제목·수신함 패턴으로 개인메일·차단발신자를 ERP 인입 차단(+기존 숨김).
+async function wireMailRules(ov) {
+  const L = state.lex;
+  const box = ov.querySelector("#mailRuleBox");
+  if (!box) return;
+  const fieldLab = { from: L.mrule_from ?? "발신자", subject: L.mrule_subject ?? "제목", mailbox: L.mrule_mailbox ?? "수신함" };
+  const matchLab = { contains: L.mrule_contains ?? "포함", equals: L.mrule_equals ?? "완전일치" };
+  const draw = async () => {
+    let rules = [];
+    try { rules = await api("/api/mail/exclude-rules"); } catch {}
+    const rows = (Array.isArray(rules) && rules.length)
+      ? rules.map((r) => `<div class="mrule-row" data-rid="${r.id}">
+          <span class="badge mini">${esc(fieldLab[r.field] ?? r.field)}</span>
+          <span class="dim mini">${esc(matchLab[r.match] ?? r.match)}</span>
+          <span class="mrule-pat">${esc(r.pattern)}</span>
+          <button class="fav-chip mini danger mrule-del">${L.mrule_del ?? "삭제"}</button></div>`).join("")
+      : `<div class="empty small">${L.mrule_empty ?? "규칙 없음 — 추가하면 해당 메일은 수집돼도 ERP에 안 들어옵니다"}</div>`;
+    box.innerHTML = `<p class="ui-confirm-msg" style="margin-top:12px">${L.mrule_title ?? "메일 제외 규칙"} <span class="dim" style="font-weight:400">· ${L.mrule_hint ?? "급여명세서 등 개인메일·차단 발신자를 팀 ERP에 안 받기"}</span></p>
+      <div class="admin-create" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <select id="mrField" class="login-input" style="width:92px">${Object.entries(fieldLab).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
+        <select id="mrMatch" class="login-input" style="width:96px">${Object.entries(matchLab).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
+        <input id="mrPattern" class="login-input" style="width:210px" placeholder="${L.mrule_ph ?? "예: 급여명세서 / hr@회사.com"}" />
+        <button id="mrAdd" class="fav-chip active">${L.mrule_add ?? "규칙 추가"}</button>
+      </div>
+      <div class="mrule-list">${rows}</div>`;
+    box.querySelector("#mrAdd")?.addEventListener("click", async () => {
+      const field = box.querySelector("#mrField").value, match = box.querySelector("#mrMatch").value, pattern = box.querySelector("#mrPattern").value.trim();
+      if (!pattern) { toast(L.mrule_need_pattern ?? "차단할 값을 입력하세요", "error"); return; }
+      const resp = await post("/api/mail/exclude-rules", { field, pattern, match });
+      const d = await resp.json().catch(() => ({}));
+      if (resp.ok) { toast(`${L.mrule_added ?? "규칙 추가됨"}${d.hidden ? ` · ${d.hidden}${L.mrule_hidden_unit ?? "건 숨김"}` : ""}`, "ok"); draw(); }
+      else toast((L.mrule_fail ?? "추가 실패") + (d.error ? ` (${d.error})` : ""), "error");
+    });
+    box.querySelectorAll(".mrule-del").forEach((b) => b.addEventListener("click", async () => {
+      const rid = b.closest(".mrule-row").dataset.rid;
+      const resp = await post("/api/mail/exclude-rules/delete", { id: Number(rid) });
+      if (resp.ok) { toast(L.mrule_deleted ?? "규칙 삭제됨", "ok"); draw(); } else toast(L.mrule_fail ?? "실패", "error");
+    }));
+  };
+  await draw();
+}
+
 // 관리자 패널: 계정 목록 + 추가 + 역할/상태 관리(관리자 전용).
 async function openAdminPanel() {
   const L = state.lex;
@@ -490,12 +532,14 @@ async function openAdminPanel() {
     <div class="admin-err danger-text" style="min-height:1em;margin-bottom:6px"></div>
     <div id="teamReady" class="admin-readiness"></div>
     <div id="acList"></div>
+    <div id="mailRuleBox" class="admin-mailrules"></div>
     <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button></div>
   </div>`;
   document.body.appendChild(ov);
   const close = () => { ov.remove(); renderAuth(); }; // 닫을 때 관리자 버튼 준비상태 점 갱신
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  wireMailRules(ov); // 메일 제외 규칙 섹션(자기완결 렌더·바인드)
   const errBox = ov.querySelector(".admin-err");
   const issueLabel = (issue) => {
     const labels = {
@@ -1414,7 +1458,7 @@ async function renderProjectsList() {
     if (p.open) wl.push(`<em class="wl open">${state.lex.proj_wl_open ?? "열림"} ${p.open}</em>`);
     const ptitle = p.title && p.title !== p.id ? esc(p.title) : "";
     return `<div class="proj-card${p.class === "archive" ? " archived" : ""}" data-hub="${esc(p.id)}">
-      <div class="pc-head"><span class="pc-id">${esc(p.id)}</span>${p.class === "archive" ? `<span class="badge mini">${state.lex.proj_archived_badge ?? "보관됨"}</span>` : ""}${p.provisional ? `<span class="badge mini warn">${state.lex.proj_provisional ?? "정션 미연결"}</span>` : ""}<span class="status-chip s-${p.health ?? "ok"}">${projHealthLabel(p.health)}</span></div>
+      <div class="pc-head"><span class="pc-id">${esc(projDisplay(p.id))}</span>${p.class === "archive" ? `<span class="badge mini">${state.lex.proj_archived_badge ?? "보관됨"}</span>` : ""}${p.provisional ? `<span class="badge mini warn">${state.lex.proj_provisional ?? "정션 미연결"}</span>` : ""}<span class="status-chip s-${p.health ?? "ok"}">${projHealthLabel(p.health)}</span></div>
       ${ptitle ? `<div class="pc-title">${ptitle}</div>` : `<div class="pc-title dim-title">—</div>`}
       <div class="pc-meta">${state.lex.proj_start ?? "시작"} ${p.start_year ?? "—"} · ${state.lex.proj_stage ?? "현재"} ${esc(p.stage_current ?? "—")}</div>
       <div class="pc-wl">${wl.join("") || `<em class="wl none">${state.lex.proj_wl_none ?? "열린 일 없음"}</em>`}</div></div>`;
@@ -3256,12 +3300,12 @@ async function renderHome() {
 
   const inboxStrip = inbox.map((p) => `<div class="inbox-strip" data-p="${esc(p.id)}">
       <span class="badge blue">${L.class_inbox}</span>
-      <strong>${esc(p.id)}</strong> · ${L.kpi_inbox} ${p.mail_cnt}
+      <strong>${esc(projDisplay(p.id))}</strong> · ${L.kpi_inbox} ${p.mail_cnt}
       <button class="fav-chip" data-jump-mail="${esc(p.id)}">${L.view_mail}</button></div>`).join("");
 
   const internalBlock = internals.length
     ? `<details class="internal-fold"><summary>${L.class_internal} (${internals.length})</summary>
-        ${internals.map((p) => `<span class="badge">${esc(p.id)}</span>`).join(" ")}</details>`
+        ${internals.map((p) => `<span class="badge">${esc(projDisplay(p.id))}</span>`).join(" ")}</details>`
     : "";
 
   // 위젯 본문 빌더 (id → {title, html})
@@ -3855,6 +3899,9 @@ function wireItemActions(scope) {
 // SE 업무유형·연결대상 라벨(분류 폼 + 배지)
 const WORK_TYPE_LABELS = { answer: "답변", review: "검토", author: "작성", revise: "수정", purchase: "구매", verify: "확인", decide: "결정", schedule: "일정등록" };
 const LINK_KIND_LABELS = { requirement: "요구사항", artifact: "산출물", meeting: "회의록", bom: "BOM", part: "부품", vendor: "업체", risk: "리스크" };
+// 내부 영어 프로젝트 코드 → 한글 표시명(데이터/ID는 그대로, 화면 텍스트만). owner: general_work=일반업무.
+const INTERNAL_PROJ_LABELS = { general_work: "일반업무", external_reviews: "외부 검토", system: "시스템", "P00-000_INBOX": "받은편지함" };
+const projDisplay = (id) => INTERNAL_PROJ_LABELS[id] ?? id;
 function itemLinkCell(i) {
   const se = [];
   if (i.work_type) se.push(`<span class="badge">${WORK_TYPE_LABELS[i.work_type] ?? i.work_type}</span>`);
@@ -4024,7 +4071,7 @@ async function renderItems() {
 	        const suggested = !!(i.work_type || i.completion_criteria); // 제안값이 채워져 옴
 	        const assigneeDefault = i.assignee_ref || i.suggested_assignee_ref || state.account?.display_name || state.account?.username || state.account?.email || "";
 	        return `<div class="classify-card" data-id="${esc(i.id)}">
-	        <div class="cc-head"><span class="cc-title">${esc(i.title)}</span><span class="proj-link label-chip" data-hub="${esc(i.project_id)}">${esc(i.project_id)}</span>
+	        <div class="cc-head"><span class="cc-title">${esc(i.title)}</span><span class="proj-link label-chip" data-hub="${esc(i.project_id)}">${esc(projDisplay(i.project_id))}</span>
 	          ${suggested ? `<span class="badge mini">${L.cls_suggested ?? "제안"}</span>` : ""}${i.anchor_stage_code ? `<span class="dim mini">SE ${esc(i.anchor_stage_code)}</span>` : ""}</div>
 	        ${itemAutomationHints(i)}
 	        ${itemReviewTrace(i)}
@@ -4458,7 +4505,7 @@ async function renderMail() {
   // run17: 분류(재배정) 대상 과제 — inbox 류 제외, 진행 과제 우선
   const assignables = summary.projects.filter((p) => p.class !== "inbox" && p.class !== "archive");
   const assignOpts = assignables.map((p) =>
-    `<option value="${esc(p.id)}">${esc(p.title === p.id ? p.id : `${p.id} · ${p.title}`)}</option>`).join("");
+    `<option value="${esc(p.id)}">${esc(p.title === p.id ? projDisplay(p.id) : `${p.id} · ${p.title}`)}</option>`).join("");
   const selectBar = `<div class="mail-selectbar">
       <span class="dim">${pageSelected}/${mail.length} 선택 · 전체 선택 ${checked.size}</span>
       <button id="mailSelectPage" class="fav-chip mini" ${mail.length ? "" : "disabled"}>현재 페이지 전체 선택</button>
@@ -5939,7 +5986,7 @@ const EVENT_KIND_LABELS = {
   item_move: "이동", item_promote: "할일 승격", completion_digest: "완료 요약", split_suggest: "분해 제안",
   add_attachment_type: "첨부유형 추가", set_artifact_requirement: "산출물 요건", link_part_project: "부품-과제 연결",
   mail_assign: "메일 분류", mail_unassign: "분류 취소", mail_delete: "메일 삭제", mail_update: "메일 수정",
-  mail_register: "메일 등록", mail_collect_manual: "메일 수집", ai_proposal_approve: "제안 승인",
+  mail_register: "메일 등록", mail_collect_manual: "메일 수집", mail_rule_set: "메일 제외규칙 설정", mail_rule_delete: "메일 제외규칙 삭제", ai_proposal_approve: "제안 승인",
   ai_proposal_reject: "제안 반려", recommender_run: "추천 실행", chat_query: "AI 질문", knowledge_upsert: "지식 갱신",
   gate_clear: "게이트 통과", gate_mode_set: "게이트 설정", anchor_move: "단계 이동", attachment_add: "첨부 추가",
   deliverable_add: "산출물 추가", deliverable_edit: "산출물 수정", deliverable_due_edit: "마감 수정",

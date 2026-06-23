@@ -200,6 +200,16 @@ CREATE TABLE IF NOT EXISTS mail_label_map (
   label_id INTEGER NOT NULL REFERENCES mail_label(id),
   PRIMARY KEY (mail_id, label_id)
 );
+CREATE TABLE IF NOT EXISTS mail_exclude_rule ( -- 메일 수신 차단/제외 규칙(개인메일·차단발신자). 발신자/제목/수신함 메타로만 매칭(본문 미저장)
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  field TEXT NOT NULL,                 -- from(발신자) | subject(제목) | mailbox(수신함)
+  pattern TEXT NOT NULL,               -- 매칭 값(소문자 비교)
+  match TEXT NOT NULL DEFAULT 'contains', -- contains(포함) | equals(완전일치)
+  enabled INTEGER NOT NULL DEFAULT 1,
+  note TEXT,
+  created_by TEXT,
+  created_at TEXT
+);
 CREATE TABLE IF NOT EXISTS game_profile ( -- 게임 전용 확장 (core 는 모름)
   item_ref TEXT PRIMARY KEY REFERENCES core_item(id),
   sprite TEXT,
@@ -1032,6 +1042,59 @@ export class Store {
     return { ok: true, id: mail_id };
   }
 
+  // ── 메일 제외 규칙(blocklist) — 개인메일(급여명세서 등)·차단 발신자를 팀 공용 ERP 에 안 들어오게.
+  // 발신자(from=counterpart)·제목(subject)·수신함(mailbox) 메타로만 매칭(본문 미저장). 매칭 값은 로그/이벤트에 평문 노출 금지(프라이버시).
+  mailExcludeRules({ enabledOnly = false } = {}) {
+    return this.db.prepare(`SELECT * FROM mail_exclude_rule ${enabledOnly ? "WHERE enabled=1" : ""} ORDER BY id DESC`).all();
+  }
+  addMailExcludeRule({ field, pattern, match = "contains", note = null, created_by = null } = {}) {
+    const f = String(field ?? "").trim(), p = String(pattern ?? "").trim(), m = String(match ?? "contains").trim();
+    if (!Store.MAIL_RULE_FIELDS.includes(f)) return { error: "field_invalid" };
+    if (!Store.MAIL_RULE_MATCHES.includes(m)) return { error: "match_invalid" };
+    if (!p) return { error: "pattern_required" };
+    const info = this.db.prepare(
+      "INSERT INTO mail_exclude_rule(field,pattern,match,enabled,note,created_by,created_at) VALUES(?,?,?,1,?,?,datetime('now'))"
+    ).run(f, p, m, note ? String(note).slice(0, 200) : null, created_by || null);
+    this._mailRuleCache = null;
+    return { ok: true, id: Number(info.lastInsertRowid) };
+  }
+  deleteMailExcludeRule(id) {
+    const r = this.db.prepare("SELECT id FROM mail_exclude_rule WHERE id=?").get(id);
+    if (!r) return { error: "rule_not_found" };
+    this.db.prepare("DELETE FROM mail_exclude_rule WHERE id=?").run(id);
+    this._mailRuleCache = null;
+    return { ok: true, id };
+  }
+  setMailExcludeRuleEnabled(id, enabled) {
+    const r = this.db.prepare("SELECT id FROM mail_exclude_rule WHERE id=?").get(id);
+    if (!r) return { error: "rule_not_found" };
+    this.db.prepare("UPDATE mail_exclude_rule SET enabled=? WHERE id=?").run(enabled ? 1 : 0, id);
+    this._mailRuleCache = null;
+    return { ok: true, id, enabled: !!enabled };
+  }
+  // 한 메일이 제외 규칙에 걸리나 — 저장 전 드롭(ingestMail)·소급 숨김 공통 판정. 활성 규칙 캐시(수집 1회당 다건 호출 대비).
+  _mailExcluded({ counterpart = null, subject = null, mailbox = null } = {}) {
+    if (!this._mailRuleCache) this._mailRuleCache = this.mailExcludeRules({ enabledOnly: true });
+    if (!this._mailRuleCache.length) return false;
+    for (const r of this._mailRuleCache) {
+      const hay = String((r.field === "from" ? counterpart : r.field === "subject" ? subject : mailbox) ?? "").toLowerCase();
+      const needle = String(r.pattern ?? "").toLowerCase();
+      if (!needle) continue;
+      if (r.match === "equals" ? hay === needle : hay.includes(needle)) return true;
+    }
+    return false;
+  }
+  // 규칙 신설/변경 시 이미 저장된 메일에 소급 숨김(hidden=1). 매칭 건수만 반환(원문 비노출). upsert 가 hidden 미터치라 재수집에도 유지.
+  applyMailExcludeToExisting() {
+    this._mailRuleCache = this.mailExcludeRules({ enabledOnly: true });
+    if (!this._mailRuleCache.length) return { hidden: 0 };
+    const rows = this.db.prepare("SELECT id, counterpart, subject, mailbox FROM core_mail WHERE COALESCE(hidden,0)=0").all();
+    const upd = this.db.prepare("UPDATE core_mail SET hidden=1 WHERE id=?");
+    let hidden = 0;
+    for (const m of rows) { if (this._mailExcluded(m)) { upd.run(m.id); hidden++; } }
+    return { hidden };
+  }
+
   // 메일 메타 수정(제목·상대·날짜·포인터). 잘못 등록한 메일 정정용. 수집(원장) 메일은 재스캔 시 원장값으로 되돌아갈 수 있음(원문이 정본).
   updateMail(mail_id, patch = {}) {
     const m = this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(mail_id);
@@ -1072,6 +1135,8 @@ export class Store {
       project_id = existing.project_id;
     }
     const isNew = !existing;
+    // 메일 제외 규칙 매칭 시 저장 전 드롭(개인메일·차단 발신자). 수집 경로만 — 수동 등록(createMail)은 의도적이라 면제.
+    if (this._mailExcluded({ counterpart, subject: subj, mailbox })) return { dropped: true, id };
     const dir = ["in", "out"].includes(direction) ? direction : "in";
     this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: subj, counterpart: counterpart || null,
       pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, mailbox: mailbox || null, data_label });
@@ -1460,6 +1525,8 @@ export class Store {
   static ITEM_STATUSES = ["unclassified", "open", "doing", "waiting", "blocked", "done", "archived"]; // archived=소프트삭제(활성 목록·집계 제외)
   static ORIGINS = ["mail", "request", "meeting", "manual", "schedule", "ledger"]; // 할일 출처(장부 ingest 검증)
   static WORK_TYPES = ["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"];
+  static MAIL_RULE_FIELDS = ["from", "subject", "mailbox"]; // 메일 제외 규칙 매칭 필드(발신자·제목·수신함)
+  static MAIL_RULE_MATCHES = ["contains", "equals"];
   static LINK_KINDS = ["requirement", "artifact", "meeting", "bom", "part", "vendor", "risk"];
   static REVIEW_STATUSES = ["pending_review", "needs_review", "triaged", "ready", "reviewed", "approved", "rejected", "corrected", "completed"];
   static ROUTE_CONFIDENCES = ["exact", "review", "none"];
