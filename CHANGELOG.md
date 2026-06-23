@@ -2,6 +2,11 @@
 
 ## 2026-06-24
 
+### v1.2.0.N - AI 제안 착지면 file-of-record(ai_proposal_ledger)
+
+- 기초감사 후속: ai_proposal(P-4 키스톤 — AI/규칙 산출 pending 착지면, 사람 approve 후 도메인 쓰기)이 DB에만 있어 이식·백업 불가였음. **ai_proposal_ledger.mjs** — system-wide _workmeta/system/ai_proposal_ledger/ai_proposal_ledger.csv export↔apply. id(TEXT PK) 중복 skip=멱등. JSON payload 내 개행·쉼표·따옴표 무손실 round-trip 검증.
+- npm: dev-erp:proposal-export/apply. 도구라 재시작 불요. 운영본 1건. **DB-only 내구기록 sweep 사실상 완료**(메모리·완료기록·AI제안). codex_thread(대화)는 원문미저장 정책상 요약수준 후속.
+
 ### v1.2.0.N - 내 메모리 항목 관리 UI(투명성·감시경계)
 
 - 기초감사 후속(메모리 투명성): "내 메모리" 오버레이에 **누적 메모리 항목 보기/삭제(보관)/직접 추가** — 담당자별로 AI가 무엇을 기억하는지 본인이 확인·정리. 감시경계(본인 것만).
