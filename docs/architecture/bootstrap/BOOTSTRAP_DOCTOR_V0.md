@@ -103,6 +103,14 @@ npm.cmd run guild-hall:doctor -- --remote
   - `.registry/skills/*/codex/SKILL.md` 가 있는 sync 가능한 Soulforge Codex skill 전체
   - installed 이름은 `soulforge-<skill-id>` 형식으로 본다
   - `codex/SKILL.md` 가 없는 registry entry 는 bootstrap 필수 sync 대상이 아니다
+- 필수 local Codex runtime skill 설치 여부
+  - `conversation-rule-hardening`
+  - 현재 local Codex runtime 에 실제 설치된 skill 을 본다
+  - missing 이면 `.registry/skills` 승격 또는 `~/.codex/skills/` 복구 후 doctor 를 다시 실행한다
+- 필수 Codex Stop hook 설정 여부
+  - `guild_hall/knowledge_access/knowledge_trigger_stop_guard.mjs`
+  - `guild_hall/knowledge_access/rule_hardening_stop_guard.mjs`
+  - doctor 는 `~/.codex/config.toml` 을 payload 로 출력하지 않고, hook command 에 guard script ref 가 있는지만 확인한다
 - local env / policy file 존재 여부
   - `public-only` 에서는 기본 readiness 필수 항목이 아니다
   - `operator`, `owner-with-state` 에서는 `email_fetch.env`, `telegram_notify.env`, `notify_policy.yaml` 를 본다
@@ -199,6 +207,10 @@ summary 는 아래 숫자를 포함한다.
 - `profile_checks_total`
 - `safe_smokes_passed`
 - `safe_smokes_total`
+- `codex_runtime_skills_passed`
+- `codex_runtime_skills_total`
+- `codex_stop_hooks_passed`
+- `codex_stop_hooks_total`
 - `remote_checks_passed`
 - `remote_checks_total`
 - `live_smokes_passed`
@@ -222,14 +234,15 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 2. doctor 프로필 기본값은 `public-only` 다.
 3. local node identity 는 각 PC 가 자신을 어떤 node role 로 인식하는지 먼저 확인하는 surface 다.
 4. sync 가능한 Soulforge Codex skill 전체는 bootstrap 필수 항목으로 본다.
-5. `--profile operator` 는 private repo 없이 local operator env 와 smoke/live 를 보는 public-safe 운영 프로필이다.
-6. `--profile owner-with-state` 는 owner 전용 private repo 운용 프로필이고, current doctor v0 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
-7. 설치 절차에는 GitHub CLI 인증 완료가 포함된다.
-8. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
-9. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
-10. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
-11. bootstrap readiness 와 실제 업무 실행은 분리한다.
-12. `codex`, `promptfoo`, workflow evolution venv 는 workflow evolution harness 후보용 optional tool 이며, `/goal` feature enable 과 OpenAI SDK / DSPy import 여부는 [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md) 의 별도 확인 절차를 따른다.
+5. 필수 local Codex runtime skill 과 Stop hook 은 모든 프로필의 bootstrap 필수 항목으로 본다.
+6. `--profile operator` 는 private repo 없이 local operator env 와 smoke/live 를 보는 public-safe 운영 프로필이다.
+7. `--profile owner-with-state` 는 owner 전용 private repo 운용 프로필이고, current doctor v0 는 nested `private-state/` repo 와 continuity data path 를 추가로 본다.
+8. 설치 절차에는 GitHub CLI 인증 완료가 포함된다.
+9. `--remote` 는 GitHub auth, remote 연결, public/private repo 최신 상태를 본다.
+10. `--live` 는 외부 인증/연결만 수행하고, 메일/메시지 실제 발송은 하지 않는다.
+11. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
+12. bootstrap readiness 와 실제 업무 실행은 분리한다.
+13. `codex`, `promptfoo`, workflow evolution venv 는 workflow evolution harness 후보용 optional tool 이며, `/goal` feature enable 과 OpenAI SDK / DSPy import 여부는 [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md) 의 별도 확인 절차를 따른다.
 
 ## clone 감지 원칙
 

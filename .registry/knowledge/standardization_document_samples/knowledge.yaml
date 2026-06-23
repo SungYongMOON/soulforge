@@ -3,7 +3,7 @@ kind: knowledge
 status: active
 title: Standardization Document Sample Corpus
 summary: Public-safe routing knowledge for the owner-approved company standardization document sample corpus prepared for private Knowledge Wiki Cell routing, HWPX normalization planning, NotebookLM metadata-manifest materialization, and partial private HWPX source-text index tracking.
-claim_ceiling: canon_entry_public_safe_routing_only
+claim_ceiling: canon_entry
 canon_registration:
   state: canon_entry
   registration_basis: owner_requested_public_safe_routing_entry_20260615_company_authored_standardization_samples_with_post_development_review

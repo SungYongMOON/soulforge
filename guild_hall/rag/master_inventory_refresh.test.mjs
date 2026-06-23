@@ -49,6 +49,60 @@ test("master inventory refresh writes metadata-only inventory, triage, and selec
   }
 });
 
+test("master inventory refresh accepts project ledger root and scan roots", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-project-master-inventory-"));
+  try {
+    await writeFixtureRepo(repoRoot);
+    await writeText(
+      repoRoot,
+      "_workmeta/P26-014/knowledge_rag_candidate_ledger/events/2026-06.jsonl",
+      [
+        JSON.stringify({
+          schema_version: "soulforge.knowledge_rag_candidate.v0",
+          kind: "knowledge_rag_candidate",
+          candidate_id: "knowledge_rag_candidate_19144524497a60df",
+          created_at: "2026-06-23T14:10:53Z",
+          project_code: "P26-014",
+          source_context_ref: "_workmeta/P26-014/runs/sonar2093_corrected_basis_knowledge_capture_20260623/ingest_scope_packet.yaml",
+          candidate_kind: "knowledge_trigger",
+          short_reason: "SONAR 2093 corrected basis and roll CFD need private wiki and RAG metadata capture.",
+          suggested_route: "sourcebound_review_candidate",
+          claim_ceiling: "observed",
+          missing_inputs: ["owner_decision_before_source_text_index"],
+          owner_question: "Route this packet?",
+          status: "accepted_for_review",
+          boundary: { metadata_only: true },
+        }),
+        "",
+      ].join("\n"),
+    );
+    await writeText(
+      repoRoot,
+      "_workmeta/P26-014/runs/sonar2093_corrected_basis_knowledge_capture_20260623/compiled_projection/index.md",
+      "# SONAR 2093 Corrected Basis\n",
+    );
+
+    const refresh = await buildMasterKnowledgeInventoryRefresh({
+      repoRoot,
+      date: "2026-06-23",
+      inventoryId: "p26_014_master_knowledge_inventory_reconcile_20260623",
+      outputRootRef: "_workmeta/P26-014/reports/knowledge_wiki",
+      ledgerRootRef: "_workmeta/P26-014/knowledge_rag_candidate_ledger/events",
+      scanRoots: ["_workmeta/P26-014"],
+    });
+
+    assert.equal(refresh.status, "ready");
+    assert.equal(refresh.summary.summary.candidate_ledger_rows, 1);
+    assert.equal(refresh.sourcebound_review_selection.selected_candidate.candidate_id, "knowledge_rag_candidate_19144524497a60df");
+    assert.match(refresh.sourcebound_review_selection.selected_candidate.title, /SONAR 2093 corrected basis/u);
+    assert.deepEqual(refresh.sourcebound_review_selection.selected_candidate.required_before_import, ["owner_decision_before_source_text_index"]);
+    assert.ok(refresh.summary.summary.scan.scanned_roots.includes("_workmeta/P26-014"));
+    assert.equal(validateMasterKnowledgeInventoryRefresh(refresh).status, "pass");
+  } finally {
+    await rm(repoRoot, { force: true, recursive: true });
+  }
+});
+
 async function writeFixtureRepo(repoRoot) {
   await writeText(
     repoRoot,

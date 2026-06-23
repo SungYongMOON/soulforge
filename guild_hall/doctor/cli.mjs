@@ -3,11 +3,15 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
+import {
+  buildRequiredCodexRuntimeSkillResult,
+  buildRequiredCodexStopHookResult,
+  resolveCodexHome,
+} from "./codex_runtime_checks.mjs";
 import { buildDoctorFatalPayload, printDoctorHuman, printDoctorJson } from "./reporting.mjs";
 import {
   pathExists,
@@ -130,6 +134,36 @@ async function runDoctor(checklist, options = {}) {
     results.push(result);
     if (!exists) {
       nextSteps.push(result.fix_hint ?? `필수 Soulforge skill 설치: ${skillName}`);
+    }
+  }
+
+  for (const item of checklist.required_codex_runtime_skills ?? []) {
+    if (!itemAppliesToProfile(item, profile)) {
+      continue;
+    }
+    const rawResult = await buildRequiredCodexRuntimeSkillResult(item);
+    const result = withFixHint({
+      ...rawResult,
+      path: relativeToRepoOrAbsolute(rawResult.path),
+    }, { item });
+    results.push(result);
+    if (result.status !== "ok") {
+      nextSteps.push(result.fix_hint ?? `필수 Codex runtime skill 설치: ${item.install_name ?? item.id}`);
+    }
+  }
+
+  for (const item of checklist.required_codex_stop_hooks ?? []) {
+    if (!itemAppliesToProfile(item, profile)) {
+      continue;
+    }
+    const rawResult = await buildRequiredCodexStopHookResult(item, { repoRoot });
+    const result = withFixHint({
+      ...rawResult,
+      path: relativeToRepoOrAbsolute(rawResult.path),
+    }, { item });
+    results.push(result);
+    if (result.status !== "ok") {
+      nextSteps.push(result.fix_hint ?? `필수 Codex Stop hook 설정: ${item.script_ref ?? item.id}`);
     }
   }
 
@@ -291,6 +325,10 @@ async function runDoctor(checklist, options = {}) {
   const nodeIdentityPassed = nodeIdentityResults.filter((item) => item.status === "ok").length;
   const safeSmokeResults = results.filter((item) => item.category === "safe_smoke");
   const safeSmokesPassed = safeSmokeResults.filter((item) => item.status === "ok").length;
+  const codexRuntimeSkillResults = results.filter((item) => item.category === "required_codex_runtime_skill");
+  const codexRuntimeSkillsPassed = codexRuntimeSkillResults.filter((item) => item.status === "ok").length;
+  const codexStopHookResults = results.filter((item) => item.category === "required_codex_stop_hook");
+  const codexStopHooksPassed = codexStopHookResults.filter((item) => item.status === "ok").length;
   const remoteChecksPassed = remoteCheckResults.filter((item) => item.status === "ok").length;
   const liveSmokesPassed = liveSmokeResults.filter((item) => item.status === "ok").length;
   const ready = requiredResults.every((item) => item.status === "ok");
@@ -320,6 +358,10 @@ async function runDoctor(checklist, options = {}) {
       profile_checks_total: profileResults.length,
       safe_smokes_passed: safeSmokesPassed,
       safe_smokes_total: safeSmokeResults.length,
+      codex_runtime_skills_passed: codexRuntimeSkillsPassed,
+      codex_runtime_skills_total: codexRuntimeSkillResults.length,
+      codex_stop_hooks_passed: codexStopHooksPassed,
+      codex_stop_hooks_total: codexStopHookResults.length,
       remote_checks_passed: remoteChecksPassed,
       remote_checks_total: remoteCheckResults.length,
       live_smokes_passed: liveSmokesPassed,
@@ -756,10 +798,6 @@ function tryParseJson(value) {
   }
 }
 
-function resolveCodexHome() {
-  return process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
-}
-
 function relativeToRepoOrAbsolute(filePath) {
   return sharedRelativeToRepoOrAbsolute(repoRoot, filePath);
 }
@@ -843,6 +881,14 @@ function buildFixHint(result, context = {}) {
 
   if (result.category === "required_skill") {
     return "sync 가능한 Soulforge Codex skill 을 local 에 materialize 한다. 예: `npm run skills:sync -- --all`";
+  }
+
+  if (result.category === "required_codex_runtime_skill") {
+    return "필수 local Codex runtime skill 을 복구한다. `conversation-rule-hardening` 은 local skill 이 없으면 `.registry/skills` 로 승격하거나 `~/.codex/skills/` 에 다시 설치한 뒤 doctor 를 다시 실행한다.";
+  }
+
+  if (result.category === "required_codex_stop_hook") {
+    return "`~/.codex/config.toml` 의 `[[hooks.Stop]]` 설정에 `guild_hall/knowledge_access/knowledge_trigger_stop_guard.mjs` 와 `guild_hall/knowledge_access/rule_hardening_stop_guard.mjs` command 를 둘 다 등록한 뒤 doctor 를 다시 실행한다.";
   }
 
   switch (result.id) {

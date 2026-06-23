@@ -230,13 +230,16 @@ async function main() {
   const repoRoot = path.resolve(args["repo-root"] ?? process.cwd());
 
   if (command === "master-inventory-refresh" || command === "refresh-master-inventory") {
+    const scanRoots = arrayArg(args, "scan-root");
     const options = {
       repoRoot,
       outputRootRef: optionalStringArg(args, "output-root-ref"),
       inventoryId: optionalStringArg(args, "inventory-id"),
+      ledgerRootRef: optionalStringArg(args, "ledger-root-ref") ?? optionalStringArg(args, "candidate-ledger-root-ref"),
       notebooklmMetadataRef: optionalStringArg(args, "notebooklm-metadata-ref"),
       now: optionalStringArg(args, "now"),
       date: optionalStringArg(args, "date"),
+      scanRoots: scanRoots.length > 0 ? scanRoots : undefined,
     };
     if (args.write) {
       printJson(await writeMasterKnowledgeInventoryRefresh(options));
@@ -2223,7 +2226,7 @@ function printUsageAndExit() {
   process.stderr.write(
     [
       "Usage:",
-      "  node guild_hall/rag/cli.mjs master-inventory-refresh [--write] [--date YYYY-MM-DD | --now <iso>] [--inventory-id <id>] [--output-root-ref <repo-relative-dir>] [--notebooklm-metadata-ref <repo-relative-json>] [--full]",
+      "  node guild_hall/rag/cli.mjs master-inventory-refresh [--write] [--date YYYY-MM-DD | --now <iso>] [--inventory-id <id>] [--output-root-ref <repo-relative-dir>] [--ledger-root-ref <repo-relative-dir>] [--notebooklm-metadata-ref <repo-relative-json>] [--scan-root <repo-relative-dir> ...] [--full]",
       "  node guild_hall/rag/cli.mjs validate-master-inventory-refresh --inventory-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs knowledge-source-storage-audit [--write] [--date YYYY-MM-DD | --now <iso>] [--audit-id <id>] [--output-root-ref <repo-relative-dir>] [--workmeta-root-ref <repo-relative-dir>] [--workspace-root-ref <repo-relative-dir> ...] [--skip-workspace-scan] [--hash-files] [--max-orphan-rows <n>] [--full]",
       "  node guild_hall/rag/cli.mjs validate-knowledge-source-storage-audit --audit-ref <repo-relative-json>",

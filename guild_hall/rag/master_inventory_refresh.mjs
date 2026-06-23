@@ -572,15 +572,10 @@ function buildSourceboundReviewSelection({ candidateTriage, generatedAtUtc, sour
       ? {
           candidate_id: selected.candidate_id,
           source_context_ref: selected.source_context_ref,
-          title: "sonar/electronics calculator seed to dev-ERP import",
+          title: selected.short_reason || selected.candidate_id,
           reason: selected.rationale,
           next_action: selected.recommended_next_action,
-          required_before_import: [
-            "source_packet_curation",
-            "sourcebound_review_packet",
-            "owner_import_scope_decision",
-            "dev_erp_calculator_import_review",
-          ],
+          required_before_import: selected.missing_inputs ?? [],
         }
       : null,
     alternate_candidates: candidateTriage.items
@@ -591,7 +586,7 @@ function buildSourceboundReviewSelection({ candidateTriage, generatedAtUtc, sour
         next_action: item.recommended_next_action,
       })),
     non_claims: [
-      "selection_does_not_import_dev_erp_calculators",
+      "selection_does_not_execute_selected_candidate",
       "selection_does_not_promote_public_canon",
       "selection_does_not_grant_source_truth",
       "selection_does_not_approve_owner_scope",
@@ -979,7 +974,7 @@ function renderSourceboundReviewSelectionMarkdown(selection) {
     selected ? `Reason: ${selected.reason}` : "",
     selected ? `Next action: ${selected.next_action}` : "",
     "",
-    "## Required Before Import",
+    "## Required Before Review",
     "",
     ...(selected?.required_before_import ?? []).map((item) => `- ${item}`),
     "",

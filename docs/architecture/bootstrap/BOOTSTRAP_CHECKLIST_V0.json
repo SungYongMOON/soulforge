@@ -86,6 +86,40 @@
     }
   ],
   "required_skill_policy": "all_syncable_codex_bridges",
+  "required_codex_runtime_skills": [
+    {
+      "id": "conversation_rule_hardening_skill",
+      "label": "conversation-rule-hardening Codex runtime skill",
+      "install_name": "conversation-rule-hardening",
+      "profiles": [
+        "public-only",
+        "operator",
+        "owner-with-state"
+      ]
+    }
+  ],
+  "required_codex_stop_hooks": [
+    {
+      "id": "knowledge_trigger_stop_hook",
+      "label": "knowledge trigger Stop hook",
+      "script_ref": "guild_hall/knowledge_access/knowledge_trigger_stop_guard.mjs",
+      "profiles": [
+        "public-only",
+        "operator",
+        "owner-with-state"
+      ]
+    },
+    {
+      "id": "rule_hardening_stop_hook",
+      "label": "rule hardening Stop hook",
+      "script_ref": "guild_hall/knowledge_access/rule_hardening_stop_guard.mjs",
+      "profiles": [
+        "public-only",
+        "operator",
+        "owner-with-state"
+      ]
+    }
+  ],
   "required_local_files": [
     {
       "id": "email_fetch_env",
