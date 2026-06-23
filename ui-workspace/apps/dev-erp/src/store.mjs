@@ -720,6 +720,7 @@ export function openStore(path = ":memory:") {
   try { db.exec("UPDATE core_project SET start_year = 2000 + CAST(SUBSTR(id,2,2) AS INTEGER) WHERE start_year IS NULL AND id GLOB 'P[0-9][0-9]-*'"); } catch { /* no-op */ }
   for (const ddl of [
     "ALTER TABLE core_mail ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0", // soft-delete(숨김) — upsert 가 hidden 미터치라 재수집/재스캔에도 보존
+    "ALTER TABLE core_mail ADD COLUMN body_preview TEXT", // 본문 발췌(미리보기) — owner 결정으로 '본문 미저장'을 발췌 수준 완화(원문 전체·첨부는 여전히 미저장). 수집기가 원장으로 넘기면 채워짐.
     "ALTER TABLE core_item ADD COLUMN guide_artifact_id INTEGER",
     "ALTER TABLE core_item ADD COLUMN guide_step_key TEXT",
     "ALTER TABLE core_item ADD COLUMN origin_mail_id TEXT",
@@ -1037,16 +1038,18 @@ export class Store {
   upsertMail(m) {
     this.db
       .prepare(
-        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,mailbox,data_label)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?)
+        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,mailbox,data_label,body_preview)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, at=excluded.at, direction=excluded.direction,
            subject=excluded.subject, counterpart=excluded.counterpart, pointer_ref=excluded.pointer_ref,
            stage_code=excluded.stage_code, source_ref=excluded.source_ref,
-           mailbox=COALESCE(excluded.mailbox, core_mail.mailbox)`
+           mailbox=COALESCE(excluded.mailbox, core_mail.mailbox),
+           body_preview=COALESCE(excluded.body_preview, core_mail.body_preview)`
       )
       .run(m.id, m.project_id ?? null, m.at, m.direction ?? "in", m.subject, m.counterpart ?? null,
         m.pointer_ref ?? null, m.stage_code ?? null, m.source_ref ?? null,
-        (m.mailbox ? String(m.mailbox).trim().toLowerCase() : null) || null, m.data_label ?? "synthetic");
+        (m.mailbox ? String(m.mailbox).trim().toLowerCase() : null) || null, m.data_label ?? "synthetic",
+        m.body_preview ?? null);
   }
 
   // 메일 삭제(soft-hide): hidden=1 로 목록에서 제외. upsert 가 hidden 을 안 건드려 재수집/재스캔해도 다시 안 보인다.
@@ -1126,7 +1129,7 @@ export class Store {
   // 원문 미저장: 제목·상대·시각·단계·포인터만. project_code 가 미등록이면 stub 과제를 만들되 기존 제목은 덮지 않는다.
   // FK 안전: 모르는 코드는 project_id=null 로 둔다. P00-000_INBOX 는 예약 인박스 프로젝트로 묶는다.
   ingestMail({ id, project_code = null, at = null, subject = null, counterpart = null, stage_code = null,
-               source_ref = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real" }) {
+               source_ref = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real", body_preview = null }) {
     if (!id) return { error: "id_required" };
     const atVal = at && /^\d{4}-\d{2}-\d{2}/.test(at) ? at : null;
     if (!atVal) return { error: "at_required" };
@@ -1154,7 +1157,8 @@ export class Store {
     if (this._mailExcluded({ counterpart, subject: subj, mailbox })) return { dropped: true, id };
     const dir = ["in", "out"].includes(direction) ? direction : "in";
     this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: subj, counterpart: counterpart || null,
-      pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, mailbox: mailbox || null, data_label });
+      pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, mailbox: mailbox || null, data_label,
+      body_preview: body_preview ? String(body_preview).replace(/\s+/g, " ").trim().slice(0, 2000) || null : null }); // 발췌만(원문 전체 아님)
     return { ok: true, id, project_id, isNew };
   }
 

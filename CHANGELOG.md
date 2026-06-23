@@ -2,6 +2,12 @@
 
 ## 2026-06-23
 
+### v1.2.0.N - 메일 본문 발췌 표시 토대 (owner: '메일 내용 보이게')
+
+- owner 결정: '본문 미저장'을 **발췌(미리보기) 수준으로 완화**(원문 전체·첨부는 여전히 미저장). core_mail에 `body_preview` 컬럼(마이그레이션) + upsertMail/ingestMail이 발췌(공백정리·2000자 절단·COALESCE 보존) 저장 + 메일 상세에 '본문 발췌' 블록 표시.
+- 목록 SELECT가 `m.*`라 자동 반환. 인메모리 E2E PASS(저장·절단·목록반환·재수집유지).
+- **남은 한 단계(다음)**: 수집 파이프라인(Python mail_fetch → 원장 CSV → scan_mail_ledger)이 본문 발췌를 ingestMail까지 넘기게 해야 실제로 채워짐. 현재 원장 CSV는 메타 전용이라 발췌 컬럼 추가 필요. **기존 818건은 본문 미보유**(수집 때 미저장+서버 purge 가능) — 신규 수집분부터 표시.
+
 ### v1.2.0.N - 버전 4세그먼트 자동 증가 (owner: '버전이 그대로네')
 
 - ERP 버전을 `MAJOR.MINOR.PATCH.BUILD` 4세그먼트로. **BUILD = dev-erp 경로 git 커밋수(자동)** → 매 배포(커밋)마다 자동 +1, 수동 깜빡임 없이 항상 증가. /api/version의 erp.release에 노출(예: v1.2.0.373).

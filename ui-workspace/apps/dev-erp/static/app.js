@@ -4712,6 +4712,7 @@ async function renderMail() {
         ${sel.source_ref ? `<div><dt>${L.mail_source_ref ?? "소스"}</dt><dd>${esc(sel.source_ref)}</dd></div>` : ""}
         ${selPreview ? `<div><dt>${L.mail_preview_meta ?? "식별 정보"}</dt><dd>${esc(selPreview)}</dd></div>` : ""}
         <div><dt>${L.detail_pointer}</dt><dd class="pointer">${esc(sel.pointer_ref ?? "-")} <button class="copy-btn" data-c="${esc(sel.pointer_ref ?? "")}">${L.copy}</button></dd></div></dl>
+      ${sel.body_preview ? `<div class="mail-body"><div class="dim mini">${L.mail_body ?? "본문 발췌"}</div><div class="mail-body-text">${esc(sel.body_preview)}</div></div>` : ""}
       ${state.mailEdit === sel.id ? `<div class="mail-edit-form item-form" style="margin:6px 0;display:flex;gap:4px;flex-wrap:wrap">
         <input id="meSubject" value="${esc(sel.subject ?? "")}" placeholder="${L.mail_reg_subject ?? "제목"}" />
         <input id="meFrom" value="${esc(sel.counterpart ?? "")}" placeholder="${L.mail_reg_from ?? "상대"}" size="12" />

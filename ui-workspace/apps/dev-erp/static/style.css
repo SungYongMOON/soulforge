@@ -289,6 +289,9 @@ tr.tl-title-row > td { padding-top: 2px; padding-bottom: 2px; }
 tr.tl-title-row:hover .tl-title { color: var(--accent); text-decoration: underline; }
 /* 우선순위(⭐): 별 마커 + nudges '우선' 배지(금색, 자동 사유와 구분). */
 .prio-star { font-size: .9em; }
+/* 메일 본문 발췌 — 상세 패널에서 읽기 좋게(원문 전체 아님, 수집 시 발췌만 저장). */
+.mail-body { margin: 8px 0; padding: 8px 10px; background: rgba(127,127,127,.08); border-radius: 6px; }
+.mail-body-text { white-space: pre-wrap; word-break: break-word; font-size: .92em; line-height: 1.5; max-height: 280px; overflow: auto; }
 .badge.gold { background: #c79a00; color: #1a1a1a; }
 /* 콕핏 메일/미분류 위젯 행: 클릭 시 메일 화면에서 분류 진입(드래그도 가능). */
 [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail] { cursor: pointer; }
