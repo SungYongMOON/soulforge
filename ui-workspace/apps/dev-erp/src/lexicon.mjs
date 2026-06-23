@@ -207,7 +207,7 @@ export const LEXICON = {
     tile_bomchg: "BOM 변경",
     tile_vendors: "거래처 현황",
     tile_buyapprove: "구매 승인 대기",
-    tile_teamload: "팀원별 부하",
+    tile_teamload: "팀원별 할일",
     tile_throughput: "처리량 추세",
     tile_requests_w: "요청·이슈 큐",
     tile_analytics_w: "분석 대시보드",
