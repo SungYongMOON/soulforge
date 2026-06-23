@@ -2,6 +2,13 @@
 
 ## 2026-06-24
 
+### v1.2.0.N - 기초 전수검사 + 담당자 메모리 파일 정본화(memory_ledger)
+
+- **기초 전수검사**(7에이전트 워크플로): 평결 설계B+/실집행C. 정본 철학(파일정본+DB ingest소비자)·검증능력은 2026 best practice 정렬. 갭=①DB전용 엔티티(담당자 메모리 등)②검사 미작동(state ~47일 stale·Windows 스케줄러 부재)③placement 정기검증 부재. 카파시/Letta/Mem0/Anthropic 연구 반영 권고.
+- **memory_ledger.mjs**(HIGH-1 직접 해소): assignee_memory DB↔ round-trip. owner 우려("메모리가 DB에만 떠 있다") 해소 — 파일이 정본, DB는 ingest 소비자. export/apply, 무손실·멱등 round-trip 검증(운영본 VACUUM INTO 복사본). npm: dev-erp:memory-export/apply. 도구라 재시작 불요.
+- 후속(메모리 자료구조 재설계 blob→항목·retrieve·ADD/UPDATE/DELETE)·Win 스케줄러(owner 승인)·placement-audit(Codex)·canon 경계(owner 결정)는 분리.
+
+
 ### v1.2.0.N - Gmail식 메일 대화 묶음 (같은 일이 여러 메일로 흩어지지 않게)
 
 - owner: 같은 일이 참조·전달로 5~6개 메일로 늘어남 → **정규화 제목(mailThreadSubject, RE/FW/전달/회신 제거)으로 대화 묶음**. 메일함 기본 그룹을 thread로, **대화 1행(접힘)+💬개수+최신 발신자·시각**, 클릭하면 그 아래 자식 메일 펼침(재렌더 없이·펼친 상태 유지). 단일 메일은 그냥 행.

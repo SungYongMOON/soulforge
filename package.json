@@ -89,6 +89,8 @@
     "dev-erp:scan-mail-ledger": "node ui-workspace/apps/dev-erp/tools/scan_mail_ledger.mjs",
     "dev-erp:mail-to-task-ledger": "node ui-workspace/apps/dev-erp/tools/mail_to_task_ledger.mjs",
     "dev-erp:task-ledger": "node ui-workspace/apps/dev-erp/tools/task_ledger.mjs",
+    "dev-erp:memory-export": "node ui-workspace/apps/dev-erp/tools/memory_ledger.mjs --export",
+    "dev-erp:memory-apply": "node ui-workspace/apps/dev-erp/tools/memory_ledger.mjs --apply",
     "guild-hall:gateway:fetch:retention": "python3 guild_hall/gateway/mail_fetch/retention_cleanup.py",
     "guild-hall:gateway:fetch:state-backup": "python3 guild_hall/gateway/mail_fetch/state_backup.py",
     "guild-hall:gateway:fetch:state-restore": "python3 guild_hall/gateway/mail_fetch/state_restore.py",
