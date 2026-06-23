@@ -2,6 +2,11 @@
 
 ## 2026-06-24
 
+### v1.2.0.N - Gmail식 메일 대화 묶음 (같은 일이 여러 메일로 흩어지지 않게)
+
+- owner: 같은 일이 참조·전달로 5~6개 메일로 늘어남 → **정규화 제목(mailThreadSubject, RE/FW/전달/회신 제거)으로 대화 묶음**. 메일함 기본 그룹을 thread로, **대화 1행(접힘)+💬개수+최신 발신자·시각**, 클릭하면 그 아래 자식 메일 펼침(재렌더 없이·펼친 상태 유지). 단일 메일은 그냥 행.
+- mailRow extraCls 인자 + thread 브랜치 접기 렌더 + .thread-head 토글 핸들러 + CSS. 정규화 제목 신호만 사용(thread_id 없음 — 정밀화는 수집기가 References/Message-ID 채우면, 후속). client+lexicon(재시작). syntax·parity 통과.
+
 ### Revision `working` - doctor checks Codex runtime skill and Stop hooks
 
 - Extended `guild-hall:doctor` so bootstrap readiness now checks the actual local Codex runtime for the required `conversation-rule-hardening` skill and the two Soulforge Stop hook guards.

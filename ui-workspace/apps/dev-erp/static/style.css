@@ -293,6 +293,13 @@ tr.tl-title-row:hover .tl-title { color: var(--accent); text-decoration: underli
 .mail-body { margin: 8px 0; padding: 8px 10px; background: rgba(127,127,127,.08); border-radius: 6px; }
 .mail-body-text { white-space: pre-wrap; word-break: break-word; font-size: .92em; line-height: 1.5; max-height: 280px; overflow: auto; }
 .badge.gold { background: #c79a00; color: #1a1a1a; }
+/* Gmail식 대화 묶음 — 헤더 클릭으로 자식 메일 행 접기/펼치기(기본 접힘). */
+tr.thread-head { cursor: pointer; }
+tr.thread-head td { background: rgba(127,127,127,.06); }
+tr.thread-head:hover td { background: rgba(127,127,127,.13); }
+.thread-toggle { color: var(--muted); font-size: .8em; margin-right: 2px; }
+tr.mail-row.thread-body { display: none; }
+tr.mail-row.thread-body.open { display: table-row; }
 /* 콕핏 메일/미분류 위젯 행: 클릭 시 메일 화면에서 분류 진입(드래그도 가능). */
 [data-body="mail"] tr[data-mail], [data-body="inbox"] tr[data-mail] { cursor: pointer; }
 [data-body="mail"] tr[data-mail]:hover, [data-body="inbox"] tr[data-mail]:hover { background: var(--chip); }

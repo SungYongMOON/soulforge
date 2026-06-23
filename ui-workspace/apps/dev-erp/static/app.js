@@ -4544,8 +4544,8 @@ function wireClaimDropBar(scope) {
 async function renderMail() {
   const L = state.lex;
   await ensureScopes();
-  const f = state.mailFilters ?? (state.mailFilters = { days: 90, direction: "", q: "", label: null, groupBy: "project" });
-  if (!f.groupBy) f.groupBy = "project"; // 기본: 프로젝트별 구분
+  const f = state.mailFilters ?? (state.mailFilters = { days: 90, direction: "", q: "", label: null, groupBy: "thread" });
+  if (!f.groupBy) f.groupBy = "thread"; // 기본: 대화(스레드) 묶음 — 같은 일이 여러 메일로 흩어지지 않게
   const params = new URLSearchParams({ days: String(f.days) });
   if (state.projectFilter) params.set("project", state.projectFilter);
   if (f.q) params.set("q", f.q);
@@ -4628,7 +4628,7 @@ async function renderMail() {
     return null;
   };
   // 한 줄 렌더. showProj=false 면 프로젝트 칩 생략(프로젝트별 그룹에선 헤더가 이미 표시).
-  const mailRow = (m, showProj) => {
+  const mailRow = (m, showProj, extraCls = "") => {
     const picked = checked.has(String(m.id));
     const manual = m.label_ids.map((id) => labelById.get(id)).filter(Boolean)
       .map((l) => `<span class="label-chip manual mini" style="--lc:${esc(l.color)}">${esc(l.name)}</span>`).join("");
@@ -4639,7 +4639,7 @@ async function renderMail() {
     const kind = mailThreadKind(m.subject);
     const dupe = subjectCounts.get(threadSubject.toLowerCase()) > 1;
     const preview = mailPreviewLine(m);
-    return `<tr class="mail-row ${kind ? "thread-child" : ""} ${state.mailSel === m.id ? "sel" : ""}" data-m="${esc(m.id)}">
+    return `<tr class="mail-row ${kind ? "thread-child" : ""} ${state.mailSel === m.id ? "sel" : ""} ${extraCls}" data-m="${esc(m.id)}">
       <td class="mail-check"><input type="checkbox" data-chk="${esc(m.id)}" ${picked ? "checked" : ""} />
         <button class="mail-pick ${picked ? "on" : ""}" data-pick="${esc(m.id)}" title="${picked ? "선택 해제" : "선택"}">${picked ? "해제" : "선택"}</button></td>
       <td class="mail-from">${meta ? `<span class="mail-chips">${meta}</span>` : ""}${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
@@ -4660,6 +4660,7 @@ async function renderMail() {
       return head + mailRow(m, true);
     }).join("");
   } else if (f.groupBy === "thread") {
+    // Gmail식 대화 묶음: 정규화 제목으로 묶어 '대화 1행(접힘)'으로, 펼치면 그 아래 자식 메일. 같은 일이 여러 메일로 흩어지는 것 방지.
     const groups = new Map();
     for (const m of mail) {
       const key = mailThreadSubject(m.subject);
@@ -4667,9 +4668,19 @@ async function renderMail() {
       groups.get(key).push(m);
     }
     const ordered = [...groups.entries()].sort((a, b) => (b[1][0]?.at ?? "").localeCompare(a[1][0]?.at ?? ""));
-    rows = ordered.map(([subject, ms]) => {
-      const header = `<tr class="proj-sep thread-sep"><td colspan="4"><span class="mail-thread-title">${esc(subject)}</span><span class="proj-sep-n">${ms.length}</span></td></tr>`;
-      return header + ms.map((m) => mailRow(m, true)).join("");
+    state.expandedThreads = state.expandedThreads || new Set();
+    rows = ordered.map(([subject, ms], gi) => {
+      if (ms.length === 1) return mailRow(ms[0], true); // 단일 메일은 그냥 행(헤더 불필요)
+      const sorted = [...ms].sort((a, b) => (b.at ?? "").localeCompare(a.at ?? "")); // 최신 먼저
+      const tkey = "thr" + gi;
+      const open = state.expandedThreads.has(subject);
+      const latest = sorted[0];
+      const head = `<tr class="thread-head${open ? " open" : ""}" data-tkey="${tkey}" data-thread="${esc(subject)}"><td colspan="4">`
+        + `<span class="thread-toggle">${open ? "▾" : "▸"}</span> <strong>${esc(subject)}</strong> `
+        + `<span class="proj-sep-n" title="${L.mail_thread_count ?? "이 대화의 메일 수"}">💬 ${ms.length}</span> `
+        + `<span class="dim mini">${esc(latest.counterpart ?? "")} · ${localTime(latest.at)}${promotedSet.has(latest.id) ? " · ✓" : ""}</span></td></tr>`;
+      const children = sorted.map((m) => mailRow(m, true, `thread-body ${tkey}${open ? " open" : ""}`)).join("");
+      return head + children;
     }).join("");
   } else {
     // 기본: 프로젝트별 구분. 미분류/inbox 는 맨 아래, 그룹은 최신 메일 순.
@@ -4866,6 +4877,16 @@ async function renderMail() {
   $("#view").querySelectorAll(".mail-row").forEach((r) =>
     // 토글: 같은 메일 다시 누르면 오른쪽 설명 닫힘
     r.addEventListener("click", () => { state.mailSel = state.mailSel === r.dataset.m ? null : r.dataset.m; render(); })
+  );
+  // Gmail식 대화 헤더 접기/펼치기 — 재렌더 없이 자식 메일 행 토글(부드럽게). 펼친 상태는 state.expandedThreads로 유지.
+  $("#view").querySelectorAll(".thread-head").forEach((h) =>
+    h.addEventListener("click", () => {
+      const tkey = h.dataset.tkey, subj = h.dataset.thread;
+      const open = h.classList.toggle("open");
+      if (open) state.expandedThreads.add(subj); else state.expandedThreads.delete(subj);
+      const tog = h.querySelector(".thread-toggle"); if (tog) tog.textContent = open ? "▾" : "▸";
+      $("#view").querySelectorAll(`.thread-body.${tkey}`).forEach((r) => r.classList.toggle("open", open));
+    })
   );
   // 메일함 화면 DnD: 메일 행을 끌어 담당자 레인에 놓으면 그 사람 할 일로(공용 헬퍼).
   wireClaimDropBar($("#view"));
