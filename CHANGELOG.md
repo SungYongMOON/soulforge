@@ -2,6 +2,13 @@
 
 ## 2026-06-23
 
+### v1.2.0.N - 담당자별 메모리 (#6 1단계, 메모리만 — owner 결정)
+
+- owner: work_type 스킬 주입은 보류, **담당자별 메모리부터**. 시작 시 그 담당자 메모리를 Codex 스레드에 주입.
+- `assignee_memory` 테이블(ref=담당자 라벨·content) + store get/set(4000자 상한). 상단 **'내 메모리'** 버튼 → 편집기(GET/POST /api/me/memory, 본인 것만). 평가 아님(감시경계).
+- 주입: codex 턴(시작·매 메시지)에서 item.assignee_memory 보강 → buildTaskDeveloperInstructions가 '담당자 업무 메모리/규칙' 블록으로. 사람마다 다른 규칙을 시작부터 들고 감.
+- 인메모리 E2E PASS(저장·조회·dev주입·없으면 미주입·절단). 스키마+서버 변경(재시작). work_type→스킬 주입은 다음(스킬 정의되면).
+
 ### v1.2.0.N - 메일 본문 발췌 표시 토대 (owner: '메일 내용 보이게')
 
 - owner 결정: '본문 미저장'을 **발췌(미리보기) 수준으로 완화**(원문 전체·첨부는 여전히 미저장). core_mail에 `body_preview` 컬럼(마이그레이션) + upsertMail/ingestMail이 발췌(공백정리·2000자 절단·COALESCE 보존) 저장 + 메일 상세에 '본문 발췌' 블록 표시.

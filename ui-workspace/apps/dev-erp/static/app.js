@@ -249,7 +249,7 @@ function renderAuth() {
     const trd = state._teamReady;
     const dot = state.account.is_admin && trd ? `<i class="ready-dot ${trd.ready ? (trd.fetch_observed ? "ok" : "warn") : "danger"}" title="${L.team_ready_title ?? "팀 사용 준비"}"></i>` : "";
     const adminBtn = state.account.is_admin ? `<button id="adminBtn" class="fav-chip">${dot}${L.admin_panel}</button>` : "";
-    box.innerHTML = `<span class="auth-user" title="${esc(state.account.email || "")}">${name}</span>${adminBtn}<button id="pwBtn" class="fav-chip">${L.password_change}</button><button id="logoutBtn" class="fav-chip">${L.logout}</button>`;
+    box.innerHTML = `<span class="auth-user" title="${esc(state.account.email || "")}">${name}</span>${adminBtn}<button id="myMemBtn" class="fav-chip" title="${L.my_memory_hint ?? "내 업무 메모리 — 할일 시작 시 AI에 주입됩니다"}">${L.my_memory ?? "내 메모리"}</button><button id="pwBtn" class="fav-chip">${L.password_change}</button><button id="logoutBtn" class="fav-chip">${L.logout}</button>`;
     if (state.account.is_admin) {
       $("#adminBtn").addEventListener("click", openAdminPanel);
       // 관리자면 준비상태 1회 조회해 점 갱신(읽기 전용, 백엔드 변경 없음).
@@ -258,6 +258,7 @@ function renderAuth() {
         api("/api/accounts/readiness").then((r) => { state._teamReady = r; renderAuth(); }).catch(() => {});
       }
     }
+    $("#myMemBtn")?.addEventListener("click", openMyMemory);
     $("#pwBtn").addEventListener("click", openPasswordChange);
     $("#logoutBtn").addEventListener("click", async () => { await fetch("/api/auth/logout", { method: "POST" }).catch(() => {}); location.reload(); });
   } else if (state.accountCount > 0) {
@@ -299,6 +300,31 @@ function openLogin() {
   ov.querySelector("#loginUser").focus();
 }
 
+async function openMyMemory() {
+  const L = state.lex;
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  let cur = "";
+  try { const r = await api("/api/me/memory"); cur = (r && r.content) || ""; } catch { /* 빈 메모리로 시작 */ }
+  const ov = document.createElement("div");
+  ov.className = "ui-confirm-overlay";
+  ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${L.my_memory ?? "내 메모리"}" style="max-width:520px;text-align:left">
+    <p class="ui-confirm-msg">${L.my_memory ?? "내 메모리"}</p>
+    <div class="dim mini" style="margin-bottom:6px">${L.my_memory_desc ?? "내 업무 스타일·규칙·자주 쓰는 맥락 — 할일을 시작(Codex 대화)할 때 그 담당자 메모리로 자동 주입됩니다. 평가 아님."}</div>
+    <textarea id="memText" class="login-input" style="width:100%;min-height:180px;resize:vertical" placeholder="${L.my_memory_ph ?? "예: 메일 회신은 존댓말·간결하게. 보고서는 결론부터. 자주 쓰는 약어…"}">${esc(cur)}</textarea>
+    <div class="login-err danger-text"></div>
+    <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button><button class="ui-confirm-ok">${L.act_save ?? "저장"}</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  ov.querySelector(".ui-confirm-ok").addEventListener("click", async () => {
+    const content = ov.querySelector("#memText").value;
+    const r = await post("/api/me/memory", { content }).then((x) => x.json()).catch(() => null);
+    if (r && r.ok) { toast(L.my_memory_saved ?? "메모리 저장됨", "ok"); close(); }
+    else { ov.querySelector(".login-err").textContent = (r && r.error) || "오류"; }
+  });
+}
 function openPasswordChange() {
   const L = state.lex;
   document.querySelector(".ui-confirm-overlay")?.remove();

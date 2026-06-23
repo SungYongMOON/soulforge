@@ -68,7 +68,7 @@ export function buildTaskThreadTitle(item) {
 }
 
 export function buildTaskDeveloperInstructions(item) {
-  return [
+  const lines = [
     "You are attached to an ERP task thread.",
     "Default to concise Korean responses for this ERP task UI.",
     "Use only the task metadata below unless the user explicitly provides more context.",
@@ -86,7 +86,12 @@ export function buildTaskDeveloperInstructions(item) {
     `- link_kind: ${item?.link_kind ?? ""}`,
     `- link_ref: ${item?.link_ref ?? ""}`,
     `- completion_criteria: ${item?.completion_criteria ?? ""}`,
-  ].join("\n");
+  ];
+  // 담당자별 메모리(업무 스타일·규칙) — 서버가 item.assignee_memory 로 주입. 사람마다 다른 규칙을 시작부터 들고 감.
+  if (item?.assignee_memory && String(item.assignee_memory).trim()) {
+    lines.push("", `담당자(${item?.assignee_ref ?? ""}) 업무 메모리/규칙 — 이 담당자의 작업 방식으로 따르라:`, String(item.assignee_memory).trim());
+  }
+  return lines.join("\n");
 }
 
 export function buildTaskPrompt(item, userMessage, { initial = false } = {}) {

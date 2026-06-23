@@ -450,6 +450,7 @@ function codexTaskErrorPayload(item, error) {
 }
 
 async function createCodexTaskThread({ item, actor, model, effort, serviceTier }) {
+  if (item?.assignee_ref) item.assignee_memory = store.getAssigneeMemory(item.assignee_ref); // 담당자 메모리 주입(시작 시)
   const title = store.codexThreadTitle(item);
   const result = await runCodexTaskTurn({
     mode: CODEX_TASK_BRIDGE_MODE,
@@ -790,6 +791,19 @@ const server = createServer(async (req, res) => {
       const assignee_any = scope.all ? null : (scope.assignee_any || []);
       return send(res, 200, { stats: store.completionStats({ days, assignee_any }), log: store.completionLog({ days, assignee_any }) });
     }
+    if (path === "/api/me/memory") {
+      // 내 메모리 — 본인 것만 조회/편집. ref=표시명(assignee_ref 규약). 시작 시 그 담당자 메모리로 주입됨.
+      const me = currentAccount(req);
+      if (!me) return send(res, 401, { error: "auth_required" });
+      const ref = store.accountDisplayName(me) || me.username;
+      if (req.method === "POST") {
+        let body = ""; for await (const chunk of req) body += chunk;
+        const { content } = JSON.parse(body || "{}");
+        const r = store.setAssigneeMemory(ref, content);
+        return send(res, r.error ? 400 : 200, r);
+      }
+      return send(res, 200, { ref, content: store.getAssigneeMemory(ref) });
+    }
     if (path === "/api/items/status" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id, status, bottleneck_reason } = JSON.parse(body || "{}");
@@ -1045,6 +1059,7 @@ const server = createServer(async (req, res) => {
       const item = store.itemById(item_id);
       if (!item) return send(res, 404, { error: "item_not_found" });
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
+      if (item.assignee_ref) item.assignee_memory = store.getAssigneeMemory(item.assignee_ref); // 담당자 메모리 주입(매 턴, dev instructions 일관)
       const binding = store.codexTaskBinding(item.id);
       const skills = mentionedCodexSkills(text);
       const localImages = localImagesFromAttachments(attachments);

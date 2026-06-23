@@ -438,6 +438,12 @@ CREATE TABLE IF NOT EXISTS completion_log (
   tokens INTEGER,                        -- codex 토큰(나중 계측 시)
   created_at TEXT NOT NULL
 );
+-- 담당자별 메모리(업무 스타일·규칙·맥락). 시작 시 그 담당자 메모리를 Codex 스레드에 주입 → 사람마다 다른 규칙을 들고 감. 본인이 편집(내 메모리). 평가점수 아님(감시경계).
+CREATE TABLE IF NOT EXISTS assignee_memory (
+  ref TEXT PRIMARY KEY,                  -- 담당자 식별 라벨(assignee_ref 와 동일 규약=표시명)
+  content TEXT,                          -- 자유 텍스트 메모/규칙(본인 작성)
+  updated_at TEXT
+);
 -- P-6 능력 매트릭스: 사람↔역량(capability) N:N. 개인 평가점수 컬럼 없음(감시경계). weight=정렬용.
 CREATE TABLE IF NOT EXISTS person_skill (
   person_id TEXT NOT NULL REFERENCES core_person(id),
@@ -2995,6 +3001,23 @@ export class Store {
   }
   personSkills(person_id) {
     return this.db.prepare("SELECT capability_label, source_ref, weight FROM person_skill WHERE person_id=? ORDER BY weight DESC, capability_label").all(person_id);
+  }
+  // 담당자별 메모리 — 시작 시 Codex 스레드 주입 + 본인 편집(내 메모리). ref=담당자 라벨(assignee_ref 규약).
+  getAssigneeMemory(ref) {
+    const key = String(ref ?? "").trim();
+    if (!key) return "";
+    const row = this.db.prepare("SELECT content FROM assignee_memory WHERE ref=?").get(key);
+    return row?.content ?? "";
+  }
+  setAssigneeMemory(ref, content) {
+    const key = String(ref ?? "").trim();
+    if (!key) return { error: "ref_required" };
+    const text = String(content ?? "").slice(0, 4000); // 메모리 상한
+    this.db.prepare(
+      `INSERT INTO assignee_memory(ref, content, updated_at) VALUES(?,?,?)
+       ON CONFLICT(ref) DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at`
+    ).run(key, text, new Date().toISOString());
+    return { ok: true, ref: key, length: text.length };
   }
   capabilityMatrix() {
     return this.people().map((p) => ({ person_id: p.id, name: p.name, role: p.role, unit_ref: p.unit_ref ?? null, capability_label: p.capability_label ?? null, skills: this.personSkills(p.id) }));
