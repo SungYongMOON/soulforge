@@ -3393,7 +3393,7 @@ async function renderHome() {
       // P-7 팀 부하 — 담당별 미완/차단/연체 건수(집계만, 개인 점수 미산출). NULL=(미배정).
       const wl = await api("/api/workload");
       return { title: L.tile_teamload, html: wl.length
-        ? `<table><thead><tr><th>${L.col_person}</th><th>${L.tl_remaining ?? "남은"}</th><th>${L.tl_chat ?? "대화"}</th><th>${L.overdue}</th></tr></thead><tbody>${wl.map((w) => `<tr class="${w.assignee_ref ? "wrow tl-row" : ""}" data-member="${esc(w.name)}">
+        ? `<table><thead><tr><th>${L.col_person}</th><th>${L.tl_remaining ?? "남은"}</th><th>${L.tl_chat ?? "대화"}</th><th>${L.overdue}</th></tr></thead><tbody>${wl.map((w) => `<tr class="wrow tl-row" data-member="${esc(w.name)}" data-unassigned="${w.assignee_ref ? "" : "1"}">
             <td>${esc(w.name)}</td><td class="num">${w.open_cnt || '<span class="dim">0</span>'}</td>
             <td class="num">${w.chat_cnt ? `<span class="badge">💬 ${w.chat_cnt}</span>` : '<span class="dim">·</span>'}</td>
             <td class="num">${w.overdue_cnt ? `<span class="badge red">${w.overdue_cnt}</span>` : '<span class="dim">0</span>'}</td></tr>`).join("")}</tbody></table>`
@@ -3860,6 +3860,7 @@ async function renderHome() {
     // 팀원별 위젯 행 클릭 → 그 팀원의 할 일로 드릴인(보기범위 전환). 매칭 스코프 없으면 무시.
     $("#view").querySelectorAll('[data-body="teamload"] tr.tl-row').forEach((tr) =>
       tr.addEventListener("click", () => {
+        if (tr.dataset.unassigned === "1") { state.viewScope = "team"; state.statusFilter = "unassigned"; resetItemPaging(); state.view = "items"; render(); return; } // (미배정) 행 → 미배정 할일 뷰
         const sc = (state._scopes ?? []).find((s) => s.label === tr.dataset.member);
         if (sc) { state.viewScope = sc.id; resetItemPaging(); state.view = "items"; render(); }
         else toast(state.lex.tl_no_scope ?? "이 팀원으로 전환할 수 없어요(보기범위 미설정)", "error");
