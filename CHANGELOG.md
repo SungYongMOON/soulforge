@@ -2,6 +2,13 @@
 
 ## 2026-06-23
 
+### Revision `working` - 리뷰 보류건 #10 수정 + #11 오판 확인(되돌림)
+
+- **#10 (med, 수정)**: assignMails가 이미 승격된(활성) 메일을 재분배할 때 promoteMail이 already_promoted를 흡수해 기존 항목 담당·상태 미갱신 + 거짓 성공 토스트였음 → already_promoted면 **기존 활성 항목에 고른 담당 적용**(미분류면 open 가시화), 완료/보관 항목은 `already_done`로 surfacing(재분배 무효). 인메모리 E2E PASS.
+- **#11 (오판, 되돌림)**: 리뷰는 promoteMail/setMailProject의 status-무관 dedup이 새 할일 생성을 막는다고 봤으나, `core_item(origin_mail_id)`에 **UNIQUE 인덱스(store.mjs:812)**가 있어 메일당 항목 1개가 설계 불변식 — 재승격은 원래 불가하고 createItem이 UNIQUE 백스톱으로 already_promoted 수렴. status 필터 추가는 무의미(실패 INSERT 경유)라 setMailProject/promoteMail 원복.
+- **#16 (보류 유지)**: 분석 canonical 집계는 운영본이 표시명 일관 사용+canonical 설계 필요라 보류.
+- store.mjs만 변경(재시작). node:test 235/0.
+
 ### Revision `working` - 적대적 리뷰 후속: 최근 6슬라이스 확정 버그 8건 수정
 
 - 자율 리뷰 워크플로(24에이전트)가 확정 16건 중 HIGH·명확건 수정:

@@ -1941,6 +1941,18 @@ export class Store {
           entry.item_created = promoted.item.id;
           // 분배(open=true): work_type 없이도 즉시 '열린 할일'로 — 팀원별/미배정 위젯(open만 셈)에 보이게. (분류 큐 격리 대신 바로 분배)
           if (open) this.setItemStatus(promoted.item.id, "open");
+        } else if (promoted.error === "already_promoted" && promoted.item_id) {
+          // 메일당 항목 1개(origin_mail_id UNIQUE). 기존 항목이 활성이면 고른 담당 적용(거짓 성공 방지, #10) — 완료/보관 항목은 재분배 대상 아님(surfacing).
+          const ex = this.db.prepare("SELECT status FROM core_item WHERE id=?").get(promoted.item_id);
+          if (ex && !["done", "archived"].includes(ex.status)) {
+            if (assignee_ref != null) this.setItemAssignee(promoted.item_id, (assignee_ref && String(assignee_ref).trim()) || null); // 담당 미지정(null)이면 안 건드림
+            if (open && ex.status === "unclassified") this.setItemStatus(promoted.item_id, "open"); // 미분류면 가시화, 진행중 등은 그대로
+            entry.item_existing = promoted.item_id;
+          } else {
+            entry.promote_error = "already_done"; // 이미 완료/보관된 메일 — 재분배 무효
+          }
+        } else if (promoted.error) {
+          entry.promote_error = promoted.error;
         }
       }
       results.push(entry);
@@ -1962,7 +1974,7 @@ export class Store {
   promoteMail(mail_id, created_by, assignee_ref = null) {
     const mail = this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(mail_id);
     if (!mail) return { error: "mail_not_found" };
-    const dup = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(mail_id);
+    const dup = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(mail_id); // origin_mail_id UNIQUE(store.mjs:812) — 메일당 항목 1개(영구). 상태 무관 dedup.
     if (dup) return { error: "already_promoted", item_id: dup.id };
     if (!mail.project_id || !this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(mail.project_id)) {
       return { error: "mail_project_missing" };
