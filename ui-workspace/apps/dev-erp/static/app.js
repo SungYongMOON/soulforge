@@ -2750,6 +2750,7 @@ function openTaskCodex(itemId) {
         <input id="taskCodexImage" type="file" accept="image/*" multiple />
         <span>이미지</span>
       </label>
+      <button id="taskCodexFA" class="task-codex-fa" type="button" title="이 대화에서만 Codex가 로컬 프로그램 실행(Outlook 등)·파일 쓰기 — 전체 권한. 필요할 때만 켜세요.">🔒 전체권한</button>
     </div>
     <div class="task-codex-attachments"></div>
     <div class="task-codex-log" role="log" aria-live="polite"></div>
@@ -2772,6 +2773,7 @@ function openTaskCodex(itemId) {
   const modelEl = ov.querySelector("#taskCodexModel");
   const effortEl = ov.querySelector("#taskCodexEffort");
   const imageEl = ov.querySelector("#taskCodexImage");
+  const faBtn = ov.querySelector("#taskCodexFA");
   let payload = null;
   let pending = false;
   let pendingTimer = null;
@@ -3020,8 +3022,17 @@ function openTaskCodex(itemId) {
       ? rows.map((m) => `<div class="task-codex-row ${esc(m.role)}"><div class="task-codex-msg ${esc(m.role)}"><b>${roleLabel(m.role)}</b><span>${esc(m.text)}</span></div></div>`).join("")
       : `<div class="empty small">이 할일의 Codex 대화가 아직 없습니다.</div>`;
     if (payload?.detail) statusEl.textContent = payload.detail;
+    if (faBtn) { const fa = !!payload?.full_access; faBtn.textContent = fa ? "🔓 전체권한 ON" : "🔒 전체권한"; faBtn.classList.toggle("on", fa); }
     logEl.scrollTop = logEl.scrollHeight;
   };
+  faBtn?.addEventListener("click", async () => {
+    const cur = !!payload?.full_access;
+    if (!cur && !window.confirm(state.lex.codex_fa_warn ?? "이 대화에서 Codex가 로컬 프로그램 실행·파일 쓰기를 하게 됩니다(Outlook 등). 메일 내용에 의한 위험이 있으니 필요할 때만 켜고, 끝나면 끄세요. 켤까요?")) return;
+    const resp = await post("/api/codex-task/full-access", { item_id: itemId, on: !cur });
+    const d = await resp.json().catch(() => ({}));
+    if (resp.ok) { if (payload) payload.full_access = !!d.full_access; render(); toast(d.full_access ? (state.lex.codex_fa_on ?? "전체권한 켜짐 — 다음 메시지부터 적용") : (state.lex.codex_fa_off ?? "전체권한 꺼짐"), "ok"); }
+    else toast((state.lex.codex_fa_fail ?? "변경 실패") + (d.error ? ` (${d.error})` : ""), "error");
+  });
   const load = async () => {
     setPending(true, "open");
     try {
@@ -5984,6 +5995,52 @@ function openNote() {
   ta.focus();
 }
 $("#noteBtn")?.addEventListener("click", openNote);
+
+// ✉ Outlook 메일 쓰기 — 웹 표준 mailto 로 기본 메일 클라이언트(Outlook) 작성창을 직접 연다. 샌드박스/Codex 무관(브라우저+OS가 처리). 발송은 사람이.
+function openMailCompose(prefill = {}) {
+  const L = state.lex;
+  document.querySelector(".note-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "note-overlay";
+  ov.innerHTML = `<div class="note-panel mail-compose" role="dialog" aria-label="${L.compose_title ?? "Outlook 메일 쓰기"}">
+    <div class="note-head"><strong>✉ ${L.compose_title ?? "Outlook 메일 쓰기"}</strong><span class="dim">${L.compose_hint ?? "Outlook 작성창이 열립니다 — 검토 후 직접 발송"}</span><button class="note-x" title="닫기">✕</button></div>
+    <div class="compose-form">
+      <input id="cmTo" placeholder="${L.compose_to ?? "받는 사람 (이름 또는 메일주소)"}" value="${esc(prefill.to ?? "")}" />
+      <input id="cmCc" placeholder="${L.compose_cc ?? "참조 (선택)"}" value="${esc(prefill.cc ?? "")}" />
+      <input id="cmSubject" placeholder="${L.compose_subject ?? "제목"}" value="${esc(prefill.subject ?? "")}" />
+      <textarea id="cmBody" placeholder="${L.compose_body ?? "본문 (Codex 초안을 붙여넣으세요)"}">${esc(prefill.body ?? "")}</textarea>
+      <div class="compose-actions">
+        <button id="cmOpen" class="fav-chip active">${L.compose_open ?? "Outlook로 열기"}</button>
+        <button id="cmCopy" class="fav-chip">${L.compose_copy ?? "전체 복사"}</button>
+        <span id="cmMsg" class="dim"></span>
+      </div>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector(".note-x").addEventListener("click", close);
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  const msg = ov.querySelector("#cmMsg");
+  ov.querySelector("#cmOpen").addEventListener("click", () => {
+    const to = ov.querySelector("#cmTo").value.trim();
+    const cc = ov.querySelector("#cmCc").value.trim();
+    const subject = ov.querySelector("#cmSubject").value;
+    const body = ov.querySelector("#cmBody").value;
+    const qs = [];
+    if (cc) qs.push(`cc=${encodeURIComponent(cc)}`);
+    if (subject) qs.push(`subject=${encodeURIComponent(subject)}`);
+    if (body) qs.push(`body=${encodeURIComponent(body)}`);
+    const url = `mailto:${encodeURIComponent(to)}${qs.length ? "?" + qs.join("&") : ""}`;
+    if (url.length > 1900) msg.textContent = L.compose_too_long ?? "본문이 길어 잘릴 수 있어요 — '전체 복사' 후 붙여넣기 권장";
+    window.location.href = url; // 브라우저가 기본 메일 클라이언트(Outlook) 작성창을 연다(페이지 이동 없음)
+  });
+  ov.querySelector("#cmCopy").addEventListener("click", async () => {
+    const txt = `${ov.querySelector("#cmSubject").value}\n\n${ov.querySelector("#cmBody").value}`;
+    try { await navigator.clipboard.writeText(txt); msg.textContent = L.compose_copied ?? "복사됨 — Outlook에 붙여넣기"; }
+    catch { msg.textContent = L.compose_copy_fail ?? "복사 실패"; }
+  });
+  ov.querySelector("#cmTo").focus();
+}
+$("#mailComposeBtn")?.addEventListener("click", () => openMailCompose());
 
 // 이벤트 종류 한글 라벨 — 타임라인·활동로그가 raw kind("item_status" 등) 대신 읽을 수 있게(papercut). 미등록 kind 는 원문 표시.
 const EVENT_KIND_LABELS = {

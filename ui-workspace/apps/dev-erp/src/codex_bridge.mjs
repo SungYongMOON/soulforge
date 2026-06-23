@@ -24,10 +24,15 @@ const CODEX_SANDBOX_MODE = ["read-only", "workspace-write", "danger-full-access"
   ? String(process.env.DEV_ERP_CODEX_SANDBOX).trim() : "read-only";
 const CODEX_APPROVAL_POLICY = ["never", "on-request", "on-failure", "untrusted"].includes(String(process.env.DEV_ERP_CODEX_APPROVAL || "").trim())
   ? String(process.env.DEV_ERP_CODEX_APPROVAL).trim() : "never";
-function codexSandboxPolicy() {
-  if (CODEX_SANDBOX_MODE === "danger-full-access") return { type: "dangerFullAccess" };
-  if (CODEX_SANDBOX_MODE === "workspace-write") return { type: "workspaceWrite", networkAccess: true };
+function codexSandboxPolicy(mode = CODEX_SANDBOX_MODE) {
+  if (mode === "danger-full-access") return { type: "dangerFullAccess" };
+  if (mode === "workspace-write") return { type: "workspaceWrite", networkAccess: true };
   return { type: "readOnly", networkAccess: true };
+}
+// 대화별 권한: 유효 sandbox 모드 정규화. per-chat 토글이 주는 값(override)을 우선, 없으면 서버 기본(env).
+function resolveSandboxMode(override) {
+  const v = String(override ?? "").trim();
+  return ["read-only", "workspace-write", "danger-full-access"].includes(v) ? v : CODEX_SANDBOX_MODE;
 }
 
 function quoteCmdArg(value) {
@@ -124,12 +129,13 @@ export async function runCodexTaskTurn({
   serviceTier = null,
   skills = [],
   localImages = [],
+  sandboxMode = null,
 } = {}) {
   if (mode === "mock") {
     return runMockTaskTurn({ threadId, threadTitle, item, userMessage, initial });
   }
   if (mode !== "app-server") throw new Error(`unsupported_codex_task_bridge_mode:${mode}`);
-  return runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages });
+  return runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, sandboxMode });
 }
 
 function runMockTaskTurn({ threadId, threadTitle, item, userMessage, initial }) {
@@ -146,7 +152,8 @@ function runMockTaskTurn({ threadId, threadTitle, item, userMessage, initial }) 
   });
 }
 
-function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages }) {
+function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, sandboxMode = null }) {
+  const sbMode = resolveSandboxMode(sandboxMode); // 대화별 토글 우선, 없으면 서버 기본
   return new Promise((resolve, reject) => {
     const spec = codexAppServerSpawnSpec();
     const child = spawn(spec.command, spec.args, {
@@ -267,14 +274,14 @@ function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, 
           threadId: activeThreadId,
           cwd,
           approvalPolicy: CODEX_APPROVAL_POLICY,
-          sandbox: CODEX_SANDBOX_MODE,
+          sandbox: sbMode,
           developerInstructions,
         });
       } else {
         const started = await request("thread/start", {
           cwd,
           approvalPolicy: CODEX_APPROVAL_POLICY,
-          sandbox: CODEX_SANDBOX_MODE,
+          sandbox: sbMode,
           developerInstructions,
           serviceName: "dev-erp",
           threadSource: "user",
@@ -290,7 +297,7 @@ function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, 
         threadId: activeThreadId,
         cwd,
         approvalPolicy: CODEX_APPROVAL_POLICY,
-        sandboxPolicy: codexSandboxPolicy(),
+        sandboxPolicy: codexSandboxPolicy(sbMode),
         input: buildCodexTurnInput({ text: prompt, skills, localImages }),
         ...(selectedModel ? { model: selectedModel } : {}),
         ...(selectedEffort ? { effort: selectedEffort } : {}),

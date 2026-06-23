@@ -2,6 +2,16 @@
 
 ## 2026-06-23
 
+### Revision `working` - 대화별 Codex 전체권한 토글 + Outlook 초안 브리지
+
+- **대화별 전체권한 토글**: ERP 과제 채팅마다 '전체권한' 버튼 — 켜면 그 대화의 Codex가 실제 Codex처럼
+  로컬 실행(Outlook 등)·파일 쓰기 가능(danger-full-access), 끄면 read-only. 전역 기본은 read-only(안전)로
+  되돌리고 대화별로만 승격 → 위험 범위 최소. meta per-item 저장(codex_fa:<id>), admin 전용 토글 라우트,
+  bridge runCodexTaskTurn 에 per-call sandboxMode. start-windows.bat 전역 기본 read-only.
+- **Outlook 초안 브리지(mailto)**: 상단바 ✉ 버튼 → 받는사람/참조/제목/본문 입력 → [Outlook로 열기]가
+  mailto 로 기본 메일 클라이언트(Outlook) 작성창을 직접 엶(샌드박스/Codex 무관, 확실히 동작). 발송은 사람이.
+- ⚠ 전체권한 켠 대화는 메일 내용 인젝션→임의 실행 위험. 필요할 때만. node:test 235/0, 토글/제외 로직 E2E.
+
 ### Revision `working` - 채팅 Codex 샌드박스 env 설정화(로컬 실행 옵트인)
 
 - ERP 과제 채팅의 Codex 세션이 read-only·approval never 로 고정돼 로컬 프로그램(Outlook 등) 실행이 막혀

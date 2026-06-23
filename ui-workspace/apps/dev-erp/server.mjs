@@ -428,6 +428,7 @@ function codexTaskState(item, extra = {}) {
     item,
     binding: store.codexTaskBinding(item.id) ?? null,
     messages: store.codexTaskMessages(item.id),
+    full_access: store.codexFullAccess(item.id), // 대화별 전체권한 토글 상태(UI 표시)
     ...extra,
   };
 }
@@ -453,6 +454,7 @@ async function createCodexTaskThread({ item, actor, model, effort, serviceTier }
     model,
     effort,
     serviceTier,
+    sandboxMode: store.codexFullAccess(item.id) ? "danger-full-access" : null, // 대화별 전체권한 토글
   });
   const up = store.upsertCodexTaskBinding({
     item_id: item.id,
@@ -935,6 +937,16 @@ const server = createServer(async (req, res) => {
     if (path === "/api/codex-task/capabilities" && req.method === "GET") {
       return send(res, 200, codexTaskCapabilities());
     }
+    // 대화별 전체권한(danger-full-access) 토글 — admin 전용. 켜면 그 대화의 Codex가 로컬 실행 가능(Outlook 등). ⚠ 메일내용 인젝션 위험.
+    if (path === "/api/codex-task/full-access" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      const { item_id, on } = await readJson(req);
+      if (!canAccessItem(req, item_id)) return send(res, 403, { error: "item_forbidden" });
+      const result = store.setCodexFullAccess(item_id, !!on);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "codex_full_access_set", item_ref: item_id, to: on ? "on" : "off", used_refs: ["codex_thread_binding"], data_label: "real" });
+      return send(res, 200, result);
+    }
     if (path === "/api/codex-task/attachment" && req.method === "POST") {
       const item_id = qp.item_id || qp.id;
       const item = store.itemById(item_id);
@@ -1029,6 +1041,7 @@ const server = createServer(async (req, res) => {
           serviceTier,
           skills,
           localImages,
+          sandboxMode: store.codexFullAccess(item.id) ? "danger-full-access" : null, // 대화별 전체권한 토글
         });
         const up = store.upsertCodexTaskBinding({
           item_id: item.id,

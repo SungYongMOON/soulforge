@@ -448,6 +448,12 @@ nav button:hover .pin-btn { opacity: 1; }
 .note-x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; }
 #noteText { display: block; width: 100%; height: 260px; border: 0; padding: 12px 14px; background: var(--panel); color: var(--text);
   font-size: 13.5px; line-height: 1.6; resize: vertical; outline: none; font-family: inherit; box-sizing: border-box; }
+/* ✉ Outlook 메일 쓰기 작성창(mailto 브리지) */
+.mail-compose { width: 480px; }
+.compose-form { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; }
+.compose-form input, .compose-form textarea { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); font: inherit; font-size: 13px; }
+.compose-form textarea { min-height: 200px; resize: vertical; line-height: 1.6; }
+.compose-actions { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
 .fav-chip.active { color: var(--accent); border-color: var(--accent); }
 /* 보기 대상 이름 로스터: 인원 이름 클릭으로 그 사람 메일/할일만. 선택된 이름은 채움 강조. */
 .view-roster { display: inline-flex; gap: 4px; flex-wrap: wrap; vertical-align: middle; }
@@ -925,6 +931,8 @@ nav button[disabled]:hover { background: transparent; }
 .task-codex-tools { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .task-codex-tools select { min-width: 0; height: 28px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); font-size: 11.5px; }
 .task-codex-attach { height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--chip); color: var(--text); font-size: 11.5px; cursor: pointer; white-space: nowrap; }
+.task-codex-fa { height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--chip); color: var(--muted); font-size: 11px; cursor: pointer; white-space: nowrap; } /* 대화별 전체권한 토글 */
+.task-codex-fa.on { background: rgba(176,58,46,.12); border-color: var(--danger); color: var(--danger); font-weight: 600; } /* ON=위험 강조 */
 .task-codex-attach input { display: none; }
 .task-codex-attachments { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 5px; padding: 0 12px; max-height: 50px; overflow: auto; }
 .task-codex-attachments:empty { display: none; }

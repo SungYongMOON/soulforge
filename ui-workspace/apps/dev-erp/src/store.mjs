@@ -2523,6 +2523,13 @@ export class Store {
   codexTaskBinding(item_id) {
     return this.db.prepare("SELECT * FROM codex_thread_binding WHERE item_id=?").get(item_id);
   }
+  // 대화별 전체권한(danger-full-access) 토글 — meta 에 per-item 저장. 기본 off(서버 기본 샌드박스). owner가 이 대화에서만 켤 때 로컬 실행 허용.
+  codexFullAccess(item_id) { return this.getMeta(`codex_fa:${item_id}`) === "1"; }
+  setCodexFullAccess(item_id, on) {
+    if (!this.itemById(item_id)) return { error: "item_not_found" };
+    this.setMeta(`codex_fa:${item_id}`, on ? "1" : "0");
+    return { ok: true, item_id, full_access: !!on };
+  }
 
   codexTaskMessages(item_id, limit = 80) {
     const n = Math.max(1, Math.min(200, Number(limit) || 80));

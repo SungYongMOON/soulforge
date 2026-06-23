@@ -24,11 +24,11 @@ if not defined ERP_CHAT_CONTEXT_TURNS set "ERP_CHAT_CONTEXT_TURNS=5"
 if not defined ERP_CHAT_TIMEOUT_MS set "ERP_CHAT_TIMEOUT_MS=60000"
 if not defined ERP_LLM_QUEUE_WAIT_MS set "ERP_LLM_QUEUE_WAIT_MS=60000"
 if not defined ERP_LLM_CONCURRENCY set "ERP_LLM_CONCURRENCY=1"
-REM ── 채팅 Codex 로컬 권한(Outlook 등 로컬 프로그램 실행 허용) ──────────────
-REM   read-only(가장 안전) | workspace-write(명령 실행+작업폴더 쓰기) | danger-full-access(전체)
-REM   ⚠ 채팅에 메일 등 외부 내용이 섞이므로, 풀수록 프롬프트 인젝션→임의 명령 실행 위험. 안 쓸 땐 read-only 로 되돌릴 것.
-REM   끄려면 아래 값을 read-only 로 바꾸세요. (Outlook 실행이 안 되면 danger-full-access 로)
-if not defined DEV_ERP_CODEX_SANDBOX set "DEV_ERP_CODEX_SANDBOX=workspace-write"
+REM ── 채팅 Codex 기본 샌드박스(전역 floor) ──────────────────────────────────
+REM   기본 read-only(가장 안전). 로컬 실행(Outlook 등)이 필요한 대화는 ERP 화면에서 그 대화의
+REM   '전체권한' 토글로 켜세요(대화별 danger-full-access). 전역을 굳이 풀 필요 없음.
+REM   ⚠ 전역을 workspace-write/danger-full-access 로 바꾸면 모든 대화가 그 권한이 됩니다(위험).
+if not defined DEV_ERP_CODEX_SANDBOX set "DEV_ERP_CODEX_SANDBOX=read-only"
 echo [dev-erp] chat = %ERP_CHAT_PROVIDER% / %ERP_CHAT_MODEL% / think=%ERP_CHAT_THINK% / codex-sandbox=%DEV_ERP_CODEX_SANDBOX%
 node server.mjs --host 0.0.0.0 --port %DEV_ERP_PORT%
 pause
