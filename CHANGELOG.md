@@ -2,6 +2,12 @@
 
 ## 2026-06-23
 
+### Revision `working` - papercut: 승인 대기 제안 종류도 한글화
+
+- 승인 대기(제안 큐)가 raw 제안 kind("create_item"·"set_artifact_requirement" 등)를 노출하던 것 →
+  eventKindLabel 재사용 + 제안 전용 3종 추가('첨부유형 추가'·'산출물 요건'·'부품-과제 연결'). 완료 요약은 기존 양모드 라벨 유지.
+- 정적(무중단). node:test 235/0.
+
 ### Revision `working` - papercut: 타임라인·활동로그 이벤트 종류 한글화
 
 - 타임라인(🕘)·활동로그가 raw kind("item_status"·"completion_digest" 등)를 그대로 노출하던 것 → 한글 라벨

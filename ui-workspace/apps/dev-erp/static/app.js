@@ -1911,7 +1911,7 @@ async function renderProposals() {
   const props = await api("/api/proposals");
   const rows = props.length
     ? `<table><tbody>${props.map((p) => `<tr data-prop="${esc(p.id)}">
-        <td><span class="badge">${esc(p.kind === "completion_digest" ? (L.prop_kind_digest ?? "완료 요약") : p.kind)}</span></td>
+        <td><span class="badge">${esc(p.kind === "completion_digest" ? (L.prop_kind_digest ?? "완료 요약") : eventKindLabel(p.kind))}</span></td>
         <td>${p.kind === "completion_digest"
           ? `${esc(p.payload?.summary ?? p.summary ?? "")}${(p.payload?.next_actions || []).length ? `<div class="dim mini">${L.prop_next_actions ?? "다음 할 일"}</div>${p.payload.next_actions.map((a) => `<div class="digest-na"><span>${esc(a)}</span><button class="fav-chip na-add" data-na-proj="${esc(p.payload?.project_id ?? "")}" data-na-title="${esc(a)}">${L.prop_na_add ?? "+ 할일로"}</button></div>`).join("")}` : ""}${p.payload?.knowledge ? `<div class="dim mini">💡 ${esc(p.payload.knowledge)}</div>` : ""}`
           : esc(p.summary ?? p.payload?.title ?? p.id)}</td>
@@ -5937,6 +5937,7 @@ const EVENT_KIND_LABELS = {
   item_status: "상태 변경", item_create: "할일 생성", create_item: "할일 생성", item_assign: "담당 배정",
   item_confirm: "분류 확정", item_edit: "할일 수정", item_archive: "보관", item_restore: "복원",
   item_move: "이동", item_promote: "할일 승격", completion_digest: "완료 요약", split_suggest: "분해 제안",
+  add_attachment_type: "첨부유형 추가", set_artifact_requirement: "산출물 요건", link_part_project: "부품-과제 연결",
   mail_assign: "메일 분류", mail_unassign: "분류 취소", mail_delete: "메일 삭제", mail_update: "메일 수정",
   mail_register: "메일 등록", mail_collect_manual: "메일 수집", ai_proposal_approve: "제안 승인",
   ai_proposal_reject: "제안 반려", recommender_run: "추천 실행", chat_query: "AI 질문", knowledge_upsert: "지식 갱신",
