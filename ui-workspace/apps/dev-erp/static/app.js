@@ -1820,6 +1820,13 @@ function eventDesc(e, L) {
 async function openItemQuickEdit(itemId, projectId, title) {
   const L = state.lex;
   const STATUSES = ["open", "doing", "waiting", "blocked", "done"];
+  // 담당자 배정/재배정(#1) — 신규 '내가 잡기'+관리자 재배정 동시. 기존 /api/items/assign 재사용. 나+미배정+팀원(scopes).
+  const qeMe = state.account?.display_name || state.account?.username || state.account?.email || "";
+  const qeMembers = (state._scopes ?? []).filter((s) => s.id !== "team" && s.label !== qeMe);
+  const qeAssignOpts = `<option value="">${L.qe_assign_ph ?? "담당 변경…"}</option>`
+    + (qeMe ? `<option value="${esc(qeMe)}">${L.claim_me ?? "나"}</option>` : "")
+    + `<option value="__UNASSIGN__">${L.assign_unassigned ?? "미배정"}</option>`
+    + qeMembers.map((m) => `<option value="${esc(m.label)}">${esc(m.label)}</option>`).join("");
   document.querySelector(".ui-confirm-overlay")?.remove();
   const ov = document.createElement("div");
   ov.className = "ui-confirm-overlay";
@@ -1831,6 +1838,9 @@ async function openItemQuickEdit(itemId, projectId, title) {
     <div class="qe-prio" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
       <button class="fav-chip qe-pr" data-pr="high">${L.prio_set ?? "⭐ 우선"}</button>
       <button class="fav-chip qe-pr" data-pr="normal">${L.prio_unset ?? "우선 해제"}</button>
+    </div>
+    <div class="qe-assign-row" style="display:flex;gap:6px;margin-bottom:8px">
+      <select class="qe-assign" style="flex:1">${qeAssignOpts}</select>
     </div>
     <div class="qe-msg dim mini" style="min-height:1em"></div>
     <div class="ui-confirm-btns">
@@ -1852,6 +1862,13 @@ async function openItemQuickEdit(itemId, projectId, title) {
     if (r.ok) { close(); render(); }
     else { const e = await r.json().catch(() => ({})); ov.querySelector(".qe-msg").textContent = e.error || "오류"; }
   }));
+  ov.querySelector(".qe-assign")?.addEventListener("change", async (e) => {
+    const v = e.target.value; if (!v) return;
+    const who = v === "__UNASSIGN__" ? "" : v; // 나/팀원 → 그 사람, 미배정 → 빈값(해제)
+    const r = await post("/api/items/assign", { id: itemId, assignee_ref: who });
+    if (r.ok) { close(); render(); }
+    else { const er = await r.json().catch(() => ({})); ov.querySelector(".qe-msg").textContent = er.error || "오류"; }
+  });
   ov.querySelector(".qe-goto").addEventListener("click", () => {
     close(); state.projectFilter = projectId || ""; state.statusFilter = ""; state.view = "items"; render();
   });
@@ -3463,8 +3480,8 @@ async function renderHome() {
       </div>` };
     }
     if (id === "unassigned") {
-      const open = await api("/api/items?status=open");
-      const un = open.filter((i) => !i.assignee_ref).slice(0, 8);
+      // 미배정 활성(open/doing/blocked) — 서버 unassigned 전용뷰. 시작했거나 막힌 '주인 없는' 일도 노출(#5).
+      const un = (await api("/api/items?unassigned=1")).filter((i) => i.status !== "done").slice(0, 8);
       return { title: L.tile_unassigned, html: un.length ? `<table><tbody>${un.map((i) => itemMiniRow(i, [esc(i.due ?? "-")])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>` };
     }
     if (id === "artifacts") {

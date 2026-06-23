@@ -2,6 +2,13 @@
 
 ## 2026-06-23
 
+### Revision `working` - 페르소나 도그푸딩 quick-win 2건 (담당 배정 인라인 + 미배정 위젯 활성 전체)
+
+- 3페르소나(신규·메일실무·관리자) 도그푸딩 워크플로(마찰 14건→우선순위 6) 중 검증된 quick-win:
+- **#1 quickEdit 담당자 배정 select**: 할일 클릭 팝업에 '담당 변경'(나/미배정/팀원) 추가 → 신규는 '내가 잡기', 관리자는 그 자리서 재배정. 기존 /api/items/assign 재사용(새 API 0). 그동안 잡는 컨트롤이 드래그뿐이라 터치/드래그 모르면 시작 불가하던 사각지대 해소.
+- **#5 미배정 위젯 활성 전체**: status=open만 보던 걸 서버 unassigned 전용뷰(/api/items?unassigned=1)+done 제외로 → 시작(doing)했거나 막힌(blocked) '주인 없는' 일도 노출.
+- 둘 다 기존 엔드포인트/뷰 재사용, client+lexicon만(재시작). 인메모리 E2E PASS(미배정 doing/blocked 노출·잡기 후 제거). 메뉴 잔여(본문읽기 L·위젯과제배정 M·sticky·차단사유)는 owner 선택지로 보고.
+
 ### Revision `working` - 리뷰 보류건 #10 수정 + #11 오판 확인(되돌림)
 
 - **#10 (med, 수정)**: assignMails가 이미 승격된(활성) 메일을 재분배할 때 promoteMail이 already_promoted를 흡수해 기존 항목 담당·상태 미갱신 + 거짓 성공 토스트였음 → already_promoted면 **기존 활성 항목에 고른 담당 적용**(미분류면 open 가시화), 완료/보관 항목은 `already_done`로 surfacing(재분배 무효). 인메모리 E2E PASS.
