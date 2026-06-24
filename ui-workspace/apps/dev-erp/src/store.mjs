@@ -1978,15 +1978,18 @@ export class Store {
 
   // run17: 묶음 분류 (+선택: 할일 생성 = 판타지 '몬스터 출몰').
   // 이미 승격된 메일은 중복 생성 없이 이동만. 결과는 메일별로 반환(이벤트는 호출자가 기록).
-  assignMails(mail_ids, project_id, { make_items = false, created_by = null, assignee_ref = null, open = false } = {}) {
+  // single_item: 대화(conversation) 단위 분류 — 대표(첫 mail_id) 1건만 할일 생성, 나머지 대화 메일은 프로젝트로 file(인입함에서 빠짐)만 하고 할일은 안 만듦. owner '같은 일은 하나로'.
+  assignMails(mail_ids, project_id, { make_items = false, created_by = null, assignee_ref = null, open = false, single_item = false } = {}) {
     if (!Array.isArray(mail_ids) || mail_ids.length === 0) return { error: "mail_ids_required" };
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
     const results = [];
+    let idx = -1;
     for (const mail_id of mail_ids) {
+      idx++;
       const moved = this.setMailProject(mail_id, project_id);
       if (moved.error) { results.push({ mail_id, error: moved.error }); continue; }
       const entry = { mail_id, from: moved.from, unchanged: moved.unchanged ?? false, item_moved: moved.item_moved, item_created: null };
-      if (make_items && !moved.item_moved) {
+      if (make_items && (!single_item || idx === 0) && !moved.item_moved) {
         const promoted = this.promoteMail(mail_id, created_by, assignee_ref); // 분류 시 고른 담당(나/팀원/미배정)
         if (promoted.ok) {
           entry.item_created = promoted.item.id;

@@ -5264,6 +5264,22 @@ test("mail: 다중수신 중복은 canonical 1건만 노출 + 수신자 수 + re
   assert.equal(after[0].recipients, 2);
 });
 
+test("mail: 대화 단위 분류 — single_item 은 대표 1건만 할일 + 나머지 file (MAIL-CONV)", () => {
+  const store = freshStore();
+  // 같은 대화(정규화 제목 동일)지만 제목 변형이라 dedup 안 됨 — INBOX 3건
+  store.ingestMail({ project_code: "P00-000_INBOX", id: "c1", at: "2026-06-24T01:00:00+00:00", subject: "RE: 규격 도면 재송부", direction: "in", mailbox: "a@x", data_label: "real" });
+  store.ingestMail({ project_code: "P00-000_INBOX", id: "c2", at: "2026-06-24T01:01:00+00:00", subject: "RE: 규격 도면 재송부 (P.2)", direction: "in", mailbox: "a@x", data_label: "real" });
+  store.ingestMail({ project_code: "P00-000_INBOX", id: "c3", at: "2026-06-24T01:02:00+00:00", subject: "FW: 규격 도면 재송부", direction: "in", mailbox: "a@x", data_label: "real" });
+  store.upsertProject({ id: "general_work", title: "일반업무", class: "active", data_label: "real" });
+  const r = store.assignMails(["c1", "c2", "c3"], "general_work", { make_items: true, assignee_ref: "문성용", open: true, single_item: true });
+  assert.ok(r.ok);
+  const items = store.db.prepare("SELECT origin_mail_id FROM core_item WHERE origin_mail_id IN ('c1','c2','c3')").all();
+  assert.equal(items.length, 1, "대표 1건만 할일 생성(나머지는 file만)");
+  assert.equal(items[0].origin_mail_id, "c1", "대표=첫 mail_id");
+  const stillInbox = store.db.prepare("SELECT COUNT(*) AS c FROM core_mail WHERE id IN ('c1','c2','c3') AND project_id='P00-000_INBOX'").get().c;
+  assert.equal(stillInbox, 0, "대화 메일 전부 인입함에서 빠짐");
+});
+
 test("memory: 맥락 주입은 관련 항목을 우선(recency·salience 높아도) (MEM-005)", () => {
   const store = freshStore();
   const rel = store.addMemoryItem("문성용", { text: "P26-014 도면 검토는 차오름과 함께", salience: 0.3 }); // 먼저(오래됨)·낮은 salience

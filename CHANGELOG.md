@@ -2,6 +2,17 @@
 
 ## 2026-06-24
 
+### v1.2.0.N - 메일 목록 가독성 — 본문 발췌 표시, 내부 plumbing 숨김
+
+- owner: 메일 목록이 각 행에 메일함/소스해시/원문경로/ID 가 깔려 "너무 진짜 메일 보기 어려워". 기본 가독성 선제 점검 피드백.
+- 해결: mailPreviewLine 을 소스/원문/ID → **body_preview 발췌(140자)**로 교체(목록 둘째줄=사람이 읽는 본문). 내부 plumbing은 mailIdentLine 으로 분리해 상세 패널 식별정보(dim)에만. 본문 없으면 빈 줄(깔끔).
+
+### v1.2.0.N - 미분류 메일함 대화 단위 묶음 (같은 일=한 줄)
+
+- owner: 미분류함에 같은 대화가 여러 줄(RE/FW 체인 + 첨부 쪼갬 P.2 등). 완전동일 dedup으로는 못 잡음.
+- 해결: 미분류 위젯을 **대화(conversation) 단위로 묶음** — 정규화 제목(RE/FW/전달/회신 + 끝의 부분/버전표시 P.2·2/3·[2] 제거; 1~2자리만이라 연도 2026 오인 방지)으로 한 대화=한 줄(💬N 배지). 분류 시 single_item: 대표 1건만 할일 생성, 대화의 나머지 메일은 프로젝트로 file(인입함에서 함께 빠짐·재출현 없음).
+- store.assignMails single_item 옵션 + /api/mail/assign 전달 + mailThreadSubject 부분표시 정규화 강화(메인 thread 묶음도 함께 개선). node:test MAIL-CONV. store·lexicon 변경=재시작.
+
 ### v1.2.0.N - 메일 본문 발췌(미리보기) resolver — 런타임 싱크에서 채움
 
 - owner: ERP 메일 상세 패널에 본문이 항상 '본문 미수집'. 진단: connector(hiworks/gmail)는 본문을 추출해 런타임 이벤트 싱크(`guild_hall/state/gateway/mailbox/**`, gitignored)에 이미 저장하지만, ERP 인입 경로(`team_cli → 메일_이력.csv 원장(본문 없음) → scan_mail_ledger → ingestMail`)가 원장만 읽어 body_preview 가 항상 빈 값.

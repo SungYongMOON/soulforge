@@ -300,6 +300,8 @@ tr.thread-head:hover td { background: rgba(127,127,127,.13); }
 .thread-toggle { color: var(--muted); font-size: .8em; margin-right: 2px; }
 /* 다중수신 합침 배지 — 같은 메일이 N명 팀원에게 갔음(중복은 1건으로). */
 .mail-recip { display: inline-block; margin-left: 4px; font-size: .72em; padding: 0 5px; border-radius: 8px; background: rgba(90,140,220,.18); color: var(--muted); white-space: nowrap; }
+/* 대화 묶음 배지 — 같은 대화(RE/FW·부분분할)가 N건(분류 시 함께 처리). */
+.mail-conv { display: inline-block; margin-left: 4px; font-size: .72em; padding: 0 5px; border-radius: 8px; background: rgba(120,180,120,.20); color: var(--muted); white-space: nowrap; }
 tr.mail-row.thread-body { display: none; }
 tr.mail-row.thread-body.open { display: table-row; }
 /* 내 메모리 — 누적 항목 목록(보기/삭제/추가). 담당자별로 AI가 무엇을 기억하는지 투명하게. */

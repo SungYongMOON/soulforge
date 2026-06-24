@@ -3617,8 +3617,18 @@ async function renderHome() {
       const canAssign = state.account; // 최소 미배정으로는 항상 분배 가능
       const more = inboxTotal > mails.length
         ? `<div class="widget-more"><a data-inbox-all="${esc(inbox[0]?.id ?? "")}">${(L.inbox_see_all ?? "전체 %n건 분류하러 가기 →").replace("%n", inboxTotal)}</a></div>` : "";
+      // 대화(conversation) 단위로 묶기 — 같은 정규화 제목(RE/FW·부분분할 제거)은 한 줄(최신 대표)+💬N. 분류하면 그 대화 메일 전체를 함께 file(data-conv).
+      const convMap = new Map();
+      for (const m of mails) { const k = mailThreadSubject(m.subject); if (!convMap.has(k)) convMap.set(k, []); convMap.get(k).push(m); }
+      const convRows = [...convMap.values()].map((ms) => {
+        ms.sort((a, b) => (b.at ?? "").localeCompare(a.at ?? "")); // 최신 먼저
+        const m = ms[0];
+        const convIds = ms.map((x) => x.id).join(",");
+        const recip = Math.max(1, ...ms.map((x) => x.recipients || 1));
+        return `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}${ms.length > 1 ? ` <span class="mail-conv" title="${L.mail_conv ?? "이 대화의 메일 수(분류 시 함께 처리)"}">💬 ${ms.length}</span>` : ""}${recip > 1 ? ` <span class="mail-recip" title="${L.mail_recipients ?? "이 메일을 받은 팀원 수(중복 메일 합침)"}">👥 ${recip}</span>` : ""}</td>${canAssign ? `<td class="inbox-assign-cell"><select class="inbox-assign" data-mail="${esc(m.id)}" data-conv="${esc(convIds)}">${inboxAssignOpts}</select></td>` : ""}</tr>`;
+      }).join("");
       return { title: `${L.tile_inbox} (${inboxTotal})`, html: mails.length
-        ? `<table><tbody>${mails.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}${m.recipients > 1 ? ` <span class="mail-recip" title="${L.mail_recipients ?? "이 메일을 받은 팀원 수(중복 메일 합침)"}">👥 ${m.recipients}</span>` : ""}</td>${canAssign ? `<td class="inbox-assign-cell"><select class="inbox-assign" data-mail="${esc(m.id)}">${inboxAssignOpts}</select></td>` : ""}</tr>`).join("")}</tbody></table>${more}`
+        ? `<table><tbody>${convRows}</tbody></table>${more}`
         : `<div class="empty">${L.empty_mail}</div>` };
     }
     // 최근 변경 = 사람이 읽는 변경 이력. 조회/잡음(view 등) 제외, kind 를 한국어 설명으로. 할일 변경은 클릭→빠른편집.
@@ -3971,7 +3981,8 @@ async function renderHome() {
         e.stopPropagation();
         const v = sel.value; if (!v) return;
         const who = v === "__UNASSIGN__" ? "" : v; // 미배정이면 담당 없이(open 미배정 할일)
-        const resp = await post("/api/mail/assign", { mail_ids: [sel.dataset.mail], project_id: "general_work", make_items: true, assignee_ref: who, open: true });
+        const convIds = (sel.dataset.conv || sel.dataset.mail).split(",").filter(Boolean); // 대화 전체 메일(대표 first) — single_item 으로 할일은 대표 1개만, 나머지는 file
+        const resp = await post("/api/mail/assign", { mail_ids: convIds, project_id: "general_work", make_items: true, single_item: true, assignee_ref: who, open: true });
         const d = await resp.json().catch(() => ({}));
         if (resp.ok && !d.error) {
           toast(`${who || (L.assign_unassigned ?? "미배정")} ${L.inbox_assign_done ?? "배정했어요"} (${INTERNAL_PROJ_LABELS["general_work"] ?? "일반업무"})`, "ok");
@@ -4453,8 +4464,11 @@ function projChip(projectId, cls) {
 }
 
 const MAIL_THREAD_PREFIX_RE = /^(\s*(?:re|fw|fwd|전달|회신)\s*[:：]\s*)+/i;
+// 끝의 부분/버전 표시 제거: (P.2) (2) (2/3) [2] [2/3] — 첨부 쪼갬·재송부 변형을 같은 대화로. 1~2자리만(연도 (2026) 오인 방지)
+const MAIL_THREAD_PART_RE = /\s*[([]\s*(?:p\s*\.?\s*)?\d{1,2}(?:\s*\/\s*\d{1,2})?\s*[)\]]\s*$/i;
 function mailThreadSubject(subject) {
-  return String(subject ?? "").replace(MAIL_THREAD_PREFIX_RE, "").trim() || String(subject ?? "").trim() || "(제목 없음)";
+  const base = String(subject ?? "").replace(MAIL_THREAD_PREFIX_RE, "").replace(MAIL_THREAD_PART_RE, "").trim();
+  return base || String(subject ?? "").trim() || "(제목 없음)";
 }
 function mailThreadKind(subject) {
   const s = String(subject ?? "").trim();
@@ -4472,6 +4486,12 @@ function mailIdTail(id) {
   return s.length <= 8 ? s : s.slice(-8);
 }
 function mailPreviewLine(m) {
+  // 목록 둘째줄 = 사람이 읽는 본문 발췌. 내부 plumbing(메일함/소스/원문/ID)은 목록에서 빼고 상세 패널에만 둔다.
+  const body = String(m.body_preview ?? "").replace(/\s+/g, " ").trim();
+  return body ? (body.length > 140 ? `${body.slice(0, 140)}…` : body) : "";
+}
+function mailIdentLine(m) {
+  // 상세 패널 '식별 정보' 전용 — 내부 plumbing(메일함/소스/원문/ID). 목록엔 안 씀.
   return [
     m.mailbox ? `메일함 ${m.mailbox}` : "",
     m.source_ref ? `소스 ${m.source_ref}` : "",
@@ -4762,7 +4782,7 @@ async function renderMail() {
   const selIdx = sel ? mail.findIndex((m) => m.id === sel.id) : -1; // #10: 현재 페이지 내 위치 → 이전/다음 단건 처리
   const prevMailId = selIdx > 0 ? mail[selIdx - 1].id : null;
   const nextMailId = selIdx >= 0 && selIdx + 1 < mail.length ? mail[selIdx + 1].id : null;
-  const selPreview = sel ? mailPreviewLine(sel) : "";
+  const selIdent = sel ? mailIdentLine(sel) : "";
   const selKind = sel ? mailThreadKind(sel.subject) : "";
   const detail = sel ? `<aside class="mail-detail">
       <div class="mail-nav">
@@ -4777,7 +4797,7 @@ async function renderMail() {
         ${selKind ? `<div><dt>${L.mail_thread_kind ?? "대화 유형"}</dt><dd>${esc(selKind)} · ${esc(mailThreadSubject(sel.subject))}</dd></div>` : ""}
         ${sel.mailbox ? `<div><dt>${L.mailbox_provider ?? "메일함"}</dt><dd>${esc(sel.mailbox)}</dd></div>` : ""}
         ${sel.source_ref ? `<div><dt>${L.mail_source_ref ?? "소스"}</dt><dd>${esc(sel.source_ref)}</dd></div>` : ""}
-        ${selPreview ? `<div><dt>${L.mail_preview_meta ?? "식별 정보"}</dt><dd>${esc(selPreview)}</dd></div>` : ""}
+        ${selIdent ? `<div><dt>${L.mail_preview_meta ?? "식별 정보"}</dt><dd class="dim mini">${esc(selIdent)}</dd></div>` : ""}
         <div><dt>${L.detail_pointer}</dt><dd class="pointer">${esc(sel.pointer_ref ?? "-")} <button class="copy-btn" data-c="${esc(sel.pointer_ref ?? "")}">${L.copy}</button></dd></div></dl>
       ${sel.body_preview ? `<div class="mail-body"><div class="dim mini">${L.mail_body ?? "본문 발췌"}</div><div class="mail-body-text">${esc(sel.body_preview)}</div></div>` : `<div class="mail-body mail-body-empty"><div class="dim mini">${L.mail_body_none ?? "본문 미수집 — 원문은 메일함에서 확인하세요."}</div></div>`}
       ${state.mailEdit === sel.id ? `<div class="mail-edit-form item-form" style="margin:6px 0;display:flex;gap:4px;flex-wrap:wrap">
