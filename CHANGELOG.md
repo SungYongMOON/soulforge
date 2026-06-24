@@ -2,6 +2,11 @@
 
 ## 2026-06-24
 
+### Revision `working` - 로컬 개인지침 붙여넣기 본문 저장
+
+- Added `docs/architecture/bootstrap/LOCAL_AGENT_PERSONAL_INSTRUCTIONS_V0.md` as a public-safe paste block for Codex/Claude personal instructions on other PCs.
+- Linked the new bootstrap document from the bootstrap README and kept `AGENTS.md` as the single canonical Soulforge instruction source.
+
 ### Revision `working` - NIGHT_WORK_HANDOFF 조건부 연속성 규칙으로 축소
 
 - `AGENTS.md` 와 boot digest 의 handoff 규칙을 "페이즈/윈도우 종료마다 필수"에서 "git/activity 에 남지 않는 forward-state 를 context 경계 너머로 넘길 때 필수"로 좁혔다.
