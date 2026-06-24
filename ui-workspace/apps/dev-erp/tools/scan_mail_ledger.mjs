@@ -12,7 +12,7 @@ import { readdirSync, existsSync, readFileSync, statSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openStore } from "../src/store.mjs";
-import { readMailBodyPreview } from "../../../../guild_hall/gateway/mail_candidate.mjs";
+import { readMailBodyPreview } from "../../../../guild_hall/gateway/mail_body_excerpt.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));            // .../dev-erp/tools
 const APP = resolve(HERE, "..");                                // .../dev-erp

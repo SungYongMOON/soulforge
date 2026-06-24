@@ -35,7 +35,7 @@
     "validate:battle-log": "node --test guild_hall/battle_log/battle_log.test.mjs",
     "validate:town-crier": "node --test guild_hall/town_crier/town_crier.test.mjs",
     "validate:assistant-dashboard": "node --check guild_hall/assistant_dashboard/dashboard.mjs && node --check guild_hall/assistant_dashboard/cli.mjs && node --test guild_hall/assistant_dashboard/dashboard.test.mjs",
-    "validate:gateway:index": "node --test guild_hall/gateway/cli.test.mjs guild_hall/gateway/monster_index.test.mjs guild_hall/gateway/mail_candidate.test.mjs guild_hall/gateway/mail_work_status.test.mjs guild_hall/gateway/project_mail_history_writer.test.mjs guild_hall/gateway/outlook_mail_reconcile.test.mjs",
+    "validate:gateway:index": "node --test guild_hall/gateway/cli.test.mjs guild_hall/gateway/monster_index.test.mjs guild_hall/gateway/mail_candidate.test.mjs guild_hall/gateway/mail_body_excerpt.test.mjs guild_hall/gateway/mail_work_status.test.mjs guild_hall/gateway/project_mail_history_writer.test.mjs guild_hall/gateway/outlook_mail_reconcile.test.mjs",
     "validate:gateway:mail-fetch": "uv run --with pytest python -m pytest guild_hall/gateway/mail_fetch/tests",
     "validate:gateway": "npm run validate:gateway:index && npm run validate:gateway:mail-fetch",
     "validate:core-loop": "node --test guild_hall/dev_worker/candidate_queue_archive.test.mjs guild_hall/doctor/codex_runtime_checks.test.mjs guild_hall/dungeon_assignment/assignment.test.mjs guild_hall/mission_close/mission_close.test.mjs guild_hall/night_watch/daily_work_packet.test.mjs guild_hall/night_watch/morning_report.test.mjs guild_hall/snapshot/loop_e2e.test.mjs guild_hall/validate/boot_digest_guard.test.mjs guild_hall/validate/canon_validate.test.mjs",
