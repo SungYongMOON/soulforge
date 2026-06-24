@@ -35,6 +35,8 @@
   - mail candidate listing and promotion helper
 - `mail_candidate_backlog.mjs`
   - pending mail candidate backlog age/stale metadata check helper
+- `mail_body_excerpt.mjs`
+  - 본문 발췌(미리보기) resolver — 런타임 이벤트 싱크(`guild_hall/state/gateway/mailbox/**`)에서만 본문 발췌를 읽어 ERP `core_mail.body_preview` 로 넘기는 무의존 helper. 원장 CSV·후보 큐엔 본문을 두지 않는다(원문 전체·첨부 미저장).
 - `mail_work_status.mjs`
   - mail-derived work item 상태를 candidate -> monster -> mission -> battle 기준으로 projection 하고, 주간 계획 누락 방지용 P00 visibility register 를 갱신하는 local-only helper
 - `deadline_watch_import.mjs`
