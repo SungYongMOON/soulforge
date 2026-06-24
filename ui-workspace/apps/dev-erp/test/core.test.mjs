@@ -5235,6 +5235,35 @@ test("memory: append API 는 항목층으로 라우팅(blob 무증식) + soft de
   assert.equal(store.listMemoryItems("김민재", { status: "archived" }).length, 1, "archived 보존");
 });
 
+test("mail: 다중수신 중복은 canonical 1건만 노출 + 수신자 수 + retro (MAIL-DEDUP)", () => {
+  const store = freshStore();
+  const base = { project_code: "P00-000_INBOX", at: "2026-06-24T00:14:34+00:00", subject: "FW: 일정변경 영향성 확인", direction: "in", data_label: "real" };
+  const r1 = store.ingestMail({ ...base, id: "m-a", mailbox: "seabot@x" });
+  const r2 = store.ingestMail({ ...base, id: "m-b", mailbox: "mjkim@x" });
+  const r3 = store.ingestMail({ ...base, id: "m-c", mailbox: "cha@x" });
+  assert.equal(r1.dup_of, null, "첫 건이 canonical");
+  assert.equal(r2.dup_of, "m-a", "둘째는 dup");
+  assert.equal(r3.dup_of, "m-a", "셋째도 dup");
+  const shown = store.mail({ project: "P00-000_INBOX" }).filter((m) => m.subject === base.subject);
+  assert.equal(shown.length, 1, "중복은 목록에 1건만(hidden 필터)");
+  assert.equal(shown[0].id, "m-a");
+  assert.equal(shown[0].recipients, 3, "canonical 수신자 수=3");
+  // 서로 다른 메일은 안 묶임
+  store.ingestMail({ ...base, id: "m-x", subject: "다른 메일", mailbox: "seabot@x" });
+  assert.equal(store.mail({ project: "P00-000_INBOX" }).filter((m) => m.subject === "다른 메일").length, 1);
+  // retro: ingest dedup 우회(upsertMail 직접)로 만든 기존 중복도 정리
+  const raw = { project_id: "P00-000_INBOX", at: "2026-06-20T01:00:00+00:00", direction: "in", subject: "기존중복", data_label: "real" };
+  store.upsertMail({ ...raw, id: "old-1", mailbox: "a@x" });
+  store.upsertMail({ ...raw, id: "old-2", mailbox: "b@x" });
+  assert.equal(store.mail({ project: "P00-000_INBOX" }).filter((m) => m.subject === "기존중복").length, 2, "retro 전 2건");
+  const res = store.dedupMailRetro({ ownerMailbox: "b@x" });
+  assert.ok(res.collapsed >= 1, "retro 가 중복 접음");
+  const after = store.mail({ project: "P00-000_INBOX" }).filter((m) => m.subject === "기존중복");
+  assert.equal(after.length, 1, "retro 후 1건");
+  assert.equal(after[0].id, "old-2", "ownerMailbox(b@x) 가 canonical");
+  assert.equal(after[0].recipients, 2);
+});
+
 test("memory: 맥락 주입은 관련 항목을 우선(recency·salience 높아도) (MEM-005)", () => {
   const store = freshStore();
   const rel = store.addMemoryItem("문성용", { text: "P26-014 도면 검토는 차오름과 함께", salience: 0.3 }); // 먼저(오래됨)·낮은 salience

@@ -3618,7 +3618,7 @@ async function renderHome() {
       const more = inboxTotal > mails.length
         ? `<div class="widget-more"><a data-inbox-all="${esc(inbox[0]?.id ?? "")}">${(L.inbox_see_all ?? "전체 %n건 분류하러 가기 →").replace("%n", inboxTotal)}</a></div>` : "";
       return { title: `${L.tile_inbox} (${inboxTotal})`, html: mails.length
-        ? `<table><tbody>${mails.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}</td>${canAssign ? `<td class="inbox-assign-cell"><select class="inbox-assign" data-mail="${esc(m.id)}">${inboxAssignOpts}</select></td>` : ""}</tr>`).join("")}</tbody></table>${more}`
+        ? `<table><tbody>${mails.map((m) => `<tr data-mail="${esc(m.id)}"><td>${localTime(m.at)}</td><td>${esc(m.subject)}${m.recipients > 1 ? ` <span class="mail-recip" title="${L.mail_recipients ?? "이 메일을 받은 팀원 수(중복 메일 합침)"}">👥 ${m.recipients}</span>` : ""}</td>${canAssign ? `<td class="inbox-assign-cell"><select class="inbox-assign" data-mail="${esc(m.id)}">${inboxAssignOpts}</select></td>` : ""}</tr>`).join("")}</tbody></table>${more}`
         : `<div class="empty">${L.empty_mail}</div>` };
     }
     // 최근 변경 = 사람이 읽는 변경 이력. 조회/잡음(view 등) 제외, kind 를 한국어 설명으로. 할일 변경은 클릭→빠른편집.
@@ -4666,7 +4666,7 @@ async function renderMail() {
         <button class="mail-pick ${picked ? "on" : ""}" data-pick="${esc(m.id)}" title="${picked ? "선택 해제" : "선택"}">${picked ? "해제" : "선택"}</button></td>
       <td class="mail-from">${meta ? `<span class="mail-chips">${meta}</span>` : ""}${m.direction === "out" ? `<i>→</i> ` : ""}${esc(m.counterpart ?? "-")}</td>
       <td class="mail-subj" title="${esc([m.subject, preview].filter(Boolean).join(" · "))}">
-        <div class="mail-subj-main">${kind ? `<span class="mail-thread-kind">${esc(kind)}</span>` : ""}${esc(m.subject)}${dupe ? `<span class="mail-dupe" title="같은 대화/제목의 다른 메일">#${esc(mailIdTail(m.id))}</span>` : ""}${promotedSet.has(m.id) ? `<span class="mail-promoted" title="${L.promote_done ?? "할 일로 등록됨"}">✓ ${L.item}</span>` : ""}</div>
+        <div class="mail-subj-main">${kind ? `<span class="mail-thread-kind">${esc(kind)}</span>` : ""}${esc(m.subject)}${m.recipients > 1 ? `<span class="mail-recip" title="${L.mail_recipients ?? "이 메일을 받은 팀원 수(중복 메일 합침)"}">👥 ${m.recipients}</span>` : ""}${dupe ? `<span class="mail-dupe" title="같은 대화/제목의 다른 메일">#${esc(mailIdTail(m.id))}</span>` : ""}${promotedSet.has(m.id) ? `<span class="mail-promoted" title="${L.promote_done ?? "할 일로 등록됨"}">✓ ${L.item}</span>` : ""}</div>
         ${preview ? `<div class="mail-preview">${esc(preview)}</div>` : ""}
       </td>
       <td class="mail-time">${localTime(m.at)}</td>
@@ -4779,7 +4779,7 @@ async function renderMail() {
         ${sel.source_ref ? `<div><dt>${L.mail_source_ref ?? "소스"}</dt><dd>${esc(sel.source_ref)}</dd></div>` : ""}
         ${selPreview ? `<div><dt>${L.mail_preview_meta ?? "식별 정보"}</dt><dd>${esc(selPreview)}</dd></div>` : ""}
         <div><dt>${L.detail_pointer}</dt><dd class="pointer">${esc(sel.pointer_ref ?? "-")} <button class="copy-btn" data-c="${esc(sel.pointer_ref ?? "")}">${L.copy}</button></dd></div></dl>
-      ${sel.body_preview ? `<div class="mail-body"><div class="dim mini">${L.mail_body ?? "본문 발췌"}</div><div class="mail-body-text">${esc(sel.body_preview)}</div></div>` : ""}
+      ${sel.body_preview ? `<div class="mail-body"><div class="dim mini">${L.mail_body ?? "본문 발췌"}</div><div class="mail-body-text">${esc(sel.body_preview)}</div></div>` : `<div class="mail-body mail-body-empty"><div class="dim mini">${L.mail_body_none ?? "본문 미수집 — 원문은 메일함에서 확인하세요."}</div></div>`}
       ${state.mailEdit === sel.id ? `<div class="mail-edit-form item-form" style="margin:6px 0;display:flex;gap:4px;flex-wrap:wrap">
         <input id="meSubject" value="${esc(sel.subject ?? "")}" placeholder="${L.mail_reg_subject ?? "제목"}" />
         <input id="meFrom" value="${esc(sel.counterpart ?? "")}" placeholder="${L.mail_reg_from ?? "상대"}" size="12" />

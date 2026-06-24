@@ -2,6 +2,13 @@
 
 ## 2026-06-24
 
+### v1.2.0.N - 다중수신 메일 중복 합침(dedup) + 본문 미수집 안내
+
+- owner: 같은 메일을 전달할 때 팀원이 참조에 있어 팀원 mailbox마다 개별 인입 → 미분류함에 같은 메일이 3~6건 중복. 진단: 같은 (제목·시각·방향)이 mailbox별 별도 id로 N행(실데이터 확인, 예: 06-24 일정변경 3행).
+- 해결: ingestMail 다중수신 dedup — canonical 1건만 노출, 나머지는 dup_of+hidden 으로 보존(삭제 X·되돌리기 가능). 기존 _mailWhere 의 hidden 필터가 모든 목록에서 자동 제외(질의 수정 0). canonical 에 수신자 수 배지(recipients). 기존 828건은 dedupMailRetro 1회 정리(owner mailbox 우선 canonical). node:test MAIL-DEDUP.
+- 본문: body_preview 0/828(수집기가 본문 미전달)이라 어디에도 안 보였음 → 상세 패널에 본문 미수집 안내 추가(수집기 연동 후 표시, 지금은 원문 메일함). 실제 본문 채우기는 connector 가 body_preview 를 원장에 emit 해야(owner-env·후속).
+- store·lexicon 변경=재시작.
+
 ### Revision `working` - long-thread handoff/PC role 동기화
 
 - `long_thread_handoff_v0` workflow 와 `soulforge-long-thread-handoff` Codex skill 의 `NIGHT_WORK_HANDOFF` 정책을 기본 closeout 산출물이 아니라 unresolved forward-state 가 context/PC/controller 경계를 넘어야 할 때만 쓰는 조건부 checkpoint 로 맞췄다.

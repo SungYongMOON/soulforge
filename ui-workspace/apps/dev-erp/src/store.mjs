@@ -740,6 +740,7 @@ export function openStore(path = ":memory:") {
   for (const ddl of [
     "ALTER TABLE core_mail ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0", // soft-delete(숨김) — upsert 가 hidden 미터치라 재수집/재스캔에도 보존
     "ALTER TABLE core_mail ADD COLUMN body_preview TEXT", // 본문 발췌(미리보기) — owner 결정으로 '본문 미저장'을 발췌 수준 완화(원문 전체·첨부는 여전히 미저장). 수집기가 원장으로 넘기면 채워짐.
+    "ALTER TABLE core_mail ADD COLUMN dup_of TEXT", // 다중수신 중복 — 같은 메일이 팀원 mailbox마다 인입될 때 canonical 1건만 보이고 나머지는 dup_of=canonical+hidden=1로 보존(삭제 X). 수신자 수 배지 근거.
     "ALTER TABLE core_item ADD COLUMN guide_artifact_id INTEGER",
     "ALTER TABLE core_item ADD COLUMN guide_step_key TEXT",
     "ALTER TABLE core_item ADD COLUMN origin_mail_id TEXT",
@@ -1057,18 +1058,18 @@ export class Store {
   upsertMail(m) {
     this.db
       .prepare(
-        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,mailbox,data_label,body_preview)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,mailbox,data_label,body_preview,hidden,dup_of)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, at=excluded.at, direction=excluded.direction,
            subject=excluded.subject, counterpart=excluded.counterpart, pointer_ref=excluded.pointer_ref,
            stage_code=excluded.stage_code, source_ref=excluded.source_ref,
            mailbox=COALESCE(excluded.mailbox, core_mail.mailbox),
            body_preview=COALESCE(excluded.body_preview, core_mail.body_preview)`
-      )
+      ) // ON CONFLICT 은 hidden/dup_of 미터치 → 재수집/재스캔에도 dedup·삭제 상태 보존
       .run(m.id, m.project_id ?? null, m.at, m.direction ?? "in", m.subject, m.counterpart ?? null,
         m.pointer_ref ?? null, m.stage_code ?? null, m.source_ref ?? null,
         (m.mailbox ? String(m.mailbox).trim().toLowerCase() : null) || null, m.data_label ?? "synthetic",
-        m.body_preview ?? null);
+        m.body_preview ?? null, m.hidden ? 1 : 0, m.dup_of ?? null);
   }
 
   // 메일 삭제(soft-hide): hidden=1 로 목록에서 제외. upsert 가 hidden 을 안 건드려 재수집/재스캔해도 다시 안 보인다.
@@ -1077,6 +1078,26 @@ export class Store {
     if (!m) return { error: "mail_not_found" };
     this.db.prepare("UPDATE core_mail SET hidden=1 WHERE id=?").run(mail_id);
     return { ok: true, id: mail_id };
+  }
+  // 기존 다중수신 중복 일괄 정리(1회·멱등): 같은 (subject,at,direction) 그룹에서 canonical 1건만 남기고(소유자 mailbox 우선, 없으면 가장 이른 id) 나머지는 hidden=1+dup_of=canonical. 삭제 X·되돌리기 가능(dup_of 해제). 이미 분류된(project≠INBOX) canonical 은 유지.
+  dedupMailRetro({ ownerMailbox = null } = {}) {
+    const groups = this.db.prepare(
+      "SELECT subject, at, direction FROM core_mail WHERE COALESCE(hidden,0)=0 AND dup_of IS NULL GROUP BY subject, at, direction HAVING COUNT(*)>1"
+    ).all();
+    const setDup = this.db.prepare("UPDATE core_mail SET hidden=1, dup_of=? WHERE id=?");
+    const ownerKey = ownerMailbox ? normalizeMailboxKey(ownerMailbox) : null;
+    let groupsHit = 0, collapsed = 0;
+    for (const g of groups) {
+      const rows = this.db.prepare(
+        "SELECT id, mailbox FROM core_mail WHERE subject=? AND at=? AND direction=? AND COALESCE(hidden,0)=0 AND dup_of IS NULL ORDER BY id"
+      ).all(g.subject, g.at, g.direction);
+      if (rows.length < 2) continue;
+      let canon = rows[0];
+      if (ownerKey) { const f = rows.find((r) => normalizeMailboxKey(r.mailbox) === ownerKey); if (f) canon = f; }
+      for (const r of rows) if (r.id !== canon.id) { setDup.run(canon.id, r.id); collapsed++; }
+      groupsHit++;
+    }
+    return { ok: true, groups: groupsHit, collapsed };
   }
 
   // ── 메일 제외 규칙(blocklist) — 개인메일(급여명세서 등)·차단 발신자를 팀 공용 ERP 에 안 들어오게.
@@ -1175,10 +1196,17 @@ export class Store {
     // 메일 제외 규칙 매칭 시 저장 전 드롭(개인메일·차단 발신자). 수집 경로만 — 수동 등록(createMail)은 의도적이라 면제.
     if (this._mailExcluded({ counterpart, subject: subj, mailbox })) return { dropped: true, id };
     const dir = ["in", "out"].includes(direction) ? direction : "in";
+    // 다중수신 dedup: 같은 메일(제목+시각+방향)이 다른 팀원 mailbox로 또 들어오면, 먼저 들어온 canonical 1건만 노출하고 이 행은 dup_of+hidden 으로 보존(삭제 X). 수신자 수는 canonical의 recipients 로 집계.
+    let dupOf = null;
+    if (isNew) {
+      const canon = this.db.prepare("SELECT id FROM core_mail WHERE subject=? AND at=? AND direction=? AND dup_of IS NULL AND COALESCE(hidden,0)=0 AND id<>? ORDER BY id LIMIT 1").get(subj, atVal, dir, id);
+      if (canon) dupOf = canon.id;
+    }
     this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: subj, counterpart: counterpart || null,
       pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, mailbox: mailbox || null, data_label,
-      body_preview: body_preview ? String(body_preview).replace(/\s+/g, " ").trim().slice(0, 2000) || null : null }); // 발췌만(원문 전체 아님)
-    return { ok: true, id, project_id, isNew };
+      body_preview: body_preview ? String(body_preview).replace(/\s+/g, " ").trim().slice(0, 2000) || null : null, // 발췌만(원문 전체 아님)
+      hidden: dupOf ? 1 : 0, dup_of: dupOf });
+    return { ok: true, id, project_id, isNew, dup_of: dupOf };
   }
 
   // 할일 장부 ingest 착지면(_workmeta/<code>/reports/할일_장부/할일_장부.csv 한 행 → core_item).
@@ -2038,7 +2066,8 @@ export class Store {
     const page = this._pageBounds(limit, offset, 1000);
     const rows = this.db
       .prepare(
-        `SELECT m.*, (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids
+        `SELECT m.*, (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids,
+           (SELECT COUNT(*) FROM core_mail d WHERE d.dup_of=m.id)+1 AS recipients
          FROM core_mail m ${where} ORDER BY m.at DESC, m.id DESC LIMIT ? OFFSET ?`
       )
       .all(...args, page.limit, page.offset);
@@ -2050,7 +2079,8 @@ export class Store {
     const { where, args } = this._mailWhere(opts);
     const rows = this.db
       .prepare(
-        `SELECT m.*, (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids
+        `SELECT m.*, (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids,
+           (SELECT COUNT(*) FROM core_mail d WHERE d.dup_of=m.id)+1 AS recipients
          FROM core_mail m ${where} ORDER BY m.at DESC, m.id DESC LIMIT ? OFFSET ?`
       )
       .all(...args, page.limit, page.offset)
