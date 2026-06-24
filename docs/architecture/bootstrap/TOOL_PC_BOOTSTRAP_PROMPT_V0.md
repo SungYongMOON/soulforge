@@ -4,6 +4,7 @@
 
 이 문서는 고성능 tool PC 의 Codex 에게 전달할 bootstrap/update prompt 다.
 이 PC 는 skill 제작 전용 PC 가 아니라, project metadata 를 읽고 쓰면서 회로설계, PCBArtwork, CAD/CAE/EDA 같은 tool-bound 설계 작업을 수행하는 `tool_pc` 로 설정한다.
+같은 물리 고성능 PC 가 현재 Soulforge DB/tools 와 24시간 실행 primary 도 맡는다면, 이 prompt 는 tool-bound 작업면만 설정한다. `gateway_fetch_primary`, `night_watch_active`, healer/town_crier 운영면은 별도 운영용 clone 또는 별도 local identity 에 `ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` 를 적용해서 분리한다.
 
 ## 짧은 사용자 지시
 
@@ -26,6 +27,7 @@ docs/architecture/bootstrap/TOOL_PC_BOOTSTRAP_PROMPT_V0.md 를 읽고 이 PC를 
 
 이 PC 를 Soulforge 의 `tool_pc` 로 설정한다.
 이 PC 는 실제 프로젝트 설계 tool 이 설치된 작업 node 이며, skill 제작뿐 아니라 project metadata 를 읽고 쓰면서 tool-bound 설계 작업을 수행한다.
+이 PC 가 24시간 켜져 있더라도 이 prompt 만으로 `always_on_node` 가 되지는 않는다. owner 가 이 물리 PC 를 현재 24시간 primary 로 지정한 경우에는 별도 clone/worktree 의 local-only `node_identity.yaml` 에 `node_role: always_on_node` 를 선언한다.
 
 허용되는 대표 작업:
 
@@ -48,7 +50,8 @@ docs/architecture/bootstrap/TOOL_PC_BOOTSTRAP_PROMPT_V0.md 를 읽고 이 PC를 
 - `.env`, token, cookie, session, credential 파일은 내용이 아니라 존재 여부만 확인한다.
 - public tracked 문서는 사용자가 명시적으로 요청한 경우에만 수정한다.
 - public repo 자동 commit/push 는 하지 않는다.
-- `gateway_fetch_primary`, `night_watch_active`, always-on scheduler 역할은 수행하지 않는다.
+- 이 `tool_pc` identity 로는 `gateway_fetch_primary`, `night_watch_active`, always-on scheduler 역할을 수행하지 않는다.
+- 같은 물리 PC 의 별도 `always_on_node` identity 가 그 역할을 맡는 것은 가능하지만, 두 identity 의 작업 surface 와 clone/worktree 는 분리한다.
 - 실제 project 파일 내용은 bootstrap 중 깊게 읽지 않는다. 존재 여부와 top-level 형태만 확인한다.
 - bounded tool-bound 작업을 끝낼 때는 `docs/architecture/workspace/WORKMETA_MINIMUM_SCHEMA.md` 의 `_workmeta shared metadata plane` 기준을 따라 `_workmeta/<project_code>/` 또는 `_workmeta/system/` 에 cross-PC handoff 에 필요한 metadata 를 남긴다. 실제 project files 와 machine-local temp/cache 는 `_workspaces` 또는 local runtime 에 둔다.
 - `git reset --hard`, `git checkout --`, `git stash`, force push 는 하지 않는다.

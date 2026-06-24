@@ -7,18 +7,20 @@ description: Use only when the user explicitly asks for a Soulforge long-thread 
 
 Use this skill as a launcher near the end of a long Soulforge thread when the user wants to avoid context contamination and continue work through fresh subagents.
 
+`NIGHT_WORK_HANDOFF` is conditional continuity state, not a default closeout artifact. Create or refresh it only when forward-state that is not already captured by git commits, validation output, activity logs, or open threads must cross a context boundary.
+
 For context-management rationale and optional tactics, read `references/context-management-video-notes.md` only when the task involves improving handoff quality, deciding compact vs fresh-session behavior, or explaining why the handoff uses structured checkpoints.
 
 ## Core Contract
 
 - Treat explicit invocation of this skill as a request to actively use fresh subagents for non-trivial bounded work, subject only to current tool environment support. Direct same-thread execution is allowed only for a named no-subagent exception, and the exception must be reported.
 - Act as manager/controller A: own goal declaration, boundaries, evidence, integration, validation routing, and final reporting.
-- Do not deep-analyze the full old context yourself unless needed to produce a safe checkpoint. Convert the thread into a compact handoff, then delegate material analysis, implementation, and review.
+- Do not deep-analyze the full old context yourself unless needed to produce a safe checkpoint. When unresolved forward-state must cross a context boundary, convert it into a compact handoff before delegating; otherwise record the explicit no-handoff reason and delegate with bounded refs, constraints, and acceptance criteria.
 - Keep the manager context clean: carry forward structured state and final findings, not raw exploration, failed attempts, or unneeded source text.
-- Prefer a structured checkpoint over prose-only compaction for fragile work. The checkpoint should make omitted or unknown items explicit.
+- Prefer a structured checkpoint over prose-only compaction for fragile work when unresolved forward-state must survive. The checkpoint should make omitted or unknown items explicit.
 - During long phases, periodically re-anchor the work by restating the current goal, constraints, completed work, blockers, and next action before continuing or delegating.
 - Use fresh subagents with `fork_context=false` by default for delegated work. Pass only the handoff summary, target files, constraints, and acceptance criteria.
-- In overnight or continued-work mode, decide when to refresh handoff, compact, or start clean without asking the user unless a stop condition or owner decision is involved.
+- In overnight or continued-work mode, decide whether a handoff is actually needed before refreshing, compacting, or starting clean. Ask the user only when a stop condition or owner decision is involved.
 - Request `gpt-5.5` with `xhigh` reasoning for subagents when available. If the runtime cannot provide that profile, use the strongest available profile and state the downgrade.
 - Continue until the declared goal is complete or a real stop condition is reached.
 
@@ -40,16 +42,16 @@ If the user gives only the trigger and the current goal is unclear, ask one conc
 
 1. Read the active Soulforge execution contract before changing files or making repo judgments: `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`.
 2. Declare the goal. If Codex goal tools are available, check for an active goal, create or reuse a matching goal, and stop on a conflicting active goal. Include success criteria and stop conditions.
-3. Create or refresh a `NIGHT_WORK_HANDOFF` checkpoint before delegation when the thread is long, the phase is substantial, or the user asks for continuity.
+3. Create or refresh a `NIGHT_WORK_HANDOFF` checkpoint before delegation only when unresolved forward-state must cross a context boundary: a long-running or autonomous session is about to compact, clear, reset, or end; work moves from a non-Codex model/tool to Codex; active execution transfers to another PC or primary controller; blockers, rejected approaches, owner-decision waits, stale-memory corrections, or exact next actions must survive resume; or the user explicitly asks for checkpoint continuity.
 4. Keep the checkpoint compact. Preserve final goal, current state, changed or inspected files, decisions made, rejected approaches, validation results, blockers, risks, next actions, and user instructions that must survive compaction.
 5. Do not copy raw transcript, secrets, credentials, private payloads, or unneeded source text into the handoff. Mark unknowns explicitly.
-6. Treat `NIGHT_WORK_HANDOFF` as durable continuity state during overnight work. Refresh it after each meaningful unit, before compacting, before clearing, after subagent integration, and before ending a substantial phase.
+6. Treat `NIGHT_WORK_HANDOFF` as durable continuity state during overnight work only after the need is established. Refresh it after meaningful changes to unresolved forward-state, such as a new blocker, rejected approach, owner-decision wait, stale-memory correction, validator result, subagent integration finding, PC/controller transfer, or changed next action that must survive resume.
 7. If the next phase should start clean, use the checkpoint as the continuity anchor for a fresh session instead of carrying the full conversation forward.
 8. Create separate analysis, implementation, and verification subagent lanes for substantive work. Skip subagents only for a named no-subagent exception: unclear goal, trivial status or preflight, small deterministic local check, unavailable subagent tool/model, unsafe minimal-packet boundary, owner decision, or stop condition. Use subagents especially when the manager only needs final findings or a bounded patch, not the intermediate source material.
 9. For workers, specify write ownership, tell them they are not alone in the codebase, and tell them not to revert others' changes.
 10. After subagents return, inspect the actual file/status state before integrating so stale manager memory does not override fresh work.
 11. Integrate returned work, run appropriate deterministic validators, and keep the final claim ceiling conservative when verification is partial.
-12. Refresh `NIGHT_WORK_HANDOFF` before ending a substantial phase, before a context reset, or when the user asks for checkpoint continuity.
+12. Do not create a handoff for clean bounded work already closed by commit, push, self-verification, and no extra forward-state. Refresh `NIGHT_WORK_HANDOFF` before a context reset or phase end only when unresolved forward-state remains, or when the user asks for checkpoint continuity.
 
 ## Delegation Packet Minimum
 
@@ -101,12 +103,12 @@ named in the manager notes or closeout:
 
 ## Autonomous Context Reset Policy
 
-- Refresh `NIGHT_WORK_HANDOFF` frequently; compact sparingly; clear at phase boundaries.
-- Refresh handoff after a meaningful work unit, important decision, validator result, blocker discovery, subagent integration, or change in next action.
+- Refresh `NIGHT_WORK_HANDOFF` conditionally; compact sparingly; clear at phase boundaries.
+- Refresh handoff only when a meaningful work unit, important decision, validator result, blocker discovery, subagent integration, or change in next action leaves unresolved forward-state that must survive a context boundary.
 - Compact only when continuing the same larger goal and context pressure or drift risk is material: large tool output has accumulated, context usage is high, automatic compaction seems likely, several decisions must be preserved, or a meaningful unit just finished.
-- Before any compact, refresh `NIGHT_WORK_HANDOFF` first and name the fields that must survive compaction.
+- Before compacting, refresh `NIGHT_WORK_HANDOFF` first only if unresolved forward-state must survive compaction, and name the fields that must survive.
 - Clear or start a fresh session when the work kind changes and prior context is more likely to distract than help, such as research to implementation, implementation to debugging, debugging to documentation, feature A to feature B, or front-end to back-end.
-- Before any clear, refresh `NIGHT_WORK_HANDOFF`; after clear, resume from the checkpoint rather than from the full old conversation.
+- Before clearing, refresh `NIGHT_WORK_HANDOFF` only if unresolved forward-state must survive the clear; after clear, resume from the checkpoint rather than from the full old conversation when a checkpoint was created.
 - If uncertain between compact and clear, choose the action that preserves needed state while removing more irrelevant context. When the next work needs prior reasoning, compact; when it needs only final state and next actions, clear.
 
 ## Context Hygiene Guardrails

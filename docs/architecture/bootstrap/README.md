@@ -17,14 +17,14 @@
 | `CODEX_OWNER_BOOTSTRAP_PROMPT_V0.md` | AI 에게 owner bootstrap 을 맡길 때 쓰는 안전한 prompt source 다. |
 | `CODEX_OWNER_UPDATE_PROMPT_V0.md` | AI 에게 owner update 를 맡길 때 쓰는 안전한 prompt source 다. |
 | `LOCAL_AGENT_PERSONAL_INSTRUCTIONS_V0.md` | 다른 PC 의 Codex/Claude 개인지침에 붙여넣을 public-safe 최소 지침 본문이다. |
-| `ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` | 24시간 운영 PC 의 Codex 가 읽고 `always_on_node` local bootstrap 을 수행할 prompt source 다. |
+| `ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` | owner 가 현재 primary 로 지정한 24시간 운영 PC 의 Codex 가 읽고 `always_on_node` local bootstrap 을 수행할 prompt source 다. 고성능 PC 또는 맥미니 모두 대상이 될 수 있다. |
 | `ALWAYS_ON_EMAIL_MONSTER_SMOKE_PROMPT_V0.md` | 24시간 운영 PC 의 Codex 가 읽고 `email -> monster` local smoke test 를 수행할 prompt source 다. |
 | `ALWAYS_ON_NEXT_ACTION_PROMPT_V0.md` | 복사/붙여넣기가 어려운 24시간 운영 PC 에서 다음 gateway/healer 점검과 activity mirror 를 수행하게 하는 prompt source 다. |
 | `ALWAYS_ON_ACTIVITY_SYNC_PROMPT_V0.md` | 복사/붙여넣기가 어려운 24시간 운영 PC 에서 PC별 activity ledger 를 취합하고 private-state 로 push 하게 하는 prompt source 다. |
 | `ALWAYS_ON_HEALER_ROLLOUT_PLAN_V0.md` | 24시간 PC healer/doctor/Telegram 감시를 deterministic script 중심으로 늘리는 rollout 기준이다. |
 | `ALWAYS_ON_WORKFLOW_EVOLUTION_HARNESS_PROMPT_V0.md` | 복사/붙여넣기가 어려운 24시간 운영 PC 에서 workflow evolution harness dependency 설치 확인을 수행하게 하는 prompt source 다. |
 | `WORK_PC_BOOTSTRAP_PROMPT_V0.md` | 업무 PC 의 Codex 가 읽고 `work_pc` local bootstrap 을 수행할 prompt source 다. |
-| `TOOL_PC_BOOTSTRAP_PROMPT_V0.md` | 고성능 PC 의 Codex 가 읽고 project metadata read/write 가 가능한 `tool_pc` owner-with-state bootstrap 을 수행할 prompt source 다. |
+| `TOOL_PC_BOOTSTRAP_PROMPT_V0.md` | 고성능 PC 의 Codex 가 읽고 project metadata read/write 가 가능한 `tool_pc` owner-with-state bootstrap 을 수행할 prompt source 다. 같은 물리 PC 가 24시간 운영도 맡으면 별도 clone/identity 에 `ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` 를 적용한다. |
 | `DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md` | task packet 을 받아 검증 가능한 branch 를 만드는 `dev_worker_pc` bootstrap prompt source 다. |
 | `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` | `/goal` 과 promptfoo 같은 workflow evolution harness 후보를 owner PC 에 설치하고 확인하는 절차다. |
 | `../workspace/INSTALLATION_MANUAL_V0.md` | workspace 문서군이 소유하는 다른 PC 첫 설치 상위 runbook 이다. |
@@ -78,7 +78,7 @@
 - owner 설치 완료 판단에는 `npm run guild-hall:doctor -- --profile owner-with-state --remote` 통과를 포함한다.
 - `npm run guild-hall:doctor -- --live` 는 실제 외부 인증/연결만 확인한다.
 - live doctor 는 POP3/SMTP 로그인과 Telegram bot `getMe` 확인까지만 하고, 메일/메시지를 실제로 보내지 않는다.
-- 24시간 Mac mini 에서 운영과 개발을 모두 돌릴 때는 `ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` 를 운영용 clean clone 에만 적용하고, 장시간 개발은 별도 worktree/clone 에 `DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md` 를 적용한다.
+- 같은 물리 PC 에서 24시간 운영과 개발/tool 작업을 모두 돌릴 때는 `ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` 를 운영용 clean clone 에만 적용하고, 장시간 개발이나 tool 작업은 별도 worktree/clone 에 `DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md` 또는 `TOOL_PC_BOOTSTRAP_PROMPT_V0.md` 를 적용한다.
 
 ## 관련 경로
 

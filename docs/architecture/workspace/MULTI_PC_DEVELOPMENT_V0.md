@@ -39,7 +39,7 @@
 
 ```mermaid
 flowchart LR
-  subgraph A["24시간 PC / always_on_node"]
+  subgraph A["지정 24시간 PC / always_on_node"]
     A1["guild_hall/state/**<br/>PRIMARY<br/>gateway fetch, intake, healer, night_watch"]
     A2["private-state/**<br/>PRIMARY MIRROR<br/>continuity carry-forward"]
     A3["public Soulforge<br/>PULL / READ<br/>auto commit-push 금지"]
@@ -97,7 +97,7 @@ flowchart LR
 
 | 저장소/영역 | primary writer | Git 저장 기준 |
 | --- | --- | --- |
-| public `Soulforge/.git` | `portable_dev_pc` | 코드, 구조 문서, public-safe sample 만 commit/push 한다. |
+| public `Soulforge/.git` | owner-designated public dev lane (`portable_dev_pc`, 승인된 `tool_pc`, 또는 현재 Codex 작업 host) | 코드, 구조 문서, public-safe sample 만 commit/push 한다. 운영용 `always_on_node` clone 은 public repo 자동 commit/push primary 가 아니다. |
 | public task branch | `dev_worker_pc` 또는 승인된 `tool_pc` lane | 명시적 task packet 범위에서 `codex/<node>-<task>` branch 만 push 한다. `main` merge 는 reviewer 가 수행한다. |
 | `_workmeta/<project_code>/dev_worker_candidate_queue/**` | `portable_dev_pc`, `always_on_node`, 또는 승인된 reviewer agent | agent 가 발견한 후보 작업을 `proposed` 로 남긴다. worker 는 이 큐를 직접 실행하지 않는다. |
 | `_workmeta/<project_code>/dev_worker_queue/**` | `portable_dev_pc`, owner-approved promotion helper, 또는 auto-policy promotion helper | owner-approved 또는 auto-policy-approved ready task packet 만 둔다. `dev_worker_pc` 는 이 큐를 claim 할 수 있다. |
@@ -113,12 +113,13 @@ flowchart LR
 
 | 실제 운용면 | node role | 기본 쓰기 surface | 사용 방식 |
 | --- | --- | --- | --- |
-| 맥북에어 개발면 | `portable_dev_pc` | public `Soulforge`, 필요 시 `_workmeta/**` | Soulforge 코드, 문서, UI, architecture 판단과 review/merge 준비를 담당한다. `gateway_fetch_primary` 와 `night_watch_active` 는 기본 blocked 다. |
-| 맥미니 운영용 clone | `always_on_node` | `guild_hall/state/**`, `private-state/**` mirror | 24시간 gateway fetch, healer, town_crier, night_watch, activity sync 를 담당한다. 이 clone 은 clean `main` + pull/run-only 상태로 유지한다. |
-| 맥미니 개발용 worktree/clone | `dev_worker_pc` 또는 bounded task branch producer | `codex/<node-id>-<task>` task branch, 필요 시 `_workmeta/**` | 같은 물리 Mac mini 에서 장시간 개발을 돌릴 때만 별도 worktree/clone 으로 만든다. 운영용 clone 을 직접 수정하지 않는다. |
+| 회사 작업용 PC | `work_pc` | `_workspaces/<project_code>/`, `_workmeta/<project_code>/` | 회사 자리의 로컬 업무 PC 로 본다. 문서, 메일, 실제 업무 자료와 project worksite 조작을 담당하며, 기본 `gateway_fetch_primary` 나 `night_watch_active` 는 아니다. |
+| 고성능 PC Soulforge 실행면 | `tool_pc`; owner 가 지정하면 별도 clone/identity 의 `always_on_node` | `tool_pc`: `_workspaces/<project_code>/`, `_workmeta/<project_code>/`; `always_on_node`: `guild_hall/state/**`, `private-state/**` mirror | DB/tools 와 장시간 Soulforge 실행 중심 PC 로 볼 수 있다. tool-bound 작업과 24시간 운영을 같은 물리 PC 에서 하더라도 local `node_identity.yaml` 또는 clone/worktree 로 역할을 분리한다. |
+| 맥미니 개인 서버면 | `always_on_node` fallback/mirror 또는 owner-designated personal server lane | `guild_hall/state/**`, `private-state/**` mirror | 집의 24시간 개인 서버로 본다. 과거 primary 운영 node 였더라도, 현재 고성능 PC 가 24시간 primary 를 맡으면 fallback/mirror/개인 서버 역할로 해석한다. |
+| 맥북에어 이동/수집/개발면 | `portable_dev_pc` | public `Soulforge`, 필요 시 `_workmeta/**` | 이동 중 macOS 개발, 음성 녹음, YouTube/source link 수집, 앞으로 개발할 항목 기록을 담당한다. `gateway_fetch_primary` 와 `night_watch_active` 는 기본 blocked 다. |
 | OneDrive 등 cloud project worksite | `work_pc` / project worksite binding | `_workspaces/<project_code>/` link target 또는 owner-approved external project path | 여러 PC 에서 같은 사진, 영상, 측정 로그, 산출물을 읽어야 할 때 실제 파일을 둔다. public repo, `_workmeta`, `private-state`, `guild_hall/state/**` runtime, secret/env/session 은 cloud sync 대상이 아니다. |
 
-맥미니가 운영과 개발을 모두 맡더라도 역할은 한 clone 안에서 섞지 않는다. 운영용 clone 은 `always_on_node` identity 를 갖고, 개발용 worktree/clone 은 별도의 local `node_identity.yaml` 로 `dev_worker_pc` 성격을 선언한다.
+고성능 PC 나 맥미니가 운영과 개발을 모두 맡더라도 역할은 한 clone 안에서 섞지 않는다. 운영용 clone 은 `always_on_node` identity 를 갖고, tool/dev 작업면은 별도의 local `node_identity.yaml` 로 `tool_pc`, `portable_dev_pc`, 또는 `dev_worker_pc` 성격을 선언한다.
 
 OneDrive 같은 cloud path 를 `_workspaces` 로 쓰려면 실제 파일은 cloud/shared project worksite 에 두고 `_workspaces/<project_code>/` 는 link 로 둔다. project 별 binding 에만 target 을 기록하고, public tracked tree 에 machine-local 절대경로를 넣지 않는다. symlink/junction 생성은 사용자가 `project_code` 와 대상 path 를 명시했을 때만 수행한다.
 
@@ -130,10 +131,10 @@ Git push/pull 로 전파되는 것은 public-safe 규칙과 owner-only `_workmet
 
 중복 방지 규칙:
 
-1. `gateway_fetch_primary` 와 `night_watch_active` 는 current-default 에서 `always_on_node` 한 대만 가진다.
+1. `gateway_fetch_primary` 와 `night_watch_active` 는 current-default 에서 owner 가 지정한 `always_on_node` 한 대만 가진다. 현재 지정 장비는 고성능 PC 일 수 있고, 맥미니는 owner 지정이 없으면 fallback/mirror 로 본다.
 2. 일반 project 파일과 project-local 업무 기록은 `work_pc` 가 primary 로 쓴다.
 3. 회로설계, PCBArtwork, CAD/CAE/EDA 처럼 특정 tool 이 필요한 project 작업은 `tool_pc` 가 해당 task 의 `_workspaces` / `_workmeta` primary writer 가 된다.
-4. public docs/code/UI 변경은 `portable_dev_pc` 가 primary 로 쓴다.
+4. public docs/code/UI 변경은 owner-designated public dev lane 이 primary 로 쓴다. 기본 예시는 `portable_dev_pc` 이지만, 현재 Codex 작업 host 나 승인된 `tool_pc` 가 맡을 수 있다.
 5. `dev_worker_pc` 는 public `main` primary 가 아니라 task branch producer 다. reviewer 가 merge 하기 전까지 정본 승격으로 보지 않는다.
 6. 다른 PC 는 primary 영역을 읽거나 복원할 수 있지만, primary writer 로 승격하려면 `node_identity.yaml` 의 `primary_writer` 를 먼저 바꾼다.
 7. `work_pc` 와 `tool_pc` 가 같은 `_workmeta/<project_code>/` 를 쓸 수는 있지만, 같은 task/run 파일을 동시에 쓰지 않는다. task owner 는 run 시작 전에 하나로 정한다.
@@ -301,6 +302,8 @@ local_paths:
   private_state_root: "<local Soulforge root>/private-state"
   local_runtime_root: "<local Soulforge root>/guild_hall/state"
 ```
+
+같은 물리 고성능 PC 가 현재 24시간 Soulforge DB/tools primary 도 맡는다면, 위 `tool_pc` identity 의 `blocked_jobs` 를 풀지 않는다. 운영용 clone 또는 별도 worktree 에 `node_role: always_on_node` 와 예: `node_id: high_perf_always_on_01` 같은 local-only identity 를 따로 만들고, `gateway_fetch_primary` / `night_watch_active` 는 그 identity 에만 둔다.
 
 규칙:
 

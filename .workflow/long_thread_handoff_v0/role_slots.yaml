@@ -7,7 +7,7 @@ slots:
     summary: Declares the goal, success criteria, stop conditions, workspace scope, and boundary constraints for the long-running task.
   - slot_id: checkpoint_curator
     title: Checkpoint Curator
-    summary: Maintains the durable NIGHT_WORK_HANDOFF state without copying raw transcripts, private payloads, or secrets.
+    summary: Decides whether NIGHT_WORK_HANDOFF is required, then maintains durable state only when unresolved forward-state must cross a context boundary without copying raw transcripts, private payloads, or secrets.
   - slot_id: delegation_router
     title: Delegation Router
     summary: Builds bounded packets for fresh subagents and separates manager-owned integration from worker-owned execution.

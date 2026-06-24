@@ -20,12 +20,12 @@ steps:
       - stop_conditions
       - boundary_constraints
     next:
-      - checkpoint_refresh
-  - step_id: checkpoint_refresh
-    title: Checkpoint Refresh
+      - checkpoint_need_and_refresh
+  - step_id: checkpoint_need_and_refresh
+    title: Checkpoint Need And Refresh
     actor_slot: checkpoint_curator
     action:
-      kind: night_work_handoff_update
+      kind: night_work_handoff_need_decision_and_conditional_update
     inputs:
       - declared_goal
       - boundary_constraints
@@ -35,11 +35,15 @@ steps:
       - validation_command_refs
       - owner_decision_refs
     outputs:
+      - handoff_need_decision
       - night_work_handoff
+      - no_handoff_reason
     rules:
-      required_before_delegation: true
-      required_before_compact: true
-      required_before_clear: true
+      decide_need_before_delegation: true
+      refresh_before_delegation_when_forward_state_must_cross_boundary: true
+      refresh_before_compact_when_unresolved_forward_state_remains: true
+      refresh_before_clear_when_unresolved_forward_state_remains: true
+      clean_bounded_work_closed_by_git_validation_activity_needs_no_handoff: true
       raw_transcript_forbidden: true
       secrets_forbidden: true
       private_payload_forbidden: true
@@ -51,9 +55,11 @@ steps:
     action:
       kind: subagent_delegation_packet_preparation
     inputs:
-      - night_work_handoff
+      - handoff_need_decision
       - boundary_constraints
     optional_inputs:
+      - night_work_handoff
+      - no_handoff_reason
       - target_file_refs
       - validation_command_refs
     outputs:
@@ -81,9 +87,11 @@ steps:
     action:
       kind: delegated_work_integration_and_state_refresh
     inputs:
-      - night_work_handoff
       - delegation_packet_set
     optional_inputs:
+      - handoff_need_decision
+      - night_work_handoff
+      - no_handoff_reason
       - subagent_result_refs
       - target_file_refs
     outputs:
@@ -123,20 +131,24 @@ steps:
     action:
       kind: autonomous_compact_clear_decision
     inputs:
-      - night_work_handoff
+      - handoff_need_decision
       - integrated_state_summary
       - integration_validation_log
       - claim_ceiling
     optional_inputs:
+      - night_work_handoff
+      - no_handoff_reason
       - context_pressure_signal
     outputs:
       - context_reset_decision
+      - handoff_refresh_decision
       - refreshed_night_work_handoff
+      - no_handoff_reason
     rules:
-      refresh_handoff_frequently: true
+      refresh_handoff_only_when_forward_state_must_survive_boundary: true
       compact_only_same_larger_goal_with_pressure_or_unit_boundary: true
       clear_or_fresh_session_at_phase_boundary: true
-      resume_after_clear_from_handoff_only: true
+      resume_after_clear_from_handoff_when_checkpoint_exists: true
     next:
       - closeout_or_continue
   - step_id: closeout_or_continue
@@ -145,10 +157,12 @@ steps:
     action:
       kind: conservative_closeout_and_next_action_routing
     inputs:
-      - refreshed_night_work_handoff
       - context_reset_decision
+      - handoff_refresh_decision
       - claim_ceiling
     optional_inputs:
+      - refreshed_night_work_handoff
+      - no_handoff_reason
       - telegram_authorization_ref
       - owner_decision_refs
     outputs:

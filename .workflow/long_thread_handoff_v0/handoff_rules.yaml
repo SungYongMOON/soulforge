@@ -8,8 +8,8 @@ rules:
     summary: Pass the bounded goal, success criteria, stop conditions, workspace scope, and boundary constraints; do not pass raw thread transcript.
   - from: checkpoint_curator
     to: delegation_router
-    condition: night_work_handoff_refreshed
-    summary: Pass only the durable checkpoint, target refs, constraints, acceptance criteria, validator refs or validation gap, and execution-contract claim ceiling needed for delegation.
+    condition: handoff_need_decided_and_required_checkpoint_refreshed
+    summary: If unresolved forward-state must cross a context boundary, pass only the durable checkpoint, target refs, constraints, acceptance criteria, validator refs or validation gap, and execution-contract claim ceiling needed for delegation. If no checkpoint is required, pass the explicit no-handoff reason instead.
   - from: delegation_router
     to: integration_controller
     condition: delegation_packets_prepared_or_local_task_selected
@@ -24,5 +24,5 @@ rules:
     summary: Pass validation results, claim ceiling, blockers, and current phase state so reset timing is evidence-based.
   - from: context_reset_controller
     to: closeout_controller
-    condition: handoff_refreshed_and_reset_decision_recorded
-    summary: Pass the refreshed handoff and reset decision; closeout must not claim more than validation and review support.
+    condition: handoff_decision_and_reset_decision_recorded
+    summary: Pass the refreshed handoff when required, otherwise pass the no-handoff reason and reset decision; closeout must not claim more than validation and review support.

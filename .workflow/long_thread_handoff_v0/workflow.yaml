@@ -2,7 +2,7 @@ workflow_id: long_thread_handoff_v0
 kind: workflow
 status: active
 title: Long Thread Handoff v0
-summary: Public-safe orchestration workflow for long-running, overnight, or cross-session Soulforge work where the manager keeps context clean through durable handoff checkpoints, fresh subagent delegation, autonomous compact/clear timing, validation, and conservative closeout.
+summary: Public-safe orchestration workflow for long-running, overnight, or cross-session Soulforge work where the manager keeps context clean through conditional durable handoff checkpoints, fresh subagent delegation, autonomous compact/clear timing, validation, and conservative closeout.
 entrypoint: run
 execution_mode: local_tool_sequence
 role_slots: role_slots.yaml
@@ -114,12 +114,14 @@ long_thread_handoff_contract:
       - unsafe_minimal_packet_boundary
       - owner_decision_or_stop_condition
   autonomous_context_policy:
-    refresh_handoff_frequently: true
+    refresh_handoff_when_forward_state_crosses_context_boundary: true
+    clean_bounded_work_can_close_without_handoff: true
     compact_sparingly: true
     clear_at_phase_boundaries: true
-    compact_requires_fresh_handoff: true
-    clear_requires_fresh_handoff: true
-    resume_after_clear_from_handoff_only: true
+    compact_requires_fresh_handoff_when_unresolved_forward_state_remains: true
+    clear_requires_fresh_handoff_when_unresolved_forward_state_remains: true
+    resume_after_clear_from_handoff_when_checkpoint_exists: true
+    handoff_not_required_when_state_is_closed_by_git_validation_activity_or_open_threads: true
   boundary_rules:
     raw_transcript_excluded: true
     private_payload_excluded: true

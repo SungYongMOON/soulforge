@@ -17,7 +17,7 @@ Claim ceiling:
 2. Compaction is a continuity tool, not a clean restart. When compacting, direct what must survive instead of relying on automatic or generic summaries.
 3. Fresh sessions are best at phase boundaries where previous context is more likely to distract than help. Preserve only the structured state needed for continuity.
 4. Structured state beats prose-only summaries for fragile work. Use explicit fields for goal, decisions, constraints, changed files, validation, blockers, rejected approaches, and next actions.
-5. Handoff should be refreshed before compaction or clearing. Compaction is useful when continuing the same larger goal; clearing is useful when a completed phase should not pollute the next work kind.
+5. Handoff should be refreshed before compaction or clearing only when unresolved forward-state must survive that boundary. Compaction is useful when continuing the same larger goal; clearing is useful when a completed phase should not pollute the next work kind.
 6. Do not compact just to feel tidy. Every compaction can lose detail, so use it when context pressure, drift, or unit-boundary continuity justifies the cost.
 7. Re-anchor during long phases. Ask the agent to restate the active goal, completed work, constraints, blockers, and next action before continuing when the thread starts drifting.
 8. Use subagents for work where only the result matters to the manager. Research, inspection, summarization, document drafting, and bounded patches can keep intermediate source material out of the manager context.
@@ -26,8 +26,8 @@ Claim ceiling:
 
 ## Application To Long Thread Handoff
 
-- `NIGHT_WORK_HANDOFF` is the structured continuity object for Soulforge long threads.
-- During overnight work, the manager should decide checkpoint, compact, and clear timing from phase state and context pressure instead of asking for routine permission.
+- `NIGHT_WORK_HANDOFF` is the structured continuity object for Soulforge long threads only when unresolved forward-state must cross a context boundary.
+- During overnight work, the manager should decide whether a checkpoint is needed, plus compact and clear timing, from phase state, forward-state risk, and context pressure instead of asking for routine permission.
 - The manager should minimize what enters the next context: no raw transcripts, no private payloads, no source dumps, and no unnecessary tool output.
-- Delegated agents should receive only the handoff, target paths, constraints, acceptance criteria, and explicit write ownership.
+- Delegated agents should receive only the required handoff or explicit no-handoff reason, target paths, constraints, acceptance criteria, and explicit write ownership.
 - The final report should distinguish observed facts, source-supported claims, validation results, and remaining unknowns.

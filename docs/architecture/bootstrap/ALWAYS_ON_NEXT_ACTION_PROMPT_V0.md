@@ -25,10 +25,10 @@ docs/architecture/bootstrap/ALWAYS_ON_NEXT_ACTION_PROMPT_V0.md 읽고 실행해.
 ### 목표
 
 1. public `Soulforge/main` 을 최신 GitHub 상태로 맞춘다.
-2. MacBook Air 에서 review/merge 된 gateway healthcheck/healer 보강이 24시간 PC 에 반영됐는지 확인한다.
+2. owner-designated public dev lane 에서 review/merge 된 gateway healthcheck/healer 보강이 지정 24시간 PC 에 반영됐는지 확인한다.
 3. healer / gateway healthcheck / 제한 fetch smoke 를 안전하게 실행한다.
 4. 결과를 local activity log 에 남긴다.
-5. activity log 를 `private-state` 로 mirror/push 해서 MacBook Air 가 다시 볼 수 있게 한다.
+5. activity log 를 `private-state` 로 mirror/push 해서 다른 owner PC 가 다시 볼 수 있게 한다.
 
 ### 중요 규칙
 
@@ -112,13 +112,13 @@ npm run guild-hall:gateway:fetch -- --once --limit 1
 성공 또는 안전한 smoke 완료:
 
 ```bash
-npm run guild-hall:activity:log -- --scope gateway --action post_review_gateway_smoke --result completed --summary "always_on_node pulled reviewed main and completed gateway post-review smoke." --carry-forward true --next-action "MacBook Air should pull private-state and review the post-review gateway activity result."
+npm run guild-hall:activity:log -- --scope gateway --action post_review_gateway_smoke --result completed --summary "always_on_node pulled reviewed main and completed gateway post-review smoke." --carry-forward true --next-action "Owner-designated public dev lane should pull private-state and review the post-review gateway activity result."
 ```
 
 차단 또는 실패:
 
 ```bash
-npm run guild-hall:activity:log -- --scope gateway --action post_review_gateway_smoke --result blocked --summary "always_on_node pulled reviewed main but gateway post-review smoke was blocked." --carry-forward true --next-action "MacBook Air should pull private-state and inspect latest_context for the blocker."
+npm run guild-hall:activity:log -- --scope gateway --action post_review_gateway_smoke --result blocked --summary "always_on_node pulled reviewed main but gateway post-review smoke was blocked." --carry-forward true --next-action "Owner-designated public dev lane should pull private-state and inspect latest_context for the blocker."
 ```
 
 ### 6. private-state mirror/push

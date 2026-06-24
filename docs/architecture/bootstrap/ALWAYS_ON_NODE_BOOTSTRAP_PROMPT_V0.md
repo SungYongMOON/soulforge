@@ -2,12 +2,12 @@
 
 ## 목적
 
-이 문서는 24시간 켜 두는 Soulforge PC 의 Codex 에게 전달할 bootstrap prompt 다.
+이 문서는 owner 가 현재 24시간 운영 primary 로 지정한 Soulforge PC 의 Codex 에게 전달할 bootstrap prompt 다. 대상은 고성능 PC, 맥미니, 또는 다른 항상 켜 두는 PC 가 될 수 있다.
 긴 프롬프트를 화면공유나 원격 입력창에 붙여넣기 어려울 때, 이 파일을 Git 으로 내려받은 뒤 Codex 에게 "이 파일을 읽고 진행" 하라고 지시한다.
 
 ## 짧은 사용자 지시
 
-24시간 PC 에서 Soulforge repo 를 최신화한 뒤, Codex 에 아래 한 줄만 입력한다.
+현재 24시간 운영 primary 로 지정한 PC 에서 Soulforge repo 를 최신화한 뒤, Codex 에 아래 한 줄만 입력한다.
 
 ```text
 docs/architecture/bootstrap/ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md 를 읽고 이 PC를 always_on_node로 local-only bootstrap 해줘.
@@ -27,7 +27,7 @@ docs/architecture/bootstrap/ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md 를 읽고 이
 이 PC 를 Soulforge 의 `always_on_node` 로 설정한다.
 이 PC 는 24시간 켜져 있는 운영 node 이며, gateway fetch, snapshot check, reminder, morning report candidate, night watch preflight 를 담당한다.
 단, public repo 자동 commit/push 는 하지 않는다.
-같은 물리 Mac mini 에서 장시간 개발 작업도 돌릴 수 있지만, 이 prompt 가 설정하는 운영용 clone 에서는 개발 편집을 하지 않는다. 개발은 별도 worktree/clone 에서 `dev_worker_pc` 또는 bounded task branch producer 로 설정한다.
+같은 물리 PC 에서 장시간 개발이나 tool-bound 작업도 돌릴 수 있지만, 이 prompt 가 설정하는 운영용 clone 에서는 개발 편집을 하지 않는다. 개발/tool 작업은 별도 worktree/clone 에서 `dev_worker_pc`, `tool_pc`, 또는 bounded task branch producer 로 설정한다.
 
 ### 중요 규칙
 
@@ -68,7 +68,7 @@ guild_hall/state/local/node_identity.yaml
 
 ```yaml
 schema_version: soulforge.local_node.v0
-node_id: home_always_on_01
+node_id: designated_always_on_01
 node_role: always_on_node
 bootstrap_profile: owner-with-state
 
@@ -121,18 +121,18 @@ notes:
   - This file is local-only under guild_hall/state and must not be committed to public Git.
   - This node is the primary always-on operations node.
   - This node may sync/pull repos during preflight, but must not auto commit or auto push public tracked docs/code.
-  - Long-running development on this Mac must use a separate worktree or clone with its own local node_identity.yaml.
+  - Long-running development or tool-bound work on this physical PC must use a separate worktree or clone with its own local node_identity.yaml.
   - OneDrive or other cloud workspaces may hold actual project files, but not public Git repos, _workmeta, private-state, guild_hall/state runtime, or secrets.
   - Secret values must be created or copied by the human owner only.
 ```
 
 ### 2.5 optional development worktree boundary
 
-맥미니에서 24시간 개발 작업도 돌리려면 운영용 clone 을 직접 수정하지 말고 별도 worktree 또는 별도 clone 을 만든다.
+같은 물리 PC 에서 24시간 개발 작업도 돌리려면 운영용 clone 을 직접 수정하지 말고 별도 worktree 또는 별도 clone 을 만든다.
 
 ```bash
 git fetch origin
-git worktree add -b codex/home-always-on-dev-<task> ../Soulforge-dev origin/main
+git worktree add -b codex/designated-always-on-dev-<task> ../Soulforge-dev origin/main
 ```
 
 그 worktree 에서는 `docs/architecture/bootstrap/DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md` 를 읽고 local-only `node_identity.yaml` 을 `dev_worker_pc` 성격으로 만든다. 운영용 clone 의 `node_identity.yaml` 은 계속 `always_on_node` 로 유지한다.

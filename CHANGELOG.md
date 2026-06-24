@@ -2,6 +2,12 @@
 
 ## 2026-06-24
 
+### Revision `working` - long-thread handoff/PC role 동기화
+
+- `long_thread_handoff_v0` workflow 와 `soulforge-long-thread-handoff` Codex skill 의 `NIGHT_WORK_HANDOFF` 정책을 기본 closeout 산출물이 아니라 unresolved forward-state 가 context/PC/controller 경계를 넘어야 할 때만 쓰는 조건부 checkpoint 로 맞췄다.
+- `MULTI_PC_DEVELOPMENT_V0.md` 와 bootstrap prompt 들을 현재 4대 PC 운용 구조에 맞춰 정리했다: 회사 작업용 PC 는 `work_pc`, 고성능 PC 는 `tool_pc` 이면서 별도 identity 의 지정 `always_on_node` 가 될 수 있고, 맥미니는 fallback/mirror/개인 서버 lane, 맥북에어는 이동/수집/portable dev lane 으로 해석한다.
+- 같은 물리 PC 에서 tool/dev/always-on 역할을 겸하더라도 clone/worktree 또는 local `node_identity.yaml` 로 역할을 분리하고, `gateway_fetch_primary` / `night_watch_active` 는 owner 가 지정한 `always_on_node` 한 대만 갖도록 명시했다.
+
 ### Revision `working` - 로컬 개인지침 붙여넣기 본문 저장
 
 - Added `docs/architecture/bootstrap/LOCAL_AGENT_PERSONAL_INSTRUCTIONS_V0.md` as a public-safe paste block for Codex/Claude personal instructions on other PCs.

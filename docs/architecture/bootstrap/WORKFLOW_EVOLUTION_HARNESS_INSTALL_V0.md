@@ -93,7 +93,7 @@ print("dspy", dspy.__version__)
 
 ## 확인 기준
 
-MacBook Air 기준 확인된 baseline:
+이전 `portable_dev_pc` 기준 확인된 baseline:
 
 ```text
 codex-cli 0.129.0

@@ -4,7 +4,7 @@
 
 - 이 문서는 24시간 운영 PC 의 healer/doctor/nightly 계열 자동화를 어떻게 늘릴지에 대한 public-safe rollout 기준이다.
 - 목표는 메일 수집과 Telegram 전송은 계속 lightweight script 로 운영하고, LLM 은 필요한 보고나 triage 때만 쓰게 만드는 것이다.
-- MacBook Air 같은 portable dev PC 가 pull 후 다음 구현/배포 경계를 바로 알 수 있게 한다.
+- MacBook Air 같은 portable dev PC 나 현재 지정된 public dev host 가 pull 후 다음 구현/배포 경계를 바로 알 수 있게 한다.
 
 ## 현재 운영 상태 기준
 
@@ -128,11 +128,11 @@ npm run guild-hall:doctor -- --profile owner-with-state --remote --json
 ### Phase 0. 문서 동기화
 
 - 이 문서를 public repo 에 commit/push 한다.
-- MacBook Air 는 pull 후 이 문서를 기준으로 구현 branch 를 만든다.
+- owner-designated public dev lane 은 pull 후 이 문서를 기준으로 구현 slice 를 만든다.
 
 ### Phase 1. repo 구현
 
-MacBook Air 또는 portable dev PC 에서 수행한다.
+MacBook Air 같은 `portable_dev_pc` 또는 현재 owner 가 지정한 public dev host 에서 수행한다.
 
 1. `guild_hall/healer` 에 light/full 운영 의도를 더 명확히 노출한다.
 2. healer 실패 시 `town_crier` queue 로 Telegram 알림 request 를 넣는 옵션을 추가한다.
@@ -142,7 +142,7 @@ MacBook Air 또는 portable dev PC 에서 수행한다.
 6. 범위가 gateway/town_crier 까지 닿으면 `npm run validate:gateway` 도 실행한다.
 7. public repo 에 commit/push 한다.
 
-### Phase 2. 24시간 PC 배포
+### Phase 2. 지정 24시간 PC 배포
 
 always-on node 에서 수행한다.
 
@@ -214,16 +214,18 @@ npm run guild-hall:healer:run -- --notify-on-failure --json
 - 후보를 실제 monster/intake request 로 승격하는 작업은 원문과 local runtime 을 가진 24시간 PC 에서 수행하는 것을 기본값으로 본다.
 - 메일 후보를 monster/mission 으로 실제 해결하는 자동 루프는 본 healer 7개 점검의 성공 기준에 포함하지 않고, later addition 으로 따로 구현한다.
 
-## MacBook Air 와 24시간 PC 역할 분리
+## public dev lane 과 지정 24시간 PC 역할 분리
 
 | 작업 | 권장 위치 | 이유 |
 | --- | --- | --- |
-| 코드/문서 수정 | MacBook Air | 운영 node 를 건드리지 않고 branch/test/commit 가능 |
-| test/validate | MacBook Air | 실패와 반복 실행이 운영 mail/town_crier 에 영향 없음 |
-| public repo commit/push | MacBook Air | primary dev 흐름에 맞춤 |
-| LaunchAgent 실제 설치 | 24시간 PC | `~/Library/LaunchAgents` 는 machine-local 설정 |
-| env/secret 연결 | 24시간 PC | token/chat id 는 local secret 이며 public repo 에 기록하지 않음 |
-| live smoke | 24시간 PC | 실제 mail/Telegram runtime 은 운영 node 에 있음 |
+| 코드/문서 수정 | owner-designated public dev lane (`portable_dev_pc`, 현재 Codex 작업 host, 승인된 `tool_pc`) | 운영용 clone 을 건드리지 않고 test/commit/push 가능 |
+| test/validate | owner-designated public dev lane | 실패와 반복 실행이 운영 mail/town_crier 에 영향 없음 |
+| public repo commit/push | owner-designated public dev lane | 현재 실제 작업 host 를 primary 로 삼되, 운영용 `always_on_node` clone 의 자동 commit/push 는 금지 |
+| LaunchAgent 실제 설치 | 지정 24시간 PC (`always_on_node`) | `~/Library/LaunchAgents` 는 machine-local 설정 |
+| env/secret 연결 | 지정 24시간 PC (`always_on_node`) | token/chat id 는 local secret 이며 public repo 에 기록하지 않음 |
+| live smoke | 지정 24시간 PC (`always_on_node`) | 실제 mail/Telegram runtime 은 현재 primary 운영 node 에 있음 |
+
+현재 owner 장비 구조에서는 고성능 PC 가 Soulforge DB/tools 와 24시간 실행 중심을 맡을 수 있고, 맥미니는 fallback/mirror/개인 서버 lane 으로 둘 수 있다. 이 경우에도 고성능 PC 의 tool/dev 작업면과 `always_on_node` 운영면은 별도 clone/worktree 또는 local `node_identity.yaml` 로 분리한다.
 
 ## 저장 경계
 
@@ -237,6 +239,6 @@ npm run guild-hall:healer:run -- --notify-on-failure --json
 
 ## 완료 기준
 
-- MacBook Air 가 public repo pull 만으로 healer rollout 방향과 역할 분리를 이해할 수 있다.
-- 24시간 PC 에서는 별도 긴 설명 없이 이 문서를 따라 수동 smoke 와 LaunchAgent 배포를 진행할 수 있다.
+- public dev lane 이 public repo pull 만으로 healer rollout 방향과 역할 분리를 이해할 수 있다.
+- 지정 24시간 PC 에서는 별도 긴 설명 없이 이 문서를 따라 수동 smoke 와 LaunchAgent 배포를 진행할 수 있다.
 - 자주 도는 감시는 LLM 없이 실행되고, LLM 은 daily/advisory/report 계층에만 남는다.
