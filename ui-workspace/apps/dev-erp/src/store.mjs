@@ -739,7 +739,7 @@ export function openStore(path = ":memory:") {
   try { db.exec("UPDATE core_project SET start_year = 2000 + CAST(SUBSTR(id,2,2) AS INTEGER) WHERE start_year IS NULL AND id GLOB 'P[0-9][0-9]-*'"); } catch { /* no-op */ }
   for (const ddl of [
     "ALTER TABLE core_mail ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0", // soft-delete(숨김) — upsert 가 hidden 미터치라 재수집/재스캔에도 보존
-    "ALTER TABLE core_mail ADD COLUMN body_preview TEXT", // 본문 발췌(미리보기) — owner 결정으로 '본문 미저장'을 발췌 수준 완화(원문 전체·첨부는 여전히 미저장). 수집기가 원장으로 넘기면 채워짐.
+    "ALTER TABLE core_mail ADD COLUMN body_preview TEXT", // 본문 발췌(미리보기) — owner 결정으로 '본문 미저장'을 발췌 수준 완화(원문 전체·첨부는 여전히 미저장). 원장 CSV/후보큐엔 본문 미저장이라 scan_mail_ledger 가 런타임 이벤트 싱크(guild_hall/state, gitignored)에서 발췌를 읽어 채운다.
     "ALTER TABLE core_mail ADD COLUMN dup_of TEXT", // 다중수신 중복 — 같은 메일이 팀원 mailbox마다 인입될 때 canonical 1건만 보이고 나머지는 dup_of=canonical+hidden=1로 보존(삭제 X). 수신자 수 배지 근거.
     "ALTER TABLE core_item ADD COLUMN guide_artifact_id INTEGER",
     "ALTER TABLE core_item ADD COLUMN guide_step_key TEXT",

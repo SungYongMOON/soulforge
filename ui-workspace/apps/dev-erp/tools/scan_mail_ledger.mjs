@@ -3,13 +3,16 @@
 //   "ERP = 흩어진 과제별 장부를 불러와 통합" 모델. 산출물 ingest(scan_se_foldertree)와 같은 패턴의 메일판.
 //   장부 표준(soulforge.project_mail_history.private.v1, 21컬럼)은 Codex subsystem 소유 — 여기는 소비자(읽기만).
 // 기본은 dry-run(DB 미변경·건수/단계분포만). --apply --db <상대경로> 일 때만 core_mail 로 ingest(DB 쓰기).
-// 원문 미저장 포인터 모델: 제목/상대/시각/단계/메일소스ID/상대포인터만 저장. 메일 본문·첨부는 저장하지 않는다.
-// 보안(dry-run/apply 로그): 제목·발신자 등 업무 원문은 출력하지 않고 건수·단계분포·신규/중복만 출력.
+// 원문 미저장 포인터 모델: 제목/상대/시각/단계/메일소스ID/상대포인터만 저장. 원장 CSV·후보큐엔 본문을 넣지 않는다.
+//   본문 발췌(미리보기)는 런타임 이벤트 싱크(guild_hall/state/gateway/mailbox/**, gitignored)에서만 읽어
+//   core_mail.body_preview 에만 채운다(원문 전체·첨부는 여전히 미저장). 미수집이면 null → 상세 패널이 '본문 미수집' 안내.
+// 보안(dry-run/apply 로그): 제목·발신자·본문 등 업무 원문은 출력하지 않고 건수·단계분포·신규/중복만 출력.
 // zero-dependency: node:fs/path/sqlite. 절대경로(/Volumes·/Users) 저장 금지 — pointer 는 상대(_workmeta/...).
 import { readdirSync, existsSync, readFileSync, statSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openStore } from "../src/store.mjs";
+import { readMailBodyPreview } from "../../../../guild_hall/gateway/mail_candidate.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));            // .../dev-erp/tools
 const APP = resolve(HERE, "..");                                // .../dev-erp
@@ -65,7 +68,7 @@ function scanLedger(folder) {
   const idx = (name) => header.indexOf(name);
   const iKey = idx("이력키"), iEventAt = idx("발생시각"), iProj = idx("프로젝트코드"), iStage = idx("단계");
   const iSrc = idx("메일소스ID"), iRecvAt = idx("메일수신시각"), iSubj = idx("제목"), iFrom = idx("발신자");
-  const iEvent = idx("이벤트유형"), iBox = idx("메일함");
+  const iEvent = idx("이벤트유형"), iBox = idx("메일함"), iPacket = idx("파일링패킷참조");
   const get = (f, i) => (i >= 0 ? String(f[i] ?? "").trim() : "");
   for (const f of recs.slice(1)) {
     out.rows++;
@@ -92,8 +95,10 @@ function scanLedger(folder) {
       source_ref: get(f, iSrc) || key,
       direction: directionOf(get(f, iEvent), get(f, iBox)),
       mailbox: get(f, iBox),
-      // 원문 미저장: 포인터는 장부(메타) 상대경로 + 소스ID 앵커. 메일 본문은 메일시스템에만.
+      // 원문 미저장: 포인터는 장부(메타) 상대경로 + 소스ID 앵커. 메일 본문은 메일시스템/런타임 싱크에만.
       pointer_ref: `_workmeta/${folder}/reports/메일_이력/메일_이력.csv#${get(f, iSrc) || key}`,
+      // 후보 큐 포인터 — apply 때 런타임 이벤트 싱크로 가는 다리(본문 발췌 resolve용). 원장엔 본문 미저장.
+      packet_ref: get(f, iPacket) || null,
       data_label: "real"
     });
   }
@@ -116,13 +121,18 @@ if (apply) {
   if (/^([A-Za-z]:[\\/]|\/)/.test(dbArg)) console.warn("[apply] 경고: --db 절대경로 입력. 이식성 위해 상대경로(예: data/dev-erp.db) 권장.");
   const dbPath = /^([A-Za-z]:[\\/]|\/)/.test(dbArg) ? dbArg : resolve(APP, dbArg);
   const store = openStore(dbPath);
-  let wrote = 0, fresh = 0, skipped = 0, ledgerWrote = 0;
+  const bodyCache = new Map();               // event_file 절대경로 → 발췌 index(같은 월 JSONL 재읽기 방지)
+  let wrote = 0, fresh = 0, skipped = 0, ledgerWrote = 0, bodyFilled = 0;
   for (const L of ledgers) {
     let n = 0, nf = 0;
     for (const rec of L.records) {
+      // 본문 발췌는 런타임 이벤트 싱크에서만 읽는다(원장/후보큐엔 본문 없음). 미수집이면 null → 상세 패널 '본문 미수집' 안내.
+      const preview = await readMailBodyPreview({ repoRoot: REPO, candidateRef: rec.packet_ref, cache: bodyCache });
+      if (preview) rec.body_preview = preview;
       const r = store.ingestMail(rec);
       if (r.error) { skipped++; continue; }
       n++; wrote++; if (r.isNew) { nf++; fresh++; }
+      if (preview) bodyFilled++;
     }
     if (n) {
       ledgerWrote++;
@@ -131,9 +141,9 @@ if (apply) {
       console.log(`        수집경로별(파이프라인): ${byRoute}`);
     }
   }
-  store.appendEvent({ actor_ref: "scan_mail_ledger", actor_kind: "system", kind: "mail_ingest", to: String(wrote), used_refs: ["core_mail"], data_label: "real", note: `apply ${ledgerWrote}개 장부 · 신규 ${fresh} · 스킵 ${skipped}` });
+  store.appendEvent({ actor_ref: "scan_mail_ledger", actor_kind: "system", kind: "mail_ingest", to: String(wrote), used_refs: ["core_mail"], data_label: "real", note: `apply ${ledgerWrote}개 장부 · 신규 ${fresh} · 스킵 ${skipped} · 본문발췌 ${bodyFilled}` });
   store.db.close();
-  console.log(`[apply] 완료: ${ledgerWrote}개 장부 · 메일 ${wrote}건 ingest(신규 ${fresh}, 스킵 ${skipped}). pointer 는 모두 상대(_workmeta/...).`);
+  console.log(`[apply] 완료: ${ledgerWrote}개 장부 · 메일 ${wrote}건 ingest(신규 ${fresh}, 스킵 ${skipped}). 본문발췌 ${bodyFilled}건 채움(런타임 싱크). pointer 는 모두 상대(_workmeta/...).`);
   process.exit(0);
 }
 

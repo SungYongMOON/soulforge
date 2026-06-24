@@ -2,6 +2,14 @@
 
 ## 2026-06-24
 
+### v1.2.0.N - 메일 본문 발췌(미리보기) resolver — 런타임 싱크에서 채움
+
+- owner: ERP 메일 상세 패널에 본문이 항상 '본문 미수집'. 진단: connector(hiworks/gmail)는 본문을 추출해 런타임 이벤트 싱크(`guild_hall/state/gateway/mailbox/**`, gitignored)에 이미 저장하지만, ERP 인입 경로(`team_cli → 메일_이력.csv 원장(본문 없음) → scan_mail_ledger → ingestMail`)가 원장만 읽어 body_preview 가 항상 빈 값.
+- 설계 결정: 직전 가정(connector 가 body_preview 를 '원장에 emit')은 폐기. 원장 CSV·후보 큐는 본문이 절대 들어가면 안 되는 tested 불변식(`test_mail_candidate_queue`: 본문/raw/첨부명 금지)이라, 발췌를 원장에 넣지 않는다. 대신 scan 이 **런타임 이벤트 싱크에서만** 발췌를 읽어 `core_mail.body_preview`(런타임 DB)에만 채운다. 원문 전체·첨부는 여전히 미저장.
+- 구현: `guild_hall/gateway/mail_candidate.mjs` 에 본문 resolver 추가(`mailBodyExcerptFromRecord`·`loadMailBodyExcerptIndex`·`readMailBodyPreview` — text 우선·html→text 폴백·공백정리·2000자 컷·싱크 경로 밖 읽기 거부·event_file 캐시). `scan_mail_ledger.mjs --apply` 가 원장의 `파일링패킷참조`(후보 큐 포인터) → `source_event.event_file/event_id` 로 싱크를 찾아 발췌를 resolve, 미수집이면 null(상세 패널 '본문 미수집' 유지). connector·Python·원장 스키마 변경 0.
+- 검증: gateway node:test 3건 추가(resolver 단위 — text/html/캐시/경로안전/null-safe). end-to-end: 실제 scan_mail_ledger --apply 로 싱크 발췌가 body_preview 에 착지 확인. Python mail_fetch 60건·gateway index 58건 그대로 green.
+- 배포: dev→push→runtime pull→:4300 재시작 후 재수집(creds 보유 환경). 기존 메일 소급 본문은 싱크 JSONL 이 남아있는 범위에서 재스캔 시 채워짐.
+
 ### v1.2.0.N - 다중수신 메일 중복 합침(dedup) + 본문 미수집 안내
 
 - owner: 같은 메일을 전달할 때 팀원이 참조에 있어 팀원 mailbox마다 개별 인입 → 미분류함에 같은 메일이 3~6건 중복. 진단: 같은 (제목·시각·방향)이 mailbox별 별도 id로 N행(실데이터 확인, 예: 06-24 일정변경 3행).
