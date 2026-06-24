@@ -9,8 +9,10 @@
 
 주 개발 환경 = Codex. 모든 산출물은 Codex 가 이어받아 유지보수 가능해야:
 지침 정본 AGENTS.md 하나 / 하네스·스크립트는 표준 Node·CLI(환경 전용 기능
-금지) / 페이즈·윈도우 끝 NIGHT_WORK_HANDOFF(_workmeta/system/handoff/) /
-결정·맥락은 PLAN·DESIGN·packet 문서화.
+금지) / NIGHT_WORK_HANDOFF 는 git/activity 에 남지 않는 forward-state 를
+context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·clear 전,
+비-Codex→Codex 인계, primary controller 변경, owner 요청) / 깨끗한
+슬라이스는 commit+push+self-verify 로 갈음 / 결정·맥락은 PLAN·DESIGN·packet 문서화.
 
 ## 2. 정본 구조 (7축 + 보조)
 
@@ -30,10 +32,11 @@
 
 ## 4. AI 작업 규약
 
-- (2026-06-13 갱신) AI 도구도 main 직접 작업 허용. 매 슬라이스 후
-  commit(작업자·모델 표기)+push, self-verify(node:test 전건+verify_gate ≥1)
-  와 handoff. 작업 전 트리 안정성(HEAD 고정·index.lock 부재·외부 worktree
-  분리) 확인, 동시편집 징후 시 중단·보고. sandbox push 막힌 프로필은 commit 까지만.
+- (2026-06-13 갱신, 2026-06-24 handoff 조건 보정) AI 도구도 main 직접 작업
+  허용. 매 슬라이스 후 commit(작업자·모델 표기)+push,
+  self-verify(node:test 전건+verify_gate ≥1). handoff 는 위 조건에 해당할 때만.
+  작업 전 트리 안정성(HEAD 고정·index.lock 부재·외부 worktree 분리) 확인,
+  동시편집 징후 시 중단·보고. sandbox push 막힌 프로필은 commit 까지만.
 - 작업자 표기: 도구+모델 (예 `codex_gpt-5.3`, `claude_fable-5`) — commit,
   worklog, packet 공통. 커밋: status/diff 점검, 한글 우선 메시지.
 - 구조/기능/운영 변경 시 CHANGELOG.md, 폴더 책임 변경 시 해당 README 동기.

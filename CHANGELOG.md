@@ -2,6 +2,11 @@
 
 ## 2026-06-24
 
+### Revision `working` - NIGHT_WORK_HANDOFF 조건부 연속성 규칙으로 축소
+
+- `AGENTS.md` 와 boot digest 의 handoff 규칙을 "페이즈/윈도우 종료마다 필수"에서 "git/activity 에 남지 않는 forward-state 를 context 경계 너머로 넘길 때 필수"로 좁혔다.
+- 깨끗한 슬라이스 경계는 commit+push+self-verify 로 닫고, 자율 루프 종료/compact/clear 전, 비-Codex 모델에서 Codex 로 인계, primary controller 변경, owner 요청 시에는 compact `NIGHT_WORK_HANDOFF` 체크포인트를 남기도록 정리했다.
+
 ### v1.2.0.N - 메모리 주입 맥락 관련도(retrieve 설계 완성)
 
 - 메모리 재설계 마무리: 시작/매 턴 주입 시 server 가 그 일의 맥락(제목·프로젝트·작업유형)을 memoryForInjection 에 전달 → 누적 항목을 **그 일 관련도 우선**으로 retrieve(관련도 0.6·recency 0.2·salience 0.2). 맥락 없으면 종전대로 recency+salience.
