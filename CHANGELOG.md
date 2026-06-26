@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-06-26
+
+### Revision `working` - local voice capture MVP
+
+- Added `guild_hall/voice_capture/` as a public-safe local microphone capture supervisor for the MacBook Air always-on transcription pilot.
+- The MVP chunks audio under `_workspaces/system/voice_capture/**`, calls owner-installed recorder/ASR commands such as `ffmpeg` and `whisper.cpp`, writes transcript sidecars, and emits a source-event draft pointer without copying raw audio/transcript into `_workmeta`.
+- Added `npm run guild-hall:voice-capture` and `npm run validate:voice-capture`, plus workspace contract documentation for the raw-payload boundary.
+
 ## 2026-06-24
 
 ### v1.2.0.N - 메일 목록 가독성 — 본문 발췌 표시, 내부 plumbing 숨김

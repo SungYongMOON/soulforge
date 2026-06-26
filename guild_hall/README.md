@@ -31,6 +31,7 @@
 - `private_state_sync/`: nested private repo `private-state/` 의 sync helper
 - `workmeta_sync/`: nested private repo `_workmeta/` 의 sync helper
 - `workspace_junction/`: `_workspaces` mount/junction 점검과 system inventory helper
+- `voice_capture/`: local microphone chunk capture and ASR command supervisor for `_workspaces` voice sessions
 - `state/`: local-only 운영 상태와 queue/log/env 위치, 전체 활동 recent-context surface
 
 ## owner 경계
@@ -46,6 +47,7 @@
 - `rag/` 의 승인된 private source-text command 는 별도 lane 이며 owner-approved `_workspaces/knowledge/**` source text 만 읽을 수 있다. 이 lane 의 저장 출력도 기본은 metadata-only 이고, 명시 승인된 command/source card 가 허용한 경우에만 `_workspaces/knowledge/**` 아래 private proof payload 를 남긴다.
 - `guild_hall/state/**` 는 local-only state 이며 public repo 에 올리지 않는다.
 - `assistant_dashboard/` 는 project-local 장부를 truth 로 읽는 요약 view 만 만들며, deadline/open-action/work 상태 자체를 확정하거나 수정하지 않는다.
+- `voice_capture/` 는 raw audio/transcript 를 `_workspaces` 에만 남기고 `_workmeta` 에는 reviewed metadata pointer 를 별도 단계에서만 남긴다.
 
 ## 관련 경로
 
@@ -54,5 +56,6 @@
 - [`docs/architecture/guild_hall/SOULFORGE_SNAPSHOT_V0.md`](../docs/architecture/guild_hall/SOULFORGE_SNAPSHOT_V0.md)
 - [`docs/architecture/guild_hall/ASSISTANT_DASHBOARD_V0.md`](../docs/architecture/guild_hall/ASSISTANT_DASHBOARD_V0.md)
 - [`docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`](../docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md)
+- [`docs/architecture/workspace/VOICE_CAPTURE_MVP_V0.md`](../docs/architecture/workspace/VOICE_CAPTURE_MVP_V0.md)
 - [`docs/architecture/bootstrap/README.md`](../docs/architecture/bootstrap/README.md)
 - [`_workspaces/README.md`](../_workspaces/README.md)

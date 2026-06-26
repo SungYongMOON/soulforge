@@ -16,6 +16,7 @@
 | `PROJECT_FOLDER_INDEXING_POLICY_V0.md` | 프로젝트 폴더마다 검색 가능한 파일 색인을 project-local 로 유지하고, 색인과 지식화를 분리하는 운영 규칙이다. |
 | `PROJECT_LEDGER_UPDATE_V0.md` | 주기적으로 전달되는 회사 PJT 관리 대장을 private source 로 받아 project registration 을 갱신하는 public-safe 절차다. |
 | `COMPANY_COMMON_SOURCE_STORAGE_V0.md` | 회사 공통 조직/연락처/자리배치/운영 참조 자료를 project worksite 와 분리해 knowledge common source packet 으로 보관하는 규칙이다. |
+| `VOICE_CAPTURE_MVP_V0.md` | MacBook Air 상주형 로컬 음성 수집 MVP 의 `_workspaces` raw payload 경계와 `_workmeta` metadata-only handoff 규칙이다. |
 | `DAILY_WORK_LEDGER_TAXONOMY_V0.md` | 일일 업무장부의 회사 프로젝트, P00 회사 일반업무, Soulforge 하위 장부 분류 기준이다. |
 | `DAILY_WORK_LEDGER_AUTOMATION_V0.md` | daily ledger validator/renderer command surface 와 ledger-only report boundary 를 정의한다. |
 | `SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md` | 사람이 보는 SE 프로젝트 워크스페이스 폴더명을 한글 중심, 짧은 의미 중심으로 정하고 provenance 를 metadata 로 분리하는 규칙이다. |
@@ -74,6 +75,7 @@
 - [`PROJECT_FOLDER_INDEXING_POLICY_V0.md`](PROJECT_FOLDER_INDEXING_POLICY_V0.md)
 - [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md)
 - [`COMPANY_COMMON_SOURCE_STORAGE_V0.md`](COMPANY_COMMON_SOURCE_STORAGE_V0.md)
+- [`VOICE_CAPTURE_MVP_V0.md`](VOICE_CAPTURE_MVP_V0.md)
 - [`DAILY_WORK_LEDGER_TAXONOMY_V0.md`](DAILY_WORK_LEDGER_TAXONOMY_V0.md)
 - [`DAILY_WORK_LEDGER_AUTOMATION_V0.md`](DAILY_WORK_LEDGER_AUTOMATION_V0.md)
 - [`SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md`](SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md)
