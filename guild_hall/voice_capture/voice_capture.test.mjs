@@ -104,8 +104,12 @@ test("runCaptureSession can execute one fixture chunk and write transcript jsonl
     assert.equal(segment.start_seconds, 0);
     assert.equal(segment.end_seconds, 1);
 
+    const transcriptTxt = await readFile(result.session.output_refs.transcript_txt, "utf8");
+    assert.equal(transcriptTxt.trim(), "[00:00 --> 00:01] transcript");
+
     const sourceDraft = await readFile(result.session.output_refs.source_event_draft, "utf8");
     assert.match(sourceDraft, /workmeta_write_ready: false/);
+    assert.match(sourceDraft, /transcript_txt_ref:/);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
@@ -190,6 +194,7 @@ test("session status, launchd render, and workmeta draft stay metadata-only", as
     assert.equal(status.ok, true);
     assert.equal(status.audio_chunks, 1);
     assert.equal(status.transcript_segments, 1);
+    assert.equal(status.transcript_txt_present, true);
 
     const launchd = await writeVoiceCaptureLaunchdPlist({
       repoRoot,

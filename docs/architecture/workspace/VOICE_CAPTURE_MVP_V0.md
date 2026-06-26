@@ -37,6 +37,8 @@ microphone recorder command
   audio file.
 - Each chunk has a stable `chunk_index`, audio ref, optional transcript sidecar
   refs, and a transcript JSONL segment when text output is available.
+- Each session also writes `transcript.txt` as a combined plain-text transcript
+  for local review and owner-approved sharing.
 - ASR and recorder commands are local command templates. The first MVP does not
   vendor models or install tools.
 - The command template placeholders are rendered with shell-quoted values.

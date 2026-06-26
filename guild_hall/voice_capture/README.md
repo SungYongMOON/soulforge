@@ -76,6 +76,19 @@ npm run guild-hall:voice-capture -- write-workmeta-draft \
 The draft files contain pointers, counts, and review state only. They do not
 copy raw audio or transcript body into `_workmeta`.
 
+## Raw Transcript Sharing
+
+Each session keeps the original transcription under its session directory:
+
+- `transcript.txt`: combined plain-text transcript with chunk timestamps.
+- `transcript.jsonl`: machine-readable transcript segments.
+- `transcripts/chunk_*.txt`: per-chunk raw text sidecars.
+- `transcripts/chunk_*.srt`: per-chunk timestamp subtitle sidecars.
+- `audio/chunk_*.wav`: raw audio chunks.
+
+These files are intentionally local `_workspaces` payloads. Share them through
+an owner-approved local/shared folder, not through public Git or `_workmeta`.
+
 Render a launchd plist for manual installation:
 
 ```bash

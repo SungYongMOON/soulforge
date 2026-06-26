@@ -326,6 +326,7 @@ export function buildSessionPlan(options = {}) {
       source_event_draft: path.join(sessionDir, "source_event_draft.yaml"),
       chunk_log: path.join(sessionDir, "chunks.jsonl"),
       transcript_jsonl: path.join(sessionDir, "transcript.jsonl"),
+      transcript_txt: path.join(sessionDir, "transcript.txt"),
       terms_prompt: path.join(sessionDir, "terms_prompt.txt"),
       audio_dir: path.join(sessionDir, "audio"),
       transcript_dir: path.join(sessionDir, "transcripts"),
@@ -386,6 +387,7 @@ export function renderSourceEventDraft(sessionPlan) {
   const relativeSessionDir = relativeToRepoOrAbsolute(sessionPlan.repo_root, sessionPlan.session_dir);
   const relativeManifest = relativeToRepoOrAbsolute(sessionPlan.repo_root, sessionPlan.output_refs.manifest);
   const relativeTranscript = relativeToRepoOrAbsolute(sessionPlan.repo_root, sessionPlan.output_refs.transcript_jsonl);
+  const relativeTranscriptTxt = relativeToRepoOrAbsolute(sessionPlan.repo_root, sessionPlan.output_refs.transcript_txt);
   const relativeChunkLog = relativeToRepoOrAbsolute(sessionPlan.repo_root, sessionPlan.output_refs.chunk_log);
 
   return [
@@ -399,6 +401,7 @@ export function renderSourceEventDraft(sessionPlan) {
     `storage_ref: ${JSON.stringify(relativeSessionDir)}`,
     `session_manifest_ref: ${JSON.stringify(relativeManifest)}`,
     `transcript_ref: ${JSON.stringify(relativeTranscript)}`,
+    `transcript_txt_ref: ${JSON.stringify(relativeTranscriptTxt)}`,
     `chunk_log_ref: ${JSON.stringify(relativeChunkLog)}`,
     "raw_payload_copied: false",
     "workmeta_write_ready: false",
@@ -487,6 +490,11 @@ export async function runChunk(sessionPlan, chunk) {
       text: transcript.text,
       source_ref: transcript.source_ref,
     });
+    await appendPlainTranscript(sessionPlan.output_refs.transcript_txt, {
+      startSeconds: (chunk.chunk_index - 1) * sessionPlan.chunk_seconds,
+      endSeconds: chunk.chunk_index * sessionPlan.chunk_seconds,
+      text: transcript.text,
+    });
   }
 }
 
@@ -568,6 +576,7 @@ export async function buildSessionStatus(sessionDir) {
   const manifestPath = path.join(resolvedSessionDir, "session_manifest.json");
   const chunkLogPath = path.join(resolvedSessionDir, "chunks.jsonl");
   const transcriptJsonlPath = path.join(resolvedSessionDir, "transcript.jsonl");
+  const transcriptTxtPath = path.join(resolvedSessionDir, "transcript.txt");
   const audioDir = path.join(resolvedSessionDir, "audio");
   const transcriptDir = path.join(resolvedSessionDir, "transcripts");
   const errors = [];
@@ -587,6 +596,7 @@ export async function buildSessionStatus(sessionDir) {
     manifestPath,
     chunkLogPath,
     transcriptJsonlPath,
+    transcriptTxtPath,
     ...audioFiles.map((name) => path.join(audioDir, name)),
     ...transcriptJsonFiles.map((name) => path.join(transcriptDir, name)),
     ...transcriptTextFiles.map((name) => path.join(transcriptDir, name)),
@@ -611,6 +621,7 @@ export async function buildSessionStatus(sessionDir) {
     },
     chunk_log_entries: chunkLogEntries,
     transcript_segments: transcriptSegments,
+    transcript_txt_present: fileExists(transcriptTxtPath),
     estimated_recorded_seconds: chunkSeconds ? audioFiles.length * chunkSeconds : null,
     raw_payload_boundary: {
       audio_stored_under_workspace: true,
@@ -872,6 +883,7 @@ function renderWorkmetaSourceEventManifest({ repoRoot, projectCode, sourceEventI
     `source_event_draft_ref: ${JSON.stringify(relativeToRepoOrAbsolute(repoRoot, path.join(status.session_dir, "source_event_draft.yaml")))}`,
     `chunk_log_ref: ${JSON.stringify(relativeToRepoOrAbsolute(repoRoot, path.join(status.session_dir, "chunks.jsonl")))}`,
     `transcript_jsonl_ref: ${JSON.stringify(relativeToRepoOrAbsolute(repoRoot, path.join(status.session_dir, "transcript.jsonl")))}`,
+    `transcript_txt_ref: ${JSON.stringify(relativeToRepoOrAbsolute(repoRoot, path.join(status.session_dir, "transcript.txt")))}`,
     "raw_payload_copied: false",
     "raw_transcript_body_included: false",
     "formal_task_ledger_promotion_allowed: false",
@@ -924,6 +936,18 @@ function renderTaskCandidateRegister({ projectCode, sourceEventId, status }) {
 async function appendJsonl(filePath, value) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.appendFile(filePath, `${JSON.stringify(value)}\n`, "utf8");
+}
+
+async function appendPlainTranscript(filePath, { startSeconds, endSeconds, text }) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.appendFile(filePath, `[${formatSeconds(startSeconds)} --> ${formatSeconds(endSeconds)}] ${text}\n`, "utf8");
+}
+
+function formatSeconds(value) {
+  const total = Number(value);
+  const minutes = Math.floor(total / 60);
+  const seconds = Math.floor(total % 60);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 function xmlKey(name, value, indent = 2) {
