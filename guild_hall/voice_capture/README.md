@@ -2,10 +2,10 @@
 
 ## Purpose
 
-`voice_capture/` is the local microphone capture MVP for always-on voice intake.
-It does not include or download an ASR model. Instead, it supervises local
-commands such as `ffmpeg`, `sox`, and `whisper-cli`, then writes bounded session
-artifacts under `_workspaces`.
+`voice_capture/` is the local microphone capture supervisor for always-on voice
+intake. It does not include or download an ASR model. Instead, it supervises
+owner-installed commands such as `ffmpeg`, `sox`, and `whisper-cli`, then writes
+bounded session artifacts under `_workspaces`.
 
 ## Boundary
 
@@ -19,37 +19,35 @@ artifacts under `_workspaces`.
 
 ## Commands
 
-Preview the paths and commands without recording:
+Create the local MacBook Air profile:
+
+```bash
+npm run guild-hall:voice-capture -- init-config \
+  --model-path /models/ggml-large-v3-turbo.bin \
+  --label office-day \
+  --chunk-seconds 60 \
+  --terms-prompt 'KVDS, LIG, SAS, 1147B, current probe, 로텍, 슬립링, SE50, 검교정, 전류 프로브, 커패시터, IP67, 40G'
+```
+
+Check whether the recorder, ASR binary, and model path are available:
+
+```bash
+npm run guild-hall:voice-capture -- preflight \
+  --config _workspaces/system/voice_capture/config/voice_capture.profile.json
+```
+
+Preview the paths and first chunk command without recording:
 
 ```bash
 npm run guild-hall:voice-capture -- plan \
-  --label office-day \
-  --chunk-seconds 60 \
-  --record-cmd 'ffmpeg -f avfoundation -i :0 -t {duration} -ar 16000 -ac 1 {audio}' \
-  --asr-cmd 'whisper-cli -m /models/ggml-large-v3-turbo.bin -f {audio} -l {language} -otxt -osrt -oj -of {output_base}'
-```
-
-Run one chunk:
-
-```bash
-npm run guild-hall:voice-capture -- run \
-  --label office-smoke \
-  --chunk-seconds 30 \
-  --max-chunks 1 \
-  --record-cmd 'ffmpeg -f avfoundation -i :0 -t {duration} -ar 16000 -ac 1 {audio}' \
-  --asr-cmd 'whisper-cli -m /models/ggml-large-v3-turbo.bin -f {audio} -l {language} -otxt -osrt -oj -of {output_base}'
+  --config _workspaces/system/voice_capture/config/voice_capture.profile.json
 ```
 
 Run continuously until interrupted:
 
 ```bash
 npm run guild-hall:voice-capture -- run \
-  --label office-day \
-  --chunk-seconds 60 \
-  --until-stopped \
-  --terms-prompt 'KVDS, LIG, SAS, 1147B, current probe, 로텍, 슬립링, SE50, 검교정, 전류 프로브, 커패시터, IP67, 40G' \
-  --record-cmd 'ffmpeg -f avfoundation -i :0 -t {duration} -ar 16000 -ac 1 {audio}' \
-  --asr-cmd 'whisper-cli -m /models/ggml-large-v3-turbo.bin -f {audio} -l {language} -otxt -osrt -oj -of {output_base}'
+  --config _workspaces/system/voice_capture/config/voice_capture.profile.json
 ```
 
 Validate a generated session directory:
@@ -57,6 +55,44 @@ Validate a generated session directory:
 ```bash
 npm run guild-hall:voice-capture -- validate-session \
   --session-dir _workspaces/system/voice_capture/sessions/2026-06-26/<session-id>
+```
+
+Summarize a generated session:
+
+```bash
+npm run guild-hall:voice-capture -- status \
+  --session-dir _workspaces/system/voice_capture/sessions/2026-06-26/<session-id>
+```
+
+Write metadata-only review drafts under `_workmeta` after a session exists:
+
+```bash
+npm run guild-hall:voice-capture -- write-workmeta-draft \
+  --session-dir _workspaces/system/voice_capture/sessions/2026-06-26/<session-id> \
+  --project-code P00-000_INBOX \
+  --apply
+```
+
+The draft files contain pointers, counts, and review state only. They do not
+copy raw audio or transcript body into `_workmeta`.
+
+Render a launchd plist for manual installation:
+
+```bash
+npm run guild-hall:voice-capture -- render-launchd \
+  --config _workspaces/system/voice_capture/config/voice_capture.profile.json
+```
+
+The command writes a local-only plist under
+`_workspaces/system/voice_capture/launchd/` and prints the manual install
+command. It does not install or load launchd by itself.
+
+Generate macOS command templates without writing a profile:
+
+```bash
+npm run guild-hall:voice-capture -- macos-commands \
+  --model-path /models/ggml-large-v3-turbo.bin \
+  --input-device :0
 ```
 
 ## Install Notes

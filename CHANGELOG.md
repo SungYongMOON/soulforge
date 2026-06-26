@@ -2,6 +2,12 @@
 
 ## 2026-06-26
 
+### Revision `working` - local voice capture operational loop
+
+- Extended `guild_hall/voice_capture/` from a capture MVP into a practical local always-on workflow: JSON profile creation, macOS command template generation, preflight checks, session status summaries, metadata-only `_workmeta` review draft emission, and local launchd plist rendering.
+- Kept the raw-payload boundary unchanged: audio and transcript bodies stay under `_workspaces/system/voice_capture/**`; `_workmeta` receives only pointer/count/review metadata and formal task ledger promotion remains owner-reviewed.
+- Added tests for profile loading, preflight behavior, launchd rendering, session status, and metadata-only workmeta draft generation.
+
 ### Revision `working` - local voice capture MVP
 
 - Added `guild_hall/voice_capture/` as a public-safe local microphone capture supervisor for the MacBook Air always-on transcription pilot.

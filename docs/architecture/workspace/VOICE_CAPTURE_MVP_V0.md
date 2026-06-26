@@ -1,10 +1,11 @@
-# Voice Capture MVP v0
+# Voice Capture Operational v0
 
 ## Purpose
 
-This document defines the first local always-on voice capture slice for the
-MacBook Air workflow. The goal is to test continuous microphone intake without
-making ChatGPT share links or cloud summaries the source of truth.
+This document defines the local always-on voice capture slice for the MacBook
+Air workflow. The goal is to keep continuous microphone intake, local
+transcription, review routing, and metadata-only handoff under Soulforge control
+without making ChatGPT share links or cloud summaries the source of truth.
 
 ## Shape
 
@@ -13,8 +14,10 @@ microphone recorder command
   -> fixed-size audio chunks under _workspaces
   -> local ASR command such as whisper.cpp
   -> transcript sidecars under _workspaces
+  -> session status and validation
   -> source_event_draft.yaml
-  -> later reviewed _workmeta source event and draft actions
+  -> metadata-only _workmeta review draft
+  -> later reviewed project route and draft actions
 ```
 
 ## Owner Split
@@ -22,9 +25,9 @@ microphone recorder command
 - `guild_hall/voice_capture/`: local command supervisor and session artifact
   writer.
 - `_workspaces/system/voice_capture/**`: raw audio, raw transcripts, ASR
-  sidecars, and local source event drafts.
-- `_workmeta/**`: reviewed metadata only. Raw audio and transcript bodies are
-  not copied there.
+  sidecars, profiles, local source event drafts, and rendered launchd plists.
+- `_workmeta/**`: reviewed metadata only. Raw audio and transcript bodies are not
+  copied there.
 - Project owners: approve project route, assignee, due date, completion
   criteria, and formal task ledger promotion.
 
@@ -37,7 +40,16 @@ microphone recorder command
 - ASR and recorder commands are local command templates. The first MVP does not
   vendor models or install tools.
 - The command template placeholders are rendered with shell-quoted values.
-- The source event draft is a pointer packet, not a reviewed `_workmeta` record.
+- A JSON profile under `_workspaces/system/voice_capture/config/` can hold the
+  day-to-day command templates and domain terms.
+- `preflight` checks command presence and the declared local model path before a
+  long recording run.
+- `status` summarizes a session from file counts and JSONL segments without
+  reading transcript text into `_workmeta`.
+- `write-workmeta-draft --apply` creates metadata-only review packets. It does
+  not promote project route or mutate a formal task ledger.
+- `render-launchd` writes a local-only plist for manual installation. It does
+  not install, load, or unload launchd by itself.
 
 ## Recommended First Profile
 
@@ -54,7 +66,7 @@ microphone recorder command
 - No automatic project route acceptance.
 - No formal task ledger mutation.
 - No raw payload under `_workmeta` or public repo files.
-- No launchd installation in this first slice.
+- No automatic launchd installation.
 - No speaker diarization claim.
 
 ## Validation
