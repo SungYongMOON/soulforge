@@ -2,6 +2,13 @@
 
 ## 2026-06-27
 
+### Revision `working` - dev-erp haengbogwan context/candidate slice
+
+- Added metadata-only `haengbogwan_context_packet.mjs` and deterministic `haengbogwan_candidate_judge.mjs` CLIs, wired through app and root `haengbogwan` npm scripts.
+- The context packet converts pending mail ledger metadata into stable source events, capped packet summaries, and explicit raw/body/attachment/role/actor/memory not-loaded boundary notes without reading `_workspaces` payloads.
+- The skeleton judge emits `mail_to_task_ledger.mjs`-compatible review candidate maps keyed by mail history key; it does not call an LLM and does not apply ledger mutations.
+- Added synthetic node:test coverage for source-event idempotency, metadata-only boundaries, context caps/snapshot shape, candidate JSON compatibility, and CLI help.
+
 ### Revision `working` - dev-erp 행보관 snapshot dry-run
 
 - Added a metadata-only `haengbogwan_snapshot.mjs` CLI, wired through `npm run dev-erp:haengbogwan-snapshot`, to summarize pending mail, unclassified tasks, due/overdue work, blocked/waiting work, quick triage, and raw-boundary skips from `_workmeta` ledgers.

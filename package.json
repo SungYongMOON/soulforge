@@ -100,6 +100,8 @@
     "dev-erp:proposal-export": "node ui-workspace/apps/dev-erp/tools/ai_proposal_ledger.mjs --export",
     "dev-erp:proposal-apply": "node ui-workspace/apps/dev-erp/tools/ai_proposal_ledger.mjs --apply",
     "dev-erp:haengbogwan-snapshot": "node ui-workspace/apps/dev-erp/tools/haengbogwan_snapshot.mjs",
+    "dev-erp:haengbogwan-context": "node ui-workspace/apps/dev-erp/tools/haengbogwan_context_packet.mjs",
+    "dev-erp:haengbogwan-candidate": "node ui-workspace/apps/dev-erp/tools/haengbogwan_candidate_judge.mjs",
     "guild-hall:gateway:fetch:retention": "python3 guild_hall/gateway/mail_fetch/retention_cleanup.py",
     "guild-hall:gateway:fetch:state-backup": "python3 guild_hall/gateway/mail_fetch/state_backup.py",
     "guild-hall:gateway:fetch:state-restore": "python3 guild_hall/gateway/mail_fetch/state_restore.py",
