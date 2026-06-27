@@ -99,6 +99,7 @@
     "dev-erp:completion-apply": "node ui-workspace/apps/dev-erp/tools/completion_ledger.mjs --apply",
     "dev-erp:proposal-export": "node ui-workspace/apps/dev-erp/tools/ai_proposal_ledger.mjs --export",
     "dev-erp:proposal-apply": "node ui-workspace/apps/dev-erp/tools/ai_proposal_ledger.mjs --apply",
+    "dev-erp:haengbogwan-snapshot": "node ui-workspace/apps/dev-erp/tools/haengbogwan_snapshot.mjs",
     "guild-hall:gateway:fetch:retention": "python3 guild_hall/gateway/mail_fetch/retention_cleanup.py",
     "guild-hall:gateway:fetch:state-backup": "python3 guild_hall/gateway/mail_fetch/state_backup.py",
     "guild-hall:gateway:fetch:state-restore": "python3 guild_hall/gateway/mail_fetch/state_restore.py",

@@ -2,6 +2,12 @@
 
 ## 2026-06-27
 
+### Revision `working` - dev-erp 행보관 snapshot dry-run
+
+- Added a metadata-only `haengbogwan_snapshot.mjs` CLI, wired through `npm run dev-erp:haengbogwan-snapshot`, to summarize pending mail, unclassified tasks, due/overdue work, blocked/waiting work, quick triage, and raw-boundary skips from `_workmeta` ledgers.
+- Kept the first 행보관 engine slice deterministic and dry-run: it reads only project mail/task CSV ledgers and does not follow `_workspaces`, raw mail, attachment, secret, absolute-path, or traversal pointers.
+- Added synthetic node:test coverage for converted-mail exclusion, due/overdue buckets, blocked/waiting buckets, quick-triage reasons, raw pointer skip reporting, and project traversal rejection.
+
 ### Revision `working` - dev-erp actor overlay import projection
 
 - Added a dry-run-by-default actor overlay import CLI for dev-erp, wired through `npm run dev-erp:import-actor-overlay`, so teams, future people, and automation bots can be projected as task-routing actors.

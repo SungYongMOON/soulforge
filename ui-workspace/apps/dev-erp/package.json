@@ -16,6 +16,7 @@
     "ops:backup-db": "node tools/runtime_ops.mjs backup-db",
     "ops:restore-test": "node tools/runtime_ops.mjs restore-test",
     "smoke:chatbot:ollama": "node tools/chatbot_ollama_smoke.mjs",
-    "test": "node --test test/core.test.mjs test/role_overlay_import.test.mjs test/actor_overlay_import.test.mjs"
+    "haengbogwan:snapshot": "node tools/haengbogwan_snapshot.mjs",
+    "test": "node --test test/core.test.mjs test/role_overlay_import.test.mjs test/actor_overlay_import.test.mjs test/haengbogwan_snapshot.test.mjs"
   }
 }
