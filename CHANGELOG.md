@@ -2,6 +2,12 @@
 
 ## 2026-06-27
 
+### Revision `working` - dev-erp haengbogwan run report
+
+- Added `haengbogwan_run.mjs` plus npm scripts so one metadata-only command can summarize snapshot counts, candidate counts, reference-only skip counts, and optional apply results across selected projects.
+- Updated haengbogwan snapshot pending counts to honor metadata-only reference receipts, keeping dashboard-style counts aligned with the apply/context pending queue.
+- Added node:test coverage for the single-run dry-run/apply path, receipt unblocking, and snapshot receipt exclusion.
+
 ### Revision `working` - dev-erp haengbogwan metadata classifier
 
 - Added a deterministic metadata-only classifier to `haengbogwan_candidate_judge.mjs` so source-event subjects can produce conservative ledger work types instead of flooding every candidate as `review`.

@@ -5,6 +5,10 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  haengbogwanMailReceiptPathForTaskCsv,
+  readHandledReceiptKeys,
+} from "./mail_to_task_pending.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..", "..");
@@ -340,8 +344,10 @@ export function buildSnapshotForProject({
   const checkedRawSkipLimit = validateLimit(rawSkipLimit, "raw_skip_limit");
   const projectRoot = safeProjectRoot(workmetaRoot, projectId);
   const mail = readCsvObjects(join(projectRoot, MAIL_REL));
-  const task = readCsvObjects(join(projectRoot, TASK_REL));
+  const taskPath = join(projectRoot, TASK_REL);
+  const task = readCsvObjects(taskPath);
   const { convertedMailKeys, convertedSourceIds } = collectConvertedMailRefs(task.rows, mail.rows);
+  for (const key of readHandledReceiptKeys(haengbogwanMailReceiptPathForTaskCsv(taskPath))) convertedMailKeys.add(key);
 
   const pendingMailRows = mail.rows.filter((row) => {
     const key = pick(row, MAIL_KEY_FIELDS);

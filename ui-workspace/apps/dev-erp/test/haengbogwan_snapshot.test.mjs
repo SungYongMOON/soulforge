@@ -5,6 +5,12 @@ import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
+import {
+  MAIL_LEDGER_RELATIVE_PATH,
+  TASK_LEDGER_RELATIVE_PATH,
+} from "../tools/haengbogwan_context_packet.mjs";
+import { HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH } from "../tools/mail_to_task_pending.mjs";
+
 const TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_snapshot.mjs");
 
 function csvEscape(value) {
@@ -93,6 +99,42 @@ test("HAENGBOGWAN-SNAPSHOT: pending mail excludes converted rows and task bucket
     );
     assert.ok(snapshot.next_actions.includes("pending_mail:1:classify_mail_to_task"));
     assert.ok(snapshot.next_actions.includes("quick_triage:1:resolve_top_items"));
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-SNAPSHOT: pending mail excludes metadata-only reference receipts", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P26-014";
+    const projectRoot = join(tmp.root, project);
+    writeCsv(
+      join(projectRoot, MAIL_LEDGER_RELATIVE_PATH),
+      ["history_key", "title", "received_at", "mailbox", "mail_source_id"],
+      [
+        { history_key: "M001", title: "FYI test report", received_at: "2026-06-27T11:00:00+09:00", mailbox: "team@example.test", mail_source_id: "SRC-1" },
+        { history_key: "M002", title: "reply response requested", received_at: "2026-06-27T10:00:00+09:00", mailbox: "team@example.test", mail_source_id: "SRC-2" },
+      ]
+    );
+    writeCsv(
+      join(projectRoot, TASK_LEDGER_RELATIVE_PATH),
+      ["task_key", "title", "work_type", "status", "due", "completion_criteria", "source_mail_ref"],
+      []
+    );
+    writeCsv(
+      join(projectRoot, HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH),
+      ["receipt_key", "history_key", "disposition", "status", "source_mail_ref", "body_access"],
+      [
+        { receipt_key: "mailreceipt:M001:reference_only", history_key: "M001", disposition: "reference_only", status: "reference_only", source_mail_ref: "mailcsv:M001", body_access: "metadata_only" },
+      ]
+    );
+
+    const result = runSnapshot(tmp.root, project);
+    assert.equal(result.status, 0, result.stderr);
+    const [snapshot] = JSON.parse(result.stdout);
+    assert.equal(snapshot.pending_mail_count, 1);
+    assert.ok(snapshot.next_actions.includes("pending_mail:1:classify_mail_to_task"));
   } finally {
     tmp.cleanup();
   }
