@@ -3505,6 +3505,14 @@ async function renderHome() {
     if (id === "teamload") {
       // P-7 팀원별 할일 — 담당별 미완/대화/연체 + 제목 인라인(행 클릭 시 펼침). NULL=(미배정).
       const wl = await api("/api/workload");
+      // 명단은 workload(할일 있는 담당)만이 아니라 활성 팀원 전체(roster=_scopes)에서 — 할일 0인 멤버도 보이게(예: 김민재).
+      const tlMembers = (state._scopes ?? []).filter((s) => s.id !== "team");
+      const wlByName = new Map(); let wlUnassigned = null;
+      for (const w of wl) { if (w.assignee_ref) wlByName.set(w.name, w); else wlUnassigned = w; }
+      const tlZero = (name) => ({ assignee_ref: name, name, total: 0, open_cnt: 0, blocked_cnt: 0, overdue_cnt: 0, chat_cnt: 0 });
+      const tlRows = tlMembers.map((m) => wlByName.get(m.label) ?? tlZero(m.label)).sort((a, b) => b.open_cnt - a.open_cnt);
+      for (const w of wl) { if (w.assignee_ref && !tlMembers.some((m) => m.label === w.name)) tlRows.push(w); } // roster 밖 담당(라벨 불일치·퇴사 등) 보존
+      if (wlUnassigned) tlRows.push(wlUnassigned);
       // 남은 항목(=open_cnt 집합: 미분류·보관·완료 제외)을 담당자별로 묶어 제목 표시. 별도 위젯 없이 인라인.
       const remaining = (await api("/api/items")).filter((it) => it.status !== "done");
       const byOwner = {};
@@ -3512,8 +3520,8 @@ async function renderHome() {
       const titleRows = (key) => (byOwner[key] ?? []).slice(0, 12).map((it) =>
         `<tr class="wrow tl-title-row" data-owner="${esc(key)}" data-item="${esc(it.id)}" data-proj="${esc(it.project_id)}" data-title="${esc(it.title)}" style="display:none">`
         + `<td></td><td colspan="3" class="tl-title">${esc(it.title)}${it.due ? ` <span class="dim">· ${esc(it.due)}</span>` : ""}</td></tr>`).join("");
-      return { title: L.tile_teamload, html: wl.length
-        ? `<table><thead><tr><th>${L.col_person}</th><th>${L.tl_remaining ?? "남은"}</th><th>${L.tl_chat ?? "대화"}</th><th>${L.overdue}</th></tr></thead><tbody>${wl.map((w) => {
+      return { title: L.tile_teamload, html: tlRows.length
+        ? `<table><thead><tr><th>${L.col_person}</th><th>${L.tl_remaining ?? "남은"}</th><th>${L.tl_chat ?? "대화"}</th><th>${L.overdue}</th></tr></thead><tbody>${tlRows.map((w) => {
             const key = w.assignee_ref ? w.name : "__UNASSIGN__";
             return `<tr class="wrow tl-row" data-member="${esc(w.name)}" data-owner="${esc(key)}" data-unassigned="${w.assignee_ref ? "" : "1"}">`
               + `<td>${esc(w.name)}</td><td class="num">${w.open_cnt || '<span class="dim">0</span>'}</td>`
