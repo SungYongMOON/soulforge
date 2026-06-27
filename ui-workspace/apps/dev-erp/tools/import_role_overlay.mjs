@@ -85,9 +85,13 @@ function safeRef(value, errors, code, { allowEmpty = true, workspacePathIfPath =
     errors.push(code);
     return null;
   }
-  if (workspacePathIfPath && ref && ref.includes("/") && !ref.startsWith("_workspaces/knowledge/")) {
-    errors.push(`${code}_outside_knowledge_workspace`);
-    return null;
+  if (workspacePathIfPath && ref) {
+    const pathRef = ref.replaceAll("\\", "/");
+    if ((pathRef.includes("/") || ref.includes("\\")) && !pathRef.startsWith("_workspaces/knowledge/")) {
+      errors.push(`${code}_outside_knowledge_workspace`);
+      return null;
+    }
+    return pathRef;
   }
   return ref;
 }

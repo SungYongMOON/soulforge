@@ -155,6 +155,17 @@ test("ROLE-OVERLAY: secret/raw payload keys and unknown org units are rejected",
   assert.equal(badSourceRef.apply_ready, false);
   assert.ok(badSourceRef.errors.includes("assignments[0].source_ref_invalid_outside_knowledge_workspace"));
 
+  const badWindowsSourceRef = buildRoleOverlayImportPlan(store, {
+    teamOverlay,
+    projectOverlay: {
+      schema_version: "soulforge.company.project_role_overlay.v1",
+      source_refs: [],
+      assignments: [{ project_code: "P26-014", role_area: "fw", owning_org_unit_ref: "dev_team_1", source_ref: "docs\\private\\raw.json" }]
+    }
+  });
+  assert.equal(badWindowsSourceRef.apply_ready, false);
+  assert.ok(badWindowsSourceRef.errors.includes("assignments[0].source_ref_invalid_outside_knowledge_workspace"));
+
   const badConfidence = buildRoleOverlayImportPlan(store, {
     teamOverlay,
     projectOverlay: {

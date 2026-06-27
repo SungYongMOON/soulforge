@@ -497,6 +497,33 @@ CREATE TABLE IF NOT EXISTS role_project_assignment (
   PRIMARY KEY (project_code, role_area)
 );
 CREATE INDEX IF NOT EXISTS idx_role_project_assignment_org ON role_project_assignment(owning_org_unit_ref, status);
+CREATE TABLE IF NOT EXISTS role_actor (
+  actor_ref TEXT PRIMARY KEY,
+  actor_type TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  team_ref TEXT,
+  authority TEXT NOT NULL DEFAULT 'propose_only',
+  approval_required INTEGER NOT NULL DEFAULT 1,
+  handoff_to_ref TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  source_ref TEXT,
+  updated_at TEXT,
+  notes TEXT,
+  data_label TEXT NOT NULL DEFAULT 'real'
+);
+CREATE TABLE IF NOT EXISTS role_actor_capability (
+  actor_ref TEXT NOT NULL REFERENCES role_actor(actor_ref),
+  capability TEXT NOT NULL,
+  label TEXT,
+  source_ref TEXT,
+  PRIMARY KEY (actor_ref, capability)
+);
+CREATE TABLE IF NOT EXISTS role_actor_forbidden_action (
+  actor_ref TEXT NOT NULL REFERENCES role_actor(actor_ref),
+  action TEXT NOT NULL,
+  PRIMARY KEY (actor_ref, action)
+);
+CREATE INDEX IF NOT EXISTS idx_role_actor_type_status ON role_actor(actor_type, status);
 CREATE TABLE IF NOT EXISTS core_calculator (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -1156,6 +1183,94 @@ export class Store {
       .prepare(`SELECT * FROM role_project_assignment ${where} ORDER BY project_code, role_area`)
       .all(...args)
       .map((row) => ({ ...row, backup_person_refs: JSON.parse(row.backup_person_refs_json || "[]") }));
+  }
+
+  replaceActorOverlayProjection({ actors = [], generated_at = null } = {}) {
+    const at = generated_at || new Date().toISOString();
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db.exec("DELETE FROM role_actor_forbidden_action");
+      this.db.exec("DELETE FROM role_actor_capability");
+      this.db.exec("DELETE FROM role_actor");
+      const insActor = this.db.prepare(
+        `INSERT INTO role_actor(actor_ref,actor_type,display_name,team_ref,authority,approval_required,
+          handoff_to_ref,status,source_ref,updated_at,notes,data_label)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
+      );
+      const insActorCap = this.db.prepare(
+        `INSERT INTO role_actor_capability(actor_ref,capability,label,source_ref)
+         VALUES(?,?,?,?)`
+      );
+      const insForbidden = this.db.prepare(
+        `INSERT INTO role_actor_forbidden_action(actor_ref,action)
+         VALUES(?,?)`
+      );
+      for (const actor of actors) {
+        insActor.run(
+          actor.actor_ref,
+          actor.actor_type,
+          actor.display_name,
+          actor.team_ref ?? null,
+          actor.authority ?? "propose_only",
+          actor.approval_required ? 1 : 0,
+          actor.handoff_to_ref ?? null,
+          actor.status ?? "active",
+          actor.source_ref ?? null,
+          at,
+          actor.notes ?? null,
+          actor.data_label ?? "real"
+        );
+        for (const cap of actor.capabilities ?? []) {
+          const capability = typeof cap === "string" ? cap : cap.capability;
+          const label = typeof cap === "string" ? null : (cap.label ?? null);
+          const sourceRef = typeof cap === "string" ? (actor.source_ref ?? null) : (cap.source_ref ?? actor.source_ref ?? null);
+          insActorCap.run(actor.actor_ref, capability, label, sourceRef);
+        }
+        for (const action of actor.forbidden_actions ?? []) {
+          insForbidden.run(actor.actor_ref, action);
+        }
+      }
+      this.appendEvent({
+        actor_ref: "actor_overlay_import",
+        actor_kind: "system",
+        kind: "actor_overlay_import",
+        used_refs: ["role_actor"],
+        data_label: "meta",
+        note: `actors=${actors.length}`,
+      });
+      this.db.exec("COMMIT");
+      return { ok: true, actors: actors.length };
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      return { error: String(error.message || error) };
+    }
+  }
+
+  listRoleActors({ actor_type = null, active_only = false } = {}) {
+    const cond = [];
+    const args = [];
+    if (actor_type) { cond.push("actor_type=?"); args.push(actor_type); }
+    if (active_only) cond.push("status='active'");
+    const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
+    const actors = this.db.prepare(`SELECT * FROM role_actor ${where} ORDER BY actor_type, actor_ref`).all(...args);
+    const caps = this.db.prepare("SELECT * FROM role_actor_capability ORDER BY actor_ref, capability").all();
+    const forbidden = this.db.prepare("SELECT * FROM role_actor_forbidden_action ORDER BY actor_ref, action").all();
+    const capsByActor = new Map();
+    const forbiddenByActor = new Map();
+    for (const cap of caps) {
+      if (!capsByActor.has(cap.actor_ref)) capsByActor.set(cap.actor_ref, []);
+      capsByActor.get(cap.actor_ref).push(cap);
+    }
+    for (const row of forbidden) {
+      if (!forbiddenByActor.has(row.actor_ref)) forbiddenByActor.set(row.actor_ref, []);
+      forbiddenByActor.get(row.actor_ref).push(row.action);
+    }
+    return actors.map((actor) => ({
+      ...actor,
+      approval_required: !!actor.approval_required,
+      capabilities: capsByActor.get(actor.actor_ref) ?? [],
+      forbidden_actions: forbiddenByActor.get(actor.actor_ref) ?? [],
+    }));
   }
 
   upsertItem(i) {

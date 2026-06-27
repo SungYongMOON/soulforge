@@ -2,11 +2,17 @@
 
 ## 2026-06-27
 
+### Revision `working` - dev-erp actor overlay import projection
+
+- Added a dry-run-by-default actor overlay import CLI for dev-erp, wired through `npm run dev-erp:import-actor-overlay`, so teams, future people, and automation bots can be projected as task-routing actors.
+- Added `role_actor`, `role_actor_capability`, and `role_actor_forbidden_action` projection tables plus store listing helpers; bot actors stay approval-bound and outbound-send forbidden actions are validated.
+- Added `ACTOR-OVERLAY` node:test coverage for dry-run/apply, role-overlay independence, bot approval guardrails, unknown handoff/team rejection, duplicate capability rejection, and raw/secret/source-ref boundaries, including Windows backslash source refs.
+
 ### Revision `working` - dev-erp role overlay import projection
 
 - Added a dry-run-by-default role overlay import CLI for dev-erp, wired through `npm run dev-erp:import-role-overlay`, to load team/project role metadata from `_workspaces/knowledge/common/**` pointers into ERP projection tables.
 - Added `role_org_unit`, `role_org_unit_capability`, and `role_project_assignment` projection tables plus store listing helpers; source truth remains outside the public repo and raw/secret-like payload keys are rejected at import-plan time.
-- Added `ROLE-OVERLAY` node:test coverage for dry-run/apply, team-only project assignments, backup refs, unknown org rejection, raw payload key rejection, and safe source-ref boundaries.
+- Added `ROLE-OVERLAY` node:test coverage for dry-run/apply, team-only project assignments, backup refs, unknown org rejection, raw payload key rejection, and safe source-ref boundaries, including Windows backslash source refs.
 
 ### Revision `working` - voice capture Windows validation compatibility
 
