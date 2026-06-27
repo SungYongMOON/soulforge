@@ -1,5 +1,32 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+import { homedir } from "node:os";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+
+// 근본 원인 self-heal: codex-cli(현재 버전)는 service_tier 가 fast/flex 만 허용한다. 호스트 전역 ~/.codex/config.toml 에
+// priority 등 미지원 값이 있으면 codex 가 config 를 '먼저' 파싱하다 죽어, ERP 의 -c service_tier override 도 닿지 못한다
+// (그래서 DEV_ERP_CODEX_SERVICE_TIER override 만으로는 안 막혔고 매번 재발). codex 실행 직전에 그 줄만 주석 중립화(idempotent).
+export function sanitizeCodexConfigServiceTier(configPath) {
+  const path = configPath || join(homedir(), ".codex", "config.toml");
+  try {
+    if (!existsSync(path)) return { ok: true, changed: 0 };
+    const src = readFileSync(path, "utf8");
+    const re = /^(\s*)(service_tier|default-service-tier)\s*=\s*"?([^"\s#]+)/;
+    let changed = 0;
+    const out = src.split(/\r?\n/).map((ln) => {
+      const m = re.exec(ln);
+      if (!m) return ln;                                   // 무관 줄·이미 주석(#)인 줄은 그대로
+      if (m[3] === "fast" || m[3] === "flex") return ln;   // 유효값 유지
+      changed++;
+      return `# ${ln}  # auto: codex-cli 미지원 tier(fast|flex만) — dev-erp 중립화`;
+    });
+    if (changed) writeFileSync(path, out.join("\n"), "utf8");
+    return { ok: true, changed, path };
+  } catch (e) {
+    return { ok: false, error: String((e && e.message) || e) };
+  }
+}
 
 export const CODEX_TASK_BRIDGE_VERSION = Object.freeze({
   release: "v0.2.1",
@@ -160,6 +187,7 @@ function runMockTaskTurn({ threadId, threadTitle, item, userMessage, initial }) 
 function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, sandboxMode = null }) {
   const sbMode = resolveSandboxMode(sandboxMode); // 대화별 토글 우선, 없으면 서버 기본
   return new Promise((resolve, reject) => {
+    sanitizeCodexConfigServiceTier(); // 실행 직전 호스트 config 의 미지원 tier(priority 등) 자동 중립화 → "unknown variant" 파싱오류 구조적 방지
     const spec = codexAppServerSpawnSpec();
     const child = spawn(spec.command, spec.args, {
       cwd,

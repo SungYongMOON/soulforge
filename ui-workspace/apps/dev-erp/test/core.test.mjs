@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { openStore, deriveStartYear } from "../src/store.mjs";
+import { sanitizeCodexConfigServiceTier } from "../src/codex_bridge.mjs";
 import { importNewTaskLedgers, writeTaskToLedger, readTaskLedgerRows, importNewInputLedgers, writeInputToLedger, readInputLedgerRows } from "../src/autosync.mjs";
 import { pendingForProject, scanPending } from "../tools/mail_to_task_pending.mjs";
 import { safeAccountEnvName, mailboxEnvRelPath, upsertEnv, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv, parseMailTestResult } from "../src/mailbox_env.mjs";
@@ -5278,6 +5279,21 @@ test("mail: 대화 단위 분류 — single_item 은 대표 1건만 할일 + 나
   assert.equal(items[0].origin_mail_id, "c1", "대표=첫 mail_id");
   const stillInbox = store.db.prepare("SELECT COUNT(*) AS c FROM core_mail WHERE id IN ('c1','c2','c3') AND project_id='P00-000_INBOX'").get().c;
   assert.equal(stillInbox, 0, "대화 메일 전부 인입함에서 빠짐");
+});
+
+test("codex: 미지원 service_tier(priority 등) 자동 중립화 + idempotent (CODEX-TIER)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "codexcfg-"));
+  const cfg = join(dir, "config.toml");
+  writeFileSync(cfg, 'model = "gpt-5.5"\nservice_tier = "priority"\nmodel_reasoning_effort = "xhigh"\ndefault-service-tier = "priority"\nservice_tier = "flex"\n', "utf8");
+  const r = sanitizeCodexConfigServiceTier(cfg);
+  assert.ok(r.ok); assert.equal(r.changed, 2, "priority 2줄(service_tier+default-service-tier) 중립화");
+  const after = readFileSync(cfg, "utf8");
+  assert.ok(after.includes('# service_tier = "priority"'), "service_tier=priority 주석화");
+  assert.ok(after.includes('# default-service-tier = "priority"'), "default-service-tier=priority 주석화");
+  assert.ok(after.includes('service_tier = "flex"') && !after.includes('# service_tier = "flex"'), "유효값 flex 유지");
+  assert.ok(after.includes('model = "gpt-5.5"') && after.includes('model_reasoning_effort = "xhigh"'), "다른 설정 보존");
+  assert.equal(sanitizeCodexConfigServiceTier(cfg).changed, 0, "재실행 변경 0(idempotent)");
+  rmSync(dir, { recursive: true, force: true });
 });
 
 test("memory: 맥락 주입은 관련 항목을 우선(recency·salience 높아도) (MEM-005)", () => {

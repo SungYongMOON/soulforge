@@ -7,6 +7,11 @@
 - Fixed `guild_hall/voice_capture` validation on Windows by using platform-aware shell quoting and cross-platform Node fixture commands in tests.
 - Kept the voice capture storage boundary unchanged: raw audio/transcript artifacts remain under `_workspaces`, while `_workmeta` receives only metadata pointers.
 
+### codex service_tier 근본해결 — 실행 직전 config 자동 중립화(self-heal)
+
+- owner: priority/fast/flex tier 오류가 옛날부터 재발. 근본원인=전역 ~/.codex/config.toml 의 service_tier=priority(+default-service-tier). repo 는 이 값을 쓰지 않음(owner/외부 설정) → ERP 만 고쳐선 못 막음. codex 가 config 를 먼저 파싱하다 죽어 -c override(DEV_ERP_CODEX_SERVICE_TIER)도 닿지 못함(그래서 매번 재발).
+- 해결: codex_bridge.sanitizeCodexConfigServiceTier — codex 스폰 직전에 ~/.codex/config.toml 의 service_tier/default-service-tier 중 fast/flex 아닌 값을 자동 주석 중립화(idempotent·다른 설정/유효값 보존). priority 가 다시 들어와도 매 실행 self-heal → unknown variant 오류 구조적 불가. node:test CODEX-TIER. codex_bridge 변경=재시작.
+
 ### 팀원별 할일 — 활성 팀원 전체 표시(할일 0건도)
 
 - owner: 김민재에게 배정했는데 팀원별 할일에 김민재가 없음. 원인: teamload가 명단을 workload(할일 있는 담당)에서만 만들어 할일 0인 멤버 누락. → roster(_scopes 활성 계정) 전체를 머지해 0건 멤버도 표시(roster 밖 담당·미배정도 보존). app.js만(재시작 불요). 별개로 김민재 배정 활성 할일이 실데이터 0건이라 재배정 필요.
