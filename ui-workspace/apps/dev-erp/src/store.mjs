@@ -466,6 +466,37 @@ CREATE TABLE IF NOT EXISTS person_skill (
   PRIMARY KEY (person_id, capability_label)
 );
 -- P-11 계산기: 공식은 화이트리스트 식(safeEval), example 회귀검증 통과해야 active.
+CREATE TABLE IF NOT EXISTS role_org_unit (
+  org_unit_ref TEXT PRIMARY KEY,
+  display_name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  source_ref TEXT,
+  updated_at TEXT,
+  notes TEXT,
+  data_label TEXT NOT NULL DEFAULT 'real'
+);
+CREATE TABLE IF NOT EXISTS role_org_unit_capability (
+  org_unit_ref TEXT NOT NULL REFERENCES role_org_unit(org_unit_ref),
+  capability TEXT NOT NULL,
+  label TEXT,
+  source_ref TEXT,
+  PRIMARY KEY (org_unit_ref, capability)
+);
+CREATE TABLE IF NOT EXISTS role_project_assignment (
+  project_code TEXT NOT NULL,
+  role_area TEXT NOT NULL,
+  owning_org_unit_ref TEXT,
+  primary_person_ref TEXT,
+  backup_person_refs_json TEXT NOT NULL DEFAULT '[]',
+  confidence TEXT NOT NULL DEFAULT 'team_only',
+  status TEXT NOT NULL DEFAULT 'active',
+  source_ref TEXT,
+  updated_at TEXT,
+  notes TEXT,
+  data_label TEXT NOT NULL DEFAULT 'real',
+  PRIMARY KEY (project_code, role_area)
+);
+CREATE INDEX IF NOT EXISTS idx_role_project_assignment_org ON role_project_assignment(owning_org_unit_ref, status);
 CREATE TABLE IF NOT EXISTS core_calculator (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -1033,6 +1064,98 @@ export class Store {
            capability_label=COALESCE(excluded.capability_label, core_person.capability_label)`
       )
       .run(p.id, p.name, p.role ?? null, p.unit_ref ?? null, p.capability_label ?? null, p.data_label ?? "synthetic");
+  }
+
+  replaceRoleOverlayProjection({ org_units = [], project_assignments = [], generated_at = null } = {}) {
+    const at = generated_at || new Date().toISOString();
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db.exec("DELETE FROM role_project_assignment");
+      this.db.exec("DELETE FROM role_org_unit_capability");
+      this.db.exec("DELETE FROM role_org_unit");
+      const insOrg = this.db.prepare(
+        `INSERT INTO role_org_unit(org_unit_ref,display_name,status,source_ref,updated_at,notes,data_label)
+         VALUES(?,?,?,?,?,?,?)`
+      );
+      const insCap = this.db.prepare(
+        `INSERT INTO role_org_unit_capability(org_unit_ref,capability,label,source_ref)
+         VALUES(?,?,?,?)`
+      );
+      const insProject = this.db.prepare(
+        `INSERT INTO role_project_assignment(project_code,role_area,owning_org_unit_ref,primary_person_ref,
+          backup_person_refs_json,confidence,status,source_ref,updated_at,notes,data_label)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+      );
+      for (const org of org_units) {
+        insOrg.run(
+          org.org_unit_ref,
+          org.display_name,
+          org.status ?? "active",
+          org.source_ref ?? null,
+          at,
+          org.notes ?? null,
+          org.data_label ?? "real"
+        );
+        for (const cap of org.capabilities ?? []) {
+          const capability = typeof cap === "string" ? cap : cap.capability;
+          const label = typeof cap === "string" ? null : (cap.label ?? null);
+          const sourceRef = typeof cap === "string" ? (org.source_ref ?? null) : (cap.source_ref ?? org.source_ref ?? null);
+          insCap.run(org.org_unit_ref, capability, label, sourceRef);
+        }
+      }
+      for (const row of project_assignments) {
+        insProject.run(
+          row.project_code,
+          row.role_area,
+          row.owning_org_unit_ref ?? null,
+          row.primary_person_ref ?? null,
+          JSON.stringify(row.backup_person_refs ?? []),
+          row.confidence ?? "team_only",
+          row.status ?? "active",
+          row.source_ref ?? null,
+          at,
+          row.notes ?? null,
+          row.data_label ?? "real"
+        );
+      }
+      this.appendEvent({
+        actor_ref: "role_overlay_import",
+        actor_kind: "system",
+        kind: "role_overlay_import",
+        used_refs: ["role_org_unit", "role_project_assignment"],
+        data_label: "meta",
+        note: `org_units=${org_units.length}; project_assignments=${project_assignments.length}`,
+      });
+      this.db.exec("COMMIT");
+      return { ok: true, org_units: org_units.length, project_assignments: project_assignments.length };
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      return { error: String(error.message || error) };
+    }
+  }
+
+  listRoleOrgUnits() {
+    const orgs = this.db.prepare("SELECT * FROM role_org_unit ORDER BY org_unit_ref").all();
+    const caps = this.db.prepare("SELECT * FROM role_org_unit_capability ORDER BY org_unit_ref, capability").all();
+    const byOrg = new Map();
+    for (const cap of caps) {
+      if (!byOrg.has(cap.org_unit_ref)) byOrg.set(cap.org_unit_ref, []);
+      byOrg.get(cap.org_unit_ref).push(cap);
+    }
+    return orgs.map((org) => ({ ...org, capabilities: byOrg.get(org.org_unit_ref) ?? [] }));
+  }
+
+  listRoleProjectAssignments({ project_code = null, role_area = null, active_only = false } = {}) {
+    const cond = [];
+    const args = [];
+    if (project_code) { cond.push("project_code=?"); args.push(project_code); }
+    if (role_area) { cond.push("role_area=?"); args.push(role_area); }
+    if (active_only) cond.push("status='active'");
+    const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
+    return this.db
+      .prepare(`SELECT * FROM role_project_assignment ${where} ORDER BY project_code, role_area`)
+      .all(...args)
+      .map((row) => ({ ...row, backup_person_refs: JSON.parse(row.backup_person_refs_json || "[]") }));
   }
 
   upsertItem(i) {

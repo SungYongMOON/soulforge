@@ -2,6 +2,12 @@
 
 ## 2026-06-27
 
+### Revision `working` - dev-erp role overlay import projection
+
+- Added a dry-run-by-default role overlay import CLI for dev-erp, wired through `npm run dev-erp:import-role-overlay`, to load team/project role metadata from `_workspaces/knowledge/common/**` pointers into ERP projection tables.
+- Added `role_org_unit`, `role_org_unit_capability`, and `role_project_assignment` projection tables plus store listing helpers; source truth remains outside the public repo and raw/secret-like payload keys are rejected at import-plan time.
+- Added `ROLE-OVERLAY` node:test coverage for dry-run/apply, team-only project assignments, backup refs, unknown org rejection, raw payload key rejection, and safe source-ref boundaries.
+
 ### Revision `working` - voice capture Windows validation compatibility
 
 - Fixed `guild_hall/voice_capture` validation on Windows by using platform-aware shell quoting and cross-platform Node fixture commands in tests.

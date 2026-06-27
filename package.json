@@ -82,6 +82,7 @@
     "guild-hall:gateway:fetch:healthcheck": "python3 guild_hall/gateway/mail_fetch/healthcheck.py",
     "dev-erp:export-team-mailboxes": "node ui-workspace/apps/dev-erp/tools/export_team_mailboxes.mjs",
     "dev-erp:import-team-roster": "node ui-workspace/apps/dev-erp/tools/import_team_roster.mjs",
+    "dev-erp:import-role-overlay": "node ui-workspace/apps/dev-erp/tools/import_role_overlay.mjs",
     "dev-erp:team-preflight": "node ui-workspace/apps/dev-erp/tools/team_preflight.mjs",
     "dev-erp:audit-runtime": "node ui-workspace/apps/dev-erp/tools/runtime_release_audit.mjs",
     "dev-erp:correct-runtime": "node ui-workspace/apps/dev-erp/tools/runtime_corrections.mjs",
