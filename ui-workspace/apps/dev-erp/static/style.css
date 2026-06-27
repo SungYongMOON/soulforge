@@ -295,8 +295,8 @@ tr.tl-title-row:hover .tl-title { color: var(--accent); text-decoration: underli
 .badge.gold { background: #c79a00; color: #1a1a1a; }
 /* Gmail식 대화 묶음 — 헤더 클릭으로 자식 메일 행 접기/펼치기(기본 접힘). */
 tr.thread-head { cursor: pointer; }
-tr.thread-head td { background: rgba(127,127,127,.06); }
-tr.thread-head:hover td { background: rgba(127,127,127,.13); }
+tr.thread-head td { background: rgba(80,130,210,.17); border-top: 2px solid rgba(80,130,210,.32); font-weight: 600; } /* 대화 헤더(위)=진한색 */
+tr.thread-head:hover td { background: rgba(80,130,210,.25); }
 .thread-toggle { color: var(--muted); font-size: .8em; margin-right: 2px; }
 /* 다중수신 합침 배지 — 같은 메일이 N명 팀원에게 갔음(중복은 1건으로). */
 .mail-recip { display: inline-block; margin-left: 4px; font-size: .72em; padding: 0 5px; border-radius: 8px; background: rgba(90,140,220,.18); color: var(--muted); white-space: nowrap; }
@@ -304,6 +304,9 @@ tr.thread-head:hover td { background: rgba(127,127,127,.13); }
 .mail-conv { display: inline-block; margin-left: 4px; font-size: .72em; padding: 0 5px; border-radius: 8px; background: rgba(120,180,120,.20); color: var(--muted); white-space: nowrap; }
 tr.mail-row.thread-body { display: none; }
 tr.mail-row.thread-body.open { display: table-row; }
+tr.mail-row.thread-body.open > td { background: rgba(80,130,210,.05); } /* 펼친 자식(밑)=연한색 */
+tr.mail-row.thread-body.open > td:first-child { border-left: 3px solid rgba(80,130,210,.32); } /* 들여쓰기=종속 표시 */
+tr.mail-row.thread-body.open.sel > td, tr.mail-row.thread-body.open:hover > td { background: var(--chip); } /* 선택/hover 는 우선 */
 /* 내 메모리 — 누적 항목 목록(보기/삭제/추가). 담당자별로 AI가 무엇을 기억하는지 투명하게. */
 .mem-items { max-height: 180px; overflow-y: auto; margin: 4px 0 8px; border: 1px solid rgba(127,127,127,.2); border-radius: 6px; padding: 4px; }
 .mem-item { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-bottom: 1px solid rgba(127,127,127,.1); }
