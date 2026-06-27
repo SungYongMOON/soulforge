@@ -2,6 +2,13 @@
 
 ## 2026-06-27
 
+### Revision `working` - dev-erp haengbogwan metadata classifier
+
+- Added a deterministic metadata-only classifier to `haengbogwan_candidate_judge.mjs` so source-event subjects can produce conservative ledger work types instead of flooding every candidate as `review`.
+- Reference/FYI/share-only subjects are skipped before ledger candidate output unless an action signal or due hint is present; generated candidates remain `needs_review` and do not inspect raw mail bodies, attachments, or payloads.
+- Added metadata-only reference receipts under `reports/haengbogwan_mail_receipts/mail_receipts.csv` so `--apply` can mark reference-only mail handled without creating noisy tasks or looping in pending scans.
+- Added synthetic node:test coverage for subject classification, reference-only skips, action-bearing FYI subjects, durable reference receipts, and schedule/answer/purchase candidate generation.
+
 ### Revision `working` - dev-erp haengbogwan role/actor DB projection enrichment
 
 - Added optional `--db <dev-erp.db>` enrichment to haengbogwan context, candidate, and apply tools so role/actor routing metadata can be read from existing dev-ERP projection tables without loading overlay source documents.

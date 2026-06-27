@@ -13,6 +13,7 @@ import {
   TASK_LEDGER_RELATIVE_PATH,
 } from "../tools/haengbogwan_context_packet.mjs";
 import { ledgerExitCode } from "../tools/haengbogwan_apply.mjs";
+import { HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH } from "../tools/mail_to_task_pending.mjs";
 
 const TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_apply.mjs");
 const RAW_SENTINEL = "RAW_BODY_SENTINEL_MUST_NOT_APPEAR";
@@ -199,6 +200,62 @@ test("HAENGBOGWAN-APPLY: dry-run reports candidates and leaves task ledger untou
     const taskText = readTaskLedger(tmp.root, project);
     assert.equal(taskText.includes("mailtask:"), false);
     assert.equal(taskText.includes(RAW_SENTINEL), false);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-APPLY: reference-only apply writes receipt and unblocks next pending mail", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P26-014";
+    const projectRoot = join(tmp.root, project);
+    writeCsv(
+      join(projectRoot, MAIL_LEDGER_RELATIVE_PATH),
+      MAIL_HEADERS,
+      [
+        {
+          [MAIL_HEADERS[0]]: "M001",
+          [MAIL_HEADERS[1]]: "FYI test report",
+          [MAIL_HEADERS[2]]: "sender-a@example.test",
+          [MAIL_HEADERS[3]]: "2026-06-27T11:00:00+09:00",
+          [MAIL_HEADERS[4]]: "team@example.test",
+          [MAIL_HEADERS[5]]: "SRC-1",
+          [MAIL_HEADERS[6]]: "",
+          [MAIL_HEADERS[7]]: "",
+        },
+        {
+          [MAIL_HEADERS[0]]: "M002",
+          [MAIL_HEADERS[1]]: "reply response requested",
+          [MAIL_HEADERS[2]]: "sender-b@example.test",
+          [MAIL_HEADERS[3]]: "2026-06-27T10:00:00+09:00",
+          [MAIL_HEADERS[4]]: "team@example.test",
+          [MAIL_HEADERS[5]]: "SRC-2",
+          [MAIL_HEADERS[6]]: "",
+          [MAIL_HEADERS[7]]: "",
+        },
+      ]
+    );
+    writeCsv(join(projectRoot, TASK_LEDGER_RELATIVE_PATH), TASK_HEADERS, []);
+
+    const first = runApply(tmp.root, project, ["--limit", "1", "--apply"]);
+    assert.equal(first.status, 0, first.stderr);
+    const firstReport = JSON.parse(first.stdout);
+    assert.equal(firstReport.candidate_count, 0);
+    assert.equal(firstReport.reference_only_skip_count, 1);
+    assert.equal(firstReport.reference_receipt_written, 1);
+    assert.equal(firstReport.ledger_args_summary.invoked, false);
+
+    const receiptText = readFileSync(join(projectRoot, HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH), "utf8");
+    assert.equal(receiptText.includes("mailreceipt:M001:reference_only"), true);
+    assert.equal(receiptText.includes("metadata_only"), true);
+
+    const second = runApply(tmp.root, project, ["--limit", "1"]);
+    assert.equal(second.status, 0, second.stderr);
+    const secondReport = JSON.parse(second.stdout);
+    assert.deepEqual(secondReport.candidate_keys, ["M002"]);
+    assert.equal(secondReport.candidate_count, 1);
+    assert.equal(secondReport.reference_only_skip_count, 0);
   } finally {
     tmp.cleanup();
   }

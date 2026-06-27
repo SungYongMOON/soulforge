@@ -18,6 +18,7 @@ const asJson = has("json");
 const limit = Number(arg("limit", "0")) || 0;
 
 const CODE_RE = /^P\d{2}-\d{3}/;
+export const HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH = join("reports", "haengbogwan_mail_receipts", "mail_receipts.csv");
 const MAIL_REL = join("reports", "메일_이력", "메일_이력.csv");
 const TASK_REL = join("reports", "할일_장부", "할일_장부.csv");
 const MAILTASK_RE = /^mailtask:(.+?)(?::\d+)?$/; // 할일키 → 원본 메일 이력키
@@ -46,6 +47,27 @@ function readCsvObjects(filePath) {
 }
 const firstOf = (o, names) => { for (const n of names) { const v = o[n]; if (v != null && String(v).trim() !== "") return String(v).trim(); } return ""; };
 
+export function haengbogwanMailReceiptPathForTaskCsv(taskCsvPath) {
+  return join(dirname(dirname(taskCsvPath)), "haengbogwan_mail_receipts", "mail_receipts.csv");
+}
+
+export function readHandledReceiptKeys(receiptCsvPath) {
+  const receipt = readCsvObjects(receiptCsvPath);
+  const out = new Set();
+  for (const row of receipt.rows) {
+    const disposition = firstOf(row, ["disposition", "status"]).toLowerCase();
+    if (!["reference_only", "no_action"].includes(disposition)) continue;
+    const bodyAccess = firstOf(row, ["body_access"]).toLowerCase();
+    if (bodyAccess && bodyAccess !== "metadata_only") continue;
+    const directKey = firstOf(row, ["history_key"]);
+    const sourceMailRef = firstOf(row, ["source_mail_ref"]);
+    const refMatch = /^mailcsv:(.+)$/.exec(sourceMailRef);
+    const historyKey = directKey || (refMatch ? refMatch[1] : "");
+    if (historyKey) out.add(historyKey);
+  }
+  return out;
+}
+
 // 한 프로젝트의 미변환 메일 목록(결정적). converted = 할일_장부의 mailtask:<key> 집합.
 export function pendingForProject(mailCsvPath, taskCsvPath) {
   const mail = readCsvObjects(mailCsvPath);
@@ -59,6 +81,7 @@ export function pendingForProject(mailCsvPath, taskCsvPath) {
     const rm = /^mailcsv:(.+)$/.exec(ref);
     if (rm) converted.add(rm[1]);
   }
+  for (const key of readHandledReceiptKeys(haengbogwanMailReceiptPathForTaskCsv(taskCsvPath))) converted.add(key);
   const out = [];
   for (const r of mail.rows) {
     const key = r["이력키"] || "";

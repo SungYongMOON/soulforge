@@ -14,7 +14,9 @@ import {
   buildContextPacketForProject,
 } from "../tools/haengbogwan_context_packet.mjs";
 import {
+  buildLedgerCandidatePlan,
   buildLedgerCandidates,
+  classifySourceEventMetadata,
   judgeContextPacket,
   validateMetadataOnlyContextPacket,
 } from "../tools/haengbogwan_candidate_judge.mjs";
@@ -174,6 +176,94 @@ function writeCandidateFixture(root, project = "P26-014") {
   );
 }
 
+function metadataEvent(historyKey, subject, dueHint = "") {
+  return {
+    event_ref: `mailhistory:P26-014:${historyKey}`,
+    idempotency_key: `mailtask:${historyKey}`,
+    project_id: "P26-014",
+    history_key: historyKey,
+    event_type: "mail_history.pending_metadata",
+    body_access: "metadata_only",
+    subject,
+    due_hint: dueHint,
+    source_refs: {
+      mail_history_ref: `mailcsv:${historyKey}`,
+      source_mail_source_id: `SRC-${historyKey}`,
+      source_lineage_ref: `mailhistory:P26-014/reports/mail.csv#${historyKey}`,
+    },
+  };
+}
+
+function metadataOnlyPacket(sourceEvents) {
+  return {
+    project_id: "P26-014",
+    generated_at: "2026-06-27T00:00:00.000Z",
+    source_events: sourceEvents,
+    boundary: {
+      metadata_only: true,
+      raw_body_loaded: false,
+      attachments_loaded: false,
+      workspace_payload_loaded: false,
+      secret_loaded: false,
+    },
+    not_loaded: {
+      roles: { status: "not_loaded" },
+      actors: { status: "not_loaded" },
+      memory: { status: "not_loaded" },
+    },
+  };
+}
+
+test("HAENGBOGWAN-CANDIDATE: metadata classifier uses subject-only deterministic rules", () => {
+  const cases = [
+    { subject: "FYI reference package 공유", classification: "reference_only", work_type: "reference_only" },
+    { subject: "FYI test report", classification: "reference_only", work_type: "reference_only" },
+    { subject: "FYI material quote share", classification: "reference_only", work_type: "reference_only" },
+    { subject: "FYI reference package 공유", dueHint: "2026-07-05", classification: "ledger_candidate", work_type: "review" },
+    { subject: "FYI 회신 요청", classification: "ledger_candidate", work_type: "answer" },
+    { subject: "시험 일정 확인", classification: "ledger_candidate", work_type: "schedule" },
+    { subject: "시험 성적서 확인", classification: "ledger_candidate", work_type: "verify" },
+    { subject: "회의록 작성 요청", classification: "ledger_candidate", work_type: "author" },
+    { subject: "도면 수정 요청", classification: "ledger_candidate", work_type: "revise" },
+    { subject: "자재 견적 요청", classification: "ledger_candidate", work_type: "purchase" },
+    { subject: "승인 결정 요청", classification: "ledger_candidate", work_type: "decide" },
+    { subject: "meeting schedule approval request", classification: "ledger_candidate", work_type: "review" },
+    { subject: "ordinary review note", classification: "ledger_candidate", work_type: "review" },
+  ];
+  for (const item of cases) {
+    const result = classifySourceEventMetadata(metadataEvent("SYN", item.subject, item.dueHint));
+    assert.equal(result.classification, item.classification, item.subject);
+    assert.equal(result.work_type, item.work_type, item.subject);
+    assert.match(result.review_reason, /metadata_classifier/);
+  }
+});
+
+test("HAENGBOGWAN-CANDIDATE: buildLedgerCandidates classifies metadata and skips reference-only events", () => {
+  const packet = metadataOnlyPacket([
+    metadataEvent("M101", "CDR test schedule date confirmation", "2026-07-05"),
+    metadataEvent("M102", "문의 답변 요청"),
+    metadataEvent("M103", "FYI 공유 자료"),
+    metadataEvent("M104", "자재 견적 요청"),
+    metadataEvent("M105", "FYI 회신 요청"),
+  ]);
+
+  const plan = buildLedgerCandidatePlan(packet);
+  const candidates = plan.candidates;
+  assert.deepEqual(Object.keys(candidates).sort(), ["M101", "M102", "M104", "M105"]);
+  assert.deepEqual(plan.reference_only_skips.map((row) => row.history_key), ["M103"]);
+  assert.equal(plan.reference_only_skips[0].body_access, "metadata_only");
+  assert.equal(plan.reference_only_skips[0].source_mail_ref, "mailcsv:M103");
+  assert.equal(candidates.M101.work_type, "schedule");
+  assert.equal(candidates.M101.review_status, "needs_review");
+  assert.equal(candidates.M101.due, "2026-07-05");
+  assert.match(candidates.M101.review_reason, /work_type=schedule/);
+  assert.match(candidates.M101.route_reason, /metadata classifier selected work_type=schedule/);
+  assert.equal(candidates.M102.work_type, "answer");
+  assert.equal(candidates.M104.work_type, "purchase");
+  assert.equal(candidates.M105.work_type, "answer");
+  assert.equal(Object.hasOwn(candidates, "M103"), false);
+});
+
 test("HAENGBOGWAN-CANDIDATE: judge emits ledger-compatible candidate map keyed by history key", () => {
   const tmp = makeTempWorkmeta();
   try {
@@ -188,22 +278,22 @@ test("HAENGBOGWAN-CANDIDATE: judge emits ledger-compatible candidate map keyed b
     });
     const candidates = buildLedgerCandidates(packet);
     assert.deepEqual(Object.keys(candidates).sort(), ["M001", "M002"]);
-    assert.equal(candidates.M001.work_type, "review");
+    assert.equal(candidates.M001.work_type, "schedule");
     assert.equal(candidates.M001.review_status, "needs_review");
-    assert.equal(candidates.M001.status_hint, "unclassified");
+    assert.equal(candidates.M001.status_hint, "metadata_subject_schedule");
     assert.equal(candidates.M001.due, "2026-07-03");
     assert.equal(candidates.M001.route_candidate, project);
     assert.equal(candidates.M001.required_role, "mail_triage_owner");
     assert.equal(candidates.M001.required_capability, "mail_metadata_review");
     assert.equal(candidates.M001.source_mail_ref, "mailcsv:M001");
     assert.equal(candidates.M001.source_mail_source_id, "SRC-1");
-    assert.equal(candidates.M001.generation_rule_ref, "haengbogwan_candidate_judge_skeleton.v0");
+    assert.equal(candidates.M001.generation_rule_ref, "haengbogwan_candidate_judge_subject_rules.v0");
     assert.equal(candidates.M001.body_access, "metadata_only");
     assert.equal(candidates.M002.due, "");
 
     const judged = judgeContextPacket(packet);
     assert.equal(judged.candidate_count, 2);
-    assert.equal(judged.candidates.M001.work_type, "review");
+    assert.equal(judged.candidates.M001.work_type, "schedule");
 
     const candidatePath = join(tmp.root, "candidates.json");
     writeFileSync(candidatePath, `${JSON.stringify(candidates, null, 2)}\n`);
