@@ -5,6 +5,9 @@ import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
+import { openStore } from "../src/store.mjs";
+import { applyActorOverlayImport } from "../tools/import_actor_overlay.mjs";
+import { applyRoleOverlayImport } from "../tools/import_role_overlay.mjs";
 import {
   MAIL_LEDGER_RELATIVE_PATH,
   TASK_LEDGER_RELATIVE_PATH,
@@ -39,6 +42,75 @@ function makeTempWorkmeta() {
       if (existsSync(root)) rmSync(root, { recursive: true, force: true });
     },
   };
+}
+
+function writeRoutingOverlayDb(dbPath, project = "P26-014") {
+  const store = openStore(dbPath);
+  try {
+    const roleApplied = applyRoleOverlayImport(store, {
+      teamOverlay: {
+        schema_version: "soulforge.company.team_role_overlay.v1",
+        source_refs: ["_workspaces/knowledge/common/test/source_card.json"],
+        org_units: [
+          {
+            org_unit_ref: "mail_team",
+            display_name: "Mail Routing Team",
+            capabilities: [
+              { capability: "mail_metadata_review", label: "Mail metadata review" },
+              { capability: "project_management", label: "Project management" }
+            ],
+            status: "active"
+          }
+        ]
+      },
+      projectOverlay: {
+        schema_version: "soulforge.company.project_role_overlay.v1",
+        source_refs: ["_workspaces/knowledge/common/test/project_index.json"],
+        assignments: [
+          {
+            project_code: project,
+            role_area: "mail_triage",
+            owning_org_unit_ref: "mail_team",
+            confidence: "team_only",
+            status: "active"
+          }
+        ]
+      }
+    });
+    assert.equal(roleApplied.applied, true);
+    const actorApplied = applyActorOverlayImport(store, {
+      actorOverlay: {
+        schema_version: "soulforge.company.actor_overlay.v1",
+        source_refs: ["_workspaces/knowledge/common/test/actor_source.json"],
+        actors: [
+          {
+            actor_ref: "mail_team",
+            actor_type: "team",
+            display_name: "Mail Routing Team",
+            team_ref: "mail_team",
+            capabilities: [{ capability: "mail_metadata_review", label: "Mail metadata review" }],
+            authority: "responsible_owner",
+            approval_required: false,
+            status: "active"
+          },
+          {
+            actor_ref: "bot_task_classifier",
+            actor_type: "bot",
+            display_name: "Task Classifier Bot",
+            capabilities: [{ capability: "classify_mail_task", label: "Classify mail into tasks" }],
+            authority: "propose_only",
+            approval_required: true,
+            handoff_to_ref: "mail_team",
+            forbidden_actions: ["external_side_effect_without_owner_approval"],
+            status: "active"
+          }
+        ]
+      }
+    });
+    assert.equal(actorApplied.applied, true);
+  } finally {
+    store.db.close();
+  }
 }
 
 function taskLedgerPath(root, project) {
@@ -199,6 +271,31 @@ test("HAENGBOGWAN-APPLY: no candidates skip ledger subprocess", () => {
     assert.equal(report.ledger_stdout, "");
     assert.equal(report.ledger_stderr, "");
     assert.equal(report.ledger_args_summary.invoked, false);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-APPLY: db enrichment reports counts and is not forwarded to ledger writer", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P26-014";
+    writeApplyFixture(tmp.root, project);
+    const dbPath = join(tmp.root, "dev-erp.db");
+    writeRoutingOverlayDb(dbPath, project);
+
+    const result = runApply(tmp.root, project, ["--db", dbPath, "--stage", "CDR"]);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.body_access, "metadata_only");
+    assert.equal(report.context_overlay_counts.roles_status, "loaded_from_db_projection");
+    assert.equal(report.context_overlay_counts.actors_status, "loaded_from_db_projection");
+    assert.equal(report.context_overlay_counts.role_overlay_count, 1);
+    assert.equal(report.context_overlay_counts.actor_overlay_count, 2);
+    assert.equal(JSON.stringify(report.ledger_args_summary).includes("--db"), false);
+    assert.equal(JSON.stringify(report.ledger_args_summary).includes(dbPath), false);
+    assert.equal(JSON.stringify(report).includes("Mail Routing Team"), false);
+    assert.equal(JSON.stringify(report).includes("bot_task_classifier"), false);
   } finally {
     tmp.cleanup();
   }

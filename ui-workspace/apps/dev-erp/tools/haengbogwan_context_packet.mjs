@@ -3,13 +3,16 @@
 // Reads project mail/task ledgers only; raw mail, attachments, workspace
 // payloads, secrets, and memory/role/actor sources are intentionally not loaded.
 import { existsSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { Store } from "../src/store.mjs";
 import { buildSnapshotForProject } from "./haengbogwan_snapshot.mjs";
 import { pendingForProject } from "./mail_to_task_pending.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const APP = resolve(HERE, "..");
 const REPO = resolve(HERE, "..", "..", "..", "..");
 const DEFAULT_WORKMETA_ROOT = join(REPO, "_workmeta");
 const SAFE_PROJECT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -149,13 +152,107 @@ function metadataBoundary(projectId, snapshot) {
   };
 }
 
-function notLoadedNotes() {
+function resolveDbPath(raw) {
+  const value = String(raw ?? "").trim();
+  if (!value) return "";
+  const candidates = [resolve(process.cwd(), value), resolve(APP, value)];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error("db_not_found");
+}
+
+function compactCapabilities(capabilities, limit) {
+  return (Array.isArray(capabilities) ? capabilities : [])
+    .slice(0, limit)
+    .map((cap) => ({
+      capability: String(cap.capability ?? "").trim(),
+      label: String(cap.label ?? "").trim(),
+    }))
+    .filter((cap) => cap.capability);
+}
+
+function loadDbProjectionOverlay({ dbPath = "", projectId, limit = DEFAULT_LIMIT } = {}) {
+  const resolvedDbPath = resolveDbPath(dbPath);
+  if (!resolvedDbPath) {
+    return {
+      role_overlay: [],
+      actor_overlay: [],
+      roles: { loaded: false },
+      actors: { loaded: false },
+    };
+  }
+
+  const checkedLimit = validateLimit(limit, "overlay_limit");
+  const db = new DatabaseSync(resolvedDbPath, { readOnly: true });
+  const store = new Store(db);
+  try {
+    const orgUnits = store.listRoleOrgUnits();
+    const capabilitiesByOrg = new Map(orgUnits.map((org) => [
+      org.org_unit_ref,
+      compactCapabilities(org.capabilities, checkedLimit),
+    ]));
+    const projectAssignments = store.listRoleProjectAssignments({
+      project_code: String(projectId ?? "").trim(),
+      active_only: true,
+    });
+    const actors = store.listRoleActors({ active_only: true });
+    const role_overlay = projectAssignments.slice(0, checkedLimit).map((row) => ({
+      project_code: row.project_code,
+      role_area: row.role_area,
+      role_ref: `${row.project_code}:${row.role_area}`,
+      team_ref: row.owning_org_unit_ref ?? "",
+      owning_org_unit_ref: row.owning_org_unit_ref ?? "",
+      primary_person_ref: row.primary_person_ref ?? "",
+      backup_person_refs: Array.isArray(row.backup_person_refs) ? row.backup_person_refs : [],
+      confidence: row.confidence ?? "",
+      status: row.status ?? "",
+      capabilities: capabilitiesByOrg.get(row.owning_org_unit_ref) ?? [],
+    }));
+    const actor_overlay = actors.slice(0, checkedLimit).map((actor) => ({
+      actor_ref: actor.actor_ref,
+      kind: actor.actor_type,
+      actor_type: actor.actor_type,
+      name: actor.display_name,
+      team_ref: actor.team_ref ?? "",
+      authority: actor.authority ?? "",
+      approval_required: actor.approval_required === true,
+      handoff_to_ref: actor.handoff_to_ref ?? "",
+      status: actor.status ?? "",
+      capabilities: compactCapabilities(actor.capabilities, checkedLimit),
+      forbidden_action_refs: (Array.isArray(actor.forbidden_actions) ? actor.forbidden_actions : [])
+        .slice(0, checkedLimit)
+        .map((action) => String(action ?? "").trim())
+        .filter(Boolean),
+    }));
+    return {
+      role_overlay,
+      actor_overlay,
+      roles: { loaded: true, count: role_overlay.length, total: projectAssignments.length },
+      actors: { loaded: true, count: actor_overlay.length, total: actors.length },
+    };
+  } finally {
+    db.close();
+  }
+}
+
+function notLoadedNotes({ roles = { loaded: false }, actors = { loaded: false } } = {}) {
   return {
-    roles: {
+    roles: roles.loaded ? {
+      status: "loaded_from_db_projection",
+      count: roles.count ?? 0,
+      total_available: roles.total ?? roles.count ?? 0,
+      reason: "role routing overlay was read from dev-ERP metadata projection tables",
+    } : {
       status: "not_loaded",
       reason: "role routing overlay is outside this slice",
     },
-    actors: {
+    actors: actors.loaded ? {
+      status: "loaded_from_db_projection",
+      count: actors.count ?? 0,
+      total_available: actors.total ?? actors.count ?? 0,
+      reason: "actor routing overlay was read from dev-ERP metadata projection tables",
+    } : {
       status: "not_loaded",
       reason: "actor assignment overlay is outside this slice",
     },
@@ -163,6 +260,22 @@ function notLoadedNotes() {
       status: "not_loaded",
       reason: "persistent memory lookup is outside this metadata-only slice",
     },
+  };
+}
+
+export function enrichContextPacketWithDbProjection(contextPacket, {
+  dbPath = "",
+  limit = DEFAULT_LIMIT,
+} = {}) {
+  if (!dbPath) return contextPacket;
+  const projectId = String(contextPacket?.project_id ?? "").trim();
+  if (!projectId) throw new Error("context_project_required_for_db_projection");
+  const overlay = loadDbProjectionOverlay({ dbPath, projectId, limit });
+  return {
+    ...contextPacket,
+    role_overlay: overlay.role_overlay,
+    actor_overlay: overlay.actor_overlay,
+    not_loaded: notLoadedNotes({ roles: overlay.roles, actors: overlay.actors }),
   };
 }
 
@@ -189,6 +302,7 @@ export function buildContextPacketForProject({
   limit = DEFAULT_LIMIT,
   today = todayIso(),
   generatedAt = new Date().toISOString(),
+  dbPath = "",
 } = {}) {
   const checkedToday = validateToday(today);
   const checkedLimit = validateLimit(limit);
@@ -206,7 +320,7 @@ export function buildContextPacketForProject({
     rawSkipLimit: checkedLimit,
   });
 
-  return {
+  const packet = {
     project_id: String(projectId),
     generated_at: generatedAt,
     source_events: sourceEvents,
@@ -216,6 +330,9 @@ export function buildContextPacketForProject({
     boundary: metadataBoundary(projectId, snapshot),
     not_loaded: notLoadedNotes(),
   };
+  return dbPath
+    ? enrichContextPacketWithDbProjection(packet, { dbPath, limit: checkedLimit })
+    : packet;
 }
 
 function parseArgs(argv) {
@@ -224,6 +341,7 @@ function parseArgs(argv) {
     projectId: "",
     limit: DEFAULT_LIMIT,
     today: todayIso(),
+    dbPath: "",
     json: false,
     help: false,
   };
@@ -253,6 +371,11 @@ function parseArgs(argv) {
       if (!value || value.startsWith("--")) throw new Error("--today_requires_value");
       opts.today = value;
       i += 1;
+    } else if (token === "--db") {
+      const value = argv[i + 1];
+      if (!value || value.startsWith("--")) throw new Error("--db_requires_value");
+      opts.dbPath = value;
+      i += 1;
     } else {
       throw new Error(`unknown_arg:${token}`);
     }
@@ -263,9 +386,10 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    "Usage: node tools/haengbogwan_context_packet.mjs --workmeta-root <path> --project <code> [--limit N] [--today YYYY-MM-DD] [--json]",
+    "Usage: node tools/haengbogwan_context_packet.mjs --workmeta-root <path> --project <code> [--limit N] [--today YYYY-MM-DD] [--db <dev-erp.db>] [--json]",
     "",
     "Builds a metadata-only source_event/context packet from mail/task ledgers.",
+    "Optional --db loads role/actor routing metadata from dev-ERP projection tables only.",
   ].join("\n");
 }
 

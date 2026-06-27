@@ -2,6 +2,13 @@
 
 ## 2026-06-27
 
+### Revision `working` - dev-erp haengbogwan role/actor DB projection enrichment
+
+- Added optional `--db <dev-erp.db>` enrichment to haengbogwan context, candidate, and apply tools so role/actor routing metadata can be read from existing dev-ERP projection tables without loading overlay source documents.
+- Context packets now expose bounded `role_overlay` and `actor_overlay` metadata arrays only when a DB is provided; the no-DB path keeps role/actor/memory not-loaded notes.
+- Candidate generation keeps mail review tasks in `needs_review`, leaves final assignee unset, and uses role/actor projection matches only for low-confidence `suggested_assignee_ref` plus supporting actor metadata.
+- The apply wrapper uses `--db` only while building context/candidates and does not forward it to `mail_to_task_ledger.mjs`; reports summarize overlay counts without dumping the actor roster.
+
 ### Revision `working` - dev-erp haengbogwan apply/report wrapper
 
 - Added dry-run-by-default `haengbogwan_apply.mjs`, wired through app and root npm scripts, to build metadata-only context/candidate maps and delegate to `mail_to_task_ledger.mjs` via a temporary candidate file.

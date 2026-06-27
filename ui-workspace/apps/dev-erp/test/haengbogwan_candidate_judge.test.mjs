@@ -5,6 +5,9 @@ import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
+import { openStore } from "../src/store.mjs";
+import { applyActorOverlayImport } from "../tools/import_actor_overlay.mjs";
+import { applyRoleOverlayImport } from "../tools/import_role_overlay.mjs";
 import {
   MAIL_LEDGER_RELATIVE_PATH,
   TASK_LEDGER_RELATIVE_PATH,
@@ -41,6 +44,101 @@ function makeTempWorkmeta() {
       if (existsSync(root)) rmSync(root, { recursive: true, force: true });
     },
   };
+}
+
+function writeRoutingOverlayDb(dbPath, project = "P26-014") {
+  const store = openStore(dbPath);
+  try {
+    const roleApplied = applyRoleOverlayImport(store, {
+      teamOverlay: {
+        schema_version: "soulforge.company.team_role_overlay.v1",
+        source_refs: ["_workspaces/knowledge/common/test/source_card.json"],
+        org_units: [
+          {
+            org_unit_ref: "mail_team",
+            display_name: "Mail Routing Team",
+            capabilities: [
+              { capability: "mail_metadata_review", label: "Mail metadata review" },
+              { capability: "project_management", label: "Project management" }
+            ],
+            status: "active"
+          }
+        ]
+      },
+      projectOverlay: {
+        schema_version: "soulforge.company.project_role_overlay.v1",
+        source_refs: ["_workspaces/knowledge/common/test/project_index.json"],
+        assignments: [
+          {
+            project_code: project,
+            role_area: "mail_triage",
+            owning_org_unit_ref: "mail_team",
+            confidence: "team_only",
+            status: "active"
+          }
+        ]
+      }
+    });
+    assert.equal(roleApplied.applied, true);
+    const actorApplied = applyActorOverlayImport(store, {
+      actorOverlay: {
+        schema_version: "soulforge.company.actor_overlay.v1",
+        source_refs: ["_workspaces/knowledge/common/test/actor_source.json"],
+        actors: [
+          {
+            actor_ref: "mail_team",
+            actor_type: "team",
+            display_name: "Mail Routing Team",
+            team_ref: "mail_team",
+            capabilities: [{ capability: "mail_metadata_review", label: "Mail metadata review" }],
+            authority: "responsible_owner",
+            approval_required: false,
+            status: "active"
+          },
+          {
+            actor_ref: "bot_task_classifier",
+            actor_type: "bot",
+            display_name: "Task Classifier Bot",
+            capabilities: [{ capability: "classify_mail_task", label: "Classify mail into tasks" }],
+            authority: "propose_only",
+            approval_required: true,
+            forbidden_actions: ["external_side_effect_without_owner_approval"],
+            status: "active"
+          }
+        ]
+      }
+    });
+    assert.equal(actorApplied.applied, true);
+  } finally {
+    store.db.close();
+  }
+}
+
+function writeBotOnlyOverlayDb(dbPath) {
+  const store = openStore(dbPath);
+  try {
+    const actorApplied = applyActorOverlayImport(store, {
+      actorOverlay: {
+        schema_version: "soulforge.company.actor_overlay.v1",
+        source_refs: ["_workspaces/knowledge/common/test/actor_source.json"],
+        actors: [
+          {
+            actor_ref: "bot_task_classifier",
+            actor_type: "bot",
+            display_name: "Task Classifier Bot",
+            capabilities: [{ capability: "classify_mail_task", label: "Classify mail into tasks" }],
+            authority: "propose_only",
+            approval_required: true,
+            forbidden_actions: ["external_side_effect_without_owner_approval"],
+            status: "active"
+          }
+        ]
+      }
+    });
+    assert.equal(actorApplied.applied, true);
+  } finally {
+    store.db.close();
+  }
 }
 
 function writeCandidateFixture(root, project = "P26-014") {
@@ -120,6 +218,62 @@ test("HAENGBOGWAN-CANDIDATE: judge emits ledger-compatible candidate map keyed b
     ], { encoding: "utf8" });
     assert.equal(dryRun.status, 0, dryRun.stderr);
     assert.match(dryRun.stdout, /dry-run/);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-CANDIDATE: db overlay suggests assignee metadata without final assignment", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P26-014";
+    writeCandidateFixture(tmp.root, project);
+    const dbPath = join(tmp.root, "dev-erp.db");
+    writeRoutingOverlayDb(dbPath, project);
+    const packet = buildContextPacketForProject({
+      workmetaRoot: tmp.root,
+      projectId: project,
+      limit: 10,
+      today: "2026-06-27",
+      generatedAt: "2026-06-27T00:00:00.000Z",
+      dbPath,
+    });
+
+    const candidates = buildLedgerCandidates(packet);
+    assert.equal(candidates.M001.required_role, "mail_triage_owner");
+    assert.equal(candidates.M001.required_capability, "mail_metadata_review");
+    assert.equal(candidates.M001.review_status, "needs_review");
+    assert.equal(candidates.M001.suggested_assignee_ref, "mail_team");
+    assert.equal(candidates.M001.assignee_confidence, "low");
+    assert.match(candidates.M001.route_reason, /db projection/);
+    assert.deepEqual(candidates.M001.supporting_actor_refs, ["bot_task_classifier"]);
+    assert.equal(Object.hasOwn(candidates.M001, "assignee_ref"), false);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-CANDIDATE: bot-only overlay remains supporting metadata, not assignee suggestion", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P26-014";
+    writeCandidateFixture(tmp.root, project);
+    const dbPath = join(tmp.root, "dev-erp.db");
+    writeBotOnlyOverlayDb(dbPath);
+    const packet = buildContextPacketForProject({
+      workmetaRoot: tmp.root,
+      projectId: project,
+      limit: 10,
+      today: "2026-06-27",
+      generatedAt: "2026-06-27T00:00:00.000Z",
+      dbPath,
+    });
+
+    const candidates = buildLedgerCandidates(packet);
+    assert.equal(candidates.M001.suggested_assignee_ref, "");
+    assert.equal(candidates.M001.assignee_confidence, "");
+    assert.deepEqual(candidates.M001.supporting_actor_refs, ["bot_task_classifier"]);
+    assert.equal(Object.hasOwn(candidates.M001, "assignee_ref"), false);
   } finally {
     tmp.cleanup();
   }

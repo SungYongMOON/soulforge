@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildContextPacketForProject } from "./haengbogwan_context_packet.mjs";
+import { buildContextPacketForProject, enrichContextPacketWithDbProjection } from "./haengbogwan_context_packet.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..", "..");
@@ -85,6 +85,103 @@ function dueForEvent(event) {
   return normalizeDateOnly(event?.due_hint);
 }
 
+function normalizeToken(value) {
+  return String(value ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+function explicitlySupportsMailRouting(value) {
+  const token = normalizeToken(value);
+  if (!token) return false;
+  const parts = token.split("_").filter(Boolean);
+  if (token.includes("mail_triage") || token.includes("mail_metadata_review") || token.includes("mail_review")) return true;
+  if (token.includes("classify_mail") || token.includes("extract_action")) return true;
+  if (token.includes("project_management") || token.includes("systems_engineering")) return true;
+  if (token === "se" || parts.includes("review") || parts.includes("triage")) return true;
+  return false;
+}
+
+function roleSupportsMailRouting(role) {
+  if (explicitlySupportsMailRouting(role?.role_area) || explicitlySupportsMailRouting(role?.role_ref)) return true;
+  return (Array.isArray(role?.capabilities) ? role.capabilities : [])
+    .some((cap) => explicitlySupportsMailRouting(cap.capability));
+}
+
+function actorSupportsMailRouting(actor) {
+  return (Array.isArray(actor?.capabilities) ? actor.capabilities : [])
+    .some((cap) => explicitlySupportsMailRouting(cap.capability));
+}
+
+function uniqueRefs(refs) {
+  const out = [];
+  const seen = new Set();
+  for (const ref of refs.map((value) => String(value ?? "").trim()).filter(Boolean)) {
+    if (seen.has(ref)) continue;
+    seen.add(ref);
+    out.push(ref);
+  }
+  return out;
+}
+
+function overlayLoaded(contextPacket) {
+  return contextPacket?.not_loaded?.roles?.status === "loaded_from_db_projection"
+    || contextPacket?.not_loaded?.actors?.status === "loaded_from_db_projection"
+    || Array.isArray(contextPacket?.role_overlay)
+    || Array.isArray(contextPacket?.actor_overlay);
+}
+
+function suggestAssigneeFromOverlay(contextPacket) {
+  const roles = Array.isArray(contextPacket?.role_overlay) ? contextPacket.role_overlay : [];
+  const actors = Array.isArray(contextPacket?.actor_overlay) ? contextPacket.actor_overlay : [];
+  const actorByRef = new Map(actors.map((actor) => [actor.actor_ref, actor]));
+  if (!overlayLoaded(contextPacket)) {
+    return {
+      suggested_assignee_ref: "",
+      assignee_confidence: "",
+      assignee_reason: "no actor overlay loaded in this slice",
+      route_reason: "skeleton judge keeps project route pending human review",
+      supporting_actor_refs: [],
+    };
+  }
+
+  const supportedRoles = roles.filter(roleSupportsMailRouting);
+  const supportedActors = actors.filter(actorSupportsMailRouting);
+  const roleRefs = [];
+  for (const role of supportedRoles) {
+    roleRefs.push(role.primary_person_ref, ...(Array.isArray(role.backup_person_refs) ? role.backup_person_refs : []), role.team_ref, role.owning_org_unit_ref);
+    for (const actor of actors) {
+      if (actor.team_ref && actor.team_ref === (role.team_ref || role.owning_org_unit_ref)) roleRefs.push(actor.actor_ref);
+    }
+  }
+  const candidateRefs = uniqueRefs([...roleRefs, ...supportedActors.map((actor) => actor.actor_ref)]);
+  const suggested = candidateRefs.find((ref) => actorByRef.get(ref)?.kind !== "bot")
+    || "";
+  const supportingActorRefs = uniqueRefs([
+    ...supportedActors.map((actor) => actor.actor_ref),
+    ...candidateRefs,
+  ]).filter((ref) => ref !== suggested).slice(0, 10);
+
+  if (!suggested) {
+    return {
+      suggested_assignee_ref: "",
+      assignee_confidence: "",
+      assignee_reason: "role/actor overlay loaded, but no explicit routing actor matched mail triage/review/se/project_management",
+      route_reason: "skeleton judge keeps project route pending human review; overlay loaded without an explicit routing match",
+      supporting_actor_refs: supportingActorRefs,
+    };
+  }
+
+  const actor = actorByRef.get(suggested);
+  const source = supportedRoles.length ? `project_role:${supportedRoles[0].role_ref || supportedRoles[0].role_area}` : "actor_capability";
+  const kind = actor?.kind || actor?.actor_type || "team";
+  return {
+    suggested_assignee_ref: suggested,
+    assignee_confidence: "low",
+    assignee_reason: `db projection suggestion only; ${kind} ref matched ${source}`,
+    route_reason: "skeleton judge keeps project route pending human review; db projection offered a suggested assignee",
+    supporting_actor_refs: supportingActorRefs,
+  };
+}
+
 export function validateMetadataOnlyContextPacket(contextPacket) {
   if (!contextPacket || typeof contextPacket !== "object") throw new Error("invalid_context_packet");
   const boundary = contextPacket.boundary;
@@ -115,6 +212,7 @@ function candidateForEvent(contextPacket, event, {
   const reviewReason = due
     ? "skeleton_rule:metadata_only_due_hint_needs_review"
     : "skeleton_rule:metadata_only_needs_review";
+  const overlaySuggestion = suggestAssigneeFromOverlay(contextPacket);
   return {
     title: titleForEvent(event, historyKey),
     work_type: "review",
@@ -125,12 +223,13 @@ function candidateForEvent(contextPacket, event, {
     status_hint: "unclassified",
     route_candidate: contextPacket.project_id || event?.project_id || "",
     route_confidence: "review",
-    route_reason: "skeleton judge keeps project route pending human review",
+    route_reason: overlaySuggestion.route_reason,
     required_role: "mail_triage_owner",
     required_capability: "mail_metadata_review",
-    suggested_assignee_ref: "",
-    assignee_confidence: "",
-    assignee_reason: "no actor overlay loaded in this slice",
+    suggested_assignee_ref: overlaySuggestion.suggested_assignee_ref,
+    assignee_confidence: overlaySuggestion.assignee_confidence,
+    assignee_reason: overlaySuggestion.assignee_reason,
+    supporting_actor_refs: overlaySuggestion.supporting_actor_refs,
     source_candidate_ref: `haengbogwan:${historyKey}`,
     source_mail_ref: sourceRefs.mail_history_ref || `mailcsv:${historyKey}`,
     source_mail_source_id: sourceRefs.source_mail_source_id || "",
@@ -180,6 +279,7 @@ function parseArgs(argv) {
     projectId: "",
     limit: DEFAULT_LIMIT,
     today: todayIso(),
+    dbPath: "",
     json: false,
     help: false,
   };
@@ -214,6 +314,11 @@ function parseArgs(argv) {
       if (!value || value.startsWith("--")) throw new Error("--today_requires_value");
       opts.today = value;
       i += 1;
+    } else if (token === "--db") {
+      const value = argv[i + 1];
+      if (!value || value.startsWith("--")) throw new Error("--db_requires_value");
+      opts.dbPath = value;
+      i += 1;
     } else {
       throw new Error(`unknown_arg:${token}`);
     }
@@ -224,8 +329,8 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    "Usage: node tools/haengbogwan_candidate_judge.mjs --context <packet.json> [--json]",
-    "   or: node tools/haengbogwan_candidate_judge.mjs --workmeta-root <path> --project <code> [--limit N] [--today YYYY-MM-DD] [--json]",
+    "Usage: node tools/haengbogwan_candidate_judge.mjs --context <packet.json> [--db <dev-erp.db>] [--json]",
+    "   or: node tools/haengbogwan_candidate_judge.mjs --workmeta-root <path> --project <code> [--limit N] [--today YYYY-MM-DD] [--db <dev-erp.db>] [--json]",
     "",
     "Emits a mail_to_task_ledger-compatible candidate JSON map keyed by mail history key.",
   ].join("\n");
@@ -247,8 +352,12 @@ export function main(argv = process.argv.slice(2), { stdout = process.stdout, st
         projectId: opts.projectId,
         limit: opts.limit,
         today: opts.today,
+        dbPath: opts.dbPath,
       });
-    const candidates = buildLedgerCandidates(packet);
+    const enrichedPacket = opts.context && opts.dbPath
+      ? enrichContextPacketWithDbProjection(packet, { dbPath: opts.dbPath, limit: opts.limit })
+      : packet;
+    const candidates = buildLedgerCandidates(enrichedPacket);
     stdout.write(`${JSON.stringify(candidates, null, 2)}\n`);
     return 0;
   } catch (error) {

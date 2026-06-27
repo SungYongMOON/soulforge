@@ -5,6 +5,9 @@ import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
+import { openStore } from "../src/store.mjs";
+import { applyActorOverlayImport } from "../tools/import_actor_overlay.mjs";
+import { applyRoleOverlayImport } from "../tools/import_role_overlay.mjs";
 import {
   MAIL_LEDGER_RELATIVE_PATH,
   TASK_LEDGER_RELATIVE_PATH,
@@ -36,6 +39,75 @@ function makeTempWorkmeta() {
       if (existsSync(root)) rmSync(root, { recursive: true, force: true });
     },
   };
+}
+
+function writeRoutingOverlayDb(dbPath, project = "P26-014") {
+  const store = openStore(dbPath);
+  try {
+    const roleApplied = applyRoleOverlayImport(store, {
+      teamOverlay: {
+        schema_version: "soulforge.company.team_role_overlay.v1",
+        source_refs: ["_workspaces/knowledge/common/test/source_card.json"],
+        org_units: [
+          {
+            org_unit_ref: "mail_team",
+            display_name: "Mail Routing Team",
+            capabilities: [
+              { capability: "mail_metadata_review", label: "Mail metadata review" },
+              { capability: "project_management", label: "Project management" }
+            ],
+            status: "active"
+          }
+        ]
+      },
+      projectOverlay: {
+        schema_version: "soulforge.company.project_role_overlay.v1",
+        source_refs: ["_workspaces/knowledge/common/test/project_index.json"],
+        assignments: [
+          {
+            project_code: project,
+            role_area: "mail_triage",
+            owning_org_unit_ref: "mail_team",
+            confidence: "team_only",
+            status: "active"
+          }
+        ]
+      }
+    });
+    assert.equal(roleApplied.applied, true);
+    const actorApplied = applyActorOverlayImport(store, {
+      actorOverlay: {
+        schema_version: "soulforge.company.actor_overlay.v1",
+        source_refs: ["_workspaces/knowledge/common/test/actor_source.json"],
+        actors: [
+          {
+            actor_ref: "mail_team",
+            actor_type: "team",
+            display_name: "Mail Routing Team",
+            team_ref: "mail_team",
+            capabilities: [{ capability: "mail_metadata_review", label: "Mail metadata review" }],
+            authority: "responsible_owner",
+            approval_required: false,
+            status: "active"
+          },
+          {
+            actor_ref: "bot_task_classifier",
+            actor_type: "bot",
+            display_name: "Task Classifier Bot",
+            capabilities: [{ capability: "classify_mail_task", label: "Classify mail into tasks" }],
+            authority: "propose_only",
+            approval_required: true,
+            handoff_to_ref: "mail_team",
+            forbidden_actions: ["external_side_effect_without_owner_approval"],
+            status: "active"
+          }
+        ]
+      }
+    });
+    assert.equal(actorApplied.applied, true);
+  } finally {
+    store.db.close();
+  }
 }
 
 function writeContextFixture(root, project = "P26-014") {
@@ -162,6 +234,41 @@ test("HAENGBOGWAN-CONTEXT: packet caps summaries and reports unloaded boundaries
     assert.equal(packet.not_loaded.roles.status, "not_loaded");
     assert.equal(packet.not_loaded.actors.status, "not_loaded");
     assert.equal(packet.not_loaded.memory.status, "not_loaded");
+    assert.equal(Object.hasOwn(packet, "role_overlay"), false);
+    assert.equal(Object.hasOwn(packet, "actor_overlay"), false);
+    assert.equal(JSON.stringify(packet).includes("RAW_BODY_SENTINEL_MUST_NOT_APPEAR"), false);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-CONTEXT: optional db loads bounded role and actor projections", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P26-014";
+    writeContextFixture(tmp.root, project);
+    const dbPath = join(tmp.root, "dev-erp.db");
+    writeRoutingOverlayDb(dbPath, project);
+
+    const packet = buildContextPacketForProject({
+      workmetaRoot: tmp.root,
+      projectId: project,
+      limit: 10,
+      today: "2026-06-27",
+      generatedAt: "2026-06-27T00:00:00.000Z",
+      dbPath,
+    });
+    assert.equal(packet.not_loaded.roles.status, "loaded_from_db_projection");
+    assert.equal(packet.not_loaded.actors.status, "loaded_from_db_projection");
+    assert.equal(packet.not_loaded.memory.status, "not_loaded");
+    assert.equal(packet.role_overlay.length, 1);
+    assert.equal(packet.role_overlay[0].project_code, project);
+    assert.equal(packet.role_overlay[0].role_area, "mail_triage");
+    assert.deepEqual(packet.role_overlay[0].capabilities.map((cap) => cap.capability), ["mail_metadata_review", "project_management"]);
+    assert.equal(packet.actor_overlay.length, 2);
+    const bot = packet.actor_overlay.find((actor) => actor.actor_ref === "bot_task_classifier");
+    assert.equal(bot.kind, "bot");
+    assert.deepEqual(bot.forbidden_action_refs, ["external_side_effect_without_owner_approval"]);
     assert.equal(JSON.stringify(packet).includes("RAW_BODY_SENTINEL_MUST_NOT_APPEAR"), false);
   } finally {
     tmp.cleanup();

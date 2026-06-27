@@ -47,6 +47,7 @@ function parseArgs(argv) {
     projectId: "",
     limit: DEFAULT_LIMIT,
     today: todayIso(),
+    dbPath: "",
     stage: "",
     stagePresent: false,
     autoOpen: false,
@@ -81,6 +82,9 @@ function parseArgs(argv) {
     } else if (token === "--today") {
       opts.today = readValue(argv, i, token);
       i += 1;
+    } else if (token === "--db") {
+      opts.dbPath = readValue(argv, i, token);
+      i += 1;
     } else if (token === "--stage") {
       opts.stage = readValue(argv, i, token);
       opts.stagePresent = true;
@@ -114,6 +118,7 @@ function usage() {
     "  --project <code>",
     "  --limit <n>",
     "  --today <YYYY-MM-DD>",
+    "  --db <dev-erp.db>    Load role/actor projection metadata for candidate suggestions only",
     "  --stage <name>",
     "  --auto-open",
     "  --default-review-days <n>",
@@ -173,6 +178,17 @@ function compactBoundary(boundary) {
   };
 }
 
+function compactOverlayCounts(contextPacket) {
+  const roleOverlay = Array.isArray(contextPacket?.role_overlay) ? contextPacket.role_overlay : [];
+  const actorOverlay = Array.isArray(contextPacket?.actor_overlay) ? contextPacket.actor_overlay : [];
+  return {
+    roles_status: contextPacket?.not_loaded?.roles?.status ?? "not_loaded",
+    actors_status: contextPacket?.not_loaded?.actors?.status ?? "not_loaded",
+    role_overlay_count: roleOverlay.length,
+    actor_overlay_count: actorOverlay.length,
+  };
+}
+
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -218,6 +234,7 @@ export function buildHaengbogwanApplyReport(opts) {
     limit: opts.limit,
     today: opts.today,
     generatedAt,
+    dbPath: opts.dbPath,
   });
   const candidates = buildLedgerCandidates(contextPacket);
   const candidateKeys = Object.keys(candidates).sort((a, b) => a.localeCompare(b));
@@ -227,6 +244,7 @@ export function buildHaengbogwanApplyReport(opts) {
     candidate_count: candidateKeys.length,
     candidate_keys: candidateKeys.slice(0, CANDIDATE_KEY_REPORT_LIMIT),
     context_boundary: compactBoundary(contextPacket.boundary),
+    context_overlay_counts: compactOverlayCounts(contextPacket),
     ledger_exit_code: null,
     ledger_stdout: "",
     ledger_stderr: "",
