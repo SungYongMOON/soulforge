@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-06-27
+
+### Revision `working` - voice capture Windows validation compatibility
+
+- Fixed `guild_hall/voice_capture` validation on Windows by using platform-aware shell quoting and cross-platform Node fixture commands in tests.
+- Kept the voice capture storage boundary unchanged: raw audio/transcript artifacts remain under `_workspaces`, while `_workmeta` receives only metadata pointers.
+
 ### 팀원별 할일 — 활성 팀원 전체 표시(할일 0건도)
 
 - owner: 김민재에게 배정했는데 팀원별 할일에 김민재가 없음. 원인: teamload가 명단을 workload(할일 있는 담당)에서만 만들어 할일 0인 멤버 누락. → roster(_scopes 활성 계정) 전체를 머지해 0건 멤버도 표시(roster 밖 담당·미배정도 보존). app.js만(재시작 불요). 별개로 김민재 배정 활성 할일이 실데이터 0건이라 재배정 필요.

@@ -15,6 +15,7 @@ import {
   renderCommandTemplate,
   renderSourceEventDraft,
   runCaptureSession,
+  shellQuote,
   validateSessionDir,
   writeVoiceCaptureLaunchdPlist,
   writeVoiceCaptureProfile,
@@ -26,12 +27,12 @@ test("renderCommandTemplate shell-quotes file paths and rejects unknown placehol
   const rendered = renderCommandTemplate("printf hi > {transcript_txt}", {
     transcript_txt: transcriptPath,
   });
-  assert.equal(rendered, `printf hi > '${transcriptPath.replace(/'/gu, "'\"'\"'")}'`);
+  assert.equal(rendered, `printf hi > ${shellQuote(transcriptPath)}`);
   assert.throws(() => renderCommandTemplate("echo {missing}", {}), /unknown voice capture template placeholder/);
 });
 
 test("buildSessionPlan keeps raw capture artifacts under _workspaces by default", () => {
-  const repoRoot = path.join(path.sep, "repo");
+  const repoRoot = path.resolve(path.join(path.sep, "repo"));
   const now = new Date("2026-06-26T04:04:05.000Z");
   const plan = buildSessionPlan({
     repoRoot,
@@ -59,8 +60,8 @@ test("buildSessionPlan keeps raw capture artifacts under _workspaces by default"
   assert.equal(plan.max_chunks, 2);
 
   const chunk = buildChunkPlan(plan, 1);
-  assert.equal(chunk.audio_ref.endsWith("/audio/chunk_000001.wav"), true);
-  assert.equal(chunk.transcript_json_ref.endsWith("/transcripts/chunk_000001.json"), true);
+  assert.equal(normalizePath(chunk.audio_ref).endsWith("/audio/chunk_000001.wav"), true);
+  assert.equal(normalizePath(chunk.transcript_json_ref).endsWith("/transcripts/chunk_000001.json"), true);
 
   const preview = buildPlanPreview(plan);
   assert.equal(preview.first_chunk.chunk_index, 1);
@@ -90,8 +91,8 @@ test("runCaptureSession can execute one fixture chunk and write transcript jsonl
       now: new Date("2026-06-26T04:04:05.000Z"),
       chunkSeconds: 1,
       maxChunks: 1,
-      recordCmd: "printf audio > {audio}",
-      asrCmd: "printf transcript > {transcript_txt}",
+      recordCmd: nodeWriteFileCommand("{audio}", "audio"),
+      asrCmd: nodeWriteFileCommand("{transcript_txt}", "transcript"),
     });
     assert.equal(result.chunks_completed, 1);
 
@@ -132,7 +133,10 @@ test("profile config can be written, loaded, and converted to session options", 
       label: "pilot",
       termsPrompt: "KVDS, LIG, SE50",
     });
-    assert.equal(written.config_path.endsWith("_workspaces/system/voice_capture/config/voice_capture.profile.json"), true);
+    assert.equal(
+      normalizePath(written.config_path).endsWith("_workspaces/system/voice_capture/config/voice_capture.profile.json"),
+      true,
+    );
 
     const loaded = await loadVoiceCaptureProfile("_workspaces/system/voice_capture/config/voice_capture.profile.json", {
       repoRoot,
@@ -186,8 +190,8 @@ test("session status, launchd render, and workmeta draft stay metadata-only", as
       now: new Date("2026-06-26T04:04:05.000Z"),
       chunkSeconds: 1,
       maxChunks: 1,
-      recordCmd: "printf audio > {audio}",
-      asrCmd: "printf sensitive-transcript > {transcript_txt}",
+      recordCmd: nodeWriteFileCommand("{audio}", "audio"),
+      asrCmd: nodeWriteFileCommand("{transcript_txt}", "sensitive-transcript"),
     });
 
     const status = await buildSessionStatus(result.session.session_dir);
@@ -231,3 +235,12 @@ test("session status, launchd render, and workmeta draft stay metadata-only", as
     await rm(repoRoot, { recursive: true, force: true });
   }
 });
+
+function nodeWriteFileCommand(targetPlaceholder, content) {
+  const script = "require('node:fs').writeFileSync(process.argv[1],process.argv[2])";
+  return `${shellQuote(process.execPath)} -e ${shellQuote(script)} ${targetPlaceholder} ${shellQuote(content)}`;
+}
+
+function normalizePath(value) {
+  return String(value).split(path.sep).join("/");
+}

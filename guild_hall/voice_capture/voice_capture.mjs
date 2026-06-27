@@ -74,6 +74,9 @@ export function resolveConfigPath(repoRoot, configPath = defaultConfigPath) {
 
 export function shellQuote(value) {
   const text = String(value);
+  if (process.platform === "win32") {
+    return `"${text.replace(/"/g, '\\"')}"`;
+  }
   if (text.length === 0) {
     return "''";
   }
