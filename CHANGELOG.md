@@ -2,6 +2,12 @@
 
 ## 2026-06-27
 
+### Revision `working` - dev-erp haengbogwan apply/report wrapper
+
+- Added dry-run-by-default `haengbogwan_apply.mjs`, wired through app and root npm scripts, to build metadata-only context/candidate maps and delegate to `mail_to_task_ledger.mjs` via a temporary candidate file.
+- The wrapper skips ledger invocation when no candidates exist, forwards mutation flags only when explicitly provided, cleans its OS temp directory after subprocess completion, and reports bounded JSON metadata without raw mail body or attachment payloads.
+- Added synthetic node:test coverage for dry-run, apply on temp fixtures, no-candidate skip behavior, and CLI help.
+
 ### Revision `working` - dev-erp haengbogwan context/candidate slice
 
 - Added metadata-only `haengbogwan_context_packet.mjs` and deterministic `haengbogwan_candidate_judge.mjs` CLIs, wired through app and root `haengbogwan` npm scripts.

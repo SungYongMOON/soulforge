@@ -19,6 +19,7 @@
     "haengbogwan:snapshot": "node tools/haengbogwan_snapshot.mjs",
     "haengbogwan:context": "node tools/haengbogwan_context_packet.mjs",
     "haengbogwan:candidate": "node tools/haengbogwan_candidate_judge.mjs",
-    "test": "node --test test/core.test.mjs test/role_overlay_import.test.mjs test/actor_overlay_import.test.mjs test/haengbogwan_snapshot.test.mjs test/haengbogwan_context_packet.test.mjs test/haengbogwan_candidate_judge.test.mjs"
+    "haengbogwan:apply": "node tools/haengbogwan_apply.mjs",
+    "test": "node --test test/core.test.mjs test/role_overlay_import.test.mjs test/actor_overlay_import.test.mjs test/haengbogwan_snapshot.test.mjs test/haengbogwan_context_packet.test.mjs test/haengbogwan_candidate_judge.test.mjs test/haengbogwan_apply.test.mjs"
   }
 }
