@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { buildHaengbogwanApplyReport } from "./haengbogwan_apply.mjs";
 import { buildSnapshots } from "./haengbogwan_snapshot.mjs";
+import { activeSnoozeDecisionMap } from "./haengbogwan_task_decisions.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..", "..");
@@ -127,6 +128,7 @@ function addTotals(totals, row) {
   totals.reference_only_skip_count += row.apply_report.reference_only_skip_count;
   totals.reference_receipt_written += row.apply_report.reference_receipt_written;
   totals.triage_queue_count += row.triage_queue.length;
+  totals.active_snooze_count += row.task_decisions.active_snooze_count;
   if (row.apply_report.ledger_exit_code && row.apply_report.ledger_exit_code !== 0) totals.ledger_failure_count += 1;
 }
 
@@ -161,7 +163,7 @@ function nextActionForReasons(reasons) {
   return "Review and decide the next action.";
 }
 
-function buildTriageQueue(snapshot, { limit = DEFAULT_TRIAGE_LIMIT } = {}) {
+function buildTriageQueue(snapshot, { limit = DEFAULT_TRIAGE_LIMIT, activeSnoozes = new Map() } = {}) {
   const map = new Map();
   for (const item of snapshot.blocked || []) addTriageItem(map, item, "blocked", 120);
   for (const item of snapshot.overdue || []) addTriageItem(map, item, "overdue", 110);
@@ -178,14 +180,24 @@ function buildTriageQueue(snapshot, { limit = DEFAULT_TRIAGE_LIMIT } = {}) {
       addTriageItem(map, item, reason, score);
     }
   }
-  return [...map.values()]
+  const allItems = [...map.values()];
+  const activeSnoozeCount = allItems.filter((item) => activeSnoozes.has(item.task_key)).length;
+  const queue = allItems
+    .filter((item) => !activeSnoozes.has(item.task_key))
     .sort((a, b) => b.score - a.score
       || (a.due || "9999-99-99").localeCompare(b.due || "9999-99-99")
       || a.task_key.localeCompare(b.task_key))
     .slice(0, limit);
+  return { queue, active_snooze_count: activeSnoozeCount };
 }
 
 function projectRunRow(snapshot, opts) {
+  const activeSnoozes = activeSnoozeDecisionMap({
+    workmetaRoot: opts.workmetaRoot,
+    projectId: snapshot.project_id,
+    today: opts.today,
+  });
+  const triage = buildTriageQueue(snapshot, { limit: opts.triageLimit, activeSnoozes });
   const applyReport = buildHaengbogwanApplyReport({
     workmetaRoot: opts.workmetaRoot,
     projectId: snapshot.project_id,
@@ -204,7 +216,10 @@ function projectRunRow(snapshot, opts) {
   return {
     project_id: snapshot.project_id,
     snapshot: compactSnapshot(snapshot),
-    triage_queue: buildTriageQueue(snapshot, { limit: opts.triageLimit }),
+    triage_queue: triage.queue,
+    task_decisions: {
+      active_snooze_count: triage.active_snooze_count,
+    },
     apply_report: {
       apply: applyReport.apply,
       candidate_count: applyReport.candidate_count,
@@ -242,6 +257,7 @@ export function buildHaengbogwanRunReport(opts) {
     reference_only_skip_count: 0,
     reference_receipt_written: 0,
     triage_queue_count: 0,
+    active_snooze_count: 0,
     ledger_failure_count: 0,
   };
   for (const row of projects) addTotals(totals, row);
@@ -259,9 +275,9 @@ export function buildHaengbogwanRunReport(opts) {
 function renderText(report) {
   const lines = [];
   lines.push(`# haengbogwan run ${report.today} (${report.apply ? "apply" : "dry-run"})`);
-  lines.push(`projects=${report.project_count} pending=${report.totals.pending_mail_count} candidates=${report.totals.candidate_count} refs=${report.totals.reference_only_skip_count} due_today=${report.totals.due_today_count} overdue=${report.totals.overdue_count} triage=${report.totals.triage_queue_count}`);
+  lines.push(`projects=${report.project_count} pending=${report.totals.pending_mail_count} candidates=${report.totals.candidate_count} refs=${report.totals.reference_only_skip_count} due_today=${report.totals.due_today_count} overdue=${report.totals.overdue_count} triage=${report.totals.triage_queue_count} snoozed=${report.totals.active_snooze_count}`);
   for (const row of report.projects) {
-    lines.push(`- ${row.project_id}: pending=${row.snapshot.pending_mail_count} candidates=${row.apply_report.candidate_count} refs=${row.apply_report.reference_only_skip_count} triage=${row.triage_queue.length} ledger=${row.apply_report.ledger_exit_code ?? "not_invoked"}`);
+    lines.push(`- ${row.project_id}: pending=${row.snapshot.pending_mail_count} candidates=${row.apply_report.candidate_count} refs=${row.apply_report.reference_only_skip_count} triage=${row.triage_queue.length} snoozed=${row.task_decisions.active_snooze_count} ledger=${row.apply_report.ledger_exit_code ?? "not_invoked"}`);
     for (const action of row.snapshot.next_actions.slice(0, 3)) lines.push(`  next: ${action}`);
     for (const item of row.triage_queue.slice(0, 3)) lines.push(`  triage: ${item.task_key} score=${item.score} ${item.reasons.join("+")}`);
   }

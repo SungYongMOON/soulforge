@@ -10,6 +10,7 @@ import {
   TASK_LEDGER_RELATIVE_PATH,
 } from "../tools/haengbogwan_context_packet.mjs";
 import { HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH } from "../tools/mail_to_task_pending.mjs";
+import { HAENGBOGWAN_TASK_DECISION_RELATIVE_PATH } from "../tools/haengbogwan_task_decisions.mjs";
 
 const TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_run.mjs");
 const MAIL_HEADERS = ["이력키", "제목", "발신자", "메일수신시각", "메일함", "메일소스ID", "마감일"];
@@ -164,6 +165,43 @@ test("HAENGBOGWAN-RUN: triage queue ranks overdue unclassified task rows", () =>
     assert.equal(item.score, 110);
     assert.deepEqual(item.reasons.sort(), ["missing_assignee", "overdue", "unclassified"].sort());
     assert.match(item.next_action, /today|snooze|close/i);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-RUN: active snooze receipts remove tasks from current triage queue", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P26-014";
+    writeRunFixture(tmp.root, project, [
+      {
+        [TASK_HEADERS[0]]: "T-snoozed",
+        [TASK_HEADERS[1]]: project,
+        [TASK_HEADERS[2]]: "snoozed late item",
+        [TASK_HEADERS[3]]: "",
+        [TASK_HEADERS[4]]: "",
+        [TASK_HEADERS[5]]: "open",
+        [TASK_HEADERS[6]]: "2026-06-26",
+        [TASK_HEADERS[7]]: "",
+        [TASK_HEADERS[8]]: "needs_review",
+        [TASK_HEADERS[9]]: "",
+      },
+    ]);
+    writeCsv(
+      join(tmp.root, project, HAENGBOGWAN_TASK_DECISION_RELATIVE_PATH),
+      ["decision_key", "project_id", "task_key", "decision", "status", "snooze_until", "reason", "decided_at", "decided_by", "body_access"],
+      [
+        { decision_key: "taskdecision:T-snoozed:snooze:2026-06-30", project_id: project, task_key: "T-snoozed", decision: "snooze", status: "active", snooze_until: "2026-06-30", reason: "owner reviewed", decided_at: "2026-06-27T00:00:00.000Z", decided_by: "owner", body_access: "metadata_only" },
+      ]
+    );
+
+    const result = runTool(tmp.root, project, ["--triage-limit", "5"]);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.totals.active_snooze_count, 1);
+    assert.equal(report.totals.triage_queue_count, 0);
+    assert.deepEqual(report.projects[0].triage_queue, []);
   } finally {
     tmp.cleanup();
   }
