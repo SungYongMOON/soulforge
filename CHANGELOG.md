@@ -6,6 +6,7 @@
 
 - Added `haengbogwan_run.mjs` plus npm scripts so one metadata-only command can summarize snapshot counts, candidate counts, reference-only skip counts, and optional apply results across selected projects.
 - Updated haengbogwan snapshot pending counts to honor metadata-only reference receipts, keeping dashboard-style counts aligned with the apply/context pending queue.
+- Added a ranked `triage_queue` to the run report so overdue, blocked, unclassified, missing-owner, and waiting task rows can be attacked from the top.
 - Added node:test coverage for the single-run dry-run/apply path, receipt unblocking, and snapshot receipt exclusion.
 
 ### Revision `working` - dev-erp haengbogwan metadata classifier

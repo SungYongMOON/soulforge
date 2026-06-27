@@ -39,7 +39,7 @@ function makeTempWorkmeta() {
   };
 }
 
-function writeRunFixture(root, project = "P26-014") {
+function writeRunFixture(root, project = "P26-014", taskRows = []) {
   const projectRoot = join(root, project);
   writeCsv(
     join(projectRoot, MAIL_LEDGER_RELATIVE_PATH),
@@ -68,7 +68,7 @@ function writeRunFixture(root, project = "P26-014") {
   writeCsv(
     join(projectRoot, TASK_LEDGER_RELATIVE_PATH),
     TASK_HEADERS,
-    []
+    taskRows
   );
 }
 
@@ -131,6 +131,39 @@ test("HAENGBOGWAN-RUN: apply writes reference receipt and next dry-run reaches f
     assert.equal(secondReport.totals.pending_mail_count, 1);
     assert.equal(secondReport.totals.candidate_count, 1);
     assert.deepEqual(secondReport.projects[0].apply_report.candidate_keys, ["M002"]);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-RUN: triage queue ranks overdue unclassified task rows", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P26-014";
+    writeRunFixture(tmp.root, project, [
+      {
+        [TASK_HEADERS[0]]: "T-overdue",
+        [TASK_HEADERS[1]]: project,
+        [TASK_HEADERS[2]]: "late triage item",
+        [TASK_HEADERS[3]]: "",
+        [TASK_HEADERS[4]]: "",
+        [TASK_HEADERS[5]]: "open",
+        [TASK_HEADERS[6]]: "2026-06-26",
+        [TASK_HEADERS[7]]: "",
+        [TASK_HEADERS[8]]: "needs_review",
+        [TASK_HEADERS[9]]: "",
+      },
+    ]);
+
+    const result = runTool(tmp.root, project, ["--triage-limit", "5"]);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.totals.triage_queue_count, 1);
+    const [item] = report.projects[0].triage_queue;
+    assert.equal(item.task_key, "T-overdue");
+    assert.equal(item.score, 110);
+    assert.deepEqual(item.reasons.sort(), ["missing_assignee", "overdue", "unclassified"].sort());
+    assert.match(item.next_action, /today|snooze|close/i);
   } finally {
     tmp.cleanup();
   }

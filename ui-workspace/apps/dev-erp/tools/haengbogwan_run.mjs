@@ -12,13 +12,14 @@ const REPO = resolve(HERE, "..", "..", "..", "..");
 const DEFAULT_WORKMETA_ROOT = join(REPO, "_workmeta");
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DEFAULT_LIMIT = 20;
+const DEFAULT_TRIAGE_LIMIT = 10;
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
 function usage() {
-  return `Usage: haengbogwan_run [--workmeta-root <dir>] [--project <code>] [--limit <n>] [--today YYYY-MM-DD] [--db <dev-erp.db>] [--apply] [--auto-open] [--stage <code>] [--json]
+  return `Usage: haengbogwan_run [--workmeta-root <dir>] [--project <code>] [--limit <n>] [--triage-limit <n>] [--today YYYY-MM-DD] [--db <dev-erp.db>] [--apply] [--auto-open] [--stage <code>] [--json]
 
 Build one metadata-only haengbogwan execution report.
 Dry-run is the default. --apply is required before task ledger rows or reference receipts are written.`;
@@ -47,6 +48,7 @@ function parseArgs(argv) {
     workmetaRoot: DEFAULT_WORKMETA_ROOT,
     projects: [],
     limit: DEFAULT_LIMIT,
+    triageLimit: DEFAULT_TRIAGE_LIMIT,
     today: todayIso(),
     dbPath: "",
     apply: false,
@@ -75,6 +77,9 @@ function parseArgs(argv) {
     } else if (token === "--limit") {
       opts.limit = validateLimit(readValue(argv, i, token));
       i += 1;
+    } else if (token === "--triage-limit") {
+      opts.triageLimit = validateLimit(readValue(argv, i, token));
+      i += 1;
     } else if (token === "--today") {
       opts.today = validateToday(readValue(argv, i, token));
       i += 1;
@@ -91,6 +96,7 @@ function parseArgs(argv) {
   }
   opts.today = validateToday(opts.today);
   opts.limit = validateLimit(opts.limit);
+  opts.triageLimit = validateLimit(opts.triageLimit);
   return opts;
 }
 
@@ -120,7 +126,63 @@ function addTotals(totals, row) {
   totals.candidate_count += row.apply_report.candidate_count;
   totals.reference_only_skip_count += row.apply_report.reference_only_skip_count;
   totals.reference_receipt_written += row.apply_report.reference_receipt_written;
+  totals.triage_queue_count += row.triage_queue.length;
   if (row.apply_report.ledger_exit_code && row.apply_report.ledger_exit_code !== 0) totals.ledger_failure_count += 1;
+}
+
+function addTriageItem(map, item, reason, score) {
+  const taskKey = String(item?.task_key || "").trim();
+  if (!taskKey) return;
+  const existing = map.get(taskKey) || {
+    task_key: taskKey,
+    title: item.title || "",
+    status: item.status || "",
+    review_status: item.review_status || "",
+    due: item.due || "",
+    assignee: item.assignee || "",
+    source_ref: item.source_ref || "",
+    reasons: [],
+    score: 0,
+    next_action: "",
+  };
+  if (!existing.reasons.includes(reason)) existing.reasons.push(reason);
+  existing.score = Math.max(existing.score, score);
+  existing.next_action = nextActionForReasons(existing.reasons);
+  map.set(taskKey, existing);
+}
+
+function nextActionForReasons(reasons) {
+  if (reasons.includes("blocked")) return "Clear blocker or mark an owner decision.";
+  if (reasons.includes("overdue")) return "Decide: do today, snooze with reason, or close if already handled.";
+  if (reasons.includes("due_today")) return "Confirm the completion plan for today.";
+  if (reasons.includes("unclassified")) return "Fill work type, completion criteria, due date, and owner.";
+  if (reasons.includes("missing_assignee")) return "Assign a responsible owner or team.";
+  if (reasons.includes("waiting")) return "Check whether the wait is still valid or snooze explicitly.";
+  return "Review and decide the next action.";
+}
+
+function buildTriageQueue(snapshot, { limit = DEFAULT_TRIAGE_LIMIT } = {}) {
+  const map = new Map();
+  for (const item of snapshot.blocked || []) addTriageItem(map, item, "blocked", 120);
+  for (const item of snapshot.overdue || []) addTriageItem(map, item, "overdue", 110);
+  for (const item of snapshot.due_today || []) addTriageItem(map, item, "due_today", 100);
+  for (const item of snapshot.waiting || []) addTriageItem(map, item, "waiting", 70);
+  for (const item of snapshot.needs_quick_triage || []) {
+    const reasons = Array.isArray(item.reasons) && item.reasons.length ? item.reasons : ["quick_triage"];
+    for (const reason of reasons) {
+      const score = reason === "unclassified" ? 90
+        : reason === "missing_due" ? 75
+          : reason === "missing_assignee" ? 80
+            : reason === "reference_likely" ? 45
+              : 60;
+      addTriageItem(map, item, reason, score);
+    }
+  }
+  return [...map.values()]
+    .sort((a, b) => b.score - a.score
+      || (a.due || "9999-99-99").localeCompare(b.due || "9999-99-99")
+      || a.task_key.localeCompare(b.task_key))
+    .slice(0, limit);
 }
 
 function projectRunRow(snapshot, opts) {
@@ -142,6 +204,7 @@ function projectRunRow(snapshot, opts) {
   return {
     project_id: snapshot.project_id,
     snapshot: compactSnapshot(snapshot),
+    triage_queue: buildTriageQueue(snapshot, { limit: opts.triageLimit }),
     apply_report: {
       apply: applyReport.apply,
       candidate_count: applyReport.candidate_count,
@@ -178,6 +241,7 @@ export function buildHaengbogwanRunReport(opts) {
     candidate_count: 0,
     reference_only_skip_count: 0,
     reference_receipt_written: 0,
+    triage_queue_count: 0,
     ledger_failure_count: 0,
   };
   for (const row of projects) addTotals(totals, row);
@@ -195,10 +259,11 @@ export function buildHaengbogwanRunReport(opts) {
 function renderText(report) {
   const lines = [];
   lines.push(`# haengbogwan run ${report.today} (${report.apply ? "apply" : "dry-run"})`);
-  lines.push(`projects=${report.project_count} pending=${report.totals.pending_mail_count} candidates=${report.totals.candidate_count} refs=${report.totals.reference_only_skip_count} due_today=${report.totals.due_today_count} overdue=${report.totals.overdue_count}`);
+  lines.push(`projects=${report.project_count} pending=${report.totals.pending_mail_count} candidates=${report.totals.candidate_count} refs=${report.totals.reference_only_skip_count} due_today=${report.totals.due_today_count} overdue=${report.totals.overdue_count} triage=${report.totals.triage_queue_count}`);
   for (const row of report.projects) {
-    lines.push(`- ${row.project_id}: pending=${row.snapshot.pending_mail_count} candidates=${row.apply_report.candidate_count} refs=${row.apply_report.reference_only_skip_count} ledger=${row.apply_report.ledger_exit_code ?? "not_invoked"}`);
+    lines.push(`- ${row.project_id}: pending=${row.snapshot.pending_mail_count} candidates=${row.apply_report.candidate_count} refs=${row.apply_report.reference_only_skip_count} triage=${row.triage_queue.length} ledger=${row.apply_report.ledger_exit_code ?? "not_invoked"}`);
     for (const action of row.snapshot.next_actions.slice(0, 3)) lines.push(`  next: ${action}`);
+    for (const item of row.triage_queue.slice(0, 3)) lines.push(`  triage: ${item.task_key} score=${item.score} ${item.reasons.join("+")}`);
   }
   return `${lines.join("\n")}\n`;
 }
