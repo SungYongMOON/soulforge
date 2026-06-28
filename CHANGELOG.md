@@ -14,6 +14,7 @@
 - Added a metadata-only knowledge hint pass to the haengbogwan reading judge so project wiki/RAG/source refs can influence `target_object`, `work_types`, `required_role`, and `context_key` before candidate grouping.
 - Kept the boundary narrow: the judge uses only knowledge ref/path/core-hit metadata, never wiki bodies, source text, chunks, attachments, or secrets.
 - Added synthetic node:test coverage proving knowledge ON can change a SOW mail context key while keeping protected knowledge body sentinels out of output.
+- Added project-local `_workmeta/<project>/rules/haengbogwan_context_hint_rules.json` loading through the knowledge overlay so future project context hints can be tuned as metadata instead of hardcoded code edits, with compatibility paths and unsafe-rule error reporting.
 
 ### Revision `working` - dev-erp haengbogwan project knowledge overlay
 

@@ -86,6 +86,22 @@ function writeKnowledgeFixture(repoRoot) {
   mkdirSync(dirname(wikiPath), { recursive: true });
   writeFileSync(wikiPath, `# P26-014 knowledge\n${KNOWLEDGE_SENTINEL}\n`);
   writeFileSync(join(dirname(wikiPath), "kvds_sow_context.md"), `# KVDS SOW context\n${KNOWLEDGE_SENTINEL}\n`);
+  const rulesPath = join(repoRoot, "_workmeta", "P26-014", "rules", "haengbogwan_context_hint_rules.json");
+  mkdirSync(dirname(rulesPath), { recursive: true });
+  writeFileSync(rulesPath, `${JSON.stringify({
+    schema_version: "haengbogwan.context_hint_rules.v1",
+    project_id: "P26-014",
+    rules: [{
+      id: "project_kvds_sow_rule",
+      priority: 100,
+      event_keywords: ["SOW", "coordination package"],
+      knowledge_keywords: ["kvds_sow_context", "project_page"],
+      target_object: "KVDS SOW rulebook",
+      work_types: ["review", "author"],
+      required_role: "systems_engineering_owner",
+      required_capability: "systems_engineering",
+    }],
+  }, null, 2)}\n`);
 }
 
 function writeMailDb(dbPath) {
@@ -357,10 +373,10 @@ test("HAENGBOGWAN-READING: project knowledge metadata can influence context grou
     assert.equal(onReport.knowledge_hint_applied, true);
     assert.notEqual(offReport.context_key, onReport.context_key);
     assert.equal(offReport.target_object, "KVDS");
-    assert.equal(onReport.target_object, "KVDS SOW");
+    assert.equal(onReport.target_object, "KVDS SOW rulebook");
     assert.equal(onReport.required_role, "systems_engineering_owner");
     assert.deepEqual(onReport.work_types, ["review", "author"]);
-    assert.match(onReport.knowledge_hint_reason, /kvds_sow/);
+    assert.match(onReport.knowledge_hint_reason, /project_kvds_sow_rule/);
     assert.ok(onReport.supporting_knowledge_refs.some((ref) => ref.includes("kvds_sow_context.md")));
   } finally {
     tmp.cleanup();

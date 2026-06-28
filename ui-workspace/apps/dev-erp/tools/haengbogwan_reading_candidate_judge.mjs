@@ -513,13 +513,44 @@ const KNOWLEDGE_CONTEXT_HINT_RULES = [
   },
 ];
 
+function normalizeContextHintRule(row) {
+  if (!row || typeof row !== "object") return null;
+  const eventKeywords = row.eventKeywords ?? row.event_keywords;
+  const targetObject = row.targetObject ?? row.target_object;
+  const id = String(row.id ?? "").trim();
+  if (!id || !targetObject || !Array.isArray(eventKeywords) || !eventKeywords.length) return null;
+  return {
+    id,
+    sourceRef: String(row.source_ref ?? row.sourceRef ?? "").trim(),
+    priority: Number.isFinite(Number(row.priority)) ? Number(row.priority) : 0,
+    eventKeywords: eventKeywords.map((value) => String(value ?? "").trim()).filter(Boolean),
+    knowledgeKeywords: (row.knowledgeKeywords ?? row.knowledge_keywords ?? []).map((value) => String(value ?? "").trim()).filter(Boolean),
+    targetObject: String(targetObject ?? "").trim(),
+    workTypes: (row.workTypes ?? row.work_types ?? []).map((value) => String(value ?? "").trim()).filter((value) => WORK_TYPES.includes(value)),
+    requiredRole: String(row.requiredRole ?? row.required_role ?? "").trim(),
+    requiredCapability: String(row.requiredCapability ?? row.required_capability ?? "").trim(),
+    suggestedAssigneeRef: String(row.suggestedAssigneeRef ?? row.suggested_assignee_ref ?? "").trim(),
+  };
+}
+
+function contextHintRulesForKnowledge(knowledgeContext) {
+  const projectRules = (Array.isArray(knowledgeContext?.context_hint_rules) ? knowledgeContext.context_hint_rules : [])
+    .map(normalizeContextHintRule)
+    .filter(Boolean)
+    .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id, "en"));
+  return [
+    ...projectRules,
+    ...KNOWLEDGE_CONTEXT_HINT_RULES.map((rule) => normalizeContextHintRule(rule)).filter(Boolean),
+  ];
+}
+
 function knowledgeHintsForEvent(event, knowledgeContext, eventText) {
   const refs = knowledgeRefsFromContext(knowledgeContext, 200);
   if (!refs.length) return { applied: false, refs: [], reason_codes: [], classification_text: "" };
   const knowledgeText = knowledgeMetadataText(knowledgeContext);
   const text = `${event?.project_id ?? ""}\n${eventText}`;
   const matched = [];
-  for (const rule of KNOWLEDGE_CONTEXT_HINT_RULES) {
+  for (const rule of contextHintRulesForKnowledge(knowledgeContext)) {
     if (!hasAny(text, rule.eventKeywords)) continue;
     if (rule.knowledgeKeywords?.length && !hasAny(knowledgeText, rule.knowledgeKeywords)) continue;
     matched.push(rule);
