@@ -290,8 +290,15 @@ tr.tl-title-row:hover .tl-title { color: var(--accent); text-decoration: underli
 /* 우선순위(⭐): 별 마커 + nudges '우선' 배지(금색, 자동 사유와 구분). */
 .prio-star { font-size: .9em; }
 /* 메일 본문 발췌 — 상세 패널에서 읽기 좋게(원문 전체 아님, 수집 시 발췌만 저장). */
-.mail-body { margin: 8px 0; padding: 8px 10px; background: rgba(127,127,127,.08); border-radius: 6px; }
-.mail-body-text { white-space: pre-wrap; word-break: break-word; font-size: .92em; line-height: 1.5; max-height: 280px; overflow: auto; }
+/* Gmail/Outlook식 읽기 패널: 제목→발신자/시각 한 줄→본문 크게→세부정보(접힘). */
+.mail-subject { font-size: 1.18em; font-weight: 700; margin: 6px 0; line-height: 1.35; word-break: break-word; }
+.mail-meta-line { font-size: .9em; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(127,127,127,.18); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.mail-from-name { font-weight: 600; }
+.mail-details { margin: 12px 0 6px; }
+.mail-details > summary { cursor: pointer; }
+.mail-details dl { margin-top: 6px; }
+.mail-body { margin: 10px 0; padding: 12px 14px; background: rgba(127,127,127,.04); border: 1px solid rgba(127,127,127,.15); border-radius: 8px; }
+.mail-body-text { white-space: pre-wrap; word-break: break-word; font-size: .94em; line-height: 1.6; max-height: 460px; overflow: auto; }
 .badge.gold { background: #c79a00; color: #1a1a1a; }
 /* Gmail식 대화 묶음 — 헤더 클릭으로 자식 메일 행 접기/펼치기(기본 접힘). */
 tr.thread-head { cursor: pointer; }

@@ -1,5 +1,20 @@
 # CHANGELOG
 
+### 메일함 Gmail/Outlook식 — 본문 줄바꿈 보존 + 읽기 패널 재배치
+
+- owner: 메일 본문이 한 덩어리로 뭉쳐 이상함. 원인: 본문 resolver(mail_body_excerpt htmlToText)가 br·p·div 등 블록 태그를 공백으로 치환→줄바꿈 전멸 + 인라인 태그→공백으로 구두점 앞 군더더기 공백. mailBodyExcerptFromRecord 도 s+→공백으로 재차 줄바꿈 제거.
+- 해결: htmlToText 가 블록/줄바꿈 태그→개행, 표 셀→칸공백, 인라인→제거(군더더기 공백 X). 발췌 정규화는 수평공백만 정리하고 줄바꿈/문단 보존. 상세 패널을 메일 클라이언트식 재배치(제목→발신자·시각 한 줄→본문 크게→세부정보 details 접힘), 본문 타이포 가독성(line-height 1.6·max 460). node:test 갱신.
+- 기존 메일은 body_preview 비우고 재스캔으로 새 추출 반영(COALESCE라 클리어 필요). lexicon=재시작.
+
+
+## 2026-06-28
+
+### Revision `working` - 프로젝트 지식 추출 저장 규칙
+
+- Added `docs/architecture/workspace/PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md` to fix where project knowledge extraction artifacts (metadata source ledger, derived text, extraction manifest) are stored, isolated by `<project_code>`, generalizing `HWP_NORMALIZATION_V0.md` and `COMPANY_COMMON_SOURCE_STORAGE_V0.md` to all document formats (PDF/HWPX/XLSX/DOCX/PPTX).
+- Locked storage: derived text payloads under `_workspaces/<project_code>/reference_payloads/knowledge_extract/<batch_id>/derived_text/`; metadata ledger under `_workmeta/<project_code>/reports/source_research/`; company-common under `_workspaces/knowledge/common/company/<source_set_id>/`. Personal `_local` temp folders for knowledge payloads are forbidden.
+- Indexed the new doc in `docs/architecture/workspace/README.md`.
+
 ## 2026-06-27
 
 ### Revision `working` - dev-erp haengbogwan run report

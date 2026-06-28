@@ -14,8 +14,10 @@ function htmlToText(html) {
   const raw = String(html ?? "");
   if (!raw) return "";
   return raw
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ") // 스크립트/스타일 블록 통째 제거
-    .replace(/<[^>]+>/g, " ") // 남은 태그 제거
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "") // 스크립트/스타일 블록 통째 제거
+    .replace(/<\/?(br|p|div|tr|li|h[1-6]|blockquote|table|thead|tbody|ul|ol|hr)\b[^>]*>/gi, "\n") // 블록/줄바꿈 태그 → 개행(문단·서명 줄 보존)
+    .replace(/<\/?(td|th)\b[^>]*>/gi, " ") // 표 셀 경계 → 칸 구분 공백
+    .replace(/<[^>]+>/g, "") // 남은 인라인 태그 → 제거(구두점 앞 군더더기 공백 방지)
     .replace(/&#(\d+);/g, (_, code) => { try { return String.fromCodePoint(Number(code)); } catch { return " "; } })
     .replace(/&#x([0-9a-f]+);/gi, (_, code) => { try { return String.fromCodePoint(parseInt(code, 16)); } catch { return " "; } })
     .replace(/&([a-z]+);/gi, (match, name) => HTML_ENTITIES[name.toLowerCase()] ?? match);
@@ -55,7 +57,13 @@ export function assertMailCandidateQueueFile(repoRoot, candidateFile) {
 export function mailBodyExcerptFromRecord(record, { maxChars = 2000 } = {}) {
   const fromText = String(record?.body_text ?? "").trim();
   const text = fromText || htmlToText(record?.body_html);
-  const cleaned = String(text ?? "").replace(/\s+/g, " ").trim();
+  // 줄바꿈은 보존(문단·서명 구분), 수평 공백/과다 빈 줄만 정리 → 상세 패널에서 메일답게 보이게.
+  const cleaned = String(text ?? "")
+    .replace(/\r\n?/g, "\n")        // CRLF → \n
+    .replace(/[ \t\f\v]+/g, " ")     // 수평 공백만 1칸
+    .replace(/ *\n */g, "\n")        // 줄 가장자리 공백 제거
+    .replace(/\n{3,}/g, "\n\n")      // 빈 줄 과다 → 1줄
+    .trim();
   if (!cleaned) return null;
   return cleaned.slice(0, Math.max(1, maxChars)) || null;
 }

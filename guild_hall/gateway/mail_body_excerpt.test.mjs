@@ -10,10 +10,10 @@ import {
   readMailBodyPreview,
 } from "./mail_body_excerpt.mjs";
 
-test("mailBodyExcerptFromRecord prefers text, falls back to stripped html, collapses and caps", () => {
+test("mailBodyExcerptFromRecord prefers text, falls back to stripped html, preserves line breaks and caps", () => {
   assert.equal(
     mailBodyExcerptFromRecord({ body_text: "  안녕하세요\n\n  업무  요청 입니다.  " }),
-    "안녕하세요 업무 요청 입니다.",
+    "안녕하세요\n\n업무 요청 입니다.",
   );
   assert.equal(
     mailBodyExcerptFromRecord({ body_html: "<style>.x{}</style><p>HTML&nbsp;본문 &amp; 검토</p>" }),
