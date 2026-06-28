@@ -102,6 +102,8 @@
     "dev-erp:haengbogwan-snapshot": "node ui-workspace/apps/dev-erp/tools/haengbogwan_snapshot.mjs",
     "dev-erp:haengbogwan-context": "node ui-workspace/apps/dev-erp/tools/haengbogwan_context_packet.mjs",
     "dev-erp:haengbogwan-candidate": "node ui-workspace/apps/dev-erp/tools/haengbogwan_candidate_judge.mjs",
+    "dev-erp:haengbogwan-reading-context": "node ui-workspace/apps/dev-erp/tools/haengbogwan_reading_context_packet.mjs",
+    "dev-erp:haengbogwan-reading-candidate": "node ui-workspace/apps/dev-erp/tools/haengbogwan_reading_candidate_judge.mjs",
     "dev-erp:haengbogwan-apply": "node ui-workspace/apps/dev-erp/tools/haengbogwan_apply.mjs",
     "dev-erp:haengbogwan-run": "node ui-workspace/apps/dev-erp/tools/haengbogwan_run.mjs",
     "dev-erp:haengbogwan-task-decisions": "node ui-workspace/apps/dev-erp/tools/haengbogwan_task_decisions.mjs",

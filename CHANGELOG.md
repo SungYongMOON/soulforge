@@ -9,6 +9,12 @@
 
 ## 2026-06-28
 
+### Revision `working` - dev-erp haengbogwan reading engine
+
+- Added `haengbogwan_reading_context_packet.mjs` and `haengbogwan_reading_candidate_judge.mjs` as a separate body-aware/private-deep mail reading lane, leaving the existing metadata-only haengbogwan classifier unchanged.
+- The reading lane can use local ERP mail previews or runtime event text to classify mail into `mail_reading_reports`, `work_context_groups`, ledger-compatible candidates, and proposal candidates while redacting body text from output.
+- Added safeguards for no raw-body persistence, no attachment payload loading, no secret loading, current-message-first due extraction, existing-task detection, team/bot hints, and synthetic node:test coverage with body/attachment leakage sentinels.
+
 ### Revision `working` - 프로젝트 지식 추출 저장 규칙
 
 - Added `docs/architecture/workspace/PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md` to fix where project knowledge extraction artifacts (metadata source ledger, derived text, extraction manifest) are stored, isolated by `<project_code>`, generalizing `HWP_NORMALIZATION_V0.md` and `COMPANY_COMMON_SOURCE_STORAGE_V0.md` to all document formats (PDF/HWPX/XLSX/DOCX/PPTX).

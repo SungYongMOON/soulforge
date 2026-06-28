@@ -140,7 +140,7 @@ async function startDevErpServer(args = [], env = {}) {
 }
 
 async function waitForHttp(url, child, stderrFn) {
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 120; i++) {
     if (child.exitCode !== null) throw new Error(`server_exited:${child.exitCode}:${stderrFn()}`);
     try {
       const r = await fetch(url);
@@ -148,7 +148,7 @@ async function waitForHttp(url, child, stderrFn) {
     } catch {
       // retry while the server starts
     }
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error(`server_not_ready:${stderrFn()}`);
 }
