@@ -1442,7 +1442,7 @@ export class Store {
     }
     this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: subj, counterpart: counterpart || null,
       pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, mailbox: mailbox || null, data_label,
-      body_preview: body_preview ? String(body_preview).replace(/\s+/g, " ").trim().slice(0, 2000) || null : null, // 발췌만(원문 전체 아님)
+      body_preview: body_preview ? (String(body_preview).replace(/\r\n?/g, "\n").replace(/[ \t\f\v]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2000) || null) : null, // 발췌만(원문 전체 아님)·줄바꿈 보존(문단·서명 구분, 상세 패널이 메일답게)
       hidden: dupOf ? 1 : 0, dup_of: dupOf });
     return { ok: true, id, project_id, isNew, dup_of: dupOf };
   }
