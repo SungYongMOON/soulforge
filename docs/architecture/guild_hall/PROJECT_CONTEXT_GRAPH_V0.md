@@ -3,7 +3,7 @@
 ## Purpose
 
 Project Context Graph Projection v0 defines how `guild_hall` and dev-ERP
-consume the workspace-level project context graph model.
+consume the workspace-level project context model.
 
 The workspace source/boundary contract is
 [`../workspace/PROJECT_CONTEXT_GRAPH_MODEL_V0.md`](../workspace/PROJECT_CONTEXT_GRAPH_MODEL_V0.md).
@@ -37,8 +37,10 @@ project trunk
 - `task fruit`: a task, decision, accepted deliverable result, closure evidence,
   or completed response that proves the branch produced something.
 
-The workspace model owns project-local ledgers. The `guild_hall` projection is
-rebuildable from those ledgers plus dev-ERP metadata and approved source refs.
+The workspace model owns live project-local context state under
+`_workmeta/<project_code>/project_context/**`. The graph is one projection of
+that context. The `guild_hall` projection is rebuildable from project-context
+state plus dev-ERP metadata and approved source refs.
 
 ## Authority Split
 
@@ -51,8 +53,9 @@ meaning. Code owns durable identity and apply authority.
 | Deterministic code | IDs, deduplication, source refs, graph mutation, ledger writes, existing-task preservation, redaction checks. |
 | Owner/team | Final business decision, external send, final assignee confirmation, source truth acceptance. |
 
-The graph is an operational index with provenance. It is not source truth by
-itself.
+The graph is an operational relationship index with provenance. It is not the
+top-level business objective and is not source truth by itself. The business
+objective is reliable ERP task intake, classification, review, and traceability.
 
 ## Owner Decision Defaults
 

@@ -2,8 +2,9 @@
 
 ## Purpose
 
-This document fixes the workspace-level contract for a per-project context graph.
-It describes how project work context is represented without copying raw project
+This document fixes the workspace-level contract for per-project context.
+The graph is one representation of that context, not the purpose by itself. It
+describes how project work context is represented without copying raw project
 payloads into public canon or `_workmeta` reports.
 
 The graph supports the haengbogwan engine by connecting mail, voice notes,
@@ -61,8 +62,10 @@ These defaults were captured from the 2026-06-28 owner grill-me decisions.
 
 ## Workspace Boundary
 
-The graph is a project-local operational index. It is not the source payload and
-not final source truth.
+Project context is the project-local operational state that helps ERP task
+intake, classification, review, and traceability. The graph is the relationship
+view over that context. Neither the context ledger nor the graph view is the
+source payload or final source truth.
 
 Raw/source payloads stay in approved source stores:
 
@@ -72,11 +75,15 @@ Raw/source payloads stay in approved source stores:
 - runtime mailbox state
 - another owner-approved shared worksite
 
-`_workmeta/<project_code>/reports/context_graph/**` may store only metadata,
-hashes, source pointers, redacted labels, graph nodes/edges, judgments, review
-states, and validation receipts.
+`_workmeta/<project_code>/project_context/**` is the live project-context state.
+It may store only metadata, hashes, source pointers, redacted labels, graph
+nodes/edges, judgments, summaries, review states, and validation receipts.
 
-Forbidden in `_workmeta` context graph ledgers:
+`_workmeta/<project_code>/reports/context_graph/**` is a report/projection area.
+It may store snapshots, review exports, screenshots metadata, or debug reports
+derived from `project_context/**`; it is not the live state owner.
+
+Forbidden in `_workmeta` project-context ledgers and reports:
 
 - raw mail body
 - attachment payload
@@ -87,28 +94,45 @@ Forbidden in `_workmeta` context graph ledgers:
 - local absolute source path when it exposes private host layout
 - `.env`, token, password, cookie, session, credential, or secret value
 
-## Minimum Project-Local Ledgers
+## Minimum Project-Local State
 
-Future project-local metadata should live under:
+Future project-local live metadata should live under:
+
+```text
+_workmeta/<project_code>/project_context/
+```
+
+Recommended files:
+
+- `sources.csv`
+- `nodes.csv`
+- `edges.csv`
+- `judgments.csv`
+- `review_queue.csv`
+- `summaries/project_summary.md`
+- `summaries/branch_summaries.csv`
+
+The same shape may be projected into dev-ERP SQLite tables later. The CSV shape
+comes first so another PC can inspect and recover the state.
+
+Report/projection outputs may be written under:
 
 ```text
 _workmeta/<project_code>/reports/context_graph/
 ```
 
-Recommended files:
+Examples:
 
-- `context_sources.csv`
-- `context_nodes.csv`
-- `context_edges.csv`
-- `context_judgments.csv`
-- `context_review_queue.csv`
+- `daily_snapshot_<date>.md`
+- `review_export_<run_id>.yaml`
+- `graph_debug_<run_id>.json`
 
-The same shape may be projected into dev-ERP SQLite tables later. The CSV shape
-comes first so another PC can inspect and recover the state.
+Reports must be rebuildable from `project_context/**`, dev-ERP task state, and
+approved source refs.
 
 ## Source Rows
 
-`context_sources.csv`
+`sources.csv`
 
 - `source_id`
 - `project_code`
@@ -135,7 +159,7 @@ comes first so another PC can inspect and recover the state.
 
 ## Node Rows
 
-`context_nodes.csv`
+`nodes.csv`
 
 - `node_id`
 - `project_code`
@@ -162,7 +186,7 @@ Node types:
 
 ## Edge Rows
 
-`context_edges.csv`
+`edges.csv`
 
 - `edge_id`
 - `project_code`
@@ -198,7 +222,7 @@ Edge types:
 
 ## Judgment Rows
 
-`context_judgments.csv`
+`judgments.csv`
 
 - `judgment_id`
 - `project_code`
@@ -217,7 +241,7 @@ payload back into `_workmeta`.
 
 ## Review Queue
 
-`context_review_queue.csv`
+`review_queue.csv`
 
 - `review_id`
 - `project_code`

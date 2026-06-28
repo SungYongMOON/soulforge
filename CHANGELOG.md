@@ -15,6 +15,7 @@
 - Fixed the authority split: Codex may judge meaning in a private runtime, while deterministic code owns IDs, deduplication, source refs, graph mutation, task writes, and raw-output guards.
 - Documented the weekend MVP path from current `work_context_groups[]` and `context_key` outputs to metadata-only branch/task/fruit graph suggestions.
 - Captured owner grill-me defaults for the MVP: milestone/work-branch hybrid axis, graph-first intake, L0-L4 context loading, daily project summary refresh, automatic context/task creation boundaries, actor nodes, fruit close candidates, and the four shared graph views.
+- Corrected the storage model so live project context belongs under `_workmeta/<project_code>/project_context/`, while `reports/context_graph/` is only a rebuildable report/debug projection area.
 
 ### Revision `working` - dev-erp haengbogwan reading engine
 
