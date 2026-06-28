@@ -25,6 +25,9 @@ import {
   redactReadingCandidateBundle,
 } from "./haengbogwan_reading_candidate_judge.mjs";
 import {
+  runProjectContextKnowledgeCandidateUpdate,
+} from "./haengbogwan_knowledge_candidates.mjs";
+import {
   runProjectContextUpdate,
 } from "./haengbogwan_project_context.mjs";
 
@@ -90,6 +93,7 @@ function parseArgs(argv) {
     codexMinConfidence: 0.35,
     applyTasks: false,
     applyContext: false,
+    applyKnowledgeCandidates: false,
     skipTaskLedger: false,
     autoOpen: false,
     stage: "",
@@ -109,6 +113,7 @@ function parseArgs(argv) {
       opts.applyContext = true;
     } else if (token === "--apply-tasks") opts.applyTasks = true;
     else if (token === "--apply-context") opts.applyContext = true;
+    else if (token === "--apply-knowledge-candidates") opts.applyKnowledgeCandidates = true;
     else if (token === "--skip-task-ledger") opts.skipTaskLedger = true;
     else if (token === "--auto-open") opts.autoOpen = true;
     else if (token === "--assign-mailbox-owner") opts.assignMailboxOwner = true;
@@ -171,10 +176,11 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    "Usage: node tools/haengbogwan_reading_run.mjs --project <code> [--db <dev-erp.db>] [--repo-root <runtime-root>] [--workmeta-root <dir>] [--limit N] [--body-mode subject|preview|two_stage|full] [--apply-tasks] [--apply-context] [--apply] [--write-report] [--json]",
+    "Usage: node tools/haengbogwan_reading_run.mjs --project <code> [--db <dev-erp.db>] [--repo-root <runtime-root>] [--workmeta-root <dir>] [--limit N] [--body-mode subject|preview|two_stage|full] [--apply-tasks] [--apply-context] [--apply-knowledge-candidates] [--apply] [--write-report] [--json]",
     "",
     "Builds a body-aware mail reading packet, creates redacted task/context candidates,",
-    "optionally applies task ledger rows, and optionally updates _workmeta/<project>/project_context.",
+    "optionally applies task ledger rows, updates _workmeta/<project>/project_context,",
+    "and can append metadata-only deferred knowledge/RAG candidate rows.",
     "Dry-run is the default. Mail body text is never emitted in stdout or reports.",
   ].join("\n");
 }
@@ -442,6 +448,14 @@ export function buildHaengbogwanReadingRunReport(opts) {
   const redactedBundle = redactReadingCandidateBundle(bundle);
   const taskLedger = runTaskLedger(redactedBundle, opts, generatedAt);
   const projectContext = runContextUpdate(redactedBundle, opts, generatedAt);
+  const knowledgeCandidateReport = runProjectContextKnowledgeCandidateUpdate({
+    repoRoot: opts.repoRoot,
+    workmetaRoot: opts.workmetaRoot,
+    projectCode: opts.projectId,
+    contextReport: projectContext,
+    generatedAt,
+    apply: opts.applyKnowledgeCandidates,
+  });
   const report = {
     schema_version: "haengbogwan.reading_run.v1",
     generated_at: generatedAt,
@@ -449,6 +463,7 @@ export function buildHaengbogwanReadingRunReport(opts) {
     apply: {
       tasks: Boolean(opts.applyTasks),
       context: Boolean(opts.applyContext),
+      knowledge_candidates: Boolean(opts.applyKnowledgeCandidates),
     },
     body_access: redactedBundle.body_access || packet.body_access || "",
     boundary: {
@@ -469,6 +484,8 @@ export function buildHaengbogwanReadingRunReport(opts) {
       ledger_candidate_keys: redactedBundle.counts?.ledger_candidate_keys ?? 0,
       context_groups: redactedBundle.counts?.context_groups ?? 0,
       context_events: projectContext.context_event_count ?? 0,
+      knowledge_candidate_rows: knowledgeCandidateReport.candidate_count ?? 0,
+      knowledge_candidate_appended: knowledgeCandidateReport.appended_count ?? 0,
       event_body_read: packet.counts?.event_body_read ?? 0,
       knowledge_refs: packet.counts?.knowledge_refs ?? 0,
     },
@@ -476,6 +493,7 @@ export function buildHaengbogwanReadingRunReport(opts) {
     candidate_bundle: redactedBundle,
     task_ledger: taskLedger,
     project_context: projectContext,
+    knowledge_candidates: knowledgeCandidateReport,
     report_write: {
       enabled: Boolean(opts.writeReport),
       written: false,
@@ -493,7 +511,7 @@ function renderText(report) {
   return [
     `# haengbogwan reading run ${report.project_id} (${report.apply.tasks || report.apply.context ? "apply" : "dry-run"})`,
     `mail=${report.counts.mail} body_read=${report.counts.event_body_read} candidates=${report.counts.candidate_mail} task_keys=${report.counts.ledger_candidate_keys} context_events=${report.counts.context_events} knowledge_refs=${report.counts.knowledge_refs}`,
-    `task_ledger=${report.task_ledger.invoked ? report.task_ledger.ledger_exit_code : report.task_ledger.skipped_reason} context=${report.project_context.apply ? "applied" : "dry-run"}`,
+    `task_ledger=${report.task_ledger.invoked ? report.task_ledger.ledger_exit_code : report.task_ledger.skipped_reason} context=${report.project_context.apply ? "applied" : "dry-run"} knowledge_candidates=${report.knowledge_candidates.appended_count || report.knowledge_candidates.skipped_reason || "dry-run"}`,
     report.report_write.written ? `report=${report.report_write.relpath}` : "",
   ].filter(Boolean).join("\n") + "\n";
 }

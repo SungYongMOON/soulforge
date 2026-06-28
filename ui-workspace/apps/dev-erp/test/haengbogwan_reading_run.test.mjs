@@ -179,8 +179,33 @@ test("HAENGBOGWAN-READING-RUN: apply writes task ledger and project_context meta
   }
 });
 
+test("HAENGBOGWAN-READING-RUN: apply-knowledge-candidates records only deferred metadata", () => {
+  const tmp = makeTempRuntime();
+  try {
+    tmp.repoRoot = tmp.root;
+    tmp.workmetaRoot = join(tmp.root, "_workmeta");
+    writeEventSink(tmp.repoRoot);
+    writeMailDb(tmp.dbPath);
+    writeWorkmetaLedgers(tmp.workmetaRoot);
+
+    const result = runTool(tmp, ["--apply-context", "--apply-knowledge-candidates"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.includes(PRIVATE_SENTINEL), false);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.apply.knowledge_candidates, true);
+    assert.equal(report.knowledge_candidates.appended_count, 1);
+    const ledgerText = readFileSync(join(tmp.repoRoot, report.knowledge_candidates.ledger_ref), "utf8");
+    assert.equal(ledgerText.includes("knowledge_rag_candidate"), true);
+    assert.equal(ledgerText.includes(PRIVATE_SENTINEL), false);
+    assert.equal(ledgerText.includes("body_text"), false);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
 test("HAENGBOGWAN-READING-RUN: CLI help works", () => {
   const result = spawnSync(process.execPath, [TOOL, "--help"], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /reading packet/);
+  assert.match(result.stdout, /apply-knowledge-candidates/);
 });

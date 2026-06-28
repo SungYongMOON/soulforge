@@ -208,6 +208,47 @@ test("HAENGBOGWAN-RUN: apply-context updates project_context from metadata mail 
   }
 });
 
+test("HAENGBOGWAN-RUN: apply-knowledge-candidates appends deferred candidate after context apply", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const repoRoot = tmp.root;
+    const workmetaRoot = join(repoRoot, "_workmeta");
+    const project = "P26-014";
+    writeRunFixture(workmetaRoot, project, [
+      {
+        [TASK_HEADERS[0]]: "T-context-knowledge",
+        [TASK_HEADERS[1]]: project,
+        [TASK_HEADERS[2]]: "KVDS SOW context sync triage item",
+        [TASK_HEADERS[3]]: "",
+        [TASK_HEADERS[4]]: "",
+        [TASK_HEADERS[5]]: "open",
+        [TASK_HEADERS[6]]: "2026-06-26",
+        [TASK_HEADERS[7]]: "",
+        [TASK_HEADERS[8]]: "needs_review",
+        [TASK_HEADERS[9]]: "mailcsv:M001",
+      },
+    ]);
+
+    const result = runTool(workmetaRoot, project, [
+      "--repo-root", repoRoot,
+      "--triage-limit", "5",
+      "--apply-context",
+      "--apply-knowledge-candidates",
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.apply_knowledge_candidates, true);
+    assert.equal(report.totals.knowledge_candidate_appended_count, 1);
+    const candidateReport = report.projects[0].knowledge_candidate_report;
+    assert.equal(candidateReport.ledger_ref, "_workmeta/P26-014/knowledge_rag_candidate_ledger/events/2026-06.jsonl");
+    const ledgerText = readFileSync(join(repoRoot, candidateReport.ledger_ref), "utf8");
+    assert.equal(ledgerText.includes("knowledge_rag_candidate"), true);
+    assert.equal(ledgerText.includes("body_text"), false);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
 test("HAENGBOGWAN-RUN: active snooze receipts remove tasks from current triage queue", () => {
   const tmp = makeTempWorkmeta();
   try {

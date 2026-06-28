@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { buildHaengbogwanApplyReport } from "./haengbogwan_apply.mjs";
 import { buildContextPacketForProject } from "./haengbogwan_context_packet.mjs";
+import { runProjectContextKnowledgeCandidateUpdate } from "./haengbogwan_knowledge_candidates.mjs";
 import { runProjectContextUpdate } from "./haengbogwan_project_context.mjs";
 import { buildSnapshots } from "./haengbogwan_snapshot.mjs";
 import { activeSnoozeDecisionMap } from "./haengbogwan_task_decisions.mjs";
@@ -22,11 +23,12 @@ function todayIso() {
 }
 
 function usage() {
-  return `Usage: haengbogwan_run [--workmeta-root <dir>] [--project <code>] [--limit <n>] [--triage-limit <n>] [--today YYYY-MM-DD] [--db <dev-erp.db>] [--apply] [--apply-context] [--auto-open] [--stage <code>] [--json]
+  return `Usage: haengbogwan_run [--repo-root <dir>] [--workmeta-root <dir>] [--project <code>] [--limit <n>] [--triage-limit <n>] [--today YYYY-MM-DD] [--db <dev-erp.db>] [--apply] [--apply-context] [--apply-knowledge-candidates] [--auto-open] [--stage <code>] [--json]
 
 Build one metadata-only haengbogwan execution report.
 Dry-run is the default. --apply is required before task ledger rows or reference receipts are written.
---apply-context separately updates _workmeta/<project>/project_context from mail/task metadata.`;
+--apply-context separately updates _workmeta/<project>/project_context from mail/task metadata.
+--apply-knowledge-candidates appends metadata-only deferred wiki/RAG candidate rows after context is applied.`;
 }
 
 function validateToday(today) {
@@ -49,6 +51,7 @@ function readValue(argv, index, token) {
 
 function parseArgs(argv) {
   const opts = {
+    repoRoot: REPO,
     workmetaRoot: DEFAULT_WORKMETA_ROOT,
     projects: [],
     limit: DEFAULT_LIMIT,
@@ -57,6 +60,7 @@ function parseArgs(argv) {
     dbPath: "",
     apply: false,
     applyContext: false,
+    applyKnowledgeCandidates: false,
     autoOpen: false,
     stage: "",
     stagePresent: false,
@@ -73,8 +77,13 @@ function parseArgs(argv) {
       opts.apply = true;
     } else if (token === "--apply-context") {
       opts.applyContext = true;
+    } else if (token === "--apply-knowledge-candidates") {
+      opts.applyKnowledgeCandidates = true;
     } else if (token === "--auto-open") {
       opts.autoOpen = true;
+    } else if (token === "--repo-root") {
+      opts.repoRoot = readValue(argv, i, token);
+      i += 1;
     } else if (token === "--workmeta-root" || token === "--workmeta") {
       opts.workmetaRoot = readValue(argv, i, token);
       i += 1;
@@ -138,6 +147,9 @@ function addTotals(totals, row) {
   totals.context_event_count += row.context_report.context_event_count;
   totals.context_accepted_event_count += row.context_report.accepted_event_count;
   if (row.context_report.apply) totals.context_apply_project_count += 1;
+  totals.knowledge_candidate_count += row.knowledge_candidate_report.candidate_count;
+  totals.knowledge_candidate_appended_count += row.knowledge_candidate_report.appended_count;
+  totals.knowledge_candidate_skipped_duplicate_count += row.knowledge_candidate_report.skipped_duplicate_count;
   if (row.apply_report.ledger_exit_code && row.apply_report.ledger_exit_code !== 0) totals.ledger_failure_count += 1;
 }
 
@@ -334,6 +346,14 @@ function projectRunRow(snapshot, opts) {
     reminderDaysPresent: false,
   });
   const contextReport = buildMetadataContextReport(snapshot, opts, applyReport, triage.queue);
+  const knowledgeCandidateReport = runProjectContextKnowledgeCandidateUpdate({
+    repoRoot: opts.repoRoot,
+    workmetaRoot: opts.workmetaRoot,
+    projectCode: snapshot.project_id,
+    contextReport,
+    generatedAt: contextReport.generated_at || new Date().toISOString(),
+    apply: opts.applyKnowledgeCandidates,
+  });
   return {
     project_id: snapshot.project_id,
     snapshot: compactSnapshot(snapshot),
@@ -351,6 +371,7 @@ function projectRunRow(snapshot, opts) {
       files_written: contextReport.files_written,
       body_access: contextReport.body_access,
     },
+    knowledge_candidate_report: knowledgeCandidateReport,
     apply_report: {
       apply: applyReport.apply,
       candidate_count: applyReport.candidate_count,
@@ -392,6 +413,9 @@ export function buildHaengbogwanRunReport(opts) {
     context_event_count: 0,
     context_accepted_event_count: 0,
     context_apply_project_count: 0,
+    knowledge_candidate_count: 0,
+    knowledge_candidate_appended_count: 0,
+    knowledge_candidate_skipped_duplicate_count: 0,
     ledger_failure_count: 0,
   };
   for (const row of projects) addTotals(totals, row);
@@ -400,6 +424,7 @@ export function buildHaengbogwanRunReport(opts) {
     today: opts.today,
     apply: opts.apply,
     apply_context: opts.applyContext,
+    apply_knowledge_candidates: opts.applyKnowledgeCandidates,
     body_access: "metadata_only",
     project_count: projects.length,
     totals,
