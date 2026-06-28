@@ -213,6 +213,7 @@ test("HAENGBOGWAN-CONTEXT: packet caps summaries and reports unloaded boundaries
 
     const packet = buildContextPacketForProject({
       workmetaRoot: tmp.root,
+      repoRoot: tmp.root,
       projectId: project,
       limit: 2,
       today: "2026-06-27",
@@ -231,6 +232,9 @@ test("HAENGBOGWAN-CONTEXT: packet caps summaries and reports unloaded boundaries
     assert.equal(packet.boundary.metadata_only, true);
     assert.equal(packet.boundary.raw_body_loaded, false);
     assert.equal(packet.boundary.attachments_loaded, false);
+    assert.equal(packet.boundary.project_knowledge_overlay_loaded, true);
+    assert.equal(packet.knowledge_context.boundary.metadata_only, true);
+    assert.equal(packet.knowledge_context.boundary.source_text_loaded, false);
     assert.equal(packet.not_loaded.roles.status, "not_loaded");
     assert.equal(packet.not_loaded.actors.status, "not_loaded");
     assert.equal(packet.not_loaded.memory.status, "not_loaded");
@@ -252,6 +256,7 @@ test("HAENGBOGWAN-CONTEXT: optional db loads bounded role and actor projections"
 
     const packet = buildContextPacketForProject({
       workmetaRoot: tmp.root,
+      repoRoot: tmp.root,
       projectId: project,
       limit: 10,
       today: "2026-06-27",

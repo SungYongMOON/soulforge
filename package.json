@@ -104,6 +104,7 @@
     "dev-erp:haengbogwan-candidate": "node ui-workspace/apps/dev-erp/tools/haengbogwan_candidate_judge.mjs",
     "dev-erp:haengbogwan-reading-context": "node ui-workspace/apps/dev-erp/tools/haengbogwan_reading_context_packet.mjs",
     "dev-erp:haengbogwan-reading-candidate": "node ui-workspace/apps/dev-erp/tools/haengbogwan_reading_candidate_judge.mjs",
+    "dev-erp:haengbogwan-knowledge-overlay": "node ui-workspace/apps/dev-erp/tools/haengbogwan_project_knowledge_overlay.mjs",
     "dev-erp:haengbogwan-project-context": "node ui-workspace/apps/dev-erp/tools/haengbogwan_project_context.mjs",
     "dev-erp:haengbogwan-apply": "node ui-workspace/apps/dev-erp/tools/haengbogwan_apply.mjs",
     "dev-erp:haengbogwan-run": "node ui-workspace/apps/dev-erp/tools/haengbogwan_run.mjs",

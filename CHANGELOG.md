@@ -9,6 +9,13 @@
 
 ## 2026-06-28
 
+### Revision `working` - dev-erp haengbogwan project knowledge overlay
+
+- Added a metadata-only `haengbogwan_project_knowledge_overlay.mjs` resolver so haengbogwan can load project wiki/RAG/source-research/ingest-receipt/core-knowledge refs before judging mail or project context.
+- Wired the overlay into both metadata context packets and body-aware reading packets while keeping wiki bodies, source text, RAG chunks, embeddings, NotebookLM answers, raw payloads, attachments, and secrets unloaded.
+- Candidate bundles now carry compact `knowledge_context` summaries and `supporting_knowledge_refs` so later ERP review and Codex automation can see which project knowledge refs were available.
+- Added node:test coverage for project-filtered knowledge refs, DB knowledge hits, redaction/no-leak sentinels, CLI behavior, and existing reading/context packet integration.
+
 ### Revision `working` - guild_hall project context graph design
 
 - Added `PROJECT_CONTEXT_GRAPH_MODEL_V0.md` and `PROJECT_CONTEXT_GRAPH_V0.md` to define the public-safe trunk/branch/leaf/fruit context graph contract and the guild_hall/dev-ERP projection model for haengbogwan project work.

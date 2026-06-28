@@ -8,6 +8,8 @@ import { DatabaseSync } from "node:sqlite";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { buildProjectKnowledgeOverlay } from "./haengbogwan_project_knowledge_overlay.mjs";
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, "..");
 const REPO = resolve(HERE, "..", "..", "..", "..");
@@ -393,10 +395,13 @@ export function buildReadingContextPacket({
   maxTextChars = DEFAULT_MAX_TEXT_CHARS,
   includeText = true,
   includeHidden = false,
+  includeKnowledge = true,
+  knowledgeLimit = DEFAULT_LIMIT,
   generatedAt = new Date().toISOString(),
 } = {}) {
   const mode = validateBodyMode(bodyMode);
-  const rows = loadMailRowsFromDb({ dbPath, projectId, query, direction, mailbox, limit, includeHidden });
+  const checkedProjectId = validateProjectId(projectId);
+  const rows = loadMailRowsFromDb({ dbPath, projectId: checkedProjectId, query, direction, mailbox, limit, includeHidden });
   const existingTaskMap = loadExistingTaskRefs({ dbPath, mailRows: rows });
   const idsToRead = mode === "subject" || mode === "preview"
     ? []
@@ -409,13 +414,27 @@ export function buildReadingContextPacket({
     includeText,
   }));
   const eventReadCount = mailEvents.filter((event) => event.event_body_read).length;
+  const knowledgeContext = includeKnowledge && checkedProjectId
+    ? buildProjectKnowledgeOverlay({
+      repoRoot,
+      dbPath,
+      projectId: checkedProjectId,
+      queryTerms: [
+        query,
+        ...mailEvents.map((event) => event.subject),
+        ...mailEvents.map((event) => event.counterpart),
+      ],
+      limit: knowledgeLimit,
+      generatedAt,
+    })
+    : null;
   return {
     schema_version: "haengbogwan.reading_context_packet.v1",
     generated_at: generatedAt,
     source: "dev_erp.core_mail",
     db_ref: resolve(dbPath),
     repo_root_ref: resolve(repoRoot),
-    project_id: validateProjectId(projectId),
+    project_id: checkedProjectId,
     query: String(query ?? "").trim(),
     body_mode: mode,
     body_access: eventReadCount ? "local_event_body_or_preview" : (mode === "subject" ? "subject_only" : "core_mail.body_preview"),
@@ -429,6 +448,7 @@ export function buildReadingContextPacket({
       protected_text_in_packet: includeText,
       output_should_redact_reading_text: true,
       allowed_event_root: relative(resolve(repoRoot), mailboxEventRoot(repoRoot)).replaceAll("\\", "/"),
+      project_knowledge_overlay_loaded: Boolean(knowledgeContext),
     },
     counts: {
       mail: mailEvents.length,
@@ -436,7 +456,16 @@ export function buildReadingContextPacket({
       preview_only: mailEvents.filter((event) => event.body_access === "core_mail.body_preview").length,
       subject_only: mailEvents.filter((event) => event.body_access === "subject_only").length,
       existing_task_linked_mail: mailEvents.filter((event) => event.existing_task_refs.length).length,
+      knowledge_roots_present: knowledgeContext?.counts?.present_root_count ?? 0,
+      knowledge_refs: knowledgeContext
+        ? (knowledgeContext.counts.wiki_page_count
+          + knowledgeContext.counts.rag_route_count
+          + knowledgeContext.counts.rag_work_card_count
+          + knowledgeContext.counts.knowledge_ledger_count
+          + knowledgeContext.counts.core_knowledge_hit_count)
+        : 0,
     },
+    knowledge_context: knowledgeContext,
     mail_events: mailEvents,
   };
 }
@@ -468,6 +497,8 @@ function parseArgs(argv) {
     maxTextChars: DEFAULT_MAX_TEXT_CHARS,
     includeText: false,
     includeHidden: false,
+    includeKnowledge: true,
+    knowledgeLimit: DEFAULT_LIMIT,
     json: false,
     help: false,
   };
@@ -477,6 +508,7 @@ function parseArgs(argv) {
     else if (token === "--json") opts.json = true;
     else if (token === "--include-reading-text") throw new Error("include_reading_text_cli_forbidden");
     else if (token === "--include-hidden") opts.includeHidden = true;
+    else if (token === "--no-knowledge") opts.includeKnowledge = false;
     else if (token === "--db") {
       opts.dbPath = argv[++i];
       if (!opts.dbPath || opts.dbPath.startsWith("--")) throw new Error("--db_requires_value");
@@ -501,6 +533,8 @@ function parseArgs(argv) {
       opts.bodyMode = validateBodyMode(argv[++i]);
     } else if (token === "--max-text-chars") {
       opts.maxTextChars = validateLimit(argv[++i], "max_text_chars");
+    } else if (token === "--knowledge-limit") {
+      opts.knowledgeLimit = validateLimit(argv[++i], "knowledge_limit");
     } else {
       throw new Error(`unknown_arg:${token}`);
     }
@@ -515,7 +549,8 @@ function usage() {
     "Usage: node tools/haengbogwan_reading_context_packet.mjs --db <dev-erp.db> [--repo-root <runtime-root>] [--project <code>|--query <text>] [--limit N] [--body-mode subject|preview|two_stage|full] [--json]",
     "",
     "Builds a local reading context packet from core_mail. By default CLI output redacts reading_text.",
-    "No writes. No attachment payloads. No secrets.",
+    "Adds metadata-only project knowledge overlay by default. Use --no-knowledge to skip it.",
+    "No writes. No attachment payloads. No secrets. No wiki bodies or RAG chunks.",
     `Today: ${todayIso()}`,
   ].join("\n");
 }

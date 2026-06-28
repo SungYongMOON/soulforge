@@ -22,6 +22,7 @@ const CONTEXT_TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_re
 const JUDGE_TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_reading_candidate_judge.mjs");
 const PRIVATE_SENTINEL = "PRIVATE_BODY_SENTINEL_DO_NOT_EMIT";
 const ATTACHMENT_SENTINEL = "private_attachment_name_do_not_emit.zip";
+const KNOWLEDGE_SENTINEL = "KNOWLEDGE_BODY_SENTINEL_DO_NOT_EMIT";
 
 function makeTempRuntime() {
   const root = mkdtempSync(join(tmpdir(), "sf-haengbogwan-reading-"));
@@ -75,6 +76,12 @@ function writeEventSink(repoRoot) {
     },
   ];
   writeFileSync(eventPath, `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`);
+}
+
+function writeKnowledgeFixture(repoRoot) {
+  const wikiPath = join(repoRoot, "_workspaces", "knowledge", "P26-014", "wiki", "project_page.md");
+  mkdirSync(dirname(wikiPath), { recursive: true });
+  writeFileSync(wikiPath, `# P26-014 knowledge\n${KNOWLEDGE_SENTINEL}\n`);
 }
 
 function writeMailDb(dbPath) {
@@ -156,6 +163,7 @@ test("HAENGBOGWAN-READING: context reads local event body only in private packet
   const tmp = makeTempRuntime();
   try {
     writeEventSink(tmp.repoRoot);
+    writeKnowledgeFixture(tmp.repoRoot);
     writeMailDb(tmp.dbPath);
 
     const packet = buildReadingContextPacket({
@@ -169,6 +177,10 @@ test("HAENGBOGWAN-READING: context reads local event body only in private packet
     });
     assert.equal(packet.counts.mail, 4);
     assert.equal(packet.counts.event_body_read, 2);
+    assert.equal(packet.boundary.project_knowledge_overlay_loaded, true);
+    assert.equal(packet.knowledge_context.boundary.metadata_only, true);
+    assert.equal(packet.knowledge_context.boundary.source_text_loaded, false);
+    assert.ok(packet.knowledge_context.wiki_page_refs.some((row) => row.page_ref === "_workspaces/knowledge/P26-014/wiki/project_page.md"));
     const mail1 = packet.mail_events.find((row) => row.mail_ref === "MAIL-1");
     assert.equal(mail1.body_access, "event_body_text");
     assert.equal(mail1.recipient_role, "to");
@@ -179,6 +191,7 @@ test("HAENGBOGWAN-READING: context reads local event body only in private packet
     const redactedText = JSON.stringify(redacted);
     assert.equal(redactedText.includes(PRIVATE_SENTINEL), false);
     assert.equal(redactedText.includes(ATTACHMENT_SENTINEL), false);
+    assert.equal(redactedText.includes(KNOWLEDGE_SENTINEL), false);
     assert.equal(redacted.boundary.protected_text_in_packet, false);
 
     const cli = spawnSync(process.execPath, [
@@ -193,6 +206,7 @@ test("HAENGBOGWAN-READING: context reads local event body only in private packet
     assert.equal(cli.status, 0, cli.stderr);
     assert.equal(cli.stdout.includes(PRIVATE_SENTINEL), false);
     assert.equal(cli.stdout.includes(ATTACHMENT_SENTINEL), false);
+    assert.equal(cli.stdout.includes(KNOWLEDGE_SENTINEL), false);
 
     const forbidden = spawnSync(process.execPath, [
       CONTEXT_TOOL,
@@ -213,6 +227,7 @@ test("HAENGBOGWAN-READING: judge builds context groups, ledger candidates, and u
   const tmp = makeTempRuntime();
   try {
     writeEventSink(tmp.repoRoot);
+    writeKnowledgeFixture(tmp.repoRoot);
     writeMailDb(tmp.dbPath);
 
     const packet = buildReadingContextPacket({
@@ -228,6 +243,7 @@ test("HAENGBOGWAN-READING: judge builds context groups, ledger candidates, and u
     const text = JSON.stringify(bundle);
     assert.equal(text.includes(PRIVATE_SENTINEL), false);
     assert.equal(text.includes(ATTACHMENT_SENTINEL), false);
+    assert.equal(text.includes(KNOWLEDGE_SENTINEL), false);
     assert.equal(bundle.boundary.raw_body_persisted, false);
     assert.equal(bundle.boundary.reading_text_emitted, false);
     assert.equal(bundle.counts.candidate_mail, 1);
@@ -242,6 +258,9 @@ test("HAENGBOGWAN-READING: judge builds context groups, ledger candidates, and u
     assert.equal(report.source_mail_ref, "mailcsv:M001");
     assert.equal(report.signals.includes("document_or_submission"), true);
     assert.equal(report.bot_hint, "document_draft_bot");
+    assert.ok(report.supporting_knowledge_refs.includes("_workspaces/knowledge/P26-014/wiki/project_page.md"));
+    assert.equal(bundle.knowledge_context.loaded, true);
+    assert.equal(bundle.knowledge_context.source_text_loaded, false);
 
     const existing = bundle.mail_reading_reports.find((row) => row.mail_ref === "MAIL-3");
     assert.equal(existing.disposition, "update_existing");
@@ -277,6 +296,7 @@ test("HAENGBOGWAN-READING: Codex judgment overlay improves candidates while code
   const tmp = makeTempRuntime();
   try {
     writeEventSink(tmp.repoRoot);
+    writeKnowledgeFixture(tmp.repoRoot);
     writeMailDb(tmp.dbPath);
 
     const packet = buildReadingContextPacket({
@@ -346,6 +366,7 @@ test("HAENGBOGWAN-READING: Codex judgment overlay improves candidates while code
     const text = JSON.stringify(bundle);
     assert.equal(text.includes(PRIVATE_SENTINEL), false);
     assert.equal(text.includes(ATTACHMENT_SENTINEL), false);
+    assert.equal(text.includes(KNOWLEDGE_SENTINEL), false);
 
     const report = bundle.mail_reading_reports.find((row) => row.mail_ref === "MAIL-1");
     assert.equal(report.codex_judgment_status, "applied");

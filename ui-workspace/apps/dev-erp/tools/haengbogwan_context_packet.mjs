@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { Store } from "../src/store.mjs";
 import { buildSnapshotForProject } from "./haengbogwan_snapshot.mjs";
 import { pendingForProject } from "./mail_to_task_pending.mjs";
+import { buildProjectKnowledgeOverlay } from "./haengbogwan_project_knowledge_overlay.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, "..");
@@ -298,11 +299,13 @@ export function buildSourceEventsForProject({
 
 export function buildContextPacketForProject({
   workmetaRoot = DEFAULT_WORKMETA_ROOT,
+  repoRoot = REPO,
   projectId,
   limit = DEFAULT_LIMIT,
   today = todayIso(),
   generatedAt = new Date().toISOString(),
   dbPath = "",
+  includeKnowledge = true,
 } = {}) {
   const checkedToday = validateToday(today);
   const checkedLimit = validateLimit(limit);
@@ -330,6 +333,21 @@ export function buildContextPacketForProject({
     boundary: metadataBoundary(projectId, snapshot),
     not_loaded: notLoadedNotes(),
   };
+  if (includeKnowledge) {
+    packet.knowledge_context = buildProjectKnowledgeOverlay({
+      repoRoot,
+      dbPath,
+      projectId,
+      queryTerms: [
+        String(projectId),
+        ...sourceEvents.map((event) => event.subject),
+        ...openTaskSummary(snapshot, checkedLimit).map((task) => task.title),
+      ],
+      limit: checkedLimit,
+      generatedAt,
+    });
+    packet.boundary.project_knowledge_overlay_loaded = true;
+  }
   return dbPath
     ? enrichContextPacketWithDbProjection(packet, { dbPath, limit: checkedLimit })
     : packet;
@@ -338,10 +356,12 @@ export function buildContextPacketForProject({
 function parseArgs(argv) {
   const opts = {
     workmetaRoot: DEFAULT_WORKMETA_ROOT,
+    repoRoot: REPO,
     projectId: "",
     limit: DEFAULT_LIMIT,
     today: todayIso(),
     dbPath: "",
+    includeKnowledge: true,
     json: false,
     help: false,
   };
@@ -355,6 +375,11 @@ function parseArgs(argv) {
       const value = argv[i + 1];
       if (!value || value.startsWith("--")) throw new Error(`${token}_requires_value`);
       opts.workmetaRoot = value;
+      i += 1;
+    } else if (token === "--repo-root") {
+      const value = argv[i + 1];
+      if (!value || value.startsWith("--")) throw new Error("--repo-root_requires_value");
+      opts.repoRoot = value;
       i += 1;
     } else if (token === "--project") {
       const value = argv[i + 1];
@@ -376,6 +401,8 @@ function parseArgs(argv) {
       if (!value || value.startsWith("--")) throw new Error("--db_requires_value");
       opts.dbPath = value;
       i += 1;
+    } else if (token === "--no-knowledge") {
+      opts.includeKnowledge = false;
     } else {
       throw new Error(`unknown_arg:${token}`);
     }
@@ -386,10 +413,11 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    "Usage: node tools/haengbogwan_context_packet.mjs --workmeta-root <path> --project <code> [--limit N] [--today YYYY-MM-DD] [--db <dev-erp.db>] [--json]",
+    "Usage: node tools/haengbogwan_context_packet.mjs --workmeta-root <path> --project <code> [--repo-root <dir>] [--limit N] [--today YYYY-MM-DD] [--db <dev-erp.db>] [--json]",
     "",
     "Builds a metadata-only source_event/context packet from mail/task ledgers.",
     "Optional --db loads role/actor routing metadata from dev-ERP projection tables only.",
+    "Adds metadata-only project knowledge overlay by default. Use --no-knowledge to skip it.",
   ].join("\n");
 }
 

@@ -323,6 +323,45 @@ function evidenceSummary({ signals, dueCandidates, domain, bodyAccess, dispositi
   return `${parts.join("; ")}; body text redacted`;
 }
 
+function knowledgeRefsFromContext(knowledgeContext, limit = 8) {
+  const refs = [];
+  const add = (value) => {
+    const ref = String(value ?? "").trim();
+    if (!ref || refs.includes(ref)) return;
+    refs.push(ref);
+  };
+  for (const row of Array.isArray(knowledgeContext?.wiki_page_refs) ? knowledgeContext.wiki_page_refs : []) add(row.page_ref || row.ref);
+  for (const row of Array.isArray(knowledgeContext?.rag_route_refs) ? knowledgeContext.rag_route_refs : []) add(row.route_ref || row.ref);
+  for (const row of Array.isArray(knowledgeContext?.rag_work_card_refs) ? knowledgeContext.rag_work_card_refs : []) add(row.work_card_ref || row.ref);
+  for (const row of Array.isArray(knowledgeContext?.knowledge_ledger_refs) ? knowledgeContext.knowledge_ledger_refs : []) add(row.ledger_ref || row.ref);
+  for (const row of Array.isArray(knowledgeContext?.core_knowledge_hits) ? knowledgeContext.core_knowledge_hits : []) {
+    add(row.source_ref || row.pointer || (row.id ? `core_knowledge:${row.id}` : ""));
+  }
+  return refs.slice(0, limit);
+}
+
+function summarizeKnowledgeContext(knowledgeContext) {
+  if (!knowledgeContext) {
+    return {
+      loaded: false,
+      source_text_loaded: false,
+      ref_count: 0,
+      refs: [],
+    };
+  }
+  const refs = knowledgeRefsFromContext(knowledgeContext);
+  return {
+    loaded: true,
+    schema_version: knowledgeContext.schema_version || "",
+    source_text_loaded: !!knowledgeContext.boundary?.source_text_loaded,
+    wiki_body_loaded: !!knowledgeContext.boundary?.wiki_body_loaded,
+    raw_payload_copied: !!knowledgeContext.boundary?.raw_payload_copied,
+    ref_count: refs.length,
+    counts: knowledgeContext.counts || {},
+    refs,
+  };
+}
+
 function signalLabels(text, dueCandidates) {
   const labels = [];
   if (hasAny(text, ACTION_KEYWORDS)) labels.push("action_request");
@@ -389,6 +428,8 @@ function candidateForAction(report, type, index = 0) {
     source_lineage_ref: report.source_lineage_ref,
     generation_rule_ref: report.generation_rule_ref,
     generation_run_ref: report.generation_run_ref,
+    supporting_knowledge_refs: report.supporting_knowledge_refs,
+    knowledge_hint_reason: report.knowledge_hint_reason,
     next_action: report.codex_next_action || copy.next,
     body_access: report.body_access,
     context_key: report.context_key,
@@ -430,6 +471,7 @@ function buildReportForEvent(event, opts = {}) {
   const botHint = BOT_BY_TYPE[primaryType] || "mail_review_bot";
   const priority = priorityFor({ due, actionSignals, text, recipientRole: event.recipient_role });
   const evidence = evidenceSummary({ signals, dueCandidates, domain, bodyAccess: event.body_access, disposition });
+  const knowledgeRefs = knowledgeRefsFromContext(opts.knowledgeContext);
 
   return {
     mail_ref: event.mail_ref || "",
@@ -462,6 +504,11 @@ function buildReportForEvent(event, opts = {}) {
     confidence,
     signals,
     evidence_summary: evidence,
+    knowledge_context_loaded: Boolean(opts.knowledgeContext),
+    supporting_knowledge_refs: knowledgeRefs,
+    knowledge_hint_reason: knowledgeRefs.length
+      ? `metadata-only project knowledge refs available: ${knowledgeRefs.length}`
+      : "no project knowledge refs available",
     required_role: domain.required_role,
     required_capability: domain.required_capability,
     suggested_assignee_ref: domain.suggested_assignee_ref,
@@ -545,6 +592,7 @@ function buildProposalCandidates(reports) {
       priority: report.priority,
       suggested_assignee_ref: report.suggested_assignee_ref,
       bot_hint: report.bot_hint,
+      supporting_knowledge_refs: report.supporting_knowledge_refs,
       evidence_summary: report.evidence_summary,
       body_access: report.body_access,
       codex_judgment_status: report.codex_judgment_status || "",
@@ -562,6 +610,9 @@ function receiptForPacket(packet, reports) {
     attachment_payloads_loaded: false,
     secret_loaded: false,
     output_body_text_redacted: true,
+    project_knowledge_overlay_loaded: Boolean(packet?.knowledge_context),
+    knowledge_ref_count: summarizeKnowledgeContext(packet?.knowledge_context).ref_count,
+    source_text_loaded: Boolean(packet?.knowledge_context?.boundary?.source_text_loaded),
   };
 }
 
@@ -571,6 +622,7 @@ export function buildReadingRuleReports(contextPacket, opts = {}) {
   return events.map((event) => buildReportForEvent(event, {
     generationRuleRef: opts.generationRuleRef || DEFAULT_GENERATION_RULE_REF,
     generatedAt,
+    knowledgeContext: contextPacket?.knowledge_context || null,
   }));
 }
 
@@ -584,6 +636,7 @@ export function buildReadingCandidateBundle(contextPacket, reports, opts = {}) {
     query: contextPacket?.query || "",
     body_mode: contextPacket?.body_mode || "",
     body_access: contextPacket?.body_access || "",
+    knowledge_context: summarizeKnowledgeContext(contextPacket?.knowledge_context),
     boundary: {
       raw_body_persisted: false,
       reading_text_emitted: false,
