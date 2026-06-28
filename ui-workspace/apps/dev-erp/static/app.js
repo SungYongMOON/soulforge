@@ -1208,7 +1208,6 @@ const SOON_NAV = {
 // 과제 facet(L4) — 프로젝트 관리에서 과제(L3) 밑에 펼쳐지는 항목. 클릭 시 과제 허브의 해당 탭 진입.
 const PROJ_FACETS = [
   { key: "overview", b: "개요", f: "개요" },
-  { key: "julgi", b: "줄기(나무)", f: "줄기나무" },
   { key: "contacts", b: "연락처", f: "관계자" },
   { key: "schedule", b: "일정", f: "운명표" },
   { key: "gates", b: "단계·게이트", f: "관문" },
@@ -5327,51 +5326,7 @@ async function renderProjectHub() {
   if (tab === "bom") return hubBom(mount, p);
   if (tab === "risk") return hubRisk(mount, p);
   if (tab === "history") return hubHistory(mount, p);
-  if (tab === "julgi") return hubJulgi(mount, p);
   return hubOverview(mount, p);
-}
-
-// 과제 줄기(나무): 척추→가지, 완료=열매. 행보관(지금 상태)과 짝. read-only 소비(엔진=src/julgi*).
-async function hubJulgi(mount, p) {
-  let view;
-  try { view = await api(`/api/julgi/view?project=${encodeURIComponent(p.id)}`); }
-  catch { mount.innerHTML = `<div class="empty">줄기를 불러오지 못했어요.</div>`; return; }
-  const stats = view.julgi?.stats ?? { total: 0, fruit: 0, leaf: 0, bud: 0, progress: 0 };
-  if (!stats.total) {
-    mount.innerHTML = `<div class="empty" style="text-align:left;max-width:560px">
-      <p style="font-weight:500">아직 이 과제의 줄기(나무)가 없어요.</p>
-      <p class="dim">줄기 = <b>체계공학 일정</b>(게이트·산출물·마감)에서 척추가 서고, <b>메일·음성</b>이 가닥으로 붙고, 완료되면 <b>열매</b>가 맺히는 과제 이야기.</p>
-      <button id="julgiFromSchedule" class="fav-chip">체계공학 일정에서 만들기 (실데이터)</button>
-      <button id="julgiSeed" class="fav-chip mini">데모(샘플)</button>
-    </div>`;
-    mount.querySelector("#julgiFromSchedule").addEventListener("click", async () => {
-      const r = await post(`/api/julgi/from-schedule?project=${encodeURIComponent(p.id)}`, {});
-      if (r.ok) { const d = await r.json().catch(() => ({})); toast(`일정에서 줄기: 게이트 ${d.stages ?? 0} · 산출물 ${d.deliverables ?? 0}`, "ok"); render(); }
-      else { toast("일정 줄기 생성 실패", "error"); }
-    });
-    mount.querySelector("#julgiSeed").addEventListener("click", async () => {
-      const r = await post(`/api/julgi/seed-demo?project=${encodeURIComponent(p.id)}`, {});
-      if (r.ok) { toast("데모 줄기 생성됨", "ok"); render(); } else { toast("생성 실패", "error"); }
-    });
-    return;
-  }
-  const COLOR = { fruit: "#c0392b", leaf: "#639922", bud: "#888780", dropped: "#b4b2a9" };
-  const MARK = { fruit: "◆", leaf: "○", bud: "·", dropped: "✕" };
-  const node = (n, d) => `<div style="margin-left:${d * 18}px;padding:2px 0">
-      <span style="color:${COLOR[n.visual] || "#888"};font-weight:500">${MARK[n.visual] || "○"}</span>
-      <span class="dim" style="font-size:12px">[${esc(n.type)}]</span> ${esc(n.text)}
-    </div>${(n.children || []).map((c) => node(c, d + 1)).join("")}`;
-  mount.innerHTML = `<div style="max-width:680px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-      <b>줄기 — ${esc(p.title || p.id)}</b>
-      <span class="dim">완료율 ${stats.progress}% · <span style="color:#c0392b">◆열매 ${stats.fruit}</span> · ○잎 ${stats.leaf} · ·봉오리 ${stats.bud} / 총 ${stats.total}</span>
-    </div>
-    <div style="height:8px;background:var(--bg2,#eee);border-radius:4px;overflow:hidden;max-width:380px;margin-bottom:12px">
-      <div style="height:100%;width:${stats.progress}%;background:#639922"></div>
-    </div>
-    <div>${(view.tree || []).map((n) => node(n, 0)).join("")}</div>
-    <p class="dim" style="margin-top:10px;font-size:12px">◆ 빨강=완료(열매) · ○ 초록=진행중(잎) · · 회색=대기(봉오리)</p>
-  </div>`;
 }
 
 // --- 과제 facet 렌더러(프로젝트 필터 실 API). 컴팩트 테이블 — 편집은 전역 모듈에서. ---

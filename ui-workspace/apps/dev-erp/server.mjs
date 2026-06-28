@@ -13,12 +13,6 @@ import { dirname, join, extname, resolve, sep, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { openStore } from "./src/store.mjs";
-// 줄기 메모리(과제 나무·열매) — 엔진은 src/julgi*. ERP 서버는 read + 데모시드만 소비(P-4·메타).
-import { ensureJulgiSchema, addItem as julgiAdd, buildTree as julgiTree } from "./src/julgi.mjs";
-import { buildSpineFromDoc as julgiSpine } from "./src/julgi_spine.mjs";
-import { proposeUpdates as julgiPropose, applyUpdates as julgiApply } from "./src/julgi_update.mjs";
-import { buildJulgiView } from "./src/julgi_view.mjs";
-import { projectScheduleToJulgi } from "./src/julgi_schedule.mjs";
 import { loadFixture } from "./src/fixture.mjs";
 import { ingestFromFile } from "./src/adapter.mjs";
 import { getLexicon, LEXICON } from "./src/lexicon.mjs";
@@ -1173,36 +1167,6 @@ const server = createServer(async (req, res) => {
     if (path === "/api/mail/promoted") {
       // 메일 화면 '✓ 할 일' 판정 전용(승격 진실원). 미분류 격리·assignee 스코프 우회.
       return send(res, 200, { ids: store.promotedMailIds(qp.project ?? null) });
-    }
-    // 줄기(과제 나무) 읽기: 행보관 '지금'(주입 생략→null) + 줄기 흐름/열매율 + 트리.
-    if (path === "/api/julgi/view") {
-      if (!qp.project) return send(res, 400, { error: "project_required" });
-      ensureJulgiSchema(store.db);
-      const view = buildJulgiView(store.db, qp.project, { snapshot: null });
-      return send(res, 200, { ...view, tree: julgiTree(store.db, qp.project) });
-    }
-    // 데모 줄기 시드(샘플·실 원문 아님). 멱등(이미 있으면 skip). owner가 화면 버튼으로 호출.
-    if (path === "/api/julgi/seed-demo" && req.method === "POST") {
-      if (!qp.project) return send(res, 400, { error: "project_required" });
-      ensureJulgiSchema(store.db);
-      const project = qp.project;
-      const existing = store.db.prepare("SELECT COUNT(*) c FROM project_memory_item WHERE project_id=?").get(project).c;
-      if (existing) return send(res, 200, { ok: true, already: true });
-      const doc = "전달모델 설계는 필수 요구사항이다.\nSRR 검토는 3/30 까지 제출한다.\n슬립링 인터페이스 사양을 준수한다.\n위험: 일정이 촉박하다.";
-      julgiSpine(store.db, doc, { project_id: project, source_ref: "데모(지시서)" });
-      julgiAdd(store.db, { project_id: project, type: "상대약속", text: "입력자료 1/20 제공", thread_key: "입력자료 제공", salience: "high", source_ref: "데모(메일#31)" });
-      for (const m of [
-        { subject: "회신: 입력자료 제공", body_preview: "아직 미수령입니다", source_ref: "데모(메일#34)" },
-        { subject: "RE: 입력자료 제공", body_preview: "자료 수령 완료", source_ref: "데모(메일#40)" },
-        { subject: "SRR 산출물 제출 완료", body_preview: "검토본 송부", source_ref: "데모(메일#52)" },
-      ]) julgiApply(store.db, project, julgiPropose(store.db, project, m));
-      return send(res, 200, { ok: true });
-    }
-    // 체계공학 일정(core_deliverable) → 줄기 척추(게이트·산출물·마감). 실데이터·결정적·멱등.
-    if (path === "/api/julgi/from-schedule" && req.method === "POST") {
-      if (!qp.project) return send(res, 400, { error: "project_required" });
-      ensureJulgiSchema(store.db);
-      return send(res, 200, projectScheduleToJulgi(store.db, qp.project));
     }
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
     if (path === "/api/doc/recipes") return send(res, 200, docRecipes(qp.mode));
