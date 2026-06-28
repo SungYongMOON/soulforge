@@ -30,6 +30,35 @@ project trunk
 The implementation may store a graph under this tree, because one event can
 touch multiple branches.
 
+## Owner Decision Defaults
+
+These defaults were captured from the 2026-06-28 owner grill-me decisions.
+
+- The organizing axis is a hybrid of schedule/milestone lines and work
+  branches.
+- If branch placement is ambiguous, create or suggest a new branch first.
+- Automatic merge is allowed after deterministic duplicate/confidence checks;
+  a person must be able to merge or move branches by drag-and-drop in ERP or
+  the graph view.
+- Every input is stored as graph context first. A task is created only when the
+  event implies action.
+- MVP automation may apply context links and task creation. Assignee and due
+  date changes remain review/proposal items.
+- Context loading uses layers: L0 index, L1 project summary, L2 branch summary,
+  L3 related event detail, and L4 source layer.
+- Source reading is expected to be frequent early, then reduced as summary
+  layers accumulate.
+- Summary refresh updates related branch summaries immediately and the whole
+  project summary once per day; change-volume based refresh can be added later.
+- Milestones are independent nodes connected to work branches by edges.
+- People, teams, and bots are actor nodes. Team links may be automatic; person
+  and bot links should stay candidates unless confidence is high.
+- Fruits may be small fruits or representative fruits. A fruit never closes a
+  task automatically; it creates a close candidate for review.
+- MVP consumers should expose four views over the same graph state: mail
+  reading queue, per-project work tree, today task board, and graph
+  visualization.
+
 ## Workspace Boundary
 
 The graph is a project-local operational index. It is not the source payload and
@@ -126,6 +155,8 @@ Node types:
 - `event_leaf`
 - `task`
 - `fruit`
+- `milestone`
+- `actor`
 - `entity`
 - `source_ref`
 
@@ -153,7 +184,11 @@ Edge types:
 - `creates_task`
 - `updates_task`
 - `closes_task`
+- `close_candidate`
 - `produces_fruit`
+- `milestone_for`
+- `merged_into`
+- `moved_to_branch`
 - `blocks`
 - `unblocks`
 - `depends_on`
@@ -198,10 +233,16 @@ The following should default to review/proposal instead of direct mutation:
 - existing task close
 - due date change
 - final assignee confirmation
+- low-confidence branch merge or move
 - quality or delivery decision
 - customer-facing response approval
 - external send action
 - source truth acceptance
+
+High-confidence branch merge may be applied by code after deterministic
+duplicate/confidence checks. Human drag-and-drop merge or move actions must be
+recorded as graph operations with source/review receipts; they must not rewrite
+or erase the original source event.
 
 ## Lifecycle
 

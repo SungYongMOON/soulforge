@@ -54,6 +54,29 @@ meaning. Code owns durable identity and apply authority.
 The graph is an operational index with provenance. It is not source truth by
 itself.
 
+## Owner Decision Defaults
+
+Captured from the 2026-06-28 owner grill-me decisions:
+
+- Use a hybrid axis: schedule/milestone lines plus work branches.
+- When branch placement is ambiguous, prefer a new branch candidate over a
+  forced merge.
+- The engine may apply safe context links and create task candidates or tasks
+  when action is needed. Assignee and due date changes stay review/proposal
+  items.
+- Every input becomes graph context before task projection; inputs that do not
+  require action remain context-only events.
+- Context loading is layered as L0 index, L1 project graph summary, L2 branch
+  summary, L3 related event detail, and L4 source layer.
+- Related branch summaries refresh immediately. The project-wide summary
+  refreshes daily in the MVP; change-volume refresh can be added later.
+- Milestones are independent nodes linked to the relevant work branches.
+- People, teams, and bots are actor nodes. Team edges may be automatic; person
+  and bot edges require high confidence or stay candidates.
+- Fruits are either small fruits or representative fruits. Fruit creation emits
+  a close candidate instead of automatically closing a task.
+- Human ERP/graph views must support drag-and-drop branch merge and move.
+
 ## Node Types
 
 | Type | Meaning |
@@ -63,7 +86,9 @@ itself.
 | `event_leaf` | A mail, voice, schedule, deliverable, meeting, or manual event. |
 | `task` | A task candidate or confirmed task. |
 | `fruit` | A completed result, decision, accepted response, submitted deliverable, or closure evidence. |
-| `entity` | A person, team, bot, organization, deliverable, milestone, requirement, quality item, or external counterpart. |
+| `milestone` | A schedule or milestone node connected to affected work branches. |
+| `actor` | A person, team, or bot that participates in work. |
+| `entity` | An organization, deliverable, requirement, quality item, or external counterpart. |
 | `source_ref` | Metadata pointer to the real source payload. |
 
 Recommended branch seeds:
@@ -93,7 +118,11 @@ Recommended branch seeds:
 | `creates_task` | Event creates a task candidate or task. |
 | `updates_task` | Event updates an existing task. |
 | `closes_task` | Event or fruit closes a task. |
+| `close_candidate` | Event or fruit suggests task closure for review. |
 | `produces_fruit` | Task produces a result/decision/deliverable/response. |
+| `milestone_for` | Milestone is connected to a work branch or task. |
+| `merged_into` | Branch, task, or event context has been merged into another node. |
+| `moved_to_branch` | Human or code moved a node from one branch to another. |
 | `blocks` / `unblocks` | Event or task changes blocking state. |
 | `depends_on` | Task or branch depends on another node. |
 | `duplicates` | Event or task is a duplicate of another node. |
@@ -261,13 +290,16 @@ Deliverable or quality input:
 4. `branch retrieve`: load only the relevant trunk, candidate branches, open
    tasks, recent fruits, important schedule items, and actor/role hints.
 5. `semantic judge`: Codex proposes one or more operations:
-   `connect_branch`, `new_task`, `update_task`, `close_task`, `fruit`,
-   `ignore`, or `needs_owner`.
+   `connect_branch`, `new_branch_candidate`, `merge_branch`, `move_branch`,
+   `new_task`, `update_task`, `close_candidate`, `fruit`, `ignore`, or
+   `needs_owner`.
 6. `deterministic gate`: code validates schema, hashes, source refs, forbidden
    raw fields, duplicate risk, branch existence, and authority.
-7. `apply or queue`: safe low-risk graph edges can be applied; task creation,
-   task close, due changes, final assignee, quality/delivery decisions, and
-   external-send actions go to a review/proposal queue.
+7. `apply or queue`: safe low-risk graph edges, high-confidence branch merge,
+   and action-needed task creation can be applied; ambiguous task creation,
+   low-confidence branch merge/move, task close, due changes, final assignee,
+   quality/delivery decisions, and external-send actions go to a review/proposal
+   queue.
 8. `fruit pass`: when work is completed, create or accept a fruit node linked
    to the task and evidence source refs.
 
@@ -276,19 +308,32 @@ Deliverable or quality input:
 Codex should not receive the whole project every time. It receives a bounded
 context pack.
 
-For one event, load:
+For one event, load progressively:
 
-- project trunk summary
-- candidate branch summaries
-- active tasks on those branches
-- recent event leaves on the same thread or branch
-- accepted fruits/decisions that constrain current work
-- upcoming milestone/deadline hints
-- role/actor/bot hints
-- source refs and hashes
+- `L0 index`: source id, project hint, thread/group ids, event time, mailbox or
+  capture refs, hashes, and prior conversion refs.
+- `L1 project graph summary`: project trunk, current milestones, open branch
+  list, risk/deadline summary, and accepted representative fruits.
+- `L2 branch summaries`: candidate branch summaries, active tasks on those
+  branches, actor hints, branch-level blockers, and recent small fruits.
+- `L3 related event detail`: recent event leaves on the same thread, milestone,
+  branch, or source group; this layer may include redacted excerpts only when
+  the runtime boundary allows it.
+- `L4 source layer`: raw mail body, transcript, meeting note, or attachment
+  derived text only inside an approved private runtime. This layer is used
+  often during initial graph construction, then less often as L1-L3 summaries
+  become trustworthy.
 
 The context pack may include local source text only in a private runtime lane.
 Persisted packs and reports must be redacted.
+
+Summary refresh policy:
+
+- Update L0 and the affected event/edge rows for every input.
+- Refresh related L2 branch summaries immediately after classification.
+- Refresh the L1 project-wide summary once per day in the MVP.
+- Add change-volume based project summary refresh later when branch/event counts
+  make daily refresh too stale.
 
 ## Weekend MVP
 
@@ -301,6 +346,8 @@ Scope:
 - mail events plus manual voice/schedule stubs
 - no raw payload persistence
 - dry-run by default
+- four MVP views: mail reading queue, per-project work tree, today task board,
+  and graph visualization
 
 Implementation order:
 
@@ -311,10 +358,11 @@ Implementation order:
 3. Teach the current haengbogwan reading output `work_context_groups[]` and
    `context_key` to become `context_branch` suggestions.
 4. Add a context pack builder that loads branch-local tasks/fruits/events.
-5. Add a Codex judgment JSON shape for graph operations.
-6. Add a dry-run graph planner that emits suggested edges, task candidates,
-   fruit candidates, and review queue rows.
-7. Add tests proving new task, existing task update, branch connection, fruit
+5. Add L0-L4 context pack layers and summary-refresh metadata.
+6. Add a Codex judgment JSON shape for graph operations.
+7. Add a dry-run graph planner that emits suggested edges, task candidates,
+   fruit candidates, merge/move operations, and review queue rows.
+8. Add tests proving new task, existing task update, branch connection, fruit
    candidate, duplicate suppression, and raw-payload rejection.
 
 Success criteria:
@@ -322,10 +370,25 @@ Success criteria:
 - Given ten incoming redacted/synthetic events, the engine can classify each as
   new task, update existing task, branch context update, fruit candidate,
   ignore, or needs owner.
+- Context links and action-needed task creation can be automated in dry-run;
+  assignee changes, due date changes, and close candidates are reviewable.
 - No raw body, transcript, attachment payload, local source path, or secret
   appears in persisted output.
 - The result can be reviewed as a tree while remaining exportable as graph
   edges.
+
+## MVP Views
+
+All views read the same graph projection. They must not fork separate state.
+
+- `mail reading queue`: shows incoming events, their branch/task judgment, and
+  review reasons.
+- `per-project work tree`: shows project trunk, milestone nodes, work branches,
+  event leaves, tasks, and fruits.
+- `today task board`: shows due, overdue, blocked, waiting, review-needed, and
+  action-needed tasks from the graph/task projection.
+- `graph visualization`: shows nodes and edges for context investigation,
+  including merge/move history.
 
 ## Existing Soulforge Fit
 
@@ -351,4 +414,5 @@ This design extends existing surfaces instead of replacing them.
   external send.
 - Do not store raw source payloads in public repo or `_workmeta`.
 - Do not create a decorative multi-agent dashboard.
+- Do not close tasks automatically just because a fruit was created.
 - Do not close quality/delivery/schedule decisions automatically.

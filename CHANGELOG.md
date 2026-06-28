@@ -14,6 +14,7 @@
 - Added `PROJECT_CONTEXT_GRAPH_MODEL_V0.md` and `PROJECT_CONTEXT_GRAPH_V0.md` to define the public-safe trunk/branch/leaf/fruit context graph contract and the guild_hall/dev-ERP projection model for haengbogwan project work.
 - Fixed the authority split: Codex may judge meaning in a private runtime, while deterministic code owns IDs, deduplication, source refs, graph mutation, task writes, and raw-output guards.
 - Documented the weekend MVP path from current `work_context_groups[]` and `context_key` outputs to metadata-only branch/task/fruit graph suggestions.
+- Captured owner grill-me defaults for the MVP: milestone/work-branch hybrid axis, graph-first intake, L0-L4 context loading, daily project summary refresh, automatic context/task creation boundaries, actor nodes, fruit close candidates, and the four shared graph views.
 
 ### Revision `working` - dev-erp haengbogwan reading engine
 
