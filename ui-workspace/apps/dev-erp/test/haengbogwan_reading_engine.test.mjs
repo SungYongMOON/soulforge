@@ -17,6 +17,9 @@ import {
   buildCodexJudgeRequest,
   redactCodexJudgeRequest,
 } from "../tools/haengbogwan_reading_codex_judge.mjs";
+import {
+  buildProjectKnowledgeOverlay,
+} from "../tools/haengbogwan_project_knowledge_overlay.mjs";
 
 const CONTEXT_TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_reading_context_packet.mjs");
 const JUDGE_TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_reading_candidate_judge.mjs");
@@ -82,6 +85,7 @@ function writeKnowledgeFixture(repoRoot) {
   const wikiPath = join(repoRoot, "_workspaces", "knowledge", "P26-014", "wiki", "project_page.md");
   mkdirSync(dirname(wikiPath), { recursive: true });
   writeFileSync(wikiPath, `# P26-014 knowledge\n${KNOWLEDGE_SENTINEL}\n`);
+  writeFileSync(join(dirname(wikiPath), "kvds_sow_context.md"), `# KVDS SOW context\n${KNOWLEDGE_SENTINEL}\n`);
 }
 
 function writeMailDb(dbPath) {
@@ -287,6 +291,77 @@ test("HAENGBOGWAN-READING: judge builds context groups, ledger candidates, and u
     assert.equal(cli.stdout.includes(PRIVATE_SENTINEL), false);
     const cliBundle = JSON.parse(cli.stdout);
     assert.equal(cliBundle.counts.ledger_candidate_keys, 1);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-READING: project knowledge metadata can influence context grouping without body leakage", () => {
+  const tmp = makeTempRuntime();
+  try {
+    writeKnowledgeFixture(tmp.repoRoot);
+    const baseEvent = {
+      mail_ref: "MAIL-SOW",
+      project_id: "P26-014",
+      received_at: "2026-06-28T09:00:00+09:00",
+      direction: "inbound",
+      subject: "KVDS SOW coordination package",
+      counterpart: "customer@example.test",
+      mailbox_ref: "owner@example.test",
+      pointer_ref: "_workmeta/P26-014/reports/mail_history/mail_history.csv#SOW",
+      source_ref: "evt-sow",
+      stage_code: "",
+      body_access: "subject_only",
+      event_body_read: false,
+      event_found: false,
+      event_ref: "",
+      event_file_ref: "",
+      event_line: null,
+      recipient_role: "unknown",
+      attachment_count: 1,
+      body_preview_len: 0,
+      reading_text_len: 0,
+      reading_text_hash: "",
+      existing_task_refs: [],
+    };
+    const packetBase = {
+      schema_version: "haengbogwan.reading_context_packet.v1",
+      generated_at: "2026-06-28T00:00:00.000Z",
+      project_id: "P26-014",
+      body_mode: "subject",
+      body_access: "subject_only",
+      boundary: {
+        raw_body_persisted: false,
+        attachments_loaded: false,
+        attachment_payloads_loaded: false,
+        secret_loaded: false,
+        protected_text_in_packet: false,
+      },
+      mail_events: [baseEvent],
+    };
+    const knowledge = buildProjectKnowledgeOverlay({
+      repoRoot: tmp.repoRoot,
+      dbPath: "",
+      projectId: "P26-014",
+      queryTerms: ["KVDS SOW coordination package"],
+      limit: 20,
+      generatedAt: "2026-06-28T00:00:00.000Z",
+    });
+    const offBundle = judgeReadingContextPacket({ ...packetBase, knowledge_context: null }, { generatedAt: "2026-06-28T00:00:00.000Z" });
+    const onBundle = judgeReadingContextPacket({ ...packetBase, knowledge_context: knowledge }, { generatedAt: "2026-06-28T00:00:00.000Z" });
+    const offReport = offBundle.mail_reading_reports[0];
+    const onReport = onBundle.mail_reading_reports[0];
+
+    assert.equal(JSON.stringify(onBundle).includes(KNOWLEDGE_SENTINEL), false);
+    assert.equal(offReport.knowledge_hint_applied, false);
+    assert.equal(onReport.knowledge_hint_applied, true);
+    assert.notEqual(offReport.context_key, onReport.context_key);
+    assert.equal(offReport.target_object, "KVDS");
+    assert.equal(onReport.target_object, "KVDS SOW");
+    assert.equal(onReport.required_role, "systems_engineering_owner");
+    assert.deepEqual(onReport.work_types, ["review", "author"]);
+    assert.match(onReport.knowledge_hint_reason, /kvds_sow/);
+    assert.ok(onReport.supporting_knowledge_refs.some((ref) => ref.includes("kvds_sow_context.md")));
   } finally {
     tmp.cleanup();
   }

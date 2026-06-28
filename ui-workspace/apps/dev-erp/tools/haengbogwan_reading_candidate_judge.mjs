@@ -340,6 +340,211 @@ function knowledgeRefsFromContext(knowledgeContext, limit = 8) {
   return refs.slice(0, limit);
 }
 
+function knowledgeMetadataRows(knowledgeContext) {
+  const rows = [];
+  const add = (kind, ref, text = "") => {
+    const cleanRef = String(ref ?? "").trim();
+    const cleanText = String(text ?? "").trim();
+    if (!cleanRef && !cleanText) return;
+    rows.push({ kind, ref: cleanRef, text: cleanText || cleanRef });
+  };
+  for (const row of Array.isArray(knowledgeContext?.spaces) ? knowledgeContext.spaces : []) {
+    add("space", row.ref || row.path, [row.ref, row.path, row.name, row.owner_surface].filter(Boolean).join(" "));
+  }
+  for (const row of Array.isArray(knowledgeContext?.wiki_page_refs) ? knowledgeContext.wiki_page_refs : []) {
+    add("wiki", row.page_ref || row.ref, [row.page_ref, row.ref, row.name, row.owner_surface].filter(Boolean).join(" "));
+  }
+  for (const row of Array.isArray(knowledgeContext?.rag_route_refs) ? knowledgeContext.rag_route_refs : []) {
+    add("rag_route", row.route_ref || row.ref, [row.route_ref, row.ref, row.name, row.owner_surface].filter(Boolean).join(" "));
+  }
+  for (const row of Array.isArray(knowledgeContext?.rag_work_card_refs) ? knowledgeContext.rag_work_card_refs : []) {
+    add("rag_work_card", row.work_card_ref || row.ref, [row.work_card_ref, row.ref, row.name, row.owner_surface].filter(Boolean).join(" "));
+  }
+  for (const row of Array.isArray(knowledgeContext?.knowledge_ledger_refs) ? knowledgeContext.knowledge_ledger_refs : []) {
+    add("knowledge_ledger", row.ledger_ref || row.ref, [row.ledger_ref, row.ref, row.name, row.owner_surface].filter(Boolean).join(" "));
+  }
+  for (const row of Array.isArray(knowledgeContext?.core_knowledge_hits) ? knowledgeContext.core_knowledge_hits : []) {
+    add("core_knowledge", row.source_ref || row.pointer || row.id, [
+      row.id,
+      row.title,
+      row.summary,
+      row.topic,
+      row.keywords,
+      row.source_ref,
+      row.pointer,
+    ].filter(Boolean).join(" "));
+  }
+  return rows;
+}
+
+function knowledgeMetadataText(knowledgeContext) {
+  return knowledgeMetadataRows(knowledgeContext).map((row) => `${row.kind} ${row.ref} ${row.text}`).join("\n");
+}
+
+function knowledgeRefsForEvent(knowledgeContext, eventText, limit = 8) {
+  const fallback = knowledgeRefsFromContext(knowledgeContext, limit);
+  const allSupportRefs = knowledgeRefsFromContext(knowledgeContext, 200);
+  const rows = knowledgeMetadataRows(knowledgeContext);
+  const haystack = compactText(eventText);
+  const scored = [];
+  for (const row of rows) {
+    const ref = row.ref;
+    if (!ref || fallback.includes(ref) === false) {
+      // Keep support refs on the same public surface as the existing summary.
+      if (!allSupportRefs.includes(ref)) continue;
+    }
+    const rowText = compactText(`${row.ref} ${row.text}`);
+    let score = 0;
+    for (const token of rowText.matchAll(/[\p{L}\p{N}]{3,}/gu)) {
+      const value = token[0].toLowerCase();
+      if (haystack.includes(value)) score += value.length;
+    }
+    if (score > 0) scored.push({ ref, score });
+  }
+  const ranked = scored
+    .sort((a, b) => b.score - a.score || a.ref.localeCompare(b.ref, "en"))
+    .map((row) => row.ref);
+  return [...new Set([...ranked, ...fallback])].slice(0, limit);
+}
+
+const KNOWLEDGE_CONTEXT_HINT_RULES = [
+  {
+    id: "kvds_sow",
+    eventKeywords: ["sow", "statement of work"],
+    knowledgeKeywords: ["p26", "kvds", "systems_engineering", "source_research", "knowledge_wiki"],
+    targetObject: "KVDS SOW",
+    workTypes: ["review", "author"],
+    requiredRole: "systems_engineering_owner",
+    requiredCapability: "systems_engineering",
+    suggestedAssigneeRef: "",
+  },
+  {
+    id: "kvds_se_gate_review",
+    eventKeywords: ["sfr", "srr", "system requirements review", "system functional review"],
+    knowledgeKeywords: ["systems_engineering", "dapa", "weapon_system", "source_research", "knowledge_wiki"],
+    targetObject: "KVDS SFR/SRR",
+    workTypes: ["schedule", "author"],
+    requiredRole: "systems_engineering_owner",
+    requiredCapability: "systems_engineering",
+    suggestedAssigneeRef: "",
+  },
+  {
+    id: "kvds_se_document",
+    eventKeywords: ["csci", "sdd", "dd"],
+    knowledgeKeywords: ["systems_engineering", "dapa", "weapon_system", "source_research", "knowledge_wiki"],
+    targetObject: "KVDS SE document package",
+    workTypes: ["author", "review"],
+    requiredRole: "systems_engineering_owner",
+    requiredCapability: "systems_engineering",
+    suggestedAssigneeRef: "",
+  },
+  {
+    id: "kvds_towbody",
+    eventKeywords: [
+      "towbody",
+      "tow body",
+      "\uC608\uC778\uBAB8\uCCB4",
+      "vane",
+      "\uBCA0\uC778",
+      "slipring",
+      "slip ring",
+      "\uC2AC\uB9BD\uB9C1",
+      "anti rotation",
+      "\uD68C\uC804\uBC29\uC9C0",
+    ],
+    knowledgeKeywords: ["p26", "kvds", "sonar2093", "drag", "cfd", "source_research", "knowledge_wiki"],
+    targetObject: "KVDS towbody",
+    workTypes: ["verify", "author"],
+    requiredRole: "mechanical_engineering_owner",
+    requiredCapability: "mechanical_engineering",
+    suggestedAssigneeRef: "dev_team_4",
+  },
+  {
+    id: "kvds_quality_meeting",
+    eventKeywords: [
+      "quality meeting",
+      "quality kickoff",
+      "\uD488\uC9C8\uAC04\uB2F4\uD68C",
+      "\uD488\uC9C8\uBCF4\uC99D\uCC29\uC218",
+    ],
+    knowledgeKeywords: ["quality", "verification", "test_eval", "lig_nex1_quality_process", "defense_quality"],
+    targetObject: "KVDS quality meeting",
+    workTypes: ["schedule", "verify"],
+    requiredRole: "quality_verification_owner",
+    requiredCapability: "quality_verification",
+    suggestedAssigneeRef: "",
+  },
+  {
+    id: "kvds_quality",
+    eventKeywords: [
+      "quality",
+      "inspection",
+      "measurement",
+      "test",
+      "\uD488\uC9C8",
+      "\uAC80\uC0AC",
+      "\uCE21\uC815",
+      "\uC131\uC801",
+    ],
+    knowledgeKeywords: ["quality", "verification", "test_eval", "lig_nex1_quality_process", "defense_quality"],
+    targetObject: "KVDS quality verification",
+    workTypes: ["verify"],
+    requiredRole: "quality_verification_owner",
+    requiredCapability: "quality_verification",
+    suggestedAssigneeRef: "",
+  },
+  {
+    id: "kvds_schedule",
+    eventKeywords: [
+      "schedule",
+      "meeting",
+      "calendar",
+      "\uCD94\uC9C4\uC77C\uC815",
+      "\uCC29\uC218\uD68C\uC758",
+      "\uAC04\uB2F4\uD68C",
+      "\uCC38\uC11D",
+    ],
+    knowledgeKeywords: ["project_management", "source_research", "knowledge_wiki", "p26", "kvds"],
+    targetObject: "KVDS project schedule",
+    workTypes: ["schedule"],
+    requiredRole: "systems_engineering_owner",
+    requiredCapability: "systems_engineering",
+    suggestedAssigneeRef: "",
+  },
+];
+
+function knowledgeHintsForEvent(event, knowledgeContext, eventText) {
+  const refs = knowledgeRefsFromContext(knowledgeContext, 200);
+  if (!refs.length) return { applied: false, refs: [], reason_codes: [], classification_text: "" };
+  const knowledgeText = knowledgeMetadataText(knowledgeContext);
+  const text = `${event?.project_id ?? ""}\n${eventText}`;
+  const matched = [];
+  for (const rule of KNOWLEDGE_CONTEXT_HINT_RULES) {
+    if (!hasAny(text, rule.eventKeywords)) continue;
+    if (rule.knowledgeKeywords?.length && !hasAny(knowledgeText, rule.knowledgeKeywords)) continue;
+    matched.push(rule);
+  }
+  if (!matched.length) return { applied: false, refs, reason_codes: [], classification_text: "" };
+  const primary = matched[0];
+  return {
+    applied: true,
+    refs,
+    id: primary.id,
+    target_object: primary.targetObject,
+    work_types: primary.workTypes,
+    required_role: primary.requiredRole,
+    required_capability: primary.requiredCapability,
+    suggested_assignee_ref: primary.suggestedAssigneeRef,
+    reason_codes: matched.map((rule) => rule.id),
+    classification_text: matched.map((rule) => [
+      rule.targetObject,
+      rule.requiredRole,
+      rule.requiredCapability,
+      ...(rule.workTypes || []),
+    ].join(" ")).join("\n"),
+  };
+}
+
 function summarizeKnowledgeContext(knowledgeContext) {
   if (!knowledgeContext) {
     return {
@@ -443,6 +648,10 @@ function buildReportForEvent(event, opts = {}) {
   const fullText = normalizeText(`${event.subject ?? ""}\n${event.reading_text ?? ""}`);
   const currentText = normalizeText(`${event.subject ?? ""}\n${currentMessageSegment(event.reading_text)}`);
   const text = fullText;
+  const knowledgeHints = knowledgeHintsForEvent(event, opts.knowledgeContext, text);
+  const classificationText = knowledgeHints.applied
+    ? normalizeText(`${text}\n${knowledgeHints.classification_text}`)
+    : text;
   const dueCandidates = extractDueCandidates(currentText, { baseYear: baseYearFromEvent(event) });
   const quotedDueCandidates = dueCandidates.length ? [] : extractDueCandidates(fullText, { baseYear: baseYearFromEvent(event) }).slice(0, 5);
   const due = dueCandidates[0]?.due || "";
@@ -452,13 +661,23 @@ function buildReportForEvent(event, opts = {}) {
     && !/(요청|작성|제출|검토|확인|협의|회의|일정|SDD|DD|CSCI)/u.test(String(event.reading_text ?? ""));
   const existingTaskRefs = Array.isArray(event.existing_task_refs) ? event.existing_task_refs : [];
   const disposition = dispositionForEvent(event, { actionSignals, referenceOnly, readReceipt, existingTaskRefs });
-  const types = disposition === "reference_or_no_action" ? [] : classifyTypes(text);
-  const domain = classifyDomain(text);
-  const targetObject = targetObjectFromText(text, event);
+  const types = disposition === "reference_or_no_action"
+    ? []
+    : (knowledgeHints.applied && knowledgeHints.work_types?.length ? knowledgeHints.work_types : classifyTypes(classificationText));
+  const domain = knowledgeHints.applied && knowledgeHints.required_role
+    ? {
+      area: knowledgeHints.id || "project_knowledge",
+      matched_keywords: knowledgeHints.reason_codes,
+      suggested_assignee_ref: knowledgeHints.suggested_assignee_ref || "",
+      required_role: knowledgeHints.required_role,
+      required_capability: knowledgeHints.required_capability,
+    }
+    : classifyDomain(classificationText);
+  const targetObject = knowledgeHints.target_object || targetObjectFromText(classificationText, event);
   const primaryType = types[0] || "review";
   const contextGoal = completionGoalForType(primaryType, targetObject);
   const contextKey = hashKey(`${event.project_id}|${targetObject}|${contextGoal}`);
-  const signals = signalLabels(text, dueCandidates);
+  const signals = signalLabels(classificationText, dueCandidates);
   const confidence = confidenceFor({
     disposition,
     actionSignals,
@@ -470,8 +689,16 @@ function buildReportForEvent(event, opts = {}) {
   const sourceMailRef = event.ledger_key ? `mailcsv:${event.ledger_key}` : (event.pointer_ref || event.mail_ref);
   const botHint = BOT_BY_TYPE[primaryType] || "mail_review_bot";
   const priority = priorityFor({ due, actionSignals, text, recipientRole: event.recipient_role });
-  const evidence = evidenceSummary({ signals, dueCandidates, domain, bodyAccess: event.body_access, disposition });
-  const knowledgeRefs = knowledgeRefsFromContext(opts.knowledgeContext);
+  const baseEvidence = evidenceSummary({ signals, dueCandidates, domain, bodyAccess: event.body_access, disposition });
+  const evidence = knowledgeHints.applied
+    ? `${baseEvidence}; knowledge_hint=${knowledgeHints.reason_codes.join("+")}`
+    : baseEvidence;
+  const knowledgeRefs = knowledgeRefsForEvent(opts.knowledgeContext, text);
+  const knowledgeHintReason = knowledgeRefs.length
+    ? (knowledgeHints.applied
+      ? `metadata-only project knowledge hint applied: ${knowledgeHints.reason_codes.join(", ")}; refs=${knowledgeRefs.length}`
+      : `metadata-only project knowledge refs available: ${knowledgeRefs.length}`)
+    : "no project knowledge refs available";
 
   return {
     mail_ref: event.mail_ref || "",
@@ -506,14 +733,14 @@ function buildReportForEvent(event, opts = {}) {
     evidence_summary: evidence,
     knowledge_context_loaded: Boolean(opts.knowledgeContext),
     supporting_knowledge_refs: knowledgeRefs,
-    knowledge_hint_reason: knowledgeRefs.length
-      ? `metadata-only project knowledge refs available: ${knowledgeRefs.length}`
-      : "no project knowledge refs available",
+    knowledge_hint_applied: knowledgeHints.applied,
+    knowledge_hint_reason: knowledgeHintReason,
+    knowledge_hint_reason_codes: knowledgeHints.reason_codes,
     required_role: domain.required_role,
     required_capability: domain.required_capability,
     suggested_assignee_ref: domain.suggested_assignee_ref,
     assignee_hint_reason: domain.matched_keywords.length
-      ? `domain keywords matched: ${domain.matched_keywords.slice(0, 5).join(", ")}`
+      ? `${knowledgeHints.applied ? "knowledge/domain hints matched" : "domain keywords matched"}: ${domain.matched_keywords.slice(0, 5).join(", ")}`
       : "no domain-specific assignee hint",
     bot_hint: botHint,
     generation_rule_ref: opts.generationRuleRef || DEFAULT_GENERATION_RULE_REF,

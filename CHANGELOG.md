@@ -9,6 +9,12 @@
 
 ## 2026-06-28
 
+### Revision `working` - dev-erp haengbogwan knowledge-aware reading judge
+
+- Added a metadata-only knowledge hint pass to the haengbogwan reading judge so project wiki/RAG/source refs can influence `target_object`, `work_types`, `required_role`, and `context_key` before candidate grouping.
+- Kept the boundary narrow: the judge uses only knowledge ref/path/core-hit metadata, never wiki bodies, source text, chunks, attachments, or secrets.
+- Added synthetic node:test coverage proving knowledge ON can change a SOW mail context key while keeping protected knowledge body sentinels out of output.
+
 ### Revision `working` - dev-erp haengbogwan project knowledge overlay
 
 - Added a metadata-only `haengbogwan_project_knowledge_overlay.mjs` resolver so haengbogwan can load project wiki/RAG/source-research/ingest-receipt/core-knowledge refs before judging mail or project context.
