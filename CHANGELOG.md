@@ -17,6 +17,13 @@
 - Captured owner grill-me defaults for the MVP: milestone/work-branch hybrid axis, graph-first intake, L0-L4 context loading, daily project summary refresh, automatic context/task creation boundaries, actor nodes, fruit close candidates, and the four shared graph views.
 - Corrected the storage model so live project context belongs under `_workmeta/<project_code>/project_context/`, while `reports/context_graph/` is only a rebuildable report/debug projection area.
 
+### Revision `working` - dev-erp haengbogwan project_context MVP
+
+- Added `haengbogwan_project_context.mjs`, a metadata-only live-state updater that converts explicit mail/voice/schedule/manual event metadata into `_workmeta/<project_code>/project_context/` sources, nodes, edges, judgments, review queue rows, and summaries.
+- Kept graph output as a projection concern: the writer updates `project_context/**` only and does not create `reports/context_graph/**`.
+- Added deterministic IDs, idempotent CSV upserts, dry-run-by-default apply gating, raw/secret field skips, unsafe pointer filtering, CSV formula guards, and temp-file replacement for generated CSV ledgers.
+- Added node:test coverage for dry-run no-write behavior, apply file creation, idempotent reapply, raw/secret leakage sentinels, due/assignee review queue rows, formula guards, CLI help, and unsafe project rejection.
+
 ### Revision `working` - dev-erp haengbogwan reading engine
 
 - Added `haengbogwan_reading_context_packet.mjs` and `haengbogwan_reading_candidate_judge.mjs` as a separate body-aware/private-deep mail reading lane, leaving the existing metadata-only haengbogwan classifier unchanged.
