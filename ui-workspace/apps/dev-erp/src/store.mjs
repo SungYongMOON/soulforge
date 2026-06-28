@@ -454,7 +454,8 @@ CREATE TABLE IF NOT EXISTS assignee_memory_item (
   salience REAL NOT NULL DEFAULT 0.5,    -- 0..1 현저성(정렬용)
   created_at TEXT,
   updated_at TEXT,
-  status TEXT NOT NULL DEFAULT 'active'  -- active|archived(콜드, 주입 제외·조회 가능)
+  status TEXT NOT NULL DEFAULT 'active', -- active|archived(콜드, 주입 제외·조회 가능)
+  project_id TEXT                        -- 과제 격리: 이 항목이 속한 과제(P26-014 등). NULL=과제무관 일반(항상 후보). 주입 때 현재 과제+NULL만, 다른 과제 차단(오염 방지).
 );
 CREATE INDEX IF NOT EXISTS idx_mem_item_ref ON assignee_memory_item(ref, status);
 -- P-6 능력 매트릭스: 사람↔역량(capability) N:N. 개인 평가점수 컬럼 없음(감시경계). weight=정렬용.
@@ -870,7 +871,9 @@ export function openStore(path = ":memory:") {
     // 산출물 입력 포인터(02_Input) — out_pointer 와 대칭. 상대경로(원문 미저장).
     "ALTER TABLE core_deliverable ADD COLUMN in_pointer TEXT",
     // 챗봇 질문 로그는 야간 매뉴얼 갱신 입력이므로 질문자/대화방을 함께 보존한다.
-    "ALTER TABLE chat_query_log ADD COLUMN actor_ref TEXT"
+    "ALTER TABLE chat_query_log ADD COLUMN actor_ref TEXT",
+    // 메모리 과제 격리: 누적 항목에 과제 태그. NULL=과제무관 일반. 주입 때 현재 과제+일반만(다른 과제 차단). 기존 행은 NULL(일반)=하위호환.
+    "ALTER TABLE assignee_memory_item ADD COLUMN project_id TEXT"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
@@ -3294,7 +3297,7 @@ export class Store {
     return row?.content ?? "";
   }
   // 주입용 메모리 — 절단(truncate)이 아니라 검색(retrieve). core blob(본인 작성, 항상·우선) + 누적 항목 중 recency/salience(+맥락 관련도) 상위만 채워 예산 내로. (Letta core+retrieval, Anthropic context engineering)
-  memoryForInjection(ref, budget = 1800, context = "") {
+  memoryForInjection(ref, budget = 1800, context = "", project_id = null) {
     const core = this.getAssigneeMemory(ref) || "";
     const coreCap = Math.max(0, Math.floor(budget * 0.5));
     let coreOut = core;
@@ -3303,7 +3306,7 @@ export class Store {
       else { const h = Math.floor(coreCap * 0.6), t = coreCap - h; coreOut = `${core.slice(0, h).trimEnd()}\n…(메모리 중략)…\n${core.slice(-t).trimStart()}`; }
     }
     const remaining = budget - coreOut.length - 16;
-    const items = remaining > 0 ? this.retrieveMemoryItems(ref, { context, budget: remaining }) : [];
+    const items = remaining > 0 ? this.retrieveMemoryItems(ref, { context, budget: remaining, project_id }) : [];
     if (!items.length) return coreOut;
     const rendered = items.map((it) => `- (${it.type}) ${it.text}`).join("\n");
     return coreOut ? `${coreOut}\n— 누적 메모리 —\n${rendered}` : rendered;
@@ -3325,15 +3328,17 @@ export class Store {
     return inter / C.size;
   }
   // 누적 항목 추가 — append-blob 대신 ADD/UPDATE/NOOP 게이트(Mem0): 거의 동일=NOOP, 같은 주제=UPDATE(갱신), 새 주제=ADD. dedup·부풀림 방지.
-  addMemoryItem(ref, { type = "fact", text, source_ref = null, salience = 0.5 } = {}) {
+  addMemoryItem(ref, { type = "fact", text, source_ref = null, salience = 0.5, project_id = null } = {}) {
     const key = String(ref ?? "").trim();
     const body = String(text ?? "").replace(/\s+/g, " ").trim();
     if (!key) return { error: "ref_required" };
     if (!body) return { error: "text_required" };
     const t = ["preference", "fact", "open_thread", "decision"].includes(type) ? type : "fact";
     const sal = Math.max(0, Math.min(1, Number(salience)));
+    const pid = (project_id == null || project_id === "") ? null : String(project_id).trim();
     const now = new Date().toISOString();
-    const existing = this.db.prepare("SELECT id, text FROM assignee_memory_item WHERE ref=? AND status='active'").all(key);
+    // dedup 은 같은 과제 범위 안에서만(NULL=일반끼리). 다른 과제 항목과 병합 금지(오염 방지).
+    const existing = this.db.prepare("SELECT id, text FROM assignee_memory_item WHERE ref=? AND status='active' AND ((project_id IS NULL AND ? IS NULL) OR project_id=?)").all(key, pid, pid);
     let best = null, bestSim = 0;
     for (const e of existing) { const s = this._memSim(body, e.text); if (s > bestSim) { bestSim = s; best = e; } }
     if (best && bestSim >= 0.9) { // 거의 동일(Jaccard) → NOOP(최신성/현저성만 갱신)
@@ -3345,13 +3350,13 @@ export class Store {
         .run(body, t, source_ref, now, sal, best.id);
       return { ok: true, action: "update", id: best.id, ref: key };
     }
-    const r = this.db.prepare("INSERT INTO assignee_memory_item(ref,type,text,source_ref,salience,created_at,updated_at,status) VALUES(?,?,?,?,?,?,?, 'active')")
-      .run(key, t, body, source_ref, sal, now, now);
+    const r = this.db.prepare("INSERT INTO assignee_memory_item(ref,type,text,source_ref,salience,project_id,created_at,updated_at,status) VALUES(?,?,?,?,?,?,?,?, 'active')")
+      .run(key, t, body, source_ref, sal, pid, now, now);
     return { ok: true, action: "add", id: Number(r.lastInsertRowid), ref: key };
   }
   listMemoryItems(ref, { status = "active", limit = 500 } = {}) {
     const key = String(ref ?? "").trim(); if (!key) return [];
-    const cols = "id,ref,type,text,source_ref,salience,created_at,updated_at,status";
+    const cols = "id,ref,type,text,source_ref,salience,project_id,created_at,updated_at,status";
     if (status) return this.db.prepare(`SELECT ${cols} FROM assignee_memory_item WHERE ref=? AND status=? ORDER BY updated_at DESC LIMIT ?`).all(key, status, limit);
     return this.db.prepare(`SELECT ${cols} FROM assignee_memory_item WHERE ref=? ORDER BY updated_at DESC LIMIT ?`).all(key, limit);
   }
@@ -3361,10 +3366,12 @@ export class Store {
     return { ok: r.changes > 0, archived: r.changes };
   }
   // 주입 후보 검색 — score = 관련도(맥락 있을 때) + recency + salience. 예산(char) 내 상위만.
-  retrieveMemoryItems(ref, { context = "", budget = 1100, max = 20 } = {}) {
+  retrieveMemoryItems(ref, { context = "", budget = 1100, max = 20, project_id = null } = {}) {
     const key = String(ref ?? "").trim();
     if (!key || budget <= 0) return [];
-    const items = this.db.prepare("SELECT id,type,text,salience,updated_at FROM assignee_memory_item WHERE ref=? AND status='active'").all(key);
+    const pid = (project_id == null || project_id === "") ? null : String(project_id).trim();
+    // 과제 격리 주입: 일반(NULL=과제무관) + 현재 과제 항목만 후보. 다른 과제는 차단(오염 방지).
+    const items = this.db.prepare("SELECT id,type,text,salience,updated_at FROM assignee_memory_item WHERE ref=? AND status='active' AND (project_id IS NULL OR project_id=?)").all(key, pid);
     if (!items.length) return [];
     const byRec = [...items].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)) || (b.id - a.id)); // 동률 시각은 id(삽입순)로 — 높은 id=최신
     const n = byRec.length;
@@ -3398,8 +3405,8 @@ export class Store {
     return { ok: true, ref: key, length: text.length };
   }
   // 완료 지식 후보를 담당자 메모리에 추가(자기개선 루프: 완료→지식화→메모리). blob append 대신 누적 항목층 + ADD/UPDATE/NOOP 게이트(중복·모순 방지). 시그니처 유지(append API 호환).
-  appendAssigneeMemory(ref, text) {
-    return this.addMemoryItem(ref, { type: "fact", text });
+  appendAssigneeMemory(ref, text, project_id = null) {
+    return this.addMemoryItem(ref, { type: "fact", text, project_id });
   }
   capabilityMatrix() {
     return this.people().map((p) => ({ person_id: p.id, name: p.name, role: p.role, unit_ref: p.unit_ref ?? null, capability_label: p.capability_label ?? null, skills: this.personSkills(p.id) }));

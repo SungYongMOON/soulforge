@@ -450,7 +450,7 @@ function codexTaskErrorPayload(item, error) {
 }
 
 async function createCodexTaskThread({ item, actor, model, effort, serviceTier }) {
-  if (item?.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref, 1800, [item.title, item.project_id, item.work_type].filter(Boolean).join(" ")); // 담당자 메모리 주입(시작 시·이 일 맥락 관련도 우선·압축 바운드)
+  if (item?.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref, 1800, [item.title, item.project_id, item.work_type].filter(Boolean).join(" "), item.project_id); // 담당자 메모리 주입(시작 시·이 일 맥락 관련도 우선·압축 바운드·과제 격리: 현재 과제+일반만)
   const title = store.codexThreadTitle(item);
   const result = await runCodexTaskTurn({
     mode: CODEX_TASK_BRIDGE_MODE,
@@ -810,9 +810,9 @@ const server = createServer(async (req, res) => {
       if (!me) return send(res, 401, { error: "auth_required" });
       const ref = store.accountDisplayName(me) || me.username;
       let body = ""; for await (const chunk of req) body += chunk;
-      const { op, id, type, text } = JSON.parse(body || "{}");
+      const { op, id, type, text, project_id } = JSON.parse(body || "{}");
       if (op === "delete") return send(res, 200, store.deleteMemoryItem(ref, id));
-      if (op === "add") { const r = store.addMemoryItem(ref, { type, text }); return send(res, r.error ? 400 : 200, r); }
+      if (op === "add") { const r = store.addMemoryItem(ref, { type, text, project_id }); return send(res, r.error ? 400 : 200, r); }
       return send(res, 400, { error: "bad_op" });
     }
     if (path === "/api/memory/append" && req.method === "POST") {
@@ -820,10 +820,10 @@ const server = createServer(async (req, res) => {
       const me = currentAccount(req);
       if (!me) return send(res, 401, { error: "auth_required" });
       let body = ""; for await (const chunk of req) body += chunk;
-      const { ref, text } = JSON.parse(body || "{}");
+      const { ref, text, project_id } = JSON.parse(body || "{}");
       const mine = store.accountDisplayName(me) || me.username;
       if (!store.isAdmin(me.id) && ref !== mine) return send(res, 403, { error: "memory_forbidden" });
-      const r = store.appendAssigneeMemory(ref, text);
+      const r = store.appendAssigneeMemory(ref, text, project_id);
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/items/status" && req.method === "POST") {
@@ -1081,7 +1081,7 @@ const server = createServer(async (req, res) => {
       const item = store.itemById(item_id);
       if (!item) return send(res, 404, { error: "item_not_found" });
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
-      if (item.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref, 1800, [item.title, item.project_id, item.work_type].filter(Boolean).join(" ")); // 담당자 메모리 주입(매 턴·이 일 맥락 관련도 우선·압축 바운드)
+      if (item.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref, 1800, [item.title, item.project_id, item.work_type].filter(Boolean).join(" "), item.project_id); // 담당자 메모리 주입(매 턴·이 일 맥락 관련도 우선·압축 바운드·과제 격리: 현재 과제+일반만)
       const binding = store.codexTaskBinding(item.id);
       const skills = mentionedCodexSkills(text);
       const localImages = localImagesFromAttachments(attachments);
