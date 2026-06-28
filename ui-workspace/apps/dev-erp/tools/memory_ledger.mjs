@@ -23,7 +23,7 @@ const force = has("force");
 const BODY = "<!-- MEMORY BODY BELOW — 이 줄 아래가 정본 내용(위는 머리말) -->";
 const safeRef = (ref) => String(ref).replace(/[\/\\:*?"<>|]/g, "_").trim() || "_";
 const stamp = () => new Date().toISOString();
-const ITEM_COLS = ["type", "text", "source_ref", "salience", "created_at", "updated_at", "status"];
+const ITEM_COLS = ["type", "text", "source_ref", "project_id", "salience", "created_at", "updated_at", "status"];
 
 const csvCell = (v) => { const s = v == null ? "" : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 const itemsCsv = (items) => "﻿" + [ITEM_COLS.join(",")].concat(items.map((it) => ITEM_COLS.map((c) => csvCell(it[c])).join(","))).join("\n") + "\n";
@@ -77,8 +77,8 @@ if (has("export")) {
   let imported = 0, conflict = 0, noop = 0, itemAdd = 0, itemSkip = 0;
   const get = hasBlob ? db.prepare("SELECT content FROM assignee_memory WHERE ref=?") : null;
   const up = hasBlob ? db.prepare("INSERT INTO assignee_memory(ref, content, updated_at) VALUES(?,?,?) ON CONFLICT(ref) DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at") : null;
-  const itemExists = hasItem ? db.prepare("SELECT 1 FROM assignee_memory_item WHERE ref=? AND text=?") : null;
-  const itemIns = hasItem ? db.prepare("INSERT INTO assignee_memory_item(ref,type,text,source_ref,salience,created_at,updated_at,status) VALUES(?,?,?,?,?,?,?,?)") : null;
+  const itemExists = hasItem ? db.prepare("SELECT 1 FROM assignee_memory_item WHERE ref=? AND text=? AND ((project_id IS NULL AND ? IS NULL) OR project_id=?)") : null;
+  const itemIns = hasItem ? db.prepare("INSERT INTO assignee_memory_item(ref,type,text,source_ref,salience,project_id,created_at,updated_at,status) VALUES(?,?,?,?,?,?,?,?,?)") : null;
   for (const d of dirs) {
     const mdFile = join(teamDir, d.name, "memory.md");
     const csvFile = join(teamDir, d.name, "memory_items.csv");
@@ -101,8 +101,9 @@ if (has("export")) {
       for (const r of rows) {
         const o = {}; header.forEach((h, i) => (o[h] = r[i]));
         if (!o.text || !String(o.text).trim()) continue;
-        if (itemExists.get(ref, o.text)) { itemSkip++; continue; }
-        itemIns.run(ref, o.type || "fact", o.text, o.source_ref || null, Number(o.salience) || 0.5, o.created_at || stamp(), o.updated_at || stamp(), o.status || "active");
+        const pid = o.project_id && String(o.project_id).trim() ? String(o.project_id).trim() : null;
+        if (itemExists.get(ref, o.text, pid, pid)) { itemSkip++; continue; }
+        itemIns.run(ref, o.type || "fact", o.text, o.source_ref || null, Number(o.salience) || 0.5, pid, o.created_at || stamp(), o.updated_at || stamp(), o.status || "active");
         itemAdd++;
       }
     }
