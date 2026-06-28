@@ -5,6 +5,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildHaengbogwanApplyReport } from "./haengbogwan_apply.mjs";
+import { buildContextPacketForProject } from "./haengbogwan_context_packet.mjs";
+import { runProjectContextUpdate } from "./haengbogwan_project_context.mjs";
 import { buildSnapshots } from "./haengbogwan_snapshot.mjs";
 import { activeSnoozeDecisionMap } from "./haengbogwan_task_decisions.mjs";
 
@@ -20,10 +22,11 @@ function todayIso() {
 }
 
 function usage() {
-  return `Usage: haengbogwan_run [--workmeta-root <dir>] [--project <code>] [--limit <n>] [--triage-limit <n>] [--today YYYY-MM-DD] [--db <dev-erp.db>] [--apply] [--auto-open] [--stage <code>] [--json]
+  return `Usage: haengbogwan_run [--workmeta-root <dir>] [--project <code>] [--limit <n>] [--triage-limit <n>] [--today YYYY-MM-DD] [--db <dev-erp.db>] [--apply] [--apply-context] [--auto-open] [--stage <code>] [--json]
 
 Build one metadata-only haengbogwan execution report.
-Dry-run is the default. --apply is required before task ledger rows or reference receipts are written.`;
+Dry-run is the default. --apply is required before task ledger rows or reference receipts are written.
+--apply-context separately updates _workmeta/<project>/project_context from mail/task metadata.`;
 }
 
 function validateToday(today) {
@@ -53,6 +56,7 @@ function parseArgs(argv) {
     today: todayIso(),
     dbPath: "",
     apply: false,
+    applyContext: false,
     autoOpen: false,
     stage: "",
     stagePresent: false,
@@ -67,6 +71,8 @@ function parseArgs(argv) {
       opts.json = true;
     } else if (token === "--apply") {
       opts.apply = true;
+    } else if (token === "--apply-context") {
+      opts.applyContext = true;
     } else if (token === "--auto-open") {
       opts.autoOpen = true;
     } else if (token === "--workmeta-root" || token === "--workmeta") {
@@ -129,6 +135,9 @@ function addTotals(totals, row) {
   totals.reference_receipt_written += row.apply_report.reference_receipt_written;
   totals.triage_queue_count += row.triage_queue.length;
   totals.active_snooze_count += row.task_decisions.active_snooze_count;
+  totals.context_event_count += row.context_report.context_event_count;
+  totals.context_accepted_event_count += row.context_report.accepted_event_count;
+  if (row.context_report.apply) totals.context_apply_project_count += 1;
   if (row.apply_report.ledger_exit_code && row.apply_report.ledger_exit_code !== 0) totals.ledger_failure_count += 1;
 }
 
@@ -191,6 +200,117 @@ function buildTriageQueue(snapshot, { limit = DEFAULT_TRIAGE_LIMIT, activeSnooze
   return { queue, active_snooze_count: activeSnoozeCount };
 }
 
+function historyKeyFromMailHistoryRef(ref) {
+  const raw = String(ref ?? "").trim();
+  return raw.startsWith("mailcsv:") ? raw.slice("mailcsv:".length) : "";
+}
+
+function branchHintFromText(value, fallback = "task triage") {
+  const text = String(value ?? "").normalize("NFKC").toLowerCase();
+  if (!text.trim()) return fallback;
+  if (/\bsow\b|statement of work|업무\s*정의|과업/.test(text)) return "KVDS SOW";
+  if (/sfr|srr|system requirements review|system functional review/.test(text)) return "KVDS SFR/SRR";
+  if (/csci|sdd|\bdd\b|설계\s*기술|상세\s*설계|문서/.test(text)) return "KVDS SE document";
+  if (/예인몸체|베인|vane|슬립링|slip\s*ring|회전방지|towbody|tow body/.test(text)) return "KVDS towbody";
+  if (/품질|검사|검증|시험|성적|quality|verification|test/.test(text)) return "KVDS quality and verification";
+  if (/일정|회의|착수|간담회|명단|참석|schedule|meeting/.test(text)) return "KVDS project schedule";
+  if (/도면|표준화|drawing/.test(text)) return "KVDS drawing package";
+  if (/구매|견적|발주|납품|quote|purchase|delivery/.test(text)) return "KVDS purchase and delivery";
+  if (/kvds|기뢰탐색음탐기|소해함|msh/.test(text)) return "KVDS general";
+  return fallback;
+}
+
+function metadataSourceEventToProjectContextEvent(event, { candidateKeys = new Set() } = {}) {
+  const historyKey = event.history_key || historyKeyFromMailHistoryRef(event.source_refs?.mail_history_ref);
+  const actionRequired = historyKey ? candidateKeys.has(historyKey) : false;
+  const title = event.subject || event.event_ref || "pending mail";
+  return {
+    source_kind: "mail",
+    source_id: event.source_refs?.mail_history_ref || event.event_ref || historyKey,
+    external_ref: event.source_refs?.mail_history_ref || event.event_ref || historyKey,
+    project_code: event.project_id || "",
+    received_at: event.received_at || "",
+    title,
+    branch_hint: branchHintFromText(title, "pending mail"),
+    summary_hint: [
+      "metadata haengbogwan run",
+      actionRequired ? "candidate=true" : "candidate=false",
+      "body_text_not_loaded",
+    ].join("; "),
+    action_required: actionRequired,
+    work_type: actionRequired ? "review" : "",
+    completion_criteria: actionRequired ? "Mail-derived work candidate is reviewed, routed, or dismissed." : "",
+    due: event.due_hint || "",
+    suggested_actor_ref: "",
+    confidence: actionRequired ? 0.65 : 0.45,
+    pointer_ref: event.source_refs?.mail_history_ref || "",
+    body_access: "metadata_only",
+    reason: "haengbogwan_run metadata source event",
+  };
+}
+
+function taskSummaryToProjectContextEvent(task) {
+  const reasons = Array.isArray(task.reasons) ? task.reasons : [];
+  const actionRequired = !/(done|closed|complete|cancelled|canceled)/i.test(String(task.status || ""));
+  const title = task.title || task.task_key || "task ledger item";
+  return {
+    source_kind: "task_ledger",
+    source_id: task.task_key || task.source_ref || task.title,
+    external_ref: task.task_key || task.source_ref || task.title,
+    project_code: task.project_id || "",
+    received_at: "",
+    title,
+    branch_hint: branchHintFromText(title, "task triage"),
+    summary_hint: [
+      "metadata haengbogwan task triage",
+      task.status ? `status=${task.status}` : "",
+      task.review_status ? `review=${task.review_status}` : "",
+      reasons.length ? `reasons=${reasons.join("+")}` : "",
+      "body_text_not_loaded",
+    ].filter(Boolean).join("; "),
+    action_required: actionRequired,
+    work_type: reasons.includes("unclassified") ? "review" : "",
+    completion_criteria: actionRequired ? "Task ledger item is triaged, assigned, snoozed, closed, or updated." : "",
+    due: task.due || "",
+    suggested_actor_ref: task.assignee || "",
+    confidence: reasons.includes("unclassified") ? 0.55 : 0.7,
+    pointer_ref: task.source_ref || "",
+    body_access: "metadata_only",
+    reason: "haengbogwan_run metadata task event",
+  };
+}
+
+function buildMetadataRunContextEvents(contextPacket, triageQueue, projectId, candidateKeys) {
+  const mailEvents = (Array.isArray(contextPacket?.source_events) ? contextPacket.source_events : [])
+    .map((event) => metadataSourceEventToProjectContextEvent(event, { candidateKeys }));
+  const taskEvents = (Array.isArray(triageQueue) ? triageQueue : [])
+    .map((task) => taskSummaryToProjectContextEvent({ ...task, project_id: projectId }));
+  return [...mailEvents, ...taskEvents];
+}
+
+function buildMetadataContextReport(snapshot, opts, applyReport, triageQueue) {
+  const contextPacket = buildContextPacketForProject({
+    workmetaRoot: opts.workmetaRoot,
+    projectId: snapshot.project_id,
+    limit: opts.limit,
+    today: opts.today,
+    dbPath: opts.dbPath,
+    includeKnowledge: true,
+  });
+  const candidateKeys = new Set(Array.isArray(applyReport.candidate_keys) ? applyReport.candidate_keys : []);
+  const events = buildMetadataRunContextEvents(contextPacket, triageQueue, snapshot.project_id, candidateKeys);
+  return {
+    ...runProjectContextUpdate({
+      workmetaRoot: opts.workmetaRoot,
+      projectCode: snapshot.project_id,
+      events,
+      generatedAt: contextPacket.generated_at || new Date().toISOString(),
+      apply: opts.applyContext,
+    }),
+    context_event_count: events.length,
+  };
+}
+
 function projectRunRow(snapshot, opts) {
   const activeSnoozes = activeSnoozeDecisionMap({
     workmetaRoot: opts.workmetaRoot,
@@ -213,12 +333,23 @@ function projectRunRow(snapshot, opts) {
     reminderDays: 0,
     reminderDaysPresent: false,
   });
+  const contextReport = buildMetadataContextReport(snapshot, opts, applyReport, triage.queue);
   return {
     project_id: snapshot.project_id,
     snapshot: compactSnapshot(snapshot),
     triage_queue: triage.queue,
     task_decisions: {
       active_snooze_count: triage.active_snooze_count,
+    },
+    context_report: {
+      apply: contextReport.apply,
+      context_event_count: contextReport.context_event_count,
+      accepted_event_count: contextReport.accepted_event_count,
+      skipped_event_count: contextReport.skipped_event_count,
+      incoming_counts: contextReport.incoming_counts,
+      total_counts: contextReport.total_counts,
+      files_written: contextReport.files_written,
+      body_access: contextReport.body_access,
     },
     apply_report: {
       apply: applyReport.apply,
@@ -258,6 +389,9 @@ export function buildHaengbogwanRunReport(opts) {
     reference_receipt_written: 0,
     triage_queue_count: 0,
     active_snooze_count: 0,
+    context_event_count: 0,
+    context_accepted_event_count: 0,
+    context_apply_project_count: 0,
     ledger_failure_count: 0,
   };
   for (const row of projects) addTotals(totals, row);
@@ -265,6 +399,7 @@ export function buildHaengbogwanRunReport(opts) {
     generated_at: new Date().toISOString(),
     today: opts.today,
     apply: opts.apply,
+    apply_context: opts.applyContext,
     body_access: "metadata_only",
     project_count: projects.length,
     totals,

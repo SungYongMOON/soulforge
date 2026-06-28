@@ -9,6 +9,7 @@ import {
   MAIL_LEDGER_RELATIVE_PATH,
   TASK_LEDGER_RELATIVE_PATH,
 } from "../tools/haengbogwan_context_packet.mjs";
+import { PROJECT_CONTEXT_FILES } from "../tools/haengbogwan_project_context.mjs";
 import { HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH } from "../tools/mail_to_task_pending.mjs";
 import { HAENGBOGWAN_TASK_DECISION_RELATIVE_PATH } from "../tools/haengbogwan_task_decisions.mjs";
 
@@ -165,6 +166,43 @@ test("HAENGBOGWAN-RUN: triage queue ranks overdue unclassified task rows", () =>
     assert.equal(item.score, 110);
     assert.deepEqual(item.reasons.sort(), ["missing_assignee", "overdue", "unclassified"].sort());
     assert.match(item.next_action, /today|snooze|close/i);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-RUN: apply-context updates project_context from metadata mail and task state", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P26-014";
+    writeRunFixture(tmp.root, project, [
+      {
+        [TASK_HEADERS[0]]: "T-context",
+        [TASK_HEADERS[1]]: project,
+        [TASK_HEADERS[2]]: "context sync triage item",
+        [TASK_HEADERS[3]]: "",
+        [TASK_HEADERS[4]]: "",
+        [TASK_HEADERS[5]]: "open",
+        [TASK_HEADERS[6]]: "2026-06-26",
+        [TASK_HEADERS[7]]: "",
+        [TASK_HEADERS[8]]: "needs_review",
+        [TASK_HEADERS[9]]: "mailcsv:M001",
+      },
+    ]);
+
+    const result = runTool(tmp.root, project, ["--triage-limit", "5", "--apply-context"]);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.apply_context, true);
+    assert.equal(report.projects[0].context_report.apply, true);
+    assert.equal(report.projects[0].context_report.context_event_count > 0, true);
+    assert.equal(report.totals.context_apply_project_count, 1);
+
+    const projectRoot = join(tmp.root, project);
+    const sourcesText = readFileSync(join(projectRoot, PROJECT_CONTEXT_FILES.sources), "utf8");
+    const nodesText = readFileSync(join(projectRoot, PROJECT_CONTEXT_FILES.nodes), "utf8");
+    assert.equal(sourcesText.includes("metadata_only"), true);
+    assert.equal(nodesText.includes("task_candidate"), true);
   } finally {
     tmp.cleanup();
   }

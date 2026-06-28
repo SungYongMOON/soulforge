@@ -9,6 +9,13 @@
 
 ## 2026-06-28
 
+### Revision `working` - dev-ERP haengbogwan reading/run context loop
+
+- Added `haengbogwan_reading_run.mjs`, an end-to-end backend runner that builds a body-aware private mail reading packet, redacts output, produces ledger-compatible task candidates, and separately updates `_workmeta/<project>/project_context`.
+- Added `--apply-tasks`, `--apply-context`, `--apply`, and `--write-report` gates so task ledger writes, context memory updates, and redacted run reports remain explicit and auditable.
+- Extended the metadata-only `haengbogwan_run.mjs` with `--apply-context`, allowing existing mail/task ledgers to keep the project context graph updated even when the live `core_mail` DB has no project mail rows.
+- Preserved the boundary: mail body text may be read only in private runtime packets, but stdout, reports, task ledger rows, and project_context receive only redacted metadata.
+
 ### Revision `working` - dev-erp haengbogwan knowledge-aware reading judge
 
 - Added a metadata-only knowledge hint pass to the haengbogwan reading judge so project wiki/RAG/source refs can influence `target_object`, `work_types`, `required_role`, and `context_key` before candidate grouping.
