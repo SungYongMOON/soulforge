@@ -11,6 +11,9 @@ import {
   buildReadingContextPacket,
   redactReadingContextPacket,
 } from "./haengbogwan_reading_context_packet.mjs";
+import {
+  applyCodexJudgmentsToReports,
+} from "./haengbogwan_reading_codex_judge.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, "..");
@@ -355,17 +358,19 @@ function ledgerSafeKey(key) {
 function candidateForAction(report, type, index = 0) {
   const copy = ACTION_COPY[type] ?? ACTION_COPY.review;
   return {
-    title: titleForAction({ type, targetObject: report.target_object, event: report }),
+    title: report.codex_title || titleForAction({ type, targetObject: report.target_object, event: report }),
     work_type: type,
-    completion_criteria: copy.completion,
+    completion_criteria: report.codex_completion_criteria || copy.completion,
     due: report.due || "",
     review_status: "needs_review",
     review_reason: [
       `reading_judge:${report.disposition}`,
       `confidence=${report.confidence}`,
       `signals=${report.signals.join("+") || "none"}`,
+      report.codex_judgment_status ? `codex=${report.codex_judgment_status}` : "",
+      report.codex_owner_review_reason ? `codex_review=${report.codex_owner_review_reason}` : "",
       "body_text_redacted",
-    ].join(";"),
+    ].filter(Boolean).join(";"),
     status_hint: report.disposition === "candidate" ? "reading_candidate" : report.disposition,
     route_candidate: report.project_id || "",
     route_confidence: "review",
@@ -384,7 +389,7 @@ function candidateForAction(report, type, index = 0) {
     source_lineage_ref: report.source_lineage_ref,
     generation_rule_ref: report.generation_rule_ref,
     generation_run_ref: report.generation_run_ref,
-    next_action: copy.next,
+    next_action: report.codex_next_action || copy.next,
     body_access: report.body_access,
     context_key: report.context_key,
     target_object: report.target_object,
@@ -542,6 +547,7 @@ function buildProposalCandidates(reports) {
       bot_hint: report.bot_hint,
       evidence_summary: report.evidence_summary,
       body_access: report.body_access,
+      codex_judgment_status: report.codex_judgment_status || "",
     }));
 }
 
@@ -559,13 +565,16 @@ function receiptForPacket(packet, reports) {
   };
 }
 
-export function judgeReadingContextPacket(contextPacket, opts = {}) {
+export function buildReadingRuleReports(contextPacket, opts = {}) {
   const events = Array.isArray(contextPacket?.mail_events) ? contextPacket.mail_events : [];
   const generatedAt = opts.generatedAt || contextPacket?.generated_at || new Date().toISOString();
-  const reports = events.map((event) => buildReportForEvent(event, {
+  return events.map((event) => buildReportForEvent(event, {
     generationRuleRef: opts.generationRuleRef || DEFAULT_GENERATION_RULE_REF,
     generatedAt,
   }));
+}
+
+export function buildReadingCandidateBundle(contextPacket, reports, opts = {}) {
   const ledgerCandidates = buildLedgerCandidates(reports);
   return {
     schema_version: "haengbogwan.reading_candidate_bundle.v1",
@@ -596,8 +605,16 @@ export function judgeReadingContextPacket(contextPacket, opts = {}) {
     work_context_groups: groupReports(reports),
     ledger_candidates: ledgerCandidates,
     proposal_candidates: buildProposalCandidates(reports),
-    receipts: [receiptForPacket(contextPacket, reports)],
+    receipts: [receiptForPacket(contextPacket, reports), ...(Array.isArray(opts.receipts) ? opts.receipts : [])],
   };
+}
+
+export function judgeReadingContextPacket(contextPacket, opts = {}) {
+  const ruleReports = buildReadingRuleReports(contextPacket, opts);
+  const reports = opts.codexJudgments
+    ? applyCodexJudgmentsToReports(ruleReports, opts.codexJudgments, contextPacket, opts)
+    : ruleReports;
+  return buildReadingCandidateBundle(contextPacket, reports, opts);
 }
 
 export function redactReadingCandidateBundle(bundle) {
@@ -610,6 +627,12 @@ export function redactReadingCandidateBundle(bundle) {
 function readContextPacket(contextPath) {
   const path = resolve(process.cwd(), contextPath);
   if (!existsSync(path)) throw new Error(`context_not_found:${contextPath}`);
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
+function readCodexJudgments(codexJudgmentsPath) {
+  const path = resolve(process.cwd(), codexJudgmentsPath);
+  if (!existsSync(path)) throw new Error(`codex_judgments_not_found:${codexJudgmentsPath}`);
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
@@ -632,6 +655,8 @@ function parseArgs(argv) {
     bodyMode: "two_stage",
     maxTextChars: 12000,
     includeHidden: false,
+    codexJudgmentsPath: "",
+    codexMinConfidence: 0.35,
     json: false,
     help: false,
   };
@@ -667,6 +692,14 @@ function parseArgs(argv) {
       opts.bodyMode = argv[++i];
     } else if (token === "--max-text-chars") {
       opts.maxTextChars = validateLimit(argv[++i], "max_text_chars");
+    } else if (token === "--codex-judgments") {
+      opts.codexJudgmentsPath = argv[++i];
+      if (!opts.codexJudgmentsPath || opts.codexJudgmentsPath.startsWith("--")) throw new Error("--codex-judgments_requires_value");
+    } else if (token === "--codex-min-confidence") {
+      opts.codexMinConfidence = Number(argv[++i]);
+      if (!Number.isFinite(opts.codexMinConfidence) || opts.codexMinConfidence < 0 || opts.codexMinConfidence > 1) {
+        throw new Error("--codex-min-confidence_requires_0_to_1");
+      }
     } else {
       throw new Error(`unknown_arg:${token}`);
     }
@@ -677,14 +710,14 @@ function parseArgs(argv) {
 function usage() {
   return [
     "Usage: node tools/haengbogwan_reading_candidate_judge.mjs --context <reading-context.json> [--json]",
-    "   or: node tools/haengbogwan_reading_candidate_judge.mjs --db <dev-erp.db> [--repo-root <runtime-root>] [--project <code>|--query <text>] [--limit N] [--body-mode preview|two_stage|full] [--json]",
+    "   or: node tools/haengbogwan_reading_candidate_judge.mjs --db <dev-erp.db> [--repo-root <runtime-root>] [--project <code>|--query <text>] [--limit N] [--body-mode preview|two_stage|full] [--codex-judgments <json>] [--json]",
     "",
     "Emits mail_reading_reports, work_context_groups, ledger_candidates, proposal_candidates.",
     "No writes. Output redacts mail body text.",
   ].join("\n");
 }
 
-export function main(argv = process.argv.slice(2), { stdout = process.stdout, stderr = process.stderr } = {}) {
+export async function main(argv = process.argv.slice(2), { stdout = process.stdout, stderr = process.stderr } = {}) {
   try {
     const opts = parseArgs(argv);
     if (opts.help) {
@@ -706,7 +739,21 @@ export function main(argv = process.argv.slice(2), { stdout = process.stdout, st
         includeText: true,
         includeHidden: opts.includeHidden,
       });
-    const bundle = judgeReadingContextPacket(packet);
+    const ruleReports = buildReadingRuleReports(packet);
+    const codexJudgments = opts.codexJudgmentsPath ? readCodexJudgments(opts.codexJudgmentsPath) : null;
+    const receipts = [];
+    if (codexJudgments) {
+      receipts.push({
+        generated_at: new Date().toISOString(),
+        source: "codex_automation_judgments",
+        raw_body_persisted: false,
+        output_body_text_redacted: true,
+      });
+    }
+    const reports = codexJudgments
+      ? applyCodexJudgmentsToReports(ruleReports, codexJudgments, packet, { minConfidence: opts.codexMinConfidence })
+      : ruleReports;
+    const bundle = buildReadingCandidateBundle(packet, reports, { receipts });
     // Keep this call as a boundary assertion/reminder for callers that reuse both tools.
     redactReadingContextPacket(packet);
     stdout.write(`${JSON.stringify(redactReadingCandidateBundle(bundle), null, 2)}\n`);
@@ -719,5 +766,5 @@ export function main(argv = process.argv.slice(2), { stdout = process.stdout, st
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 if (isMain) {
-  process.exitCode = main();
+  process.exitCode = await main();
 }

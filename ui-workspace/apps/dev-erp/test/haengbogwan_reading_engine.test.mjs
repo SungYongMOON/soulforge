@@ -13,6 +13,10 @@ import {
 import {
   judgeReadingContextPacket,
 } from "../tools/haengbogwan_reading_candidate_judge.mjs";
+import {
+  buildCodexJudgeRequest,
+  redactCodexJudgeRequest,
+} from "../tools/haengbogwan_reading_codex_judge.mjs";
 
 const CONTEXT_TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_reading_context_packet.mjs");
 const JUDGE_TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_reading_candidate_judge.mjs");
@@ -264,6 +268,148 @@ test("HAENGBOGWAN-READING: judge builds context groups, ledger candidates, and u
     assert.equal(cli.stdout.includes(PRIVATE_SENTINEL), false);
     const cliBundle = JSON.parse(cli.stdout);
     assert.equal(cliBundle.counts.ledger_candidate_keys, 1);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-READING: Codex judgment overlay improves candidates while code keeps keys and redacts body", () => {
+  const tmp = makeTempRuntime();
+  try {
+    writeEventSink(tmp.repoRoot);
+    writeMailDb(tmp.dbPath);
+
+    const packet = buildReadingContextPacket({
+      dbPath: tmp.dbPath,
+      repoRoot: tmp.repoRoot,
+      projectId: "P26-014",
+      limit: 5,
+      bodyMode: "two_stage",
+      includeText: true,
+      generatedAt: "2026-06-28T00:00:00.000Z",
+    });
+    const baseBundle = judgeReadingContextPacket(packet, { generatedAt: "2026-06-28T00:00:00.000Z" });
+    const request = buildCodexJudgeRequest(packet, baseBundle.mail_reading_reports, { generatedAt: "2026-06-28T00:00:00.000Z" });
+    assert.match(request.mail_events.find((row) => row.mail_ref === "MAIL-1").reading_text, /PRIVATE_BODY_SENTINEL/);
+    const redactedRequest = redactCodexJudgeRequest(request);
+    assert.equal(JSON.stringify(redactedRequest).includes(PRIVATE_SENTINEL), false);
+
+    const mail1 = packet.mail_events.find((row) => row.mail_ref === "MAIL-1");
+    const mail3 = packet.mail_events.find((row) => row.mail_ref === "MAIL-3");
+    const codexJudgments = {
+      schema_version: "haengbogwan.reading_codex_judgment_bundle.v1",
+      model_ref: "codex-automation-test",
+      prompt_rule_ref: "haengbogwan.reading_codex_judge_request.v1",
+      judgments: [
+        {
+          mail_ref: "MAIL-1",
+          ledger_key: "M001",
+          input_reading_text_hash: mail1.reading_text_hash,
+          disposition: "candidate",
+          work_types: ["answer"],
+          primary_work_type: "answer",
+          title: "KVDS CSCI SDD reply package prepare",
+          target_object: "KVDS CSCI SDD document reply",
+          completion_goal: "Prepare reply package for KVDS CSCI SDD request",
+          due: "2026-07-04",
+          priority: "high",
+          completion_criteria: "Reply package prepared and owner can approve the response.",
+          next_action: "Prepare the response draft and document handoff checklist.",
+          required_role: "systems_engineering_owner",
+          required_capability: "systems_engineering",
+          suggested_assignee_ref: "dev_team_2",
+          bot_hint: "reply_draft_bot",
+          confidence: 0.88,
+          reason_codes: ["reply_request_detected"],
+          evidence_summary: "Codex saw a reply/document request; body text redacted",
+        },
+        {
+          mail_ref: "MAIL-3",
+          ledger_key: "M003",
+          input_reading_text_hash: mail3.reading_text_hash,
+          disposition: "candidate",
+          work_types: ["author"],
+          primary_work_type: "author",
+          title: "Should not create duplicate",
+          target_object: "Existing task",
+          completion_goal: "Existing task follow-up",
+          confidence: 0.95,
+          evidence_summary: "Existing mail follow-up; body text redacted",
+        },
+      ],
+    };
+
+    const bundle = judgeReadingContextPacket(packet, {
+      generatedAt: "2026-06-28T00:00:00.000Z",
+      codexJudgments,
+    });
+    const text = JSON.stringify(bundle);
+    assert.equal(text.includes(PRIVATE_SENTINEL), false);
+    assert.equal(text.includes(ATTACHMENT_SENTINEL), false);
+
+    const report = bundle.mail_reading_reports.find((row) => row.mail_ref === "MAIL-1");
+    assert.equal(report.codex_judgment_status, "applied");
+    assert.equal(report.primary_work_type, "answer");
+    assert.equal(report.due, "2026-07-04");
+    assert.equal(report.target_object, "KVDS CSCI SDD document reply");
+    assert.equal(report.generation_rule_ref.includes("haengbogwan_reading_codex_overlay.v1"), true);
+
+    const candidate = Array.isArray(bundle.ledger_candidates.M001)
+      ? bundle.ledger_candidates.M001[0]
+      : bundle.ledger_candidates.M001;
+    assert.equal(candidate.title, "KVDS CSCI SDD reply package prepare");
+    assert.equal(candidate.work_type, "answer");
+    assert.equal(candidate.completion_criteria, "Reply package prepared and owner can approve the response.");
+    assert.equal(candidate.source_mail_ref, "mailcsv:M001");
+    assert.equal(candidate.review_status, "needs_review");
+    assert.match(candidate.review_reason, /codex=applied/);
+
+    const existing = bundle.mail_reading_reports.find((row) => row.mail_ref === "MAIL-3");
+    assert.equal(existing.disposition, "update_existing");
+    assert.equal(Object.keys(bundle.ledger_candidates).includes("M003"), false);
+
+    const mismatched = {
+      schema_version: "haengbogwan.reading_codex_judgment_bundle.v1",
+      model_ref: "codex-automation-test",
+      judgments: [{
+        mail_ref: "MAIL-1",
+        input_reading_text_hash: "wrong-hash",
+        disposition: "candidate",
+        work_types: ["answer"],
+        title: "Ignored title",
+        confidence: 0.99,
+      }],
+    };
+    const ignoredBundle = judgeReadingContextPacket(packet, { codexJudgments: mismatched });
+    const ignored = ignoredBundle.mail_reading_reports.find((row) => row.mail_ref === "MAIL-1");
+    assert.equal(ignored.codex_judgment_status, "not_requested_or_missing");
+
+    const leaking = {
+      schema_version: "haengbogwan.reading_codex_judgment_bundle.v1",
+      judgments: [{
+        mail_ref: "MAIL-1",
+        input_reading_text_hash: mail1.reading_text_hash,
+        disposition: "candidate",
+        work_types: ["answer"],
+        reading_text: PRIVATE_SENTINEL,
+      }],
+    };
+    assert.throws(() => judgeReadingContextPacket(packet, { codexJudgments: leaking }), /codex_output_forbidden_field/);
+
+    const judgmentPath = join(tmp.root, "codex-judgments.json");
+    writeFileSync(judgmentPath, `${JSON.stringify(codexJudgments, null, 2)}\n`);
+    const contextPath = join(tmp.root, "reading-context.json");
+    writeFileSync(contextPath, `${JSON.stringify(packet, null, 2)}\n`);
+    const cli = spawnSync(process.execPath, [
+      JUDGE_TOOL,
+      "--context", contextPath,
+      "--codex-judgments", judgmentPath,
+      "--json",
+    ], { encoding: "utf8" });
+    assert.equal(cli.status, 0, cli.stderr);
+    assert.equal(cli.stdout.includes(PRIVATE_SENTINEL), false);
+    const cliBundle = JSON.parse(cli.stdout);
+    assert.equal(cliBundle.mail_reading_reports.find((row) => row.mail_ref === "MAIL-1").codex_judgment_status, "applied");
   } finally {
     tmp.cleanup();
   }
