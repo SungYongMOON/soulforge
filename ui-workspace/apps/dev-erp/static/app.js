@@ -5340,9 +5340,15 @@ async function hubJulgi(mount, p) {
   if (!stats.total) {
     mount.innerHTML = `<div class="empty" style="text-align:left;max-width:560px">
       <p style="font-weight:500">아직 이 과제의 줄기(나무)가 없어요.</p>
-      <p class="dim">줄기 = 착수문서(요구사항)에서 척추가 서고, 메일이 가닥으로 붙고, 완료되면 <b>열매</b>가 맺히는 과제 이야기. 행보관(지금 상태)과 짝이에요.</p>
-      <button id="julgiSeed" class="fav-chip">데모 줄기 생성 (샘플)</button>
+      <p class="dim">줄기 = <b>체계공학 일정</b>(게이트·산출물·마감)에서 척추가 서고, <b>메일·음성</b>이 가닥으로 붙고, 완료되면 <b>열매</b>가 맺히는 과제 이야기.</p>
+      <button id="julgiFromSchedule" class="fav-chip">체계공학 일정에서 만들기 (실데이터)</button>
+      <button id="julgiSeed" class="fav-chip mini">데모(샘플)</button>
     </div>`;
+    mount.querySelector("#julgiFromSchedule").addEventListener("click", async () => {
+      const r = await post(`/api/julgi/from-schedule?project=${encodeURIComponent(p.id)}`, {});
+      if (r.ok) { const d = await r.json().catch(() => ({})); toast(`일정에서 줄기: 게이트 ${d.stages ?? 0} · 산출물 ${d.deliverables ?? 0}`, "ok"); render(); }
+      else { toast("일정 줄기 생성 실패", "error"); }
+    });
     mount.querySelector("#julgiSeed").addEventListener("click", async () => {
       const r = await post(`/api/julgi/seed-demo?project=${encodeURIComponent(p.id)}`, {});
       if (r.ok) { toast("데모 줄기 생성됨", "ok"); render(); } else { toast("생성 실패", "error"); }

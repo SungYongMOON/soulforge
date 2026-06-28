@@ -18,6 +18,7 @@ import { ensureJulgiSchema, addItem as julgiAdd, buildTree as julgiTree } from "
 import { buildSpineFromDoc as julgiSpine } from "./src/julgi_spine.mjs";
 import { proposeUpdates as julgiPropose, applyUpdates as julgiApply } from "./src/julgi_update.mjs";
 import { buildJulgiView } from "./src/julgi_view.mjs";
+import { projectScheduleToJulgi } from "./src/julgi_schedule.mjs";
 import { loadFixture } from "./src/fixture.mjs";
 import { ingestFromFile } from "./src/adapter.mjs";
 import { getLexicon, LEXICON } from "./src/lexicon.mjs";
@@ -1196,6 +1197,12 @@ const server = createServer(async (req, res) => {
         { subject: "SRR 산출물 제출 완료", body_preview: "검토본 송부", source_ref: "데모(메일#52)" },
       ]) julgiApply(store.db, project, julgiPropose(store.db, project, m));
       return send(res, 200, { ok: true });
+    }
+    // 체계공학 일정(core_deliverable) → 줄기 척추(게이트·산출물·마감). 실데이터·결정적·멱등.
+    if (path === "/api/julgi/from-schedule" && req.method === "POST") {
+      if (!qp.project) return send(res, 400, { error: "project_required" });
+      ensureJulgiSchema(store.db);
+      return send(res, 200, projectScheduleToJulgi(store.db, qp.project));
     }
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
     if (path === "/api/doc/recipes") return send(res, 200, docRecipes(qp.mode));
