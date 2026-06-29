@@ -5,7 +5,8 @@
 > 적용한 "탐색 ≠ 체계 오염금지"를 메모리에도 동일하게 적용한 것.
 >
 > 작성: claude_opus-4-8 · 2026-06-28 · 교차검증(Codex/리뷰어)용.
-> 관련 커밋: `b8fb1ab6`(격리 backbone), `6e4c3355`(쓰기 태깅 + 파일정본 왕복).
+> 관련 커밋: `b8fb1ab6`(격리 backbone), `6e4c3355`(쓰기 태깅 + 파일정본 왕복),
+> `a4a2f9d5`(본 문서 추가, 단 haengbogwan 관련 변경 동시 포함).
 
 ---
 
@@ -36,6 +37,9 @@
    항상 주입(과제 격리 대상 아님). 과제 비밀을 여기 적으면 전 과제에 새므로 "일반 규칙만" 원칙.
 5. **하위호환**: 마이그레이션은 컬럼 추가뿐 → 기존 항목은 전부 `project_id = NULL = 일반`이 되어
    **종전대로 모든 과제에 주입**된다. 새로 과제 태그가 붙는 항목만 격리된다(점진 적용).
+6. **용량 관리**: core blob은 8000자 상한을 유지하고, 누적 항목은 저장 시 항목당 1200자까지 정규화한다.
+   `(ref, project_id/NULL)` scope별 active 항목은 120건/24000자 안에 남기고 초과분은 `archived`로 보존 이동한다.
+   주입은 실제 렌더링 문자열 길이 기준으로 예산을 hard cap 하며, legacy oversized 항목은 예산을 넘기지 않고 건너뛴다.
 
 ---
 
@@ -51,13 +55,14 @@
 | `memoryForInjection(ref, budget, context, project_id)` | `project_id`를 retrieve로 전달 |
 | `listMemoryItems` | 반환 컬럼에 `project_id` 추가 |
 | `appendAssigneeMemory(ref, text, project_id)` | `project_id` passthrough(완료지식→메모리 경로용) |
+| capacity constants/functions | `ASSIGNEE_MEMORY_ITEM_TEXT_MAX=1200`, `ASSIGNEE_MEMORY_SCOPE_ITEM_MAX=120`, `ASSIGNEE_MEMORY_SCOPE_TEXT_MAX=24000`, `pruneMemoryItems()`로 누적층 저장·주입 용량 관리 |
 
 ### `server.mjs` — `b8fb1ab6`
 | 위치 | 변경 |
 | --- | --- |
 | Codex 작업 스레드 생성(`createCodexTaskThread`, ~L453) | 주입 호출에 `item.project_id` 전달(**시작 시**) |
 | Codex 작업 메시지(~L1084) | 주입 호출에 `item.project_id` 전달(**매 턴**) |
-| `/api/me/memory/item` (add op) | 본문 `project_id` 수용 → `addMemoryItem` |
+| `/api/me/memory/item` (add op) | 서버 라우트는 본문 `project_id`를 optional로 수용 → `addMemoryItem` |
 | `/api/memory/append` | 본문 `project_id` 수용 → `appendAssigneeMemory` |
 
 ### `static/app.js` — `6e4c3355`
@@ -73,7 +78,7 @@
 | `--apply` `itemIns` INSERT | `project_id` 포함 |
 | `--apply` `itemExists` 중복판정 | `project_id` 범위까지 비교(과제별 동일문구 보존) |
 
-### `test/memory_project_isolation.test.mjs` — `b8fb1ab6` (신규, 4 케이스)
+### `test/memory_project_isolation.test.mjs` — `b8fb1ab6` + 2026-06-29 capacity hardening (5 케이스)
 1. retrieve가 현재 과제+일반만, 다른 과제 차단.
 2. `memoryForInjection`이 다른 과제 비밀("12억")을 안 흘림.
 3. dedup이 같은 과제 범위 안에서만 — 다른 과제 동일문구는 별도 ADD.
@@ -89,7 +94,7 @@
 | 경로 | 과제 태그 | 비고 |
 | --- | --- | --- |
 | 디제스트 **`+ 메모리`**(완료지식→메모리, `/api/memory/append`) | ✅ 해당 할일 `project_id` 자동 태깅 | 격리의 주 입력 |
-| 개인 **`+ 항목`**(내 메모리 패널, `/api/me/memory/item`) | ⬜ **일반(NULL) 기본** | 본인 일반 규칙 입력 용도. 안전(일반은 누설이 아니라 공유 의도). 과제 선택 UI는 미제공 |
+| 개인 **`+ 항목`**(내 메모리 패널, `/api/me/memory/item`) | ⬜ **일반(NULL) 기본** | 현재 UI는 `project_id`를 보내지 않는다. 서버 라우트는 optional `project_id`를 받을 수 있지만 과제 선택 UI는 미제공 |
 | `내 메모리` **core 편집**(`/api/me/memory`) | ⬜ 일반(설계상 과제 무관) | 본인 작성 규칙 blob |
 
 > "일반(NULL)"은 누설이 아니라 **의도된 공유**다(사람 습관·규칙). 격리가 막는 건 **과제 태그가
@@ -120,11 +125,14 @@
 모두 `ui-workspace/apps/dev-erp/`에서 실행.
 
 ```bash
-# (1) 격리 단위 테스트 — 4건 pass
+# (1) 격리/공백 project_id 단위 테스트 — 5건 pass
 node --test test/memory_project_isolation.test.mjs
 
-# (2) 전건 회귀 — 296 pass(0 fail)
-npm test
+# (2) 전건 회귀 — Codex 재검증 관측값(2026-06-29): 315 pass(0 fail)
+npm.cmd test
+
+# (2b) review gate — Codex 재검증 관측값(2026-06-29): Level 0 PASS
+node tools/verify_gate.mjs --level 0 --skip-tests
 
 # (3) 코드 근거 grep — 격리 필터/전달/태깅이 실제로 있는지
 #  retrieve 격리 필터:
@@ -159,5 +167,6 @@ openStore(b.db).listMemoryItems(ref) → project_id 가 P26-014/P24-049/NULL 로
 - 지식 오염 규칙(탐색 P23-037 ≠ 체계 P26-014, project_code 격리)과 같은 원칙을 메모리에 적용.
   지식 저장 규칙: `docs/architecture/workspace/PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md`.
 - 동시편집/커밋 규칙: 루트 `AGENTS.md`(main 직접 + 슬라이스마다 commit·push·self-verify,
-  외부 동시편집 징후 시 중단·보고). 본 작업은 store/server/app.js/ledger가 clean인 창에서만
-  편집, Codex의 동시 haengbogwan 커밋과 파일 비겹침을 확인 후 푸시함.
+  외부 동시편집 징후 시 중단·보고). `a4a2f9d5`는 메모리 문서 커밋 제목이지만,
+  haengbogwan 경로 6개와 `package.json` test-script 변경도 함께 들어갔다. 데이터 손실은
+  관측되지 않았고, 메모리 격리 구현 자체는 `b8fb1ab6`/`6e4c3355`에 있다.

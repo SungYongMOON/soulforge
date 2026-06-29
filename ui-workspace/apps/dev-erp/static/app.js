@@ -4495,7 +4495,7 @@ function mailIdTail(id) {
 }
 function mailPreviewLine(m) {
   // 목록 둘째줄 = 사람이 읽는 본문 발췌. 내부 plumbing(메일함/소스/원문/ID)은 목록에서 빼고 상세 패널에만 둔다.
-  const body = String(m.body_preview ?? "").replace(/\s+/g, " ").trim();
+  const body = String(m.body_text ?? m.body_preview ?? "").replace(/\s+/g, " ").trim();
   return body ? (body.length > 140 ? `${body.slice(0, 140)}…` : body) : "";
 }
 function mailIdentLine(m) {
@@ -4786,7 +4786,34 @@ async function renderMail() {
       <button id="assignGo" class="fav-chip active">${L.assign_btn}</button>
     </div>` : "";
 
-  const sel = mail.find((m) => m.id === state.mailSel);
+  let sel = mail.find((m) => m.id === state.mailSel);
+  if (sel) {
+    state.mailDetailCache ??= {};
+    const cached = state.mailDetailCache[sel.id];
+    if (cached) {
+      sel = {
+        ...sel,
+        body_text: cached.body_text,
+        body_preview: cached.body_preview ?? sel.body_preview,
+        body_text_available: cached.body_text_available ?? sel.body_text_available,
+        body_text_len: cached.body_text_len ?? sel.body_text_len,
+      };
+    } else if (sel.body_text_available && !sel.body_text) {
+      try {
+        const detailMail = await api(`/api/mail/detail?id=${encodeURIComponent(sel.id)}`);
+        state.mailDetailCache[sel.id] = detailMail;
+        sel = {
+          ...sel,
+          body_text: detailMail.body_text,
+          body_preview: detailMail.body_preview ?? sel.body_preview,
+          body_text_available: detailMail.body_text_available ?? sel.body_text_available,
+          body_text_len: detailMail.body_text_len ?? sel.body_text_len,
+        };
+      } catch {
+        // Keep the preview-only row if the detail endpoint is temporarily unavailable.
+      }
+    }
+  }
   const selIdx = sel ? mail.findIndex((m) => m.id === sel.id) : -1; // #10: 현재 페이지 내 위치 → 이전/다음 단건 처리
   const prevMailId = selIdx > 0 ? mail[selIdx - 1].id : null;
   const nextMailId = selIdx >= 0 && selIdx + 1 < mail.length ? mail[selIdx + 1].id : null;
@@ -4800,7 +4827,7 @@ async function renderMail() {
       </div>
       <h3 class="mail-subject">${esc(sel.subject)}</h3>
       <div class="mail-meta-line"><span class="mail-from-name">${esc(sel.counterpart ?? "-")}</span><span class="dim"> · ${localTime(sel.at)} · ${sel.direction === "in" ? L.mail_in : L.mail_out}</span>${sel.recipients > 1 ? ` <span class="mail-recip" title="${L.mail_recipients ?? "받은 팀원 수"}">👥 ${sel.recipients}</span>` : ""}${sel.project_id ? ` ${projChip(sel.project_id, clsById.get(sel.project_id))}` : ""}</div>
-      ${sel.body_preview ? `<div class="mail-body"><div class="mail-body-text">${esc(sel.body_preview)}</div></div>` : `<div class="mail-body mail-body-empty"><div class="dim mini">${L.mail_body_none ?? "본문 미수집 — 원문은 메일함에서 확인하세요."}</div></div>`}
+      ${(sel.body_text || sel.body_preview) ? `<div class="mail-body"><div class="mail-body-text">${esc(sel.body_text || sel.body_preview)}</div></div>` : `<div class="mail-body mail-body-empty"><div class="dim mini">${L.mail_body_none ?? "본문 미수집 — 원문은 메일함에서 확인하세요."}</div></div>`}
       <details class="mail-details"><summary class="dim mini">${L.mail_details ?? "세부정보"}</summary>
         <dl>${selKind ? `<div><dt>${L.mail_thread_kind ?? "대화 유형"}</dt><dd>${esc(selKind)} · ${esc(mailThreadSubject(sel.subject))}</dd></div>` : ""}
         ${sel.mailbox ? `<div><dt>${L.mailbox_provider ?? "메일함"}</dt><dd>${esc(sel.mailbox)}</dd></div>` : ""}
@@ -4843,9 +4870,10 @@ async function renderMail() {
       <input id="mrDate" type="date" />
       <select id="mrProject"><option value="">${L.project}: ${L.req_no_project ?? "미연결"}</option>${assignOpts}</select>
       <input id="mrPtr" placeholder="${L.mail_reg_ptr ?? "원문 위치 포인터(Outlook/파일 경로)"}" />
+      <textarea id="mrBody" rows="4" placeholder="${L.mail_reg_body ?? "메일 본문"}"></textarea>
       <button id="mrAdd" class="fav-chip active">${L.mail_reg_add ?? "등록"}</button>
     </div>
-    <p class="hub-note">${L.mail_reg_note ?? "메일 본문은 저장 안 함 — 제목·상대·날짜·포인터만. 등록 후 분류해 할 일로 승격."}</p>
+    <p class="hub-note">${L.mail_reg_note ?? "메일 본문은 ERP 런타임 DB에 저장합니다. 원장·_workmeta에는 본문을 넣지 않습니다."}</p>
   </details>`;
 	  const mailFrom = mailPage.total ? mailPage.offset + 1 : 0;
 	  const mailTo = mailPage.offset + mail.length;
@@ -4868,6 +4896,7 @@ async function renderMail() {
     if ($("#mrDate").value) body.at = $("#mrDate").value;
     if ($("#mrProject").value) body.project_id = $("#mrProject").value;
     if ($("#mrPtr").value.trim()) body.pointer_ref = $("#mrPtr").value.trim();
+    if ($("#mrBody").value.trim()) body.body_text = $("#mrBody").value.trim();
     const r = await post("/api/mail", body);
     if (r.ok) { state.mailRegOpen = true; toast(L.mail_reg_done ?? "메일이 등록되었습니다", "ok"); render(); }
     else toast(L.mail_reg_fail ?? "메일 등록에 실패했습니다", "error");
@@ -6330,6 +6359,7 @@ const EVENT_KIND_LABELS = {
   auth_password_change: "비번 변경", codex_task_thread_open: "AI 대화 시작", codex_task_message: "AI 대화",
   codex_task_image_attach: "이미지 첨부", embed_register: "시트 연결", schedule_spawn: "일정 생성",
   input_upload: "입력 업로드", input_download: "입력 다운로드",
+  work_started: "업무 시작", work_completed: "업무 완료", completion_hook_skipped: "완료 훅 스킵", completion_hook_failed: "완료 훅 실패",
 };
 const eventKindLabel = (kind) => EVENT_KIND_LABELS[kind] ?? kind;
 

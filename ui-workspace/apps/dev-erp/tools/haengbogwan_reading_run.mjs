@@ -87,6 +87,9 @@ function parseArgs(argv) {
     limit: DEFAULT_LIMIT,
     bodyMode: DEFAULT_BODY_MODE,
     maxTextChars: 12000,
+    includeKnowledge: true,
+    includeCommonKnowledge: true,
+    commonKnowledgeBindingPath: "",
     knowledgeLimit: DEFAULT_LIMIT,
     includeHidden: false,
     codexJudgmentsPath: "",
@@ -118,6 +121,8 @@ function parseArgs(argv) {
     else if (token === "--auto-open") opts.autoOpen = true;
     else if (token === "--assign-mailbox-owner") opts.assignMailboxOwner = true;
     else if (token === "--write-report") opts.writeReport = true;
+    else if (token === "--no-knowledge") opts.includeKnowledge = false;
+    else if (token === "--no-common-knowledge") opts.includeCommonKnowledge = false;
     else if (token === "--db") {
       opts.dbPath = readValue(argv, i, token);
       i += 1;
@@ -151,6 +156,9 @@ function parseArgs(argv) {
     } else if (token === "--knowledge-limit") {
       opts.knowledgeLimit = validateLimit(readValue(argv, i, token), "knowledge_limit");
       i += 1;
+    } else if (token === "--common-knowledge") {
+      opts.commonKnowledgeBindingPath = readValue(argv, i, token);
+      i += 1;
     } else if (token === "--codex-judgments") {
       opts.codexJudgmentsPath = readValue(argv, i, token);
       i += 1;
@@ -176,7 +184,7 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    "Usage: node tools/haengbogwan_reading_run.mjs --project <code> [--db <dev-erp.db>] [--repo-root <runtime-root>] [--workmeta-root <dir>] [--limit N] [--body-mode subject|preview|two_stage|full] [--apply-tasks] [--apply-context] [--apply-knowledge-candidates] [--apply] [--write-report] [--json]",
+    "Usage: node tools/haengbogwan_reading_run.mjs --project <code> [--db <dev-erp.db>] [--repo-root <runtime-root>] [--workmeta-root <dir>] [--limit N] [--body-mode subject|preview|two_stage|full] [--no-knowledge] [--no-common-knowledge] [--common-knowledge <ref>] [--apply-tasks] [--apply-context] [--apply-knowledge-candidates] [--apply] [--write-report] [--json]",
     "",
     "Builds a body-aware mail reading packet, creates redacted task/context candidates,",
     "optionally applies task ledger rows, updates _workmeta/<project>/project_context,",
@@ -433,7 +441,9 @@ export function buildHaengbogwanReadingRunReport(opts) {
     maxTextChars: opts.maxTextChars,
     includeText: true,
     includeHidden: opts.includeHidden,
-    includeKnowledge: true,
+    includeKnowledge: opts.includeKnowledge,
+    includeCommonKnowledge: opts.includeCommonKnowledge,
+    commonKnowledgeBindingPath: opts.commonKnowledgeBindingPath,
     knowledgeLimit: opts.knowledgeLimit,
     generatedAt,
   });
@@ -488,6 +498,10 @@ export function buildHaengbogwanReadingRunReport(opts) {
       knowledge_candidate_appended: knowledgeCandidateReport.appended_count ?? 0,
       event_body_read: packet.counts?.event_body_read ?? 0,
       knowledge_refs: packet.counts?.knowledge_refs ?? 0,
+      common_knowledge_refs: packet.knowledge_context?.counts?.common_knowledge_ref_count ?? 0,
+      common_context_hint_rules: Array.isArray(packet.knowledge_context?.context_hint_rules)
+        ? packet.knowledge_context.context_hint_rules.filter((row) => row.scope === "common").length
+        : 0,
     },
     context_packet: compactContextPacket(packet),
     candidate_bundle: redactedBundle,

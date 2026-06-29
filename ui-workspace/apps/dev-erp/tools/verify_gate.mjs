@@ -50,7 +50,8 @@ export function checkNoServerEgress(sources) {
 export function checkNoRawMailColumns(storeSource) {
   const ddl = storeSource.match(/CREATE TABLE IF NOT EXISTS core_mail \(([\s\S]*?)\);/);
   if (!ddl) return { id: "no_raw_mail_columns", ok: false, note: "core_mail DDL 미발견" };
-  const ok = !/\b(body|content|raw|attachment)\b/i.test(ddl[1]);
+  const columns = ddl[1].replace(/--[^\n]*/g, "");
+  const ok = !/\b(body_html|raw|raw_body|content|attachment|attachments|payload)\b/i.test(columns) && !/\bbody\b/i.test(columns);
   return { id: "no_raw_mail_columns", ok, note: "메일 원문/첨부 컬럼 부재 (메타 전용)" };
 }
 

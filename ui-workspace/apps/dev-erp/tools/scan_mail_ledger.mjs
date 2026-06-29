@@ -12,7 +12,11 @@ import { readdirSync, existsSync, readFileSync, statSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openStore } from "../src/store.mjs";
-import { readMailBodyPreview } from "../../../../guild_hall/gateway/mail_body_excerpt.mjs";
+import { readMailBodyText } from "../../../../guild_hall/gateway/mail_body_excerpt.mjs";
+
+// Current contract: mail ledger CSV stays metadata-only. When local event text
+// is available, this scanner passes normalized runtime text to core_mail.body_text;
+// core_mail.body_preview is derived by the store for display/search fallbacks.
 
 const HERE = dirname(fileURLToPath(import.meta.url));            // .../dev-erp/tools
 const APP = resolve(HERE, "..");                                // .../dev-erp
@@ -127,12 +131,12 @@ if (apply) {
     let n = 0, nf = 0;
     for (const rec of L.records) {
       // 본문 발췌는 런타임 이벤트 싱크에서만 읽는다(원장/후보큐엔 본문 없음). 미수집이면 null → 상세 패널 '본문 미수집' 안내.
-      const preview = await readMailBodyPreview({ repoRoot: REPO, candidateRef: rec.packet_ref, cache: bodyCache });
-      if (preview) rec.body_preview = preview;
+      const bodyText = await readMailBodyText({ repoRoot: REPO, candidateRef: rec.packet_ref, cache: bodyCache });
+      if (bodyText) rec.body_text = bodyText;
       const r = store.ingestMail(rec);
       if (r.error) { skipped++; continue; }
       n++; wrote++; if (r.isNew) { nf++; fresh++; }
-      if (preview) bodyFilled++;
+      if (bodyText) bodyFilled++;
     }
     if (n) {
       ledgerWrote++;

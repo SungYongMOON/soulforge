@@ -1,8 +1,8 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { homedir } from "node:os";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, extname, join } from "node:path";
 
 // 근본 원인 self-heal: codex-cli(현재 버전)는 service_tier 가 fast/flex 만 허용한다. 호스트 전역 ~/.codex/config.toml 에
 // priority 등 미지원 값이 있으면 codex 가 config 를 '먼저' 파싱하다 죽어, ERP 의 -c service_tier override 도 닿지 못한다
@@ -79,13 +79,81 @@ export function buildCodexAppServerArgs({ serviceTier = process.env.DEV_ERP_CODE
   return args;
 }
 
+export function windowsCodexDirectSpawnSpec(commandPath, appServerArgs = buildCodexAppServerArgs()) {
+  const raw = String(commandPath ?? "").trim();
+  if (!raw) return null;
+  const ext = extname(raw).toLowerCase();
+  const shimPath = ext ? raw : (existsSync(`${raw}.cmd`) ? `${raw}.cmd` : raw);
+  const shimExt = extname(shimPath).toLowerCase();
+  if (shimExt === ".cmd" || shimExt === ".bat") {
+    const jsPath = join(dirname(shimPath), "node_modules", "@openai", "codex", "bin", "codex.js");
+    if (!existsSync(jsPath)) return null;
+    const localNode = join(dirname(shimPath), "node.exe");
+    return { command: existsSync(localNode) ? localNode : "node", args: [jsPath, ...appServerArgs], direct: true };
+  }
+  if (shimExt === ".exe") return { command: shimPath, args: appServerArgs, direct: true };
+  return null;
+}
+
+function resolveWindowsCodexDirectSpawnSpec(appServerArgs) {
+  const raw = String(CODEX_BIN || "").trim();
+  const candidates = [];
+  const seen = new Set();
+  const add = (value) => {
+    const s = String(value || "").trim();
+    if (!s || seen.has(s.toLowerCase())) return;
+    seen.add(s.toLowerCase());
+    candidates.push(s);
+  };
+  add(raw);
+  if (raw && !/[\\/:]/.test(raw)) {
+    try {
+      const found = spawnSync("where.exe", [raw], { encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "ignore"], timeout: 5000 });
+      if (!found.error && found.status === 0) {
+        for (const line of String(found.stdout || "").split(/\r?\n/)) add(line);
+      }
+    } catch {}
+  } else if (raw && !extname(raw)) {
+    add(`${raw}.cmd`);
+    add(`${raw}.exe`);
+  }
+  for (const candidate of candidates) {
+    const spec = windowsCodexDirectSpawnSpec(candidate, appServerArgs);
+    if (spec) return spec;
+  }
+  return null;
+}
+
 function codexAppServerSpawnSpec() {
   const appServerArgs = buildCodexAppServerArgs();
   if (process.platform !== "win32") return { command: CODEX_BIN, args: appServerArgs };
+  const direct = resolveWindowsCodexDirectSpawnSpec(appServerArgs);
+  if (direct) return direct;
   return {
     command: "cmd.exe",
     args: ["/d", "/s", "/c", [CODEX_BIN, ...appServerArgs].map(quoteCmdArg).join(" ")],
   };
+}
+
+export function codexAppServerProcessTreeKillSpec(pid, platform = process.platform) {
+  const n = Number(pid);
+  if (platform !== "win32" || !Number.isInteger(n) || n <= 0) return null;
+  return { command: "taskkill.exe", args: ["/pid", String(n), "/T", "/F"] };
+}
+
+export function stopCodexAppServerProcess(child, { platform = process.platform, spawnSyncImpl = spawnSync, preferChildKill = false } = {}) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return false;
+  if (preferChildKill) {
+    try { if (child.kill()) return true; } catch {}
+  }
+  const killSpec = codexAppServerProcessTreeKillSpec(child.pid, platform);
+  if (killSpec) {
+    try {
+      const result = spawnSyncImpl(killSpec.command, killSpec.args, { windowsHide: true, stdio: "ignore", timeout: 5000 });
+      if (!result?.error && (result?.status === 0 || result?.status === null)) return true;
+    } catch {}
+  }
+  try { return !!child.kill(); } catch { return false; }
 }
 
 export function buildTaskThreadTitle(item) {
@@ -208,7 +276,7 @@ function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, 
       clearTimeout(timer);
       for (const [, p] of pending) p.reject(new Error("codex_app_server_closed"));
       pending.clear();
-      try { child.kill(); } catch {}
+      stopCodexAppServerProcess(child, { preferChildKill: spec.direct === true });
     };
     const finish = (result) => {
       if (settled) return;

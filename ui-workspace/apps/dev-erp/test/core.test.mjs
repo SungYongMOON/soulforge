@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { openStore, deriveStartYear } from "../src/store.mjs";
+import { openStore, deriveStartYear, ASSIGNEE_MEMORY_ITEM_TEXT_MAX, ASSIGNEE_MEMORY_SCOPE_ITEM_MAX } from "../src/store.mjs";
 import { sanitizeCodexConfigServiceTier } from "../src/codex_bridge.mjs";
 import { importNewTaskLedgers, writeTaskToLedger, readTaskLedgerRows, importNewInputLedgers, writeInputToLedger, readInputLedgerRows } from "../src/autosync.mjs";
 import { pendingForProject, scanPending } from "../tools/mail_to_task_pending.mjs";
@@ -709,6 +709,38 @@ test("mail: 기본 90일 범위와 원문 미저장 (UI-003)", () => {
   }
 });
 
+test("mail: ERP runtime DB stores normalized body_text and keeps raw/html/attachments out", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const result = store.ingestMail({
+    id: "mail-body-store",
+    project_code: "P24-049",
+    at: "2026-06-18T09:00:00+09:00",
+    subject: "body storage",
+    pointer_ref: "_workmeta/P24-049/reports/mail_history.csv#body-store",
+    body_text: "Line 1\r\n\r\nLine 2\tneeds search",
+    data_label: "real",
+  });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  const stored = store.mail({ days: 3650 }).find((m) => m.id === "mail-body-store");
+  assert.equal(stored.body_text, undefined);
+  assert.equal(stored.body_preview, "Line 1\n\nLine 2 needs search");
+  assert.equal(stored.body_text_available, 1);
+  assert.equal(stored.body_text_len, "Line 1\n\nLine 2 needs search".length);
+  assert.equal(store.mailDetail("mail-body-store").body_text, "Line 1\n\nLine 2 needs search");
+  assert.equal(store.mail({ q: "needs search", days: 3650 }).some((m) => m.id === "mail-body-store"), true);
+  const searchResult = crossSearch(store, "needs search");
+  const searchMail = searchResult.mail.find((m) => m.id === "mail-body-store");
+  assert.ok(searchMail);
+  assert.equal(searchMail.body_text, undefined);
+  assert.equal(searchMail.body_text_available, 1);
+  const cols = store.db.prepare("PRAGMA table_info(core_mail)").all().map((row) => row.name);
+  assert.equal(cols.includes("body_text"), true);
+  assert.equal(cols.includes("body_html"), false);
+  assert.equal(cols.includes("raw_body"), false);
+  assert.equal(cols.includes("attachments"), false);
+});
+
 test("P1b: purgeSynthetic 은 synthetic 만 지우고 real 은 보존 + meta 마커", () => {
   const store = freshStore();
   loadFixture(store);
@@ -1008,6 +1040,109 @@ test("knowledge shell: API routes return metadata-only shapes", async () => {
     await srv.stop();
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("server: ERP status buttons emit AX work lifecycle hooks", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-work-hooks-"));
+  try {
+    const codexHome = join(root, "codex-home");
+    mkdirSync(codexHome, { recursive: true });
+    const dbPath = join(root, "work-hooks.db");
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", dbPath, "--port", String(port)], {
+      DEV_ERP_CODEX_TASK_BRIDGE: "mock",
+      DEV_ERP_CODEX_SERVICE_TIER: "",
+      CODEX_HOME: codexHome,
+    });
+    const base = `http://127.0.0.1:${port}`;
+    const postJson = (path, body) => fetch(`${base}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const eventsOf = async (kind) => (await (await fetch(`${base}/api/events/audit?limit=100&kind=${encodeURIComponent(kind)}`)).json()).events;
+    const waitForEvent = async (kind, itemId) => {
+      for (let i = 0; i < 40; i += 1) {
+        const found = (await eventsOf(kind)).find((e) => e.item_ref === itemId);
+        if (found) return found;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      return null;
+    };
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      let r = await postJson("/api/projects", { id: "P26-HOOK", title: "Hook Project" });
+      assert.equal(r.status, 200);
+      r = await postJson("/api/items", { project_id: "P26-HOOK", title: "AX hook task", completion_criteria: "criteria captured" });
+      assert.equal(r.status, 200);
+      const item = (await r.json()).item;
+      {
+        const db = new DatabaseSync(dbPath);
+        try {
+          db.prepare("UPDATE core_item SET result=?, log_ref=? WHERE id=?").run("result captured", "log:captured", item.id);
+        } finally {
+          db.close();
+        }
+      }
+
+      r = await postJson("/api/items/status", { id: item.id, status: "doing" });
+      assert.equal(r.status, 200);
+      const started = await waitForEvent("work_started", item.id);
+      assert.ok(started);
+      assert.equal(started.from_val, "open");
+      assert.equal(started.to_val, "doing");
+      assert.deepEqual(started.used_refs, ["items"]);
+
+      r = await postJson("/api/codex-task/open", { item_id: item.id });
+      assert.equal(r.status, 200);
+      r = await postJson("/api/items/status", { id: item.id, status: "done" });
+      assert.equal(r.status, 200);
+      const completed = await waitForEvent("work_completed", item.id);
+      assert.ok(completed);
+      assert.equal(completed.to_val, "done");
+      assert.deepEqual(completed.used_refs, ["items", "completion_log", "codex_thread_binding"]);
+      assert.match(completed.note, /completion_log_id=\d+/);
+      assert.match(completed.note, /codex_thread_id=/);
+      const skipped = await waitForEvent("completion_hook_skipped", item.id);
+      assert.ok(skipped, "Codex conversation without local Ollama records a metadata-only hook skip");
+      assert.equal(skipped.to_val, "llm_unavailable");
+      assert.deepEqual(skipped.used_refs, ["completion_log", "codex_thread_binding", "codex_thread_message"]);
+      assert.match(skipped.note, /phase=llm_unavailable/);
+      assert.match(skipped.note, /completion_log_id=\d+/);
+      assert.match(skipped.note, /codex_thread_id=/);
+      assert.match(skipped.note, /codex_last_message_id=\d+/);
+
+      r = await postJson("/api/items/status", { id: item.id, status: "done" });
+      assert.equal(r.status, 200);
+      const db = new DatabaseSync(dbPath);
+      try {
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM completion_log WHERE item_id=?").get(item.id).n, 1);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM event_log WHERE kind='work_completed' AND item_ref=?").get(item.id).n, 1);
+        assert.equal(db.prepare("SELECT COUNT(*) AS n FROM event_log WHERE kind='work_started' AND item_ref=?").get(item.id).n, 1);
+        const clog = db.prepare("SELECT id, completion_criteria, result, log_ref, knowledge FROM completion_log WHERE item_id=?").get(item.id);
+        assert.ok(completed.note.includes(`completion_log_id=${clog.id}`));
+        assert.equal(clog.completion_criteria, "criteria captured");
+        assert.equal(clog.result, "result captured");
+        assert.equal(clog.log_ref, "log:captured");
+      } finally {
+        db.close();
+      }
+    } finally {
+      await srv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("completion_log stores string knowledge as a structured candidate note", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P00-000_INBOX", title: "Inbox", data_label: "real" });
+  const item = store.createItem({ id: "itm_knowledge_note", project_id: "P00-000_INBOX", title: "Knowledge note item" }).item;
+  const log = store.logCompletion(item, { completed_by: "tester" });
+  store.updateCompletionLog(log.id, { knowledge: "다음번에 재사용할 주의점" });
+  const row = store.db.prepare("SELECT knowledge FROM completion_log WHERE id=?").get(log.id);
+  assert.deepEqual(JSON.parse(row.knowledge), { note: "다음번에 재사용할 주의점" });
 });
 
 test("server: shared skin directory serves fantasy backgrounds before local fallback", async () => {
@@ -1901,6 +2036,22 @@ test("TASK-LEDGER: 자동화 메타데이터 구조화 ingest + enum 안전 폴�
   assert.equal(it.generation_rule_ref, "mail_history_to_task_generation_rule");
   assert.equal(it.sync_state, "pending");
   assert.equal(it.sync_revision, 2);
+
+  const splitA = store.ingestTaskItem({
+    id: "mailtask:split-h1:a", project_code: "P26-014", title: "같은 메일 분기 A", origin: "mail",
+    source_mail_ref: "mailcsv:split-h1", work_type: "review", completion_criteria: "A 확인"
+  });
+  const splitB = store.ingestTaskItem({
+    id: "mailtask:split-h1:b", project_code: "P26-014", title: "같은 메일 분기 B", origin: "mail",
+    source_mail_ref: "mailcsv:split-h1", work_type: "author", completion_criteria: "B 작성"
+  });
+  assert.equal(splitA.ok, true);
+  assert.equal(splitB.ok, true);
+  assert.equal(
+    store.db.prepare("SELECT COUNT(*) AS n FROM core_item WHERE origin_mail_id='mailcsv:split-h1'").get().n,
+    2,
+    "행보관 장부 ingest 는 같은 메일에서 나온 여러 할일을 허용"
+  );
 
   store.ingestTaskItem({ id: "mailtask:h2", project_code: "P26-014", title: "검토필요", origin: "mail",
     review_status: "???", route_confidence: "sure", assignee_confidence: "maybe" });
@@ -4188,17 +4339,17 @@ test("TEAM-ACCT: createAccount 이메일·표기명·역할 + 중복/형식 가�
   assert.equal(store.createAccount({ username: "u3", password: "x12345", email: "bad-email" }).error, "email_format", "이메일 형식 거부");
 });
 
-test("CONCURRENCY-GUARD: busy_timeout PRAGMA + origin_mail_id/email UNIQUE 백스톱 (race 수렴)", () => {
+test("CONCURRENCY-GUARD: busy_timeout PRAGMA + origin_mail_id index/email UNIQUE 백스톱 (race 수렴)", () => {
   const store = freshStore();
   loadFixture(store);
   // 1) 멀티 writer 대비 busy_timeout
   assert.equal(store.db.prepare("PRAGMA busy_timeout").get().timeout, 5000, "busy_timeout=5000 설정");
-  // 2) DB 레벨 백스톱 UNIQUE 인덱스 2종 생성
+  // 2) origin_mail_id 검색 인덱스 + email UNIQUE 백스톱 생성
   const idx = store.db.prepare(
-    "SELECT name FROM sqlite_master WHERE type='index' AND name IN ('idx_item_origin_mail_unique','idx_account_email_unique')"
+    "SELECT name FROM sqlite_master WHERE type='index' AND name IN ('idx_item_origin_mail','idx_item_origin_mail_unique','idx_account_email_unique')"
   ).all().map((r) => r.name).sort();
-  assert.deepEqual(idx, ["idx_account_email_unique", "idx_item_origin_mail_unique"], "origin_mail_id·email UNIQUE 백스톱 생성");
-  // 3) 같은 origin_mail_id 중복 생성 → already_promoted 로 수렴 (앱가드 우회한 createItem 직접 호출도 DB UNIQUE 가 막아 기존 할일로 수렴)
+  assert.deepEqual(idx, ["idx_account_email_unique", "idx_item_origin_mail"], "origin_mail_id 검색 인덱스·email UNIQUE 백스톱 생성");
+  // 3) 같은 origin_mail_id 수동 승격 중복 생성 → 앱레벨 already_promoted 로 수렴
   const pid = store.db.prepare("SELECT id FROM core_project LIMIT 1").get().id;
   const r1 = store.createItem({ project_id: pid, title: "메일승격", origin: "mail", origin_mail_id: "mailx-1" });
   assert.ok(r1.ok, "최초 승격 ok");
@@ -5210,6 +5361,45 @@ test("memory: retrieve 주입은 절단이 아니라 상위 항목 선택 + 예�
   store.addMemoryItem("김민재", { text: "아주 중요한 새 규칙", salience: 1 }); // 최신+고salience
   const top = store.retrieveMemoryItems("김민재", { budget: 100000, max: 100 })[0];
   assert.match(top.text, /중요한 새 규칙/, "최신+고salience 가 상위");
+});
+
+test("memory: capacity caps long items and hard-bounds injection budget (MEM-006)", () => {
+  const store = freshStore();
+  const ref = "capacity-person";
+  const longText = "L".repeat(ASSIGNEE_MEMORY_ITEM_TEXT_MAX + 1000);
+  const added = store.addMemoryItem(ref, { text: longText, project_id: "P26-014" });
+  assert.equal(added.action, "add");
+  assert.equal(added.truncated, true);
+  const item = store.listMemoryItems(ref)[0];
+  assert.equal(item.text.length, ASSIGNEE_MEMORY_ITEM_TEXT_MAX);
+  assert.equal(store.retrieveMemoryItems(ref, { budget: 50, project_id: "P26-014" }).length, 0, "oversized legacy-style item is skipped under tiny budget");
+  const injected = store.memoryForInjection(ref, 100, "", "P26-014");
+  assert.ok(injected.length <= 100, `injection length ${injected.length} must stay inside budget`);
+});
+
+test("memory: capacity prunes only the matching ref/project scope (MEM-007)", () => {
+  const store = freshStore();
+  const ref = "capacity-scope";
+  store.addMemoryItem(ref, { text: "otherproj unique seed", project_id: "P24-049" });
+  store.addMemoryItem(ref, { text: "general unique seed" });
+  for (let i = 0; i < ASSIGNEE_MEMORY_SCOPE_ITEM_MAX + 5; i++) {
+    store.addMemoryItem(ref, { text: `m${i} n${i} o${i} p${i}`, project_id: "P26-014", salience: i === 0 ? 0 : 0.5 });
+  }
+  const active = store.listMemoryItems(ref);
+  assert.equal(active.filter((it) => it.project_id === "P26-014").length, ASSIGNEE_MEMORY_SCOPE_ITEM_MAX);
+  assert.equal(active.filter((it) => it.project_id === "P24-049").length, 1, "other project scope is not pruned");
+  assert.equal(active.filter((it) => it.project_id == null).length, 1, "general scope is not pruned by project overflow");
+  assert.ok(store.listMemoryItems(ref, { status: "archived" }).some((it) => it.project_id === "P26-014"));
+});
+
+test("memory: core plus cumulative injection stays inside requested budget (MEM-008)", () => {
+  const store = freshStore();
+  const ref = "capacity-core";
+  store.setAssigneeMemory(ref, "C".repeat(9000));
+  store.addMemoryItem(ref, { text: "short project reminder", project_id: "P26-014" });
+  const injected = store.memoryForInjection(ref, 1800, "project reminder", "P26-014");
+  assert.ok(injected.length <= 1800, `injection length ${injected.length} must stay inside budget`);
+  assert.equal(store.getAssigneeMemory(ref).length, 8000);
 });
 
 test("memory: 주입 = core blob + 누적 항목, 항목 없으면 core 만 (MEM-003)", () => {

@@ -56,3 +56,13 @@ test("메모리 격리 — 기존 무태그 항목(NULL=일반)은 모든 과제
   const any = s.retrieveMemoryItems(ref, { project_id: "P26-014", budget: 5000 }).map((i) => i.text);
   assert.ok(any.some((t) => t.includes("구버전")), "무태그 항목은 어느 과제에서나 나옴(하위호환)");
 });
+
+test("메모리 격리 — 공백 project_id 는 빈 scope 가 아니라 일반(NULL)로 저장", () => {
+  const s = openStore(":memory:");
+  const ref = "을지문덕";
+  s.addMemoryItem(ref, { text: "공백 과제 태그는 일반 메모리", project_id: "   " });
+  const row = s.listMemoryItems(ref)[0];
+  assert.equal(row.project_id, null);
+  const any = s.retrieveMemoryItems(ref, { project_id: "P26-014", budget: 5000 }).map((i) => i.text);
+  assert.ok(any.some((t) => t.includes("공백 과제 태그")), "공백 project_id 는 일반 메모리로 주입");
+});

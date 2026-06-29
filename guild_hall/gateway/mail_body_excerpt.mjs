@@ -4,6 +4,9 @@
 //   여기서 뽑은 발췌는 core_mail.body_preview(런타임 DB)에만 착지하며, 원문 전체·첨부는 저장하지 않는다.
 //   의존성 0: node:fs/path + 무의존 shared/io.mjs 만 쓴다(scan_mail_ledger 의 zero-dependency·도구 비종속 유지 —
 //   본문 router(yaml 의존)를 끌어오지 않으려고 mail_candidate.mjs 와 분리).
+// Current contract: callers may persist normalized text in runtime DB
+// core_mail.body_text and derive core_mail.body_preview for display. Raw
+// HTML/provider payloads and attachments stay in the gitignored event sink.
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { pathExists, readJson, relativeToRepo } from "../shared/io.mjs";
@@ -68,6 +71,10 @@ export function mailBodyExcerptFromRecord(record, { maxChars = 2000 } = {}) {
   return cleaned.slice(0, Math.max(1, maxChars)) || null;
 }
 
+export function mailBodyTextFromRecord(record, { maxChars = 100000 } = {}) {
+  return mailBodyExcerptFromRecord(record, { maxChars });
+}
+
 // 한 이벤트 싱크 JSONL → Map(event_id → 발췌). 싱크(mailbox) 경로 밖 읽기는 거부한다.
 export async function loadMailBodyExcerptIndex({ repoRoot, eventFile, maxChars = 2000 }) {
   const index = new Map();
@@ -91,7 +98,7 @@ export async function loadMailBodyExcerptIndex({ repoRoot, eventFile, maxChars =
     if (!eventId || index.has(eventId)) {
       continue;
     }
-    const excerpt = mailBodyExcerptFromRecord(row, { maxChars });
+    const excerpt = mailBodyTextFromRecord(row, { maxChars });
     if (excerpt) {
       index.set(eventId, excerpt);
     }
@@ -120,7 +127,7 @@ export async function readMailBodyPreview({ repoRoot, candidateRef, cache = null
     if (!eventFile || !eventId) {
       return null;
     }
-    const eventKey = resolveRepoPath(repoRoot, eventFile);
+    const eventKey = `${resolveRepoPath(repoRoot, eventFile)}#${maxChars}`;
     let index = cache?.get(eventKey);
     if (!index) {
       index = await loadMailBodyExcerptIndex({ repoRoot, eventFile, maxChars });
@@ -130,4 +137,8 @@ export async function readMailBodyPreview({ repoRoot, candidateRef, cache = null
   } catch {
     return null;
   }
+}
+
+export async function readMailBodyText({ repoRoot, candidateRef, cache = null, maxChars = 100000 }) {
+  return readMailBodyPreview({ repoRoot, candidateRef, cache, maxChars });
 }

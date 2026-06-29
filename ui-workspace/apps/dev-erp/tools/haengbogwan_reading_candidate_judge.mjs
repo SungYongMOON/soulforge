@@ -308,6 +308,8 @@ function confidenceFor({ disposition, actionSignals, due, bodyAccess, typeCount,
   if (actionSignals) score += 0.2;
   if (due) score += 0.1;
   if (bodyAccess === "event_body_text") score += 0.15;
+  if (bodyAccess === "core_mail.body_text") score += 0.14;
+  if (bodyAccess === "core_mail.body_text_fallback") score += 0.12;
   if (bodyAccess === "core_mail.body_preview") score += 0.08;
   if (typeCount > 1) score -= 0.05;
   return Math.max(0.1, Math.min(0.95, Number(score.toFixed(2))));
@@ -334,6 +336,13 @@ function knowledgeRefsFromContext(knowledgeContext, limit = 8) {
   for (const row of Array.isArray(knowledgeContext?.rag_route_refs) ? knowledgeContext.rag_route_refs : []) add(row.route_ref || row.ref);
   for (const row of Array.isArray(knowledgeContext?.rag_work_card_refs) ? knowledgeContext.rag_work_card_refs : []) add(row.work_card_ref || row.ref);
   for (const row of Array.isArray(knowledgeContext?.knowledge_ledger_refs) ? knowledgeContext.knowledge_ledger_refs : []) add(row.ledger_ref || row.ref);
+  for (const row of Array.isArray(knowledgeContext?.common_knowledge_refs) ? knowledgeContext.common_knowledge_refs : []) add(row.ref || row.source_ref);
+  for (const row of Array.isArray(knowledgeContext?.context_hint_rules) ? knowledgeContext.context_hint_rules : []) {
+    add(row.source_ref || (row.id ? `context_hint_rule:${row.id}` : ""));
+  }
+  for (const row of Array.isArray(knowledgeContext?.context_hint_rule_sources) ? knowledgeContext.context_hint_rule_sources : []) {
+    add(row.ref || row.path);
+  }
   for (const row of Array.isArray(knowledgeContext?.core_knowledge_hits) ? knowledgeContext.core_knowledge_hits : []) {
     add(row.source_ref || row.pointer || (row.id ? `core_knowledge:${row.id}` : ""));
   }
@@ -362,6 +371,37 @@ function knowledgeMetadataRows(knowledgeContext) {
   }
   for (const row of Array.isArray(knowledgeContext?.knowledge_ledger_refs) ? knowledgeContext.knowledge_ledger_refs : []) {
     add("knowledge_ledger", row.ledger_ref || row.ref, [row.ledger_ref, row.ref, row.name, row.owner_surface].filter(Boolean).join(" "));
+  }
+  for (const row of Array.isArray(knowledgeContext?.common_knowledge_refs) ? knowledgeContext.common_knowledge_refs : []) {
+    add("common_knowledge", row.ref || row.source_ref, [
+      row.id,
+      row.kind,
+      row.ref,
+      row.title,
+      row.summary,
+      ...(Array.isArray(row.tags) ? row.tags : []),
+      row.owner_surface,
+      row.visibility,
+      row.claim_ceiling,
+      row.route_hint,
+    ].filter(Boolean).join(" "));
+  }
+  for (const row of Array.isArray(knowledgeContext?.context_hint_rules) ? knowledgeContext.context_hint_rules : []) {
+    add("context_hint_rule", row.source_ref || (row.id ? `context_hint_rule:${row.id}` : ""), [
+      row.id,
+      row.source_ref,
+      ...(Array.isArray(row.event_keywords) ? row.event_keywords : []),
+      ...(Array.isArray(row.knowledge_keywords) ? row.knowledge_keywords : []),
+      row.target_object,
+      ...(Array.isArray(row.work_types) ? row.work_types : []),
+      row.required_role,
+      row.required_capability,
+      row.suggested_assignee_ref,
+      row.description,
+    ].filter(Boolean).join(" "));
+  }
+  for (const row of Array.isArray(knowledgeContext?.context_hint_rule_sources) ? knowledgeContext.context_hint_rule_sources : []) {
+    add("context_hint_rule_source", row.ref || row.path, [row.ref, row.path].filter(Boolean).join(" "));
   }
   for (const row of Array.isArray(knowledgeContext?.core_knowledge_hits) ? knowledgeContext.core_knowledge_hits : []) {
     add("core_knowledge", row.source_ref || row.pointer || row.id, [
@@ -518,6 +558,8 @@ function normalizeContextHintRule(row) {
   const eventKeywords = row.eventKeywords ?? row.event_keywords;
   const targetObject = row.targetObject ?? row.target_object;
   const id = String(row.id ?? "").trim();
+  const claimCeiling = String(row.claimCeiling ?? row.claim_ceiling ?? "").trim();
+  const ownerReviewFlags = row.ownerReviewFlags ?? row.owner_review_flags;
   if (!id || !targetObject || !Array.isArray(eventKeywords) || !eventKeywords.length) return null;
   return {
     id,
@@ -530,6 +572,10 @@ function normalizeContextHintRule(row) {
     requiredRole: String(row.requiredRole ?? row.required_role ?? "").trim(),
     requiredCapability: String(row.requiredCapability ?? row.required_capability ?? "").trim(),
     suggestedAssigneeRef: String(row.suggestedAssigneeRef ?? row.suggested_assignee_ref ?? "").trim(),
+    hintAuthority: String(row.hintAuthority ?? row.hint_authority ?? "").trim() || "metadata_hint",
+    claimCeiling: claimCeiling || "observed",
+    ownerReviewRequired: row.ownerReviewRequired ?? row.owner_review_required ?? true,
+    ownerReviewFlags: (Array.isArray(ownerReviewFlags) ? ownerReviewFlags : []).map((value) => String(value ?? "").trim()).filter(Boolean),
   };
 }
 
@@ -566,6 +612,10 @@ function knowledgeHintsForEvent(event, knowledgeContext, eventText) {
     required_role: primary.requiredRole,
     required_capability: primary.requiredCapability,
     suggested_assignee_ref: primary.suggestedAssigneeRef,
+    hint_authority: primary.hintAuthority || "metadata_hint",
+    claim_ceiling: primary.claimCeiling || "observed",
+    owner_review_required: primary.ownerReviewRequired !== false,
+    owner_review_flags: primary.ownerReviewFlags || [],
     reason_codes: matched.map((rule) => rule.id),
     classification_text: matched.map((rule) => [
       rule.targetObject,
@@ -625,7 +675,7 @@ function sourceLineageFor(event) {
 
 function ledgerSafeKey(key) {
   const value = String(key ?? "").trim();
-  if (!value || /[,:\n\r]/.test(value)) return "";
+  if (!value || /[,\n\r]/.test(value)) return "";
   if (/^[A-Za-z]:[\\/]/.test(value) || value.includes("..")) return "";
   return value;
 }
@@ -644,6 +694,9 @@ function candidateForAction(report, type, index = 0) {
       `signals=${report.signals.join("+") || "none"}`,
       report.codex_judgment_status ? `codex=${report.codex_judgment_status}` : "",
       report.codex_owner_review_reason ? `codex_review=${report.codex_owner_review_reason}` : "",
+      report.knowledge_hint_applied ? `knowledge_hint_authority=${report.knowledge_hint_authority}` : "",
+      report.knowledge_hint_applied ? `knowledge_claim_ceiling=${report.knowledge_claim_ceiling}` : "",
+      report.owner_review_required ? "owner_review_required=true" : "",
       "body_text_redacted",
     ].filter(Boolean).join(";"),
     status_hint: report.disposition === "candidate" ? "reading_candidate" : report.disposition,
@@ -666,6 +719,10 @@ function candidateForAction(report, type, index = 0) {
     generation_run_ref: report.generation_run_ref,
     supporting_knowledge_refs: report.supporting_knowledge_refs,
     knowledge_hint_reason: report.knowledge_hint_reason,
+    knowledge_hint_authority: report.knowledge_hint_authority,
+    knowledge_claim_ceiling: report.knowledge_claim_ceiling,
+    owner_review_required: report.owner_review_required,
+    owner_review_flags: report.owner_review_flags,
     next_action: report.codex_next_action || copy.next,
     body_access: report.body_access,
     context_key: report.context_key,
@@ -767,6 +824,10 @@ function buildReportForEvent(event, opts = {}) {
     knowledge_hint_applied: knowledgeHints.applied,
     knowledge_hint_reason: knowledgeHintReason,
     knowledge_hint_reason_codes: knowledgeHints.reason_codes,
+    knowledge_hint_authority: knowledgeHints.applied ? (knowledgeHints.hint_authority || "metadata_hint") : "",
+    knowledge_claim_ceiling: knowledgeHints.applied ? (knowledgeHints.claim_ceiling || "observed") : "",
+    owner_review_required: knowledgeHints.applied ? (knowledgeHints.owner_review_required !== false) : false,
+    owner_review_flags: knowledgeHints.owner_review_flags || [],
     required_role: domain.required_role,
     required_capability: domain.required_capability,
     suggested_assignee_ref: domain.suggested_assignee_ref,
@@ -851,6 +912,10 @@ function buildProposalCandidates(reports) {
       suggested_assignee_ref: report.suggested_assignee_ref,
       bot_hint: report.bot_hint,
       supporting_knowledge_refs: report.supporting_knowledge_refs,
+      knowledge_hint_authority: report.knowledge_hint_authority,
+      knowledge_claim_ceiling: report.knowledge_claim_ceiling,
+      owner_review_required: report.owner_review_required,
+      owner_review_flags: report.owner_review_flags,
       evidence_summary: report.evidence_summary,
       body_access: report.body_access,
       codex_judgment_status: report.codex_judgment_status || "",

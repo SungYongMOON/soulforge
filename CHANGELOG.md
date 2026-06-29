@@ -1,5 +1,28 @@
 # CHANGELOG
 
+### dev-ERP AX completion metadata hardening
+
+- Verified the completed Codex-backed ERP task lifecycle rows and tightened future completion events so `work_completed` records point to the created `completion_log` row and Codex task thread binding metadata.
+- Stored completion knowledge hints as structured JSON candidate notes instead of JSON scalar strings, keeping raw mail bodies and protected payloads out of AX metadata.
+- Added completion-time snapshots for `completion_criteria`, `result`, and `log_ref`, and extended completion digest metadata with Codex thread/latest-message pointers for later AX/procedure extraction.
+
+### dev-ERP Codex app-server Windows process cleanup
+
+- Changed the dev-ERP Codex bridge to resolve Windows npm `codex.cmd` shims into the direct Codex app-server process, so timeout cleanup owns the real child process instead of only the wrapper shell.
+- Added deterministic Windows process cleanup helpers and regression coverage for direct shutdown, process-tree fallback, and spawn-spec resolution.
+
+### dev-ERP assignee memory capacity management
+
+- Added cumulative assignee-memory capacity controls: per-item text cap, per-ref/project active scope pruning, whitespace `project_id` normalization to `NULL`, and hard character-budget accounting for injected memory.
+- Added regression tests for long memory items, scope-local pruning, core+item injection budget bounds, and project-isolation whitespace handling; included `memory_project_isolation.test.mjs` in the default dev-ERP test script.
+
+### dev-ERP mail body storage boundary
+
+- Changed dev-ERP mail storage so `core_mail.body_text` can keep normalized mail body text in the runtime DB, while `_workmeta` mail ledgers, task ledgers, project context reports, raw HTML, raw provider payloads, and attachments stay out of the metadata plane.
+- Wired `scan_mail_ledger`, mail UI, and the haengbogwan reading packet to prefer stored `body_text` before preview/subject-only reading; the reading packet also tolerates pre-migration runtime DBs that only have `body_preview`.
+- Kept mail list/search APIs preview-sized by default: full normalized `body_text` is returned only through the single-mail detail route after the existing mail access check.
+- Updated tests and the verify gate to allow normalized `body_text` but continue rejecting raw/html/attachment-style mail columns.
+
 ### 메일함 Gmail/Outlook식 — 본문 줄바꿈 보존 + 읽기 패널 재배치
 
 - owner: 메일 본문이 한 덩어리로 뭉쳐 이상함. 원인: 본문 resolver(mail_body_excerpt htmlToText)가 br·p·div 등 블록 태그를 공백으로 치환→줄바꿈 전멸 + 인라인 태그→공백으로 구두점 앞 군더더기 공백. mailBodyExcerptFromRecord 도 s+→공백으로 재차 줄바꿈 제거.
@@ -8,6 +31,12 @@
 
 
 ## 2026-06-28
+
+### Revision `working` - dev-ERP AX work-event hooks
+
+- Added a saved implementation slice for ERP start/completion buttons as the canonical metadata-only work lifecycle surface.
+- Refactored the dev-ERP item status route so `open -> doing` appends `work_started`, and `non-done -> done` appends `work_completed`, writes `completion_log`, and keeps Codex completion digest as non-blocking auxiliary enrichment.
+- Added metadata-only hook status events for Codex digest skips/failures when a Codex conversation exists, without letting Codex decide task completion.
 
 ### Revision `working` - dev-ERP haengbogwan reading/run context loop
 
@@ -5344,6 +5373,8 @@ Git log 는 원문 이력을 남기고, 이 문서는 사람이 읽는 patch not
 - Updated the local Codex `outlook` automation prompt to require that preflight
   refresh while keeping all other Outlook mutation, raw-body, and attachment
   boundaries unchanged.
+- Added a dev-ERP mail project rule candidate exporter that turns ERP project
+  filing evidence into private, metadata-only router-rule review packets.
 
 ## 2026-03-22
 

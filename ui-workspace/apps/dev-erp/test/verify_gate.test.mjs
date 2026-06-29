@@ -27,8 +27,8 @@ test("B1: 게이트 개별 체크 — 통과/고의 실패 양쪽", () => {
   assert.equal(checkNoServerEgress({ s: `// fetch("https://comment-only")` }).ok, true, "주석은 허용");
 
   // 메일 원문 컬럼 금지
-  const goodDdl = `CREATE TABLE IF NOT EXISTS core_mail (\n id TEXT, subject TEXT, pointer_ref TEXT\n);`;
-  const badDdl = `CREATE TABLE IF NOT EXISTS core_mail (\n id TEXT, subject TEXT, body TEXT\n);`;
+  const goodDdl = `CREATE TABLE IF NOT EXISTS core_mail (\n id TEXT, subject TEXT, pointer_ref TEXT, body_text TEXT\n);`;
+  const badDdl = `CREATE TABLE IF NOT EXISTS core_mail (\n id TEXT, subject TEXT, body_html TEXT, raw_body TEXT\n);`;
   assert.equal(checkNoRawMailColumns(goodDdl).ok, true);
   assert.equal(checkNoRawMailColumns(badDdl).ok, false);
 

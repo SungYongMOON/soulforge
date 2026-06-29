@@ -22,16 +22,56 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, "..");
 const REPO = resolve(HERE, "..", "..", "..", "..");
 const DEFAULT_DB = join(APP, "data", "dev-erp.db");
+const DEFAULT_COMMON_KNOWLEDGE_BINDING_REL = "_workmeta/system/bindings/haengbogwan_common_knowledge_overlay.json";
 const SAFE_PROJECT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const DEFAULT_LIMIT = 20;
 const MAX_TERM_CHARS = 160;
 const MAX_CONTEXT_HINT_RULE_FILE_BYTES = 256 * 1024;
+const MAX_COMMON_KNOWLEDGE_BINDING_BYTES = 256 * 1024;
 const SAFE_RULE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
 const SAFE_WORK_TYPES = new Set(["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"]);
+const SAFE_CLAIM_CEILINGS = new Set(["observed", "source_supported", "validated_private", "canon_candidate", "canon_entry", "rejected_or_blocked"]);
+const SAFE_COMMON_REF_KINDS = new Set(["registry_knowledge", "workspace_knowledge", "rag_route", "source_card", "knowledge_ledger", "wiki_ref", "routing_note"]);
+const SAFE_COMMON_KNOWLEDGE_REF_KEYS = new Set([
+  "id",
+  "kind",
+  "ref",
+  "title",
+  "summary",
+  "tags",
+  "owner_surface",
+  "ownerSurface",
+  "visibility",
+  "claim_ceiling",
+  "claimCeiling",
+  "route_hint",
+  "routeHint",
+  "content_policy",
+  "contentPolicy",
+]);
+const SAFE_COMMON_KNOWLEDGE_BINDING_KEYS = new Set([
+  "schema_version",
+  "binding_id",
+  "enabled",
+  "applies_to",
+  "shared_refs",
+  "common_knowledge_refs",
+  "context_hint_rules",
+  "rules",
+  "notes",
+]);
 const SAFE_CONTEXT_HINT_RULE_KEYS = new Set([
   "id",
   "enabled",
   "priority",
+  "hint_authority",
+  "hintAuthority",
+  "claim_ceiling",
+  "claimCeiling",
+  "owner_review_required",
+  "ownerReviewRequired",
+  "owner_review_flags",
+  "ownerReviewFlags",
   "event_keywords",
   "eventKeywords",
   "knowledge_keywords",
@@ -84,6 +124,15 @@ function uniqueTerms(values) {
     out.push(term);
   }
   return out;
+}
+
+function normalizeRepoRelativeRef(value, label = "ref") {
+  const ref = normalizeTerm(value).replaceAll("\\", "/");
+  if (!ref) throw new Error(`missing_${label}`);
+  if (isAbsolute(ref) || ref.includes("\0") || ref.split("/").includes("..")) {
+    throw new Error(`unsafe_${label}:${ref}`);
+  }
+  return ref;
 }
 
 function firstN(rows, limit) {
@@ -257,6 +306,54 @@ function contextHintRuleRefs(project) {
   ];
 }
 
+function resolveBindingRef(repoRoot, ref) {
+  const root = resolve(repoRoot);
+  const raw = String(ref ?? "").trim() || DEFAULT_COMMON_KNOWLEDGE_BINDING_REL;
+  const abs = isAbsolute(raw) ? resolve(raw) : resolve(root, raw);
+  const rel = relative(root, abs).replaceAll("\\", "/");
+  if (!isInside(root, abs) || rel.startsWith("..") || rel === "") {
+    throw new Error(`common_knowledge_binding_path_escape:${raw}`);
+  }
+  return { abs, rel };
+}
+
+function bindingAppliesTo(parsed, project) {
+  const applies = parsed?.applies_to && typeof parsed.applies_to === "object" && !Array.isArray(parsed.applies_to)
+    ? parsed.applies_to
+    : {};
+  const projectIds = stringArray(applies.project_ids ?? applies.projects, { label: "applies_to_project_ids", maxItems: 128 });
+  if (!projectIds.length || projectIds.includes("*")) return true;
+  return projectIds.includes(project);
+}
+
+function normalizeCommonKnowledgeRef(row, { sourceRef, index }) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) throw new Error(`invalid_common_knowledge_ref:${index}`);
+  for (const key of Object.keys(row)) {
+    if (!SAFE_COMMON_KNOWLEDGE_REF_KEYS.has(key)) throw new Error(`unknown_common_knowledge_ref_key:${key}`);
+  }
+  const id = normalizeTerm(row.id) || `common_ref_${index}`;
+  if (!SAFE_RULE_ID_RE.test(id)) throw new Error(`invalid_common_knowledge_ref_id:${id}`);
+  const kind = normalizeTerm(row.kind) || "routing_note";
+  if (!SAFE_COMMON_REF_KINDS.has(kind)) throw new Error(`invalid_common_knowledge_ref_kind:${kind}`);
+  const ref = normalizeRepoRelativeRef(row.ref, "common_knowledge_ref");
+  const claimCeiling = normalizeTerm(row.claim_ceiling ?? row.claimCeiling);
+  return {
+    id,
+    kind,
+    ref,
+    title: normalizeTerm(row.title),
+    summary: normalizeTerm(row.summary),
+    tags: stringArray(row.tags, { label: "tags", maxItems: 32 }),
+    owner_surface: normalizeTerm(row.owner_surface ?? row.ownerSurface),
+    visibility: normalizeTerm(row.visibility),
+    claim_ceiling: SAFE_CLAIM_CEILINGS.has(claimCeiling) ? claimCeiling : "observed",
+    route_hint: normalizeTerm(row.route_hint ?? row.routeHint),
+    source_ref: `${sourceRef}#shared_refs/${index}`,
+    content_policy: "metadata_only",
+    body_included: false,
+  };
+}
+
 function assertNoForbiddenHintKeys(value, path = []) {
   if (!value || typeof value !== "object") return;
   if (Array.isArray(value)) {
@@ -315,6 +412,12 @@ function normalizeContextHintRule(row, { project, sourceRef, index }) {
     required_role: normalizeTerm(row.required_role ?? row.requiredRole),
     required_capability: normalizeTerm(row.required_capability ?? row.requiredCapability),
     suggested_assignee_ref: normalizeTerm(row.suggested_assignee_ref ?? row.suggestedAssigneeRef),
+    hint_authority: normalizeTerm(row.hint_authority ?? row.hintAuthority) || "metadata_hint",
+    claim_ceiling: SAFE_CLAIM_CEILINGS.has(normalizeTerm(row.claim_ceiling ?? row.claimCeiling))
+      ? normalizeTerm(row.claim_ceiling ?? row.claimCeiling)
+      : "observed",
+    owner_review_required: row.owner_review_required ?? row.ownerReviewRequired ?? true,
+    owner_review_flags: stringArray(row.owner_review_flags ?? row.ownerReviewFlags, { label: "owner_review_flags", maxItems: 16 }),
     description: normalizeTerm(row.description),
     content_policy: "metadata_only",
     body_included: false,
@@ -391,6 +494,177 @@ function scanContextHintRules({ repoRoot, project, limit }) {
   return out;
 }
 
+function readCommonKnowledgeBindingFile({ repoRoot, project, bindingRef, limit }) {
+  const root = resolve(repoRoot);
+  let binding;
+  try {
+    binding = resolveBindingRef(root, bindingRef);
+  } catch (error) {
+    return {
+      loaded: false,
+      reason: error.message,
+      binding_ref: String(bindingRef ?? DEFAULT_COMMON_KNOWLEDGE_BINDING_REL),
+      common_knowledge_refs: [],
+      rules: [],
+      sources: [],
+      errors: [{ ref: String(bindingRef ?? DEFAULT_COMMON_KNOWLEDGE_BINDING_REL), reason: error.message }],
+    };
+  }
+  if (!existsSync(binding.abs)) {
+    return {
+      loaded: false,
+      reason: "binding_not_found",
+      binding_ref: binding.rel,
+      common_knowledge_refs: [],
+      rules: [],
+      sources: [],
+      errors: [],
+    };
+  }
+  const sourceBase = {
+    ref: binding.rel,
+    path: binding.rel,
+    source_type: "common_knowledge_binding",
+    content_policy: "metadata_only",
+    body_included: false,
+  };
+  try {
+    const linkInfo = lstatSync(binding.abs);
+    if (linkInfo.isSymbolicLink()) throw new Error("common_knowledge_binding_symlink_blocked");
+    const realRoot = realpathSync.native(root);
+    const realAbs = realpathSync.native(binding.abs);
+    if (!isInside(realRoot, realAbs)) throw new Error("common_knowledge_binding_realpath_escape");
+    const info = statSync(binding.abs);
+    if (!info.isFile()) throw new Error("common_knowledge_binding_not_file");
+    if (info.size > MAX_COMMON_KNOWLEDGE_BINDING_BYTES) throw new Error("common_knowledge_binding_file_too_large");
+    const parsed = JSON.parse(readFileSync(binding.abs, "utf8"));
+    assertNoForbiddenHintKeys(parsed);
+    for (const key of Object.keys(parsed || {})) {
+      if (!SAFE_COMMON_KNOWLEDGE_BINDING_KEYS.has(key)) throw new Error(`unknown_common_knowledge_binding_key:${key}`);
+    }
+    const source = {
+      ...sourceBase,
+      size_bytes: info.size,
+      mtime_ms: Math.trunc(info.mtimeMs),
+    };
+    if (parsed?.enabled === false) {
+      return {
+        loaded: false,
+        reason: "binding_disabled",
+        binding_ref: binding.rel,
+        common_knowledge_refs: [],
+        rules: [],
+        sources: [source],
+        errors: [],
+      };
+    }
+    if (!bindingAppliesTo(parsed, project)) {
+      return {
+        loaded: false,
+        reason: "binding_not_applicable",
+        binding_ref: binding.rel,
+        common_knowledge_refs: [],
+        rules: [],
+        sources: [source],
+        errors: [],
+      };
+    }
+    const rawRefs = parsed.shared_refs ?? parsed.common_knowledge_refs ?? [];
+    if (!Array.isArray(rawRefs)) throw new Error("common_knowledge_refs_not_array");
+    const rawRules = parsed.context_hint_rules ?? parsed.rules ?? [];
+    if (!Array.isArray(rawRules)) throw new Error("common_context_hint_rules_not_array");
+    const commonRefs = [];
+    const rules = [];
+    const errors = [];
+    const seenRefIds = new Set();
+    const seenRuleIds = new Set();
+    for (let i = 0; i < rawRefs.length && commonRefs.length < limit; i += 1) {
+      try {
+        const ref = normalizeCommonKnowledgeRef(rawRefs[i], { sourceRef: binding.rel, index: i });
+        if (seenRefIds.has(ref.id)) {
+          errors.push({ ref: binding.rel, reason: `duplicate_common_knowledge_ref_id:${ref.id}` });
+          continue;
+        }
+        seenRefIds.add(ref.id);
+        commonRefs.push(ref);
+      } catch (error) {
+        errors.push({ ref: `${binding.rel}#shared_refs/${i}`, reason: error.message });
+      }
+    }
+    for (let i = 0; i < rawRules.length && rules.length < limit; i += 1) {
+      try {
+        const rule = normalizeContextHintRule(rawRules[i], { project, sourceRef: binding.rel, index: i });
+        if (!rule) continue;
+        if (seenRuleIds.has(rule.id)) {
+          errors.push({ ref: binding.rel, reason: `duplicate_context_hint_rule_id:${rule.id}` });
+          continue;
+        }
+        seenRuleIds.add(rule.id);
+        rules.push({ ...rule, scope: "common" });
+      } catch (error) {
+        errors.push({ ref: `${binding.rel}#context_hint_rules/${i}`, reason: error.message });
+      }
+    }
+    return {
+      loaded: true,
+      reason: "",
+      binding_ref: binding.rel,
+      common_knowledge_refs: commonRefs,
+      rules,
+      sources: [{
+        ...source,
+        common_knowledge_ref_count: commonRefs.length,
+        rule_count: rules.length,
+      }],
+      errors,
+    };
+  } catch (error) {
+    return {
+      loaded: false,
+      reason: error.message,
+      binding_ref: binding.rel,
+      common_knowledge_refs: [],
+      rules: [],
+      sources: [sourceBase],
+      errors: [{ ref: binding.rel, reason: error.message }],
+    };
+  }
+}
+
+function scanCommonKnowledgeBinding({ repoRoot, project, bindingRef, limit, includeCommonKnowledge }) {
+  if (!includeCommonKnowledge) {
+    return {
+      loaded: false,
+      reason: "disabled_by_option",
+      binding_ref: String(bindingRef ?? DEFAULT_COMMON_KNOWLEDGE_BINDING_REL),
+      common_knowledge_refs: [],
+      rules: [],
+      sources: [],
+      errors: [],
+    };
+  }
+  return readCommonKnowledgeBindingFile({ repoRoot, project, bindingRef, limit });
+}
+
+function mergeContextHintRules(projectRules, commonRules, limit) {
+  const merged = { rules: [], sources: [], errors: [] };
+  const seen = new Set();
+  for (const result of [projectRules, commonRules]) {
+    merged.sources.push(...(result.sources || []));
+    merged.errors.push(...(result.errors || []));
+    for (const rule of result.rules || []) {
+      if (merged.rules.length >= limit) break;
+      if (seen.has(rule.id)) {
+        merged.errors.push({ ref: rule.source_ref || rule.id, reason: `duplicate_context_hint_rule_id:${rule.id}` });
+        continue;
+      }
+      seen.add(rule.id);
+      merged.rules.push(rule);
+    }
+  }
+  return merged;
+}
+
 function rootCounts(contract) {
   const roots = Array.isArray(contract?.roots) ? contract.roots : [];
   return {
@@ -440,6 +714,8 @@ export function buildProjectKnowledgeOverlay({
   projectId,
   queryTerms = [],
   limit = DEFAULT_LIMIT,
+  includeCommonKnowledge = true,
+  commonKnowledgeBindingPath = DEFAULT_COMMON_KNOWLEDGE_BINDING_REL,
   generatedAt = new Date().toISOString(),
 } = {}) {
   const project = validateProjectId(projectId);
@@ -459,7 +735,15 @@ export function buildProjectKnowledgeOverlay({
   const ragWorkCards = scanRagWorkCards(scanOptions);
   const ledgers = scanKnowledgeLedgers(scanOptions);
   const coreKnowledge = retrieveCoreKnowledge({ dbPath, queryTerms: terms, limit: checkedLimit });
-  const contextHintRules = scanContextHintRules({ repoRoot: resolve(repoRoot), project, limit: checkedLimit });
+  const projectContextHintRules = scanContextHintRules({ repoRoot: resolve(repoRoot), project, limit: checkedLimit });
+  const commonKnowledge = scanCommonKnowledgeBinding({
+    repoRoot: resolve(repoRoot),
+    project,
+    bindingRef: commonKnowledgeBindingPath,
+    limit: checkedLimit,
+    includeCommonKnowledge,
+  });
+  const contextHintRules = mergeContextHintRules(projectContextHintRules, commonKnowledge, checkedLimit);
   const counts = {
     ...rootCounts(contract),
     space_count: spaces.counts?.space_count ?? 0,
@@ -467,6 +751,8 @@ export function buildProjectKnowledgeOverlay({
     rag_route_count: ragRoutes.counts?.route_count ?? 0,
     rag_work_card_count: ragWorkCards.counts?.work_card_count ?? 0,
     knowledge_ledger_count: ledgers.counts?.ledger_count ?? 0,
+    common_knowledge_ref_count: commonKnowledge.common_knowledge_refs.length,
+    common_knowledge_binding_loaded: commonKnowledge.loaded ? 1 : 0,
     context_hint_rule_count: contextHintRules.rules.length,
     context_hint_rule_source_count: contextHintRules.sources.length,
     context_hint_rule_error_count: contextHintRules.errors.length,
@@ -495,6 +781,7 @@ export function buildProjectKnowledgeOverlay({
       attachments_loaded: false,
       secret_loaded: false,
       context_hint_rule_body_loaded: false,
+      common_knowledge_binding_loaded: commonKnowledge.loaded,
       owner_approval_required_for_source_text: true,
     },
     counts,
@@ -504,6 +791,7 @@ export function buildProjectKnowledgeOverlay({
     rag_route_refs: firstN(ragRoutes.routes, checkedLimit),
     rag_work_card_refs: firstN(ragWorkCards.work_cards, checkedLimit),
     knowledge_ledger_refs: firstN(ledgers.ledgers, checkedLimit),
+    common_knowledge_refs: firstN(commonKnowledge.common_knowledge_refs, checkedLimit),
     context_hint_rules: firstN(contextHintRules.rules, checkedLimit),
     context_hint_rule_sources: firstN(contextHintRules.sources, checkedLimit),
     context_hint_rule_errors: firstN(contextHintRules.errors, checkedLimit),
@@ -511,6 +799,12 @@ export function buildProjectKnowledgeOverlay({
     core_knowledge: {
       loaded: coreKnowledge.loaded,
       reason: coreKnowledge.reason || "",
+    },
+    common_knowledge_binding: {
+      loaded: commonKnowledge.loaded,
+      reason: commonKnowledge.reason || "",
+      ref: commonKnowledge.binding_ref || "",
+      enabled: includeCommonKnowledge,
     },
     not_loaded: notLoadedNotes(),
   };
@@ -529,6 +823,8 @@ function parseArgs(argv) {
     projectId: "",
     queryTerms: [],
     limit: DEFAULT_LIMIT,
+    includeCommonKnowledge: true,
+    commonKnowledgeBindingPath: DEFAULT_COMMON_KNOWLEDGE_BINDING_REL,
     json: false,
     help: false,
   };
@@ -550,6 +846,11 @@ function parseArgs(argv) {
     } else if (token === "--query" || token === "--term") {
       opts.queryTerms.push(readValue(argv, i, token));
       i += 1;
+    } else if (token === "--no-common-knowledge") {
+      opts.includeCommonKnowledge = false;
+    } else if (token === "--common-knowledge") {
+      opts.commonKnowledgeBindingPath = readValue(argv, i, token);
+      i += 1;
     } else if (token === "--limit") {
       opts.limit = validateLimit(readValue(argv, i, token));
       i += 1;
@@ -563,7 +864,7 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    "Usage: node tools/haengbogwan_project_knowledge_overlay.mjs --project <code> [--repo-root <dir>] [--db <dev-erp.db>] [--query <text>] [--limit N] [--json]",
+    "Usage: node tools/haengbogwan_project_knowledge_overlay.mjs --project <code> [--repo-root <dir>] [--db <dev-erp.db>] [--query <text>] [--limit N] [--common-knowledge <ref>] [--no-common-knowledge] [--json]",
     "",
     "Builds a metadata-only project knowledge overlay for haengbogwan.",
     "No wiki bodies, source text, chunks, raw payloads, attachments, NotebookLM answers, or secrets are read.",

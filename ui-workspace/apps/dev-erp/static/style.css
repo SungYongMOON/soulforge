@@ -461,6 +461,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .mail-reg > summary { cursor: pointer; font-size: 13px; font-weight: 500; padding: 5px 0; color: var(--accent); }
 .mail-reg .item-form { padding: 4px 0 2px; }
 .mail-reg .item-form input { min-width: 110px; }
+.mail-reg .item-form textarea { flex: 1 1 100%; min-width: 240px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 13px; resize: vertical; }
 .badge.teal { background: #d7efe9; color: #1d6f5e; }
 body[data-theme="dark"] .badge.teal { background: #173d35; color: #8fd4c2; }
 body[data-theme="dark"] .status.unclassified, body[data-theme="dark"] .status-chip.triage, body[data-theme="dark"] .triage-note { background: #4d3a13; color: #f0cd8a; border-color: #6b5320; }

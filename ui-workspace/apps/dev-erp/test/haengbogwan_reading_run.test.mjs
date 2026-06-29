@@ -106,6 +106,42 @@ function writeWorkmetaLedgers(workmetaRoot, project = "P26-014") {
   writeCsv(join(projectRoot, TASK_LEDGER_RELATIVE_PATH), TASK_HEADERS, []);
 }
 
+function writeCommonKnowledgeBinding(repoRoot) {
+  const binding = join(repoRoot, "_workmeta", "system", "bindings", "haengbogwan_common_knowledge_overlay.json");
+  mkdirSync(dirname(binding), { recursive: true });
+  writeFileSync(binding, `${JSON.stringify({
+    schema_version: "haengbogwan.common_knowledge_overlay.v1",
+    binding_id: "reading_run_common_se_test",
+    enabled: true,
+    applies_to: {
+      project_ids: ["P26-014"],
+    },
+    shared_refs: [{
+      id: "common_se_deliverable_ref",
+      kind: "registry_knowledge",
+      ref: ".registry/knowledge/dapa_weapon_system_test_eval_guidebook/knowledge.yaml",
+      title: "Common SE deliverable routing",
+      summary: "systems_engineering requirements verification deliverable",
+      tags: ["systems_engineering", "requirements", "verification"],
+      owner_surface: ".registry/knowledge",
+      visibility: "public_safe",
+      claim_ceiling: "source_supported",
+      route_hint: "se_deliverable",
+    }],
+    context_hint_rules: [{
+      id: "common_se_sdd_run_rule",
+      priority: 100,
+      event_keywords: ["SDD", "CSCI"],
+      knowledge_keywords: ["systems_engineering", "deliverable"],
+      target_object: "SE SDD deliverable",
+      work_types: ["author", "review"],
+      required_role: "systems_engineering_owner",
+      required_capability: "systems_engineering",
+      owner_review_flags: ["common_se_hint"],
+    }],
+  }, null, 2)}\n`);
+}
+
 function runTool(tmp, extraArgs = []) {
   return spawnSync(process.execPath, [
     TOOL,
@@ -141,6 +177,41 @@ test("HAENGBOGWAN-READING-RUN: dry-run links reading candidates to task/context 
     assert.equal(report.project_context.accepted_event_count, 1);
     assert.equal(report.project_context.apply, false);
     assert.equal(existsSync(join(tmp.workmetaRoot, "P26-014", "project_context")), false);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-READING-RUN: common knowledge flags produce safe before-after deltas", () => {
+  const tmp = makeTempRuntime();
+  try {
+    writeEventSink(tmp.repoRoot);
+    writeMailDb(tmp.dbPath);
+    writeWorkmetaLedgers(tmp.workmetaRoot);
+    writeCommonKnowledgeBinding(tmp.repoRoot);
+
+    const withCommon = runTool(tmp, ["--skip-task-ledger"]);
+    const projectOnly = runTool(tmp, ["--skip-task-ledger", "--no-common-knowledge"]);
+    const noKnowledge = runTool(tmp, ["--skip-task-ledger", "--no-knowledge"]);
+    assert.equal(withCommon.status, 0, withCommon.stderr);
+    assert.equal(projectOnly.status, 0, projectOnly.stderr);
+    assert.equal(noKnowledge.status, 0, noKnowledge.stderr);
+    assert.equal(withCommon.stdout.includes(PRIVATE_SENTINEL), false);
+    assert.equal(projectOnly.stdout.includes(PRIVATE_SENTINEL), false);
+    assert.equal(noKnowledge.stdout.includes(PRIVATE_SENTINEL), false);
+
+    const commonReport = JSON.parse(withCommon.stdout);
+    const projectOnlyReport = JSON.parse(projectOnly.stdout);
+    const noKnowledgeReport = JSON.parse(noKnowledge.stdout);
+    assert.equal(commonReport.counts.common_knowledge_refs, 1);
+    assert.equal(commonReport.counts.common_context_hint_rules, 1);
+    assert.equal(projectOnlyReport.counts.common_knowledge_refs, 0);
+    assert.equal(projectOnlyReport.counts.common_context_hint_rules, 0);
+    assert.equal(noKnowledgeReport.counts.knowledge_refs, 0);
+    assert.equal(commonReport.candidate_bundle.mail_reading_reports[0].knowledge_hint_applied, true);
+    assert.equal(projectOnlyReport.candidate_bundle.mail_reading_reports[0].knowledge_hint_applied, false);
+    assert.equal(noKnowledgeReport.candidate_bundle.mail_reading_reports[0].knowledge_hint_applied, false);
+    assert.equal(commonReport.candidate_bundle.mail_reading_reports[0].target_object, "SE SDD deliverable");
   } finally {
     tmp.cleanup();
   }
@@ -207,5 +278,8 @@ test("HAENGBOGWAN-READING-RUN: CLI help works", () => {
   const result = spawnSync(process.execPath, [TOOL, "--help"], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /reading packet/);
+  assert.match(result.stdout, /no-knowledge/);
+  assert.match(result.stdout, /no-common-knowledge/);
+  assert.match(result.stdout, /common-knowledge/);
   assert.match(result.stdout, /apply-knowledge-candidates/);
 });

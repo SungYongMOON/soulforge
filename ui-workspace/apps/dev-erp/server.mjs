@@ -441,6 +441,152 @@ function codexTaskState(item, extra = {}) {
   };
 }
 
+function appendWorkLifecycleEvent({ actor, item, from, to, kind, note = null, used_refs = ["items"] } = {}) {
+  if (!item?.id || !kind) return;
+  store.appendEvent({
+    actor_ref: actor,
+    actor_kind: "human",
+    kind,
+    item_ref: item.id,
+    from,
+    to,
+    project_ref: item.project_id,
+    used_refs,
+    data_label: "real",
+    note,
+  });
+}
+
+function afterWorkStarted({ actor, item, from, to } = {}) {
+  if (!item?.id || from !== "open" || to !== "doing") return;
+  appendWorkLifecycleEvent({
+    actor,
+    item,
+    from,
+    to,
+    kind: "work_started",
+    note: "source_surface=erp;trigger=item_status",
+  });
+}
+
+function afterWorkCompleted({ actor, item, from, to } = {}) {
+  if (!item?.id || to !== "done" || from === "done") return null;
+  const clog = store.logCompletion(item, { completed_by: actor });
+  const binding = store.codexTaskBinding(item.id);
+  const used_refs = ["items", "completion_log"];
+  const noteParts = ["source_surface=erp", "trigger=item_status"];
+  if (clog?.id) noteParts.push(`completion_log_id=${clog.id}`);
+  if (binding?.thread_id) {
+    used_refs.push("codex_thread_binding");
+    noteParts.push(`codex_thread_id=${binding.thread_id}`);
+  }
+  appendWorkLifecycleEvent({
+    actor,
+    item,
+    from,
+    to,
+    kind: "work_completed",
+    used_refs,
+    note: noteParts.join(";"),
+  });
+  (async () => {
+    let msgs = [];
+    let latestMsg = null;
+    const hookUsedRefs = () => {
+      const refs = ["completion_log"];
+      if (binding?.thread_id) refs.push("codex_thread_binding");
+      if (msgs.length) refs.push("codex_thread_message");
+      return refs;
+    };
+    const hookNote = (phase, proposal = null) => [
+      phase ? `phase=${phase}` : null,
+      clog?.id ? `completion_log_id=${clog.id}` : null,
+      proposal?.id ? `proposal_id=${proposal.id}` : null,
+      binding?.thread_id ? `codex_thread_id=${binding.thread_id}` : null,
+      latestMsg?.id ? `codex_last_message_id=${latestMsg.id}` : null,
+    ].filter(Boolean).join(";") || null;
+    try {
+      msgs = store.codexTaskMessages(item.id);
+      if (!msgs.length) return;
+      latestMsg = msgs[msgs.length - 1] ?? null;
+      const provider = process.env.ERP_CHAT_PROVIDER || "stub";
+      if (provider !== "ollama") {
+        store.appendEvent({
+          actor_ref: "completion_hook",
+          actor_kind: "system",
+          kind: "completion_hook_skipped",
+          item_ref: item.id,
+          project_ref: item.project_id,
+          to: "llm_unavailable",
+          used_refs: hookUsedRefs(),
+          data_label: "meta",
+          note: hookNote("llm_unavailable"),
+        });
+        return;
+      }
+      const digest = await summarizeCompletion(item, msgs, { provider });
+      if (!digest.summary && !(digest.next_actions || []).length) {
+        store.appendEvent({
+          actor_ref: "completion_hook",
+          actor_kind: "system",
+          kind: "completion_hook_skipped",
+          item_ref: item.id,
+          project_ref: item.project_id,
+          to: digest.reason || "empty_digest",
+          used_refs: hookUsedRefs(),
+          data_label: "meta",
+          note: hookNote(digest.reason || "empty_digest"),
+        });
+        return;
+      }
+      if (clog?.id) store.updateCompletionLog(clog.id, { summary: digest.summary, knowledge: digest.knowledge });
+      const proposal = store.createProposal({
+        source: "completion_hook", kind: "completion_digest", target_ref: item.id,
+        summary: digest.summary || `${item.title ?? item.id} 완료`,
+        payload: {
+          item_id: item.id,
+          item_title: item.title ?? "",
+          project_id: item.project_id ?? null,
+          assignee_ref: item.assignee_ref ?? null,
+          work_type: item.work_type ?? null,
+          completion_criteria: item.completion_criteria ?? null,
+          result: item.result ?? null,
+          log_ref: item.log_ref ?? null,
+          codex_thread_id: binding?.thread_id ?? null,
+          codex_last_message: latestMsg ? { id: latestMsg.id ?? null, role: latestMsg.role ?? null, at: latestMsg.at ?? null } : null,
+          summary: digest.summary,
+          next_actions: digest.next_actions,
+          knowledge: digest.knowledge,
+        },
+        used_refs: ["items", "codex_thread_message"], data_label: "real",
+      });
+      store.appendEvent({
+        actor_ref: "completion_hook",
+        actor_kind: "system",
+        kind: "completion_digest",
+        item_ref: item.id,
+        project_ref: item.project_id,
+        used_refs: ["ai_proposal", "completion_log", "codex_thread_message"],
+        data_label: "real",
+        note: hookNote("digest_created", proposal),
+      });
+    } catch (e) {
+      store.appendEvent({
+        actor_ref: "completion_hook",
+        actor_kind: "system",
+        kind: "completion_hook_failed",
+        item_ref: item.id,
+        project_ref: item.project_id,
+        to: String(e?.message || e || "hook_error").slice(0, 200),
+        used_refs: hookUsedRefs(),
+        data_label: "meta",
+        note: hookNote("hook_error"),
+      });
+    }
+  })();
+  return clog;
+}
+
 function codexTaskErrorPayload(item, error) {
   return codexTaskState(item, {
     ok: false,
@@ -837,30 +983,11 @@ const server = createServer(async (req, res) => {
         item_ref: id, from: result.from, to: status, project_ref: result.project_id,
         bottleneck_reason: bottleneck_reason ?? null, used_refs: ["items"], data_label: "real"
       });
+      const itemAfterStatus = store.itemById(id);
       if (status === "done" && result.from !== "done") {
-        // 완료 로그(할일 로그): 모든 완료를 1행 기록 — 대화 유무와 무관. #4 담당자별 처리량·종류 분석 + #6 지식의 backbone.
-        const itDone = store.itemById(id);
-        const clog = store.logCompletion(itDone, { completed_by: actor });
-        // S6 완료 훅: Codex 대화가 있으면 로컬 AI로 요약 → 완료 로그 보강 + ai_proposal(completion_digest). 비차단·실패무시·외부 egress 0. '완료=비서가 다음을 준비'.
-        (async () => {
-          try {
-            const provider = process.env.ERP_CHAT_PROVIDER || "stub";
-            if (provider !== "ollama") return;
-            const msgs = store.codexTaskMessages(id);
-            if (!msgs.length) return; // Codex 대화 없으면 요약할 것 없음(로그 행은 이미 기록됨)
-            const it = itDone || store.itemById(id);
-            const digest = await summarizeCompletion(it, msgs, { provider });
-            if (!digest.summary && !(digest.next_actions || []).length) return;
-            if (clog?.id) store.updateCompletionLog(clog.id, { summary: digest.summary, knowledge: digest.knowledge });
-            store.createProposal({
-              source: "completion_hook", kind: "completion_digest", target_ref: id,
-              summary: digest.summary || `${it?.title ?? id} 완료`,
-              payload: { item_id: id, item_title: it?.title ?? "", project_id: it?.project_id ?? null, assignee_ref: it?.assignee_ref ?? null, summary: digest.summary, next_actions: digest.next_actions, knowledge: digest.knowledge },
-              used_refs: ["items", "codex_thread_message"], data_label: "real",
-            });
-            store.appendEvent({ actor_ref: "completion_hook", actor_kind: "system", kind: "completion_digest", item_ref: id, used_refs: ["ai_proposal"], data_label: "real" });
-          } catch { /* 완료 훅 실패가 완료를 막지 않음 */ }
-        })();
+        afterWorkCompleted({ actor, item: itemAfterStatus, from: result.from, to: status });
+      } else if (status === "doing" && result.from !== "doing") {
+        afterWorkStarted({ actor, item: itemAfterStatus, from: result.from, to: status });
       }
       return send(res, 200, result);
     }
@@ -1153,6 +1280,12 @@ const server = createServer(async (req, res) => {
       if (result.error) return send(res, 400, result);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_register", to: result.mail.subject, project_ref: result.mail.project_id ?? null, used_refs: ["mail"], data_label: "real" });
       return send(res, 200, result);
+    }
+    if (path === "/api/mail/detail" && req.method === "GET") {
+      if (!canAccessMail(req, qp.id)) return send(res, 403, { error: "mail_forbidden" });
+      const mail = store.mailDetail(qp.id);
+      if (!mail) return send(res, 404, { error: "mail_not_found" });
+      return send(res, 200, mail);
     }
     if (path === "/api/mail") {
       const opts = {

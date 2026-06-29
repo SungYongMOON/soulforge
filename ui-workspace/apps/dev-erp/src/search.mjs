@@ -22,14 +22,20 @@ export function crossSearch(store, q, { assignee_any, mailbox } = {}) {
   const items = store.db
     .prepare(`SELECT * FROM core_item WHERE ${itemConds.join(" AND ")} ORDER BY (due IS NULL), due LIMIT 50`)
     .all(...itemArgs);
-  const mailConds = ["(subject LIKE ? OR counterpart LIKE ? OR project_id LIKE ? OR id LIKE ? OR pointer_ref LIKE ? OR source_ref LIKE ?)"];
-  const mailArgs = [like, like, like, like, like, like];
+  const mailConds = ["(subject LIKE ? OR counterpart LIKE ? OR project_id LIKE ? OR id LIKE ? OR pointer_ref LIKE ? OR source_ref LIKE ? OR body_preview LIKE ? OR body_text LIKE ?)"];
+  const mailArgs = [like, like, like, like, like, like, like, like];
   if (mailbox && mailbox !== "team") {
     const mailScope = typeof store.mailboxScopeClause === "function" ? store.mailboxScopeClause("mailbox", mailbox) : null;
     if (mailScope) { mailConds.push(mailScope.sql); mailArgs.push(...mailScope.args); }
   }
   const mail = store.db
-    .prepare(`SELECT * FROM core_mail WHERE ${mailConds.join(" AND ")} ORDER BY at DESC LIMIT 50`)
+    .prepare(
+      `SELECT id, project_id, at, direction, subject, counterpart, pointer_ref,
+              stage_code, source_ref, mailbox, data_label, body_preview, hidden, dup_of,
+              CASE WHEN COALESCE(TRIM(body_text),'')<>'' THEN 1 ELSE 0 END AS body_text_available,
+              LENGTH(COALESCE(body_text,'')) AS body_text_len
+       FROM core_mail WHERE ${mailConds.join(" AND ")} ORDER BY at DESC LIMIT 50`
+    )
     .all(...mailArgs);
   const artifacts = store.db
     .prepare("SELECT * FROM core_artifact WHERE title LIKE ? OR kind LIKE ? OR project_id LIKE ? ORDER BY updated_at DESC LIMIT 50")

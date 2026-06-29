@@ -76,6 +76,11 @@
   `flex` 는 기본 비용 정책으로 UI/API 에 표시하지만 app-server turn 요청에는
   명시 override 로 보내지 않는다. bridge 는 기본 읽기 전용/승인 없음으로
   시작하며, 실제 파일 수정 권한은 별도 운영 정책으로 승격한다.
+- ERP work lifecycle rule (2026-06-28 AX hook slice): ERP item status buttons are
+  the canonical start/completion surface. `open -> doing` records metadata-only
+  work start, and `non-done -> done` records metadata-only work completion plus
+  the existing completion log. Codex task threads are auxiliary evidence for
+  digest/candidate enrichment and do not decide task completion.
 - Codex task panel capability rule (2026-06-19 pilot): the small task panel may
   pass model and reasoning effort overrides to `codex app-server`, and pass only
   non-default service tier overrides that the host app-server accepts;
@@ -105,8 +110,12 @@
 
 ## 6. 비목표 (당장 만들지 않음)
 
-회계/재무/급여, 메일 원문의 ERP 복제 저장, 문서 편집기, Smartsheet write,
+회계/재무/급여, 메일 raw/html/첨부 payload의 ERP 복제 저장, 문서 편집기, Smartsheet write,
 완전 자동 인사 평가, 다국어, 외부 인터넷 공개 배포.
+
+메일 본문 텍스트는 예외적으로 dev-ERP runtime DB `core_mail.body_text`에 정규화 텍스트로 저장할 수 있다.
+단, `_workmeta` 원장/후보큐/보고서/할일 장부에는 본문을 복사하지 않고, raw HTML, provider raw payload, 첨부 payload는 저장하지 않는다.
+메일 목록/전역 검색 API는 `body_preview`, `body_text_available`, `body_text_len`만 반환하고, 전체 `body_text`는 단일 메일 상세 조회처럼 기존 메일 접근권한을 통과한 경로에서만 반환한다.
 
 ## 7. 데이터 모델 기본틀 (2026-06-12 owner DB 질문 반영)
 

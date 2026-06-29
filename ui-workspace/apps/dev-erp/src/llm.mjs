@@ -352,7 +352,22 @@ export async function summarizeCompletion(item = {}, messages = [], { provider =
   const runtime = chatLlmRuntimeConfig();
   const host = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
   const log = messages.map((m) => `[${m.role}] ${String(m.text ?? "").replace(/\s+/g, " ").slice(0, 600)}`).join("\n").slice(0, 5000);
-  const itemData = JSON.stringify({ title: item.title ?? "", project_id: item.project_id ?? "-", work_type: item.work_type ?? "-" });
+  const latestMessage = messages.length ? messages[messages.length - 1] : null;
+  const itemData = JSON.stringify({
+    item_id: item.id ?? null,
+    title: item.title ?? "",
+    project_id: item.project_id ?? "-",
+    assignee_ref: item.assignee_ref ?? null,
+    work_type: item.work_type ?? "-",
+    completion_criteria: item.completion_criteria ?? null,
+    result: item.result ?? null,
+    log_ref: item.log_ref ?? null,
+    codex_last_message: latestMessage ? {
+      id: latestMessage.id ?? null,
+      role: latestMessage.role ?? null,
+      at: latestMessage.at ?? null,
+    } : null,
+  });
   const prompt = `당신은 완료된 업무를 정리하는 비서다. 아래 할일(JSON)과 Codex 대화 로그를 보고 JSON으로만 답하라. 로그에 없는 내용은 지어내지 마라.
 할일: ${itemData}
 대화로그:

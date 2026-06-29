@@ -294,7 +294,7 @@ let skippedNoMail = 0;
 let skippedBadKey = 0;
 for (const [histKey, cand] of Object.entries(candidates)) {
   if (!mailById.has(histKey)) { skippedNoMail++; continue; }        // 메일 이력에 없는 키는 무시
-  if (!relPathOk(histKey) || /[,:\n]/.test(histKey)) { skippedBadKey++; continue; } // 절대경로/구분자 든 이력키는 할일키로 못 씀
+  if (!relPathOk(histKey) || /[,\n\r]/.test(histKey)) { skippedBadKey++; continue; } // 절대경로/CSV 구분자 든 이력키는 할일키로 못 씀. Outlook/Gmail 이력키 ':'는 허용.
   if (Array.isArray(cand)) cand.forEach((c, i) => { if (c) newRows.push(toRow(histKey, c, i + 1)); }); // null 원소 스킵
   else newRows.push(toRow(histKey, cand || {}, null));
 }

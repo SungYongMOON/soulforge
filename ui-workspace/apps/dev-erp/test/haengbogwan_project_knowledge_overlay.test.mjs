@@ -71,6 +71,43 @@ function writeKnowledgeFixture(root, project = "P26-014") {
   writeFileSync(join(extract, "source_text.txt"), `${SOURCE_TEXT_SENTINEL}\n`);
 }
 
+function writeCommonKnowledgeBinding(root) {
+  const binding = join(root, "_workmeta", "system", "bindings", "haengbogwan_common_knowledge_overlay.json");
+  mkdirSync(dirname(binding), { recursive: true });
+  writeFileSync(binding, `${JSON.stringify({
+    schema_version: "haengbogwan.common_knowledge_overlay.v1",
+    binding_id: "common_se_task_schedule_test",
+    enabled: true,
+    applies_to: {
+      project_ids: ["P26-014"],
+    },
+    shared_refs: [{
+      id: "common_se_test_eval",
+      kind: "registry_knowledge",
+      ref: ".registry/knowledge/dapa_weapon_system_test_eval_guidebook/knowledge.yaml",
+      title: "DAPA weapon-system test/evaluation guidebook",
+      summary: "systems_engineering test_eval schedule review gate verification",
+      tags: ["systems_engineering", "dapa", "weapon_system", "test_eval", "review_gate"],
+      owner_surface: ".registry/knowledge",
+      visibility: "public_safe",
+      claim_ceiling: "source_supported",
+      route_hint: "se_task_schedule",
+    }],
+    context_hint_rules: [{
+      id: "common_se_trr_schedule",
+      priority: 90,
+      event_keywords: ["TRR", "test readiness review", "시험준비검토"],
+      knowledge_keywords: ["systems_engineering", "test_eval"],
+      target_object: "SE TRR/test evaluation schedule",
+      work_types: ["schedule", "review"],
+      required_role: "systems_engineering_owner",
+      required_capability: "systems_engineering",
+      owner_review_flags: ["common_se_hint"],
+    }],
+  }, null, 2)}\n`);
+  return binding;
+}
+
 function writeKnowledgeDb(dbPath) {
   const store = openStore(dbPath);
   try {
@@ -135,6 +172,49 @@ test("HAENGBOGWAN-KNOWLEDGE: overlay exposes project refs without source payload
     assert.equal(cli.stdout.includes(SOURCE_TEXT_SENTINEL), false);
     const cliOverlay = JSON.parse(cli.stdout);
     assert.equal(cliOverlay.boundary.owner_approval_required_for_source_text, true);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-KNOWLEDGE: common SE binding adds metadata refs and can be disabled", () => {
+  const tmp = makeTempRuntime();
+  try {
+    writeKnowledgeFixture(tmp.root);
+    writeCommonKnowledgeBinding(tmp.root);
+
+    const overlay = buildProjectKnowledgeOverlay({
+      repoRoot: tmp.root,
+      dbPath: "",
+      projectId: "P26-014",
+      queryTerms: ["TRR schedule"],
+      limit: 30,
+      generatedAt: "2026-06-28T00:00:00.000Z",
+    });
+    const text = JSON.stringify(overlay);
+    assert.equal(overlay.common_knowledge_binding.loaded, true);
+    assert.equal(overlay.boundary.common_knowledge_binding_loaded, true);
+    assert.equal(overlay.counts.common_knowledge_ref_count, 1);
+    assert.ok(overlay.common_knowledge_refs.some((row) => row.id === "common_se_test_eval"));
+    assert.ok(overlay.context_hint_rules.some((row) => row.id === "common_se_trr_schedule" && row.scope === "common"));
+    assert.ok(overlay.context_hint_rule_sources.some((row) => row.ref === "_workmeta/system/bindings/haengbogwan_common_knowledge_overlay.json"));
+    assert.equal(text.includes(BODY_SENTINEL), false);
+    assert.equal(text.includes(CHUNK_SENTINEL), false);
+    assert.equal(text.includes(SOURCE_TEXT_SENTINEL), false);
+
+    const disabled = buildProjectKnowledgeOverlay({
+      repoRoot: tmp.root,
+      dbPath: "",
+      projectId: "P26-014",
+      queryTerms: ["TRR schedule"],
+      limit: 30,
+      includeCommonKnowledge: false,
+      generatedAt: "2026-06-28T00:00:00.000Z",
+    });
+    assert.equal(disabled.common_knowledge_binding.loaded, false);
+    assert.equal(disabled.common_knowledge_binding.reason, "disabled_by_option");
+    assert.equal(disabled.counts.common_knowledge_ref_count, 0);
+    assert.equal(disabled.context_hint_rules.some((row) => row.id === "common_se_trr_schedule"), false);
   } finally {
     tmp.cleanup();
   }

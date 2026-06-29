@@ -31,9 +31,32 @@ export function verifyPassword(plain, stored) {
 }
 
 export const SCHEMA_VERSION = "dev_erp.v1";
+export const ASSIGNEE_MEMORY_CORE_MAX = 8000;
+export const ASSIGNEE_MEMORY_ITEM_TEXT_MAX = 1200;
+export const ASSIGNEE_MEMORY_SCOPE_ITEM_MAX = 120;
+export const ASSIGNEE_MEMORY_SCOPE_TEXT_MAX = 24000;
 const INBOX_PROJECT_CODE = "P00-000_INBOX";
 const TASK_PROJECT_RE = /^P\d{2}-\d{3}$/;
 const isTaskProjectCode = (code) => TASK_PROJECT_RE.test(code) || code === INBOX_PROJECT_CODE;
+const ASSIGNEE_MEMORY_ITEM_TYPES = new Set(["preference", "fact", "open_thread", "decision"]);
+const ASSIGNEE_MEMORY_ITEMS_HEADER = "\n— 누적 메모리 —\n";
+const ASSIGNEE_MEMORY_OMISSION = "\n…(메모리 중략)…\n";
+
+function normalizeMemoryProjectId(project_id) {
+  const pid = String(project_id ?? "").trim();
+  return pid || null;
+}
+
+function normalizeMemoryItemText(text, maxChars = ASSIGNEE_MEMORY_ITEM_TEXT_MAX) {
+  const body = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (!body) return "";
+  const limit = Math.max(1, Number(maxChars) || ASSIGNEE_MEMORY_ITEM_TEXT_MAX);
+  return body.length > limit ? body.slice(0, limit).trimEnd() : body;
+}
+
+function renderMemoryItemLine(it) {
+  return `- (${it.type}) ${it.text}`;
+}
 
 function scopedInClause(column, values) {
   if (!Array.isArray(values)) return null;
@@ -44,6 +67,21 @@ function scopedInClause(column, values) {
 
 function normalizeMailboxKey(mailbox) {
   return String(mailbox ?? "").trim().toLowerCase();
+}
+
+function normalizeMailBodyText(value, { maxChars = 100000 } = {}) {
+  const text = String(value ?? "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t\f\v]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+  if (!text) return null;
+  return text.slice(0, Math.max(1, Number(maxChars) || 100000)) || null;
+}
+
+function mailBodyPreview(value) {
+  return normalizeMailBodyText(value, { maxChars: 2000 });
 }
 
 function mailboxScopeClause(column, mailbox) {
@@ -148,6 +186,7 @@ CREATE TABLE IF NOT EXISTS core_mail (   -- 메일 이력 metadata-only
   subject TEXT NOT NULL,                 -- 제목 메타 (원문 본문 저장 금지)
   counterpart TEXT,                      -- 상대 (별칭/회사명 수준)
   pointer_ref TEXT,                      -- 원문 위치 포인터 (보호 저장소)
+  body_text TEXT,                        -- runtime DB normalized body; _workmeta/ledgers remain metadata-only
   data_label TEXT NOT NULL DEFAULT 'synthetic'
 );
 CREATE TABLE IF NOT EXISTS core_artifact ( -- 산출물 포인터 (원문 미저장)
@@ -433,6 +472,9 @@ CREATE TABLE IF NOT EXISTS completion_log (
   project_id TEXT,
   done_at TEXT,
   completed_by TEXT,
+  completion_criteria TEXT,
+  result TEXT,
+  log_ref TEXT,
   summary TEXT,                          -- 완료 요약(있을 때, 원문 아님)
   knowledge TEXT,                        -- 지식 후보 JSON(있을 때)
   tokens INTEGER,                        -- codex 토큰(나중 계측 시)
@@ -798,7 +840,8 @@ export function openStore(path = ":memory:") {
   try { db.exec("UPDATE core_project SET start_year = 2000 + CAST(SUBSTR(id,2,2) AS INTEGER) WHERE start_year IS NULL AND id GLOB 'P[0-9][0-9]-*'"); } catch { /* no-op */ }
   for (const ddl of [
     "ALTER TABLE core_mail ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0", // soft-delete(숨김) — upsert 가 hidden 미터치라 재수집/재스캔에도 보존
-    "ALTER TABLE core_mail ADD COLUMN body_preview TEXT", // 본문 발췌(미리보기) — owner 결정으로 '본문 미저장'을 발췌 수준 완화(원문 전체·첨부는 여전히 미저장). 원장 CSV/후보큐엔 본문 미저장이라 scan_mail_ledger 가 런타임 이벤트 싱크(guild_hall/state, gitignored)에서 발췌를 읽어 채운다.
+    "ALTER TABLE core_mail ADD COLUMN body_preview TEXT", // 본문 미리보기. 장부/후보큐에는 본문을 넣지 않고 runtime DB 표시용으로만 둔다.
+    "ALTER TABLE core_mail ADD COLUMN body_text TEXT", // 본문 텍스트 저장. HTML/raw/첨부가 아니라 정규화된 텍스트만 runtime DB에 둔다.
     "ALTER TABLE core_mail ADD COLUMN dup_of TEXT", // 다중수신 중복 — 같은 메일이 팀원 mailbox마다 인입될 때 canonical 1건만 보이고 나머지는 dup_of=canonical+hidden=1로 보존(삭제 X). 수신자 수 배지 근거.
     "ALTER TABLE core_item ADD COLUMN guide_artifact_id INTEGER",
     "ALTER TABLE core_item ADD COLUMN guide_step_key TEXT",
@@ -808,6 +851,9 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_item ADD COLUMN link_kind TEXT",
     "ALTER TABLE core_item ADD COLUMN link_ref TEXT",
     "ALTER TABLE core_item ADD COLUMN completion_criteria TEXT",
+    "ALTER TABLE completion_log ADD COLUMN completion_criteria TEXT",
+    "ALTER TABLE completion_log ADD COLUMN result TEXT",
+    "ALTER TABLE completion_log ADD COLUMN log_ref TEXT",
     "ALTER TABLE event_log ADD COLUMN project_ref TEXT",
     "ALTER TABLE core_stage ADD COLUMN stage_code TEXT",
     "ALTER TABLE core_attachment ADD COLUMN artifact_type TEXT",
@@ -889,10 +935,11 @@ export function openStore(path = ":memory:") {
     db.exec("CREATE INDEX IF NOT EXISTS idx_mail_mailbox ON core_mail(mailbox)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_chatlog_actor_thread ON chat_query_log(actor_ref, thread_id, at)");
   } catch { /* noop */ }
-  // 동시성 백스톱(DB 레벨): 메일→할일 중복 승격과 계정 이메일 중복을 DB가 거부. 앱레벨 가드(already_promoted/email_taken)와 이중 방어.
-  // 기존 데이터에 중복이 있으면 인덱스 생성이 실패하므로 각각 격리(생략돼도 앱레벨 가드는 유지 — 정리 후 재시작 시 활성).
-  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_item_origin_mail_unique ON core_item(origin_mail_id) WHERE origin_mail_id IS NOT NULL"); }
-  catch { /* 기존 중복 origin_mail_id 존재 → dedup 후 재시작 시 활성 */ }
+  // 행보관 split task: 메일 하나가 여러 장부 할일로 나뉠 수 있으므로 origin_mail_id 는 검색 인덱스만 둔다.
+  try { db.exec("DROP INDEX IF EXISTS idx_item_origin_mail_unique"); }
+  catch { /* noop */ }
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_item_origin_mail ON core_item(origin_mail_id) WHERE origin_mail_id IS NOT NULL"); }
+  catch { /* noop */ }
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_account_email_unique ON core_account(email) WHERE email IS NOT NULL"); }
   catch { /* 기존 중복 email 존재 → dedup 후 재시작 시 활성 */ }
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
@@ -1297,20 +1344,23 @@ export class Store {
   }
 
   upsertMail(m) {
+    const bodyText = normalizeMailBodyText(m.body_text);
+    const preview = mailBodyPreview(m.body_preview ?? bodyText);
     this.db
       .prepare(
-        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,mailbox,data_label,body_preview,hidden,dup_of)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,mailbox,data_label,body_preview,body_text,hidden,dup_of)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, at=excluded.at, direction=excluded.direction,
            subject=excluded.subject, counterpart=excluded.counterpart, pointer_ref=excluded.pointer_ref,
            stage_code=excluded.stage_code, source_ref=excluded.source_ref,
            mailbox=COALESCE(excluded.mailbox, core_mail.mailbox),
-           body_preview=COALESCE(excluded.body_preview, core_mail.body_preview)`
+           body_preview=COALESCE(excluded.body_preview, core_mail.body_preview),
+           body_text=COALESCE(excluded.body_text, core_mail.body_text)`
       ) // ON CONFLICT 은 hidden/dup_of 미터치 → 재수집/재스캔에도 dedup·삭제 상태 보존
       .run(m.id, m.project_id ?? null, m.at, m.direction ?? "in", m.subject, m.counterpart ?? null,
         m.pointer_ref ?? null, m.stage_code ?? null, m.source_ref ?? null,
         (m.mailbox ? String(m.mailbox).trim().toLowerCase() : null) || null, m.data_label ?? "synthetic",
-        m.body_preview ?? null, m.hidden ? 1 : 0, m.dup_of ?? null);
+        preview, bodyText, m.hidden ? 1 : 0, m.dup_of ?? null);
   }
 
   // 메일 삭제(soft-hide): hidden=1 로 목록에서 제외. upsert 가 hidden 을 안 건드려 재수집/재스캔해도 다시 안 보인다.
@@ -1410,7 +1460,7 @@ export class Store {
   // 원문 미저장: 제목·상대·시각·단계·포인터만. project_code 가 미등록이면 stub 과제를 만들되 기존 제목은 덮지 않는다.
   // FK 안전: 모르는 코드는 project_id=null 로 둔다. P00-000_INBOX 는 예약 인박스 프로젝트로 묶는다.
   ingestMail({ id, project_code = null, at = null, subject = null, counterpart = null, stage_code = null,
-               source_ref = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real", body_preview = null }) {
+               source_ref = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real", body_preview = null, body_text = null }) {
     if (!id) return { error: "id_required" };
     const atVal = at && /^\d{4}-\d{2}-\d{2}/.test(at) ? at : null;
     if (!atVal) return { error: "at_required" };
@@ -1446,6 +1496,7 @@ export class Store {
     this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: subj, counterpart: counterpart || null,
       pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, mailbox: mailbox || null, data_label,
       body_preview: body_preview ? (String(body_preview).replace(/\r\n?/g, "\n").replace(/[ \t\f\v]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2000) || null) : null, // 발췌만(원문 전체 아님)·줄바꿈 보존(문단·서명 구분, 상세 패널이 메일답게)
+      body_text,
       hidden: dupOf ? 1 : 0, dup_of: dupOf });
     return { ok: true, id, project_id, isNew, dup_of: dupOf };
   }
@@ -1565,15 +1616,15 @@ export class Store {
     return { ok: true, id, project_id: code, isNew };
   }
 
-  // slice(베타1): 사용자가 직접 메일 등록(각자 계정에서 자기 메일을 장부에 쌓기). 원문 미저장 — 제목·상대·날짜·포인터만.
-  createMail({ project_id = null, subject, counterpart = null, at = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real" }) {
+  // slice(베타1): 사용자가 직접 메일 등록. 정규화 본문 텍스트는 runtime DB에 저장 가능하며 원장/_workmeta에는 복사하지 않는다.
+  createMail({ project_id = null, subject, counterpart = null, at = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real", body_preview = null, body_text = null }) {
     const s = String(subject ?? "").trim();
     if (!s) return { error: "subject_required" };
     if (project_id && !this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
     const dir = ["in", "out"].includes(direction) ? direction : "in";
     const id = `mail_${Date.now().toString(36)}${randomBytes(3).toString("hex")}`;
     const atVal = (at && /^\d{4}-\d{2}-\d{2}/.test(at)) ? at : new Date().toISOString().slice(0, 10);
-    this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: s, counterpart, pointer_ref, mailbox, data_label });
+    this.upsertMail({ id, project_id, at: atVal, direction: dir, subject: s, counterpart, pointer_ref, mailbox, data_label, body_preview, body_text });
     return { ok: true, id, mail: this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(id) };
   }
 
@@ -1946,6 +1997,10 @@ export class Store {
     const inbound = ["mail", "request", "meeting"].includes(origin ?? "");
     const hasAnchor = !!(stage_id || anchor_stage_code || link_kind || guide_artifact_id);
     const status = inbound && !(hasAnchor && work_type) ? "unclassified" : "open";
+    if (origin_mail_id != null) {
+      const existing = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(origin_mail_id);
+      if (existing) return { error: "already_promoted", item_id: existing.id };
+    }
     const id = `itm_${Date.now().toString(36)}${randomBytes(4).toString("hex")}`; // randomBytes(같은 ms 충돌 방지, 파일 관례)
     try {
       this.db
@@ -1964,7 +2019,7 @@ export class Store {
           stage_id ?? null, anchor_stage_code ?? null, parent_item_id ?? null, party_ref ?? null, new Date().toISOString()
         );
     } catch (e) {
-      // 동시 승격 경합: UNIQUE(origin_mail_id) 백스톱 위반 → 이미 만들어진 할일로 수렴(앱레벨 already_promoted 와 동일 결과).
+      // Legacy DBs may still carry an origin_mail_id unique index until migration drops it.
       if (origin_mail_id != null) {
         const existing = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(origin_mail_id);
         if (existing) return { error: "already_promoted", item_id: existing.id };
@@ -2052,15 +2107,33 @@ export class Store {
     if (!item || !item.id) return { error: "no_item" };
     const now = new Date().toISOString();
     const r = this.db.prepare(
-      "INSERT INTO completion_log (item_id, title, assignee_ref, work_type, project_id, done_at, completed_by, created_at) VALUES (?,?,?,?,?,?,?,?)"
-    ).run(item.id, item.title ?? null, item.assignee_ref ?? null, item.work_type ?? null, item.project_id ?? null, item.done_at ?? now, completed_by, now);
+      "INSERT INTO completion_log (item_id, title, assignee_ref, work_type, project_id, done_at, completed_by, completion_criteria, result, log_ref, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+    ).run(
+      item.id,
+      item.title ?? null,
+      item.assignee_ref ?? null,
+      item.work_type ?? null,
+      item.project_id ?? null,
+      item.done_at ?? now,
+      completed_by,
+      item.completion_criteria ?? null,
+      item.result ?? null,
+      item.log_ref ?? null,
+      now
+    );
     return { ok: true, id: Number(r.lastInsertRowid) };
   }
   // 완료 훅이 비동기 요약/지식/토큰을 나중에 보강(완료는 막지 않음).
   updateCompletionLog(id, { summary, knowledge, tokens } = {}) {
     const sets = []; const args = [];
     if (summary !== undefined) { sets.push("summary=?"); args.push(summary ?? null); }
-    if (knowledge !== undefined) { sets.push("knowledge=?"); args.push(knowledge ? JSON.stringify(knowledge) : null); }
+    if (knowledge !== undefined) {
+      const knowledgePayload = typeof knowledge === "string"
+        ? (knowledge.trim() ? { note: knowledge.trim() } : null)
+        : knowledge;
+      sets.push("knowledge=?");
+      args.push(knowledgePayload ? JSON.stringify(knowledgePayload) : null);
+    }
     if (tokens !== undefined) { sets.push("tokens=?"); args.push(tokens ?? null); }
     if (!sets.length) return { ok: true };
     args.push(id);
@@ -2088,13 +2161,28 @@ export class Store {
   // 훅 도입 전 완료된 항목을 completion_log 에 1회 보강(멱등 — item_id 미기록분만). 분석 위젯이 과거 이력도 보게.
   backfillCompletionLog() {
     const rows = this.db.prepare(
-      "SELECT id, title, assignee_ref, work_type, project_id, done_at FROM core_item WHERE status='done' AND id NOT IN (SELECT item_id FROM completion_log WHERE item_id IS NOT NULL)"
+      "SELECT id, title, assignee_ref, work_type, project_id, done_at, completion_criteria, result, log_ref FROM core_item WHERE status='done' AND id NOT IN (SELECT item_id FROM completion_log WHERE item_id IS NOT NULL)"
     ).all();
     if (!rows.length) return { ok: true, inserted: 0 };
     const now = new Date().toISOString();
-    const ins = this.db.prepare("INSERT INTO completion_log (item_id, title, assignee_ref, work_type, project_id, done_at, completed_by, created_at) VALUES (?,?,?,?,?,?,?,?)");
+    const ins = this.db.prepare("INSERT INTO completion_log (item_id, title, assignee_ref, work_type, project_id, done_at, completed_by, completion_criteria, result, log_ref, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
     let n = 0;
-    for (const r of rows) { ins.run(r.id, r.title ?? null, r.assignee_ref ?? null, r.work_type ?? null, r.project_id ?? null, r.done_at ?? now, "backfill", now); n++; }
+    for (const r of rows) {
+      ins.run(
+        r.id,
+        r.title ?? null,
+        r.assignee_ref ?? null,
+        r.work_type ?? null,
+        r.project_id ?? null,
+        r.done_at ?? now,
+        "backfill",
+        r.completion_criteria ?? null,
+        r.result ?? null,
+        r.log_ref ?? null,
+        now
+      );
+      n++;
+    }
     return { ok: true, inserted: n };
   }
 
@@ -2298,7 +2386,21 @@ export class Store {
       const cutoff = new Date(Date.now() - days * 86400000).toISOString();
       cond.push("m.at>=?"); args.push(cutoff);
     }
-    if (q) { cond.push("(m.subject LIKE ? OR m.counterpart LIKE ? OR m.project_id LIKE ? OR m.id LIKE ? OR m.pointer_ref LIKE ? OR m.source_ref LIKE ?)"); args.push(...Array(6).fill(`%${q}%`)); }
+    if (q) {
+      cond.push(`(m.subject LIKE ? OR m.counterpart LIKE ? OR m.project_id LIKE ? OR m.id LIKE ? OR m.pointer_ref LIKE ? OR m.source_ref LIKE ? OR m.body_preview LIKE ? OR m.body_text LIKE ?
+        OR EXISTS (
+          SELECT 1 FROM core_mail fb
+          WHERE fb.id<>m.id
+            AND COALESCE(TRIM(fb.body_text),'')<>''
+            AND (
+              (COALESCE(m.dup_of,'')<>'' AND fb.id=m.dup_of)
+              OR (COALESCE(m.source_ref,'')<>'' AND fb.source_ref=m.source_ref)
+              OR (COALESCE(m.pointer_ref,'')<>'' AND fb.pointer_ref=m.pointer_ref)
+            )
+            AND (fb.body_preview LIKE ? OR fb.body_text LIKE ?)
+        ))`);
+      args.push(...Array(10).fill(`%${q}%`));
+    }
     if (direction) { cond.push("m.direction=?"); args.push(direction); }
     if (label_id) { cond.push("EXISTS (SELECT 1 FROM mail_label_map x WHERE x.mail_id=m.id AND x.label_id=?)"); args.push(Number(label_id)); }
     const where = cond.length ? `WHERE ${cond.join(" AND ")}` : "";
@@ -2310,12 +2412,20 @@ export class Store {
     const page = this._pageBounds(limit, offset, 1000);
     const rows = this.db
       .prepare(
-        `SELECT m.*, (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids,
+        `SELECT m.id, m.project_id, m.at, m.direction, m.subject, m.counterpart,
+           m.pointer_ref, m.stage_code, m.source_ref, m.mailbox, m.data_label,
+           m.body_preview, m.hidden, m.dup_of,
+           CASE WHEN COALESCE(TRIM(m.body_text),'')<>'' THEN 1 ELSE 0 END AS body_text_available,
+           LENGTH(COALESCE(m.body_text,'')) AS body_text_len,
+           (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids,
            (SELECT COUNT(*) FROM core_mail d WHERE d.dup_of=m.id)+1 AS recipients
          FROM core_mail m ${where} ORDER BY m.at DESC, m.id DESC LIMIT ? OFFSET ?`
       )
       .all(...args, page.limit, page.offset);
-    return rows.map((r) => ({ ...r, label_ids: r.label_ids ? String(r.label_ids).split(",").map(Number) : [] }));
+    return rows.map((r) => this._withMailBodyFallback({
+      ...r,
+      label_ids: r.label_ids ? String(r.label_ids).split(",").map(Number) : [],
+    }));
   }
 
   mailPage(opts = {}) {
@@ -2323,14 +2433,95 @@ export class Store {
     const { where, args } = this._mailWhere(opts);
     const rows = this.db
       .prepare(
-        `SELECT m.*, (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids,
+        `SELECT m.id, m.project_id, m.at, m.direction, m.subject, m.counterpart,
+           m.pointer_ref, m.stage_code, m.source_ref, m.mailbox, m.data_label,
+           m.body_preview, m.hidden, m.dup_of,
+           CASE WHEN COALESCE(TRIM(m.body_text),'')<>'' THEN 1 ELSE 0 END AS body_text_available,
+           LENGTH(COALESCE(m.body_text,'')) AS body_text_len,
+           (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids,
            (SELECT COUNT(*) FROM core_mail d WHERE d.dup_of=m.id)+1 AS recipients
          FROM core_mail m ${where} ORDER BY m.at DESC, m.id DESC LIMIT ? OFFSET ?`
       )
       .all(...args, page.limit, page.offset)
-      .map((r) => ({ ...r, label_ids: r.label_ids ? String(r.label_ids).split(",").map(Number) : [] }));
+      .map((r) => this._withMailBodyFallback({
+        ...r,
+        label_ids: r.label_ids ? String(r.label_ids).split(",").map(Number) : [],
+      }));
     const total = this.db.prepare(`SELECT COUNT(*) AS n FROM core_mail m ${where}`).get(...args).n;
     return { rows, total, limit: page.limit, offset: page.offset, has_more: page.offset + rows.length < total };
+  }
+
+  _mailBodyFallback(row, { includeBodyText = false } = {}) {
+    if (!row || Number(row.body_text_available) || String(row.body_text ?? "").trim()) return null;
+    const sourceRef = String(row.source_ref ?? "").trim();
+    const pointerRef = String(row.pointer_ref ?? "").trim();
+    const dupOf = String(row.dup_of ?? "").trim();
+    const bodyExpr = includeBodyText ? "body_text" : "NULL AS body_text";
+    return this.db.prepare(
+      `SELECT id, body_preview, ${bodyExpr}, LENGTH(COALESCE(body_text,'')) AS body_text_len
+       FROM core_mail
+       WHERE id<>?
+         AND COALESCE(TRIM(body_text),'')<>''
+         AND (
+           (?<>'' AND id=?)
+           OR (?<>'' AND source_ref=?)
+           OR (?<>'' AND pointer_ref=?)
+         )
+       ORDER BY
+         CASE
+           WHEN ?<>'' AND id=? THEN 0
+           WHEN ?<>'' AND source_ref=? THEN 1
+           WHEN ?<>'' AND pointer_ref=? THEN 2
+           ELSE 3
+         END,
+         LENGTH(COALESCE(body_text,'')) DESC,
+         id
+       LIMIT 1`
+    ).get(
+      row.id,
+      dupOf, dupOf,
+      sourceRef, sourceRef,
+      pointerRef, pointerRef,
+      dupOf, dupOf,
+      sourceRef, sourceRef,
+      pointerRef, pointerRef,
+    ) || null;
+  }
+
+  _withMailBodyFallback(row, { includeBodyText = false } = {}) {
+    const fallback = this._mailBodyFallback(row, { includeBodyText });
+    if (!fallback) return { ...row, body_text_fallback_available: 0, body_fallback_ref: "" };
+    const fallbackPreview = mailBodyPreview(fallback.body_preview ?? fallback.body_text);
+    const out = {
+      ...row,
+      body_preview: row.body_preview || fallbackPreview,
+      body_text_available: 1,
+      body_text_len: fallback.body_text_len,
+      body_text_fallback_available: 1,
+      body_fallback_ref: fallback.id,
+    };
+    if (includeBodyText) out.body_text = fallback.body_text || row.body_text || null;
+    return out;
+  }
+
+  mailDetail(mail_id) {
+    const id = String(mail_id ?? "").trim();
+    if (!id) return null;
+    const row = this.db
+      .prepare(
+        `SELECT m.*,
+           CASE WHEN COALESCE(TRIM(m.body_text),'')<>'' THEN 1 ELSE 0 END AS body_text_available,
+           LENGTH(COALESCE(m.body_text,'')) AS body_text_len,
+           (SELECT GROUP_CONCAT(label_id) FROM mail_label_map mm WHERE mm.mail_id=m.id) AS label_ids,
+           (SELECT COUNT(*) FROM core_mail d WHERE d.dup_of=m.id)+1 AS recipients
+         FROM core_mail m WHERE m.id=?`
+      )
+      .get(id);
+    if (!row) return null;
+    return this._withMailBodyFallback({
+      ...row,
+      label_ids: row.label_ids ? String(row.label_ids).split(",").map(Number) : [],
+    }, { includeBodyText: true });
   }
 
   // --- 가이드형 워크플로우 (run13): 산출물 등록 + 스텝 체크 (메타만) ---
@@ -3298,18 +3489,20 @@ export class Store {
   }
   // 주입용 메모리 — 절단(truncate)이 아니라 검색(retrieve). core blob(본인 작성, 항상·우선) + 누적 항목 중 recency/salience(+맥락 관련도) 상위만 채워 예산 내로. (Letta core+retrieval, Anthropic context engineering)
   memoryForInjection(ref, budget = 1800, context = "", project_id = null) {
+    const cap = Math.max(0, Number(budget) || 0);
     const core = this.getAssigneeMemory(ref) || "";
-    const coreCap = Math.max(0, Math.floor(budget * 0.5));
+    const coreCap = Math.max(0, Math.floor(cap * 0.5));
     let coreOut = core;
     if (core.length > coreCap) {
       if (coreCap === 0) coreOut = "";
-      else { const h = Math.floor(coreCap * 0.6), t = coreCap - h; coreOut = `${core.slice(0, h).trimEnd()}\n…(메모리 중략)…\n${core.slice(-t).trimStart()}`; }
+      else { const h = Math.floor(coreCap * 0.6), t = coreCap - h; coreOut = `${core.slice(0, h).trimEnd()}${ASSIGNEE_MEMORY_OMISSION}${core.slice(-t).trimStart()}`; }
     }
-    const remaining = budget - coreOut.length - 16;
+    if (coreOut.length > cap) coreOut = coreOut.slice(0, cap);
+    const remaining = cap - coreOut.length - (coreOut ? ASSIGNEE_MEMORY_ITEMS_HEADER.length : 0);
     const items = remaining > 0 ? this.retrieveMemoryItems(ref, { context, budget: remaining, project_id }) : [];
     if (!items.length) return coreOut;
-    const rendered = items.map((it) => `- (${it.type}) ${it.text}`).join("\n");
-    return coreOut ? `${coreOut}\n— 누적 메모리 —\n${rendered}` : rendered;
+    const rendered = items.map(renderMemoryItemLine).join("\n");
+    return coreOut ? `${coreOut}${ASSIGNEE_MEMORY_ITEMS_HEADER}${rendered}` : rendered;
   }
   // 메모리 항목 토큰화/유사도(외부패키지 0 — 한/영/숫자 토큰 overlap coefficient). 게이트·관련도 공용.
   _memTokens(s) {
@@ -3330,12 +3523,13 @@ export class Store {
   // 누적 항목 추가 — append-blob 대신 ADD/UPDATE/NOOP 게이트(Mem0): 거의 동일=NOOP, 같은 주제=UPDATE(갱신), 새 주제=ADD. dedup·부풀림 방지.
   addMemoryItem(ref, { type = "fact", text, source_ref = null, salience = 0.5, project_id = null } = {}) {
     const key = String(ref ?? "").trim();
-    const body = String(text ?? "").replace(/\s+/g, " ").trim();
+    const rawBody = String(text ?? "").replace(/\s+/g, " ").trim();
+    const body = normalizeMemoryItemText(rawBody);
     if (!key) return { error: "ref_required" };
     if (!body) return { error: "text_required" };
-    const t = ["preference", "fact", "open_thread", "decision"].includes(type) ? type : "fact";
+    const t = ASSIGNEE_MEMORY_ITEM_TYPES.has(type) ? type : "fact";
     const sal = Math.max(0, Math.min(1, Number(salience)));
-    const pid = (project_id == null || project_id === "") ? null : String(project_id).trim();
+    const pid = normalizeMemoryProjectId(project_id);
     const now = new Date().toISOString();
     // dedup 은 같은 과제 범위 안에서만(NULL=일반끼리). 다른 과제 항목과 병합 금지(오염 방지).
     const existing = this.db.prepare("SELECT id, text FROM assignee_memory_item WHERE ref=? AND status='active' AND ((project_id IS NULL AND ? IS NULL) OR project_id=?)").all(key, pid, pid);
@@ -3343,16 +3537,48 @@ export class Store {
     for (const e of existing) { const s = this._memSim(body, e.text); if (s > bestSim) { bestSim = s; best = e; } }
     if (best && bestSim >= 0.9) { // 거의 동일(Jaccard) → NOOP(최신성/현저성만 갱신)
       this.db.prepare("UPDATE assignee_memory_item SET updated_at=?, salience=MAX(salience,?) WHERE id=?").run(now, sal, best.id);
-      return { ok: true, action: "noop", id: best.id, ref: key };
+      const pruned = this.pruneMemoryItems(key, { project_id: pid });
+      return { ok: true, action: "noop", id: best.id, ref: key, truncated: rawBody.length > body.length, pruned: pruned.archived };
     }
     if (best && bestSim >= 0.4) { // 같은 주제 보강 → UPDATE(새 내용으로 갱신, id 유지)
       this.db.prepare("UPDATE assignee_memory_item SET text=?, type=?, source_ref=COALESCE(?, source_ref), updated_at=?, salience=MAX(salience,?) WHERE id=?")
         .run(body, t, source_ref, now, sal, best.id);
-      return { ok: true, action: "update", id: best.id, ref: key };
+      const pruned = this.pruneMemoryItems(key, { project_id: pid });
+      return { ok: true, action: "update", id: best.id, ref: key, truncated: rawBody.length > body.length, pruned: pruned.archived };
     }
     const r = this.db.prepare("INSERT INTO assignee_memory_item(ref,type,text,source_ref,salience,project_id,created_at,updated_at,status) VALUES(?,?,?,?,?,?,?,?, 'active')")
       .run(key, t, body, source_ref, sal, pid, now, now);
-    return { ok: true, action: "add", id: Number(r.lastInsertRowid), ref: key };
+    const pruned = this.pruneMemoryItems(key, { project_id: pid });
+    return { ok: true, action: "add", id: Number(r.lastInsertRowid), ref: key, truncated: rawBody.length > body.length, pruned: pruned.archived };
+  }
+  pruneMemoryItems(ref, { project_id = null, itemMax = ASSIGNEE_MEMORY_SCOPE_ITEM_MAX, textMax = ASSIGNEE_MEMORY_SCOPE_TEXT_MAX } = {}) {
+    const key = String(ref ?? "").trim();
+    if (!key) return { archived: 0, active: 0 };
+    const pid = normalizeMemoryProjectId(project_id);
+    const maxItems = Math.max(0, Number(itemMax) || 0);
+    const maxText = Math.max(0, Number(textMax) || 0);
+    const rows = this.db.prepare(
+      `SELECT id, text, salience, updated_at FROM assignee_memory_item
+       WHERE ref=? AND status='active' AND ((project_id IS NULL AND ? IS NULL) OR project_id=?)
+       ORDER BY salience DESC, updated_at DESC, id DESC`
+    ).all(key, pid, pid);
+    const archive = [];
+    let kept = 0, chars = 0;
+    for (const row of rows) {
+      const cost = String(row.text ?? "").length;
+      if (kept < maxItems && chars + cost <= maxText) {
+        kept += 1;
+        chars += cost;
+      } else {
+        archive.push(row.id);
+      }
+    }
+    if (archive.length) {
+      const now2 = new Date().toISOString();
+      const upd = this.db.prepare("UPDATE assignee_memory_item SET status='archived', updated_at=? WHERE id=? AND ref=?");
+      for (const id of archive) upd.run(now2, id, key);
+    }
+    return { archived: archive.length, active: rows.length - archive.length };
   }
   listMemoryItems(ref, { status = "active", limit = 500 } = {}) {
     const key = String(ref ?? "").trim(); if (!key) return [];
@@ -3369,7 +3595,7 @@ export class Store {
   retrieveMemoryItems(ref, { context = "", budget = 1100, max = 20, project_id = null } = {}) {
     const key = String(ref ?? "").trim();
     if (!key || budget <= 0) return [];
-    const pid = (project_id == null || project_id === "") ? null : String(project_id).trim();
+    const pid = normalizeMemoryProjectId(project_id);
     // 과제 격리 주입: 일반(NULL=과제무관) + 현재 과제 항목만 후보. 다른 과제는 차단(오염 방지).
     const items = this.db.prepare("SELECT id,type,text,salience,updated_at FROM assignee_memory_item WHERE ref=? AND status='active' AND (project_id IS NULL OR project_id=?)").all(key, pid);
     if (!items.length) return [];
@@ -3388,8 +3614,8 @@ export class Store {
     const out = []; let used = 0;
     for (const it of scored) {
       if (out.length >= max) break;
-      const cost = String(it.text).length + 8;
-      if (used + cost > budget && out.length) break;
+      const cost = renderMemoryItemLine(it).length + (out.length ? 1 : 0);
+      if (used + cost > budget) continue;
       out.push(it); used += cost;
     }
     return out;
@@ -3397,7 +3623,7 @@ export class Store {
   setAssigneeMemory(ref, content) {
     const key = String(ref ?? "").trim();
     if (!key) return { error: "ref_required" };
-    const text = String(content ?? "").slice(0, 8000); // 저장 상한(주입은 memoryForInjection 으로 별도 바운드)
+    const text = String(content ?? "").slice(0, ASSIGNEE_MEMORY_CORE_MAX); // core blob hard cap; injection has a separate runtime budget.
     this.db.prepare(
       `INSERT INTO assignee_memory(ref, content, updated_at) VALUES(?,?,?)
        ON CONFLICT(ref) DO UPDATE SET content=excluded.content, updated_at=excluded.updated_at`
