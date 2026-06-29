@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 음성 녹음 보관함 등록 규칙
+
+- Added a metadata-only recording library layer for local voice capture sessions, with global indexes and project route candidate manifests under `_workspaces/system/voice_capture/library/`.
+- Added `register-library` to `guild_hall/voice_capture` so existing microphone and voice memo sessions can be registered before project matching or task extraction.
+- Documented the storage boundary: raw audio, transcript bodies, and speaker sidecars remain in `_workspaces`; public Git and `_workmeta` receive only rules, tooling, counts, hashes, refs, and review state.
+
 ### dev-ERP AX completion metadata hardening
 
 - Verified the completed Codex-backed ERP task lifecycle rows and tightened future completion events so `work_completed` records point to the created `completion_log` row and Codex task thread binding metadata.

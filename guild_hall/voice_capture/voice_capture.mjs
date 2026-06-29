@@ -10,9 +10,11 @@ export const preflightSchemaVersion = "soulforge.voice_capture_preflight.v0";
 export const sessionStatusSchemaVersion = "soulforge.voice_capture_session_status.v0";
 export const launchdSchemaVersion = "soulforge.voice_capture_launchd.v0";
 export const workmetaDraftSchemaVersion = "soulforge.voice_capture_workmeta_draft.v0";
+export const recordingLibraryEntrySchemaVersion = "soulforge.voice_recording_library_entry.v0";
 export const defaultWorkspaceRoot = "_workspaces/system/voice_capture/sessions";
 export const defaultConfigPath = "_workspaces/system/voice_capture/config/voice_capture.profile.json";
 export const defaultLaunchdOutputDir = "_workspaces/system/voice_capture/launchd";
+export const defaultRecordingLibraryRoot = "_workspaces/system/voice_capture/library";
 export const defaultModelPath = "/models/ggml-large-v3-turbo.bin";
 
 export function parsePositiveInteger(value, label) {
@@ -635,6 +637,140 @@ export async function buildSessionStatus(sessionDir) {
   };
 }
 
+export async function buildRecordingLibraryEntry(options = {}) {
+  if (!options.sessionDir) {
+    throw new Error("sessionDir is required to build a recording library entry");
+  }
+  const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+  const libraryRoot = path.resolve(repoRoot, options.libraryRoot ?? defaultRecordingLibraryRoot);
+  const sessionDir = path.resolve(options.sessionDir);
+  const status = await buildSessionStatus(sessionDir);
+  const manifestPath = path.join(sessionDir, "session_manifest.json");
+  const manifest = (await readJsonIfExists(manifestPath)) ?? {};
+  const recordingId = options.recordingId ?? status.session_id;
+  const recordingDate = manifest.date ?? path.basename(path.dirname(sessionDir));
+  const projectCode = options.projectCode ?? "P00-000_INBOX";
+  const routeStatus = options.routeStatus ?? "unclassified_needs_owner_confirmation";
+  const meetingContext = {
+    ...(manifest.meeting_context ?? {}),
+  };
+  if (options.meetingType) {
+    meetingContext.meeting_type = options.meetingType;
+  }
+  if (options.meetingLabelKo) {
+    meetingContext.meeting_label_ko = options.meetingLabelKo;
+  }
+  const speakerSummaryPath = path.join(sessionDir, "speakers", "speaker_summary_local_k4.json");
+  const speakerSummary = await readJsonIfExists(speakerSummaryPath);
+  const sourceAudioRef = firstExistingPath([
+    path.join(sessionDir, "audio", "source.m4a"),
+    path.join(sessionDir, "audio", "source.wav"),
+  ]);
+  const recordingDir = path.join(libraryRoot, "recordings", recordingDate, recordingId);
+  const projectRouteDir = path.join(libraryRoot, "project_routes", projectCode, "recordings");
+  const entry = {
+    schema_version: recordingLibraryEntrySchemaVersion,
+    recording_id: recordingId,
+    session_id: status.session_id,
+    recording_date: recordingDate,
+    registered_at_kst: formatDateParts(options.now ?? new Date(), options.timeZone ?? "Asia/Seoul").isoLike,
+    source_kind: manifest.source_kind ?? manifest.source ?? "voice_capture_session",
+    meeting_context: Object.keys(meetingContext).length > 0 ? meetingContext : null,
+    route_state: {
+      project_code_candidate: projectCode,
+      route_status: routeStatus,
+      accepted_project_code: null,
+      accepted_by: null,
+      accepted_at: null,
+    },
+    payload_refs: {
+      session_dir: relativeToRepoOrAbsolute(repoRoot, sessionDir),
+      session_manifest_ref: relativeToRepoOrAbsolute(repoRoot, manifestPath),
+      source_event_draft_ref: relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "source_event_draft.yaml")),
+      source_audio_ref: sourceAudioRef ? relativeToRepoOrAbsolute(repoRoot, sourceAudioRef) : null,
+      chunk_log_ref: relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "chunks.jsonl")),
+      transcript_jsonl_ref: relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "transcript.jsonl")),
+      transcript_txt_ref: relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "transcript.txt")),
+      speaker_summary_ref: fileExists(speakerSummaryPath) ? relativeToRepoOrAbsolute(repoRoot, speakerSummaryPath) : null,
+      speaker_transcript_ref: fileExists(path.join(sessionDir, "transcript_speakers_local_k4.txt"))
+        ? relativeToRepoOrAbsolute(repoRoot, path.join(sessionDir, "transcript_speakers_local_k4.txt"))
+        : null,
+    },
+    status_summary: {
+      ok: status.ok,
+      errors: status.errors,
+      audio_chunks: status.audio_chunks,
+      transcript_segments: status.transcript_segments,
+      transcript_txt_present: status.transcript_txt_present,
+      transcript_sidecars: status.transcript_sidecars,
+      estimated_recorded_seconds: status.estimated_recorded_seconds,
+      last_updated_at: status.last_updated_at,
+      source_sha256: manifest.source_sha256 ?? null,
+    },
+    speaker_diarization: speakerSummary
+      ? {
+          status: "sidecar_present",
+          method: speakerSummary.method ?? null,
+          quality: speakerSummary.quality ?? null,
+          speaker_durations_seconds: speakerSummary.speaker_durations_seconds ?? null,
+        }
+      : {
+          status: "not_available",
+        },
+    raw_payload_boundary: {
+      audio_stored_under_workspace: true,
+      transcript_stored_under_workspace: true,
+      library_raw_audio_copy_allowed: false,
+      library_raw_transcript_copy_allowed: false,
+      workmeta_raw_audio_copy_allowed: false,
+      workmeta_raw_transcript_copy_allowed: false,
+      public_git_raw_payload_allowed: false,
+    },
+    review_required: [
+      "transcript quality review",
+      "project route confirmation",
+      "task candidate extraction",
+      "owner approval before formal task ledger promotion",
+    ],
+    claim_ceiling: "observed",
+  };
+
+  return {
+    schema_version: recordingLibraryEntrySchemaVersion,
+    apply_ready: status.ok,
+    applied: false,
+    library_root: libraryRoot,
+    recording_dir: recordingDir,
+    recording_manifest_path: path.join(recordingDir, "recording_manifest.json"),
+    global_index_path: path.join(libraryRoot, "index", "recordings.jsonl"),
+    current_index_path: path.join(libraryRoot, "index", "recordings.current.json"),
+    project_route_path: path.join(projectRouteDir, `${recordingId}.json`),
+    entry,
+  };
+}
+
+export async function writeRecordingLibraryEntry(options = {}) {
+  const plan = await buildRecordingLibraryEntry(options);
+  if (!options.apply) {
+    return plan;
+  }
+  if (!plan.apply_ready) {
+    throw new Error(`cannot register invalid voice recording session: ${plan.entry.status_summary.errors.join("; ")}`);
+  }
+
+  await fs.mkdir(path.dirname(plan.recording_manifest_path), { recursive: true });
+  await fs.writeFile(plan.recording_manifest_path, `${JSON.stringify(plan.entry, null, 2)}\n`, "utf8");
+  await upsertJsonlByKey(plan.global_index_path, plan.entry, "recording_id");
+  await writeCurrentRecordingIndex(plan.current_index_path, plan.global_index_path);
+  await fs.mkdir(path.dirname(plan.project_route_path), { recursive: true });
+  await fs.writeFile(plan.project_route_path, `${JSON.stringify(plan.entry, null, 2)}\n`, "utf8");
+
+  return {
+    ...plan,
+    applied: true,
+  };
+}
+
 export function buildVoiceCaptureLaunchdDefinition(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
   const configPath = resolveConfigPath(repoRoot, options.configPath);
@@ -872,6 +1008,60 @@ async function latestMtimeIso(filePaths) {
     latest = Math.max(latest, stat.mtimeMs);
   }
   return latest > 0 ? new Date(latest).toISOString() : null;
+}
+
+function firstExistingPath(filePaths) {
+  return filePaths.find((filePath) => fileExists(filePath)) ?? null;
+}
+
+async function readJsonl(filePath) {
+  if (!fileExists(filePath)) {
+    return [];
+  }
+  const raw = await fs.readFile(filePath, "utf8");
+  return raw
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+async function upsertJsonlByKey(filePath, value, key) {
+  const rows = await readJsonl(filePath);
+  const filtered = rows.filter((row) => row?.[key] !== value?.[key]);
+  filtered.push(value);
+  filtered.sort((left, right) => String(left?.[key] ?? "").localeCompare(String(right?.[key] ?? "")));
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, `${filtered.map((row) => JSON.stringify(row)).join("\n")}\n`, "utf8");
+}
+
+async function writeCurrentRecordingIndex(outputPath, indexPath) {
+  const rows = await readJsonl(indexPath);
+  rows.sort((left, right) =>
+    String(left.recording_date ?? "").localeCompare(String(right.recording_date ?? "")) ||
+    String(left.recording_id ?? "").localeCompare(String(right.recording_id ?? "")),
+  );
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.writeFile(
+    outputPath,
+    `${JSON.stringify(
+      {
+        schema_version: "soulforge.voice_recording_library_index.v0",
+        generated_at: new Date().toISOString(),
+        recording_count: rows.length,
+        recordings: rows,
+        raw_payload_boundary: {
+          audio_stored_under_workspace: true,
+          transcript_stored_under_workspace: true,
+          raw_audio_embedded: false,
+          raw_transcript_embedded: false,
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
 }
 
 function renderWorkmetaSourceEventManifest({ repoRoot, projectCode, sourceEventId, status, sessionRef }) {
