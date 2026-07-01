@@ -19,6 +19,7 @@ import {
   validateSessionDir,
   writeVoiceCaptureLaunchdPlist,
   writeVoiceCaptureProfile,
+  writeRecordingLibraryEntry,
   writeWorkmetaDraft,
 } from "./voice_capture.mjs";
 
@@ -231,6 +232,59 @@ test("session status, launchd render, and workmeta draft stay metadata-only", as
     const manifest = await readFile(path.join(applied.target_dir, "source_event_manifest.yaml"), "utf8");
     assert.match(manifest, /raw_transcript_body_included: false/);
     assert.equal(manifest.includes("sensitive-transcript"), false);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("recording library registration writes metadata-only global and route indexes", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-voice-library-"));
+  try {
+    const result = await runCaptureSession({
+      repoRoot,
+      label: "library",
+      now: new Date("2026-06-26T04:04:05.000Z"),
+      chunkSeconds: 1,
+      maxChunks: 1,
+      recordCmd: nodeWriteFileCommand("{audio}", "audio"),
+      asrCmd: nodeWriteFileCommand("{transcript_txt}", "sensitive-transcript"),
+    });
+
+    const planned = await writeRecordingLibraryEntry({
+      repoRoot,
+      sessionDir: result.session.session_dir,
+      projectCode: "P00-000_INBOX",
+    });
+    assert.equal(planned.applied, false);
+    assert.equal(planned.apply_ready, true);
+    assert.equal(planned.entry.raw_payload_boundary.public_git_raw_payload_allowed, false);
+
+    const applied = await writeRecordingLibraryEntry({
+      repoRoot,
+      sessionDir: result.session.session_dir,
+      projectCode: "P00-000_INBOX",
+      meetingType: "team_meeting",
+      meetingLabelKo: "팀회의",
+      apply: true,
+    });
+    assert.equal(applied.applied, true);
+
+    const recordingManifest = await readFile(applied.recording_manifest_path, "utf8");
+    assert.match(recordingManifest, /"project_code_candidate": "P00-000_INBOX"/);
+    assert.match(recordingManifest, /"meeting_type": "team_meeting"/);
+    assert.equal(recordingManifest.includes("sensitive-transcript"), false);
+
+    const globalIndex = await readFile(applied.global_index_path, "utf8");
+    assert.match(globalIndex, /20260626_130405_library/);
+    assert.equal(globalIndex.includes("sensitive-transcript"), false);
+
+    const currentIndex = await readFile(applied.current_index_path, "utf8");
+    assert.match(currentIndex, /"recording_count": 1/);
+    assert.equal(currentIndex.includes("sensitive-transcript"), false);
+
+    const projectRoute = await readFile(applied.project_route_path, "utf8");
+    assert.match(projectRoute, /"route_status": "unclassified_needs_owner_confirmation"/);
+    assert.equal(projectRoute.includes("sensitive-transcript"), false);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

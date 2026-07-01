@@ -64,6 +64,19 @@ npm run guild-hall:voice-capture -- status \
   --session-dir _workspaces/system/voice_capture/sessions/2026-06-26/<session-id>
 ```
 
+Register a session in the local recording library before project routing:
+
+```bash
+npm run guild-hall:voice-capture -- register-library \
+  --session-dir _workspaces/system/voice_capture/sessions/2026-06-26/<session-id> \
+  --project-code P00-000_INBOX \
+  --apply
+```
+
+This writes metadata-only indexes under
+`_workspaces/system/voice_capture/library/`; it does not copy raw audio or
+transcript bodies.
+
 Write metadata-only review drafts under `_workmeta` after a session exists:
 
 ```bash
@@ -85,6 +98,7 @@ Each session keeps the original transcription under its session directory:
 - `transcripts/chunk_*.txt`: per-chunk raw text sidecars.
 - `transcripts/chunk_*.srt`: per-chunk timestamp subtitle sidecars.
 - `audio/chunk_*.wav`: raw audio chunks.
+- `speakers/*`: optional rough local speaker sidecars when generated.
 
 These files are intentionally local `_workspaces` payloads. Share them through
 an owner-approved local/shared folder, not through public Git or `_workmeta`.

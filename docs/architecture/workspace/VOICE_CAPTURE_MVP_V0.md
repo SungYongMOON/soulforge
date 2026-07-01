@@ -16,6 +16,7 @@ microphone recorder command
   -> transcript sidecars under _workspaces
   -> session status and validation
   -> source_event_draft.yaml
+  -> metadata-only recording library registration
   -> metadata-only _workmeta review draft
   -> later reviewed project route and draft actions
 ```
@@ -25,7 +26,8 @@ microphone recorder command
 - `guild_hall/voice_capture/`: local command supervisor and session artifact
   writer.
 - `_workspaces/system/voice_capture/**`: raw audio, raw transcripts, ASR
-  sidecars, profiles, local source event drafts, and rendered launchd plists.
+  sidecars, profiles, local source event drafts, recording library manifests,
+  and rendered launchd plists.
 - `_workmeta/**`: reviewed metadata only. Raw audio and transcript bodies are not
   copied there.
 - Project owners: approve project route, assignee, due date, completion
@@ -48,6 +50,9 @@ microphone recorder command
   long recording run.
 - `status` summarizes a session from file counts and JSONL segments without
   reading transcript text into `_workmeta`.
+- `register-library --apply` registers a session into
+  `_workspaces/system/voice_capture/library/` with metadata-only global and
+  project-route indexes.
 - `write-workmeta-draft --apply` creates metadata-only review packets. It does
   not promote project route or mutate a formal task ledger.
 - `render-launchd` writes a local-only plist for manual installation. It does
@@ -69,7 +74,8 @@ microphone recorder command
 - No formal task ledger mutation.
 - No raw payload under `_workmeta` or public repo files.
 - No automatic launchd installation.
-- No speaker diarization claim.
+- No production-quality speaker diarization claim. Local experimental sidecars
+  can be stored under the session, but they remain review inputs.
 
 ## Validation
 

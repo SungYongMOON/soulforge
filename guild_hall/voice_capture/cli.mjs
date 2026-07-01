@@ -14,6 +14,7 @@ import {
   validateSessionDir,
   writeVoiceCaptureLaunchdPlist,
   writeVoiceCaptureProfile,
+  writeRecordingLibraryEntry,
   writeWorkmetaDraft,
 } from "./voice_capture.mjs";
 
@@ -116,6 +117,26 @@ async function main() {
       workmetaRoot: args["workmeta-root"],
       projectCode: args["project-code"],
       sessionDir,
+      apply: flagValue(args, "apply") ?? false,
+    });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
+
+  if (command === "register-library") {
+    const sessionDir = args["session-dir"];
+    if (!sessionDir) {
+      throw new Error("register-library requires --session-dir <path>");
+    }
+    const result = await writeRecordingLibraryEntry({
+      repoRoot: args["repo-root"] ? path.resolve(args["repo-root"]) : process.cwd(),
+      libraryRoot: args["library-root"],
+      sessionDir,
+      recordingId: args["recording-id"],
+      projectCode: args["project-code"],
+      routeStatus: args["route-status"],
+      meetingType: args["meeting-type"],
+      meetingLabelKo: args["meeting-label-ko"],
       apply: flagValue(args, "apply") ?? false,
     });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -225,6 +246,7 @@ function printUsageAndExit() {
       "  node guild_hall/voice_capture/cli.mjs validate-session --session-dir <path>",
       "  node guild_hall/voice_capture/cli.mjs render-launchd --config <path>",
       "  node guild_hall/voice_capture/cli.mjs write-workmeta-draft --session-dir <path> [--apply]",
+      "  node guild_hall/voice_capture/cli.mjs register-library --session-dir <path> [--project-code <code>] [--apply]",
       "",
       "Options:",
       "  --config <path>           JSON profile under _workspaces/system/voice_capture/config",
