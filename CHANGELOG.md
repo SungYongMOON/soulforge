@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### dev-ERP mail project route backfill
+
+- Added a metadata-only mail project route backfill tool that replays the private mail router against already-ingested `core_mail` rows and moves exact matches out of `P00-000_INBOX` with dry-run/apply modes.
+- Added regression coverage for the P24-049 low-frequency SAS subject route and exposed the tool as `mail:project-route-backfill`.
+- Wired mail collection to run the same exact-only route backfill after `scan_mail_ledger` when a router binding is available, with env overrides for separated runtime deployments.
+- Changed the mail history list so every row keeps its project chip visible, making missed project routing visible during triage.
+- Separated mail outer grouping (`project`/`date`) from conversation folding, so project mailboxes can still be viewed as threaded conversations.
+
 ### dev-ERP AX completion metadata hardening
 
 - Verified the completed Codex-backed ERP task lifecycle rows and tightened future completion events so `work_completed` records point to the created `completion_log` row and Codex task thread binding metadata.

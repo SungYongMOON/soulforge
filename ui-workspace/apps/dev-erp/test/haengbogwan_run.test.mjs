@@ -240,7 +240,7 @@ test("HAENGBOGWAN-RUN: apply-knowledge-candidates appends deferred candidate aft
     assert.equal(report.apply_knowledge_candidates, true);
     assert.equal(report.totals.knowledge_candidate_appended_count, 1);
     const candidateReport = report.projects[0].knowledge_candidate_report;
-    assert.equal(candidateReport.ledger_ref, "_workmeta/P26-014/knowledge_rag_candidate_ledger/events/2026-06.jsonl");
+    assert.match(candidateReport.ledger_ref, /^_workmeta\/P26-014\/knowledge_rag_candidate_ledger\/events\/\d{4}-\d{2}\.jsonl$/);
     const ledgerText = readFileSync(join(repoRoot, candidateReport.ledger_ref), "utf8");
     assert.equal(ledgerText.includes("knowledge_rag_candidate"), true);
     assert.equal(ledgerText.includes("body_text"), false);

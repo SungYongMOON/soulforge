@@ -4594,8 +4594,9 @@ function wireClaimDropBar(scope) {
 async function renderMail() {
   const L = state.lex;
   await ensureScopes();
-  const f = state.mailFilters ?? (state.mailFilters = { days: 90, direction: "", q: "", label: null, groupBy: "thread" });
-  if (!f.groupBy) f.groupBy = "thread"; // 기본: 대화(스레드) 묶음 — 같은 일이 여러 메일로 흩어지지 않게
+  const f = state.mailFilters ?? (state.mailFilters = { days: 90, direction: "", q: "", label: null, groupBy: "project", threaded: true });
+  if (f.threaded === undefined) f.threaded = f.groupBy === "thread" || f.groupBy === undefined;
+  if (!f.groupBy || f.groupBy === "thread") f.groupBy = "project";
   const params = new URLSearchParams({ days: String(f.days) });
   if (state.projectFilter) params.set("project", state.projectFilter);
   if (f.q) params.set("q", f.q);
@@ -4640,11 +4641,11 @@ async function renderMail() {
       <option value="in" ${f.direction === "in" ? "selected" : ""}>${L.mail_in}</option>
       <option value="out" ${f.direction === "out" ? "selected" : ""}>${L.mail_out}</option>
     </select>
-    <select id="mGroup" title="${L.mail_group_project}/${L.mail_group_date}/${L.mail_group_thread}">
+    <select id="mGroup" title="${L.mail_group_project}/${L.mail_group_date}">
       <option value="project" ${f.groupBy === "project" ? "selected" : ""}>${L.mail_group_project}</option>
       <option value="date" ${f.groupBy === "date" ? "selected" : ""}>${L.mail_group_date}</option>
-      <option value="thread" ${f.groupBy === "thread" ? "selected" : ""}>${L.mail_group_thread}</option>
     </select>
+    <label class="view-scope-lab"><input id="mThreaded" type="checkbox" ${f.threaded ? "checked" : ""} /> ${L.mail_group_thread}</label>
     <input id="mSearch" type="search" placeholder="${L.search_placeholder}" value="${esc(f.q)}" />
     ${showViewScope() ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewRosterHtml(L)}</label>` : ""}
   </div>`;
@@ -4677,14 +4678,14 @@ async function renderMail() {
     if (mb === "company_mailbox") return { label: L.mailbox_shared ?? "공용함", shared: true }; // 옛 메일: 주인 미상(개인귀속 전 초기 수집분, 서버에 없어 재수신 불가)
     return null;
   };
-  // 한 줄 렌더. showProj=false 면 프로젝트 칩 생략(프로젝트별 그룹에선 헤더가 이미 표시).
+  // 한 줄 렌더. showProj 인자는 예전 호출 호환용으로 남기되, 프로젝트 칩은 항상 보여준다.
   const mailRow = (m, showProj, extraCls = "") => {
     const picked = checked.has(String(m.id));
     const manual = m.label_ids.map((id) => labelById.get(id)).filter(Boolean)
       .map((l) => `<span class="label-chip manual mini" style="--lc:${esc(l.color)}">${esc(l.name)}</span>`).join("");
     const oi = teamView ? ownerInfoFor(m.mailbox) : null;
     const ownerChip = oi ? `<span class="label-chip mailbox-owner mini${oi.shared ? " shared" : ""}"${oi.color ? ` style="--lc:${oi.color}"` : ""} title="${L.mailbox_owner ?? "메일함 주인"}">${esc(oi.label)}</span>` : "";
-    const meta = ownerChip + (showProj ? projChip(m.project_id, clsById.get(m.project_id)) : "") + manual;
+    const meta = ownerChip + projChip(m.project_id, clsById.get(m.project_id)) + manual;
     const threadSubject = mailThreadSubject(m.subject);
     const kind = mailThreadKind(m.subject);
     const dupe = subjectCounts.get(threadSubject.toLowerCase()) > 1;
@@ -4700,38 +4701,43 @@ async function renderMail() {
       <td class="mail-time">${localTime(m.at)}</td>
     </tr>`;
   };
-  let rows;
-  if (f.groupBy === "date") {
-    let lastSec = null;
-    rows = mail.map((m) => {
-      const sec = section(m);
-      const head = sec !== lastSec ? `<tr class="date-sep"><td colspan="4">${L[sec]}</td></tr>` : "";
-      lastSec = sec;
-      return head + mailRow(m, true);
-    }).join("");
-  } else if (f.groupBy === "thread") {
-    // Gmail식 대화 묶음: 정규화 제목으로 묶어 '대화 1행(접힘)'으로, 펼치면 그 아래 자식 메일. 같은 일이 여러 메일로 흩어지는 것 방지.
+  state.expandedThreads = state.expandedThreads || new Set();
+  let threadSeq = 0;
+  const renderThreadRows = (items, showProj, scopeKey) => {
+    if (!f.threaded) return items.map((m) => mailRow(m, showProj)).join("");
     const groups = new Map();
-    for (const m of mail) {
+    for (const m of items) {
       const key = mailThreadSubject(m.subject);
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(m);
     }
     const ordered = [...groups.entries()].sort((a, b) => (b[1][0]?.at ?? "").localeCompare(a[1][0]?.at ?? ""));
-    state.expandedThreads = state.expandedThreads || new Set();
-    rows = ordered.map(([subject, ms], gi) => {
-      if (ms.length === 1) return mailRow(ms[0], true); // 단일 메일은 그냥 행(헤더 불필요)
-      const sorted = [...ms].sort((a, b) => (b.at ?? "").localeCompare(a.at ?? "")); // 최신 먼저
-      const tkey = "thr" + gi;
-      const open = state.expandedThreads.has(subject);
+    return ordered.map(([subject, ms]) => {
+      if (ms.length === 1) return mailRow(ms[0], showProj);
+      const sorted = [...ms].sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
+      const tkey = `thr${threadSeq++}`;
+      const stateKey = `${scopeKey}::${subject}`;
+      const open = state.expandedThreads.has(stateKey);
       const latest = sorted[0];
-      const head = `<tr class="thread-head${open ? " open" : ""}" data-tkey="${tkey}" data-thread="${esc(subject)}"><td colspan="4">`
+      const head = `<tr class="thread-head${open ? " open" : ""}" data-tkey="${tkey}" data-thread="${esc(stateKey)}"><td colspan="4">`
         + `<span class="thread-toggle">${open ? "▾" : "▸"}</span> <strong>${esc(subject)}</strong> `
         + `<span class="proj-sep-n" title="${L.mail_thread_count ?? "이 대화의 메일 수"}">💬 ${ms.length}</span> `
         + `<span class="dim mini">${esc(latest.counterpart ?? "")} · ${localTime(latest.at)}${promotedSet.has(latest.id) ? " · ✓" : ""}</span></td></tr>`;
-      const children = sorted.map((m) => mailRow(m, true, `thread-body ${tkey}${open ? " open" : ""}`)).join("");
+      const children = sorted.map((m) => mailRow(m, showProj, `thread-body ${tkey}${open ? " open" : ""}`)).join("");
       return head + children;
     }).join("");
+  };
+  let rows;
+  if (f.groupBy === "date") {
+    const groups = new Map();
+    for (const m of mail) {
+      const key = section(m);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(m);
+    }
+    rows = [...groups.entries()].map(([sec, ms]) =>
+      `<tr class="date-sep"><td colspan="4">${L[sec]}</td></tr>` + renderThreadRows(ms, true, `date:${sec}`)
+    ).join("");
   } else {
     // 기본: 프로젝트별 구분. 미분류/inbox 는 맨 아래, 그룹은 최신 메일 순.
     const groups = new Map();
@@ -4752,7 +4758,7 @@ async function renderMail() {
         ? `<span class="label-chip gray">${L.unlabeled}</span>`
         : `${projChip(pid, clsById.get(pid))}${title && title !== pid ? `<span class="proj-sep-title">${esc(title)}</span>` : ""}`;
       const header = `<tr class="proj-sep"><td colspan="4">${headInner}<span class="proj-sep-n">${ms.length}</span></td></tr>`;
-      return header + ms.map((m) => mailRow(m, false)).join("");
+      return header + renderThreadRows(ms, false, `project:${pid}`);
     }).join("");
   }
 
@@ -4904,6 +4910,7 @@ async function renderMail() {
 	  $("#mDays").addEventListener("change", (e) => { f.days = Number(e.target.value); resetMailPaging(); render(); });
 	  $("#mDir").addEventListener("change", (e) => { f.direction = e.target.value; resetMailPaging(); render(); });
 	  $("#mGroup")?.addEventListener("change", (e) => { f.groupBy = e.target.value; render(); });
+	  $("#mThreaded")?.addEventListener("change", (e) => { f.threaded = e.target.checked; render(); });
 	  $("#mSearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { f.q = e.target.value; resetMailPaging(); render(); } });
 	  wireViewRoster();
 	  $("#view").querySelector("[data-clear]")?.addEventListener("click", () => { state.projectFilter = ""; resetMailPaging(); render(); });
