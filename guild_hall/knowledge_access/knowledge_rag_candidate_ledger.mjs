@@ -38,6 +38,7 @@ const CANDIDATE_KINDS = new Set([
   "repeated_use_signal",
   "owner_decision_gap",
   "manual_candidate",
+  "completion_knowledge",
 ]);
 
 const REQUIRED_BOUNDARY_FLAGS = {
@@ -69,6 +70,8 @@ const CANDIDATE_ALLOWED_KEYS = new Set([
   "owner_question",
   "status",
   "boundary",
+  "item_ref",
+  "knowledge_hint",
   "repeated_use_signal",
 ]);
 
@@ -229,6 +232,8 @@ export function buildKnowledgeRagCandidate(options = {}) {
   const ownerQuestion = sanitizeNullableText(options.ownerQuestion ?? options.owner_question, "owner_question", 240);
   const status = requireAllowed(options.status ?? "open", CANDIDATE_STATUSES, "status");
   const boundary = normalizeBoundary(options.boundary);
+  const itemRef = sanitizeNullableText(options.itemRef ?? options.item_ref, "item_ref", 120);
+  const knowledgeHint = sanitizeNullableText(options.knowledgeHint ?? options.knowledge_hint, "knowledge_hint", 300);
   const repeatedUseSignal = normalizeRepeatedUseSignal(options.repeatedUseSignal ?? options.repeated_use_signal);
   const base = {
     schema_version: KNOWLEDGE_RAG_CANDIDATE_SCHEMA_VERSION,
@@ -246,6 +251,12 @@ export function buildKnowledgeRagCandidate(options = {}) {
     status,
     boundary,
   };
+  if (itemRef) {
+    base.item_ref = itemRef;
+  }
+  if (knowledgeHint) {
+    base.knowledge_hint = knowledgeHint;
+  }
 
   const withOptional = repeatedUseSignal ? { ...base, repeated_use_signal: repeatedUseSignal } : base;
 
@@ -322,6 +333,12 @@ export function validateKnowledgeRagCandidate(candidate) {
   }
   if (!Array.isArray(candidate.missing_inputs)) {
     errors.push("missing_inputs_must_be_array");
+  }
+  if ("item_ref" in candidate && (typeof candidate.item_ref !== "string" || !candidate.item_ref.trim())) {
+    errors.push("item_ref_must_be_non_empty_string");
+  }
+  if ("knowledge_hint" in candidate && (typeof candidate.knowledge_hint !== "string" || !candidate.knowledge_hint.trim())) {
+    errors.push("knowledge_hint_must_be_non_empty_string");
   }
   errors.push(...validateBoundary(candidate.boundary));
   errors.push(...validateRepeatedUseSignal(candidate.repeated_use_signal));

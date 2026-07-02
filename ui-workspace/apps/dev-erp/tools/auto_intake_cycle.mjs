@@ -19,6 +19,7 @@ import { loadContextHintRules } from "./haengbogwan_run.mjs";
 import { appendMailReceipts } from "./mail_receipts.mjs";
 import { readCsvObjects, scanPending } from "./mail_to_task_pending.mjs";
 import { isOutboundMail, threadKeyForMail } from "./mail_thread_key.mjs";
+import { runCompletionKnowledgeFeed } from "./completion_knowledge_feed.mjs";
 
 const execFileP = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -49,6 +50,7 @@ export function parseCycleArgs(argv = process.argv.slice(2), env = process.env) 
     provider: arg("provider", intakeLlmProvider(env)),
     fallback: arg("fallback", String(env.DEV_ERP_INTAKE_FALLBACK ?? "skip").trim().toLowerCase() === "deterministic" ? "deterministic" : "skip"),
     knowledge: has("knowledge") || truthyEnv("DEV_ERP_INTAKE_KNOWLEDGE", env),
+    completionFeed: truthyEnv("DEV_ERP_INTAKE_COMPLETION_FEED", env),
     skipContext: has("skip-context"),
     // not_task 고신뢰 판정을 영수증으로 기억(재판단 수렴). --no-receipts 또는 DEV_ERP_INTAKE_RECEIPTS=0 으로 끔.
     receipts: !has("no-receipts") && String(env.DEV_ERP_INTAKE_RECEIPTS ?? "1").trim() !== "0",
@@ -230,6 +232,7 @@ export async function runCycle(opts, deps = {}) {
     ledger: {}, context: null, errors: [], body_access: "metadata_only",
     receipts: { written: 0, skipped_duplicate: 0 },
     thread_dedup: { followups: 0, outbound_skipped: 0, receipts_planned: 0, receipts_written: 0, receipt_duplicates: 0, events_written: 0 },
+    completion_knowledge_feed: { enabled: Boolean(opts.completionFeed) },
   };
 
   // 1) pending 델타(결정적, 메일 메타만)
@@ -347,10 +350,35 @@ export async function runCycle(opts, deps = {}) {
     }
   }
 
+  // 5) Optional completion-log -> knowledge candidate feed. Default OFF; deterministic and apply-gated.
+  if (opts.completionFeed) {
+    try {
+      const dbPath = /^([A-Za-z]:[\\/]|\/)/.test(opts.db) ? opts.db : resolve(APP, opts.db);
+      const feed = runCompletionKnowledgeFeed({
+        apply: opts.apply,
+        dbPath,
+        workmetaRoot: opts.workmeta,
+        cursorPath: join(opts.dataDir, "completion_knowledge_cursor.json"),
+        limit: opts.limit,
+      });
+      summary.completion_knowledge_feed = {
+        enabled: true,
+        scanned: feed.scanned_count,
+        planned: feed.planned_count,
+        written: feed.written_count,
+        skipped: feed.skipped_count,
+        duplicates: feed.skipped_duplicate_count,
+      };
+    } catch (e) {
+      summary.completion_knowledge_feed = { enabled: true, error: String(e?.message ?? e).slice(0, 160) };
+      summary.errors.push("completion_knowledge_feed");
+    }
+  }
+
   summary.ok = summary.errors.length === 0;
   summary.elapsed_ms = Date.now() - started;
 
-  // 5) 실행 기록(메타만): receipts JSONL + event_log. 실패해도 사이클 결과에는 영향 없음.
+  // 6) 실행 기록(메타만): receipts JSONL + event_log. 실패해도 사이클 결과에는 영향 없음.
   if (opts.apply) {
     try {
       mkdirSync(opts.dataDir, { recursive: true });

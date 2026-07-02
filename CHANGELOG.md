@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP ENGINE-2 completion knowledge feed
+
+- Added `tools/completion_knowledge_feed.mjs`, a deterministic metadata-only feed that turns `completion_log.knowledge` rows into `knowledge_rag_candidate` JSONL entries, with dry-run default, `--apply` writes, cursor-file idempotency, and `knowledge_feed_run` event-log rows.
+- Extended the candidate ledger schema to accept `completion_knowledge` rows with bounded `item_ref` and 300-character `knowledge_hint` metadata, while preserving raw payload, secret, and RAG/wiki mutation guards.
+- Added a default-off `DEV_ERP_INTAKE_COMPLETION_FEED=1` hook in `auto_intake_cycle` and focused regression coverage for planning, apply, idempotency, missing project folders, and raw-field exclusion.
+
 ### dev-ERP ENGINE-8 team-mail dedup preflight
 
 - Marked ENGINE-8 blocked after metadata-only preflight: available local mail ledgers/runtime DB did not contain the required 10 team-copy sample groups needed to set the receive-time bucket without guessing.

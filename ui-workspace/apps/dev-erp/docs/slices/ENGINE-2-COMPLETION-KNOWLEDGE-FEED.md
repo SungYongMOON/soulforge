@@ -1,6 +1,6 @@
 # ENGINE-2-COMPLETION-KNOWLEDGE-FEED — 완료 지식 자동 적재
 
-- status: proposed / parallel_group: G-knowledge-feed / depends_on: 없음
+- status: done 2026-07-02 / parallel_group: G-knowledge-feed / depends_on: 없음
 - 규모 추정: 새 도구 ~150줄 + 테스트 ~90줄 (반나절)
 
 ## 목적 (1줄)
@@ -35,13 +35,17 @@
       (기존 2026-06-17 이벤트와 정합 확인). E2 의 completion_knowledge 이벤트도 **이 필드
       셋 전체**를 채워 같은 스키마로 append 할 것 — 설계 절 3의 필드 목록은 최소치이며,
       short_reason/suggested_route/claim_ceiling(observed)/candidate_id 를 추가한다.
-- [ ] completion_log.knowledge 의 실제 JSON 형태 샘플 1건
-      (`SELECT knowledge FROM completion_log WHERE knowledge IS NOT NULL LIMIT 1` —
-      runtime DB 는 회사 PC 에 있으므로 합성 fixture 로 대체 가능. CHANGELOG 근거:
-      "structured JSON candidate notes").
-- [ ] 이미 내보낸 행 추적 방식: completion_log 에 export 표시 컬럼을 추가(ALTER try/catch 멱등,
-      SLICES 공통 가드 ⑤)할지, 별도 커서 파일(data/ 하위)로 할지 — **권장: 커서 파일**
-      (`data/completion_knowledge_cursor.json` = 마지막 처리 id). DB 스키마 불변이 더 안전.
+- [x] (확인완료 2026-07-02) completion_log.knowledge 의 실제 JSON 형태 샘플 1건
+      (`SELECT knowledge FROM completion_log WHERE knowledge IS NOT NULL LIMIT 1`) 확인:
+      로컬 runtime DB 는 completion_log 6행 중 knowledge 채움 0행이라 실제 샘플 없음.
+      패킷 허용대로 합성 fixture 로 대체한다. store.updateCompletionLog 는 문자열이면
+      `{note:<text>}`, 객체면 JSON.stringify 객체로 저장한다.
+- [x] (확인완료 2026-07-02) 이미 내보낸 행 추적 방식은 **커서 파일**로 한다.
+      `data/completion_knowledge_cursor.json` 에 마지막 처리 id 를 원자적 temp+rename 으로
+      저장한다. DB 스키마 ALTER 는 하지 않는다.
+- [x] (정정 2026-07-02) 기존 validator 는 `completion_log:<id>` 를 URI scheme 으로 보고
+      source_context_ref 에서 거부한다. 멱등키/출처 ref 는 `completion_log/<id>` 로
+      정규화한다.
 
 ## 설계
 
@@ -62,7 +66,7 @@
      candidate_kind: "completion_knowledge",
      status: "open",
      boundary: { payload:false, prompt:false, secret:false },   // 기존 이벤트와 동일 형태로
-     source_context_ref: `completion_log:${row.id}`,            // + item ref: core_item id
+     source_context_ref: `completion_log/${row.id}`,            // + item ref: core_item id
      item_ref: row.item_id,
      knowledge_hint: <knowledge JSON 을 요약 필드로 — 300자 캡, 원문 아님(이미 S6 산출 메타)> }
 4. project_code 별로 _workmeta/<code>/knowledge_rag_candidate_ledger/events/<YYYY-MM>.jsonl append
@@ -78,12 +82,25 @@
   (env `DEV_ERP_INTAKE_COMPLETION_FEED=1` opt-in, 기본 off) — 기존 사이클에 편승.
 - B: 서버 완료 훅(store.afterItemWrite 계열)에서 직접 — 서버 코드 수정 최소화 원칙상 비권장.
 
+## 구현 결과 (2026-07-02)
+
+- `tools/completion_knowledge_feed.mjs` 추가: `completion_log.knowledge` 행을 읽어
+  `knowledge_rag_candidate` JSONL 후보로 변환한다. 기본 dry-run, `--apply` 에서만 append 와
+  커서 갱신을 수행한다.
+- 커서는 `data/completion_knowledge_cursor.json` 파일을 temp+rename 으로 원자 갱신한다.
+  DB 스키마 ALTER 는 하지 않았다.
+- 기존 후보 원장 validator 에 `candidate_kind=completion_knowledge`, `item_ref`,
+  `knowledge_hint` 를 추가했다. `knowledge_hint` 는 300자 cap 이고 raw/payload 성격 키는
+  복사하지 않는다.
+- `tools/auto_intake_cycle.mjs` 에 env `DEV_ERP_INTAKE_COMPLETION_FEED=1` opt-in 훅을 추가했다.
+  기본값은 off 이며 기존 cycle 동작은 유지된다.
+
 ## 경계 가드
 
 - knowledge/summary 는 S6 가 이미 만든 메타 텍스트다. **메일 본문·Codex 대화 원문을
   이 도구가 다시 읽지 않는다** (completion_log 만 읽음).
 - _workmeta 에는 JSONL append 만. 기존 이벤트 파일 수정 금지.
-- 멱등키: source_context_ref(completion_log:<id>) — 같은 id 재적재 금지(커서+append 전 중복검사).
+- 멱등키: source_context_ref(completion_log/<id>) — 같은 id 재적재 금지(커서+append 전 중복검사).
 
 ## 검사 방법
 
@@ -92,7 +109,7 @@
 1. `feed: knowledge 있는 완료행만 후보 이벤트로 변환` — :memory: store 에 completion_log 3행
    (knowledge 있음 2, 없음 1) 시드 → dry-run 계획 2건
 2. `feed: apply 는 JSONL append + 커서 전진` — 임시 workmeta fixture, 파일 내용에
-   candidate_kind=completion_knowledge, source_context_ref=completion_log:<id> 확인
+   candidate_kind=completion_knowledge, source_context_ref=completion_log/<id> 확인
 3. `feed: 재실행 멱등` — 같은 상태에서 2회 apply → 두 번째 written 0
 4. `feed: project 폴더 없으면 skip + 사유 보고` (원장 오염 0)
 5. `feed: knowledge_hint 300자 캡, 원문 필드 부재` (boundary 필드 검사)
