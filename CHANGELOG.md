@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP ENGINE-5 RAG grounded judge metadata
+
+- Added metadata-only `tools/knowledge_grounding.mjs` for approved source-text index discovery, including nested index field support, project/common scope separation, project-scoped owner-requested P26 RAG eligibility, and a source-text-index-only read boundary.
+- Wired auto-intake classification context and ledger candidates to approved knowledge refs: projectContext now receives `승인된 지식:` lines, matching candidates get `근거 확인: <index_id>` and `knowledge:<index_id>` refs, and `auto_intake_run.used_refs` records matched refs.
+- Kept common knowledge refs default-off behind `DEV_ERP_INTAKE_KNOWLEDGE_COMMON=1`, avoided guild_hall ledger writes in v1, and added regression coverage for context injection, candidate/event refs, missing workspaces, and body/chunk read exclusion.
+
 ### dev-ERP ENGINE-3 capability assignment
 
 - Extended haengbogwan context hint rules into auto intake candidate enrichment: branch rules can now add `required_role`, `required_capability`, and `suggested_assignee_ref` as proposal metadata before task-ledger writing.

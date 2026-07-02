@@ -1,6 +1,6 @@
 # ENGINE-5-RAG-GROUNDED-JUDGE — 판단에 근거(RAG) 연결
 
-- status: proposed / parallel_group: G-llm-adapter / depends_on: 없음(v1)
+- status: done 2026-07-02 / parallel_group: G-llm-adapter / depends_on: 없음(v1)
 - 규모 추정: v1 코드 ~120줄 + 테스트 ~70줄 (1일) / v2 는 별도 패킷으로 분리 권장
 
 ## 목적 (1줄)
@@ -62,14 +62,30 @@
 
 ## 구현 전 확인
 
-- [ ] 인덱스 JSON 에 프로젝트 코드가 source_card_ref 외 다른 필드로도 있는지(더 안정적 키가
+- [x] 인덱스 JSON 에 프로젝트 코드가 source_card_ref 외 다른 필드로도 있는지(더 안정적 키가
       있으면 그걸 사용). 확인: 인덱스 JSON 상위 40줄.
-- [ ] knowledge_access ledger(guild_hall) 사용 이벤트 계약 — 검증 결과 guild_hall/knowledge_access
+      - 2026-07-02 Codex 실측 정정: `project_code`/`project_id` 필드는 인덱스 root 또는
+        `source_card_summary` 에 없다. 안정 키는 `source_refs.source_card_ref` 의
+        `_workspaces/knowledge/projects/P26-014/source_cards/...` 경로다.
+      - 2026-07-02 Codex 실측 정정: 인덱스 필드는 root flat 이 아니라
+        `source_refs.source_card_ref`, `source_card_summary.title/domains/approval_status`
+        형태다.
+      - 2026-07-02 Codex 설계 반영: P26-014 3종의 approval token 은
+        `owner_requested_p26_014_project_scoped_rag_20260617` 이며
+        `rag_permissions.*=true` 다. v1 은 이 token 을 해당 프로젝트 전용 eligible ref 로만
+        인정하고, 공용 ref 는 `approved`/`owner_approved`/`승인` 계열만 인정한다.
+- [x] knowledge_access ledger(guild_hall) 사용 이벤트 계약 — 검증 결과 guild_hall/knowledge_access
       README 의 candidate-ledger/ingest-receipt 명령은 metadata-only 기록만 다루고 used_refs
       양식은 문서에 미명시. 확인 경로: guild_hall/knowledge_access/README.md 전문 +
       guild_hall/rag 의 answer-run 이 남기는 기록 형식. 중복 장부 회피 정책 택1을 Codex 와 조율:
       (a) dev-erp event_log 만 쓰고 guild_hall 은 롤업만 / (b) guild_hall ledger 로 통일하고
       dev-erp 는 그 경로만 읽음.
+      - 2026-07-02 Codex + fresh explorer 실측: guild_hall knowledge_access 는 명시 ledger
+        target(`--ledger-root`/`--ledger-file`)이 필요한 별도 metadata-only 장부이고,
+        guild_hall/rag answer-run shape 은 dev-erp 식 `used_refs`/`event_log` 가 아니라
+        `source_refs`/fingerprint/boundary/citation metadata 를 남긴다.
+      - v1 정책 선택: (a) dev-erp `auto_intake_run.used_refs` 만 쓴다. guild_hall 롤업/브리지는
+        stable idempotency 와 `knowledge:<index_id>` mapping 이 있는 별도 slice 로 둔다.
 
 ## 경계 가드
 
@@ -105,3 +121,21 @@ node tools/auto_intake_cycle.mjs --project P26-014 --json    # dry-run: knowledg
   used_refs(knowledge:...)가 붙는다.
 - 본문 파일을 여는 코드 경로가 없음이 테스트로 고정된다.
 - 직렬 전체 테스트 green + verify_gate L1 PASS.
+
+## 완료 기록 (2026-07-02 Codex)
+
+- 구현:
+  - `tools/knowledge_grounding.mjs` 추가: nested `source_text_index.json` 메타만 읽고
+    project/common ref 를 분리한다.
+  - `auto_intake_cycle` projectContext 에 승인된 지식 라인을 주입하고, 후보 `next_action` 및
+    후보/`auto_intake_run.used_refs` 에 `knowledge:<index_id>` 를 붙인다.
+  - `DEV_ERP_INTAKE_KNOWLEDGE_COMMON=1` 이 켜진 경우에만 공용 표준 ref 를 포함한다.
+- 검증:
+  - `node --test --test-concurrency=1 test/knowledge_grounding.test.mjs test/auto_intake_cycle.test.mjs`
+    PASS (35/35).
+  - `node tools/auto_intake_cycle.mjs --project P26-014 --json` PASS, dry-run,
+    `knowledge_grounding.refs=3`.
+  - 전체 직렬 테스트 PASS (384/384).
+  - `node tools/verify_gate.mjs --level 1 --packet C:\Soulforge\_workmeta\P26-014\reports\post_development_review\20260702_dev_erp_engine_5_rag_grounded_judge_review.yaml`
+    PASS.
+  - 루트 `npm.cmd run validate` PASS.

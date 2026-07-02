@@ -106,6 +106,28 @@ function writeRuleFixture(root, project = "P99-001") {
   }));
 }
 
+function writeKnowledgeIndexFixture(root, project = "P99-001") {
+  const indexRoot = join(root, "knowledge_indexes");
+  const indexDir = join(indexRoot, "p99_req");
+  mkdirSync(indexDir, { recursive: true });
+  writeFileSync(join(indexDir, "source_text_index.json"), JSON.stringify({
+    schema_version: "soulforge.source_text_index.v0",
+    kind: "source_text_index",
+    index_id: "p99_req",
+    status: "ready",
+    source_refs: {
+      source_card_ref: `_workspaces/knowledge/projects/${project}/source_cards/p99_req.source_card.json`,
+      derived_text_ref: "_workspaces/knowledge/rag/derived_text/p99_req/p99_req.txt",
+    },
+    source_card_summary: {
+      title: "P99 Requirements Specification",
+      domains: [`project:${project}`, "requirements"],
+      approval_status: "owner_requested_p99_001_project_scoped_rag_20260702",
+    },
+  }));
+  return indexRoot;
+}
+
 function makeThreadFixture(root, { status = "open", mailThread = "T1", taskThread = "T1", eventType = "mail_received", historyKey = "20260701-002", subject = "[P99] 견적 검토 요청", from = "vendor@example.com" } = {}) {
   const proj = join(root, "P99-001");
   mkdirSync(join(proj, "reports", "메일_이력"), { recursive: true });
@@ -386,6 +408,42 @@ test("runCycle apply: 규칙 기반 역량 제안은 ledger 후보 파일에만 
   assert.equal(candidate.assignee_confidence, "medium");
   assert.equal(candidate.work_type, "verify");
   assert.equal(Object.hasOwn(candidate, "assignee_ref"), false);
+});
+
+test("runCycle apply: 승인된 지식 refs 를 context 와 후보/event used_refs 에 연결한다", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-cycle-knowledge-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const proj = makeWorkmetaFixture(root);
+  writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,이벤트유형,스레드\n20260701-001,요구사양 검토 요청,vendor@example.com,2026-07-01T09:00:00,user@example.com,src-1,mail_received,T-main\n");
+  const knowledgeRoot = writeKnowledgeIndexFixture(root);
+  const calls = [];
+  const runEvents = [];
+  let projectContext = [];
+  const summary = await runCycle({
+    apply: true, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, knowledgeRoot,
+    knowledgeCommon: false, skipContext: true, receipts: true, completionFeed: false, runId: "t-knowledge",
+  }, {
+    exec: async (cmd, args) => { calls.push(args); return { stdout: "{}" }; },
+    classify: async (items, options) => {
+      projectContext = options.projectContext;
+      return { judged: items.length, candidates: { [items[0].history_key]: { title: "요구사양 확인", work_type: "review", completion_criteria: "확인 완료" } }, skipped: [], errors: [] };
+    },
+    appendRunEvent: (event) => runEvents.push(event),
+  });
+
+  assert.equal(summary.knowledge_grounding.refs, 1);
+  assert.equal(summary.knowledge_grounding.matched, 1);
+  assert.ok(projectContext.some((line) => line.includes("승인된 지식: P99 Requirements Specification")));
+  const ledgerCall = calls.find((a) => a[0] === "tools/mail_to_task_ledger.mjs");
+  const candFile = ledgerCall[ledgerCall.indexOf("--candidates") + 1];
+  const candidate = JSON.parse(readFileSync(candFile, "utf8"))["20260701-001"];
+  assert.match(candidate.next_action, /근거 확인: p99_req/);
+  assert.deepEqual(candidate.used_refs, ["knowledge:p99_req"]);
+  const runEvent = runEvents.find((event) => event.kind === "auto_intake_run");
+  assert.ok(runEvent);
+  assert.ok(runEvent.used_refs.includes("knowledge:p99_req"));
 });
 
 test("runCycle: LLM 미가용 + fallback=deterministic 이면 haengbogwan --apply --auto-open 폴백", async (t) => {

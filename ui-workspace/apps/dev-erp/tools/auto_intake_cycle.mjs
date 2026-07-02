@@ -20,6 +20,12 @@ import { appendMailReceipts } from "./mail_receipts.mjs";
 import { readCsvObjects, scanPending } from "./mail_to_task_pending.mjs";
 import { isOutboundMail, threadKeyForMail } from "./mail_thread_key.mjs";
 import { runCompletionKnowledgeFeed } from "./completion_knowledge_feed.mjs";
+import {
+  DEFAULT_KNOWLEDGE_INDEX_ROOT,
+  applyKnowledgeGroundingToCandidate,
+  knowledgeContextLines,
+  listProjectKnowledgeRefs,
+} from "./knowledge_grounding.mjs";
 
 const execFileP = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -51,6 +57,8 @@ export function parseCycleArgs(argv = process.argv.slice(2), env = process.env) 
     provider: arg("provider", intakeLlmProvider(env)),
     fallback: arg("fallback", String(env.DEV_ERP_INTAKE_FALLBACK ?? "skip").trim().toLowerCase() === "deterministic" ? "deterministic" : "skip"),
     knowledge: has("knowledge") || truthyEnv("DEV_ERP_INTAKE_KNOWLEDGE", env),
+    knowledgeCommon: truthyEnv("DEV_ERP_INTAKE_KNOWLEDGE_COMMON", env),
+    knowledgeRoot: arg("knowledge-root", DEFAULT_KNOWLEDGE_INDEX_ROOT),
     completionFeed: truthyEnv("DEV_ERP_INTAKE_COMPLETION_FEED", env),
     skipContext: has("skip-context"),
     // not_task 고신뢰 판정을 영수증으로 기억(재판단 수렴). --no-receipts 또는 DEV_ERP_INTAKE_RECEIPTS=0 으로 끔.
@@ -61,12 +69,13 @@ export function parseCycleArgs(argv = process.argv.slice(2), env = process.env) 
 
 // 분류 입력용 줄기 맥락(메타 요약, 결정적): 프로젝트별 힌트 규칙 키워드 + project_context 상위 branch 요약.
 // 본문 없음 — branch label 은 이미 redacted metadata 표면이다.
-export function buildProjectContextLines(workmetaRoot, projectId, { maxBranches = 6, maxChars = 900 } = {}) {
+export function buildProjectContextLines(workmetaRoot, projectId, { maxBranches = 6, maxChars = 900, knowledgeRefs = [] } = {}) {
   const lines = [];
   const rules = loadContextHintRules(workmetaRoot, projectId);
   if (rules.length) {
     lines.push(`업무 줄기(branch) 후보: ${rules.map((r) => r.branch).slice(0, 8).join(" / ")}`);
   }
+  lines.push(...knowledgeContextLines(knowledgeRefs));
   try {
     const csv = readFileSync(join(workmetaRoot, projectId, "project_context", "summaries", "branch_summaries.csv"), "utf8");
     const rows = csv.split(/\r?\n/).slice(1).filter(Boolean).map((line) => line.split(","));
@@ -278,6 +287,7 @@ export async function runCycle(opts, deps = {}) {
     receipts: { written: 0, skipped_duplicate: 0 },
     thread_dedup: { followups: 0, outbound_skipped: 0, receipts_planned: 0, receipts_written: 0, receipt_duplicates: 0, events_written: 0 },
     capability_assign: { enriched: 0 },
+    knowledge_grounding: { include_common: Boolean(opts.knowledgeCommon), refs: 0, matched: 0, used_refs: [], projects: {} },
     completion_knowledge_feed: { enabled: Boolean(opts.completionFeed) },
   };
 
@@ -302,12 +312,25 @@ export async function runCycle(opts, deps = {}) {
     summary.pending_total = scanned.reduce((a, s) => a + s.pending.length, 0);
   } catch (e) { summary.errors.push(`pending:${String(e?.message ?? e).slice(0, 120)}`); }
 
+  const knowledgeRefsByProject = new Map();
+  const knowledgeProjects = [...new Set([...(opts.projects ?? []), ...scanned.map((s) => s.project)])];
+  for (const projectCode of knowledgeProjects) {
+    const refs = listProjectKnowledgeRefs(projectCode, {
+      includeCommon: Boolean(opts.knowledgeCommon),
+      knowledgeRoot: opts.knowledgeRoot || DEFAULT_KNOWLEDGE_INDEX_ROOT,
+    });
+    knowledgeRefsByProject.set(projectCode, refs);
+    summary.knowledge_grounding.projects[projectCode] = { refs: refs.length };
+    summary.knowledge_grounding.refs += refs.length;
+  }
+
   // 2) LLM 분류(프로젝트별, 줄기 맥락 주입) — provider none 이면 전건 보류
   const perProject = [];
   for (const s of scanned) {
     if (!s.pending.length) continue;
     try {
-      const projectContext = buildProjectContextLines(opts.workmeta, s.project);
+      const knowledgeRefs = knowledgeRefsByProject.get(s.project) ?? [];
+      const projectContext = buildProjectContextLines(opts.workmeta, s.project, { knowledgeRefs });
       const r = await classify(s.pending, { provider: opts.provider, maxItems: opts.limit, projectContext });
       summary.judged += r.judged ?? 0;
       const notTaskRows = [];
@@ -347,12 +370,22 @@ export async function runCycle(opts, deps = {}) {
       }
       const rules = loadContextHintRules(opts.workmeta, s.project);
       const candidates = {};
+      const projectGrounding = summary.knowledge_grounding.projects[s.project] ?? { refs: knowledgeRefs.length };
       for (const [key, candidate] of Object.entries(r.candidates ?? {})) {
         const pending = pendingByKey.get(key) ?? {};
         const enriched = enrichCandidateWithRules(candidate, pending.subject ?? "", rules);
-        candidates[key] = enriched.candidate;
+        const grounded = applyKnowledgeGroundingToCandidate(enriched.candidate, pending.subject ?? "", knowledgeRefs);
+        candidates[key] = grounded.candidate;
         if (enriched.enriched) summary.capability_assign.enriched += 1;
+        if (grounded.matched_refs.length) {
+          summary.knowledge_grounding.matched += 1;
+          projectGrounding.matched = (projectGrounding.matched ?? 0) + 1;
+          for (const ref of grounded.used_refs) {
+            if (!summary.knowledge_grounding.used_refs.includes(ref)) summary.knowledge_grounding.used_refs.push(ref);
+          }
+        }
       }
+      summary.knowledge_grounding.projects[s.project] = projectGrounding;
       const keys = Object.keys(candidates);
       if (keys.length) perProject.push({ project: s.project, candidates, keys });
       summary.candidate_count += keys.length;
@@ -440,16 +473,27 @@ export async function runCycle(opts, deps = {}) {
     } catch { /* noop */ }
     if (deps.appendEvent !== null) {
       try {
-        const dbPath = /^([A-Za-z]:[\\/]|\/)/.test(opts.db) ? opts.db : resolve(APP, opts.db);
-        if (existsSync(dbPath)) {
-          const { openStore } = await import("../src/store.mjs");
-          const s = openStore(dbPath);
-          s.appendEvent({
-            actor_ref: "erp", actor_kind: "ai", kind: "auto_intake_run",
-            used_refs: ["mail_to_task_classify", "haengbogwan_run", `run:${opts.runId}`], data_label: "meta",
-            note: `provider=${summary.provider} pending=${summary.pending_total} judged=${summary.judged} candidates=${summary.candidate_count} not_task=${summary.skipped.not_task} errors=${summary.errors.length}`,
-          });
-          s.db.close();
+        const usedRefs = [
+          "mail_to_task_classify",
+          "haengbogwan_run",
+          `run:${opts.runId}`,
+          ...summary.knowledge_grounding.used_refs,
+        ];
+        const event = {
+          actor_ref: "erp", actor_kind: "ai", kind: "auto_intake_run",
+          used_refs: [...new Set(usedRefs)], data_label: "meta",
+          note: `provider=${summary.provider} pending=${summary.pending_total} judged=${summary.judged} candidates=${summary.candidate_count} not_task=${summary.skipped.not_task} errors=${summary.errors.length}`,
+        };
+        if (typeof deps.appendRunEvent === "function") {
+          deps.appendRunEvent(event);
+        } else {
+          const dbPath = /^([A-Za-z]:[\\/]|\/)/.test(opts.db) ? opts.db : resolve(APP, opts.db);
+          if (existsSync(dbPath)) {
+            const { openStore } = await import("../src/store.mjs");
+            const s = openStore(dbPath);
+            s.appendEvent(event);
+            s.db.close();
+          }
         }
       } catch { /* DB 미가용은 무시(수집 PC 밖 standalone 실행 허용) */ }
     }
