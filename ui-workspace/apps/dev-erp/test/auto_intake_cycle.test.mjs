@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
-import { parseCycleArgs, acquireLock, releaseLock, runCycle, buildProjectContextLines } from "../tools/auto_intake_cycle.mjs";
+import { parseCycleArgs, acquireLock, releaseLock, runCycle, buildProjectContextLines, enrichCandidateWithRules } from "../tools/auto_intake_cycle.mjs";
 import { branchHintForProject, loadContextHintRules } from "../tools/haengbogwan_run.mjs";
 import { autoIntakeConfig, shouldRunAutoIntake } from "../src/mail_collect.mjs";
 import { pendingForProject } from "../tools/mail_to_task_pending.mjs";
@@ -84,6 +84,26 @@ function makeWorkmetaFixture(root) {
   writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
     "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,이벤트유형,스레드\n20260701-001,[P99] 견적 검토 요청,vendor@example.com,2026-07-01T09:00:00,user@example.com,src-1,mail_received,T-main\n");
   return proj;
+}
+
+function writeRuleFixture(root, project = "P99-001") {
+  const rulesDir = join(root, project, "rules");
+  mkdirSync(rulesDir, { recursive: true });
+  writeFileSync(join(rulesDir, "haengbogwan_context_hint_rules.json"), JSON.stringify({
+    rules: [
+      {
+        id: "p99_towbody",
+        enabled: true,
+        priority: 100,
+        event_keywords: ["towbody", "예인몸체"],
+        target_object: "KVDS towbody",
+        work_types: ["verify", "author"],
+        required_role: "mechanical_engineering_owner",
+        required_capability: "mechanical_engineering",
+        suggested_assignee_ref: "dev_team_4",
+      },
+    ],
+  }));
 }
 
 function makeThreadFixture(root, { status = "open", mailThread = "T1", taskThread = "T1", eventType = "mail_received", historyKey = "20260701-002", subject = "[P99] 견적 검토 요청", from = "vendor@example.com" } = {}) {
@@ -287,6 +307,87 @@ test("runCycle apply: candidates 파일 작성 + ledger/haengbogwan 자식 인�
   assert.ok(existsSync(join(dataDir, "auto_intake_receipts.jsonl")));
 });
 
+test("역량 제안: 규칙 키워드 매칭 시 제안 필드 보강, 확정 담당은 미설정", () => {
+  const rule = {
+    id: "p99_towbody",
+    branch: "KVDS towbody",
+    priority: 100,
+    keywords: ["towbody", "예인몸체"],
+    work_types: ["verify"],
+    required_role: "mechanical_engineering_owner",
+    required_capability: "mechanical_engineering",
+    suggested_assignee_ref: "dev_team_4",
+  };
+  const enriched = enrichCandidateWithRules(
+    { title: "검토", work_type: "review", completion_criteria: "완료" },
+    "towbody slipring 검토 요청",
+    [rule],
+  );
+  assert.equal(enriched.enriched, true);
+  assert.equal(enriched.candidate.required_role, "mechanical_engineering_owner");
+  assert.equal(enriched.candidate.required_capability, "mechanical_engineering");
+  assert.equal(enriched.candidate.suggested_assignee_ref, "dev_team_4");
+  assert.equal(enriched.candidate.assignee_confidence, "medium");
+  assert.match(enriched.candidate.assignee_reason, /p99_towbody/);
+  assert.equal(enriched.candidate.work_type, "verify");
+  assert.match(enriched.candidate.review_reason, /rule_work_type/);
+  assert.equal(Object.hasOwn(enriched.candidate, "assignee_ref"), false);
+});
+
+test("역량 제안: LLM 이 채운 필드는 덮지 않고 review 폴백일 때만 work_type 교체", () => {
+  const rule = {
+    id: "p99_towbody",
+    branch: "KVDS towbody",
+    keywords: ["towbody"],
+    work_types: ["verify"],
+    required_role: "mechanical_engineering_owner",
+    required_capability: "mechanical_engineering",
+    suggested_assignee_ref: "dev_team_4",
+  };
+  const existing = enrichCandidateWithRules(
+    {
+      work_type: "author",
+      required_role: "systems_engineering_owner",
+      suggested_assignee_ref: "dev_team_2",
+      assignee_confidence: "high",
+    },
+    "towbody",
+    [rule],
+  ).candidate;
+  assert.equal(existing.work_type, "author");
+  assert.equal(existing.required_role, "systems_engineering_owner");
+  assert.equal(existing.suggested_assignee_ref, "dev_team_2");
+  assert.equal(existing.assignee_confidence, "high");
+});
+
+test("runCycle apply: 규칙 기반 역량 제안은 ledger 후보 파일에만 제안 필드로 기록된다", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-cycle-rules-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const proj = makeWorkmetaFixture(root);
+  writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,이벤트유형,스레드\n20260701-001,towbody slipring 검토 요청,vendor@example.com,2026-07-01T09:00:00,user@example.com,src-1,mail_received,T-main\n");
+  writeRuleFixture(root);
+  const calls = [];
+  const summary = await runCycle({
+    apply: true, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true, runId: "t-rules",
+  }, {
+    exec: async (cmd, args) => { calls.push(args); return { stdout: "{}" }; },
+    classify: async (items) => ({ judged: items.length, candidates: { [items[0].history_key]: { title: "검토", work_type: "review", completion_criteria: "완료" } }, skipped: [], errors: [] }),
+    appendEvent: null,
+  });
+  const ledgerCall = calls.find((a) => a[0] === "tools/mail_to_task_ledger.mjs");
+  const candFile = ledgerCall[ledgerCall.indexOf("--candidates") + 1];
+  const candidate = JSON.parse(readFileSync(candFile, "utf8"))["20260701-001"];
+  assert.equal(summary.capability_assign.enriched, 1);
+  assert.equal(candidate.required_role, "mechanical_engineering_owner");
+  assert.equal(candidate.required_capability, "mechanical_engineering");
+  assert.equal(candidate.suggested_assignee_ref, "dev_team_4");
+  assert.equal(candidate.assignee_confidence, "medium");
+  assert.equal(candidate.work_type, "verify");
+  assert.equal(Object.hasOwn(candidate, "assignee_ref"), false);
+});
+
 test("runCycle: LLM 미가용 + fallback=deterministic 이면 haengbogwan --apply --auto-open 폴백", async (t) => {
   const root = mkdtempSync(join(tmpdir(), "ai-cycle-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -347,12 +448,16 @@ test("loadContextHintRules: 파일 없음/파손은 빈 배열, 정상 파일은
   writeFileSync(join(rulesDir, "haengbogwan_context_hint_rules.json"), JSON.stringify({
     rules: [
       { enabled: true, priority: 10, event_keywords: ["b"], target_object: "low" },
-      { enabled: true, priority: 90, event_keywords: ["a"], target_object: "high" },
+      { enabled: true, priority: 90, event_keywords: ["a"], target_object: "high", work_types: ["verify"], required_role: "role_a", required_capability: "cap_a", suggested_assignee_ref: "dev_team_4" },
       { enabled: false, priority: 200, event_keywords: ["x"], target_object: "off" },
     ],
   }));
   const rules = loadContextHintRules(root, "P77-000");
   assert.deepEqual(rules.map((r) => r.branch), ["high", "low"]);
+  assert.deepEqual(rules[0].work_types, ["verify"]);
+  assert.equal(rules[0].required_role, "role_a");
+  assert.equal(rules[0].required_capability, "cap_a");
+  assert.equal(rules[0].suggested_assignee_ref, "dev_team_4");
   writeFileSync(join(rulesDir, "haengbogwan_context_hint_rules.json"), "{broken");
   assert.deepEqual(loadContextHintRules(root, "P77-000"), []);
 });

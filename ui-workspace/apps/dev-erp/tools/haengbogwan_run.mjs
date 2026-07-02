@@ -242,10 +242,16 @@ export function loadContextHintRules(workmetaRoot, projectId) {
     return (Array.isArray(raw?.rules) ? raw.rules : [])
       .filter((r) => r?.enabled !== false && String(r?.target_object ?? "").trim())
       .map((r) => ({
+        id: String(r.id ?? r.rule_id ?? r.target_object).trim(),
         branch: String(r.target_object).trim(),
         priority: Number(r.priority) || 0,
         keywords: (Array.isArray(r.event_keywords) ? r.event_keywords : [])
           .map((k) => String(k ?? "").normalize("NFKC").toLowerCase().trim()).filter(Boolean),
+        work_types: (Array.isArray(r.work_types) ? r.work_types : [])
+          .map((w) => String(w ?? "").trim().toLowerCase()).filter(Boolean),
+        required_role: String(r.required_role ?? "").trim(),
+        required_capability: String(r.required_capability ?? "").trim(),
+        suggested_assignee_ref: String(r.suggested_assignee_ref ?? "").trim(),
       }))
       .filter((r) => r.keywords.length)
       .sort((a, b) => b.priority - a.priority);

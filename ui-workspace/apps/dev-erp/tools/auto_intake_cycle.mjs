@@ -14,7 +14,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
+import { INTAKE_WORK_TYPES, classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
 import { loadContextHintRules } from "./haengbogwan_run.mjs";
 import { appendMailReceipts } from "./mail_receipts.mjs";
 import { readCsvObjects, scanPending } from "./mail_to_task_pending.mjs";
@@ -28,6 +28,7 @@ const REPO = resolve(HERE, "..", "..", "..", "..");
 const LOCK_STALE_MS = 15 * 60 * 1000;
 const TASK_REL = join("reports", "할일_장부", "할일_장부.csv");
 const CLOSED_TASK_STATUSES = new Set(["done", "cancelled", "canceled", "closed", "complete", "완료", "취소"]);
+const INTAKE_WORK_TYPE_SET = new Set(INTAKE_WORK_TYPES);
 
 function truthyEnv(name, env = process.env) {
   const v = String(env[name] ?? "").trim().toLowerCase();
@@ -113,6 +114,50 @@ const firstOf = (row, names) => {
 function isOpenTaskStatus(status) {
   const normalized = String(status ?? "").trim().toLowerCase();
   return !CLOSED_TASK_STATUSES.has(normalized);
+}
+
+function matchesRuleKeyword(subjectText, rule) {
+  const text = String(subjectText ?? "").normalize("NFKC").toLowerCase();
+  return text.trim() && (rule.keywords ?? []).some((keyword) => text.includes(String(keyword).normalize("NFKC").toLowerCase()));
+}
+
+function appendReason(existing, reason) {
+  const current = String(existing ?? "").trim();
+  if (!current) return reason;
+  return current.includes(reason) ? current : `${current}+${reason}`;
+}
+
+export function enrichCandidateWithRules(candidate, subjectText, rules = []) {
+  const next = { ...(candidate ?? {}) };
+  const rule = (rules ?? []).find((entry) => matchesRuleKeyword(subjectText, entry));
+  if (!rule) return { candidate: next, enriched: false, rule_id: "" };
+
+  let enriched = false;
+  if (!String(next.required_role ?? "").trim() && rule.required_role) {
+    next.required_role = rule.required_role;
+    enriched = true;
+  }
+  if (!String(next.required_capability ?? "").trim() && rule.required_capability) {
+    next.required_capability = rule.required_capability;
+    enriched = true;
+  }
+  if (!String(next.suggested_assignee_ref ?? "").trim() && rule.suggested_assignee_ref) {
+    next.suggested_assignee_ref = rule.suggested_assignee_ref;
+    if (!String(next.assignee_confidence ?? "").trim()) next.assignee_confidence = "medium";
+    if (!String(next.assignee_reason ?? "").trim()) {
+      next.assignee_reason = `브랜치 규칙(${rule.id || rule.branch}) 기반 제안`;
+    }
+    enriched = true;
+  }
+
+  const ruleWorkType = (rule.work_types ?? []).find((workType) => INTAKE_WORK_TYPE_SET.has(workType));
+  if (String(next.work_type ?? "").trim().toLowerCase() === "review" && ruleWorkType && ruleWorkType !== "review") {
+    next.work_type = ruleWorkType;
+    next.review_reason = appendReason(next.review_reason, "rule_work_type");
+    enriched = true;
+  }
+
+  return { candidate: next, enriched, rule_id: rule.id || rule.branch };
 }
 
 export function openTaskThreadMap(workmetaRoot, projectId) {
@@ -232,6 +277,7 @@ export async function runCycle(opts, deps = {}) {
     ledger: {}, context: null, errors: [], body_access: "metadata_only",
     receipts: { written: 0, skipped_duplicate: 0 },
     thread_dedup: { followups: 0, outbound_skipped: 0, receipts_planned: 0, receipts_written: 0, receipt_duplicates: 0, events_written: 0 },
+    capability_assign: { enriched: 0 },
     completion_knowledge_feed: { enabled: Boolean(opts.completionFeed) },
   };
 
@@ -299,8 +345,16 @@ export async function runCycle(opts, deps = {}) {
       } else if (notTaskRows.length) {
         summary.receipts.planned = (summary.receipts.planned ?? 0) + notTaskRows.length;
       }
-      const keys = Object.keys(r.candidates ?? {});
-      if (keys.length) perProject.push({ project: s.project, candidates: r.candidates, keys });
+      const rules = loadContextHintRules(opts.workmeta, s.project);
+      const candidates = {};
+      for (const [key, candidate] of Object.entries(r.candidates ?? {})) {
+        const pending = pendingByKey.get(key) ?? {};
+        const enriched = enrichCandidateWithRules(candidate, pending.subject ?? "", rules);
+        candidates[key] = enriched.candidate;
+        if (enriched.enriched) summary.capability_assign.enriched += 1;
+      }
+      const keys = Object.keys(candidates);
+      if (keys.length) perProject.push({ project: s.project, candidates, keys });
       summary.candidate_count += keys.length;
     } catch (e) { summary.errors.push(`classify:${s.project}:${String(e?.message ?? e).slice(0, 120)}`); }
   }

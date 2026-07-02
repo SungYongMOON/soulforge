@@ -140,7 +140,7 @@ async function startDevErpServer(args = [], env = {}) {
 }
 
 async function waitForHttp(url, child, stderrFn) {
-  for (let i = 0; i < 120; i++) {
+  for (let i = 0; i < 300; i++) {
     if (child.exitCode !== null) throw new Error(`server_exited:${child.exitCode}:${stderrFn()}`);
     try {
       const r = await fetch(url);

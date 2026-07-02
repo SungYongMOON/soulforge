@@ -11,7 +11,7 @@
 - `slices/ENGINE-8-TEAM-MAIL-DEDUP.md` — 팀 메일 사본 통합(fingerprint, 1인 메일함 가정 제거) (G-intake-cycle, **blocked 2026-07-02: 팀 수집 runtime 사본 표본 10건 미확보**)
 - `slices/ENGINE-1-THREAD-DEDUP.md` — 스레드 인지 중복 억제 (G-intake-cycle, **done 2026-07-02: followup receipt/event pre-pass + sparse-thread fallback**)
 - `slices/ENGINE-2-COMPLETION-KNOWLEDGE-FEED.md` — 완료 지식 후보 자동 적재 (G-knowledge-feed, **done 2026-07-02: completion_log knowledge → candidate JSONL feed + cursor**)
-- `slices/ENGINE-3-CAPABILITY-ASSIGN.md` — 역량 기반 담당 제안 (G-intake-cycle)
+- `slices/ENGINE-3-CAPABILITY-ASSIGN.md` — 역량 기반 담당 제안 (G-intake-cycle, **done 2026-07-02: branch-rule role/capability/suggested assignee enrichment**)
 - `slices/ENGINE-4-FOLLOWUP-SLA.md` — 무응답·기한 팔로업 (G-intake-cycle, K-2 선행)
 - `slices/ENGINE-5-RAG-GROUNDED-JUDGE.md` — 판단 근거(RAG) 연결 v1 메타 (G-llm-adapter)
 - `slices/ENGINE-6-KNOWLEDGE-PIPELINE-AUTOMATION.md` — 승인 후 지식 뒷단 자동화+주간 트리아지 (guild_hall/Codex 소유 표면)

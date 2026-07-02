@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### dev-ERP ENGINE-3 capability assignment
+
+- Extended haengbogwan context hint rules into auto intake candidate enrichment: branch rules can now add `required_role`, `required_capability`, and `suggested_assignee_ref` as proposal metadata before task-ledger writing.
+- Added `enrichCandidateWithRules` with deterministic keyword matching, review-only work-type fallback replacement, LLM-field preservation, and a hard guard against auto-filling confirmed `assignee_ref`.
+- Reported enrichment counts in `auto_intake_cycle` and added regression coverage for towbody-style `dev_team_4` suggestions, no-overwrite behavior, allowed work types, loader compatibility, and UI-visible hint fields.
+- Hardened dev-ERP server-spawn readiness tests for slower Windows startup under verify-gate execution without changing production behavior.
+
 ### dev-ERP ENGINE-2 completion knowledge feed
 
 - Added `tools/completion_knowledge_feed.mjs`, a deterministic metadata-only feed that turns `completion_log.knowledge` rows into `knowledge_rag_candidate` JSONL entries, with dry-run default, `--apply` writes, cursor-file idempotency, and `knowledge_feed_run` event-log rows.

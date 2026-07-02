@@ -347,7 +347,7 @@ export async function suggestSplit(item = {}, monsterTypes = [], { provider = "s
 // 자동 인입 분류: 메일 메타(제목/발신자/메일함/기한힌트)만 보고 {할일인가 + 필드}를 제안.
 // 스킬 mail_to_task_classify 의 분류 계약(rubric)을 로컬 무인 레인으로 옮긴 것 — 본문·첨부·secret 미전달.
 // 판단은 제안일 뿐: 실제 행 작성은 mail_to_task_ledger(결정적)가, open 승격은 --auto-open 정책이 정한다.
-const INTAKE_WORK_TYPES = ["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"];
+export const INTAKE_WORK_TYPES = ["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"];
 
 export function intakeLlmProvider(env = process.env) {
   const v = String(env.DEV_ERP_INTAKE_LLM ?? "").trim().toLowerCase();
