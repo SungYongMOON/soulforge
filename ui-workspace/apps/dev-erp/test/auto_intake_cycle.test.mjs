@@ -1,6 +1,7 @@
 // test/auto_intake_cycle.test.mjs — 자동 인입 사이클: LLM 분류 어댑터 검증 + 오케스트레이터 단위(자식/네트워크 0).
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -9,6 +10,8 @@ import { classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
 import { parseCycleArgs, acquireLock, releaseLock, runCycle, buildProjectContextLines } from "../tools/auto_intake_cycle.mjs";
 import { branchHintForProject, loadContextHintRules } from "../tools/haengbogwan_run.mjs";
 import { autoIntakeConfig, shouldRunAutoIntake } from "../src/mail_collect.mjs";
+import { pendingForProject } from "../tools/mail_to_task_pending.mjs";
+import { fallbackThreadKey } from "../tools/mail_thread_key.mjs";
 
 const PENDING = [
   { history_key: "20260701-001", subject: "[P99] 견적 검토 요청", from: "vendor@example.com", received_at: "2026-07-01T09:00:00", mailbox: "user@example.com", due_hint: "" },
@@ -79,7 +82,19 @@ function makeWorkmetaFixture(root) {
   const proj = join(root, "P99-001");
   mkdirSync(join(proj, "reports", "메일_이력"), { recursive: true });
   writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
-    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID\n20260701-001,[P99] 견적 검토 요청,vendor@example.com,2026-07-01T09:00:00,user@example.com,src-1\n");
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,이벤트유형,스레드\n20260701-001,[P99] 견적 검토 요청,vendor@example.com,2026-07-01T09:00:00,user@example.com,src-1,mail_received,T-main\n");
+  return proj;
+}
+
+function makeThreadFixture(root, { status = "open", mailThread = "T1", taskThread = "T1", eventType = "mail_received", historyKey = "20260701-002", subject = "[P99] 견적 검토 요청", from = "vendor@example.com" } = {}) {
+  const proj = join(root, "P99-001");
+  mkdirSync(join(proj, "reports", "메일_이력"), { recursive: true });
+  mkdirSync(join(proj, "reports", "할일_장부"), { recursive: true });
+  writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,이벤트유형,스레드\n"
+    + `${historyKey},${subject},${from},2026-07-01T09:05:00,user@example.com,src-2,${eventType},${mailThread}\n`);
+  writeFileSync(join(proj, "reports", "할일_장부", "할일_장부.csv"),
+    `할일키,상태,소스스레드키\nmailtask:20260701-001,${status},${taskThread}\n`);
   return proj;
 }
 
@@ -101,6 +116,147 @@ test("runCycle dry-run: 자식 실행 0, 계획만 보고", async (t) => {
   assert.deepEqual(summary.ledger["P99-001"], { planned: 1 });
   // dry-run 은 ledger 자식을 실행하지 않고 context 도구도 쓰기 플래그 없이 못 돌게 함(여기선 호출 자체는 허용되나 --apply-context 미포함)
   assert.ok(!calls.includes("tools/mail_to_task_ledger.mjs"));
+});
+
+test("pendingForProject: thread 와 event_type 메타를 반환한다", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-pending-thread-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const proj = makeWorkmetaFixture(root);
+  const pending = pendingForProject(
+    join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    join(proj, "reports", "할일_장부", "할일_장부.csv"),
+  );
+  assert.equal(pending[0].thread, "T-main");
+  assert.equal(pending[0].event_type, "mail_received");
+});
+
+test("runCycle apply: 열린 할일과 같은 스레드의 메일은 followup 영수증+event 로 귀속", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-thread-followup-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeThreadFixture(root);
+  let classified = false;
+  const events = [];
+  const summary = await runCycle({
+    apply: true, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-thread",
+  }, {
+    classify: async () => { classified = true; return { judged: 0, candidates: {}, skipped: [], errors: [] }; },
+    appendEvent: (event) => events.push(event),
+  });
+  assert.equal(classified, false);
+  assert.equal(summary.pending_total, 0);
+  assert.equal(summary.thread_dedup.followups, 1);
+  assert.equal(summary.receipts.written, 1);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].kind, "mail_followup");
+  assert.equal(events[0].item_ref, "mailtask:20260701-001");
+  const receipt = readFileSync(join(root, "P99-001", "reports", "haengbogwan_mail_receipts", "mail_receipts.csv"), "utf8");
+  assert.match(receipt, /thread_followup:mailtask:20260701-001/);
+});
+
+test("runCycle: 같은 스레드라도 기존 할일이 done 이면 새로 판단한다", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-thread-done-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeThreadFixture(root, { status: "done" });
+  let classifiedItems = [];
+  const summary = await runCycle({
+    apply: true, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-thread-done",
+  }, {
+    classify: async (items) => { classifiedItems = items; return { judged: items.length, candidates: {}, skipped: [], errors: [] }; },
+    appendEvent: null,
+  });
+  assert.equal(summary.pending_total, 1);
+  assert.equal(summary.thread_dedup.followups, 0);
+  assert.equal(classifiedItems[0].history_key, "20260701-002");
+});
+
+test("runCycle: 스레드 빈 값은 제목+발신자 도메인 fallback 키로 귀속한다", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-thread-fallback-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const fallback = fallbackThreadKey({ subject: "[P99] 견적 검토 요청", from: "vendor@example.com" });
+  makeThreadFixture(root, { mailThread: "", taskThread: fallback });
+  let classified = false;
+  const summary = await runCycle({
+    apply: false, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-thread-fallback",
+  }, {
+    classify: async () => { classified = true; return { judged: 0, candidates: {}, skipped: [], errors: [] }; },
+    appendEvent: null,
+  });
+  assert.equal(classified, false);
+  assert.equal(summary.pending_total, 0);
+  assert.equal(summary.thread_dedup.followups, 1);
+  assert.equal(summary.thread_dedup.receipts_planned, 1);
+});
+
+test("runCycle: 발신 메일은 영수증 없이 auto-intake 판단에서 제외한다", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-thread-outbound-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeThreadFixture(root, { eventType: "mail_sent_outlook_subject_match" });
+  let classified = false;
+  const summary = await runCycle({
+    apply: true, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-thread-outbound",
+  }, {
+    classify: async () => { classified = true; return { judged: 0, candidates: {}, skipped: [], errors: [] }; },
+    appendEvent: null,
+  });
+  assert.equal(classified, false);
+  assert.equal(summary.pending_total, 0);
+  assert.equal(summary.thread_dedup.outbound_skipped, 1);
+  assert.equal(summary.receipts.written, 0);
+  assert.equal(existsSync(join(root, "P99-001", "reports", "haengbogwan_mail_receipts", "mail_receipts.csv")), false);
+});
+
+test("runCycle apply: thread followup 재실행은 영수증과 event 를 중복 생성하지 않는다", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-thread-idem-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeThreadFixture(root);
+  const events = [];
+  const opts = {
+    apply: true, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-thread-idem",
+  };
+  const deps = {
+    classify: async () => ({ judged: 0, candidates: {}, skipped: [], errors: [] }),
+    appendEvent: (event) => events.push(event),
+  };
+  const first = await runCycle(opts, deps);
+  const second = await runCycle({ ...opts, runId: "t-thread-idem-2" }, deps);
+  assert.equal(first.receipts.written, 1);
+  assert.equal(second.pending_total, 0);
+  assert.equal(second.receipts.written, 0);
+  assert.equal(events.length, 1);
+});
+
+test("mail_to_task_ledger: 스레드 빈 값은 fallback 소스스레드키로 기록한다", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ledger-thread-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const proj = join(root, "P99-001");
+  mkdirSync(join(proj, "reports", "메일_이력"), { recursive: true });
+  writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,스레드\n"
+    + "M001,[P99] 견적 검토 요청,vendor@example.com,2026-07-01T09:05:00,user@example.com,src-1,\n");
+  const candidatesPath = join(root, "candidates.json");
+  writeFileSync(candidatesPath, JSON.stringify({
+    M001: { title: "메일 검토", work_type: "review", completion_criteria: "검토 완료" },
+  }));
+  const result = spawnSync(process.execPath, [
+    "tools/mail_to_task_ledger.mjs",
+    "--project", "P99-001",
+    "--workmeta", root,
+    "--candidates", candidatesPath,
+    "--apply",
+  ], { cwd: join(import.meta.dirname, ".."), encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const taskText = readFileSync(join(proj, "reports", "할일_장부", "할일_장부.csv"), "utf8");
+  assert.match(taskText, new RegExp(fallbackThreadKey({ subject: "[P99] 견적 검토 요청", from: "vendor@example.com" })));
 });
 
 test("runCycle apply: candidates 파일 작성 + ledger/haengbogwan 자식 인자 검증 + receipts 기록", async (t) => {

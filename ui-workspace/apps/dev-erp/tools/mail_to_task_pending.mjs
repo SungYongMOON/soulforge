@@ -8,6 +8,8 @@ import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { threadKeyForMail } from "./mail_thread_key.mjs";
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..", "..");
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 && process.argv[i + 1] && !process.argv[i + 1].startsWith("--") ? process.argv[i + 1] : d; };
@@ -23,7 +25,7 @@ const MAIL_REL = join("reports", "메일_이력", "메일_이력.csv");
 const TASK_REL = join("reports", "할일_장부", "할일_장부.csv");
 const MAILTASK_RE = /^mailtask:(.+?)(?::\d+)?$/; // 할일키 → 원본 메일 이력키
 
-function parseCsv(text) {
+export function parseCsv(text) {
   const rows = []; let row = [], cur = "", q = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
@@ -37,7 +39,7 @@ function parseCsv(text) {
   if (cur !== "" || row.length) { row.push(cur); rows.push(row); }
   return rows;
 }
-function readCsvObjects(filePath) {
+export function readCsvObjects(filePath) {
   if (!existsSync(filePath)) return { headers: [], rows: [] };
   const recs = parseCsv(readFileSync(filePath, "utf8").replace(/^﻿/, "").normalize("NFC")).filter((r) => r.some((c) => String(c).trim()));
   if (!recs.length) return { headers: [], rows: [] };
@@ -86,13 +88,18 @@ export function pendingForProject(mailCsvPath, taskCsvPath) {
   for (const r of mail.rows) {
     const key = r["이력키"] || "";
     if (!key || converted.has(key)) continue;
+    const subject = firstOf(r, ["제목"]);
+    const from = firstOf(r, ["발신자"]);
+    const rawThread = firstOf(r, ["스레드", "스레드키", "메일스레드ID", "스레드ID"]);
     out.push({
       history_key: key,
-      subject: firstOf(r, ["제목"]),
-      from: firstOf(r, ["발신자"]),
+      subject,
+      from,
       received_at: firstOf(r, ["메일수신시각"]),
       mailbox: firstOf(r, ["메일함", "mailbox"]),
       source_id: firstOf(r, ["메일소스ID"]),
+      event_type: firstOf(r, ["이벤트유형", "event_type"]),
+      thread: threadKeyForMail({ thread: rawThread, subject, from }),
       due_hint: firstOf(r, ["마감일", "기한", "D-Day", "D-DAY", "due", "due_date"]),
     });
   }

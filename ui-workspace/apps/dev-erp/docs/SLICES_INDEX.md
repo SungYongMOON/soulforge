@@ -9,7 +9,7 @@
 정본 마스터: `slices/ENGINE_EXPANSION_MASTER_PLAN_20260702.md` (순서·의존성·공통 가드·공통 검사 총칙·검증된 기반 사실·owner 결정 K-1~K-5 소유). 각 패킷은 cold-start 실행 가능(검증된 사실 + 구현 전 확인 + 설계 + 검사 방법 + 완료 기준 포함).
 
 - `slices/ENGINE-8-TEAM-MAIL-DEDUP.md` — 팀 메일 사본 통합(fingerprint, 1인 메일함 가정 제거) (G-intake-cycle, **blocked 2026-07-02: 팀 수집 runtime 사본 표본 10건 미확보**)
-- `slices/ENGINE-1-THREAD-DEDUP.md` — 스레드 인지 중복 억제 (G-intake-cycle, E8 권장 선행)
+- `slices/ENGINE-1-THREAD-DEDUP.md` — 스레드 인지 중복 억제 (G-intake-cycle, **done 2026-07-02: followup receipt/event pre-pass + sparse-thread fallback**)
 - `slices/ENGINE-2-COMPLETION-KNOWLEDGE-FEED.md` — 완료 지식 후보 자동 적재 (G-knowledge-feed)
 - `slices/ENGINE-3-CAPABILITY-ASSIGN.md` — 역량 기반 담당 제안 (G-intake-cycle)
 - `slices/ENGINE-4-FOLLOWUP-SLA.md` — 무응답·기한 팔로업 (G-intake-cycle, K-2 선행)

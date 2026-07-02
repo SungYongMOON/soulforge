@@ -11,6 +11,8 @@ import { isAbsolute, join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 
+import { threadKeyForMail } from "./mail_thread_key.mjs";
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, "..");
 const REPO = resolve(HERE, "..", "..", "..", "..");
@@ -130,11 +132,14 @@ const mailById = new Map();
 for (const r of mailRecs.slice(1)) {
   const g = (i) => (i >= 0 ? String(r[i] ?? "").trim() : "");
   const mailbox = g(mc.mailbox);
-  const mailMeta = { subject: g(mc.subj), at: g(mc.at), from: g(mc.from), src: g(mc.src), mailbox, due_hint: g(mc.due), thread: g(mc.thread), group: g(mc.group) };
+  const subject = g(mc.subj);
+  const from = g(mc.from);
+  const rawThread = g(mc.thread);
+  const mailMeta = { subject, at: g(mc.at), from, src: g(mc.src), mailbox, due_hint: g(mc.due), thread: rawThread, group: g(mc.group) };
   const mailRowHash = createHash("sha256").update(JSON.stringify(mailMeta)).digest("hex");
-  const k = g(mc.key); if (k) mailById.set(k, { subject: g(mc.subj), at: g(mc.at), from: g(mc.from), src: g(mc.src),
+  const k = g(mc.key); if (k) mailById.set(k, { subject, at: g(mc.at), from, src: g(mc.src),
     mailbox: mailbox.includes("@") ? mailbox.toLowerCase() : mailbox,
-    due_hint: g(mc.due), thread: g(mc.thread), group: g(mc.group), lineage: g(mc.lineage), row_hash: mailRowHash });
+    due_hint: g(mc.due), thread: threadKeyForMail({ thread: rawThread, subject, from }), group: g(mc.group), lineage: g(mc.lineage), row_hash: mailRowHash });
 }
 
 // Codex LLM 후보(어떤 메일이 할일인가 + 필드). 없으면 skeleton(메일당 1건, LLM필드 공란).

@@ -98,6 +98,25 @@ export function checkTests(runner) {
   }
 }
 
+export function testRunnerCommand(root = APP) {
+  const packagePath = join(root, "package.json");
+  if (existsSync(packagePath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(packagePath, "utf-8"));
+      const testScript = String(pkg?.scripts?.test ?? "").trim();
+      const nodeTest = /^node\s+--test(?:\s+(.*))?$/u.exec(testScript);
+      if (nodeTest) {
+        const files = String(nodeTest[1] ?? "").split(/\s+/).filter(Boolean);
+        return {
+          cmd: process.execPath,
+          args: ["--test", "--test-concurrency=1", ...files],
+        };
+      }
+    } catch { /* fall through to node:test discovery */ }
+  }
+  return { cmd: process.execPath, args: ["--test", "--test-concurrency=1"] };
+}
+
 export function checkPacket(packetPath, fileExists, read) {
   if (!packetPath) return { id: "packet", ok: false, note: "--packet 경로 필요 (Level>=1)" };
   if (!fileExists(packetPath)) return { id: "packet", ok: false, note: `미존재: ${packetPath}` };
@@ -139,9 +158,10 @@ export function runGate({ level = 1, packet = null, skipTests = false, root = AP
     checkDocsPresent(exists)
   ];
   if (!skipTests) {
-    checks.push(checkTests(() =>
-      execFileSync(process.execPath, ["--test"], { cwd: root, encoding: "utf-8", env: { ...process.env, NODE_NO_WARNINGS: "1" } })
-    ));
+    checks.push(checkTests(() => {
+      const runner = testRunnerCommand(root);
+      return execFileSync(runner.cmd, runner.args, { cwd: root, encoding: "utf-8", env: { ...process.env, NODE_NO_WARNINGS: "1" } });
+    }));
   }
   if (level >= 1) checks.push(checkPacket(packet, (p) => existsSync(p), (p) => readFileSync(p, "utf-8")));
   // B6: Level>=2 는 독립 inspector 증거 요구 (도구 비종속 — 보고 파일 존재로 판정)

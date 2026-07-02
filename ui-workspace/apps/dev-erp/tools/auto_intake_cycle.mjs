@@ -17,13 +17,16 @@ import { promisify } from "node:util";
 import { classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
 import { loadContextHintRules } from "./haengbogwan_run.mjs";
 import { appendMailReceipts } from "./mail_receipts.mjs";
-import { scanPending } from "./mail_to_task_pending.mjs";
+import { readCsvObjects, scanPending } from "./mail_to_task_pending.mjs";
+import { isOutboundMail, threadKeyForMail } from "./mail_thread_key.mjs";
 
 const execFileP = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, "..");
 const REPO = resolve(HERE, "..", "..", "..", "..");
 const LOCK_STALE_MS = 15 * 60 * 1000;
+const TASK_REL = join("reports", "할일_장부", "할일_장부.csv");
+const CLOSED_TASK_STATUSES = new Set(["done", "cancelled", "canceled", "closed", "complete", "완료", "취소"]);
 
 function truthyEnv(name, env = process.env) {
   const v = String(env[name] ?? "").trim().toLowerCase();
@@ -97,6 +100,120 @@ export function releaseLock(lockPath) {
   try { if (lockPath && existsSync(lockPath)) unlinkSync(lockPath); } catch { /* noop */ }
 }
 
+const firstOf = (row, names) => {
+  for (const name of names) {
+    const value = row?.[name];
+    if (value != null && String(value).trim() !== "") return String(value).trim();
+  }
+  return "";
+};
+
+function isOpenTaskStatus(status) {
+  const normalized = String(status ?? "").trim().toLowerCase();
+  return !CLOSED_TASK_STATUSES.has(normalized);
+}
+
+export function openTaskThreadMap(workmetaRoot, projectId) {
+  const task = readCsvObjects(join(workmetaRoot, projectId, TASK_REL));
+  const out = new Map();
+  for (const row of task.rows) {
+    const itemKey = firstOf(row, ["할일키", "id"]);
+    const thread = firstOf(row, ["소스스레드키", "source_thread_ref"]);
+    const status = firstOf(row, ["상태", "status"]);
+    if (!itemKey || !thread || !isOpenTaskStatus(status)) continue;
+    if (!out.has(thread)) out.set(thread, itemKey);
+  }
+  return out;
+}
+
+async function appendFollowupEvent(opts, deps, event) {
+  if (typeof deps.appendEvent === "function") {
+    deps.appendEvent(event);
+    return true;
+  }
+  if (deps.appendEvent === null || !opts.apply) return false;
+  try {
+    const dbPath = /^([A-Za-z]:[\\/]|\/)/.test(opts.db) ? opts.db : resolve(APP, opts.db);
+    if (!existsSync(dbPath)) return false;
+    const { openStore } = await import("../src/store.mjs");
+    const store = openStore(dbPath);
+    store.appendEvent(event);
+    store.db.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function threadDedupPrePass(scanned, opts, deps = {}) {
+  const nextScanned = [];
+  const summary = {
+    thread_followups: 0,
+    outbound_skipped: 0,
+    receipts_written: 0,
+    receipts_planned: 0,
+    receipt_duplicates: 0,
+    events_written: 0,
+  };
+
+  for (const projectScan of scanned) {
+    const threadMap = openTaskThreadMap(opts.workmeta, projectScan.project);
+    const nextPending = [];
+    for (const item of projectScan.pending) {
+      if (isOutboundMail(item)) {
+        summary.outbound_skipped += 1;
+        continue;
+      }
+      const thread = item.thread || threadKeyForMail(item);
+      const itemRef = thread ? threadMap.get(thread) : "";
+      if (!itemRef) {
+        nextPending.push(item);
+        continue;
+      }
+
+      summary.thread_followups += 1;
+      const receiptRow = {
+        receipt_key: `mailreceipt:${item.history_key}:thread_followup:${itemRef}`,
+        history_key: item.history_key,
+        project_id: projectScan.project,
+        disposition: "no_action",
+        status: "auto",
+        handled_at: new Date().toISOString(),
+        reason: `thread_followup:${itemRef}`,
+        source_event_ref: "",
+        source_mail_ref: `mailcsv:${item.history_key}`,
+        source_mail_source_id: item.source_id || "",
+        source_lineage_ref: thread ? `thread:${thread}` : "",
+        generation_rule_ref: "thread_dedup",
+        generation_run_ref: opts.runId,
+        body_access: "metadata_only",
+      };
+      if (!opts.apply) {
+        summary.receipts_planned += 1;
+        continue;
+      }
+      const receipt = appendMailReceipts({ workmetaRoot: opts.workmeta, projectId: projectScan.project, rows: [receiptRow] });
+      summary.receipts_written += receipt.written;
+      summary.receipt_duplicates += receipt.skipped_duplicate;
+      if (receipt.written > 0) {
+        const wrote = await appendFollowupEvent(opts, deps, {
+          actor_ref: "erp",
+          actor_kind: "ai",
+          kind: "mail_followup",
+          item_ref: itemRef,
+          project_ref: projectScan.project,
+          used_refs: ["auto_intake", "thread_dedup"],
+          data_label: "meta",
+          note: `history_key=${item.history_key}`,
+        });
+        if (wrote) summary.events_written += 1;
+      }
+    }
+    nextScanned.push({ ...projectScan, pending: nextPending });
+  }
+  return { scanned: nextScanned, summary };
+}
+
 function defaultExec(cmd, args, { timeout }) {
   return execFileP(cmd, args, { cwd: APP, timeout, maxBuffer: 8 * 1024 * 1024 });
 }
@@ -111,6 +228,8 @@ export async function runCycle(opts, deps = {}) {
     pending_total: 0, judged: 0, candidate_count: 0,
     skipped: { not_task: 0, llm_error: 0, busy: 0 },
     ledger: {}, context: null, errors: [], body_access: "metadata_only",
+    receipts: { written: 0, skipped_duplicate: 0 },
+    thread_dedup: { followups: 0, outbound_skipped: 0, receipts_planned: 0, receipts_written: 0, receipt_duplicates: 0, events_written: 0 },
   };
 
   // 1) pending 델타(결정적, 메일 메타만)
@@ -119,12 +238,23 @@ export async function runCycle(opts, deps = {}) {
     scanned = scanPending(opts.workmeta, {});
     if (opts.projects.length) scanned = scanned.filter((s) => opts.projects.includes(s.project));
     scanned = scanned.map((s) => ({ project: s.project, pending: s.pending.slice(0, opts.limit) }));
+    const dedup = await threadDedupPrePass(scanned, opts, deps);
+    scanned = dedup.scanned;
+    summary.thread_dedup = {
+      followups: dedup.summary.thread_followups,
+      outbound_skipped: dedup.summary.outbound_skipped,
+      receipts_planned: dedup.summary.receipts_planned,
+      receipts_written: dedup.summary.receipts_written,
+      receipt_duplicates: dedup.summary.receipt_duplicates,
+      events_written: dedup.summary.events_written,
+    };
+    summary.receipts.written += dedup.summary.receipts_written;
+    summary.receipts.skipped_duplicate += dedup.summary.receipt_duplicates;
     summary.pending_total = scanned.reduce((a, s) => a + s.pending.length, 0);
   } catch (e) { summary.errors.push(`pending:${String(e?.message ?? e).slice(0, 120)}`); }
 
   // 2) LLM 분류(프로젝트별, 줄기 맥락 주입) — provider none 이면 전건 보류
   const perProject = [];
-  summary.receipts = { written: 0, skipped_duplicate: 0 };
   for (const s of scanned) {
     if (!s.pending.length) continue;
     try {

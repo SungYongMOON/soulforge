@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   checkNodeVersion, checkLocalhostDefault, checkZeroDependency, checkNoServerEgress,
   checkNoRawMailColumns, checkDataIgnored, checkChecklistDoc, checkDocsPresent,
-  checkTests, checkPacket, checkInspectorEvidence, runGate, LEVEL_CONFIRMS
+  checkTests, checkPacket, checkInspectorEvidence, testRunnerCommand, runGate, LEVEL_CONFIRMS
 } from "../tools/verify_gate.mjs";
 
 test("B1: 게이트 개별 체크 — 통과/고의 실패 양쪽", () => {
@@ -52,6 +52,8 @@ test("B1: 게이트 개별 체크 — 통과/고의 실패 양쪽", () => {
   assert.equal(checkTests(() => "ℹ pass 15\nℹ fail 0").ok, true);
   assert.equal(checkTests(() => "ℹ pass 14\nℹ fail 1").ok, false);
   assert.equal(checkTests(() => { throw new Error("boom"); }).ok, false);
+  const testRunner = testRunnerCommand();
+  assert.ok(testRunner.args.includes("--test-concurrency=1"));
 
   // packet
   assert.equal(checkPacket(null, () => true, () => "").ok, false);
