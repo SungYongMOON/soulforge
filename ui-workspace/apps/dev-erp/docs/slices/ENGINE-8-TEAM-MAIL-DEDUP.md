@@ -1,6 +1,6 @@
 # ENGINE-8-TEAM-MAIL-DEDUP — 팀 메일 사본 통합 (fingerprint)
 
-- status: proposed / parallel_group: G-intake-cycle / depends_on: 없음 (**E1보다 먼저 권장** — E1이 이 그룹키를 재사용)
+- status: blocked (2026-07-02 Codex preflight) / parallel_group: G-intake-cycle / depends_on: 없음 (**E1보다 먼저 권장** — E1이 이 그룹키를 재사용)
 - 규모 추정: 공용 유틸 ~150줄 + 배선 ~80줄 + 테스트 ~120줄 (1일)
 
 ## 목적 (1줄)
@@ -44,6 +44,19 @@ owner가 업체 메일을 팀원에게 지시·전체 참조로 전달하면 같
 - [ ] K-5 owner/Codex 결정: 원장에 `메일메시지ID`(provider_message_id)와 `수신역할`(to|cc)
       컬럼 추가 여부. **추가되면 fingerprint 는 폴백으로 강등**되고 정확 매칭 + "TO 수신자 =
       담당 후보" 승격이 가능해진다(데이터는 이미 수집 중 — 사실 4).
+
+### blocked 기록 (2026-07-02 Codex preflight)
+
+- 첫 착수 게이트는 아직 닫을 수 없다. 로컬에서 확인 가능한 runtime/metadata 표면
+  (`_workmeta/**/reports/메일_이력/메일_이력.csv`, `ui-workspace/apps/dev-erp/data/dev-erp.db`)
+  은 21컬럼 원장 형식이며 `메일메시지ID`/`수신역할` 컬럼이 없다.
+- 같은 `정규화제목+발신자` 기준의 다중 메일함 후보는 현재 DB 518행 중 2그룹뿐이었다.
+  그중 1그룹만 10분 이내(9.53분)였고, 다른 1그룹은 동일 발송 표본으로 볼 수 없는 장기 편차였다.
+  P00-000_INBOX 435행은 다중 메일함 후보 0그룹, P26-014 79행은 2그룹이었다.
+- 따라서 "회사 runtime 원장(팀 수집분) 사본 그룹 표본 10건" 요구를 충족하지 못한다.
+  시각 버킷 크기를 확정하지 않고 E8 구현을 진행하면 추측 쓰기가 되므로 이 패킷은 blocked.
+- owner 질문: 팀 수집분 runtime 원장에서 같은 발송의 메일함별 사본 표본 10건을 제공/export 할지,
+  아니면 K-5(`메일메시지ID`, `수신역할`)를 먼저 확정해 fingerprint 를 폴백 경로로 낮출지 결정 필요.
 
 ## 설계
 

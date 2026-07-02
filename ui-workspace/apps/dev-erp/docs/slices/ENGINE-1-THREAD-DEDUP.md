@@ -25,7 +25,7 @@
 ## 구현 전 확인 (구현자가 반드시 실측)
 
 - [ ] `스레드` 컬럼 채움율 — P26-014 는 100%(79행 전부) 실측 완료(2026-07-02). 대상 과제가
-      다르면 표본 재확인: `powershell "Import-Csv C:\Soulforge\_workmeta\<코드>\reports\메일_이력\메일_이력.csv | ? {$_.스레드} | measure"`
+      다르면 표본 재확인: `powershell "Import-Csv .\_workmeta\<코드>\reports\메일_이력\메일_이력.csv | ? {$_.스레드} | measure"`
       빈 값이 많은 과제면 스레드키 폴백(제목 정규화 + 발신자 도메인)을 함께 구현.
 - [x] (확인완료 2026-07-02) store.appendEvent 는 `event.item_ref` 를 event_log.item_ref 컬럼에
       기록한다 (src/store.mjs 975~989행 실측) — 설계의 item_ref 표기 정확.

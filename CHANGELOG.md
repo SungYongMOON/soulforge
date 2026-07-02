@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP ENGINE-8 team-mail dedup preflight
+
+- Marked ENGINE-8 blocked after metadata-only preflight: available local mail ledgers/runtime DB did not contain the required 10 team-copy sample groups needed to set the receive-time bucket without guessing.
+- Recorded aggregate evidence and the owner decision needed in the slice packet; no raw mail body, attachment, secret, or protected mail content was copied into public docs.
+
 ### dev-ERP intake algorithm optimization (convergence, context, branch hints)
 
 - Added re-judgment convergence: high-confidence LLM `not_task` verdicts are remembered as `no_action` rows in the existing mail disposition receipt channel, so pending scans stop re-submitting the same mail every cycle; medium/low confidence stays re-judgeable, and deleting a receipt row restores re-judgment. Shared writer extracted to `tools/mail_receipts.mjs` (same headers/idempotency as haengbogwan reference receipts).
