@@ -23,7 +23,8 @@
 
 | id | 이름 | 가치 | 난도 | depends_on | parallel_group |
 | --- | --- | --- | --- | --- | --- |
-| E1 | ENGINE-1-THREAD-DEDUP | 중복 할일 방지(스레드 인지) | 하 | 없음 | G-intake-cycle |
+| E8 | ENGINE-8-TEAM-MAIL-DEDUP | **팀 메일 사본 통합** — 1인 메일함 가정 제거(판단·줄기·통계 논리메일당 1회) | 중 | 없음 (E1 이 그룹키 재사용) | G-intake-cycle |
+| E1 | ENGINE-1-THREAD-DEDUP | 중복 할일 방지(스레드 인지) | 하 | E8 권장 | G-intake-cycle |
 | E2 | ENGINE-2-COMPLETION-KNOWLEDGE-FEED | 완료→지식 후보 자동 | 하 | 없음 | G-knowledge-feed |
 | E3 | ENGINE-3-CAPABILITY-ASSIGN | 역량 기반 담당 제안 | 하 | 없음 | G-intake-cycle |
 | E4 | ENGINE-4-FOLLOWUP-SLA | 무응답/기한 팔로업 자동 | 중 | E1(스레드 유틸 재사용) | G-intake-cycle |
@@ -31,7 +32,9 @@
 | E6 | ENGINE-6-KNOWLEDGE-PIPELINE-AUTOMATION | 승인 후 인덱스/위키 자동 + 주간 트리아지 | 중 | 없음 | G-guildhall-rag (Codex 소유 표면) |
 | E7 | ENGINE-7-VOICE-INTAKE | 음성 보관함 → 할일 합류 | 상 | E1 권장 | G-voice |
 
-- **권장 착수 순서**: E1 → E2 → E3 (전부 기존 필드 배선, 각 반나절 규모) → E5(v1) → E4 → E6 → E7.
+- **권장 착수 순서**: **E8** → E1 → E2 → E3 (E8 선행 이유: 팀 수집 체제에서 사본 중복이
+  하루 여러 번 발생 — owner 관측. E8 없이 E1~E5 를 돌리면 사본 수만큼 할일·leaf 가 복제됨)
+  → E5(v1) → E4 → E6 → E7.
 - 같은 parallel_group 은 같은 파일(`tools/auto_intake_cycle.mjs`, `tools/mail_to_task_pending.mjs`)을
   만지므로 **한 작업자 직렬**. 다른 그룹은 병렬 가능.
 
@@ -94,6 +97,10 @@ cd ../../.. ; npm.cmd run validate                                      # 루트
 - 완료 루프(fruit)는 no-op: store.mjs approveProposal completion_digest 빈 동작,
   활성화 계획 = docs/architecture/guild_hall/KNOWLEDGE_ASSISTANT_ACTIVATION_PLAN_V0.md
   (owner 결정 D-1~D-5 대기). **이 플랜은 그 결정을 대체하지 않는다.**
+- 팀 메일 사본(E8 근거): 메일소스ID는 메일함 종속 복합키(53자 `provider:계정:폴더_uid` 형태
+  실측 — RFC Message-ID 아님), 스레드 컬럼 채움율 100%(P26-014 79행), 게이트웨이 이벤트
+  스키마(email_event.schema.json)에 provider_message_id/to/cc 가 required 로 실존하나
+  원장 21컬럼에는 미포함(수신자/참조 컬럼 없음 — 헤더 실측).
 
 ## owner 결정 대기 항목 (패킷 진행을 막지 않지만 명시)
 
@@ -103,3 +110,4 @@ cd ../../.. ; npm.cmd run validate                                      # 루트
 | K-2 | E4 팔로업 기본 정책(무응답 판정 N일, 대상 메일함) | E4 의 기본값 — 패킷은 보수 기본값 제안 포함 |
 | K-3 | E7 음성 할일 원장 표면(별도 장부 vs 할일_장부 합류) | E7 착수 |
 | K-4 | P24-049 소스카드 3장 승인(요구사양서·작업기술서) | E5 의 LIG SAS 적용 범위 |
+| K-5 | 메일 원장에 `메일메시지ID`(provider_message_id)·`수신역할`(to\|cc) 컬럼 추가 — 게이트웨이가 이미 수집 중(스키마 실측), 원장 표준은 Codex 소유라 조율 필요 | E8 의 정확 매칭·"TO=담당 후보" 승격 (fingerprint 폴백으로는 E8 착수 가능) |
