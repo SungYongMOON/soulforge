@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### dev-ERP mail-to-task auto intake cycle
+
+- Added `tools/auto_intake_cycle.mjs`, an opt-in unattended cycle that chains pending-mail delta extraction, local metadata-only LLM classification, deterministic task-ledger writes (`--auto-open`), and haengbogwan project-context (trunk) refresh after each mail collection.
+- Added `classifyMailForTasks` to the dev-ERP LLM adapter (`src/llm.mjs`): local Ollama JSON-forced classification over mail metadata only (subject/from/mailbox/source id/due hint), with work-type allowlisting, low-confidence quarantine (blank completion criteria blocks auto-open), and injectable backends for tests.
+- Wired an env-gated post-collect hook (`DEV_ERP_AUTO_INTAKE=1`) into `src/mail_collect.mjs` that runs the cycle only when new mail arrived, isolated from collection success; added `dev-erp:auto-intake` npm entry, single-host lock, `data/auto_intake_receipts.jsonl` receipts, and `auto_intake_run` event-log rows.
+- Documented the automation contract and env matrix in `docs/MAIL_TO_TASK_INTAKE.md`; core-LLM-0% and metadata-only boundaries unchanged (worker: claude_fable-5).
+
 ### dev-ERP mail project route backfill
 
 - Added a metadata-only mail project route backfill tool that replays the private mail router against already-ingested `core_mail` rows and moves exact matches out of `P00-000_INBOX` with dry-run/apply modes.

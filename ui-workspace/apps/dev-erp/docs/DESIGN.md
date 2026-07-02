@@ -214,6 +214,11 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
 - 2026-06-19: Codex 할일 스레드 연결 규칙 추가 — 스레드 제목은
   `[과제번호] 할일명`, 저장 정본은 `core_item.id -> codex_thread_id`.
   기존 ERP 챗봇과 할일 전용 Codex 스레드를 분리한다.
+- 2026-07-02 (claude_fable-5): 메일→할일 자동 인입 사이클 추가 (사유: owner 지시
+  "행보관 자동화 단계까지"). 수집 완료 훅(opt-in, DEV_ERP_AUTO_INTAKE) →
+  tools/auto_intake_cycle.mjs → classifyMailForTasks(로컬 Ollama, 메타 전용)
+  → mail_to_task_ledger --auto-open → haengbogwan_run --apply-context(줄기 갱신).
+  코어 LLM 0%·저신뢰 격리·lock·receipts 가드 포함. 상세: MAIL_TO_TASK_INTAKE.md 자동화 절.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 

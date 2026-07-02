@@ -87,8 +87,25 @@ function parseRouteBackfillSummary(stdout) {
   };
 }
 
+// ⑤ 수집 후 자동 인입(opt-in): pending→LLM분류→할일_장부→줄기(project_context) 갱신.
+//    DEV_ERP_AUTO_INTAKE=1 로 켠다. LLM 재판단 비용을 줄이기 위해 신규 유입이 있을 때만 돌리고,
+//    DEV_ERP_AUTO_INTAKE_ALWAYS=1 이면 항상 돌린다. 실패는 수집 성공/실패와 분리(베스트에포트 후속 단계).
+export function autoIntakeConfig(env = process.env) {
+  return {
+    enabled: (() => { const v = String(env.DEV_ERP_AUTO_INTAKE ?? "").trim().toLowerCase(); return v === "1" || v === "true" || v === "yes" || v === "on"; })(),
+    always: (() => { const v = String(env.DEV_ERP_AUTO_INTAKE_ALWAYS ?? "").trim().toLowerCase(); return v === "1" || v === "true" || v === "yes" || v === "on"; })(),
+  };
+}
+
+export function shouldRunAutoIntake(result, cfg = autoIntakeConfig()) {
+  if (!cfg.enabled) return false;
+  if (cfg.always) return true;
+  const newMail = Number(result?.fetch?.new_events ?? 0) + Number(result?.ingest?.new ?? 0) + Number(result?.route_backfill?.moved ?? 0);
+  return newMail > 0;
+}
+
 // store: dev-erp Store. repoRoot: soulforge root(수집기·등록부 cwd). appDir: dev-erp 앱 dir(도구 cwd). dbRel: --db 경로.
-export async function collectAllMailboxes(store, { repoRoot, appDir, dbRel = "data/dev-erp.db", fetchTimeoutMs = 180000, ingestTimeoutMs = 60000, routeBackfillTimeoutMs = 60000, log = () => {} } = {}) {
+export async function collectAllMailboxes(store, { repoRoot, appDir, dbRel = "data/dev-erp.db", fetchTimeoutMs = 180000, ingestTimeoutMs = 60000, routeBackfillTimeoutMs = 60000, autoIntakeTimeoutMs = 300000, log = () => {} } = {}) {
   if (collecting) return { ok: false, error: "already_collecting" };
   collecting = true;
   const started = Date.now();
@@ -145,8 +162,22 @@ export async function collectAllMailboxes(store, { repoRoot, appDir, dbRel = "da
     }
 
     result.ok = result.errors.length === 0;
+
+    // ⑤ 자동 인입 사이클(opt-in, 베스트에포트 — 실패해도 수집 결과(ok)는 바꾸지 않는다)
+    if (shouldRunAutoIntake(result)) {
+      try {
+        const { stdout } = await execFileP("node", ["tools/auto_intake_cycle.mjs", "--db", dbRel, "--apply", "--json"],
+          { cwd: appDir, timeout: autoIntakeTimeoutMs, maxBuffer: 8 * 1024 * 1024 });
+        result.auto_intake = parseJsonLoose(stdout) ?? { raw: "ok" };
+      } catch (e) {
+        result.auto_intake = { error: String(e?.message || e).slice(0, 160) };
+      }
+    } else if (autoIntakeConfig().enabled) {
+      result.auto_intake = { skipped: "no_new_mail" };
+    }
+
     result.elapsed_ms = Date.now() - started;
-    log(`[mail-collect] register=${JSON.stringify(result.register)} fetch=${JSON.stringify(result.fetch)} ingest=${JSON.stringify(result.ingest)} route_backfill=${JSON.stringify(result.route_backfill)} ${result.elapsed_ms}ms`);
+    log(`[mail-collect] register=${JSON.stringify(result.register)} fetch=${JSON.stringify(result.fetch)} ingest=${JSON.stringify(result.ingest)} route_backfill=${JSON.stringify(result.route_backfill)} auto_intake=${JSON.stringify(result.auto_intake ?? null)} ${result.elapsed_ms}ms`);
     return result;
   } finally {
     collecting = false;

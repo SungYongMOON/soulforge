@@ -344,6 +344,101 @@ export async function suggestSplit(item = {}, monsterTypes = [], { provider = "s
   }
 }
 
+// 자동 인입 분류: 메일 메타(제목/발신자/메일함/기한힌트)만 보고 {할일인가 + 필드}를 제안.
+// 스킬 mail_to_task_classify 의 분류 계약(rubric)을 로컬 무인 레인으로 옮긴 것 — 본문·첨부·secret 미전달.
+// 판단은 제안일 뿐: 실제 행 작성은 mail_to_task_ledger(결정적)가, open 승격은 --auto-open 정책이 정한다.
+const INTAKE_WORK_TYPES = ["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"];
+
+export function intakeLlmProvider(env = process.env) {
+  const v = String(env.DEV_ERP_INTAKE_LLM ?? "").trim().toLowerCase();
+  return v === "ollama" ? "ollama" : "none"; // 기본 none: 후보 없이 격리 유지(안전)
+}
+
+function intakeRuntimeConfig(env = process.env) {
+  const base = chatLlmRuntimeConfig(env);
+  return {
+    ...base,
+    model: env.DEV_ERP_INTAKE_MODEL || base.model,
+    timeout_ms: numberEnv(env.DEV_ERP_INTAKE_TIMEOUT_MS, base.timeout_ms, { min: 1000, max: 180000 }),
+  };
+}
+
+function buildMailClassifyPrompt(item) {
+  // 사용자 유입 텍스트(제목 등)는 JSON 인코딩으로 감싸 프롬프트 인젝션을 차단(suggestSplit 과 동일 규칙).
+  const data = JSON.stringify({
+    subject: item.subject ?? "", from: item.from ?? "", received_at: item.received_at ?? "",
+    mailbox: item.mailbox ?? "", due_hint: item.due_hint ?? "",
+  });
+  return `당신은 개발팀 메일을 "할일"로 분류하는 분류기다. 아래 메일 메타데이터(JSON)만 보고 JSON으로만 답하라. 본문은 없다.
+메일: ${data}
+규칙:
+- is_task: 사람/팀의 행동(회신·검토·작성·수정·구매·검증·결정·일정)이 필요한 메일이면 true. 순수 참고(FYI)/뉴스레터/자동알림/광고/수신확인이면 false.
+- 애매하면 is_task=true 로 두되 confidence="low".
+- title: 행동형 할일명 한 줄(한국어). 메일 제목 복사가 아니라 "무엇을 한다" 형태.
+- work_type: 반드시 다음 중 하나: ${INTAKE_WORK_TYPES.join(", ")}.
+- completion_criteria: 이 할일이 끝났다고 판정할 기준 한 문장.
+- due: 제목/기한힌트에 확실한 날짜가 있을 때만 YYYY-MM-DD. 불확실하면 "".
+- confidence: high|medium|low.
+형식만 출력: {"is_task":bool,"title":"...","work_type":"...","completion_criteria":"...","due":"","confidence":"...","reason":"한 문장"}`;
+}
+
+// pending 메일 배열 → mail_to_task_ledger --candidates 입력. generate 주입은 테스트/대체 백엔드용.
+// 저신뢰(low) 판정은 completion_criteria 를 비워 auto-open 을 구조적으로 차단(unclassified 격리)한다.
+export async function classifyMailForTasks(items = [], { provider = "none", generate = null, maxItems = 12, env = process.env } = {}) {
+  const out = { provider, model: null, judged: 0, candidates: {}, skipped: [], errors: [] };
+  const list = (Array.isArray(items) ? items : []).slice(0, Math.max(0, Number(maxItems) || 0));
+  if (!list.length) return { ...out, reason: "no_pending" };
+  if (provider !== "ollama" && !generate) return { ...out, reason: "llm_unavailable" };
+  const runtime = intakeRuntimeConfig(env);
+  out.model = generate ? "injected" : runtime.model;
+  const host = env.OLLAMA_HOST || "http://127.0.0.1:11434";
+  for (const item of list) {
+    const key = String(item?.history_key ?? "").trim();
+    if (!key) continue;
+    out.judged += 1;
+    try {
+      const prompt = buildMailClassifyPrompt(item);
+      let parsed;
+      if (generate) {
+        parsed = await generate(prompt, item);
+      } else {
+        const q = await runQueued(() => fetchOllamaGenerate(host, {
+          model: runtime.model, prompt, stream: false, format: "json", keep_alive: runtime.keep_alive,
+          options: { temperature: 0.1, num_predict: 400 },
+        }, runtime.timeout_ms));
+        if (q?.queued_timeout) { out.skipped.push({ history_key: key, reason: "busy" }); continue; }
+        parsed = JSON.parse(q?.response ?? "{}");
+      }
+      const confRaw = String(parsed?.confidence ?? "").trim().toLowerCase();
+      const confidence = ["high", "medium", "low"].includes(confRaw) ? confRaw : "low";
+      if (parsed?.is_task === false) {
+        out.skipped.push({ history_key: key, reason: "not_task", confidence, note: String(parsed?.reason ?? "").slice(0, 160) });
+        continue;
+      }
+      const wtRaw = String(parsed?.work_type ?? "").trim().toLowerCase();
+      const workType = INTAKE_WORK_TYPES.includes(wtRaw) ? wtRaw : "review"; // 허용목록 밖은 보수적 review
+      const title = String(parsed?.title ?? "").trim().slice(0, 200);
+      let cc = String(parsed?.completion_criteria ?? "").trim().slice(0, 300);
+      if (confidence === "low") cc = "";
+      const due = /^\d{4}-\d{2}-\d{2}$/.test(String(parsed?.due ?? "").trim()) ? String(parsed.due).trim() : "";
+      const reviewReason = [
+        `llm_confidence_${confidence}`,
+        !INTAKE_WORK_TYPES.includes(wtRaw) && wtRaw ? "llm_invalid_work_type" : "",
+      ].filter(Boolean).join("+");
+      const cand = { work_type: workType, review_reason: reviewReason };
+      if (title) cand.title = title;
+      if (cc) cand.completion_criteria = cc;
+      if (due) cand.due = due;
+      if (confidence !== "high") cand.review_status = "needs_review";
+      out.candidates[key] = cand;
+    } catch (e) {
+      out.skipped.push({ history_key: key, reason: "llm_error", note: String(e?.message ?? e).slice(0, 160) });
+      out.errors.push(key);
+    }
+  }
+  return out;
+}
+
 // S6 완료 훅: 완료된 할일의 Codex 대화 로그를 1회 요약 → {완료요약, 다음액션후보, 지식후보}. 제안일 뿐(사람 검토). 외부 egress 없음(로컬 ollama). ollama 미가용/대화없음/오류면 빈 결과로 graceful.
 export async function summarizeCompletion(item = {}, messages = [], { provider = "stub" } = {}) {
   const empty = { summary: "", next_actions: [], knowledge: "" };
