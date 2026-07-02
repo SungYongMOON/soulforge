@@ -136,6 +136,6 @@ node tools/auto_intake_cycle.mjs --project P26-014 --json    # dry-run: knowledg
   - `node tools/auto_intake_cycle.mjs --project P26-014 --json` PASS, dry-run,
     `knowledge_grounding.refs=3`.
   - 전체 직렬 테스트 PASS (384/384).
-  - `node tools/verify_gate.mjs --level 1 --packet C:\Soulforge\_workmeta\P26-014\reports\post_development_review\20260702_dev_erp_engine_5_rag_grounded_judge_review.yaml`
+  - `node tools/verify_gate.mjs --level 1 --packet _workmeta/P26-014/reports/post_development_review/20260702_dev_erp_engine_5_rag_grounded_judge_review.yaml`
     PASS.
   - 루트 `npm.cmd run validate` PASS.

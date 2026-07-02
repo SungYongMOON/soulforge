@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP ENGINE-4 follow-up SLA preflight
+
+- Marked ENGINE-4 blocked after metadata-only preflight: `이벤트유형` aggregates confirm sent/received direction values are available, but K-2 owner policy for no-reply days, target scope, and default assignee is not recorded.
+- Recorded the owner question in the slice packet and left the follow-up scanner unimplemented to avoid Codex choosing operational SLA policy by inference.
+- Normalized the ENGINE-5 verify command note to a repo-relative `_workmeta` packet path so root path-policy validation stays public-safe.
+
 ### dev-ERP ENGINE-5 RAG grounded judge metadata
 
 - Added metadata-only `tools/knowledge_grounding.mjs` for approved source-text index discovery, including nested index field support, project/common scope separation, project-scoped owner-requested P26 RAG eligibility, and a source-text-index-only read boundary.

@@ -1,6 +1,6 @@
 # ENGINE-4-FOLLOWUP-SLA — 무응답·기한 팔로업 자동 후보
 
-- status: proposed (owner 결정 K-2 로 기본 정책 확정 후 착수 권장)
+- status: blocked (2026-07-02 Codex preflight: K-2 owner 정책 미확정)
 - parallel_group: G-intake-cycle / depends_on: E1(스레드 맵 유틸 재사용)
 - 규모 추정: 코드 ~150줄 + 테스트 ~90줄 (1일)
 
@@ -25,12 +25,27 @@
 
 ## 구현 전 확인 (착수 게이트)
 
-- [ ] `이벤트유형` 값 분포 실측:
+- [x] `이벤트유형` 값 분포 실측:
       `powershell "Import-Csv _workmeta\P26-014\reports\메일_이력\메일_이력.csv | group 이벤트유형 | select Count,Name"`
       발신 구분값이 없으면 → 발신 판정 대안: 메일함 계정 == 발신자 매칭. 그것도 불가하면
       이 패킷의 무응답 트랙은 **보류하고 기한 트랙만 진행** (거짓 판정 금지).
 - [ ] K-2 owner 결정: 무응답 판정 일수 N(제안 기본 5영업일 아님 — 달력일 5), 대상 프로젝트 범위,
       팔로업 할일의 기본 담당(원 발신자 제안).
+
+### blocked 기록 (2026-07-02 Codex preflight)
+
+- 첫 착수 게이트는 닫았다. P26-014 메일_이력 metadata 집계에서 발신/수신 구분값이 실측되었다:
+  `mail_sent_existing_history` 19, `mail_sent_outlook_subject_match` 12, `mail_sent` 11,
+  `mail_sent_outlook_reconcile` 3, `mail_sent_user_supplied_msg` 1,
+  `mail_received_existing_history` 20, `mail_received` 9,
+  `mail_received_outlook_folder_reconcile` 3, `mail_received_user_supplied_msg` 1,
+  `mail_draft` 1. 따라서 방향 판정 재사용 조건은 충족한다.
+- 두 번째 착수 게이트는 닫을 수 없다. repo/public docs 검색에서 K-2 는
+  `ENGINE_EXPANSION_MASTER_PLAN_20260702.md` 와 이 패킷의 owner 결정 항목으로만 남아 있고,
+  확정된 무응답 판정 일수 N, 대상 메일함/프로젝트 범위, 기본 담당 정책 기록을 찾지 못했다.
+- owner 질문: E4 기본 정책으로 무응답 판정 N일(제안: 달력일 5), 적용 프로젝트/메일함 범위,
+  팔로업 후보의 기본 담당(제안: 원 발신자)을 확정할지 결정 필요. 이 정책 없이 구현하면
+  운영 대상과 담당자를 Codex 가 임의 확정하게 되어 패킷은 blocked.
 
 ## 설계
 
