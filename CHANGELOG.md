@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP intake algorithm optimization (convergence, context, branch hints)
+
+- Added re-judgment convergence: high-confidence LLM `not_task` verdicts are remembered as `no_action` rows in the existing mail disposition receipt channel, so pending scans stop re-submitting the same mail every cycle; medium/low confidence stays re-judgeable, and deleting a receipt row restores re-judgment. Shared writer extracted to `tools/mail_receipts.mjs` (same headers/idempotency as haengbogwan reference receipts).
+- Added deterministic project-context injection for classification: `buildProjectContextLines` assembles per-project branch-rule keywords plus top `project_context` branch summaries (metadata-only, mojibake labels excluded, 900-char cap) and the classify prompt marks the block as reference data that never overrides rules.
+- Generalized `haengbogwan_run` branch-hint assignment: per-project owner-curated rules file (`rules/haengbogwan_context_hint_rules.json`, shared with the reading lane) takes precedence, with contract-aligned generic Branch Seeds as fallback — removing hardcoded KVDS labels that polluted other projects' context trunks (worker: claude_fable-5).
+
 ### dev-ERP mail-to-task auto intake cycle
 
 - Added `tools/auto_intake_cycle.mjs`, an opt-in unattended cycle that chains pending-mail delta extraction, local metadata-only LLM classification, deterministic task-ledger writes (`--auto-open`), and haengbogwan project-context (trunk) refresh after each mail collection.

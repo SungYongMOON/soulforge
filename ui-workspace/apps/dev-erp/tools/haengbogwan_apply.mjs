@@ -2,7 +2,7 @@
 // Dry-run-by-default haengbogwan apply/report wrapper.
 // Builds metadata-only candidates, delegates ledger mutation to the existing CLI,
 // and reports only bounded metadata.
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -10,10 +10,8 @@ import { fileURLToPath } from "node:url";
 
 import { buildContextPacketForProject } from "./haengbogwan_context_packet.mjs";
 import { buildLedgerCandidatePlan } from "./haengbogwan_candidate_judge.mjs";
-import {
-  HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH,
-  readHandledReceiptKeys,
-} from "./mail_to_task_pending.mjs";
+import { HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH } from "./mail_to_task_pending.mjs";
+import { appendMailReceipts } from "./mail_receipts.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..", "..");
@@ -22,22 +20,6 @@ const LEDGER_TOOL = join(HERE, "mail_to_task_ledger.mjs");
 const DEFAULT_LIMIT = 20;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const CANDIDATE_KEY_REPORT_LIMIT = 100;
-const RECEIPT_HEADERS = [
-  "receipt_key",
-  "history_key",
-  "project_id",
-  "disposition",
-  "status",
-  "handled_at",
-  "reason",
-  "source_event_ref",
-  "source_mail_ref",
-  "source_mail_source_id",
-  "source_lineage_ref",
-  "generation_rule_ref",
-  "generation_run_ref",
-  "body_access",
-];
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -246,15 +228,6 @@ export function ledgerExitCode(result) {
   return 0;
 }
 
-function csvEscape(value) {
-  const raw = String(value ?? "");
-  return /[",\r\n]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
-}
-
-function referenceReceiptPath(workmetaRoot, projectId) {
-  return join(workmetaRoot, projectId, HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH);
-}
-
 function emptyReferenceReceiptResult(referenceOnlySkips) {
   return {
     reference_only_skip_count: referenceOnlySkips.length,
@@ -271,36 +244,20 @@ function writeReferenceOnlyReceipts({
   referenceOnlySkips,
   handledAt,
 }) {
-  const receiptPath = referenceReceiptPath(workmetaRoot, projectId);
-  const existing = readHandledReceiptKeys(receiptPath);
-  const rows = [];
-  let duplicateCount = 0;
-  for (const skip of referenceOnlySkips) {
-    const historyKey = String(skip.history_key || "").trim();
-    if (!historyKey) continue;
-    if (existing.has(historyKey)) {
-      duplicateCount += 1;
-      continue;
-    }
-    existing.add(historyKey);
-    rows.push({
+  const rows = referenceOnlySkips
+    .filter((skip) => String(skip.history_key || "").trim())
+    .map((skip) => ({
       ...skip,
-      receipt_key: `mailreceipt:${historyKey}:reference_only`,
+      receipt_key: `mailreceipt:${String(skip.history_key).trim()}:reference_only`,
       handled_at: handledAt,
-    });
-  }
-  if (rows.length) {
-    mkdirSync(dirname(receiptPath), { recursive: true });
-    const needsHeader = !existsSync(receiptPath);
-    const lines = rows.map((row) => RECEIPT_HEADERS.map((header) => csvEscape(row[header])).join(","));
-    appendFileSync(receiptPath, `${needsHeader ? `${RECEIPT_HEADERS.join(",")}\n` : ""}${lines.join("\n")}\n`, "utf8");
-  }
+    }));
+  const result = appendMailReceipts({ workmetaRoot, projectId, rows });
   return {
     reference_only_skip_count: referenceOnlySkips.length,
-    reference_receipt_written: rows.length,
-    reference_receipt_skipped: duplicateCount,
+    reference_receipt_written: result.written,
+    reference_receipt_skipped: result.skipped_duplicate,
     reference_receipt_write_enabled: true,
-    reference_receipt_relpath: HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH.replace(/\\/g, "/"),
+    reference_receipt_relpath: result.receipt_relpath,
   };
 }
 

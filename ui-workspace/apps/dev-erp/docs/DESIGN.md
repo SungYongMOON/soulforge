@@ -219,6 +219,11 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   tools/auto_intake_cycle.mjs → classifyMailForTasks(로컬 Ollama, 메타 전용)
   → mail_to_task_ledger --auto-open → haengbogwan_run --apply-context(줄기 갱신).
   코어 LLM 0%·저신뢰 격리·lock·receipts 가드 포함. 상세: MAIL_TO_TASK_INTAKE.md 자동화 절.
+- 2026-07-02 2차 (claude_fable-5): 인입 알고리즘 최적화 3건 — ① not_task 고신뢰 판정의
+  no_action 영수증 기억(재판단 루프 수렴, 공용 작성기 tools/mail_receipts.mjs) ② 분류
+  프롬프트에 줄기 메타 요약 주입(맥락 인지 분류) ③ haengbogwan_run 브랜치 힌트를 KVDS
+  하드코딩 → 프로젝트 규칙 파일 우선 + 계약 Branch Seeds 폴백으로 일반화(타 과제 줄기
+  오염 제거). 운영은 Codex 소유, 이 슬라이스는 알고리즘 계층만.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 

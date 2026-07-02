@@ -15,6 +15,8 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
+import { loadContextHintRules } from "./haengbogwan_run.mjs";
+import { appendMailReceipts } from "./mail_receipts.mjs";
 import { scanPending } from "./mail_to_task_pending.mjs";
 
 const execFileP = promisify(execFile);
@@ -45,8 +47,33 @@ export function parseCycleArgs(argv = process.argv.slice(2), env = process.env) 
     fallback: arg("fallback", String(env.DEV_ERP_INTAKE_FALLBACK ?? "skip").trim().toLowerCase() === "deterministic" ? "deterministic" : "skip"),
     knowledge: has("knowledge") || truthyEnv("DEV_ERP_INTAKE_KNOWLEDGE", env),
     skipContext: has("skip-context"),
+    // not_task 고신뢰 판정을 영수증으로 기억(재판단 수렴). --no-receipts 또는 DEV_ERP_INTAKE_RECEIPTS=0 으로 끔.
+    receipts: !has("no-receipts") && String(env.DEV_ERP_INTAKE_RECEIPTS ?? "1").trim() !== "0",
     runId: arg("run-id", `auto_intake_${new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14)}`),
   };
+}
+
+// 분류 입력용 줄기 맥락(메타 요약, 결정적): 프로젝트별 힌트 규칙 키워드 + project_context 상위 branch 요약.
+// 본문 없음 — branch label 은 이미 redacted metadata 표면이다.
+export function buildProjectContextLines(workmetaRoot, projectId, { maxBranches = 6, maxChars = 900 } = {}) {
+  const lines = [];
+  const rules = loadContextHintRules(workmetaRoot, projectId);
+  if (rules.length) {
+    lines.push(`업무 줄기(branch) 후보: ${rules.map((r) => r.branch).slice(0, 8).join(" / ")}`);
+  }
+  try {
+    const csv = readFileSync(join(workmetaRoot, projectId, "project_context", "summaries", "branch_summaries.csv"), "utf8");
+    const rows = csv.split(/\r?\n/).slice(1).filter(Boolean).map((line) => line.split(","));
+    // branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at
+    const top = rows
+      .map((c) => ({ label: String(c[3] ?? "").trim(), sources: Number(c[4]) || 0, open: Number(c[6]) || 0 }))
+      .filter((b) => b.label && !/[�]|ㅇㅇ/.test(b.label)) // 인코딩 깨진 라벨은 맥락에서 제외
+      .sort((a, b) => b.open - a.open || b.sources - a.sources)
+      .slice(0, maxBranches);
+    for (const b of top) lines.push(`진행 중 줄기: ${b.label} (자료 ${b.sources}, 미결 ${b.open})`);
+  } catch { /* 줄기 없음 → 규칙 라인만 */ }
+  let total = 0;
+  return lines.filter((l) => { total += l.length + 1; return total <= maxChars; });
 }
 
 // 단순 파일 락(단일 호스트용). 손상/정지 대비 stale 15분 후 탈취.
@@ -95,17 +122,49 @@ export async function runCycle(opts, deps = {}) {
     summary.pending_total = scanned.reduce((a, s) => a + s.pending.length, 0);
   } catch (e) { summary.errors.push(`pending:${String(e?.message ?? e).slice(0, 120)}`); }
 
-  // 2) LLM 분류(프로젝트별) — provider none 이면 전건 보류
+  // 2) LLM 분류(프로젝트별, 줄기 맥락 주입) — provider none 이면 전건 보류
   const perProject = [];
+  summary.receipts = { written: 0, skipped_duplicate: 0 };
   for (const s of scanned) {
     if (!s.pending.length) continue;
     try {
-      const r = await classify(s.pending, { provider: opts.provider, maxItems: opts.limit });
+      const projectContext = buildProjectContextLines(opts.workmeta, s.project);
+      const r = await classify(s.pending, { provider: opts.provider, maxItems: opts.limit, projectContext });
       summary.judged += r.judged ?? 0;
+      const notTaskRows = [];
+      const pendingByKey = new Map(s.pending.map((p) => [p.history_key, p]));
       for (const skip of r.skipped ?? []) {
-        if (skip.reason === "not_task") summary.skipped.not_task += 1;
-        else if (skip.reason === "busy") summary.skipped.busy += 1;
+        if (skip.reason === "not_task") {
+          summary.skipped.not_task += 1;
+          // 고신뢰 "할일 아님"만 영수증으로 기억 → 다음 사이클 재판단 제외(수렴). medium/low 는 재판단 유지.
+          if (opts.receipts && skip.confidence === "high") {
+            const item = pendingByKey.get(skip.history_key) ?? {};
+            notTaskRows.push({
+              receipt_key: `mailreceipt:${skip.history_key}:no_action`,
+              history_key: skip.history_key,
+              project_id: s.project,
+              disposition: "no_action",
+              status: "auto",
+              handled_at: new Date().toISOString(),
+              reason: `llm_not_task_high${skip.note ? `:${skip.note}` : ""}`,
+              source_event_ref: "",
+              source_mail_ref: `mailcsv:${skip.history_key}`,
+              source_mail_source_id: item.source_id || "",
+              source_lineage_ref: "",
+              generation_rule_ref: "mail_to_task_classify",
+              generation_run_ref: opts.runId,
+              body_access: "metadata_only",
+            });
+          }
+        } else if (skip.reason === "busy") summary.skipped.busy += 1;
         else summary.skipped.llm_error += 1;
+      }
+      if (opts.apply && notTaskRows.length) {
+        const receipt = appendMailReceipts({ workmetaRoot: opts.workmeta, projectId: s.project, rows: notTaskRows });
+        summary.receipts.written += receipt.written;
+        summary.receipts.skipped_duplicate += receipt.skipped_duplicate;
+      } else if (notTaskRows.length) {
+        summary.receipts.planned = (summary.receipts.planned ?? 0) + notTaskRows.length;
       }
       const keys = Object.keys(r.candidates ?? {});
       if (keys.length) perProject.push({ project: s.project, candidates: r.candidates, keys });

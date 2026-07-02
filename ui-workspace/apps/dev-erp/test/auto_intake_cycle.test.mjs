@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
-import { parseCycleArgs, acquireLock, releaseLock, runCycle } from "../tools/auto_intake_cycle.mjs";
+import { parseCycleArgs, acquireLock, releaseLock, runCycle, buildProjectContextLines } from "../tools/auto_intake_cycle.mjs";
+import { branchHintForProject, loadContextHintRules } from "../tools/haengbogwan_run.mjs";
 import { autoIntakeConfig, shouldRunAutoIntake } from "../src/mail_collect.mjs";
 
 const PENDING = [
@@ -167,6 +168,111 @@ test("parseCycleArgs: 기본값과 env 매핑", () => {
   assert.equal(o.limit, 5);
   assert.equal(o.provider, "ollama");
   assert.equal(o.fallback, "deterministic");
+});
+
+test("branchHintForProject: 프로젝트 규칙 우선 → 계약 seed 폴백 → fallback", () => {
+  const rules = [
+    { branch: "KVDS towbody", priority: 100, keywords: ["towbody", "예인몸체"] },
+    { branch: "KVDS SOW", priority: 120, keywords: ["sow"] },
+  ];
+  assert.equal(branchHintForProject("예인몸체 베인 검토 요청", { rules }), "KVDS towbody");
+  assert.equal(branchHintForProject("SOW 초안 회신", { rules }), "KVDS SOW"); // 규칙이 seed(document_response)보다 우선
+  assert.equal(branchHintForProject("수밀케이블 견적 송부", { rules }), "procurement"); // 규칙 미매칭 → 중립 seed
+  assert.equal(branchHintForProject("납품 일정 공유", { rules: [] }), "delivery");
+  assert.equal(branchHintForProject("잡담", { rules: [], fallback: "pending mail" }), "pending mail");
+});
+
+test("loadContextHintRules: 파일 없음/파손은 빈 배열, 정상 파일은 priority 정렬", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-rules-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(loadContextHintRules(root, "P77-000"), []);
+  const rulesDir = join(root, "P77-000", "rules");
+  mkdirSync(rulesDir, { recursive: true });
+  writeFileSync(join(rulesDir, "haengbogwan_context_hint_rules.json"), JSON.stringify({
+    rules: [
+      { enabled: true, priority: 10, event_keywords: ["b"], target_object: "low" },
+      { enabled: true, priority: 90, event_keywords: ["a"], target_object: "high" },
+      { enabled: false, priority: 200, event_keywords: ["x"], target_object: "off" },
+    ],
+  }));
+  const rules = loadContextHintRules(root, "P77-000");
+  assert.deepEqual(rules.map((r) => r.branch), ["high", "low"]);
+  writeFileSync(join(rulesDir, "haengbogwan_context_hint_rules.json"), "{broken");
+  assert.deepEqual(loadContextHintRules(root, "P77-000"), []);
+});
+
+test("buildProjectContextLines: 규칙 branch + 상위 줄기 요약, 깨진 라벨 제외", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ctx-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const proj = join(root, "P77-000");
+  mkdirSync(join(proj, "rules"), { recursive: true });
+  writeFileSync(join(proj, "rules", "haengbogwan_context_hint_rules.json"), JSON.stringify({
+    rules: [{ enabled: true, priority: 1, event_keywords: ["sow"], target_object: "SOW 조율" }],
+  }));
+  mkdirSync(join(proj, "project_context", "summaries"), { recursive: true });
+  writeFileSync(join(proj, "project_context", "summaries", "branch_summaries.csv"),
+    "branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at\n"
+    + "b1,P77-000,k1,센서 검증,32,13,34,2026-06-28\n"
+    + "b2,P77-000,k2,[기ㅇ탐ㅇㅇㅇㅇ] 깨진 라벨,5,0,5,2026-06-28\n"
+    + "b3,P77-000,k3,실무협의,54,37,100,2026-06-28\n");
+  const lines = buildProjectContextLines(root, "P77-000");
+  assert.ok(lines[0].includes("SOW 조율"));
+  assert.ok(lines.some((l) => l.includes("실무협의 (자료 54, 미결 100)")));
+  assert.ok(lines.some((l) => l.includes("센서 검증")));
+  assert.ok(!lines.some((l) => l.includes("깨진 라벨")));
+});
+
+test("classifyMailForTasks: projectContext 가 프롬프트에 주입되고 규칙보다 우선하지 않음이 명시됨", async () => {
+  let seenPrompt = "";
+  await classifyMailForTasks([PENDING[0]], {
+    provider: "ollama",
+    projectContext: ["진행 중 줄기: 센서 검증 (자료 32, 미결 34)"],
+    generate: async (prompt) => { seenPrompt = prompt; return { is_task: false, confidence: "high" }; },
+  });
+  assert.ok(seenPrompt.includes("프로젝트 맥락"));
+  assert.ok(seenPrompt.includes("센서 검증"));
+  assert.ok(seenPrompt.includes("우선하지 않는다"));
+});
+
+test("runCycle apply: 고신뢰 not_task 는 no_action 영수증으로 기억되어 다음 사이클 pending 에서 제외", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-receipt-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeWorkmetaFixture(root);
+  const opts = {
+    apply: true, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-receipt",
+  };
+  const deps = {
+    exec: async () => ({ stdout: "{}" }),
+    classify: async (items) => ({ judged: items.length, candidates: {}, skipped: items.map((i) => ({ history_key: i.history_key, reason: "not_task", confidence: "high", note: "광고" })), errors: [] }),
+    appendEvent: null,
+  };
+  const first = await runCycle(opts, deps);
+  assert.equal(first.skipped.not_task, 1);
+  assert.equal(first.receipts.written, 1);
+  const receiptCsv = join(root, "P99-001", "reports", "haengbogwan_mail_receipts", "mail_receipts.csv");
+  assert.ok(existsSync(receiptCsv));
+  assert.match(readFileSync(receiptCsv, "utf8"), /no_action/);
+  const second = await runCycle({ ...opts, runId: "t-receipt-2" }, deps);
+  assert.equal(second.pending_total, 0, "영수증 기록 후 재판단 없어야 함");
+});
+
+test("runCycle: 중간 신뢰 not_task 는 영수증 없이 pending 유지(재판단 허용)", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-receipt2-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeWorkmetaFixture(root);
+  const summary = await runCycle({
+    apply: true, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-med",
+  }, {
+    exec: async () => ({ stdout: "{}" }),
+    classify: async (items) => ({ judged: items.length, candidates: {}, skipped: items.map((i) => ({ history_key: i.history_key, reason: "not_task", confidence: "medium" })), errors: [] }),
+    appendEvent: null,
+  });
+  assert.equal(summary.receipts.written, 0);
+  assert.ok(!existsSync(join(root, "P99-001", "reports", "haengbogwan_mail_receipts", "mail_receipts.csv")));
 });
 
 test("shouldRunAutoIntake: 신규 유입 있을 때만(ALWAYS 로 상시)", () => {

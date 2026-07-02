@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Single-entry metadata-only haengbogwan run report.
 // Dry-run is the default; --apply delegates writes to haengbogwan_apply.mjs.
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -217,22 +218,55 @@ function historyKeyFromMailHistoryRef(ref) {
   return raw.startsWith("mailcsv:") ? raw.slice("mailcsv:".length) : "";
 }
 
-function branchHintFromText(value, fallback = "task triage") {
+// 브랜치 배정: ① 프로젝트별 owner 큐레이션 규칙(_workmeta/<code>/rules/haengbogwan_context_hint_rules.json,
+// reading 레인과 같은 파일)을 우선 적용 → ② 없으면 계약(PROJECT_CONTEXT_GRAPH_MODEL_V0 Branch Seeds)의
+// 프로젝트 중립 seed 로 폴백. (이전: KVDS 라벨 하드코딩이 모든 프로젝트에 적용되어 타 과제 줄기를 오염시켰음)
+const GENERIC_BRANCH_SEEDS = [
+  { branch: "requirements", pattern: /\bsow\b|statement of work|업무\s*정의|과업|요구사항|요구도|regulation|사양서|규격서|requirement/iu },
+  { branch: "design", pattern: /csci|sdd|설계|도면|drawing|schematic|layout|디자인/iu },
+  { branch: "test", pattern: /시험|테스트|\btest\b|성적서?|시제/iu },
+  { branch: "quality", pattern: /품질|검사|검증|quality|inspection|verification|audit/iu },
+  { branch: "procurement", pattern: /구매|견적|발주|자재|주문|조달|purchase|quote|quotation|\bpo\b/iu },
+  { branch: "delivery", pattern: /납품|납기|출하|delivery|shipment/iu },
+  { branch: "meeting", pattern: /회의|미팅|간담회|착수회의|참석|명단|meeting|kickoff/iu },
+  { branch: "schedule", pattern: /일정|일시|기한|마감|schedule|calendar|deadline/iu },
+  { branch: "document_response", pattern: /회신|답변|응답|문의|질의|공문|reply|response|inquiry/iu },
+  { branch: "risk", pattern: /리스크|위험|이슈|risk|issue/iu },
+];
+
+// rules/haengbogwan_context_hint_rules.json → [{keywords[], branch, priority}] (enabled, priority desc).
+// 파일 없음/파손은 빈 배열(폴백 동작) — 규칙 로드 실패가 실행을 막지 않는다.
+export function loadContextHintRules(workmetaRoot, projectId) {
+  try {
+    const raw = JSON.parse(readFileSync(join(workmetaRoot, projectId, "rules", "haengbogwan_context_hint_rules.json"), "utf8"));
+    return (Array.isArray(raw?.rules) ? raw.rules : [])
+      .filter((r) => r?.enabled !== false && String(r?.target_object ?? "").trim())
+      .map((r) => ({
+        branch: String(r.target_object).trim(),
+        priority: Number(r.priority) || 0,
+        keywords: (Array.isArray(r.event_keywords) ? r.event_keywords : [])
+          .map((k) => String(k ?? "").normalize("NFKC").toLowerCase().trim()).filter(Boolean),
+      }))
+      .filter((r) => r.keywords.length)
+      .sort((a, b) => b.priority - a.priority);
+  } catch {
+    return [];
+  }
+}
+
+export function branchHintForProject(value, { rules = [], fallback = "task triage" } = {}) {
   const text = String(value ?? "").normalize("NFKC").toLowerCase();
   if (!text.trim()) return fallback;
-  if (/\bsow\b|statement of work|업무\s*정의|과업/.test(text)) return "KVDS SOW";
-  if (/sfr|srr|system requirements review|system functional review/.test(text)) return "KVDS SFR/SRR";
-  if (/csci|sdd|\bdd\b|설계\s*기술|상세\s*설계|문서/.test(text)) return "KVDS SE document";
-  if (/예인몸체|베인|vane|슬립링|slip\s*ring|회전방지|towbody|tow body/.test(text)) return "KVDS towbody";
-  if (/품질|검사|검증|시험|성적|quality|verification|test/.test(text)) return "KVDS quality and verification";
-  if (/일정|회의|착수|간담회|명단|참석|schedule|meeting/.test(text)) return "KVDS project schedule";
-  if (/도면|표준화|drawing/.test(text)) return "KVDS drawing package";
-  if (/구매|견적|발주|납품|quote|purchase|delivery/.test(text)) return "KVDS purchase and delivery";
-  if (/kvds|기뢰탐색음탐기|소해함|msh/.test(text)) return "KVDS general";
+  for (const rule of rules) {
+    if (rule.keywords.some((k) => text.includes(k))) return rule.branch;
+  }
+  for (const seed of GENERIC_BRANCH_SEEDS) {
+    if (seed.pattern.test(text)) return seed.branch;
+  }
   return fallback;
 }
 
-function metadataSourceEventToProjectContextEvent(event, { candidateKeys = new Set() } = {}) {
+function metadataSourceEventToProjectContextEvent(event, { candidateKeys = new Set(), rules = [] } = {}) {
   const historyKey = event.history_key || historyKeyFromMailHistoryRef(event.source_refs?.mail_history_ref);
   const actionRequired = historyKey ? candidateKeys.has(historyKey) : false;
   const title = event.subject || event.event_ref || "pending mail";
@@ -243,7 +277,7 @@ function metadataSourceEventToProjectContextEvent(event, { candidateKeys = new S
     project_code: event.project_id || "",
     received_at: event.received_at || "",
     title,
-    branch_hint: branchHintFromText(title, "pending mail"),
+    branch_hint: branchHintForProject(title, { rules, fallback: "pending mail" }),
     summary_hint: [
       "metadata haengbogwan run",
       actionRequired ? "candidate=true" : "candidate=false",
@@ -261,7 +295,7 @@ function metadataSourceEventToProjectContextEvent(event, { candidateKeys = new S
   };
 }
 
-function taskSummaryToProjectContextEvent(task) {
+function taskSummaryToProjectContextEvent(task, rules = []) {
   const reasons = Array.isArray(task.reasons) ? task.reasons : [];
   const actionRequired = !/(done|closed|complete|cancelled|canceled)/i.test(String(task.status || ""));
   const title = task.title || task.task_key || "task ledger item";
@@ -272,7 +306,7 @@ function taskSummaryToProjectContextEvent(task) {
     project_code: task.project_id || "",
     received_at: "",
     title,
-    branch_hint: branchHintFromText(title, "task triage"),
+    branch_hint: branchHintForProject(title, { rules, fallback: "task triage" }),
     summary_hint: [
       "metadata haengbogwan task triage",
       task.status ? `status=${task.status}` : "",
@@ -292,11 +326,11 @@ function taskSummaryToProjectContextEvent(task) {
   };
 }
 
-function buildMetadataRunContextEvents(contextPacket, triageQueue, projectId, candidateKeys) {
+function buildMetadataRunContextEvents(contextPacket, triageQueue, projectId, candidateKeys, rules = []) {
   const mailEvents = (Array.isArray(contextPacket?.source_events) ? contextPacket.source_events : [])
-    .map((event) => metadataSourceEventToProjectContextEvent(event, { candidateKeys }));
+    .map((event) => metadataSourceEventToProjectContextEvent(event, { candidateKeys, rules }));
   const taskEvents = (Array.isArray(triageQueue) ? triageQueue : [])
-    .map((task) => taskSummaryToProjectContextEvent({ ...task, project_id: projectId }));
+    .map((task) => taskSummaryToProjectContextEvent({ ...task, project_id: projectId }, rules));
   return [...mailEvents, ...taskEvents];
 }
 
@@ -310,7 +344,8 @@ function buildMetadataContextReport(snapshot, opts, applyReport, triageQueue) {
     includeKnowledge: true,
   });
   const candidateKeys = new Set(Array.isArray(applyReport.candidate_keys) ? applyReport.candidate_keys : []);
-  const events = buildMetadataRunContextEvents(contextPacket, triageQueue, snapshot.project_id, candidateKeys);
+  const hintRules = loadContextHintRules(opts.workmetaRoot, snapshot.project_id);
+  const events = buildMetadataRunContextEvents(contextPacket, triageQueue, snapshot.project_id, candidateKeys, hintRules);
   return {
     ...runProjectContextUpdate({
       workmetaRoot: opts.workmetaRoot,
