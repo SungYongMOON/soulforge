@@ -16,8 +16,9 @@
    `knowledge_ingest_pipeline_v0/`, `sourcebound_knowledge_packet_operating_loop_v0/`,
    `rag_metadata_refresh_v0/`, `wiki_curation_maintenance_v0/` (디렉토리 실측).
    **새 절차를 발명하지 말고 이 워크플로들의 실행 글루만 만든다.**
-3. guild_hall/rag CLI 에 source-text-index --write, validate-source-text-index,
-   source-text-answer-run 등 명령 존재(guild_hall/rag/README.md 62~87행 조사).
+3. guild_hall/rag CLI 명령 실재(README.md 재검증): source-text-index --write(62행),
+   validate-source-text-index(65행). (source-text-answer-run 은 E5 소비 레인 소관 — 이 패킷
+   범위 밖.)
 4. 승격 판단 권한 경계(불변): LLM/자동화는 지식을 승인·승격할 수 없다
    (AGENT_EXECUTION_CONTRACT claim ceiling). 자동화 대상은 **승인 이후의 결정적 작업만**.
 5. 소스카드에 approval_status 와 rag_permissions(index_build 등) 필드 실존 — "승인됨" 판정의
@@ -25,9 +26,11 @@
 
 ## 구현 전 확인 (Codex)
 
-- [ ] 후보 이벤트의 상태 전이 규칙: status open→accepted_for_review→(승인)→? 의 정본이
-      어느 문서/워크플로에 있는지 (knowledge_candidate_triage_v0 의 workflow.yaml).
-      상태 갱신을 JSONL append(새 이벤트)로 하는지 행 수정인지 — **기존 규칙 준수**.
+- [ ] 후보 이벤트의 상태 전이 규칙 — 검증 결과(2026-07-02): knowledge_candidate_triage_v0 의
+      step_graph.yaml 에 상태 전이 정의가 **없고**, 실데이터(P26-014 2026-06.jsonl)에 존재하는
+      status 값은 open·accepted_for_review 뿐이다. 즉 "승인 이후" 상태(예: indexed / rejected /
+      promoted)는 **신설이 필요한 owner/Codex 결정 사항**이다. 함께 정할 것: JSONL 갱신 방식
+      (append 새 이벤트 권장 — 행 수정 금지), 소스카드 approval_status 와의 매핑 규칙.
 - [ ] 인덱스 빌드 명령의 정확한 인자와 선행 조건(derived_text 준비, HWP→HWPX 전처리 등):
       guild_hall/rag README + 기존 P26-014 인덱스 3개가 어떻게 만들어졌는지 러닝 로그/receipt.
 - [ ] 위키 projection 의 현재 진입점(knowledge_wiki_pipeline_v0)과 입력 요건.

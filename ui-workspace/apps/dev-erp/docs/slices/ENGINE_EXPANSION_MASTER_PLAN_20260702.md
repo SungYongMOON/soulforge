@@ -98,9 +98,16 @@ cd ../../.. ; npm.cmd run validate                                      # 루트
   활성화 계획 = docs/architecture/guild_hall/KNOWLEDGE_ASSISTANT_ACTIVATION_PLAN_V0.md
   (owner 결정 D-1~D-5 대기). **이 플랜은 그 결정을 대체하지 않는다.**
 - 팀 메일 사본(E8 근거): 메일소스ID는 메일함 종속 복합키(53자 `provider:계정:폴더_uid` 형태
-  실측 — RFC Message-ID 아님), 스레드 컬럼 채움율 100%(P26-014 79행), 게이트웨이 이벤트
-  스키마(email_event.schema.json)에 provider_message_id/to/cc 가 required 로 실존하나
-  원장 21컬럼에는 미포함(수신자/참조 컬럼 없음 — 헤더 실측).
+  실측 — RFC Message-ID 아님), 스레드 컬럼 채움율 100%(P26-014 79행). 게이트웨이 이벤트
+  스키마(email_event.schema.json 10·13·14행)에 provider_message_id/to/cc 가 required 로
+  실존하며 데이터는 이미 수집 중 — 다만 원장 표준(soulforge.project_mail_history.private.v1)의
+  21컬럼 정의에 to/cc·메시지ID 컬럼이 없어 원장으로는 흐르지 않는다(K-5).
+- 메일 방향 판정(E4·E8 공용): scan_mail_ledger.mjs 53행 directionOf() 가 이벤트유형·메일함
+  값에 `/발신|보낸|sent|out/i` 매칭으로 in/out 판정 — 이미 존재하므로 재사용(신규 발명 금지).
+  메일_이력에는 발신 이벤트(mail_sent_* 계열)도 포함되므로 pending 소비자는 발신 필터 필요.
+- 적대 검증 이력: 2026-07-02 패킷 8종 콜드스타트 검증(4 리뷰어) 수행 — blocker 1·major 5·
+  minor 7 을 각 패킷에 정정 반영 완료, 핵심 사실 23건 confirmed. 정정 표식은 각 패킷의
+  "정정(검증 반영)"/"확인완료" 문구.
 
 ## owner 결정 대기 항목 (패킷 진행을 막지 않지만 명시)
 

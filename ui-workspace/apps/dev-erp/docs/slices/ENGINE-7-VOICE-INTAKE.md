@@ -28,15 +28,18 @@
 - (a) 할일_장부.csv 에 합류하되 할일키 네임스페이스 `voicetask:<세션ID>` 신설
   — 장점: ERP autosync 재사용. 단점: 원장 스키마 정본(Codex 소유) 조율 필요.
 - (b) 별도 `음성_할일_장부.csv` — 장점: 기존 계약 불변. 단점: autosync/화면 배선 추가.
-- 제안 기본: **(a)**, autosync 의 신규 행 import 가 할일키 접두에 무관한지 확인 후.
+- 제안 기본: **(a)** — 기술 전제는 확인 완료(autosync 는 할일키 접두 무관, 위 확인완료 항목).
+  남은 것은 원장 스키마 정본(Codex 소유) 조율과 owner 승인뿐이며, 결정 시 이 파일에 기록한다.
 
 ## 구현 전 확인
 
-- [ ] source_event_draft.yaml 의 실제 필드 전체(제목 유사 필드, 발화 요약이 메타로 존재하는지 —
-      transcript 본문이면 사용 금지, 메타 요약 필드만).
-      확인: guild_hall/voice_capture/voice_capture.mjs renderSourceEventDraft().
-- [ ] autosync importTaskLedgerFile 이 할일키 접두(mailtask 외)에 의존하는 로직이 있는지
-      (src/autosync.mjs — 이력키 파싱이 아니라 행 단위 import 면 무관).
+- [x] (확인완료 2026-07-02) source_event_draft 메타 필드: `source_title`(세션명, 402행)·
+      `captured_at`(403행)이 있고 **요약 필드는 없다**. transcript 는 본문이 아니라 참조만
+      (`transcript_ref`/`transcript_txt_ref`, 408행 부근) — 분류 입력의 subject 는 source_title 을
+      사상하고, 요약이 필요하면 별도 메타 생성 단계를 이 패킷 범위에서 설계할 것(본문 접근 금지).
+- [x] (확인완료 2026-07-02) autosync importTaskLedgerFile(src/autosync.mjs 133~177행)에 할일키
+      접두 검증 로직 없음 — 할일키를 core_item id 로 그대로 사용하므로 `voicetask:` 접두 자동
+      지원. 별도 변경 불필요. → K-3 제안 (a)의 기술 전제 충족.
 - [ ] 프로젝트 라우팅: draft 의 project_route_state 가 unclassified 일 때 후보를 어느 과제
       원장에 쓸지 — 라우터 바인딩(mail_project_router.yaml) 키워드 재사용 가능성.
 

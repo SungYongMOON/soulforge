@@ -27,8 +27,14 @@
 
 ## 구현 전 확인
 
-- [ ] haengbogwan_knowledge_candidates.mjs 의 이벤트 append 함수 시그니처와 중복 판정 키
-      (파일 직접 읽기). 재사용 가능하면 import, 불가하면 같은 스키마로 로컬 구현.
+- [x] (확인완료 2026-07-02) haengbogwan_knowledge_candidates.mjs 의
+      buildProjectContextKnowledgeCandidate({projectCode, contextReport, generatedAt}) 가
+      이벤트를 만들며, 실제 이벤트 필드는: schema_version, workflow_id, kind, created_at,
+      project_code, source_context_ref, candidate_kind, short_reason, suggested_route,
+      claim_ceiling, missing_inputs, owner_question, status, boundary, candidate_id
+      (기존 2026-06-17 이벤트와 정합 확인). E2 의 completion_knowledge 이벤트도 **이 필드
+      셋 전체**를 채워 같은 스키마로 append 할 것 — 설계 절 3의 필드 목록은 최소치이며,
+      short_reason/suggested_route/claim_ceiling(observed)/candidate_id 를 추가한다.
 - [ ] completion_log.knowledge 의 실제 JSON 형태 샘플 1건
       (`SELECT knowledge FROM completion_log WHERE knowledge IS NOT NULL LIMIT 1` —
       runtime DB 는 회사 PC 에 있으므로 합성 fixture 로 대체 가능. CHANGELOG 근거:

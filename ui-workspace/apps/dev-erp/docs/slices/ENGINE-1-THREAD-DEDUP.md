@@ -24,11 +24,15 @@
 
 ## 구현 전 확인 (구현자가 반드시 실측)
 
-- [ ] `스레드` 컬럼의 실데이터 채움율: 빈 값이 많으면 스레드키 폴백(제목 정규화: RE:/FW:/[답장] 제거
-      + 발신자 도메인) 규칙을 함께 구현할지 판단. 확인:
-      `powershell "Import-Csv _workmeta\P26-014\reports\메일_이력\메일_이력.csv | ? {$_.스레드} | measure"`
-- [ ] store.appendEvent 의 item 참조 필드명이 `item_ref` 인지 store.mjs appendEvent 정의로 확인
-      (src/store.mjs, "appendEvent" 검색).
+- [ ] `스레드` 컬럼 채움율 — P26-014 는 100%(79행 전부) 실측 완료(2026-07-02). 대상 과제가
+      다르면 표본 재확인: `powershell "Import-Csv C:\Soulforge\_workmeta\<코드>\reports\메일_이력\메일_이력.csv | ? {$_.스레드} | measure"`
+      빈 값이 많은 과제면 스레드키 폴백(제목 정규화 + 발신자 도메인)을 함께 구현.
+- [x] (확인완료 2026-07-02) store.appendEvent 는 `event.item_ref` 를 event_log.item_ref 컬럼에
+      기록한다 (src/store.mjs 975~989행 실측) — 설계의 item_ref 표기 정확.
+- [ ] 발신 메일 제외: pending 에는 발신 이벤트도 포함될 수 있다(E8 검증에서 실측 —
+      이벤트유형에 mail_sent_* 계열 존재). 스레드 맵 조회 전에 발신 메일은 분류 대상에서
+      제외하되 영수증 없이 skip(E4 팔로업 스캐너의 입력으로 보존). 방향 판정은
+      scan_mail_ledger.mjs 53행 directionOf() 패턴(`/발신|보낸|sent|out/i`) 재사용.
 
 ## 설계
 
@@ -58,9 +62,9 @@ no_action 영수증이 의미론적으로 정확하다. 할일이 닫힌 뒤 오
 
 | 파일 | 변경 |
 | --- | --- |
-| tools/mail_to_task_pending.mjs | pendingForProject 출력에 `thread` 필드 추가(메일_이력 `스레드` 컬럼). 기존 소비자는 필드 추가에 영향 없음 |
-| tools/auto_intake_cycle.mjs | runCycle 2)단계 앞에 threadDedupPrePass() 삽입. 순수 함수로 분리(export) + deps 주입 유지. summary 에 `thread_followups` 카운트 |
-| tools/auto_intake_cycle.mjs | openTaskThreadMap(workmeta, project) 순수 함수: 할일_장부 파싱은 pending 도구의 parseCsv 재사용(export 필요 시 최소 export) |
+| tools/mail_to_task_pending.mjs | pendingForProject 출력에 `thread` 필드 추가(메일_이력 `스레드` 컬럼). 기존 소비자는 필드 추가에 영향 없음. **주의(실측): 이 파일의 parseCsv(26행)·readCsvObjects(40행)는 현재 미export** — 옵션 A(권장, 최소 diff): 두 함수에 export 추가 후 E1 코드에서 import. 옵션 B: openTaskThreadMap 내부에 동일 파서 로컬 구현(중복 비용) |
+| tools/auto_intake_cycle.mjs | threadDedupPrePass() 삽입 지점: runCycle 의 `// 1) pending 델타` 블록에서 scanned 배열 확정 직후, `// 2) LLM 분류` 루프 진입 직전 (2026-07-02 코드 기준 116~125행 부근 — 행번호는 변할 수 있으니 **주석 앵커로 찾을 것**). scanned 의 프로젝트별 pending 배열을 받아 걸러진 배열 + followup 목록을 반환하는 순수 함수(export, deps 주입 유지). summary 에 `thread_followups` 카운트 |
+| tools/auto_intake_cycle.mjs | openTaskThreadMap(workmeta, project) 순수 함수: 할일_장부에서 open 계열 행의 소스스레드키→할일키 맵 생성 (파서는 위 옵션 A/B 중 택한 쪽 사용) |
 | test/auto_intake_cycle.test.mjs | 아래 검사 케이스 추가 |
 
 ## 경계 가드

@@ -32,10 +32,16 @@
 
 ```
 새 순수 모듈 tools/knowledge_grounding.mjs:
-1. listProjectKnowledgeRefs(projectCode):
-   _workspaces/knowledge/rag/indexes_local/source_text_indexes/*/source_text_index.json 을 스캔해
-   해당 프로젝트(source_card_ref 경로에 projects/<code>/ 포함) + status=ready 만
-   → [{ index_id, title, domains, source_card_ref, source_card_summary(200자 캡) }]
+1. listProjectKnowledgeRefs(projectCode, { includeCommon = false }):
+   _workspaces/knowledge/rag/indexes_local/source_text_indexes/*/source_text_index.json 을 스캔.
+   ⚠️ 정정(검증 반영): source_card_ref 경로 형식이 **두 종류** 실존한다 —
+   프로젝트 스코프 `_workspaces/knowledge/projects/<code>/source_cards/...`(P26-014 3종)와
+   공용 표준 `_workspaces/knowledge/source_cards/...`(AQAP/방사청 등 다수, projects/ 미포함).
+   판정: 경로에 `projects/<code>/` 포함 = 프로젝트 전용 / 미포함 = 공용 표준.
+   v1 기본은 프로젝트 전용만, includeCommon=true(env DEV_ERP_INTAKE_KNOWLEDGE_COMMON=1)면
+   공용 표준도 포함 — 포함 범위는 owner 정책(공용 표준까지 넣으면 라인 수 급증 주의).
+   status=ready + approval_status 승인 계열만
+   → [{ index_id, title, domains, source_card_ref, source_card_summary(200자 캡), scope: project|common }]
    ⚠️ _workspaces 접근: 정확한 이 경로만. 광역 재귀 금지(깨진 정션 방어).
    파일 없음/정션 미가용 → 빈 배열(standalone PC 안전).
 2. 분류 주입: auto_intake_cycle 의 projectContext 라인에
@@ -58,9 +64,12 @@
 
 - [ ] 인덱스 JSON 에 프로젝트 코드가 source_card_ref 외 다른 필드로도 있는지(더 안정적 키가
       있으면 그걸 사용). 확인: 인덱스 JSON 상위 40줄.
-- [ ] knowledge_access ledger(guild_hall) 에 사용 이벤트를 남기는 기존 계약이 있는지 —
-      있으면 event_log 대신/병행으로 그 표면 사용 (docs/architecture/guild_hall 의
-      knowledge_access 문서 확인). 중복 장부 발명 금지.
+- [ ] knowledge_access ledger(guild_hall) 사용 이벤트 계약 — 검증 결과 guild_hall/knowledge_access
+      README 의 candidate-ledger/ingest-receipt 명령은 metadata-only 기록만 다루고 used_refs
+      양식은 문서에 미명시. 확인 경로: guild_hall/knowledge_access/README.md 전문 +
+      guild_hall/rag 의 answer-run 이 남기는 기록 형식. 중복 장부 회피 정책 택1을 Codex 와 조율:
+      (a) dev-erp event_log 만 쓰고 guild_hall 은 롤업만 / (b) guild_hall ledger 로 통일하고
+      dev-erp 는 그 경로만 읽음.
 
 ## 경계 가드
 
