@@ -4,6 +4,20 @@
 
 - `slices/AX-WORK-EVENT-HOOK.md` - ERP start/completion buttons as canonical metadata-only work lifecycle hooks for AX accumulation.
 
+## Engine expansion slices (2026-07-02, claude_fable-5 — 할일 엔진 확장)
+
+정본 마스터: `slices/ENGINE_EXPANSION_MASTER_PLAN_20260702.md` (순서·의존성·공통 가드·공통 검사 총칙·검증된 기반 사실·owner 결정 K-1~K-4 소유). 각 패킷은 cold-start 실행 가능(검증된 사실 + 구현 전 확인 + 설계 + 검사 방법 + 완료 기준 포함).
+
+- `slices/ENGINE-1-THREAD-DEDUP.md` — 스레드 인지 중복 억제 (G-intake-cycle)
+- `slices/ENGINE-2-COMPLETION-KNOWLEDGE-FEED.md` — 완료 지식 후보 자동 적재 (G-knowledge-feed)
+- `slices/ENGINE-3-CAPABILITY-ASSIGN.md` — 역량 기반 담당 제안 (G-intake-cycle)
+- `slices/ENGINE-4-FOLLOWUP-SLA.md` — 무응답·기한 팔로업 (G-intake-cycle, K-2 선행)
+- `slices/ENGINE-5-RAG-GROUNDED-JUDGE.md` — 판단 근거(RAG) 연결 v1 메타 (G-llm-adapter)
+- `slices/ENGINE-6-KNOWLEDGE-PIPELINE-AUTOMATION.md` — 승인 후 지식 뒷단 자동화+주간 트리아지 (guild_hall/Codex 소유 표면)
+- `slices/ENGINE-7-VOICE-INTAKE.md` — 음성 보관함→할일 합류 (K-3 선행)
+
+권장 순서 E1→E2→E3→E5→E4→E6→E7. 같은 parallel_group 은 같은 파일을 만지므로 한 작업자 직렬.
+
 어느 LLM(Codex/Claude)이든 패킷 하나를 cold 로 실행 가능. 각 패킷 = `slices/<id>.md`.
 정본 빌드맵: MASTER_BUILD_PLAN_20260614.md, 원칙: CAPABILITY_VISION_20260614.md.
 
