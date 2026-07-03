@@ -1,7 +1,7 @@
 # ENGINE-4-FOLLOWUP-SLA — 무응답·기한 팔로업 자동 후보
 
-- status: blocked (2026-07-02 Codex preflight: K-2 owner 정책 미확정)
-- parallel_group: G-intake-cycle / depends_on: E1(스레드 맵 유틸 재사용)
+- status: **unblocked — K-2 확정(2026-07-03 owner), 착수 대기**
+- parallel_group: G-intake-cycle / depends_on: E1(done — 스레드 맵 유틸 재사용), E8 과 같은 파일군이므로 한 작업자 직렬
 - 규모 추정: 코드 ~150줄 + 테스트 ~90줄 (1일)
 
 ## 목적 (1줄)
@@ -29,10 +29,25 @@
       `powershell "Import-Csv _workmeta\P26-014\reports\메일_이력\메일_이력.csv | group 이벤트유형 | select Count,Name"`
       발신 구분값이 없으면 → 발신 판정 대안: 메일함 계정 == 발신자 매칭. 그것도 불가하면
       이 패킷의 무응답 트랙은 **보류하고 기한 트랙만 진행** (거짓 판정 금지).
-- [ ] K-2 owner 결정: 무응답 판정 일수 N(제안 기본 5영업일 아님 — 달력일 5), 대상 프로젝트 범위,
-      팔로업 할일의 기본 담당(원 발신자 제안).
+- [x] **K-2 확정됨 (2026-07-03 owner)** — 아래 "owner 결정 기록" 절 참조.
 
-### blocked 기록 (2026-07-02 Codex preflight)
+## owner 결정 기록 (2026-07-03)
+
+**K-2 확정** — owner 결정(2026-07-03 대화):
+
+1. **무응답 판정 일수 N = 3 (달력일)** — 발신 후 같은 스레드의 수신 메일이 3일간 없으면
+   트랙 A 발동. (owner: "무응답 판정일수는 3일로")
+2. **팔로업 기본 담당 = 원 발신자 제안** — 그 발신 메일을 보낸 사람(발신자/메일함 계정)을
+   `suggested_assignee_ref` 로 제안한다. (owner: 선택지 (a) 확정)
+   **제안만이며 확정 아님** — 팔로업 할일은 needs_review 로 뜨고 담당 칸은 화면에서 변경/
+   해제 가능. 자동 확정 금지(기존 제안 계층 원칙). K-5 승인으로 `수신역할` 컬럼이 생기면
+   발신자 식별 정밀도가 함께 올라간다. 세분화(예: 특정 업체는 구매담당)는 브랜치 규칙
+   (haengbogwan_context_hint_rules.json)으로 후속 덮어쓰기 가능.
+3. **대상 범위(기본값, owner 가 별도로 좁히지 않음)**: 팀 수집 대상 전체 메일함의
+   프로젝트 라우팅된 발신 메일. 폭주 방어는 기존 설계의 사이클당 신규 상한(기본 5) 유지.
+   범위 축소가 필요해지면 env/규칙으로 후속 조정(이 파일에 기록).
+
+### blocked 기록 (2026-07-02 Codex preflight — K-2 확정으로 해소됨)
 
 - 첫 착수 게이트는 닫았다. P26-014 메일_이력 metadata 집계에서 발신/수신 구분값이 실측되었다:
   `mail_sent_existing_history` 19, `mail_sent_outlook_subject_match` 12, `mail_sent` 11,
