@@ -1,5 +1,14 @@
 # CHANGELOG
 
+### dev-ERP B-5 제안 수신함 v1 + 수신역할(to/cc) 배선
+
+- 분류 필요(미분류) 탭을 제안 수신함으로 승격: 제안 근거 첫 노출("왜 이 제안?" 접이식 — route_reason/assignee_reason), 제안 출처 태그(규칙/메일함), 추천담당 계정 resolve(매칭 시 계정 표기 pre-fill, 미매칭 ⚠ 배지), '내게 제안만' 개인 렌즈, 1클릭 승인 시 `review_status='approved'` 동시 기록.
+- 메일↔할일 id 공간 조인: 엔진 산출 `mailcsv:<이력키>` origin 이 메일함 ✓ 승격 표시에 잡히도록 `promotedMailIds` 를 이력키 suffix 조인으로 확장(콜론 포함 이력키 안전).
+- 수신역할(to/cc)·메시지ID core_mail 배선(K-5 이어받기): ALTER 2종 + `scan_mail_ledger` 원장 컬럼 소비 + 재스캔 COALESCE 백필 + 메일 상세 받는사람/참조 배지 — "참조로만 받은 메일 ≠ 직접 요청" 구분 가동.
+- 자동 정리 가시화: `GET /api/mail/receipts`(read-only 메타 집계) + 트리아지 상단 "자동 정리됨: 스레드 귀속 N·사본 정리 M·할일 아님 K" — 화면에 안 뜨는 메일이 삭제가 아님을 표면화.
+- 출처 인간화(내부 접두·해시 숨김, 이력키 클릭→통합검색 점프) + 엔진 이벤트 kind 라벨 6종 등록.
+- 검증: 전체 직렬 416/416 green + 실브라우저 워크스루(카드 렌더·토글·점프·승인 approved, 콘솔 에러 0).
+
 ### dev-ERP mic: insecure-origin guard and error surfacing
 
 - Fixed the real-world LAN case (`http://<ip>:4300`) where browsers hard-block microphone access on non-secure origins: the mic button now disables itself with an explanatory tooltip (chrome://flags insecure-origin exception per client PC, or Tailscale HTTPS) instead of failing silently, and recognition errors (not-allowed / network / audio-capture) surface as Korean toasts.

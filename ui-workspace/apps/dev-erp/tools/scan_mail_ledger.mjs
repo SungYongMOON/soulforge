@@ -73,6 +73,7 @@ function scanLedger(folder) {
   const iKey = idx("이력키"), iEventAt = idx("발생시각"), iProj = idx("프로젝트코드"), iStage = idx("단계");
   const iSrc = idx("메일소스ID"), iRecvAt = idx("메일수신시각"), iSubj = idx("제목"), iFrom = idx("발신자");
   const iEvent = idx("이벤트유형"), iBox = idx("메일함"), iPacket = idx("파일링패킷참조");
+  const iRole = idx("수신역할"), iMsgId = idx("메일메시지ID"); // E8 원장 v1 확장 컬럼(K-5) — legacy 행은 빈 값
   const get = (f, i) => (i >= 0 ? String(f[i] ?? "").trim() : "");
   for (const f of recs.slice(1)) {
     out.rows++;
@@ -99,6 +100,8 @@ function scanLedger(folder) {
       source_ref: get(f, iSrc) || key,
       direction: directionOf(get(f, iEvent), get(f, iBox)),
       mailbox: get(f, iBox),
+      recipient_role: get(f, iRole) || null,        // to|cc (store 가 유효성 정규화)
+      provider_message_id: get(f, iMsgId) || null,  // Message-ID 원문 — 사본/스레드 정확 매칭 근거
       // 원문 미저장: 포인터는 장부(메타) 상대경로 + 소스ID 앵커. 메일 본문은 메일시스템/런타임 싱크에만.
       pointer_ref: `_workmeta/${folder}/reports/메일_이력/메일_이력.csv#${get(f, iSrc) || key}`,
       // 후보 큐 포인터 — apply 때 런타임 이벤트 싱크로 가는 다리(본문 발췌 resolve용). 원장엔 본문 미저장.

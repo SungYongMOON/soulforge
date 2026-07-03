@@ -454,6 +454,11 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .classify-card .cc-msg { color: var(--danger); font-size: 11.5px; }
 .cc-hint { font-size: 11px; color: var(--ok); margin-top: 2px; }
 .source-trace { color: var(--muted); }
+/* B-5 제안 수신함: 근거 접이식·원 메일 점프 */
+.cc-why summary { cursor: pointer; color: var(--muted); }
+.cc-why div { color: var(--muted); margin: 2px 0 0 12px; }
+.mail-jump { cursor: pointer; text-decoration: underline dotted; }
+.mail-jump:hover { color: var(--fg); }
 .pager-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 8px 0; }
 .pager-row .fav-chip:disabled { opacity: .45; cursor: default; }
 /* 메일 등록 폼(베타1) */

@@ -219,6 +219,49 @@ function noteLoginFail(key) {
   if (f.n >= 5) { f.until = Date.now() + 60_000; f.n = 0; }
   LOGIN_FAILS.set(key, f);
 }
+// B-5: 자동 정리 영수증 집계(read-only) — 스레드 귀속/사본 정리로 화면에 안 뜨는 메일이 "몇 건, 왜" 인지.
+// 메타데이터만 반환(사유 버킷·건수·최근시각). 제목/본문/키 원문은 내보내지 않는다. 진실원 = _workmeta 영수증 CSV.
+function splitCsvLine(line) {
+  const out = []; let cur = ""; let q = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (q) { if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i += 1; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ",") { out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+function mailReceiptsSummary(project = null) {
+  const wmRoot = resolve(HERE, "..", "..", "..", "_workmeta");
+  const folders = project
+    ? [String(project)]
+    : (existsSync(wmRoot) ? readdirSync(wmRoot).filter((e) => { try { return statSync(join(wmRoot, e)).isDirectory(); } catch { return false; } }) : []);
+  const summary = { total: 0, by_reason: {}, by_project: {}, last_handled_at: "" };
+  for (const folder of folders) {
+    if (/[\\/]|\.\./.test(folder)) continue; // 경로 탈출 방지(project 파라미터는 폴더명 1단만)
+    const p = join(wmRoot, folder, "reports", "haengbogwan_mail_receipts", "mail_receipts.csv");
+    if (!existsSync(p)) continue;
+    let lines = [];
+    try { lines = readFileSync(p, "utf8").split(/\r?\n/).filter((l) => l.trim()); } catch { continue; }
+    if (lines.length < 2) continue;
+    const header = splitCsvLine(lines[0]);
+    const iReason = header.indexOf("reason"), iAt = header.indexOf("handled_at");
+    let n = 0;
+    for (const line of lines.slice(1)) {
+      const f = splitCsvLine(line);
+      const bucket = String(f[iReason] ?? "").split(":")[0].trim() || "(기타)";
+      summary.by_reason[bucket] = (summary.by_reason[bucket] || 0) + 1;
+      const at = String(f[iAt] ?? "").trim();
+      if (at > summary.last_handled_at) summary.last_handled_at = at;
+      n += 1;
+    }
+    summary.total += n;
+    summary.by_project[folder] = n;
+  }
+  return summary;
+}
 // 세션 쿠키 문자열. HttpOnly+SameSite=Lax, 팀 공개 HTTPS proxy/tunnel 에서는 Secure 옵션 사용.
 function sessionCookie(token, maxAgeSec) {
   const attrs = `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${COOKIE_SECURE ? "; Secure" : ""}`;
@@ -1405,6 +1448,11 @@ const server = createServer(async (req, res) => {
     if (path === "/api/mail/promoted") {
       // 메일 화면 '✓ 할 일' 판정 전용(승격 진실원). 미분류 격리·assignee 스코프 우회.
       return send(res, 200, { ids: store.promotedMailIds(qp.project ?? null) });
+    }
+    if (path === "/api/mail/receipts") {
+      // B-5: 자동 정리 영수증 집계(read-only, 메타데이터만 — 건수/사유 버킷/최근시각).
+      // 진실원 = _workmeta/<code>/reports/haengbogwan_mail_receipts/mail_receipts.csv (이벤트는 best-effort라 영수증이 정본).
+      return send(res, 200, mailReceiptsSummary(qp.project ?? null));
     }
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
     if (path === "/api/doc/recipes") return send(res, 200, docRecipes(qp.mode));

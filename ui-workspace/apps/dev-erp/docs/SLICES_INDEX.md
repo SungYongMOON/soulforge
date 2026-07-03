@@ -3,6 +3,7 @@
 ## Active implementation slices
 
 - `slices/AX-WORK-EVENT-HOOK.md` - ERP start/completion buttons as canonical metadata-only work lifecycle hooks for AX accumulation.
+- `slices/B5-PROPOSAL-INBOX.md` — 제안 수신함 v1 + 수신역할(to/cc) core_mail 배선 (**done 2026-07-03: mailcsv 이력키 조인 + 근거 노출·계정 resolve·1클릭 승인=approved + 영수증 집계 API**, ERP 표면 스레드)
 
 ## Engine expansion slices (2026-07-02, claude_fable-5 — 할일 엔진 확장)
 

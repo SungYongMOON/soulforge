@@ -58,6 +58,7 @@ const state = {
   // P2b: 계정/권한. 익명(account=null)이면 앱은 현행대로(전체 접근·localStorage).
   account: null, perms: [], accountCount: 0, allowSelfRegister: false,
   mineOnly: localStorage.getItem("dev_erp_mine") !== "0", // 내 할 일: 기본 '내 일만'(로그인 시). 익명이면 무시.
+  suggestedMine: localStorage.getItem("dev_erp_sug_mine") === "1", // B-5 제안 수신함: '내게 제안된 것만' 렌즈(분류 필요 탭)
   chatLog: [],
   chatThread: null,
   chatDock: JSON.parse(localStorage.getItem("dev_erp_chat_dock") || "{}"),
@@ -4160,19 +4161,41 @@ function itemAutomationHints(i) {
   const hints = [];
   if (i.review_reason) hints.push(`검토: ${i.review_reason}`);
   if (i.route_candidate) hints.push(`라우트: ${i.route_candidate}${i.route_confidence ? `/${i.route_confidence}` : ""}`);
-  if (i.suggested_assignee_ref) hints.push(`추천담당: ${i.suggested_assignee_ref}${i.assignee_confidence ? `/${i.assignee_confidence}` : ""}`);
+  if (i.suggested_assignee_ref) {
+    // 제안 출처를 assignee_reason 으로 결정적 판별(규칙 기반 vs 메일함 보수 제안) — 신뢰 판단 근거.
+    const src = String(i.assignee_reason ?? "").includes("브랜치 규칙") ? "규칙" : (i.assignee_reason ? "메일함" : "");
+    hints.push(`추천담당: ${i.suggested_assignee_ref}${i.assignee_confidence ? `/${i.assignee_confidence}` : ""}${src ? ` (${src})` : ""}`);
+  }
   if (i.required_role || i.required_capability) hints.push(`필요: ${[i.required_role, i.required_capability].filter(Boolean).join(" · ")}`);
   if (i.sync_state && !["synced", "pending"].includes(i.sync_state)) hints.push(`동기화: ${i.sync_state}${i.sync_error ? ` · ${i.sync_error}` : ""}`);
-  return hints.length ? `<div class="cc-hint">${hints.map(esc).join(" · ")}</div>` : "";
+  const line = hints.length ? `<div class="cc-hint">${hints.map(esc).join(" · ")}</div>` : "";
+  // "왜 이 제안인가" — 접이식 근거(1클릭 승인의 신뢰 기반). 저장돼 있던 route_reason/assignee_reason 첫 노출.
+  const why = [i.route_reason ? `라우트 근거: ${i.route_reason}` : "", i.assignee_reason ? `담당 근거: ${i.assignee_reason}` : ""].filter(Boolean);
+  const whyHtml = why.length ? `<details class="cc-hint cc-why"><summary>왜 이 제안?</summary>${why.map((w) => `<div>${esc(w)}</div>`).join("")}</details>` : "";
+  return line + whyHtml;
 }
 
 function itemSourceTrace(i) {
   const refs = [];
-  if (i.origin_mail_id || i.source_mail_ref) refs.push(`메일 ${i.source_mail_ref || i.origin_mail_id}`);
-  if (i.source_mail_source_id) refs.push(`소스 ${i.source_mail_source_id}`);
-  if (i.source_thread_ref) refs.push(`스레드 ${i.source_thread_ref}`);
-  if (i.source_lineage_ref && i.source_lineage_ref !== i.source_mail_ref) refs.push(`이력 ${i.source_lineage_ref}`);
-  return refs.length ? `<div class="cc-hint source-trace">${refs.map(esc).join(" · ")}</div>` : "";
+  const mailRef = String(i.source_mail_ref || i.origin_mail_id || "");
+  if (mailRef) {
+    // 내부 접두(mailcsv:/<코드>:)는 숨기고 이력키만 — 클릭하면 통합검색으로 원 메일 점프(id 공간 조인과 동일 키).
+    const hk = mailRef.startsWith("mailcsv:") ? mailRef.slice(8) : (mailRef.includes(":") ? mailRef.slice(mailRef.indexOf(":") + 1) : mailRef);
+    refs.push(`<span class="mail-jump" data-mailq="${esc(hk)}" title="통합검색에서 원 메일 찾기">메일 ${esc(hk)}</span>`);
+  }
+  if (i.source_mail_source_id) refs.push(esc(`소스 ${i.source_mail_source_id}`));
+  if (i.source_thread_ref) refs.push(esc(String(i.source_thread_ref).startsWith("thread-fallback:") ? "추정 스레드" : `스레드 ${i.source_thread_ref}`));
+  if (i.source_lineage_ref && i.source_lineage_ref !== i.source_mail_ref) refs.push(esc(`이력 ${i.source_lineage_ref}`));
+  return refs.length ? `<div class="cc-hint source-trace">${refs.join(" · ")}</div>` : "";
+}
+
+// B-5: 추천담당 ref 를 계정(스코프)으로 resolve — 이메일/표시명 대조(대소문자 무시).
+// 미매칭 제안을 그대로 확정하면 '내 할 일' 스코프에 안 잡히므로 치환/경고의 근거가 된다.
+function resolveScopeRef(ref) {
+  const v = String(ref ?? "").trim().toLowerCase();
+  if (!v || !Array.isArray(state._scopes)) return null;
+  return state._scopes.find((s) => s.id !== "team"
+    && ((s.email && String(s.email).toLowerCase() === v) || (s.label && String(s.label).toLowerCase() === v))) || null;
 }
 
 function itemReviewTrace(i) {
@@ -4205,7 +4228,7 @@ async function renderItems() {
   q.set("limit", String(state.itemLimit));
   q.set("offset", String(state.itemOffset));
   const itemPage = asPage(await api(`/api/items?${q}`), state.itemLimit, state.itemOffset);
-  const items = itemPage.rows;
+  let items = itemPage.rows;
   // 칩 count 는 상태 무관(과제+담당자 스코프)에서 서버 count 계약으로 계산 — 페이지 제한과 분리
   const baseQ = new URLSearchParams();
   if (state.projectFilter) baseQ.set("project", state.projectFilter);
@@ -4266,6 +4289,23 @@ async function renderItems() {
   const isTriage = state.statusFilter === "unclassified";
   const isArchived = state.statusFilter === "archived";
   const isDone = state.statusFilter === "done";
+  // B-5 제안 수신함: '내게 제안된 것만' 렌즈(팀 공용 미분류함 데이터는 그대로, 개인 필터만).
+  const sugMineActive = isTriage && state.suggestedMine && !!state.account;
+  if (sugMineActive) {
+    const me = [state.account.email, state.account.display_name, state.account.username]
+      .filter(Boolean).map((s) => String(s).toLowerCase());
+    items = items.filter((i) => {
+      const v = String(i.suggested_assignee_ref ?? i.assignee_ref ?? "").trim().toLowerCase();
+      return v && me.includes(v);
+    });
+  }
+  // 자동 정리 영수증(스레드 귀속·사본 정리) 집계 — "화면에 안 뜨는 메일 = 삭제 아님" 가시화.
+  const receipts = isTriage
+    ? await api(state.projectFilter ? `/api/mail/receipts?project=${encodeURIComponent(state.projectFilter)}` : "/api/mail/receipts").catch(() => null)
+    : null;
+  const autoCleanedNote = receipts && receipts.total
+    ? `<div class="triage-note">${esc(`자동 정리됨(영수증): 스레드 귀속 ${receipts.by_reason?.thread_followup ?? 0} · 팀 사본 정리 ${receipts.by_reason?.duplicate_of ?? 0} · 할일 아님 ${receipts.by_reason?.not_task ?? 0} — 여기 안 뜨는 메일은 삭제가 아니라 기존 할일/대표 메일에 귀속된 것입니다`)}</div>`
+    : "";
   // 분해: 부모가 현재 목록 밖(상태필터/페이지)인 자식 = 평면 처리. done 뷰 포함 모든 뷰 공통으로 먼저 계산(들여쓰기 오인 방지).
   {
     const topIds0 = new Set(items.filter((i) => !i.parent_item_id).map((i) => i.id));
@@ -4312,7 +4352,13 @@ async function renderItems() {
 	  const triageBody = !isTriage ? "" : (items.length
 	    ? `<div class="classify-list">${items.map((i) => {
 	        const suggested = !!(i.work_type || i.completion_criteria); // 제안값이 채워져 옴
-	        const assigneeDefault = i.assignee_ref || i.suggested_assignee_ref || state.account?.display_name || state.account?.username || state.account?.email || "";
+	        // B-5: 추천담당을 계정으로 resolve — 매칭되면 계정 표기로 치환(승인 후 '내 할 일' 스코프에 잡히게),
+	        // 미매칭이면 원문 유지 + 경고 배지(그대로 확정 시 그 팀원 화면에 안 잡히는 함정 방지).
+	        const suggestedRef = i.assignee_ref || i.suggested_assignee_ref || "";
+	        const resolvedScope = resolveScopeRef(suggestedRef);
+	        const assigneeDefault = (resolvedScope ? resolvedScope.label : suggestedRef) || state.account?.display_name || state.account?.username || state.account?.email || "";
+	        const mismatchBadge = suggestedRef && !resolvedScope && Array.isArray(state._scopes) && state._scopes.length
+	          ? `<span class="dim mini" title="추천담당이 계정 목록과 일치하지 않습니다 — 확인 후 담당 칸을 수정하세요">⚠ 계정 미매칭</span>` : "";
 	        return `<div class="classify-card" data-id="${esc(i.id)}">
 	        <div class="cc-head"><span class="cc-title">${esc(i.title)}</span><span class="proj-link label-chip" data-hub="${esc(i.project_id)}">${esc(projDisplay(i.project_id))}</span>
 	          ${suggested ? `<span class="badge mini">${L.cls_suggested ?? "제안"}</span>` : ""}${i.anchor_stage_code ? `<span class="dim mini">SE ${esc(i.anchor_stage_code)}</span>` : ""}</div>
@@ -4324,7 +4370,7 @@ async function renderItems() {
 	          <select class="cc-lk"><option value="">${L.cls_link_kind ?? "연결대상"}…</option>${optsSel(LINK_KIND_LABELS, i.link_kind)}</select>
 	          <input class="cc-ref" placeholder="${L.cls_link_ref ?? "연결 대상(산출물/BOM/업체…)"}" value="${esc(i.link_ref ?? "")}" />
 	          <input class="cc-cc" placeholder="${L.cls_completion ?? "완료기준(무엇을 하면 닫히나)"}" value="${esc(i.completion_criteria ?? "")}" />
-	          <input class="cc-assignee" placeholder="${L.col_assignee ?? "담당"}" value="${esc(assigneeDefault)}" size="10" />
+	          <input class="cc-assignee" placeholder="${L.col_assignee ?? "담당"}" value="${esc(assigneeDefault)}" size="10" />${mismatchBadge}
 	          <button class="fav-chip cc-go">${L.cls_confirm ?? "정식 등록"}</button><span class="cc-msg dim"></span>
 	        </div></div>`; }).join("")}</div>`
 	    : `<div class="empty">${L.cls_none ?? "분류할 항목 없음"}</div>`);
@@ -4340,9 +4386,10 @@ async function renderItems() {
       <select id="fProject"><option value="">${L.project}: ${L.all_label}</option>${opts}</select>
       ${useView ? `<label class="view-scope-lab">${L.view_scope ?? "보기 대상"} ${viewRosterHtml(L)}</label>`
         : (state.account ? `<button id="mineToggle" class="fav-chip ${mine ? "on" : ""}" title="${L.mine_hint ?? ""}">${mine ? L.mine_only : L.mine_all}</button>` : "")}
+      ${isTriage && state.account ? `<button id="sugMineToggle" class="fav-chip ${sugMineActive ? "on" : ""}" title="추천담당이 나인 제안만 표시(제안 수신함 렌즈)">내게 제안만${sugMineActive ? ` ${items.length}` : ""}</button>` : ""}
     </div>
     <div class="status-chips">${chipsHtml}</div>
-    ${triageNote}
+    ${triageNote}${autoCleanedNote}
     ${isArchived ? `<div class="triage-note">${L.archived_note ?? "보관(삭제)된 할 일입니다. '복구'를 누르면 활성 목록으로 되돌아갑니다. 이력은 event_log에 그대로 남습니다."}</div>` : ""}
     ${isDone ? `<div class="triage-note">${L.done_view_note ?? "완료한 일을 완료 날짜별로 모았습니다. 각 항목의 '다시 열기'로 되돌릴 수 있어요."}</div>` : ""}
     ${(isTriage || isArchived) ? "" : `<div class="item-form">
@@ -4360,6 +4407,11 @@ async function renderItems() {
 	    state.mineOnly = !state.mineOnly;
 	    localStorage.setItem("dev_erp_mine", state.mineOnly ? "1" : "0");
 	    resetItemPaging();
+	    render();
+	  });
+	  $("#sugMineToggle")?.addEventListener("click", () => {
+	    state.suggestedMine = !state.suggestedMine;
+	    localStorage.setItem("dev_erp_sug_mine", state.suggestedMine ? "1" : "0");
 	    render();
 	  });
   $("#niAdd")?.addEventListener("click", async () => {
@@ -4405,6 +4457,10 @@ async function renderItems() {
 	  $("#itemNext")?.addEventListener("click", () => { state.itemOffset += state.itemLimit; render(); });
   $("#view").querySelectorAll("[data-hub]").forEach((c) =>
     c.addEventListener("click", () => { state.hubProject = c.dataset.hub; state.hubTab = "overview"; state.view = "project"; render(); })
+  );
+  // B-5: 출처의 '메일 <이력키>' 클릭 → 통합검색으로 원 메일 점프(승격 조인과 같은 이력키 기준).
+  $("#view").querySelectorAll(".mail-jump").forEach((el) =>
+    el.addEventListener("click", () => { state.searchTerm = el.dataset.mailq; state.view = "search"; render(); })
   );
   wireItemActions($("#view"));
   wireTaskCodexButtons($("#view"));
@@ -4852,7 +4908,7 @@ async function renderMail() {
         <button id="mailDetailNext" class="fav-chip mini" ${nextMailId ? "" : "disabled"}>${L.mail_next ?? "다음"} ▶</button>
       </div>
       <h3 class="mail-subject">${esc(sel.subject)}</h3>
-      <div class="mail-meta-line"><span class="mail-from-name">${esc(sel.counterpart ?? "-")}</span><span class="dim"> · ${localTime(sel.at)} · ${sel.direction === "in" ? L.mail_in : L.mail_out}</span>${sel.recipients > 1 ? ` <span class="mail-recip" title="${L.mail_recipients ?? "받은 팀원 수"}">👥 ${sel.recipients}</span>` : ""}${sel.project_id ? ` ${projChip(sel.project_id, clsById.get(sel.project_id))}` : ""}</div>
+      <div class="mail-meta-line"><span class="mail-from-name">${esc(sel.counterpart ?? "-")}</span><span class="dim"> · ${localTime(sel.at)} · ${sel.direction === "in" ? L.mail_in : L.mail_out}</span>${sel.recipient_role === "to" ? ` <span class="badge mini" title="이 메일함이 받는사람(To)으로 수신 — 직접 요청일 가능성이 높음">받는사람</span>` : (sel.recipient_role === "cc" ? ` <span class="badge mini dim" title="이 메일함이 참조(CC)로 수신 — 참고용일 가능성">참조</span>` : "")}${sel.recipients > 1 ? ` <span class="mail-recip" title="${L.mail_recipients ?? "받은 팀원 수"}">👥 ${sel.recipients}</span>` : ""}${sel.project_id ? ` ${projChip(sel.project_id, clsById.get(sel.project_id))}` : ""}</div>
       ${(sel.body_text || sel.body_preview) ? `<div class="mail-body"><div class="mail-body-text">${esc(sel.body_text || sel.body_preview)}</div></div>` : `<div class="mail-body mail-body-empty"><div class="dim mini">${L.mail_body_none ?? "본문 미수집 — 원문은 메일함에서 확인하세요."}</div></div>`}
       <details class="mail-details"><summary class="dim mini">${L.mail_details ?? "세부정보"}</summary>
         <dl>${selKind ? `<div><dt>${L.mail_thread_kind ?? "대화 유형"}</dt><dd>${esc(selKind)} · ${esc(mailThreadSubject(sel.subject))}</dd></div>` : ""}
@@ -6383,6 +6439,8 @@ const EVENT_KIND_LABELS = {
   account_register: "가입", account_deleted: "계정 삭제", account_mailbox_update: "메일함 설정",
   account_mailbox_disconnect: "메일함 해제", account_mailbox_credentials_set: "메일함 인증",
   account_password_reset: "비번 초기화", auth_login: "로그인", auth_bootstrap: "초기 설정",
+  mail_followup: "후속 메일 귀속", auto_intake_run: "자동 인입 실행", followup_due: "회신 없음 신호",
+  due_reminder: "마감 임박 신호", knowledge_feed_run: "지식 후보 적재", auth_login_failed: "로그인 실패",
   auth_password_change: "비번 변경", codex_task_thread_open: "AI 대화 시작", codex_task_message: "AI 대화",
   codex_task_image_attach: "이미지 첨부", codex_task_file_attach: "파일 첨부", embed_register: "시트 연결", schedule_spawn: "일정 생성",
   input_upload: "입력 업로드", input_download: "입력 다운로드",

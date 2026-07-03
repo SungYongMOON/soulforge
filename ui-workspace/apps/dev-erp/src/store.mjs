@@ -843,6 +843,8 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_mail ADD COLUMN body_preview TEXT", // 본문 미리보기. 장부/후보큐에는 본문을 넣지 않고 runtime DB 표시용으로만 둔다.
     "ALTER TABLE core_mail ADD COLUMN body_text TEXT", // 본문 텍스트 저장. HTML/raw/첨부가 아니라 정규화된 텍스트만 runtime DB에 둔다.
     "ALTER TABLE core_mail ADD COLUMN dup_of TEXT", // 다중수신 중복 — 같은 메일이 팀원 mailbox마다 인입될 때 canonical 1건만 보이고 나머지는 dup_of=canonical+hidden=1로 보존(삭제 X). 수신자 수 배지 근거.
+    "ALTER TABLE core_mail ADD COLUMN recipient_role TEXT", // 수신역할 to|cc(빈값=판정불가) — E8 원장 '수신역할' 소비. 참조(cc)메일≠직접수신 구분 근거(B-5).
+    "ALTER TABLE core_mail ADD COLUMN provider_message_id TEXT", // 메일 Message-ID 원문 — 사본/스레드 정확 매칭 근거(E8 원장 '메일메시지ID'). 재스캔 시 legacy 행 자동 백필.
     "ALTER TABLE core_item ADD COLUMN guide_artifact_id INTEGER",
     "ALTER TABLE core_item ADD COLUMN guide_step_key TEXT",
     "ALTER TABLE core_item ADD COLUMN origin_mail_id TEXT",
@@ -1348,19 +1350,22 @@ export class Store {
     const preview = mailBodyPreview(m.body_preview ?? bodyText);
     this.db
       .prepare(
-        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,mailbox,data_label,body_preview,body_text,hidden,dup_of)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `INSERT INTO core_mail(id,project_id,at,direction,subject,counterpart,pointer_ref,stage_code,source_ref,mailbox,data_label,body_preview,body_text,hidden,dup_of,recipient_role,provider_message_id)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id, at=excluded.at, direction=excluded.direction,
            subject=excluded.subject, counterpart=excluded.counterpart, pointer_ref=excluded.pointer_ref,
            stage_code=excluded.stage_code, source_ref=excluded.source_ref,
            mailbox=COALESCE(excluded.mailbox, core_mail.mailbox),
            body_preview=COALESCE(excluded.body_preview, core_mail.body_preview),
-           body_text=COALESCE(excluded.body_text, core_mail.body_text)`
-      ) // ON CONFLICT 은 hidden/dup_of 미터치 → 재수집/재스캔에도 dedup·삭제 상태 보존
+           body_text=COALESCE(excluded.body_text, core_mail.body_text),
+           recipient_role=COALESCE(excluded.recipient_role, core_mail.recipient_role),
+           provider_message_id=COALESCE(excluded.provider_message_id, core_mail.provider_message_id)`
+      ) // ON CONFLICT 은 hidden/dup_of 미터치 → 재수집/재스캔에도 dedup·삭제 상태 보존. 수신역할/메시지ID 는 재스캔 백필 허용(COALESCE)
       .run(m.id, m.project_id ?? null, m.at, m.direction ?? "in", m.subject, m.counterpart ?? null,
         m.pointer_ref ?? null, m.stage_code ?? null, m.source_ref ?? null,
         (m.mailbox ? String(m.mailbox).trim().toLowerCase() : null) || null, m.data_label ?? "synthetic",
-        preview, bodyText, m.hidden ? 1 : 0, m.dup_of ?? null);
+        preview, bodyText, m.hidden ? 1 : 0, m.dup_of ?? null,
+        m.recipient_role ?? null, m.provider_message_id ?? null);
   }
 
   // 메일 삭제(soft-hide): hidden=1 로 목록에서 제외. upsert 가 hidden 을 안 건드려 재수집/재스캔해도 다시 안 보인다.
@@ -1460,7 +1465,8 @@ export class Store {
   // 원문 미저장: 제목·상대·시각·단계·포인터만. project_code 가 미등록이면 stub 과제를 만들되 기존 제목은 덮지 않는다.
   // FK 안전: 모르는 코드는 project_id=null 로 둔다. P00-000_INBOX 는 예약 인박스 프로젝트로 묶는다.
   ingestMail({ id, project_code = null, at = null, subject = null, counterpart = null, stage_code = null,
-               source_ref = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real", body_preview = null, body_text = null }) {
+               source_ref = null, direction = "in", pointer_ref = null, mailbox = null, data_label = "real", body_preview = null, body_text = null,
+               recipient_role = null, provider_message_id = null }) {
     if (!id) return { error: "id_required" };
     const atVal = at && /^\d{4}-\d{2}-\d{2}/.test(at) ? at : null;
     if (!atVal) return { error: "at_required" };
@@ -1497,7 +1503,10 @@ export class Store {
       pointer_ref, stage_code: stage_code || null, source_ref: source_ref || null, mailbox: mailbox || null, data_label,
       body_preview: body_preview ? (String(body_preview).replace(/\r\n?/g, "\n").replace(/[ \t\f\v]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2000) || null) : null, // 발췌만(원문 전체 아님)·줄바꿈 보존(문단·서명 구분, 상세 패널이 메일답게)
       body_text,
-      hidden: dupOf ? 1 : 0, dup_of: dupOf });
+      hidden: dupOf ? 1 : 0, dup_of: dupOf,
+      // 수신역할은 to|cc 만 유효(그 외 판정불가=null). 메시지ID 는 원문 그대로(공백 트림만).
+      recipient_role: ["to", "cc"].includes(String(recipient_role ?? "").trim().toLowerCase()) ? String(recipient_role).trim().toLowerCase() : null,
+      provider_message_id: String(provider_message_id ?? "").trim() || null });
     return { ok: true, id, project_id, isNew, dup_of: dupOf };
   }
 
@@ -2255,7 +2264,24 @@ export class Store {
   promotedMailIds(project = null) {
     const sql = "SELECT DISTINCT origin_mail_id FROM core_item WHERE origin_mail_id IS NOT NULL AND status<>'archived'"
       + (project ? " AND project_id=?" : "");
-    return this.db.prepare(sql).all(...(project ? [project] : [])).map((r) => r.origin_mail_id);
+    const origins = this.db.prepare(sql).all(...(project ? [project] : [])).map((r) => String(r.origin_mail_id));
+    // id 공간 통일(B-5): 엔진 산출 할일의 origin 은 `mailcsv:<이력키>`, core_mail.id 는 `<코드|P00-000_INBOX>:<이력키>`.
+    // 이력키 suffix 로 조인해 자동 인입 할일도 메일함에서 승격(✓) 표시되게 한다. idPrefix 에는 콜론이 없어
+    // instr 첫 콜론 분리가 안전하고, 이력키 내부 콜론은 양쪽 다 보존되므로 정확 일치한다.
+    const ids = [];
+    const historyKeys = [];
+    for (const v of origins) {
+      if (v.startsWith("mailcsv:")) historyKeys.push(v.slice("mailcsv:".length));
+      else ids.push(v);
+    }
+    for (let i = 0; i < historyKeys.length; i += 100) {
+      const chunk = historyKeys.slice(i, i + 100);
+      const rows = this.db.prepare(
+        `SELECT id FROM core_mail WHERE instr(id, ':')>0 AND substr(id, instr(id, ':')+1) IN (${chunk.map(() => "?").join(",")})`
+      ).all(...chunk);
+      for (const r of rows) ids.push(r.id);
+    }
+    return [...new Set(ids)];
   }
 
   // SE 기준점 확정(slice2): 미분류 할 일에 단계/연결대상 + 업무유형을 붙여 정식(open) 승격.
@@ -2275,8 +2301,10 @@ export class Store {
     if (stage_id && !this.db.prepare("SELECT 1 FROM core_stage WHERE id=? AND project_id=?").get(stage_id, item.project_id)) return { error: "stage_not_found" };
     const assignee = assignee_ref !== undefined ? String(assignee_ref ?? "").trim() : item.assignee_ref;
     this.db.prepare(
-      `UPDATE core_item SET status='open', work_type=?, link_kind=?, link_ref=?, completion_criteria=?, stage_id=?, anchor_stage_code=?, assignee_ref=? WHERE id=?`
+      `UPDATE core_item SET status='open', work_type=?, link_kind=?, link_ref=?, completion_criteria=?, stage_id=?, anchor_stage_code=?, assignee_ref=?,
+         review_status='approved' WHERE id=?`
     ).run(wt, lk ?? null, link_ref ?? item.link_ref ?? null, completion_criteria ?? item.completion_criteria ?? null, sid ?? null, asc ?? null, assignee || null, id);
+    // review_status=approved: 사람 1클릭 확정이 곧 검토 승인(B-5 제안 수신함). needs_review 잔량 집계가 소진 지표가 된다.
     this.afterItemWrite?.(id); // autosync Phase 1: 분류 확정 → 할일_장부 write-through
     return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
   }
