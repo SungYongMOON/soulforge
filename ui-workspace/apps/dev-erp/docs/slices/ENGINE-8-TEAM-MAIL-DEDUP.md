@@ -1,6 +1,6 @@
 # ENGINE-8-TEAM-MAIL-DEDUP — 팀 메일 사본 통합 (fingerprint)
 
-- status: blocked (2026-07-02 Codex preflight) / parallel_group: G-intake-cycle / depends_on: 없음 (**E1보다 먼저 권장** — E1이 이 그룹키를 재사용)
+- status: **unblocked — K-5 승인(2026-07-03 owner), 착수 대기** / parallel_group: G-intake-cycle / depends_on: 없음 (E1은 done — E1의 스레드 로직과 이 패킷의 그룹핑을 통합 검증할 것)
 - 규모 추정: 공용 유틸 ~150줄 + 배선 ~80줄 + 테스트 ~120줄 (1일)
 
 ## 목적 (1줄)
@@ -41,11 +41,36 @@ owner가 업체 메일을 팀원에게 지시·전체 참조로 전달하면 같
 - [ ] 이벤트유형의 발신 값 실측: directionOf() 패턴(`/발신|보낸|sent|out/i`,
       scan_mail_ledger.mjs 53행)이 실데이터 값과 매칭되는지 확인 — 안 맞으면 발신 필터를
       메일함 계정==발신자 매칭으로 폴백.
-- [ ] K-5 owner/Codex 결정: 원장에 `메일메시지ID`(provider_message_id)와 `수신역할`(to|cc)
-      컬럼 추가 여부. **추가되면 fingerprint 는 폴백으로 강등**되고 정확 매칭 + "TO 수신자 =
-      담당 후보" 승격이 가능해진다(데이터는 이미 수집 중 — 사실 4).
+- [x] **K-5 승인됨 (2026-07-03 owner)** — 원장에 `메일메시지ID`(provider_message_id)와
+      `수신역할`(to|cc) 컬럼 추가를 **E8 범위에 포함**. fingerprint 는 폴백으로 강등.
+      상세는 아래 "owner 결정 기록" 절.
 
-### blocked 기록 (2026-07-02 Codex preflight)
+## owner 결정 기록 (2026-07-03)
+
+**K-5 승인** — "승인할게 k-5" (owner, 2026-07-03). 적용 범위와 구현 요건:
+
+1. **원장 표준 개정(Codex 소유 표면)**: `soulforge.project_mail_history.private.v1` 원장에
+   `메일메시지ID`(게이트웨이 이벤트의 provider_message_id)·`수신역할`(to|cc, 이 메일함 사본이
+   TO 인지 CC 인지) 컬럼을 추가한다. 개정 방식(v1 호환 컬럼 추가 vs v2 승격)은 원장 표준
+   소유자인 Codex 가 정하고 이 패킷에 기록한다. 게이트웨이 이벤트 스키마에는 두 값이 이미
+   required 로 존재(검증된 사실 4)하므로 fetch 측 신규 수집은 불필요 — writer 의 컬럼
+   flow-through 만 추가한다.
+2. **하위 호환**: 기존 소비자(scan_mail_ledger, pending, ledger)는 헤더명 조회 방식이라
+   컬럼 추가에 안전(실측: firstIx/헤더명 lookup). 기존 행의 두 컬럼은 빈 값 허용 —
+   빈 값 행은 fingerprint 폴백으로 그룹핑한다(과거 데이터 소급 backfill 은 선택,
+   기본은 신규 수집분부터).
+3. **매칭 우선순위 확정**: ① 메일메시지ID 동일 = 같은 논리 메일(주 경로)
+   ② 메시지ID 빈 값(legacy 행)만 fingerprint(제목 정규화+발신자+UTC 시각버킷) 폴백.
+   이로써 blocked 사유였던 "사본 표본 10건 실측으로 버킷 크기 확정" 요구는 **폴백 경로
+   한정의 보조 검증으로 강등** — 표본 미확보가 착수를 막지 않는다(폴백 기본 ±10분 유지,
+   운영 중 receipts 로 오병합 0 확인).
+4. **대표 선정 승격**: pickRepresentative ① 순위(수신역할=to 사본)가 즉시 유효.
+   전달(지시) 메일의 TO 팀원을 suggested_assignee_ref 로 제안(확정 아님, E3 병합 규칙).
+5. **검사 추가**: 기존 검사 방법에 더해 — 메시지ID 동일·메일함 상이 사본 fixture 그룹핑,
+   메시지ID 빈 값 폴백 경로, TO/CC 대표 선정, 컬럼 추가 후 기존 21컬럼 소비자 회귀
+   (scan/pending/ledger 테스트 green) 를 포함한다.
+
+### blocked 기록 (2026-07-02 Codex preflight — K-5 승인으로 해소됨)
 
 - 첫 착수 게이트는 아직 닫을 수 없다. 로컬에서 확인 가능한 runtime/metadata 표면
   (`_workmeta/**/reports/메일_이력/메일_이력.csv`, `ui-workspace/apps/dev-erp/data/dev-erp.db`)
