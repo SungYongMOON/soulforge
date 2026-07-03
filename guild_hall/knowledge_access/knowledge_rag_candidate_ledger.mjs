@@ -126,8 +126,11 @@ const SECRET_LIKE_PATH_PATTERN =
 const RAW_PAYLOAD_EXTENSION_PATTERN =
   /\.(?:msg|eml|pst|ost|doc|docx|xls|xlsx|ppt|pptx|pdf|hwp|hwpx|zip|7z|rar|tar|tgz|gz|bz2|xz|wav|mp3|mp4|m4a|aac|flac|ogg)(?:$|[?#\s])/i;
 const PROJECT_CODE_PATTERN = /^P\d{2}-\d{3}$/;
+// P00-000_INBOX 는 회사 일반/미분류 업무의 예약 코드 — 로드맵 daily ledger 수용 기준이
+// "validator 는 P00-000_INBOX 를 예약 코드로 수용" 을 명시한다(DEVELOPMENT_ROADMAP_V0).
+const RESERVED_INBOX_CODE = "P00-000_INBOX";
 const CANDIDATE_LEDGER_REF_PATTERN =
-  /^_workmeta\/(system|P\d{2}-\d{3})\/knowledge_rag_candidate_ledger\/.+\.jsonl$/;
+  /^_workmeta\/(system|P\d{2}-\d{3}|P00-000_INBOX)\/knowledge_rag_candidate_ledger\/.+\.jsonl$/;
 const SECOND_PRECISION_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 
 export async function appendKnowledgeRagCandidate(options = {}) {
@@ -542,7 +545,8 @@ function normalizeProjectCode(value) {
 }
 
 function isValidProjectCode(value) {
-  return value === "system" || PROJECT_CODE_PATTERN.test(String(value ?? ""));
+  const code = String(value ?? "");
+  return code === "system" || code === RESERVED_INBOX_CODE || PROJECT_CODE_PATTERN.test(code);
 }
 
 function normalizeBoundary(value) {
