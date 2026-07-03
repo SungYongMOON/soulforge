@@ -1,0 +1,58 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { parseTeamFetchSummary, mailboxRegisterToken } from "../src/mail_collect.mjs";
+
+// 생산자 스키마 fixture: guild_hall/gateway/mail_fetch/collector/team_mailboxes.py 의
+// email.fetch.team_mailbox_run.v1 — results[]={mailbox: operator_summary, result: runner 결과}.
+// 이 계약 테스트가 없어서 파서가 3주간 조용히 fetched:0 을 보고했다(표시 버그). 회귀 가드.
+const TEAM_RUN_V1 = JSON.stringify({
+  schema_version: "email.fetch.team_mailbox_run.v1",
+  partial: false,
+  mailboxes_run: 2,
+  total_events: 4,
+  total_new_events: 3,
+  results: [
+    {
+      mailbox: { id: "acc_145a8edf2e", provider: "hiworks", enabled: true },
+      result: { sources: [{ id: "s1", fetched: 3, new_events: 2 }, { id: "s2", fetched: 1, new_events: 1 }], partial: false, errors: [] },
+    },
+    {
+      mailbox: { id: "acc_9805043792", provider: "gmail", enabled: true },
+      result: { sources: [{ id: "s1", fetched: 0, new_events: 0 }], partial: true, errors: ["pop3_timeout"] },
+    },
+  ],
+});
+
+test("mail collect: team_mailbox_run.v1 요약을 result.sources 에서 합산한다", () => {
+  const s = parseTeamFetchSummary(TEAM_RUN_V1);
+  assert.equal(s.mailboxes_run, 2);
+  assert.equal(s.fetched, 4);
+  assert.equal(s.new_events, 3);
+  assert.equal(s.mailboxes_error, 1);
+  assert.equal(s.per_mailbox.length, 2);
+  assert.equal(s.per_mailbox[0].id, "acc_145a8edf2e");
+  assert.equal(s.per_mailbox[0].fetched, 4);
+  assert.equal(s.per_mailbox[0].partial, false);
+  assert.equal(s.per_mailbox[1].partial, true);
+  assert.equal(s.per_mailbox[1].errors, 1);
+});
+
+test("mail collect: 구형 flat 형태(results[].fetched)도 계속 수용한다", () => {
+  const s = parseTeamFetchSummary(JSON.stringify({ results: [{ id: "m1", fetched: 2, new_events: 1 }] }));
+  assert.equal(s.fetched, 2);
+  assert.equal(s.new_events, 1);
+  assert.equal(s.mailboxes_error, 0);
+});
+
+test("mail collect: 에러 JSON 과 파싱 불가 출력은 error 로 보고한다", () => {
+  assert.equal(parseTeamFetchSummary(JSON.stringify({ error: { code: "creds_missing" } })).error, "creds_missing");
+  assert.equal(parseTeamFetchSummary("not json at all").error, "parse_error");
+});
+
+test("mail collect: 등록부 token 은 export_team_mailboxes 의 safeToken 규칙과 일치한다", () => {
+  // 계정 id 가 ASCII 면 그대로, 한글 등 비ASCII 는 email 로 폴백.
+  assert.equal(mailboxRegisterToken("acc_145a8edf2e", "a@b.c"), "acc_145a8edf2e");
+  assert.equal(mailboxRegisterToken("문성용", "seabot@example.test"), "seabot_example.test");
+  assert.equal(mailboxRegisterToken("", ""), "mailbox");
+});

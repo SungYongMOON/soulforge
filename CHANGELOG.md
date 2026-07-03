@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP 메일 수집 요약 파서 수리 — 3주 침묵 fetched:0 표시버그
+
+- parseTeamFetchSummary 가 team_cli `email.fetch.team_mailbox_run.v1` 의 `results[].result.sources[]` 를 읽도록 수정 — 종전엔 존재하지 않는 `r.sources` 를 읽어 실수집량과 무관하게 항상 fetched:0 을 보고했고(수집은 3주간 정상), owner 가 수동 수집 25회로 떠받치는 원인이 됨. 구형 flat 형태 하위호환 유지, `mailboxes_error`/`per_mailbox` 집계 추가로 0건과 계정별 에러를 로그에서 구분.
+- 수집 사이클이 계정별 `mailbox_last_fetch_at`/`mailbox_status(ok|error)` 를 갱신 — 관리자 패널 '마지막 수집' 표시가 처음으로 채워짐. 매핑은 email 이 아니라 등록부 token(safeToken(계정 id)) 기준(operator_summary 에 email 없음).
+- 생산자 스키마 fixture 계약 테스트 신설(`test/mail_collect_summary.test.mjs`) — 생산자(Python)·소비자(JS)가 계약 테스트 없이 따로 진화해 침묵 어긋난 패턴의 재발 가드.
+
 ### dev-ERP E8 핫픽스 — fingerprint 오병합(D1)·limit 순서(D2)
 
 - 제목 prefix 정규식의 구분자 0개 허용(`[:\s\]]*`)을 1개 이상 필수(`+`)로 수정 — "전달사항"→"사항" 식 단어 내부 절단으로 서로 다른 메일이 오병합되어 한쪽이 no_action 영수증으로 비가역 소멸하는 결함(운영 auto-intake 활성화로 심각도 승격). 회귀 테스트 추가.

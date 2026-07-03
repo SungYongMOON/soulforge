@@ -24,18 +24,34 @@ function parseJsonLoose(stdout) {
   return null;
 }
 
-function parseTeamFetchSummary(stdout) {
+export function parseTeamFetchSummary(stdout) {
   const j = parseJsonLoose(stdout);
   if (!j) return { error: "parse_error" };
   if (j.error) return { error: j.error.code || j.error.message || "team_cli_error" };
   const results = Array.isArray(j.results) ? j.results : (Array.isArray(j.mailboxes) ? j.mailboxes : []);
-  let fetched = 0, newEvents = 0;
+  let fetched = 0, newEvents = 0, mailboxesError = 0;
+  const perMailbox = [];
   for (const r of results) {
-    const src = (Array.isArray(r?.sources) ? r.sources[0] : null) || r || {};
-    fetched += Number(src.fetched ?? r?.fetched ?? 0);
-    newEvents += Number(src.new_events ?? r?.new_events ?? 0);
+    // team_cli(email.fetch.team_mailbox_run.v1)는 results[]={mailbox, result:{sources[],partial,errors[]}}.
+    // 종전 파서는 r.sources 를 읽어 실값과 무관하게 항상 0 이었다(3주 침묵 표시버그). 구형 flat 형태도 계속 수용.
+    const run = (r && typeof r === "object" && r.result && typeof r.result === "object") ? r.result : (r ?? {});
+    const sources = Array.isArray(run.sources) ? run.sources : [];
+    const f = sources.length ? sources.reduce((a, s) => a + Number(s?.fetched ?? 0), 0) : Number(run.fetched ?? 0);
+    const n = sources.length ? sources.reduce((a, s) => a + Number(s?.new_events ?? 0), 0) : Number(run.new_events ?? 0);
+    const errCount = Array.isArray(run.errors) ? run.errors.length : 0;
+    const partial = Boolean(run.partial);
+    if (partial || errCount) mailboxesError += 1;
+    fetched += f;
+    newEvents += n;
+    perMailbox.push({ id: String(r?.mailbox?.id ?? r?.id ?? ""), fetched: f, new_events: n, partial, errors: errCount });
   }
-  return { mailboxes_run: j.mailboxes_run ?? results.length, fetched, new_events: newEvents };
+  return { mailboxes_run: j.mailboxes_run ?? results.length, fetched, new_events: newEvents, mailboxes_error: mailboxesError, per_mailbox: perMailbox };
+}
+
+// 등록부 id(export_team_mailboxes 의 safeToken(계정 id, email))와 같은 규칙 — 계정 매핑용.
+export function mailboxRegisterToken(raw, fallback) {
+  const clean = (s) => String(s || "").trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, "_").replace(/^[_\-.]+|[_\-.]+$/g, "").slice(0, 80);
+  return clean(raw) || clean(fallback) || "mailbox";
 }
 
 function parseIngestSummary(stdout) {
@@ -130,6 +146,22 @@ export async function collectAllMailboxes(store, { repoRoot, appDir, dbRel = "da
         { cwd: repoRoot, timeout: fetchTimeoutMs, maxBuffer: 8 * 1024 * 1024 });
       result.fetch = parseTeamFetchSummary(stdout);
       if (result.fetch?.error) result.errors.push("fetch");
+      // 계정별 마지막 수집 시각/상태 반영(관리자 패널 '마지막 수집' 표시·에러 가시화).
+      // 매핑은 email 이 아니라 등록부 token(safeToken(계정 id)) 기준 — operator_summary 에 email 이 없다.
+      if (Array.isArray(result.fetch?.per_mailbox)) {
+        const byToken = new Map(accts.map((a) => [mailboxRegisterToken(a.id, a.email), a]));
+        const fetchedAt = new Date().toISOString();
+        for (const m of result.fetch.per_mailbox) {
+          const acct = byToken.get(String(m.id ?? ""));
+          if (!acct) continue;
+          const failed = m.partial || m.errors > 0;
+          store.updateAccountMailbox(acct.id, {
+            last_fetch_at: fetchedAt,
+            status: failed ? "error" : "ok",
+            last_error: failed ? `partial=${m.partial} errors=${m.errors}` : "",
+          });
+        }
+      }
     } catch (e) { result.fetch = { error: String(e?.message || e).slice(0, 160) }; result.errors.push("fetch"); }
 
     // ③ 원장 → core_mail 인입
