@@ -4,10 +4,10 @@
 // 포트 원칙: runtime checkout 운영본만 4300, 개발/작업본 기본은 4310.
 // 기본: 빈 DB 는 비워 둔다. 데모 데이터는 --fixture 또는 DEV_ERP_LOAD_FIXTURE=1 일 때만 적재.
 import { createServer } from "node:http";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { execFile, execSync } from "node:child_process";
 import { promisify } from "node:util";
-import { readFileSync, existsSync, mkdirSync, statSync, readdirSync, writeFileSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, statSync, readdirSync, writeFileSync, renameSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, extname, resolve, sep, basename } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,6 +52,12 @@ const CODEX_TASK_BRIDGE_CWD = resolve(process.env.DEV_ERP_CODEX_TASK_CWD || ROOT
 const CODEX_TASK_TIMEOUT_MS = Number(process.env.DEV_ERP_CODEX_TASK_TIMEOUT_MS || 120000);
 const CODEX_HOME = resolve(process.env.CODEX_HOME || join(homedir(), ".codex"));
 const CODEX_TASK_ATTACHMENT_ROOT = resolve(process.env.DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT || join(ROOT, "_workspaces", "system", "dev-erp", "codex-task-attachments"));
+// 대화 첨부 저장 규칙(2026-07-03 owner, docs/architecture/workspace/CHAT_ATTACHMENT_STORAGE_V0.md):
+// 정위치 = _workspaces/<과제코드>/대화첨부/<할일명 축약>/ (과제 폴더가 로컬에 있을 때).
+// 과제 폴더 미존재(정션 미마운트 등) 시 폴백 = 위 legacy CODEX_TASK_ATTACHMENT_ROOT.
+const ATTACHMENT_WORKSPACES_ROOT = resolve(process.env.DEV_ERP_ATTACHMENT_WORKSPACES_ROOT || join(ROOT, "_workspaces"));
+const CHAT_ATTACH_DIRNAME = "대화첨부";
+const CHAT_ATTACH_MANIFEST = "첨부_manifest.json";
 const CODEX_TASK_IMAGE_MAX = Number(process.env.DEV_ERP_CODEX_TASK_IMAGE_MAX || 8 * 1024 * 1024);
 const CODEX_TASK_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 // 일반 파일 첨부(2026-07-03 owner 지시): 로컬 _workspaces 첨부 루트에만 저장하고 Codex 는 경로로 읽는다.
@@ -437,13 +443,69 @@ function codexTaskAttachmentDir(itemId) {
   mkdirSync(dir, { recursive: true });
   return dir;
 }
+// ── 대화 첨부 저장 규칙 구현(CHAT_ATTACHMENT_STORAGE_V0) ─────────────────────────
+// 폴더명 = 할일 제목의 Windows-안전 축약(한글 유지, 40자). ID/시각/해시는 manifest 로.
+function chatAttachFolderName(title) {
+  const cleaned = String(title || "").replace(/[<>:"/\\|?*\x00-\x1F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 40).trim();
+  return cleaned.replace(/[. ]+$/g, "") || "";
+}
+function chatAttachShortId(itemId) {
+  return createHash("sha256").update(String(itemId || "")).digest("hex").slice(0, 6);
+}
+function readChatAttachManifest(dir) {
+  try { return JSON.parse(readFileSync(join(dir, CHAT_ATTACH_MANIFEST), "utf8")); } catch { return null; }
+}
+// 규칙 결정표: 과제 워크스페이스 존재 → 대화첨부/<제목축약>(충돌 시 _<짧은ID>) / 미존재 → legacy 폴백.
+function resolveChatAttachmentDir(item) {
+  const projectId = String(item?.project_id || "").trim();
+  const safeProject = projectId.replace(/[^A-Za-z0-9_.-]+/g, "_");
+  const projectDir = safeProject ? resolve(ATTACHMENT_WORKSPACES_ROOT, safeProject) : null;
+  if (projectDir && isInside(ATTACHMENT_WORKSPACES_ROOT, projectDir) && existsSync(projectDir)) {
+    const base = chatAttachFolderName(item.title) || chatAttachShortId(item.id);
+    let dir = resolve(projectDir, CHAT_ATTACH_DIRNAME, base);
+    if (!isInside(projectDir, dir)) return { dir: codexTaskAttachmentDir(item.id), storage: "fallback" };
+    const bound = existsSync(dir) ? readChatAttachManifest(dir) : null;
+    if (bound && String(bound.item_id || "") && String(bound.item_id) !== String(item.id)) {
+      dir = resolve(projectDir, CHAT_ATTACH_DIRNAME, `${base}_${chatAttachShortId(item.id)}`); // 제목 충돌 시만 짧은ID(스레드 제목 규칙 선례)
+      if (!isInside(projectDir, dir)) return { dir: codexTaskAttachmentDir(item.id), storage: "fallback" };
+    }
+    mkdirSync(dir, { recursive: true });
+    return { dir, storage: "project" };
+  }
+  return { dir: codexTaskAttachmentDir(item.id), storage: "fallback" };
+}
+// 파일명 = 원본 유지(안전화만), 중복 시 이름-2.ext 순번. timestamp/uuid 접두 금지(규칙).
+function chatAttachTargetPath(dir, filename) {
+  const ext = extname(filename);
+  const stem = filename.slice(0, filename.length - ext.length) || "파일";
+  for (let n = 1; n <= 200; n += 1) {
+    const name = n === 1 ? `${stem}${ext}` : `${stem}-${n}${ext}`;
+    const target = resolve(dir, name);
+    if (!isInside(dir, target)) return null;
+    if (!existsSync(target)) return { target, name };
+  }
+  return null;
+}
+function appendChatAttachManifest(dir, item, fileRec) {
+  const path = join(dir, CHAT_ATTACH_MANIFEST);
+  const cur = readChatAttachManifest(dir) || {
+    schema: "dev_erp.chat_attachment_manifest.v0",
+    item_id: item.id, project_id: item.project_id || null, title: item.title || "", files: [],
+  };
+  cur.files = Array.isArray(cur.files) ? cur.files : [];
+  cur.files.push(fileRec);
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(cur, null, 2)}\n`);
+  renameSync(tmp, path);
+}
 function localImagesFromAttachments(attachments) {
   const rows = Array.isArray(attachments) ? attachments : [];
   const out = [];
   for (const a of rows) {
     if (a?.type !== "localImage" || !a.path) continue;
     const full = resolve(String(a.path));
-    if (!isInside(CODEX_TASK_ATTACHMENT_ROOT, full)) continue;
+    // 저장 규칙 개정(CHAT_ATTACHMENT_STORAGE_V0): 과제 워크스페이스 대화첨부 경로도 유효.
+    if (!isInside(CODEX_TASK_ATTACHMENT_ROOT, full) && !isInside(ATTACHMENT_WORKSPACES_ROOT, full)) continue;
     if (!CODEX_TASK_IMAGE_EXTS.has(extname(full).toLowerCase())) continue;
     if (!existsSync(full)) continue;
     out.push({ path: full });
@@ -1185,19 +1247,28 @@ const server = createServer(async (req, res) => {
       try {
         const bytes = await readRawBody(req, isImage ? CODEX_TASK_IMAGE_MAX : CODEX_TASK_FILE_MAX);
         if (!bytes.length) return send(res, 400, { error: "empty_body" });
-        const dir = codexTaskAttachmentDir(item.id);
-        if (!dir) return send(res, 400, { error: "unsafe_attachment_dir" });
-        const target = resolve(dir, `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}-${filename}`);
-        if (!isInside(dir, target)) return send(res, 400, { error: "unsafe_attachment_path" });
-        writeFileSync(target, bytes);
+        // 저장 규칙(CHAT_ATTACHMENT_STORAGE_V0): 과제 워크스페이스의 대화첨부/<할일명 축약>/ 우선, 미존재 시 legacy 폴백.
+        const resolved = resolveChatAttachmentDir(item);
+        if (!resolved?.dir) return send(res, 400, { error: "unsafe_attachment_dir" });
+        const picked = chatAttachTargetPath(resolved.dir, filename);
+        if (!picked) return send(res, 400, { error: "unsafe_attachment_path" });
+        writeFileSync(picked.target, bytes);
+        const sha256 = createHash("sha256").update(bytes).digest("hex");
+        appendChatAttachManifest(resolved.dir, item, {
+          name: picked.name, original: filename, size: bytes.length, sha256,
+          at: new Date().toISOString(), actor, kind: isImage ? "localImage" : "localFile",
+        });
         store.appendEvent({
           actor_ref: actor, actor_kind: "human", kind: isImage ? "codex_task_image_attach" : "codex_task_file_attach",
-          item_ref: item.id, project_ref: item.project_id, to: target,
+          item_ref: item.id, project_ref: item.project_id, to: picked.target,
           used_refs: ["items", "codex_task_thread", isImage ? "localImage" : "localFile"], data_label: "meta"
         });
         return send(res, 200, {
           ok: true,
-          attachment: { type: isImage ? "localImage" : "localFile", path: target, name: filename, size: bytes.length, mime: req.headers["content-type"] || null },
+          attachment: {
+            type: isImage ? "localImage" : "localFile", path: picked.target, name: picked.name,
+            size: bytes.length, sha256, storage: resolved.storage, mime: req.headers["content-type"] || null,
+          },
         });
       } catch (error) {
         return send(res, error?.code === "too_large" ? 413 : 500, { error: error?.code || "attachment_failed" });

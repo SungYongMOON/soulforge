@@ -22,6 +22,7 @@
 | `DAILY_WORK_LEDGER_TAXONOMY_V0.md` | 일일 업무장부의 회사 프로젝트, P00 회사 일반업무, Soulforge 하위 장부 분류 기준이다. |
 | `DAILY_WORK_LEDGER_AUTOMATION_V0.md` | daily ledger validator/renderer command surface 와 ledger-only report boundary 를 정의한다. |
 | `SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md` | 사람이 보는 SE 프로젝트 워크스페이스 폴더명을 한글 중심, 짧은 의미 중심으로 정하고 provenance 를 metadata 로 분리하는 규칙이다. |
+| `CHAT_ATTACHMENT_STORAGE_V0.md` | dev-erp Codex 대화 첨부 파일의 저장 위치 결정표(`_workspaces/<과제코드>/대화첨부/<할일명 축약>/` 우선, legacy 폴백)와 manifest/해시/보존 규칙이다. |
 | `HWP_NORMALIZATION_V0.md` | HWP 원문을 직접 읽지 않고 먼저 HWPX 로 정규화한 뒤 HWPX 파생본만 분석하는 전사 처리 순서다. |
 | `PROJECT_START_WORKFLOW_V0.md` | 첫 project task 를 열 때 기록 위치와 bounded 시작 순서를 둔다. |
 | `MISSION_MODEL.md` | monster, mission, artifact, readiness, raw run truth 의 관계를 고정한다. |

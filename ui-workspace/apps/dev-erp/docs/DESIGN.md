@@ -227,6 +227,11 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   프롬프트에 줄기 메타 요약 주입(맥락 인지 분류) ③ haengbogwan_run 브랜치 힌트를 KVDS
   하드코딩 → 프로젝트 규칙 파일 우선 + 계약 Branch Seeds 폴백으로 일반화(타 과제 줄기
   오염 제거). 운영은 Codex 소유, 이 슬라이스는 알고리즘 계층만.
+- 2026-07-03 2차 (claude_fable-5): 대화 첨부 저장 규칙 확정(owner 지시) — 정본:
+  docs/architecture/workspace/CHAT_ATTACHMENT_STORAGE_V0.md. 과제 워크스페이스가 있으면
+  `_workspaces/<과제코드>/대화첨부/<할일명 축약>/원본파일명`(충돌 시만 짧은ID 접미,
+  스레드 제목 규칙 선례) + 폴더당 첨부_manifest.json(item_id 바인딩·sha256·시각),
+  미존재 시 legacy system 루트 폴백. 기존 첨부는 이동하지 않음.
 - 2026-07-03 (claude_fable-5): 대화창 입력 확장(owner 지시) — ① 마이크 받아쓰기:
   챗봇·Codex 할일 대화 입력에 브라우저 SpeechRecognition(ko-KR) 토글 버튼. 서버
   전송/저장 없음(입력창 텍스트로만), 브라우저 벤더 서버 처리 가능성을 툴팁으로 고지,

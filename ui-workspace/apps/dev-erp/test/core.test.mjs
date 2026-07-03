@@ -1209,6 +1209,7 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
     const srv = await startDevErpServer(["--db", join(root, "codex-task.db"), "--port", String(port), "--fixture"], {
       DEV_ERP_CODEX_TASK_BRIDGE: "mock",
       DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT: join(root, "codex-task-attachments"),
+      DEV_ERP_ATTACHMENT_WORKSPACES_ROOT: join(root, "ws"), // 저장 규칙(대화첨부) 검증용 격리 워크스페이스 루트
       DEV_ERP_CODEX_TASK_ALLOW_FAST: "0",
       DEV_ERP_CODEX_TASK_MODEL: "gpt-5.5",
       DEV_ERP_CODEX_TASK_EFFORT: "medium",
@@ -1226,6 +1227,8 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       const items = await (await fetch(`${base}/api/items`)).json();
       const item = items.find((x) => x.status !== "archived");
       assert.ok(item?.id);
+      // 저장 규칙: item 의 과제 워크스페이스 폴더를 만들어 두면 대화첨부/<할일명 축약> 경로가 선택된다.
+      mkdirSync(join(root, "ws", item.project_id), { recursive: true });
 
       let caps = await (await fetch(`${base}/api/codex-task/capabilities`)).json();
       assert.deepEqual(caps.defaults, { model: "gpt-5.5", effort: "medium", service_tier: "" });
@@ -1257,9 +1260,13 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       const upload = await r.json();
       assert.equal(r.status, 200);
       assert.equal(upload.attachment.type, "localImage");
-      assert.match(upload.attachment.path, /codex-task-attachments/);
+      // 저장 규칙(CHAT_ATTACHMENT_STORAGE_V0): 과제 워크스페이스가 있으면 대화첨부/<할일명 축약>/원본명
+      assert.equal(upload.attachment.storage, "project");
+      assert.match(upload.attachment.path, /대화첨부/);
+      assert.match(upload.attachment.path, /test\.png$/); // timestamp/uuid 접두 없이 원본명 유지
+      assert.match(String(upload.attachment.sha256 || ""), /^[0-9a-f]{64}$/);
 
-      // 일반 파일(allowlist) → localFile 저장 + 경로 반환. 실행형 확장자는 400 차단.
+      // 일반 파일(allowlist) → localFile 저장 + manifest 기록. 실행형 확장자는 400 차단.
       r = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=spec.txt`, {
         method: "POST",
         headers: { "content-type": "text/plain" },
@@ -1268,7 +1275,26 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       const fileUpload = await r.json();
       assert.equal(r.status, 200);
       assert.equal(fileUpload.attachment.type, "localFile");
-      assert.match(fileUpload.attachment.path, /codex-task-attachments/);
+      assert.equal(fileUpload.attachment.storage, "project");
+      assert.match(fileUpload.attachment.path, /대화첨부/);
+      const manifest = JSON.parse(readFileSync(join(dirname(fileUpload.attachment.path), "첨부_manifest.json"), "utf8"));
+      assert.equal(manifest.item_id, item.id);
+      assert.equal(manifest.files.length >= 2, true); // 이미지 + 파일
+      assert.ok(manifest.files.every((f) => /^[0-9a-f]{64}$/.test(f.sha256)));
+
+      // 과제 워크스페이스 폴더가 없는 할일 → legacy 폴백 경로
+      const otherItem = items.find((x) => x.status !== "archived" && x.project_id !== item.project_id);
+      if (otherItem) {
+        r = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(otherItem.id)}&filename=fb.txt`, {
+          method: "POST",
+          headers: { "content-type": "text/plain" },
+          body: new TextEncoder().encode("fallback"),
+        });
+        const fb = await r.json();
+        assert.equal(r.status, 200);
+        assert.equal(fb.attachment.storage, "fallback");
+        assert.match(fb.attachment.path, /codex-task-attachments/);
+      }
       r = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=run.exe`, {
         method: "POST",
         headers: { "content-type": "application/octet-stream" },
