@@ -6487,6 +6487,15 @@ function wireMicDictation(btn, input) {
     btn.title = L.mic_unsupported ?? "이 브라우저는 음성 인식을 지원하지 않아요 (Chrome/Edge 사용)";
     return;
   }
+  // HTTP+IP 접속(LAN 파일럿)은 브라우저가 마이크를 원천 차단(secure context 필요).
+  // 해결: 접속 PC Chrome 의 chrome://flags/#unsafely-treat-insecure-origin-as-secure 에
+  // 이 주소를 예외 등록(1회) 하거나, Tailscale HTTPS 경로로 접속.
+  if (!window.isSecureContext) {
+    btn.disabled = true;
+    btn.classList.add("off");
+    btn.title = L.mic_insecure ?? "HTTP 접속에서는 브라우저가 마이크를 차단해요 — 이 PC Chrome의 flags에서 unsafely-treat-insecure-origin-as-secure 에 이 주소를 예외 등록(1회)하거나 HTTPS(Tailscale)로 접속하세요";
+    return;
+  }
   let rec = null;
   const idleTitle = btn.title || (L.chat_mic ?? "음성 입력");
   const setIdle = () => { rec = null; btn.classList.remove("rec"); btn.textContent = "🎤"; btn.title = idleTitle; };
@@ -6510,7 +6519,17 @@ function wireMicDictation(btn, input) {
       }
       input.value = base + finals + interim;
     };
-    rec.onerror = () => { try { rec?.stop(); } catch { /* noop */ } };
+    rec.onerror = (e) => {
+      const code = String(e?.error || "");
+      if (code === "not-allowed" || code === "service-not-allowed") {
+        toast(L.mic_err_not_allowed ?? "마이크 권한이 차단됐어요 — 주소창 자물쇠(사이트 설정)에서 마이크를 허용해 주세요", "error");
+      } else if (code === "network") {
+        toast(L.mic_err_network ?? "음성 인식 서비스 연결 실패 — 네트워크/방화벽 확인", "error");
+      } else if (code === "audio-capture") {
+        toast(L.mic_err_audio ?? "마이크 장치를 찾을 수 없어요 — 연결/OS 입력장치 확인", "error");
+      } // no-speech 등은 조용히 종료
+      try { rec?.stop(); } catch { /* noop */ }
+    };
     rec.onend = () => { setIdle(); input.focus(); };
     try { rec.start(); } catch { setIdle(); }
   });

@@ -1,5 +1,15 @@
 # CHANGELOG
 
+### dev-ERP mic: insecure-origin guard and error surfacing
+
+- Fixed the real-world LAN case (`http://<ip>:4300`) where browsers hard-block microphone access on non-secure origins: the mic button now disables itself with an explanatory tooltip (chrome://flags insecure-origin exception per client PC, or Tailscale HTTPS) instead of failing silently, and recognition errors (not-allowed / network / audio-capture) surface as Korean toasts.
+- Added the mic secure-context requirement and both enable paths to the LAN deploy runbook (§6), plus lexicon parity keys for the new messages (worker: claude_fable-5).
+
+### dev-ERP chat attachment storage rule (project worksite first)
+
+- Established the chat-attachment storage contract (`docs/architecture/workspace/CHAT_ATTACHMENT_STORAGE_V0.md`, owner decision 2026-07-03): attachments belong to the task's project worksite — `_workspaces/<project>/대화첨부/<task-title-40>/original-name` with a per-folder `첨부_manifest.json` (item binding, sha256, timestamps), short-id suffix only on title collision (thread-title precedent), and the legacy `system/dev-erp/codex-task-attachments` root kept as fallback when the project worksite is not mounted; existing files are not migrated.
+- Implemented the rule in the dev-ERP attachment endpoint (project-first resolution, original filenames with `-2` sequencing instead of timestamp/uuid prefixes, sha256 in the response, `storage: project|fallback`), widened localImage validation to accept worksite paths, added `DEV_ERP_ATTACHMENT_WORKSPACES_ROOT` for hermetic tests, and covered project/fallback/manifest/hash branches in core tests (worker: claude_fable-5).
+
 ### dev-ERP chat input: mic dictation + file attachments
 
 - Added a shared browser SpeechRecognition (ko-KR) dictation toggle to both chat inputs (ERP chatbot panel and per-task Codex thread panel): recognized text lands in the input field only (no server upload/storage), the tooltip discloses that browser vendors may process the audio, and unsupported browsers get a disabled button instead of a broken flow.
@@ -22,7 +32,7 @@
 
 ### dev-ERP follow-up cursor and matching hardening
 
-- Hardened followup_scan cursor handling: corrupt cursor files now stop with a bounded cursor_load error instead of being silently treated as empty, and followup_due cursor keys advance only after an event sink accepts the metadata event.
+- Hardened `followup_scan` cursor handling: corrupt cursor files now stop with a bounded `cursor_load` error instead of being silently treated as empty, and `followup_due` cursor keys advance only after an event sink accepts the metadata event.
 - Tightened mail pending project filtering to exact project IDs instead of prefix matches, preventing adjacent project-code collisions during scoped scans.
 
 ### dev-ERP 보안 응급 2건 — 감사 위조 차단 + 로그인 백오프
