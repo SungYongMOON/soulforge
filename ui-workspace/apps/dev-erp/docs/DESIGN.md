@@ -87,7 +87,10 @@
   `/` or `$` skill autocomplete is backed by local `SKILL.md` metadata and is
   sent as real `skill` input. Image attachments are saved under
   `_workspaces/system/dev-erp/codex-task-attachments/**` and sent as `localImage`
-  input. Arbitrary file attachments are not converted into prompt text. Real
+  input. (2026-07-03 owner 지시로 개정) Allowlist 문서/데이터 파일 첨부도 같은 로컬
+  첨부 루트에 `localFile` 로 저장되며, 파일 payload 는 모델 API 로 전송하지 않고
+  메시지에 **로컬 경로 참조**만 붙인다 — Codex 가 read-only 샌드박스에서 그 경로를
+  직접 읽는다. 실행형 등 allowlist 밖 확장자는 400 거부. Real
   collab subagents work in app-server turns, but durable Codex worker-thread
   creation is not exposed to this app-server runtime; `$soulforge-codex-thread-manager`
   therefore reports `thread tools unavailable` unless a future host-side broker
@@ -224,6 +227,13 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   프롬프트에 줄기 메타 요약 주입(맥락 인지 분류) ③ haengbogwan_run 브랜치 힌트를 KVDS
   하드코딩 → 프로젝트 규칙 파일 우선 + 계약 Branch Seeds 폴백으로 일반화(타 과제 줄기
   오염 제거). 운영은 Codex 소유, 이 슬라이스는 알고리즘 계층만.
+- 2026-07-03 (claude_fable-5): 대화창 입력 확장(owner 지시) — ① 마이크 받아쓰기:
+  챗봇·Codex 할일 대화 입력에 브라우저 SpeechRecognition(ko-KR) 토글 버튼. 서버
+  전송/저장 없음(입력창 텍스트로만), 브라우저 벤더 서버 처리 가능성을 툴팁으로 고지,
+  미지원 브라우저는 버튼 비활성. ② Codex 대화 파일 첨부: 이미지 전용 → allowlist
+  문서/데이터 파일로 확장(위 capability rule 개정 참조). 챗봇에는 파일 첨부를 붙이지
+  않음 — 챗봇은 매뉴얼 검색 기반이라 파일을 읽지 않으며, 파일을 읽는 대화 상대는
+  Codex 창이라는 역할 구분 유지.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 

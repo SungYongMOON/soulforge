@@ -54,6 +54,15 @@ const CODEX_HOME = resolve(process.env.CODEX_HOME || join(homedir(), ".codex"));
 const CODEX_TASK_ATTACHMENT_ROOT = resolve(process.env.DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT || join(ROOT, "_workspaces", "system", "dev-erp", "codex-task-attachments"));
 const CODEX_TASK_IMAGE_MAX = Number(process.env.DEV_ERP_CODEX_TASK_IMAGE_MAX || 8 * 1024 * 1024);
 const CODEX_TASK_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
+// 일반 파일 첨부(2026-07-03 owner 지시): 로컬 _workspaces 첨부 루트에만 저장하고 Codex 는 경로로 읽는다.
+// 이미지가 아닌 파일은 localImage 입력이 아니라 메시지의 로컬 경로 참조로 전달(모델 API 로 payload 미전송).
+// 실행형 확장자는 allowlist 밖 → 400.
+const CODEX_TASK_FILE_MAX = Number(process.env.DEV_ERP_CODEX_TASK_FILE_MAX || 25 * 1024 * 1024);
+const CODEX_TASK_FILE_EXTS = new Set([
+  ".pdf", ".txt", ".md", ".csv", ".json", ".xml", ".yaml", ".yml", ".log",
+  ".xlsx", ".xls", ".docx", ".doc", ".pptx", ".ppt", ".hwp", ".hwpx",
+  ".zip", ".7z", ".msg", ".eml", ".step", ".stp", ".dxf",
+]);
 const CODEX_TASK_BASE_MODEL_OPTIONS = ["gpt-5.5", "gpt-5.4", "gpt-5.3"];
 const CODEX_TASK_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
 const CODEX_TASK_ALLOW_FAST = process.env.DEV_ERP_CODEX_TASK_ALLOW_FAST === "1";
@@ -391,9 +400,11 @@ function codexTaskCapabilities() {
     service_tier_options: CODEX_TASK_SERVICE_TIER_OPTIONS,
     attachments: {
       local_image: true,
-      arbitrary_file: false,
+      arbitrary_file: true, // 2026-07-03 owner 지시로 정책 전환 — allowlist 파일을 로컬 저장 + 경로 참조
       max_image_bytes: CODEX_TASK_IMAGE_MAX,
-      note: "Codex app-server input supports localImage paths; arbitrary file upload is intentionally not converted into prompt text.",
+      max_file_bytes: CODEX_TASK_FILE_MAX,
+      file_exts: [...CODEX_TASK_FILE_EXTS].sort(),
+      note: "Images go to Codex as localImage input. Other allowlisted files are stored under the local attachment root and referenced by local path in the message text (Codex reads them from disk; no payload is uploaded to the model API).",
     },
     skills: listCodexSkills(),
   };
@@ -1168,9 +1179,11 @@ const server = createServer(async (req, res) => {
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
       const filename = safeAttachmentFilename(qp.filename || "image");
       const ext = extname(filename).toLowerCase();
-      if (!CODEX_TASK_IMAGE_EXTS.has(ext)) return send(res, 400, { error: "unsupported_image_type" });
+      const isImage = CODEX_TASK_IMAGE_EXTS.has(ext);
+      const isFile = !isImage && CODEX_TASK_FILE_EXTS.has(ext);
+      if (!isImage && !isFile) return send(res, 400, { error: "unsupported_attachment_type" });
       try {
-        const bytes = await readRawBody(req, CODEX_TASK_IMAGE_MAX);
+        const bytes = await readRawBody(req, isImage ? CODEX_TASK_IMAGE_MAX : CODEX_TASK_FILE_MAX);
         if (!bytes.length) return send(res, 400, { error: "empty_body" });
         const dir = codexTaskAttachmentDir(item.id);
         if (!dir) return send(res, 400, { error: "unsafe_attachment_dir" });
@@ -1178,13 +1191,13 @@ const server = createServer(async (req, res) => {
         if (!isInside(dir, target)) return send(res, 400, { error: "unsafe_attachment_path" });
         writeFileSync(target, bytes);
         store.appendEvent({
-          actor_ref: actor, actor_kind: "human", kind: "codex_task_image_attach",
+          actor_ref: actor, actor_kind: "human", kind: isImage ? "codex_task_image_attach" : "codex_task_file_attach",
           item_ref: item.id, project_ref: item.project_id, to: target,
-          used_refs: ["items", "codex_task_thread", "localImage"], data_label: "meta"
+          used_refs: ["items", "codex_task_thread", isImage ? "localImage" : "localFile"], data_label: "meta"
         });
         return send(res, 200, {
           ok: true,
-          attachment: { type: "localImage", path: target, name: filename, size: bytes.length, mime: req.headers["content-type"] || null },
+          attachment: { type: isImage ? "localImage" : "localFile", path: target, name: filename, size: bytes.length, mime: req.headers["content-type"] || null },
         });
       } catch (error) {
         return send(res, error?.code === "too_large" ? 413 : 500, { error: error?.code || "attachment_failed" });

@@ -1233,7 +1233,10 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       assert.deepEqual(caps.effort_options, ["low", "medium", "high", "xhigh"]);
       assert.deepEqual(caps.service_tier_options, []); // 속도(tier) 제거 — codex 기본값
       assert.equal(caps.attachments.local_image, true);
-      assert.equal(caps.attachments.arbitrary_file, false);
+      // 2026-07-03 owner 지시로 정책 전환: allowlist 파일 첨부 허용(로컬 저장 + 경로 참조, payload 미전송)
+      assert.equal(caps.attachments.arbitrary_file, true);
+      assert.ok(Array.isArray(caps.attachments.file_exts) && caps.attachments.file_exts.includes(".pdf"));
+      assert.ok(caps.attachments.max_file_bytes > 0);
       assert.ok(caps.skills.some((s) => s.name === "test-skill"));
 
       let r = await fetch(`${base}/api/codex-task/open`, {
@@ -1255,6 +1258,24 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       assert.equal(r.status, 200);
       assert.equal(upload.attachment.type, "localImage");
       assert.match(upload.attachment.path, /codex-task-attachments/);
+
+      // 일반 파일(allowlist) → localFile 저장 + 경로 반환. 실행형 확장자는 400 차단.
+      r = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=spec.txt`, {
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: new TextEncoder().encode("synthetic spec"),
+      });
+      const fileUpload = await r.json();
+      assert.equal(r.status, 200);
+      assert.equal(fileUpload.attachment.type, "localFile");
+      assert.match(fileUpload.attachment.path, /codex-task-attachments/);
+      r = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=run.exe`, {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream" },
+        body: new Uint8Array([0x4d, 0x5a]),
+      });
+      assert.equal(r.status, 400);
+      assert.equal((await r.json()).error, "unsupported_attachment_type");
 
       r = await fetch(`${base}/api/codex-task/message`, {
         method: "POST",

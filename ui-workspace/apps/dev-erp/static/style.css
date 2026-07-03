@@ -1356,3 +1356,8 @@ nav button[disabled]:hover { background: transparent; }
   }
   .task-codex-panel { min-width: 0; min-height: 300px; max-width: none; max-height: calc(100dvh - 16px); }
 }
+
+/* 마이크 받아쓰기 버튼 — 녹음 중 표시 */
+.mic-btn.rec { background: #b91c1c; color: #fff; animation: micpulse 1.2s ease-in-out infinite; }
+.mic-btn.off { opacity: 0.45; cursor: not-allowed; }
+@keyframes micpulse { 50% { opacity: 0.55; } }

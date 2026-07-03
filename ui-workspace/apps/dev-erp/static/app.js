@@ -2388,7 +2388,7 @@ function openChat() {
       <span class="chat-ver" title="${esc(`${L.chat_version_label} ${chatVersion.build} · ${chatVersion.source} · ${runtime.checkout || "unknown"}:${runtime.port ?? "?"} · ${llm.provider || "?"}/${llm.model || "?"} · thinking=${llm.thinking === true}`)}">${esc(L.chat_version_label)} ${esc(chatVersion.release)}</span><button class="chat-new" title="${L.chat_new}">${L.chat_new}</button><button class="chat-collapse" title="접기/펼치기" aria-label="접기/펼치기" aria-expanded="true">-</button><button class="chat-x">✕</button></div>
     <div class="chat-log" role="log" aria-live="polite" aria-busy="false"></div>
     <div class="chat-status" role="status" aria-live="polite"></div>
-    <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>
+    <div class="chat-input"><input id="chatMsg" placeholder="${L.chat_placeholder}" /><button id="chatMic" class="fav-chip mic-btn" type="button" title="${L.chat_mic ?? "음성 입력(브라우저 인식 — 민감 내용 주의)"}">🎤</button><button id="chatSend" class="fav-chip">${L.chat_send}</button></div>
     <div class="chat-resize" title="크기 조절" aria-hidden="true"></div>
   </div>`;
   document.body.appendChild(ov);
@@ -2401,6 +2401,7 @@ function openChat() {
   const inputEl = ov.querySelector("#chatMsg");
   const sendBtn = ov.querySelector("#chatSend");
   const collapseBtn = ov.querySelector(".chat-collapse");
+  wireMicDictation(ov.querySelector("#chatMic"), inputEl);
   const saveDock = () => localStorage.setItem("dev_erp_chat_dock", JSON.stringify(state.chatDock || {}));
   const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
   const resetMobileDockFrame = () => {
@@ -2831,9 +2832,9 @@ function openTaskCodex(itemId) {
     <div class="task-codex-tools">
       <select id="taskCodexModel" title="Codex model"></select>
       <select id="taskCodexEffort" title="Reasoning effort"></select>
-      <label class="task-codex-attach" title="Attach image">
-        <input id="taskCodexImage" type="file" accept="image/*" multiple />
-        <span>이미지</span>
+      <label class="task-codex-attach" title="이미지·문서 첨부 — 로컬에만 저장되고 Codex가 경로로 읽습니다">
+        <input id="taskCodexImage" type="file" accept="image/*,.pdf,.txt,.md,.csv,.json,.xml,.yaml,.yml,.log,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.hwp,.hwpx,.zip,.7z,.msg,.eml,.step,.stp,.dxf" multiple />
+        <span>📎 파일</span>
       </label>
       <button id="taskCodexFA" class="task-codex-fa" type="button" title="이 대화에서만 Codex가 로컬 프로그램 실행(Outlook 등)·파일 쓰기 — 전체 권한. 필요할 때만 켜세요.">🔒 전체권한</button>
     </div>
@@ -2841,7 +2842,7 @@ function openTaskCodex(itemId) {
     <div class="task-codex-log" role="log" aria-live="polite"></div>
     <div class="task-codex-status" role="status" aria-live="polite"></div>
     <div class="task-codex-suggest" hidden></div>
-    <div class="task-codex-input"><input id="taskCodexMsg" placeholder="이 할일에 대해 Codex에게 지시" /><button id="taskCodexSend" class="fav-chip">보내기</button></div>
+    <div class="task-codex-input"><input id="taskCodexMsg" placeholder="이 할일에 대해 Codex에게 지시" /><button id="taskCodexMic" class="fav-chip mic-btn" type="button" title="음성 입력 — 브라우저 음성인식 사용(민감 내용 구두 입력 주의)">🎤</button><button id="taskCodexSend" class="fav-chip">보내기</button></div>
     <div class="task-codex-resize" title="크기 조절" aria-hidden="true"></div>
   </div>`;
   document.body.appendChild(ov);
@@ -2859,6 +2860,7 @@ function openTaskCodex(itemId) {
   const effortEl = ov.querySelector("#taskCodexEffort");
   const imageEl = ov.querySelector("#taskCodexImage");
   const faBtn = ov.querySelector("#taskCodexFA");
+  wireMicDictation(ov.querySelector("#taskCodexMic"), inputEl);
   let payload = null;
   let pending = false;
   let pendingTimer = null;
@@ -3155,9 +3157,14 @@ function openTaskCodex(itemId) {
       saveTaskCodexOptions();
       const opt = currentTaskCodexOptions();
       const attachments = await uploadStagedImages();
+      // 이미지가 아닌 첨부(localFile)는 Codex 가 로컬에서 읽도록 메시지에 경로 참조를 붙인다(payload 미전송).
+      const fileAtts = (attachments || []).filter((a) => a && a.type === "localFile" && a.path);
+      const msgWithFiles = fileAtts.length
+        ? `${msg}\n\n[첨부 파일 — 아래 로컬 경로를 열어 내용 확인]\n${fileAtts.map((a) => `- ${a.path}`).join("\n")}`
+        : msg;
       const resp = await postJsonWithTimeout("/api/codex-task/message", {
         item_id: itemId,
-        message: msg,
+        message: msgWithFiles,
         model: opt.model || null,
         effort: opt.effort || null,
         service_tier: opt.service_tier || null,
@@ -6377,7 +6384,7 @@ const EVENT_KIND_LABELS = {
   account_mailbox_disconnect: "메일함 해제", account_mailbox_credentials_set: "메일함 인증",
   account_password_reset: "비번 초기화", auth_login: "로그인", auth_bootstrap: "초기 설정",
   auth_password_change: "비번 변경", codex_task_thread_open: "AI 대화 시작", codex_task_message: "AI 대화",
-  codex_task_image_attach: "이미지 첨부", embed_register: "시트 연결", schedule_spawn: "일정 생성",
+  codex_task_image_attach: "이미지 첨부", codex_task_file_attach: "파일 첨부", embed_register: "시트 연결", schedule_spawn: "일정 생성",
   input_upload: "입력 업로드", input_download: "입력 다운로드",
   work_started: "업무 시작", work_completed: "업무 완료", completion_hook_skipped: "완료 훅 스킵", completion_hook_failed: "완료 훅 실패",
 };
@@ -6466,4 +6473,45 @@ if (!state.account) {
   };
   setInterval(autoRefreshMailWidgets, 90000);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoRefreshMailWidgets(); });
+}
+
+// ── 마이크 받아쓰기(공용): 브라우저 내장 SpeechRecognition 을 입력창에 연결 ──────────────
+//   주의: Chrome/Edge 의 음성 인식은 브라우저 벤더 서버에서 처리될 수 있음 — 민감 내용 구두 입력 주의(툴팁 고지).
+//   미지원 브라우저는 버튼 비활성(기능 저하 없이 안내만). 서버 전송/저장 없음 — 인식 결과는 입력창 텍스트로만.
+function wireMicDictation(btn, input) {
+  if (!btn || !input) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    btn.disabled = true;
+    btn.classList.add("off");
+    btn.title = L.mic_unsupported ?? "이 브라우저는 음성 인식을 지원하지 않아요 (Chrome/Edge 사용)";
+    return;
+  }
+  let rec = null;
+  const idleTitle = btn.title || (L.chat_mic ?? "음성 입력");
+  const setIdle = () => { rec = null; btn.classList.remove("rec"); btn.textContent = "🎤"; btn.title = idleTitle; };
+  btn.addEventListener("click", () => {
+    if (rec) { try { rec.stop(); } catch { setIdle(); } return; }
+    rec = new SR();
+    rec.lang = "ko-KR";
+    rec.interimResults = true;
+    rec.continuous = true;
+    const base = input.value ? `${input.value.replace(/\s+$/, "")} ` : "";
+    let finals = "";
+    btn.classList.add("rec");
+    btn.textContent = "⏹";
+    btn.title = L.mic_listening ?? "듣는 중 — 누르면 종료";
+    rec.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i += 1) {
+        const r = e.results[i];
+        if (r.isFinal) finals += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      input.value = base + finals + interim;
+    };
+    rec.onerror = () => { try { rec?.stop(); } catch { /* noop */ } };
+    rec.onend = () => { setIdle(); input.focus(); };
+    try { rec.start(); } catch { setIdle(); }
+  });
 }

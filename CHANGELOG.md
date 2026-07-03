@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP chat input: mic dictation + file attachments
+
+- Added a shared browser SpeechRecognition (ko-KR) dictation toggle to both chat inputs (ERP chatbot panel and per-task Codex thread panel): recognized text lands in the input field only (no server upload/storage), the tooltip discloses that browser vendors may process the audio, and unsupported browsers get a disabled button instead of a broken flow.
+- Extended the Codex task attachment endpoint from images-only to an allowlisted document/data set (pdf, office, hwp/hwpx, csv/json/xml/yaml, zip/7z, msg/eml, step/dxf, 25MB cap): non-image files are stored under the local `_workspaces` attachment root as `localFile` and referenced by local path in the message text so Codex reads them from disk — file payloads are never uploaded to the model API; executables stay blocked (400).
+- Updated capabilities (`arbitrary_file: true` + `file_exts`/`max_file_bytes`), event labels (`codex_task_file_attach`), lexicon parity keys for mic labels in both business/fantasy modes, and core API tests for the new attachment policy (worker: claude_fable-5).
+
 ### dev-ERP mail thread key migration helpers
 
 - Centralized reply/forward subject normalization in `mail_thread_key.mjs` and required a separator after reply-prefix tokens so Korean words such as "전달사항" are not truncated in fallback thread keys.
@@ -9,6 +15,10 @@
 ### dev-ERP follow-up SLA converted-mail visibility
 
 - Changed `followup_scan` so already-converted outbound no-reply mail is no longer hidden before SLA checks. Open converted tasks receive a metadata-only `followup_due` event candidate, while closed converted tasks remain visible as counts without creating duplicate tasks or changing state.
+
+### dev-ERP follow-up SLA due-reminder diagnostics
+
+- Expanded Track B due-reminder parsing to recognize project task ledger aliases such as `기한`, `D-Day`, `D-DAY`, and `due_at`, and added metadata-only reason counters for closed, missing/invalid due, next-action, outside-window, and cursor-seen rows.
 
 ### dev-ERP 보안 응급 2건 — 감사 위조 차단 + 로그인 백오프
 
