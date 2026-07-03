@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { parseFollowupArgs, runFollowupScan } from "../tools/followup_scan.mjs";
+import { legacyFallbackThreadKey } from "../tools/mail_thread_key.mjs";
 
 function csvEscape(value) {
   const raw = String(value ?? "");
@@ -182,6 +183,56 @@ test("followup_scan: open task in same thread emits followup_due event only and 
   assert.equal(events[0].kind, "followup_due");
   assert.equal(events[0].item_ref, "mailtask:OLD");
   assert.ok(existsSync(join(root, "data", "followup_cursor.json")));
+});
+
+test("followup_scan: legacy fallback thread key aliases still match open tasks", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "sf-followup-legacy-thread-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const legacy = legacyFallbackThreadKey({ subject: "전달사항 검토 요청", from: "owner@example.test" });
+  makeProject(root, "P99-001", {
+    mailRows: [{ ...sentRow("S1", "", "2026-07-01T09:00:00+09:00"), 제목: "전달사항 검토 요청" }],
+    taskRows: [{ 할일키: "mailtask:OLD", 상태: "open", 소스스레드키: legacy, 마감일: "", 다음액션: "" }],
+  });
+  const events = [];
+  const summary = await runFollowupScan({
+    apply: true,
+    workmeta: root,
+    dataDir: join(root, "data"),
+    today: "2026-07-04",
+    days: 3,
+    projects: ["P99-001"],
+    runId: "legacy-thread",
+  }, { appendEvent: (event) => events.push(event) });
+
+  assert.equal(summary.no_reply_candidates, 0);
+  assert.equal(summary.no_reply_events, 1);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].kind, "followup_due");
+  assert.equal(events[0].item_ref, "mailtask:OLD");
+  assert.match(events[0].note, /thread=thread-fallback:/);
+});
+
+test("followup_scan: numeric-looking history keys do not partially match sibling mail", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "sf-followup-colon-key-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeProject(root, "P99-001", {
+    mailRows: [
+      sentRow("outlook:sent", "T-base"),
+      sentRow("outlook:sent:123", "T-numbered"),
+    ],
+    taskRows: [{ 할일키: "mailtask:outlook:sent:123", 상태: "done", 소스스레드키: "T-numbered", 마감일: "", 다음액션: "" }],
+  });
+  const summary = await runFollowupScan({
+    apply: false,
+    workmeta: root,
+    dataDir: join(root, "data"),
+    today: "2026-07-04",
+    days: 3,
+    projects: ["P99-001"],
+  });
+
+  assert.equal(summary.no_reply_candidates, 1);
+  assert.deepEqual(summary.projects["P99-001"].candidate_keys, ["outlook:sent"]);
 });
 
 test("followup_scan: due reminder event is cursor-deduped", async (t) => {

@@ -11,7 +11,7 @@ import { isAbsolute, join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 
-import { threadKeyForMail } from "./mail_thread_key.mjs";
+import { mailHistoryKeyFromTaskKey, threadKeyForMail } from "./mail_thread_key.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, "..");
@@ -318,7 +318,10 @@ if (existsSync(taskCsv)) {
 }
 const outHeader = [...HEADERS, ...existHeader.filter((c) => !HEADERS.includes(c))]; // 추가컬럼 보존
 const touched = new Set(Object.keys(candidates).filter((k) => mailById.has(k)));
-const isTouchedMailTask = (k) => { const m = /^mailtask:(.+?)(?::\d+)?$/.exec(k); return m && touched.has(m[1]); };
+const isTouchedMailTask = (k) => {
+  const historyKey = mailHistoryKeyFromTaskKey(k, touched);
+  return historyKey && touched.has(historyKey);
+};
 const byKey = new Map();
 let purged = 0;
 for (const o of existObjs) {

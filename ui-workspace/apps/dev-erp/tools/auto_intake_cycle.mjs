@@ -19,7 +19,7 @@ import { loadContextHintRules } from "./haengbogwan_run.mjs";
 import { appendMailReceipts } from "./mail_receipts.mjs";
 import { groupMailCopies } from "./mail_fingerprint.mjs";
 import { readCsvObjects, scanPending } from "./mail_to_task_pending.mjs";
-import { isOutboundMail, threadKeyForMail } from "./mail_thread_key.mjs";
+import { isOutboundMail, threadKeyAliasesForMail, threadKeyForMail } from "./mail_thread_key.mjs";
 import { runCompletionKnowledgeFeed } from "./completion_knowledge_feed.mjs";
 import { runFollowupScan } from "./followup_scan.mjs";
 import {
@@ -189,6 +189,16 @@ export function openTaskThreadMap(workmetaRoot, projectId) {
   return out;
 }
 
+function threadAliasesForPendingItem(item) {
+  if (Array.isArray(item?.thread_aliases) && item.thread_aliases.length) {
+    return [...new Set(item.thread_aliases.map((thread) => String(thread ?? "").trim()).filter(Boolean))];
+  }
+  if (String(item?.thread ?? "").startsWith("thread-fallback:")) {
+    return threadKeyAliasesForMail({ subject: item.subject, from: item.from });
+  }
+  return threadKeyAliasesForMail({ thread: item.thread || "", subject: item.subject, from: item.from });
+}
+
 async function appendFollowupEvent(opts, deps, event) {
   if (typeof deps.appendEvent === "function") {
     deps.appendEvent(event);
@@ -227,8 +237,10 @@ export async function threadDedupPrePass(scanned, opts, deps = {}) {
         summary.outbound_skipped += 1;
         continue;
       }
+      const aliases = threadAliasesForPendingItem(item);
+      const matchedThread = aliases.find((thread) => threadMap.has(thread)) || "";
       const thread = item.thread || threadKeyForMail(item);
-      const itemRef = thread ? threadMap.get(thread) : "";
+      const itemRef = matchedThread ? threadMap.get(matchedThread) : "";
       if (!itemRef) {
         nextPending.push(item);
         continue;
@@ -246,7 +258,7 @@ export async function threadDedupPrePass(scanned, opts, deps = {}) {
         source_event_ref: "",
         source_mail_ref: `mailcsv:${item.history_key}`,
         source_mail_source_id: item.source_id || "",
-        source_lineage_ref: thread ? `thread:${thread}` : "",
+        source_lineage_ref: matchedThread ? `thread:${matchedThread}` : (thread ? `thread:${thread}` : ""),
         generation_rule_ref: "thread_dedup",
         generation_run_ref: opts.runId,
         body_access: "metadata_only",

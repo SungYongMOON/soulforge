@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP mail thread key migration helpers
+
+- Centralized reply/forward subject normalization in `mail_thread_key.mjs` and required a separator after reply-prefix tokens so Korean words such as "전달사항" are not truncated in fallback thread keys.
+- Added legacy fallback thread-key aliases for metadata-only migration, so existing `thread-fallback:*` task refs can still match new blank-thread mail while new keys use the safer canonical normalizer.
+- Shared `mailtask:`/`mailcsv:` history-key parsing across pending, ledger, and follow-up paths to avoid partial matches when mail history keys themselves contain colon-number segments.
+
 ### dev-ERP 보안 응급 2건 — 감사 위조 차단 + 로그인 백오프
 
 - POST /api/events 의 actor 를 계정이 있는 팀 모드에선 세션 주체로 서버가 강제(타인 명의 이벤트 위조 차단). 계정 0 파일럿 모드는 종전 자기신고 동작 보존.

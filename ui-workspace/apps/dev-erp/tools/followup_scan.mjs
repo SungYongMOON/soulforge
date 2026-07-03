@@ -9,7 +9,13 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import { readCsvObjects } from "./mail_to_task_pending.mjs";
-import { isOutboundMail, threadKeyForMail } from "./mail_thread_key.mjs";
+import {
+  isOutboundMail,
+  mailHistoryKeyFromMailRef,
+  mailHistoryKeyFromTaskKey,
+  threadKeyAliasesForMail,
+  threadKeyForMail,
+} from "./mail_thread_key.mjs";
 
 const execFileP = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -131,6 +137,7 @@ function mailRowsForProject(workmetaRoot, projectId) {
     const mailbox = firstOf(row, ["메일함", "mailbox"]);
     const eventType = firstOf(row, ["이벤트유형", "event_type"]);
     const rawThread = firstOf(row, ["스레드", "스레드키", "메일스레드ID", "스레드ID"]);
+    const threadAliases = threadKeyAliasesForMail({ thread: rawThread, subject, from });
     return {
       history_key: historyKey,
       subject,
@@ -140,6 +147,7 @@ function mailRowsForProject(workmetaRoot, projectId) {
       source_id: firstOf(row, ["메일소스ID", "source_id"]),
       event_type: eventType,
       thread: threadKeyForMail({ thread: rawThread, subject, from }),
+      thread_aliases: threadAliases,
       outbound: isOutboundMail({ event_type: eventType, mailbox }),
       inbound: isInboundMail({ event_type: eventType, mailbox }),
     };
@@ -162,15 +170,15 @@ function openTaskThreadMap(taskRows) {
   return out;
 }
 
-function convertedMailKeys(taskRows) {
+function convertedMailKeys(taskRows, knownMailKeys = null) {
   const out = new Set();
   for (const row of taskRows) {
     const key = firstOf(row, ["할일키", "id"]);
-    const match = /^mailtask:(.+?)(?::\d+)?$/.exec(key);
-    if (match) out.add(match[1]);
+    const taskHistoryKey = mailHistoryKeyFromTaskKey(key, knownMailKeys);
+    if (taskHistoryKey) out.add(taskHistoryKey);
     const ref = firstOf(row, ["관련메일이력키", "소스메일키", "source_mail_ref"]);
-    const refMatch = /^mailcsv:(.+)$/.exec(ref);
-    if (refMatch) out.add(refMatch[1]);
+    const refHistoryKey = mailHistoryKeyFromMailRef(ref);
+    if (refHistoryKey) out.add(refHistoryKey);
   }
   return out;
 }
@@ -203,13 +211,24 @@ function buildFollowupCandidate(mail, opts) {
 }
 
 function hasLaterInbound(mail, allRows) {
-  if (!mail.thread) return false;
+  const aliases = new Set(mail.thread_aliases?.length ? mail.thread_aliases : [mail.thread].filter(Boolean));
+  if (!aliases.size) return false;
   const sentMs = dateTimeMs(mail.received_at);
   return allRows.some((row) => {
-    if (!row.inbound || row.thread !== mail.thread) return false;
+    const rowAliases = row.thread_aliases?.length ? row.thread_aliases : [row.thread].filter(Boolean);
+    if (!row.inbound || !rowAliases.some((thread) => aliases.has(thread))) return false;
     const receivedMs = dateTimeMs(row.received_at);
     return Number.isFinite(sentMs) && Number.isFinite(receivedMs) && receivedMs > sentMs;
   });
+}
+
+function openTaskForMail(mail, openThreads) {
+  const aliases = mail.thread_aliases?.length ? mail.thread_aliases : [mail.thread].filter(Boolean);
+  for (const thread of aliases) {
+    const itemRef = openThreads.get(thread);
+    if (itemRef) return { itemRef, thread };
+  }
+  return { itemRef: "", thread: mail.thread || "" };
 }
 
 function dueReminderRows(taskRows, opts, cursor) {
@@ -313,7 +332,8 @@ export async function runFollowupScan(options, deps = {}) {
     const mailRows = mailRowsForProject(opts.workmeta, projectId);
     const taskRows = taskRowsForProject(opts.workmeta, projectId);
     const openThreads = openTaskThreadMap(taskRows);
-    const converted = convertedMailKeys(taskRows);
+    const mailKeySet = new Set(mailRows.map((row) => row.history_key).filter(Boolean));
+    const converted = convertedMailKeys(taskRows, mailKeySet);
     const project = {
       no_reply_candidates: 0,
       no_reply_events: 0,
@@ -341,8 +361,8 @@ export async function runFollowupScan(options, deps = {}) {
       const ageDays = calendarDaysBetween(mail.received_at, opts.today);
       if (ageDays == null || ageDays < opts.days) { project.skipped_too_new += 1; continue; }
       if (hasLaterInbound(mail, mailRows)) { project.skipped_replied += 1; continue; }
-      const itemRef = mail.thread ? openThreads.get(mail.thread) : "";
-      const cursorKey = itemRef ? `${projectId}|followup_due|${mail.history_key}|${mail.thread || ""}|${opts.today}` : "";
+      const { itemRef, thread: matchedThread } = openTaskForMail(mail, openThreads);
+      const cursorKey = itemRef ? `${projectId}|followup_due|${mail.history_key}|${matchedThread || mail.thread || ""}|${opts.today}` : "";
       if (cursorKey && cursor.keys[cursorKey]) continue;
       if (actionCount >= opts.limit) { project.truncated += 1; continue; }
       actionCount += 1;
@@ -358,7 +378,7 @@ export async function runFollowupScan(options, deps = {}) {
             project_ref: projectId,
             used_refs: ["followup_scan", "auto_intake"],
             data_label: "meta",
-            note: `history_key=${mail.history_key};thread=${mail.thread};days=${opts.days}`,
+            note: `history_key=${mail.history_key};thread=${matchedThread || mail.thread};days=${opts.days}`,
           });
           cursor.keys[cursorKey] = new Date().toISOString();
           if (wrote) summary.cursor_written += 1;

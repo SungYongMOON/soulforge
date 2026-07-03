@@ -8,7 +8,7 @@ import { readdirSync, existsSync, readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { threadKeyForMail } from "./mail_thread_key.mjs";
+import { mailHistoryKeyFromMailRef, mailHistoryKeyFromTaskKey, threadKeyAliasesForMail, threadKeyForMail } from "./mail_thread_key.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..", "..");
@@ -23,7 +23,6 @@ const CODE_RE = /^P\d{2}-\d{3}/;
 export const HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH = join("reports", "haengbogwan_mail_receipts", "mail_receipts.csv");
 const MAIL_REL = join("reports", "메일_이력", "메일_이력.csv");
 const TASK_REL = join("reports", "할일_장부", "할일_장부.csv");
-const MAILTASK_RE = /^mailtask:(.+?)(?::\d+)?$/; // 할일키 → 원본 메일 이력키
 
 export function parseCsv(text) {
   const rows = []; let row = [], cur = "", q = false;
@@ -74,14 +73,15 @@ export function readHandledReceiptKeys(receiptCsvPath) {
 export function pendingForProject(mailCsvPath, taskCsvPath) {
   const mail = readCsvObjects(mailCsvPath);
   if (!mail.rows.length) return [];
+  const mailKeys = new Set(mail.rows.map((row) => row["이력키"] || "").filter(Boolean));
   const task = readCsvObjects(taskCsvPath);
   const converted = new Set();
   for (const t of task.rows) {
-    const m = MAILTASK_RE.exec(t["할일키"] || "");
-    if (m) converted.add(m[1]);
+    const taskHistoryKey = mailHistoryKeyFromTaskKey(t["할일키"] || "", mailKeys);
+    if (taskHistoryKey) converted.add(taskHistoryKey);
     const ref = t["관련메일이력키"] || ""; // 보조: mailcsv:<key> 형태도 처리됨 표시로 인정
-    const rm = /^mailcsv:(.+)$/.exec(ref);
-    if (rm) converted.add(rm[1]);
+    const refHistoryKey = mailHistoryKeyFromMailRef(ref);
+    if (refHistoryKey) converted.add(refHistoryKey);
   }
   for (const key of readHandledReceiptKeys(haengbogwanMailReceiptPathForTaskCsv(taskCsvPath))) converted.add(key);
   const out = [];
@@ -91,6 +91,7 @@ export function pendingForProject(mailCsvPath, taskCsvPath) {
     const subject = firstOf(r, ["제목"]);
     const from = firstOf(r, ["발신자"]);
     const rawThread = firstOf(r, ["스레드", "스레드키", "메일스레드ID", "스레드ID"]);
+    const threadAliases = threadKeyAliasesForMail({ thread: rawThread, subject, from });
     out.push({
       history_key: key,
       subject,
@@ -102,6 +103,7 @@ export function pendingForProject(mailCsvPath, taskCsvPath) {
       recipient_role: firstOf(r, ["수신역할", "recipient_role"]),
       event_type: firstOf(r, ["이벤트유형", "event_type"]),
       thread: threadKeyForMail({ thread: rawThread, subject, from }),
+      thread_aliases: threadAliases,
       source_group_ref: firstOf(r, ["소스그룹키", "그룹키", "메일그룹키"]),
       due_hint: firstOf(r, ["마감일", "기한", "D-Day", "D-DAY", "due", "due_date"]),
     });

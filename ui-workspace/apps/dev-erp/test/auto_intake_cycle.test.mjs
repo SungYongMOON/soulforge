@@ -11,7 +11,7 @@ import { parseCycleArgs, acquireLock, releaseLock, runCycle, buildProjectContext
 import { branchHintForProject, loadContextHintRules } from "../tools/haengbogwan_run.mjs";
 import { autoIntakeConfig, shouldRunAutoIntake } from "../src/mail_collect.mjs";
 import { pendingForProject } from "../tools/mail_to_task_pending.mjs";
-import { fallbackThreadKey } from "../tools/mail_thread_key.mjs";
+import { fallbackThreadKey, legacyFallbackThreadKey } from "../tools/mail_thread_key.mjs";
 
 const PENDING = [
   { history_key: "20260701-001", subject: "[P99] 견적 검토 요청", from: "vendor@example.com", received_at: "2026-07-01T09:00:00", mailbox: "user@example.com", due_hint: "" },
@@ -185,6 +185,25 @@ test("pendingForProject: thread 와 event_type 메타를 반환한다", (t) => {
   assert.equal(pending[0].event_type, "mail_received");
 });
 
+test("pendingForProject: mailtask key with colon-number history key does not partially match sibling mail", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-pending-colon-key-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const proj = join(root, "P99-001");
+  mkdirSync(join(proj, "reports", "메일_이력"), { recursive: true });
+  mkdirSync(join(proj, "reports", "할일_장부"), { recursive: true });
+  writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,이벤트유형,스레드\n"
+    + "outlook:sent,base mail,vendor@example.com,2026-07-01T09:00:00,user@example.com,src-base,mail_received,T-base\n"
+    + "outlook:sent:123,numbered mail,vendor@example.com,2026-07-01T09:05:00,user@example.com,src-num,mail_received,T-num\n");
+  writeFileSync(join(proj, "reports", "할일_장부", "할일_장부.csv"),
+    "할일키,상태,소스스레드키\nmailtask:outlook:sent:123,open,T-num\n");
+  const pending = pendingForProject(
+    join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    join(proj, "reports", "할일_장부", "할일_장부.csv"),
+  );
+  assert.deepEqual(pending.map((row) => row.history_key), ["outlook:sent"]);
+});
+
 test("runCycle apply: 열린 할일과 같은 스레드의 메일은 followup 영수증+event 로 귀속", async (t) => {
   const root = mkdtempSync(join(tmpdir(), "ai-thread-followup-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -238,6 +257,26 @@ test("runCycle: 스레드 빈 값은 제목+발신자 도메인 fallback 키로 
     apply: false, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
     projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
     receipts: true, runId: "t-thread-fallback",
+  }, {
+    classify: async () => { classified = true; return { judged: 0, candidates: {}, skipped: [], errors: [] }; },
+    appendEvent: null,
+  });
+  assert.equal(classified, false);
+  assert.equal(summary.pending_total, 0);
+  assert.equal(summary.thread_dedup.followups, 1);
+  assert.equal(summary.thread_dedup.receipts_planned, 1);
+});
+
+test("runCycle: legacy fallback 스레드키도 migration alias 로 귀속한다", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-thread-legacy-fallback-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const legacy = legacyFallbackThreadKey({ subject: "전달사항 검토 요청", from: "vendor@example.com" });
+  makeThreadFixture(root, { mailThread: "", taskThread: legacy, subject: "전달사항 검토 요청", from: "vendor@example.com" });
+  let classified = false;
+  const summary = await runCycle({
+    apply: false, json: true, db: "data/dev-erp.db", workmeta: root, dataDir: join(root, "appdata"),
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-thread-legacy-fallback",
   }, {
     classify: async () => { classified = true; return { judged: 0, candidates: {}, skipped: [], errors: [] }; },
     appendEvent: null,

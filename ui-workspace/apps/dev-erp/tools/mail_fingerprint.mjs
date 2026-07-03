@@ -3,11 +3,8 @@
 // a legacy fallback when Message-ID is absent.
 import { createHash } from "node:crypto";
 
-import { isOutboundMail, threadKeyForMail } from "./mail_thread_key.mjs";
+import { isOutboundMail, normalizeThreadSubject, threadKeyForMail } from "./mail_thread_key.mjs";
 
-// 구분자 1개 이상 필수([:\s\]]+): 0개 허용 시 "전달사항"→"사항" 처럼 단어 내부가 깎여
-// 서로 다른 메일이 오병합되고, 한쪽이 no_action 영수증으로 비가역 소멸한다.
-const SUBJECT_PREFIX_RE = /^(\s*(?:re|fw|fwd|답장|전달|회신)[:\s\]]+)+/iu;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}/;
 
 function digest(value, length = 16) {
@@ -15,13 +12,7 @@ function digest(value, length = 16) {
 }
 
 export function normalizeSubject(subject) {
-  let value = String(subject ?? "").normalize("NFC").trim().toLowerCase();
-  let previous = "";
-  while (value !== previous) {
-    previous = value;
-    value = value.replace(SUBJECT_PREFIX_RE, "").trim();
-  }
-  return value.replace(/\s+/gu, " ").trim();
+  return normalizeThreadSubject(subject);
 }
 
 function normalizeSender(sender) {
