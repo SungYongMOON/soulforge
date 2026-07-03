@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP auto-intake activation on runtime launchers
+
+- Enabled the mail-to-task auto intake cycle on the runtime launch surfaces (2026-07-03 owner decision): `ops/run-dev-erp-background.ps1` now sets `DEV_ERP_AUTO_INTAKE=1` and `DEV_ERP_INTAKE_LLM=ollama` (classification model inherits `ERP_CHAT_MODEL`), and `start-windows.bat` applies the same defaults only on the runtime 4300 branch so the development checkout (4310) stays off and never auto-writes into dev `_workmeta`.
+- Pre-activation verification on the runtime host: WAL-safe DB backup, runtime checkout fast-forwarded to the E8/E4 code, structure dry-run (12 pending, zero writes), and a live 3-mail Ollama classification sample (1 task candidate, 2 not-task with one high-confidence receipt planned) (worker: claude_fable-5).
+
 ### dev-ERP ENGINE-4 follow-up SLA
 
 - Added `tools/followup_scan.mjs`, a metadata-only follow-up scanner with dry-run default, `--apply` gate, cursor idempotency, 3-calendar-day no-reply detection, default per-project limit 5, and `data_label=meta` event rows.

@@ -36,6 +36,12 @@ REM   creds 미설정이면 주기마다 빈 동작/에러 로그만 남고 새 
 REM   끄려면 이 값을 0 으로: set "DEV_ERP_MAIL_COLLECT_SEC=0"
 if not defined DEV_ERP_MAIL_COLLECT_SEC set "DEV_ERP_MAIL_COLLECT_SEC=900"
 if not defined DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN set "DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN=1"
-echo [dev-erp] chat = %ERP_CHAT_PROVIDER% / %ERP_CHAT_MODEL% / think=%ERP_CHAT_THINK% / codex-sandbox=%DEV_ERP_CODEX_SANDBOX% / mail-collect=%DEV_ERP_MAIL_COLLECT_SEC%s / route-backfill=exact+hidden
+REM ── 메일→할일 자동 인입(2026-07-03 owner 활성화, 운영 4300 에서만 기본 ON) ──────
+REM   개발본(4310)은 기본 OFF 유지 — dev _workmeta 에 자동 쓰기 방지.
+if "%DEV_ERP_PORT%"=="4300" (
+  if not defined DEV_ERP_AUTO_INTAKE set "DEV_ERP_AUTO_INTAKE=1"
+  if not defined DEV_ERP_INTAKE_LLM set "DEV_ERP_INTAKE_LLM=ollama"
+)
+echo [dev-erp] chat = %ERP_CHAT_PROVIDER% / %ERP_CHAT_MODEL% / think=%ERP_CHAT_THINK% / codex-sandbox=%DEV_ERP_CODEX_SANDBOX% / mail-collect=%DEV_ERP_MAIL_COLLECT_SEC%s / auto-intake=%DEV_ERP_AUTO_INTAKE% / route-backfill=exact+hidden
 node server.mjs --host 0.0.0.0 --port %DEV_ERP_PORT%
 pause

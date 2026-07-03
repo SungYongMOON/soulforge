@@ -27,10 +27,14 @@ $env:ERP_LLM_CONCURRENCY = "1"
 $env:DEV_ERP_CODEX_SANDBOX = "read-only"
 $env:DEV_ERP_MAIL_COLLECT_SEC = "900"
 $env:DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN = "1"
+# 메일→할일 자동 인입(2026-07-03 owner 활성화): 수집 후 사본통합(E8)→스레드귀속(E1)→분류(줄기맥락+
+# 지식근거)→할일_장부→줄기 갱신. 신규 유입 있을 때만 실행. 분류 모델은 ERP_CHAT_MODEL 상속(gemma4:e4b).
+$env:DEV_ERP_AUTO_INTAKE = "1"
+$env:DEV_ERP_INTAKE_LLM = "ollama"
 
 Start-Process -FilePath $NodeExe -ArgumentList @("server.mjs", "--host", "0.0.0.0", "--port", "4300") `
   -WorkingDirectory $App -WindowStyle Hidden `
   -RedirectStandardOutput (Join-Path $LogDir "dev-erp.out.log") `
   -RedirectStandardError (Join-Path $LogDir "dev-erp.err.log")
 
-Write-Output "dev-erp 백그라운드 기동: port 4300, mail-collect 900s, route-backfill exact+hidden, codex-sandbox read-only"
+Write-Output "dev-erp 백그라운드 기동: port 4300, mail-collect 900s, auto-intake on(ollama), route-backfill exact+hidden, codex-sandbox read-only"
