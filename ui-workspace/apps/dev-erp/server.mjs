@@ -191,6 +191,19 @@ function readCookie(req, name) {
 function currentAccount(req) {
   return store.sessionAccount(readCookie(req, SID));
 }
+// 로그인 브루트포스 방지: IP+아이디별 인메모리 실패 카운트. 5회 연속 실패 시 60초 차단, 성공 시 초기화.
+// 사내망 전제라 인메모리로 충분(서버 재시작 시 리셋 — 영속 잠금은 과잉).
+const LOGIN_FAILS = new Map(); // key -> { n, until }
+function loginBlockedSec(key) {
+  const f = LOGIN_FAILS.get(key);
+  return f && f.until > Date.now() ? Math.ceil((f.until - Date.now()) / 1000) : 0;
+}
+function noteLoginFail(key) {
+  const f = LOGIN_FAILS.get(key) || { n: 0, until: 0 };
+  f.n += 1;
+  if (f.n >= 5) { f.until = Date.now() + 60_000; f.n = 0; }
+  LOGIN_FAILS.set(key, f);
+}
 // 세션 쿠키 문자열. HttpOnly+SameSite=Lax, 팀 공개 HTTPS proxy/tunnel 에서는 Secure 옵션 사용.
 function sessionCookie(token, maxAgeSec) {
   const attrs = `Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${COOKIE_SECURE ? "; Secure" : ""}`;
@@ -675,8 +688,16 @@ const server = createServer(async (req, res) => {
     // 첫 계정은 bootstrap 으로 관리자 생성(계정이 1개라도 있으면 차단).
     if (path === "/api/auth/login" && req.method === "POST") {
       const { username, password } = await readJson(req);
+      const failKey = `${req.socket?.remoteAddress ?? "?"}|${String(username ?? "")}`;
+      const waitSec = loginBlockedSec(failKey);
+      if (waitSec) return send(res, 429, { error: "too_many_attempts", retry_after_sec: waitSec });
       const a = store.verifyLogin(username, password);
-      if (!a) return send(res, 401, { error: "invalid_login" });
+      if (!a) {
+        noteLoginFail(failKey);
+        store.appendEvent({ actor_ref: String(username ?? "unknown").slice(0, 80), actor_kind: "human", kind: "auth_login_failed", used_refs: ["auth"], data_label: "meta" });
+        return send(res, 401, { error: "invalid_login" });
+      }
+      LOGIN_FAILS.delete(failKey);
       const token = store.createSession(a.id);
       store.appendEvent({ actor_ref: a.username, actor_kind: "human", kind: "auth_login", used_refs: ["auth"], data_label: "meta" });
       return send(res, 200, { ok: true, account: store.accountProfile(store.sessionAccount(token)) }, "application/json", { "set-cookie": sessionCookie(token, 12 * 3600) });
@@ -1842,7 +1863,11 @@ const server = createServer(async (req, res) => {
       for await (const chunk of req) body += chunk;
       const event = JSON.parse(body || "{}");
       if (!event.kind) return send(res, 400, { error: "kind_required" });
-      store.appendEvent({ ...event, actor_kind: event.actor_kind ?? "human", data_label: event.data_label ?? "real" });
+      // 감사 무결성: 계정이 있는 팀 모드에선 actor 를 자기신고가 아니라 세션 주체로 강제(타인 명의 위조 차단).
+      // 계정 0 파일럿 모드는 종전 동작(자기신고 허용) 보존.
+      const evMe = currentAccount(req);
+      const forcedActor = evMe ? { actor_ref: evMe.username, actor_kind: "human" } : {};
+      store.appendEvent({ ...event, actor_kind: event.actor_kind ?? "human", data_label: event.data_label ?? "real", ...forcedActor });
       return send(res, 200, { ok: true });
     }
     // ---------- P2b: 계정·권한·계정별 레이아웃 ----------

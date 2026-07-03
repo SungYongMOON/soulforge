@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP 보안 응급 2건 — 감사 위조 차단 + 로그인 백오프
+
+- POST /api/events 의 actor 를 계정이 있는 팀 모드에선 세션 주체로 서버가 강제(타인 명의 이벤트 위조 차단). 계정 0 파일럿 모드는 종전 자기신고 동작 보존.
+- 로그인 브루트포스 백오프: IP+아이디별 5회 연속 실패 시 60초 429(too_many_attempts), 성공 시 초기화, `auth_login_failed` 이벤트(meta) 기록. 사내망 전제 인메모리.
+- HTTP 통합 테스트 추가(actor 강제·백오프·키 분리·실패 이벤트).
+
 ### dev-ERP 메일 수집 요약 파서 수리 — 3주 침묵 fetched:0 표시버그
 
 - parseTeamFetchSummary 가 team_cli `email.fetch.team_mailbox_run.v1` 의 `results[].result.sources[]` 를 읽도록 수정 — 종전엔 존재하지 않는 `r.sources` 를 읽어 실수집량과 무관하게 항상 fetched:0 을 보고했고(수집은 3주간 정상), owner 가 수동 수집 25회로 떠받치는 원인이 됨. 구형 flat 형태 하위호환 유지, `mailboxes_error`/`per_mailbox` 집계 추가로 0건과 계정별 에러를 로그에서 구분.
