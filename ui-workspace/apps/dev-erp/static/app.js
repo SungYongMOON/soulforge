@@ -3425,12 +3425,21 @@ async function renderHome() {
     if (id === "mine") {
       // 내 담당 할 일 — 로그인 계정 식별자(내 일 필터와 동일 경로). 익명이면 로그인 안내.
       if (!state.account) return { title: L.tile_mine, html: `<div class="empty">${L.mine_login ?? "로그인하면 내 담당 할 일이 보입니다"}</div>` };
-      const mine = (await api("/api/items?mine=1")).filter((i) => i.status !== "done").slice(0, 8);
+      // 미분류(unclassified)는 정식 목록에서 격리되므로(자동 인입 산출물 포함) 위젯에 "분류 필요" 점프 라인으로 노출.
+      // 미분류함은 팀 공용 뷰(할일 목록의 분류 필요 칩과 동일 스코프)라 mine 필터를 붙이지 않는다.
+      const [mineItems, triageItems] = await Promise.all([
+        api("/api/items?mine=1"),
+        api("/api/items?status=unclassified"),
+      ]);
+      const mine = mineItems.filter((i) => i.status !== "done").slice(0, 8);
       const qaOpts = projects.filter((p) => p.class === "active" || p.class === "internal")
         .map((p) => `<option value="${esc(p.id)}"${p.id === "general_work" ? " selected" : ""}>${esc(p.title === p.id ? projDisplay(p.id) : `${p.id} · ${p.title}`)}</option>`).join("");
       const quickAdd = `<div class="mine-qa"><input class="mqa-title" placeholder="${L.mine_qa_ph ?? "빠른 할 일 추가…"}" /><select class="mqa-proj" title="${L.project}">${qaOpts}</select><button class="mqa-add fav-chip active">${L.mine_qa_add ?? "추가"}</button></div>`;
+      const triageLine = triageItems.length
+        ? `<div class="mine-triage-line"><button class="status-chip triage on" data-nav-triage="1" title="${L.status_unclassified ?? "분류 필요"}">🔎 ${L.status_unclassified ?? "분류 필요"} <em>${triageItems.length}</em></button></div>`
+        : "";
       const list = mine.length ? `<table><tbody>${mine.map((i) => itemMiniRow(i, [esc(i.due ?? "-")])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`;
-      return { title: L.tile_mine, html: quickAdd + list };
+      return { title: L.tile_mine, html: triageLine + quickAdd + list };
     }
     if (id === "requests_w") {
       // 개발요청함 — 미승격 열린 요청(분류·요청자). api/requests 소비.
@@ -3723,6 +3732,10 @@ async function renderHome() {
   const grid = $("#view").querySelector(".dashboard");
   // 위젯 내 할일 행 클릭 → 인라인 빠른편집(상태 변경/이동). 위임이라 위젯 새로고침 후에도 동작.
   grid.addEventListener("click", (e) => {
+    const tri = e.target.closest("[data-nav-triage]");
+    if (tri && grid.contains(tri)) { // '분류 필요' 점프 → 할일 목록의 미분류함(기존 칩과 동일 상태)
+      state.projectFilter = ""; state.statusFilter = "unclassified"; state.view = "items"; render(); return;
+    }
     const tr = e.target.closest("tr.wrow[data-item]");
     if (tr && grid.contains(tr)) openItemQuickEdit(tr.dataset.item, tr.dataset.proj, tr.dataset.title);
   });
