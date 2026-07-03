@@ -413,6 +413,63 @@ test("followup_scan: due reminder cursor is not written when no event sink accep
   assert.equal(existsSync(join(root, "data", "followup_cursor.json")), false);
 });
 
+test("followup_scan: failed followup_due sink does not advance cursor when another event succeeds", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "sf-followup-sink-fail-cursor-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeProject(root, "P99-001", {
+    mailRows: [sentRow("S1", "T1")],
+    taskRows: [{ 할일키: "mailtask:OLD", 상태: "open", 소스스레드키: "T1", 마감일: "2026-07-05", 다음액션: "" }],
+  });
+  const events = [];
+  const summary = await runFollowupScan({
+    apply: true,
+    workmeta: root,
+    dataDir: join(root, "data"),
+    today: "2026-07-04",
+    days: 3,
+    reminderDays: 2,
+    projects: ["P99-001"],
+    runId: "sink-fail-cursor",
+  }, {
+    appendEvent: (event) => {
+      if (event.kind === "followup_due") throw new Error("sink down");
+      events.push(event);
+    },
+  });
+  const cursor = JSON.parse(readFileSync(join(root, "data", "followup_cursor.json"), "utf8"));
+  const keys = Object.keys(cursor.keys);
+
+  assert.equal(summary.ok, false);
+  assert.deepEqual(summary.errors, ["event_sink:followup_due:P99-001"]);
+  assert.equal(summary.cursor_written, 1);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].kind, "due_reminder");
+  assert.equal(keys.length, 1);
+  assert.match(keys[0], /^P99-001\|due_reminder\|mailtask:OLD\|2026-07-05$/);
+});
+
+test("followup_scan: corrupt cursor is a bounded error and is not overwritten", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "sf-followup-corrupt-cursor-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeProject(root, "P99-001", { mailRows: [sentRow("S1", "T1")] });
+  mkdirSync(join(root, "data"), { recursive: true });
+  writeFileSync(join(root, "data", "followup_cursor.json"), "{not-json");
+  const events = [];
+  const summary = await runFollowupScan({
+    apply: true,
+    workmeta: root,
+    dataDir: join(root, "data"),
+    today: "2026-07-04",
+    days: 3,
+    projects: ["P99-001"],
+  }, { appendEvent: (event) => events.push(event) });
+
+  assert.equal(summary.ok, false);
+  assert.deepEqual(summary.errors, ["cursor_load"]);
+  assert.equal(events.length, 0);
+  assert.equal(readFileSync(join(root, "data", "followup_cursor.json"), "utf8"), "{not-json");
+});
+
 test("followup_scan: per-project limit truncates no-reply candidate generation", async (t) => {
   const root = mkdtempSync(join(tmpdir(), "sf-followup-limit-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));

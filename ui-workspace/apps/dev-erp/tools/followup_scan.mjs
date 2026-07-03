@@ -108,12 +108,16 @@ function isInboundMail({ event_type = "", eventType = "", mailbox = "" } = {}) {
 }
 
 function loadCursor(cursorPath) {
+  if (!existsSync(cursorPath)) return { cursor: { schema_version: CURSOR_SCHEMA, keys: {} }, error: "" };
   try {
     const parsed = JSON.parse(readFileSync(cursorPath, "utf8"));
+    if (parsed?.schema_version && parsed.schema_version !== CURSOR_SCHEMA) {
+      return { cursor: { schema_version: CURSOR_SCHEMA, keys: {} }, error: "cursor_load" };
+    }
     const keys = parsed?.keys && typeof parsed.keys === "object" ? parsed.keys : {};
-    return { schema_version: CURSOR_SCHEMA, keys };
+    return { cursor: { schema_version: CURSOR_SCHEMA, keys }, error: "" };
   } catch {
-    return { schema_version: CURSOR_SCHEMA, keys: {} };
+    return { cursor: { schema_version: CURSOR_SCHEMA, keys: {} }, error: "cursor_load" };
   }
 }
 
@@ -298,20 +302,24 @@ function dueReminderRows(taskRows, opts, cursor) {
 
 async function appendEvent(opts, deps, event) {
   if (typeof deps.appendEvent === "function") {
-    deps.appendEvent(event);
-    return true;
+    try {
+      const result = deps.appendEvent(event);
+      return { wrote: result !== false, error: result === false ? "event_sink" : "" };
+    } catch {
+      return { wrote: false, error: "event_sink" };
+    }
   }
-  if (deps.appendEvent === null || !opts.apply) return false;
+  if (deps.appendEvent === null || !opts.apply) return { wrote: false, error: "" };
   try {
     const dbPath = /^([A-Za-z]:[\\/]|\/)/.test(opts.db) ? opts.db : resolve(APP, opts.db);
-    if (!existsSync(dbPath)) return false;
+    if (!existsSync(dbPath)) return { wrote: false, error: "" };
     const { openStore } = await import("../src/store.mjs");
     const store = openStore(dbPath);
     store.appendEvent(event);
     store.db.close();
-    return true;
+    return { wrote: true, error: "" };
   } catch {
-    return false;
+    return { wrote: false, error: "event_sink" };
   }
 }
 
@@ -355,7 +363,6 @@ export async function runFollowupScan(options, deps = {}) {
   opts.today = validateDateOnly(opts.today);
   const exec = deps.exec ?? defaultExec;
   const cursorPath = join(opts.dataDir, "followup_cursor.json");
-  const cursor = loadCursor(cursorPath);
   const summary = {
     ok: true,
     apply: Boolean(opts.apply),
@@ -379,6 +386,13 @@ export async function runFollowupScan(options, deps = {}) {
     projects: {},
     errors: [],
   };
+  const loadedCursor = loadCursor(cursorPath);
+  const cursor = loadedCursor.cursor;
+  if (loadedCursor.error) {
+    summary.errors.push(loadedCursor.error);
+    summary.ok = false;
+    return summary;
+  }
 
   for (const projectId of listProjects(opts.workmeta, opts.projects)) {
     const projectOpts = { ...opts, project: projectId };
@@ -456,7 +470,7 @@ export async function runFollowupScan(options, deps = {}) {
           summary.converted_no_reply_events += 1;
         }
         if (opts.apply) {
-          const wrote = await appendEvent(opts, deps, {
+          const eventResult = await appendEvent(opts, deps, {
             actor_ref: "erp",
             actor_kind: "ai",
             kind: "followup_due",
@@ -466,8 +480,12 @@ export async function runFollowupScan(options, deps = {}) {
             data_label: "meta",
             note: `history_key=${mail.history_key};thread=${matchedThread || mail.thread};days=${opts.days}`,
           });
-          cursor.keys[cursorKey] = new Date().toISOString();
-          if (wrote) summary.cursor_written += 1;
+          if (eventResult.wrote) {
+            cursor.keys[cursorKey] = new Date().toISOString();
+            summary.cursor_written += 1;
+          } else if (eventResult.error) {
+            summary.errors.push(`event_sink:followup_due:${projectId}`);
+          }
         }
         continue;
       }
@@ -486,7 +504,7 @@ export async function runFollowupScan(options, deps = {}) {
     summary.due_reminders += reminders.length;
     if (opts.apply) {
       for (const reminder of reminders) {
-        const wrote = await appendEvent(opts, deps, {
+        const eventResult = await appendEvent(opts, deps, {
           actor_ref: "erp",
           actor_kind: "ai",
           kind: "due_reminder",
@@ -496,9 +514,11 @@ export async function runFollowupScan(options, deps = {}) {
           data_label: "meta",
           note: `due=${reminder.due};days_until=${reminder.days_until}`,
         });
-        if (wrote) {
+        if (eventResult.wrote) {
           cursor.keys[reminder.cursor_key] = new Date().toISOString();
           summary.cursor_written += 1;
+        } else if (eventResult.error) {
+          summary.errors.push(`event_sink:due_reminder:${projectId}`);
         }
       }
       if (Object.keys(candidates).length) {

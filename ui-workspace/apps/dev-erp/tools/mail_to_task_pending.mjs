@@ -117,7 +117,7 @@ export function scanPending(wm, { only = null } = {}) {
   if (!existsSync(wm)) return result;
   for (const code of readdirSync(wm)) {
     if (!CODE_RE.test(code)) continue;
-    if (only && code !== only && !code.startsWith(`${only}`)) continue;
+    if (only && code !== only) continue;
     const mailCsv = join(wm, code, MAIL_REL);
     if (!existsSync(mailCsv)) continue;
     const pending = pendingForProject(mailCsv, join(wm, code, TASK_REL));

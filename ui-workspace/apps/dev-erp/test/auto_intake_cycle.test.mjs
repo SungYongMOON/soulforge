@@ -10,7 +10,7 @@ import { classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
 import { parseCycleArgs, acquireLock, releaseLock, runCycle, buildProjectContextLines, enrichCandidateWithRules, teamMailDedupPrePass } from "../tools/auto_intake_cycle.mjs";
 import { branchHintForProject, loadContextHintRules } from "../tools/haengbogwan_run.mjs";
 import { autoIntakeConfig, shouldRunAutoIntake } from "../src/mail_collect.mjs";
-import { pendingForProject } from "../tools/mail_to_task_pending.mjs";
+import { pendingForProject, scanPending } from "../tools/mail_to_task_pending.mjs";
 import { fallbackThreadKey, legacyFallbackThreadKey } from "../tools/mail_thread_key.mjs";
 
 const PENDING = [
@@ -202,6 +202,17 @@ test("pendingForProject: mailtask key with colon-number history key does not par
     join(proj, "reports", "할일_장부", "할일_장부.csv"),
   );
   assert.deepEqual(pending.map((row) => row.history_key), ["outlook:sent"]);
+});
+
+test("scanPending: only project filter is exact, not prefix-based", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-pending-project-exact-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeWorkmetaFixture(root);
+  const other = join(root, "P99-001A");
+  mkdirSync(join(other, "reports", "메일_이력"), { recursive: true });
+  writeFileSync(join(other, "reports", "메일_이력", "메일_이력.csv"),
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,이벤트유형,스레드\nM2,other,vendor@example.com,2026-07-01T09:00:00,user@example.com,src-2,mail_received,T2\n");
+  assert.deepEqual(scanPending(root, { only: "P99-001" }).map((row) => row.project), ["P99-001"]);
 });
 
 test("runCycle apply: 열린 할일과 같은 스레드의 메일은 followup 영수증+event 로 귀속", async (t) => {

@@ -20,6 +20,11 @@
 
 - Expanded Track B due-reminder parsing to recognize project task ledger aliases such as `기한`, `D-Day`, `D-DAY`, and `due_at`, and added metadata-only reason counters for closed, missing/invalid due, next-action, outside-window, and cursor-seen rows.
 
+### dev-ERP follow-up cursor and matching hardening
+
+- Hardened followup_scan cursor handling: corrupt cursor files now stop with a bounded cursor_load error instead of being silently treated as empty, and followup_due cursor keys advance only after an event sink accepts the metadata event.
+- Tightened mail pending project filtering to exact project IDs instead of prefix matches, preventing adjacent project-code collisions during scoped scans.
+
 ### dev-ERP 보안 응급 2건 — 감사 위조 차단 + 로그인 백오프
 
 - POST /api/events 의 actor 를 계정이 있는 팀 모드에선 세션 주체로 서버가 강제(타인 명의 이벤트 위조 차단). 계정 0 파일럿 모드는 종전 자기신고 동작 보존.
