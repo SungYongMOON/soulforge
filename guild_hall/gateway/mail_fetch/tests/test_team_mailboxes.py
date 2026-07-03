@@ -188,6 +188,7 @@ def test_team_runner_isolates_two_mailboxes_and_preserves_mailbox_history(monkey
     history_rows = list(csv.DictReader(history_csv.open("r", encoding="utf-8-sig")))
     assert len(history_rows) == 2
     assert {row["메일함"] for row in history_rows} == {"ops@example.test", "sales@example.test"}
+    assert {row["메일메시지ID"] for row in history_rows} == {"shared-provider-message"}
     assert {row["프로젝트코드"] for row in history_rows} == {"P00-000_INBOX"}
 
 

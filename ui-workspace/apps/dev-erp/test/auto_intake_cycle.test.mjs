@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
-import { parseCycleArgs, acquireLock, releaseLock, runCycle, buildProjectContextLines, enrichCandidateWithRules } from "../tools/auto_intake_cycle.mjs";
+import { parseCycleArgs, acquireLock, releaseLock, runCycle, buildProjectContextLines, enrichCandidateWithRules, teamMailDedupPrePass } from "../tools/auto_intake_cycle.mjs";
 import { branchHintForProject, loadContextHintRules } from "../tools/haengbogwan_run.mjs";
 import { autoIntakeConfig, shouldRunAutoIntake } from "../src/mail_collect.mjs";
 import { pendingForProject } from "../tools/mail_to_task_pending.mjs";
@@ -137,6 +137,19 @@ function makeThreadFixture(root, { status = "open", mailThread = "T1", taskThrea
     + `${historyKey},${subject},${from},2026-07-01T09:05:00,user@example.com,src-2,${eventType},${mailThread}\n`);
   writeFileSync(join(proj, "reports", "할일_장부", "할일_장부.csv"),
     `할일키,상태,소스스레드키\nmailtask:20260701-001,${status},${taskThread}\n`);
+  return proj;
+}
+
+function makeTeamDuplicateFixture(root) {
+  const proj = join(root, "P99-001");
+  mkdirSync(join(proj, "reports", "메일_이력"), { recursive: true });
+  mkdirSync(join(proj, "reports", "할일_장부"), { recursive: true });
+  writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,메일메시지ID,수신역할,이벤트유형,스레드\n"
+    + "M-CC1,[P99] 견적 검토 요청,vendor@example.com,2026-07-01T09:00:00+09:00,cc1@example.test,src-cc1,<team-msg@example.test>,cc,mail_received,T-team\n"
+    + "M-TO,[P99] 견적 검토 요청,vendor@example.com,2026-07-01T09:05:00+09:00,to@example.test,src-to,<team-msg@example.test>,to,mail_received,T-team\n"
+    + "M-CC2,[P99] 견적 검토 요청,vendor@example.com,2026-07-01T09:08:00+09:00,cc2@example.test,src-cc2,<team-msg@example.test>,cc,mail_received,T-team\n");
+  writeFileSync(join(proj, "reports", "할일_장부", "할일_장부.csv"), "할일키,상태,소스그룹키\n");
   return proj;
 }
 
@@ -275,6 +288,73 @@ test("runCycle apply: thread followup 재실행은 영수증과 event 를 중복
   assert.equal(second.pending_total, 0);
   assert.equal(second.receipts.written, 0);
   assert.equal(events.length, 1);
+});
+
+test("teamMailDedupPrePass: Message-ID 사본은 대표 1건과 duplicate no_action 영수증으로 수렴한다", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-team-dedup-prepass-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const pending = [
+    { history_key: "M-CC1", subject: "[P99] 견적", from: "vendor@example.test", received_at: "2026-07-01T09:00:00Z", mailbox: "cc1@example.test", provider_message_id: "<team@example.test>", recipient_role: "cc" },
+    { history_key: "M-TO", subject: "[P99] 견적", from: "vendor@example.test", received_at: "2026-07-01T09:05:00Z", mailbox: "to@example.test", provider_message_id: "<team@example.test>", recipient_role: "to" },
+    { history_key: "M-CC2", subject: "[P99] 견적", from: "vendor@example.test", received_at: "2026-07-01T09:08:00Z", mailbox: "cc2@example.test", provider_message_id: "<team@example.test>", recipient_role: "cc" },
+  ];
+  const first = teamMailDedupPrePass([{ project: "P99-001", pending }], { workmeta: root, apply: false, runId: "dry" });
+  assert.deepEqual(first.scanned[0].pending.map((row) => row.history_key), ["M-TO"]);
+  assert.equal(first.summary.groups, 1);
+  assert.equal(first.summary.copies_suppressed, 2);
+  assert.equal(first.summary.receipts_planned, 2);
+  assert.match(first.scanned[0].pending[0].source_group_ref, /^mid:/);
+});
+
+test("runCycle apply: team mail copies are classified once, carry source_group_ref, and are idempotent", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-team-dedup-cycle-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeTeamDuplicateFixture(root);
+  const dataDir = join(root, "appdata");
+  const classifiedItems = [];
+  const ledgerCandidates = [];
+  const opts = {
+    apply: true, json: true, db: "data/dev-erp.db", workmeta: root, dataDir,
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-team-dedup",
+  };
+  const deps = {
+    exec: async (cmd, args) => {
+      if (args[0] === "tools/mail_to_task_ledger.mjs") {
+        const candFile = args[args.indexOf("--candidates") + 1];
+        const candidates = JSON.parse(readFileSync(candFile, "utf8"));
+        ledgerCandidates.push(candidates);
+        const rows = Object.entries(candidates).map(([key, candidate]) => `mailtask:${key},open,${candidate.source_group_ref || ""}`);
+        writeFileSync(join(root, "P99-001", "reports", "할일_장부", "할일_장부.csv"), `할일키,상태,소스그룹키\n${rows.join("\n")}\n`);
+      }
+      return { stdout: "{}" };
+    },
+    classify: async (items) => {
+      classifiedItems.push(...items);
+      return {
+        judged: items.length,
+        candidates: { [items[0].history_key]: { title: "견적 검토", work_type: "review", completion_criteria: "검토 완료" } },
+        skipped: [],
+        errors: [],
+      };
+    },
+    appendEvent: null,
+  };
+
+  const first = await runCycle(opts, deps);
+  const second = await runCycle({ ...opts, runId: "t-team-dedup-2" }, deps);
+  assert.equal(first.pending_total, 1);
+  assert.equal(first.candidate_count, 1);
+  assert.equal(first.team_mail_dedup.groups, 1);
+  assert.equal(first.team_mail_dedup.copies_suppressed, 2);
+  assert.equal(first.receipts.written, 2);
+  assert.deepEqual(classifiedItems.map((item) => item.history_key), ["M-TO"]);
+  assert.match(ledgerCandidates[0]["M-TO"].source_group_ref, /^mid:/);
+  assert.equal(second.pending_total, 0);
+  assert.equal(second.receipts.written, 0);
+  const receipt = readFileSync(join(root, "P99-001", "reports", "haengbogwan_mail_receipts", "mail_receipts.csv"), "utf8");
+  assert.match(receipt, /duplicate_of:M-TO/);
+  assert.match(receipt, /team_mail_dedup/);
 });
 
 test("mail_to_task_ledger: 스레드 빈 값은 fallback 소스스레드키로 기록한다", (t) => {

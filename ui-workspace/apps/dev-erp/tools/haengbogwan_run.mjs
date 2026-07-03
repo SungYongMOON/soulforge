@@ -287,8 +287,9 @@ function metadataSourceEventToProjectContextEvent(event, { candidateKeys = new S
     summary_hint: [
       "metadata haengbogwan run",
       actionRequired ? "candidate=true" : "candidate=false",
+      Number(event.copy_count ?? 1) > 1 ? `copies=${Number(event.copy_count)}` : "",
       "body_text_not_loaded",
-    ].join("; "),
+    ].filter(Boolean).join("; "),
     action_required: actionRequired,
     work_type: actionRequired ? "review" : "",
     completion_criteria: actionRequired ? "Mail-derived work candidate is reviewed, routed, or dismissed." : "",

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### dev-ERP ENGINE-8 team-mail dedup
+
+- Added metadata-only team-mail duplicate grouping for auto intake: Message-ID exact matching is now the primary group key, legacy blank-ID rows fall back to conservative subject/sender/UTC-time-bucket fingerprinting, and non-representative copies become idempotent `duplicate_of` no-action receipts only under `--apply`.
+- Added `메일메시지ID` and `수신역할` to the v1 project mail-history ledger as a backward-compatible column expansion across JS gateway writes, Outlook reconcile, and Python mail-fetch history projection; existing 21-column consumers remain header-name compatible.
+- Updated haengbogwan metadata context so grouped team-mail copies produce one source event with `copies=<n>`, while task candidates carry `source_group_ref` into `할일_장부`.
+- Removed a tracked local absolute Node path from `ops/run-dev-erp-background.ps1` so root path-policy validation remains portable.
+
 ### dev-ERP runtime 드리프트 봉합 — 자동수집 배선 canon 편입
 
 - runtime checkout 에만 미커밋 상태로 존재하던 메일 자동수집 배선을 canon 으로 편입: `start-windows.bat` 에 `DEV_ERP_MAIL_COLLECT_SEC=900`(15분)·`DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN=1` 기본값(외부 env 로 override 가능)과 creds 안내 주석을 추가해, 재배포/재설치 시 자동수집이 조용히 꺼지는 회귀 경로를 제거.

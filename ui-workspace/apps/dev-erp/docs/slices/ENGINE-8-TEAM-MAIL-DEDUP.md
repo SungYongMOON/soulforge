@@ -1,6 +1,6 @@
 # ENGINE-8-TEAM-MAIL-DEDUP — 팀 메일 사본 통합 (fingerprint)
 
-- status: **unblocked — K-5 승인(2026-07-03 owner), 착수 대기** / parallel_group: G-intake-cycle / depends_on: 없음 (E1은 done — E1의 스레드 로직과 이 패킷의 그룹핑을 통합 검증할 것)
+- status: **done (2026-07-03, codex_gpt-5) — K-5 owner 결정 반영, Message-ID primary + legacy fingerprint fallback** / parallel_group: G-intake-cycle / depends_on: 없음 (E1은 done — E1의 스레드 로직과 이 패킷의 그룹핑을 통합 검증함)
 - 규모 추정: 공용 유틸 ~150줄 + 배선 ~80줄 + 테스트 ~120줄 (1일)
 
 ## 목적 (1줄)
@@ -33,14 +33,24 @@ owner가 업체 메일을 팀원에게 지시·전체 참조로 전달하면 같
 
 ## 구현 전 확인 (착수 게이트)
 
-- [ ] 회사 runtime 원장(팀 수집분)에서 사본 그룹 표본 10건: 같은 발송의 메일함별 수신시각
+- [x] 회사 runtime 원장(팀 수집분)에서 사본 그룹 표본 10건: 같은 발송의 메일함별 수신시각
       편차 분포 실측 → 시각 버킷 크기 확정(제안 기본 ±10분).
-      확인(예): `Import-Csv 메일_이력.csv | group {정규화제목+발신자} | ? Count -gt 1`
-- [ ] 정규화 제목 규칙이 실제 변형(RE:/FW:/Fwd:/답장:/전달:/(외부) 태그, 대괄호 태그 순서)에서
-      안정적인지 표본 대조.
-- [ ] 이벤트유형의 발신 값 실측: directionOf() 패턴(`/발신|보낸|sent|out/i`,
+      확인(예): `Import-Csv 메일_이력.csv | group {정규화제목+발신자} | ? Count -gt 1`.
+      2026-07-03 Codex 실측(메타데이터 집계만): `_workmeta/**/reports/메일_이력/메일_이력.csv`
+      8파일 915행, `메일메시지ID`/`수신역할` 헤더 0파일, 정규화제목+발신자+다중메일함 후보 2그룹,
+      10분 이내 1그룹. 10건 표본은 여전히 부족하므로 버킷은 **legacy 빈 Message-ID 행 폴백**
+      에만 유지(기본 10분)하고, 신규 수집분은 Message-ID 정확 매칭을 주 경로로 삼는다.
+- [x] 정규화 제목 규칙이 실제 변형(RE:/FW:/Fwd:/답장:/전달:/(외부) 태그, 대괄호 태그 순서)에서
+      안정적인지 표본 대조. 2026-07-03 구현 검증: `normalizeSubject` 는 RE/FW/Fwd/답장/전달/회신
+      선두 prefix 만 반복 제거하고 `[P99]` 같은 대괄호 태그는 보존한다. 로컬 실측 후보가 2그룹뿐이라
+      이 규칙은 정확키 부재 legacy 폴백에 한정하고 `test/mail_fingerprint.test.mjs` 로 고정했다.
+- [x] 이벤트유형의 발신 값 실측: directionOf() 패턴(`/발신|보낸|sent|out/i`,
       scan_mail_ledger.mjs 53행)이 실데이터 값과 매칭되는지 확인 — 안 맞으면 발신 필터를
-      메일함 계정==발신자 매칭으로 폴백.
+      메일함 계정==발신자 매칭으로 폴백. 2026-07-03 메타 집계 top 이벤트:
+      `mail_received` 487, `mail_received_imported_msg` 259, `mail_sent_outlook_subject_match` 76,
+      `mail_sent` 34, `mail_received_existing_history` 20, `mail_sent_existing_history` 19,
+      `mail_received_outlook_folder_reconcile` 9, `mail_sent_outlook_reconcile` 7. 기존 `sent`/발신
+      패턴으로 발신 계열이 분리됨을 확인했고, E8 그룹핑은 `isOutboundMail()` 로 발신을 영수증 없이 skip 한다.
 - [x] **K-5 승인됨 (2026-07-03 owner)** — 원장에 `메일메시지ID`(provider_message_id)와
       `수신역할`(to|cc) 컬럼 추가를 **E8 범위에 포함**. fingerprint 는 폴백으로 강등.
       상세는 아래 "owner 결정 기록" 절.
@@ -69,6 +79,22 @@ owner가 업체 메일을 팀원에게 지시·전체 참조로 전달하면 같
 5. **검사 추가**: 기존 검사 방법에 더해 — 메시지ID 동일·메일함 상이 사본 fixture 그룹핑,
    메시지ID 빈 값 폴백 경로, TO/CC 대표 선정, 컬럼 추가 후 기존 21컬럼 소비자 회귀
    (scan/pending/ledger 테스트 green) 를 포함한다.
+
+### Codex 반영 기록 (2026-07-03)
+
+- **원장 개정 방식**: v2 승격이 아니라 `soulforge.project_mail_history.private.v1` 의
+  **하위 호환 컬럼 추가**로 결정. 기존 21컬럼 행은 새 컬럼이 빈 값인 legacy 행으로 읽히며,
+  `pendingForProject`/`mail_to_task_ledger` 는 헤더명 조회라 회귀 없이 통과한다.
+- **flow-through 표면**: JS gateway writer, Outlook reconcile writer, Python `mail_fetch`
+  project mail history writer가 모두 `메일메시지ID` 와 `수신역할` 을 쓴다. `수신역할` 은 해당
+  메일함 주소가 이벤트 `to` 에 있으면 `to`, `cc` 에 있으면 `cc`, 확인 불가면 빈 값.
+- **그룹핑 우선순위**: `mail_fingerprint.mjs` 는 Message-ID가 있으면 `mid:<hash>` 를 그룹키로
+  쓰고, Message-ID가 빈 legacy 행만 제목 정규화+발신자+UTC 10분 버킷+스레드 보조키
+  fingerprint(`mg:<hash>`)로 묶는다.
+- **자동 intake/줄기 반영**: `auto_intake_cycle` 은 E1 thread pre-pass 앞에서 팀 사본을 먼저
+  1대표+N영수증으로 수렴시키고, 대표 candidate 에 `source_group_ref` 를 전달한다.
+  `haengbogwan_context_packet/run` 은 사본 그룹당 metadata source 1개만 만들고 `copies=<n>` 을
+  summary hint 로 남긴다.
 
 ### blocked 기록 (2026-07-02 Codex preflight — K-5 승인으로 해소됨)
 
@@ -169,10 +195,19 @@ node tools/mail_to_task_pending.mjs --workmeta <fixture>           # 사본이 p
 
 ### 공통 검사 총칙 수행 (마스터 플랜)
 
+2026-07-03 Codex 검증:
+
+- `node --test --test-concurrency=1 test/mail_fingerprint.test.mjs test/auto_intake_cycle.test.mjs test/haengbogwan_run.test.mjs` — PASS (44 tests)
+- `node --test --test-concurrency=1 guild_hall/gateway/project_mail_history_writer.test.mjs guild_hall/gateway/outlook_mail_reconcile.test.mjs` — PASS (5 tests)
+- `uv run --with pytest python -m pytest guild_hall/gateway/mail_fetch/tests/test_mail_candidate_queue.py guild_hall/gateway/mail_fetch/tests/test_team_mailboxes.py` — PASS (9 tests)
+- `cd ui-workspace/apps/dev-erp && node --test --test-concurrency=1 <package test inventory>` — PASS (392 tests)
+- `node tools/verify_gate.mjs --level 1 --packet _workmeta/system/reports/post_development_review/20260703_dev_erp_engine_8_team_mail_dedup_review_packet.yaml` — PASS
+- `npm.cmd run validate` — PASS (first attempt exposed an unrelated tracked local absolute Node path in `ops/run-dev-erp-background.ps1`; removed the hardcoded path and reran successfully)
+
 ## 완료 기준 (acceptance)
 
 - "업체 메일 1 + 전달 사본 3" fixture 에서: 할일 최대 2개(원본 1·지시 1, E1 결합 시 1개)·
   줄기 leaf 그룹당 1개·개인 메일 뷰 4행 유지·중복 할일 0.
 - 그룹핑이 보수적(오병합 케이스 테스트 green)이고 결정적임이 고정된다.
 - 직렬 전체 테스트 green + verify_gate L1 PASS.
-- K-5 결정이 나면 이 파일에 결정·반영 상태를 갱신한다(fingerprint → 폴백 강등 경로 명시됨).
+- K-5 결정이 나면 이 파일에 결정·반영 상태를 갱신한다(fingerprint → 폴백 강등 경로 명시됨). — 완료

@@ -7,11 +7,8 @@ $App = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path   # ops -
 $LogDir = Join-Path $App "logs\service"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
-$NodeExe = "C:\Program Files\nodejs\node.exe"
-if (-not (Test-Path -LiteralPath $NodeExe)) {
-  $c = Get-Command node.exe -ErrorAction SilentlyContinue
-  if ($c) { $NodeExe = $c.Source } else { throw "node.exe 를 찾을 수 없음" }
-}
+$NodeCmd = Get-Command node.exe -ErrorAction SilentlyContinue
+if ($NodeCmd) { $NodeExe = $NodeCmd.Source } else { throw "node.exe 를 찾을 수 없음" }
 
 # 4300 점유 node 정리(중복 방지)
 Get-NetTCPConnection -LocalPort 4300 -State Listen -ErrorAction SilentlyContinue | ForEach-Object {

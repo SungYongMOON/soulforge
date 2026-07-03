@@ -34,6 +34,9 @@ def _event(*, bucket: str = "mail") -> EmailEvent:
         ],
         raw={"raw": "raw body must not appear"},
         metadata={
+            "mailbox": {
+                "email": "owner@example.test",
+            },
             "classification": {
                 "bucket": bucket,
                 "reasons": ["policy_test"],
@@ -95,6 +98,8 @@ def test_mail_candidate_queue_writes_body_safe_pending_item(tmp_path: Path) -> N
     assert history_rows[0]["후보ID"] == payload["candidate_id"]
     assert history_rows[0]["몬스터ID"] == ""
     assert history_rows[0]["이벤트유형"] == "mail_received"
+    assert history_rows[0]["메일메시지ID"] == "<provider-message@example.test>"
+    assert history_rows[0]["수신역할"] == "to"
     assert history_rows[0]["작업상태"] == "candidate_pending"
     assert not (history_root / "메일_이력.xlsx").exists()
     assert (

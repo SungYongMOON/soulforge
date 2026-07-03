@@ -20,8 +20,10 @@ const CSV_HEADERS = [
   "후보ID",
   "이벤트유형",
   "메일소스ID",
+  "메일메시지ID",
   "메일수신시각",
   "메일함",
+  "수신역할",
   "스레드",
   "제목",
   "발신자",
@@ -50,6 +52,7 @@ const HUMAN_XLSX_COLUMNS = [
   { key: "attachment_count", header: "첨부수", width: 9, style: XLSX_STYLE_IDS.integer, type: "integer" },
   { key: "status", header: "상태", width: 16, style: XLSX_STYLE_IDS.wrap },
   { key: "source_ref", header: "메일소스ID", width: 28, style: XLSX_STYLE_IDS.wrap },
+  { key: "recipient_role", header: "수신역할", width: 10, style: XLSX_STYLE_IDS.default },
   { key: "project_code", header: "프로젝트", width: 14, style: XLSX_STYLE_IDS.default },
   { key: "stage", header: "단계", width: 14, style: XLSX_STYLE_IDS.default },
   { key: "candidate_id", header: "후보ID", width: 20, style: XLSX_STYLE_IDS.mutedWrap },
@@ -145,8 +148,10 @@ export function buildProjectMailHistoryEntry({
     "후보ID": nullableString(mail.candidate_id ?? refs.candidate_id),
     "이벤트유형": requiredString(eventType, "eventType"),
     "메일소스ID": sourceRef,
+    "메일메시지ID": nullableString(mail.provider_message_id ?? mail.message_id),
     "메일수신시각": nullableString(mail.received_at ?? monster.last_mail_at),
     "메일함": nullableString(mail.mailbox_id),
+    "수신역할": recipientRoleForMailbox(mail),
     "스레드": nullableString(mail.thread_ref),
     "제목": nullableString(mail.subject),
     "발신자": formatAddressList(mail.from),
@@ -409,6 +414,7 @@ function buildHumanXlsxRow(row) {
     attachment_count: row["첨부수"],
     status: rawStatus || (needsReview ? "검토필요" : ""),
     source_ref: row["메일소스ID"],
+    recipient_role: row["수신역할"],
     project_code: row["프로젝트코드"],
     stage: row["단계"],
     candidate_id: row["후보ID"],
@@ -448,6 +454,30 @@ function rowNeedsReview({ eventType, status, direction }) {
     return true;
   }
   return false;
+}
+
+function normalizeEmail(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function addressListContains(value, mailbox) {
+  const mailboxEmail = normalizeEmail(mailbox);
+  if (!mailboxEmail) return false;
+  const entries = Array.isArray(value) ? value : [value];
+  return entries.some((entry) => {
+    if (!entry) return false;
+    if (typeof entry === "string") return normalizeEmail(entry) === mailboxEmail;
+    return normalizeEmail(entry.address ?? entry.email) === mailboxEmail;
+  });
+}
+
+function recipientRoleForMailbox(mail = {}) {
+  const explicit = normalizeEmail(mail.recipient_role);
+  if (explicit === "to" || explicit === "cc") return explicit;
+  const mailbox = mail.mailbox_id ?? mail.mailbox ?? "";
+  if (addressListContains(mail.to, mailbox)) return "to";
+  if (addressListContains(mail.cc, mailbox)) return "cc";
+  return "";
 }
 
 function renderContentTypesXml(sheets) {

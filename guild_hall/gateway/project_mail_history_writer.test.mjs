@@ -34,6 +34,10 @@ test("upsertProjectMailHistory writes Korean metadata plus workspace XLSX export
   assert.equal(dataRows.length, 1);
   assert.match(csv.split(/\r?\n/u)[0], /후보ID/);
   assert.match(csv, /Synthetic project mail request revised/);
+  assert.match(csv.split(/\r?\n/u)[0], /메일메시지ID/);
+  assert.match(csv.split(/\r?\n/u)[0], /수신역할/);
+  assert.match(csv, /provider-mail-history-001/);
+  assert.match(csv, /,to,/);
   assert.equal(xlsx.subarray(0, 2).toString("utf8"), "PK");
   await assert.rejects(readFile(paths.legacy_workmeta_xlsx_path), (error) => error.code === "ENOENT");
   assert.match(schedule, /BEGIN:VEVENT/);
@@ -79,7 +83,7 @@ test("project mail history XLSX uses readable filtered sheets with wrapped key t
   assert.match(workbookXml, /<sheet name="검토필요" sheetId="4" r:id="rId4"\/>/);
   assert.match(workbookXml, /<sheet name="기술정보" sheetId="5" state="hidden" r:id="rId5"\/>/);
   assert.match(historySheetXml, /<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"\/>/);
-  assert.match(historySheetXml, /<autoFilter ref="A1:O3"\/>/);
+  assert.match(historySheetXml, /<autoFilter ref="A1:P3"\/>/);
   assert.match(historySheetXml, /<col min="3" max="3" width="48" customWidth="1"\/>/);
   assert.match(historySheetXml, /<c r="A2" s="3"><v>\d+(?:\.\d+)?<\/v><\/c>/);
   assert.match(historySheetXml, /<c r="C2" s="2" t="inlineStr">/);
@@ -92,6 +96,8 @@ test("project mail history XLSX uses readable filtered sheets with wrapped key t
   assert.match(needsReviewSheetXml, /pending_review/);
   assert.match(technicalSheetXml, /<t>이력키<\/t>/);
   assert.match(technicalSheetXml, /<t>스키마버전<\/t>/);
+  assert.match(technicalSheetXml, /<t>메일메시지ID<\/t>/);
+  assert.match(technicalSheetXml, /<t>수신역할<\/t>/);
 });
 
 test("project mail history writer keeps raw payload fields out of derived files", async () => {
@@ -167,9 +173,12 @@ function sampleEntry({
       source_ref: sourceRef,
       received_at: "2026-05-21T00:00:00.000Z",
       mailbox_id: "company_mailbox",
+      provider_message_id: "provider-mail-history-001",
       thread_ref: "thread-001",
       subject,
       from: [{ name: "Sender", address: "sender@example.test" }],
+      to: [{ name: "Owner", address: "company_mailbox" }],
+      cc: [{ name: "Reviewer", address: "reviewer@example.test" }],
       attachment_count: attachmentCount,
     },
     refs: {

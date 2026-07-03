@@ -29,8 +29,10 @@ CSV_HEADERS = [
     "후보ID",
     "이벤트유형",
     "메일소스ID",
+    "메일메시지ID",
     "메일수신시각",
     "메일함",
+    "수신역할",
     "스레드",
     "제목",
     "발신자",
@@ -140,8 +142,10 @@ class ProjectMailHistoryWriter:
             "후보ID": candidate_id,
             "이벤트유형": "mail_received",
             "메일소스ID": source_ref,
+            "메일메시지ID": str(event.provider_message_id or ""),
             "메일수신시각": str(event.received_at or ""),
             "메일함": _mailbox_history_label(event),
+            "수신역할": _recipient_role_for_event(event),
             "스레드": str(event.thread_id or ""),
             "제목": str(event.subject or ""),
             "발신자": _format_addresses(event.from_addrs),
@@ -355,6 +359,27 @@ def _format_addresses(value: Any) -> str:
         elif address or name:
             rendered.append(address or name)
     return "; ".join(rendered)
+
+
+def _address_list_contains(value: Any, mailbox: str) -> bool:
+    mailbox_email = str(mailbox or "").strip().lower()
+    if not mailbox_email:
+        return False
+    rows = value if isinstance(value, list) else []
+    for item in rows:
+        address = str(getattr(item, "address", "") or getattr(item, "email", "") or item or "").strip().lower()
+        if address == mailbox_email:
+            return True
+    return False
+
+
+def _recipient_role_for_event(event: EmailEvent) -> str:
+    mailbox = _mailbox_history_label(event)
+    if _address_list_contains(event.to_addrs, mailbox):
+        return "to"
+    if _address_list_contains(event.cc_addrs, mailbox):
+        return "cc"
+    return ""
 
 
 def _mailbox_history_label(event: EmailEvent) -> str:

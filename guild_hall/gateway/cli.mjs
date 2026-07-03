@@ -1336,11 +1336,14 @@ async function writeProjectMailHistoryFromGatewayEvent({
 function mailSummaryFromPayload(payload, overrides = {}) {
   return {
     source_ref: payload.event_id ?? null,
+    provider_message_id: payload.provider_message_id ?? null,
     received_at: payload.received_at ?? null,
     mailbox_id: payload.mailbox_id ?? null,
     thread_ref: payload.thread_ref ?? null,
     subject: payload.subject ?? null,
     from: overrides.from ?? normalizeAddressEntries(payload.from),
+    to: normalizeAddressEntries(payload.to),
+    cc: normalizeAddressEntries(payload.cc),
     attachment_count: normalizeArray(payload.attachment_refs).length,
   };
 }
@@ -1348,11 +1351,14 @@ function mailSummaryFromPayload(payload, overrides = {}) {
 function mailSummaryFromInbox(inboxDocument) {
   return {
     source_ref: inboxDocument.source_ref ?? null,
+    provider_message_id: inboxDocument.provider_message_id ?? null,
     received_at: inboxDocument.received_at ?? null,
     mailbox_id: inboxDocument.mailbox_id ?? null,
     thread_ref: inboxDocument.thread_ref ?? null,
     subject: inboxDocument.subject ?? null,
     from: normalizeAddressEntries(inboxDocument.from),
+    to: normalizeAddressEntries(inboxDocument.to),
+    cc: normalizeAddressEntries(inboxDocument.cc),
     attachment_count: normalizeArray(inboxDocument.attachment_refs).length,
   };
 }

@@ -98,8 +98,11 @@ export function pendingForProject(mailCsvPath, taskCsvPath) {
       received_at: firstOf(r, ["메일수신시각"]),
       mailbox: firstOf(r, ["메일함", "mailbox"]),
       source_id: firstOf(r, ["메일소스ID"]),
+      provider_message_id: firstOf(r, ["메일메시지ID", "provider_message_id", "message_id"]),
+      recipient_role: firstOf(r, ["수신역할", "recipient_role"]),
       event_type: firstOf(r, ["이벤트유형", "event_type"]),
       thread: threadKeyForMail({ thread: rawThread, subject, from }),
+      source_group_ref: firstOf(r, ["소스그룹키", "그룹키", "메일그룹키"]),
       due_hint: firstOf(r, ["마감일", "기한", "D-Day", "D-DAY", "due", "due_date"]),
     });
   }

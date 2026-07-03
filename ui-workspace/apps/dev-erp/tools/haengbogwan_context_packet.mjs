@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 
 import { Store } from "../src/store.mjs";
 import { buildSnapshotForProject } from "./haengbogwan_snapshot.mjs";
+import { groupMailCopies } from "./mail_fingerprint.mjs";
 import { pendingForProject } from "./mail_to_task_pending.mjs";
 import { buildProjectKnowledgeOverlay } from "./haengbogwan_project_knowledge_overlay.mjs";
 
@@ -116,10 +117,12 @@ function mailSourceEvent(projectId, mailRef) {
     received_at: mailRef.received_at || "",
     mailbox_ref: mailRef.mailbox || "",
     due_hint: mailRef.due_hint || "",
+    copy_count: mailRef.duplicate_copy_count || 1,
     source_refs: {
       mail_history_ref: `mailcsv:${historyKey}`,
       mail_history_path: MAIL_LEDGER_RELATIVE_PATH.replaceAll("\\", "/"),
       source_mail_source_id: mailRef.source_id || "",
+      source_group_ref: mailRef.source_group_ref || "",
       source_lineage_ref: sourceLineageRef,
     },
   };
@@ -290,7 +293,16 @@ export function buildSourceEventsForProject({
   const mailCsv = join(projectRoot, MAIL_LEDGER_RELATIVE_PATH);
   const taskCsv = join(projectRoot, TASK_LEDGER_RELATIVE_PATH);
   const pending = existsSync(mailCsv) ? pendingForProject(mailCsv, taskCsv) : [];
-  return pending
+  const grouped = groupMailCopies(pending);
+  const deduped = [
+    ...grouped.singles,
+    ...grouped.duplicateGroups.map((group) => ({
+      ...group.representative,
+      source_group_ref: group.group_key,
+      duplicate_copy_count: group.copy_count,
+    })),
+  ];
+  return deduped
     .filter((mailRef) => String(mailRef.history_key || "").trim())
     .sort(compareMailRefs)
     .slice(0, checkedLimit)

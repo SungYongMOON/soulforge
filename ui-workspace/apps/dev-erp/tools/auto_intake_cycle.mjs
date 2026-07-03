@@ -17,6 +17,7 @@ import { promisify } from "node:util";
 import { INTAKE_WORK_TYPES, classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
 import { loadContextHintRules } from "./haengbogwan_run.mjs";
 import { appendMailReceipts } from "./mail_receipts.mjs";
+import { groupMailCopies } from "./mail_fingerprint.mjs";
 import { readCsvObjects, scanPending } from "./mail_to_task_pending.mjs";
 import { isOutboundMail, threadKeyForMail } from "./mail_thread_key.mjs";
 import { runCompletionKnowledgeFeed } from "./completion_knowledge_feed.mjs";
@@ -270,6 +271,62 @@ export async function threadDedupPrePass(scanned, opts, deps = {}) {
   return { scanned: nextScanned, summary };
 }
 
+export function teamMailDedupPrePass(scanned, opts) {
+  const nextScanned = [];
+  const groupRefsByProject = new Map();
+  const summary = {
+    groups: 0,
+    copies_suppressed: 0,
+    receipts_planned: 0,
+    receipts_written: 0,
+    receipt_duplicates: 0,
+  };
+
+  for (const projectScan of scanned) {
+    const grouped = groupMailCopies(projectScan.pending);
+    const nextPending = [...grouped.singles];
+    const groupRefs = new Map();
+    const receiptRows = [];
+    for (const group of grouped.duplicateGroups) {
+      summary.groups += 1;
+      summary.copies_suppressed += group.copies.length;
+      nextPending.push({ ...group.representative, source_group_ref: group.group_key, duplicate_copy_count: group.copy_count });
+      groupRefs.set(group.representative.history_key, group.group_key);
+      for (const copy of group.copies) {
+        receiptRows.push({
+          receipt_key: `mailreceipt:${copy.history_key}:duplicate_of:${group.representative.history_key}`,
+          history_key: copy.history_key,
+          project_id: projectScan.project,
+          disposition: "no_action",
+          status: "auto",
+          handled_at: new Date().toISOString(),
+          reason: `duplicate_of:${group.representative.history_key}`,
+          source_event_ref: "",
+          source_mail_ref: `mailcsv:${copy.history_key}`,
+          source_mail_source_id: copy.source_id || "",
+          source_lineage_ref: `mailgroup:${group.group_key}`,
+          generation_rule_ref: "team_mail_dedup",
+          generation_run_ref: opts.runId,
+          body_access: "metadata_only",
+        });
+      }
+    }
+    if (receiptRows.length) {
+      if (opts.apply) {
+        const receipt = appendMailReceipts({ workmetaRoot: opts.workmeta, projectId: projectScan.project, rows: receiptRows });
+        summary.receipts_written += receipt.written;
+        summary.receipt_duplicates += receipt.skipped_duplicate;
+      } else {
+        summary.receipts_planned += receiptRows.length;
+      }
+    }
+    if (groupRefs.size) groupRefsByProject.set(projectScan.project, groupRefs);
+    nextScanned.push({ ...projectScan, pending: nextPending });
+  }
+
+  return { scanned: nextScanned, groupRefsByProject, summary };
+}
+
 function defaultExec(cmd, args, { timeout }) {
   return execFileP(cmd, args, { cwd: APP, timeout, maxBuffer: 8 * 1024 * 1024 });
 }
@@ -285,6 +342,7 @@ export async function runCycle(opts, deps = {}) {
     skipped: { not_task: 0, llm_error: 0, busy: 0 },
     ledger: {}, context: null, errors: [], body_access: "metadata_only",
     receipts: { written: 0, skipped_duplicate: 0 },
+    team_mail_dedup: { groups: 0, copies_suppressed: 0, receipts_planned: 0, receipts_written: 0, receipt_duplicates: 0 },
     thread_dedup: { followups: 0, outbound_skipped: 0, receipts_planned: 0, receipts_written: 0, receipt_duplicates: 0, events_written: 0 },
     capability_assign: { enriched: 0 },
     knowledge_grounding: { include_common: Boolean(opts.knowledgeCommon), refs: 0, matched: 0, used_refs: [], projects: {} },
@@ -293,10 +351,17 @@ export async function runCycle(opts, deps = {}) {
 
   // 1) pending 델타(결정적, 메일 메타만)
   let scanned = [];
+  let groupRefsByProject = new Map();
   try {
     scanned = scanPending(opts.workmeta, {});
     if (opts.projects.length) scanned = scanned.filter((s) => opts.projects.includes(s.project));
     scanned = scanned.map((s) => ({ project: s.project, pending: s.pending.slice(0, opts.limit) }));
+    const teamDedup = teamMailDedupPrePass(scanned, opts);
+    scanned = teamDedup.scanned;
+    groupRefsByProject = teamDedup.groupRefsByProject;
+    summary.team_mail_dedup = teamDedup.summary;
+    summary.receipts.written += teamDedup.summary.receipts_written;
+    summary.receipts.skipped_duplicate += teamDedup.summary.receipt_duplicates;
     const dedup = await threadDedupPrePass(scanned, opts, deps);
     scanned = dedup.scanned;
     summary.thread_dedup = {
@@ -371,9 +436,13 @@ export async function runCycle(opts, deps = {}) {
       const rules = loadContextHintRules(opts.workmeta, s.project);
       const candidates = {};
       const projectGrounding = summary.knowledge_grounding.projects[s.project] ?? { refs: knowledgeRefs.length };
+      const groupRefs = groupRefsByProject.get(s.project) ?? new Map();
       for (const [key, candidate] of Object.entries(r.candidates ?? {})) {
         const pending = pendingByKey.get(key) ?? {};
-        const enriched = enrichCandidateWithRules(candidate, pending.subject ?? "", rules);
+        const withGroupRef = groupRefs.has(key) && !String(candidate?.source_group_ref ?? "").trim()
+          ? { ...candidate, source_group_ref: groupRefs.get(key) }
+          : candidate;
+        const enriched = enrichCandidateWithRules(withGroupRef, pending.subject ?? "", rules);
         const grounded = applyKnowledgeGroundingToCandidate(enriched.candidate, pending.subject ?? "", knowledgeRefs);
         candidates[key] = grounded.candidate;
         if (enriched.enriched) summary.capability_assign.enriched += 1;
@@ -477,6 +546,7 @@ export async function runCycle(opts, deps = {}) {
           "mail_to_task_classify",
           "haengbogwan_run",
           `run:${opts.runId}`,
+          ...(summary.team_mail_dedup.groups ? ["team_mail_dedup"] : []),
           ...summary.knowledge_grounding.used_refs,
         ];
         const event = {

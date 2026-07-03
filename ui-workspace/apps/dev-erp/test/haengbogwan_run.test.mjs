@@ -14,7 +14,7 @@ import { HAENGBOGWAN_MAIL_RECEIPT_RELATIVE_PATH } from "../tools/mail_to_task_pe
 import { HAENGBOGWAN_TASK_DECISION_RELATIVE_PATH } from "../tools/haengbogwan_task_decisions.mjs";
 
 const TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_run.mjs");
-const MAIL_HEADERS = ["이력키", "제목", "발신자", "메일수신시각", "메일함", "메일소스ID", "마감일"];
+const MAIL_HEADERS = ["이력키", "제목", "발신자", "메일수신시각", "메일함", "메일소스ID", "메일메시지ID", "수신역할", "마감일"];
 const TASK_HEADERS = ["할일키", "프로젝트코드", "할일명", "담당자", "업무유형", "상태", "마감일", "완료기준", "검토상태", "관련메일이력키"];
 
 function csvEscape(value) {
@@ -55,6 +55,8 @@ function writeRunFixture(root, project = "P26-014", taskRows = []) {
         [MAIL_HEADERS[4]]: "team@example.test",
         [MAIL_HEADERS[5]]: "SRC-1",
         [MAIL_HEADERS[6]]: "",
+        [MAIL_HEADERS[7]]: "",
+        [MAIL_HEADERS[8]]: "",
       },
       {
         [MAIL_HEADERS[0]]: "M002",
@@ -64,6 +66,8 @@ function writeRunFixture(root, project = "P26-014", taskRows = []) {
         [MAIL_HEADERS[4]]: "team@example.test",
         [MAIL_HEADERS[5]]: "SRC-2",
         [MAIL_HEADERS[6]]: "",
+        [MAIL_HEADERS[7]]: "",
+        [MAIL_HEADERS[8]]: "",
       },
     ]
   );
@@ -72,6 +76,50 @@ function writeRunFixture(root, project = "P26-014", taskRows = []) {
     TASK_HEADERS,
     taskRows
   );
+}
+
+function writeDuplicateMailRunFixture(root, project = "P26-014") {
+  const projectRoot = join(root, project);
+  writeCsv(
+    join(projectRoot, MAIL_LEDGER_RELATIVE_PATH),
+    MAIL_HEADERS,
+    [
+      {
+        [MAIL_HEADERS[0]]: "M-CC1",
+        [MAIL_HEADERS[1]]: "reply response requested",
+        [MAIL_HEADERS[2]]: "sender@example.test",
+        [MAIL_HEADERS[3]]: "2026-06-27T10:00:00+09:00",
+        [MAIL_HEADERS[4]]: "cc1@example.test",
+        [MAIL_HEADERS[5]]: "SRC-CC1",
+        [MAIL_HEADERS[6]]: "<team-copy@example.test>",
+        [MAIL_HEADERS[7]]: "cc",
+        [MAIL_HEADERS[8]]: "",
+      },
+      {
+        [MAIL_HEADERS[0]]: "M-TO",
+        [MAIL_HEADERS[1]]: "reply response requested",
+        [MAIL_HEADERS[2]]: "sender@example.test",
+        [MAIL_HEADERS[3]]: "2026-06-27T10:03:00+09:00",
+        [MAIL_HEADERS[4]]: "to@example.test",
+        [MAIL_HEADERS[5]]: "SRC-TO",
+        [MAIL_HEADERS[6]]: "<team-copy@example.test>",
+        [MAIL_HEADERS[7]]: "to",
+        [MAIL_HEADERS[8]]: "",
+      },
+      {
+        [MAIL_HEADERS[0]]: "M-CC2",
+        [MAIL_HEADERS[1]]: "reply response requested",
+        [MAIL_HEADERS[2]]: "sender@example.test",
+        [MAIL_HEADERS[3]]: "2026-06-27T10:05:00+09:00",
+        [MAIL_HEADERS[4]]: "cc2@example.test",
+        [MAIL_HEADERS[5]]: "SRC-CC2",
+        [MAIL_HEADERS[6]]: "<team-copy@example.test>",
+        [MAIL_HEADERS[7]]: "cc",
+        [MAIL_HEADERS[8]]: "",
+      },
+    ]
+  );
+  writeCsv(join(projectRoot, TASK_LEDGER_RELATIVE_PATH), TASK_HEADERS, []);
 }
 
 function runTool(workmetaRoot, project, extraArgs = []) {
@@ -203,6 +251,27 @@ test("HAENGBOGWAN-RUN: apply-context updates project_context from metadata mail 
     const nodesText = readFileSync(join(projectRoot, PROJECT_CONTEXT_FILES.nodes), "utf8");
     assert.equal(sourcesText.includes("metadata_only"), true);
     assert.equal(nodesText.includes("task_candidate"), true);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-RUN: apply-context writes one metadata source for team mail copies", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P26-014";
+    writeDuplicateMailRunFixture(tmp.root, project);
+
+    const result = runTool(tmp.root, project, ["--apply-context"]);
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.projects[0].context_report.context_event_count, 1);
+
+    const sourcesText = readFileSync(join(tmp.root, project, PROJECT_CONTEXT_FILES.sources), "utf8");
+    assert.match(sourcesText, /mailcsv:M-TO/);
+    assert.match(sourcesText, /copies=3/);
+    assert.doesNotMatch(sourcesText, /mailcsv:M-CC1/);
+    assert.doesNotMatch(sourcesText, /mailcsv:M-CC2/);
   } finally {
     tmp.cleanup();
   }

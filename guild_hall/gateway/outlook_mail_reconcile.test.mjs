@@ -20,8 +20,10 @@ const HEADERS = [
   "후보ID",
   "이벤트유형",
   "메일소스ID",
+  "메일메시지ID",
   "메일수신시각",
   "메일함",
+  "수신역할",
   "스레드",
   "제목",
   "발신자",
@@ -88,6 +90,7 @@ test("outlook reconcile applies sent metadata row by exact project subject match
           source_entry_fingerprint: "abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd",
           source_folder_alias: "seabot.moon@sonartech.com/보낸 편지함",
           source_id: "outlook:sent:abc123abc123abcd",
+          provider_message_id: "<outlook-sent-abc123@example.test>",
           sent_at: "2026-06-21T17:38:43.000+09:00",
           sender_account_alias: "seabot.moon@sonartech.com",
           recipient_count: 2,
@@ -133,6 +136,7 @@ test("outlook reconcile applies sent metadata row by exact project subject match
   const csv = await readFile(path.join(repoRoot, "_workmeta", "P26-014", "reports", "메일_이력", "메일_이력.csv"), "utf8");
   assert.match(csv, /mail_sent_outlook_reconcile/u);
   assert.match(csv, /outlook:sent:abc123abc123abcd/u);
+  assert.match(csv, /<outlook-sent-abc123@example.test>/u);
   assert.match(csv, /VOS 예인몸체/u);
   assert.doesNotMatch(csv, /body|body_html|secret|attachment_payload/u);
 
