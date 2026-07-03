@@ -12,7 +12,7 @@
 - `slices/ENGINE-1-THREAD-DEDUP.md` — 스레드 인지 중복 억제 (G-intake-cycle, **done 2026-07-02: followup receipt/event pre-pass + sparse-thread fallback**)
 - `slices/ENGINE-2-COMPLETION-KNOWLEDGE-FEED.md` — 완료 지식 후보 자동 적재 (G-knowledge-feed, **done 2026-07-02: completion_log knowledge → candidate JSONL feed + cursor**)
 - `slices/ENGINE-3-CAPABILITY-ASSIGN.md` — 역량 기반 담당 제안 (G-intake-cycle, **done 2026-07-02: branch-rule role/capability/suggested assignee enrichment**)
-- `slices/ENGINE-4-FOLLOWUP-SLA.md` — 무응답·기한 팔로업 (G-intake-cycle, **done 2026-07-03: K-2 3달력일 + 원 발신자 제안 + default-off followup scan**, commit `694e330c`)
+- `slices/ENGINE-4-FOLLOWUP-SLA.md` — 무응답·기한 팔로업 (G-intake-cycle, **done 2026-07-03: K-2 3달력일 + 원 발신자 제안 + default-off followup scan**, commit `694e330c`. **K-2 보강 2026-07-03 owner: 변환된 할일도 추적 포함 — 후속 패킷 대기**, 패킷 "owner 결정 기록" 4항)
 - `slices/ENGINE-5-RAG-GROUNDED-JUDGE.md` — 판단 근거(RAG) 연결 v1 메타 (G-llm-adapter, **done 2026-07-02: approved source-text index metadata → context/candidate/event used_refs grounding**)
 - `slices/ENGINE-6-KNOWLEDGE-PIPELINE-AUTOMATION.md` — 승인 후 지식 뒷단 자동화+주간 트리아지 (guild_hall/Codex 소유 표면)
 - `slices/ENGINE-7-VOICE-INTAKE.md` — 음성 보관함→할일 합류 (K-3 선행)
