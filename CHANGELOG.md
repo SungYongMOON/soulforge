@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP runtime 드리프트 봉합 — 자동수집 배선 canon 편입
+
+- runtime checkout 에만 미커밋 상태로 존재하던 메일 자동수집 배선을 canon 으로 편입: `start-windows.bat` 에 `DEV_ERP_MAIL_COLLECT_SEC=900`(15분)·`DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN=1` 기본값(외부 env 로 override 가능)과 creds 안내 주석을 추가해, 재배포/재설치 시 자동수집이 조용히 꺼지는 회귀 경로를 제거.
+- 로그인 자동시작용 백그라운드 기동 스크립트 `ops/run-dev-erp-background.ps1` 신규 추가(창 없는 기동, 4300 중복 인스턴스 정리, 자동수집 env 포함, secret 파일 미접촉).
+- runtime 로컬수정 14파일 3-way 대조 결과: 위 2건 외 전부 main 에 이미 흡수(byte-equal 7·포함 1)되었거나 main 커밋 계보가 대체(dup_of 기반 본문 폴백이 subject+시각+방향 임시 매칭을 대체 등 5)함을 확인하고 폐기 — 상세는 `_workmeta/system/reports/procedure_capture/20260703_b7_runtime_drift_reconcile_claude_fable-5.md`.
+
 ### dev-ERP ENGINE-4 follow-up SLA preflight
 
 - Marked ENGINE-4 blocked after metadata-only preflight: `이벤트유형` aggregates confirm sent/received direction values are available, but K-2 owner policy for no-reply days, target scope, and default assignee is not recorded.
