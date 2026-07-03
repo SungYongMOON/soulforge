@@ -563,6 +563,46 @@ test("parseCycleArgs: 기본값과 env 매핑", () => {
   assert.equal(o.limit, 5);
   assert.equal(o.provider, "ollama");
   assert.equal(o.fallback, "deterministic");
+  assert.equal(o.followup, false);
+  const withFollowup = parseCycleArgs(["--today", "2026-07-04"], { DEV_ERP_INTAKE_FOLLOWUP: "1" });
+  assert.equal(withFollowup.followup, true);
+  assert.equal(withFollowup.followupDays, 3);
+  assert.equal(withFollowup.today, "2026-07-04");
+});
+
+test("runCycle: followup scan is default-off and env/option gated", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-cycle-followup-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const proj = join(root, "P99-001");
+  mkdirSync(join(proj, "reports", "메일_이력"), { recursive: true });
+  mkdirSync(join(proj, "reports", "할일_장부"), { recursive: true });
+  writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,이벤트유형,스레드\n"
+    + "S1,[P99] 회신 확인 요청,owner@example.test,2026-07-01T09:00:00+09:00,sent@example.test,src-s1,mail_sent,T1\n");
+  writeFileSync(join(proj, "reports", "할일_장부", "할일_장부.csv"), "할일키,상태,소스스레드키\n");
+  const dataDir = join(root, "appdata");
+  const opts = {
+    apply: true, json: true, db: "data/dev-erp.db", workmeta: root, dataDir,
+    projects: [], limit: 12, provider: "none", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-followup", today: "2026-07-04", followup: false,
+  };
+  const deps = {
+    exec: async (cmd, args) => {
+      if (args[0] === "tools/mail_to_task_ledger.mjs") {
+        const candFile = args[args.indexOf("--candidates") + 1];
+        const candidates = JSON.parse(readFileSync(candFile, "utf8"));
+        const rows = Object.keys(candidates).map((key) => `mailtask:${key},unclassified,T1`);
+        writeFileSync(join(proj, "reports", "할일_장부", "할일_장부.csv"), `할일키,상태,소스스레드키\n${rows.join("\n")}\n`);
+      }
+      return { stdout: "{}" };
+    },
+    classify: async () => ({ judged: 0, candidates: {}, skipped: [], errors: [] }),
+    appendEvent: null,
+  };
+  const off = await runCycle(opts, deps);
+  const on = await runCycle({ ...opts, followup: true, followupDays: 3, followupLimit: 5, followupReminderDays: 2, runId: "t-followup-on" }, deps);
+  assert.equal(off.followup_scan.enabled, false);
+  assert.equal(on.followup_scan.no_reply_candidates, 1);
 });
 
 test("branchHintForProject: 프로젝트 규칙 우선 → 계약 seed 폴백 → fallback", () => {

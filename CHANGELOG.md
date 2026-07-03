@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### dev-ERP ENGINE-4 follow-up SLA
+
+- Added `tools/followup_scan.mjs`, a metadata-only follow-up scanner with dry-run default, `--apply` gate, cursor idempotency, 3-calendar-day no-reply detection, default per-project limit 5, and `data_label=meta` event rows.
+- Implemented K-2 owner policy: no-reply candidates are `needs_review`, default assignee is only a `suggested_assignee_ref` based on the original sender, and the target scope is all collected project-routed mail.
+- Added due-date reminder events for open tasks with empty next action, direction-signal guarding for Track A, and a default-off auto-intake hook behind `DEV_ERP_INTAKE_FOLLOWUP=1`.
+- Added serial node:test coverage for no-reply candidate creation, later inbound suppression, open-thread event-only behavior, cursor deduplication, per-cycle truncation, direction-signal disablement, and auto-intake gating.
+
 ### dev-ERP ENGINE-8 team-mail dedup
 
 - Added metadata-only team-mail duplicate grouping for auto intake: Message-ID exact matching is now the primary group key, legacy blank-ID rows fall back to conservative subject/sender/UTC-time-bucket fingerprinting, and non-representative copies become idempotent `duplicate_of` no-action receipts only under `--apply`.

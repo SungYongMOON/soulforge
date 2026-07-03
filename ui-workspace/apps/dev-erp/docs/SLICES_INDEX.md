@@ -8,11 +8,11 @@
 
 정본 마스터: `slices/ENGINE_EXPANSION_MASTER_PLAN_20260702.md` (순서·의존성·공통 가드·공통 검사 총칙·검증된 기반 사실·owner 결정 K-1~K-5 소유). 각 패킷은 cold-start 실행 가능(검증된 사실 + 구현 전 확인 + 설계 + 검사 방법 + 완료 기준 포함).
 
-- `slices/ENGINE-8-TEAM-MAIL-DEDUP.md` — 팀 메일 사본 통합(메시지ID 정확 매칭 + fingerprint 폴백) (G-intake-cycle, **done 2026-07-03: v1-compatible 원장 컬럼 2종 + auto-intake/context 사본 수렴**, commit pending)
+- `slices/ENGINE-8-TEAM-MAIL-DEDUP.md` — 팀 메일 사본 통합(메시지ID 정확 매칭 + fingerprint 폴백) (G-intake-cycle, **done 2026-07-03: v1-compatible 원장 컬럼 2종 + auto-intake/context 사본 수렴**, commit `479c86c0`)
 - `slices/ENGINE-1-THREAD-DEDUP.md` — 스레드 인지 중복 억제 (G-intake-cycle, **done 2026-07-02: followup receipt/event pre-pass + sparse-thread fallback**)
 - `slices/ENGINE-2-COMPLETION-KNOWLEDGE-FEED.md` — 완료 지식 후보 자동 적재 (G-knowledge-feed, **done 2026-07-02: completion_log knowledge → candidate JSONL feed + cursor**)
 - `slices/ENGINE-3-CAPABILITY-ASSIGN.md` — 역량 기반 담당 제안 (G-intake-cycle, **done 2026-07-02: branch-rule role/capability/suggested assignee enrichment**)
-- `slices/ENGINE-4-FOLLOWUP-SLA.md` — 무응답·기한 팔로업 (G-intake-cycle, **unblocked 2026-07-03: K-2 owner 확정** — 3일·원 발신자 제안, 패킷 "owner 결정 기록" 절 참조)
+- `slices/ENGINE-4-FOLLOWUP-SLA.md` — 무응답·기한 팔로업 (G-intake-cycle, **done 2026-07-03: K-2 3달력일 + 원 발신자 제안 + default-off followup scan**)
 - `slices/ENGINE-5-RAG-GROUNDED-JUDGE.md` — 판단 근거(RAG) 연결 v1 메타 (G-llm-adapter, **done 2026-07-02: approved source-text index metadata → context/candidate/event used_refs grounding**)
 - `slices/ENGINE-6-KNOWLEDGE-PIPELINE-AUTOMATION.md` — 승인 후 지식 뒷단 자동화+주간 트리아지 (guild_hall/Codex 소유 표면)
 - `slices/ENGINE-7-VOICE-INTAKE.md` — 음성 보관함→할일 합류 (K-3 선행)

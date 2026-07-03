@@ -21,6 +21,7 @@ import { groupMailCopies } from "./mail_fingerprint.mjs";
 import { readCsvObjects, scanPending } from "./mail_to_task_pending.mjs";
 import { isOutboundMail, threadKeyForMail } from "./mail_thread_key.mjs";
 import { runCompletionKnowledgeFeed } from "./completion_knowledge_feed.mjs";
+import { runFollowupScan } from "./followup_scan.mjs";
 import {
   DEFAULT_KNOWLEDGE_INDEX_ROOT,
   applyKnowledgeGroundingToCandidate,
@@ -61,6 +62,11 @@ export function parseCycleArgs(argv = process.argv.slice(2), env = process.env) 
     knowledgeCommon: truthyEnv("DEV_ERP_INTAKE_KNOWLEDGE_COMMON", env),
     knowledgeRoot: arg("knowledge-root", DEFAULT_KNOWLEDGE_INDEX_ROOT),
     completionFeed: truthyEnv("DEV_ERP_INTAKE_COMPLETION_FEED", env),
+    followup: has("followup") || truthyEnv("DEV_ERP_INTAKE_FOLLOWUP", env),
+    followupDays: Math.max(1, Number(arg("followup-days", env.DEV_ERP_FOLLOWUP_DAYS || "3")) || 3),
+    followupLimit: Math.max(1, Number(arg("followup-limit", env.DEV_ERP_FOLLOWUP_LIMIT || "5")) || 5),
+    followupReminderDays: Math.max(0, Number(arg("followup-reminder-days", env.DEV_ERP_FOLLOWUP_REMINDER_DAYS || "2")) || 2),
+    today: arg("today", new Date().toISOString().slice(0, 10)),
     skipContext: has("skip-context"),
     // not_task 고신뢰 판정을 영수증으로 기억(재판단 수렴). --no-receipts 또는 DEV_ERP_INTAKE_RECEIPTS=0 으로 끔.
     receipts: !has("no-receipts") && String(env.DEV_ERP_INTAKE_RECEIPTS ?? "1").trim() !== "0",
@@ -347,6 +353,7 @@ export async function runCycle(opts, deps = {}) {
     capability_assign: { enriched: 0 },
     knowledge_grounding: { include_common: Boolean(opts.knowledgeCommon), refs: 0, matched: 0, used_refs: [], projects: {} },
     completion_knowledge_feed: { enabled: Boolean(opts.completionFeed) },
+    followup_scan: { enabled: Boolean(opts.followup) },
   };
 
   // 1) pending 델타(결정적, 메일 메타만)
@@ -531,10 +538,34 @@ export async function runCycle(opts, deps = {}) {
     }
   }
 
+  // 6) Optional no-reply/due follow-up scan. Default OFF; deterministic and apply-gated.
+  if (opts.followup) {
+    try {
+      const followup = await runFollowupScan({
+        apply: opts.apply,
+        json: true,
+        workmeta: opts.workmeta,
+        dataDir: opts.dataDir,
+        db: opts.db,
+        today: opts.today,
+        days: opts.followupDays,
+        reminderDays: opts.followupReminderDays,
+        limit: opts.followupLimit,
+        projects: opts.projects,
+        runId: opts.runId,
+      }, { exec, appendEvent: deps.appendEvent });
+      summary.followup_scan = followup;
+      if (!followup.ok) summary.errors.push("followup_scan");
+    } catch (e) {
+      summary.followup_scan = { enabled: true, error: String(e?.message ?? e).slice(0, 160) };
+      summary.errors.push("followup_scan");
+    }
+  }
+
   summary.ok = summary.errors.length === 0;
   summary.elapsed_ms = Date.now() - started;
 
-  // 6) 실행 기록(메타만): receipts JSONL + event_log. 실패해도 사이클 결과에는 영향 없음.
+  // 7) 실행 기록(메타만): receipts JSONL + event_log. 실패해도 사이클 결과에는 영향 없음.
   if (opts.apply) {
     try {
       mkdirSync(opts.dataDir, { recursive: true });
