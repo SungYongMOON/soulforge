@@ -31,6 +31,7 @@ $env:DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN = "1"
 # 지식근거)→할일_장부→줄기 갱신. 신규 유입 있을 때만 실행. 분류 모델은 ERP_CHAT_MODEL 상속(gemma4:e4b).
 $env:DEV_ERP_AUTO_INTAKE = "1"
 $env:DEV_ERP_INTAKE_LLM = "ollama"
+$env:DEV_ERP_AUTOSYNC = "1"   # 체인 ④: 할일_장부 → core_item 자동 반영(신규 행만, 10초 폴링)
 
 Start-Process -FilePath $NodeExe -ArgumentList @("server.mjs", "--host", "0.0.0.0", "--port", "4300") `
   -WorkingDirectory $App -WindowStyle Hidden `
