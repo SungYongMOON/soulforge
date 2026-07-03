@@ -87,3 +87,12 @@ knowledge_triage_report:
 - "승인 표기 → 사람 손 0 으로 인덱스 ready + 원장 상태 갱신" 이 fixture 로 재현.
 - 주간 리포트가 open 적체(현재 6건)를 표면화한다.
 - 자동화가 승인 권한을 넘보지 않음이 dry-run/코드 리뷰로 확인된다.
+
+## Implementation Note - 2026-07-03
+
+- Implemented in `guild_hall/rag/knowledge_pipeline_automation.mjs`.
+- CLI surface: `weekly-triage-report`, `validate-weekly-triage-report`, `approved-build-runner`, `validate-approved-build-run`.
+- `accepted_for_review` remains a candidate-ledger review state, not index-write approval by itself.
+- Index writes require an explicit `candidate_id=source_card_ref` mapping and an already owner-approved source card (`approval_status` starts with `owner_approved_` or source-card authority marks it as an approved knowledge reference).
+- Default mode is dry-run; `--write` is required for report, build-event, and source-text index writes.
+- First real P26 report target: `_workmeta/system/reports/knowledge_triage/p26_014_weekly_triage_20260703/weekly_triage_report.md`.

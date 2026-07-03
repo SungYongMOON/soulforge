@@ -57,6 +57,16 @@ import {
   writeSourceTextTraceabilitySidecar,
 } from "./source_text_index.mjs";
 import {
+  buildKnowledgeApprovedBuildRun,
+  buildKnowledgeWeeklyTriageReport,
+  loadKnowledgeApprovedBuildRun,
+  loadKnowledgeWeeklyTriageReport,
+  validateKnowledgeApprovedBuildRun,
+  validateKnowledgeWeeklyTriageReport,
+  writeKnowledgeApprovedBuildRun,
+  writeKnowledgeWeeklyTriageReport,
+} from "./knowledge_pipeline_automation.mjs";
+import {
   buildRagWorkCard,
   buildSourceTextQualityReview,
   loadRagWorkCard,
@@ -711,6 +721,78 @@ async function main() {
       sourceTextIndexRef: optionalStringArg(args, "source-text-index-ref"),
     });
     printJson(validateSourceTextIndex(index));
+    return;
+  }
+
+  if (command === "approved-build-runner" || command === "knowledge-approved-build-runner") {
+    const buildOptions = {
+      repoRoot,
+      ledgerRefs: arrayArg(args, "ledger-ref"),
+      ledgerRootRefs: arrayArg(args, "ledger-root-ref"),
+      buildEventLedgerRef: optionalStringArg(args, "build-event-ledger-ref"),
+      candidateSourceCardRefs: arrayArg(args, "candidate-source-card-ref"),
+      candidateIndexIds: arrayArg(args, "candidate-index-id"),
+      runId: optionalStringArg(args, "run-id"),
+      outputRootRef: optionalStringArg(args, "output-root-ref"),
+      stableMs: optionalNumberArg(args, "stable-ms"),
+      maxChars: optionalNumberArg(args, "max-chars"),
+      now: optionalStringArg(args, "now"),
+      date: optionalStringArg(args, "date"),
+    };
+    if (args.write) {
+      printJson(await writeKnowledgeApprovedBuildRun(buildOptions));
+      return;
+    }
+    const built = await buildKnowledgeApprovedBuildRun(buildOptions);
+    printJson(built.run);
+    return;
+  }
+
+  if (command === "validate-approved-build-run" || command === "validate-knowledge-approved-build-run") {
+    const run = await loadKnowledgeApprovedBuildRun({
+      repoRoot,
+      runRef: optionalStringArg(args, "run-ref"),
+    });
+    const validation = validateKnowledgeApprovedBuildRun(run);
+    printJson(validation);
+    if (validation.status !== "pass") process.exitCode = 1;
+    return;
+  }
+
+  if (command === "weekly-triage-report" || command === "knowledge-triage-report") {
+    const reportOptions = {
+      repoRoot,
+      ledgerRefs: arrayArg(args, "ledger-ref"),
+      ledgerRootRefs: arrayArg(args, "ledger-root-ref"),
+      buildEventLedgerRefs: arrayArg(args, "build-event-ledger-ref"),
+      buildEventRootRefs: arrayArg(args, "build-event-root-ref"),
+      reportId: optionalStringArg(args, "report-id"),
+      outputRootRef: optionalStringArg(args, "output-root-ref"),
+      top: optionalNumberArg(args, "top"),
+      now: optionalStringArg(args, "now"),
+      date: optionalStringArg(args, "date"),
+    };
+    if (args.write) {
+      printJson(await writeKnowledgeWeeklyTriageReport(reportOptions));
+      return;
+    }
+    const built = await buildKnowledgeWeeklyTriageReport(reportOptions);
+    if (args.text) {
+      process.stdout.write(`${built.rendered.markdown}\n`);
+      return;
+    }
+    printJson(built.report);
+    return;
+  }
+
+  if (command === "validate-weekly-triage-report" || command === "validate-knowledge-triage-report") {
+    const report = await loadKnowledgeWeeklyTriageReport({
+      repoRoot,
+      reportRef: optionalStringArg(args, "report-ref"),
+    });
+    const validation = validateKnowledgeWeeklyTriageReport(report);
+    printJson(validation);
+    if (validation.status !== "pass") process.exitCode = 1;
     return;
   }
 
@@ -2253,6 +2335,10 @@ function printUsageAndExit() {
       "  node guild_hall/rag/cli.mjs validate-source-sync-ready --ready-ref <repo-relative-json> [--source-card-ref <repo-relative-json>] [--source-text-ref <repo-relative-text>] [--stable-ms <n>] [--metadata-only]",
       "  node guild_hall/rag/cli.mjs source-text-index [--write] --source-card-ref <repo-relative-json> [--ready-ref <repo-relative-json>] [--stable-ms <n>] [--docling-json-ref <repo-relative-json>] [--index-id <id>] [--max-chars <n>] [--output-ref <repo-relative-json>]",
       "  node guild_hall/rag/cli.mjs validate-source-text-index --source-text-index-ref <repo-relative-json>",
+      "  node guild_hall/rag/cli.mjs approved-build-runner [--write] [--date YYYY-MM-DD | --now <iso>] [--ledger-ref <repo-relative-jsonl> ...] [--ledger-root-ref <repo-relative-dir> ...] [--candidate-source-card-ref <candidate_id=source_card_ref> ...] [--candidate-index-id <candidate_id=index_id> ...] [--run-id <id>] [--output-root-ref <repo-relative-dir>]",
+      "  node guild_hall/rag/cli.mjs validate-approved-build-run --run-ref <repo-relative-json>",
+      "  node guild_hall/rag/cli.mjs weekly-triage-report [--write] [--date YYYY-MM-DD | --now <iso>] [--ledger-ref <repo-relative-jsonl> ...] [--ledger-root-ref <repo-relative-dir> ...] [--build-event-ledger-ref <repo-relative-jsonl> ...] [--build-event-root-ref <repo-relative-dir> ...] [--report-id <id>] [--output-root-ref <repo-relative-dir>] [--top <n>] [--text]",
+      "  node guild_hall/rag/cli.mjs validate-weekly-triage-report --report-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs source-text-traceability-sidecar [--write] --source-text-index-ref <repo-relative-json> --docling-json-ref <repo-relative-json> [--traceability-id <id>] [--output-ref <repo-relative-json>]",
       "  node guild_hall/rag/cli.mjs validate-source-text-traceability-sidecar --traceability-sidecar-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs source-text-answer-run [--write] --source-text-index-ref <repo-relative-json> --question <question> [--traceability-sidecar-ref <repo-relative-json>] [--run-id <id>] [--max-chunks <n>] [--text]",

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP ENGINE-6 knowledge pipeline automation
+
+- Added `guild_hall/rag/knowledge_pipeline_automation.mjs`, a metadata-only backend runner for weekly knowledge triage reports and post-owner-decision approved build runs.
+- Added `weekly-triage-report` and `approved-build-runner` CLI commands with dry-run defaults, explicit `--write` mutation gates, append-only build-event projection, and source-card owner-approval checks before source-text index writes.
+- Added fixture coverage for owner-approved index writes, idempotent existing-index skips, candidate source-card approval blockers, and P26-014 six-open-candidate weekly triage reporting.
+
 ### dev-ERP auto-intake activation on runtime launchers
 
 - Enabled the mail-to-task auto intake cycle on the runtime launch surfaces (2026-07-03 owner decision): `ops/run-dev-erp-background.ps1` now sets `DEV_ERP_AUTO_INTAKE=1` and `DEV_ERP_INTAKE_LLM=ollama` (classification model inherits `ERP_CHAT_MODEL`), and `start-windows.bat` applies the same defaults only on the runtime 4300 branch so the development checkout (4310) stays off and never auto-writes into dev `_workmeta`.

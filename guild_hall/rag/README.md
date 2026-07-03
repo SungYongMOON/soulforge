@@ -63,6 +63,11 @@ npm run guild-hall:rag -- source-text-index --write --source-card-ref _workspace
 npm run guild-hall:rag -- source-text-index --write --source-card-ref _workspaces/knowledge/source_cards/<source_id>.source_card.json --ready-ref _workspaces/knowledge/common/<source_id>/source_sync_ready_manifest.json --stable-ms 2000 --index-id <source_id>_source_text_index
 npm run guild-hall:rag -- source-text-index --write --source-card-ref _workspaces/knowledge/source_cards/<source_id>.source_card.json --ready-ref _workspaces/knowledge/common/<source_id>/source_sync_ready_manifest.json --docling-json-ref _workspaces/knowledge/common/<source_id>/derived_text/<docling_json_export>.json --index-id <source_id>_docling_json_index
 npm run guild-hall:rag -- validate-source-text-index --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json
+npm run guild-hall:rag -- weekly-triage-report --write --date 2026-07-03 --ledger-root-ref _workmeta/P26-014/knowledge_rag_candidate_ledger/events --report-id p26_014_weekly_triage_20260703
+npm run guild-hall:rag -- validate-weekly-triage-report --report-ref _workmeta/system/reports/knowledge_triage/p26_014_weekly_triage_20260703/weekly_triage_report.json
+npm run guild-hall:rag -- approved-build-runner --date 2026-07-03 --ledger-root-ref _workmeta/P26-014/knowledge_rag_candidate_ledger/events --candidate-source-card-ref <candidate_id>=_workspaces/knowledge/source_cards/<source_id>.source_card.json
+npm run guild-hall:rag -- approved-build-runner --write --date 2026-07-03 --ledger-root-ref _workmeta/P26-014/knowledge_rag_candidate_ledger/events --candidate-source-card-ref <candidate_id>=_workspaces/knowledge/source_cards/<source_id>.source_card.json
+npm run guild-hall:rag -- validate-approved-build-run --run-ref _workmeta/system/reports/rag/approved_build_runs/<run_id>/approved_build_run.json
 npm run guild-hall:rag -- source-text-traceability-sidecar --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/<source_id>_source_text_index/source_text_index.json --docling-json-ref _workspaces/knowledge/common/<source_id>/derived_text/<docling_json_export>.json --traceability-id <source_id>_traceability
 npm run guild-hall:rag -- validate-source-text-traceability-sidecar --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json
 npm run guild-hall:rag -- source-text-answer-run --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json --question "NotebookLM authority" --run-id soulforge_common_knowledge_answer_20260525 --text
@@ -361,6 +366,18 @@ not read the source text.
   `--docling-json-ref` is supplied, it builds chunks from the Docling JSON
   element/page order and stores native page spans on the private chunks; the
   default Markdown/text path is unchanged.
+- `weekly-triage-report` reads only knowledge-candidate and build-event JSONL
+  metadata and writes the owner decision report under
+  `_workmeta/system/reports/knowledge_triage/**`. It does not read source
+  bodies, build indexes, approve candidates, reject candidates, mutate canon, or
+  switch routes.
+- `approved-build-runner` is the post-owner-decision backend runner. It treats
+  candidate rows as append-only, requires `--write` before index/event writes,
+  requires an explicit `candidate_id=source_card_ref` mapping, and writes an
+  index only when the mapped source card is already owner-approved
+  (`approval_status` starts with `owner_approved_` or the card authority marks
+  the source as an approved knowledge reference). `accepted_for_review` alone is
+  not index approval.
 - `source-text-traceability-sidecar` reads a private source-text index plus a
   private Docling JSON export and writes a no-source-text sidecar under
   `_workspaces/knowledge/rag/traceability_sidecars/**`. It maps chunk ids to
