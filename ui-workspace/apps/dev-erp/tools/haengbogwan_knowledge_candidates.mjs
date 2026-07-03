@@ -8,7 +8,8 @@ import {
   validateKnowledgeRagCandidate,
 } from "../../../../guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs";
 
-const PROJECT_RE = /^P\d{2}-\d{3}$/;
+// P00-000_INBOX 는 로드맵이 예약한 회사 일반/미분류 코드(DEVELOPMENT_ROADMAP daily ledger 절) — 정식 허용.
+const PROJECT_RE = /^(?:P\d{2}-\d{3}|P00-000_INBOX)$/;
 const SOURCE_SUMMARY_REL = "project_context/summaries/project_summary.md";
 
 function normalizeProjectCode(value) {

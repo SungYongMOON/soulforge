@@ -23,7 +23,8 @@ const DEFAULT_DB = join(APP, "data", "dev-erp.db");
 const DEFAULT_WORKMETA = join(REPO, "_workmeta");
 const DEFAULT_CURSOR = join(APP, "data", "completion_knowledge_cursor.json");
 const CURSOR_SCHEMA = "dev_erp.completion_knowledge_cursor.v0";
-const PROJECT_RE = /^P\d{2}-\d{3}$/;
+// P00-000_INBOX 는 로드맵이 예약한 회사 일반/미분류 코드 — INBOX 완료 지식도 적재 대상.
+const PROJECT_RE = /^(?:P\d{2}-\d{3}|P00-000_INBOX)$/;
 const FORBIDDEN_HINT_KEYS = new Set([
   "attachment",
   "attachments",
