@@ -6,6 +6,10 @@
 - Added legacy fallback thread-key aliases for metadata-only migration, so existing `thread-fallback:*` task refs can still match new blank-thread mail while new keys use the safer canonical normalizer.
 - Shared `mailtask:`/`mailcsv:` history-key parsing across pending, ledger, and follow-up paths to avoid partial matches when mail history keys themselves contain colon-number segments.
 
+### dev-ERP follow-up SLA converted-mail visibility
+
+- Changed `followup_scan` so already-converted outbound no-reply mail is no longer hidden before SLA checks. Open converted tasks receive a metadata-only `followup_due` event candidate, while closed converted tasks remain visible as counts without creating duplicate tasks or changing state.
+
 ### dev-ERP 보안 응급 2건 — 감사 위조 차단 + 로그인 백오프
 
 - POST /api/events 의 actor 를 계정이 있는 팀 모드에선 세션 주체로 서버가 강제(타인 명의 이벤트 위조 차단). 계정 0 파일럿 모드는 종전 자기신고 동작 보존.

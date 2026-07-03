@@ -235,6 +235,61 @@ test("followup_scan: numeric-looking history keys do not partially match sibling
   assert.deepEqual(summary.projects["P99-001"].candidate_keys, ["outlook:sent"]);
 });
 
+test("followup_scan: converted no-reply mail attaches followup_due to existing task without duplicate", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "sf-followup-converted-open-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeProject(root, "P99-001", {
+    mailRows: [sentRow("S1", "", "2026-07-01T09:00:00+09:00")],
+    taskRows: [{ 할일키: "mailtask:S1", 상태: "open", 소스스레드키: "", 마감일: "", 다음액션: "" }],
+  });
+  const events = [];
+  const opts = {
+    apply: true,
+    workmeta: root,
+    dataDir: join(root, "data"),
+    today: "2026-07-04",
+    days: 3,
+    projects: ["P99-001"],
+    runId: "converted-open",
+  };
+  const first = await runFollowupScan(opts, { appendEvent: (event) => events.push(event) });
+  const second = await runFollowupScan({ ...opts, runId: "converted-open-2" }, { appendEvent: (event) => events.push(event) });
+
+  assert.equal(first.no_reply_candidates, 0);
+  assert.equal(first.no_reply_events, 1);
+  assert.equal(first.converted_no_reply_events, 1);
+  assert.equal(first.projects["P99-001"].converted_no_reply_events, 1);
+  assert.deepEqual(first.projects["P99-001"].candidate_keys, []);
+  assert.equal(second.no_reply_events, 0);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].kind, "followup_due");
+  assert.equal(events[0].item_ref, "mailtask:S1");
+});
+
+test("followup_scan: converted closed no-reply mail is counted but not duplicated", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "sf-followup-converted-closed-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeProject(root, "P99-001", {
+    mailRows: [sentRow("S1", "", "2026-07-01T09:00:00+09:00")],
+    taskRows: [{ 할일키: "mailtask:S1", 상태: "done", 소스스레드키: "", 마감일: "", 다음액션: "" }],
+  });
+  const summary = await runFollowupScan({
+    apply: false,
+    workmeta: root,
+    dataDir: join(root, "data"),
+    today: "2026-07-04",
+    days: 3,
+    projects: ["P99-001"],
+  });
+
+  assert.equal(summary.no_reply_candidates, 0);
+  assert.equal(summary.no_reply_events, 0);
+  assert.equal(summary.converted_closed_no_reply, 1);
+  assert.equal(summary.projects["P99-001"].converted_closed_no_reply, 1);
+  assert.equal(summary.projects["P99-001"].skipped_converted, 1);
+  assert.deepEqual(summary.projects["P99-001"].candidate_keys, []);
+});
+
 test("followup_scan: due reminder event is cursor-deduped", async (t) => {
   const root = mkdtempSync(join(tmpdir(), "sf-followup-due-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
