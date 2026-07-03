@@ -240,6 +240,29 @@ function openTaskForMail(mail, openThreads) {
   return { itemRef: "", thread: mail.thread || "" };
 }
 
+function emptyDueReminderCounters() {
+  return {
+    missing_task_key: 0,
+    closed_status: 0,
+    missing_due: 0,
+    invalid_due: 0,
+    has_next_action: 0,
+    outside_window: 0,
+    cursor_seen: 0,
+    planned: 0,
+  };
+}
+
+function addDueReminderCounters(target, delta) {
+  for (const [key, value] of Object.entries(delta)) target[key] = (target[key] ?? 0) + value;
+}
+
+function dueDateOnly(value) {
+  const raw = String(value ?? "").trim();
+  const date = raw.slice(0, 10);
+  return DATE_RE.test(date) ? date : "";
+}
+
 function convertedTaskForMail(mail, openThreads, conversion) {
   const matched = openTaskForMail(mail, openThreads);
   if (matched.itemRef) return { ...matched, source: "thread" };
@@ -251,19 +274,26 @@ function convertedTaskForMail(mail, openThreads, conversion) {
 
 function dueReminderRows(taskRows, opts, cursor) {
   const planned = [];
+  const counters = emptyDueReminderCounters();
   for (const row of taskRows) {
-    const taskKey = firstOf(row, ["할일키", "id"]);
+    const taskKey = firstOf(row, ["할일키", "id", "task_key"]);
+    if (!taskKey) { counters.missing_task_key += 1; continue; }
     const status = firstOf(row, ["상태", "status"]);
-    const due = firstOf(row, ["마감일", "due", "due_date"]);
-    const nextAction = firstOf(row, ["다음액션", "next_action"]);
-    if (!taskKey || !DATE_RE.test(due) || nextAction || !isOpenTaskStatus(status)) continue;
+    if (!isOpenTaskStatus(status)) { counters.closed_status += 1; continue; }
+    const dueRaw = firstOf(row, ["마감일", "기한", "D-Day", "D-DAY", "due", "due_date", "due_at"]);
+    if (!dueRaw) { counters.missing_due += 1; continue; }
+    const due = dueDateOnly(dueRaw);
+    if (!due) { counters.invalid_due += 1; continue; }
+    const nextAction = firstOf(row, ["다음액션", "다음 액션", "next_action", "nextAction"]);
+    if (nextAction) { counters.has_next_action += 1; continue; }
     const daysUntil = calendarDaysBetween(opts.today, due);
-    if (daysUntil == null || daysUntil < 0 || daysUntil > opts.reminderDays) continue;
+    if (daysUntil == null || daysUntil < 0 || daysUntil > opts.reminderDays) { counters.outside_window += 1; continue; }
     const cursorKey = `${opts.project}|due_reminder|${taskKey}|${due}`;
-    if (cursor.keys[cursorKey]) continue;
+    if (cursor.keys[cursorKey]) { counters.cursor_seen += 1; continue; }
+    counters.planned += 1;
     planned.push({ task_key: taskKey, due, cursor_key: cursorKey, days_until: daysUntil });
   }
-  return planned;
+  return { planned, counters };
 }
 
 async function appendEvent(opts, deps, event) {
@@ -343,6 +373,7 @@ export async function runFollowupScan(options, deps = {}) {
     converted_replied: 0,
     converted_too_new: 0,
     due_reminders: 0,
+    due_reminder_counters: emptyDueReminderCounters(),
     truncated: 0,
     cursor_written: 0,
     projects: {},
@@ -364,6 +395,7 @@ export async function runFollowupScan(options, deps = {}) {
       converted_replied: 0,
       converted_too_new: 0,
       due_reminders: 0,
+      due_reminder_counters: emptyDueReminderCounters(),
       track_a_enabled: true,
       skipped_replied: 0,
       skipped_converted: 0,
@@ -445,7 +477,11 @@ export async function runFollowupScan(options, deps = {}) {
       summary.no_reply_candidates += 1;
     }
 
-    const reminders = dueReminderRows(taskRows, projectOpts, cursor).slice(0, opts.limit);
+    const reminderResult = dueReminderRows(taskRows, projectOpts, cursor);
+    const reminders = reminderResult.planned.slice(0, opts.limit);
+    const reminderCounters = { ...reminderResult.counters, planned: reminders.length };
+    addDueReminderCounters(project.due_reminder_counters, reminderCounters);
+    addDueReminderCounters(summary.due_reminder_counters, reminderCounters);
     project.due_reminders += reminders.length;
     summary.due_reminders += reminders.length;
     if (opts.apply) {

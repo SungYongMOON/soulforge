@@ -315,6 +315,80 @@ test("followup_scan: due reminder event is cursor-deduped", async (t) => {
   assert.equal(events[0].item_ref, "T-due");
 });
 
+test("followup_scan: due reminder accepts real ledger due aliases", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "sf-followup-due-aliases-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeProject(root, "P99-001");
+  writeCsv(
+    join(root, "P99-001", "reports", "할일_장부", "할일_장부.csv"),
+    ["id", "status", "기한", "D-Day", "due_at", "next_action"],
+    [
+      { id: "T-kihan", status: "open", 기한: "2026-07-05", "D-Day": "", due_at: "", next_action: "" },
+      { id: "T-dday", status: "open", 기한: "", "D-Day": "2026-07-05", due_at: "", next_action: "" },
+      { id: "T-due-at", status: "open", 기한: "", "D-Day": "", due_at: "2026-07-05T09:00:00+09:00", next_action: "" },
+    ],
+  );
+  const events = [];
+  const summary = await runFollowupScan({
+    apply: true,
+    workmeta: root,
+    dataDir: join(root, "data"),
+    today: "2026-07-04",
+    reminderDays: 2,
+    projects: ["P99-001"],
+    runId: "due-aliases",
+  }, { appendEvent: (event) => events.push(event) });
+
+  assert.equal(summary.due_reminders, 3);
+  assert.equal(summary.due_reminder_counters.planned, 3);
+  assert.deepEqual(events.map((event) => event.item_ref), ["T-kihan", "T-dday", "T-due-at"]);
+});
+
+test("followup_scan: due reminder counters explain non-planned rows", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "sf-followup-due-counters-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeProject(root, "P99-001");
+  writeCsv(
+    join(root, "P99-001", "reports", "할일_장부", "할일_장부.csv"),
+    ["id", "status", "due", "next_action"],
+    [
+      { id: "", status: "open", due: "2026-07-05", next_action: "" },
+      { id: "T-closed", status: "done", due: "2026-07-05", next_action: "" },
+      { id: "T-missing-due", status: "open", due: "", next_action: "" },
+      { id: "T-invalid-due", status: "open", due: "not-a-date", next_action: "" },
+      { id: "T-next", status: "open", due: "2026-07-05", next_action: "call" },
+      { id: "T-outside", status: "open", due: "2026-07-10", next_action: "" },
+      { id: "T-cursor", status: "open", due: "2026-07-05", next_action: "" },
+      { id: "T-plan", status: "open", due: "2026-07-05", next_action: "" },
+    ],
+  );
+  mkdirSync(join(root, "data"), { recursive: true });
+  writeFileSync(join(root, "data", "followup_cursor.json"), JSON.stringify({
+    schema_version: "soulforge.dev_erp.followup_cursor.v0",
+    keys: { "P99-001|due_reminder|T-cursor|2026-07-05": "2026-07-04T00:00:00.000Z" },
+  }));
+  const summary = await runFollowupScan({
+    apply: false,
+    workmeta: root,
+    dataDir: join(root, "data"),
+    today: "2026-07-04",
+    reminderDays: 2,
+    projects: ["P99-001"],
+  });
+
+  assert.equal(summary.due_reminders, 1);
+  assert.deepEqual(summary.projects["P99-001"].due_reminder_counters, {
+    missing_task_key: 1,
+    closed_status: 1,
+    missing_due: 1,
+    invalid_due: 1,
+    has_next_action: 1,
+    outside_window: 1,
+    cursor_seen: 1,
+    planned: 1,
+  });
+});
+
 test("followup_scan: due reminder cursor is not written when no event sink accepts it", async (t) => {
   const root = mkdtempSync(join(tmpdir(), "sf-followup-due-no-sink-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
