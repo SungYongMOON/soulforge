@@ -362,7 +362,6 @@ export async function runCycle(opts, deps = {}) {
   try {
     scanned = scanPending(opts.workmeta, {});
     if (opts.projects.length) scanned = scanned.filter((s) => opts.projects.includes(s.project));
-    scanned = scanned.map((s) => ({ project: s.project, pending: s.pending.slice(0, opts.limit) }));
     const teamDedup = teamMailDedupPrePass(scanned, opts);
     scanned = teamDedup.scanned;
     groupRefsByProject = teamDedup.groupRefsByProject;
@@ -381,6 +380,9 @@ export async function runCycle(opts, deps = {}) {
     };
     summary.receipts.written += dedup.summary.receipts_written;
     summary.receipts.skipped_duplicate += dedup.summary.receipt_duplicates;
+    // limit 은 모든 dedup pre-pass 이후에 적용한다(E8-D2): 사본/스레드 그룹이 limit 경계에 걸려
+    // 일부 사본만 영수증 없이 잔류하면 다음 run 에서 가짜 followup 이벤트나 중복 할일이 생긴다.
+    scanned = scanned.map((s) => ({ ...s, pending: s.pending.slice(0, opts.limit) }));
     summary.pending_total = scanned.reduce((a, s) => a + s.pending.length, 0);
   } catch (e) { summary.errors.push(`pending:${String(e?.message ?? e).slice(0, 120)}`); }
 

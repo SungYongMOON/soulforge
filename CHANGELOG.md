@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP E8 핫픽스 — fingerprint 오병합(D1)·limit 순서(D2)
+
+- 제목 prefix 정규식의 구분자 0개 허용(`[:\s\]]*`)을 1개 이상 필수(`+`)로 수정 — "전달사항"→"사항" 식 단어 내부 절단으로 서로 다른 메일이 오병합되어 한쪽이 no_action 영수증으로 비가역 소멸하는 결함(운영 auto-intake 활성화로 심각도 승격). 회귀 테스트 추가.
+- auto_intake_cycle 의 limit 슬라이스를 모든 dedup pre-pass(팀 사본·스레드) 이후로 이동 — 사본 그룹이 limit 경계에 걸려 일부만 영수증 없이 잔류하면 다음 run 에서 가짜 followup 이벤트/중복 할일이 생기는 경로 차단. (mail_thread_key 의 동일 정규식 패턴은 키 공간 마이그레이션이 필요해 Codex 패킷으로 이관)
+
 ### dev-ERP ENGINE-6 knowledge pipeline automation
 
 - Added `guild_hall/rag/knowledge_pipeline_automation.mjs`, a metadata-only backend runner for weekly knowledge triage reports and post-owner-decision approved build runs.

@@ -15,6 +15,17 @@ test("mail fingerprint: subject normalization removes reply/forward prefixes and
   assert.equal(normalizeSubject("  답장: 회신: [P99]   견적  "), "[p99] 견적");
 });
 
+test("mail fingerprint: prefix token 뒤 구분자 없는 단어는 깎지 않는다 (오병합 방지)", () => {
+  // 구분자 0개 허용 시 "전달사항"→"사항" 으로 서로 다른 메일이 같은 fingerprint 로 병합되어
+  // 한쪽이 no_action 영수증으로 비가역 소멸하는 결함(E8-D1)의 회귀 가드.
+  assert.equal(normalizeSubject("전달사항 안내"), "전달사항 안내");
+  assert.equal(normalizeSubject("회신기한 안내"), "회신기한 안내");
+  assert.equal(normalizeSubject("Review 설계 검토"), "review 설계 검토");
+  // 구분자가 있으면 종전대로 제거된다.
+  assert.equal(normalizeSubject("전달: 사항 안내"), "사항 안내");
+  assert.notEqual(normalizeSubject("전달사항 안내"), normalizeSubject("사항 안내"));
+});
+
 test("mail fingerprint: Message-ID exact match is the primary grouping key", () => {
   const rows = [
     { history_key: "M-1", subject: "A", from: "a@example.test", received_at: "2026-07-01T09:00:00+09:00", mailbox: "ops@example.test", provider_message_id: "<same@example.test>", recipient_role: "cc" },
