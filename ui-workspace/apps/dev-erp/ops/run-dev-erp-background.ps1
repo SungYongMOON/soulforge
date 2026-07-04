@@ -27,6 +27,11 @@ $env:ERP_LLM_CONCURRENCY = "1"
 $env:DEV_ERP_CODEX_SANDBOX = "read-only"
 $env:DEV_ERP_MAIL_COLLECT_SEC = "900"
 $env:DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN = "1"
+# 라우팅 학습룰 확장(2026-07-04 owner 승인): 6/29 owner 검토·승인된 hint/private-deep 룰을 일일 백필에 활성.
+$env:DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HINT = "1"
+$env:DEV_ERP_MAIL_ROUTE_BACKFILL_PRIVATE_DEEP = "1"
+# 분류 지식근거 ON(2026-07-04 owner 승인): 과제 전용 source_text_index(P26-014 3종 등)를 인입 판단에 주입.
+$env:DEV_ERP_INTAKE_KNOWLEDGE = "1"
 # 메일→할일 자동 인입(2026-07-03 owner 활성화): 수집 후 사본통합(E8)→스레드귀속(E1)→분류(줄기맥락+
 # 지식근거)→할일_장부→줄기 갱신. 신규 유입 있을 때만 실행. 분류 모델은 ERP_CHAT_MODEL 상속(gemma4:e4b).
 $env:DEV_ERP_AUTO_INTAKE = "1"

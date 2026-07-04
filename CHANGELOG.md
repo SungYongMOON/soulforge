@@ -1,6 +1,9 @@
 # CHANGELOG
 
-### dev-ERP morning brief push v1
+### dev-ERP 인입 자동화 스위치 2종 활성 (env-only)
+
+- 운영 기동 스크립트(`ops/run-dev-erp-background.ps1`)에 owner 승인(2026-07-04) env 3줄 추가: ① `DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HINT=1` + `DEV_ERP_MAIL_ROUTE_BACKFILL_PRIVATE_DEEP=1` — 6/29 owner 검토·승인된 hint/private-deep 라우팅 룰을 일일 백필에 활성(그동안 exact 전용이라 480회 실행에 이동 1건이던 공회전 해소). ② `DEV_ERP_INTAKE_KNOWLEDGE=1` — 인입 분류 LLM에 과제 전용 source_text_index 지식근거 주입(ENGINE-5 배선, P26-014 3종 index 확인).
+- 코드 변경 0(양쪽 모두 기존 env 게이트, `mail_collect.mjs:87-88`·`auto_intake_cycle.mjs:61`). live DB dry-run 사전검증: INBOX 510건 중 111건 이동 예정(P24-049 101·P26-014 10, 승인 룰 4종). 관련 테스트 41/41 green (worker: claude_fable-5).
 
 - Added the missing "pull" piece of the team re-visit loop (owner-approved 2026-07-04): a daily per-member morning brief e-mail — overdue / due-today / blocked items and new proposals suggested to me (unclassified `suggested_assignee_ref`), matched by the existing my-items identity convention. Briefs with no action hook are skipped so the mail never becomes noise; metadata only (task titles, counts, due dates — no mail bodies, no attachments, no LLM text).
 - Sending reuses the `guild_hall/gateway/mail_send` capsule as a child process (no SMTP re-implementation; `EMAIL_SEND_ENABLED` injected per-spawn only, credentials never touched) and is registered as an `approved_automation` in MAIL_SEND_STYLE_POLICY_V0. Scheduler: `DEV_ERP_MORNING_BRIEF=1` + `DEV_ERP_MORNING_BRIEF_HHMM` (default 0800), bounded same-day retry (up to 3 attempts, 10-min spacing, run marker records `ok`/`retry_pending`) with per-account sent markers in event_log preventing double sends. New endpoints: `GET /api/brief/preview` (self), `POST /api/admin/brief/send-test` (admin, self-resend for deploy verification).
