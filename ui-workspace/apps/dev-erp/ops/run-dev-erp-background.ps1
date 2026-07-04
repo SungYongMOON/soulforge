@@ -32,6 +32,13 @@ $env:DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN = "1"
 $env:DEV_ERP_AUTO_INTAKE = "1"
 $env:DEV_ERP_INTAKE_LLM = "ollama"
 $env:DEV_ERP_AUTOSYNC = "1"   # 체인 ④: 할일_장부 → core_item 자동 반영(신규 행만, 10초 폴링)
+# 아침 브리핑 push v1(2026-07-04 owner 승인): 매일 0800 팀원별 지연/오늘/제안 요약 메일(내용 없으면 스킵).
+# 발신 명의 = 관리자(owner) 계정 메일함(코드 강제). 수신은 회사 도메인 한정(allowlist 게이트).
+$env:DEV_ERP_MORNING_BRIEF = "1"
+$env:DEV_ERP_MORNING_BRIEF_HHMM = "0800"
+$env:DEV_ERP_BRIEF_DOMAIN_ALLOW = "sonartech.com"
+$env:DEV_ERP_PUBLIC_URL = "https://172.16.10.196:4300"
+# 발신 env 를 특정 파일로 고정하려면: $env:DEV_ERP_BRIEF_SENDER_ENV = "guild_hall/state/gateway/mailbox/state/acct_<id>.env"
 
 Start-Process -FilePath $NodeExe -ArgumentList @("server.mjs", "--host", "0.0.0.0", "--port", "4300") `
   -WorkingDirectory $App -WindowStyle Hidden `

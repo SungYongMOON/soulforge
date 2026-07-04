@@ -249,6 +249,19 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   는 certutil 대조 후 설치(평문 다운로드 무결성 보강) ④ 테스트 하네스 DEV_ERP_NO_TLS=1 기본
   격리(TLS-001 만 opt-in). 동기: LAN 접속 마이크 차단(secure context)과 비번·쿠키 평문 노출
   동시 해소. 런북 3.4/6절 + TLS-001 테스트.
+- 2026-07-04 2차 (claude_fable-5): 아침 브리핑 push v1(owner 승인 — 팀 정착 진단 '재방문 루프'의
+  push 조각) — src/morning_brief.mjs: 계정별 지연/오늘 마감/차단/내게 온 제안(미분류
+  suggested_assignee_ref) 집계('내 일' 규약 accountIdentities 재사용), 행동 걸이 0건이면
+  발송 스킵(소음 방지). 발송은 guild_hall mail_send 캡슐 재사용(SMTP 재구현 없음,
+  MAIL_SEND_STYLE_POLICY_V0 approved_automation 등재, EMAIL_SEND_ENABLED 는 spawn 한정 주입).
+  스케줄: DEV_ERP_MORNING_BRIEF=1 + HHMM(기본 0800), 완주(to=ok)까지 하루 3회·10분 간격
+  재시도, 계정별 morning_brief_sent 멱등(성공분 이중발송 없음). API: GET /api/brief/preview(본인),
+  POST /api/admin/brief/send-test(관리자 본인 강제 재발송 — 배포 검증용). 커밋 전 적대검토
+  확정 7건 반영: ① 제안 버킷 SQL 직행(팀 전체 limit 절단이 최신 제안부터 누락) ② 발신 명의
+  관리자 계정 한정(팀원 자격증명 폴백 금지) ③ 수신 도메인 allowlist 코드 강제(정책 '팀 내부
+  한정' 이행) ④ 본문 임시파일 전달(argv 32K 동기 throw 실측) ⑤ 계정별 오류 격리 ⑥ 스케줄러
+  store 호출 try 내부화(unhandled rejection 서버 전면 다운 방지) ⑦ bat 발송 기본값 제거
+  (bat 인코딩 붕괴로 4300 가드 신뢰 불가 — ops ps1 이 정경로). BRIEF-001/002/003 테스트.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 

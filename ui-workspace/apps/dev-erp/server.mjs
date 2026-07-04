@@ -38,6 +38,7 @@ import { collectAllMailboxes, isCollecting } from "./src/mail_collect.mjs";
 const execFileP = promisify(execFile);
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
 import { CODEX_TASK_BRIDGE_VERSION, runCodexTaskTurn } from "./src/codex_bridge.mjs";
+import { buildMorningBrief, hasContent, localDateKey, runMorningBriefCycle } from "./src/morning_brief.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -1663,6 +1664,24 @@ const server = createServer(async (req, res) => {
       const r = store.createProposal({ source: "input_fulfillment", kind: "create_item", payload: { project_id: b.project_id, title: `${b.deliverable_name} 초안` }, summary: `입력 충족: ${b.deliverable_name}`, used_refs: ["inputs"], data_label: "real" });
       return send(res, r.error ? 400 : 200, { ok: !r.error, queued: !r.error, proposal_id: r.id, status: "pending", note: "입력 충족 — ai_proposal 큐 적재(승인 후 생성)" });
     }
+    // 아침 브리핑 push v1 (2026-07-04 owner 승인): 미리보기(본인) + 관리자 수동 발송 트리거.
+    if (path === "/api/brief/preview" && req.method === "GET") {
+      const me = currentAccount(req);
+      if (!me) return send(res, 401, { error: "login_required" });
+      const brief = buildMorningBrief(store, me, localDateKey());
+      return send(res, 200, { brief, would_send: hasContent(brief) });
+    }
+    if (path === "/api/admin/brief/send-test" && req.method === "POST") {
+      if (!requireAdmin(req)) return send(res, 403, { error: "admin_only" });
+      const me = currentAccount(req);
+      if (!String(me?.email ?? "").trim()) return send(res, 400, { error: "admin_email_missing" });
+      // 관리자 본인에게만 강제 재발송(멱등 우회) — 배포 검증·시연용. 타 계정 발송은 자동 스케줄 전용.
+      const r = await runMorningBriefCycle(store, {
+        repoRoot: resolve(HERE, "..", "..", ".."), appUrl: process.env.DEV_ERP_PUBLIC_URL || "",
+        senderEnvOverride: process.env.DEV_ERP_BRIEF_SENDER_ENV || "", force: true, onlyAccountId: me.id,
+      });
+      return send(res, r.ok ? 200 : 400, r);
+    }
     if (path === "/api/proposals" && req.method === "GET") return send(res, 200, store.proposals({ status: qp.status || "pending" }));
     if (path === "/api/proposals" && req.method === "POST") {
       if (!allowSharedWrite(req, res)) return;
@@ -2282,6 +2301,41 @@ const onReady = () => {
         .catch((e) => console.error("[mail-collect] 자동수집 오류:", e.message));
     }, mailCollectSec * 1000);
     console.log(`[dev-erp] 메일 자동수집 ON: ${mailCollectSec}s 간격`);
+  }
+  // 아침 브리핑 push v1: 기본 OFF. DEV_ERP_MORNING_BRIEF=1 + 시각 DEV_ERP_MORNING_BRIEF_HHMM(기본 0800).
+  // 수신=활성+이메일 계정(도메인 allowlist 게이트), 빈 브리핑(행동 걸이 0건)은 스킵.
+  // 완주 판정(적대검토 반영): brief_run 이벤트 to='ok' 면 그날 종료. 실패가 남으면 10분 간격,
+  // 하루 3회까지 재시도 — 계정별 morning_brief_sent 멱등이 있어 성공분 이중발송은 없다.
+  if (process.env.DEV_ERP_MORNING_BRIEF === "1") {
+    const hhmmRaw = process.env.DEV_ERP_MORNING_BRIEF_HHMM || "";
+    const hhmm = /^([01]\d|2[0-3])[0-5]\d$/.test(hhmmRaw) ? hhmmRaw : "0800";
+    const repoRoot = resolve(HERE, "..", "..", "..");
+    setInterval(async () => {
+      try { // store 호출 포함 전체 — async setInterval 의 throw 는 unhandled rejection 으로 프로세스를 죽인다
+        const now = new Date();
+        const nowHHMM = `${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
+        if (nowHHMM < hhmm) return;
+        const date = localDateKey(now);
+        const runKey = `brief_run:${date}`;
+        const attempts = store.queryEvents({ kind: "morning_brief_run", limit: 200 }).filter((e) => e.item_ref === runKey);
+        if (attempts.some((e) => e.to_val === "ok")) return;                     // 그날 완주
+        if (attempts.length >= 3) return;                                        // 시도 상한
+        if (attempts.length && now - new Date(attempts[0].at) < 10 * 60 * 1000) return; // 재시도 간격 10분
+        const r = await runMorningBriefCycle(store, {
+          todayKey: date, repoRoot, appUrl: process.env.DEV_ERP_PUBLIC_URL || "",
+          senderEnvOverride: process.env.DEV_ERP_BRIEF_SENDER_ENV || "", log: console.log,
+        });
+        const sent = r.results.filter((x) => x.ok).length;
+        const failed = r.ok ? r.results.filter((x) => x.ok === false).length : 1;
+        store.appendEvent({
+          kind: "morning_brief_run", item_ref: runKey, actor_ref: "system", actor_kind: "system", data_label: "real",
+          to: failed === 0 ? "ok" : "retry_pending",
+          note: `발송 ${sent}, 실패 ${failed}, 스킵 ${r.results.length - sent - failed}, 발신 ${r.sender_env ?? "-"}${r.error ? `, ${r.error}` : ""}`,
+        });
+        console.log(`[dev-erp] 아침 브리핑 ${date} (시도 ${attempts.length + 1}/3): 발송 ${sent}, 실패 ${failed}${r.error ? ` (${r.error})` : ""}`);
+      } catch (e) { console.error("[dev-erp] 아침 브리핑 오류:", e.message); }
+    }, 60_000);
+    console.log(`[dev-erp] 아침 브리핑 push ON: 매일 ${hhmm}`);
   }
 };
 

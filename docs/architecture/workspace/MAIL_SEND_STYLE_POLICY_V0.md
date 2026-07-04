@@ -44,6 +44,18 @@
 외부 발송은 기본값이 `draft_only` 이다.
 `approved_by` metadata 는 owner 의 현재 요청이나 이미 승인된 자동화 surface 와 연결되어야 한다.
 
+### 승인된 자동화 목록 (`approved_automation`)
+
+| id | surface | recipient scope | 내용 경계 | 승인 |
+| --- | --- | --- | --- | --- |
+| `owner_20260704_morning_brief_v1` | dev-erp 서버 → `send-mail` runner (자식 프로세스) | dev-erp 활성 계정의 등록 이메일(팀 내부 한정) | 할일 제목·건수·마감일·과제코드 메타만. 메일 원문/첨부/외부 수신자/LLM 생성문 금지 | 2026-07-04 owner |
+
+- 이 클래스의 `EMAIL_SEND_ENABLED=true` 는 secret env 파일을 수정하지 않고 해당 자동화 spawn 에만 주입한다.
+- 발신 명의는 **관리자(owner) 계정의 메일함 env 한정**(코드 강제) — 일반 팀원 명의 자동 발송 금지.
+- '팀 내부 한정'은 수신 도메인 allowlist(`DEV_ERP_BRIEF_DOMAIN_ALLOW`)로 코드에서 강제하고,
+  allowlist 밖 주소는 발송하지 않고 `morning_brief_error(domain_not_allowed)` 로 기록한다.
+- 발송 기록은 runner 의 append-only send log + dev-erp `event_log(morning_brief_sent)` 이중으로 남는다.
+
 ## 즉시 중단 조건
 
 - 수신자, 참조, 숨은참조 중 하나라도 불명확하다.

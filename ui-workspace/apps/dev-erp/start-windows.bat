@@ -43,6 +43,8 @@ if "%DEV_ERP_PORT%"=="4300" (
   if not defined DEV_ERP_INTAKE_LLM set "DEV_ERP_INTAKE_LLM=ollama"
   if not defined DEV_ERP_AUTOSYNC set "DEV_ERP_AUTOSYNC=1"
 )
+REM 아침 브리핑(메일 자동발송) 기본값은 이 bat 에 두지 않는다 — 운영 정경로 ops/run-dev-erp-background.ps1 만.
+REM (적대검토 2026-07-04: 이 bat 의 인코딩/줄바꿈 문제로 4300 가드 블록이 신뢰 불가 — 발송류 기본 ON 금지)
 echo [dev-erp] chat = %ERP_CHAT_PROVIDER% / %ERP_CHAT_MODEL% / think=%ERP_CHAT_THINK% / codex-sandbox=%DEV_ERP_CODEX_SANDBOX% / mail-collect=%DEV_ERP_MAIL_COLLECT_SEC%s / auto-intake=%DEV_ERP_AUTO_INTAKE% / route-backfill=exact+hidden
 node server.mjs --host 0.0.0.0 --port %DEV_ERP_PORT%
 pause

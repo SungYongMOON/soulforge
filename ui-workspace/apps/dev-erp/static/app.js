@@ -6445,6 +6445,7 @@ const EVENT_KIND_LABELS = {
   codex_task_image_attach: "이미지 첨부", codex_task_file_attach: "파일 첨부", embed_register: "시트 연결", schedule_spawn: "일정 생성",
   input_upload: "입력 업로드", input_download: "입력 다운로드",
   work_started: "업무 시작", work_completed: "업무 완료", completion_hook_skipped: "완료 훅 스킵", completion_hook_failed: "완료 훅 실패",
+  morning_brief_run: "아침 브리핑 실행", morning_brief_sent: "아침 브리핑 발송", morning_brief_error: "아침 브리핑 실패",
 };
 const eventKindLabel = (kind) => EVENT_KIND_LABELS[kind] ?? kind;
 
