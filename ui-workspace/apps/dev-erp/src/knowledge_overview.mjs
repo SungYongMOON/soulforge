@@ -155,13 +155,15 @@ function isProjectDir(name) {
 }
 // 과제 열거는 _workmeta(수집이력·후보가 사는 dev 전용 nested repo)와 _workspaces(공유 정션 —
 // 과제 위키가 사는 곳) 합집합. 적대검토 반영: 운영본은 _workmeta 에 INBOX 만 있어도 공유 정션의
-// 과제 위키가 화면에 뜨도록.
+// 과제 위키가 화면에 뜨도록. 주의: 운영본 _workspaces 아래 과제 폴더는 각각 '정션'이라
+// dirent.isDirectory() 가 false(정션=symlink 보고) — 디렉터리 판정은 target 을 따라가는 existsSync 로.
 function listProjectCodes(root) {
   const set = new Set();
-  for (const e of safeDirents(join(root, "_workmeta"))) if (e.isDirectory() && isProjectDir(e.name)) set.add(e.name);
+  for (const e of safeDirents(join(root, "_workmeta"))) {
+    if (isProjectDir(e.name)) set.add(e.name);
+  }
   for (const e of safeDirents(join(root, "_workspaces"))) {
-    if (e.isDirectory() && isProjectDir(e.name) &&
-      existsSync(join(root, "_workspaces", e.name, "reference_payloads", "knowledge_extract"))) set.add(e.name);
+    if (isProjectDir(e.name) && existsSync(join(root, "_workspaces", e.name, "reference_payloads", "knowledge_extract"))) set.add(e.name);
   }
   return [...set].sort();
 }
