@@ -262,6 +262,27 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   한정' 이행) ④ 본문 임시파일 전달(argv 32K 동기 throw 실측) ⑤ 계정별 오류 격리 ⑥ 스케줄러
   store 호출 try 내부화(unhandled rejection 서버 전면 다운 방지) ⑦ bat 발송 기본값 제거
   (bat 인코딩 붕괴로 4300 가드 신뢰 불가 — ops ps1 이 정경로). BRIEF-001/002/003 테스트.
+- 2026-07-04 3차 (claude_fable-5): 지식 표면 연결 + 줄기 그래프(owner 지시 — "위키/RAG 가 ERP 에
+  안 보인다, 무엇이/언제/얼마나 + 그래프로") — 지식 화면(mod:knowledge)을 4탭으로 개편:
+  ① 서가 현황(/api/knowledge/overview, src/knowledge_overview.mjs): 공통(체계공학·표준)/도메인/
+  과제별 계층 집계 + 수집 영수증·후보 장부 타임스탬프(언제) + knowledge_access 원장 rollup
+  (얼마나 — 자동 기록 미배선임을 화면에 정직 표기) ② 위키: 목록 + 본문 뷰어. 본문은 knowledge
+  shell metadata-only 계약의 owner 승인 예외(2026-07-04, 로그인 팀 한정, .md 페이지만, chunk/raw/
+  원문 차단 유지 — KARPATHY 계약 문서와 contract 상수에 wiki_body_exception 등재) ③ 줄기 그래프
+  (/api/context/graph, src/context_graph.mjs): _workmeta/<과제>/project_context CSV(이미 노드-엣지)
+  를 읽어 trunk 중심 방사형 SVG 렌더(가지 크기=소스 수, 배지=미결 리뷰, 클릭→하위 이벤트·할일
+  목록). 읽기 전용 — 쓰기는 행보관만 ④ 기존 FAQ·매뉴얼 유지. + owner 지식그래프 익스포터
+  (guild_hall/knowledge_graph) 산출물을 /knowledge-graph/** 로 서빙(로그인 한정, html/js/json/css 만)
+  — '지식 그래프(3D) 열기' 버튼. KNOW-OV-001~003 + CTX-GRAPH-001 테스트.
+  커밋 전 적대검토(9-agent) 확정 6건 반영: ① overview 서버 60초 TTL memo + 클라 세션 캐시
+  (요청당 ~2s 동기 풀스캔이 이벤트루프 블로킹 + 탭 전환마다 재스캔 → critical) ② 위키 스캔이
+  대형 비-위키 디렉터리(source_cards 1,286·인덱스 1,298) 가지치기(22,843 lstat→위키 3페이지 낭비)
+  ③ 서가 깊이 캡 초과 시 truncated=true + UI '≈' 표기(조용한 누락 방지) ④ 줄기 가지 40캡을
+  중요도(소스+할일+미결) 정렬 후 적용 + '+N개 생략' 표기(임의 CSV 순서 절단이 최중요 가지를
+  숨김) ⑤ 과제 열거를 _workmeta ∪ _workspaces 로(운영본 _workmeta=INBOX 만이어도 공유 정션 과제
+  위키 노출) + context root 를 KNOWLEDGE_SHELL.root 로 일원화 ⑥ readWikiPage 실경로 containment
+  (Windows junction 이 심링크 가드 통과). 런북 9절에 지식 데이터 평면(공유 정션 vs _workmeta) 명시.
+  KNOW-OV-004/005 추가.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 

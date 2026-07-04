@@ -36,6 +36,8 @@ import {
 import { parseRosterText, planTeamRosterImport, applyTeamRosterImport } from "../tools/import_team_roster.mjs";
 import { buildTeamHostPreflight } from "../tools/team_preflight.mjs";
 import { buildMorningBrief, briefBodies, hasContent, runMorningBriefCycle } from "../src/morning_brief.mjs";
+import { buildKnowledgeOverview, readWikiPage } from "../src/knowledge_overview.mjs";
+import { buildContextGraph, listContextProjects } from "../src/context_graph.mjs";
 import { applyRuntimeCorrections, planRuntimeCorrections } from "../tools/runtime_corrections.mjs";
 import { backupRuntimeDb, restoreTestRuntimeDb, runtimeHealthCheck } from "../tools/runtime_ops.mjs";
 import { runRuntimeReleaseAudit } from "../tools/runtime_release_audit.mjs";
@@ -5881,4 +5883,172 @@ test("BRIEF-003: 도메인 allowlist 게이트 + 계정별 오류 격리(한 계
   assert.equal(r2.results.find((x) => x.ok === false)?.error?.includes("ENAMETOOLONG"), true, "예외가 결과·이벤트로 기록됨");
   assert.equal(store2.queryEvents({ kind: "morning_brief_error", limit: 10 }).length, 1);
   assert.equal(store2.queryEvents({ kind: "morning_brief_sent", limit: 10 }).length, 1);
+});
+
+// ── KNOW-OV: 지식 서가 현황 + 위키 본문 예외 (2026-07-04 owner 승인) ──
+function makeKnowledgeOverviewFixture() {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-knowov-"));
+  const w = (rel, text) => { const p = join(root, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); };
+  w("_workspaces/knowledge/common/systems_engineering/se_basics.md", "# 체계공학 기초");
+  w("_workspaces/knowledge/common/systems_engineering/se_review.md", "# 검토 절차");
+  w("_workspaces/knowledge/domain/electronics/emc.md", "# EMC");
+  w("_workspaces/knowledge/source_cards/a.source_card.json", "{}");
+  w("_workspaces/knowledge/source_cards/b.source_card.json", "{}");
+  w("_workspaces/knowledge/wiki/sonar/wiki/01_공통위키.md", "공통 위키 본문");
+  w("_workspaces/P99-300/reference_payloads/knowledge_extract/20260704/wiki/00_project_overview.md", "과제 위키 본문 WIKI_BODY_OK");
+  w("_workspaces/P99-300/reference_payloads/knowledge_extract/20260704/wiki/chunk-001.md", "CHUNK_BODY_SHOULD_NOT_LEAK");
+  w("_workmeta/P99-300/knowledge_ingest_receipts/events/2026-07.jsonl",
+    `${JSON.stringify({ receipt_id: "r1", created_at: "2026-07-01T00:00:00Z", project_code: "P99-300" })}\n${JSON.stringify({ receipt_id: "r2", created_at: "2026-07-03T00:00:00Z", project_code: "P99-300" })}\n`);
+  w("_workmeta/P99-300/knowledge_rag_candidate_ledger/events/2026-07.jsonl",
+    `${JSON.stringify({ candidate_id: "c1", created_at: "2026-07-02T00:00:00Z" })}\n`);
+  w("_workmeta/system/reports/knowledge_access/events/2026/2026-07.jsonl",
+    `${JSON.stringify({ event_id: "e1", timestamp_utc: "2026-07-01T01:00:00Z", access_type: "read", target: { knowledge_ref: ".registry/knowledge/graph_rag" } })}\n${JSON.stringify({ event_id: "e2", timestamp_utc: "2026-07-02T01:00:00Z", access_type: "cite", target: { knowledge_ref: ".registry/knowledge/graph_rag" } })}\n`);
+  return root;
+}
+
+test("KNOW-OV-001: 서가 집계 — 계층/자산/과제별 수집이력/사용 rollup/위키 목록(메타만)", () => {
+  const root = makeKnowledgeOverviewFixture();
+  try {
+    const o = buildKnowledgeOverview(root);
+    assert.equal(o.schema, "dev_erp.knowledge_overview.v1");
+    const se = o.shelves.common.find((s) => s.key === "systems_engineering");
+    assert.equal(se.file_count, 2, "체계공학 문서 2");
+    assert.equal(o.shelves.domain.find((s) => s.key === "electronics").file_count, 1);
+    assert.equal(o.assets.source_cards, 2);
+    const p = o.projects.find((x) => x.project === "P99-300");
+    assert.equal(p.ingest_receipts, 2);
+    assert.equal(p.last_ingest_at, "2026-07-03T00:00:00Z", "언제 쌓였는지 = 최근 영수증 시각");
+    assert.equal(p.candidates, 1);
+    assert.equal(p.wiki_pages, 1, "chunk 파일은 위키 목록에서 차단");
+    assert.equal(o.usage.total_events, 2);
+    assert.equal(o.usage.by_access_type.read, 1);
+    assert.equal(o.usage.by_access_type.cite, 1);
+    assert.equal(o.usage.last_access_at, "2026-07-02T01:00:00Z");
+    assert.equal(o.usage.auto_capture_wired, false, "자동 기록 미배선을 정직 표기");
+    assert.ok(o.wiki_pages.some((x) => x.ref.endsWith("00_project_overview.md")));
+    assert.ok(o.wiki_pages.some((x) => x.ref.endsWith("01_공통위키.md")));
+    assert.equal(o.wiki_pages.some((x) => /chunk/.test(x.ref)), false);
+    assert.equal(JSON.stringify(o).includes("WIKI_BODY_OK"), false, "overview 는 본문 미포함");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("KNOW-OV-002: 위키 본문 예외 — 허용 경로 .md 만, 탈출/차단명/타경로 거부", () => {
+  const root = makeKnowledgeOverviewFixture();
+  try {
+    const ok = readWikiPage(root, "_workspaces/P99-300/reference_payloads/knowledge_extract/20260704/wiki/00_project_overview.md");
+    assert.equal(ok.body_included, true);
+    assert.match(ok.body, /WIKI_BODY_OK/);
+    const okCommon = readWikiPage(root, "_workspaces/knowledge/wiki/sonar/wiki/01_공통위키.md");
+    assert.match(okCommon.body, /공통 위키 본문/);
+    assert.equal(readWikiPage(root, "../etc/passwd").error, "wiki_ref_unsafe");
+    assert.equal(readWikiPage(root, "_workspaces/P99-300/reference_payloads/knowledge_extract/../../../secret.md").error, "wiki_ref_unsafe");
+    assert.equal(readWikiPage(root, "_workmeta/P99-300/knowledge_ingest_receipts/events/2026-07.jsonl").error, "wiki_ref_outside_allowlist");
+    assert.equal(readWikiPage(root, "_workspaces/P99-300/reference_payloads/knowledge_extract/20260704/wiki/chunk-001.md").error, "wiki_ref_blocked");
+    assert.equal(readWikiPage(root, "_workspaces/knowledge/source_cards/a.source_card.json").error, "wiki_ref_outside_allowlist");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+// ── CTX-GRAPH: 줄기(project_context) 그래프 서빙 ──
+test("CTX-GRAPH-001: CSV→그래프 JSON 변환 + 미결리뷰 집계 + 경로 안전", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-ctxg-"));
+  try {
+    const dir = join(root, "_workmeta", "P99-301", "project_context");
+    mkdirSync(join(dir, "summaries"), { recursive: true });
+    const bom = "﻿";
+    writeFileSync(join(dir, "nodes.csv"), `${bom}node_id,project_code,node_type,label,branch_key,status,source_id,metadata_hash,created_at,updated_at
+project:P99-301,P99-301,project_trunk,P99-301,,active,,h,2026-07-01,2026-07-01
+branch:P99-301:design,P99-301,context_branch,설계,design,active,,h,2026-07-01,2026-07-02
+event:aaa,P99-301,source_event,"규격 검토 요청",design,active,s1,h,2026-07-02,2026-07-02
+task:bbb,P99-301,task_candidate,"규격 회신",design,candidate,s1,h,2026-07-02,2026-07-02
+`);
+    writeFileSync(join(dir, "edges.csv"), `${bom}edge_id,project_code,from_node_id,to_node_id,edge_type,source_id,confidence,reason,created_at,updated_at
+e1,P99-301,branch:P99-301:design,project:P99-301,belongs_to,,high,,2026-07-01,2026-07-01
+e2,P99-301,event:aaa,branch:P99-301:design,on_branch,s1,high,,2026-07-02,2026-07-02
+e3,P99-301,event:aaa,task:bbb,creates_task,s1,med,,2026-07-02,2026-07-02
+`);
+    writeFileSync(join(dir, "summaries", "branch_summaries.csv"), `${bom}branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at
+branch:P99-301:design,P99-301,design,설계,1,1,2,2026-07-02
+`);
+    writeFileSync(join(dir, "review_queue.csv"), `${bom}review_id,project_code,status,review_type
+r1,P99-301,open,confidence_review
+r2,P99-301,open,assignee_confirmation
+r3,P99-301,accepted,confidence_review
+`);
+    assert.deepEqual(listContextProjects(root), ["P99-301"]);
+    const g = buildContextGraph(root, "P99-301");
+    assert.equal(g.schema, "dev_erp.context_graph.v1");
+    assert.equal(g.nodes.length, 4);
+    assert.equal(g.edges.length, 3);
+    assert.equal(g.counts.by_node_type.task_candidate, 1);
+    assert.equal(g.counts.open_reviews, 2, "accepted 는 미결에서 제외");
+    assert.equal(g.branches[0].source_count, 1);
+    assert.equal(g.branches[0].open_review_count, 2);
+    assert.equal(buildContextGraph(root, "../P99-301").error, "project_invalid");
+    assert.equal(buildContextGraph(root, "P99-999").error, "context_not_found");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("KNOW-OV-003: 서버 게이트 — 위키본문/줄기그래프/그래프뷰어는 로그인 필수, overview 는 공개 스캔과 파리티", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-knowsrv-"));
+  try {
+    mkdirSync(join(root, "graphview"), { recursive: true });
+    writeFileSync(join(root, "graphview", "test.html"), "<html>GRAPH_VIEW_OK</html>");
+    writeFileSync(join(root, "graphview", "note.txt"), "TXT_SHOULD_NOT_SERVE");
+    const port = await freePort();
+    const srv = await startDevErpServer(
+      ["--db", join(root, "know.db"), "--port", String(port), "--knowledge_shell_root", root],
+      { DEV_ERP_GRAPH_VIEW_ROOT: join(root, "graphview") },
+    );
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      assert.equal((await fetch(`${base}/api/knowledge/overview`)).status, 200, "overview 는 기존 지식 스캔과 같은 공개 파리티");
+      assert.equal((await fetch(`${base}/api/knowledge/wiki/page?ref=x.md`)).status, 401, "위키 본문은 로그인 필수");
+      assert.equal((await fetch(`${base}/api/context/graph?project=P26-014`)).status, 401, "줄기 그래프는 로그인 필수");
+      assert.equal((await fetch(`${base}/knowledge-graph/test.html`)).status, 401, "그래프 뷰어도 로그인 필수");
+      const boot = await fetch(`${base}/api/auth/bootstrap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "owner", password: "ownerpass123" }) });
+      const cookie = boot.headers.get("set-cookie")?.split(";")[0] ?? "";
+      const html = await fetch(`${base}/knowledge-graph/test.html`, { headers: { cookie } });
+      assert.equal(html.status, 200);
+      assert.match(await html.text(), /GRAPH_VIEW_OK/);
+      assert.equal((await fetch(`${base}/knowledge-graph/note.txt`, { headers: { cookie } })).status, 404, "허용 확장자 외 차단");
+      assert.equal((await fetch(`${base}/knowledge-graph/..%2Fknow.db`, { headers: { cookie } })).status, 404, "탈출 차단");
+    } finally { await srv.stop(); }
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("KNOW-OV-004: 깊은 하위폴더/엔트리 캡 시 truncated 표기 + 운영본 시뮬(_workmeta 없이 공유 정션 과제 위키 열거)", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-knowov2-"));
+  try {
+    const w = (rel, text) => { const p = join(root, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); };
+    // 서가 root(common/deep) 기준 깊이 캡(6) 초과 하위폴더 → truncated 신호
+    w("_workspaces/knowledge/common/deep/a/b/c/d/e/f/g/leaf.md", "deep");
+    w("_workspaces/knowledge/common/deep/top.md", "top");
+    // 운영본 시뮬: _workmeta 에 과제 없음, 그러나 공유 정션에 과제 위키 존재
+    w("_workspaces/P26-014/reference_payloads/knowledge_extract/20260628/wiki/00_overview.md", "과제 위키 RUNTIME");
+    const o = buildKnowledgeOverview(root, { fresh: true });
+    const deep = o.shelves.common.find((s) => s.key === "deep");
+    assert.equal(deep.truncated, true, "깊이 캡 초과 시 truncated=true(조용한 누락 방지)");
+    assert.equal(o.shelves_truncated, true, "상위 신호 전파");
+    const p = o.projects.find((x) => x.project === "P26-014");
+    assert.ok(p, "_workmeta 없어도 공유 정션 과제 위키로 과제 열거(운영본 빈 화면 방지)");
+    assert.equal(p.wiki_pages, 1);
+    assert.equal(p.ingest_receipts, 0, "_workmeta 없으니 수집 이력은 0(정직)");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test("KNOW-OV-005: overview 60초 TTL 캐시 — 반복 호출이 재스캔하지 않음(이벤트루프 블로킹 완화)", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-knowcache-"));
+  try {
+    mkdirSync(join(root, "_workspaces", "knowledge", "common", "x"), { recursive: true });
+    writeFileSync(join(root, "_workspaces", "knowledge", "common", "x", "a.md"), "a");
+    const t0 = 1_000_000;
+    const a = buildKnowledgeOverview(root, { now: t0, fresh: true });
+    const b = buildKnowledgeOverview(root, { now: t0 + 30_000 });
+    assert.equal(a, b, "TTL 내 동일 객체 반환(재스캔 없음)");
+    const c = buildKnowledgeOverview(root, { now: t0 + 61_000 });
+    assert.notEqual(a, c, "TTL 만료 후 재계산");
+    const d = buildKnowledgeOverview(root, { now: t0 + 61_000, fresh: true });
+    assert.notEqual(c, d, "fresh=true 는 캐시 우회");
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });

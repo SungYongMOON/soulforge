@@ -42,7 +42,7 @@ const AUTOMATION_HEADERS = [
 const HEADERS = [...BASE_HEADERS, ...AUTOMATION_HEADERS.map(([h]) => h)];
 const csvEsc = (v) => { let s = String(v ?? ""); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
 
-function parseCsv(text) {
+export function parseCsv(text) {
   const rows = []; let row = [], cur = "", q = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];

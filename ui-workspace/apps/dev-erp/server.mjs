@@ -39,6 +39,8 @@ const execFileP = promisify(execFile);
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
 import { CODEX_TASK_BRIDGE_VERSION, runCodexTaskTurn } from "./src/codex_bridge.mjs";
 import { buildMorningBrief, hasContent, localDateKey, runMorningBriefCycle } from "./src/morning_brief.mjs";
+import { buildKnowledgeOverview, readWikiPage } from "./src/knowledge_overview.mjs";
+import { buildContextGraph, listContextProjects } from "./src/context_graph.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -59,6 +61,8 @@ const CODEX_TASK_ATTACHMENT_ROOT = resolve(process.env.DEV_ERP_CODEX_TASK_ATTACH
 // 정위치 = _workspaces/<과제코드>/대화첨부/<할일명 축약>/ (과제 폴더가 로컬에 있을 때).
 // 과제 폴더 미존재(정션 미마운트 등) 시 폴백 = 위 legacy CODEX_TASK_ATTACHMENT_ROOT.
 const ATTACHMENT_WORKSPACES_ROOT = resolve(process.env.DEV_ERP_ATTACHMENT_WORKSPACES_ROOT || join(ROOT, "_workspaces"));
+// owner 지식그래프 익스포터(guild_hall/knowledge_graph) 산출물 열람 루트 — 읽기 전용 서빙(2026-07-04 owner)
+const GRAPH_VIEW_ROOT = resolve(process.env.DEV_ERP_GRAPH_VIEW_ROOT || join(ROOT, "_workspaces", "system", "knowledge_view", "graph_export"));
 const CHAT_ATTACH_DIRNAME = "대화첨부";
 const CHAT_ATTACH_MANIFEST = "첨부_manifest.json";
 const CODEX_TASK_IMAGE_MAX = Number(process.env.DEV_ERP_CODEX_TASK_IMAGE_MAX || 8 * 1024 * 1024);
@@ -2053,6 +2057,25 @@ const server = createServer(async (req, res) => {
     if (path === "/api/knowledge/rag/routes" && req.method === "GET") return send(res, 200, scanRagRoutes(KNOWLEDGE_SHELL));
     if (path === "/api/knowledge/rag/work-cards" && req.method === "GET") return send(res, 200, scanRagWorkCards(KNOWLEDGE_SHELL));
     if (path === "/api/knowledge/ledgers" && req.method === "GET") return send(res, 200, scanKnowledgeLedgers(KNOWLEDGE_SHELL));
+    // 지식 서가 현황(2026-07-04 owner): 계층 서가·자산 총량·과제별 수집이력·사용 rollup·위키 목록(메타만)
+    if (path === "/api/knowledge/overview" && req.method === "GET") return send(res, 200, buildKnowledgeOverview(KNOWLEDGE_SHELL.root));
+    // 위키 본문(owner 승인 예외 — 로그인 팀 한정, .md 페이지만, chunk/raw 차단은 모듈이 강제)
+    if (path === "/api/knowledge/wiki/page" && req.method === "GET") {
+      if (!currentAccount(req)) return send(res, 401, { error: "login_required" });
+      const r = readWikiPage(KNOWLEDGE_SHELL.root, qp.ref || "");
+      return send(res, r.error ? 400 : 200, r);
+    }
+    // 줄기(project_context) 그래프 — 로그인 팀 한정, 읽기 전용 메타.
+    // 데이터 루트는 overview·wiki 와 동일하게 KNOWLEDGE_SHELL.root(=repo ROOT, --knowledge_shell_root 로 분리 가능).
+    if (path === "/api/context/projects" && req.method === "GET") {
+      if (!currentAccount(req)) return send(res, 401, { error: "login_required" });
+      return send(res, 200, { projects: listContextProjects(KNOWLEDGE_SHELL.root) });
+    }
+    if (path === "/api/context/graph" && req.method === "GET") {
+      if (!currentAccount(req)) return send(res, 401, { error: "login_required" });
+      const r = buildContextGraph(KNOWLEDGE_SHELL.root, qp.project || "");
+      return send(res, r.error ? 400 : 200, r);
+    }
     if (path === "/api/events/recent") return send(res, 200, store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null, requestScope(req, qp)));
     if (path === "/api/events/audit") return send(res, 200, {
       // noise=0(기본, UI '조회·잡음 포함' 해제) → 잡음을 서버에서 제외해 limit 이 의미 이벤트에만 적용.
@@ -2250,6 +2273,18 @@ const server = createServer(async (req, res) => {
       for (const root of SKIN_ROOTS) {
         if (serveFromRoot(res, root, rel)) return;
       }
+      return send(res, 404, "not found", "text/plain");
+    }
+
+    // owner 지식그래프 뷰어(3D/2D) 산출물 서빙 — 로그인 팀 한정, 안전 확장자만, dotfile·탈출 차단.
+    if (path.startsWith("/knowledge-graph/")) {
+      if (!currentAccount(req)) return send(res, 401, "login required", "text/plain");
+      const rel = path.slice("/knowledge-graph/".length).replace(/^\/+/, "");
+      const ext = extname(rel).toLowerCase();
+      if (!rel || rel.includes("..") || /(^|\/)\./.test(rel) || ![".html", ".js", ".json", ".css"].includes(ext)) {
+        return send(res, 404, "not found", "text/plain");
+      }
+      if (serveFromRoot(res, GRAPH_VIEW_ROOT, rel)) return;
       return send(res, 404, "not found", "text/plain");
     }
 

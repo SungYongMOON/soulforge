@@ -1924,8 +1924,160 @@ async function openItemQuickEdit(itemId, projectId, title) {
 }
 
 // 연락처 마스터 화면(mod:contacts). 거래처/과제 링크·필터. 메타 전용.
-// 매뉴얼/FAQ 관리(mod:knowledge). 챗봇 검색 소스 + 미응답 질문 큐(야간 갱신 대상). 메타 전용.
+// 지식 화면(mod:knowledge) — 2026-07-04 owner: 서가 현황(무엇이/언제/얼마나) + 위키 본문 +
+// 줄기(project_context) 그래프 + 기존 FAQ·매뉴얼 관리 4탭. 서가·그래프는 메타 전용, 위키 본문은
+// owner 승인 예외(로그인 팀 한정).
 async function renderKnowledge() {
+  const L = state.lex;
+  const tab = state.knowTab ?? "shelf";
+  const tabs = [["shelf", L.know_tab_shelf], ["wiki", L.know_tab_wiki], ["trunk", L.know_tab_trunk], ["faq", L.know_tab_faq]]
+    .map(([k, label]) => `<button class="fav-chip mini know-tab ${tab === k ? "on" : ""}" data-tab="${k}">${esc(label)}</button>`).join(" ");
+  const shell = `<div class="item-form" style="gap:6px">${tabs}
+    <span style="flex:1"></span>
+    <button class="fav-chip mini" id="knowGraph3d">${L.know_open_3d}</button></div><div id="knowBody"></div>`;
+  $("#view").innerHTML = shell;
+  $("#view").querySelectorAll(".know-tab").forEach((b) => b.addEventListener("click", () => { state.knowTab = b.dataset.tab; render(); }));
+  $("#knowGraph3d").addEventListener("click", () => window.open("/knowledge-graph/knowledge_graph_v0/graph_preview.html", "_blank"));
+  const body = $("#knowBody");
+  if (tab === "shelf") return renderKnowShelf(body);
+  if (tab === "wiki") return renderKnowWiki(body);
+  if (tab === "trunk") return renderKnowTrunk(body);
+  return renderKnowFaq(body);
+}
+
+// overview 는 서버 풀스캔이라 탭 전환마다 재요청하지 않는다 — 세션 캐시(서버도 60s TTL memo).
+async function knowOverview() {
+  if (!state._knowOverview) state._knowOverview = api("/api/knowledge/overview").catch(() => null);
+  return state._knowOverview;
+}
+
+// 탭1: 서가 현황 — 계층(공통/도메인/과제) + 자산 총량 + 수집 타임스탬프 + 사용 rollup(공백 정직 표기)
+async function renderKnowShelf(el) {
+  const L = state.lex;
+  el.innerHTML = `<div class="empty small">…</div>`;
+  const o = await knowOverview();
+  if (!o) { el.innerHTML = `<div class="empty">-</div>`; return; }
+  const approx = o.shelves_truncated ? "≈" : "";
+  const fmtT = (ms) => ms ? localTime(new Date(ms).toISOString()) : "-";
+  const shelfRows = (list) => (list || []).map((s) => `<tr><td>${esc(s.key)}</td><td class="num">${s.truncated ? "≈" : ""}${s.file_count}</td><td class="dim">${fmtT(s.latest_mtime_ms)}</td></tr>`).join("");
+  const projRows = (o.projects || []).map((p) => `<tr>
+    <td><strong>${esc(p.project)}</strong></td>
+    <td class="num">${p.bookshelf_total ?? "-"}</td>
+    <td class="num">${p.wiki_pages}</td>
+    <td class="num">${p.ingest_receipts}</td>
+    <td class="dim">${p.last_ingest_at ? localTime(p.last_ingest_at) : "-"}</td>
+    <td class="num">${p.candidates}</td>
+  </tr>`).join("");
+  const u = o.usage || {};
+  const typeChips = Object.entries(u.by_access_type || {}).map(([t, n]) => `<span class="fav-chip mini">${esc(t)} ${n}</span>`).join(" ");
+  const topRefs = (u.top_refs || []).map((r) => `<div class="dim small">· ${esc(r.ref)} — ${r.n}회</div>`).join("");
+  el.innerHTML = `
+    <div class="hub-grid">
+      <section><h4 class="hub-h4">${L.know_shelf_common}</h4>
+        <table><thead><tr><th>${L.know_col_area}</th><th>${L.know_col_files}</th><th>${L.know_col_latest}</th></tr></thead><tbody>${shelfRows(o.shelves?.common) || ""}</tbody></table></section>
+      <section><h4 class="hub-h4">${L.know_shelf_domain}</h4>
+        <table><thead><tr><th>${L.know_col_area}</th><th>${L.know_col_files}</th><th>${L.know_col_latest}</th></tr></thead><tbody>${shelfRows(o.shelves?.domain) || ""}</tbody></table></section>
+    </div>
+    <h4 class="hub-h4">${L.know_shelf_project}</h4>
+    ${(o.projects || []).length ? `<table><thead><tr><th>${L.know_col_project}</th><th>${L.know_col_bookshelf}</th><th>${L.know_tab_wiki}</th><th>${L.know_col_ingests}</th><th>${L.know_col_last_ingest}</th><th>${L.know_col_candidates}</th></tr></thead><tbody>${projRows}</tbody></table>` : `<div class="empty small">-</div>`}
+    ${approx ? `<div class="dim small">${L.know_shelf_approx}</div>` : ""}
+    <h4 class="hub-h4">${L.know_assets}</h4>
+    <div><span class="fav-chip mini">source card ${o.assets?.source_cards ?? 0}</span>
+      <span class="fav-chip mini">text index ${o.assets?.source_text_indexes ?? 0}</span></div>
+    <h4 class="hub-h4">${L.know_usage}</h4>
+    <div class="dim small">${L.know_usage_total}: ${u.total_events ?? 0} · ${L.know_usage_last}: ${u.last_access_at ? localTime(u.last_access_at) : "-"}</div>
+    <div style="margin:4px 0">${typeChips || ""}</div>${topRefs}
+    ${u.auto_capture_wired === false ? `<div class="empty small">${L.know_usage_unwired}</div>` : ""}`;
+}
+
+// 탭2: 위키 — 목록 + 본문 뷰어(owner 승인 예외, 로그인 필요)
+async function renderKnowWiki(el) {
+  const L = state.lex;
+  el.innerHTML = `<div class="empty small">…</div>`;
+  const o = await knowOverview();
+  const pages = o?.wiki_pages ?? [];
+  const rows = pages.map((p) => `<tr class="wiki-row" data-ref="${esc(p.ref)}" style="cursor:pointer">
+    <td><strong>${esc(p.title)}</strong></td><td>${esc(p.project ?? "공통")}</td>
+    <td class="dim">${p.mtime_ms ? localTime(new Date(p.mtime_ms).toISOString()) : "-"}</td>
+    <td class="num dim">${Math.round((p.size_bytes ?? 0) / 1024)}KB</td></tr>`).join("");
+  el.innerHTML = `
+    ${pages.length ? `<table><thead><tr><th>${L.know_wiki_title}</th><th>${L.know_col_project}</th><th>${L.know_col_latest}</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">${L.know_wiki_empty}</div>`}
+    <div id="wikiBody"></div>`;
+  el.querySelectorAll(".wiki-row").forEach((tr) => tr.addEventListener("click", async () => {
+    const box = $("#wikiBody");
+    box.innerHTML = `<div class="empty small">…</div>`;
+    const r = await api(`/api/knowledge/wiki/page?ref=${encodeURIComponent(tr.dataset.ref)}`).catch(() => null);
+    if (!r || r.error) { box.innerHTML = `<div class="empty small">${esc(r?.error ?? L.know_wiki_login)}</div>`; return; }
+    box.innerHTML = `<section class="calc-card" style="margin-top:10px"><h4 class="hub-h4">${esc(r.title)} <span class="dim small">(${esc(r.ref)})</span></h4>
+      <div style="white-space:pre-wrap;font-size:13px;line-height:1.55;max-height:60vh;overflow-y:auto">${esc(r.body)}</div></section>`;
+    box.scrollIntoView({ behavior: "smooth" });
+  }));
+}
+
+// 탭3: 줄기 그래프 — trunk 중심 방사형 SVG(가지 크기=소스 수, 배지=미결 리뷰), 가지 클릭→하위 목록
+async function renderKnowTrunk(el) {
+  const L = state.lex;
+  el.innerHTML = `<div class="empty small">…</div>`;
+  const pj = await api("/api/context/projects").catch(() => null);
+  if (!pj || pj.error) { el.innerHTML = `<div class="empty">${L.know_wiki_login}</div>`; return; }
+  const projects = pj.projects ?? [];
+  if (!projects.length) { el.innerHTML = `<div class="empty">${L.trunk_empty}</div>`; return; }
+  const cur = projects.includes(state._ctxProject) ? state._ctxProject : projects[0];
+  state._ctxProject = cur;
+  const g = await api(`/api/context/graph?project=${encodeURIComponent(cur)}`).catch(() => null);
+  const sel = `<select id="ctxProj">${projects.map((p) => `<option ${p === cur ? "selected" : ""}>${esc(p)}</option>`).join("")}</select>`;
+  if (!g || g.error) { el.innerHTML = `<div class="item-form">${sel}</div><div class="empty">${esc(g?.error ?? "-")}</div>`; $("#ctxProj").addEventListener("change", (e) => { state._ctxProject = e.target.value; render(); }); return; }
+  // 중요도(소스+할일+미결리뷰) 순 정렬 후 캡 — 임의 CSV 순서 앞 40개 절단이 최중요 가지를 숨기던 문제.
+  const BR_CAP = 40;
+  const ranked = (g.branches ?? []).slice().sort((a, b) =>
+    (b.source_count + b.task_count + b.open_review_count) - (a.source_count + a.task_count + a.open_review_count));
+  const branches = ranked.slice(0, BR_CAP);
+  const hiddenBranches = ranked.length - branches.length;
+  const W = 860; const H = 560; const cx = W / 2; const cy = H / 2;
+  const maxSrc = Math.max(1, ...branches.map((b) => b.source_count));
+  const bx = (i) => cx + Math.cos((i / branches.length) * 2 * Math.PI - Math.PI / 2) * 205;
+  const by = (i) => cy + Math.sin((i / branches.length) * 2 * Math.PI - Math.PI / 2) * 205;
+  const lines = branches.map((b, i) => `<line x1="${cx}" y1="${cy}" x2="${bx(i)}" y2="${by(i)}" stroke="var(--border,#8884)" stroke-width="1.5"/>`).join("");
+  const nodes = branches.map((b, i) => {
+    const r = 10 + Math.round((b.source_count / maxSrc) * 22);
+    const badge = b.open_review_count ? `<circle cx="${bx(i) + r - 3}" cy="${by(i) - r + 3}" r="8" fill="#e5534b"/><text x="${bx(i) + r - 3}" y="${by(i) - r + 6}" text-anchor="middle" font-size="9" fill="#fff">${b.open_review_count > 99 ? "99+" : b.open_review_count}</text>` : "";
+    const short = (b.label || b.branch_key || "").slice(0, 12);
+    return `<g class="ctx-branch" data-key="${esc(b.branch_key)}" style="cursor:pointer">
+      <circle cx="${bx(i)}" cy="${by(i)}" r="${r}" fill="#4a7dbf" opacity="0.85"/>
+      <text x="${bx(i)}" y="${by(i) + r + 12}" text-anchor="middle" font-size="10" fill="currentColor">${esc(short)}</text>
+      <text x="${bx(i)}" y="${by(i) + 4}" text-anchor="middle" font-size="10" fill="#fff">${b.source_count + b.task_count}</text>${badge}</g>`;
+  }).join("");
+  const c = g.counts ?? {};
+  const legend = Object.entries(c.by_node_type ?? {}).map(([t, n]) => `<span class="fav-chip mini">${esc(t)} ${n}</span>`).join(" ");
+  const moreNote = (hiddenBranches > 0 || c.truncated)
+    ? `<div class="dim small">${(L.trunk_more ?? "가지 +{n}개는 중요도 하위라 생략됨").replace("{n}", hiddenBranches)}${c.truncated ? ` · ${L.trunk_node_cap ?? "노드 상한 도달(일부 생략)"}` : ""}</div>` : "";
+  el.innerHTML = `
+    <div class="item-form">${sel}
+      <span class="fav-chip mini">${L.trunk_open_reviews}: ${c.open_reviews ?? 0}</span>${legend}</div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:62vh;background:transparent">
+      ${lines}
+      <circle cx="${cx}" cy="${cy}" r="30" fill="#7a5cc0"/>
+      <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="12" fill="#fff">${esc(g.project)}</text>
+      ${nodes}</svg>
+    ${moreNote}
+    <div id="ctxDetail" class="dim small">${L.trunk_hint}</div>`;
+  $("#ctxProj").addEventListener("change", (e) => { state._ctxProject = e.target.value; render(); });
+  el.querySelectorAll(".ctx-branch").forEach((n) => n.addEventListener("click", () => {
+    const key = n.dataset.key;
+    const KID_CAP = 60;
+    const allKids = (g.nodes ?? []).filter((x) => x.branch_key === key && x.type !== "context_branch")
+      .sort((a, b) => String(b.updated_at ?? "").localeCompare(String(a.updated_at ?? ""))); // 최신 우선
+    const kids = allKids.slice(0, KID_CAP);
+    const hiddenKids = allKids.length - kids.length;
+    const rows = kids.map((k) => `<tr><td class="dim">${esc(k.type)}</td><td>${esc(k.label ?? "")}</td><td class="dim">${esc(k.status ?? "")}</td><td class="dim">${k.updated_at ? localTime(k.updated_at) : "-"}</td></tr>`).join("");
+    const b = branches.find((x) => x.branch_key === key);
+    $("#ctxDetail").innerHTML = `<h4 class="hub-h4">${esc(b?.label ?? key)} <span class="dim small">(${L.trunk_open_reviews} ${b?.open_review_count ?? 0})</span></h4>
+      ${kids.length ? `<table><thead><tr><th>${L.trunk_col_type}</th><th>${L.trunk_col_label}</th><th>${L.th_status}</th><th>${L.th_time}</th></tr></thead><tbody>${rows}</tbody></table>${hiddenKids > 0 ? `<div class="dim small">… ${(L.trunk_more ?? "+{n}개 더").replace("{n}", hiddenKids)}</div>` : ""}` : `<div class="empty small">-</div>`}`;
+  }));
+}
+
+// 탭4: 기존 매뉴얼/FAQ 관리. 챗봇 검색 소스 + 미응답 질문 큐(야간 갱신 대상). 메타 전용.
+async function renderKnowFaq(el) {
   const L = state.lex;
   const [faqs, unanswered] = await Promise.all([api("/api/faq"), api("/api/chat/unanswered?limit=30")]);
   const rows = faqs.map((f) => `<tr>
@@ -1935,7 +2087,7 @@ async function renderKnowledge() {
   </tr>`).join("");
   const unRows = unanswered.map((u) => `<tr><td>${esc(u.question)}</td><td class="num">${u.n}</td><td class="dim">${u.last_at ? localTime(u.last_at) : "-"}</td>
     <td><button class="fav-chip mini faq-from" data-q="${esc(u.question)}">+ ${L.faq_new}</button></td></tr>`).join("");
-  $("#view").innerHTML = `
+  el.innerHTML = `
     <div class="item-form">
       <input id="fqTopic" placeholder="${L.faq_topic}" size="8" />
       <input id="fqQ" placeholder="${L.faq_q}" />
@@ -1955,7 +2107,7 @@ async function renderKnowledge() {
     if (r.ok) render();
   };
   $("#fqAdd").addEventListener("click", () => add());
-  $("#view").querySelectorAll(".faq-from").forEach((b) => b.addEventListener("click", () => { $("#fqQ").value = b.dataset.q; $("#fqA").focus(); }));
+  el.querySelectorAll(".faq-from").forEach((b) => b.addEventListener("click", () => { $("#fqQ").value = b.dataset.q; $("#fqA").focus(); }));
 }
 
 // P3 재고/부품 화면(mod:inventory). 부품 마스터(공유)+가용재고+부족 강조+재고 조정. 외부전송 0.

@@ -56,6 +56,22 @@ The endpoint returns `dev_erp.knowledge_shell.v1`, `content_policy:
 metadata_only`, `body_included: false`, and the same root-boundary posture used
 by the other knowledge shell routes.
 
+### Wiki Body Exception (2026-07-04 owner approved)
+
+One approved exception to the metadata-only posture: ERP may serve **wiki
+markdown page bodies** (the sanitized derivative pages, never source originals)
+through the dedicated endpoint `GET /api/knowledge/wiki/page` with these
+guards, all code-enforced in `src/knowledge_overview.mjs`:
+
+- login required (team accounts only; anonymous gets 401);
+- `.md` pages only, inside `_workspaces/knowledge/**/wiki/**` or
+  `_workspaces/<project>/reference_payloads/knowledge_extract/**/wiki/**`;
+- chunk/raw/body/secret name patterns and raw-body extensions stay blocked;
+- size cap 512KB; scan/listing endpoints keep `body_included: false`.
+
+Raw sources (HWP/PDF/DOCX/mail), chunks, indexes, and NotebookLM answer text
+remain excluded from ERP responses.
+
 ## Runtime Decision
 
 The approved default decision is:

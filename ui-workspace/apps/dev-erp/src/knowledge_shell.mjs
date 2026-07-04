@@ -9,6 +9,15 @@ export const KNOWLEDGE_SHELL_OPERATION_CONTRACT = {
   architecture: "karpathy_style_sourcebound_wiki_metadata_shell",
   content_policy: "metadata_only",
   body_included: false,
+  // 예외 1건(2026-07-04 owner 승인): 위키 .md 본문만 별도 엔드포인트(/api/knowledge/wiki/page,
+  // 로그인 팀 한정)로 열람 허용. 스캔 응답들은 계속 body_included:false. 원문·chunk·raw 는 계속 차단.
+  wiki_body_exception: {
+    enabled: true,
+    approved: "2026-07-04 owner",
+    scope: "wiki_markdown_pages_only",
+    auth: "login_required",
+    surface: "/api/knowledge/wiki/page",
+  },
   llm_runtime_policy: {
     karpathy_llm_runtime_required: false,
     karpathy_llm_runtime_installed_by_contract: false,
