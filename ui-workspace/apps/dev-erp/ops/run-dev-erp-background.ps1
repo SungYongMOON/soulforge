@@ -32,6 +32,9 @@ $env:DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HINT = "1"
 $env:DEV_ERP_MAIL_ROUTE_BACKFILL_PRIVATE_DEEP = "1"
 # 분류 지식근거 ON(2026-07-04 owner 승인): 과제 전용 source_text_index(P26-014 3종 등)를 인입 판단에 주입.
 $env:DEV_ERP_INTAKE_KNOWLEDGE = "1"
+# 완료지식→RAG 후보 피드 ON(2026-07-04 owner 지시 "지식 워크플로우 계속 돌아가게"): 사이클마다
+# completion_log 지식 다이제스트를 knowledge_rag_candidate_ledger(_workmeta)로 증분 적재(본문 금지키 가드·커서).
+$env:DEV_ERP_INTAKE_COMPLETION_FEED = "1"
 # 메일→할일 자동 인입(2026-07-03 owner 활성화): 수집 후 사본통합(E8)→스레드귀속(E1)→분류(줄기맥락+
 # 지식근거)→할일_장부→줄기 갱신. 신규 유입 있을 때만 실행. 분류 모델은 ERP_CHAT_MODEL 상속(gemma4:e4b).
 $env:DEV_ERP_AUTO_INTAKE = "1"

@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### dev-ERP 완료지식→RAG 후보 피드 활성 (env-only)
+
+- 운영 기동 스크립트에 `DEV_ERP_INTAKE_COMPLETION_FEED=1` 추가(owner 지시 2026-07-04 "지식 워크플로우 계속 돌아가게"): 15분 인입 사이클이 completion_log 지식 다이제스트를 `knowledge_rag_candidate_ledger`(_workmeta, guild_hall 계약 검증)로 증분 적재. 코드 변경 0 — 기존 배선(`auto_intake_cycle.mjs:64` env 게이트, `completion_knowledge_feed.mjs` 본문 금지키 가드+커서)에 전류만. 이로써 지식 사슬의 사이클 상주분(분류 지식근거 주입 + 완료지식 후보 적재)이 상시 가동 (worker: claude_fable-5).
+
 ### dev-ERP knowledge shelf, wiki viewer, and project-trunk graph
 
 - Wired the knowledge data plane into the ERP screen for the first time (owner request 2026-07-04): the knowledge module is now four tabs — shelf status (`/api/knowledge/overview`: common systems-engineering/standards vs engineering-domain vs per-project tiers, ingest-receipt timestamps answering "when was it collected", knowledge_access ledger rollup answering "how much was it used" with an honest on-screen note that automatic capture is not wired yet), wiki (list + body viewer), project-trunk graph, and the existing FAQ/manual manager.
