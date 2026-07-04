@@ -624,8 +624,9 @@ function afterWorkStarted({ actor, item, from, to } = {}) {
 
 function afterWorkCompleted({ actor, item, from, to } = {}) {
   if (!item?.id || to !== "done" || from === "done") return null;
-  const clog = store.logCompletion(item, { completed_by: actor });
   const binding = store.codexTaskBinding(item.id);
+  // 5필드 계약: 결정적 필드(입력 포인터·집계키)는 완료 즉시 기록, LLM 초안은 아래 훅이 보강(needs_backfill=1 시작).
+  const clog = store.logCompletion(item, { completed_by: actor, thread_id: binding?.thread_id ?? null });
   const used_refs = ["items", "completion_log"];
   const noteParts = ["source_surface=erp", "trigger=item_status"];
   if (clog?.id) noteParts.push(`completion_log_id=${clog.id}`);
@@ -660,7 +661,21 @@ function afterWorkCompleted({ actor, item, from, to } = {}) {
     ].filter(Boolean).join(";") || null;
     try {
       msgs = store.codexTaskMessages(item.id);
-      if (!msgs.length) return;
+      if (!msgs.length) {
+        // 대화 없음: 결정적 필드만 착지(needs_backfill=1 유지). 침묵 대신 감사 이벤트로 부분 캡처를 표시.
+        store.appendEvent({
+          actor_ref: "completion_hook",
+          actor_kind: "system",
+          kind: "five_field_partial",
+          item_ref: item.id,
+          project_ref: item.project_id,
+          to: "no_thread",
+          used_refs: hookUsedRefs(),
+          data_label: "meta",
+          note: hookNote("no_thread"),
+        });
+        return;
+      }
       latestMsg = msgs[msgs.length - 1] ?? null;
       const provider = process.env.ERP_CHAT_PROVIDER || "stub";
       if (provider !== "ollama") {
@@ -692,7 +707,17 @@ function afterWorkCompleted({ actor, item, from, to } = {}) {
         });
         return;
       }
-      if (clog?.id) store.updateCompletionLog(clog.id, { summary: digest.summary, knowledge: digest.knowledge });
+      // needs_backfill 해제는 5필드 실내용이 하나라도 있을 때만 — next_actions 만 채운 퇴화 응답이 '보강 완료'로 위장하는 것 방지.
+      const hasFiveField = Boolean(digest.summary || digest.knowledge || digest.verification || (digest.stop_conditions ?? []).length);
+      if (clog?.id) store.updateCompletionLog(clog.id, {
+        summary: digest.summary,
+        knowledge: digest.knowledge,
+        verification: digest.verification,
+        stop_conditions: digest.stop_conditions,
+        request_kind: digest.request_kind, // 빈/무효 슬러그면 store 가 결정적 베이스 유지
+        data_label: hasFiveField ? "ai_draft" : undefined, // 초안 즉시 착지(승인 대기 큐 금지 — ladder packet stop_condition)
+        needs_backfill: hasFiveField ? 0 : 1,
+      });
       const proposal = store.createProposal({
         source: "completion_hook", kind: "completion_digest", target_ref: item.id,
         summary: digest.summary || `${item.title ?? item.id} 완료`,
@@ -710,6 +735,9 @@ function afterWorkCompleted({ actor, item, from, to } = {}) {
           summary: digest.summary,
           next_actions: digest.next_actions,
           knowledge: digest.knowledge,
+          verification: digest.verification ?? "",
+          stop_conditions: digest.stop_conditions ?? [],
+          request_kind: digest.request_kind ?? "",
         },
         used_refs: ["items", "codex_thread_message"], data_label: "real",
       });

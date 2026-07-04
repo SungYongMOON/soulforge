@@ -1,5 +1,16 @@
 # CHANGELOG
 
+### 워크플로우 draft: five_field_session_capture_v0 (세션 종료 5필드 캡처)
+
+- 평소 Codex/Claude 세션 대화가 끝날 때도 자동화 자산 5필드가 남도록(owner 요청 2026-07-04) `.workflow/five_field_session_capture_v0/` draft 패키지 신설: 도구 비종속 CLI(`tools/five_field_capture.mjs`, 표준 Node 만 사용)가 `_workmeta/<project>/reports/procedure_capture/five_field_log.jsonl` 에 append-only 착지(재실행 멱등, 원문 미복사 크기 가드, request_kind 슬러그 검증).
+- 설계 원칙: 셸 훅은 판단/검증 내용을 쓸 수 없으므로 **기록은 세션의 AI 가 종료 시 직접, 하네스 훅은 `--check` guard(exit 2=누락 경고)만** — ladder 계단 3단(validator 먼저). ERP 업무 레인(completion_log)과 스키마 계열 통일(`soulforge.five_field_capture.v0`)로 승격 감지기가 두 레인을 함께 읽는다. index.yaml 등록·AGENTS/gate 바인딩은 owner 결정 대기(workflow.yaml `owner_decision_needed`). CLI smoke check 5케이스 통과 (worker: claude_fable-5).
+
+### dev-ERP 완료 시점 자동화 자산 5필드 자동 캡처 v1 (FIVE-FIELD-001)
+
+- request-to-automation ladder 계단 1단의 실물화(owner 승인 2026-07-04, packet `request_to_automation_ladder_v0` S1/S2): 할일이 완료될 때마다 자동화 자산 5필드 — 입력(`log_ref`=소스 포인터 JSON 배열)·판단(`knowledge`)·출력(`summary`)·검증(`verification` 신규)·중단조건(`stop_conditions` 신규) — 과 반복 감지 슬러그 `request_kind`(신규, "review/mail" 형태)가 completion_log에 자동으로 남는다. 사람이 쓰는 기록이 아니라 AI/훅이 쓰는 기록(assignee_memory 0행 교훈).
+- 이원 착지 설계: 결정적 절반(입력 포인터·집계키 베이스)은 `logCompletion`이 완료 즉시 기록(`needs_backfill=1`로 시작), LLM 초안 절반(요약/판단/검증/중단조건/슬러그 세분화)은 완료 훅이 ollama로 생성해 `data_label='ai_draft'`로 직접 착지 — 승인 대기 큐를 새로 만들지 않는다(packet stop_condition). 스레드 없음이면 `five_field_partial` 이벤트, LLM 미가용이면 기존 `completion_hook_skipped` — 어느 쪽도 완료를 막지 않고 `needs_backfill=1` 유지(소급 대상 마커). 기존 legacy 행도 마이그레이션이 `request_kind IS NULL` 기준으로 소급 대상 마킹, 완료_장부 CSV 왕복(completion_ledger)에도 5필드 컬럼 동승.
+- 순수 로직은 신규 `src/five_field.mjs`로 분리(포인터 수집=원문 미복사·수동 log_ref 존중, 슬러그 정규화=무효 시 결정적 베이스 유지, LLM 응답 클램프=근거 없는 필드 소거). `backfillCompletionLog`도 과거 완료건의 결정적 절반을 소급(검증·중단조건은 소급 불가 — 완료 시점 캡처만 가능). ai_proposal payload에 세 필드 동봉(B-5 표시용). 신규 테스트 FIVE-FIELD-001 8건 (worker: claude_fable-5).
+
 ### dev-ERP 인입 자동화 스위치 2종 활성 (env-only)
 
 - 운영 기동 스크립트(`ops/run-dev-erp-background.ps1`)에 owner 승인(2026-07-04) env 3줄 추가: ① `DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HINT=1` + `DEV_ERP_MAIL_ROUTE_BACKFILL_PRIVATE_DEEP=1` — 6/29 owner 검토·승인된 hint/private-deep 라우팅 룰을 일일 백필에 활성(그동안 exact 전용이라 480회 실행에 이동 1건이던 공회전 해소). ② `DEV_ERP_INTAKE_KNOWLEDGE=1` — 인입 분류 LLM에 과제 전용 source_text_index 지식근거 주입(ENGINE-5 배선, P26-014 3종 index 확인).

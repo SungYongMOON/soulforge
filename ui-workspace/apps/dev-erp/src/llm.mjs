@@ -4,6 +4,7 @@
 // stub(외부전송 0). 회의록 자동추출·첨부 기반 보고서 등 원문 필요 기능은 갈림길⑨로 보류.
 
 import { runManualAnswerPipeline } from "./chat_pipeline.mjs";
+import { clampFiveFieldDigest } from "./five_field.mjs";
 
 export const CHATBOT_VERSION = Object.freeze({
   release: "v1.1.3",
@@ -447,9 +448,11 @@ export async function classifyMailForTasks(items = [], { provider = "none", gene
   return out;
 }
 
-// S6 완료 훅: 완료된 할일의 Codex 대화 로그를 1회 요약 → {완료요약, 다음액션후보, 지식후보}. 제안일 뿐(사람 검토). 외부 egress 없음(로컬 ollama). ollama 미가용/대화없음/오류면 빈 결과로 graceful.
+// S6 완료 훅: 완료된 할일의 Codex 대화 로그를 1회 요약 → 자동화 자산 5필드 초안
+// {출력=summary, 판단=knowledge, 검증=verification, 중단조건=stop_conditions, 집계키=request_kind} + 다음액션후보.
+// 외부 egress 없음(로컬 ollama). ollama 미가용/대화없음/오류면 빈 결과로 graceful(완료는 막지 않음).
 export async function summarizeCompletion(item = {}, messages = [], { provider = "stub" } = {}) {
-  const empty = { summary: "", next_actions: [], knowledge: "" };
+  const empty = { summary: "", next_actions: [], knowledge: "", verification: "", stop_conditions: [], request_kind: "" };
   if (provider !== "ollama") return { ...empty, reason: "llm_unavailable" };
   if (!messages.length) return { ...empty, reason: "no_thread" };
   const runtime = chatLlmRuntimeConfig();
@@ -478,21 +481,19 @@ ${log}
 규칙:
 - summary: 무엇을 했고 결과가 무엇인지 2~3문장(한국어).
 - next_actions: 이어서 할 일 후보 0~3개(각 한국어 한 줄). 없으면 [].
-- knowledge: 다음에 재사용할 지식/주의점 한 줄. 없으면 "".
-형식만 출력: {"summary":"...","next_actions":["..."],"knowledge":"..."}`;
+- knowledge: 다음에 재사용할 지식/판단기준/주의점 한 줄. 없으면 "".
+- verification: 성공/실패를 무엇으로 확인했는지 한 줄(대화로그에 확인 근거가 있을 때만). 없으면 "".
+- stop_conditions: 같은 유형을 다음에 자동 처리하면 안 되는 경우 0~2개(각 한국어 한 줄). 없으면 [].
+- request_kind: 이 업무 유형의 짧은 영문 슬러그(소문자/숫자/_/-//, 예: "review/mail", "doc_update/manual"). 모르면 "".
+형식만 출력: {"summary":"...","next_actions":["..."],"knowledge":"...","verification":"...","stop_conditions":["..."],"request_kind":"..."}`;
   try {
     const q = await runQueued(() => fetchOllamaGenerate(host, {
       model: runtime.model, prompt, stream: false, format: "json",
-      options: { temperature: 0.2, num_predict: 600 },
+      options: { temperature: 0.2, num_predict: 800 },
     }, runtime.timeout_ms));
     if (q && q.queued_timeout) return { ...empty, reason: "busy" };
     const parsed = JSON.parse(q?.response ?? "{}");
-    return {
-      summary: String(parsed.summary ?? "").trim().slice(0, 1000),
-      next_actions: (Array.isArray(parsed.next_actions) ? parsed.next_actions : []).slice(0, 3).map((s) => String(s ?? "").trim().slice(0, 200)).filter(Boolean),
-      knowledge: String(parsed.knowledge ?? "").trim().slice(0, 500),
-      model: runtime.model,
-    };
+    return { ...clampFiveFieldDigest(parsed), model: runtime.model };
   } catch (e) {
     return { ...empty, reason: "llm_error", error: String(e?.message ?? e) };
   }

@@ -1,0 +1,86 @@
+workflow_id: five_field_session_capture_v0
+kind: workflow
+status: draft
+title: Five-Field Session Capture v0
+summary: Codex/Claude 등 어떤 AI 세션이든 bounded 작업이 끝날 때 자동화 자산 5필드(입력/판단/출력/검증/중단조건)+집계키를 _workmeta 레저에 착지시키고, 하네스 훅이 기록 누락을 검사(guard)하게 하는 세션 종료 캡처 절차.
+global_name_ko: "오필드캡처"
+global_name_ko_scope: draft_invocation_alias_candidate
+global_name_ko_note: "Korean invocation-ready alias; no slash, spaces, dash, colon, or path-like symbols."
+display_name_ko: "운영/세션종료/5필드기록"
+display_name_ko_scope: draft_authoring_aid
+naming_contract_ref: .workflow/docs/WORKFLOW_NAMING_CONTRACT_V0.md
+classification_lane:
+  primary: operations
+  primary_name_ko: 운영
+  secondary:
+    - review_governance
+  secondary_name_ko:
+    - 검토 거버넌스
+  purpose: discovery_only
+  authority: none
+  notes:
+    - Workflow lane is for indexing and discovery only.
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+  notes:
+    - 모든 AI 작업 세션(Codex CLI, Claude Code, 기타)이 자기 세션 종료 절차로 직접 실행한다.
+    - 기록 작성자는 항상 그 세션의 AI(사람 수기 금지 아님 — 단 기본값은 AI 자동작성. assignee_memory 0행 교훈).
+entrypoint: run
+execution_mode: local_tool_sequence
+profile_policy: profile_policy.yaml
+calibrations: calibrations/
+history: history/
+contract_refs:
+  - _workmeta/system/dev_worker_candidate_queue/request_to_automation_ladder_v0.yaml
+  - ui-workspace/apps/dev-erp/docs/slices/FIVE-FIELD-CAPTURE.md
+inputs:
+  - bounded_task_result           # 방금 끝난 작업의 결과(무엇을 만들었나)
+  - session_ref                   # 세션 식별자(예: codex_20260704_p26014a)
+  - worker_label                  # 도구_모델 표기(예: codex_gpt-5.3, claude_fable-5)
+  - project_code                  # 과제 코드 또는 system
+outputs:
+  - five_field_ledger_record      # _workmeta/<project>/reports/procedure_capture/five_field_log.jsonl 1행
+  - capture_receipt               # CLI stdout JSON(id/ledger/needs_backfill)
+boundary_rules:
+  - 원문(메일 본문/첨부/문서 본문) 복사 금지 — input_refs 는 포인터(경로/id)만, CLI 가 크기 가드로 거부.
+  - secret/token/credential 값 기록 금지.
+  - 레저는 _workmeta(private repo) 전용 — public tree 에 5필드 내용 커밋 금지.
+  - ERP 업무 레인은 이 워크플로우가 아니라 dev-erp completion_log 자동 캡처(FIVE-FIELD-CAPTURE 슬라이스)가 담당 — 이중 기록 금지.
+steps:
+  - step_id: compose_five_fields
+    actor_slot: active_unit
+    action:
+      kind: local_reasoning
+      note: 세션의 AI 가 방금 작업에 대해 5필드를 스스로 작성 — 입력(무엇을 보고 시작), 판단(결정 기준), 출력(만든 것 — 경로/커밋 ref), 검증(성공 확인 방법), 중단조건(다음에 자동으로 하면 안 되는 경우), request_kind 슬러그("행위/출처", 예 review/mail).
+    inputs: [bounded_task_result]
+    outputs: [five_field_json]
+    next: { on_success: land_record, on_fail: stop }
+  - step_id: land_record
+    actor_slot: active_unit
+    action:
+      kind: local_tool
+      tool: node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs
+      note: --project <P> --session-ref <ref> --worker <label> --request-kind <slug> --json '<five_field_json>' (재실행 멱등 — 동일 내용은 duplicate skip)
+    inputs: [five_field_json, session_ref, worker_label, project_code]
+    outputs: [five_field_ledger_record, capture_receipt]
+    next: { on_success: done, on_fail: stop }
+guard_binding:
+  note: 하네스 훅은 내용을 쓸 수 없다(판단/검증은 모델만 안다) — 훅의 역할은 기록 누락 검사다.
+  check_command: node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --check --session-ref <ref>
+  exit_codes: { 0: recorded, 2: missing_record }
+  examples:
+    claude_code: Stop hook 에서 check_command 실행 → exit 2 면 "5필드 기록 누락" 경고 표면화(차단 아님).
+    codex_cli: 세션 종료 지시(AGENTS 실행 계약/post_development_review_gate 후속 바인딩 후보)에 land_record 를 편입.
+owner_decision_needed:
+  - AGENTS.md end-of-task 체크리스트에 이 워크플로우 1줄 편입 여부(canon 변경)
+  - post_development_review_gate_v0 마지막 스텝으로 바인딩 여부
+  - index.yaml 정식 등록(workflow-check 통과 후)
+validation_level: draft_with_local_tool_smoke_check
+registration_policy: owner_requested_registration
+output_state: draft
+notes:
+  - Draft workflow built from a real task (2026-07-04 owner request — "평소 Codex 세션 대화에서도 끝나면 남겨지도록").
+  - ERP completion_log(업무 레인)와 같은 스키마 계열(soulforge.five_field_capture.v0) — 승격 감지기(request_kind 반복 집계)가 두 레인을 함께 읽는다.

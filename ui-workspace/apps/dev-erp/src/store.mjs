@@ -8,6 +8,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CHAT_CONTEXT_TURNS_DEFAULT, CHAT_CONTEXT_TURNS_MAX, runManualRetrievalPipeline } from "./chat_pipeline.mjs";
+import { encodeInputRefs, baseRequestKind, normalizeRequestKind } from "./five_field.mjs";
 
 // 과제시작년도 도출: 과제번호 접두 P{YY}- 에서(P26-014→2026, P00-TEST→2000). 형식 안 맞으면 null.
 export function deriveStartYear(id) {
@@ -856,6 +857,12 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE completion_log ADD COLUMN completion_criteria TEXT",
     "ALTER TABLE completion_log ADD COLUMN result TEXT",
     "ALTER TABLE completion_log ADD COLUMN log_ref TEXT",
+    // 자동화 자산 5필드 계약(request_to_automation_ladder S1): 검증/중단조건/집계키 + 초안 라벨.
+    "ALTER TABLE completion_log ADD COLUMN verification TEXT", // 검증: 성공/실패를 무엇으로 확인했나(근거 없으면 null)
+    "ALTER TABLE completion_log ADD COLUMN stop_conditions TEXT", // 중단조건 JSON 배열: 다음부터 자동으로 하면 안 되는 경우
+    "ALTER TABLE completion_log ADD COLUMN request_kind TEXT", // 반복 감지 슬러그(2회=packet 후보, 3회=helper 후보)
+    "ALTER TABLE completion_log ADD COLUMN data_label TEXT", // 'ai_draft'=LLM 초안 착지(승인 대기 없음) — 사람 수정 시 소비자가 교체
+    "ALTER TABLE completion_log ADD COLUMN needs_backfill INTEGER NOT NULL DEFAULT 0", // LLM 미가용/스레드 없음 → 1(완료는 막지 않음, 소급 대상 표시)
     "ALTER TABLE event_log ADD COLUMN project_ref TEXT",
     "ALTER TABLE core_stage ADD COLUMN stage_code TEXT",
     "ALTER TABLE core_attachment ADD COLUMN artifact_type TEXT",
@@ -927,6 +934,8 @@ export function openStore(path = ":memory:") {
   }
   // P-0: 단계 식별을 title 에서 분리한 stage_code 정본 컬럼. 기존 행 backfill=title.
   try { db.exec("UPDATE core_stage SET stage_code=title WHERE stage_code IS NULL OR stage_code=''"); } catch { /* noop */ }
+  // 5필드 이전(legacy) 완료 행 소급 마커(멱등): 슬라이스 이후 모든 insert 경로가 request_kind 를 결정적으로 채우므로 NULL=이전 행.
+  try { db.exec("UPDATE completion_log SET needs_backfill=1 WHERE request_kind IS NULL"); } catch { /* noop */ }
   // P-2/SE-DATA: SE 스케줄러 시드 — data/se_process_seed.json 있으면 소비, 없으면 120_CDR stub.
   try { seedSeProcess(db); } catch { /* noop */ }
   // P2b 팀: 기본 역할 2종(관리자/팀원) 시드 + 계정 이메일 조회 인덱스. 멱등.
@@ -2112,11 +2121,13 @@ export class Store {
   }
 
   // 완료 로그(할일 로그) — 완료 시 1행(담당자·종류·프로젝트·완료시각). #4 담당자별 처리량·종류 분석 + #6 지식의 내구 backbone(item 재완료·삭제와 무관).
-  logCompletion(item, { completed_by = null } = {}) {
+  // 5필드 계약: 결정적 필드(입력 포인터→log_ref, 집계키→request_kind)는 여기서 즉시 기록.
+  // LLM 초안(요약/판단/검증/중단조건)은 완료 훅이 나중에 보강하므로 needs_backfill=1 로 시작.
+  logCompletion(item, { completed_by = null, thread_id = null } = {}) {
     if (!item || !item.id) return { error: "no_item" };
     const now = new Date().toISOString();
     const r = this.db.prepare(
-      "INSERT INTO completion_log (item_id, title, assignee_ref, work_type, project_id, done_at, completed_by, completion_criteria, result, log_ref, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+      "INSERT INTO completion_log (item_id, title, assignee_ref, work_type, project_id, done_at, completed_by, completion_criteria, result, log_ref, request_kind, needs_backfill, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
     ).run(
       item.id,
       item.title ?? null,
@@ -2127,15 +2138,17 @@ export class Store {
       completed_by,
       item.completion_criteria ?? null,
       item.result ?? null,
-      item.log_ref ?? null,
+      encodeInputRefs(item, { threadId: thread_id }),
+      baseRequestKind(item),
+      1,
       now
     );
     return { ok: true, id: Number(r.lastInsertRowid) };
   }
-  // 완료 훅이 비동기 요약/지식/토큰을 나중에 보강(완료는 막지 않음).
-  updateCompletionLog(id, { summary, knowledge, tokens } = {}) {
+  // 완료 훅이 비동기 요약/지식/토큰 + 5필드 초안(검증/중단조건/집계키)을 나중에 보강(완료는 막지 않음).
+  updateCompletionLog(id, { summary, knowledge, tokens, verification, stop_conditions, request_kind, data_label, needs_backfill } = {}) {
     const sets = []; const args = [];
-    if (summary !== undefined) { sets.push("summary=?"); args.push(summary ?? null); }
+    if (summary !== undefined) { sets.push("summary=?"); args.push(String(summary ?? "").trim() || null); } // 빈 문자열도 null 정규화(IS NULL 스캔 일관성)
     if (knowledge !== undefined) {
       const knowledgePayload = typeof knowledge === "string"
         ? (knowledge.trim() ? { note: knowledge.trim() } : null)
@@ -2144,6 +2157,17 @@ export class Store {
       args.push(knowledgePayload ? JSON.stringify(knowledgePayload) : null);
     }
     if (tokens !== undefined) { sets.push("tokens=?"); args.push(tokens ?? null); }
+    if (verification !== undefined) { sets.push("verification=?"); args.push(String(verification ?? "").trim() || null); }
+    if (stop_conditions !== undefined) {
+      const list = (Array.isArray(stop_conditions) ? stop_conditions : []).map((s) => String(s ?? "").trim()).filter(Boolean);
+      sets.push("stop_conditions=?"); args.push(list.length ? JSON.stringify(list) : null);
+    }
+    if (request_kind !== undefined) {
+      const rk = normalizeRequestKind(request_kind);
+      if (rk) { sets.push("request_kind=?"); args.push(rk); } // 무효 슬러그는 결정적 베이스 유지(덮지 않음)
+    }
+    if (data_label !== undefined) { sets.push("data_label=?"); args.push(data_label ?? null); }
+    if (needs_backfill !== undefined) { sets.push("needs_backfill=?"); args.push(needs_backfill ? 1 : 0); }
     if (!sets.length) return { ok: true };
     args.push(id);
     this.db.prepare(`UPDATE completion_log SET ${sets.join(", ")} WHERE id=?`).run(...args);
@@ -2170,11 +2194,11 @@ export class Store {
   // 훅 도입 전 완료된 항목을 completion_log 에 1회 보강(멱등 — item_id 미기록분만). 분석 위젯이 과거 이력도 보게.
   backfillCompletionLog() {
     const rows = this.db.prepare(
-      "SELECT id, title, assignee_ref, work_type, project_id, done_at, completion_criteria, result, log_ref FROM core_item WHERE status='done' AND id NOT IN (SELECT item_id FROM completion_log WHERE item_id IS NOT NULL)"
+      "SELECT id, title, assignee_ref, work_type, project_id, done_at, completion_criteria, result, log_ref, origin_mail_id, source_mail_ref, source_thread_ref, link_kind, link_ref, guide_artifact_id FROM core_item WHERE status='done' AND id NOT IN (SELECT item_id FROM completion_log WHERE item_id IS NOT NULL)"
     ).all();
     if (!rows.length) return { ok: true, inserted: 0 };
     const now = new Date().toISOString();
-    const ins = this.db.prepare("INSERT INTO completion_log (item_id, title, assignee_ref, work_type, project_id, done_at, completed_by, completion_criteria, result, log_ref, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+    const ins = this.db.prepare("INSERT INTO completion_log (item_id, title, assignee_ref, work_type, project_id, done_at, completed_by, completion_criteria, result, log_ref, request_kind, needs_backfill, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
     let n = 0;
     for (const r of rows) {
       ins.run(
@@ -2187,7 +2211,9 @@ export class Store {
         "backfill",
         r.completion_criteria ?? null,
         r.result ?? null,
-        r.log_ref ?? null,
+        encodeInputRefs(r), // 소급도 결정적 절반(입력 포인터)은 채운다 — LLM 절반은 needs_backfill 로 표시
+        baseRequestKind(r),
+        1,
         now
       );
       n++;

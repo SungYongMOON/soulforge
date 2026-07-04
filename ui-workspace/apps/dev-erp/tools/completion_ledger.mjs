@@ -17,7 +17,8 @@ const has = (n) => process.argv.includes(`--${n}`);
 
 const dbPath = arg("db", join(HERE, "..", "data", "dev-erp.db"));
 const outRoot = arg("out", join(HERE, "..", "..", "..", "..", "_workmeta"));
-const COLS = ["item_id", "title", "assignee_ref", "work_type", "project_id", "done_at", "completed_by", "summary", "knowledge", "tokens", "created_at"];
+// 5필드 계약 컬럼 포함(FIVE-FIELD-CAPTURE) — 왕복(export→apply) 시 내구 backbone 유실 방지.
+const COLS = ["item_id", "title", "assignee_ref", "work_type", "project_id", "done_at", "completed_by", "summary", "knowledge", "tokens", "created_at", "completion_criteria", "result", "log_ref", "verification", "stop_conditions", "request_kind", "data_label", "needs_backfill"];
 const safeSeg = (s) => String(s).replace(/[\/\\:*?"<>|]/g, "_").trim() || "_general";
 
 const csvCell = (v) => { const s = v == null ? "" : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
@@ -73,7 +74,12 @@ if (has("export")) {
       const o = {}; header.forEach((h, i) => (o[h] = r[i]));
       if (!o.created_at) continue;
       if (exists.get(String(o.item_id ?? ""), o.created_at)) { skip++; continue; }
-      ins.run(...COLS.map((c) => (c === "tokens" ? (o.tokens === "" || o.tokens == null ? null : Number(o.tokens)) : (o[c] === "" ? null : o[c] ?? null))));
+      ins.run(...COLS.map((c) => {
+        if (c === "tokens") return o.tokens === "" || o.tokens == null ? null : Number(o.tokens);
+        // needs_backfill 은 NOT NULL — 구버전 CSV(컬럼 부재)는 request_kind 유무로 판정(NULL=5필드 이전 행=소급 대상).
+        if (c === "needs_backfill") return o.needs_backfill === "" || o.needs_backfill == null ? (o.request_kind ? 0 : 1) : Number(o.needs_backfill);
+        return o[c] === "" ? null : o[c] ?? null;
+      }));
       add++;
     }
   }
