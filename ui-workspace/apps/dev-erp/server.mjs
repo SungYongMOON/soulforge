@@ -4,7 +4,9 @@
 // 포트 원칙: runtime checkout 운영본만 4300, 개발/작업본 기본은 4310.
 // 기본: 빈 DB 는 비워 둔다. 데모 데이터는 --fixture 또는 DEV_ERP_LOAD_FIXTURE=1 일 때만 적재.
 import { createServer } from "node:http";
-import { createHash, randomUUID } from "node:crypto";
+import { createServer as createHttpsServer } from "node:https";
+import { createServer as createNetServer } from "node:net";
+import { createHash, randomUUID, X509Certificate } from "node:crypto";
 import { execFile, execSync } from "node:child_process";
 import { promisify } from "node:util";
 import { readFileSync, existsSync, mkdirSync, statSync, readdirSync, writeFileSync, renameSync } from "node:fs";
@@ -100,8 +102,29 @@ if (PORT === RUNTIME_PORT && !IS_RUNTIME_CHECKOUT && !ALLOW_NON_RUNTIME_4300) {
 // 기본은 localhost 전용(안전). 같은 네트워크 공유가 필요할 때만 --host 0.0.0.0
 // (합성 데이터 파일럿 한정 권장 — 실데이터+팀 공개는 P2 RBAC 이후)
 const HOST = flag("host", "127.0.0.1");
-// HTTPS reverse proxy/tunnel 뒤에서 팀 공개 시 켠다. 로컬 http 파일럿은 기본 OFF.
-const COOKIE_SECURE = process.env.DEV_ERP_COOKIE_SECURE === "1" || args.includes("--secure-cookie");
+// 사내망 직접 HTTPS(자체서명): data/tls/server.crt + server.key 가 있으면 같은 포트에서
+// TLS 겸용(polyglot)으로 듣는다 — 평문 HTTP 는 https:// 301, 인증서 배포는 /dev-erp-ca.crt (평문 허용 유일 경로).
+// 경로 재지정: --tls-cert/--tls-key 또는 DEV_ERP_TLS_CERT/DEV_ERP_TLS_KEY. 끄기: --no-tls 또는 DEV_ERP_NO_TLS=1.
+// Tailscale Serve 등 HTTPS 종단 프록시 뒤에서는 X-Forwarded-Proto: https 평문 요청을 리다이렉트 없이 앱으로 넘긴다.
+const TLS_DISABLED = process.env.DEV_ERP_NO_TLS === "1" || args.includes("--no-tls");
+const TLS_CERT_PATH = resolve(flag("tls-cert", process.env.DEV_ERP_TLS_CERT || join(HERE, "data", "tls", "server.crt")));
+const TLS_KEY_PATH = resolve(flag("tls-key", process.env.DEV_ERP_TLS_KEY || join(HERE, "data", "tls", "server.key")));
+// 팀 PC 가 신뢰 등록할 앵커. 권장 절차(런북 3.4)는 1회용 로컬 CA(발급 직후 CA 키 삭제) → leaf 발급:
+// 서버 키가 유출돼도 CA:FALSE leaf 라 타 사이트 위조 서명이 불가능하다.
+// 가드(적대검토 확정): ca.crt 없이 server.crt 가 CA:TRUE(openssl req -x509 기본형)면 앵커 배포를 차단한다 —
+// 살아있는 server.key 가 곧 범용 서명 키가 되어, 유출 시 팀 PC 전체가 임의 사이트 MITM 에 노출되기 때문.
+const TLS_CA_PATH = resolve(flag("tls-ca", process.env.DEV_ERP_TLS_CA || join(HERE, "data", "tls", "ca.crt")));
+const TLS_ENABLED = !TLS_DISABLED && existsSync(TLS_CERT_PATH) && existsSync(TLS_KEY_PATH);
+const TLS_TRUST_ANCHOR_PATH = (() => {
+  if (!TLS_ENABLED) return null;
+  if (existsSync(TLS_CA_PATH)) return TLS_CA_PATH;
+  try {
+    if (!new X509Certificate(readFileSync(TLS_CERT_PATH)).ca) return TLS_CERT_PATH; // 자체서명 CA:FALSE leaf 는 안전
+  } catch { /* 파싱 실패 → 배포 차단 쪽으로 */ }
+  return null;
+})();
+// HTTPS(직접 TLS 또는 reverse proxy/tunnel) 뒤에서 팀 공개 시 켠다. 직접 TLS 모드는 자동 ON. 로컬 http 파일럿은 기본 OFF.
+const COOKIE_SECURE = process.env.DEV_ERP_COOKIE_SECURE === "1" || args.includes("--secure-cookie") || TLS_ENABLED;
 // 팀 운영 기본값은 관리자/roster 생성 계정만 허용. localhost 자가가입 파일럿 때만 명시적으로 켠다.
 const ALLOW_SELF_REGISTER = process.env.DEV_ERP_ALLOW_SELF_REGISTER === "1" || args.includes("--allow-self-register");
 // 빈 DB 는 실제 운영/PC 동기화에서 샘플이 되살아나지 않게 기본 비움. 데모/테스트만 명시적으로 켠다.
@@ -2183,6 +2206,14 @@ const server = createServer(async (req, res) => {
       return send(res, 404, "not found", "text/plain");
     }
 
+    // HTTPS 신뢰 등록용 앵커 배포. 무결성 주의: 설치 전 서버 시작 로그의 SHA-256 지문과
+    // certutil -hashfile 대조가 절차(런북 3.4). CA:TRUE 상주키 앵커는 배포 차단(위 가드).
+    if (TLS_ENABLED && path === "/dev-erp-ca.crt") {
+      if (!TLS_TRUST_ANCHOR_PATH) return send(res, 404, "trust anchor distribution blocked: server.crt is CA:TRUE with a live key — follow runbook 3.4 (one-shot local CA, CA:FALSE leaf)", "text/plain");
+      res.writeHead(200, { "Content-Type": "application/x-x509-ca-cert", "Content-Disposition": 'attachment; filename="dev-erp-ca.crt"' });
+      return res.end(readFileSync(TLS_TRUST_ANCHOR_PATH));
+    }
+
     // 정적 파일 (no-build 클라이언트)
     const file = path === "/" ? "index.html" : path.replace(/^\/+/, "");
     if (serveFromRoot(res, STATIC_ROOT, file)) return;
@@ -2194,8 +2225,13 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`[dev-erp] http://${HOST}:${PORT} (db: ${DB_PATH})`);
+const onReady = () => {
+  console.log(`[dev-erp] ${TLS_ENABLED ? "https" : "http"}://${HOST}:${PORT} (db: ${DB_PATH})${TLS_ENABLED ? " — 직접 TLS, 신뢰 등록용 인증서: /dev-erp-ca.crt" : ""}`);
+  if (TLS_ENABLED) {
+    // 앵커 무결성 대조값: 팀원은 설치 전 `certutil -hashfile dev-erp-ca.crt SHA256` 결과를 이 값과 대조(런북 3.4).
+    if (TLS_TRUST_ANCHOR_PATH) console.log(`[dev-erp] 신뢰 앵커 SHA-256: ${createHash("sha256").update(readFileSync(TLS_TRUST_ANCHOR_PATH)).digest("hex")}`);
+    else console.error("[dev-erp] 경고: server.crt 가 CA:TRUE 상주키 인증서 — 신뢰 앵커 배포(/dev-erp-ca.crt)를 차단함. 런북 3.4 의 1회용 CA 절차로 재발급 권장.");
+  }
   if (HOST !== "127.0.0.1") {
     console.log("[dev-erp] 주의: 같은 네트워크에 열려 있음 - 계정/RBAC와 trusted LAN 전제");
   }
@@ -2247,4 +2283,52 @@ server.listen(PORT, HOST, () => {
     }, mailCollectSec * 1000);
     console.log(`[dev-erp] 메일 자동수집 ON: ${mailCollectSec}s 간격`);
   }
-});
+};
+
+if (TLS_ENABLED) {
+  // 사내망 직접 HTTPS: 한 포트에서 TLS/평문 겸용(polyglot). 첫 바이트 0x16(TLS handshake)이면
+  // https 서버로, 아니면 평문 처리기(인증서 다운로드 + https 301)로 넘긴다. 외부 의존성 0 유지(node:tls/net).
+  let httpsServer;
+  try {
+    httpsServer = createHttpsServer({ cert: readFileSync(TLS_CERT_PATH), key: readFileSync(TLS_KEY_PATH) });
+  } catch (e) {
+    console.error(`[dev-erp] TLS 인증서 로드 실패(${TLS_CERT_PATH}): ${e.message}`);
+    process.exit(2);
+  }
+  httpsServer.on("request", (req, res) => server.emit("request", req, res));
+  const isLoopback = (addr) => addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+  const plainHandler = createServer((req, res) => {
+    // HTTPS 종단 프록시(Tailscale Serve 등) 뒤: 이미 암호화된 요청이므로 앱으로 직행.
+    // 헤더는 위조 가능하므로 loopback 소스(로컬 프록시)에서만 신뢰한다 — LAN 클라이언트의 자발적
+    // 다운그레이드 시도는 301 로 되돌린다.
+    if (isLoopback(req.socket.remoteAddress) && (req.headers["x-forwarded-proto"] || "").split(",")[0].trim() === "https") return server.emit("request", req, res);
+    const reqPath = (req.url || "/").split("?")[0];
+    if (reqPath === "/api/health") {
+      // 모니터링 예외(적대검토 확정): watchdog·runtime_ops 등 기존 평문 프로브가 301→자체서명
+      // 거부로 영구 실패해 재시작 루프를 만들지 않게, 비민감 health 만 평문 응답 유지.
+      return server.emit("request", req, res);
+    }
+    if (reqPath === "/dev-erp-ca.crt") {
+      // 신뢰 등록 부트스트랩. 평문 구간이므로 설치 전 SHA-256 지문 대조가 절차(런북 3.4).
+      if (!TLS_TRUST_ANCHOR_PATH) return send(res, 404, "trust anchor distribution blocked: server.crt is CA:TRUE with a live key — follow runbook 3.4 (one-shot local CA, CA:FALSE leaf)", "text/plain");
+      res.writeHead(200, { "Content-Type": "application/x-x509-ca-cert", "Content-Disposition": 'attachment; filename="dev-erp-ca.crt"' });
+      return res.end(readFileSync(TLS_TRUST_ANCHOR_PATH));
+    }
+    res.writeHead(301, { Location: `https://${req.headers.host || `${HOST}:${PORT}`}${req.url || "/"}` });
+    return res.end();
+  });
+  const polyglot = createNetServer((socket) => {
+    socket.on("error", () => socket.destroy()); // handshake 전 리셋·포트스캔 소음 무해화
+    socket.setTimeout(30000, () => socket.destroy()); // 첫 바이트 없이 붙잡는 연결 정리
+    socket.once("data", (firstChunk) => {
+      socket.setTimeout(0);
+      socket.pause();
+      socket.unshift(firstChunk);
+      (firstChunk[0] === 0x16 ? httpsServer : plainHandler).emit("connection", socket);
+      process.nextTick(() => socket.resume());
+    });
+  });
+  polyglot.listen(PORT, HOST, onReady);
+} else {
+  server.listen(PORT, HOST, onReady);
+}

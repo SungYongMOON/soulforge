@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP direct LAN HTTPS (self-signed TLS polyglot)
+
+- The server now terminates TLS itself on the same port when `data/tls/server.crt`+`server.key` exist (owner-approved switch from LAN HTTP, 2026-07-04): first-byte sniffing serves TLS and plain HTTP on one port, plain requests get a 301 to `https://` (except `/api/health` for existing monitoring probes and `/dev-erp-ca.crt`, the trust-bootstrap anchor download), session cookies turn `Secure` automatically, and `X-Forwarded-Proto: https` requests pass through — trusted from loopback sources only — so Tailscale Serve coexists. Zero-dependency (`node:https`/`node:net`); disable with `--no-tls`/`DEV_ERP_NO_TLS=1`.
+- Hardening from the pre-commit adversarial review (4 confirmed findings fixed): the recommended cert procedure is a one-shot local CA whose key is deleted right after issuing a CA:FALSE leaf; the server refuses to distribute a CA:TRUE live-keyed cert as trust anchor (404 + startup warning, `crypto.X509Certificate`); the startup log prints the anchor's SHA-256 so teammates verify with `certutil -hashfile` before installing a root cert fetched over plaintext; and the test harness pins `DEV_ERP_NO_TLS=1` by default so staged certs or shell TLS env can no longer stall every spawned-server test (TLS-001 opts in explicitly).
+- This unblocks browser microphone dictation on LAN access (secure context) and stops passwords/session cookies flowing plaintext; runbook §3.4 documents cert generation (Git-bundled openssl), fingerprint verification, and the one-time per-PC trust install, §6 security notes updated. Covered by TLS-001 core test (https serving, 301, plain health, anchor download+fallback, CA:TRUE block, proxy coexistence, Secure cookie) (worker: claude_fable-5).
+
 ### dev-ERP B-5 제안 수신함 v1 + 수신역할(to/cc) 배선
 
 - 분류 필요(미분류) 탭을 제안 수신함으로 승격: 제안 근거 첫 노출("왜 이 제안?" 접이식 — route_reason/assignee_reason), 제안 출처 태그(규칙/메일함), 추천담당 계정 resolve(매칭 시 계정 표기 pre-fill, 미매칭 ⚠ 배지), '내게 제안만' 개인 렌즈, 1클릭 승인 시 `review_status='approved'` 동시 기록.

@@ -239,6 +239,16 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   문서/데이터 파일로 확장(위 capability rule 개정 참조). 챗봇에는 파일 첨부를 붙이지
   않음 — 챗봇은 매뉴얼 검색 기반이라 파일을 읽지 않으며, 파일을 읽는 대화 상대는
   Codex 창이라는 역할 구분 유지.
+- 2026-07-04 (claude_fable-5): 사내망 직접 HTTPS(owner 승인 — LAN HTTP 파일럿에서 전환) —
+  `data/tls/server.crt`+`server.key` 존재 시 같은 포트 TLS polyglot(첫 바이트 0x16 스니핑):
+  평문은 https 301(예외: `/api/health` 모니터링 프로브 보존, `/dev-erp-ca.crt` 신뢰 부트스트랩),
+  Secure 쿠키 자동 ON, X-Forwarded-Proto: https 는 loopback 소스에서만 신뢰·통과(Tailscale
+  Serve 공존, 위조 차단). zero-dependency 유지(node:https/net). 커밋 전 적대검토 확정 4건 반영:
+  ① 권장 발급 = 1회용 로컬 CA(키 즉시 삭제)→CA:FALSE leaf ② CA:TRUE 상주키 인증서는 앵커
+  배포 404 차단+시작 경고(X509Certificate 검사) ③ 시작 로그에 앵커 SHA-256 지문 출력, 팀 PC
+  는 certutil 대조 후 설치(평문 다운로드 무결성 보강) ④ 테스트 하네스 DEV_ERP_NO_TLS=1 기본
+  격리(TLS-001 만 opt-in). 동기: LAN 접속 마이크 차단(secure context)과 비번·쿠키 평문 노출
+  동시 해소. 런북 3.4/6절 + TLS-001 테스트.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 
