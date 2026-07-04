@@ -48,10 +48,25 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
 # exit 0 = 기록 있음, exit 2 = 누락(경고 표면화용, 차단 아님)
 ```
 
-- **Claude Code**: `settings.json` Stop hook 에 check 명령을 걸어 누락 시 경고.
-- **Codex CLI**: 세션 종료 지시에 land_record 실행을 편입 — `AGENTS.md` end-of-task
-  체크 1줄 편입 또는 `post_development_review_gate_v0` 마지막 스텝 바인딩(둘 다
-  **owner 결정 대기**, workflow.yaml `owner_decision_needed` 참고).
+- **Claude Code** (2026-07-04 배선 완료, 어댑터 `tools/claude_stop_guard.mjs`): Stop 훅은
+  매 턴 발화하므로 무조건 차단하지 않는다 — ① PostToolUse(Bash)가 git commit 을 감지해
+  "bounded 작업" 센티널을 마킹(`--mark`, 체인 명령도 내용 검사로 포착) ② Stop(`--guard`)이
+  센티널+기록없음일 때만 **1회 차단**하고 기록 명령을 모델에 되돌림. 기록되면 자동 통과,
+  `stop_hook_active` 로 재차단 루프 방지(2회째는 경고만). 로컬 `.claude/settings.json`:
+
+  ```json
+  { "hooks": {
+      "PostToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command",
+        "command": "node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/claude_stop_guard.mjs --mark", "timeout": 10 }] }],
+      "Stop": [{ "hooks": [{ "type": "command",
+        "command": "node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/claude_stop_guard.mjs --guard", "timeout": 20 }] }] } }
+  ```
+
+- **Codex CLI**: 차단형 훅이 없으므로 세션 종료 지시에 land_record 실행을 편입 —
+  `AGENTS.md` end-of-task 체크 1줄 편입 또는 `post_development_review_gate_v0` 마지막
+  스텝 바인딩(둘 다 **owner 결정 대기**, workflow.yaml `owner_decision_needed` 참고).
+  결정적 안전망(주간 sweeper: 세션 흔적 대비 레저 갭 스캔→결정적 절반 자동 착지)은
+  ladder packet S4 와 함께 후속.
 
 ## 경계
 

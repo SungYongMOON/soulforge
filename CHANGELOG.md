@@ -4,6 +4,7 @@
 
 - 평소 Codex/Claude 세션 대화가 끝날 때도 자동화 자산 5필드가 남도록(owner 요청 2026-07-04) `.workflow/five_field_session_capture_v0/` draft 패키지 신설: 도구 비종속 CLI(`tools/five_field_capture.mjs`, 표준 Node 만 사용)가 `_workmeta/<project>/reports/procedure_capture/five_field_log.jsonl` 에 append-only 착지(재실행 멱등, 원문 미복사 크기 가드, request_kind 슬러그 검증).
 - 설계 원칙: 셸 훅은 판단/검증 내용을 쓸 수 없으므로 **기록은 세션의 AI 가 종료 시 직접, 하네스 훅은 `--check` guard(exit 2=누락 경고)만** — ladder 계단 3단(validator 먼저). ERP 업무 레인(completion_log)과 스키마 계열 통일(`soulforge.five_field_capture.v0`)로 승격 감지기가 두 레인을 함께 읽는다. index.yaml 등록·AGENTS/gate 바인딩은 owner 결정 대기(workflow.yaml `owner_decision_needed`). CLI smoke check 5케이스 통과 (worker: claude_fable-5).
+- Claude Code 훅 강제 배선(owner 승인 "훅으로 실행해야 확실"): `tools/claude_stop_guard.mjs` 어댑터 추가 — Stop 훅은 매 턴 발화하므로 무조건 차단 대신 2단 센서(PostToolUse 가 git commit 을 내용 검사로 감지해 센티널 마킹 → Stop 이 센티널+기록없음일 때만 1회 차단, `stop_hook_active` 루프 방지, 기록되면 자동 통과). 파이프 테스트 6경로 green(무센티널 통과/체인커밋 마킹/비커밋 무시/차단/기록 후 통과/경고 1회). 로컬 `.claude/settings.json` 배선 JSON 은 패키지 README 수록 (worker: claude_fable-5).
 
 ### dev-ERP 완료 시점 자동화 자산 5필드 자동 캡처 v1 (FIVE-FIELD-001)
 
