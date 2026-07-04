@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### dev-ERP 지식 유통 루프 완성 — 승인 실기록(B) + Codex 지식 주입(C)
+
+- **B (승인 no-op 해제)**: `approveProposal` 의 completion_digest 분기(`result={ok:true}` 한 줄)를 `applyCompletionDigest` 실기록으로 교체 — 지식 텍스트가 있으면 ① 담당자 메모리(`addMemoryItem`, Mem0 ADD/UPDATE/NOOP 게이트·과제 격리·출처 ref)에 적재해 **다음 Codex 스레드 주입이 처음으로 비어있지 않게** 하고 ② core_knowledge 검색 표면에 요약·키워드·포인터만 기록(`data_label='ai_draft'`, claim_ceiling=observed). 지식이 비면 예전 의미(승인=확인) 유지, 트랜잭션 내 실행(부분 적용 없음). 고여 있던 pending 다이제스트 11+건이 승인 시 살아난다.
+- **C (지식 주입)**: Codex 과제 스레드 developer instructions 에 출처 포인터(`input_refs` — five_field composeInputRefs 재사용, 원문 미포함)와 과제 지식 top-N 참조(`knowledge_refs` — knowledge_grounding 재사용, 제목+source_card 경로만) 자동 주입. 스레드 개설·매 턴 두 곳 배선, 인덱스 스캔은 프로젝트별 10분 캐시. "사람이 복붙으로 컨텍스트를 나르는" 마지막 구간 제거 — "Do not claim raw ..." 원문 미제공 경계는 유지(포인터만).
+- 커밋 전 적대 리뷰 확정 5건 반영: (must_fix) 지식 인덱스 전수 스캔이 실측 5,231ms 동기 블록(인덱스 파일이 추출 전문 포함, 합계 1.5GB)이라 서버 경로용 `listProjectKnowledgeRefsFast` 신설 — 이름 프리필터+크기 상한+손상 개별 skip 으로 실측 14.5ms(360×), (should_fix) 전수 스캔의 파일 단위 격리(부분쓰기 1건이 전체 [] 반환하던 결함), 빈 캐시 60초 TTL, `request_kind:""` 의 topic truthiness 폴백, core_knowledge item 키잉(재완료 중복 누적 → ON CONFLICT 갱신).
+- 검증: KNOWLEDGE-LOOP-001 8건(승인→메모리+지식+주입 왕복, 빈 지식 skip, 담당자 없음, Mem0 중복 방지, topic 폴백, 재승인 갱신, instructions 렌더, Fast 스캔 프리필터/skip) + 전체 직렬 + 커밋 전 적대 리뷰 (worker: claude_fable-5).
+
 ### dev-ERP 완료지식→RAG 후보 피드 활성 (env-only)
 
 - 운영 기동 스크립트에 `DEV_ERP_INTAKE_COMPLETION_FEED=1` 추가(owner 지시 2026-07-04 "지식 워크플로우 계속 돌아가게"): 15분 인입 사이클이 completion_log 지식 다이제스트를 `knowledge_rag_candidate_ledger`(_workmeta, guild_hall 계약 검증)로 증분 적재. 코드 변경 0 — 기존 배선(`auto_intake_cycle.mjs:64` env 게이트, `completion_knowledge_feed.mjs` 본문 금지키 가드+커서)에 전류만. 이로써 지식 사슬의 사이클 상주분(분류 지식근거 주입 + 완료지식 후보 적재)이 상시 가동 (worker: claude_fable-5).

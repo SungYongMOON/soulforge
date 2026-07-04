@@ -16,6 +16,8 @@ import { fileURLToPath } from "node:url";
 
 import { openStore } from "./src/store.mjs";
 import { loadFixture } from "./src/fixture.mjs";
+import { composeInputRefs } from "./src/five_field.mjs";
+import { listProjectKnowledgeRefsFast, matchingKnowledgeRefs } from "./tools/knowledge_grounding.mjs";
 import { ingestFromFile } from "./src/adapter.mjs";
 import { getLexicon, LEXICON } from "./src/lexicon.mjs";
 import { guideTemplates, docRecipes } from "./src/guide.mjs";
@@ -780,8 +782,30 @@ function codexTaskErrorPayload(item, error) {
   });
 }
 
+// 슬라이스 C(2026-07-04): Codex 스레드에 출처 포인터+과제 지식 top-N 주입 — "사람이 복붙으로 나르는" 컨텍스트 제거.
+// 적대 리뷰 must_fix 반영: 전수 스캔(실측 ~5초 동기 블록) 금지 — 이름 프리필터 고속 변형(ms급)만 사용.
+// 캐시: 성공 10분 / 빈 결과 60초(스캔 실패·부분쓰기 레이스가 10분간 주입 공백으로 굳는 것 방지).
+const _knowledgeRefsCache = new Map(); // project_id -> { at:ms, refs:[] }
+function enrichItemForCodex(item) {
+  if (!item?.id) return item;
+  try { item.input_refs = composeInputRefs(item); } catch { item.input_refs = []; }
+  try {
+    const pid = String(item.project_id ?? "").trim();
+    if (pid) {
+      const cached = _knowledgeRefsCache.get(pid);
+      const ttl = cached?.refs?.length ? 600000 : 60000;
+      const fresh = cached && Date.now() - cached.at < ttl;
+      const refs = fresh ? cached.refs : listProjectKnowledgeRefsFast(pid);
+      if (!fresh) _knowledgeRefsCache.set(pid, { at: Date.now(), refs });
+      item.knowledge_refs = matchingKnowledgeRefs([item.title, item.work_type].filter(Boolean).join(" "), refs, { maxMatches: 3 });
+    }
+  } catch { item.knowledge_refs = []; }
+  return item;
+}
+
 async function createCodexTaskThread({ item, actor, model, effort, serviceTier }) {
   if (item?.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref, 1800, [item.title, item.project_id, item.work_type].filter(Boolean).join(" "), item.project_id); // 담당자 메모리 주입(시작 시·이 일 맥락 관련도 우선·압축 바운드·과제 격리: 현재 과제+일반만)
+  enrichItemForCodex(item); // 출처 포인터+지식 참조 주입(시작 시)
   const title = store.codexThreadTitle(item);
   const result = await runCodexTaskTurn({
     mode: CODEX_TASK_BRIDGE_MODE,
@@ -1413,6 +1437,7 @@ const server = createServer(async (req, res) => {
       if (!item) return send(res, 404, { error: "item_not_found" });
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
       if (item.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref, 1800, [item.title, item.project_id, item.work_type].filter(Boolean).join(" "), item.project_id); // 담당자 메모리 주입(매 턴·이 일 맥락 관련도 우선·압축 바운드·과제 격리: 현재 과제+일반만)
+      enrichItemForCodex(item); // 출처 포인터+지식 참조 주입(매 턴 — 지식 스캔은 10분 캐시)
       const binding = store.codexTaskBinding(item.id);
       const skills = mentionedCodexSkills(text);
       const localImages = localImagesFromAttachments(attachments);

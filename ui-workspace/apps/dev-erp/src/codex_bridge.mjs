@@ -186,6 +186,20 @@ export function buildTaskDeveloperInstructions(item) {
   if (item?.assignee_memory && String(item.assignee_memory).trim()) {
     lines.push("", `담당자(${item?.assignee_ref ?? ""}) 업무 메모리/규칙 — 이 담당자의 작업 방식으로 따르라:`, String(item.assignee_memory).trim());
   }
+  // 슬라이스 C(2026-07-04): 출처 포인터·과제 지식 참조 주입 — 서버가 item.input_refs/item.knowledge_refs 로 채움.
+  // 원문은 여전히 미포함(포인터/경로만) — "Do not claim raw ... provided" 경계와 모순 없음.
+  if (Array.isArray(item?.input_refs) && item.input_refs.length) {
+    lines.push("", "출처 포인터(id/경로만 — 원문은 포함되지 않음):",
+      ...item.input_refs.slice(0, 8).map((r) => `- ${String(r)}`));
+  }
+  if (Array.isArray(item?.knowledge_refs) && item.knowledge_refs.length) {
+    lines.push("", "과제 지식 참조(읽기 전용 경로 — 이 일과 관련되면 먼저 읽고 시작하라):",
+      ...item.knowledge_refs.slice(0, 3).map((r) => {
+        const title = String(r?.title ?? r?.index_id ?? "지식").trim();
+        const ref = String(r?.source_card_ref ?? "").trim();
+        return `- ${title}${ref ? `: ${ref}` : ""}`;
+      }));
+  }
   return lines.join("\n");
 }
 

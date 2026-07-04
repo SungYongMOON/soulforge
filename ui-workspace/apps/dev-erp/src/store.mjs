@@ -2855,6 +2855,44 @@ export class Store {
     ).run(id, new Date().toISOString(), source ?? "unknown", kind, target_ref, JSON.stringify(payload ?? {}), summary, JSON.stringify(used_refs ?? []), data_label);
     return { ok: true, id, status: "pending" };
   }
+  // S7(슬라이스 B, 2026-07-04): 완료 다이제스트 승인 = 확인(읽음)이 아니라 지식 유통.
+  // 지식 텍스트가 있으면 ① 담당자 메모리(Mem0 ADD/UPDATE/NOOP 게이트·과제 격리)에 적재 → 다음
+  // Codex 스레드 주입이 처음으로 비어있지 않게 됨 ② core_knowledge(검색 표면)에 요약·키워드·포인터만
+  // 기록(원문 미복사, data_label='ai_draft'). 지식이 비면 예전 의미(승인=확인)를 유지한다.
+  // approveProposal 트랜잭션 안에서 실행 — 실패 시 전체 롤백(부분 적용 없음).
+  applyCompletionDigest(payload = {}, { proposal_id = null } = {}) {
+    const knowledge = String(payload.knowledge ?? "").trim();
+    if (!knowledge) return { ok: true, skipped: "no_knowledge_text" };
+    const out = { ok: true, memory: null, knowledge_id: null };
+    const projectId = String(payload.project_id ?? "").trim() || null;
+    const sourceRef = payload.item_id ? `completion:${payload.item_id}` : (proposal_id ? `proposal:${proposal_id}` : null);
+    const assignee = String(payload.assignee_ref ?? "").trim();
+    if (assignee) {
+      const verification = String(payload.verification ?? "").trim();
+      const memText = verification ? `${knowledge} (확인: ${verification})` : knowledge;
+      const m = this.addMemoryItem(assignee, { type: "fact", text: memText, source_ref: sourceRef, salience: 0.6, project_id: projectId });
+      if (m?.error) return m; // 트랜잭션 롤백 → 제안은 pending 유지(재시도 가능)
+      out.memory = { action: m.action, id: m.id, ref: assignee };
+    }
+    // item 우선 키잉: 같은 일 재완료→재승인 시 새 행 누적이 아니라 최신 다이제스트로 갱신(ON CONFLICT).
+    const kid = `kn_completion_${payload.item_id ?? proposal_id ?? "unknown"}`;
+    // request_kind 는 신세대 훅이 "" 로 동봉할 수 있어 nullish 가 아니라 truthiness 폴백(빈 topic 방지).
+    const topic = String(payload.request_kind ?? "").trim() || String(payload.work_type ?? "").trim() || "completion";
+    const k = this.upsertKnowledge({
+      id: kid,
+      title: `완료지식: ${String(payload.item_title ?? payload.item_id ?? "").trim() || "무제"}`.slice(0, 200),
+      summary: knowledge.slice(0, 500),
+      topic: topic.slice(0, 80),
+      source_ref: sourceRef,
+      claim_ceiling: "observed",
+      keywords: String(payload.request_kind ?? "").trim() || null,
+      pointer: String(payload.log_ref ?? "").trim() || null,
+      data_label: "ai_draft",
+    });
+    if (k?.error) return k;
+    out.knowledge_id = kid;
+    return out;
+  }
   approveProposal(id, { decided_by = "owner" } = {}) {
     const row = this.db.prepare("SELECT * FROM ai_proposal WHERE id=?").get(id);
     if (!row) return { error: "proposal_not_found" };
@@ -2869,7 +2907,7 @@ export class Store {
         case "add_attachment_type": result = this.addAttachment(payload); break;
         case "set_artifact_requirement": result = this.setArtifactRequirement(payload); break;
         case "link_part_project": result = this.linkPartProject(payload.part_id, payload.project_id); break;
-        case "completion_digest": result = { ok: true }; break; // 정보성 요약 — 승인=확인(읽음). 다음액션/지식 적용은 후속(S7).
+        case "completion_digest": result = this.applyCompletionDigest(payload, { proposal_id: id }); break; // S7(지식 유통): 승인 → 담당자 메모리+core_knowledge 실기록
         default: this.db.exec("ROLLBACK"); return { error: "unknown_proposal_kind" };
       }
       if (result && result.error) { this.db.exec("ROLLBACK"); return result; } // 도메인 거부 시 상태 미변경(재시도 가능)

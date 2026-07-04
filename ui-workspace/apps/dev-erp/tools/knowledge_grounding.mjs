@@ -1,6 +1,6 @@
 // tools/knowledge_grounding.mjs -- metadata-only RAG index hints for mail intake.
 // Reads only source_text_index.json metadata files from the exact source-text index root.
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,7 +8,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..", "..");
 export const DEFAULT_KNOWLEDGE_INDEX_ROOT = join(REPO, "_workspaces", "knowledge", "rag", "indexes_local", "source_text_indexes");
 
-const DEFAULT_IO = Object.freeze({ existsSync, readFileSync, readdirSync });
+const DEFAULT_IO = Object.freeze({ existsSync, readFileSync, readdirSync, statSync });
 const STOP_TOKENS = new Set([
   "p26", "014", "p26-014", "kvds", "project", "프로젝트",
   "메일", "요청", "검토", "확인", "관련", "회신", "자료", "건", "문의", "완료",
@@ -107,7 +107,9 @@ export function listProjectKnowledgeRefs(projectCode, {
       if (!entry?.isDirectory?.()) continue;
       const file = join(knowledgeRoot, entry.name, "source_text_index.json");
       if (!io.existsSync(file)) continue;
-      const index = readIndexFile(file, io);
+      // 인덱서 동시쓰기/손상 파일 1건이 전체 스캔을 죽이지 않게 파일 단위로 격리(부분쓰기 레이스 대비).
+      let index;
+      try { index = readIndexFile(file, io); } catch { continue; }
       if (String(index?.status ?? "").trim().toLowerCase() !== "ready") continue;
       const source_card_ref = sourceCardRef(index);
       const scope = refScope(source_card_ref, project);
@@ -128,6 +130,53 @@ export function listProjectKnowledgeRefs(projectCode, {
       .sort((a, b) => (scopeRank[a.scope] ?? 9) - (scopeRank[b.scope] ?? 9)
         || a.title.localeCompare(b.title)
         || a.index_id.localeCompare(b.index_id));
+  } catch {
+    return [];
+  }
+}
+
+// 서버 인터랙티브 경로용 고속 변형(2026-07-04 적대 리뷰 must_fix): 전수 스캔은 인덱스 파일이
+// 추출 전문을 포함(중위 377KB·최대 186MB·합계 1.5GB)해 실측 ~5초 동기 블록 — HTTP 핸들러 사용 금지.
+// 관례상 과제 전용 인덱스 dir 명은 과제 슬러그로 시작(p26_014_...)하므로 이름 프리필터로 해당
+// 몇 개 파일만 파싱한다(ms급). 크기 상한 초과/손상 파일은 개별 skip. 배치(CLI)는 기존 전수 스캔 유지.
+export function listProjectKnowledgeRefsFast(projectCode, {
+  knowledgeRoot = DEFAULT_KNOWLEDGE_INDEX_ROOT,
+  io = DEFAULT_IO,
+  maxIndexBytes = 8 * 1024 * 1024,
+} = {}) {
+  const project = String(projectCode ?? "").trim();
+  if (!project) return [];
+  const slug = project.toLowerCase().replace(/-/g, "_"); // P26-014 → p26_014
+  try {
+    if (!io.existsSync(knowledgeRoot)) return [];
+    const refs = [];
+    for (const entry of io.readdirSync(knowledgeRoot, { withFileTypes: true })) {
+      if (!entry?.isDirectory?.()) continue;
+      if (!String(entry.name).toLowerCase().startsWith(slug)) continue; // 이름 프리필터 — 전수 파싱 제거
+      const file = join(knowledgeRoot, entry.name, "source_text_index.json");
+      if (!io.existsSync(file)) continue;
+      try {
+        const size = io.statSync?.(file)?.size;
+        if (Number.isFinite(size) && size > maxIndexBytes) continue; // 괴물 파일 힙 스파이크 방지
+        const index = readIndexFile(file, io);
+        if (String(index?.status ?? "").trim().toLowerCase() !== "ready") continue;
+        const source_card_ref = sourceCardRef(index);
+        const scope = refScope(source_card_ref, project);
+        if (scope !== "project") continue; // 고속 경로는 과제 전용만(공용 표준은 배치/CLI 몫)
+        if (!isEligibleApproval(index, project, scope)) continue;
+        refs.push({
+          index_id: String(index?.index_id ?? entry.name).trim(),
+          title: textField(index, "title") || String(index?.index_id ?? entry.name).trim(),
+          domains: domainsField(index),
+          source_card_ref,
+          source_card_summary: cappedSummary(index),
+          scope,
+        });
+      } catch { continue; } // 손상/부분쓰기 1건은 개별 skip
+    }
+    return refs
+      .filter((ref) => ref.index_id && ref.source_card_ref)
+      .sort((a, b) => a.title.localeCompare(b.title) || a.index_id.localeCompare(b.index_id));
   } catch {
     return [];
   }
