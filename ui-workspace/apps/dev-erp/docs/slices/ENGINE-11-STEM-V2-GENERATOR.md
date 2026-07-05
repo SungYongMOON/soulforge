@@ -1,4 +1,4 @@
-# ENGINE-10-STEM-V2-GENERATOR — 줄기 생성기 v2 (링크 기반 3종 줄기)
+# ENGINE-11-STEM-V2-GENERATOR — 줄기 생성기 v2 (링크 기반 3종 줄기)
 
 - status: ready (cold-start 실행 가능)
 - execution_owner: **engine_thread_codex** (parallel_group: G-intake-cycle — auto_intake/haengbogwan 파일군)

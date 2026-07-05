@@ -1,7 +1,7 @@
 # STEM-V2-ONTOLOGY — 줄기 v2 온톨로지 정본 (골격·작업·이력줄기)
 
 - status: **정본 확정 (2026-07-05 owner 공동설계, ERP 표면 스레드 기록)**
-- 소유: 이 문서가 줄기(project_context)의 개념 정본. 생성기 구현은 `ENGINE-10-STEM-V2-GENERATOR.md`,
+- 소유: 이 문서가 줄기(project_context)의 개념 정본. 생성기 구현은 `ENGINE-11-STEM-V2-GENERATOR.md`,
   reattach API 는 `B6-STEM-REATTACH-API.md` 가 소유.
 - 배경: 2026-07-05 owner 가 P24-049 줄기 그래프에서 "제목 문자열 무더기" 문제를 지적 —
   가지가 메일 제목 조각이고, 실무협의 91통이 한 덩어리이며, 상세 행 100개가 동일 라벨.
