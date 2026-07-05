@@ -3,8 +3,8 @@ matcher = "*"
 
 [[hooks.PostToolUse.hooks]]
 type = "command"
-command = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
-command_windows = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
+command = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
+command_windows = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
 timeout = 10
 statusMessage = "5필드 센티널 확인"
 
@@ -12,7 +12,7 @@ statusMessage = "5필드 센티널 확인"
 
 [[hooks.Stop.hooks]]
 type = "command"
-command = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
-command_windows = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
+command = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
+command_windows = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
 timeout = 20
 statusMessage = "5필드 기록 확인"

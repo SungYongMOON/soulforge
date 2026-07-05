@@ -66,7 +66,8 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
 - **Codex Hook** (2026-07-05 배선 완료): Codex lifecycle hook 정식 스키마(`[[hooks.PostToolUse]]`,
   `[[hooks.Stop]]`)를 사용한다. 등록 위치는 프로젝트 로컬 `.codex/config.toml` 이다. 이유:
   Soulforge 전용 정책이라 user/global hook 으로 모든 repo 에 뿌리지 않고, `config.toml` 의 `notify`
-  키는 computer-use 런타임이 점유 중이므로 건드리지 않는다. 추적 스니펫은
+  키는 computer-use 런타임이 점유 중이므로 건드리지 않는다. 명령 경로는 PC별 checkout 위치가
+  달라도 동작하도록 프로젝트 root 기준 상대경로를 쓴다. 추적 스니펫은
   `codex/codex-hook.soulforge-five-field-guard.toml` 에 보존한다.
 
   ```toml
@@ -75,8 +76,8 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
 
   [[hooks.PostToolUse.hooks]]
   type = "command"
-  command = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
-  command_windows = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
+  command = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
+  command_windows = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
   timeout = 10
   statusMessage = "5필드 센티널 확인"
 
@@ -84,8 +85,8 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
 
   [[hooks.Stop.hooks]]
   type = "command"
-  command = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
-  command_windows = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
+  command = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
+  command_windows = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
   timeout = 20
   statusMessage = "5필드 기록 확인"
   ```
@@ -111,7 +112,7 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
 
 | 단계 | 무엇 | 어느 PC | 방법 |
 |---|---|---|---|
-| 1 | Codex Hook guard | Codex 로 Soulforge 작업하는 전 PC | repo 최신화(`github-down`/git pull) 후 `.codex/config.toml` 이 존재하는지 확인한다. Soulforge 경로가 `C:/Soulforge` 가 아니면 `codex/codex-hook.soulforge-five-field-guard.toml` 을 참고해 `.codex/config.toml` 의 두 command 경로만 해당 PC 루트로 치환한다. Codex 앱 재시작 또는 새 thread 시작 후 Settings > Coding > Hooks 에서 source=project hook 2개(PostToolUse/Stop)를 trust/enable 한다. |
+| 1 | Codex Hook guard | Codex 로 Soulforge 작업하는 전 PC | repo 최신화(`github-down`/git pull) 후 `.codex/config.toml` 이 존재하는지 확인한다. command 는 프로젝트 root 기준 상대경로이므로 PC별 Soulforge 위치가 달라도 파일 수정하지 않는다. Codex 앱 재시작 또는 새 thread 시작 후 Settings > Coding > Hooks 에서 source=project hook 2개(PostToolUse/Stop)를 trust/enable 한다. |
 | 2 | `_workmeta` push 규율 | 전 PC | 각 PC 의 `_workmeta` 클론이 origin push 가능해야 레저가 모임(작업 후 commit+push — AGENTS 기존 규칙 그대로) |
 | 3 | Claude Code Stop guard | Claude 쓰는 PC 만 | 위 "하네스 훅 배선"의 settings.json JSON 복사 — 경로만 그 PC 의 Soulforge 루트로 치환 |
 | 4 | 일일 sweep 자동화 | **메인 PC 1대만** (중복 설치 금지) | `codex/automation.soulforge-five-field-sweep.toml` 을 `~/.codex/automations/soulforge-five-field-sweep/automation.toml` 로 복사 후 Codex 앱 재시작 → Automations 패널에서 ACTIVE 확인 |

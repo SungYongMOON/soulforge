@@ -1,5 +1,14 @@
 # CHANGELOG
 
+### 5필드 Codex hook guard 경로 이식성 보정
+
+- Soulforge Codex lifecycle hook command 를 `C:/Soulforge/...` 절대경로에서 프로젝트 root 기준 상대경로(`node .workflow/.../codex_hook_guard.mjs`)로 변경했다. 다른 PC 의 checkout 위치가 달라도 `.codex/config.toml` 수정 없이 pull + hook trust 만으로 적용되게 하기 위한 보정이다. 추적 스니펫과 README 설치 절차도 같은 기준으로 갱신했다 (worker: codex_gpt-5).
+
+### dev-ERP project-trunk multi-lens views (map / outline / triage)
+
+- The 줄기 (project_context) graph now offers three purpose-fit lenses via a view switcher, each tied to one decision (owner request 2026-07-05): **지도** (radial SVG — the shape at a glance), **목록** (collapsible outline drilling branch → events/tasks, lazy-rendered — the actually-usable reading view, per the Roam/Logseq lesson that outlines beat graphs for daily work), and **우선순위** (triage table sorted by open-review count desc — "what to act on first", directly tied to the open-review backlog). Force-directed/3D layouts were deliberately excluded as decision-less eye-candy.
+- Zero server change: all three views derive from the single `/api/context/graph` response, sharing `trunkChildTable`/`trunkBranchChildren` helpers (DRY). Works in both the knowledge tab (with project dropdown) and the per-project hub tab; `state.trunkView` persists across project switches; lexicon parity for both business/fantasy modes. Verified live (map/outline/triage all render, branch expand shows 40-row child tables, triage sorted 158/16/12 by reviews, console clean) + core 261/261 (worker: claude_fable-5).
+
 ### dev-ERP Windows 배치 파일 인코딩/줄바꿈 수리 (CRLF 고정)
 
 - `start-windows.bat`·`start-tailscale-windows.bat`이 UTF-8 무BOM + LF 줄바꿈 조합에서 cmd.exe 파싱이 붕괴했다(2026-07-04 적대검토 실측, 2026-07-05 재현: cp949 초기 콘솔에서 `DEV_ERP_PORT`가 빈 값 → `node --port` 빈 인자 → 서버 미기동, 그리고 다중행 괄호 블록의 비이스케이프 괄호가 `:4300 was unexpected`로 조기 종료). 근본 원인은 루트 `.gitattributes`의 `* text=auto eol=lf`가 배치 파일까지 LF로 강제한 것.
