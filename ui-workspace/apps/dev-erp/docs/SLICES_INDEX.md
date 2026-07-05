@@ -24,8 +24,12 @@
   (`<backend-root>/_workmeta`)로 + 줄기 per-project + runtime `_workmeta` 병합 이관
   (G-intake-cycle, **applied 2026-07-05: write path wiring + per-project trunk spawn done;
   runtime `_workmeta` merge remains a one-time ops follow-up after runtime path inspection**)
+- `slices/ENGINE-10-SYSTEM-MAIL-LAYER.md` — 시스템/광고 메일 분류층(Gmail식 격리): Soulforge
+  자동화 메일·광고를 결정적 프리패스로 격리(할일 후보 제외, 삭제 아님) + 사람 교정→규칙 후보
+  피드백 (G-intake-cycle, **ready — owner 지시 2026-07-05. 즉시 조치로 `[dev-erp]` 자기메일
+  exclude 규칙은 운영 등록 완료, 이 패킷은 보존형 격리층**)
 
-권장 순서 E8→E1→E2→E3→E5→E4→**E9**→E6→E7. 같은 parallel_group 은 같은 파일을 만지므로 한 작업자 직렬.
+권장 순서 E8→E1→E2→E3→E5→E4→E9→**E10**→E6→E7. 같은 parallel_group 은 같은 파일을 만지므로 한 작업자 직렬.
 
 어느 LLM(Codex/Claude)이든 패킷 하나를 cold 로 실행 가능. 각 패킷 = `slices/<id>.md`.
 정본 빌드맵: MASTER_BUILD_PLAN_20260614.md, 원칙: CAPABILITY_VISION_20260614.md.
