@@ -10,6 +10,7 @@
 - location: `.workflow/five_field_session_capture_v0/`
 - package status: `draft` (index.yaml 미등록 — workflow-check 통과 후 owner 결정)
 - CLI smoke check: append/duplicate-skip/check-hit(0)/check-miss(2)/slug-guard 통과 (2026-07-04)
+- Codex hook smoke check: commit sentinel/no-record block, record-after pass, no-commit no-op 통과 (2026-07-05)
 
 ## 두 레인 분담 (이중 기록 금지)
 
@@ -62,14 +63,46 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
         "command": "node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/claude_stop_guard.mjs --guard", "timeout": 20 }] }] } }
   ```
 
-- **Codex CLI** (2026-07-05 배선 완료, owner 승인 "codex에서도 훅이 되게"): 차단형 훅이
-  없으므로 2단으로 — ① **계약 훅**: `AGENTS.md` AI 작업 실행 계약에 5필드 기록 1줄 편입
-  (모든 Codex 세션의 완료 보고 전 의무, 규칙 강화 체크와 같은 층) ② **결정적 안전망**:
-  Codex automation `soulforge-five-field-sweep`(일일 07:35, 설치본 `~/.codex/automations/`,
-  추적 사본 `codex/automation.soulforge-five-field-sweep.toml`) — 최근 24시간 커밋 대비
-  레저 갭을 커밋 메시지·stat 만으로 소급 기록(`ai_backfill`), 승격 스캔 리포트 갱신,
-  드레인 지표 3종 보고. `notify` 훅은 computer-use 런타임이 점유 중이라 사용하지 않음.
-  gate(`post_development_review_gate_v0`) 스텝 바인딩은 후속(owner 결정 대기).
+- **Codex Hook** (2026-07-05 배선 완료): Codex lifecycle hook 정식 스키마(`[[hooks.PostToolUse]]`,
+  `[[hooks.Stop]]`)를 사용한다. 등록 위치는 프로젝트 로컬 `.codex/config.toml` 이다. 이유:
+  Soulforge 전용 정책이라 user/global hook 으로 모든 repo 에 뿌리지 않고, `config.toml` 의 `notify`
+  키는 computer-use 런타임이 점유 중이므로 건드리지 않는다. 추적 스니펫은
+  `codex/codex-hook.soulforge-five-field-guard.toml` 에 보존한다.
+
+  ```toml
+  [[hooks.PostToolUse]]
+  matcher = "*"
+
+  [[hooks.PostToolUse.hooks]]
+  type = "command"
+  command = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
+  command_windows = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
+  timeout = 10
+  statusMessage = "5필드 센티널 확인"
+
+  [[hooks.Stop]]
+
+  [[hooks.Stop.hooks]]
+  type = "command"
+  command = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
+  command_windows = 'node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
+  timeout = 20
+  statusMessage = "5필드 기록 확인"
+  ```
+
+  어댑터 `tools/codex_hook_guard.mjs` 는 `PostToolUse` 에서 `git commit` 명령만 감지해
+  session sentinel 을 남기고, `Stop` 에서 sentinel 이 있을 때만 capture CLI 의
+  `--check --session-ref <session_id>` 를 실행한다. 기록이 있으면 통과, 없으면 Codex Stop hook
+  의 `decision: "block"` 으로 "5필드 기록 후 종료" continuation prompt 를 표면화한다.
+  `stop_hook_active`/blocked marker 로 2회 이상 재차단하지 않는다. Codex hook 이 block/feedback 을
+  지원하므로 기본 경로에서 자동 backfill 은 하지 않는다. commit 없는 일상 대화 턴은 sentinel 이 없어
+  무개입한다.
+
+- **Codex daily sweep**: Codex automation `soulforge-five-field-sweep`(일일 07:35, 설치본
+  `~/.codex/automations/`, 추적 사본 `codex/automation.soulforge-five-field-sweep.toml`)은
+  hook 누락·미신뢰·다른 PC 지연 push 의 결정적 안전망이다. 최근 24시간 커밋 대비 레저 갭을
+  커밋 메시지·stat 만으로 소급 기록(`ai_backfill`)하고 승격 스캔 리포트와 드레인 지표 3종을
+  갱신한다. gate(`post_development_review_gate_v0`) 스텝 바인딩은 후속(owner 결정 대기).
 
 ## 다른 PC 설정 (멀티 PC 수집)
 
@@ -78,7 +111,7 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
 
 | 단계 | 무엇 | 어느 PC | 방법 |
 |---|---|---|---|
-| 1 | Codex 계약 훅 | **전 PC 자동** | repo 최신화(`github-down`/git pull)만 하면 끝 — AGENTS.md 계약 1줄과 capture CLI 가 repo 에 있으므로 별도 설치 없음 |
+| 1 | Codex Hook guard | Codex 로 Soulforge 작업하는 전 PC | repo 최신화(`github-down`/git pull) 후 `.codex/config.toml` 이 존재하는지 확인한다. Soulforge 경로가 `C:/Soulforge` 가 아니면 `codex/codex-hook.soulforge-five-field-guard.toml` 을 참고해 `.codex/config.toml` 의 두 command 경로만 해당 PC 루트로 치환한다. Codex 앱 재시작 또는 새 thread 시작 후 Settings > Coding > Hooks 에서 source=project hook 2개(PostToolUse/Stop)를 trust/enable 한다. |
 | 2 | `_workmeta` push 규율 | 전 PC | 각 PC 의 `_workmeta` 클론이 origin push 가능해야 레저가 모임(작업 후 commit+push — AGENTS 기존 규칙 그대로) |
 | 3 | Claude Code Stop guard | Claude 쓰는 PC 만 | 위 "하네스 훅 배선"의 settings.json JSON 복사 — 경로만 그 PC 의 Soulforge 루트로 치환 |
 | 4 | 일일 sweep 자동화 | **메인 PC 1대만** (중복 설치 금지) | `codex/automation.soulforge-five-field-sweep.toml` 을 `~/.codex/automations/soulforge-five-field-sweep/automation.toml` 로 복사 후 Codex 앱 재시작 → Automations 패널에서 ACTIVE 확인 |

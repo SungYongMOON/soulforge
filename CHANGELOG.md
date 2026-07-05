@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 5필드 캡처 Codex lifecycle hook guard 배선
+
+- Codex 공식 lifecycle hook 스키마(`[[hooks.PostToolUse]]`, `[[hooks.Stop]]`)로 Soulforge 프로젝트 로컬 `.codex/config.toml` 에 5필드 기록 누락 guard 를 등록했다. `notify` 는 computer-use 런타임 점유 키라 변경하지 않았고, user/global hook 대신 project source 를 택해 Soulforge 작업에만 적용한다.
+- 신규 `codex_hook_guard.mjs` 는 PostToolUse 에서 `git commit` 명령만 session sentinel 로 표시하고, Stop 에서 sentinel 이 있을 때만 `five_field_capture.mjs --check --session-ref <session_id>` 를 실행한다. 누락 시 Codex Stop hook 의 `decision: "block"` 으로 "5필드 기록 후 종료" continuation 을 만들며, `stop_hook_active`/blocked marker 로 재발화 루프를 막는다.
+- 추적 설치 스니펫을 `.workflow/five_field_session_capture_v0/codex/codex-hook.soulforge-five-field-guard.toml` 에 보존하고 README 에 Codex Hook 배선/타 PC 설치 절차를 추가했다. smoke evidence: commit sentinel+no-record block, record-after pass, no-commit no-op (worker: codex_gpt-5).
+
 ### dev-ERP data-plane split: Soulforge is the backend, runtime is a stateless app server
 
 - Owner architecture decision (2026-07-05): project metadata (`_workmeta` — 줄기/ledgers/receipts) lives only in the Soulforge dev checkout; the runtime clone is a shell (code, SQLite operational DB, TLS certs, mailbox-credential envs, logs) and must not accumulate data. Read paths applied now: the ops launch script passes `--knowledge_shell_root <backend-root>` so the knowledge shelf, wiki bodies, and the project-trunk graph on the production 4300 server read the backend directly (no data copied into runtime); the server logs its `데이터 평면 루트` at startup so ops can see which store it reads.
