@@ -8,7 +8,7 @@
 
 ### 5필드 Codex hook guard 경로 이식성 보정
 
-- Soulforge Codex lifecycle hook command 를 `C:/Soulforge/...` 절대경로에서 프로젝트 root 기준 상대경로(`node .workflow/.../codex_hook_guard.mjs`)로 변경했다. 다른 PC 의 checkout 위치가 달라도 `.codex/config.toml` 수정 없이 pull + hook trust 만으로 적용되게 하기 위한 보정이다. 추적 스니펫과 README 설치 절차도 같은 기준으로 갱신했다 (worker: codex_gpt-5).
+- Soulforge Codex lifecycle hook command 를 host-local absolute path 예시에서 프로젝트 root 기준 상대경로(`node .workflow/.../codex_hook_guard.mjs`)로 변경했다. 다른 PC 의 checkout 위치가 달라도 `.codex/config.toml` 수정 없이 pull + hook trust 만으로 적용되게 하기 위한 보정이다. 추적 스니펫과 README 설치 절차도 같은 기준으로 갱신했다 (worker: codex_gpt-5).
 
 ### dev-ERP project-trunk multi-lens views (map / outline / triage)
 
