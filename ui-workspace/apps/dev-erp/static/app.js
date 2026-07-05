@@ -1209,6 +1209,7 @@ const SOON_NAV = {
 // 과제 facet(L4) — 프로젝트 관리에서 과제(L3) 밑에 펼쳐지는 항목. 클릭 시 과제 허브의 해당 탭 진입.
 const PROJ_FACETS = [
   { key: "overview", b: "개요", f: "개요" },
+  { key: "trunk", b: "줄기", f: "세계수" },
   { key: "contacts", b: "연락처", f: "관계자" },
   { key: "schedule", b: "일정", f: "운명표" },
   { key: "gates", b: "단계·게이트", f: "관문" },
@@ -2027,6 +2028,31 @@ async function renderKnowTrunk(el) {
   const g = await api(`/api/context/graph?project=${encodeURIComponent(cur)}`).catch(() => null);
   const sel = `<select id="ctxProj">${projects.map((p) => `<option ${p === cur ? "selected" : ""}>${esc(p)}</option>`).join("")}</select>`;
   if (!g || g.error) { el.innerHTML = `<div class="item-form">${sel}</div><div class="empty">${esc(g?.error ?? "-")}</div>`; $("#ctxProj").addEventListener("change", (e) => { state._ctxProject = e.target.value; render(); }); return; }
+  return drawTrunkGraph(el, g, {
+    headerHtml: sel,
+    afterRender: () => $("#ctxProj").addEventListener("change", (e) => { state._ctxProject = e.target.value; render(); }),
+  });
+}
+
+// 과제 허브 '줄기' 탭(2026-07-05 owner: 줄기는 과제 안에서 바로) — 고정 과제, 드롭다운 없음.
+// 데이터가 아직 없으면(엔진 E9 전) 정직한 빈 상태를 보여준다.
+async function hubTrunk(mount, p) {
+  const L = state.lex;
+  mount.innerHTML = `<div class="empty small">…</div>`;
+  const g = await api(`/api/context/graph?project=${encodeURIComponent(p.id)}`).catch(() => null);
+  if (!g || g.error) {
+    const msg = g?.error === "context_not_found" ? (L.trunk_none_hub ?? "이 과제의 줄기 데이터가 아직 없습니다")
+      : g?.error === "login_required" ? L.know_wiki_login : (g?.error ?? "-");
+    mount.innerHTML = `<div class="empty">${esc(msg)}</div>`;
+    return;
+  }
+  drawTrunkGraph(mount, g);
+}
+
+// 공용 줄기 그래프 렌더러 — trunk 중심 방사형 SVG(가지 크기=소스 수, 배지=미결 리뷰, 클릭→하위 목록).
+// 지식 탭(전역 탐색, 드롭다운 header)과 과제 허브(고정 과제) 겸용.
+function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
+  const L = state.lex;
   // 중요도(소스+할일+미결리뷰) 순 정렬 후 캡 — 임의 CSV 순서 앞 40개 절단이 최중요 가지를 숨기던 문제.
   const BR_CAP = 40;
   const ranked = (g.branches ?? []).slice().sort((a, b) =>
@@ -2052,7 +2078,7 @@ async function renderKnowTrunk(el) {
   const moreNote = (hiddenBranches > 0 || c.truncated)
     ? `<div class="dim small">${(L.trunk_more ?? "가지 +{n}개는 중요도 하위라 생략됨").replace("{n}", hiddenBranches)}${c.truncated ? ` · ${L.trunk_node_cap ?? "노드 상한 도달(일부 생략)"}` : ""}</div>` : "";
   el.innerHTML = `
-    <div class="item-form">${sel}
+    <div class="item-form">${headerHtml}
       <span class="fav-chip mini">${L.trunk_open_reviews}: ${c.open_reviews ?? 0}</span>${legend}</div>
     <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:62vh;background:transparent">
       ${lines}
@@ -2061,7 +2087,7 @@ async function renderKnowTrunk(el) {
       ${nodes}</svg>
     ${moreNote}
     <div id="ctxDetail" class="dim small">${L.trunk_hint}</div>`;
-  $("#ctxProj").addEventListener("change", (e) => { state._ctxProject = e.target.value; render(); });
+  if (afterRender) afterRender();
   el.querySelectorAll(".ctx-branch").forEach((n) => n.addEventListener("click", () => {
     const key = n.dataset.key;
     const KID_CAP = 60;
@@ -5579,6 +5605,7 @@ async function renderProjectHub() {
     else { const d = await r.json().catch(() => ({})); toast(d.error === "cannot_archive_inbox" ? (L.proj_archive_inbox ?? "받은함은 보관 불가") : d.error === "admin_only" ? (L.proj_new_admin ?? "관리자만 가능") : (L.proj_archive_fail ?? "보관 실패"), "error"); }
   });
   const mount = $("#hubBody");
+  if (tab === "trunk") return hubTrunk(mount, p);
   if (tab === "contacts") return hubContacts(mount, p);
   if (tab === "schedule") return hubSchedule(mount, p);
   if (tab === "gates") return hubGates(mount, p);
