@@ -1,0 +1,5 @@
+# Windows 배치 파일은 CRLF 고정 — 루트 .gitattributes 의 `* text=auto eol=lf` 를 override.
+# (2026-07-05: LF 줄바꿈 + UTF-8 한글 조합에서 cmd.exe 파싱이 붕괴해 서버가 안 뜨던 문제 수리.
+#  팀원·owner 가 더블클릭으로 쓰는 표면이라 신뢰 복구 필요. 정경로는 ops/run-dev-erp-background.ps1.)
+*.bat text eol=crlf
+*.cmd text eol=crlf

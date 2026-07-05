@@ -11,11 +11,9 @@ cd /d "%~dp0"
 set "DEV_ERP_PORT=4310"
 echo %CD% | findstr /I "\\Soulforge-runtime\\" >nul && set "DEV_ERP_PORT=4300"
 echo [dev-erp] 사내 LAN 서버 시작 - http://0.0.0.0:%DEV_ERP_PORT%
-if "%DEV_ERP_PORT%"=="4300" (
-  echo [dev-erp] 팀원 접속 주소 = http://(이 PC IPv4):4300  ^(ipconfig 로 확인^)
-) else (
-  echo [dev-erp] 개발본 포트입니다. 운영 4300과 분리: http://127.0.0.1:%DEV_ERP_PORT%
-)
+REM 조건부 echo 는 괄호 블록 대신 단일행 if 로 — 블록 내 비이스케이프 괄호 조기종료 회피.
+if "%DEV_ERP_PORT%"=="4300" echo [dev-erp] 팀원 접속 주소 = http://^(이 PC IPv4^):4300  ^(ipconfig 로 확인^)
+if not "%DEV_ERP_PORT%"=="4300" echo [dev-erp] 개발본 포트입니다. 운영 4300과 분리: http://127.0.0.1:%DEV_ERP_PORT%
 echo [dev-erp] 종료: 이 창에서 Ctrl+C
 if not defined ERP_CHAT_PROVIDER set "ERP_CHAT_PROVIDER=ollama"
 if not defined ERP_CHAT_MODEL set "ERP_CHAT_MODEL=gemma4:e4b"
@@ -38,13 +36,13 @@ if not defined DEV_ERP_MAIL_COLLECT_SEC set "DEV_ERP_MAIL_COLLECT_SEC=900"
 if not defined DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN set "DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN=1"
 REM ── 메일→할일 자동 인입(2026-07-03 owner 활성화, 운영 4300 에서만 기본 ON) ──────
 REM   개발본(4310)은 기본 OFF 유지 — dev _workmeta 에 자동 쓰기 방지.
-if "%DEV_ERP_PORT%"=="4300" (
-  if not defined DEV_ERP_AUTO_INTAKE set "DEV_ERP_AUTO_INTAKE=1"
-  if not defined DEV_ERP_INTAKE_LLM set "DEV_ERP_INTAKE_LLM=ollama"
-  if not defined DEV_ERP_AUTOSYNC set "DEV_ERP_AUTOSYNC=1"
-)
+REM 다중행 괄호 블록 제거 — 단일행 중첩 if(운영 4300에서만 ON). 개발본(4310)은 기본 OFF.
+if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_AUTO_INTAKE set "DEV_ERP_AUTO_INTAKE=1"
+if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_INTAKE_LLM set "DEV_ERP_INTAKE_LLM=ollama"
+if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_AUTOSYNC set "DEV_ERP_AUTOSYNC=1"
 REM 아침 브리핑(메일 자동발송) 기본값은 이 bat 에 두지 않는다 — 운영 정경로 ops/run-dev-erp-background.ps1 만.
-REM (적대검토 2026-07-04: 이 bat 의 인코딩/줄바꿈 문제로 4300 가드 블록이 신뢰 불가 — 발송류 기본 ON 금지)
+REM (발송류 단일 진실원 = ps1. 이 bat 인코딩/줄바꿈은 2026-07-05 CRLF 로 수리됨: .gitattributes eol=crlf,
+REM  다중행 괄호 블록 제거, cp949 초기 콘솔 실측 검증. 그래도 발송류는 ps1 에만 두어 이중 기본값 회피.)
 echo [dev-erp] chat = %ERP_CHAT_PROVIDER% / %ERP_CHAT_MODEL% / think=%ERP_CHAT_THINK% / codex-sandbox=%DEV_ERP_CODEX_SANDBOX% / mail-collect=%DEV_ERP_MAIL_COLLECT_SEC%s / auto-intake=%DEV_ERP_AUTO_INTAKE% / route-backfill=exact+hidden
 node server.mjs --host 0.0.0.0 --port %DEV_ERP_PORT%
 pause

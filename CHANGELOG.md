@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP Windows 배치 파일 인코딩/줄바꿈 수리 (CRLF 고정)
+
+- `start-windows.bat`·`start-tailscale-windows.bat`이 UTF-8 무BOM + LF 줄바꿈 조합에서 cmd.exe 파싱이 붕괴했다(2026-07-04 적대검토 실측, 2026-07-05 재현: cp949 초기 콘솔에서 `DEV_ERP_PORT`가 빈 값 → `node --port` 빈 인자 → 서버 미기동, 그리고 다중행 괄호 블록의 비이스케이프 괄호가 `:4300 was unexpected`로 조기 종료). 근본 원인은 루트 `.gitattributes`의 `* text=auto eol=lf`가 배치 파일까지 LF로 강제한 것.
+- 수리: dev-erp 로컬 `.gitattributes`에 `*.bat/*.cmd text eol=crlf` override 신설, 두 배치 파일을 CRLF로 변환, 다중행 괄호 블록 2개를 단일행 `if`로 펼쳐 줄 경계 취약성 제거, 조건부 echo 괄호 이스케이프. cp949 초기 콘솔 A/B 실측 검증(수정 전 `PORT=[]` 붕괴 → 수정 후 dev `4310`/runtime `4300` 정상, 인입 스위치 4300 한정 확인). 운영 정경로는 `ops/run-dev-erp-background.ps1`이라 긴급도는 낮으나, 팀원·owner 더블클릭 표면 신뢰 복구. core 261/261 + bat 회귀 assert 유지 (worker: claude_fable-5).
+
 ### 5필드 캡처 Codex lifecycle hook guard 배선
 
 - Codex 공식 lifecycle hook 스키마(`[[hooks.PostToolUse]]`, `[[hooks.Stop]]`)로 Soulforge 프로젝트 로컬 `.codex/config.toml` 에 5필드 기록 누락 guard 를 등록했다. `notify` 는 computer-use 런타임 점유 키라 변경하지 않았고, user/global hook 대신 project source 를 택해 Soulforge 작업에만 적용한다.
