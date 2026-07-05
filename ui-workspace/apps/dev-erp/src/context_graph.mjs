@@ -41,12 +41,43 @@ export function buildContextGraph(root, projectRaw) {
 
   const nodesRaw = readCsvObjects(join(dir, "nodes.csv"));
   const edgesRaw = readCsvObjects(join(dir, "edges.csv"));
+  const branchMeta = new Map(readCsvObjects(join(dir, "branches.csv")).map((b) => [b.branch_key, b]));
   const branches = readCsvObjects(join(dir, "summaries", "branch_summaries.csv")).map((b) => ({
+    ...(branchMeta.get(b.branch_key) || {}),
     branch_key: b.branch_key, label: b.label,
+    branch_kind: b.branch_kind || branchMeta.get(b.branch_key)?.branch_kind || "legacy",
+    anchor_ref: b.anchor_ref || branchMeta.get(b.branch_key)?.anchor_ref || null,
+    status: b.status || branchMeta.get(b.branch_key)?.status || null,
+    born_at: b.born_at || branchMeta.get(b.branch_key)?.born_at || null,
+    closed_at: b.closed_at || branchMeta.get(b.branch_key)?.closed_at || null,
     source_count: Number(b.source_count) || 0,
     task_count: Number(b.task_count) || 0,
     open_review_count: Number(b.open_review_count) || 0,
     updated_at: b.updated_at || null,
+  }));
+  for (const b of branchMeta.values()) {
+    if (branches.some((row) => row.branch_key === b.branch_key)) continue;
+    branches.push({
+      branch_key: b.branch_key,
+      label: b.label,
+      branch_kind: b.branch_kind || "legacy",
+      anchor_ref: b.anchor_ref || null,
+      status: b.status || null,
+      born_at: b.born_at || null,
+      closed_at: b.closed_at || null,
+      source_count: 0,
+      task_count: 0,
+      open_review_count: 0,
+      updated_at: b.updated_at || null,
+    });
+  }
+  const occurrences = readCsvObjects(join(dir, "occurrences.csv")).map((o) => ({
+    series_key: o.series_key,
+    occurrence_key: o.occurrence_key,
+    branch_ref: o.branch_ref || null,
+    source_count: Number(o.source_count) || 0,
+    spawned_item_refs: o.spawned_item_refs ? o.spawned_item_refs.split(";").filter(Boolean) : [],
+    updated_at: o.updated_at || null,
   }));
 
   const truncated = nodesRaw.length > MAX_NODES;
@@ -72,7 +103,7 @@ export function buildContextGraph(root, projectRaw) {
     schema: CONTEXT_GRAPH_SCHEMA,
     generated_from: "soulforge.project_context.v0",
     content_policy: "metadata_only",
-    project, nodes, edges, branches,
-    counts: { by_node_type: byType, edge_count: edges.length, open_reviews: openReviews, truncated },
+    project, nodes, edges, branches, occurrences,
+    counts: { by_node_type: byType, edge_count: edges.length, open_reviews: openReviews, stem_occurrences: occurrences.length, truncated },
   };
 }

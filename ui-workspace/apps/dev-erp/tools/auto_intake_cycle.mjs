@@ -85,11 +85,13 @@ export function buildProjectContextLines(workmetaRoot, projectId, { maxBranches 
   }
   lines.push(...knowledgeContextLines(knowledgeRefs));
   try {
-    const csv = readFileSync(join(workmetaRoot, projectId, "project_context", "summaries", "branch_summaries.csv"), "utf8");
-    const rows = csv.split(/\r?\n/).slice(1).filter(Boolean).map((line) => line.split(","));
-    // branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at
+    const { rows } = readCsvObjects(join(workmetaRoot, projectId, "project_context", "summaries", "branch_summaries.csv"));
     const top = rows
-      .map((c) => ({ label: String(c[3] ?? "").trim(), sources: Number(c[4]) || 0, open: Number(c[6]) || 0 }))
+      .map((c) => ({
+        label: String(c.label ?? "").trim(),
+        sources: Number(c.source_count) || 0,
+        open: Number(c.open_review_count) || 0,
+      }))
       .filter((b) => b.label && !/[�]|ㅇㅇ/.test(b.label)) // 인코딩 깨진 라벨은 맥락에서 제외
       .sort((a, b) => b.open - a.open || b.sources - a.sources)
       .slice(0, maxBranches);

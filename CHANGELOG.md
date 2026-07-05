@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### dev-ERP ENGINE-11 stem-v2 generator
+
+- ENGINE-11 줄기 생성기를 project_context 산출물에 배선했다. 새 `branches.csv`/`occurrences.csv`와 `sources.csv.branch_ref`/`suggested_branch_ref`를 additive로 쓰며, 기존 `branch_summaries.csv` 소비자는 header 기반으로 읽도록 보강했다.
+- 확정 기준을 제목 클러스터에서 link 기반 줄기로 전환했다. 승인 task는 `work` 줄기(`anchor_ref=item:<id>`)로 태어나고 완료 task는 닫히며, 명시 skeleton anchor는 `skeleton` 줄기로 기록된다. 같은 정규화 제목이 8주 창 안에서 3회 이상 반복된 mail은 `history` 제안 줄기와 회차로만 남긴다.
+- anchor 없는 mail은 제목 조각 branch를 만들지 않고 빈 `branch_ref`로 보류한다. `/api/context/graph`는 v1 파일을 계속 읽으면서 v2 branch metadata와 occurrences를 노출한다.
+- 검증: `node --test test/haengbogwan_project_context.test.mjs`, `node --test test/haengbogwan_run.test.mjs`, `node --test test/auto_intake_cycle.test.mjs`, `node --test --test-name-pattern CTX-GRAPH test/core.test.mjs` green (worker: codex_gpt-5.5).
+
 ### dev-ERP B7 Outlook식 메일→과제 라우팅 규칙 (사용자 UI + 소급 적용)
 
 - Owner 요청 "outlook 처럼 규칙 넣을수있게 + 현재 폴더에 다 적용하겠습니까?" 구현: `mail_route_rule` 테이블(발신자/제목 × 포함/완전일치 → 대상 과제) + 인입 훅(INBOX행만, 등록순 첫 매칭 승, 기분류 메일 무접촉) + `applyMailRouteRulesToExisting` 소급 적용(run17 `setMailProject` 재사용 — 승격 할일 동행 이동·autosync write-through·멱등). 대상 과제 실존 검증과 inbox 대상 거부(자기참조 차단) 포함.

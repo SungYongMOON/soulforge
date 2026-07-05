@@ -165,6 +165,11 @@ function addTriageItem(map, item, reason, score) {
     due: item.due || "",
     assignee: item.assignee || "",
     source_ref: item.source_ref || "",
+    anchor_stage_code: item.anchor_stage_code || "",
+    link_kind: item.link_kind || "",
+    link_ref: item.link_ref || "",
+    done_at: item.done_at || "",
+    created_at: item.created_at || "",
     reasons: [],
     score: 0,
     next_action: "",
@@ -314,6 +319,16 @@ function taskSummaryToProjectContextEvent(task, rules = []) {
     received_at: "",
     title,
     branch_hint: branchHintForProject(title, { rules, fallback: "task triage" }),
+    branch_kind: String(task.review_status || "").toLowerCase() === "approved" ? "work" : "",
+    item_id: task.task_key || "",
+    review_status: task.review_status || "",
+    status: task.status || "",
+    anchor_stage_code: task.anchor_stage_code || "",
+    link_kind: task.link_kind || "",
+    link_ref: task.link_ref || "",
+    born_at: task.created_at || "",
+    closed_at: task.done_at || "",
+    done_at: task.done_at || "",
     summary_hint: [
       "metadata haengbogwan task triage",
       task.status ? `status=${task.status}` : "",
@@ -333,12 +348,25 @@ function taskSummaryToProjectContextEvent(task, rules = []) {
   };
 }
 
-function buildMetadataRunContextEvents(contextPacket, triageQueue, projectId, candidateKeys, rules = []) {
+function dedupeContextEvents(events) {
+  const byKey = new Map();
+  for (const event of events) {
+    const key = `${event.source_kind || ""}\0${event.source_id || event.external_ref || ""}`;
+    if (!key.trim()) continue;
+    byKey.set(key, { ...(byKey.get(key) || {}), ...event });
+  }
+  return [...byKey.values()];
+}
+
+function buildMetadataRunContextEvents(contextPacket, triageQueue, projectId, candidateKeys, rules = [], approvedWorkItems = []) {
   const mailEvents = (Array.isArray(contextPacket?.source_events) ? contextPacket.source_events : [])
     .map((event) => metadataSourceEventToProjectContextEvent(event, { candidateKeys, rules }));
-  const taskEvents = (Array.isArray(triageQueue) ? triageQueue : [])
+  const taskEvents = [
+    ...(Array.isArray(triageQueue) ? triageQueue : []),
+    ...(Array.isArray(approvedWorkItems) ? approvedWorkItems : []),
+  ]
     .map((task) => taskSummaryToProjectContextEvent({ ...task, project_id: projectId }, rules));
-  return [...mailEvents, ...taskEvents];
+  return dedupeContextEvents([...mailEvents, ...taskEvents]);
 }
 
 function buildMetadataContextReport(snapshot, opts, applyReport, triageQueue) {
@@ -352,7 +380,14 @@ function buildMetadataContextReport(snapshot, opts, applyReport, triageQueue) {
   });
   const candidateKeys = new Set(Array.isArray(applyReport.candidate_keys) ? applyReport.candidate_keys : []);
   const hintRules = loadContextHintRules(opts.workmetaRoot, snapshot.project_id);
-  const events = buildMetadataRunContextEvents(contextPacket, triageQueue, snapshot.project_id, candidateKeys, hintRules);
+  const events = buildMetadataRunContextEvents(
+    contextPacket,
+    triageQueue,
+    snapshot.project_id,
+    candidateKeys,
+    hintRules,
+    snapshot.approved_work_items,
+  );
   return {
     ...runProjectContextUpdate({
       workmetaRoot: opts.workmetaRoot,

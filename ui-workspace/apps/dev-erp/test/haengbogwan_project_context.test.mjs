@@ -9,6 +9,7 @@ import {
   PROJECT_CONTEXT_FILES,
   runProjectContextUpdate,
 } from "../tools/haengbogwan_project_context.mjs";
+import { buildContextGraph } from "../src/context_graph.mjs";
 
 const TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_project_context.mjs");
 const GENERATED_AT = "2026-06-28T09:00:00.000Z";
@@ -32,6 +33,14 @@ function readCsvRows(path) {
   };
 }
 
+function readCsvObjects(path) {
+  const { headers, rows } = readCsvRows(path);
+  return rows.map((row) => {
+    const cells = row.split(",");
+    return Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]));
+  });
+}
+
 function sampleEvents(projectCode = "P26-014") {
   return [
     {
@@ -41,6 +50,7 @@ function sampleEvents(projectCode = "P26-014") {
       received_at: "2026-06-28T08:10:00+09:00",
       title: "KVDS schedule confirmation",
       branch_hint: "KVDS test schedule",
+      branch_kind: "legacy",
       summary_hint: "Customer asked to confirm the test schedule.",
       action_required: true,
       work_type: "schedule",
@@ -50,6 +60,80 @@ function sampleEvents(projectCode = "P26-014") {
       confidence: 0.78,
       milestone_label: "KVDS test readiness",
       pointer_ref: "mailcsv:M001",
+    },
+  ];
+}
+
+function stemV2Events(project) {
+  return [
+    {
+      source_kind: "project_meta",
+      source_id: "project-skeleton",
+      project_code: project,
+      title: "Project skeleton",
+      branch_kind: "skeleton",
+      anchor_ref: `project:${project}`,
+      received_at: "2026-01-01T00:00:00Z",
+    },
+    {
+      source_kind: "task_ledger",
+      source_id: "TASK-1",
+      item_id: "TASK-1",
+      project_code: project,
+      title: "Filter coefficient delivery",
+      review_status: "approved",
+      status: "open",
+      anchor_stage_code: "120_CDR",
+      created_at: "2026-01-02T00:00:00Z",
+      action_required: true,
+    },
+    {
+      source_kind: "task_ledger",
+      source_id: "TASK-2",
+      item_id: "TASK-2",
+      project_code: project,
+      title: "Closed review response",
+      review_status: "approved",
+      status: "done",
+      anchor_stage_code: "130_TRR",
+      created_at: "2026-01-03T00:00:00Z",
+      done_at: "2026-01-10T00:00:00Z",
+      action_required: true,
+    },
+    {
+      source_kind: "mail",
+      source_id: "MAIL-H1",
+      project_code: project,
+      title: "Weekly sync",
+      received_at: "2026-01-01T09:00:00Z",
+    },
+    {
+      source_kind: "mail",
+      source_id: "MAIL-H2",
+      project_code: project,
+      title: "Re: Weekly sync",
+      received_at: "2026-02-01T09:00:00Z",
+    },
+    {
+      source_kind: "mail",
+      source_id: "MAIL-H3",
+      project_code: project,
+      title: "Weekly sync",
+      received_at: "2026-02-20T09:00:00Z",
+    },
+    {
+      source_kind: "mail",
+      source_id: "MAIL-PENDING-1",
+      project_code: project,
+      title: "Loose unanchored note",
+      received_at: "2026-03-06T09:00:00Z",
+    },
+    {
+      source_kind: "mail",
+      source_id: "MAIL-PENDING-2",
+      project_code: project,
+      title: "Another loose note",
+      received_at: "2026-03-07T09:00:00Z",
     },
   ];
 }
@@ -88,6 +172,8 @@ test("HAENGBOGWAN-PROJECT-CONTEXT: apply creates live-state files and review que
     });
     assert.equal(report.apply, true);
     assert.deepEqual(report.files_written.sort(), [
+      PROJECT_CONTEXT_FILES.branches,
+      PROJECT_CONTEXT_FILES.occurrences,
       PROJECT_CONTEXT_FILES.branchSummaries,
       PROJECT_CONTEXT_FILES.edges,
       PROJECT_CONTEXT_FILES.judgments,
@@ -111,6 +197,63 @@ test("HAENGBOGWAN-PROJECT-CONTEXT: apply creates live-state files and review que
     assert.equal(existsSync(join(tmp.root, "P26-014", "reports", "context_graph")), false);
   } finally {
     tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-PROJECT-CONTEXT ENGINE-11: emits stem v2 skeleton/work/history and holds unanchored mail", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P99-001";
+    runProjectContextUpdate({
+      workmetaRoot: tmp.root,
+      projectCode: project,
+      events: stemV2Events(project),
+      generatedAt: GENERATED_AT,
+      apply: true,
+    });
+
+    const branches = readCsvObjects(join(tmp.root, project, PROJECT_CONTEXT_FILES.branches));
+    assert.equal(branches.filter((row) => row.branch_kind === "skeleton").length, 1);
+    assert.equal(branches.filter((row) => row.branch_kind === "work").length, 2);
+    assert.equal(branches.filter((row) => row.branch_kind === "history").length, 1);
+    assert.ok(branches.some((row) => row.anchor_ref === "item:TASK-1" && row.status === "open"));
+    assert.ok(branches.some((row) => row.anchor_ref === "item:TASK-2" && row.status === "closed" && row.closed_at === "2026-01-10T00:00:00Z"));
+    assert.ok(branches.some((row) => row.branch_kind === "history" && row.status === "proposed" && row.anchor_ref.startsWith("series:")));
+
+    const occurrences = readCsvObjects(join(tmp.root, project, PROJECT_CONTEXT_FILES.occurrences));
+    assert.equal(occurrences.length, 3);
+    assert.equal(occurrences.every((row) => row.source_count === "1"), true);
+
+    const sources = readCsvObjects(join(tmp.root, project, PROJECT_CONTEXT_FILES.sources));
+    const pending = sources.filter((row) => row.external_ref.startsWith("MAIL-PENDING"));
+    assert.equal(pending.length, 2);
+    assert.equal(pending.every((row) => row.branch_ref === ""), true, "unanchored mail does not create title-fragment branches");
+    assert.equal(branches.some((row) => /Loose|Another/.test(row.label)), false);
+    assert.equal(sources.filter((row) => row.external_ref.startsWith("MAIL-H")).every((row) => /history-/.test(row.branch_key) && row.branch_ref), true);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test("HAENGBOGWAN-PROJECT-CONTEXT ENGINE-11: context graph exposes v2 branch metadata", () => {
+  const repoRoot = mkdtempSync(join(tmpdir(), "sf-haengbogwan-project-context-graph-"));
+  try {
+    const project = "P99-002";
+    runProjectContextUpdate({
+      workmetaRoot: join(repoRoot, "_workmeta"),
+      projectCode: project,
+      events: stemV2Events(project),
+      generatedAt: GENERATED_AT,
+      apply: true,
+    });
+    const graph = buildContextGraph(repoRoot, project);
+    assert.equal(graph.error, undefined);
+    assert.equal(graph.occurrences.length, 3);
+    assert.equal(graph.counts.stem_occurrences, 3);
+    assert.ok(graph.branches.some((row) => row.branch_kind === "history" && row.status === "proposed" && row.anchor_ref.startsWith("series:")));
+    assert.ok(graph.branches.some((row) => row.branch_kind === "work" && row.anchor_ref === "item:TASK-1"));
+  } finally {
+    if (existsSync(repoRoot)) rmSync(repoRoot, { recursive: true, force: true });
   }
 });
 
@@ -178,6 +321,7 @@ test("HAENGBOGWAN-PROJECT-CONTEXT: CSV output guards formula-leading values", ()
         source_id: "mail:P26-014:FORMULA",
         title: "=HYPERLINK(\"http://example.test\")",
         branch_hint: "+formula branch",
+        branch_kind: "legacy",
         action_required: true,
       }],
       generatedAt: GENERATED_AT,

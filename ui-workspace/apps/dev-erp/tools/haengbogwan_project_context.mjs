@@ -12,6 +12,7 @@ import {
 } from "node:fs";
 import { dirname, extname, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeThreadSubject } from "./mail_thread_key.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..", "..");
@@ -19,6 +20,8 @@ const DEFAULT_WORKMETA_ROOT = join(REPO, "_workmeta");
 const SAFE_PROJECT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const DATE_TIME_RE = /^\d{4}-\d{2}-\d{2}(?:[T ][0-9:.+\-Z]+)?$/;
 const SCHEMA_VERSION = "soulforge.project_context.v0";
+const HISTORY_MIN_OCCURRENCES = 3;
+const HISTORY_WINDOW_DAYS = 56;
 
 const CONTEXT_RELATIVE_PATH = "project_context";
 const SUMMARY_RELATIVE_PATH = join(CONTEXT_RELATIVE_PATH, "summaries");
@@ -26,6 +29,8 @@ const DEFAULT_BRANCH_KEY = "unclassified";
 const DEFAULT_BRANCH_LABEL = "Unclassified";
 
 export const PROJECT_CONTEXT_FILES = {
+  branches: join(CONTEXT_RELATIVE_PATH, "branches.csv"),
+  occurrences: join(CONTEXT_RELATIVE_PATH, "occurrences.csv"),
   sources: join(CONTEXT_RELATIVE_PATH, "sources.csv"),
   nodes: join(CONTEXT_RELATIVE_PATH, "nodes.csv"),
   edges: join(CONTEXT_RELATIVE_PATH, "edges.csv"),
@@ -44,6 +49,8 @@ const CSV_HEADERS = {
     "source_time",
     "title",
     "branch_key",
+    "branch_ref",
+    "suggested_branch_ref",
     "summary_hint",
     "pointer_ref",
     "metadata_hash",
@@ -106,9 +113,37 @@ const CSV_HEADERS = {
     "project_code",
     "branch_key",
     "label",
+    "branch_kind",
+    "anchor_ref",
+    "status",
+    "born_at",
+    "closed_at",
     "source_count",
     "task_count",
     "open_review_count",
+    "updated_at",
+  ],
+  branches: [
+    "branch_id",
+    "project_code",
+    "branch_key",
+    "label",
+    "branch_kind",
+    "anchor_ref",
+    "status",
+    "born_at",
+    "closed_at",
+    "updated_at",
+  ],
+  occurrences: [
+    "occurrence_id",
+    "project_code",
+    "series_key",
+    "occurrence_key",
+    "branch_ref",
+    "source_count",
+    "spawned_item_refs",
+    "created_at",
     "updated_at",
   ],
 };
@@ -168,6 +203,136 @@ function branchKeyFor(value) {
   const raw = String(value ?? "").trim();
   if (!raw) return DEFAULT_BRANCH_KEY;
   return idPart(raw, "branch");
+}
+
+function strongBranchKeyFor(kind, anchorRef, label) {
+  const raw = String(anchorRef || label || "").replace(/^[a-z_]+:/i, "");
+  const key = idPart(raw, kind || "branch");
+  return `${kind || "branch"}-${key}`;
+}
+
+function branchIdFor(projectCode, branchKey) {
+  return branchKey ? `branch:${projectCode}:${branchKey}` : "";
+}
+
+function normalizeBranchKind(value) {
+  const raw = String(value ?? "").trim().toLowerCase();
+  return ["skeleton", "work", "history", "legacy"].includes(raw) ? raw : "";
+}
+
+function normalizeBranchStatus(value, fallback = "open") {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (["open", "closed", "proposed"].includes(raw)) return raw;
+  if (/^(done|complete|completed|cancelled|canceled|rejected|dismissed)$/i.test(raw)) return "closed";
+  return fallback;
+}
+
+function dateOnly(value) {
+  const raw = String(value ?? "").trim();
+  const match = /^\d{4}-\d{2}-\d{2}/.exec(raw);
+  return match ? match[0] : "";
+}
+
+function daySpan(first, last) {
+  const a = Date.parse(`${first}T00:00:00Z`);
+  const b = Date.parse(`${last}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return 0;
+  return Math.floor((b - a) / 86_400_000);
+}
+
+function hasHistoryWindow(days) {
+  if (days.length < HISTORY_MIN_OCCURRENCES) return false;
+  for (let i = 0; i <= days.length - HISTORY_MIN_OCCURRENCES; i += 1) {
+    if (daySpan(days[i], days[i + HISTORY_MIN_OCCURRENCES - 1]) <= HISTORY_WINDOW_DAYS) return true;
+  }
+  return false;
+}
+
+function itemAnchorRef(event) {
+  const raw = safeString(event.item_ref || event.item_id || event.task_key || event.core_item_id);
+  if (!raw) return "";
+  return raw.startsWith("item:") ? raw : `item:${raw}`;
+}
+
+function explicitAnchorRef(event) {
+  return safeString(event.anchor_ref || event.stem_anchor_ref || event.branch_ref);
+}
+
+function skeletonAnchorRef(event, projectCode) {
+  const explicit = explicitAnchorRef(event);
+  if (explicit && !explicit.startsWith("branch:")) return explicit;
+  const gate = safeString(event.anchor_stage_code || event.stage_code || event.stage_id);
+  if (gate) return `gate:${gate}`;
+  const group = safeString(event.deliverable_group_ref || event.deliverable_group || event.deliverable_ref);
+  if (group) return `deliverable_group:${group}`;
+  const mgmt = safeString(event.management_ref || event.mgmt_ref);
+  if (mgmt) return `mgmt:${mgmt}`;
+  return `project:${projectCode}`;
+}
+
+function isApprovedWorkEvent(event) {
+  const reviewStatus = safeString(event.review_status).toLowerCase();
+  return reviewStatus === "approved" || event.confirmed === true || event.confirm_event === true;
+}
+
+function resolveStemBranch(event, { projectCode, title, sourceRef, sourceTime }) {
+  const explicitKind = normalizeBranchKind(event.branch_kind || event.stem_kind);
+  const anchor = explicitAnchorRef(event);
+  let branchKind = explicitKind;
+  if (!branchKind && (anchor.startsWith("item:") || (itemAnchorRef(event) && isApprovedWorkEvent(event)))) branchKind = "work";
+  if (!branchKind && anchor.startsWith("series:")) branchKind = "history";
+  if (!branchKind && (anchor.startsWith("gate:") || anchor.startsWith("deliverable_group:") || anchor.startsWith("mgmt:"))) branchKind = "skeleton";
+
+  const suggestedKey = branchKeyFor(safeString(event.branch_hint || event.branch_label));
+  const suggestedBranchRef = suggestedKey === DEFAULT_BRANCH_KEY ? "" : `suggested:${projectCode}:${suggestedKey}`;
+
+  if (!branchKind) {
+    return {
+      branchKind: "",
+      branchKey: "",
+      branchLabel: "",
+      branchRef: "",
+      suggestedBranchRef,
+      anchorRef: "",
+      branchStatus: "",
+      bornAt: "",
+      closedAt: "",
+      seriesKey: "",
+    };
+  }
+
+  let anchorRef = anchor;
+  if (branchKind === "work") anchorRef = itemAnchorRef(event) || anchor || `item:${idPart(sourceRef, "source")}`;
+  if (branchKind === "history") {
+    const series = safeString(event.series_key) || idPart(normalizeThreadSubject(title), "series");
+    anchorRef = anchor || `series:${series}`;
+  }
+  if (branchKind === "skeleton") anchorRef = skeletonAnchorRef(event, projectCode);
+
+  const fallbackLabel = branchKind === "legacy"
+    ? safeString(event.branch_hint || event.branch_label) || DEFAULT_BRANCH_LABEL
+    : title;
+  const branchLabel = safeString(event.branch_label || event.branch_hint) || fallbackLabel || DEFAULT_BRANCH_LABEL;
+  const branchKey = branchKind === "legacy"
+    ? branchKeyFor(branchLabel)
+    : strongBranchKeyFor(branchKind, anchorRef, branchLabel);
+  const closedAt = safeString(event.closed_at || event.done_at || event.completed_at);
+  const branchStatus = normalizeBranchStatus(
+    event.branch_status || event.status,
+    branchKind === "history" ? "proposed" : (closedAt ? "closed" : "open"),
+  );
+  return {
+    branchKind,
+    branchKey,
+    branchLabel,
+    branchRef: branchIdFor(projectCode, branchKey),
+    suggestedBranchRef,
+    anchorRef,
+    branchStatus,
+    bornAt: safeString(event.born_at || event.created_at || sourceTime),
+    closedAt,
+    seriesKey: anchorRef.startsWith("series:") ? anchorRef.slice("series:".length) : "",
+  };
 }
 
 function validateGeneratedAt(value) {
@@ -393,9 +558,9 @@ function normalizeEvent(event, { projectCode, generatedAt, index }) {
     };
   }
 
-  const branchLabel = safeString(event.branch_hint || event.branch_label) || DEFAULT_BRANCH_LABEL;
-  const branchKey = branchKeyFor(branchLabel);
   const title = safeString(event.title || event.subject || event.label) || `${sourceKind}:${sourceRef}`;
+  const sourceTime = sourceTimeForEvent(event);
+  const stemBranch = resolveStemBranch(event, { projectCode, title, sourceRef, sourceTime });
   const sourceId = `source:${idPart(sourceKind, "kind")}:${hashText(`${projectCode}\n${sourceKind}\n${sourceRef}`, 16)}`;
   const eventNodeId = `event:${hashText(`${projectCode}\n${sourceId}`, 16)}`;
   const taskNodeId = event.action_required === true
@@ -410,9 +575,14 @@ function normalizeEvent(event, { projectCode, generatedAt, index }) {
   const metadata = {
     source_kind: sourceKind,
     source_ref: sourceRef,
-    source_time: sourceTimeForEvent(event),
+    source_time: sourceTime,
     title,
-    branch_key: branchKey,
+    branch_key: stemBranch.branchKey,
+    branch_ref: stemBranch.branchRef,
+    suggested_branch_ref: stemBranch.suggestedBranchRef,
+    branch_kind: stemBranch.branchKind,
+    anchor_ref: stemBranch.anchorRef,
+    branch_status: stemBranch.branchStatus,
     summary_hint: safeString(event.summary_hint),
     body_access: safeString(event.body_access || "metadata_only"),
     action_required: event.action_required === true,
@@ -436,8 +606,16 @@ function normalizeEvent(event, { projectCode, generatedAt, index }) {
     sourceRef,
     sourceTime: metadata.source_time,
     title,
-    branchKey,
-    branchLabel,
+    branchKey: stemBranch.branchKey,
+    branchLabel: stemBranch.branchLabel,
+    branchKind: stemBranch.branchKind,
+    branchRef: stemBranch.branchRef,
+    suggestedBranchRef: stemBranch.suggestedBranchRef,
+    anchorRef: stemBranch.anchorRef,
+    branchStatus: stemBranch.branchStatus,
+    bornAt: stemBranch.bornAt,
+    closedAt: stemBranch.closedAt,
+    seriesKey: stemBranch.seriesKey,
     summaryHint: metadata.summary_hint,
     pointerRef: safePointerRef(event.pointer_ref || event.source_pointer_ref || event.metadata_ref),
     bodyAccess: metadata.body_access || "metadata_only",
@@ -493,6 +671,21 @@ function makeEdge({ projectCode, fromNodeId, toNodeId, edgeType, sourceId, confi
   };
 }
 
+function makeBranch({ projectCode, branchKey, label, branchKind, anchorRef, status, bornAt, closedAt, generatedAt }) {
+  return {
+    branch_id: branchIdFor(projectCode, branchKey),
+    project_code: projectCode,
+    branch_key: branchKey,
+    label,
+    branch_kind: branchKind,
+    anchor_ref: anchorRef,
+    status,
+    born_at: bornAt,
+    closed_at: closedAt,
+    updated_at: generatedAt,
+  };
+}
+
 function makeReview({ projectCode, sourceId, taskNodeId, branchKey, reviewType, field, proposedValue, reason, generatedAt }) {
   return {
     review_id: `review:${hashText(`${projectCode}\n${sourceId}\n${reviewType}\n${field}`, 16)}`,
@@ -516,9 +709,10 @@ function addIfMissing(map, key, value) {
 
 function rowsForEvent(event) {
   const projectNodeId = `project:${event.projectCode}`;
-  const branchNodeId = `branch:${event.projectCode}:${event.branchKey}`;
+  const branchNodeId = event.branchRef;
   const nodes = new Map();
   const edges = new Map();
+  const branches = [];
   const reviews = [];
   const operations = ["source_upsert"];
 
@@ -530,15 +724,29 @@ function rowsForEvent(event) {
     status: "active",
     generatedAt: event.generatedAt,
   }));
-  addIfMissing(nodes, branchNodeId, makeNode({
-    nodeId: branchNodeId,
-    projectCode: event.projectCode,
-    nodeType: "context_branch",
-    label: event.branchLabel,
-    branchKey: event.branchKey,
-    status: "active",
-    generatedAt: event.generatedAt,
-  }));
+  if (event.branchRef) {
+    branches.push(makeBranch({
+      projectCode: event.projectCode,
+      branchKey: event.branchKey,
+      label: event.branchLabel,
+      branchKind: event.branchKind,
+      anchorRef: event.anchorRef,
+      status: event.branchStatus,
+      bornAt: event.bornAt,
+      closedAt: event.closedAt,
+      generatedAt: event.generatedAt,
+    }));
+    addIfMissing(nodes, branchNodeId, makeNode({
+      nodeId: branchNodeId,
+      projectCode: event.projectCode,
+      nodeType: "context_branch",
+      label: event.branchLabel,
+      branchKey: event.branchKey,
+      status: event.branchStatus || "active",
+      generatedAt: event.generatedAt,
+    }));
+    operations.push("branch_row_upsert", "branch_node_upsert");
+  }
   addIfMissing(nodes, event.eventNodeId, makeNode({
     nodeId: event.eventNodeId,
     projectCode: event.projectCode,
@@ -549,31 +757,45 @@ function rowsForEvent(event) {
     metadataHash: event.metadataHash,
     generatedAt: event.generatedAt,
   }));
-  operations.push("project_node_upsert", "branch_node_upsert", "event_node_upsert");
+  operations.push("project_node_upsert", "event_node_upsert");
 
-  for (const edge of [
-    makeEdge({
-      projectCode: event.projectCode,
-      fromNodeId: branchNodeId,
-      toNodeId: projectNodeId,
-      edgeType: "belongs_to",
-      sourceId: event.sourceId,
-      confidence: event.confidence,
-      reason: "branch belongs to project trunk",
-      generatedAt: event.generatedAt,
-    }),
-    makeEdge({
-      projectCode: event.projectCode,
-      fromNodeId: event.eventNodeId,
-      toNodeId: branchNodeId,
-      edgeType: "on_branch",
-      sourceId: event.sourceId,
-      confidence: event.confidence,
-      reason: "source event assigned to context branch",
-      generatedAt: event.generatedAt,
-    }),
-  ]) edges.set(edge.edge_id, edge);
-  operations.push("branch_edge_upsert", "event_branch_edge_upsert");
+  const stemEdges = event.branchRef
+    ? [
+      makeEdge({
+        projectCode: event.projectCode,
+        fromNodeId: branchNodeId,
+        toNodeId: projectNodeId,
+        edgeType: "belongs_to",
+        sourceId: event.sourceId,
+        confidence: event.confidence,
+        reason: "branch belongs to project trunk",
+        generatedAt: event.generatedAt,
+      }),
+      makeEdge({
+        projectCode: event.projectCode,
+        fromNodeId: event.eventNodeId,
+        toNodeId: branchNodeId,
+        edgeType: "on_branch",
+        sourceId: event.sourceId,
+        confidence: event.confidence,
+        reason: "source event assigned to context branch",
+        generatedAt: event.generatedAt,
+      }),
+    ]
+    : [
+      makeEdge({
+        projectCode: event.projectCode,
+        fromNodeId: event.eventNodeId,
+        toNodeId: projectNodeId,
+        edgeType: "on_project",
+        sourceId: event.sourceId,
+        confidence: event.confidence,
+        reason: "unanchored source event remains on project trunk",
+        generatedAt: event.generatedAt,
+      }),
+    ];
+  for (const edge of stemEdges) edges.set(edge.edge_id, edge);
+  operations.push(event.branchRef ? "branch_edge_upsert" : "project_event_edge_upsert");
 
   if (event.actionRequired) {
     const taskLabelParts = [event.title];
@@ -710,6 +932,8 @@ function rowsForEvent(event) {
     source_time: event.sourceTime,
     title: event.title,
     branch_key: event.branchKey,
+    branch_ref: event.branchRef,
+    suggested_branch_ref: event.suggestedBranchRef,
     summary_hint: event.summaryHint,
     pointer_ref: event.pointerRef,
     metadata_hash: event.metadataHash,
@@ -731,6 +955,8 @@ function rowsForEvent(event) {
   };
 
   return {
+    branches,
+    occurrences: [],
     sources: [source],
     nodes: [...nodes.values()],
     edges: [...edges.values()],
@@ -741,6 +967,8 @@ function rowsForEvent(event) {
 
 function countRows(rowsByKind) {
   return {
+    branches: rowsByKind.branches.length,
+    occurrences: rowsByKind.occurrences.length,
     sources: rowsByKind.sources.length,
     nodes: rowsByKind.nodes.length,
     edges: rowsByKind.edges.length,
@@ -751,6 +979,8 @@ function countRows(rowsByKind) {
 
 function emptyRowsByKind() {
   return {
+    branches: [],
+    occurrences: [],
     sources: [],
     nodes: [],
     edges: [],
@@ -760,6 +990,8 @@ function emptyRowsByKind() {
 }
 
 function appendRows(target, rows) {
+  target.branches.push(...rows.branches);
+  target.occurrences.push(...rows.occurrences);
   target.sources.push(...rows.sources);
   target.nodes.push(...rows.nodes);
   target.edges.push(...rows.edges);
@@ -767,8 +999,74 @@ function appendRows(target, rows) {
   target.reviewQueue.push(...rows.reviewQueue);
 }
 
+function applyHistoryStemCandidates(events, { projectCode }) {
+  const groups = new Map();
+  for (const event of events) {
+    if (event.branchKind || event.sourceKind !== "mail") continue;
+    const subjectKey = normalizeThreadSubject(event.title);
+    const day = dateOnly(event.sourceTime);
+    if (!subjectKey || !day) continue;
+    const group = groups.get(subjectKey) || { events: [], days: new Set(), firstTitle: event.title };
+    group.events.push(event);
+    group.days.add(day);
+    groups.set(subjectKey, group);
+  }
+
+  for (const [subjectKey, group] of groups) {
+    const days = [...group.days].sort();
+    if (group.events.length < HISTORY_MIN_OCCURRENCES) continue;
+    if (!hasHistoryWindow(days)) continue;
+    const seriesKey = idPart(subjectKey, "series");
+    const anchorRef = `series:${seriesKey}`;
+    const branchKey = strongBranchKeyFor("history", anchorRef, group.firstTitle);
+    const branchRef = branchIdFor(projectCode, branchKey);
+    for (const event of group.events) {
+      event.branchKind = "history";
+      event.branchKey = branchKey;
+      event.branchLabel = `History: ${group.firstTitle}`;
+      event.branchRef = branchRef;
+      event.anchorRef = anchorRef;
+      event.branchStatus = "proposed";
+      event.bornAt = days[0];
+      event.closedAt = "";
+      event.seriesKey = seriesKey;
+    }
+  }
+}
+
+function historyOccurrenceRows(events, generatedAt) {
+  const byKey = new Map();
+  for (const event of events) {
+    if (event.branchKind !== "history" || !event.seriesKey || !event.branchRef) continue;
+    const day = dateOnly(event.sourceTime);
+    if (!day) continue;
+    const key = `${event.projectCode}\0${event.seriesKey}\0${day}`;
+    const row = byKey.get(key) || {
+      occurrence_id: `occurrence:${hashText(`${event.projectCode}\n${event.seriesKey}\n${day}`, 16)}`,
+      project_code: event.projectCode,
+      series_key: event.seriesKey,
+      occurrence_key: day,
+      branch_ref: event.branchRef,
+      source_count: "0",
+      spawned_item_refs: "",
+      created_at: generatedAt,
+      updated_at: generatedAt,
+      spawned: new Set(),
+    };
+    row.source_count = String(Number(row.source_count) + 1);
+    if (event.anchorRef?.startsWith("item:")) row.spawned.add(event.anchorRef);
+    byKey.set(key, row);
+  }
+  return [...byKey.values()].map(({ spawned, ...row }) => ({
+    ...row,
+    spawned_item_refs: [...spawned].sort().join(";"),
+  })).sort((a, b) => a.series_key.localeCompare(b.series_key) || a.occurrence_key.localeCompare(b.occurrence_key));
+}
+
 function loadExistingContext(projectRoot) {
   return {
+    branches: readCsvObjects(join(projectRoot, PROJECT_CONTEXT_FILES.branches), CSV_HEADERS.branches),
+    occurrences: readCsvObjects(join(projectRoot, PROJECT_CONTEXT_FILES.occurrences), CSV_HEADERS.occurrences),
     sources: readCsvObjects(join(projectRoot, PROJECT_CONTEXT_FILES.sources), CSV_HEADERS.sources),
     nodes: readCsvObjects(join(projectRoot, PROJECT_CONTEXT_FILES.nodes), CSV_HEADERS.nodes),
     edges: readCsvObjects(join(projectRoot, PROJECT_CONTEXT_FILES.edges), CSV_HEADERS.edges),
@@ -779,6 +1077,8 @@ function loadExistingContext(projectRoot) {
 
 function mergeContext(existing, incoming) {
   return {
+    branches: mergeRows(existing.branches, incoming.branches, "branch_id", CSV_HEADERS.branches),
+    occurrences: mergeRows(existing.occurrences, incoming.occurrences, "occurrence_id", CSV_HEADERS.occurrences),
     sources: mergeRows(existing.sources, incoming.sources, "source_id", CSV_HEADERS.sources),
     nodes: mergeRows(existing.nodes, incoming.nodes, "node_id", CSV_HEADERS.nodes),
     edges: mergeRows(existing.edges, incoming.edges, "edge_id", CSV_HEADERS.edges),
@@ -788,6 +1088,22 @@ function mergeContext(existing, incoming) {
 }
 
 function summarizeBranches(projectCode, context, generatedAt) {
+  const branchRows = context.branches
+    .map((branch) => ({
+      branch_id: branch.branch_id || branchIdFor(projectCode, branch.branch_key),
+      project_code: projectCode,
+      branch_key: branch.branch_key || DEFAULT_BRANCH_KEY,
+      label: branch.label || branch.branch_key || DEFAULT_BRANCH_LABEL,
+      branch_kind: branch.branch_kind || "legacy",
+      anchor_ref: branch.anchor_ref || "",
+      status: branch.status || "open",
+      born_at: branch.born_at || "",
+      closed_at: branch.closed_at || "",
+      source_count: "0",
+      task_count: "0",
+      open_review_count: "0",
+      updated_at: generatedAt,
+    }));
   const branchNodes = context.nodes
     .filter((node) => node.node_type === "context_branch")
     .map((node) => ({
@@ -795,20 +1111,31 @@ function summarizeBranches(projectCode, context, generatedAt) {
       project_code: projectCode,
       branch_key: node.branch_key || DEFAULT_BRANCH_KEY,
       label: node.label || node.branch_key || DEFAULT_BRANCH_LABEL,
+      branch_kind: "legacy",
+      anchor_ref: "",
+      status: node.status || "open",
+      born_at: node.created_at || "",
+      closed_at: "",
       source_count: "0",
       task_count: "0",
       open_review_count: "0",
       updated_at: generatedAt,
     }));
-  const byKey = new Map(branchNodes.map((row) => [row.branch_key, row]));
+  const byKey = new Map([...branchNodes, ...branchRows].map((row) => [row.branch_key, row]));
   for (const source of context.sources) {
     const key = source.branch_key || DEFAULT_BRANCH_KEY;
+    if (!key || key === DEFAULT_BRANCH_KEY) continue;
     if (!byKey.has(key)) {
       byKey.set(key, {
         branch_id: `branch:${projectCode}:${key}`,
         project_code: projectCode,
         branch_key: key,
         label: key,
+        branch_kind: "legacy",
+        anchor_ref: "",
+        status: "open",
+        born_at: "",
+        closed_at: "",
         source_count: "0",
         task_count: "0",
         open_review_count: "0",
@@ -842,6 +1169,8 @@ function renderProjectSummary({ projectCode, generatedAt, context, branchSummari
   lines.push("");
   lines.push("## Totals");
   lines.push("");
+  lines.push(`- branches: ${context.branches.length}`);
+  lines.push(`- occurrences: ${context.occurrences.length}`);
   lines.push(`- sources: ${context.sources.length}`);
   lines.push(`- nodes: ${context.nodes.length}`);
   lines.push(`- edges: ${context.edges.length}`);
@@ -885,8 +1214,10 @@ export function buildProjectContextPlan({
       return;
     }
     acceptedEvents.push(normalized);
-    appendRows(rows, rowsForEvent(normalized));
   });
+  applyHistoryStemCandidates(acceptedEvents, { projectCode: project });
+  for (const event of acceptedEvents) appendRows(rows, rowsForEvent(event));
+  rows.occurrences.push(...historyOccurrenceRows(acceptedEvents, checkedGeneratedAt));
 
   return {
     schema_version: SCHEMA_VERSION,
@@ -918,6 +1249,8 @@ export function applyProjectContextPlan(plan, {
     branchSummaries,
   });
 
+  writeCsvObjects(join(projectRoot, PROJECT_CONTEXT_FILES.branches), CSV_HEADERS.branches, merged.branches);
+  writeCsvObjects(join(projectRoot, PROJECT_CONTEXT_FILES.occurrences), CSV_HEADERS.occurrences, merged.occurrences);
   writeCsvObjects(join(projectRoot, PROJECT_CONTEXT_FILES.sources), CSV_HEADERS.sources, merged.sources);
   writeCsvObjects(join(projectRoot, PROJECT_CONTEXT_FILES.nodes), CSV_HEADERS.nodes, merged.nodes);
   writeCsvObjects(join(projectRoot, PROJECT_CONTEXT_FILES.edges), CSV_HEADERS.edges, merged.edges);
@@ -930,6 +1263,8 @@ export function applyProjectContextPlan(plan, {
   return {
     total_counts: {
       sources: merged.sources.length,
+      branches: merged.branches.length,
+      occurrences: merged.occurrences.length,
       nodes: merged.nodes.length,
       edges: merged.edges.length,
       judgments: merged.judgments.length,
@@ -937,6 +1272,8 @@ export function applyProjectContextPlan(plan, {
       branch_summaries: branchSummaries.length,
     },
     files_written: [
+      PROJECT_CONTEXT_FILES.branches,
+      PROJECT_CONTEXT_FILES.occurrences,
       PROJECT_CONTEXT_FILES.sources,
       PROJECT_CONTEXT_FILES.nodes,
       PROJECT_CONTEXT_FILES.edges,

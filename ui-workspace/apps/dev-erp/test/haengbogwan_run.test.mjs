@@ -15,7 +15,7 @@ import { HAENGBOGWAN_TASK_DECISION_RELATIVE_PATH } from "../tools/haengbogwan_ta
 
 const TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_run.mjs");
 const MAIL_HEADERS = ["이력키", "제목", "발신자", "메일수신시각", "메일함", "메일소스ID", "메일메시지ID", "수신역할", "마감일"];
-const TASK_HEADERS = ["할일키", "프로젝트코드", "할일명", "담당자", "업무유형", "상태", "마감일", "완료기준", "검토상태", "관련메일이력키"];
+const TASK_HEADERS = ["할일키", "프로젝트코드", "할일명", "담당자", "업무유형", "상태", "마감일", "완료기준", "검토상태", "관련메일이력키", "SE단계", "연결유형", "연결대상"];
 
 function csvEscape(value) {
   const raw = String(value ?? "");
@@ -236,9 +236,39 @@ test("HAENGBOGWAN-RUN: apply-context updates project_context from metadata mail 
         [TASK_HEADERS[8]]: "needs_review",
         [TASK_HEADERS[9]]: "mailcsv:M001",
       },
+      {
+        [TASK_HEADERS[0]]: "T-approved",
+        [TASK_HEADERS[1]]: project,
+        [TASK_HEADERS[2]]: "approved work stem item",
+        [TASK_HEADERS[3]]: "",
+        [TASK_HEADERS[4]]: "review",
+        [TASK_HEADERS[5]]: "open",
+        [TASK_HEADERS[6]]: "2026-06-26",
+        [TASK_HEADERS[7]]: "reply recorded",
+        [TASK_HEADERS[8]]: "approved",
+        [TASK_HEADERS[9]]: "mailcsv:M002",
+        [TASK_HEADERS[10]]: "120_CDR",
+        [TASK_HEADERS[11]]: "artifact",
+        [TASK_HEADERS[12]]: "D-001",
+      },
+      {
+        [TASK_HEADERS[0]]: "T-approved-future",
+        [TASK_HEADERS[1]]: project,
+        [TASK_HEADERS[2]]: "future approved work stem item",
+        [TASK_HEADERS[3]]: "owner",
+        [TASK_HEADERS[4]]: "review",
+        [TASK_HEADERS[5]]: "open",
+        [TASK_HEADERS[6]]: "2026-12-31",
+        [TASK_HEADERS[7]]: "future reply recorded",
+        [TASK_HEADERS[8]]: "approved",
+        [TASK_HEADERS[9]]: "mailcsv:M003",
+        [TASK_HEADERS[10]]: "130_TRR",
+        [TASK_HEADERS[11]]: "artifact",
+        [TASK_HEADERS[12]]: "D-002",
+      },
     ]);
 
-    const result = runTool(tmp.root, project, ["--triage-limit", "5", "--apply-context"]);
+    const result = runTool(tmp.root, project, ["--triage-limit", "1", "--apply-context"]);
     assert.equal(result.status, 0, result.stderr);
     const report = JSON.parse(result.stdout);
     assert.equal(report.apply_context, true);
@@ -249,8 +279,12 @@ test("HAENGBOGWAN-RUN: apply-context updates project_context from metadata mail 
     const projectRoot = join(tmp.root, project);
     const sourcesText = readFileSync(join(projectRoot, PROJECT_CONTEXT_FILES.sources), "utf8");
     const nodesText = readFileSync(join(projectRoot, PROJECT_CONTEXT_FILES.nodes), "utf8");
+    const branchesText = readFileSync(join(projectRoot, PROJECT_CONTEXT_FILES.branches), "utf8");
     assert.equal(sourcesText.includes("metadata_only"), true);
     assert.equal(nodesText.includes("task_candidate"), true);
+    assert.equal(branchesText.includes("work"), true);
+    assert.equal(branchesText.includes("item:T-approved"), true);
+    assert.equal(branchesText.includes("item:T-approved-future"), true);
   } finally {
     tmp.cleanup();
   }

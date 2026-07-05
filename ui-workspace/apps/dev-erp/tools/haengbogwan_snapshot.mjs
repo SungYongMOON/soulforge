@@ -41,6 +41,11 @@ const ROUTE_FIELDS = ["라우트후보", "route_candidate", "route_ref"];
 const SOURCE_REF_FIELDS = ["소스메일키", "관련메일이력키", "source_mail_ref", "소스후보키", "source_candidate_ref"];
 const SOURCE_ID_FIELDS = ["관련메일소스ID", "소스메일소스ID", "source_mail_source_id", "mail_source_id"];
 const RELATED_MAIL_FIELDS = ["관련메일이력키", "소스메일키", "source_mail_ref", "origin_mail_id"];
+const ANCHOR_STAGE_FIELDS = ["SE단계", "anchor_stage_code", "stage_code"];
+const LINK_KIND_FIELDS = ["연결유형", "link_kind"];
+const LINK_REF_FIELDS = ["연결대상", "link_ref", "산출물참조"];
+const DONE_AT_FIELDS = ["완료일", "완료시각", "done_at", "completed_at"];
+const CREATED_AT_FIELDS = ["기록일", "created_at"];
 
 const CLOSED_RE = /(done|closed|complete|completed|cancelled|canceled|dismissed|rejected|reference_only|완료|종결|취소|기각)/i;
 const UNCLASSIFIED_RE = /(unclassified|needs[_ -]?review|미분류|분류필요|검토필요|검토 필요)/i;
@@ -231,6 +236,10 @@ function isWaitingTask(row) {
   return WAITING_RE.test(`${pick(row, STATUS_FIELDS)} ${pick(row, REVIEW_STATUS_FIELDS)}`);
 }
 
+function isApprovedTask(row) {
+  return String(pick(row, REVIEW_STATUS_FIELDS)).trim().toLowerCase() === "approved";
+}
+
 function isReferenceLikelyTask(row) {
   return REFERENCE_LIKELY_RE.test(`${pick(row, STATUS_FIELDS)} ${pick(row, REVIEW_STATUS_FIELDS)} ${row["검토사유"] ?? ""} ${row["비고"] ?? ""}`);
 }
@@ -296,6 +305,11 @@ function taskSummary(row, extra = {}) {
     due: normalizeDateOnly(pick(row, DUE_FIELDS)),
     assignee,
     source_ref: rawPointerReason(sourceRef) ? "" : sourceRef,
+    anchor_stage_code: pick(row, ANCHOR_STAGE_FIELDS),
+    link_kind: pick(row, LINK_KIND_FIELDS),
+    link_ref: pick(row, LINK_REF_FIELDS),
+    done_at: pick(row, DONE_AT_FIELDS),
+    created_at: pick(row, CREATED_AT_FIELDS),
     ...extra,
   };
 }
@@ -374,6 +388,10 @@ export function buildSnapshotForProject({
     const reasons = quickTriageReasons(row);
     if (reasons.length) quickTriageRows.push(taskSummary(row, { reasons }));
   }
+  const approvedWorkItems = task.rows
+    .filter(isApprovedTask)
+    .map((row) => taskSummary(row))
+    .sort(compareTaskSummaries);
   quickTriageRows.sort(compareTaskSummaries);
   const sortedDueToday = dueToday.sort(compareTaskSummaries);
   const sortedOverdue = overdue.sort(compareTaskSummaries);
@@ -393,12 +411,14 @@ export function buildSnapshotForProject({
     blocked_count: sortedBlocked.length,
     waiting_count: sortedWaiting.length,
     needs_quick_triage_count: quickTriageRows.length,
+    approved_work_item_count: approvedWorkItems.length,
     raw_boundary_skip_count: rawBoundarySkips.length,
     due_today: sortedDueToday.slice(0, checkedItemLimit),
     overdue: sortedOverdue.slice(0, checkedItemLimit),
     blocked: sortedBlocked.slice(0, checkedItemLimit),
     waiting: sortedWaiting.slice(0, checkedItemLimit),
     needs_quick_triage: quickTriageRows.slice(0, Math.min(checkedItemLimit, 5)),
+    approved_work_items: approvedWorkItems,
     raw_boundary_skips: rawBoundarySkips.slice(0, checkedRawSkipLimit),
     next_actions: [],
   };
