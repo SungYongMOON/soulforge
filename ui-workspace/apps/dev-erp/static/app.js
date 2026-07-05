@@ -562,6 +562,109 @@ async function wireMailRules(ov) {
   await draw();
 }
 
+// 메일→과제 라우팅 규칙 섹션(관리자 패널 내, 2026-07-05 owner — Outlook 규칙식).
+// 위: 사용자 규칙 CRUD + '기존 받은함에 지금 적용'. 아래: 엔진 바인딩 규칙(정본 YAML) 읽기 전용 표
+// — "이미 만들어진 규칙이 보여야 거기에 맞게 추가·수정"(owner). 사용자 규칙이 엔진 규칙보다 우선.
+async function wireMailRouteRules(ov) {
+  const L = state.lex;
+  const box = ov.querySelector("#mailRouteBox");
+  if (!box) return;
+  const fieldLab = { from: L.mrule_from ?? "발신자", subject: L.mrule_subject ?? "제목" };
+  const matchLab = { contains: L.mrule_contains ?? "포함", equals: L.mrule_equals ?? "완전일치" };
+  const confLab = { exact: L.rrule_conf_exact ?? "확정", hint: L.rrule_conf_hint ?? "힌트(검토대기)", ambiguous: L.rrule_conf_amb ?? "애매(문의)" };
+  const draw = async () => {
+    let data = { user_rules: [], engine: { rules: [] } };
+    try { data = await api("/api/mail/route-rules"); } catch { /* 로그인/권한 */ }
+    let projects = state._projCache;
+    if (!projects) { try { projects = (await api("/api/summary")).projects; state._projCache = projects; } catch { projects = []; } }
+    const projOpts = (projects ?? []).filter((p) => p.class !== "inbox" && p.class !== "archive")
+      .map((p) => `<option value="${esc(p.id)}">${esc(p.id)} ${esc((p.title ?? "").slice(0, 14))}</option>`).join("");
+    const userRows = (data.user_rules ?? []).length
+      ? data.user_rules.map((r) => `<div class="mrule-row" data-rid="${r.id}">
+          <span class="badge mini">${esc(fieldLab[r.field] ?? r.field)}</span>
+          <span class="dim mini">${esc(matchLab[r.match] ?? r.match)}</span>
+          <span class="mrule-pat">${esc(r.pattern)}</span>
+          <span class="dim mini">→</span><strong class="mini">${esc(r.project_id)}</strong>
+          <button class="fav-chip mini rrule-apply" title="${L.rrule_apply_tip ?? "받은함의 기존 메일에도 이 규칙 적용"}">${L.rrule_apply ?? "기존 적용"}</button>
+          <button class="fav-chip mini danger rrule-del">${L.mrule_del ?? "삭제"}</button></div>`).join("")
+      : `<div class="empty small">${L.rrule_empty ?? "사용자 규칙 없음 — 추가하면 새로 오는 메일이 그 과제로 바로 들어갑니다"}</div>`;
+    // 엔진 규칙 요약(읽기): 조건 리스트는 앞 3개 + N (전체는 title 툴팁)
+    const engineRows = (data.engine?.rules ?? []).map((r) => {
+      const conds = Object.entries(r.match ?? {}).filter(([, v]) => Array.isArray(v) && v.length);
+      const summary = conds.map(([k, v]) => {
+        const kind = k === "sender_addresses" ? (L.mrule_from ?? "발신자") : /body|html/.test(k) ? (L.rrule_body ?? "본문") : (L.mrule_subject ?? "제목");
+        const head = v.slice(0, 3).join(", ");
+        return `<span title="${esc(v.join(", "))}">${kind}: ${esc(head)}${v.length > 3 ? ` +${v.length - 3}` : ""}</span>`;
+      }).join(" · ");
+      return `<tr><td class="dim mini">${esc(r.rule_id)}</td><td><strong>${esc(r.project_code)}</strong></td>
+        <td><span class="badge mini">${esc(confLab[r.confidence] ?? r.confidence)}</span></td><td class="mini">${summary || "-"}</td></tr>`;
+    }).join("");
+    box.innerHTML = `<p class="ui-confirm-msg" style="margin-top:14px">${L.rrule_title ?? "메일 → 과제 라우팅 규칙"} <span class="dim" style="font-weight:400">· ${L.rrule_hint ?? "Outlook 규칙처럼 — 조건에 맞는 메일을 과제로 자동 분류"}</span></p>
+      <div class="admin-create" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <select id="rrField" class="login-input" style="width:92px">${Object.entries(fieldLab).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
+        <select id="rrMatch" class="login-input" style="width:96px">${Object.entries(matchLab).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
+        <input id="rrPattern" class="login-input" style="width:180px" placeholder="${L.rrule_ph ?? "예: KVDS / lig.co.kr"}" />
+        <span class="dim">→</span>
+        <select id="rrProject" class="login-input" style="width:200px">${projOpts}</select>
+        <button id="rrAdd" class="fav-chip active">${L.mrule_add ?? "규칙 추가"}</button>
+        <button id="rrApplyAll" class="fav-chip mini">${L.rrule_apply_all ?? "모든 규칙 기존 메일에 적용"}</button>
+      </div>
+      <div class="mrule-list">${userRows}</div>
+      <details style="margin-top:10px"><summary class="dim" style="cursor:pointer">${L.rrule_engine ?? "엔진 규칙(자동 분류 정본)"} ${data.engine?.rules?.length ?? 0}${L.rrule_engine_unit ?? "개 — 읽기 전용, 수정은 엔진 레인"}</summary>
+        <table style="margin-top:6px"><thead><tr><th>${L.rrule_col_id ?? "규칙"}</th><th>${L.know_col_project ?? "과제"}</th><th>${L.rrule_col_conf ?? "신뢰도"}</th><th>${L.rrule_col_cond ?? "조건(요약)"}</th></tr></thead><tbody>${engineRows}</tbody></table>
+        <div class="dim small" style="margin-top:4px">${L.rrule_engine_note ?? "정본: _workmeta/system/bindings/mail_project_router.yaml · 사용자 규칙이 이 표보다 우선 적용됩니다"}</div>
+      </details>`;
+    const applyRun = async (ruleId, label) => {
+      const resp = await post("/api/mail/route-rules/apply", ruleId != null ? { rule_id: ruleId } : {});
+      const d = await resp.json().catch(() => ({}));
+      if (resp.ok) toast(`${label}: ${L.rrule_moved ?? "메일"} ${d.moved ?? 0}${L.rrule_moved_unit ?? "건 이동"}${d.items_moved ? ` · ${L.rrule_items_moved ?? "할일 동행"} ${d.items_moved}` : ""}`, "ok");
+      else toast((L.mrule_fail ?? "실패") + (d.error ? ` (${d.error})` : ""), "error");
+    };
+    // 인라인 확인 바 — uiConfirm(전역 오버레이)은 관리자 패널 자체를 제거하므로 패널 내부에서는 못 쓴다.
+    const confirmBar = (msg, onYes) => {
+      box.querySelector(".rr-confirm")?.remove();
+      const bar = document.createElement("div");
+      bar.className = "rr-confirm admin-create";
+      bar.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0";
+      bar.innerHTML = `<span style="font-size:.92em">${msg}</span>
+        <button class="fav-chip active rr-yes">${L.btn_confirm ?? "확인"}</button>
+        <button class="fav-chip rr-no">${L.btn_cancel ?? "취소"}</button>`;
+      box.querySelector(".mrule-list")?.before(bar);
+      bar.querySelector(".rr-yes").addEventListener("click", async () => { bar.remove(); await onYes(); draw(); });
+      bar.querySelector(".rr-no").addEventListener("click", () => bar.remove());
+    };
+    box.querySelector("#rrAdd")?.addEventListener("click", async () => {
+      const field = box.querySelector("#rrField").value, match = box.querySelector("#rrMatch").value;
+      const pattern = box.querySelector("#rrPattern").value.trim(), project_id = box.querySelector("#rrProject").value;
+      if (!pattern) { toast(L.mrule_need_pattern ?? "조건 값을 입력하세요", "error"); return; }
+      if (!project_id) { toast(L.rrule_need_project ?? "대상 과제를 선택하세요", "error"); return; }
+      const resp = await post("/api/mail/route-rules", { field, pattern, match, project_id });
+      const d = await resp.json().catch(() => ({}));
+      if (!resp.ok) { toast((L.mrule_fail ?? "추가 실패") + (d.error ? ` (${d.error})` : ""), "error"); return; }
+      toast(L.mrule_added ?? "규칙 추가됨", "ok");
+      await draw(); // 새 규칙이 목록에 먼저 보이고
+      // Outlook 식: "지금 받은함의 기존 메일에도 적용할까요?" — 인라인 확인
+      confirmBar(L.rrule_apply_confirm ?? "받은함(미분류)의 기존 메일에도 이 규칙을 지금 적용할까요?",
+        () => applyRun(d.id, L.rrule_applied ?? "기존 적용"));
+    });
+    box.querySelectorAll(".rrule-del").forEach((b) => b.addEventListener("click", async () => {
+      const rid = b.closest(".mrule-row").dataset.rid;
+      const resp = await post("/api/mail/route-rules/delete", { id: Number(rid) });
+      if (resp.ok) { toast(L.mrule_deleted ?? "규칙 삭제됨", "ok"); draw(); } else toast(L.mrule_fail ?? "실패", "error");
+    }));
+    box.querySelectorAll(".rrule-apply").forEach((b) => b.addEventListener("click", () => {
+      const rid = Number(b.closest(".mrule-row").dataset.rid);
+      confirmBar(L.rrule_apply_confirm ?? "받은함(미분류)의 기존 메일에도 이 규칙을 지금 적용할까요?",
+        () => applyRun(rid, L.rrule_applied ?? "기존 적용"));
+    }));
+    box.querySelector("#rrApplyAll")?.addEventListener("click", () => {
+      confirmBar(L.rrule_apply_all_confirm ?? "모든 사용자 규칙을 받은함(미분류) 전체에 지금 적용할까요?",
+        () => applyRun(null, L.rrule_applied_all ?? "전체 적용"));
+    });
+  };
+  await draw();
+}
+
 // 관리자 패널: 계정 목록 + 추가 + 역할/상태 관리(관리자 전용).
 async function openAdminPanel() {
   const L = state.lex;
@@ -581,6 +684,7 @@ async function openAdminPanel() {
     <div class="admin-err danger-text" style="min-height:1em;margin-bottom:6px"></div>
     <div id="teamReady" class="admin-readiness"></div>
     <div id="acList"></div>
+    <div id="mailRouteBox" class="admin-mailrules"></div>
     <div id="mailRuleBox" class="admin-mailrules"></div>
     <div class="ui-confirm-btns"><button class="ui-confirm-cancel">${L.btn_cancel}</button></div>
   </div>`;
@@ -588,6 +692,7 @@ async function openAdminPanel() {
   const close = () => { ov.remove(); renderAuth(); }; // 닫을 때 관리자 버튼 준비상태 점 갱신
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  wireMailRouteRules(ov); // 메일→과제 라우팅 규칙 섹션(자기완결 렌더·바인드)
   wireMailRules(ov); // 메일 제외 규칙 섹션(자기완결 렌더·바인드)
   const errBox = ov.querySelector(".admin-err");
   const issueLabel = (issue) => {
@@ -6727,6 +6832,7 @@ const EVENT_KIND_LABELS = {
   add_attachment_type: "첨부유형 추가", set_artifact_requirement: "산출물 요건", link_part_project: "부품-과제 연결",
   mail_assign: "메일 분류", mail_unassign: "분류 취소", mail_delete: "메일 삭제", mail_update: "메일 수정",
   mail_register: "메일 등록", mail_collect_manual: "메일 수집", mail_rule_set: "메일 제외규칙 설정", mail_rule_delete: "메일 제외규칙 삭제", ai_proposal_approve: "제안 승인",
+  mail_route_rule_set: "메일 라우팅규칙 추가", mail_route_rule_delete: "메일 라우팅규칙 삭제", mail_route_apply: "라우팅규칙 소급 적용",
   ai_proposal_reject: "제안 반려", recommender_run: "추천 실행", chat_query: "AI 질문", knowledge_upsert: "지식 갱신",
   gate_clear: "게이트 통과", gate_mode_set: "게이트 설정", anchor_move: "단계 이동", attachment_add: "첨부 추가",
   deliverable_add: "산출물 추가", deliverable_edit: "산출물 수정", deliverable_due_edit: "마감 수정",

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### dev-ERP B7 Outlook식 메일→과제 라우팅 규칙 (사용자 UI + 소급 적용)
+
+- Owner 요청 "outlook 처럼 규칙 넣을수있게 + 현재 폴더에 다 적용하겠습니까?" 구현: `mail_route_rule` 테이블(발신자/제목 × 포함/완전일치 → 대상 과제) + 인입 훅(INBOX행만, 등록순 첫 매칭 승, 기분류 메일 무접촉) + `applyMailRouteRulesToExisting` 소급 적용(run17 `setMailProject` 재사용 — 승격 할일 동행 이동·autosync write-through·멱등). 대상 과제 실존 검증과 inbox 대상 거부(자기참조 차단) 포함.
+- "현재 이미 만들어진 규칙들도 보이게" — 엔진 정본 바인딩(`_workmeta/system/bindings/mail_project_router.yaml`)을 zero-dep 파서(`src/mail_router_binding.mjs`)로 읽어 관리자 패널에 읽기 전용 표(12규칙, 조건 앞 3개+N 요약)로 표시. 정본은 엔진 레인 소유, 사용자 규칙이 우선임을 캡션 명시.
+- 관리자 패널 신설 섹션: 사용자 규칙 CRUD + 규칙별/전체 [기존 적용] + 추가 직후 Outlook식 "기존 받은함 메일에도 지금 적용할까요?" 인라인 확인 바(전역 uiConfirm 은 패널 오버레이를 제거하므로 패널 내부 사용 금지 — 실측 확인 후 인라인으로 설계). 서버 4 라우트는 관리자 게이트, 이벤트 3종에 패턴 값 미기재(필드명·대상·건수만).
+- 검증: 신규 node:test 4건(MAIL-ROUTE-001~004) + 전건 스위트 green + verify_gate Level 1 PASS(`docs/slices/B7-MAIL-ROUTE-RULES.md`) + 프리뷰 전 플로우 DOM 증빙 (worker: claude_fable-5).
+
 ### dev-ERP ENGINE-10 system/ad mail isolation layer
 
 - ENGINE-10 시스템/광고 메일 분류층을 auto-intake LLM 앞단 결정적 prepass로 배선했다. `[dev-erp]`, `[Soulforge]`, `나이트워치`, `아침보고` 기본 시스템 제목 신호와 광고/수신거부/List-Unsubscribe 메타 신호를 본문 없이 판정해 후보에서 제외하고, apply 시 `mail_receipts.csv`에 `no_action` 영수증(`system_mail_layer`)을 남겨 재판단 루프를 끊는다.

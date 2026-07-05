@@ -43,6 +43,7 @@ import { CODEX_TASK_BRIDGE_VERSION, runCodexTaskTurn } from "./src/codex_bridge.
 import { buildMorningBrief, hasContent, localDateKey, runMorningBriefCycle } from "./src/morning_brief.mjs";
 import { buildKnowledgeOverview, readWikiPage } from "./src/knowledge_overview.mjs";
 import { buildContextGraph, listContextProjects } from "./src/context_graph.mjs";
+import { readRouterBinding } from "./src/mail_router_binding.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -2073,6 +2074,35 @@ const server = createServer(async (req, res) => {
       const result = store.deleteMailExcludeRule(id);
       if (result.error) return send(res, 400, result);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_rule_delete", used_refs: ["mail_exclude_rule"], data_label: "real" });
+      return send(res, 200, result);
+    }
+    // Outlook식 메일→과제 라우팅 규칙(2026-07-05 owner): 사용자 규칙 CRUD + '기존 메일에 지금 적용'.
+    // GET 은 엔진 바인딩(정본 YAML, 읽기 전용)도 함께 반환 — 기존 규칙에 맞춰 추가하도록.
+    if (path === "/api/mail/route-rules" && req.method === "GET") {
+      if (!allowSharedWrite(req, res)) return;
+      return send(res, 200, { user_rules: store.mailRouteRules(), engine: readRouterBinding(KNOWLEDGE_SHELL.root) });
+    }
+    if (path === "/api/mail/route-rules" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      const { field, pattern, match, project_id, note } = await readJson(req);
+      const result = store.addMailRouteRule({ field, pattern, match, project_id, note, created_by: actor });
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_route_rule_set", to: String(project_id ?? ""), note: String(field ?? ""), used_refs: ["mail_route_rule"], data_label: "real" }); // 패턴 값은 로그 미기재(제외 규칙 관례)
+      return send(res, 200, result);
+    }
+    if (path === "/api/mail/route-rules/delete" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      const { id } = await readJson(req);
+      const result = store.deleteMailRouteRule(id);
+      if (result.error) return send(res, 400, result);
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_route_rule_delete", used_refs: ["mail_route_rule"], data_label: "real" });
+      return send(res, 200, result);
+    }
+    if (path === "/api/mail/route-rules/apply" && req.method === "POST") {
+      if (!allowSharedWrite(req, res)) return;
+      const { rule_id } = await readJson(req);
+      const result = store.applyMailRouteRulesToExisting({ rule_id: rule_id ?? null });
+      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "mail_route_apply", to: rule_id != null ? `rule:${rule_id}` : "all", note: `moved=${result.moved} items=${result.items_moved}`, used_refs: ["mail_route_rule", "core_mail"], data_label: "real" });
       return send(res, 200, result);
     }
     if (path === "/api/mail/label" && req.method === "POST") {

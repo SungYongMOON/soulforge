@@ -38,6 +38,7 @@ import { buildTeamHostPreflight } from "../tools/team_preflight.mjs";
 import { buildMorningBrief, briefBodies, hasContent, runMorningBriefCycle } from "../src/morning_brief.mjs";
 import { buildKnowledgeOverview, readWikiPage } from "../src/knowledge_overview.mjs";
 import { buildContextGraph, listContextProjects } from "../src/context_graph.mjs";
+import { readRouterBinding } from "../src/mail_router_binding.mjs";
 import { applyRuntimeCorrections, planRuntimeCorrections } from "../tools/runtime_corrections.mjs";
 import { backupRuntimeDb, restoreTestRuntimeDb, runtimeHealthCheck } from "../tools/runtime_ops.mjs";
 import { runRuntimeReleaseAudit } from "../tools/runtime_release_audit.mjs";
@@ -6059,5 +6060,119 @@ test("KNOW-OV-005: overview 60초 TTL 캐시 — 반복 호출이 재스캔하�
     assert.notEqual(a, c, "TTL 만료 후 재계산");
     const d = buildKnowledgeOverview(root, { now: t0 + 61_000, fresh: true });
     assert.notEqual(c, d, "fresh=true 는 캐시 우회");
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+// ── MAIL-ROUTE: Outlook식 사용자 라우팅 규칙(메일→과제) ──
+test("MAIL-ROUTE-001: 규칙 CRUD — field/match/대상과제 검증, 받은함 대상 거부", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "체계", class: "active", data_label: "real" });
+  store.upsertProject({ id: "P00-000_INBOX", title: "미분류 메일함", class: "inbox", data_label: "real" });
+  assert.equal(store.addMailRouteRule({ field: "mailbox", pattern: "x", project_id: "P26-014" }).error, "field_invalid");
+  assert.equal(store.addMailRouteRule({ field: "subject", pattern: "x", match: "regex", project_id: "P26-014" }).error, "match_invalid");
+  assert.equal(store.addMailRouteRule({ field: "subject", pattern: "  ", project_id: "P26-014" }).error, "pattern_required");
+  assert.equal(store.addMailRouteRule({ field: "subject", pattern: "x", project_id: "P77-777" }).error, "project_not_found");
+  assert.equal(store.addMailRouteRule({ field: "subject", pattern: "x", project_id: "P00-000_INBOX" }).error, "target_is_inbox");
+  const a = store.addMailRouteRule({ field: "subject", pattern: "KVDS", project_id: "P26-014", created_by: "owner" });
+  assert.equal(a.ok, true);
+  const rules = store.mailRouteRules();
+  assert.equal(rules.length, 1);
+  assert.equal(rules[0].pattern, "KVDS");
+  assert.equal(rules[0].project_id, "P26-014");
+  assert.equal(store.deleteMailRouteRule(a.id).ok, true);
+  assert.equal(store.deleteMailRouteRule(9999).error, "rule_not_found");
+  assert.equal(store.mailRouteRules().length, 0);
+});
+
+test("MAIL-ROUTE-002: 인입 라우팅 — INBOX행만 대상, 첫 매칭 승, 대소문자 무시, 기분류 보존", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "체계", class: "active", data_label: "real" });
+  store.upsertProject({ id: "P24-049", title: "SAS", class: "active", data_label: "real" });
+  store.addMailRouteRule({ field: "subject", pattern: "kvds", project_id: "P26-014" });
+  store.addMailRouteRule({ field: "from", pattern: "lig.co.kr", project_id: "P24-049" });
+  const at = "2026-07-01T09:00:00+09:00";
+  const r1 = store.ingestMail({ id: "mr-1", project_code: "P00-000_INBOX", at, subject: "[회의] KVDS 일정 협의", data_label: "real" });
+  assert.equal(r1.project_id, "P26-014", "제목 규칙 매칭(대소문자 무시) → 과제 직행");
+  const r2 = store.ingestMail({ id: "mr-2", project_code: "P00-000_INBOX", at, subject: "자료 송부", counterpart: "kim@LIG.co.kr", data_label: "real" });
+  assert.equal(r2.project_id, "P24-049", "발신자 규칙 매칭");
+  const r3 = store.ingestMail({ id: "mr-3", project_code: "P24-049", at, subject: "KVDS 관련", data_label: "real" });
+  assert.equal(r3.project_id, "P24-049", "이미 실과제로 지정된 인입은 라우팅 안 함(첫 규칙이 P26-014여도)");
+  const r4 = store.ingestMail({ id: "mr-4", project_code: "P00-000_INBOX", at, subject: "일반 안내", data_label: "real" });
+  assert.equal(r4.project_id, "P00-000_INBOX", "미매칭은 받은함 유지");
+  // 규칙 캐시 무효화: 규칙 삭제 후 신규 인입은 라우팅되지 않아야
+  for (const r of store.mailRouteRules()) store.deleteMailRouteRule(r.id);
+  const r5 = store.ingestMail({ id: "mr-5", project_code: "P00-000_INBOX", at, subject: "KVDS 후속", data_label: "real" });
+  assert.equal(r5.project_id, "P00-000_INBOX", "삭제된 규칙은 즉시 무효(캐시 무효화)");
+});
+
+test("MAIL-ROUTE-003: 소급 적용 — 받은함 스캔·승격 할일 동행 이동·멱등·rule_id 필터", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-014", title: "체계", class: "active", data_label: "real" });
+  store.upsertProject({ id: "P24-049", title: "SAS", class: "active", data_label: "real" });
+  const at = "2026-07-01T09:00:00+09:00";
+  store.ingestMail({ id: "ap-1", project_code: "P00-000_INBOX", at, subject: "KVDS 검토 요청", data_label: "real" });
+  store.ingestMail({ id: "ap-2", project_code: "P00-000_INBOX", at, subject: "SAS 시험 자료", data_label: "real" });
+  store.ingestMail({ id: "ap-3", project_code: "P00-000_INBOX", at, subject: "일반 공지", data_label: "real" });
+  const promoted = store.promoteMail("ap-1");
+  assert.equal(promoted.ok, true, "소급 전 승격 할일 준비");
+  const rA = store.addMailRouteRule({ field: "subject", pattern: "kvds", project_id: "P26-014" });
+  const rB = store.addMailRouteRule({ field: "subject", pattern: "sas", project_id: "P24-049" });
+  assert.ok(rA.ok && rB.ok);
+  const res1 = store.applyMailRouteRulesToExisting({ rule_id: rA.id });
+  assert.equal(res1.moved, 1, "rule_id 필터 — 해당 규칙만");
+  assert.equal(res1.items_moved, 1, "승격 할일 동행 이동");
+  assert.equal(res1.by_project["P26-014"], 1);
+  assert.equal(store.db.prepare("SELECT project_id FROM core_mail WHERE id='ap-1'").get().project_id, "P26-014");
+  assert.equal(store.db.prepare("SELECT project_id FROM core_item WHERE origin_mail_id='ap-1'").get().project_id, "P26-014", "할일도 새 과제로");
+  const res2 = store.applyMailRouteRulesToExisting({});
+  assert.equal(res2.moved, 1, "전체 적용 — 남은 매칭(ap-2)만 이동");
+  assert.equal(store.db.prepare("SELECT project_id FROM core_mail WHERE id='ap-2'").get().project_id, "P24-049");
+  const res3 = store.applyMailRouteRulesToExisting({});
+  assert.equal(res3.moved, 0, "재실행 멱등 — 받은함에 매칭 잔여 없음");
+  assert.equal(store.db.prepare("SELECT project_id FROM core_mail WHERE id='ap-3'").get().project_id, "P00-000_INBOX", "미매칭 잔류");
+});
+
+test("MAIL-ROUTE-004: 엔진 바인딩 파서 — rules 섹션·리스트키·인라인 빈배열·다음 섹션 종료·부재 파일", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-mrb-"));
+  try {
+    const dir = join(root, "_workmeta", "system", "bindings");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "mail_project_router.yaml"), `schema: soulforge.mail_project_router.v0
+rules:
+  - rule_id: exact_p26
+    project_code: P26-014_MINE
+    state: active
+    confidence_if_matched: exact
+    next_action_if_matched: file
+    match:
+      subject_any:
+        - KVDS
+        - 기뢰탐색음탐기
+      sender_addresses: []
+  - rule_id: hint_p24
+    project_code: P24-049_SAS
+    state: active
+    confidence_if_matched: hint
+    next_action_if_matched: review
+    match:
+      hint_keywords:
+        - SAS
+match_policy:
+  order: first_match
+`);
+    const b = readRouterBinding(root);
+    assert.equal(b.found, true);
+    assert.equal(b.rules.length, 2, "match_policy 섹션에서 파싱 종료 — 규칙 오염 없음");
+    assert.equal(b.rules[0].rule_id, "exact_p26");
+    assert.equal(b.rules[0].project_code, "P26-014_MINE");
+    assert.equal(b.rules[0].confidence, "exact");
+    assert.equal(b.rules[0].next_action, "file");
+    assert.deepEqual(b.rules[0].match.subject_any, ["KVDS", "기뢰탐색음탐기"]);
+    assert.equal(b.rules[0].match.sender_addresses, undefined, "인라인 [] 는 빈 조건 — 키 미생성");
+    assert.equal(b.rules[1].confidence, "hint");
+    assert.deepEqual(b.rules[1].match.hint_keywords, ["SAS"]);
+    const none = readRouterBinding(join(root, "no-such-root"));
+    assert.equal(none.found, false);
+    assert.deepEqual(none.rules, []);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
