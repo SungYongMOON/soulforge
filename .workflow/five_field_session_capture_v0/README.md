@@ -71,6 +71,22 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
   드레인 지표 3종 보고. `notify` 훅은 computer-use 런타임이 점유 중이라 사용하지 않음.
   gate(`post_development_review_gate_v0`) 스텝 바인딩은 후속(owner 결정 대기).
 
+## 다른 PC 설정 (멀티 PC 수집)
+
+수집 버스는 **git** 이다: 레저(five_field_log.jsonl)는 `_workmeta`(private repo)에 쌓이고,
+각 PC 의 기록이 commit+push 로 origin 에 모인다. PC 별 체크리스트:
+
+| 단계 | 무엇 | 어느 PC | 방법 |
+|---|---|---|---|
+| 1 | Codex 계약 훅 | **전 PC 자동** | repo 최신화(`github-down`/git pull)만 하면 끝 — AGENTS.md 계약 1줄과 capture CLI 가 repo 에 있으므로 별도 설치 없음 |
+| 2 | `_workmeta` push 규율 | 전 PC | 각 PC 의 `_workmeta` 클론이 origin push 가능해야 레저가 모임(작업 후 commit+push — AGENTS 기존 규칙 그대로) |
+| 3 | Claude Code Stop guard | Claude 쓰는 PC 만 | 위 "하네스 훅 배선"의 settings.json JSON 복사 — 경로만 그 PC 의 Soulforge 루트로 치환 |
+| 4 | 일일 sweep 자동화 | **메인 PC 1대만** (중복 설치 금지) | `codex/automation.soulforge-five-field-sweep.toml` 을 `~/.codex/automations/soulforge-five-field-sweep/automation.toml` 로 복사 후 Codex 앱 재시작 → Automations 패널에서 ACTIVE 확인 |
+
+sweep 은 시작 시 두 저장소를 pull 하므로(프롬프트 0단계) **다른 PC 에서 push 된 커밋도
+소급 대상에 포함**된다 — 즉 다른 PC 는 "커밋을 push 하는 것"만 지키면 수집이 완성된다.
+sweep 을 여러 PC 에 중복 설치하지 말 것(멱등이라 해는 없지만 이중 소급 시도·불필요 부하).
+
 ## 경계
 
 - 원문(메일/첨부/문서 본문)·secret 값 기록 금지 — CLI 크기/슬러그 가드.
