@@ -9,6 +9,7 @@ dist/
 .vite/
 $CODEX_HOME/
 .claude/
+automations/
 
 _workspaces/**
 !_workspaces/README.md

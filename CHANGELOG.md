@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### Codex 로컬 자동화 상태 public 제외
+
+- 저장소 루트에 잘못 생성될 수 있는 Codex 로컬 자동화 상태 폴더 `automations/`를 public Git 추적 대상에서 제외했다. 메일/텔레그램 발송 상태 같은 보호 운영 메모가 public repo untracked 변경으로 노출되지 않도록 하는 경계 보강이다 (worker: codex_gpt-5).
+
 ### dev-ERP ENGINE-11 stem-v2 generator
 
 - ENGINE-11 줄기 생성기를 project_context 산출물에 배선했다. 새 `branches.csv`/`occurrences.csv`와 `sources.csv.branch_ref`/`suggested_branch_ref`를 additive로 쓰며, 기존 `branch_summaries.csv` 소비자는 header 기반으로 읽도록 보강했다.
