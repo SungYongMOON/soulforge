@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP morning brief: Outlook-readable template + in-progress section
+
+- Owner feedback on the first live brief (2026-07-05 08:00): the mail rendered as one unreadable paragraph and "actual work" was missing. Root cause 1: the HTML part relied on `white-space:pre-wrap`, which Outlook's Word renderer ignores — all line breaks collapsed. The template now carries line structure in markup (heading `<p>` + `<ul><li>` per item, inline-styled summary chips, project code in gray, due date in red, "ERP 열기" button link), which Word-based Outlook renders correctly; a regression assert forbids reintroducing pre-wrap.
+- Root cause 2: open/doing items without a due date belonged to no section, so a member's real workload was invisible — added a "진행 중 (마감 미지정)" section (owner's real data: 11 items now visible alongside 30 proposals). Send-worthiness criteria unchanged (still skips no-action-hook briefs). Covered by extended BRIEF-001 assertions (worker: claude_fable-5).
+
 ### dev-ERP 줄기 v2 온톨로지 정본 + 실행 패킷 2종
 
 - 줄기 개념 정본 확정(`docs/slices/STEM-V2-ONTOLOGY.md`, 2026-07-05 owner 공동설계): 골격줄기(SE 뼈대)·작업줄기(승인 때 탄생→스레드로 성장→완료로 닫힘)·이력줄기(회의체 시간축, 회차 분가·미결 이월) 3종과 연결 등급 원칙("단어는 추천만, 확정은 ID·사람·사용사실") — 현행 제목 문자열 클러스터의 "무더기 그래프" 문제(P24-049 실측)의 교체 설계.

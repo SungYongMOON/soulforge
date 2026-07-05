@@ -5790,6 +5790,7 @@ test("BRIEF-001: 계정별 집계 — 지연/오늘/차단/내게 온 제안 버
   store.db.prepare("UPDATE core_item SET suggested_assignee_ref=? WHERE id=?").run("김민재", "bf6b");
   store.upsertItem({ id: "bf6c", project_id: "P99-200", title: "남의 제안", status: "unclassified", data_label: "synthetic" });
   store.db.prepare("UPDATE core_item SET suggested_assignee_ref=? WHERE id=?").run("박그외", "bf6c");
+  store.upsertItem({ id: "bf8", project_id: "P99-200", title: "마감없는 진행 건", assignee_ref: "김민재", status: "open", data_label: "synthetic" });
 
   const brief = buildMorningBrief(store, kim, today);
   assert.equal(brief.overdue.length, 1, "지연 1(완료건 제외)");
@@ -5798,12 +5799,20 @@ test("BRIEF-001: 계정별 집계 — 지연/오늘/차단/내게 온 제안 버
   assert.equal(brief.proposals.length, 2, "내게 온 미분류 제안만(SQL 직행, 남의 제안 제외)");
   assert.equal(brief.proposals[0].id, "bf6b", "제안은 최신 우선(rowid DESC — 팀 전체 limit 절단에 안 밀림)");
   assert.equal(hasContent(brief), true);
+  assert.equal(brief.inProgress.length, 1, "마감 미지정 진행 건 노출(owner 피드백: '실제 일'이 안 보임)");
   const { subject, text, html } = briefBodies(brief, { appUrl: "https://erp.example:4300" });
   assert.match(subject, /오늘 1·지연 1·새 제안 2/);
   assert.match(text, /지연된 검토/);
   assert.match(text, /\[P99-200\]/);
+  assert.match(text, /진행 중\(마감 미지정\) 1건/);
   assert.match(text, /https:\/\/erp\.example:4300/);
+  // Outlook 호환: 줄구조를 CSS(pre-wrap)가 아니라 태그(<p>/<ul><li>)에 싣는다 — Word 렌더러가 CSS 무시
+  assert.match(html, /<ul[^>]*><li/);
   assert.match(html, /지연된 검토/);
+  assert.match(html, /진행 중/);
+  assert.match(html, /마감없는 진행 건/);
+  assert.doesNotMatch(html, /white-space:pre-wrap/, "Outlook 이 무시하는 pre-wrap 방식 재발 방지");
+  assert.match(html, /ERP 열기/);
 
   // 행동 걸이 없는 계정은 발송 가치 없음(주간 예정만으로는 발송 안 함)
   store.createAccount({ username: "quiet", password: "pw123456", display_name: "조용한", email: "quiet@x.com", roles: ["member"] });

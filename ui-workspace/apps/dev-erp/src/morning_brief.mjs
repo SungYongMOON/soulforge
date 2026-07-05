@@ -40,11 +40,14 @@ export function buildMorningBrief(store, account, todayKey) {
      WHERE status='unclassified' AND suggested_assignee_ref IN (${marks})
      ORDER BY rowid DESC LIMIT 30`
   ).all(...identities);
+  // '실제 일' 가시화(2026-07-05 owner 피드백): 마감 미지정 진행 건은 어느 버킷에도 없어 브리핑에서
+  // 보이지 않았다 — 진행 중 섹션으로 노출(차단 건은 자체 섹션이 있으니 제외).
+  const inProgress = mine.filter((i) => !i.due && i.status !== "blocked");
   return {
     date: todayKey,
     account: { id: account.id, email: account.email, name: account.display_name || account.username },
     total: mine.length,
-    overdue, dueToday, dueWeek, blocked, proposals,
+    overdue, dueToday, dueWeek, blocked, proposals, inProgress,
   };
 }
 
@@ -67,6 +70,20 @@ function section(label, items, max = 5) {
 
 const escapeHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+// Outlook 호환 HTML 섹션(2026-07-05 owner 피드백: pre-wrap CSS 를 Outlook(Word 렌더러)이 무시해
+// 전체가 한 문단으로 붙어 보였음 → 제목 <p> + 목록 <ul><li> 마크업으로 줄구조를 태그에 싣는다).
+function htmlSection(title, items, { color = "#1f48d4", max = 5 } = {}) {
+  if (!items.length) return "";
+  const lis = items.slice(0, max).map((i) => {
+    const proj = i.project_id ? `<span style="color:#8a94a3;font-size:12px">[${escapeHtml(i.project_id)}]</span> ` : "";
+    const due = i.due ? ` <span style="color:#b3261e;font-size:12px">(마감 ${escapeHtml(i.due)})</span>` : "";
+    return `<li style="margin:3px 0">${proj}${escapeHtml(String(i.title ?? "").slice(0, 120))}${due}</li>`;
+  }).join("");
+  const more = items.length > max ? `<p style="color:#8a94a3;font-size:12px;margin:2px 0 0 22px">… 외 ${items.length - max}건</p>` : "";
+  return `<p style="margin:16px 0 4px;font-size:14px;font-weight:bold;color:${color}">${title} <span style="font-weight:normal;color:#555">${items.length}건</span></p>
+<ul style="margin:0;padding-left:22px;font-size:13.5px">${lis}</ul>${more}`;
+}
+
 export function briefBodies(brief, { appUrl = "" } = {}) {
   const subject = `[dev-erp] ${brief.date} 아침 브리핑 — 오늘 ${brief.dueToday.length}·지연 ${brief.overdue.length}·새 제안 ${brief.proposals.length}`;
   const text = [
@@ -75,11 +92,33 @@ export function briefBodies(brief, { appUrl = "" } = {}) {
     section("📌 오늘 마감", brief.dueToday),
     section("⛔ 차단됨", brief.blocked),
     section("📥 내게 온 새 제안(분류 대기)", brief.proposals),
+    section("📋 진행 중(마감 미지정)", brief.inProgress ?? []),
     section("🗓️ 7일 내 예정", brief.dueWeek, 3),
     appUrl ? `\n자세히: ${appUrl}` : "",
     "\n— dev-erp 자동 브리핑(회신 불필요)",
   ].filter(Boolean).join("\n");
-  const html = `<div style="font-family:sans-serif;font-size:14px;white-space:pre-wrap">${escapeHtml(text)}</div>`;
+
+  const summaryChip = (label, n, color) => n
+    ? `<span style="color:${color};font-weight:bold">${label} ${n}</span>` : `<span style="color:#8a94a3">${label} 0</span>`;
+  const summary = [
+    summaryChip("지연", brief.overdue.length, "#b3261e"),
+    summaryChip("오늘 마감", brief.dueToday.length, "#9a6700"),
+    summaryChip("차단", brief.blocked.length, "#b3261e"),
+    summaryChip("새 제안", brief.proposals.length, "#1f48d4"),
+    summaryChip("진행 중", (brief.inProgress ?? []).length, "#3d6a4f"),
+  ].join('<span style="color:#c6ccd4"> &nbsp;·&nbsp; </span>');
+  const html = `<div style="font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:14px;color:#222;line-height:1.6;max-width:640px">
+<p style="margin:0 0 4px;font-size:16px"><b>${escapeHtml(brief.account.name)}</b>님, <b>${escapeHtml(brief.date)}</b> 아침 브리핑입니다.</p>
+<p style="margin:0 0 6px;font-size:13px">${summary}</p>
+${htmlSection("🔴 지연", brief.overdue, { color: "#b3261e" })}
+${htmlSection("📌 오늘 마감", brief.dueToday, { color: "#9a6700" })}
+${htmlSection("⛔ 차단됨", brief.blocked, { color: "#b3261e" })}
+${htmlSection("📥 내게 온 새 제안 (분류 대기)", brief.proposals, { color: "#1f48d4" })}
+${htmlSection("📋 진행 중 (마감 미지정)", brief.inProgress ?? [], { color: "#3d6a4f" })}
+${htmlSection("🗓️ 7일 내 예정", brief.dueWeek, { color: "#555", max: 3 })}
+${appUrl ? `<p style="margin:20px 0 8px"><a href="${escapeHtml(appUrl)}" style="background:#1f48d4;color:#ffffff;padding:9px 22px;border-radius:6px;text-decoration:none;font-weight:bold">ERP 열기</a></p>` : ""}
+<p style="margin:14px 0 0;color:#8a94a3;font-size:12px">— dev-erp 자동 브리핑 · 회신 불필요</p>
+</div>`;
   return { subject, text, html };
 }
 
