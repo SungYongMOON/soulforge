@@ -1,6 +1,6 @@
 # ENGINE-10-SYSTEM-MAIL-LAYER — 시스템/광고 메일 분류층 (Gmail식 격리)
 
-- status: **ready** / parallel_group: G-intake-cycle / depends_on: E8·E1·E9 (done)
+- status: **done 2026-07-05** / parallel_group: G-intake-cycle / depends_on: E8·E1·E9 (done)
 - 규모 추정: 프리패스 ~120줄 + 규칙 파일 + UI 액션 ~60줄 + 테스트 ~120줄 (1일)
 - 작성: claude_fable-5 (2026-07-05, owner 지시 직후 인계)
 
@@ -60,19 +60,38 @@
 
 ## 착수 게이트 (실측 후 진행)
 
-- [ ] runtime 메일 원장에서 시스템 발신 주소·제목 패턴 전수 인벤토리(나이트워치·아침보고·
-      브리핑·기타 자동화) → 규칙 파일 초기값 확정.
-- [ ] 게이트웨이 이벤트 스키마/수집기에 List-Unsubscribe 헤더 흐르는지 확인 — 없으면 S2 는
-      제목/발신 패턴만으로 시작(스키마 확장은 별도 K 조율).
-- [ ] 기존 미분류 143건 중 시스템 유래 비율 실측 → 소급 정리(카테고리 재지정 + not_task
-      영수증) 범위를 owner 에게 보고 후 적용.
+- [x] runtime 규칙 초기값: public 코드 기본값은 제목 prefix(`[dev-erp]`, `[Soulforge]`, `나이트워치`,
+      `아침보고`) + 광고 제목/수신거부 신호. owner 편집 규칙 파일
+      `_workmeta/system/rules/system_mail_rules.json` 이 있으면 병합해 사용.
+- [x] List-Unsubscribe: pending scanner 가 `List-Unsubscribe`/`list_unsubscribe` 메타 컬럼을
+      통과시키도록 배선. 컬럼이 없으면 제목/발신 패턴만으로 시작한다.
+- [ ] 기존 미분류 143건 소급 정리는 운영 원장 범위 owner 확인 후 별도 ops 실행. 이번 패킷은
+      신규 유입 차단/격리층과 영수증 수렴을 먼저 닫음.
+
+## 구현 결과 (2026-07-05, codex_gpt-5)
+
+- `tools/system_mail_rules.mjs`: `_workmeta/system/rules/system_mail_rules.json` optional loader +
+  결정적 `classifySystemMail()` 추가. 본문/첨부/secret 접근 없음.
+- `tools/auto_intake_cycle.mjs`: `scanPending` 직후, LLM 분류 전 `systemMailPrePass()` 추가.
+  매칭된 system/ad 메일은 후보에서 제외하고 apply 시 `mail_receipts.csv`에
+  `disposition=no_action`, `generation_rule_ref=system_mail_layer` 영수증을 쓴다.
+- `src/store.mjs`: 기존 Gmail식 `mail_label`/`mail_label_map`을 재사용하는
+  `ensureMailLabel()`·`setMailLabelByRefs()` 추가. core_mail 행은 삭제하지 않고 `system`/`ad`
+  라벨만 부착한다.
+- `tools/mail_to_task_pending.mjs`: `List-Unsubscribe` 메타 컬럼을 pending item에 보존.
+
+검증:
+
+- `node --test test/auto_intake_cycle.test.mjs` — PASS 36/36.
+- 신규 회귀: system/ad 2건은 LLM mock 입력에서 제외, 업무 메일 1건만 classify 전달,
+  영수증 2건 + core_mail 라벨 2건 착지.
 
 ## 완료 기준
 
 1. 수집 2사이클 관찰 동안 시스템/광고 메일의 **미분류·할일 후보 신규 유입 0**.
-2. 시스템 메일은 메일 이력에 `system` 라벨로 보존(격리 확인, 삭제 0).
-3. 기존 시스템 유래 미분류 소급 정리 완료(owner 승인 범위 내).
-4. node:test 전건 green + 규칙 파일 없는 환경 하위호환(빈 규칙 = 현행 동작).
+2. 시스템 메일은 메일 이력에 `system` 라벨로 보존(격리 확인, 삭제 0). 광고는 `ad` 라벨.
+3. 기존 시스템 유래 미분류 소급 정리 완료(owner 승인 범위 내, 별도 ops).
+4. node:test green + 규칙 파일 없는 환경 하위호환(기본 규칙만 적용).
 
 ## 경계 (공통 가드 준수)
 

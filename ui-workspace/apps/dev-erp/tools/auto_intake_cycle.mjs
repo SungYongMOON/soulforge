@@ -22,6 +22,7 @@ import { readCsvObjects, scanPending } from "./mail_to_task_pending.mjs";
 import { isOutboundMail, threadKeyAliasesForMail, threadKeyForMail } from "./mail_thread_key.mjs";
 import { runCompletionKnowledgeFeed } from "./completion_knowledge_feed.mjs";
 import { runFollowupScan } from "./followup_scan.mjs";
+import { classifySystemMail, loadSystemMailRules } from "./system_mail_rules.mjs";
 import {
   DEFAULT_KNOWLEDGE_INDEX_ROOT,
   applyKnowledgeGroundingToCandidate,
@@ -345,6 +346,88 @@ export function teamMailDedupPrePass(scanned, opts) {
   return { scanned: nextScanned, groupRefsByProject, summary };
 }
 
+function systemMailReceiptRow(project, item, classification, opts) {
+  return {
+    receipt_key: `mailreceipt:${item.history_key}:no_action:${classification.category}`,
+    history_key: item.history_key,
+    project_id: project,
+    disposition: "no_action",
+    status: "auto",
+    handled_at: new Date().toISOString(),
+    reason: `${classification.reason}:${classification.rule_ref}`,
+    source_event_ref: "",
+    source_mail_ref: `mailcsv:${item.history_key}`,
+    source_mail_source_id: item.source_id || "",
+    source_lineage_ref: "",
+    generation_rule_ref: "system_mail_layer",
+    generation_run_ref: opts.runId,
+    body_access: "metadata_only",
+  };
+}
+
+async function applySystemMailLabel(opts, project, item, category, deps = {}) {
+  if (!opts.apply) return 0;
+  if (typeof deps.labelMailCategory === "function") {
+    return Number(await deps.labelMailCategory({ project, item, category })) || 0;
+  }
+  if (deps.labelMailCategory === null) return 0;
+  try {
+    const dbPath = /^([A-Za-z]:[\\/]|\/)/.test(opts.db) ? opts.db : resolve(APP, opts.db);
+    if (!existsSync(dbPath)) return 0;
+    const { openStore } = await import("../src/store.mjs");
+    const store = openStore(dbPath);
+    const result = store.setMailLabelByRefs({
+      project,
+      history_key: item.history_key,
+      label: category,
+      color: category === "system" ? "#64748b" : "#b7791f",
+      on: true,
+    });
+    store.db.close();
+    return result.applied ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function systemMailPrePass(scanned, opts, deps = {}) {
+  const rules = loadSystemMailRules(opts.workmeta);
+  const nextScanned = [];
+  const summary = {
+    system: 0,
+    ad: 0,
+    receipts_planned: 0,
+    receipts_written: 0,
+    receipt_duplicates: 0,
+    labels_applied: 0,
+  };
+  for (const projectScan of scanned) {
+    const nextPending = [];
+    const receiptRows = [];
+    for (const item of projectScan.pending) {
+      const classified = classifySystemMail(item, rules);
+      if (!classified.category) {
+        nextPending.push(item);
+        continue;
+      }
+      summary[classified.category] += 1;
+      receiptRows.push(systemMailReceiptRow(projectScan.project, item, classified, opts));
+      summary.labels_applied += await applySystemMailLabel(opts, projectScan.project, item, classified.category, deps);
+    }
+    if (receiptRows.length) {
+      if (opts.apply && opts.receipts) {
+        const receipt = appendMailReceipts({ workmetaRoot: opts.workmeta, projectId: projectScan.project, rows: receiptRows });
+        summary.receipts_written += receipt.written;
+        summary.receipt_duplicates += receipt.skipped_duplicate;
+      } else {
+        summary.receipts_planned += receiptRows.length;
+      }
+    }
+    nextScanned.push({ ...projectScan, pending: nextPending });
+  }
+  return { scanned: nextScanned, summary };
+}
+
 function defaultExec(cmd, args, { timeout }) {
   return execFileP(cmd, args, { cwd: APP, timeout, maxBuffer: 8 * 1024 * 1024 });
 }
@@ -360,6 +443,7 @@ export async function runCycle(opts, deps = {}) {
     skipped: { not_task: 0, llm_error: 0, busy: 0 },
     ledger: {}, context: null, errors: [], body_access: "metadata_only",
     receipts: { written: 0, skipped_duplicate: 0 },
+    system_mail_layer: { system: 0, ad: 0, receipts_planned: 0, receipts_written: 0, receipt_duplicates: 0, labels_applied: 0 },
     team_mail_dedup: { groups: 0, copies_suppressed: 0, receipts_planned: 0, receipts_written: 0, receipt_duplicates: 0 },
     thread_dedup: { followups: 0, outbound_skipped: 0, receipts_planned: 0, receipts_written: 0, receipt_duplicates: 0, events_written: 0 },
     capability_assign: { enriched: 0 },
@@ -374,6 +458,11 @@ export async function runCycle(opts, deps = {}) {
   try {
     scanned = scanPending(opts.workmeta, {});
     if (opts.projects.length) scanned = scanned.filter((s) => opts.projects.includes(s.project));
+    const systemLayer = await systemMailPrePass(scanned, opts, deps);
+    scanned = systemLayer.scanned;
+    summary.system_mail_layer = systemLayer.summary;
+    summary.receipts.written += systemLayer.summary.receipts_written;
+    summary.receipts.skipped_duplicate += systemLayer.summary.receipt_duplicates;
     const teamDedup = teamMailDedupPrePass(scanned, opts);
     scanned = teamDedup.scanned;
     groupRefsByProject = teamDedup.groupRefsByProject;
@@ -593,13 +682,14 @@ export async function runCycle(opts, deps = {}) {
           "mail_to_task_classify",
           "haengbogwan_run",
           `run:${opts.runId}`,
+          ...(summary.system_mail_layer.system || summary.system_mail_layer.ad ? ["system_mail_layer"] : []),
           ...(summary.team_mail_dedup.groups ? ["team_mail_dedup"] : []),
           ...summary.knowledge_grounding.used_refs,
         ];
         const event = {
           actor_ref: "erp", actor_kind: "ai", kind: "auto_intake_run",
           used_refs: [...new Set(usedRefs)], data_label: "meta",
-          note: `provider=${summary.provider} pending=${summary.pending_total} judged=${summary.judged} candidates=${summary.candidate_count} not_task=${summary.skipped.not_task} errors=${summary.errors.length}`,
+          note: `provider=${summary.provider} pending=${summary.pending_total} judged=${summary.judged} candidates=${summary.candidate_count} system=${summary.system_mail_layer.system} ad=${summary.system_mail_layer.ad} not_task=${summary.skipped.not_task} errors=${summary.errors.length}`,
         };
         if (typeof deps.appendRunEvent === "function") {
           deps.appendRunEvent(event);

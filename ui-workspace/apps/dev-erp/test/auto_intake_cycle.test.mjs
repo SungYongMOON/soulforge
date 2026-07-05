@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 
 import { classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
 import { parseCycleArgs, acquireLock, releaseLock, runCycle, buildProjectContextLines, enrichCandidateWithRules, teamMailDedupPrePass } from "../tools/auto_intake_cycle.mjs";
+import { openStore } from "../src/store.mjs";
 import { branchHintForProject, loadContextHintRules } from "../tools/haengbogwan_run.mjs";
 import { autoIntakeConfig, shouldRunAutoIntake } from "../src/mail_collect.mjs";
 import { pendingForProject, scanPending } from "../tools/mail_to_task_pending.mjs";
@@ -83,6 +84,19 @@ function makeWorkmetaFixture(root) {
   mkdirSync(join(proj, "reports", "메일_이력"), { recursive: true });
   writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
     "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,이벤트유형,스레드\n20260701-001,[P99] 견적 검토 요청,vendor@example.com,2026-07-01T09:00:00,user@example.com,src-1,mail_received,T-main\n");
+  return proj;
+}
+
+function makeSystemMailFixture(root) {
+  const proj = join(root, "P99-001");
+  mkdirSync(join(proj, "reports", "메일_이력"), { recursive: true });
+  mkdirSync(join(proj, "reports", "할일_장부"), { recursive: true });
+  writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID,이벤트유형,List-Unsubscribe\n"
+    + "SYS1,[dev-erp] 일일 업무 보고,bot@soulforge.test,2026-07-01T08:00:00,user@example.com,src-sys,mail_received,\n"
+    + "AD1,(광고) 세미나 안내,marketing@example.com,2026-07-01T08:10:00,user@example.com,src-ad,mail_received,<mailto:unsubscribe@example.com>\n"
+    + "TASK1,[P99] 견적 검토 요청,vendor@example.com,2026-07-01T09:00:00,user@example.com,src-task,mail_received,\n");
+  writeFileSync(join(proj, "reports", "할일_장부", "할일_장부.csv"), "할일키,상태,소스스레드키\n");
   return proj;
 }
 
@@ -171,6 +185,56 @@ test("runCycle dry-run: 자식 실행 0, 계획만 보고", async (t) => {
   assert.deepEqual(summary.ledger["P99-001"], { planned: 1 });
   // dry-run 은 ledger 자식을 실행하지 않고 context 도구도 쓰기 플래그 없이 못 돌게 함(여기선 호출 자체는 허용되나 --apply-context 미포함)
   assert.ok(!calls.includes("tools/mail_to_task_ledger.mjs"));
+});
+
+test("runCycle ENGINE-10: system/ad mail is isolated before LLM with receipts and labels", async (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-system-mail-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  makeSystemMailFixture(root);
+  const dataDir = join(root, "appdata");
+  mkdirSync(dataDir, { recursive: true });
+  const dbPath = join(dataDir, "dev-erp.db");
+  const store = openStore(dbPath);
+  store.ingestMail({ id: "P99-001:SYS1", project_code: "P99-001", at: "2026-07-01T08:00:00", subject: "[dev-erp] 일일 업무 보고", counterpart: "bot@soulforge.test" });
+  store.ingestMail({ id: "P99-001:AD1", project_code: "P99-001", at: "2026-07-01T08:10:00", subject: "(광고) 세미나 안내", counterpart: "marketing@example.com" });
+  store.ingestMail({ id: "P99-001:TASK1", project_code: "P99-001", at: "2026-07-01T09:00:00", subject: "[P99] 견적 검토 요청", counterpart: "vendor@example.com" });
+  store.db.close();
+
+  let classifiedItems = [];
+  const summary = await runCycle({
+    apply: true, json: true, db: dbPath, workmeta: root, dataDir,
+    projects: [], limit: 12, provider: "ollama", fallback: "skip", knowledge: false, skipContext: true,
+    receipts: true, runId: "t-system-mail",
+  }, {
+    exec: async () => ({ stdout: "{}" }),
+    classify: async (items) => {
+      classifiedItems = items;
+      return { judged: items.length, candidates: { TASK1: { work_type: "review" } }, skipped: [], errors: [] };
+    },
+    appendEvent: null,
+  });
+
+  assert.deepEqual(classifiedItems.map((item) => item.history_key), ["TASK1"]);
+  assert.equal(summary.pending_total, 1);
+  assert.equal(summary.system_mail_layer.system, 1);
+  assert.equal(summary.system_mail_layer.ad, 1);
+  assert.equal(summary.system_mail_layer.receipts_written, 2);
+  assert.equal(summary.system_mail_layer.labels_applied, 2);
+  assert.equal(summary.candidate_count, 1);
+
+  const receipt = readFileSync(join(root, "P99-001", "reports", "haengbogwan_mail_receipts", "mail_receipts.csv"), "utf8");
+  assert.match(receipt, /system_mail_rule:subject_prefix/);
+  assert.match(receipt, /ad_mail_rule:ad_subject_or_header/);
+
+  const verify = openStore(dbPath);
+  const labels = verify.db.prepare(
+    `SELECT m.mail_id, l.name FROM mail_label_map m JOIN mail_label l ON l.id=m.label_id ORDER BY m.mail_id, l.name`
+  ).all().map((row) => ({ mail_id: row.mail_id, name: row.name }));
+  verify.db.close();
+  assert.deepEqual(labels, [
+    { mail_id: "P99-001:AD1", name: "ad" },
+    { mail_id: "P99-001:SYS1", name: "system" },
+  ]);
 });
 
 test("pendingForProject: thread 와 event_type 메타를 반환한다", (t) => {

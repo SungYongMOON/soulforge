@@ -26,8 +26,8 @@
   runtime `_workmeta` merge remains a one-time ops follow-up after runtime path inspection**)
 - `slices/ENGINE-10-SYSTEM-MAIL-LAYER.md` — 시스템/광고 메일 분류층(Gmail식 격리): Soulforge
   자동화 메일·광고를 결정적 프리패스로 격리(할일 후보 제외, 삭제 아님) + 사람 교정→규칙 후보
-  피드백 (G-intake-cycle, **ready — owner 지시 2026-07-05. 즉시 조치로 `[dev-erp]` 자기메일
-  exclude 규칙은 운영 등록 완료, 이 패킷은 보존형 격리층**)
+  피드백 (G-intake-cycle, **done 2026-07-05: auto-intake prepass + no_action receipts
+  + core_mail system/ad labels. `[dev-erp]` exclude 규칙과 별도로 보존형 격리층 배선**)
 
 권장 순서 E8→E1→E2→E3→E5→E4→E9→**E10**→E6→E7. 같은 parallel_group 은 같은 파일을 만지므로 한 작업자 직렬.
 

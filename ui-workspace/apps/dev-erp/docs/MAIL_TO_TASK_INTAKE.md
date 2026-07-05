@@ -40,6 +40,7 @@
 ```
 수집 완료(신규 유입 있을 때만)
   → pending 델타(결정적)
+  → 시스템/광고 메일 prepass(결정적 격리 + no_action 영수증)
   → LLM 분류: src/llm.mjs classifyMailForTasks (로컬 Ollama, 메타 전용, format=json)
   → mail_to_task_ledger --auto-open --apply   (결정적 행 작성, 멱등)
   → haengbogwan_run --apply-context           (줄기 project_context 갱신, 메타 전용)
@@ -66,6 +67,11 @@ env (모두 기본 OFF — runtime PC 에서 owner 가 켠다):
 
 알고리즘 최적화 (2026-07-02 2차, claude_fable-5):
 
+- **시스템/광고 격리(ENGINE-10, 2026-07-05)**: LLM 전 단계에서 `[dev-erp]` 등 자동화 제목
+  prefix 와 광고/수신거부/List-Unsubscribe 메타 신호를 결정적으로 분류한다. 매칭 건은
+  후보에서 제외하고 apply 시 `mail_receipts.csv` 에 `no_action` 영수증을 남기며, runtime
+  `core_mail` 에는 삭제 대신 `system`/`ad` 라벨을 붙인다. owner 편집 규칙 파일은
+  `_workmeta/system/rules/system_mail_rules.json`(없으면 기본 규칙).
 - **재판단 수렴(V2)**: 고신뢰(high) `not_task` 판정은 기존 처분 영수증 채널
   (`reports/haengbogwan_mail_receipts/mail_receipts.csv`, disposition=no_action)에 기억되어
   다음 pending 스캔에서 제외된다. medium/low 는 재판단 유지. 공용 작성기 `tools/mail_receipts.mjs`

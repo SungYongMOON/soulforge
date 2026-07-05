@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP ENGINE-10 system/ad mail isolation layer
+
+- ENGINE-10 시스템/광고 메일 분류층을 auto-intake LLM 앞단 결정적 prepass로 배선했다. `[dev-erp]`, `[Soulforge]`, `나이트워치`, `아침보고` 기본 시스템 제목 신호와 광고/수신거부/List-Unsubscribe 메타 신호를 본문 없이 판정해 후보에서 제외하고, apply 시 `mail_receipts.csv`에 `no_action` 영수증(`system_mail_layer`)을 남겨 재판단 루프를 끊는다.
+- core_mail 보존 격리는 기존 Gmail식 label 체계를 재사용한다. 자동층은 `system`/`ad` 라벨을 생성·부착하고 메일 행은 삭제하지 않는다. owner 편집 규칙 파일은 `_workmeta/system/rules/system_mail_rules.json`이 있으면 읽고, 없으면 기본 규칙으로 하위호환 동작한다.
+- 검증: `node --test test/auto_intake_cycle.test.mjs` 36/36 green. 신규 ENGINE-10 회귀는 system/ad 2건이 LLM 입력에서 빠지고, 업무 메일 1건만 classify로 전달되며, 영수증 2건과 core_mail 라벨 2건이 착지함을 확인한다 (worker: codex_gpt-5).
+
 ### dev-ERP B6 줄기 드래그 재부착 서버 API 3종
 
 - 줄기 v2 조작면(드래그=사람 확정)의 서버 절반: `POST /api/items/reanchor`(골격 가지 이동 — anchor 교체+`item_reanchor` from/to 이벤트), `POST /api/items/set-origin-occurrence`(이력줄기 출생 회차 링크 — `core_item.origin_occurrence_ref` ALTER 1종), `POST /api/mail/reattach`(메일→다른 작업줄기 사람 교정 — `mail_reattach` 이벤트 + 교정 영수증 학습 피드백 best-effort, 스레드 원본 불변).
@@ -14,7 +20,7 @@
 ### dev-ERP 줄기 v2 온톨로지 정본 + 실행 패킷 2종
 
 - 줄기 개념 정본 확정(`docs/slices/STEM-V2-ONTOLOGY.md`, 2026-07-05 owner 공동설계): 골격줄기(SE 뼈대)·작업줄기(승인 때 탄생→스레드로 성장→완료로 닫힘)·이력줄기(회의체 시간축, 회차 분가·미결 이월) 3종과 연결 등급 원칙("단어는 추천만, 확정은 ID·사람·사용사실") — 현행 제목 문자열 클러스터의 "무더기 그래프" 문제(P24-049 실측)의 교체 설계.
-- 실행 패킷 분배: `ENGINE-10-STEM-V2-GENERATOR.md`(생성기 교체, engine_thread_codex) + `B6-STEM-REATTACH-API.md`(드래그 재부착 서버 계약/API 3종, ERP 표면 스레드 — 그래프 UI 는 줄기 렌더 레인이 계약 소비). owner 결정 기록: 작업줄기 탄생=정식 등록 시, 이력줄기 승격=8주 3회+1클릭(위임 기본값), 조작형 그래프 요구 확정.
+- 실행 패킷 분배: `ENGINE-11-STEM-V2-GENERATOR.md`(생성기 교체, engine_thread_codex) + `B6-STEM-REATTACH-API.md`(드래그 재부착 서버 계약/API 3종, ERP 표면 스레드 — 그래프 UI 는 줄기 렌더 레인이 계약 소비). owner 결정 기록: 작업줄기 탄생=정식 등록 시, 이력줄기 승격=8주 3회+1클릭(위임 기본값), 조작형 그래프 요구 확정.
 
 ### dev-ERP project-trunk multi-lens views + expandable mindmap branches
 

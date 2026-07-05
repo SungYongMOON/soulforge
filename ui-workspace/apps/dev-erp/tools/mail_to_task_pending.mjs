@@ -100,6 +100,7 @@ export function pendingForProject(mailCsvPath, taskCsvPath) {
       mailbox: firstOf(r, ["메일함", "mailbox"]),
       source_id: firstOf(r, ["메일소스ID"]),
       provider_message_id: firstOf(r, ["메일메시지ID", "provider_message_id", "message_id"]),
+      list_unsubscribe: firstOf(r, ["List-Unsubscribe", "list_unsubscribe", "수신거부헤더"]),
       recipient_role: firstOf(r, ["수신역할", "recipient_role"]),
       event_type: firstOf(r, ["이벤트유형", "event_type"]),
       thread: threadKeyForMail({ thread: rawThread, subject, from }),
