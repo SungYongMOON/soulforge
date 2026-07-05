@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP data-plane split: Soulforge is the backend, runtime is a stateless app server
+
+- Owner architecture decision (2026-07-05): project metadata (`_workmeta` — 줄기/ledgers/receipts) lives only in the Soulforge dev checkout; the runtime clone is a shell (code, SQLite operational DB, TLS certs, mailbox-credential envs, logs) and must not accumulate data. Read paths applied now: the ops launch script passes `--knowledge_shell_root C:\Soulforge` so the knowledge shelf, wiki bodies, and the project-trunk graph on the production 4300 server read the backend directly (no data copied into runtime); the server logs its `데이터 평면 루트` at startup so ops can see which store it reads.
+- Engine write paths (mail ledgers → 할일_장부 → 줄기) still target the runtime-local `_workmeta`; unifying them onto the backend, feeding per-project trunk growth, and merging the existing runtime `_workmeta` into the backend is packaged as `docs/slices/ENGINE-9-BACKEND-DATA-PLANE.md` (Codex lane, verified facts + start gates included), registered in SLICES_INDEX with run order E8→…→E9. Runbook §9 rewritten from "sync policy pending" to the decided architecture (worker: claude_fable-5).
+
 ### 5필드 캡처 Codex 레인 훅 배선 — 계약 편입 + 일일 sweep 자동화
 
 - (owner 승인 2026-07-05 "codex에서도 훅이 되게") `AGENTS.md` AI 작업 실행 계약에 5필드 기록 1줄 편입 — 모든 bounded 작업은 완료 보고 전 `.workflow/five_field_session_capture_v0` capture CLI 로 레저 기록(기록 주체=AI, 원문 미복사). Claude 레인의 Stop guard 와 대칭인 Codex 레인 계약 훅.

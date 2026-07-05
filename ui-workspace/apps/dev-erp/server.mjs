@@ -2334,6 +2334,9 @@ const server = createServer(async (req, res) => {
 
 const onReady = () => {
   console.log(`[dev-erp] ${TLS_ENABLED ? "https" : "http"}://${HOST}:${PORT} (db: ${DB_PATH})${TLS_ENABLED ? " — 직접 TLS, 신뢰 등록용 인증서: /dev-erp-ca.crt" : ""}`);
+  // 데이터 평면 아키텍처(2026-07-05 owner): Soulforge=백엔드, runtime=무상태 앱 서버.
+  // 지식/위키/줄기 읽기는 --knowledge_shell_root 로 백엔드를 가리킨다(분리 시 명시 로그).
+  console.log(`[dev-erp] 데이터 평면 루트: ${KNOWLEDGE_SHELL.root}${resolve(KNOWLEDGE_SHELL.root) !== resolve(ROOT) ? " (백엔드 분리 — 이 checkout 은 앱 서버)" : " (자기 checkout)"}`);
   if (TLS_ENABLED) {
     // 앵커 무결성 대조값: 팀원은 설치 전 `certutil -hashfile dev-erp-ca.crt SHA256` 결과를 이 값과 대조(런북 3.4).
     if (TLS_TRUST_ANCHOR_PATH) console.log(`[dev-erp] 신뢰 앵커 SHA-256: ${createHash("sha256").update(readFileSync(TLS_TRUST_ANCHOR_PATH)).digest("hex")}`);

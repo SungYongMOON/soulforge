@@ -200,15 +200,19 @@ preflight `configuration_ready` OK + 관리자·팀원 로그인 + 팀원이 자
 
 > DB·로컬 데이터·메일함 env 는 그대로 유지된다(git 제외). 코드만 갱신된다.
 
-## 9. 지식 화면 데이터 평면 (2026-07-04)
+## 9. 데이터 평면 아키텍처 (2026-07-05 owner 결정)
 
-지식 탭의 각 영역은 서로 다른 데이터 평면을 읽는다. 배포본에서 빈 화면이 나오면 아래를 확인한다:
+**Soulforge(dev checkout, 예: `C:\Soulforge`) = 데이터 백엔드. runtime clone = 무상태 앱 서버(껍데기).**
+runtime 에 데이터를 동기화하거나 쌓지 않는다 — owner 결정: "Soulforge 에 있는 데이터를 ERP 에
+뿌린다. runtime 은 ERP 서버일 뿐, Soulforge 가 백엔드다."
 
-- **서가 현황(공통·도메인·자산)·위키 본문**: `_workspaces/knowledge/**`(공유 OneDrive 정션)에서
-  읽는다. 정션이 마운트돼 있으면 운영본에서도 정상.
-- **과제별 표(장서·수집 영수증·후보)·사용 기록·줄기 그래프**: `_workmeta/<과제코드>/**` 에서
-  읽는다. 이건 project-local private repo 라 운영 clone 에 **함께 pull 돼 있어야** 화면에 뜬다
-  (`/soulforge-github-down` 의 private repo 신선도 체크 대상). 과제 위키 자체는 공유 정션에 있어
-  `_workmeta` 없이도 목록·본문이 보이지만, 수집 이력/후보/줄기 그래프는 `_workmeta` 과제 디렉터리가
-  운영본에 없으면 비어 보인다(현재 운영 `_workmeta` 는 P00-000_INBOX 만 있을 수 있음 — owner 가
-  과제 `_workmeta` 동기화 범위를 결정한다).
+- **읽기(적용됨)**: 지식 서가·위키 본문·줄기 그래프는 서버 기동 플래그
+  `--knowledge_shell_root <백엔드루트>` 로 백엔드의 `_workmeta`·`_workspaces` 를 직접 읽는다.
+  운영 기동 정경로 `ops/run-dev-erp-background.ps1` 에 `$BackendRoot = "C:\Soulforge"` 로 고정.
+  기동 로그의 `데이터 평면 루트:` 줄로 어느 창고를 읽는지 확인한다.
+- **쓰기(ENGINE-9, 진행 예정)**: 엔진 체인(메일 원장→할일_장부→줄기)이 아직 runtime 로컬
+  `_workmeta` 에 쓴다. 쓰기 경로 백엔드 일원화 + 기존 runtime `_workmeta` 병합 이관은
+  `docs/slices/ENGINE-9-BACKEND-DATA-PLANE.md` (Codex 레인). 완료 전까지는 "새로 쌓이는
+  엔진 산출물은 runtime, 화면이 읽는 것은 백엔드"로 두 창고가 일시적으로 갈라져 있음을 유의.
+- **runtime 에 남는 것(의도)**: 앱 코드, SQLite DB(운영 상태 — `--db` 로 재지정 가능),
+  TLS 인증서(`data/tls`), 메일함 자격증명 env(`guild_hall/state/**`, secret 은 PC 로컬), 로그.

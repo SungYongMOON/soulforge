@@ -48,7 +48,12 @@ $env:DEV_ERP_BRIEF_DOMAIN_ALLOW = "sonartech.com"
 $env:DEV_ERP_PUBLIC_URL = "https://172.16.10.196:4300"
 # 발신 env 를 특정 파일로 고정하려면: $env:DEV_ERP_BRIEF_SENDER_ENV = "guild_hall/state/gateway/mailbox/state/acct_<id>.env"
 
-Start-Process -FilePath $NodeExe -ArgumentList @("server.mjs", "--host", "0.0.0.0", "--port", "4300") `
+# 데이터 평면(2026-07-05 owner 결정): Soulforge(dev checkout)=백엔드, runtime=무상태 앱 서버.
+# 지식/위키/줄기 화면은 백엔드 _workmeta·_workspaces 를 직접 읽는다(runtime 에 데이터 미적재).
+# 엔진 '쓰기' 경로 일원화는 ENGINE-9 패킷(Codex) — 완료 전까지 엔진 산출물은 runtime _workmeta 에 남는다.
+$BackendRoot = "C:\Soulforge"
+
+Start-Process -FilePath $NodeExe -ArgumentList @("server.mjs", "--host", "0.0.0.0", "--port", "4300", "--knowledge_shell_root", $BackendRoot) `
   -WorkingDirectory $App -WindowStyle Hidden `
   -RedirectStandardOutput (Join-Path $LogDir "dev-erp.out.log") `
   -RedirectStandardError (Join-Path $LogDir "dev-erp.err.log")

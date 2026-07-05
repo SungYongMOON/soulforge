@@ -17,8 +17,12 @@
 - `slices/ENGINE-5-RAG-GROUNDED-JUDGE.md` — 판단 근거(RAG) 연결 v1 메타 (G-llm-adapter, **done 2026-07-02: approved source-text index metadata → context/candidate/event used_refs grounding**)
 - `slices/ENGINE-6-KNOWLEDGE-PIPELINE-AUTOMATION.md` — 승인 후 지식 뒷단 자동화+주간 트리아지 (guild_hall/Codex 소유 표면)
 - `slices/ENGINE-7-VOICE-INTAKE.md` — 음성 보관함→할일 합류 (K-3 선행)
+- `slices/ENGINE-9-BACKEND-DATA-PLANE.md` — 데이터 평면 일원화: 엔진 쓰기 경로를 백엔드
+  (`C:\Soulforge/_workmeta`)로 + 줄기 per-project + runtime `_workmeta` 병합 이관
+  (G-intake-cycle, **ready — owner 결정 2026-07-05 "Soulforge=백엔드, runtime=껍데기". 읽기
+  경로는 ERP 표면에서 전환 완료, 이 패킷은 쓰기 경로**)
 
-권장 순서 E8→E1→E2→E3→E5→E4→E6→E7. 같은 parallel_group 은 같은 파일을 만지므로 한 작업자 직렬.
+권장 순서 E8→E1→E2→E3→E5→E4→**E9**→E6→E7. 같은 parallel_group 은 같은 파일을 만지므로 한 작업자 직렬.
 
 어느 LLM(Codex/Claude)이든 패킷 하나를 cold 로 실행 가능. 각 패킷 = `slices/<id>.md`.
 정본 빌드맵: MASTER_BUILD_PLAN_20260614.md, 원칙: CAPABILITY_VISION_20260614.md.
