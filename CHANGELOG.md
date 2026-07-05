@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP project-trunk multi-lens views + expandable mindmap branches
+
+- The 줄기 (project_context) view now offers three purpose-fit lenses via a switcher, each tied to one decision (owner request 2026-07-05): **지도** (radial map — shape at a glance), **목록** (collapsible outline, lazy-rendered — the daily reading view), **우선순위** (triage table sorted by open reviews — what to act on first). Force-directed/3D layouts deliberately excluded as decision-less eye-candy. Zero server change — all lenses derive client-side from the single `/api/context/graph` response; works in both the knowledge tab and the per-project hub tab; lexicon parity.
+- Map branches now fold/unfold like a real mindmap (owner request): clicking a branch blooms its latest 12 children in a fan around it (type-colored — event/task/milestone/actor, hover tooltip with full title, "+N" overflow marker, accent ring on the open branch), clicking again folds, and opening another branch switches (accordion — expanding all 363 nodes at once would be an unreadable hairball). The detail table below still opens on click.
+- Pre-commit adversarial review fixed 2 findings on the lens slice (missing `.trunk-view.on` active-state CSS; legend leaking internal node types `context_branch`/`project_trunk` as raw English). Verified live: expand 12+"+162", collapse, accordion switch, single accent ring, tooltips on all children, console clean; core suite green (one unrelated `server_not_ready` spawn flake under load, passes alone) (worker: claude_fable-5).
+
 ### 5필드 Codex hook guard 경로 이식성 보정
 
 - Soulforge Codex lifecycle hook command 를 `C:/Soulforge/...` 절대경로에서 프로젝트 root 기준 상대경로(`node .workflow/.../codex_hook_guard.mjs`)로 변경했다. 다른 PC 의 checkout 위치가 달라도 `.codex/config.toml` 수정 없이 pull + hook trust 만으로 적용되게 하기 위한 보정이다. 추적 스니펫과 README 설치 절차도 같은 기준으로 갱신했다 (worker: codex_gpt-5).

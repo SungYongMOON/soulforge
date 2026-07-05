@@ -2104,40 +2104,77 @@ function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
   paint();
 }
 
-// 뷰1 지도(방사형) — "전체 모양·큰 갈래 한눈에". 가지 클릭 → 하위 목록.
+// 뷰1 지도(방사형) — "전체 모양·큰 갈래 한눈에". 가지 클릭 → 그 가지 주변으로 하위가 부채꼴로
+// 펼쳐짐(한 번에 한 가지, 다시 클릭하면 접힘 — 전부 펼치면 363노드 털뭉치라 아코디언) + 아래 상세 목록.
+const TRUNK_TYPE_COLOR = { source_event: "#8aa4c8", task_candidate: "#e0a63a", milestone: "#7a5cc0", actor: "#4fa36b" };
 function drawTrunkMap(body, g, ranked) {
   const L = state.lex;
   const branches = ranked.slice(0, 40);
   const hidden = ranked.length - branches.length;
-  const W = 860; const H = 560; const cx = W / 2; const cy = H / 2;
+  const W = 860; const H = 600; const cx = W / 2; const cy = H / 2;
   const maxSrc = Math.max(1, ...branches.map((b) => b.source_count));
-  const bx = (i) => cx + Math.cos((i / branches.length) * 2 * Math.PI - Math.PI / 2) * 205;
-  const by = (i) => cy + Math.sin((i / branches.length) * 2 * Math.PI - Math.PI / 2) * 205;
-  const lines = branches.map((b, i) => `<line x1="${cx}" y1="${cy}" x2="${bx(i)}" y2="${by(i)}" stroke="var(--border,#8884)" stroke-width="1.5"/>`).join("");
-  const nodes = branches.map((b, i) => {
-    const r = 10 + Math.round((b.source_count / maxSrc) * 22);
-    const badge = b.open_review_count ? `<circle cx="${bx(i) + r - 3}" cy="${by(i) - r + 3}" r="8" fill="#e5534b"/><text x="${bx(i) + r - 3}" y="${by(i) - r + 6}" text-anchor="middle" font-size="9" fill="#fff">${b.open_review_count > 99 ? "99+" : b.open_review_count}</text>` : "";
-    const short = (b.label || b.branch_key || "").slice(0, 12);
-    return `<g class="ctx-branch" data-key="${esc(b.branch_key)}" style="cursor:pointer">
-      <circle cx="${bx(i)}" cy="${by(i)}" r="${r}" fill="#4a7dbf" opacity="0.85"/>
-      <text x="${bx(i)}" y="${by(i) + r + 12}" text-anchor="middle" font-size="10" fill="currentColor">${esc(short)}</text>
-      <text x="${bx(i)}" y="${by(i) + 4}" text-anchor="middle" font-size="10" fill="#fff">${b.source_count + b.task_count}</text>${badge}</g>`;
-  }).join("");
+  const angle = (i) => (i / branches.length) * 2 * Math.PI - Math.PI / 2;
+  const bx = (i) => cx + Math.cos(angle(i)) * 205;
+  const by = (i) => cy + Math.sin(angle(i)) * 205;
   const c = g.counts ?? {};
   const moreNote = (hidden > 0 || c.truncated)
     ? `<div class="dim small">${(L.trunk_more ?? "가지 +{n}개는 중요도 하위라 생략됨").replace("{n}", hidden)}${c.truncated ? ` · ${L.trunk_node_cap ?? "노드 상한 도달(일부 생략)"}` : ""}</div>` : "";
-  body.innerHTML = `
-    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:62vh;background:transparent">
-      ${lines}
-      <circle cx="${cx}" cy="${cy}" r="30" fill="#7a5cc0"/>
-      <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="12" fill="#fff">${esc(g.project)}</text>
-      ${nodes}</svg>
-    ${moreNote}
-    <div id="ctxDetail" class="dim small">${L.trunk_hint}</div>`;
-  body.querySelectorAll(".ctx-branch").forEach((n) => n.addEventListener("click", () => {
-    const b = branches.find((x) => x.branch_key === n.dataset.key);
-    $("#ctxDetail").innerHTML = `<h4 class="hub-h4">${esc(b?.label ?? n.dataset.key)} <span class="dim small">(${L.trunk_open_reviews} ${b?.open_review_count ?? 0})</span></h4>${trunkChildTable(g, n.dataset.key)}`;
-  }));
+  body.innerHTML = `<div id="trunkMapSvg"></div>${moreNote}<div id="ctxDetail" class="dim small">${L.trunk_hint}</div>`;
+
+  const paintSvg = () => {
+    const expandedKey = state._trunkExpandKey ?? null;
+    const idx = branches.findIndex((b) => b.branch_key === expandedKey);
+    const lines = branches.map((b, i) => `<line x1="${cx}" y1="${cy}" x2="${bx(i)}" y2="${by(i)}" stroke="var(--border,#8884)" stroke-width="1.5"/>`).join("");
+    const nodes = branches.map((b, i) => {
+      const r = 10 + Math.round((b.source_count / maxSrc) * 22);
+      const badge = b.open_review_count ? `<circle cx="${bx(i) + r - 3}" cy="${by(i) - r + 3}" r="8" fill="#e5534b"/><text x="${bx(i) + r - 3}" y="${by(i) - r + 6}" text-anchor="middle" font-size="9" fill="#fff">${b.open_review_count > 99 ? "99+" : b.open_review_count}</text>` : "";
+      const short = (b.label || b.branch_key || "").slice(0, 12);
+      const openRing = i === idx ? `<circle cx="${bx(i)}" cy="${by(i)}" r="${r + 4}" fill="none" stroke="var(--accent,#1f48d4)" stroke-width="2"/>` : "";
+      return `<g class="ctx-branch" data-key="${esc(b.branch_key)}" style="cursor:pointer">
+        ${openRing}<circle cx="${bx(i)}" cy="${by(i)}" r="${r}" fill="#4a7dbf" opacity="0.85"/>
+        <text x="${bx(i)}" y="${by(i) + r + 12}" text-anchor="middle" font-size="10" fill="currentColor">${esc(short)}</text>
+        <text x="${bx(i)}" y="${by(i) + 4}" text-anchor="middle" font-size="10" fill="#fff">${b.source_count + b.task_count}</text>${badge}</g>`;
+    }).join("");
+    // 펼친 가지의 하위 부채꼴(최신 12개, 종류별 색, hover 에 전체 라벨)
+    let bloom = "";
+    if (idx >= 0) {
+      const all = (g.nodes ?? []).filter((x) => x.branch_key === expandedKey && x.type !== "context_branch")
+        .sort((a, b) => String(b.updated_at ?? "").localeCompare(String(a.updated_at ?? "")));
+      const kids = all.slice(0, 12);
+      const th = angle(idx);
+      const n = kids.length;
+      const spread = Math.min(Math.PI * 0.95, 0.38 * Math.max(1, n - 1));
+      bloom = kids.map((k, j) => {
+        const phi = th + (n === 1 ? 0 : ((j / (n - 1)) - 0.5) * spread);
+        const kx = bx(idx) + Math.cos(phi) * 78;
+        const ky = by(idx) + Math.sin(phi) * 78;
+        const col = TRUNK_TYPE_COLOR[k.type] ?? "#999";
+        const lbl = (k.label ?? "").slice(0, 10);
+        return `<line x1="${bx(idx)}" y1="${by(idx)}" x2="${kx}" y2="${ky}" stroke="${col}" stroke-width="1" opacity="0.55"/>
+          <g><circle cx="${kx}" cy="${ky}" r="5" fill="${col}"><title>${esc(trunkTypeLabel(k.type) ?? k.type)}: ${esc(k.label ?? "")}</title></circle>
+          <text x="${kx}" y="${ky + 14}" text-anchor="middle" font-size="8.5" fill="currentColor" opacity="0.85">${esc(lbl)}</text></g>`;
+      }).join("");
+      if (all.length > kids.length) {
+        const mx = bx(idx) + Math.cos(th) * 108;
+        const my = by(idx) + Math.sin(th) * 108;
+        bloom += `<text x="${mx}" y="${my}" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.7">+${all.length - kids.length}</text>`;
+      }
+    }
+    $("#trunkMapSvg").innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:62vh;background:transparent">
+        ${lines}
+        <circle cx="${cx}" cy="${cy}" r="30" fill="#7a5cc0"/>
+        <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="12" fill="#fff">${esc(g.project)}</text>
+        ${nodes}${bloom}</svg>`;
+    $("#trunkMapSvg").querySelectorAll(".ctx-branch").forEach((n2) => n2.addEventListener("click", () => {
+      const key = n2.dataset.key;
+      state._trunkExpandKey = state._trunkExpandKey === key ? null : key; // 같은 가지 재클릭 = 접기
+      const b = branches.find((x) => x.branch_key === key);
+      $("#ctxDetail").innerHTML = `<h4 class="hub-h4">${esc(b?.label ?? key)} <span class="dim small">(${L.trunk_open_reviews} ${b?.open_review_count ?? 0})</span></h4>${trunkChildTable(g, key)}`;
+      paintSvg();
+    }));
+  };
+  paintSvg();
 }
 
 // 뷰2 목록(아웃라인) — "각 갈래에 뭐가 쌓였고 뭘 할지 읽기". 접이식 details 로 그래프 없이 드릴다운.
