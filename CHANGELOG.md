@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP 줄기 v2 온톨로지 정본 + 실행 패킷 2종
+
+- 줄기 개념 정본 확정(`docs/slices/STEM-V2-ONTOLOGY.md`, 2026-07-05 owner 공동설계): 골격줄기(SE 뼈대)·작업줄기(승인 때 탄생→스레드로 성장→완료로 닫힘)·이력줄기(회의체 시간축, 회차 분가·미결 이월) 3종과 연결 등급 원칙("단어는 추천만, 확정은 ID·사람·사용사실") — 현행 제목 문자열 클러스터의 "무더기 그래프" 문제(P24-049 실측)의 교체 설계.
+- 실행 패킷 분배: `ENGINE-10-STEM-V2-GENERATOR.md`(생성기 교체, engine_thread_codex) + `B6-STEM-REATTACH-API.md`(드래그 재부착 서버 계약/API 3종, ERP 표면 스레드 — 그래프 UI 는 줄기 렌더 레인이 계약 소비). owner 결정 기록: 작업줄기 탄생=정식 등록 시, 이력줄기 승격=8주 3회+1클릭(위임 기본값), 조작형 그래프 요구 확정.
+
 ### dev-ERP project-trunk multi-lens views + expandable mindmap branches
 
 - The 줄기 (project_context) view now offers three purpose-fit lenses via a switcher, each tied to one decision (owner request 2026-07-05): **지도** (radial map — shape at a glance), **목록** (collapsible outline, lazy-rendered — the daily reading view), **우선순위** (triage table sorted by open reviews — what to act on first). Force-directed/3D layouts deliberately excluded as decision-less eye-candy. Zero server change — all lenses derive client-side from the single `/api/context/graph` response; works in both the knowledge tab and the per-project hub tab; lexicon parity.
