@@ -62,11 +62,14 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
         "command": "node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/claude_stop_guard.mjs --guard", "timeout": 20 }] }] } }
   ```
 
-- **Codex CLI**: 차단형 훅이 없으므로 세션 종료 지시에 land_record 실행을 편입 —
-  `AGENTS.md` end-of-task 체크 1줄 편입 또는 `post_development_review_gate_v0` 마지막
-  스텝 바인딩(둘 다 **owner 결정 대기**, workflow.yaml `owner_decision_needed` 참고).
-  결정적 안전망(주간 sweeper: 세션 흔적 대비 레저 갭 스캔→결정적 절반 자동 착지)은
-  ladder packet S4 와 함께 후속.
+- **Codex CLI** (2026-07-05 배선 완료, owner 승인 "codex에서도 훅이 되게"): 차단형 훅이
+  없으므로 2단으로 — ① **계약 훅**: `AGENTS.md` AI 작업 실행 계약에 5필드 기록 1줄 편입
+  (모든 Codex 세션의 완료 보고 전 의무, 규칙 강화 체크와 같은 층) ② **결정적 안전망**:
+  Codex automation `soulforge-five-field-sweep`(일일 07:35, 설치본 `~/.codex/automations/`,
+  추적 사본 `codex/automation.soulforge-five-field-sweep.toml`) — 최근 24시간 커밋 대비
+  레저 갭을 커밋 메시지·stat 만으로 소급 기록(`ai_backfill`), 승격 스캔 리포트 갱신,
+  드레인 지표 3종 보고. `notify` 훅은 computer-use 런타임이 점유 중이라 사용하지 않음.
+  gate(`post_development_review_gate_v0`) 스텝 바인딩은 후속(owner 결정 대기).
 
 ## 경계
 

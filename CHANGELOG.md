@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 5필드 캡처 Codex 레인 훅 배선 — 계약 편입 + 일일 sweep 자동화
+
+- (owner 승인 2026-07-05 "codex에서도 훅이 되게") `AGENTS.md` AI 작업 실행 계약에 5필드 기록 1줄 편입 — 모든 bounded 작업은 완료 보고 전 `.workflow/five_field_session_capture_v0` capture CLI 로 레저 기록(기록 주체=AI, 원문 미복사). Claude 레인의 Stop guard 와 대칭인 Codex 레인 계약 훅.
+- 결정적 안전망: Codex automation `soulforge-five-field-sweep`(일일 07:35, ACTIVE) 설치 — 최근 24시간 커밋 대비 레저 갭을 커밋 메시지·diff --stat 만으로 소급 기록(`ai_backfill`), 승격 스캔 리포트 갱신, 드레인 지표(needs_backfill·큐 적체·레저 신규 행) 보고. 추적 사본은 워크플로우 패키지 `codex/` 하위, 설치본은 `~/.codex/automations/`(기존 NAS 백업 자동화와 동일 형식, TOML 이스케이프 검증). `notify` 훅은 computer-use 런타임 점유로 제외 (worker: claude_fable-5).
+
 ### dev-ERP 지식 유통 루프 완성 — 승인 실기록(B) + Codex 지식 주입(C)
 
 - **B (승인 no-op 해제)**: `approveProposal` 의 completion_digest 분기(`result={ok:true}` 한 줄)를 `applyCompletionDigest` 실기록으로 교체 — 지식 텍스트가 있으면 ① 담당자 메모리(`addMemoryItem`, Mem0 ADD/UPDATE/NOOP 게이트·과제 격리·출처 ref)에 적재해 **다음 Codex 스레드 주입이 처음으로 비어있지 않게** 하고 ② core_knowledge 검색 표면에 요약·키워드·포인터만 기록(`data_label='ai_draft'`, claim_ceiling=observed). 지식이 비면 예전 의미(승인=확인) 유지, 트랜잭션 내 실행(부분 적용 없음). 고여 있던 pending 다이제스트 11+건이 승인 시 살아난다.
