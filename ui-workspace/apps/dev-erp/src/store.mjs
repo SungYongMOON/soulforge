@@ -899,6 +899,7 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_item ADD COLUMN source_mail_source_id TEXT",
     "ALTER TABLE core_item ADD COLUMN source_thread_ref TEXT",
     "ALTER TABLE core_item ADD COLUMN source_group_ref TEXT",
+    "ALTER TABLE core_item ADD COLUMN origin_occurrence_ref TEXT", // 줄기 v2(B6): 이력줄기 출생 회차 `series:<key>#<YYYY-MM-DD>` — 회의 액션 회차 귀속·미결 이월 근거
     "ALTER TABLE core_item ADD COLUMN source_lineage_ref TEXT",
     "ALTER TABLE core_item ADD COLUMN generation_run_ref TEXT",
     "ALTER TABLE core_item ADD COLUMN generation_rule_ref TEXT",
@@ -2333,6 +2334,67 @@ export class Store {
     // review_status=approved: 사람 1클릭 확정이 곧 검토 승인(B-5 제안 수신함). needs_review 잔량 집계가 소진 지표가 된다.
     this.afterItemWrite?.(id); // autosync Phase 1: 분류 확정 → 할일_장부 write-through
     return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
+  }
+
+  // ---------- 줄기 v2 조작면(B6): 드래그 = 사람 확정 = 링크 1개 변경 + 이벤트 ----------
+  // 계약: docs/slices/B6-STEM-REATTACH-API.md. append-only(이벤트 from/to 로 되돌리기), 멱등 no-op.
+  reanchorItem(id, { stage_id, anchor_stage_code, link_kind, link_ref } = {}, { actor_ref = "owner" } = {}) {
+    const item = this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id);
+    if (!item) return { error: "item_not_found" };
+    if (item.status === "archived") return { error: "item_archived" };
+    if (stage_id === undefined && anchor_stage_code === undefined && link_kind === undefined) return { error: "anchor_required" };
+    if (link_kind && !Store.LINK_KINDS.includes(link_kind)) return { error: "link_kind_invalid" };
+    if (stage_id && !this.db.prepare("SELECT 1 FROM core_stage WHERE id=? AND project_id=?").get(stage_id, item.project_id)) return { error: "stage_not_found" };
+    const next = {
+      stage_id: stage_id !== undefined ? (stage_id || null) : item.stage_id,
+      anchor_stage_code: anchor_stage_code !== undefined ? (String(anchor_stage_code ?? "").trim() || null) : item.anchor_stage_code,
+      link_kind: link_kind !== undefined ? (link_kind || null) : item.link_kind,
+      link_ref: link_ref !== undefined ? (String(link_ref ?? "").trim() || null) : item.link_ref,
+    };
+    const fromRef = [item.stage_id, item.anchor_stage_code, item.link_kind, item.link_ref].map((v) => v ?? "").join("|");
+    const toRef = [next.stage_id, next.anchor_stage_code, next.link_kind, next.link_ref].map((v) => v ?? "").join("|");
+    if (fromRef === toRef) return { ok: true, unchanged: true, item };
+    this.db.prepare("UPDATE core_item SET stage_id=?, anchor_stage_code=?, link_kind=?, link_ref=? WHERE id=?")
+      .run(next.stage_id, next.anchor_stage_code, next.link_kind, next.link_ref, id);
+    this.appendEvent({ actor_ref, actor_kind: "human", kind: "item_reanchor", item_ref: id, project_ref: item.project_id,
+      from: fromRef, to: toRef, used_refs: ["stem_drag"], data_label: "real" });
+    this.afterItemWrite?.(id);
+    return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
+  }
+
+  setItemOriginOccurrence(id, { series_key, occurrence_key } = {}, { actor_ref = "owner" } = {}) {
+    const item = this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id);
+    if (!item) return { error: "item_not_found" };
+    const series = String(series_key ?? "").trim();
+    const occurrence = String(occurrence_key ?? "").trim();
+    if (!series || !/^\d{4}-\d{2}-\d{2}/.test(occurrence)) return { error: "occurrence_invalid" };
+    if (/[|\r\n]/.test(series)) return { error: "occurrence_invalid" };
+    const ref = `series:${series}#${occurrence}`;
+    if ((item.origin_occurrence_ref ?? "") === ref) return { ok: true, unchanged: true, item };
+    this.db.prepare("UPDATE core_item SET origin_occurrence_ref=? WHERE id=?").run(ref, id);
+    this.appendEvent({ actor_ref, actor_kind: "human", kind: "item_occurrence_set", item_ref: id, project_ref: item.project_id,
+      from: item.origin_occurrence_ref ?? "", to: ref, used_refs: ["stem_drag"], data_label: "real" });
+    this.afterItemWrite?.(id);
+    return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(id) };
+  }
+
+  // 메일 → 다른 작업줄기 재귀속(사람 교정). 스레드 키 원본은 불변 — 교정은 이벤트로 기록(append-only)하고
+  // 대상 할일의 소스 추적(source_mail_ref)은 비어 있을 때만 채운다. 엔진 학습 피드백(영수증)은 서버 라우트 몫.
+  reattachMail(mail_id, item_id, { actor_ref = "owner" } = {}) {
+    const mail = this.db.prepare("SELECT id, project_id FROM core_mail WHERE id=?").get(mail_id);
+    if (!mail) return { error: "mail_not_found" };
+    const item = this.db.prepare("SELECT * FROM core_item WHERE id=?").get(item_id);
+    if (!item) return { error: "item_not_found" };
+    const current = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(mail_id);
+    if (current?.id === item_id) return { ok: true, unchanged: true, item };
+    this.appendEvent({ actor_ref, actor_kind: "human", kind: "mail_reattach", item_ref: item_id, project_ref: item.project_id,
+      from: current?.id ?? "", to: item_id, used_refs: ["stem_drag", "correction"], data_label: "real",
+      note: `mail=${String(mail_id).slice(0, 120)}` });
+    if (!item.source_mail_ref) {
+      this.db.prepare("UPDATE core_item SET source_mail_ref=? WHERE id=?").run(mail_id, item_id);
+      this.afterItemWrite?.(item_id);
+    }
+    return { ok: true, item: this.db.prepare("SELECT * FROM core_item WHERE id=?").get(item_id), previous_item: current?.id ?? null };
   }
 
   // run17: 메일 과제 분류(재배정). 연결된 할일(origin_mail_id)도 함께 이동

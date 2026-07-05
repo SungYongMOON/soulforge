@@ -1295,6 +1295,47 @@ const server = createServer(async (req, res) => {
       });
       return send(res, 200, result);
     }
+    // ---------- 줄기 v2 조작(B6): 드래그 재부착 3종 — 계약 docs/slices/B6-STEM-REATTACH-API.md ----------
+    if (path === "/api/items/reanchor" && req.method === "POST") {
+      const input = await readJson(req);
+      if (!canAccessItem(req, input.id)) return send(res, 403, { error: "item_forbidden" });
+      const r = store.reanchorItem(input.id, input, { actor_ref: actor });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/items/set-origin-occurrence" && req.method === "POST") {
+      const input = await readJson(req);
+      if (!canAccessItem(req, input.id)) return send(res, 403, { error: "item_forbidden" });
+      const r = store.setItemOriginOccurrence(input.id, input, { actor_ref: actor });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    if (path === "/api/mail/reattach" && req.method === "POST") {
+      const input = await readJson(req);
+      if (!canAccessMail(req, input.mail_id)) return send(res, 403, { error: "mail_forbidden" });
+      if (!canAccessItem(req, input.item_id)) return send(res, 403, { error: "item_forbidden" });
+      const r = store.reattachMail(input.mail_id, input.item_id, { actor_ref: actor });
+      if (r.error) return send(res, 400, r);
+      // 엔진 학습 피드백(교정 영수증) — best-effort: 실패해도 교정 자체(이벤트)는 성립, 결과에 표기.
+      if (!r.unchanged) {
+        try {
+          const project = r.item?.project_id || "P00-000_INBOX";
+          const historyKey = String(input.mail_id).includes(":") ? String(input.mail_id).slice(String(input.mail_id).indexOf(":") + 1) : String(input.mail_id);
+          const { appendMailReceipts } = await import("./tools/mail_receipts.mjs");
+          // 주의: 영수증은 history_key 멱등이라 기존 영수증(예: thread_followup)이 있으면 skip 됨 —
+          // 교정의 정본 기록은 event_log(mail_reattach)이고 영수증은 학습 피드백 best-effort.
+          const receipt = appendMailReceipts({
+            workmetaRoot: resolve(HERE, "..", "..", "..", "_workmeta"), projectId: project,
+            rows: [{
+              receipt_key: `mailreceipt:${historyKey}:human_reattach:${input.item_id}`,
+              history_key: historyKey, project_id: project, disposition: "reference_only", status: "corrected",
+              handled_at: new Date().toISOString(), reason: `human_reattach:${input.item_id}`,
+              source_mail_ref: String(input.mail_id), generation_rule_ref: "stem_drag", body_access: "metadata_only",
+            }],
+          });
+          r.receipt_written = receipt?.written ?? 0;
+        } catch (e) { r.receipt_written = 0; r.receipt_error = String(e?.message ?? e).slice(0, 80); }
+      }
+      return send(res, 200, r);
+    }
     if (path === "/api/items/confirm" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const input = JSON.parse(body || "{}");

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP B6 줄기 드래그 재부착 서버 API 3종
+
+- 줄기 v2 조작면(드래그=사람 확정)의 서버 절반: `POST /api/items/reanchor`(골격 가지 이동 — anchor 교체+`item_reanchor` from/to 이벤트), `POST /api/items/set-origin-occurrence`(이력줄기 출생 회차 링크 — `core_item.origin_occurrence_ref` ALTER 1종), `POST /api/mail/reattach`(메일→다른 작업줄기 사람 교정 — `mail_reattach` 이벤트 + 교정 영수증 학습 피드백 best-effort, 스레드 원본 불변).
+- 전부 멱등 no-op(같은 목적지 재호출 unchanged:true)·append-only(from/to 로 되돌리기)·autosync write-through·B-1 actor 세션 강제 경로. 그래프 UI(줄기 렌더 레인)는 `docs/slices/B6-STEM-REATTACH-API.md` 계약을 소비.
+- 독립 테스트 `test/stem_reattach.test.mjs` 3본 + npm test 목록 누락 2파일(`stem_reattach`, `mail_collect_summary`) 편입. 전체 직렬 460/460 green.
+
 ### dev-ERP morning brief: Outlook-readable template + in-progress section
 
 - Owner feedback on the first live brief (2026-07-05 08:00): the mail rendered as one unreadable paragraph and "actual work" was missing. Root cause 1: the HTML part relied on `white-space:pre-wrap`, which Outlook's Word renderer ignores — all line breaks collapsed. The template now carries line structure in markup (heading `<p>` + `<ul><li>` per item, inline-styled summary chips, project code in gray, due date in red, "ERP 열기" button link), which Word-based Outlook renders correctly; a regression assert forbids reintroducing pre-wrap.
