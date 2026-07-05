@@ -93,6 +93,8 @@ const CODEX_TASK_DEFAULTS = Object.freeze({
   service_tier: CODEX_TASK_DEFAULT_SERVICE_TIER,
 });
 const KNOWLEDGE_SHELL_ROOT = resolve(flag("knowledge_shell_root", ROOT));
+const BACKEND_ROOT = resolve(process.env.DEV_ERP_BACKEND_ROOT || ROOT);
+const BACKEND_WORKMETA_ROOT = join(BACKEND_ROOT, "_workmeta");
 const FILEIO = process.env.DEV_ERP_FILEIO === "1" || process.argv.includes("--fileio");
 const UPLOAD_MAX = Number(process.env.DEV_ERP_UPLOAD_MAX || 50 * 1024 * 1024); // 50MB 기본 상한
 const isRuntimeCheckout = (p) => /(^|[\\/])Soulforge-runtime([\\/]|$)/i.test(resolve(p));
@@ -264,7 +266,7 @@ function splitCsvLine(line) {
   return out;
 }
 function mailReceiptsSummary(project = null) {
-  const wmRoot = resolve(HERE, "..", "..", "..", "_workmeta");
+  const wmRoot = BACKEND_WORKMETA_ROOT;
   const folders = project
     ? [String(project)]
     : (existsSync(wmRoot) ? readdirSync(wmRoot).filter((e) => { try { return statSync(join(wmRoot, e)).isDirectory(); } catch { return false; } }) : []);
@@ -1052,7 +1054,7 @@ const server = createServer(async (req, res) => {
       if (!admin) return send(res, 403, { error: "admin_only" });
       if (isCollecting()) return send(res, 200, { ok: false, error: "already_collecting" });
       const repoRoot = resolve(HERE, "..", "..", "..");
-      const r = await collectAllMailboxes(store, { repoRoot, appDir: HERE, dbRel: DB_IS_DEFAULT ? "data/dev-erp.db" : DB_PATH, log: console.log });
+      const r = await collectAllMailboxes(store, { repoRoot, backendRoot: BACKEND_ROOT, appDir: HERE, dbRel: DB_IS_DEFAULT ? "data/dev-erp.db" : DB_PATH, log: console.log });
       store.appendEvent({ actor_ref: admin.username, actor_kind: "human", kind: "mail_collect_manual", used_refs: ["mail", "mailbox_env"], data_label: "meta" });
       return send(res, 200, r);
     }
@@ -2333,6 +2335,7 @@ const server = createServer(async (req, res) => {
 });
 
 const onReady = () => {
+  console.log(`[dev-erp] backend write root: ${BACKEND_ROOT}${resolve(BACKEND_ROOT) !== resolve(ROOT) ? " (external data plane)" : " (self checkout)"}`);
   console.log(`[dev-erp] ${TLS_ENABLED ? "https" : "http"}://${HOST}:${PORT} (db: ${DB_PATH})${TLS_ENABLED ? " — 직접 TLS, 신뢰 등록용 인증서: /dev-erp-ca.crt" : ""}`);
   // 데이터 평면 아키텍처(2026-07-05 owner): Soulforge=백엔드, runtime=무상태 앱 서버.
   // 지식/위키/줄기 읽기는 --knowledge_shell_root 로 백엔드를 가리킨다(분리 시 명시 로그).
@@ -2364,7 +2367,7 @@ const onReady = () => {
   // autosync Phase 2: 할일_장부 → ERP 자동 import 폴링(결정적·LLM 무관). 동기 버튼 불필요.
   // 기본 OFF(테스트·:memory: 무영향). 켜기: 환경변수 DEV_ERP_AUTOSYNC=1 또는 --autosync. 간격 DEV_ERP_AUTOSYNC_MS(기본 10s).
   if (process.env.DEV_ERP_AUTOSYNC === "1" || args.includes("--autosync")) {
-    const root = resolve(HERE, "..", "..", "..");
+    const root = BACKEND_ROOT;
     // Phase 2: 할일_장부 → ERP 자동 import 폴링.
     startAutosyncPoll(store, { root, intervalMs: Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000, log: console.log });
     // 자동화: import 폴링과 같은 간격으로 '각자 메일=각자 일' 재적용(신규 import 분 자동 확정). 수동 재배정은 폴백.
@@ -2388,7 +2391,7 @@ const onReady = () => {
     const repoRoot = resolve(HERE, "..", "..", "..");
     const collectDbRel = DB_IS_DEFAULT ? "data/dev-erp.db" : DB_PATH;
     setInterval(() => {
-      collectAllMailboxes(store, { repoRoot, appDir: HERE, dbRel: collectDbRel, log: console.log })
+      collectAllMailboxes(store, { repoRoot, backendRoot: BACKEND_ROOT, appDir: HERE, dbRel: collectDbRel, log: console.log })
         .catch((e) => console.error("[mail-collect] 자동수집 오류:", e.message));
     }, mailCollectSec * 1000);
     console.log(`[dev-erp] 메일 자동수집 ON: ${mailCollectSec}s 간격`);

@@ -64,19 +64,21 @@ function truthyEnv(name) {
   return value === "1" || value === "true" || value === "yes" || value === "on";
 }
 
-function routeBindingPath(repoRoot) {
+function routeBindingPath(repoRoot, backendRoot = repoRoot) {
   const explicit = String(process.env.DEV_ERP_MAIL_PROJECT_ROUTER_BINDING || "").trim();
   if (explicit) return resolve(explicit);
+  const backendBinding = resolve(backendRoot || repoRoot, "_workmeta", "system", "bindings", "mail_project_router.yaml");
+  if (existsSync(backendBinding)) return backendBinding;
   const localBinding = resolve(repoRoot, "_workmeta", "system", "bindings", "mail_project_router.yaml");
   if (existsSync(localBinding)) return localBinding;
   const siblingSourceBinding = resolve(repoRoot, "..", "Soulforge", "_workmeta", "system", "bindings", "mail_project_router.yaml");
   return existsSync(siblingSourceBinding) ? siblingSourceBinding : "";
 }
 
-export function mailRouteBackfillConfig({ repoRoot = process.cwd() } = {}) {
+export function mailRouteBackfillConfig({ repoRoot = process.cwd(), backendRoot = repoRoot } = {}) {
   const explicitEnabled = String(process.env.DEV_ERP_MAIL_ROUTE_BACKFILL || "").trim() !== "";
   const explicitBinding = String(process.env.DEV_ERP_MAIL_PROJECT_ROUTER_BINDING || "").trim() !== "";
-  const binding = routeBindingPath(repoRoot);
+  const binding = routeBindingPath(repoRoot, backendRoot);
   const enabled = truthyEnv("DEV_ERP_MAIL_ROUTE_BACKFILL") || explicitBinding || (!explicitEnabled && !!binding);
   if (!enabled) return { enabled: false, required: explicitEnabled || explicitBinding, reason: "disabled" };
   if (!binding || !existsSync(binding)) return { enabled: false, required: true, reason: "binding_missing" };
@@ -87,6 +89,13 @@ export function mailRouteBackfillConfig({ repoRoot = process.cwd() } = {}) {
     includeHint: truthyEnv("DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HINT"),
     privateDeep: truthyEnv("DEV_ERP_MAIL_ROUTE_BACKFILL_PRIVATE_DEEP"),
   };
+}
+
+export function buildAutoIntakeArgs({ dbRel = "data/dev-erp.db", workmetaRoot, projects = [] } = {}) {
+  const args = ["tools/auto_intake_cycle.mjs", "--db", dbRel, "--apply", "--json"];
+  if (workmetaRoot) args.push("--workmeta", workmetaRoot);
+  for (const project of projects) if (project) args.push("--project", project);
+  return args;
 }
 
 function parseRouteBackfillSummary(stdout) {
@@ -121,11 +130,12 @@ export function shouldRunAutoIntake(result, cfg = autoIntakeConfig()) {
 }
 
 // store: dev-erp Store. repoRoot: soulforge root(수집기·등록부 cwd). appDir: dev-erp 앱 dir(도구 cwd). dbRel: --db 경로.
-export async function collectAllMailboxes(store, { repoRoot, appDir, dbRel = "data/dev-erp.db", fetchTimeoutMs = 180000, ingestTimeoutMs = 60000, routeBackfillTimeoutMs = 60000, autoIntakeTimeoutMs = 300000, log = () => {} } = {}) {
+export async function collectAllMailboxes(store, { repoRoot, backendRoot = repoRoot, appDir, dbRel = "data/dev-erp.db", projects = [], fetchTimeoutMs = 180000, ingestTimeoutMs = 60000, routeBackfillTimeoutMs = 60000, autoIntakeTimeoutMs = 300000, log = () => {} } = {}) {
   if (collecting) return { ok: false, error: "already_collecting" };
   collecting = true;
   const started = Date.now();
   const py = pyBin();
+  const workmetaRoot = resolve(backendRoot || repoRoot || process.cwd(), "_workmeta");
   const result = { ok: true, register: null, fetch: null, ingest: null, errors: [] };
   try {
     // 활성·메일함 enabled 계정이 없으면 자식 프로세스 없이 조기반환.
@@ -166,14 +176,14 @@ export async function collectAllMailboxes(store, { repoRoot, appDir, dbRel = "da
 
     // ③ 원장 → core_mail 인입
     try {
-      const { stdout } = await execFileP("node", ["tools/scan_mail_ledger.mjs", "--apply", "--db", dbRel],
+      const { stdout } = await execFileP("node", ["tools/scan_mail_ledger.mjs", "--apply", "--db", dbRel, "--workmeta", workmetaRoot],
         { cwd: appDir, timeout: ingestTimeoutMs, maxBuffer: 8 * 1024 * 1024 });
       result.ingest = parseIngestSummary(stdout);
     } catch (e) { result.ingest = { error: String(e?.message || e).slice(0, 160) }; result.errors.push("ingest"); }
 
     // ④ P00에 들어온 메일을 프로젝트 라우터 규칙으로 exact backfill.
     // hint와 private-deep은 오분류 위험이 있어 env로 명시할 때만 켠다.
-    const routeCfg = mailRouteBackfillConfig({ repoRoot });
+    const routeCfg = mailRouteBackfillConfig({ repoRoot, backendRoot });
     if (routeCfg.enabled) {
       try {
         const args = ["tools/mail_project_route_backfill.mjs", "--apply", "--db", dbRel, "--repo-root", repoRoot, "--binding", routeCfg.binding, "--json"];
@@ -198,7 +208,7 @@ export async function collectAllMailboxes(store, { repoRoot, appDir, dbRel = "da
     // ⑤ 자동 인입 사이클(opt-in, 베스트에포트 — 실패해도 수집 결과(ok)는 바꾸지 않는다)
     if (shouldRunAutoIntake(result)) {
       try {
-        const { stdout } = await execFileP("node", ["tools/auto_intake_cycle.mjs", "--db", dbRel, "--apply", "--json"],
+        const { stdout } = await execFileP("node", buildAutoIntakeArgs({ dbRel, workmetaRoot, projects }),
           { cwd: appDir, timeout: autoIntakeTimeoutMs, maxBuffer: 8 * 1024 * 1024 });
         result.auto_intake = parseJsonLoose(stdout) ?? { raw: "ok" };
       } catch (e) {

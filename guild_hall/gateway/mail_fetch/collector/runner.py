@@ -222,6 +222,16 @@ def _is_repo_relative_ref(raw: str) -> bool:
     ))
 
 
+def _backend_root_from_env(repo_root: Path) -> Path:
+    raw = str(os.environ.get("DEV_ERP_BACKEND_ROOT", "")).strip()
+    if not raw:
+        return Path(repo_root).expanduser().resolve()
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        path = Path(repo_root) / path
+    return path.resolve()
+
+
 def _resolve_path(raw: str, *, base_dir: Path, repo_root: Optional[Path] = None) -> Path:
     resolved = Path(raw).expanduser()
     if resolved.is_absolute():
@@ -343,6 +353,8 @@ class CollectorConfig:
     last_summary_file: Path
     attachment_root: Path
     mail_candidate_queue_root: Path
+    mail_history_workmeta_root: Path
+    mail_history_workspace_root: Path
 
     limit: int = 50
     retry_max: int = 3
@@ -414,6 +426,7 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
         base_dir=env_base_dir,
         repo_root=repo_root,
     )
+    backend_root = _backend_root_from_env(repo_root)
 
     attachment_max = _env_int(env, "EMAIL_FETCH_ATTACHMENT_MAX_BYTES", 30 * 1024 * 1024)
     limit = _env_int(env, "EMAIL_FETCH_LIMIT", 50)
@@ -505,6 +518,8 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
             base_dir=env_base_dir,
             repo_root=repo_root,
         ),
+        mail_history_workmeta_root=backend_root / "_workmeta",
+        mail_history_workspace_root=backend_root / "_workspaces",
         limit=max(limit, 1),
         retry_max=max(_env_int(env, "EMAIL_FETCH_RETRY_MAX", 3), 1),
         retry_backoff_sec=(1, 2, 4),
@@ -715,6 +730,8 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
         repo_root=config.repo_root,
         queue_root=config.mail_candidate_queue_root,
         inbox_root=config.inbox_root,
+        history_workmeta_root=config.mail_history_workmeta_root,
+        history_workspace_root=config.mail_history_workspace_root,
         source_workspace_map=config.source_workspace_map,
     )
 

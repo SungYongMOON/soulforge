@@ -398,8 +398,9 @@ export async function runCycle(opts, deps = {}) {
     summary.pending_total = scanned.reduce((a, s) => a + s.pending.length, 0);
   } catch (e) { summary.errors.push(`pending:${String(e?.message ?? e).slice(0, 120)}`); }
 
+  const activeProjects = [...new Set([...(opts.projects ?? []), ...scanned.map((s) => s.project).filter(Boolean)])];
   const knowledgeRefsByProject = new Map();
-  const knowledgeProjects = [...new Set([...(opts.projects ?? []), ...scanned.map((s) => s.project)])];
+  const knowledgeProjects = activeProjects;
   for (const projectCode of knowledgeProjects) {
     const refs = listProjectKnowledgeRefs(projectCode, {
       includeCommon: Boolean(opts.knowledgeCommon),
@@ -505,7 +506,7 @@ export async function runCycle(opts, deps = {}) {
   if (!opts.skipContext) {
     const useDeterministic = opts.fallback === "deterministic" && summary.candidate_count === 0 && summary.judged === 0;
     const args = ["tools/haengbogwan_run.mjs", "--db", opts.db, "--workmeta-root", opts.workmeta, "--json"];
-    for (const code of opts.projects) args.push("--project", code);
+    for (const code of activeProjects) args.push("--project", code);
     if (opts.apply) {
       args.push("--apply-context");
       if (opts.knowledge) args.push("--apply-knowledge-candidates");
@@ -517,6 +518,7 @@ export async function runCycle(opts, deps = {}) {
       try { totals = JSON.parse(String(stdout))?.totals ?? null; } catch { /* 텍스트 모드 무시 */ }
       summary.context = {
         exit: 0, deterministic_fallback: useDeterministic,
+        projects: activeProjects,
         accepted_events: totals?.context_accepted_event_count ?? null,
         knowledge_appended: totals?.knowledge_candidate_appended_count ?? null,
         fallback_candidates: useDeterministic ? (totals?.candidate_count ?? null) : 0,

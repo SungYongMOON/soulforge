@@ -18,9 +18,9 @@
 - `slices/ENGINE-6-KNOWLEDGE-PIPELINE-AUTOMATION.md` — 승인 후 지식 뒷단 자동화+주간 트리아지 (guild_hall/Codex 소유 표면)
 - `slices/ENGINE-7-VOICE-INTAKE.md` — 음성 보관함→할일 합류 (K-3 선행)
 - `slices/ENGINE-9-BACKEND-DATA-PLANE.md` — 데이터 평면 일원화: 엔진 쓰기 경로를 백엔드
-  (`C:\Soulforge/_workmeta`)로 + 줄기 per-project + runtime `_workmeta` 병합 이관
-  (G-intake-cycle, **ready — owner 결정 2026-07-05 "Soulforge=백엔드, runtime=껍데기". 읽기
-  경로는 ERP 표면에서 전환 완료, 이 패킷은 쓰기 경로**)
+  (`<backend-root>/_workmeta`)로 + 줄기 per-project + runtime `_workmeta` 병합 이관
+  (G-intake-cycle, **applied 2026-07-05: write path wiring + per-project trunk spawn done;
+  runtime `_workmeta` merge remains a one-time ops follow-up after runtime path inspection**)
 
 권장 순서 E8→E1→E2→E3→E5→E4→**E9**→E6→E7. 같은 parallel_group 은 같은 파일을 만지므로 한 작업자 직렬.
 

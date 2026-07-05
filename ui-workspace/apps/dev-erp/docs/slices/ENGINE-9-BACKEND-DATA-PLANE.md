@@ -1,8 +1,10 @@
 # ENGINE-9-BACKEND-DATA-PLANE — 데이터 평면 일원화 (Soulforge=백엔드, runtime=무상태 서버)
 
-- status: **ready** / parallel_group: G-intake-cycle / depends_on: 없음 (E1·E8 done 전제)
+- status: **code-wired 2026-07-05** / parallel_group: G-intake-cycle / depends_on: 없음 (E1·E8 done 전제)
 - 규모 추정: 배선 ~120줄 + 이관 스크립트 ~150줄 + 테스트 ~150줄 (1~1.5일)
 - 작성: claude_fable-5 (2026-07-05, ERP 표면 스레드에서 진단 완료분 인계)
+- Codex 실행: backend write-path wiring + per-project trunk spawn completed. Existing runtime `_workmeta`
+  merge remains a one-time ops follow-up after inspecting the runtime path and timestamps.
 
 ## owner 결정 (2026-07-05, 원문 취지)
 
@@ -10,7 +12,7 @@
 > 않다. runtime 은 껍데기일 뿐이고 ERP 서버일 뿐이다. runtime 에 데이터가 쌓이면 안 된다.
 > **Soulforge 가 백엔드다.**"
 
-즉: dev checkout(`C:\Soulforge`)의 `_workmeta` 가 유일한 project-metadata 창고이고, runtime
+즉: dev checkout(`<backend-root>`)의 `_workmeta` 가 유일한 project-metadata 창고이고, runtime
 clone 은 코드+운영상태(DB·TLS·mailbox env·로그)만 가진다.
 
 ## 검증된 사실 (2026-07-04~05 실측, ERP 표면 스레드)
@@ -20,7 +22,7 @@ clone 은 코드+운영상태(DB·TLS·mailbox env·로그)만 가진다.
    P25-057, P26-014 344n). runtime `_workmeta` 는 git repo 아님(`.git` 없음, 동기화 장치 없음).
 2. **읽기 경로는 이미 백엔드 전환 완료(2026-07-05)**: 지식 overview·위키 본문·줄기 그래프가
    전부 `KNOWLEDGE_SHELL.root`(`--knowledge_shell_root` 플래그) 하나를 쓰도록 일원화돼 있고,
-   운영 기동 ps1 이 `C:\Soulforge` 를 가리킨다. **이 패킷의 대상은 '쓰기' 경로다.**
+   운영 기동 ps1 이 backend checkout 을 가리킨다. **이 패킷의 대상은 '쓰기' 경로다.**
 3. **엔진 spawn 에 백엔드 전달이 없다**: `src/mail_collect.mjs:201` 이
    `node tools/auto_intake_cycle.mjs --db <rel> --apply --json` 만으로 자식을 띄운다 —
    `--workmeta`/`--project` 미지정 → 자식이 자기(=runtime) checkout 의 `_workmeta` 에 쓴다.
@@ -36,7 +38,7 @@ clone 은 코드+운영상태(DB·TLS·mailbox env·로그)만 가진다.
 
 ### E9-a. 백엔드 루트 관통 배선
 
-- env `DEV_ERP_BACKEND_ROOT`(기본 = 자기 ROOT) 신설. runtime ps1 은 `C:\Soulforge` 로 설정.
+- env `DEV_ERP_BACKEND_ROOT`(기본 = 자기 ROOT) 신설. runtime ps1 은 backend checkout 으로 설정.
 - `server.mjs` 가 spawn/구동하는 전 데이터 경로에 관통:
   - `mail_collect.mjs` → `auto_intake_cycle.mjs` 에 `--workmeta <backend>/_workmeta` 전달
     (내부의 haengbogwan_run·mail_to_task_ledger·receipts·completion_feed 로도 관통되는지 확인)
@@ -79,6 +81,6 @@ clone 은 코드+운영상태(DB·TLS·mailbox env·로그)만 가진다.
 
 ## 검증 방법
 
-- 수집 1사이클 전후 `git -C C:\Soulforge\_workmeta status --short` diff 로 백엔드 성장 확인.
-- `Get-ChildItem C:\Soulforge-runtime\_workmeta -Recurse | ? LastWriteTime -gt <배포시각>` = 0건.
+- 수집 1사이클 전후 `git -C <backend-root>/_workmeta status --short` diff 로 백엔드 성장 확인.
+- `Get-ChildItem <runtime-root>/_workmeta -Recurse | ? LastWriteTime -gt <배포시각>` = 0건.
 - ERP 화면: 지식 → 줄기 그래프에서 과제 선택 → 최신 이벤트가 가지 하위 목록에 표시.

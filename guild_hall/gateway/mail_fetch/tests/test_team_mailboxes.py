@@ -97,6 +97,8 @@ def test_team_runner_isolates_two_mailboxes_and_preserves_mailbox_history(monkey
     ]
     register = _write_team_register(tmp_path, rows)
     _write_env_files(register, ["ops.env", "sales.env"])
+    backend_root = tmp_path / "backend"
+    monkeypatch.setenv("DEV_ERP_BACKEND_ROOT", str(backend_root))
 
     connectors: Dict[str, _FakeConnector] = {}
 
@@ -184,12 +186,25 @@ def test_team_runner_isolates_two_mailboxes_and_preserves_mailbox_history(monkey
         "sales@example.test",
     }
 
-    history_csv = tmp_path / "_workmeta" / "P00-000_INBOX" / "reports" / "메일_이력" / "메일_이력.csv"
+    history_csv = backend_root / "_workmeta" / "P00-000_INBOX" / "reports" / "메일_이력" / "메일_이력.csv"
     history_rows = list(csv.DictReader(history_csv.open("r", encoding="utf-8-sig")))
     assert len(history_rows) == 2
     assert {row["메일함"] for row in history_rows} == {"ops@example.test", "sales@example.test"}
     assert {row["메일메시지ID"] for row in history_rows} == {"shared-provider-message"}
     assert {row["프로젝트코드"] for row in history_rows} == {"P00-000_INBOX"}
+    assert not (tmp_path / "_workmeta").exists()
+    assert (
+        backend_root / "_workspaces" / "P00-000_INBOX" / "reports" / "메일_이력" / "메일_이력.xlsx"
+    ).exists()
+    history_refs = []
+    for result in summary["results"]:
+        for source in result["result"]["sources"]:
+            history_refs.extend(source["mail_candidates"]["history_files"])
+    assert set(history_refs) == {
+        "_workmeta/P00-000_INBOX/reports/메일_이력/메일_이력.csv",
+        "_workspaces/P00-000_INBOX/reports/메일_이력/메일_이력.xlsx",
+        "_workmeta/P00-000_INBOX/reports/메일_이력/메일_일정이벤트.ics",
+    }
 
 
 @pytest.mark.parametrize(

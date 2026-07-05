@@ -41,6 +41,8 @@ def _config(tmp_path: Path) -> runner.CollectorConfig:
         last_summary_file=runtime_root / "logs" / "last_run_summary.json",
         attachment_root=inbox_root,
         mail_candidate_queue_root=tmp_path / "guild_hall" / "state" / "gateway" / "mail_candidate",
+        mail_history_workmeta_root=tmp_path / "_workmeta",
+        mail_history_workspace_root=tmp_path / "_workspaces",
         limit=50,
         gmail_enabled=True,
         gmail_access_token="token-for-test",

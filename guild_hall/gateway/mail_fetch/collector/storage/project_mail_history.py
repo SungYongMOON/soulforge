@@ -4,7 +4,7 @@ import csv
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import hashlib
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional
 from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -116,9 +116,9 @@ class ProjectMailHistoryWriter:
             enabled=True,
             updated=1,
             history_files=[
-                _repo_relative(self.repo_root, paths["csv"]),
-                _repo_relative(self.repo_root, paths["xlsx"]),
-                _repo_relative(self.repo_root, paths["ics"]),
+                self._storage_ref(paths["csv"]),
+                self._storage_ref(paths["xlsx"]),
+                self._storage_ref(paths["ics"]),
             ],
         )
 
@@ -171,6 +171,14 @@ class ProjectMailHistoryWriter:
             "xlsx": workspace_history_root / XLSX_FILE_NAME,
             "ics": history_root / SCHEDULE_FILE_NAME,
         }
+
+    def _storage_ref(self, file_path: Path) -> str:
+        for root, prefix in ((self.workmeta_root, "_workmeta"), (self.workspace_root, "_workspaces")):
+            try:
+                return PurePosixPath(prefix, file_path.relative_to(root).as_posix()).as_posix()
+            except ValueError:
+                continue
+        return _repo_relative(self.repo_root, file_path)
 
 
 def _read_csv_rows(path: Path) -> List[Dict[str, str]]:

@@ -454,6 +454,8 @@ test("runCycle apply: candidates 파일 작성 + ledger/haengbogwan 자식 인�
   assert.equal(JSON.parse(readFileSync(candFile, "utf8"))["20260701-001"].work_type, "review");
   const hgCall = calls.find((a) => a[0] === "tools/haengbogwan_run.mjs");
   assert.ok(hgCall.includes("--apply-context") && hgCall.includes("--apply-knowledge-candidates"));
+  assert.equal(hgCall[hgCall.indexOf("--project") + 1], "P99-001");
+  assert.deepEqual(summary.context.projects, ["P99-001"]);
   assert.ok(!hgCall.includes("--apply"), "LLM 후보가 있으면 결정적 --apply 폴백은 없어야 함");
   assert.equal(summary.context.accepted_events, 3);
   assert.ok(existsSync(join(dataDir, "auto_intake_receipts.jsonl")));

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { parseTeamFetchSummary, mailboxRegisterToken } from "../src/mail_collect.mjs";
+import { parseTeamFetchSummary, mailboxRegisterToken, buildAutoIntakeArgs } from "../src/mail_collect.mjs";
 
 // 생산자 스키마 fixture: guild_hall/gateway/mail_fetch/collector/team_mailboxes.py 의
 // email.fetch.team_mailbox_run.v1 — results[]={mailbox: operator_summary, result: runner 결과}.
@@ -55,4 +55,16 @@ test("mail collect: 등록부 token 은 export_team_mailboxes 의 safeToken 규�
   assert.equal(mailboxRegisterToken("acc_145a8edf2e", "a@b.c"), "acc_145a8edf2e");
   assert.equal(mailboxRegisterToken("문성용", "seabot@example.test"), "seabot_example.test");
   assert.equal(mailboxRegisterToken("", ""), "mailbox");
+});
+
+test("mail collect: auto-intake spawn args carry backend workmeta and projects", () => {
+  const args = buildAutoIntakeArgs({
+    dbRel: "data/dev-erp.db",
+    workmetaRoot: "/backend/_workmeta",
+    projects: ["P26-014", "P00-000_INBOX"],
+  });
+  assert.deepEqual(args.slice(0, 5), ["tools/auto_intake_cycle.mjs", "--db", "data/dev-erp.db", "--apply", "--json"]);
+  assert.equal(args[args.indexOf("--workmeta") + 1], "/backend/_workmeta");
+  assert.deepEqual(args.filter((token) => token === "--project"), ["--project", "--project"]);
+  assert.deepEqual(args.slice(args.indexOf("--project")), ["--project", "P26-014", "--project", "P00-000_INBOX"]);
 });

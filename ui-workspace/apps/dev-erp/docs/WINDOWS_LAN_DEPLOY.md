@@ -67,7 +67,7 @@ runtime checkout 에서는 `4300`, 개발 checkout 에서는 `4310`으로 자동
 
 ```powershell
 New-Item -ItemType Directory -Force data\tls | Out-Null
-$ssl = "C:\Program Files\Git\usr\bin\openssl.exe"
+$ssl = Join-Path $env:ProgramFiles "Git\usr\bin\openssl.exe"
 # 1) 1회용 로컬 CA — 팀 PC 신뢰 등록 대상은 이 ca.crt
 & $ssl req -x509 -newkey rsa:2048 -nodes -keyout data\tls\ca.key -out data\tls\ca.crt -days 3650 -subj "/CN=dev-erp local CA"
 # 2) 서버 인증서 발급 (CA:FALSE + IP SAN)
@@ -202,17 +202,17 @@ preflight `configuration_ready` OK + 관리자·팀원 로그인 + 팀원이 자
 
 ## 9. 데이터 평면 아키텍처 (2026-07-05 owner 결정)
 
-**Soulforge(dev checkout, 예: `C:\Soulforge`) = 데이터 백엔드. runtime clone = 무상태 앱 서버(껍데기).**
+**Soulforge(dev checkout, 예: `<backend-root>`) = 데이터 백엔드. runtime clone = 무상태 앱 서버(껍데기).**
 runtime 에 데이터를 동기화하거나 쌓지 않는다 — owner 결정: "Soulforge 에 있는 데이터를 ERP 에
 뿌린다. runtime 은 ERP 서버일 뿐, Soulforge 가 백엔드다."
 
 - **읽기(적용됨)**: 지식 서가·위키 본문·줄기 그래프는 서버 기동 플래그
   `--knowledge_shell_root <백엔드루트>` 로 백엔드의 `_workmeta`·`_workspaces` 를 직접 읽는다.
-  운영 기동 정경로 `ops/run-dev-erp-background.ps1` 에 `$BackendRoot = "C:\Soulforge"` 로 고정.
+  운영 기동 정경로 `ops/run-dev-erp-background.ps1` 은 `DEV_ERP_BACKEND_ROOT` 또는 runtime checkout 의 sibling backend 를 사용한다.
   기동 로그의 `데이터 평면 루트:` 줄로 어느 창고를 읽는지 확인한다.
-- **쓰기(ENGINE-9, 진행 예정)**: 엔진 체인(메일 원장→할일_장부→줄기)이 아직 runtime 로컬
-  `_workmeta` 에 쓴다. 쓰기 경로 백엔드 일원화 + 기존 runtime `_workmeta` 병합 이관은
-  `docs/slices/ENGINE-9-BACKEND-DATA-PLANE.md` (Codex 레인). 완료 전까지는 "새로 쌓이는
-  엔진 산출물은 runtime, 화면이 읽는 것은 백엔드"로 두 창고가 일시적으로 갈라져 있음을 유의.
+- **쓰기(ENGINE-9, 적용됨)**: 엔진 체인(메일 원장 스캔→할일_장부→줄기)은
+  `DEV_ERP_BACKEND_ROOT=<백엔드루트>` 의 `_workmeta` 를 사용한다. 운영 기동 정경로는
+  `$env:DEV_ERP_BACKEND_ROOT = $BackendRoot` 를 설정하며, 기동 로그의 `backend write root:`
+  줄로 어느 창고에 쓰는지 확인한다.
 - **runtime 에 남는 것(의도)**: 앱 코드, SQLite DB(운영 상태 — `--db` 로 재지정 가능),
   TLS 인증서(`data/tls`), 메일함 자격증명 env(`guild_hall/state/**`, secret 은 PC 로컬), 로그.

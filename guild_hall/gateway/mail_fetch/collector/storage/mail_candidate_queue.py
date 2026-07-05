@@ -47,6 +47,8 @@ class MailCandidateQueue:
         repo_root: Path,
         queue_root: Path,
         inbox_root: Path,
+        history_workmeta_root: Optional[Path] = None,
+        history_workspace_root: Optional[Path] = None,
         source_workspace_map: Optional[Dict[str, str]] = None,
     ) -> None:
         self.repo_root = Path(repo_root).expanduser()
@@ -57,7 +59,11 @@ class MailCandidateQueue:
             "hiworks": "company",
             "o365": "company",
         }
-        self.history_writer = ProjectMailHistoryWriter(repo_root=self.repo_root)
+        self.history_writer = ProjectMailHistoryWriter(
+            repo_root=self.repo_root,
+            workmeta_root=history_workmeta_root,
+            workspace_root=history_workspace_root,
+        )
 
     def enqueue_events(self, events: List[EmailEvent]) -> MailCandidateQueueSummary:
         candidates = [event for event in events if _is_candidate_event(event)]
