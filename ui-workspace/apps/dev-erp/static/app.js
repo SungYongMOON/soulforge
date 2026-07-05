@@ -2049,16 +2049,66 @@ async function hubTrunk(mount, p) {
   drawTrunkGraph(mount, g);
 }
 
-// 공용 줄기 그래프 렌더러 — trunk 중심 방사형 SVG(가지 크기=소스 수, 배지=미결 리뷰, 클릭→하위 목록).
-// 지식 탭(전역 탐색, 드롭다운 header)과 과제 허브(고정 과제) 겸용.
+// 줄기 노드 종류 라벨(사전 경유). 표시 대상 = leaf 4종만. 구조 타입(project_trunk·context_branch)은
+// null 반환 → 범례에서 제외(내부 식별자 노출 방지, context_branch 는 가지 수 중복이라 정보가치도 0).
+function trunkTypeLabel(t) {
+  const L = state.lex;
+  return ({ source_event: L.trunk_type_event, task_candidate: L.trunk_type_task, milestone: L.trunk_type_milestone, actor: L.trunk_type_actor }[t]) ?? null;
+}
+// 한 가지의 하위(이벤트·할일 후보) 최신순 — 지도/목록/우선순위 3뷰 공용(DRY).
+function trunkBranchChildren(g, key, cap = 40) {
+  const kids = (g.nodes ?? []).filter((x) => x.branch_key === key && x.type !== "context_branch")
+    .sort((a, b) => String(b.updated_at ?? "").localeCompare(String(a.updated_at ?? "")));
+  const shown = kids.slice(0, cap);
+  const rows = shown.map((k) => `<tr><td class="dim">${esc(trunkTypeLabel(k.type) ?? k.type)}</td><td>${esc(k.label ?? "")}</td><td class="dim">${esc(k.status ?? "")}</td><td class="dim">${k.updated_at ? localTime(k.updated_at) : "-"}</td></tr>`).join("");
+  return { rows, hidden: kids.length - shown.length, count: kids.length };
+}
+function trunkChildTable(g, key) {
+  const L = state.lex; const ch = trunkBranchChildren(g, key);
+  if (!ch.count) return `<div class="empty small">-</div>`;
+  return `<table><thead><tr><th>${L.trunk_col_type}</th><th>${L.trunk_col_label}</th><th>${L.th_status}</th><th>${L.th_time}</th></tr></thead><tbody>${ch.rows}</tbody></table>${ch.hidden > 0 ? `<div class="dim small">… ${(L.trunk_more ?? "+{n}개 더").replace("{n}", ch.hidden)}</div>` : ""}`;
+}
+
+// 공용 줄기 렌더러 — 3렌즈(지도 방사형 / 목록 아웃라인 / 우선순위 표), 각 뷰는 결정 하나에 대응.
+// 지식 탭(전역 탐색, 드롭다운 header)과 과제 허브(고정 과제) 겸용. 데이터는 g 하나로 전 뷰 파생(서버 무변경).
 function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
   const L = state.lex;
-  // 중요도(소스+할일+미결리뷰) 순 정렬 후 캡 — 임의 CSV 순서 앞 40개 절단이 최중요 가지를 숨기던 문제.
-  const BR_CAP = 40;
+  const view = ["map", "tree", "triage"].includes(state.trunkView) ? state.trunkView : "map";
+  const c = g.counts ?? {};
+  // 중요도(소스+할일+미결) 순 정렬 — 전 뷰 공용 랭킹.
   const ranked = (g.branches ?? []).slice().sort((a, b) =>
     (b.source_count + b.task_count + b.open_review_count) - (a.source_count + a.task_count + a.open_review_count));
-  const branches = ranked.slice(0, BR_CAP);
-  const hiddenBranches = ranked.length - branches.length;
+  const legend = Object.entries(c.by_node_type ?? {})
+    .map(([t, n]) => [trunkTypeLabel(t), n]).filter(([label]) => label) // 표시 leaf 4종만(구조 타입 제외)
+    .map(([label, n]) => `<span class="fav-chip mini">${esc(label)} ${n}</span>`).join(" ");
+  const views = [["map", L.trunk_view_map], ["tree", L.trunk_view_tree], ["triage", L.trunk_view_triage]];
+  const switcher = views.map(([k, label]) => `<button class="fav-chip mini trunk-view ${view === k ? "on" : ""}" data-tv="${k}">${label}</button>`).join(" ");
+  el.innerHTML = `
+    <div class="item-form">${headerHtml}
+      <span class="fav-chip mini danger-text">${L.trunk_open_reviews}: ${c.open_reviews ?? 0}</span>
+      <span style="flex:1"></span>${switcher}</div>
+    <div class="dim small" style="margin:2px 0 6px">${legend}</div>
+    <div id="trunkBody"></div>`;
+  if (afterRender) afterRender();
+  const body = $("#trunkBody");
+  const paint = () => {
+    if (state.trunkView === "tree") return drawTrunkTree(body, g, ranked);
+    if (state.trunkView === "triage") return drawTrunkTriage(body, g, ranked);
+    return drawTrunkMap(body, g, ranked);
+  };
+  el.querySelectorAll(".trunk-view").forEach((b) => b.addEventListener("click", () => {
+    state.trunkView = b.dataset.tv;
+    el.querySelectorAll(".trunk-view").forEach((x) => x.classList.toggle("on", x.dataset.tv === state.trunkView));
+    paint();
+  }));
+  paint();
+}
+
+// 뷰1 지도(방사형) — "전체 모양·큰 갈래 한눈에". 가지 클릭 → 하위 목록.
+function drawTrunkMap(body, g, ranked) {
+  const L = state.lex;
+  const branches = ranked.slice(0, 40);
+  const hidden = ranked.length - branches.length;
   const W = 860; const H = 560; const cx = W / 2; const cy = H / 2;
   const maxSrc = Math.max(1, ...branches.map((b) => b.source_count));
   const bx = (i) => cx + Math.cos((i / branches.length) * 2 * Math.PI - Math.PI / 2) * 205;
@@ -2074,12 +2124,9 @@ function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
       <text x="${bx(i)}" y="${by(i) + 4}" text-anchor="middle" font-size="10" fill="#fff">${b.source_count + b.task_count}</text>${badge}</g>`;
   }).join("");
   const c = g.counts ?? {};
-  const legend = Object.entries(c.by_node_type ?? {}).map(([t, n]) => `<span class="fav-chip mini">${esc(t)} ${n}</span>`).join(" ");
-  const moreNote = (hiddenBranches > 0 || c.truncated)
-    ? `<div class="dim small">${(L.trunk_more ?? "가지 +{n}개는 중요도 하위라 생략됨").replace("{n}", hiddenBranches)}${c.truncated ? ` · ${L.trunk_node_cap ?? "노드 상한 도달(일부 생략)"}` : ""}</div>` : "";
-  el.innerHTML = `
-    <div class="item-form">${headerHtml}
-      <span class="fav-chip mini">${L.trunk_open_reviews}: ${c.open_reviews ?? 0}</span>${legend}</div>
+  const moreNote = (hidden > 0 || c.truncated)
+    ? `<div class="dim small">${(L.trunk_more ?? "가지 +{n}개는 중요도 하위라 생략됨").replace("{n}", hidden)}${c.truncated ? ` · ${L.trunk_node_cap ?? "노드 상한 도달(일부 생략)"}` : ""}</div>` : "";
+  body.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:62vh;background:transparent">
       ${lines}
       <circle cx="${cx}" cy="${cy}" r="30" fill="#7a5cc0"/>
@@ -2087,18 +2134,56 @@ function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
       ${nodes}</svg>
     ${moreNote}
     <div id="ctxDetail" class="dim small">${L.trunk_hint}</div>`;
-  if (afterRender) afterRender();
-  el.querySelectorAll(".ctx-branch").forEach((n) => n.addEventListener("click", () => {
-    const key = n.dataset.key;
-    const KID_CAP = 60;
-    const allKids = (g.nodes ?? []).filter((x) => x.branch_key === key && x.type !== "context_branch")
-      .sort((a, b) => String(b.updated_at ?? "").localeCompare(String(a.updated_at ?? ""))); // 최신 우선
-    const kids = allKids.slice(0, KID_CAP);
-    const hiddenKids = allKids.length - kids.length;
-    const rows = kids.map((k) => `<tr><td class="dim">${esc(k.type)}</td><td>${esc(k.label ?? "")}</td><td class="dim">${esc(k.status ?? "")}</td><td class="dim">${k.updated_at ? localTime(k.updated_at) : "-"}</td></tr>`).join("");
-    const b = branches.find((x) => x.branch_key === key);
-    $("#ctxDetail").innerHTML = `<h4 class="hub-h4">${esc(b?.label ?? key)} <span class="dim small">(${L.trunk_open_reviews} ${b?.open_review_count ?? 0})</span></h4>
-      ${kids.length ? `<table><thead><tr><th>${L.trunk_col_type}</th><th>${L.trunk_col_label}</th><th>${L.th_status}</th><th>${L.th_time}</th></tr></thead><tbody>${rows}</tbody></table>${hiddenKids > 0 ? `<div class="dim small">… ${(L.trunk_more ?? "+{n}개 더").replace("{n}", hiddenKids)}</div>` : ""}` : `<div class="empty small">-</div>`}`;
+  body.querySelectorAll(".ctx-branch").forEach((n) => n.addEventListener("click", () => {
+    const b = branches.find((x) => x.branch_key === n.dataset.key);
+    $("#ctxDetail").innerHTML = `<h4 class="hub-h4">${esc(b?.label ?? n.dataset.key)} <span class="dim small">(${L.trunk_open_reviews} ${b?.open_review_count ?? 0})</span></h4>${trunkChildTable(g, n.dataset.key)}`;
+  }));
+}
+
+// 뷰2 목록(아웃라인) — "각 갈래에 뭐가 쌓였고 뭘 할지 읽기". 접이식 details 로 그래프 없이 드릴다운.
+function drawTrunkTree(body, g, ranked) {
+  const L = state.lex;
+  const branches = ranked.slice(0, 60);
+  const hidden = ranked.length - branches.length;
+  if (!branches.length) { body.innerHTML = `<div class="empty">${L.trunk_tree_empty}</div>`; return; }
+  const items = branches.map((b) => {
+    const rev = b.open_review_count ? `<span class="fav-chip mini danger-text">${L.trunk_col_reviews} ${b.open_review_count}</span>` : "";
+    return `<details class="trunk-tree-item" data-key="${esc(b.branch_key)}">
+      <summary style="cursor:pointer;padding:5px 2px;border-bottom:1px solid var(--border,#8883)">
+        <strong>${esc(b.label || b.branch_key)}</strong>
+        <span class="dim small"> · ${L.trunk_col_sources} ${b.source_count} · ${L.trunk_col_tasks} ${b.task_count}</span> ${rev}
+        <span class="dim small" style="float:right">${b.updated_at ? localTime(b.updated_at) : "-"}</span>
+      </summary>
+      <div class="trunk-tree-kids" style="padding:2px 0 8px 12px"></div>
+    </details>`;
+  }).join("");
+  body.innerHTML = items + (hidden > 0 ? `<div class="dim small">… ${(L.trunk_more ?? "+{n}개 더").replace("{n}", hidden)}</div>` : "");
+  // 펼칠 때 lazy 렌더(초기 전개 비용 회피)
+  body.querySelectorAll(".trunk-tree-item").forEach((d) => d.addEventListener("toggle", () => {
+    if (!d.open) return;
+    const kidsEl = d.querySelector(".trunk-tree-kids");
+    if (kidsEl.dataset.loaded) return;
+    kidsEl.dataset.loaded = "1";
+    kidsEl.innerHTML = trunkChildTable(g, d.dataset.key);
+  }));
+}
+
+// 뷰3 우선순위(트리아지) — "뭐부터 손대나". 미결 리뷰 내림차순(동수는 오래된 갱신 먼저). 행 클릭→하위 펼침.
+function drawTrunkTriage(body, g, ranked) {
+  const L = state.lex;
+  const sorted = ranked.slice().sort((a, b) =>
+    (b.open_review_count - a.open_review_count) || String(a.updated_at ?? "").localeCompare(String(b.updated_at ?? "")));
+  const rows = sorted.map((b) => `<tr class="trunk-triage-row" data-key="${esc(b.branch_key)}" style="cursor:pointer">
+    <td><strong>${esc(b.label || b.branch_key)}</strong></td>
+    <td class="num">${b.open_review_count ? `<span class="danger-text">${b.open_review_count}</span>` : "0"}</td>
+    <td class="num">${b.source_count}</td><td class="num">${b.task_count}</td>
+    <td class="dim">${b.updated_at ? localTime(b.updated_at) : "-"}</td></tr>`).join("");
+  body.innerHTML = `
+    <table><thead><tr><th>${L.trunk_col_label}</th><th>${L.trunk_col_reviews}</th><th>${L.trunk_col_sources}</th><th>${L.trunk_col_tasks}</th><th>${L.trunk_col_updated}</th></tr></thead><tbody>${rows}</tbody></table>
+    <div id="ctxDetail" class="dim small" style="margin-top:8px">${L.trunk_triage_hint}</div>`;
+  body.querySelectorAll(".trunk-triage-row").forEach((tr) => tr.addEventListener("click", () => {
+    const b = sorted.find((x) => x.branch_key === tr.dataset.key);
+    $("#ctxDetail").innerHTML = `<h4 class="hub-h4">${esc(b?.label ?? tr.dataset.key)} <span class="dim small">(${L.trunk_open_reviews} ${b?.open_review_count ?? 0})</span></h4>${trunkChildTable(g, tr.dataset.key)}`;
   }));
 }
 

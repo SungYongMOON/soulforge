@@ -283,6 +283,15 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   위키 노출) + context root 를 KNOWLEDGE_SHELL.root 로 일원화 ⑥ readWikiPage 실경로 containment
   (Windows junction 이 심링크 가드 통과). 런북 9절에 지식 데이터 평면(공유 정션 vs _workmeta) 명시.
   KNOW-OV-004/005 추가.
+- 2026-07-05 3차 (claude_fable-5): 줄기 3렌즈 뷰(owner 지시 "마인드맵 여러 뷰를 목적에 맞게") —
+  drawTrunkGraph 를 뷰 스위처 구조로 재작성. **원칙: 결정 하나당 뷰 하나(갤러리 금지).** 뷰타입
+  분석 후 채택 3 / 제외 명시: ① 지도(방사형 SVG) = "전체 모양·큰 갈래 한눈에"(기존) ② 목록
+  (details 접이식 아웃라인, lazy 렌더) = "각 갈래에 뭐 쌓였고 뭘 할지 읽기"(Roam/Logseq 교훈:
+  실사용은 그래프보다 아웃라인) ③ 우선순위(미결리뷰 내림차순 표, 행 클릭 펼침) = "뭐부터 손대나"
+  (미결 병목 직결). **제외: force-directed/3D = 결정 안 돕는 eye-candy(Obsidian 그래프 교훈).**
+  서버 무변경 — g(=/api/context/graph) 하나로 3뷰 클라 파생, trunkChildTable/trunkBranchChildren
+  공용화(DRY). 지식 탭(드롭다운)·과제 허브 겸용, state.trunkView 프로젝트 전환에도 보존. lexicon
+  양 모드 파리티. 커밋 전 적대검토(2렌즈) 반영.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 

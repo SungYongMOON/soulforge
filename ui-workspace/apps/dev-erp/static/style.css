@@ -188,6 +188,8 @@ body[data-theme="dark"] .nav-items::before { background: var(--line); } /* 다�
   border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 13px; }
 .fav-chip.pin-cur { font-size: 14px; line-height: 1; padding: 5px 9px; }
 .fav-chip.pin-cur.on { color: var(--accent); border-color: var(--accent); }
+/* 줄기 뷰 스위처(지도/목록/우선순위) 활성 표시 — 현재 뷰를 accent 로 강조 */
+.trunk-view.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 .fav-chip.danger { color: var(--danger); border-color: rgba(176,58,46,.4); } /* 파괴적 동작(메일 삭제 등) */
 .fav-chip.pin-cur:disabled { opacity: .35; cursor: default; }
 .digest-na { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 3px 0; } /* S7: 완료요약 '다음 할 일' 한 줄 + 할일화 버튼 */
