@@ -1928,6 +1928,7 @@ function wireTaskCodexButtons(scope) {
 
 // 위젯 할일 행 — 클릭하면 인라인 빠른편집(상태 변경/할일 이동). data-item 있으면 대시보드 click 위임이 처리.
 function itemMiniRow(i, tail = []) {
+  (state._itemCache || (state._itemCache = {}))[i.id] = i; // 행 클릭 상세용 캐시 — openItemQuickEdit 의 정보 블록에서 사용(서버 재요청 없이).
   const title = `${i.urgency === "high" ? '<span class="prio-star" title="우선">⭐</span> ' : ""}<span class="mini-title">${esc(i.title)}</span>${codexTaskIndicatorHtml(i)}`;
   const cells = [`<td>${title}</td>`, `<td class="dim">${esc(i.project_id ?? "")}</td>`,
     ...tail.map((c) => `<td class="dim num">${c}</td>`),
@@ -1971,9 +1972,27 @@ function eventDesc(e, L) {
     default: return e.note || e.kind;
   }
 }
+// 할일 클릭 상세 — 렌더 시 캐시된 항목 객체로 "이게 무슨 할 일인지" 읽기전용 표기(상태/과제/담당/마감/등록/출처/업무유형/완료기준).
+function itemDetailBlockHtml(info, L) {
+  if (!info) return "";
+  const ORIGIN_LABEL = { manual: "직접 추가", mail: "메일", request: "요청", meeting: "회의", schedule: "일정" };
+  const rows = [];
+  rows.push(["상태", (info.urgency === "high" ? "⭐ " : "") + esc(info.status ? (L["status_" + info.status] ?? info.status) : "—")]);
+  rows.push(["과제", esc(info.project_id ? projDisplay(info.project_id) : "—")]);
+  rows.push(["담당", esc(info.assignee_ref || "미배정")]);
+  rows.push(["마감", esc(info.due || "없음")]);
+  const created = info.created_at ? esc(String(info.created_at).slice(0, 16).replace("T", " ")) : "—";
+  rows.push(["등록", created + (info.origin ? ` · ${esc(ORIGIN_LABEL[info.origin] ?? info.origin)}` : "")]);
+  if (info.work_type) rows.push(["업무유형", esc(info.work_type)]);
+  if (info.guide_artifact_name) rows.push(["산출물", esc(info.guide_artifact_name)]);
+  if (info.completion_criteria) rows.push(["완료기준", esc(info.completion_criteria)]);
+  const body = rows.map(([k, v]) => `<div style="display:flex;gap:8px"><span class="dim" style="flex:0 0 60px">${k}</span><span style="flex:1;min-width:0;word-break:break-word">${v}</span></div>`).join("");
+  return `<div class="qe-info" style="margin:2px 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:12px;line-height:1.7">${body}</div>`;
+}
 // 할일 인라인 빠른편집 — 상태 즉시 변경(거기서 바로 편집) + 할일 화면 이동.
 async function openItemQuickEdit(itemId, projectId, title) {
   const L = state.lex;
+  const info = state._itemCache?.[itemId] || null; // 클릭 상세 정보 — 목록 렌더 시 캐시됨(itemMiniRow).
   const STATUSES = ["open", "doing", "waiting", "blocked", "done"];
   // 담당자 배정/재배정(#1) — 신규 '내가 잡기'+관리자 재배정 동시. 기존 /api/items/assign 재사용. 나+미배정+팀원(scopes).
   const qeMe = state.account?.display_name || state.account?.username || state.account?.email || "";
@@ -1987,6 +2006,7 @@ async function openItemQuickEdit(itemId, projectId, title) {
   ov.className = "ui-confirm-overlay";
   ov.innerHTML = `<div class="ui-confirm qedit" role="dialog" aria-label="${esc(title ?? "")}" style="max-width:460px;text-align:left">
     <p class="ui-confirm-msg">${esc(title ?? itemId)}</p>
+    ${itemDetailBlockHtml(info, L)}
     <div class="qe-status" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
       ${STATUSES.map((s) => `<button class="fav-chip qe-st" data-st="${s}">${L["status_" + s] ?? s}</button>`).join("")}
     </div>
@@ -3844,7 +3864,7 @@ async function renderHome() {
         api("/api/items?mine=1"),
         api("/api/items?status=unclassified"),
       ]);
-      const mine = mineItems.filter((i) => i.status !== "done").slice(0, 8);
+      const mine = mineItems.filter((i) => i.status !== "done"); // 전체 표시 — 위젯 body가 스크롤(overflow-y:auto). 새로 추가한 할 일도 스크롤로 확인.
       const qaOpts = projects.filter((p) => p.class === "active" || p.class === "internal")
         .map((p) => `<option value="${esc(p.id)}"${p.id === "general_work" ? " selected" : ""}>${esc(p.title === p.id ? projDisplay(p.id) : `${p.id} · ${p.title}`)}</option>`).join("");
       const quickAdd = `<div class="mine-qa"><input class="mqa-title" placeholder="${L.mine_qa_ph ?? "빠른 할 일 추가…"}" /><select class="mqa-proj" title="${L.project}">${qaOpts}</select><button class="mqa-add fav-chip active">${L.mine_qa_add ?? "추가"}</button></div>`;
