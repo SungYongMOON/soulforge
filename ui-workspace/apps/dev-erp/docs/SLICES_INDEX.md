@@ -5,7 +5,7 @@
 - `slices/AX-WORK-EVENT-HOOK.md` - ERP start/completion buttons as canonical metadata-only work lifecycle hooks for AX accumulation.
 - `slices/B5-PROPOSAL-INBOX.md` — 제안 수신함 v1 + 수신역할(to/cc) core_mail 배선 (**done 2026-07-03: mailcsv 이력키 조인 + 근거 노출·계정 resolve·1클릭 승인=approved + 영수증 집계 API**, ERP 표면 스레드)
 - `slices/STEM-V2-ONTOLOGY.md` — **줄기 v2 온톨로지 정본** (골격·작업·이력줄기, 연결 등급 원칙, 드래그=사람확정 — 2026-07-05 owner 공동설계 확정). 모든 줄기 관련 레인(생성기·그래프 UI·API)의 공통 기준.
-- `slices/ENGINE-11-STEM-V2-GENERATOR.md` — 줄기 생성기 v2: 제목 클러스터 → 링크 기반 3종 줄기 (execution_owner: **engine_thread_codex**, done 2026-07-05)
+- `slices/ENGINE-11-STEM-V2-GENERATOR.md` — 줄기 생성기 v2: 제목 클러스터 → 링크 기반 3종 줄기 (execution_owner: **engine_thread_codex**, done 2026-07-05; retro rebuild pass applied 2026-07-06)
 - `slices/B6-STEM-REATTACH-API.md` — 줄기 드래그 재부착 서버 계약+API 3종 (execution_owner: **erp_surface_thread_claude** — server/store 만, 그래프 UI 는 줄기 렌더 레인 소비)
 
 ## Engine expansion slices (2026-07-02, claude_fable-5 — 할일 엔진 확장)

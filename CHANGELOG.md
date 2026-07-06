@@ -6,6 +6,16 @@
 
 ### dev-ERP ENGINE-11 stem-v2 generator
 
+- Follow-up retro rebuild pass (2026-07-06, worker: codex_gpt-5.5): added dry-run-default
+  `--rebuild-from-ledgers` to `ui-workspace/apps/dev-erp/tools/haengbogwan_project_context.mjs`.
+  It rescans metadata-only task/mail ledgers under `_workmeta/<project>/reports/`, seeds
+  skeleton/work/history stem-v2 events, and writes only with explicit `--apply`.
+- Applied the rebuild to P24-049 and P26-014. P24-049 now has 29 branches
+  (skeleton 7, work 5, history 17) and 86 occurrences; the practical-meeting
+  mail series in the ledger (`... 업무협의`) is a proposed history branch with 5
+  occurrence rows. P26-014 now has 9 branches (skeleton 5, work 0, history 4)
+  and 17 occurrences. No mail bodies or attachments were read.
+
 - ENGINE-11 줄기 생성기를 project_context 산출물에 배선했다. 새 `branches.csv`/`occurrences.csv`와 `sources.csv.branch_ref`/`suggested_branch_ref`를 additive로 쓰며, 기존 `branch_summaries.csv` 소비자는 header 기반으로 읽도록 보강했다.
 - 확정 기준을 제목 클러스터에서 link 기반 줄기로 전환했다. 승인 task는 `work` 줄기(`anchor_ref=item:<id>`)로 태어나고 완료 task는 닫히며, 명시 skeleton anchor는 `skeleton` 줄기로 기록된다. 같은 정규화 제목이 8주 창 안에서 3회 이상 반복된 mail은 `history` 제안 줄기와 회차로만 남긴다.
 - anchor 없는 mail은 제목 조각 branch를 만들지 않고 빈 `branch_ref`로 보류한다. `/api/context/graph`는 v1 파일을 계속 읽으면서 v2 branch metadata와 occurrences를 노출한다.

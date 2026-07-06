@@ -1,6 +1,42 @@
 # ENGINE-11-STEM-V2-GENERATOR — 줄기 생성기 v2 (링크 기반 3종 줄기)
 
 - status: done (2026-07-05, implemented by codex_gpt-5.5)
+
+## Follow-up retro rebuild pass (2026-07-06)
+
+The packet completion criteria needed one full rescan of the already-existing
+task ledger and mail-history ledger. The rebuild entry point is the existing
+project_context owner CLI:
+
+```powershell
+node ui-workspace/apps/dev-erp/tools/haengbogwan_project_context.mjs --project <code> --rebuild-from-ledgers --json
+node ui-workspace/apps/dev-erp/tools/haengbogwan_project_context.mjs --project <code> --rebuild-from-ledgers --apply --json
+```
+
+Rules:
+
+- Dry-run is the default; `--apply` is required to write `project_context/**`.
+- Inputs are metadata-only CSV ledgers:
+  `_workmeta/<project>/reports/할일_장부/할일_장부.csv` and
+  `_workmeta/<project>/reports/메일_이력/메일_이력.csv`.
+- The rebuild does not read mail bodies, attachments, raw packets, workspace
+  documents, or secrets.
+- Confirmed/anchored task rows become `work` branches; repeated mail subjects
+  become `history` proposals and occurrence rows; project/gate/management seeds
+  become `skeleton` branches.
+- Existing rows are merged by stable IDs, so repeated runs are idempotent.
+
+Run evidence with `--generated-at 2026-07-06T00:00:00.000Z --apply`:
+
+- P24-049: task rows 461, mail rows 345, skeleton events 7, work events 5,
+  mail events 345. Final project_context counts: branches 29
+  (skeleton 7, work 5, history 17), occurrences 86. The ledger's
+  practical-meeting series (`... 업무협의`) is proposed as history and has 5
+  occurrence rows.
+- P26-014: task rows 119, mail rows 83, skeleton events 5, work events 0,
+  mail events 83. Final project_context counts: branches 9
+  (skeleton 5, work 0, history 4), occurrences 17. Work stays at 0 because no
+  current task-ledger row met the confirmed/anchored work filter.
 - execution_owner: **engine_thread_codex** (parallel_group: G-intake-cycle — auto_intake/haengbogwan 파일군)
 - 정본: `STEM-V2-ONTOLOGY.md` (온톨로지·판정 순서·연결 등급). 이 패킷은 생성기 교체만 소유.
 - 규모 추정: 코드 ~250줄 + 테스트 ~120줄 (1~1.5일)

@@ -27,6 +27,18 @@ const CONTEXT_RELATIVE_PATH = "project_context";
 const SUMMARY_RELATIVE_PATH = join(CONTEXT_RELATIVE_PATH, "summaries");
 const DEFAULT_BRANCH_KEY = "unclassified";
 const DEFAULT_BRANCH_LABEL = "Unclassified";
+const MAIL_LEDGER_RELATIVE_PATH = join("reports", "\uBA54\uC77C_\uC774\uB825", "\uBA54\uC77C_\uC774\uB825.csv");
+const TASK_LEDGER_RELATIVE_PATH = join("reports", "\uD560\uC77C_\uC7A5\uBD80", "\uD560\uC77C_\uC7A5\uBD80.csv");
+
+const MGMT_SKELETON_SEEDS = [
+  { ref: "contract_schedule", label: "Contract and schedule" },
+  { ref: "procurement_delivery", label: "Procurement and delivery" },
+  { ref: "quality", label: "Quality" },
+  { ref: "meeting_channel", label: "Meeting channel" },
+];
+
+const CLOSED_STATUS_RE = /(done|closed|complete|completed|cancelled|canceled|dismissed|rejected|\uC644\uB8CC|\uC885\uACB0|\uCDE8\uC18C|\uAE30\uAC01)/i;
+const UNCONFIRMED_STATUS_RE = /(unclassified|reference_only|needs[_ -]?triage|\uBBF8\uBD84\uB958|\uBD84\uB958\uD544\uC694)/i;
 
 export const PROJECT_CONTEXT_FILES = {
   branches: join(CONTEXT_RELATIVE_PATH, "branches.csv"),
@@ -424,6 +436,204 @@ function readCsvObjects(filePath, headers) {
     });
     return row;
   });
+}
+
+function readCsvTable(filePath) {
+  if (!existsSync(filePath)) return { headers: [], rows: [] };
+  const records = parseCsv(readFileSync(filePath, "utf8").replace(/^\uFEFF/, "").normalize("NFC"))
+    .filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+  if (!records.length) return { headers: [], rows: [] };
+  const headers = records[0].map((header) => String(header ?? "").trim().normalize("NFC"));
+  return {
+    headers,
+    rows: records.slice(1).map((record) => {
+      const row = {};
+      headers.forEach((header, index) => {
+        row[header] = String(record[index] ?? "").trim();
+      });
+      return row;
+    }),
+  };
+}
+
+function pickField(row, aliases) {
+  for (const alias of aliases) {
+    const value = row?.[alias];
+    if (value != null && String(value).trim() !== "") return String(value).trim();
+  }
+  const normalizedAliases = new Set(aliases.map((alias) => String(alias).normalize("NFC").toLowerCase()));
+  for (const [header, value] of Object.entries(row || {})) {
+    if (normalizedAliases.has(String(header).normalize("NFC").toLowerCase()) && String(value ?? "").trim()) {
+      return String(value).trim();
+    }
+  }
+  return "";
+}
+
+const MAIL_FIELD_ALIASES = {
+  key: ["\uC774\uB825\uD0A4", "history_key", "mail_history_key"],
+  occurredAt: ["\uBA54\uC77C\uC218\uC2E0\uC2DC\uAC01", "\uBC1C\uC0DD\uC2DC\uAC01", "received_at", "source_time", "event_time"],
+  title: ["\uC81C\uBAA9", "title", "subject"],
+  sender: ["\uBC1C\uC2E0\uC790", "from", "sender"],
+  thread: ["\uC2A4\uB808\uB4DC", "thread", "thread_key"],
+  sourceId: ["\uBA54\uC77C\uC18C\uC2A4ID", "mail_source_id", "source_id"],
+  eventType: ["\uC774\uBCA4\uD2B8\uC720\uD615", "event_type", "eventType"],
+  mailbox: ["\uBA54\uC77C\uD568", "mailbox"],
+};
+
+const TASK_FIELD_ALIASES = {
+  key: ["\uD560\uC77C\uD0A4", "task_key", "id"],
+  createdAt: ["\uAE30\uB85D\uC77C", "created_at"],
+  title: ["\uD560\uC77C\uBA85", "title"],
+  assignee: ["\uB2F4\uB2F9\uC790", "assignee", "assignee_ref"],
+  workType: ["\uC5C5\uBB34\uC720\uD615", "work_type"],
+  status: ["\uC0C1\uD0DC", "status"],
+  due: ["\uB9C8\uAC10\uC77C", "due", "due_date"],
+  anchorStage: ["SE\uB2E8\uACC4", "anchor_stage_code", "stage_code"],
+  linkKind: ["\uC5F0\uACB0\uC720\uD615", "link_kind"],
+  linkRef: ["\uC5F0\uACB0\uB300\uC0C1", "link_ref"],
+  completion: ["\uC644\uB8CC\uAE30\uC900", "completion_criteria"],
+  sourceMail: ["\uAD00\uB828\uBA54\uC77C\uC774\uB825\uD0A4", "source_mail_ref", "origin_mail_id"],
+  deliverableRef: ["\uC0B0\uCD9C\uBB3C\uCC38\uC870", "deliverable_ref"],
+  reviewStatus: ["\uAC80\uD1A0\uC0C1\uD0DC", "review_status"],
+  doneAt: ["\uC644\uB8CC\uC77C", "\uC644\uB8CC\uC2DC\uAC01", "done_at", "completed_at"],
+};
+
+function ledgerPointer(projectCode, relativePath, key) {
+  const suffix = key ? `#${key}` : "";
+  return join("_workmeta", projectCode, relativePath).replaceAll("\\", "/") + suffix;
+}
+
+function isClosedStatus(status) {
+  return CLOSED_STATUS_RE.test(String(status ?? ""));
+}
+
+function isConfirmedWorkTask(row) {
+  const key = pickField(row, TASK_FIELD_ALIASES.key);
+  if (!key) return false;
+  const status = pickField(row, TASK_FIELD_ALIASES.status);
+  const reviewStatus = pickField(row, TASK_FIELD_ALIASES.reviewStatus).toLowerCase();
+  if (UNCONFIRMED_STATUS_RE.test(`${status} ${reviewStatus}`)) return false;
+  const hasAnchor = Boolean(
+    pickField(row, TASK_FIELD_ALIASES.anchorStage)
+    || pickField(row, TASK_FIELD_ALIASES.linkKind)
+    || pickField(row, TASK_FIELD_ALIASES.linkRef)
+    || pickField(row, TASK_FIELD_ALIASES.deliverableRef),
+  );
+  return hasAnchor || reviewStatus === "approved";
+}
+
+function buildTaskRebuildEvent(row, { projectCode }) {
+  const key = pickField(row, TASK_FIELD_ALIASES.key);
+  const status = pickField(row, TASK_FIELD_ALIASES.status);
+  const title = pickField(row, TASK_FIELD_ALIASES.title) || key;
+  const doneAt = pickField(row, TASK_FIELD_ALIASES.doneAt);
+  return {
+    source_kind: "task_ledger",
+    source_id: key,
+    external_ref: key,
+    project_code: projectCode,
+    title,
+    branch_kind: "work",
+    item_id: key,
+    review_status: pickField(row, TASK_FIELD_ALIASES.reviewStatus) || "approved",
+    status,
+    anchor_stage_code: pickField(row, TASK_FIELD_ALIASES.anchorStage),
+    link_kind: pickField(row, TASK_FIELD_ALIASES.linkKind),
+    link_ref: pickField(row, TASK_FIELD_ALIASES.linkRef),
+    created_at: pickField(row, TASK_FIELD_ALIASES.createdAt),
+    born_at: pickField(row, TASK_FIELD_ALIASES.createdAt),
+    closed_at: doneAt,
+    done_at: doneAt,
+    action_required: !isClosedStatus(status),
+    work_type: pickField(row, TASK_FIELD_ALIASES.workType),
+    completion_criteria: pickField(row, TASK_FIELD_ALIASES.completion),
+    due: pickField(row, TASK_FIELD_ALIASES.due),
+    suggested_actor_ref: pickField(row, TASK_FIELD_ALIASES.assignee),
+    confidence: 0.8,
+    pointer_ref: ledgerPointer(projectCode, TASK_LEDGER_RELATIVE_PATH, key),
+    body_access: "metadata_only",
+    summary_hint: [
+      "stem_v2_rebuild task ledger rescan",
+      pickField(row, TASK_FIELD_ALIASES.anchorStage) ? `stage=${pickField(row, TASK_FIELD_ALIASES.anchorStage)}` : "",
+      pickField(row, TASK_FIELD_ALIASES.linkKind) ? `link_kind=${pickField(row, TASK_FIELD_ALIASES.linkKind)}` : "",
+      "body_text_not_loaded",
+    ].filter(Boolean).join("; "),
+    reason: "stem_v2_rebuild task ledger rescan",
+  };
+}
+
+function buildMailRebuildEvent(row, { projectCode, index }) {
+  const key = pickField(row, MAIL_FIELD_ALIASES.key) || `mail-${index + 1}`;
+  const title = pickField(row, MAIL_FIELD_ALIASES.title) || key;
+  return {
+    source_kind: "mail",
+    source_id: `mailcsv:${key}`,
+    external_ref: `mailcsv:${key}`,
+    project_code: projectCode,
+    received_at: pickField(row, MAIL_FIELD_ALIASES.occurredAt),
+    title,
+    subject: title,
+    source_time: pickField(row, MAIL_FIELD_ALIASES.occurredAt),
+    body_access: "metadata_only",
+    confidence: 0.7,
+    pointer_ref: ledgerPointer(projectCode, MAIL_LEDGER_RELATIVE_PATH, key),
+    summary_hint: [
+      "stem_v2_rebuild mail ledger rescan",
+      pickField(row, MAIL_FIELD_ALIASES.eventType) ? `event_type=${pickField(row, MAIL_FIELD_ALIASES.eventType)}` : "",
+      pickField(row, MAIL_FIELD_ALIASES.thread) ? "thread_key_present=true" : "",
+      "body_text_not_loaded",
+    ].filter(Boolean).join("; "),
+    reason: "stem_v2_rebuild mail ledger rescan",
+  };
+}
+
+function buildSkeletonRebuildEvents({ projectCode, taskRows }) {
+  const events = [{
+    source_kind: "project_meta",
+    source_id: `stem-v2:${projectCode}:skeleton:project`,
+    external_ref: `stem-v2:${projectCode}:skeleton:project`,
+    project_code: projectCode,
+    title: "Project skeleton",
+    branch_label: "Project skeleton",
+    branch_kind: "skeleton",
+    anchor_ref: `project:${projectCode}`,
+    body_access: "metadata_only",
+    confidence: 1,
+    reason: "stem_v2_rebuild skeleton seed",
+  }];
+  for (const seed of MGMT_SKELETON_SEEDS) {
+    events.push({
+      source_kind: "project_meta",
+      source_id: `stem-v2:${projectCode}:skeleton:mgmt:${seed.ref}`,
+      external_ref: `stem-v2:${projectCode}:skeleton:mgmt:${seed.ref}`,
+      project_code: projectCode,
+      title: seed.label,
+      branch_label: seed.label,
+      branch_kind: "skeleton",
+      management_ref: seed.ref,
+      body_access: "metadata_only",
+      confidence: 1,
+      reason: "stem_v2_rebuild management skeleton seed",
+    });
+  }
+  const stageCodes = [...new Set(taskRows.map((row) => pickField(row, TASK_FIELD_ALIASES.anchorStage)).filter(Boolean))].sort();
+  for (const stageCode of stageCodes) {
+    events.push({
+      source_kind: "project_meta",
+      source_id: `stem-v2:${projectCode}:skeleton:gate:${stageCode}`,
+      external_ref: `stem-v2:${projectCode}:skeleton:gate:${stageCode}`,
+      project_code: projectCode,
+      title: `Gate ${stageCode}`,
+      branch_label: `Gate ${stageCode}`,
+      branch_kind: "skeleton",
+      anchor_stage_code: stageCode,
+      body_access: "metadata_only",
+      confidence: 1,
+      reason: "stem_v2_rebuild gate skeleton seed",
+    });
+  }
+  return events;
 }
 
 function writeCsvObjects(filePath, headers, rows) {
@@ -1326,6 +1536,66 @@ export function runProjectContextUpdate({
   return report;
 }
 
+export function buildProjectContextRebuildEvents({
+  workmetaRoot = DEFAULT_WORKMETA_ROOT,
+  projectCode,
+  projectId,
+} = {}) {
+  const project = validateProjectCode(projectCode || projectId);
+  const projectRoot = safeProjectRoot(workmetaRoot, project);
+  const taskLedgerPath = join(projectRoot, TASK_LEDGER_RELATIVE_PATH);
+  const mailLedgerPath = join(projectRoot, MAIL_LEDGER_RELATIVE_PATH);
+  const taskTable = readCsvTable(taskLedgerPath);
+  const mailTable = readCsvTable(mailLedgerPath);
+  const workTaskRows = taskTable.rows.filter(isConfirmedWorkTask);
+  const skeletonEvents = buildSkeletonRebuildEvents({ projectCode: project, taskRows: taskTable.rows });
+  const workEvents = workTaskRows.map((row) => buildTaskRebuildEvent(row, { projectCode: project }));
+  const mailEvents = mailTable.rows.map((row, index) => buildMailRebuildEvent(row, { projectCode: project, index }));
+  return {
+    project_code: project,
+    mode: "rebuild_from_ledgers",
+    input_refs: {
+      task_ledger: ledgerPointer(project, TASK_LEDGER_RELATIVE_PATH, ""),
+      mail_ledger: ledgerPointer(project, MAIL_LEDGER_RELATIVE_PATH, ""),
+    },
+    counts: {
+      task_rows: taskTable.rows.length,
+      mail_rows: mailTable.rows.length,
+      skeleton_events: skeletonEvents.length,
+      work_events: workEvents.length,
+      mail_events: mailEvents.length,
+      total_events: skeletonEvents.length + workEvents.length + mailEvents.length,
+    },
+    events: [...skeletonEvents, ...workEvents, ...mailEvents],
+  };
+}
+
+export function runProjectContextRebuild({
+  workmetaRoot = DEFAULT_WORKMETA_ROOT,
+  projectCode,
+  projectId,
+  generatedAt = nowIso(),
+  apply = false,
+} = {}) {
+  const rebuild = buildProjectContextRebuildEvents({
+    workmetaRoot,
+    projectCode: projectCode || projectId,
+  });
+  const report = runProjectContextUpdate({
+    workmetaRoot,
+    projectCode: rebuild.project_code,
+    events: rebuild.events,
+    generatedAt,
+    apply,
+  });
+  return {
+    ...report,
+    mode: rebuild.mode,
+    rebuild_input_refs: rebuild.input_refs,
+    rebuild_counts: rebuild.counts,
+  };
+}
+
 function readInputJson(inputRef) {
   const rawRef = String(inputRef ?? "").trim();
   if (!rawRef) throw new Error("--input_required");
@@ -1358,6 +1628,7 @@ function parseArgs(argv) {
     workmetaRoot: DEFAULT_WORKMETA_ROOT,
     projectCode: "",
     inputRef: "",
+    rebuildFromLedgers: false,
     generatedAt: nowIso(),
     apply: false,
     json: false,
@@ -1373,6 +1644,8 @@ function parseArgs(argv) {
       opts.apply = true;
     } else if (token === "--dry-run") {
       opts.apply = false;
+    } else if (token === "--rebuild-from-ledgers" || token === "--rebuild") {
+      opts.rebuildFromLedgers = true;
     } else if (token === "--workmeta-root" || token === "--workmeta") {
       opts.workmetaRoot = readValue(argv, i, token);
       i += 1;
@@ -1394,11 +1667,12 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    "Usage: node tools/haengbogwan_project_context.mjs --project <code> --input <json-or-json-file> [--workmeta-root <dir>] [--generated-at <iso>] [--apply] [--dry-run] [--json]",
+    "Usage: node tools/haengbogwan_project_context.mjs --project <code> (--input <json-or-json-file> | --rebuild-from-ledgers) [--workmeta-root <dir>] [--generated-at <iso>] [--apply] [--dry-run] [--json]",
     "",
     "Creates or updates _workmeta/<project>/project_context metadata state.",
     "Dry-run is the default. --apply writes sources/nodes/edges/judgments/review_queue and summaries.",
     "--events is accepted as an alias for --input.",
+    "--rebuild-from-ledgers rescans reports/mail and task ledgers once, seeding skeleton/work/history stem-v2 metadata without reading bodies or attachments.",
     "Input JSON must be an array or {\"events\":[...]}; raw body, attachment, payload, secret, and credential fields are skipped.",
   ].join("\n");
 }
@@ -1411,14 +1685,20 @@ export function main(argv = process.argv.slice(2), { stdout = process.stdout, st
       return 0;
     }
     if (!opts.projectCode) throw new Error("--project_required");
-    const events = readInputJson(opts.inputRef);
-    const report = runProjectContextUpdate({
-      workmetaRoot: opts.workmetaRoot,
-      projectCode: opts.projectCode,
-      events,
-      generatedAt: opts.generatedAt,
-      apply: opts.apply,
-    });
+    const report = opts.rebuildFromLedgers
+      ? runProjectContextRebuild({
+        workmetaRoot: opts.workmetaRoot,
+        projectCode: opts.projectCode,
+        generatedAt: opts.generatedAt,
+        apply: opts.apply,
+      })
+      : runProjectContextUpdate({
+        workmetaRoot: opts.workmetaRoot,
+        projectCode: opts.projectCode,
+        events: readInputJson(opts.inputRef),
+        generatedAt: opts.generatedAt,
+        apply: opts.apply,
+      });
     stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     return 0;
   } catch (error) {

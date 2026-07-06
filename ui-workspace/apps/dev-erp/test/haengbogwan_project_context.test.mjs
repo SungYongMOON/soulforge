@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
@@ -13,6 +13,8 @@ import { buildContextGraph } from "../src/context_graph.mjs";
 
 const TOOL = resolve(import.meta.dirname, "..", "tools", "haengbogwan_project_context.mjs");
 const GENERATED_AT = "2026-06-28T09:00:00.000Z";
+const MAIL_LEDGER_REL = join("reports", "\uBA54\uC77C_\uC774\uB825", "\uBA54\uC77C_\uC774\uB825.csv");
+const TASK_LEDGER_REL = join("reports", "\uD560\uC77C_\uC7A5\uBD80", "\uD560\uC77C_\uC7A5\uBD80.csv");
 
 function makeTempWorkmeta() {
   const root = mkdtempSync(join(tmpdir(), "sf-haengbogwan-project-context-"));
@@ -41,6 +43,27 @@ function readCsvObjects(path) {
   });
 }
 
+function readProjectContextSnapshot(root, project) {
+  return Object.fromEntries(Object.entries(PROJECT_CONTEXT_FILES).map(([key, relativePath]) => [
+    key,
+    readFileSync(join(root, project, relativePath), "utf8"),
+  ]));
+}
+
+function csvEscape(value) {
+  const raw = String(value ?? "");
+  return /[",\r\n]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
+}
+
+function writeCsv(path, headers, rows) {
+  mkdirSync(dirname(path), { recursive: true });
+  const lines = [
+    headers.map(csvEscape).join(","),
+    ...rows.map((row) => headers.map((header) => csvEscape(row[header])).join(",")),
+  ];
+  writeFileSync(path, `\uFEFF${lines.join("\n")}\n`, "utf8");
+}
+
 function sampleEvents(projectCode = "P26-014") {
   return [
     {
@@ -62,6 +85,99 @@ function sampleEvents(projectCode = "P26-014") {
       pointer_ref: "mailcsv:M001",
     },
   ];
+}
+
+function writeRebuildLedgerFixture(root, project) {
+  const projectRoot = join(root, project);
+  const meetingTitle = "[\uAD70\uC9D1] \uBB34\uC778\uC7A0\uC218\uC815 \uC2E0\uD638\uCC98\uB9AC\uC7A5\uCE58 \uC2E4\uBB34\uD611\uC758";
+  writeCsv(
+    join(projectRoot, TASK_LEDGER_REL),
+    [
+      "\uD560\uC77C\uD0A4",
+      "\uAE30\uB85D\uC77C",
+      "\uD504\uB85C\uC81D\uD2B8\uCF54\uB4DC",
+      "\uD560\uC77C\uBA85",
+      "\uB2F4\uB2F9\uC790",
+      "\uC5C5\uBB34\uC720\uD615",
+      "\uC0C1\uD0DC",
+      "\uB9C8\uAC10\uC77C",
+      "SE\uB2E8\uACC4",
+      "\uC5F0\uACB0\uC720\uD615",
+      "\uC5F0\uACB0\uB300\uC0C1",
+      "\uC644\uB8CC\uAE30\uC900",
+      "\uAC80\uD1A0\uC0C1\uD0DC",
+      "\uC644\uB8CC\uC77C",
+    ],
+    [
+      {
+        "\uD560\uC77C\uD0A4": "TASK-OPEN",
+        "\uAE30\uB85D\uC77C": "2026-01-02T00:00:00Z",
+        "\uD504\uB85C\uC81D\uD2B8\uCF54\uB4DC": project,
+        "\uD560\uC77C\uBA85": "open anchored task",
+        "\uB2F4\uB2F9\uC790": "owner",
+        "\uC5C5\uBB34\uC720\uD615": "review",
+        "\uC0C1\uD0DC": "open",
+        "\uB9C8\uAC10\uC77C": "2026-01-20",
+        "SE\uB2E8\uACC4": "120_CDR",
+        "\uC5F0\uACB0\uC720\uD615": "artifact",
+        "\uC5F0\uACB0\uB300\uC0C1": "D-001",
+        "\uC644\uB8CC\uAE30\uC900": "reviewed",
+        "\uAC80\uD1A0\uC0C1\uD0DC": "needs_review",
+        "\uC644\uB8CC\uC77C": "",
+      },
+      {
+        "\uD560\uC77C\uD0A4": "TASK-DONE",
+        "\uAE30\uB85D\uC77C": "2026-01-03T00:00:00Z",
+        "\uD504\uB85C\uC81D\uD2B8\uCF54\uB4DC": project,
+        "\uD560\uC77C\uBA85": "closed anchored task",
+        "\uB2F4\uB2F9\uC790": "owner",
+        "\uC5C5\uBB34\uC720\uD615": "review",
+        "\uC0C1\uD0DC": "done",
+        "\uB9C8\uAC10\uC77C": "2026-01-21",
+        "SE\uB2E8\uACC4": "130_TRR",
+        "\uC5F0\uACB0\uC720\uD615": "artifact",
+        "\uC5F0\uACB0\uB300\uC0C1": "D-002",
+        "\uC644\uB8CC\uAE30\uC900": "closed",
+        "\uAC80\uD1A0\uC0C1\uD0DC": "needs_review",
+        "\uC644\uB8CC\uC77C": "2026-01-10T00:00:00Z",
+      },
+      {
+        "\uD560\uC77C\uD0A4": "TASK-LOOSE",
+        "\uAE30\uB85D\uC77C": "2026-01-04T00:00:00Z",
+        "\uD504\uB85C\uC81D\uD2B8\uCF54\uB4DC": project,
+        "\uD560\uC77C\uBA85": "loose task without anchor",
+        "\uB2F4\uB2F9\uC790": "owner",
+        "\uC5C5\uBB34\uC720\uD615": "review",
+        "\uC0C1\uD0DC": "open",
+        "\uB9C8\uAC10\uC77C": "2026-01-22",
+        "SE\uB2E8\uACC4": "",
+        "\uC5F0\uACB0\uC720\uD615": "",
+        "\uC5F0\uACB0\uB300\uC0C1": "",
+        "\uC644\uB8CC\uAE30\uC900": "tracked",
+        "\uAC80\uD1A0\uC0C1\uD0DC": "needs_review",
+        "\uC644\uB8CC\uC77C": "",
+      },
+    ],
+  );
+  writeCsv(
+    join(projectRoot, MAIL_LEDGER_REL),
+    [
+      "\uC774\uB825\uD0A4",
+      "\uBC1C\uC0DD\uC2DC\uAC01",
+      "\uBA54\uC77C\uC218\uC2E0\uC2DC\uAC01",
+      "\uC774\uBCA4\uD2B8\uC720\uD615",
+      "\uBA54\uC77C\uC18C\uC2A4ID",
+      "\uC2A4\uB808\uB4DC",
+      "\uC81C\uBAA9",
+      "\uBC1C\uC2E0\uC790",
+    ],
+    [
+      { "\uC774\uB825\uD0A4": "M-H1", "\uBC1C\uC0DD\uC2DC\uAC01": "2026-01-01T09:00:00Z", "\uBA54\uC77C\uC218\uC2E0\uC2DC\uAC01": "2026-01-01T09:00:00Z", "\uC774\uBCA4\uD2B8\uC720\uD615": "received", "\uBA54\uC77C\uC18C\uC2A4ID": "SRC-H1", "\uC2A4\uB808\uB4DC": "", "\uC81C\uBAA9": meetingTitle, "\uBC1C\uC2E0\uC790": "a@example.test" },
+      { "\uC774\uB825\uD0A4": "M-H2", "\uBC1C\uC0DD\uC2DC\uAC01": "2026-01-20T09:00:00Z", "\uBA54\uC77C\uC218\uC2E0\uC2DC\uAC01": "2026-01-20T09:00:00Z", "\uC774\uBCA4\uD2B8\uC720\uD615": "received", "\uBA54\uC77C\uC18C\uC2A4ID": "SRC-H2", "\uC2A4\uB808\uB4DC": "", "\uC81C\uBAA9": `RE: ${meetingTitle}`, "\uBC1C\uC2E0\uC790": "a@example.test" },
+      { "\uC774\uB825\uD0A4": "M-H3", "\uBC1C\uC0DD\uC2DC\uAC01": "2026-02-15T09:00:00Z", "\uBA54\uC77C\uC218\uC2E0\uC2DC\uAC01": "2026-02-15T09:00:00Z", "\uC774\uBCA4\uD2B8\uC720\uD615": "received", "\uBA54\uC77C\uC18C\uC2A4ID": "SRC-H3", "\uC2A4\uB808\uB4DC": "", "\uC81C\uBAA9": meetingTitle, "\uBC1C\uC2E0\uC790": "a@example.test" },
+      { "\uC774\uB825\uD0A4": "M-LOOSE", "\uBC1C\uC0DD\uC2DC\uAC01": "2026-03-01T09:00:00Z", "\uBA54\uC77C\uC218\uC2E0\uC2DC\uAC01": "2026-03-01T09:00:00Z", "\uC774\uBCA4\uD2B8\uC720\uD615": "received", "\uBA54\uC77C\uC18C\uC2A4ID": "SRC-L", "\uC2A4\uB808\uB4DC": "", "\uC81C\uBAA9": "One-off loose note", "\uBC1C\uC2E0\uC790": "b@example.test" },
+    ],
+  );
 }
 
 function stemV2Events(project) {
@@ -254,6 +370,77 @@ test("HAENGBOGWAN-PROJECT-CONTEXT ENGINE-11: context graph exposes v2 branch met
     assert.ok(graph.branches.some((row) => row.branch_kind === "work" && row.anchor_ref === "item:TASK-1"));
   } finally {
     if (existsSync(repoRoot)) rmSync(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("HAENGBOGWAN-PROJECT-CONTEXT ENGINE-11: rebuild-from-ledgers is dry-run by default and idempotent", () => {
+  const tmp = makeTempWorkmeta();
+  try {
+    const project = "P99-003";
+    writeRebuildLedgerFixture(tmp.root, project);
+
+    const dry = spawnSync(process.execPath, [
+      TOOL,
+      "--workmeta-root",
+      tmp.root,
+      "--project",
+      project,
+      "--rebuild-from-ledgers",
+      "--generated-at",
+      GENERATED_AT,
+      "--json",
+    ], { encoding: "utf8" });
+    assert.equal(dry.status, 0, dry.stderr);
+    const dryReport = JSON.parse(dry.stdout);
+    assert.equal(dryReport.apply, false);
+    assert.equal(dryReport.mode, "rebuild_from_ledgers");
+    assert.equal(dryReport.rebuild_counts.task_rows, 3);
+    assert.equal(dryReport.rebuild_counts.mail_rows, 4);
+    assert.equal(dryReport.rebuild_counts.work_events, 2);
+    assert.equal(existsSync(join(tmp.root, project, "project_context")), false);
+
+    const applyArgs = [
+      TOOL,
+      "--workmeta-root",
+      tmp.root,
+      "--project",
+      project,
+      "--rebuild-from-ledgers",
+      "--generated-at",
+      GENERATED_AT,
+      "--apply",
+      "--json",
+    ];
+    const first = spawnSync(process.execPath, applyArgs, { encoding: "utf8" });
+    assert.equal(first.status, 0, first.stderr);
+    const firstReport = JSON.parse(first.stdout);
+    const firstSnapshot = readProjectContextSnapshot(tmp.root, project);
+    const second = spawnSync(process.execPath, applyArgs, { encoding: "utf8" });
+    assert.equal(second.status, 0, second.stderr);
+    const secondReport = JSON.parse(second.stdout);
+    const secondSnapshot = readProjectContextSnapshot(tmp.root, project);
+    assert.deepEqual(secondReport.total_counts, firstReport.total_counts);
+    assert.deepEqual(secondSnapshot, firstSnapshot);
+
+    const branches = readCsvObjects(join(tmp.root, project, PROJECT_CONTEXT_FILES.branches));
+    assert.ok(branches.filter((row) => row.branch_kind === "skeleton").length >= 5);
+    assert.equal(branches.filter((row) => row.branch_kind === "work").length, 2);
+    assert.equal(branches.filter((row) => row.branch_kind === "history").length, 1);
+    assert.ok(branches.some((row) => row.anchor_ref === "item:TASK-OPEN" && row.status === "open"));
+    assert.ok(branches.some((row) => row.anchor_ref === "item:TASK-DONE" && row.status === "closed"));
+    const meetingHistory = branches.find((row) => row.branch_kind === "history");
+    assert.equal(meetingHistory.status, "proposed");
+    assert.match(meetingHistory.label, /\uC2E4\uBB34\uD611\uC758/u);
+
+    const occurrences = readCsvObjects(join(tmp.root, project, PROJECT_CONTEXT_FILES.occurrences));
+    assert.equal(occurrences.length, 3);
+    assert.equal(occurrences.filter((row) => row.branch_ref === meetingHistory.branch_id).length, 3);
+
+    const sources = readCsvObjects(join(tmp.root, project, PROJECT_CONTEXT_FILES.sources));
+    assert.equal(sources.find((row) => row.external_ref === "mailcsv:M-LOOSE").branch_ref, "");
+    assert.equal(sources.some((row) => row.external_ref === "TASK-LOOSE"), false);
+  } finally {
+    tmp.cleanup();
   }
 });
 
