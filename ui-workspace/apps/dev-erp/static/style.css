@@ -461,6 +461,8 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .cc-why div { color: var(--muted); margin: 2px 0 0 12px; }
 .mail-jump { cursor: pointer; text-decoration: underline dotted; }
 .mail-jump:hover { color: var(--fg); }
+/* 줄기 v2 종류 범례 점 */
+.trunk-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
 .pager-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 8px 0; }
 .pager-row .fav-chip:disabled { opacity: .45; cursor: default; }
 /* 메일 등록 폼(베타1) */

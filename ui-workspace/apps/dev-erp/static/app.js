@@ -2203,38 +2203,74 @@ function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
   // 중요도(소스+할일+미결) 순 정렬 — 전 뷰 공용 랭킹.
   const ranked = (g.branches ?? []).slice().sort((a, b) =>
     (b.source_count + b.task_count + b.open_review_count) - (a.source_count + a.task_count + a.open_review_count));
+  // 줄기 v2(STEM-V2-ONTOLOGY): v2 가지(골격/작업/이력)가 있으면 legacy(구 제목 클러스터)는 기본 숨김 —
+  // 지도가 '업무 단위'로 읽히게. 옛 가지는 토글로만 노출(소급 대조용).
+  const hasV2 = ranked.some((b) => trunkKindOf(b) !== "legacy");
+  const legacyCount = ranked.filter((b) => trunkKindOf(b) === "legacy").length;
+  const showLegacy = !hasV2 || !!state.trunkShowLegacy;
+  const visible = showLegacy ? ranked : ranked.filter((b) => trunkKindOf(b) !== "legacy");
   const legend = Object.entries(c.by_node_type ?? {})
     .map(([t, n]) => [trunkTypeLabel(t), n]).filter(([label]) => label) // 표시 leaf 4종만(구조 타입 제외)
     .map(([label, n]) => `<span class="fav-chip mini">${esc(label)} ${n}</span>`).join(" ");
+  const kindLegend = hasV2 ? [["skeleton", L.trunk_kind_skeleton], ["work", L.trunk_kind_work], ["history", L.trunk_kind_history]]
+    .map(([k, label]) => `<span class="fav-chip mini"><span class="trunk-dot" style="background:${TRUNK_KIND_STYLE[k].fill}"></span>${esc(label)} ${visible.filter((b) => trunkKindOf(b) === k).length}</span>`).join(" ") : "";
+  const legacyToggle = hasV2 && legacyCount
+    ? `<button id="trunkLegacyToggle" class="fav-chip mini ${state.trunkShowLegacy ? "on" : ""}">${state.trunkShowLegacy ? esc(L.trunk_legacy_hide) : esc(String(L.trunk_legacy_show ?? "").replace("{n}", legacyCount))}</button>` : "";
   const views = [["map", L.trunk_view_map], ["tree", L.trunk_view_tree], ["triage", L.trunk_view_triage]];
   const switcher = views.map(([k, label]) => `<button class="fav-chip mini trunk-view ${view === k ? "on" : ""}" data-tv="${k}">${label}</button>`).join(" ");
   el.innerHTML = `
     <div class="item-form">${headerHtml}
       <span class="fav-chip mini danger-text">${L.trunk_open_reviews}: ${c.open_reviews ?? 0}</span>
       <span style="flex:1"></span>${switcher}</div>
-    <div class="dim small" style="margin:2px 0 6px">${legend}</div>
+    <div class="dim small" style="margin:2px 0 6px">${kindLegend}${kindLegend ? " · " : ""}${legend} ${legacyToggle}</div>
+    ${hasV2 ? `<div class="dim small" style="margin:0 0 6px">${esc(L.trunk_legend_hint)} · ${esc(L.trunk_drag_hint)}</div>` : ""}
     <div id="trunkBody"></div>`;
   if (afterRender) afterRender();
   const body = $("#trunkBody");
   const paint = () => {
-    if (state.trunkView === "tree") return drawTrunkTree(body, g, ranked);
-    if (state.trunkView === "triage") return drawTrunkTriage(body, g, ranked);
-    return drawTrunkMap(body, g, ranked);
+    if (state.trunkView === "tree") return drawTrunkTree(body, g, visible);
+    if (state.trunkView === "triage") return drawTrunkTriage(body, g, visible);
+    return drawTrunkMap(body, g, visible);
   };
   el.querySelectorAll(".trunk-view").forEach((b) => b.addEventListener("click", () => {
     state.trunkView = b.dataset.tv;
     el.querySelectorAll(".trunk-view").forEach((x) => x.classList.toggle("on", x.dataset.tv === state.trunkView));
     paint();
   }));
+  $("#trunkLegacyToggle")?.addEventListener("click", () => {
+    state.trunkShowLegacy = !state.trunkShowLegacy;
+    drawTrunkGraph(el, g, { headerHtml, afterRender });
+  });
   paint();
 }
 
 // 뷰1 지도(방사형) — "전체 모양·큰 갈래 한눈에". 가지 클릭 → 그 가지 주변으로 하위가 부채꼴로
 // 펼쳐짐(한 번에 한 가지, 다시 클릭하면 접힘 — 전부 펼치면 363노드 털뭉치라 아코디언) + 아래 상세 목록.
 const TRUNK_TYPE_COLOR = { source_event: "#8aa4c8", task_candidate: "#e0a63a", milestone: "#7a5cc0", actor: "#4fa36b" };
+// 줄기 v2 가지 종류(STEM-V2-ONTOLOGY): 골격=보라 사각(기둥), 작업=초록(생애 있는 일), 이력=주황(회의체 시간축), legacy=옅은 파랑.
+const TRUNK_KIND_STYLE = {
+  skeleton: { fill: "#7a5cc0", opacity: 0.9 },
+  work: { fill: "#3f9e63", opacity: 0.9 },
+  history: { fill: "#d99a2b", opacity: 0.9 },
+  legacy: { fill: "#4a7dbf", opacity: 0.35 },
+};
+const TRUNK_KIND_ORDER = { skeleton: 0, history: 1, work: 2, legacy: 3 };
+function trunkKindOf(b) {
+  const k = String(b?.branch_kind ?? "").trim();
+  return TRUNK_KIND_STYLE[k] ? k : "legacy";
+}
+// 이력줄기의 회차 목록 — occurrence.branch_ref(가지 키) 또는 series anchor 로 조인.
+function trunkOccurrencesFor(g, b) {
+  if (!b) return [];
+  return (g.occurrences ?? []).filter((o) =>
+    (o.branch_ref && o.branch_ref === b.branch_key)
+    || (b.anchor_ref && o.series_key && b.anchor_ref === `series:${o.series_key}`))
+    .sort((a, x) => String(a.occurrence_key).localeCompare(String(x.occurrence_key)));
+}
 function drawTrunkMap(body, g, ranked) {
   const L = state.lex;
-  const branches = ranked.slice(0, 40);
+  // 종류별로 호를 묶어 배치(골격→이력→작업→legacy) — 같은 성격이 이웃해 지도가 읽힌다. 종류 내에서는 중요도순 유지.
+  const branches = ranked.slice(0, 40).slice().sort((a, b) => TRUNK_KIND_ORDER[trunkKindOf(a)] - TRUNK_KIND_ORDER[trunkKindOf(b)]);
   const hidden = ranked.length - branches.length;
   const W = 860; const H = 600; const cx = W / 2; const cy = H / 2;
   const maxSrc = Math.max(1, ...branches.map((b) => b.source_count));
@@ -2246,18 +2282,48 @@ function drawTrunkMap(body, g, ranked) {
     ? `<div class="dim small">${(L.trunk_more ?? "가지 +{n}개는 중요도 하위라 생략됨").replace("{n}", hidden)}${c.truncated ? ` · ${L.trunk_node_cap ?? "노드 상한 도달(일부 생략)"}` : ""}</div>` : "";
   body.innerHTML = `<div id="trunkMapSvg"></div>${moreNote}<div id="ctxDetail" class="dim small">${L.trunk_hint}</div>`;
 
+  // 드래그 재부착(B6 계약): 작업(초록) 가지를 끌어 골격 게이트(gate:*) 사각에 놓으면 그 일의 SE 단계가 이동.
+  // 6px 이상 이동해야 드래그로 간주(클릭=펼치기와 구분). move/up 리스너는 컨테이너가 영속하므로 여기서 1회만 부착
+  // (paintSvg 안에 두면 가지 클릭마다 중복 부착 → 드래그 1번에 reanchor 다발 발사).
+  const svgHost = $("#trunkMapSvg");
+  let drag = null;
+  svgHost.addEventListener("pointermove", (e) => {
+    if (drag && (Math.abs(e.clientX - drag.sx) > 6 || Math.abs(e.clientY - drag.sy) > 6)) drag.moved = true;
+  });
+  svgHost.addEventListener("pointerup", async (e) => {
+    const d = drag; drag = null;
+    if (!d || !d.moved) return;
+    const t = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".ctx-branch");
+    if (!t || t.dataset.key === d.key) return;
+    const anchor = t.dataset.anchor || "";
+    if (t.dataset.kind !== "skeleton" || !anchor.startsWith("gate:")) { toast(L.trunk_drag_only_gate, "warn"); return; }
+    const r = await post("/api/items/reanchor", { id: d.item, anchor_stage_code: anchor.slice(5) });
+    if (r.ok) { toast(L.trunk_drag_done, "ok"); render(); }
+    else { const er = await r.json().catch(() => ({})); toast(`${L.trunk_drag_fail}: ${er.error ?? "-"}`, "warn"); }
+  });
+
   const paintSvg = () => {
     const expandedKey = state._trunkExpandKey ?? null;
     const idx = branches.findIndex((b) => b.branch_key === expandedKey);
     const lines = branches.map((b, i) => `<line x1="${cx}" y1="${cy}" x2="${bx(i)}" y2="${by(i)}" stroke="var(--border,#8884)" stroke-width="1.5"/>`).join("");
     const nodes = branches.map((b, i) => {
+      const kind = trunkKindOf(b);
+      const ks = TRUNK_KIND_STYLE[kind];
       const r = 10 + Math.round((b.source_count / maxSrc) * 22);
       const badge = b.open_review_count ? `<circle cx="${bx(i) + r - 3}" cy="${by(i) - r + 3}" r="8" fill="#e5534b"/><text x="${bx(i) + r - 3}" y="${by(i) - r + 6}" text-anchor="middle" font-size="9" fill="#fff">${b.open_review_count > 99 ? "99+" : b.open_review_count}</text>` : "";
-      const short = (b.label || b.branch_key || "").slice(0, 12);
+      const closed = kind === "work" && (b.status === "closed" || !!b.closed_at);
+      const proposed = kind === "history" && b.status === "proposed";
+      const short = ((closed ? "✓ " : "") + (b.label || b.branch_key || "")).slice(0, 14);
       const openRing = i === idx ? `<circle cx="${bx(i)}" cy="${by(i)}" r="${r + 4}" fill="none" stroke="var(--accent,#1f48d4)" stroke-width="2"/>` : "";
-      return `<g class="ctx-branch" data-key="${esc(b.branch_key)}" style="cursor:pointer">
-        ${openRing}<circle cx="${bx(i)}" cy="${by(i)}" r="${r}" fill="#4a7dbf" opacity="0.85"/>
-        <text x="${bx(i)}" y="${by(i) + r + 12}" text-anchor="middle" font-size="10" fill="currentColor">${esc(short)}</text>
+      // 골격=사각(기둥), 작업/이력/legacy=원. 이력 '제안'(확정 대기)은 점선 외곽 + 상단 태그. 완료 작업은 흐림+✓.
+      const shape = kind === "skeleton"
+        ? `<rect x="${bx(i) - r}" y="${by(i) - r * 0.8}" width="${r * 2}" height="${r * 1.6}" rx="4" fill="${ks.fill}" opacity="${ks.opacity}"/>`
+        : `<circle cx="${bx(i)}" cy="${by(i)}" r="${r}" fill="${ks.fill}" opacity="${closed ? 0.45 : ks.opacity}"${proposed ? ` stroke="${ks.fill}" stroke-width="2" stroke-dasharray="4 3" fill-opacity="0.35"` : ""}/>`;
+      const propTag = proposed ? `<text x="${bx(i)}" y="${by(i) - r - 4}" text-anchor="middle" font-size="8.5" fill="${ks.fill}">${esc(L.trunk_kind_proposed)}</text>` : "";
+      const labelDy = r + (i % 2 ? 12 : 24); // 이웃 라벨 지그재그 배치 — 원주 위 겹침 완화
+      return `<g class="ctx-branch" data-key="${esc(b.branch_key)}" data-kind="${kind}" data-anchor="${esc(b.anchor_ref ?? "")}" style="cursor:pointer">
+        ${openRing}${shape}${propTag}
+        <text x="${bx(i)}" y="${by(i) + labelDy}" text-anchor="middle" font-size="10" fill="currentColor">${esc(short)}</text>
         <text x="${bx(i)}" y="${by(i) + 4}" text-anchor="middle" font-size="10" fill="#fff">${b.source_count + b.task_count}</text>${badge}</g>`;
     }).join("");
     // 펼친 가지의 하위 부채꼴(최신 12개, 종류별 색, hover 에 전체 라벨)
@@ -2295,9 +2361,25 @@ function drawTrunkMap(body, g, ranked) {
       const key = n2.dataset.key;
       state._trunkExpandKey = state._trunkExpandKey === key ? null : key; // 같은 가지 재클릭 = 접기
       const b = branches.find((x) => x.branch_key === key);
-      $("#ctxDetail").innerHTML = `<h4 class="hub-h4">${esc(b?.label ?? key)} <span class="dim small">(${L.trunk_open_reviews} ${b?.open_review_count ?? 0})</span></h4>${trunkChildTable(g, key)}`;
+      const kind = trunkKindOf(b);
+      const kindLabel = { skeleton: L.trunk_kind_skeleton, work: L.trunk_kind_work, history: L.trunk_kind_history, legacy: L.trunk_kind_legacy }[kind];
+      const metaBits = [kindLabel, b?.status === "proposed" ? L.trunk_kind_proposed : (b?.status || ""),
+        b?.born_at ? `${String(b.born_at).slice(0, 10)}~` : "",
+        b?.closed_at ? `${L.trunk_closed_mark} ${String(b.closed_at).slice(0, 10)}` : ""].filter(Boolean).join(" · ");
+      // 이력줄기: 회차 타임라인(날짜(자료수)) — occurrences.csv 조인.
+      const occs = trunkOccurrencesFor(g, b);
+      const occHtml = occs.length ? `<div class="small" style="margin:4px 0">${esc(L.trunk_occ_label)}: ${occs.map((o) => `${esc(String(o.occurrence_key).slice(0, 10))}(${o.source_count})`).join(" · ")}</div>` : "";
+      $("#ctxDetail").innerHTML = `<h4 class="hub-h4">${esc(b?.label ?? key)} <span class="dim small">(${esc(metaBits)} · ${L.trunk_open_reviews} ${b?.open_review_count ?? 0})</span></h4>${occHtml}${trunkChildTable(g, key)}`;
       paintSvg();
     }));
+    // pointerdown 은 repaint 마다 새로 생기는 가지 노드에 다시 건다(옛 노드는 innerHTML 교체로 소멸).
+    svgHost.querySelectorAll('.ctx-branch[data-kind="work"]').forEach((n2) => {
+      n2.addEventListener("pointerdown", (e) => {
+        const anchor = n2.dataset.anchor || "";
+        if (!anchor.startsWith("item:")) return;
+        drag = { key: n2.dataset.key, item: anchor.slice(5), sx: e.clientX, sy: e.clientY, moved: false };
+      });
+    });
   };
   paintSvg();
 }

@@ -7,6 +7,7 @@
 - `slices/STEM-V2-ONTOLOGY.md` — **줄기 v2 온톨로지 정본** (골격·작업·이력줄기, 연결 등급 원칙, 드래그=사람확정 — 2026-07-05 owner 공동설계 확정). 모든 줄기 관련 레인(생성기·그래프 UI·API)의 공통 기준.
 - `slices/ENGINE-11-STEM-V2-GENERATOR.md` — 줄기 생성기 v2: 제목 클러스터 → 링크 기반 3종 줄기 (execution_owner: **engine_thread_codex**, done 2026-07-05; retro rebuild pass applied 2026-07-06)
 - `slices/B6-STEM-REATTACH-API.md` — 줄기 드래그 재부착 서버 계약+API 3종 (execution_owner: **erp_surface_thread_claude** — server/store 만, 그래프 UI 는 줄기 렌더 레인 소비)
+- `slices/B8-STEM-MAP-V2-RENDER.md` — 줄기 지도 v2 렌더: 골격·작업·이력 색/모양 구분 + legacy 기본 숨김 + 범례 + 회차 상세 + 드래그 재부착 UI (**done 2026-07-06: B6 reanchor 소비, 중복 리스너 결함 수정 포함**, ERP 표면 스레드)
 
 ## Engine expansion slices (2026-07-02, claude_fable-5 — 할일 엔진 확장)
 
