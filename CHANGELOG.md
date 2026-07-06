@@ -13,6 +13,7 @@
 - "내 할일(mine)" 위젯이 담당 할 일을 앞 8개(`slice(0,8)`)만 보여줘, 마감일 없는 새 수동 할 일(빠른 추가)이 정렬상 맨 아래로 밀려 위젯에서 안 보이던 문제를 해소했다. 이제 담당 할 일을 전부 렌더하고 위젯 body(`overflow-y:auto`)에서 스크롤로 확인한다. 저장 경로 자체(`POST /api/items` → `core_item`)는 정상이었고 표시 규칙만 바뀐 것.
 - 행 클릭 시 열리는 빠른편집 모달(`openItemQuickEdit`)에 읽기전용 정보 블록을 추가했다 — 상태/과제/담당/마감/등록일·출처/업무유형/산출물/완료기준. 목록 렌더 시 `itemMiniRow`가 항목 객체를 클라이언트 캐시(`state._itemCache`)에 담아, 서버 재요청·재시작 없이 표시한다.
 - 정적 프론트(`ui-workspace/apps/dev-erp/static/app.js`) 변경만. 검증: `node --check` OK, `npm test` 456/457(유일 실패 `codex_bridge_process` 프로세스 종료 타이밍 테스트는 정적 자산 미참조로 본 변경과 무관) (worker: claude_opus-4-8).
+- 후속(owner 요청 "시작한 작업은 맨 위로"): mine 위젯 목록을 시작된 일 우선으로 정렬한다. `itemStarted(i)`(상태 ∉ open/unclassified = doing/waiting/blocked) 항목을 상단으로 올리고, 시작/미시작 각 그룹 내부는 기존 서버 정렬(urgency/due/id)을 유지한다(`Array.sort` 안정성, ES2019). '시작'을 눌러 doing이 된 항목이 하단으로 사라지지 않는다. 정적 프론트 단독 변경(`itemStarted` 기존 함수 재사용) — 서버 재시작·lexicon 무관 (worker: claude_opus-4-8).
 
 ### Codex 로컬 자동화 상태 public 제외
 

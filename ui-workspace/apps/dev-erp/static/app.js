@@ -3946,7 +3946,10 @@ async function renderHome() {
         api("/api/items?mine=1"),
         api("/api/items?status=unclassified"),
       ]);
-      const mine = mineItems.filter((i) => i.status !== "done"); // 전체 표시 — 위젯 body가 스크롤(overflow-y:auto). 새로 추가한 할 일도 스크롤로 확인.
+      // 전체 표시 — 위젯 body가 스크롤(overflow-y:auto). 시작한 일(doing/waiting/blocked)을 맨 위로 올려
+      // '시작' 누른 뒤 하단으로 사라지지 않게 한다. 그룹 내부(시작/미시작)는 서버 정렬 유지(Array.sort 안정성, ES2019).
+      const mine = mineItems.filter((i) => i.status !== "done")
+        .sort((a, b) => (itemStarted(b) ? 1 : 0) - (itemStarted(a) ? 1 : 0));
       const qaOpts = projects.filter((p) => p.class === "active" || p.class === "internal")
         .map((p) => `<option value="${esc(p.id)}"${p.id === "general_work" ? " selected" : ""}>${esc(p.title === p.id ? projDisplay(p.id) : `${p.id} · ${p.title}`)}</option>`).join("");
       const quickAdd = `<div class="mine-qa"><input class="mqa-title" placeholder="${L.mine_qa_ph ?? "빠른 할 일 추가…"}" /><select class="mqa-proj" title="${L.project}">${qaOpts}</select><button class="mqa-add fav-chip active">${L.mine_qa_add ?? "추가"}</button></div>`;
