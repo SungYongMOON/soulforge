@@ -2259,6 +2259,18 @@ function trunkKindOf(b) {
   const k = String(b?.branch_kind ?? "").trim();
   return TRUNK_KIND_STYLE[k] ? k : "legacy";
 }
+// 지도 라벨용 표시 정제 — 잘림(16자) 안에 알맹이가 들어가게 접두를 벗긴다(표시 전용, 데이터 무변경).
+// "History: FW: [군집] 신호/영상처리장치" → "신호/영상처리장치". 상세 뷰는 원문 라벨 유지.
+function trunkMapLabel(b) {
+  let s = String(b?.label ?? b?.branch_key ?? "").trim();
+  s = s.replace(/^History:\s*/i, "");
+  for (let i = 0; i < 3; i++) {
+    const t = s.replace(/^(?:FW|RE|회신|전달)\s*:\s*/i, "").replace(/^\[[^\]]{1,24}\]\s*/, "").replace(/^!{1,}중요!*\s*/, "").trim();
+    if (t === s || t.length < 3) break;
+    s = t;
+  }
+  return s || String(b?.label ?? b?.branch_key ?? "");
+}
 // 이력줄기의 회차 목록 — occurrence.branch_ref(가지 키) 또는 series anchor 로 조인.
 function trunkOccurrencesFor(g, b) {
   if (!b) return [];
@@ -2313,13 +2325,13 @@ function drawTrunkMap(body, g, ranked) {
       const badge = b.open_review_count ? `<circle cx="${bx(i) + r - 3}" cy="${by(i) - r + 3}" r="8" fill="#e5534b"/><text x="${bx(i) + r - 3}" y="${by(i) - r + 6}" text-anchor="middle" font-size="9" fill="#fff">${b.open_review_count > 99 ? "99+" : b.open_review_count}</text>` : "";
       const closed = kind === "work" && (b.status === "closed" || !!b.closed_at);
       const proposed = kind === "history" && b.status === "proposed";
-      const short = ((closed ? "✓ " : "") + (b.label || b.branch_key || "")).slice(0, 14);
+      const short = ((closed ? "✓ " : "") + trunkMapLabel(b)).slice(0, 16);
       const openRing = i === idx ? `<circle cx="${bx(i)}" cy="${by(i)}" r="${r + 4}" fill="none" stroke="var(--accent,#1f48d4)" stroke-width="2"/>` : "";
       // 골격=사각(기둥), 작업/이력/legacy=원. 이력 '제안'(확정 대기)은 점선 외곽 + 상단 태그. 완료 작업은 흐림+✓.
       const shape = kind === "skeleton"
         ? `<rect x="${bx(i) - r}" y="${by(i) - r * 0.8}" width="${r * 2}" height="${r * 1.6}" rx="4" fill="${ks.fill}" opacity="${ks.opacity}"/>`
         : `<circle cx="${bx(i)}" cy="${by(i)}" r="${r}" fill="${ks.fill}" opacity="${closed ? 0.45 : ks.opacity}"${proposed ? ` stroke="${ks.fill}" stroke-width="2" stroke-dasharray="4 3" fill-opacity="0.35"` : ""}/>`;
-      const propTag = proposed ? `<text x="${bx(i)}" y="${by(i) - r - 4}" text-anchor="middle" font-size="8.5" fill="${ks.fill}">${esc(L.trunk_kind_proposed)}</text>` : "";
+      const propTag = proposed ? `<text x="${bx(i)}" y="${by(i) - r - 8}" text-anchor="middle" font-size="8.5" fill="${ks.fill}">${esc(L.trunk_kind_proposed)}</text>` : "";
       const labelDy = r + (i % 2 ? 12 : 24); // 이웃 라벨 지그재그 배치 — 원주 위 겹침 완화
       return `<g class="ctx-branch" data-key="${esc(b.branch_key)}" data-kind="${kind}" data-anchor="${esc(b.anchor_ref ?? "")}" style="cursor:pointer">
         ${openRing}${shape}${propTag}
