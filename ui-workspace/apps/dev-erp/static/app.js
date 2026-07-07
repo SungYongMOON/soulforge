@@ -2279,16 +2279,28 @@ function trunkOccurrencesFor(g, b) {
     || (b.anchor_ref && o.series_key && b.anchor_ref === `series:${o.series_key}`))
     .sort((a, x) => String(a.occurrence_key).localeCompare(String(x.occurrence_key)));
 }
+// 강줄기 뷰(B9b, 2026-07-07 owner "근본 해결" 지시): 방사형 폐기 — 가로축=시간, 기둥(SE 골격) 위에
+// 게이트 큰 점, 가지는 탄생 시점에서 갈라져 자기 가로줄(레인)을 갖는다(겹침 구조적 제거, git log --graph 원리).
+// 줄 위의 점 = 그 일의 기록들(시간순), 가지 사이 가는 곡선 = 실제 관계(edges). 정본: docs/slices/B9-STEM-RIVER-VIEW.md §2.
 function drawTrunkMap(body, g, ranked) {
   const L = state.lex;
-  // 종류별로 호를 묶어 배치(골격→이력→작업→legacy) — 같은 성격이 이웃해 지도가 읽힌다. 종류 내에서는 중요도순 유지.
-  const branches = ranked.slice(0, 40).slice().sort((a, b) => TRUNK_KIND_ORDER[trunkKindOf(a)] - TRUNK_KIND_ORDER[trunkKindOf(b)]);
+  const skeleton = ranked.filter((b) => trunkKindOf(b) === "skeleton").slice(0, 10);
+  const laneCap = 32;
+  const laneAll = ranked.filter((b) => trunkKindOf(b) !== "skeleton");
+  const T = (s) => { const t = Date.parse(String(s ?? "").slice(0, 19)); return Number.isFinite(t) ? t : null; };
+  const nodesByBranch = new Map();
+  for (const n of g.nodes ?? []) {
+    if (!n.branch_key || n.type === "context_branch") continue;
+    if (!nodesByBranch.has(n.branch_key)) nodesByBranch.set(n.branch_key, []);
+    nodesByBranch.get(n.branch_key).push(n);
+  }
+  const laneStart = (b) => T(b.born_at) ?? Math.min(...(nodesByBranch.get(b.branch_key) ?? []).map((n) => T(n.created_at ?? n.updated_at) ?? Infinity), Infinity);
+  const lanes = laneAll.slice().sort((a, b) => (laneStart(a) === Infinity ? 1 : laneStart(b) === Infinity ? -1 : laneStart(a) - laneStart(b))).slice(0, laneCap);
+  const branches = [...skeleton, ...lanes]; // 클릭 상세·드래그 공용 목록
   const hidden = ranked.length - branches.length;
-  const W = 860; const H = 600; const cx = W / 2; const cy = H / 2;
-  const maxSrc = Math.max(1, ...branches.map((b) => b.source_count));
-  const angle = (i) => (i / branches.length) * 2 * Math.PI - Math.PI / 2;
-  const bx = (i) => cx + Math.cos(angle(i)) * 205;
-  const by = (i) => cy + Math.sin(angle(i)) * 205;
+  const W = 1180; const ML = 12; const MR = 24;
+  const trunkY = 46; const laneTop = 92; const rowH = 30;
+  const H = laneTop + Math.max(1, lanes.length) * rowH + 20;
   const c = g.counts ?? {};
   const moreNote = (hidden > 0 || c.truncated)
     ? `<div class="dim small">${(L.trunk_more ?? "가지 +{n}개는 중요도 하위라 생략됨").replace("{n}", hidden)}${c.truncated ? ` · ${L.trunk_node_cap ?? "노드 상한 도달(일부 생략)"}` : ""}</div>` : "";
@@ -2345,59 +2357,77 @@ function drawTrunkMap(body, g, ranked) {
 
   const paintSvg = () => {
     const expandedKey = state._trunkExpandKey ?? null;
-    const idx = branches.findIndex((b) => b.branch_key === expandedKey);
-    const lines = branches.map((b, i) => `<line x1="${cx}" y1="${cy}" x2="${bx(i)}" y2="${by(i)}" stroke="var(--border,#8884)" stroke-width="1.5"/>`).join("");
-    const nodes = branches.map((b, i) => {
+    // ── 시간 영역: 가지 탄생/종료 + 회차 + 기록 날짜 전부에서 산출
+    const ts = [];
+    for (const b of lanes) { const a = T(b.born_at); if (a) ts.push(a); const z = T(b.closed_at); if (z) ts.push(z); }
+    for (const o of g.occurrences ?? []) { const t = T(o.occurrence_key); if (t) ts.push(t); }
+    for (const arr of nodesByBranch.values()) for (const n of arr) { const t = T(n.created_at ?? n.updated_at); if (t) ts.push(t); }
+    const now = Date.now();
+    const domMin = ts.length ? Math.min(...ts) : now - 90 * 864e5;
+    const domMax = Math.max(ts.length ? Math.max(...ts) : now, domMin + 7 * 864e5);
+    const X = (t) => ML + 150 + ((t - domMin) / (domMax - domMin)) * (W - ML - MR - 150 - 10);
+    // ── 월 눈금(기간 길면 분기 단위)
+    const months = [];
+    { const d = new Date(domMin); d.setDate(1); d.setHours(0, 0, 0, 0);
+      const span = (domMax - domMin) / (30 * 864e5); const step = span > 30 ? 3 : 1;
+      while (d.getTime() <= domMax) { months.push(new Date(d)); d.setMonth(d.getMonth() + step); } }
+    const grid = months.map((d) => { const x = X(d.getTime()); if (x < ML + 150) return "";
+      return `<line x1="${x}" y1="${trunkY - 14}" x2="${x}" y2="${H - 8}" stroke="var(--border,#8883)" stroke-width="1"/>
+        <text x="${x + 3}" y="${trunkY - 18}" font-size="9" fill="currentColor" opacity="0.55">${d.getFullYear() % 100}.${String(d.getMonth() + 1).padStart(2, "0")}</text>`; }).join("");
+    // ── 기둥(SE 골격): 가로선 + 게이트 큰 점(드롭 대상) + 관리 기둥 작은 사각
+    const gates = skeleton.filter((b) => (b.anchor_ref ?? "").startsWith("gate:"));
+    const mgmts = skeleton.filter((b) => !(b.anchor_ref ?? "").startsWith("gate:"));
+    const skGap = (W - ML - MR - 150) / (skeleton.length + 1);
+    const trunkEls = [`<line x1="${ML + 150}" y1="${trunkY}" x2="${W - MR}" y2="${trunkY}" stroke="#7a5cc0" stroke-width="3" opacity="0.85"/>`,
+      `<text x="${ML}" y="${trunkY + 4}" font-size="12" font-weight="600" fill="#7a5cc0">${esc(g.project)}</text>`];
+    [...gates, ...mgmts].forEach((b, i) => {
+      const x = ML + 150 + skGap * (i + 1);
+      const isGate = (b.anchor_ref ?? "").startsWith("gate:");
+      const sel = b.branch_key === expandedKey ? ` stroke="var(--accent,#1f48d4)" stroke-width="2.5"` : "";
+      trunkEls.push(`<g class="ctx-branch" data-key="${esc(b.branch_key)}" data-kind="skeleton" data-anchor="${esc(b.anchor_ref ?? "")}" style="cursor:pointer">
+        ${isGate ? `<circle cx="${x}" cy="${trunkY}" r="10" fill="#7a5cc0"${sel}/>` : `<rect x="${x - 6}" y="${trunkY - 6}" width="12" height="12" rx="3" fill="#7a5cc0" opacity="0.7"${sel}/>`}
+        <text x="${x}" y="${trunkY - (isGate ? 15 : 11)}" text-anchor="middle" font-size="${isGate ? 10 : 8.5}" fill="currentColor"${isGate ? ` font-weight="600"` : ` opacity="0.75"`}>${esc(trunkMapLabel(b).slice(0, isGate ? 18 : 12))}</text></g>`);
+    });
+    // ── 레인(가지 한 줄 = 한 맥락): 탄생점→진행/닫힘, 줄 위 점=기록, 이력은 회차 점
+    const pos = new Map(); // node_id → {x,y,key} (교차 곡선용)
+    const laneEls = lanes.map((b, i) => {
       const kind = trunkKindOf(b);
       const ks = TRUNK_KIND_STYLE[kind];
-      const r = 10 + Math.round((b.source_count / maxSrc) * 22);
-      const badge = b.open_review_count ? `<circle cx="${bx(i) + r - 3}" cy="${by(i) - r + 3}" r="8" fill="#e5534b"/><text x="${bx(i) + r - 3}" y="${by(i) - r + 6}" text-anchor="middle" font-size="9" fill="#fff">${b.open_review_count > 99 ? "99+" : b.open_review_count}</text>` : "";
-      const closed = kind === "work" && (b.status === "closed" || !!b.closed_at);
+      const y = laneTop + i * rowH + rowH / 2;
+      const st = laneStart(b);
+      const x1 = st === Infinity ? ML + 150 : X(st);
+      const closed = b.status === "closed" || !!b.closed_at;
+      const x2 = closed && T(b.closed_at) ? X(T(b.closed_at)) : W - MR;
       const proposed = kind === "history" && b.status === "proposed";
-      const short = ((closed ? "✓ " : "") + trunkMapLabel(b)).slice(0, 16);
-      const openRing = i === idx ? `<circle cx="${bx(i)}" cy="${by(i)}" r="${r + 4}" fill="none" stroke="var(--accent,#1f48d4)" stroke-width="2"/>` : "";
-      // 골격=사각(기둥), 작업/이력/legacy=원. 이력 '제안'(확정 대기)은 점선 외곽 + 상단 태그. 완료 작업은 흐림+✓.
-      const shape = kind === "skeleton"
-        ? `<rect x="${bx(i) - r}" y="${by(i) - r * 0.8}" width="${r * 2}" height="${r * 1.6}" rx="4" fill="${ks.fill}" opacity="${ks.opacity}"/>`
-        : `<circle cx="${bx(i)}" cy="${by(i)}" r="${r}" fill="${ks.fill}" opacity="${closed ? 0.45 : ks.opacity}"${proposed ? ` stroke="${ks.fill}" stroke-width="2" stroke-dasharray="4 3" fill-opacity="0.35"` : ""}/>`;
-      const propTag = proposed ? `<text x="${bx(i)}" y="${by(i) - r - 8}" text-anchor="middle" font-size="8.5" fill="${ks.fill}">${esc(L.trunk_kind_proposed)}</text>` : "";
-      const labelDy = r + (i % 2 ? 12 : 24); // 이웃 라벨 지그재그 배치 — 원주 위 겹침 완화
-      return `<g class="ctx-branch" data-key="${esc(b.branch_key)}" data-kind="${kind}" data-anchor="${esc(b.anchor_ref ?? "")}" style="cursor:pointer">
-        ${openRing}${shape}${propTag}
-        <text x="${bx(i)}" y="${by(i) + labelDy}" text-anchor="middle" font-size="10" fill="currentColor">${esc(short)}</text>
-        <text x="${bx(i)}" y="${by(i) + 4}" text-anchor="middle" font-size="10" fill="#fff">${b.source_count + b.task_count}</text>${badge}</g>`;
-    }).join("");
-    // 펼친 가지의 하위 부채꼴(최신 12개, 종류별 색, hover 에 전체 라벨)
-    let bloom = "";
-    if (idx >= 0) {
-      const all = (g.nodes ?? []).filter((x) => x.branch_key === expandedKey && x.type !== "context_branch")
-        .sort((a, b) => String(b.updated_at ?? "").localeCompare(String(a.updated_at ?? "")));
-      const kids = all.slice(0, 12);
-      const th = angle(idx);
-      const n = kids.length;
-      const spread = Math.min(Math.PI * 0.95, 0.38 * Math.max(1, n - 1));
-      bloom = kids.map((k, j) => {
-        const phi = th + (n === 1 ? 0 : ((j / (n - 1)) - 0.5) * spread);
-        const kx = bx(idx) + Math.cos(phi) * 78;
-        const ky = by(idx) + Math.sin(phi) * 78;
-        const col = TRUNK_TYPE_COLOR[k.type] ?? "#999";
-        const lbl = (k.label ?? "").slice(0, 10);
-        return `<line x1="${bx(idx)}" y1="${by(idx)}" x2="${kx}" y2="${ky}" stroke="${col}" stroke-width="1" opacity="0.55"/>
-          <g><circle cx="${kx}" cy="${ky}" r="5" fill="${col}"><title>${esc(trunkTypeLabel(k.type) ?? k.type)}: ${esc(k.label ?? "")}</title></circle>
-          <text x="${kx}" y="${ky + 14}" text-anchor="middle" font-size="8.5" fill="currentColor" opacity="0.85">${esc(lbl)}</text></g>`;
-      }).join("");
-      if (all.length > kids.length) {
-        const mx = bx(idx) + Math.cos(th) * 108;
-        const my = by(idx) + Math.sin(th) * 108;
-        bloom += `<text x="${mx}" y="${my}" text-anchor="middle" font-size="9" fill="currentColor" opacity="0.7">+${all.length - kids.length}</text>`;
+      const sel = b.branch_key === expandedKey;
+      const dots = [];
+      for (const n of (nodesByBranch.get(b.branch_key) ?? []).slice(0, 80)) {
+        const t = T(n.created_at ?? n.updated_at); if (!t) continue;
+        const nx = X(t); pos.set(n.id, { x: nx, y, key: b.branch_key });
+        dots.push(`<circle cx="${nx}" cy="${y}" r="3" fill="${TRUNK_TYPE_COLOR[n.type] ?? "#999"}" opacity="0.9"><title>${esc(trunkTypeLabel(n.type) ?? n.type)}: ${esc(n.label ?? "")} (${String(n.created_at ?? n.updated_at ?? "").slice(0, 10)})</title></circle>`);
       }
-    }
+      if (kind === "history") for (const o of trunkOccurrencesFor(g, b)) {
+        const t = T(o.occurrence_key); if (!t) continue;
+        dots.push(`<circle cx="${X(t)}" cy="${y}" r="4.5" fill="${ks.fill}" stroke="#fff" stroke-width="1"><title>${esc(String(o.occurrence_key).slice(0, 10))} (${o.source_count})</title></circle>`);
+      }
+      const badge = b.open_review_count ? ` <tspan fill="#e5534b" font-weight="600">●${b.open_review_count > 99 ? "99+" : b.open_review_count}</tspan>` : "";
+      const label = (closed && kind === "work" ? "✓ " : "") + trunkMapLabel(b).slice(0, 34);
+      const lx = Math.min(x1, W - MR - 240);
+      return `<g class="ctx-branch" data-key="${esc(b.branch_key)}" data-kind="${kind}" data-anchor="${esc(b.anchor_ref ?? "")}" style="cursor:pointer" opacity="${closed && kind === "work" ? 0.55 : 1}">
+        <line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${ks.fill}" stroke-width="${sel ? 4 : 2.5}" opacity="${proposed ? 0.55 : 0.8}"${proposed ? ` stroke-dasharray="5 4"` : ""}/>
+        <line x1="${x1}" y1="${trunkY + 8}" x2="${x1}" y2="${y}" stroke="${ks.fill}" stroke-width="1" opacity="0.25"/>
+        <circle cx="${x1}" cy="${y}" r="5" fill="${ks.fill}"${proposed ? ` fill-opacity="0.4" stroke="${ks.fill}" stroke-dasharray="3 2"` : ""}/>
+        ${closed && T(b.closed_at) ? `<circle cx="${x2}" cy="${y}" r="4" fill="${ks.fill}" opacity="0.9"/>` : ""}
+        <text x="${lx}" y="${y - 8}" font-size="10.5" fill="currentColor"${sel ? ` font-weight="700"` : ""}>${esc(label)}${proposed ? ` <tspan fill="${ks.fill}" font-size="8.5">${esc(L.trunk_kind_proposed)}</tspan>` : ""}${badge}</text>
+        ${dots.join("")}</g>`;
+    }).join("");
+    // ── 교차 곡선: 서로 다른 가지의 기록을 잇는 관계(edges) — "엉킴"을 실제 관계로 노출
+    const cross = (g.edges ?? []).filter((e) => pos.has(e.from) && pos.has(e.to) && pos.get(e.from).key !== pos.get(e.to).key).slice(0, 60)
+      .map((e) => { const a = pos.get(e.from); const b = pos.get(e.to);
+        return `<path d="M ${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${(a.y + b.y) / 2 - Math.min(46, Math.abs(a.y - b.y) / 2 + 14)} ${b.x} ${b.y}" fill="none" stroke="#889" stroke-width="1" opacity="0.28"/>`; }).join("");
     $("#trunkMapSvg").innerHTML = `
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:62vh;background:transparent">
-        ${lines}
-        <circle cx="${cx}" cy="${cy}" r="30" fill="#7a5cc0"/>
-        <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="12" fill="#fff">${esc(g.project)}</text>
-        ${nodes}${bloom}</svg>`;
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;background:transparent">
+        ${grid}${cross}${trunkEls.join("")}${laneEls}</svg>`;
     $("#trunkMapSvg").querySelectorAll(".ctx-branch").forEach((n2) => n2.addEventListener("click", () => {
       const key = n2.dataset.key;
       state._trunkExpandKey = state._trunkExpandKey === key ? null : key; // 같은 가지 재클릭 = 접기
