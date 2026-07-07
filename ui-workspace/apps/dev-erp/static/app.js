@@ -2297,22 +2297,51 @@ function drawTrunkMap(body, g, ranked) {
   // 드래그 재부착(B6 계약): 작업(초록) 가지를 끌어 골격 게이트(gate:*) 사각에 놓으면 그 일의 SE 단계가 이동.
   // 6px 이상 이동해야 드래그로 간주(클릭=펼치기와 구분). move/up 리스너는 컨테이너가 영속하므로 여기서 1회만 부착
   // (paintSvg 안에 두면 가지 클릭마다 중복 부착 → 드래그 1번에 reanchor 다발 발사).
+  // 벙어리 UX 금지(2026-07-07 owner): 끌리는 게 보이고(고스트), 놓을 곳이 빛나고(게이트 하이라이트),
+  // 어떤 결과든 토스트가 말한다 — 못 끄는 가지·빈 곳 드롭도 침묵하지 않는다.
   const svgHost = $("#trunkMapSvg");
   let drag = null;
+  const svgXY = (svg, x, y) => { const p = svg.createSVGPoint(); p.x = x; p.y = y; return p.matrixTransform(svg.getScreenCTM().inverse()); };
+  const clearDragFx = () => {
+    svgHost.querySelector("#trunkDragGhost")?.remove();
+    svgHost.querySelectorAll(".drop-ok").forEach((n) => n.classList.remove("drop-ok"));
+  };
   svgHost.addEventListener("pointermove", (e) => {
-    if (drag && (Math.abs(e.clientX - drag.sx) > 6 || Math.abs(e.clientY - drag.sy) > 6)) drag.moved = true;
+    if (!drag) return;
+    if (Math.abs(e.clientX - drag.sx) > 6 || Math.abs(e.clientY - drag.sy) > 6) drag.moved = true;
+    if (!drag.moved || drag.kind !== "work") return;
+    const svg = svgHost.querySelector("svg");
+    if (!svg) return;
+    const pt = svgXY(svg, e.clientX, e.clientY);
+    let ghost = svg.querySelector("#trunkDragGhost");
+    if (!ghost) {
+      ghost = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      ghost.id = "trunkDragGhost";
+      ghost.setAttribute("r", "13");
+      ghost.setAttribute("fill", "#3f9e63");
+      ghost.setAttribute("opacity", "0.5");
+      ghost.setAttribute("pointer-events", "none"); // elementFromPoint 가 고스트를 집지 않게
+      svg.appendChild(ghost);
+    }
+    ghost.setAttribute("cx", pt.x); ghost.setAttribute("cy", pt.y);
+    const t = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".ctx-branch");
+    svgHost.querySelectorAll(".drop-ok").forEach((n) => n.classList.remove("drop-ok"));
+    if (t && t.dataset.kind === "skeleton" && (t.dataset.anchor || "").startsWith("gate:")) t.classList.add("drop-ok");
   });
   svgHost.addEventListener("pointerup", async (e) => {
+    clearDragFx();
     const d = drag; drag = null;
     if (!d || !d.moved) return;
+    if (d.kind !== "work" || !d.item) { toast(L.trunk_drag_only_work, "warn"); return; }
     const t = document.elementFromPoint(e.clientX, e.clientY)?.closest?.(".ctx-branch");
-    if (!t || t.dataset.key === d.key) return;
-    const anchor = t.dataset.anchor || "";
-    if (t.dataset.kind !== "skeleton" || !anchor.startsWith("gate:")) { toast(L.trunk_drag_only_gate, "warn"); return; }
+    if (t && t.dataset.key === d.key) return;
+    const anchor = t?.dataset.anchor || "";
+    if (!t || t.dataset.kind !== "skeleton" || !anchor.startsWith("gate:")) { toast(L.trunk_drag_only_gate, "warn"); return; }
     const r = await post("/api/items/reanchor", { id: d.item, anchor_stage_code: anchor.slice(5) });
     if (r.ok) { toast(L.trunk_drag_done, "ok"); render(); }
     else { const er = await r.json().catch(() => ({})); toast(`${L.trunk_drag_fail}: ${er.error ?? "-"}`, "warn"); }
   });
+  svgHost.addEventListener("pointercancel", () => { clearDragFx(); drag = null; });
 
   const paintSvg = () => {
     const expandedKey = state._trunkExpandKey ?? null;
@@ -2385,11 +2414,13 @@ function drawTrunkMap(body, g, ranked) {
       paintSvg();
     }));
     // pointerdown 은 repaint 마다 새로 생기는 가지 노드에 다시 건다(옛 노드는 innerHTML 교체로 소멸).
-    svgHost.querySelectorAll('.ctx-branch[data-kind="work"]').forEach((n2) => {
+    // 모든 가지에 걸어 "못 끄는 가지" 시도도 잡는다(작업 외 드래그 → 안내 토스트). preventDefault 로
+    // 실마우스 드래그 중 텍스트 선택(파랗게 긁힘)을 차단 — click(펼치기)은 영향 없음.
+    svgHost.querySelectorAll(".ctx-branch").forEach((n2) => {
       n2.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
         const anchor = n2.dataset.anchor || "";
-        if (!anchor.startsWith("item:")) return;
-        drag = { key: n2.dataset.key, item: anchor.slice(5), sx: e.clientX, sy: e.clientY, moved: false };
+        drag = { key: n2.dataset.key, kind: n2.dataset.kind, item: anchor.startsWith("item:") ? anchor.slice(5) : null, sx: e.clientX, sy: e.clientY, moved: false };
       });
     });
   };
