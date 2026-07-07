@@ -2496,6 +2496,25 @@ export class Store {
     return { ok: true, from: mail.project_id, item_moved: linked?.id ?? null };
   }
 
+  // 할일 상세 팝업에서 '과제 변경'(2026-07-07 owner: AI 과제 오분류 교정용). 메일 유래 할일이면 원본
+  // 메일도 함께 이동(setMailProject 대칭) — 메일 목록의 오분류도 같이 교정. 수동 할일은 항목만 이동.
+  // 항목 이동은 setMailProject 결과와 무관하게 확정(메일·항목 project_id 가 이미 갈라진 경우 대비).
+  setItemProject(id, project_id) {
+    const item = this.db.prepare("SELECT id, project_id, origin_mail_id FROM core_item WHERE id=?").get(id);
+    if (!item) return { error: "item_not_found" };
+    const proj = String(project_id ?? "").trim();
+    if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(proj)) return { error: "project_not_found" };
+    if (item.project_id === proj) return { ok: true, from: item.project_id, unchanged: true, mail_moved: false };
+    let mailMoved = false;
+    if (item.origin_mail_id) {
+      const r = this.setMailProject(item.origin_mail_id, proj); // 메일 + 연결 항목 이동(가능하면)
+      mailMoved = !r.error;
+    }
+    this.db.prepare("UPDATE core_item SET project_id=? WHERE id=?").run(proj, id); // 항목은 확실히 이동(멱등)
+    this.afterItemWrite?.(id);
+    return { ok: true, from: item.project_id, mail_moved: mailMoved };
+  }
+
   // 분류 취소: 메일을 inbox 로 되돌린다(project_id 는 NOT NULL 이라 null 대신 inbox 버킷). 승격된 할일은 건드리지 않음.
   unassignMail(mail_id) {
     const mail = this.db.prepare("SELECT project_id FROM core_mail WHERE id=?").get(mail_id);

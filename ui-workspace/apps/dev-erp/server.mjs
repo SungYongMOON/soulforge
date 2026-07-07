@@ -1269,6 +1269,19 @@ const server = createServer(async (req, res) => {
       });
       return send(res, 200, result);
     }
+    // 할일 과제 변경(2026-07-07 owner): 팝업에서 AI 과제 오분류를 사람이 교정. 메일 유래면 원본 메일도 동행.
+    if (path === "/api/items/project" && req.method === "POST") {
+      const { id, project_id } = await readJson(req);
+      if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
+      const result = store.setItemProject(id, project_id);
+      if (result.error) return send(res, 400, result);
+      if (!result.unchanged) store.appendEvent({
+        actor_ref: actor, actor_kind: "human", kind: "item_move",
+        item_ref: id, from: result.from, to: project_id, project_ref: project_id,
+        used_refs: result.mail_moved ? ["items", "mail"] : ["items"], data_label: "real"
+      });
+      return send(res, 200, result);
+    }
     if (path === "/api/items/delete" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       const { id, reason } = JSON.parse(body || "{}");

@@ -2001,12 +2001,22 @@ async function openItemQuickEdit(itemId, projectId, title) {
     + (qeMe ? `<option value="${esc(qeMe)}">${L.claim_me ?? "나"}</option>` : "")
     + `<option value="__UNASSIGN__">${L.assign_unassigned ?? "미배정"}</option>`
     + qeMembers.map((m) => `<option value="${esc(m.label)}">${esc(m.label)}</option>`).join("");
+  // 과제 변경(2026-07-07 owner: AI 과제 오분류 교정) — 담당 변경과 같은 '액션 선택' 방식(현재값 선택 아님).
+  let qeProjList = state._projCache;
+  if (!qeProjList) { try { qeProjList = (await api("/api/summary")).projects; state._projCache = qeProjList; } catch { qeProjList = []; } }
+  const qeProjOpts = `<option value="">${L.qe_project_ph ?? "과제 변경…"}</option>`
+    + (qeProjList ?? []).filter((p) => p.class !== "inbox" && p.class !== "archive")
+      .map((p) => `<option value="${esc(p.id)}">${esc(p.id)}${p.title ? " " + esc(String(p.title).slice(0, 14)) : ""}</option>`).join("");
   document.querySelector(".ui-confirm-overlay")?.remove();
   const ov = document.createElement("div");
   ov.className = "ui-confirm-overlay";
   ov.innerHTML = `<div class="ui-confirm qedit" role="dialog" aria-label="${esc(title ?? "")}" style="max-width:460px;text-align:left">
-    <p class="ui-confirm-msg">${esc(title ?? itemId)}</p>
+    <div class="qe-title-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <input class="qe-title login-input" value="${esc(info?.title ?? title ?? "")}" style="flex:1;font-weight:600" title="${L.qe_title_hint ?? "할일 이름 — 메일 제목이 아니라 '무엇을 할지'로 고쳐 쓰세요"}" />
+      <button class="qe-title-save fav-chip mini" title="${L.qe_title_save_hint ?? "할일 이름 저장"}">${L.qe_title_save ?? "이름 저장"}</button>
+    </div>
     ${itemDetailBlockHtml(info, L)}
+    ${info?.origin_mail_id ? `<details class="qe-mail" open style="margin:0 0 8px"><summary class="dim mini" style="cursor:pointer">${L.qe_mail_head ?? "원본 메일 내용 (해석이 맞는지 확인)"}</summary><div class="qe-mail-body" id="qeMailBody" style="margin-top:6px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)"><span class="dim mini">${L.qe_mail_loading ?? "불러오는 중…"}</span></div></details>` : ""}
     <div class="qe-status" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
       ${STATUSES.map((s) => `<button class="fav-chip qe-st" data-st="${s}">${L["status_" + s] ?? s}</button>`).join("")}
     </div>
@@ -2017,6 +2027,9 @@ async function openItemQuickEdit(itemId, projectId, title) {
     <div class="qe-assign-row" style="display:flex;gap:6px;margin-bottom:8px">
       <select class="qe-assign" style="flex:1">${qeAssignOpts}</select>
     </div>
+    <div class="qe-project-row" style="display:flex;gap:6px;margin-bottom:8px">
+      <select class="qe-project" style="flex:1" title="${L.qe_project_hint ?? "과제가 잘못 분류됐으면 여기서 바꾸세요"}">${qeProjOpts}</select>
+    </div>
     <div class="qe-msg dim mini" style="min-height:1em"></div>
     <div class="ui-confirm-btns">
       <button class="ui-confirm-cancel">${L.btn_cancel}</button>
@@ -2024,9 +2037,41 @@ async function openItemQuickEdit(itemId, projectId, title) {
     </div>
   </div>`;
   document.body.appendChild(ov);
-  const close = () => ov.remove();
+  let changed = false; // 팝업 안에서 인플레이스로 바꾼 게 있으면 닫을 때 목록 재그림.
+  const close = () => { ov.remove(); if (changed) render(); };
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  // 할일 이름 저장 — 메일 제목이 아니라 '할 일'로 고쳐 쓰게. 닫지 않고 인플레이스(원본 메일을 보며 확인·수정).
+  const saveTitle = async () => {
+    const t = ov.querySelector(".qe-title").value.trim();
+    if (!t) { ov.querySelector(".qe-msg").textContent = L.qe_title_empty ?? "할일 이름을 입력하세요"; return; }
+    const r = await post("/api/items/update", { id: itemId, title: t });
+    if (r.ok) { if (info) info.title = t; changed = true; ov.querySelector(".qe-msg").textContent = L.qe_title_saved ?? "이름 저장됨"; }
+    else { const e = await r.json().catch(() => ({})); ov.querySelector(".qe-msg").textContent = e.error || "오류"; }
+  };
+  ov.querySelector(".qe-title-save")?.addEventListener("click", saveTitle);
+  ov.querySelector(".qe-title")?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); saveTitle(); } });
+  // 과제 변경 — 담당 변경과 같은 액션 select. 메일 유래 할일이면 서버가 원본 메일도 함께 이동.
+  ov.querySelector(".qe-project")?.addEventListener("change", async (e) => {
+    const pid = e.target.value; if (!pid) return;
+    const r = await post("/api/items/project", { id: itemId, project_id: pid });
+    if (r.ok) { toast(L.qe_project_moved ?? "과제를 변경했습니다", "ok"); close(); render(); }
+    else { const er = await r.json().catch(() => ({})); ov.querySelector(".qe-msg").textContent = er.error || (L.qe_project_move_fail ?? "과제 변경 실패"); }
+  });
+  // 원본 메일 내용 로드(있으면) — AI 가 메일을 오해석해 엉뚱한 할일이 됐는지 사람이 대조. 본문은 esc 로 무해화.
+  if (info?.origin_mail_id) {
+    const mbox = ov.querySelector("#qeMailBody");
+    api("/api/mail/detail?id=" + encodeURIComponent(info.origin_mail_id)).then((m) => {
+      if (!mbox) return;
+      const bodyText = String(m.body_text || m.body_preview || "").trim();
+      const head = `<div class="dim mini" style="margin-bottom:4px">${esc(m.counterpart || "")}${m.at ? " · " + esc(String(m.at).slice(0, 16).replace("T", " ")) : ""}</div>`;
+      const subj = m.subject ? `<div style="font-weight:600;margin-bottom:4px;word-break:break-word">${esc(m.subject)}</div>` : "";
+      const body = bodyText
+        ? `<div style="white-space:pre-wrap;max-height:220px;overflow:auto;font-size:12px;line-height:1.6">${esc(bodyText)}</div>`
+        : `<span class="dim mini">${L.qe_mail_body_empty ?? "본문이 저장되지 않은 메일입니다(제목·발신자만)"}</span>`;
+      mbox.innerHTML = head + subj + body;
+    }).catch(() => { if (mbox) mbox.innerHTML = `<span class="dim mini">${L.qe_mail_none ?? "메일을 불러오지 못했습니다"}</span>`; });
+  }
   ov.querySelectorAll(".qe-st").forEach((b) => b.addEventListener("click", async () => {
     const r = await post("/api/items/status", { id: itemId, status: b.dataset.st });
     if (r.ok) { close(); render(); }
@@ -3814,6 +3859,34 @@ function openTaskCodex(itemId) {
   loadCapabilities().then(load).then(() => inputEl.focus());
 }
 
+// 스팸 처리 선택 대화상자(2026-07-07 owner: '스팸으로 분류' 버튼). 관리자는 발신자 영구 차단 옵션,
+// 팀원은 이 메일만 숨김. 규칙 관리 위치(관리자 패널 › 메일 제외 규칙)를 함께 안내 — "분류 기준 어디 있는지" 해소.
+function spamChoice({ sender, isAdmin }) {
+  return new Promise((resolve) => {
+    const L = state.lex;
+    document.querySelector(".ui-confirm-overlay")?.remove();
+    const ov = document.createElement("div");
+    ov.className = "ui-confirm-overlay";
+    const senderBtn = isAdmin ? `<button class="fav-chip danger sc-sender">${L.mail_spam_block_sender ?? "이 발신자 차단(앞으로도)"}</button>` : "";
+    ov.innerHTML = `<div class="ui-confirm" role="alertdialog" aria-modal="true" style="text-align:left">
+      <p class="ui-confirm-msg">${L.mail_spam_title ?? "스팸/광고 메일 처리"}</p>
+      <div class="dim mini" style="margin-bottom:8px;word-break:break-all">${esc(sender)}${isAdmin ? "" : ` · ${L.mail_spam_member_note ?? "발신자 영구 차단은 관리자만 — 이 메일만 숨깁니다"}`}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${senderBtn}
+        <button class="fav-chip sc-one">${L.mail_spam_hide_one ?? "이 메일만 숨기기"}</button>
+        <button class="fav-chip sc-cancel">${L.btn_cancel ?? "취소"}</button>
+      </div>
+      ${isAdmin ? `<div class="dim mini" style="margin-top:8px">${L.mail_spam_manage_hint ?? "차단 규칙 관리: 관리자 패널 › 메일 제외 규칙"}</div>` : ""}
+    </div>`;
+    document.body.appendChild(ov);
+    const done = (v) => { ov.remove(); resolve(v); };
+    ov.querySelector(".sc-sender")?.addEventListener("click", () => done("sender"));
+    ov.querySelector(".sc-one").addEventListener("click", () => done("one"));
+    ov.querySelector(".sc-cancel").addEventListener("click", () => done(null));
+    ov.addEventListener("click", (e) => { if (e.target === ov) done(null); });
+  });
+}
+
 function uiConfirm(message) {
   return new Promise((resolve) => {
     const L = state.lex;
@@ -5301,6 +5374,17 @@ async function renderMail() {
   };
   state.expandedThreads = state.expandedThreads || new Set();
   let threadSeq = 0;
+  // 스레드(대화) 그룹 단위 일괄 처리(2026-07-07 owner) — 그룹 헤더의 담당/과제 select 옵션.
+  // 담당 배정은 스레드의 현재 실과제를 유지(없으면 general_work)하고, 과제 이동은 thread-proj 가 담당.
+  const threadAssignMembers = (state._scopes ?? []).filter((s) => s.id !== "team");
+  const threadAssignOpts = `<option value="">${L.thread_assign_ph ?? "이 대화 담당…"}</option>`
+    + `<option value="__UNASSIGN__">${L.assign_unassigned ?? "미배정"}</option>`
+    + threadAssignMembers.map((m) => `<option value="${esc(m.label)}">${esc(m.label)}</option>`).join("");
+  const threadProjAssignables = summary.projects.filter((p) => p.class !== "inbox" && p.class !== "archive");
+  const threadProjIds = new Set(threadProjAssignables.map((p) => p.id));
+  const threadProjOpts = `<option value="">${L.thread_proj_ph ?? "이 대화 분류…"}</option>`
+    + threadProjAssignables.map((p) => `<option value="${esc(p.id)}">${esc(p.title === p.id ? projDisplay(p.id) : `${p.id} · ${p.title}`)}</option>`).join("");
+  const canThreadOps = !!state.account; // 로그인 팀원은 대화 단위 분류·배정 가능(미분류 위젯과 동일 기준)
   const renderThreadRows = (items, showProj, scopeKey) => {
     if (!f.threaded) return items.map((m) => mailRow(m, showProj)).join("");
     const groups = new Map();
@@ -5317,10 +5401,17 @@ async function renderMail() {
       const stateKey = `${scopeKey}::${subject}`;
       const open = state.expandedThreads.has(stateKey);
       const latest = sorted[0];
+      const convIds = sorted.map((m) => m.id).join(","); // 대화 전체 메일 id — 그룹 일괄 처리 대상
+      const threadProj = threadProjIds.has(latest.project_id) ? latest.project_id : "general_work"; // 담당 배정 시 현재 실과제 유지(없으면 일반업무)
+      const threadCtl = canThreadOps
+        ? ` <select class="thread-assign" data-conv="${esc(convIds)}" data-proj="${esc(threadProj)}" title="${L.thread_assign_hint ?? "이 대화 전체를 한 사람에게 배정"}">${threadAssignOpts}</select>`
+          + `<select class="thread-proj" data-conv="${esc(convIds)}" title="${L.thread_proj_hint ?? "이 대화 전체를 다른 과제로 이동"}">${threadProjOpts}</select>`
+        : "";
       const head = `<tr class="thread-head${open ? " open" : ""}" data-tkey="${tkey}" data-thread="${esc(stateKey)}"><td colspan="4">`
         + `<span class="thread-toggle">${open ? "▾" : "▸"}</span> <strong>${esc(subject)}</strong> `
         + `<span class="proj-sep-n" title="${L.mail_thread_count ?? "이 대화의 메일 수"}">💬 ${ms.length}</span> `
-        + `<span class="dim mini">${esc(latest.counterpart ?? "")} · ${localTime(latest.at)}${promotedSet.has(latest.id) ? " · ✓" : ""}</span></td></tr>`;
+        + `<span class="dim mini">${esc(latest.counterpart ?? "")} · ${localTime(latest.at)}${promotedSet.has(latest.id) ? " · ✓" : ""}</span>`
+        + threadCtl + `</td></tr>`;
       const children = sorted.map((m) => mailRow(m, showProj, `thread-body ${tkey}${open ? " open" : ""}`)).join("");
       return head + children;
     }).join("");
@@ -5460,6 +5551,7 @@ async function renderMail() {
         <button id="assignOneGo" class="fav-chip">${L.assign_btn}</button>
         <button id="assignOneNext" class="fav-chip active" ${nextMailId ? "" : "disabled"} title="${L.assign_next_hint ?? "이 메일을 분류하고 바로 다음 메일로"}">${L.assign_next ?? "분류하고 다음 ▶"}</button>
         ${sel.project_id && clsById.get(sel.project_id) !== "inbox" ? `<button id="mailUnassign" class="fav-chip mini" title="${L.mail_unassign_hint ?? "받은함으로 되돌리기"}">${L.mail_unassign ?? "분류 취소"}</button>` : ""}
+        <button id="mailSpam" class="fav-chip mini danger" title="${L.mail_spam_hint ?? "스팸/광고 메일 — 이 메일 숨김 또는 발신자 차단"}">${L.mail_spam ?? "스팸"}</button>
         <button id="mailDelete" class="fav-chip mini danger" title="${L.mail_delete_hint ?? "이 메일을 목록에서 삭제(재수집돼도 다시 안 보임)"}">${L.mail_delete ?? "메일 삭제"}</button>
       </div>
     </aside>` : "";
@@ -5572,6 +5664,29 @@ async function renderMail() {
       $("#view").querySelectorAll(`.thread-body.${tkey}`).forEach((r) => r.classList.toggle("open", open));
     })
   );
+  // 스레드(대화) 그룹 단위 담당/과제 일괄 처리(2026-07-07 owner) — 미분류 위젯 inbox-assign 패턴 이식.
+  // select 조작은 헤더 펼침 토글과 분리(stopPropagation). /api/mail/assign 이 mail_ids 배열을 받아 대화 전체 처리.
+  $("#view").querySelectorAll(".thread-assign, .thread-proj").forEach((sel) => {
+    sel.addEventListener("mousedown", (e) => e.stopPropagation());
+    sel.addEventListener("click", (e) => e.stopPropagation());
+    sel.addEventListener("change", async (e) => {
+      e.stopPropagation();
+      const v = sel.value; if (!v) return;
+      const conv = (sel.dataset.conv || "").split(",").filter(Boolean);
+      if (!conv.length) return;
+      const isAssign = sel.classList.contains("thread-assign");
+      const body = isAssign
+        ? { mail_ids: conv, project_id: sel.dataset.proj || "general_work", assignee_ref: v === "__UNASSIGN__" ? "" : v, make_items: true, single_item: true, open: true }
+        : { mail_ids: conv, project_id: v, make_items: true, single_item: true };
+      const resp = await post("/api/mail/assign", body);
+      const d = await resp.json().catch(() => ({}));
+      if (resp.ok && !d.error) {
+        if (isAssign) toast((L.thread_assign_done ?? "%n건 대화를 %who에게 배정").replace("%n", conv.length).replace("%who", v === "__UNASSIGN__" ? (L.assign_unassigned ?? "미배정") : v), "ok");
+        else { state.lastAssignProject = v; toast((L.thread_proj_done ?? "%n건 대화를 %p로 분류").replace("%n", conv.length).replace("%p", projDisplay(v)), "ok"); }
+        render();
+      } else { toast((L.thread_op_fail ?? "대화 처리 실패") + (d.error ? ` (${d.error})` : ""), "error"); sel.value = ""; }
+    });
+  });
   // 메일함 화면 DnD: 메일 행을 끌어 담당자 레인에 놓으면 그 사람 할 일로(공용 헬퍼).
   wireClaimDropBar($("#view"));
 	  $("#view").querySelectorAll("[data-lp]").forEach((c) =>
@@ -5658,6 +5773,26 @@ async function renderMail() {
     const r = await post("/api/mail/delete", { mail_id: state.mailSel });
     if (r.ok) { state.mailSel = null; toast(L.mail_deleted ?? "메일을 삭제했습니다", "ok"); render(); }
     else toast(L.mail_delete_fail ?? "메일 삭제 실패", "error");
+  });
+  $("#mailSpam")?.addEventListener("click", async () => {
+    const cp = String(sel.counterpart || "").trim();
+    const m = cp.match(/[\w.+-]+@[\w-]+\.[\w.-]+/); // 발신 주소 추출(있으면) — 없으면 이 메일만 숨김으로 폴백
+    const senderPat = m ? m[0] : "";
+    const isAdmin = !!state.account?.is_admin;
+    const choice = await spamChoice({ sender: senderPat || cp || "(발신자 불명)", isAdmin: isAdmin && !!senderPat });
+    if (!choice) return;
+    if (choice === "sender") {
+      // 관리자만: 발신자 제외 규칙 추가 + 기존 메일 소급 숨김(엔진 인입 단계에서도 앞으로 차단).
+      const r = await post("/api/mail/exclude-rules", { field: "from", pattern: senderPat, match: "contains" });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) { state.mailSel = null; toast(`${L.mail_spam_blocked ?? "발신자 차단"}${d.hidden ? ` · ${d.hidden}${L.mrule_hidden_unit ?? "건 숨김"}` : ""}`, "ok"); render(); }
+      else toast((L.mail_spam_fail ?? "차단 실패") + (d.error ? ` (${d.error})` : ""), "error");
+      return;
+    }
+    // 'one' — 이 메일만 숨김(누구나 가능, /api/mail/delete = soft-hide)
+    const r = await post("/api/mail/delete", { mail_id: state.mailSel });
+    if (r.ok) { state.mailSel = null; toast(L.mail_spam_hidden ?? "이 메일을 숨겼습니다", "ok"); render(); }
+    else toast(L.mail_delete_fail ?? "숨김 실패", "error");
   });
   $("#mailEditBtn")?.addEventListener("click", () => { state.mailEdit = state.mailSel; render(); });
   $("#meCancel")?.addEventListener("click", () => { state.mailEdit = null; render(); });
