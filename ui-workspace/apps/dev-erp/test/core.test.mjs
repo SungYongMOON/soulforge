@@ -6176,3 +6176,40 @@ match_policy:
     assert.deepEqual(none.rules, []);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+// ── ITEM-PROJECT: 할일 과제 변경(팝업, AI 오분류 교정) ──
+test("ITEM-PROJECT-001: 수동 할일은 항목만 이동, 검증(항목/과제 존재)·멱등", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "PRJ-A", title: "A", class: "active", data_label: "real" });
+  store.upsertProject({ id: "PRJ-B", title: "B", class: "active", data_label: "real" });
+  const it = store.createItem({ project_id: "PRJ-A", title: "수동 할일", created_by: "t" }).item;
+  assert.equal(store.setItemProject("nope", "PRJ-B").error, "item_not_found");
+  assert.equal(store.setItemProject(it.id, "PRJ-ZZZ").error, "project_not_found");
+  const r = store.setItemProject(it.id, "PRJ-B");
+  assert.equal(r.ok, true);
+  assert.equal(r.mail_moved, false, "메일 없는 수동 할일은 항목만 이동");
+  assert.equal(store.db.prepare("SELECT project_id FROM core_item WHERE id=?").get(it.id).project_id, "PRJ-B");
+  const again = store.setItemProject(it.id, "PRJ-B");
+  assert.equal(again.unchanged, true, "같은 과제 재지정은 무변경");
+});
+
+test("ITEM-PROJECT-002: 메일 유래 할일은 원본 메일도 함께 이동(setMailProject 대칭)", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "PRJ-A", title: "A", class: "active", data_label: "real" });
+  store.upsertProject({ id: "PRJ-B", title: "B", class: "active", data_label: "real" });
+  const mail = store.createMail({ project_id: "PRJ-A", subject: "메일 제목 그대로", counterpart: "kim@x.com", at: "2026-07-01" });
+  assert.equal(mail.ok, true);
+  const promoted = store.promoteMail(mail.id, "t");
+  assert.equal(promoted.ok, true);
+  const itemId = promoted.item.id;
+  assert.equal(store.db.prepare("SELECT title FROM core_item WHERE id=?").get(itemId).title, "메일 제목 그대로", "승격 시 title=메일 제목");
+  const r = store.setItemProject(itemId, "PRJ-B");
+  assert.equal(r.ok, true);
+  assert.equal(r.mail_moved, true, "메일 유래 → 메일도 동행");
+  assert.equal(store.db.prepare("SELECT project_id FROM core_item WHERE id=?").get(itemId).project_id, "PRJ-B", "항목 이동");
+  assert.equal(store.db.prepare("SELECT project_id FROM core_mail WHERE id=?").get(mail.id).project_id, "PRJ-B", "원본 메일도 이동");
+  // 제목 수정(updateItem)은 메일 subject 를 안 건드림(1:1이지만 독립)
+  store.updateItem(itemId, { title: "저주파 SAS 저장연동반 SW 수정 회신하기" });
+  assert.equal(store.db.prepare("SELECT title FROM core_item WHERE id=?").get(itemId).title, "저주파 SAS 저장연동반 SW 수정 회신하기");
+  assert.equal(store.db.prepare("SELECT subject FROM core_mail WHERE id=?").get(mail.id).subject, "메일 제목 그대로", "메일 원문 제목 불변");
+});

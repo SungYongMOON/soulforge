@@ -307,6 +307,8 @@ tr.thread-head { cursor: pointer; }
 tr.thread-head td { background: rgba(80,130,210,.17); border-top: 2px solid rgba(80,130,210,.32); font-weight: 600; } /* 대화 헤더(위)=진한색 */
 tr.thread-head:hover td { background: rgba(80,130,210,.25); }
 .thread-toggle { color: var(--muted); font-size: .8em; margin-right: 2px; }
+/* 대화 그룹 헤더의 담당/과제 일괄 select — 헤더가 세로로 커지지 않게 작게. */
+.thread-assign, .thread-proj { font-size: 11.5px; padding: 2px 5px; margin-left: 6px; max-width: 150px; vertical-align: middle; }
 /* 다중수신 합침 배지 — 같은 메일이 N명 팀원에게 갔음(중복은 1건으로). */
 .mail-recip { display: inline-block; margin-left: 4px; font-size: .72em; padding: 0 5px; border-radius: 8px; background: rgba(90,140,220,.18); color: var(--muted); white-space: nowrap; }
 /* 대화 묶음 배지 — 같은 대화(RE/FW·부분분할)가 N건(분류 시 함께 처리). */
