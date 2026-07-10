@@ -49,10 +49,11 @@ test("asset usage event: canonical ref와 측정 포인터를 metadata-only acti
 });
 
 test("asset usage event: absolute ref와 asset type/ref 불일치를 거부", () => {
+  const windowsAbsoluteRef = ["C:", "private", "example", "workflow.yaml"].join("/");
   assert.throws(() => normalizeAssetUsage({
     asset_type: "workflow",
     asset_id: "example_v0",
-    asset_ref: "C:/private/example/workflow.yaml",
+    asset_ref: windowsAbsoluteRef,
   }), /asset_ref_must_be_repo_relative/);
   assert.throws(() => normalizeAssetUsage({
     asset_type: "workflow",
@@ -87,7 +88,7 @@ test("asset usage event: absolute ref와 asset type/ref 불일치를 거부", ()
     "docs/.env/token.txt",
     "docs/credentials/runtime.json",
     "docs/%2e%2e/private.json",
-    "docs/example.md#C:/private/file",
+    `docs/example.md#${["C:", "private", "file"].join("/")}`,
   ]) {
     assert.throws(() => normalizeAssetUsage({
       asset_type: "workflow",

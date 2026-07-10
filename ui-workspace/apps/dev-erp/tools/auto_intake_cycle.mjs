@@ -119,11 +119,28 @@ export function buildProjectContextLines(workmetaRoot, projectId, { maxBranches 
       const sourceTimes = summarizedSources.map((row) => strictTimestampMillis(row.updated_at || row.created_at));
       const summaryTimes = scopedRows.map((row) => strictTimestampMillis(row.updated_at));
       const sourceCounts = scopedRows.map((row) => Number(String(row.source_count ?? "").trim()));
+      const sourceRowsByBranch = new Map();
+      for (const row of summarizedSources) {
+        const branchKey = String(row.branch_key ?? "").trim();
+        if (!sourceRowsByBranch.has(branchKey)) sourceRowsByBranch.set(branchKey, []);
+        sourceRowsByBranch.get(branchKey).push(row);
+      }
+      const summaryRowsByBranch = new Map();
+      let duplicateOrInvalidSummaryBranch = false;
+      for (const row of scopedRows) {
+        const branchKey = String(row.branch_key ?? "").trim();
+        if (!branchKey || branchKey === "unclassified" || summaryRowsByBranch.has(branchKey)) {
+          duplicateOrInvalidSummaryBranch = true;
+          continue;
+        }
+        summaryRowsByBranch.set(branchKey, row);
+      }
       const sourceSupportMissing = scopedRows.length > 0 && summarizedSources.length === 0;
       const summarySupportMissing = summarizedSources.length > 0 && scopedRows.length === 0;
       const freshnessUnverifiable = sourceTimes.some((value) => value === null)
         || summaryTimes.some((value) => value === null)
-        || sourceCounts.some((value) => !Number.isInteger(value) || value < 0);
+        || sourceCounts.some((value) => !Number.isInteger(value) || value < 0)
+        || duplicateOrInvalidSummaryBranch;
       if (sourceSupportMissing) {
         pushGap("missing_sources", `${projectId} branch summary has no same-project source rows; branch summary was not injected.`);
       }
@@ -133,13 +150,26 @@ export function buildProjectContextLines(workmetaRoot, projectId, { maxBranches 
       if (freshnessUnverifiable) {
         pushGap("unverifiable_freshness", `${projectId} source/summary timestamp or source_count metadata is missing or invalid; branch summary was not injected.`);
       }
-      const newestSource = sourceTimes.length ? Math.max(...sourceTimes.filter((value) => value !== null)) : null;
-      const newestSummary = summaryTimes.length ? Math.max(...summaryTimes.filter((value) => value !== null)) : null;
       const summarizedSourceCount = sourceCounts.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+      const branchBindingStale = !freshnessUnverifiable && (
+        [...sourceRowsByBranch.entries()].some(([branchKey, branchSources]) => {
+          const summary = summaryRowsByBranch.get(branchKey);
+          if (!summary) return true;
+          const expectedCount = Number(String(summary.source_count ?? "").trim());
+          const summaryTime = strictTimestampMillis(summary.updated_at);
+          const branchSourceTimes = branchSources.map((row) => strictTimestampMillis(row.updated_at || row.created_at));
+          return branchSources.length !== expectedCount
+            || branchSourceTimes.some((value) => value > summaryTime);
+        })
+        || [...summaryRowsByBranch.entries()].some(([branchKey, summary]) => {
+          const expectedCount = Number(String(summary.source_count ?? "").trim());
+          return expectedCount > 0 && (sourceRowsByBranch.get(branchKey)?.length ?? 0) !== expectedCount;
+        })
+      );
       const stale = !sourceSupportMissing && !summarySupportMissing && !freshnessUnverifiable
-        && (summarizedSources.length !== summarizedSourceCount || newestSource > newestSummary);
+        && (summarizedSources.length !== summarizedSourceCount || branchBindingStale);
       if (stale) {
-        pushGap("stale_summary", `${projectId} source count differs from branch_summaries.csv or source metadata is newer; refresh project_context before using branch state.`);
+        pushGap("stale_summary", `${projectId} per-branch source count differs from branch_summaries.csv or branch source metadata is newer; refresh project_context before using branch state.`);
       }
       if (!sourceSupportMissing && !summarySupportMissing && !freshnessUnverifiable && !stale) {
         const top = scopedRows
@@ -148,7 +178,7 @@ export function buildProjectContextLines(workmetaRoot, projectId, { maxBranches 
             sources: Number(c.source_count) || 0,
             open: Number(c.open_review_count) || 0,
           }))
-          .filter((b) => b.label && !/[�]|ㅇㅇ/.test(b.label)) // 인코딩 깨진 라벨은 맥락에서 제외
+          .filter((b) => b.sources > 0 && b.label && !/[�]|ㅇㅇ/.test(b.label)) // source-bound이고 인코딩이 정상인 줄기만 주입
           .sort((a, b) => b.open - a.open || b.sources - a.sources)
           .slice(0, maxBranches);
         for (const b of top) branchLines.push(`진행 중 줄기: ${b.label} (자료 ${b.sources}, 미결 ${b.open})`);
