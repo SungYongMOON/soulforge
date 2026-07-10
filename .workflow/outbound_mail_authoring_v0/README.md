@@ -7,10 +7,27 @@ This workflow applies the public mail style policy, resolves project subject
 keywords from approved runtime surfaces, checks the mandatory signature plus
 security footer, and produces an owner-facing pre-send checklist.
 
-It may also consume the public-safe `templates/team_mail_context.template.yaml`
-shape and an optional local/private aggregate owner voice profile. The workflow
-remains the procedure authority; the profile is guidance, not mail source truth
-or send authority.
+It may also consume the public-safe `outbound_team_mail_context_v1` shape from
+`templates/team_mail_context.template.yaml` and an optional local/private
+aggregate owner voice profile. The v1 shape preserves role-only recipients,
+per-assignee work and notes, global notes, facts, schedule changes, participant
+involvement, formats/examples, attachments, and response requirements. Supported
+v0 input is normalized to v1-only; ambiguous public-safe values remain explicit
+assumptions and unsafe values stop normalization. The workflow remains the
+procedure authority; the profile is guidance, not mail source truth or send
+authority.
+
+The public synthetic forward-test fixture is
+`templates/team_mail_context.validation_fixture.yaml`. It covers two assignees,
+assumption synchronization, explicit requested-surface/authority separation,
+and ambiguous v0-to-v1 normalization without private or contact data.
+The deterministic compatibility check is
+`scripts/normalize_team_mail_context.mjs --fixture <fixture>`; it emits only v1
+and stops when a public-safety flag reports protected input or deterministic
+value scanning detects contact values, concrete absolute/private runtime paths,
+quoted-mail header chains, or footer-security payload indicators. The value scan
+does not classify ordinary dates, unseparated numeric identifiers, or part
+numbers as contact data.
 
 ## Status
 

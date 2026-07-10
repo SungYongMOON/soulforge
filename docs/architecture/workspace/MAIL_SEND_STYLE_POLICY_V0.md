@@ -258,18 +258,31 @@ recipient_to:
 recipient_cc:
 recipient_bcc:
 subject_source: owner_given | existing_thread | generated
-requested_action:
+team_mail_context_schema: outbound_team_mail_context_v1
+mail_reason:
+requested_work_by_assignee: []
+global_notes: []
+facts: []
+schedule:
+  before: null
+  after: null
+  rationale: null
+  deadline_or_reply_by: null
+participants: []
+format_and_examples: []
 attachment_refs:
 attachment_selection_basis: latest_only | owner_selected | all_history_explicitly_requested | unclear
 attachment_sender_roles: requester | contributor | internal_reviewer | external_stakeholder | unknown
-deadline_or_reply_need:
+response_requirements: []
 source_basis:
 external_share_confirmed: true | false
 ```
 
 필수 입력이 없으면 초안 아래에 `ASSUMPTIONS` 를 먼저 적고, 발송 단계는 `draft_only` 로 고정한다.
 
-팀이 AI에 업무 맥락을 전달할 때는 `.workflow/outbound_mail_authoring_v0/templates/team_mail_context.template.yaml` 을 사용한다. 이 template 은 `recipient_role`, `reason_or_purpose`, `requested_action`, `facts_or_background`, `schedule_or_deadline`, `changes_before_after`, `attachments_or_share_state`, `response_needed`, `assumptions` 를 분리한다. 실제 주소나 private 경로 대신 역할과 승인된 사실만 적는다.
+팀이 AI에 업무 맥락을 전달할 때는 `.workflow/outbound_mail_authoring_v0/templates/team_mail_context.template.yaml` 의 `outbound_team_mail_context_v1` shape 을 사용한다. 이 template 은 역할만 담는 `to`/`cc`/`bcc` 수신자와 이유, 메일 사유, 실제 담당자별 요청 업무와 메모, 전역 메모, 사실, 일정의 before/after/rationale/deadline-or-reply-by, 참여자별 관여 내용, 요청 형식/예시 설명, 첨부 metadata, 회신 요구, assumptions 를 분리한다. 실제 주소나 private 경로 대신 역할과 승인된 사실만 적는다.
+
+기존 `outbound_team_mail_context_v0` 입력은 workflow 의 compatibility map 으로 v1 하나에만 정규화한다. 의미가 명확한 값만 직접 옮기고, 실제 담당자·일정·참여 관계처럼 의미가 겹치는 public-safe 값은 source path 와 값을 `assumptions` 에 보존한다. keyword, 수신자, 첨부, footer, 승인, 정규화 과정에서 파생된 모든 gap 도 본문을 만들기 전에 v1 `assumptions` 에 병합하며, 별도 출력하는 ASSUMPTIONS 와 같은 내용을 유지한다. 수신자나 참여자를 담당자로 추정하지 않으며 v0/v1 필드를 한 packet 에 함께 내보내지 않는다. 선언 flag뿐 아니라 값 검사에서 이메일·강한 전화번호 형식, 구체적인 절대/private runtime 경로, 인용 메일 헤더 체인, footer-security 고지 문구가 발견되어도 그 값을 assumptions 로 복사하지 않고 정규화를 중단한다. 일반 날짜, 구분자 없는 숫자 식별자, 부품번호는 연락처로 판정하지 않는다. 미해결 정규화가 있으면 발송 권한은 `draft_only` 로 유지한다.
 
 ## AI 초안 출력 shape
 
@@ -298,20 +311,23 @@ ASSUMPTIONS
 ```
 
 `ASSUMPTIONS` 가 비어 있고 owner 가 명시 승인한 경우에만 발송 실행을 검토할 수 있다.
+Outlook 수동 초안은 출력 packet 과 점검표에 `requested_send_surface: outlook_manual` 과 `authority_state: draft_only` 를 각각 명시한다. gap 만 나열하고 권한 상태를 암시하는 것으로 갈음하지 않는다.
 
 ## 발송 전 점검
 
 1. 제목이 reply thread 또는 실제 메일 키워드 규칙과 맞는가.
 2. 본문 첫 문장에 목적이 드러나는가.
 3. 요청사항, 첨부, 확인 필요일, 다음 행동이 빠지지 않았는가.
-4. 첨부 파일이 실제 존재하고 외부 공유 가능한 최신본인가.
-5. 취합자료 전체와 발송자료 선별본이 분리되어 있고, 중복/과거 버전이 제외되었는가.
-6. 요청자, 고객사, 외부 이해관계자 자료를 재전달하는 경우 owner 가 명시 승인했는가.
-7. 수신자, 참조, 숨은참조가 owner 지시와 일치하는가.
-8. 내부 용어, private path, secret, raw mail/source 내용이 본문에 없는가.
-9. AI가 미검증 수치나 일정 약속을 만들어 넣지 않았는가.
-10. 발송 후 metadata 기록 위치가 정해졌는가.
-11. 서명 block 과 보안 문구 block 이 정확히 1회 포함되어 있는가.
+4. 담당자가 여러 명이면 각 담당자의 요청 업무와 메모가 서로 섞이지 않았는가.
+5. 전역 메모, 사실, 일정 before/after/rationale/deadline, 참여 관계, 요청 형식/예시, 첨부, 회신 요구가 초안과 점검표에 보존되었는가.
+6. 첨부 파일이 실제 존재하고 외부 공유 가능한 최신본인가.
+7. 취합자료 전체와 발송자료 선별본이 분리되어 있고, 중복/과거 버전이 제외되었는가.
+8. 요청자, 고객사, 외부 이해관계자 자료를 재전달하는 경우 owner 가 명시 승인했는가.
+9. 수신자, 참조, 숨은참조가 owner 지시와 일치하는가.
+10. 내부 용어, private path, secret, raw mail/source 내용이 본문에 없는가.
+11. AI가 미검증 수치나 일정 약속을 만들어 넣지 않았는가.
+12. 발송 후 metadata 기록 위치가 정해졌는가.
+13. 서명 block 과 보안 문구 block 이 정확히 1회 포함되어 있는가.
 
 ## 발송 후 기록
 

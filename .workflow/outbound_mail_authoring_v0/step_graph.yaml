@@ -7,6 +7,7 @@ steps:
     actor_slot: scope_binder
     action:
       kind: outbound_mail_authoring_scope_binding
+      team_mail_context_normalizer: scripts/normalize_team_mail_context.mjs
       validates:
         - thread_mode_is_new_reply_or_forward
         - send_surface_is_outlook_manual_soulforge_send_mail_or_draft_only
@@ -16,9 +17,16 @@ steps:
         - attachment_selection_scope_is_bound_or_marked_unclear
         - owner_voice_profile_ref_is_optional_and_private_when_present
         - owner_voice_profile_provenance_is_bound_when_profile_is_used
-        - team_mail_context_uses_public_template_shape
+        - team_mail_context_is_v1_or_supported_v0_input
+        - team_mail_context_normalizes_to_v1_only
+        - recipient_roles_contain_no_contact_values
+        - each_requested_work_item_names_actual_assignee_or_explicit_assumption
+        - unsupported_or_ambiguous_v0_fields_are_preserved_in_assumptions
+        - unsafe_values_are_not_copied_into_normalized_context
+        - all_derived_runtime_gaps_are_merged_into_v1_assumptions
       creates:
         - mail_authoring_scope
+        - normalized_team_mail_context_v1
         - missing_input_register
     summary: Bind the requested mail mode, send surface, project metadata, recipients, attachments, and owner-provided facts before drafting.
     next:
@@ -85,7 +93,7 @@ steps:
         - attachment_metadata_refs
         - owner_voice_profile_ref
         - owner_voice_profile_provenance
-        - team_mail_context_ref
+        - normalized_team_mail_context_v1
       artifact_out: owner_style_body_draft
       style_rules:
         - Korean_business_mail
@@ -98,7 +106,12 @@ steps:
         - avoid_unverified_numbers_or_dates
         - avoid_private_paths_hashes_run_ids_or_source_refs
         - use_owner_voice_profile_only_as_optional_aggregate_style_guidance
+        - preserve_each_assignee_and_requested_work_item
+        - preserve_global_and_per_assignee_notes
+        - preserve_facts_schedule_before_after_rationale_and_deadline_or_reply_by
+        - preserve_participant_involvement_format_examples_attachments_and_response_requirements
         - preserve_uncertainties_in_assumptions
+        - render_assumptions_only_from_synchronized_v1_assumptions
       missing_fact_policy: add_assumptions_and_keep_draft_only
     summary: Draft the body in the owner's concise business style using only provided or approved facts.
     next:
@@ -141,18 +154,27 @@ steps:
         - owner_style_body_draft
         - footer_application_state
         - attachment_metadata_refs
+        - normalized_team_mail_context_v1
       artifact_out: pre_send_checklist
       required_checks:
         - recipient_to_cc_bcc_bound
         - subject_matches_thread_or_project_keyword_rule
         - body_purpose_visible
-        - requested_action_attachment_deadline_visible
+        - every_assignee_requested_work_and_note_accounted_for
+        - mail_reason_and_global_notes_accounted_for
+        - facts_and_schedule_before_after_rationale_deadline_accounted_for
+        - participants_and_involvement_accounted_for
+        - requested_formats_and_examples_accounted_for
+        - attachments_and_response_requirements_accounted_for
+        - normalized_and_rendered_assumptions_synchronized
+        - source_basis_and_public_safety_accounted_for
         - attachments_exist_and_are_shareable_or_marked_none
         - attachment_selection_basis_bound
         - duplicate_or_superseded_attachments_excluded_or_owner_approved
         - requester_or_external_stakeholder_attachments_forwarded_only_with_owner_approval
         - footer_signature_and_security_notice_present_once_or_gap_marked
         - no_private_paths_raw_source_secrets_or_internal_run_ids
+        - requested_send_surface_and_authority_state_named_separately
         - owner_approval_state_named
     summary: Build the owner-facing checklist that decides whether the output stays draft-only or can become review-ready/send-handoff.
     next:
@@ -197,6 +219,7 @@ steps:
         - footer_application_state
         - pre_send_checklist
         - owner_approval_gate_result
+        - normalized_team_mail_context_v1
       artifact_out: send_surface_handoff
       allowed_surfaces:
         - outlook_manual
@@ -260,5 +283,11 @@ stop_conditions:
   - owner_approval_missing_for_external_send
   - raw_mail_body_or_attachment_or_secret_required
   - unverified_number_date_or_claim_needed
+  - team_context_schema_missing_or_unsupported
+  - unsafe_team_context_value_present
+  - ambiguous_v0_mapping_not_preserved_in_assumptions
+  - derived_gap_missing_from_v1_assumptions
+  - normalized_and_rendered_assumptions_diverge
+  - requested_work_assignee_unresolved_for_review_ready_or_send_handoff
   - Outlook_mutation_requested
   - public_private_boundary_unclear

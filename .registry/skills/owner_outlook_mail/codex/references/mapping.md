@@ -12,10 +12,34 @@
 
 ## Structured Context
 
-Bind `recipient_role`, `reason_or_purpose`, `requested_action`,
-`facts_or_background`, `schedule_or_deadline`, `changes_before_after`,
-`attachments_or_share_state`, `response_needed`, and `assumptions` before
-drafting. Keep contact values and private paths out of the public template.
+Emit only `outbound_team_mail_context_v1`. Bind role-only `recipients.to`,
+`recipients.cc`, and `recipients.bcc` entries with a reason; `mail_reason`;
+`requested_work[]` entries containing the actual `assignee`, work items,
+and per-assignee notes; global notes; facts; schedule before/after/rationale and
+deadline or reply-by; participant involvement; requested formats and examples;
+attachment metadata; response requirements; and assumptions.
+Keep contact values and private paths out of the public template.
+
+## v0 Compatibility
+
+Accept `outbound_team_mail_context_v0` only as normalization input. Use the
+workflow-owned map in `workflow.yaml`, then emit one v1 packet without any v0
+fields.
+
+- Directly map only fields whose meaning is preserved by the workflow map.
+- Do not infer an assignee from a recipient, participant, or request owner.
+- For an unsupported or ambiguous public-safe field, preserve the source path
+  and value in `assumptions` and keep the result draft-only.
+- Merge every derived keyword, recipient, attachment, footer, approval, and
+  normalization gap into v1 `assumptions` before rendering or handoff. A gap
+  that exists only in a rendered assumptions section is invalid.
+- Stop normalization if a value contains contact data, a raw mail excerpt,
+  exact footer payload, private path, or private project row. Do not copy that
+  value into assumptions.
+- Apply the workflow normalizer's declared-flag and deterministic value scan;
+  reject email/strong phone forms, concrete absolute/private runtime paths,
+  quoted-mail header chains, and footer-security payload indicators even when
+  the input incorrectly leaves its safety flags false.
 
 ## Profile Handling
 
@@ -36,6 +60,11 @@ an assumption and checklist gap.
 
 - The existing workflow was loaded and remains the sole procedure authority.
 - The workflow-owned team context template was used.
+- The normalized context emits v1 only; v0 and v1 shapes are never mixed.
+- The v1 assumptions array and rendered assumptions contain the same gaps.
+- The draft packet and checklist explicitly name `requested_send_surface: outlook_manual` and `authority_state: draft_only` (or checklist `authority_result: draft_only`) separately; never leave authority implied by gaps.
+- Every requested work item retains its actual assignee or an explicit unresolved-assignee assumption.
+- Global/per-assignee notes, schedule before/after/rationale/deadline, participants, formats/examples, attachments, and response requirements survive into draft context coverage and the pre-send checklist.
 - Requested send surface is `outlook_manual`, authority state is named separately, and `draft_only` is never treated as the requested surface by this launcher.
 - Any voice profile use includes aggregate-only provenance.
 - Missing facts remain assumptions; no facts or schedules are invented.

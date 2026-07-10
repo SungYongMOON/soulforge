@@ -2,13 +2,13 @@ skill_id: owner_outlook_mail
 kind: skill
 status: active
 title: Owner Outlook Mail
-summary: Select the existing outbound mail authoring workflow for owner-style Outlook manual drafts using a public-safe team context template and an optional local/private aggregate voice profile.
+summary: Select the existing outbound mail authoring workflow for owner-style Outlook manual drafts using a lossless public-safe per-assignee team context and an optional local/private aggregate voice profile.
 behavior:
   intent: >
     Provide a thin Codex launcher for owner-style Outlook mail authoring through
     `.workflow/outbound_mail_authoring_v0`. The workflow remains procedure
     authority. The launcher selects Outlook manual or draft-only scope, loads
-    the public team context template, and may bind a local/private aggregate
+    the public v1 per-assignee team context template, and may bind a local/private aggregate
     voice profile without copying private evidence into public canon.
   use_when:
     - the user explicitly asks for owner-style Outlook mail
@@ -23,6 +23,8 @@ behavior:
     - requested send surface remains `outlook_manual`
     - authority state remains `draft_only` until owner approval
     - structured context uses the workflow-owned public template
+    - supported v0 context normalizes to v1-only without inferred assignees or lost ambiguous values
+    - multi-assignee work, notes, schedule, formats/examples, attachments, and response requirements survive into draft review
     - optional voice guidance comes from a local/private aggregate profile with provenance
     - no send authority or Outlook mutation authority is granted
 execution_requirements:

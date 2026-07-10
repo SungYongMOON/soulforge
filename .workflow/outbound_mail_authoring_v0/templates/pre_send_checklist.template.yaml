@@ -1,6 +1,7 @@
 schema_version: outbound_mail_pre_send_checklist_v0
 request_id: "<stable_request_id>"
 workflow_id: outbound_mail_authoring_v0
+requested_send_surface: "outlook_manual | soulforge_send_mail | draft_only"
 checks:
   recipient_to_cc_bcc_bound:
     status: "pass | gap | blocked"
@@ -14,8 +15,29 @@ checks:
   body_purpose_visible:
     status: "pass | gap | blocked"
     note: ""
-  requested_action_attachment_deadline_visible:
+  every_assignee_requested_work_and_note_accounted_for:
     status: "pass | gap | blocked"
+    note: ""
+  mail_reason_and_global_notes_accounted_for:
+    status: "pass | gap | blocked"
+    note: ""
+  facts_and_schedule_before_after_rationale_deadline_accounted_for:
+    status: "pass | gap | blocked"
+    note: ""
+  participants_and_involvement_accounted_for:
+    status: "pass | gap | blocked"
+    note: ""
+  requested_formats_and_examples_accounted_for:
+    status: "pass | gap | blocked"
+    note: ""
+  attachments_and_response_requirements_accounted_for:
+    status: "pass | gap | blocked"
+    note: ""
+  normalized_and_rendered_assumptions_synchronized:
+    status: "pass | blocked"
+    note: ""
+  source_basis_and_public_safety_accounted_for:
+    status: "pass | blocked"
     note: ""
   attachment_scope_confirmed:
     status: "pass | gap | blocked"
