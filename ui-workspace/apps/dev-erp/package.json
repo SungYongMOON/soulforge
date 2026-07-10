@@ -15,6 +15,11 @@
     "ops:health": "node tools/runtime_ops.mjs health",
     "ops:backup-db": "node tools/runtime_ops.mjs backup-db",
     "ops:restore-test": "node tools/runtime_ops.mjs restore-test",
+    "ops:backup-codex-payloads": "node tools/codex_payload_backup.mjs backup",
+    "ops:restore-verify-codex-payloads": "node tools/codex_payload_backup.mjs restore-verify",
+    "worker:codex": "node tools/codex_dedicated_worker.mjs",
+    "probe:codex-permission-boundary": "node tools/codex_permission_boundary_probe.mjs",
+    "migrate:legacy-codex": "node tools/legacy_codex_migration.mjs",
     "smoke:chatbot:ollama": "node tools/chatbot_ollama_smoke.mjs",
     "haengbogwan:snapshot": "node tools/haengbogwan_snapshot.mjs",
     "haengbogwan:context": "node tools/haengbogwan_context_packet.mjs",
@@ -31,6 +36,6 @@
     "mail:project-route-backfill": "node tools/mail_project_route_backfill.mjs",
     "auto:intake": "node tools/auto_intake_cycle.mjs",
     "test:snapshot-contract": "node --test test/adapter_snapshot.test.mjs",
-    "test": "node --test test/adapter_snapshot.test.mjs test/core.test.mjs test/codex_bridge_process.test.mjs test/memory_project_isolation.test.mjs test/role_overlay_import.test.mjs test/actor_overlay_import.test.mjs test/haengbogwan_snapshot.test.mjs test/haengbogwan_context_packet.test.mjs test/haengbogwan_candidate_judge.test.mjs test/haengbogwan_apply.test.mjs test/haengbogwan_run.test.mjs test/haengbogwan_task_decisions.test.mjs test/haengbogwan_reading_engine.test.mjs test/haengbogwan_reading_run.test.mjs test/haengbogwan_project_context.test.mjs test/haengbogwan_project_knowledge_overlay.test.mjs test/haengbogwan_knowledge_candidates.test.mjs test/mail_project_rule_candidates.test.mjs test/mail_project_route_backfill.test.mjs test/mail_collect_route_backfill.test.mjs test/mail_fingerprint.test.mjs test/followup_scan.test.mjs test/auto_intake_cycle.test.mjs test/completion_knowledge_feed.test.mjs test/knowledge_grounding.test.mjs test/five_field_capture.test.mjs test/knowledge_loop.test.mjs test/stem_reattach.test.mjs test/mail_collect_summary.test.mjs"
+    "test": "node --test test/adapter_snapshot.test.mjs test/core.test.mjs test/codex_bridge_process.test.mjs test/codex_model_catalog.test.mjs test/codex_workspace_registry.test.mjs test/codex_attachment_registry.test.mjs test/codex_message_payload_store.test.mjs test/codex_payload_backup.test.mjs test/codex_dedicated_worker.test.mjs test/codex_worker_server_integration.test.mjs test/runtime_release_audit_worker.test.mjs test/legacy_codex_migration.test.mjs test/memory_project_isolation.test.mjs test/role_overlay_import.test.mjs test/actor_overlay_import.test.mjs test/haengbogwan_snapshot.test.mjs test/haengbogwan_context_packet.test.mjs test/haengbogwan_candidate_judge.test.mjs test/haengbogwan_apply.test.mjs test/haengbogwan_run.test.mjs test/haengbogwan_task_decisions.test.mjs test/haengbogwan_reading_engine.test.mjs test/haengbogwan_reading_run.test.mjs test/haengbogwan_project_context.test.mjs test/haengbogwan_project_knowledge_overlay.test.mjs test/haengbogwan_knowledge_candidates.test.mjs test/mail_project_rule_candidates.test.mjs test/mail_project_route_backfill.test.mjs test/mail_collect_route_backfill.test.mjs test/mail_fingerprint.test.mjs test/followup_scan.test.mjs test/auto_intake_cycle.test.mjs test/completion_knowledge_feed.test.mjs test/knowledge_grounding.test.mjs test/five_field_capture.test.mjs test/knowledge_loop.test.mjs test/stem_reattach.test.mjs test/mail_collect_summary.test.mjs"
   }
 }

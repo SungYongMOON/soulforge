@@ -1,6 +1,7 @@
 param(
   [string]$RuntimeRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..\..\..")).Path,
   [string]$ServiceName = "dev-erp",
+  [string]$WorkerServiceName = "dev-erp-codex-worker",
   [string]$HostName = "127.0.0.1",
   [int]$Port = 4300,
   [int]$CookieSecure = 1,
@@ -40,7 +41,14 @@ function Write-WatchdogLog($Status, $Message, $Extra = @{}) {
 function Test-DevErpHealth {
   try {
     $response = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/api/health" -TimeoutSec 5
-    return ($response.ok -eq $true)
+    $attestation = $response.attestation
+    return ($response.ok -eq $true `
+      -and $null -ne $attestation `
+      -and $attestation.codex_execution_boundary -eq "dedicated_worker" `
+      -and $attestation.codex_worker_ready -eq $true `
+      -and $attestation.codex_worker_attestation_verified -eq $true `
+      -and $attestation.codex_worker_identity_separate -eq $true `
+      -and $attestation.codex_worker_filesystem_boundary_proven -eq $true)
   } catch {
     return $false
   }
@@ -126,31 +134,33 @@ if (Test-DevErpHealth) {
 }
 
 $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-if ($service) {
-  try {
-    if ($service.Status -eq "Running") {
-      Restart-Service -Name $ServiceName -Force
-      Write-WatchdogLog "restarted" "service restarted" @{ service = $ServiceName }
-    } else {
-      Start-Service -Name $ServiceName
-      Write-WatchdogLog "started" "service started" @{ service = $ServiceName; previous_status = [string]$service.Status }
-    }
-  } catch {
-    Write-WatchdogLog "failed" "service restart failed" @{ error = $_.Exception.Message }
-    exit 2
+$workerService = Get-Service -Name $WorkerServiceName -ErrorAction SilentlyContinue
+if (-not $service -or -not $workerService) {
+  Write-WatchdogLog "failed" "required ERP or Codex worker service is missing" @{
+    erp_service_present = ($null -ne $service)
+    worker_service_present = ($null -ne $workerService)
   }
-} else {
-  $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
-  $out = Join-Path $App "logs\manual-watchdog-$stamp.out.log"
-  $err = Join-Path $App "logs\manual-watchdog-$stamp.err.log"
-  $cmd = "set ERP_CHAT_PROVIDER=$ChatProvider&& set ERP_CHAT_MODEL=$ChatModel&& set ERP_CHAT_THINK=$ChatThink&& set ERP_CHAT_CONTEXT_TURNS=$ChatContextTurns&& set ERP_CHAT_TIMEOUT_MS=$ChatTimeoutMs&& set ERP_LLM_QUEUE_WAIT_MS=$QueueWaitMs&& set ERP_LLM_CONCURRENCY=$LlmConcurrency&& set DEV_ERP_COOKIE_SECURE=$CookieSecure&& node server.mjs --host $HostName --port $Port"
-  try {
-    $p = Start-Process -FilePath "cmd.exe" -ArgumentList @("/c", $cmd) -WorkingDirectory $App -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err -PassThru
-    Write-WatchdogLog "started" "manual node process started" @{ pid = $p.Id; stdout = $out; stderr = $err }
-  } catch {
-    Write-WatchdogLog "failed" "manual start failed" @{ error = $_.Exception.Message }
-    exit 2
+  exit 2
+}
+
+try {
+  if ($workerService.Status -eq "Running") {
+    Restart-Service -Name $WorkerServiceName -Force
+    Write-WatchdogLog "restarted" "Codex worker service restarted" @{ service = $WorkerServiceName }
+  } else {
+    Start-Service -Name $WorkerServiceName
+    Write-WatchdogLog "started" "Codex worker service started" @{ service = $WorkerServiceName; previous_status = [string]$workerService.Status }
   }
+  if ($service.Status -eq "Running") {
+    Restart-Service -Name $ServiceName -Force
+    Write-WatchdogLog "restarted" "ERP service restarted" @{ service = $ServiceName }
+  } else {
+    Start-Service -Name $ServiceName
+    Write-WatchdogLog "started" "ERP service started" @{ service = $ServiceName; previous_status = [string]$service.Status }
+  }
+} catch {
+  Write-WatchdogLog "failed" "two-service recovery failed" @{ error = $_.Exception.Message }
+  exit 2
 }
 
 Start-Sleep -Seconds 8

@@ -6,18 +6,20 @@
 import { createServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import { createServer as createNetServer } from "node:net";
-import { createHash, randomUUID, X509Certificate } from "node:crypto";
+import { createHash, randomBytes, randomUUID, X509Certificate } from "node:crypto";
 import { execFile, execSync } from "node:child_process";
 import { promisify } from "node:util";
-import { readFileSync, existsSync, mkdirSync, statSync, readdirSync, writeFileSync, renameSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join, extname, resolve, sep, basename } from "node:path";
+import {
+  closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync,
+  realpathSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync,
+} from "node:fs";
+import { dirname, isAbsolute, join, extname, resolve, sep, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { openStore } from "./src/store.mjs";
 import { loadFixture } from "./src/fixture.mjs";
 import { composeInputRefs } from "./src/five_field.mjs";
-import { listProjectKnowledgeRefsFast, matchingKnowledgeRefs } from "./tools/knowledge_grounding.mjs";
+import { knowledgeIndexRootFromShellRoot, listProjectKnowledgeRefsFast, matchingKnowledgeRefs } from "./tools/knowledge_grounding.mjs";
 import { ingestFromFile } from "./src/adapter.mjs";
 import { getLexicon, LEXICON } from "./src/lexicon.mjs";
 import { guideTemplates, docRecipes } from "./src/guide.mjs";
@@ -39,7 +41,31 @@ import { mailboxEnvRelPath, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv
 import { collectAllMailboxes, isCollecting } from "./src/mail_collect.mjs";
 const execFileP = promisify(execFile);
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
-import { CODEX_TASK_BRIDGE_VERSION, runCodexTaskTurn } from "./src/codex_bridge.mjs";
+import {
+  CODEX_TASK_BRIDGE_VERSION,
+  CODEX_TASK_PERMISSION_PROFILE_ID,
+  discoverCodexModels,
+  fallbackCodexModelCatalog,
+  preferredCodexModelSlug,
+  resolveCodexModelSelection,
+  runCodexTaskTurn,
+} from "./src/codex_bridge.mjs";
+import { evaluateWriteGrant, parseWorkspaceRegistryJson } from "./src/codex_workspace_registry.mjs";
+import {
+  appendAttachmentManifestRecord,
+  createAttachmentManifest,
+  createAttachmentManifestRecord,
+  createOpaqueAttachmentId,
+  parseAttachmentManifestJson,
+  parseClientAttachmentReference,
+  publicAttachmentDescriptor,
+  resolveAttachment,
+  validateAttachmentFilename,
+} from "./src/codex_attachment_registry.mjs";
+import { createCodexMessagePayloadStore } from "./src/codex_message_payload_store.mjs";
+import { filesystemIdentity, inspectCodexPayloadOwner } from "./src/codex_payload_owner.mjs";
+import { CodexDedicatedWorkerClient, codexWorkerReleaseBindingRevision } from "./src/codex_dedicated_worker_client.mjs";
+import { CODEX_DEDICATED_WORKER_VERSION, readWorkerIdentity } from "./src/codex_dedicated_worker.mjs";
 import { buildMorningBrief, hasContent, localDateKey, runMorningBriefCycle } from "./src/morning_brief.mjs";
 import { buildKnowledgeOverview, readWikiPage } from "./src/knowledge_overview.mjs";
 import { buildContextGraph, listContextProjects } from "./src/context_graph.mjs";
@@ -55,46 +81,276 @@ const flag = (name, fallback) => {
 // 파일 IO(산출물 입력파일 업/다운로드)는 기본 OFF. 켜기: DEV_ERP_FILEIO=1 또는 --fileio.
 // 모든 경로는 <ROOT>/_workspaces 아래로만(filevault path-safety). 절대경로·../·심볼릭 탈출 차단.
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const BACKEND_ROOT = resolve(process.env.DEV_ERP_BACKEND_ROOT || ROOT);
+const RUNTIME_SOURCE_COMMIT = (() => {
+  try { return execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8", timeout: 3000 }).trim(); }
+  catch { return ""; }
+})();
 const CODEX_TASK_BRIDGE_MODE = process.env.DEV_ERP_CODEX_TASK_BRIDGE || "app-server";
-const CODEX_TASK_BRIDGE_CWD = resolve(process.env.DEV_ERP_CODEX_TASK_CWD || ROOT);
+const CODEX_TASK_WORKER_URL = String(process.env.DEV_ERP_CODEX_WORKER_URL || "").trim();
+const CODEX_TASK_WORKER_TOKEN = String(process.env.DEV_ERP_CODEX_WORKER_TOKEN || "").trim();
+const CODEX_TASK_WORKER_EXPECTED_IDENTITY_HASH = String(
+  process.env.DEV_ERP_CODEX_WORKER_EXPECTED_IDENTITY_HASH || "",
+).trim().toLowerCase();
+const CODEX_TASK_WORKER_EXPECTED_RUNTIME_IDENTITY_SHA256 = String(
+  process.env.DEV_ERP_CODEX_WORKER_EXPECTED_RUNTIME_IDENTITY_SHA256 || "",
+).trim().toLowerCase();
+const CODEX_TASK_WORKER_ATTEST_PUBLIC_KEY_FILE = String(
+  process.env.DEV_ERP_CODEX_WORKER_ATTEST_PUBLIC_KEY_FILE || "",
+).trim();
+const CODEX_TASK_WORKER_EXPECTED_ATTESTATION_KEY_ID = String(
+  process.env.DEV_ERP_CODEX_WORKER_EXPECTED_ATTESTATION_KEY_ID || "",
+).trim().toLowerCase();
+const CODEX_TASK_WORKER_RELEASE_BINDING_REVISION = codexWorkerReleaseBindingRevision({
+  workerUrl: CODEX_TASK_WORKER_URL,
+  expectedWorkerIdentityHash: CODEX_TASK_WORKER_EXPECTED_IDENTITY_HASH,
+  expectedRuntimeIdentityHash: CODEX_TASK_WORKER_EXPECTED_RUNTIME_IDENTITY_SHA256,
+  expectedAttestationKeyId: CODEX_TASK_WORKER_EXPECTED_ATTESTATION_KEY_ID,
+});
+const CODEX_TASK_WORKER_HEALTH_TTL_MS = Math.max(
+  1000,
+  Math.min(30_000, Number(process.env.DEV_ERP_CODEX_WORKER_HEALTH_TTL_MS || 5000) || 5000),
+);
+// 모델 목록 discovery의 프로세스 시작 위치일 뿐, 실제 턴 cwd 권한은 runtime-local workspace registry가 결정한다.
+const CODEX_TASK_MODEL_DISCOVERY_CWD = resolve(process.env.DEV_ERP_CODEX_TASK_CWD || ROOT);
+const CODEX_TASK_WORKSPACE_REGISTRY_PATH = resolve(
+  process.env.DEV_ERP_CODEX_WORKSPACE_REGISTRY || join(HERE, "data", "codex-workspaces.runtime.json"),
+);
+const CODEX_TASK_WORKSPACE_PROBE_TTL_MS = Math.max(1000, Number(process.env.DEV_ERP_CODEX_WORKSPACE_PROBE_TTL_MS || 5000) || 5000);
 const CODEX_TASK_TIMEOUT_MS = Number(process.env.DEV_ERP_CODEX_TASK_TIMEOUT_MS || 120000);
-const CODEX_HOME = resolve(process.env.CODEX_HOME || join(homedir(), ".codex"));
-const CODEX_TASK_ATTACHMENT_ROOT = resolve(process.env.DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT || join(ROOT, "_workspaces", "system", "dev-erp", "codex-task-attachments"));
-// 대화 첨부 저장 규칙(2026-07-03 owner, docs/architecture/workspace/CHAT_ATTACHMENT_STORAGE_V0.md):
-// 정위치 = _workspaces/<과제코드>/대화첨부/<할일명 축약>/ (과제 폴더가 로컬에 있을 때).
-// 과제 폴더 미존재(정션 미마운트 등) 시 폴백 = 위 legacy CODEX_TASK_ATTACHMENT_ROOT.
-const ATTACHMENT_WORKSPACES_ROOT = resolve(process.env.DEV_ERP_ATTACHMENT_WORKSPACES_ROOT || join(ROOT, "_workspaces"));
+const CODEX_HOME = resolve(process.env.DEV_ERP_CODEX_HOME || process.env.CODEX_HOME || join(HERE, "data", "codex-home"));
+const CODEX_TASK_DEDICATED_HOME_CONFIGURED = !!String(process.env.DEV_ERP_CODEX_HOME || "").trim();
+const CODEX_TASK_TRUST_DOMAIN = String(process.env.DEV_ERP_CODEX_TRUST_DOMAIN || "").trim();
+const CODEX_TASK_ALLOWED_SKILLS = new Set(String(process.env.DEV_ERP_CODEX_ALLOWED_SKILLS || "")
+  .split(",").map((value) => value.trim()).filter(Boolean));
+function codexDedicatedProfileReady() {
+  if (!CODEX_TASK_DEDICATED_HOME_CONFIGURED || !existsSync(CODEX_HOME)) return false;
+  return ![
+    "config.toml", "hooks.json", "plugins", "marketplaces", "skills", "rules",
+    "AGENTS.md", "AGENTS.override.md", "instructions", "instructions.md",
+  ].some((name) => existsSync(join(CODEX_HOME, name)));
+}
+let codexDedicatedWorkerClientInstance = null;
+let codexDedicatedWorkerHealthCache = { at: 0, value: null };
+let codexDedicatedWorkerHealthInFlight = null;
+let erpProcessIdentityHashCache;
+function erpProcessIdentityHash() {
+  if (erpProcessIdentityHashCache !== undefined) return erpProcessIdentityHashCache;
+  try { erpProcessIdentityHashCache = readWorkerIdentity().hash; }
+  catch { erpProcessIdentityHashCache = null; }
+  return erpProcessIdentityHashCache;
+}
+function safeCodexWorkerError(error, fallback = "codex_worker_unavailable") {
+  const raw = String(error?.code || error?.message || error || "");
+  return /^[A-Za-z0-9._-]{1,120}$/.test(raw) ? raw : fallback;
+}
+function codexDedicatedWorkerConfiguration() {
+  if (CODEX_TASK_BRIDGE_MODE !== "worker") return { configured: false, error: "codex_worker_mode_disabled" };
+  if (!CODEX_TASK_WORKER_URL || !CODEX_TASK_WORKER_TOKEN) {
+    return { configured: false, error: "codex_worker_connection_required" };
+  }
+  if (!/^[a-f0-9]{64}$/.test(CODEX_TASK_WORKER_EXPECTED_IDENTITY_HASH)) {
+    return { configured: false, error: "codex_worker_expected_identity_required" };
+  }
+  if (!/^[a-f0-9]{64}$/.test(CODEX_TASK_WORKER_EXPECTED_RUNTIME_IDENTITY_SHA256)) {
+    return { configured: false, error: "codex_worker_expected_runtime_identity_required" };
+  }
+  if (!CODEX_TASK_WORKER_ATTEST_PUBLIC_KEY_FILE || !isAbsolute(CODEX_TASK_WORKER_ATTEST_PUBLIC_KEY_FILE)) {
+    return { configured: false, error: "codex_worker_attestation_public_key_required" };
+  }
+  if (!/^[a-f0-9]{64}$/.test(CODEX_TASK_WORKER_EXPECTED_ATTESTATION_KEY_ID)) {
+    return { configured: false, error: "codex_worker_expected_attestation_key_required" };
+  }
+  if (!CODEX_TASK_WORKER_RELEASE_BINDING_REVISION) {
+    return { configured: false, error: "codex_worker_release_binding_invalid" };
+  }
+  return { configured: true, error: null };
+}
+function codexDedicatedWorkerClient() {
+  const config = codexDedicatedWorkerConfiguration();
+  if (!config.configured) throw new Error(config.error);
+  if (!codexDedicatedWorkerClientInstance) {
+    codexDedicatedWorkerClientInstance = new CodexDedicatedWorkerClient({
+      baseUrl: CODEX_TASK_WORKER_URL,
+      token: CODEX_TASK_WORKER_TOKEN,
+      attestationPublicKeyFile: CODEX_TASK_WORKER_ATTEST_PUBLIC_KEY_FILE,
+      timeoutMs: Math.max(1000, Math.min(310_000, CODEX_TASK_TIMEOUT_MS + 10_000)),
+    });
+  }
+  return codexDedicatedWorkerClientInstance;
+}
+function codexDedicatedWorkerHealthFromVerified(verified) {
+    const attestation = verified.attestation;
+    const registryRevision = codexWorkspaceRegistryState().registry?.mappingRevision || null;
+    let configuredWorkerPort = null;
+    try { configuredWorkerPort = Number(new URL(CODEX_TASK_WORKER_URL).port); } catch {}
+    const expectedTrustDomainHash = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(CODEX_TASK_TRUST_DOMAIN)
+      ? createHash("sha256").update(CODEX_TASK_TRUST_DOMAIN).digest("hex")
+      : null;
+    const checks = {
+      attestation_verified: verified.verified === true,
+      schema_match: attestation.worker_schema === CODEX_DEDICATED_WORKER_VERSION.schema,
+      release_match: attestation.worker_release === CODEX_DEDICATED_WORKER_VERSION.release,
+      source_commit_match: /^[a-f0-9]{40}$/.test(RUNTIME_SOURCE_COMMIT)
+        && attestation.source_commit === RUNTIME_SOURCE_COMMIT,
+      source_tree_policy_match: attestation.source_tree_clean === true || !IS_RUNTIME_CHECKOUT,
+      boundary_match: attestation.execution_boundary === "dedicated_worker",
+      loopback_match: attestation.listen_host === "127.0.0.1" && attestation.listen_port === configuredWorkerPort,
+      process_separate: Number.isInteger(attestation.worker_pid)
+        && attestation.worker_pid > 0
+        && attestation.worker_pid !== process.pid,
+      identity_separate: (!IS_RUNTIME_CHECKOUT && attestation.bridge_mode === "mock")
+        || (/^[a-f0-9]{64}$/.test(erpProcessIdentityHash() || "")
+          && attestation.worker_identity_hash !== erpProcessIdentityHash()),
+      identity_match: attestation.worker_identity_hash === CODEX_TASK_WORKER_EXPECTED_IDENTITY_HASH,
+      identity_proven: attestation.identity_proof_source === "windows_whoami"
+        || attestation.identity_proof_source === "os_userinfo",
+      attestation_key_match: attestation.attestation_key_id === CODEX_TASK_WORKER_EXPECTED_ATTESTATION_KEY_ID,
+      codex_home_ready: attestation.codex_home_ready === true,
+      attachment_root_ready: attestation.attachment_root_ready === true,
+      forbidden_roots_ready: attestation.forbidden_roots_ready === true && attestation.forbidden_root_count >= 5,
+      registry_ready: attestation.workspace_registry_ready === true,
+      registry_revision_match: !!registryRevision && attestation.workspace_registry_revision === registryRevision,
+      root_isolation_ready: attestation.workspace_root_isolation_ready === true
+        && /^[a-f0-9]{64}$/.test(attestation.workspace_root_isolation_revision),
+      trust_domain_match: !!expectedTrustDomainHash
+        && attestation.trust_domain_match === true
+        && attestation.trust_domain_hash === expectedTrustDomainHash,
+      bridge_ready: attestation.bridge_mode === "app-server" || (!IS_RUNTIME_CHECKOUT && attestation.bridge_mode === "mock"),
+      skills_disabled: attestation.skills_disabled === true,
+      permission_profile_match: attestation.permission_profile_id === CODEX_TASK_PERMISSION_PROFILE_ID
+        && attestation.permission_profile_bridge_release === CODEX_TASK_BRIDGE_VERSION.release,
+      filesystem_boundary_proven: attestation.filesystem_boundary_proven === true
+        && (attestation.filesystem_boundary_proof_source === "codex_sandbox_exact_path_probe_v3"
+          || (!IS_RUNTIME_CHECKOUT && attestation.filesystem_boundary_proof_source === "mock_test_boundary")),
+      command_identity_match: attestation.codex_command_identity_ready === true
+        && attestation.codex_command_revision === CODEX_TASK_WORKER_EXPECTED_RUNTIME_IDENTITY_SHA256
+        && /^[a-f0-9]{64}$/.test(attestation.filesystem_boundary_revision)
+        && /^[a-f0-9]{64}$/.test(attestation.permission_profile_revision),
+    };
+    const ready = Object.values(checks).every(Boolean);
+    const instanceRevision = createHash("sha256").update(JSON.stringify({
+      pid: attestation.worker_pid,
+      identity: attestation.worker_identity_hash,
+      attestation_key: attestation.attestation_key_id,
+      source_commit: attestation.source_commit,
+      worker_release: attestation.worker_release,
+      worker_schema: attestation.worker_schema,
+      listen_port: attestation.listen_port,
+      bridge_mode: attestation.bridge_mode,
+      skills_disabled: attestation.skills_disabled,
+      workspace_registry_revision: attestation.workspace_registry_revision,
+      workspace_root_isolation_revision: attestation.workspace_root_isolation_revision,
+      trust_domain_hash: attestation.trust_domain_hash,
+      codex_home_boundary: attestation.codex_home_boundary_revision,
+      attachment_root_boundary: attestation.attachment_root_boundary_revision,
+      forbidden_roots_ready: attestation.forbidden_roots_ready,
+      forbidden_root_count: attestation.forbidden_root_count,
+      permission_profile_id: attestation.permission_profile_id,
+      permission_profile_bridge_release: attestation.permission_profile_bridge_release,
+      filesystem_boundary_proof_source: attestation.filesystem_boundary_proof_source,
+      filesystem_boundary_revision: attestation.filesystem_boundary_revision,
+      codex_command_revision: attestation.codex_command_revision,
+      codex_command_version: attestation.codex_command_version,
+      codex_command_kind: attestation.codex_command_kind,
+      permission_profile_revision: attestation.permission_profile_revision,
+    })).digest("hex");
+    return Object.freeze({
+      configured: true,
+      ready,
+      error: ready ? null : "codex_worker_attestation_failed",
+      release: typeof attestation.worker_release === "string" ? attestation.worker_release : null,
+      bridge_mode: typeof attestation.bridge_mode === "string" ? attestation.bridge_mode : null,
+      source_commit: typeof attestation.source_commit === "string" ? attestation.source_commit : null,
+      source_tree_clean: attestation.source_tree_clean === true,
+      instance_revision: instanceRevision,
+      workspace_registry_revision: typeof attestation.workspace_registry_revision === "string"
+        ? attestation.workspace_registry_revision
+        : null,
+      ...checks,
+    });
+}
+async function codexDedicatedWorkerOperationAttestation({ issueChannel = true } = {}) {
+  const configuration = codexDedicatedWorkerConfiguration();
+  if (!configuration.configured) {
+    return Object.freeze({
+      health: Object.freeze({ configured: false, ready: false, error: configuration.error }),
+      channel: null,
+    });
+  }
+  try {
+    const nonce = randomBytes(32).toString("base64url");
+    const verified = await codexDedicatedWorkerClient().attest(nonce, { timeoutMs: 5000, issueChannel });
+    const health = codexDedicatedWorkerHealthFromVerified(verified);
+    return Object.freeze({ health, channel: health.ready && issueChannel ? verified : null });
+  } catch (error) {
+    return Object.freeze({
+      health: Object.freeze({
+        configured: true,
+        ready: false,
+        error: safeCodexWorkerError(error),
+      }),
+      channel: null,
+    });
+  }
+}
+async function codexDedicatedWorkerHealth({ refresh = false } = {}) {
+  const now = Date.now();
+  if (!refresh && codexDedicatedWorkerHealthCache.value
+      && now - codexDedicatedWorkerHealthCache.at < CODEX_TASK_WORKER_HEALTH_TTL_MS) {
+    return codexDedicatedWorkerHealthCache.value;
+  }
+  if (codexDedicatedWorkerHealthInFlight) {
+    if (!refresh) return codexDedicatedWorkerHealthInFlight;
+    try { await codexDedicatedWorkerHealthInFlight; } catch {}
+  }
+  const pending = (async () => {
+    const operation = await codexDedicatedWorkerOperationAttestation({ issueChannel: false });
+    codexDedicatedWorkerHealthCache = { at: Date.now(), value: operation.health };
+    return operation.health;
+  })();
+  codexDedicatedWorkerHealthInFlight = pending;
+  try { return await pending; }
+  finally {
+    if (codexDedicatedWorkerHealthInFlight === pending) codexDedicatedWorkerHealthInFlight = null;
+  }
+}
+const CODEX_TASK_ATTACHMENT_ROOT = resolve(process.env.DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT || join(BACKEND_ROOT, "_workspaces", "system", "dev-erp", "codex-task-attachments"));
+const CODEX_TASK_MESSAGE_PAYLOAD_ROOT_OVERRIDE = String(process.env.DEV_ERP_CODEX_MESSAGE_PAYLOAD_ROOT || "").trim();
+const CODEX_TASK_MESSAGE_PAYLOAD_DEFAULT_ROOT = resolve(join(BACKEND_ROOT, "_workspaces", "system", "dev-erp", "codex-message-payloads"));
+// 대화 첨부 저장 계약 v1: Soulforge _workspaces/system/dev-erp의 서비스 전용 root.
+// 팀원이 쓰는 과제 폴더와 runtime checkout은 신규 첨부 payload owner가 아니다.
 // owner 지식그래프 익스포터(guild_hall/knowledge_graph) 산출물 열람 루트 — 읽기 전용 서빙(2026-07-04 owner)
-const GRAPH_VIEW_ROOT = resolve(process.env.DEV_ERP_GRAPH_VIEW_ROOT || join(ROOT, "_workspaces", "system", "knowledge_view", "graph_export"));
-const CHAT_ATTACH_DIRNAME = "대화첨부";
-const CHAT_ATTACH_MANIFEST = "첨부_manifest.json";
+const GRAPH_VIEW_ROOT = resolve(process.env.DEV_ERP_GRAPH_VIEW_ROOT || join(BACKEND_ROOT, "_workspaces", "system", "knowledge_view", "graph_export"));
+const CHAT_ATTACH_MANIFEST = "codex-attachment-manifest.v1.json";
 const CODEX_TASK_IMAGE_MAX = Number(process.env.DEV_ERP_CODEX_TASK_IMAGE_MAX || 8 * 1024 * 1024);
 const CODEX_TASK_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 // 일반 파일 첨부(2026-07-03 owner 지시): 로컬 _workspaces 첨부 루트에만 저장하고 Codex 는 경로로 읽는다.
 // 이미지가 아닌 파일은 localImage 입력이 아니라 메시지의 로컬 경로 참조로 전달(모델 API 로 payload 미전송).
 // 실행형 확장자는 allowlist 밖 → 400.
 const CODEX_TASK_FILE_MAX = Number(process.env.DEV_ERP_CODEX_TASK_FILE_MAX || 25 * 1024 * 1024);
+const CODEX_TASK_ATTACHMENT_MAX_COUNT = Math.max(1, Math.min(256, Math.trunc(Number(process.env.DEV_ERP_CODEX_ATTACHMENT_MAX_COUNT) || 32)));
+const CODEX_TASK_ATTACHMENT_TOTAL_MAX = Math.max(CODEX_TASK_FILE_MAX, Math.min(1024 * 1024 * 1024, Number(process.env.DEV_ERP_CODEX_ATTACHMENT_TOTAL_MAX || 100 * 1024 * 1024) || 100 * 1024 * 1024));
 const CODEX_TASK_FILE_EXTS = new Set([
   ".pdf", ".txt", ".md", ".csv", ".json", ".xml", ".yaml", ".yml", ".log",
-  ".xlsx", ".xls", ".docx", ".doc", ".pptx", ".ppt", ".hwp", ".hwpx",
+  ".xlsx", ".xls", ".docx", ".doc", ".pptx", ".ppt", ".hwpx",
   ".zip", ".7z", ".msg", ".eml", ".step", ".stp", ".dxf",
 ]);
-const CODEX_TASK_BASE_MODEL_OPTIONS = ["gpt-5.5", "gpt-5.4", "gpt-5.3"];
-const CODEX_TASK_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
-const CODEX_TASK_ALLOW_FAST = process.env.DEV_ERP_CODEX_TASK_ALLOW_FAST === "1";
 const CODEX_TASK_SERVICE_TIER_OPTIONS = []; // 속도(tier) 선택 제거 — flex·fast 안 씀. codex 기본 tier 사용(config.toml 에 service_tier 없음) → "unknown variant" 오류 영구 차단.
-const CODEX_TASK_DEFAULT_MODEL = String(process.env.DEV_ERP_CODEX_TASK_MODEL || CODEX_TASK_BASE_MODEL_OPTIONS[0]).trim() || CODEX_TASK_BASE_MODEL_OPTIONS[0];
-const CODEX_TASK_DEFAULT_EFFORT_RAW = String(process.env.DEV_ERP_CODEX_TASK_EFFORT || "").trim().toLowerCase();
-const CODEX_TASK_DEFAULT_EFFORT = CODEX_TASK_EFFORT_OPTIONS.includes(CODEX_TASK_DEFAULT_EFFORT_RAW) ? CODEX_TASK_DEFAULT_EFFORT_RAW : "medium";
-const CODEX_TASK_DEFAULT_SERVICE_TIER_RAW = String(process.env.DEV_ERP_CODEX_TASK_SERVICE_TIER || process.env.DEV_ERP_CODEX_SERVICE_TIER || "").trim().toLowerCase();
-const CODEX_TASK_DEFAULT_SERVICE_TIER = CODEX_TASK_SERVICE_TIER_OPTIONS.includes(CODEX_TASK_DEFAULT_SERVICE_TIER_RAW) ? CODEX_TASK_DEFAULT_SERVICE_TIER_RAW : ""; // tier override 안 보냄 → codex 기본값
-const CODEX_TASK_DEFAULTS = Object.freeze({
-  model: CODEX_TASK_DEFAULT_MODEL,
-  effort: CODEX_TASK_DEFAULT_EFFORT,
-  service_tier: CODEX_TASK_DEFAULT_SERVICE_TIER,
-});
-const KNOWLEDGE_SHELL_ROOT = resolve(flag("knowledge_shell_root", ROOT));
-const BACKEND_ROOT = resolve(process.env.DEV_ERP_BACKEND_ROOT || ROOT);
+const CODEX_TASK_DEFAULT_SERVICE_TIER = "";
+const CODEX_TASK_PREFERRED_MODEL = String(process.env.DEV_ERP_CODEX_TASK_MODEL || "").trim();
+const CODEX_TASK_PREFERRED_EFFORT = String(process.env.DEV_ERP_CODEX_TASK_EFFORT || "").trim();
+const CODEX_TASK_MODEL_CATALOG_TTL_RAW = Number(process.env.DEV_ERP_CODEX_MODEL_CATALOG_TTL_MS || 5 * 60 * 1000);
+const CODEX_TASK_MODEL_CATALOG_TTL_MS = Number.isFinite(CODEX_TASK_MODEL_CATALOG_TTL_RAW)
+  ? Math.max(1000, CODEX_TASK_MODEL_CATALOG_TTL_RAW)
+  : 5 * 60 * 1000;
+const CODEX_TASK_JSON_MAX = Math.max(4096, Math.min(1024 * 1024, Number(process.env.DEV_ERP_CODEX_JSON_MAX || 256 * 1024) || 256 * 1024));
+const CODEX_TASK_MESSAGE_MAX = Math.max(1024, Math.min(256 * 1024, Number(process.env.DEV_ERP_CODEX_MESSAGE_MAX || 64 * 1024) || 64 * 1024));
+const CODEX_TASK_GLOBAL_CONCURRENCY = Math.max(1, Math.min(16, Math.trunc(Number(process.env.DEV_ERP_CODEX_GLOBAL_CONCURRENCY) || 4)));
+const CODEX_TASK_ACCOUNT_CONCURRENCY = Math.max(1, Math.min(CODEX_TASK_GLOBAL_CONCURRENCY, Math.trunc(Number(process.env.DEV_ERP_CODEX_ACCOUNT_CONCURRENCY) || 1)));
+const CODEX_TASK_ACCOUNT_TURNS_PER_HOUR = Math.max(1, Math.min(100, Math.trunc(Number(process.env.DEV_ERP_CODEX_ACCOUNT_TURNS_PER_HOUR) || 20)));
+const KNOWLEDGE_SHELL_ROOT = resolve(flag("knowledge_shell_root", BACKEND_ROOT));
+const KNOWLEDGE_INDEX_ROOT = knowledgeIndexRootFromShellRoot(KNOWLEDGE_SHELL_ROOT);
 const BACKEND_WORKMETA_ROOT = join(BACKEND_ROOT, "_workmeta");
 const FILEIO = process.env.DEV_ERP_FILEIO === "1" || process.argv.includes("--fileio");
 const UPLOAD_MAX = Number(process.env.DEV_ERP_UPLOAD_MAX || 50 * 1024 * 1024); // 50MB 기본 상한
@@ -152,7 +408,7 @@ const STATIC_ROOT = resolve(HERE, "static");
 const SKIN_ROOTS = [...new Set([
   flag("skins_dir", null),
   process.env.DEV_ERP_SKINS_DIR || null,
-  join(ROOT, "_workspaces", "system", "dev-erp", "skins"),
+  join(BACKEND_ROOT, "_workspaces", "system", "dev-erp", "skins"),
   join(HERE, "static", "skins"),
 ].filter(Boolean).map((p) => resolve(p)))];
 // 4번째 버전 세그먼트 = dev-erp 경로 커밋수(자동 증가). 매 dev-erp 배포(커밋)마다 +1 → '버전이 그대로'를 수동 깜빡임 없이 방지. git 없으면 0(best-effort).
@@ -160,12 +416,16 @@ function erpBuildSeq() {
   try { return Number(execSync("git rev-list --count HEAD -- .", { cwd: HERE, encoding: "utf8" }).trim()) || 0; } catch { return 0; }
 }
 const ERP_VERSION = Object.freeze({
-  release: `v1.2.0.${erpBuildSeq()}`,   // MAJOR.MINOR.PATCH.BUILD — 기능 묶음=PATCH 수동, 매 배포=BUILD 자동
-  build: "ui-2026.06.23",
+  release: `v1.3.0.${erpBuildSeq()}`,   // MAJOR.MINOR.PATCH.BUILD — 기능 묶음=PATCH 수동, 매 배포=BUILD 자동
+  build: "ui-2026.07.10",
   source: "server.mjs"
 });
 
 const store = openStore(DB_PATH);
+try {
+  const recovered = store.recoverInterruptedCodexTurnAudits("service_restart");
+  if (recovered.recovered) console.warn(`[dev-erp] recovered ${recovered.recovered} interrupted Codex audit row(s)`);
+} catch { /* schema verification in openStore remains authoritative */ }
 try { const bf = store.backfillCompletionLog(); if (bf.inserted) console.log(`[completion_log] 과거 완료 ${bf.inserted}건 백필`); } catch { /* 백필 실패가 기동을 막지 않음 */ }
 // 분해: 정본 파티 허용목록(.party) — createItem party_ref 검증 + split-suggest 매칭에 재사용(시작 시 1회 로드).
 const PARTY_MATCH = loadPartyMonsterTypes(ROOT);
@@ -206,6 +466,13 @@ function send(res, code, body, type = "application/json", extraHeaders = {}) {
 }
 function isInside(root, target) {
   return target === root || target.startsWith(`${root}${sep}`);
+}
+function isRealFilesystemPathInside(root, target) {
+  const rootPath = resolve(root);
+  const targetPath = resolve(target);
+  const comparableRoot = process.platform === "win32" ? rootPath.toLowerCase() : rootPath;
+  const comparableTarget = process.platform === "win32" ? targetPath.toLowerCase() : targetPath;
+  return comparableTarget === comparableRoot || comparableTarget.startsWith(`${comparableRoot}${sep}`);
 }
 function serveFile(res, full) {
   const type = MIME[extname(full)] ?? "text/plain";
@@ -312,10 +579,6 @@ function allowSharedWrite(req, res) {
   send(res, 403, { error: "admin_only" });
   return false;
 }
-async function readJson(req) {
-  let body = ""; for await (const chunk of req) body += chunk;
-  try { return JSON.parse(body || "{}"); } catch { return {}; }
-}
 async function readRawBody(req, maxBytes) {
   const chunks = [];
   let total = 0;
@@ -329,6 +592,10 @@ async function readRawBody(req, maxBytes) {
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
+}
+async function readJson(req, maxBytes = 1024 * 1024) {
+  const body = await readRawBody(req, maxBytes);
+  try { return JSON.parse(body.length ? body.toString("utf8") : "{}"); } catch { return {}; }
 }
 function intParam(value, fallback, { min = 0, max = 500 } = {}) {
   const n = Math.trunc(Number(value));
@@ -396,6 +663,16 @@ function canAccessItem(req, item_id) {
   return viewIdentities(req, {}).includes(row.assignee_ref);
 }
 
+function canAccessProject(req, projectId) {
+  const me = currentAccount(req);
+  if (!me) return false;
+  const project = store.db.prepare("SELECT id FROM core_project WHERE id=?").get(String(projectId || ""));
+  if (!project) return false;
+  if (store.isAdmin(me.id)) return true;
+  const items = store.db.prepare("SELECT id FROM core_item WHERE project_id=? ORDER BY id LIMIT 500").all(project.id);
+  return items.length === 0 || items.some((row) => canAccessItem(req, row.id));
+}
+
 function lastIngestAt() {
   const rows = store.db.prepare("SELECT at FROM event_log WHERE kind IN ('ingest','mail_ingest') ORDER BY id DESC LIMIT 1").get();
   return rows?.at ?? null;
@@ -415,9 +692,72 @@ function runtimeVersion() {
       },
       codex_task: {
         mode: CODEX_TASK_BRIDGE_MODE,
-        bridge: CODEX_TASK_BRIDGE_VERSION.release
+        bridge: CODEX_TASK_BRIDGE_VERSION.release,
+        worker: CODEX_TASK_BRIDGE_MODE === "worker" ? CODEX_DEDICATED_WORKER_VERSION.release : null,
       }
     }
+  };
+}
+function runtimeCommit() {
+  return RUNTIME_SOURCE_COMMIT;
+}
+function codexPayloadOwnerState() {
+  const ownerBase = resolve(BACKEND_ROOT, "_workspaces", "system", "dev-erp");
+  const messageRoot = CODEX_TASK_MESSAGE_PAYLOAD_ROOT_OVERRIDE
+    ? resolve(CODEX_TASK_MESSAGE_PAYLOAD_ROOT_OVERRIDE)
+    : CODEX_TASK_MESSAGE_PAYLOAD_DEFAULT_ROOT;
+  const roots = [CODEX_TASK_ATTACHMENT_ROOT, messageRoot];
+  return inspectCodexPayloadOwner({
+    backendRoot: BACKEND_ROOT,
+    ownerBase,
+    roots,
+    configured: !IS_RUNTIME_CHECKOUT || !!String(process.env.DEV_ERP_BACKEND_ROOT || "").trim(),
+  });
+}
+let codexPayloadOwnerPinnedRevision = null;
+function assertCodexPayloadOwnerReady() {
+  const state = codexPayloadOwnerState();
+  if (!state.configured || !state.roots_safe || !state.revision) return false;
+  if (codexPayloadOwnerPinnedRevision === null) codexPayloadOwnerPinnedRevision = state.revision;
+  return codexPayloadOwnerPinnedRevision === state.revision;
+}
+async function runtimeHealthAttestation() {
+  const registry = codexWorkspaceRegistryState();
+  const payloadOwner = codexPayloadOwnerState();
+  const worker = CODEX_TASK_BRIDGE_MODE === "worker" ? await codexDedicatedWorkerHealth() : null;
+  return {
+    source_commit: runtimeCommit() || null,
+    erp_release: ERP_VERSION.release,
+    codex_bridge: CODEX_TASK_BRIDGE_VERSION.release,
+    codex_workspace_registry_revision: registry.registry?.mappingRevision || null,
+    codex_dedicated_home_configured: worker ? worker.codex_home_ready === true : CODEX_TASK_DEDICATED_HOME_CONFIGURED,
+    codex_dedicated_profile_safe: worker ? worker.codex_home_ready === true : codexDedicatedProfileReady(),
+    codex_trust_domain_configured: !!CODEX_TASK_TRUST_DOMAIN,
+    codex_payload_owner_configured: payloadOwner.configured,
+    codex_payload_roots_safe: payloadOwner.roots_safe,
+    codex_payload_owner_revision: payloadOwner.revision,
+    codex_execution_boundary: worker?.ready ? "dedicated_worker" : (worker ? "worker_unattested" : "in_process"),
+    codex_worker_configured: worker?.configured === true,
+    codex_worker_ready: worker?.ready === true,
+    codex_worker_release: worker?.release || null,
+    codex_worker_release_binding_revision: worker?.configured === true
+      ? CODEX_TASK_WORKER_RELEASE_BINDING_REVISION
+      : null,
+    codex_worker_attestation_verified: worker?.attestation_verified === true,
+    codex_worker_attestation_key_match: worker?.attestation_key_match === true,
+    codex_worker_source_commit_match: worker?.source_commit_match === true,
+    codex_worker_source_tree_clean: worker?.source_tree_clean === true,
+    codex_worker_identity_match: worker?.identity_match === true,
+    codex_worker_process_separate: worker?.process_separate === true,
+    codex_worker_identity_separate: worker?.identity_separate === true,
+    codex_worker_registry_revision_match: worker?.registry_revision_match === true,
+    codex_worker_root_isolation_ready: worker?.root_isolation_ready === true,
+    codex_worker_attachment_root_ready: worker?.attachment_root_ready === true,
+    codex_worker_forbidden_roots_ready: worker?.forbidden_roots_ready === true,
+    codex_worker_permission_profile_match: worker?.permission_profile_match === true,
+    codex_worker_filesystem_boundary_proven: worker?.filesystem_boundary_proven === true,
+    codex_worker_command_identity_match: worker?.command_identity_match === true,
+    codex_worker_bridge_mode: worker?.bridge_mode || null,
   };
 }
 
@@ -453,16 +793,17 @@ function collectSkillFiles(root, { maxDepth = 8, maxFiles = 500 } = {}) {
 }
 function listCodexSkills({ refresh = false } = {}) {
   const now = Date.now();
-  if (!refresh && codexSkillCache.rows.length && now - codexSkillCache.at < 30000) return codexSkillCache.rows;
-  const roots = [
-    join(CODEX_HOME, "skills"),
-    join(CODEX_HOME, "plugins", "cache"),
-  ];
+  if (!refresh && now - codexSkillCache.at < 30000) return codexSkillCache.rows;
+  if (!CODEX_TASK_ALLOWED_SKILLS.size) {
+    codexSkillCache = { at: now, rows: [] };
+    return codexSkillCache.rows;
+  }
+  const roots = [join(CODEX_HOME, "skills")];
   const byName = new Map();
   for (const root of roots) {
     for (const file of collectSkillFiles(root)) {
       const meta = parseSkillMeta(file);
-      if (!meta) continue;
+      if (!meta || !CODEX_TASK_ALLOWED_SKILLS.has(meta.name)) continue;
       const prev = byName.get(meta.name);
       if (!prev || file.includes(`${sep}skills${sep}`)) byName.set(meta.name, meta);
     }
@@ -473,22 +814,609 @@ function listCodexSkills({ refresh = false } = {}) {
   };
   return codexSkillCache.rows;
 }
-function codexTaskCapabilities() {
+let codexModelCatalogCache = { at: 0, value: null };
+let codexModelCatalogPending = null;
+function cleanCodexHostError(error, fallback = "codex_error", maxLength = 600) {
+  const raw = String(error?.message || error || fallback);
+  if (/(?:^|[\s("'`])(?:[A-Za-z]:[\\/]|\\\\[^\\/\s]+[\\/]|\/(?:Users|home|var|etc|tmp|opt)\/)/i.test(raw)
+      || /\bBearer\s+\S+|\bsk-[A-Za-z0-9_-]{12,}|\b(?:token|password|cookie)\s*[=:]\s*\S+/i.test(raw)) {
+    return fallback;
+  }
+  return raw
+    .replace(/[A-Za-z]:[\\/][^\s"'`<>|]*/g, "[host-path]")
+    .replace(/\\\\[^\\/\s]+[\\/][^\s"'`<>|]*/g, "[host-path]")
+    .replace(/(^|\s)\/(?:Users|home|var|etc|tmp|opt)\/[^\s"'`<>|]*/g, "$1[host-path]")
+    .replace(/\bBearer\s+\S+|\bsk-[A-Za-z0-9_-]{12,}|\b(?:token|password|cookie)\s*[=:]\s*\S+/gi, "[secret]")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength) || fallback;
+}
+function cleanCodexCatalogError(error) {
+  return cleanCodexHostError(error, "codex_model_discovery_failed", 600);
+}
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function cleanCodexAssistantText(value, sensitivePaths = []) {
+  let text = String(value ?? "").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
+  for (const candidate of sensitivePaths) {
+    const path = String(candidate || "");
+    if (!path) continue;
+    const variants = new Set([
+      path,
+      path.replaceAll("\\", "/"),
+      path.replaceAll("\\", "\\\\"),
+    ]);
+    for (const variant of variants) {
+      text = text.replace(new RegExp(escapeRegExp(variant), process.platform === "win32" ? "gi" : "g"), "[host-path]");
+    }
+  }
+  const hostPath = /(?:^|[\s("'`])(?:[A-Za-z]:[\\/]|\\\\[^\\/\s]+[\\/]|\/(?:Users|home|var|etc|tmp|opt)\/)/i;
+  text = text.split(/\r?\n/).map((line) => hostPath.test(line) ? "[host-path redacted]" : line).join("\n");
+  return text.slice(0, 200_000).trim() || "Codex turn completed.";
+}
+function publicCodexItem(item) {
+  if (!item || typeof item !== "object") return null;
+  return {
+    id: item.id,
+    project_id: item.project_id,
+    title: item.title,
+    status: item.status,
+    due: item.due ?? null,
+    assignee_ref: item.assignee_ref ?? null,
+    work_type: item.work_type ?? null,
+    completion_criteria: item.completion_criteria ?? null,
+  };
+}
+function publicCodexBinding(binding) {
+  if (!binding) return null;
+  return {
+    opened: true,
+    item_id: binding.item_id,
+    thread_title: binding.thread_title,
+    mode: binding.mode,
+    sync_state: binding.sync_state,
+    workspace_id: binding.workspace_id,
+  };
+}
+function publicEventRows(rows) {
+  return (Array.isArray(rows) ? rows : []).map((row) => {
+    const next = { ...row };
+    if (new Set(["codex_task_thread_open", "codex_task_message"]).has(next.kind)) next.to_val = "recorded";
+    if (typeof next.note === "string") {
+      next.note = next.note
+        .replace(/(?:^|;)codex_thread_id=[^;]*/g, (match) => match.startsWith(";") ? ";codex_thread_open=1" : "codex_thread_open=1")
+        .replace(/;;+/g, ";");
+    }
+    return next;
+  });
+}
+function fallbackCodexTaskCatalog(error) {
+  return {
+    models: fallbackCodexModelCatalog(),
+    source: "fallback",
+    fetched_at: new Date().toISOString(),
+    error: cleanCodexCatalogError(error),
+  };
+}
+async function codexTaskModelCatalog({ refresh = false } = {}) {
+  const now = Date.now();
+  if (!refresh && codexModelCatalogCache.value && now - codexModelCatalogCache.at < CODEX_TASK_MODEL_CATALOG_TTL_MS) {
+    return codexModelCatalogCache.value;
+  }
+  if (codexModelCatalogPending) return codexModelCatalogPending;
+  codexModelCatalogPending = (async () => {
+    let value;
+    if (CODEX_TASK_BRIDGE_MODE === "mock") {
+      value = fallbackCodexTaskCatalog("codex_model_discovery_unavailable:mock_mode");
+    } else if (CODEX_TASK_BRIDGE_MODE === "worker") {
+      try {
+        const discovered = await codexDedicatedWorkerClient().models({ timeoutMs: 10_000 });
+        value = {
+          models: Array.isArray(discovered.models) ? discovered.models : [],
+          source: discovered.source || "dedicated_worker",
+          fetched_at: discovered.fetched_at || new Date().toISOString(),
+          error: discovered.degraded === true ? "codex_model_discovery_degraded" : null,
+        };
+      } catch (error) {
+        value = fallbackCodexTaskCatalog(safeCodexWorkerError(error));
+      }
+    } else if (!CODEX_TASK_DEDICATED_HOME_CONFIGURED) {
+      value = fallbackCodexTaskCatalog("codex_model_discovery_unavailable:dedicated_home_required");
+    } else {
+      try {
+        const discovered = await discoverCodexModels({ cwd: CODEX_TASK_MODEL_DISCOVERY_CWD });
+        value = { ...discovered, error: null };
+      } catch (error) {
+        value = fallbackCodexTaskCatalog(error);
+      }
+    }
+    codexModelCatalogCache = { at: Date.now(), value };
+    return value;
+  })().finally(() => { codexModelCatalogPending = null; });
+  return codexModelCatalogPending;
+}
+let codexWorkspaceRegistryCache = { content_hash: null, registry: null, error: null };
+const codexWorkspaceProbeCache = new Map();
+const activeCodexTurns = new Map();
+const activeCodexPreflights = new Map();
+const codexTurnStartsByAccount = new Map();
+function consumeCodexAccountRate(accountId) {
+  const now = Date.now();
+  const cutoff = now - 60 * 60 * 1000;
+  const recent = (codexTurnStartsByAccount.get(accountId) || []).filter((at) => at > cutoff);
+  if (recent.length >= CODEX_TASK_ACCOUNT_TURNS_PER_HOUR) {
+    const retryAfter = Math.max(1, Math.ceil((recent[0] + 60 * 60 * 1000 - now) / 1000));
+    codexTurnStartsByAccount.set(accountId, recent);
+    return { error: "codex_account_rate_limit", status: 429, retry_after_sec: retryAfter };
+  }
+  recent.push(now);
+  codexTurnStartsByAccount.set(accountId, recent);
+  return { ok: true };
+}
+function claimCodexPreflight({ itemId, accountId }) {
+  if (activeCodexTurns.has(itemId) || activeCodexPreflights.has(itemId)) {
+    return { error: "codex_turn_already_active", status: 409 };
+  }
+  if (activeCodexTurns.size + activeCodexPreflights.size >= CODEX_TASK_GLOBAL_CONCURRENCY) {
+    return { error: "codex_global_concurrency_limit", status: 429, retry_after_sec: 5 };
+  }
+  const accountActive = [...activeCodexTurns.values()].filter((entry) => entry.account_id === accountId).length
+    + [...activeCodexPreflights.values()].filter((entry) => entry.account_id === accountId).length;
+  if (accountActive >= CODEX_TASK_ACCOUNT_CONCURRENCY) {
+    return { error: "codex_account_concurrency_limit", status: 429, retry_after_sec: 5 };
+  }
+  const rate = consumeCodexAccountRate(accountId);
+  if (!rate.ok) return rate;
+  const token = Symbol(itemId);
+  activeCodexPreflights.set(itemId, { account_id: accountId, token });
+  let released = false;
   return {
     ok: true,
-    defaults: CODEX_TASK_DEFAULTS,
-    model_options: [...new Set([CODEX_TASK_DEFAULT_MODEL, ...CODEX_TASK_BASE_MODEL_OPTIONS])],
-    effort_options: CODEX_TASK_EFFORT_OPTIONS,
+    release() {
+      if (released) return;
+      released = true;
+      if (activeCodexPreflights.get(itemId)?.token === token) activeCodexPreflights.delete(itemId);
+    },
+  };
+}
+function claimCodexOperation({ itemId, accountId, controller, grantRefs = [], operation }) {
+  if (activeCodexTurns.has(itemId)) return { error: "codex_turn_already_active", status: 409 };
+  if (activeCodexTurns.size >= CODEX_TASK_GLOBAL_CONCURRENCY) {
+    return { error: "codex_global_concurrency_limit", status: 429, retry_after_sec: 5 };
+  }
+  const accountActive = [...activeCodexTurns.values()].filter((entry) => entry.account_id === accountId).length;
+  if (accountActive >= CODEX_TASK_ACCOUNT_CONCURRENCY) {
+    return { error: "codex_account_concurrency_limit", status: 429, retry_after_sec: 5 };
+  }
+  const entry = { controller, grant_refs: new Set(grantRefs), operation, account_id: accountId };
+  activeCodexTurns.set(itemId, entry);
+  return { ok: true, entry };
+}
+function sendCodexAdmissionError(res, admission) {
+  return send(
+    res,
+    admission.status || 409,
+    { error: admission.error, ...(admission.retry_after_sec ? { retry_after_sec: admission.retry_after_sec } : {}) },
+    "application/json",
+    admission.retry_after_sec ? { "retry-after": String(admission.retry_after_sec) } : {},
+  );
+}
+function cleanWorkspaceRegistryError(error) {
+  const code = String(error?.code || error?.message || error || "workspace_registry_invalid");
+  const match = code.match(/(?:workspace_registry:)?([a-z0-9_:-]{1,120})/i);
+  return match?.[1] || "workspace_registry_invalid";
+}
+function codexWorkspaceRegistryState({ refresh = false } = {}) {
+  if (!existsSync(CODEX_TASK_WORKSPACE_REGISTRY_PATH)) {
+    codexWorkspaceRegistryCache = { content_hash: null, registry: null, error: "workspace_registry_not_configured" };
+    return codexWorkspaceRegistryCache;
+  }
+  let text;
+  let contentHash;
+  try {
+    const info = statSync(CODEX_TASK_WORKSPACE_REGISTRY_PATH);
+    if (!info.isFile() || info.size < 2 || info.size > 256 * 1024) throw new Error("workspace_registry_size_invalid");
+    text = readFileSync(CODEX_TASK_WORKSPACE_REGISTRY_PATH, "utf8");
+    contentHash = createHash("sha256").update(text).digest("hex");
+  }
+  catch {
+    codexWorkspaceRegistryCache = { content_hash: null, registry: null, error: "workspace_registry_unavailable" };
+    return codexWorkspaceRegistryCache;
+  }
+  if (!refresh && codexWorkspaceRegistryCache.registry && codexWorkspaceRegistryCache.content_hash === contentHash) {
+    return codexWorkspaceRegistryCache;
+  }
+  try {
+    const registry = parseWorkspaceRegistryJson(text);
+    if (CODEX_TASK_TRUST_DOMAIN && registry.trustDomainId !== CODEX_TASK_TRUST_DOMAIN) {
+      throw new Error("workspace_registry:trust_domain_mismatch");
+    }
+    codexWorkspaceRegistryCache = { content_hash: contentHash, registry, error: null };
+    codexWorkspaceProbeCache.clear();
+  } catch (error) {
+    codexWorkspaceRegistryCache = { content_hash: contentHash, registry: null, error: cleanWorkspaceRegistryError(error) };
+  }
+  return codexWorkspaceRegistryCache;
+}
+function codexWorkspaceAuthorizationContext(item, account) {
+  return {
+    authenticated: !!account,
+    project_id: String(item?.project_id || ""),
+    account_id: account?.id || null,
+    roles: account ? store.rolesFor(account.id) : [],
+  };
+}
+function publicCodexWorkspaceRegistry({ item = null, account = null } = {}) {
+  const state = codexWorkspaceRegistryState();
+  if (!state.registry) {
+    return {
+      configured: false,
+      error: state.error,
+      mapping_revision: null,
+      default_workspace_id: null,
+      workspaces: [],
+    };
+  }
+  const descriptor = state.registry.publicDescriptor();
+  const workspaces = item && account
+    ? state.registry.authorizedPublicRows(codexWorkspaceAuthorizationContext(item, account))
+    : [];
+  return {
+    configured: true,
+    error: null,
+    mapping_revision: descriptor.mapping_revision,
+    default_workspace_id: null,
+    workspaces,
+  };
+}
+async function probeCodexWorkspace(registry, workspaceId) {
+  const key = `${registry.mappingRevision}:${workspaceId}`;
+  const cached = codexWorkspaceProbeCache.get(key);
+  if (cached?.pending) return cached.pending;
+  if (cached?.result && Date.now() - cached.at < CODEX_TASK_WORKSPACE_PROBE_TTL_MS) return cached.result;
+  const pending = registry.probe(workspaceId).then((result) => {
+    codexWorkspaceProbeCache.set(key, { at: Date.now(), result, pending: null });
+    return result;
+  }, () => {
+    const result = { ok: false, error: "workspace_probe_failed", workspace_id: workspaceId };
+    codexWorkspaceProbeCache.set(key, { at: Date.now(), result, pending: null });
+    return result;
+  });
+  codexWorkspaceProbeCache.set(key, { at: Date.now(), result: null, pending });
+  return pending;
+}
+async function resolveCodexTaskWorkspace({ requestedWorkspaceId = null, binding = null, item = null, account = null } = {}) {
+  const state = codexWorkspaceRegistryState();
+  if (!state.registry) return { error: state.error || "workspace_registry_unavailable" };
+  if (!item?.id || !item.project_id || !account?.id) return { error: "workspace_authorization_required" };
+  const registry = state.registry;
+  if (binding && (!binding.workspace_id || !binding.workspace_revision || !binding.workspace_root_fingerprint)) {
+    return { error: "legacy_workspace_binding_unmigrated" };
+  }
+  const requested = String(requestedWorkspaceId || "").trim();
+  if (binding?.workspace_id && requested && binding.workspace_id !== requested) {
+    return { error: "workspace_binding_immutable" };
+  }
+  const workspaceId = binding?.workspace_id || requested;
+  if (!workspaceId) return { error: "workspace_id_required" };
+  const authorization = codexWorkspaceAuthorizationContext(item, account);
+  const authorized = registry.authorize(workspaceId, authorization);
+  if (!authorized.ok) return { error: authorized.error };
+  if (CODEX_TASK_BRIDGE_MODE === "worker") {
+    const workerHealth = await codexDedicatedWorkerHealth();
+    if (!workerHealth.ready) return { error: workerHealth.error || "codex_worker_unavailable" };
+    let resolved;
+    try {
+      resolved = await codexDedicatedWorkerClient().resolve({
+        workspace_id: workspaceId,
+        authorization,
+        relative_path: "",
+      }, { timeoutMs: 10_000 });
+    } catch (error) {
+      return { error: safeCodexWorkerError(error) };
+    }
+    if (resolved.mapping_revision !== registry.mappingRevision
+        || !["windows", "posix"].includes(resolved.path_style)) {
+      return { error: "workspace_registry_revision_mismatch" };
+    }
+    if (binding?.workspace_revision && binding.workspace_revision !== resolved.workspace_revision) {
+      return { error: "workspace_binding_revision_mismatch" };
+    }
+    if (binding?.workspace_root_fingerprint && binding.workspace_root_fingerprint !== resolved.root_fingerprint) {
+      return { error: "workspace_binding_root_mismatch" };
+    }
+    return {
+      ok: true,
+      registry,
+      workspace_id: workspaceId,
+      mapping_revision: resolved.workspace_revision,
+      root_fingerprint: resolved.root_fingerprint,
+      path_style: resolved.path_style,
+      public_workspace: authorized.workspace,
+      authorization,
+      working_relative_path: resolved.relative_path,
+    };
+  }
+  const probed = await probeCodexWorkspace(registry, workspaceId);
+  if (!probed.ok) return { error: probed.error || "workspace_offline" };
+  const resolved = await registry.resolvePathAsync(workspaceId, "", { timeoutMs: 2000 });
+  if (!resolved.ok) return { error: resolved.error || "workspace_unavailable" };
+  if (binding?.workspace_revision && binding.workspace_revision !== resolved.workspace_revision) {
+    return { error: "workspace_binding_revision_mismatch" };
+  }
+  if (binding?.workspace_root_fingerprint && binding.workspace_root_fingerprint !== resolved.root_fingerprint) {
+    return { error: "workspace_binding_root_mismatch" };
+  }
+  return {
+    ok: true,
+    registry,
+    workspace_id: workspaceId,
+    mapping_revision: resolved.workspace_revision,
+    root_fingerprint: resolved.root_fingerprint,
+    path: resolved.path,
+    path_style: resolved.path_style,
+    public_workspace: authorized.workspace,
+    authorization,
+    working_relative_path: resolved.relative_path,
+  };
+}
+function canonicalWriteGrant(row) {
+  return {
+    grant_id: row.id,
+    workspace_id: row.workspace_id,
+    workspace_revision: row.workspace_revision,
+    workspace_root_fingerprint: row.workspace_root_fingerprint,
+    project_id: row.project_id,
+    item_id: row.item_id,
+    relative_prefix: row.relative_prefix,
+    approved_by: row.approved_by,
+    approved_at: row.approved_at,
+    expires_at: row.expires_at,
+    revoked: !!row.revoked_at,
+    revoked_at: row.revoked_at || null,
+  };
+}
+function publicActiveWriteGrants(item) {
+  const binding = item?.id ? store.codexTaskBinding(item.id) : null;
+  if (!binding) return [];
+  const registry = codexWorkspaceRegistryState().registry;
+  if (!registry) return [];
+  const allowedApprovers = store.codexWorkspaceAllowedApprovers();
+  return store.codexWorkspaceWriteGrants(item.id, { active_only: true }).filter((row) => evaluateWriteGrant(
+    canonicalWriteGrant(row),
+    {
+      workspace_id: binding.workspace_id,
+      workspace_revision: binding.workspace_revision,
+      workspace_root_fingerprint: binding.workspace_root_fingerprint,
+      project_id: item.project_id,
+      item_id: item.id,
+      relative_path: row.relative_prefix,
+      path_style: "posix",
+      allowed_approvers: allowedApprovers,
+    },
+  ).allowed && registry.checkWritePrefixes(binding.workspace_id, [row.relative_prefix]).ok).map((row) => ({
+    grant_id: row.id,
+    workspace_id: row.workspace_id,
+    relative_prefix: row.relative_prefix,
+    approved_by: row.approved_by,
+    approved_at: row.approved_at,
+    expires_at: row.expires_at,
+  }));
+}
+async function resolveCodexTurnAccess(item, workspace) {
+  const allowedApprovers = store.codexWorkspaceAllowedApprovers();
+  const initialNow = new Date();
+  const candidates = store.codexWorkspaceWriteGrants(item.id, { active_only: true, now: initialNow });
+  if (candidates.length > 32) return { error: "too_many_active_write_grants" };
+  const resolvedCandidates = await Promise.all(candidates.map(async (row) => {
+    const decision = evaluateWriteGrant(canonicalWriteGrant(row), {
+      workspace_id: workspace.workspace_id,
+      workspace_revision: workspace.mapping_revision,
+      workspace_root_fingerprint: workspace.root_fingerprint,
+      project_id: item.project_id,
+      item_id: item.id,
+      relative_path: row.relative_prefix,
+      path_style: workspace.path_style,
+      allowed_approvers: allowedApprovers,
+    }, { now: initialNow });
+    if (!decision.allowed) return null;
+    const staticPolicy = workspace.registry.authorizeWritePrefixes(
+      workspace.workspace_id,
+      [decision.relative_prefix],
+      workspace.authorization,
+    );
+    if (!staticPolicy.ok) return { row, error: staticPolicy.error };
+    let resolved;
+    if (CODEX_TASK_BRIDGE_MODE === "worker") {
+      try {
+        resolved = await codexDedicatedWorkerClient().resolve({
+          workspace_id: workspace.workspace_id,
+          authorization: workspace.authorization,
+          relative_path: decision.relative_prefix,
+        }, { timeoutMs: 10_000 });
+      } catch {
+        return { row, error: "workspace_write_path_unavailable" };
+      }
+      if (resolved.workspace_revision !== workspace.mapping_revision
+          || resolved.root_fingerprint !== workspace.root_fingerprint) {
+        return { row, error: "workspace_write_binding_mismatch" };
+      }
+    } else {
+      resolved = await workspace.registry.resolvePathAsync(workspace.workspace_id, decision.relative_prefix, { timeoutMs: 2000 });
+    }
+    return resolved.ok && resolved.target_is_directory
+      ? { row, resolved }
+      : { row, error: "workspace_write_path_unavailable" };
+  }));
+  const resolutionFailure = resolvedCandidates.find((entry) => entry?.error);
+  if (resolutionFailure) return { error: resolutionFailure.error };
+  const authorizedAtDate = new Date();
+  const currentById = new Map(store.codexWorkspaceWriteGrants(item.id, { active_only: true, now: authorizedAtDate })
+    .map((row) => [row.id, row]));
+  const writable = [];
+  for (const candidate of resolvedCandidates.filter(Boolean)) {
+    const row = currentById.get(candidate.row.id);
+    if (!row) continue;
+    const decision = evaluateWriteGrant(canonicalWriteGrant(row), {
+      workspace_id: workspace.workspace_id,
+      workspace_revision: workspace.mapping_revision,
+      workspace_root_fingerprint: workspace.root_fingerprint,
+      project_id: item.project_id,
+      item_id: item.id,
+      relative_path: row.relative_prefix,
+      path_style: workspace.path_style,
+      allowed_approvers: allowedApprovers,
+    }, { now: authorizedAtDate });
+    if (!decision.allowed) continue;
+    writable.push({
+      grant_id: row.id,
+      path: CODEX_TASK_BRIDGE_MODE === "worker" ? candidate.resolved.relative_path : candidate.resolved.path,
+      expires_at: row.expires_at,
+    });
+  }
+  const unique = [];
+  const seen = new Set();
+  for (const entry of writable) {
+    const key = workspace.path_style === "windows" ? entry.path.toLowerCase() : entry.path;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(entry);
+    if (unique.length > 16) return { error: "too_many_active_write_grants" };
+  }
+  if (CODEX_TASK_BRIDGE_MODE === "worker") {
+    return {
+      working_relative_path: workspace.working_relative_path || "",
+      relative_write_prefixes: unique.map((entry) => entry.path),
+      sandbox_mode: unique.length ? "workspace-write" : "read-only",
+      grant_refs: unique.map((entry) => entry.grant_id),
+      lease_expires_at: unique.length ? unique.map((entry) => entry.expires_at).sort()[0] : null,
+      authorized_at: authorizedAtDate.toISOString(),
+    };
+  }
+  return unique.length
+    ? {
+      cwd: unique[0].path,
+      sandbox_mode: "workspace-write",
+      writable_roots: unique.map((entry) => entry.path),
+      grant_refs: unique.map((entry) => entry.grant_id),
+      lease_expires_at: unique.map((entry) => entry.expires_at).sort()[0],
+      authorized_at: authorizedAtDate.toISOString(),
+    }
+    : {
+      cwd: workspace.path,
+      sandbox_mode: "read-only",
+      writable_roots: [],
+      grant_refs: [],
+      lease_expires_at: null,
+      authorized_at: authorizedAtDate.toISOString(),
+    };
+}
+function revalidateCodexTurnGrantSnapshot(item, workspace, access) {
+  const now = new Date();
+  const refs = Array.isArray(access?.grant_refs) ? access.grant_refs : [];
+  if (!refs.length) return { ok: true, authorized_at: now.toISOString() };
+  const allowedApprovers = store.codexWorkspaceAllowedApprovers();
+  const current = new Map(store.codexWorkspaceWriteGrants(item.id, { active_only: true, now })
+    .map((row) => [row.id, row]));
+  const registry = codexWorkspaceRegistryState().registry;
+  if (!registry) return { error: "workspace_registry_unavailable" };
+  for (const grantId of refs) {
+    const row = current.get(grantId);
+    if (!row) return { error: "workspace_write_authorization_changed" };
+    const decision = evaluateWriteGrant(canonicalWriteGrant(row), {
+      workspace_id: workspace.workspace_id,
+      workspace_revision: workspace.mapping_revision,
+      workspace_root_fingerprint: workspace.root_fingerprint,
+      project_id: item.project_id,
+      item_id: item.id,
+      relative_path: row.relative_prefix,
+      path_style: workspace.path_style,
+      allowed_approvers: allowedApprovers,
+    }, { now });
+    if (!decision.allowed || !registry.checkWritePrefixes(workspace.workspace_id, [row.relative_prefix]).ok) {
+      return { error: "workspace_write_authorization_changed" };
+    }
+  }
+  return { ok: true, authorized_at: now.toISOString() };
+}
+async function codexTaskCapabilities({ item, account } = {}) {
+  const catalog = await codexTaskModelCatalog();
+  const worker = CODEX_TASK_BRIDGE_MODE === "worker" ? await codexDedicatedWorkerHealth() : null;
+  const workspaceRegistry = publicCodexWorkspaceRegistry({ item, account });
+  const preferredModel = preferredCodexModelSlug(catalog.models, CODEX_TASK_PREFERRED_MODEL);
+  const selected = preferredModel
+    ? resolveCodexModelSelection(catalog.models, {
+      preferredModel,
+      preferredEffort: CODEX_TASK_PREFERRED_EFFORT,
+    })
+    : { ok: false, error: "codex_required_model_unavailable" };
+  const modelOptions = catalog.models.filter((entry) => !entry.hidden).map((entry) => entry.slug);
+  const defaultModel = selected.ok ? selected.model : modelOptions[0];
+  const defaultEntry = catalog.models.find((entry) => entry.slug === defaultModel);
+  const effortOptions = (defaultEntry?.reasoning_efforts || []).map((entry) => entry.id);
+  return {
+    ok: true,
+    defaults: {
+      model: defaultModel,
+      effort: selected.ok ? selected.effort : (defaultEntry?.default_reasoning_effort || effortOptions[0] || null),
+      service_tier: CODEX_TASK_DEFAULT_SERVICE_TIER,
+      workspace_id: null,
+    },
+    model_options: modelOptions,
+    effort_options: effortOptions,
     service_tier_options: CODEX_TASK_SERVICE_TIER_OPTIONS,
+    model_catalog: catalog.models,
+    model_catalog_source: catalog.source,
+    model_catalog_fetched_at: catalog.fetched_at,
+    model_catalog_error: catalog.error || null,
+    workspace_registry: workspaceRegistry,
+    dedicated_codex_home_configured: worker ? worker.codex_home_ready === true : CODEX_TASK_DEDICATED_HOME_CONFIGURED,
+    dedicated_codex_profile_safe: worker ? worker.codex_home_ready === true : codexDedicatedProfileReady(),
+    dedicated_worker: worker ? {
+      configured: worker.configured === true,
+      ready: worker.ready === true,
+      release: worker.release || null,
+      registry_revision_match: worker.registry_revision_match === true,
+    } : null,
     attachments: {
       local_image: true,
       arbitrary_file: true, // 2026-07-03 owner 지시로 정책 전환 — allowlist 파일을 로컬 저장 + 경로 참조
       max_image_bytes: CODEX_TASK_IMAGE_MAX,
       max_file_bytes: CODEX_TASK_FILE_MAX,
       file_exts: [...CODEX_TASK_FILE_EXTS].sort(),
-      note: "Images go to Codex as localImage input. Other allowlisted files are stored under the local attachment root and referenced by local path in the message text (Codex reads them from disk; no payload is uploaded to the model API).",
+      note: "Attachments are represented in the browser by item-bound opaque IDs; host paths remain server-only.",
     },
-    skills: listCodexSkills(),
+    skills: CODEX_TASK_BRIDGE_MODE === "worker"
+      ? []
+      : listCodexSkills().map(({ name, description }) => ({ name, description })),
+  };
+}
+async function normalizeCodexTaskSelection(model, effort, modelSelectionOrigin = null) {
+  const selectionOrigin = String(modelSelectionOrigin || (model ? "explicit" : "auto")).trim();
+  if (!new Set(["auto", "explicit"]).has(selectionOrigin)) {
+    return { ok: false, error: "codex_model_selection_origin_invalid" };
+  }
+  const catalog = await codexTaskModelCatalog();
+  const preferredModel = preferredCodexModelSlug(catalog.models, CODEX_TASK_PREFERRED_MODEL);
+  if (selectionOrigin === "auto" && !preferredModel) {
+    return {
+      ok: false,
+      error: "codex_required_model_unavailable",
+      model_options: catalog.models.filter((entry) => !entry.hidden).map((entry) => entry.slug),
+    };
+  }
+  const selection = resolveCodexModelSelection(catalog.models, {
+    model: selectionOrigin === "auto" ? null : model,
+    effort,
+    preferredModel,
+    preferredEffort: CODEX_TASK_PREFERRED_EFFORT,
+  });
+  if (selection.ok) return { ...selection, selection_origin: selectionOrigin };
+  return {
+    ...selection,
+    model_options: catalog.models.filter((entry) => !entry.hidden).map((entry) => entry.slug),
   };
 }
 function normalizeCodexTaskServiceTier(value) {
@@ -514,91 +1442,226 @@ function safeAttachmentFilename(name) {
 }
 function codexTaskAttachmentDir(itemId) {
   const safeId = String(itemId || "unknown").replace(/[^A-Za-z0-9_.-]+/g, "_").slice(0, 80) || "unknown";
-  const dir = resolve(CODEX_TASK_ATTACHMENT_ROOT, safeId);
-  if (!isInside(CODEX_TASK_ATTACHMENT_ROOT, dir)) return null;
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
-// ── 대화 첨부 저장 규칙 구현(CHAT_ATTACHMENT_STORAGE_V0) ─────────────────────────
-// 폴더명 = 할일 제목의 Windows-안전 축약(한글 유지, 40자). ID/시각/해시는 manifest 로.
-function chatAttachFolderName(title) {
-  const cleaned = String(title || "").replace(/[<>:"/\\|?*\x00-\x1F]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 40).trim();
-  return cleaned.replace(/[. ]+$/g, "") || "";
-}
-function chatAttachShortId(itemId) {
-  return createHash("sha256").update(String(itemId || "")).digest("hex").slice(0, 6);
-}
-function readChatAttachManifest(dir) {
-  try { return JSON.parse(readFileSync(join(dir, CHAT_ATTACH_MANIFEST), "utf8")); } catch { return null; }
-}
-// 규칙 결정표: 과제 워크스페이스 존재 → 대화첨부/<제목축약>(충돌 시 _<짧은ID>) / 미존재 → legacy 폴백.
-function resolveChatAttachmentDir(item) {
-  const projectId = String(item?.project_id || "").trim();
-  const safeProject = projectId.replace(/[^A-Za-z0-9_.-]+/g, "_");
-  const projectDir = safeProject ? resolve(ATTACHMENT_WORKSPACES_ROOT, safeProject) : null;
-  if (projectDir && isInside(ATTACHMENT_WORKSPACES_ROOT, projectDir) && existsSync(projectDir)) {
-    const base = chatAttachFolderName(item.title) || chatAttachShortId(item.id);
-    let dir = resolve(projectDir, CHAT_ATTACH_DIRNAME, base);
-    if (!isInside(projectDir, dir)) return { dir: codexTaskAttachmentDir(item.id), storage: "fallback" };
-    const bound = existsSync(dir) ? readChatAttachManifest(dir) : null;
-    if (bound && String(bound.item_id || "") && String(bound.item_id) !== String(item.id)) {
-      dir = resolve(projectDir, CHAT_ATTACH_DIRNAME, `${base}_${chatAttachShortId(item.id)}`); // 제목 충돌 시만 짧은ID(스레드 제목 규칙 선례)
-      if (!isInside(projectDir, dir)) return { dir: codexTaskAttachmentDir(item.id), storage: "fallback" };
-    }
+  if (CODEX_TASK_BRIDGE_MODE === "worker" && !assertCodexPayloadOwnerReady()) return null;
+  try {
+    const rootLink = lstatSync(CODEX_TASK_ATTACHMENT_ROOT, { bigint: true });
+    const realRoot = realpathSync(CODEX_TASK_ATTACHMENT_ROOT);
+    const rootIdentity = filesystemIdentity(statSync(realRoot, { bigint: true }));
+    if (!rootLink.isDirectory() || rootLink.isSymbolicLink() || !rootIdentity) return null;
+    const dir = resolve(realRoot, safeId);
+    if (!isInside(realRoot, dir)) return null;
     mkdirSync(dir, { recursive: true });
-    return { dir, storage: "project" };
+    const realDir = realpathSync(dir);
+    const expected = resolve(realRoot, safeId);
+    const dirStat = lstatSync(dir);
+    if (dirStat.isSymbolicLink()
+      || !dirStat.isDirectory()
+      || !isRealFilesystemPathInside(realRoot, realDir)
+      || !isRealFilesystemPathInside(expected, realDir)
+      || !isRealFilesystemPathInside(realDir, expected)) return null;
+    return realDir;
+  } catch {
+    return null;
   }
-  return { dir: codexTaskAttachmentDir(item.id), storage: "fallback" };
 }
-// 파일명 = 원본 유지(안전화만), 중복 시 이름-2.ext 순번. timestamp/uuid 접두 금지(규칙).
-function chatAttachTargetPath(dir, filename) {
-  const ext = extname(filename);
-  const stem = filename.slice(0, filename.length - ext.length) || "파일";
-  for (let n = 1; n <= 200; n += 1) {
-    const name = n === 1 ? `${stem}${ext}` : `${stem}-${n}${ext}`;
-    const target = resolve(dir, name);
-    if (!isInside(dir, target)) return null;
-    if (!existsSync(target)) return { target, name };
+// ── 대화 첨부 저장 규칙 구현(CHAT_ATTACHMENT_STORAGE_V0, v1 contract) ──────────────
+function readChatAttachManifest(dir) {
+  const manifestPath = join(dir, CHAT_ATTACH_MANIFEST);
+  if (!existsSync(manifestPath)) return null;
+  const fileStat = lstatSync(manifestPath);
+  const realDir = realpathSync(dir);
+  const realManifest = realpathSync(manifestPath);
+  if (!fileStat.isFile()
+    || fileStat.isSymbolicLink()
+    || (Number.isSafeInteger(fileStat.nlink) && fileStat.nlink !== 1)
+    || !isRealFilesystemPathInside(realDir, realManifest)) {
+    const error = new Error("attachment_manifest_unsafe");
+    error.code = "attachment_manifest_unsafe";
+    throw error;
   }
-  return null;
+  return parseAttachmentManifestJson(readFileSync(manifestPath, "utf8"), { maxBytes: CODEX_TASK_FILE_MAX });
+}
+// service-owned item directory만 사용한다. 과제 제목이나 브라우저 경로는 저장 경계가 아니다.
+function resolveChatAttachmentDir(item) {
+  return { dir: codexTaskAttachmentDir(item?.id), storage: "service" };
+}
+// 실제 저장명은 opaque ID다. 원본명은 manifest의 표시 메타데이터로만 보존한다.
+function writeAttachmentFileExclusive(dir, storedName, bytes) {
+  const target = resolve(dir, storedName);
+  if (!isInside(dir, target)) return { error: "unsafe_attachment_path" };
+  let fd = null;
+  try {
+    fd = openSync(target, "wx", 0o600);
+    writeFileSync(fd, bytes);
+    fsyncSync(fd);
+    closeSync(fd);
+    fd = null;
+    const fileStat = lstatSync(target);
+    const realDir = realpathSync(dir);
+    const realTarget = realpathSync(target);
+    if (!fileStat.isFile()
+      || fileStat.isSymbolicLink()
+      || (Number.isSafeInteger(fileStat.nlink) && fileStat.nlink !== 1)
+      || fileStat.size !== bytes.length
+      || !isRealFilesystemPathInside(realDir, realTarget)) {
+      throw new Error("unsafe_attachment_path");
+    }
+    return { ok: true, target: realTarget };
+  } catch (error) {
+    if (fd !== null) try { closeSync(fd); } catch {}
+    try { if (existsSync(target)) unlinkSync(target); } catch {}
+    return { error: error?.code === "EEXIST" ? "attachment_collision" : "unsafe_attachment_path" };
+  }
 }
 function appendChatAttachManifest(dir, item, fileRec) {
   const path = join(dir, CHAT_ATTACH_MANIFEST);
-  const cur = readChatAttachManifest(dir) || {
-    schema: "dev_erp.chat_attachment_manifest.v0",
-    item_id: item.id, project_id: item.project_id || null, title: item.title || "", files: [],
-  };
-  cur.files = Array.isArray(cur.files) ? cur.files : [];
-  cur.files.push(fileRec);
-  const tmp = `${path}.tmp`;
-  writeFileSync(tmp, `${JSON.stringify(cur, null, 2)}\n`);
-  renameSync(tmp, path);
-}
-function localImagesFromAttachments(attachments) {
-  const rows = Array.isArray(attachments) ? attachments : [];
-  const out = [];
-  for (const a of rows) {
-    if (a?.type !== "localImage" || !a.path) continue;
-    const full = resolve(String(a.path));
-    // 저장 규칙 개정(CHAT_ATTACHMENT_STORAGE_V0): 과제 워크스페이스 대화첨부 경로도 유효.
-    if (!isInside(CODEX_TASK_ATTACHMENT_ROOT, full) && !isInside(ATTACHMENT_WORKSPACES_ROOT, full)) continue;
-    if (!CODEX_TASK_IMAGE_EXTS.has(extname(full).toLowerCase())) continue;
-    if (!existsSync(full)) continue;
-    out.push({ path: full });
-    if (out.length >= 6) break;
+  const cur = readChatAttachManifest(dir) || createAttachmentManifest({ item_id: item.id });
+  const next = appendAttachmentManifestRecord(cur, fileRec, { maxBytes: CODEX_TASK_FILE_MAX });
+  const tmp = `${path}.${randomUUID()}.tmp`;
+  let fd = null;
+  try {
+    fd = openSync(tmp, "wx", 0o600);
+    writeFileSync(fd, `${JSON.stringify(next, null, 2)}\n`);
+    fsyncSync(fd);
+    closeSync(fd);
+    fd = null;
+    renameSync(tmp, path);
+    return next;
+  } finally {
+    if (fd !== null) try { closeSync(fd); } catch {}
+    try { if (existsSync(tmp)) unlinkSync(tmp); } catch {}
   }
-  return out;
+}
+async function resolveCodexAttachments(item, attachments) {
+  if (attachments == null) return { ok: true, localImages: [], localFiles: [] };
+  if (!Array.isArray(attachments) || attachments.length > 8) return { ok: false, error: "attachments_invalid" };
+  const rows = attachments;
+  if (!rows.length) return { ok: true, localImages: [], localFiles: [] };
+  const resolvedDir = resolveChatAttachmentDir(item);
+  if (!resolvedDir?.dir) return { ok: false, error: "attachment_directory_unavailable" };
+  let manifest;
+  try { manifest = readChatAttachManifest(resolvedDir.dir); }
+  catch (error) { return { ok: false, error: error?.code || "attachment_manifest_invalid" }; }
+  if (!manifest) return { ok: false, error: "attachment_manifest_missing" };
+  const localImages = [];
+  const localFiles = [];
+  const seen = new Set();
+  for (const reference of rows) {
+    const result = await resolveAttachment({
+      itemDir: resolvedDir.dir,
+      itemId: item.id,
+      manifest,
+      reference,
+      maxBytes: CODEX_TASK_FILE_MAX,
+    });
+    if (!result.ok) return result;
+    if (seen.has(result.attachment.attachment_id)) return { ok: false, error: "attachment_duplicate" };
+    seen.add(result.attachment.attachment_id);
+    if (result.attachment.type === "localImage") localImages.push({ path: result.internal.path });
+    else localFiles.push({ name: result.attachment.name, path: result.internal.path });
+  }
+  return { ok: true, localImages, localFiles };
 }
 
-function codexTaskState(item, extra = {}) {
+function normalizeCodexWorkerAttachmentReferences(attachments) {
+  if (attachments == null) return { ok: true, references: [] };
+  if (!Array.isArray(attachments) || attachments.length > 8) return { ok: false, error: "attachments_invalid" };
+  const references = [];
+  const seen = new Set();
+  for (const reference of attachments) {
+    const parsed = parseClientAttachmentReference(reference);
+    if (!parsed.ok) return parsed;
+    if (seen.has(parsed.attachment_id)) return { ok: false, error: "attachment_duplicate" };
+    seen.add(parsed.attachment_id);
+    references.push({ attachment_id: parsed.attachment_id, ...parsed.claims });
+  }
+  return { ok: true, references };
+}
+
+let codexMessagePayloadStorePromise = null;
+async function codexMessagePayloadStore() {
+  if (!codexMessagePayloadStorePromise) {
+    const ownerRoot = CODEX_TASK_MESSAGE_PAYLOAD_ROOT_OVERRIDE
+      ? resolve(CODEX_TASK_MESSAGE_PAYLOAD_ROOT_OVERRIDE)
+      : (CODEX_TASK_BRIDGE_MODE === "worker" || DB_IS_DEFAULT
+        ? CODEX_TASK_MESSAGE_PAYLOAD_DEFAULT_ROOT
+        : resolve(dirname(DB_PATH), "codex-message-payloads"));
+    if (CODEX_TASK_BRIDGE_MODE === "worker" && !assertCodexPayloadOwnerReady()) {
+      throw new Error("codex_payload_owner_unready");
+    }
+    mkdirSync(ownerRoot, { recursive: true });
+    codexMessagePayloadStorePromise = createCodexMessagePayloadStore({
+      root: ownerRoot,
+      maxBytes: Math.max(CODEX_TASK_MESSAGE_MAX, 200_000),
+    });
+  }
+  return codexMessagePayloadStorePromise;
+}
+async function appendCodexTaskPayloadMessage(input) {
+  const payloadStore = await codexMessagePayloadStore();
+  const payload = await payloadStore.writeMessagePayload({
+    itemId: input.item_id,
+    role: input.role,
+    text: String(input.text ?? ""),
+  });
+  const stored = store.appendCodexTaskMessage({
+    ...input,
+    text: payload.payload_ref,
+    payload_ref: payload.payload_ref,
+    payload_byte_length: payload.byte_length,
+    payload_sha256: payload.sha256,
+    data_label: "meta",
+  });
+  if (stored.error) throw new Error(`codex_message_pointer_write_failed:${stored.error}`);
+  return stored;
+}
+async function publicCodexTaskMessages(itemId) {
+  const rows = store.codexTaskMessages(itemId);
+  const payloadStore = await codexMessagePayloadStore();
+  return Promise.all(rows.map(async (row) => {
+    const publicRow = {
+      id: row.id,
+      at: row.at,
+      role: row.role,
+      actor_ref: row.actor_ref,
+      mode: row.mode,
+    };
+    if (!row.payload_ref) {
+      return { ...publicRow, text: "[legacy message payload hidden]", payload_unavailable: true };
+    }
+    const resolved = await payloadStore.resolveAuthorizedMessagePayload({
+      itemId,
+      payloadRef: row.payload_ref,
+    });
+    const payload = resolved.ok ? resolved.payload : null;
+    if (!payload
+      || payload.role !== row.role
+      || payload.byte_length !== row.payload_byte_length
+      || payload.sha256 !== row.payload_sha256) {
+      return { ...publicRow, text: "[message payload unavailable]", payload_unavailable: true };
+    }
+    return { ...publicRow, text: payload.text };
+  }));
+}
+
+async function codexTaskState(item, extra = {}, account = null) {
+  const binding = store.codexTaskBinding(item.id) ?? null;
+  const registry = publicCodexWorkspaceRegistry({ item, account });
+  const workspace = binding?.workspace_id
+    ? registry.workspaces.find((row) => row.workspace_id === binding.workspace_id) || null
+    : null;
+  const writeGrants = binding ? publicActiveWriteGrants(item) : [];
   return {
     ok: true,
     mode: CODEX_TASK_BRIDGE_MODE,
     bridge: CODEX_TASK_BRIDGE_VERSION,
-    item,
-    binding: store.codexTaskBinding(item.id) ?? null,
-    messages: store.codexTaskMessages(item.id),
-    full_access: store.codexFullAccess(item.id), // 대화별 전체권한 토글 상태(UI 표시)
+    item: publicCodexItem(item),
+    binding: publicCodexBinding(binding),
+    workspace,
+    workspace_access: writeGrants.length ? "write-approved" : "read-only",
+    write_grants: writeGrants,
+    messages: await publicCodexTaskMessages(item.id),
+    full_access: false,
     ...extra,
   };
 }
@@ -635,13 +1698,13 @@ function afterWorkCompleted({ actor, item, from, to } = {}) {
   if (!item?.id || to !== "done" || from === "done") return null;
   const binding = store.codexTaskBinding(item.id);
   // 5필드 계약: 결정적 필드(입력 포인터·집계키)는 완료 즉시 기록, LLM 초안은 아래 훅이 보강(needs_backfill=1 시작).
-  const clog = store.logCompletion(item, { completed_by: actor, thread_id: binding?.thread_id ?? null });
+  const clog = store.logCompletion(item, { completed_by: actor });
   const used_refs = ["items", "completion_log"];
   const noteParts = ["source_surface=erp", "trigger=item_status"];
   if (clog?.id) noteParts.push(`completion_log_id=${clog.id}`);
   if (binding?.thread_id) {
     used_refs.push("codex_thread_binding");
-    noteParts.push(`codex_thread_id=${binding.thread_id}`);
+    noteParts.push("codex_thread_open=1");
   }
   appendWorkLifecycleEvent({
     actor,
@@ -665,11 +1728,11 @@ function afterWorkCompleted({ actor, item, from, to } = {}) {
       phase ? `phase=${phase}` : null,
       clog?.id ? `completion_log_id=${clog.id}` : null,
       proposal?.id ? `proposal_id=${proposal.id}` : null,
-      binding?.thread_id ? `codex_thread_id=${binding.thread_id}` : null,
+      binding?.thread_id ? "codex_thread_open=1" : null,
       latestMsg?.id ? `codex_last_message_id=${latestMsg.id}` : null,
     ].filter(Boolean).join(";") || null;
     try {
-      msgs = store.codexTaskMessages(item.id);
+      msgs = await publicCodexTaskMessages(item.id);
       if (!msgs.length) {
         // 대화 없음: 결정적 필드만 착지(needs_backfill=1 유지). 침묵 대신 감사 이벤트로 부분 캡처를 표시.
         store.appendEvent({
@@ -739,7 +1802,7 @@ function afterWorkCompleted({ actor, item, from, to } = {}) {
           completion_criteria: item.completion_criteria ?? null,
           result: item.result ?? null,
           log_ref: item.log_ref ?? null,
-          codex_thread_id: binding?.thread_id ?? null,
+          codex_thread_open: !!binding?.thread_id,
           codex_last_message: latestMsg ? { id: latestMsg.id ?? null, role: latestMsg.role ?? null, at: latestMsg.at ?? null } : null,
           summary: digest.summary,
           next_actions: digest.next_actions,
@@ -777,11 +1840,11 @@ function afterWorkCompleted({ actor, item, from, to } = {}) {
   return clog;
 }
 
-function codexTaskErrorPayload(item, error) {
+async function codexTaskErrorPayload(item, error) {
   return codexTaskState(item, {
     ok: false,
     error: "codex_task_bridge_failed",
-    detail: String(error?.message || error || "codex_error").slice(0, 2000),
+    detail: cleanCodexHostError(error, "codex_error", 1000),
   });
 }
 
@@ -798,7 +1861,7 @@ function enrichItemForCodex(item) {
       const cached = _knowledgeRefsCache.get(pid);
       const ttl = cached?.refs?.length ? 600000 : 60000;
       const fresh = cached && Date.now() - cached.at < ttl;
-      const refs = fresh ? cached.refs : listProjectKnowledgeRefsFast(pid);
+      const refs = fresh ? cached.refs : listProjectKnowledgeRefsFast(pid, { knowledgeRoot: KNOWLEDGE_INDEX_ROOT });
       if (!fresh) _knowledgeRefsCache.set(pid, { at: Date.now(), refs });
       item.knowledge_refs = matchingKnowledgeRefs([item.title, item.work_type].filter(Boolean).join(" "), refs, { maxMatches: 3 });
     }
@@ -806,31 +1869,144 @@ function enrichItemForCodex(item) {
   return item;
 }
 
-async function createCodexTaskThread({ item, actor, model, effort, serviceTier }) {
-  if (item?.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref, 1800, [item.title, item.project_id, item.work_type].filter(Boolean).join(" "), item.project_id); // 담당자 메모리 주입(시작 시·이 일 맥락 관련도 우선·압축 바운드·과제 격리: 현재 과제+일반만)
-  enrichItemForCodex(item); // 출처 포인터+지식 참조 주입(시작 시)
-  const title = store.codexThreadTitle(item);
+async function runConfiguredCodexTaskTurn({
+  item,
+  workspace,
+  access,
+  threadRef = null,
+  userMessage = "",
+  initial,
+  timeoutMs,
+  model,
+  modelSelectionOrigin = "explicit",
+  effort,
+  serviceTier,
+  skills = [],
+  attachmentContext = { localImages: [], localFiles: [] },
+  attachmentReferences = [],
+  signal = null,
+}) {
+  if (CODEX_TASK_BRIDGE_MODE === "worker") {
+    const operationAttestation = await codexDedicatedWorkerOperationAttestation();
+    const health = operationAttestation.health;
+    if (!health.ready) throw new Error(health.error || "codex_worker_unavailable");
+    const relativeWritePrefixes = access?.relative_write_prefixes || [];
+    const result = await codexDedicatedWorkerClient().turn({
+      workspace_id: workspace.workspace_id,
+      authorization: workspace.authorization,
+      working_relative_path: access?.working_relative_path || workspace.working_relative_path || "",
+      relative_write_prefixes: relativeWritePrefixes,
+      expected_workspace_revision: workspace.mapping_revision,
+      expected_root_fingerprint: workspace.root_fingerprint,
+      item: publicCodexItem(item),
+      user_message: userMessage,
+      initial: initial === true,
+      thread_ref: threadRef,
+      model,
+      model_selection_origin: modelSelectionOrigin,
+      effort,
+      service_tier: serviceTier,
+      timeout_ms: timeoutMs,
+      attachments: attachmentReferences,
+    }, {
+      signal,
+      timeoutMs: Math.min(310_000, timeoutMs + 10_000),
+      channel: operationAttestation.channel,
+    });
+    const postHealth = await codexDedicatedWorkerHealth({ refresh: true });
+    if (!postHealth.ready || postHealth.instance_revision !== health.instance_revision) {
+      throw new Error("codex_worker_turn_attestation_mismatch");
+    }
+    const autoModelAllowed = modelSelectionOrigin === "auto"
+      && (result.model === "gpt-5.5" || /^gpt-5\.6(?:-|$)/.test(String(result.model || "")));
+    const modelMatches = modelSelectionOrigin === "auto" ? autoModelAllowed : result.model === model;
+    const expectedModelFallback = modelSelectionOrigin === "auto" && result.model === "gpt-5.5";
+    if (typeof result.thread_ref !== "string" || !result.thread_ref.startsWith("dwr2.")
+        || result.workspace_id !== workspace.workspace_id
+        || result.workspace_revision !== workspace.mapping_revision
+        || result.requested_model !== model
+        || result.model_selection_origin !== modelSelectionOrigin
+        || !modelMatches
+        || result.model_fallback !== expectedModelFallback
+        || result.effort !== effort
+        || result.effective_access !== (relativeWritePrefixes.length ? "workspace-write" : "read-only")
+        || JSON.stringify(result.relative_write_prefixes || []) !== JSON.stringify(relativeWritePrefixes)) {
+      throw new Error("codex_worker_response_mismatch");
+    }
+    return {
+      ok: true,
+      mode: "worker",
+      created: result.created === true,
+      threadId: result.thread_ref,
+      text: String(result.text || ""),
+      effectiveModel: result.model,
+      modelFallback: result.model_fallback === true,
+    };
+  }
   const result = await runCodexTaskTurn({
     mode: CODEX_TASK_BRIDGE_MODE,
-    threadTitle: title,
-    cwd: CODEX_TASK_BRIDGE_CWD,
+    threadId: threadRef,
+    threadTitle: store.codexThreadTitle(item),
+    cwd: access.cwd,
     item,
+    userMessage,
+    initial,
+    timeoutMs,
+    model,
+    effort,
+    serviceTier,
+    skills,
+    localImages: attachmentContext.localImages,
+    sandboxMode: access.sandbox_mode,
+    writableRoots: access.writable_roots,
+    signal,
+  });
+  return { ...result, effectiveModel: model, modelFallback: false };
+}
+
+async function createCodexTaskThread({
+  item,
+  actor,
+  model,
+  modelSelectionOrigin = "explicit",
+  effort,
+  serviceTier,
+  workspace,
+  signal = null,
+}) {
+  if (CODEX_TASK_BRIDGE_MODE !== "worker") {
+    if (item?.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref, 1800, [item.title, item.project_id, item.work_type].filter(Boolean).join(" "), item.project_id); // 담당자 메모리 주입(시작 시·이 일 맥락 관련도 우선·압축 바운드·과제 격리: 현재 과제+일반만)
+    enrichItemForCodex(item); // 출처 포인터+지식 참조 주입(시작 시)
+  }
+  const title = store.codexThreadTitle(item);
+  const result = await runConfiguredCodexTaskTurn({
+    item,
+    workspace,
+    access: CODEX_TASK_BRIDGE_MODE === "worker"
+      ? { working_relative_path: workspace.working_relative_path || "", relative_write_prefixes: [], sandbox_mode: "read-only" }
+      : { cwd: workspace.path, writable_roots: [], sandbox_mode: "read-only" },
+    threadRef: null,
     userMessage: "",
     initial: true,
     timeoutMs: CODEX_TASK_TIMEOUT_MS,
     model,
+    modelSelectionOrigin,
     effort,
     serviceTier,
-    sandboxMode: store.codexFullAccess(item.id) ? "danger-full-access" : null, // 대화별 전체권한 토글
+    signal,
   });
+  const publicResultText = cleanCodexAssistantText(result.text, CODEX_TASK_BRIDGE_MODE === "worker" ? [] : [workspace.path]);
   const up = store.upsertCodexTaskBinding({
     item_id: item.id,
     thread_id: result.threadId,
     thread_title: title,
     mode: result.mode,
+    workspace_id: workspace.workspace_id,
+    workspace_revision: workspace.mapping_revision,
+    workspace_root_fingerprint: workspace.root_fingerprint,
   });
   if (up.error) return up;
-  store.appendCodexTaskMessage({
+  await appendCodexTaskPayloadMessage({
     item_id: item.id,
     thread_id: result.threadId,
     role: "system",
@@ -838,20 +2014,20 @@ async function createCodexTaskThread({ item, actor, model, effort, serviceTier }
     actor_ref: actor,
     mode: result.mode,
   });
-  if (result.text) store.appendCodexTaskMessage({
+  if (result.text) await appendCodexTaskPayloadMessage({
     item_id: item.id,
     thread_id: result.threadId,
     role: "assistant",
-    text: result.text,
+    text: publicResultText,
     actor_ref: "codex",
     mode: result.mode,
   });
   store.appendEvent({
     actor_ref: actor, actor_kind: "human", kind: "codex_task_thread_open",
-    item_ref: item.id, project_ref: item.project_id, to: result.threadId,
+    item_ref: item.id, project_ref: item.project_id, to: "opened",
     used_refs: ["items", "codex_task_thread"], data_label: "meta"
   });
-  return { ok: true, binding: up.binding, result };
+  return { ok: true, binding: up.binding, result: { ...result, text: publicResultText } };
 }
 
 const server = createServer(async (req, res) => {
@@ -875,10 +2051,40 @@ const server = createServer(async (req, res) => {
         && store.accountCount() > 0 && !currentAccount(req)) {
       return send(res, 401, { error: "login_required" });
     }
+    if (path.startsWith("/api/codex-task/") && path !== "/api/codex-task/full-access") {
+      if (store.accountCount() === 0) return send(res, 409, { error: "codex_auth_bootstrap_required" });
+      if (!currentAccount(req)) return send(res, 401, { error: "login_required" });
+      if (IS_RUNTIME_CHECKOUT && CODEX_TASK_BRIDGE_MODE !== "worker") {
+        return send(res, 503, { error: "codex_dedicated_worker_required" });
+      }
+      if (CODEX_TASK_BRIDGE_MODE === "worker" && !assertCodexPayloadOwnerReady()) {
+        return send(res, 503, { error: "codex_payload_owner_unready" });
+      }
+      if (["/api/codex-task/open", "/api/codex-task/message"].includes(path)
+          && CODEX_TASK_BRIDGE_MODE === "worker"
+          && !codexDedicatedWorkerConfiguration().configured) {
+        return send(res, 503, { error: codexDedicatedWorkerConfiguration().error });
+      }
+      if (["/api/codex-task/open", "/api/codex-task/message"].includes(path)
+          && !["mock", "worker"].includes(CODEX_TASK_BRIDGE_MODE) && !CODEX_TASK_DEDICATED_HOME_CONFIGURED) {
+        return send(res, 503, { error: "codex_dedicated_home_required" });
+      }
+      if (["/api/codex-task/open", "/api/codex-task/message"].includes(path)
+          && !["mock", "worker"].includes(CODEX_TASK_BRIDGE_MODE) && !codexDedicatedProfileReady()) {
+        return send(res, 503, { error: "codex_dedicated_profile_unsafe" });
+      }
+      if (["/api/codex-task/open", "/api/codex-task/message"].includes(path)
+          && CODEX_TASK_BRIDGE_MODE !== "mock" && !CODEX_TASK_TRUST_DOMAIN) {
+        return send(res, 503, { error: "codex_trust_domain_required" });
+      }
+    }
     if (path === "/api/health") {
       // liveness 는 항상 공개. counts(데이터 규모)는 미인증(팀 모드)엔 숨김 — '무조건 로그인해야 보임' 강화.
       const seeCounts = store.accountCount() === 0 || !!currentAccount(req);
-      return send(res, 200, seeCounts ? { ok: true, schema: "dev_erp.v1", counts: store.counts() } : { ok: true, schema: "dev_erp.v1" });
+      const attestation = await runtimeHealthAttestation();
+      return send(res, 200, seeCounts
+        ? { ok: true, schema: "dev_erp.v1", counts: store.counts(), attestation }
+        : { ok: true, schema: "dev_erp.v1", attestation });
     }
     if (path === "/api/version") return send(res, 200, runtimeVersion());
 
@@ -1337,7 +2543,7 @@ const server = createServer(async (req, res) => {
           // 주의: 영수증은 history_key 멱등이라 기존 영수증(예: thread_followup)이 있으면 skip 됨 —
           // 교정의 정본 기록은 event_log(mail_reattach)이고 영수증은 학습 피드백 best-effort.
           const receipt = appendMailReceipts({
-            workmetaRoot: resolve(HERE, "..", "..", "..", "_workmeta"), projectId: project,
+            workmetaRoot: BACKEND_WORKMETA_ROOT, projectId: project,
             rows: [{
               receipt_key: `mailreceipt:${historyKey}:human_reattach:${input.item_id}`,
               history_key: historyKey, project_id: project, disposition: "reference_only", status: "corrected",
@@ -1402,17 +2608,89 @@ const server = createServer(async (req, res) => {
       return send(res, 200, wantsPage(qp) ? store.itemsPage(opts) : store.items(opts));
     }
     if (path === "/api/codex-task/capabilities" && req.method === "GET") {
-      return send(res, 200, codexTaskCapabilities());
+      const item = store.itemById(qp.item_id || qp.id);
+      if (!item) return send(res, 404, { error: "item_not_found" });
+      if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
+      return send(res, 200, await codexTaskCapabilities({ item, account: currentAccount(req) }));
     }
-    // 대화별 전체권한(danger-full-access) 토글 — admin 전용. 켜면 그 대화의 Codex가 로컬 실행 가능(Outlook 등). ⚠ 메일내용 인젝션 위험.
+    // legacy 전체권한은 팀 작업실 경계와 양립하지 않으므로 영구 비활성화한다.
     if (path === "/api/codex-task/full-access" && req.method === "POST") {
-      if (!allowSharedWrite(req, res)) return;
-      const { item_id, on } = await readJson(req);
-      if (!canAccessItem(req, item_id)) return send(res, 403, { error: "item_forbidden" });
-      const result = store.setCodexFullAccess(item_id, !!on);
+      return send(res, 410, { error: "codex_full_access_disabled", use: "codex_workspace_write_grant" });
+    }
+    if (path === "/api/codex-task/write-grant" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const { item_id, relative_prefix, reason, ttl_minutes } = await readJson(req, CODEX_TASK_JSON_MAX);
+      const item = store.itemById(item_id);
+      if (!item) return send(res, 404, { error: "item_not_found" });
+      if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
+      const binding = store.codexTaskBinding(item.id);
+      const workspace = await resolveCodexTaskWorkspace({ binding, item, account: admin });
+      if (!workspace.ok) return send(res, 409, workspace);
+      const prefix = String(relative_prefix ?? "").trim();
+      const staticPolicy = workspace.registry.authorizeWritePrefixes(
+        workspace.workspace_id,
+        [prefix],
+        workspace.authorization,
+      );
+      if (!staticPolicy.ok) return send(res, 400, { error: staticPolicy.error });
+      let resolvedPrefix;
+      if (CODEX_TASK_BRIDGE_MODE === "worker") {
+        try {
+          resolvedPrefix = await codexDedicatedWorkerClient().resolve({
+            workspace_id: workspace.workspace_id,
+            authorization: workspace.authorization,
+            relative_path: prefix,
+          }, { timeoutMs: 10_000 });
+        } catch (error) {
+          return send(res, 409, { error: safeCodexWorkerError(error) });
+        }
+        if (resolvedPrefix.workspace_revision !== workspace.mapping_revision
+            || resolvedPrefix.root_fingerprint !== workspace.root_fingerprint) {
+          return send(res, 409, { error: "workspace_write_binding_mismatch" });
+        }
+      } else {
+        resolvedPrefix = await workspace.registry.resolvePathAsync(workspace.workspace_id, prefix, { timeoutMs: 2000 });
+      }
+      if (!resolvedPrefix.ok) return send(res, 400, { error: resolvedPrefix.error });
+      if (!resolvedPrefix.target_is_directory) return send(res, 400, { error: "write_prefix_not_directory" });
+      const ttl = Math.max(1, Math.min(480, Math.trunc(Number(ttl_minutes) || 60)));
+      const approvedAt = new Date();
+      const result = store.approveCodexWorkspaceWrite({
+        item_id: item.id,
+        workspace_id: workspace.workspace_id,
+        relative_prefix: prefix,
+        approved_by: actor,
+        reason,
+        approved_at: approvedAt.toISOString(),
+        expires_at: new Date(approvedAt.getTime() + ttl * 60_000).toISOString(),
+      });
       if (result.error) return send(res, 400, result);
-      store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "codex_full_access_set", item_ref: item_id, to: on ? "on" : "off", used_refs: ["codex_thread_binding"], data_label: "real" });
-      return send(res, 200, result);
+      store.appendEvent({
+        actor_ref: actor, actor_kind: "human", kind: "codex_workspace_write_grant",
+        item_ref: item.id, project_ref: item.project_id, to: result.grant.id,
+        used_refs: ["codex_thread_binding", "codex_workspace_write_grant"], data_label: "meta",
+        note: `workspace_id=${workspace.workspace_id};relative_prefix=${result.grant.relative_prefix};expires_at=${result.grant.expires_at}`,
+      });
+      return send(res, 200, await codexTaskState(item, { write_grant_created: true }, admin));
+    }
+    if (path === "/api/codex-task/write-grant/revoke" && req.method === "POST") {
+      const admin = requireAdmin(req);
+      if (!admin) return send(res, 403, { error: "admin_only" });
+      const { grant_id } = await readJson(req, CODEX_TASK_JSON_MAX);
+      const grant = store.codexWorkspaceWriteGrant(grant_id);
+      if (!grant) return send(res, 404, { error: "grant_not_found" });
+      if (!canAccessItem(req, grant.item_id)) return send(res, 403, { error: "item_forbidden" });
+      const result = store.revokeCodexWorkspaceWriteGrant({ id: grant.id, revoked_by: actor });
+      if (result.error) return send(res, 400, result);
+      const active = activeCodexTurns.get(grant.item_id);
+      if (active?.grant_refs?.has(grant.id)) active.controller.abort();
+      store.appendEvent({
+        actor_ref: actor, actor_kind: "human", kind: "codex_workspace_write_revoke",
+        item_ref: grant.item_id, project_ref: grant.project_id, to: grant.id,
+        used_refs: ["codex_workspace_write_grant"], data_label: "meta",
+      });
+      return send(res, 200, await codexTaskState(store.itemById(grant.item_id), { write_grant_revoked: true }, admin));
     }
     if (path === "/api/codex-task/attachment" && req.method === "POST") {
       const item_id = qp.item_id || qp.id;
@@ -1421,37 +2699,66 @@ const server = createServer(async (req, res) => {
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
       const filename = safeAttachmentFilename(qp.filename || "image");
       const ext = extname(filename).toLowerCase();
+      if (ext === ".hwp") return send(res, 400, { error: "hwp_preprocess_required" });
       const isImage = CODEX_TASK_IMAGE_EXTS.has(ext);
       const isFile = !isImage && CODEX_TASK_FILE_EXTS.has(ext);
       if (!isImage && !isFile) return send(res, 400, { error: "unsupported_attachment_type" });
       try {
+        validateAttachmentFilename(filename);
+        const binding = store.codexTaskBinding(item.id);
+        if (!binding) return send(res, 409, { error: "codex_thread_not_open" });
+        const workspace = await resolveCodexTaskWorkspace({ binding, item, account: currentAccount(req) });
+        if (!workspace.ok) return send(res, 403, { error: "codex_workspace_forbidden" });
         const bytes = await readRawBody(req, isImage ? CODEX_TASK_IMAGE_MAX : CODEX_TASK_FILE_MAX);
         if (!bytes.length) return send(res, 400, { error: "empty_body" });
-        // 저장 규칙(CHAT_ATTACHMENT_STORAGE_V0): 과제 워크스페이스의 대화첨부/<할일명 축약>/ 우선, 미존재 시 legacy 폴백.
+        // 저장 계약 v1: Soulforge service-owned item bucket만 사용한다.
         const resolved = resolveChatAttachmentDir(item);
         if (!resolved?.dir) return send(res, 400, { error: "unsafe_attachment_dir" });
-        const picked = chatAttachTargetPath(resolved.dir, filename);
-        if (!picked) return send(res, 400, { error: "unsafe_attachment_path" });
-        writeFileSync(picked.target, bytes);
+        const currentManifest = readChatAttachManifest(resolved.dir)
+          || createAttachmentManifest({ item_id: item.id });
+        if (currentManifest.item_id !== item.id) return send(res, 409, { error: "attachment_manifest_item_mismatch" });
+        if (currentManifest.attachments.length >= CODEX_TASK_ATTACHMENT_MAX_COUNT) {
+          return send(res, 413, { error: "attachment_count_limit" });
+        }
+        const currentBytes = currentManifest.attachments.reduce((sum, row) => sum + row.size, 0);
+        if (currentBytes + bytes.length > CODEX_TASK_ATTACHMENT_TOTAL_MAX) {
+          return send(res, 413, { error: "attachment_total_limit" });
+        }
+        const attachmentId = createOpaqueAttachmentId();
+        const storedName = `${attachmentId}${ext}`;
         const sha256 = createHash("sha256").update(bytes).digest("hex");
-        appendChatAttachManifest(resolved.dir, item, {
-          name: picked.name, original: filename, size: bytes.length, sha256,
-          at: new Date().toISOString(), actor, kind: isImage ? "localImage" : "localFile",
+        const record = createAttachmentManifestRecord({
+          attachment_id: attachmentId,
+          item_id: item.id,
+          name: filename,
+          stored_name: storedName,
+          size: bytes.length,
+          sha256,
+          type: isImage ? "localImage" : "localFile",
+        }, {
+          maxBytes: isImage ? CODEX_TASK_IMAGE_MAX : CODEX_TASK_FILE_MAX,
         });
+        const written = writeAttachmentFileExclusive(resolved.dir, storedName, bytes);
+        if (!written.ok) return send(res, 409, { error: written.error });
+        try {
+          appendChatAttachManifest(resolved.dir, item, record);
+        } catch (error) {
+          try { unlinkSync(written.target); } catch {}
+          throw error;
+        }
         store.appendEvent({
           actor_ref: actor, actor_kind: "human", kind: isImage ? "codex_task_image_attach" : "codex_task_file_attach",
-          item_ref: item.id, project_ref: item.project_id, to: picked.target,
+          item_ref: item.id, project_ref: item.project_id, to: record.attachment_id,
           used_refs: ["items", "codex_task_thread", isImage ? "localImage" : "localFile"], data_label: "meta"
         });
         return send(res, 200, {
           ok: true,
-          attachment: {
-            type: isImage ? "localImage" : "localFile", path: picked.target, name: picked.name,
-            size: bytes.length, sha256, storage: resolved.storage, mime: req.headers["content-type"] || null,
-          },
+          attachment: publicAttachmentDescriptor(record, { maxBytes: CODEX_TASK_FILE_MAX }),
         });
       } catch (error) {
-        return send(res, error?.code === "too_large" ? 413 : 500, { error: error?.code || "attachment_failed" });
+        const code = error?.code || "attachment_failed";
+        const status = code === "too_large" ? 413 : (code.startsWith("attachment_") ? 400 : 500);
+        return send(res, status, { error: code });
       }
     }
     if (path === "/api/codex-task/thread" && req.method === "GET") {
@@ -1459,69 +2766,236 @@ const server = createServer(async (req, res) => {
       const item = store.itemById(item_id);
       if (!item) return send(res, 404, { error: "item_not_found" });
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
-      return send(res, 200, codexTaskState(item));
+      const binding = store.codexTaskBinding(item.id);
+      if (binding) {
+        const workspace = await resolveCodexTaskWorkspace({ binding, item, account: currentAccount(req) });
+        if (!workspace.ok) return send(res, 403, { error: "codex_workspace_forbidden" });
+      }
+      return send(res, 200, await codexTaskState(item, {}, currentAccount(req)));
     }
     if (path === "/api/codex-task/open" && req.method === "POST") {
-      const { item_id, model, effort, service_tier } = await readJson(req);
-      const serviceTier = normalizeCodexTaskServiceTier(service_tier);
+      const input = await readJson(req, CODEX_TASK_JSON_MAX);
+      if (["cwd", "path", "root", "workspace_root"].some((key) => Object.hasOwn(input, key))) {
+        return send(res, 400, { error: "raw_workspace_path_forbidden" });
+      }
+      const { item_id, model, model_selection_origin, effort, service_tier, workspace_id } = input;
       const item = store.itemById(item_id);
       if (!item) return send(res, 404, { error: "item_not_found" });
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
-      const existing = store.codexTaskBinding(item.id);
-      if (existing) return send(res, 200, codexTaskState(item));
+      const preflight = claimCodexPreflight({ itemId: item.id, accountId: currentAccount(req).id });
+      if (!preflight.ok) return sendCodexAdmissionError(res, preflight);
       try {
-        const created = await createCodexTaskThread({ item, actor, model, effort, serviceTier });
-        if (created.error) return send(res, 400, created);
-        return send(res, 200, codexTaskState(item, { created: true }));
-      } catch (error) {
-        store.markCodexTaskError(item.id, error);
-        store.appendCodexTaskMessage({
-          item_id: item.id,
-          role: "error",
-          text: String(error?.message || error || "codex_error"),
-          actor_ref: "server",
-          mode: CODEX_TASK_BRIDGE_MODE,
+      const selection = await normalizeCodexTaskSelection(model, effort, model_selection_origin);
+      if (!selection.ok) return send(res, 400, selection);
+      const existing = store.codexTaskBinding(item.id);
+      const workspace = await resolveCodexTaskWorkspace({ requestedWorkspaceId: workspace_id, binding: existing, item, account: currentAccount(req) });
+      if (!workspace.ok) return send(res, 409, workspace);
+      const serviceTier = normalizeCodexTaskServiceTier(service_tier);
+      if (existing) return send(res, 200, await codexTaskState(item, {}, currentAccount(req)));
+      const controller = new AbortController();
+      preflight.release();
+      const admission = claimCodexOperation({
+        itemId: item.id,
+        accountId: currentAccount(req).id,
+        controller,
+        operation: "open",
+      });
+      if (!admission.ok) return sendCodexAdmissionError(res, admission);
+      const authorizedAt = new Date().toISOString();
+      const startedAt = Date.parse(authorizedAt);
+      const startedAudit = store.startCodexTurnAudit({
+        item_id: item.id,
+        actor_ref: actor,
+        workspace_id: workspace.workspace_id,
+        workspace_revision: workspace.mapping_revision,
+        workspace_root_fingerprint: workspace.root_fingerprint,
+        model: selection.model,
+        model_selection_origin: selection.selection_origin,
+        reasoning_effort: selection.effort,
+        sandbox_mode: "read-only",
+        grant_refs: [],
+        authorized_at: authorizedAt,
+      });
+      if (startedAudit.error) {
+        activeCodexTurns.delete(item.id);
+        return send(res, 500, { error: "codex_turn_audit_start_failed" });
+      }
+      try {
+        const created = await createCodexTaskThread({
+          item,
+          actor,
+          model: selection.model,
+          modelSelectionOrigin: selection.selection_origin,
+          effort: selection.effort,
+          serviceTier,
+          workspace,
+          signal: controller.signal,
         });
-        return send(res, 502, codexTaskErrorPayload(item, error));
+        if (created.error) {
+          store.finishCodexTurnAudit({
+            audit_id: startedAudit.audit.id,
+            effective_model: created.result?.effectiveModel ?? null,
+            outcome: "rejected",
+            duration_ms: Date.now() - startedAt,
+            error_code: created.error,
+          });
+          return send(res, 400, created);
+        }
+        const finishedAudit = store.finishCodexTurnAudit({
+          audit_id: startedAudit.audit.id,
+          thread_id: created.result.threadId,
+          effective_model: created.result.effectiveModel,
+          outcome: "completed",
+          duration_ms: Date.now() - startedAt,
+        });
+        if (finishedAudit.error) return send(res, 500, { error: "codex_turn_audit_failed" });
+        return send(res, 200, await codexTaskState(item, { created: true }, currentAccount(req)));
+      } catch (error) {
+        const audit = store.finishCodexTurnAudit({
+          audit_id: startedAudit.audit.id,
+          outcome: "failed",
+          duration_ms: Date.now() - startedAt,
+          error_code: String(error?.message || "").includes("aborted") ? "codex_turn_aborted" : "codex_turn_failed",
+        });
+        if (audit.error) console.error("[dev-erp] codex failed-open audit failed:", audit.error);
+        const publicError = cleanCodexHostError(error, "codex_error", 1000);
+        try { store.markCodexTaskError(item.id, publicError); } catch {}
+        try {
+          await appendCodexTaskPayloadMessage({
+            item_id: item.id,
+            role: "error",
+            text: publicError,
+            actor_ref: "server",
+            mode: CODEX_TASK_BRIDGE_MODE,
+          });
+        } catch {}
+        return send(res, 502, await codexTaskErrorPayload(item, error));
+      } finally {
+        if (activeCodexTurns.get(item.id)?.controller === controller) activeCodexTurns.delete(item.id);
+      }
+      } finally {
+        preflight.release();
       }
     }
     if (path === "/api/codex-task/message" && req.method === "POST") {
-      const { item_id, message, model, effort, service_tier, attachments } = await readJson(req);
+      const input = await readJson(req, CODEX_TASK_JSON_MAX);
+      if (["cwd", "path", "root", "workspace_root"].some((key) => Object.hasOwn(input, key))) {
+        return send(res, 400, { error: "raw_workspace_path_forbidden" });
+      }
+      const { item_id, message, model, model_selection_origin, effort, service_tier, attachments, workspace_id } = input;
       const text = String(message ?? "").trim();
       if (!text) return send(res, 400, { error: "message_required" });
-      const serviceTier = normalizeCodexTaskServiceTier(service_tier);
+      if (Buffer.byteLength(text, "utf8") > CODEX_TASK_MESSAGE_MAX) {
+        return send(res, 413, { error: "codex_message_too_large" });
+      }
       const item = store.itemById(item_id);
       if (!item) return send(res, 404, { error: "item_not_found" });
       if (!canAccessItem(req, item.id)) return send(res, 403, { error: "item_forbidden" });
+      const preflight = claimCodexPreflight({ itemId: item.id, accountId: currentAccount(req).id });
+      if (!preflight.ok) return sendCodexAdmissionError(res, preflight);
+      try {
+      const selection = await normalizeCodexTaskSelection(model, effort, model_selection_origin);
+      if (!selection.ok) return send(res, 400, selection);
+      const binding = store.codexTaskBinding(item.id);
+      if (!binding) return send(res, 409, { error: "codex_thread_not_open" });
+      const workspace = await resolveCodexTaskWorkspace({ requestedWorkspaceId: workspace_id, binding, item, account: currentAccount(req) });
+      if (!workspace.ok) return send(res, 409, workspace);
+      const serviceTier = normalizeCodexTaskServiceTier(service_tier);
       if (item.assignee_ref) item.assignee_memory = store.memoryForInjection(item.assignee_ref, 1800, [item.title, item.project_id, item.work_type].filter(Boolean).join(" "), item.project_id); // 담당자 메모리 주입(매 턴·이 일 맥락 관련도 우선·압축 바운드·과제 격리: 현재 과제+일반만)
       enrichItemForCodex(item); // 출처 포인터+지식 참조 주입(매 턴 — 지식 스캔은 10분 캐시)
-      const binding = store.codexTaskBinding(item.id);
-      const skills = mentionedCodexSkills(text);
-      const localImages = localImagesFromAttachments(attachments);
-      store.appendCodexTaskMessage({
+      const skills = CODEX_TASK_BRIDGE_MODE === "worker" ? [] : mentionedCodexSkills(text);
+      const attachmentContext = CODEX_TASK_BRIDGE_MODE === "worker"
+        ? { ok: true, localImages: [], localFiles: [] }
+        : await resolveCodexAttachments(item, attachments);
+      const workerAttachments = CODEX_TASK_BRIDGE_MODE === "worker"
+        ? normalizeCodexWorkerAttachmentReferences(attachments)
+        : { ok: true, references: [] };
+      if (!attachmentContext.ok) return send(res, 400, { error: attachmentContext.error });
+      if (!workerAttachments.ok) return send(res, 400, { error: workerAttachments.error });
+      const codexText = CODEX_TASK_BRIDGE_MODE === "worker"
+        ? text
+        : (attachmentContext.localFiles.length
+          ? `${text}\n\nServer-verified item attachments (host paths; do not echo them to the user):\n${attachmentContext.localFiles.map((file) => `- ${file.name}: ${JSON.stringify(file.path)}`).join("\n")}`
+          : text);
+      if (activeCodexTurns.has(item.id)) return send(res, 409, { error: "codex_turn_already_active" });
+      const access = await resolveCodexTurnAccess(item, workspace);
+      if (access.error) return send(res, 409, { error: access.error });
+      if (activeCodexTurns.has(item.id)) return send(res, 409, { error: "codex_turn_already_active" });
+      const controller = new AbortController();
+      preflight.release();
+      const admission = claimCodexOperation({
+        itemId: item.id,
+        accountId: currentAccount(req).id,
+        controller,
+        grantRefs: access.grant_refs,
+        operation: "message",
+      });
+      if (!admission.ok) return sendCodexAdmissionError(res, admission);
+      const revalidated = revalidateCodexTurnGrantSnapshot(item, workspace, access);
+      if (!revalidated.ok || controller.signal.aborted) {
+        activeCodexTurns.delete(item.id);
+        return send(res, 409, { error: revalidated.error || "workspace_write_authorization_changed" });
+      }
+      const authorizedAt = revalidated.authorized_at;
+      const startedAt = Date.parse(authorizedAt);
+      const leaseMs = access.lease_expires_at ? Date.parse(access.lease_expires_at) - startedAt : CODEX_TASK_TIMEOUT_MS;
+      if (access.sandbox_mode === "workspace-write"
+          && (!Number.isFinite(leaseMs) || leaseMs < (CODEX_TASK_BRIDGE_MODE === "worker" ? 1000 : 1))) {
+        activeCodexTurns.delete(item.id);
+        return send(res, 409, { error: "workspace_write_lease_expired" });
+      }
+      let turnTimeoutMs = Math.max(CODEX_TASK_BRIDGE_MODE === "worker" ? 1000 : 1, Math.min(CODEX_TASK_TIMEOUT_MS, leaseMs));
+      const startedAudit = store.startCodexTurnAudit({
+        item_id: item.id,
+        thread_id: binding.thread_id,
+        actor_ref: actor,
+        workspace_id: workspace.workspace_id,
+        workspace_revision: workspace.mapping_revision,
+        workspace_root_fingerprint: workspace.root_fingerprint,
+        model: selection.model,
+        model_selection_origin: selection.selection_origin,
+        reasoning_effort: selection.effort,
+        sandbox_mode: access.sandbox_mode,
+        grant_refs: access.grant_refs,
+        authorized_at: authorizedAt,
+      });
+      if (startedAudit.error) {
+        activeCodexTurns.delete(item.id);
+        return send(res, 500, { error: "codex_turn_audit_start_failed" });
+      }
+      try {
+        await appendCodexTaskPayloadMessage({
         item_id: item.id,
         thread_id: binding?.thread_id ?? null,
         role: "user",
         text,
         actor_ref: actor,
         mode: binding?.mode ?? CODEX_TASK_BRIDGE_MODE,
-      });
-      try {
-        const result = await runCodexTaskTurn({
-          mode: CODEX_TASK_BRIDGE_MODE,
-          threadId: binding?.thread_id ?? null,
-          threadTitle: store.codexThreadTitle(item),
-          cwd: CODEX_TASK_BRIDGE_CWD,
+        });
+        if (access.lease_expires_at) {
+          const remainingLeaseMs = Date.parse(access.lease_expires_at) - Date.now();
+          if (!Number.isFinite(remainingLeaseMs)
+              || remainingLeaseMs < (CODEX_TASK_BRIDGE_MODE === "worker" ? 1000 : 1)) {
+            throw new Error("workspace_write_lease_expired");
+          }
+          turnTimeoutMs = Math.max(CODEX_TASK_BRIDGE_MODE === "worker" ? 1000 : 1, Math.min(CODEX_TASK_TIMEOUT_MS, remainingLeaseMs));
+        }
+        const result = await runConfiguredCodexTaskTurn({
           item,
-          userMessage: text,
+          workspace,
+          access,
+          threadRef: binding?.thread_id ?? null,
+          userMessage: codexText,
           initial: false,
-          timeoutMs: CODEX_TASK_TIMEOUT_MS,
-          model,
-          effort,
+          timeoutMs: turnTimeoutMs,
+          model: selection.model,
+          modelSelectionOrigin: selection.selection_origin,
+          effort: selection.effort,
           serviceTier,
           skills,
-          localImages,
-          sandboxMode: store.codexFullAccess(item.id) ? "danger-full-access" : null, // 대화별 전체권한 토글
+          attachmentContext,
+          attachmentReferences: workerAttachments.references,
+          signal: controller.signal,
         });
         const up = store.upsertCodexTaskBinding({
           item_id: item.id,
@@ -1529,32 +3003,72 @@ const server = createServer(async (req, res) => {
           thread_title: binding?.thread_title || store.codexThreadTitle(item),
           mode: result.mode,
         });
-        if (up.error) return send(res, 400, up);
-        store.appendCodexTaskMessage({
+        if (up.error) throw new Error("codex_thread_binding_failed");
+        const assistantText = cleanCodexAssistantText(result.text, CODEX_TASK_BRIDGE_MODE === "worker" ? [] : [
+          access.cwd,
+          ...access.writable_roots,
+          ...attachmentContext.localImages.map((entry) => entry.path),
+          ...attachmentContext.localFiles.map((entry) => entry.path),
+          ...skills.map((entry) => entry.path),
+        ]);
+        await appendCodexTaskPayloadMessage({
           item_id: item.id,
           thread_id: result.threadId,
           role: "assistant",
-          text: result.text || "Codex turn completed.",
+          text: assistantText,
           actor_ref: "codex",
           mode: result.mode,
         });
         store.appendEvent({
           actor_ref: actor, actor_kind: "human", kind: "codex_task_message",
-          item_ref: item.id, project_ref: item.project_id, to: result.threadId,
-          used_refs: ["items", "codex_task_thread"], data_label: "meta"
+          item_ref: item.id, project_ref: item.project_id, to: "completed",
+          used_refs: ["items", "codex_task_thread", ...(access.grant_refs.length ? ["codex_workspace_write_grant"] : [])],
+          data_label: "meta",
+          note: `workspace_id=${workspace.workspace_id};sandbox=${access.sandbox_mode};requested_model=${selection.model};effective_model=${result.effectiveModel};model_origin=${selection.selection_origin}`,
         });
-        return send(res, 200, codexTaskState(item));
+        const audit = store.finishCodexTurnAudit({
+          audit_id: startedAudit.audit.id,
+          thread_id: result.threadId,
+          effective_model: result.effectiveModel,
+          outcome: "completed",
+          duration_ms: Date.now() - startedAt,
+        });
+        if (audit.error) {
+          console.error("[dev-erp] codex turn audit failed:", audit.error);
+          return send(res, 500, { error: "codex_turn_audit_failed" });
+        }
+        return send(res, 200, await codexTaskState(item, {}, currentAccount(req)));
       } catch (error) {
-        store.markCodexTaskError(item.id, error);
-        store.appendCodexTaskMessage({
-          item_id: item.id,
-          thread_id: binding?.thread_id ?? null,
-          role: "error",
-          text: String(error?.message || error || "codex_error"),
-          actor_ref: "server",
-          mode: binding?.mode ?? CODEX_TASK_BRIDGE_MODE,
+        // Authorization evidence must become terminal before any secondary
+        // persistence. Payload-store or binding-error reporting may itself fail.
+        const audit = store.finishCodexTurnAudit({
+          audit_id: startedAudit.audit.id,
+          thread_id: binding.thread_id,
+          outcome: "failed",
+          duration_ms: Date.now() - startedAt,
+          error_code: String(error?.message || "").includes("aborted")
+            ? "codex_turn_aborted"
+            : (String(error?.message || "").includes("binding_failed") ? "codex_thread_binding_failed" : "codex_turn_failed"),
         });
-        return send(res, 502, codexTaskErrorPayload(item, error));
+        if (audit.error) console.error("[dev-erp] codex failed-turn audit failed:", audit.error);
+        const publicError = cleanCodexHostError(error, "codex_error", 1000);
+        try { store.markCodexTaskError(item.id, publicError); } catch {}
+        try {
+          await appendCodexTaskPayloadMessage({
+            item_id: item.id,
+            thread_id: binding?.thread_id ?? null,
+            role: "error",
+            text: publicError,
+            actor_ref: "server",
+            mode: binding?.mode ?? CODEX_TASK_BRIDGE_MODE,
+          });
+        } catch {}
+        return send(res, 502, await codexTaskErrorPayload(item, error));
+      } finally {
+        if (activeCodexTurns.get(item.id)?.controller === controller) activeCodexTurns.delete(item.id);
+      }
+      } finally {
+        preflight.release();
       }
     }
     if (path === "/api/mail" && req.method === "POST") {
@@ -1796,7 +3310,10 @@ const server = createServer(async (req, res) => {
       });
       return send(res, r.ok ? 200 : 400, r);
     }
-    if (path === "/api/proposals" && req.method === "GET") return send(res, 200, store.proposals({ status: qp.status || "pending" }));
+    if (path === "/api/proposals" && req.method === "GET") {
+      if (!requireAdmin(req)) return send(res, 403, { error: "admin_only" });
+      return send(res, 200, store.proposals({ status: qp.status || "pending" }));
+    }
     if (path === "/api/proposals" && req.method === "POST") {
       if (!allowSharedWrite(req, res)) return;
       let body = ""; for await (const chunk of req) body += chunk;
@@ -2187,23 +3704,33 @@ const server = createServer(async (req, res) => {
       const r = buildContextGraph(KNOWLEDGE_SHELL.root, qp.project || "");
       return send(res, r.error ? 400 : 200, r);
     }
-    if (path === "/api/events/recent") return send(res, 200, store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null, requestScope(req, qp)));
+    if (path === "/api/events/recent") return send(res, 200, publicEventRows(store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null, requestScope(req, qp))));
     if (path === "/api/events/audit") return send(res, 200, {
       // noise=0(기본, UI '조회·잡음 포함' 해제) → 잡음을 서버에서 제외해 limit 이 의미 이벤트에만 적용.
       // noise param 없으면(타 호출자) 종전대로 전체 포함(백워드 호환).
-      events: store.queryEvents({ project: qp.project || null, kind: qp.kind || null, actor: qp.actor || null, since: qp.since || null, limit: qp.limit ? Number(qp.limit) : 300, excludeKinds: qp.noise === "0" ? AUDIT_NOISE_KINDS : null, scope: requestScope(req, qp) }),
+      events: publicEventRows(store.queryEvents({ project: qp.project || null, kind: qp.kind || null, actor: qp.actor || null, since: qp.since || null, limit: qp.limit ? Number(qp.limit) : 300, excludeKinds: qp.noise === "0" ? AUDIT_NOISE_KINDS : null, scope: requestScope(req, qp) })),
       facets: store.eventFacets(requestScope(req, qp)),
     });
     if (path === "/api/events" && req.method === "POST") {
-      let body = "";
-      for await (const chunk of req) body += chunk;
-      const event = JSON.parse(body || "{}");
-      if (!event.kind) return send(res, 400, { error: "kind_required" });
-      // 감사 무결성: 계정이 있는 팀 모드에선 actor 를 자기신고가 아니라 세션 주체로 강제(타인 명의 위조 차단).
-      // 계정 0 파일럿 모드는 종전 동작(자기신고 허용) 보존.
       const evMe = currentAccount(req);
-      const forcedActor = evMe ? { actor_ref: evMe.username, actor_kind: "human" } : {};
-      store.appendEvent({ ...event, actor_kind: event.actor_kind ?? "human", data_label: event.data_label ?? "real", ...forcedActor });
+      if (store.accountCount() === 0) return send(res, 409, { error: "auth_bootstrap_required" });
+      if (!evMe) return send(res, 401, { error: "login_required" });
+      const event = await readJson(req);
+      if (event.kind !== "view") return send(res, 403, { error: "client_event_kind_forbidden" });
+      const view = String(event.to || "").trim();
+      if (!/^[A-Za-z0-9._:-]{1,100}$/.test(view)) return send(res, 400, { error: "client_event_view_invalid" });
+      const projectRef = event.project_ref == null || event.project_ref === "" ? null : String(event.project_ref).trim();
+      if (projectRef && !canAccessProject(req, projectRef)) return send(res, 403, { error: "project_forbidden" });
+      store.appendEvent({
+        actor_ref: evMe.username,
+        actor_kind: "human",
+        kind: "view",
+        to: view,
+        project_ref: projectRef,
+        used_refs: [`view:${view}`],
+        data_label: "meta",
+        note: "source_surface=erp_browser",
+      });
       return send(res, 200, { ok: true });
     }
     // ---------- P2b: 계정·권한·계정별 레이아웃 ----------
@@ -2295,7 +3822,7 @@ const server = createServer(async (req, res) => {
       if (!FILEIO) return send(res, 404, { error: "fileio_disabled" });
       const inp = store.deliverableInput(qp.id);
       if (!inp || !inp.pointer) return send(res, 404, { error: "input_or_pointer_missing" });
-      const safe = safeWorkspacePath(ROOT, inp.pointer, { mustExist: true }); // 등록 포인터만 + 봉쇄
+      const safe = safeWorkspacePath(BACKEND_ROOT, inp.pointer, { mustExist: true }); // 등록 포인터만 + 봉쇄
       if (safe.error) return send(res, 400, { error: `unsafe_${safe.error}` });
       const r = readSafe(safe);
       if (r.error) return send(res, 500, r);
@@ -2317,9 +3844,9 @@ const server = createServer(async (req, res) => {
       for await (const c of req) { total += c.length; if (total > UPLOAD_MAX) return send(res, 413, { error: "too_large" }); chunks.push(c); }
       const bytes = Buffer.concat(chunks);
       if (!bytes.length) return send(res, 400, { error: "empty_body" });
-      const target = safeUploadTarget(ROOT, d.in_pointer, subfolder, filename);
+      const target = safeUploadTarget(BACKEND_ROOT, d.in_pointer, subfolder, filename);
       if (target.error) return send(res, 400, { error: `unsafe_${target.error}` });
-      const w = commitUpload(ROOT, target, bytes);
+      const w = commitUpload(BACKEND_ROOT, target, bytes);
       if (w.error) return send(res, 400, { error: `write_${w.error}` });
       const reg = store.registerDeliverableInput({ deliverable_id: did, subfolder, file_name: filename, pointer: w.rel, source: "erp", sha256: w.sha256, size: w.size, status: "received" });
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "input_upload", to: reg.id, project_ref: d.project_id, used_refs: ["fileio"], data_label: "real" });
@@ -2413,6 +3940,7 @@ const server = createServer(async (req, res) => {
     return send(res, 404, "not found", "text/plain");
   } catch (error) {
     // BE-3: 내부 예외 메시지(SQLite 바인드·JSON 파서 등)를 클라이언트에 노출하지 않음 — 서버 로그에만 남기고 일반화 응답.
+    if (error?.code === "too_large") return send(res, 413, { error: "request_too_large" });
     console.error("[dev-erp] unhandled:", req.method, path, error?.stack ?? error);
     return send(res, 500, { error: "internal" });
   }
@@ -2517,6 +4045,23 @@ const onReady = () => {
   }
 };
 
+let runtimeListener = null;
+let shutdownStarted = false;
+async function shutdownDevErp(signalName) {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
+  try { runtimeListener?.close?.(); } catch {}
+  for (const active of activeCodexTurns.values()) active.controller.abort();
+  const deadline = Date.now() + 5000;
+  while (activeCodexTurns.size && Date.now() < deadline) {
+    await new Promise((resolveWait) => setTimeout(resolveWait, 25));
+  }
+  try { store.recoverInterruptedCodexTurnAudits(`service_${String(signalName || "shutdown").toLowerCase()}`); } catch {}
+  process.exit(0);
+}
+process.once("SIGINT", () => { void shutdownDevErp("SIGINT"); });
+process.once("SIGTERM", () => { void shutdownDevErp("SIGTERM"); });
+
 if (TLS_ENABLED) {
   // 사내망 직접 HTTPS: 한 포트에서 TLS/평문 겸용(polyglot). 첫 바이트 0x16(TLS handshake)이면
   // https 서버로, 아니면 평문 처리기(인증서 다운로드 + https 301)로 넘긴다. 외부 의존성 0 유지(node:tls/net).
@@ -2560,7 +4105,9 @@ if (TLS_ENABLED) {
       process.nextTick(() => socket.resume());
     });
   });
+  runtimeListener = polyglot;
   polyglot.listen(PORT, HOST, onReady);
 } else {
+  runtimeListener = server;
   server.listen(PORT, HOST, onReady);
 }

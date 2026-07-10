@@ -66,39 +66,81 @@
   ERP 는 `project_code`, `task_title`, `thread_title`, `last_synced_at` 같은
   보조 메타만 함께 보존한다. 기존 ERP 챗봇 로그와 할일 전용 Codex 스레드는
   섞지 않는다.
-- Codex 할일 bridge 기본 운영형(2026-06-19 pilot): 작업용 PC 브라우저는 ERP
-  서버의 `/api/codex-task/*` 만 호출하고, ERP 서버 PC 가 내부 stdio
-  `codex app-server` 프로세스를 시작/재개한다. 기본값은 실제 `app-server`
-  bridge 이며, UI/API smoke test 는 `DEV_ERP_CODEX_TASK_BRIDGE=mock` 으로만
-  켠다. Codex 호스트 설정에 과거 `service_tier=priority` 값이 남아 있는
-  테스트 PC 는 전역 설정 파일을 바로 수정하지 않고
-  `DEV_ERP_CODEX_SERVICE_TIER=fast` 로 app-server 실행만 보정할 수 있다.
-  `flex` 는 기본 비용 정책으로 UI/API 에 표시하지만 app-server turn 요청에는
-  명시 override 로 보내지 않는다. bridge 는 기본 읽기 전용/승인 없음으로
-  시작하며, 실제 파일 수정 권한은 별도 운영 정책으로 승격한다.
+- Codex 할일 bridge 운영형(2026-07-10 보강): 작업용 PC 브라우저는 ERP 서버의
+  `/api/codex-task/*`만 호출한다. 실제 운영에서 ERP HTTP/메일 Windows identity는
+  `DEV_ERP_CODEX_TASK_BRIDGE=worker`로 loopback 전용 broker를 호출하고, 별도 저권한
+  Codex worker Windows identity만 내부 stdio `codex app-server`를 시작/재개한다.
+  ERP는 worker URL이 정확한 `http://127.0.0.1:<port>`인지 확인하고, 실제 turn
+  직전·직후마다 worker-only Ed25519 키의 새 nonce 서명을 검증한다. owner가 고정한
+  identity SHA-256, public-key fingerprint, source commit, 별도 PID, registry/home/
+  첨부/보호-root revision, `app-server` mode가 모두 같은 worker일 때만 결과를 저장한다.
+  직접 `app-server`는 개발용이고 `mock`은 test에서만
+  허용한다. worker는 호스트 전역 Codex 설정을 읽어 고치지 않는다. 설정 parse가
+  실패하면 사용자가 worker identity에서 직접 고친 뒤 재시작한다. 모델은 worker
+  계정의 `model/list` catalog만 허용하므로 GPT-5.6이 제공될 때 동적으로 나타난다.
+  자동 선택한 5.6이 turn 직전 사라진 때만 GPT-5.5로 내리고, 사용자가 직접 선택한
+  모델은 대체하지 않으며 임의 slug는 거부한다.
+  worker token 원문은 전송하지 않고 request/response HMAC 키로만 쓰며, 실제 operation은
+  서명된 일회용 channel nonce를 소비한다. operation body/response는 HMAC key와
+  signed channel에서 HKDF-SHA256으로 파생한 key로 AES-256-GCM 암호화하고 redirect를
+  거부한다. thread ID는 별도 AES-256-GCM keyring의
+  `dwr2.<kid>.*` ref로 보관한다. HMAC 키 회전은 기존 ref에 영향을 주지 않는다.
+  ref key는 active+previous keyring으로 단계적으로 회전하며, key를 잃은 binding은
+  명시적으로 retire하고 다른 실행경로로 fallback하지 않는다. 기존 inline message/부분 binding은 coherent backup 뒤
+  owner mapping 기반 migration dry-run이 완전할 때만 `--apply`한다.
+- Codex 팀 작업실 규칙(2026-07-10): 실제 ERP runtime 껍데기와 업무 데이터
+  위치를 분리한다. runtime-local ignored JSON이 논리 `workspace_id`를 승인된
+  local/UNC root에 연결하고, 스레드는 workspace ID·workspace revision·root
+  fingerprint에 고정된다. raw root는 API/DB 감사 응답에 노출하지 않는다.
+  offline 또는 mapping 변경은 fallback 없이 중단한다. 기본은 read-only이고
+  `danger-full-access`는 비활성화한다. 등록부의 `allowed_write_prefixes`와 OS ACL을
+  정적 쓰기 상한으로 두고, 그 안에서만 관리자 승인과 최대 8시간 TTL을 가진 기존
+  상대 하위 폴더를 `workspace-write`로 승격한다. 만료/철회는 active
+  turn도 중단한다. 각 작업실은 과제와 선택적 계정/역할 allowlist를 가지며 새
+  스레드는 사용자가 직접 선택·확인한다. UI allowlist는 파일 기밀성 경계가 아니므로
+  한 등록부는 같은 `trust_domain_id`만 담는다. 실제 읽기 경계는 ERP HTTP/메일과
+  분리된 저권한 Codex worker Windows 계정, 전용 `DEV_ERP_CODEX_HOME`, SMB/NTFS
+  ACL, 전체 디스크 기본 거부의 `dev_erp_bounded` named permission profile이 소유한다.
+  app-server 응답의 active profile/runtime roots/빈 instruction sources를 확인하고,
+  exact-path probe v3와 owner-pinned Codex runtime identity가 workspace/approved-write/
+  attachment/outside-root/junction/hardlink 경계를 증명하지 못하면 worker 기동과 release를 차단한다.
+  Enabled root는 local/UNC authority를 섞지 않고 UNC는 단일 share namespace만 허용한다.
+  lexical/realpath/junction/share-alias overlap과 보호 이름/link는 bounded child가
+  metadata-only로 검사한다. 대화/첨부 payload는 Soulforge 서비스 전용 `_workspaces` 영역에
+  두고 SQLite에는 opaque pointer만 저장한다. 상세 운영은
+  `docs/CODEX_TEAM_WORKSPACE.md`를 따른다.
 - ERP work lifecycle rule (2026-06-28 AX hook slice): ERP item status buttons are
   the canonical start/completion surface. `open -> doing` records metadata-only
   work start, and `non-done -> done` records metadata-only work completion plus
   the existing completion log. Codex task threads are auxiliary evidence for
   digest/candidate enrichment and do not decide task completion.
 - Codex task panel capability rule (2026-06-19 pilot): the small task panel may
-  pass model and reasoning effort overrides to `codex app-server`, and pass only
-  non-default service tier overrides that the host app-server accepts;
-  `/` or `$` skill autocomplete is backed by local `SKILL.md` metadata and is
-  sent as real `skill` input. Image attachments are saved under
-  `_workspaces/system/dev-erp/codex-task-attachments/**` and sent as `localImage`
-  input. (2026-07-03 owner 지시로 개정) Allowlist 문서/데이터 파일 첨부도 같은 로컬
-  첨부 루트에 `localFile` 로 저장되며, 파일 payload 는 모델 API 로 전송하지 않고
-  메시지에 **로컬 경로 참조**만 붙인다 — Codex 가 read-only 샌드박스에서 그 경로를
-  직접 읽는다. 실행형 등 allowlist 밖 확장자는 400 거부. Real
+  pass only model and reasoning-effort choices advertised by `model/list`.
+  Production dedicated-worker turns disable all skills and project instruction
+  discovery. 이미지와 allowlist 문서/데이터 첨부는 item-bound
+  v1 manifest에 크기/hash/저장명을 기록하고 브라우저에는 opaque attachment ID만
+  반환한다. 서버가 매 턴 item/size/hash/realpath를 검증한 뒤 image는 `localImage`,
+  일반 파일은 서버 내부 경로 참조로 전달한다. `.hwp`는 HWPX 전처리 전에는 거부하고,
+  실행형 등 allowlist 밖 확장자는 400 거부한다. app-server child는 최소 환경만
+  상속하며 MCP/hooks/web search를 끈다. read-only와 workspace-write 모두 network
+  access는 false다. Real
   collab subagents work in app-server turns, but durable Codex worker-thread
   creation is not exposed to this app-server runtime; `$soulforge-codex-thread-manager`
   therefore reports `thread tools unavailable` unless a future host-side broker
   is explicitly designed and authorized.
-- 권한: 파일럿은 localhost 단독(로그인 없음) → 팀 공개 시 Google Workspace
-  도메인 제한 + RBAC(팀장/팀원) + 열람·삭제 감사로그.
-- 데이터 보관: ERP DB 는 매일 dump 백업(3-2-1), 파일은 DB 에 넣지 않음,
+- 권한: Codex surface는 계정 bootstrap 전과 익명 세션에서 항상 차단한다. 팀 공개는
+  ERP 계정/RBAC + 작업실 과제/계정/역할 allowlist + 열람·승인 감사로그를 사용한다.
+- 데이터 보관: ERP DB 는 매일 dump 백업(3-2-1), 대화 본문·첨부 파일은 DB 에 넣지
+  않고 Soulforge `_workspaces/system/dev-erp`의 service-owned payload store에 둠,
   projection 은 재생성 가능하므로 백업 불필요, 민감 데이터는 별도 테이블+감사.
+- Codex 복구 경계: 일반 DB 백업과 별도로 maintenance lock 아래 ERP와 전용 worker를
+  모두 중지한 뒤 SQLite DB, opaque 대화 payload, 첨부 manifest/file을 하나의
+  `dev_erp.codex_payload_backup_generation.v1` generation으로 묶는다. NAS 정본 위치는
+  `03_codex_payload_backups`이고, 같은 manifest SHA-256을 가진 `RESTORE_VERIFIED`는
+  `04_codex_payload_restore_tests/<generation_id>`에 둔다. `--require-live` audit은
+  최신 `COMMITTED` generation과 이 restore marker가 없거나, 유효하지 않거나,
+  live DB/WAL보다 오래되면 fail closed 한다. 감사 결과에는 generation ID, hash,
+  시각, 개수/크기, 상태만 남기며 payload 본문·파일명·raw root는 남기지 않는다.
 
 ## 5. 모듈 지도와 페이즈
 

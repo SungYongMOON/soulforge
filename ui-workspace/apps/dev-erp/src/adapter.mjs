@@ -4,6 +4,9 @@
 // event_log 에 라벨과 함께 남는다 (데이터 신선도 = ingest 이벤트 at).
 import { readFileSync } from "node:fs";
 
+const SOULFORGE_SNAPSHOT_SCHEMA = "soulforge.snapshot.v0";
+const OPERATION_BOARD_SCHEMA = "soulforge.operation_board_projection.v0";
+
 // 정규화 입력: { projects[], stages[], people[], items[], mail[], artifacts[] }
 export function ingestNormalized(store, data, { label = "real", source = "normalized_json" } = {}) {
   const report = { projects: 0, stages: 0, people: 0, items: 0, mail: 0, artifacts: 0, skipped: [] };
@@ -90,12 +93,42 @@ export function mapSoulforgeSnapshot(snapshot) {
 
 export function ingestFromFile(store, path, { label = "real" } = {}) {
   const raw = JSON.parse(readFileSync(path, "utf-8"));
-  const isSoulforgeSnapshot = raw?.schema_version === "soulforge.snapshot.v0"
-    || raw?.operation_board?.schema_version === "soulforge.operation_board_projection.v0";
-  const normalized = isSoulforgeSnapshot
-    ? mapSoulforgeSnapshot(raw)
-    : raw.projects || raw.items
-      ? raw
-      : mapSoulforgeSnapshot(raw);
+  const hasNormalizedRows = Array.isArray(raw?.projects) || Array.isArray(raw?.items);
+  const hasSnapshotMarkers = raw && typeof raw === "object" && !Array.isArray(raw) && (
+    "schema_version" in raw
+    || "operation_board" in raw
+    || "missions" in raw
+    || "source_observations" in raw
+    || "gateway" in raw
+    || "roots" in raw
+  );
+
+  let normalized;
+  if (hasSnapshotMarkers) {
+    requireSnapshotSchema(raw);
+    normalized = mapSoulforgeSnapshot(raw);
+  } else if (hasNormalizedRows) {
+    normalized = raw;
+  } else {
+    throw new Error("unsupported_ingest_shape: expected normalized {projects,items} or a versioned Soulforge snapshot");
+  }
   return ingestNormalized(store, normalized, { label, source: path });
+}
+
+function requireSnapshotSchema(raw) {
+  if (raw?.schema_version !== SOULFORGE_SNAPSHOT_SCHEMA) {
+    throw new Error(
+      `unsupported_snapshot_schema: expected ${SOULFORGE_SNAPSHOT_SCHEMA}, got ${schemaLabel(raw?.schema_version)}`,
+    );
+  }
+  if (raw?.operation_board?.schema_version !== OPERATION_BOARD_SCHEMA) {
+    throw new Error(
+      `unsupported_operation_board_schema: expected ${OPERATION_BOARD_SCHEMA}, got ${schemaLabel(raw?.operation_board?.schema_version)}`,
+    );
+  }
+}
+
+function schemaLabel(value) {
+  if (value === undefined || value === null || value === "") return "missing";
+  return JSON.stringify(String(value).slice(0, 80));
 }
