@@ -3,7 +3,7 @@ kind: workflow_profile_policy
 status: active
 calibration_status: not_calibrated
 calibration_mode: none
-validation_level: structure_plus_fresh_eval_pilot_public_safe
+validation_level: level_3_two_fresh_bv_public_safe_synthetic_bounded_markdown
 measurement_policy:
   quality_source: fresh_context_evaluator_judge_scenarios
   model_cost_calibration_run: false
@@ -26,16 +26,29 @@ pilot_evidence:
     without inventing a verdict. The presentation scenario passed on content
     after an output-hygiene rule was added to suppress working-note leakage.
   evidence_location: run-local subagent transcripts (not copied into public canon)
+level_3_evidence:
+  method: two_final_fresh_B_to_separate_V_cycles
+  fixtures_public_safe_synthetic: true
+  fixtures:
+    - engineering_experiment_numeric_anonymization
+    - engineering_trade_study_unconfirmed_recommendation
+  result: pass
+  claim_scope: bounded_markdown_report_and_ppt_storyline_projection
+  evidence_location: private_metadata_only_run_receipts
 rerun_triggers:
   - the So-What scaffold, register rules, or report type spines change
   - the conditioned de-slop rule changes
   - the interview question bank changes
   - a live report-authoring pilot exposes boundary ambiguity
+  - Engineering Case Model schema or deterministic renderer changes
+  - dual-projection consistency, trade-study arithmetic, anonymization, or v0.3 register rules change
 non_claims:
   - no_fact_number_or_verdict_created_by_the_workflow
   - no_real_owner_data_used_in_calibration
-  - no_production_ready_claim
+  - no_production_ready_claim_beyond_bounded_markdown_dual_projection
   - no_default_route_claim
+  - no_binary_docx_or_pptx_rendering_claim
+  - no_anonymization_mapping_inference
 notes:
   - The launcher skill reads this file at runtime and must not copy values into the skill body.
   - This policy records pilot evidence shape only; raw run payloads stay out of public canon.

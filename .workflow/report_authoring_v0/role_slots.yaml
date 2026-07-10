@@ -24,6 +24,22 @@ role_slots:
       - keep conclusion-first and map recommendation to a decision
     suggested_classes:
       - writer
+  - slot_id: case_model_curator
+    title: Engineering Case Model Curator
+    responsibilities:
+      - bind one schema-valid Case Model after intake and gap interview
+      - preserve stable evidence IDs, unconfirmed state, and explicit anonymization mappings
+      - stop rather than infer facts, verdicts, or mappings
+    suggested_classes:
+      - archivist
+  - slot_id: projection_renderer
+    title: Engineering Projection Renderer
+    responsibilities:
+      - render report and PPT-storyline Markdown from one frozen revision
+      - run model-to-report, model-to-PPT, cross-projection, numeric, register, and anonymization checks
+      - emit a redacted pass or fail consistency report
+    suggested_classes:
+      - auditor
   - slot_id: de_slop_reviewer
     title: De-slop Reviewer
     responsibilities:

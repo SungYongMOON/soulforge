@@ -2,7 +2,7 @@ kind: report_packet
 workflow_id: report_authoring_v0
 # 작성 결과 패킷. 본문은 SOULFORGE_REPORT_FORMAT_V0 의 MD 정본 + HTML companion 으로 산출.
 report_id: "{{report_id}}"
-report_type: "{{experiment|analysis|progress|presentation}}"
+report_type: "{{experiment|analysis|progress|assessment|trade_study|presentation}}"
 so_what_summary:
   why: "{{①}}"
   what_done: "{{②}}"
@@ -11,6 +11,17 @@ so_what_summary:
   next: "{{⑤ 권고 -> 의사결정(승인/보류/재설계)}}"
 body_artifact_ref: "{{MD 정본 경로 또는 인라인}}"
 html_companion_ref: "{{HTML companion 경로 또는 미생성 사유}}"
+engineering_dual_projection:
+  enabled: "{{yes|no}}"
+  case_model_ref: "{{Case Model path or none}}"
+  case_model_revision: "{{revision or none}}"
+  case_model_sha256: "{{sha256 or none}}"
+  report_projection_ref: "{{report.md or none}}"
+  ppt_storyline_projection_ref: "{{ppt_storyline.md or none}}"
+  consistency_report_ref: "{{consistency_report.json or none}}"
+  consistency_status: "{{pass|fail|not_applicable}}"
+  consistency_scope: "{{deterministic_mechanical_integrity_only|not_applicable}}"
+  fresh_semantic_verification_ref: "{{verdict ref or pending|not_applicable}}"
 unconfirmed_items:
   - "{{미확인 항목 + 확정 조건}}"
 de_slop_change_log_ref: "{{변경 목록}}"
@@ -19,3 +30,5 @@ boundary:
   invented_values: "no"
   private_payload_or_secret: "no"
   runtime_absolute_paths_in_public: "no"
+  inferred_anonymization_mapping: "no"
+  binary_docx_or_pptx_claimed: "no"

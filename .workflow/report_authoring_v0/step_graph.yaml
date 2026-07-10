@@ -22,6 +22,7 @@ steps:
     summary: Bind report type, audience, and available material; map the So-What 5 (왜/뭘/뭘얻/그래서/다음) and required fields (종합 판정, 불확도, 규격 ID, 권고) onto the input and list the gaps.
     next:
       on_gaps_present: elicit_missing
+      on_engineering_input_complete: prepare_engineering_case_model
       on_input_complete: draft_by_type
       on_fail: stop
   - step_id: elicit_missing
@@ -42,8 +43,84 @@ steps:
         - unknown_answer_marked_unconfirmed_with_close_condition
     summary: Ask the author one question at a time to fill ①왜/④그래서/⑤다음 and missing fields. Never fabricate; unknowns become 미확인.
     next:
+      on_engineering_core_filled: prepare_engineering_case_model
       on_core_filled: draft_by_type
       on_owner_input_needed: stop
+      on_fail: stop
+  - step_id: prepare_engineering_case_model
+    title: Prepare Engineering Case Model
+    actor_slot: case_model_curator
+    action:
+      kind: engineering_case_model_preparation
+      artifacts_in:
+        - report_authoring_scope
+        - filled_so_what
+        - engineering_case_model
+      artifact_out: engineering_case_model_draft
+      validates:
+        - schema_version_revision_and_stable_ids_present
+        - decision_evidence_terminology_judgment_limit_action_and_storyline_complete
+        - each_slide_title_has_explicit_terms_shared_with_its_bound_judgment
+        - evidence_preserves_value_unit_comparator_basis_range_tolerance_sample_size_uncertainty_and_source_ref
+        - explicit_anonymization_mappings_cover_required_categories
+        - trade_study_matrix_and_recommendation_rule_complete_when_applicable
+      rules:
+        - one_case_specific_content_source_only
+        - unknowns_remain_unconfirmed
+        - no_report_only_or_ppt_only_case_prose
+        - no_inferred_fact_number_verdict_or_anonymization_mapping
+    summary: Bind the complete engineering content to one schema-valid Case Model before either projection exists.
+    next:
+      on_success: de_slop_engineering_case_model
+      on_owner_input_needed: stop
+      on_fail: stop
+  - step_id: de_slop_engineering_case_model
+    title: De-slop Engineering Case Model (separate)
+    actor_slot: de_slop_reviewer
+    action:
+      kind: conditioned_case_model_text_review
+      artifacts_in:
+        - engineering_case_model_draft
+        - report_writing_guide_ref
+      artifact_out: frozen_engineering_case_model
+      rules:
+        - run_as_a_separate_pass_before_projection
+        - preserve_every_fact_number_unit_comparator_basis_and_unconfirmed_state
+        - apply_b_c_d_common_and_section_order
+        - match_judgment_endings_to_evidence_strength
+        - reject_copular_im_except_lexical_nouns
+        - exceptional_softening_at_most_once
+        - increment_revision_after_any_text_change
+    summary: De-slop only Case Model text, preserve structured truth, then freeze the revision for both projections.
+    next:
+      on_success: render_engineering_projections
+      on_fail: stop
+  - step_id: render_engineering_projections
+    title: Render and Verify Engineering Projections
+    actor_slot: projection_renderer
+    action:
+      kind: deterministic_engineering_dual_projection
+      script_ref: .registry/skills/report_writer/codex/scripts/render_engineering_case.mjs
+      artifacts_in:
+        - frozen_engineering_case_model
+      artifacts_out:
+        - engineering_report_projection
+        - engineering_ppt_storyline_projection
+        - engineering_projection_consistency_report
+      rules:
+        - report_and_ppt_storyline_use_same_revision_and_model_sha256
+        - anonymize_only_from_explicit_mappings_across_all_text_surfaces
+        - ppt_roles_are_ordered_and_one_slide_has_one_bound_judgment
+        - ppt_title_binding_terms_are_present_in_title_and_bound_judgment
+        - trade_totals_are_recomputed_but_recommendation_is_never_inferred
+        - validate_model_to_report_model_to_ppt_and_cross_projection
+        - numeric_signature_fails_on_missing_changed_or_untraceable_values
+        - write_redacted_consistency_report_on_pass_or_fail
+        - consistency_report_claims_mechanical_integrity_only_until_fresh_semantic_verification
+        - binary_docx_and_pptx_are_out_of_scope
+    summary: Render report and PPT-storyline Markdown from the frozen model and fail closed on any integrity or anonymization mismatch.
+    next:
+      on_success: self_check
       on_fail: stop
   - step_id: draft_by_type
     title: Draft by Report Type
@@ -61,6 +138,7 @@ steps:
         - analysis_report
         - progress_report
         - presentation_brief
+        - decision_trade_study_report
       rules:
         - conclusion_first_so_what_summary
         - register_gaesik_nominal_endings
@@ -100,6 +178,9 @@ steps:
       kind: report_self_check
       artifacts_in:
         - de_slopped_draft
+        - engineering_report_projection
+        - engineering_ppt_storyline_projection
+        - engineering_projection_consistency_report
       artifact_out: self_check_result
       required_checks:
         - why_answered
@@ -109,6 +190,10 @@ steps:
         - not_a_data_dump_headline_carries_conclusion
         - no_invented_facts_unknowns_marked_unconfirmed
         - output_is_deliverable_only_no_working_notes_or_scaffold_labels_in_presentation
+        - engineering_dual_mode_uses_one_frozen_model_identity
+        - model_to_report_model_to_ppt_and_cross_projection_mismatch_count_is_zero
+        - anonymization_original_labels_absent_from_caption_alt_text_and_validation_report
+        - copular_im_ending_count_is_zero_with_lexical_exceptions
     summary: Confirm the report answers 왜/그래서/다음, carries a one-sentence verdict and a decision request, and is deliverable-only.
     next:
       on_success: boundary_review
@@ -129,6 +214,7 @@ steps:
         - no_private_raw_payload_or_secret
         - no_runtime_absolute_paths_in_public_output
         - output_state_and_claim_ceiling_named
+        - engineering_projection_consistency_report_passed_when_dual_mode
     summary: Close with a conservative boundary and claim review.
     next: []
 stop_conditions:
@@ -138,3 +224,7 @@ stop_conditions:
   - a_legal_or_customer_mandated_form_conflicts_with_the_so_what_spine
   - private_raw_payload_or_secret_would_be_required
   - public_private_boundary_unclear
+  - engineering_dual_projection_requested_but_case_model_cannot_be_frozen
+  - explicit_anonymization_mapping_missing_for_a_required_category
+  - report_or_ppt_projection_does_not_match_the_frozen_model
+  - consistency_report_status_is_fail_or_missing

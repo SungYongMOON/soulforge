@@ -1,0 +1,160 @@
+{
+  "schema_version": "soulforge.engineering_case_model.v0",
+  "case_id": "synthetic_sensor_acceptance",
+  "revision": "1",
+  "report_type": "experiment",
+  "title": "가상발주처-알파 수신감도 시험 결과",
+  "audience": "가상발주처-알파 내부 설계 검토",
+  "purpose": "가상기업-베타 시제 3식의 수신감도 기준충족 여부와 통합시험 진입 가부 확인",
+  "decision": {
+    "request": "통합시험 진입 승인 요청",
+    "statement": "시제 3식의 수신감도 기준충족 확인",
+    "verdict": "기준충족",
+    "basis_ref": "SYN-REQ-001"
+  },
+  "evidence": [
+    {
+      "id": "ev_sensitivity",
+      "label": "평균 수신감도",
+      "value": "-182",
+      "unit": "dB",
+      "comparator": ">=",
+      "basis": "-185 dB",
+      "range": "-184.6~-181.2 dB",
+      "tolerance": "±1.5 dB",
+      "sample_size": "n=3",
+      "uncertainty": "k=2, 95%",
+      "source_ref": "SYN-MEAS-001"
+    }
+  ],
+  "terminology": [
+    {
+      "id": "term_sensitivity",
+      "label": "수신감도"
+    }
+  ],
+  "judgments": [
+    {
+      "id": "j_result",
+      "text": "수신감도 결과는 기준을 충족하는 것으로 확인되었다.",
+      "strength": "confirmed_fact",
+      "source_refs": [
+        "SYN-MEAS-001",
+        "SYN-REQ-001"
+      ]
+    },
+    {
+      "id": "j_hot",
+      "text": "50℃ 조건의 충분한 마진 확보는 현재 자료만으로 판단하기 어려울 수 있다.",
+      "strength": "bounded_tentative",
+      "source_refs": [
+        "SYN-MEAS-001"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "id": "lim_hot",
+      "text": "50℃ 조건의 마진은 미확인.",
+      "status": "unconfirmed",
+      "close_condition": "2026-07-24 재시험"
+    }
+  ],
+  "actions": [
+    {
+      "id": "act_retest",
+      "text": "50℃ 고온 재시험 완료",
+      "owner": "가상담당자-홍",
+      "due": "2026-07-24"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig_sensitivity",
+      "caption": "가상기업-베타 시제 3식의 수신감도 비교",
+      "alt_text": "가상발주처-알파 기준 -185 dB와 측정 범위 -184.6~-181.2 dB 비교",
+      "source_ref": "SYN-FIG-001"
+    }
+  ],
+  "storyline": {
+    "slides": [
+      {
+        "id": "slide_decision",
+        "role": "decision",
+        "title": "수신감도 기준충족으로 통합시험 진입 승인 요청",
+        "judgment_id": "decision",
+        "title_binding_terms": [
+          "기준충족",
+          "통합시험"
+        ]
+      },
+      {
+        "id": "slide_impact",
+        "role": "impact",
+        "title": "50℃ 조건 마진 미확인으로 후속 재시험 필요",
+        "judgment_id": "j_hot",
+        "title_binding_terms": [
+          "50℃",
+          "마진"
+        ]
+      },
+      {
+        "id": "slide_evidence",
+        "role": "core_evidence",
+        "title": "평균 -182 dB로 기준 -185 dB를 3 dB 상회",
+        "judgment_id": "j_result",
+        "title_binding_terms": [
+          "기준"
+        ]
+      },
+      {
+        "id": "slide_recommendation",
+        "role": "recommendation",
+        "title": "통합시험 진입 승인과 고온 재시험 병행 권고",
+        "judgment_id": "decision",
+        "title_binding_terms": [
+          "통합시험"
+        ]
+      },
+      {
+        "id": "slide_execution",
+        "role": "risk_execution",
+        "title": "50℃ 마진 미확인, 2026-07-24 고온 재시험",
+        "judgment_id": "j_hot",
+        "title_binding_terms": [
+          "50℃",
+          "마진"
+        ]
+      }
+    ]
+  },
+  "trade_study": null,
+  "anonymization": {
+    "enabled": true,
+    "required_categories": [
+      "client",
+      "person",
+      "company"
+    ],
+    "mappings": [
+      {
+        "id": "map_client",
+        "category": "client",
+        "from": "가상발주처-알파",
+        "to": "발주처"
+      },
+      {
+        "id": "map_person",
+        "category": "person",
+        "from": "가상담당자-홍",
+        "to": "담당자"
+      },
+      {
+        "id": "map_company",
+        "category": "company",
+        "from": "가상기업-베타",
+        "to": "협력사"
+      }
+    ]
+  }
+}

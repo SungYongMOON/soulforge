@@ -1,8 +1,8 @@
 skill_id: report_writer
 kind: skill
-status: candidate
+status: active
 title: Report Writer (launcher for report_authoring_v0)
-summary: Thin Codex launcher for `.workflow/report_authoring_v0`. Routes "측정 자료만 있고 결론 없는 보고", "이 실험 왜 했어요/그래서요" feedback, and experiment/analysis/progress/presentation reporting requests into the workflow that owns the So-What gap interview, type-spine drafting, conditioned de-slop, self-check, and boundary review. The workflow body, doctrine, and examples are not copied into this skill.
+summary: Thin Codex launcher for `.workflow/report_authoring_v0`. Routes conclusion-less report material and engineering report/PPT-storyline requests into the workflow that owns the So-What interview, B+C+D type-spine drafting, frozen Engineering Case Model, trade-study mode, explicit anonymization, deterministic dual-projection consistency, de-slop, self-check, and boundary review. The workflow body and doctrine are not copied into this skill.
 behavior:
   intent: >
     Provide a thin launcher for `.workflow/report_authoring_v0`. The workflow owns
@@ -17,8 +17,10 @@ behavior:
   use_when:
     - 팀원이 측정 자료/그래프/초안만 들고 왔고 보고에 결론이 없을 때
     - 보고/발표가 "측정 자료만 모았고 결론이 없다"는 지적을 받을 때
-    - "이 실험을 왜 했나", "그래서 어떻게 하겠다는 건가"에 답이 없을 때
+    - '"이 실험을 왜 했나", "그래서 어떻게 하겠다는 건가"에 답이 없을 때'
     - 실험/시험/분석/진도 결과를 보고서나 발표자료로 정리해야 할 때
+    - 하나의 Engineering Case Model에서 보고서와 PPT 스토리라인의 수치·판정·용어를 일치시켜야 할 때
+    - 의사결정/trade-study 보고서나 대외 산출물 익명화가 필요할 때
     - the user asks for `/report-writer` or report drafting in the owner's practitioner register
   avoid_when:
     - 사실, 수치, 시험결과 자체를 만들어내야 할 때 (owner/source authority)
@@ -30,6 +32,8 @@ behavior:
     - 불완전 입력은 한 번에 한 질문씩 인터뷰로 빠진 So-What 조각이 채워짐
     - 보고가 왜/그래서/다음에 답하고 종합 판정 1문장 + 권고 -> 의사결정을 가짐
     - 문체가 개조식·근거 있는 단정·수치+불확도로 정리되고 근거 없는 헤지/과장이 제거됨
+    - engineering dual mode에서는 report/PPT projection이 같은 model revision·SHA-256을 가리키고 consistency report가 동반됨
+    - 명시된 발주처·인명·회사명 mapping이 캡션·alt text까지 적용되고 원문 label은 검증 보고서에 재노출되지 않음
     - 자료에 없는 값은 미확인으로 남고 날조되지 않음
 execution_requirements:
   required_capabilities:
@@ -38,6 +42,9 @@ execution_requirements:
     - interactive_gap_interview
     - korean_practitioner_register
     - de_slop_review
+    - engineering_case_model_freeze
+    - deterministic_dual_projection_validation
+    - explicit_anonymization_mapping
   preferred_capabilities:
     - markdown_drafting
     - trade_study_framing
@@ -46,12 +53,15 @@ execution_requirements:
   preferred_tools:
     - rg
     - markdown_editor
+    - node
   notes:
     - "The workflow package owns the procedure; this launcher must not copy step graphs into `codex/SKILL.md` as binding authority."
     - "Doctrine is `SOULFORGE_REPORT_WRITING_GUIDE_V0.md`; structure is `SOULFORGE_REPORT_FORMAT_V0.md`. Resolve them at runtime."
     - "Fact, number, test-result, and verdict authority remain owner/source. The skill never invents values."
+    - "Engineering dual mode renders Markdown report content and PPT-storyline content only; binary DOCX/PPTX stays outside this package."
+    - "The Case Model schema and procedure remain workflow-owned; the launcher only resolves and points to them."
     - "actual model, runtime context, attached tools, installed skill name resolve in local runtime bindings."
 notes:
   - "`report_writer` is a thin Codex bridge for `.workflow/report_authoring_v0`."
   - "The installed Codex mirror name is expected to be `soulforge-report-writer` after skill sync."
-  - "candidate: pilot-executed via fresh-context evaluator/judge scenarios; not production-ready or default-route until owner decides."
+  - "active for the bounded public-safe Markdown report + PPT-storyline mode after two final fresh B-to-separate-V cycles and Level 3 acceptance; default route remains off and binary DOCX/PPTX remains out of scope."

@@ -31,6 +31,8 @@ optional_inputs:
   - owner_answers_to_gap_questions
   - audience_hint
   - prior_report_or_template_ref
+  - engineering_case_model
+  - engineering_dual_projection_request
 outputs:
   - report_authoring_scope
   - so_what_gap_register
@@ -39,9 +41,13 @@ outputs:
   - de_slop_change_log
   - self_check_result
   - boundary_review_note
-validation_level: structure_plus_fresh_eval_pilot_public_safe
+  - frozen_engineering_case_model
+  - engineering_report_projection
+  - engineering_ppt_storyline_projection
+  - engineering_projection_consistency_report
+validation_level: level_3_two_fresh_bv_public_safe_synthetic_bounded_markdown
 registration_policy: owner_requested_registration
-output_state: pilot-executed
+output_state: registered
 classification_lane:
   primary: project_management
   primary_name_ko: 프로젝트 관리
@@ -65,6 +71,8 @@ workflow_modes:
   - analysis_report
   - progress_report
   - presentation_brief
+  - engineering_dual_projection
+  - decision_trade_study_report
 downstream_workflows:
   - workflow_id: post_development_review_gate_v0
     expected_input: workflow_or_doctrine_change_packet
@@ -78,6 +86,10 @@ report_authoring_contract:
     - separate_de_slop_pass
     - self_check
     - boundary_review_note
+    - engineering_case_model_freeze
+    - explicit_anonymization_pass
+    - deterministic_report_and_ppt_storyline_projection
+    - model_to_projection_and_cross_projection_consistency_check
   does_not_own:
     - fact_number_or_test_result_creation
     - overall_pass_fail_verdict_without_source
@@ -85,19 +97,25 @@ report_authoring_contract:
     - claim_ceiling_promotion_beyond_evidence
     - private_raw_payload_or_secret_inclusion
     - legal_or_customer_mandated_form_override
+    - inferred_anonymization_identity_or_mapping
+    - binary_docx_or_pptx_rendering
   doctrine_refs:
     report_writing_guide: docs/architecture/workspace/SOULFORGE_REPORT_WRITING_GUIDE_V0.md
     report_format: docs/architecture/workspace/SOULFORGE_REPORT_FORMAT_V0.md
     interview_protocol: .registry/skills/report_writer/codex/references/interview.md
     scaffold_and_register: .registry/skills/report_writer/codex/references/scaffold_and_register.md
     filled_examples: .registry/skills/report_writer/codex/references/examples.md
+    engineering_case_model: .registry/skills/report_writer/codex/references/engineering_case_model.md
+    engineering_case_renderer: .registry/skills/report_writer/codex/scripts/render_engineering_case.mjs
     launcher_skill: .registry/skills/report_writer
   required_input_shapes:
     report_authoring_request: templates/report_authoring_request.template.yaml
+    engineering_case_model: templates/engineering_case_model.schema.json
   required_output_shapes:
     report_packet: templates/report_packet.template.yaml
     self_check_checklist: templates/self_check_checklist.template.yaml
     boundary_review_note: templates/boundary_review_note.template.md
+    engineering_projection_consistency_report: .registry/skills/report_writer/codex/scripts/render_engineering_case.mjs
   authority_boundary:
     facts_numbers_verdicts_remain_owner_or_source: true
     missing_value_marked_unconfirmed_not_invented: true
@@ -105,8 +123,13 @@ report_authoring_contract:
     de_slop_keeps_grounded_judgment_verbs: true
     public_package_contains_no_private_payload: true
     public_package_contains_no_runtime_absolute_paths: true
+    report_and_ppt_storyline_share_frozen_model_identity: true
+    anonymization_uses_explicit_owner_mapping_only: true
+    projection_integrity_fails_closed: true
+    binary_docx_and_pptx_out_of_scope: true
 notes:
   - This package is registered in `.workflow/index.yaml` by owner request (build via workflow-generator + workflow-check).
   - It covers report logic, register, and gap interview — not fact, number, or verdict creation.
   - Detailed doctrine lives in `SOULFORGE_REPORT_WRITING_GUIDE_V0.md`; structure lives in `SOULFORGE_REPORT_FORMAT_V0.md`. The workflow references them at runtime and does not duplicate them as authority.
-  - `output_state: pilot-executed` rests on fresh-context evaluator/judge runs over experiment/analysis/progress/presentation/interview scenarios; no CLI model calibration was run (see profile_policy.yaml). Default route remains off.
+  - "`output_state: registered` includes the owner-approved engineering extension after two final fresh B-to-separate-V cycles over public-safe synthetic experiment and trade-study fixtures. No CLI model calibration was run (see profile_policy.yaml), and default route remains off."
+  - Engineering dual projection is an opt-in branch after intake and Case Model freeze. Existing interview/direct-draft/de-slop modes remain unchanged.

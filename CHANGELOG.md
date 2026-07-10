@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### `/report-writer` Engineering Case Model 동시 투영 확장
+
+- 기존 `report_writer` thin launcher와 `report_authoring_v0`에 opt-in engineering dual mode를 추가했다. intake·인터뷰·별도 de-slop 뒤 하나의 revisioned Engineering Case Model을 고정하고, 보고서 Markdown과 PPT 스토리라인 Markdown이 같은 model SHA-256·판정·근거 ID·수치·단위·용어·조치를 공유하도록 했다.
+- public-safe Node renderer가 model→report, model→PPT, report→PPT 정합성, 한글 단위 결합을 포함한 signed numeric signature, B+C+D 순서, 판정 강도, copular `-임` 금지, PPT 역할 순서·제목 binding term·장당 판단 1개, trade-study 가중합, 명시 익명화 mapping을 fail-closed로 검사한다. pass/fail 모두 원 label을 노출하지 않는 consistency report를 남기며, 그 pass는 기계 정합성만 뜻하고 별도 fresh semantic verification이 필요하다.
+- owner 승인 패킷 기준 public-safe 합성 실험형·trade-study의 두 final fresh B→separate V 사이클과 Level 3 acceptance를 통과해 `report_writer`를 active, workflow output을 registered로 동기화했다. claim은 bounded Markdown dual projection에 한정하며 default route·binary DOCX/PPTX·실업무 원문 검증·모델 비용 calibration은 포함하지 않는다 (worker: codex_gpt-5).
+- report/PPT binary 파일 생성은 포함하지 않았다. 이번 범위의 PPT는 내용 스토리라인 Markdown이며, 사실·수치·판정·익명화 mapping authority는 계속 owner/source에 있다 (worker: codex_gpt-5).
+
 ### PLAUD 원음 독립 전사와 프로젝트 3입력 연결
 
 - 하이웍스 PLAUD 전사완료 메일이 맥미니의 공식 CLI 원음 import를 깨우는 기존 흐름 뒤에 durable local-ASR queue를 연결했다. 원음 import 후 `whisper.cpp`가 provider 전사를 입력으로 사용하지 않고 별도 전사하며, 실패 queue는 5분 throttle 재시도 대상으로 남는다.

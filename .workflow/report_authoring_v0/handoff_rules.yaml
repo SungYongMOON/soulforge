@@ -24,6 +24,7 @@ rules:
       - interview_protocol
       - scaffold_quick_card
       - filled_examples
+      - engineering_case_model_operating_reference
     requirement: The launcher skill references carry the interview question bank and worked examples consumed by the steps.
   - rule_id: to_owner_review
     provide:
@@ -32,6 +33,19 @@ rules:
       - so_what_gap_register
       - self_check_result
     requirement: Drafts with missing facts, missing verdict source, or missing approval stay draft and mark the gaps as 미확인 or owner question.
+  - rule_id: from_frozen_engineering_case_model
+    from_surface: .workflow/report_authoring_v0/templates/engineering_case_model.schema.json
+    consume:
+      - schema_valid_case_model
+      - explicit_anonymization_mappings
+      - ordered_storyline_roles
+    provide:
+      - model_revision
+      - model_sha256
+      - engineering_report_projection
+      - engineering_ppt_storyline_projection
+      - redacted_consistency_report
+    requirement: Both projections come from one frozen model. Any content correction updates the model revision and regenerates both outputs.
   - rule_id: to_post_development_review_gate
     to_surface: .workflow/post_development_review_gate_v0/
     provide:

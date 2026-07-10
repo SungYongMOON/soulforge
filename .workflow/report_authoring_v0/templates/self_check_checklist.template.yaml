@@ -22,5 +22,26 @@ checks:
   - id: output_hygiene
     question: "산출물만 있나(작업 메모/사고과정/①②③ 라벨이 발표 본문에 안 새나)?"
     pass: "{{yes|no}}"
+  - id: frozen_case_model_identity
+    question: "dual mode이면 report/PPT/consistency가 같은 Case Model revision·SHA-256을 가리키나?"
+    pass: "{{yes|no|n/a}}"
+  - id: model_projection_consistency
+    question: "model→report, model→PPT, report→PPT mismatch가 모두 0건인가?"
+    pass: "{{yes|no|n/a}}"
+  - id: ppt_title_judgment_binding
+    question: "각 PPT 제목의 binding term이 제목과 연결 판단에 모두 있고, 본문 판단은 그 ID 하나인가?"
+    pass: "{{yes|no|n/a}}"
+  - id: anonymization_all_text_surfaces
+    question: "명시 mapping만 사용했고 caption·alt text·검증 보고서에 원 label이 남지 않았나?"
+    pass: "{{yes|no|n/a}}"
+  - id: v03_register
+    question: "B+C+D 순서·판정 강도·copular -임 금지를 지키나(움직임 등 어휘 명사는 허용)?"
+    pass: "{{yes|no|n/a}}"
+  - id: numeric_signature
+    question: "부호·한글 포함 단위·비교기준·범위·공차·표본·불확도 포함 numeric signature가 pass인가?"
+    pass: "{{yes|no|n/a}}"
+  - id: semantic_acceptance_separate
+    question: "consistency pass를 기계 정합성으로만 해석하고 별도 fresh semantic verification을 거쳤나?"
+    pass: "{{yes|no|n/a}}"
 overall_pass: "{{yes|no}}"
 notes: "{{미충족 항목과 보완}}"

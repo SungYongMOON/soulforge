@@ -7,6 +7,9 @@ triggers:
   - a report draws "이 실험 왜 했어요" or "그래서 어떻게 하겠다는 거예요" feedback
   - an AI draft reads with hedging/과장 that does not match practitioner reports
   - a teammate needs the report logic scaffold filled by interview
+  - one engineering case must produce a report and PPT storyline with matching values, verdicts, and terms
+  - a decision or trade-study report needs weighted criteria, explicit recommendation, and residual risk
+  - an external-facing report or storyline needs explicit client, person, and company anonymization
 non_triggers:
   - the fact, number, or test result itself must be created (owner/source authority)
   - a legal 별지 form or customer-mandated form is already strictly required (use that form; this is content check only)
@@ -17,3 +20,6 @@ classification_rules:
   - if an overall verdict is needed but no spec/source is available, stop for owner/source rather than inventing a verdict.
   - if measurement uncertainty or spec ID is missing, mark 미확인 and keep the in-range result stated, do not fabricate.
   - if a legal/customer form is mandated, keep that form and use the So-What scaffold only to check that 왜/그래서/다음 are present.
+  - if report plus PPT storyline are requested, route to engineering_dual_projection only after intake and Case Model freeze; do not replace legacy direct-draft or interview modes.
+  - if the report type is trade_study, require complete criteria, normalized weights, complete alternative scores, an explicit recommendation rule, and residual risk.
+  - if an anonymization category is required but the owner has not supplied a mapping, stop rather than guess.

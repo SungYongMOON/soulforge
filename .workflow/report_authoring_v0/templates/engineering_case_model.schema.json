@@ -1,0 +1,533 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.engineering_case_model.v0",
+  "title": "Soulforge Engineering Case Model v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "revision",
+    "report_type",
+    "title",
+    "audience",
+    "purpose",
+    "decision",
+    "evidence",
+    "terminology",
+    "judgments",
+    "limitations",
+    "actions",
+    "figures",
+    "storyline",
+    "trade_study",
+    "anonymization"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soulforge.engineering_case_model.v0"
+    },
+    "case_id": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "revision": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "report_type": {
+      "enum": [
+        "experiment",
+        "analysis",
+        "progress",
+        "assessment",
+        "trade_study"
+      ]
+    },
+    "title": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "audience": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "purpose": {
+      "$ref": "#/$defs/nonempty"
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request",
+        "statement",
+        "verdict",
+        "basis_ref"
+      ],
+      "properties": {
+        "request": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "statement": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "verdict": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "basis_ref": {
+          "$ref": "#/$defs/nonempty"
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "terminology": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/term"
+      }
+    },
+    "judgments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/judgment"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/limitation"
+      }
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/action"
+      }
+    },
+    "figures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/figure"
+      }
+    },
+    "storyline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slides"
+      ],
+      "properties": {
+        "slides": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "#/$defs/slide"
+          }
+        }
+      }
+    },
+    "trade_study": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/trade_study"
+        }
+      ]
+    },
+    "anonymization": {
+      "$ref": "#/$defs/anonymization"
+    }
+  },
+  "$defs": {
+    "nonempty": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id_label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "label": {
+          "$ref": "#/$defs/nonempty"
+        }
+      }
+    },
+    "term": {
+      "$ref": "#/$defs/id_label"
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "value",
+        "unit",
+        "comparator",
+        "basis",
+        "range",
+        "tolerance",
+        "sample_size",
+        "uncertainty",
+        "source_ref"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "label": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "value": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "unit": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "comparator": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "basis": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "range": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "tolerance": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "sample_size": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "uncertainty": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/nonempty"
+        }
+      }
+    },
+    "judgment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "text",
+        "strength",
+        "source_refs"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "text": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "strength": {
+          "enum": [
+            "confirmed_fact",
+            "analysis_result",
+            "sourced_judgment",
+            "bounded_tentative",
+            "exceptional_softening"
+          ]
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonempty"
+          }
+        }
+      }
+    },
+    "limitation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "text",
+        "status",
+        "close_condition"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "text": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "status": {
+          "enum": [
+            "confirmed",
+            "unconfirmed"
+          ]
+        },
+        "close_condition": {
+          "$ref": "#/$defs/nonempty"
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "text",
+        "owner",
+        "due"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "text": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "owner": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "due": {
+          "$ref": "#/$defs/nonempty"
+        }
+      }
+    },
+    "figure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "caption",
+        "alt_text",
+        "source_ref"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "caption": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "alt_text": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/nonempty"
+        }
+      }
+    },
+    "slide": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "role",
+        "title",
+        "judgment_id",
+        "title_binding_terms"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "role": {
+          "enum": [
+            "decision",
+            "impact",
+            "core_evidence",
+            "alternatives",
+            "recommendation",
+            "risk_execution",
+            "technical_appendix"
+          ]
+        },
+        "title": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "judgment_id": {
+          "$ref": "#/$defs/nonempty"
+        },
+        "title_binding_terms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonempty"
+          }
+        }
+      }
+    },
+    "trade_study": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scoring_method",
+        "weight_scale",
+        "criteria",
+        "alternatives",
+        "recommendation_authorized_by_model",
+        "recommendation"
+      ],
+      "properties": {
+        "scoring_method": {
+          "const": "weighted_sum_0_to_100"
+        },
+        "weight_scale": {
+          "const": 100
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "label",
+              "weight"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/nonempty"
+              },
+              "label": {
+                "$ref": "#/$defs/nonempty"
+              },
+              "weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              }
+            }
+          }
+        },
+        "alternatives": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "label",
+              "scores"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/nonempty"
+              },
+              "label": {
+                "$ref": "#/$defs/nonempty"
+              },
+              "scores": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              },
+              "declared_total": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "recommendation_authorized_by_model": {
+          "const": true
+        },
+        "recommendation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "alternative_id",
+            "rationale",
+            "residual_risk"
+          ],
+          "properties": {
+            "alternative_id": {
+              "$ref": "#/$defs/nonempty"
+            },
+            "rationale": {
+              "$ref": "#/$defs/nonempty"
+            },
+            "residual_risk": {
+              "$ref": "#/$defs/nonempty"
+            }
+          }
+        }
+      }
+    },
+    "anonymization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "required_categories",
+        "mappings"
+      ],
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "required_categories": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "client",
+              "person",
+              "company"
+            ]
+          }
+        },
+        "mappings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "category",
+              "from",
+              "to"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/nonempty"
+              },
+              "category": {
+                "enum": [
+                  "client",
+                  "person",
+                  "company"
+                ]
+              },
+              "from": {
+                "$ref": "#/$defs/nonempty"
+              },
+              "to": {
+                "$ref": "#/$defs/nonempty"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

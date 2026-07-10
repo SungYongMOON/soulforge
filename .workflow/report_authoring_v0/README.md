@@ -9,14 +9,20 @@ It interviews the author grill-style to fill the missing So-What pieces
 separate de-slop pass (bans ungrounded hedging only, keeps grounded judgment),
 and closes with a self-check and boundary review.
 
+An opt-in engineering branch freezes one Engineering Case Model after intake and
+a separate de-slop pass, then renders report Markdown plus PPT-storyline Markdown
+with a shared model SHA-256, explicit anonymization, trade-study arithmetic, and a
+redacted consistency report. It does not generate binary DOCX/PPTX files.
+
 ## Status
 
 - Workflow status: active
 - Registration: registered in `.workflow/index.yaml` (owner-requested, built via workflow-generator + workflow-check)
 - Short invocation alias: `/report-writer`
 - Default route: no
-- Output state: pilot-executed (fresh-context evaluator/judge scenarios; no model-cost calibration)
-- Claim ceiling: structure + fresh-eval pilot; not production-ready, not canon-promoted
+- Output state: registered
+- Validation: Level 3, two final fresh B→separate V cycles on public-safe synthetic experiment and trade-study fixtures
+- Claim ceiling: active only for bounded Markdown report + PPT-storyline projection; no model-cost calibration, binary rendering, or default route
 
 ## Doctrine and structure (not duplicated here)
 
@@ -30,6 +36,9 @@ and closes with a self-check and boundary review.
 - The workflow never invents facts, numbers, or verdicts. Missing values are marked 미확인. An overall pass/fail verdict requires a named spec or source.
 - De-slop runs as a separate pass and keeps grounded judgment verbs and explicit 미확인 labels.
 - Public files use Soulforge-root-relative POSIX paths and carry no private payload, secrets, or runtime absolute paths.
+- Engineering dual projection never replaces the existing interview/direct-draft modes. It starts only after one Case Model is complete and frozen.
+- The renderer fails closed when model→report, model→PPT, cross-projection, numeric signature (including declared Korean units), v0.3 register, trade-study, storyline title/judgment binding, or anonymization checks fail.
+- A consistency `pass` means deterministic mechanical integrity only. Fresh semantic verification remains required before a production-ready claim.
 
 ## Invocation
 

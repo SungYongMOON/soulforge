@@ -1,0 +1,211 @@
+{
+  "schema_version": "soulforge.engineering_case_model.v0",
+  "case_id": "synthetic_trade_study",
+  "revision": "1",
+  "report_type": "trade_study",
+  "title": "가상기업-감마 시험 치구 대안 선정",
+  "audience": "발주처 의사결정 검토",
+  "purpose": "시험 착수 전 치구 대안을 품질·납기·비용 기준으로 비교하고 제작 승인안 확정",
+  "decision": {
+    "request": "A안 제작 착수 승인 요청",
+    "statement": "A안 82점으로 B안 74점 대비 우위 확인",
+    "verdict": "A안 권고",
+    "basis_ref": "SYN-TRADE-001"
+  },
+  "evidence": [
+    {
+      "id": "ev_total_a",
+      "label": "A안 가중총점",
+      "value": "82",
+      "unit": "점",
+      "comparator": ">",
+      "basis": "B안 74점",
+      "range": "0~100점",
+      "tolerance": "not_applicable",
+      "sample_size": "n=3 criteria",
+      "uncertainty": "unconfirmed",
+      "source_ref": "SYN-TRADE-001"
+    }
+  ],
+  "terminology": [
+    {
+      "id": "term_weighted_sum",
+      "label": "가중합"
+    }
+  ],
+  "judgments": [
+    {
+      "id": "j_total",
+      "text": "가중합 분석 결과 A안의 총점이 82점으로 분석되었다.",
+      "strength": "analysis_result",
+      "source_refs": [
+        "SYN-TRADE-001"
+      ]
+    },
+    {
+      "id": "j_risk",
+      "text": "제작 공차 영향은 시제품 검사 전까지 판단하기 어려울 수 있다.",
+      "strength": "bounded_tentative",
+      "source_refs": [
+        "SYN-RISK-001"
+      ]
+    }
+  ],
+  "limitations": [
+    {
+      "id": "lim_tolerance",
+      "text": "제작 공차의 실제 영향은 미확인.",
+      "status": "unconfirmed",
+      "close_condition": "2026-08-07 시제품 검사"
+    }
+  ],
+  "actions": [
+    {
+      "id": "act_build",
+      "text": "A안 시제품 제작 착수",
+      "owner": "가상담당자-김",
+      "due": "2026-07-31"
+    }
+  ],
+  "figures": [
+    {
+      "id": "fig_trade",
+      "caption": "가상기업-감마 대안별 3개 기준 점수 비교",
+      "alt_text": "A안 82점과 B안 74점의 가중총점 비교",
+      "source_ref": "SYN-FIG-TRADE-001"
+    }
+  ],
+  "storyline": {
+    "slides": [
+      {
+        "id": "slide_decision",
+        "role": "decision",
+        "title": "A안 82점으로 제작 착수 승인 요청",
+        "judgment_id": "decision",
+        "title_binding_terms": [
+          "A안",
+          "82점"
+        ]
+      },
+      {
+        "id": "slide_impact",
+        "role": "impact",
+        "title": "제작 공차 영향은 시제품 검사 전까지 미확인",
+        "judgment_id": "j_risk",
+        "title_binding_terms": [
+          "제작 공차",
+          "시제품 검사"
+        ]
+      },
+      {
+        "id": "slide_evidence",
+        "role": "core_evidence",
+        "title": "가중합 분석 결과 A안 82점",
+        "judgment_id": "j_total",
+        "title_binding_terms": [
+          "A안",
+          "82점"
+        ]
+      },
+      {
+        "id": "slide_alternatives",
+        "role": "alternatives",
+        "title": "A안 82점으로 B안 74점 대비 우위",
+        "judgment_id": "j_total",
+        "title_binding_terms": [
+          "A안",
+          "82점"
+        ]
+      },
+      {
+        "id": "slide_recommendation",
+        "role": "recommendation",
+        "title": "A안 권고와 시제품 검사 조건 병기",
+        "judgment_id": "decision",
+        "title_binding_terms": [
+          "A안"
+        ]
+      },
+      {
+        "id": "slide_execution",
+        "role": "risk_execution",
+        "title": "2026-08-07 검사로 제작 공차 영향 확정",
+        "judgment_id": "j_risk",
+        "title_binding_terms": [
+          "검사",
+          "제작 공차"
+        ]
+      }
+    ]
+  },
+  "trade_study": {
+    "scoring_method": "weighted_sum_0_to_100",
+    "weight_scale": 100,
+    "criteria": [
+      {
+        "id": "quality",
+        "label": "품질",
+        "weight": 50
+      },
+      {
+        "id": "schedule",
+        "label": "납기",
+        "weight": 30
+      },
+      {
+        "id": "cost",
+        "label": "비용",
+        "weight": 20
+      }
+    ],
+    "alternatives": [
+      {
+        "id": "alt_a",
+        "label": "A안",
+        "scores": {
+          "quality": 90,
+          "schedule": 80,
+          "cost": 65
+        },
+        "declared_total": 82
+      },
+      {
+        "id": "alt_b",
+        "label": "B안",
+        "scores": {
+          "quality": 75,
+          "schedule": 70,
+          "cost": 77.5
+        },
+        "declared_total": 74
+      }
+    ],
+    "recommendation_authorized_by_model": true,
+    "recommendation": {
+      "alternative_id": "alt_a",
+      "rationale": "A안이 가중총점에서 우위이며 품질 점수가 가장 높음",
+      "residual_risk": "제작 공차 영향은 2026-08-07 시제품 검사 전까지 미확인"
+    }
+  },
+  "anonymization": {
+    "enabled": true,
+    "required_categories": [
+      "person",
+      "company"
+    ],
+    "mappings": [
+      {
+        "id": "map_person",
+        "category": "person",
+        "from": "가상담당자-김",
+        "to": "담당자"
+      },
+      {
+        "id": "map_company",
+        "category": "company",
+        "from": "가상기업-감마",
+        "to": "협력사"
+      }
+    ]
+  }
+}
