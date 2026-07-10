@@ -78,27 +78,106 @@ export function parseCycleArgs(argv = process.argv.slice(2), env = process.env) 
 // 분류 입력용 줄기 맥락(메타 요약, 결정적): 프로젝트별 힌트 규칙 키워드 + project_context 상위 branch 요약.
 // 본문 없음 — branch label 은 이미 redacted metadata 표면이다.
 export function buildProjectContextLines(workmetaRoot, projectId, { maxBranches = 6, maxChars = 900, knowledgeRefs = [] } = {}) {
-  const lines = [];
+  const ruleLines = [];
+  const gapLines = [];
+  const branchLines = [];
   const rules = loadContextHintRules(workmetaRoot, projectId);
   if (rules.length) {
-    lines.push(`업무 줄기(branch) 후보: ${rules.map((r) => r.branch).slice(0, 8).join(" / ")}`);
+    ruleLines.push(`업무 줄기(branch) 후보: ${rules.map((r) => r.branch).slice(0, 8).join(" / ")}`);
   }
-  lines.push(...knowledgeContextLines(knowledgeRefs));
-  try {
-    const { rows } = readCsvObjects(join(workmetaRoot, projectId, "project_context", "summaries", "branch_summaries.csv"));
-    const top = rows
-      .map((c) => ({
-        label: String(c.label ?? "").trim(),
-        sources: Number(c.source_count) || 0,
-        open: Number(c.open_review_count) || 0,
-      }))
-      .filter((b) => b.label && !/[�]|ㅇㅇ/.test(b.label)) // 인코딩 깨진 라벨은 맥락에서 제외
-      .sort((a, b) => b.open - a.open || b.sources - a.sources)
-      .slice(0, maxBranches);
-    for (const b of top) lines.push(`진행 중 줄기: ${b.label} (자료 ${b.sources}, 미결 ${b.open})`);
-  } catch { /* 줄기 없음 → 규칙 라인만 */ }
+  const knowledgeLines = knowledgeContextLines(knowledgeRefs);
+  const contextRoot = join(workmetaRoot, projectId, "project_context");
+  const summaryRef = join(contextRoot, "summaries", "branch_summaries.csv");
+  const sourcesRef = join(contextRoot, "sources.csv");
+  const pushGap = (code, message) => {
+    if (!gapLines.some((line) => line.includes(`[context_gap:${code}]`))) {
+      gapLines.push(`[context_gap:${code}] ${message}`);
+    }
+  };
+  if (!existsSync(summaryRef)) {
+    if (existsSync(sourcesRef)) {
+      pushGap("missing_summary", `${projectId} sources.csv exists but branch_summaries.csv is missing; no branch state was injected.`);
+    }
+  } else try {
+    const { rows } = readCsvObjects(summaryRef);
+    const scopedRows = rows.filter((row) => String(row.project_code ?? "").trim() === String(projectId));
+    if (scopedRows.length !== rows.length) {
+      pushGap("project_scope_mismatch", `${projectId} summary contains rows from another project; foreign rows were excluded.`);
+    }
+    if (!existsSync(sourcesRef)) {
+      pushGap("missing_sources", `${projectId} branch summary has no sources.csv pointer surface; branch summary was not injected.`);
+    } else {
+      const { rows: sourceRows } = readCsvObjects(sourcesRef);
+      const scopedSources = sourceRows.filter((row) => String(row.project_code ?? "").trim() === String(projectId));
+      if (scopedSources.length !== sourceRows.length) {
+        pushGap("project_scope_mismatch", `${projectId} sources contain rows from another project; foreign rows were excluded.`);
+      }
+      const summarizedSources = scopedSources.filter((row) => {
+        const branchKey = String(row.branch_key ?? "").trim();
+        return branchKey && branchKey !== "unclassified";
+      });
+      const sourceTimes = summarizedSources.map((row) => strictTimestampMillis(row.updated_at || row.created_at));
+      const summaryTimes = scopedRows.map((row) => strictTimestampMillis(row.updated_at));
+      const sourceCounts = scopedRows.map((row) => Number(String(row.source_count ?? "").trim()));
+      const sourceSupportMissing = scopedRows.length > 0 && summarizedSources.length === 0;
+      const summarySupportMissing = summarizedSources.length > 0 && scopedRows.length === 0;
+      const freshnessUnverifiable = sourceTimes.some((value) => value === null)
+        || summaryTimes.some((value) => value === null)
+        || sourceCounts.some((value) => !Number.isInteger(value) || value < 0);
+      if (sourceSupportMissing) {
+        pushGap("missing_sources", `${projectId} branch summary has no same-project source rows; branch summary was not injected.`);
+      }
+      if (summarySupportMissing) {
+        pushGap("missing_summary", `${projectId} same-project sources have no same-project branch summary rows; no branch state was injected.`);
+      }
+      if (freshnessUnverifiable) {
+        pushGap("unverifiable_freshness", `${projectId} source/summary timestamp or source_count metadata is missing or invalid; branch summary was not injected.`);
+      }
+      const newestSource = sourceTimes.length ? Math.max(...sourceTimes.filter((value) => value !== null)) : null;
+      const newestSummary = summaryTimes.length ? Math.max(...summaryTimes.filter((value) => value !== null)) : null;
+      const summarizedSourceCount = sourceCounts.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+      const stale = !sourceSupportMissing && !summarySupportMissing && !freshnessUnverifiable
+        && (summarizedSources.length !== summarizedSourceCount || newestSource > newestSummary);
+      if (stale) {
+        pushGap("stale_summary", `${projectId} source count differs from branch_summaries.csv or source metadata is newer; refresh project_context before using branch state.`);
+      }
+      if (!sourceSupportMissing && !summarySupportMissing && !freshnessUnverifiable && !stale) {
+        const top = scopedRows
+          .map((c) => ({
+            label: String(c.label ?? "").trim(),
+            sources: Number(c.source_count) || 0,
+            open: Number(c.open_review_count) || 0,
+          }))
+          .filter((b) => b.label && !/[�]|ㅇㅇ/.test(b.label)) // 인코딩 깨진 라벨은 맥락에서 제외
+          .sort((a, b) => b.open - a.open || b.sources - a.sources)
+          .slice(0, maxBranches);
+        for (const b of top) branchLines.push(`진행 중 줄기: ${b.label} (자료 ${b.sources}, 미결 ${b.open})`);
+      }
+    }
+  } catch {
+    pushGap("unreadable_summary", `${projectId} project_context metadata could not be parsed; branch summary was not injected.`);
+  }
+  const lines = [...gapLines, ...ruleLines, ...branchLines, ...knowledgeLines];
   let total = 0;
   return lines.filter((l) => { total += l.length + 1; return total <= maxChars; });
+}
+
+function strictTimestampMillis(value) {
+  const text = String(value ?? "").trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d))?$/.exec(text);
+  if (!match) return null;
+  const [, yearText, monthText, dayText, hourText = "00", minuteText = "00", secondText = "00"] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  if (month < 1 || month > 12 || hour > 23 || minute > 59 || second > 59) return null;
+  const calendarCheck = new Date(Date.UTC(year, month - 1, day));
+  if (calendarCheck.getUTCFullYear() !== year || calendarCheck.getUTCMonth() !== month - 1 || calendarCheck.getUTCDate() !== day) return null;
+  const parsed = Date.parse(text);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 // 단순 파일 락(단일 호스트용). 손상/정지 대비 stale 15분 후 탈취.

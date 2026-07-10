@@ -1,6 +1,6 @@
 # dev-erp 세분 실행 패킷 인덱스 (2026-06-14)
 
-## Active implementation slices
+## Implementation slice history and active next action
 
 - `slices/AX-WORK-EVENT-HOOK.md` - ERP start/completion buttons as canonical metadata-only work lifecycle hooks for AX accumulation.
 - `slices/B5-PROPOSAL-INBOX.md` — 제안 수신함 v1 + 수신역할(to/cc) core_mail 배선 (**done 2026-07-03: mailcsv 이력키 조인 + 근거 노출·계정 resolve·1클릭 승인=approved + 영수증 집계 API**, ERP 표면 스레드)
@@ -8,7 +8,7 @@
 - `slices/ENGINE-11-STEM-V2-GENERATOR.md` — 줄기 생성기 v2: 제목 클러스터 → 링크 기반 3종 줄기 (execution_owner: **engine_thread_codex**, done 2026-07-05; retro rebuild pass applied 2026-07-06)
 - `slices/B6-STEM-REATTACH-API.md` — 줄기 드래그 재부착 서버 계약+API 3종 (execution_owner: **erp_surface_thread_claude** — server/store 만, 그래프 UI 는 줄기 렌더 레인 소비)
 - `slices/B8-STEM-MAP-V2-RENDER.md` — 줄기 지도 v2 렌더: 골격·작업·이력 색/모양 구분 + legacy 기본 숨김 + 범례 + 회차 상세 + 드래그 재부착 UI (**done 2026-07-06: B6 reanchor 소비, 중복 리스너 결함 수정 포함**, ERP 표면 스레드)
-- `slices/B9-STEM-RIVER-VIEW.md` — **줄기 강(江) 뷰 설계 정본** (2026-07-06 owner 구술): 기둥=시간축 SE 흐름·게이트=큰 점·가지=맥락 한 줄·잎=기록(기원/경로/종결 즉답)·모양=진단·지식그래프와 잎 수준 양방향 접점. 구현 순서 B9a(가지 타임라인)→b(강줄기 렌더)→c(진단)→d(지식 역링크). **다음 착수 = B9a.**
+- `slices/B9-STEM-RIVER-VIEW.md` — **줄기 강(江) 뷰 설계 정본** (2026-07-06 owner 구술): 기둥=시간축 SE 흐름·게이트=큰 점·가지=맥락 한 줄·잎=기록(기원/경로/종결 즉답)·모양=진단·지식그래프와 잎 수준 양방향 접점. B9b 시간축 강줄기 core는 2026-07-07 구현됐고, 실제 event 날짜를 잎에 연결하는 **다음 착수 = B9a**다. 이후 B9b 잔여 crosslink/branching/zoom, B9c 진단, B9d 지식 역링크 순으로 닫는다.
 
 ## Engine expansion slices (2026-07-02, claude_fable-5 — 할일 엔진 확장)
 

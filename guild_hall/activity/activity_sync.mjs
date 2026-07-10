@@ -10,6 +10,7 @@ import {
   sanitizeActivityValue,
 } from "./activity_log.mjs";
 import { projectMailCandidatesToActivity } from "./mail_candidate_projection.mjs";
+import { normalizeAssetUsage } from "./asset_usage.mjs";
 import { pathExists } from "../shared/io.mjs";
 
 export const ACTIVITY_SYNC_RESULT_VERSION = "soulforge.activity_sync.result.v1";
@@ -344,6 +345,7 @@ function normalizeEvent(event) {
     detail_owner: sanitizeText(event.detail_owner, "detail_owner", 240),
     next_action: sanitizeText(event.next_action, "next_action", 360),
     carry_forward: event.carry_forward === true,
+    asset_usage: safeAssetUsage(event.asset_usage),
     sensitive_content_included: false,
     sanitizer_version: "soulforge.activity.sanitizer.v1",
   };
@@ -513,9 +515,19 @@ function toRecentEntry(event) {
     result: event.result ?? null,
     summary: event.summary,
     refs: Array.isArray(event.refs) ? event.refs : [],
+    asset_usage: event.asset_usage ?? null,
     next_action: event.next_action ?? null,
     carry_forward: event.carry_forward === true,
   };
+}
+
+function safeAssetUsage(value) {
+  if (value == null) return null;
+  try {
+    return normalizeAssetUsage(value);
+  } catch {
+    return null;
+  }
 }
 
 function sortEventsNewestFirst(events) {

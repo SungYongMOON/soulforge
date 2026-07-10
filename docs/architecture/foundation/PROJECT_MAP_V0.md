@@ -143,10 +143,13 @@ gateway/mail/manual input
 ## 다음 개발 방향
 
 - 현재 active slice 와 우선순위는 `DEVELOPMENT_ROADMAP_V0.md` 에서 읽는다.
-- 현 시점의 방향은 원본 private surface 를 직접 UI/OpenClaw 에 노출하지 않고, read-only snapshot 을 먼저 만든 뒤 `Dungeon Map` 과 `Mission Board` 로 연결하는 것이다.
+- 원본 private surface 를 UI/OpenClaw 에 직접 노출하지 않고 read-only snapshot 을
+  먼저 두는 것은 projection 경계 원칙이다. 이 원칙을 현재 active backlog로
+  해석하지 않으며, 실제 착수 순서는 항상 `DEVELOPMENT_ROADMAP_V0.md`가 소유한다.
 
 ## 완료 기준
 
 - 사용자가 파일트리를 외우지 않아도 현재 owner와 다음 action을 말할 수 있다.
 - OpenClaw 같은 외부 host는 원본 repo 대신 sanitized snapshot을 읽는 방향으로 정해진다.
-- 다음 개발이 gateway 확대가 아니라 `작전판 v0` 로 좁혀진다.
+- 다음 개발 항목은 `DEVELOPMENT_ROADMAP_V0.md`와 그 문서가 가리키는 active
+  slice queue에서 하나로 좁혀진다.

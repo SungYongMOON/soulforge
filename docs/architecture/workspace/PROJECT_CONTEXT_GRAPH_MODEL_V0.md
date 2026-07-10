@@ -51,6 +51,14 @@ These defaults were captured from the 2026-06-28 owner grill-me decisions.
   layers accumulate.
 - Summary refresh updates related branch summaries immediately and the whole
   project summary once per day; change-volume based refresh can be added later.
+- A consumer may inject a branch summary into an AI prompt only after binding it
+  to the same project's `sources.csv`. Foreign-project rows are excluded. If the
+  classified/branch-bound source count differs from the summarized count, the
+  newest classified source metadata is newer than the summary, no same-project
+  branch-bound source row exists, the summary is
+  missing while sources exist, or count/timestamp/source metadata is
+  missing/unreadable, the consumer emits a stable `context_gap:*` marker and
+  does not inject that branch state. Silence is not a valid freshness fallback.
 - Milestones are independent nodes connected to work branches by edges.
 - People, teams, and bots are actor nodes. Team links may be automatic; person
   and bot links should stay candidates unless confidence is high.
@@ -111,6 +119,13 @@ Recommended files:
 - `review_queue.csv`
 - `summaries/project_summary.md`
 - `summaries/branch_summaries.csv`
+
+`branch_summaries.csv.updated_at` and `source_count` are freshness evidence, not
+decorative fields. Prompt consumers compare them with the scoped rows in
+`sources.csv`; they do not infer freshness from file existence alone. The
+producer intentionally leaves `unclassified` sources outside branch-summary
+counts, so consumers use the same denominator. Timestamp comparison rejects
+calendar-normalized invalid dates rather than relying on permissive parsing.
 
 The same shape may be projected into dev-ERP SQLite tables later. The CSV shape
 comes first so another PC can inspect and recover the state.

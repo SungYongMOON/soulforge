@@ -73,7 +73,7 @@ read-only snapshot
 
 ## 현재 phase
 
-- active slice: **dev-erp (사내 개발팀 운영 콕핏)** — owner 1순위. 정본: `ui-workspace/apps/dev-erp/docs/DESIGN.md`, `ui-workspace/apps/dev-erp/docs/MASTER_PLAN_20260613.md`, 작업 큐: `ui-workspace/apps/dev-erp/docs/checklist_phase1.json`.
+- active slice: **dev-erp (사내 개발팀 운영 콕핏)** — owner 1순위. 정본: `ui-workspace/apps/dev-erp/docs/DESIGN.md`, `ui-workspace/apps/dev-erp/docs/MASTER_PLAN_20260613.md`. `checklist_phase1.json`은 완료된 phase-1 baseline이고, 현재 slice queue와 next action은 `ui-workspace/apps/dev-erp/docs/SLICES_INDEX.md`가 소유한다.
 - 상태 해석: 2026-06 실제 개발의 대부분이 dev-erp(읽기 콕핏 P1 → 할일쓰기 P2 → 재고/BOM/부품 P3 → 챗봇 RAG/Ollama → 매뉴얼/FAQ, run1~17)에 집중됐고 owner 1순위가 이쪽으로 이동했다.
 - 판단(2026-06-14 갱신): snapshot→작전판 게임루프는 장기 북극성으로 유지하되, 지금 손이 가는 active slice 는 dev-erp 다. 과거 active slice `snapshot_to_operation_board_v0` 는 '다음 후보'로 내린다(스펙은 아래 'Active Slice 001' 절에 보존, 재개 시 참조).
 
@@ -628,11 +628,11 @@ Start condition:
 | 8 | knowledge graph 탐지 카드 integration | retrieval-plan command contract 와 graph export 가 안정됨 | `guild_hall/knowledge_graph`, `docs/architecture/guild_hall`, `ui-workspace`, `_workmeta/system` |
 | 9 | project mail history XLSX readability | project mail-history writer and metadata ledger are stable | `guild_hall/gateway`, `_workspaces`, `_workmeta/system` |
 | 10 | mission 경량 등록 경로 (mission-lite / run 기반 mission 후보) | owner 가 계약 축소 vs 자동 후보 생성 방향을 정함 | `.mission`, `docs/architecture/foundation`, `_workmeta` |
-| 11 | workflow/skill 사용 ledger (승급 판단 데이터 기반) | knowledge_access ledger 패턴 재사용 확인 | `guild_hall`, `docs/architecture/guild_hall`, `_workmeta` |
+| 11 | workflow/skill/party/automation 사용·결과 측정 (첫 measurement slice 구현: activity `asset_usage` + report, 실 writer 계측은 후속) | 실제 writer가 success/failure와 baseline/evidence pointer를 남김 | `guild_hall`, `docs/architecture/guild_hall`, `_workmeta` |
 | 12 | AI 세션 boot digest 와 필수 읽기 체인 경량화 | owner 가 digest 의 라우팅 지위를 정함 | `AGENTS.md`, `docs/architecture/foundation` |
 | 13 | foundation 문서 staleness 정리 (roadmap 구조/완료 잔존, PROJECT_MAP 표, 개선계획 현행화) | owner 가 정리 범위를 승인함 | `docs/architecture/foundation` |
 | 14 | CHANGELOG rotation 규칙과 1차 분할 | owner 가 크기 예산과 분할 단위를 정함 | `docs/architecture/foundation`, `CHANGELOG.md` |
-| 15 | `.workflow` lifecycle 정책과 calibrations 실행 기록 위치 재결정 | owner 가 calibration 보존 위치를 정함 | `.workflow`, `docs/architecture/foundation`, `_workmeta/system` |
+| 15 | `.workflow` active/deprecated/retired·supersede/fallback 정책 결정 (calibration 위치는 `.workflow/README.md`로 해결됨) | 후보 11의 실사용 evidence가 쌓이고 owner가 상태 전이 기준을 승인함 | `.workflow`, `docs/architecture/foundation`, `_workmeta/system` |
 | 16 | dev-worker queue archive 와 legacy candidate queue 이관 규칙 | dev_worker 큐 reader 의 flat-path 의존 확인 | `_workmeta`, `guild_hall/dev_worker` |
 | 17 | doctor 플랫폼 native binary 점검 (esbuild 등) | 없음 - public-safe 단독 작업 | `guild_hall/doctor`, `docs/architecture/bootstrap` |
 | 18 | bounded task 종료 절차(ceremony) 경량화 검토 | owner 가 유지/축소 방침을 정함 | `docs/architecture/foundation`, `AGENTS.md` |

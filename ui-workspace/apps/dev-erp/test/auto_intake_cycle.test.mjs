@@ -765,16 +765,151 @@ test("buildProjectContextLines: 규칙 branch + 상위 줄기 요약, 깨진 라
     rules: [{ enabled: true, priority: 1, event_keywords: ["sow"], target_object: "SOW 조율" }],
   }));
   mkdirSync(join(proj, "project_context", "summaries"), { recursive: true });
+  writeFileSync(join(proj, "project_context", "sources.csv"),
+    "source_id,project_code,source_kind,external_ref,source_time,title,branch_key,branch_ref,suggested_branch_ref,summary_hint,pointer_ref,metadata_hash,body_access,created_at,updated_at\n"
+    + "s1,P77-000,mail,M1,2026-06-28T08:00:00Z,센서 검증,k1,b1,,,mailcsv:M1,h1,metadata_only,2026-06-28T09:00:00Z,2026-06-28T09:00:00Z\n"
+    + "s2,P77-000,mail,M2,2026-06-28T08:30:00Z,실무협의,k3,b3,,,mailcsv:M2,h2,metadata_only,2026-06-28T09:00:00Z,2026-06-28T09:00:00Z\n");
   writeFileSync(join(proj, "project_context", "summaries", "branch_summaries.csv"),
     "branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at\n"
-    + "b1,P77-000,k1,센서 검증,32,13,34,2026-06-28\n"
-    + "b2,P77-000,k2,[기ㅇ탐ㅇㅇㅇㅇ] 깨진 라벨,5,0,5,2026-06-28\n"
-    + "b3,P77-000,k3,실무협의,54,37,100,2026-06-28\n");
+    + "b1,P77-000,k1,센서 검증,1,13,34,2026-06-28T10:00:00Z\n"
+    + "b2,P77-000,k2,[기ㅇ탐ㅇㅇㅇㅇ] 깨진 라벨,0,0,5,2026-06-28T10:00:00Z\n"
+    + "b3,P77-000,k3,실무협의,1,37,100,2026-06-28T10:00:00Z\n");
   const lines = buildProjectContextLines(root, "P77-000");
   assert.ok(lines[0].includes("SOW 조율"));
-  assert.ok(lines.some((l) => l.includes("실무협의 (자료 54, 미결 100)")));
+  assert.ok(lines.some((l) => l.includes("실무협의 (자료 1, 미결 100)")));
   assert.ok(lines.some((l) => l.includes("센서 검증")));
   assert.ok(!lines.some((l) => l.includes("깨진 라벨")));
+});
+
+test("buildProjectContextLines: source가 summary보다 최신이면 stale 경고를 주입하고 옛 줄기는 제외", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ctx-stale-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const context = join(root, "P77-001", "project_context");
+  mkdirSync(join(context, "summaries"), { recursive: true });
+  writeFileSync(join(context, "sources.csv"),
+    "source_id,project_code,source_kind,external_ref,source_time,title,branch_key,branch_ref,suggested_branch_ref,summary_hint,pointer_ref,metadata_hash,body_access,created_at,updated_at\n"
+    + "s1,P77-001,mail,M1,2026-07-01T08:00:00Z,최신 이벤트,k1,b1,,,mailcsv:M1,h1,metadata_only,2026-07-02T09:00:00Z,2026-07-02T09:00:00Z\n");
+  writeFileSync(join(context, "summaries", "branch_summaries.csv"),
+    "branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at\n"
+    + "b1,P77-001,k1,오래된 줄기,1,1,0,2026-07-01T09:00:00Z\n");
+
+  const lines = buildProjectContextLines(root, "P77-001");
+  assert.ok(lines.some((line) => line.includes("[context_gap:stale_summary]")));
+  assert.ok(!lines.some((line) => line.includes("오래된 줄기")));
+});
+
+test("buildProjectContextLines: source pointer 누락과 다른 프로젝트 summary를 조용히 주입하지 않음", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ctx-isolation-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const context = join(root, "P77-002", "project_context");
+  mkdirSync(join(context, "summaries"), { recursive: true });
+  writeFileSync(join(context, "summaries", "branch_summaries.csv"),
+    "branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at\n"
+    + "b1,P88-999,k1,다른 과제 비공개 줄기,1,1,0,2026-07-02T09:00:00Z\n");
+
+  const lines = buildProjectContextLines(root, "P77-002");
+  assert.ok(lines.some((line) => line.includes("[context_gap:missing_sources]")));
+  assert.ok(lines.some((line) => line.includes("[context_gap:project_scope_mismatch]")));
+  assert.ok(!lines.some((line) => line.includes("다른 과제 비공개 줄기")));
+});
+
+test("buildProjectContextLines: sources 파일에 현재 과제 row가 없으면 local summary도 주입하지 않음", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ctx-foreign-sources-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const context = join(root, "P77-003", "project_context");
+  mkdirSync(join(context, "summaries"), { recursive: true });
+  writeFileSync(join(context, "sources.csv"),
+    "source_id,project_code,source_kind,external_ref,source_time,title,branch_key,branch_ref,suggested_branch_ref,summary_hint,pointer_ref,metadata_hash,body_access,created_at,updated_at\n"
+    + "s1,P88-999,mail,M1,2026-07-01T08:00:00Z,foreign,k1,b1,,,mailcsv:M1,h1,metadata_only,2026-07-02T09:00:00Z,2026-07-02T09:00:00Z\n");
+  writeFileSync(join(context, "summaries", "branch_summaries.csv"),
+    "branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at\n"
+    + "b1,P77-003,k1,근거 없는 현재 과제 요약,1,1,0,2026-07-02T10:00:00Z\n");
+
+  const lines = buildProjectContextLines(root, "P77-003");
+  assert.ok(lines.some((line) => line.includes("[context_gap:missing_sources]")));
+  assert.ok(lines.some((line) => line.includes("[context_gap:project_scope_mismatch]")));
+  assert.ok(!lines.some((line) => line.includes("근거 없는 현재 과제 요약")));
+});
+
+test("buildProjectContextLines: source는 있으나 summary가 없으면 missing summary를 표면화", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ctx-missing-summary-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const context = join(root, "P77-004", "project_context");
+  mkdirSync(context, { recursive: true });
+  writeFileSync(join(context, "sources.csv"),
+    "source_id,project_code,source_kind,external_ref,source_time,title,branch_key,branch_ref,suggested_branch_ref,summary_hint,pointer_ref,metadata_hash,body_access,created_at,updated_at\n"
+    + "s1,P77-004,mail,M1,2026-07-01T08:00:00Z,event,k1,b1,,,mailcsv:M1,h1,metadata_only,2026-07-02T09:00:00Z,2026-07-02T09:00:00Z\n");
+
+  const lines = buildProjectContextLines(root, "P77-004");
+  assert.ok(lines.some((line) => line.includes("[context_gap:missing_summary]")));
+});
+
+test("buildProjectContextLines: timestamp 또는 source count를 검증할 수 없으면 summary 주입을 중단", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ctx-unverifiable-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const context = join(root, "P77-005", "project_context");
+  mkdirSync(join(context, "summaries"), { recursive: true });
+  writeFileSync(join(context, "sources.csv"),
+    "source_id,project_code,source_kind,external_ref,source_time,title,branch_key,branch_ref,suggested_branch_ref,summary_hint,pointer_ref,metadata_hash,body_access,created_at,updated_at\n"
+    + "s1,P77-005,mail,M1,2026-07-01T08:00:00Z,event,k1,b1,,,mailcsv:M1,h1,metadata_only,,not-a-time\n");
+  writeFileSync(join(context, "summaries", "branch_summaries.csv"),
+    "branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at\n"
+    + "b1,P77-005,k1,검증 불가 요약,2,1,0,not-a-time\n");
+
+  const lines = buildProjectContextLines(root, "P77-005");
+  assert.ok(lines.some((line) => line.includes("[context_gap:unverifiable_freshness]")));
+  assert.ok(!lines.some((line) => line.includes("검증 불가 요약")));
+});
+
+test("buildProjectContextLines: header-only sources는 source support로 취급하지 않음", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ctx-empty-sources-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const context = join(root, "P77-006", "project_context");
+  mkdirSync(join(context, "summaries"), { recursive: true });
+  writeFileSync(join(context, "sources.csv"),
+    "source_id,project_code,source_kind,external_ref,source_time,title,branch_key,branch_ref,suggested_branch_ref,summary_hint,pointer_ref,metadata_hash,body_access,created_at,updated_at\n");
+  writeFileSync(join(context, "summaries", "branch_summaries.csv"),
+    "branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at\n"
+    + "b1,P77-006,k1,빈 source에 묶인 요약,3,1,0,2026-07-02T10:00:00Z\n");
+
+  const lines = buildProjectContextLines(root, "P77-006");
+  assert.ok(lines.some((line) => line.includes("[context_gap:missing_sources]")));
+  assert.ok(!lines.some((line) => line.includes("빈 source에 묶인 요약")));
+});
+
+test("buildProjectContextLines: producer가 summary에서 제외하는 unclassified source는 count drift로 오판하지 않음", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ctx-unclassified-source-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const context = join(root, "P77-007", "project_context");
+  mkdirSync(join(context, "summaries"), { recursive: true });
+  writeFileSync(join(context, "sources.csv"),
+    "source_id,project_code,source_kind,external_ref,source_time,title,branch_key,branch_ref,suggested_branch_ref,summary_hint,pointer_ref,metadata_hash,body_access,created_at,updated_at\n"
+    + "s1,P77-007,mail,M1,2026-07-01T08:00:00Z,classed,k1,b1,,,mailcsv:M1,h1,metadata_only,2026-07-02T09:00:00Z,2026-07-02T09:00:00Z\n"
+    + "s2,P77-007,mail,M2,2026-07-01T08:00:00Z,pending,unclassified,,,,mailcsv:M2,h2,metadata_only,2026-07-02T09:30:00Z,2026-07-02T09:30:00Z\n");
+  writeFileSync(join(context, "summaries", "branch_summaries.csv"),
+    "branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at\n"
+    + "b1,P77-007,k1,분류된 줄기,1,1,0,2026-07-02T10:00:00Z\n");
+
+  const lines = buildProjectContextLines(root, "P77-007");
+  assert.ok(lines.some((line) => line.includes("진행 중 줄기: 분류된 줄기")));
+  assert.ok(!lines.some((line) => line.includes("[context_gap:stale_summary]")));
+});
+
+test("buildProjectContextLines: Date.parse가 보정하는 존재하지 않는 달력 날짜를 거부", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ctx-invalid-calendar-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const context = join(root, "P77-008", "project_context");
+  mkdirSync(join(context, "summaries"), { recursive: true });
+  writeFileSync(join(context, "sources.csv"),
+    "source_id,project_code,source_kind,external_ref,source_time,title,branch_key,branch_ref,suggested_branch_ref,summary_hint,pointer_ref,metadata_hash,body_access,created_at,updated_at\n"
+    + "s1,P77-008,mail,M1,2026-02-28T00:00:00Z,event,k1,b1,,,mailcsv:M1,h1,metadata_only,2026-02-28T00:00:00Z,2026-02-30T00:00:00Z\n");
+  writeFileSync(join(context, "summaries", "branch_summaries.csv"),
+    "branch_id,project_code,branch_key,label,source_count,task_count,open_review_count,updated_at\n"
+    + "b1,P77-008,k1,달력 보정 요약,1,1,0,2026-03-02T00:00:00Z\n");
+
+  const lines = buildProjectContextLines(root, "P77-008");
+  assert.ok(lines.some((line) => line.includes("[context_gap:unverifiable_freshness]")));
+  assert.ok(!lines.some((line) => line.includes("달력 보정 요약")));
 });
 
 test("classifyMailForTasks: projectContext 가 프롬프트에 주입되고 규칙보다 우선하지 않음이 명시됨", async () => {

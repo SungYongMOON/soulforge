@@ -9,11 +9,13 @@ import {
   relativeToRepoOrAbsolute,
   writeJson,
 } from "../shared/io.mjs";
+import { normalizeAssetUsage } from "./asset_usage.mjs";
 
 export const ACTIVITY_EVENT_SCHEMA_VERSION = "soulforge.activity.event.v1";
 export const LATEST_CONTEXT_SCHEMA_VERSION = "soulforge.activity.latest_context.v1";
 export const DEFAULT_RECENT_COUNT = 12;
 export const DEFAULT_MAX_EVENT_READ = 200;
+export const MAX_MEASUREMENT_EVENT_READ = 5001;
 
 const SENSITIVE_KEY_PATTERN =
   /(raw|body|html|token|password|passwd|secret|cookie|session|credential|authorization|attachment_binary|attachment_content)/i;
@@ -62,6 +64,7 @@ export function buildActivityEvent(input = {}, context = {}) {
     "entry_id",
   );
   const refs = normalizeRefs(input.refs, repoRoot);
+  const assetUsage = input.asset_usage == null ? null : normalizeAssetUsage(input.asset_usage);
 
   return {
     schema_version: ACTIVITY_EVENT_SCHEMA_VERSION,
@@ -80,6 +83,7 @@ export function buildActivityEvent(input = {}, context = {}) {
     detail_owner: sanitizeShortText(input.detail_owner ?? input["detail-owner"] ?? null, "detail_owner", 240),
     next_action: sanitizeShortText(input.next_action ?? input["next-action"] ?? null, "next_action", 360),
     carry_forward: parseBoolean(input.carry_forward ?? input["carry-forward"], false),
+    asset_usage: assetUsage,
     sensitive_content_included: false,
     sanitizer_version: "soulforge.activity.sanitizer.v1",
   };
@@ -113,7 +117,7 @@ export async function refreshLatestContext(options = {}) {
 
 export async function readRecentActivityEvents(options = {}) {
   const activityRoot = path.resolve(options.activityRoot ?? defaultActivityRoot(process.cwd()));
-  const limit = normalizeRecentCount(options.limit ?? DEFAULT_MAX_EVENT_READ, DEFAULT_MAX_EVENT_READ);
+  const limit = normalizeEventReadLimit(options.limit ?? DEFAULT_MAX_EVENT_READ);
   const eventFiles = await collectEventFiles(path.join(activityRoot, "events"));
   const events = [];
 
@@ -290,6 +294,12 @@ function normalizeRecentCount(value, fallback = DEFAULT_RECENT_COUNT) {
   return Math.min(parsed, 200);
 }
 
+function normalizeEventReadLimit(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return DEFAULT_MAX_EVENT_READ;
+  return Math.min(parsed, MAX_MEASUREMENT_EVENT_READ);
+}
+
 function normalizeIdentity(value) {
   const identity = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return {
@@ -375,6 +385,7 @@ function toRecentEntry(event) {
     result: event.result ?? null,
     summary: event.summary,
     refs: Array.isArray(event.refs) ? event.refs : [],
+    asset_usage: event.asset_usage ?? null,
     next_action: event.next_action ?? null,
     carry_forward: event.carry_forward === true,
   };

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### General-agent context freshness와 custom asset 측정 계약
+
+- dev-ERP auto-intake가 project context branch summary를 prompt에 넣기 전에 같은 프로젝트의 `sources.csv`와 source count/updated time을 비교하도록 보강했다. source/summary 누락, foreign-only 또는 header-only source, producer와 같은 classified-source count 불일치, 엄격한 ISO 달력 timestamp 오류, 다른 project row를 stable `context_gap:*`으로 드러내고 검증되지 않은 branch state를 주입하지 않는다 (worker: codex_gpt-5).
+- 기존 cross-project activity event에 metadata-only `asset_usage` v0를 추가하고 workflow/skill/party catalog와 기록된 automation event를 합산하는 report command를 제공한다. report는 한 건 lookahead로 확인한 최대 5,000 event measurement window를 공개하고 timestamp가 있는 최신 owner/fallback과 성공 event에 결합된 evidence만 사용한다. non-scalar, secret-like, raw/encoded traversal metadata는 거부하며 품질, ROI, default route, retire/archive 결정을 내리지 않는다 (worker: codex_gpt-5).
+- roadmap 후보 11을 첫 measurement slice 완료 상태로, 후보 15를 이미 해결된 calibration 저장 위치와 아직 미결인 lifecycle 상태 정책으로 분리했다. cold-start에서 드러난 snapshot 원칙/active backlog 혼동, 완료된 phase-1 checklist의 작업 큐 표기, B9 부분 구현 상태를 현행화했다 (worker: codex_gpt-5).
+
 ### PLAUD OGG 원본의 음성 보관함 등록 지원
 
 - PLAUD 공유 링크에서 내려받은 OGG/Opus 원본을 오디오 없음으로 잘못 기록하던 문제를 수정했다. 음성 세션 상태와 보관함 원본 포인터가 `source.ogg`를 인식하고, 기존 M4A/WAV 외 MP3/FLAC 원본 포인터도 보존한다 (worker: codex_gpt-5).

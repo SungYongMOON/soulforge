@@ -51,6 +51,7 @@ guild_hall/state/operations/soulforge_activity/
 ```bash
 npm run guild-hall:activity:log -- --scope <scope> --action <action> --summary <summary>
 npm run guild-hall:activity:refresh -- --json
+npm run guild-hall:activity:asset-usage-report -- --json
 npm run guild-hall:healer:run -- --json
 ```
 
@@ -59,6 +60,14 @@ npm run guild-hall:healer:run -- --json
   - `events/YYYY/YYYY-MM.jsonl` 에 1건을 추가하고 `latest_context.json` 을 다시 만든다.
 - `guild-hall:activity:refresh`
   - 기존 event ledger 를 기준으로 `latest_context.json` 만 재생성한다.
+- `guild-hall:activity:asset-usage-report`
+  - canonical workflow/party/skill catalog 와 구조화된 `asset_usage` event 를 합쳐
+    사용량, 결과, 최근 성공, owner/baseline/fallback/evidence 누락을 출력한다.
+  - local/external automation 은 runtime event 가 있을 때만 포함한다.
+  - 기본/최대 최근 5,000 event와 한 건 lookahead를 읽고
+    `measurement_window`에 scan 수, 시각 범위, confirmed truncation 여부를
+    공개한다. 집계값은 이 window 안의 관찰값이다.
+  - 품질, ROI, 승급, default route, retire/archive 결정을 만들지 않는다.
 - `guild-hall:healer:run`
   - 24시간 PC 가 `git status`, root validation, gateway fetch healthcheck 를 실행하고 report/event 를 남긴다.
   - 자동 commit/push/merge/reset 은 하지 않는다.
@@ -118,6 +127,7 @@ npm run guild-hall:healer:run -- --json
 - `detail_owner`
 - `next_action`
 - `carry_forward`
+- `asset_usage` (optional; `soulforge.custom_asset_usage.v0`)
 - `sensitive_content_included`
 
 ## `log/**/*.md` 권장 필드
@@ -143,6 +153,9 @@ npm run guild-hall:healer:run -- --json
 7. night_watch preflight 결과, 점검 결과, `Fix Draft` 초안은 `log/**/*.md` 에 저장하고, 월별 `events/*.jsonl` 에는 요약만 남긴다.
 8. `log/**/*.md` 는 tracked docs/code 의 자동 수정 기록이 아니라, 점검 결과와 draft-only 제안의 저장 surface 로 사용한다.
 9. cross-project ontology review candidate 는 activity surface 에 남길 수 있으며, 이 경우 `carry_forward: true` 를 기본으로 둔다.
+10. custom asset 실행은 선택적으로 `asset_usage`에 canonical ref와 측정
+    pointer를 남긴다. raw/private payload는 복사하지 않으며 report는 기록된
+    event가 없는 자산을 "미사용"으로 단정하지 않는다.
 
 ## automation writer 규칙
 
@@ -160,6 +173,7 @@ npm run guild-hall:healer:run -- --json
 
 - [`../../../guild_hall/README.md`](../../../guild_hall/README.md)
 - [`GUILD_HALL_MODEL_V0.md`](GUILD_HALL_MODEL_V0.md)
+- [`CUSTOM_ASSET_USAGE_LIFECYCLE_V0.md`](CUSTOM_ASSET_USAGE_LIFECYCLE_V0.md)
 - [`../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)
 - [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`../bootstrap/UPDATE_MANUAL_V0.md`](../bootstrap/UPDATE_MANUAL_V0.md)

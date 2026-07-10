@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   ACTIVITY_EVENT_SCHEMA_VERSION,
   appendActivityEvent,
+  readRecentActivityEvents,
   refreshLatestContext,
   sanitizeActivityValue,
 } from "./activity_log.mjs";
@@ -76,6 +77,34 @@ test("refreshLatestContext keeps newest entries first", async () => {
     assert.equal(latest.recent_entries.length, 2);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("readRecentActivityEvents honors an explicit measurement window above the recent-context default", async () => {
+  const activityRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-activity-window-"));
+  try {
+    const eventRoot = path.join(activityRoot, "events", "2026");
+    await mkdir(eventRoot, { recursive: true });
+    const rows = Array.from({ length: 250 }, (_, index) => JSON.stringify({
+      entry_id: `event_${index}`,
+      occurred_at: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
+      summary: `event ${index}`,
+    }));
+    await writeFile(path.join(eventRoot, "2026-01.jsonl"), `${rows.join("\n")}\n`, "utf8");
+
+    const events = await readRecentActivityEvents({ activityRoot, limit: 250 });
+    assert.equal(events.length, 250);
+    assert.equal(events[0].entry_id, "event_249");
+    assert.equal((await readRecentActivityEvents({ activityRoot, limit: 251 })).length, 250);
+    rows.push(JSON.stringify({
+      entry_id: "event_250",
+      occurred_at: new Date(Date.UTC(2026, 0, 1, 4, 10)).toISOString(),
+      summary: "event 250",
+    }));
+    await writeFile(path.join(eventRoot, "2026-01.jsonl"), `${rows.join("\n")}\n`, "utf8");
+    assert.equal((await readRecentActivityEvents({ activityRoot, limit: 251 })).length, 251);
+  } finally {
+    await rm(activityRoot, { recursive: true, force: true });
   }
 });
 
@@ -297,6 +326,17 @@ test("mergeActivitySurfaces preserves malformed rows and sanitizes mirrored lega
           scope: "legacy",
           action: "manual_note",
           summary: "token=abc1234567890",
+          asset_usage: {
+            schema_version: "soulforge.custom_asset_usage.v0",
+            asset_type: "workflow",
+            asset_id: "example_v0",
+            asset_ref: ".workflow/example_v0/workflow.yaml",
+            maintenance_owner: ".workflow",
+            baseline_ref: "docs/architecture/workspace/examples/example.json",
+            outcome_evidence_ref: "guild_hall/state/operations/example.json",
+            fallback_ref: ".workflow/fallback_v0/workflow.yaml",
+            lifecycle_policy_ref: "docs/architecture/guild_hall/CUSTOM_ASSET_USAGE_LIFECYCLE_V0.md",
+          },
           raw_body: "<html><body>do not mirror</body></html>",
           attachment_content: "do not mirror",
         }),
@@ -323,10 +363,12 @@ test("mergeActivitySurfaces preserves malformed rows and sanitizes mirrored lega
     assert.equal(privateRaw.includes("attachment_content"), false);
     assert.equal(privateRaw.includes("abc1234567890"), false);
     assert.equal(privateRaw.includes("token=[redacted]"), true);
+    assert.equal(privateRaw.includes('"asset_usage"'), true);
 
     const latest = JSON.parse(await readFile(path.join(activityRoot, "latest_context.json"), "utf8"));
     assert.equal(JSON.stringify(latest).includes("raw_body"), false);
     assert.equal(JSON.stringify(latest).includes("abc1234567890"), false);
+    assert.equal(latest.recent_entries[0].asset_usage.asset_id, "example_v0");
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

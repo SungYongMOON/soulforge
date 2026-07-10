@@ -24,6 +24,7 @@
 | `KNOWLEDGE_WIKI_WORLDVIEW_V0.md` / `knowledge_wiki_worldview_v0.html` | Teammate-facing overview of the Soulforge knowledge wiki worldview, current status, operating rules, and next steps. |
 | `KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md` | Fixes the ERP decision to use Karpathy-style sourcebound wiki/RAG metadata, not a Karpathy LLM runtime install. |
 | `SOULFORGE_ACTIVITY_LOG_V0.md` | cross-project recent-context 와 carry-forward event surface 를 설명한다. |
+| `CUSTOM_ASSET_USAGE_LIFECYCLE_V0.md` | custom workflow/skill/party/automation의 metadata-only 사용·결과·owner/baseline/fallback gap 측정 계약이다. |
 | `SOULFORGE_SNAPSHOT_V0.md` | UI/external host 가 읽을 sanitized read-only snapshot 계약이다. |
 | `TRIAGE_BOARD_V0.md` | INBOX/pending monster 분류 대기량을 보여주는 read-only triage board projection 계약이다. |
 | `SQLITE_PROJECTION_V0.md` | metadata ledger 들을 local read-only SQLite projection 으로 모으는 스키마/loader 계약이다. |
@@ -89,6 +90,7 @@
 - [`knowledge_wiki_worldview_v0.html`](knowledge_wiki_worldview_v0.html)
 - [`KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md`](KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md)
 - [`SOULFORGE_ACTIVITY_LOG_V0.md`](SOULFORGE_ACTIVITY_LOG_V0.md)
+- [`CUSTOM_ASSET_USAGE_LIFECYCLE_V0.md`](CUSTOM_ASSET_USAGE_LIFECYCLE_V0.md)
 - [`SOULFORGE_SNAPSHOT_V0.md`](SOULFORGE_SNAPSHOT_V0.md)
 - [`NIGHT_WATCH_AUTOMATION_V0.md`](NIGHT_WATCH_AUTOMATION_V0.md)
 - [`ALWAYS_ON_STRATEGIC_REVIEW_V0.md`](ALWAYS_ON_STRATEGIC_REVIEW_V0.md)

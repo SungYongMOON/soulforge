@@ -5,8 +5,11 @@ import process from "node:process";
 import {
   appendActivityEvent,
   defaultActivityRoot,
+  MAX_MEASUREMENT_EVENT_READ,
+  readRecentActivityEvents,
   refreshLatestContext,
 } from "./activity_log.mjs";
+import { discoverCustomAssetCatalog, summarizeAssetUsage } from "./asset_usage.mjs";
 import {
   defaultPrivateStateRoot,
   syncActivityToPrivateState,
@@ -37,6 +40,7 @@ async function main() {
         next_action: args["next-action"],
         carry_forward: args["carry-forward"],
         actor: args.actor,
+        asset_usage: assetUsageFromArgs(args),
       },
     });
     printResult(args, {
@@ -45,6 +49,25 @@ async function main() {
       event: result.event,
       events_path: result.events_path,
       latest_context_path: result.latest_context_path,
+    });
+    return;
+  }
+
+  if (command === "asset-usage-report") {
+    const eventLimit = normalizeAssetUsageEventLimit(args.limit);
+    const catalog = await discoverCustomAssetCatalog(repoRoot);
+    const eventWindow = await readRecentActivityEvents({
+      activityRoot,
+      limit: eventLimit + 1,
+    });
+    const hasMoreEvents = eventWindow.length > eventLimit;
+    const events = eventWindow.slice(0, eventLimit);
+    const report = summarizeAssetUsage(events, { catalog: catalog.assets, eventLimit, hasMoreEvents });
+    printResult(args, {
+      status: "reported",
+      asset_usage_report: report,
+      catalog_discovery: catalog.discovery,
+      catalog_errors: catalog.errors,
     });
     return;
   }
@@ -155,6 +178,28 @@ function mergeRefs(args) {
   return refs;
 }
 
+function assetUsageFromArgs(args) {
+  if (!args["asset-type"] && !args.asset_type) return null;
+  return {
+    asset_type: args["asset-type"] ?? args.asset_type,
+    asset_id: args["asset-id"] ?? args.asset_id,
+    asset_ref: args["asset-ref"] ?? args.asset_ref,
+    maintenance_owner: args["maintenance-owner"] ?? args.maintenance_owner,
+    baseline_ref: args["baseline-ref"] ?? args.baseline_ref,
+    outcome_evidence_ref: args["outcome-evidence-ref"] ?? args.outcome_evidence_ref,
+    fallback_ref: args["fallback-ref"] ?? args.fallback_ref,
+    lifecycle_policy_ref: args["lifecycle-policy-ref"] ?? args.lifecycle_policy_ref,
+    duration_ms: args["duration-ms"] ?? args.duration_ms,
+  };
+}
+
+function normalizeAssetUsageEventLimit(value) {
+  const publicLimit = MAX_MEASUREMENT_EVENT_READ - 1;
+  const parsed = Number.parseInt(value ?? publicLimit, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return publicLimit;
+  return Math.min(parsed, publicLimit);
+}
+
 function printResult(args, payload) {
   if (args.json) {
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
@@ -190,6 +235,14 @@ function printResult(args, payload) {
   if (payload.latest_context_path) {
     lines.push(`latest_context: ${payload.latest_context_path}`);
   }
+  if (payload.asset_usage_report) {
+    lines.push(`catalog_assets: ${payload.asset_usage_report.counts.catalog_assets}`);
+    lines.push(`assets_with_usage: ${payload.asset_usage_report.counts.assets_with_usage}`);
+    lines.push(`unmeasured_assets: ${payload.asset_usage_report.counts.unmeasured_assets}`);
+    lines.push(`activity_events_scanned: ${payload.asset_usage_report.measurement_window.activity_events_scanned}`);
+    lines.push(`measurement_limit_reached: ${payload.asset_usage_report.measurement_window.limit_reached}`);
+    lines.push(`catalog_parse_errors: ${payload.catalog_errors?.length ?? 0}`);
+  }
   process.stdout.write(`${lines.join("\n")}\n`);
 }
 
@@ -197,8 +250,9 @@ function printUsageAndExit() {
   process.stderr.write(
     [
       "Usage:",
-      "  node guild_hall/activity/cli.mjs log --scope <scope> --action <action> --summary <summary> [--project-code <code>] [--result <result>] [--ref <path>] [--carry-forward true] [--next-action <text>] [--json]",
+      "  node guild_hall/activity/cli.mjs log --scope <scope> --action <action> --summary <summary> [--project-code <code>] [--result <result>] [--ref <path>] [--carry-forward true] [--next-action <text>] [--asset-type workflow|skill|party|automation --asset-id <id> --asset-ref <repo-ref> --maintenance-owner <owner> --baseline-ref <ref> --outcome-evidence-ref <ref> --fallback-ref <ref> --lifecycle-policy-ref <ref> --duration-ms <n>] [--json]",
       "  node guild_hall/activity/cli.mjs refresh [--recent-count <n>] [--json]",
+      "  node guild_hall/activity/cli.mjs asset-usage-report [--limit <n>] [--json]",
       "  node guild_hall/activity/cli.mjs project-mail-candidates [--queue-root <path>] [--json]",
       "  node guild_hall/activity/cli.mjs sync [--private-state-root <path>] [--skip-mail-candidate-projection] [--skip-pull] [--skip-commit] [--skip-push] [--json]",
     ].join("\n"),

@@ -10,7 +10,7 @@
 
 - `gateway/`: 메일 수집, intake, cross-project staging ingress
 - `doctor/`: clone 된 PC bootstrap readiness 점검과 local doctor status
-- `activity/`: Soulforge 전체 recent-context 장부 append/refresh 구현
+- `activity/`: Soulforge 전체 recent-context 장부 append/refresh와 custom asset usage measurement 구현
 - `knowledge_access/`: metadata-only knowledge ref read/use ledger append helper
 - `daily_ledger/`: metadata-only daily work ledger validator and ledger-only worklog draft renderer
 - `knowledge_graph/`: metadata-only knowledge graph JSON, HTML preview, and generated Obsidian view helper
@@ -39,6 +39,8 @@
 - `guild_hall/` 은 공용 운영 기능만 소유한다.
 - 실제 프로젝트 파일, project-side monster status, raw run truth 는 계속 `_workspaces/<project_code>/` 가 소유한다.
 - Soulforge 전체 활동 최근 맥락 같은 cross-project 총괄 context 는 project `_workmeta/` 가 아니라 `guild_hall/state/operations/**` 가 소유한다.
+- custom workflow/skill/party/automation 실행 측정은 activity event의 metadata-only
+  `asset_usage` 필드를 쓰며, 그 집계는 품질·ROI·승급·폐기 authority가 아니다.
 - cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
 - `knowledge_access/` 는 명시된 ledger root/file 에만 쓰며 source payload 를 ledger row 에 저장하지 않는다.
 - `daily_ledger/` 는 명시된 daily ledger file/ref 만 읽고 report time 에 mail, git history, system log, raw source ref, live `_workspaces` payload 를 스캔하지 않는다.
@@ -56,6 +58,7 @@
 - [`docs/architecture/guild_hall/SOULFORGE_SNAPSHOT_V0.md`](../docs/architecture/guild_hall/SOULFORGE_SNAPSHOT_V0.md)
 - [`docs/architecture/guild_hall/ASSISTANT_DASHBOARD_V0.md`](../docs/architecture/guild_hall/ASSISTANT_DASHBOARD_V0.md)
 - [`docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`](../docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md)
+- [`docs/architecture/guild_hall/CUSTOM_ASSET_USAGE_LIFECYCLE_V0.md`](../docs/architecture/guild_hall/CUSTOM_ASSET_USAGE_LIFECYCLE_V0.md)
 - [`docs/architecture/workspace/VOICE_CAPTURE_MVP_V0.md`](../docs/architecture/workspace/VOICE_CAPTURE_MVP_V0.md)
 - [`docs/architecture/bootstrap/README.md`](../docs/architecture/bootstrap/README.md)
 - [`_workspaces/README.md`](../_workspaces/README.md)
