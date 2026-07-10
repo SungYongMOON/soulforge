@@ -75,6 +75,10 @@ PLAUD account collector on an always-on node
   recovery command rather than the normal periodic trigger.
 - Provider recording IDs provide payload deduplication. A trigger remains
   pending when audio or transcript is not yet available.
+- Every watcher run scans imported audio sessions for the current independent
+  run before draining the durable queue. This recovers a session whose original
+  import succeeded but whose first queue-file write failed, without downloading
+  or duplicating the original recording again.
 - PLAUD audio is a canonical source candidate. PLAUD transcript and speaker
   labels remain auxiliary and unverified; PLAUD summaries are quarantined and
   cannot directly create tasks or meeting minutes.

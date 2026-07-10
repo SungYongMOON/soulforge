@@ -8,6 +8,7 @@
 - 완료된 음성 포인터를 기존 행보관 project-context 입력기가 직접 소비할 수 있는 metadata-only `events` packet으로 변환하는 어댑터와 소급 refresh 명령을 추가했다. 전사 본문은 어댑터에 복사하지 않는다.
 - 팀원 음성 사용은 전사와 분리된 opt-in 화자 식별 lane으로 설계했다. 익명 화자분리 뒤 동의받은 로컬 enrollment만 대조하며, 임계값 미달은 `UNKNOWN`으로 유지하고 화자 제안만으로 담당자·참석자·일정을 확정하지 않는다 (worker: codex_gpt-5).
 - 장시간 사무실 배경음에서 동일 문구가 연쇄 생성되는 실제 품질 문제를 확인해 독립 전사 기본 프로필을 VAD·문맥 전파 차단·온도 fallback 차단·비음성 토큰 억제 조합으로 갱신했다. 근접 동일문구는 usable transcript에서 빼되 local 감사 sidecar와 집계 품질 플래그로 보존한다 (worker: codex_gpt-5).
+- PLAUD 원음 import는 성공했지만 첫 local-ASR queue 기록만 실패한 세션이 영구 누락되지 않도록, watcher가 매 실행마다 현재 run 미완료 세션을 다시 찾아 durable queue를 복구한 뒤 drain하도록 보강했다 (worker: codex_gpt-5).
 
 ### PLAUD 조건부 파일럿 채택 결정
 

@@ -227,21 +227,31 @@ test("PLAUD watcher drains a pending local-ASR queue even when no mail trigger i
         enabled: true,
       },
     };
-    let invoked = 0;
+    const invoked = [];
     const result = await drainPlaudMailQueue({
       repoRoot,
       profile,
       apply: true,
       localAsrProfile: { max_sessions_per_queue_run: 1 },
+      localAsrBacklogEnqueuer: async (options) => {
+        invoked.push("recover");
+        assert.equal(options.apply, true);
+        return { applied: true, pending_count: 1, queued_count: 1 };
+      },
       localAsrQueueDrainer: async (options) => {
-        invoked += 1;
+        invoked.push("drain");
         assert.equal(options.apply, true);
         return { applied: true, remaining_pending_count: 1, retry_required: true };
       },
     });
-    assert.equal(invoked, 1);
+    assert.deepEqual(invoked, ["recover", "drain"]);
     assert.equal(result.pending_count, 0);
     assert.equal(result.retry_required, true);
+    assert.deepEqual(result.local_asr.backlog_recovery, {
+      applied: true,
+      pending_count: 1,
+      queued_count: 1,
+    });
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

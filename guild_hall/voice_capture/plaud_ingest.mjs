@@ -10,6 +10,7 @@ import { writeRecordingLibraryEntry, writeWorkmetaDraft } from "./voice_capture.
 import {
   buildLocalAsrPreflight,
   drainLocalAsrQueue,
+  enqueueLocalAsrBacklog,
   enqueueLocalAsrSession,
   loadLocalAsrProfile,
 } from "./local_asr.mjs";
@@ -714,8 +715,15 @@ async function maybeDrainLocalAsr(options) {
   try {
     const localAsrProfile = options.localAsrProfile
       ?? (await loadLocalAsrProfile({ repoRoot, profileRef: profile.independent_asr.profile_ref })).profile;
+    const backlogEnqueuer = options.localAsrBacklogEnqueuer ?? enqueueLocalAsrBacklog;
+    const backlogRecovery = await backlogEnqueuer({
+      repoRoot,
+      profile: localAsrProfile,
+      apply: options.apply,
+      now: options.now,
+    });
     const drainer = options.localAsrQueueDrainer ?? drainLocalAsrQueue;
-    return await drainer({
+    const drain = await drainer({
       repoRoot,
       profile: localAsrProfile,
       profileRef: profile.independent_asr.profile_ref,
@@ -724,6 +732,14 @@ async function maybeDrainLocalAsr(options) {
       now: options.now,
       commandRunner: options.localAsrCommandRunner,
     });
+    return {
+      ...drain,
+      backlog_recovery: {
+        applied: Boolean(backlogRecovery.applied),
+        pending_count: Number(backlogRecovery.pending_count ?? 0),
+        queued_count: Number(backlogRecovery.queued_count ?? 0),
+      },
+    };
   } catch {
     return {
       schema_version: "soulforge.local_asr_queue_drain.v0",

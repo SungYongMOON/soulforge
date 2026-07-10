@@ -98,7 +98,9 @@ event. It does not decide the project or create formal tasks.
 
 `sync` remains available as an explicit recovery command when the notification
 mail was missed. Normal operation uses `drain-mail-queue --apply` through the
-launchd watcher.
+launchd watcher. Before each drain, the watcher also discovers imported audio
+that still lacks the current independent run and recreates any missing durable
+queue item.
 
 Create and check the Mac mini independent-ASR profile:
 
