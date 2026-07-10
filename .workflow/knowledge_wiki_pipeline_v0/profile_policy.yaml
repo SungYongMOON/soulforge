@@ -1,18 +1,66 @@
 workflow_id: knowledge_wiki_pipeline_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260519_quality_equiv_001
-calibration_mode: cli_only_calibration
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 matrix_mode: minimal_required_quality_equivalence
 measurement_policy:
-  quality_source: cli_only_calibration
-  telemetry_source: cli_only_calibration_all_candidates
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
   telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
-  quality_equivalence_policy: batch_20260519
 primary_profile:
+  model: gpt-5.6-luna
+  reasoning_effort: medium
+  species: dwarf
+  class: pathfinder
+  candidate_id: MIG_gpt56_luna_medium_shape_r2
+  quality_score: 90
+  token_proxy: 15269
+  usage:
+    input_tokens: 14650
+    cached_input_tokens: 12032
+    output_tokens: 619
+    reasoning_output_tokens: 48
+  wall_s: 15.431
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_sol_low_shape_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: pathfinder
+    quality_score: 94
+    task_success: 0.94
+    token_proxy: 16676
+    usage:
+      input_tokens: 15837
+      cached_input_tokens: 8960
+      output_tokens: 839
+      reasoning_output_tokens: 97
+    wall_s: 32.92
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - model pricing or availability changed
+  - primary profile fails quality gate
+  - new public-safe fixture family added
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - This policy was updated from a public-safe synthetic batch calibration.
+  - Workflow readiness label remains pilot-executed; optimization does not
+    promote a stronger workflow authority state by itself.
+  - Primary selection prefers the lowest-cost quality-equivalent candidate in
+    this batch.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.5
   reasoning_effort: medium
   species: dwarf
@@ -27,39 +75,17 @@ primary_profile:
   total_tokens: 47923
   reasoning_output_tokens: 516
   wall_s: 22.08
-shadow_top_k:
-  - rank: 2
-    label: gpt-5.5|xhigh|dwarf|pathfinder
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: pathfinder
-    quality_score: 97
-    quality_class: quality_equivalent_pass
-    baseline_relative_quality: 1
-    total_tokens: 52387
-    reasoning_output_tokens: 516
-    wall_s: 27.6
-  - rank: 3
-    label: gpt-5.5|low|dwarf|pathfinder
-    model: gpt-5.5
-    reasoning_effort: low
-    species: dwarf
-    class: pathfinder
-    quality_score: 89
-    quality_class: minimum_viable_pass
-    baseline_relative_quality: 0.918
-    total_tokens: 47905
-    reasoning_output_tokens: 10
-    wall_s: 20.81
-rerun_triggers:
-  - workflow prompt changed
-  - output schema changed
-  - model pricing or availability changed
-  - primary profile fails quality gate
-  - new public-safe fixture family added
-calibration_archive_ref: calibrations/cal_20260519_quality_equiv_001/
-notes:
-  - This policy was updated from a public-safe synthetic batch calibration.
-  - Workflow readiness label remains pilot-executed; optimization does not promote a stronger workflow authority state by itself.
-  - Primary selection prefers the lowest-cost quality-equivalent candidate in this batch.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - pathfinder
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_gpt56_profile_selected_against_saved_incumbent

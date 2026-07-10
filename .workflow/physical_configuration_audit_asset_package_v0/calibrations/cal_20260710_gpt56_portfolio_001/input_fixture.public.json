@@ -1,0 +1,41 @@
+{
+  "workflow_id": "physical_configuration_audit_asset_package_v0",
+  "fixture_id": "PUBLIC_SYNTH_PHYSICAL_CONFIGURATION_AUDIT_ASSET_PACKAGE_V0",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "Physical Configuration Audit Asset Package v0",
+  "workflow_summary": "Verify that an artifact package matches the declared physical/configuration baseline using checksums, attachment records, source refs, and release-candidate package inventory without judging functional adequacy or mutating upstream artifacts.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "physical_audit_project_binding",
+    "baseline_manifest_refs",
+    "approved_physical_audit_policy"
+  ],
+  "expected_output_groups": [
+    "physical_audit_packet",
+    "artifact_inventory_report",
+    "checksum_report",
+    "missing_or_mismatched_artifacts",
+    "release_blocking_discrepancies",
+    "owner_followup_needed",
+    "closure_handoff",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "baseline",
+    "checksum",
+    "discrepancy",
+    "boundary",
+    "no functional claim"
+  ],
+  "scenario_facts": [
+    "one checksum match",
+    "one missing artifact",
+    "one release-blocking discrepancy"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

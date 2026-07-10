@@ -1,0 +1,10 @@
+{
+  "sufficient": true,
+  "missing_critical_conditions": [],
+  "overfit_risks": [],
+  "revised_criteria": [
+    "Require the simulator target to be identified as LTspice and require simulator_setup_requirements to state no execution/conversion is authorized under the present policy.",
+    "Require model_dependency_map to explicitly classify each dependency as present, supported, unverified, missing, or blocked by approval.",
+    "Require unresolved_deck_inputs and deck_prepare_blockers to distinguish missing inputs from owner-approval blockers while still concluding simulation_run_verify is blocked."
+  ]
+}

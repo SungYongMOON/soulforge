@@ -1,0 +1,69 @@
+workflow_id: interface_control_and_harness_readiness_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+date: 2026-07-10
+optimization_intent: migration_validation
+public_safe: true
+incumbent_comparator:
+  profile:
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: elf
+    class: auditor
+    candidate_id: c11_gpt55_medium_elf_auditor
+    quality_gate: pass
+    quality_class: quality_equivalent_pass
+    quality_score: 95
+    baseline_relative_quality: 0.99
+    telemetry_proxy:
+      input_tokens: 17566
+      cached_input_tokens: 7552
+      output_tokens: 1853
+      reasoning_output_tokens: 516
+      wall_time_seconds: 38.55
+    selection_reason: Selected under the revised quality-equivalence policy after
+      actual gpt-5.5 candidate comparison; preserved all critical interface and
+      join ceilings with compact machine-readable output and no material loss
+      against the gpt-5.5/xhigh baseline.
+  evidence_ref: .workflow/interface_control_and_harness_readiness_v0/calibrations/cal_20260515_quality_equiv_001/
+search_scope:
+  exhaustive_authorized: false
+  initial_candidates:
+    - saved incumbent evidence
+    - gpt-5.6-sol|low
+    - gpt-5.6-luna|medium
+  targeted_shape_replays: 0
+  current_contract_incumbent_run: false
+  terra_escalation: true
+candidate_count: 4
+quality_passing_candidate_count: 0
+fixture_ref: .workflow/interface_control_and_harness_readiness_v0/calibrations/cal_20260710_gpt56_portfolio_001/input_fixture.public.json
+quality_gate_ref: .workflow/interface_control_and_harness_readiness_v0/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/criteria.json
+gate_review_ref: .workflow/interface_control_and_harness_readiness_v0/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/evaluator_review.json
+capability_runner_snapshot_ref: .workflow/interface_control_and_harness_readiness_v0/calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+final_review_ref: .workflow/interface_control_and_harness_readiness_v0/calibrations/cal_20260710_gpt56_portfolio_001/subagent_matrix/quality_eval.jsonl
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+    - gpt-5.6-terra
+  species:
+    - elf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+measurement_sources:
+  quality: fresh_independent_two_lane_candidate_review
+  telemetry: codex_exec_turn_completed_usage
+  service: OpenAI Codex CLI via ChatGPT account
+  billing_mode: subscription_or_credit_meter_not_authoritatively_observed
+  pricing: not_used
+  billed_cost: not_available
+usage_evidence: workflow_frequency_not_measured
+boundaries:
+  golden_body_read: false
+  old_candidate_body_read: false
+  private_raw_secret_used: false
+claim_ceiling: observed

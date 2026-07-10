@@ -1,0 +1,36 @@
+workflow_id: simulation_stimulus_measurement_packet_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: migration_validation
+migration_decision: retained
+selected_candidate_id: SAVED_incumbent
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: qe_dwarf_auditor_gpt-5.5_medium
+  quality_gate: pass
+  quality_class: quality_equivalent_pass
+  output_quality_score: 97
+  baseline_relative_quality: 0.97
+  measured_tokens:
+    input_tokens: 17351
+    cached_input_tokens: 7552
+    output_tokens: 1451
+    reasoning_output_tokens: 18
+  wall_time_seconds: 30.341
+  telemetry_source: codex_exec_json_cli_proxy
+  selection_reason: Best-value quality-equivalent candidate; it preserved all
+    seed-input and measurement boundaries while making the missing IDD
+    probe-node blocker explicit.
+quality_score: null
+token_proxy: null
+wall_s: null
+selection_claim: incumbent_retained_by_quality_priority
+reason: Saved incumbent quality comparator was not numeric; conservative retention.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

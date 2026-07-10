@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### GPT-5.6 워크플로 포트폴리오 재최적화
+
+- 과거 최적화 이력이 있는 62개 워크플로를 적용성 gate와 단계식 후보 탐색으로 재검증했다. 59개는 새 공개 합성 fixture와 독립 품질 심사를 거쳐 28개 profile을 교체하고 31개를 유지했으며, `rag_work_card_router_v0`는 deterministic validator가 결과 권한을 가지므로 최적화 비적용으로 유지했다. 두 same-day pilot은 중복 실행 없이 재사용했다.
+- 품질 하드게이트 뒤에서만 token proxy와 wall time을 비교했고, no-pass 대상의 제한적 Terra/medium Stage 2에서 2개를 추가 선택했다. billed cost, 총 절감액, payback, ROI, global-cheapest 주장은 하지 않는다. 두 pilot capability snapshot의 host-local 경로 4필드는 owner 승인에 따라 public-safe 식별자로만 교정하고 별도 영수증을 남겼다. (worker: `codex_gpt-5`)
+
 ### Workflow Optimizer 모델 이행 검증 경량화
 
 - `workflow_optimizer`를 적용성 판정과 `migration_validation`/`profile_search` 분리, incumbent 중심 shortlist, archetype/sentinel 기반 확장으로 바꿔 새 모델 출시 때 워크플로우별 전수 Cartesian 재탐색을 기본값에서 제외했다. runner/model/effort preflight 실패는 `blocked_runner_catalog_incompatible`로 막고, 실제 후보가 실행되지 않으면 incumbent 유지와 no-winner를 강제한다.

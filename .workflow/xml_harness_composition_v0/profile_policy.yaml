@@ -1,15 +1,117 @@
 workflow_id: xml_harness_composition_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515_quality_equiv_001
-calibration_mode: cli_only_calibration
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: cli_only_calibration
-  telemetry_source: codex_exec_json_cli_proxy
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: human
+  class: auditor
+  candidate_id: SAVED_incumbent
+  measured_tokens:
+    input_tokens: 73558
+    cached_input_tokens: 49792
+    output_tokens: 4548
+    reasoning_output_tokens: 447
+    telemetry_source: codex_exec_json_cli_proxy
+  wall_time_seconds: 90.055
+  quality_score: 96
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 0.96
+  quality_gate: pass
+  rationale: >
+    Lowest wall-time and lower-token quality-equivalent candidate against the
+    gpt-5.5/xhigh baseline. Preserved required packet shape, conservative
+    connection classification, explicit owner follow-up, source-supported
+    emptiness, local/internal blocking, and public-safe boundary limits.
+  token_proxy: null
+  usage: null
+  wall_s: null
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_sol_low_shape_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: human
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 19406
+    usage:
+      input_tokens: 17276
+      cached_input_tokens: 8960
+      output_tokens: 2130
+      reasoning_output_tokens: 199
+    wall_s: 97.391
+  - candidate_id: MIG_gpt56_luna_medium_shape_r2
+    profile:
+      model: gpt-5.6-luna
+      reasoning_effort: medium
+      species: human
+      class: auditor
+    quality_score: 96
+    task_success: 0.97
+    token_proxy: 17373
+    usage:
+      input_tokens: 16089
+      cached_input_tokens: 12032
+      output_tokens: 1284
+      reasoning_output_tokens: 191
+    wall_s: 28.01
+non_promoted_candidates:
+  - candidate_id: C02
+    model: gpt-5.5
+    reasoning_effort: low
+    species: human
+    class: auditor
+    measured_tokens:
+      input_tokens: 42466
+      cached_input_tokens: 32512
+      output_tokens: 3623
+      reasoning_output_tokens: 57
+      telemetry_source: codex_exec_json_cli_proxy
+    wall_time_seconds: 74.266
+    quality_score: 86
+    quality_class: minimum_viable_pass
+    quality_gate: not_promotable
+    reason: Required packet shape was wrapped and renamed, weakening
+      machine-readable handoff versus the baseline.
+rerun_triggers:
+  - page_module_spec_v0 system_contract schema changes
+  - capture intake packet schema changes
+  - component materials packet schema changes
+  - layout guide packet schema changes
+  - harness classification states change
+  - first_profile_calibration_run
+  - owner approves source-supported promotion criteria changes
+  - model availability, pricing, or latency characteristics materially change
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - This policy is based on a public-safe synthetic CLI-only calibration because
+    isolated subagent/candidate-runner tooling was unavailable in the current
+    runtime.
+  - Previous primary and shadow profiles were absent, so no previous profile
+    reruns were applicable.
+  - Actual gpt-5.5 low, medium, and xhigh candidates were run; gpt-5.5/xhigh was
+    both baseline and formal candidate.
+  - C02 is retained only as minimum_viable_pass evidence and is not promotable
+    under the revised quality-equivalence policy.
+  - CLI telemetry is proxy telemetry and does not represent exact subagent usage.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.5
   reasoning_effort: medium
   species: human
@@ -31,54 +133,17 @@ primary_profile:
     gpt-5.5/xhigh baseline. Preserved required packet shape, conservative
     connection classification, explicit owner follow-up, source-supported
     emptiness, local/internal blocking, and public-safe boundary limits.
-shadow_top_k:
-  - rank: 2
-    candidate_id: C01
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: human
-    class: auditor
-    measured_tokens:
-      input_tokens: 108228
-      cached_input_tokens: 81408
-      output_tokens: 6493
-      reasoning_output_tokens: 2525
-      telemetry_source: codex_exec_json_cli_proxy
-    wall_time_seconds: 125.912
-    quality_score: 100
-    quality_class: quality_equivalent_pass
-    quality_gate: pass
-    note: Baseline candidate retained as the strongest-quality shadow.
-non_promoted_candidates:
-  - candidate_id: C02
-    model: gpt-5.5
-    reasoning_effort: low
-    species: human
-    class: auditor
-    measured_tokens:
-      input_tokens: 42466
-      cached_input_tokens: 32512
-      output_tokens: 3623
-      reasoning_output_tokens: 57
-      telemetry_source: codex_exec_json_cli_proxy
-    wall_time_seconds: 74.266
-    quality_score: 86
-    quality_class: minimum_viable_pass
-    quality_gate: not_promotable
-    reason: Required packet shape was wrapped and renamed, weakening machine-readable handoff versus the baseline.
-rerun_triggers:
-  - page_module_spec_v0 system_contract schema changes
-  - capture intake packet schema changes
-  - component materials packet schema changes
-  - layout guide packet schema changes
-  - harness classification states change
-  - first_profile_calibration_run
-  - owner approves source-supported promotion criteria changes
-  - model availability, pricing, or latency characteristics materially change
-calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
-notes:
-  - This policy is based on a public-safe synthetic CLI-only calibration because isolated subagent/candidate-runner tooling was unavailable in the current runtime.
-  - Previous primary and shadow profiles were absent, so no previous profile reruns were applicable.
-  - Actual gpt-5.5 low, medium, and xhigh candidates were run; gpt-5.5/xhigh was both baseline and formal candidate.
-  - C02 is retained only as minimum_viable_pass evidence and is not promotable under the revised quality-equivalence policy.
-  - CLI telemetry is proxy telemetry and does not represent exact subagent usage.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - human
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: retained
+selection_claim: incumbent_retained_by_quality_priority

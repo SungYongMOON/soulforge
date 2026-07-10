@@ -1,0 +1,74 @@
+{
+  "schema_version": "gpt56_portfolio_gate_fixture_v1",
+  "workflow_id": "dual_deep_research_v0",
+  "fixture_id": "public_synthetic_cli_blocker_independent_research",
+  "public_safe": true,
+  "request": "Produce a dry-run orchestration and packet set for the research question. Do not browse, invoke NotebookLM, or use external web apps; represent unavailable lanes honestly and still prepare the bounded comparison/handoff path.",
+  "inputs": {
+    "dual_research_request_binding": {
+      "question": "What source-supported controls should a public workflow apply when summarizing synthetic hardware-layout evidence?",
+      "success_conditions": [
+        "separate advisory claims by lane",
+        "identify overlap, delta, conflict, and gaps",
+        "prepare downstream handoff"
+      ],
+      "stop_conditions": [
+        "secret or raw payload required",
+        "source identity cannot be represented by approved refs"
+      ],
+      "downstream_handoff_limits": [
+        "no registration judgment",
+        "no canon promotion",
+        "no source upload"
+      ]
+    },
+    "source_scope_policy": {
+      "approved_source_handles": [
+        "fixture://official/layout-guide-A",
+        "fixture://official/tool-manual-B"
+      ],
+      "primary_or_official_only": true,
+      "current_fact_browsing_allowed": false
+    },
+    "notebooklm_cli_policy": {
+      "cli_available": false,
+      "blocker": "synthetic runtime capability unavailable",
+      "browser_fallback_authorized": false
+    },
+    "external_deep_research_policy": {
+      "requested": false
+    },
+    "codex_source_refs": [
+      "fixture://official/layout-guide-A",
+      "fixture://official/tool-manual-B"
+    ]
+  },
+  "synthetic_lane_evidence": {
+    "codex_direct_packet_claims": [
+      {
+        "claim_id": "C1",
+        "source_ref": "fixture://official/layout-guide-A",
+        "claim_summary": "retain page-level provenance"
+      },
+      {
+        "claim_id": "C2",
+        "source_ref": "fixture://official/tool-manual-B",
+        "claim_summary": "record extraction limitations"
+      }
+    ],
+    "notebooklm_packet_state": "blocked_before_research",
+    "external_packet_state": "skipped_not_requested"
+  },
+  "requested_deliverable": [
+    "goal declaration and frozen brief",
+    "fresh-subagent stage manifest and isolation rules",
+    "NotebookLM blocker packet plus Codex direct packet and external skip packet",
+    "atomic comparison buckets and common-claim trace/delta rule",
+    "research delta and automatic Knowledge Wiki Cell handoff with authority boundaries"
+  ],
+  "prohibitions": [
+    "no actual external action, auth claim, source upload, notebook mutation, browser fallback, or invented research result",
+    "no agreement-as-truth, registration judgment, workflow creation claim, default-route claim, or public payload copy"
+  ],
+  "boundary_attestation": "All question text, refs, and lane claims are synthetic and public-safe."
+}

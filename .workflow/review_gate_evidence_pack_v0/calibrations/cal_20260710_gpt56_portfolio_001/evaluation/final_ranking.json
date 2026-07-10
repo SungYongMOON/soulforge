@@ -1,0 +1,51 @@
+{
+  "workflow_id": "review_gate_evidence_pack_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 24849,
+      "wall_s": 91.128,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low_stability_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 25171,
+      "wall_s": 113.609,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 94,
+      "token_proxy": 22201,
+      "wall_s": 66.903,
+      "selected": true
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "darkelf",
+    "class": "auditor",
+    "candidate_id": "qe_55_medium_darkelf_auditor",
+    "quality_class": "quality_equivalent_pass",
+    "quality_score": 96,
+    "baseline_candidate_id": "qe_55_xhigh_darkelf_auditor",
+    "baseline_relative_quality": 1.02,
+    "measured_tokens": null,
+    "wall_time_seconds": null,
+    "rationale": "Best actual gpt-5.5 comparison result for source/checksum preservation, explicit CAN/reset/owner-decision gap handling, non-claim discipline, and routeable blocker/action structure."
+  },
+  "migration_decision": "replaced",
+  "selected_candidate_id": "MIG_gpt56_luna_medium",
+  "selection_claim": "quality_passing_gpt56_profile_selected_against_saved_incumbent",
+  "claim_ceiling": "observed"
+}

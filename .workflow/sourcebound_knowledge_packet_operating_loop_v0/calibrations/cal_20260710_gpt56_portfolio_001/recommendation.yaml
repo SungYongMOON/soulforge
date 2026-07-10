@@ -1,0 +1,22 @@
+workflow_id: sourcebound_knowledge_packet_operating_loop_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: profile_search
+migration_decision: retained
+selected_candidate_id: CURRENT_incumbent_gpt_5_5_medium
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: dwarf
+  class: archivist
+quality_score: 98
+token_proxy: 23361
+wall_s: 63.02
+selection_claim: quality_passing_profile_selected_among_fresh_current_contract_candidates
+reason: Current-contract comparison remained unstable on single challenger runs;
+  conservative fresh-incumbent retention.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

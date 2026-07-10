@@ -1,16 +1,50 @@
 workflow_id: meeting_followup
 kind: workflow_profile_policy
 status: active
-last_calibration_id: 20260511-121150_cli_full_matrix
-calibration_mode: legacy_cli_full_matrix_import
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: cli_full_matrix_rule_eval_and_llm_shortlist
-  telemetry_source: cli_full_matrix_all_candidates
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
   telemetry_exact_for_cli: true
-  cost_confidence: cli_exact_subagent_proxy
+  cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: orc
+  class: auditor
+  label: gpt-5.4-mini|medium|orc|auditor
+  quality_score: 95
+  rule_score: 100
+  total_tokens: 16808
+  reasoning_output_tokens: 516
+  wall_s: null
+  cost_usd_est: 0.00913185
+  candidate_id: SAVED_incumbent
+  token_proxy: null
+  usage: null
+  claim_ceiling: observed
+shadow_top_k: []
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - model pricing or availability changed
+  - primary profile fails quality gate
+  - first subagent-quality calibration is required
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - Imported from the earlier public-safe CLI full matrix because the workflow
+    canon entry did not exist at run time.
+  - This is useful as retained evidence, but the next official calibration
+    should use `subagent_quality_first`.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.4-mini
   reasoning_effort: medium
   species: orc
@@ -22,28 +56,18 @@ primary_profile:
   reasoning_output_tokens: 516
   wall_s: 14.3
   cost_usd_est: 0.00913185
-shadow_top_k:
-  - rank: 2
-    label: gpt-5.5|high|dwarf|archivist
-    model: gpt-5.5
-    reasoning_effort: high
-    species: dwarf
-    class: archivist
-    quality_score: 93
-  - rank: 3
-    label: gpt-5.5|xhigh|orc|auditor
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: orc
-    class: auditor
-    quality_score: 92
-rerun_triggers:
-  - workflow prompt changed
-  - output schema changed
-  - model pricing or availability changed
-  - primary profile fails quality gate
-  - first subagent-quality calibration is required
-calibration_archive_ref: calibrations/20260511-121150_cli_full_matrix/
-notes:
-  - Imported from the earlier public-safe CLI full matrix because the workflow canon entry did not exist at run time.
-  - This is useful as retained evidence, but the next official calibration should use `subagent_quality_first`.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+    - gpt-5.6-terra
+  species:
+    - orc
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: retained
+selection_claim: incumbent_retained_no_gpt56_challenger_passed

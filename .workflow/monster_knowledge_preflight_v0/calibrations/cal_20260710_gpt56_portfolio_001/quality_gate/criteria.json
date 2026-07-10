@@ -1,0 +1,31 @@
+{
+  "calibration_id": "cal_20260519_quality_equiv_001",
+  "workflow_id": "monster_knowledge_preflight_v0",
+  "policy": "quality_equivalence_batch_20260519_cli_only",
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|pathfinder",
+  "baseline_relative_threshold": 0.9,
+  "quality_equivalence_threshold": 90,
+  "expected_output_groups": [
+    "knowledge_preflight_packet",
+    "wiki_first_query_plan",
+    "source_scope_recommendation",
+    "claim_ceiling_seed",
+    "main_workflow_handoff",
+    "boundary_review_note"
+  ],
+  "hard_gates": [
+    "valid JSON final output",
+    "required output groups present",
+    "public-safe boundary preserved",
+    "no claimed tool use or file edits",
+    "no upstream mutation or false authority claim"
+  ],
+  "required_terms": [
+    "query first",
+    "metadata-only",
+    "source gap",
+    "boundary",
+    "claim ceiling"
+  ],
+  "quality_equivalent_definition": "hard gate passes, output-quality score >= 90, baseline-relative quality >= 0.90, and no critical section has material information loss versus the xhigh baseline"
+}

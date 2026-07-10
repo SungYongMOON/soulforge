@@ -1,0 +1,45 @@
+{
+  "schema_version": "gpt56_portfolio_evaluator_review_v1",
+  "workflow_id": "outlook_mail_reconcile_v0",
+  "reviewer_role": "fresh_independent_evaluator",
+  "claim_ceiling": "validated_private",
+  "candidate_execution_performed": false,
+  "review_history": [
+    {
+      "round": 1,
+      "outcome": "pass",
+      "summary": "The fixture exercises default-scope exclusion, honest preflight status, whitelist-only matching, duplicate suppression, ambiguity handling, received-history comparison, and dry-run boundaries."
+    }
+  ],
+  "reviewed_source_refs": [
+    ".workflow/outlook_mail_reconcile_v0/workflow.yaml",
+    ".workflow/outlook_mail_reconcile_v0/step_graph.yaml",
+    "automations/gpt56_portfolio_20260710/gate_authoring/outlook_mail_reconcile_v0/input_fixture.public.json",
+    "automations/gpt56_portfolio_20260710/gate_authoring/outlook_mail_reconcile_v0/quality_gate/criteria.json"
+  ],
+  "hard_gate_coverage": {
+    "HG1": "pass: dry-run scope, P00-000_INBOX exclusion, and requested-but-unattempted refresh are explicit",
+    "HG2": "pass: allowed metadata and prohibited body, attachment, secret, and hidden-path bases are covered",
+    "HG3": "pass: exact duplicate and ambiguous row outcomes are deterministic and non-writing",
+    "HG4": "pass: received discrepancy reporting is non-destructive and Outlook mutations are barred",
+    "HG5": "pass: metadata-only outputs, receipts, source-truth boundary, and claim review are required",
+    "HG6": "pass: Outlook/preflight, file-read, runtime-path, raw-mail, and golden fabrication are forbidden"
+  },
+  "scoring_sum_check": {
+    "declared_total_points": 100,
+    "computed_dimension_sum": 100,
+    "matches": true
+  },
+  "boundary_findings": {
+    "public_private_secret": "pass",
+    "authority": "pass",
+    "fabricated_execution_risk": "pass",
+    "usability_actionability": "pass"
+  },
+  "no_golden_finding": "pass: the supplied rows are synthetic input evidence, not a candidate or expected output body.",
+  "revisions_made": [],
+  "residual_gaps": [
+    "Outlook Send/Receive, mailbox reads, ledger reads/writes, and XLSX export were not executed."
+  ],
+  "final_verdict": "pass"
+}

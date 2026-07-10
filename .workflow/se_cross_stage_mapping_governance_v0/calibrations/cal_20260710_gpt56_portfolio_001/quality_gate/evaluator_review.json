@@ -1,0 +1,12 @@
+{
+  "workflow_id": "se_cross_stage_mapping_governance_v0",
+  "calibration_id": "cal_20260527_quality_equiv_001",
+  "review_result": "criteria_frozen_for_public_safe_synthetic_governance_calibration",
+  "overfit_check": "pass",
+  "boundary_check": "pass",
+  "notes": [
+    "Criteria judge governance route precision, not wording similarity to the baseline.",
+    "The cheapest mini candidate is retained as minimum viable but not primary-eligible because owner/source route precision was weaker.",
+    "No private raw project truth or source payload is included."
+  ]
+}

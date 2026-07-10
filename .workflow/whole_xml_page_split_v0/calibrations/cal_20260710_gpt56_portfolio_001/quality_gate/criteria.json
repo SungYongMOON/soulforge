@@ -1,0 +1,39 @@
+{
+  "workflow_id": "whole_xml_page_split_v0",
+  "calibration_id": "cal_20260515_quality_equiv_001",
+  "policy": "quality_equivalence_revised_20260515",
+  "baseline_profile": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "xhigh",
+    "species": "dwarf",
+    "class": "archivist"
+  },
+  "hard_gates": [
+    "public/private/secret boundary pass",
+    "required output shape present",
+    "no command/file/network claims",
+    "no golden-derived content in candidate prompt"
+  ],
+  "required_keys": [
+    "page_manifest",
+    "split_warnings",
+    "handoff",
+    "boundary_notes",
+    "next_actions"
+  ],
+  "must_mentions": [
+    "11",
+    "page_001",
+    "page_011",
+    "Page Count",
+    "8",
+    "source order",
+    "project-local",
+    "page_xml_normalize_spec_v0",
+    "raw XML not included"
+  ],
+  "classification": {
+    "quality_equivalent_pass": "hard gate pass, score >= 90, score >= 90% of gpt-5.5/xhigh baseline, no material required-section loss",
+    "minimum_viable_pass": "safe and usable with meaningful quality or machine-readability loss"
+  }
+}

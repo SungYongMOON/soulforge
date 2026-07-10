@@ -1,0 +1,84 @@
+{
+  "schema_version": "gpt56_portfolio_quality_gate_v1",
+  "workflow_id": "page_quantitative_enrichment_v0",
+  "evaluator_only": true,
+  "source_contract_refs": [
+    ".workflow/page_quantitative_enrichment_v0/workflow.yaml",
+    ".workflow/page_quantitative_enrichment_v0/step_graph.yaml"
+  ],
+  "hard_gates": [
+    {
+      "id": "HG1",
+      "requirement": "Verifies page identity/checksum/schema binding and treats source XML/sidecar/manifest/provenance/handoff as read-only owner inputs."
+    },
+    {
+      "id": "HG2",
+      "requirement": "Marks 5 V source_confirmed with evidence/location/unit/condition, keeps conflicting current review_required, refuses the requested power derivation until all operands are source-confirmed, and leaves AUX voltage missing."
+    },
+    {
+      "id": "HG3",
+      "requirement": "Uses only source_confirmed, derived, review_required, and missing field states and writes explicit machine-readable gap/downstream-impact/owner-action records for every unfilled required quantity."
+    },
+    {
+      "id": "HG4",
+      "requirement": "Writes a patch-like overlay targeting existing page_module_spec_v0 slots; it does not replace the sidecar or invent an authoritative schema."
+    },
+    {
+      "id": "HG5",
+      "requirement": "Produces delta-only harness readiness, preserves blockers and one-sided evidence, and makes no final connection, circuit synthesis, join promotion, or global readiness claim."
+    },
+    {
+      "id": "HG6",
+      "requirement": "No raw XML/vendor/private payload, secret, runtime absolute path, golden/candidate leakage, or fabricated execution/file-read claim."
+    }
+  ],
+  "scoring": {
+    "total_points": 100,
+    "pass_threshold": 80,
+    "dimensions": [
+      {
+        "id": "binding_and_inventory",
+        "max_points": 15,
+        "full_credit": "Contract identity, checksum, slots, evidence candidates, and missing/conflict reasons are auditable."
+      },
+      {
+        "id": "claim_correctness",
+        "max_points": 30,
+        "full_credit": "Direct, derived, review, and missing decisions obey evidence and anti-guessing rules."
+      },
+      {
+        "id": "overlay_quality",
+        "max_points": 15,
+        "full_credit": "Overlay is minimal, patch-like, targets existing slots, and preserves input ownership."
+      },
+      {
+        "id": "gap_followup",
+        "max_points": 15,
+        "full_credit": "Every unresolved required quantity has structured gap, impact, blocking level, and next action."
+      },
+      {
+        "id": "harness_delta",
+        "max_points": 15,
+        "full_credit": "Before/after, closed/remaining/new blockers, possible ceilings, and non-claims are precise."
+      },
+      {
+        "id": "provenance_boundary_usability",
+        "max_points": 10,
+        "full_credit": "All fills trace to evidence/derivation and output is safe and usable."
+      }
+    ]
+  },
+  "evaluation_instructions": {
+    "order": [
+      "apply_hard_gates",
+      "score_only_if_all_hard_gates_pass"
+    ],
+    "final_quality_values": [
+      "pass",
+      "fail"
+    ],
+    "score_rule": "Any hard-gate failure forces fail.",
+    "wording_rule": "Evaluate evidence logic and contract fidelity, not formatting."
+  },
+  "no_golden_attestation": "Derived only from current workflow.yaml and step_graph.yaml."
+}

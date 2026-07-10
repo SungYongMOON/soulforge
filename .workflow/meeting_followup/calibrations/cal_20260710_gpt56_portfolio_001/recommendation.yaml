@@ -1,0 +1,28 @@
+workflow_id: meeting_followup
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: migration_validation
+migration_decision: retained
+selected_candidate_id: SAVED_incumbent
+recommended_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: orc
+  class: auditor
+  label: gpt-5.4-mini|medium|orc|auditor
+  quality_score: 95
+  rule_score: 100
+  total_tokens: 16808
+  reasoning_output_tokens: 516
+  wall_s: 14.3
+  cost_usd_est: 0.00913185
+quality_score: 95
+token_proxy: null
+wall_s: null
+selection_claim: incumbent_retained_no_gpt56_challenger_passed
+reason: No fresh challenger passed the hard gate.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

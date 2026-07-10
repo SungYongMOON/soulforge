@@ -1,0 +1,84 @@
+{
+  "schema_version": "gpt56_portfolio_quality_gate_v1",
+  "workflow_id": "workflow_knowledge_preflight_v0",
+  "evaluator_only": true,
+  "source_contract_refs": [
+    ".workflow/workflow_knowledge_preflight_v0/workflow.yaml",
+    ".workflow/workflow_knowledge_preflight_v0/step_graph.yaml"
+  ],
+  "hard_gates": [
+    {
+      "id": "HG1",
+      "requirement": "Binds the target workflow and knowledge need before investigation and constructs a query-first plan."
+    },
+    {
+      "id": "HG2",
+      "requirement": "Applies the fixed order: registry/canon-backed Obsidian, NotebookLM advisory, workmeta/source packets, Drive/archive last."
+    },
+    {
+      "id": "HG3",
+      "requirement": "Recognizes the supplied first-surface refs as sufficient, records later surfaces as not inspected/not needed, and does not pretend to inspect them."
+    },
+    {
+      "id": "HG4",
+      "requirement": "Produces metadata-only source-scope recommendation, uncertainty notes, weakest claim-seed guidance, and target handoff with reroute triggers; the seed is not a final claim."
+    },
+    {
+      "id": "HG5",
+      "requirement": "Does not operate NotebookLM, read payloads, complete the target workflow, grant owner authority, validate source truth, accept ontology, or promote canon."
+    },
+    {
+      "id": "HG6",
+      "requirement": "No raw/private/secret payload, runtime absolute path, golden/candidate leakage, or fabricated command/file-read claim."
+    }
+  ],
+  "scoring": {
+    "total_points": 100,
+    "pass_threshold": 80,
+    "dimensions": [
+      {
+        "id": "binding_and_plan",
+        "max_points": 20,
+        "full_credit": "Target, need, policy, success boundary, and ordered query plan are explicit."
+      },
+      {
+        "id": "order_and_early_stop",
+        "max_points": 25,
+        "full_credit": "Investigation sequence and early sufficiency decision are exact and honest."
+      },
+      {
+        "id": "preflight_packet",
+        "max_points": 20,
+        "full_credit": "Used refs, skipped surfaces, coverage, gaps, and uncertainty are clear."
+      },
+      {
+        "id": "claim_and_source_route",
+        "max_points": 15,
+        "full_credit": "Claim seed and source-deepening route are conservative and conditional."
+      },
+      {
+        "id": "handoff",
+        "max_points": 10,
+        "full_credit": "Target handoff is metadata-only, actionable, and does not execute the target."
+      },
+      {
+        "id": "boundary_and_usability",
+        "max_points": 10,
+        "full_credit": "Authority and payload boundaries are explicit and output is concise."
+      }
+    ]
+  },
+  "evaluation_instructions": {
+    "order": [
+      "apply_hard_gates",
+      "score_only_if_all_hard_gates_pass"
+    ],
+    "final_quality_values": [
+      "pass",
+      "fail"
+    ],
+    "score_rule": "Any hard-gate failure forces fail.",
+    "wording_rule": "Judge semantics, not a fixed phrasing."
+  },
+  "no_golden_attestation": "Derived only from current workflow.yaml and step_graph.yaml."
+}

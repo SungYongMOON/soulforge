@@ -1,0 +1,10 @@
+{
+  "calibration_id": "cal_20260519_quality_equiv_001",
+  "workflow_id": "page_module_trace_matrix_v0",
+  "review_result": "criteria_frozen_for_batch_cli_only_calibration",
+  "notes": [
+    "Public-safe synthetic fixture used.",
+    "Required output groups come from workflow contract or explicit sample-group override.",
+    "Primary must reach quality_equivalent_pass against the xhigh baseline."
+  ]
+}

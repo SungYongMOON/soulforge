@@ -1,0 +1,53 @@
+{
+  "workflow_id": "project_readiness_digest_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 96,
+      "token_proxy": 17127,
+      "wall_s": 22.231,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 16745,
+      "wall_s": 17.165,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 15843,
+      "wall_s": 25.836,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "administrator",
+    "label": "gpt-5.5|medium|dwarf|administrator",
+    "quality_score": 94,
+    "quality_class": "quality_equivalent_pass",
+    "baseline_relative_quality": 1.033,
+    "input_tokens": 16122,
+    "cached_input_tokens": 7552,
+    "output_tokens": 886,
+    "total_tokens": 17008,
+    "reasoning_output_tokens": 30,
+    "wall_s": 22.91
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "SAVED_incumbent",
+  "selection_claim": "incumbent_retained_by_quality_priority",
+  "claim_ceiling": "observed"
+}

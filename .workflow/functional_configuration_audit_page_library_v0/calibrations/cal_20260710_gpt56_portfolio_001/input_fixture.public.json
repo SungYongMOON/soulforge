@@ -1,0 +1,41 @@
+{
+  "workflow_id": "functional_configuration_audit_page_library_v0",
+  "fixture_id": "PUBLIC_SYNTH_FUNCTIONAL_CONFIGURATION_AUDIT_PAGE_LIBRARY_V0",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "Functional Configuration Audit Page Library v0",
+  "workflow_summary": "Audit whether configured page modules and harness compositions satisfy declared functional or performance claims using accepted verification evidence and controlled baseline context, without approving acceptance or mutating upstream artifacts.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "functional_audit_project_binding",
+    "audit_scope_refs",
+    "approved_audit_policy"
+  ],
+  "expected_output_groups": [
+    "functional_audit_packet",
+    "verified_claim_register",
+    "unverified_claim_register",
+    "discrepancy_register",
+    "residual_risk_register",
+    "audit_readiness",
+    "closure_handoff",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "accepted evidence",
+    "discrepancy",
+    "residual risk",
+    "no acceptance claim",
+    "boundary"
+  ],
+  "scenario_facts": [
+    "one verified claim",
+    "one unverified claim",
+    "one discrepancy with residual risk"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

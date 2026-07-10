@@ -1,0 +1,46 @@
+{
+  "workflow_id": "se_stage_artifact_gap_scan_v0",
+  "fixture_id": "PUBLIC_SYNTH_SE_STAGE_ARTIFACT_GAP_SCAN_V0",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "SE Stage Artifact Gap Scan v0",
+  "workflow_summary": "한 체계공학 stage의 산출물/입력/근거/질문/다음 라우트를 점검하되, 문서 작성이나 승인 판단으로 넘어가지 않는 bounded controller workflow.",
+  "workflow_readiness_label": "registered",
+  "input_refs": [
+    "stage_gap_scan_binding",
+    "target_stage_code",
+    "stage_expected_artifact_policy",
+    "approved_scan_policy"
+  ],
+  "expected_output_groups": [
+    "stage_artifact_gap_scan_packet",
+    "stage_required_artifact_matrix",
+    "stage_input_gap_register",
+    "owner_input_queue",
+    "draftable_artifact_queue",
+    "diagram_need_register",
+    "stage_blocker_register",
+    "downstream_workflow_route_map",
+    "stage_scan_summary",
+    "stage_readiness_summary",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "stage",
+    "gap",
+    "owner input",
+    "boundary",
+    "no readiness claim"
+  ],
+  "scenario_facts": [
+    "one expected artifact exists",
+    "one expected artifact is still missing",
+    "one owner input is required",
+    "one downstream route is recommended"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

@@ -1,0 +1,37 @@
+workflow_id: capture_xml_intake_library_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: migration_validation
+migration_decision: retained
+selected_candidate_id: SAVED_incumbent
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: low
+  species: elf
+  class: administrator
+  candidate_id: qe_gpt_5_5_low_elf_administrator
+  measured_tokens:
+    input_tokens: 16832
+    cached_input_tokens: 7552
+    output_tokens: 2052
+    reasoning_output_tokens: 13
+    telemetry_source: codex_exec_json_cli_proxy
+  wall_time_seconds: 43.684
+  quality_score: 100
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1.042
+  quality_gate: quality_equivalent_pass
+  rationale: Revised 2026-05-15 calibration selected this gpt-5.5 candidate as the
+    lowest-token/fast-enough profile among candidates that passed the hard gate,
+    scored at least 90/100, and reached at least 90% of the gpt-5.5/xhigh
+    baseline on the frozen public-safe fixture.
+quality_score: 100
+token_proxy: null
+wall_s: null
+selection_claim: incumbent_retained_no_gpt56_challenger_passed
+reason: No fresh challenger passed the hard gate.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

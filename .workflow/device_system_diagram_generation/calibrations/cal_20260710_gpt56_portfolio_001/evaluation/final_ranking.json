@@ -1,0 +1,71 @@
+{
+  "workflow_id": "device_system_diagram_generation",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "ESC_gpt56_terra_medium_triggered",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 95,
+      "token_proxy": 16853,
+      "wall_s": 20.686,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 17262,
+      "wall_s": 25.905,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 16100,
+      "wall_s": 27.788,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 16263,
+      "wall_s": 16.031,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 16186,
+      "wall_s": 10.604,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "human",
+    "class": "administrator",
+    "label": "gpt-5.5|low|human|administrator",
+    "quality_score": 97,
+    "quality_class": "quality_equivalent_pass",
+    "baseline_relative_quality": 1,
+    "input_tokens": 25991,
+    "cached_input_tokens": 20864,
+    "output_tokens": 1382,
+    "total_tokens": 47411,
+    "reasoning_output_tokens": 516,
+    "wall_s": 16.46
+  },
+  "migration_decision": "replaced",
+  "selected_candidate_id": "ESC_gpt56_terra_medium_triggered",
+  "selection_claim": "quality_passing_gpt56_profile_selected_against_saved_incumbent",
+  "claim_ceiling": "observed"
+}

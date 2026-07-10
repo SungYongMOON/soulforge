@@ -1,0 +1,37 @@
+workflow_id: whole_xml_page_split_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: migration_validation
+migration_decision: retained
+selected_candidate_id: SAVED_incumbent
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: dwarf
+  class: archivist
+  candidate_id: qe_gpt_5_5_medium_dwarf_archivist
+  measured_tokens:
+    input_tokens: 17781
+    cached_input_tokens: 7552
+    output_tokens: 1604
+    reasoning_output_tokens: 30
+    telemetry_source: codex_exec_json_cli_proxy
+  wall_time_seconds: 33.573
+  quality_score: 96
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1
+  quality_gate: quality_equivalent_pass
+  rationale: Revised 2026-05-15 calibration selected this gpt-5.5 candidate as the
+    lowest-token/fast-enough profile among candidates that passed the hard gate,
+    scored at least 90/100, and reached at least 90% of the gpt-5.5/xhigh
+    baseline on the frozen public-safe fixture.
+quality_score: 96
+token_proxy: null
+wall_s: null
+selection_claim: incumbent_retained_no_gpt56_challenger_passed
+reason: No fresh challenger passed the hard gate.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

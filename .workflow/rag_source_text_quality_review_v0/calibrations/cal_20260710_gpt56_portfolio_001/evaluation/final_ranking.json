@@ -1,0 +1,73 @@
+{
+  "workflow_id": "rag_source_text_quality_review_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "ESC_gpt56_terra_medium_triggered",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 89,
+      "token_proxy": 24754,
+      "wall_s": 72.562,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 24232,
+      "wall_s": 62.48,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 23020,
+      "wall_s": 59.934,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 16272,
+      "wall_s": 17.83,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 14453,
+      "wall_s": 5.626,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "candidate_id": "A_mini_low_dwarf_auditor",
+    "model": "gpt-5.4-mini",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor",
+    "label": "gpt-5.4-mini|low|dwarf|auditor",
+    "quality_score": 94,
+    "quality_class": "quality_gate_pass",
+    "input_tokens": 20250,
+    "cached_input_tokens": 2432,
+    "output_tokens": 2029,
+    "total_tokens": 22279,
+    "reasoning_output_tokens": 23,
+    "wall_s": 24.925,
+    "telemetry_source": "codex_exec_json_cli_proxy",
+    "selection_reason": "Lowest-token and fastest exact-shape quality-passing candidate. It preserved the six required output shapes, all five synthetic page and claim refs, source_supported/manual_review/blocked status routing, and the payload-free non-authority boundary.\n"
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "SAVED_incumbent",
+  "selection_claim": "incumbent_retained_no_gpt56_challenger_passed",
+  "claim_ceiling": "observed"
+}

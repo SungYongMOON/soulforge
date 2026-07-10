@@ -1,0 +1,39 @@
+workflow_id: xml_harness_composition_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: migration_validation
+migration_decision: retained
+selected_candidate_id: SAVED_incumbent
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: human
+  class: auditor
+  candidate_id: C03
+  measured_tokens:
+    input_tokens: 73558
+    cached_input_tokens: 49792
+    output_tokens: 4548
+    reasoning_output_tokens: 447
+    telemetry_source: codex_exec_json_cli_proxy
+  wall_time_seconds: 90.055
+  quality_score: 96
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 0.96
+  quality_gate: pass
+  rationale: >
+    Lowest wall-time and lower-token quality-equivalent candidate against the
+    gpt-5.5/xhigh baseline. Preserved required packet shape, conservative
+    connection classification, explicit owner follow-up, source-supported
+    emptiness, local/internal blocking, and public-safe boundary limits.
+quality_score: 96
+token_proxy: null
+wall_s: null
+selection_claim: incumbent_retained_by_quality_priority
+reason: Fresh challenger result remained an unstable close single-run
+  comparison; conservative incumbent retention.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

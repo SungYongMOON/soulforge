@@ -1,0 +1,66 @@
+{
+  "workflow_id": "simulator_policy_packet_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 97,
+      "token_proxy": 19300,
+      "wall_s": 67.345,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 94,
+      "token_proxy": 16163,
+      "wall_s": 31.227,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 17785,
+      "wall_s": 62.601,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 16277,
+      "wall_s": 23.32,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor",
+    "candidate_id": "qe_dwarf_auditor_gpt-5.5_low",
+    "quality_gate": "pass",
+    "quality_class": "quality_equivalent_pass",
+    "output_quality_score": 97,
+    "baseline_relative_quality": 0.97,
+    "measured_tokens": {
+      "input_tokens": 17254,
+      "cached_input_tokens": 16256,
+      "output_tokens": 2380,
+      "reasoning_output_tokens": 13
+    },
+    "wall_time_seconds": 47.446,
+    "telemetry_source": "codex_exec_json_cli_proxy",
+    "selection_reason": "Lowest-cost quality-equivalent candidate with explicit per-simulator authorization, runtime blockers, source blockers, and downstream handoffs comparable to the gpt-5.5/xhigh baseline."
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "SAVED_incumbent",
+  "selection_claim": "incumbent_retained_by_quality_priority",
+  "claim_ceiling": "observed"
+}

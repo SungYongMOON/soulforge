@@ -1,0 +1,25 @@
+{
+  "project_code": "PUBLIC_CAL",
+  "run_id": "cal_interface_control_001",
+  "workflow_mode": "harness_review",
+  "approved_refs": [
+    {"ref_id": "ref_page_mod_alpha_v1", "checksum": "sha256:aaa111"},
+    {"ref_id": "ref_asset_manifest_alpha_v1", "checksum": "sha256:bbb222"},
+    {"ref_id": "ref_source_alpha_v1", "status": "official_present_synthetic"},
+    {"ref_id": "ref_quant_alpha_v1"},
+    {"ref_id": "ref_harness_alpha_v1"}
+  ],
+  "interfaces": [
+    {"ref": "interfaces.outputs.J1_PIN1", "page_asset_id": "PAGE_A", "label": "VBUS_OUT", "container": "outputs", "source_ref": "SRC_VBUS", "facts": ["external confirmed power output", "direction output", "domain power", "kind wire_to_wire", "5V", "500mA", "quantity source-confirmed"]},
+    {"ref": "interfaces.inputs.J2_PIN3", "page_asset_id": "PAGE_A", "label": "GPIO_WAKE", "container": "inputs", "source_ref": "SRC_GPIO", "facts": ["external candidate digital input", "direction input", "domain digital", "kind signal_wire", "3.3V logic", "timing missing", "quantity partial"]},
+    {"ref": "interfaces.local_internal_candidates.TP5", "page_asset_id": "PAGE_A", "label": "TP5_BOOT", "container": "local_internal_candidates", "source_ref": "SRC_TEST", "facts": ["local test/debug only", "bidirectional or unknown", "domain digital", "kind test_point"]},
+    {"ref": "interfaces.passive_or_none.NC7", "page_asset_id": "PAGE_A", "label": "NC7", "container": "passive_or_none", "source_ref": "SRC_NC", "facts": ["no connect"]},
+    {"ref": "interfaces.outputs.PWM_A", "page_asset_id": "PAGE_B", "label": "PWM_A", "container": "outputs", "source_ref": "SRC_PWM", "facts": ["role and direction inferred from label only", "no official source confirmation", "quantity missing"]}
+  ],
+  "harness_candidate_joins": [
+    {"join_id": "JOIN_1", "endpoints": ["J1_PIN1", "external_load_vbus"], "previous_harness_status": "candidate_safe", "requires": ["5V", "500mA"]},
+    {"join_id": "JOIN_2", "endpoints": ["TP5", "external_debug_header"], "previous_harness_status": "candidate_safe"},
+    {"join_id": "JOIN_3", "endpoints": ["GPIO_WAKE", "wake_controller"], "previous_harness_status": "review_required", "requires": ["timing constraint"]},
+    {"join_id": "JOIN_4", "endpoints": ["PWM_A", "motor_ctrl_pwm"], "previous_harness_status": "candidate_safe", "requires": ["source-confirmed PWM semantics"]}
+  ]
+}

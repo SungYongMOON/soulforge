@@ -1,0 +1,55 @@
+{
+  "workflow_id": "codex_thread_manager_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 26017,
+      "wall_s": 84.501,
+      "selected": false
+    },
+    {
+      "candidate_id": "CURRENT_incumbent_gpt_5_4_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 97,
+      "token_proxy": 21733,
+      "wall_s": 66.24,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 90,
+      "token_proxy": 21817,
+      "wall_s": 57.779,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "candidate_id": "B_gpt54_low_dwarf_auditor",
+    "model": "gpt-5.4",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor",
+    "label": "gpt-5.4|low|dwarf|auditor",
+    "quality_score": 99,
+    "quality_class": "quality_gate_pass",
+    "input_tokens": 19324,
+    "cached_input_tokens": 2432,
+    "output_tokens": 1431,
+    "total_tokens": 20755,
+    "reasoning_output_tokens": 15,
+    "wall_s": 31.93,
+    "telemetry_source": "codex_exec_json_cli_proxy",
+    "selection_reason": "Lowest-token explicit hard-gate pass. It preserved manager-plus-role-worker routing, checkpoint-before-worker/rollover planning, worktree-or-stop handling for overlapping mutation, fresh verifier independence, no real thread/worktree/validator claims, and explicit default_route_safe:false workflow-check closeout labeling.\n"
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "CURRENT_incumbent_gpt_5_4_low",
+  "selection_claim": "quality_passing_profile_selected_among_fresh_current_contract_candidates",
+  "claim_ceiling": "observed"
+}

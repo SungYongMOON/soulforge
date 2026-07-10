@@ -3,22 +3,114 @@ kind: workflow_profile_policy
 status: active
 optimizer_status: completed_public_safe_synthetic_quality_equivalence
 calibration_status: quality_gate_calibrated
-last_calibration_id: cal_20260611_long_thread_handoff_quality_equiv_001
-calibration_mode: cli_quality_equivalence
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: profile_search
 validation_level: public_safe_synthetic_quality_gate
 measurement_policy:
-  quality_source: cli_quality_equivalence_shortlist
-  telemetry_source: codex_exec_json_cli_proxy
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
-  full_default_matrix_executed: false
-  full_default_matrix_reason: >
-    Repo-local precedent uses a public-safe quality-equivalence shortlist for
-    workflow profile calibration. The full default matrix would require 180
-    candidates and was not necessary to establish the lowest-cost hard-gate
-    pass on the synthetic long-thread handoff fixture.
 primary_profile:
+  model: gpt-5.4
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  candidate_id: CURRENT_incumbent_gpt_5_4_low
+  quality_score: 97
+  token_proxy: 19100
+  usage:
+    input_tokens: 16679
+    cached_input_tokens: 1920
+    output_tokens: 2421
+    reasoning_output_tokens: 23
+  wall_s: 48.596
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_sol_low
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 96
+    task_success: 0.96
+    token_proxy: 21907
+    usage:
+      input_tokens: 18425
+      cached_input_tokens: 13056
+      output_tokens: 3482
+      reasoning_output_tokens: 154
+    wall_s: 66.859
+  - candidate_id: MIG_gpt56_luna_medium
+    profile:
+      model: gpt-5.6-luna
+      reasoning_effort: medium
+      species: dwarf
+      class: auditor
+    quality_score: 95
+    task_success: 0.95
+    token_proxy: 40133
+    usage:
+      input_tokens: 37428
+      cached_input_tokens: 24064
+      output_tokens: 2705
+      reasoning_output_tokens: 507
+    wall_s: 58.135
+  - candidate_id: MIG_gpt56_sol_low_stability_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 96
+    task_success: 0.96
+    token_proxy: 23006
+    usage:
+      input_tokens: 20027
+      cached_input_tokens: 8960
+      output_tokens: 2979
+      reasoning_output_tokens: 150
+    wall_s: 60.205
+failed_candidate_notes:
+  - candidate_id: A_mini_low_dwarf_auditor
+    label: gpt-5.4-mini|low|dwarf|auditor
+    reason: missing_required_night_work_handoff_final_goal
+rerun_triggers:
+  - checkpoint required fields change
+  - compact or clear decision policy changes
+  - fresh subagent delegation packet shape changes
+  - closeout or knowledge trigger policy changes
+  - workflow-check claim ceiling or default-route rules change
+  - a live long-thread pilot exposes stale-memory or reset-decision ambiguity
+  - mini profile is retested against a fixture that requires strict handoff
+    field placement
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+non_claims:
+  - no_raw_transcript_or_private_payload_used
+  - no_secret_mail_attachment_or_workspace_payload_used
+  - no_real_night_work_handoff_mutation
+  - no_external_notification_or_route_switch
+  - no_pilot_execution_claim
+  - no_production_ready_claim
+  - no_default_route_claim
+notes:
+  - This policy optimizes the model-facing handoff, delegation planning, context
+    reset decision, validation-gap accounting, and conservative closeout part of
+    the workflow on a public-safe synthetic fixture.
+  - Runtime bridge skills must read this policy at runtime and must not copy
+    optimizer values into local skill bodies.
+  - Real long-thread execution still requires current workspace status checks,
+    owner-approved write scope, actual validator results, and separate review
+    evidence before any stronger claim.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: profile_search
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   candidate_id: B_gpt54_low_dwarf_auditor
   model: gpt-5.4
   reasoning_effort: low
@@ -40,74 +132,18 @@ primary_profile:
     night_work_handoff. Candidate B preserved durable handoff shape,
     worker-report-as-evidence posture, validation gap handling, context reset
     decision, no-default-route claim, and the synthetic-only boundary.
-shadow_top_k:
-  - candidate_id: C_gpt55_low_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|low|dwarf|auditor
-    quality_score: 96
-    quality_class: quality_gate_pass
-    input_tokens: 17927
-    cached_input_tokens: 2432
-    output_tokens: 1606
-    total_tokens: 19533
-    reasoning_output_tokens: 13
-    wall_s: 24.531
-    selection_note: Fastest measured passing profile and preferred latency fallback.
-  - candidate_id: D_gpt55_medium_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|medium|dwarf|auditor
-    quality_score: 95
-    quality_class: quality_gate_pass
-    input_tokens: 17927
-    cached_input_tokens: 2432
-    output_tokens: 1365
-    total_tokens: 19292
-    reasoning_output_tokens: 22
-    wall_s: 24.762
-    selection_note: Compact quality pass with lower output tokens than other 5.5 profiles.
-  - candidate_id: E_gpt55_xhigh_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|xhigh|dwarf|auditor
-    quality_score: 97
-    quality_class: quality_gate_pass
-    input_tokens: 17929
-    cached_input_tokens: 2432
-    output_tokens: 1840
-    total_tokens: 19769
-    reasoning_output_tokens: 516
-    wall_s: 32.599
-    selection_note: Strong baseline profile for future handoff-shape or reset-policy revisions.
-failed_candidate_notes:
-  - candidate_id: A_mini_low_dwarf_auditor
-    label: gpt-5.4-mini|low|dwarf|auditor
-    reason: missing_required_night_work_handoff_final_goal
-rerun_triggers:
-  - checkpoint required fields change
-  - compact or clear decision policy changes
-  - fresh subagent delegation packet shape changes
-  - closeout or knowledge trigger policy changes
-  - workflow-check claim ceiling or default-route rules change
-  - a live long-thread pilot exposes stale-memory or reset-decision ambiguity
-  - mini profile is retested against a fixture that requires strict handoff field placement
-calibration_archive_ref: .workflow/long_thread_handoff_v0/calibrations/cal_20260611_long_thread_handoff_quality_equiv_001
-non_claims:
-  - no_raw_transcript_or_private_payload_used
-  - no_secret_mail_attachment_or_workspace_payload_used
-  - no_real_night_work_handoff_mutation
-  - no_external_notification_or_route_switch
-  - no_pilot_execution_claim
-  - no_production_ready_claim
-  - no_default_route_claim
-notes:
-  - This policy optimizes the model-facing handoff, delegation planning, context reset decision, validation-gap accounting, and conservative closeout part of the workflow on a public-safe synthetic fixture.
-  - Runtime bridge skills must read this policy at runtime and must not copy optimizer values into local skill bodies.
-  - Real long-thread execution still requires current workspace status checks, owner-approved write scope, actual validator results, and separate review evidence before any stronger claim.
+tested_dimensions:
+  models:
+    - gpt-5.4
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: retained
+selection_claim: quality_passing_profile_selected_among_fresh_current_contract_candidates

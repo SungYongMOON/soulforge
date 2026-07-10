@@ -1,0 +1,19 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.evaluator_review.v0",
+  "workflow_id": "rag_source_text_quality_review_v0",
+  "calibration_id": "cal_20260611_rag_source_text_quality_review_quality_equiv_001",
+  "reviewed_at": "2026-06-11T15:07:48+09:00",
+  "criteria_sufficient_for_user_goal": true,
+  "overfit_to_golden_wording": false,
+  "golden_output_boundary_safe": true,
+  "golden_output_notes": [
+    "The xhigh baseline uses only synthetic refs, hashes, counts, statuses, labels, and route hints.",
+    "The baseline correctly keeps source truth, answer correctness, owner approval, canon promotion, registration, and default-route safety out of scope."
+  ],
+  "required_adjustments_before_freeze": [
+    "Treat exact page-level status field shape as a hard gate because downstream packets expect workflow status values, not a free-form classification alias.",
+    "Keep P-SYN-005 blocked even if a sidecar mapping exists, because the source ref is outside the approved scope and the claim ceiling is blocked."
+  ],
+  "frozen": true,
+  "claim_ceiling": "observed_synthetic_quality_equivalence"
+}

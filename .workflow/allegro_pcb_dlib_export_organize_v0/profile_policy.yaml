@@ -2,15 +2,84 @@ workflow_id: allegro_pcb_dlib_export_organize_v0
 kind: workflow_profile_policy
 status: active
 validation_level: registered_extracted_from_sample_pilot_private_evidence
-last_calibration_id: cal_20260521_dlib_public_fixture_001
-calibration_mode: staged_cli_isolated_candidate_matrix_with_semantic_gate
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: staged_cli_isolated_candidate_matrix_semantic_gate
-  telemetry_source: codex_cli_same_candidate_runs
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: dwarf
+  class: archivist
+  candidate_id: SAVED_incumbent
+  measured_tokens:
+    input_tokens: 16636
+    cached_input_tokens: 7552
+    output_tokens: 732
+    reasoning_output_tokens: 22
+    telemetry_source: codex_exec_json_cli_proxy_same_run
+  wall_time_seconds: 17.688
+  quality_score: 97
+  quality_gate: pass
+  quality_class: quality_equivalent_pass
+  selection_reason: >
+    Selected among quality-passing candidates because the quality delta from the
+    100-point gpt-5.4-mini/high shadow was small while output plus reasoning
+    tokens and wall time were much lower. Provider dollar pricing was not
+    emitted by the CLI telemetry, so cost confidence remains relative_not_exact.
+  token_proxy: null
+  usage: null
+  wall_s: null
+  claim_ceiling: observed
+shadow_top_k: []
+rejected_or_watch:
+  - candidate_id: B2_gpt_5_5_low_dwarf_archivist
+    reason: Failed semantic gate by not making the board_demo_B no-mutation/no-dlib
+      state explicit enough.
+  - candidate_id: B2_gpt_5_4_mini_xhigh_dwarf_archivist
+    reason: Failed semantic gate and produced very high output plus reasoning token
+      volume.
+  - candidate_id: B_gpt_5_4_mini_xhigh_orc_auditor
+    reason: Passed semantic gate only after review but was dominated by token volume
+      and wall time.
+rerun_triggers:
+  - Allegro dlib command behavior changes
+  - supported extension or file classification policy changes
+  - library folder layout changes
+  - full-archive pilot is authorized
+  - export success classifier changes
+  - profile primary fails the public-safe semantic quality gate
+  - model availability, pricing, or latency characteristics materially change
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+measurement_limitations:
+  - No real Allegro or Cadence execution was performed.
+  - No raw PCB payload, installed Cadence path, project runtime path,
+    private-state data, `_workspaces` output, or `_workmeta` run truth was used.
+  - Default 180-candidate full matrix was not run; this was a staged calibration.
+  - Provider dollar pricing was not emitted by the CLI telemetry.
+non_claims:
+  - no_unattended_full_archive_claim
+  - no_electrical_correctness_claim
+  - no_symbol_geometry_correctness_claim
+  - no_padstack_engineering_approval_claim
+  - no_manufacturing_readiness_claim
+notes:
+  - The calibration fixture is public-safe synthetic from the workflow contract.
+  - Candidate prompts did not include golden output or frozen criteria.
+  - The first exact field-name gate over-penalized boundary wording, so the
+    archived evaluator review was used to switch the final ranking to a semantic
+    gate.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.5
   reasoning_effort: medium
   species: dwarf
@@ -29,89 +98,20 @@ primary_profile:
   selection_reason: >
     Selected among quality-passing candidates because the quality delta from the
     100-point gpt-5.4-mini/high shadow was small while output plus reasoning
-    tokens and wall time were much lower. Provider dollar pricing was not emitted
-    by the CLI telemetry, so cost confidence remains relative_not_exact.
-shadow_top_k:
-  - rank: 2
-    candidate_id: B2_gpt_5_4_mini_high_dwarf_archivist
-    model: gpt-5.4-mini
-    reasoning_effort: high
-    species: dwarf
-    class: archivist
-    quality_gate: pass
-    quality_class: quality_equivalent_pass
-    quality_score: 100
-    output_tokens: 2829
-    reasoning_output_tokens: 2070
-    wall_time_seconds: 27.498
-    note: Highest semantic score but much heavier output and reasoning token use.
-  - rank: 3
-    candidate_id: A_gpt_5_4_mini_low_dwarf_archivist
-    model: gpt-5.4-mini
-    reasoning_effort: low
-    species: dwarf
-    class: archivist
-    quality_gate: pass
-    quality_class: quality_equivalent_pass
-    quality_score: 97
-    output_tokens: 1396
-    reasoning_output_tokens: 86
-    wall_time_seconds: 13.963
-    note: Fast low-cost species/class winner, but less compact than the selected primary.
-  - rank: 4
-    candidate_id: B2_gpt_5_5_high_dwarf_archivist
-    model: gpt-5.5
-    reasoning_effort: high
-    species: dwarf
-    class: archivist
-    quality_gate: pass
-    quality_class: quality_equivalent_pass
-    quality_score: 97
-    output_tokens: 984
-    reasoning_output_tokens: 258
-    wall_time_seconds: 28.158
-    note: Quality-equivalent but slower and more reasoning-token heavy than medium.
-  - rank: 5
-    candidate_id: B2_gpt_5_5_xhigh_dwarf_archivist
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: archivist
-    quality_gate: pass
-    quality_class: quality_equivalent_pass
-    quality_score: 97
-    output_tokens: 1167
-    reasoning_output_tokens: 516
-    wall_time_seconds: 29.641
-    note: Baseline-strength reasoning did not improve semantic score on this fixture.
-rejected_or_watch:
-  - candidate_id: B2_gpt_5_5_low_dwarf_archivist
-    reason: Failed semantic gate by not making the board_demo_B no-mutation/no-dlib state explicit enough.
-  - candidate_id: B2_gpt_5_4_mini_xhigh_dwarf_archivist
-    reason: Failed semantic gate and produced very high output plus reasoning token volume.
-  - candidate_id: B_gpt_5_4_mini_xhigh_orc_auditor
-    reason: Passed semantic gate only after review but was dominated by token volume and wall time.
-rerun_triggers:
-  - Allegro dlib command behavior changes
-  - supported extension or file classification policy changes
-  - library folder layout changes
-  - full-archive pilot is authorized
-  - export success classifier changes
-  - profile primary fails the public-safe semantic quality gate
-  - model availability, pricing, or latency characteristics materially change
-calibration_archive_ref: calibrations/cal_20260521_dlib_public_fixture_001/
-measurement_limitations:
-  - No real Allegro or Cadence execution was performed.
-  - No raw PCB payload, installed Cadence path, project runtime path, private-state data, `_workspaces` output, or `_workmeta` run truth was used.
-  - Default 180-candidate full matrix was not run; this was a staged calibration.
-  - Provider dollar pricing was not emitted by the CLI telemetry.
-non_claims:
-  - no_unattended_full_archive_claim
-  - no_electrical_correctness_claim
-  - no_symbol_geometry_correctness_claim
-  - no_padstack_engineering_approval_claim
-  - no_manufacturing_readiness_claim
-notes:
-  - The calibration fixture is public-safe synthetic from the workflow contract.
-  - Candidate prompts did not include golden output or frozen criteria.
-  - The first exact field-name gate over-penalized boundary wording, so the archived evaluator review was used to switch the final ranking to a semantic gate.
+    tokens and wall time were much lower. Provider dollar pricing was not
+    emitted by the CLI telemetry, so cost confidence remains relative_not_exact.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+    - gpt-5.6-terra
+  species:
+    - dwarf
+  classes:
+    - archivist
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: retained
+selection_claim: incumbent_retained_no_gpt56_challenger_passed

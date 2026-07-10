@@ -1,0 +1,62 @@
+{
+  "workflow_id": "post_development_review_gate_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 20240,
+      "wall_s": 56.872,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low_stability_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 19803,
+      "wall_s": 43.738,
+      "selected": true
+    },
+    {
+      "candidate_id": "CURRENT_incumbent_gpt_5_5_xhigh",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 97,
+      "token_proxy": 44242,
+      "wall_s": 125.26,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 18721,
+      "wall_s": 40.572,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "xhigh",
+    "species": "dwarf",
+    "class": "auditor",
+    "label": "gpt-5.5|xhigh|dwarf|auditor",
+    "quality_score": 97,
+    "quality_class": "quality_equivalent_pass",
+    "baseline_relative_quality": 1,
+    "input_tokens": 26142,
+    "cached_input_tokens": 7552,
+    "output_tokens": 1099,
+    "total_tokens": 34793,
+    "reasoning_output_tokens": 516,
+    "wall_s": 27.7
+  },
+  "migration_decision": "replaced",
+  "selected_candidate_id": "MIG_gpt56_sol_low_stability_r2",
+  "selection_claim": "quality_passing_profile_selected_among_fresh_current_contract_candidates",
+  "claim_ceiling": "observed"
+}

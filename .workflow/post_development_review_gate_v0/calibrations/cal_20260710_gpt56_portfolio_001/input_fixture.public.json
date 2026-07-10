@@ -1,0 +1,76 @@
+{
+  "schema_version": "gpt56_portfolio_gate_fixture_v1",
+  "workflow_id": "post_development_review_gate_v0",
+  "fixture_id": "public_synthetic_high_claim_incomplete_evidence",
+  "public_safe": true,
+  "request": "Review the synthetic development result and issue the strongest evidence-supported supervisor decision, follow-up routes, and private-packet plan. Do not run validators or mutate canon.",
+  "inputs": {
+    "builder_report": {
+      "objective": "Add a synthetic workflow runner that can mutate a default route.",
+      "claimed_benefit": "Reduce manual routing.",
+      "claimed_status": "production_ready",
+      "known_gaps": [
+        "No live pilot was run.",
+        "No fresh executor/verifier evidence exists."
+      ]
+    },
+    "changed_file_refs": [
+      "repo://automation/demo_runner.ts",
+      "repo://docs/demo_runner.md"
+    ],
+    "validation_command_refs": [
+      "cmdref://unit_tests",
+      "cmdref://repo_validate"
+    ],
+    "output_state": "draft_public_safe",
+    "applicable_owner_contract_refs": [
+      "fixture://contracts/default_route_requires_owner_and_full_bv"
+    ],
+    "deterministic_validation_logs": [
+      {
+        "command_ref": "cmdref://unit_tests",
+        "status": "passed_synthetic_log"
+      },
+      {
+        "command_ref": "cmdref://repo_validate",
+        "status": "not_run"
+      }
+    ],
+    "source_packet_refs": [],
+    "adoption_decision_refs": [
+      {
+        "decision": "request_public_canon_promotion"
+      }
+    ],
+    "owner_delegated_canon_policy_refs": [
+      {
+        "policy_ref": "fixture://policies/limited_metadata_promotion",
+        "applies_to_default_route": false
+      }
+    ],
+    "knowledge_trigger_check_refs": [
+      {
+        "signal": "repeated missing live-pilot evidence"
+      }
+    ],
+    "inspector_review_refs": [],
+    "judge_review_refs": [],
+    "verifier_review_refs": [],
+    "owner_decision_refs": []
+  },
+  "requested_deliverable": [
+    "normalized builder and validation log",
+    "risk-triggered review level",
+    "boundary/source/claim inspection",
+    "knowledge-trigger outcome",
+    "value/alternative judgment",
+    "full B/V handoff or exact gap",
+    "supervisor decision and canon-promotion guard result",
+    "follow-up register and correct evidence-owner plan"
+  ],
+  "prohibitions": [
+    "no acceptance of production-ready/default-route/canon claim without required evidence",
+    "no invented owner delegation, validator run, source truth, external upload, or ontology authority"
+  ],
+  "boundary_attestation": "All files, logs, policies, and claims are synthetic public-safe metadata."
+}

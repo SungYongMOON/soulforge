@@ -1,58 +1,61 @@
 workflow_id: review_gate_evidence_pack_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515_quality_equiv_001
-calibration_mode: subagent_quality_equivalence_public_synthetic
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: actual_gpt_5_5_candidate_comparison
-  telemetry_source: subagent_usage_unavailable_quality_first
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: relative_quality_first_not_exact_cost
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_not_exact
 primary_profile:
-  model: gpt-5.5
+  model: gpt-5.6-luna
   reasoning_effort: medium
   species: darkelf
   class: auditor
-  candidate_id: qe_55_medium_darkelf_auditor
-  quality_class: quality_equivalent_pass
-  quality_score: 96
-  baseline_candidate_id: qe_55_xhigh_darkelf_auditor
-  baseline_relative_quality: 1.02
-  measured_tokens: null
-  wall_time_seconds: null
-  rationale: Best actual gpt-5.5 comparison result for source/checksum preservation, explicit CAN/reset/owner-decision gap handling, non-claim discipline, and routeable blocker/action structure.
+  candidate_id: MIG_gpt56_luna_medium
+  quality_score: 94
+  token_proxy: 22201
+  usage:
+    input_tokens: 18889
+    cached_input_tokens: 12032
+    output_tokens: 3312
+    reasoning_output_tokens: 126
+  wall_s: 66.903
+  claim_ceiling: observed
 shadow_top_k:
-  - rank: 2
-    candidate_id: qe_prior_primary_54_medium_darkelf_auditor
-    model: gpt-5.4
-    reasoning_effort: medium
-    species: darkelf
-    class: auditor
-    quality_class: quality_equivalent_pass
-    quality_score: 94
-    baseline_relative_quality: 1.0
-    caveat: Previous primary remains quality-equivalent, but selected 5.5 medium is cleaner for source-checksum propagation and action routing.
-  - rank: 3
-    candidate_id: qe_55_xhigh_darkelf_auditor
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: darkelf
-    class: auditor
-    quality_class: quality_equivalent_pass
-    quality_score: 94
-    baseline_relative_quality: 1.0
-    caveat: Strong boundary-first reference candidate, but slightly over-conservative on power-thread success.
-  - rank: 4
-    candidate_id: qe_55_low_darkelf_auditor
-    model: gpt-5.5
-    reasoning_effort: low
-    species: darkelf
-    class: auditor
-    quality_class: quality_equivalent_pass
-    quality_score: 93
-    baseline_relative_quality: 0.99
-    caveat: Good low-effort shadow, but less granular than medium in evidence routing.
+  - candidate_id: MIG_gpt56_sol_low
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: darkelf
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 24849
+    usage:
+      input_tokens: 20079
+      cached_input_tokens: 13056
+      output_tokens: 4770
+      reasoning_output_tokens: 119
+    wall_s: 91.128
+  - candidate_id: MIG_gpt56_sol_low_stability_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: darkelf
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 25171
+    usage:
+      input_tokens: 20079
+      cached_input_tokens: 2816
+      output_tokens: 5092
+      reasoning_output_tokens: 37
+    wall_s: 113.609
 rerun_triggers:
   - review_gate_packet_template_changes
   - entrance_or_success_criteria_rule_changes
@@ -64,9 +67,48 @@ rerun_triggers:
   - quality_equivalence_policy_changes
   - gpt_5_5_reference_candidate_behavior_changes
   - primary_profile_quality_regression
-calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
 notes:
-  - Calibration used only a public-safe synthetic fixture and did not consume raw project truth, _workspaces material, credentials, private payloads, or runtime absolute paths.
-  - Actual gpt-5.5 low, medium, and xhigh candidates were compared before selecting the primary profile.
-  - Exact subagent token telemetry was not available, so the active policy is quality-first rather than lowest-cost.
-  - The previous gpt-5.4 medium primary remains quality-equivalent as a shadow, but is no longer the strongest output-quality candidate.
+  - Calibration used only a public-safe synthetic fixture and did not consume
+    raw project truth, _workspaces material, credentials, private payloads, or
+    runtime absolute paths.
+  - Actual gpt-5.5 low, medium, and xhigh candidates were compared before
+    selecting the primary profile.
+  - Exact subagent token telemetry was not available, so the active policy is
+    quality-first rather than lowest-cost.
+  - The previous gpt-5.4 medium primary remains quality-equivalent as a shadow,
+    but is no longer the strongest output-quality candidate.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: darkelf
+  class: auditor
+  candidate_id: qe_55_medium_darkelf_auditor
+  quality_class: quality_equivalent_pass
+  quality_score: 96
+  baseline_candidate_id: qe_55_xhigh_darkelf_auditor
+  baseline_relative_quality: 1.02
+  measured_tokens: null
+  wall_time_seconds: null
+  rationale: Best actual gpt-5.5 comparison result for source/checksum
+    preservation, explicit CAN/reset/owner-decision gap handling, non-claim
+    discipline, and routeable blocker/action structure.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - darkelf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_gpt56_profile_selected_against_saved_incumbent

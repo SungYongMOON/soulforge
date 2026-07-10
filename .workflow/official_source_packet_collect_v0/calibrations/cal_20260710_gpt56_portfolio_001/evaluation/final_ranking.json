@@ -1,0 +1,57 @@
+{
+  "workflow_id": "official_source_packet_collect_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 21470,
+      "wall_s": 48.573,
+      "selected": false
+    },
+    {
+      "candidate_id": "CURRENT_incumbent_gpt_5_5_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 97,
+      "token_proxy": 22206,
+      "wall_s": 41.706,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 90,
+      "token_proxy": 19705,
+      "wall_s": 37.35,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "elf",
+    "class": "archivist",
+    "candidate_id": "qe_gpt_5_5_low_elf_archivist",
+    "measured_tokens": {
+      "input_tokens": 15769,
+      "cached_input_tokens": 7552,
+      "output_tokens": 1475,
+      "reasoning_output_tokens": 16,
+      "telemetry_source": "codex_exec_json_cli_proxy"
+    },
+    "wall_time_seconds": 35.145,
+    "quality_score": 92,
+    "quality_class": "quality_equivalent_pass",
+    "baseline_relative_quality": 0.92,
+    "quality_gate": "quality_equivalent_pass",
+    "rationale": "Revised 2026-05-15 calibration selected this gpt-5.5 candidate as the lowest-token/fast-enough profile among candidates that passed the hard gate, scored at least 90/100, and reached at least 90% of the gpt-5.5/xhigh baseline on the frozen public-safe fixture."
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "CURRENT_incumbent_gpt_5_5_low",
+  "selection_claim": "quality_passing_profile_selected_among_fresh_current_contract_candidates",
+  "claim_ceiling": "observed"
+}

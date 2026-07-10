@@ -1,17 +1,71 @@
 workflow_id: rag_metadata_refresh_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260527_quality_equiv_001
-calibration_mode: public_safe_synthetic_staged_quality_first
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: isolated_subagent_staged_candidate_matrix
-  telemetry_source: cli_passed_candidates_only
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
   telemetry_exact_for_cli: true
-  model_price_usd_measured: false
   cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.6-sol
+  reasoning_effort: low
+  species: dwarf
+  class: archivist
+  candidate_id: MIG_gpt56_sol_low_stability_r2
+  quality_score: 96
+  token_proxy: 22726
+  usage:
+    input_tokens: 19831
+    cached_input_tokens: 13056
+    output_tokens: 2895
+    reasoning_output_tokens: 39
+  wall_s: 55.443
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_sol_low
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: archivist
+    quality_score: 92
+    task_success: 0.93
+    token_proxy: 21995
+    usage:
+      input_tokens: 19831
+      cached_input_tokens: 13056
+      output_tokens: 2164
+      reasoning_output_tokens: 82
+    wall_s: 45.545
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - RAG metadata surface schema changed
+  - sourcebound or wiki metadata delta schema changed
+  - graph lens export policy changed
+  - first controlled pilot exposes a new failure mode
+  - owner-decision record authority policy changed
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - This policy was updated from a public-safe synthetic calibration after
+    controlled metadata-only pilot evidence existed.
+  - Workflow readiness label remains pilot-executed; optimization does not
+    promote a stronger workflow authority state by itself.
+  - Primary selection prefers the cheapest and fastest quality-gate-passing
+    candidate in this staged matrix.
+  - Any production-ready, canon-ready, source-truth, answer-authority, or
+    default-route-safe claim requires separate owner decision and review
+    evidence.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   candidate_id: A_mini_low_dwarf_archivist
   model: gpt-5.4-mini
   reasoning_effort: low
@@ -27,63 +81,17 @@ primary_profile:
   total_tokens: 14828
   wall_seconds: 9.81
   telemetry_source: cli_passed_candidate_probe
-shadow_top_k:
-  - rank: 2
-    candidate_id: B_54_low_dwarf_archivist
-    model: gpt-5.4
-    reasoning_effort: low
-    species: dwarf
-    class: archivist
-    label: higher-detail-shadow
-    quality_score: 96
-    quality_class: quality_gate_pass
-    input_tokens: 14709
-    cached_input_tokens: 3456
-    output_tokens: 1053
-    reasoning_output_tokens: 13
-    total_tokens: 15762
-    wall_seconds: 22.85
-  - rank: 3
-    candidate_id: C_55_low_dwarf_archivist
-    model: gpt-5.5
-    reasoning_effort: low
-    species: dwarf
-    class: archivist
-    label: frontier-low-shadow
-    quality_score: 95
-    quality_class: quality_gate_pass
-    input_tokens: 16094
-    cached_input_tokens: 7552
-    output_tokens: 881
-    reasoning_output_tokens: 16
-    total_tokens: 16975
-    wall_seconds: 20.06
-  - rank: 4
-    candidate_id: D_55_medium_dwarf_archivist
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: archivist
-    label: conservative-blocker-shadow
-    quality_score: 94
-    quality_class: quality_gate_pass
-    input_tokens: 16094
-    cached_input_tokens: 4480
-    output_tokens: 752
-    reasoning_output_tokens: 22
-    total_tokens: 16846
-    wall_seconds: 20.75
-rerun_triggers:
-  - workflow prompt changed
-  - output schema changed
-  - RAG metadata surface schema changed
-  - sourcebound or wiki metadata delta schema changed
-  - graph lens export policy changed
-  - first controlled pilot exposes a new failure mode
-  - owner-decision record authority policy changed
-calibration_archive_ref: calibrations/cal_20260527_quality_equiv_001/
-notes:
-  - This policy was updated from a public-safe synthetic calibration after controlled metadata-only pilot evidence existed.
-  - Workflow readiness label remains pilot-executed; optimization does not promote a stronger workflow authority state by itself.
-  - Primary selection prefers the cheapest and fastest quality-gate-passing candidate in this staged matrix.
-  - Any production-ready, canon-ready, source-truth, answer-authority, or default-route-safe claim requires separate owner decision and review evidence.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - archivist
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_gpt56_profile_selected_against_saved_incumbent

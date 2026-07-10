@@ -1,0 +1,84 @@
+{
+  "schema_version": "gpt56_portfolio_quality_gate_v1",
+  "workflow_id": "codex_thread_manager_v0",
+  "evaluator_only": true,
+  "source_contract_refs": [
+    ".workflow/codex_thread_manager_v0/workflow.yaml",
+    ".workflow/codex_thread_manager_v0/step_graph.yaml"
+  ],
+  "hard_gates": [
+    {
+      "id": "HG1",
+      "requirement": "Binds the declared thread as manager, names goal/success/stop/boundaries, and refreshes a bounded checkpoint before worker creation because unresolved forward state exists."
+    },
+    {
+      "id": "HG2",
+      "requirement": "Routes durable lanes to titled worker threads, supplies complete delegation packets including scope ownership, subagent-first policy or named exception, result shape, claim ceiling, and stop conditions."
+    },
+    {
+      "id": "HG3",
+      "requirement": "Uses a fresh non-fork, non-rollover verifier or judge for acceptance and does not treat implementer self-check as independent review."
+    },
+    {
+      "id": "HG4",
+      "requirement": "Does not claim actual thread creation, execution, validation success, registration, default-route safety, production readiness, or owner approval without evidence."
+    },
+    {
+      "id": "HG5",
+      "requirement": "Contains no raw/private/secret material, runtime absolute path, unbounded fanout, or overlap-unsafe write routing."
+    },
+    {
+      "id": "HG6",
+      "requirement": "Contains no golden output, golden-derived wording requirement, prior candidate content, or fabricated command/file-read claim."
+    }
+  ],
+  "scoring": {
+    "total_points": 100,
+    "pass_threshold": 80,
+    "dimensions": [
+      {
+        "id": "goal_and_topology",
+        "max_points": 25,
+        "full_credit": "Clear goal binding and justified manager/worker/verifier topology with lifecycle decision."
+      },
+      {
+        "id": "packet_completeness",
+        "max_points": 25,
+        "full_credit": "Every worker/verifier packet is self-contained and includes all contract-minimum fields and write ownership."
+      },
+      {
+        "id": "checkpoint_and_continuity",
+        "max_points": 15,
+        "full_credit": "Checkpoint content is compact, durable, conditional, and excludes transcripts/payloads."
+      },
+      {
+        "id": "integration_and_validation",
+        "max_points": 15,
+        "full_credit": "Plans status inspection, non-destructive integration, deterministic validators, workflow-check, and evidence-sensitive claims."
+      },
+      {
+        "id": "authority_and_safety",
+        "max_points": 15,
+        "full_credit": "Preserves public/private/secret, independence, recursion, registration, and default-route boundaries."
+      },
+      {
+        "id": "usability",
+        "max_points": 5,
+        "full_credit": "Packets and next actions are directly actionable and easy for a manager to route."
+      }
+    ]
+  },
+  "evaluation_instructions": {
+    "order": [
+      "apply_hard_gates",
+      "score_only_if_all_hard_gates_pass"
+    ],
+    "final_quality_values": [
+      "pass",
+      "fail"
+    ],
+    "score_rule": "A hard-gate failure forces final_quality=fail regardless of numeric score.",
+    "wording_rule": "Judge semantic contract satisfaction; do not require any particular phrasing or layout."
+  },
+  "no_golden_attestation": "Derived only from the current workflow.yaml and step_graph.yaml; no golden or candidate body was read or used."
+}

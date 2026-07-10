@@ -1,0 +1,78 @@
+{
+  "workflow_id": "se_cross_stage_mapping_governance_v0",
+  "fixture_id": "public_safe_cross_stage_governance_synthetic_001",
+  "mapping_governance_binding": "public_safe_metadata_only",
+  "approved_mapping_policy": {
+    "inspection_mode": "metadata_only",
+    "hwp_hwpx_body_review": false,
+    "source_download": false,
+    "readiness_approval": false
+  },
+  "stage_gap_scan_refs": [
+    {
+      "row_id": "SRR-REQ-001",
+      "stage_code": "030_SRR",
+      "artifact_family": "requirements_traceability",
+      "visible_metadata": {
+        "filename": "SRS_trace_matrix.pdf",
+        "title": "SRS trace matrix"
+      },
+      "current_posture": "observed",
+      "gap": "missing input basis for HRS-to-SRS linkage"
+    },
+    {
+      "row_id": "PDR-ICD-001",
+      "stage_code": "090_PDR",
+      "artifact_family": "interface_control",
+      "visible_metadata": {
+        "filename": "ICD_index.html",
+        "title": "Interface control index"
+      },
+      "current_posture": "mapped_governance_only",
+      "gap": "owner decision needed for COTS boundary"
+    },
+    {
+      "row_id": "FCA-VER-001",
+      "stage_code": "180_FCA_OT",
+      "artifact_family": "verification_result",
+      "visible_metadata": {
+        "filename": "fca_result_summary.pdf",
+        "title": "FCA result summary"
+      },
+      "current_posture": "blocked_missing_download",
+      "gap": "accepted_verification_result refs absent"
+    }
+  ],
+  "source_gap_followup_refs": [
+    {
+      "row_id": "SG-001",
+      "meaning": "supplier source derivative missing",
+      "owner_source_followup_required": true
+    }
+  ],
+  "review_gate_packet_refs": [
+    {
+      "row_id": "RG-001",
+      "meaning": "one open review action item",
+      "closure_evidence": false
+    }
+  ],
+  "prior_inspection_packet_refs": [
+    {
+      "row_id": "PRIOR-001",
+      "stable": ["PDR-ICD-001"],
+      "newly_observed": ["FCA-VER-001"]
+    }
+  ],
+  "forbidden_claims": [
+    "source_truth",
+    "artifact_completion",
+    "review_approval",
+    "verification_completion",
+    "hwp_or_hwpx_body_coverage",
+    "readiness_approval",
+    "download_completed",
+    "owner_decision_created",
+    "downstream_rerun_execution"
+  ]
+}

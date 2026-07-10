@@ -1,0 +1,22 @@
+workflow_id: outlook_mail_reconcile_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: profile_search
+migration_decision: retained
+selected_candidate_id: CURRENT_incumbent_gpt_5_4_mini_low
+recommended_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+quality_score: 90
+token_proxy: 19024
+wall_s: 23.909
+selection_claim: quality_passing_profile_selected_among_fresh_current_contract_candidates
+reason: Current-contract fixture/gate made historical incumbent evidence
+  incomparable; selection uses only fresh passing candidates.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

@@ -1,0 +1,65 @@
+{
+  "workflow_id": "interface_control_and_harness_readiness_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 23068,
+      "wall_s": 66.642,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 21553,
+      "wall_s": 55.792,
+      "selected": false
+    },
+    {
+      "candidate_id": "ESC_gpt56_terra_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 22943,
+      "wall_s": 60.314,
+      "selected": false
+    },
+    {
+      "candidate_id": "ESC_gpt56_sol_high",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 26911,
+      "wall_s": 134.12,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "elf",
+    "class": "auditor",
+    "candidate_id": "c11_gpt55_medium_elf_auditor",
+    "quality_gate": "pass",
+    "quality_class": "quality_equivalent_pass",
+    "quality_score": 95,
+    "baseline_relative_quality": 0.99,
+    "telemetry_proxy": {
+      "input_tokens": 17566,
+      "cached_input_tokens": 7552,
+      "output_tokens": 1853,
+      "reasoning_output_tokens": 516,
+      "wall_time_seconds": 38.55
+    },
+    "selection_reason": "Selected under the revised quality-equivalence policy after actual gpt-5.5 candidate comparison; preserved all critical interface and join ceilings with compact machine-readable output and no material loss against the gpt-5.5/xhigh baseline."
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "SAVED_incumbent",
+  "selection_claim": "incumbent_retained_no_gpt56_challenger_passed",
+  "claim_ceiling": "observed"
+}

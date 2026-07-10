@@ -1,0 +1,75 @@
+{
+  "workflow_id": "whole_xml_page_split_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "ESC_gpt56_terra_medium_triggered",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 78,
+      "token_proxy": 23612,
+      "wall_s": 48.837,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 22577,
+      "wall_s": 53.729,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 20405,
+      "wall_s": 36.577,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 22302,
+      "wall_s": 48.234,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 21615,
+      "wall_s": 57.107,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "archivist",
+    "candidate_id": "qe_gpt_5_5_medium_dwarf_archivist",
+    "measured_tokens": {
+      "input_tokens": 17781,
+      "cached_input_tokens": 7552,
+      "output_tokens": 1604,
+      "reasoning_output_tokens": 30,
+      "telemetry_source": "codex_exec_json_cli_proxy"
+    },
+    "wall_time_seconds": 33.573,
+    "quality_score": 96,
+    "quality_class": "quality_equivalent_pass",
+    "baseline_relative_quality": 1,
+    "quality_gate": "quality_equivalent_pass",
+    "rationale": "Revised 2026-05-15 calibration selected this gpt-5.5 candidate as the lowest-token/fast-enough profile among candidates that passed the hard gate, scored at least 90/100, and reached at least 90% of the gpt-5.5/xhigh baseline on the frozen public-safe fixture."
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "SAVED_incumbent",
+  "selection_claim": "incumbent_retained_no_gpt56_challenger_passed",
+  "claim_ceiling": "observed"
+}

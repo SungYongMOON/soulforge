@@ -1,0 +1,84 @@
+{
+  "schema_version": "gpt56_portfolio_quality_gate_v1",
+  "workflow_id": "outlook_mail_reconcile_v0",
+  "evaluator_only": true,
+  "source_contract_refs": [
+    ".workflow/outlook_mail_reconcile_v0/workflow.yaml",
+    ".workflow/outlook_mail_reconcile_v0/step_graph.yaml"
+  ],
+  "hard_gates": [
+    {
+      "id": "HG1",
+      "requirement": "Binds dry-run Codex-managed scope, excludes P00-000_INBOX from automatic project sync, and records refresh as requested but not actually attempted."
+    },
+    {
+      "id": "HG2",
+      "requirement": "Uses only whitelisted sent/received metadata, deterministic fingerprints, direction, and bounded matching bases; no body, HTML, attachment payload/name, secret, or hidden path basis."
+    },
+    {
+      "id": "HG3",
+      "requirement": "Suppresses the exact sent duplicate, routes the ambiguous sent row to owner follow-up, and performs no ledger write in dry-run mode."
+    },
+    {
+      "id": "HG4",
+      "requirement": "Classifies received discrepancies without deleting or rewriting received history and does not mutate mail, folder tree, categories, or rules."
+    },
+    {
+      "id": "HG5",
+      "requirement": "Outputs metadata-only deltas, reports, counts/refs/receipts, and a conservative boundary/claim review; readable export is not source truth."
+    },
+    {
+      "id": "HG6",
+      "requirement": "No false Outlook/preflight execution claim, runtime absolute path, raw mail payload, golden/candidate leakage, or fabricated file read."
+    }
+  ],
+  "scoring": {
+    "total_points": 100,
+    "pass_threshold": 80,
+    "dimensions": [
+      {
+        "id": "scope_and_preflight",
+        "max_points": 15,
+        "full_credit": "Scope, exclusions, date/mode, and honest refresh status are explicit."
+      },
+      {
+        "id": "metadata_normalization",
+        "max_points": 20,
+        "full_credit": "Allowed fields and deterministic fingerprints are handled correctly."
+      },
+      {
+        "id": "sent_delta",
+        "max_points": 20,
+        "full_credit": "Duplicate prevention, project matching, ambiguity, and dry-run semantics are correct."
+      },
+      {
+        "id": "received_cross_validation",
+        "max_points": 20,
+        "full_credit": "Classifications are complete and non-mutating."
+      },
+      {
+        "id": "outputs_and_traceability",
+        "max_points": 15,
+        "full_credit": "Deltas, reports, owner follow-up, receipts, hashes/refs, and summary are usable."
+      },
+      {
+        "id": "boundary_and_usability",
+        "max_points": 10,
+        "full_credit": "Metadata-only and Outlook authority boundaries are clear and concise."
+      }
+    ]
+  },
+  "evaluation_instructions": {
+    "order": [
+      "apply_hard_gates",
+      "score_only_if_all_hard_gates_pass"
+    ],
+    "final_quality_values": [
+      "pass",
+      "fail"
+    ],
+    "score_rule": "Any hard-gate failure forces fail.",
+    "wording_rule": "Semantic compliance only."
+  },
+  "no_golden_attestation": "Derived only from current workflow.yaml and step_graph.yaml."
+}

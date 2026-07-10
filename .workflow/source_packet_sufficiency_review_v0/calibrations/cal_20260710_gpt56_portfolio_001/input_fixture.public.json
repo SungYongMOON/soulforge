@@ -1,0 +1,40 @@
+{
+  "workflow_id": "source_packet_sufficiency_review_v0",
+  "fixture_id": "PUBLIC_SYNTH_SOURCE_PACKET_SUFFICIENCY_REVIEW_V0",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "Source Packet Sufficiency Review v0",
+  "workflow_summary": "Decide whether collected datasheets, EVAL docs, layout guidance, simulation sources, and owner-approved local packets are sufficient for the intended claim strength without inventing missing evidence or mutating upstream artifacts.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "sufficiency_scope_refs",
+    "source_packet_refs",
+    "approved_sufficiency_policy"
+  ],
+  "expected_output_groups": [
+    "source_sufficiency_packet",
+    "evidence_coverage_table",
+    "blocked_fields_register",
+    "owner_followup_needed",
+    "allowed_claim_ceiling",
+    "rerun_routes",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "sufficient",
+    "blocked",
+    "claim ceiling",
+    "boundary",
+    "no mutation"
+  ],
+  "scenario_facts": [
+    "one claim family has enough evidence",
+    "one claim family is blocked by missing layout guidance",
+    "one owner follow-up remains open"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

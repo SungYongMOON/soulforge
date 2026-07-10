@@ -1,0 +1,39 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.pilot_snapshot_correction_receipt.v0",
+  "date": "2026-07-10",
+  "portfolio_calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "source_commit": "305bbf8f",
+  "corrections": [
+    {
+      "workflow_id": "author_skill_package",
+      "snapshot_ref": ".workflow/author_skill_package/calibrations/cal_20260710_gpt56_migration_001/capability_runner_snapshot.yaml",
+      "corrected_fields": [
+        "executable",
+        "catalog_source"
+      ]
+    },
+    {
+      "workflow_id": "se_assistant_operating_loop_v0",
+      "snapshot_ref": ".workflow/se_assistant_operating_loop_v0/calibrations/cal_20260710_gpt56_migration_001/capability_runner_snapshot.yaml",
+      "corrected_fields": [
+        "executable",
+        "catalog_source"
+      ]
+    }
+  ],
+  "replacements": {
+    "executable": "codex_cli_npm_shim",
+    "catalog_source": "runner_owned_models_cache"
+  },
+  "reason": "Public path-policy compliance outranks preservation of host-local absolute path metadata.",
+  "original_values_in_receipt": false,
+  "original_values_recoverable_from": "Git history at source_commit",
+  "unchanged_scope": [
+    "capability identity",
+    "runner version",
+    "observed results",
+    "candidate evidence",
+    "all other snapshot fields"
+  ],
+  "historical_archive_exception": "owner-approved metadata-only public-boundary correction; no other historical archive content changed"
+}

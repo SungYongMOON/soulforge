@@ -1,0 +1,62 @@
+{
+  "workflow_id": "monster_knowledge_preflight_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 97,
+      "token_proxy": 16282,
+      "wall_s": 19.137,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 93,
+      "token_proxy": 14931,
+      "wall_s": 12.908,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 18431,
+      "wall_s": 27.105,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 38072,
+      "wall_s": 40.389,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "pathfinder",
+    "label": "gpt-5.5|low|dwarf|pathfinder",
+    "quality_score": 97,
+    "quality_class": "quality_equivalent_pass",
+    "baseline_relative_quality": 1,
+    "input_tokens": 26034,
+    "cached_input_tokens": 20864,
+    "output_tokens": 1079,
+    "total_tokens": 47569,
+    "reasoning_output_tokens": 516,
+    "wall_s": 20.52
+  },
+  "migration_decision": "replaced",
+  "selected_candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+  "selection_claim": "quality_passing_gpt56_profile_selected_against_saved_incumbent",
+  "claim_ceiling": "observed"
+}

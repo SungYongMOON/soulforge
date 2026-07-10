@@ -1,0 +1,7 @@
+workflow_id: rag_work_card_router_v0
+disposition: optimization_not_applicable
+migration_decision: retained
+basis: Deterministic validator-backed work-card assembly owns the authoritative
+  outcome; model output is non-authoritative boundary text.
+compatibility_evidence: codex-cli 0.144.1 runner capability smokes only; no quality/cost winner claim
+claim_ceiling: observed

@@ -1,0 +1,71 @@
+workflow_id: allegro_pcb_dlib_export_organize_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+date: 2026-07-10
+optimization_intent: migration_validation
+public_safe: true
+incumbent_comparator:
+  profile:
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: dwarf
+    class: archivist
+    candidate_id: B2_gpt_5_5_medium_dwarf_archivist
+    measured_tokens:
+      input_tokens: 16636
+      cached_input_tokens: 7552
+      output_tokens: 732
+      reasoning_output_tokens: 22
+      telemetry_source: codex_exec_json_cli_proxy_same_run
+    wall_time_seconds: 17.688
+    quality_score: 97
+    quality_gate: pass
+    quality_class: quality_equivalent_pass
+    selection_reason: >
+      Selected among quality-passing candidates because the quality delta from
+      the 100-point gpt-5.4-mini/high shadow was small while output plus
+      reasoning tokens and wall time were much lower. Provider dollar pricing
+      was not emitted by the CLI telemetry, so cost confidence remains
+      relative_not_exact.
+  evidence_ref: .workflow/allegro_pcb_dlib_export_organize_v0/calibrations/cal_20260521_dlib_public_fixture_001/
+search_scope:
+  exhaustive_authorized: false
+  initial_candidates:
+    - saved incumbent evidence
+    - gpt-5.6-sol|low
+    - gpt-5.6-luna|medium
+  targeted_shape_replays: 2
+  current_contract_incumbent_run: false
+  terra_escalation: true
+candidate_count: 5
+quality_passing_candidate_count: 0
+fixture_ref: .workflow/allegro_pcb_dlib_export_organize_v0/calibrations/cal_20260710_gpt56_portfolio_001/input_fixture.public.json
+quality_gate_ref: .workflow/allegro_pcb_dlib_export_organize_v0/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/criteria.json
+gate_review_ref: .workflow/allegro_pcb_dlib_export_organize_v0/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/evaluator_review.json
+capability_runner_snapshot_ref: .workflow/allegro_pcb_dlib_export_organize_v0/calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+final_review_ref: .workflow/allegro_pcb_dlib_export_organize_v0/calibrations/cal_20260710_gpt56_portfolio_001/subagent_matrix/quality_eval.jsonl
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+    - gpt-5.6-terra
+  species:
+    - dwarf
+  classes:
+    - archivist
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+measurement_sources:
+  quality: fresh_independent_two_lane_candidate_review
+  telemetry: codex_exec_turn_completed_usage
+  service: OpenAI Codex CLI via ChatGPT account
+  billing_mode: subscription_or_credit_meter_not_authoritatively_observed
+  pricing: not_used
+  billed_cost: not_available
+usage_evidence: workflow_frequency_not_measured
+boundaries:
+  golden_body_read: false
+  old_candidate_body_read: false
+  private_raw_secret_used: false
+claim_ceiling: observed

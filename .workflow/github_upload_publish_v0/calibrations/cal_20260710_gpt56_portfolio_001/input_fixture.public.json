@@ -1,0 +1,114 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.input_fixture.v0",
+  "fixture_id": "github_upload_publish_v0_public_synthetic_upload_001",
+  "workflow_id": "github_upload_publish_v0",
+  "fixture_kind": "public_safe_synthetic_workflow_contract_fixture",
+  "public_safety": {
+    "contains_real_project_payload": false,
+    "contains_mail_body_or_attachment": false,
+    "contains_secret_value": false,
+    "contains_runtime_absolute_path": false,
+    "contains_private_raw_source": false,
+    "basis": "Synthetic repo-status and validation observations derived from the public workflow contract only."
+  },
+  "request": {
+    "owner_intent": "publish bounded Soulforge workflow/documentation changes and companion metadata evidence",
+    "push_requested": true,
+    "destructive_git_allowed": false,
+    "remote_policy_changes_allowed": false,
+    "secret_inspection_allowed": false,
+    "commit_message_policy": {
+      "language": "ko",
+      "public_repo_message": "workflow: GitHub 업로드 workflow 보정",
+      "workmeta_repo_message": "workflow: GitHub 업로드 보정 근거 기록",
+      "private_state_message": null
+    }
+  },
+  "repo_status_observations": [
+    {
+      "repo_id": "public",
+      "root_ref": ".",
+      "branch": "main",
+      "remote_state": "own_origin_available",
+      "status_lines": [
+        "M CHANGELOG.md",
+        "M .workflow/github_upload_publish_v0/profile_policy.yaml",
+        "?? .workflow/github_upload_publish_v0/calibrations/cal_20260611_github_upload_quality_equiv_001/",
+        "?? .workflow/github_upload_publish_v0/history/2026-06-11_quality_equiv_calibration.md",
+        "?? _workspaces/<project_code>/private-source/raw-mail-export.eml"
+      ]
+    },
+    {
+      "repo_id": "workmeta",
+      "root_ref": "_workmeta",
+      "branch": "main",
+      "remote_state": "own_origin_available",
+      "status_lines": [
+        "M system/NIGHT_WORK_HANDOFF.md",
+        "?? system/reports/procedure_capture/workflow_optimizer/github_upload_publish_v0_cal_20260611/",
+        "?? system/reports/post_development_review/github_upload_publish_v0_cal_20260611/"
+      ]
+    },
+    {
+      "repo_id": "private_state",
+      "root_ref": "private-state",
+      "branch": "main",
+      "remote_state": "own_origin_available",
+      "status_lines": []
+    }
+  ],
+  "validation_observations": [
+    {
+      "command": "npm.cmd run validate:canon",
+      "scope": "public",
+      "result": "pass"
+    },
+    {
+      "command": "npm.cmd run validate:path-policy",
+      "scope": "public",
+      "result": "pass"
+    },
+    {
+      "command": "npm.cmd run validate:workmeta-payload",
+      "scope": "workmeta",
+      "result": "pass"
+    },
+    {
+      "command": "npm.cmd run done:check",
+      "scope": "root",
+      "result": "not_yet_run"
+    }
+  ],
+  "expected_boundary_behavior": {
+    "public_commit_must_exclude": [
+      "_workmeta/**",
+      "private-state/**",
+      "_workspaces/**",
+      "mail bodies",
+      "raw attachments",
+      "secret values"
+    ],
+    "workmeta_commit_may_include_metadata_only": true,
+    "private_state_commit_when_dirty_only": true,
+    "push_after_commit_requires_all_relevant_validators_pass": true,
+    "unrelated_or_blocked_paths_must_be_named_not_staged": true,
+    "actual_git_commands_must_not_be_claimed_in_fixture_output": true
+  },
+  "required_output_shapes": [
+    "upload_scope_packet",
+    "repo_change_inventory",
+    "validation_matrix",
+    "commit_plan",
+    "push_result_report",
+    "upload_receipt",
+    "boundary_review_note"
+  ],
+  "acceptance_summary": [
+    "Classify public, workmeta, and private-state independently.",
+    "Block the synthetic _workspaces raw mail path from public commit.",
+    "Keep private metadata commits separate from public repo commits.",
+    "Require done:check before push because root validation is not complete.",
+    "Do not claim any real git command was executed.",
+    "Produce a receipt-ready report with blockers and next action."
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "project_code": "SYNTH-DECK",
+  "run_id": "synth_calibration_case_001",
+  "mode": "bounded_prepare",
+  "target_simulator": "LTspice",
+  "policy": {
+    "present": true,
+    "upstream_packets_read_only": true,
+    "run_simulation": false,
+    "model_conversion_requires_owner_approval": true
+  },
+  "topology_ref": {
+    "path_token": "demo_refs/precision_clamp_amp_topology.yaml",
+    "present": true,
+    "payload": "omitted"
+  },
+  "models": {
+    "U1_OPA197": {
+      "status": "official_present",
+      "ltspice_compatibility": "likely_supported_unverified"
+    },
+    "R1_R2_R3_C1": {
+      "status": "tool_library_official",
+      "ltspice_compatibility": "declared_supported"
+    },
+    "DCLAMP": {
+      "status": "review_only_model_ref",
+      "source_format": "PSpice",
+      "ltspice_compatibility": "requires_conversion",
+      "owner_conversion_approval": false
+    },
+    "XLOAD": {
+      "status": "missing_model_ref"
+    }
+  },
+  "operating_conditions": {
+    "supply": "+/-15V",
+    "temperature": "25C"
+  },
+  "stimuli_and_measurements": {
+    "dc_sweep": "present_-1V_to_+1V",
+    "dc_transfer_measurement": "present",
+    "transient_step_stimulus": "missing",
+    "transient_settling_measurement": "missing",
+    "ac_gain_measurement": "owner_decision_needed"
+  },
+  "expected_workflow_decision": "simulation_run_verify_blocked"
+}

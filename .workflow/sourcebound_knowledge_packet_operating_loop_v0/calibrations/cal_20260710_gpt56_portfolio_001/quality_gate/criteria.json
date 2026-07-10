@@ -1,0 +1,84 @@
+{
+  "schema_version": "gpt56_portfolio_quality_gate_v1",
+  "workflow_id": "sourcebound_knowledge_packet_operating_loop_v0",
+  "evaluator_only": true,
+  "source_contract_refs": [
+    ".workflow/sourcebound_knowledge_packet_operating_loop_v0/workflow.yaml",
+    ".workflow/sourcebound_knowledge_packet_operating_loop_v0/step_graph.yaml"
+  ],
+  "hard_gates": [
+    {
+      "id": "HG1",
+      "requirement": "Intakes only official_present and scoped owner_approved_local as approved sources and routes candidate/conflicting inputs as gaps/blockers."
+    },
+    {
+      "id": "HG2",
+      "requirement": "Keeps compiled projection/index/log private derivative navigation surfaces and links every claim to an approved source ref or explicit gap."
+    },
+    {
+      "id": "HG3",
+      "requirement": "Lints unsupported claims, conflicts/revision drift, citation/page-map gaps, extraction limits, and advisory overreach before concept extraction."
+    },
+    {
+      "id": "HG4",
+      "requirement": "Concept and ontology rule records remain candidate-only with source/projection separation, blockers, claim ceiling, and required review routes."
+    },
+    {
+      "id": "HG5",
+      "requirement": "Missing delegated policy blocks canon_candidate/canon_entry; archive and NotebookLM remain storage/advisory metadata, with no upload, authority, or verdict claim; review gate is required."
+    },
+    {
+      "id": "HG6",
+      "requirement": "No private projection payload, secret, absolute runtime path, golden/candidate leakage, or fabricated execution/file-read claim."
+    }
+  ],
+  "scoring": {
+    "total_points": 100,
+    "pass_threshold": 80,
+    "dimensions": [
+      {
+        "id": "source_intake",
+        "max_points": 15,
+        "full_credit": "Approved states, source owner, gaps, and intake boundaries are precise."
+      },
+      {
+        "id": "projection_and_lint",
+        "max_points": 25,
+        "full_credit": "Private projection traceability and contradiction/gap lint are complete."
+      },
+      {
+        "id": "concept_candidates",
+        "max_points": 20,
+        "full_credit": "Candidates are cited, blocked where necessary, and separated from doctrine/canon."
+      },
+      {
+        "id": "claim_and_promotion",
+        "max_points": 20,
+        "full_credit": "Weakest claim ceiling, failed guards, hold/owner routes, and review handoff are correct."
+      },
+      {
+        "id": "archive_advisory_ontology",
+        "max_points": 10,
+        "full_credit": "Archive, NotebookLM, and ontology candidate boundaries are explicit."
+      },
+      {
+        "id": "usability_and_safety",
+        "max_points": 10,
+        "full_credit": "Packets are portable, metadata-focused, actionable, and safe."
+      }
+    ]
+  },
+  "evaluation_instructions": {
+    "order": [
+      "apply_hard_gates",
+      "score_only_if_all_hard_gates_pass"
+    ],
+    "final_quality_values": [
+      "pass",
+      "fail"
+    ],
+    "score_rule": "Any hard-gate failure forces fail.",
+    "wording_rule": "Semantic compliance only."
+  },
+  "no_golden_attestation": "Derived only from current workflow.yaml and step_graph.yaml."
+}

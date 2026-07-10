@@ -1,22 +1,61 @@
 workflow_id: latest_update_sync_and_followup_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260611_latest_update_quality_equiv_001
-calibration_mode: cli_quality_equivalence
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 validation_level: public_safe_synthetic_quality_gate
 measurement_policy:
-  quality_source: cli_quality_equivalence_shortlist
-  telemetry_source: codex_exec_json_cli_proxy
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
-  full_default_matrix_executed: false
-  full_default_matrix_reason: >
-    Repo-local precedent uses a public-safe quality-equivalence shortlist for
-    workflow profile calibration. The full default matrix would require 180
-    candidates and was not necessary to establish a lowest-cost hard-gate pass
-    on the synthetic latest-update follow-up fixture.
 primary_profile:
+  model: gpt-5.6-terra
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: ESC_gpt56_terra_medium_triggered
+  quality_score: 98
+  token_proxy: 20897
+  usage:
+    input_tokens: 18446
+    cached_input_tokens: 9472
+    output_tokens: 2451
+    reasoning_output_tokens: 81
+  wall_s: 50.024
+  claim_ceiling: observed
+shadow_top_k: []
+rerun_triggers:
+  - latest-update workflow output templates change
+  - repo sync or companion metadata preflight policy changes
+  - tracked Codex skill bridge sync policy changes
+  - workspace junction binding or audit contract changes
+  - downstream follow-up routing workflow ids change
+  - a live latest-update pilot exposes boundary ambiguity
+  - mini profile drops unknown-remote, tracked-bridge, or junction-boundary
+    handling in a future fixture
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+non_claims:
+  - no_real_pull_executed
+  - no_real_skill_sync_executed
+  - no_real_junction_audit_or_repair_executed
+  - no_source_payload_or_secret_access
+  - no_production_ready_claim
+  - no_default_route_claim
+notes:
+  - This policy optimizes the model-facing planning, audit, and follow-up
+    routing part of the workflow on a public-safe synthetic fixture.
+  - Real latest-update execution still depends on current repo state,
+    owner-approved mutation policy, local skill mirror availability, and private
+    junction binding evidence.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   candidate_id: A_mini_low_dwarf_auditor
   model: gpt-5.4-mini
   reasoning_effort: low
@@ -37,83 +76,18 @@ primary_profile:
     trigger, public/workmeta/private-state separation, tracked skill bridge
     policy, metadata-only junction suffix review, follow-up routing, and
     no-real-command synthetic boundary.
-shadow_top_k:
-  - candidate_id: B_gpt54_low_dwarf_auditor
-    model: gpt-5.4
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    label: gpt-5.4|low|dwarf|auditor
-    quality_score: 97
-    quality_class: quality_gate_pass
-    input_tokens: 16247
-    cached_input_tokens: 2432
-    output_tokens: 1039
-    total_tokens: 17286
-    reasoning_output_tokens: 14
-    wall_s: 30.181
-    selection_note: Higher-quality boundary narration; use if mini loses clarity in real latest-update pilots.
-  - candidate_id: C_gpt55_low_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|low|dwarf|auditor
-    quality_score: 95
-    quality_class: quality_gate_pass
-    input_tokens: 17632
-    cached_input_tokens: 2432
-    output_tokens: 861
-    total_tokens: 18493
-    reasoning_output_tokens: 13
-    wall_s: 19.971
-    selection_note: Fastest measured wall time but higher token count.
-  - candidate_id: E_gpt55_xhigh_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|xhigh|dwarf|auditor
-    quality_score: 96
-    quality_class: quality_gate_pass
-    input_tokens: 17638
-    cached_input_tokens: 7552
-    output_tokens: 1175
-    total_tokens: 18813
-    reasoning_output_tokens: 516
-    wall_s: 33.829
-    selection_note: Strong baseline profile for future gate revisions.
-  - candidate_id: D_gpt55_medium_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|medium|dwarf|auditor
-    quality_score: 93
-    quality_class: quality_gate_pass
-    input_tokens: 17632
-    cached_input_tokens: 7552
-    output_tokens: 714
-    total_tokens: 18346
-    reasoning_output_tokens: 18
-    wall_s: 24.116
-    selection_note: Quality pass but not cheaper or clearer than primary and first shadow.
-rerun_triggers:
-  - latest-update workflow output templates change
-  - repo sync or companion metadata preflight policy changes
-  - tracked Codex skill bridge sync policy changes
-  - workspace junction binding or audit contract changes
-  - downstream follow-up routing workflow ids change
-  - a live latest-update pilot exposes boundary ambiguity
-  - mini profile drops unknown-remote, tracked-bridge, or junction-boundary handling in a future fixture
-calibration_archive_ref: .workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260611_latest_update_quality_equiv_001
-non_claims:
-  - no_real_pull_executed
-  - no_real_skill_sync_executed
-  - no_real_junction_audit_or_repair_executed
-  - no_source_payload_or_secret_access
-  - no_production_ready_claim
-  - no_default_route_claim
-notes:
-  - This policy optimizes the model-facing planning, audit, and follow-up routing part of the workflow on a public-safe synthetic fixture.
-  - Real latest-update execution still depends on current repo state, owner-approved mutation policy, local skill mirror availability, and private junction binding evidence.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+    - gpt-5.6-terra
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_gpt56_profile_selected_against_saved_incumbent

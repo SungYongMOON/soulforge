@@ -1,0 +1,36 @@
+workflow_id: source_gap_followup_packet_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: migration_validation
+migration_decision: retained
+selected_candidate_id: SAVED_incumbent
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  candidate_id: qe_dwarf_auditor_gpt-5.5_low
+  quality_gate: pass
+  quality_class: quality_equivalent_pass
+  output_quality_score: 96
+  baseline_relative_quality: 0.96
+  measured_tokens:
+    input_tokens: 17456
+    cached_input_tokens: 14208
+    output_tokens: 3282
+    reasoning_output_tokens: 13
+  wall_time_seconds: 65.262
+  telemetry_source: codex_exec_json_cli_proxy
+  selection_reason: Lowest-cost quality-equivalent candidate preserving dedup,
+    owner action queue, all manifest template rows, retry triggers, and
+    downstream unblock mapping.
+quality_score: null
+token_proxy: null
+wall_s: null
+selection_claim: incumbent_retained_by_quality_priority
+reason: Saved incumbent quality comparator was not numeric; conservative retention.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

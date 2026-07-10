@@ -1,0 +1,84 @@
+{
+  "schema_version": "gpt56_portfolio_quality_gate_v1",
+  "workflow_id": "outbound_mail_authoring_v0",
+  "evaluator_only": true,
+  "source_contract_refs": [
+    ".workflow/outbound_mail_authoring_v0/workflow.yaml",
+    ".workflow/outbound_mail_authoring_v0/step_graph.yaml"
+  ],
+  "hard_gates": [
+    {
+      "id": "HG1",
+      "requirement": "Resolves the real-mail bracket keyword to AURORA without exposing the internal project code and forms a compliant new-mail subject."
+    },
+    {
+      "id": "HG2",
+      "requirement": "Drafts concise purpose-first Korean business mail using only supplied facts, with requested action, selected attachment, and deadline visible."
+    },
+    {
+      "id": "HG3",
+      "requirement": "Selects only the current attachment, explicitly excludes the superseded one, and does not treat collected attachments as automatically sendable."
+    },
+    {
+      "id": "HG4",
+      "requirement": "Records missing footer template as a confirmation gap and keeps authority at draft_only; no signature/security payload is invented or duplicated."
+    },
+    {
+      "id": "HG5",
+      "requirement": "Provides pre-send checks, metadata-only record plan, and boundary review without sending, mutating Outlook, inventing approval/recipient facts, or storing raw payloads."
+    },
+    {
+      "id": "HG6",
+      "requirement": "No private path, secret, run id, internal AI term in mail body, golden/candidate leakage, or fabricated execution claim."
+    }
+  ],
+  "scoring": {
+    "total_points": 100,
+    "pass_threshold": 80,
+    "dimensions": [
+      {
+        "id": "subject_and_keyword",
+        "max_points": 15,
+        "full_credit": "Keyword authority and subject format are correct with no internal-code leakage."
+      },
+      {
+        "id": "body_quality",
+        "max_points": 25,
+        "full_credit": "Draft is concise, natural, purpose-first, factual, and action/deadline clear."
+      },
+      {
+        "id": "attachment_gate",
+        "max_points": 15,
+        "full_credit": "Selection, superseded exclusion, shareability, and approval state are explicit."
+      },
+      {
+        "id": "footer_and_approval",
+        "max_points": 20,
+        "full_credit": "Footer gap and strongest allowed authority are evaluated conservatively."
+      },
+      {
+        "id": "checklist_and_handoff",
+        "max_points": 15,
+        "full_credit": "Checklist, draft handoff, metadata plan, and missing inputs are actionable."
+      },
+      {
+        "id": "boundary_and_usability",
+        "max_points": 10,
+        "full_credit": "Mail and packet are safe, readable, and contain no internal/runtime leakage."
+      }
+    ]
+  },
+  "evaluation_instructions": {
+    "order": [
+      "apply_hard_gates",
+      "score_only_if_all_hard_gates_pass"
+    ],
+    "final_quality_values": [
+      "pass",
+      "fail"
+    ],
+    "score_rule": "Any hard-gate failure forces fail.",
+    "wording_rule": "Do not require a particular email phrasing."
+  },
+  "no_golden_attestation": "Derived only from current workflow.yaml and step_graph.yaml."
+}

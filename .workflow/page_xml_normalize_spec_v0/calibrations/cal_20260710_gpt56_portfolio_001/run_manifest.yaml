@@ -1,0 +1,70 @@
+workflow_id: page_xml_normalize_spec_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+date: 2026-07-10
+optimization_intent: migration_validation
+public_safe: true
+incumbent_comparator:
+  profile:
+    model: gpt-5.5
+    reasoning_effort: medium
+    species: elf
+    class: auditor
+    candidate_id: qe_gpt_5_5_medium_elf_auditor
+    measured_tokens:
+      input_tokens: 15702
+      cached_input_tokens: 7552
+      output_tokens: 1124
+      reasoning_output_tokens: 36
+      telemetry_source: codex_exec_json_cli_proxy
+    wall_time_seconds: 24.484
+    quality_score: 96
+    quality_class: quality_equivalent_pass
+    baseline_relative_quality: 1
+    quality_gate: quality_equivalent_pass
+    rationale: Revised 2026-05-15 calibration selected this gpt-5.5 candidate as the
+      lowest-token/fast-enough profile among candidates that passed the hard
+      gate, scored at least 90/100, and reached at least 90% of the
+      gpt-5.5/xhigh baseline on the frozen public-safe fixture.
+  evidence_ref: .workflow/page_xml_normalize_spec_v0/calibrations/cal_20260515_quality_equiv_001/
+search_scope:
+  exhaustive_authorized: false
+  initial_candidates:
+    - saved incumbent evidence
+    - gpt-5.6-sol|low
+    - gpt-5.6-luna|medium
+  targeted_shape_replays: 2
+  current_contract_incumbent_run: false
+  terra_escalation: true
+candidate_count: 5
+quality_passing_candidate_count: 0
+fixture_ref: .workflow/page_xml_normalize_spec_v0/calibrations/cal_20260710_gpt56_portfolio_001/input_fixture.public.json
+quality_gate_ref: .workflow/page_xml_normalize_spec_v0/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/criteria.json
+gate_review_ref: .workflow/page_xml_normalize_spec_v0/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/evaluator_review.json
+capability_runner_snapshot_ref: .workflow/page_xml_normalize_spec_v0/calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+final_review_ref: .workflow/page_xml_normalize_spec_v0/calibrations/cal_20260710_gpt56_portfolio_001/subagent_matrix/quality_eval.jsonl
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+    - gpt-5.6-terra
+  species:
+    - elf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+measurement_sources:
+  quality: fresh_independent_two_lane_candidate_review
+  telemetry: codex_exec_turn_completed_usage
+  service: OpenAI Codex CLI via ChatGPT account
+  billing_mode: subscription_or_credit_meter_not_authoritatively_observed
+  pricing: not_used
+  billed_cost: not_available
+usage_evidence: workflow_frequency_not_measured
+boundaries:
+  golden_body_read: false
+  old_candidate_body_read: false
+  private_raw_secret_used: false
+claim_ceiling: observed

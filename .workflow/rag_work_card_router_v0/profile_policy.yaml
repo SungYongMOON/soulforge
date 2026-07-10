@@ -4,7 +4,7 @@ status: active
 optimizer_status: completed_public_safe_synthetic_quality_equivalence
 calibration_status: quality_gate_calibrated
 workflow_registration_status: registered_pilot_executed
-last_calibration_id: cal_20260611_rag_work_card_router_quality_equiv_001
+last_calibration_id: cal_20260710_gpt56_portfolio_001
 calibration_mode: cli_quality_equivalence
 validation_level: public_safe_synthetic_quality_gate
 measurement_policy:
@@ -17,10 +17,10 @@ measurement_policy:
   full_default_matrix_executed: false
   full_default_matrix_reason: >
     Repo-local optimizer sweep precedent uses the public-safe five-profile
-    quality-equivalence shortlist A-E for workflow profile calibration. The
-    full default matrix would require a larger runner surface than this
-    bounded sweep slice and was not necessary to identify the lowest-token
-    hard-gate pass for the synthetic RAG work-card router fixture.
+    quality-equivalence shortlist A-E for workflow profile calibration. The full
+    default matrix would require a larger runner surface than this bounded sweep
+    slice and was not necessary to identify the lowest-token hard-gate pass for
+    the synthetic RAG work-card router fixture.
 profile_binding_policy:
   model: calibrated_default_runtime_binding
   reasoning_effort: calibrated_default_runtime_binding
@@ -66,7 +66,8 @@ shadow_top_k:
     total_tokens: 18524
     reasoning_output_tokens: 93
     wall_s: 22.558
-    selection_note: Fastest passing wall time, but higher total tokens and less explicit source-supported/manual/excluded ref separation than primary.
+    selection_note: Fastest passing wall time, but higher total tokens and less
+      explicit source-supported/manual/excluded ref separation than primary.
   - candidate_id: C_gpt55_low_dwarf_auditor
     model: gpt-5.5
     reasoning_effort: low
@@ -81,7 +82,8 @@ shadow_top_k:
     total_tokens: 18675
     reasoning_output_tokens: 75
     wall_s: 24.499
-    selection_note: Clean quality pass, but more total tokens than primary and minor claim-ceiling wording drift on the manual-review ref.
+    selection_note: Clean quality pass, but more total tokens than primary and minor
+      claim-ceiling wording drift on the manual-review ref.
   - candidate_id: E_gpt55_xhigh_dwarf_auditor
     model: gpt-5.5
     reasoning_effort: xhigh
@@ -96,7 +98,8 @@ shadow_top_k:
     total_tokens: 66484
     reasoning_output_tokens: 5106
     wall_s: 105.297
-    selection_note: Strongest quality baseline and fallback for boundary-sensitive schema changes, but far more expensive and slower than the primary.
+    selection_note: Strongest quality baseline and fallback for boundary-sensitive
+      schema changes, but far more expensive and slower than the primary.
 rerun_triggers:
   - workflow prompt changed
   - output schema changed
@@ -107,14 +110,19 @@ rerun_triggers:
   - first controlled pilot exposes a boundary or routing failure
   - supplied optional context refs become mandatory routing inputs
   - downstream route hint set changes
-calibration_archive_ref: .workflow/rag_work_card_router_v0/calibrations/cal_20260611_rag_work_card_router_quality_equiv_001
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
 runtime_notes:
-  - Candidate A was the lowest-token run but failed the frozen quality gate because it omitted supplied optional context refs and did not expose the owner-decision/post-review route surface.
-  - Candidate E is archived as the strongest-profile baseline output; candidate prompts did not receive golden output or golden wording.
+  - Candidate A was the lowest-token run but failed the frozen quality gate
+    because it omitted supplied optional context refs and did not expose the
+    owner-decision/post-review route surface.
+  - Candidate E is archived as the strongest-profile baseline output; candidate
+    prompts did not receive golden output or golden wording.
 selection_rules:
   - Treat this file as a calibrated draft workflow-profile policy only.
-  - Do not infer registration, default-route safety, owner approval, source truth, answer truth, or project execution authority from this calibration.
-  - Use deterministic validators and workflow-check review before claiming any stronger workflow state.
+  - Do not infer registration, default-route safety, owner approval, source
+    truth, answer truth, or project execution authority from this calibration.
+  - Use deterministic validators and workflow-check review before claiming any
+    stronger workflow state.
 non_claims:
   - no_real_work_card_payload_used
   - no_source_text_chunks_or_excerpts_used
@@ -125,6 +133,13 @@ non_claims:
   - no_canon_ready_claim
   - no_default_route_safe_claim
 notes:
-  - The recommendation optimizes the model-facing routing and boundary review behavior on a public-safe synthetic fixture.
-  - The workflow is now registered for routing discovery by owner request and remains not default-route-safe.
-  - Any canon-ready, production-ready, owner-approved, canon, or default-route-safe claim requires separate evidence and review.
+  - The recommendation optimizes the model-facing routing and boundary review
+    behavior on a public-safe synthetic fixture.
+  - The workflow is now registered for routing discovery by owner request and
+    remains not default-route-safe.
+  - Any canon-ready, production-ready, owner-approved, canon, or
+    default-route-safe claim requires separate evidence and review.
+optimization_intent: optimization_not_applicable
+migration_decision: retained
+selection_claim: deterministic_validator_owned_outcome_model_profile_not_authoritative
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml

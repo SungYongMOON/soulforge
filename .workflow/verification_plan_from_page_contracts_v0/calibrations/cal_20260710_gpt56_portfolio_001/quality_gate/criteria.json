@@ -1,0 +1,34 @@
+{
+  "quality_equivalence_threshold": {
+    "minimum_score": 90,
+    "minimum_baseline_relative_quality": 0.90,
+    "baseline_candidate_id": "C05",
+    "baseline_score": 98
+  },
+  "hard_gates": [
+    "output is public-safe and fixture-bound",
+    "no secret, private raw payload, runtime path, or credential request appears",
+    "required output shape is present",
+    "method values and readiness states stay within workflow canon",
+    "no verification execution, pass/fail, approval, source acquisition, simulation execution, physical test execution, or acceptance is claimed",
+    "every missing, conflict, or review-required prerequisite has an explicit gap or owner route",
+    "source conflict blocks affected items"
+  ],
+  "output_quality_gate": [
+    "all five synthetic trace rows become stable verification items",
+    "method assignment rationale is explicit per item or directly traceable from method map",
+    "evidence needs are recorded before criteria seeds",
+    "gaps and followups preserve owner decision, missing procedure, missing simulation assets, missing LED source/intent, and configuration conflict",
+    "TRR handoff lists prerequisites and blockers without approval claims",
+    "FCA/SVR handoff lists expected future artifact needs without accepted evidence claims",
+    "provenance lists approved synthetic refs and fixture-only boundary",
+    "candidate has no critical information loss compared with C05"
+  ],
+  "scoring_dimensions": {
+    "output_quality_and_usability": 55,
+    "model_task_fit": 15,
+    "token_cost_efficiency": 15,
+    "wall_clock_time": 10,
+    "stability_proxy": 5
+  }
+}

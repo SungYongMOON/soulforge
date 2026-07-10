@@ -1,0 +1,17 @@
+{
+  "sufficient": true,
+  "missing_critical_conditions_added": [
+    "Each classification must include per-item provenance and uncertainty.",
+    "Official-present language must mean source-index presence only, not acquired payload or runnable readiness.",
+    "Candidates must avoid approving, inventing, or expanding beyond requested component/model-family pairs."
+  ],
+  "overfit_risks": [
+    "Fixture specificity is intentional for this calibration.",
+    "Equivalent state labels are allowed when semantics match the gate."
+  ],
+  "unsafe_assumptions_corrected": [
+    "U1 LTspice/demo evidence is not permission to run, package, or publish payloads.",
+    "J1 gated status is fixture-provided, not newly verified by login or browsing.",
+    "Downstream handoff may carry source-index candidates and blockers only."
+  ]
+}

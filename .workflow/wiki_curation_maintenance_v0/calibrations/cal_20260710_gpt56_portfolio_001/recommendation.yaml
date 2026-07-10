@@ -1,0 +1,32 @@
+workflow_id: wiki_curation_maintenance_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: migration_validation
+migration_decision: retained
+selected_candidate_id: SAVED_incumbent
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: dwarf
+  class: archivist
+  label: gpt-5.5|medium|dwarf|archivist
+  quality_score: 97
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1
+  input_tokens: 53676
+  cached_input_tokens: 50944
+  output_tokens: 1766
+  total_tokens: 47517
+  reasoning_output_tokens: 1032
+  wall_s: 17.57
+quality_score: 97
+token_proxy: null
+wall_s: null
+selection_claim: incumbent_retained_by_quality_priority
+reason: Fresh challenger result remained an unstable close single-run
+  comparison; conservative incumbent retention.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

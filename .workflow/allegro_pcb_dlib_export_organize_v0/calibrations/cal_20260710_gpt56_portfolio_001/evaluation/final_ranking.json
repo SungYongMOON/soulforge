@@ -1,0 +1,74 @@
+{
+  "workflow_id": "allegro_pcb_dlib_export_organize_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "ESC_gpt56_terra_medium_triggered",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 88,
+      "token_proxy": 21707,
+      "wall_s": 36.791,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 20307,
+      "wall_s": 37.306,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 18799,
+      "wall_s": 31.883,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 20547,
+      "wall_s": 40.464,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 18851,
+      "wall_s": 30.207,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "archivist",
+    "candidate_id": "B2_gpt_5_5_medium_dwarf_archivist",
+    "measured_tokens": {
+      "input_tokens": 16636,
+      "cached_input_tokens": 7552,
+      "output_tokens": 732,
+      "reasoning_output_tokens": 22,
+      "telemetry_source": "codex_exec_json_cli_proxy_same_run"
+    },
+    "wall_time_seconds": 17.688,
+    "quality_score": 97,
+    "quality_gate": "pass",
+    "quality_class": "quality_equivalent_pass",
+    "selection_reason": "Selected among quality-passing candidates because the quality delta from the 100-point gpt-5.4-mini/high shadow was small while output plus reasoning tokens and wall time were much lower. Provider dollar pricing was not emitted by the CLI telemetry, so cost confidence remains relative_not_exact.\n"
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "SAVED_incumbent",
+  "selection_claim": "incumbent_retained_no_gpt56_challenger_passed",
+  "claim_ceiling": "observed"
+}

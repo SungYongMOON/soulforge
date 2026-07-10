@@ -1,0 +1,32 @@
+{
+  "workflow_id": "frontline_assault",
+  "fixture_id": "PUBLIC_SYNTH_FRONTLINE_ASSAULT",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "Frontline Assault",
+  "workflow_summary": "Canonical workflow for coordinating the frontline assault, keeping curated lessons distinct from mission runtime truth.",
+  "workflow_readiness_label": "registered",
+  "input_refs": [],
+  "expected_output_groups": [
+    "scout_report",
+    "decision_note",
+    "delivery_handoff",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "curated lessons",
+    "runtime truth",
+    "boundary",
+    "handoff"
+  ],
+  "scenario_facts": [
+    "one confirmed frontline objective",
+    "one ambiguous threat signal that must remain unresolved",
+    "one delivery handoff that depends on later runtime execution"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

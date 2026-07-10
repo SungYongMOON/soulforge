@@ -3,16 +3,81 @@ kind: workflow_profile_policy
 status: active
 validation_level: registered_extracted_from_sample_pilot_private_evidence
 calibration_status: calibrated_public_safe_synthetic
-last_calibration_id: cal_20260521_cli_quality_equiv_001
-calibration_mode: cli_only_calibration_with_shape_clarified_finalist_rerun
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: cli_only_calibration_with_shape_clarified_finalist_rerun
-  telemetry_source: codex_exec_json_cli_proxy
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
   telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: SAVED_incumbent
+  quality_score: 94
+  quality_class: quality_pass
+  measured_tokens:
+    input_tokens: 17622
+    cached_input_tokens: 2432
+    output_tokens: 2850
+    reasoning_output_tokens: 516
+    telemetry_source: codex_exec_json_cli_proxy
+  wall_time_seconds: 24.657
+  selection_reason: Lowest model tier and fastest measured wall time among
+    exact-shape quality-passing candidates; quality gap to C04R was below the
+    materiality threshold.
+  token_proxy: null
+  usage: null
+  wall_s: null
+  claim_ceiling: observed
+shadow_top_k: []
+profile_binding_policy:
+  model: prefer_primary_profile_then_runtime_override
+  reasoning_effort: prefer_primary_profile_then_runtime_override
+  species: prefer_primary_profile_then_runtime_override
+  class: prefer_primary_profile_then_runtime_override
+  party: runtime_binding_or_unbound
+selection_rules:
+  - Deterministic filesystem and DB Doctor validation dominate model profile
+    choice.
+  - Use conservative reasoning when mutating real owner data or classifying
+    conversion blockers.
+  - Require owner approval before running against a full archive or non-default
+    extension set.
+  - Use the primary profile for public-safe synthetic packet generation and
+    routine dry-run planning.
+  - Use the C04R shadow when quality margin matters more than model-tier cost.
+  - Escalate to C02 or a fresh calibration when changing the output section
+    contract, success classifier, or mutation authority.
+rerun_triggers:
+  - DB Doctor command behavior changes
+  - supported extension policy changes
+  - old/new packet shape changes
+  - full-archive pilot is authorized
+  - conversion success classifier changes
+  - required output section names change
+  - primary or shadow profile fails the strict workflow_output_packet shape gate
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+calibration_notes:
+  - The archive is based on a public-safe synthetic fixture and does not contain
+    real PCB payloads, runtime absolute paths, private project material, or
+    secrets.
+  - Default subagent quality-first mode was blocked by current runtime policy,
+    so quality and telemetry are labeled as CLI-only calibration evidence.
+  - The selected profile is not a production-ready unattended full-archive
+    conversion claim.
+non_claims:
+  - no_unattended_full_archive_claim
+  - no_electrical_correctness_claim
+  - no_manufacturing_readiness_claim
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.4-mini
   reasoning_effort: medium
   species: dwarf
@@ -27,80 +92,24 @@ primary_profile:
     reasoning_output_tokens: 516
     telemetry_source: codex_exec_json_cli_proxy
   wall_time_seconds: 24.657
-  selection_reason: Lowest model tier and fastest measured wall time among exact-shape quality-passing candidates; quality gap to C04R was below the materiality threshold.
-shadow_top_k:
-  - rank: 2
-    model: gpt-5.4
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    candidate_id: C04R
-    quality_score: 97
-    quality_class: quality_pass
-    measured_tokens:
-      input_tokens: 17971
-      cached_input_tokens: 7552
-      output_tokens: 2558
-      reasoning_output_tokens: 55
-    wall_time_seconds: 50.842
-    selection_reason: Quality-first shadow with the best concise exact-shape output.
-  - rank: 3
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    candidate_id: C02
-    quality_score: 96
-    quality_class: quality_pass
-    measured_tokens:
-      input_tokens: 146033
-      cached_input_tokens: 118144
-      output_tokens: 5656
-      reasoning_output_tokens: 668
-    wall_time_seconds: 113.958
-    selection_reason: High-confidence fallback from the original exact-shape matrix.
-  - rank: 4
-    model: gpt-5.4
-    reasoning_effort: high
-    species: dwarf
-    class: auditor
-    candidate_id: C03
-    quality_score: 94
-    quality_class: quality_pass
-    measured_tokens:
-      input_tokens: 210909
-      cached_input_tokens: 168704
-      output_tokens: 12762
-      reasoning_output_tokens: 5843
-    wall_time_seconds: 247.226
-    selection_reason: Passed quality but was slower and token-heavier than medium-effort finalists.
-profile_binding_policy:
-  model: prefer_primary_profile_then_runtime_override
-  reasoning_effort: prefer_primary_profile_then_runtime_override
-  species: prefer_primary_profile_then_runtime_override
-  class: prefer_primary_profile_then_runtime_override
-  party: runtime_binding_or_unbound
-selection_rules:
-  - Deterministic filesystem and DB Doctor validation dominate model profile choice.
-  - Use conservative reasoning when mutating real owner data or classifying conversion blockers.
-  - Require owner approval before running against a full archive or non-default extension set.
-  - Use the primary profile for public-safe synthetic packet generation and routine dry-run planning.
-  - Use the C04R shadow when quality margin matters more than model-tier cost.
-  - Escalate to C02 or a fresh calibration when changing the output section contract, success classifier, or mutation authority.
-rerun_triggers:
-  - DB Doctor command behavior changes
-  - supported extension policy changes
-  - old/new packet shape changes
-  - full-archive pilot is authorized
-  - conversion success classifier changes
-  - required output section names change
-  - primary or shadow profile fails the strict workflow_output_packet shape gate
-calibration_archive_ref: calibrations/cal_20260521_cli_quality_equiv_001/
-calibration_notes:
-  - The archive is based on a public-safe synthetic fixture and does not contain real PCB payloads, runtime absolute paths, private project material, or secrets.
-  - Default subagent quality-first mode was blocked by current runtime policy, so quality and telemetry are labeled as CLI-only calibration evidence.
-  - The selected profile is not a production-ready unattended full-archive conversion claim.
-non_claims:
-  - no_unattended_full_archive_claim
-  - no_electrical_correctness_claim
-  - no_manufacturing_readiness_claim
+  selection_reason: Lowest model tier and fastest measured wall time among
+    exact-shape quality-passing candidates; quality gap to C04R was below the
+    materiality threshold.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+    - gpt-5.6-terra
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: retained
+selection_claim: incumbent_retained_no_gpt56_challenger_passed
+notes:
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.

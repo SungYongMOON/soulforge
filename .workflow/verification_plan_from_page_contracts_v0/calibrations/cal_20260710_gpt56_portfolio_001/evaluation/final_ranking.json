@@ -1,0 +1,46 @@
+{
+  "workflow_id": "verification_plan_from_page_contracts_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 25280,
+      "wall_s": 93.318,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 88,
+      "token_proxy": 24059,
+      "wall_s": 91.696,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "human",
+    "class": "auditor",
+    "candidate_id": "C04",
+    "quality_gate": "pass",
+    "quality_class": "quality_equivalent_pass",
+    "quality_score": 91,
+    "baseline_relative_quality": 0.93,
+    "baseline_candidate_id": "C05",
+    "telemetry_source": "codex_cli_ephemeral_read_only",
+    "input_tokens": 17228,
+    "cached_input_tokens": 7552,
+    "output_tokens": 3545,
+    "reasoning_output_tokens": 24,
+    "wall_time_seconds": 69.7
+  },
+  "migration_decision": "replaced",
+  "selected_candidate_id": "MIG_gpt56_sol_low",
+  "selection_claim": "quality_passing_gpt56_profile_selected_against_saved_incumbent",
+  "claim_ceiling": "observed"
+}

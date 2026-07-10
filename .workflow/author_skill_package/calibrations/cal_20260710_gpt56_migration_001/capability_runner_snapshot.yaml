@@ -1,8 +1,8 @@
 captured_at: "2026-07-10T17:34:00+09:00"
-executable: C:/Users/user/AppData/Roaming/npm/codex.cmd
+executable: codex_cli_npm_shim
 runner_version: codex-cli 0.144.1
 invocation_boundary: ephemeral_ignore_user_config_ignore_rules_read_only
-catalog_source: C:/Users/user/.codex/models_cache.json
+catalog_source: runner_owned_models_cache
 launch_smokes:
   default_runner: pass
   gpt_5_6_sol_low: pass

@@ -1,0 +1,87 @@
+{
+  "schema_version": "gpt56_portfolio_gate_fixture_v1",
+  "workflow_id": "sourcebound_knowledge_packet_operating_loop_v0",
+  "fixture_id": "public_synthetic_mixed_evidence_projection",
+  "public_safe": true,
+  "request": "Produce a dry-run sourcebound knowledge-loop packet from the supplied synthetic source refs. Keep the projection private-by-contract, surface contradictions and gaps, and route candidates without promoting canon.",
+  "inputs": {
+    "source_scope_binding": "fixture://knowledge/demo_connector_rules",
+    "approved_source_policy": {
+      "allowed_states": [
+        "official_present",
+        "owner_approved_local"
+      ],
+      "public_payload_copy": false
+    },
+    "knowledge_packet_scope": {
+      "topic": "synthetic connector constraint semantics",
+      "target_consumers": [
+        "workflow_candidate",
+        "ontology_candidate"
+      ]
+    },
+    "promotion_policy": {
+      "public_canon_requires_owner_or_applicable_delegation_plus_review": true
+    },
+    "source_packet_refs": [
+      {
+        "source_ref": "fixture://sources/official-A",
+        "state": "official_present",
+        "supports": [
+          "maximum current is conditional on ambient temperature"
+        ]
+      },
+      {
+        "source_ref": "fixture://sources/owner-local-B",
+        "state": "owner_approved_local",
+        "approval_scope": "private_projection",
+        "supports": [
+          "connector family mapping"
+        ]
+      },
+      {
+        "source_ref": "fixture://sources/candidate-C",
+        "state": "candidate_official",
+        "supports": [
+          "unverified alternate limit"
+        ]
+      },
+      {
+        "source_ref": "fixture://sources/conflict-D",
+        "state": "conflicting",
+        "supports": [
+          "different connector family mapping"
+        ]
+      }
+    ],
+    "source_sufficiency_refs": [
+      {
+        "claim_scope": "conditional current limit",
+        "allowed_claim_ceiling": "source_supported"
+      }
+    ],
+    "owner_held_archive_policy": {
+      "requested": true,
+      "agent_upload_authority": "none"
+    },
+    "owner_delegated_canon_policy_refs": [],
+    "notebooklm_advisory_return_refs": [],
+    "ontology_review_policy_refs": [],
+    "owner_decision_refs": []
+  },
+  "requested_deliverable": [
+    "source intake and gap handoff",
+    "private projection manifest/index/log references, not payload",
+    "contradiction/gap lint",
+    "cited concept candidate register",
+    "claim-ceiling and promotion routes",
+    "archive manifest labels",
+    "candidate-only ontology rules",
+    "optional NotebookLM handoff as skipped or owner-operated metadata",
+    "workflowization review packet and gate handoff"
+  ],
+  "prohibitions": [
+    "no use of candidate/conflicting sources as approved truth, no payload copy/upload, no NotebookLM verdict, no ontology/workflow acceptance, no canon entry without policy/review"
+  ],
+  "boundary_attestation": "All source claims, refs, topics, and policy values are synthetic."
+}

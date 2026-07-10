@@ -1,0 +1,250 @@
+Calibration replay metadata: candidate_id=MIG_gpt56_luna_medium_shape_r2; model=gpt-5.6-luna; reasoning_effort=medium.
+Only candidate/profile metadata was transformed in the frozen public-safe candidate prompt below; task content and fixture remain unchanged.
+--- TRANSFORMED FROZEN PUBLIC-SAFE CANDIDATE PROMPT ---
+Candidate id: MIG_gpt56_luna_medium_shape_r2
+Model: gpt-5.6-luna
+Reasoning effort: medium
+Species: human
+Class: auditor
+Role: quality_baseline_and_candidate
+
+You are running an explicitly labeled cli_only_calibration candidate for Soulforge workflow xml_harness_composition_v0.
+
+Task:
+Produce the workflow output packet for the public-safe synthetic fixture below. This workflow composes a derived harness-layer packet from already prepared page-level XML assets, sidecars, intake packets, materials packets, layout guides, and owner hints.
+
+Hard boundaries:
+- Do not mutate any source XML, normalized sidecar, intake packet, materials packet, layout guide, source packet, or owner material.
+- Do not treat candidate_safe as final circuit approval.
+- Do not promote local_internal_candidates to external harness interfaces without explicit source-backed promotion evidence.
+- Do not invent missing source packets, quantitative constraints, directionality, debug headers, I2C controller interfaces, pullups, or private project facts.
+- Do not include raw XML bodies, runtime absolute paths, _workspaces outputs, credentials, cookies, private run truth, or vendor text.
+- Use blocked or review_required when evidence is missing, ambiguous, local/internal only, or quantitatively incomplete.
+
+Workflow requirements:
+- Include every required JSON top-level section from the supplied output schema.
+- Partition possible joins into blocked_connections, review_required_connections, candidate_safe_connections, and source_supported_connections.
+- Keep source_supported_connections empty unless the fixture provides cited source support strong enough for final support.
+- Record owner follow-ups and open questions explicitly rather than implying them.
+- Include a boundary review that states public-safe handling, immutability, and no final circuit authority.
+- Output one JSON object only. Do not wrap the JSON in markdown.
+
+Public-safe input fixture:
+{
+  "fixture_id": "xml_harness_composition_public_synthetic_001",
+  "fixture_kind": "public_safe_synthetic_workflow_contract_fixture",
+  "workflow_id": "xml_harness_composition_v0",
+  "public_safety": {
+    "contains_real_xml_body": false,
+    "contains_project_private_material": false,
+    "contains_runtime_absolute_paths": false,
+    "contains_credentials_or_secrets": false,
+    "contains_vendor_text": false,
+    "basis": "Synthetic fields derived from the public workflow contract only."
+  },
+  "harness_project_binding": {
+    "project_code": "PUBLIC_SYNTH_XML_HARNESS",
+    "harness_id": "HARNESS_SYNTH_A",
+    "source_assets_are_immutable": true,
+    "candidate_safe_is_not_final_circuit_approval": true,
+    "local_internal_candidates_are_external_by_default": false
+  },
+  "page_level_asset_identities": [
+    {
+      "asset_id": "PAGE_PWR_001",
+      "page_role": "power_regulator_page",
+      "source_xml_ref": "public_synthetic_ref://pages/power",
+      "raw_xml_body_included": false
+    },
+    {
+      "asset_id": "PAGE_CTRL_001",
+      "page_role": "controller_page",
+      "source_xml_ref": "public_synthetic_ref://pages/controller",
+      "raw_xml_body_included": false
+    },
+    {
+      "asset_id": "PAGE_SENS_001",
+      "page_role": "sensor_page",
+      "source_xml_ref": "public_synthetic_ref://pages/sensor",
+      "raw_xml_body_included": false
+    }
+  ],
+  "page_module_sidecars": [
+    {
+      "asset_id": "PAGE_PWR_001",
+      "module_id": "MOD_PWR_REG",
+      "external_interfaces": [
+        {
+          "interface_id": "PWR_IN_5V",
+          "label": "VIN_5V",
+          "kind": "power",
+          "direction": "input",
+          "voltage_v": 5.0,
+          "current_limit_ma": 1000,
+          "source_evidence": "synthetic_source_backed"
+        },
+        {
+          "interface_id": "PWR_OUT_3V3",
+          "label": "VOUT_3V3",
+          "kind": "power",
+          "direction": "output",
+          "voltage_v": 3.3,
+          "current_limit_ma": 500,
+          "source_evidence": "synthetic_source_backed"
+        }
+      ],
+      "local_internal_candidates": [
+        {
+          "interface_id": "SW_NODE_INTERNAL",
+          "label": "SW_NODE",
+          "kind": "switching_node",
+          "direction": "internal",
+          "source_evidence": "local_internal_only"
+        }
+      ],
+      "normalization_warnings": []
+    },
+    {
+      "asset_id": "PAGE_CTRL_001",
+      "module_id": "MOD_MCU",
+      "external_interfaces": [
+        {
+          "interface_id": "MCU_VDD_3V3",
+          "label": "VDD_3V3",
+          "kind": "power",
+          "direction": "input",
+          "voltage_v": 3.3,
+          "current_required_ma": 120,
+          "source_evidence": "synthetic_source_backed"
+        },
+        {
+          "interface_id": "MCU_UART_TX",
+          "label": "UART_TX",
+          "kind": "digital_uart",
+          "direction": "output",
+          "logic_level_v": 3.3,
+          "source_evidence": "synthetic_source_backed"
+        },
+        {
+          "interface_id": "MCU_UART_RX",
+          "label": "UART_RX",
+          "kind": "digital_uart",
+          "direction": "input",
+          "logic_level_v": 3.3,
+          "source_evidence": "synthetic_source_backed"
+        }
+      ],
+      "local_internal_candidates": [
+        {
+          "interface_id": "BOOT_STRAP_INTERNAL",
+          "label": "BOOT0",
+          "kind": "strap",
+          "direction": "internal",
+          "source_evidence": "local_internal_only"
+        }
+      ],
+      "normalization_warnings": []
+    },
+    {
+      "asset_id": "PAGE_SENS_001",
+      "module_id": "MOD_SENSOR",
+      "external_interfaces": [
+        {
+          "interface_id": "SENSOR_VCC",
+          "label": "VCC_3V3",
+          "kind": "power",
+          "direction": "input",
+          "voltage_v": 3.3,
+          "current_required_ma": null,
+          "source_evidence": "source_gap_missing_current"
+        },
+        {
+          "interface_id": "SENSOR_SDA",
+          "label": "I2C_SDA",
+          "kind": "digital_i2c",
+          "direction": "bidirectional",
+          "logic_level_v": 3.3,
+          "pullup_requirement": "unknown",
+          "source_evidence": "source_gap_missing_pullup"
+        },
+        {
+          "interface_id": "SENSOR_SCL",
+          "label": "I2C_SCL",
+          "kind": "digital_i2c",
+          "direction": "input",
+          "logic_level_v": 3.3,
+          "pullup_requirement": "unknown",
+          "source_evidence": "source_gap_missing_pullup"
+        }
+      ],
+      "local_internal_candidates": [],
+      "normalization_warnings": [
+        "Sensor current requirement is missing.",
+        "I2C pullup requirements are unresolved."
+      ]
+    }
+  ],
+  "capture_intake_packets": [
+    {
+      "asset_id": "PAGE_PWR_001",
+      "intake_status": "reviewed_public_synthetic",
+      "source_packet_status": "synthetic_source_backed"
+    },
+    {
+      "asset_id": "PAGE_CTRL_001",
+      "intake_status": "reviewed_public_synthetic",
+      "source_packet_status": "synthetic_source_backed"
+    },
+    {
+      "asset_id": "PAGE_SENS_001",
+      "intake_status": "reviewed_public_synthetic",
+      "source_packet_status": "source_gap_packet_present"
+    }
+  ],
+  "component_materials_packets": [],
+  "layout_guide_packets": [],
+  "owner_connection_hints": [
+    {
+      "hint_id": "HINT_PWR_TO_MCU",
+      "from_interface_id": "PWR_OUT_3V3",
+      "to_interface_id": "MCU_VDD_3V3",
+      "owner_intent": "Power the controller from the 3.3 V regulator output."
+    },
+    {
+      "hint_id": "HINT_PWR_TO_SENSOR",
+      "from_interface_id": "PWR_OUT_3V3",
+      "to_interface_id": "SENSOR_VCC",
+      "owner_intent": "Power the sensor from the 3.3 V regulator output."
+    },
+    {
+      "hint_id": "HINT_INTERNAL_BAD",
+      "from_interface_id": "SW_NODE_INTERNAL",
+      "to_interface_id": "MCU_VDD_3V3",
+      "owner_intent": "Intentionally unsafe hint to test local/internal exclusion."
+    },
+    {
+      "hint_id": "HINT_UART_TO_MISSING_DEBUG",
+      "from_interface_id": "MCU_UART_TX",
+      "to_interface_id": "DEBUG_RX_MISSING",
+      "owner_intent": "Expose UART to a debug header that is not present in the fixture."
+    }
+  ],
+  "expected_workflow_behavior_summary": {
+    "not_candidate_safe": [
+      "SW_NODE_INTERNAL to MCU_VDD_3V3 because local_internal_candidates are excluded by default.",
+      "PWR_OUT_3V3 to SENSOR_VCC because sensor current requirement is missing.",
+      "MCU_UART_TX to DEBUG_RX_MISSING because the target interface is absent.",
+      "Sensor I2C joins because no controller-side I2C interfaces or pullup requirements are established."
+    ],
+    "candidate_safe_possible": [
+      "PWR_OUT_3V3 to MCU_VDD_3V3 can be candidate_safe only as owner-review structural plausibility, not final circuit approval, because direction, voltage, current budget, and source support are present."
+    ],
+    "source_supported_possible": [],
+    "must_remain_explicit": [
+      "No source XML body is included.",
+      "No source asset is mutated.",
+      "candidate_safe is not final circuit approval.",
+      "source_supported remains empty because the fixture does not provide cited source packets strong enough for final support."
+    ]
+  }
+}

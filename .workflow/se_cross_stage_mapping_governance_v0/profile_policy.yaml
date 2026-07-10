@@ -2,8 +2,8 @@ schema_version: soulforge_profile_policy_v0
 workflow_id: se_cross_stage_mapping_governance_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260527_quality_equiv_001
-calibration_mode: subagent_quality_matrix_with_cli_proxy_telemetry
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 matrix_mode: staged_public_synthetic_quality_equivalence
 default_profile:
   posture: conservative_governance
@@ -12,69 +12,58 @@ default_profile:
   inspection_mode: metadata_only
   hwp_hwpx_handling: filename_title_pdf_html_intake_notes_only
 measurement_policy:
-  quality_source: fresh_subagent_staged_matrix
-  telemetry_source: cli_proxy_probe_for_shortlisted_candidates
-  subagent_token_usage_available: partial_baseline_only
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
+  subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
   telemetry_exact_for_cli: true
-  cost_confidence: relative_proxy
-  quality_gate: governance_route_precision_required
+  cost_confidence: relative_not_exact
 primary_profile:
-  model: gpt-5.4
-  reasoning_effort: low
+  model: gpt-5.6-luna
+  reasoning_effort: medium
   species: dwarf
   class: auditor
-  label: gpt-5.4|low|dwarf|auditor
-  quality_score: 96
-  quality_class: quality_equivalent_pass
-  baseline_relative_quality: 0.96
-  input_tokens: 57008
-  cached_input_tokens: 21248
-  output_tokens: 1704
-  total_tokens: 58712
-  reasoning_output_tokens: 88
-  wall_s: 40.62
+  candidate_id: MIG_gpt56_luna_medium
+  quality_score: 93
+  token_proxy: 20639
+  usage:
+    input_tokens: 17688
+    cached_input_tokens: 12032
+    output_tokens: 2951
+    reasoning_output_tokens: 394
+  wall_s: 59.078
+  claim_ceiling: observed
 shadow_top_k:
-  - rank: 2
-    label: gpt-5.5|medium|dwarf|auditor
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    quality_score: 94
-    quality_class: quality_equivalent_pass
-    baseline_relative_quality: 0.94
-    telemetry_status: not_cli_probed
-  - rank: 3
-    label: gpt-5.5|low|dwarf|auditor
-    model: gpt-5.5
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    quality_score: 90
-    quality_class: pass
-    baseline_relative_quality: 0.90
-    input_tokens: 48843
-    cached_input_tokens: 26880
-    output_tokens: 1516
-    total_tokens: 50359
-    reasoning_output_tokens: 90
-    wall_s: 37.37
-  - rank: 4
-    label: gpt-5.4-mini|low|dwarf|auditor
-    model: gpt-5.4-mini
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    quality_score: 88
-    quality_class: minimum_viable_pass
-    baseline_relative_quality: 0.88
-    input_tokens: 17602
-    cached_input_tokens: 3456
-    output_tokens: 1403
-    total_tokens: 19005
-    reasoning_output_tokens: 55
-    wall_s: 16.54
+  - candidate_id: MIG_gpt56_sol_low
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 23675
+    usage:
+      input_tokens: 18878
+      cached_input_tokens: 13056
+      output_tokens: 4797
+      reasoning_output_tokens: 43
+    wall_s: 90.773
+  - candidate_id: MIG_gpt56_sol_low_stability_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 22679
+    usage:
+      input_tokens: 18878
+      cached_input_tokens: 13056
+      output_tokens: 3801
+      reasoning_output_tokens: 44
+    wall_s: 76.583
 forbidden_profiles:
   - evidence_authority
   - final_readiness_authority
@@ -91,8 +80,44 @@ rerun_triggers:
   - source/HWP boundary policy changes
   - primary profile fails quality gate
   - new public-safe fixture family added
-calibration_archive_ref: calibrations/cal_20260527_quality_equiv_001/
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
 notes:
   - Optimization used public-safe synthetic metadata rows only.
-  - Primary selection prefers route and claim-ceiling precision over the cheaper minimum-viable mini candidate.
-  - Optimization does not upgrade this workflow beyond registered governance-only status.
+  - Primary selection prefers route and claim-ceiling precision over the cheaper
+    minimum-viable mini candidate.
+  - Optimization does not upgrade this workflow beyond registered
+    governance-only status.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
+  model: gpt-5.4
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  label: gpt-5.4|low|dwarf|auditor
+  quality_score: 96
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 0.96
+  input_tokens: 57008
+  cached_input_tokens: 21248
+  output_tokens: 1704
+  total_tokens: 58712
+  reasoning_output_tokens: 88
+  wall_s: 40.62
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_gpt56_profile_selected_against_saved_incumbent

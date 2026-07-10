@@ -1,0 +1,54 @@
+{
+  "workflow_id": "rag_metadata_refresh_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low_stability_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 96,
+      "token_proxy": 22726,
+      "wall_s": 55.443,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 92,
+      "token_proxy": 21995,
+      "wall_s": 45.545,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 21257,
+      "wall_s": 51.377,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "candidate_id": "A_mini_low_dwarf_archivist",
+    "model": "gpt-5.4-mini",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "archivist",
+    "label": "calibrated-cheapest-quality-pass",
+    "quality_score": 91,
+    "quality_class": "quality_gate_pass",
+    "input_tokens": 14357,
+    "cached_input_tokens": 4480,
+    "output_tokens": 471,
+    "reasoning_output_tokens": 53,
+    "total_tokens": 14828,
+    "wall_seconds": 9.81,
+    "telemetry_source": "cli_passed_candidate_probe"
+  },
+  "migration_decision": "replaced",
+  "selected_candidate_id": "MIG_gpt56_sol_low_stability_r2",
+  "selection_claim": "quality_passing_gpt56_profile_selected_against_saved_incumbent",
+  "claim_ceiling": "observed"
+}

@@ -1,16 +1,70 @@
 workflow_id: dual_deep_research_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260524_staged_cli_001
-calibration_mode: public_safe_synthetic_staged_cli_isolated
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: profile_search
 measurement_policy:
-  quality_source: cli_isolated_staged_candidate_matrix
-  telemetry_source: same_cli_isolated_candidate_runs
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  model_price_usd_measured: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.6-sol
+  reasoning_effort: low
+  species: dwarf
+  class: archivist
+  candidate_id: MIG_gpt56_sol_low
+  quality_score: 98
+  token_proxy: 30207
+  usage:
+    input_tokens: 27377
+    cached_input_tokens: 8960
+    output_tokens: 2830
+    reasoning_output_tokens: 119
+  wall_s: 62.312
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_luna_medium
+    profile:
+      model: gpt-5.6-luna
+      reasoning_effort: medium
+      species: dwarf
+      class: archivist
+    quality_score: 89
+    task_success: 0.89
+    token_proxy: 52740
+    usage:
+      input_tokens: 50311
+      cached_input_tokens: 32256
+      output_tokens: 2429
+      reasoning_output_tokens: 662
+    wall_s: 97.803
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - NotebookLM CLI command contract changed
+  - external Gemini or GPT Deep Research lane contract changed
+  - source authority or upload policy changed
+  - first private pilot exposes a new failure mode
+  - first real NotebookLM or Codex research pilot fails boundary review
+  - downstream knowledge_wiki_cell handoff contract changes
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - Public-safe synthetic calibration selected the cheapest passing profile; it
+    does not prove real NotebookLM, Gemini, GPT, web, Drive, wiki, source,
+    account, or owner-decision behavior.
+  - Use the high-assurance shadow profile for the first real pilot or when a
+    handoff has elevated boundary risk.
+  - CLI operations and source selection are runtime-owned; this file does not
+    bind account sessions, MCP endpoints, or host-local paths.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: profile_search
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   candidate_id: A_mini_low_dwarf_archivist
   model: gpt-5.4-mini
   reasoning_effort: low
@@ -24,70 +78,18 @@ primary_profile:
   reasoning_output_tokens: 100
   wall_seconds: 31
   telemetry_source: same_cli_isolated_candidate_run
-shadow_top_k:
-  - rank: 2
-    candidate_id: B_55_low_dwarf_archivist
-    model: gpt-5.5
-    reasoning_effort: low
-    species: dwarf
-    class: archivist
-    label: high-assurance-shadow
-    quality_score: 96
-    input_tokens: 21680
-    cached_input_tokens: 4480
-    output_tokens: 1619
-    reasoning_output_tokens: 38
-    wall_seconds: 33
-  - rank: 3
-    candidate_id: B_54_low_human_archivist
-    model: gpt-5.4
-    reasoning_effort: low
-    species: human
-    class: archivist
-    label: middle-model-shadow
-    quality_score: 95
-    input_tokens: 20295
-    cached_input_tokens: 3456
-    output_tokens: 2473
-    reasoning_output_tokens: 37
-    wall_seconds: 49
-  - rank: 4
-    candidate_id: B_55_low_human_archivist
-    model: gpt-5.5
-    reasoning_effort: low
-    species: human
-    class: archivist
-    label: frontier-human-archivist-shadow
-    quality_score: 93
-    input_tokens: 21680
-    cached_input_tokens: 7552
-    output_tokens: 1961
-    reasoning_output_tokens: 33
-    wall_seconds: 41
-  - rank: 5
-    candidate_id: A_mini_low_human_auditor
-    model: gpt-5.4-mini
-    reasoning_effort: low
-    species: human
-    class: auditor
-    label: cheap-auditor-shadow
-    quality_score: 88
-    input_tokens: 19943
-    cached_input_tokens: 3456
-    output_tokens: 1897
-    reasoning_output_tokens: 104
-    wall_seconds: 28
-rerun_triggers:
-  - workflow prompt changed
-  - output schema changed
-  - NotebookLM CLI command contract changed
-  - external Gemini or GPT Deep Research lane contract changed
-  - source authority or upload policy changed
-  - first private pilot exposes a new failure mode
-  - first real NotebookLM or Codex research pilot fails boundary review
-  - downstream knowledge_wiki_cell handoff contract changes
-calibration_archive_ref: calibrations/cal_20260524_staged_cli_001/
-notes:
-  - Public-safe synthetic calibration selected the cheapest passing profile; it does not prove real NotebookLM, Gemini, GPT, web, Drive, wiki, source, account, or owner-decision behavior.
-  - Use the high-assurance shadow profile for the first real pilot or when a handoff has elevated boundary risk.
-  - CLI operations and source selection are runtime-owned; this file does not bind account sessions, MCP endpoints, or host-local paths.
+tested_dimensions:
+  models:
+    - gpt-5.4-mini
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - archivist
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_profile_selected_among_fresh_current_contract_candidates

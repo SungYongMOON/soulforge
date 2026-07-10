@@ -1,0 +1,55 @@
+{
+  "workflow_id": "component_pcb_layout_guide_extraction",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 96,
+      "token_proxy": 25222,
+      "wall_s": 65.729,
+      "selected": false
+    },
+    {
+      "candidate_id": "CURRENT_incumbent_gpt_5_4_mini_medium",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 89,
+      "token_proxy": 20537,
+      "wall_s": 35.124,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 86,
+      "token_proxy": 23252,
+      "wall_s": 47.542,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.4-mini",
+    "reasoning_effort": "medium",
+    "species": "elf",
+    "class": "archivist",
+    "candidate_id": "C_shadow_gpt_5_4_mini_medium",
+    "measured_tokens": {
+      "input_tokens": 16718,
+      "cached_input_tokens": 16256,
+      "output_tokens": 6505,
+      "reasoning_output_tokens": 516,
+      "telemetry_source": "codex_exec_json_cli_proxy_stage_c"
+    },
+    "wall_time_seconds": 43.75,
+    "quality_score": 93,
+    "quality_gate": "pass",
+    "rationale": "Lowest-cost finalist that passed semantic hard gates for source-bound per-finding traceability, table/figure promotion discipline, U2 supplemental handling, J1 review gating, and public-safe boundary control.\n"
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "CURRENT_incumbent_gpt_5_4_mini_medium",
+  "selection_claim": "quality_passing_profile_selected_among_fresh_current_contract_candidates",
+  "claim_ceiling": "observed"
+}

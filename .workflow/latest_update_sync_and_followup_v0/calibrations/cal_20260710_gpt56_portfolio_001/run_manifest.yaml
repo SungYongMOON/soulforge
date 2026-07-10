@@ -1,0 +1,70 @@
+workflow_id: latest_update_sync_and_followup_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+date: 2026-07-10
+optimization_intent: migration_validation
+public_safe: true
+incumbent_comparator:
+  profile:
+    candidate_id: A_mini_low_dwarf_auditor
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.4-mini|low|dwarf|auditor
+    quality_score: 94
+    quality_class: quality_gate_pass
+    input_tokens: 15895
+    cached_input_tokens: 14720
+    output_tokens: 1184
+    total_tokens: 17079
+    reasoning_output_tokens: 40
+    wall_s: 20.506
+    telemetry_source: codex_exec_json_cli_proxy
+    selection_reason: >
+      Lowest-token quality-passing candidate. It preserved the event-driven
+      trigger, public/workmeta/private-state separation, tracked skill bridge
+      policy, metadata-only junction suffix review, follow-up routing, and
+      no-real-command synthetic boundary.
+  evidence_ref: .workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260611_latest_update_quality_equiv_001/
+search_scope:
+  exhaustive_authorized: false
+  initial_candidates:
+    - saved incumbent evidence
+    - gpt-5.6-sol|low
+    - gpt-5.6-luna|medium
+  targeted_shape_replays: 2
+  current_contract_incumbent_run: false
+  terra_escalation: true
+candidate_count: 5
+quality_passing_candidate_count: 1
+fixture_ref: .workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260710_gpt56_portfolio_001/input_fixture.public.json
+quality_gate_ref: .workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/criteria.json
+gate_review_ref: .workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/evaluator_review.json
+capability_runner_snapshot_ref: .workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+final_review_ref: .workflow/latest_update_sync_and_followup_v0/calibrations/cal_20260710_gpt56_portfolio_001/subagent_matrix/quality_eval.jsonl
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+    - gpt-5.6-terra
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+measurement_sources:
+  quality: fresh_independent_two_lane_candidate_review
+  telemetry: codex_exec_turn_completed_usage
+  service: OpenAI Codex CLI via ChatGPT account
+  billing_mode: subscription_or_credit_meter_not_authoritatively_observed
+  pricing: not_used
+  billed_cost: not_available
+usage_evidence: workflow_frequency_not_measured
+boundaries:
+  golden_body_read: false
+  old_candidate_body_read: false
+  private_raw_secret_used: false
+claim_ceiling: observed

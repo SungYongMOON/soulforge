@@ -1,0 +1,40 @@
+{
+  "workflow_id": "knowledge_candidate_triage_v0",
+  "fixture_id": "PUBLIC_SYNTH_KNOWLEDGE_CANDIDATE_TRIAGE_V0",
+  "source_kind": "synthetic_from_workflow_contract_metadata_only",
+  "public_safe": true,
+  "workflow_title": "Knowledge Candidate Triage v0",
+  "workflow_summary": "Classify candidate sources and derived knowledge artifacts into inbox, CANON, packet-eligible, owner-review, hold-private, or rejected routes without overclaiming source truth or approval.",
+  "workflow_readiness_label": "pilot-executed",
+  "input_refs": [
+    "candidate_scope_binding",
+    "bookshelf_state_policy",
+    "triage_policy"
+  ],
+  "expected_output_groups": [
+    "candidate_triage_register",
+    "bookshelf_placement_decision",
+    "notebooklm_packet_eligibility_note",
+    "owner_review_queue",
+    "downstream_route_map",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "triage",
+    "owner review",
+    "hold-private",
+    "boundary",
+    "no source truth claim"
+  ],
+  "scenario_facts": [
+    "one candidate goes to packet-eligible",
+    "one candidate goes to owner review",
+    "one candidate stays hold-private",
+    "one rejection reason is explicit"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

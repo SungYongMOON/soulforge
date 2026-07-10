@@ -1,0 +1,44 @@
+{
+  "workflow_id": "ouroboros_strategic_review_harness_v0",
+  "fixture_id": "PUBLIC_SYNTH_OUROBOROS_STRATEGIC_REVIEW_HARNESS_V0",
+  "source_kind": "synthetic_from_workflow_contract_metadata_only",
+  "public_safe": true,
+  "workflow_title": "Ouroboros Strategic Review Harness v0",
+  "workflow_summary": "Run a two-lane strategic review loop that checks Soulforge vision alignment and surfaces owner-intent gaps as questions, canon constraint candidates, and next-focus recommendations without inventing missing intent.",
+  "workflow_readiness_label": "draft",
+  "input_refs": [
+    "vision_and_goal_refs",
+    "roadmap_refs",
+    "current_canon_catalog_refs",
+    "recent_activity_refs"
+  ],
+  "expected_output_groups": [
+    "vision_alignment_report",
+    "owner_intent_gap_register",
+    "ambiguity_ledger",
+    "socratic_question_packet",
+    "owner_question_queue",
+    "closure_restatement_note",
+    "canon_constraint_candidate_register",
+    "next_focus_recommendation",
+    "ouroboros_loop_ledger"
+  ],
+  "must_preserve": [
+    "vision alignment",
+    "owner-intent gap",
+    "question",
+    "boundary",
+    "no invented intent"
+  ],
+  "scenario_facts": [
+    "one roadmap alignment confirmation",
+    "one owner-intent gap question",
+    "one next-focus recommendation",
+    "one canon constraint candidate"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

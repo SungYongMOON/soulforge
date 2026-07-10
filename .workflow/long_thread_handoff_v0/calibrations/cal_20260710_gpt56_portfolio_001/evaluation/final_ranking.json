@@ -1,0 +1,64 @@
+{
+  "workflow_id": "long_thread_handoff_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "CURRENT_incumbent_gpt_5_4_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 97,
+      "token_proxy": 19100,
+      "wall_s": 48.596,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 96,
+      "token_proxy": 21907,
+      "wall_s": 66.859,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low_stability_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 96,
+      "token_proxy": 23006,
+      "wall_s": 60.205,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 95,
+      "token_proxy": 40133,
+      "wall_s": 58.135,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "candidate_id": "B_gpt54_low_dwarf_auditor",
+    "model": "gpt-5.4",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor",
+    "label": "gpt-5.4|low|dwarf|auditor",
+    "quality_score": 98,
+    "quality_class": "quality_gate_pass",
+    "input_tokens": 16542,
+    "cached_input_tokens": 2432,
+    "output_tokens": 1751,
+    "total_tokens": 18293,
+    "reasoning_output_tokens": 18,
+    "wall_s": 30.053,
+    "telemetry_source": "codex_exec_json_cli_proxy",
+    "selection_reason": "Lowest-token quality-passing candidate. Candidate A was cheaper but failed the required handoff field gate by omitting final_goal from night_work_handoff. Candidate B preserved durable handoff shape, worker-report-as-evidence posture, validation gap handling, context reset decision, no-default-route claim, and the synthetic-only boundary.\n"
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "CURRENT_incumbent_gpt_5_4_low",
+  "selection_claim": "quality_passing_profile_selected_among_fresh_current_contract_candidates",
+  "claim_ceiling": "observed"
+}

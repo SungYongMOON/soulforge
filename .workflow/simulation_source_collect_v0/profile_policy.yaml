@@ -1,15 +1,85 @@
 workflow_id: simulation_source_collect_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: 20260515T000000Z_staged_public_fixture
-calibration_mode: staged_subagent_quality_first
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: staged_subagent_matrix
-  telemetry_source: cli_passed_candidates_only
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: relative_cli_proxy
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.6-luna
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: MIG_gpt56_luna_medium
+  quality_score: 94
+  token_proxy: 22059
+  usage:
+    input_tokens: 19667
+    cached_input_tokens: 12032
+    output_tokens: 2392
+    reasoning_output_tokens: 516
+  wall_s: 60.355
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_sol_low
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 24774
+    usage:
+      input_tokens: 20148
+      cached_input_tokens: 13056
+      output_tokens: 4626
+      reasoning_output_tokens: 113
+    wall_s: 87.823
+  - candidate_id: MIG_gpt56_sol_low_stability_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 25506
+    usage:
+      input_tokens: 20148
+      cached_input_tokens: 8960
+      output_tokens: 5358
+      reasoning_output_tokens: 216
+    wall_s: 100.152
+rerun_triggers:
+  - model_family_contract_changes
+  - simulator_compatibility_status_changes
+  - simulation_source_packet_template_changes
+  - official_source_packet_handoff_contract_changes
+  - quantitative_or_harness_handoff_contract_changes
+  - first_profile_calibration_run
+  - owner_approves_new_local_model_or_tool_library_policy
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - Calibrated on a public-safe synthetic mixed model-source fixture; no private
+    run truth, raw model payloads, credentials, account-bound downloads, or
+    _workspaces material were used.
+  - The primary profile is optimized for conservative source-state
+    classification, access-blocker handling, missing-model preservation, and
+    pre-deck/pre-run boundary review.
+  - CLI telemetry is proxy telemetry for finalist comparison only; exact
+    subagent-run token usage was not available.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.3-codex
   reasoning_effort: low
   species: dwarf
@@ -24,55 +94,17 @@ primary_profile:
     reasoning_output_tokens: 11
   wall_time_seconds: 16.12
   telemetry_kind: cli_proxy
-shadow_top_k:
-  - rank: 2
-    model: gpt-5.4
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    candidate_id: stage_b_dwarf_auditor_gpt-5.4_low
-    quality_gate: pass
-    quality_score: 96
-    measured_tokens:
-      input_tokens: 13640
-      cached_input_tokens: 2432
-      output_tokens: 728
-      reasoning_output_tokens: 13
-    wall_time_seconds: 17.44
-    use: quality_shadow
-  - rank: 3
-    model: gpt-5.4-mini
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    candidate_id: stage_a_dwarf_auditor_gpt-5.4-mini_low
-    quality_gate: pass
-    quality_score: 93
-    measured_tokens:
-      input_tokens: 13301
-      cached_input_tokens: 12672
-      output_tokens: 698
-      reasoning_output_tokens: 67
-    wall_time_seconds: 16.83
-    use: cheap_smoke_shadow
-  - rank: 4
-    model: gpt-5.3-codex-spark
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    candidate_id: stage_b_dwarf_auditor_gpt-5.3-codex-spark_low
-    quality_gate: pass_with_wording_caution
-    use: caution_shadow
-rerun_triggers:
-  - model_family_contract_changes
-  - simulator_compatibility_status_changes
-  - simulation_source_packet_template_changes
-  - official_source_packet_handoff_contract_changes
-  - quantitative_or_harness_handoff_contract_changes
-  - first_profile_calibration_run
-  - owner_approves_new_local_model_or_tool_library_policy
-calibration_archive_ref: .workflow/simulation_source_collect_v0/calibrations/20260515T000000Z_staged_public_fixture/
-notes:
-  - Calibrated on a public-safe synthetic mixed model-source fixture; no private run truth, raw model payloads, credentials, account-bound downloads, or _workspaces material were used.
-  - The primary profile is optimized for conservative source-state classification, access-blocker handling, missing-model preservation, and pre-deck/pre-run boundary review.
-  - CLI telemetry is proxy telemetry for finalist comparison only; exact subagent-run token usage was not available.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_gpt56_profile_selected_against_saved_incumbent

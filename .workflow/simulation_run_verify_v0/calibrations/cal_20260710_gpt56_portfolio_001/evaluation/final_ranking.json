@@ -1,0 +1,65 @@
+{
+  "workflow_id": "simulation_run_verify_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 17933,
+      "wall_s": 32.352,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low_stability_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 18260,
+      "wall_s": 32.999,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 95,
+      "token_proxy": 16875,
+      "wall_s": 27.295,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 16681,
+      "wall_s": 25.618,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "human",
+    "class": "auditor",
+    "candidate_id": "qe_gpt55_low_human_auditor",
+    "quality_gate": "pass",
+    "quality_class": "quality_equivalent_pass",
+    "quality_score": 96,
+    "baseline_relative_quality": 1,
+    "cli_proxy_telemetry": {
+      "input_tokens": 17086,
+      "cached_input_tokens": 7552,
+      "output_tokens": 932,
+      "reasoning_output_tokens": 18,
+      "wall_seconds": 21.486
+    },
+    "selection_rationale": "Quality-equivalent to the gpt-5.5/xhigh baseline with no material information loss, lower output/reasoning tokens than xhigh, and the lowest measured wall time in the revised comparison."
+  },
+  "migration_decision": "replaced",
+  "selected_candidate_id": "MIG_gpt56_sol_low",
+  "selection_claim": "quality_passing_gpt56_profile_selected_against_saved_incumbent",
+  "claim_ceiling": "observed"
+}

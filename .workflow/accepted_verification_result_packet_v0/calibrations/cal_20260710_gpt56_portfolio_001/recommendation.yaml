@@ -1,0 +1,22 @@
+workflow_id: accepted_verification_result_packet_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: migration_validation
+migration_decision: replaced
+selected_candidate_id: MIG_gpt56_luna_medium_shape_r2
+recommended_profile:
+  model: gpt-5.6-luna
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+quality_score: 95
+token_proxy: 17179
+wall_s: 12.206
+selection_claim: quality_passing_gpt56_profile_selected_against_saved_incumbent
+reason: Fresh challenger passed and remained inside the quality-priority band
+  relative to saved incumbent evidence.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

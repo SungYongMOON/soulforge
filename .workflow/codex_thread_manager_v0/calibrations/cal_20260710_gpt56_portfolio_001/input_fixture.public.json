@@ -1,0 +1,57 @@
+{
+  "schema_version": "gpt56_portfolio_gate_fixture_v1",
+  "workflow_id": "codex_thread_manager_v0",
+  "fixture_id": "public_synthetic_durable_two_lane_orchestration",
+  "public_safe": true,
+  "request": "Act as the declared Codex thread manager for a bounded two-lane refactor. Produce an orchestration decision and self-contained worker packets; do not execute worker tasks or claim thread creation.",
+  "inputs": {
+    "soulforge_task_goal": "Refactor a synthetic telemetry adapter and update its public operator note, then obtain independent acceptance evidence.",
+    "active_workspace_scope": [
+      "repo://src/telemetry_adapter/**",
+      "repo://docs/telemetry_adapter.md"
+    ],
+    "boundary_policy_ref": "fixture://policies/public_safe_no_external_side_effects",
+    "thread_orchestration_request": {
+      "explicit_manager_invocation": true,
+      "durable_lanes": [
+        "implementation",
+        "documentation"
+      ],
+      "acceptance_review_required": true,
+      "expected_duration": "multi_phase"
+    },
+    "prior_night_work_handoff_ref": "fixture://handoff/telemetry_refactor_checkpoint",
+    "active_worker_thread_refs": [],
+    "target_file_refs": [
+      "repo://src/telemetry_adapter/adapter.ts",
+      "repo://docs/telemetry_adapter.md"
+    ],
+    "validation_command_refs": [
+      "cmdref://unit_test",
+      "cmdref://docs_lint"
+    ],
+    "context_pressure_signal": "moderate",
+    "owner_decision_refs": []
+  },
+  "fixture_state": {
+    "unresolved_forward_state": true,
+    "thread_tools_assumed_available": true,
+    "implementation_and_documentation_write_scopes_do_not_overlap": true,
+    "verifier_must_be_independent": true,
+    "registration_or_default_route_change_authorized": false
+  },
+  "requested_deliverable": [
+    "declared goal, success criteria, stop conditions, and boundary constraints",
+    "checkpoint refresh decision and compact NIGHT_WORK_HANDOFF content",
+    "continuation surface and manager lifecycle decision",
+    "one bounded packet per durable worker lane with subagent-first posture",
+    "a fresh non-implementer verifier packet",
+    "integration, validation, workflow-check, and conservative closeout plan"
+  ],
+  "prohibitions": [
+    "no raw transcript, hidden reasoning, private payload, secret, or host-local absolute path",
+    "no invented thread ids, command results, validator results, owner approval, registration, or default-route safety",
+    "no candidate execution"
+  ],
+  "boundary_attestation": "All names, refs, and task facts are synthetic and public-safe."
+}

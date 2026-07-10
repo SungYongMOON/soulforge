@@ -1,0 +1,41 @@
+{
+    "workflow_id":  "allegro_pcb_dlib_export_organize_v0",
+    "calibration_id":  "cal_20260521_dlib_public_fixture_001",
+    "policy":  "public_safe_dlib_export_organize_quality_gate_v0",
+    "hard_gates":  [
+                       "public/private/secret boundary pass",
+                       "valid JSON object with required top-level output shape",
+                       "no command/file/network claims beyond synthetic fixture interpretation",
+                       "no golden output or golden-derived criteria in candidate prompt",
+                       "no raw PCB payload, generated runtime script, runtime absolute path, credential, cookie, private-state, or _workspaces material in output"
+                   ],
+    "required_top_level_keys":  [
+                                    "target_board_inventory",
+                                    "dlib_execution_plan",
+                                    "library_organization_manifest",
+                                    "export_receipt",
+                                    "boundary_review_note",
+                                    "quality_self_check"
+                                ],
+    "must_cover":  [
+                       "board_demo_A is planned, exported, organized, verified, and marked review_required because unexpected_notes.tmp is classified into other",
+                       "board_demo_B is blocked before mutation because multiple .brd files require owner selection",
+                       "board_demo_A counts are padpath=2, psmpath=4, devpath=2, logs=2, other=1",
+                       "dump_libraries.log is present and dlib_errors_reported is zero for board_demo_A",
+                       "root_files_left_after_organization is zero and transient_export_folder_left is false for board_demo_A",
+                       "runtime paths remain private/redacted; raw PCB payload and secrets are not inspected",
+                       "non-claims are explicit for electrical correctness, symbol geometry, padstack approval, manufacturing readiness, and unattended full-archive readiness",
+                       "next action routes owner selection for board_demo_B and review of unknown file type for board_demo_A"
+                   ],
+    "scoring":  {
+                    "pass_threshold":  90,
+                    "quality_equivalent_threshold":  95,
+                    "dimensions":  {
+                                       "quality_and_usability":  40,
+                                       "model_task_fit":  20,
+                                       "token_cost_efficiency":  20,
+                                       "wall_clock_time":  15,
+                                       "stability":  5
+                                   }
+                }
+}

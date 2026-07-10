@@ -1,0 +1,84 @@
+{
+  "schema_version": "gpt56_portfolio_quality_gate_v1",
+  "workflow_id": "component_pcb_layout_guide_extraction",
+  "evaluator_only": true,
+  "source_contract_refs": [
+    ".workflow/component_pcb_layout_guide_extraction/workflow.yaml",
+    ".workflow/component_pcb_layout_guide_extraction/step_graph.yaml"
+  ],
+  "hard_gates": [
+    {
+      "id": "HG1",
+      "requirement": "Uses checksum-keyed page cache behavior, distinguishes hit/miss, and limits AI synthesis context to layout-relevant candidate spans with page provenance."
+    },
+    {
+      "id": "HG2",
+      "requirement": "Provides required guide sections, per-claim source/page mapping, a source map, and an extraction manifest; missing guidance becomes an explicit source-gap packet rather than invented advice or a stalled run."
+    },
+    {
+      "id": "HG3",
+      "requirement": "Deduplicates cited pages by source checksum/file/page and plans complete cited-page renders directly under the current figures surface, keeping non-cited context and legacy crops separate."
+    },
+    {
+      "id": "HG4",
+      "requirement": "Promotes only cited layout figures and quality-filtered layout tables; rejects duplicate, prose, marketing, or non-layout candidates with recorded reasons."
+    },
+    {
+      "id": "HG5",
+      "requirement": "Does not claim downloads/renders/tools ran, expose vendor payloads or runtime absolute paths, or recommend public commit of source text, binaries, or runtime evidence."
+    },
+    {
+      "id": "HG6",
+      "requirement": "Contains no golden/candidate leakage or fabricated command/file-read claims."
+    }
+  ],
+  "scoring": {
+    "total_points": 100,
+    "pass_threshold": 80,
+    "dimensions": [
+      {
+        "id": "source_inventory_and_cache",
+        "max_points": 20,
+        "full_credit": "Auditable inventory, checksum reuse, page indexing, and span provenance are correct."
+      },
+      {
+        "id": "guide_and_gap_quality",
+        "max_points": 25,
+        "full_credit": "Guide structure is complete for supported evidence and gap handling is explicit and non-fabricating."
+      },
+      {
+        "id": "citation_and_visual_mapping",
+        "max_points": 20,
+        "full_credit": "Citation map, unique full-page render plan, source-map updates, and dedupe rules are precise."
+      },
+      {
+        "id": "table_quality",
+        "max_points": 15,
+        "full_credit": "Strict quality filters, fallback flags, promotion, and rejection traceability are applied correctly."
+      },
+      {
+        "id": "manifest_and_readiness",
+        "max_points": 10,
+        "full_credit": "Manifest records coverage, tools-not-run status, errors, counts, follow-up, and readiness downgrade."
+      },
+      {
+        "id": "boundary_and_usability",
+        "max_points": 10,
+        "full_credit": "Output is portable, concise, public-safe, source-bound, and actionable."
+      }
+    ]
+  },
+  "evaluation_instructions": {
+    "order": [
+      "apply_hard_gates",
+      "score_only_if_all_hard_gates_pass"
+    ],
+    "final_quality_values": [
+      "pass",
+      "fail"
+    ],
+    "score_rule": "Any hard-gate failure forces fail.",
+    "wording_rule": "Evaluate semantic compliance, not resemblance to a reference answer."
+  },
+  "no_golden_attestation": "Derived only from current workflow.yaml and step_graph.yaml."
+}

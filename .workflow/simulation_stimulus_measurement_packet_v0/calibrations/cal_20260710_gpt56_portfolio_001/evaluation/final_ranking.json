@@ -1,0 +1,66 @@
+{
+  "workflow_id": "simulation_stimulus_measurement_packet_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 97,
+      "token_proxy": 18430,
+      "wall_s": 49.279,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 93,
+      "token_proxy": 16027,
+      "wall_s": 27.988,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 17605,
+      "wall_s": 25.41,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 16074,
+      "wall_s": 23.54,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "dwarf",
+    "class": "auditor",
+    "candidate_id": "qe_dwarf_auditor_gpt-5.5_medium",
+    "quality_gate": "pass",
+    "quality_class": "quality_equivalent_pass",
+    "output_quality_score": 97,
+    "baseline_relative_quality": 0.97,
+    "measured_tokens": {
+      "input_tokens": 17351,
+      "cached_input_tokens": 7552,
+      "output_tokens": 1451,
+      "reasoning_output_tokens": 18
+    },
+    "wall_time_seconds": 30.341,
+    "telemetry_source": "codex_exec_json_cli_proxy",
+    "selection_reason": "Best-value quality-equivalent candidate; it preserved all seed-input and measurement boundaries while making the missing IDD probe-node blocker explicit."
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "SAVED_incumbent",
+  "selection_claim": "incumbent_retained_by_quality_priority",
+  "claim_ceiling": "observed"
+}

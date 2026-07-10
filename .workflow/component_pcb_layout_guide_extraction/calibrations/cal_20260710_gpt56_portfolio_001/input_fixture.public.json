@@ -1,0 +1,120 @@
+{
+  "schema_version": "gpt56_portfolio_gate_fixture_v1",
+  "workflow_id": "component_pcb_layout_guide_extraction",
+  "fixture_id": "public_synthetic_two_component_layout_extraction",
+  "public_safe": true,
+  "request": "Produce a dry-run extraction packet for two synthetic components. Describe the resulting guide/source-map/manifest records and figure-table handling; do not download or render files.",
+  "inputs": {
+    "parts_root_binding": "fixture://parts/demo_board",
+    "extraction_policy": {
+      "cache_first": true,
+      "candidate_spans_only_to_ai": true,
+      "full_page_render_for_cited_pdf_pages": true,
+      "strict_table_quality_filter": true
+    },
+    "approved_download_policy": {
+      "official_sources_only": true,
+      "network_execution_allowed": false,
+      "record_blocked_attempts": true
+    }
+  },
+  "synthetic_component_inventory": [
+    {
+      "component_key": "U_DEMO_1",
+      "docs": [
+        {
+          "source_file_name": "demo_converter_datasheet.pdf",
+          "sha256": "sha256:fixture-converter-v1",
+          "pages": 12,
+          "cached_index_checksum_matches": true
+        },
+        {
+          "source_file_name": "demo_eval_guide.pdf",
+          "sha256": "sha256:fixture-eval-v1",
+          "pages": 8,
+          "cached_index_checksum_matches": false
+        }
+      ],
+      "candidate_spans": [
+        {
+          "source_file": "demo_converter_datasheet.pdf",
+          "page_number": 7,
+          "section": "Layout Guidance",
+          "topic": "decoupling and exposed-pad vias"
+        },
+        {
+          "source_file": "demo_eval_guide.pdf",
+          "page_number": 5,
+          "section": "Board Layout",
+          "topic": "ground return routing"
+        }
+      ],
+      "final_guide_citations": [
+        {
+          "source_file": "demo_converter_datasheet.pdf",
+          "page_number": 7,
+          "guide_section": "Decoupling And Power Placement"
+        },
+        {
+          "source_file": "demo_converter_datasheet.pdf",
+          "page_number": 7,
+          "guide_section": "Thermal / Exposed Pad"
+        },
+        {
+          "source_file": "demo_eval_guide.pdf",
+          "page_number": 5,
+          "guide_section": "Grounding"
+        }
+      ],
+      "table_candidates": [
+        {
+          "candidate_id": "T1",
+          "page_number": 5,
+          "context": "board connector and power setup",
+          "metrics_present": true
+        },
+        {
+          "candidate_id": "T2",
+          "page_number": 2,
+          "context": "two-column marketing prose",
+          "metrics_present": true
+        }
+      ]
+    },
+    {
+      "component_key": "U_DEMO_2",
+      "docs": [
+        {
+          "source_file_name": "demo_sensor_brief.pdf",
+          "sha256": "sha256:fixture-sensor-v1",
+          "pages": 2,
+          "cached_index_checksum_matches": false
+        }
+      ],
+      "candidate_spans": [],
+      "supplemental_official_source_attempts": [
+        {
+          "source_kind": "datasheet",
+          "result": "missing"
+        },
+        {
+          "source_kind": "evaluation_board_user_guide",
+          "result": "blocked_by_network_disabled_fixture"
+        }
+      ]
+    }
+  ],
+  "requested_deliverable": [
+    "per-component cache hit/miss and candidate-span selection record",
+    "layout_guide.md section plan and source_map entries",
+    "deduplicated cited full-page render plan and table promotion/rejection records",
+    "source-gap packet for the component without official guidance",
+    "extraction manifest and boundary/readiness result"
+  ],
+  "prohibitions": [
+    "no unsupported PCB-layout claim",
+    "no whole-PDF AI context, actual download, actual render, or vendor payload",
+    "no runtime absolute path or public-commit recommendation for vendor text/binaries/runtime figures"
+  ],
+  "boundary_attestation": "Documents, checksums, components, and excerpts are synthetic metadata."
+}

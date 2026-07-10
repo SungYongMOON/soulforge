@@ -1,0 +1,58 @@
+{
+  "source": "reconstructed_from_saved_criteria_excerpt_and_run_summary",
+  "required_facts": [
+    "프로젝트/회의 맥락은 UI Theme Package Release Readiness이다.",
+    "고객사나 외부 파트너는 언급되지 않았다.",
+    "공개 릴리스 목표는 스모크 테스트 통과 조건부로 금요일 15:00 KST이다.",
+    "수요일은 확정 릴리스 일정이 아니라 내부 stretch goal이다.",
+    "packageName mismatch를 smoke-theme-pack.mjs에서 무시하도록 변경하는 제안은 거절되었다.",
+    "packageName mismatch 발생 시 먼저 패키지 설정을 확인하고, 계약 자체가 틀린 경우에만 스크립트를 검토한다.",
+    "Minjun은 금요일 10:00 KST까지 스모크 테스트를 재실행하고 결과를 공유한다.",
+    "Doyun은 금요일 12:00 KST까지 action_items.md에 failure triage note를 작성한다.",
+    "README 설치 절차 검토는 필요성이 언급되었지만 담당자는 배정되지 않았다.",
+    "Hara는 Minjun의 스모크 결과 공유 후 생성된 tarball 경로를 확인한다.",
+    "Hara에게 정확한 마감은 없다.",
+    "위험: 잘못된 tarball 경로는 릴리스를 지연시킬 수 있다.",
+    "위험: README 설치 절차가 오래되면 릴리스 노트가 사용자를 오도할 수 있다.",
+    "미해결 질문: 최종 릴리스 승인권자.",
+    "미해결 질문: 릴리스 노트에 내부 수요일 stretch goal을 언급할지 여부.",
+    "예산, 보안 사고, 프로덕션 장애, 법무 승인 요건은 언급되지 않았다."
+  ],
+  "critical_failures": [
+    "고객명, 파트너명, 예산, 보안 사고, 장애, 법무 승인 등 비언급 사실을 생성한다.",
+    "수요일을 확정 공개 릴리스 일정으로 쓴다.",
+    "금요일 15:00 KST 릴리스의 스모크 테스트 통과 조건을 누락한다.",
+    "packageName mismatch 무시 변경이 승인되었다고 쓴다.",
+    "거절된 smoke-theme-pack.mjs 변경을 action item으로 만든다.",
+    "README 검토 담당자를 임의 배정한다.",
+    "Hara에게 임의의 정확한 마감 시간을 부여한다.",
+    "Minjun 또는 Doyun의 소유자, 작업, 마감을 잘못 바꾼다.",
+    "최종 릴리스 승인권자가 결정된 것처럼 쓴다.",
+    "필수 출력 묶음인 formal_minutes, action_items, followup_note 중 하나를 누락한다."
+  ],
+  "boundary_rules": [
+    "확정 결정, 제안, 거절된 제안, 미결 사항을 구분한다.",
+    "조건부 일정은 반드시 조건과 함께 기록한다.",
+    "담당자 또는 마감이 명시되지 않은 항목은 미배정/미정으로 표시한다.",
+    "원문에 없는 조직명, 고객명, 승인 체계, 사고 정보를 보강하지 않는다.",
+    "후속 확인 항목은 회의에서 나온 사실과 미해결 질문에만 근거한다.",
+    "표현은 달라도 의미가 보존되면 허용한다."
+  ],
+  "usability_checks": [
+    "formal_minutes는 decisions, non_decisions, risks, open_questions를 포함한다.",
+    "action_items는 owner, task, due, status, source_certainty를 포함한다.",
+    "followup_note는 check_next와 do_not_invent를 포함한다.",
+    "각 action item은 실행 가능하게 작성되어 있다.",
+    "확정 항목과 미배정/미정 항목이 한눈에 구분된다.",
+    "시간대 KST와 금요일/목요일 조건이 유지된다.",
+    "한국어로 간결하고 평가자가 사실 일치 여부를 판정하기 쉽다."
+  ],
+  "scoring_weights": {
+    "quality_and_usability": 40,
+    "model_task_fit": 20,
+    "token_cost_efficiency": 20,
+    "wall_clock_time": 15,
+    "stability_across_reruns": 5
+  },
+  "saved_criteria_excerpt": "{\n  \"required_facts\": [\n    \"프로젝트/회의 맥락은 UI Theme Package Release Readiness이다.\",\n    \"고객사나 외부 파트너는 언급되지 않았다.\",\n    \"공개 릴리스 목표는 스모크 테스트 통과 조건부로 금요일 15:00 KST이다.\",\n    \"수요일은 확정 릴리스 일정이 아니라 내부 stretch goal이다.\",\n    \"packageName mismatch를 smoke-theme-pack.mjs에서 무시하도록 변경하는 제안은 거절되었다.\",\n    \"packageName mismatch 발생 시 먼저 패키지 설정을 확인하고, 계약 자체가 틀린 경우에만 스크립트를 검토한다.\",\n    \"Minjun은 금요일 10:00 KST까지 스모크 테스트를 재실행하고 결과를 공유한다.\",\n    \"Doyun은 금요일 12:00 KST까지 action_items.md에 failure triage note를 작성한다.\",\n    \"README 설치 절차 검토는 필요성이 언급되었지만 담당자는 배정되지 않았다.\",\n    \"Hara는 Minjun의 스모크 결과 공유 후 생성된 tarball 경로를 확인한다.\",\n    \"Hara에게 정확한 마감은 없다.\",\n    \"위험: 잘못된 tarball 경로는 릴리스를 지연시킬 수 있다.\",\n    \"위험: README 설치 절차가 오래되면 릴리스 노트가 사용자를 오도할 수 있다.\",\n    \"미해결 질문: 최종 릴리스 승인권자.\",\n    \"미해결 질문: 릴리스 노트에 내부 수요일 stretch goal을 언급할지 여부.\",\n    \"예산, 보안 사고, 프로덕션 장애, 법무 승인 요건은 언급되지 않았다.\"\n  ],\n  \"critical_failures\": [\n    \"고객명, 파트너명, 예산, 보안 사고, 장애, 법무 승인 등 비언급 사실을 생성한다.\",\n    \"수요일을 확정 공개 릴리스 일정으로 쓴다.\",\n    \"금요일 15:00 KST 릴리스의 스모크 테스트 통과 조건을 누락한다.\",\n    \"packageName mismatch 무시 변경이 승인되었다고 쓴다.\",\n    \"거절된 smoke-theme-pack.mjs 변경을 action item으로 만든다.\",\n    \"README 검토 담당자를 임의 배정한다.\",\n    \"Hara에게 임의의 정확한 마감 시간을 부여한다.\",\n    \"Minjun 또는 Doyun의 소유자, 작업, 마감을 잘못 바꾼다.\",\n    \"최종 릴리스 승인권자가 결정된 것처럼 쓴다.\",\n    \"필수 출력 묶음인 formal_minutes, action_items, followup_note 중 하나를 누락한다.\"\n  ],\n  \"boundary_rules\": [\n    \"확정 결정, 제안, 거절된 제안, 미결 사항을 구분한다.\",\n    \"조건부 일정은 반드시 조건과 함께 기록한다.\",\n    \"담당자 또는 마감이 명시되지 않은 항목은 미배정/미정으로 표시한다.\",\n    \"원문에 없는 조직명, 고객명, 승인 체계, 사고 정보를 보강하지 않는다.\",\n    \"후속 확인 항목은 회의에서 나온 사실과 미해결 질문에만 근거한다.\",\n    \"표현은 달라도 의미가 보존되면 허용한다.\"\n  ],\n  \"usability_checks\": [\n    \"formal_minutes는 decisions, non_decisions, risks, open_questions를 포함한다.\",\n    \"action_items는 owner, task, due, status, source_certainty를 포함한다.\",\n    \"followup_note는 check_next와 do_not_invent를 포함한다.\",\n    \"각 action item은 실행 가능하게 작성되어 있다.\",\n    \"확정 항목과 미배정/미정 항목이 한눈에 구분된다.\",\n    \"시간대 KST와 금요일/목요일 조건이 유지된다.\",\n    \"한국어로 간결하고 평가자가 사실 일치 여부를 판정하기 쉽다.\"\n  ],\n  \"scoring_weights\": {\n    "
+}

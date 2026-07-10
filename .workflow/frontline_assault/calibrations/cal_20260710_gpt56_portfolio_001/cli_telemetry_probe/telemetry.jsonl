@@ -1,0 +1,2 @@
+{"candidate_id":"MIG_gpt56_sol_low_shape_r2","model":"gpt-5.6-sol","reasoning_effort":"low","usage":{"input_tokens":15514,"cached_input_tokens":8960,"output_tokens":497,"reasoning_output_tokens":34},"wall_s":13.033,"source":"codex_exec_turn_completed_usage","billed_cost":"not_measured"}
+{"candidate_id":"MIG_gpt56_luna_medium_shape_r2","model":"gpt-5.6-luna","reasoning_effort":"medium","usage":{"input_tokens":14354,"cached_input_tokens":0,"output_tokens":399,"reasoning_output_tokens":80},"wall_s":10.173,"source":"codex_exec_turn_completed_usage","billed_cost":"not_measured"}

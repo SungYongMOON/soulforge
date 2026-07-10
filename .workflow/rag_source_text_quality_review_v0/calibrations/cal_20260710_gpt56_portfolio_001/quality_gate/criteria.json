@@ -1,0 +1,72 @@
+{
+  "schema_version": "soulforge.workflow_optimizer.quality_gate.v0",
+  "workflow_id": "rag_source_text_quality_review_v0",
+  "calibration_id": "cal_20260611_rag_source_text_quality_review_quality_equiv_001",
+  "fixture_id": "rag_source_text_quality_review_public_synthetic_refs_001",
+  "criteria_source": "workflow contract hard gates plus gpt-5.5|xhigh baseline comparison",
+  "hard_gates": [
+    {
+      "id": "required_output_shapes",
+      "description": "Output includes quality_review_scope_binding, source_text_index_inventory, traceability_sidecar_inventory, answer_run_trace_inventory, page_quality_review_packet, boundary_review_note, and completion_state."
+    },
+    {
+      "id": "payload_free_boundary",
+      "description": "Output stores refs, hashes, counts, labels, statuses, warnings, and route hints only; it does not copy source text, chunks, excerpts, raw questions, raw answers, NotebookLM payloads, private payloads, secrets, or runtime absolute paths."
+    },
+    {
+      "id": "all_five_pages_and_claims",
+      "description": "All five synthetic page refs P-SYN-001 through P-SYN-005 and claim refs CLM-SYN-001 through CLM-SYN-005 are represented."
+    },
+    {
+      "id": "p001_source_supported",
+      "description": "P-SYN-001 / CLM-SYN-001 is classified with status source_supported because approved source refs, current index refs, sidecar refs, and unblocked claim ceiling align."
+    },
+    {
+      "id": "p002_manual_review_picture",
+      "description": "P-SYN-002 / CLM-SYN-002 is classified with status manual_review and picture warning labels because picture or caption traceability is uncertain."
+    },
+    {
+      "id": "p003_manual_review_table_ocr",
+      "description": "P-SYN-003 / CLM-SYN-003 is classified with status manual_review and table/OCR warning labels because table cell and layout traceability is uncertain."
+    },
+    {
+      "id": "p004_blocked_missing_mapping",
+      "description": "P-SYN-004 / CLM-SYN-004 is classified with status blocked because required page mapping or traceability is missing."
+    },
+    {
+      "id": "p005_blocked_scope_or_claim_ceiling",
+      "description": "P-SYN-005 / CLM-SYN-005 is classified with status blocked because the source is outside the approved scope, the refs are stale or mismatched, and the claim ceiling is blocked."
+    },
+    {
+      "id": "non_authority_boundary",
+      "description": "Candidate explicitly keeps source truth, answer correctness, owner approval, canon promotion, registration, and default-route switching out of scope."
+    },
+    {
+      "id": "synthetic_no_runtime_claim",
+      "description": "Candidate states or implies no real workflow execution, no source-truth approval, no production readiness, and no default-route safety."
+    }
+  ],
+  "scoring_weights": {
+    "quality_and_usability": 40,
+    "model_task_fit": 20,
+    "token_cost_efficiency": 20,
+    "wall_clock_time": 15,
+    "stability": 5
+  },
+  "failure_conditions": [
+    "omits any required output shape",
+    "does not use exact page-level status values in page_quality_review_packet",
+    "omits any synthetic page or claim ref",
+    "marks P-SYN-002 or P-SYN-003 as source_supported despite picture, table, or OCR uncertainty",
+    "does not block P-SYN-004 with missing page mapping",
+    "does not block P-SYN-005 with source scope, stale ref, mixed source, or blocked claim-ceiling basis",
+    "copies source text, chunks, excerpts, raw questions, raw answers, NotebookLM payloads, private payloads, secrets, or runtime absolute paths",
+    "claims source truth, answer correctness, owner approval, canon readiness, registration, production readiness, or default-route safety"
+  ],
+  "pass_threshold": {
+    "hard_gates_pass_required": true,
+    "minimum_output_quality_score": 90,
+    "cost_or_speed_considered_only_after_quality_pass": true
+  },
+  "quality_equivalence_rule": "A candidate may pass with different wording or compactness if every hard gate is met, the exact status field shape is preserved, no critical boundary condition is lost, and the output is directly usable as a synthetic RAG source-text quality-review packet."
+}

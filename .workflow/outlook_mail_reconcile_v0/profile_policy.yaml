@@ -3,22 +3,82 @@ kind: workflow_profile_policy
 status: active
 optimizer_status: completed_public_safe_synthetic_quality_equivalence
 calibration_status: quality_gate_calibrated
-last_calibration_id: cal_20260611_outlook_reconcile_quality_equiv_001
-calibration_mode: cli_quality_equivalence
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: profile_search
 validation_level: public_safe_synthetic_quality_gate
 measurement_policy:
-  quality_source: cli_quality_equivalence_shortlist
-  telemetry_source: codex_exec_json_cli_proxy
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
-  full_default_matrix_executed: false
-  full_default_matrix_reason: >
-    Repo-local precedent uses a public-safe quality-equivalence shortlist for
-    workflow profile calibration. The full default matrix would require 180
-    candidates and was not necessary to establish a lowest-cost hard-gate pass
-    on the synthetic Outlook metadata reconciliation fixture.
 primary_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  candidate_id: CURRENT_incumbent_gpt_5_4_mini_low
+  quality_score: 90
+  token_proxy: 19024
+  usage:
+    input_tokens: 17948
+    cached_input_tokens: 4480
+    output_tokens: 1076
+    reasoning_output_tokens: 51
+  wall_s: 23.909
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_sol_low
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 98
+    task_success: 0.98
+    token_proxy: 21806
+    usage:
+      input_tokens: 20045
+      cached_input_tokens: 13056
+      output_tokens: 1761
+      reasoning_output_tokens: 80
+    wall_s: 36.078
+failed_candidate_notes:
+  - candidate_id: C_gpt55_low_dwarf_auditor
+    label: gpt-5.5|low|dwarf|auditor
+    reason: mutation_or_apply_boundary_weakness
+rerun_triggers:
+  - Outlook reconcile output templates change
+  - project mail history ledger schema changes
+  - Outlook metadata allowlist changes
+  - P00 inbox holding or codex-managed project scope policy changes
+  - dry-run/apply authorization policy changes
+  - owner follow-up or ambiguous row policy changes
+  - negative fixture adds accidental ledger write, Outlook mutation, or
+    body/attachment access temptation
+  - mini profile drops dry-run, P00 exclusion, owner follow-up, or no-mutation
+    handling in a future fixture
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+non_claims:
+  - no_real_outlook_access_or_mutation
+  - no_mail_body_html_msg_or_attachment_payload_read
+  - no_project_ledger_write_executed
+  - no_public_repo_project_mail_publication
+  - no_production_ready_claim
+  - no_default_route_claim
+notes:
+  - This policy optimizes the model-facing reconciliation planning and boundary
+    review part of the workflow on a public-safe synthetic fixture.
+  - Real Outlook reconciliation still requires owner-approved metadata read
+    policy, current mailbox connector state, and private project ledger
+    boundaries.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: profile_search
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   candidate_id: A_mini_low_dwarf_auditor
   model: gpt-5.4-mini
   reasoning_effort: low
@@ -39,73 +99,18 @@ primary_profile:
     Codex-managed project scope, P00 inbox exclusion, metadata-only Outlook
     reads, owner follow-up for ambiguous rows, received-history
     cross-validation, and no-Outlook-mutation synthetic boundary.
-shadow_top_k:
-  - candidate_id: B_gpt54_low_dwarf_auditor
-    model: gpt-5.4
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    label: gpt-5.4|low|dwarf|auditor
-    quality_score: 99
-    quality_class: quality_gate_pass
-    input_tokens: 20928
-    cached_input_tokens: 2432
-    output_tokens: 1567
-    total_tokens: 22495
-    reasoning_output_tokens: 23
-    wall_s: 34.788
-    selection_note: Strong boundary narration but slower and higher-token than primary.
-  - candidate_id: D_gpt55_medium_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|medium|dwarf|auditor
-    quality_score: 100
-    quality_class: quality_gate_pass
-    input_tokens: 22313
-    cached_input_tokens: 2432
-    output_tokens: 1439
-    total_tokens: 23752
-    reasoning_output_tokens: 279
-    wall_s: 30.963
-    selection_note: Highest quality pass and useful as first stronger fallback.
-  - candidate_id: E_gpt55_xhigh_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|xhigh|dwarf|auditor
-    quality_score: 100
-    quality_class: quality_gate_pass
-    input_tokens: 22315
-    cached_input_tokens: 2432
-    output_tokens: 1721
-    total_tokens: 24036
-    reasoning_output_tokens: 516
-    wall_s: 36.487
-    selection_note: Strong baseline profile for future negative fixture revisions.
-failed_candidate_notes:
-  - candidate_id: C_gpt55_low_dwarf_auditor
-    label: gpt-5.5|low|dwarf|auditor
-    reason: mutation_or_apply_boundary_weakness
-rerun_triggers:
-  - Outlook reconcile output templates change
-  - project mail history ledger schema changes
-  - Outlook metadata allowlist changes
-  - P00 inbox holding or codex-managed project scope policy changes
-  - dry-run/apply authorization policy changes
-  - owner follow-up or ambiguous row policy changes
-  - negative fixture adds accidental ledger write, Outlook mutation, or body/attachment access temptation
-  - mini profile drops dry-run, P00 exclusion, owner follow-up, or no-mutation handling in a future fixture
-calibration_archive_ref: .workflow/outlook_mail_reconcile_v0/calibrations/cal_20260611_outlook_reconcile_quality_equiv_001
-non_claims:
-  - no_real_outlook_access_or_mutation
-  - no_mail_body_html_msg_or_attachment_payload_read
-  - no_project_ledger_write_executed
-  - no_public_repo_project_mail_publication
-  - no_production_ready_claim
-  - no_default_route_claim
-notes:
-  - This policy optimizes the model-facing reconciliation planning and boundary review part of the workflow on a public-safe synthetic fixture.
-  - Real Outlook reconciliation still requires owner-approved metadata read policy, current mailbox connector state, and private project ledger boundaries.
+tested_dimensions:
+  models:
+    - gpt-5.4-mini
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: retained
+selection_claim: quality_passing_profile_selected_among_fresh_current_contract_candidates

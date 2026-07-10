@@ -1,0 +1,68 @@
+workflow_id: component_pcb_layout_guide_extraction
+calibration_id: cal_20260710_gpt56_portfolio_001
+date: 2026-07-10
+optimization_intent: profile_search
+public_safe: true
+incumbent_comparator:
+  profile:
+    model: gpt-5.4-mini
+    reasoning_effort: medium
+    species: elf
+    class: archivist
+    candidate_id: C_shadow_gpt_5_4_mini_medium
+    measured_tokens:
+      input_tokens: 16718
+      cached_input_tokens: 16256
+      output_tokens: 6505
+      reasoning_output_tokens: 516
+      telemetry_source: codex_exec_json_cli_proxy_stage_c
+    wall_time_seconds: 43.75
+    quality_score: 93
+    quality_gate: pass
+    rationale: >
+      Lowest-cost finalist that passed semantic hard gates for source-bound
+      per-finding traceability, table/figure promotion discipline, U2
+      supplemental handling, J1 review gating, and public-safe boundary control.
+  evidence_ref: .workflow/component_pcb_layout_guide_extraction/calibrations/20260513-204517_staged_cli_matrix/
+search_scope:
+  exhaustive_authorized: false
+  initial_candidates:
+    - saved incumbent evidence
+    - gpt-5.6-sol|low
+    - gpt-5.6-luna|medium
+  targeted_shape_replays: 0
+  current_contract_incumbent_run: true
+  terra_escalation: false
+candidate_count: 3
+quality_passing_candidate_count: 3
+fixture_ref: .workflow/component_pcb_layout_guide_extraction/calibrations/cal_20260710_gpt56_portfolio_001/input_fixture.public.json
+quality_gate_ref: .workflow/component_pcb_layout_guide_extraction/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/criteria.json
+gate_review_ref: .workflow/component_pcb_layout_guide_extraction/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/evaluator_review.json
+capability_runner_snapshot_ref: .workflow/component_pcb_layout_guide_extraction/calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+final_review_ref: .workflow/component_pcb_layout_guide_extraction/calibrations/cal_20260710_gpt56_portfolio_001/subagent_matrix/quality_eval.jsonl
+tested_dimensions:
+  models:
+    - gpt-5.4-mini
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - elf
+  classes:
+    - archivist
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+measurement_sources:
+  quality: fresh_independent_two_lane_candidate_review
+  telemetry: codex_exec_turn_completed_usage
+  service: OpenAI Codex CLI via ChatGPT account
+  billing_mode: subscription_or_credit_meter_not_authoritatively_observed
+  pricing: not_used
+  billed_cost: not_available
+usage_evidence: workflow_frequency_not_measured
+boundaries:
+  golden_body_read: false
+  old_candidate_body_read: false
+  private_raw_secret_used: false
+claim_ceiling: observed

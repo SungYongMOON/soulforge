@@ -1,0 +1,40 @@
+{
+  "workflow_id": "test_evaluation_execution_result_ingest_v0",
+  "fixture_id": "PUBLIC_SYNTH_TEST_EVALUATION_EXECUTION_RESULT_INGEST_V0",
+  "source_kind": "synthetic_from_workflow_contract",
+  "public_safe": true,
+  "workflow_title": "Test Evaluation Execution Result Ingest v0",
+  "workflow_summary": "General TRR/DT-to-FCA/OT execution and result-ingest workflow for packaging non-simulation-specific test, evaluation, inspection, analysis, and demonstration result evidence without claiming acceptance.",
+  "workflow_readiness_label": "registered",
+  "input_refs": [
+    "test_evaluation_execution_binding",
+    "verification_execution_scope_refs",
+    "approved_test_evaluation_execution_policy"
+  ],
+  "expected_output_groups": [
+    "execution_run_packet",
+    "execution_result_register",
+    "result_verdicts",
+    "run_blockers",
+    "owner_followup_needed",
+    "downstream_handoff",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "result evidence",
+    "no acceptance claim",
+    "blocker",
+    "boundary",
+    "downstream handoff"
+  ],
+  "scenario_facts": [
+    "one passed inspection row",
+    "one blocked execution row",
+    "one downstream handoff to acceptance review"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

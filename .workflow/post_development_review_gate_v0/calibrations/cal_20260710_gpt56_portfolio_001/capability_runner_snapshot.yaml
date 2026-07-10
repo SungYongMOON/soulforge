@@ -1,0 +1,35 @@
+captured_at: 2026-07-10T19:00:00+09:00
+executable: native_codex_cli_windows_x64_vendor_binary
+resolved_absolute_path_recorded_in_runtime_receipt_only: true
+runner_version: codex-cli 0.144.1
+invocation_boundary: native_codex_exec_ephemeral_ignore_user_config_ignore_rules_read_only
+capability_source: runner_owned_smoke_and_candidate_turn_completed_usage
+models:
+  gpt-5.6-sol:
+    default_effort: low
+    supported_efforts:
+      - low
+      - medium
+      - high
+      - xhigh
+      - max
+      - ultra
+  gpt-5.6-terra:
+    default_effort: medium
+    supported_efforts:
+      - low
+      - medium
+      - high
+      - xhigh
+      - max
+      - ultra
+  gpt-5.6-luna:
+    default_effort: medium
+    supported_efforts:
+      - low
+      - medium
+      - high
+      - xhigh
+      - max
+delegation_topology_tested: false
+billing_evidence_available: false

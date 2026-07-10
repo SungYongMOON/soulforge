@@ -1,0 +1,68 @@
+{
+  "workflow_id": "meeting_followup",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "ESC_gpt56_terra_medium_triggered",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 78,
+      "token_proxy": 16436,
+      "wall_s": 23.78,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 18291,
+      "wall_s": 18.2,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 15400,
+      "wall_s": 16.28,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 16860,
+      "wall_s": 19.743,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 15379,
+      "wall_s": 14.524,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.4-mini",
+    "reasoning_effort": "medium",
+    "species": "orc",
+    "class": "auditor",
+    "label": "gpt-5.4-mini|medium|orc|auditor",
+    "quality_score": 95,
+    "rule_score": 100,
+    "total_tokens": 16808,
+    "reasoning_output_tokens": 516,
+    "wall_s": 14.3,
+    "cost_usd_est": 0.00913185
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "SAVED_incumbent",
+  "selection_claim": "incumbent_retained_no_gpt56_challenger_passed",
+  "claim_ceiling": "observed"
+}

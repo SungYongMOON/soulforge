@@ -1,15 +1,73 @@
 workflow_id: capture_xml_intake_library_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515_quality_equiv_001
-calibration_mode: cli_only_quality_equivalence_calibration
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: cli_only_calibration
-  telemetry_source: codex_exec_json_cli_proxy_gpt_5_5_candidates
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.5
+  reasoning_effort: low
+  species: elf
+  class: administrator
+  candidate_id: SAVED_incumbent
+  measured_tokens:
+    input_tokens: 16832
+    cached_input_tokens: 7552
+    output_tokens: 2052
+    reasoning_output_tokens: 13
+    telemetry_source: codex_exec_json_cli_proxy
+  wall_time_seconds: 43.684
+  quality_score: 100
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1.042
+  quality_gate: quality_equivalent_pass
+  rationale: Revised 2026-05-15 calibration selected this gpt-5.5 candidate as the
+    lowest-token/fast-enough profile among candidates that passed the hard gate,
+    scored at least 90/100, and reached at least 90% of the gpt-5.5/xhigh
+    baseline on the frozen public-safe fixture.
+  token_proxy: null
+  usage: null
+  wall_s: null
+  claim_ceiling: observed
+shadow_top_k: []
+rejected_or_non_primary_notes:
+  - Previous primary and shadow profiles were included as carried-forward
+    comparison evidence when present, but only actual gpt-5.5 low/medium/xhigh
+    candidates were rerun in this CLI-only fallback.
+  - minimum_viable_pass candidates are not eligible for primary promotion under
+    the revised quality-equivalence policy.
+rerun_triggers:
+  - workflow step graph changes
+  - intake library output schema changes
+  - Capture XML parser or topology extraction behavior changes
+  - downstream exp_xml_component_materials handoff contract changes
+  - primary profile fails a future public-safe fixture quality gate
+  - model availability, pricing, or latency materially changes
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - Calibration used an existing public-safe fixture when present; otherwise it
+    used a small public-safe synthetic fixture derived from the workflow
+    contract.
+  - Isolated subagent/candidate-runner tooling was unavailable in this runtime,
+    so the archive is explicitly labeled cli_only_calibration.
+  - CLI telemetry is proxy telemetry for these CLI candidates and does not claim
+    exact subagent token usage.
+  - Candidate prompts did not receive the gpt-5.5/xhigh golden output.
+  - No raw XML, raw MDD, vendor payloads, runtime absolute paths, credentials,
+    cookies, private-state data, or project-local run truth are stored in the
+    public archive.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.5
   reasoning_effort: low
   species: elf
@@ -30,56 +88,18 @@ primary_profile:
     lowest-token/fast-enough profile among candidates that passed the hard gate,
     scored at least 90/100, and reached at least 90% of the gpt-5.5/xhigh
     baseline on the frozen public-safe fixture.
-shadow_top_k:
-  - rank: 2
-    candidate_id: qe_gpt_5_5_medium_elf_administrator
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: elf
-    class: administrator
-    output_tokens: 2080
-    reasoning_output_tokens: 28
-    wall_time_seconds: 42.909
-    quality_score: 96
-    quality_class: quality_equivalent_pass
-    baseline_relative_quality: 1
-    note: Quality-equivalent shadow from the 2026-05-15 cli_only_calibration matrix.
-  - rank: 3
-    candidate_id: qe_gpt_5_5_xhigh_elf_administrator
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: elf
-    class: administrator
-    output_tokens: 2790
-    reasoning_output_tokens: 516
-    wall_time_seconds: 54.295
-    quality_score: 96
-    quality_class: quality_equivalent_pass
-    baseline_relative_quality: 1
-    note: Quality-equivalent shadow from the 2026-05-15 cli_only_calibration matrix.
-rejected_or_non_primary_notes:
-  - Previous primary and shadow profiles were included as carried-forward
-    comparison evidence when present, but only actual gpt-5.5 low/medium/xhigh
-    candidates were rerun in this CLI-only fallback.
-  - minimum_viable_pass candidates are not eligible for primary promotion under
-    the revised quality-equivalence policy.
-rerun_triggers:
-  - workflow step graph changes
-  - intake library output schema changes
-  - Capture XML parser or topology extraction behavior changes
-  - downstream exp_xml_component_materials handoff contract changes
-  - primary profile fails a future public-safe fixture quality gate
-  - model availability, pricing, or latency materially changes
-calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
-notes:
-  - Calibration used an existing public-safe fixture when present; otherwise it
-    used a small public-safe synthetic fixture derived from the workflow
-    contract.
-  - Isolated subagent/candidate-runner tooling was unavailable in this runtime,
-    so the archive is explicitly labeled cli_only_calibration.
-  - CLI telemetry is proxy telemetry for these CLI candidates and does not claim
-    exact subagent token usage.
-  - Candidate prompts did not receive the gpt-5.5/xhigh golden output.
-  - No raw XML, raw MDD, vendor payloads, runtime absolute paths, credentials,
-    cookies, private-state data, or project-local run truth are stored in the
-    public archive.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+    - gpt-5.6-terra
+  species:
+    - elf
+  classes:
+    - administrator
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: retained
+selection_claim: incumbent_retained_no_gpt56_challenger_passed

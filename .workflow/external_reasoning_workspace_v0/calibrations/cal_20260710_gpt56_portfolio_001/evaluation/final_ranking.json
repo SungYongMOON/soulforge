@@ -1,0 +1,46 @@
+{
+  "workflow_id": "external_reasoning_workspace_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 99,
+      "token_proxy": 22612,
+      "wall_s": 54.511,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 93,
+      "token_proxy": 20758,
+      "wall_s": 44.852,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "candidate_id": "A_mini_low_dwarf_auditor",
+    "model": "gpt-5.4-mini",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor",
+    "label": "gpt-5.4-mini|low|dwarf|auditor",
+    "quality_score": 98,
+    "quality_class": "quality_gate_pass",
+    "input_tokens": 19835,
+    "cached_input_tokens": 3456,
+    "output_tokens": 1201,
+    "total_tokens": 21036,
+    "reasoning_output_tokens": 37,
+    "wall_s": 25.452,
+    "telemetry_source": "codex_exec_json_cli_proxy",
+    "selection_reason": "Lowest-token quality-passing candidate. It preserved the visible-label policy, sanitized prompt packet, metadata-only pointer boundary, synthetic DOM readback checks, advisory-only claim ceiling, and no-real-browser synthetic boundary.\n"
+  },
+  "migration_decision": "replaced",
+  "selected_candidate_id": "MIG_gpt56_sol_low",
+  "selection_claim": "quality_passing_gpt56_profile_selected_against_saved_incumbent",
+  "claim_ceiling": "observed"
+}

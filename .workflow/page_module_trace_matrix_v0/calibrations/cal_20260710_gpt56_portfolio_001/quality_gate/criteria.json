@@ -1,0 +1,33 @@
+{
+  "calibration_id": "cal_20260519_quality_equiv_001",
+  "workflow_id": "page_module_trace_matrix_v0",
+  "policy": "quality_equivalence_batch_20260519_cli_only",
+  "baseline_profile": "gpt-5.5|xhigh|elf|auditor",
+  "baseline_relative_threshold": 0.9,
+  "quality_equivalence_threshold": 90,
+  "expected_output_groups": [
+    "trace_matrix",
+    "evidence_authority_map",
+    "trace_gap_register",
+    "harness_trace_delta",
+    "verification_seed_matrix",
+    "review_gate_evidence_index",
+    "trace_provenance",
+    "boundary_review_note"
+  ],
+  "hard_gates": [
+    "valid JSON final output",
+    "required output groups present",
+    "public-safe boundary preserved",
+    "no claimed tool use or file edits",
+    "no upstream mutation or false authority claim"
+  ],
+  "required_terms": [
+    "evidence authority",
+    "trace",
+    "boundary",
+    "no mutation",
+    "verification seed"
+  ],
+  "quality_equivalent_definition": "hard gate passes, output-quality score >= 90, baseline-relative quality >= 0.90, and no critical section has material information loss versus the xhigh baseline"
+}

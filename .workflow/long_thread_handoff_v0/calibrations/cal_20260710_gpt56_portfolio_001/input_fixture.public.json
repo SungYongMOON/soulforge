@@ -1,0 +1,59 @@
+{
+  "schema_version": "gpt56_portfolio_gate_fixture_v1",
+  "workflow_id": "long_thread_handoff_v0",
+  "fixture_id": "public_synthetic_overnight_phase_boundary",
+  "public_safe": true,
+  "request": "Prepare a long-thread handoff, fresh-subagent delegation set, context-reset decision, and conservative closeout for unresolved work crossing an overnight phase boundary. Do not execute the delegated work or send a notification.",
+  "inputs": {
+    "long_thread_goal": "Finish a synthetic parser migration, validate its behavior, and document remaining compatibility risks.",
+    "active_workspace_scope": [
+      "repo://src/demo_parser/**",
+      "repo://tests/demo_parser/**",
+      "repo://docs/demo_parser.md"
+    ],
+    "boundary_policy_ref": "fixture://policies/public_safe_local_only",
+    "prior_night_work_handoff_ref": "fixture://handoff/previous_parser_checkpoint",
+    "target_file_refs": [
+      "repo://src/demo_parser/reader.ts",
+      "repo://tests/demo_parser/reader.test.ts",
+      "repo://docs/demo_parser.md"
+    ],
+    "validation_command_refs": [
+      "cmdref://parser_unit_tests",
+      "cmdref://repository_validate"
+    ],
+    "context_pressure_signal": "high_at_phase_boundary",
+    "telegram_authorization_ref": null,
+    "owner_decision_refs": []
+  },
+  "forward_state": {
+    "unresolved": true,
+    "current_state": "Implementation is partial; a compatibility edge case remains unvalidated.",
+    "decisions_made": [
+      "Preserve the public parser interface."
+    ],
+    "rejected_approaches": [
+      "Do not replace the parser with an unrelated framework."
+    ],
+    "unknowns": [
+      "Whether the compatibility fixture covers empty records."
+    ],
+    "next_actions": [
+      "delegate implementation review",
+      "delegate independent verification",
+      "integrate only after validators"
+    ]
+  },
+  "requested_deliverable": [
+    "conditional NIGHT_WORK_HANDOFF containing all required checkpoint fields",
+    "bounded fresh-subagent packets with write ownership and result shapes",
+    "integration/status inspection and validation plan",
+    "compact/clear/resume decision",
+    "closeout with claim ceiling, blockers, next action, and knowledge-trigger check"
+  ],
+  "prohibitions": [
+    "no raw transcript, hidden reasoning, private payload, secret, host-local absolute path, invented validator result, or external notification",
+    "no production-ready, owner-approval, default-route, or canon-promotion claim"
+  ],
+  "boundary_attestation": "All task state and refs are synthetic and public-safe."
+}

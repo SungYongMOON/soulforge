@@ -1,0 +1,70 @@
+workflow_id: outlook_mail_reconcile_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+date: 2026-07-10
+optimization_intent: profile_search
+public_safe: true
+incumbent_comparator:
+  profile:
+    candidate_id: A_mini_low_dwarf_auditor
+    model: gpt-5.4-mini
+    reasoning_effort: low
+    species: dwarf
+    class: auditor
+    label: gpt-5.4-mini|low|dwarf|auditor
+    quality_score: 98
+    quality_class: quality_gate_pass
+    input_tokens: 20576
+    cached_input_tokens: 3456
+    output_tokens: 1507
+    total_tokens: 22083
+    reasoning_output_tokens: 29
+    wall_s: 27.728
+    telemetry_source: codex_exec_json_cli_proxy
+    selection_reason: >
+      Lowest-token quality-passing candidate. It preserved dry-run mode,
+      Codex-managed project scope, P00 inbox exclusion, metadata-only Outlook
+      reads, owner follow-up for ambiguous rows, received-history
+      cross-validation, and no-Outlook-mutation synthetic boundary.
+  evidence_ref: .workflow/outlook_mail_reconcile_v0/calibrations/cal_20260611_outlook_reconcile_quality_equiv_001/
+search_scope:
+  exhaustive_authorized: false
+  initial_candidates:
+    - saved incumbent evidence
+    - gpt-5.6-sol|low
+    - gpt-5.6-luna|medium
+  targeted_shape_replays: 0
+  current_contract_incumbent_run: true
+  terra_escalation: false
+candidate_count: 3
+quality_passing_candidate_count: 2
+fixture_ref: .workflow/outlook_mail_reconcile_v0/calibrations/cal_20260710_gpt56_portfolio_001/input_fixture.public.json
+quality_gate_ref: .workflow/outlook_mail_reconcile_v0/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/criteria.json
+gate_review_ref: .workflow/outlook_mail_reconcile_v0/calibrations/cal_20260710_gpt56_portfolio_001/quality_gate/evaluator_review.json
+capability_runner_snapshot_ref: .workflow/outlook_mail_reconcile_v0/calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+final_review_ref: .workflow/outlook_mail_reconcile_v0/calibrations/cal_20260710_gpt56_portfolio_001/subagent_matrix/quality_eval.jsonl
+tested_dimensions:
+  models:
+    - gpt-5.4-mini
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+measurement_sources:
+  quality: fresh_independent_two_lane_candidate_review
+  telemetry: codex_exec_turn_completed_usage
+  service: OpenAI Codex CLI via ChatGPT account
+  billing_mode: subscription_or_credit_meter_not_authoritatively_observed
+  pricing: not_used
+  billed_cost: not_available
+usage_evidence: workflow_frequency_not_measured
+boundaries:
+  golden_body_read: false
+  old_candidate_body_read: false
+  private_raw_secret_used: false
+claim_ceiling: observed

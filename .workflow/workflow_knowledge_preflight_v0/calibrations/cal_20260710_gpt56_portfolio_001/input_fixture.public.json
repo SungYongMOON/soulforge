@@ -1,0 +1,70 @@
+{
+  "schema_version": "gpt56_portfolio_gate_fixture_v1",
+  "workflow_id": "workflow_knowledge_preflight_v0",
+  "fixture_id": "public_synthetic_query_first_early_resolution",
+  "public_safe": true,
+  "request": "Prepare the metadata-only knowledge preflight for the target workflow. Follow the fixed investigation order and stop before later surfaces when earlier refs are sufficient.",
+  "inputs": {
+    "workflow_request_binding": {
+      "request": "Draft a synthetic outbound status mail using the current subject-keyword and footer rules.",
+      "knowledge_need": [
+        "subject keyword precedence",
+        "footer authority boundary"
+      ]
+    },
+    "target_workflow_id": "outbound_mail_authoring_v0",
+    "project_knowledge_context_refs": [
+      "fixture://projects/demo-mail-context"
+    ],
+    "preflight_policy": {
+      "query_first": true,
+      "source_deepening_only_when_needed": true,
+      "no_payload_copy": true
+    },
+    "common_reference_refs": [
+      {
+        "surface": ".registry/knowledge",
+        "ref": "registry://knowledge/mail_subject_rules",
+        "coverage": [
+          "subject keyword precedence"
+        ],
+        "status": "sufficient"
+      },
+      {
+        "surface": "canon_backed_obsidian_export",
+        "ref": "obsidian://canon/mail_footer_boundary",
+        "coverage": [
+          "footer authority boundary"
+        ],
+        "status": "sufficient"
+      }
+    ],
+    "notebooklm_binding_refs": [
+      "fixture://notebook/binding-not-needed"
+    ],
+    "knowledge_access_rollup_refs": [
+      "fixture://rollup/not-needed"
+    ],
+    "source_packet_refs": [
+      "fixture://sources/not-needed"
+    ],
+    "sourcebound_packet_refs": [],
+    "drive_archive_refs": [
+      "fixture://archive/not-needed"
+    ],
+    "owner_decision_refs": []
+  },
+  "requested_deliverable": [
+    "project/target binding",
+    "query-first plan with fixed surface order",
+    "knowledge preflight packet naming used and skipped refs",
+    "source-scope recommendation",
+    "weakest claim-ceiling seed",
+    "metadata-only target workflow handoff with uncertainty and reroute triggers",
+    "boundary review"
+  ],
+  "prohibitions": [
+    "no NotebookLM operation, workmeta/source/archive inspection after sufficient canon refs, payload copy, final target-workflow completion, owner approval, source truth, ontology acceptance, or canon promotion"
+  ],
+  "boundary_attestation": "All knowledge refs, target requests, and coverage statements are synthetic metadata."
+}

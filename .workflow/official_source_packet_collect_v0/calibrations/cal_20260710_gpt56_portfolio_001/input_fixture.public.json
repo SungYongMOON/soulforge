@@ -1,0 +1,106 @@
+{
+  "schema_version": "gpt56_portfolio_gate_fixture_v1",
+  "workflow_id": "official_source_packet_collect_v0",
+  "fixture_id": "public_synthetic_mixed_source_states",
+  "public_safe": true,
+  "request": "Build a dry-run official source packet for the synthetic identifiers, classify each requested source kind, and partition downstream readiness. Do not browse, download, upload, or read local files.",
+  "inputs": {
+    "source_collection_binding": "fixture://source_packets/demo_board",
+    "identifier_scope": [
+      {
+        "identifier_id": "ID-A",
+        "identifier_kind": "component",
+        "display_value": "ACME-100",
+        "requested_source_kinds": [
+          "datasheet",
+          "layout_or_package_document",
+          "simulation_model"
+        ],
+        "downstream_consumers": [
+          "materials",
+          "layout",
+          "simulation"
+        ]
+      },
+      {
+        "identifier_id": "ID-B",
+        "identifier_kind": "tool",
+        "display_value": "SYNTH-TOOL",
+        "requested_source_kinds": [
+          "standard_or_tool_document"
+        ],
+        "downstream_consumers": [
+          "harness"
+        ]
+      }
+    ],
+    "approved_source_policy": {
+      "official_publishers": [
+        "ACME Devices",
+        "Synth Tool Foundation"
+      ],
+      "owner_local_use_requires_explicit_scope": true,
+      "network_execution_allowed": false
+    },
+    "owner_approved_local_source_manifest": [
+      {
+        "identifier_id": "ID-B",
+        "source_kind": "standard_or_tool_document",
+        "title": "Synth Tool Format Guide",
+        "root_relative_ref": "owner-local://docs/synth-format-guide.pdf",
+        "owner_approval_scope": "executor_for_fixture",
+        "public_summary_allowed": true,
+        "checksum": "sha256:fixture-tool-guide"
+      }
+    ],
+    "existing_source_packets": [
+      {
+        "identifier_id": "ID-A",
+        "source_kind": "datasheet",
+        "publisher": "ACME Devices",
+        "title": "ACME-100 Data Sheet",
+        "canonical_url": "https://example.invalid/acme/acme-100",
+        "revision": "R2",
+        "access_date": "2026-07-10",
+        "claims_supported": [
+          "identity",
+          "electrical limits"
+        ],
+        "state": "official_present"
+      },
+      {
+        "identifier_id": "ID-A",
+        "source_kind": "layout_or_package_document",
+        "publisher": "Unknown mirror",
+        "title": "ACME-100 Layout Notes",
+        "state": "third_party_unapproved"
+      },
+      {
+        "identifier_id": "ID-A",
+        "source_kind": "simulation_model",
+        "state": "blocked",
+        "blocker": "account-bound download unavailable",
+        "searched_locations_or_access_attempts": [
+          "fixture://official/acme/simulation-model-download"
+        ],
+        "downstream_impact": "simulation readiness remains blocked",
+        "required_next_action": "owner supplies an approved local model or separately authorizes an acceptable access route"
+      }
+    ],
+    "owner_held_archive_policy": {
+      "requested": false
+    }
+  },
+  "requested_deliverable": [
+    "identifier inventory",
+    "source inventory with explicit states and minimum provenance",
+    "source gap and structured owner follow-up",
+    "download/reuse and archive manifests",
+    "materials/layout/simulation/harness readiness refs",
+    "boundary review"
+  ],
+  "prohibitions": [
+    "no mirror promotion, silent owner-local approval, executor approval for weak states, network or archive action, payload copy, or source-truth claim beyond supplied evidence"
+  ],
+  "boundary_attestation": "All publishers, identifiers, URLs, refs, checksums, and records are synthetic."
+}

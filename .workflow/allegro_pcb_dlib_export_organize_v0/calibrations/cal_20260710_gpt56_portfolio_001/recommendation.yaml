@@ -1,0 +1,37 @@
+workflow_id: allegro_pcb_dlib_export_organize_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: migration_validation
+migration_decision: retained
+selected_candidate_id: SAVED_incumbent
+recommended_profile:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: dwarf
+  class: archivist
+  candidate_id: B2_gpt_5_5_medium_dwarf_archivist
+  measured_tokens:
+    input_tokens: 16636
+    cached_input_tokens: 7552
+    output_tokens: 732
+    reasoning_output_tokens: 22
+    telemetry_source: codex_exec_json_cli_proxy_same_run
+  wall_time_seconds: 17.688
+  quality_score: 97
+  quality_gate: pass
+  quality_class: quality_equivalent_pass
+  selection_reason: >
+    Selected among quality-passing candidates because the quality delta from the
+    100-point gpt-5.4-mini/high shadow was small while output plus reasoning
+    tokens and wall time were much lower. Provider dollar pricing was not
+    emitted by the CLI telemetry, so cost confidence remains relative_not_exact.
+quality_score: 97
+token_proxy: null
+wall_s: null
+selection_claim: incumbent_retained_no_gpt56_challenger_passed
+reason: No fresh challenger passed the hard gate.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

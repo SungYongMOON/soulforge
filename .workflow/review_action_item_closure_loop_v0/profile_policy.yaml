@@ -1,16 +1,75 @@
 workflow_id: review_action_item_closure_loop_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515_quality_equiv_001
-calibration_mode: cli_only_calibration
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: cli_only_calibration
-  telemetry_source: codex_exec_json_cli_proxy
-  subagent_quality_first_status: blocked_runtime_subagent_unavailable
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.5
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  candidate_id: SAVED_incumbent
+  quality_gate: pass
+  quality_class: quality_equivalent_pass
+  output_quality_score: 94
+  baseline_relative_quality: 0.94
+  measured_tokens:
+    input_tokens: 17291
+    cached_input_tokens: 7552
+    output_tokens: 2767
+    reasoning_output_tokens: 13
+  wall_time_seconds: 53.326
+  telemetry_source: codex_exec_json_cli_proxy
+  selection_reason: Lowest-cost quality-equivalent candidate with explicit
+    per-action closure rows, ledger, status matrix, blockers, rerun readiness,
+    carry-forward, owner-decision queue, and handoffs.
+  quality_score: null
+  token_proxy: null
+  usage: null
+  wall_s: null
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_sol_low_shape_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 97
+    task_success: 0.98
+    token_proxy: 20881
+    usage:
+      input_tokens: 15856
+      cached_input_tokens: 13056
+      output_tokens: 5025
+      reasoning_output_tokens: 28
+    wall_s: 94.495
+rerun_triggers:
+  - action_status_value_changes
+  - closure_evidence_ref_policy_changes
+  - rerun_route_mapping_rule_changes
+  - quality_equivalence_policy_changes
+  - isolated_subagent_runner_becomes_available
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - Previous policy was draft with no primary profile or shadows.
+  - Actual gpt-5.5 low, medium, and xhigh candidates were run; xhigh was the
+    baseline candidate.
+  - This policy is promoted only as cli_only_calibration because isolated
+    subagent/candidate-runner tooling was unavailable in this runtime.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.5
   reasoning_effort: low
   species: dwarf
@@ -27,41 +86,20 @@ primary_profile:
     reasoning_output_tokens: 13
   wall_time_seconds: 53.326
   telemetry_source: codex_exec_json_cli_proxy
-  selection_reason: Lowest-cost quality-equivalent candidate with explicit per-action closure rows, ledger, status matrix, blockers, rerun readiness, carry-forward, owner-decision queue, and handoffs.
-shadow_top_k:
-  - rank: 2
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: auditor
-    candidate_id: qe_dwarf_auditor_gpt-5.5_xhigh
-    quality_class: quality_equivalent_pass
-    output_quality_score: 100
-    baseline_relative_quality: 1.0
-    output_tokens: 4777
-    reasoning_output_tokens: 516
-    wall_time_seconds: 90.122
-  - rank: 3
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    candidate_id: qe_dwarf_auditor_gpt-5.5_medium
-    quality_class: minimum_viable_pass
-    output_quality_score: 88
-    baseline_relative_quality: 0.88
-    output_tokens: 3150
-    reasoning_output_tokens: 40
-    wall_time_seconds: 77.05
-    non_promotion_reason: Grouped status matrix and aggregate-only provenance weakened per-action downstream consumption.
-rerun_triggers:
-  - action_status_value_changes
-  - closure_evidence_ref_policy_changes
-  - rerun_route_mapping_rule_changes
-  - quality_equivalence_policy_changes
-  - isolated_subagent_runner_becomes_available
-calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
-notes:
-  - Previous policy was draft with no primary profile or shadows.
-  - Actual gpt-5.5 low, medium, and xhigh candidates were run; xhigh was the baseline candidate.
-  - This policy is promoted only as cli_only_calibration because isolated subagent/candidate-runner tooling was unavailable in this runtime.
+  selection_reason: Lowest-cost quality-equivalent candidate with explicit
+    per-action closure rows, ledger, status matrix, blockers, rerun readiness,
+    carry-forward, owner-decision queue, and handoffs.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: retained
+selection_claim: incumbent_retained_by_quality_priority

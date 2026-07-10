@@ -1,0 +1,34 @@
+workflow_id: allegro_pcb_dbdoctor_uprev_batch_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+optimization_intent: migration_validation
+migration_decision: retained
+selected_candidate_id: SAVED_incumbent
+recommended_profile:
+  model: gpt-5.4-mini
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: C05MR
+  quality_score: 94
+  quality_class: quality_pass
+  measured_tokens:
+    input_tokens: 17622
+    cached_input_tokens: 2432
+    output_tokens: 2850
+    reasoning_output_tokens: 516
+    telemetry_source: codex_exec_json_cli_proxy
+  wall_time_seconds: 24.657
+  selection_reason: Lowest model tier and fastest measured wall time among
+    exact-shape quality-passing candidates; quality gap to C04R was below the
+    materiality threshold.
+quality_score: 94
+token_proxy: null
+wall_s: null
+selection_claim: incumbent_retained_no_gpt56_challenger_passed
+reason: No fresh challenger passed the hard gate.
+non_claims:
+  - no billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no global cheapest claim
+  - no untested dimension certification
+claim_ceiling: observed

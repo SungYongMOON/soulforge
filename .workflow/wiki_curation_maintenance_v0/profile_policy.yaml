@@ -1,17 +1,16 @@
 workflow_id: wiki_curation_maintenance_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260519_quality_equiv_001
-calibration_mode: cli_only_calibration
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 matrix_mode: minimal_required_quality_equivalence
 measurement_policy:
-  quality_source: cli_only_calibration
-  telemetry_source: cli_only_calibration_all_candidates
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
   telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
-  quality_equivalence_policy: batch_20260519
 primary_profile:
   model: gpt-5.5
   reasoning_effort: medium
@@ -26,39 +25,86 @@ primary_profile:
   output_tokens: 1766
   total_tokens: 47517
   reasoning_output_tokens: 1032
-  wall_s: 17.57
+  wall_s: null
+  candidate_id: SAVED_incumbent
+  token_proxy: null
+  usage: null
+  claim_ceiling: observed
 shadow_top_k:
-  - rank: 2
-    label: gpt-5.5|low|dwarf|archivist
-    model: gpt-5.5
-    reasoning_effort: low
-    species: dwarf
-    class: archivist
-    quality_score: 97
-    quality_class: quality_equivalent_pass
-    baseline_relative_quality: 1
-    total_tokens: 47577
-    reasoning_output_tokens: 16
-    wall_s: 20.94
-  - rank: 3
-    label: gpt-5.5|xhigh|dwarf|archivist
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: archivist
-    quality_score: 0
-    quality_class: fail
-    total_tokens: 106386
-    reasoning_output_tokens: 1032
-    wall_s: 39.9
+  - candidate_id: MIG_gpt56_sol_low_shape_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: archivist
+    quality_score: 96
+    task_success: 0.97
+    token_proxy: 16333
+    usage:
+      input_tokens: 15639
+      cached_input_tokens: 13056
+      output_tokens: 694
+      reasoning_output_tokens: 17
+    wall_s: 16.269
+  - candidate_id: MIG_gpt56_luna_medium_shape_r2
+    profile:
+      model: gpt-5.6-luna
+      reasoning_effort: medium
+      species: dwarf
+      class: archivist
+    quality_score: 92
+    task_success: 0.93
+    token_proxy: 14948
+    usage:
+      input_tokens: 14452
+      cached_input_tokens: 12032
+      output_tokens: 496
+      reasoning_output_tokens: 74
+    wall_s: 12.184
 rerun_triggers:
   - workflow prompt changed
   - output schema changed
   - model pricing or availability changed
   - primary profile fails quality gate
   - new public-safe fixture family added
-calibration_archive_ref: calibrations/cal_20260519_quality_equiv_001/
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
 notes:
   - This policy was updated from a public-safe synthetic batch calibration.
-  - Workflow readiness label remains pilot-executed; optimization does not promote a stronger workflow authority state by itself.
-  - Primary selection prefers the lowest-cost quality-equivalent candidate in this batch.
+  - Workflow readiness label remains pilot-executed; optimization does not
+    promote a stronger workflow authority state by itself.
+  - Primary selection prefers the lowest-cost quality-equivalent candidate in
+    this batch.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
+  model: gpt-5.5
+  reasoning_effort: medium
+  species: dwarf
+  class: archivist
+  label: gpt-5.5|medium|dwarf|archivist
+  quality_score: 97
+  quality_class: quality_equivalent_pass
+  baseline_relative_quality: 1
+  input_tokens: 53676
+  cached_input_tokens: 50944
+  output_tokens: 1766
+  total_tokens: 47517
+  reasoning_output_tokens: 1032
+  wall_s: 17.57
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - archivist
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: retained
+selection_claim: incumbent_retained_by_quality_priority

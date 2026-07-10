@@ -1,0 +1,10 @@
+workflow_id: rag_work_card_router_v0
+calibration_id: cal_20260710_gpt56_portfolio_001
+date: 2026-07-10
+disposition: optimization_not_applicable
+basis: Deterministic validator-backed work-card assembly owns the authoritative
+  outcome; model output is non-authoritative boundary text.
+compatibility_evidence: codex-cli 0.144.1 runner capability smokes only; no quality/cost winner claim
+candidate_count: 0
+migration_decision: retained
+claim_ceiling: observed

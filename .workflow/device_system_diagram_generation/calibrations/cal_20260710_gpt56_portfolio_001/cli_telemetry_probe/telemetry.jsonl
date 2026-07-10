@@ -1,0 +1,1 @@
+{"candidate_id":"ESC_gpt56_terra_medium_triggered","model":"gpt-5.6-terra","reasoning_effort":"medium","usage":{"input_tokens":16161,"cached_input_tokens":9472,"output_tokens":692,"reasoning_output_tokens":44},"wall_s":20.686,"source":"codex_exec_turn_completed_usage","billed_cost":"not_measured"}

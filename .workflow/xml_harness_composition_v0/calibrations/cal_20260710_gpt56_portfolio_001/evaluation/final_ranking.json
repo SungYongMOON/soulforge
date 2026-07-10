@@ -1,0 +1,66 @@
+{
+  "workflow_id": "xml_harness_composition_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 19406,
+      "wall_s": 97.391,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 96,
+      "token_proxy": 17373,
+      "wall_s": 28.01,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 21348,
+      "wall_s": 43.293,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 19376,
+      "wall_s": 29.773,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "medium",
+    "species": "human",
+    "class": "auditor",
+    "candidate_id": "C03",
+    "measured_tokens": {
+      "input_tokens": 73558,
+      "cached_input_tokens": 49792,
+      "output_tokens": 4548,
+      "reasoning_output_tokens": 447,
+      "telemetry_source": "codex_exec_json_cli_proxy"
+    },
+    "wall_time_seconds": 90.055,
+    "quality_score": 96,
+    "quality_class": "quality_equivalent_pass",
+    "baseline_relative_quality": 0.96,
+    "quality_gate": "pass",
+    "rationale": "Lowest wall-time and lower-token quality-equivalent candidate against the gpt-5.5/xhigh baseline. Preserved required packet shape, conservative connection classification, explicit owner follow-up, source-supported emptiness, local/internal blocking, and public-safe boundary limits.\n"
+  },
+  "migration_decision": "retained",
+  "selected_candidate_id": "SAVED_incumbent",
+  "selection_claim": "incumbent_retained_by_quality_priority",
+  "claim_ceiling": "observed"
+}

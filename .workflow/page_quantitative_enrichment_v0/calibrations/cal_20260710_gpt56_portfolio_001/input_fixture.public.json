@@ -1,0 +1,111 @@
+{
+  "schema_version": "gpt56_portfolio_gate_fixture_v1",
+  "workflow_id": "page_quantitative_enrichment_v0",
+  "fixture_id": "public_synthetic_values_gaps_conflict_overlay",
+  "public_safe": true,
+  "request": "Produce a dry-run quantitative enrichment overlay and harness-readiness delta for the synthetic normalized page contract. Do not mutate the sidecar or approve final harness connections.",
+  "inputs": {
+    "quantitative_enrichment_binding": "fixture://enrichment/page-demo",
+    "page_module_spec_sidecar": "fixture://sidecars/page-demo-v0",
+    "module_spec_manifest": {
+      "page_id": "PAGE-DEMO",
+      "schema": "page_module_spec_v0",
+      "source_checksum": "sha256:fixture-page"
+    },
+    "provenance_update": {
+      "page_id": "PAGE-DEMO",
+      "source_checksum": "sha256:fixture-page"
+    },
+    "downstream_handoff": "fixture://handoff/harness-demo",
+    "official_source_inventory": [
+      {
+        "evidence_ref": "fixture://sources/power-guide",
+        "state": "official_present",
+        "location": "page 4",
+        "supports": {
+          "target_slot": "interfaces.power.input_voltage",
+          "value": 5,
+          "unit": "V",
+          "condition": "nominal"
+        }
+      },
+      {
+        "evidence_ref": "fixture://sources/load-guide",
+        "state": "official_present",
+        "location": "page 8",
+        "supports": {
+          "target_slot": "performance.max_current",
+          "value": 2,
+          "unit": "A",
+          "condition": "ambient <= 40 C"
+        }
+      },
+      {
+        "evidence_ref": "fixture://sources/conflict-guide",
+        "state": "official_present",
+        "location": "page 3",
+        "supports": {
+          "target_slot": "performance.max_current",
+          "value": 1.5,
+          "unit": "A",
+          "condition": "condition unclear"
+        }
+      }
+    ],
+    "owner_recorded_constraints": [
+      {
+        "target_slot": "interfaces.aux.input_voltage",
+        "label_hint": "12V AUX",
+        "approved_value_evidence": false
+      }
+    ],
+    "previous_harness_blocker_packet": [
+      {
+        "target_slot": "interfaces.aux.input_voltage",
+        "blocker": "missing approved voltage evidence"
+      }
+    ]
+  },
+  "normalized_slots": [
+    {
+      "target_slot": "interfaces.power.input_voltage",
+      "existing_status": "missing",
+      "required_for_harness": true
+    },
+    {
+      "target_slot": "performance.max_current",
+      "existing_status": "review_required",
+      "required_for_harness": true
+    },
+    {
+      "target_slot": "performance.max_power",
+      "existing_status": "missing",
+      "required_for_harness": true
+    },
+    {
+      "target_slot": "interfaces.aux.input_voltage",
+      "existing_status": "missing",
+      "required_for_harness": true
+    }
+  ],
+  "derivation_request": {
+    "target_slot": "performance.max_power",
+    "formula": "input_voltage * max_current",
+    "operand_slots": [
+      "interfaces.power.input_voltage",
+      "performance.max_current"
+    ]
+  },
+  "requested_deliverable": [
+    "quantitative slot inventory",
+    "claims using source_confirmed/derived/review_required/missing",
+    "patch-like overlay against existing slots",
+    "machine-readable gaps and owner follow-up",
+    "delta-only harness readiness with before/after and remaining blockers",
+    "provenance and boundary summary"
+  ],
+  "prohibitions": [
+    "no 12V fill from label, no derived max power while current evidence conflicts, no sidecar/schema/source mutation, no final connection or global readiness approval"
+  ],
+  "boundary_attestation": "All source refs, values, slots, checksums, and constraints are synthetic."
+}

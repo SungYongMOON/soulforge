@@ -1,0 +1,45 @@
+{
+  "workflow_id": "knowledge_access_event_capture_v0",
+  "fixture_id": "PUBLIC_SYNTH_KNOWLEDGE_ACCESS_EVENT_CAPTURE_V0",
+  "source_kind": "synthetic_from_workflow_contract_metadata_only",
+  "public_safe": true,
+  "workflow_title": "Knowledge Access Event Capture v0",
+  "workflow_summary": "Normalize and analyze metadata-only knowledge access ledger/register entries for existing knowledge nodes, packets, concepts, workflows, skills, missions, user tasks, tools, and advisory handoffs so later workflows can compute usage counts, retention labels, relation strength, orphan/redundant candidates, and graph update packets.",
+  "workflow_readiness_label": "draft",
+  "input_refs": [
+    "knowledge_access_scope",
+    "knowledge_node_ref_set",
+    "knowledge_access_ledger_refs",
+    "retention_label_policy"
+  ],
+  "expected_output_groups": [
+    "project_binding",
+    "knowledge_access_event_batch",
+    "normalized_access_event_log",
+    "usage_rollup",
+    "retention_label_packet",
+    "link_strength_analysis",
+    "knowledge_accumulation_delta",
+    "graph_update_packet",
+    "orphan_redundancy_candidate_register",
+    "boundary_review_note"
+  ],
+  "must_preserve": [
+    "metadata-only",
+    "retention",
+    "graph update",
+    "boundary",
+    "not source truth"
+  ],
+  "scenario_facts": [
+    "three metadata-only access events",
+    "one hot retention label",
+    "one orphan candidate edge",
+    "one graph update packet candidate"
+  ],
+  "boundary_policy": [
+    "Do not claim tool use, file edits, runtime paths, or hidden private evidence.",
+    "Do not mutate upstream artifacts or promote stronger source/canon authority than the contract supports.",
+    "Keep public-safe synthetic boundaries explicit."
+  ]
+}

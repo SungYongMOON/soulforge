@@ -1,16 +1,93 @@
 workflow_id: source_gap_followup_packet_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515_quality_equiv_001
-calibration_mode: cli_only_calibration
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: cli_only_calibration
-  telemetry_source: codex_exec_json_cli_proxy
-  subagent_quality_first_status: blocked_runtime_subagent_unavailable
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.5
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  candidate_id: SAVED_incumbent
+  quality_gate: pass
+  quality_class: quality_equivalent_pass
+  output_quality_score: 96
+  baseline_relative_quality: 0.96
+  measured_tokens:
+    input_tokens: 17456
+    cached_input_tokens: 14208
+    output_tokens: 3282
+    reasoning_output_tokens: 13
+  wall_time_seconds: 65.262
+  telemetry_source: codex_exec_json_cli_proxy
+  selection_reason: Lowest-cost quality-equivalent candidate preserving dedup,
+    owner action queue, all manifest template rows, retry triggers, and
+    downstream unblock mapping.
+  quality_score: null
+  token_proxy: null
+  usage: null
+  wall_s: null
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_sol_low_shape_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 21150
+    usage:
+      input_tokens: 16021
+      cached_input_tokens: 13056
+      output_tokens: 5129
+      reasoning_output_tokens: 56
+    wall_s: 96.149
+  - candidate_id: MIG_gpt56_luna_medium_shape_r2
+    profile:
+      model: gpt-5.6-luna
+      reasoning_effort: medium
+      species: dwarf
+      class: auditor
+    quality_score: 95
+    task_success: 0.96
+    token_proxy: 18629
+    usage:
+      input_tokens: 14834
+      cached_input_tokens: 12032
+      output_tokens: 3795
+      reasoning_output_tokens: 123
+    wall_s: 71.442
+rerun_triggers:
+  - upstream_gap_packet_shape_changes
+  - aggregate_gap_id_rule_changes
+  - owner_action_queue_template_changes
+  - owner_source_batch_manifest_template_changes
+  - retry_trigger_register_template_changes
+  - downstream_unblock_map_template_changes
+  - quality_equivalence_policy_changes
+  - isolated_subagent_runner_becomes_available
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - Previous policy was draft with no primary profile or shadows.
+  - Actual gpt-5.5 low, medium, and xhigh candidates were run; xhigh was the
+    baseline candidate.
+  - This policy is promoted only as cli_only_calibration because isolated
+    subagent/candidate-runner tooling was unavailable in this runtime.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.5
   reasoning_effort: low
   species: dwarf
@@ -27,44 +104,20 @@ primary_profile:
     reasoning_output_tokens: 13
   wall_time_seconds: 65.262
   telemetry_source: codex_exec_json_cli_proxy
-  selection_reason: Lowest-cost quality-equivalent candidate preserving dedup, owner action queue, all manifest template rows, retry triggers, and downstream unblock mapping.
-shadow_top_k:
-  - rank: 2
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: auditor
-    candidate_id: qe_dwarf_auditor_gpt-5.5_xhigh
-    quality_class: quality_equivalent_pass
-    output_quality_score: 100
-    baseline_relative_quality: 1.0
-    output_tokens: 5547
-    reasoning_output_tokens: 516
-    wall_time_seconds: 103.871
-  - rank: 3
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    candidate_id: qe_dwarf_auditor_gpt-5.5_medium
-    quality_class: minimum_viable_pass
-    output_quality_score: 88
-    baseline_relative_quality: 0.88
-    output_tokens: 4739
-    reasoning_output_tokens: 40
-    wall_time_seconds: 93.665
-    non_promotion_reason: Omitted J1 material-source identity rows from owner source and download/reuse manifest surfaces.
-rerun_triggers:
-  - upstream_gap_packet_shape_changes
-  - aggregate_gap_id_rule_changes
-  - owner_action_queue_template_changes
-  - owner_source_batch_manifest_template_changes
-  - retry_trigger_register_template_changes
-  - downstream_unblock_map_template_changes
-  - quality_equivalence_policy_changes
-  - isolated_subagent_runner_becomes_available
-calibration_archive_ref: calibrations/cal_20260515_quality_equiv_001/
-notes:
-  - Previous policy was draft with no primary profile or shadows.
-  - Actual gpt-5.5 low, medium, and xhigh candidates were run; xhigh was the baseline candidate.
-  - This policy is promoted only as cli_only_calibration because isolated subagent/candidate-runner tooling was unavailable in this runtime.
+  selection_reason: Lowest-cost quality-equivalent candidate preserving dedup,
+    owner action queue, all manifest template rows, retry triggers, and
+    downstream unblock mapping.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: retained
+selection_claim: incumbent_retained_by_quality_priority

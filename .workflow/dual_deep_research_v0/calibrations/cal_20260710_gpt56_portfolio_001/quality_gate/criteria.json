@@ -1,0 +1,84 @@
+{
+  "schema_version": "gpt56_portfolio_quality_gate_v1",
+  "workflow_id": "dual_deep_research_v0",
+  "evaluator_only": true,
+  "source_contract_refs": [
+    ".workflow/dual_deep_research_v0/workflow.yaml",
+    ".workflow/dual_deep_research_v0/step_graph.yaml"
+  ],
+  "hard_gates": [
+    {
+      "id": "HG1",
+      "requirement": "Declares bounded goal/success/stop/allowed inputs/handoff limits and freezes the research brief before any lane."
+    },
+    {
+      "id": "HG2",
+      "requirement": "Defines fresh independent NotebookLM, Codex, optional external, and comparison roles; no research lane sees another lane's findings before its own packet completes."
+    },
+    {
+      "id": "HG3",
+      "requirement": "Records NotebookLM CLI unavailability as a blocker, does not use browser fallback, continues the independent Codex lane, and records the unrequested external lane as skipped."
+    },
+    {
+      "id": "HG4",
+      "requirement": "Normalizes atomic claims into common, lane-only, conflict, and gap buckets; overlap stays traceable but is excluded from delta recommendations, and agreement is not treated as truth."
+    },
+    {
+      "id": "HG5",
+      "requirement": "Prepares automatic Knowledge Wiki Cell handoff while leaving registration, source sufficiency, upload, workflow creation/evolution, canon promotion, and default-route authority downstream."
+    },
+    {
+      "id": "HG6",
+      "requirement": "No external execution, auth/account assertion, raw transcript/payload, secret, absolute runtime path, golden/candidate leakage, or fabricated command/file-read claim."
+    }
+  ],
+  "scoring": {
+    "total_points": 100,
+    "pass_threshold": 80,
+    "dimensions": [
+      {
+        "id": "goal_and_brief",
+        "max_points": 15,
+        "full_credit": "Goal and frozen brief fully bind scope, sources, exclusions, ceiling, and downstream limits."
+      },
+      {
+        "id": "lane_independence",
+        "max_points": 20,
+        "full_credit": "Roles, visible inputs, isolation, fresh-context policy, and blocked-lane behavior are explicit."
+      },
+      {
+        "id": "packet_fidelity",
+        "max_points": 20,
+        "full_credit": "Blocker, direct-research, and skip packets accurately reflect the supplied synthetic evidence and runtime state."
+      },
+      {
+        "id": "comparison_and_dedupe",
+        "max_points": 20,
+        "full_credit": "Atomic comparison, overlap trace, conflicts, gaps, and delta construction are rigorous."
+      },
+      {
+        "id": "handoff_and_authority",
+        "max_points": 15,
+        "full_credit": "Downstream handoff is complete without claiming registration or adjacent workflow authority."
+      },
+      {
+        "id": "safety_and_usability",
+        "max_points": 10,
+        "full_credit": "Output is public-safe, source-aware, concise, and directly runnable as a future packet."
+      }
+    ]
+  },
+  "evaluation_instructions": {
+    "order": [
+      "apply_hard_gates",
+      "score_only_if_all_hard_gates_pass"
+    ],
+    "final_quality_values": [
+      "pass",
+      "fail"
+    ],
+    "score_rule": "Any hard-gate failure forces fail.",
+    "wording_rule": "Do not require reference wording or layout."
+  },
+  "no_golden_attestation": "Derived only from current workflow.yaml and step_graph.yaml."
+}

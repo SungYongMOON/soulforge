@@ -1,0 +1,62 @@
+{
+  "workflow_id": "owner_decision_packet_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low_shape_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 97,
+      "token_proxy": 17510,
+      "wall_s": 32.773,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 94,
+      "token_proxy": 15299,
+      "wall_s": 15.318,
+      "selected": true
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium_stability_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 94,
+      "token_proxy": 16922,
+      "wall_s": 15.494,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "fail",
+      "usable": false,
+      "quality_score": 0,
+      "token_proxy": 16677,
+      "wall_s": 19.184,
+      "selected": false
+    }
+  ],
+  "saved_incumbent": {
+    "model": "gpt-5.5",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor",
+    "label": "gpt-5.5|low|dwarf|auditor",
+    "quality_score": 91,
+    "quality_class": "quality_equivalent_pass",
+    "baseline_relative_quality": 0.938,
+    "input_tokens": 15942,
+    "cached_input_tokens": 7552,
+    "output_tokens": 911,
+    "total_tokens": 16853,
+    "reasoning_output_tokens": 25,
+    "wall_s": 21.6
+  },
+  "migration_decision": "replaced",
+  "selected_candidate_id": "MIG_gpt56_luna_medium",
+  "selection_claim": "quality_passing_gpt56_profile_selected_against_saved_incumbent",
+  "claim_ceiling": "observed"
+}

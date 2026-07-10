@@ -1,83 +1,61 @@
 workflow_id: simulation_run_verify_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515_quality_equiv_001
-calibration_mode: quality_equiv_public_safe_cli_isolated
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 measurement_policy:
-  quality_source: cli_isolated_candidate_matrix
-  telemetry_source: same_cli_isolated_candidate_runs
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
 primary_profile:
-  model: gpt-5.5
+  model: gpt-5.6-sol
   reasoning_effort: low
   species: human
   class: auditor
-  candidate_id: qe_gpt55_low_human_auditor
-  quality_gate: pass
-  quality_class: quality_equivalent_pass
-  quality_score: 96
-  baseline_relative_quality: 1.0
-  cli_proxy_telemetry:
-    input_tokens: 17086
-    cached_input_tokens: 7552
-    output_tokens: 932
-    reasoning_output_tokens: 18
-    wall_seconds: 21.486
-  selection_rationale: Quality-equivalent to the gpt-5.5/xhigh baseline with no material information loss, lower output/reasoning tokens than xhigh, and the lowest measured wall time in the revised comparison.
+  candidate_id: MIG_gpt56_sol_low
+  quality_score: 98
+  token_proxy: 17933
+  usage:
+    input_tokens: 16687
+    cached_input_tokens: 13056
+    output_tokens: 1246
+    reasoning_output_tokens: 0
+  wall_s: 32.352
+  claim_ceiling: observed
 shadow_top_k:
-  - rank: 2
-    candidate_id: qe_gpt55_xhigh_human_auditor
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: human
-    class: auditor
-    quality_gate: pass
-    quality_class: quality_equivalent_pass
-    quality_score: 96
-    baseline_relative_quality: 1.0
-    cli_proxy_telemetry:
-      input_tokens: 17086
-      cached_input_tokens: 7552
-      output_tokens: 1284
-      reasoning_output_tokens: 516
-      wall_seconds: 27.879
-    note: Baseline anchor; no material quality gain over gpt-5.5/low on this fixture.
-  - rank: 3
-    candidate_id: qe_gpt55_medium_human_auditor
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: human
-    class: auditor
-    quality_gate: pass
-    quality_class: quality_equivalent_pass
+  - candidate_id: MIG_gpt56_luna_medium_shape_r2
+    profile:
+      model: gpt-5.6-luna
+      reasoning_effort: medium
+      species: human
+      class: auditor
     quality_score: 95
-    baseline_relative_quality: 0.99
-    cli_proxy_telemetry:
-      input_tokens: 17086
-      cached_input_tokens: 7552
-      output_tokens: 951
-      reasoning_output_tokens: 92
-      wall_seconds: 25.355
-    note: Quality-equivalent; boundary note is less structured than the selected low-effort profile.
-  - rank: 4
-    candidate_id: qe_gpt54_low_human_auditor
-    model: gpt-5.4
-    reasoning_effort: low
-    species: human
-    class: auditor
-    quality_gate: pass
-    quality_class: quality_equivalent_pass
-    quality_score: 94
-    baseline_relative_quality: 0.98
-    cli_proxy_telemetry:
-      input_tokens: 15701
-      cached_input_tokens: 7552
-      output_tokens: 1239
-      reasoning_output_tokens: 23
-      wall_seconds: 26.746
-    note: Prior primary remains quality-equivalent, but output was less directly machine-readable and measured output tokens/wall time were worse than gpt-5.5/low.
+    task_success: 0.96
+    token_proxy: 16875
+    usage:
+      input_tokens: 15564
+      cached_input_tokens: 12032
+      output_tokens: 1311
+      reasoning_output_tokens: 183
+    wall_s: 27.295
+  - candidate_id: MIG_gpt56_sol_low_stability_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: human
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 18260
+    usage:
+      input_tokens: 16714
+      cached_input_tokens: 8960
+      output_tokens: 1546
+      reasoning_output_tokens: 107
+    wall_s: 32.999
 rerun_triggers:
   - result_verdict_schema_changes
   - measurement_definition_contract_changes
@@ -86,11 +64,55 @@ rerun_triggers:
   - owner_approved_claim_bearing_result_case_available
   - dedicated_subagent_runner_available_for_full_matrix
 measurement_limitations:
-  - Calibration used public-safe synthetic blocked and synthetic-stub cases, not private project run truth.
-  - Candidate generation used ephemeral codex exec CLI runs because no dedicated subagent runner was exposed in this runtime.
-  - CLI telemetry is exact for these CLI candidate runs, not exact subagent-run telemetry.
-  - The full default model/species/class matrix and provider price-by-model comparison were not measured.
-calibration_archive_ref: .workflow/simulation_run_verify_v0/calibrations/cal_20260515_quality_equiv_001/
+  - Calibration used public-safe synthetic blocked and synthetic-stub cases, not
+    private project run truth.
+  - Candidate generation used ephemeral codex exec CLI runs because no dedicated
+    subagent runner was exposed in this runtime.
+  - CLI telemetry is exact for these CLI candidate runs, not exact subagent-run
+    telemetry.
+  - The full default model/species/class matrix and provider price-by-model
+    comparison were not measured.
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
 notes:
-  - Use the primary profile for bounded workflow execution unless a project-local profile override is explicitly justified.
-  - Keep pass/fail verdicts separate from owner acceptance and blocked-run states when named measurements or rules are missing.
+  - Use the primary profile for bounded workflow execution unless a
+    project-local profile override is explicitly justified.
+  - Keep pass/fail verdicts separate from owner acceptance and blocked-run
+    states when named measurements or rules are missing.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
+  model: gpt-5.5
+  reasoning_effort: low
+  species: human
+  class: auditor
+  candidate_id: qe_gpt55_low_human_auditor
+  quality_gate: pass
+  quality_class: quality_equivalent_pass
+  quality_score: 96
+  baseline_relative_quality: 1
+  cli_proxy_telemetry:
+    input_tokens: 17086
+    cached_input_tokens: 7552
+    output_tokens: 932
+    reasoning_output_tokens: 18
+    wall_seconds: 21.486
+  selection_rationale: Quality-equivalent to the gpt-5.5/xhigh baseline with no
+    material information loss, lower output/reasoning tokens than xhigh, and the
+    lowest measured wall time in the revised comparison.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - human
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_gpt56_profile_selected_against_saved_incumbent

@@ -1,0 +1,33 @@
+{
+  "calibration_id": "cal_20260519_quality_equiv_001",
+  "workflow_id": "test_harness_asset_planning_v0",
+  "policy": "quality_equivalence_batch_20260519_cli_only",
+  "baseline_profile": "gpt-5.5|xhigh|human|auditor",
+  "baseline_relative_threshold": 0.9,
+  "quality_equivalence_threshold": 90,
+  "expected_output_groups": [
+    "test_harness_manifest",
+    "test_interface_list",
+    "simulation_fixture_needs",
+    "instrumentation_resource_list",
+    "trr_readiness_checklist",
+    "planning_blockers",
+    "owner_followup_needed",
+    "boundary_review_note"
+  ],
+  "hard_gates": [
+    "valid JSON final output",
+    "required output groups present",
+    "public-safe boundary preserved",
+    "no claimed tool use or file edits",
+    "no upstream mutation or false authority claim"
+  ],
+  "required_terms": [
+    "planning only",
+    "readiness",
+    "blocker",
+    "boundary",
+    "no execution claim"
+  ],
+  "quality_equivalent_definition": "hard gate passes, output-quality score >= 90, baseline-relative quality >= 0.90, and no critical section has material information loss versus the xhigh baseline"
+}

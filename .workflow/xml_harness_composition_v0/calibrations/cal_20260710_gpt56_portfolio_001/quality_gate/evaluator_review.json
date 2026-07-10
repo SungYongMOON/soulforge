@@ -1,0 +1,9 @@
+{
+  "evaluator": "controller_manual_review_under_revised_quality_equivalence_policy",
+  "verdict": "criteria_not_overfit_to_baseline_wording",
+  "notes": [
+    "The criteria are derived from the public workflow contract and synthetic fixture, not from private run truth.",
+    "The baseline is used as a quality anchor; candidates may pass with different wording when hard gates and critical explicitness are preserved.",
+    "Required machine-readable top-level shape is treated as a hard gate for policy promotion."
+  ]
+}

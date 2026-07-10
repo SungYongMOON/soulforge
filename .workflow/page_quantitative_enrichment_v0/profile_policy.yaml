@@ -1,15 +1,113 @@
 workflow_id: page_quantitative_enrichment_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260515_quality_equiv_001
-calibration_mode: subagent_quality_equivalence_public_synthetic
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: profile_search
 measurement_policy:
-  quality_source: subagent_5_5_candidate_comparison
-  telemetry_source: pending_cli_wrapper_reprobe
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
-  cost_confidence: model_family_proxy_not_exact
+  telemetry_exact_for_cli: true
+  cost_confidence: relative_not_exact
 primary_profile:
+  model: gpt-5.6-sol
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  candidate_id: MIG_gpt56_sol_low
+  quality_score: 98
+  token_proxy: 22342
+  usage:
+    input_tokens: 19320
+    cached_input_tokens: 13056
+    output_tokens: 3022
+    reasoning_output_tokens: 151
+  wall_s: 61.042
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_luna_medium
+    profile:
+      model: gpt-5.6-luna
+      reasoning_effort: medium
+      species: dwarf
+      class: auditor
+    quality_score: 92
+    task_success: 0.94
+    token_proxy: 20493
+    usage:
+      input_tokens: 18130
+      cached_input_tokens: 7936
+      output_tokens: 2363
+      reasoning_output_tokens: 312
+    wall_s: 50.64
+  - candidate_id: CURRENT_incumbent_gpt_5_4_medium
+    profile:
+      model: gpt-5.4
+      reasoning_effort: medium
+      species: dwarf
+      class: auditor
+    quality_score: 95
+    task_success: 0.96
+    token_proxy: 20473
+    usage:
+      input_tokens: 17574
+      cached_input_tokens: 1920
+      output_tokens: 2899
+      reasoning_output_tokens: 487
+    wall_s: 58.292
+  - candidate_id: MIG_gpt56_sol_low_stability_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 24176
+    usage:
+      input_tokens: 20922
+      cached_input_tokens: 8960
+      output_tokens: 3254
+      reasoning_output_tokens: 159
+    wall_s: 62.562
+rejected_candidates:
+  - candidate_id: r01
+    model: gpt-5.4
+    reasoning_effort: low
+    species: elf
+    class: auditor
+    quality_gate: pass
+    quality_class: minimum_viable_pass
+    quality_score: 80
+    reason: Too much quality loss versus the 5.5 comparison set; status drift,
+      weaker blocker closure semantics, and less stable machine-readable detail.
+rerun_triggers:
+  - page_module_spec_v0_system_contract_schema_changes
+  - quantitative_claim_template_changes
+  - source_gap_or_owner_followup_contract_changes
+  - official_source_packet_collect_v0_source_state_changes
+  - xml_harness_composition_v0_readiness_contract_changes
+  - calibration_fixture_adds_derived_value_case
+  - calibration_fixture_adds_conflict_case
+  - owner_approves_new_quantitative_value_source_policy
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - Calibration used public-safe synthetic fixtures only; no private run truth,
+    raw source XML, credentials, or _workspaces material were archived.
+  - Quality-equivalence rerun included actual gpt-5.5 candidate profiles, not
+    only a golden baseline.
+  - CLI telemetry reprobe is still pending because the dynamic wrapper failed
+    argument handling; do not claim exact token or wall-time deltas from this
+    policy.
+  - Use the primary profile for normal pilot execution; use the gpt-5.5 low
+    shadow when maximum output polish matters.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: profile_search
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.4
   reasoning_effort: medium
   species: dwarf
@@ -21,65 +119,21 @@ primary_profile:
   baseline_relative_quality: 1.02
   measured_tokens: null
   measured_wall_time_seconds: null
-  selection_reason: Quality-equivalent to the gpt-5.5/xhigh baseline on missing, review-required, derived, and conflict fixtures, with stronger explicit gap accounting than the previous cheap primary.
-shadow_top_k:
-  - rank: 2
-    candidate_id: r03
-    model: gpt-5.5
-    reasoning_effort: low
-    species: elf
-    class: auditor
-    quality_gate: pass
-    quality_class: quality_equivalent_pass
-    quality_score: 96
-    baseline_relative_quality: 1.04
-    measured_tokens: null
-    note: Highest observed output quality in this rerun; keep as quality shadow when cost is less important than polish.
-  - rank: 3
-    candidate_id: r05
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: elf
-    class: auditor
-    quality_gate: pass
-    quality_class: quality_equivalent_pass
-    quality_score: 92
-    baseline_relative_quality: 1.00
-    measured_tokens: null
-    note: Baseline family anchor; safe but more compact than r02/r03 on follow-up and provenance detail.
-  - rank: 4
-    candidate_id: r04
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    quality_gate: pass
-    quality_class: minimum_viable_pass
-    quality_score: 88
-    measured_tokens: null
-    note: Safe, but downgraded GND reference_role to review_required, causing avoidable status drift from the fixture contract.
-rejected_candidates:
-  - candidate_id: r01
-    model: gpt-5.4
-    reasoning_effort: low
-    species: elf
-    class: auditor
-    quality_gate: pass
-    quality_class: minimum_viable_pass
-    quality_score: 80
-    reason: Too much quality loss versus the 5.5 comparison set; status drift, weaker blocker closure semantics, and less stable machine-readable detail.
-rerun_triggers:
-  - page_module_spec_v0_system_contract_schema_changes
-  - quantitative_claim_template_changes
-  - source_gap_or_owner_followup_contract_changes
-  - official_source_packet_collect_v0_source_state_changes
-  - xml_harness_composition_v0_readiness_contract_changes
-  - calibration_fixture_adds_derived_value_case
-  - calibration_fixture_adds_conflict_case
-  - owner_approves_new_quantitative_value_source_policy
-calibration_archive_ref: .workflow/page_quantitative_enrichment_v0/calibrations/cal_20260515_quality_equiv_001/
-notes:
-  - Calibration used public-safe synthetic fixtures only; no private run truth, raw source XML, credentials, or _workspaces material were archived.
-  - Quality-equivalence rerun included actual gpt-5.5 candidate profiles, not only a golden baseline.
-  - CLI telemetry reprobe is still pending because the dynamic wrapper failed argument handling; do not claim exact token or wall-time deltas from this policy.
-  - Use the primary profile for normal pilot execution; use the gpt-5.5 low shadow when maximum output polish matters.
+  selection_reason: Quality-equivalent to the gpt-5.5/xhigh baseline on missing,
+    review-required, derived, and conflict fixtures, with stronger explicit gap
+    accounting than the previous cheap primary.
+tested_dimensions:
+  models:
+    - gpt-5.4
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_profile_selected_among_fresh_current_contract_candidates

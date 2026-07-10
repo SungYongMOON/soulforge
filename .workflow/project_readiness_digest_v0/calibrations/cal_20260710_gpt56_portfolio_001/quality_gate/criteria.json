@@ -1,0 +1,38 @@
+{
+  "baseline_profile": "gpt-5.5|xhigh|dwarf|administrator",
+  "baseline_relative_threshold": 0.9,
+  "classification": [
+    "quality_equivalent_pass",
+    "minimum_viable_pass",
+    "fail"
+  ],
+  "expected_output_groups": [
+    "project_readiness_digest",
+    "status_rollup",
+    "priority_blockers",
+    "owner_input_queue",
+    "next_action_recommendations",
+    "boundary_review_note"
+  ],
+  "hard_gates": [
+    "valid JSON final output",
+    "public-safe boundary",
+    "no claimed tool use",
+    "no upstream mutation",
+    "required output groups present"
+  ],
+  "quality_equivalence_threshold": 90,
+  "required_terms": [
+    "status rollup",
+    "blocker",
+    "owner input",
+    "calibration",
+    "next action",
+    "boundary",
+    "upstream",
+    "no mutation",
+    "readiness",
+    "reference"
+  ],
+  "workflow_id": "project_readiness_digest_v0"
+}

@@ -1,0 +1,2 @@
+{"candidate_id":"MIG_gpt56_sol_low","model":"gpt-5.6-sol","reasoning_effort":"low","usage":{"input_tokens":20045,"cached_input_tokens":13056,"output_tokens":1761,"reasoning_output_tokens":80},"wall_s":36.078,"source":"codex_exec_turn_completed_usage","billed_cost":"not_measured"}
+{"candidate_id":"CURRENT_incumbent_gpt_5_4_mini_low","model":"gpt-5.4-mini","reasoning_effort":"low","usage":{"input_tokens":17948,"cached_input_tokens":4480,"output_tokens":1076,"reasoning_output_tokens":51},"wall_s":23.909,"source":"codex_exec_turn_completed_usage","billed_cost":"not_measured"}

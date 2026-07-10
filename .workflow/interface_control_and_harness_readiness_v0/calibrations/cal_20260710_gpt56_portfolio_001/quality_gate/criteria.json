@@ -1,0 +1,44 @@
+{
+  "policy": "quality_equivalence_v1",
+  "baseline_anchor": {
+    "candidate_id": "baseline_gpt55_xhigh_evaluator_only",
+    "model": "gpt-5.5",
+    "reasoning_effort": "xhigh",
+    "baseline_score": 96
+  },
+  "hard_gates": [
+    "All required output sections must be present or semantically mappable.",
+    "All 5 interface items and all 4 harness joins must be covered without contradiction.",
+    "No source XML, upstream sidecar, harness packet, raw/private data, or secret material may be read, mutated, or claimed.",
+    "Readiness states must remain ceilings only, not final harness approval.",
+    "Previous harness candidate_safe status must not strengthen beyond the interface-control ceiling.",
+    "No fabricated source facts, hidden references, unsupported quantities, or name-similarity-only promotions."
+  ],
+  "expected_interface_outcomes": {
+    "interfaces.outputs.J1_PIN1": "source_supported_possible",
+    "interfaces.inputs.J2_PIN3": "review_required",
+    "interfaces.local_internal_candidates.TP5": "blocked",
+    "interfaces.passive_or_none.NC7": "blocked",
+    "interfaces.outputs.PWM_A": "review_required"
+  },
+  "expected_join_ceilings": {
+    "JOIN_1": "source_supported_possible",
+    "JOIN_2": "blocked",
+    "JOIN_3": "review_required",
+    "JOIN_4": "review_required"
+  },
+  "quality_equivalence_checks": [
+    "Total quality score must be at least 90.",
+    "Score must be at least 90% of the gpt-5.5/xhigh evaluator baseline score.",
+    "No critical section may lose material information compared with the baseline.",
+    "Blocked, review-required, source-gap, owner-followup, rerun-trigger, and boundary notes must be explicit rather than implied.",
+    "source_supported_possible may be represented as the stronger disjoint ceiling if its evidence basis makes candidate-safe conditions explicit or otherwise preserves the no-blocker reasoning."
+  ],
+  "scoring_notes": [
+    "Prefer stable machine-readable structured fields over mostly prose.",
+    "Prefer separate item-level and join-level reasoning.",
+    "Prefer narrow source rerun triggers and owner follow-up routes.",
+    "Treat code-fenced JSON as semantically mappable but slightly weaker than plain JSON for machine-readability.",
+    "Treat major over-production as a cost/usability penalty even when quality passes."
+  ]
+}

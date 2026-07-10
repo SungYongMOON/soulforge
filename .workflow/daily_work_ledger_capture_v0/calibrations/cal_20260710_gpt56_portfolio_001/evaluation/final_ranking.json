@@ -1,0 +1,56 @@
+{
+  "workflow_id": "daily_work_ledger_capture_v0",
+  "calibration_id": "cal_20260710_gpt56_portfolio_001",
+  "ranked_candidates": [
+    {
+      "candidate_id": "MIG_gpt56_sol_low",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 25478,
+      "wall_s": 84.715,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_sol_low_stability_r2",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 98,
+      "token_proxy": 26476,
+      "wall_s": 123.149,
+      "selected": false
+    },
+    {
+      "candidate_id": "MIG_gpt56_luna_medium",
+      "final_quality": "pass",
+      "usable": true,
+      "quality_score": 94,
+      "token_proxy": 22795,
+      "wall_s": 58.367,
+      "selected": true
+    }
+  ],
+  "saved_incumbent": {
+    "candidate_id": "B_gpt54_low_dwarf_auditor",
+    "model": "gpt-5.4",
+    "reasoning_effort": "low",
+    "species": "dwarf",
+    "class": "auditor",
+    "label": "gpt-5.4|low|dwarf|auditor",
+    "quality_score": 95,
+    "quality_class": "quality_gate_pass",
+    "input_tokens": 19914,
+    "cached_input_tokens": 14720,
+    "output_tokens": 1310,
+    "total_tokens": 21224,
+    "reasoning_output_tokens": 18,
+    "wall_s": 22.704,
+    "telemetry_source": "codex_exec_json_cli_proxy",
+    "service_tier": "fast",
+    "selection_reason": "Lowest measured total-token quality pass in the five-profile quality-equivalence shortlist. It preserved project/P00/Soulforge routing, skipped raw payload handling, unknown project and subledger review gates, duplicate review handling, synthetic no-write receipt, and the observed-metadata claim ceiling.\n"
+  },
+  "migration_decision": "replaced",
+  "selected_candidate_id": "MIG_gpt56_luna_medium",
+  "selection_claim": "quality_passing_gpt56_profile_selected_against_saved_incumbent",
+  "claim_ceiling": "observed"
+}

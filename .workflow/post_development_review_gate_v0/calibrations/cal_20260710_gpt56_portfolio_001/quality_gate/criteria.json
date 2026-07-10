@@ -1,0 +1,84 @@
+{
+  "schema_version": "gpt56_portfolio_quality_gate_v1",
+  "workflow_id": "post_development_review_gate_v0",
+  "evaluator_only": true,
+  "source_contract_refs": [
+    ".workflow/post_development_review_gate_v0/workflow.yaml",
+    ".workflow/post_development_review_gate_v0/step_graph.yaml"
+  ],
+  "hard_gates": [
+    {
+      "id": "HG1",
+      "requirement": "Routes the authority-changing runner/default-route and production-ready claim to full_b_v_gate, not a lower review level."
+    },
+    {
+      "id": "HG2",
+      "requirement": "Separates the supplied unit-test log from the unrun repository validator and does not fabricate deterministic validation."
+    },
+    {
+      "id": "HG3",
+      "requirement": "Finds missing fresh B/V, inapplicable delegated policy, absent source support, and owner authority; blocks production-ready, default-route, and canon-promotion claims."
+    },
+    {
+      "id": "HG4",
+      "requirement": "Records a knowledge-trigger result for the repeated evidence gap as candidate/follow-up only, never source truth, approval, ontology acceptance, graph mutation, or promotion."
+    },
+    {
+      "id": "HG5",
+      "requirement": "Issues accepted/needs_revision/blocked/owner_decision_required consistently with the evidence and includes exact follow-up routes, failed guards, claim ceiling, and correct private evidence-owner plan."
+    },
+    {
+      "id": "HG6",
+      "requirement": "No raw/private/secret payload, external side effect, golden/candidate leakage, or fabricated command/file-read claim."
+    }
+  ],
+  "scoring": {
+    "total_points": 100,
+    "pass_threshold": 80,
+    "dimensions": [
+      {
+        "id": "risk_routing",
+        "max_points": 20,
+        "full_credit": "Review level and trigger reasons match authority and claim risk."
+      },
+      {
+        "id": "validation_boundary",
+        "max_points": 15,
+        "full_credit": "Run, not-run, blocked, and out-of-scope validators are accurately distinguished."
+      },
+      {
+        "id": "inspection_and_claims",
+        "max_points": 20,
+        "full_credit": "Paths, source support, policy applicability, raw/secret absence scope, and claim ceiling are rigorous."
+      },
+      {
+        "id": "judgment_and_bv",
+        "max_points": 20,
+        "full_credit": "Alternatives/value and missing B/V consequences produce a coherent decision."
+      },
+      {
+        "id": "canon_and_followup",
+        "max_points": 15,
+        "full_credit": "Promotion guards, owner gate, knowledge route, and follow-ups are exact."
+      },
+      {
+        "id": "packet_usability",
+        "max_points": 10,
+        "full_credit": "Review packet and supervisor decision are complete, concise, and actionable."
+      }
+    ]
+  },
+  "evaluation_instructions": {
+    "order": [
+      "apply_hard_gates",
+      "score_only_if_all_hard_gates_pass"
+    ],
+    "final_quality_values": [
+      "pass",
+      "fail"
+    ],
+    "score_rule": "Any hard-gate failure forces fail.",
+    "wording_rule": "Judge evidence-supported decisions, not stylistic match."
+  },
+  "no_golden_attestation": "Derived only from current workflow.yaml and step_graph.yaml."
+}

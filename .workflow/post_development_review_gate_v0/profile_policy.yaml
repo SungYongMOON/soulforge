@@ -1,18 +1,81 @@
 workflow_id: post_development_review_gate_v0
 kind: workflow_profile_policy
 status: active
-last_calibration_id: cal_20260519_quality_equiv_001
-calibration_mode: conservative_locked_shadow_calibrated
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: profile_search
 matrix_mode: minimal_required_quality_equivalence
 measurement_policy:
-  quality_source: cli_only_calibration
-  telemetry_source: cli_only_calibration_all_candidates
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
   telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
-  quality_equivalence_policy: batch_20260519
 primary_profile:
+  model: gpt-5.6-sol
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+  candidate_id: MIG_gpt56_sol_low_stability_r2
+  quality_score: 98
+  token_proxy: 19803
+  usage:
+    input_tokens: 17848
+    cached_input_tokens: 13056
+    output_tokens: 1955
+    reasoning_output_tokens: 83
+  wall_s: 43.738
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_sol_low
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 98
+    task_success: 0.99
+    token_proxy: 20240
+    usage:
+      input_tokens: 17848
+      cached_input_tokens: 13056
+      output_tokens: 2392
+      reasoning_output_tokens: 192
+    wall_s: 56.872
+  - candidate_id: CURRENT_incumbent_gpt_5_5_xhigh
+    profile:
+      model: gpt-5.5
+      reasoning_effort: xhigh
+      species: dwarf
+      class: auditor
+    quality_score: 97
+    task_success: 0.98
+    token_proxy: 44242
+    usage:
+      input_tokens: 37694
+      cached_input_tokens: 19712
+      output_tokens: 6548
+      reasoning_output_tokens: 5176
+    wall_s: 125.26
+rerun_triggers:
+  - workflow prompt changed
+  - output schema changed
+  - model pricing or availability changed
+  - primary profile fails quality gate
+  - new public-safe fixture family added
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+notes:
+  - This policy was updated from a public-safe synthetic batch calibration.
+  - Workflow readiness label remains pilot-executed; optimization does not
+    promote a stronger workflow authority state by itself.
+  - Final acceptance review remains locked to the strongest profile;
+    lower-effort candidates are shadow evidence only.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: profile_search
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   model: gpt-5.5
   reasoning_effort: xhigh
   species: dwarf
@@ -27,39 +90,18 @@ primary_profile:
   total_tokens: 34793
   reasoning_output_tokens: 516
   wall_s: 27.7
-shadow_top_k:
-  - rank: 2
-    label: gpt-5.5|medium|dwarf|auditor
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    quality_score: 97
-    quality_class: quality_equivalent_pass
-    baseline_relative_quality: 1
-    total_tokens: 43537
-    reasoning_output_tokens: 30
-    wall_s: 19.01
-  - rank: 3
-    label: gpt-5.5|low|dwarf|auditor
-    model: gpt-5.5
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    quality_score: 89
-    quality_class: minimum_viable_pass
-    baseline_relative_quality: 0.918
-    total_tokens: 47709
-    reasoning_output_tokens: 52
-    wall_s: 17.76
-rerun_triggers:
-  - workflow prompt changed
-  - output schema changed
-  - model pricing or availability changed
-  - primary profile fails quality gate
-  - new public-safe fixture family added
-calibration_archive_ref: calibrations/cal_20260519_quality_equiv_001/
-notes:
-  - This policy was updated from a public-safe synthetic batch calibration.
-  - Workflow readiness label remains pilot-executed; optimization does not promote a stronger workflow authority state by itself.
-  - Final acceptance review remains locked to the strongest profile; lower-effort candidates are shadow evidence only.
+tested_dimensions:
+  models:
+    - gpt-5.5
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_profile_selected_among_fresh_current_contract_candidates

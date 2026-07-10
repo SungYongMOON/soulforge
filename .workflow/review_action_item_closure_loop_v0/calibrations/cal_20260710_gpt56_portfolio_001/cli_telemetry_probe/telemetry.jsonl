@@ -1,0 +1,1 @@
+{"candidate_id":"MIG_gpt56_sol_low_shape_r2","model":"gpt-5.6-sol","reasoning_effort":"low","usage":{"input_tokens":15856,"cached_input_tokens":13056,"output_tokens":5025,"reasoning_output_tokens":28},"wall_s":94.495,"source":"codex_exec_turn_completed_usage","billed_cost":"not_measured"}

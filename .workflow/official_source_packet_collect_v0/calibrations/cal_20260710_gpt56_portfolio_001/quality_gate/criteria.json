@@ -1,0 +1,84 @@
+{
+  "schema_version": "gpt56_portfolio_quality_gate_v1",
+  "workflow_id": "official_source_packet_collect_v0",
+  "evaluator_only": true,
+  "source_contract_refs": [
+    ".workflow/official_source_packet_collect_v0/workflow.yaml",
+    ".workflow/official_source_packet_collect_v0/step_graph.yaml"
+  ],
+  "hard_gates": [
+    {
+      "id": "HG1",
+      "requirement": "Inventories identifiers from approved non-oracle inputs and preserves ambiguity without hidden reference, verifier, prior-candidate, secret, or payload basis."
+    },
+    {
+      "id": "HG2",
+      "requirement": "Classifies every requested source kind using the current state vocabulary and marks only official_present or explicitly scoped owner_approved_local as executor-approved."
+    },
+    {
+      "id": "HG3",
+      "requirement": "Includes the required provenance for official, owner-local, and missing/blocked states, with structured downstream impact and next action."
+    },
+    {
+      "id": "HG4",
+      "requirement": "Produces packet, gap, follow-up, reuse/archive, and downstream readiness outputs without hiding unapproved, blocked, missing, conflict, or not-applicable states."
+    },
+    {
+      "id": "HG5",
+      "requirement": "Does not browse/download/upload, treat archive presence as authority, accept a mirror as official, expose payloads/secrets/runtime absolute paths, or overclaim downstream readiness."
+    },
+    {
+      "id": "HG6",
+      "requirement": "No golden/candidate leakage or fabricated execution/file-read claim."
+    }
+  ],
+  "scoring": {
+    "total_points": 100,
+    "pass_threshold": 80,
+    "dimensions": [
+      {
+        "id": "identifier_and_provenance",
+        "max_points": 20,
+        "full_credit": "Identifiers, source basis, publisher, revision/date, claims, approval scope, and checksums are traceable."
+      },
+      {
+        "id": "state_classification",
+        "max_points": 25,
+        "full_credit": "All requested source kinds receive correct evidence/gap states and executor approval."
+      },
+      {
+        "id": "gap_followup",
+        "max_points": 15,
+        "full_credit": "Blockers, searched/available evidence, impact, and exact owner actions are structured."
+      },
+      {
+        "id": "downstream_readiness",
+        "max_points": 20,
+        "full_credit": "Readiness is consumer-specific, conservative, and preserves gaps."
+      },
+      {
+        "id": "archive_and_boundary",
+        "max_points": 15,
+        "full_credit": "Storage, sync, payload, secret, and public/private boundaries are correct."
+      },
+      {
+        "id": "usability",
+        "max_points": 5,
+        "full_credit": "Packet is compact and directly usable downstream."
+      }
+    ]
+  },
+  "evaluation_instructions": {
+    "order": [
+      "apply_hard_gates",
+      "score_only_if_all_hard_gates_pass"
+    ],
+    "final_quality_values": [
+      "pass",
+      "fail"
+    ],
+    "score_rule": "Any hard-gate failure forces fail.",
+    "wording_rule": "Semantic compliance only."
+  },
+  "no_golden_attestation": "Derived only from current workflow.yaml and step_graph.yaml."
+}

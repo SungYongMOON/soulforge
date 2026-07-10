@@ -3,22 +3,16 @@ kind: workflow_profile_policy
 status: active
 optimizer_status: completed_public_safe_synthetic_quality_equivalence
 calibration_status: quality_gate_calibrated
-last_calibration_id: cal_20260611_daily_work_ledger_quality_equiv_001
-calibration_mode: cli_quality_equivalence
+last_calibration_id: cal_20260710_gpt56_portfolio_001
+calibration_mode: migration_validation
 validation_level: public_safe_synthetic_quality_gate
 measurement_policy:
-  quality_source: cli_quality_equivalence_shortlist
-  telemetry_source: codex_exec_json_cli_proxy
+  quality_source: fresh_independent_two_lane_candidate_review
+  telemetry_source: codex_exec_turn_completed_usage
   subagent_token_usage_available: false
   telemetry_exact_for_subagent: false
+  telemetry_exact_for_cli: true
   cost_confidence: relative_not_exact
-  service_tier: fast
-  full_default_matrix_executed: false
-  full_default_matrix_reason: >
-    Repo-local precedent uses a public-safe quality-equivalence shortlist for
-    workflow profile calibration. The full default matrix would require a much
-    larger candidate run and was not necessary to establish a lowest-cost
-    hard-gate pass on the synthetic daily-ledger capture fixture.
 profile_binding_policy:
   model: calibrated_default_runtime_binding
   reasoning_effort: calibrated_default_runtime_binding
@@ -26,6 +20,97 @@ profile_binding_policy:
   class: calibrated_default_runtime_binding
   party: daily_automation_party
 primary_profile:
+  model: gpt-5.6-luna
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+  candidate_id: MIG_gpt56_luna_medium
+  quality_score: 94
+  token_proxy: 22795
+  usage:
+    input_tokens: 19821
+    cached_input_tokens: 12032
+    output_tokens: 2974
+    reasoning_output_tokens: 301
+  wall_s: 58.367
+  claim_ceiling: observed
+shadow_top_k:
+  - candidate_id: MIG_gpt56_sol_low
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 98
+    task_success: 0.98
+    token_proxy: 25478
+    usage:
+      input_tokens: 21011
+      cached_input_tokens: 8960
+      output_tokens: 4467
+      reasoning_output_tokens: 94
+    wall_s: 84.715
+  - candidate_id: MIG_gpt56_sol_low_stability_r2
+    profile:
+      model: gpt-5.6-sol
+      reasoning_effort: low
+      species: dwarf
+      class: auditor
+    quality_score: 98
+    task_success: 0.98
+    token_proxy: 26476
+    usage:
+      input_tokens: 22795
+      cached_input_tokens: 22272
+      output_tokens: 3681
+      reasoning_output_tokens: 0
+    wall_s: 123.149
+rerun_triggers:
+  - daily ledger schema changes
+  - owner-facing ledger category policy changes
+  - approved metadata source surface changes
+  - project ordering policy changes
+  - P00 company general or unresolved work routing changes
+  - Soulforge subledger taxonomy changes
+  - duplicate candidate key handling changes
+  - skipped or review-needed register shape changes
+  - report renderer handoff contract changes
+  - daily automation party registration or local automation binding changes
+  - a live daily-ledger pilot exposes routing or boundary ambiguity
+calibration_archive_ref: calibrations/cal_20260710_gpt56_portfolio_001/
+runtime_notes:
+  - Candidate C first direct shell run exceeded 180 seconds with only
+    thread.started and turn.started in its event file; the detached child was
+    stopped and a guarded rerun completed successfully.
+selection_rules:
+  - Treat this file as a calibrated default policy; local runtime may still bind
+    a different model when owner-approved automation settings require it.
+  - Use deterministic validators before claiming a stronger state than
+    registered local binding.
+  - Use fresh executor and verifier evidence before claiming pilot-executed,
+    production-ready, or cross-PC default-route status.
+  - Local schedule, ACTIVE/PAUSED state, and prompt rendering remain local
+    automation concerns.
+non_claims:
+  - no_real_ledger_capture_executed
+  - no_real_metadata_source_coverage_claim
+  - no_raw_payload_read
+  - no_private_worklog_or_mail_payload_used
+  - no_pilot_execution_claim
+  - no_production_ready_claim
+  - no_cross_pc_default_route_claim
+  - no_source_truth_claim
+notes:
+  - The recommendation optimizes the model-facing routing and boundary review
+    part of the workflow on a public-safe synthetic fixture.
+  - Real daily ledger execution still requires approved metadata sources and
+    write-policy checks in the runtime owner surface.
+  - 2026-07-10 portfolio calibration uses public-safe synthetic evidence only.
+  - No billed-cost, aggregate-savings, ROI, or global-cheapest claim.
+optimization_intent: migration_validation
+search_scope: bounded_incumbent_controlled_gpt56_shortlist_with_targeted_replay
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_portfolio_001/capability_runner_snapshot.yaml
+incumbent_comparator:
   candidate_id: B_gpt54_low_dwarf_auditor
   model: gpt-5.4
   reasoning_effort: low
@@ -48,96 +133,17 @@ primary_profile:
     skipped raw payload handling, unknown project and subledger review gates,
     duplicate review handling, synthetic no-write receipt, and the
     observed-metadata claim ceiling.
-shadow_top_k:
-  - candidate_id: D_gpt55_medium_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|medium|dwarf|auditor
-    quality_score: 93
-    quality_class: quality_gate_pass
-    input_tokens: 21299
-    cached_input_tokens: 16256
-    output_tokens: 1209
-    total_tokens: 22508
-    reasoning_output_tokens: 46
-    wall_s: 21.813
-    selection_note: Fastest measured wall time, but higher total tokens than the primary.
-  - candidate_id: A_mini_low_dwarf_auditor
-    model: gpt-5.4-mini
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    label: gpt-5.4-mini|low|dwarf|auditor
-    quality_score: 91
-    quality_class: quality_gate_pass
-    input_tokens: 19562
-    cached_input_tokens: 3456
-    output_tokens: 2040
-    total_tokens: 21602
-    reasoning_output_tokens: 145
-    wall_s: 26.401
-    selection_note: Quality pass, but more verbose and slightly more total tokens than the primary.
-  - candidate_id: E_gpt55_xhigh_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|xhigh|dwarf|auditor
-    quality_score: 96
-    quality_class: quality_gate_pass
-    input_tokens: 21301
-    cached_input_tokens: 2432
-    output_tokens: 1916
-    total_tokens: 23217
-    reasoning_output_tokens: 516
-    wall_s: 32.186
-    selection_note: Highest quality baseline and fallback for boundary-sensitive changes.
-  - candidate_id: C_gpt55_low_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: low
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|low|dwarf|auditor
-    quality_score: 94
-    quality_class: quality_gate_pass
-    input_tokens: 21299
-    cached_input_tokens: 2432
-    output_tokens: 2051
-    total_tokens: 23350
-    reasoning_output_tokens: 103
-    wall_s: 33.002
-    selection_note: Quality pass after guarded rerun; not cheaper or faster than primary.
-rerun_triggers:
-  - daily ledger schema changes
-  - owner-facing ledger category policy changes
-  - approved metadata source surface changes
-  - project ordering policy changes
-  - P00 company general or unresolved work routing changes
-  - Soulforge subledger taxonomy changes
-  - duplicate candidate key handling changes
-  - skipped or review-needed register shape changes
-  - report renderer handoff contract changes
-  - daily automation party registration or local automation binding changes
-  - a live daily-ledger pilot exposes routing or boundary ambiguity
-calibration_archive_ref: .workflow/daily_work_ledger_capture_v0/calibrations/cal_20260611_daily_work_ledger_quality_equiv_001
-runtime_notes:
-  - Candidate C first direct shell run exceeded 180 seconds with only thread.started and turn.started in its event file; the detached child was stopped and a guarded rerun completed successfully.
-selection_rules:
-  - Treat this file as a calibrated default policy; local runtime may still bind a different model when owner-approved automation settings require it.
-  - Use deterministic validators before claiming a stronger state than registered local binding.
-  - Use fresh executor and verifier evidence before claiming pilot-executed, production-ready, or cross-PC default-route status.
-  - Local schedule, ACTIVE/PAUSED state, and prompt rendering remain local automation concerns.
-non_claims:
-  - no_real_ledger_capture_executed
-  - no_real_metadata_source_coverage_claim
-  - no_raw_payload_read
-  - no_private_worklog_or_mail_payload_used
-  - no_pilot_execution_claim
-  - no_production_ready_claim
-  - no_cross_pc_default_route_claim
-  - no_source_truth_claim
-notes:
-  - The recommendation optimizes the model-facing routing and boundary review part of the workflow on a public-safe synthetic fixture.
-  - Real daily ledger execution still requires approved metadata sources and write-policy checks in the runtime owner surface.
+tested_dimensions:
+  models:
+    - gpt-5.6-luna
+    - gpt-5.6-sol
+  species:
+    - dwarf
+  classes:
+    - auditor
+untested_dimensions:
+  - higher efforts except explicit incumbent effort
+  - alternate species/classes unless already incumbent
+  - delegation topology
+migration_decision: replaced
+selection_claim: quality_passing_gpt56_profile_selected_against_saved_incumbent
