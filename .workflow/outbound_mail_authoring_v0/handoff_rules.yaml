@@ -2,6 +2,26 @@ workflow_id: outbound_mail_authoring_v0
 kind: handoff_rules
 status: active
 rules:
+  - rule_id: from_owner_voice_profile
+    from_surface: local_private_owner_voice_profile
+    consume:
+      - aggregate_style_traits
+      - aggregate_frequency_counts
+      - provenance_summary
+    requirement: The profile is optional local/private guidance; do not copy exact sample sentences, contact values, raw addresses, footer payloads, private paths, or project rows into public outputs.
+  - rule_id: from_team_mail_context
+    from_surface: templates/team_mail_context.template.yaml
+    consume:
+      - recipient_role
+      - reason_or_purpose
+      - requested_action
+      - facts_or_background
+      - schedule_or_deadline
+      - changes_before_after
+      - attachments_or_share_state
+      - response_needed
+      - assumptions
+    requirement: Use the public-safe structured context to draft from approved facts and keep missing or uncertain values explicit.
   - rule_id: from_mail_send_style_policy
     from_surface: docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md
     consume:

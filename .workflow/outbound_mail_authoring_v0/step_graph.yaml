@@ -14,6 +14,9 @@ steps:
         - project_code_is_internal_metadata_only_when_present
         - required_style_policy_ref_is_available
         - attachment_selection_scope_is_bound_or_marked_unclear
+        - owner_voice_profile_ref_is_optional_and_private_when_present
+        - owner_voice_profile_provenance_is_bound_when_profile_is_used
+        - team_mail_context_uses_public_template_shape
       creates:
         - mail_authoring_scope
         - missing_input_register
@@ -47,7 +50,7 @@ steps:
     summary: Resolve the outbound subject bracket from actual project mail keywords only; never substitute internal project codes.
     next:
       on_success: build_subject_candidate
-      on_owner_confirmation_needed: stop
+      on_owner_confirmation_needed: draft_owner_style_body
       on_fail: stop
   - step_id: build_subject_candidate
     title: Build Subject Candidate
@@ -80,6 +83,9 @@ steps:
         - mail_send_style_policy_ref
         - owner_provided_body_facts
         - attachment_metadata_refs
+        - owner_voice_profile_ref
+        - owner_voice_profile_provenance
+        - team_mail_context_ref
       artifact_out: owner_style_body_draft
       style_rules:
         - Korean_business_mail
@@ -91,6 +97,8 @@ steps:
         - avoid_AI_internal_terms
         - avoid_unverified_numbers_or_dates
         - avoid_private_paths_hashes_run_ids_or_source_refs
+        - use_owner_voice_profile_only_as_optional_aggregate_style_guidance
+        - preserve_uncertainties_in_assumptions
       missing_fact_policy: add_assumptions_and_keep_draft_only
     summary: Draft the body in the owner's concise business style using only provided or approved facts.
     next:
@@ -243,7 +251,7 @@ steps:
     summary: Close with a conservative boundary and claim review.
     next: []
 stop_conditions:
-  - project_keyword_authority_missing_for_new_subject
+  - project_keyword_authority_missing_for_final_new_subject
   - recipient_or_attachment_scope_unclear
   - collected_attachments_not_reduced_to_selected_send_packet
   - duplicate_or_superseded_attachment_version_unclear

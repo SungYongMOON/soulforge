@@ -1,8 +1,16 @@
 schema_version: outbound_mail_authoring_request_v0
 request_id: "<stable_request_id>"
+team_mail_context_ref: "templates/team_mail_context.template.yaml"
+owner_voice_profile:
+  ref: null
+  provenance_ref: null
+  use: "optional | disabled"
 thread_mode: "new | reply | forward"
 mail_kind: "자료송부 | 검토요청 | 수정요청 | 확인요청 | 회신요청 | 재송부 | 첨부누락정정 | 기타"
 send_surface: "draft_only | outlook_manual | soulforge_send_mail"
+field_semantics:
+  send_surface: requested_delivery_surface_not_authority
+  authority_state_source: owner_approval_gate_result
 project_code: "<internal_metadata_only_or_null>"
 project_mail_keyword:
   value: "<confirmed_keyword_or_null>"

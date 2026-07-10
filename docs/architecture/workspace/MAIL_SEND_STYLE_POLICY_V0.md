@@ -132,6 +132,8 @@
 
 기본 톤은 짧고 실무적인 한국어 업무 메일이다.
 
+로컬/private owner voice profile 이 있으면 집계 특성만 보조 지침으로 사용할 수 있다. profile 은 선택 입력이며, 없으면 이 public 정책만으로 초안을 작성한다. profile 사용 시 집계 대상·건수·관찰 방식 같은 provenance 를 함께 확인하고, 정확한 샘플 문장·연락처·raw address·footer 전문·private path·project row 는 public 문서나 초안 packet 으로 복사하지 않는다.
+
 - 첫 문장에 메일 목적을 바로 쓴다.
 - 긴 배경 설명보다 요청사항, 첨부, 확인 필요일, 다음 행동을 앞세운다.
 - 여러 수정사항은 번호 목록이나 짧은 bullet 로 정리한다.
@@ -266,6 +268,8 @@ external_share_confirmed: true | false
 ```
 
 필수 입력이 없으면 초안 아래에 `ASSUMPTIONS` 를 먼저 적고, 발송 단계는 `draft_only` 로 고정한다.
+
+팀이 AI에 업무 맥락을 전달할 때는 `.workflow/outbound_mail_authoring_v0/templates/team_mail_context.template.yaml` 을 사용한다. 이 template 은 `recipient_role`, `reason_or_purpose`, `requested_action`, `facts_or_background`, `schedule_or_deadline`, `changes_before_after`, `attachments_or_share_state`, `response_needed`, `assumptions` 를 분리한다. 실제 주소나 private 경로 대신 역할과 승인된 사실만 적는다.
 
 ## AI 초안 출력 shape
 

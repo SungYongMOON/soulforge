@@ -7,6 +7,11 @@ This workflow applies the public mail style policy, resolves project subject
 keywords from approved runtime surfaces, checks the mandatory signature plus
 security footer, and produces an owner-facing pre-send checklist.
 
+It may also consume the public-safe `templates/team_mail_context.template.yaml`
+shape and an optional local/private aggregate owner voice profile. The workflow
+remains the procedure authority; the profile is guidance, not mail source truth
+or send authority.
+
 ## Status
 
 - Workflow status: active
@@ -38,6 +43,9 @@ send surface, and footer state.
 
 - New project subjects use a real project mail keyword:
   `[<project_mail_keyword>] <mail_kind> - <detail>`.
+- If that keyword is not confirmed, keep the subject unresolved but allow a
+  body-only draft with the keyword gap in assumptions and the authority state
+  fixed at `draft_only`.
 - Internal company project numbers, Soulforge project codes, and display names
   are metadata only and do not go into outgoing subjects.
 - Replies and forwards preserve the existing thread subject.

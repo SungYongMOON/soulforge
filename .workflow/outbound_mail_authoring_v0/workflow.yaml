@@ -26,6 +26,9 @@ inputs:
   - project_mail_keyword_policy_ref
   - owner_footer_policy_ref
 optional_inputs:
+  - owner_voice_profile_ref
+  - owner_voice_profile_provenance
+  - team_mail_context_ref
   - existing_thread_subject
   - project_local_mail_subject_rule_ref
   - active_project_keyword_index_ref
@@ -75,6 +78,10 @@ workflow_modes:
   - reply_draft
   - forward_draft
   - new_mail_draft
+field_semantics:
+  send_surface: requested_delivery_surface_not_authority
+  owner_approval_gate_result: authority_state
+  compatibility_note: Keep existing field names in v0 packets; consumers must not infer send authority from `outlook_manual` or `soulforge_send_mail`.
 upstream_workflows:
   - workflow_id: outlook_mail_reconcile_v0
     expected_outputs:
@@ -95,6 +102,8 @@ downstream_workflows:
 outbound_mail_authoring_contract:
   owns:
     - mail_authoring_scope_binding
+    - optional_owner_voice_profile_binding
+    - team_mail_context_normalization
     - project_keyword_resolution
     - subject_candidate_generation
     - owner_style_body_draft_generation
@@ -121,6 +130,7 @@ outbound_mail_authoring_contract:
     - default_route_switching
   style_policy_refs:
     mail_send_style_policy: docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md
+    team_mail_context_template: templates/team_mail_context.template.yaml
     mail_send_runner_policy: docs/architecture/workspace/MAIL_SEND_V0.md
     mail_send_capsule: guild_hall/gateway/mail_send/
   project_keyword_policy:
@@ -184,7 +194,21 @@ outbound_mail_authoring_contract:
         - extending_body_with_unapproved_claims
   required_input_shapes:
     mail_authoring_request: templates/mail_authoring_request.template.yaml
+    team_mail_context: templates/team_mail_context.template.yaml
     project_mail_keyword_ref: templates/project_mail_keyword_ref.template.yaml
+  owner_voice_profile_policy:
+    required: false
+    expected_scope: local_private_aggregate_traits_only
+    default_runtime_identity: owner_outlook_mail_v0
+    runtime_resolution_scope: local_private_only
+    provenance_required_when_used: true
+    fallback_when_missing: public_mail_style_policy_only
+    public_copy_forbidden:
+      - exact_sample_sentences
+      - contact_values
+      - raw_addresses
+      - exact_footer_payload
+      - private_project_rows
   required_output_shapes:
     mail_draft_packet: templates/mail_draft_packet.template.yaml
     pre_send_checklist: templates/pre_send_checklist.template.yaml

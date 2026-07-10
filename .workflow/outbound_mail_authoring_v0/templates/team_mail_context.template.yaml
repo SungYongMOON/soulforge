@@ -1,0 +1,30 @@
+schema_version: outbound_team_mail_context_v0
+recipient_role: "<role_or_group_without_contact_value>"
+reason_or_purpose: "<why_this_mail_is_needed>"
+requested_action:
+  owner: "<request_owner_role_or_null>"
+  work: "<requested_work_or_decision>"
+facts_or_background: []
+schedule_or_deadline:
+  requested_by: null
+  current_state: null
+changes_before_after:
+  before: null
+  after: null
+  rationale: null
+participating_groups: []
+attachments_or_share_state:
+  items: []
+  state: "none | planned | attached | shared | unclear"
+response_needed:
+  required: false
+  requested_content: null
+  requested_by: null
+assumptions: []
+source_basis: []
+public_safety:
+  contains_real_contact_values: false
+  contains_raw_mail_excerpt: false
+  contains_exact_footer_payload: false
+  contains_private_path: false
+  contains_private_project_row: false
