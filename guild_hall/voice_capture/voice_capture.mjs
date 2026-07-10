@@ -591,7 +591,7 @@ export async function buildSessionStatus(sessionDir) {
     errors.push("missing or unreadable session_manifest.json");
   }
 
-  const audioFiles = await listFilesWithExt(audioDir, [".wav", ".m4a", ".mp3", ".flac"]);
+  const audioFiles = await listFilesWithExt(audioDir, [".wav", ".m4a", ".mp3", ".flac", ".ogg"]);
   const transcriptJsonFiles = await listFilesWithExt(transcriptDir, [".json"]);
   const transcriptTextFiles = await listFilesWithExt(transcriptDir, [".txt"]);
   const transcriptSrtFiles = await listFilesWithExt(transcriptDir, [".srt"]);
@@ -666,6 +666,9 @@ export async function buildRecordingLibraryEntry(options = {}) {
   const sourceAudioRef = firstExistingPath([
     path.join(sessionDir, "audio", "source.m4a"),
     path.join(sessionDir, "audio", "source.wav"),
+    path.join(sessionDir, "audio", "source.mp3"),
+    path.join(sessionDir, "audio", "source.flac"),
+    path.join(sessionDir, "audio", "source.ogg"),
   ]);
   const manifestSpeakerDiarization =
     manifest.speaker_diarization && typeof manifest.speaker_diarization === "object"

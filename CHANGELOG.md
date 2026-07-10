@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### PLAUD OGG 원본의 음성 보관함 등록 지원
+
+- PLAUD 공유 링크에서 내려받은 OGG/Opus 원본을 오디오 없음으로 잘못 기록하던 문제를 수정했다. 음성 세션 상태와 보관함 원본 포인터가 `source.ogg`를 인식하고, 기존 M4A/WAV 외 MP3/FLAC 원본 포인터도 보존한다 (worker: codex_gpt-5).
+
 ### 음성 source event의 실제 입력원·회의 묶음 포인터 보존
 
 - `write-workmeta-draft`가 PLAUD·Apple Notes·ChatGPT Record import도 모두 로컬 마이크 세션으로 기록하던 고정값을 제거했다. 세션 매니페스트의 실제 `source_kind`와 선택적 `meeting_bundle_ref`를 metadata-only source event에 보존해 동일 회의의 복수 녹음 관계와 입력원별 품질을 추적할 수 있게 했다 (worker: codex_gpt-5).

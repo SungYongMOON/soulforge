@@ -344,6 +344,37 @@ test("recording library preserves transcript-only and source-provided speaker st
   }
 });
 
+test("recording library recognizes a PLAUD OGG source audio file", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-voice-plaud-ogg-"));
+  try {
+    const sessionDir = path.join(
+      repoRoot,
+      "_workspaces",
+      "system",
+      "voice_capture",
+      "sessions",
+      "2026-07-10",
+      "plaud-ogg",
+    );
+    await mkdir(path.join(sessionDir, "audio"), { recursive: true });
+    await writeFile(
+      path.join(sessionDir, "session_manifest.json"),
+      JSON.stringify({ session_id: "plaud-ogg", source: "plaud_share_import" }),
+      "utf8",
+    );
+    await writeFile(path.join(sessionDir, "source_event_draft.yaml"), "source_kind: plaud_share_import\n", "utf8");
+    await writeFile(path.join(sessionDir, "audio", "source.ogg"), "ogg-audio-placeholder", "utf8");
+
+    const planned = await writeRecordingLibraryEntry({ repoRoot, sessionDir });
+
+    assert.equal(planned.entry.status_summary.audio_chunks, 1);
+    assert.equal(planned.entry.raw_payload_boundary.audio_stored_under_workspace, true);
+    assert.match(planned.entry.payload_refs.source_audio_ref, /audio\/source\.ogg$/);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 function nodeWriteFileCommand(targetPlaceholder, content) {
   const script = "require('node:fs').writeFileSync(process.argv[1],process.argv[2])";
   return `${shellQuote(process.execPath)} -e ${shellQuote(script)} ${targetPlaceholder} ${shellQuote(content)}`;

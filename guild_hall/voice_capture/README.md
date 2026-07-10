@@ -106,6 +106,7 @@ Each session keeps the original transcription under its session directory:
 - `transcripts/chunk_*.txt`: per-chunk raw text sidecars.
 - `transcripts/chunk_*.srt`: per-chunk timestamp subtitle sidecars.
 - `audio/chunk_*.wav`: raw audio chunks.
+- Imported provider originals may use `audio/source.m4a`, `source.wav`, `source.mp3`, `source.flac`, or `source.ogg`; PLAUD share audio commonly arrives as OGG/Opus.
 - `speakers/*`: optional rough local speaker sidecars when generated.
 
 These files are intentionally local `_workspaces` payloads. Share them through

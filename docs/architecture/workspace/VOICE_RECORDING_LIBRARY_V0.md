@@ -31,6 +31,7 @@ _workspaces/system/voice_capture/meeting_bundles/<YYYY-MM-DD>/<meeting_bundle_id
 ## 경계
 
 - 원본 오디오, 원문 전사, 화자분리 sidecar 는 `_workspaces/system/voice_capture/sessions/**` 아래에만 둔다.
+- 입력원에서 받은 원본 형식은 변환본으로 대체하지 않고 보존하며, 보관함은 `m4a`, `wav`, `mp3`, `flac`, `ogg` 원본을 인식한다.
 - 녹음 보관함 `library/**` 는 원문을 복사하지 않고 session 경로, 개수, 상태, hash, route 후보만 기록한다.
 - `_workmeta/<project_code>/**` 에는 프로젝트 검토가 필요할 때 metadata-only source event 만 쓴다. 원본 오디오와 전사 본문은 쓰지 않는다.
 - public Git 에는 CLI, 테스트, 문서, public-safe 예시만 올린다. `_workspaces/system/voice_capture/**` payload 는 Git 대상이 아니다.
