@@ -629,8 +629,9 @@ export async function buildSessionStatus(sessionDir) {
     transcript_txt_present: fileExists(transcriptTxtPath),
     estimated_recorded_seconds: chunkSeconds ? audioFiles.length * chunkSeconds : null,
     raw_payload_boundary: {
-      audio_stored_under_workspace: true,
-      transcript_stored_under_workspace: true,
+      audio_stored_under_workspace: audioFiles.length > 0,
+      transcript_stored_under_workspace:
+        fileExists(transcriptTxtPath) || transcriptSegments > 0 || transcriptTextFiles.length > 0,
       workmeta_raw_audio_copy_allowed: false,
       workmeta_raw_transcript_copy_allowed: false,
     },
@@ -666,6 +667,10 @@ export async function buildRecordingLibraryEntry(options = {}) {
     path.join(sessionDir, "audio", "source.m4a"),
     path.join(sessionDir, "audio", "source.wav"),
   ]);
+  const manifestSpeakerDiarization =
+    manifest.speaker_diarization && typeof manifest.speaker_diarization === "object"
+      ? manifest.speaker_diarization
+      : null;
   const recordingDir = path.join(libraryRoot, "recordings", recordingDate, recordingId);
   const projectRouteDir = path.join(libraryRoot, "project_routes", projectCode, "recordings");
   const entry = {
@@ -714,12 +719,14 @@ export async function buildRecordingLibraryEntry(options = {}) {
           quality: speakerSummary.quality ?? null,
           speaker_durations_seconds: speakerSummary.speaker_durations_seconds ?? null,
         }
-      : {
-          status: "not_available",
-        },
+      : manifestSpeakerDiarization
+        ? manifestSpeakerDiarization
+        : {
+            status: "not_available",
+          },
     raw_payload_boundary: {
-      audio_stored_under_workspace: true,
-      transcript_stored_under_workspace: true,
+      audio_stored_under_workspace: status.raw_payload_boundary.audio_stored_under_workspace,
+      transcript_stored_under_workspace: status.raw_payload_boundary.transcript_stored_under_workspace,
       library_raw_audio_copy_allowed: false,
       library_raw_transcript_copy_allowed: false,
       workmeta_raw_audio_copy_allowed: false,

@@ -5,6 +5,10 @@
 - Added `soulforge-owner-outlook-mail` as an explicitly selectable thin launcher for the existing `outbound_mail_authoring_v0` workflow, limited to Outlook manual or draft-only authoring with no send or Outlook mutation authority.
 - Added a public-safe structured team mail context template and optional aggregate-only local/private voice-profile binding; public canon excludes real excerpts, contact values, exact footer text, raw addresses, private paths, and project rows.
 
+### 음성 녹음 보관함 transcript-only 메타데이터 정확성 보정
+
+- 오디오 없이 ChatGPT Record 공유 전사만 보관한 세션을 등록할 때 `audio_stored_under_workspace`를 거짓으로 기록하고 source-provided 화자 라벨 상태를 버리던 문제를 수정했다. 실제 오디오 파일 존재 여부와 전사 존재 여부를 각각 계산하고, 별도 로컬 화자 sidecar가 없으면 세션 매니페스트의 화자분리 상태를 보존한다 (worker: codex_gpt-5).
+
 ### dev-ERP 줄기 강 뷰 기본기 — 접기·잘림·잠든 가지·데이터 정직성
 
 - Owner "접는 기능·끝 잘림 등 기본이 안 됨" 지적 반영: ① **접기 칩**(`제안 N 접기/펼치기`·`완료 N 접기/펼치기`, 세션 상태 유지) ② 늦게 태어난 가지 라벨을 점 왼쪽 앵커로 — 오른쪽 잘림 제거 ③ **줄 끝 = 마지막 실기록**(진행 중 작업만 오늘선까지) — 잠든 이력 가지 16/17이 처음으로 드러남 ④ 빨간 점선 '오늘' 기준선 ⑤ 레인 24개 초과 시 행 높이 압축.

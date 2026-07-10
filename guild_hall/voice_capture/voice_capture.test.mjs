@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -285,6 +285,45 @@ test("recording library registration writes metadata-only global and route index
     const projectRoute = await readFile(applied.project_route_path, "utf8");
     assert.match(projectRoute, /"route_status": "unclassified_needs_owner_confirmation"/);
     assert.equal(projectRoute.includes("sensitive-transcript"), false);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("recording library preserves transcript-only and source-provided speaker state", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-voice-transcript-only-"));
+  try {
+    const sessionDir = path.join(
+      repoRoot,
+      "_workspaces",
+      "system",
+      "voice_capture",
+      "sessions",
+      "2026-07-10",
+      "transcript-only",
+    );
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(
+      path.join(sessionDir, "session_manifest.json"),
+      JSON.stringify({
+        session_id: "transcript-only",
+        source: "chatgpt_record_share_import",
+        speaker_diarization: {
+          status: "source_provided_labels_unverified",
+          speaker_count_hint: 4,
+        },
+      }),
+      "utf8",
+    );
+    await writeFile(path.join(sessionDir, "source_event_draft.yaml"), "source_kind: chatgpt_record_share_import\n", "utf8");
+    await writeFile(path.join(sessionDir, "transcript.txt"), "[1] speaker 1: transcript only\n", "utf8");
+
+    const planned = await writeRecordingLibraryEntry({ repoRoot, sessionDir });
+
+    assert.equal(planned.entry.raw_payload_boundary.audio_stored_under_workspace, false);
+    assert.equal(planned.entry.raw_payload_boundary.transcript_stored_under_workspace, true);
+    assert.equal(planned.entry.speaker_diarization.status, "source_provided_labels_unverified");
+    assert.equal(planned.entry.speaker_diarization.speaker_count_hint, 4);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
