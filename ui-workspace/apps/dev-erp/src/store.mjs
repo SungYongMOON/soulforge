@@ -33,6 +33,24 @@ export function verifyPassword(plain, stored) {
 
 export const SCHEMA_VERSION = "dev_erp.v1";
 export const ASSIGNEE_MEMORY_CORE_MAX = 8000;
+export const CODEX_WORKSPACE_WRITE_GRANT_MAX_MS = 8 * 60 * 60 * 1000;
+const CODEX_OPAQUE_THREAD_REF_V1_RE = /^dwr1\.[A-Za-z0-9_-]{1,8192}\.[A-Za-z0-9_-]{43}$/;
+const CODEX_OPAQUE_THREAD_REF_V2_RE = /^dwr2\.[A-Za-z0-9][A-Za-z0-9_-]{0,31}\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{1,10923}\.[A-Za-z0-9_-]{22}$/;
+
+function validCodexThreadReference(value) {
+  const threadRef = String(value ?? "").trim();
+  if (!threadRef) return false;
+  if (threadRef.startsWith("dwr1.")) {
+    return threadRef.length <= 12 * 1024 && CODEX_OPAQUE_THREAD_REF_V1_RE.test(threadRef);
+  }
+  if (threadRef.startsWith("dwr2.")) {
+    return threadRef.length <= 12 * 1024 && CODEX_OPAQUE_THREAD_REF_V2_RE.test(threadRef);
+  }
+  return threadRef.length <= 200 && !/[\\/\x00-\x1f]/.test(threadRef);
+}
+const CODEX_WORKSPACE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const CODEX_WORKSPACE_HASH_RE = /^[a-f0-9]{64}$/;
+const CODEX_PROTECTED_RELATIVE_SEGMENT_RE = /^(?:\.git|\.codex|\.ssh|\.gnupg|\.aws|\.azure|\.kube|\.env(?:\..*)?|secret|secrets|credential|credentials|token|tokens|password|passwords|cookie|cookies|con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i;
 export const ASSIGNEE_MEMORY_ITEM_TEXT_MAX = 1200;
 export const ASSIGNEE_MEMORY_SCOPE_ITEM_MAX = 120;
 export const ASSIGNEE_MEMORY_SCOPE_TEXT_MAX = 24000;
@@ -628,6 +646,9 @@ CREATE TABLE IF NOT EXISTS codex_thread_binding (
   thread_id TEXT NOT NULL,
   thread_title TEXT NOT NULL,
   project_id TEXT,
+  workspace_id TEXT,
+  workspace_revision TEXT,
+  workspace_root_fingerprint TEXT,
   mode TEXT NOT NULL DEFAULT 'app-server',
   sync_state TEXT NOT NULL DEFAULT 'linked',
   last_synced_item_revision INTEGER,
@@ -642,11 +663,56 @@ CREATE TABLE IF NOT EXISTS codex_thread_message (
   thread_id TEXT,
   role TEXT NOT NULL,
   text TEXT NOT NULL,
+  payload_ref TEXT,
+  payload_byte_length INTEGER,
+  payload_sha256 TEXT,
   actor_ref TEXT,
   mode TEXT,
   data_label TEXT NOT NULL DEFAULT 'meta'
 );
 CREATE INDEX IF NOT EXISTS idx_codex_thread_message_item ON codex_thread_message(item_id, id);
+CREATE TABLE IF NOT EXISTS codex_workspace_write_grant (
+  id TEXT PRIMARY KEY,
+  item_id TEXT NOT NULL REFERENCES core_item(id),
+  workspace_id TEXT NOT NULL,
+  workspace_revision TEXT NOT NULL,
+  workspace_root_fingerprint TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  relative_prefix TEXT NOT NULL,
+  approved_by TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  approved_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT,
+  revoked_by TEXT,
+  data_label TEXT NOT NULL DEFAULT 'meta'
+);
+CREATE INDEX IF NOT EXISTS idx_codex_workspace_grant_item
+  ON codex_workspace_write_grant(item_id, workspace_id, expires_at);
+CREATE TABLE IF NOT EXISTS codex_turn_audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  at TEXT NOT NULL,
+  finished_at TEXT,
+  authorized_at TEXT NOT NULL,
+  item_id TEXT NOT NULL REFERENCES core_item(id),
+  thread_id TEXT,
+  actor_ref TEXT,
+  workspace_id TEXT,
+  workspace_revision TEXT,
+  workspace_root_fingerprint TEXT,
+  model TEXT,
+  effective_model TEXT,
+  model_selection_origin TEXT,
+  model_fallback INTEGER NOT NULL DEFAULT 0,
+  reasoning_effort TEXT,
+  sandbox_mode TEXT NOT NULL,
+  grant_refs TEXT NOT NULL DEFAULT '[]',
+  outcome TEXT NOT NULL,
+  duration_ms INTEGER,
+  error_code TEXT,
+  data_label TEXT NOT NULL DEFAULT 'meta'
+);
+CREATE INDEX IF NOT EXISTS idx_codex_turn_audit_item ON codex_turn_audit(item_id, id);
 CREATE TABLE IF NOT EXISTS embed_view ( -- P-18 외부 시트 임베드(Smartsheet 등) read-only URL 메타
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL DEFAULT 'smartsheet',
@@ -942,10 +1008,39 @@ export function openStore(path = ":memory:") {
     // 챗봇 질문 로그는 야간 매뉴얼 갱신 입력이므로 질문자/대화방을 함께 보존한다.
     "ALTER TABLE chat_query_log ADD COLUMN actor_ref TEXT",
     // 메모리 과제 격리: 누적 항목에 과제 태그. NULL=과제무관 일반. 주입 때 현재 과제+일반만(다른 과제 차단). 기존 행은 NULL(일반)=하위호환.
-    "ALTER TABLE assignee_memory_item ADD COLUMN project_id TEXT"
+    "ALTER TABLE assignee_memory_item ADD COLUMN project_id TEXT",
+    // Codex 작업실은 원시 경로가 아니라 논리 ID와 매핑 증명만 고정한다. 기존 스레드는 명시적 이관 전까지 NULL이다.
+    "ALTER TABLE codex_thread_binding ADD COLUMN workspace_id TEXT",
+    "ALTER TABLE codex_thread_binding ADD COLUMN workspace_revision TEXT",
+    "ALTER TABLE codex_thread_binding ADD COLUMN workspace_root_fingerprint TEXT",
+    "ALTER TABLE codex_workspace_write_grant ADD COLUMN workspace_revision TEXT",
+    "ALTER TABLE codex_workspace_write_grant ADD COLUMN workspace_root_fingerprint TEXT",
+    "ALTER TABLE codex_turn_audit ADD COLUMN authorized_at TEXT",
+    "ALTER TABLE codex_turn_audit ADD COLUMN finished_at TEXT",
+    "ALTER TABLE codex_turn_audit ADD COLUMN effective_model TEXT",
+    "ALTER TABLE codex_turn_audit ADD COLUMN model_selection_origin TEXT",
+    "ALTER TABLE codex_turn_audit ADD COLUMN model_fallback INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE codex_thread_message ADD COLUMN payload_ref TEXT",
+    "ALTER TABLE codex_thread_message ADD COLUMN payload_byte_length INTEGER",
+    "ALTER TABLE codex_thread_message ADD COLUMN payload_sha256 TEXT"
   ]) {
     try { db.exec(ddl); } catch { /* exists */ }
   }
+  // Codex workspace authority migration은 보안 경계이므로 실제 컬럼이 없으면 "이미 존재"로 오인하지 않고 시작을 중단한다.
+  for (const [table, requiredColumns] of [
+    ["codex_thread_binding", ["workspace_id", "workspace_revision", "workspace_root_fingerprint"]],
+    ["codex_workspace_write_grant", ["workspace_revision", "workspace_root_fingerprint"]],
+    ["codex_turn_audit", ["authorized_at", "finished_at", "effective_model", "model_selection_origin", "model_fallback"]],
+    ["codex_thread_message", ["payload_ref", "payload_byte_length", "payload_sha256"]],
+  ]) {
+    const present = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((row) => row.name));
+    const missing = requiredColumns.filter((column) => !present.has(column));
+    if (missing.length) throw new Error(`codex_workspace_schema_migration_failed:${table}:${missing.join(",")}`);
+  }
+  try { db.exec("UPDATE codex_turn_audit SET authorized_at=at WHERE authorized_at IS NULL"); }
+  catch { /* startup verification above reports structural failures */ }
+  try { db.exec("UPDATE codex_turn_audit SET effective_model=model, model_selection_origin='legacy' WHERE model_selection_origin IS NULL"); }
+  catch { /* startup verification above reports structural failures */ }
   // P-0: 단계 식별을 title 에서 분리한 stage_code 정본 컬럼. 기존 행 backfill=title.
   try { db.exec("UPDATE core_stage SET stage_code=title WHERE stage_code IS NULL OR stage_code=''"); } catch { /* noop */ }
   // 5필드 이전(legacy) 완료 행 소급 마커(멱등): 슬라이스 이후 모든 insert 경로가 request_kind 를 결정적으로 채우므로 NULL=이전 행.
@@ -1899,7 +1994,7 @@ export class Store {
       const role = msg?.role ?? null;
       return {
         ...row,
-        codex_thread_id: binding?.thread_id ?? null,
+        codex_thread_open: binding ? 1 : 0,
         codex_task_mode: binding?.mode ?? null,
         codex_task_sync_state: binding?.sync_state ?? null,
         codex_last_message_id: msg?.id ?? null,
@@ -2286,7 +2381,21 @@ export class Store {
     if (assignee_any) { const sc = scopedInClause("assignee_ref", assignee_any); if (sc) { cond.push(sc.sql); args.push(...sc.args); } }
     const sql = `SELECT * FROM completion_log WHERE ${cond.join(" AND ")} ORDER BY COALESCE(done_at, created_at) DESC LIMIT ?`;
     args.push(limit);
-    return this.db.prepare(sql).all(...args);
+    return this.db.prepare(sql).all(...args).map((row) => {
+      const logRef = String(row.log_ref ?? "").trim();
+      if (!logRef) return row;
+      try {
+        const refs = JSON.parse(logRef);
+        if (Array.isArray(refs)) {
+          const publicRefs = refs.filter((ref) => !String(ref || "").startsWith("codex_thread:"));
+          return {
+            ...row,
+            log_ref: publicRefs.length ? JSON.stringify(publicRefs) : null,
+          };
+        }
+      } catch {}
+      return /(?:^|[\s:])dwr[12]\.|codex_thread:/i.test(logRef) ? { ...row, log_ref: null } : row;
+    });
   }
   // 훅 도입 전 완료된 항목을 completion_log 에 1회 보강(멱등 — item_id 미기록분만). 분석 위젯이 과거 이력도 보게.
   backfillCompletionLog() {
@@ -3489,13 +3598,6 @@ export class Store {
   codexTaskBinding(item_id) {
     return this.db.prepare("SELECT * FROM codex_thread_binding WHERE item_id=?").get(item_id);
   }
-  // 대화별 전체권한(danger-full-access) 토글 — meta 에 per-item 저장. 기본 off(서버 기본 샌드박스). owner가 이 대화에서만 켤 때 로컬 실행 허용.
-  codexFullAccess(item_id) { return this.getMeta(`codex_fa:${item_id}`) === "1"; }
-  setCodexFullAccess(item_id, on) {
-    if (!this.itemById(item_id)) return { error: "item_not_found" };
-    this.setMeta(`codex_fa:${item_id}`, on ? "1" : "0");
-    return { ok: true, item_id, full_access: !!on };
-  }
 
   codexTaskMessages(item_id, limit = 80) {
     const n = Math.max(1, Math.min(200, Number(limit) || 80));
@@ -3506,26 +3608,411 @@ export class Store {
     ).all(item_id, n);
   }
 
-  upsertCodexTaskBinding({ item_id, thread_id, thread_title = null, mode = "app-server", last_error = null } = {}) {
+  upsertCodexTaskBinding({
+    item_id,
+    thread_id,
+    thread_title = null,
+    mode = "app-server",
+    last_error = null,
+    workspace_id = null,
+    workspace_revision = null,
+    workspace_root_fingerprint = null,
+  } = {}) {
     const item = this.itemById(item_id);
     if (!item) return { error: "item_not_found" };
     const tid = String(thread_id ?? "").trim();
     if (!tid) return { error: "thread_id_required" };
+    if (!validCodexThreadReference(tid)) return { error: "thread_id_invalid" };
+    const workspaceId = workspace_id == null ? null : String(workspace_id).trim();
+    const workspaceRevision = workspace_revision == null ? null : String(workspace_revision).trim();
+    const rootFingerprint = workspace_root_fingerprint == null ? null : String(workspace_root_fingerprint).trim();
+    const existing = this.codexTaskBinding(item.id);
+    const suppliedTriplet = [workspaceId, workspaceRevision, rootFingerprint].filter(Boolean).length;
+    if (!existing && suppliedTriplet === 0) return { error: "workspace_binding_required" };
+    if (suppliedTriplet !== 0 && suppliedTriplet !== 3) return { error: "workspace_binding_triplet_required" };
+    if (workspaceId && !CODEX_WORKSPACE_ID_RE.test(workspaceId)) return { error: "workspace_id_invalid" };
+    if (workspaceRevision && !CODEX_WORKSPACE_HASH_RE.test(workspaceRevision)) return { error: "workspace_revision_invalid" };
+    if (rootFingerprint && !CODEX_WORKSPACE_HASH_RE.test(rootFingerprint)) return { error: "workspace_root_fingerprint_invalid" };
+    if (existing?.workspace_id && workspaceId && existing.workspace_id !== workspaceId) {
+      return { error: "workspace_binding_immutable" };
+    }
+    if (existing?.workspace_revision && workspaceRevision && existing.workspace_revision !== workspaceRevision) {
+      return { error: "workspace_binding_revision_mismatch" };
+    }
+    if (existing?.workspace_root_fingerprint && rootFingerprint && existing.workspace_root_fingerprint !== rootFingerprint) {
+      return { error: "workspace_binding_root_mismatch" };
+    }
     const title = String(thread_title || this.codexThreadTitle(item) || tid).trim();
     const at = new Date().toISOString();
     this.db.prepare(
-      `INSERT INTO codex_thread_binding(item_id,thread_id,thread_title,project_id,mode,sync_state,last_sync_at,last_error,data_label)
-       VALUES(?,?,?,?,?,'linked',?,?,'meta')
+      `INSERT INTO codex_thread_binding(
+         item_id,thread_id,thread_title,project_id,workspace_id,workspace_revision,workspace_root_fingerprint,
+         mode,sync_state,last_sync_at,last_error,data_label
+       )
+       VALUES(?,?,?,?,?,?,?,?,'linked',?,?,'meta')
        ON CONFLICT(item_id) DO UPDATE SET
          thread_id=excluded.thread_id,
          thread_title=excluded.thread_title,
          project_id=excluded.project_id,
+         workspace_id=COALESCE(codex_thread_binding.workspace_id,excluded.workspace_id),
+         workspace_revision=COALESCE(codex_thread_binding.workspace_revision,excluded.workspace_revision),
+         workspace_root_fingerprint=COALESCE(codex_thread_binding.workspace_root_fingerprint,excluded.workspace_root_fingerprint),
          mode=excluded.mode,
          sync_state='linked',
          last_sync_at=excluded.last_sync_at,
          last_error=excluded.last_error`
-    ).run(item.id, tid, title, item.project_id, mode, at, last_error);
+    ).run(
+      item.id,
+      tid,
+      title,
+      item.project_id,
+      workspaceId,
+      workspaceRevision,
+      rootFingerprint,
+      mode,
+      at,
+      last_error,
+    );
     return { ok: true, binding: this.codexTaskBinding(item.id), item };
+  }
+
+  approveCodexWorkspaceWrite({
+    item_id,
+    workspace_id = null,
+    relative_prefix,
+    approved_by,
+    reason,
+    expires_at,
+    approved_at = null,
+  } = {}) {
+    const item = this.itemById(item_id);
+    if (!item) return { error: "item_not_found" };
+    const binding = this.codexTaskBinding(item.id);
+    if (!binding?.workspace_id || !binding.workspace_revision || !binding.workspace_root_fingerprint) {
+      return { error: "workspace_binding_required" };
+    }
+    const workspaceId = String(workspace_id || binding.workspace_id).trim();
+    if (workspaceId !== binding.workspace_id) return { error: "workspace_binding_immutable" };
+    const rawPrefix = String(relative_prefix ?? "").trim();
+    if (!rawPrefix || /^(?:[a-z]:|[/\\]{1,2})/i.test(rawPrefix) || rawPrefix.includes("\0")) {
+      return { error: "relative_prefix_invalid" };
+    }
+    const parts = rawPrefix.replace(/\\/g, "/").split("/").filter(Boolean);
+    if (!parts.length || parts.some((part) => part === "."
+      || part === ".."
+      || part.includes(":")
+      || /[<>"|?*\x00-\x1f]/.test(part)
+      || /[. ]$/.test(part)
+      || CODEX_PROTECTED_RELATIVE_SEGMENT_RE.test(part))) {
+      return { error: "relative_prefix_invalid" };
+    }
+    const relativePrefix = parts.join("/");
+    const approver = String(approved_by ?? "").trim();
+    const why = String(reason ?? "").trim();
+    if (!approver) return { error: "approved_by_required" };
+    if (!why) return { error: "reason_required" };
+    if (/[\x00-\x1f]/.test(why)
+        || /[A-Za-z]:[\\/]|\\\\[^\\/\s]+[\\/]/.test(why)
+        || /\b(?:token|password|cookie|secret)\s*[=:]/i.test(why)) return { error: "reason_invalid" };
+    const approvedMs = approved_at == null ? Date.now() : Date.parse(String(approved_at));
+    const expiresMs = Date.parse(String(expires_at ?? ""));
+    if (!Number.isFinite(approvedMs) || !Number.isFinite(expiresMs) || expiresMs <= approvedMs) {
+      return { error: "expires_at_invalid" };
+    }
+    if (expiresMs - approvedMs > CODEX_WORKSPACE_WRITE_GRANT_MAX_MS) {
+      return { error: "grant_ttl_too_long", max_ms: CODEX_WORKSPACE_WRITE_GRANT_MAX_MS };
+    }
+    const active = this.codexWorkspaceWriteGrants(item.id, { active_only: true, now: approvedMs })
+      .filter((row) => row.workspace_id === binding.workspace_id
+        && row.workspace_revision === binding.workspace_revision
+        && row.workspace_root_fingerprint === binding.workspace_root_fingerprint
+        && row.project_id === item.project_id);
+    const duplicate = active.find((row) => row.relative_prefix === relativePrefix);
+    if (duplicate) return { error: "grant_already_active", grant_id: duplicate.id };
+    if (active.length >= 16) return { error: "too_many_active_write_grants" };
+    const id = `cwg_${randomBytes(8).toString("hex")}`;
+    this.db.prepare(
+      `INSERT INTO codex_workspace_write_grant(
+         id,item_id,workspace_id,workspace_revision,workspace_root_fingerprint,project_id,
+         relative_prefix,approved_by,reason,approved_at,expires_at,data_label
+       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,'meta')`
+    ).run(
+      id,
+      item.id,
+      workspaceId,
+      binding.workspace_revision,
+      binding.workspace_root_fingerprint,
+      item.project_id,
+      relativePrefix,
+      approver.slice(0, 120),
+      why.slice(0, 500),
+      new Date(approvedMs).toISOString(),
+      new Date(expiresMs).toISOString(),
+    );
+    return { ok: true, grant: this.db.prepare("SELECT * FROM codex_workspace_write_grant WHERE id=?").get(id) };
+  }
+
+  codexWorkspaceWriteGrants(item_id, { now = null, active_only = false } = {}) {
+    const at = now == null ? new Date().toISOString() : new Date(now).toISOString();
+    const rows = this.db.prepare(
+      `SELECT * FROM codex_workspace_write_grant
+       WHERE item_id=? ${active_only ? "AND revoked_at IS NULL AND approved_at<=? AND expires_at>?" : ""}
+       ORDER BY approved_at DESC, id DESC`
+    ).all(...(active_only ? [item_id, at, at] : [item_id]));
+    return rows;
+  }
+
+  codexWorkspaceWriteGrant(id) {
+    return this.db.prepare("SELECT * FROM codex_workspace_write_grant WHERE id=?").get(String(id ?? "").trim());
+  }
+
+  codexWorkspaceAllowedApprovers() {
+    if (this.accountCount() === 0) return [];
+    return this.db.prepare(
+      `SELECT c.username
+       FROM core_account c
+       JOIN rbac_account_role r ON r.account_id=c.id AND r.role_id='admin'
+       WHERE c.status='active'
+       ORDER BY c.username`
+    ).all().map((row) => row.username);
+  }
+
+  revokeCodexWorkspaceWriteGrant({ id, revoked_by, revoked_at = null } = {}) {
+    const grantId = String(id ?? "").trim();
+    const actor = String(revoked_by ?? "").trim();
+    if (!grantId) return { error: "grant_id_required" };
+    if (!actor) return { error: "revoked_by_required" };
+    const atMs = revoked_at == null ? Date.now() : Date.parse(String(revoked_at));
+    if (!Number.isFinite(atMs)) return { error: "revoked_at_invalid" };
+    const result = this.db.prepare(
+      `UPDATE codex_workspace_write_grant
+       SET revoked_at=?, revoked_by=?
+       WHERE id=? AND revoked_at IS NULL`
+    ).run(new Date(atMs).toISOString(), actor.slice(0, 120), grantId);
+    if (!result.changes) return { error: "grant_not_found_or_revoked" };
+    return { ok: true, grant: this.db.prepare("SELECT * FROM codex_workspace_write_grant WHERE id=?").get(grantId) };
+  }
+
+  startCodexTurnAudit({
+    item_id,
+    thread_id = null,
+    actor_ref = null,
+    workspace_id,
+    workspace_revision,
+    workspace_root_fingerprint,
+    model = null,
+    model_selection_origin = null,
+    reasoning_effort = null,
+    sandbox_mode = "read-only",
+    grant_refs = [],
+    authorized_at = null,
+  } = {}) {
+    const item = this.itemById(item_id);
+    if (!item) return { error: "item_not_found" };
+    const workspaceId = String(workspace_id ?? "").trim();
+    const workspaceRevision = String(workspace_revision ?? "").trim();
+    const rootFingerprint = String(workspace_root_fingerprint ?? "").trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(workspaceId)) return { error: "workspace_id_invalid" };
+    if (!CODEX_WORKSPACE_HASH_RE.test(workspaceRevision)) return { error: "workspace_revision_invalid" };
+    if (!CODEX_WORKSPACE_HASH_RE.test(rootFingerprint)) return { error: "workspace_root_fingerprint_invalid" };
+    const sandbox = String(sandbox_mode ?? "").trim();
+    if (!new Set(["read-only", "workspace-write"]).has(sandbox)) return { error: "sandbox_mode_invalid" };
+    const refs = [...new Set((Array.isArray(grant_refs) ? grant_refs : []).map((ref) => String(ref).trim()).filter(Boolean))];
+    if (refs.length > 16) return { error: "grant_refs_too_many" };
+    if (refs.some((ref) => !/^cwg_[a-f0-9]{16}$/.test(ref))) return { error: "grant_refs_invalid" };
+    if (sandbox === "workspace-write" && !refs.length) return { error: "workspace_write_grant_required" };
+    const authorizedMs = authorized_at == null ? Date.now() : Date.parse(String(authorized_at));
+    if (!Number.isFinite(authorizedMs)) return { error: "authorized_at_invalid" };
+    const authorizedAt = new Date(authorizedMs).toISOString();
+    if (refs.length) {
+      const marks = refs.map(() => "?").join(",");
+      const grants = this.db.prepare(
+        `SELECT id FROM codex_workspace_write_grant
+         WHERE id IN (${marks}) AND item_id=? AND workspace_id=?
+           AND workspace_revision=? AND workspace_root_fingerprint=?
+           AND approved_at<=? AND expires_at>?
+           AND (revoked_at IS NULL OR revoked_at>?)`
+      ).all(...refs, item.id, workspaceId, workspaceRevision, rootFingerprint, authorizedAt, authorizedAt, authorizedAt);
+      if (grants.length !== refs.length) return { error: "workspace_write_grant_invalid" };
+    }
+    const actor = actor_ref == null ? null : String(actor_ref).trim();
+    const modelId = model == null ? null : String(model).trim();
+    const selectionOrigin = String(model_selection_origin ?? (modelId ? "legacy" : "auto")).trim();
+    const effortId = reasoning_effort == null ? null : String(reasoning_effort).trim();
+    const threadId = thread_id == null ? null : String(thread_id).trim();
+    if (actor && (actor.length > 120 || /[A-Za-z]:[\\/]|\\\\[^\\/\s]+[\\/]|[\x00-\x1f]/.test(actor))) return { error: "actor_ref_invalid" };
+    if (modelId && !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$/.test(modelId)) return { error: "model_invalid" };
+    if (!new Set(["auto", "explicit", "legacy"]).has(selectionOrigin)) return { error: "model_selection_origin_invalid" };
+    if (effortId && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/.test(effortId)) return { error: "reasoning_effort_invalid" };
+    if (threadId && !validCodexThreadReference(threadId)) return { error: "thread_id_invalid" };
+    const at = new Date().toISOString();
+    this.db.prepare(
+      `INSERT INTO codex_turn_audit(
+         at,finished_at,authorized_at,item_id,thread_id,actor_ref,workspace_id,workspace_revision,workspace_root_fingerprint,
+         model,effective_model,model_selection_origin,model_fallback,reasoning_effort,sandbox_mode,grant_refs,
+         outcome,duration_ms,error_code,data_label
+       ) VALUES(?,NULL,?,?,?,?,?,?,?,?,NULL,?,0,?,?,?,'started',NULL,NULL,'meta')`
+    ).run(
+      at,
+      authorizedAt,
+      item.id,
+      threadId,
+      actor,
+      workspaceId,
+      workspaceRevision,
+      rootFingerprint,
+      modelId,
+      selectionOrigin,
+      effortId,
+      sandbox,
+      JSON.stringify(refs),
+    );
+    const row = this.db.prepare("SELECT * FROM codex_turn_audit WHERE id=last_insert_rowid()").get();
+    return { ok: true, audit: { ...row, grant_refs: JSON.parse(row.grant_refs || "[]") } };
+  }
+
+  finishCodexTurnAudit({
+    audit_id,
+    thread_id = null,
+    effective_model = null,
+    outcome,
+    duration_ms = null,
+    error_code = null,
+  } = {}) {
+    const id = Math.trunc(Number(audit_id));
+    if (!Number.isSafeInteger(id) || id < 1) return { error: "audit_id_invalid" };
+    const result = String(outcome ?? "").trim();
+    if (!new Set(["completed", "failed", "rejected"]).has(result)) return { error: "outcome_invalid" };
+    const row = this.db.prepare("SELECT * FROM codex_turn_audit WHERE id=?").get(id);
+    if (!row) return { error: "audit_not_found" };
+    if (row.outcome !== "started") return { error: "audit_already_finished" };
+    const threadId = thread_id == null ? null : String(thread_id).trim();
+    if (threadId && !validCodexThreadReference(threadId)) return { error: "thread_id_invalid" };
+    const effectiveModel = effective_model == null
+      ? (result === "completed" && row.model != null ? String(row.model).trim() : null)
+      : String(effective_model).trim();
+    if (effectiveModel && !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$/.test(effectiveModel)) {
+      return { error: "effective_model_invalid" };
+    }
+    const modelFallback = Boolean(row.model && effectiveModel && row.model !== effectiveModel) ? 1 : 0;
+    const duration = duration_ms == null ? null : Math.max(0, Math.trunc(Number(duration_ms) || 0));
+    const errorCode = error_code == null ? null : String(error_code).replace(/[^a-z0-9_.:-]/gi, "_").slice(0, 120);
+    const finishedAt = new Date().toISOString();
+    const update = this.db.prepare(
+      `UPDATE codex_turn_audit
+       SET finished_at=?,thread_id=COALESCE(?,thread_id),effective_model=?,model_fallback=?,
+           outcome=?,duration_ms=?,error_code=?
+       WHERE id=? AND outcome='started'`
+    ).run(finishedAt, threadId, effectiveModel, modelFallback, result, duration, errorCode, id);
+    if (update.changes !== 1) return { error: "audit_finish_race" };
+    const finished = this.db.prepare("SELECT * FROM codex_turn_audit WHERE id=?").get(id);
+    return { ok: true, audit: { ...finished, grant_refs: JSON.parse(finished.grant_refs || "[]") } };
+  }
+
+  recoverInterruptedCodexTurnAudits(error_code = "service_interrupted") {
+    const code = String(error_code || "service_interrupted").replace(/[^a-z0-9_.:-]/gi, "_").slice(0, 120);
+    const at = new Date().toISOString();
+    const result = this.db.prepare(
+      `UPDATE codex_turn_audit
+       SET finished_at=?,outcome='failed',error_code=COALESCE(error_code,?)
+       WHERE outcome='started'`
+    ).run(at, code);
+    return { ok: true, recovered: result.changes };
+  }
+
+  appendCodexTurnAudit({
+    item_id,
+    thread_id = null,
+    actor_ref = null,
+    workspace_id = null,
+    workspace_revision = null,
+    workspace_root_fingerprint = null,
+    model = null,
+    model_selection_origin = null,
+    reasoning_effort = null,
+    effective_model = null,
+    sandbox_mode = "read-only",
+    grant_refs = [],
+    authorized_at = null,
+    outcome,
+    duration_ms = null,
+    error_code = null,
+  } = {}) {
+    const item = this.itemById(item_id);
+    if (!item) return { error: "item_not_found" };
+    const binding = this.codexTaskBinding(item.id);
+    if (!binding?.workspace_id || !binding.workspace_revision || !binding.workspace_root_fingerprint) {
+      return { error: "workspace_binding_required" };
+    }
+    if (thread_id && thread_id !== binding.thread_id) return { error: "audit_binding_mismatch" };
+    if (workspace_id && workspace_id !== binding.workspace_id) return { error: "audit_binding_mismatch" };
+    if (workspace_revision && workspace_revision !== binding.workspace_revision) return { error: "audit_binding_mismatch" };
+    if (workspace_root_fingerprint && workspace_root_fingerprint !== binding.workspace_root_fingerprint) {
+      return { error: "audit_binding_mismatch" };
+    }
+    const result = String(outcome ?? "").trim();
+    if (!new Set(["completed", "failed", "rejected"]).has(result)) return { error: "outcome_invalid" };
+    const sandbox = String(sandbox_mode ?? "").trim();
+    if (!new Set(["read-only", "workspace-write"]).has(sandbox)) return { error: "sandbox_mode_invalid" };
+    const refs = [...new Set((Array.isArray(grant_refs) ? grant_refs : []).map((ref) => String(ref).trim()).filter(Boolean))];
+    if (refs.length > 16) return { error: "grant_refs_too_many" };
+    if (refs.some((ref) => !/^cwg_[a-f0-9]{16}$/.test(ref))) return { error: "grant_refs_invalid" };
+    if (sandbox === "workspace-write" && !refs.length) return { error: "workspace_write_grant_required" };
+    const authorizedMs = authorized_at == null ? Date.now() : Date.parse(String(authorized_at));
+    if (!Number.isFinite(authorizedMs)) return { error: "authorized_at_invalid" };
+    const authorizedAt = new Date(authorizedMs).toISOString();
+    if (refs.length) {
+      const marks = refs.map(() => "?").join(",");
+      const grants = this.db.prepare(
+        `SELECT * FROM codex_workspace_write_grant
+         WHERE id IN (${marks}) AND item_id=? AND workspace_id=?
+           AND workspace_revision=? AND workspace_root_fingerprint=?
+           AND approved_at<=? AND expires_at>?
+           AND (revoked_at IS NULL OR revoked_at>?)`
+      ).all(...refs, item.id, binding.workspace_id, binding.workspace_revision, binding.workspace_root_fingerprint, authorizedAt, authorizedAt, authorizedAt);
+      if (grants.length !== refs.length) return { error: "workspace_write_grant_invalid" };
+    }
+    const actor = actor_ref == null ? null : String(actor_ref).trim();
+    const modelId = model == null ? null : String(model).trim();
+    const effortId = reasoning_effort == null ? null : String(reasoning_effort).trim();
+    if (actor && (actor.length > 120 || /[A-Za-z]:[\\/]|\\\\[^\\/\s]+[\\/]|[\x00-\x1f]/.test(actor))) {
+      return { error: "actor_ref_invalid" };
+    }
+    if (modelId && !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,159}$/.test(modelId)) return { error: "model_invalid" };
+    if (effortId && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/.test(effortId)) return { error: "reasoning_effort_invalid" };
+    // Compatibility wrapper for callers that still submit a terminal record in
+    // one call. Preserve the start -> finish lifecycle so finished_at and crash
+    // recovery invariants cannot be bypassed.
+    const started = this.startCodexTurnAudit({
+      item_id: item.id,
+      thread_id: binding.thread_id,
+      actor_ref: actor,
+      workspace_id: binding.workspace_id,
+      workspace_revision: binding.workspace_revision,
+      workspace_root_fingerprint: binding.workspace_root_fingerprint,
+      model: modelId,
+      model_selection_origin: model_selection_origin ?? (modelId ? "legacy" : "auto"),
+      reasoning_effort: effortId,
+      sandbox_mode: sandbox,
+      grant_refs: refs,
+      authorized_at: authorizedAt,
+    });
+    if (started.error) return started;
+    return this.finishCodexTurnAudit({
+      audit_id: started.audit.id,
+      thread_id: binding.thread_id,
+      effective_model: effective_model ?? modelId,
+      outcome: result,
+      duration_ms,
+      error_code,
+    });
+  }
+
+  codexTurnAudits(item_id, limit = 100) {
+    const n = Math.max(1, Math.min(500, Number(limit) || 100));
+    return this.db.prepare(
+      "SELECT * FROM codex_turn_audit WHERE item_id=? ORDER BY id DESC LIMIT ?"
+    ).all(item_id, n).map((row) => ({ ...row, grant_refs: JSON.parse(row.grant_refs || "[]") }));
   }
 
   markCodexTaskError(item_id, error) {
@@ -3536,16 +4023,41 @@ export class Store {
     return { ok: true };
   }
 
-  appendCodexTaskMessage({ item_id, thread_id = null, role, text, actor_ref = null, mode = "app-server", data_label = "meta" } = {}) {
+  appendCodexTaskMessage({
+    item_id,
+    thread_id = null,
+    role,
+    text,
+    payload_ref = null,
+    payload_byte_length = null,
+    payload_sha256 = null,
+    actor_ref = null,
+    mode = "app-server",
+    data_label = "meta",
+  } = {}) {
     const r = String(role || "").trim();
     const body = String(text ?? "").trim();
     if (!item_id) return { error: "item_required" };
     if (!["system", "user", "assistant", "error"].includes(r)) return { error: "role_invalid" };
     if (!body) return { error: "text_required" };
+    const payloadRef = payload_ref == null ? null : String(payload_ref).trim();
+    const payloadBytes = payload_byte_length == null ? null : Number(payload_byte_length);
+    const payloadHash = payload_sha256 == null ? null : String(payload_sha256).trim();
+    if (payloadRef) {
+      if (!/^cmp_[A-Za-z0-9_-]{12}_[A-Za-z0-9_-]{32}$/.test(payloadRef) || body !== payloadRef) {
+        return { error: "payload_ref_invalid" };
+      }
+      if (!Number.isSafeInteger(payloadBytes) || payloadBytes < 1 || payloadBytes > 16 * 1024 * 1024) {
+        return { error: "payload_byte_length_invalid" };
+      }
+      if (!/^[a-f0-9]{64}$/.test(payloadHash || "")) return { error: "payload_sha256_invalid" };
+    } else if (payloadBytes !== null || payloadHash !== null) return { error: "payload_metadata_without_ref" };
+    else return { error: "payload_ref_required" };
     this.db.prepare(
-      `INSERT INTO codex_thread_message(at,item_id,thread_id,role,text,actor_ref,mode,data_label)
-       VALUES(?,?,?,?,?,?,?,?)`
-    ).run(new Date().toISOString(), item_id, thread_id, r, body, actor_ref, mode, data_label);
+      `INSERT INTO codex_thread_message(
+         at,item_id,thread_id,role,text,payload_ref,payload_byte_length,payload_sha256,actor_ref,mode,data_label
+       ) VALUES(?,?,?,?,?,?,?,?,?,?,?)`
+    ).run(new Date().toISOString(), item_id, thread_id, r, body, payloadRef, payloadBytes, payloadHash, actor_ref, mode, data_label);
     return {
       ok: true,
       message: this.db.prepare("SELECT * FROM codex_thread_message WHERE id=last_insert_rowid()").get(),

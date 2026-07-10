@@ -11,22 +11,35 @@ Before inviting team members, run the read-only release audit from the
 development checkout against the runtime checkout:
 
 ```powershell
-npm run dev-erp:audit-runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --require-live
+npm run dev-erp:audit-runtime -- --source-root <soulforge-root> --runtime-root <runtime-checkout> --workspaces <soulforge-root>\_workspaces --nas-root <nas-root> --workspace-registry <runtime-checkout>\ui-workspace\apps\dev-erp\data\codex-workspaces.runtime.json --codex-home <codex-worker-home> --codex-trust-domain <trust-domain-id> --codex-worker-url http://127.0.0.1:<worker-port> --codex-worker-expected-identity-sha256 <expected-worker-identity-sha256> --expected-commit <approved-40-char-sha> --require-live
 ```
 
 The audit must report zero blockers before the owner gives final team-opening
 approval. It checks DB/schema integrity, `real_meta.json` sync, project/mail set
 drift, account/admin readiness, synthetic/demo leakage, WAL-aware backup
-posture, NAS latest backup freshness, live health, and selected fantasy skin
-assets. The audit is read-only: it must not write the DB and must not read raw
-project files, mail bodies, or secret env values.
+posture, NAS latest backup freshness, the latest committed coherent Codex
+DB/message/attachment payload generation and its hash-bound restore evidence,
+stored Soulforge snapshot structure and
+source-observation freshness, live health, and selected fantasy skin assets.
+The audit is read-only: it must not write the DB and must not read raw project
+files, mail bodies, or secret env values.
 
 Use `--target-members <n>` when the approval gate requires a minimum number of
 active non-admin accounts. Use `--allow-lan-http` only for an owner-approved
 trusted-LAN pilot; omit it for the default Tailscale/localhost posture. With
-`--require-live`, unreachable health, missing NAS root, missing restore-test
-evidence, dirty source/runtime checkout, and unapproved broad LAN listening are
+`--require-live`, unreachable health, missing NAS root, missing DB restore-test
+evidence, missing/invalid/stale coherent Codex payload backup or matching
+`RESTORE_VERIFIED` evidence, dirty source/runtime checkout,
+missing/invalid/stale stored snapshot, and unapproved broad LAN listening are
 release blockers rather than warnings.
+The same gate requires an exact loopback worker URL and live attestation of the
+dedicated boundary, ready/matching worker release, approved Windows identity,
+separate worker process, matching registry revision, and `app-server` bridge.
+Audit output contains only booleans and fixed codes for this proof; it must not
+contain the worker identity name/hash or shared token.
+Use `--snapshot-freshness` to add the same snapshot readiness check to an
+otherwise non-live audit. Structural snapshot validation remains a separate
+deterministic check and does not depend on the live private runtime.
 
 ## Runtime Maintenance Runbook
 
@@ -42,7 +55,20 @@ Operational helpers:
 npm run dev-erp:health -- --json
 npm run dev-erp:backup-runtime -- --db <runtime-db> --nas-root <nas-root> --json
 npm run dev-erp:restore-test -- --nas-root <nas-root> --json
+npm run dev-erp:backup-codex-payloads -- --db <runtime-db> --attachment-root <soulforge-root>\_workspaces\system\dev-erp\codex-task-attachments --message-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --backup-root <nas-root>\03_codex_payload_backups
+npm run dev-erp:restore-verify-codex-payloads -- --backup-root <nas-root>\03_codex_payload_backups --generation-id <cpb-generation-id> --restore-root <nas-root>\04_codex_payload_restore_tests
+npm run dev-erp:codex-worker
+npm run dev-erp:migrate-legacy-codex -- --db <runtime-db> --payload-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --mapping <owner-approved-mapping.json>
+npm run dev-erp:migrate-legacy-codex -- --db <runtime-db> --payload-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --mapping <owner-approved-mapping.json> --apply
 ```
+
+The coherent backup command must run inside a maintenance boundary: create the
+maintenance lock and stop both the ERP service and the dedicated Codex worker
+before snapshotting. The DB-only schedule remains useful, but it cannot prove
+that DB pointers, message objects, and attachment objects belong to one release
+boundary. Release evidence records only the generation ID, manifest SHA-256,
+bounded counts/sizes, and restore status; it never records message bodies,
+attachment names, raw roots, or Codex auth material.
 
 ## Runtime Correction Patch Rule
 
@@ -94,6 +120,7 @@ Soulforge 정본 구조의 authority 는 아니다.
 | `_workspaces/<project_code>/**` | source/output file worksite | 실제 파일은 여기 또는 owner-approved shared worksite 에 둔다. DB 는 path/hash 만 저장한다. |
 | `private-state/**` | private continuity data plane | 보호 운영 metadata 와 owner-approved ignored local secret file 위치로 쓴다. |
 | `ui-workspace/apps/dev-erp/data/dev-erp.db` | runtime app state | users, sessions, roles, UI state, app module data, integration refs 를 소유한다. Soulforge canon source 가 아니다. |
+| `ui-workspace/apps/dev-erp/data/codex-workspaces.runtime.json` | runtime-local Codex workspace mapping | 논리 ID와 local/UNC root를 연결한다. Git/브라우저/감사 로그에는 raw root를 내보내지 않고 secret을 넣지 않는다. |
 
 ## 3. 첫 관리자
 
@@ -124,16 +151,79 @@ private-state/mail/team/owner.env.template
 owner 가 `owner.env` 를 직접 만들고 값을 입력한다. agent 는 파일 존재 여부까지만
 확인할 수 있으며, 파일을 열거나 값을 echo 하지 않는다.
 
+## 4.1 Codex 팀 작업실 경계
+
+Codex 작업 파일은 runtime checkout으로 복사하지 않고 Soulforge `_workspaces` 또는
+owner-approved 팀 공유 폴더에 둔다. runtime-local 등록부의 logical workspace ID만
+ERP DB와 브라우저에 노출하며, 스레드 생성 뒤 mapping 변경·공유 폴더 offline은
+fail-closed한다. 기본은 read-only이고 danger-full-access는 금지한다. 등록부의
+`allowed_write_prefixes`와 OS ACL을 정적 상한으로 삼고, 그 안에서만 쓰기를 관리자,
+할일, 과제, 작업실, 기존 상대 하위 폴더, 최대 8시간 TTL에 묶으며 만료/철회 시
+active turn도 중단한다. 등록부 row는 non-empty 과제 allowlist와 선택적 계정/역할
+allowlist를 가지며, 브라우저에는 현재 item/account에 허용된 ID와 label만 보인다.
+`trust_domain_id`는 필수이며 서로 다른 기밀영역은 등록부와 worker를 분리한다.
+첨부도 raw path 대신 item-bound opaque ID만 노출한다. 첨부와 대화 본문은 Soulforge
+`_workspaces/system/dev-erp`의 service-owned 영역에 저장하고 SQLite에는 opaque
+payload ref와 메타데이터만 둔다. HWP는 직접 읽지 않고 HWPX 전처리 후 사용한다.
+
+cwd와 read-only sandbox는 읽기 allowlist 자체가 아니므로 운영 PC에서는 ERP
+HTTP/메일 프로세스와 분리된 저권한 Codex worker Windows 계정, 전용
+`DEV_ERP_CODEX_HOME`, SMB/NTFS ACL로 실제 읽기 범위를 강제해야 한다. worker는
+ERP DB/mail secret/private-state와 다른 trust domain을 읽지 못해야 한다. production
+worker는 skill과 project instruction discovery를 항상 끄고 전용 home에는
+hooks/plugins/marketplaces/rules/AGENTS/MCP/`config.toml`을 두지 않으며,
+read/write sandbox 모두 network를 차단한다.
+각 app-server에는 전체 디스크를 기본 거부하고 정확한 workspace/첨부만 읽으며
+승인 출력 하위폴더만 쓰는 `dev_erp_bounded` permission profile을 강제한다. worker는
+시작할 때 workspace/승인 출력/exact attachment/sibling·outside denial과
+junction/hardlink/attachment mutation denial을 포함한 exact-path probe v3를 실제 실행하고, 실패하면
+`worker_permission_boundary_unproven`으로 기동하지 않는다. live audit는 signed
+profile revision, owner-pinned Codex runtime identity, probe 통과를 모두 요구한다.
+Enabled workspace root는 local/UNC를 섞지 않으며 UNC는 단일 share namespace만 허용한다.
+lexical/realpath/junction/share alias와 보호 이름/link 검사는 stdin-only bounded child가
+timeout fail-closed한다. 현재 개발 PC의 Codex 0.144.1 native Windows sandbox는 이
+probe를 통과하지 못했으므로 실제 팀 PC·각 UNC mapping의 probe와 turn 중 mutation 차단
+ACL 전에는 production 배포를 금지한다. WSL/container는 별도 구현이 필요한 향후 후보다.
+SMB 자격증명과 Codex auth는 사용자가 OS/Codex에 직접 설정하고 등록부·DB·Git에
+복사하지 않는다. 상세 등록 및 검증 절차는
+[`CODEX_TEAM_WORKSPACE.md`](CODEX_TEAM_WORKSPACE.md)를 따른다.
+
+ERP HTTP/메일 identity는 DB·메일·ERP payload만 소유하고 팀 공유폴더 ACL을 갖지
+않는다. Codex worker identity는 한 trust domain의 승인 폴더와 전용 Codex home만
+소유하고 ERP DB·메일 secret·`private-state` ACL을 갖지 않는다. worker는
+`127.0.0.1` 고정 port와 `DEV_ERP_CODEX_WORKER_BRIDGE=app-server`로 먼저 시작한다.
+ERP에는 `DEV_ERP_CODEX_TASK_BRIDGE=worker`, 정확한 loopback URL, 같은 canonical
+32-byte base64url HMAC/HKDF token, owner가 계산한 expected identity SHA-256과 metadata-only
+명령으로 승인한 `DEV_ERP_CODEX_WORKER_EXPECTED_RUNTIME_IDENTITY_SHA256`,
+worker 공개키와 승인 fingerprint를
+주입한다. token 원문은 전송하지 않고 요청/응답 HMAC과 서명된 일회용 channel에만
+사용한다. 실제 operation body와 response는 HMAC key와 signed channel에서
+HKDF-SHA256으로 파생한 key로 AES-256-GCM 암호화하고 redirect를 거부한다.
+실제 thread ID는 worker-only AES-256-GCM keyring의 `dwr2.<kid>.*` ref로
+보관한다. HMAC 키 회전은 기존 ref를
+무효화하지 않는다. ref key는 active+previous 단계로 회전하며 key를 잃은 binding은
+명시적으로 retire하고 fallback하지 않는다.
+
+모델 catalog는 worker identity의 Codex 계정 `model/list`가 소유한다. GPT-5.6이 그
+계정에 제공되면 slug와 effort가 동적으로 노출되고, discovery 실패 시 허용되는
+fallback은 GPT-5.5 하나뿐이다. fallback 상태는 GPT-5.6 rollout 통과 증거가 아니다.
+legacy inline message/부분 binding은 restore-verified coherent backup 뒤 owner mapping
+dry-run이 모든 row를 bind 또는 retire할 때만 같은 명령의 `--apply`를 허용한다.
+
 ## 5. runtime clone 모델
 
 1. `<dev-checkout>` 에서 개발, 패치, review, commit/push 를 한다.
 2. `<runtime-checkout>` 은 실제 서버 process 만 돌린다.
-3. 팀에게 열기 전 승인된 commit 만 runtime clone 으로 pull 한다.
+3. 팀에게 열기 전 승인된 40자 commit SHA만 runtime clone 으로 pull하고 release
+   audit의 `--expected-commit`과 live attestation이 같은 SHA인지 확인한다.
 4. runtime DB, upload, log, local `.env`, service 설정은 Git 에 올리지 않는다.
 5. 업데이트 때는 service stop, DB backup, git pull, focused check, service start 순서로 진행한다.
 6. snapshot 또는 ingest adapter 변경의 focused check 는 개발 checkout 과
    runtime checkout 양쪽에서 `npm run validate:dev-erp-snapshot-contract` 를
-   실행한다. 이 검증은 합성 public fixture 만 사용하며 live DB 를 변경하지 않는다.
+   실행한다. 이 검증은 producer가 임시 디렉터리에 직접 생성하고
+   `validateSnapshot`을 통과한 합성 full public-safe snapshot만 사용하며 live
+   DB를 변경하지 않는다. 운영 오픈 전에는 snapshot을 재생성한 뒤
+   `--require-live` audit에서 structure와 freshness가 모두 통과해야 한다.
 
 이 구조는 개발 중 dirty worktree 나 반쯤 적용된 patch 가 팀 운영 화면에 노출되는 것을 막는다.
 

@@ -116,11 +116,32 @@
 ### 음성 녹음 보관함 transcript-only 메타데이터 정확성 보정
 
 - 오디오 없이 ChatGPT Record 공유 전사만 보관한 세션을 등록할 때 `audio_stored_under_workspace`를 거짓으로 기록하고 source-provided 화자 라벨 상태를 버리던 문제를 수정했다. 실제 오디오 파일 존재 여부와 전사 존재 여부를 각각 계산하고, 별도 로컬 화자 sidecar가 없으면 세션 매니페스트의 화자분리 상태를 보존한다 (worker: codex_gpt-5).
+- 2026-07-10 dev-ERP Codex Level-3 hardening: shared the Soulforge payload-owner fingerprint between ERP and release audit, separated immutable workspace boundary identity from approved-write tree deltas, rejected attachment hardlinks at read time, and changed the canonical NSSM/watchdog path to require distinct ERP and worker services. The legacy one-service installer is development-only. (worker: codex_gpt-5)
+
+### dev-ERP Codex 동적 모델·팀 작업실 경계
+
+- Codex app-server의 `model/list`를 페이지 순회해 계정이 제공하는 모델과 모델별 reasoning effort를 ERP에 동적으로 노출한다. GPT-5.6 이름은 UI에 하드코딩하지 않으며 discovery 실패 시 GPT-5.5 하나만 허용한다.
+- ERP가 호스트 전역 Codex config를 자동 편집하던 동작을 제거하고, 선택 모델/effort를 서버 catalog로 검증해 임의 slug를 거부한다.
+- ignored runtime-local 작업실 등록부가 논리 workspace ID를 owner-approved local/UNC root에 연결한다. 스레드는 mapping revision/root fingerprint에 고정되고 offline·재매핑·raw 경로 입력은 fail-closed한다.
+- 작업실마다 필수 과제 allowlist와 선택적 계정/역할 allowlist를 두고, 익명/계정 0 상태의 Codex surface를 차단했다. UI는 단일 작업실도 자동 선택하지 않고 사용자가 새 스레드의 영구 binding을 직접 확인한다. lexical root가 같은 junction 재지정도 runtime real-root fingerprint로 감지한다.
+- 기존 `danger-full-access` API와 store 잔여 상태를 비활성화했다. 기본 read-only에서 관리자 승인·할일/과제/작업실/기존 상대 하위 폴더·최대 8시간 TTL에 묶인 workspace-write만 허용한다. 가장 빠른 grant 만료가 turn timeout을 제한하고 철회는 active Codex 프로세스를 중단하며, audit는 완료 시점이 아니라 turn authorization 시점의 grant를 검증한다.
+- read-only/workspace-write 모두 network access를 끄고, 전용 Windows 실행계정과 필수 `DEV_ERP_CODEX_HOME`을 운영 경계로 삼았다. production worker는 skill과 project instruction discovery를 항상 끄고 workspace의 보호 이름·instruction surface·link/hardlink를 metadata-only로 재귀 검사하며 worker home의 `config.toml`도 차단한다. 각 app-server는 전체 디스크 기본 거부의 `dev_erp_bounded` named permission profile을 쓰고 active profile/runtime roots/빈 instruction sources를 검증한다. exact-path probe v3가 workspace read, 승인 출력 write, 비승인 write, exact attachment/sibling/parent/outside-root, junction/hardlink, attachment 삭제·이동 경계를 모두 증명하지 못하면 worker 기동과 live release를 차단한다. 현재 개발 PC는 이 probe를 통과하지 못했으며 WSL/container는 아직 구현된 대안이 아니므로 실제 팀 PC·실제 UNC별 probe와 mutation 차단 ACL 전에는 production 배포하지 않는다.
+- Codex npm/standalone 실행 tree와 실제 CLI version을 aggregate SHA-256으로 묶어 owner 기대값에 고정했다. worker attestation, signed one-time channel, model discovery, app-server spawn, turn 전후가 같은 runtime revision을 요구하며 PATH/설치 파일이 바뀌면 이전 probe를 재사용하지 않는다. metadata-only fingerprint 명령은 aggregate hash만 출력한다.
+- 첨부는 item-bound opaque ID만 브라우저에 반환하고 v1 manifest의 item/size/SHA-256/realpath를 서버가 매 턴 검증한다. raw path와 hash는 브라우저·DB event에 남기지 않는다. 브라우저가 서버 소유 event kind를 위조하던 generic endpoint도 `view` 한 종류로 제한했다.
+- `--require-live`에서 Git/NAS skip 우회를 blocker로 만들고 runtime-local Codex registry v1 구조와 bounded root availability를 raw-path 비노출 상태로 검사한다. 실패 배포의 old commit + WAL-safe DB restore 절차와 GPT-5.6 실계정 read-only smoke gate를 런북에 고정했다.
+- 실제 읽기 경계는 ERP Codex 전용 Windows 계정의 SMB/NTFS ACL과 실행 시 exact-path permission profile/probe가 함께 소유한다. ERP runtime 껍데기와 Soulforge/팀 PC 업무 파일의 실제 위치는 계속 분리한다. (worker: codex_gpt-5)
+- ERP HTTP/메일 계정과 저권한 Codex worker Windows 계정을 분리하고 loopback-only worker broker를 운영 경계로 추가했다. 통신 비밀값 원문은 전송하지 않고 시각·client nonce·일회용 signed channel·경로·wire-body hash에 묶인 request/response HMAC으로 인증한다. 실제 operation body/response는 HMAC key와 signed channel에서 HKDF-SHA256으로 파생한 key로 AES-256-GCM 암호화하고 HTTP redirect를 거부한다. ERP는 worker-only Ed25519 개인키의 nonce 서명을 실제 turn 직전·직후에 검증하고, pre-attestation channel을 실제 turn이 원자적으로 소비하며, PID/source commit/registry/home/첨부/보호-root posture가 같은 worker일 때만 결과를 저장한다. release audit는 공개키 fingerprint와 filesystem probe까지 metadata-only로 fail-closed 검증하며 계정명·identity hash·token·키는 출력하지 않는다.
+- worker 계정의 `model/list`에서 GPT-5.6을 동적으로 발견한다. 자동 선택한 5.6이 turn 직전 사라진 경우에만 GPT-5.5로 내리고 직접 선택한 모델은 대체하지 않는다. 실제 thread ID는 전송되지 않는 HMAC 통신키와 분리된 AES-256-GCM `dwr2.<kid>.*` keyring으로 보관하므로 HMAC 키 회전은 기존 ref를 무효화하지 않는다. legacy inline message/부분 binding은 coherent backup 뒤 owner mapping dry-run/apply 도구로만 이행한다.
+- workspace 등록부의 `allowed_write_prefixes`를 OS ACL과 함께 정적 쓰기 상한으로 두고, ERP 시간제 grant와 worker가 매 turn 독립 재검증한다. active grant가 이 상한 밖이면 release audit가 차단한다.
+- Enabled workspace root끼리 lexical 동일·상하위, realpath, junction/share alias, 동일 filesystem object 겹침을 거부한다. UNC realpath/stat은 raw root를 argv/stdout에 싣지 않는 bounded child가 stdin으로만 받아 검사하며 timeout은 `workspace_root_isolation_timeout`으로 fail-closed한다. release audit의 workspace availability child도 raw root를 argv에서 제거했다.
+
 ### dev-ERP canonical snapshot consumer 계약 복구
 
 - dev-ERP snapshot adapter가 현재 producer 계약인 `operation_board.sections.*.items`를 우선 소비하고, 기존 `rows` 입력은 하위호환으로 유지한다.
-- full Soulforge snapshot의 top-level `projects[]`를 normalized JSON으로 오인하던 분기를 schema 기반으로 분리해, canonical public fixture가 빈 ERP import로 사라지지 않게 했다.
-- producer-owned public fixture를 직접 쓰는 focused test를 dev-ERP full test와 root acceptance에 연결했다. 개발 checkout에서 검증한 승인 commit만 별도 runtime 껍데기에 배포하며 live DB와 Soulforge 업무 데이터는 변경하지 않는다. (worker: codex_gpt-5)
+- full Soulforge snapshot의 top-level `projects[]`를 normalized JSON으로 오인하던 분기를 schema 기반으로 분리했다. snapshot-like 입력의 top-level 또는 Operation Board schema가 없거나 지원되지 않으면 fail-closed하고, 유효한 normalized `{projects,items}` 입력은 유지한다.
+- focused contract를 패치된 UI projection fixture 대신 producer가 임시 디렉터리에서 직접 만든 합성 full public-safe snapshot으로 교체했다. `validateSnapshot` PASS, nonzero mapping, ingest, schema rejection, deterministic fresh/stale 판정을 함께 검증한다.
+- runtime release audit의 `--require-live` gate가 저장 snapshot의 구조와 현재 source-observation freshness를 모두 blocker로 확인하게 했다. `--snapshot-freshness`로 live runtime과 독립된 readiness 확인도 지원하며 일반 구조 검증은 live private state에 의존하지 않는다.
+- `ui-workspace/package-lock.json`에 dev-ERP와 Team Ops Board workspace/link 항목을 복구해 junction 없이 clean `npm ci`가 두 package를 인식하도록 했다. 개발 checkout에서 검증한 승인 commit만 별도 runtime 껍데기에 배포하며 live DB와 Soulforge 업무 데이터는 변경하지 않는다. (worker: codex_gpt-5)
 
 ### dev-ERP 줄기 강 뷰 기본기 — 접기·잘림·잠든 가지·데이터 정직성
 

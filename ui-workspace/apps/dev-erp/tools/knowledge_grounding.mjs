@@ -6,7 +6,10 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "..", "..", "..", "..");
-export const DEFAULT_KNOWLEDGE_INDEX_ROOT = join(REPO, "_workspaces", "knowledge", "rag", "indexes_local", "source_text_indexes");
+export function knowledgeIndexRootFromShellRoot(shellRoot) {
+  return join(resolve(String(shellRoot || REPO)), "_workspaces", "knowledge", "rag", "indexes_local", "source_text_indexes");
+}
+export const DEFAULT_KNOWLEDGE_INDEX_ROOT = knowledgeIndexRootFromShellRoot(REPO);
 
 const DEFAULT_IO = Object.freeze({ existsSync, readFileSync, readdirSync, statSync });
 const STOP_TOKENS = new Set([

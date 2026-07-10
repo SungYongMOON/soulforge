@@ -3583,13 +3583,14 @@ function openTaskCodex(itemId) {
     </div>
     <div class="task-codex-meta"></div>
     <div class="task-codex-tools">
+      <select id="taskCodexWorkspace" title="승인된 Codex 작업실"></select>
       <select id="taskCodexModel" title="Codex model"></select>
       <select id="taskCodexEffort" title="Reasoning effort"></select>
-      <label class="task-codex-attach" title="이미지·문서 첨부 — 로컬에만 저장되고 Codex가 경로로 읽습니다">
+      <label class="task-codex-attach" title="이미지·문서 첨부 — 브라우저에는 실제 경로를 노출하지 않습니다">
         <input id="taskCodexImage" type="file" accept="image/*,.pdf,.txt,.md,.csv,.json,.xml,.yaml,.yml,.log,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.hwp,.hwpx,.zip,.7z,.msg,.eml,.step,.stp,.dxf" multiple />
         <span>📎 파일</span>
       </label>
-      <button id="taskCodexFA" class="task-codex-fa" type="button" title="이 대화에서만 Codex가 로컬 프로그램 실행(Outlook 등)·파일 쓰기 — 전체 권한. 필요할 때만 켜세요.">🔒 전체권한</button>
+      <button id="taskCodexWrite" class="task-codex-fa" type="button" title="관리자가 지정한 하위 폴더에만 임시 쓰기 승인">🔒 읽기 전용</button>
     </div>
     <div class="task-codex-attachments"></div>
     <div class="task-codex-log" role="log" aria-live="polite"></div>
@@ -3609,10 +3610,11 @@ function openTaskCodex(itemId) {
   const attachEl = ov.querySelector(".task-codex-attachments");
   const inputEl = ov.querySelector("#taskCodexMsg");
   const sendBtn = ov.querySelector("#taskCodexSend");
+  const workspaceEl = ov.querySelector("#taskCodexWorkspace");
   const modelEl = ov.querySelector("#taskCodexModel");
   const effortEl = ov.querySelector("#taskCodexEffort");
   const imageEl = ov.querySelector("#taskCodexImage");
-  const faBtn = ov.querySelector("#taskCodexFA");
+  const writeBtn = ov.querySelector("#taskCodexWrite");
   wireMicDictation(ov.querySelector("#taskCodexMic"), inputEl);
   let payload = null;
   let pending = false;
@@ -3620,12 +3622,27 @@ function openTaskCodex(itemId) {
   let pendingStartedAt = 0;
   let capabilities = {
     skills: [],
-    defaults: { model: "gpt-5.5", effort: "medium" },
+    defaults: { model: "gpt-5.5", effort: "medium", workspace_id: null },
     model_options: ["gpt-5.5"],
-    effort_options: ["medium"],
-    service_tier_options: ["flex"],
+    effort_options: ["low", "medium", "high", "xhigh"],
+    service_tier_options: [],
+    model_catalog: [{
+      slug: "gpt-5.5",
+      display_name: "GPT-5.5",
+      is_default: true,
+      hidden: false,
+      default_reasoning_effort: "medium",
+      reasoning_efforts: ["low", "medium", "high", "xhigh"].map((id) => ({ id, description: "" })),
+      default_service_tier: null,
+      service_tiers: [],
+    }],
+    model_catalog_source: "fallback",
+    model_catalog_error: "codex_model_catalog_not_loaded",
+    workspace_registry: { configured: false, error: "workspace_registry_not_loaded", default_workspace_id: null, workspaces: [] },
   };
   let stagedImages = [];
+  let workspaceExplicitlySelected = false;
+  let modelSelectionOrigin = "auto";
   const taskCodexWaitStages = {
     open: [
       [0, "Codex 스레드 연결 중", "서버 PC의 Codex app-server에 연결하고 있어요."],
@@ -3641,33 +3658,65 @@ function openTaskCodex(itemId) {
     ]
   };
   const taskCodexOptionLabels = {
-    model: { "gpt-5.5": "GPT-5.5", "gpt-5.4": "GPT-5.4", "gpt-5.3": "GPT-5.3" },
-    effort: { low: "낮음", medium: "보통", high: "높음", xhigh: "매우 높음" },
+    effort: { none: "없음", minimal: "최소", low: "낮음", medium: "보통", high: "높음", xhigh: "매우 높음", max: "최대" },
     tier: { fast: "fast", flex: "flex" },
   };
+  const taskCodexCatalogEntry = (slug) => (Array.isArray(capabilities.model_catalog) ? capabilities.model_catalog : [])
+    .find((entry) => entry && !entry.hidden && entry.slug === slug);
+  const taskCodexModelOptions = () => {
+    const catalogOptions = (Array.isArray(capabilities.model_catalog) ? capabilities.model_catalog : [])
+      .filter((entry) => entry && !entry.hidden && entry.slug)
+      .map((entry) => String(entry.slug));
+    return catalogOptions.length ? catalogOptions : (Array.isArray(capabilities.model_options) ? capabilities.model_options.map(String) : ["gpt-5.5"]);
+  };
+  const taskCodexEffortOptions = (slug) => {
+    const entry = taskCodexCatalogEntry(slug);
+    const modelEfforts = (Array.isArray(entry?.reasoning_efforts) ? entry.reasoning_efforts : [])
+      .map((option) => String(option?.id || "").trim())
+      .filter(Boolean);
+    return modelEfforts.length ? modelEfforts : (Array.isArray(capabilities.effort_options) ? capabilities.effort_options.map(String) : ["medium"]);
+  };
+  const taskCodexWorkspaces = () => (Array.isArray(capabilities.workspace_registry?.workspaces)
+    ? capabilities.workspace_registry.workspaces
+    : []).filter((entry) => entry && entry.workspace_id);
+  const taskCodexWorkspaceOptions = () => taskCodexWorkspaces().map((entry) => String(entry.workspace_id));
+  const taskCodexWorkspaceEntry = (workspaceId) => taskCodexWorkspaces().find((entry) => entry.workspace_id === workspaceId);
   const normalizeTaskCodexOptions = (raw = {}) => {
     const defaults = capabilities.defaults || {};
-    const pick = (key, values, fallback = "") => {
-      const selected = String(raw[key] || "").trim();
+    const pick = (selectedValue, values, fallback = "") => {
+      const selected = String(selectedValue || "").trim();
       const list = Array.isArray(values) ? values.map(String) : [];
       if (selected && (!list.length || list.includes(selected))) return selected;
-      const fromDefaults = String(defaults[key] || "").trim();
-      if (fromDefaults) return fromDefaults;
+      const preferred = String(fallback || "").trim();
+      if (preferred && (!list.length || list.includes(preferred))) return preferred;
       return list[0] || fallback;
     };
+    const model = pick(raw.model, taskCodexModelOptions(), defaults.model || "gpt-5.5");
+    modelSelectionOrigin = raw.model_selection_origin === "explicit" && String(raw.model || "").trim() === model
+      ? "explicit"
+      : "auto";
+    const entry = taskCodexCatalogEntry(model);
+    const efforts = taskCodexEffortOptions(model);
+    const boundWorkspaceId = String(payload?.binding?.workspace_id || "").trim();
+    const requestedWorkspaceId = workspaceExplicitlySelected ? String(raw.workspace_id || "").trim() : "";
     return {
-      model: pick("model", capabilities.model_options, "gpt-5.5"),
-      effort: pick("effort", capabilities.effort_options, "medium"),
+      workspace_id: boundWorkspaceId || (taskCodexWorkspaceOptions().includes(requestedWorkspaceId) ? requestedWorkspaceId : ""),
+      model,
+      model_selection_origin: modelSelectionOrigin,
+      effort: pick(raw.effort, efforts, entry?.default_reasoning_effort || defaults.effort || "medium"),
       service_tier: "", // 속도(tier) 미사용 — codex 기본값(flex·fast 제거)
     };
   };
   const currentTaskCodexOptions = () => ({
+    workspace_id: workspaceEl.value || "",
     model: modelEl.value || "",
+    model_selection_origin: modelSelectionOrigin,
     effort: effortEl.value || "",
     service_tier: "", // 속도(tier) 미사용 — codex 기본값
   });
   const describeTaskCodexOptions = (opt = currentTaskCodexOptions()) => [
-    taskCodexOptionLabels.model[opt.model] || opt.model,
+    taskCodexWorkspaceEntry(opt.workspace_id)?.label || opt.workspace_id,
+    taskCodexCatalogEntry(opt.model)?.display_name || opt.model,
     taskCodexOptionLabels.effort[opt.effort] || opt.effort,
     taskCodexOptionLabels.tier[opt.service_tier] || opt.service_tier,
   ].filter(Boolean).join(" / ");
@@ -3685,19 +3734,42 @@ function openTaskCodex(itemId) {
     const opt = normalizeTaskCodexOptions(state.taskCodexOptions || {});
     state.taskCodexOptions = opt;
     localStorage.setItem("dev_erp_task_codex_options", JSON.stringify(opt));
-    fillSelect(modelEl, capabilities.model_options, taskCodexOptionLabels.model, opt.model);
-    fillSelect(effortEl, capabilities.effort_options, taskCodexOptionLabels.effort, opt.effort);
+    const modelLabels = Object.fromEntries((capabilities.model_catalog || []).map((entry) => [entry.slug, entry.display_name || entry.slug]));
+    const workspaceLabels = { "": "작업실 설정 필요", ...Object.fromEntries(taskCodexWorkspaces().map((entry) => [entry.workspace_id, entry.label || entry.workspace_id])) };
+    fillSelect(workspaceEl, ["", ...taskCodexWorkspaceOptions()], workspaceLabels, opt.workspace_id);
+    fillSelect(modelEl, taskCodexModelOptions(), modelLabels, opt.model);
+    fillSelect(effortEl, taskCodexEffortOptions(opt.model), taskCodexOptionLabels.effort, opt.effort);
+    modelEl.title = capabilities.model_catalog_error
+      ? `Codex 모델 목록 확인 실패 — GPT-5.5 폴백: ${capabilities.model_catalog_error}`
+      : "현재 Codex 계정에서 사용 가능한 모델";
+    workspaceEl.disabled = !!payload?.binding?.workspace_id;
+    workspaceEl.title = capabilities.workspace_registry?.error
+      ? `작업실 설정 확인 필요: ${capabilities.workspace_registry.error}`
+      : (workspaceEl.disabled ? "이 스레드에 고정된 작업실" : "승인된 작업실 선택");
   };
   const loadCapabilities = async () => {
     try {
-      capabilities = await api("/api/codex-task/capabilities");
+      capabilities = await api(`/api/codex-task/capabilities?item_id=${encodeURIComponent(itemId)}`);
     } catch {
       capabilities = {
         skills: [],
-        defaults: { model: "gpt-5.5", effort: "medium" },
+        defaults: { model: "gpt-5.5", effort: "medium", workspace_id: null },
         model_options: ["gpt-5.5"],
-        effort_options: ["medium"],
+        effort_options: ["low", "medium", "high", "xhigh"],
         service_tier_options: [],
+        model_catalog: [{
+          slug: "gpt-5.5",
+          display_name: "GPT-5.5",
+          is_default: true,
+          hidden: false,
+          default_reasoning_effort: "medium",
+          reasoning_efforts: ["low", "medium", "high", "xhigh"].map((id) => ({ id, description: "" })),
+          default_service_tier: null,
+          service_tiers: [],
+        }],
+        model_catalog_source: "fallback",
+        model_catalog_error: "codex_model_capabilities_request_failed",
+        workspace_registry: { configured: false, error: "workspace_capabilities_request_failed", default_workspace_id: null, workspaces: [] },
       };
     }
     renderTools();
@@ -3848,8 +3920,10 @@ function openTaskCodex(itemId) {
     const bridgeVersion = codexBridgePart(payload?.bridge || state.version?.runtime?.codex_task);
     const bridgeLabel = bridgeVersion.release && bridgeVersion.release !== "v?" ? `브리지 ${bridgeVersion.release}` : "";
     const configLabel = describeTaskCodexOptions();
+    const catalogLabel = capabilities.model_catalog_source === "fallback" ? "모델 목록 실패 · GPT-5.5 폴백" : "";
+    const accessLabel = payload?.workspace_access === "write-approved" ? "쓰기 승인 활성 · 실행 시 재검증" : "읽기 전용";
     metaEl.innerHTML = item
-      ? `<span>${esc(item.project_id)}</span><strong>${esc(item.title)}</strong><small>${esc([mode, bridgeLabel, configLabel, binding?.thread_id].filter(Boolean).join(" · "))}</small>`
+      ? `<span>${esc(item.project_id)}</span><strong>${esc(item.title)}</strong><small>${esc([mode, bridgeLabel, configLabel, accessLabel, catalogLabel].filter(Boolean).join(" · "))}</small>`
       : `<span>연결 준비 중</span>`;
     const rows = payload?.messages || [];
     const latestAssistantId = latestAssistantMessageIdFromPayload(payload);
@@ -3862,32 +3936,53 @@ function openTaskCodex(itemId) {
       ? rows.map((m) => `<div class="task-codex-row ${esc(m.role)}"><div class="task-codex-msg ${esc(m.role)}"><b>${roleLabel(m.role)}</b><span>${esc(m.text)}</span></div></div>`).join("")
       : `<div class="empty small">이 할일의 Codex 대화가 아직 없습니다.</div>`;
     if (payload?.detail) statusEl.textContent = payload.detail;
-    if (faBtn) { const fa = !!payload?.full_access; faBtn.textContent = fa ? "🔓 전체권한 ON" : "🔒 전체권한"; faBtn.classList.toggle("on", fa); }
+    if (writeBtn) {
+      const grants = Array.isArray(payload?.write_grants) ? payload.write_grants : [];
+      writeBtn.textContent = grants.length ? `✍ 쓰기 승인 ${grants.length}` : "🔒 읽기 전용";
+      writeBtn.classList.toggle("on", grants.length > 0);
+      writeBtn.title = grants.length
+        ? `승인 폴더: ${grants.map((grant) => grant.relative_prefix).join(", ")} — 클릭하면 철회`
+        : "관리자가 지정한 기존 하위 폴더에만 최대 8시간 임시 쓰기 승인";
+    }
+    renderTools();
     logEl.scrollTop = logEl.scrollHeight;
   };
-  faBtn?.addEventListener("click", async () => {
-    const cur = !!payload?.full_access;
-    if (!cur && !window.confirm(state.lex.codex_fa_warn ?? "이 대화에서 Codex가 로컬 프로그램 실행·파일 쓰기를 하게 됩니다(Outlook 등). 메일 내용에 의한 위험이 있으니 필요할 때만 켜고, 끝나면 끄세요. 켤까요?")) return;
-    const resp = await post("/api/codex-task/full-access", { item_id: itemId, on: !cur });
-    const d = await resp.json().catch(() => ({}));
-    if (resp.ok) { if (payload) payload.full_access = !!d.full_access; render(); toast(d.full_access ? (state.lex.codex_fa_on ?? "전체권한 켜짐 — 다음 메시지부터 적용") : (state.lex.codex_fa_off ?? "전체권한 꺼짐"), "ok"); }
-    else toast((state.lex.codex_fa_fail ?? "변경 실패") + (d.error ? ` (${d.error})` : ""), "error");
+  writeBtn?.addEventListener("click", async () => {
+    if (!payload?.binding?.opened) return toast("먼저 작업실과 Codex 스레드를 연결하세요.", "error");
+    const grants = Array.isArray(payload?.write_grants) ? payload.write_grants : [];
+    if (grants.length) {
+      if (!window.confirm("이 할일의 현재 쓰기 승인을 모두 철회할까요?")) return;
+      for (const grant of grants) {
+        const resp = await post("/api/codex-task/write-grant/revoke", { grant_id: grant.grant_id });
+        const body = await resp.json().catch(() => ({}));
+        if (!resp.ok) return toast(`쓰기 승인 철회 실패 (${body.error || resp.status})`, "error");
+        payload = body;
+      }
+      render();
+      return toast("쓰기 승인을 철회했습니다. 다음 메시지부터 읽기 전용입니다.", "ok");
+    }
+    const prefix = window.prompt("쓰기를 허용할 작업실 내부의 기존 하위 폴더를 입력하세요.\n예: 03_Out/검토결과", "");
+    if (prefix == null || !prefix.trim()) return;
+    const reason = window.prompt("왜 쓰기가 필요한지 짧게 적어주세요.", "검증 산출물 저장");
+    if (reason == null || !reason.trim()) return;
+    const resp = await post("/api/codex-task/write-grant", {
+      item_id: itemId,
+      relative_prefix: prefix.trim(),
+      reason: reason.trim(),
+      ttl_minutes: 60,
+    });
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) return toast(`쓰기 승인 실패 (${body.error || resp.status})`, "error");
+    payload = body;
+    render();
+    toast("해당 하위 폴더에 60분 쓰기를 승인했습니다.", "ok");
   });
   const load = async () => {
-    setPending(true, "open");
+    setPending(true, "연결 상태 확인 중");
     try {
-      saveTaskCodexOptions();
-      const opt = currentTaskCodexOptions();
-      const resp = await postJsonWithTimeout("/api/codex-task/open", {
-        item_id: itemId,
-        model: opt.model || null,
-        effort: opt.effort || null,
-        service_tier: opt.service_tier || null,
-      }, CHAT_REQUEST_TIMEOUT_MS);
-      payload = await resp.json().catch(() => ({}));
+      payload = await api(`/api/codex-task/thread?item_id=${encodeURIComponent(itemId)}`);
       render();
-      if (!resp.ok) throw new Error(payload.detail || payload.error || "codex_task_open_failed");
-      setPending(false, payload.binding?.thread_id ? "연결됨" : "");
+      setPending(false, payload.binding?.opened ? "연결됨" : "작업실을 직접 선택한 뒤 첫 메시지를 보내면 연결됩니다.");
     } catch (error) {
       payload = payload || { messages: [] };
       payload.detail = error?.message || "Codex 연결 실패";
@@ -3895,10 +3990,44 @@ function openTaskCodex(itemId) {
       setPending(false, payload.detail);
     }
   };
+  const ensureCodexThread = async () => {
+    if (payload?.binding?.opened) return true;
+    const opt = currentTaskCodexOptions();
+    const workspace = taskCodexWorkspaceEntry(opt.workspace_id);
+    if (!workspace) {
+      toast("이 과제에 허용된 작업실을 먼저 직접 선택하세요.", "error");
+      workspaceEl.focus();
+      return false;
+    }
+    if (!window.confirm(`이 과제를 '${workspace.label || workspace.workspace_id}' 작업실에 읽기 전용으로 연결할까요?\n한번 연결하면 이 스레드의 작업실은 바꿀 수 없습니다.`)) return false;
+    setPending(true, "open");
+    const resp = await postJsonWithTimeout("/api/codex-task/open", {
+      item_id: itemId,
+      workspace_id: workspace.workspace_id,
+      model: opt.model || null,
+      model_selection_origin: opt.model_selection_origin,
+      effort: opt.effort || null,
+      service_tier: opt.service_tier || null,
+    }, CHAT_REQUEST_TIMEOUT_MS);
+    payload = await resp.json().catch(() => ({}));
+    render();
+    if (!resp.ok) {
+      setPending(false, payload.detail || payload.error || "Codex 연결 실패");
+      throw new Error(payload.detail || payload.error || "codex_task_open_failed");
+    }
+    setPending(false, "연결됨");
+    return true;
+  };
   const send = async () => {
     if (pending) return;
     const msg = inputEl.value.trim();
     if (!msg) return;
+    try {
+      if (!(await ensureCodexThread())) return;
+    } catch (error) {
+      toast(error?.message || "Codex 연결 실패", "error");
+      return;
+    }
     inputEl.value = "";
     // 낙관적 echo: 입력 즉시 내 메시지를 로그에 표시(답변은 나중에 render에서 채워짐). 입력글이 답변과 함께 늦게 뜨던 문제 수정.
     logEl.insertAdjacentHTML("beforeend", `<div class="task-codex-row user"><div class="task-codex-msg user"><b>${roleLabel("user")}</b><span>${esc(msg)}</span></div></div>`);
@@ -3910,15 +4039,12 @@ function openTaskCodex(itemId) {
       saveTaskCodexOptions();
       const opt = currentTaskCodexOptions();
       const attachments = await uploadStagedImages();
-      // 이미지가 아닌 첨부(localFile)는 Codex 가 로컬에서 읽도록 메시지에 경로 참조를 붙인다(payload 미전송).
-      const fileAtts = (attachments || []).filter((a) => a && a.type === "localFile" && a.path);
-      const msgWithFiles = fileAtts.length
-        ? `${msg}\n\n[첨부 파일 — 아래 로컬 경로를 열어 내용 확인]\n${fileAtts.map((a) => `- ${a.path}`).join("\n")}`
-        : msg;
       const resp = await postJsonWithTimeout("/api/codex-task/message", {
         item_id: itemId,
-        message: msgWithFiles,
+        workspace_id: payload?.binding?.workspace_id || opt.workspace_id || null,
+        message: msg,
         model: opt.model || null,
+        model_selection_origin: opt.model_selection_origin,
         effort: opt.effort || null,
         service_tier: opt.service_tier || null,
         attachments,
@@ -4000,12 +4126,21 @@ function openTaskCodex(itemId) {
   ov.querySelector(".task-codex-tile").addEventListener("click", tileTaskCodexPanels);
   ov.querySelector(".task-codex-x").addEventListener("click", closePanel);
   window.addEventListener("resize", restoreDockPosition, { passive: true });
-  for (const el of [modelEl, effortEl]) {
-    el.addEventListener("change", () => {
-      saveTaskCodexOptions();
-      render();
-    });
-  }
+  modelEl.addEventListener("change", () => {
+    modelSelectionOrigin = "explicit";
+    saveTaskCodexOptions();
+    renderTools();
+    render();
+  });
+  workspaceEl.addEventListener("change", () => {
+    workspaceExplicitlySelected = !!workspaceEl.value;
+    saveTaskCodexOptions();
+    render();
+  });
+  effortEl.addEventListener("change", () => {
+    saveTaskCodexOptions();
+    render();
+  });
   imageEl.addEventListener("change", () => {
     stagedImages = [...stagedImages, ...Array.from(imageEl.files || [])].slice(0, 6);
     imageEl.value = "";

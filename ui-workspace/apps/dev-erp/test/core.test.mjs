@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, symlinkSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, symlinkSync, readdirSync, statSync, utimesSync } from "node:fs";
 import { execFileSync, spawn } from "node:child_process";
 import { createServer as createNetServer } from "node:net";
 import { request as httpsRequest } from "node:https";
@@ -10,8 +10,13 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { openStore, deriveStartYear, ASSIGNEE_MEMORY_ITEM_TEXT_MAX, ASSIGNEE_MEMORY_SCOPE_ITEM_MAX } from "../src/store.mjs";
-import { sanitizeCodexConfigServiceTier } from "../src/codex_bridge.mjs";
+import {
+  openStore,
+  deriveStartYear,
+  ASSIGNEE_MEMORY_ITEM_TEXT_MAX,
+  ASSIGNEE_MEMORY_SCOPE_ITEM_MAX,
+  CODEX_WORKSPACE_WRITE_GRANT_MAX_MS,
+} from "../src/store.mjs";
 import { importNewTaskLedgers, writeTaskToLedger, readTaskLedgerRows, importNewInputLedgers, writeInputToLedger, readInputLedgerRows } from "../src/autosync.mjs";
 import { pendingForProject, scanPending } from "../tools/mail_to_task_pending.mjs";
 import { safeAccountEnvName, mailboxEnvRelPath, upsertEnv, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv, parseMailTestResult } from "../src/mailbox_env.mjs";
@@ -22,7 +27,7 @@ import { crossSearch } from "../src/search.mjs";
 import { runQueued, llmQueueStats, suggestSplit } from "../src/llm.mjs";
 import { loadPartyMonsterTypes, partyForMonsterType } from "../src/party_match.mjs";
 import { chatPipelineConfig, runManualAnswerPipeline } from "../src/chat_pipeline.mjs";
-import { buildCodexAppServerArgs, buildCodexTurnInput, buildTaskDeveloperInstructions, buildTaskPrompt, buildTaskThreadTitle, codexAppServerReuseEnabled, codexAppServerServiceTierOverride } from "../src/codex_bridge.mjs";
+import { buildCodexAppServerArgs, buildCodexTurnInput, buildTaskDeveloperInstructions, buildTaskPrompt, buildTaskThreadTitle, codexAppServerServiceTierOverride, codexSandboxPolicy, resolveSandboxMode } from "../src/codex_bridge.mjs";
 import {
   KNOWLEDGE_SHELL_CONTRACT_KIND,
   KNOWLEDGE_SHELL_SCHEMA,
@@ -44,9 +49,24 @@ import { backupRuntimeDb, restoreTestRuntimeDb, runtimeHealthCheck } from "../to
 import { runRuntimeReleaseAudit } from "../tools/runtime_release_audit.mjs";
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
+const windowsAbsolute = (...segments) => ["C:", ...segments].join("\\");
+const posixAbsolute = (...segments) => ["", ...segments].join("/");
 
 function freshStore() {
   return openStore(":memory:");
+}
+
+let pointerMessageSequence = 0;
+function appendPointerMessage(store, { text, ...input }) {
+  pointerMessageSequence += 1;
+  const payloadRef = `cmp_${String(pointerMessageSequence).padStart(12, "0")}_${"a".repeat(32)}`;
+  return store.appendCodexTaskMessage({
+    ...input,
+    text: payloadRef,
+    payload_ref: payloadRef,
+    payload_byte_length: Buffer.byteLength(String(text), "utf8"),
+    payload_sha256: "b".repeat(64),
+  });
 }
 
 function loadManualFaq(store) {
@@ -148,6 +168,31 @@ async function startDevErpServer(args = [], env = {}) {
   };
 }
 
+async function bootstrapAdminSession(base, { username = "owner", password = "ownerpass123" } = {}) {
+  const response = await fetch(`${base}/api/auth/bootstrap`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  assert.equal(response.status, 200);
+  const cookie = response.headers.get("set-cookie")?.split(";")[0] || "";
+  assert.ok(cookie);
+  return cookie;
+}
+
+function findNamedFile(root, name) {
+  if (!existsSync(root)) return null;
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const full = join(root, entry.name);
+    if (entry.isFile() && entry.name === name) return full;
+    if (entry.isDirectory()) {
+      const nested = findNamedFile(full, name);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
 async function waitForHttp(url, child, stderrFn) {
   for (let i = 0; i < 300; i++) {
     if (child.exitCode !== null) throw new Error(`server_exited:${child.exitCode}:${stderrFn()}`);
@@ -202,33 +247,332 @@ test("store: Codex task binding keeps item id as durable thread key", () => {
   assert.match(store.codexThreadTitle(second), /^\[PRJ-A\] 테스트 대화 · /);
 
   const title = store.codexThreadTitle(first);
-  const up = store.upsertCodexTaskBinding({ item_id: first.id, thread_id: "thread_test_1", thread_title: title, mode: "mock" });
+  const up = store.upsertCodexTaskBinding({
+    item_id: first.id,
+    thread_id: "thread_test_1",
+    thread_title: title,
+    mode: "mock",
+    workspace_id: "test_workspace",
+    workspace_revision: "a".repeat(64),
+    workspace_root_fingerprint: "b".repeat(64),
+  });
   assert.equal(up.ok, true);
   assert.equal(up.binding.thread_id, "thread_test_1");
   assert.equal(up.binding.item_id, first.id);
   assert.equal(up.binding.data_label, "meta");
 
-  store.appendCodexTaskMessage({ item_id: first.id, thread_id: "thread_test_1", role: "user", text: "진행해줘", actor_ref: "tester", mode: "mock" });
-  store.appendCodexTaskMessage({ item_id: first.id, thread_id: "thread_test_1", role: "assistant", text: "확인했습니다.", actor_ref: "codex", mode: "mock" });
+  appendPointerMessage(store, { item_id: first.id, thread_id: "thread_test_1", role: "user", text: "진행해줘", actor_ref: "tester", mode: "mock" });
+  appendPointerMessage(store, { item_id: first.id, thread_id: "thread_test_1", role: "assistant", text: "확인했습니다.", actor_ref: "codex", mode: "mock" });
+  assert.equal(store.appendCodexTaskMessage({ item_id: first.id, role: "user", text: "inline forbidden" }).error, "payload_ref_required");
   assert.deepEqual(store.codexTaskMessages(first.id).map((m) => m.role), ["user", "assistant"]);
 
   store.updateItem(first.id, { title: "바뀐 할일명" });
   assert.equal(store.codexTaskBinding(first.id).thread_id, "thread_test_1");
 });
 
+test("store: signed dedicated-worker thread refs remain opaque and fit audit storage", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const item = store.createItem({ project_id: "PRJ-A", title: "worker thread ref", created_by: "tester" }).item;
+  const threadRef = `dwr2.ref-a.${"a".repeat(16)}.${"b".repeat(512)}.${"c".repeat(22)}`;
+  const bound = store.upsertCodexTaskBinding({
+    item_id: item.id,
+    thread_id: threadRef,
+    mode: "worker",
+    workspace_id: "worker_workspace",
+    workspace_revision: "a".repeat(64),
+    workspace_root_fingerprint: "b".repeat(64),
+  });
+  assert.equal(bound.ok, true);
+  assert.equal(bound.binding.thread_id, threadRef);
+  const audit = store.startCodexTurnAudit({
+    item_id: item.id,
+    thread_id: threadRef,
+    actor_ref: "tester",
+    workspace_id: "worker_workspace",
+    workspace_revision: "a".repeat(64),
+    workspace_root_fingerprint: "b".repeat(64),
+    model: "gpt-5.6",
+    sandbox_mode: "read-only",
+    grant_refs: [],
+  });
+  assert.equal(audit.ok, true);
+  assert.equal(store.finishCodexTurnAudit({ audit_id: audit.audit.id, thread_id: threadRef, outcome: "completed" }).ok, true);
+  assert.equal(store.logCompletion(item, { completed_by: "tester", thread_id: threadRef }).ok, true);
+  assert.match(store.db.prepare("SELECT log_ref FROM completion_log WHERE item_id=?").get(item.id).log_ref, /codex_thread:dwr2\./);
+  assert.equal(store.completionLog({ days: 1 }).find((row) => row.item_id === item.id).log_ref, null);
+  assert.equal(store.upsertCodexTaskBinding({ item_id: item.id, thread_id: `dwr2.ref-a.${"a".repeat(10)}.short` }).error, "thread_id_invalid");
+});
+
+test("store: Codex workspace binding is immutable and write grants expire or revoke", () => {
+  const store = freshStore();
+  loadFixture(store);
+  const item = store.createItem({ project_id: "PRJ-A", title: "shared workspace", created_by: "tester" }).item;
+  const bound = store.upsertCodexTaskBinding({
+    item_id: item.id,
+    thread_id: "thread_workspace_1",
+    mode: "mock",
+    workspace_id: "hw_docs",
+    workspace_revision: "a".repeat(64),
+    workspace_root_fingerprint: "b".repeat(64),
+  });
+  assert.equal(bound.ok, true);
+  assert.equal(bound.binding.workspace_id, "hw_docs");
+
+  const resumed = store.upsertCodexTaskBinding({ item_id: item.id, thread_id: "thread_workspace_1", mode: "mock" });
+  assert.equal(resumed.binding.workspace_revision, "a".repeat(64));
+  assert.equal(store.upsertCodexTaskBinding({
+    item_id: item.id,
+    thread_id: "thread_workspace_1",
+    workspace_id: "other_workspace",
+    workspace_revision: "a".repeat(64),
+    workspace_root_fingerprint: "b".repeat(64),
+  }).error, "workspace_binding_immutable");
+  assert.equal(store.upsertCodexTaskBinding({
+    item_id: item.id,
+    thread_id: "thread_workspace_1",
+    workspace_id: "hw_docs",
+    workspace_revision: "c".repeat(64),
+    workspace_root_fingerprint: "b".repeat(64),
+  }).error, "workspace_binding_revision_mismatch");
+
+  const nowMs = Date.now();
+  const approvedAt = new Date(nowMs - 60_000).toISOString();
+  const expiresAt = new Date(nowMs + 60 * 60_000).toISOString();
+  const granted = store.approveCodexWorkspaceWrite({
+    item_id: item.id,
+    relative_prefix: "results\\approved",
+    approved_by: "owner",
+    reason: "검증 산출물만 저장",
+    approved_at: approvedAt,
+    expires_at: expiresAt,
+  });
+  assert.equal(granted.ok, true);
+  assert.equal(granted.grant.workspace_id, "hw_docs");
+  assert.equal(store.approveCodexWorkspaceWrite({
+    item_id: item.id,
+    relative_prefix: "results/approved",
+    approved_by: "owner",
+    reason: "duplicate",
+    approved_at: approvedAt,
+    expires_at: expiresAt,
+  }).error, "grant_already_active");
+  assert.equal(granted.grant.relative_prefix, "results/approved");
+  assert.equal(store.approveCodexWorkspaceWrite({
+    item_id: item.id,
+    relative_prefix: "results/future",
+    approved_by: "owner",
+    reason: "future fixture",
+    approved_at: new Date(nowMs + 60 * 60_000).toISOString(),
+    expires_at: new Date(nowMs + 2 * 60 * 60_000).toISOString(),
+  }).ok, true);
+  assert.equal(store.codexWorkspaceWriteGrants(item.id, {
+    now: new Date(nowMs).toISOString(),
+    active_only: true,
+  }).length, 1);
+  assert.equal(store.codexWorkspaceWriteGrants(item.id, {
+    now: new Date(nowMs + 2 * 60 * 60_000).toISOString(),
+    active_only: true,
+  }).length, 0);
+  assert.equal(store.approveCodexWorkspaceWrite({
+    item_id: item.id,
+    relative_prefix: windowsAbsolute("outside"),
+    approved_by: "owner",
+    reason: "invalid",
+    approved_at: approvedAt,
+    expires_at: expiresAt,
+  }).error, "relative_prefix_invalid");
+  assert.equal(store.approveCodexWorkspaceWrite({
+    item_id: item.id,
+    relative_prefix: "results",
+    approved_by: "owner",
+    reason: "copy " + windowsAbsolute("private", "secret.txt"),
+    approved_at: approvedAt,
+    expires_at: expiresAt,
+  }).error, "reason_invalid");
+  assert.equal(store.approveCodexWorkspaceWrite({
+    item_id: item.id,
+    relative_prefix: ".git/hooks",
+    approved_by: "owner",
+    reason: "protected",
+    approved_at: approvedAt,
+    expires_at: expiresAt,
+  }).error, "relative_prefix_invalid");
+  assert.equal(store.approveCodexWorkspaceWrite({
+    item_id: item.id,
+    relative_prefix: "results",
+    approved_by: "owner",
+    reason: "too long",
+    approved_at: approvedAt,
+    expires_at: new Date(Date.parse(approvedAt) + CODEX_WORKSPACE_WRITE_GRANT_MAX_MS + 1).toISOString(),
+  }).error, "grant_ttl_too_long");
+
+  const audit = store.appendCodexTurnAudit({
+    item_id: item.id,
+    actor_ref: "tester",
+    model: "gpt-5.6",
+    model_selection_origin: "explicit",
+    effective_model: "gpt-5.5",
+    reasoning_effort: "high",
+    sandbox_mode: "workspace-write",
+    grant_refs: [granted.grant.id],
+    outcome: "completed",
+    duration_ms: 250,
+  });
+  assert.equal(audit.ok, true);
+  assert.equal(audit.audit.workspace_id, "hw_docs");
+  assert.deepEqual(audit.audit.grant_refs, [granted.grant.id]);
+  assert.equal(audit.audit.model, "gpt-5.6");
+  assert.equal(audit.audit.effective_model, "gpt-5.5");
+  assert.equal(audit.audit.model_selection_origin, "explicit");
+  assert.equal(audit.audit.model_fallback, 1);
+  assert.equal("cwd" in audit.audit, false);
+  assert.equal("workspace_root" in audit.audit, false);
+  assert.equal(store.appendCodexTurnAudit({
+    item_id: item.id,
+    workspace_id: windowsAbsolute("raw", "path"),
+    sandbox_mode: "read-only",
+    outcome: "rejected",
+  }).error, "audit_binding_mismatch");
+  assert.equal(store.appendCodexTurnAudit({
+    item_id: item.id,
+    sandbox_mode: "workspace-write",
+    outcome: "completed",
+  }).error, "workspace_write_grant_required");
+
+  const started = store.startCodexTurnAudit({
+    item_id: item.id,
+    thread_id: "thread_workspace_1",
+    actor_ref: "tester",
+    workspace_id: "hw_docs",
+    workspace_revision: "a".repeat(64),
+    workspace_root_fingerprint: "b".repeat(64),
+    model: "gpt-5.6",
+    model_selection_origin: "auto",
+    reasoning_effort: "high",
+    sandbox_mode: "workspace-write",
+    grant_refs: [granted.grant.id],
+    authorized_at: approvedAt,
+  });
+  assert.equal(started.ok, true);
+  assert.equal(started.audit.outcome, "started");
+  assert.equal(started.audit.finished_at, null);
+  const finished = store.finishCodexTurnAudit({
+    audit_id: started.audit.id,
+    thread_id: "thread_workspace_1",
+    effective_model: "gpt-5.5",
+    outcome: "completed",
+    duration_ms: 251,
+  });
+  assert.equal(finished.ok, true);
+  assert.equal(finished.audit.outcome, "completed");
+  assert.equal(finished.audit.model_selection_origin, "auto");
+  assert.equal(finished.audit.effective_model, "gpt-5.5");
+  assert.equal(finished.audit.model_fallback, 1);
+  assert.ok(finished.audit.finished_at);
+
+  assert.equal(store.startCodexTurnAudit({
+    item_id: item.id,
+    workspace_id: "hw_docs",
+    workspace_revision: "a".repeat(64),
+    workspace_root_fingerprint: "b".repeat(64),
+    model: "gpt-5.6",
+    model_selection_origin: "guessed",
+  }).error, "model_selection_origin_invalid");
+
+  const interrupted = store.startCodexTurnAudit({
+    item_id: item.id,
+    thread_id: "thread_workspace_1",
+    actor_ref: "tester",
+    workspace_id: "hw_docs",
+    workspace_revision: "a".repeat(64),
+    workspace_root_fingerprint: "b".repeat(64),
+    sandbox_mode: "read-only",
+    grant_refs: [],
+  });
+  assert.equal(interrupted.ok, true);
+  assert.equal(store.recoverInterruptedCodexTurnAudits("service_restart").recovered, 1);
+  assert.equal(store.codexTurnAudits(item.id).find((row) => row.id === interrupted.audit.id).error_code, "service_restart");
+
+  assert.equal(store.revokeCodexWorkspaceWriteGrant({ id: granted.grant.id, revoked_by: "owner" }).ok, true);
+  assert.equal(store.codexWorkspaceWriteGrants(item.id, { active_only: true }).length, 0);
+  assert.equal(store.appendCodexTurnAudit({
+    item_id: item.id,
+    sandbox_mode: "workspace-write",
+    grant_refs: [granted.grant.id],
+    authorized_at: approvedAt,
+    outcome: "failed",
+    error_code: "revoked_after_start",
+  }).ok, true, "turn authorized before revoke keeps an audit record");
+  assert.equal(store.appendCodexTurnAudit({
+    item_id: item.id,
+    sandbox_mode: "workspace-write",
+    grant_refs: [granted.grant.id],
+    outcome: "failed",
+  }).error, "workspace_write_grant_invalid");
+  assert.equal(store.appendCodexTurnAudit({
+    item_id: item.id,
+    sandbox_mode: "workspace-write",
+    grant_refs: Array.from({ length: 17 }, (_, i) => `cwg_${String(i).padStart(16, "0")}`),
+    outcome: "failed",
+  }).error, "grant_refs_too_many");
+});
+
+test("store: legacy Codex binding DB migrates workspace authority columns and tables", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-workspace-migration-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const dbPath = join(root, "legacy.db");
+  const legacy = new DatabaseSync(dbPath);
+  legacy.exec(`CREATE TABLE codex_thread_binding (
+    item_id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL,
+    thread_title TEXT NOT NULL,
+    project_id TEXT,
+    mode TEXT NOT NULL DEFAULT 'app-server',
+    sync_state TEXT NOT NULL DEFAULT 'linked',
+    last_synced_item_revision INTEGER,
+    last_sync_at TEXT NOT NULL,
+    last_error TEXT,
+    data_label TEXT NOT NULL DEFAULT 'meta'
+  )`);
+  legacy.close();
+
+  const store = openStore(dbPath);
+  const bindingColumns = new Set(store.db.prepare("PRAGMA table_info(codex_thread_binding)").all().map((row) => row.name));
+  for (const name of ["workspace_id", "workspace_revision", "workspace_root_fingerprint"]) assert.ok(bindingColumns.has(name));
+  const grantColumns = new Set(store.db.prepare("PRAGMA table_info(codex_workspace_write_grant)").all().map((row) => row.name));
+  for (const name of ["workspace_revision", "workspace_root_fingerprint"]) assert.ok(grantColumns.has(name));
+  assert.ok(store.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='codex_turn_audit'").get());
+  const auditColumns = new Set(store.db.prepare("PRAGMA table_info(codex_turn_audit)").all().map((row) => row.name));
+  for (const name of [
+    "authorized_at", "finished_at", "effective_model", "model_selection_origin", "model_fallback",
+  ]) assert.ok(auditColumns.has(name));
+  const messageColumns = new Set(store.db.prepare("PRAGMA table_info(codex_thread_message)").all().map((row) => row.name));
+  for (const name of ["payload_ref", "payload_byte_length", "payload_sha256"]) assert.ok(messageColumns.has(name));
+  store.db.close();
+});
+
 test("store: item lists expose Codex task reply metadata without message text", () => {
   const store = freshStore();
   loadFixture(store);
   const item = store.createItem({ project_id: "PRJ-A", title: "codex reply marker", created_by: "tester" }).item;
-  store.upsertCodexTaskBinding({ item_id: item.id, thread_id: "thread_reply_1", mode: "mock" });
-  store.appendCodexTaskMessage({ item_id: item.id, thread_id: "thread_reply_1", role: "user", text: "what should I do", actor_ref: "tester", mode: "mock" });
+  store.upsertCodexTaskBinding({
+    item_id: item.id,
+    thread_id: "thread_reply_1",
+    mode: "mock",
+    workspace_id: "test_workspace",
+    workspace_revision: "a".repeat(64),
+    workspace_root_fingerprint: "b".repeat(64),
+  });
+  appendPointerMessage(store, { item_id: item.id, thread_id: "thread_reply_1", role: "user", text: "what should I do", actor_ref: "tester", mode: "mock" });
   let row = store.items({ project: "PRJ-A", q: "codex reply marker" }).find((r) => r.id === item.id);
   assert.equal(row.codex_waiting_reply, 1);
   assert.equal(row.codex_has_reply, 0);
 
-  store.appendCodexTaskMessage({ item_id: item.id, thread_id: "thread_reply_1", role: "assistant", text: "check the acceptance criteria first", actor_ref: "codex", mode: "mock" });
+  appendPointerMessage(store, { item_id: item.id, thread_id: "thread_reply_1", role: "assistant", text: "check the acceptance criteria first", actor_ref: "codex", mode: "mock" });
   row = store.itemsPage({ project: "PRJ-A", q: "codex reply marker", limit: 10 }).rows.find((r) => r.id === item.id);
-  assert.equal(row.codex_thread_id, "thread_reply_1");
+  assert.equal(row.codex_thread_open, 1);
+  assert.equal("codex_thread_id" in row, false);
   assert.equal(row.codex_last_message_role, "assistant");
   assert.equal(row.codex_has_reply, 1);
   assert.ok(row.codex_last_message_id > 0);
@@ -446,20 +790,22 @@ test("분해 버그수정 6R: 부분 실패 후 성공분 textarea 제거(재클
   assert.match(app, /ta\.value = lines\.filter\(\(l\) => failedTitles\.has\(l\)\)/);
 });
 
-test("codex bridge: task metadata is hidden from visible user prompts", () => {
+test("codex bridge: mutable task metadata is isolated as untrusted user-level JSON", () => {
   const item = { id: "itm_1", project_id: "P26-001", title: "자료 검토", status: "open", due: "2026-06-30" };
   assert.equal(buildTaskThreadTitle(item), "[P26-001] 자료 검토");
   const prompt = buildTaskPrompt(item, "스킬 써서 검토해줘");
-  assert.equal(prompt, "스킬 써서 검토해줘");
-  assert.doesNotMatch(prompt, /item_id: itm_1/);
-  assert.doesNotMatch(prompt, /Task metadata|User message:/);
+  assert.match(prompt, /untrusted ERP task data/);
+  assert.match(prompt, /"item_id":"itm_1"/);
+  assert.match(prompt, /Current ERP operator request:\n스킬 써서 검토해줘/);
   assert.doesNotMatch(prompt, /attachment body|mail body/i);
   const initial = buildTaskPrompt(item, "", { initial: true });
-  assert.doesNotMatch(initial, /item_id: itm_1|Task metadata|User message:/);
+  assert.match(initial, /"item_id":"itm_1"/);
+  assert.match(initial, /다음 지시를 기다려주세요/);
 
   const instructions = buildTaskDeveloperInstructions(item);
-  assert.match(instructions, /item_id: itm_1/);
   assert.match(instructions, /Do not claim raw mail/);
+  assert.doesNotMatch(instructions, /itm_1|P26-001|자료 검토|2026-06-30/);
+  assert.match(instructions, /untrusted data/);
 });
 
 test("codex bridge: app-server turn input can carry skill and localImage items", () => {
@@ -479,18 +825,26 @@ test("codex bridge: app-server turn input can carry skill and localImage items",
 });
 
 test("codex bridge: app-server service tier override is opt-in", () => {
-  assert.deepEqual(buildCodexAppServerArgs(), ["app-server"]);
+  const hardened = buildCodexAppServerArgs();
+  assert.equal(hardened[0], "app-server");
+  for (const required of [
+    "mcp_servers={}",
+    "hooks={}",
+    'web_search="disabled"',
+    "tools.web_search=false",
+    "features.skill_mcp_dependency_install=false",
+    "project_doc_max_bytes=0",
+    "project_doc_fallback_filenames=[]",
+    "project_root_markers=[]",
+    'shell_environment_policy.inherit="core"',
+    "shell_environment_policy.include_only=",
+    "shell_environment_policy.exclude=",
+  ]) {
+    assert.ok(hardened.some((value) => value === required || value.startsWith(required)), required);
+  }
   assert.equal(codexAppServerServiceTierOverride("flex"), null);
-  assert.deepEqual(buildCodexAppServerArgs({ serviceTier: "flex" }), ["app-server"]);
-  assert.deepEqual(buildCodexAppServerArgs({ serviceTier: "fast" }), ["app-server", "-c", "service_tier=fast"]);
-});
-
-test("codex bridge: app-server reuse defaults on with an explicit kill switch", () => {
-  assert.equal(codexAppServerReuseEnabled(undefined), true);
-  assert.equal(codexAppServerReuseEnabled("1"), true);
-  assert.equal(codexAppServerReuseEnabled("false"), false);
-  assert.equal(codexAppServerReuseEnabled("0"), false);
-  assert.equal(codexAppServerReuseEnabled("off"), false);
+  assert.deepEqual(buildCodexAppServerArgs({ serviceTier: "flex" }), hardened);
+  assert.deepEqual(buildCodexAppServerArgs({ serviceTier: "fast" }), [...hardened, "-c", "service_tier=fast"]);
 });
 
 test("codex bridge: browser timeout stays above server turn timeout", () => {
@@ -611,6 +965,202 @@ test("runtime release audit: blocks anonymous runtime and missing NAS latest bac
     const codes = result.blockers.map((issue) => issue.code);
     assert.ok(codes.includes("auth_anonymous_mode"));
     assert.ok(codes.includes("nas_latest_db_backup_missing"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime release audit: require-live rejects Git and NAS skip flags", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-runtime-audit-release-skip-"));
+  try {
+    const result = await runRuntimeReleaseAudit({
+      sourceRoot: root,
+      runtimeRoot: root,
+      appRoot: join(root, "runtime-app"),
+      dbPath: join(root, "missing.db"),
+      metaPath: join(root, "missing-meta.json"),
+      workspacesDir: join(root, "_workspaces"),
+      nasRoot: false,
+      skipGit: true,
+      skipNas: true,
+      requireLive: true,
+      port: 65534,
+    });
+    const codes = result.blockers.map((issue) => issue.code);
+    assert.ok(codes.includes("release_skip_git_forbidden"));
+    assert.ok(codes.includes("release_skip_nas_forbidden"));
+    assert.ok(codes.includes("release_expected_commit_missing"));
+    assert.ok(codes.includes("source_git_missing"), "strict live audit must fail closed when source Git is unverifiable");
+    assert.ok(codes.includes("nas_root_not_configured"), "release mode must still run the NAS check");
+    assert.ok(codes.includes("codex_dedicated_home_missing"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime release audit: exact approved commit mismatch and origin verification failure are blockers", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-runtime-audit-git-proof-"));
+  try {
+    execFileSync("git", ["init", "-b", "main"], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["config", "user.email", "audit@example.invalid"], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["config", "user.name", "Audit Fixture"], { cwd: root, stdio: "ignore" });
+    writeFileSync(join(root, "fixture.txt"), "fixture\n");
+    execFileSync("git", ["add", "fixture.txt"], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["commit", "-m", "fixture"], { cwd: root, stdio: "ignore" });
+    const actual = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+    const expected = actual === "f".repeat(40) ? "e".repeat(40) : "f".repeat(40);
+    const result = await runRuntimeReleaseAudit({
+      sourceRoot: root,
+      runtimeRoot: root,
+      appRoot: join(root, "runtime-app"),
+      dbPath: join(root, "missing.db"),
+      metaPath: join(root, "missing-meta.json"),
+      workspacesDir: join(root, "_workspaces"),
+      nasRoot: false,
+      requireLive: true,
+      expectedCommit: expected,
+      port: 65534,
+    });
+    const codes = result.blockers.map((issue) => issue.code);
+    assert.ok(codes.includes("source_git_expected_commit_mismatch"));
+    assert.ok(codes.includes("source_git_origin_main_check_failed"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime release audit: require-live validates and probes the runtime-local Codex workspace registry", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-runtime-audit-workspace-pass-"));
+  try {
+    const appRoot = join(root, "runtime-app");
+    const registryDir = join(appRoot, "data");
+    const workspaceRoot = join(root, "approved", "private-root-marker");
+    const codexHome = join(root, "codex-home");
+    mkdirSync(registryDir, { recursive: true });
+    mkdirSync(workspaceRoot, { recursive: true });
+    mkdirSync(codexHome, { recursive: true });
+    mkdirSync(join(root, "_workspaces", "system", "dev-erp", "codex-task-attachments"), { recursive: true });
+    mkdirSync(join(root, "_workspaces", "system", "dev-erp", "codex-message-payloads"), { recursive: true });
+    writeFileSync(join(registryDir, "codex-workspaces.runtime.json"), JSON.stringify({
+      schema: "dev_erp.codex_workspace_registry.v1",
+      machine_id: "runtime-test",
+      trust_domain_id: "runtime-test-domain",
+      workspaces: [{
+        workspace_id: "project_a",
+        label: "Project A",
+        root_kind: "local",
+        root: workspaceRoot,
+        default_access: "read-only",
+        enabled: true,
+        allowed_project_ids: ["P26-014"],
+        allowed_roles: ["admin"],
+      }],
+    }));
+
+    const result = await runRuntimeReleaseAudit({
+      sourceRoot: root,
+      runtimeRoot: root,
+      appRoot,
+      dbPath: join(root, "missing.db"),
+      metaPath: join(root, "missing-meta.json"),
+      workspacesDir: join(root, "_workspaces"),
+      nasRoot: false,
+      requireLive: true,
+      codexHome,
+      codexTrustDomain: "runtime-test-domain",
+      port: 65534,
+    });
+    const check = result.checks.codex_workspace_registry;
+    assert.equal(check.configured, true);
+    assert.equal(check.contract_validation, "pass");
+    assert.equal(check.configured_workspace_count, 1);
+    assert.equal(check.enabled_workspace_count, 1);
+    assert.equal(check.probe.available, 1);
+    assert.equal(check.probe.unavailable, 0);
+    assert.equal(result.checks.codex_runtime_isolation.dedicated_home_directory_available, true);
+    assert.equal(result.checks.codex_payload_owner.roots_safe, true);
+    assert.equal(result.blockers.some((issue) => issue.code.startsWith("codex_workspace_")), false);
+    assert.equal(
+      JSON.stringify(result).toLowerCase().includes(workspaceRoot.toLowerCase()),
+      false,
+      "raw workspace roots must not enter audit output",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime release audit: Codex registry failures stay sanitized and unavailable UNC roots fail closed", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-runtime-audit-workspace-block-"));
+  try {
+    const appRoot = join(root, "runtime-app");
+    const registryDir = join(appRoot, "data");
+    const codexHome = join(root, "codex-home");
+    const registryPath = join(registryDir, "codex-workspaces.runtime.json");
+    const privateUncRoot = "\\\\PRIVATE-PC-MARKER\\ApprovedShare\\P26-014";
+    mkdirSync(registryDir, { recursive: true });
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(registryPath, JSON.stringify({
+      schema: "dev_erp.codex_workspace_registry.v1",
+      machine_id: "runtime-test",
+      trust_domain_id: "runtime-test-domain",
+      workspaces: [{
+        workspace_id: "project_a",
+        label: "Project A",
+        root_kind: "unc",
+        root: privateUncRoot,
+        default_access: "read-only",
+        enabled: true,
+      }],
+    }));
+    const baseOptions = {
+      sourceRoot: root,
+      runtimeRoot: root,
+      appRoot,
+      dbPath: join(root, "missing.db"),
+      metaPath: join(root, "missing-meta.json"),
+      workspacesDir: join(root, "_workspaces"),
+      nasRoot: false,
+      requireLive: true,
+      codexHome,
+      codexTrustDomain: "runtime-test-domain",
+      port: 65534,
+    };
+
+    const invalid = await runRuntimeReleaseAudit(baseOptions);
+    const invalidIssue = invalid.blockers.find((issue) => issue.code === "codex_workspace_registry_invalid");
+    assert.equal(invalidIssue?.error_code, "workspace_allowed_project_ids_invalid");
+    assert.equal(JSON.stringify(invalid).toLowerCase().includes("private-pc-marker"), false);
+
+    writeFileSync(registryPath, JSON.stringify({
+      schema: "dev_erp.codex_workspace_registry.v1",
+      machine_id: "runtime-test",
+      trust_domain_id: "runtime-test-domain",
+      workspaces: [{
+        workspace_id: "project_a",
+        label: "Project A",
+        root_kind: "unc",
+        root: privateUncRoot,
+        default_access: "read-only",
+        enabled: true,
+        allowed_project_ids: ["P26-014"],
+        allowed_roles: ["admin"],
+      }],
+    }));
+    const unavailable = await runRuntimeReleaseAudit({
+      ...baseOptions,
+      workspaceProbe: async () => false,
+      workspaceProbeTimeoutMs: 100,
+    });
+    const unavailableIssue = unavailable.blockers.find((issue) => issue.code === "codex_workspace_unavailable");
+    assert.ok(unavailable.blockers.some((issue) => issue.code === "codex_share_boundary_receipt_missing"));
+    assert.equal(unavailableIssue?.count, 1);
+    assert.deepEqual(unavailableIssue?.workspaces, [{
+      workspace_id: "project_a",
+      status: "blocked",
+      error_code: "workspace_offline",
+    }]);
+    assert.equal(JSON.stringify(unavailable).toLowerCase().includes("private-pc-marker"), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -1099,20 +1649,31 @@ test("server: ERP status buttons emit AX work lifecycle hooks", async () => {
   try {
     const codexHome = join(root, "codex-home");
     mkdirSync(codexHome, { recursive: true });
+    const workspaceRoot = join(root, "team", "approved", "work-hooks");
+    const workspaceRegistry = join(root, "codex-workspaces.runtime.json");
+    mkdirSync(workspaceRoot, { recursive: true });
+    writeFileSync(workspaceRegistry, JSON.stringify({
+      schema: "dev_erp.codex_workspace_registry.v1",
+      machine_id: "work-hooks-test",
+      trust_domain_id: "work-hooks-domain",
+      workspaces: [{ workspace_id: "work_hooks", label: "Work hooks fixture", root_kind: "local", root: workspaceRoot, allowed_project_ids: ["P26-HOOK"], allowed_roles: ["admin"] }],
+    }));
     const dbPath = join(root, "work-hooks.db");
     const port = await freePort();
     const srv = await startDevErpServer(["--db", dbPath, "--port", String(port)], {
       DEV_ERP_CODEX_TASK_BRIDGE: "mock",
       DEV_ERP_CODEX_SERVICE_TIER: "",
-      CODEX_HOME: codexHome,
+      DEV_ERP_CODEX_WORKSPACE_REGISTRY: workspaceRegistry,
+      DEV_ERP_CODEX_HOME: codexHome,
     });
     const base = `http://127.0.0.1:${port}`;
+    let cookie = "";
     const postJson = (path, body) => fetch(`${base}${path}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
       body: JSON.stringify(body),
     });
-    const eventsOf = async (kind) => (await (await fetch(`${base}/api/events/audit?limit=100&kind=${encodeURIComponent(kind)}`)).json()).events;
+    const eventsOf = async (kind) => (await (await fetch(`${base}/api/events/audit?limit=100&kind=${encodeURIComponent(kind)}`, { headers: { cookie } })).json()).events;
     const waitForEvent = async (kind, itemId) => {
       for (let i = 0; i < 40; i += 1) {
         const found = (await eventsOf(kind)).find((e) => e.item_ref === itemId);
@@ -1123,6 +1684,7 @@ test("server: ERP status buttons emit AX work lifecycle hooks", async () => {
     };
     try {
       await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      cookie = await bootstrapAdminSession(base);
       let r = await postJson("/api/projects", { id: "P26-HOOK", title: "Hook Project" });
       assert.equal(r.status, 200);
       r = await postJson("/api/items", { project_id: "P26-HOOK", title: "AX hook task", completion_criteria: "criteria captured" });
@@ -1145,7 +1707,7 @@ test("server: ERP status buttons emit AX work lifecycle hooks", async () => {
       assert.equal(started.to_val, "doing");
       assert.deepEqual(started.used_refs, ["items"]);
 
-      r = await postJson("/api/codex-task/open", { item_id: item.id });
+      r = await postJson("/api/codex-task/open", { item_id: item.id, workspace_id: "work_hooks" });
       assert.equal(r.status, 200);
       r = await postJson("/api/items/status", { id: item.id, status: "done" });
       assert.equal(r.status, 200);
@@ -1154,14 +1716,16 @@ test("server: ERP status buttons emit AX work lifecycle hooks", async () => {
       assert.equal(completed.to_val, "done");
       assert.deepEqual(completed.used_refs, ["items", "completion_log", "codex_thread_binding"]);
       assert.match(completed.note, /completion_log_id=\d+/);
-      assert.match(completed.note, /codex_thread_id=/);
+      assert.match(completed.note, /codex_thread_open=1/);
+      assert.doesNotMatch(completed.note, /codex_thread_id=/);
       const skipped = await waitForEvent("completion_hook_skipped", item.id);
       assert.ok(skipped, "Codex conversation without local Ollama records a metadata-only hook skip");
       assert.equal(skipped.to_val, "llm_unavailable");
       assert.deepEqual(skipped.used_refs, ["completion_log", "codex_thread_binding", "codex_thread_message"]);
       assert.match(skipped.note, /phase=llm_unavailable/);
       assert.match(skipped.note, /completion_log_id=\d+/);
-      assert.match(skipped.note, /codex_thread_id=/);
+      assert.match(skipped.note, /codex_thread_open=1/);
+      assert.doesNotMatch(skipped.note, /codex_thread_id=/);
       assert.match(skipped.note, /codex_last_message_id=\d+/);
 
       r = await postJson("/api/items/status", { id: item.id, status: "done" });
@@ -1316,6 +1880,24 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
   const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-task-"));
   try {
     const codexHome = join(root, "codex-home");
+    const sharedWorkspace = join(root, "team", "approved", "project-a");
+    mkdirSync(join(sharedWorkspace, "Output"), { recursive: true });
+    const workspaceRegistryPath = join(root, "codex-workspaces.runtime.json");
+    writeFileSync(workspaceRegistryPath, JSON.stringify({
+      schema: "dev_erp.codex_workspace_registry.v1",
+      machine_id: "test-runtime",
+      trust_domain_id: "test-runtime-domain",
+      workspaces: [{
+        workspace_id: "project_a",
+        label: "Project A shared workspace",
+        root_kind: "local",
+        root: sharedWorkspace,
+        default_access: "read-only",
+        allowed_project_ids: ["P00-000_INBOX"],
+        allowed_roles: ["admin"],
+        allowed_write_prefixes: ["Output"],
+      }],
+    }));
     mkdirSync(join(codexHome, "skills", "test-skill"), { recursive: true });
     writeFileSync(join(codexHome, "skills", "test-skill", "SKILL.md"), "---\nname: test-skill\ndescription: Test skill for ERP task chat.\n---\n");
     const port = await freePort();
@@ -1326,46 +1908,153 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       DEV_ERP_CODEX_TASK_ALLOW_FAST: "0",
       DEV_ERP_CODEX_TASK_MODEL: "gpt-5.5",
       DEV_ERP_CODEX_TASK_EFFORT: "medium",
+      DEV_ERP_CODEX_WORKSPACE_REGISTRY: workspaceRegistryPath,
       DEV_ERP_CODEX_TASK_SERVICE_TIER: "flex",
       DEV_ERP_CODEX_SERVICE_TIER: "",
-      CODEX_HOME: codexHome,
+      DEV_ERP_CODEX_HOME: codexHome,
+      DEV_ERP_CODEX_ALLOWED_SKILLS: "test-skill",
     });
     const base = `http://127.0.0.1:${port}`;
     try {
       await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      const anonymousCodex = await fetch(`${base}/api/codex-task/open`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ item_id: "anonymous-probe", workspace_id: "project_a" }),
+      });
+      assert.equal(anonymousCodex.status, 409);
+      assert.equal((await anonymousCodex.json()).error, "codex_auth_bootstrap_required");
+      const cookie = await bootstrapAdminSession(base);
+      const authFetch = (path, options = {}) => fetch(`${base}${path}`, {
+        ...options,
+        headers: { ...(options.headers || {}), cookie },
+      });
       const version = await (await fetch(`${base}/api/version`)).json();
       assert.equal(version.runtime.codex_task.mode, "mock");
       assert.equal("cwd" in version.runtime.codex_task, false);
 
-      const items = await (await fetch(`${base}/api/items`)).json();
+      const items = await (await authFetch("/api/items")).json();
       const item = items.find((x) => x.status !== "archived");
       assert.ok(item?.id);
+      writeFileSync(workspaceRegistryPath, JSON.stringify({
+        schema: "dev_erp.codex_workspace_registry.v1",
+        machine_id: "test-runtime",
+        trust_domain_id: "test-runtime-domain",
+        workspaces: [{
+          workspace_id: "project_a",
+          label: "Project A shared workspace",
+          root_kind: "local",
+          root: sharedWorkspace,
+          default_access: "read-only",
+          allowed_project_ids: [item.project_id],
+          allowed_roles: ["admin"],
+          allowed_write_prefixes: ["Output"],
+        }],
+      }));
       // 저장 규칙: item 의 과제 워크스페이스 폴더를 만들어 두면 대화첨부/<할일명 축약> 경로가 선택된다.
       mkdirSync(join(root, "ws", item.project_id), { recursive: true });
 
-      let caps = await (await fetch(`${base}/api/codex-task/capabilities`)).json();
-      assert.deepEqual(caps.defaults, { model: "gpt-5.5", effort: "medium", service_tier: "" });
-      assert.deepEqual(caps.model_options, ["gpt-5.5", "gpt-5.4", "gpt-5.3"]);
+      let caps = await (await authFetch(`/api/codex-task/capabilities?item_id=${encodeURIComponent(item.id)}`)).json();
+      assert.deepEqual(caps.defaults, { model: "gpt-5.5", effort: "medium", service_tier: "", workspace_id: null });
+      assert.deepEqual(caps.model_options, ["gpt-5.5"]);
       assert.deepEqual(caps.effort_options, ["low", "medium", "high", "xhigh"]);
       assert.deepEqual(caps.service_tier_options, []); // 속도(tier) 제거 — codex 기본값
+      assert.equal(caps.model_catalog_source, "fallback");
+      assert.equal(caps.model_catalog[0].slug, "gpt-5.5");
+      assert.equal(caps.workspace_registry.configured, true);
+      assert.equal(caps.workspace_registry.default_workspace_id, null);
+      assert.equal(caps.workspace_registry.workspaces[0].label, "Project A shared workspace");
+      assert.equal(JSON.stringify(caps.workspace_registry).includes(sharedWorkspace), false);
       assert.equal(caps.attachments.local_image, true);
       // 2026-07-03 owner 지시로 정책 전환: allowlist 파일 첨부 허용(로컬 저장 + 경로 참조, payload 미전송)
       assert.equal(caps.attachments.arbitrary_file, true);
       assert.ok(Array.isArray(caps.attachments.file_exts) && caps.attachments.file_exts.includes(".pdf"));
       assert.ok(caps.attachments.max_file_bytes > 0);
       assert.ok(caps.skills.some((s) => s.name === "test-skill"));
+      assert.equal(caps.skills.some((s) => "path" in s), false);
 
-      let r = await fetch(`${base}/api/codex-task/open`, {
+      let r = await authFetch("/api/codex-task/open", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ item_id: item.id }),
+        body: JSON.stringify({ item_id: item.id, workspace_id: "project_a" }),
       });
       let body = await r.json();
       assert.equal(r.status, 200);
-      assert.equal(body.binding.thread_id, `mock_${item.id}`);
+      assert.equal(body.binding.opened, true);
+      assert.equal(body.binding.workspace_id, "project_a");
+      assert.deepEqual(Object.keys(body.binding).sort(), ["item_id", "mode", "opened", "sync_state", "thread_title", "workspace_id"]);
+      assert.equal("thread_id" in body.binding, false);
+      assert.equal("workspace_revision" in body.binding, false);
+      assert.equal("workspace_root_fingerprint" in body.binding, false);
+      assert.equal(body.workspace.label, "Project A shared workspace");
+      assert.equal(body.workspace_access, "read-only");
       assert.ok(body.messages.some((m) => m.role === "assistant"));
 
-      r = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=test.png`, {
+      r = await authFetch("/api/codex-task/message", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ item_id: item.id, workspace_id: "project_a", message: "x".repeat(70 * 1024) }),
+      });
+      assert.equal(r.status, 413);
+      assert.equal((await r.json()).error, "codex_message_too_large");
+      r = await authFetch("/api/codex-task/message", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ item_id: item.id, workspace_id: "project_a", message: "ok", padding: "x".repeat(300 * 1024) }),
+      });
+      assert.equal(r.status, 413);
+      assert.equal((await r.json()).error, "request_too_large");
+
+      r = await authFetch("/api/codex-task/full-access", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item_id: item.id, on: true }),
+      });
+      assert.equal(r.status, 410);
+      assert.equal((await r.json()).error, "codex_full_access_disabled");
+
+      r = await authFetch("/api/codex-task/write-grant", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ item_id: item.id, relative_prefix: "Drafts", reason: "outside static policy", ttl_minutes: 60 }),
+      });
+      assert.equal(r.status, 400);
+      assert.equal((await r.json()).error, "workspace_write_prefix_forbidden");
+
+      r = await authFetch("/api/codex-task/write-grant", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ item_id: item.id, relative_prefix: "Output", reason: "synthetic test", ttl_minutes: 60 }),
+      });
+      body = await r.json();
+      assert.equal(r.status, 200);
+      assert.equal(body.workspace_access, "write-approved");
+      assert.equal(body.write_grants[0].relative_prefix, "Output");
+      const writeGrantId = body.write_grants[0].grant_id;
+
+      const attachmentRoot = join(root, "codex-task-attachments");
+      const outsideAttachmentDir = join(root, "outside-attachment-target");
+      const itemAttachmentDir = join(attachmentRoot, item.id.replace(/[^A-Za-z0-9_.-]+/g, "_").slice(0, 80));
+      mkdirSync(attachmentRoot, { recursive: true });
+      mkdirSync(outsideAttachmentDir, { recursive: true });
+      let linkedAttachmentDir = false;
+      try {
+        symlinkSync(outsideAttachmentDir, itemAttachmentDir, process.platform === "win32" ? "junction" : "dir");
+        linkedAttachmentDir = true;
+      } catch (error) {
+        if (!isSymlinkPrivilegeError(error)) throw error;
+      }
+      if (linkedAttachmentDir) {
+        r = await authFetch(`/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=escape.txt`, {
+          method: "POST",
+          headers: { "content-type": "text/plain" },
+          body: new TextEncoder().encode("must not escape"),
+        });
+        assert.equal(r.status, 400);
+        assert.equal((await r.json()).error, "unsafe_attachment_dir");
+        assert.deepEqual(readdirSync(outsideAttachmentDir), []);
+        rmSync(itemAttachmentDir, { recursive: true, force: true });
+      }
+
+      r = await authFetch(`/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=test.png`, {
         method: "POST",
         headers: { "content-type": "image/png" },
         body: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
@@ -1373,14 +2062,12 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       const upload = await r.json();
       assert.equal(r.status, 200);
       assert.equal(upload.attachment.type, "localImage");
-      // 저장 규칙(CHAT_ATTACHMENT_STORAGE_V0): 과제 워크스페이스가 있으면 대화첨부/<할일명 축약>/원본명
-      assert.equal(upload.attachment.storage, "project");
-      assert.match(upload.attachment.path, /대화첨부/);
-      assert.match(upload.attachment.path, /test\.png$/); // timestamp/uuid 접두 없이 원본명 유지
-      assert.match(String(upload.attachment.sha256 || ""), /^[0-9a-f]{64}$/);
+      assert.match(upload.attachment.attachment_id, /^att_[A-Za-z0-9_-]{32}$/);
+      assert.deepEqual(Object.keys(upload.attachment).sort(), ["attachment_id", "name", "size", "type"]);
+      assert.equal(JSON.stringify(upload).includes(root), false);
 
       // 일반 파일(allowlist) → localFile 저장 + manifest 기록. 실행형 확장자는 400 차단.
-      r = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=spec.txt`, {
+      r = await authFetch(`/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=spec.txt`, {
         method: "POST",
         headers: { "content-type": "text/plain" },
         body: new TextEncoder().encode("synthetic spec"),
@@ -1388,39 +2075,69 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       const fileUpload = await r.json();
       assert.equal(r.status, 200);
       assert.equal(fileUpload.attachment.type, "localFile");
-      assert.equal(fileUpload.attachment.storage, "project");
-      assert.match(fileUpload.attachment.path, /대화첨부/);
-      const manifest = JSON.parse(readFileSync(join(dirname(fileUpload.attachment.path), "첨부_manifest.json"), "utf8"));
+      assert.match(fileUpload.attachment.attachment_id, /^att_[A-Za-z0-9_-]{32}$/);
+      assert.equal(JSON.stringify(fileUpload).includes(root), false);
+      const manifestPath = findNamedFile(join(root, "codex-task-attachments"), "codex-attachment-manifest.v1.json");
+      assert.ok(manifestPath);
+      const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
       assert.equal(manifest.item_id, item.id);
-      assert.equal(manifest.files.length >= 2, true); // 이미지 + 파일
-      assert.ok(manifest.files.every((f) => /^[0-9a-f]{64}$/.test(f.sha256)));
+      assert.equal(manifest.attachments.length >= 2, true); // 이미지 + 파일
+      assert.ok(manifest.attachments.every((f) => /^[0-9a-f]{64}$/.test(f.sha256)));
 
-      // 과제 워크스페이스 폴더가 없는 할일 → legacy 폴백 경로
+      // 첨부는 열린/권한확인된 Codex 스레드에만 허용한다.
       const otherItem = items.find((x) => x.status !== "archived" && x.project_id !== item.project_id);
       if (otherItem) {
-        r = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(otherItem.id)}&filename=fb.txt`, {
+        r = await authFetch(`/api/codex-task/attachment?item_id=${encodeURIComponent(otherItem.id)}&filename=fb.txt`, {
           method: "POST",
           headers: { "content-type": "text/plain" },
           body: new TextEncoder().encode("fallback"),
         });
-        const fb = await r.json();
-        assert.equal(r.status, 200);
-        assert.equal(fb.attachment.storage, "fallback");
-        assert.match(fb.attachment.path, /codex-task-attachments/);
+        assert.equal(r.status, 409);
+        assert.equal((await r.json()).error, "codex_thread_not_open");
       }
-      r = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=run.exe`, {
+      r = await authFetch(`/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=source.hwp`, {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream" },
+        body: new Uint8Array([0x48, 0x57, 0x50]),
+      });
+      assert.equal(r.status, 400);
+      assert.equal((await r.json()).error, "hwp_preprocess_required");
+      r = await authFetch(`/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=run.exe`, {
         method: "POST",
         headers: { "content-type": "application/octet-stream" },
         body: new Uint8Array([0x4d, 0x5a]),
       });
       assert.equal(r.status, 400);
       assert.equal((await r.json()).error, "unsupported_attachment_type");
+      r = await authFetch(`/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=COM1.txt`, {
+        method: "POST",
+        headers: { "content-type": "text/plain" },
+        body: new TextEncoder().encode("reserved"),
+      });
+      assert.equal(r.status, 400);
+      assert.equal((await r.json()).error, "attachment_name_invalid");
 
-      r = await fetch(`${base}/api/codex-task/message`, {
+      r = await authFetch("/api/codex-task/message", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           item_id: item.id,
+          workspace_id: "project_a",
+          message: "forged attachment path must fail",
+          model: "gpt-5.5",
+          effort: "medium",
+          attachments: [{ ...upload.attachment, path: windowsAbsolute("private", "forged.png") }],
+        }),
+      });
+      assert.equal(r.status, 400);
+      assert.equal((await r.json()).error, "client_attachment_path_forbidden");
+
+      r = await authFetch("/api/codex-task/message", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          item_id: item.id,
+          workspace_id: "project_a",
           message: "/test-skill 다음 액션 정리해줘",
           model: "gpt-5.5",
           effort: "xhigh",
@@ -1431,7 +2148,372 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
       body = await r.json();
       assert.equal(r.status, 200);
       assert.deepEqual(body.messages.slice(-2).map((m) => m.role), ["user", "assistant"]);
+      assert.equal(JSON.stringify(body).includes(root), false);
+      assert.equal(JSON.stringify(body).includes(sharedWorkspace), false);
+      assert.equal("assignee_memory" in body.item, false);
+      assert.equal("input_refs" in body.item, false);
+      assert.equal("knowledge_refs" in body.item, false);
+      assert.deepEqual(Object.keys(body.item).sort(), [
+        "assignee_ref", "completion_criteria", "due", "id", "project_id", "status", "title", "work_type",
+      ]);
       assert.equal(body.binding.item_id, item.id);
+      assert.equal(body.workspace_access, "write-approved");
+      const db = new DatabaseSync(join(root, "codex-task.db"));
+      let internalThreadId;
+      try {
+        const audit = db.prepare("SELECT workspace_id,sandbox_mode,grant_refs,outcome FROM codex_turn_audit WHERE item_id=? ORDER BY id DESC LIMIT 1").get(item.id);
+        assert.equal(audit.workspace_id, "project_a");
+        assert.equal(audit.sandbox_mode, "workspace-write");
+        assert.equal(JSON.parse(audit.grant_refs).length, 1);
+        assert.equal(audit.outcome, "completed");
+        internalThreadId = db.prepare("SELECT thread_id FROM codex_thread_binding WHERE item_id=?").get(item.id)?.thread_id;
+        assert.ok(internalThreadId);
+      } finally { db.close(); }
+      const recentEvents = await (await authFetch("/api/events/recent?limit=100")).json();
+      const auditEvents = await (await authFetch("/api/events/audit?limit=100")).json();
+      assert.equal(JSON.stringify(recentEvents).includes(internalThreadId), false);
+      assert.equal(JSON.stringify(auditEvents).includes(internalThreadId), false);
+      assert.equal(JSON.stringify(recentEvents).includes("codex_thread_id="), false);
+      assert.ok(recentEvents.some((event) => event.kind === "codex_task_message" && event.to_val === "recorded"));
+
+      r = await authFetch("/api/codex-task/open", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ item_id: item.id, workspace_id: "project_a", cwd: sharedWorkspace }),
+      });
+      assert.equal(r.status, 400);
+      assert.equal((await r.json()).error, "raw_workspace_path_forbidden");
+
+      r = await authFetch("/api/codex-task/write-grant/revoke", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ grant_id: writeGrantId }),
+      });
+      body = await r.json();
+      assert.equal(r.status, 200);
+      assert.equal(body.workspace_access, "read-only");
+      assert.deepEqual(body.write_grants, []);
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      writeFileSync(workspaceRegistryPath, JSON.stringify({
+        schema: "dev_erp.codex_workspace_registry.v1",
+        machine_id: "test-runtime",
+        trust_domain_id: "test-runtime-domain",
+        workspaces: [{ workspace_id: "project_a", label: "Project A renamed", root_kind: "local", root: sharedWorkspace, allowed_project_ids: [item.project_id], allowed_roles: ["admin"], allowed_write_prefixes: ["Output"] }],
+      }));
+      r = await authFetch("/api/codex-task/message", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ item_id: item.id, workspace_id: "project_a", message: "label-only change must continue", model: "gpt-5.5", effort: "medium" }),
+      });
+      assert.equal(r.status, 200);
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      const remappedWorkspace = join(root, "team", "approved", "project-a-remapped");
+      mkdirSync(remappedWorkspace, { recursive: true });
+      writeFileSync(workspaceRegistryPath, JSON.stringify({
+        schema: "dev_erp.codex_workspace_registry.v1",
+        machine_id: "test-runtime",
+        trust_domain_id: "test-runtime-domain",
+        workspaces: [{ workspace_id: "project_a", label: "Project A remapped", root_kind: "local", root: remappedWorkspace, allowed_project_ids: [item.project_id], allowed_roles: ["admin"], allowed_write_prefixes: ["Output"] }],
+      }));
+      r = await authFetch("/api/codex-task/message", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ item_id: item.id, workspace_id: "project_a", message: "mapping must fail closed", model: "gpt-5.5", effort: "medium" }),
+      });
+      assert.equal(r.status, 409);
+      assert.equal((await r.json()).error, "workspace_binding_revision_mismatch");
+    } finally {
+      await srv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("server: bound Codex thread and attachments enforce current workspace principal authorization", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-principal-"));
+  try {
+    const codexHome = join(root, "codex-home");
+    const workspaceRoot = join(root, "team", "approved", "principal-test");
+    const registryPath = join(root, "codex-workspaces.runtime.json");
+    mkdirSync(codexHome, { recursive: true });
+    mkdirSync(workspaceRoot, { recursive: true });
+    const writeRegistry = ({ projectId, accountIds }) => writeFileSync(registryPath, JSON.stringify({
+      schema: "dev_erp.codex_workspace_registry.v1",
+      machine_id: "principal-test",
+      trust_domain_id: "principal-test-domain",
+      workspaces: [{
+        workspace_id: "principal_test",
+        label: "Principal test",
+        root_kind: "local",
+        root: workspaceRoot,
+        allowed_project_ids: [projectId],
+        allowed_account_ids: accountIds,
+      }],
+    }));
+    writeRegistry({ projectId: "P00-000_INBOX", accountIds: ["bootstrap-owner"] });
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", join(root, "principal.db"), "--port", String(port), "--fixture"], {
+      DEV_ERP_CODEX_TASK_BRIDGE: "mock",
+      DEV_ERP_CODEX_WORKSPACE_REGISTRY: registryPath,
+      DEV_ERP_CODEX_HOME: codexHome,
+      DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT: join(root, "attachments"),
+    });
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      const ownerCookie = await bootstrapAdminSession(base);
+      const ownerProfile = await (await fetch(`${base}/api/me`, { headers: { cookie: ownerCookie } })).json();
+      let items = await (await fetch(`${base}/api/items`, { headers: { cookie: ownerCookie } })).json();
+      let item = items.find((row) => row.status === "unclassified");
+      if (!item) {
+        const projectId = items[0].project_id;
+        const created = await fetch(`${base}/api/items`, {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: ownerCookie },
+          body: JSON.stringify({ project_id: projectId, title: "Principal scope fixture", status: "unclassified" }),
+        });
+        assert.equal(created.status, 200);
+        item = (await created.json()).item;
+      }
+      writeRegistry({ projectId: item.project_id, accountIds: [ownerProfile.account.id] });
+
+      let response = await fetch(`${base}/api/codex-task/open`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: ownerCookie },
+        body: JSON.stringify({ item_id: item.id, workspace_id: "principal_test" }),
+      });
+      assert.equal(response.status, 200);
+      const openedState = await response.json();
+      assert.equal(openedState.binding?.opened, true);
+
+      response = await fetch(`${base}/api/accounts`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: ownerCookie },
+        body: JSON.stringify({ username: "member", password: "memberpass", display_name: "Member", role: "member" }),
+      });
+      assert.equal(response.status, 200);
+      const createdMember = await response.json();
+      assert.ok(createdMember.id);
+      response = await fetch(`${base}/api/items/assign`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: ownerCookie },
+        body: JSON.stringify({ id: item.id, assignee_ref: "Member" }),
+      });
+      assert.equal(response.status, 200);
+      response = await fetch(`${base}/api/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: "member", password: "memberpass" }),
+      });
+      assert.equal(response.status, 200);
+      const memberCookie = response.headers.get("set-cookie")?.split(";")[0] || "";
+      const memberItems = await (await fetch(`${base}/api/items`, { headers: { cookie: memberCookie } })).json();
+      assert.ok(memberItems.some((row) => row.id === item.id), "fixture must be item-visible before workspace authorization");
+
+      writeRegistry({ projectId: item.project_id, accountIds: [ownerProfile.account.id, createdMember.id] });
+      response = await fetch(`${base}/api/codex-task/thread?item_id=${encodeURIComponent(item.id)}`, { headers: { cookie: memberCookie } });
+      assert.equal(response.status, 200);
+      const preservedTimes = statSync(registryPath);
+      writeRegistry({ projectId: item.project_id, accountIds: [ownerProfile.account.id] });
+      utimesSync(registryPath, preservedTimes.atime, preservedTimes.mtime);
+      response = await fetch(`${base}/api/codex-task/thread?item_id=${encodeURIComponent(item.id)}`, { headers: { cookie: memberCookie } });
+      assert.equal(response.status, 403);
+      assert.deepEqual(await response.json(), { error: "codex_workspace_forbidden" });
+      response = await fetch(`${base}/api/codex-task/attachment?item_id=${encodeURIComponent(item.id)}&filename=denied.txt`, {
+        method: "POST",
+        headers: { "content-type": "text/plain", cookie: memberCookie },
+        body: new TextEncoder().encode("must not be stored"),
+      });
+      assert.equal(response.status, 403);
+      assert.equal((await response.json()).error, "codex_workspace_forbidden");
+      const caps = await (await fetch(`${base}/api/codex-task/capabilities?item_id=${encodeURIComponent(item.id)}`, { headers: { cookie: memberCookie } })).json();
+      assert.deepEqual(caps.workspace_registry.workspaces, []);
+      response = await fetch(`${base}/api/proposals`, { headers: { cookie: memberCookie } });
+      assert.equal(response.status, 403);
+      assert.deepEqual(await response.json(), { error: "admin_only" });
+    } finally {
+      await srv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("server: Codex admission is item/global bounded and shutdown leaves no started audit", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-admission-"));
+  try {
+    const codexHome = join(root, "codex-home");
+    const workspaceRoot = join(root, "team", "approved", "admission-test");
+    const registryPath = join(root, "codex-workspaces.runtime.json");
+    const dbPath = join(root, "admission.db");
+    mkdirSync(codexHome, { recursive: true });
+    mkdirSync(workspaceRoot, { recursive: true });
+    const writeRegistry = (projectIds) => writeFileSync(registryPath, JSON.stringify({
+      schema: "dev_erp.codex_workspace_registry.v1",
+      machine_id: "admission-test",
+      trust_domain_id: "admission-test-domain",
+      workspaces: [{
+        workspace_id: "admission_test",
+        label: "Admission test",
+        root_kind: "local",
+        root: workspaceRoot,
+        allowed_project_ids: [...new Set(projectIds)],
+        allowed_roles: ["admin"],
+      }],
+    }));
+    writeRegistry(["P00-000_INBOX"]);
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", dbPath, "--port", String(port), "--fixture"], {
+      DEV_ERP_CODEX_TASK_BRIDGE: "mock",
+      DEV_ERP_CODEX_MOCK_DELAY_MS: "250",
+      DEV_ERP_CODEX_WORKSPACE_REGISTRY: registryPath,
+      DEV_ERP_CODEX_HOME: codexHome,
+      DEV_ERP_CODEX_GLOBAL_CONCURRENCY: "2",
+      DEV_ERP_CODEX_ACCOUNT_CONCURRENCY: "1",
+    });
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      const cookie = await bootstrapAdminSession(base);
+      const items = (await (await fetch(`${base}/api/items`, { headers: { cookie } })).json())
+        .filter((row) => row.status !== "archived").slice(0, 2);
+      assert.equal(items.length, 2);
+      writeRegistry(items.map((row) => row.project_id));
+      const post = (path, body) => fetch(`${base}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie },
+        body: JSON.stringify(body),
+      });
+
+      const opens = await Promise.all(items.map((item) => post("/api/codex-task/open", {
+        item_id: item.id,
+        workspace_id: "admission_test",
+      })));
+      assert.deepEqual(opens.map((response) => response.status).sort((a, b) => a - b), [200, 429]);
+      const openBodies = await Promise.all(opens.map((response) => response.json()));
+      assert.ok(openBodies.some((body) => body.error === "codex_account_concurrency_limit"));
+      const openedIndex = opens.findIndex((response) => response.status === 200);
+      const openedItem = items[openedIndex];
+
+      const messages = await Promise.all([
+        post("/api/codex-task/message", { item_id: openedItem.id, workspace_id: "admission_test", message: "first concurrent message" }),
+        post("/api/codex-task/message", { item_id: openedItem.id, workspace_id: "admission_test", message: "second concurrent message" }),
+      ]);
+      assert.deepEqual(messages.map((response) => response.status).sort((a, b) => a - b), [200, 409]);
+      const messageBodies = await Promise.all(messages.map((response) => response.json()));
+      assert.ok(messageBodies.some((body) => body.error === "codex_turn_already_active"));
+
+      const db = new DatabaseSync(dbPath, { readOnly: true });
+      try {
+        const storedMessages = db.prepare("SELECT text,payload_ref,payload_byte_length,payload_sha256 FROM codex_thread_message WHERE item_id=?").all(openedItem.id);
+        assert.ok(storedMessages.length >= 4);
+        assert.ok(storedMessages.every((row) => row.text === row.payload_ref && /^cmp_/.test(row.payload_ref)));
+        assert.equal(JSON.stringify(storedMessages).includes("concurrent message"), false);
+      } finally { db.close(); }
+
+      const pending = post("/api/codex-task/message", {
+        item_id: openedItem.id,
+        workspace_id: "admission_test",
+        message: "shutdown audit fixture",
+      }).then((response) => ({ response }), (error) => ({ error }));
+      let observedStarted = false;
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        const probe = new DatabaseSync(dbPath, { readOnly: true });
+        try {
+          observedStarted = Number(probe.prepare("SELECT COUNT(*) AS n FROM codex_turn_audit WHERE item_id=? AND outcome='started'").get(openedItem.id)?.n || 0) > 0;
+        } finally { probe.close(); }
+        if (observedStarted) break;
+        await new Promise((resolveWait) => setTimeout(resolveWait, 25));
+      }
+      assert.equal(observedStarted, true);
+      srv.child.kill();
+      await new Promise((resolveExit) => srv.child.once("exit", resolveExit));
+      await pending;
+      const crashDb = new DatabaseSync(dbPath, { readOnly: true });
+      try {
+        assert.ok(crashDb.prepare("SELECT 1 FROM codex_turn_audit WHERE item_id=? AND outcome IN ('started','failed')").get(openedItem.id), "authorization audit must exist even after forced termination");
+      } finally { crashDb.close(); }
+
+      const recoveryPort = await freePort();
+      const recovery = await startDevErpServer(["--db", dbPath, "--port", String(recoveryPort)], {
+        DEV_ERP_CODEX_TASK_BRIDGE: "mock",
+        DEV_ERP_CODEX_WORKSPACE_REGISTRY: registryPath,
+        DEV_ERP_CODEX_HOME: codexHome,
+        DEV_ERP_CODEX_ACCOUNT_TURNS_PER_HOUR: "1",
+      });
+      try {
+        const recoveryBase = `http://127.0.0.1:${recoveryPort}`;
+        await waitForHttp(`${recoveryBase}/api/health`, recovery.child, recovery.stderr);
+        const recoveryLogin = await fetch(`${recoveryBase}/api/auth/login`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username: "owner", password: "ownerpass123" }),
+        });
+        assert.equal(recoveryLogin.status, 200);
+        const recoveryCookie = recoveryLogin.headers.get("set-cookie")?.split(";")[0] || "";
+        assert.ok(recoveryCookie);
+        const firstAfterRestart = await fetch(`${recoveryBase}/api/codex-task/message`, {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: recoveryCookie },
+          body: JSON.stringify({ item_id: openedItem.id, workspace_id: "admission_test", message: "rate window first turn" }),
+        });
+        assert.equal(firstAfterRestart.status, 200);
+        const rateLimited = await fetch(`${recoveryBase}/api/codex-task/message`, {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: recoveryCookie },
+          body: JSON.stringify({ item_id: openedItem.id, workspace_id: "admission_test", message: "rate window second turn" }),
+        });
+        assert.equal(rateLimited.status, 429);
+        assert.equal((await rateLimited.json()).error, "codex_account_rate_limit");
+        assert.ok(Number(rateLimited.headers.get("retry-after")) >= 1);
+      } finally {
+        await recovery.stop();
+      }
+
+      const globalPort = await freePort();
+      const globalGate = await startDevErpServer(["--db", dbPath, "--port", String(globalPort)], {
+        DEV_ERP_CODEX_TASK_BRIDGE: "mock",
+        DEV_ERP_CODEX_MOCK_DELAY_MS: "250",
+        DEV_ERP_CODEX_WORKSPACE_REGISTRY: registryPath,
+        DEV_ERP_CODEX_HOME: codexHome,
+        DEV_ERP_CODEX_GLOBAL_CONCURRENCY: "1",
+        DEV_ERP_CODEX_ACCOUNT_CONCURRENCY: "1",
+        DEV_ERP_CODEX_ACCOUNT_TURNS_PER_HOUR: "100",
+      });
+      try {
+        const globalBase = `http://127.0.0.1:${globalPort}`;
+        await waitForHttp(`${globalBase}/api/health`, globalGate.child, globalGate.stderr);
+        const login = await fetch(`${globalBase}/api/auth/login`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ username: "owner", password: "ownerpass123" }),
+        });
+        assert.equal(login.status, 200);
+        const globalCookie = login.headers.get("set-cookie")?.split(";")[0] || "";
+        const globalPost = (path, body) => fetch(`${globalBase}${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: globalCookie },
+          body: JSON.stringify(body),
+        });
+        const pair = await Promise.all([
+          globalPost("/api/codex-task/message", { item_id: openedItem.id, workspace_id: "admission_test", message: "global gate message" }),
+          globalPost("/api/codex-task/open", { item_id: items[1 - openedIndex].id, workspace_id: "admission_test" }),
+        ]);
+        assert.deepEqual(pair.map((response) => response.status).sort((a, b) => a - b), [200, 429]);
+        const pairBodies = await Promise.all(pair.map((response) => response.json()));
+        assert.ok(pairBodies.some((payload) => payload.error === "codex_global_concurrency_limit"));
+        assert.ok(pair.some((response) => response.status === 429 && Number(response.headers.get("retry-after")) >= 1));
+      } finally {
+        await globalGate.stop();
+      }
+      const finalDb = new DatabaseSync(dbPath, { readOnly: true });
+      try {
+        assert.equal(finalDb.prepare("SELECT COUNT(*) AS n FROM codex_turn_audit WHERE outcome='started'").get()?.n, 0);
+        assert.ok(finalDb.prepare("SELECT 1 FROM codex_turn_audit WHERE item_id=? AND outcome='failed' AND error_code IN ('codex_turn_aborted','service_sigterm','service_restart')").get(openedItem.id));
+      } finally { finalDb.close(); }
     } finally {
       await srv.stop();
     }
@@ -1443,15 +2525,33 @@ test("server: Codex task mock bridge opens a separate task thread API", async ()
 test("server: Codex task service tier 제거 — ALLOW_FAST 여도 tier 옵션 없음(fast 못 켬)", async () => {
   const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-tier-"));
   try {
+    const codexHome = join(root, "codex-home");
+    const workspaceRoot = join(root, "team", "approved", "tier-test");
+    const registryPath = join(root, "codex-workspaces.runtime.json");
+    mkdirSync(codexHome, { recursive: true });
+    mkdirSync(workspaceRoot, { recursive: true });
+    const writeRegistry = (projectId) => writeFileSync(registryPath, JSON.stringify({
+      schema: "dev_erp.codex_workspace_registry.v1",
+      machine_id: "tier-test",
+      trust_domain_id: "tier-test-domain",
+      workspaces: [{ workspace_id: "tier_test", label: "Tier test", root_kind: "local", root: workspaceRoot, allowed_project_ids: [projectId], allowed_roles: ["admin"] }],
+    }));
+    writeRegistry("P00-000_INBOX");
     const port = await freePort();
     const srv = await startDevErpServer(["--db", join(root, "codex-tier.db"), "--port", String(port), "--fixture"], {
       DEV_ERP_CODEX_TASK_BRIDGE: "mock",
       DEV_ERP_CODEX_TASK_ALLOW_FAST: "1",
+      DEV_ERP_CODEX_WORKSPACE_REGISTRY: registryPath,
+      DEV_ERP_CODEX_HOME: codexHome,
     });
     const base = `http://127.0.0.1:${port}`;
     try {
       await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
-      const caps = await (await fetch(`${base}/api/codex-task/capabilities`)).json();
+      const cookie = await bootstrapAdminSession(base);
+      const items = await (await fetch(`${base}/api/items`, { headers: { cookie } })).json();
+      const item = items.find((row) => row.status !== "archived");
+      writeRegistry(item.project_id);
+      const caps = await (await fetch(`${base}/api/codex-task/capabilities?item_id=${encodeURIComponent(item.id)}`, { headers: { cookie } })).json();
       // 속도(tier) 선택 자체를 제거 → ALLOW_FAST=1 이어도 옵션 없음. codex 기본 tier 사용.
       assert.deepEqual(caps.defaults.service_tier, "");
       assert.deepEqual(caps.service_tier_options, []);
@@ -1997,9 +3097,9 @@ test("DELIV-INPUT: 입력파일 등록·조회·상태 + 절대경로 거부 + �
   assert.ok(r.ok, "등록 ok");
   assert.equal(r.id, `${did}:abc123`);
   // 절대경로 거부 + traversal/백슬래시(적대적 검토: DB 에 불안전 포인터 저장 차단)
-  assert.equal(store.registerDeliverableInput({ deliverable_id: did, pointer: "/Volumes/x/a.pdf" }).error, "pointer_must_be_relative");
-  assert.equal(store.registerDeliverableInput({ deliverable_id: did, pointer: "C:\\x\\a.pdf" }).error, "pointer_must_be_relative");
-  assert.equal(store.registerDeliverableInput({ deliverable_id: did, pointer: "_workspaces/P26-014/../../etc/passwd" }).error, "pointer_must_be_relative", "traversal 포인터 저장 차단");
+  assert.equal(store.registerDeliverableInput({ deliverable_id: did, pointer: posixAbsolute("Volumes", "x", "a.pdf") }).error, "pointer_must_be_relative");
+  assert.equal(store.registerDeliverableInput({ deliverable_id: did, pointer: windowsAbsolute("x", "a.pdf") }).error, "pointer_must_be_relative");
+  assert.equal(store.registerDeliverableInput({ deliverable_id: did, pointer: ["_workspaces/P26-014/../..", "etc", "passwd"].join("/") }).error, "pointer_must_be_relative", "traversal 포인터 저장 차단");
   assert.equal(store.registerDeliverableInput({ deliverable_id: did, pointer: "_workspaces/P26-014\\evil" }).error, "pointer_must_be_relative", "백슬래시 차단");
   // 없는 산출물 / 누락
   assert.equal(store.registerDeliverableInput({ deliverable_id: "nope", file_name: "x" }).error, "deliverable_not_found");
@@ -2068,14 +3168,14 @@ test("INPUT-LEDGER: 입력파일 장부 write-through + import 왕복·키머지
 test("FILEVAULT: validateRelPointer/safeSegment 거부 규칙", () => {
   // 상대 포인터: 공격 벡터 전부 거부
   for (const [p, why] of [
-    ["", "empty"], ["/etc/passwd", "absolute"], ["C:\\x", "backslash"], ["..\\x", "backslash"],
+    ["", "empty"], [posixAbsolute("etc", "passwd"), "absolute"], [windowsAbsolute("x"), "backslash"], ["..\\x", "backslash"],
     ["_workspaces/../etc/passwd", "bad_segment"], ["_workspaces/P26-014/../../secret", "bad_segment"],
     ["etc/passwd", "outside_workspaces"], ["_workspaces", "too_shallow"], ["_workspaces/./x", "bad_segment"],
-    ["_workspaces/P26-014/ x", "control_char"],
+    ["_workspaces/P26-014/\0x", "control_char"],
   ]) assert.ok(validateRelPointer(p).error, `거부: ${p} (${why})`);
   assert.ok(validateRelPointer("_workspaces/P26-014/120_CDR/01_In/규격서.pdf").ok, "정상 포인터 통과");
   // 세그먼트: 분리자/점점/제어 거부
-  for (const s of ["..", ".", "a/b", "a\\b", "a b"]) assert.ok(safeSegment(s).error, `세그먼트 거부: ${s}`);
+  for (const s of ["..", ".", "a/b", "a\\b", "a\0b"]) assert.ok(safeSegment(s).error, `세그먼트 거부: ${s}`);
   assert.ok(safeSegment("규격서_v2.pdf").ok);
   assert.ok(safeSegment("", { allowEmpty: true }).ok, "빈 subfolder 허용");
 });
@@ -2090,7 +3190,7 @@ test("FILEVAULT: safeWorkspacePath — 봉쇄·심볼릭 탈출 차단·정상 �
   const okR = safeWorkspacePath(root, "_workspaces/P26-014/01_In/ok.pdf");
   assert.ok(okR.ok && existsSync(okR.path), "정상 서빙 경로");
   // 절대/탈출/미존재 거부
-  assert.ok(safeWorkspacePath(root, "/etc/passwd").error);
+  assert.ok(safeWorkspacePath(root, posixAbsolute("etc", "passwd")).error);
   assert.ok(safeWorkspacePath(root, "_workspaces/P26-014/../../secret/passwd").error, "../ 탈출 거부");
   assert.equal(safeWorkspacePath(root, "_workspaces/P26-014/01_In/none.pdf").error, "not_found");
   // 심볼릭 탈출: 과제 안에 _workspaces 밖으로 향하는 심볼릭 → realpath 봉쇄로 거부
@@ -2429,9 +3529,9 @@ test("MAIL-TASK-GEN: 메일 후보 → 할일_장부 자동화 메타데이터 �
     h2: {
       title: "개인 알림 제외",
       route_candidate: "none/personal",
-      source_candidate_ref: "/tmp/private-candidate",
-      source_lineage_ref: "/private/raw-mail",
-      suggested_assignee_ref: "/etc/passwd"
+      source_candidate_ref: posixAbsolute("tmp", "private-candidate"),
+      source_lineage_ref: posixAbsolute("private", "raw-mail"),
+      suggested_assignee_ref: posixAbsolute("etc", "passwd")
     },
     h3: {
       title: "메일함 기본 제안 처리",
@@ -2447,9 +3547,9 @@ test("MAIL-TASK-GEN: 메일 후보 → 할일_장부 자동화 메타데이터 �
   for (const h of ["검토상태", "검토사유", "라우트후보", "제안담당자", "소스스레드키", "생성런", "동기화상태"]) {
     assert.ok(raw.includes(h), `${h} 헤더 생성`);
   }
-  assert.equal(raw.includes("/tmp/private-candidate"), false);
-  assert.equal(raw.includes("/private/raw-mail"), false);
-  assert.equal(raw.includes("/etc/passwd"), false);
+  assert.equal(raw.includes(posixAbsolute("tmp", "private-candidate")), false);
+  assert.equal(raw.includes(posixAbsolute("private", "raw-mail")), false);
+  assert.equal(raw.includes(posixAbsolute("etc", "passwd")), false);
   const rows = readTaskLedgerRows(taskCsv);
   const row = rows.find((entry) => entry.id === "mailtask:h1");
   const nonWorkRow = rows.find((entry) => entry.id === "mailtask:h2");
@@ -3834,12 +4934,19 @@ test("Codex task UI: 대기 중 단계와 경과시간을 보여준다", () => {
   assert.match(app, /\/api\/codex-task\/attachment/);
   assert.match(app, /taskCodexModel/);
   assert.match(app, /taskCodexEffort/);
+  assert.match(app, /taskCodexWorkspace/);
+  assert.match(app, /workspaceExplicitlySelected/);
+  assert.match(app, /한번 연결하면 이 스레드의 작업실은 바꿀 수 없습니다/);
+  assert.match(app, /capabilities\?item_id=/);
+  assert.match(app, /taskCodexWrite/);
   assert.doesNotMatch(app, /taskCodexTier/); // 속도(tier) 드롭다운 제거됨
-  assert.match(app, /defaults: \{ model: "gpt-5\.5", effort: "medium" \}/);
+  assert.match(app, /defaults: \{ model: "gpt-5\.5", effort: "medium", workspace_id: null \}/);
+  assert.doesNotMatch(app, /id="taskCodexFA"/);
   assert.match(app, /describeTaskCodexOptions/);
   assert.match(app, /loadCapabilities\(\)\.then\(load\)/);
   assert.match(app, /service_tier: opt\.service_tier \|\| null/);
   assert.match(app, /taskCodexImage/);
+  assert.doesNotMatch(app, /msgWithFiles/);
   assert.match(app, /renderSkillSuggest/);
   assert.match(app, /data-skill/);
   assert.match(app, /Codex 응답 작성 중/);
@@ -4044,6 +5151,7 @@ test("server: 운영 4300은 runtime checkout 전용이고 개발 기본 포트�
   const tailscaleBat = readFileSync(join(APP_DIR, "start-tailscale-windows.bat"), "utf8");
   const watchdog = readFileSync(join(APP_DIR, "ops", "dev-erp-watchdog.ps1"), "utf8");
   const nssm = readFileSync(join(APP_DIR, "ops", "install-dev-erp-nssm.ps1"), "utf8");
+  const codexNssm = readFileSync(join(APP_DIR, "ops", "configure-dev-erp-codex-nssm.ps1"), "utf8");
   assert.match(server, /Soulforge-runtime/);
   assert.match(server, /DEV_PORT = Number\(process\.env\.DEV_ERP_DEV_PORT \|\| 4310\)/);
   assert.match(server, /PORT === RUNTIME_PORT && !IS_RUNTIME_CHECKOUT/);
@@ -4059,15 +5167,22 @@ test("server: 운영 4300은 runtime checkout 전용이고 개발 기본 포트�
   assert.match(startBat, /ERP_CHAT_THINK=1/);
   assert.match(startBat, /--port %DEV_ERP_PORT%/);
   assert.match(watchdog, /\$ChatThink = 1/);
-  assert.match(watchdog, /set ERP_CHAT_THINK=\$ChatThink/);
   assert.match(watchdog, /\[string\]\$HostName = "127\.0\.0\.1"/);
   assert.match(watchdog, /\[int\]\$CookieSecure = 1/);
-  assert.match(watchdog, /set DEV_ERP_COOKIE_SECURE=\$CookieSecure/);
+  assert.match(watchdog, /\$WorkerServiceName = "dev-erp-codex-worker"/);
+  assert.match(watchdog, /codex_worker_attestation_verified/);
+  assert.match(watchdog, /codex_worker_identity_separate/);
+  assert.doesNotMatch(watchdog, /manual node process started|Start-Process -FilePath "cmd\.exe"/);
   assert.match(nssm, /\$ChatThink = 1/);
   assert.match(nssm, /ERP_CHAT_THINK=\$ChatThink/);
   assert.match(nssm, /\[string\]\$HostName = "127\.0\.0\.1"/);
   assert.match(nssm, /\[int\]\$CookieSecure = 1/);
   assert.match(nssm, /DEV_ERP_COOKIE_SECURE=\$CookieSecure/);
+  assert.match(nssm, /\[switch\]\$DevelopmentOnly/);
+  assert.match(nssm, /legacy single-service installer is development-only/);
+  assert.match(codexNssm, /distinct non-SYSTEM Windows identities/);
+  assert.match(codexNssm, /"DependOnService", \$WorkerServiceName/);
+  assert.doesNotMatch(codexNssm, /DEV_ERP_CODEX_WORKER_TOKEN=/);
   assert.match(tailscaleBat, /Tailscale backend 4300 must be started from the runtime checkout/);
 });
 
@@ -4640,7 +5755,15 @@ test("TEAM-ACCT: mailbox metadata update/list + 상대 env ref/secret 가드", (
   assert.ok(!("pw_hash" in listed), "메일함 목록도 해시 미포함");
   assert.ok(!("refresh_token" in listed) && !("access_token" in listed), "secret 필드 미노출");
 
-  for (const bad of ["/tmp/mail.env", "../mail.env", "mail/../mail.env", "C:\\mail.env", "\\\\server\\share\\mail.env", "file:///mail.env", "MAIL_TOKEN=secret"]) {
+  for (const bad of [
+    posixAbsolute("tmp", "mail.env"),
+    "../mail.env",
+    "mail/../mail.env",
+    windowsAbsolute("mail.env"),
+    ["", "", "server", "share", "mail.env"].join("\\"),
+    ["file:", "", "", "mail.env"].join("/"),
+    "MAIL_TOKEN=secret",
+  ]) {
     assert.equal(store.updateAccountMailbox(a.id, { provider: "gmail", enabled: true, env_ref: bad }).error, "mailbox_env_ref_invalid", `거부: ${bad}`);
   }
   assert.equal(store.updateAccountMailbox(a.id, { provider: "gmail", enabled: true, env_ref: "" }).error, "mailbox_env_ref_required");
@@ -5631,19 +6754,14 @@ test("mail: 대화 단위 분류 — single_item 은 대표 1건만 할일 + 나
   assert.equal(stillInbox, 0, "대화 메일 전부 인입함에서 빠짐");
 });
 
-test("codex: 미지원 service_tier(priority 등) 자동 중립화 + idempotent (CODEX-TIER)", () => {
-  const dir = mkdtempSync(join(tmpdir(), "codexcfg-"));
-  const cfg = join(dir, "config.toml");
-  writeFileSync(cfg, 'model = "gpt-5.5"\nservice_tier = "priority"\nmodel_reasoning_effort = "xhigh"\ndefault-service-tier = "priority"\nservice_tier = "flex"\n', "utf8");
-  const r = sanitizeCodexConfigServiceTier(cfg);
-  assert.ok(r.ok); assert.equal(r.changed, 2, "priority 2줄(service_tier+default-service-tier) 중립화");
-  const after = readFileSync(cfg, "utf8");
-  assert.ok(after.includes('# service_tier = "priority"'), "service_tier=priority 주석화");
-  assert.ok(after.includes('# default-service-tier = "priority"'), "default-service-tier=priority 주석화");
-  assert.ok(after.includes('service_tier = "flex"') && !after.includes('# service_tier = "flex"'), "유효값 flex 유지");
-  assert.ok(after.includes('model = "gpt-5.5"') && after.includes('model_reasoning_effort = "xhigh"'), "다른 설정 보존");
-  assert.equal(sanitizeCodexConfigServiceTier(cfg).changed, 0, "재실행 변경 0(idempotent)");
-  rmSync(dir, { recursive: true, force: true });
+test("codex: ERP sandbox는 전체권한을 거부하고 승인된 writable root가 있을 때만 쓰기", () => {
+  assert.equal(resolveSandboxMode("danger-full-access"), "read-only");
+  assert.deepEqual(codexSandboxPolicy("workspace-write", []), { type: "readOnly", networkAccess: false });
+  assert.deepEqual(codexSandboxPolicy("workspace-write", [windowsAbsolute("Team", "Approved", "Output")]), {
+    type: "workspaceWrite",
+    networkAccess: false,
+    writableRoots: [windowsAbsolute("Team", "Approved", "Output")],
+  });
 });
 
 test("memory: 맥락 주입은 관련 항목을 우선(recency·salience 높아도) (MEM-005)", () => {
@@ -5672,19 +6790,26 @@ test("B-1 보안: 이벤트 actor 세션 강제 + 로그인 브루트포스 백�
       assert.equal(r.status, 200);
       const ownerCookie = r.headers.get("set-cookie")?.split(";")[0] ?? "";
 
-      // 1) 팀 모드에서 타인 명의 이벤트를 보내도 actor 는 세션 사용자로 강제 기록된다(감사 위조 차단).
+      // 1) 브라우저는 서버 소유 kind를 만들 수 없고, 허용된 view도 actor/필드를 서버가 강제한다.
       r = await fetch(`${base}/api/events`, {
         method: "POST",
         headers: { "content-type": "application/json", cookie: ownerCookie },
         body: JSON.stringify({ kind: "ui_note", actor_ref: "타인명의", actor_kind: "ai", data_label: "meta" }),
       });
+      assert.equal(r.status, 403);
+      r = await fetch(`${base}/api/events`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: ownerCookie },
+        body: JSON.stringify({ kind: "view", to: "dashboard", actor_ref: "타인명의", actor_kind: "ai", data_label: "real" }),
+      });
       assert.equal(r.status, 200);
-      r = await fetch(`${base}/api/events/audit?kind=ui_note`, { headers: { cookie: ownerCookie } });
+      r = await fetch(`${base}/api/events/audit?kind=view`, { headers: { cookie: ownerCookie } });
       const audit = await r.json();
-      const ev = (audit.events || []).find((e) => e.kind === "ui_note");
+      const ev = (audit.events || []).find((e) => e.kind === "view" && e.to_val === "dashboard");
       assert.ok(ev, "주입한 이벤트가 감사로그에 있어야 함");
       assert.equal(ev.actor_ref, "owner", "actor_ref 는 body 자기신고가 아니라 세션 사용자");
       assert.equal(ev.actor_kind, "human");
+      assert.equal(ev.data_label, "meta");
 
       // 2) 같은 IP+아이디 5회 연속 실패 → 6번째는 429 + retry_after_sec.
       for (let i = 0; i < 5; i += 1) {
@@ -5769,7 +6894,7 @@ test("B-5 배선: 수신역할/메시지ID ingest·재스캔 백필 + mailcsv �
 // ── TLS-001: 사내망 직접 HTTPS(자체서명 polyglot) — owner 승인(2026-07-04) LAN HTTPS 전환 ──
 // openssl 없으면 생략(인증서 생성 수단 없음). Windows 는 Git 동봉 openssl 후보도 탐색.
 function findOpenssl() {
-  for (const cand of ["openssl", "C:/Program Files/Git/usr/bin/openssl.exe"]) {
+  for (const cand of ["openssl", windowsAbsolute("Program Files", "Git", "usr", "bin", "openssl.exe")]) {
     try { execFileSync(cand, ["version"], { stdio: "ignore" }); return cand; } catch { /* 다음 후보 */ }
   }
   return null;

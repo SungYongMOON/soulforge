@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 
 import {
   applyKnowledgeGroundingToCandidate,
+  knowledgeIndexRootFromShellRoot,
   knowledgeContextLines,
   listProjectKnowledgeRefs,
 } from "../tools/knowledge_grounding.mjs";
@@ -46,6 +47,14 @@ function writeIndex(root, id, {
   }, null, 2));
   writeFileSync(join(dir, "derived_text.txt"), "RAW_SHOULD_NOT_BE_READ");
 }
+
+test("root: runtime checkout가 아닌 명시적 knowledge shell 아래 인덱스를 계산", () => {
+  const shellRoot = join(tmpdir(), "canonical-soulforge");
+  assert.equal(
+    knowledgeIndexRootFromShellRoot(shellRoot),
+    join(shellRoot, "_workspaces", "knowledge", "rag", "indexes_local", "source_text_indexes"),
+  );
+});
 
 test("refs: fixture 인덱스 중 해당 프로젝트+ready+eligible 만 반환", (t) => {
   const root = tempRoot(t);

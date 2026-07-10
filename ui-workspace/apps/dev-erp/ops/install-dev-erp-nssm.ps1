@@ -12,10 +12,15 @@ param(
   [int]$ChatContextTurns = 5,
   [int]$ChatTimeoutMs = 45000,
   [int]$QueueWaitMs = 60000,
-  [int]$LlmConcurrency = 1
+  [int]$LlmConcurrency = 1,
+  [switch]$DevelopmentOnly
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not $DevelopmentOnly) {
+  throw "This legacy single-service installer is development-only. Production requires distinct ERP and Codex worker identities; use configure-dev-erp-codex-nssm.ps1 after both services are owner-provisioned."
+}
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
@@ -47,7 +52,8 @@ if (-not $service) {
   "ERP_CHAT_TIMEOUT_MS=$ChatTimeoutMs" `
   "ERP_LLM_QUEUE_WAIT_MS=$QueueWaitMs" `
   "ERP_LLM_CONCURRENCY=$LlmConcurrency" `
-  "DEV_ERP_COOKIE_SECURE=$CookieSecure"
+  "DEV_ERP_COOKIE_SECURE=$CookieSecure" `
+  "DEV_ERP_CODEX_TASK_BRIDGE=app-server"
 & $NssmExe set $ServiceName AppStdout $Stdout
 & $NssmExe set $ServiceName AppStderr $Stderr
 & $NssmExe set $ServiceName AppRotateFiles 1
@@ -57,7 +63,7 @@ if (-not $service) {
 & $NssmExe set $ServiceName AppRestartDelay 5000
 & $NssmExe set $ServiceName Start SERVICE_AUTO_START
 
-Write-Output "Configured NSSM service '$ServiceName'."
+Write-Output "Configured development-only NSSM service '$ServiceName'."
 Write-Output "Start:   nssm start $ServiceName"
 Write-Output "Restart: nssm restart $ServiceName"
 Write-Output "Stop:    nssm stop $ServiceName"
