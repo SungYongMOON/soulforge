@@ -116,6 +116,11 @@
 ### 음성 녹음 보관함 transcript-only 메타데이터 정확성 보정
 
 - 오디오 없이 ChatGPT Record 공유 전사만 보관한 세션을 등록할 때 `audio_stored_under_workspace`를 거짓으로 기록하고 source-provided 화자 라벨 상태를 버리던 문제를 수정했다. 실제 오디오 파일 존재 여부와 전사 존재 여부를 각각 계산하고, 별도 로컬 화자 sidecar가 없으면 세션 매니페스트의 화자분리 상태를 보존한다 (worker: codex_gpt-5).
+### dev-ERP canonical snapshot consumer 계약 복구
+
+- dev-ERP snapshot adapter가 현재 producer 계약인 `operation_board.sections.*.items`를 우선 소비하고, 기존 `rows` 입력은 하위호환으로 유지한다.
+- full Soulforge snapshot의 top-level `projects[]`를 normalized JSON으로 오인하던 분기를 schema 기반으로 분리해, canonical public fixture가 빈 ERP import로 사라지지 않게 했다.
+- producer-owned public fixture를 직접 쓰는 focused test를 dev-ERP full test와 root acceptance에 연결했다. 개발 checkout에서 검증한 승인 commit만 별도 runtime 껍데기에 배포하며 live DB와 Soulforge 업무 데이터는 변경하지 않는다. (worker: codex_gpt-5)
 
 ### dev-ERP 줄기 강 뷰 기본기 — 접기·잘림·잠든 가지·데이터 정직성
 
