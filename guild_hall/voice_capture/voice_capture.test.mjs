@@ -230,6 +230,7 @@ test("session status, launchd render, and workmeta draft stay metadata-only", as
     });
     assert.equal(applied.applied, true);
     const manifest = await readFile(path.join(applied.target_dir, "source_event_manifest.yaml"), "utf8");
+    assert.match(manifest, /source_kind: local_microphone_capture_session/);
     assert.match(manifest, /raw_transcript_body_included: false/);
     assert.equal(manifest.includes("sensitive-transcript"), false);
   } finally {
@@ -308,6 +309,9 @@ test("recording library preserves transcript-only and source-provided speaker st
       JSON.stringify({
         session_id: "transcript-only",
         source: "chatgpt_record_share_import",
+        meeting_bundle: {
+          bundle_manifest_ref: "_workspaces/system/voice_capture/meeting_bundles/example/bundle_manifest.json",
+        },
         speaker_diarization: {
           status: "source_provided_labels_unverified",
           speaker_count_hint: 4,
@@ -324,6 +328,17 @@ test("recording library preserves transcript-only and source-provided speaker st
     assert.equal(planned.entry.raw_payload_boundary.transcript_stored_under_workspace, true);
     assert.equal(planned.entry.speaker_diarization.status, "source_provided_labels_unverified");
     assert.equal(planned.entry.speaker_diarization.speaker_count_hint, 4);
+
+    const workmeta = await writeWorkmetaDraft({
+      repoRoot,
+      workmetaRoot: path.join(repoRoot, "_workmeta"),
+      projectCode: "P00-000_INBOX",
+      sessionDir,
+      apply: true,
+    });
+    const sourceEventManifest = await readFile(path.join(workmeta.target_dir, "source_event_manifest.yaml"), "utf8");
+    assert.match(sourceEventManifest, /source_kind: chatgpt_record_share_import/);
+    assert.match(sourceEventManifest, /meeting_bundle_ref:/);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

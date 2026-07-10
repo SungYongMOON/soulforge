@@ -850,13 +850,25 @@ export async function buildWorkmetaDraftPlan(options = {}) {
   const projectCode = options.projectCode ?? "P00-000_INBOX";
   const sessionDir = path.resolve(options.sessionDir);
   const status = await buildSessionStatus(sessionDir);
+  const manifest = (await readJsonIfExists(path.join(sessionDir, "session_manifest.json"))) ?? {};
+  const sourceKind = manifest.source_kind ?? manifest.source ?? "local_microphone_capture_session";
+  const meetingBundleRef =
+    manifest.meeting_bundle?.bundle_manifest_ref ?? manifest.meeting_context?.meeting_bundle_ref ?? null;
   const sourceEventId = `voice_${status.session_id}`;
   const targetDir = path.join(workmetaRoot, projectCode, "reports", "voice_source_events", sourceEventId);
   const sessionRef = relativeToRepoOrAbsolute(repoRoot, sessionDir);
   const files = [
     {
       path: path.join(targetDir, "source_event_manifest.yaml"),
-      content: renderWorkmetaSourceEventManifest({ repoRoot, projectCode, sourceEventId, status, sessionRef }),
+      content: renderWorkmetaSourceEventManifest({
+        repoRoot,
+        projectCode,
+        sourceEventId,
+        sourceKind,
+        meetingBundleRef,
+        status,
+        sessionRef,
+      }),
     },
     {
       path: path.join(targetDir, "project_match_review.yaml"),
@@ -1071,14 +1083,23 @@ async function writeCurrentRecordingIndex(outputPath, indexPath) {
   );
 }
 
-function renderWorkmetaSourceEventManifest({ repoRoot, projectCode, sourceEventId, status, sessionRef }) {
+function renderWorkmetaSourceEventManifest({
+  repoRoot,
+  projectCode,
+  sourceEventId,
+  sourceKind,
+  meetingBundleRef,
+  status,
+  sessionRef,
+}) {
   return [
     `schema_version: ${workmetaDraftSchemaVersion}`,
     `source_event_id: ${sourceEventId}`,
-    "source_kind: local_microphone_capture_session",
+    `source_kind: ${sourceKind}`,
     `project_code_candidate: ${projectCode}`,
     "project_route_state: unclassified_needs_owner_confirmation",
     `session_ref: ${JSON.stringify(sessionRef)}`,
+    ...(meetingBundleRef ? [`meeting_bundle_ref: ${JSON.stringify(meetingBundleRef)}`] : []),
     `session_manifest_ref: ${JSON.stringify(relativeToRepoOrAbsolute(repoRoot, path.join(status.session_dir, "session_manifest.json")))}`,
     `source_event_draft_ref: ${JSON.stringify(relativeToRepoOrAbsolute(repoRoot, path.join(status.session_dir, "source_event_draft.yaml")))}`,
     `chunk_log_ref: ${JSON.stringify(relativeToRepoOrAbsolute(repoRoot, path.join(status.session_dir, "chunks.jsonl")))}`,

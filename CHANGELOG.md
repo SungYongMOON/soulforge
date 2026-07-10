@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 음성 source event의 실제 입력원·회의 묶음 포인터 보존
+
+- `write-workmeta-draft`가 PLAUD·Apple Notes·ChatGPT Record import도 모두 로컬 마이크 세션으로 기록하던 고정값을 제거했다. 세션 매니페스트의 실제 `source_kind`와 선택적 `meeting_bundle_ref`를 metadata-only source event에 보존해 동일 회의의 복수 녹음 관계와 입력원별 품질을 추적할 수 있게 했다 (worker: codex_gpt-5).
+
 ### Revision `working` - owner-style Outlook mail launcher
 
 - Added `soulforge-owner-outlook-mail` as an explicitly selectable thin launcher for the existing `outbound_mail_authoring_v0` workflow, limited to Outlook manual or draft-only authoring with no send or Outlook mutation authority.

@@ -77,6 +77,14 @@ This writes metadata-only indexes under
 `_workspaces/system/voice_capture/library/`; it does not copy raw audio or
 transcript bodies.
 
+When several devices or services recorded the same meeting, keep every physical
+recording as a separate session and recording entry. Link them through a
+metadata-only manifest under
+`_workspaces/system/voice_capture/meeting_bundles/<date>/<bundle_id>/`.
+The bundle may record time offsets, source roles, and payload refs, but must not
+embed audio or transcript bodies. Generate meeting minutes and task candidates
+once per bundle so duplicated recordings do not create duplicated work.
+
 Write metadata-only review drafts under `_workmeta` after a session exists:
 
 ```bash
