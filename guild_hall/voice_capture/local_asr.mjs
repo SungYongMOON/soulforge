@@ -20,9 +20,31 @@ export function buildDefaultLocalAsrProfile() {
     model_sha1: "e050f7970618a659205450ad97eb95a18d69c9ee",
     language: "ko",
     terms_prompt: "",
-    run_id: "whispercpp_large-v3-turbo-q5_0_ko_v1",
+    run_id: "whispercpp_large-v3-turbo-q5_0_ko_v2_vad",
     chunk_seconds: 1800,
     overlap_seconds: 10,
+    vad: {
+      enabled: true,
+      model_path: "_workspaces/system/voice_capture/models/ggml-silero-v6.2.0.bin",
+      model_id: "silero-v6.2.0",
+      model_sha256: "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987",
+      threshold: 0.5,
+      min_speech_duration_ms: 120,
+      min_silence_duration_ms: 500,
+      max_speech_duration_seconds: 30,
+      speech_pad_ms: 500,
+      samples_overlap_seconds: 0.2,
+    },
+    decoding: {
+      no_fallback: true,
+      suppress_non_speech_tokens: true,
+      max_context_tokens: 0,
+    },
+    repetition_filter: {
+      enabled: true,
+      minimum_text_characters: 4,
+      lookback_seconds: 90,
+    },
     output_subdir: "analysis/local_asr",
     queue_root: "_workspaces/system/voice_capture/local_asr_queue",
     max_sessions_per_queue_run: 1,
@@ -85,6 +107,18 @@ export async function buildLocalAsrPreflight(options = {}) {
     checks.push({ id: "model_sha1", ok: checksumOk, observed_sha1: observedSha1 });
     if (!checksumOk) blockers.push("local ASR model checksum mismatch");
   }
+  if (profile.vad?.enabled) {
+    const vadModelPath = resolveRepoPath(repoRoot, profile.vad.model_path);
+    const vadModelCheck = { id: "vad_model_present", ok: existsSync(vadModelPath), ref: relativeRef(repoRoot, vadModelPath) };
+    checks.push(vadModelCheck);
+    if (!vadModelCheck.ok) blockers.push(`local ASR VAD model missing: ${profile.vad.model_path}`);
+    if (vadModelCheck.ok && profile.vad.model_sha256) {
+      const observedSha256 = await hashFile(vadModelPath, "sha256");
+      const checksumOk = observedSha256 === String(profile.vad.model_sha256).toLowerCase();
+      checks.push({ id: "vad_model_sha256", ok: checksumOk, observed_sha256: observedSha256 });
+      if (!checksumOk) blockers.push("local ASR VAD model checksum mismatch");
+    }
+  }
   checks.push({ id: "output_boundary", ok: String(profile.output_subdir).startsWith("analysis/local_asr") });
   if (!String(profile.output_subdir).startsWith("analysis/local_asr")) blockers.push("local ASR output_subdir must stay under analysis/local_asr");
 
@@ -143,6 +177,47 @@ export function parseWhisperJson(value, window, options = {}) {
     });
   }
   return rows;
+}
+
+export function suppressRepetitiveSegments(segments, options = {}) {
+  const enabled = options.enabled !== false;
+  const minimumTextCharacters = Math.max(Number(options.minimum_text_characters ?? 4) || 4, 1);
+  const lookbackSeconds = Math.max(Number(options.lookback_seconds ?? 90) || 90, 0);
+  if (!enabled) return { kept: [...segments], suppressed: [] };
+  const kept = [];
+  const suppressed = [];
+  const lastKeptAtByText = new Map();
+  for (const segment of segments) {
+    const normalized = normalizeRepeatedText(segment.content);
+    const previousStart = lastKeptAtByText.get(normalized);
+    const repeatCandidate = normalized.length >= minimumTextCharacters
+      && previousStart != null
+      && Number(segment.start_seconds) - previousStart <= lookbackSeconds;
+    if (repeatCandidate) {
+      suppressed.push({ ...segment, suppression_reason: "exact_text_repeat_within_lookback" });
+      continue;
+    }
+    kept.push(segment);
+    if (normalized) lastKeptAtByText.set(normalized, Number(segment.start_seconds));
+  }
+  return { kept, suppressed };
+}
+
+export function buildTranscriptQualityMetrics(kept, suppressed = []) {
+  const rawCount = kept.length + suppressed.length;
+  const uniqueCount = new Set([...kept, ...suppressed].map((segment) => normalizeRepeatedText(segment.content)).filter(Boolean)).size;
+  const suppressedRatio = rawCount > 0 ? suppressed.length / rawCount : 0;
+  const flags = [];
+  if (rawCount >= 20 && suppressedRatio >= 0.2) flags.push("high_exact_repetition_suppressed");
+  if (kept.length === 0) flags.push("no_speech_transcript_segments");
+  return {
+    raw_segment_count: rawCount,
+    retained_segment_count: kept.length,
+    suppressed_segment_count: suppressed.length,
+    unique_raw_text_count: uniqueCount,
+    suppressed_segment_ratio: roundRatio(suppressedRatio),
+    flags,
+  };
 }
 
 export async function discoverLocalAsrSessions(options = {}) {
@@ -219,6 +294,12 @@ export async function analyzeLocalAsrSession(options = {}) {
     model_id: profile.model_id,
     model_sha1: profile.model_sha1 ?? null,
     model_ref: profile.model_path,
+    vad_enabled: Boolean(profile.vad?.enabled),
+    vad_model_id: profile.vad?.enabled ? profile.vad.model_id ?? null : null,
+    vad_model_ref: profile.vad?.enabled ? profile.vad.model_path ?? null : null,
+    vad_model_sha256: profile.vad?.enabled ? profile.vad.model_sha256 ?? null : null,
+    decoding: profile.decoding ?? null,
+    repetition_filter: profile.repetition_filter ?? null,
     language: profile.language,
     chunk_count: windows.length,
     provider_transcript_used_as_input: false,
@@ -265,6 +346,21 @@ export async function analyzeLocalAsrSession(options = {}) {
         "-otxt", "-osrt", "-oj", "-of", outputBase,
         "-np",
       ];
+      if (profile.decoding?.no_fallback) whisperArgs.push("-nf");
+      if (profile.decoding?.suppress_non_speech_tokens) whisperArgs.push("-sns");
+      if (profile.decoding?.max_context_tokens != null) whisperArgs.push("-mc", String(profile.decoding.max_context_tokens));
+      if (profile.vad?.enabled) {
+        whisperArgs.push(
+          "--vad",
+          "-vm", resolveRepoPath(repoRoot, profile.vad.model_path),
+          "-vt", String(profile.vad.threshold ?? 0.5),
+          "-vspd", String(profile.vad.min_speech_duration_ms ?? 250),
+          "-vsd", String(profile.vad.min_silence_duration_ms ?? 100),
+          "-vmsd", String(profile.vad.max_speech_duration_seconds ?? Number.MAX_SAFE_INTEGER),
+          "-vp", String(profile.vad.speech_pad_ms ?? 30),
+          "-vo", String(profile.vad.samples_overlap_seconds ?? 0.1),
+        );
+      }
       if (String(profile.terms_prompt ?? "").trim()) whisperArgs.push("--prompt", String(profile.terms_prompt).trim());
       runner(profile.asr_binary, whisperArgs, { cwd: repoRoot, label: "whisper.cpp independent transcription" });
       const parsed = JSON.parse(await fs.readFile(`${outputBase}.json`, "utf8"));
@@ -285,24 +381,34 @@ export async function analyzeLocalAsrSession(options = {}) {
       segments.push(...parseWhisperJson(parsed, window, { runId: profile.run_id }));
     }
     segments.sort((left, right) => left.start_seconds - right.start_seconds || left.end_seconds - right.end_seconds);
-    segments.forEach((segment, index) => { segment.segment_id = index + 1; });
-    const transcriptJsonl = segments.length > 0 ? `${segments.map((segment) => JSON.stringify(segment)).join("\n")}\n` : "";
-    const transcriptText = segments.length > 0
-      ? `${segments.map((segment) => `[${formatSeconds(segment.start_seconds)} --> ${formatSeconds(segment.end_seconds)}] ${segment.content}`).join("\n")}\n`
+    const filtered = suppressRepetitiveSegments(segments, profile.repetition_filter);
+    filtered.kept.forEach((segment, index) => { segment.segment_id = index + 1; });
+    const transcriptJsonl = filtered.kept.length > 0 ? `${filtered.kept.map((segment) => JSON.stringify(segment)).join("\n")}\n` : "";
+    const transcriptText = filtered.kept.length > 0
+      ? `${filtered.kept.map((segment) => `[${formatSeconds(segment.start_seconds)} --> ${formatSeconds(segment.end_seconds)}] ${segment.content}`).join("\n")}\n`
+      : "";
+    const suppressedJsonl = filtered.suppressed.length > 0
+      ? `${filtered.suppressed.map((segment) => JSON.stringify(segment)).join("\n")}\n`
       : "";
     await atomicWriteText(path.join(outputDir, "transcript.jsonl"), transcriptJsonl);
     await atomicWriteText(path.join(outputDir, "transcript.txt"), transcriptText);
+    await atomicWriteText(path.join(outputDir, "suppressed_segments.jsonl"), suppressedJsonl);
     const transcriptSha256 = crypto.createHash("sha256").update(transcriptJsonl).digest("hex");
     const completedAt = new Date().toISOString();
+    const qualityMetrics = buildTranscriptQualityMetrics(filtered.kept, filtered.suppressed);
     const completedManifest = {
       ...plan,
       state: "completed",
-      segment_count: segments.length,
+      segment_count: filtered.kept.length,
+      suppressed_segment_ref: relativeRef(repoRoot, path.join(outputDir, "suppressed_segments.jsonl")),
+      quality_metrics: qualityMetrics,
       transcript_ref: relativeRef(repoRoot, path.join(outputDir, "transcript.txt")),
       transcript_jsonl_ref: relativeRef(repoRoot, path.join(outputDir, "transcript.jsonl")),
       transcript_sha256: transcriptSha256,
       evidence_role: profile.evidence_role,
-      quality: "machine_transcript_unverified",
+      quality: qualityMetrics.flags.length > 0
+        ? "machine_transcript_unverified_attention_required"
+        : "machine_transcript_unverified",
       claim_ceiling: "observed",
       completed_at: completedAt,
     };
@@ -594,6 +700,14 @@ function safeId(value) {
 
 function roundMillis(value) {
   return Math.round(Number(value) * 1000) / 1000;
+}
+
+function roundRatio(value) {
+  return Math.round(Number(value) * 10000) / 10000;
+}
+
+function normalizeRepeatedText(value) {
+  return String(value ?? "").normalize("NFKC").replace(/\s+/gu, " ").trim().toLowerCase();
 }
 
 function formatSeconds(value) {

@@ -99,6 +99,16 @@ PLAUD account collector on an always-on node
 - Imported-audio chunking: 30 minutes with a 10-second overlap. Overlap is used
   only as ASR context; midpoint ownership keeps each segment once and makes the
   backlog resumable at chunk boundaries.
+- Continuous-office imports enable the local Silero VAD model before Whisper.
+  The first profile uses the upstream default speech threshold `0.5`, disables
+  decoder temperature fallback and prior-text carryover, suppresses non-speech
+  tokens, and keeps a 500 ms speech pad. This prevents a low-signal guess from
+  cascading across a long silent interval while preserving a reviewable audit
+  trail.
+- Exact text repeated within the configured 90-second window is removed from
+  the usable transcript and retained in `suppressed_segments.jsonl`. Aggregate
+  suppression counts and quality flags stay in the run manifest; the sidecar
+  itself remains private under `_workspaces`.
 
 ## Reviewed Speaker Identity Lane
 

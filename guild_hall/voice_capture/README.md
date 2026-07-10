@@ -115,7 +115,9 @@ npm run guild-hall:voice-capture:asr -- backlog --apply
 ```
 
 The default imported-audio profile uses `large-v3-turbo-q5_0`, Korean, 30
-minute windows, and 10 second context overlap. Each completed run emits a
+minute windows, 10 second context overlap, local Silero VAD, and repetition
+suppression. The usable transcript and the locally retained
+`suppressed_segments.jsonl` audit sidecar stay separate. Each completed run emits a
 metadata-only project-context source pointer with companion input kinds
 `mail` and `se_schedule`; it does not accept a project route automatically.
 `refresh-context-events --apply` can rebuild the metadata-only project-context

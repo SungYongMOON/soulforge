@@ -10,9 +10,11 @@ import {
   buildChunkWindows,
   buildDefaultLocalAsrProfile,
   buildLocalAsrPreflight,
+  buildTranscriptQualityMetrics,
   discoverLocalAsrSessions,
   enqueueLocalAsrBacklog,
   parseWhisperJson,
+  suppressRepetitiveSegments,
 } from "./local_asr.mjs";
 
 test("local ASR chunk windows overlap input but keep one nominal ownership range", () => {
@@ -57,6 +59,31 @@ test("local ASR parser converts chunk-relative offsets and removes overlap dupli
   assert.equal(rows[0].analysis_run_id, "fixture");
 });
 
+test("local ASR repetition filter keeps one nearby phrase and exposes aggregate quality flags", () => {
+  const segments = [
+    { start_seconds: 0, end_seconds: 2, content: "반복 문장" },
+    { start_seconds: 10, end_seconds: 12, content: " 반복   문장 " },
+    { start_seconds: 20, end_seconds: 22, content: "다른 문장" },
+    { start_seconds: 120, end_seconds: 122, content: "반복 문장" },
+  ];
+  const filtered = suppressRepetitiveSegments(segments, {
+    enabled: true,
+    minimum_text_characters: 4,
+    lookback_seconds: 90,
+  });
+  assert.deepEqual(filtered.kept.map((row) => row.start_seconds), [0, 20, 120]);
+  assert.equal(filtered.suppressed.length, 1);
+  assert.equal(filtered.suppressed[0].suppression_reason, "exact_text_repeat_within_lookback");
+  assert.deepEqual(buildTranscriptQualityMetrics(filtered.kept, filtered.suppressed), {
+    raw_segment_count: 4,
+    retained_segment_count: 3,
+    suppressed_segment_count: 1,
+    unique_raw_text_count: 2,
+    suppressed_segment_ratio: 0.25,
+    flags: [],
+  });
+});
+
 test("local ASR writes versioned independent transcript without replacing provider transcript", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-local-asr-"));
   try {
@@ -85,6 +112,11 @@ test("local ASR writes versioned independent transcript without replacing provid
     assert.equal(result.provider_transcript_used_as_input, false);
     assert.equal(calls.filter((row) => row.command === profile.ffmpeg_binary).length, 2);
     assert.equal(calls.filter((row) => row.command === profile.asr_binary).length, 2);
+    const whisperArgs = calls.find((row) => row.command === profile.asr_binary).args;
+    assert.equal(whisperArgs.includes("--vad"), true);
+    assert.equal(whisperArgs.includes("-nf"), true);
+    assert.equal(whisperArgs.includes("-sns"), true);
+    assert.equal(whisperArgs[whisperArgs.indexOf("-mc") + 1], "0");
 
     const providerTranscript = await readFile(path.join(fixture.sessionDir, "transcript.txt"), "utf8");
     assert.equal(providerTranscript, "provider transcript must stay unchanged\n");
@@ -93,6 +125,8 @@ test("local ASR writes versioned independent transcript without replacing provid
       .trim().split("\n").map((line) => JSON.parse(line));
     assert.deepEqual(transcriptRows.map((row) => row.content), ["첫 구간", "둘째 구간"]);
     assert.deepEqual(transcriptRows.map((row) => row.segment_id), [1, 2]);
+    assert.equal(result.quality_metrics.suppressed_segment_count, 0);
+    assert.equal(await readFile(path.join(outputDir, "suppressed_segments.jsonl"), "utf8"), "");
 
     const contextSource = JSON.parse(await readFile(path.join(outputDir, "project_context_source.json"), "utf8"));
     assert.equal(contextSource.source_kind, "voice");
@@ -148,16 +182,23 @@ test("local ASR preflight checks engine, ffmpeg, and model without reading sourc
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-local-asr-preflight-"));
   try {
     await writeFile(path.join(repoRoot, "model.bin"), "model", "utf8");
+    await writeFile(path.join(repoRoot, "vad.bin"), "vad", "utf8");
     const profile = {
       ...buildDefaultLocalAsrProfile(),
       asr_binary: process.execPath,
       ffmpeg_binary: process.execPath,
       model_path: "model.bin",
       model_sha1: null,
+      vad: {
+        ...buildDefaultLocalAsrProfile().vad,
+        model_path: "vad.bin",
+        model_sha256: null,
+      },
     };
     const report = await buildLocalAsrPreflight({ repoRoot, profile });
     assert.equal(report.ok, true);
     assert.equal(report.blockers.length, 0);
+    assert.equal(report.checks.some((row) => row.id === "vad_model_present" && row.ok), true);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
