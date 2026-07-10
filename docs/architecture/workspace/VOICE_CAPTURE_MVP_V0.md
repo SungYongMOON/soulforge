@@ -100,6 +100,27 @@ PLAUD account collector on an always-on node
   only as ASR context; midpoint ownership keeps each segment once and makes the
   backlog resumable at chunk boundaries.
 
+## Reviewed Speaker Identity Lane
+
+Speaker handling is a separate, opt-in analysis lane; it is not part of the ASR
+truth claim.
+
+1. Diarization first assigns anonymous session labels such as `SPEAKER_01`.
+2. Only owner-approved and consented team members may have local enrollment
+   samples and versioned voice embeddings under `_workspaces`.
+3. A matcher may propose a person only when the configured similarity and
+   minimum-speech thresholds both pass. Otherwise the label stays `UNKNOWN`.
+4. Every proposal records the diarization run, embedding profile version,
+   score, and review state in a local sidecar. Raw enrollment audio and
+   embeddings never enter public Git or `_workmeta`.
+5. Speaker identity remains a review input. It cannot by itself assign a task,
+   change an SE schedule, confirm attendance, or promote a project route.
+
+Before enabling cross-session identity matching, the owner must decide the
+notice/consent, enrollment, access, retention, revocation, and human correction
+rules. Model training is not required for the first lane; diarization plus
+reviewed embedding matching is sufficient for a pilot.
+
 ## Non-Goals
 
 - No model training.

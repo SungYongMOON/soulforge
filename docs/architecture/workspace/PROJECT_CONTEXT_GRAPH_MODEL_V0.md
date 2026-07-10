@@ -170,7 +170,9 @@ read approved payloads to suggest a project branch, milestone relation, or task
 candidate, but only pointers, hashes, redacted labels, claim state, and review
 status persist in `project_context/**`. Missing or conflicting schedule truth
 stays an owner question; a voice statement does not change an SE milestone by
-itself.
+itself. A reviewed speaker sidecar may propose an `actor` relation, but raw
+enrollment audio or embeddings never enter project context and an unreviewed
+voice match never assigns an owner or attendee.
 
 ## Node Rows
 
