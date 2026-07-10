@@ -54,7 +54,7 @@ outputs:
   - send_surface_handoff
   - metadata_record_plan
   - boundary_review_note
-validation_level: registered_structure_only_public_safe
+validation_level: pilot_executed_private_application
 registration_policy: owner_requested_registration
 output_state: registered
 classification_lane:
@@ -138,6 +138,7 @@ outbound_mail_authoring_contract:
     mail_send_style_policy: docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md
     team_mail_context_template: templates/team_mail_context.template.yaml
     mail_render_policy: templates/mail_render_policy.template.yaml
+    technical_action_brief_example: templates/technical_action_brief.example.md
     mail_send_runner_policy: docs/architecture/workspace/MAIL_SEND_V0.md
     mail_send_capsule: guild_hall/gateway/mail_send/
   project_keyword_policy:
@@ -261,6 +262,19 @@ outbound_mail_authoring_contract:
     visible_body_is_not_metadata_source_truth: true
     modes: [compact, action_brief, decision_brief, status_change, reply_map]
     action_brief_visible_fields: [수신, 사유, 요청업무, 요청기한, 요청사유, 비고]
+    technical_action_brief_layout:
+      use_when:
+        - approved_technical_constants_or_control_conditions_present
+        - ordered_implementation_or_test_sequence_present
+        - explicit_result_evidence_requested
+      reference: templates/technical_action_brief.example.md
+      visible_order:
+        - purpose_first
+        - one_technical_conditions_table
+        - numbered_execution_or_test_sequence
+        - requested_result_evidence
+        - deadline_attachment_and_followup_when_present
+      does_not_create_new_mode: true
     empty_section_policy: omit
     recipient_field_policy: show_only_for_multiple_role_or_assignee_responsibilities
     reason_field_policy: merge_mail_reason_and_request_basis_when_redundant
@@ -287,3 +301,5 @@ notes:
   - Actual SMTP sending still belongs to `guild_hall/gateway/mail_send/` and requires the approval rules in `MAIL_SEND_V0.md`.
   - Project-specific keywords and exceptions should be read from private/project-local metadata or an approved active keyword index at runtime.
   - The footer body is intentionally not copied into public workflow files.
+  - A private owner-approved pilot used the technical action-brief layout and received positive readability feedback; public canon keeps only the synthetic structure and no sent-mail content.
+  - Pilot evidence does not grant unattended send, Outlook mutation, default-route, or production-ready authority.

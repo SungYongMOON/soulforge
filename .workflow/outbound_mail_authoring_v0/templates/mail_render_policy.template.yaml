@@ -15,6 +15,22 @@ modes:
       - "요청사유"
       - "비고"
     omit_empty_sections: true
+    technical_layout:
+      use_when:
+        - approved_technical_constants_or_control_conditions_present
+        - ordered_implementation_or_test_sequence_present
+        - explicit_result_evidence_requested
+      reference: technical_action_brief.example.md
+      visible_order:
+        - purpose_first
+        - one_technical_conditions_table
+        - numbered_execution_or_test_sequence
+        - requested_result_evidence
+        - deadline_attachment_and_followup_when_present
+      table_rule: keep_related_technical_conditions_in_one_table_without_repeating_them_in_prose
+      numbering_rule: use_numbers_only_for_execution_order
+      evidence_rule: list_revision_measurements_logs_and_remaining_issues_separately
+      synthetic_values_are_facts: false
   decision_brief:
     use_when: approval_choice_or_decision_needed
     visible_sections:
@@ -79,3 +95,4 @@ global_rules:
   - Use bullets for parallel items and numbers only for ordered steps or one-to-one replies.
   - Treat visual headings as a human view, not as the machine-readable source of truth.
   - Recommend synchronous discussion for conflict, negotiation, or unresolved ambiguity; email records the resulting decision, owner, and deadline.
+  - Use the technical action-brief layout only inside action_brief; it is not a sixth render mode.

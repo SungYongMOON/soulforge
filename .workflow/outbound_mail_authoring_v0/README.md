@@ -39,14 +39,22 @@ action mail, not a mandatory shell for every message. Validate the selector
 with `scripts/select_mail_render_mode.mjs --fixture
 templates/mail_render_policy.validation_fixture.yaml`.
 
+Technical implementation or test requests stay inside `action_brief`; they do
+not create another render mode. When approved constants or control conditions,
+ordered execution steps, and requested result evidence are all present, use the
+public synthetic layout in `templates/technical_action_brief.example.md`: lead
+with purpose, keep related conditions in one table, number only the execution
+sequence, and list the revision/measurements/logs to return. Never copy values
+from the synthetic example as facts.
+
 ## Status
 
 - Workflow status: active
 - Registration: registered in `.workflow/index.yaml`
 - Short invocation alias: `/outbound-mail`
 - Default route: no
-- Claim ceiling: registered structure-only workflow; no pilot execution has
-  been claimed
+- Claim ceiling: private pilot applied; not production-ready and no default
+  route or unattended-send authority is claimed
 
 ## Intended Use
 

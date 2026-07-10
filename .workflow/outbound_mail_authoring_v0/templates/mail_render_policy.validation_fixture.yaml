@@ -65,6 +65,41 @@ cases:
       mode: action_brief
       visible_sections: ["수신", "사유", "요청업무", "요청기한", "요청사유", "비고"]
       channel_recommendation: email
+  - case_id: action_brief_single_owner_technical_sequence
+    input:
+      schema_version: outbound_mail_render_input_v0
+      communication_intent: auto
+      render_mode_preference: auto
+      thread_mode: new
+      mail_kind: "수정요청"
+      reply_item_count: 0
+      channel_risk_flags: []
+      normalized_team_mail_context:
+        recipients: {to: [{role: "기술 구현 담당", reason: "구현 및 시험 준비"}], cc: [], bcc: []}
+        mail_reason: "기술 제어 기능 수정 및 시험 요청"
+        requested_work:
+          - assignee: "기술 구현 담당"
+            work_items:
+              - "승인된 기준값으로 측정 기능 구현"
+              - "순서에 따라 수동 및 자동 동작 시험"
+              - "입력 이상 시 유지 동작 확인"
+            notes:
+              - "기술 조건은 한 표로 정리"
+              - "시험 순서는 번호 목록 사용"
+        notes: {global: ["승인되지 않은 수치나 기한은 추가하지 않음"]}
+        facts: ["기존 동작은 유지", "입력 이상 시 마지막 정상 상태 유지"]
+        schedule: {before: null, after: null, rationale: null, deadline_or_reply_by: null}
+        format_and_examples: {requested_formats: ["revision과 측정 로그 목록"], examples: []}
+        attachments: {items: [], state: none}
+        response_requirements:
+          required: true
+          requested_from_roles: ["기술 구현 담당"]
+          requested_content: "revision, 측정값, 전후 비교, 남은 문제"
+          deadline_or_reply_by: null
+    expected:
+      mode: action_brief
+      visible_sections: ["사유", "요청업무", "요청사유", "비고"]
+      channel_recommendation: email
   - case_id: decision_explicit
     input:
       schema_version: outbound_mail_render_input_v0

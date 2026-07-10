@@ -98,6 +98,7 @@ steps:
         - show_six_field_action_structure_only_when_complexity_requires_it
         - show_recipient_section_only_for_role_or_assignee_disambiguation
         - merge_duplicate_reason_and_request_basis
+        - use_technical_action_brief_layout_when_constants_ordered_steps_and_result_evidence_are_all_present
         - route_conflict_negotiation_or_material_ambiguity_to_synchronous_discussion_then_email_record
         - never_raise_send_authority
     summary: Select a deterministic human-facing view while retaining the full structured context for AI and metadata use.
@@ -118,6 +119,8 @@ steps:
         - owner_voice_profile_provenance
         - normalized_team_mail_context_v1
         - mail_render_plan
+      reference_templates:
+        - templates/technical_action_brief.example.md
       artifact_out: owner_style_body_draft
       style_rules:
         - Korean_business_mail
@@ -138,6 +141,8 @@ steps:
         - preserve_participant_involvement_format_examples_attachments_and_response_requirements
         - preserve_uncertainties_in_assumptions
         - render_assumptions_only_from_synchronized_v1_assumptions
+        - for_technical_action_brief_use_one_conditions_table_then_numbered_steps_then_requested_evidence
+        - never_copy_synthetic_example_values_as_mail_facts
       missing_fact_policy: add_assumptions_and_keep_draft_only
     summary: Draft the body in the owner's concise business style using only provided or approved facts.
     next:
