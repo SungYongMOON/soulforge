@@ -52,8 +52,12 @@ export function ingestNormalized(store, data, { label = "real", source = "normal
 export function mapSoulforgeSnapshot(snapshot) {
   const out = { projects: [], items: [], mail: [], artifacts: [], stages: [], people: [] };
   const board = snapshot?.operation_board ?? snapshot ?? {};
-  const dungeonRows = board?.sections?.dungeon_map?.rows ?? board?.dungeon_map?.rows ?? [];
-  for (const row of dungeonRows) {
+  const dungeonItems = board?.sections?.dungeon_map?.items
+    ?? board?.dungeon_map?.items
+    ?? board?.sections?.dungeon_map?.rows
+    ?? board?.dungeon_map?.rows
+    ?? [];
+  for (const row of dungeonItems) {
     const id = row.project_code ?? row.id;
     if (!id) continue;
     out.projects.push({
@@ -64,8 +68,12 @@ export function mapSoulforgeSnapshot(snapshot) {
       source_ref: "guild_hall/state/snapshot/soulforge_snapshot.json"
     });
   }
-  const missionRows = board?.sections?.mission_board?.rows ?? board?.mission_board?.rows ?? [];
-  for (const row of missionRows) {
+  const missionItems = board?.sections?.mission_board?.items
+    ?? board?.mission_board?.items
+    ?? board?.sections?.mission_board?.rows
+    ?? board?.mission_board?.rows
+    ?? [];
+  for (const row of missionItems) {
     const id = row.mission_id ?? row.id;
     if (!id || !row.project_code) continue;
     out.items.push({
@@ -82,6 +90,12 @@ export function mapSoulforgeSnapshot(snapshot) {
 
 export function ingestFromFile(store, path, { label = "real" } = {}) {
   const raw = JSON.parse(readFileSync(path, "utf-8"));
-  const normalized = raw.projects || raw.items ? raw : mapSoulforgeSnapshot(raw);
+  const isSoulforgeSnapshot = raw?.schema_version === "soulforge.snapshot.v0"
+    || raw?.operation_board?.schema_version === "soulforge.operation_board_projection.v0";
+  const normalized = isSoulforgeSnapshot
+    ? mapSoulforgeSnapshot(raw)
+    : raw.projects || raw.items
+      ? raw
+      : mapSoulforgeSnapshot(raw);
   return ingestNormalized(store, normalized, { label, source: path });
 }

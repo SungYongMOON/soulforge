@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### dev-ERP canonical snapshot consumer 계약 복구
+
+- dev-ERP snapshot adapter가 현재 producer 계약인 `operation_board.sections.*.items`를 우선 소비하고, 기존 `rows` 입력은 하위호환으로 유지한다.
+- full Soulforge snapshot의 top-level `projects[]`를 normalized JSON으로 오인하던 분기를 schema 기반으로 분리해, canonical public fixture가 빈 ERP import로 사라지지 않게 했다.
+- producer-owned public fixture를 직접 쓰는 focused test를 dev-ERP full test와 root acceptance에 연결했다. 개발 checkout에서 검증한 승인 commit만 별도 runtime 껍데기에 배포하며 live DB와 Soulforge 업무 데이터는 변경하지 않는다. (worker: codex_gpt-5)
+
 ### dev-ERP 줄기 강 뷰 기본기 — 접기·잘림·잠든 가지·데이터 정직성
 
 - Owner "접는 기능·끝 잘림 등 기본이 안 됨" 지적 반영: ① **접기 칩**(`제안 N 접기/펼치기`·`완료 N 접기/펼치기`, 세션 상태 유지) ② 늦게 태어난 가지 라벨을 점 왼쪽 앵커로 — 오른쪽 잘림 제거 ③ **줄 끝 = 마지막 실기록**(진행 중 작업만 오늘선까지) — 잠든 이력 가지 16/17이 처음으로 드러남 ④ 빨간 점선 '오늘' 기준선 ⑤ 레인 24개 초과 시 행 높이 압축.

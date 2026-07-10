@@ -15,6 +15,7 @@
     "validate:ai-output-format": "node --test guild_hall/validate/ai_output_format_policy.test.mjs && node guild_hall/validate/ai_output_format_policy.mjs",
     "validate:role-boundary": "node guild_hall/validate/role_boundary_validate.mjs",
     "validate:snapshot": "node --test guild_hall/snapshot/snapshot.test.mjs && node guild_hall/snapshot/cli.mjs --check",
+    "validate:dev-erp-snapshot-contract": "npm --prefix ui-workspace/apps/dev-erp run test:snapshot-contract",
     "validate:ui": "npm run ui:validate",
     "validate:activity": "node --test guild_hall/activity/activity_log.test.mjs guild_hall/healer/healer_run.test.mjs guild_hall/healer/always_on_checks.test.mjs",
     "validate:knowledge-access": "node --check guild_hall/knowledge_access/knowledge_rag_candidate_ledger.mjs && node --check guild_hall/knowledge_access/knowledge_ingest_receipt.mjs && node --check guild_hall/knowledge_access/cli.mjs && node --check guild_hall/knowledge_access/rule_hardening_stop_guard.mjs && node --test guild_hall/knowledge_access/knowledge_access.test.mjs guild_hall/knowledge_access/knowledge_trigger_stop_guard.test.mjs guild_hall/knowledge_access/rule_hardening_stop_guard.test.mjs guild_hall/knowledge_access/knowledge_rag_candidate_ledger.test.mjs guild_hall/knowledge_access/knowledge_ingest_receipt.test.mjs",

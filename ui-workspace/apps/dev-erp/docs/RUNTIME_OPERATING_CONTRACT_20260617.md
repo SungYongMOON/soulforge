@@ -131,6 +131,9 @@ owner 가 `owner.env` 를 직접 만들고 값을 입력한다. agent 는 파일
 3. 팀에게 열기 전 승인된 commit 만 runtime clone 으로 pull 한다.
 4. runtime DB, upload, log, local `.env`, service 설정은 Git 에 올리지 않는다.
 5. 업데이트 때는 service stop, DB backup, git pull, focused check, service start 순서로 진행한다.
+6. snapshot 또는 ingest adapter 변경의 focused check 는 개발 checkout 과
+   runtime checkout 양쪽에서 `npm run validate:dev-erp-snapshot-contract` 를
+   실행한다. 이 검증은 합성 public fixture 만 사용하며 live DB 를 변경하지 않는다.
 
 이 구조는 개발 중 dirty worktree 나 반쯤 적용된 patch 가 팀 운영 화면에 노출되는 것을 막는다.
 

@@ -82,8 +82,13 @@ npm run dev-erp:task-ledger -- --db ui-workspace/apps/dev-erp/data/dev-erp.db --
 ## 검증
 
 ```bash
+npm run test:snapshot-contract
 npm test
 ```
+
+`test:snapshot-contract` 는 producer-owned public snapshot fixture 를 직접
+소비해 canonical `operation_board.*.items` 와 normalized JSON ingest 를 함께
+검증한다. 실제 업무 데이터나 runtime DB 를 읽거나 변경하지 않는다.
 
 ## Runtime Release Audit
 
