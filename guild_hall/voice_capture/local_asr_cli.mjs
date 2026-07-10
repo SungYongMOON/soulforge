@@ -7,6 +7,7 @@ import {
   drainLocalAsrQueue,
   enqueueLocalAsrBacklog,
   loadLocalAsrProfile,
+  refreshLocalAsrContextEvents,
   writeDefaultLocalAsrProfile,
 } from "./local_asr.mjs";
 
@@ -43,6 +44,10 @@ async function main() {
     const result = await drainLocalAsrQueue({ ...common, profile, maxSessions: numberArg(args, "max-sessions") });
     print(result);
     if (result.retry_required) process.exitCode = 75;
+    return;
+  }
+  if (command === "refresh-context-events") {
+    print(await refreshLocalAsrContextEvents({ ...common, projectCode: args.project ?? "P00-000_INBOX" }));
     return;
   }
   usage();
@@ -91,6 +96,7 @@ function usage() {
     "  node guild_hall/voice_capture/local_asr_cli.mjs backlog [--max-sessions <n>] [--apply]",
     "  node guild_hall/voice_capture/local_asr_cli.mjs enqueue-backlog [--apply]",
     "  node guild_hall/voice_capture/local_asr_cli.mjs drain-queue [--max-sessions <n>] [--apply]",
+    "  node guild_hall/voice_capture/local_asr_cli.mjs refresh-context-events [--project <code>] [--apply]",
     "",
   ].join("\n"));
 }

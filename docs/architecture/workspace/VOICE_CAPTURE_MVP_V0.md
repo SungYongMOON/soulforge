@@ -83,8 +83,9 @@ PLAUD account collector on an always-on node
   transcript, remain machine-generated and unverified, and carry `UNKNOWN`
   speaker labels until a separate reviewed diarization or identity lane exists.
 - Every completed independent run writes a metadata-only
-  `project_context_source.json`. Its `source_kind: voice` pointer may join mail
-  and `se_schedule` sources in the existing project-context model, but it stays
+  `project_context_source.json` plus a directly consumable
+  `project_context_event.json`. Their `source_kind: voice` pointer may join mail
+  and `se_schedule` sources in the existing project-context model, but they stay
   in `P00-000_INBOX` until project routing is confirmed.
 
 ## Recommended First Profile

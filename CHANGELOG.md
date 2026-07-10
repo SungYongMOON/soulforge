@@ -5,6 +5,7 @@
 - 하이웍스 PLAUD 전사완료 메일이 맥미니의 공식 CLI 원음 import를 깨우는 기존 흐름 뒤에 durable local-ASR queue를 연결했다. 원음 import 후 `whisper.cpp`가 provider 전사를 입력으로 사용하지 않고 별도 전사하며, 실패 queue는 5분 throttle 재시도 대상으로 남는다.
 - 장시간 녹음은 30분 창과 10초 겹침으로 나눠 chunk receipt를 남기므로 중단 후 이어서 처리할 수 있다. 독립 결과는 `analysis/local_asr/<run_id>/`에 버전별로 저장하고 provider 전사·요약을 덮어쓰지 않는다.
 - 독립 전사 완료본은 기존 project-context 정본의 `voice` source pointer를 생성한다. 이 포인터는 `mail`, `se_schedule`과 같은 프로젝트 줄기 입력으로 결합되지만 P00 검토와 책임자 프로젝트 확정 전에는 일정·할일·화자 신원을 확정하지 않는다 (worker: codex_gpt-5).
+- 완료된 음성 포인터를 기존 행보관 project-context 입력기가 직접 소비할 수 있는 metadata-only `events` packet으로 변환하는 어댑터와 소급 refresh 명령을 추가했다. 전사 본문은 어댑터에 복사하지 않는다.
 
 ### PLAUD 조건부 파일럿 채택 결정
 

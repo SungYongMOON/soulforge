@@ -321,6 +321,15 @@ export async function analyzeLocalAsrSession(options = {}) {
       project_route_state: "unclassified_needs_owner_confirmation",
       companion_input_kinds: ["mail", "se_schedule"],
     });
+    await atomicWriteJson(
+      path.join(outputDir, "project_context_event.json"),
+      buildProjectContextEventPacket({
+        sessionManifest,
+        analysisManifest: completedManifest,
+        profile,
+        projectCode: "P00-000_INBOX",
+      }),
+    );
 
     sessionManifest.independent_transcription = {
       status: "completed",
@@ -417,6 +426,51 @@ export async function enqueueLocalAsrBacklog(options = {}) {
     results.push(await enqueueLocalAsrSession({ repoRoot, profile, sessionDir: session.session_dir, apply: options.apply, now: options.now }));
   }
   return { schema_version: "soulforge.local_asr_backlog_queue.v0", applied: Boolean(options.apply), pending_count: sessions.length, queued_count: results.length, results };
+}
+
+export function buildProjectContextEventPacket({ sessionManifest, analysisManifest, profile, projectCode = "P00-000_INBOX" }) {
+  const sessionId = analysisManifest.session_id ?? sessionManifest.session_id;
+  return {
+    schema_version: "soulforge.project_context_event_packet.v0",
+    project_code: projectCode,
+    raw_payload_copied: false,
+    events: [
+      {
+        source_kind: "voice",
+        source_id: `voice:${sessionId}:${profile.run_id}`,
+        project_code: projectCode,
+        event_time: sessionManifest.recorded_at_local ?? null,
+        title: `voice recording ${sessionId}`,
+        summary_hint: "Independent local machine transcript ready; project route and action review required.",
+        pointer_ref: analysisManifest.transcript_jsonl_ref,
+        body_access: "workspace_private_payload_pointer",
+        action_required: false,
+        confidence: 0,
+      },
+    ],
+  };
+}
+
+export async function refreshLocalAsrContextEvents(options = {}) {
+  const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+  const profile = options.profile ?? (await loadLocalAsrProfile({ repoRoot, profileRef: options.profileRef })).profile;
+  const sessions = await discoverLocalAsrSessions({ repoRoot, profile });
+  const results = [];
+  for (const session of sessions.filter((row) => row.state === "completed")) {
+    const sessionManifest = JSON.parse(await fs.readFile(path.join(session.session_dir, "session_manifest.json"), "utf8"));
+    const outputDir = path.join(session.session_dir, profile.output_subdir, profile.run_id);
+    const analysisManifest = JSON.parse(await fs.readFile(path.join(outputDir, "analysis_manifest.json"), "utf8"));
+    const outputPath = path.join(outputDir, "project_context_event.json");
+    const packet = buildProjectContextEventPacket({ sessionManifest, analysisManifest, profile, projectCode: options.projectCode ?? "P00-000_INBOX" });
+    if (options.apply) await atomicWriteJson(outputPath, packet);
+    results.push({ session_id: session.session_id, event_ref: relativeRef(repoRoot, outputPath) });
+  }
+  return {
+    schema_version: "soulforge.local_asr_context_event_refresh.v0",
+    applied: Boolean(options.apply),
+    completed_session_count: results.length,
+    results,
+  };
 }
 
 export async function drainLocalAsrQueue(options = {}) {

@@ -98,6 +98,12 @@ test("local ASR writes versioned independent transcript without replacing provid
     assert.equal(contextSource.source_kind, "voice");
     assert.deepEqual(contextSource.companion_input_kinds, ["mail", "se_schedule"]);
     assert.equal(contextSource.raw_payload_copied, false);
+    const contextEvent = JSON.parse(await readFile(path.join(outputDir, "project_context_event.json"), "utf8"));
+    assert.equal(contextEvent.events.length, 1);
+    assert.equal(contextEvent.events[0].source_kind, "voice");
+    assert.equal(contextEvent.events[0].project_code, "P00-000_INBOX");
+    assert.equal(contextEvent.events[0].action_required, false);
+    assert.equal(Object.hasOwn(contextEvent.events[0], "transcript_body"), false);
 
     const manifest = JSON.parse(await readFile(path.join(fixture.sessionDir, "session_manifest.json"), "utf8"));
     assert.equal(manifest.independent_transcription.status, "completed");
