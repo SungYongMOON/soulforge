@@ -1,0 +1,35 @@
+{
+  "schema_version": "soulforge.plaud_sync_profile.v0",
+  "plaud_command": "plaud",
+  "supported_cli_versions": [
+    "0.3.4"
+  ],
+  "poll_days": 14,
+  "max_new_per_run": 20,
+  "output_root": "_workspaces/system/voice_capture",
+  "project_code_candidate": "P00-000_INBOX",
+  "shared_workspace_required": true,
+  "readiness": {
+    "require_audio": true,
+    "require_transcript": true,
+    "summary_optional": true
+  },
+  "collect": {
+    "audio": true,
+    "provider_transcript": true,
+    "provider_summary": true
+  },
+  "evidence_roles": {
+    "audio": "canonical_source_candidate",
+    "provider_transcript": "auxiliary_unverified",
+    "provider_summary": "quarantined_untrusted"
+  },
+  "register_library": true,
+  "write_workmeta_draft": true,
+  "launchd": {
+    "label": "ai.soulforge.plaud-ingest",
+    "trigger": "hiworks_mail_queue_watch",
+    "retry_interval_seconds": 300,
+    "unresolved_after_seconds": 3600
+  }
+}

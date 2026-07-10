@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### 하이웍스 메일 구동 맥미니 PLAUD 공식 CLI 수집기
+
+- 하이웍스 수집기가 PLAUD 전사 완료 메일을 받으면 민감정보 없는 hash trigger를 shared OneDrive queue에 쓰고, 24시간 맥미니의 launchd `WatchPaths`가 즉시 공식 PLAUD CLI 수집을 실행하는 intake를 추가했다. 30분 독립 polling은 사용하지 않으며 explicit `sync`는 메일 누락 복구용으로만 남긴다.
+- 새 녹음의 원본 오디오·시간표시 전사·요약을 격리 session으로 수집한다. provider ID 중복 방지, 전사 미완료 queue 유지와 5분 throttle 재시도, OneDrive `_workspaces/system` link preflight, metadata-only 보관함·P00 검토 이벤트 연결, node-local launchd 렌더를 포함한다.
+- 증거 역할을 분리했다. 원본 오디오는 정본 후보, PLAUD 전사·화자명은 미검증 보조본, PLAUD 요약은 격리 참고본이며 provider 로그인 token과 24시간 download URL은 저장하지 않는다. fixture 기반 parser·중복 방지·materialization·launchd 회귀를 추가했다 (worker: codex_gpt-5).
+- 공식 CLI가 JSON 모드 없이 사람용 표를 출력하는 현재 계약을 고려해 검증된 `0.3.4`를 profile에 고정하고, 미검증 버전은 preflight에서 중단한다.
+- 메일과 provider recording을 직접 연결할 수 없는 경계에서 다른 최근 녹음만 보고 완료 처리하지 않도록 했다. 새 import가 없거나 timestamp transcript parser가 0건이면 5분 간격으로 최대 1시간 재시도하고, 이후에도 해결되지 않으면 삭제하지 않고 `unresolved` 검토함으로 격리한다. 다중 대기열은 새 녹음 1건당 오래된 trigger 1건만 완료하고 각 trigger의 수명을 따로 계산한다. 메일 본문의 일반 `transcript` 문구만으로는 trigger하지 않는다.
+
 ### PLAUD OGG 원본의 음성 보관함 등록 지원
 
 - PLAUD 공유 링크에서 내려받은 OGG/Opus 원본을 오디오 없음으로 잘못 기록하던 문제를 수정했다. 음성 세션 상태와 보관함 원본 포인터가 `source.ogg`를 인식하고, 기존 M4A/WAV 외 MP3/FLAC 원본 포인터도 보존한다 (worker: codex_gpt-5).

@@ -23,6 +23,11 @@ from .pipeline import (
     normalize_extensions,
 )
 from .ops.notify import enqueue_mail_received_notifications
+from .ops.plaud_trigger import (
+    DEFAULT_SENDER_DOMAINS as DEFAULT_PLAUD_SENDER_DOMAINS,
+    DEFAULT_SUBJECT_KEYWORDS as DEFAULT_PLAUD_SUBJECT_KEYWORDS,
+    enqueue_plaud_mail_triggers,
+)
 from .storage import CursorStore, EventSink, MailCandidateQueue
 
 
@@ -405,6 +410,10 @@ class CollectorConfig:
     link_download_retry_backoff_sec: Sequence[int] = (1, 2, 4)
     denied_link_hosts: Sequence[str] = ()
     mailbox_metadata: Optional[Dict[str, str]] = None
+    plaud_mail_trigger_enabled: bool = False
+    plaud_mail_trigger_queue_root: Optional[Path] = None
+    plaud_mail_sender_domains: Sequence[str] = DEFAULT_PLAUD_SENDER_DOMAINS
+    plaud_mail_subject_keywords: Sequence[str] = DEFAULT_PLAUD_SUBJECT_KEYWORDS
 
 
 def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
@@ -562,6 +571,22 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
         link_download_retry_max=max(_env_int(env, "EMAIL_FETCH_LINK_DOWNLOAD_RETRY_MAX", 3), 1),
         link_download_retry_backoff_sec=(1, 2, 4),
         denied_link_hosts=tuple(denied_hosts),
+        plaud_mail_trigger_enabled=_parse_bool(env.get("EMAIL_FETCH_PLAUD_TRIGGER_ENABLED"), False),
+        plaud_mail_trigger_queue_root=_env_path(
+            env,
+            "EMAIL_FETCH_PLAUD_TRIGGER_QUEUE_ROOT",
+            backend_root / "_workspaces" / "system" / "voice_capture" / "plaud_mail_triggers",
+            base_dir=env_base_dir,
+            repo_root=repo_root,
+        ),
+        plaud_mail_sender_domains=(
+            _split_csv_lower(str(env.get("EMAIL_FETCH_PLAUD_SENDER_DOMAINS", "")).strip())
+            or DEFAULT_PLAUD_SENDER_DOMAINS
+        ),
+        plaud_mail_subject_keywords=(
+            _split_csv(str(env.get("EMAIL_FETCH_PLAUD_SUBJECT_KEYWORDS", "")).strip())
+            or DEFAULT_PLAUD_SUBJECT_KEYWORDS
+        ),
     )
 
 
@@ -841,6 +866,14 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
             raw_rows = [event.raw for event in fresh_events if isinstance(event.raw, dict)]
 
             if not config.dry_run:
+                plaud_trigger_summary = enqueue_plaud_mail_triggers(
+                    config.plaud_mail_trigger_queue_root,
+                    fresh_events,
+                    enabled=config.plaud_mail_trigger_enabled,
+                    sender_domains=config.plaud_mail_sender_domains,
+                    subject_keywords=config.plaud_mail_subject_keywords,
+                )
+                source_row["plaud_mail_triggers"] = plaud_trigger_summary.to_dict()
                 sink_summary = sink.write_batch(source, raw_rows, fresh_events)
                 candidate_summary = mail_candidate_queue.enqueue_events(fresh_events)
                 source_row["raw_written"] = sink_summary.raw_written
@@ -885,6 +918,14 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
                     "queue_files": [],
                     "history_updated": 0,
                     "history_files": [],
+                }
+                source_row["plaud_mail_triggers"] = {
+                    "enabled": False,
+                    "matched": 0,
+                    "queued": 0,
+                    "duplicates": 0,
+                    "skipped": len(fresh_events),
+                    "skipped_reason": "dry_run",
                 }
 
             source_row["new_events"] = len(fresh_events)

@@ -82,6 +82,14 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 - 업무화 검토가 끝난 candidate 는 `guild-hall:gateway:mail-candidate:promote` 로 local-only `mail_intake_request` payload 로 승격할 수 있다.
 - 상세 계약은 [`MAIL_CANDIDATE_QUEUE_V0.md`](MAIL_CANDIDATE_QUEUE_V0.md) 를 따른다.
 
+## PLAUD transcript-ready trigger
+
+- Hiworks fresh event의 발신 domain이 owner-configured PLAUD domain과 일치하고 제목 또는 첨부 이름에서 전사 완료 신호가 확인되면 shared voice trigger를 만든다. 메일 본문의 일반 기능 안내만으로는 trigger를 만들지 않는다.
+- trigger 기본 위치는 `_workspaces/system/voice_capture/plaud_mail_triggers/pending/`이다. 여러 PC가 같은 OneDrive-backed `_workspaces/system` view를 볼 때 메일 수집 PC와 맥미니 collector 사이의 전달면이 된다.
+- trigger에는 mail event/provider message의 hash, source, 수신 시각만 기록한다. 제목, 주소, 본문, 첨부명, PLAUD link, token은 복사하지 않는다.
+- trigger는 메일 내용을 회의록 근거로 승격하지 않는다. 맥미니가 공식 PLAUD CLI로 원본 오디오와 provider 전사·요약을 다시 수집하게 하는 신호일 뿐이다.
+- 정상 경로는 mail event → shared trigger → macOS `WatchPaths` → PLAUD CLI다. 독립 30분 polling은 사용하지 않는다.
+
 ## Mail task register follow-on
 
 `register-mail-tasks` is a follow-on consumer of the derived

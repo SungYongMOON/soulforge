@@ -66,6 +66,25 @@ _workspaces/system/voice_capture/meeting_bundles/<YYYY-MM-DD>/<meeting_bundle_id
 5. 책임자가 프로젝트 route 를 확정하면 project route manifest 를 갱신한다.
 6. 전사 품질, 화자분리 품질, action item 누락 가능성을 검토한 뒤에만 `_workmeta/<project_code>/reports/voice_source_events/**` 또는 공식 task ledger 후보로 넘긴다.
 
+## PLAUD 정기 수집
+
+- 하이웍스 수집기가 PLAUD 전사 완료 메일을 새로 수신하면 메일 원문 없는 hash 기반 trigger를 shared voice queue에 쓴다.
+- 24시간 노드는 shared queue 변경을 감시한 뒤 PLAUD 공식 CLI로 최근 recording ID를 조회하고, 기존 session manifest에 없는 ID만 수집한다.
+- PLAUD Note에서 계정으로 전송되지 않았거나 전사가 끝나지 않은 녹음은 실패로 확정하지 않고 다음 주기에 재시도한다.
+- 수집물은 원본 오디오, provider 전사, provider 요약을 모두 보존하되 증거 역할을 구분한다.
+- 원본 오디오는 재전사·사실확인에 사용할 `canonical_source_candidate`다.
+- PLAUD 전사와 화자 라벨은 시간 정렬에 유용한 `auxiliary_unverified`이며, 기술용어·인명·화자 식별을 확정하지 않는다.
+- PLAUD 요약은 `quarantined_untrusted`이며 회의록, 결정, 할일을 직접 생성하거나 장부에 승격하는 근거로 쓰지 않는다.
+- provider recording ID는 중복 방지 키다. 공유 링크 import와 CLI import가 같은 ID면 새 원본을 만들지 않고 기존 session을 우선한다.
+- PLAUD 로그인 token과 24시간 audio download URL은 저장하거나 `_workmeta`·Git에 복사하지 않는다.
+- 새 session은 기본적으로 `P00-000_INBOX`에 등록하고, 독립 전사 또는 오디오 검토와 프로젝트 매칭 후에만 과제별로 투영한다.
+- 메일이 누락됐을 때만 운영자가 explicit `sync`를 실행한다. 정상 동작은 30분 polling이 아니라 mail queue event다.
+- 메일 trigger 시점에 provider audio/transcript가 아직 보이지 않으면 trigger를 처리 완료로 옮기지 않고, launchd 실패 재시작을 5분 throttle로 제한해 다시 시도한다.
+- 새 recording import가 확인되지 않은 trigger는 완료 처리하지 않는다. 기본 1시간 동안 재시도한 뒤에도 연결 가능한 새 recording이 없으면 `plaud_mail_triggers/unresolved/<date>/`로 격리해 사람이 확인할 수 있게 남긴다.
+- 여러 trigger가 함께 대기하면 새 recording 1건당 가장 오래된 trigger 최대 1건만 완료 처리한다. 미해결 수명도 각 trigger의 `enqueued_at`을 따로 계산해 새 trigger가 오래된 trigger와 함께 격리되지 않게 한다.
+- 한 조회에서 import 완료와 provider 처리 중 상태가 함께 나오면 처리 중 recording 및 조회 한도 초과 recording 수만큼 trigger 자리를 예약해 다음 재시도가 끊기지 않게 한다.
+- provider가 transcript available로 표시했지만 고정된 CLI 형식에서 timestamp segment를 하나도 읽지 못하면 import 성공으로 간주하지 않고 동일한 재시도·미해결 격리 경로를 따른다.
+
 ## 금지
 
 - 녹음별 원문 전사 본문을 public repo, `_workmeta`, changelog, review packet 에 붙여 넣지 않는다.
@@ -90,3 +109,4 @@ npm run guild-hall:voice-capture -- register-library \
 - OneDrive 또는 owner-approved shared worksite 에서 `_workspaces/system/voice_capture/sessions/**` 와 `library/**` payload 를 같은 경로 identity 로 materialize 한다.
 - 다른 PC 에서 raw payload 가 보이지 않으면 Git 문제가 아니라 workspace 동기화 문제로 본다.
 - `recordings.current.json` 와 `project_routes/P00-000_INBOX/**` 를 먼저 보고 미분류 녹음부터 route 검토한다.
+- 맥미니 수집 노드는 `_workspaces/system`이 active OneDrive shared link인지 audit한 뒤에만 기본 수집 경로를 사용한다. launchd plist와 로그는 `_workspaces/_local/<node_id>/` 및 사용자 로그 폴더에 둔다.

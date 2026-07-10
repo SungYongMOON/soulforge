@@ -40,6 +40,14 @@ npm run guild-hall:gateway:fetch:team -- --once --json
 python3 guild_hall/gateway/mail_fetch/healthcheck.py --json
 ```
 
+When `EMAIL_FETCH_PLAUD_TRIGGER_ENABLED=true`, a fresh Hiworks PLAUD
+transcript-ready notice writes a sanitized trigger under the shared
+`_workspaces/system/voice_capture/plaud_mail_triggers/pending/` queue. The
+trigger contains hashes and timestamps only; mail subject, address, body,
+attachment name, link, and credentials are excluded. The Mac mini voice
+collector watches that queue and uses the official PLAUD CLI to fetch source
+artifacts.
+
 ## Team mailbox register
 
 `team_cli.py` reads a private metadata-only JSON register:

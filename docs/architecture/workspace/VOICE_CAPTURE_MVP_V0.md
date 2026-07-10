@@ -19,6 +19,13 @@ microphone recorder command
   -> metadata-only recording library registration
   -> metadata-only _workmeta review draft
   -> later reviewed project route and draft actions
+
+PLAUD account collector on an always-on node
+  -> official CLI recent recording IDs
+  -> original audio + provider transcript + provider summary
+  -> isolated session under the same recording library
+  -> provider text held as unverified auxiliary evidence
+  -> later independent transcription and project-context review
 ```
 
 ## Owner Split
@@ -57,6 +64,15 @@ microphone recorder command
   not promote project route or mutate a formal task ledger.
 - `render-launchd` writes a local-only plist for manual installation. It does
   not install, load, or unload launchd by itself.
+- The normal PLAUD collector is event-driven. A fresh Hiworks PLAUD transcript
+  notice writes a sanitized trigger to the shared workspace queue, and the Mac
+  mini launchd `WatchPaths` job drains it. Explicit `sync` remains a recovery
+  command rather than the normal periodic trigger.
+- Provider recording IDs provide payload deduplication. A trigger remains
+  pending when audio or transcript is not yet available.
+- PLAUD audio is a canonical source candidate. PLAUD transcript and speaker
+  labels remain auxiliary and unverified; PLAUD summaries are quarantined and
+  cannot directly create tasks or meeting minutes.
 
 ## Recommended First Profile
 

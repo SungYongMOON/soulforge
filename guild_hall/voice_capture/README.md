@@ -2,10 +2,10 @@
 
 ## Purpose
 
-`voice_capture/` is the local microphone capture supervisor for always-on voice
+`voice_capture/` supervises local microphone capture and provider-account voice
 intake. It does not include or download an ASR model. Instead, it supervises
-owner-installed commands such as `ffmpeg`, `sox`, and `whisper-cli`, then writes
-bounded session artifacts under `_workspaces`.
+owner-installed commands such as `ffmpeg`, `sox`, `whisper-cli`, and the
+official PLAUD CLI, then writes bounded session artifacts under `_workspaces`.
 
 ## Boundary
 
@@ -18,6 +18,77 @@ bounded session artifacts under `_workspaces`.
 - Project route and formal task ledger promotion remain owner-reviewed.
 
 ## Commands
+
+### PLAUD account intake on an always-on Mac
+
+PLAUD account intake is separate from microphone recording. It uses the
+official `@plaud-ai/cli`, keeps provider credentials in the CLI-managed local
+token store, and never reads or copies that token file into Soulforge.
+
+On the Mac mini, install the external prerequisites and sign in once:
+
+```bash
+npm install -g @plaud-ai/cli@0.3.4
+plaud login
+brew install ffmpeg
+```
+
+Create the shared, secret-free profile and run preflight:
+
+```bash
+npm run guild-hall:voice-capture:plaud -- init-config --apply
+npm run guild-hall:voice-capture:plaud -- preflight
+```
+
+Preview new recording IDs without downloading anything, then apply:
+
+```bash
+npm run guild-hall:voice-capture:plaud -- sync
+npm run guild-hall:voice-capture:plaud -- sync --apply
+```
+
+The sync waits until audio and transcript are both available, retries pending
+recordings on later runs, and skips any provider recording ID already present
+in a session manifest. It downloads all three provider artifacts but assigns
+different evidence roles:
+
+- original audio: canonical source candidate;
+- PLAUD transcript and speaker labels: auxiliary, unverified alignment input;
+- PLAUD summary: quarantined, untrusted provider output with no direct task
+  promotion authority.
+
+The intake currently pins CLI `0.3.4` because the official CLI emits a
+human-readable table rather than a documented JSON mode. Preflight blocks an
+unknown version until its output contract passes the fixture tests.
+
+Render the Mac mini mail-queue watcher after the repository and OneDrive
+workspace links are ready:
+
+```bash
+npm run guild-hall:voice-capture:plaud -- render-launchd \
+  --node-id home_always_on_01 \
+  --apply
+```
+
+The rendered plist uses macOS `WatchPaths` on the shared PLAUD mail-trigger
+queue. It runs when the Hiworks collector writes a new sanitized trigger; it
+does not poll PLAUD every 30 minutes. If PLAUD has not exposed the recording
+yet, a non-zero retry result is throttled to five minutes while the trigger
+remains pending. A trigger is completed only when at least one new recording is
+imported. If no matching import appears within one hour, it moves to
+`plaud_mail_triggers/unresolved/<date>/` for explicit review instead of being
+silently discarded. Multiple pending notices are resolved individually: one
+new recording completes at most one oldest notice, and only notices whose own
+one-hour window expired move to unresolved. The plist stays under
+`_workspaces/_local/home_always_on_01/launchd/`. Install commands are printed
+for manual execution on that Mac. The collector writes the audio and provider
+exports to the shared `_workspaces/system/voice_capture/` view, registers the
+recording in the metadata-only library, and creates a `P00-000_INBOX` review
+event. It does not decide the project or create formal tasks.
+
+`sync` remains available as an explicit recovery command when the notification
+mail was missed. Normal operation uses `drain-mail-queue --apply` through the
+launchd watcher.
 
 Create the local MacBook Air profile:
 
@@ -138,6 +209,9 @@ The MVP expects local tools to be installed outside Soulforge:
 - `ffmpeg` or another recorder command.
 - `whisper-cli` from `whisper.cpp`.
 - A local Whisper model such as `ggml-large-v3-turbo.bin`.
+- PLAUD account collection additionally requires Node.js 20 or newer and the
+  official `@plaud-ai/cli`; login tokens remain under the CLI-managed user
+  profile and must not be copied into the repository or `_workmeta`.
 
 On macOS, the first real recording run may require microphone permission for the
 terminal application running the command.
