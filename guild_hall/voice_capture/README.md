@@ -17,6 +17,11 @@ official PLAUD CLI, then writes bounded session artifacts under `_workspaces`.
   private source payloads into public repo files.
 - Project route and formal task ledger promotion remain owner-reviewed.
 
+The current PLAUD adoption decision is documented in
+[`PLAUD_ADOPTION_DECISION_V0.md`](../../docs/architecture/workspace/PLAUD_ADOPTION_DECISION_V0.md):
+use PLAUD as a pilot primary-audio candidate, not as authoritative transcript,
+speaker identity, minutes, or task evidence.
+
 ## Commands
 
 ### PLAUD account intake on an always-on Mac

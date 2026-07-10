@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### PLAUD 조건부 파일럿 채택 결정
+
+- PLAUD를 회의록 확정 서비스가 아니라 휴대용 원본 음성 수집기로 사용하는 운영 결정을 추가했다. 본인 1명·5~10회 이중 녹음 파일럿 동안 누락, 계정 전송, 배터리, 원거리 화자, 원본 회수, 하이웍스→맥미니 인입을 확인한 뒤 단독 주 수집기 전환 여부를 판단한다.
+- 원본 오디오는 정본 후보, provider 전사·화자 라벨은 미검증 보조본, provider 요약은 격리 참고본으로 고정했다. 프로젝트 매칭·회의록·할일 확정은 Soulforge가 담당하며 보안시설 금지, 원본 부재, 프로젝트 근거 부족을 중단선으로 명시했다 (worker: codex_gpt-5).
+
 ### 하이웍스 메일 구동 맥미니 PLAUD 공식 CLI 수집기
 
 - 하이웍스 수집기가 PLAUD 전사 완료 메일을 받으면 민감정보 없는 hash trigger를 shared OneDrive queue에 쓰고, 24시간 맥미니의 launchd `WatchPaths`가 즉시 공식 PLAUD CLI 수집을 실행하는 intake를 추가했다. 30분 독립 polling은 사용하지 않으며 explicit `sync`는 메일 누락 복구용으로만 남긴다.
