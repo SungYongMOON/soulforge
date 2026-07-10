@@ -40,6 +40,8 @@ Choose one optimization intent before candidate execution:
 
 Exhaustive Cartesian search always requires an explicit request or authorization. See [candidate-matrix.md](references/candidate-matrix.md) for shortlist and expansion rules.
 
+Treat every effort advertised by the executable runner, including `max` or `ultra`, as a model-specific `reasoning_effort`. Do not infer delegation topology from the effort name; configure and test delegation as a separate dimension only when explicitly authorized.
+
 ## Workflow Handoff
 
 Before calibration, confirm:

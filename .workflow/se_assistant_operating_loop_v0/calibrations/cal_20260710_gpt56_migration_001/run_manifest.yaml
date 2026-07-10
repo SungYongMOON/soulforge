@@ -1,0 +1,50 @@
+workflow_id: se_assistant_operating_loop_v0
+calibration_id: cal_20260710_gpt56_migration_001
+date: 2026-07-10
+mode: migration_validation
+optimization_intent: migration_validation
+public_safe: true
+incumbent_comparator:
+  candidate_id: MIG_incumbent_mini_low
+  profile: gpt-5.4-mini|low|dwarf|auditor
+  prior_calibration_ref: .workflow/se_assistant_operating_loop_v0/calibrations/cal_20260611_se_assistant_quality_equiv_001
+search_scope:
+  exhaustive_authorized: false
+  species_class_fixed: dwarf|auditor
+  candidates:
+    - gpt-5.4-mini|low
+    - gpt-5.6-sol|low
+    - gpt-5.6-terra|medium
+    - gpt-5.6-luna|medium
+frozen_input_fixture_ref: .workflow/se_assistant_operating_loop_v0/calibrations/cal_20260611_se_assistant_quality_equiv_001/input_fixture.public.json
+frozen_quality_gate_ref: .workflow/se_assistant_operating_loop_v0/calibrations/cal_20260611_se_assistant_quality_equiv_001/quality_gate/criteria.json
+frozen_gate_review_ref: .workflow/se_assistant_operating_loop_v0/calibrations/cal_20260611_se_assistant_quality_equiv_001/quality_gate/evaluator_review.json
+prompt_base_ref: .workflow/se_assistant_operating_loop_v0/calibrations/cal_20260611_se_assistant_quality_equiv_001/prompts/A_mini_low_dwarf_auditor.prompt.md
+candidate_count: 6
+capability_runner_snapshot_ref: .workflow/se_assistant_operating_loop_v0/calibrations/cal_20260710_gpt56_migration_001/capability_runner_snapshot.yaml
+tested_dimensions:
+  models: [gpt-5.4-mini, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna]
+  efforts_by_model:
+    gpt-5.4-mini: [low]
+    gpt-5.6-sol: [low]
+    gpt-5.6-terra: [medium]
+    gpt-5.6-luna: [medium]
+  repeat_runs:
+    gpt-5.6-sol|low: 2
+    gpt-5.6-luna|medium: 2
+  species: [dwarf]
+  classes: [auditor]
+untested_dimensions:
+  reasoning_efforts: [high, xhigh, max, ultra_where_supported]
+  species: [human, elf, orc, darkelf]
+  classes: [administrator, archivist]
+  delegation_topology: [all]
+measurement_sources:
+  quality: fresh_context_frozen_gate_evaluator
+  telemetry: codex_exec_json_cli_proxy
+  service: Codex with ChatGPT account
+  billing_mode: subscription_or_bundled_not_measured
+  billed_cost_source: not_available
+usage_evidence: not_measured
+archive_note: Public-safe synthetic migration validation only; no private payload, secret, _workspaces content, or live project execution.
+claim_ceiling: observed

@@ -1,0 +1,45 @@
+{
+  "workflow_id": "se_assistant_operating_loop_v0",
+  "calibration_id": "cal_20260710_gpt56_migration_001",
+  "quality_gate": "frozen_reused",
+  "ranked_profiles": [
+    {
+      "rank": 1,
+      "profile": "gpt-5.6-luna|medium|dwarf|auditor",
+      "quality_scores": [96, 98],
+      "wall_s": [17.203, 21.927],
+      "total_tokens": [18493, 20297],
+      "decision": "selected_for_this_frozen_fixture"
+    },
+    {
+      "rank": 2,
+      "profile": "gpt-5.6-sol|low|dwarf|auditor",
+      "quality_scores": [98, 99],
+      "wall_s": [23.239, 27.654],
+      "total_tokens": [19988, 21776],
+      "decision": "quality_first_fallback"
+    },
+    {
+      "rank": 3,
+      "profile": "gpt-5.6-terra|medium|dwarf|auditor",
+      "quality_scores": [95],
+      "wall_s": [33.35],
+      "total_tokens": [19777],
+      "decision": "passing_not_repeated"
+    },
+    {
+      "rank": 4,
+      "profile": "gpt-5.4-mini|low|dwarf|auditor",
+      "quality_scores": [91],
+      "wall_s": [31.758],
+      "total_tokens": [18532],
+      "decision": "rollback_reference"
+    }
+  ],
+  "migration_decision": "replaced",
+  "selected_profile": "gpt-5.6-luna|medium|dwarf|auditor",
+  "selection_claim": "stable_quality_passing_with_lower_observed_latency_than_gpt56_sol_on_tested_fixture",
+  "billed_cost_measured": false,
+  "aggregate_savings_measured": false,
+  "claim_ceiling": "observed"
+}

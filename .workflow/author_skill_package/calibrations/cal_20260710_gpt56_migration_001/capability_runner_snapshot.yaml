@@ -1,0 +1,17 @@
+captured_at: "2026-07-10T17:34:00+09:00"
+executable: C:/Users/user/AppData/Roaming/npm/codex.cmd
+runner_version: codex-cli 0.144.1
+invocation_boundary: ephemeral_ignore_user_config_ignore_rules_read_only
+catalog_source: C:/Users/user/.codex/models_cache.json
+launch_smokes:
+  default_runner: pass
+  gpt_5_6_sol_low: pass
+  gpt_5_6_sol_max: pass
+models:
+  gpt-5.6-sol: {default_effort: low, supported_efforts: [low, medium, high, xhigh, max, ultra]}
+  gpt-5.6-terra: {default_effort: medium, supported_efforts: [low, medium, high, xhigh, max, ultra]}
+  gpt-5.6-luna: {default_effort: medium, supported_efforts: [low, medium, high, xhigh, max]}
+delegation_topology_tested: false
+notes:
+  - Runner-advertised effort support was followed by direct Sol/low and Sol/max execution before workflow candidates were built.
+  - Cache visibility alone is not treated as execution entitlement.

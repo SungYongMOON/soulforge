@@ -1,0 +1,29 @@
+workflow_id: author_skill_package
+calibration_id: cal_20260710_gpt56_migration_001
+optimization_intent: migration_validation
+migration_decision: replaced
+recommended_profile:
+  model: gpt-5.6-sol
+  reasoning_effort: low
+  species: darkelf
+  class: archivist
+quality_evidence:
+  scores: [96, 98, 97]
+  all_hard_gates_passed: true
+  repeated: true
+telemetry_proxy:
+  wall_s: [22.234, 28.93, 27.876]
+  total_tokens: [21400, 19887, 21447]
+backup_profile:
+  model: gpt-5.6-luna
+  reasoning_effort: medium
+  species: darkelf
+  class: archivist
+  quality_class: minimum_quality_pass_only
+selection_claim: stable_quality_equivalent_among_tested_on_frozen_fixture
+non_claims:
+  - no lowest-cost or billed-cost claim
+  - no aggregate savings, payback, or ROI
+  - no package creation, smoke execution, install, sync, or release claim
+  - no untested workflow certification
+claim_ceiling: observed

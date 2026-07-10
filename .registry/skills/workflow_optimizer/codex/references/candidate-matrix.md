@@ -17,9 +17,9 @@ Build the bounded shortlist in this order:
 3. Available family challengers at their runner-supported default or recommended efforts.
 4. A higher effort only when a lower/default effort fails quality or evidence predicts a material quality gain.
 
-Keep the incumbent `species` and `class` fixed. Resolve effort support per model; never assume sibling models share the same effort set. Use `max` only when the runner supports it and a recorded quality/evidence escalation justifies it.
+Keep the incumbent `species` and `class` fixed. Resolve effort support per model; never assume sibling models share the same effort set. Treat every effort advertised by the executable runner, including `max` or `ultra`, as a model-specific `reasoning_effort`, and use higher efforts only when a recorded quality/evidence escalation justifies them. For runner capability data that advertises `ultra` for GPT-5.6 Sol and Terra but not Luna, Sol and Terra may use that effort while Luna may not.
 
-Treat `ultra` as a separate delegation-topology experiment, not a `reasoning_effort` value or an ordinary matrix cell. Test it only when both the workflow contract and runtime permit delegation; compare and archive it as a topology variant.
+Do not infer delegation topology from the `ultra` effort name. Delegation topology is a separate candidate dimension; configure, compare, and archive it only when explicitly authorized and when both the workflow contract and runtime permit delegation.
 
 Archetype or sentinel results may eliminate or prioritize sibling candidates. They may not certify an untested sibling, rewrite the sibling's supported-effort policy, or stand in for a sibling's quality result.
 

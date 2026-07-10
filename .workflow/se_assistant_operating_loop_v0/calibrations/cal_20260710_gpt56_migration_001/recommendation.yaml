@@ -1,0 +1,28 @@
+workflow_id: se_assistant_operating_loop_v0
+calibration_id: cal_20260710_gpt56_migration_001
+optimization_intent: migration_validation
+migration_decision: replaced
+recommended_profile:
+  model: gpt-5.6-luna
+  reasoning_effort: medium
+  species: dwarf
+  class: auditor
+quality_evidence:
+  scores: [96, 98]
+  all_hard_gates_passed: true
+  repeated: true
+telemetry_proxy:
+  wall_s: [17.203, 21.927]
+  total_tokens: [18493, 20297]
+quality_first_fallback:
+  model: gpt-5.6-sol
+  reasoning_effort: low
+  species: dwarf
+  class: auditor
+selection_claim: stable_quality_passing_with_lower_observed_latency_than_gpt56_sol_on_tested_fixture
+non_claims:
+  - no billed-cost comparison
+  - no aggregate savings, payback, or ROI
+  - no live-project or production equivalence
+  - no untested workflow certification
+claim_ceiling: observed

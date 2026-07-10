@@ -1,0 +1,37 @@
+workflow_id: author_skill_package
+calibration_id: cal_20260710_gpt56_migration_001
+date: 2026-07-10
+mode: migration_validation
+optimization_intent: migration_validation
+public_safe: true
+incumbent_comparator:
+  candidate_id: MIG_incumbent_mini_low
+  profile: gpt-5.4-mini|low|darkelf|archivist
+  prior_calibration_ref: .workflow/author_skill_package/calibrations/20260511-161446_subagent_quality_first
+search_scope:
+  exhaustive_authorized: false
+  species_class_fixed: darkelf|archivist
+  candidates: [gpt-5.4-mini|low, gpt-5.6-sol|low, gpt-5.6-terra|medium, gpt-5.6-luna|medium]
+frozen_input_fixture_ref: .workflow/author_skill_package/calibrations/20260511-161446_subagent_quality_first/input_fixture.public.json
+frozen_quality_gate_ref: .workflow/author_skill_package/calibrations/20260511-161446_subagent_quality_first/quality_gate/criteria.json
+frozen_gate_review_ref: .workflow/author_skill_package/calibrations/20260511-161446_subagent_quality_first/quality_gate/evaluator_review_second_pass.json
+prompt_base_ref: .workflow/author_skill_package/calibrations/20260511-161446_subagent_quality_first/subagent_matrix/candidate_prompt.md
+prompt_transformation: prepend profile metadata; replace assigned-path write with read-only JSON response
+candidate_count: 7
+capability_runner_snapshot_ref: .workflow/author_skill_package/calibrations/cal_20260710_gpt56_migration_001/capability_runner_snapshot.yaml
+tested_dimensions:
+  models: [gpt-5.4-mini, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna]
+  species: [darkelf]
+  classes: [archivist]
+  repeat_runs:
+    gpt-5.6-sol|low: 3
+    gpt-5.4-mini|low: 2
+untested_dimensions:
+  reasoning_efforts: [high, xhigh, max, ultra_where_supported]
+  delegation_topology: [all]
+measurement_sources:
+  quality: fresh_context_frozen_gate_evaluator
+  telemetry: codex_exec_json_cli_proxy
+  billed_cost_source: not_available
+usage_evidence: not_measured
+claim_ceiling: observed

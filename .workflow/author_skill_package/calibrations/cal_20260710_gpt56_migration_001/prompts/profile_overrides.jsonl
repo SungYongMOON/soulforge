@@ -1,0 +1,7 @@
+{"candidate_id":"MIG_incumbent_mini_low","model":"gpt-5.4-mini","effort":"low","species":"darkelf","class":"archivist","prompt_sha256":"33e717a9b889c268d3be49533704e0814627f7edfd5a0ba2e1f07af8e0c718af"}
+{"candidate_id":"MIG_gpt56_sol_low","model":"gpt-5.6-sol","effort":"low","species":"darkelf","class":"archivist","prompt_sha256":"1b98ed3704e586340e114a57420569720be7c92837201b894b3097d4b1e01764"}
+{"candidate_id":"MIG_gpt56_terra_medium","model":"gpt-5.6-terra","effort":"medium","species":"darkelf","class":"archivist","prompt_sha256":"c7ebd38b9d7c70978e1f0673070af7d6d81073cfc7032278894b32694a62b91e"}
+{"candidate_id":"MIG_gpt56_luna_medium","model":"gpt-5.6-luna","effort":"medium","species":"darkelf","class":"archivist","prompt_sha256":"855b895604eb044806f137e6af11b0a6be8e260cbf8a26dde155433c9b20fb9d"}
+{"candidate_id":"MIG_gpt56_sol_low_r2","model":"gpt-5.6-sol","effort":"low","species":"darkelf","class":"archivist","prompt_sha256":"8935e137434a913e11e04511e2b7af24bb49fe005453034566b95b257a87fa0f"}
+{"candidate_id":"MIG_gpt56_sol_low_r3","model":"gpt-5.6-sol","effort":"low","species":"darkelf","class":"archivist","prompt_sha256":"2aee4f3c6af693eb289733607fd63d5aef5c02a692717d0b229719ef3441bd77"}
+{"candidate_id":"MIG_incumbent_mini_low_r2","model":"gpt-5.4-mini","effort":"low","species":"darkelf","class":"archivist","prompt_sha256":"2dc347482692eaf2cb42c30b4fc523b1ed0a833b6f4795325ef2550161a29cc5"}

@@ -1,0 +1,7 @@
+{"candidate_id":"MIG_gpt56_sol_low","hard_gates_pass":true,"quality_score":96,"quality_class":"quality_equivalent_pass","decision":"pass"}
+{"candidate_id":"MIG_gpt56_luna_medium","hard_gates_pass":true,"quality_score":90,"quality_class":"minimum_quality_pass_only","decision":"pass"}
+{"candidate_id":"MIG_incumbent_mini_low","hard_gates_pass":true,"quality_score":82,"quality_class":"fail","decision":"fail"}
+{"candidate_id":"MIG_gpt56_terra_medium","hard_gates_pass":true,"quality_score":80,"quality_class":"fail","decision":"fail","notes":["Unsupported current-package readiness wording was heavily penalized."]}
+{"candidate_id":"MIG_gpt56_sol_low_r2","hard_gates_pass":true,"quality_score":98,"quality_class":"quality_equivalent_pass","decision":"pass","stability":"stable"}
+{"candidate_id":"MIG_gpt56_sol_low_r3","hard_gates_pass":true,"quality_score":97,"quality_class":"quality_equivalent_pass","decision":"pass","stability":"stable"}
+{"candidate_id":"MIG_incumbent_mini_low_r2","hard_gates_pass":true,"quality_score":88,"quality_class":"minimum_quality_pass_only","decision":"pass_below_equivalence"}

@@ -1,0 +1,6 @@
+{"candidate_id":"MIG_incumbent_mini_low","hard_gates_pass":true,"quality_score":91,"decision":"pass","evaluator":"fresh_context","notes":["Machine-checkable completion state is less informative than GPT-5.6 outputs."]}
+{"candidate_id":"MIG_gpt56_sol_low","hard_gates_pass":true,"quality_score":98,"decision":"pass","evaluator":"fresh_context","notes":["Most complete actionable owner queue."]}
+{"candidate_id":"MIG_gpt56_terra_medium","hard_gates_pass":true,"quality_score":95,"decision":"pass","evaluator":"fresh_context","notes":["Adequate blocked states and next actions."]}
+{"candidate_id":"MIG_gpt56_luna_medium","hard_gates_pass":true,"quality_score":96,"decision":"pass","evaluator":"fresh_context","notes":["Compact and complete."]}
+{"candidate_id":"MIG_gpt56_sol_low_r2","hard_gates_pass":true,"quality_score":99,"decision":"pass","evaluator":"same_frozen_gate_repeat","stability":"stable"}
+{"candidate_id":"MIG_gpt56_luna_medium_r2","hard_gates_pass":true,"quality_score":98,"decision":"pass","evaluator":"same_frozen_gate_repeat","stability":"stable"}

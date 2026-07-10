@@ -4,8 +4,22 @@ status: active
 optimizer_status: completed_public_safe_synthetic_quality_equivalence
 calibration_status: quality_gate_calibrated
 validation_level: public_safe_synthetic_quality_gate
-last_calibration_id: cal_20260611_se_assistant_quality_equiv_001
-calibration_mode: cli_quality_equivalence
+last_calibration_id: cal_20260710_gpt56_migration_001
+calibration_mode: migration_validation
+optimization_intent: migration_validation
+search_scope: incumbent_plus_gpt56_family_defaults_with_targeted_repeats
+capability_runner_snapshot_ref: calibrations/cal_20260710_gpt56_migration_001/capability_runner_snapshot.yaml
+incumbent_comparator: gpt-5.4-mini|low|dwarf|auditor
+migration_decision: replaced
+selection_claim: stable_quality_passing_with_lower_observed_latency_than_gpt56_sol_on_tested_fixture
+tested_dimensions:
+  models: [gpt-5.4-mini, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna]
+  species: [dwarf]
+  classes: [auditor]
+untested_dimensions:
+  - higher reasoning efforts
+  - alternate species and classes
+  - delegation topology
 measurement_policy:
   quality_source: cli_quality_equivalence_shortlist
   telemetry_source: codex_exec_json_cli_proxy
@@ -19,87 +33,51 @@ measurement_policy:
     candidates and was not necessary to establish a lowest-cost hard-gate pass
     on the synthetic SE-assistant route fixture.
 primary_profile:
-  candidate_id: A_mini_low_dwarf_auditor
-  model: gpt-5.4-mini
-  reasoning_effort: low
+  candidate_id: MIG_gpt56_luna_medium
+  model: gpt-5.6-luna
+  reasoning_effort: medium
   species: dwarf
   class: auditor
-  label: gpt-5.4-mini|low|dwarf|auditor
-  quality_score: 92
+  label: gpt-5.6-luna|medium|dwarf|auditor
+  quality_score: 97
+  quality_scores: [96, 98]
   quality_class: quality_gate_pass
-  input_tokens: 18062
-  cached_input_tokens: 16768
-  output_tokens: 734
-  total_tokens: 18796
-  reasoning_output_tokens: 34
-  wall_s: 16.512
+  input_tokens_observed: [17761, 19365]
+  cached_input_tokens_observed: [7936, 7936]
+  output_tokens_observed: [732, 932]
+  total_tokens_observed: [18493, 20297]
+  reasoning_output_tokens_observed: [25, 42]
+  wall_s_observed: [17.203, 21.927]
   telemetry_source: codex_exec_json_cli_proxy
   selection_reason: >
-    Lowest-token and fastest quality-passing candidate. It preserved
-    public-safe orchestration posture, observed-only claim ceiling, source and
-    review non-claims, owner input routing, scaffold-only authority, and no
-    actual payload storage under _workmeta.
+    Passed every frozen hard gate twice at 96 and 98. Against the repeated
+    GPT-5.6 Sol/low quality-first fallback, Luna/medium used fewer observed
+    total tokens and less wall time in both runs while retaining the required
+    owner queue, route completeness, observed claim ceiling, and boundary posture.
 shadow_top_k:
-  - candidate_id: B_gpt54_low_dwarf_auditor
-    model: gpt-5.4
+  - candidate_id: MIG_gpt56_sol_low
+    model: gpt-5.6-sol
     reasoning_effort: low
     species: dwarf
     class: auditor
-    label: gpt-5.4|low|dwarf|auditor
-    quality_score: 96
+    label: gpt-5.6-sol|low|dwarf|auditor
+    quality_score: 98.5
     quality_class: quality_gate_pass
-    input_tokens: 18414
-    cached_input_tokens: 14720
-    output_tokens: 1287
-    total_tokens: 19701
-    reasoning_output_tokens: 16
-    wall_s: 22.973
-    selection_note: More complete low-effort route packet, but not cheaper or faster than the primary.
-  - candidate_id: D_gpt55_medium_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: medium
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|medium|dwarf|auditor
-    quality_score: 95
-    quality_class: quality_gate_pass
-    input_tokens: 19799
-    cached_input_tokens: 2432
-    output_tokens: 1118
-    total_tokens: 20917
-    reasoning_output_tokens: 23
-    wall_s: 23.178
-    selection_note: Balanced stronger-model shadow for future route complexity increases.
-  - candidate_id: E_gpt55_xhigh_dwarf_auditor
-    model: gpt-5.5
-    reasoning_effort: xhigh
-    species: dwarf
-    class: auditor
-    label: gpt-5.5|xhigh|dwarf|auditor
-    quality_score: 96
-    quality_class: quality_gate_pass
-    input_tokens: 19801
-    cached_input_tokens: 2432
-    output_tokens: 1604
-    total_tokens: 21405
-    reasoning_output_tokens: 516
-    wall_s: 25.273
-    selection_note: Golden baseline profile for future high-risk source/review boundary changes.
-  - candidate_id: C_gpt55_low_dwarf_auditor
-    model: gpt-5.5
+    quality_scores: [98, 99]
+    total_tokens_observed: [19988, 21776]
+    wall_s_observed: [23.239, 27.654]
+    selection_note: Higher observed output quality; retain as quality-first fallback.
+  - candidate_id: MIG_incumbent_mini_low
+    model: gpt-5.4-mini
     reasoning_effort: low
     species: dwarf
     class: auditor
-    label: gpt-5.5|low|dwarf|auditor
-    quality_score: 97
+    label: gpt-5.4-mini|low|dwarf|auditor
+    quality_score: 91
     quality_class: quality_gate_pass
-    input_tokens: 19799
-    cached_input_tokens: 2432
-    output_tokens: 1669
-    total_tokens: 21468
-    reasoning_output_tokens: 14
-    wall_s: 25.712
-    selection_note: Highest quality score but slower and token-heavier than the primary.
+    total_tokens_observed: [18532]
+    wall_s_observed: [31.758]
+    selection_note: Previous incumbent retained as rollback reference; no repeat stability evidence in this migration run.
 rerun_triggers:
   - workflow step graph changes
   - output templates change
@@ -110,7 +88,7 @@ rerun_triggers:
   - SE template library route policy changes
   - foldertree scaffold input profile changes
   - mini profile drops observed-only, source/review non-claim, owner queue, or metadata-only _workmeta handling in a future fixture
-calibration_archive_ref: .workflow/se_assistant_operating_loop_v0/calibrations/cal_20260611_se_assistant_quality_equiv_001
+calibration_archive_ref: .workflow/se_assistant_operating_loop_v0/calibrations/cal_20260710_gpt56_migration_001
 failed_candidate_notes: []
 non_claims:
   - no_live_project_execution

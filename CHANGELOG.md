@@ -4,6 +4,7 @@
 
 - `workflow_optimizer`를 적용성 판정과 `migration_validation`/`profile_search` 분리, incumbent 중심 shortlist, archetype/sentinel 기반 확장으로 바꿔 새 모델 출시 때 워크플로우별 전수 Cartesian 재탐색을 기본값에서 제외했다. runner/model/effort preflight 실패는 `blocked_runner_catalog_incompatible`로 막고, 실제 후보가 실행되지 않으면 incumbent 유지와 no-winner를 강제한다.
 - 비용 결론은 측정된 token proxy, list-price estimate, billed cost를 분리하고 사용 빈도 근거 없이는 ROI를 금지한다. 선택 주장은 항상 `lowest_cost_passing_among_tested`로 제한하며 historical calibration archive는 불변 기록으로 유지한다. (worker: `codex_gpt-5`)
+- 후속 runner 검증에서 `codex-cli 0.144.1`의 GPT-5.6 Sol/Terra가 `ultra`를 reasoning effort로 광고함을 확인해 기존 topology-only 규칙을 교정했고, 기존 frozen gate를 재사용한 `se_assistant_operating_loop_v0`·`author_skill_package` 이행 파일럿과 반복 결과를 새 calibration archive에 기록했다. (worker: codex_gpt-5)
 
 ### dev-ERP 메일 스레드(대화) 그룹 단위 담당·과제 일괄 분류
 

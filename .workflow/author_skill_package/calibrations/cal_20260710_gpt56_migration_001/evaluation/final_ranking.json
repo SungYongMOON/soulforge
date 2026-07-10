@@ -1,0 +1,38 @@
+{
+  "workflow_id": "author_skill_package",
+  "calibration_id": "cal_20260710_gpt56_migration_001",
+  "ranked_profiles": [
+    {
+      "rank": 1,
+      "profile": "gpt-5.6-sol|low|darkelf|archivist",
+      "quality_scores": [96, 98, 97],
+      "wall_s": [22.234, 28.93, 27.876],
+      "total_tokens": [21400, 19887, 21447],
+      "decision": "selected_stable_quality_equivalent"
+    },
+    {
+      "rank": 2,
+      "profile": "gpt-5.6-luna|medium|darkelf|archivist",
+      "quality_scores": [90],
+      "decision": "minimum_quality_backup_only"
+    },
+    {
+      "rank": 3,
+      "profile": "gpt-5.4-mini|low|darkelf|archivist",
+      "quality_scores": [82, 88],
+      "decision": "rollback_reference_below_equivalence"
+    },
+    {
+      "rank": 4,
+      "profile": "gpt-5.6-terra|medium|darkelf|archivist",
+      "quality_scores": [80],
+      "decision": "failed"
+    }
+  ],
+  "migration_decision": "replaced",
+  "selected_profile": "gpt-5.6-sol|low|darkelf|archivist",
+  "selection_claim": "stable_quality_equivalent_among_tested_on_frozen_fixture",
+  "billed_cost_measured": false,
+  "aggregate_savings_measured": false,
+  "claim_ceiling": "observed"
+}

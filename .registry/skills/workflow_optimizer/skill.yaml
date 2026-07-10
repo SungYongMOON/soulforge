@@ -43,7 +43,7 @@ execution_requirements:
     - "Candidate eligibility requires a launchable executable runner and runner-supported effort resolution for each model; cache or catalog visibility alone is insufficient."
     - "If runner/catalog compatibility is blocked, retain the incumbent and do not claim a new-model winner."
     - "Expanded staged search requires a first calibration, material workflow-contract change, no passing migration candidate, unstable close results, or a user request; exhaustive Cartesian search requires explicit authorization."
-    - "Use `max` only for evidence-backed quality escalation. Treat `ultra` as a separate delegation-topology experiment, never an ordinary effort cell."
+    - "Treat every effort advertised by the executable runner, including `max` or `ultra`, as a model-specific `reasoning_effort`; use higher efforts only for evidence-backed quality escalation. Configure delegation topology as a separate dimension and test it only when explicitly authorized."
     - "Golden output and evaluator criteria stay evaluator-only and must not be included in candidate prompts."
     - "Actual runner path/version, model and effort support, pricing service, billing source, subagent limits, and raw run truth remain runtime concerns."
 notes:
