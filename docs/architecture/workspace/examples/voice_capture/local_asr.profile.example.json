@@ -1,0 +1,18 @@
+{
+  "schema_version": "soulforge.local_asr_profile.v0",
+  "engine": "whisper.cpp",
+  "asr_binary": "whisper-cli",
+  "ffmpeg_binary": "ffmpeg",
+  "model_path": "_workspaces/system/voice_capture/models/ggml-large-v3-turbo-q5_0.bin",
+  "model_id": "large-v3-turbo-q5_0",
+  "model_sha1": "e050f7970618a659205450ad97eb95a18d69c9ee",
+  "language": "ko",
+  "terms_prompt": "PROJECT-CODE, supplier, equipment model, repeated technical term",
+  "run_id": "whispercpp_large-v3-turbo-q5_0_ko_v1",
+  "chunk_seconds": 1800,
+  "overlap_seconds": 10,
+  "output_subdir": "analysis/local_asr",
+  "queue_root": "_workspaces/system/voice_capture/local_asr_queue",
+  "max_sessions_per_queue_run": 1,
+  "evidence_role": "independent_machine_transcript_unverified"
+}

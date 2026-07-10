@@ -7,6 +7,12 @@ import { spawnSync } from "node:child_process";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { writeRecordingLibraryEntry, writeWorkmetaDraft } from "./voice_capture.mjs";
+import {
+  buildLocalAsrPreflight,
+  drainLocalAsrQueue,
+  enqueueLocalAsrSession,
+  loadLocalAsrProfile,
+} from "./local_asr.mjs";
 
 export const plaudSyncProfileSchemaVersion = "soulforge.plaud_sync_profile.v0";
 export const plaudSyncResultSchemaVersion = "soulforge.plaud_sync_result.v0";
@@ -42,6 +48,13 @@ export function buildDefaultPlaudSyncProfile() {
     },
     register_library: true,
     write_workmeta_draft: true,
+    independent_asr: {
+      enabled: false,
+      profile_ref: "_workspaces/system/voice_capture/config/local_asr.profile.json",
+      queue_root: "_workspaces/system/voice_capture/local_asr_queue",
+      enqueue_on_import: true,
+      drain_after_mail_trigger: true,
+    },
     launchd: {
       label: "ai.soulforge.plaud-ingest",
       trigger: "hiworks_mail_queue_watch",
@@ -208,6 +221,15 @@ export async function buildPlaudPreflight(options = {}) {
   checks.push({ id: "output_root", ok: isInside(repoRoot, outputRoot), ref: relativeRef(repoRoot, outputRoot) });
   if (!isInside(repoRoot, outputRoot)) blockers.push("PLAUD output_root must stay inside the Soulforge workspace");
 
+  if (profile.independent_asr?.enabled) {
+    const localAsr = await buildLocalAsrPreflight({
+      repoRoot,
+      profileRef: profile.independent_asr.profile_ref,
+    });
+    checks.push({ id: "independent_local_asr", ok: localAsr.ok, profile_ref: profile.independent_asr.profile_ref });
+    blockers.push(...localAsr.blockers);
+  }
+
   return {
     schema_version: "soulforge.plaud_sync_preflight.v0",
     ok: blockers.length === 0,
@@ -259,6 +281,8 @@ export async function runPlaudSync(options = {}) {
         commandRunner: runner,
         audioDownloader: options.audioDownloader,
         audioProbe: options.audioProbe,
+        localAsrEnqueuer: options.localAsrEnqueuer,
+        localAsrProfile: options.localAsrProfile,
         now: options.now,
       });
       recordings.push(imported);
@@ -298,10 +322,20 @@ export async function drainPlaudMailQueue(options = {}) {
   const processedDir = path.join(queueRoot, "processed");
   const files = (await safeReadDir(pendingDir)).filter((entry) => entry.isFile() && entry.name.endsWith(".json")).map((entry) => entry.name).sort();
   if (!options.apply) {
-    return { schema_version: "soulforge.plaud_mail_queue_drain.v0", applied: false, pending_count: files.length, pending_refs: files };
+    const localAsr = await maybeDrainLocalAsr({ ...options, repoRoot, profile, apply: false });
+    return { schema_version: "soulforge.plaud_mail_queue_drain.v0", applied: false, pending_count: files.length, pending_refs: files, local_asr: localAsr };
   }
   if (files.length === 0) {
-    return { schema_version: "soulforge.plaud_mail_queue_drain.v0", applied: true, pending_count: 0, processed_count: 0, sync: null };
+    const localAsr = await maybeDrainLocalAsr({ ...options, repoRoot, profile, apply: true });
+    return {
+      schema_version: "soulforge.plaud_mail_queue_drain.v0",
+      applied: true,
+      pending_count: 0,
+      processed_count: 0,
+      sync: null,
+      local_asr: localAsr,
+      retry_required: Boolean(localAsr?.retry_required),
+    };
   }
 
   const syncRunner = options.syncRunner ?? runPlaudSync;
@@ -343,7 +377,8 @@ export async function drainPlaudMailQueue(options = {}) {
     await moveQueueFiles(pendingDir, unresolvedDir, unresolvedFiles);
   }
 
-  const retryRequired = !sync.ok || remainingFiles.length > 0;
+  const localAsr = await maybeDrainLocalAsr({ ...options, repoRoot, profile, apply: true });
+  const retryRequired = !sync.ok || remainingFiles.length > 0 || Boolean(localAsr?.retry_required);
   return {
     schema_version: "soulforge.plaud_mail_queue_drain.v0",
     applied: true,
@@ -353,11 +388,14 @@ export async function drainPlaudMailQueue(options = {}) {
     unresolved_count: unresolvedFiles.length,
     retry_required: retryRequired,
     resolution: retryRequired
-      ? "waiting_for_matching_import"
+      ? remainingFiles.length > 0 || !sync.ok
+        ? "waiting_for_matching_import"
+        : "matching_import_processed_local_asr_retry"
       : unresolvedFiles.length > 0
         ? "unresolved_requires_review"
         : "matched_import_processed",
     sync,
+    local_asr: localAsr,
   };
 }
 
@@ -510,6 +548,24 @@ export async function materializePlaudRecording(options) {
       await writeWorkmetaDraft({ repoRoot, sessionDir, projectCode: profile.project_code_candidate, apply: true });
     }
 
+    let independentAsrQueue = null;
+    if (profile.independent_asr?.enabled && profile.independent_asr?.enqueue_on_import !== false) {
+      try {
+        const localAsrProfile = options.localAsrProfile
+          ?? (await loadLocalAsrProfile({ repoRoot, profileRef: profile.independent_asr.profile_ref })).profile;
+        const enqueuer = options.localAsrEnqueuer ?? enqueueLocalAsrSession;
+        independentAsrQueue = await enqueuer({
+          repoRoot,
+          profile: localAsrProfile,
+          sessionDir,
+          apply: true,
+          now: importedAt,
+        });
+      } catch {
+        independentAsrQueue = { applied: false, state: "enqueue_failed_retryable" };
+      }
+    }
+
     return {
       id: metadata.id,
       state: "imported",
@@ -520,6 +576,7 @@ export async function materializePlaudRecording(options) {
       provider_summary_present: existsSync(summaryPath),
       provider_summary_fetch_failed: summaryFetchFailed,
       provider_download_url_stored: false,
+      independent_asr_queue: independentAsrQueue,
     };
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
@@ -561,6 +618,10 @@ export function buildPlaudLaunchdDefinition(options = {}) {
   const logDir = path.join(os.homedir(), "Library", "Logs", "Soulforge", "plaud_ingest");
   const label = profile.launchd?.label ?? "ai.soulforge.plaud-ingest";
   const watchPath = path.join(resolveRepoPath(repoRoot, profile.output_root), "plaud_mail_triggers", "pending");
+  const watchPaths = [watchPath];
+  if (profile.independent_asr?.enabled) {
+    watchPaths.push(path.join(resolveRepoPath(repoRoot, profile.independent_asr.queue_root ?? "_workspaces/system/voice_capture/local_asr_queue"), "pending"));
+  }
   const command = `cd ${shellQuote(repoRoot)} && node guild_hall/voice_capture/plaud_ingest_cli.mjs drain-mail-queue --config ${shellQuote(profileRef)} --apply`;
   return {
     schema_version: "soulforge.plaud_launchd_definition.v0",
@@ -573,6 +634,7 @@ export function buildPlaudLaunchdDefinition(options = {}) {
     stderr_path: path.join(logDir, `${label}.err.log`),
     trigger: "hiworks_mail_queue_watch",
     watch_path: watchPath,
+    watch_paths: watchPaths,
     retry_interval_seconds: Number(profile.launchd?.retry_interval_seconds ?? 300),
     program_arguments: ["/bin/zsh", "-lc", command],
   };
@@ -580,6 +642,9 @@ export function buildPlaudLaunchdDefinition(options = {}) {
 
 export function renderPlaudLaunchdPlist(definition) {
   const args = definition.program_arguments.map((arg) => `    <string>${xmlEscape(arg)}</string>`).join("\n");
+  const watchPaths = (definition.watch_paths ?? [definition.watch_path])
+    .map((watchPath) => `    <string>${xmlEscape(watchPath)}</string>`)
+    .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -592,7 +657,7 @@ ${args}
   <key>RunAtLoad</key><true/>
   <key>WatchPaths</key>
   <array>
-    <string>${xmlEscape(definition.watch_path)}</string>
+${watchPaths}
   </array>
   <key>KeepAlive</key>
   <dict>
@@ -612,7 +677,9 @@ export async function writePlaudLaunchdPlist(options = {}) {
   if (!options.apply) return { applied: false, definition };
   await fs.mkdir(definition.output_dir, { recursive: true });
   await fs.mkdir(definition.log_dir, { recursive: true });
-  await fs.mkdir(definition.watch_path, { recursive: true });
+  for (const watchPath of definition.watch_paths ?? [definition.watch_path]) {
+    await fs.mkdir(watchPath, { recursive: true });
+  }
   await fs.writeFile(definition.plist_path, renderPlaudLaunchdPlist(definition), "utf8");
   return {
     applied: true,
@@ -639,6 +706,32 @@ async function downloadPlaudAudio(url, outputDir) {
   await pipeline(Readable.fromWeb(response.body.pipeThrough(tap)), createWriteStream(outputPath));
   const stat = await fs.stat(outputPath);
   return { path: outputPath, size_bytes: stat.size, sha256: hash.digest("hex") };
+}
+
+async function maybeDrainLocalAsr(options) {
+  const { repoRoot, profile } = options;
+  if (!profile.independent_asr?.enabled || profile.independent_asr?.drain_after_mail_trigger === false) return null;
+  try {
+    const localAsrProfile = options.localAsrProfile
+      ?? (await loadLocalAsrProfile({ repoRoot, profileRef: profile.independent_asr.profile_ref })).profile;
+    const drainer = options.localAsrQueueDrainer ?? drainLocalAsrQueue;
+    return await drainer({
+      repoRoot,
+      profile: localAsrProfile,
+      profileRef: profile.independent_asr.profile_ref,
+      apply: options.apply,
+      maxSessions: localAsrProfile.max_sessions_per_queue_run,
+      now: options.now,
+      commandRunner: options.localAsrCommandRunner,
+    });
+  } catch {
+    return {
+      schema_version: "soulforge.local_asr_queue_drain.v0",
+      applied: Boolean(options.apply),
+      retry_required: true,
+      failure_kind: "local_asr_queue_drain_failed",
+    };
+  }
 }
 
 function probeAudio(audioPath) {

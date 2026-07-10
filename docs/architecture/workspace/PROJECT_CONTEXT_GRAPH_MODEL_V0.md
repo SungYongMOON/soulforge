@@ -157,6 +157,21 @@ approved source refs.
 - `test`
 - `manual_note`
 
+For the three-input project lane, use the existing source kinds without
+inventing a second context owner:
+
+1. `mail`: mailbox or reviewed project-mail source pointer.
+2. `voice`: original recording plus the versioned independent-transcript
+   pointer. Provider transcript text is not the independent evidence layer.
+3. `se_schedule`: owner-held schedule, milestone, or stage-plan pointer.
+
+The three inputs meet first as event/source metadata. A private runtime may
+read approved payloads to suggest a project branch, milestone relation, or task
+candidate, but only pointers, hashes, redacted labels, claim state, and review
+status persist in `project_context/**`. Missing or conflicting schedule truth
+stays an owner question; a voice statement does not change an SE milestone by
+itself.
+
 ## Node Rows
 
 `nodes.csv`

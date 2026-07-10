@@ -26,6 +26,10 @@ _workspaces/system/voice_capture/library/
 
 _workspaces/system/voice_capture/meeting_bundles/<YYYY-MM-DD>/<meeting_bundle_id>/
   bundle_manifest.json
+
+_workspaces/system/voice_capture/local_asr_queue/
+  pending/<session_id>.json
+  processed/<YYYY-MM-DD>/<session_id>.json
 ```
 
 ## 경계
@@ -78,6 +82,8 @@ _workspaces/system/voice_capture/meeting_bundles/<YYYY-MM-DD>/<meeting_bundle_id
 - provider recording ID는 중복 방지 키다. 공유 링크 import와 CLI import가 같은 ID면 새 원본을 만들지 않고 기존 session을 우선한다.
 - PLAUD 로그인 token과 24시간 audio download URL은 저장하거나 `_workmeta`·Git에 복사하지 않는다.
 - 새 session은 기본적으로 `P00-000_INBOX`에 등록하고, 독립 전사 또는 오디오 검토와 프로젝트 매칭 후에만 과제별로 투영한다.
+- 독립 전사는 provider 전사와 별도인 `analysis/local_asr/<run_id>/`에 저장한다. 원본 hash·모델·run id가 같은 완료본은 재사용하고, 미완료 chunk만 이어서 처리한다.
+- 독립 전사 완료 시 `voice` source pointer를 만들되, 메일(`mail`)과 체계공학 일정(`se_schedule`)을 함께 읽는 프로젝트 줄기 판단 전에는 P00 후보 상태를 유지한다.
 - 메일이 누락됐을 때만 운영자가 explicit `sync`를 실행한다. 정상 동작은 30분 polling이 아니라 mail queue event다.
 - 메일 trigger 시점에 provider audio/transcript가 아직 보이지 않으면 trigger를 처리 완료로 옮기지 않고, launchd 실패 재시작을 5분 throttle로 제한해 다시 시도한다.
 - 새 recording import가 확인되지 않은 trigger는 완료 처리하지 않는다. 기본 1시간 동안 재시도한 뒤에도 연결 가능한 새 recording이 없으면 `plaud_mail_triggers/unresolved/<date>/`로 격리해 사람이 확인할 수 있게 남긴다.

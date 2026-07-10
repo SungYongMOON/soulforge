@@ -7,6 +7,11 @@ intake. It does not include or download an ASR model. Instead, it supervises
 owner-installed commands such as `ffmpeg`, `sox`, `whisper-cli`, and the
 official PLAUD CLI, then writes bounded session artifacts under `_workspaces`.
 
+Imported original audio can also be transcribed independently with the
+versioned local-ASR runner. The runner uses resumable fixed windows, writes
+outputs only under each session's `analysis/local_asr/<run_id>/` directory, and
+does not replace the provider transcript.
+
 ## Boundary
 
 - Raw audio and raw transcripts stay under `_workspaces/system/voice_capture/**`
@@ -94,6 +99,25 @@ event. It does not decide the project or create formal tasks.
 `sync` remains available as an explicit recovery command when the notification
 mail was missed. Normal operation uses `drain-mail-queue --apply` through the
 launchd watcher.
+
+Create and check the Mac mini independent-ASR profile:
+
+```bash
+npm run guild-hall:voice-capture:asr -- init-config --apply
+npm run guild-hall:voice-capture:asr -- preflight
+```
+
+Preview or process the current audio backlog:
+
+```bash
+npm run guild-hall:voice-capture:asr -- backlog
+npm run guild-hall:voice-capture:asr -- backlog --apply
+```
+
+The default imported-audio profile uses `large-v3-turbo-q5_0`, Korean, 30
+minute windows, and 10 second context overlap. Each completed run emits a
+metadata-only project-context source pointer with companion input kinds
+`mail` and `se_schedule`; it does not accept a project route automatically.
 
 Create the local MacBook Air profile:
 

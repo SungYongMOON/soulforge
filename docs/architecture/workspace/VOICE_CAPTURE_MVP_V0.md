@@ -25,6 +25,9 @@ PLAUD account collector on an always-on node
   -> original audio + provider transcript + provider summary
   -> isolated session under the same recording library
   -> provider text held as unverified auxiliary evidence
+  -> resumable local whisper.cpp queue from the original audio
+  -> versioned independent transcript under the session analysis directory
+  -> metadata-only voice source pointer for project-context routing
   -> later independent transcription and project-context review
 ```
 
@@ -66,13 +69,23 @@ PLAUD account collector on an always-on node
   not install, load, or unload launchd by itself.
 - The normal PLAUD collector is event-driven. A fresh Hiworks PLAUD transcript
   notice writes a sanitized trigger to the shared workspace queue, and the Mac
-  mini launchd `WatchPaths` job drains it. Explicit `sync` remains a recovery
-  command rather than the normal periodic trigger.
+  mini launchd `WatchPaths` job drains it. A successful import also writes a
+  local-ASR queue item. The same node watches that queue and runs the configured
+  `whisper.cpp` model against the original audio. Explicit `sync` remains a
+  recovery command rather than the normal periodic trigger.
 - Provider recording IDs provide payload deduplication. A trigger remains
   pending when audio or transcript is not yet available.
 - PLAUD audio is a canonical source candidate. PLAUD transcript and speaker
   labels remain auxiliary and unverified; PLAUD summaries are quarantined and
   cannot directly create tasks or meeting minutes.
+- Independent ASR outputs are versioned under
+  `sessions/**/analysis/local_asr/<run_id>/`. They never overwrite the provider
+  transcript, remain machine-generated and unverified, and carry `UNKNOWN`
+  speaker labels until a separate reviewed diarization or identity lane exists.
+- Every completed independent run writes a metadata-only
+  `project_context_source.json`. Its `source_kind: voice` pointer may join mail
+  and `se_schedule` sources in the existing project-context model, but it stays
+  in `P00-000_INBOX` until project routing is confirmed.
 
 ## Recommended First Profile
 
@@ -82,6 +95,9 @@ PLAUD account collector on an always-on node
 - Chunk size: 60 seconds for live work; 30 seconds for smoke tests.
 - Terms prompt: project codes, supplier names, equipment models, and repeated
   technical terms.
+- Imported-audio chunking: 30 minutes with a 10-second overlap. Overlap is used
+  only as ASR context; midpoint ownership keeps each segment once and makes the
+  backlog resumable at chunk boundaries.
 
 ## Non-Goals
 

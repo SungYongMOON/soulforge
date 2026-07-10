@@ -26,6 +26,13 @@
   },
   "register_library": true,
   "write_workmeta_draft": true,
+  "independent_asr": {
+    "enabled": true,
+    "profile_ref": "_workspaces/system/voice_capture/config/local_asr.profile.json",
+    "queue_root": "_workspaces/system/voice_capture/local_asr_queue",
+    "enqueue_on_import": true,
+    "drain_after_mail_trigger": true
+  },
   "launchd": {
     "label": "ai.soulforge.plaud-ingest",
     "trigger": "hiworks_mail_queue_watch",

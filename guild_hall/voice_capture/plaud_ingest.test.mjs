@@ -201,6 +201,52 @@ test("PLAUD launchd definition watches the mail queue and keeps generated files 
   assert.match(renderPlaudLaunchdPlist(definition), /<key>ThrottleInterval<\/key><integer>300<\/integer>/u);
 });
 
+test("PLAUD launchd also watches the durable local-ASR queue when independent transcription is enabled", () => {
+  const repoRoot = path.join(os.tmpdir(), "soulforge-fixture");
+  const profile = {
+    ...buildDefaultPlaudSyncProfile(),
+    independent_asr: {
+      ...buildDefaultPlaudSyncProfile().independent_asr,
+      enabled: true,
+    },
+  };
+  const definition = buildPlaudLaunchdDefinition({ repoRoot, profile });
+  assert.equal(definition.watch_paths.length, 2);
+  const plist = renderPlaudLaunchdPlist(definition);
+  assert.match(plist, /plaud_mail_triggers\/pending/u);
+  assert.match(plist, /local_asr_queue\/pending/u);
+});
+
+test("PLAUD watcher drains a pending local-ASR queue even when no mail trigger is waiting", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-plaud-asr-only-"));
+  try {
+    const profile = {
+      ...buildDefaultPlaudSyncProfile(),
+      independent_asr: {
+        ...buildDefaultPlaudSyncProfile().independent_asr,
+        enabled: true,
+      },
+    };
+    let invoked = 0;
+    const result = await drainPlaudMailQueue({
+      repoRoot,
+      profile,
+      apply: true,
+      localAsrProfile: { max_sessions_per_queue_run: 1 },
+      localAsrQueueDrainer: async (options) => {
+        invoked += 1;
+        assert.equal(options.apply, true);
+        return { applied: true, remaining_pending_count: 1, retry_required: true };
+      },
+    });
+    assert.equal(invoked, 1);
+    assert.equal(result.pending_count, 0);
+    assert.equal(result.retry_required, true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("PLAUD mail queue drain moves a trigger only after a new recording imports", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-plaud-trigger-"));
   try {
