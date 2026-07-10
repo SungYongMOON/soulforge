@@ -1,0 +1,159 @@
+fixture_id: outbound_mail_render_policy_public_001
+fixture_kind: public_synthetic_forward_test
+negative_cases:
+  - case_id: unsupported_schema
+    expected_error: unsupported_render_input_schema
+    input:
+      schema_version: outbound_mail_render_input_v99
+  - case_id: unsupported_channel_risk
+    expected_error: unsupported_channel_risk
+    input:
+      schema_version: outbound_mail_render_input_v0
+      communication_intent: auto
+      render_mode_preference: auto
+      channel_risk_flags: [unknown_risk]
+      normalized_team_mail_context: {}
+cases:
+  - case_id: compact_single_share
+    input:
+      schema_version: outbound_mail_render_input_v0
+      communication_intent: auto
+      render_mode_preference: auto
+      thread_mode: new
+      mail_kind: "자료송부"
+      reply_item_count: 0
+      channel_risk_flags: []
+      normalized_team_mail_context:
+        recipients: {to: [{role: "자료 수신 담당", reason: "자료 확인"}], cc: [], bcc: []}
+        mail_reason: "요청 자료 송부"
+        requested_work: []
+        notes: {global: []}
+        facts: []
+        schedule: {before: null, after: null, rationale: null, deadline_or_reply_by: null}
+        format_and_examples: {requested_formats: [], examples: []}
+        attachments: {items: ["자료_ref"], state: planned}
+        response_requirements: {required: false, requested_from_roles: [], requested_content: null, deadline_or_reply_by: null}
+    expected:
+      mode: compact
+      visible_sections: []
+      channel_recommendation: email
+  - case_id: action_brief_multi_owner_deadline
+    input:
+      schema_version: outbound_mail_render_input_v0
+      communication_intent: auto
+      render_mode_preference: auto
+      thread_mode: new
+      mail_kind: "검토요청"
+      reply_item_count: 0
+      channel_risk_flags: []
+      normalized_team_mail_context:
+        recipients:
+          to: [{role: "설계 검토 담당", reason: "기술 검토"}, {role: "일정 담당", reason: "기한 조정"}]
+          cc: []
+          bcc: []
+        mail_reason: "설계안 검토 요청"
+        requested_work:
+          - {assignee: "설계 담당", work_items: ["치수 검토"], notes: []}
+          - {assignee: "시험 담당", work_items: ["시험 영향 검토"], notes: ["결과 형식 준수"]}
+        notes: {global: ["한 회신으로 취합"]}
+        facts: ["시험 조건 변경 가능성"]
+        schedule: {before: null, after: null, rationale: "시험 일정 연계", deadline_or_reply_by: "영업일 2일 이내"}
+        format_and_examples: {requested_formats: ["비교표"], examples: []}
+        attachments: {items: ["검토자료_ref"], state: planned}
+        response_requirements: {required: true, requested_from_roles: ["설계 검토 담당"], requested_content: "검토 결과", deadline_or_reply_by: "영업일 2일 이내"}
+    expected:
+      mode: action_brief
+      visible_sections: ["수신", "사유", "요청업무", "요청기한", "요청사유", "비고"]
+      channel_recommendation: email
+  - case_id: decision_explicit
+    input:
+      schema_version: outbound_mail_render_input_v0
+      communication_intent: request_decision
+      render_mode_preference: auto
+      thread_mode: new
+      mail_kind: "검토요청"
+      reply_item_count: 0
+      channel_risk_flags: []
+      normalized_team_mail_context:
+        recipients: {to: [{role: "승인 담당", reason: "대안 선택"}], cc: [], bcc: []}
+        mail_reason: "대안 결정 요청"
+        requested_work: [{assignee: "승인 담당", work_items: ["대안 선택"], notes: []}]
+        notes: {global: []}
+        facts: ["권고안과 대안 비교 완료"]
+        schedule: {before: null, after: null, rationale: null, deadline_or_reply_by: "금요일"}
+        format_and_examples: {requested_formats: [], examples: []}
+        attachments: {items: [], state: none}
+        response_requirements: {required: true, requested_from_roles: ["승인 담당"], requested_content: "선택 결과", deadline_or_reply_by: "금요일"}
+    expected:
+      mode: decision_brief
+      visible_sections: ["결정 요청", "기한", "근거"]
+      channel_recommendation: email
+  - case_id: status_change_schedule
+    input:
+      schema_version: outbound_mail_render_input_v0
+      communication_intent: auto
+      render_mode_preference: auto
+      thread_mode: new
+      mail_kind: "일정공유"
+      reply_item_count: 0
+      channel_risk_flags: []
+      normalized_team_mail_context:
+        recipients: {to: [{role: "관련 담당", reason: "변경 공유"}], cc: [], bcc: []}
+        mail_reason: "시험 일정 변경 공유"
+        requested_work: [{assignee: "관련 담당", work_items: ["변경 일정 확인"], notes: []}]
+        notes: {global: []}
+        facts: []
+        schedule: {before: "기존 일정", after: "변경 일정", rationale: "시험 조건 조정", deadline_or_reply_by: null}
+        format_and_examples: {requested_formats: [], examples: []}
+        attachments: {items: [], state: none}
+        response_requirements: {required: false, requested_from_roles: [], requested_content: null, deadline_or_reply_by: null}
+    expected:
+      mode: status_change
+      visible_sections: ["변경 요약", "변경 전/후", "후속 조치"]
+      channel_recommendation: email
+  - case_id: reply_map_multi_question
+    input:
+      schema_version: outbound_mail_render_input_v0
+      communication_intent: auto
+      render_mode_preference: auto
+      thread_mode: reply
+      mail_kind: "회신요청"
+      reply_item_count: 3
+      channel_risk_flags: []
+      normalized_team_mail_context:
+        recipients: {to: [{role: "질의 담당", reason: "질의 회신"}], cc: [], bcc: []}
+        mail_reason: "질의 회신"
+        requested_work: []
+        notes: {global: []}
+        facts: []
+        schedule: {before: null, after: null, rationale: null, deadline_or_reply_by: null}
+        format_and_examples: {requested_formats: [], examples: []}
+        attachments: {items: [], state: none}
+        response_requirements: {required: false, requested_from_roles: [], requested_content: null, deadline_or_reply_by: null}
+    expected:
+      mode: reply_map
+      visible_sections: ["회신"]
+      channel_recommendation: email
+  - case_id: conflict_handoff
+    input:
+      schema_version: outbound_mail_render_input_v0
+      communication_intent: auto
+      render_mode_preference: action_brief
+      thread_mode: new
+      mail_kind: "기타"
+      reply_item_count: 0
+      channel_risk_flags: [active_disagreement]
+      normalized_team_mail_context:
+        recipients: {to: [{role: "협의 담당", reason: "쟁점 협의"}], cc: [], bcc: []}
+        mail_reason: "상충 요구 협의"
+        requested_work: [{assignee: "협의 담당", work_items: ["쟁점 논의"], notes: []}]
+        notes: {global: []}
+        facts: []
+        schedule: {before: null, after: null, rationale: null, deadline_or_reply_by: null}
+        format_and_examples: {requested_formats: [], examples: []}
+        attachments: {items: [], state: none}
+        response_requirements: {required: true, requested_from_roles: ["협의 담당"], requested_content: "논의 일정", deadline_or_reply_by: null}
+    expected:
+      mode: compact
+      visible_sections: []
+      channel_recommendation: synchronous_discussion_then_email_record

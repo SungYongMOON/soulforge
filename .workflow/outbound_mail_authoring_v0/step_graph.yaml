@@ -79,6 +79,29 @@ steps:
         - do_not_add_extra_prefix_beyond_Outlook_RE_or_FW
     summary: Produce the subject candidate while preserving thread subjects and preventing internal code leakage.
     next:
+      on_success: select_body_render_mode
+      on_fail: stop
+  - step_id: select_body_render_mode
+    title: Select Body Render Mode
+    actor_slot: body_author
+    action:
+      kind: adaptive_mail_body_render_selection
+      selector: scripts/select_mail_render_mode.mjs
+      artifacts_in:
+        - mail_authoring_scope
+        - normalized_team_mail_context_v1
+      artifact_out: mail_render_plan
+      rules:
+        - keep_normalized_metadata_complete_even_when_body_is_compact
+        - select_compact_action_brief_decision_brief_status_change_or_reply_map
+        - omit_empty_visible_sections
+        - show_six_field_action_structure_only_when_complexity_requires_it
+        - show_recipient_section_only_for_role_or_assignee_disambiguation
+        - merge_duplicate_reason_and_request_basis
+        - route_conflict_negotiation_or_material_ambiguity_to_synchronous_discussion_then_email_record
+        - never_raise_send_authority
+    summary: Select a deterministic human-facing view while retaining the full structured context for AI and metadata use.
+    next:
       on_success: draft_owner_style_body
       on_fail: stop
   - step_id: draft_owner_style_body
@@ -94,10 +117,13 @@ steps:
         - owner_voice_profile_ref
         - owner_voice_profile_provenance
         - normalized_team_mail_context_v1
+        - mail_render_plan
       artifact_out: owner_style_body_draft
       style_rules:
         - Korean_business_mail
         - purpose_first
+        - render_only_sections_selected_by_mail_render_plan
+        - never_render_empty_labels_or_not_applicable_placeholders
         - concise_background
         - action_attachment_deadline_visible
         - collected_attachments_are_not_treated_as_send_attachments_without_selection
@@ -155,6 +181,7 @@ steps:
         - footer_application_state
         - attachment_metadata_refs
         - normalized_team_mail_context_v1
+        - mail_render_plan
       artifact_out: pre_send_checklist
       required_checks:
         - recipient_to_cc_bcc_bound
@@ -167,6 +194,9 @@ steps:
         - requested_formats_and_examples_accounted_for
         - attachments_and_response_requirements_accounted_for
         - normalized_and_rendered_assumptions_synchronized
+        - render_mode_reason_and_visible_sections_accounted_for
+        - empty_sections_omitted
+        - normalized_context_coverage_unchanged_by_render_mode
         - source_basis_and_public_safety_accounted_for
         - attachments_exist_and_are_shareable_or_marked_none
         - attachment_selection_basis_bound
@@ -288,6 +318,7 @@ stop_conditions:
   - ambiguous_v0_mapping_not_preserved_in_assumptions
   - derived_gap_missing_from_v1_assumptions
   - normalized_and_rendered_assumptions_diverge
+  - render_mode_selector_input_unsupported
   - requested_work_assignee_unresolved_for_review_ready_or_send_handoff
   - Outlook_mutation_requested
   - public_private_boundary_unclear

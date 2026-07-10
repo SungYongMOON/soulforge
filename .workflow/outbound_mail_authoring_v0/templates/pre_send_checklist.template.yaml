@@ -15,6 +15,15 @@ checks:
   body_purpose_visible:
     status: "pass | gap | blocked"
     note: ""
+  render_mode_reason_and_visible_sections_accounted_for:
+    status: "pass | gap | blocked"
+    note: ""
+  empty_sections_omitted:
+    status: "pass | blocked"
+    note: ""
+  normalized_context_coverage_unchanged_by_render_mode:
+    status: "pass | blocked"
+    note: ""
   every_assignee_requested_work_and_note_accounted_for:
     status: "pass | gap | blocked"
     note: ""

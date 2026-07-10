@@ -1,0 +1,81 @@
+schema_version: outbound_mail_render_policy_v0
+default_mode: auto
+principle: fixed_metadata_flexible_body
+modes:
+  compact:
+    use_when: single_purpose_low_complexity
+    visible_sections: []
+  action_brief:
+    use_when: multiple_actions_assignees_deadline_or_technical_basis
+    visible_sections:
+      - "수신"
+      - "사유"
+      - "요청업무"
+      - "요청기한"
+      - "요청사유"
+      - "비고"
+    omit_empty_sections: true
+  decision_brief:
+    use_when: approval_choice_or_decision_needed
+    visible_sections:
+      - "결정 요청"
+      - "권고안"
+      - "대안 및 영향"
+      - "기한"
+      - "근거"
+    omit_empty_sections: true
+  status_change:
+    use_when: schedule_or_state_change_is_primary
+    visible_sections:
+      - "변경 요약"
+      - "변경 전/후"
+      - "영향"
+      - "후속 조치"
+    omit_empty_sections: true
+  reply_map:
+    use_when: reply_maps_two_or_more_questions_or_requests
+    visible_sections:
+      - "회신"
+    list_style: numbered_one_to_one
+    omit_empty_sections: true
+selection:
+  explicit_intent_precedence:
+    simple_share: compact
+    request_action: action_brief
+    request_decision: decision_brief
+    status_change: status_change
+    answer_points: reply_map
+  auto_precedence:
+    - discussion_handoff
+    - reply_map
+    - decision_brief
+    - status_change
+    - action_brief
+    - compact
+  action_brief_score:
+    multiple_assignees: 2
+    multiple_work_items: 1
+    deadline_present: 1
+    response_required: 1
+    multiple_recipient_roles: 1
+    supporting_constraints_present: 1
+    threshold: 3
+conditional_sections:
+  "수신": multiple_recipient_roles_or_assignees_only
+  "사유": mail_reason_present
+  "요청업무": requested_work_present
+  "요청기한": deadline_or_reply_by_present
+  "요청사유": nonduplicate_facts_or_rationale_present
+  "비고": notes_format_attachment_or_constraint_present
+channel_fit:
+  channel_risk_flags: synchronous_discussion_then_email_record
+  otherwise: email
+global_rules:
+  - Put the bottom line or requested action in the first one to three sentences.
+  - Keep outbound_team_mail_context_v1 complete even when the visible body is compact.
+  - Do not render empty headings.
+  - Do not repeat mail headers in the body unless roles must be disambiguated.
+  - Merge 사유 and 요청사유 when they would repeat the same content.
+  - Use bullets for parallel items and numbers only for ordered steps or one-to-one replies.
+  - Treat visual headings as a human view, not as the machine-readable source of truth.
+  - Recommend synchronous discussion for conflict, negotiation, or unresolved ambiguity; email records the resulting decision, owner, and deadline.

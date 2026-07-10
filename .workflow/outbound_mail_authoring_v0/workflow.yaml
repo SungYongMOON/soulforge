@@ -29,6 +29,9 @@ optional_inputs:
   - owner_voice_profile_ref
   - owner_voice_profile_provenance
   - team_mail_context_ref
+  - communication_intent
+  - render_mode_preference
+  - channel_risk_flags
   - existing_thread_subject
   - project_local_mail_subject_rule_ref
   - active_project_keyword_index_ref
@@ -43,6 +46,7 @@ outputs:
   - project_keyword_resolution
   - subject_candidate
   - owner_style_body_draft
+  - mail_render_plan
   - attachment_selection_basis
   - footer_application_state
   - pre_send_checklist
@@ -108,6 +112,7 @@ outbound_mail_authoring_contract:
     - project_keyword_resolution
     - subject_candidate_generation
     - owner_style_body_draft_generation
+    - adaptive_body_render_mode_selection
     - attachment_selection_gate
     - mandatory_footer_check
     - pre_send_checklist
@@ -132,6 +137,7 @@ outbound_mail_authoring_contract:
   style_policy_refs:
     mail_send_style_policy: docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md
     team_mail_context_template: templates/team_mail_context.template.yaml
+    mail_render_policy: templates/mail_render_policy.template.yaml
     mail_send_runner_policy: docs/architecture/workspace/MAIL_SEND_V0.md
     mail_send_capsule: guild_hall/gateway/mail_send/
   project_keyword_policy:
@@ -196,6 +202,7 @@ outbound_mail_authoring_contract:
   required_input_shapes:
     mail_authoring_request: templates/mail_authoring_request.template.yaml
     team_mail_context: templates/team_mail_context.template.yaml
+    mail_render_policy: templates/mail_render_policy.template.yaml
     project_mail_keyword_ref: templates/project_mail_keyword_ref.template.yaml
   team_mail_context_compatibility:
     canonical_output_schema: outbound_team_mail_context_v1
@@ -247,6 +254,18 @@ outbound_mail_authoring_contract:
       - raw_addresses
       - exact_footer_payload
       - private_project_rows
+  adaptive_render_policy:
+    selector_script: scripts/select_mail_render_mode.mjs
+    selector_fixture: templates/mail_render_policy.validation_fixture.yaml
+    metadata_source_of_truth: outbound_team_mail_context_v1
+    visible_body_is_not_metadata_source_truth: true
+    modes: [compact, action_brief, decision_brief, status_change, reply_map]
+    action_brief_visible_fields: [수신, 사유, 요청업무, 요청기한, 요청사유, 비고]
+    empty_section_policy: omit
+    recipient_field_policy: show_only_for_multiple_role_or_assignee_responsibilities
+    reason_field_policy: merge_mail_reason_and_request_basis_when_redundant
+    channel_risk_policy: synchronous_discussion_then_email_record
+    channel_risk_does_not_raise_authority: true
   required_output_shapes:
     mail_draft_packet: templates/mail_draft_packet.template.yaml
     pre_send_checklist: templates/pre_send_checklist.template.yaml

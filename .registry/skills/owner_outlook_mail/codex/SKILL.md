@@ -16,9 +16,10 @@ Keep that workflow as the procedure and template authority.
    Accept v0 input only through the workflow compatibility map, emit only v1, and preserve unsupported or ambiguous public-safe source paths and values in `assumptions`. Merge every derived keyword, recipient, attachment, footer, approval, and normalization gap into v1 `assumptions` before rendering; rendered assumptions must match that array. Never infer an assignee from a recipient or participant. Stop rather than copying contact values or private payload into the normalized context.
 4. If available, bind the optional local/private owner voice profile and its provenance. Use only aggregate traits; never copy exact examples or private values into public output.
 5. Bind `requested_send_surface: outlook_manual` and track `authority_state` separately. Missing approval keeps `authority_state: draft_only`; never use the authority state as the requested surface in this launcher.
-6. Draft concise owner-style Korean mail from approved facts, then apply subject, attachment, footer, and owner-approval checks owned by the workflow.
+6. Select the visible body mode with the workflow render policy. Keep the normalized v1 metadata complete, but render only the human-visible sections needed for `compact`, `action_brief`, `decision_brief`, `status_change`, or `reply_map`. Use the six-field `수신/사유/요청업무/요청기한/요청사유/비고` view only for complex action mail, omit every empty field, and show `수신` only when multiple roles or assignees need responsibility mapping. If conflict, negotiation, rapid back-and-forth, or material ambiguity is present, recommend a synchronous discussion and use email only for the agenda or resulting decision record.
+7. Draft concise owner-style Korean mail from approved facts, then apply subject, attachment, footer, and owner-approval checks owned by the workflow.
    If a new-mail keyword is not confirmed, leave the subject unresolved and return a body-only draft with the gap in assumptions.
-7. Return the draft, context coverage, and pre-send checklist. Confirm that multi-assignee work, notes, schedule, formats/examples, attachments, and response requirements survived into the draft/checklist. Do not send or mutate Outlook.
+8. Return the draft, render plan, context coverage, and pre-send checklist. Confirm that multi-assignee work, notes, schedule, formats/examples, attachments, and response requirements survived into the normalized context/checklist even when the visible body is compact. Do not send or mutate Outlook.
 
 ## Boundaries
 

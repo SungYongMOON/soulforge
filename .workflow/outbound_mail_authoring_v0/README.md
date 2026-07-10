@@ -29,6 +29,16 @@ quoted-mail header chains, or footer-security payload indicators. The value scan
 does not classify ordinary dates, unseparated numeric identifiers, or part
 numbers as contact data.
 
+Visible body structure is selected separately from normalized metadata. The
+deterministic policy in `templates/mail_render_policy.template.yaml` uses five
+modes: `compact`, `action_brief`, `decision_brief`, `status_change`, and
+`reply_map`. The full v1 context remains the source of truth in every mode;
+empty headings are omitted. The six-field Korean action view (`수신`, `사유`,
+`요청업무`, `요청기한`, `요청사유`, `비고`) is an expanded view for complex
+action mail, not a mandatory shell for every message. Validate the selector
+with `scripts/select_mail_render_mode.mjs --fixture
+templates/mail_render_policy.validation_fixture.yaml`.
+
 ## Status
 
 - Workflow status: active
@@ -75,6 +85,8 @@ send surface, and footer state.
 - Public workflow files must not store raw mail bodies, raw HTML, `.msg` or
   `.eml` files, attachment payloads, secrets, private project mail rows, or
   runtime absolute paths.
+- Conflict, negotiation, rapid back-and-forth, or material ambiguity should be
+  discussed synchronously; email then records the decision, owner, and deadline.
 
 ## Non-Use
 

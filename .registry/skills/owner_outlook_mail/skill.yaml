@@ -2,7 +2,7 @@ skill_id: owner_outlook_mail
 kind: skill
 status: active
 title: Owner Outlook Mail
-summary: Select the existing outbound mail authoring workflow for owner-style Outlook manual drafts using a lossless public-safe per-assignee team context and an optional local/private aggregate voice profile.
+summary: Select the existing outbound mail authoring workflow for structured-metadata, adaptively rendered Outlook manual drafts without send authority.
 behavior:
   intent: >
     Provide a thin Codex launcher for owner-style Outlook mail authoring through
@@ -25,6 +25,8 @@ behavior:
     - structured context uses the workflow-owned public template
     - supported v0 context normalizes to v1-only without inferred assignees or lost ambiguous values
     - multi-assignee work, notes, schedule, formats/examples, attachments, and response requirements survive into draft review
+    - the visible body uses compact, action, decision, status-change, or reply-map rendering without empty headings
+    - the six-field Korean action view appears only for complex action mail
     - optional voice guidance comes from a local/private aggregate profile with provenance
     - no send authority or Outlook mutation authority is granted
 execution_requirements:
@@ -32,6 +34,7 @@ execution_requirements:
     - workflow_launcher_routing
     - owner_style_drafting
     - structured_mail_context_binding
+    - adaptive_mail_body_rendering
     - private_profile_boundary_review
     - Outlook_manual_handoff_review
   preferred_tools:

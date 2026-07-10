@@ -7,6 +7,14 @@ owner_voice_profile:
   use: "optional | disabled"
 thread_mode: "new | reply | forward"
 mail_kind: "자료송부 | 검토요청 | 수정요청 | 확인요청 | 회신요청 | 재송부 | 첨부누락정정 | 기타"
+communication_intent: "auto | simple_share | request_action | request_decision | status_change | answer_points"
+render_mode_preference: "auto | compact | action_brief | decision_brief | status_change | reply_map"
+reply_item_count: 0
+channel_risk_flags: []
+decision_context:
+  recommendation: null
+  alternatives: []
+  impacts: []
 send_surface: "draft_only | outlook_manual | soulforge_send_mail"
 field_semantics:
   send_surface: requested_delivery_surface_not_authority

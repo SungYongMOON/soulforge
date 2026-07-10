@@ -56,10 +56,35 @@ request does not raise authority above `draft_only`. If a new-mail keyword is
 missing, leave the subject unresolved and continue only with a body draft plus
 an assumption and checklist gap.
 
+## Adaptive Body Rendering
+
+Keep `outbound_team_mail_context_v1` as the complete machine-readable source of
+truth. Select the human-facing view with the workflow render policy and record
+the mode, reason codes, visible sections, and channel recommendation in the
+draft packet.
+
+- `compact`: one purpose and low complexity; no fixed headings.
+- `action_brief`: multiple actions, assignees, deadlines, response needs, or
+  technical basis. Render only populated fields among `수신`, `사유`,
+  `요청업무`, `요청기한`, `요청사유`, and `비고`.
+- `decision_brief`: approval or choice; lead with the decision needed and show
+  recommendation, alternatives/impact, deadline, and basis only when present.
+- `status_change`: lead with the change, before/after, impact, and next action.
+- `reply_map`: answer two or more source items in a numbered one-to-one map.
+
+Do not repeat TO/CC values as a `수신` block. Use that section only to map
+multiple roles or assignees to responsibilities. Merge `사유` and `요청사유`
+when they would repeat the same content. For conflict, negotiation, material
+ambiguity, or rapid back-and-forth, recommend live discussion followed by a
+short decision/owner/deadline recap. This recommendation never raises send
+authority above `draft_only`.
+
 ## Validation Checklist
 
 - The existing workflow was loaded and remains the sole procedure authority.
 - The workflow-owned team context template was used.
+- The workflow-owned render policy selected a mode and omitted empty sections.
+- The full normalized context remained complete regardless of visible mode.
 - The normalized context emits v1 only; v0 and v1 shapes are never mixed.
 - The v1 assumptions array and rendered assumptions contain the same gaps.
 - The draft packet and checklist explicitly name `requested_send_surface: outlook_manual` and `authority_state: draft_only` (or checklist `authority_result: draft_only`) separately; never leave authority implied by gaps.
