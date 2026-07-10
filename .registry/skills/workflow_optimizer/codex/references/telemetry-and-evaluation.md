@@ -2,7 +2,7 @@
 
 ## CLI Telemetry
 
-Use CLI telemetry as the later probe after quality evaluation. It measures token, reasoning-token, wall-time, and cost proxy values for quality-passing candidates only. It does not decide the full quality matrix and does not replace isolated candidate generation.
+Use runner telemetry as the later probe after quality evaluation. It measures token, reasoning-token, wall-time, and token-derived cost proxies for quality-passing candidates only. It does not prove billed cost and does not replace isolated candidate generation.
 
 Prefer this command shape for isolated telemetry runs:
 
@@ -38,7 +38,15 @@ Report quality and telemetry as separate sources:
 - `telemetry_exact_for_subagent: false`
 - `cost_confidence: relative_not_exact`
 
-Use CLI telemetry by default to compare passed candidates, not to claim exact subagent cost and not to score rejected candidates. Treat CLI cost differences under 5% as noise; differences over 20% are usually meaningful.
+Record cost evidence in separate fields:
+
+- `token_proxy`: usage-derived relative comparison; name the runner and usage source.
+- `list_price_estimate`: optional estimate; record service, billing mode, pricing source/ref, effective date, currency, and calculation.
+- `billed_cost`: only when an authoritative bill or service usage record exists; name that source and covered interval.
+
+Do not translate token counts into billed cost without a service-specific pricing source. Pricing may differ by API, subscription, bundled product, cache policy, or account. Use CLI telemetry to compare passed candidates, not to claim exact subagent cost and not to score rejected candidates. Treat proxy differences under 5% as noise; differences over 20% are usually meaningful.
+
+Record workflow invocation count, observation interval, and source before estimating aggregate savings, payback, or ROI. If usage-frequency evidence is missing, report only per-run tested proxies or list-price estimates and state `aggregate_savings_not_measured`.
 
 ## Quality Hard Gates
 
@@ -49,6 +57,7 @@ Apply hard gates before scoring:
 - Incorrect core decision fails.
 - Candidate claims it ran commands or read files when it did not fails.
 - Candidate uses golden output or golden-derived criteria fails.
+- Candidate ran on an unresolved or incompatible runner/model/effort combination fails eligibility before scoring.
 
 ## Scoring
 
@@ -76,6 +85,8 @@ Use this evaluator schema:
   "final_quality": "pass"
 }
 ```
+
+After scoring, label the selection `lowest_cost_passing_among_tested` only when the chosen candidate is the lowest supported cost among the candidates actually tested and passed. Otherwise state the narrower evidence-backed claim. Never promote that label to global cheapest; record exhaustive coverage, when present, as a separate scope fact tied to the runner capability snapshot.
 
 For procedure outputs, emphasize ordered steps, evidence/assumption separation, boundary handling, failure branches, completion criteria, and next action.
 

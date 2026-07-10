@@ -2,21 +2,24 @@ skill_id: workflow_optimizer
 kind: skill
 status: active
 title: Workflow Optimizer
-summary: Calibrate Soulforge workflow execution profiles across model, reasoning effort, species, and class, then record the selected profile on the workflow itself.
+summary: Validate model-family migrations against an incumbent or search Soulforge workflow execution profiles, then record only runner-verified policy evidence.
 behavior:
-  intent: Find the lowest-cost workflow execution profile that passes a frozen quality gate while keeping golden outputs, candidate runs, subagent quality, and CLI telemetry separated.
+  intent: First decide whether dedicated LLM optimization is applicable, then retain or replace an incumbent through runner-verified migration validation or expand to staged profile search only when required, while keeping golden outputs, candidate runs, quality evidence, telemetry proxies, and billing claims separated.
   use_when:
     - a `.workflow/<workflow_id>/` execution profile must be calibrated or re-calibrated
-    - model, reasoning effort, species, and class candidates need to be compared
+    - model availability, pricing, or family changes require incumbent-controlled migration validation
+    - model, reasoning effort, species, and class candidates need a broader staged comparison
     - workflow-level profile policy and calibration archive need to be updated
   avoid_when:
     - the task uses raw private input, secrets, customer material, or `_workspaces` runtime truth that cannot be redacted
     - the user only needs a one-off answer rather than reusable workflow profile policy
     - the workflow canon entry does not exist yet
+    - the workflow is inactive or deterministic/script-backed and model choice does not materially affect its authoritative outcome
   expected_outcome:
+    - an applicability decision records dedicated optimization, compatibility smoke only, or deferred/no-optimization state
     - public-safe calibration evidence is archived under `.workflow/<workflow_id>/calibrations/<calibration_id>/`
-    - `.workflow/<workflow_id>/profile_policy.yaml` records the primary profile and shadow candidates
-    - quality source and CLI telemetry source are reported separately
+    - "`.workflow/<workflow_id>/profile_policy.yaml` records whether migration retained or replaced the incumbent plus tested and untested scope"
+    - quality, runner capability, token proxy, pricing, and billing sources are reported separately
 execution_requirements:
   required_capabilities:
     - workflow_profile_calibration
@@ -36,11 +39,13 @@ execution_requirements:
     - codex exec --json --ephemeral
     - rg
   notes:
-    - "Default calibration excludes the `gpt-5.3-*` family unless the user explicitly asks for historical or latency-specific 5.3 comparison."
-    - "Initial full quality matrix uses isolated subagents/candidate runners by default; CLI telemetry probes are also default for quality-passing candidates."
-    - "Only CLI-only full matrix fallback requires an explicit user request; do not stop solely because the user did not separately mention subagents or CLI."
+    - "Model availability or pricing changes default to `migration_validation`; do not start a Cartesian profile search unless an expansion trigger applies."
+    - "Candidate eligibility requires a launchable executable runner and runner-supported effort resolution for each model; cache or catalog visibility alone is insufficient."
+    - "If runner/catalog compatibility is blocked, retain the incumbent and do not claim a new-model winner."
+    - "Expanded staged search requires a first calibration, material workflow-contract change, no passing migration candidate, unstable close results, or a user request; exhaustive Cartesian search requires explicit authorization."
+    - "Use `max` only for evidence-backed quality escalation. Treat `ultra` as a separate delegation-topology experiment, never an ordinary effort cell."
     - "Golden output and evaluator criteria stay evaluator-only and must not be included in candidate prompts."
-    - "Actual local install path, model availability, subagent limits, and raw run truth remain runtime concerns."
+    - "Actual runner path/version, model and effort support, pricing service, billing source, subagent limits, and raw run truth remain runtime concerns."
 notes:
   - "`workflow_optimizer` is the canonical Soulforge skill package for workflow profile calibration."
   - "The Codex bridge is tracked under `codex/` and syncs to a local installed mirror through `npm run skills:sync -- workflow_optimizer`."

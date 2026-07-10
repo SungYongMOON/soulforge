@@ -1,4 +1,4 @@
 interface:
   display_name: "Workflow Optimizer"
-  short_description: "Calibrate workflow profiles with quality gates."
-  default_prompt: "Find the best Soulforge execution profile for this workflow."
+  short_description: "Validate migrations or search workflow profiles."
+  default_prompt: "Use $workflow-optimizer to validate this workflow's incumbent against runner-supported migration candidates and expand only when justified."
