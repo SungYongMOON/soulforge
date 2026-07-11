@@ -10,7 +10,8 @@ The main rule is:
 ```text
 Google Drive stores source files by durable source/domain logic.
 NotebookLM notebooks are query bookshelves assembled from approved source sets.
-_workmeta records the catalog, bindings, approvals, and ontology candidates.
+_workspaces holds working and derived text/wiki/RAG payloads.
+_workmeta records metadata-only refs, hashes, bindings, approvals, reviews, and ontology candidates.
 ```
 
 ## Vocabulary
@@ -20,9 +21,35 @@ _workmeta records the catalog, bindings, approvals, and ontology candidates.
 | Drive source warehouse | 창고 | Owner-held Google Drive storage/archive/backup for source files, source refs, and packages. | Stores files; folder placement alone is not approval, source truth, or canon. |
 | NotebookLM query bookshelf | 책장 | One NotebookLM notebook or equivalent selected source set. | Advisory query surface; answers are not validation or canon. |
 | Source item | 책 | One source handle, file, source packet, or Drive-native source ref. | Must be represented by a metadata source card before durable use. |
-| Source catalog | 장서목록 | `_workmeta` ledgers, packet maps, NotebookLM bindings, query/use logs, and review packets. | Records refs, decisions, claim ceilings, and reproducible source selections. |
+| Source catalog | 장서목록 | `_workmeta` ledgers, packet maps, NotebookLM bindings, query/use metadata, and review packets. | Records refs, hashes, decisions, claim ceilings, and reproducible source selections; it stores no source, projection, or wiki bodies. |
 | Domain group | 서가 / 분야 | Human management grouping for related bookshelves or source families. | Not a NotebookLM object and not source authority. |
 | Ontology candidate graph | 온톨로지 후보 | Reusable entity, relation, concept, claim, project, and domain patterns. | Lives in `_workmeta` until accepted by the correct owner/review route. |
+
+## Storage And Knowledge Authority Matrix
+
+Storage location, folder labels, sync/mount state, connector access, and a
+successful read are access or placement facts. They do not grant source
+approval, source truth, owner approval, or canon status.
+
+| Surface | Primary role | May hold | Authority boundary and default posture |
+| --- | --- | --- | --- |
+| OneDrive or another owner-approved shared worksite | Active editable project files and shared work products. | Current documents, media, measurements, and editable deliverables. | Working-file access only; it is not the durable knowledge source warehouse or canon owner. |
+| Company NAS | Company owner-held external originals. | Original source files governed outside Soulforge. | Default read-only from Soulforge. Reachability does not authorize copy, modification, automatic ingest, Drive upload, source approval, or canon promotion. |
+| Soulforge `_workspaces/**` | Working view and derived payload worksite. | Approved working copies, extracted text, private projection/wiki bodies, RAG payloads, and generated views. | Working/derived runtime surface only; content here is not approved knowledge or canon by location. |
+| Google Drive source warehouse | Durable source storage and cross-PC source archive. | Candidate and approved source files, source refs, and packages grouped by durable source/domain logic. | Folder placement, a `CANON` label, connector visibility, or connector read does not prove approval, source truth, or canon. Approval and claim state require `_workmeta` evidence plus the applicable owner/review route. |
+| Soulforge `_workmeta/**` | Metadata-only catalog and decision evidence. | Refs, hashes, provenance, approval/review state, bindings, use metadata, claim ceilings, and ontology candidates. | No source bodies, extracted text, chunks, projection/wiki bodies, or generated answer payloads. Metadata records do not approve their targets. |
+| NotebookLM, RAG, Obsidian, and generated graph views | Advisory query, retrieval, and derived navigation surfaces. | Selected source bindings, answers, indexes, generated notes, and graph signals within their own bounded runtime surfaces. | Advisory/derived only; they cannot approve sources, accept ontology, raise claim ceilings, or promote canon. |
+| Soulforge `.registry/knowledge/**` | Accepted reusable knowledge canon. | Public-safe knowledge entries accepted by the correct owner and review route. | This is the reusable knowledge canon surface; entry requires source support, boundary checks, and applicable review/registration evidence. |
+
+### Migration gate
+
+The matrix above is the target authority contract. The current
+`sourcebound_knowledge_packet_operating_loop_v0` draft binding still places its
+compiled projection root under `_workmeta/**`. Until that workflow binding and
+manifest are migrated to `_workspaces/**` payload plus `_workmeta/**`
+metadata-only refs, callers must treat payload-producing sourcebound execution
+as `blocked_migration_required`. Existing metadata-only calibration placeholders
+do not authorize runtime projection bodies under `_workmeta`.
 
 ## Placement Rule
 
@@ -74,9 +101,10 @@ Google Drive source warehouse
         optional_shortcuts/
 ```
 
-Folder state is a storage convenience. The `_workmeta` source catalog remains
-the place that records approval state, claim ceiling, source handle, hash,
-NotebookLM binding, and review history.
+Folder state, including a `CANON` label, is a storage convenience rather than an
+approval. The `_workmeta` source catalog remains the place that records approval
+state, claim ceiling, source handle, hash, NotebookLM binding, and review
+history; connector access or a successful read does not raise that state.
 
 ## Bookshelf Creation Rule
 

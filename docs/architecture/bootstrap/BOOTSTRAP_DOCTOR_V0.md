@@ -81,6 +81,20 @@ Windows PowerShell:
 npm.cmd run guild-hall:doctor -- --remote
 ```
 
+read-only device capability advisory 가 필요하면:
+
+```bash
+npm run guild-hall:doctor -- --device-capabilities --json
+```
+
+Windows PowerShell:
+
+```powershell
+npm.cmd run guild-hall:doctor -- --device-capabilities --json
+```
+
+이 mode 는 checklist 를 읽기 전에 조기 분기한다. bootstrap readiness, remote/live check, status file write 를 실행하지 않으며 결과는 readiness 판정이 아닌 advisory 다.
+
 ## 점검 범위
 
 - local node identity
@@ -138,6 +152,15 @@ npm.cmd run guild-hall:doctor -- --remote
   - `operator` 는 Hiworks POP3 와 Telegram `getMe` 를 기본 live 대상으로 본다
   - `owner-with-state` 는 위 둘에 더해 Hiworks SMTP 도 본다
   - `--live` 결과는 각 live check 를 개별 항목으로 보고한다
+- device capability advisory
+  - schema 는 `soulforge.device_capability_probe.v0`
+  - node role, platform, architecture 와 workspace link aggregate 를 보고한다
+  - macOS/Windows 고정 후보로 OneDrive와 Google Drive의 installed/running 상태를 보고하고, local identity 에 cloud root 가 설정됐는지 boolean 으로만 보고한다
+  - public repo HEAD와 dirty file count, Ollama command/loopback availability 를 보고한다
+  - local identity 의 `capability_probe.dev_erp_loopback` 이 켜졌을 때만 고정 `127.0.0.1:4300` health endpoint 를 확인한다
+  - local identity 의 `capability_probe.nas_targets`, `capability_probe.sync_receipts` 를 bounded timeout 으로 확인하고 target별 label/path 대신 reachable/missing/timeout 및 fresh/stale/missing 개수만 보고한다
+  - workspace junction audit는 timeout-bounded child process로 격리하고 Git 관찰은 `GIT_OPTIONAL_LOCKS=0`으로 index write 가능성을 막는다
+  - optional input 미설정은 `not_configured`, 판별 불가는 `unknown` 이며 failure 로 승격하지 않는다
 
 ## secret 파일 비열람 원칙
 
@@ -149,6 +172,7 @@ npm.cmd run guild-hall:doctor -- --remote
 ## 출력과 종료 코드
 
 - doctor 는 local status file `guild_hall/state/doctor/status.json` 을 쓴다.
+- 예외적으로 `--device-capabilities` 는 status file 을 쓰지 않는다. 정상 advisory 는 capability gap 과 무관하게 exit code `0`, 내부 fatal 은 exit code `2` 다.
 - required check 와 요청된 live check 가 모두 통과하면 exit code `0`
 - readiness fail 이면 exit code `1`
 - checklist parse 실패나 내부 fatal error 는 exit code `2`
@@ -228,6 +252,31 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 - `fix_hint` 는 자동 실행이 아니라 다음 조치 가이드다.
 - 사람과 AI 는 `results[].fix_hint` 를 우선 읽고 복구 순서를 정한다.
 
+### Device capability JSON 계약 v0
+
+top-level 은 `schema_version`, `kind`, `mode`, `generated_at`, `boundary`, `node`, `workspace_links`, `cloud_apps`, `repository`, `ollama`, `dev_erp_loopback`, `nas`, `sync_receipts` 를 포함한다. `boundary` 는 다음 privacy/side-effect 사실을 명시한다.
+
+- advisory/read-only 이며 readiness 를 평가하지 않음
+- checklist, remote check, live check, status write 를 실행하지 않음
+- secret과 payload 를 읽거나 포함하지 않음
+- absolute path, account identifier, workspace alias, target tail, filename, raw error 를 포함하지 않음
+- doctor status와 Git index를 만들거나 갱신하지 않음
+
+`guild_hall/state/local/node_identity.yaml` 의 선택 local-only 설정 shape 는 다음과 같다. 실제 path/ref 는 public 문서나 probe 출력에 복사하지 않는다.
+
+```yaml
+capability_probe:
+  cloud_roots:
+    onedrive: <owner-local-path>
+    google_drive: <owner-local-path>
+  dev_erp_loopback: true
+  nas_targets:
+    - path: <owner-local-path>
+  sync_receipts:
+    - path: <owner-local-receipt-path>
+      max_age_hours: 24
+```
+
 ## 기본 원칙
 
 1. doctor 기본값은 safe local check 만 수행한다.
@@ -243,6 +292,7 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 11. live mail fetch 나 Telegram send 는 doctor 기본 범위 밖이다.
 12. bootstrap readiness 와 실제 업무 실행은 분리한다.
 13. `codex`, `promptfoo`, workflow evolution venv 는 workflow evolution harness 후보용 optional tool 이며, `/goal` feature enable 과 OpenAI SDK / DSPy import 여부는 [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md) 의 별도 확인 절차를 따른다.
+14. `--device-capabilities` 는 bootstrap readiness 와 status persistence 에 영향을 주지 않는 순수 read-only advisory 다.
 
 ## clone 감지 원칙
 
@@ -261,6 +311,7 @@ doctor 는 missing/failed/blocked result 에 대해 가능하면 item-level `fix
 - env 와 policy 를 채운 직후: `npm run guild-hall:doctor -- --profile operator`
 - 실제 외부 연결을 붙이기 직전: `npm run guild-hall:doctor -- --profile <operator|owner-with-state> --live`
 - 운영 중 이상 징후가 있을 때: safe 먼저, 그다음 필요할 때만 live
+- PC capability 요약이 필요할 때: `npm run guild-hall:doctor -- --device-capabilities --json`
 
 ## 관련 경로
 

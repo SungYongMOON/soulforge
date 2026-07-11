@@ -178,6 +178,9 @@ Follow-on fit:
    sourcebound review queues.
 6. Keep any answer-quality, NotebookLM, source-text BM25/vector, or ontology
    promotion work behind separate owner/review gates.
+7. Migrate the legacy sourcebound compiled-projection binding from `_workmeta/**`
+   payloads to `_workspaces/**` payloads plus metadata-only `_workmeta/**` refs;
+   keep payload-producing execution blocked until its workflow review passes.
 
 ## 장기 후보: engineering co-pilot expansion
 
@@ -197,7 +200,9 @@ Follow-on fit:
 - 회로 원본, 업무 원문, 회사 자료, PC activity raw truth, private log 는 public repo 에 남기지 않는다.
 - datasheet/source 수집은 공식 source 또는 owner-approved source packet 기준으로 하고, 출처 없는 값을 설계 사실처럼 채우지 않는다.
 - 외부 신호 감시는 public source 요약과 후보 제안까지만 하며, 자동으로 canon/workflow/skill 을 바꾸지 않는다.
-- knowledge-use analytics 는 기본적으로 metadata-only 로 시작하고, payload truth 는 `_workmeta`, source packet, owner-held source 경계에 남긴다.
+- knowledge-use analytics 는 기본적으로 metadata-only 로 시작하고,
+  working/derived payload는 `_workspaces` 또는 owner-approved worksite,
+  source truth는 owner-held source나 승인된 source packet 경계에 남긴다.
 - 팀 library 반영, 산출물 승인, 설계 판단, workflow/skill 승격은 owner approval 또는 별도 review gate 를 거친다.
 
 구체화 순서:
@@ -373,30 +378,32 @@ Implementation status:
   synthetic XLSX smoke coverage. CSV/ICS metadata ledger behavior remains the
   source contract.
 
-### Google Drive LLM wiki bookshelf candidate
+### Google Drive LLM wiki source warehouse candidate
 
-This candidate adds Google Drive as the cross-PC canonical source bookshelf for
+This candidate adds Google Drive as the durable cross-PC source warehouse for
 NotebookLM-ready materials. It does not replace OneDrive as the active working
-file share, and it does not move source payloads into Soulforge public canon.
+file share, and Drive folder placement, a `CANON` label, connector visibility,
+or a successful read does not approve a source or create Soulforge canon.
 
 Owner split:
 
-- Google Drive: owner-approved canonical source bookshelf for LLM wiki and
-  NotebookLM source sets.
+- Google Drive: durable source warehouse for candidate and approved source files
+  used by LLM wiki and NotebookLM source sets.
 - NotebookLM: question, summary, and synthesis interface over the approved
   source set.
 - OneDrive: active project working files and editable deliverables.
 - Soulforge: metadata-only source ledgers, NotebookLM packet maps, usage
   records, review packets, and promotion candidates.
-- `_workmeta`: private/project-local evidence for why a source is canonical,
-  where it is used, and which NotebookLM packet references it.
+- `_workmeta`: metadata-only refs, hashes, approval/review evidence, bindings,
+  claim ceilings, and ontology candidates. It stores no source, projection,
+  wiki, chunk, or generated-answer bodies.
 
 Initial development target:
 
-1. Define a canonical-source intake checklist for the Google Drive bookshelf.
+1. Define an approved-source intake checklist for the Google Drive source warehouse.
 2. Define a metadata-only source ledger shape that can point at Drive sources
    without copying source payloads.
-3. Define a NotebookLM packet map that records which canonical sources belong
+3. Define a NotebookLM packet map that records which approved source handles belong
    to which notebook or topic.
 4. Route source-use events through `guild_hall/knowledge_access` and keep
    accumulated evidence under `_workmeta/**/reports/knowledge_access`.
@@ -427,8 +434,9 @@ Owner split:
   기록한다.
 - `ui-workspace/**`: root-owned UI 에 같은 contract 를 소비하는 구현이
   필요해질 때만 세부 계획을 내려받는다.
-- `_workmeta/system/**`: NotebookLM 결과, source delta, pilot evidence,
-  review packet 같은 private/procedure evidence 를 남긴다.
+- `_workmeta/system/**`: NotebookLM 결과의 metadata-only ref/status, source
+  delta metadata, pilot evidence, review packet 같은 private/procedure
+  evidence를 남긴다. NotebookLM answer나 wiki/projection 본문은 두지 않는다.
 
 Recommended sequence:
 

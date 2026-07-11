@@ -115,11 +115,45 @@ flowchart LR
 | --- | --- | --- | --- |
 | 회사 작업용 PC | `work_pc` | `_workspaces/<project_code>/`, `_workmeta/<project_code>/` | 회사 자리의 로컬 업무 PC 로 본다. 문서, 메일, 실제 업무 자료와 project worksite 조작을 담당하며, 기본 `gateway_fetch_primary` 나 `night_watch_active` 는 아니다. |
 | 고성능 PC Soulforge 실행면 | `tool_pc`; owner 가 지정하면 별도 clone/identity 의 `always_on_node` | `tool_pc`: `_workspaces/<project_code>/`, `_workmeta/<project_code>/`; `always_on_node`: `guild_hall/state/**`, `private-state/**` mirror | DB/tools 와 장시간 Soulforge 실행 중심 PC 로 볼 수 있다. tool-bound 작업과 24시간 운영을 같은 물리 PC 에서 하더라도 local `node_identity.yaml` 또는 clone/worktree 로 역할을 분리한다. |
-| 맥미니 개인 서버면 | `always_on_node` fallback/mirror 또는 owner-designated personal server lane | `guild_hall/state/**`, `private-state/**` mirror | 집의 24시간 개인 서버로 본다. 과거 primary 운영 node 였더라도, 현재 고성능 PC 가 24시간 primary 를 맡으면 fallback/mirror/개인 서버 역할로 해석한다. |
+| Mac 상시 서버면 | `always_on_node` | `guild_hall/state/**`, `private-state/**` mirror | 24시간 감시, gateway, healer, reminder, snapshot 같은 경량 운영을 맡는다. NAS 직접 접근이 없어도 이 node role은 유지되며, NAS ingest 권한이 생기지는 않는다. 실제 identity와 primary job binding은 local-only state가 소유한다. |
 | 맥북에어 이동/수집/개발면 | `portable_dev_pc` | public `Soulforge`, 필요 시 `_workmeta/**` | 이동 중 macOS 개발, 음성 녹음, YouTube/source link 수집, 앞으로 개발할 항목 기록을 담당한다. `gateway_fetch_primary` 와 `night_watch_active` 는 기본 blocked 다. |
-| OneDrive 등 cloud project worksite | `work_pc` / project worksite binding | `_workspaces/<project_code>/` link target 또는 owner-approved external project path | 여러 PC 에서 같은 사진, 영상, 측정 로그, 산출물을 읽어야 할 때 실제 파일을 둔다. public repo, `_workmeta`, `private-state`, `guild_hall/state/**` runtime, secret/env/session 은 cloud sync 대상이 아니다. |
+| OneDrive 등 cloud project worksite | `work_pc` / project worksite binding | `_workspaces/<project_code>/` link target 또는 owner-approved external project path | 여러 PC 에서 함께 편집하는 active project 파일, 사진, 영상, 측정 로그, 산출물을 둔다. public repo, `_workmeta`, `private-state`, `guild_hall/state/**` runtime, secret/env/session 은 cloud sync 대상이 아니다. |
+| 회사 NAS | external owner-held source surface | 기본 read-only access | 회사 owner가 보유한 원본을 필요한 bounded 작업에서 읽는다. mount 또는 read 성공은 수정, 자동 ingest, Drive 업로드, source 승인, 정본 승격 권한이 아니다. |
+| Google Drive source warehouse | approved connector/browser/manual access lane | durable source warehouse | durable source/domain logic으로 후보와 승인된 source를 보관한다. folder placement, `CANON` label, connector visibility/read는 승인이나 canon이 아니다. |
 
 고성능 PC 나 맥미니가 운영과 개발을 모두 맡더라도 역할은 한 clone 안에서 섞지 않는다. 운영용 clone 은 `always_on_node` identity 를 갖고, tool/dev 작업면은 별도의 local `node_identity.yaml` 로 `tool_pc`, `portable_dev_pc`, 또는 `dev_worker_pc` 성격을 선언한다.
+
+### Access mechanism과 authority 분리
+
+이 문서는 device role과 각 장치의 access mechanism을 소유한다. 저장소별
+지식 authority는
+[`KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md`](../guild_hall/KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md#storage-and-knowledge-authority-matrix)의
+matrix를 따른다. mount, sync, connector, browser, junction/symlink, clone은
+bytes나 metadata를 읽고 쓰는 방법일 뿐 승인 권한이 아니다.
+
+| Access mechanism | Device-role use | Authority boundary |
+| --- | --- | --- |
+| OneDrive/shared-worksite sync + `_workspaces/<project_code>/` link | `work_pc` 또는 bounded `tool_pc`가 active editable files를 작업한다. | Working-file access only; source approval, source truth, knowledge canon을 만들지 않는다. |
+| NAS mount/share read | 필요한 owner-authorized node가 회사 owner-held external original을 읽는다. | Default read-only; automatic ingest, mutation, Drive upload, approval, canon promotion은 별도 authority 없이는 금지한다. |
+| Google Drive connector/browser/manual copy | 승인된 node가 durable source warehouse를 조회하거나 명시된 보관 작업을 수행한다. | Folder/label/connector/read state는 placement/access fact일 뿐이다. Approval/review evidence는 `_workmeta`, accepted reusable knowledge는 `.registry/knowledge`가 소유한다. |
+| `_workmeta` private Git sync | `owner-with-state` node가 refs, hashes, approvals, reviews, bindings, ontology candidates를 공유한다. | Metadata-only plane이다. Source, projection, wiki, RAG body를 운반하거나 metadata row만으로 대상을 승인하지 않는다. |
+
+Public 문서에는 role과 generic capability만 적는다. 실제 node id, 계정, mount
+상태, 절대경로, NAS/Drive binding은 local-only identity 또는 private binding이
+소유한다.
+
+각 PC는 같은 읽기 전용 capability 명령으로 자신의 access mechanism만
+보고할 수 있다.
+
+```bash
+npm run guild-hall:doctor -- --device-capabilities --json
+```
+
+이 모드는 bootstrap readiness나 authority를 판정하지 않고 doctor status도
+쓰지 않는다. node role, workspace link 집계, cloud app 설치·실행, Git 상태,
+Ollama와 명시된 local-only NAS/receipt probe의 상태만 경로·계정·파일명 없이
+보고한다. 결과의 `installed`, `running`, `reachable`은 access fact일 뿐 sync
+완료, source 승인, source truth, primary writer 승격을 뜻하지 않는다.
 
 OneDrive 같은 cloud path 를 `_workspaces` 로 쓰려면 실제 파일은 cloud/shared project worksite 에 두고 `_workspaces/<project_code>/` 는 link 로 둔다. project 별 binding 에만 target 을 기록하고, public tracked tree 에 machine-local 절대경로를 넣지 않는다. symlink/junction 생성은 사용자가 `project_code` 와 대상 path 를 명시했을 때만 수행한다.
 

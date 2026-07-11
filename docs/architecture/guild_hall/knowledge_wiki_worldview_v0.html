@@ -372,19 +372,34 @@
           <p>Desktop, Downloads, 작업 폴더에 사용자가 받은 원본 파일이 먼저 놓인다. 필요한 파일만 source intake로 넘긴다.</p>
         </article>
         <article class="space-card">
-          <span>비공개 작업장</span>
-          <strong>_workmeta</strong>
-          <p>source packet, private projection, lint, concept candidate, review evidence가 쌓이는 실제 카파시식 데이터 작업장이다.</p>
+          <span>활성 편집</span>
+          <strong>OneDrive / Shared Worksite</strong>
+          <p>여러 PC가 함께 편집하는 current project 파일과 산출물을 둔다. sync나 읽기 성공은 source 승인이나 정본 근거가 아니다.</p>
         </article>
         <article class="space-card">
-          <span>중앙 보관</span>
+          <span>외부 원본</span>
+          <strong>회사 NAS</strong>
+          <p>회사 owner-held original을 기본 read-only로 읽는다. 접근 가능성은 수정, 자동 ingest, Drive 업로드, 승인 권한이 아니다.</p>
+        </article>
+        <article class="space-card">
+          <span>비공개 작업장</span>
+          <strong>_workspaces</strong>
+          <p>승인된 working copy, extracted text, private projection/wiki, RAG payload와 generated view를 만드는 작업·파생 runtime surface다.</p>
+        </article>
+        <article class="space-card">
+          <span>메타데이터</span>
+          <strong>_workmeta</strong>
+          <p>ref, hash, provenance, approval/review, binding, claim ceiling, ontology candidate만 기록한다. source나 projection/wiki 본문은 두지 않는다.</p>
+        </article>
+        <article class="space-card">
+          <span>Source Warehouse</span>
           <strong>Google Drive</strong>
-          <p>처음 받은 후보, owner-held source, 작업 bundle, 정본 package를 모두 보관하는 자료 금고이자 백업 장소다.</p>
+          <p>후보와 승인된 source를 durable source/domain logic으로 보관한다. 폴더 위치, CANON 라벨, connector 표시·읽기는 승인이나 정본이 아니다.</p>
         </article>
         <article class="space-card">
           <span>정본 질의</span>
           <strong>NotebookLM</strong>
-          <p>정본 package를 올려 먼저 질문하는 source-grounded 인터페이스다. 내려받을 수 있어도 주 역할은 보관소가 아니라 호출면이다.</p>
+          <p>승인 근거가 기록된 source package를 올려 먼저 질문하는 source-grounded 인터페이스다. 내려받을 수 있어도 주 역할은 보관소가 아니라 호출면이다.</p>
         </article>
         <article class="space-card">
           <span>보기 전용</span>
@@ -399,7 +414,7 @@
         <article class="space-card">
           <span>상위 체인</span>
           <strong>.party</strong>
-          <p><code>knowledge_wiki_cell</code>처럼 여러 workflow를 순서대로 묶는다. 각 단계 실행은 subagent가 맡는다.</p>
+          <p><code>knowledge_wiki_cell</code>처럼 여러 workflow를 묶을 수 있다. 현재 기본 caller route는 launcher가 여는 <code>knowledge_ingest_pipeline_v0</code>다.</p>
         </article>
         <article class="space-card">
           <span>정본</span>
@@ -416,7 +431,7 @@
 
     <section>
       <h2>자료는 이렇게 이동한다</h2>
-      <p>기본 경로는 Local에서 시작해 Drive inbox에 먼저 맡겨두고, 필요한 파일만 _workmeta에서 카파시식 projection으로 만든 뒤, review를 거쳐 Drive에 다시 백업하고 정본 package를 NotebookLM과 Obsidian view로 배포한다.</p>
+      <p>기본 경로는 Local 또는 승인된 worksite에서 시작해 Drive source warehouse에 보관하고, 승인된 파일만 _workspaces에서 projection으로 만든다. _workmeta에는 ref, hash, 승인·검토 metadata만 남기며, review를 통과한 지식만 canon과 derived view로 보낸다.</p>
       <div class="route" aria-label="knowledge storage route">
         <div class="route-node">
           <h3>Local</h3>
@@ -431,20 +446,24 @@
           <p>승인, 압축 해제, inventory</p>
         </div>
         <div class="route-node">
-          <h3>_workmeta</h3>
-          <p>source packet과 private evidence</p>
+          <h3>_workspaces</h3>
+          <p>승인된 working copy와 derived payload</p>
         </div>
         <div class="route-node">
           <h3>Projection</h3>
-          <p>_workmeta 안에서 markdown index, log, 후보 생성</p>
+          <p>private markdown, wiki, RAG, lint 후보 생성</p>
+        </div>
+        <div class="route-node">
+          <h3>_workmeta</h3>
+          <p>ref, hash, approval, review metadata only</p>
         </div>
         <div class="route-node">
           <h3>Review</h3>
           <p>claim ceiling과 경계 판단</p>
         </div>
         <div class="route-node">
-          <h3>Drive Backup</h3>
-          <p>작업 bundle과 정본 package 보관</p>
+          <h3>Drive Warehouse</h3>
+          <p>durable source package 보관</p>
         </div>
         <div class="route-node">
           <h3>Canon</h3>
@@ -452,7 +471,7 @@
         </div>
         <div class="route-node">
           <h3>NotebookLM</h3>
-          <p>정본 package를 먼저 질의</p>
+          <p>승인된 source package를 먼저 질의</p>
         </div>
         <div class="route-node">
           <h3>Obsidian</h3>
@@ -462,11 +481,11 @@
       <div class="side-lane">
         <article class="card">
           <h3>Drive는 무엇을 보관하나</h3>
-          <p>정본만 보관하지 않는다. 처음 들어온 후보, 원본 source, 작업 bundle, review된 private 결과, canon package를 함께 보관하되 inbox, candidate, working, canon, blocked 상태를 manifest로 나눈다.</p>
+          <p>처음 들어온 후보와 owner-held source, 승인된 source package를 보관한다. inbox, candidate, reviewed, source package, blocked 상태를 manifest로 나누되 placement나 CANON 라벨 자체를 승인으로 보지 않는다.</p>
         </article>
         <article class="card">
           <h3>NotebookLM은 어떻게 쓰나</h3>
-          <p>review를 거쳐 정본 package로 묶인 자료를 올려서 먼저 질문한다. NotebookLM은 정본을 편하게 호출하는 인터페이스이고, 백업 저장소나 정본 승인자가 아니다.</p>
+          <p>승인 근거가 기록된 source package를 올려서 먼저 질문한다. NotebookLM은 source-grounded 질의를 돕는 인터페이스이고, 백업 저장소나 정본 승인자가 아니다.</p>
         </article>
         <article class="card">
           <h3>Obsidian은 폴더가 필요한가</h3>
@@ -475,7 +494,7 @@
       </div>
       <div class="callout">
         <h3>공간 규칙</h3>
-        <p>자료 파일의 장기 보관과 백업은 Google Drive가 맡고, 실제 카파시식 데이터 작업 위치는 _workmeta다. NotebookLM은 정본 질의 인터페이스, Obsidian은 정본 wiki만 보는 읽기 전용 vault로 둔다.</p>
+        <p>active editable 파일은 OneDrive 같은 shared worksite, 회사 외부 원본은 기본 read-only NAS, durable source 보관은 Google Drive가 맡는다. 카파시식 payload는 _workspaces, metadata-only 근거는 _workmeta, 승인된 reusable canon은 .registry/knowledge가 소유한다. NotebookLM/RAG/Obsidian/graph는 advisory 또는 derived surface다.</p>
       </div>
     </section>
 
@@ -514,8 +533,8 @@
     </section>
 
     <section>
-      <h2>지금 만들어진 체인</h2>
-      <p><code>knowledge_wiki_cell</code> party는 wiki화를 위한 상위 실행 체인이다. party는 흐름만 기억하고, 각 workflow의 내부 실행은 fresh subagent가 맡는다. Drive 보관은 별도 승인 단계가 아니라 파일 수명주기 manifest로 다룬다. <code>codex_skill_auto_sync</code>가 선언되면 승인된 Codex skill이나 Google Drive connector가 매 파일마다 다시 묻지 않고 업로드/동기화할 수 있다.</p>
+      <h2>지금 만들어진 호출 경로</h2>
+      <p>caller-facing 지식 ingest, audit, wiki/RAG 등록은 <code>$soulforge-knowledge-ingest-cell-launcher</code>에서 시작하고 기본 composite는 <code>knowledge_ingest_pipeline_v0</code>다. 아래 <code>knowledge_wiki_cell</code> 체인은 optional/narrow wiki route다. 현재 sourcebound draft binding의 projection payload 위치는 구형 계약이므로, <code>_workspaces</code> payload와 <code>_workmeta</code> metadata-only refs로 이행되기 전에는 payload-producing 실행을 중단한다. Drive 보관은 파일 수명주기 manifest로 다루며, connector 표시·읽기·동기화 권한은 source 승인이나 정본 승격 권한이 아니다.</p>
       <table>
         <thead>
           <tr>
@@ -565,6 +584,7 @@
             <li>sourcebound knowledge packet workflow</li>
             <li>knowledge access event capture workflow</li>
             <li>post-development review gate</li>
+            <li><code>$soulforge-knowledge-ingest-cell-launcher</code>의 <code>knowledge_ingest_pipeline_v0</code> 기본 route</li>
             <li><code>knowledge_wiki_cell</code> party 등록과 smoke run 통과</li>
           </ul>
         </article>
@@ -583,7 +603,7 @@
     <section>
       <h2>다음 단계</h2>
       <div class="card todo">
-        <p>다음 목표는 SE 자료를 <code>knowledge_wiki_cell</code>로 실제 실행하는 것이다.</p>
+        <p>다음 목표는 SE 자료를 <code>$soulforge-knowledge-ingest-cell-launcher</code>의 기본 <code>knowledge_ingest_pipeline_v0</code> route로 실행하고, 필요한 경우에만 기존 <code>knowledge_wiki_cell</code> narrow route를 붙이는 것이다.</p>
         <ul>
           <li>SE source packet을 정리한다.</li>
           <li>PDF 내부 내용을 private projection으로 만든다.</li>

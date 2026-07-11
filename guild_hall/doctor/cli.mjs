@@ -12,6 +12,11 @@ import {
   buildRequiredCodexStopHookResult,
   resolveCodexHome,
 } from "./codex_runtime_checks.mjs";
+import {
+  buildDeviceCapabilityProbe,
+  buildDeviceCapabilityProbeFailure,
+  printDeviceCapabilityProbeHuman,
+} from "./device_capability_probe.mjs";
 import { buildDoctorFatalPayload, printDoctorHuman, printDoctorJson } from "./reporting.mjs";
 import {
   pathExists,
@@ -32,6 +37,15 @@ const supportedNodeRoles = new Set(["work_pc", "tool_pc", "portable_dev_pc", "de
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args["device-capabilities"]) {
+    const report = await buildDeviceCapabilityProbe({ repoRoot, identityPath: nodeIdentityPath });
+    if (args.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    } else {
+      printDeviceCapabilityProbeHuman(report);
+    }
+    return;
+  }
   const checklist = JSON.parse(await fs.readFile(checklistPath, "utf8"));
   const profile = resolveProfile(args.profile, checklist);
   const report = await runDoctor(checklist, {
@@ -961,6 +975,16 @@ function buildTemplateCopyHint(item) {
 
 main().catch((error) => {
   const args = parseArgs(process.argv.slice(2));
+  if (args["device-capabilities"]) {
+    const payload = buildDeviceCapabilityProbeFailure();
+    if (args.json) {
+      process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+    } else {
+      process.stderr.write("Soulforge Device Capability Probe fatal: probe_internal_error\n");
+    }
+    process.exitCode = 2;
+    return;
+  }
   const detail = error instanceof Error ? error.message : String(error);
   const payload = buildDoctorFatalPayload({
     doctorSchemaVersion,

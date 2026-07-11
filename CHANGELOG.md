@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### 지식 저장소·장치 authority 뼈대 정렬
+
+- OneDrive/shared worksite는 active editable files, 회사 NAS는 owner-held external originals의 기본 read-only surface, `_workspaces`는 working/derived text·wiki·RAG payload, Google Drive는 durable source warehouse, `_workmeta`는 metadata-only evidence plane으로 역할을 분리했다.
+- Drive folder placement·`CANON` label·connector read는 승인이나 정본이 아니며, NotebookLM/RAG/Obsidian/graph는 advisory/derived, `.registry/knowledge`만 accepted reusable knowledge canon이라는 authority matrix를 기존 지식 문서에 추가했다.
+- multi-PC 장치 역할과 storage access mechanism을 knowledge authority와 분리하고, public-safe Mac `always_on_node` 역할 및 NAS no-auto-ingest 경계를 연결했다. caller-facing 지식 경로는 `$soulforge-knowledge-ingest-cell-launcher` → `knowledge_ingest_pipeline_v0`, 기존 `knowledge_wiki_cell`은 optional/narrow route로 정렬했다. (worker: codex_gpt-5)
+- `guild-hall:doctor -- --device-capabilities --json` 읽기 전용 advisory를 추가했다. 이 조기 분기는 checklist·remote/live·status write를 실행하지 않고, 장치 역할·workspace link 집계·OneDrive/Google Drive 앱·Git·Ollama·선택 NAS/receipt 상태를 경로·계정·파일명·raw error 없이 보고한다. macOS/Windows fixture와 status content-hash 불변 검사를 붙였다. (worker: codex_gpt-5)
+- 독립 검토에서 strict read-only gap을 찾아 Git 관찰에 optional-lock 차단을 추가하고 Git index 불변 테스트를 붙였으며, workspace junction audit를 timeout-bounded child process로 격리했다. 또한 legacy sourcebound projection binding이 아직 `_workmeta` payload를 가리키는 점을 migration gate로 명시하고 이행 전 payload 실행을 차단했다. (worker: codex_gpt-5)
+
 ### dev-ERP 가지 이야기 뷰 (B9a)
 
 - 줄기 지도에서 가지를 클릭하면 "누가 언제 왜 시켰더라"에 즉답하는 3단 이야기(기원/경로/종결)를 보여준다. 신설 `GET /api/context/branch_story?project&branch` 가 project_context CSV(sources)와 DB(core_mail suffix 조인·event_log 사람-확정 이벤트·completion_log·core_deliverable)를 읽기전용으로 조인한다 — 시간좌표는 노드 원장 스탬프가 아니라 메일 실일시(데이터 정직성 결정 준수), 점 상한 300 cap+truncated, metadata_only(본문 미노출).
