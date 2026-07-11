@@ -5904,17 +5904,19 @@ test("BRIEF-001: 계정별 집계 — 지연/오늘/차단/내게 온 제안 버
   assert.equal(brief.proposals.length, 2, "내게 온 미분류 제안만(SQL 직행, 남의 제안 제외)");
   assert.equal(brief.proposals[0].id, "bf6b", "제안은 최신 우선(rowid DESC — 팀 전체 limit 절단에 안 밀림)");
   assert.equal(hasContent(brief), true);
-  assert.equal(brief.inProgress.length, 1, "마감 미지정 진행 건 노출(owner 피드백: '실제 일'이 안 보임)");
+  // D2/D3 정합: 마감 미지정은 미착수(open)와 진행(doing/waiting)으로 분리 — 노출 레인과 동일 정의
+  assert.equal(brief.notStarted.length, 1, "마감 미지정 미착수 분리 노출");
+  assert.equal(brief.inProgress.length, 0, "시작한 무마감 건만 진행 중 섹션");
   const { subject, text, html } = briefBodies(brief, { appUrl: "https://erp.example:4300" });
-  assert.match(subject, /오늘 1·지연 1·새 제안 2/);
+  assert.match(subject, /지연 1·오늘 1·차단 1·새 제안 2·미착수 1/); // D3: 비어있지 않은 버킷만 제목에(0 나열 소음 제거)
   assert.match(text, /지연된 검토/);
   assert.match(text, /\[P99-200\]/);
-  assert.match(text, /진행 중\(마감 미지정\) 1건/);
+  assert.match(text, /미착수\(마감 미지정\) 1건/);
   assert.match(text, /https:\/\/erp\.example:4300/);
   // Outlook 호환: 줄구조를 CSS(pre-wrap)가 아니라 태그(<p>/<ul><li>)에 싣는다 — Word 렌더러가 CSS 무시
   assert.match(html, /<ul[^>]*><li/);
   assert.match(html, /지연된 검토/);
-  assert.match(html, /진행 중/);
+  assert.match(html, /미착수/);
   assert.match(html, /마감없는 진행 건/);
   assert.doesNotMatch(html, /white-space:pre-wrap/, "Outlook 이 무시하는 pre-wrap 방식 재발 방지");
   assert.match(html, /ERP 열기/);
@@ -5926,6 +5928,14 @@ test("BRIEF-001: 계정별 집계 — 지연/오늘/차단/내게 온 제안 버
   const quietBrief = buildMorningBrief(store, quiet, today);
   assert.equal(quietBrief.dueWeek.length, 1);
   assert.equal(hasContent(quietBrief), false, "주간 예정만으로는 push 하지 않음");
+
+  // D3(S8-3, owner 승인 2026-07-11): 마감 없는 일만 가진 팀원에게도 발송 —
+  // 2026-07-05 본문 개선(진행 중 섹션)이 발송 게이트에서 무효화되던 버그의 게이트측 정합.
+  store.upsertItem({ id: "bf9", project_id: "P99-200", title: "기한 없는 진행", assignee_ref: "조용한", status: "doing", data_label: "synthetic" });
+  const quietBrief2 = buildMorningBrief(store, quiet, today);
+  assert.equal(quietBrief2.inProgress.length, 1);
+  assert.equal(hasContent(quietBrief2), true, "미착수/진행(무마감)만 있어도 발송");
+  assert.match(briefBodies(quietBrief2).subject, /진행 1/);
 });
 
 test("BRIEF-002: 사이클 — mock sender 주입, 하루 1회 멱등, 빈/무이메일 스킵, force 재발송", async () => {

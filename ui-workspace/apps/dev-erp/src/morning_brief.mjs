@@ -40,20 +40,25 @@ export function buildMorningBrief(store, account, todayKey) {
      WHERE status='unclassified' AND suggested_assignee_ref IN (${marks})
      ORDER BY rowid DESC LIMIT 30`
   ).all(...identities);
-  // '실제 일' 가시화(2026-07-05 owner 피드백): 마감 미지정 진행 건은 어느 버킷에도 없어 브리핑에서
-  // 보이지 않았다 — 진행 중 섹션으로 노출(차단 건은 자체 섹션이 있으니 제외).
-  const inProgress = mine.filter((i) => !i.due && i.status !== "blocked");
+  // '실제 일' 가시화(2026-07-05 owner 피드백): 마감 미지정 건은 어느 버킷에도 없어 브리핑에서
+  // 보이지 않았다. D2/D3(2026-07-11): 미착수(open)와 진행(doing/waiting)으로 분리 — 노출 레인과 동일 정의.
+  const noDue = mine.filter((i) => !i.due && i.status !== "blocked");
+  const notStarted = noDue.filter((i) => i.status === "open");
+  const inProgress = noDue.filter((i) => i.status !== "open");
   return {
     date: todayKey,
     account: { id: account.id, email: account.email, name: account.display_name || account.username },
     total: mine.length,
-    overdue, dueToday, dueWeek, blocked, proposals, inProgress,
+    overdue, dueToday, dueWeek, blocked, proposals, notStarted, inProgress,
   };
 }
 
-// 발송 가치 판정: 매일 같은 잔량만 반복되는 메일은 소음 — 행동 걸이(지연/오늘/차단/새 제안)가 있을 때만 보낸다.
+// 발송 가치 판정. D3(S8-3, owner 승인 2026-07-11): 마감 없는 미착수/진행 건도 발송 가치 —
+// 2026-07-05 본문 개선(진행 중 섹션)이 이 게이트에서 무효화되던 버그의 게이트측 정합.
+// 주간 예정(dueWeek)만으로는 여전히 발송하지 않는다(반복 잔량 소음 방지).
 export function hasContent(brief) {
-  return !!brief && (brief.overdue.length + brief.dueToday.length + brief.blocked.length + brief.proposals.length) > 0;
+  return !!brief && (brief.overdue.length + brief.dueToday.length + brief.blocked.length + brief.proposals.length
+    + (brief.notStarted?.length ?? 0) + (brief.inProgress?.length ?? 0)) > 0;
 }
 
 function lineOf(item) {
@@ -85,13 +90,19 @@ function htmlSection(title, items, { color = "#1f48d4", max = 5 } = {}) {
 }
 
 export function briefBodies(brief, { appUrl = "" } = {}) {
-  const subject = `[dev-erp] ${brief.date} 아침 브리핑 — 오늘 ${brief.dueToday.length}·지연 ${brief.overdue.length}·새 제안 ${brief.proposals.length}`;
+  // D3 가독성: 비어있지 않은 버킷만 제목에 — '오늘 0·지연 0' 나열은 소음이고 진행-only 메일에서 오도.
+  const subjectParts = [
+    ["지연", brief.overdue.length], ["오늘", brief.dueToday.length], ["차단", brief.blocked.length],
+    ["새 제안", brief.proposals.length], ["미착수", (brief.notStarted ?? []).length], ["진행", (brief.inProgress ?? []).length],
+  ].filter(([, n]) => n > 0).map(([label, n]) => `${label} ${n}`);
+  const subject = `[dev-erp] ${brief.date} 아침 브리핑 — ${subjectParts.join("·") || "잔량 없음"}`;
   const text = [
     `${brief.account.name}님, ${brief.date} 아침 브리핑입니다.`,
     section("🔴 지연", brief.overdue),
     section("📌 오늘 마감", brief.dueToday),
     section("⛔ 차단됨", brief.blocked),
     section("📥 내게 온 새 제안(분류 대기)", brief.proposals),
+    section("🆕 미착수(마감 미지정)", brief.notStarted ?? []),
     section("📋 진행 중(마감 미지정)", brief.inProgress ?? []),
     section("🗓️ 7일 내 예정", brief.dueWeek, 3),
     appUrl ? `\n자세히: ${appUrl}` : "",
@@ -105,6 +116,7 @@ export function briefBodies(brief, { appUrl = "" } = {}) {
     summaryChip("오늘 마감", brief.dueToday.length, "#9a6700"),
     summaryChip("차단", brief.blocked.length, "#b3261e"),
     summaryChip("새 제안", brief.proposals.length, "#1f48d4"),
+    summaryChip("미착수", (brief.notStarted ?? []).length, "#9a6700"),
     summaryChip("진행 중", (brief.inProgress ?? []).length, "#3d6a4f"),
   ].join('<span style="color:#c6ccd4"> &nbsp;·&nbsp; </span>');
   const html = `<div style="font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:14px;color:#222;line-height:1.6;max-width:640px">
@@ -114,6 +126,7 @@ ${htmlSection("🔴 지연", brief.overdue, { color: "#b3261e" })}
 ${htmlSection("📌 오늘 마감", brief.dueToday, { color: "#9a6700" })}
 ${htmlSection("⛔ 차단됨", brief.blocked, { color: "#b3261e" })}
 ${htmlSection("📥 내게 온 새 제안 (분류 대기)", brief.proposals, { color: "#1f48d4" })}
+${htmlSection("🆕 미착수 (마감 미지정)", brief.notStarted ?? [], { color: "#9a6700" })}
 ${htmlSection("📋 진행 중 (마감 미지정)", brief.inProgress ?? [], { color: "#3d6a4f" })}
 ${htmlSection("🗓️ 7일 내 예정", brief.dueWeek, { color: "#555", max: 3 })}
 ${appUrl ? `<p style="margin:20px 0 8px"><a href="${escapeHtml(appUrl)}" style="background:#1f48d4;color:#ffffff;padding:9px 22px;border-radius:6px;text-decoration:none;font-weight:bold">ERP 열기</a></p>` : ""}
