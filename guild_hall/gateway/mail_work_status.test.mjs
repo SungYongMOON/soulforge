@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
@@ -866,6 +866,9 @@ test("deadline watch import applies rows idempotently under project-local ledger
   assert.equal(validation.checked_register_count, 2);
   assert.equal(validation.checked_row_count, 2);
   assert.doesNotMatch(`${p26Csv}\n${p00Csv}`, /body_text|body_html|provider_payload|local_path|provider_attachment_id|token|password|cookie/);
+  // 원자적 쓰기 회귀(#S3-6): 장부 디렉터리에 tmp 잔재 없음
+  const registerDirEntries = await readdir(path.dirname(defaultDeadlineRegisterFile(repoRoot, "P26-014")));
+  assert.deepEqual(registerDirEntries.filter((name) => name.includes(".tmp-")), []);
 });
 
 test("mail task register writes exact-route open actions idempotently and holds review routes", async () => {
@@ -947,6 +950,9 @@ test("mail task register writes exact-route open actions idempotently and holds 
   assert.doesNotMatch(`${register}\n${privateSyncText}`, /body_text|body_html|provider_payload|attachment_filename|attachment_url|download_url|local_path|provider_attachment_id|token|password|cookie|secret/);
   assert.equal(first.boundary.raw_payload_copied, false);
   assert.equal(first.boundary.telegram_sent, false);
+  // 원자적 쓰기 회귀(#S3-6): 장부 디렉터리에 tmp 잔재 없음
+  const openActionDirEntries = await readdir(path.dirname(defaultOpenActionRegisterFile(repoRoot, "P26-014")));
+  assert.deepEqual(openActionDirEntries.filter((name) => name.includes(".tmp-")), []);
 });
 
 test("mail task register queues notification only when gateway mail_received policy is enabled", async () => {

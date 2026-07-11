@@ -4,7 +4,7 @@ import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { writeJson, readJson } from "./io.mjs";
+import { writeJson, readJson, writeTextAtomic } from "./io.mjs";
 
 test("writeJson: 원자적 쓰기 — 디렉터리 자동생성·라운드트립·덮어쓰기·tmp 잔재 없음", async () => {
   const dir = await fs.mkdtemp(path.join(tmpdir(), "io-atomic-"));
@@ -23,6 +23,21 @@ test("writeJson: 원자적 쓰기 — 디렉터리 자동생성·라운드트립
     await writeJson(target, { a: 3 }, { trailingNewline: false });
     const raw = await fs.readFile(target, "utf8");
     assert.equal(raw.endsWith("\n"), false, "trailingNewline:false 는 개행 없음");
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("writeTextAtomic: 원자적 텍스트 쓰기 — 디렉터리 자동생성·라운드트립·덮어쓰기·tmp 잔재 없음", async () => {
+  const dir = await fs.mkdtemp(path.join(tmpdir(), "io-atomic-text-"));
+  try {
+    const target = path.join(dir, "sub", "register.csv");
+    await writeTextAtomic(target, "id,status\n1,open\n");
+    assert.equal(await fs.readFile(target, "utf8"), "id,status\n1,open\n");
+    await writeTextAtomic(target, "id,status\n1,done\n2,open\n");
+    assert.equal(await fs.readFile(target, "utf8"), "id,status\n1,done\n2,open\n");
+    const leftovers = (await fs.readdir(path.dirname(target))).filter((n) => n.includes(".tmp-"));
+    assert.equal(leftovers.length, 0, "성공 쓰기 후 tmp 잔재 없음");
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }

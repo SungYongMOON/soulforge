@@ -6,6 +6,7 @@ import {
   pathExists,
   readJson,
   relativeToRepo,
+  writeTextAtomic,
 } from "../shared/io.mjs";
 import {
   defaultMailWorkPriorityLatestFile,
@@ -369,9 +370,9 @@ async function writeDeadlineRows({ repoRoot, workmetaRoot, rows }) {
       continue;
     }
 
-    await fs.mkdir(path.dirname(registerFile), { recursive: true });
     const merged = [...existingRows, ...newRows].sort(compareDeadlineRows);
-    await fs.writeFile(registerFile, renderDeadlineRegisterCsv(merged), "utf8");
+    // 누적 장부 전체 재작성 — 비원자 truncate 는 크래시 시 가변 필드(status/nudge 등) 유실(#S3-6).
+    await writeTextAtomic(registerFile, renderDeadlineRegisterCsv(merged));
     writtenCount += newRows.length;
     for (const row of newRows) {
       writtenRefs.push(`${relativeToRepo(repoRoot, registerFile)}#deadline_id=${row.deadline_id}`);

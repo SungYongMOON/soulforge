@@ -6,6 +6,7 @@ import {
   pathExists,
   readJson,
   relativeToRepo,
+  writeTextAtomic,
 } from "../shared/io.mjs";
 import { emitNotification } from "../town_crier/runtime.mjs";
 import { defaultMailWorkPriorityLatestFile } from "./mail_work_status.mjs";
@@ -239,8 +240,8 @@ async function writeOpenActionRows({ repoRoot, workmetaRoot, rows }) {
     }
 
     const nextText = renderOpenActionRegister(existing, newRows);
-    await fs.mkdir(path.dirname(registerFile), { recursive: true });
-    await fs.writeFile(registerFile, nextText, "utf8");
+    // 누적 장부 전체 재작성 — 비원자 truncate 는 크래시 시 기존 행 유실(#S3-6).
+    await writeTextAtomic(registerFile, nextText);
     writtenCount += newRows.length;
     writtenRows.push(...newRows.map((row) => ({
       ...row,
