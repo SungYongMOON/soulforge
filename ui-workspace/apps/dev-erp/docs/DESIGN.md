@@ -56,8 +56,8 @@
   요청함·계산기) / 포인터존(원문은 보호 저장소, ERP 는 포인터+SHA-256+권한+감사).
 - 스택: Node.js 서버 + SQLite(파일럿) → 팀 동시 쓰기 시점에 PostgreSQL 검토.
   Docker 불필요(파일럿). 프론트는 단일 웹앱.
-- LLM 분리: 코어는 LLM 0%. AI 는 `ai_jobs` 큐(테이블)로만 — 워커가 구독
-  CLI/API 로 처리해 "제안" 으로 반환, 사람이 승인해야 DB 반영.
+- LLM 분리: 코어는 LLM 0%. AI/규칙 산출은 `ai_proposal` 큐(테이블)로만 —
+  `/api/proposals` 로 pending 적재, 사람이 승인해야 DB 반영(approve/reject).
 - Codex 할일 스레드 연결 규칙(2026-06-19 owner): ERP 할일의 `대화` 버튼이
   Codex 스레드를 만들 때, 사람이 보는 스레드 제목은 `[과제번호] 할일명` 으로
   한다. 같은 과제 안에 같은 할일명이 중복될 때만 제목 끝에 `· 짧은할일ID`
@@ -329,8 +329,8 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
 ## 8. 빌드/검증 방식
 
 - 방법론: SDD 형식 + 편집자P 속도 요소 + Soulforge 거버넌스 (보고서 9절).
-- 페이즈 1개 = dev_worker packet 1개 + 체크리스트 JSON 1개 + 전용 브랜치 +
-  종료 inspector. bypass-permissions 미사용.
+- 페이즈 1개 = dev_worker packet 1개 + 체크리스트 JSON 1개 + main 직접 작업
+  (슬라이스별 commit+push, AGENTS.md 2026-06-13) + 종료 inspector. bypass-permissions 미사용.
 - 체크리스트 항목 status: todo / in_progress / done / blocked. blocked 는
   사유와 함께 명시적으로 남긴다.
 - 페이즈마다: 합성 fixture 로 화면 검증 + 코어 node:test + 토큰/시간 기록.
