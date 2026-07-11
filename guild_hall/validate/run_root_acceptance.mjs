@@ -27,6 +27,7 @@ const STEPS_BY_MODE = {
     ["town-crier", "npm run validate:town-crier"],
     ["assistant-dashboard", "npm run validate:assistant-dashboard"],
     ["ui", "npm run validate:ui"],
+    ["dev-erp", "npm --prefix ui-workspace/apps/dev-erp test"],
     ["gateway", "npm run validate:gateway"],
   ],
   "done-check": [
@@ -49,6 +50,7 @@ const STEPS_BY_MODE = {
     ["town-crier", "npm run validate:town-crier"],
     ["assistant-dashboard", "npm run validate:assistant-dashboard"],
     ["ui-acceptance", "npm run ui:done:check"],
+    ["dev-erp", "npm --prefix ui-workspace/apps/dev-erp test"],
     ["gateway", "npm run validate:gateway"],
   ],
 };
