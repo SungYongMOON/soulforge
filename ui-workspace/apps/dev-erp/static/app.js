@@ -1978,7 +1978,7 @@ function eventDesc(e, L) {
 // 할일 클릭 상세 — 렌더 시 캐시된 항목 객체로 "이게 무슨 할 일인지" 읽기전용 표기(상태/과제/담당/마감/등록/출처/업무유형/완료기준).
 function itemDetailBlockHtml(info, L) {
   if (!info) return "";
-  const ORIGIN_LABEL = { manual: "직접 추가", mail: "메일", request: "요청", meeting: "회의", schedule: "일정" };
+  const ORIGIN_LABEL = { manual: "직접 추가", mail: "메일", voice: "음성", request: "요청", meeting: "회의", schedule: "일정" };
   const rows = [];
   rows.push(["상태", (info.urgency === "high" ? "⭐ " : "") + esc(info.status ? (L["status_" + info.status] ?? info.status) : "—")]);
   rows.push(["과제", esc(info.project_id ? projDisplay(info.project_id) : "—")]);
@@ -4960,6 +4960,7 @@ function itemLinkCell(i) {
   if (se.length) return se.join(" ");
   if (i.guide_artifact_name) return `<span class="badge">${esc(i.guide_stage_code)} ${esc(i.guide_artifact_name)}</span>`;
   if (i.origin === "mail") return `<span class="badge blue">${state.lex.origin_mail_badge}</span>`;
+  if (i.origin === "voice") return '<span class="badge blue">음성</span>';
   return '<span class="dim">-</span>';
 }
 

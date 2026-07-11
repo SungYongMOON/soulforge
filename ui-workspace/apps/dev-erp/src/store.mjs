@@ -1645,11 +1645,11 @@ export class Store {
     const link_kind = Store.LINK_KINDS.includes(row.link_kind) ? row.link_kind : null;
     const originVal = Store.ORIGINS.includes(row.origin) ? row.origin : "ledger"; // 출처도 enum 검증(자매 패턴)
     const isNew = !this.db.prepare("SELECT 1 FROM core_item WHERE id=?").get(id);
-    // SE 기준점 격리(slice1 미러): 인입(메일/요청/회의) 출처가 앵커(단계/연결)+업무유형 없으면 unclassified 강제 —
+    // SE 기준점 격리(slice1 미러): 인입(메일/음성/요청/회의) 출처가 앵커(단계/연결)+업무유형 없으면 unclassified 강제 —
     // 손편집 CSV 가 미분류 격리 게이트를 우회해 활성 목록에 진입하지 못하게.
     // 단 강제는 신규 행에만: 기존 행은 게이트 실패 시 ''(센티넬)로 기존 status 보존 —
     // 부분/stale 행 재-ingest 가 사람이 진행시킨 open/doing/done 을 강등하지 못하게(승격도 동일 차단).
-    const inbound = ["mail", "request", "meeting"].includes(originVal);
+    const inbound = ["mail", "voice", "request", "meeting"].includes(originVal);
     const hasAnchor = !!(row.anchor_stage_code || link_kind);
     const statusIn = Store.ITEM_STATUSES.includes(row.status) ? row.status : null; // 빈/이상값은 ''(아래 NULLIF로 기존 보존)
     // status 는 NOT NULL: 신규 빈값은 'open', 기존 빈값은 ''(센티넬)로 넣고 UPDATE 에서 NULLIF→기존 보존.
@@ -1993,7 +1993,7 @@ export class Store {
   // --- P2a 할일 쓰기 (run16): 생성/상태/담당/메일 승격 — 모든 변경은 server 가 event_log 에 기록 ---
   // 'unclassified'(미분류) = SE 기준점 미연결 임시 상태. 정식 실행 목록·활성 집계에서 격리(slice1).
   static ITEM_STATUSES = ["unclassified", "open", "doing", "waiting", "blocked", "done", "archived"]; // archived=소프트삭제(활성 목록·집계 제외)
-  static ORIGINS = ["mail", "request", "meeting", "manual", "schedule", "ledger"]; // 할일 출처(장부 ingest 검증)
+  static ORIGINS = ["mail", "voice", "request", "meeting", "manual", "schedule", "ledger"]; // 할일 출처(장부 ingest 검증)
   static WORK_TYPES = ["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"];
   static MAIL_RULE_FIELDS = ["from", "subject", "mailbox"]; // 메일 제외 규칙 매칭 필드(발신자·제목·수신함)
   static MAIL_RULE_MATCHES = ["contains", "equals"];
@@ -2106,7 +2106,7 @@ export class Store {
     }
     // 자동 분류(slice1): 인입(메일/요청/회의) 출처 할 일이 SE 기준점(단계/연결대상)+업무유형 없으면 'unclassified'.
     // 수동/스케줄 출처는 의도적 생성이라 'open' 유지(기존 동작 보존).
-    const inbound = ["mail", "request", "meeting"].includes(origin ?? "");
+    const inbound = ["mail", "voice", "request", "meeting"].includes(origin ?? "");
     const hasAnchor = !!(stage_id || anchor_stage_code || link_kind || guide_artifact_id);
     const status = inbound && !(hasAnchor && work_type) ? "unclassified" : "open";
     if (origin_mail_id != null) {

@@ -70,6 +70,24 @@ _workspaces/system/voice_capture/local_asr_queue/
 5. 책임자가 프로젝트 route 를 확정하면 project route manifest 를 갱신한다.
 6. 전사 품질, 화자분리 품질, action item 누락 가능성을 검토한 뒤에만 `_workmeta/<project_code>/reports/voice_source_events/**` 또는 공식 task ledger 후보로 넘긴다.
 
+## dev-ERP 할일 후보 합류
+
+- recording-library `recording_manifest.json`의 `route_state.route_status=accepted_project_route`가
+  프로젝트 확정의 유일한 입력 authority다. `accepted_project_code`, `accepted_by`, `accepted_at`도 모두 필요하다.
+- `ui-workspace/apps/dev-erp/tools/voice_to_task_candidates.mjs`는 호출자가 지정한 manifest 1개와
+  할일 장부 1개만 읽으며 디렉터리를 재귀 탐색하지 않는다.
+- `payload_refs.source_event_draft_ref`는 상대 ref인지 확인해 `소스계보=voicedraft:<ref>`로만 기록한다.
+  도구는 source event, audio, transcript ref를 역참조하지 않는다.
+- 미확정 또는 후보 route는 할일을 만들지 않는다. 수락 route도 `voicetask:<recording_id>`,
+  `출처=voice`, `상태=unclassified`, `검토상태=needs_review` 1행까지만 만들며 사람 승인 전 실행 할일로 올리지 않는다.
+- 현재 구현은 이미 수락된 manifest를 소비하는 단계다. `route_suggestion`은 manifest의 기존
+  `project_code_candidate`를 metadata-only로 반영할 뿐 프로젝트 후보를 계산하지 않는다.
+  자동 프로젝트 matcher와 owner-acceptance mutator는 아직 구현하지 않았다.
+- dry-run이 기본이고 `--apply`에서만 기존 알 수 없는 헤더와 다른 행을 보존해 원자 기록한다.
+  같은 recording은 멱등이고 기존 같은 키의 내용이 다르면 자동 덮어쓰기 대신 검토 필요로 중단한다.
+- `--task-ledger`는 수락 프로젝트와 같은 `_workmeta/<accepted_project_code>/reports/할일_장부/할일_장부.csv`
+  정규 경로만 허용한다. owner가 다르거나 비정규·unsafe 경로면 읽기/쓰기 전에 중단한다.
+
 ## PLAUD 정기 수집
 
 - 하이웍스 수집기가 PLAUD 전사 완료 메일을 새로 수신하면 메일 원문 없는 hash 기반 trigger를 shared voice queue에 쓴다.

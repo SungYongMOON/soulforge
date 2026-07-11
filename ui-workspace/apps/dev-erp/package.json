@@ -29,6 +29,8 @@
     "haengbogwan:task-decisions": "node tools/haengbogwan_task_decisions.mjs",
     "mail:project-rule-candidates": "node tools/mail_project_rule_candidates.mjs",
     "mail:project-route-backfill": "node tools/mail_project_route_backfill.mjs",
+    "voice:task-candidates": "node tools/voice_to_task_candidates.mjs",
+    "validate:voice-intake": "node --test test/voice_to_task_candidates.test.mjs",
     "auto:intake": "node tools/auto_intake_cycle.mjs",
     "test": "node --test test/*.test.mjs"
   }

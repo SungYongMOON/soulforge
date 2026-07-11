@@ -1,5 +1,19 @@
 # CHANGELOG
 
+### 수락된 음성 보관함 manifest → dev-ERP 할일 검토 후보
+
+- recording-library manifest의 책임자 수락 route만 기존 `할일_장부.csv`에
+  `voicetask:<recording_id>` 후보로 합류시키는 dry-run 기본 CLI를 추가했다.
+  미확정·후보 route는 0건을 유지하고, 수락 route도 `voice` 출처의
+  `unclassified`/`needs_review` 한 행만 원자·멱등 기록한다.
+- 도구는 지정한 manifest와 장부만 읽고 audio/transcript/source-event ref를 역참조하지 않는다.
+  알 수 없는 장부 헤더와 다른 행은 보존하며, unsafe header나 기존 같은 키 충돌은 쓰기 전에 중단한다.
+  장부 경로는 수락 프로젝트와 일치하는 정규 `_workmeta/<code>/reports/할일_장부/할일_장부.csv`만 허용한다.
+  dev-ERP ingest에 `voice` 출처와 인입 격리를 추가하고 화면에 음성 출처 라벨을 표시한다.
+  이 변경은 이미 수락된 manifest의 consumer만 구현한다. 자동 프로젝트 matcher와 owner-acceptance
+  mutator는 아직 미구현이며, route suggestion은 기존 manifest 후보 metadata를 반영할 뿐 새 후보를 계산하지 않는다.
+  (worker: codex_gpt-5)
+
 ### dev-ERP 줄기 모양 진단 뷰 (B9c)
 
 - 기존 `GET /api/context/graph`에 `dev_erp.context_diagnostics.v1` 읽기전용 파생 통계를 추가했다. B9a와 같은 실일시 원칙(`sources.source_time`/과제 exact `core_mail.at`)과 사람 확정 item 이벤트를 서울 업무시간 주차로 정규화해 최근 52주 기록 밀도, 담당 가지·사람 이벤트·해결 분포, 수신 요청 상대·시기를 일괄 집계하며 원장 쓰기와 branch별 N+1 호출은 없다.

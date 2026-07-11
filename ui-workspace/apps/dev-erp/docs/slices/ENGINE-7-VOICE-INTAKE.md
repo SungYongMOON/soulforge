@@ -1,6 +1,6 @@
 # ENGINE-7-VOICE-INTAKE — 음성 보관함 → 할일 합류
 
-- status: proposed (owner 결정 K-3 선행) / parallel_group: G-voice / depends_on: E1 권장
+- status: accepted-manifest consumer implemented (2026-07-11, K-3=(a) owner 승인); automatic project matcher and owner-acceptance mutator pending / parallel_group: G-voice / depends_on: E1 권장
 - 규모 추정: 1~2일 (경계 설계 포함)
 
 ## 목적 (1줄)
@@ -22,14 +22,15 @@
 4. mail_to_task_ledger 는 메일_이력.csv 존재를 전제(120행 exit 2)하고 mailtask: 키공간을
    사용 — **음성 후보를 이 도구로 흘릴 수 없다**(별도 표면 필요, K-3).
 
-## owner 결정 K-3 (착수 게이트)
+## owner 결정 K-3 (2026-07-11 승인)
 
 음성 할일의 원장 표면 택1:
 - (a) 할일_장부.csv 에 합류하되 할일키 네임스페이스 `voicetask:<세션ID>` 신설
   — 장점: ERP autosync 재사용. 단점: 원장 스키마 정본(Codex 소유) 조율 필요.
 - (b) 별도 `음성_할일_장부.csv` — 장점: 기존 계약 불변. 단점: autosync/화면 배선 추가.
-- 제안 기본: **(a)** — 기술 전제는 확인 완료(autosync 는 할일키 접두 무관, 위 확인완료 항목).
-  남은 것은 원장 스키마 정본(Codex 소유) 조율과 owner 승인뿐이며, 결정 시 이 파일에 기록한다.
+- 결정: **(a)**. 기존 `할일_장부.csv`에 `voicetask:<recording_id>`로 합류한다.
+  recording-library manifest의 `accepted_project_route`만 route authority로 인정하며,
+  책임자·확정시각·확정 프로젝트와 상대 `source_event_draft_ref`가 모두 있어야 한다.
 
 ## 구현 전 확인
 
@@ -46,18 +47,20 @@
 ## 설계 (K-3=(a) 가정)
 
 ```
-새 도구 tools/voice_to_task_candidates.mjs (dry-run 기본):
-1. _workspaces/system/voice_capture/library/ 의 세션 draft 스캔
-   (⚠️ 이 정확한 경로만, 광역 재귀 금지)
-2. 미처리 세션(커서 파일 data/voice_intake_cursor.json) 중 project_route 확정된 것만:
-   - 항목 사상: { history_key: `voice:<세션ID>`, subject: <draft 제목/요약 메타>,
-     from: <화자/기록자 메타>, received_at: <세션 시각>, mailbox: "", due_hint: <있으면> }
-   - classifyMailForTasks 재사용(provider 정책 동일) 또는 provider none 시 skeleton-review 후보
-3. project_route 미확정 세션은 후보 생성 대신 트리아지 라인으로 보고(owner 확인 대기 유지 —
-   기존 unclassified_needs_owner_confirmation 계약 존중)
-4. 후보 → 할일_장부 기록: 전용 라이터(voicetask: 키, 멱등 머지 규칙은 mail_to_task_ledger 와
-   동일 패턴 — 원자 쓰기/헤더 보존/충돌 보호 재사용을 위해 공용 함수 추출 검토)
-5. 출처 컬럼: 출처="voice", 관련메일이력키 대신 소스계보에 `voicedraft:<세션경로 상대ref>`
+새 도구 `tools/voice_to_task_candidates.mjs` (dry-run 기본):
+1. 호출자가 지정한 `--recording-manifest` 1개와 `--task-ledger` 1개만 읽는다. 디렉터리 스캔과 재귀는 없다.
+2. manifest의 `route_state.route_status=accepted_project_route`와
+   `accepted_project_code`/`accepted_by`/`accepted_at`를 모두 요구한다.
+3. `payload_refs.source_event_draft_ref`는 안전한 상대 ref인지 확인만 하고 파일을 열지 않는다.
+   audio/transcript/session ref는 읽지도 복사하지도 않는다.
+4. 미확정·후보 route는 `review_required`, 기록 0건으로 보고한다. 프로젝트 후보는 안전한
+   코드일 때 기존 manifest metadata를 `route_suggestion`으로 반영할 뿐 새 후보를 계산하거나 자동 수락하지 않는다.
+5. 수락 route는 `voicetask:<recording_id>` 1행을 `unclassified` + `needs_review`로 원자 추가한다.
+   기존 알 수 없는 헤더와 다른 행을 보존하고, 같은 행 재실행은 0건, 내용 충돌은 덮어쓰지 않는다.
+6. 출처는 `voice`, 소스계보는 `voicedraft:<상대 source_event_draft_ref>`다. semantic block splitting은 하지 않는다.
+
+이 slice가 구현한 것은 이미 책임자가 수락한 recording manifest의 소비 단계뿐이다.
+자동 프로젝트 matcher와 `accepted_project_route`/수락자/수락시각을 기록하는 owner-acceptance mutator는 후속 범위다.
 ```
 
 ## 경계 가드
@@ -70,17 +73,24 @@
 
 ### node:test (신규 test/voice_to_task_candidates.test.mjs)
 
-1. `사상: draft 메타 → 분류 입력 형태` (fixture draft yaml)
-2. `라우트 미확정 세션은 후보 0 + 보고 라인`
-3. `voicetask: 멱등 — 같은 세션 재실행 신규 0`
-4. `원장 행: 출처=voice, 소스계보=voicedraft:..., 본문 필드 부재`
-5. `autosync 가 voicetask 행을 core_item 으로 import` (:memory: store 통합)
+1. 미확정·후보 route는 기록 0건 + metadata-only 제안만 반환
+2. 불완전한 수락 메타데이터·절대 source event ref는 기록 0건
+3. dry-run은 수락 route 1행을 계획하되 파일을 만들지 않음
+4. apply는 기존 알 수 없는 헤더·다른 행을 보존하고 `voice`/`needs_review` 1행만 추가
+5. 같은 recording 재실행은 신규 0건, unsafe header는 쓰기 전 중단
+6. audio/transcript ref는 원장에 복사되지 않음
+7. dev-ERP가 `voice` 출처를 보존하고 anchor 없는 음성 인입을 `unclassified`로 격리
 
 ### 수동 verify
 
 ```
-node tools/voice_to_task_candidates.mjs --json           # dry-run
-node tools/voice_to_task_candidates.mjs --apply --json
+node tools/voice_to_task_candidates.mjs \
+  --recording-manifest <recording_manifest.json> \
+  --task-ledger <할일_장부.csv> --json
+node tools/voice_to_task_candidates.mjs \
+  --recording-manifest <recording_manifest.json> \
+  --task-ledger <할일_장부.csv> --apply --json
+npm run validate:voice-intake
 # ERP 화면: 할일 목록에 voice 출처 행 표시 확인 (브라우저 QA 절차 문서 절차대로)
 ```
 
