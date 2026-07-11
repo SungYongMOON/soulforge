@@ -63,9 +63,10 @@ test("PLAUD sync materializes one isolated session and skips the same provider i
     const profile = {
       ...buildDefaultPlaudSyncProfile(),
       shared_workspace_required: false,
-      register_library: false,
+      register_library: true,
       write_workmeta_draft: false,
     };
+    const deliveryCalls = [];
     const commandRunner = (command, args) => {
       assert.equal(command, "plaud");
       if (args[0] === "recent") return `  ${RECORDING_ID}  07-10 meeting  2026-07-10  1h16m\n`;
@@ -116,10 +117,18 @@ test("PLAUD sync materializes one isolated session and skips the same provider i
       commandRunner,
       audioDownloader,
       audioProbe,
+      deliveryReceiptEmitter: async (options) => {
+        deliveryCalls.push(options);
+        return { status: "ready", receipt_ref: `_workspaces/system/voice_capture/delivery/producer_receipts/${options.recordingId}.json` };
+      },
       now: new Date("2026-07-10T10:00:00.000Z"),
     });
     assert.equal(first.recordings[0].state, "imported");
     assert.equal(first.recordings[0].transcript_segments, 2);
+    assert.equal(first.recordings[0].delivery.state, "ready");
+    assert.equal(deliveryCalls.length, 1);
+    assert.equal(deliveryCalls[0].stage, "plaud_import_ready");
+    assert.equal(deliveryCalls[0].apply, true);
 
     const sessionId = buildPlaudSessionId(new Date("2026-07-10T04:04:32.000Z"), RECORDING_ID);
     const sessionDir = path.join(repoRoot, "_workspaces", "system", "voice_capture", "sessions", "2026-07-10", sessionId);
@@ -133,6 +142,7 @@ test("PLAUD sync materializes one isolated session and skips the same provider i
 
     const second = await runPlaudSync({ repoRoot, profile, skipPreflight: true, commandRunner });
     assert.equal(second.candidate_count, 0);
+    assert.equal(deliveryCalls.length, 1);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
@@ -144,7 +154,7 @@ test("PLAUD sync does not block canonical artifacts when optional summary downlo
     const profile = {
       ...buildDefaultPlaudSyncProfile(),
       shared_workspace_required: false,
-      register_library: false,
+      register_library: true,
       write_workmeta_draft: false,
     };
     const commandRunner = (command, args) => {
@@ -181,11 +191,16 @@ test("PLAUD sync does not block canonical artifacts when optional summary downlo
         return { path: audioPath, size_bytes: 5, sha256: "fixture-sha256" };
       },
       audioProbe: async () => ({ duration_seconds: 10, format: "ogg", codec: "opus", sample_rate_hz: 48000, channels: 1 }),
+      deliveryReceiptEmitter: async () => {
+        throw new Error("synthetic delivery failure");
+      },
     });
     assert.equal(result.recordings[0].state, "imported");
     assert.equal(result.recordings[0].provider_summary_fetch_failed, true);
+    assert.equal(result.recordings[0].delivery.state, "prepare_failed_retryable");
     const manifest = JSON.parse(await readFile(path.join(repoRoot, result.recordings[0].session_ref, "session_manifest.json"), "utf8"));
     assert.equal(manifest.provider_summary.status, "provider_output_failed_optional");
+    assert.equal(manifest.delivery_warning, "delivery_receipt_prepare_failed_retryable");
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

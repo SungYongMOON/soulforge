@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { writeRecordingLibraryEntry, writeWorkmetaDraft } from "./voice_capture.mjs";
+import { prepareDeliveryReceipt } from "./delivery_receipt.mjs";
 import {
   buildLocalAsrPreflight,
   drainLocalAsrQueue,
@@ -284,6 +285,8 @@ export async function runPlaudSync(options = {}) {
         audioProbe: options.audioProbe,
         localAsrEnqueuer: options.localAsrEnqueuer,
         localAsrProfile: options.localAsrProfile,
+        deliveryReceiptEmitter: options.deliveryReceiptEmitter,
+        producerNode: options.producerNode,
         now: options.now,
       });
       recordings.push(imported);
@@ -549,6 +552,42 @@ export async function materializePlaudRecording(options) {
       await writeWorkmetaDraft({ repoRoot, sessionDir, projectCode: profile.project_code_candidate, apply: true });
     }
 
+    let delivery = { state: "not_emitted_library_registration_disabled" };
+    if (profile.register_library) {
+      try {
+        const emitter = options.deliveryReceiptEmitter ?? prepareDeliveryReceipt;
+        const result = await emitter({
+          repoRoot,
+          sessionDir,
+          recordingId: sessionId,
+          stage: "plaud_import_ready",
+          producerNode: options.producerNode ?? "always_on_voice_producer",
+          apply: true,
+        });
+        delivery = {
+          state: result.status === "ready" ? "ready" : "prepare_failed_retryable",
+          receipt_ref: result.receipt_ref ?? null,
+          warning: result.status === "ready" ? null : "delivery_receipt_prepare_failed_retryable",
+        };
+        if (delivery.warning) {
+          manifest.delivery_warning = delivery.warning;
+          try {
+            await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+          } catch {
+            // The returned retryable warning remains visible; delivery bookkeeping cannot roll back import.
+          }
+        }
+      } catch {
+        delivery = { state: "prepare_failed_retryable", warning: "delivery_receipt_prepare_failed_retryable" };
+        manifest.delivery_warning = delivery.warning;
+        try {
+          await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+        } catch {
+          // The returned retryable warning remains visible; delivery bookkeeping cannot roll back import.
+        }
+      }
+    }
+
     let independentAsrQueue = null;
     if (profile.independent_asr?.enabled && profile.independent_asr?.enqueue_on_import !== false) {
       try {
@@ -578,6 +617,7 @@ export async function materializePlaudRecording(options) {
       provider_summary_fetch_failed: summaryFetchFailed,
       provider_download_url_stored: false,
       independent_asr_queue: independentAsrQueue,
+      delivery,
     };
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });

@@ -1,5 +1,30 @@
 # CHANGELOG
 
+### 음성 payload cross-PC producer receipt와 consumer acknowledgement
+
+- `_workspaces/system/voice_capture/delivery/**`에 본문 없는 producer receipt와
+  consumer acknowledgement를 추가했다. producer `ready`는 생산 완료만 뜻하며,
+  consumer가 exact size와 streaming SHA-256을 로컬에서 재검증해야
+  `delivered`가 된다. missing, same-size mismatch, stale ack를 별도로 표시한다.
+- `prepare-delivery`, `ack-delivery`, `delivery-status`는 dry-run 기본, `--apply`,
+  JSON 출력과 0/1/2 exit 계약을 제공한다. 상대 ref allowlist, shared-system
+  symlink 예외, nested symlink/traversal/absolute/URL/secret-like/body 차단을
+  synthetic test로 고정했다.
+- receipt/ack에 strict UTC audit timestamp를 추가하되 동일 입력은 기존 시각과
+  mtime을 보존한다. producer/consumer 동일 label self-ack, forged file 목록,
+  public repo 내부를 가리키는 system symlink를 차단하고 100-way concurrent
+  atomic-write 회귀를 추가했다. session receipt는 immutable history가 아니라
+  local-ASR 단계가 PLAUD 단계를 supersede하는 latest-stage pointer다.
+- ack file row가 실제 관찰 size/SHA-256을 보존하도록 확장하고 receipt 기대값과
+  status를 다시 바인딩해 status-only 위조를 stale로 차단했다. consumer clock이
+  producer receipt보다 이르면 ack/latest 쓰기 전에 실패하고, status에는
+  forged/legacy clock-inverted stale guard를 유지한다. clock sync가 필요하다. 또한 delivery
+  실행은 public repo 밖 shared target을 가리키는 `_workspaces/system` symlink로
+  한정하고 일반 in-repo directory materialization도 거부한다.
+- PLAUD import/library 등록 및 local-ASR 완료 뒤 receipt를 best-effort로 한 번
+  준비한다. receipt 실패는 retryable warning으로 기록되며 성공한 import나
+  전사를 rollback하지 않는다. (worker: codex_gpt-5)
+
 ### 수락된 음성 보관함 manifest → dev-ERP 할일 검토 후보
 
 - recording-library manifest의 책임자 수락 route만 기존 `할일_장부.csv`에

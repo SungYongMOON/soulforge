@@ -30,6 +30,11 @@ _workspaces/system/voice_capture/meeting_bundles/<YYYY-MM-DD>/<meeting_bundle_id
 _workspaces/system/voice_capture/local_asr_queue/
   pending/<session_id>.json
   processed/<YYYY-MM-DD>/<session_id>.json
+
+_workspaces/system/voice_capture/delivery/
+  producer_receipts/<session_id>.json
+  consumer_acknowledgements/<consumer_node>/<session_id>.json
+  consumer_acknowledgements/<consumer_node>/latest.json
 ```
 
 ## 경계
@@ -132,5 +137,14 @@ npm run guild-hall:voice-capture -- register-library \
 - Git pull 로 CLI/규칙/테스트를 받는다.
 - OneDrive 또는 owner-approved shared worksite 에서 `_workspaces/system/voice_capture/sessions/**` 와 `library/**` payload 를 같은 경로 identity 로 materialize 한다.
 - 다른 PC 에서 raw payload 가 보이지 않으면 Git 문제가 아니라 workspace 동기화 문제로 본다.
+- producer의 `ready` receipt는 생산 완료만 뜻하며 전달 완료가 아니다. consumer PC가 receipt의 상대 ref를 로컬에서 열어 exact size와 streaming SHA-256을 다시 계산하고 acknowledgement를 써야 `delivered`다.
+- producer receipt는 `delivery/producer_receipts/<session_id>.json`, consumer acknowledgement는 `delivery/consumer_acknowledgements/<consumer_node>/<session_id>.json`과 `latest.json`에 둔다. receipt가 바뀌면 기존 acknowledgement는 `stale`이며 다시 ack해야 한다.
+- receipt에는 expected size/SHA-256을, ack 각 file row에는 실제 관찰한 size/SHA-256을 둔다. missing은 `null/null`, mismatch와 delivered는 실제 관찰값을 남기며 status는 receipt 기대값과 이 관찰값에서 다시 계산 가능해야 한다.
+- receipt와 ack에는 safe node/session/recording ID, strict UTC 생성/검사 시각, stage, file role, 상대 ref, hash/size, required/status만 둔다. 녹음 제목·전사 본문·절대경로·URL·secret-like key는 금지한다.
+- producer/consumer node label은 암호학적 장치 identity가 아니라 운영 assertion이다. 같은 label의 self-ack는 금지하지만, 실제 도착 증명에는 권한 있는 운영자가 producer와 다른 PC에서 ack를 실행해야 한다.
+- node label과 metadata hash는 signature가 아니며 payload와 metadata 양쪽의 write 권한을 가진 주체의 위조를 방지하지 않는다. 또한 producer/consumer clock을 동기화해야 한다. 계산된 `checked_at < created_at`이면 ack 파일과 latest를 쓰기 전에 중단하며, forged/legacy clock-inverted ack는 status에서 stale이다.
+- delivery prepare/ack/write는 `_workspaces/system`이 public repo 밖 shared target을 가리키는 symlink일 때만 허용한다. repo 내부 일반 디렉터리 materialization과 repo subtree를 가리키는 symlink는 모두 거부한다.
+- `<session_id>.json`은 latest-stage pointer다. `local_asr_ready`가 같은 session의 `plaud_import_ready`를 의도적으로 덮어쓰며 기존 ack는 stale이 된다. immutable stage history archive는 아니다.
+- PLAUD import/library 등록과 독립 ASR 완료 뒤 producer receipt를 best-effort로 한 번 준비한다. receipt 실패는 retryable delivery warning이며 이미 성공한 import/ASR를 rollback하지 않는다.
 - `recordings.current.json` 와 `project_routes/P00-000_INBOX/**` 를 먼저 보고 미분류 녹음부터 route 검토한다.
 - 맥미니 수집 노드는 `_workspaces/system`이 active OneDrive shared link인지 audit한 뒤에만 기본 수집 경로를 사용한다. launchd plist와 로그는 `_workspaces/_local/<node_id>/` 및 사용자 로그 폴더에 둔다.

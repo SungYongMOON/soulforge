@@ -138,6 +138,32 @@ bytes나 metadata를 읽고 쓰는 방법일 뿐 승인 권한이 아니다.
 | Google Drive connector/browser/manual copy | 승인된 node가 durable source warehouse를 조회하거나 명시된 보관 작업을 수행한다. | Folder/label/connector/read state는 placement/access fact일 뿐이다. Approval/review evidence는 `_workmeta`, accepted reusable knowledge는 `.registry/knowledge`가 소유한다. |
 | `_workmeta` private Git sync | `owner-with-state` node가 refs, hashes, approvals, reviews, bindings, ontology candidates를 공유한다. | Metadata-only plane이다. Source, projection, wiki, RAG body를 운반하거나 metadata row만으로 대상을 승인하지 않는다. |
 
+### Voice payload delivery evidence
+
+`_workspaces/system/voice_capture`의 공유 link 또는 cloud sync 상태만으로 다른
+PC 도착을 주장하지 않는다. producer가
+`delivery/producer_receipts/<session_id>.json`에 `ready`를 쓴 뒤, consumer가
+같은 상대 ref의 exact size와 streaming SHA-256을 자기 PC에서 재계산해
+`delivery/consumer_acknowledgements/<consumer_node>/<session_id>.json`을 써야
+`delivered`다. 현재 receipt의 ID 또는 receipt 파일 SHA와 ack가 다르면
+`stale`이며 재검증한다. receipt/ack는 metadata-only이고 title/body/absolute
+path/URL/secret을 포함하지 않는다. 실제 node identity나 local secret을 자동
+탐색하지 않고 CLI의 public-safe node label만 사용한다. 이 label은 암호학적
+identity가 아닌 운영 assertion이므로 producer와 같은 label의 self-ack를
+차단해도 권한 있는 운영자가 실제 다른 consumer PC에서 실행해야 한다.
+ack file row는 실제 관찰 size/hash를 남기고 receipt 기대값과 다시 대조한다.
+missing은 `null/null`이며 status-only 수정이나 file row 누락/추가는 stale이다.
+producer/consumer clock을 동기화해야 하며 ack 시각이 receipt 생성 시각보다
+이르면 ack/latest 쓰기 전에 중단한다. forged/legacy clock-inverted ack는
+status에서 stale이다. 이 metadata 검사는 signature가 아니므로 payload와 metadata
+양쪽을 쓸 수 있는 주체의 위조까지 막는 cryptographic identity는 아니다.
+`<session_id>.json`은 latest-stage pointer이며 `local_asr_ready`가
+`plaud_import_ready`를 덮어써 기존 ack를 stale로 만든다. immutable stage
+history archive는 별도로 만들지 않는다. `_workspaces/system` symlink는 public
+repo 밖의 shared target만 허용하고 repo 내부 subtree를 가리키면 쓰기 전에
+중단한다. 일반 repo 내부 디렉터리로 materialize된 `_workspaces/system`도
+delivery prepare/ack/write 대상이 아니다.
+
 Public 문서에는 role과 generic capability만 적는다. 실제 node id, 계정, mount
 상태, 절대경로, NAS/Drive binding은 local-only identity 또는 private binding이
 소유한다.
