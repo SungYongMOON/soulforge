@@ -295,13 +295,18 @@ export function parseState(raw) {
     return { error: "backup_schema_mismatch" };
   }
   const base = emptyState();
+  const rawItems = Array.isArray(parsed.items) ? parsed.items : [];
   const state = {
     ...base,
     ...parsed,
     settings: { ...base.settings, ...(parsed.settings ?? {}) },
     projects: Array.isArray(parsed.projects) ? parsed.projects : [],
     people: Array.isArray(parsed.people) ? parsed.people : [],
-    items: Array.isArray(parsed.items) ? parsed.items : [],
+    // 구버전/수작업 백업엔 comments 가 없을 수 있다 — 미정규화 시 복원 후
+    // DetailPanel/addComment 가 크래시한다. 비객체 항목은 validateItem 검출용으로 통과.
+    items: rawItems.map((item) =>
+      item && typeof item === "object" && !Array.isArray(item.comments) ? { ...item, comments: [] } : item
+    ),
     audit: Array.isArray(parsed.audit) ? parsed.audit : [],
     baseline: parsed.baseline ?? null
   };

@@ -129,6 +129,31 @@ test("store: 직렬화/백업/복원 왕복", () => {
   assert.equal(restored.state.audit[0].kind, "restore");
 });
 
+test("store: comments 없는 백업 복원 시 comments 를 빈 배열로 정규화한다", () => {
+  const raw = JSON.stringify({
+    schemaVersion: "team_ops_board.v1",
+    items: [{ id: "it-legacy", title: "구버전 항목", status: "todo", priority: "normal" }]
+  });
+  const parsed = parseState(raw);
+  assert.equal(parsed.error, undefined);
+  assert.deepEqual(parsed.state.items[0].comments, []);
+
+  const restored = restoreBackup(emptyState(), { at: AT, actor: ACTOR, raw });
+  assert.equal(restored.error, undefined);
+  const commented = addComment(restored.state, { at: AT, actor: ACTOR, itemId: "it-legacy", message: "복원 후 메모" });
+  assert.equal(commented.error, undefined);
+  assert.equal(commented.state.items[0].comments.length, 1);
+
+  const badItems = parseState(JSON.stringify({ schemaVersion: "team_ops_board.v1", items: ["문자열"] }));
+  assert.equal(badItems.error, "backup_items_invalid");
+
+  const kept = parseState(JSON.stringify({
+    schemaVersion: "team_ops_board.v1",
+    items: [{ id: "it-keep", title: "보존", status: "todo", priority: "normal", comments: [{ at: AT, actor: ACTOR, message: "기존 메모" }] }]
+  }));
+  assert.equal(kept.state.items[0].comments.length, 1);
+});
+
 test("csv: 내보내기 BOM/이스케이프와 파서 왕복", () => {
   let state = seededState();
   ({ state } = addItem(state, {
