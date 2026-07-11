@@ -4126,13 +4126,22 @@ async function renderHome() {
       // '시작' 누른 뒤 하단으로 사라지지 않게 한다. 그룹 내부(시작/미시작)는 서버 정렬 유지(Array.sort 안정성, ES2019).
       const mine = mineItems.filter((i) => i.status !== "done")
         .sort((a, b) => (itemStarted(b) ? 1 : 0) - (itemStarted(a) ? 1 : 0));
+      // D2(S8-2) 노출 레인: 마감 미지정 미착수(open+no due)는 모든 재방문 표면에서 뒤로 밀린다 — 상단 고정 섹션.
+      const noDueNew = mine.filter((i) => !i.due && i.status === "open");
+      const mineRest = mine.filter((i) => i.due || i.status !== "open");
       const qaOpts = projects.filter((p) => p.class === "active" || p.class === "internal")
         .map((p) => `<option value="${esc(p.id)}"${p.id === "general_work" ? " selected" : ""}>${esc(p.title === p.id ? projDisplay(p.id) : `${p.id} · ${p.title}`)}</option>`).join("");
       const quickAdd = `<div class="mine-qa"><input class="mqa-title" placeholder="${L.mine_qa_ph ?? "빠른 할 일 추가…"}" /><select class="mqa-proj" title="${L.project}">${qaOpts}</select><button class="mqa-add fav-chip active">${L.mine_qa_add ?? "추가"}</button></div>`;
       const triageLine = triageItems.length
         ? `<div class="mine-triage-line"><button class="status-chip triage on" data-nav-triage="1" title="${L.status_unclassified ?? "분류 필요"}">🔎 ${L.status_unclassified ?? "분류 필요"} <em>${triageItems.length}</em></button></div>`
         : "";
-      const list = mine.length ? `<table><tbody>${mine.map((i) => itemMiniRow(i, [esc(i.due ?? "-")])).join("")}</tbody></table>` : `<div class="empty">${L.empty_items}</div>`;
+      const noDueSect = noDueNew.length
+        ? `<tr class="date-sep"><td colspan="4" class="amber">${L.mine_nodue_head ?? "마감 미지정 신규"} ${noDueNew.length}</td></tr>`
+          + noDueNew.map((i) => itemMiniRow(i, [esc(L.mine_nodue_badge ?? "미지정")])).join("")
+        : "";
+      const list = (noDueNew.length || mineRest.length)
+        ? `<table><tbody>${noDueSect}${mineRest.map((i) => itemMiniRow(i, [esc(i.due ?? "-")])).join("")}</tbody></table>`
+        : `<div class="empty">${L.empty_items}</div>`;
       return { title: L.tile_mine, html: triageLine + quickAdd + list };
     }
     if (id === "requests_w") {
@@ -4182,8 +4191,8 @@ async function renderHome() {
     if (id === "nudges") {
       // P-6 콕핏 알림 — '먼저 해야 할 일' 순위(연체>차단>⭐우선>오늘>미완). 연체/차단=번쩍임, ⭐우선=금색 배지.
       const ns = await api("/api/nudges?limit=6");
-      const rlabel = { priority: L.prio_label ?? "우선", overdue: L.overdue, blocked: L.blocked, due_today: L.today_due, open: L.open };
-      const rcls = { priority: "gold", overdue: "red", blocked: "red", due_today: "amber", open: "" };
+      const rlabel = { priority: L.prio_label ?? "우선", overdue: L.overdue, blocked: L.blocked, due_today: L.today_due, no_due: L.nudge_no_due ?? "마감 미지정", open: L.open };
+      const rcls = { priority: "gold", overdue: "red", blocked: "red", due_today: "amber", no_due: "amber", open: "" };
       return { title: L.tile_nudges, html: ns.length
         ? `<table><tbody>${ns.map((n) => `<tr class="wrow nudge-row${n.reason === "overdue" || n.reason === "blocked" ? " flash" : ""}" data-item="${esc(n.id)}" data-proj="${esc(n.project_id ?? "")}" data-title="${esc(n.title)}">
             <td><span class="badge ${rcls[n.reason]}">${rlabel[n.reason] ?? esc(n.reason)}</span></td>

@@ -366,6 +366,10 @@ export const LEXICON = {
     sched_back: "게이트로",
     cal_export: "캘린더 내보내기",
     cal_export_hint: "선택 담당의 마감 일정을 .ics 로 내려받아 구글/아웃룩 캘린더에 추가",
+    // D2(S8-2) 마감 미지정 노출 레인
+    mine_nodue_head: "마감 미지정 신규",
+    mine_nodue_badge: "미지정",
+    nudge_no_due: "마감 미지정",
     // B10 캘린더 뷰(calv_* = B10 소유)
     calv_title: "캘린더",
     calv_today: "오늘",
@@ -1366,6 +1370,10 @@ export const LEXICON = {
     sched_back: "관문으로",
     cal_export: "원정 일지 내보내기",
     cal_export_hint: "선택 대원의 마감 일정을 .ics 로 내려받아 달력에 추가",
+    // D2(S8-2) 마감 미지정 노출 레인
+    mine_nodue_head: "표류 중인 새 임무",
+    mine_nodue_badge: "기한 없음",
+    nudge_no_due: "기한 없는 임무",
     // B10 캘린더 뷰(calv_* = B10 소유)
     calv_title: "성좌 달력",
     calv_today: "오늘",

@@ -3949,20 +3949,21 @@ export class Store {
     if (key) { cond.push("assignee_ref = ?"); args.push(key); }
     if (scope) { cond.push(scope.sql); args.push(...scope.args); }
     const rows = this.db.prepare(
-      `SELECT id, title, project_id, due, status, assignee_ref, urgency,
+      `SELECT id, title, project_id, due, status, assignee_ref, urgency, created_at,
          (SELECT e.bottleneck_reason FROM event_log e WHERE e.item_ref=core_item.id AND e.bottleneck_reason IS NOT NULL ORDER BY e.id DESC LIMIT 1) AS block_reason
        FROM core_item WHERE ${cond.join(" AND ")}`
     ).all(...args);
-    const rank = { overdue: 0, blocked: 1, priority: 2, due_today: 3, open: 4 };
+    const rank = { overdue: 0, blocked: 1, priority: 2, due_today: 3, no_due: 4, open: 5 };
     const out = rows.map((r) => {
       let reason = "open";
+      if (!r.due && r.status === "open") reason = "no_due"; // D2(S8-2): 마감 미지정 미착수 — 재방문 신호 0 이던 레인 가시화
       if (r.due === today) reason = "due_today";
       if (r.urgency === "high") reason = "priority"; // ⭐ 우선(사람 지정)=오늘마감·일반 위. 단 연체·막힘(시스템 긴급)은 그 위로 둠
       if (r.status === "blocked") reason = "blocked";
       if (r.due && r.due < today) reason = "overdue";
-      return { id: r.id, title: r.title, project_id: r.project_id, due: r.due, status: r.status, assignee_ref: r.assignee_ref, reason, block_reason: reason === "blocked" ? (r.block_reason || null) : null };
+      return { id: r.id, title: r.title, project_id: r.project_id, due: r.due, status: r.status, assignee_ref: r.assignee_ref, created_at: r.created_at, reason, block_reason: reason === "blocked" ? (r.block_reason || null) : null };
     });
-    out.sort((a, b) => (rank[a.reason] - rank[b.reason]) || String(a.due ?? "9999-99-99").localeCompare(String(b.due ?? "9999-99-99")));
+    out.sort((a, b) => (rank[a.reason] - rank[b.reason]) || String(a.due ?? "9999-99-99").localeCompare(String(b.due ?? "9999-99-99")) || String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
     return out.slice(0, limit);
   }
   // P-7 사람별 부하(GROUP BY) — 건수 집계만(개인 점수 미산출·미저장). NULL=(미배정).
