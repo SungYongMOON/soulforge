@@ -2188,7 +2188,7 @@ async function renderKnowWiki(el) {
   }));
 }
 
-// 탭3: 줄기 그래프 — trunk 중심 방사형 SVG(가지 크기=소스 수, 배지=미결 리뷰), 가지 클릭→하위 목록
+// 탭3: 줄기 그래프 — 시간축 강줄기 SVG + 목록/우선순위/읽기전용 진단, 가지 클릭→이야기.
 async function renderKnowTrunk(el) {
   const L = state.lex;
   el.innerHTML = `<div class="empty small">…</div>`;
@@ -2261,18 +2261,18 @@ function trunkStoryHtml(story, L) {
   return `${originHtml}<table class="small"><tbody>${rows || `<tr><td class="dim">${L.trunk_story_empty ?? "기록 점 없음"}</td></tr>`}</tbody></table>${trunc}${closeHtml}`;
 }
 
-// 공용 줄기 렌더러 — 3렌즈(지도 방사형 / 목록 아웃라인 / 우선순위 표), 각 뷰는 결정 하나에 대응.
+// 공용 줄기 렌더러 — 4렌즈(시간축 지도 / 목록 / 우선순위 / 모양 진단), 각 뷰는 결정 하나에 대응.
 // 지식 탭(전역 탐색, 드롭다운 header)과 과제 허브(고정 과제) 겸용. 데이터는 g 하나로 전 뷰 파생(서버 무변경).
 function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
   const L = state.lex;
-  const view = ["map", "tree", "triage"].includes(state.trunkView) ? state.trunkView : "map";
+  const view = ["map", "tree", "triage", "diagnostics"].includes(state.trunkView) ? state.trunkView : "map";
   const c = g.counts ?? {};
   // 중요도(소스+할일+미결) 순 정렬 — 전 뷰 공용 랭킹.
   const ranked = (g.branches ?? []).slice().sort((a, b) =>
     (b.source_count + b.task_count + b.open_review_count) - (a.source_count + a.task_count + a.open_review_count));
   // 줄기 v2(STEM-V2-ONTOLOGY): v2 가지(골격/작업/이력)가 있으면 legacy(구 제목 클러스터)는 기본 숨김 —
   // 지도가 '업무 단위'로 읽히게. 옛 가지는 토글로만 노출(소급 대조용).
-  const hasV2 = ranked.some((b) => trunkKindOf(b) !== "legacy");
+  const hasV2 = ranked.some((b) => ["work", "history"].includes(trunkKindOf(b)));
   const legacyCount = ranked.filter((b) => trunkKindOf(b) === "legacy").length;
   const showLegacy = !hasV2 || !!state.trunkShowLegacy;
   const visible = showLegacy ? ranked : ranked.filter((b) => trunkKindOf(b) !== "legacy");
@@ -2283,7 +2283,7 @@ function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
     .map(([k, label]) => `<span class="fav-chip mini"><span class="trunk-dot" style="background:${TRUNK_KIND_STYLE[k].fill}"></span>${esc(label)} ${visible.filter((b) => trunkKindOf(b) === k).length}</span>`).join(" ") : "";
   const legacyToggle = hasV2 && legacyCount
     ? `<button id="trunkLegacyToggle" class="fav-chip mini ${state.trunkShowLegacy ? "on" : ""}">${state.trunkShowLegacy ? esc(L.trunk_legacy_hide) : esc(String(L.trunk_legacy_show ?? "").replace("{n}", legacyCount))}</button>` : "";
-  const views = [["map", L.trunk_view_map], ["tree", L.trunk_view_tree], ["triage", L.trunk_view_triage]];
+  const views = [["map", L.trunk_view_map], ["tree", L.trunk_view_tree], ["triage", L.trunk_view_triage], ["diagnostics", L.trunk_view_diagnostics]];
   const switcher = views.map(([k, label]) => `<button class="fav-chip mini trunk-view ${view === k ? "on" : ""}" data-tv="${k}">${label}</button>`).join(" ");
   el.innerHTML = `
     <div class="item-form">${headerHtml}
@@ -2297,6 +2297,7 @@ function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
   const paint = () => {
     if (state.trunkView === "tree") return drawTrunkTree(body, g, visible);
     if (state.trunkView === "triage") return drawTrunkTriage(body, g, visible);
+    if (state.trunkView === "diagnostics") return drawTrunkDiagnostics(body, g);
     return drawTrunkMap(body, g, visible);
   };
   el.querySelectorAll(".trunk-view").forEach((b) => b.addEventListener("click", () => {
@@ -2309,6 +2310,70 @@ function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
     drawTrunkGraph(el, g, { headerHtml, afterRender });
   });
   paint();
+}
+
+// B9c 진단 렌즈 — 저장/자동판정 없이 context/graph 응답의 설명 통계만 렌더한다.
+// 사람 표는 개인 점수가 아니라 담당 가지·사람 확정 이벤트·완료 건수의 단순 분포다.
+function trunkHeatmapHtml(series, L, color = "122,92,192") {
+  const weeks = series?.weeks ?? [];
+  if (!weeks.length) return `<div class="empty small">${esc(L.trunk_diag_none)}</div>`;
+  const max = Math.max(1, ...weeks.map((w) => Number(w.count) || 0));
+  return `<div style="display:flex;gap:3px;align-items:flex-end;overflow-x:auto;padding:4px 0 2px">
+    ${weeks.map((w) => {
+      const count = Number(w.count) || 0;
+      const alpha = count ? (0.18 + (count / max) * 0.72).toFixed(2) : "0.05";
+      return `<span title="${esc(L.trunk_diag_week)} ${esc(w.week)} · ${count}" style="min-width:22px;height:24px;border:1px solid var(--border,#8883);border-radius:3px;background:rgba(${color},${alpha});display:inline-flex;align-items:center;justify-content:center;font-size:9px">${count || ""}</span>`;
+    }).join("")}</div>${series.truncated ? `<div class="dim small">${esc(L.trunk_diag_truncated)}</div>` : ""}`;
+}
+
+function drawTrunkDiagnostics(body, g) {
+  const L = state.lex;
+  const d = g.diagnostics;
+  if (!d || d.content_policy !== "metadata_only") { body.innerHTML = `<div class="empty">${esc(L.trunk_diag_none)}</div>`; return; }
+  const s = d.shape ?? {};
+  const cv = d.coverage ?? {};
+  const capDetails = [];
+  if ((cv.graph_nodes_shown ?? 0) < (cv.graph_nodes_total ?? 0)) capDetails.push(`${L.trunk_diag_nodes} ${cv.graph_nodes_shown}/${cv.graph_nodes_total}`);
+  if (cv.branch_input_truncated) capDetails.push(`${L.trunk_diag_branches} ${cv.branch_inputs_shown}/${cv.branch_inputs_total}`);
+  if (cv.source_input_truncated) capDetails.push(`${L.trunk_diag_sources} ${cv.source_inputs_shown}/${cv.source_inputs_total}`);
+  if (d.heatmap?.truncated) capDetails.push(`${L.trunk_diag_heatmap} ${d.heatmap.shown_points}/${d.heatmap.total_points}`);
+  if (d.requests?.truncated) capDetails.push(`${L.trunk_diag_requests} ${d.requests.shown_dated_count}/${d.requests.dated_count}`);
+  if (cv.people_truncated) capDetails.push(`${L.trunk_diag_people} ${cv.people_shown}/${cv.people_total}`);
+  if (cv.counterparts_truncated) capDetails.push(`${L.trunk_diag_counterpart} ${cv.counterparts_shown}/${cv.counterparts_total}`);
+  if (cv.dead_list_truncated) capDetails.push(`${L.trunk_diag_dead_title} ${cv.dead_list_shown}/${s.dead_count ?? 0}`);
+  const capped = capDetails.length > 0;
+  const deadWithheld = String(cv.dead_classification ?? "").startsWith("withheld_");
+  const coverage = [
+    `${L.trunk_diag_dated} ${cv.dated_points ?? 0}`,
+    `${L.trunk_diag_undated} ${cv.undated_points ?? 0}`,
+    `${L.trunk_diag_mail_joined} ${cv.mail_joined ?? 0}/${cv.mail_sources ?? 0}`,
+    `${L.trunk_diag_item_joined} ${cv.item_refs_resolved ?? 0}/${cv.item_count ?? 0}`,
+    `${L.trunk_diag_ref_coverage} ${cv.post_close_references_observed ?? 0}/${cv.relation_time_unknown ?? 0}`,
+    `${L.trunk_diag_legacy_excluded} ${d.scope?.legacy_excluded ?? 0}`,
+    capped ? `${L.trunk_diag_capped}: ${capDetails.join(", ")}` : "",
+    deadWithheld ? L.trunk_diag_dead_withheld : "",
+  ].filter(Boolean).join(" · ");
+  const deadRows = (d.dead_branches ?? []).map((b) => `<tr style="color:var(--muted,#777)">
+    <td><strong>${esc(b.label ?? b.branch_key)}</strong></td><td class="dim">${esc(b.closed_at ? String(b.closed_at).slice(0, 10) : "-")}</td>
+    <td class="num">${b.reference_count ?? 0}</td><td class="num">${b.knowledge_count ?? 0}</td></tr>`).join("");
+  const peopleRows = (d.people ?? []).map((p) => `<tr><td>${esc(p.person_ref)}</td><td class="num">${p.branch_count}</td><td class="num">${p.point_count}</td><td class="num">${p.resolved_count}</td></tr>`).join("");
+  const requestRows = (d.requests?.counterparts ?? []).map((r) => `<tr><td>${esc(r.counterpart)}</td><td class="num">${r.count}</td></tr>`).join("");
+  body.innerHTML = `<section class="calc-card" style="margin-top:6px">
+      <h4 class="hub-h4">${esc(L.trunk_diag_title)}</h4>
+      <div class="item-form" style="gap:6px"><span class="fav-chip mini">${esc(L.trunk_diag_branches)} ${s.branch_count ?? 0}</span><span class="fav-chip mini">${esc(L.trunk_diag_points)} ${s.point_count ?? 0}</span><span class="fav-chip mini">${esc(deadWithheld ? L.trunk_diag_dead_withheld : `${L.trunk_diag_dead} ${s.dead_count ?? 0}`)}</span></div>
+      <div class="dim small" style="margin-top:6px">${esc(L.trunk_diag_caveat)}</div>
+      <div class="dim small" style="margin-top:4px"><b>${esc(L.trunk_diag_coverage)}</b>: ${esc(coverage)}</div>
+    </section>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin-top:10px">
+      <section class="calc-card"><h4 class="hub-h4">${esc(L.trunk_diag_heatmap)}</h4>${trunkHeatmapHtml(d.heatmap, L)}</section>
+      <section class="calc-card"><h4 class="hub-h4">${esc(L.trunk_diag_requests)} · ${esc(L.trunk_diag_received)} ${d.requests?.received_count ?? 0}</h4>
+        ${trunkHeatmapHtml({ weeks: d.requests?.weeks ?? [], truncated: d.requests?.truncated }, L, "74,125,191")}
+        ${requestRows ? `<table class="small"><thead><tr><th>${esc(L.trunk_diag_counterpart)}</th><th class="num">${esc(L.trunk_diag_received)}</th></tr></thead><tbody>${requestRows}</tbody></table>` : `<div class="empty small">${esc(L.trunk_diag_none)}</div>`}</section>
+      <section class="calc-card"><h4 class="hub-h4">${esc(L.trunk_diag_people)}</h4>
+        ${peopleRows ? `<table class="small"><thead><tr><th>${esc(L.trunk_diag_person)}</th><th class="num">${esc(L.trunk_diag_assigned)}</th><th class="num">${esc(L.trunk_diag_human_events)}</th><th class="num">${esc(L.trunk_diag_resolved)}</th></tr></thead><tbody>${peopleRows}</tbody></table>` : `<div class="empty small">${esc(L.trunk_diag_none)}</div>`}</section>
+      <section class="calc-card"><h4 class="hub-h4">${esc(L.trunk_diag_dead_title)}</h4><div class="dim small" style="margin-bottom:6px">${esc(L.trunk_diag_dead_rule)}</div>
+        ${deadWithheld ? `<div class="empty small">${esc(L.trunk_diag_dead_withheld)}</div>` : deadRows ? `<table class="small"><thead><tr><th>${esc(L.trunk_col_label)}</th><th>${esc(L.trunk_diag_closed)}</th><th class="num">${esc(L.trunk_diag_refs)}</th><th class="num">${esc(L.trunk_diag_knowledge)}</th></tr></thead><tbody>${deadRows}</tbody></table>` : `<div class="empty small">${esc(L.trunk_diag_none)}</div>`}</section>
+    </div>`;
 }
 
 // 뷰1 지도(방사형) — "전체 모양·큰 갈래 한눈에". 가지 클릭 → 그 가지 주변으로 하위가 부채꼴로
@@ -2351,6 +2416,7 @@ function trunkOccurrencesFor(g, b) {
 // 줄 위의 점 = 그 일의 기록들(시간순), 가지 사이 가는 곡선 = 실제 관계(edges). 정본: docs/slices/B9-STEM-RIVER-VIEW.md §2.
 function drawTrunkMap(body, g, ranked) {
   const L = state.lex;
+  const deadKeys = new Set((g.diagnostics?.branch_signals ?? []).filter((b) => b.dead).map((b) => b.branch_key));
   const skeleton = ranked.filter((b) => trunkKindOf(b) === "skeleton").slice(0, 10);
   const laneCap = 32;
   const laneAll = ranked.filter((b) => trunkKindOf(b) !== "skeleton");
@@ -2475,6 +2541,8 @@ function drawTrunkMap(body, g, ranked) {
     const laneEls = lanes.map((b, i) => {
       const kind = trunkKindOf(b);
       const ks = TRUNK_KIND_STYLE[kind];
+      const dead = deadKeys.has(b.branch_key);
+      const laneColor = dead ? "#8c8f94" : ks.fill;
       const y = laneTop + i * rowH + rowH / 2;
       const st = laneStart(b);
       const x1 = st === Infinity ? ML + 150 : X(st);
@@ -2484,7 +2552,7 @@ function drawTrunkMap(body, g, ranked) {
       const dots = [];
       let lastT = st === Infinity ? null : st;
       // 노드(기록) 점은 임시 비활성 — 현 원장의 created_at 이 대량 이관일(예: 641/722건이 같은 날)로
-      // 스탬프돼 시간 배치가 거짓이 된다. 실일자(메일 수신/발신일)는 B9a branch_story 조인으로 복원 예정.
+      // 스탬프돼 시간 배치가 거짓이 된다. 실일자는 B9a branch_story/B9c diagnostics 가 별도 조인해 복원한다.
       // 회차 점(occurrence_key=실날짜)만 신뢰해 표시한다.
       if (kind === "history") for (const o of trunkOccurrencesFor(g, b)) {
         const t = T(o.occurrence_key); if (!t) continue;
@@ -2499,12 +2567,13 @@ function drawTrunkMap(body, g, ranked) {
       const label = (closed && kind === "work" ? "✓ " : "") + trunkMapLabel(b).slice(0, 34);
       // 늦게 태어난 가지는 라벨을 점 왼쪽으로(anchor=end) — 오른쪽 잘림 방지.
       const flip = x1 > (W - MR) * 0.55;
-      return `<g class="ctx-branch" data-key="${esc(b.branch_key)}" data-kind="${kind}" data-anchor="${esc(b.anchor_ref ?? "")}" style="cursor:pointer" opacity="${closed && kind === "work" ? 0.55 : 1}">
-        <line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${ks.fill}" stroke-width="${sel ? 4 : 2.5}" opacity="${proposed ? 0.55 : 0.8}"${proposed ? ` stroke-dasharray="5 4"` : ""}/>
-        <line x1="${x1}" y1="${trunkY + 8}" x2="${x1}" y2="${y}" stroke="${ks.fill}" stroke-width="1" opacity="0.25"/>
-        <circle cx="${x1}" cy="${y}" r="5" fill="${ks.fill}"${proposed ? ` fill-opacity="0.4" stroke="${ks.fill}" stroke-dasharray="3 2"` : ""}/>
-        ${closed && T(b.closed_at) ? `<circle cx="${x2}" cy="${y}" r="4" fill="${ks.fill}" opacity="0.9"/>` : ""}
-        <text x="${flip ? x1 - 8 : x1}" y="${y - 8}" font-size="10.5" fill="currentColor"${sel ? ` font-weight="700"` : ""}${flip ? ` text-anchor="end"` : ""}>${esc(label)}${proposed ? ` <tspan fill="${ks.fill}" font-size="8.5">${esc(L.trunk_kind_proposed)}</tspan>` : ""}${badge}</text>
+      return `<g class="ctx-branch" data-key="${esc(b.branch_key)}" data-kind="${kind}" data-anchor="${esc(b.anchor_ref ?? "")}" style="cursor:pointer" opacity="${dead ? 0.42 : closed && kind === "work" ? 0.55 : 1}">
+        ${dead ? `<title>${esc(L.trunk_diag_dead_rule)}</title>` : ""}
+        <line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${laneColor}" stroke-width="${sel ? 4 : 2.5}" opacity="${proposed ? 0.55 : 0.8}"${proposed ? ` stroke-dasharray="5 4"` : ""}/>
+        <line x1="${x1}" y1="${trunkY + 8}" x2="${x1}" y2="${y}" stroke="${laneColor}" stroke-width="1" opacity="0.25"/>
+        <circle cx="${x1}" cy="${y}" r="5" fill="${laneColor}"${proposed ? ` fill-opacity="0.4" stroke="${laneColor}" stroke-dasharray="3 2"` : ""}/>
+        ${closed && T(b.closed_at) ? `<circle cx="${x2}" cy="${y}" r="4" fill="${laneColor}" opacity="0.9"/>` : ""}
+        <text x="${flip ? x1 - 8 : x1}" y="${y - 8}" font-size="10.5" fill="currentColor"${sel ? ` font-weight="700"` : ""}${flip ? ` text-anchor="end"` : ""}>${esc(label)}${proposed ? ` <tspan fill="${laneColor}" font-size="8.5">${esc(L.trunk_kind_proposed)}</tspan>` : ""}${badge}</text>
         ${dots.join("")}</g>`;
     }).join("");
     // ── 오늘 세로선 — 어디까지가 과거인지 기준선.

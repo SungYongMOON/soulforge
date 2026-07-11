@@ -307,6 +307,13 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   교체. 이력줄기 기원 = 시간순 첫 점(작업줄기와 단일 규칙). 착수 전 정리: B9 패킷 spawned_from
   → 실존 필드 정정(야간 리뷰 HIGH-3), SLICES_INDEX 소급 3건+B6 done. 다음 큐 = B9c.
   정본: docs/slices/B9-STEM-RIVER-VIEW.md §3·§6-1.
+- 2026-07-11 3차 (codex_gpt-5, Claude 인계): B9c 줄기 모양 진단 — `/api/context/graph`에
+  metadata-only `diagnostics`를 일괄 파생해 최근 52주 기록 밀도, 담당·사람 이벤트·해결 분포,
+  수신 요청 상대·시기, 죽은 가지 후보를 제공. 네 번째 `진단` 렌즈와 지도 회색 표시를 추가했다.
+  후속 사용 미관찰 후보는 유효 종결일+exact item 연결+종결 뒤 공유 source-ref 0+
+  `completion:<item>` 완료지식 0의 관찰 판정이며, 시각 없는 관계·store 미조인·그래프/입력 잘림
+  시 유보한다. 시각은 Asia/Seoul 업무일로 정규화. 개인 점수·자동 성과판정·원장 쓰기 없음. 다음 큐 = B9d.
+  정본: docs/slices/B9-STEM-RIVER-VIEW.md §4·§6-1.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 

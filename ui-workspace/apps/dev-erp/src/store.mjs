@@ -2414,15 +2414,17 @@ export class Store {
   // B9a 가지 이야기 조인(전부 읽기전용 — 이벤트 append 금지). 이력키 → core_mail 메타.
   // suffix 조인은 promotedMailIds 의 id 공간 계약(위 주석) 그대로. 노출은 metadata_only —
   // body_text/body_preview 미선택.
-  mailByHistoryKeys(keys = []) {
+  mailByHistoryKeys(keys = [], { project = null } = {}) {
     const out = new Map();
     const uniq = [...new Set(keys.map((k) => String(k ?? "").trim()).filter(Boolean))];
+    const projectId = String(project ?? "").trim();
     for (let i = 0; i < uniq.length; i += 100) {
       const chunk = uniq.slice(i, i + 100);
       const rows = this.db.prepare(
         `SELECT id, at, direction, subject, counterpart, substr(id, instr(id, ':')+1) AS history_key
-         FROM core_mail WHERE instr(id, ':')>0 AND substr(id, instr(id, ':')+1) IN (${chunk.map(() => "?").join(",")})`
-      ).all(...chunk);
+         FROM core_mail WHERE instr(id, ':')>0 AND substr(id, instr(id, ':')+1) IN (${chunk.map(() => "?").join(",")})
+         ${projectId ? "AND project_id=?" : ""} ORDER BY id`
+      ).all(...chunk, ...(projectId ? [projectId] : []));
       for (const r of rows) if (!out.has(r.history_key)) out.set(r.history_key, r);
     }
     return out;
@@ -2436,7 +2438,7 @@ export class Store {
     for (let i = 0; i < uniq.length; i += 100) {
       const chunk = uniq.slice(i, i + 100);
       out.push(...this.db.prepare(
-        `SELECT at, actor_ref, item_ref, kind, from_val, to_val, note FROM event_log
+        `SELECT id, at, actor_ref, actor_kind, item_ref, kind, from_val, to_val, note FROM event_log
          WHERE item_ref IN (${chunk.map(() => "?").join(",")}) AND kind IN (${kinds.map(() => "?").join(",")})
          ORDER BY at, id`
       ).all(...chunk, ...kinds));
@@ -2456,6 +2458,36 @@ export class Store {
       ).all(...chunk));
     }
     return out;
+  }
+  // B9c 사람별 가지 분포: 현재 담당 메타만 정확 item id 로 조회(개인 점수 산출/저장 없음).
+  itemAssigneesForItems(itemIds = []) {
+    const uniq = [...new Set(itemIds.map((v) => String(v ?? "").trim()).filter(Boolean))];
+    if (!uniq.length) return [];
+    const out = [];
+    for (let i = 0; i < uniq.length; i += 100) {
+      const chunk = uniq.slice(i, i + 100);
+      const rows = this.db.prepare(
+        `SELECT id, assignee_ref FROM core_item WHERE id IN (${chunk.map(() => "?").join(",")}) ORDER BY id`
+      ).all(...chunk);
+      out.push(...rows.map((row) => ({ id: row.id, assignee_ref: row.assignee_ref })));
+    }
+    return out.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  }
+  // B9c 죽은 가지 판정의 지식 승격 증거: S7 completion digest 가 만든 exact source_ref 만 인정.
+  // proposal/pending 후보나 제목 유사도는 지식 승격으로 추측하지 않는다.
+  knowledgePromotionsForItems(itemIds = []) {
+    const uniq = [...new Set(itemIds.map((v) => String(v ?? "").trim()).filter(Boolean))];
+    if (!uniq.length) return [];
+    const out = [];
+    for (let i = 0; i < uniq.length; i += 100) {
+      const chunk = uniq.slice(i, i + 100);
+      const refs = chunk.map((id) => `completion:${id}`);
+      const rows = this.db.prepare(
+        `SELECT id, source_ref FROM core_knowledge WHERE source_ref IN (${refs.map(() => "?").join(",")}) ORDER BY id`
+      ).all(...refs);
+      for (const row of rows) out.push({ item_id: String(row.source_ref).slice("completion:".length), knowledge_id: row.id });
+    }
+    return out.sort((a, b) => String(a.item_id).localeCompare(String(b.item_id)) || String(a.knowledge_id).localeCompare(String(b.knowledge_id)));
   }
   // B9a 종결 단: 산출물 — 저장 FK 없음, spawnTaskFromDeliverable 역링크 계약(project+title+origin='schedule')로 해석.
   deliverablesForItems(itemIds = []) {

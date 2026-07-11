@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP 줄기 모양 진단 뷰 (B9c)
+
+- 기존 `GET /api/context/graph`에 `dev_erp.context_diagnostics.v1` 읽기전용 파생 통계를 추가했다. B9a와 같은 실일시 원칙(`sources.source_time`/과제 exact `core_mail.at`)과 사람 확정 item 이벤트를 서울 업무시간 주차로 정규화해 최근 52주 기록 밀도, 담당 가지·사람 이벤트·해결 분포, 수신 요청 상대·시기를 일괄 집계하며 원장 쓰기와 branch별 N+1 호출은 없다.
+- 네 번째 `진단` 렌즈에서 모양 요약·주간 히트맵·사람별 분포·수신 요청 패턴·후속 사용 미관찰 후보를 함께 보여준다. 회색 후보는 `유효 종결일 + 실재 core_item exact 연결 + 종결 뒤 공유 source ref 0 + completion:<item> 완료지식 0`일 때만 관찰 수준으로 표시하고, 존재하지 않는 item 참조·시각 없는 교차 관계·DB 미조인·그래프/입력 잘림이 있으면 판정을 유보한다. UI가 날짜/메일·할일 exact 조인/제외/cap 범위를 함께 보이며 “가지 많음=병렬 또는 분산 / 적음=집중 또는 기록 부족” 이중 해석을 명시해 개인 점수나 자동 성과판정으로 쓰지 않는다. (worker: codex_gpt-5)
+
 ### Long Thread Handoff GPT-5.6 선호 갱신
 
 - `soulforge-long-thread-handoff`의 fresh subagent 선호 모델을 GPT-5.5 xhigh에서 GPT-5.6 xhigh로 갱신하고, 해당 프로필을 제공하지 않는 런타임에서는 기존처럼 가장 강한 가용 프로필과 downgrade 보고를 유지한다. (worker: codex_gpt-5)

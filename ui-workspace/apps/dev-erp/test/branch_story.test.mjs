@@ -124,9 +124,12 @@ test("B9a story: 점 상한 cap+truncated + 오류 경로(project_invalid/branch
 test("B9a store 헬퍼: suffix 메일 조인·이벤트 화이트리스트·읽기전용(이벤트 무증가)", () => {
   const store = seededStore();
   const before = store.counts().events;
-  const mails = store.mailByHistoryKeys(["key-first", "key-none"]);
+  store.upsertProject({ id: "P88-001", title: "다른 과제", data_label: "synthetic" });
+  store.ingestMail({ id: "P88-001:key-first", project_code: "P88-001", at: "2025-01-01", subject: "혼입 금지", counterpart: "다른 상대", direction: "in", data_label: "synthetic" });
+  const mails = store.mailByHistoryKeys(["key-first", "key-none"], { project: "P99-500" });
   assert.equal(mails.size, 1);
   assert.equal(mails.get("key-first").subject, "규격 검토 요청드립니다");
+  assert.equal(store.mailByHistoryKeys(["key-first"], { project: "P88-001" }).get("key-first").subject, "혼입 금지", "같은 suffix라도 과제 exact");
   assert.equal(Object.keys(mails.get("key-first")).includes("body_text"), false, "metadata_only — body 미선택");
   const evs = store.eventsForItems(["itm_story1"]);
   assert.deepEqual(evs.map((e) => e.kind), ["item_promote", "item_status"], "메일계 kind 배제 + 시간순");

@@ -2207,7 +2207,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/context/graph" && req.method === "GET") {
       if (!currentAccount(req)) return send(res, 401, { error: "login_required" });
-      const r = buildContextGraph(KNOWLEDGE_SHELL.root, qp.project || "");
+      const r = buildContextGraph(KNOWLEDGE_SHELL.root, qp.project || "", { store });
       return send(res, r.error ? 400 : 200, r);
     }
     // B9a 가지 이야기(기원/경로/종결) — CSV(지식 루트)+DB(메일/이벤트/완료/산출물) 읽기전용 조인.

@@ -7,9 +7,14 @@ import { parseCsv } from "./autosync.mjs";
 
 export const CONTEXT_GRAPH_SCHEMA = "dev_erp.context_graph.v1";
 export const BRANCH_STORY_SCHEMA = "dev_erp.branch_story.v1";
+export const CONTEXT_DIAGNOSTICS_SCHEMA = "dev_erp.context_diagnostics.v1";
 const PROJECT_SEG_RE = /^[A-Za-z0-9가-힣][A-Za-z0-9가-힣._-]*$/;
 const MAX_NODES = 3000;
 const MAX_STORY_POINTS = 300; // B9a 점 상한(한 가지 91통 실측) — MAX_NODES 선례대로 cap+truncated
+const MAX_DIAGNOSTIC_WEEKS = 52;
+const MAX_DIAGNOSTIC_BRANCHES = 1000;
+const MAX_DIAGNOSTIC_SOURCES = 10000;
+const WEEK_MS = 7 * 86400000;
 
 function readCsvObjects(filePath) {
   if (!existsSync(filePath)) return [];
@@ -21,6 +26,298 @@ function readCsvObjects(filePath) {
   if (!rows.length) return [];
   const header = rows[0].map((h) => String(h).trim());
   return rows.slice(1).map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ""])));
+}
+
+function storedTimestampMs(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})(?=$|[ T])/.exec(raw);
+  if (!dateMatch) return null;
+  const dateKey = `${dateMatch[1]}-${dateMatch[2]}-${dateMatch[3]}`;
+  const calendarProbe = new Date(`${dateKey}T00:00:00Z`);
+  if (!Number.isFinite(calendarProbe.getTime()) || calendarProbe.toISOString().slice(0, 10) !== dateKey) return null;
+  const normalized = raw.replace(" ", "T");
+  const zoned = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+  const candidate = zoned ? normalized : normalized.length === 10 ? `${normalized}T00:00:00+09:00` : `${normalized}+09:00`;
+  const ms = Date.parse(candidate);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function localDateKey(value) {
+  const ms = storedTimestampMs(value);
+  if (ms == null) return null;
+  return new Date(ms + 9 * 3600000).toISOString().slice(0, 10); // Asia/Seoul fixed business day
+}
+
+function weekStartKey(value) {
+  const key = localDateKey(value);
+  if (!key) return null;
+  const d = new Date(`${key}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // Monday, timezone-independent
+  return d.toISOString().slice(0, 10);
+}
+
+function weeklySeries(values, maxWeeks = MAX_DIAGNOSTIC_WEEKS) {
+  const counts = new Map();
+  for (const value of values) {
+    const key = weekStartKey(value);
+    if (key) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const keys = [...counts.keys()].sort();
+  const total = [...counts.values()].reduce((a, b) => a + b, 0);
+  if (!keys.length) return { weeks: [], total_points: 0, shown_points: 0, truncated: false };
+  const first = Date.parse(`${keys[0]}T00:00:00Z`);
+  const last = Date.parse(`${keys[keys.length - 1]}T00:00:00Z`);
+  const start = Math.max(first, last - (maxWeeks - 1) * WEEK_MS);
+  const weeks = [];
+  for (let t = start; t <= last; t += WEEK_MS) {
+    const week = new Date(t).toISOString().slice(0, 10);
+    weeks.push({ week, count: counts.get(week) ?? 0 });
+  }
+  const shown = weeks.reduce((n, row) => n + row.count, 0);
+  return { weeks, total_points: total, shown_points: shown, truncated: shown < total };
+}
+
+// B9c 모양 진단(§4): graph/DB 의 metadata-only 재료를 한 번에 일괄 조인해 N+1 branch_story 호출을 피한다.
+// 진단은 설명 통계일 뿐 자동 판정/원장 쓰기가 아니다. 죽은 가지는 store 지식 조인이 가능한 경우에만
+// `closed + 교차가지/공유 source ref 0 + completion:<item> 지식 0`으로 보수 판정한다.
+function deriveContextDiagnostics({ project, branches, nodes, edges, sources, store = null, graphTruncated = false, graphNodeTotal = nodes.length }) {
+  const hasV2 = branches.some((b) => ["work", "history"].includes(String(b.branch_kind ?? "").trim()));
+  const scopedAll = branches.filter((b) => {
+    const kind = String(b.branch_kind ?? "legacy").trim() || "legacy";
+    return kind !== "skeleton" && (!hasV2 || kind !== "legacy");
+  });
+  const branchInputTruncated = scopedAll.length > MAX_DIAGNOSTIC_BRANCHES;
+  const scoped = scopedAll.slice(0, MAX_DIAGNOSTIC_BRANCHES);
+  const sourceInputTruncated = sources.length > MAX_DIAGNOSTIC_SOURCES;
+  const sourceRows = sources.slice(0, MAX_DIAGNOSTIC_SOURCES);
+  const diagnosticTruncated = graphTruncated || branchInputTruncated || sourceInputTruncated;
+  const scopeKeys = new Set(scoped.map((b) => b.branch_key));
+  const branchByKey = new Map(scoped.map((b) => [b.branch_key, b]));
+  const branchPrefix = `branch:${project}:`;
+  const sourceBranchKey = (s) => {
+    const direct = String(s.branch_key ?? "").trim();
+    if (scopeKeys.has(direct)) return direct;
+    const ref = String(s.branch_ref ?? "").trim();
+    const key = ref.startsWith(branchPrefix) ? ref.slice(branchPrefix.length) : ref;
+    return scopeKeys.has(key) ? key : null;
+  };
+
+  const itemBranches = new Map();
+  const addItemBranch = (itemId, branchKey) => {
+    const id = String(itemId ?? "").trim();
+    if (!id || !scopeKeys.has(branchKey)) return;
+    if (!itemBranches.has(id)) itemBranches.set(id, new Set());
+    itemBranches.get(id).add(branchKey);
+  };
+  for (const b of scoped) {
+    const anchor = String(b.anchor_ref ?? "");
+    if (anchor.startsWith("item:")) addItemBranch(anchor.slice(5), b.branch_key);
+  }
+  for (const n of nodes) {
+    const id = String(n.id ?? "");
+    if (id.startsWith("item:")) addItemBranch(id.slice(5), n.branch_key);
+  }
+  const itemIds = [...itemBranches.keys()];
+
+  const historyKeys = [...new Set(sourceRows.map((s) => String(s.external_ref ?? ""))
+    .filter((ref) => ref.startsWith("mailcsv:"))
+    .map((ref) => ref.slice("mailcsv:".length)))];
+  const mailByKey = store ? store.mailByHistoryKeys(historyKeys, { project }) : new Map();
+  const events = store ? store.eventsForItems(itemIds) : [];
+  const completions = store ? store.completionsForItems(itemIds) : [];
+  const assignments = store ? store.itemAssigneesForItems(itemIds) : [];
+  const promotions = store ? store.knowledgePromotionsForItems(itemIds) : [];
+  const resolvedItemIds = new Set(assignments.map((row) => String(row.id)));
+  const itemBackedBranches = new Set();
+  for (const itemId of resolvedItemIds) {
+    for (const key of itemBranches.get(itemId) ?? []) itemBackedBranches.add(key);
+  }
+
+  const pointDates = [];
+  let pointCount = 0;
+  const requestDates = [];
+  const counterpartCounts = new Map();
+  let receivedCount = 0;
+  let unknownCounterpartCount = 0;
+  let mailSourceCount = 0;
+  let mailJoinedCount = 0;
+  const sourceRefs = new Map(); // external_ref -> [{branch_key, at}]
+  const seenSources = new Set();
+  for (let i = 0; i < sourceRows.length; i++) {
+    const s = sourceRows[i];
+    const branchKey = sourceBranchKey(s);
+    if (!branchKey) continue;
+    const sourceId = String(s.source_id ?? "").trim() || `${branchKey}:${i}`;
+    if (seenSources.has(sourceId)) continue;
+    seenSources.add(sourceId);
+    const externalRef = String(s.external_ref ?? "").trim();
+    const historyKey = externalRef.startsWith("mailcsv:") ? externalRef.slice("mailcsv:".length) : null;
+    const mail = historyKey ? (mailByKey.get(historyKey) ?? null) : null;
+    if (historyKey) { mailSourceCount++; if (mail) mailJoinedCount++; }
+    const at = storedTimestampMs(mail?.at) != null ? mail.at : s.source_time || null;
+    if (externalRef) {
+      if (!sourceRefs.has(externalRef)) sourceRefs.set(externalRef, []);
+      sourceRefs.get(externalRef).push({ branch_key: branchKey, at });
+    }
+    pointCount++;
+    if (weekStartKey(at)) pointDates.push(at);
+    if (mail?.direction === "in") {
+      receivedCount++;
+      if (weekStartKey(at)) requestDates.push(at);
+      const counterpart = String(mail.counterpart ?? "").trim();
+      if (counterpart) counterpartCounts.set(counterpart, (counterpartCounts.get(counterpart) ?? 0) + 1);
+      else unknownCounterpartCount++;
+    }
+  }
+
+  const people = new Map();
+  const personRow = (ref) => {
+    const key = String(ref ?? "").trim();
+    if (!key) return null;
+    if (!people.has(key)) people.set(key, { person_ref: key, branch_keys: new Set(), point_count: 0, resolved_count: 0 });
+    return people.get(key);
+  };
+  for (const row of assignments) {
+    const p = personRow(row.assignee_ref);
+    if (!p) continue;
+    for (const key of itemBranches.get(String(row.id)) ?? []) p.branch_keys.add(key);
+  }
+  const seenEvents = new Set();
+  const doneEventItems = new Set();
+  for (const e of events) {
+    const branchesForItem = itemBranches.get(String(e.item_ref)) ?? new Set();
+    if (!branchesForItem.size) continue;
+    const eventKey = e.id ?? `${e.item_ref}:${e.kind}:${e.at}:${e.actor_ref}`;
+    if (seenEvents.has(eventKey)) continue;
+    seenEvents.add(eventKey);
+    if (e.actor_kind !== "human") continue;
+    pointCount++;
+    if (weekStartKey(e.at)) pointDates.push(e.at);
+    if (e.kind === "item_status" && String(e.to_val ?? "") === "done") doneEventItems.add(String(e.item_ref));
+    const p = personRow(e.actor_ref);
+    if (p) p.point_count++;
+  }
+  for (const row of completions) {
+    if (!doneEventItems.has(String(row.item_id))) {
+      pointCount++;
+      if (weekStartKey(row.done_at)) pointDates.push(row.done_at);
+    }
+    const p = personRow(row.completed_by ?? row.assignee_ref);
+    if (p) p.resolved_count++;
+  }
+
+  const references = new Map(scoped.map((b) => [b.branch_key, new Set()]));
+  const unknownTimeRelations = new Map(scoped.map((b) => [b.branch_key, new Set()]));
+  const nodeBranch = new Map(nodes.filter((n) => scopeKeys.has(n.branch_key)).map((n) => [n.id, n.branch_key]));
+  for (let i = 0; i < edges.length; i++) {
+    const from = nodeBranch.get(edges[i].from); const to = nodeBranch.get(edges[i].to);
+    if (!from || !to || from === to) continue;
+    const signature = `edge:${i}:${from}:${to}:${edges[i].type ?? ""}`;
+    // edge.created_at 은 생성기 실행 스탬프라 종결 뒤 재사용 시각으로 쓸 수 없다. 관계 존재만 unknown 으로 보존.
+    unknownTimeRelations.get(from)?.add(signature);
+    unknownTimeRelations.get(to)?.add(signature);
+  }
+  for (const [ref, rows] of sourceRefs) {
+    const keys = new Set(rows.map((row) => row.branch_key));
+    if (keys.size < 2) continue;
+    for (const key of keys) {
+      const closedMs = storedTimestampMs(branchByKey.get(key)?.closed_at);
+      const others = rows.filter((row) => row.branch_key !== key);
+      const reusedAfterClose = closedMs != null && others.some((row) => {
+        const ms = storedTimestampMs(row.at);
+        return ms != null && ms > closedMs;
+      });
+      if (reusedAfterClose) references.get(key)?.add(`source:${ref}`);
+      else if (closedMs != null && others.some((row) => storedTimestampMs(row.at) == null)) unknownTimeRelations.get(key)?.add(`source-undated:${ref}`);
+    }
+  }
+  const knowledgeByBranch = new Map(scoped.map((b) => [b.branch_key, new Set()]));
+  for (const row of promotions) {
+    for (const key of itemBranches.get(String(row.item_id)) ?? []) knowledgeByBranch.get(key)?.add(row.knowledge_id);
+  }
+  const branchSignals = scoped.map((b) => {
+    const kind = String(b.branch_kind ?? "legacy");
+    const closedAtMs = storedTimestampMs(b.closed_at);
+    const closed = b.status === "closed" || closedAtMs != null;
+    const referenceCount = references.get(b.branch_key)?.size ?? 0;
+    const unknownRelationCount = unknownTimeRelations.get(b.branch_key)?.size ?? 0;
+    const knowledgeCount = knowledgeByBranch.get(b.branch_key)?.size ?? 0;
+    const deadEligible = kind === "work" && closedAtMs != null && itemBackedBranches.has(b.branch_key);
+    let followupState = "unknown";
+    if (!closed) followupState = "open";
+    else if (knowledgeCount > 0 || referenceCount > 0) followupState = "reused_observed";
+    else if (Boolean(store) && !diagnosticTruncated && deadEligible && unknownRelationCount === 0) followupState = "no_followup_observed";
+    return {
+      branch_key: b.branch_key, label: b.label || b.branch_key, branch_kind: kind,
+      status: b.status || null, closed_at: b.closed_at || null,
+      reference_count: referenceCount, relation_unknown_time_count: unknownRelationCount, knowledge_count: knowledgeCount,
+      dead_eligible: deadEligible,
+      followup_state: followupState,
+      dead: followupState === "no_followup_observed", // UI backward-compatible alias; label remains candidate/observed ceiling.
+    };
+  });
+  const deadAll = branchSignals.filter((b) => b.dead).sort((a, b) => String(b.closed_at ?? "").localeCompare(String(a.closed_at ?? "")));
+  const heatmap = weeklySeries(pointDates);
+  const requestSeries = weeklySeries(requestDates);
+  const peopleAll = [...people.values()].map((p) => ({
+    person_ref: p.person_ref, branch_count: p.branch_keys.size, point_count: p.point_count, resolved_count: p.resolved_count,
+  })).sort((a, b) => (b.resolved_count - a.resolved_count) || (b.point_count - a.point_count) || (b.branch_count - a.branch_count) || a.person_ref.localeCompare(b.person_ref, "ko"));
+  const peopleRows = peopleAll.slice(0, 20);
+  const counterpartAll = [...counterpartCounts].map(([counterpart, count]) => ({ counterpart, count }))
+    .sort((a, b) => (b.count - a.count) || a.counterpart.localeCompare(b.counterpart, "ko"));
+  const counterparts = counterpartAll.slice(0, 12);
+  const closedCount = branchSignals.filter((b) => b.status === "closed" || b.closed_at).length;
+  const proposedCount = branchSignals.filter((b) => b.status === "proposed").length;
+  const referenceObserved = branchSignals.reduce((n, b) => n + b.reference_count, 0);
+  const relationUnknownTime = branchSignals.reduce((n, b) => n + b.relation_unknown_time_count, 0);
+  const knowledgeObserved = branchSignals.reduce((n, b) => n + b.knowledge_count, 0);
+
+  return {
+    schema: CONTEXT_DIAGNOSTICS_SCHEMA,
+    content_policy: "metadata_only",
+    read_only: true,
+    interpretation: "descriptive_only",
+    basis: {
+      timezone: "Asia/Seoul",
+      point_kinds: ["source", "item_event", "completion_fallback"],
+      omitted_kinds: ["deliverable_registration_no_authoritative_timestamp"],
+      person_identity: "exact_ref_no_alias_merge",
+      reference_coverage: "partial_exact_graph_and_shared_source_only",
+    },
+    scope: { mode: hasV2 ? "v2_non_skeleton" : "legacy_non_skeleton", legacy_excluded: hasV2 ? branches.filter((b) => String(b.branch_kind ?? "legacy") === "legacy").length : 0 },
+    coverage: {
+      store_join: Boolean(store), item_count: itemIds.length,
+      item_refs_resolved: resolvedItemIds.size, item_refs_unresolved: Math.max(0, itemIds.length - resolvedItemIds.size),
+      dated_points: heatmap.total_points, undated_points: Math.max(0, pointCount - heatmap.total_points),
+      mail_sources: mailSourceCount, mail_joined: mailJoinedCount, mail_unresolved: mailSourceCount - mailJoinedCount,
+      post_close_references_observed: referenceObserved, relation_time_unknown: relationUnknownTime, completion_knowledge_observed: knowledgeObserved,
+      dead_classification: !store ? "withheld_without_store" : diagnosticTruncated ? "withheld_input_truncated" : "closed_at_item_exact_completion_ref_and_post_close_evidence",
+      graph_nodes_shown: nodes.length, graph_nodes_total: graphNodeTotal,
+      branch_inputs_shown: scoped.length, branch_inputs_total: scopedAll.length,
+      source_inputs_shown: sourceRows.length, source_inputs_total: sources.length,
+      branch_input_truncated: branchInputTruncated, source_input_truncated: sourceInputTruncated,
+      people_truncated: peopleAll.length > peopleRows.length, counterparts_truncated: counterpartAll.length > counterparts.length,
+      people_shown: peopleRows.length, people_total: peopleAll.length,
+      counterparts_shown: counterparts.length, counterparts_total: counterpartAll.length,
+      dead_list_shown: Math.min(deadAll.length, 60), dead_list_truncated: deadAll.length > 60,
+    },
+    shape: {
+      branch_count: branchSignals.length, open_count: branchSignals.length - closedCount,
+      closed_count: closedCount, proposed_count: proposedCount, dead_count: deadAll.length,
+      point_count: pointCount, points_per_branch: branchSignals.length ? Number((pointCount / branchSignals.length).toFixed(1)) : 0,
+    },
+    branch_signals: branchSignals,
+    dead_branches: deadAll.slice(0, 60),
+    heatmap,
+    people: peopleRows,
+    requests: {
+      received_count: receivedCount, unknown_counterpart_count: unknownCounterpartCount,
+      dated_count: requestSeries.total_points, shown_dated_count: requestSeries.shown_points,
+      undated_count: Math.max(0, receivedCount - requestSeries.total_points),
+      counterparts, weeks: requestSeries.weeks, truncated: requestSeries.truncated,
+    },
+  };
 }
 
 export function listContextProjects(root) {
@@ -35,7 +332,7 @@ export function listContextProjects(root) {
   return out.sort();
 }
 
-export function buildContextGraph(root, projectRaw) {
+export function buildContextGraph(root, projectRaw, { store = null } = {}) {
   const project = String(projectRaw ?? "").trim();
   if (!PROJECT_SEG_RE.test(project) || project.includes("..")) return { error: "project_invalid" };
   const dir = join(resolve(root), "_workmeta", project, "project_context");
@@ -43,6 +340,7 @@ export function buildContextGraph(root, projectRaw) {
 
   const nodesRaw = readCsvObjects(join(dir, "nodes.csv"));
   const edgesRaw = readCsvObjects(join(dir, "edges.csv"));
+  const sourcesRaw = readCsvObjects(join(dir, "sources.csv"));
   const branchMeta = new Map(readCsvObjects(join(dir, "branches.csv")).map((b) => [b.branch_key, b]));
   const branches = readCsvObjects(join(dir, "summaries", "branch_summaries.csv")).map((b) => ({
     ...(branchMeta.get(b.branch_key) || {}),
@@ -95,6 +393,7 @@ export function buildContextGraph(root, projectRaw) {
       from: e.from_node_id, to: e.to_node_id, type: e.edge_type,
       confidence: e.confidence || null,
     }));
+  const diagnostics = deriveContextDiagnostics({ project, branches, nodes, edges, sources: sourcesRaw, store, graphTruncated: truncated, graphNodeTotal: nodesRaw.length });
 
   const byType = {};
   for (const n of nodes) byType[n.type] = (byType[n.type] ?? 0) + 1;
@@ -105,7 +404,7 @@ export function buildContextGraph(root, projectRaw) {
     schema: CONTEXT_GRAPH_SCHEMA,
     generated_from: "soulforge.project_context.v0",
     content_policy: "metadata_only",
-    project, nodes, edges, branches, occurrences,
+    project, nodes, edges, branches, occurrences, diagnostics,
     counts: { by_node_type: byType, edge_count: edges.length, open_reviews: openReviews, stem_occurrences: occurrences.length, truncated },
   };
 }
@@ -135,7 +434,7 @@ export function buildBranchStory(root, projectRaw, branchRaw, { store = null, ma
     .map((s) => String(s.external_ref ?? ""))
     .filter((r) => r.startsWith("mailcsv:"))
     .map((r) => r.slice("mailcsv:".length)))];
-  const mailByKey = store ? store.mailByHistoryKeys(historyKeys) : new Map();
+  const mailByKey = store ? store.mailByHistoryKeys(historyKeys, { project }) : new Map();
   const points = sources.map((s) => {
     const ref = String(s.external_ref ?? "");
     const mail = ref.startsWith("mailcsv:") ? (mailByKey.get(ref.slice("mailcsv:".length)) ?? null) : null;
