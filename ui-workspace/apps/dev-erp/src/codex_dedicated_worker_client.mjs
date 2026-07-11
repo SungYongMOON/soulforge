@@ -295,6 +295,37 @@ function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+export function verifyCodexWorkerTurnSelection(result, {
+  requestedModel,
+  selectionOrigin,
+  requestedEffort,
+} = {}) {
+  if (!isRecord(result)) return { ok: false };
+  const origin = String(selectionOrigin || "");
+  const effectiveModel = typeof result.model === "string" ? result.model : null;
+  const autoModelAllowed = origin === "auto"
+    && (effectiveModel === "gpt-5.5" || /^gpt-5\.6(?:-|$)/.test(effectiveModel || ""));
+  const modelMatches = origin === "auto" ? autoModelAllowed : effectiveModel === requestedModel;
+  const modelFallback = origin === "auto" && effectiveModel === "gpt-5.5";
+  const effortUnchanged = result.effort === requestedEffort;
+  const effortFallback = !effortUnchanged
+    && modelFallback
+    && /^gpt-5\.6(?:-|$)/.test(String(requestedModel || ""))
+    && typeof result.effort === "string"
+    && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(result.effort);
+  return {
+    ok: result.requested_model === requestedModel
+      && result.model_selection_origin === origin
+      && modelMatches
+      && result.model_fallback === modelFallback
+      && (effortUnchanged || effortFallback),
+    effectiveModel,
+    effectiveEffort: typeof result.effort === "string" ? result.effort : null,
+    modelFallback,
+    effortFallback,
+  };
+}
+
 function hasExactFields(value, fields) {
   return isRecord(value)
     && Object.keys(value).length === fields.length

@@ -1414,12 +1414,25 @@ export function selectWorkerTurnModel(catalog, request) {
   if (request.model_selection_origin === "auto" && !preferredModel) {
     fail("codex_required_model_unavailable", 503);
   }
+  const automaticGpt55Fallback = request.model_selection_origin === "auto"
+    && preferredModel === "gpt-5.5"
+    && /^gpt-5\.6(?:-|$)/.test(String(request.model || ""));
   let selected = resolveCodexModelSelection(catalog.models, {
     model: request.model_selection_origin === "auto" ? null : request.model,
     effort: request.effort,
     preferredModel,
     preferredEffort: "high",
   });
+  let effortFallback = false;
+  if (!selected.ok && selected.error === "unsupported_codex_effort" && automaticGpt55Fallback) {
+    selected = resolveCodexModelSelection(catalog.models, {
+      model: null,
+      effort: null,
+      preferredModel,
+      preferredEffort: "high",
+    });
+    effortFallback = selected.ok && selected.effort !== request.effort;
+  }
   if (!selected.ok) fail(selected.error, 400);
   let serviceTier = null;
   if (request.service_tier) {
@@ -1433,6 +1446,7 @@ export function selectWorkerTurnModel(catalog, request) {
     requestedModel: request.model,
     selectionOrigin: request.model_selection_origin,
     modelFallback: request.model_selection_origin === "auto" && selected.model === "gpt-5.5",
+    effortFallback,
   };
 }
 

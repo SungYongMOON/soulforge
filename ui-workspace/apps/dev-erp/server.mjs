@@ -65,7 +65,11 @@ import {
 } from "./src/codex_attachment_registry.mjs";
 import { createCodexMessagePayloadStore } from "./src/codex_message_payload_store.mjs";
 import { filesystemIdentity, inspectCodexPayloadOwner } from "./src/codex_payload_owner.mjs";
-import { CodexDedicatedWorkerClient, codexWorkerReleaseBindingRevision } from "./src/codex_dedicated_worker_client.mjs";
+import {
+  CodexDedicatedWorkerClient,
+  codexWorkerReleaseBindingRevision,
+  verifyCodexWorkerTurnSelection,
+} from "./src/codex_dedicated_worker_client.mjs";
 import { CODEX_DEDICATED_WORKER_VERSION, readWorkerIdentity } from "./src/codex_dedicated_worker.mjs";
 import { buildMorningBrief, hasContent, localDateKey, runMorningBriefCycle } from "./src/morning_brief.mjs";
 import { buildKnowledgeOverview, readWikiPage } from "./src/knowledge_overview.mjs";
@@ -1918,18 +1922,15 @@ async function runConfiguredCodexTaskTurn({
     if (!postHealth.ready || postHealth.instance_revision !== health.instance_revision) {
       throw new Error("codex_worker_turn_attestation_mismatch");
     }
-    const autoModelAllowed = modelSelectionOrigin === "auto"
-      && (result.model === "gpt-5.5" || /^gpt-5\.6(?:-|$)/.test(String(result.model || "")));
-    const modelMatches = modelSelectionOrigin === "auto" ? autoModelAllowed : result.model === model;
-    const expectedModelFallback = modelSelectionOrigin === "auto" && result.model === "gpt-5.5";
+    const turnSelection = verifyCodexWorkerTurnSelection(result, {
+      requestedModel: model,
+      selectionOrigin: modelSelectionOrigin,
+      requestedEffort: effort,
+    });
     if (typeof result.thread_ref !== "string" || !result.thread_ref.startsWith("dwr2.")
         || result.workspace_id !== workspace.workspace_id
         || result.workspace_revision !== workspace.mapping_revision
-        || result.requested_model !== model
-        || result.model_selection_origin !== modelSelectionOrigin
-        || !modelMatches
-        || result.model_fallback !== expectedModelFallback
-        || result.effort !== effort
+        || !turnSelection.ok
         || result.effective_access !== (relativeWritePrefixes.length ? "workspace-write" : "read-only")
         || JSON.stringify(result.relative_write_prefixes || []) !== JSON.stringify(relativeWritePrefixes)) {
       throw new Error("codex_worker_response_mismatch");
@@ -1940,8 +1941,10 @@ async function runConfiguredCodexTaskTurn({
       created: result.created === true,
       threadId: result.thread_ref,
       text: String(result.text || ""),
-      effectiveModel: result.model,
-      modelFallback: result.model_fallback === true,
+      effectiveModel: turnSelection.effectiveModel,
+      effectiveEffort: turnSelection.effectiveEffort,
+      modelFallback: turnSelection.modelFallback,
+      effortFallback: turnSelection.effortFallback,
     };
   }
   const result = await runCodexTaskTurn({
@@ -1962,7 +1965,13 @@ async function runConfiguredCodexTaskTurn({
     writableRoots: access.writable_roots,
     signal,
   });
-  return { ...result, effectiveModel: model, modelFallback: false };
+  return {
+    ...result,
+    effectiveModel: model,
+    effectiveEffort: effort,
+    modelFallback: false,
+    effortFallback: false,
+  };
 }
 
 async function createCodexTaskThread({
@@ -3027,7 +3036,7 @@ const server = createServer(async (req, res) => {
           item_ref: item.id, project_ref: item.project_id, to: "completed",
           used_refs: ["items", "codex_task_thread", ...(access.grant_refs.length ? ["codex_workspace_write_grant"] : [])],
           data_label: "meta",
-          note: `workspace_id=${workspace.workspace_id};sandbox=${access.sandbox_mode};requested_model=${selection.model};effective_model=${result.effectiveModel};model_origin=${selection.selection_origin}`,
+          note: `workspace_id=${workspace.workspace_id};sandbox=${access.sandbox_mode};requested_model=${selection.model};effective_model=${result.effectiveModel};model_origin=${selection.selection_origin};requested_effort=${selection.effort};effective_effort=${result.effectiveEffort};effort_fallback=${result.effortFallback ? 1 : 0}`,
         });
         const audit = store.finishCodexTurnAudit({
           audit_id: startedAudit.audit.id,

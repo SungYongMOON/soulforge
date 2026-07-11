@@ -277,8 +277,10 @@ ERP는 모델 이름을 하드코딩하지 않고 전용 worker가 연결한 `co
 `model/list`를 캐시로 읽는다. 따라서 **worker identity의 Codex 계정**이 GPT-5.6을
 제공하면 해당 slug와 모델별 reasoning effort가 UI에 나타나고 기본 선택도 5.6이 된다.
 실제 turn 직전 worker의 최신 목록에서 자동 선택한 5.6이 사라진 경우에만 GPT-5.5로
-내린다. 사용자가 5.6을 직접 선택했다면 몰래 바꾸지 않고 오류로 중단한다. 감사 장부에는
-요청 모델, 실제 모델, 자동/직접 선택, fallback 여부를 각각 기록한다.
+내린다. 이때 기존 effort가 GPT-5.5에 없으면 GPT-5.5가 실제 광고한 effort 중 `high`,
+모델 기본값, 첫 허용값 순으로 다시 선택한다. effort 변경도 turn 결과 metadata에 남긴다.
+사용자가 5.6을 직접 선택했다면 모델이나 effort를 몰래 바꾸지 않고 오류로 중단한다.
+감사 장부에는 요청 모델, 실제 모델, 자동/직접 선택, fallback 여부를 각각 기록한다.
 
 현재 Codex CLI가 호스트 설정을 파싱하지 못하면 ERP가 `~/.codex/config.toml`을
 자동 편집하지 않는다. 예를 들어 더 이상 지원되지 않는

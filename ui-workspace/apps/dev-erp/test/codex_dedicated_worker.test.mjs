@@ -19,6 +19,7 @@ import {
   CodexDedicatedWorkerClient,
   CodexDedicatedWorkerClientError,
   verifyCodexDedicatedWorkerAttestation,
+  verifyCodexWorkerTurnSelection,
 } from "../src/codex_dedicated_worker_client.mjs";
 import {
   createAttachmentManifest,
@@ -64,6 +65,16 @@ test("auto model selection upgrades a stale GPT-5.5 request when fresh GPT-5.6 i
   }, request);
   assert.equal(fallbackDespiteOtherDefault.model, "gpt-5.5");
   assert.equal(fallbackDespiteOtherDefault.modelFallback, true);
+  const effortFallback = selectWorkerTurnModel({
+    models: [model("gpt-5.5", true)],
+  }, {
+    ...request,
+    model: "gpt-5.6-sol",
+    effort: "ultra",
+  });
+  assert.equal(effortFallback.model, "gpt-5.5");
+  assert.equal(effortFallback.effort, "medium");
+  assert.equal(effortFallback.effortFallback, true);
   assert.throws(
     () => selectWorkerTurnModel({ models: [model("gpt-5.4", true)] }, request),
     /codex_required_model_unavailable/,
@@ -74,6 +85,47 @@ test("auto model selection upgrades a stale GPT-5.5 request when fresh GPT-5.6 i
   });
   assert.equal(explicit.model, "gpt-5.5");
   assert.equal(explicit.modelFallback, false);
+  assert.throws(
+    () => selectWorkerTurnModel({ models: [model("gpt-5.5", true)] }, {
+      ...request,
+      model_selection_origin: "explicit",
+      effort: "ultra",
+    }),
+    /unsupported_codex_effort/,
+  );
+});
+
+test("worker response permits effort reselection only for automatic GPT-5.6 to GPT-5.5 fallback", () => {
+  const result = {
+    requested_model: "gpt-5.6-sol",
+    model: "gpt-5.5",
+    model_selection_origin: "auto",
+    model_fallback: true,
+    effort: "high",
+  };
+  const verified = verifyCodexWorkerTurnSelection(result, {
+    requestedModel: "gpt-5.6-sol",
+    selectionOrigin: "auto",
+    requestedEffort: "ultra",
+  });
+  assert.equal(verified.ok, true);
+  assert.equal(verified.effectiveEffort, "high");
+  assert.equal(verified.effortFallback, true);
+  assert.equal(verifyCodexWorkerTurnSelection(result, {
+    requestedModel: "gpt-5.6-sol",
+    selectionOrigin: "explicit",
+    requestedEffort: "ultra",
+  }).ok, false);
+  assert.equal(verifyCodexWorkerTurnSelection({ ...result, effort: "bad effort" }, {
+    requestedModel: "gpt-5.6-sol",
+    selectionOrigin: "auto",
+    requestedEffort: "ultra",
+  }).ok, false);
+  assert.equal(verifyCodexWorkerTurnSelection({ ...result, requested_model: "gpt-5.5" }, {
+    requestedModel: "gpt-5.5",
+    selectionOrigin: "auto",
+    requestedEffort: "ultra",
+  }).ok, false);
 });
 
 function hmacRequestHeaders({
@@ -888,13 +940,14 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
       user_message: "",
       model: "gpt-5.6",
       model_selection_origin: "auto",
-      effort: "medium",
+      effort: "ultra",
       timeout_ms: 5000,
     });
     assert.equal(autoFallback.requested_model, "gpt-5.6");
     assert.equal(autoFallback.model, "gpt-5.5");
     assert.equal(autoFallback.model_selection_origin, "auto");
     assert.equal(autoFallback.model_fallback, true);
+    assert.equal(autoFallback.effort, "high");
 
     await assert.rejects(
       turnWithBinding(client, rootBinding, {

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### dev-ERP GPT-5.6 자동 fallback effort 호환
+
+- 실제 turn 직전 자동 선택한 GPT-5.6이 사라져 정확한 GPT-5.5로 내려갈 때, 기존
+  reasoning effort가 GPT-5.5 catalog에 없으면 `high`, 모델 기본값, 첫 허용값 순으로
+  호환 effort를 다시 선택한다. 이 예외는 자동 GPT-5.6→GPT-5.5 전환에만 허용하고,
+  직접 선택한 모델·같은 모델의 잘못된 effort·비정상 worker 응답은 계속 중단한다.
+  worker selection과 ERP 응답 검증 양쪽에 회귀 테스트를 추가했다. (worker: codex_gpt-5)
+
 ### 수락된 음성 보관함 manifest → dev-ERP 할일 검토 후보
 
 - recording-library manifest의 책임자 수락 route만 기존 `할일_장부.csv`에
