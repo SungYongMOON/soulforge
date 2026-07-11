@@ -135,6 +135,11 @@ notice/consent, enrollment, access, retention, revocation, and human correction
 rules. Model training is not required for the first lane; diarization plus
 reviewed embedding matching is sufficient for a pilot.
 
+Use the public-safe
+[`team_speaker_enrollment_reading_script.ko.md`](examples/voice_capture/team_speaker_enrollment_reading_script.ko.md)
+for the first team enrollment pilot. Actual names, ID mappings, recordings, and
+voice embeddings remain local payloads and are not part of the example.
+
 ## Non-Goals
 
 - No model training.
