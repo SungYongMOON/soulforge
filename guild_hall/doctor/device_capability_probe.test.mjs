@@ -19,6 +19,7 @@ test("darwin fixture reports aggregate capabilities without disclosing configure
     identity: {
       schema_version: "soulforge.local_node.v0",
       node_role: "work_pc",
+      bootstrap_profile: "owner-with-state",
       node_id: "SENTINEL_NODE_ID",
       capability_probe: {
         cloud_roots: {
@@ -61,6 +62,7 @@ test("darwin fixture reports aggregate capabilities without disclosing configure
     identity_status: "present",
     identity_schema: "soulforge.local_node.v0",
     role: "work_pc",
+    profile: "owner-with-state",
     platform: "darwin",
     arch: "arm64",
   });
@@ -125,7 +127,8 @@ test("win32 fixture uses fixed app and process candidates", async () => {
   assert.equal(report.cloud_apps.onedrive.installed, false);
   assert.equal(report.cloud_apps.google_drive.status, "installed");
   assert.equal(report.cloud_apps.google_drive.running, false);
-  assert.equal(report.workspace_links.status, "not_configured");
+  assert.equal(report.workspace_links.status, "skipped");
+  assert.equal(report.workspace_links.reason_code, "workspace_audit_not_in_profile");
   assert.equal(report.repository.dirty_count, 0);
   assertPrivacyBoundary(report, ["SENTINEL", "GoogleDriveFS.exe"]);
 });
@@ -136,6 +139,7 @@ test("NAS and receipt aggregates distinguish reachable, missing, timeout, fresh,
     identity: {
       schema_version: "soulforge.local_node.v0",
       node_role: "tool_pc",
+      bootstrap_profile: "owner-with-state",
       capability_probe: {
         nas_targets: ["nas-reachable", "nas-missing", "nas-timeout"],
         sync_receipts: [
@@ -184,6 +188,7 @@ test("default workspace audit is timeout-bounded and does not disclose child err
     identity: {
       schema_version: "soulforge.local_node.v0",
       node_role: "always_on_node",
+      bootstrap_profile: "owner-with-state",
     },
     runCommand: (command, args, options) => {
       if (command === process.execPath && args.includes("guild_hall/workspace_junction/cli.mjs")) {
@@ -204,9 +209,150 @@ test("default workspace audit is timeout-bounded and does not disclose child err
   assertPrivacyBoundary(report, ["SENTINEL_STALLED_TARGET"]);
 });
 
+test("explicit public-only profile skips private workspace and local capability bindings", async () => {
+  let workspaceAuditCalled = false;
+  let pathProbeCalled = false;
+  let receiptProbeCalled = false;
+  const report = await buildDeviceCapabilityProbe({
+    profile: "public-only",
+    identity: {
+      schema_version: "soulforge.local_node.v0",
+      node_role: "always_on_node",
+      bootstrap_profile: "owner-with-state",
+      capability_probe: {
+        cloud_roots: { onedrive: "SENTINEL_PRIVATE_CLOUD_ROOT" },
+        dev_erp_loopback: true,
+        nas_targets: ["SENTINEL_PRIVATE_NAS"],
+        sync_receipts: ["SENTINEL_PRIVATE_RECEIPT"],
+      },
+    },
+    workspaceAudit: () => {
+      workspaceAuditCalled = true;
+      return { status: "passed" };
+    },
+    runCommand: darwinCommandFixture({ dirty: false }),
+    fetcher: async () => ({ ok: false }),
+    pathProbe: () => {
+      pathProbeCalled = true;
+      return "reachable";
+    },
+    receiptProbe: () => {
+      receiptProbeCalled = true;
+      return { status: "present", mtimeMs: Date.now() };
+    },
+  });
+
+  assert.equal(report.node.profile, "public-only");
+  assert.equal(report.workspace_links.status, "skipped");
+  assert.equal(report.workspace_links.reason_code, "workspace_audit_not_in_profile");
+  assert.equal(report.cloud_apps.onedrive.root_configured, false);
+  assert.equal(report.dev_erp_loopback.status, "not_configured");
+  assert.equal(report.nas.status, "not_configured");
+  assert.equal(report.sync_receipts.status, "not_configured");
+  assert.equal(report.boundary.private_binding_checks_executed, false);
+  assert.equal(workspaceAuditCalled, false);
+  assert.equal(pathProbeCalled, false);
+  assert.equal(receiptProbeCalled, false);
+  assertPrivacyBoundary(report, ["SENTINEL"]);
+});
+
+test("explicit operator profile also skips private workspace and local capability bindings", async () => {
+  let privateProbeCalled = false;
+  const report = await buildDeviceCapabilityProbe({
+    profile: "operator",
+    identity: {
+      schema_version: "soulforge.local_node.v0",
+      node_role: "always_on_node",
+      bootstrap_profile: "owner-with-state",
+      capability_probe: {
+        nas_targets: ["SENTINEL_PRIVATE_NAS"],
+        sync_receipts: ["SENTINEL_PRIVATE_RECEIPT"],
+      },
+    },
+    workspaceAudit: () => {
+      privateProbeCalled = true;
+      return { status: "passed" };
+    },
+    runCommand: darwinCommandFixture({ dirty: false }),
+    fetcher: async () => ({ ok: false }),
+    pathProbe: () => {
+      privateProbeCalled = true;
+      return "reachable";
+    },
+    receiptProbe: () => {
+      privateProbeCalled = true;
+      return { status: "present", mtimeMs: Date.now() };
+    },
+  });
+
+  assert.equal(report.node.profile, "operator");
+  assert.equal(report.workspace_links.reason_code, "workspace_audit_not_in_profile");
+  assert.equal(report.nas.status, "not_configured");
+  assert.equal(report.sync_receipts.status, "not_configured");
+  assert.equal(report.boundary.private_binding_checks_executed, false);
+  assert.equal(privateProbeCalled, false);
+  assertPrivacyBoundary(report, ["SENTINEL"]);
+});
+
+test("invalid explicit profile fails closed instead of falling back to owner identity", async () => {
+  let privateProbeCalled = false;
+  const report = await buildDeviceCapabilityProbe({
+    profile: "invalid-owner-like-profile",
+    identity: {
+      schema_version: "soulforge.local_node.v0",
+      node_role: "work_pc",
+      bootstrap_profile: "owner-with-state",
+      capability_probe: { nas_targets: ["SENTINEL_PRIVATE_NAS"] },
+    },
+    workspaceAudit: () => {
+      privateProbeCalled = true;
+      return { status: "passed" };
+    },
+    pathProbe: () => {
+      privateProbeCalled = true;
+      return "reachable";
+    },
+    runCommand: darwinCommandFixture({ dirty: false }),
+    fetcher: async () => ({ ok: false }),
+  });
+
+  assert.equal(report.node.profile, "public-only");
+  assert.equal(report.workspace_links.reason_code, "workspace_audit_not_in_profile");
+  assert.equal(report.nas.status, "not_configured");
+  assert.equal(privateProbeCalled, false);
+});
+
+test("malformed local identity cannot establish owner profile", async () => {
+  let privateProbeCalled = false;
+  const report = await buildDeviceCapabilityProbe({
+    identity: {
+      schema_version: "malformed.local.node",
+      node_role: "work_pc",
+      bootstrap_profile: "owner-with-state",
+      capability_probe: { nas_targets: ["SENTINEL_PRIVATE_NAS"] },
+    },
+    workspaceAudit: () => {
+      privateProbeCalled = true;
+      return { status: "passed" };
+    },
+    pathProbe: () => {
+      privateProbeCalled = true;
+      return "reachable";
+    },
+    runCommand: darwinCommandFixture({ dirty: false }),
+    fetcher: async () => ({ ok: false }),
+  });
+
+  assert.equal(report.node.identity_schema, "unknown");
+  assert.equal(report.node.profile, "public-only");
+  assert.equal(report.workspace_links.reason_code, "workspace_audit_not_in_profile");
+  assert.equal(report.nas.status, "not_configured");
+  assert.equal(privateProbeCalled, false);
+});
+
 test("CLI device capability branch leaves doctor status and Git index untouched", () => {
   const before = localStateSnapshot();
-  const execution = spawnSync(process.execPath, ["guild_hall/doctor/cli.mjs", "--device-capabilities", "--json"], {
+  const execution = spawnSync(process.execPath, ["guild_hall/doctor/cli.mjs", "--profile", "public-only", "--device-capabilities", "--json"], {
     cwd: REPO_ROOT,
     encoding: "utf8",
     timeout: 10000,
@@ -217,6 +363,8 @@ test("CLI device capability branch leaves doctor status and Git index untouched"
   const report = JSON.parse(execution.stdout);
   assert.equal(report.schema_version, "soulforge.device_capability_probe.v0");
   assert.equal(report.boundary.status_file_written, false);
+  assert.equal(report.boundary.private_binding_checks_executed, false);
+  assert.equal(report.workspace_links.reason_code, "workspace_audit_not_in_profile");
   assert.deepEqual(after, before);
 });
 

@@ -35,6 +35,7 @@
 - `--json` 출력은 `schema_version`, `summary`, `results`, `next_steps` 를 포함하는 bootstrap doctor v0 계약을 따른다.
 - `--device-capabilities --json` 은 별도 `soulforge.device_capability_probe.v0` 계약을 출력하고 항상 advisory 로 취급한다.
 - device capability 모드는 checklist 를 읽지 않고 readiness, `--remote`, `--live` 를 실행하지 않는다. 관찰된 optional input 의 missing/unknown 은 readiness failure 가 아니다.
+- device capability 모드는 명시된 유효 `--profile`을 우선하고, 없으면 schema·role·profile이 모두 유효한 local identity, 그것도 없으면 `public-only`를 사용한다. invalid explicit profile이나 malformed identity는 owner identity로 fallback하지 않고 `public-only`로 fail closed한다. `public-only`와 `operator`에서는 `_workmeta` workspace binding과 local capability path/NAS/receipt 설정을 읽거나 probe하지 않는다.
 - `operator`, `owner-with-state` 프로필에서는 `guild_hall/state/local/node_identity.yaml` 이 현재 PC 역할, bootstrap profile, active Soulforge root 를 올바르게 가리키는지 확인한다.
 - `--remote` 는 GitHub auth, public/private repo remote 연결, `origin/main` 대비 최신 상태를 점검한다.
 - `--profile operator` 는 private repo 없이 local operator env 와 smoke/live 를 점검한다.
@@ -58,7 +59,7 @@ capability_probe:
       max_age_hours: 24
 ```
 
-cloud app/process 탐지는 macOS와 Windows의 고정 후보만 확인한다. loopback probe 는 Ollama `127.0.0.1:11434`와, 설정된 경우 dev-ERP `127.0.0.1:4300`만 사용한다. NAS와 receipt 접근에는 bounded timeout 을 적용하고, workspace junction audit도 timeout-bounded child process로 격리한다. Git 관찰 명령은 `GIT_OPTIONAL_LOCKS=0`으로 index stat-cache write를 막는다. 미설정 optional input 은 `not_configured`, 판별할 수 없는 상태는 `unknown` 으로 보고한다.
+cloud app/process 탐지는 macOS와 Windows의 고정 후보만 확인한다. loopback probe 는 Ollama `127.0.0.1:11434`와, `owner-with-state`에서 설정된 경우 dev-ERP `127.0.0.1:4300`만 사용한다. `owner-with-state` NAS와 receipt 접근에는 bounded timeout 을 적용하고, workspace junction audit도 timeout-bounded child process로 격리한다. Git 관찰 명령은 `GIT_OPTIONAL_LOCKS=0`으로 index stat-cache write를 막는다. profile 밖 private binding은 `skipped`, 미설정 optional input은 `not_configured`, 판별할 수 없는 상태는 `unknown` 으로 보고한다.
 
 ## 관련 경로
 

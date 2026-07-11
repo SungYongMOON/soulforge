@@ -1,7 +1,7 @@
 interface:
   display_name: "Soulforge GitHub Down"
-  short_description: "Download/update Soulforge from GitHub."
-  default_prompt: "Use $soulforge-github-down to run GitHub down through the registered latest-update workflow, including public/_workmeta/private-state freshness, skill sync, junction status, readiness checks, and blockers."
+  short_description: "Update Soulforge and prepare this PC."
+  default_prompt: "Use $soulforge-github-down to update Soulforge, inspect this PC's role and capabilities, and prepare the work it can safely perform."
 
 policy:
   allow_implicit_invocation: true

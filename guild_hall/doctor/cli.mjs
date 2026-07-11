@@ -38,7 +38,7 @@ const supportedNodeRoles = new Set(["work_pc", "tool_pc", "portable_dev_pc", "de
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args["device-capabilities"]) {
-    const report = await buildDeviceCapabilityProbe({ repoRoot, identityPath: nodeIdentityPath });
+    const report = await buildDeviceCapabilityProbe({ repoRoot, identityPath: nodeIdentityPath, profile: args.profile });
     if (args.json) {
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     } else {

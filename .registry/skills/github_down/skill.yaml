@@ -2,32 +2,39 @@ skill_id: github_down
 kind: skill
 status: active
 title: GitHub Down
-summary: Route Soulforge GitHub download/update requests to the registered latest-update workflow without moving policy out of workflow canon.
+summary: Route Soulforge update and current-PC preparation requests through the registered update workflow, then translate the established local profile and read-only capabilities into safe next work.
 behavior:
   intent: >
-    Provide the Codex-facing bridge for GitHub down operations. The source
-    procedure remains `.workflow/latest_update_sync_and_followup_v0`; this skill
-    maps user download/update language to that workflow and keeps public,
-    `_workmeta`, and `private-state` repo boundaries explicit.
+    Provide the Codex-facing bridge for GitHub down and current-PC preparation.
+    `.workflow/latest_update_sync_and_followup_v0` owns repo sync, tracked skill
+    sync, junction audit, and follow-up routing. This skill canon owns the
+    natural-language entry, requires the existing read-only device probe after
+    sync, and delegates node-role meaning to `MULTI_PC_DEVELOPMENT_V0.md`.
   use_when:
     - the user asks for GitHub down, download, pull, fetch, sync, or update Soulforge from GitHub
     - the user asks to update installed Codex skills after a GitHub pull
     - a global Codex skill mirror should be materialized from tracked `.registry/skills/**/codex` bridges
+    - the user asks Codex to prepare the current PC to continue Soulforge work after clone or pull
+    - the user asks what the current PC can do, or asks for role-aware Soulforge setup without manually running terminal commands
   avoid_when:
     - the requested operation is for uploading, committing, or pushing changes
     - the requested operation is for a non-Soulforge repository
     - local secret values, credential contents, or account-bound session payloads would need to be inspected
   expected_outcome:
-    - GitHub down requests run or report the full owner-with-state update surface
-    - public repo, `_workmeta`, and `private-state` freshness are checked separately
+    - GitHub down requests always run or report the public update surface first
+    - "`_workmeta` and `private-state` freshness are checked separately only when an established profile authorizes those companion surfaces"
     - installed Codex skill mirrors are synced only from tracked repo bridges
     - workspace junction state is checked from the private binding when available, including link target suffix match against `cloud_relative_path`
+    - the read-only device capability probe is run with the established profile and mapped to the local node role without exposing machine-local paths or account identifiers
+    - Codex reports work this PC can perform now, work blocked by missing capability or authority, and the smallest owner action still required
     - blockers are reported with the owning repo or runtime boundary
 execution_requirements:
   required_capabilities:
     - git_status_review
     - repo_freshness_sync
     - codex_skill_sync
+    - device_capability_probe
+    - node_role_routing
     - boundary_review
   preferred_capabilities:
     - nested_repo_sync
@@ -39,9 +46,15 @@ execution_requirements:
     - git_pull_rebase
     - npm_skills_sync
     - npm_doctor
+    - npm_doctor_device_capabilities
   notes:
     - "The latest-update workflow remains `.workflow/latest_update_sync_and_followup_v0/`."
     - "Strict junction audit command: `npm run guild-hall:workspace-junction:audit`."
+    - "Read-only role/capability command: `npm run guild-hall:doctor -- --profile <profile> --device-capabilities --json` (`npm.cmd` on Windows PowerShell)."
+    - "Pass the established `--profile` to the capability command; `public-only` and `operator` skip private workspace and local capability bindings."
+    - "Codex executes safe bootstrap commands itself. It asks the owner only for missing role/profile choices, credentials, install approval, private access, or mutation authority."
+    - "Companion-folder presence alone does not establish `owner-with-state`; use an explicit user profile or a valid local node identity."
+    - "The skill canon owns natural-language routing and capability-to-work translation; the update workflow owns Git/skill/junction procedure, and the multi-PC document owns role meaning."
     - "This skill is a Codex wrapper. It does not own GitHub policy, owner approval, destructive rewrites, secret inspection, or default-route changes."
     - "Installed mirror name after sync is normally `soulforge-github-down`."
 notes:

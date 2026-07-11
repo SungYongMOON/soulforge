@@ -31,6 +31,12 @@
 프로필이 명시되지 않으면 기본값은 `public-only` 다.
 상세 기준은 [`../bootstrap/BOOTSTRAP_PROFILES_V0.md`](../../../docs/architecture/bootstrap/BOOTSTRAP_PROFILES_V0.md) 를 따른다.
 
+Codex가 설치된 PC에서는 사용자가 아래 설치 명령을 하나씩 직접 실행하지 않아도 된다. Soulforge 폴더를 Codex로 열고 다음처럼 요청한다.
+
+> Soulforge 최신화하고 이 PC 역할에 맞게 준비해줘. 실행 가능한 안전 단계는 네가 직접 하고, 로그인·비밀값·설치 승인처럼 내가 해야 할 것만 알려줘.
+
+Codex는 tracked `github_down` bridge를 따라 public repo 안전 preflight, profile로 허용된 companion repo 동기화, tracked skill sync, 읽기 전용 device capability probe, profile doctor를 수행한다. 역할이나 profile이 없으면 `public-only`로 시작하며, `_workmeta`·`private-state` 폴더 존재만으로 profile을 승격하지 않는다. `always_on_node` writer 준비는 profile과 현재 operational-primary 지정이 모두 명시된 경우에만 수행한다.
+
 ## 설치 원칙
 
 1. public GitHub 는 기능 코드, 문서, example 만 옮긴다.

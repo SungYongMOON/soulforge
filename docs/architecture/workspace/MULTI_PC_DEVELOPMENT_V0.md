@@ -149,6 +149,8 @@ Public 문서에는 role과 generic capability만 적는다. 실제 node id, 계
 npm run guild-hall:doctor -- --device-capabilities --json
 ```
 
+Codex 위임 실행에서는 established profile을 명시해 `--profile public-only|operator|owner-with-state`를 함께 넘긴다. `public-only`와 `operator` probe는 `_workmeta` junction binding 및 local NAS/receipt capability 설정을 읽지 않는다.
+
 이 모드는 bootstrap readiness나 authority를 판정하지 않고 doctor status도
 쓰지 않는다. node role, workspace link 집계, cloud app 설치·실행, Git 상태,
 Ollama와 명시된 local-only NAS/receipt probe의 상태만 경로·계정·파일명 없이
@@ -377,6 +379,19 @@ local_paths:
 
 ## 다른 PC 첫 세팅
 
+Codex가 설치된 owner PC에서는 사용자가 아래 명령을 직접 실행할 필요가 없다. Soulforge 폴더를 Codex로 연 뒤 다음처럼 말한다.
+
+> Soulforge 최신화하고 이 PC에서 할 수 있는 일을 점검해서 준비해줘. Git과 skill 동기화, 읽기 전용 장치 진단은 네가 실행하고, 내가 해야 하는 권한·로그인·설치만 따로 알려줘.
+
+역할을 이미 아는 경우에는 한 문장을 덧붙인다.
+
+- 회사 작업 PC: `이 PC는 work_pc, owner-with-state로 준비해줘.`
+- 고성능 설계 PC: `이 PC는 tool_pc, owner-with-state로 준비해줘.`
+- 맥 상시 운영 primary: `이 PC는 always_on_node, owner-with-state이며 현재 24시간 운영 primary로 준비해줘. NAS 권한은 추정하지 마.`
+- 개발 노트북: `이 PC는 portable_dev_pc, public-only로 준비해줘.`
+
+이 자연어 요청은 `github_down` skill로 route한다. Codex는 안전한 Git fetch/pull, tracked skill sync, workspace junction report-only audit, `guild-hall:doctor -- --device-capabilities --json`, role별 허용·차단 작업 보고를 직접 수행한다. role/profile이 확정되지 않았거나 companion 폴더만 존재하면 `public-only`로 진단한다. `always_on_node` writer bootstrap은 profile과 현재 operational-primary 지정이 모두 명시된 경우에만 실행한다. secret 입력·interactive login·새 private repo 권한·프로그램 설치·junction repair·NAS/Drive mutation처럼 owner 행동이 필요한 지점에서만 멈춘다.
+
 1. `git`, `gh`, `node`, `npm`, `python3`, `uv` 가 설치돼 있는지 확인한다.
 2. 필요하면 `gh auth login` 으로 GitHub CLI 인증을 먼저 끝낸다.
 3. 저장소를 clone 한다.
@@ -440,13 +455,16 @@ skill_bindings:
 
 ## AI 위임 규칙
 
+- 사용자가 Codex에게 PC 준비를 맡기면 AI는 실행 가능한 안전 명령을 직접 수행하고, 터미널 명령 목록만 사용자에게 되돌려주지 않는다.
 - 팀원/공유 PC 에서는 AI 에게 `public-only` 로 bootstrap 하라고 지시한다.
 - local operator env 까지 다루는 PC 에서는 AI 에게 `operator` 로 bootstrap 하라고 지시한다.
 - Windows PowerShell 에서 `npm.ps1` execution policy 로 막히면 bootstrap/update 문서의 `npm run ...` 명령을 `npm.cmd run ...` 형태로 바꿔 실행한다.
 - owner 개인 PC 에서는 AI 에게 `owner-with-state` 로 bootstrap 하라고 지시한다.
 - AI 는 프로필이 없으면 `public-only` 로 가정해야 한다.
+- AI 는 `_workmeta/` 또는 `private-state/` 폴더 존재만으로 profile을 추론하거나 private sync scope를 넓히지 않는다.
 - AI 는 owner 전용 `_workmeta/`, `private-state/` clone/restore 를 자동으로 시도하지 않고, owner 프로필과 repo 접근이 명시될 때만 수행한다.
 - AI 는 먼저 `npm run guild-hall:doctor -- --profile <profile>` 를 수행하고, 필요할 때만 `--remote`, local env 가 채워진 뒤에만 `--live` 를 수행한다.
+- AI 는 profile doctor 전에 `npm run guild-hall:doctor -- --profile <profile> --device-capabilities --json` 으로 profile-scoped aggregate capability를 읽고, 결과를 node role별 현재 가능 작업·차단 작업·owner-only 다음 행동으로 번역한다.
 - AI 는 recent context 가 필요하면 `guild_hall/state/operations/soulforge_activity/latest_context.json` 을 먼저 읽고, 부족할 때만 현재 월 `events/*.jsonl` 마지막 몇 건을 추가로 읽는다.
 
 ## 중요한 운영 규칙

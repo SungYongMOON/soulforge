@@ -154,7 +154,10 @@ npm.cmd run guild-hall:doctor -- --device-capabilities --json
   - `--live` 결과는 각 live check 를 개별 항목으로 보고한다
 - device capability advisory
   - schema 는 `soulforge.device_capability_probe.v0`
-  - node role, platform, architecture 와 workspace link aggregate 를 보고한다
+  - node role, effective bootstrap profile, platform, architecture 와 profile-scoped workspace link aggregate 를 보고한다
+  - 명시된 `--profile`을 우선하고, 없으면 유효한 local identity profile, 그것도 없으면 `public-only`를 사용한다
+  - invalid explicit profile과 schema/role/profile이 불완전한 local identity는 `owner-with-state`로 fallback하지 않고 `public-only`로 fail closed한다
+  - `public-only`와 `operator`에서는 `_workmeta` workspace binding과 local capability path/NAS/receipt 설정을 읽거나 probe하지 않고 `workspace_audit_not_in_profile`로 보고한다
   - macOS/Windows 고정 후보로 OneDrive와 Google Drive의 installed/running 상태를 보고하고, local identity 에 cloud root 가 설정됐는지 boolean 으로만 보고한다
   - public repo HEAD와 dirty file count, Ollama command/loopback availability 를 보고한다
   - local identity 의 `capability_probe.dev_erp_loopback` 이 켜졌을 때만 고정 `127.0.0.1:4300` health endpoint 를 확인한다

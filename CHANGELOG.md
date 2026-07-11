@@ -4,6 +4,13 @@
 
 - `soulforge-long-thread-handoff`의 fresh subagent 선호 모델을 GPT-5.5 xhigh에서 GPT-5.6 xhigh로 갱신하고, 해당 프로필을 제공하지 않는 런타임에서는 기존처럼 가장 강한 가용 프로필과 downgrade 보고를 유지한다. (worker: codex_gpt-5)
 
+### Codex 자연어 기반 cross-PC 준비
+
+- 각 PC에서 사용자가 터미널 명령을 직접 실행하는 대신 `Soulforge 최신화하고 이 PC 역할에 맞게 준비해줘`라고 Codex에 요청하면, 기존 `github_down` skill이 안전한 repo 동기화, tracked skill sync, workspace junction report-only audit, 읽기 전용 device capability probe, profile doctor를 직접 수행하도록 연결했다.
+- node role별 현재 가능 작업·차단 작업·owner-only 다음 행동을 보고하며, 역할이 없거나 companion 폴더만 존재하면 `public-only`로 시작한다. `always_on_node` writer bootstrap은 명시된 profile과 현재 operational-primary 지정이 모두 있어야 한다. secret·interactive login·새 private repo 권한·프로그램 설치·junction repair·NAS/Drive mutation은 일반 준비 요청으로 자동 수행하지 않는다. (worker: codex_gpt-5)
+- capability probe에 effective profile을 추가하고, `public-only`·`operator`에서는 `_workmeta` junction binding과 local capability path/NAS/receipt 설정을 아예 읽거나 probe하지 않도록 테스트로 고정했다. `always_on_node`·`dev_worker_pc` mutating prompt는 exact `owner-with-state` 권한이 있을 때만 호출한다. (worker: codex_gpt-5)
+- invalid explicit profile이나 schema·role·profile이 불완전한 local identity가 owner scope로 fallback하지 않도록 capability profile resolution을 `public-only` fail-closed로 고정했다. (worker: codex_gpt-5)
+
 ### 지식 저장소·장치 authority 뼈대 정렬
 
 - OneDrive/shared worksite는 active editable files, 회사 NAS는 owner-held external originals의 기본 read-only surface, `_workspaces`는 working/derived text·wiki·RAG payload, Google Drive는 durable source warehouse, `_workmeta`는 metadata-only evidence plane으로 역할을 분리했다.

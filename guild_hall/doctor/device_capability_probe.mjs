@@ -12,6 +12,7 @@ const SUPPORTED_NODE_ROLES = new Set([
   "dev_worker_pc",
   "always_on_node",
 ]);
+const SUPPORTED_BOOTSTRAP_PROFILES = new Set(["public-only", "operator", "owner-with-state"]);
 const DEFAULT_NAS_TIMEOUT_MS = 1500;
 const DEFAULT_WORKSPACE_AUDIT_TIMEOUT_MS = 2000;
 const DEFAULT_RECEIPT_MAX_AGE_HOURS = 24;
@@ -35,14 +36,20 @@ export async function buildDeviceCapabilityProbe(options = {}) {
     readFile: options.readFile ?? readFileSync,
   });
   const identity = identityResult.identity;
-  const capabilityConfig = normalizeCapabilityConfig(identity?.capability_probe);
+  const profile = resolveCapabilityProfile(options.profile, identityResult);
+  const privateBindingChecksExecuted = profile === "owner-with-state";
+  const capabilityConfig = privateBindingChecksExecuted
+    ? normalizeCapabilityConfig(identity?.capability_probe)
+    : normalizeCapabilityConfig(null);
 
-  const workspaceLinks = collectWorkspaceLinkAggregate({
-    repoRoot,
-    workspaceAudit: options.workspaceAudit,
-    runCommand,
-    timeoutMs: options.workspaceAuditTimeoutMs ?? DEFAULT_WORKSPACE_AUDIT_TIMEOUT_MS,
-  });
+  const workspaceLinks = privateBindingChecksExecuted
+    ? collectWorkspaceLinkAggregate({
+      repoRoot,
+      workspaceAudit: options.workspaceAudit,
+      runCommand,
+      timeoutMs: options.workspaceAuditTimeoutMs ?? DEFAULT_WORKSPACE_AUDIT_TIMEOUT_MS,
+    })
+    : emptyAggregate("skipped", "workspace_audit_not_in_profile");
   const cloudApps = collectCloudApps({
     platform,
     env,
@@ -77,11 +84,12 @@ export async function buildDeviceCapabilityProbe(options = {}) {
     kind: "device_capability_probe",
     mode: "advisory",
     generated_at: now.toISOString(),
-    boundary: buildBoundary(),
+    boundary: buildBoundary({ privateBindingChecksExecuted }),
     node: {
       identity_status: identityResult.status,
       identity_schema: identity?.schema_version === "soulforge.local_node.v0" ? "soulforge.local_node.v0" : "unknown",
       role: SUPPORTED_NODE_ROLES.has(identity?.node_role) ? identity.node_role : "unknown",
+      profile,
       platform: normalizePlatform(platform),
       arch: normalizeArch(arch),
     },
@@ -109,7 +117,7 @@ export function buildDeviceCapabilityProbeFailure() {
 export function printDeviceCapabilityProbeHuman(report, writer = process.stdout) {
   const lines = [
     "Soulforge Device Capability Probe (advisory, read-only)",
-    `node: ${report.node?.role ?? "unknown"} ${report.node?.platform ?? "unknown"}/${report.node?.arch ?? "unknown"}`,
+    `node: ${report.node?.role ?? "unknown"} profile=${report.node?.profile ?? "public-only"} ${report.node?.platform ?? "unknown"}/${report.node?.arch ?? "unknown"}`,
     `workspace links: ${report.workspace_links?.status ?? "unknown"}`,
     `repository: head=${report.repository?.head ?? "unknown"} dirty=${report.repository?.dirty_count ?? "unknown"}`,
     `ollama: ${report.ollama?.status ?? "unknown"}`,
@@ -120,7 +128,7 @@ export function printDeviceCapabilityProbeHuman(report, writer = process.stdout)
   writer.write(`${lines.join("\n")}\n`);
 }
 
-function buildBoundary() {
+function buildBoundary({ privateBindingChecksExecuted = false } = {}) {
   return {
     advisory_only: true,
     read_only: true,
@@ -129,6 +137,7 @@ function buildBoundary() {
     status_file_written: false,
     remote_checks_executed: false,
     live_checks_executed: false,
+    private_binding_checks_executed: privateBindingChecksExecuted,
     secrets_read: false,
     payloads_read: false,
     payloads_included: false,
@@ -139,6 +148,19 @@ function buildBoundary() {
     filenames_included: false,
     raw_errors_included: false,
   };
+}
+
+function resolveCapabilityProfile(requestedProfile, identityResult) {
+  if (requestedProfile !== undefined) {
+    return SUPPORTED_BOOTSTRAP_PROFILES.has(requestedProfile) ? requestedProfile : "public-only";
+  }
+  const identity = identityResult?.identity;
+  const validIdentity = identityResult?.status === "present"
+    && identity?.schema_version === "soulforge.local_node.v0"
+    && SUPPORTED_NODE_ROLES.has(identity?.node_role)
+    && SUPPORTED_BOOTSTRAP_PROFILES.has(identity?.bootstrap_profile);
+  if (validIdentity) return identity.bootstrap_profile;
+  return "public-only";
 }
 
 function readLocalIdentity({ identity, identityPath, exists, readFile }) {
