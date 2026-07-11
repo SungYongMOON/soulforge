@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -230,6 +230,7 @@ test("session status, launchd render, and workmeta draft stay metadata-only", as
     });
     assert.equal(applied.applied, true);
     const manifest = await readFile(path.join(applied.target_dir, "source_event_manifest.yaml"), "utf8");
+    assert.match(manifest, /source_kind: local_microphone_capture_session/);
     assert.match(manifest, /raw_transcript_body_included: false/);
     assert.equal(manifest.includes("sensitive-transcript"), false);
   } finally {
@@ -285,6 +286,90 @@ test("recording library registration writes metadata-only global and route index
     const projectRoute = await readFile(applied.project_route_path, "utf8");
     assert.match(projectRoute, /"route_status": "unclassified_needs_owner_confirmation"/);
     assert.equal(projectRoute.includes("sensitive-transcript"), false);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("recording library preserves transcript-only and source-provided speaker state", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-voice-transcript-only-"));
+  try {
+    const sessionDir = path.join(
+      repoRoot,
+      "_workspaces",
+      "system",
+      "voice_capture",
+      "sessions",
+      "2026-07-10",
+      "transcript-only",
+    );
+    await mkdir(sessionDir, { recursive: true });
+    await writeFile(
+      path.join(sessionDir, "session_manifest.json"),
+      JSON.stringify({
+        session_id: "transcript-only",
+        source: "chatgpt_record_share_import",
+        meeting_bundle: {
+          bundle_manifest_ref: "_workspaces/system/voice_capture/meeting_bundles/example/bundle_manifest.json",
+        },
+        speaker_diarization: {
+          status: "source_provided_labels_unverified",
+          speaker_count_hint: 4,
+        },
+      }),
+      "utf8",
+    );
+    await writeFile(path.join(sessionDir, "source_event_draft.yaml"), "source_kind: chatgpt_record_share_import\n", "utf8");
+    await writeFile(path.join(sessionDir, "transcript.txt"), "[1] speaker 1: transcript only\n", "utf8");
+
+    const planned = await writeRecordingLibraryEntry({ repoRoot, sessionDir });
+
+    assert.equal(planned.entry.raw_payload_boundary.audio_stored_under_workspace, false);
+    assert.equal(planned.entry.raw_payload_boundary.transcript_stored_under_workspace, true);
+    assert.equal(planned.entry.speaker_diarization.status, "source_provided_labels_unverified");
+    assert.equal(planned.entry.speaker_diarization.speaker_count_hint, 4);
+
+    const workmeta = await writeWorkmetaDraft({
+      repoRoot,
+      workmetaRoot: path.join(repoRoot, "_workmeta"),
+      projectCode: "P00-000_INBOX",
+      sessionDir,
+      apply: true,
+    });
+    const sourceEventManifest = await readFile(path.join(workmeta.target_dir, "source_event_manifest.yaml"), "utf8");
+    assert.match(sourceEventManifest, /source_kind: chatgpt_record_share_import/);
+    assert.match(sourceEventManifest, /meeting_bundle_ref:/);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("recording library recognizes a PLAUD OGG source audio file", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-voice-plaud-ogg-"));
+  try {
+    const sessionDir = path.join(
+      repoRoot,
+      "_workspaces",
+      "system",
+      "voice_capture",
+      "sessions",
+      "2026-07-10",
+      "plaud-ogg",
+    );
+    await mkdir(path.join(sessionDir, "audio"), { recursive: true });
+    await writeFile(
+      path.join(sessionDir, "session_manifest.json"),
+      JSON.stringify({ session_id: "plaud-ogg", source: "plaud_share_import" }),
+      "utf8",
+    );
+    await writeFile(path.join(sessionDir, "source_event_draft.yaml"), "source_kind: plaud_share_import\n", "utf8");
+    await writeFile(path.join(sessionDir, "audio", "source.ogg"), "ogg-audio-placeholder", "utf8");
+
+    const planned = await writeRecordingLibraryEntry({ repoRoot, sessionDir });
+
+    assert.equal(planned.entry.status_summary.audio_chunks, 1);
+    assert.equal(planned.entry.raw_payload_boundary.audio_stored_under_workspace, true);
+    assert.match(planned.entry.payload_refs.source_audio_ref, /audio\/source\.ogg$/);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

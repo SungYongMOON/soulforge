@@ -1,0 +1,40 @@
+{
+  "schema_version": "soulforge.local_asr_profile.v0",
+  "engine": "whisper.cpp",
+  "asr_binary": "whisper-cli",
+  "ffmpeg_binary": "ffmpeg",
+  "model_path": "_workspaces/system/voice_capture/models/ggml-large-v3-turbo-q5_0.bin",
+  "model_id": "large-v3-turbo-q5_0",
+  "model_sha1": "e050f7970618a659205450ad97eb95a18d69c9ee",
+  "language": "ko",
+  "terms_prompt": "PROJECT-CODE, supplier, equipment model, repeated technical term",
+  "run_id": "whispercpp_large-v3-turbo-q5_0_ko_v2_vad",
+  "chunk_seconds": 1800,
+  "overlap_seconds": 10,
+  "vad": {
+    "enabled": true,
+    "model_path": "_workspaces/system/voice_capture/models/ggml-silero-v6.2.0.bin",
+    "model_id": "silero-v6.2.0",
+    "model_sha256": "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987",
+    "threshold": 0.5,
+    "min_speech_duration_ms": 120,
+    "min_silence_duration_ms": 500,
+    "max_speech_duration_seconds": 30,
+    "speech_pad_ms": 500,
+    "samples_overlap_seconds": 0.2
+  },
+  "decoding": {
+    "no_fallback": true,
+    "suppress_non_speech_tokens": true,
+    "max_context_tokens": 0
+  },
+  "repetition_filter": {
+    "enabled": true,
+    "minimum_text_characters": 4,
+    "lookback_seconds": 90
+  },
+  "output_subdir": "analysis/local_asr",
+  "queue_root": "_workspaces/system/voice_capture/local_asr_queue",
+  "max_sessions_per_queue_run": 1,
+  "evidence_role": "independent_machine_transcript_unverified"
+}

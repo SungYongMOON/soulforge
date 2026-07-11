@@ -23,15 +23,32 @@ _workspaces/system/voice_capture/library/
   index/recordings.jsonl
   index/recordings.current.json
   project_routes/<project_code>/recordings/<recording_id>.json
+
+_workspaces/system/voice_capture/meeting_bundles/<YYYY-MM-DD>/<meeting_bundle_id>/
+  bundle_manifest.json
+
+_workspaces/system/voice_capture/local_asr_queue/
+  pending/<session_id>.json
+  processed/<YYYY-MM-DD>/<session_id>.json
 ```
 
 ## 경계
 
 - 원본 오디오, 원문 전사, 화자분리 sidecar 는 `_workspaces/system/voice_capture/sessions/**` 아래에만 둔다.
+- 입력원에서 받은 원본 형식은 변환본으로 대체하지 않고 보존하며, 보관함은 `m4a`, `wav`, `mp3`, `flac`, `ogg` 원본을 인식한다.
 - 녹음 보관함 `library/**` 는 원문을 복사하지 않고 session 경로, 개수, 상태, hash, route 후보만 기록한다.
 - `_workmeta/<project_code>/**` 에는 프로젝트 검토가 필요할 때 metadata-only source event 만 쓴다. 원본 오디오와 전사 본문은 쓰지 않는다.
 - public Git 에는 CLI, 테스트, 문서, public-safe 예시만 올린다. `_workspaces/system/voice_capture/**` payload 는 Git 대상이 아니다.
 - OneDrive 같은 owner-approved shared worksite 를 쓰는 경우에도 Git 이 아니라 공유 workspace/junction 으로 raw payload 를 동기화한다.
+
+## 동일 회의의 복수 녹음
+
+- Apple Notes, PLAUD, ChatGPT Record처럼 같은 회의를 여러 장치나 서비스로 녹음해도 각 물리 녹음은 별도 session과 recording entry로 보존한다.
+- 동일 회의 관계는 `meeting_bundles/**/bundle_manifest.json`이 session ref, 시간 정렬, 자료 존재 상태, 품질 역할만 연결한다. bundle에는 오디오나 전사 본문을 복사하지 않는다.
+- 같은 회의 여부는 녹음 시작·종료 시각, 길이, 선택적 오디오 fingerprint, 사용자 확인 근거로 판단한다.
+- 회의록, 결정, 할일 후보는 source별로 중복 생성하지 않고 meeting bundle 기준으로 한 번 생성한다.
+- 한 회의에 여러 프로젝트가 섞이면 원본 bundle은 하나로 유지하고 프로젝트별 구간 투영본만 여러 개 만든다.
+- source 하나가 늦게 시작하거나 일부 구간만 포함해도 삭제하거나 병합하지 않고 coverage offset을 기록한다.
 
 ## 상태 모델
 
@@ -48,9 +65,31 @@ _workspaces/system/voice_capture/library/
 
 1. 녹음 또는 import 결과를 session 으로 만든다.
 2. `register-library --apply` 로 전체 녹음 보관함에 metadata-only entry 를 만든다.
-3. AI 는 session metadata, transcript ref, 프로젝트 wiki/RAG metadata 를 보고 프로젝트 후보를 제안할 수 있다.
-4. 책임자가 프로젝트 route 를 확정하면 project route manifest 를 갱신한다.
-5. 전사 품질, 화자분리 품질, action item 누락 가능성을 검토한 뒤에만 `_workmeta/<project_code>/reports/voice_source_events/**` 또는 공식 task ledger 후보로 넘긴다.
+3. 동일 회의의 다른 source가 있으면 별도 session을 유지한 채 meeting bundle로 연결한다.
+4. AI 는 session/bundle metadata, transcript ref, 프로젝트 wiki/RAG metadata 를 보고 프로젝트 후보를 제안할 수 있다.
+5. 책임자가 프로젝트 route 를 확정하면 project route manifest 를 갱신한다.
+6. 전사 품질, 화자분리 품질, action item 누락 가능성을 검토한 뒤에만 `_workmeta/<project_code>/reports/voice_source_events/**` 또는 공식 task ledger 후보로 넘긴다.
+
+## PLAUD 정기 수집
+
+- 하이웍스 수집기가 PLAUD 전사 완료 메일을 새로 수신하면 메일 원문 없는 hash 기반 trigger를 shared voice queue에 쓴다.
+- 24시간 노드는 shared queue 변경을 감시한 뒤 PLAUD 공식 CLI로 최근 recording ID를 조회하고, 기존 session manifest에 없는 ID만 수집한다.
+- PLAUD Note에서 계정으로 전송되지 않았거나 전사가 끝나지 않은 녹음은 실패로 확정하지 않고 다음 주기에 재시도한다.
+- 수집물은 원본 오디오, provider 전사, provider 요약을 모두 보존하되 증거 역할을 구분한다.
+- 원본 오디오는 재전사·사실확인에 사용할 `canonical_source_candidate`다.
+- PLAUD 전사와 화자 라벨은 시간 정렬에 유용한 `auxiliary_unverified`이며, 기술용어·인명·화자 식별을 확정하지 않는다.
+- PLAUD 요약은 `quarantined_untrusted`이며 회의록, 결정, 할일을 직접 생성하거나 장부에 승격하는 근거로 쓰지 않는다.
+- provider recording ID는 중복 방지 키다. 공유 링크 import와 CLI import가 같은 ID면 새 원본을 만들지 않고 기존 session을 우선한다.
+- PLAUD 로그인 token과 24시간 audio download URL은 저장하거나 `_workmeta`·Git에 복사하지 않는다.
+- 새 session은 기본적으로 `P00-000_INBOX`에 등록하고, 독립 전사 또는 오디오 검토와 프로젝트 매칭 후에만 과제별로 투영한다.
+- 독립 전사는 provider 전사와 별도인 `analysis/local_asr/<run_id>/`에 저장한다. 원본 hash·모델·run id가 같은 완료본은 재사용하고, 미완료 chunk만 이어서 처리한다.
+- 독립 전사 완료 시 `voice` source pointer를 만들되, 메일(`mail`)과 체계공학 일정(`se_schedule`)을 함께 읽는 프로젝트 줄기 판단 전에는 P00 후보 상태를 유지한다.
+- 메일이 누락됐을 때만 운영자가 explicit `sync`를 실행한다. 정상 동작은 30분 polling이 아니라 mail queue event다.
+- 메일 trigger 시점에 provider audio/transcript가 아직 보이지 않으면 trigger를 처리 완료로 옮기지 않고, launchd 실패 재시작을 5분 throttle로 제한해 다시 시도한다.
+- 새 recording import가 확인되지 않은 trigger는 완료 처리하지 않는다. 기본 1시간 동안 재시도한 뒤에도 연결 가능한 새 recording이 없으면 `plaud_mail_triggers/unresolved/<date>/`로 격리해 사람이 확인할 수 있게 남긴다.
+- 여러 trigger가 함께 대기하면 새 recording 1건당 가장 오래된 trigger 최대 1건만 완료 처리한다. 미해결 수명도 각 trigger의 `enqueued_at`을 따로 계산해 새 trigger가 오래된 trigger와 함께 격리되지 않게 한다.
+- 한 조회에서 import 완료와 provider 처리 중 상태가 함께 나오면 처리 중 recording 및 조회 한도 초과 recording 수만큼 trigger 자리를 예약해 다음 재시도가 끊기지 않게 한다.
+- provider가 transcript available로 표시했지만 고정된 CLI 형식에서 timestamp segment를 하나도 읽지 못하면 import 성공으로 간주하지 않고 동일한 재시도·미해결 격리 경로를 따른다.
 
 ## 금지
 
@@ -76,3 +115,4 @@ npm run guild-hall:voice-capture -- register-library \
 - OneDrive 또는 owner-approved shared worksite 에서 `_workspaces/system/voice_capture/sessions/**` 와 `library/**` payload 를 같은 경로 identity 로 materialize 한다.
 - 다른 PC 에서 raw payload 가 보이지 않으면 Git 문제가 아니라 workspace 동기화 문제로 본다.
 - `recordings.current.json` 와 `project_routes/P00-000_INBOX/**` 를 먼저 보고 미분류 녹음부터 route 검토한다.
+- 맥미니 수집 노드는 `_workspaces/system`이 active OneDrive shared link인지 audit한 뒤에만 기본 수집 경로를 사용한다. launchd plist와 로그는 `_workspaces/_local/<node_id>/` 및 사용자 로그 폴더에 둔다.

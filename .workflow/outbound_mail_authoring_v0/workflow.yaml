@@ -26,6 +26,12 @@ inputs:
   - project_mail_keyword_policy_ref
   - owner_footer_policy_ref
 optional_inputs:
+  - owner_voice_profile_ref
+  - owner_voice_profile_provenance
+  - team_mail_context_ref
+  - communication_intent
+  - render_mode_preference
+  - channel_risk_flags
   - existing_thread_subject
   - project_local_mail_subject_rule_ref
   - active_project_keyword_index_ref
@@ -40,6 +46,7 @@ outputs:
   - project_keyword_resolution
   - subject_candidate
   - owner_style_body_draft
+  - mail_render_plan
   - attachment_selection_basis
   - footer_application_state
   - pre_send_checklist
@@ -47,7 +54,7 @@ outputs:
   - send_surface_handoff
   - metadata_record_plan
   - boundary_review_note
-validation_level: registered_structure_only_public_safe
+validation_level: pilot_executed_private_application
 registration_policy: owner_requested_registration
 output_state: registered
 classification_lane:
@@ -75,6 +82,11 @@ workflow_modes:
   - reply_draft
   - forward_draft
   - new_mail_draft
+field_semantics:
+  send_surface: requested_delivery_surface_not_authority
+  owner_approval_gate_result: authority_state
+  team_mail_context_output_schema: outbound_team_mail_context_v1_only
+  compatibility_note: Keep existing field names in v0 packets; consumers must not infer send authority from `outlook_manual` or `soulforge_send_mail`.
 upstream_workflows:
   - workflow_id: outlook_mail_reconcile_v0
     expected_outputs:
@@ -95,9 +107,12 @@ downstream_workflows:
 outbound_mail_authoring_contract:
   owns:
     - mail_authoring_scope_binding
+    - optional_owner_voice_profile_binding
+    - team_mail_context_normalization
     - project_keyword_resolution
     - subject_candidate_generation
     - owner_style_body_draft_generation
+    - adaptive_body_render_mode_selection
     - attachment_selection_gate
     - mandatory_footer_check
     - pre_send_checklist
@@ -121,6 +136,9 @@ outbound_mail_authoring_contract:
     - default_route_switching
   style_policy_refs:
     mail_send_style_policy: docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md
+    team_mail_context_template: templates/team_mail_context.template.yaml
+    mail_render_policy: templates/mail_render_policy.template.yaml
+    technical_action_brief_example: templates/technical_action_brief.example.md
     mail_send_runner_policy: docs/architecture/workspace/MAIL_SEND_V0.md
     mail_send_capsule: guild_hall/gateway/mail_send/
   project_keyword_policy:
@@ -184,7 +202,84 @@ outbound_mail_authoring_contract:
         - extending_body_with_unapproved_claims
   required_input_shapes:
     mail_authoring_request: templates/mail_authoring_request.template.yaml
+    team_mail_context: templates/team_mail_context.template.yaml
+    mail_render_policy: templates/mail_render_policy.template.yaml
     project_mail_keyword_ref: templates/project_mail_keyword_ref.template.yaml
+  team_mail_context_compatibility:
+    canonical_output_schema: outbound_team_mail_context_v1
+    normalizer_script: scripts/normalize_team_mail_context.mjs
+    accepted_input_schemas:
+      - outbound_team_mail_context_v1
+      - outbound_team_mail_context_v0
+    output_policy: emit_v1_only
+    v0_normalization:
+      direct_mappings:
+        recipient_role: recipients.to[0].role
+        reason_or_purpose: mail_reason
+        requested_action.work: requested_work[0].work_items[0]
+        facts_or_background: facts
+        attachments_or_share_state.items: attachments.items
+        attachments_or_share_state.state: attachments.state
+        response_needed.required: response_requirements.required
+        response_needed.requested_content: response_requirements.requested_content
+        source_basis: source_basis
+        public_safety: public_safety
+      guarded_mappings:
+        - Map `requested_action.owner` to `requested_work[0].assignee` only when source semantics explicitly identify the actual assignee; otherwise keep the assignee null and preserve the source path and value in assumptions.
+        - Convert each `participating_groups` value to a participant role only when it is role-only; leave involvement null and add an assumption.
+        - Map `schedule_or_deadline.requested_by` to `schedule.deadline_or_reply_by` only when the value is unambiguously a deadline or reply-by value.
+        - Map `response_needed.requested_by` only when it unambiguously identifies a role or a reply-by value; otherwise preserve its source path and value in assumptions.
+        - Preserve `schedule_or_deadline.current_state` in assumptions unless its meaning is explicitly identified as before or after.
+        - Preserve each non-null `changes_before_after` path and value in assumptions unless an approved source explicitly identifies the change domain as schedule; do not coerce generic before/after values into schedule fields.
+      ambiguity_policy:
+        - Preserve unsupported or ambiguous public-safe source path and value in assumptions.
+        - Keep unresolved assignees null and add an assumption; never infer an assignee from a recipient or participant.
+        - Merge all derived keyword, recipient, attachment, footer, approval, and normalization gaps into the v1 assumptions array before draft rendering, checklist construction, or handoff.
+        - Keep rendered assumptions synchronized with the v1 assumptions array; a separate-only assumption is invalid.
+        - Never emit both v0 and v1 fields in one normalized packet.
+        - Keep authority state draft_only while a required mapping remains unresolved.
+      unsafe_input_policy:
+        - Stop normalization when contact values, raw mail excerpts, exact footer payloads, private paths, or private project rows are present.
+        - Enforce declared public-safety flags and deterministic value-level detection for email or phone contact values, concrete absolute or private runtime paths, quoted-mail header chains, and footer-security payload indicators.
+        - Do not copy unsafe values into assumptions or public outputs.
+  owner_voice_profile_policy:
+    required: false
+    expected_scope: local_private_aggregate_traits_only
+    default_runtime_identity: owner_outlook_mail_v0
+    runtime_resolution_scope: local_private_only
+    provenance_required_when_used: true
+    fallback_when_missing: public_mail_style_policy_only
+    public_copy_forbidden:
+      - exact_sample_sentences
+      - contact_values
+      - raw_addresses
+      - exact_footer_payload
+      - private_project_rows
+  adaptive_render_policy:
+    selector_script: scripts/select_mail_render_mode.mjs
+    selector_fixture: templates/mail_render_policy.validation_fixture.yaml
+    metadata_source_of_truth: outbound_team_mail_context_v1
+    visible_body_is_not_metadata_source_truth: true
+    modes: [compact, action_brief, decision_brief, status_change, reply_map]
+    action_brief_visible_fields: [수신, 사유, 요청업무, 요청기한, 요청사유, 비고]
+    technical_action_brief_layout:
+      use_when:
+        - approved_technical_constants_or_control_conditions_present
+        - ordered_implementation_or_test_sequence_present
+        - explicit_result_evidence_requested
+      reference: templates/technical_action_brief.example.md
+      visible_order:
+        - purpose_first
+        - one_technical_conditions_table
+        - numbered_execution_or_test_sequence
+        - requested_result_evidence
+        - deadline_attachment_and_followup_when_present
+      does_not_create_new_mode: true
+    empty_section_policy: omit
+    recipient_field_policy: show_only_for_multiple_role_or_assignee_responsibilities
+    reason_field_policy: merge_mail_reason_and_request_basis_when_redundant
+    channel_risk_policy: synchronous_discussion_then_email_record
+    channel_risk_does_not_raise_authority: true
   required_output_shapes:
     mail_draft_packet: templates/mail_draft_packet.template.yaml
     pre_send_checklist: templates/pre_send_checklist.template.yaml
@@ -206,3 +301,5 @@ notes:
   - Actual SMTP sending still belongs to `guild_hall/gateway/mail_send/` and requires the approval rules in `MAIL_SEND_V0.md`.
   - Project-specific keywords and exceptions should be read from private/project-local metadata or an approved active keyword index at runtime.
   - The footer body is intentionally not copied into public workflow files.
+  - A private owner-approved pilot used the technical action-brief layout and received positive readability feedback; public canon keeps only the synthetic structure and no sent-mail content.
+  - Pilot evidence does not grant unattended send, Outlook mutation, default-route, or production-ready authority.

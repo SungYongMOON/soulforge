@@ -37,7 +37,7 @@
 | `../bootstrap/BOOTSTRAP_PROFILES_V0.md` | workspace 설치 흐름에서 참조하는 bootstrap profile 정의다. |
 | `GATEWAY_MAIL_FETCH_V0.md` | mail fetch capsule, local mailbox state, secret 경계를 설명한다. |
 | `MAIL_SEND_V0.md` | outbound mail local env, snapshot, append-only send log 경계를 설명한다. |
-| `MAIL_SEND_STYLE_POLICY_V0.md` | 사람이 보낼 메일의 초안, 승인, Outlook 수동 발송, owner 문체 규칙을 설명한다. |
+| `MAIL_SEND_STYLE_POLICY_V0.md` | 사람이 보낼 메일의 초안, 승인, Outlook 수동 발송, owner 문체 규칙과 optional local/private voice profile 경계를 설명한다. |
 | `GATEWAY_NOTIFY_V0.md` | gateway event 를 notification 으로 emit 하는 command 계약이다. |
 | `NOTIFY_MODEL_V0.md` | gateway local policy 와 mission notification toggle 의 owner 경계다. |
 | `NOTIFY_BRIEF_FORMAT_V0.md` | Telegram/user-facing notify brief 의 표시 순서와 provenance 기준이다. |

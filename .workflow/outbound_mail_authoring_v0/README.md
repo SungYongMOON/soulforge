@@ -7,14 +7,54 @@ This workflow applies the public mail style policy, resolves project subject
 keywords from approved runtime surfaces, checks the mandatory signature plus
 security footer, and produces an owner-facing pre-send checklist.
 
+It may also consume the public-safe `outbound_team_mail_context_v1` shape from
+`templates/team_mail_context.template.yaml` and an optional local/private
+aggregate owner voice profile. The v1 shape preserves role-only recipients,
+per-assignee work and notes, global notes, facts, schedule changes, participant
+involvement, formats/examples, attachments, and response requirements. Supported
+v0 input is normalized to v1-only; ambiguous public-safe values remain explicit
+assumptions and unsafe values stop normalization. The workflow remains the
+procedure authority; the profile is guidance, not mail source truth or send
+authority.
+
+The public synthetic forward-test fixture is
+`templates/team_mail_context.validation_fixture.yaml`. It covers two assignees,
+assumption synchronization, explicit requested-surface/authority separation,
+and ambiguous v0-to-v1 normalization without private or contact data.
+The deterministic compatibility check is
+`scripts/normalize_team_mail_context.mjs --fixture <fixture>`; it emits only v1
+and stops when a public-safety flag reports protected input or deterministic
+value scanning detects contact values, concrete absolute/private runtime paths,
+quoted-mail header chains, or footer-security payload indicators. The value scan
+does not classify ordinary dates, unseparated numeric identifiers, or part
+numbers as contact data.
+
+Visible body structure is selected separately from normalized metadata. The
+deterministic policy in `templates/mail_render_policy.template.yaml` uses five
+modes: `compact`, `action_brief`, `decision_brief`, `status_change`, and
+`reply_map`. The full v1 context remains the source of truth in every mode;
+empty headings are omitted. The six-field Korean action view (`수신`, `사유`,
+`요청업무`, `요청기한`, `요청사유`, `비고`) is an expanded view for complex
+action mail, not a mandatory shell for every message. Validate the selector
+with `scripts/select_mail_render_mode.mjs --fixture
+templates/mail_render_policy.validation_fixture.yaml`.
+
+Technical implementation or test requests stay inside `action_brief`; they do
+not create another render mode. When approved constants or control conditions,
+ordered execution steps, and requested result evidence are all present, use the
+public synthetic layout in `templates/technical_action_brief.example.md`: lead
+with purpose, keep related conditions in one table, number only the execution
+sequence, and list the revision/measurements/logs to return. Never copy values
+from the synthetic example as facts.
+
 ## Status
 
 - Workflow status: active
 - Registration: registered in `.workflow/index.yaml`
 - Short invocation alias: `/outbound-mail`
 - Default route: no
-- Claim ceiling: registered structure-only workflow; no pilot execution has
-  been claimed
+- Claim ceiling: private pilot applied; not production-ready and no default
+  route or unattended-send authority is claimed
 
 ## Intended Use
 
@@ -38,6 +78,9 @@ send surface, and footer state.
 
 - New project subjects use a real project mail keyword:
   `[<project_mail_keyword>] <mail_kind> - <detail>`.
+- If that keyword is not confirmed, keep the subject unresolved but allow a
+  body-only draft with the keyword gap in assumptions and the authority state
+  fixed at `draft_only`.
 - Internal company project numbers, Soulforge project codes, and display names
   are metadata only and do not go into outgoing subjects.
 - Replies and forwards preserve the existing thread subject.
@@ -50,6 +93,8 @@ send surface, and footer state.
 - Public workflow files must not store raw mail bodies, raw HTML, `.msg` or
   `.eml` files, attachment payloads, secrets, private project mail rows, or
   runtime absolute paths.
+- Conflict, negotiation, rapid back-and-forth, or material ambiguity should be
+  discussed synchronously; email then records the decision, owner, and deadline.
 
 ## Non-Use
 

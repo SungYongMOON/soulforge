@@ -465,6 +465,8 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .mail-jump:hover { color: var(--fg); }
 /* 줄기 v2 종류 범례 점 */
 .trunk-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+#trunkMapSvg { touch-action: none; user-select: none; } /* 드래그 중 화면 스크롤·텍스트 선택 차단 */
+#trunkMapSvg .drop-ok rect { stroke: var(--accent, #1f48d4); stroke-width: 3; } /* 드롭 가능 게이트 하이라이트 */
 .pager-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 8px 0; }
 .pager-row .fav-chip:disabled { opacity: .45; cursor: default; }
 /* 메일 등록 폼(베타1) */

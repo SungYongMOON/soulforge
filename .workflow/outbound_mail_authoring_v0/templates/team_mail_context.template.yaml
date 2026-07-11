@@ -1,0 +1,43 @@
+schema_version: outbound_team_mail_context_v1
+recipients:
+  to:
+    - role: "<recipient_role_without_contact_value>"
+      reason: "<why_this_role_receives_the_mail>"
+  cc: []
+  bcc: []
+mail_reason: "<why_this_mail_is_needed>"
+requested_work:
+  - assignee: "<actual_assignee_name_or_role_or_null>"
+    work_items:
+      - "<requested_work_or_decision>"
+    notes: []
+notes:
+  global: []
+facts: []
+schedule:
+  before: null
+  after: null
+  rationale: null
+  deadline_or_reply_by: null
+participants:
+  - role: "<participant_role>"
+    involvement: "<how_the_role_is_involved>"
+format_and_examples:
+  requested_formats: []
+  examples: []
+attachments:
+  items: []
+  state: "none | planned | attached | shared | unclear"
+response_requirements:
+  required: false
+  requested_from_roles: []
+  requested_content: null
+  deadline_or_reply_by: null
+assumptions: []
+source_basis: []
+public_safety:
+  contains_real_contact_values: false
+  contains_raw_mail_excerpt: false
+  contains_exact_footer_payload: false
+  contains_private_path: false
+  contains_private_project_row: false

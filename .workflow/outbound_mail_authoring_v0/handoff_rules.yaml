@@ -2,6 +2,30 @@ workflow_id: outbound_mail_authoring_v0
 kind: handoff_rules
 status: active
 rules:
+  - rule_id: from_owner_voice_profile
+    from_surface: local_private_owner_voice_profile
+    consume:
+      - aggregate_style_traits
+      - aggregate_frequency_counts
+      - provenance_summary
+    requirement: The profile is optional local/private guidance; do not copy exact sample sentences, contact values, raw addresses, footer payloads, private paths, or project rows into public outputs.
+  - rule_id: from_team_mail_context
+    from_surface: templates/team_mail_context.template.yaml
+    consume:
+      - recipients.to[].role_and_reason
+      - recipients.cc[].role_and_reason
+      - recipients.bcc[].role_and_reason
+      - mail_reason
+      - requested_work[].assignee_work_items_and_notes
+      - notes.global
+      - facts
+      - schedule.before_after_rationale_and_deadline_or_reply_by
+      - participants[].role_and_involvement
+      - format_and_examples
+      - attachments
+      - response_requirements
+      - assumptions
+    requirement: Normalize supported v0 input to v1, emit only v1, preserve every assignee and requested work item, and keep unsupported or ambiguous public-safe source values in assumptions without inferring assignees, schedules, or involvement. Merge every derived runtime gap into v1 assumptions before rendering.
   - rule_id: from_mail_send_style_policy
     from_surface: docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md
     consume:
@@ -35,17 +59,22 @@ rules:
     provide:
       - subject_candidate
       - owner_style_body_draft
+      - requested_send_surface
+      - authority_state
       - assumptions
+      - normalized_team_mail_context_v1
+      - context_coverage
       - pre_send_checklist
       - footer_application_state
-    requirement: Drafts with missing facts, missing footer template, or missing approval remain draft-only.
+    requirement: Drafts explicitly name requested send surface and authority state separately. Missing facts, missing footer template, or missing approval remain draft-only. Rendered assumptions and v1 assumptions must be identical before owner review.
   - rule_id: to_outlook_manual
     to_surface: Outlook_manual_draft_surface
     provide:
       - copy_ready_subject
       - copy_ready_body_when_footer_is_confirmed
       - attachment_checklist
-    requirement: The handoff does not click Send or mutate Outlook state without owner instruction in the current request.
+      - context_coverage
+    requirement: The handoff preserves the reviewed multi-assignee work, notes, schedule, formats/examples, attachments, and response requirements; it does not click Send or mutate Outlook state without owner instruction in the current request.
   - rule_id: to_soulforge_send_mail
     to_surface: guild_hall/gateway/mail_send/
     provide:

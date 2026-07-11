@@ -31,7 +31,7 @@
 - `private_state_sync/`: nested private repo `private-state/` 의 sync helper
 - `workmeta_sync/`: nested private repo `_workmeta/` 의 sync helper
 - `workspace_junction/`: `_workspaces` mount/junction 점검과 system inventory helper
-- `voice_capture/`: local microphone chunk capture and ASR command supervisor for `_workspaces` voice sessions
+- `voice_capture/`: local microphone capture, PLAUD original-audio intake, and resumable independent-ASR supervisor for `_workspaces` voice sessions
 - `state/`: local-only 운영 상태와 queue/log/env 위치, 전체 활동 recent-context surface
 
 ## owner 경계

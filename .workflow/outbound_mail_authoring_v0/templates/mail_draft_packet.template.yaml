@@ -1,8 +1,44 @@
 schema_version: outbound_mail_draft_packet_v0
 request_id: "<stable_request_id>"
 workflow_id: outbound_mail_authoring_v0
+requested_send_surface: "outlook_manual | soulforge_send_mail | draft_only"
 authority_state: "draft_only | owner_review_ready | owner_approved_send_handoff | blocked"
 assumptions: []
+normalized_team_mail_context:
+  schema_version: outbound_team_mail_context_v1
+  ref: "<normalized_context_ref>"
+  assumptions_synchronized: true
+render_plan:
+  schema_version: outbound_mail_render_plan_v0
+  mode: "compact | action_brief | decision_brief | status_change | reply_map"
+  selection_score: null
+  selection_reasons: []
+  visible_sections: []
+  omit_empty_sections: true
+  metadata_source_of_truth: outbound_team_mail_context_v1
+  channel_recommendation: "email | synchronous_discussion_then_email_record"
+context_coverage:
+  recipient_roles: []
+  requested_work_by_assignee: []
+  global_notes: []
+  facts: []
+  schedule:
+    before: null
+    after: null
+    rationale: null
+    deadline_or_reply_by: null
+  participants: []
+  requested_formats: []
+  examples: []
+  attachments: []
+  response_requirements: []
+  source_basis: []
+  public_safety:
+    contains_real_contact_values: false
+    contains_raw_mail_excerpt: false
+    contains_exact_footer_payload: false
+    contains_private_path: false
+    contains_private_project_row: false
 subject_candidate: "<subject_or_null>"
 body_draft: |
   <mail body draft>

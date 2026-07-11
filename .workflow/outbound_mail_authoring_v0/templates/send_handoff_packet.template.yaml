@@ -9,6 +9,7 @@ recipients:
   bcc: []
 subject: "<approved_subject>"
 body_ref: "<draft_packet_ref_or_owner_approved_body_ref>"
+context_coverage_ref: "<reviewed_context_coverage_ref>"
 attachments:
   refs: []
   external_share_confirmed: false

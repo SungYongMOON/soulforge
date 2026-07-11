@@ -19,6 +19,16 @@ microphone recorder command
   -> metadata-only recording library registration
   -> metadata-only _workmeta review draft
   -> later reviewed project route and draft actions
+
+PLAUD account collector on an always-on node
+  -> official CLI recent recording IDs
+  -> original audio + provider transcript + provider summary
+  -> isolated session under the same recording library
+  -> provider text held as unverified auxiliary evidence
+  -> resumable local whisper.cpp queue from the original audio
+  -> versioned independent transcript under the session analysis directory
+  -> metadata-only voice source pointer for project-context routing
+  -> later independent transcription and project-context review
 ```
 
 ## Owner Split
@@ -57,6 +67,30 @@ microphone recorder command
   not promote project route or mutate a formal task ledger.
 - `render-launchd` writes a local-only plist for manual installation. It does
   not install, load, or unload launchd by itself.
+- The normal PLAUD collector is event-driven. A fresh Hiworks PLAUD transcript
+  notice writes a sanitized trigger to the shared workspace queue, and the Mac
+  mini launchd `WatchPaths` job drains it. A successful import also writes a
+  local-ASR queue item. The same node watches that queue and runs the configured
+  `whisper.cpp` model against the original audio. Explicit `sync` remains a
+  recovery command rather than the normal periodic trigger.
+- Provider recording IDs provide payload deduplication. A trigger remains
+  pending when audio or transcript is not yet available.
+- Every watcher run scans imported audio sessions for the current independent
+  run before draining the durable queue. This recovers a session whose original
+  import succeeded but whose first queue-file write failed, without downloading
+  or duplicating the original recording again.
+- PLAUD audio is a canonical source candidate. PLAUD transcript and speaker
+  labels remain auxiliary and unverified; PLAUD summaries are quarantined and
+  cannot directly create tasks or meeting minutes.
+- Independent ASR outputs are versioned under
+  `sessions/**/analysis/local_asr/<run_id>/`. They never overwrite the provider
+  transcript, remain machine-generated and unverified, and carry `UNKNOWN`
+  speaker labels until a separate reviewed diarization or identity lane exists.
+- Every completed independent run writes a metadata-only
+  `project_context_source.json` plus a directly consumable
+  `project_context_event.json`. Their `source_kind: voice` pointer may join mail
+  and `se_schedule` sources in the existing project-context model, but they stay
+  in `P00-000_INBOX` until project routing is confirmed.
 
 ## Recommended First Profile
 
@@ -66,6 +100,45 @@ microphone recorder command
 - Chunk size: 60 seconds for live work; 30 seconds for smoke tests.
 - Terms prompt: project codes, supplier names, equipment models, and repeated
   technical terms.
+- Imported-audio chunking: 30 minutes with a 10-second overlap. Overlap is used
+  only as ASR context; midpoint ownership keeps each segment once and makes the
+  backlog resumable at chunk boundaries.
+- Continuous-office imports enable the local Silero VAD model before Whisper.
+  The first profile uses the upstream default speech threshold `0.5`, disables
+  decoder temperature fallback and prior-text carryover, suppresses non-speech
+  tokens, and keeps a 500 ms speech pad. This prevents a low-signal guess from
+  cascading across a long silent interval while preserving a reviewable audit
+  trail.
+- Exact text repeated within the configured 90-second window is removed from
+  the usable transcript and retained in `suppressed_segments.jsonl`. Aggregate
+  suppression counts and quality flags stay in the run manifest; the sidecar
+  itself remains private under `_workspaces`.
+
+## Reviewed Speaker Identity Lane
+
+Speaker handling is a separate, opt-in analysis lane; it is not part of the ASR
+truth claim.
+
+1. Diarization first assigns anonymous session labels such as `SPEAKER_01`.
+2. Only owner-approved and consented team members may have local enrollment
+   samples and versioned voice embeddings under `_workspaces`.
+3. A matcher may propose a person only when the configured similarity and
+   minimum-speech thresholds both pass. Otherwise the label stays `UNKNOWN`.
+4. Every proposal records the diarization run, embedding profile version,
+   score, and review state in a local sidecar. Raw enrollment audio and
+   embeddings never enter public Git or `_workmeta`.
+5. Speaker identity remains a review input. It cannot by itself assign a task,
+   change an SE schedule, confirm attendance, or promote a project route.
+
+Before enabling cross-session identity matching, the owner must decide the
+notice/consent, enrollment, access, retention, revocation, and human correction
+rules. Model training is not required for the first lane; diarization plus
+reviewed embedding matching is sufficient for a pilot.
+
+Use the public-safe
+[`team_speaker_enrollment_reading_script.ko.md`](examples/voice_capture/team_speaker_enrollment_reading_script.ko.md)
+for the first team enrollment pilot. Actual names, ID mappings, recordings, and
+voice embeddings remain local payloads and are not part of the example.
 
 ## Non-Goals
 

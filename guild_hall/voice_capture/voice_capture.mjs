@@ -591,7 +591,7 @@ export async function buildSessionStatus(sessionDir) {
     errors.push("missing or unreadable session_manifest.json");
   }
 
-  const audioFiles = await listFilesWithExt(audioDir, [".wav", ".m4a", ".mp3", ".flac"]);
+  const audioFiles = await listFilesWithExt(audioDir, [".wav", ".m4a", ".mp3", ".flac", ".ogg"]);
   const transcriptJsonFiles = await listFilesWithExt(transcriptDir, [".json"]);
   const transcriptTextFiles = await listFilesWithExt(transcriptDir, [".txt"]);
   const transcriptSrtFiles = await listFilesWithExt(transcriptDir, [".srt"]);
@@ -629,8 +629,9 @@ export async function buildSessionStatus(sessionDir) {
     transcript_txt_present: fileExists(transcriptTxtPath),
     estimated_recorded_seconds: chunkSeconds ? audioFiles.length * chunkSeconds : null,
     raw_payload_boundary: {
-      audio_stored_under_workspace: true,
-      transcript_stored_under_workspace: true,
+      audio_stored_under_workspace: audioFiles.length > 0,
+      transcript_stored_under_workspace:
+        fileExists(transcriptTxtPath) || transcriptSegments > 0 || transcriptTextFiles.length > 0,
       workmeta_raw_audio_copy_allowed: false,
       workmeta_raw_transcript_copy_allowed: false,
     },
@@ -665,7 +666,14 @@ export async function buildRecordingLibraryEntry(options = {}) {
   const sourceAudioRef = firstExistingPath([
     path.join(sessionDir, "audio", "source.m4a"),
     path.join(sessionDir, "audio", "source.wav"),
+    path.join(sessionDir, "audio", "source.mp3"),
+    path.join(sessionDir, "audio", "source.flac"),
+    path.join(sessionDir, "audio", "source.ogg"),
   ]);
+  const manifestSpeakerDiarization =
+    manifest.speaker_diarization && typeof manifest.speaker_diarization === "object"
+      ? manifest.speaker_diarization
+      : null;
   const recordingDir = path.join(libraryRoot, "recordings", recordingDate, recordingId);
   const projectRouteDir = path.join(libraryRoot, "project_routes", projectCode, "recordings");
   const entry = {
@@ -714,12 +722,14 @@ export async function buildRecordingLibraryEntry(options = {}) {
           quality: speakerSummary.quality ?? null,
           speaker_durations_seconds: speakerSummary.speaker_durations_seconds ?? null,
         }
-      : {
-          status: "not_available",
-        },
+      : manifestSpeakerDiarization
+        ? manifestSpeakerDiarization
+        : {
+            status: "not_available",
+          },
     raw_payload_boundary: {
-      audio_stored_under_workspace: true,
-      transcript_stored_under_workspace: true,
+      audio_stored_under_workspace: status.raw_payload_boundary.audio_stored_under_workspace,
+      transcript_stored_under_workspace: status.raw_payload_boundary.transcript_stored_under_workspace,
       library_raw_audio_copy_allowed: false,
       library_raw_transcript_copy_allowed: false,
       workmeta_raw_audio_copy_allowed: false,
@@ -843,13 +853,25 @@ export async function buildWorkmetaDraftPlan(options = {}) {
   const projectCode = options.projectCode ?? "P00-000_INBOX";
   const sessionDir = path.resolve(options.sessionDir);
   const status = await buildSessionStatus(sessionDir);
+  const manifest = (await readJsonIfExists(path.join(sessionDir, "session_manifest.json"))) ?? {};
+  const sourceKind = manifest.source_kind ?? manifest.source ?? "local_microphone_capture_session";
+  const meetingBundleRef =
+    manifest.meeting_bundle?.bundle_manifest_ref ?? manifest.meeting_context?.meeting_bundle_ref ?? null;
   const sourceEventId = `voice_${status.session_id}`;
   const targetDir = path.join(workmetaRoot, projectCode, "reports", "voice_source_events", sourceEventId);
   const sessionRef = relativeToRepoOrAbsolute(repoRoot, sessionDir);
   const files = [
     {
       path: path.join(targetDir, "source_event_manifest.yaml"),
-      content: renderWorkmetaSourceEventManifest({ repoRoot, projectCode, sourceEventId, status, sessionRef }),
+      content: renderWorkmetaSourceEventManifest({
+        repoRoot,
+        projectCode,
+        sourceEventId,
+        sourceKind,
+        meetingBundleRef,
+        status,
+        sessionRef,
+      }),
     },
     {
       path: path.join(targetDir, "project_match_review.yaml"),
@@ -1064,14 +1086,23 @@ async function writeCurrentRecordingIndex(outputPath, indexPath) {
   );
 }
 
-function renderWorkmetaSourceEventManifest({ repoRoot, projectCode, sourceEventId, status, sessionRef }) {
+function renderWorkmetaSourceEventManifest({
+  repoRoot,
+  projectCode,
+  sourceEventId,
+  sourceKind,
+  meetingBundleRef,
+  status,
+  sessionRef,
+}) {
   return [
     `schema_version: ${workmetaDraftSchemaVersion}`,
     `source_event_id: ${sourceEventId}`,
-    "source_kind: local_microphone_capture_session",
+    `source_kind: ${sourceKind}`,
     `project_code_candidate: ${projectCode}`,
     "project_route_state: unclassified_needs_owner_confirmation",
     `session_ref: ${JSON.stringify(sessionRef)}`,
+    ...(meetingBundleRef ? [`meeting_bundle_ref: ${JSON.stringify(meetingBundleRef)}`] : []),
     `session_manifest_ref: ${JSON.stringify(relativeToRepoOrAbsolute(repoRoot, path.join(status.session_dir, "session_manifest.json")))}`,
     `source_event_draft_ref: ${JSON.stringify(relativeToRepoOrAbsolute(repoRoot, path.join(status.session_dir, "source_event_draft.yaml")))}`,
     `chunk_log_ref: ${JSON.stringify(relativeToRepoOrAbsolute(repoRoot, path.join(status.session_dir, "chunks.jsonl")))}`,

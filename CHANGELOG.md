@@ -15,6 +15,55 @@
 - `workflow_optimizer`를 적용성 판정과 `migration_validation`/`profile_search` 분리, incumbent 중심 shortlist, archetype/sentinel 기반 확장으로 바꿔 새 모델 출시 때 워크플로우별 전수 Cartesian 재탐색을 기본값에서 제외했다. runner/model/effort preflight 실패는 `blocked_runner_catalog_incompatible`로 막고, 실제 후보가 실행되지 않으면 incumbent 유지와 no-winner를 강제한다.
 - 비용 결론은 측정된 token proxy, list-price estimate, billed cost를 분리하고 사용 빈도 근거 없이는 ROI를 금지한다. 선택 주장은 항상 `lowest_cost_passing_among_tested`로 제한하며 historical calibration archive는 불변 기록으로 유지한다. (worker: `codex_gpt-5`)
 - 후속 runner 검증에서 `codex-cli 0.144.1`의 GPT-5.6 Sol/Terra가 `ultra`를 reasoning effort로 광고함을 확인해 기존 topology-only 규칙을 교정했고, 기존 frozen gate를 재사용한 `se_assistant_operating_loop_v0`·`author_skill_package` 이행 파일럿과 반복 결과를 새 calibration archive에 기록했다. (worker: codex_gpt-5)
+### PLAUD 원음 독립 전사와 프로젝트 3입력 연결
+
+- 하이웍스 PLAUD 전사완료 메일이 맥미니의 공식 CLI 원음 import를 깨우는 기존 흐름 뒤에 durable local-ASR queue를 연결했다. 원음 import 후 `whisper.cpp`가 provider 전사를 입력으로 사용하지 않고 별도 전사하며, 실패 queue는 5분 throttle 재시도 대상으로 남는다.
+- 장시간 녹음은 30분 창과 10초 겹침으로 나눠 chunk receipt를 남기므로 중단 후 이어서 처리할 수 있다. 독립 결과는 `analysis/local_asr/<run_id>/`에 버전별로 저장하고 provider 전사·요약을 덮어쓰지 않는다.
+- 독립 전사 완료본은 기존 project-context 정본의 `voice` source pointer를 생성한다. 이 포인터는 `mail`, `se_schedule`과 같은 프로젝트 줄기 입력으로 결합되지만 P00 검토와 책임자 프로젝트 확정 전에는 일정·할일·화자 신원을 확정하지 않는다 (worker: codex_gpt-5).
+- 완료된 음성 포인터를 기존 행보관 project-context 입력기가 직접 소비할 수 있는 metadata-only `events` packet으로 변환하는 어댑터와 소급 refresh 명령을 추가했다. 전사 본문은 어댑터에 복사하지 않는다.
+- 팀원 음성 사용은 전사와 분리된 opt-in 화자 식별 lane으로 설계했다. 익명 화자분리 뒤 동의받은 로컬 enrollment만 대조하며, 임계값 미달은 `UNKNOWN`으로 유지하고 화자 제안만으로 담당자·참석자·일정을 확정하지 않는다 (worker: codex_gpt-5).
+- 다음 팀회의에서 동일 조건의 화자 등록 샘플을 받을 수 있도록 공개 가능한 공통 낭독문과 1미터·실제 좌석의 2회 수집 절차를 추가했다. 실제 이름·ID 연결표·원본 음성·음성 특징은 로컬 `_workspaces`에만 둔다 (worker: codex_gpt-5).
+- 장시간 사무실 배경음에서 동일 문구가 연쇄 생성되는 실제 품질 문제를 확인해 독립 전사 기본 프로필을 VAD·문맥 전파 차단·온도 fallback 차단·비음성 토큰 억제 조합으로 갱신했다. 근접 동일문구는 usable transcript에서 빼되 local 감사 sidecar와 집계 품질 플래그로 보존한다 (worker: codex_gpt-5).
+- PLAUD 원음 import는 성공했지만 첫 local-ASR queue 기록만 실패한 세션이 영구 누락되지 않도록, watcher가 매 실행마다 현재 run 미완료 세션을 다시 찾아 durable queue를 복구한 뒤 drain하도록 보강했다 (worker: codex_gpt-5).
+
+### PLAUD 조건부 파일럿 채택 결정
+
+- PLAUD를 회의록 확정 서비스가 아니라 휴대용 원본 음성 수집기로 사용하는 운영 결정을 추가했다. 본인 1명·5~10회 이중 녹음 파일럿 동안 누락, 계정 전송, 배터리, 원거리 화자, 원본 회수, 하이웍스→맥미니 인입을 확인한 뒤 단독 주 수집기 전환 여부를 판단한다.
+- 원본 오디오는 정본 후보, provider 전사·화자 라벨은 미검증 보조본, provider 요약은 격리 참고본으로 고정했다. 프로젝트 매칭·회의록·할일 확정은 Soulforge가 담당하며 보안시설 금지, 원본 부재, 프로젝트 근거 부족을 중단선으로 명시했다 (worker: codex_gpt-5).
+
+### 하이웍스 메일 구동 맥미니 PLAUD 공식 CLI 수집기
+
+- 하이웍스 수집기가 PLAUD 전사 완료 메일을 받으면 민감정보 없는 hash trigger를 shared OneDrive queue에 쓰고, 24시간 맥미니의 launchd `WatchPaths`가 즉시 공식 PLAUD CLI 수집을 실행하는 intake를 추가했다. 30분 독립 polling은 사용하지 않으며 explicit `sync`는 메일 누락 복구용으로만 남긴다.
+- 새 녹음의 원본 오디오·시간표시 전사·요약을 격리 session으로 수집한다. provider ID 중복 방지, 전사 미완료 queue 유지와 5분 throttle 재시도, OneDrive `_workspaces/system` link preflight, metadata-only 보관함·P00 검토 이벤트 연결, node-local launchd 렌더를 포함한다.
+- 증거 역할을 분리했다. 원본 오디오는 정본 후보, PLAUD 전사·화자명은 미검증 보조본, PLAUD 요약은 격리 참고본이며 provider 로그인 token과 24시간 download URL은 저장하지 않는다. fixture 기반 parser·중복 방지·materialization·launchd 회귀를 추가했다 (worker: codex_gpt-5).
+- 공식 CLI가 JSON 모드 없이 사람용 표를 출력하는 현재 계약을 고려해 검증된 `0.3.4`를 profile에 고정하고, 미검증 버전은 preflight에서 중단한다.
+- 메일과 provider recording을 직접 연결할 수 없는 경계에서 다른 최근 녹음만 보고 완료 처리하지 않도록 했다. 새 import가 없거나 timestamp transcript parser가 0건이면 5분 간격으로 최대 1시간 재시도하고, 이후에도 해결되지 않으면 삭제하지 않고 `unresolved` 검토함으로 격리한다. 다중 대기열은 새 녹음 1건당 오래된 trigger 1건만 완료하고 각 trigger의 수명을 따로 계산한다. 메일 본문의 일반 `transcript` 문구만으로는 trigger하지 않는다.
+
+### PLAUD OGG 원본의 음성 보관함 등록 지원
+
+- PLAUD 공유 링크에서 내려받은 OGG/Opus 원본을 오디오 없음으로 잘못 기록하던 문제를 수정했다. 음성 세션 상태와 보관함 원본 포인터가 `source.ogg`를 인식하고, 기존 M4A/WAV 외 MP3/FLAC 원본 포인터도 보존한다 (worker: codex_gpt-5).
+
+### 음성 source event의 실제 입력원·회의 묶음 포인터 보존
+
+- `write-workmeta-draft`가 PLAUD·Apple Notes·ChatGPT Record import도 모두 로컬 마이크 세션으로 기록하던 고정값을 제거했다. 세션 매니페스트의 실제 `source_kind`와 선택적 `meeting_bundle_ref`를 metadata-only source event에 보존해 동일 회의의 복수 녹음 관계와 입력원별 품질을 추적할 수 있게 했다 (worker: codex_gpt-5).
+
+### Revision `working` - owner-style Outlook mail launcher
+
+- Added `soulforge-owner-outlook-mail` as an explicitly selectable thin launcher for the existing `outbound_mail_authoring_v0` workflow, limited to Outlook manual or draft-only authoring with no send or Outlook mutation authority.
+- Added a public-safe structured team mail context template and optional aggregate-only local/private voice-profile binding; public canon excludes real excerpts, contact values, exact footer text, raw addresses, private paths, and project rows.
+- Evolved the team mail context to `outbound_team_mail_context_v1` so role-only recipients, actual assignee-specific work and notes, global notes, facts, schedule before/after/rationale/deadline, participant involvement, formats/examples, attachments, and response requirements survive into draft review. Supported v0 input normalizes to v1-only; ambiguous public-safe values and derived runtime gaps are synchronized into v1 assumptions before rendering, while unsafe values stop normalization. The normalizer now rejects unflagged email/strong-phone contact values, absolute/private runtime paths, quoted-mail header chains, and footer-security payload indicators without broadly classifying dates or part numbers. Draft packets and checklists name requested send surface and authority state separately instead of implying authority from gaps. Draft-only, no-Outlook-mutation, and no-default-route boundaries are unchanged (worker: codex_gpt-5).
+- Replaced the proposed mandatory six-field body shell with evidence-backed adaptive rendering. Structured v1 metadata stays complete, while the visible body deterministically selects `compact`, `action_brief`, `decision_brief`, `status_change`, or `reply_map`; empty headings are omitted, the six Korean action fields appear only when populated in complex requests, and conflict/negotiation routes to synchronous discussion followed by an email recap. Existing sent mail and individual examples are explicitly not quality oracles. External-send and Outlook-mutation authority remain unchanged (worker: codex_gpt-5).
+- Added a public synthetic technical `action_brief` example after a private owner-approved pilot received positive readability feedback. Technical request mail now uses purpose-first copy, one conditions table, a numbered implementation/test sequence, and a separate revision/measurement/log evidence list. The launcher skill remains thin and inherits this workflow update without duplicating private sent-mail content; no send, Outlook-mutation, default-route, or production-ready authority was added (worker: codex_gpt-5).
+
+### 음성 녹음 보관함 transcript-only 메타데이터 정확성 보정
+
+- 오디오 없이 ChatGPT Record 공유 전사만 보관한 세션을 등록할 때 `audio_stored_under_workspace`를 거짓으로 기록하고 source-provided 화자 라벨 상태를 버리던 문제를 수정했다. 실제 오디오 파일 존재 여부와 전사 존재 여부를 각각 계산하고, 별도 로컬 화자 sidecar가 없으면 세션 매니페스트의 화자분리 상태를 보존한다 (worker: codex_gpt-5).
+
+### dev-ERP 줄기 강 뷰 기본기 — 접기·잘림·잠든 가지·데이터 정직성
+
+- Owner "접는 기능·끝 잘림 등 기본이 안 됨" 지적 반영: ① **접기 칩**(`제안 N 접기/펼치기`·`완료 N 접기/펼치기`, 세션 상태 유지) ② 늦게 태어난 가지 라벨을 점 왼쪽 앵커로 — 오른쪽 잘림 제거 ③ **줄 끝 = 마지막 실기록**(진행 중 작업만 오늘선까지) — 잠든 이력 가지 16/17이 처음으로 드러남 ④ 빨간 점선 '오늘' 기준선 ⑤ 레인 24개 초과 시 행 높이 압축.
+- **데이터 정직성**: 노드 기록 점을 임시 비활성 — 원장 created_at 이 대량 이관일 스탬프(P24-049 641/722건이 같은 날)라 시간 배치가 거짓이 됨. 실날짜인 회차 점(86)만 표시하고, 기록 점 복원은 B9a branch_story 의 메일 장부(실수신일) 조인으로 명시 (`docs/slices/B9-STEM-RIVER-VIEW.md`).
+- 검증: 실데이터 P24-049 — 텍스트 우측 경계 1147<1180(잘림 0), 접기 22↔5 왕복, 잠든 가지 16 시각화, 드래그(고스트·하이라이트·reanchor 단발) 회귀 무결, 콘솔 0, node:test 전건 (worker: claude_fable-5).
 
 ### dev-ERP 메일 스레드(대화) 그룹 단위 담당·과제 일괄 분류
 
@@ -25,6 +74,13 @@
 
 - 메일 상세에 '스팸' 버튼을 추가했다. 관리자는 발신자 영구 차단(제외 규칙 추가+소급 숨김) 또는 이 메일만 숨김을, 팀원은 이 메일만 숨김을 고른다. 대화상자에 규칙 관리 위치(관리자 패널 › 메일 제외 규칙)를 안내해 "분류 기준 어디 있는지"를 해소한다.
 - 할일 상세 팝업에 원본 메일 내용(발신자·날짜·제목·본문)을 함께 띄워 AI 오해석을 사람이 대조하게 했고, 할일 이름 직접 수정과 과제 변경(메일 유래면 원본 메일도 동행 이동)을 추가했다. store `setItemProject` + `/api/items/project` 신설, 이벤트 `item_move`. node:test ITEM-PROJECT 2건 추가. (worker: claude_fable-5)
+
+### dev-ERP B9b 줄기 강(江) 뷰 — 방사형 폐기, 시간축 레인 렌더 (근본 교체)
+
+- Owner "근본적인 해결 없이 접근" 지적에 따라 줄기 지도의 방사형 레이아웃을 폐기하고 **가로축=시간 강줄기 렌더**로 교체했다 (`docs/slices/B9-STEM-RIVER-VIEW.md` §2 문법). 맨 위 보라 가로선=SE 기둥(큰 점=게이트, 드래그 드롭 대상 유지), 가지 하나=자기 가로줄 하나(탄생점→진행/완료점) — **겹침이 구조적으로 불가능**(git log --graph 원리). 줄 위 점=그 일의 기록들(시간순, hover 툴팁), 이력줄기는 회차 점, 월 눈금 그리드.
+- 가지 사이 관계 곡선(교차 링크) 렌더 배선 — 현 데이터는 회차→할일 출생 링크(`spawned_item_refs`)가 미적재라 0건이며, 엔진이 채우면 자동 표시(소급 추론은 Codex 소품 후보).
+- 사전 슬라이스 2건 동승 기록: 지도 라벨 표시 정제(접두 벗김 `trunkMapLabel`, f43cceab) + 드래그 UX(고스트·게이트 하이라이트·전결과 토스트·텍스트선택 차단, bcf35c0b).
+- 검증: 실데이터 P24-049 — 레인 22개 전부 고유 행, 기록 점 137·회차 점 86 시간 배치, 월 눈금 12, 클릭 상세·선택 강조·드래그(고스트+하이라이트+reanchor 단발) 전부 통과, 콘솔 0, node:test 전건 (worker: claude_fable-5).
 
 ### dev-ERP B8 줄기 지도 v2 렌더 (골격·작업·이력 구분 + 드래그 재부착)
 

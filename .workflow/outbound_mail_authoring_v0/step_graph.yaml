@@ -7,6 +7,7 @@ steps:
     actor_slot: scope_binder
     action:
       kind: outbound_mail_authoring_scope_binding
+      team_mail_context_normalizer: scripts/normalize_team_mail_context.mjs
       validates:
         - thread_mode_is_new_reply_or_forward
         - send_surface_is_outlook_manual_soulforge_send_mail_or_draft_only
@@ -14,8 +15,18 @@ steps:
         - project_code_is_internal_metadata_only_when_present
         - required_style_policy_ref_is_available
         - attachment_selection_scope_is_bound_or_marked_unclear
+        - owner_voice_profile_ref_is_optional_and_private_when_present
+        - owner_voice_profile_provenance_is_bound_when_profile_is_used
+        - team_mail_context_is_v1_or_supported_v0_input
+        - team_mail_context_normalizes_to_v1_only
+        - recipient_roles_contain_no_contact_values
+        - each_requested_work_item_names_actual_assignee_or_explicit_assumption
+        - unsupported_or_ambiguous_v0_fields_are_preserved_in_assumptions
+        - unsafe_values_are_not_copied_into_normalized_context
+        - all_derived_runtime_gaps_are_merged_into_v1_assumptions
       creates:
         - mail_authoring_scope
+        - normalized_team_mail_context_v1
         - missing_input_register
     summary: Bind the requested mail mode, send surface, project metadata, recipients, attachments, and owner-provided facts before drafting.
     next:
@@ -47,7 +58,7 @@ steps:
     summary: Resolve the outbound subject bracket from actual project mail keywords only; never substitute internal project codes.
     next:
       on_success: build_subject_candidate
-      on_owner_confirmation_needed: stop
+      on_owner_confirmation_needed: draft_owner_style_body
       on_fail: stop
   - step_id: build_subject_candidate
     title: Build Subject Candidate
@@ -68,6 +79,30 @@ steps:
         - do_not_add_extra_prefix_beyond_Outlook_RE_or_FW
     summary: Produce the subject candidate while preserving thread subjects and preventing internal code leakage.
     next:
+      on_success: select_body_render_mode
+      on_fail: stop
+  - step_id: select_body_render_mode
+    title: Select Body Render Mode
+    actor_slot: body_author
+    action:
+      kind: adaptive_mail_body_render_selection
+      selector: scripts/select_mail_render_mode.mjs
+      artifacts_in:
+        - mail_authoring_scope
+        - normalized_team_mail_context_v1
+      artifact_out: mail_render_plan
+      rules:
+        - keep_normalized_metadata_complete_even_when_body_is_compact
+        - select_compact_action_brief_decision_brief_status_change_or_reply_map
+        - omit_empty_visible_sections
+        - show_six_field_action_structure_only_when_complexity_requires_it
+        - show_recipient_section_only_for_role_or_assignee_disambiguation
+        - merge_duplicate_reason_and_request_basis
+        - use_technical_action_brief_layout_when_constants_ordered_steps_and_result_evidence_are_all_present
+        - route_conflict_negotiation_or_material_ambiguity_to_synchronous_discussion_then_email_record
+        - never_raise_send_authority
+    summary: Select a deterministic human-facing view while retaining the full structured context for AI and metadata use.
+    next:
       on_success: draft_owner_style_body
       on_fail: stop
   - step_id: draft_owner_style_body
@@ -80,10 +115,18 @@ steps:
         - mail_send_style_policy_ref
         - owner_provided_body_facts
         - attachment_metadata_refs
+        - owner_voice_profile_ref
+        - owner_voice_profile_provenance
+        - normalized_team_mail_context_v1
+        - mail_render_plan
+      reference_templates:
+        - templates/technical_action_brief.example.md
       artifact_out: owner_style_body_draft
       style_rules:
         - Korean_business_mail
         - purpose_first
+        - render_only_sections_selected_by_mail_render_plan
+        - never_render_empty_labels_or_not_applicable_placeholders
         - concise_background
         - action_attachment_deadline_visible
         - collected_attachments_are_not_treated_as_send_attachments_without_selection
@@ -91,6 +134,15 @@ steps:
         - avoid_AI_internal_terms
         - avoid_unverified_numbers_or_dates
         - avoid_private_paths_hashes_run_ids_or_source_refs
+        - use_owner_voice_profile_only_as_optional_aggregate_style_guidance
+        - preserve_each_assignee_and_requested_work_item
+        - preserve_global_and_per_assignee_notes
+        - preserve_facts_schedule_before_after_rationale_and_deadline_or_reply_by
+        - preserve_participant_involvement_format_examples_attachments_and_response_requirements
+        - preserve_uncertainties_in_assumptions
+        - render_assumptions_only_from_synchronized_v1_assumptions
+        - for_technical_action_brief_use_one_conditions_table_then_numbered_steps_then_requested_evidence
+        - never_copy_synthetic_example_values_as_mail_facts
       missing_fact_policy: add_assumptions_and_keep_draft_only
     summary: Draft the body in the owner's concise business style using only provided or approved facts.
     next:
@@ -133,18 +185,31 @@ steps:
         - owner_style_body_draft
         - footer_application_state
         - attachment_metadata_refs
+        - normalized_team_mail_context_v1
+        - mail_render_plan
       artifact_out: pre_send_checklist
       required_checks:
         - recipient_to_cc_bcc_bound
         - subject_matches_thread_or_project_keyword_rule
         - body_purpose_visible
-        - requested_action_attachment_deadline_visible
+        - every_assignee_requested_work_and_note_accounted_for
+        - mail_reason_and_global_notes_accounted_for
+        - facts_and_schedule_before_after_rationale_deadline_accounted_for
+        - participants_and_involvement_accounted_for
+        - requested_formats_and_examples_accounted_for
+        - attachments_and_response_requirements_accounted_for
+        - normalized_and_rendered_assumptions_synchronized
+        - render_mode_reason_and_visible_sections_accounted_for
+        - empty_sections_omitted
+        - normalized_context_coverage_unchanged_by_render_mode
+        - source_basis_and_public_safety_accounted_for
         - attachments_exist_and_are_shareable_or_marked_none
         - attachment_selection_basis_bound
         - duplicate_or_superseded_attachments_excluded_or_owner_approved
         - requester_or_external_stakeholder_attachments_forwarded_only_with_owner_approval
         - footer_signature_and_security_notice_present_once_or_gap_marked
         - no_private_paths_raw_source_secrets_or_internal_run_ids
+        - requested_send_surface_and_authority_state_named_separately
         - owner_approval_state_named
     summary: Build the owner-facing checklist that decides whether the output stays draft-only or can become review-ready/send-handoff.
     next:
@@ -189,6 +254,7 @@ steps:
         - footer_application_state
         - pre_send_checklist
         - owner_approval_gate_result
+        - normalized_team_mail_context_v1
       artifact_out: send_surface_handoff
       allowed_surfaces:
         - outlook_manual
@@ -243,7 +309,7 @@ steps:
     summary: Close with a conservative boundary and claim review.
     next: []
 stop_conditions:
-  - project_keyword_authority_missing_for_new_subject
+  - project_keyword_authority_missing_for_final_new_subject
   - recipient_or_attachment_scope_unclear
   - collected_attachments_not_reduced_to_selected_send_packet
   - duplicate_or_superseded_attachment_version_unclear
@@ -252,5 +318,12 @@ stop_conditions:
   - owner_approval_missing_for_external_send
   - raw_mail_body_or_attachment_or_secret_required
   - unverified_number_date_or_claim_needed
+  - team_context_schema_missing_or_unsupported
+  - unsafe_team_context_value_present
+  - ambiguous_v0_mapping_not_preserved_in_assumptions
+  - derived_gap_missing_from_v1_assumptions
+  - normalized_and_rendered_assumptions_diverge
+  - render_mode_selector_input_unsupported
+  - requested_work_assignee_unresolved_for_review_ready_or_send_handoff
   - Outlook_mutation_requested
   - public_private_boundary_unclear
