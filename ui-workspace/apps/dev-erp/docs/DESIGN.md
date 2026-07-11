@@ -70,7 +70,9 @@
   서버의 `/api/codex-task/*` 만 호출하고, ERP 서버 PC 가 내부 stdio
   `codex app-server` 프로세스를 시작/재개한다. 기본값은 실제 `app-server`
   bridge 이며, UI/API smoke test 는 `DEV_ERP_CODEX_TASK_BRIDGE=mock` 으로만
-  켠다. Codex 호스트 설정에 과거 `service_tier=priority` 값이 남아 있는
+  켠다. 2026-07-06 운영 보정으로 서버는 app-server 프로세스를 idle 10분
+  동안 재사용해 매 턴 cold start 를 피한다(`DEV_ERP_CODEX_APP_SERVER_REUSE=0`
+  으로 비활성화 가능). Codex 호스트 설정에 과거 `service_tier=priority` 값이 남아 있는
   테스트 PC 는 전역 설정 파일을 바로 수정하지 않고
   `DEV_ERP_CODEX_SERVICE_TIER=fast` 로 app-server 실행만 보정할 수 있다.
   `flex` 는 기본 비용 정책으로 UI/API 에 표시하지만 app-server turn 요청에는

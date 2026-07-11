@@ -57,7 +57,7 @@ const flag = (name, fallback) => {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const CODEX_TASK_BRIDGE_MODE = process.env.DEV_ERP_CODEX_TASK_BRIDGE || "app-server";
 const CODEX_TASK_BRIDGE_CWD = resolve(process.env.DEV_ERP_CODEX_TASK_CWD || ROOT);
-const CODEX_TASK_TIMEOUT_MS = Number(process.env.DEV_ERP_CODEX_TASK_TIMEOUT_MS || 120000);
+const CODEX_TASK_TIMEOUT_MS = Number(process.env.DEV_ERP_CODEX_TASK_TIMEOUT_MS || 300000);
 const CODEX_HOME = resolve(process.env.CODEX_HOME || join(homedir(), ".codex"));
 const CODEX_TASK_ATTACHMENT_ROOT = resolve(process.env.DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT || join(ROOT, "_workspaces", "system", "dev-erp", "codex-task-attachments"));
 // 대화 첨부 저장 규칙(2026-07-03 owner, docs/architecture/workspace/CHAT_ATTACHMENT_STORAGE_V0.md):

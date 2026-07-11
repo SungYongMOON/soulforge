@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP Codex 할일 브리지 cold-start 완화
+
+- 할일 전용 Codex 브리지가 요청마다 `codex app-server`를 새로 띄우며 `where.exe codex` 탐색·app-server 초기화·thread resume/start·turn 완료를 모두 120초 안에 끝내야 하던 병목을 완화했다. 기본 경로는 app-server 프로세스를 idle 10분 동안 재사용하고, turn 실행은 shared queue로 직렬화한다. stuck turn timeout 시에는 프로세스를 닫아 다음 요청이 새 프로세스를 잡는다.
+- 서버 기본 timeout은 300초, 브라우저 fetch timeout은 310초로 정렬해 서버 처리 중 브라우저가 먼저 `signal is aborted without reason`으로 끊는 현상을 줄였다. 운영상 재사용을 끄려면 `DEV_ERP_CODEX_APP_SERVER_REUSE=0`을 쓴다. 후속 하드닝(stdin error 리스너, 큐 직렬화 정책, stderr 상한)은 리뷰 follow-up으로 별도 처리한다. (worker: claude_fable-5 — 기존 미커밋 슬라이스 정합·검증·커밋)
+
 ### GPT-5.6 워크플로 포트폴리오 재최적화
 
 - 과거 최적화 이력이 있는 62개 워크플로를 적용성 gate와 단계식 후보 탐색으로 재검증했다. 59개는 새 공개 합성 fixture와 독립 품질 심사를 거쳐 28개 profile을 교체하고 31개를 유지했으며, `rag_work_card_router_v0`는 deterministic validator가 결과 권한을 가지므로 최적화 비적용으로 유지했다. 두 same-day pilot은 중복 실행 없이 재사용했다.

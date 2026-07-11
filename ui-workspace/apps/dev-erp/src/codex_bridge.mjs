@@ -40,6 +40,15 @@ const CLIENT_INFO = Object.freeze({
 });
 
 const CODEX_BIN = process.env.DEV_ERP_CODEX_BIN || "codex";
+const CODEX_APP_SERVER_IDLE_MS = Number(process.env.DEV_ERP_CODEX_APP_SERVER_IDLE_MS || 10 * 60 * 1000);
+let cachedCodexAppServerSpawnSpec = null;
+let sharedCodexAppServerClient = null;
+let sharedCodexAppServerQueue = Promise.resolve();
+
+export function codexAppServerReuseEnabled(value = process.env.DEV_ERP_CODEX_APP_SERVER_REUSE) {
+  const v = String(value ?? "1").trim().toLowerCase();
+  return !["0", "false", "off", "no"].includes(v);
+}
 
 // 채팅 Codex 세션의 샌드박스/승인 정책. 기본은 안전(read-only·never) — owner가 DEV_ERP_CODEX_SANDBOX 를
 // 명시적으로 켤 때만 로컬 실행/파일 쓰기 허용(Outlook 실행 등). 값:
@@ -126,13 +135,18 @@ function resolveWindowsCodexDirectSpawnSpec(appServerArgs) {
 
 function codexAppServerSpawnSpec() {
   const appServerArgs = buildCodexAppServerArgs();
+  const cacheKey = `${CODEX_BIN}\0${appServerArgs.join("\0")}`;
+  if (cachedCodexAppServerSpawnSpec?.key === cacheKey) return cachedCodexAppServerSpawnSpec.spec;
+  let spec;
   if (process.platform !== "win32") return { command: CODEX_BIN, args: appServerArgs };
   const direct = resolveWindowsCodexDirectSpawnSpec(appServerArgs);
-  if (direct) return direct;
-  return {
+  if (direct) spec = direct;
+  else spec = {
     command: "cmd.exe",
     args: ["/d", "/s", "/c", [CODEX_BIN, ...appServerArgs].map(quoteCmdArg).join(" ")],
   };
+  cachedCodexAppServerSpawnSpec = { key: cacheKey, spec };
+  return spec;
 }
 
 export function codexAppServerProcessTreeKillSpec(pid, platform = process.platform) {
@@ -154,6 +168,226 @@ export function stopCodexAppServerProcess(child, { platform = process.platform, 
     } catch {}
   }
   try { return !!child.kill(); } catch { return false; }
+}
+
+function createCodexAppServerClient(cwd) {
+  sanitizeCodexConfigServiceTier(); // 실행 직전 호스트 config 의 미지원 tier(priority 등) 자동 중립화 → "unknown variant" 파싱오류 구조적 방지
+  const spec = codexAppServerSpawnSpec();
+  const child = spawn(spec.command, spec.args, {
+    cwd,
+    windowsHide: true,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const pending = new Map();
+  const stdoutNoise = [];
+  let stderr = "";
+  let nextId = 1;
+  let closed = false;
+  let activeTurn = null;
+  let idleTimer = null;
+  let ready = null;
+  let client = null;
+
+  const detailText = (fallback) => [stderr.trim(), stdoutNoise.join("\n").trim()]
+    .filter(Boolean)
+    .join("\n") || fallback;
+  const rejectPending = (err) => {
+    for (const [, p] of pending) p.reject(err);
+    pending.clear();
+  };
+  const rejectActiveTurn = (err) => {
+    if (!activeTurn) return;
+    const turn = activeTurn;
+    activeTurn = null;
+    clearTimeout(turn.timer);
+    turn.reject(err);
+  };
+  const close = (err = new Error("codex_app_server_closed")) => {
+    if (closed) return;
+    closed = true;
+    clearTimeout(idleTimer);
+    rejectPending(err);
+    rejectActiveTurn(err);
+    if (sharedCodexAppServerClient === client) sharedCodexAppServerClient = null;
+    stopCodexAppServerProcess(child, { preferChildKill: spec.direct === true });
+  };
+  const scheduleIdleClose = () => {
+    clearTimeout(idleTimer);
+    if (!Number.isFinite(CODEX_APP_SERVER_IDLE_MS) || CODEX_APP_SERVER_IDLE_MS <= 0) return;
+    idleTimer = setTimeout(() => close(new Error("codex_app_server_idle_close")), CODEX_APP_SERVER_IDLE_MS);
+  };
+  const sendMessage = (message) => {
+    if (closed) throw new Error("codex_app_server_closed");
+    child.stdin.write(`${JSON.stringify(message)}\n`);
+  };
+  const request = (method, params = {}) => {
+    const id = nextId++;
+    return new Promise((resolveRequest, rejectRequest) => {
+      pending.set(id, { resolve: resolveRequest, reject: rejectRequest, method });
+      try {
+        sendMessage({ id, method, params });
+      } catch (err) {
+        pending.delete(id);
+        rejectRequest(err);
+      }
+    });
+  };
+  const notify = (method, params = {}) => {
+    sendMessage({ method, params });
+  };
+  const handleNotification = (method, params = {}) => {
+    const turn = activeTurn;
+    if (method === "error") {
+      const msg = params?.message || params?.error?.message || JSON.stringify(params);
+      close(new Error(`codex_app_server_error:${msg}`));
+      return;
+    }
+    if (!turn) return;
+    if (method === "item/started" || method === "item/completed") {
+      turn.events.push({
+        method,
+        threadId: params?.threadId || null,
+        type: params?.item?.type || null,
+        status: params?.item?.status || params?.item?.state?.status || null,
+        title: params?.item?.title || params?.item?.name || params?.item?.toolName || null,
+      });
+    }
+    if (method === "item/agentMessage/delta") {
+      if (params?.threadId && turn.activeThreadId && params.threadId !== turn.activeThreadId) return;
+      turn.responseText += params.delta || "";
+    }
+    if (method === "turn/completed") {
+      if (params?.threadId && turn.activeThreadId && params.threadId !== turn.activeThreadId) return;
+      const finalText = turn.responseText.trim() || extractAgentMessageText(params.turn).trim();
+      const result = {
+        ok: true,
+        mode: "app-server",
+        threadId: turn.activeThreadId,
+        text: finalText || "Codex turn completed.",
+        created: !turn.threadId,
+        turn: params?.turn ?? null,
+        events: turn.events,
+      };
+      activeTurn = null;
+      clearTimeout(turn.timer);
+      turn.resolve(result);
+      scheduleIdleClose();
+    }
+  };
+
+  createInterface({ input: child.stdout }).on("line", (line) => {
+    if (!line.trim()) return;
+    let msg;
+    try { msg = JSON.parse(line); }
+    catch { stdoutNoise.push(line); return; }
+    if (msg.id != null) {
+      const p = pending.get(msg.id);
+      if (!p) return;
+      pending.delete(msg.id);
+      if (msg.error) p.reject(new Error(msg.error.message || JSON.stringify(msg.error)));
+      else p.resolve(msg.result);
+      return;
+    }
+    if (msg.method) handleNotification(msg.method, msg.params || {});
+  });
+  child.stderr.on("data", (buf) => { stderr += buf.toString(); });
+  child.on("error", (err) => close(err));
+  child.on("exit", (code) => {
+    if (closed) return;
+    const err = new Error(`codex_app_server_failed:${detailText(`exit_code:${code}`)}`);
+    close(err);
+  });
+
+  client = {
+    cwd,
+    get closed() { return closed; },
+    close,
+    async runTurn({ threadId = null, threadTitle, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, sandboxMode = null }) {
+      clearTimeout(idleTimer);
+      const sbMode = resolveSandboxMode(sandboxMode);
+      return new Promise((resolve, reject) => {
+        const selectedModel = cleanTurnOption(model);
+        const selectedEffort = cleanTurnOption(effort, new Set(["none", "minimal", "low", "medium", "high", "xhigh"]));
+        const selectedTier = codexAppServerServiceTierOverride(serviceTier);
+        const turn = {
+          threadId,
+          activeThreadId: threadId || null,
+          responseText: "",
+          events: [],
+          resolve,
+          reject,
+          timer: null,
+        };
+        const fail = (err, { closeClient = false } = {}) => {
+          if (activeTurn !== turn) return;
+          activeTurn = null;
+          clearTimeout(turn.timer);
+          reject(err);
+          if (closeClient) close(err);
+        };
+        turn.timer = setTimeout(() => fail(new Error(`codex_app_server_timeout:${timeoutMs}`), { closeClient: true }), timeoutMs);
+        activeTurn = turn;
+        (async () => {
+          await ready;
+          const developerInstructions = buildTaskDeveloperInstructions(item);
+          if (turn.activeThreadId) {
+            await request("thread/resume", {
+              threadId: turn.activeThreadId,
+              cwd,
+              approvalPolicy: CODEX_APPROVAL_POLICY,
+              sandbox: sbMode,
+              developerInstructions,
+            });
+          } else {
+            const started = await request("thread/start", {
+              cwd,
+              approvalPolicy: CODEX_APPROVAL_POLICY,
+              sandbox: sbMode,
+              developerInstructions,
+              serviceName: "dev-erp",
+              threadSource: "user",
+              ...(selectedModel ? { model: selectedModel } : {}),
+              ...(selectedTier ? { serviceTier: selectedTier } : {}),
+            });
+            turn.activeThreadId = started?.thread?.id;
+            if (!turn.activeThreadId) throw new Error("codex_thread_id_missing");
+            if (threadTitle) await request("thread/name/set", { threadId: turn.activeThreadId, name: threadTitle });
+          }
+          const prompt = buildTaskPrompt(item, userMessage, { initial });
+          await request("turn/start", {
+            threadId: turn.activeThreadId,
+            cwd,
+            approvalPolicy: CODEX_APPROVAL_POLICY,
+            sandboxPolicy: codexSandboxPolicy(sbMode),
+            input: buildCodexTurnInput({ text: prompt, skills, localImages }),
+            ...(selectedModel ? { model: selectedModel } : {}),
+            ...(selectedEffort ? { effort: selectedEffort } : {}),
+            ...(selectedTier ? { serviceTier: selectedTier } : {}),
+          });
+        })().catch((err) => fail(err, { closeClient: true }));
+      });
+    },
+  };
+
+  ready = (async () => {
+    await request("initialize", { clientInfo: CLIENT_INFO, capabilities: { experimentalApi: true } });
+    notify("initialized", {});
+  })().catch((err) => {
+    close(err);
+    throw err;
+  });
+  return client;
+}
+
+function sharedCodexAppServerForCwd(cwd) {
+  if (sharedCodexAppServerClient && !sharedCodexAppServerClient.closed && sharedCodexAppServerClient.cwd === cwd) {
+    return sharedCodexAppServerClient;
+  }
+  if (sharedCodexAppServerClient && !sharedCodexAppServerClient.closed) {
+    sharedCodexAppServerClient.close(new Error("codex_app_server_cwd_changed"));
+  }
+  sharedCodexAppServerClient = createCodexAppServerClient(cwd);
+  return sharedCodexAppServerClient;
 }
 
 export function buildTaskThreadTitle(item) {
@@ -267,6 +501,20 @@ function runMockTaskTurn({ threadId, threadTitle, item, userMessage, initial }) 
 }
 
 function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, sandboxMode = null }) {
+  const turn = { threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, sandboxMode };
+  if (!codexAppServerReuseEnabled()) return runCodexAppServerTurnOnce(turn);
+  const run = sharedCodexAppServerQueue.then(async () => {
+    const client = sharedCodexAppServerForCwd(cwd);
+    return client.runTurn(turn);
+  }, async () => {
+    const client = sharedCodexAppServerForCwd(cwd);
+    return client.runTurn(turn);
+  });
+  sharedCodexAppServerQueue = run.catch(() => {});
+  return run;
+}
+
+function runCodexAppServerTurnOnce({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, sandboxMode = null }) {
   const sbMode = resolveSandboxMode(sandboxMode); // 대화별 토글 우선, 없으면 서버 기본
   return new Promise((resolve, reject) => {
     sanitizeCodexConfigServiceTier(); // 실행 직전 호스트 config 의 미지원 tier(priority 등) 자동 중립화 → "unknown variant" 파싱오류 구조적 방지

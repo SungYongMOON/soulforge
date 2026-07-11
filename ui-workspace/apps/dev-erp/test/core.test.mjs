@@ -22,7 +22,7 @@ import { crossSearch } from "../src/search.mjs";
 import { runQueued, llmQueueStats, suggestSplit } from "../src/llm.mjs";
 import { loadPartyMonsterTypes, partyForMonsterType } from "../src/party_match.mjs";
 import { chatPipelineConfig, runManualAnswerPipeline } from "../src/chat_pipeline.mjs";
-import { buildCodexAppServerArgs, buildCodexTurnInput, buildTaskDeveloperInstructions, buildTaskPrompt, buildTaskThreadTitle, codexAppServerServiceTierOverride } from "../src/codex_bridge.mjs";
+import { buildCodexAppServerArgs, buildCodexTurnInput, buildTaskDeveloperInstructions, buildTaskPrompt, buildTaskThreadTitle, codexAppServerReuseEnabled, codexAppServerServiceTierOverride } from "../src/codex_bridge.mjs";
 import {
   KNOWLEDGE_SHELL_CONTRACT_KIND,
   KNOWLEDGE_SHELL_SCHEMA,
@@ -458,6 +458,24 @@ test("codex bridge: app-server service tier override is opt-in", () => {
   assert.equal(codexAppServerServiceTierOverride("flex"), null);
   assert.deepEqual(buildCodexAppServerArgs({ serviceTier: "flex" }), ["app-server"]);
   assert.deepEqual(buildCodexAppServerArgs({ serviceTier: "fast" }), ["app-server", "-c", "service_tier=fast"]);
+});
+
+test("codex bridge: app-server reuse defaults on with an explicit kill switch", () => {
+  assert.equal(codexAppServerReuseEnabled(undefined), true);
+  assert.equal(codexAppServerReuseEnabled("1"), true);
+  assert.equal(codexAppServerReuseEnabled("false"), false);
+  assert.equal(codexAppServerReuseEnabled("0"), false);
+  assert.equal(codexAppServerReuseEnabled("off"), false);
+});
+
+test("codex bridge: browser timeout stays above server turn timeout", () => {
+  const server = readFileSync(join(APP_DIR, "server.mjs"), "utf8");
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const serverDefault = Number(/DEV_ERP_CODEX_TASK_TIMEOUT_MS \|\| (\d+)/.exec(server)?.[1]);
+  const browserDefault = Number(/CHAT_REQUEST_TIMEOUT_MS = (\d+)/.exec(app)?.[1]);
+  assert.equal(serverDefault, 300000);
+  assert.equal(browserDefault, 310000);
+  assert.equal(browserDefault > serverDefault, true);
 });
 
 test("runtime corrections: project names dry-run, backup, meta/db apply", () => {
@@ -3670,7 +3688,7 @@ test("챗봇 UI: 추천 질문은 말풍선 밖에 두고 응답 중 중복 전�
   assert.match(app, /await waitPendingMinimum\(pendingStartedAt\)/);
   assert.match(app, /waitTimers = \[/);
   assert.match(app, /replacePending/);
-  assert.match(app, /CHAT_REQUEST_TIMEOUT_MS = 130000/);
+  assert.match(app, /CHAT_REQUEST_TIMEOUT_MS = \d+/);
   assert.match(app, /postJsonWithTimeout/);
   assert.match(app, /AbortController/);
   assert.match(app, /postJsonWithTimeout\("\/api\/chat"/);

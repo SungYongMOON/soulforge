@@ -5,7 +5,7 @@ const VERSION_FALLBACK = Object.freeze({
   chatbot: Object.freeze({ release: "v?", build: "unknown", source: "unavailable" }),
   runtime: Object.freeze({ port: "?", checkout: "unknown", llm: Object.freeze({}), codex_task: Object.freeze({ mode: "?", bridge: "v?" }) })
 });
-const CHAT_REQUEST_TIMEOUT_MS = 130000;
+const CHAT_REQUEST_TIMEOUT_MS = 310000;
 
 function browserVersionText(ua = navigator.userAgent || "") {
   const rules = [
@@ -2010,9 +2010,9 @@ async function openItemQuickEdit(itemId, projectId, title) {
   document.querySelector(".ui-confirm-overlay")?.remove();
   const ov = document.createElement("div");
   ov.className = "ui-confirm-overlay";
-  ov.innerHTML = `<div class="ui-confirm qedit" role="dialog" aria-label="${esc(title ?? "")}" style="max-width:460px;text-align:left">
+  ov.innerHTML = `<div class="ui-confirm qedit" role="dialog" aria-label="${esc(title ?? "")}" style="width:min(760px,94vw);max-width:none;max-height:90vh;overflow-y:auto;text-align:left">
     <div class="qe-title-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-      <input class="qe-title login-input" value="${esc(info?.title ?? title ?? "")}" style="flex:1;font-weight:600" title="${L.qe_title_hint ?? "할일 이름 — 메일 제목이 아니라 '무엇을 할지'로 고쳐 쓰세요"}" />
+      <input class="qe-title login-input" value="${esc(info?.title ?? title ?? "")}" style="flex:1;font-weight:600;font-size:15px" title="${L.qe_title_hint ?? "할일 이름 — 메일 제목이 아니라 '무엇을 할지'로 고쳐 쓰세요"}" />
       <button class="qe-title-save fav-chip mini" title="${L.qe_title_save_hint ?? "할일 이름 저장"}">${L.qe_title_save ?? "이름 저장"}</button>
     </div>
     ${itemDetailBlockHtml(info, L)}
@@ -2067,7 +2067,7 @@ async function openItemQuickEdit(itemId, projectId, title) {
       const head = `<div class="dim mini" style="margin-bottom:4px">${esc(m.counterpart || "")}${m.at ? " · " + esc(String(m.at).slice(0, 16).replace("T", " ")) : ""}</div>`;
       const subj = m.subject ? `<div style="font-weight:600;margin-bottom:4px;word-break:break-word">${esc(m.subject)}</div>` : "";
       const body = bodyText
-        ? `<div style="white-space:pre-wrap;max-height:220px;overflow:auto;font-size:12px;line-height:1.6">${esc(bodyText)}</div>`
+        ? `<div style="white-space:pre-wrap;max-height:360px;overflow:auto;font-size:13px;line-height:1.65">${esc(bodyText)}</div>`
         : `<span class="dim mini">${L.qe_mail_body_empty ?? "본문이 저장되지 않은 메일입니다(제목·발신자만)"}</span>`;
       mbox.innerHTML = head + subj + body;
     }).catch(() => { if (mbox) mbox.innerHTML = `<span class="dim mini">${L.qe_mail_none ?? "메일을 불러오지 못했습니다"}</span>`; });
