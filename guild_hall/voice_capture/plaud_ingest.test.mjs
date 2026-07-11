@@ -195,7 +195,7 @@ test("PLAUD launchd definition watches the mail queue and keeps generated files 
   const repoRoot = path.join(os.tmpdir(), "soulforge-fixture");
   const definition = buildPlaudLaunchdDefinition({ repoRoot, nodeId: "home_always_on_01" });
   assert.equal(definition.trigger, "hiworks_mail_queue_watch");
-  assert.match(definition.output_dir, /_workspaces\/_local\/home_always_on_01\/launchd$/u);
+  assert.match(definition.output_dir, /_workspaces[/\\]_local[/\\]home_always_on_01[/\\]launchd$/u);
   assert.match(renderPlaudLaunchdPlist(definition), /<key>WatchPaths<\/key>/u);
   assert.equal(renderPlaudLaunchdPlist(definition).includes("StartInterval"), false);
   assert.match(renderPlaudLaunchdPlist(definition), /<key>ThrottleInterval<\/key><integer>300<\/integer>/u);
@@ -213,8 +213,8 @@ test("PLAUD launchd also watches the durable local-ASR queue when independent tr
   const definition = buildPlaudLaunchdDefinition({ repoRoot, profile });
   assert.equal(definition.watch_paths.length, 2);
   const plist = renderPlaudLaunchdPlist(definition);
-  assert.match(plist, /plaud_mail_triggers\/pending/u);
-  assert.match(plist, /local_asr_queue\/pending/u);
+  assert.match(plist, /plaud_mail_triggers[/\\]pending/u);
+  assert.match(plist, /local_asr_queue[/\\]pending/u);
 });
 
 test("PLAUD watcher drains a pending local-ASR queue even when no mail trigger is waiting", async () => {

@@ -631,7 +631,15 @@ export function runCommand(command, args, options = {}) {
 }
 
 function commandAvailability(command) {
-  const result = spawnSync("/usr/bin/which", [String(command)], { encoding: "utf8" });
+  const target = String(command);
+  if (process.platform === "win32") {
+    if (path.isAbsolute(target)) {
+      return { ok: existsSync(target), resolved_path: existsSync(target) ? target : null };
+    }
+    const result = spawnSync("where", [target], { encoding: "utf8" });
+    return { ok: result.status === 0, resolved_path: result.stdout?.trim().split(/\r?\n/)[0] || null };
+  }
+  const result = spawnSync("/usr/bin/which", [target], { encoding: "utf8" });
   return { ok: result.status === 0, resolved_path: result.stdout?.trim() || null };
 }
 

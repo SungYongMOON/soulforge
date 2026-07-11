@@ -171,7 +171,7 @@ test("local ASR backlog discovery skips completed current-run sessions and queue
     assert.equal(queued.queued_count, 1);
     const queueRef = queued.results[0].queue_ref;
     const queue = JSON.parse(await readFile(path.join(repoRoot, queueRef), "utf8"));
-    assert.equal(queue.session_ref, path.relative(repoRoot, fixture.sessionDir));
+    assert.equal(queue.session_ref, path.relative(repoRoot, fixture.sessionDir).split(path.sep).join("/"));
     assert.equal(queue.raw_payload_copied, false);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
