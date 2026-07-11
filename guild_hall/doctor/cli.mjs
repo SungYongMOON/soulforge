@@ -19,6 +19,7 @@ import {
   relativeToRepoOrAbsolute as sharedRelativeToRepoOrAbsolute,
   writeJson,
 } from "../shared/io.mjs";
+import { pythonBin } from "../shared/python_bin.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../..");
@@ -602,13 +603,13 @@ function readGitIgnoreState(filePath) {
 }
 
 function runLiveChecks(checklistItems) {
-  const execution = spawnSync("python3", ["guild_hall/doctor/live_checks.py", "--json"], {
+  const execution = spawnSync(pythonBin(), ["guild_hall/doctor/live_checks.py", "--json"], {
     cwd: repoRoot,
     encoding: "utf8",
   });
 
   if (execution.error?.code === "ENOENT") {
-    return buildLiveFallbackResults(checklistItems, "command not found: python3");
+    return buildLiveFallbackResults(checklistItems, `command not found: ${pythonBin()}`);
   }
 
   const stdout = String(execution.stdout ?? "").trim();

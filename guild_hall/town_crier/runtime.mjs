@@ -11,6 +11,7 @@ import {
   relativeToRepo,
   writeJson,
 } from "../shared/io.mjs";
+import { pythonBin } from "../shared/python_bin.mjs";
 
 export const GATEWAY_NOTIFY_EVENTS = ["monster_created", "mail_received", "item_assigned"];
 export const MISSION_NOTIFY_EVENTS = ["mission_blocked", "mission_ready", "mission_closed", "mission_failed"];
@@ -548,7 +549,7 @@ function resolveMissionPath(repoRoot, missionIdOrPath) {
 
 function sendTelegram(repoRoot, envFile, event, scope, text, extra = {}) {
   const scriptPath = path.join(repoRoot, "guild_hall", "town_crier", "telegram_send.py");
-  const result = spawnSync("python3", [scriptPath, "--env-file", envFile, "--text", text, "--json"], {
+  const result = spawnSync(pythonBin(), [scriptPath, "--env-file", envFile, "--text", text, "--json"], {
     cwd: repoRoot,
     encoding: "utf8",
   });

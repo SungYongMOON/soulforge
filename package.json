@@ -32,6 +32,7 @@
     "validate:dev-worker": "node --test guild_hall/dev_worker/dev_worker.test.mjs",
     "validate:team-ops-app": "npm --prefix ui-workspace run team-ops-app:test",
     "validate:workmeta-sync": "node --test guild_hall/workmeta_sync/sync.test.mjs",
+    "validate:shared": "node --test guild_hall/shared/*.test.mjs",
     "validate:private-state-sync": "node --test guild_hall/private_state_sync/sync.test.mjs",
     "validate:battle-log": "node --test guild_hall/battle_log/battle_log.test.mjs",
     "validate:town-crier": "node --test guild_hall/town_crier/town_crier.test.mjs",
