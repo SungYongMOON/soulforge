@@ -6317,3 +6317,37 @@ test("ITEM-PROJECT-002: 메일 유래 할일은 원본 메일도 함께 이동(s
   assert.equal(store.db.prepare("SELECT title FROM core_item WHERE id=?").get(itemId).title, "저주파 SAS 저장연동반 SW 수정 회신하기");
   assert.equal(store.db.prepare("SELECT subject FROM core_mail WHERE id=?").get(mail.id).subject, "메일 제목 그대로", "메일 원문 제목 불변");
 });
+
+test("B10 캘린더: /api/calendar 월 그리드 + 일정 이동·삭제 라우트 왕복", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-calendar-"));
+  try {
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", join(root, "cal.db"), "--port", String(port)]);
+    const base = `http://127.0.0.1:${port}`;
+    const postJson = (path, body) => fetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      // 일정 생성 → 해당 월 그리드 셀 안착 (2026-07 그리드는 06-28 일요일 시작)
+      const created = await (await postJson("/api/meetings", { title: "설계 리뷰", at: "2026-07-15T14:00" })).json();
+      assert.ok(created.id);
+      let grid = await (await fetch(`${base}/api/calendar?month=2026-07`)).json();
+      assert.equal(grid.from, "2026-06-28");
+      assert.equal(grid.weeks.length, 6);
+      assert.deepEqual(grid.weeks.flat().find((c) => c.date === "2026-07-15").meetings.map((m) => m.title), ["설계 리뷰"]);
+      // 일정 이동(캘린더 드래그 경로) → 갱신 반영
+      assert.equal((await (await postJson("/api/meetings/update", { id: created.id, at: "2026-07-16T14:00" })).json()).ok, true);
+      grid = await (await fetch(`${base}/api/calendar?month=2026-07`)).json();
+      assert.equal(grid.weeks.flat().find((c) => c.date === "2026-07-16").meetings.length, 1);
+      // 소프트삭제 → 그리드·목록에서 제거
+      assert.equal((await (await postJson("/api/meetings/delete", { id: created.id })).json()).ok, true);
+      grid = await (await fetch(`${base}/api/calendar?month=2026-07`)).json();
+      assert.equal(grid.weeks.flat().flatMap((c) => c.meetings).length, 0);
+      // month 형식 오류 → 400
+      assert.equal((await fetch(`${base}/api/calendar?month=2026-13`)).status, 400);
+    } finally {
+      await srv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

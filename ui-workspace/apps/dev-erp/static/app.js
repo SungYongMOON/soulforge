@@ -45,7 +45,7 @@ function codexBridgePart(source = state.version?.runtime?.codex_task) {
 const state = {
   mode: localStorage.getItem("dev_erp_mode") || "business",
   // 새로고침 시 보던 화면 유지. 컨텍스트(hubProject/knowSel) 필요한 project·knowledge 는 home 으로 폴백.
-  view: ["home", "projects", "items", "guide", "mail", "artifacts", "search"].includes(localStorage.getItem("dev_erp_view")) ? localStorage.getItem("dev_erp_view") : "home",
+  view: ["home", "projects", "items", "guide", "mail", "artifacts", "search", "mod:calendar"].includes(localStorage.getItem("dev_erp_view")) ? localStorage.getItem("dev_erp_view") : "home",
   lex: {},
   version: VERSION_FALLBACK,
   projectFilter: "",
@@ -1261,6 +1261,7 @@ const NAV_TREE = [
     ] },
     { g: "work_mine", b: "내 할 일", f: "내 할 일", subs: [
       { b: "할 일", f: "할 일", items: ["items"] },
+      { b: "캘린더", f: "성좌 달력", items: ["mod:calendar"] },
     ] },
     { g: "work_flow", b: "승인·현황", f: "재가·전황", subs: [
       { b: "승인 대기", f: "재가 대기", items: ["mod:proposals"] },
@@ -1353,6 +1354,7 @@ function navLocate(v) {
 
 // 가상 뷰(MODULES 에 없는 화면) — nav 항목 라벨. render() 에 dispatch 가 있어야 동작.
 const VIRTUAL_NAV = {
+  "mod:calendar": { b: "캘린더", f: "성좌 달력" },
   "mod:schedule": { b: "SE 일정", f: "운명 직조" },
   "mod:recipe": { b: "작성법 위저드", f: "제작 비법서" },
   "mod:embeds": { b: "외부 시트", f: "외부 점술판" },
@@ -1702,6 +1704,7 @@ const WIDGET_PLAN = [
   { id: "blocked", cat: "group_task", ready: true },
   { id: "mine", cat: "group_task", ready: true },
   { id: "deadline_cal", cat: "group_task", ready: true },
+  { id: "month_cal", cat: "group_task", ready: true },
   { id: "artifacts", cat: "group_doc", ready: true },
   { id: "reports_w", cat: "group_doc", ready: true },
   { id: "meetings_w", cat: "group_doc", ready: true },
@@ -4202,6 +4205,18 @@ async function renderHome() {
         ? `<table><tbody>${sect(L.bucket_overdue, over, "due-over")}${sect(L.bucket_thisweek, soon, "")}${sect(L.bucket_later, later, "")}</tbody></table>`
         : `<div class="empty">${L.empty_items}</div>` };
     }
+    if (id === "month_cal") {
+      // B10 미니 달력 — 내 마감·일정 점 표시, 클릭 → 캘린더 뷰(위임 [data-cal-jump]).
+      const month = calLocalDateKey().slice(0, 7);
+      const g = await api(`/api/calendar?month=${month}&mine=1`);
+      const today = calLocalDateKey();
+      const wds = String(L.calv_weekdays).split(",").map((w) => `<span class="mcal-wd">${esc(w)}</span>`).join("");
+      const cells = g.weeks.flat().map((c) =>
+        `<span class="mcal-d${c.in_month ? "" : " dim"}${c.date === today ? " mcal-now" : ""}">${Number(c.date.slice(8, 10))}${
+          c.items.length || c.meetings.length ? `<i class="mcal-dot${c.items.some((i) => i.due < today) ? " mcal-over" : ""}"></i>` : ""
+        }</span>`).join("");
+      return { title: L.tile_month_cal, html: `<div class="mcal" data-cal-jump="${month}">${wds}${cells}</div>` };
+    }
     if (id === "teamload") {
       // P-7 팀원별 할일 — 담당별 미완/대화/연체 + 제목 인라인(행 클릭 시 펼침). NULL=(미배정).
       const wl = await api("/api/workload");
@@ -4427,6 +4442,8 @@ async function renderHome() {
     if (tri && grid.contains(tri)) { // '분류 필요' 점프 → 할일 목록의 미분류함(기존 칩과 동일 상태)
       state.projectFilter = ""; state.statusFilter = "unclassified"; state.view = "items"; render(); return;
     }
+    const cal = e.target.closest("[data-cal-jump]");
+    if (cal && grid.contains(cal)) { state.calMonth = cal.dataset.calJump; state.view = "mod:calendar"; render(); return; }
     const tr = e.target.closest("tr.wrow[data-item]");
     if (tr && grid.contains(tr)) openItemQuickEdit(tr.dataset.item, tr.dataset.proj, tr.dataset.title);
   });
@@ -6700,6 +6717,147 @@ async function renderSchedule() {
   }));
 }
 
+// B10 캘린더(월간 그리드) — docs/slices/B10-CALENDAR-VIEW.md. 그리드는 서버 /api/calendar 산출(로직 실행-테스트),
+// 여기는 렌더+상호작용만. '오늘' 강조는 클라이언트 로컬 날짜(브리핑 localDateKey 관례와 동일 취지 — UTC slice 는 아침에 전날로 밀림).
+function calLocalDateKey(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+async function renderCalendar() {
+  const L = state.lex;
+  state.calMonth ??= calLocalDateKey().slice(0, 7);
+  state.calScope ??= "mine"; // 기본 = 내 마감(멤버-퍼스트). 팀 전체/계정은 드롭다운(팀원의 타인 선택은 서버가 본인 강등).
+  const qs = [`month=${state.calMonth}`];
+  if (state.calScope === "mine") qs.push("mine=1");
+  else if (state.calScope !== "team") qs.push(`view=${encodeURIComponent(state.calScope)}`);
+  if (state.calProject) qs.push(`project=${encodeURIComponent(state.calProject)}`);
+  const grid = await api(`/api/calendar?${qs.join("&")}`);
+  await ensureScopes(); // 공유 캐시(state._scopes = r.scopes 배열) — 직접 fetch 로 원형 객체를 넣으면 안 됨
+  if (!state._projCache) { try { state._projCache = (await api("/api/summary")).projects; } catch { state._projCache = []; } }
+  const today = calLocalDateKey();
+  const meetById = new Map();
+  const scopeOpts = [
+    `<option value="mine" ${state.calScope === "mine" ? "selected" : ""}>${L.calv_scope_mine}</option>`,
+    `<option value="team" ${state.calScope === "team" ? "selected" : ""}>${L.calv_scope_team}</option>`,
+    ...(state._scopes ?? []).filter((s) => s.id !== "team").map((s) => `<option value="${esc(s.id)}" ${state.calScope === s.id ? "selected" : ""}>${esc(s.label)}</option>`),
+  ].join("");
+  const projOpts = `<option value="">${L.calv_project_all}</option>` + (state._projCache ?? [])
+    .filter((p) => p.class !== "archive")
+    .map((p) => `<option value="${esc(p.id)}" ${state.calProject === p.id ? "selected" : ""}>${esc(p.id)}</option>`).join("");
+  // 강조색은 nudges 순위 관례와 일치: 연체 > 차단 > ⭐긴급 > 오늘.
+  const chipCls = (i) => (i.due < today ? "due-over" : i.status === "blocked" ? "cal-blocked" : i.urgency === "high" ? "cal-urgent" : i.due === today ? "cal-due-today" : "");
+  const head = String(L.calv_weekdays).split(",").map((w, idx) => `<div class="cal-wd${idx === 0 ? " cal-sun" : ""}">${esc(w)}</div>`).join("");
+  const cells = grid.weeks.flat().map((c) => {
+    const chips = [
+      ...c.meetings.map((m) => {
+        meetById.set(m.id, m);
+        const hm = /[T ](\d{2}:\d{2})/.exec(String(m.at ?? ""))?.[1];
+        return `<div class="cal-chip cal-meet" draggable="true" data-meet="${esc(m.id)}" title="${esc(m.title)}">${hm ? `<span class="cal-time">${hm}</span> ` : ""}${esc(m.title)}</div>`;
+      }),
+      ...c.items.map((i) => `<div class="cal-chip cal-item ${chipCls(i)}" draggable="true" data-item="${esc(i.id)}" data-proj="${esc(i.project_id ?? "")}" data-title="${esc(i.title)}" title="${esc(i.title)}">${esc(i.title)}</div>`),
+    ].join("");
+    return `<div class="cal-cell${c.in_month ? "" : " cal-out"}${c.date === today ? " cal-now" : ""}" data-date="${c.date}">
+      <div class="cal-daynum">${Number(c.date.slice(8, 10))}</div>${chips}</div>`;
+  }).join("");
+  $("#view").innerHTML = `<div class="cal-head">
+      <button id="calPrev" class="fav-chip">◀</button>
+      <strong id="calMonthLabel">${esc(state.calMonth)}</strong>
+      <button id="calNext" class="fav-chip">▶</button>
+      <button id="calToday" class="fav-chip">${L.calv_today}</button>
+      <select id="calScope">${scopeOpts}</select>
+      <select id="calProj">${projOpts}</select>
+      <span class="dim mini">${L.calv_drag_hint}</span>
+      <button id="calIcs" class="fav-chip" title="${L.cal_export_hint}">⤓ .ics</button>
+    </div>
+    <div class="cal-grid">${head}${cells}</div>`;
+  const shiftCal = (delta) => {
+    const [y, m] = state.calMonth.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+    state.calMonth = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+    render();
+  };
+  $("#calPrev").addEventListener("click", () => shiftCal(-1));
+  $("#calNext").addEventListener("click", () => shiftCal(1));
+  $("#calToday").addEventListener("click", () => { state.calMonth = today.slice(0, 7); render(); });
+  $("#calScope").addEventListener("change", (e) => { state.calScope = e.target.value; render(); });
+  $("#calProj").addEventListener("change", (e) => { state.calProject = e.target.value; render(); });
+  $("#calIcs").addEventListener("click", () => { window.location = "/api/calendar.ics"; });
+  const gridEl = $("#view").querySelector(".cal-grid");
+  // 칩 클릭 → 할일 빠른편집 / 셀·일정 클릭 → 당일 패널. 뷰 innerHTML 전체 교체라 리스너 중복 없음.
+  gridEl.addEventListener("click", (e) => {
+    const item = e.target.closest(".cal-item");
+    if (item) return openItemQuickEdit(item.dataset.item, item.dataset.proj, item.dataset.title);
+    const cell = e.target.closest(".cal-cell");
+    if (cell) return openCalDayPanel(cell.dataset.date, meetById);
+  });
+  // 드래그 이동: 할일 → /api/items/update(due_overridden 계약), 일정 → /api/meetings/update(시각부 보존).
+  gridEl.addEventListener("dragstart", (e) => {
+    const chip = e.target.closest(".cal-chip");
+    if (!chip) return;
+    e.dataTransfer.setData("text/plain", JSON.stringify(chip.dataset.item ? { kind: "item", id: chip.dataset.item } : { kind: "meet", id: chip.dataset.meet }));
+  });
+  gridEl.addEventListener("dragover", (e) => { if (e.target.closest(".cal-cell")) e.preventDefault(); });
+  gridEl.addEventListener("drop", async (e) => {
+    const cell = e.target.closest(".cal-cell");
+    if (!cell) return;
+    e.preventDefault();
+    let payload; try { payload = JSON.parse(e.dataTransfer.getData("text/plain") || "{}"); } catch { return; }
+    if (payload.kind === "item") await post("/api/items/update", { id: payload.id, due: cell.dataset.date });
+    else if (payload.kind === "meet") {
+      const old = meetById.get(payload.id);
+      const hm = /[T ](\d{2}:\d{2})/.exec(String(old?.at ?? ""))?.[1];
+      await post("/api/meetings/update", { id: payload.id, at: hm ? `${cell.dataset.date}T${hm}` : cell.dataset.date });
+    } else return;
+    render();
+  });
+}
+// 당일 패널 — 일정 추가/삭제(기존 ui-confirm-overlay 팝업 관례).
+function openCalDayPanel(date, meetById) {
+  const L = state.lex;
+  const dayMeets = [...meetById.values()].filter((m) => String(m.at ?? "").slice(0, 10) === date);
+  document.querySelector(".ui-confirm-overlay")?.remove();
+  const ov = document.createElement("div");
+  ov.className = "ui-confirm-overlay";
+  const projOpts = `<option value="">${L.calv_project_all}</option>` + (state._projCache ?? [])
+    .filter((p) => p.class !== "inbox" && p.class !== "archive")
+    .map((p) => `<option value="${esc(p.id)}">${esc(p.id)}</option>`).join("");
+  ov.innerHTML = `<div class="ui-confirm" role="dialog" style="width:min(460px,94vw);text-align:left">
+    <h3 style="margin:0 0 8px">${esc(date)}</h3>
+    ${dayMeets.map((m) => `<div class="cal-day-meet" style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+      <span style="flex:1">${/[T ](\d{2}:\d{2})/.exec(String(m.at))?.[1] ?? ""} ${esc(m.title)}${m.project_id ? ` <span class="dim mini">${esc(m.project_id)}</span>` : ""}</span>
+      <button class="fav-chip mini cal-meet-del" data-meet="${esc(m.id)}">${L.calv_del}</button></div>`).join("")}
+    <div style="display:flex;gap:6px;margin:8px 0">
+      <input class="cal-new-title login-input" placeholder="${L.calv_add_ph}" style="flex:1" />
+      <input class="cal-new-time" type="time" style="width:7.5em" />
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px"><select class="cal-new-proj" style="flex:1">${projOpts}</select></div>
+    <div class="cal-day-msg dim mini" style="min-height:1em"></div>
+    <div class="ui-confirm-btns">
+      <button class="ui-confirm-cancel">${L.btn_cancel}</button>
+      <button class="cal-add-btn fav-chip">${L.calv_add}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close = () => ov.remove();
+  ov.querySelector(".ui-confirm-cancel").addEventListener("click", close);
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector(".cal-add-btn").addEventListener("click", async () => {
+    const title = ov.querySelector(".cal-new-title").value.trim();
+    if (!title) return;
+    const time = ov.querySelector(".cal-new-time").value;
+    const project_id = ov.querySelector(".cal-new-proj").value || null;
+    const r = await post("/api/meetings", { title, at: time ? `${date}T${time}` : date, project_id });
+    let res; try { res = await r.json(); } catch { res = {}; }
+    if (res.error) { ov.querySelector(".cal-day-msg").textContent = res.error; return; }
+    close();
+    render();
+  });
+  ov.querySelectorAll(".cal-meet-del").forEach((b) => b.addEventListener("click", async () => {
+    await post("/api/meetings/delete", { id: b.dataset.meet });
+    close();
+    render();
+  }));
+}
+
 async function renderMeetings() {
   const L = state.lex;
   const [summary, meetings] = await Promise.all([api("/api/summary"), api("/api/meetings")]);
@@ -6843,6 +7001,11 @@ async function render() {
     $("#viewTitle").textContent = state.lex.sched_title;
     logView(state.view);
     return renderSchedule();
+  }
+  if (state.view === "mod:calendar") {
+    $("#viewTitle").textContent = state.lex.calv_title ?? "캘린더";
+    logView(state.view);
+    return renderCalendar();
   }
   if (state.view === "mod:reports") {
     const m = (state.modules ?? []).find((x) => x.id === "reports");

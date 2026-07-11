@@ -15,6 +15,7 @@ import { dirname, join, extname, resolve, sep, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { openStore } from "./src/store.mjs";
+import { buildMonthGrid, monthGridRange } from "./src/calendar.mjs";
 import { loadFixture } from "./src/fixture.mjs";
 import { composeInputRefs } from "./src/five_field.mjs";
 import { listProjectKnowledgeRefsFast, matchingKnowledgeRefs } from "./tools/knowledge_grounding.mjs";
@@ -2166,6 +2167,17 @@ const server = createServer(async (req, res) => {
       const ics = store.calendarIcs({ person: qp.person ?? null, ...(scope.all ? {} : { assignee_any: scope.assignee_any }) });
       return send(res, 200, ics, "text/calendar", { "content-disposition": `attachment; filename="dev-erp${qp.person ? `-${qp.person}` : ""}.ics"` });
     }
+    // B10 캘린더: 월간 그리드(마감+일정). 마감 스코프는 calendar.ics 와 동일 관례(관리자=전체/계정 선택,
+    // 팀원=본인 강등). 일정(core_meeting)은 담당 개념이 없어 팀 공용 표시.
+    if (path === "/api/calendar") {
+      const range = monthGridRange(qp.month ?? new Date().toISOString().slice(0, 7));
+      if (!range) return send(res, 400, { error: "month_format" });
+      const assignee_any = viewIdentities(req, qp);
+      let items = store.calendarFeed({ from: range.from, to: range.to, assignee_any });
+      const meetings = store.meetings({ from: range.from, to: range.to, project: qp.project || undefined });
+      if (qp.project) items = items.filter((r) => r.project_id === qp.project);
+      return send(res, 200, buildMonthGrid(range.month, { items, meetings }));
+    }
     if (path === "/api/search") return send(res, 200, crossSearch(store, qp.q, { assignee_any: viewIdentities(req, qp), mailbox: viewMailbox(req, qp) }));
     if (path === "/api/lexicon") return send(res, 200, { mode: qp.mode ?? "business", modes: Object.keys(LEXICON), labels: getLexicon(qp.mode) });
     if (path === "/api/modules") return send(res, 200, modulesFor(qp.mode));
@@ -2370,6 +2382,21 @@ const server = createServer(async (req, res) => {
       const result = store.createMeeting({ ...input, data_label: "real" });
       if (result.error) return send(res, 400, result);
       store.appendEvent({ actor_ref: actor, actor_kind: "human", kind: "meeting_create", to: result.id, project_ref: input.project_id ?? null, used_refs: ["meetings"], data_label: "real" });
+      return send(res, 200, result);
+    }
+    // B10 캘린더: 일정 갱신·소프트삭제. 권한 v1=로그인 사용자 전원(생성과 대칭 — 패킷 설계결정 3).
+    if (path === "/api/meetings/update" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id, title, at, project_id, attendees } = JSON.parse(body || "{}");
+      const result = store.updateMeeting(id, { title, at, project_id, attendees }, { actor_ref: actor });
+      if (result.error) return send(res, 400, result);
+      return send(res, 200, result);
+    }
+    if (path === "/api/meetings/delete" && req.method === "POST") {
+      let body = ""; for await (const chunk of req) body += chunk;
+      const { id } = JSON.parse(body || "{}");
+      const result = store.deleteMeeting(id, { actor_ref: actor });
+      if (result.error) return send(res, 400, result);
       return send(res, 200, result);
     }
     if (path === "/api/meetings/actions" && req.method === "GET") {

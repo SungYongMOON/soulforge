@@ -1374,3 +1374,26 @@ nav button[disabled]:hover { background: transparent; }
 .mic-btn.rec { background: #b91c1c; color: #fff; animation: micpulse 1.2s ease-in-out infinite; }
 .mic-btn.off { opacity: 0.45; cursor: not-allowed; }
 @keyframes micpulse { 50% { opacity: 0.55; } }
+
+/* B10 캘린더 — 월간 그리드 + 미니 위젯 */
+.cal-head { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-wd { text-align: center; font-size: 12px; color: var(--muted); padding: 2px 0; }
+.cal-wd.cal-sun { color: var(--danger); }
+.cal-cell { border: 1px solid var(--line); border-radius: 8px; min-height: 96px; padding: 4px; cursor: pointer; overflow: hidden; background: var(--panel); }
+.cal-cell.cal-out { opacity: 0.45; }
+.cal-cell.cal-now { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cal-daynum { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.cal-chip { font-size: 11px; border-radius: 4px; padding: 1px 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: grab; background: var(--bg); border-left: 3px solid var(--muted); }
+.cal-chip.cal-meet { border-left-color: var(--accent); }
+.cal-chip.due-over { border-left-color: var(--danger); color: var(--danger); }
+.cal-chip.cal-blocked { border-left-color: var(--warn); }
+.cal-chip.cal-urgent { border-left-color: #d6a84f; }
+.cal-chip.cal-due-today { border-left-color: var(--accent); }
+.cal-time { color: var(--muted); }
+.mcal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; cursor: pointer; }
+.mcal-wd { font-size: 10px; color: var(--muted); }
+.mcal-d { font-size: 11px; padding: 3px 0 4px; border-radius: 4px; }
+.mcal-d.mcal-now { outline: 1px solid var(--accent); }
+.mcal-dot { display: block; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); margin: 1px auto 0; }
+.mcal-dot.mcal-over { background: var(--danger); }

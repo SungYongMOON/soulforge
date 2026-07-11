@@ -294,6 +294,14 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   서버 무변경 — g(=/api/context/graph) 하나로 3뷰 클라 파생, trunkChildTable/trunkBranchChildren
   공용화(DRY). 지식 탭(드롭다운)·과제 허브 겸용, state.trunkView 프로젝트 전환에도 보존. lexicon
   양 모드 파리티. 커밋 전 적대검토(2렌즈) 반영.
+- 2026-07-11 (claude_fable-5): B10 캘린더 뷰(owner 지시 "ERP에 캘린더, 구글처럼") — 월간 그리드
+  (마감 core_item.due + 일정 core_meeting.at) + 날짜 클릭 일정 생성 + 드래그 이동 + month_cal
+  미니 위젯. 그리드 산출은 서버 src/calendar.mjs 순수함수(/api/calendar) — 프론트 로직 실행-테스트
+  원칙. 마감 드래그는 기존 /api/items/update 재사용(due_overridden 계약). 일정 삭제는 소프트
+  (core_meeting.status, F2 관례), 갱신 이벤트는 store 소유 + no-op 무이벤트(S8-4 교훈). '오늘'
+  강조는 클라 로컬 날짜(브리핑 localDateKey 관례와 동일 취지). Google Calendar 연동은 P5 그대로
+  범위 밖. 브라우저 e2e 검증에서 state._scopes 캐시 오염 버그 발견·수정(ensureScopes 재사용).
+  정본: docs/slices/B10-CALENDAR-VIEW.md.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 

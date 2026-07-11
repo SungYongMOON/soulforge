@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP 캘린더 뷰 (B10)
+
+- 월간 캘린더 화면(`mod:calendar`)을 추가했다: 할일 마감(core_item.due)과 일정(core_meeting.at)을 한 달력에 표시하고, 날짜 클릭으로 일정을 만들고, 칩 드래그로 마감·일정 날짜를 옮긴다. 마감 드래그는 기존 `/api/items/update` 를 재사용해 due_overridden 보호 계약과 감사 이벤트를 그대로 따른다. 일정 삭제는 소프트삭제(core_meeting.status), 일정 갱신은 store 소유 감사 이벤트(no-op 은 무이벤트)를 남긴다.
+- 대시보드에 `month_cal` 미니 달력 위젯(마감·일정 점 표시, 클릭 시 캘린더 뷰 점프)을 추가했다. 그리드 산출은 서버 순수함수(`GET /api/calendar`)로 두어 실행-테스트하며, 스코프는 기존 관례(관리자=팀 전체/계정 선택, 팀원=본인 강등)를 따른다. Google Calendar 연동은 P5 범위 밖 유지. 검증: dev-erp 484 tests green + 픽스처 브라우저 e2e(생성·드래그 2종·위젯 점프). (worker: claude_fable-5)
+
 ### dev-ERP Codex 할일 브리지 cold-start 완화
 
 - 할일 전용 Codex 브리지가 요청마다 `codex app-server`를 새로 띄우며 `where.exe codex` 탐색·app-server 초기화·thread resume/start·turn 완료를 모두 120초 안에 끝내야 하던 병목을 완화했다. 기본 경로는 app-server 프로세스를 idle 10분 동안 재사용하고, turn 실행은 shared queue로 직렬화한다. stuck turn timeout 시에는 프로세스를 닫아 다음 요청이 새 프로세스를 잡는다.

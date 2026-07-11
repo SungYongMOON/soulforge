@@ -921,6 +921,8 @@ export function openStore(path = ":memory:") {
     "ALTER TABLE core_item ADD COLUMN sync_at TEXT",
     // 분해(할일 쪼개기): 부모 할일 참조(같은 프로젝트, 1단계만). 자식 done/total 진행률 집계 근거.
     "ALTER TABLE core_item ADD COLUMN parent_item_id TEXT",
+    // B10 캘린더: 일정 소프트삭제(F2 하드삭제 금지 관례 — 행 보존, 목록·캘린더에서 제외).
+    "ALTER TABLE core_meeting ADD COLUMN status TEXT NOT NULL DEFAULT 'active'",
     // P2b 팀: 계정 이메일(메일 인입 mailbox 키) + 실제 가입 이름(화면 표기).
     "ALTER TABLE core_account ADD COLUMN email TEXT",
     "ALTER TABLE core_account ADD COLUMN display_name TEXT",
@@ -2977,15 +2979,17 @@ export class Store {
 
   // #13 개인별 캘린더(.ics) 내보내기 — core_item 마감일을 종일 VEVENT 로(원문/첨부 미포함).
   // person 미지정=전체. 마감 없는/완료 항목 제외. 점수·우선순위 미주입(단순 일정 피드).
-  calendarFeed({ person = null, assignee_any } = {}) {
+  calendarFeed({ person = null, assignee_any, from = null, to = null } = {}) {
     const key = person ?? "";
     const scope = scopedInClause("assignee_ref", assignee_any);
     const cond = ["due IS NOT NULL", "status NOT IN ('done','unclassified','archived')"];
     const args = [];
     if (key) { cond.push("assignee_ref = ?"); args.push(key); }
     if (scope) { cond.push(scope.sql); args.push(...scope.args); }
+    if (from) { cond.push("due >= ?"); args.push(from); }   // B10 캘린더 그리드 범위(하위호환: 무인자=전체)
+    if (to) { cond.push("due <= ?"); args.push(to); }
     return this.db.prepare(
-      `SELECT id, title, project_id, due, status, assignee_ref FROM core_item
+      `SELECT id, title, project_id, due, status, assignee_ref, urgency FROM core_item
        WHERE ${cond.join(" AND ")} ORDER BY due`
     ).all(...args);
   }
@@ -4611,10 +4615,61 @@ export class Store {
     ).run(mid, project_id, t, at, attendees, summary_pointer, data_label, new Date().toISOString());
     return { ok: true, id: mid };
   }
-  meetings({ project } = {}) {
-    const where = project ? "WHERE project_id=?" : "";
-    const args = project ? [project] : [];
-    return this.db.prepare(`SELECT * FROM core_meeting ${where} ORDER BY COALESCE(at, created_at) DESC, id LIMIT 200`).all(...args);
+  meetings({ project, from, to } = {}) {
+    const cond = ["status='active'"];
+    const args = [];
+    if (project) { cond.push("project_id=?"); args.push(project); }
+    // B10 캘린더 범위: at 보유 일정만(날짜 없는 일정은 달력 미표시), date-only 접두 비교.
+    if (from) { cond.push("at IS NOT NULL", "substr(at,1,10) >= ?"); args.push(from); }
+    if (to) { cond.push("at IS NOT NULL", "substr(at,1,10) <= ?"); args.push(to); }
+    return this.db.prepare(
+      `SELECT * FROM core_meeting WHERE ${cond.join(" AND ")} ORDER BY COALESCE(at, created_at) DESC, id LIMIT 200`
+    ).all(...args);
+  }
+  // B10: 일정 갱신 — 변경분만 반영, no-op 은 이벤트 없이 unchanged(S8-4 관례). 이벤트는 store 소유(B6 reanchor 패턴).
+  updateMeeting(id, { title, at, project_id, attendees } = {}, { actor_ref = "system" } = {}) {
+    const prev = this.db.prepare("SELECT * FROM core_meeting WHERE id=? AND status='active'").get(id);
+    if (!prev) return { error: "meeting_not_found" };
+    const sets = []; const args = []; const changes = [];
+    if (title !== undefined) {
+      const t = String(title ?? "").trim();
+      if (!t) return { error: "title_required" };
+      if (t !== prev.title) { sets.push("title=?"); args.push(t); changes.push(["title", prev.title, t]); }
+    }
+    if (at !== undefined) {
+      const a = at ? String(at).trim() : null;
+      if (a && !/^\d{4}-\d{2}-\d{2}/.test(a)) return { error: "at_format" };
+      if (a !== prev.at) { sets.push("at=?"); args.push(a); changes.push(["at", prev.at, a]); }
+    }
+    if (project_id !== undefined && (project_id ?? null) !== prev.project_id) {
+      sets.push("project_id=?"); args.push(project_id ?? null); changes.push(["project_id", prev.project_id, project_id ?? null]);
+    }
+    if (attendees !== undefined && (attendees ?? null) !== prev.attendees) {
+      sets.push("attendees=?"); args.push(attendees ?? null); changes.push(["attendees", prev.attendees, attendees ?? null]);
+    }
+    if (title === undefined && at === undefined && project_id === undefined && attendees === undefined) return { error: "no_change" };
+    if (!sets.length) return { unchanged: true, meeting: prev };
+    this.db.prepare(`UPDATE core_meeting SET ${sets.join(",")} WHERE id=?`).run(...args, id);
+    const next = this.db.prepare("SELECT * FROM core_meeting WHERE id=?").get(id);
+    this.appendEvent({
+      actor_ref, actor_kind: "human", kind: "meeting_edit",
+      from: changes.map(([k, f]) => `${k}=${f ?? ""}`).join("; "),
+      to: changes.map(([k, , t]) => `${k}=${t ?? ""}`).join("; "),
+      project_ref: next.project_id, used_refs: ["meetings"], data_label: "real",
+    });
+    return { ok: true, meeting: next };
+  }
+  // B10: 일정 소프트삭제(행 보존 — F2 관례).
+  deleteMeeting(id, { actor_ref = "system" } = {}) {
+    const prev = this.db.prepare("SELECT * FROM core_meeting WHERE id=?").get(id);
+    if (!prev) return { error: "meeting_not_found" };
+    if (prev.status !== "active") return { error: "already_deleted" };
+    this.db.prepare("UPDATE core_meeting SET status='deleted' WHERE id=?").run(id);
+    this.appendEvent({
+      actor_ref, actor_kind: "human", kind: "meeting_delete",
+      from: prev.title, project_ref: prev.project_id, used_refs: ["meetings"], data_label: "real",
+    });
+    return { ok: true };
   }
   // 기존 할일을 회의 액션아이템으로 '수동' 링크(자동추출 아님)
   linkActionItem(meeting_id, item_id) {
