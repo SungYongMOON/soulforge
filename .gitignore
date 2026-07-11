@@ -7,14 +7,13 @@ __pycache__/
 node_modules/
 dist/
 .vite/
-$CODEX_HOME/
 .claude/
-automations/
+/automations/
 
 _workspaces/**
 !_workspaces/README.md
 
-_workmeta/
+/_workmeta/
 
 guild_hall/state/**
 !guild_hall/state/README.md
