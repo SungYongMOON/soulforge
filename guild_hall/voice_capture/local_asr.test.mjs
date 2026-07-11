@@ -138,6 +138,7 @@ test("local ASR writes versioned independent transcript without replacing provid
     const calls = [];
     const commandRunner = commandFixture(calls);
     const notificationCalls = [];
+    const deliveryCalls = [];
 
     const result = await analyzeLocalAsrSession({
       repoRoot,
@@ -149,11 +150,19 @@ test("local ASR writes versioned independent transcript without replacing provid
         notificationCalls.push({ root, payload });
         return { ok: true, status: "queued", request_id: "notify-local-asr-fixture" };
       },
+      deliveryReceiptEmitter: async (options) => {
+        deliveryCalls.push(options);
+        return { status: "ready", receipt_ref: "_workspaces/system/voice_capture/delivery/producer_receipts/fixture_session.json" };
+      },
     });
     assert.equal(result.state, "completed");
     assert.equal(result.segment_count, 2);
     assert.equal(result.provider_transcript_used_as_input, false);
     assert.equal(result.notification.state, "queued");
+    assert.equal(result.delivery.state, "ready");
+    assert.equal(deliveryCalls.length, 1);
+    assert.equal(deliveryCalls[0].stage, "local_asr_ready");
+    assert.equal(deliveryCalls[0].apply, true);
     assert.equal(notificationCalls.length, 1);
     assert.equal(notificationCalls[0].payload.event, voiceTranscriptionCompletedEvent);
     assert.equal(notificationCalls[0].payload.text.includes("첫 구간"), false);
@@ -191,6 +200,43 @@ test("local ASR writes versioned independent transcript without replacing provid
     assert.equal(manifest.independent_transcription.status, "completed");
     assert.equal(manifest.independent_transcription.speaker_identity_verified, false);
     assert.equal(manifest.independent_transcription.notification.state, "queued");
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("local ASR delivery receipt failure is retryable and does not roll back completion", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-local-asr-delivery-warning-"));
+  try {
+    const fixture = await createSessionFixture(repoRoot);
+    const profile = {
+      ...buildDefaultLocalAsrProfile(),
+      model_path: "model.bin",
+      run_id: "fixture_run_delivery_warning",
+      chunk_seconds: 30,
+      overlap_seconds: 0,
+    };
+    await writeFile(path.join(repoRoot, "model.bin"), "model", "utf8");
+    const result = await analyzeLocalAsrSession({
+      repoRoot,
+      profile,
+      sessionDir: fixture.sessionDir,
+      apply: true,
+      commandRunner: commandFixture([]),
+      notificationEmitter: async () => ({ ok: true, status: "queued", request_id: "notify-warning-fixture" }),
+      deliveryReceiptEmitter: async () => {
+        throw new Error("synthetic delivery failure");
+      },
+    });
+    assert.equal(result.state, "completed");
+    assert.equal(result.delivery.state, "prepare_failed_retryable");
+    assert.equal(result.delivery.warning, "delivery_receipt_prepare_failed_retryable");
+    const manifest = JSON.parse(await readFile(path.join(fixture.sessionDir, "session_manifest.json"), "utf8"));
+    assert.equal(manifest.independent_transcription.status, "completed");
+    assert.equal(manifest.independent_transcription.delivery_warning, "delivery_receipt_prepare_failed_retryable");
+    const analysis = JSON.parse(await readFile(path.join(fixture.sessionDir, profile.output_subdir, profile.run_id, "analysis_manifest.json"), "utf8"));
+    assert.equal(analysis.state, "completed");
+    assert.equal(analysis.delivery_warning, "delivery_receipt_prepare_failed_retryable");
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

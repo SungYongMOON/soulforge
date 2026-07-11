@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { emitNotification } from "../town_crier/runtime.mjs";
+import { prepareDeliveryReceipt } from "./delivery_receipt.mjs";
 
 export const localAsrProfileSchemaVersion = "soulforge.local_asr_profile.v0";
 export const localAsrRunSchemaVersion = "soulforge.local_asr_run.v0";
@@ -508,7 +509,35 @@ export async function analyzeLocalAsrSession(options = {}) {
     sessionManifest.independent_transcription.notification = notification;
     await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
     await atomicWriteJson(manifestPath, sessionManifest);
-    return { applied: true, ...finalManifest };
+    let delivery;
+    try {
+      const emitter = options.deliveryReceiptEmitter ?? prepareDeliveryReceipt;
+      const result = await emitter({
+        repoRoot,
+        sessionDir,
+        stage: "local_asr_ready",
+        producerNode: options.producerNode ?? "always_on_voice_producer",
+        apply: true,
+      });
+      delivery = {
+        state: result.status === "ready" ? "ready" : "prepare_failed_retryable",
+        receipt_ref: result.receipt_ref ?? null,
+        warning: result.status === "ready" ? null : "delivery_receipt_prepare_failed_retryable",
+      };
+    } catch {
+      delivery = { state: "prepare_failed_retryable", warning: "delivery_receipt_prepare_failed_retryable" };
+    }
+    if (delivery.warning) {
+      finalManifest.delivery_warning = delivery.warning;
+      sessionManifest.independent_transcription.delivery_warning = delivery.warning;
+      try {
+        await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
+        await atomicWriteJson(manifestPath, sessionManifest);
+      } catch {
+        // The returned retryable warning remains visible; delivery bookkeeping cannot roll back ASR.
+      }
+    }
+    return { applied: true, ...finalManifest, delivery };
   } catch (error) {
     await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), {
       ...plan,

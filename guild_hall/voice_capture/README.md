@@ -27,6 +27,60 @@ The current PLAUD adoption decision is documented in
 use PLAUD as a pilot primary-audio candidate, not as authoritative transcript,
 speaker identity, minutes, or task evidence.
 
+## Cross-PC delivery receipts
+
+Voice payload sync is proven in two steps. A producer receipt says only that a
+complete stage was present on the producer; its `ready` status never means the
+files reached another PC. An authorized consumer must recompute every listed
+file's exact size and streaming SHA-256 locally and write an acknowledgement
+before the status becomes `delivered`.
+
+```bash
+npm run guild-hall:voice-capture -- prepare-delivery \
+  --session-dir _workspaces/system/voice_capture/sessions/<date>/<session-id> \
+  --stage plaud_import_ready \
+  --producer-node always_on_voice_producer \
+  --apply --json
+
+npm run guild-hall:voice-capture -- ack-delivery \
+  --session-id <session-id> \
+  --consumer-node work_consumer_01 \
+  --apply --json
+
+npm run guild-hall:voice-capture -- delivery-status \
+  --session-id <session-id> \
+  --consumer-node work_consumer_01 \
+  --json
+```
+
+Delivery commands are dry-run by default. They return exit code `0` for
+`ready`/`delivered`, `1` for missing, mismatch, stale, or absent acknowledgement,
+and `2` for unsafe input or schema/config failure. Receipt and acknowledgement
+files live under `_workspaces/system/voice_capture/delivery/`; they contain only
+safe IDs, strict UTC audit timestamps, relative refs, roles, expected receipt
+sizes/hashes, observed acknowledgement sizes/hashes, and verification states. They do
+not contain recording titles, transcript bodies, absolute paths, credentials,
+or provider URLs. Successful PLAUD registration and completed local ASR attempt
+producer receipt emission once with the public-safe producer role label
+`always_on_voice_producer`. A receipt failure is a retryable delivery warning
+and never rolls back the successful import or transcription.
+
+Producer and consumer node labels are operational assertions, not cryptographic
+identity. The consumer label must differ from the receipt's producer label, and
+an authorized operator must still run acknowledgement on the different PC whose
+arrival is being proved. This metadata binding detects inconsistent or edited
+rows but is not a signature and cannot prevent a party with write access from
+forging both payload and metadata. Producer and consumer clocks must be
+synchronized; acknowledgement refuses to write when its computed check time is
+earlier than the receipt. `delivery-status` retains a stale guard for forged or
+legacy clock-inverted ack files. Delivery
+prepare/ack/write also requires `_workspaces/system` to be an external shared
+symlink, not a normal in-repo directory or a symlink into any public repo
+subtree. The per-session producer receipt is a latest-stage
+pointer: `local_asr_ready` intentionally supersedes `plaud_import_ready` at the
+same path and makes the earlier acknowledgement stale. It is not an immutable
+historical receipt archive.
+
 ## Commands
 
 ### PLAUD account intake on an always-on Mac

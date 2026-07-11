@@ -17,6 +17,12 @@ import {
   writeRecordingLibraryEntry,
   writeWorkmetaDraft,
 } from "./voice_capture.mjs";
+import {
+  acknowledgeDelivery,
+  deliveryExitCode,
+  getDeliveryStatus,
+  prepareDeliveryReceipt,
+} from "./delivery_receipt.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -143,6 +149,43 @@ async function main() {
     return;
   }
 
+  if (command === "prepare-delivery") {
+    const result = await prepareDeliveryReceipt({
+      repoRoot: args["repo-root"] ? path.resolve(args["repo-root"]) : process.cwd(),
+      sessionDir: args["session-dir"],
+      recordingId: args["recording-id"],
+      stage: args.stage,
+      producerNode: args["producer-node"],
+      apply: flagValue(args, "apply") ?? false,
+    });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    process.exitCode = deliveryExitCode(result);
+    return;
+  }
+
+  if (command === "ack-delivery") {
+    const result = await acknowledgeDelivery({
+      repoRoot: args["repo-root"] ? path.resolve(args["repo-root"]) : process.cwd(),
+      sessionId: args["session-id"],
+      consumerNode: args["consumer-node"],
+      apply: flagValue(args, "apply") ?? false,
+    });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    process.exitCode = deliveryExitCode(result);
+    return;
+  }
+
+  if (command === "delivery-status") {
+    const result = await getDeliveryStatus({
+      repoRoot: args["repo-root"] ? path.resolve(args["repo-root"]) : process.cwd(),
+      sessionId: args["session-id"],
+      consumerNode: args["consumer-node"],
+    });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    process.exitCode = deliveryExitCode(result);
+    return;
+  }
+
   printUsageAndExit();
 }
 
@@ -247,6 +290,9 @@ function printUsageAndExit() {
       "  node guild_hall/voice_capture/cli.mjs render-launchd --config <path>",
       "  node guild_hall/voice_capture/cli.mjs write-workmeta-draft --session-dir <path> [--apply]",
       "  node guild_hall/voice_capture/cli.mjs register-library --session-dir <path> [--project-code <code>] [--apply]",
+      "  node guild_hall/voice_capture/cli.mjs prepare-delivery --session-dir <path> --stage <plaud_import_ready|local_asr_ready> --producer-node <safe-id> [--apply] [--json]",
+      "  node guild_hall/voice_capture/cli.mjs ack-delivery --session-id <id> --consumer-node <safe-id> [--apply] [--json]",
+      "  node guild_hall/voice_capture/cli.mjs delivery-status --session-id <id> --consumer-node <safe-id> [--json]",
       "",
       "Options:",
       "  --config <path>           JSON profile under _workspaces/system/voice_capture/config",
@@ -258,6 +304,8 @@ function printUsageAndExit() {
       "  --language <code>          Default: ko",
       "  --terms-prompt <text>      Domain terms passed to {terms_prompt}",
       "  --dry-run                  Print the plan without creating files or running commands",
+      "  --apply                    Write delivery receipt or acknowledgement; delivery commands otherwise dry-run",
+      "  --json                     Explicit JSON output (delivery commands always emit JSON)",
       "",
       "Template placeholders:",
       "  {audio} {duration} {output_base} {transcript_json} {transcript_txt} {transcript_srt}",

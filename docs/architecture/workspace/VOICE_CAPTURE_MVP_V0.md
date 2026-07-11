@@ -67,6 +67,35 @@ PLAUD account collector on an always-on node
   not promote project route or mutate a formal task ledger.
 - `render-launchd` writes a local-only plist for manual installation. It does
   not install, load, or unload launchd by itself.
+- `prepare-delivery` writes a metadata-only producer receipt after all required
+  files for `plaud_import_ready` or `local_asr_ready` exist. `ready` means
+  producer complete, not delivered.
+- `ack-delivery` recomputes exact local bytes on a consumer and records
+  `delivered`, `missing`, or `mismatch`; `delivery-status` also reports an old
+  acknowledgement as `stale` when the current receipt changes.
+- Delivery refs are relative and limited to resolved
+  `_workspaces/system/voice_capture` or `_workmeta`. The intended
+  `_workspaces/system` shared symlink is required and allowed only when it
+  resolves outside the public repository. A normal in-repo system directory,
+  a link into any repo subtree, traversal, absolute/URL
+  refs, nested or file-level symlinks, secret-like keys, and raw body fields are
+  rejected.
+- Receipt `created_at` and acknowledgement `checked_at` are strict UTC audit
+  timestamps. Identical reruns preserve both timestamp and mtime; changed files,
+  receipt, or verification status create a new timestamp.
+- Every acknowledgement file row durably records observed size and SHA-256;
+  missing rows use `null/null`. Status must agree with those observations and
+  the receipt expectations. A computed `checked_at` before receipt `created_at`
+  fails before ack/latest write; status retains a stale guard for forged or
+  legacy clock-inverted files. Producer and consumer clocks therefore require sync.
+- Node labels are operational assertions rather than cryptographic identity.
+  Self-ack with the producer label is rejected, and authorized execution on the
+  different consumer PC remains required. Metadata consistency checks are not a
+  cryptographic signature and cannot prevent a writer from forging payload and
+  metadata together.
+- Each session receipt path is latest-stage state, not an immutable archive.
+  `local_asr_ready` supersedes `plaud_import_ready`, so the previous ack becomes
+  stale and must be recomputed.
 - The normal PLAUD collector is event-driven. A fresh Hiworks PLAUD transcript
   notice writes a sanitized trigger to the shared workspace queue, and the Mac
   mini launchd `WatchPaths` job drains it. A successful import also writes a
@@ -96,6 +125,10 @@ PLAUD account collector on an always-on node
   `town_crier`. The brief contains only recording time, duration, segment count,
   review state, and next action; notification failure does not invalidate or
   roll back a completed local transcript.
+- Successful PLAUD import/library registration and local-ASR completion each
+  attempt one idempotent producer receipt. Receipt preparation failure is stored
+  as a retryable delivery warning and does not invalidate either successful
+  producer stage.
 
 ## Recommended First Profile
 
