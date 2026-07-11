@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### Long Thread Handoff GPT-5.6 선호 갱신
+
+- `soulforge-long-thread-handoff`의 fresh subagent 선호 모델을 GPT-5.5 xhigh에서 GPT-5.6 xhigh로 갱신하고, 해당 프로필을 제공하지 않는 런타임에서는 기존처럼 가장 강한 가용 프로필과 downgrade 보고를 유지한다. (worker: codex_gpt-5)
+
 ### 지식 저장소·장치 authority 뼈대 정렬
 
 - OneDrive/shared worksite는 active editable files, 회사 NAS는 owner-held external originals의 기본 read-only surface, `_workspaces`는 working/derived text·wiki·RAG payload, Google Drive는 durable source warehouse, `_workmeta`는 metadata-only evidence plane으로 역할을 분리했다.

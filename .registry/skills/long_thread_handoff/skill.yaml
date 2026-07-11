@@ -36,7 +36,7 @@ execution_requirements:
     - subagent_orchestration
     - boundary_review
   preferred_capabilities:
-    - gpt_5_5_xhigh_subagents
+    - gpt_5_6_xhigh_subagents
     - workflow_generator_bridge
     - workflow_check_bridge
     - telegram_safe_handoff

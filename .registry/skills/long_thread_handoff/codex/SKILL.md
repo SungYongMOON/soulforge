@@ -1,6 +1,6 @@
 ---
 name: soulforge-long-thread-handoff
-description: Use only when the user explicitly asks for a Soulforge long-thread handoff, contamination-free handoff mode, "장기작업 인계 시작", "오염방지 인계모드", "긴 스레드 인계", or wants to replace the repeated prompt that tells Codex to act as manager, summarize the current long conversation into a goal/checkpoint, delegate analysis/work/review to fresh GPT-5.5 xhigh subagents, use Soulforge Workflow Generator/Check for workflow authoring, persist until done or blocked, and prepare Telegram completion notification.
+description: Use only when the user explicitly asks for a Soulforge long-thread handoff, contamination-free handoff mode, "장기작업 인계 시작", "오염방지 인계모드", "긴 스레드 인계", or wants to replace the repeated prompt that tells Codex to act as manager, summarize the current long conversation into a goal/checkpoint, delegate analysis/work/review to fresh GPT-5.6 xhigh subagents, use Soulforge Workflow Generator/Check for workflow authoring, persist until done or blocked, and prepare Telegram completion notification.
 ---
 
 # Soulforge Long Thread Handoff
@@ -21,7 +21,7 @@ For context-management rationale and optional tactics, read `references/context-
 - During long phases, periodically re-anchor the work by restating the current goal, constraints, completed work, blockers, and next action before continuing or delegating.
 - Use fresh subagents with `fork_context=false` by default for delegated work. Pass only the handoff summary, target files, constraints, and acceptance criteria.
 - In overnight or continued-work mode, decide whether a handoff is actually needed before refreshing, compacting, or starting clean. Ask the user only when a stop condition or owner decision is involved.
-- Request `gpt-5.5` with `xhigh` reasoning for subagents when available. If the runtime cannot provide that profile, use the strongest available profile and state the downgrade.
+- Request `gpt-5.6` with `xhigh` reasoning for subagents when available. If the runtime cannot provide that profile, use the strongest available profile and state the downgrade.
 - Continue until the declared goal is complete or a real stop condition is reached.
 
 ## Trigger UX
