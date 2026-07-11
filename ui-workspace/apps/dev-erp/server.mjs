@@ -1993,7 +1993,16 @@ const server = createServer(async (req, res) => {
       const result = store.assignMails(mail_ids, project_id, { make_items: make_items === true, created_by: actor, assignee_ref: assignee_ref || null, open: open === true, single_item: single_item === true });
       if (result.error) return send(res, 400, result);
       for (const r of result.results) {
-        if (r.error || r.unchanged) continue;
+        if (r.error) continue;
+        // 이미 승격된 할일의 담당 재배정(#S7-4): 메일 unchanged 경로에서도 담당이 실제 바뀌면 감사 이벤트를 남긴다(단일항목 /api/items/assign 과 대칭).
+        if (r.item_existing && r.assignee_to !== undefined && r.assignee_from !== r.assignee_to) {
+          store.appendEvent({
+            actor_ref: actor, actor_kind: "human", kind: "item_assign",
+            item_ref: r.item_existing, from: r.assignee_from ?? null, to: r.assignee_to ?? null,
+            project_ref: project_id, used_refs: ["items", "mail"], data_label: "real", note: "batch_reassign"
+          });
+        }
+        if (r.unchanged) continue;
         store.appendEvent({
           actor_ref: actor, actor_kind: "human", kind: "mail_assign",
           item_ref: r.mail_id, from: r.from, to: project_id, project_ref: project_id,

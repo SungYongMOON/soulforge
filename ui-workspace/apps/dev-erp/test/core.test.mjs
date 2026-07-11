@@ -1162,6 +1162,54 @@ test("server: ERP status buttons emit AX work lifecycle hooks", async () => {
   }
 });
 
+test("배치 재배정: 이미 승격된 할일의 담당자 변경도 item_assign 감사 이벤트를 남긴다 (BATCH-ASSIGN-AUDIT)", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-batch-assign-"));
+  try {
+    const dbPath = join(root, "batch-assign.db");
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", dbPath, "--port", String(port)], { DEV_ERP_CODEX_TASK_BRIDGE: "mock" });
+    const base = `http://127.0.0.1:${port}`;
+    const eventsOf = async (kind) => (await (await fetch(`${base}/api/events/audit?limit=100&kind=${encodeURIComponent(kind)}`)).json()).events;
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      // setup: 과제 + 메일 + 승격(담당 tm-A) — 서버와 같은 db에 직접 store 접근.
+      let itemId;
+      {
+        const store = openStore(dbPath);
+        try {
+          store.upsertProject({ id: "P26-999", title: "Assign Project", data_label: "real" });
+          store.ingestMail({ id: "mailcsv:asgn-1", project_code: "P26-999", at: "2026-07-11T09:00:00+09:00", subject: "배정 테스트 메일", data_label: "real" });
+          const promoted = store.promoteMail("mailcsv:asgn-1", "test", "tm-A");
+          assert.ok(promoted.ok, "메일 승격 성공");
+          itemId = promoted.item.id;
+          assert.equal(store.db.prepare("SELECT assignee_ref FROM core_item WHERE id=?").get(itemId).assignee_ref, "tm-A");
+        } finally { store.db.close(); }
+      }
+      // 같은 과제로 담당자만 tm-B 로 배치 재배정 → mail unchanged, item_existing 경로.
+      const r = await fetch(`${base}/api/mail/assign`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mail_ids: ["mailcsv:asgn-1"], project_id: "P26-999", make_items: true, assignee_ref: "tm-B", open: true }),
+      });
+      assert.equal(r.status, 200);
+      {
+        const store = openStore(dbPath);
+        try {
+          assert.equal(store.db.prepare("SELECT assignee_ref FROM core_item WHERE id=?").get(itemId).assignee_ref, "tm-B", "담당자 tm-A→tm-B 반영");
+        } finally { store.db.close(); }
+      }
+      // 담당자 교체가 감사 로그에 남아야 한다 (버그: 배치 경로는 item_existing 에 이벤트 미발행).
+      const assigns = (await eventsOf("item_assign")).filter((e) => e.item_ref === itemId);
+      assert.equal(assigns.length, 1, "배치 재배정도 item_assign 이벤트 1건을 남겨야 함");
+      assert.equal(assigns[0].to_val, "tm-B");
+      assert.equal(assigns[0].from_val, "tm-A");
+    } finally {
+      await srv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("completion_log stores string knowledge as a structured candidate note", () => {
   const store = freshStore();
   store.upsertProject({ id: "P00-000_INBOX", title: "Inbox", data_label: "real" });

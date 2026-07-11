@@ -2549,7 +2549,11 @@ export class Store {
           // 메일당 항목 1개(origin_mail_id UNIQUE). 기존 항목이 활성이면 고른 담당 적용(거짓 성공 방지, #10) — 완료/보관 항목은 재분배 대상 아님(surfacing).
           const ex = this.db.prepare("SELECT status FROM core_item WHERE id=?").get(promoted.item_id);
           if (ex && !["done", "archived"].includes(ex.status)) {
-            if (assignee_ref != null) this.setItemAssignee(promoted.item_id, (assignee_ref && String(assignee_ref).trim()) || null); // 담당 미지정(null)이면 안 건드림
+            if (assignee_ref != null) { // 담당 미지정(null)이면 안 건드림. from/to 는 호출자가 item_assign 감사 이벤트로 남긴다(#S7-4).
+              const asg = this.setItemAssignee(promoted.item_id, (assignee_ref && String(assignee_ref).trim()) || null);
+              entry.assignee_from = asg.from ?? null;
+              entry.assignee_to = (assignee_ref && String(assignee_ref).trim()) || null;
+            }
             if (open && ex.status === "unclassified") this.setItemStatus(promoted.item_id, "open"); // 미분류면 가시화, 진행중 등은 그대로
             entry.item_existing = promoted.item_id;
           } else {
