@@ -290,7 +290,7 @@ function createCodexAppServerClient(cwd) {
     }
     if (msg.method) handleNotification(msg.method, msg.params || {});
   });
-  child.stderr.on("data", (buf) => { stderr += buf.toString(); });
+  child.stderr.on("data", (buf) => { stderr += buf.toString(); if (stderr.length > 8192) stderr = stderr.slice(-8192); }); // 장수 재사용 클라이언트 stderr 무상한 누적 상한(#S3): 마지막 8KB만 보존
   // stdin 파이프 오류(child 사망~exit 사이 write 시 EPIPE 등)를 잡는다. 리스너가 없으면
   // 스트림 'error' 가 uncaughtException 으로 번져 ERP 서버 전체가 죽는다(#S3-1).
   child.stdin.on("error", (err) => { if (!closed) close(err); });
