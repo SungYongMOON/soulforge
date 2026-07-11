@@ -6409,3 +6409,51 @@ test("D1/S7-1: 보관=치움 — 보관된 승격 항목은 재승격을 막지 
   assert.equal(r.ok, true);
   assert.equal(store.db.prepare("SELECT COUNT(*) n FROM core_item WHERE origin_mail_id='mailD1' AND status<>'archived'").get().n, 2);
 });
+
+test("D4/S8-4: no-op 상태/담당 전이는 unchanged 반환 — 라우트가 이벤트를 안 남길 근거", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P99-401", title: "노옵 검증", data_label: "synthetic" });
+  store.upsertItem({ id: "d4a", project_id: "P99-401", title: "노옵 대상", status: "open", data_label: "synthetic" });
+  const r1 = store.setItemStatus("d4a", "done");
+  assert.equal(r1.ok, true);
+  assert.equal(!!r1.unchanged, false);
+  const doneAt = store.itemById("d4a").done_at;
+  assert.ok(doneAt, "완료 시각 기록");
+  const r2 = store.setItemStatus("d4a", "done");
+  assert.equal(r2.unchanged, true, "done→done no-op");
+  assert.equal(store.itemById("d4a").done_at, doneAt, "no-op 이 done_at 을 재기록하지 않음");
+  const a1 = store.setItemAssignee("d4a", "김민재");
+  assert.equal(!!a1.unchanged, false);
+  assert.equal(store.setItemAssignee("d4a", "김민재").unchanged, true, "같은 담당 재지정 no-op");
+  assert.equal(!!store.setItemAssignee("d4a", "").unchanged, false, "해제는 변화");
+  assert.equal(store.setItemAssignee("d4a", null).unchanged, true, "null 재해제 no-op(''/null 정규화)");
+  // 라우트 가드 배선(소스 계약): 상태/담당 라우트가 unchanged 시 이벤트를 건너뛴다
+  const srv = readFileSync(join(APP_DIR, "server.mjs"), "utf8");
+  assert.equal(/if \(!result\.unchanged\)[\s\S]{0,200}kind: "item_status"/u.test(srv), true, "status 라우트 가드");
+  assert.equal(/if \(!result\.unchanged\)[\s\S]{0,200}kind: "item_assign"/u.test(srv), true, "assign 라우트 가드");
+});
+
+test("D4 라우트: 반복 완료 클릭에도 throughput(완료수) 1회만 증가", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-noop-"));
+  try {
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", join(root, "noop.db"), "--port", String(port)]);
+    const base = `http://127.0.0.1:${port}`;
+    const postJson = (path, body) => fetch(`${base}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      await postJson("/api/projects", { id: "P99-402", title: "노옵 라우트" });
+      const created = await (await postJson("/api/items", { project_id: "P99-402", title: "반복 완료 클릭" })).json();
+      const itemId = created.item.id;
+      assert.equal((await (await postJson("/api/items/status", { id: itemId, status: "done" })).json()).ok, true);
+      assert.equal((await (await postJson("/api/items/status", { id: itemId, status: "done" })).json()).unchanged, true);
+      await postJson("/api/items/status", { id: itemId, status: "done" });
+      const t = await (await fetch(`${base}/api/throughput?days=1`)).json();
+      assert.equal(t.total, 1, "no-op 반복 클릭이 완료수를 부풀리지 않음");
+    } finally {
+      await srv.stop();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

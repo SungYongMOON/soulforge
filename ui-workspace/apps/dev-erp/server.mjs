@@ -1199,7 +1199,8 @@ const server = createServer(async (req, res) => {
       if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
       const result = store.setItemStatus(id, status);
       if (result.error) return send(res, 400, result);
-      store.appendEvent({
+      // D4(S8-4): no-op 전이(done→done 등)는 이벤트 무기록 — throughput 부풀림 방지.
+      if (!result.unchanged) store.appendEvent({
         actor_ref: actor, actor_kind: "human", kind: "item_status",
         item_ref: id, from: result.from, to: status, project_ref: result.project_id,
         bottleneck_reason: bottleneck_reason ?? null, used_refs: ["items"], data_label: "real"
@@ -1247,7 +1248,8 @@ const server = createServer(async (req, res) => {
       if (!canAccessItem(req, id)) return send(res, 403, { error: "item_forbidden" });
       const result = store.setItemAssignee(id, assignee_ref);
       if (result.error) return send(res, 400, result);
-      store.appendEvent({
+      // D4(S8-4): 같은 담당 재지정 no-op 은 이벤트 무기록(배치 경로의 변화-감지 가드와 대칭).
+      if (!result.unchanged) store.appendEvent({
         actor_ref: actor, actor_kind: "human", kind: "item_assign",
         item_ref: id, from: result.from, to: assignee_ref || null, project_ref: result.project_id,
         used_refs: ["items"], data_label: "real"

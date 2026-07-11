@@ -2201,6 +2201,8 @@ export class Store {
     if (!Store.ITEM_STATUSES.includes(status)) return { error: "bad_status" };
     const prev = this.db.prepare("SELECT status, project_id FROM core_item WHERE id=?").get(id);
     if (!prev) return { error: "item_not_found" };
+    // D4(S8-4): no-op 전이는 무기록 — done→done 반복 클릭이 throughput(완료수)을 부풀리던 것 차단(item_move 관례와 통일).
+    if (prev.status === status) return { ok: true, unchanged: true, from: prev.status, project_id: prev.project_id };
     // 완료 시각 기록: done 진입 시 현재 시각, done 이탈(되돌리기) 시 초기화 → '요일별 한 일' 집계 근거.
     if (status === "done" && prev.status !== "done") {
       this.db.prepare("UPDATE core_item SET status=?, done_at=? WHERE id=?").run(status, new Date().toISOString(), id);
@@ -2319,7 +2321,10 @@ export class Store {
   setItemAssignee(id, assignee_ref) {
     const prev = this.db.prepare("SELECT assignee_ref, project_id FROM core_item WHERE id=?").get(id);
     if (!prev) return { error: "item_not_found" };
-    this.db.prepare("UPDATE core_item SET assignee_ref=? WHERE id=?").run(assignee_ref || null, id);
+    const next = assignee_ref || null;
+    // D4(S8-4): 같은 담당 재지정 no-op — 감사 이벤트·장부 write-through 무발동.
+    if ((prev.assignee_ref ?? null) === next) return { ok: true, unchanged: true, from: prev.assignee_ref, project_id: prev.project_id };
+    this.db.prepare("UPDATE core_item SET assignee_ref=? WHERE id=?").run(next, id);
     this.afterItemWrite?.(id);
     return { ok: true, from: prev.assignee_ref, project_id: prev.project_id };
   }
