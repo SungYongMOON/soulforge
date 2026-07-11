@@ -140,10 +140,21 @@ async function scanGitRepo(repo, { scope }) {
         };
   }
 
-  const files = listFilesForScope(repo.root, scope);
+  const listing = listFilesForScope(repo.root, scope);
+  const files = listing.files;
   const violations = [];
   const skipped = [];
   let filesScanned = 0;
+
+  // fail-closed(#S3-8): git 목록 실패를 빈 목록으로 삼키면 위반 0·ok:true 로 조용히 통과한다 —
+  // 확인 못 하면 FAIL. tracked 스코프에서 목록 0건(비-optional)도 동일하게 실패로 승격.
+  for (const failure of listing.failures) {
+    skipped.push({ reason: failure });
+  }
+  const trackedScopeEmpty = scope === "tracked" && !repo.optional && listing.failures.length === 0 && files.length === 0;
+  if (trackedScopeEmpty) {
+    skipped.push({ reason: "tracked_scope_empty" });
+  }
 
   for (const relativePath of files) {
     const skipReason = skipReasonForPath(relativePath);
@@ -187,7 +198,7 @@ async function scanGitRepo(repo, { scope }) {
   return {
     ...repo,
     present: true,
-    ok: violations.length === 0,
+    ok: violations.length === 0 && listing.failures.length === 0 && !trackedScopeEmpty,
     scope,
     files_considered: files.length,
     files_scanned: filesScanned,
@@ -198,15 +209,23 @@ async function scanGitRepo(repo, { scope }) {
 
 function listFilesForScope(repoRoot, scope) {
   if (scope === "tracked") {
-    return gitList(repoRoot, ["ls-files", "-z"]);
+    const tracked = gitList(repoRoot, ["ls-files", "-z"]);
+    return { files: tracked.files, failures: tracked.ok ? [] : [`git_list_failed:${tracked.subcommand}`] };
   }
 
   if (scope === "changed") {
-    return uniqueSorted([
-      ...gitList(repoRoot, ["diff", "--name-only", "-z", "--diff-filter=ACMRTUXB", "HEAD", "--"]),
-      ...gitList(repoRoot, ["diff", "--cached", "--name-only", "-z", "--diff-filter=ACMRTUXB", "--"]),
-      ...gitList(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
-    ]);
+    const lists = [];
+    // HEAD 없는 신규 repo(커밋 0)는 diff 대상이 없다 — others 목록만 사용(오류 아님).
+    const hasHead = runGit(repoRoot, ["rev-parse", "--verify", "--quiet", "HEAD"]).ok;
+    if (hasHead) {
+      lists.push(gitList(repoRoot, ["diff", "--name-only", "-z", "--diff-filter=ACMRTUXB", "HEAD", "--"]));
+      lists.push(gitList(repoRoot, ["diff", "--cached", "--name-only", "-z", "--diff-filter=ACMRTUXB", "--"]));
+    }
+    lists.push(gitList(repoRoot, ["ls-files", "--others", "--exclude-standard", "-z"]));
+    return {
+      files: uniqueSorted(lists.flatMap((list) => list.files)),
+      failures: lists.filter((list) => !list.ok).map((list) => `git_list_failed:${list.subcommand}`),
+    };
   }
 
   throw new Error(`Unsupported scope: ${scope}`);
@@ -214,14 +233,15 @@ function listFilesForScope(repoRoot, scope) {
 
 function gitList(repoRoot, args) {
   const result = runGit(repoRoot, args);
-  if (!result.ok || !result.stdout) {
-    return [];
+  if (!result.ok) {
+    return { ok: false, subcommand: args[0], files: [] };
   }
-  return result.stdout
+  const files = (result.stdout ?? "")
     .split("\0")
     .map((item) => item.trim())
     .filter(Boolean)
     .sort();
+  return { ok: true, subcommand: args[0], files };
 }
 
 function runGit(repoRoot, args) {

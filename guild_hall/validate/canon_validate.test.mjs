@@ -216,6 +216,76 @@ test("canon validator rejects public mission drafts with missing required redact
   }
 });
 
+test("canon validator: 깨진 yaml 은 경로 포함 이슈로 보고하고 나머지 검사를 지속한다", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-yamlread-"));
+  try {
+    await writeValidFixture(root);
+    await writeFixture(root, ".registry/species/human/species.yaml", "species_id: human\nheroes: [unclosed\n");
+
+    const result = await runValidator(root);
+    const readFailures = result.report.errors.filter((error) => error.id === "yaml_read_failed");
+
+    assert.equal(result.code, 1);
+    assert.equal(result.report.ok, false);
+    assert.equal(readFailures.length, 1);
+    assert.equal(readFailures[0].file, ".registry/species/human/species.yaml");
+    assert.equal(result.report.checked.includes(".registry/classes/knight/class.yaml"), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("canon validator: 깨진 index.yaml 도 fatal 없이 이슈 보고 + 다른 카탈로그 검사 지속", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-yamlread-"));
+  try {
+    await writeValidFixture(root);
+    await writeFixture(root, ".workflow/index.yaml", "entries:\n  - [broken\n");
+
+    const result = await runValidator(root);
+    const issueIds = result.report.errors.map((error) => error.id);
+
+    assert.equal(result.code, 1);
+    assert.equal(result.report.ok, false);
+    assert.equal(result.report.errors.some((error) => error.id === "yaml_read_failed" && error.file === ".workflow/index.yaml"), true);
+    assert.equal(result.report.checked.includes(".party/index.yaml"), true);
+    assert.equal(issueIds.filter((id) => id === "yaml_read_failed").length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("canon validator: 빈 파일의 정상 null 파싱은 read 실패가 아니다(기존 mismatch 동작 보존)", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-yamlnull-"));
+  try {
+    await writeValidFixture(root);
+    await writeFixture(root, ".registry/species/human/species.yaml", "");
+
+    const result = await runValidator(root);
+    const issueIds = result.report.errors.map((error) => error.id);
+
+    assert.equal(result.code, 1);
+    assert.equal(issueIds.includes("species_id_mismatch"), true);
+    assert.equal(issueIds.includes("yaml_read_failed"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("canon validator: 주석만 있는 index.yaml(null 파싱)은 기존대로 통과한다", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-yamlnull-"));
+  try {
+    await writeValidFixture(root);
+    await writeFixture(root, ".workflow/index.yaml", "# no entries yet\n");
+
+    const result = await runValidator(root);
+
+    assert.equal(result.code, 0);
+    assert.equal(result.report.ok, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function runValidator(root) {
   try {
     const { stdout } = await execFileAsync(process.execPath, [validatorPath, "--root", root, "--json"], { maxBuffer: 1024 * 1024 });

@@ -138,6 +138,48 @@ test("local absolute path policy skips tracked symlinks without reading targets"
   );
 });
 
+test("local absolute path policy fails closed when git listing fails", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(tmpdir(), "path-policy-gitfail-"));
+  const init = spawnSync("git", ["init", "--quiet"], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(init.status, 0, init.stderr);
+  await fs.writeFile(path.join(repoRoot, "tracked.md"), "clean repo-relative content\n", "utf8");
+  const add = spawnSync("git", ["add", "tracked.md"], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(add.status, 0, add.stderr);
+  const commit = spawnSync(
+    "git",
+    ["-c", "user.email=t@t", "-c", "user.name=t", "commit", "--quiet", "-m", "seed"],
+    { cwd: repoRoot, encoding: "utf8" },
+  );
+  assert.equal(commit.status, 0, commit.stderr);
+  // .git/index 파손: rev-parse 는 통과하되 ls-files 가 실패하는 부분 실패 상태 재현
+  await fs.writeFile(path.join(repoRoot, ".git", "index"), "garbage-not-an-index", "utf8");
+
+  const json = spawnSync(process.execPath, [policyCli, "--root", repoRoot, "--scope", "tracked", "--json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  assert.equal(json.status, 1, json.stderr);
+  const report = JSON.parse(json.stdout);
+  assert.equal(report.ok, false);
+  assert.equal(report.skipped.some((item) => /^git_list_failed:/.test(item.reason)), true);
+  assert.equal(json.stdout.includes(repoRoot), false);
+});
+
+test("local absolute path policy fails closed when tracked scope lists zero files", async () => {
+  const repoRoot = await fs.mkdtemp(path.join(tmpdir(), "path-policy-empty-"));
+  const init = spawnSync("git", ["init", "--quiet"], { cwd: repoRoot, encoding: "utf8" });
+  assert.equal(init.status, 0, init.stderr);
+
+  const json = spawnSync(process.execPath, [policyCli, "--root", repoRoot, "--scope", "tracked", "--json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  assert.equal(json.status, 1, json.stderr);
+  const report = JSON.parse(json.stdout);
+  assert.equal(report.ok, false);
+  assert.equal(report.skipped.some((item) => item.reason === "tracked_scope_empty"), true);
+});
+
 function buildFakeLocalPathFixtures() {
   return {
     windowsRoot: `${"C:"}/Soulforge`,

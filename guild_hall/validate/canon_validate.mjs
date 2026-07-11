@@ -162,7 +162,10 @@ async function loadSpeciesCatalog(errors, checked) {
       continue;
     }
 
-    const document = await readYaml(speciesPath);
+    const document = await readYamlOrIssue(speciesPath, `.registry/species/${entry}/species.yaml`, errors);
+    if (document === YAML_READ_FAILED) {
+      continue;
+    }
     const speciesId = stringValue(document?.species_id);
     if (speciesId !== entry) {
       errors.push(
@@ -203,7 +206,10 @@ async function loadClassCatalog(errors, checked) {
       continue;
     }
 
-    const document = await readYaml(classPath);
+    const document = await readYamlOrIssue(classPath, `.registry/classes/${entry}/class.yaml`, errors);
+    if (document === YAML_READ_FAILED) {
+      continue;
+    }
     documents.push({ dirName: entry, path: classPath, document });
     const classId = stringValue(document?.class_id);
     if (classId !== entry) {
@@ -237,7 +243,10 @@ async function loadKnowledgeCatalog(errors, checked) {
       continue;
     }
 
-    const document = await readYaml(knowledgePath);
+    const document = await readYamlOrIssue(knowledgePath, repoPath, errors);
+    if (document === YAML_READ_FAILED) {
+      continue;
+    }
     const knowledgeId = stringValue(document?.knowledge_id);
     if (!knowledgeId) {
       errors.push(buildIssue("knowledge_id_missing", repoPath, "knowledge_id must be present"));
@@ -265,7 +274,10 @@ async function loadWorkflowCatalog(errors, checked) {
   const indexPath = path.join(repoRoot, ".workflow", "index.yaml");
   checked.push(".workflow/index.yaml");
   const workflowIds = new Set();
-  const indexDocument = await readYaml(indexPath);
+  const indexDocument = await readYamlOrIssue(indexPath, ".workflow/index.yaml", errors);
+  if (indexDocument === YAML_READ_FAILED) {
+    return { ids: workflowIds };
+  }
 
   for (const entry of arrayValue(indexDocument?.entries)) {
     const workflowId = stringValue(entry?.workflow_id);
@@ -284,7 +296,10 @@ async function loadWorkflowCatalog(errors, checked) {
       continue;
     }
 
-    const document = await readYaml(absolutePath);
+    const document = await readYamlOrIssue(absolutePath, repoPath, errors);
+    if (document === YAML_READ_FAILED) {
+      continue;
+    }
     const actualWorkflowId = stringValue(document?.workflow_id);
     if (actualWorkflowId !== workflowId) {
       errors.push(
@@ -319,7 +334,10 @@ async function loadPartyCatalog(errors, checked, workflowIds) {
   const indexPath = path.join(repoRoot, ".party", "index.yaml");
   checked.push(".party/index.yaml");
   const partyIds = new Set();
-  const indexDocument = await readYaml(indexPath);
+  const indexDocument = await readYamlOrIssue(indexPath, ".party/index.yaml", errors);
+  if (indexDocument === YAML_READ_FAILED) {
+    return { ids: partyIds };
+  }
 
   for (const entry of arrayValue(indexDocument?.entries)) {
     const partyId = stringValue(entry?.party_id);
@@ -338,7 +356,10 @@ async function loadPartyCatalog(errors, checked, workflowIds) {
       continue;
     }
 
-    const document = await readYaml(absolutePath);
+    const document = await readYamlOrIssue(absolutePath, repoPath, errors);
+    if (document === YAML_READ_FAILED) {
+      continue;
+    }
     const actualPartyId = stringValue(document?.party_id);
     if (actualPartyId !== partyId) {
       errors.push(
@@ -385,7 +406,11 @@ async function loadUnitCatalog(errors, checked) {
       continue;
     }
     checked.push(`.unit/${entry}/unit.yaml`);
-    units.push({ dirName: entry, path: unitPath, document: await readYaml(unitPath) });
+    const document = await readYamlOrIssue(unitPath, `.unit/${entry}/unit.yaml`, errors);
+    if (document === YAML_READ_FAILED) {
+      continue;
+    }
+    units.push({ dirName: entry, path: unitPath, document });
   }
 
   return units;
@@ -424,7 +449,10 @@ async function loadMissionCatalog(errors, checked) {
   const indexPath = path.join(repoRoot, ".mission", "index.yaml");
   checked.push(".mission/index.yaml");
   const missions = [];
-  const indexDocument = await readYaml(indexPath);
+  const indexDocument = await readYamlOrIssue(indexPath, ".mission/index.yaml", errors);
+  if (indexDocument === YAML_READ_FAILED) {
+    return missions;
+  }
 
   for (const entry of arrayValue(indexDocument?.entries)) {
     const missionId = stringValue(entry?.mission_id);
@@ -452,12 +480,18 @@ async function loadMissionCatalog(errors, checked) {
       continue;
     }
 
+    const missionDocument = await readYamlOrIssue(missionPath, normalizeRepoPath(path.relative(repoRoot, missionPath)), errors);
+    const readinessDocument = await readYamlOrIssue(readinessPath, normalizeRepoPath(path.relative(repoRoot, readinessPath)), errors);
+    if (missionDocument === YAML_READ_FAILED || readinessDocument === YAML_READ_FAILED) {
+      continue;
+    }
+
     missions.push({
       indexEntry: entry,
       path: missionPath,
       readinessPath,
-      document: await readYaml(missionPath),
-      readiness: await readYaml(readinessPath),
+      document: missionDocument,
+      readiness: readinessDocument,
     });
   }
 
@@ -692,7 +726,10 @@ async function validateClassKnowledgeRefs(classDocuments, knowledgeIds, context)
 
     const repoPath = normalizeRepoPath(path.relative(repoRoot, refsPath));
     context.checked.push(repoPath);
-    const document = await readYaml(refsPath);
+    const document = await readYamlOrIssue(refsPath, repoPath, context.errors);
+    if (document === YAML_READ_FAILED) {
+      continue;
+    }
     validateKnowledgeRefsDocument(document, {
       classId: classDocument.dirName,
       knowledgeIds,
@@ -767,6 +804,21 @@ async function listDirectories(rootPath, errors, label) {
 async function readYaml(filePath) {
   const text = await fs.readFile(filePath, "utf8");
   return YAML.parse(prepareYamlText(text));
+}
+
+// 파싱/IO 실패는 fatal(exit 2, 보고 0바이트)이 아니라 검증 실패 항목이다(#S3-7).
+// 실패 sentinel 은 정상 파싱 결과 null(빈 파일/주석만)과 반드시 구분한다 —
+// null 은 기존 검증 로직(id mismatch 등)으로 그대로 흘려보낸다.
+const YAML_READ_FAILED = Symbol("yaml_read_failed");
+
+async function readYamlOrIssue(filePath, repoPath, errors) {
+  try {
+    return await readYaml(filePath);
+  } catch (error) {
+    const firstLine = String(error instanceof Error ? error.message : error).split(/\r?\n/u)[0];
+    errors.push(buildIssue("yaml_read_failed", repoPath, firstLine));
+    return YAML_READ_FAILED;
+  }
 }
 
 async function fileExists(filePath) {
