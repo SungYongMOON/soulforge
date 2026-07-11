@@ -1210,6 +1210,19 @@ test("배치 재배정: 이미 승격된 할일의 담당자 변경도 item_assi
   }
 });
 
+test("배치 배정 원자성: 중간 실패 시 부분 커밋 없이 전량 롤백 (BATCH-ASSIGN-ATOMIC)", () => {
+  const store = freshStore();
+  store.upsertProject({ id: "P26-999", title: "Atomic Project", data_label: "real" });
+  store.ingestMail({ id: "m1", project_code: "P26-999", at: "2026-07-11T09:00:00+09:00", subject: "a", data_label: "real" });
+  store.ingestMail({ id: "m2", project_code: "P26-999", at: "2026-07-11T09:01:00+09:00", subject: "b", data_label: "real" });
+  // 두 번째 항목 생성의 afterItemWrite 훅에서 강제 throw(예: SQLITE_BUSY·write-through 실패 모사).
+  let n = 0;
+  store.afterItemWrite = () => { n += 1; if (n >= 2) throw new Error("forced mid-batch throw"); };
+  const r = store.assignMails(["m1", "m2"], "P26-999", { make_items: true });
+  assert.ok(r.error, "중간 throw 시 500 전파가 아니라 error 반환");
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM core_item WHERE project_id=?").get("P26-999").n, 0, "롤백으로 부분 생성 0건(반쪽 장부 방지)");
+});
+
 test("completion_log stores string knowledge as a structured candidate note", () => {
   const store = freshStore();
   store.upsertProject({ id: "P00-000_INBOX", title: "Inbox", data_label: "real" });

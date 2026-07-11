@@ -2534,38 +2534,46 @@ export class Store {
     if (!this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(project_id)) return { error: "project_not_found" };
     const results = [];
     let idx = -1;
-    for (const mail_id of mail_ids) {
-      idx++;
-      const moved = this.setMailProject(mail_id, project_id);
-      if (moved.error) { results.push({ mail_id, error: moved.error }); continue; }
-      const entry = { mail_id, from: moved.from, unchanged: moved.unchanged ?? false, item_moved: moved.item_moved, item_created: null };
-      if (make_items && (!single_item || idx === 0) && !moved.item_moved) {
-        const promoted = this.promoteMail(mail_id, created_by, assignee_ref); // 분류 시 고른 담당(나/팀원/미배정)
-        if (promoted.ok) {
-          entry.item_created = promoted.item.id;
-          // 분배(open=true): work_type 없이도 즉시 '열린 할일'로 — 팀원별/미배정 위젯(open만 셈)에 보이게. (분류 큐 격리 대신 바로 분배)
-          if (open) this.setItemStatus(promoted.item.id, "open");
-        } else if (promoted.error === "already_promoted" && promoted.item_id) {
-          // 메일당 항목 1개(origin_mail_id UNIQUE). 기존 항목이 활성이면 고른 담당 적용(거짓 성공 방지, #10) — 완료/보관 항목은 재분배 대상 아님(surfacing).
-          const ex = this.db.prepare("SELECT status FROM core_item WHERE id=?").get(promoted.item_id);
-          if (ex && !["done", "archived"].includes(ex.status)) {
-            if (assignee_ref != null) { // 담당 미지정(null)이면 안 건드림. from/to 는 호출자가 item_assign 감사 이벤트로 남긴다(#S7-4).
-              const asg = this.setItemAssignee(promoted.item_id, (assignee_ref && String(assignee_ref).trim()) || null);
-              entry.assignee_from = asg.from ?? null;
-              entry.assignee_to = (assignee_ref && String(assignee_ref).trim()) || null;
+    // 배치 배정을 원자화(#S7-3): 중간 throw(SQLITE_BUSY·afterItemWrite 예외 등) 시 부분 커밋 대신 전량 롤백. 형제 배치 메서드와 동일 패턴.
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      for (const mail_id of mail_ids) {
+        idx++;
+        const moved = this.setMailProject(mail_id, project_id);
+        if (moved.error) { results.push({ mail_id, error: moved.error }); continue; }
+        const entry = { mail_id, from: moved.from, unchanged: moved.unchanged ?? false, item_moved: moved.item_moved, item_created: null };
+        if (make_items && (!single_item || idx === 0) && !moved.item_moved) {
+          const promoted = this.promoteMail(mail_id, created_by, assignee_ref); // 분류 시 고른 담당(나/팀원/미배정)
+          if (promoted.ok) {
+            entry.item_created = promoted.item.id;
+            // 분배(open=true): work_type 없이도 즉시 '열린 할일'로 — 팀원별/미배정 위젯(open만 셈)에 보이게. (분류 큐 격리 대신 바로 분배)
+            if (open) this.setItemStatus(promoted.item.id, "open");
+          } else if (promoted.error === "already_promoted" && promoted.item_id) {
+            // 메일당 항목 1개(origin_mail_id UNIQUE). 기존 항목이 활성이면 고른 담당 적용(거짓 성공 방지, #10) — 완료/보관 항목은 재분배 대상 아님(surfacing).
+            const ex = this.db.prepare("SELECT status FROM core_item WHERE id=?").get(promoted.item_id);
+            if (ex && !["done", "archived"].includes(ex.status)) {
+              if (assignee_ref != null) { // 담당 미지정(null)이면 안 건드림. from/to 는 호출자가 item_assign 감사 이벤트로 남긴다(#S7-4).
+                const asg = this.setItemAssignee(promoted.item_id, (assignee_ref && String(assignee_ref).trim()) || null);
+                entry.assignee_from = asg.from ?? null;
+                entry.assignee_to = (assignee_ref && String(assignee_ref).trim()) || null;
+              }
+              if (open && ex.status === "unclassified") this.setItemStatus(promoted.item_id, "open"); // 미분류면 가시화, 진행중 등은 그대로
+              entry.item_existing = promoted.item_id;
+            } else {
+              entry.promote_error = "already_done"; // 이미 완료/보관된 메일 — 재분배 무효
             }
-            if (open && ex.status === "unclassified") this.setItemStatus(promoted.item_id, "open"); // 미분류면 가시화, 진행중 등은 그대로
-            entry.item_existing = promoted.item_id;
-          } else {
-            entry.promote_error = "already_done"; // 이미 완료/보관된 메일 — 재분배 무효
+          } else if (promoted.error) {
+            entry.promote_error = promoted.error;
           }
-        } else if (promoted.error) {
-          entry.promote_error = promoted.error;
         }
+        results.push(entry);
       }
-      results.push(entry);
+      this.db.exec("COMMIT");
+      return { ok: true, project_id, results };
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      return { error: String(error.message || error) };
     }
-    return { ok: true, project_id, results };
   }
 
   // 메일→할일 승격: 메일 메타(제목/과제)만 복사. 본문 없음(애초에 미적재).
