@@ -91,6 +91,11 @@ PLAUD account collector on an always-on node
   `project_context_event.json`. Their `source_kind: voice` pointer may join mail
   and `se_schedule` sources in the existing project-context model, but they stay
   in `P00-000_INBOX` until project routing is confirmed.
+- When the gateway `voice_transcription_completed` Telegram policy is enabled,
+  a completed independent run queues a body-safe owner notification through
+  `town_crier`. The brief contains only recording time, duration, segment count,
+  review state, and next action; notification failure does not invalidate or
+  roll back a completed local transcript.
 
 ## Recommended First Profile
 

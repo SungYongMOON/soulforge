@@ -335,6 +335,7 @@ Telegram notify 점검 예시:
 npm run guild-hall:town-crier:send -- --text "gateway ready"
 npm run guild-hall:notify:gateway -- --event monster_created --on
 npm run guild-hall:notify:gateway -- --event mail_received --on
+npm run guild-hall:notify:gateway -- --event voice_transcription_completed --on
 ```
 
 ## Chapter 7. 설치 후 확인

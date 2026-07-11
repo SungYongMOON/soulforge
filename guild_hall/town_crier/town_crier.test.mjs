@@ -39,6 +39,22 @@ test("status CLI reads only the explicit local root", async () => {
   }
 });
 
+test("status CLI can bind clean runtime code to an explicit repository root", async () => {
+  const repoRoot = await makeTempRoot("repo-root");
+
+  try {
+    await writeJson(path.join(repoRoot, "guild_hall", "state", "town_crier", "queue", "pending", "one.json"), {
+      request_id: "one",
+    });
+    const { stdout } = await execFile(process.execPath, [cliPath, "status", "--repo-root", repoRoot]);
+    const status = JSON.parse(stdout);
+    assert.equal(status.state_root, "guild_hall/state/town_crier");
+    assert.equal(status.pending_count, 1);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("status CLI rejects a local root flag without a value", async () => {
   await assert.rejects(
     execFile(process.execPath, [cliPath, "status", "--local-root"]),
@@ -96,6 +112,47 @@ test("disabled gateway notification is a no-op and does not create pending queue
       await pathExists(path.join(repoRoot, "guild_hall", "state", "town_crier", "queue", "pending")),
       false,
     );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("voice transcription completed gateway event queues a body-safe Telegram request", async () => {
+  const repoRoot = await makeTempRoot("voice-transcription-completed");
+
+  try {
+    await writeText(
+      path.join(repoRoot, "guild_hall", "state", "gateway", "bindings", "notify_policy.yaml"),
+      [
+        "kind: gateway_notify_policy",
+        "scope: gateway",
+        "channels:",
+        "  telegram:",
+        "    enabled: true",
+        "    env_file: guild_hall/state/town_crier/telegram_notify.env",
+        "events:",
+        "  voice_transcription_completed:",
+        "    telegram: true",
+        "updated_at: '2026-07-11T00:00:00.000Z'",
+        "",
+      ].join("\n"),
+    );
+
+    const result = await emitNotification(repoRoot, {
+      scope: "gateway",
+      event: "voice_transcription_completed",
+      text: "음성 녹음의 로컬 전사가 완료되었습니다.\n상태: 프로젝트 검토 대기",
+      sourceRef: "_workspaces/system/voice_capture/sessions/fixture/analysis_manifest.json",
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.status, "queued");
+    const queueFile = path.join(repoRoot, result.queue_file);
+    const payload = JSON.parse(await readFile(queueFile, "utf8"));
+    assert.equal(payload.owner_scope, "gateway");
+    assert.equal(payload.event, "voice_transcription_completed");
+    assert.match(payload.text, /로컬 전사가 완료되었습니다/u);
+    assert.equal(payload.text.includes("transcript body"), false);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

@@ -125,6 +125,18 @@ metadata-only project-context source pointer with companion input kinds
 `refresh-context-events --apply` can rebuild the metadata-only project-context
 event adapters for completed runs without reading or copying transcript text.
 
+Enable the body-safe Telegram completion event on the always-on node:
+
+```bash
+npm run guild-hall:notify:gateway -- --event voice_transcription_completed --on
+```
+
+After an independent local-ASR run completes, the voice owner queues a
+`voice_transcription_completed` request through `town_crier`. The message omits
+the recording title, transcript body, source audio, speaker identity, and local
+absolute paths. Delivery failure is recorded separately and does not change the
+completed transcript state.
+
 Create the local MacBook Air profile:
 
 ```bash

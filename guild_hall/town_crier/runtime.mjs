@@ -13,7 +13,12 @@ import {
 } from "../shared/io.mjs";
 import { pythonBin } from "../shared/python_bin.mjs";
 
-export const GATEWAY_NOTIFY_EVENTS = ["monster_created", "mail_received", "item_assigned"];
+export const GATEWAY_NOTIFY_EVENTS = [
+  "monster_created",
+  "mail_received",
+  "item_assigned",
+  "voice_transcription_completed",
+];
 export const MISSION_NOTIFY_EVENTS = ["mission_blocked", "mission_ready", "mission_closed", "mission_failed"];
 export const HEALER_NOTIFY_EVENTS = ["healer_failed"];
 

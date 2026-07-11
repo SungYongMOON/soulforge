@@ -12,9 +12,12 @@ import {
   buildLocalAsrPreflight,
   buildTranscriptQualityMetrics,
   discoverLocalAsrSessions,
+  emitVoiceTranscriptionCompleted,
   enqueueLocalAsrBacklog,
   parseWhisperJson,
+  renderVoiceTranscriptionCompletedMessage,
   suppressRepetitiveSegments,
+  voiceTranscriptionCompletedEvent,
 } from "./local_asr.mjs";
 
 test("local ASR chunk windows overlap input but keep one nominal ownership range", () => {
@@ -84,6 +87,41 @@ test("local ASR repetition filter keeps one nearby phrase and exposes aggregate 
   });
 });
 
+test("voice transcription completion brief excludes transcript text and records queue metadata", async () => {
+  const sessionManifest = {
+    recorded_at_local: "2026-07-11T20:25:20+09:00",
+    duration_seconds: 92,
+  };
+  const analysisManifest = {
+    segment_count: 3,
+    transcript_jsonl_ref: "_workspaces/system/voice_capture/sessions/fixture/transcript.jsonl",
+  };
+  const message = renderVoiceTranscriptionCompletedMessage(sessionManifest, analysisManifest);
+  assert.match(message, /로컬 전사가 완료되었습니다/u);
+  assert.match(message, /녹음 길이: 1분 32초/u);
+  assert.match(message, /전사 구간: 3개/u);
+  assert.equal(message.includes("전사 본문 비밀 문장"), false);
+
+  const calls = [];
+  const notification = await emitVoiceTranscriptionCompleted("/repo", sessionManifest, analysisManifest, {
+    notificationEmitter: async (repoRoot, payload) => {
+      calls.push({ repoRoot, payload });
+      return { ok: true, status: "queued", request_id: "notify-fixture" };
+    },
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].payload.event, voiceTranscriptionCompletedEvent);
+  assert.equal(calls[0].payload.scope, "gateway");
+  assert.equal(calls[0].payload.text.includes("전사 본문 비밀 문장"), false);
+  assert.deepEqual(notification, {
+    event: voiceTranscriptionCompletedEvent,
+    state: "queued",
+    queued: true,
+    request_id: "notify-fixture",
+    raw_transcript_included: false,
+  });
+});
+
 test("local ASR writes versioned independent transcript without replacing provider transcript", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-local-asr-"));
   try {
@@ -99,6 +137,7 @@ test("local ASR writes versioned independent transcript without replacing provid
     await writeFile(path.join(repoRoot, "model.bin"), "model", "utf8");
     const calls = [];
     const commandRunner = commandFixture(calls);
+    const notificationCalls = [];
 
     const result = await analyzeLocalAsrSession({
       repoRoot,
@@ -106,10 +145,19 @@ test("local ASR writes versioned independent transcript without replacing provid
       sessionDir: fixture.sessionDir,
       apply: true,
       commandRunner,
+      notificationEmitter: async (root, payload) => {
+        notificationCalls.push({ root, payload });
+        return { ok: true, status: "queued", request_id: "notify-local-asr-fixture" };
+      },
     });
     assert.equal(result.state, "completed");
     assert.equal(result.segment_count, 2);
     assert.equal(result.provider_transcript_used_as_input, false);
+    assert.equal(result.notification.state, "queued");
+    assert.equal(notificationCalls.length, 1);
+    assert.equal(notificationCalls[0].payload.event, voiceTranscriptionCompletedEvent);
+    assert.equal(notificationCalls[0].payload.text.includes("첫 구간"), false);
+    assert.equal(notificationCalls[0].payload.text.includes("둘째 구간"), false);
     assert.equal(calls.filter((row) => row.command === profile.ffmpeg_binary).length, 2);
     assert.equal(calls.filter((row) => row.command === profile.asr_binary).length, 2);
     const whisperArgs = calls.find((row) => row.command === profile.asr_binary).args;
@@ -142,6 +190,7 @@ test("local ASR writes versioned independent transcript without replacing provid
     const manifest = JSON.parse(await readFile(path.join(fixture.sessionDir, "session_manifest.json"), "utf8"));
     assert.equal(manifest.independent_transcription.status, "completed");
     assert.equal(manifest.independent_transcription.speaker_identity_verified, false);
+    assert.equal(manifest.independent_transcription.notification.state, "queued");
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

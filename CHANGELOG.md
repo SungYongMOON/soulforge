@@ -11,6 +11,16 @@
 - capability probe에 effective profile을 추가하고, `public-only`·`operator`에서는 `_workmeta` junction binding과 local capability path/NAS/receipt 설정을 아예 읽거나 probe하지 않도록 테스트로 고정했다. `always_on_node`·`dev_worker_pc` mutating prompt는 exact `owner-with-state` 권한이 있을 때만 호출한다. (worker: codex_gpt-5)
 - invalid explicit profile이나 schema·role·profile이 불완전한 local identity가 owner scope로 fallback하지 않도록 capability profile resolution을 `public-only` fail-closed로 고정했다. (worker: codex_gpt-5)
 
+### 음성 독립 전사 완료 Telegram 알림
+
+- PLAUD 원본의 독립 로컬 ASR가 완료되면 `town_crier`의
+  `voice_transcription_completed` gateway event를 큐에 적재하도록 연결했다.
+  알림은 녹음 시각·길이·전사 구간 수·프로젝트 검토 대기 상태만 표시하고,
+  녹음 제목·전사 본문·원본 음성·화자 실명·로컬 절대경로는 포함하지 않는다.
+- Telegram enqueue 실패는 전사 결과와 분리해 기록하며 이미 완료된 독립 전사를
+  실패로 되돌리지 않는다. 이벤트는 local notify policy에서 명시적으로 켜야 한다.
+  (worker: codex_gpt-5)
+
 ### 지식 저장소·장치 authority 뼈대 정렬
 
 - OneDrive/shared worksite는 active editable files, 회사 NAS는 owner-held external originals의 기본 read-only surface, `_workspaces`는 working/derived text·wiki·RAG payload, Google Drive는 durable source warehouse, `_workmeta`는 metadata-only evidence plane으로 역할을 분리했다.

@@ -4,10 +4,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { emitNotification } from "../town_crier/runtime.mjs";
 
 export const localAsrProfileSchemaVersion = "soulforge.local_asr_profile.v0";
 export const localAsrRunSchemaVersion = "soulforge.local_asr_run.v0";
 export const defaultLocalAsrProfileRef = "_workspaces/system/voice_capture/config/local_asr.profile.json";
+export const voiceTranscriptionCompletedEvent = "voice_transcription_completed";
 
 export function buildDefaultLocalAsrProfile() {
   return {
@@ -218,6 +220,45 @@ export function buildTranscriptQualityMetrics(kept, suppressed = []) {
     suppressed_segment_ratio: roundRatio(suppressedRatio),
     flags,
   };
+}
+
+export function renderVoiceTranscriptionCompletedMessage(sessionManifest, analysisManifest) {
+  const lines = ["음성 녹음의 로컬 전사가 완료되었습니다."];
+  const recordedAt = formatKoreanRecordedAt(sessionManifest.recorded_at_local);
+  if (recordedAt) lines.push(`녹음 시각: ${recordedAt}`);
+  const duration = formatKoreanDuration(sessionManifest.duration_seconds);
+  if (duration) lines.push(`녹음 길이: ${duration}`);
+  lines.push(`전사 구간: ${Math.max(Number(analysisManifest.segment_count ?? 0) || 0, 0)}개`);
+  lines.push("상태: 프로젝트 검토 대기");
+  lines.push("다음 행동: 회사 PC에서 프로젝트를 확인해 주세요.");
+  return lines.join("\n");
+}
+
+export async function emitVoiceTranscriptionCompleted(repoRoot, sessionManifest, analysisManifest, options = {}) {
+  const emitter = options.notificationEmitter ?? emitNotification;
+  try {
+    const result = await emitter(repoRoot, {
+      scope: "gateway",
+      event: voiceTranscriptionCompletedEvent,
+      text: renderVoiceTranscriptionCompletedMessage(sessionManifest, analysisManifest),
+      sourceRef: analysisManifest.transcript_jsonl_ref,
+    });
+    return {
+      event: voiceTranscriptionCompletedEvent,
+      state: result?.status ?? "unknown",
+      queued: result?.status === "queued",
+      request_id: result?.request_id ?? null,
+      raw_transcript_included: false,
+    };
+  } catch {
+    return {
+      event: voiceTranscriptionCompletedEvent,
+      state: "enqueue_failed_retryable",
+      queued: false,
+      request_id: null,
+      raw_transcript_included: false,
+    };
+  }
 }
 
 export async function discoverLocalAsrSessions(options = {}) {
@@ -457,7 +498,17 @@ export async function analyzeLocalAsrSession(options = {}) {
       independent_transcript_is_human_verified: false,
     };
     await atomicWriteJson(manifestPath, sessionManifest);
-    return { applied: true, ...completedManifest };
+    const notification = await emitVoiceTranscriptionCompleted(
+      repoRoot,
+      sessionManifest,
+      completedManifest,
+      { notificationEmitter: options.notificationEmitter },
+    );
+    const finalManifest = { ...completedManifest, notification };
+    sessionManifest.independent_transcription.notification = notification;
+    await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
+    await atomicWriteJson(manifestPath, sessionManifest);
+    return { applied: true, ...finalManifest };
   } catch (error) {
     await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), {
       ...plan,
@@ -724,6 +775,31 @@ function formatSeconds(value) {
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function formatKoreanRecordedAt(value) {
+  const date = new Date(value ?? "");
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatKoreanDuration(value) {
+  const totalSeconds = Math.max(Math.round(Number(value) || 0), 0);
+  if (totalSeconds <= 0) return null;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}시간`);
+  if (minutes > 0) parts.push(`${minutes}분`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}초`);
+  return parts.join(" ");
 }
 
 function formatKstDate(date) {

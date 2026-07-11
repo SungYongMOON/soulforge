@@ -6,11 +6,12 @@ import { fileURLToPath } from "node:url";
 import { runTownCrier, sendTelegramNow, townCrierStatus } from "./runtime.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "../..");
+const defaultRepoRoot = path.resolve(__dirname, "../..");
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
   const args = parseArgs(rest);
+  const repoRoot = resolveCommandRepoRoot(args);
 
   if (command === "run") {
     const result = await runTownCrier(repoRoot, {
@@ -23,7 +24,7 @@ async function main() {
   }
 
   if (command === "status") {
-    printJson(await townCrierStatus(resolveStatusRepoRoot(args)));
+    printJson(await townCrierStatus(resolveStatusRepoRoot(args, repoRoot)));
     return;
   }
 
@@ -70,21 +71,29 @@ function parseArgs(argv) {
   return flags;
 }
 
-function resolveStatusRepoRoot(args) {
+function resolveCommandRepoRoot(args) {
+  if (!Object.hasOwn(args, "repo-root")) {
+    return defaultRepoRoot;
+  }
+  return resolveSafeRootFlag(args["repo-root"], "--repo-root");
+}
+
+function resolveStatusRepoRoot(args, repoRoot) {
   if (!Object.hasOwn(args, "local-root")) {
     return repoRoot;
   }
+  return resolveSafeRootFlag(args["local-root"], "--local-root");
+}
 
-  const value = args["local-root"];
+function resolveSafeRootFlag(value, flag) {
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error("missing required flag: --local-root");
+    throw new Error(`missing required flag: ${flag}`);
   }
 
   const resolved = path.resolve(value);
   if (resolved === path.parse(resolved).root) {
-    throw new Error("--local-root must not be the filesystem root");
+    throw new Error(`${flag} must not be the filesystem root`);
   }
-
   return resolved;
 }
 
@@ -92,7 +101,7 @@ function printUsageAndExit() {
   console.error(
     [
       "Usage:",
-      "  node guild_hall/town_crier/cli.mjs run [--once] [--loop] [--interval-sec <sec>] [--limit <n>]",
+      "  node guild_hall/town_crier/cli.mjs run [--once] [--loop] [--interval-sec <sec>] [--limit <n>] [--repo-root <path>]",
       "  node guild_hall/town_crier/cli.mjs status [--local-root <path>]",
       "  node guild_hall/town_crier/cli.mjs send --text <message>",
     ].join("\n"),
