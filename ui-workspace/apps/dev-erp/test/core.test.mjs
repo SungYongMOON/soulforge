@@ -396,6 +396,28 @@ test("분해 autosync: ingestTaskItem 이 parent_item_id·party_ref 보존(INSER
   assert.match(autosyncSrc, /parent_item_id: obj\.parent_item_id/); // stableTaskHash 포함
 });
 
+test("재수집 S7-2: 미분류 격리 게이트는 신규 행에만 — 사람이 진행시킨 상태를 부분행 재-ingest 가 강등하지 못한다", () => {
+  const store = freshStore();
+  loadFixture(store);
+  // 신규 인입(anchor·work_type 없음) → 격리 게이트 정상 작동
+  store.ingestTaskItem({ id: "itm_s72", project_code: "P26-014", title: "메일 인입", origin: "mail" });
+  assert.equal(store.itemById("itm_s72").status, "unclassified");
+  // 사람이 진행: done 처리(done_at 기록)
+  store.setItemStatus("itm_s72", "done");
+  const done = store.itemById("itm_s72");
+  assert.equal(done.status, "done");
+  assert.ok(done.done_at, "done_at 기록");
+  // 부분/stale 행 재-ingest(여전히 anchor·work_type 없음) → 강등 금지 + done_at 불변식 유지
+  store.ingestTaskItem({ id: "itm_s72", project_code: "P26-014", title: "메일 인입", origin: "mail" });
+  const after = store.itemById("itm_s72");
+  assert.equal(after.status, "done", "재-ingest 가 done 을 unclassified 로 강등하면 안 됨");
+  assert.ok(after.done_at, "status-done_at 불변식 유지");
+  // 격리 유지: 기존 미분류 항목은 게이트 실패 행이 status 를 실어 와도 승격 불가
+  store.ingestTaskItem({ id: "itm_s72b", project_code: "P26-014", title: "미분류 유지", origin: "mail" });
+  store.ingestTaskItem({ id: "itm_s72b", project_code: "P26-014", title: "미분류 유지", origin: "mail", status: "open" });
+  assert.equal(store.itemById("itm_s72b").status, "unclassified", "게이트 실패 행의 status 승격 차단 유지");
+});
+
 test("분해 버그수정 4R: ingest 무효부모 드롭 + 제출버튼 가드 + party 줄-regex 하이픈", () => {
   const store = freshStore();
   loadFixture(store);

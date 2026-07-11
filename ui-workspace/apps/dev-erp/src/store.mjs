@@ -1642,11 +1642,13 @@ export class Store {
     const isNew = !this.db.prepare("SELECT 1 FROM core_item WHERE id=?").get(id);
     // SE 기준점 격리(slice1 미러): 인입(메일/요청/회의) 출처가 앵커(단계/연결)+업무유형 없으면 unclassified 강제 —
     // 손편집 CSV 가 미분류 격리 게이트를 우회해 활성 목록에 진입하지 못하게.
+    // 단 강제는 신규 행에만: 기존 행은 게이트 실패 시 ''(센티넬)로 기존 status 보존 —
+    // 부분/stale 행 재-ingest 가 사람이 진행시킨 open/doing/done 을 강등하지 못하게(승격도 동일 차단).
     const inbound = ["mail", "request", "meeting"].includes(originVal);
     const hasAnchor = !!(row.anchor_stage_code || link_kind);
     const statusIn = Store.ITEM_STATUSES.includes(row.status) ? row.status : null; // 빈/이상값은 ''(아래 NULLIF로 기존 보존)
     // status 는 NOT NULL: 신규 빈값은 'open', 기존 빈값은 ''(센티넬)로 넣고 UPDATE 에서 NULLIF→기존 보존.
-    const statusVal = inbound && !(hasAnchor && work_type) ? "unclassified" : (statusIn ?? (isNew ? "open" : ""));
+    const statusVal = inbound && !(hasAnchor && work_type) ? (isNew ? "unclassified" : "") : (statusIn ?? (isNew ? "open" : ""));
     const createdVal = (row.created_at && String(row.created_at).trim()) || (isNew ? new Date().toISOString() : null);
     const originMailRef = mailRefOnly(row.origin_mail_id || row.source_mail_ref);
     // 분해 부모참조 검증(createItem 과 동일): 존재·동일 프로젝트·1단계만. 손편집 CSV의 무효 부모는 조용히 드롭(work_type/link_kind 패턴).
