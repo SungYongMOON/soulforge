@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-// Company-PC team host preflight. Checks metadata and file presence only; never reads credential env contents.
+// Company-PC team host preflight. Opens SQLite read-only, checks metadata/file presence,
+// and never initializes schema or reads credential env contents.
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import { openStore, Store } from "../src/store.mjs";
+import { Store } from "../src/store.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, "..");
@@ -33,6 +35,18 @@ function resolveDb(raw) {
   const appPath = resolve(APP, raw);
   if (existsSync(appPath)) return appPath;
   fail("db_not_found");
+}
+
+export function openTeamPreflightStore(path) {
+  const db = new DatabaseSync(path, { readOnly: true });
+  try {
+    db.exec("PRAGMA query_only=ON;");
+    db.exec("PRAGMA busy_timeout=5000;");
+    return new Store(db);
+  } catch (error) {
+    db.close();
+    throw error;
+  }
 }
 
 function levelFrom(ok, code = "blocker") {
@@ -253,6 +267,7 @@ function usage() {
 
 Notes:
   - Designed for the company-PC shared host model.
+  - Opens SQLite read-only/query-only and never initializes or migrates its schema.
   - Checks credential env file presence only; it never reads env file contents.
   - Output redacts mailbox_env_ref paths and credential values.
   - Default rollout target is 5 active members. Use --target-members 1 for a one-person pilot.
@@ -265,14 +280,21 @@ if (isMain) {
     console.log(usage());
     process.exit(0);
   }
-  const store = openStore(resolveDb(arg("db")));
-  const result = buildTeamHostPreflight(store, {
-    root: arg("root", REPO),
-    targetMembers: arg("target-members", "5"),
-    registerPath: arg("register", DEFAULT_REGISTER),
-    requireEnvFiles: !has("skip-env-file-check"),
-    today: arg("today", new Date().toISOString().slice(0, 10)),
-  });
+  let store;
+  let result;
+  try {
+    store = openTeamPreflightStore(resolveDb(arg("db")));
+    result = buildTeamHostPreflight(store, {
+      root: arg("root", REPO),
+      targetMembers: arg("target-members", "5"),
+      registerPath: arg("register", DEFAULT_REGISTER),
+      requireEnvFiles: !has("skip-env-file-check"),
+      today: arg("today", new Date().toISOString().slice(0, 10)),
+    });
+  } catch {
+    store?.db.close();
+    fail("db_schema_unready");
+  }
   store.db.close();
   console.log(JSON.stringify(result, null, 2));
   if (!result.configuration_ready) {

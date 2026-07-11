@@ -132,7 +132,8 @@ npm run dev-erp:task-ledger -- --db ui-workspace/apps/dev-erp/data/dev-erp.db --
 
 `import-team-roster` 는 dry-run 이 기본이며, roster 안의 임시 비밀번호는 출력하지
 않는다. 기존 계정 비밀번호를 다시 초기화할 때만 `--reset-passwords` 를 붙인다.
-`team-preflight` 는 회사 PC 호스트 점검이며 DB·계정·메일함 포인터·메일함
+`team-preflight` 는 회사 PC 호스트 점검이며 SQLite를 read-only/query-only로 열어
+스키마를 초기화하거나 마이그레이션하지 않는다. DB·계정·메일함 포인터·메일함
 등록부·env 파일 존재 여부를 확인한다. env 파일 내용은 읽지 않고 출력에도 env 경로나
 비밀번호를 표시하지 않는다. 첫 실행은 설정 점검이므로 `configuration_ready` 를 보고,
 실제 메일 수집 후 두 번째 실행에서 `team_use_ready` 를 확인한다.

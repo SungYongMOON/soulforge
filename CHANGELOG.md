@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### dev-ERP team preflight 운영 DB read-only 보강
+
+- 회사 PC 팀 준비도 점검 CLI가 쓰기 가능한 `openStore()`를 통해 점검 대상 SQLite의
+  스키마를 암묵적으로 초기화·마이그레이션할 수 있던 경계를 제거했다. 이제 DB를
+  `readOnly + query_only`로 열고, 필요한 스키마가 없으면 `db_schema_unready`로
+  중단한다. 누락 테이블이 있는 합성 DB를 점검해도 테이블을 복구하지 않는 CLI
+  회귀 테스트를 추가했다. (worker: codex_gpt-5)
+
 ### dev-ERP GPT-5.6 자동 fallback effort 호환
 
 - 실제 turn 직전 자동 선택한 GPT-5.6이 사라져 정확한 GPT-5.5로 내려갈 때, 기존
