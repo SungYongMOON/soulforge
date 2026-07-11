@@ -291,6 +291,9 @@ function createCodexAppServerClient(cwd) {
     if (msg.method) handleNotification(msg.method, msg.params || {});
   });
   child.stderr.on("data", (buf) => { stderr += buf.toString(); });
+  // stdin 파이프 오류(child 사망~exit 사이 write 시 EPIPE 등)를 잡는다. 리스너가 없으면
+  // 스트림 'error' 가 uncaughtException 으로 번져 ERP 서버 전체가 죽는다(#S3-1).
+  child.stdin.on("error", (err) => { if (!closed) close(err); });
   child.on("error", (err) => close(err));
   child.on("exit", (code) => {
     if (closed) return;
@@ -617,6 +620,7 @@ function runCodexAppServerTurnOnce({ threadId, threadTitle, cwd, item, userMessa
       if (msg.method) handleNotification(msg.method, msg.params || {});
     });
     child.stderr.on("data", (buf) => { stderr += buf.toString(); });
+    child.stdin.on("error", fail); // stdin 파이프 오류(EPIPE 등)를 잡아 uncaughtException(ERP 크래시) 방지 (#S3-1)
     child.on("error", fail);
     child.on("exit", (code) => {
       if (settled) return;
