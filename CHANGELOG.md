@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### dev-ERP 가지 이야기 뷰 (B9a)
+
+- 줄기 지도에서 가지를 클릭하면 "누가 언제 왜 시켰더라"에 즉답하는 3단 이야기(기원/경로/종결)를 보여준다. 신설 `GET /api/context/branch_story?project&branch` 가 project_context CSV(sources)와 DB(core_mail suffix 조인·event_log 사람-확정 이벤트·completion_log·core_deliverable)를 읽기전용으로 조인한다 — 시간좌표는 노드 원장 스탬프가 아니라 메일 실일시(데이터 정직성 결정 준수), 점 상한 300 cap+truncated, metadata_only(본문 미노출).
+- 지도 렌즈의 하단 상세 테이블만 교체(목록·우선순위 렌즈 무변경), API 실패 시 기존 하위표 폴백 + 연속 클릭 out-of-order 가드. 착수 전 정리로 B9 패킷의 존재하지 않는 필드 표기(spawned_from)를 실존 필드로 정정하고 SLICES_INDEX 미등재 3건·B6 stale 표기를 소급 정리했다. 검증: dev-erp 493 tests green + 픽스처 브라우저 e2e(가지 클릭 → 이야기 렌더·빈 가지 폴백). (worker: claude_fable-5)
+
 ### dev-ERP 캘린더 뷰 (B10)
 
 - 월간 캘린더 화면(`mod:calendar`)을 추가했다: 할일 마감(core_item.due)과 일정(core_meeting.at)을 한 달력에 표시하고, 날짜 클릭으로 일정을 만들고, 칩 드래그로 마감·일정 날짜를 옮긴다. 마감 드래그는 기존 `/api/items/update` 를 재사용해 due_overridden 보호 계약과 감사 이벤트를 그대로 따른다. 일정 삭제는 소프트삭제(core_meeting.status), 일정 갱신은 store 소유 감사 이벤트(no-op 은 무이벤트)를 남긴다.

@@ -6457,3 +6457,37 @@ test("D4 라우트: 반복 완료 클릭에도 throughput(완료수) 1회만 증
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("B9a 라우트: /api/context/branch_story — 로그인 게이트 + CSV·DB 조인 응답", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-story-srv-"));
+  try {
+    const dir = join(root, "_workmeta", "P99-501", "project_context");
+    mkdirSync(dir, { recursive: true });
+    const bom = "﻿";
+    writeFileSync(join(dir, "nodes.csv"), `${bom}node_id,project_code,node_type,label,branch_key,status,source_id,metadata_hash,created_at,updated_at
+branch:P99-501:work-1,P99-501,context_branch,규격,work-1,active,,h,2026-07-01,2026-07-01
+`);
+    writeFileSync(join(dir, "branches.csv"), `${bom}branch_id,project_code,branch_key,label,branch_kind,anchor_ref,status,born_at,closed_at,updated_at
+branch:P99-501:work-1,P99-501,work-1,규격,work,,active,2026-07-01,,2026-07-01
+`);
+    writeFileSync(join(dir, "sources.csv"), `${bom}source_id,project_code,source_kind,external_ref,source_time,title,branch_key,branch_ref,suggested_branch_ref,summary_hint,pointer_ref,metadata_hash,body_access,created_at,updated_at
+s1,P99-501,mail,mailcsv:sk1,2026-07-02 09:00:00,요청 메일,work-1,branch:P99-501:work-1,,,,h,metadata_only,2026-07-09,2026-07-09
+`);
+    const port = await freePort();
+    const srv = await startDevErpServer(["--db", join(root, "story.db"), "--port", String(port), "--knowledge_shell_root", root]);
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHttp(`${base}/api/health`, srv.child, srv.stderr);
+      const boot = await fetch(`${base}/api/auth/bootstrap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "owner", password: "ownerpass123" }) });
+      const cookie = boot.headers.get("set-cookie")?.split(";")[0] ?? "";
+      assert.equal((await fetch(`${base}/api/context/branch_story?project=P99-501&branch=work-1`)).status, 401, "가지 이야기는 로그인 필수");
+      const ok = await fetch(`${base}/api/context/branch_story?project=P99-501&branch=work-1`, { headers: { cookie } });
+      assert.equal(ok.status, 200);
+      const s = await ok.json();
+      assert.equal(s.schema, "dev_erp.branch_story.v1");
+      assert.equal(s.origin.title, "요청 메일");
+      assert.equal(s.closure.open, true);
+      assert.equal((await fetch(`${base}/api/context/branch_story?project=P99-501&branch=nope`, { headers: { cookie } })).status, 400);
+    } finally { await srv.stop(); }
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

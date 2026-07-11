@@ -2411,6 +2411,68 @@ export class Store {
     return [...new Set(ids)];
   }
 
+  // B9a 가지 이야기 조인(전부 읽기전용 — 이벤트 append 금지). 이력키 → core_mail 메타.
+  // suffix 조인은 promotedMailIds 의 id 공간 계약(위 주석) 그대로. 노출은 metadata_only —
+  // body_text/body_preview 미선택.
+  mailByHistoryKeys(keys = []) {
+    const out = new Map();
+    const uniq = [...new Set(keys.map((k) => String(k ?? "").trim()).filter(Boolean))];
+    for (let i = 0; i < uniq.length; i += 100) {
+      const chunk = uniq.slice(i, i + 100);
+      const rows = this.db.prepare(
+        `SELECT id, at, direction, subject, counterpart, substr(id, instr(id, ':')+1) AS history_key
+         FROM core_mail WHERE instr(id, ':')>0 AND substr(id, instr(id, ':')+1) IN (${chunk.map(() => "?").join(",")})`
+      ).all(...chunk);
+      for (const r of rows) if (!out.has(r.history_key)) out.set(r.history_key, r);
+    }
+    return out;
+  }
+  // B9a: 가지 소속 할일들의 사람-확정 이벤트만 시간순 — 경로 단의 '전환'. 메일계 kind(item_ref 에
+  // core_mail id 혼용) 배제를 위해 item kind 화이트리스트.
+  eventsForItems(itemIds = [], { kinds = ["item_create", "item_promote", "item_confirm", "item_status", "item_assign", "item_move", "item_reanchor", "item_occurrence_set", "item_archive", "item_restore", "mail_reattach"] } = {}) {
+    const uniq = [...new Set(itemIds.map((v) => String(v ?? "").trim()).filter(Boolean))];
+    if (!uniq.length) return [];
+    const out = [];
+    for (let i = 0; i < uniq.length; i += 100) {
+      const chunk = uniq.slice(i, i + 100);
+      out.push(...this.db.prepare(
+        `SELECT at, actor_ref, item_ref, kind, from_val, to_val, note FROM event_log
+         WHERE item_ref IN (${chunk.map(() => "?").join(",")}) AND kind IN (${kinds.map(() => "?").join(",")})
+         ORDER BY at, id`
+      ).all(...chunk, ...kinds));
+    }
+    return out;
+  }
+  // B9a 종결 단: 완료 로그(done_at 오름차순 — 마지막 원소가 최신 완료).
+  completionsForItems(itemIds = []) {
+    const uniq = [...new Set(itemIds.map((v) => String(v ?? "").trim()).filter(Boolean))];
+    if (!uniq.length) return [];
+    const out = [];
+    for (let i = 0; i < uniq.length; i += 100) {
+      const chunk = uniq.slice(i, i + 100);
+      out.push(...this.db.prepare(
+        `SELECT item_id, title, assignee_ref, done_at, completed_by FROM completion_log
+         WHERE item_id IN (${chunk.map(() => "?").join(",")}) ORDER BY done_at, id`
+      ).all(...chunk));
+    }
+    return out;
+  }
+  // B9a 종결 단: 산출물 — 저장 FK 없음, spawnTaskFromDeliverable 역링크 계약(project+title+origin='schedule')로 해석.
+  deliverablesForItems(itemIds = []) {
+    const uniq = [...new Set(itemIds.map((v) => String(v ?? "").trim()).filter(Boolean))];
+    if (!uniq.length) return [];
+    const out = [];
+    for (let i = 0; i < uniq.length; i += 100) {
+      const chunk = uniq.slice(i, i + 100);
+      out.push(...this.db.prepare(
+        `SELECT DISTINCT d.id, d.name, d.stage_code, d.out_pointer, d.produced FROM core_deliverable d
+         JOIN core_item i ON i.project_id = d.project_id AND i.title = d.name AND i.origin = 'schedule'
+         WHERE i.id IN (${chunk.map(() => "?").join(",")})`
+      ).all(...chunk));
+    }
+    return out;
+  }
+
   // SE 기준점 확정(slice2): 미분류 할 일에 단계/연결대상 + 업무유형을 붙여 정식(open) 승격.
   // SE 기준점(단계 또는 연결대상 또는 산출물) + 업무유형 둘 다 충족해야 통과(needs_se_anchor 게이트).
   confirmItem(id, { work_type, link_kind, link_ref, completion_criteria, stage_id, anchor_stage_code, assignee_ref } = {}) {

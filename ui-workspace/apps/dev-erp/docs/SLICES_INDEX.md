@@ -6,9 +6,12 @@
 - `slices/B5-PROPOSAL-INBOX.md` — 제안 수신함 v1 + 수신역할(to/cc) core_mail 배선 (**done 2026-07-03: mailcsv 이력키 조인 + 근거 노출·계정 resolve·1클릭 승인=approved + 영수증 집계 API**, ERP 표면 스레드)
 - `slices/STEM-V2-ONTOLOGY.md` — **줄기 v2 온톨로지 정본** (골격·작업·이력줄기, 연결 등급 원칙, 드래그=사람확정 — 2026-07-05 owner 공동설계 확정). 모든 줄기 관련 레인(생성기·그래프 UI·API)의 공통 기준.
 - `slices/ENGINE-11-STEM-V2-GENERATOR.md` — 줄기 생성기 v2: 제목 클러스터 → 링크 기반 3종 줄기 (execution_owner: **engine_thread_codex**, done 2026-07-05; retro rebuild pass applied 2026-07-06)
-- `slices/B6-STEM-REATTACH-API.md` — 줄기 드래그 재부착 서버 계약+API 3종 (execution_owner: **erp_surface_thread_claude** — server/store 만, 그래프 UI 는 줄기 렌더 레인 소비)
+- `slices/B6-STEM-REATTACH-API.md` — 줄기 드래그 재부착 서버 계약+API 3종 (**done: reanchor/occurrence/mail-reattach 구현·테스트 완료 — B8 지도 렌더가 소비 중**, ERP 표면 스레드. 2026-07-11 인덱스 정정: 'ready' 표기 stale)
+- `slices/B7-MAIL-ROUTE-RULES.md` — Outlook식 메일→과제 라우팅 규칙(사용자 입력 UI + 소급 적용) (**done 2026-07-05**, 2026-07-11 인덱스 소급 등재)
+- `slices/FIVE-FIELD-CAPTURE.md` — 완료 시점 자동화 자산 5필드 자동 캡처 v1(completion_log needs_backfill 훅) (**done — 구현·테스트 실존 확인(야간 리뷰 스윕 2)**, 2026-07-11 인덱스 소급 등재)
+- `slices/KNOWLEDGE-LOOP.md` — 지식 유통 루프 완성(승인→assignee_memory→Codex 주입) (**done — 구현·테스트 실존 확인(야간 리뷰 스윕 2)**, 2026-07-11 인덱스 소급 등재)
 - `slices/B8-STEM-MAP-V2-RENDER.md` — 줄기 지도 v2 렌더: 골격·작업·이력 색/모양 구분 + legacy 기본 숨김 + 범례 + 회차 상세 + 드래그 재부착 UI (**done 2026-07-06: B6 reanchor 소비, 중복 리스너 결함 수정 포함**, ERP 표면 스레드)
-- `slices/B9-STEM-RIVER-VIEW.md` — **줄기 강(江) 뷰 설계 정본** (2026-07-06 owner 구술): 기둥=시간축 SE 흐름·게이트=큰 점·가지=맥락 한 줄·잎=기록(기원/경로/종결 즉답)·모양=진단·지식그래프와 잎 수준 양방향 접점. 구현 순서 B9a(가지 타임라인)→b(강줄기 렌더)→c(진단)→d(지식 역링크). **다음 착수 = B9a.**
+- `slices/B9-STEM-RIVER-VIEW.md` — **줄기 강(江) 뷰 설계 정본** (2026-07-06 owner 구술): 기둥=시간축 SE 흐름·게이트=큰 점·가지=맥락 한 줄·잎=기록(기원/경로/종결 즉답)·모양=진단·지식그래프와 잎 수준 양방향 접점. 구현 순서 B9a(가지 타임라인)→b(강줄기 렌더)→c(진단)→d(지식 역링크). B9a **done 2026-07-11**(branch_story API+지도 렌즈 이야기 뷰, ERP 표면 스레드)·B9b core done 2026-07-07. **다음 착수 = B9c(진단 뷰).**
 - `slices/B10-CALENDAR-VIEW.md` — 캘린더 뷰: 월간 그리드(마감+일정) + 날짜 클릭 일정 생성 + 드래그 이동(due_overridden 계약) + month_cal 미니 위젯 (**done 2026-07-11: /api/calendar 그리드·meetings update/delete 소프트삭제·브라우저 e2e 검증**, ERP 표면 스레드. owner 2026-07-11 지시 — B9a 큐와 별개 인입)
 
 ## Engine expansion slices (2026-07-02, claude_fable-5 — 할일 엔진 확장)

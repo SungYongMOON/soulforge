@@ -2241,6 +2241,25 @@ function trunkChildTable(g, key) {
   if (!ch.count) return `<div class="empty small">-</div>`;
   return `<table><thead><tr><th>${L.trunk_col_type}</th><th>${L.trunk_col_label}</th><th>${L.th_status}</th><th>${L.th_time}</th></tr></thead><tbody>${ch.rows}</tbody></table>${ch.hidden > 0 ? `<div class="dim small">… ${(L.trunk_more ?? "+{n}개 더").replace("{n}", ch.hidden)}</div>` : ""}`;
 }
+// B9a §3 가지 이야기 3단(기원/경로/종결) — 지도 렌즈 전용. 목록·우선순위 렌즈는 trunkChildTable 유지.
+function trunkStoryHtml(story, L) {
+  const dirMark = (p) => (p.direction === "out" ? (L.trunk_story_sent ?? "→보냄") : p.direction === "in" ? (L.trunk_story_received ?? "←받음") : "");
+  const when = (v) => (v ? esc(String(v).slice(0, 16).replace("T", " ")) : "-");
+  const who = (p) => p.counterpart ?? p.actor ?? "";
+  const o = story.origin;
+  const originHtml = o
+    ? `<div class="small" style="margin:4px 0"><b>${esc(L.trunk_story_origin ?? "기원")}</b> · ${when(o.at)} · ${esc(who(o))} — ${esc(String(o.title ?? "").slice(0, 90))}</div>`
+    : "";
+  const rows = (story.path ?? []).map((p) =>
+    `<tr><td class="dim num">${when(p.at)}</td><td>${esc(dirMark(p))}${String(p.kind ?? "").startsWith("event:") ? `<span class="badge">${esc(p.kind.slice(6))}</span>` : ""}</td><td class="dim">${esc(String(who(p)).slice(0, 24))}</td><td>${esc(String(p.title ?? "").slice(0, 80))}</td></tr>`).join("");
+  const trunc = story.counts?.truncated
+    ? `<div class="dim small">${L.trunk_story_truncated ?? "…일부만 표시"} (${story.counts.shown}/${story.counts.points})</div>` : "";
+  const c = story.closure ?? {};
+  const closeHtml = c.done
+    ? `<div class="small" style="margin:4px 0"><b>${esc(L.trunk_story_end ?? "종결")}</b> · ${when(c.done_at)}${c.completed_by ? ` · ${esc(c.completed_by)}` : ""}${(c.deliverables ?? []).length ? ` · ${esc(L.trunk_story_deliverables ?? "산출물")}: ${c.deliverables.map((d) => esc(d.name)).join(", ")}` : ""}</div>`
+    : `<div class="small" style="margin:4px 0"><b>${esc(L.trunk_story_open ?? "열려 있음")}</b> · ${esc(L.trunk_story_last ?? "마지막 움직임")} ${when(c.last_activity_at)}</div>`;
+  return `${originHtml}<table class="small"><tbody>${rows || `<tr><td class="dim">${L.trunk_story_empty ?? "기록 점 없음"}</td></tr>`}</tbody></table>${trunc}${closeHtml}`;
+}
 
 // 공용 줄기 렌더러 — 3렌즈(지도 방사형 / 목록 아웃라인 / 우선순위 표), 각 뷰는 결정 하나에 대응.
 // 지식 탭(전역 탐색, 드롭다운 header)과 과제 허브(고정 과제) 겸용. 데이터는 g 하나로 전 뷰 파생(서버 무변경).
@@ -2500,7 +2519,7 @@ function drawTrunkMap(body, g, ranked) {
     $("#trunkMapSvg").innerHTML = `
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;background:transparent">
         ${grid}${todayEl}${cross}${trunkEls.join("")}${laneEls}</svg>`;
-    $("#trunkMapSvg").querySelectorAll(".ctx-branch").forEach((n2) => n2.addEventListener("click", () => {
+    $("#trunkMapSvg").querySelectorAll(".ctx-branch").forEach((n2) => n2.addEventListener("click", async () => {
       const key = n2.dataset.key;
       state._trunkExpandKey = state._trunkExpandKey === key ? null : key; // 같은 가지 재클릭 = 접기
       const b = branches.find((x) => x.branch_key === key);
@@ -2512,8 +2531,17 @@ function drawTrunkMap(body, g, ranked) {
       // 이력줄기: 회차 타임라인(날짜(자료수)) — occurrences.csv 조인.
       const occs = trunkOccurrencesFor(g, b);
       const occHtml = occs.length ? `<div class="small" style="margin:4px 0">${esc(L.trunk_occ_label)}: ${occs.map((o) => `${esc(String(o.occurrence_key).slice(0, 10))}(${o.source_count})`).join(" · ")}</div>` : "";
-      $("#ctxDetail").innerHTML = `<h4 class="hub-h4">${esc(b?.label ?? key)} <span class="dim small">(${esc(metaBits)} · ${L.trunk_open_reviews} ${b?.open_review_count ?? 0})</span></h4>${occHtml}${trunkChildTable(g, key)}`;
+      const head = `<h4 class="hub-h4">${esc(b?.label ?? key)} <span class="dim small">(${esc(metaBits)} · ${L.trunk_open_reviews} ${b?.open_review_count ?? 0})</span></h4>${occHtml}`;
+      $("#ctxDetail").innerHTML = `${head}<div class="dim small">${L.trunk_story_loading ?? "이야기 불러오는 중…"}</div>`;
       paintSvg();
+      // B9a 이야기 뷰(§3 기원/경로/종결) — 연속 클릭 out-of-order 가드: 늦은 응답이 새 선택을 덮지 않게.
+      const seq = (state._trunkStorySeq = (state._trunkStorySeq ?? 0) + 1);
+      let story = null;
+      try { story = await api(`/api/context/branch_story?project=${encodeURIComponent(g.project)}&branch=${encodeURIComponent(key)}`); } catch { story = null; }
+      if (seq !== state._trunkStorySeq) return;
+      const detail = document.getElementById("ctxDetail");
+      if (!detail) return; // 렌즈/뷰 전환됨
+      detail.innerHTML = head + (story && !story.error ? trunkStoryHtml(story, L) : trunkChildTable(g, key));
     }));
     // pointerdown 은 repaint 마다 새로 생기는 가지 노드에 다시 건다(옛 노드는 innerHTML 교체로 소멸).
     // 모든 가지에 걸어 "못 끄는 가지" 시도도 잡는다(작업 외 드래그 → 안내 토스트). preventDefault 로

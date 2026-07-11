@@ -302,6 +302,11 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
   강조는 클라 로컬 날짜(브리핑 localDateKey 관례와 동일 취지). Google Calendar 연동은 P5 그대로
   범위 밖. 브라우저 e2e 검증에서 state._scopes 캐시 오염 버그 발견·수정(ensureScopes 재사용).
   정본: docs/slices/B10-CALENDAR-VIEW.md.
+- 2026-07-11 2차 (claude_fable-5): B9a 가지 이야기 뷰(owner "B9a 착수", 기본값 승인) — branch_story
+  API(CSV+DB 읽기전용 조인, 메일 suffix 조인, 실일시 원칙) + 지도 렌즈 ctxDetail 3단(기원/경로/종결)
+  교체. 이력줄기 기원 = 시간순 첫 점(작업줄기와 단일 규칙). 착수 전 정리: B9 패킷 spawned_from
+  → 실존 필드 정정(야간 리뷰 HIGH-3), SLICES_INDEX 소급 3건+B6 done. 다음 큐 = B9c.
+  정본: docs/slices/B9-STEM-RIVER-VIEW.md §3·§6-1.
 
 ## 9. owner 방향 (기록만 — 구현 금지 상태)
 

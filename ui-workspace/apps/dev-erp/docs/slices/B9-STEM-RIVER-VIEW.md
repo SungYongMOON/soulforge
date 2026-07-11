@@ -33,7 +33,7 @@
 2. **경로** — 가지 위 점들 시간순, 방향 표기(←받음/→보냄), 첨부 수·담당 변화 포함.
 3. **종결** — 완료 일시·산출물·제출(발신) 기록. 미종결이면 "열려 있음 + 마지막 움직임 날짜".
 
-필요 조인: 이력키(스레드 묶음), item `spawned_from`/`origin_occurrence_ref`, completion_log, deliverables, `sources.csv.branch_ref`. **전부 기존 필드.** "그 잎과 연결된 줄기만 잘라 보기" = 해당 branch_ref 필터 뷰.
+필요 조인: 이력키(스레드 묶음), item `origin_mail_id`·`source_mail_ref`(메일 기원, 관련메일이력키)/`origin_occurrence_ref`(회차 기원) + `origin`(mail|schedule|manual 케이스 판별), completion_log, deliverables, `sources.csv.branch_ref`. **전부 기존 필드(store.mjs 실측 — 2026-07-11 정정: 기존 표기 `spawned_from` 은 존재하지 않는 필드였음, 야간 리뷰 HIGH-3).** "그 잎과 연결된 줄기만 잘라 보기" = 해당 branch_ref 필터 뷰.
 
 ## 4. 모양 진단 뷰 (파생 통계, 읽기전용)
 
@@ -54,14 +54,14 @@
 |---|---|---|---|
 | 원장(데이터) | 방향·발신자·일시·담당·완료·산출물 기록 중 | **없음** (재료 완비) | 0 |
 | 엔진 | 3종 줄기 묶음까지 수행 | 이력줄기 라벨 정제(제목→핵심어, `History:`/`FW:` 접두 금지) | 소품 · engine_thread_codex |
-| API | `/api/context/graph` = 묶음 집계만 | **가지 이야기 API 신설** `GET /api/context/branch_story?project&branch`: 가지의 점들 시간순 — 누가(발신자/담당)·언제·방향(sent/received)·무엇(제목)·전환(할일화/완료)·산출물. 조인: 이력키↔core_mail, item.spawned_from/origin_occurrence_ref, event_log, deliverables, sources.branch_ref. 읽기전용·metadata_only | 중소 · ERP 표면 |
+| API | `/api/context/graph` = 묶음 집계만 | **가지 이야기 API 신설** `GET /api/context/branch_story?project&branch`: 가지의 점들 시간순 — 누가(발신자/담당)·언제·방향(sent/received)·무엇(제목)·전환(할일화/완료)·산출물. 조인: 이력키↔core_mail(item.source_mail_ref=`mailcsv:<이력키>` ↔ core_mail.id=`<코드|P00-000_INBOX>:<이력키>` — 이력키 suffix 조인, store.mjs promotedMailIds 주석 계약), item.origin_mail_id/source_mail_ref/source_mail_source_id + origin_occurrence_ref, event_log, deliverables, sources.branch_ref. 읽기전용·metadata_only | 중소 · ERP 표면 |
 | 렌더 | 방사형(시간 없음 → 이야기 불가) | **주 작업**: B9a 타임라인 → B9b 시간축 강줄기 | 중 · ERP 표면 |
 
 갈아엎기 아님 — 엔진·장부는 비전에 맞게 쌓이는 중이고, 병목은 "집계로만 보여주는" 마지막 두 층.
 
 ## 6-1. 구현 순서 (한 번에 하나, owner 페이싱)
 
-1. **B9a 가지 타임라인** — branch_story API + 가지 클릭 시 §3 이야기 뷰(현 하단 상세 테이블 교체). **이 슬라이스만으로 "누가 언제 왜 시켰더라" 즉답 달성.**
+1. **B9a 가지 타임라인** — branch_story API + 가지 클릭 시 §3 이야기 뷰(현 하단 상세 테이블 교체). **이 슬라이스만으로 "누가 언제 왜 시켰더라" 즉답 달성.** **done 2026-07-11(claude_fable-5, ERP 표면)**: GET /api/context/branch_story(점 상한 300 cap+truncated, 1등급 링크만) + 지도 렌즈 ctxDetail 3단 교체(실패 시 기존 하위표 폴백, 연속클릭 out-of-order 가드). 미결 4건은 기본값으로 확정 — ① 조인=core_deliverable+completion_log ② 범위=지도 렌즈만(목록·우선순위는 trunkChildTable 유지) ③ 이력줄기 기원=시간순 첫 점(작업줄기와 단일 규칙 — 최초 회차 첫 소스 메일) ④ cap+truncated. 기원/경로 점의 '첨부 수'(§3-2)는 core_mail 에 컬럼 부재로 v1 미표시(후속: core_attachment 조인).
 2. B9b 강줄기 렌더 — **core 구현됨 2026-07-07(claude_fable-5, owner "근본 해결" 지시로 순서 격상)**: drawTrunkMap 을 방사형에서 시간축 레인으로 교체 — 기둥+게이트 점(드롭 대상 유지), 가지=자기 행(탄생점→진행/완료), 회차 점 시간 배치, 월 눈금, 교차 곡선 배선. B8 방사형은 폐기. **기본기 pass 2026-07-07 오후**: 접기 칩(제안/완료)·라벨 우측 잘림 앵커 플립·줄 끝=마지막 실기록(잠든 가지 노출)·오늘선·행높이 압축. **잔여**: ① 교차 곡선 데이터 — 회차→할일 `spawned_item_refs` 가 전 과제 0건, 소급 추론은 engine_thread_codex 소품 ② 분가(가지 위 가지) 중첩 렌더 ③ zoom/pan(현재 viewBox 스케일만).
    - **(2026-07-07 데이터 정직성 결정)** 노드 기록 점은 임시 비활성 — 원장 `created_at`/`updated_at` 이 대량 이관·리빌드 일괄 스탬프(P24-049 641/722건 동일 날짜)라 시간축에 못 쓴다. **B9a branch_story 는 core_mail 의 실수신/발신일시를 조인**해 점을 복원해야 하며, 엔진 레인은 노드 원장에 실사건일(event_date) 컬럼 추가를 검토(engine_thread_codex 후보).
    - **(2026-07-07 owner 보강)** 겹침 해소는 레인 배치로 구조적으로 달성(가지마다 자기 가로줄 — git log --graph 원리, 포스 시뮬레이션 불요). **분가** 렌더 필수: 할일에서 파생된 할일, 회차에서 태어난 할일(`spawned_item_refs`)은 가지 위 가지로 — 현 3단(중심-가지-하위) 별 모양 금지. **교차 링크**: 가지 사이 관계(같은 스레드·파생·같은 회의 출생)를 가는 곡선으로 — "서로 엉키는" 실제 관계 노출. **zoom/pan** 필수(SVG viewBox, vanilla ~30줄).

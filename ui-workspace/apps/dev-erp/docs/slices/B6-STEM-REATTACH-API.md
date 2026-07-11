@@ -1,6 +1,6 @@
 # B6-STEM-REATTACH-API — 줄기 조작(드래그 재부착) 서버 계약 + API
 
-- status: ready
+- status: done (구현·테스트 완료, B8 소비 중 — 2026-07-11 'ready' stale 정정)
 - execution_owner: **erp_surface_thread_claude** (server.mjs·src/store.mjs — API/store 만)
 - UI 소비자: 줄기 그래프 렌더 레인(현재 마인드맵식 확장 진행 중인 세션) — 이 문서의 계약을 소비.
   **그래프 UI 자체(app.js 줄기 렌더러)는 이 패킷 범위 밖** — 동시편집 방지 분업(2026-07-05).

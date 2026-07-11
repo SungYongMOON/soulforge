@@ -43,7 +43,7 @@ import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./s
 import { CODEX_TASK_BRIDGE_VERSION, runCodexTaskTurn } from "./src/codex_bridge.mjs";
 import { buildMorningBrief, hasContent, localDateKey, runMorningBriefCycle } from "./src/morning_brief.mjs";
 import { buildKnowledgeOverview, readWikiPage } from "./src/knowledge_overview.mjs";
-import { buildContextGraph, listContextProjects } from "./src/context_graph.mjs";
+import { buildBranchStory, buildContextGraph, listContextProjects } from "./src/context_graph.mjs";
 import { readRouterBinding } from "./src/mail_router_binding.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -2208,6 +2208,12 @@ const server = createServer(async (req, res) => {
     if (path === "/api/context/graph" && req.method === "GET") {
       if (!currentAccount(req)) return send(res, 401, { error: "login_required" });
       const r = buildContextGraph(KNOWLEDGE_SHELL.root, qp.project || "");
+      return send(res, r.error ? 400 : 200, r);
+    }
+    // B9a 가지 이야기(기원/경로/종결) — CSV(지식 루트)+DB(메일/이벤트/완료/산출물) 읽기전용 조인.
+    if (path === "/api/context/branch_story" && req.method === "GET") {
+      if (!currentAccount(req)) return send(res, 401, { error: "login_required" });
+      const r = buildBranchStory(KNOWLEDGE_SHELL.root, qp.project || "", qp.branch || "", { store });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/events/recent") return send(res, 200, store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null, requestScope(req, qp)));
