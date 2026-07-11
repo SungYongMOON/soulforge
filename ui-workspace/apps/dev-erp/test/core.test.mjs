@@ -6,7 +6,7 @@ import { createServer as createNetServer } from "node:net";
 import { request as httpsRequest } from "node:https";
 import { DatabaseSync } from "node:sqlite";
 import { validateRelPointer, safeSegment, safeWorkspacePath, safeUploadTarget, commitUpload } from "../src/filevault.mjs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -463,13 +463,16 @@ test("codex bridge: task metadata is hidden from visible user prompts", () => {
 });
 
 test("codex bridge: app-server turn input can carry skill and localImage items", () => {
+  // 픽스처 경로는 실행 환경에서 파생 — 사용자명 박힌 절대경로 리터럴을 public 트리에 남기지 않는다.
+  const skillPath = join(homedir(), ".codex", "skills", "soulforge-shield-wall", "SKILL.md");
   const input = buildCodexTurnInput({
     text: "$soulforge-shield-wall 이미지 확인",
-    skills: [{ name: "soulforge-shield-wall", path: "C:\\Users\\user\\.codex\\skills\\soulforge-shield-wall\\SKILL.md" }],
-    localImages: [{ path: "C:\\Soulforge\\_workspaces\\system\\dev-erp\\codex-task-attachments\\IT-001\\shot.png" }],
+    skills: [{ name: "soulforge-shield-wall", path: skillPath }],
+    localImages: [{ path: join(tmpdir(), "codex-task-attachments", "IT-001", "shot.png") }],
   });
   assert.deepEqual(input.map((x) => x.type), ["skill", "text", "localImage"]);
   assert.equal(input[0].name, "soulforge-shield-wall");
+  assert.equal(input[0].path, skillPath);
   assert.equal(input[1].text, "$soulforge-shield-wall 이미지 확인");
   assert.doesNotMatch(input[1].text, /Task metadata|item_id:/);
   assert.match(input[2].path, /shot\.png$/);
