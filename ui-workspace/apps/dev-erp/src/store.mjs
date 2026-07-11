@@ -965,6 +965,9 @@ export function openStore(path = ":memory:") {
   catch { /* noop */ }
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_item_origin_mail ON core_item(origin_mail_id) WHERE origin_mail_id IS NOT NULL"); }
   catch { /* noop */ }
+  // D1(S7-1, owner A안 2026-07-11) '보관=치움': 승격 dedup 은 활성(비보관)만 — 보관 후 재승격 허용.
+  // 유일 인덱스는 부분형도 불가 — 행보관 장부 ingest 가 메일 1→할일 N 분기를 계약으로 허용(위 주석·TASK-LEDGER 테스트).
+  // 활성 중복 방지는 promoteMail/createItem 의 코드 dedup 만으로(멀티라이터 TOCTOU 는 잔여 한계로 수용).
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_account_email_unique ON core_account(email) WHERE email IS NOT NULL"); }
   catch { /* 기존 중복 email 존재 → dedup 후 재시작 시 활성 */ }
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
@@ -2107,7 +2110,8 @@ export class Store {
     const hasAnchor = !!(stage_id || anchor_stage_code || link_kind || guide_artifact_id);
     const status = inbound && !(hasAnchor && work_type) ? "unclassified" : "open";
     if (origin_mail_id != null) {
-      const existing = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(origin_mail_id);
+      // D1(S7-1) 보관=치움: dedup 은 활성만 — 보관된 승격 항목은 재승격을 막지 않는다(promotedMailIds 와 동일 기준).
+      const existing = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=? AND status<>'archived'").get(origin_mail_id);
       if (existing) return { error: "already_promoted", item_id: existing.id };
     }
     const id = `itm_${Date.now().toString(36)}${randomBytes(4).toString("hex")}`; // randomBytes(같은 ms 충돌 방지, 파일 관례)
@@ -2128,9 +2132,9 @@ export class Store {
           stage_id ?? null, anchor_stage_code ?? null, parent_item_id ?? null, party_ref ?? null, new Date().toISOString()
         );
     } catch (e) {
-      // Legacy DBs may still carry an origin_mail_id unique index until migration drops it.
+      // 활성 중복 경합(부분 유일 인덱스 idx_item_origin_mail_active) — 멀티라이터 TOCTOU 시 여기로.
       if (origin_mail_id != null) {
-        const existing = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(origin_mail_id);
+        const existing = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=? AND status<>'archived'").get(origin_mail_id);
         if (existing) return { error: "already_promoted", item_id: existing.id };
       }
       throw e;
@@ -2370,6 +2374,7 @@ export class Store {
     if (prev.status !== "archived") return { error: "not_archived", status: prev.status };
     // 복구는 항상 open → done_at 도 함께 초기화(status='done' ↔ done_at 불변식 유지).
     // 분해: 함께 보관됐던 자식도 복구(부모 상태가 자식 제어, archiveItem 대칭).
+    // D1: 재승격 뒤 옛 승격본을 복원하면 같은 메일의 활성 할일 2개 공존 — 행보관 split 계약(메일 1→N)과 일관, 허용.
     this.db.prepare("UPDATE core_item SET status='open', done_at=NULL WHERE parent_item_id=? AND status='archived'").run(id);
     this.db.prepare("UPDATE core_item SET status='open', done_at=NULL WHERE id=?").run(id);
     this.afterItemWrite?.(id);
@@ -2594,7 +2599,8 @@ export class Store {
   promoteMail(mail_id, created_by, assignee_ref = null) {
     const mail = this.db.prepare("SELECT * FROM core_mail WHERE id=?").get(mail_id);
     if (!mail) return { error: "mail_not_found" };
-    const dup = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=?").get(mail_id); // origin_mail_id UNIQUE(store.mjs:812) — 메일당 항목 1개(영구). 상태 무관 dedup.
+    // D1(S7-1) 보관=치움: 활성(비보관) 항목만 dedup — 보관 후 재승격 허용(owner A안). 활성 중복은 부분 유일 인덱스가 차단.
+    const dup = this.db.prepare("SELECT id FROM core_item WHERE origin_mail_id=? AND status<>'archived'").get(mail_id);
     if (dup) return { error: "already_promoted", item_id: dup.id };
     if (!mail.project_id || !this.db.prepare("SELECT 1 FROM core_project WHERE id=?").get(mail.project_id)) {
       return { error: "mail_project_missing" };
