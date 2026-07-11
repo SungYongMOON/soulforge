@@ -1,4 +1,5 @@
 import { existsSync, promises as fs } from "node:fs";
+import { randomBytes } from "node:crypto";
 import path from "node:path";
 
 export async function readJson(filePath) {
@@ -10,7 +11,18 @@ export async function writeJson(filePath, value, options = {}) {
   const trailingNewline = options.trailingNewline ?? true;
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const suffix = trailingNewline ? "\n" : "";
-  await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}${suffix}`, "utf8");
+  const data = `${JSON.stringify(value, null, 2)}${suffix}`;
+  // 원자적 교체(#S3-6/S6): 같은 디렉터리 tmp 에 쓴 뒤 rename — 쓰기 중단·동시 실행 시
+  // truncate/부분 JSON 노출을 막는다(python 측 tmp+replace 와 대칭). fs.rename 은 같은
+  // 파일시스템 내에서 원자적이며 Windows/POSIX 모두 기존 대상을 덮어쓴다.
+  const tmp = `${filePath}.tmp-${randomBytes(6).toString("hex")}`;
+  try {
+    await fs.writeFile(tmp, data, "utf8");
+    await fs.rename(tmp, filePath);
+  } catch (error) {
+    await fs.rm(tmp, { force: true }).catch(() => {});
+    throw error;
+  }
 }
 
 export async function appendJsonl(filePath, value) {
