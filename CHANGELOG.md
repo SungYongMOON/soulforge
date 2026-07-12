@@ -47,15 +47,40 @@
   이름·경로·해시 없이 집계만 남긴다. 패킷 sequence/digest chain, primary receipt
   clock, strict UTC, cross-node 이름 충돌과 bounded recent receipt/event window를
   검사한다. logical/revision graph 전체는 아직 선형 증가하므로 현재
-  watcher·scheduler·transport·ERP adapter는 설치하거나 활성화하지 않았으며,
-  장기 partition/graph compaction/cache TTL과 실제 node binding 검증 전에는 상시
-  가동하지 않는다. (worker: codex_gpt-5)
+  watcher·scheduler·transport·authoritative ERP correlation emitter는 설치하거나
+  활성화하지 않았으며, graph compaction/tail replay와 실제 node binding 검증 전에는
+  상시 가동하지 않는다. (worker: codex_gpt-5)
 - 이전 revision state와 hash cache도 신뢰 입력으로 보지 않고 allowlist·ID/ref·clock·
   path key·크기 상한으로 다시 검증한다. repo root가 과하게 binding되어도 `.git`,
   `_workmeta`, `private-state`, collector local state는 관찰하지 않으며, packet/cache는
   64 MiB, derived state는 256 MiB를 넘기기 전에 중단한다. 형식상 유효하게 위조된
   cache digest의 byte 진실성은 `--full` 재해시 없이는 증명하지 못하므로 live gate로
   계속 남긴다. (worker: codex_gpt-5)
+- Hash cache를 strict v1으로 올려 full-byte source scan/observation/canonical packet
+  digest provenance와 original verification clock을 묶고, 최대 24시간 TTL·clock
+  regression/future 검증·`--full` 완전 우회를 추가했다. Cache hit는 검증 시각을
+  갱신하지 않으며 legacy v0/missing provenance는 full rehash가 필요하다. 형식상
+  유효한 node-local 위조를 막을 authenticated provenance는 live gate로 남는다.
+  (worker: codex_gpt-5)
+- Reconcile `--apply`가 scan-id 기반 immutable monthly receipt, monthly event batch,
+  bounded full-state checkpoint, admins-only private life-tree projection을 함께 만들고,
+  checkpoint-only `rebuild`는 계속 dry-run 기본으로 두었다. Hot receipt eviction 뒤에도
+  same scan/same digest는 no-op, different digest는 conflict이며 projection은 path/name/raw를
+  내보내지 않는다. Checkpoint tail replay·graph compaction·full replay parity는 구현하지
+  않았고 state hard limit과 exact blocker를 계속 노출한다. (worker: codex_gpt-5)
+- Full-byte pass는 valid v1 cache의 entry를 전혀 읽지 않고 chain만 보존하며, unreadable/
+  legacy cache에서도 검사를 막지 않는 대신 `reset_requires_rebinding`을 명시한다.
+  Reconcile은 immutable conflict를 쓰기 전에 전부 점검하고 event/checkpoint/state/
+  projection 뒤 receipt를 terminal commit marker로 마지막에 쓴다. Repo root 아래 parent
+  symlink read/write 우회와 같은 node producer clock 회귀도 projection 전에 fail-closed로
+  차단했다. (worker: codex_gpt-5)
+- dev-ERP 생명수는 reconciler가 미리 쓴 strict projection 파일 한 개만 읽으며
+  filesystem/revision state를 요청 중 스캔하지 않는다. 파일 사건은 account scope를
+  cap보다 먼저 적용하고 기본 admins-only로 두며, node/path/hash/size/correlation 값은
+  API에서 숨긴다. ERP 업로드와 scanner 사건은 explicit event ref, 같은 과제의
+  input-upload exact join, SHA-256과 양쪽 size가 있을 때의 일치가 모두 확인될 때만
+  한 사건으로 합치고, 같은 hash뿐인 사건과 모호한 연결은 별도로 남긴다.
+  (worker: codex_gpt-5)
 
 ### dev-ERP team preflight 운영 DB read-only 보강
 

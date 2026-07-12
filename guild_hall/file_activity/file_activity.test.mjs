@@ -20,7 +20,13 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  FILE_ACTIVITY_CACHE_POLICY,
+  FILE_ACTIVITY_LIFE_TREE_PROJECTION_SCHEMA,
+  FILE_ACTIVITY_RECONCILE_LIMITS,
   FILE_OBSERVATION_PACKET_SCHEMA,
+  FILE_RECONCILE_EVENT_SCHEMA,
+  FILE_RECONCILE_RECEIPT_SCHEMA,
+  FILE_REVISION_CHECKPOINT_SCHEMA,
   FILE_REVISION_STATE_SCHEMA,
   FILE_ACTIVITY_STATE_LIMITS,
   buildPathCollisionKeys,
@@ -30,6 +36,8 @@ import {
   observationIdFor,
   pathFingerprintForCollisionKeys,
   reconcileObservationPackets,
+  reconcileObservationPacketsWithArtifacts,
+  restoreRevisionStateCheckpoint,
   scanWorkspace,
 } from "./file_activity.mjs";
 
@@ -116,6 +124,144 @@ test("scanner streams exact hashes, reuses unchanged stat tuples, records touch 
     assert.equal(serialized.includes("alpha-private-payload"), false);
     assert.doesNotMatch(serialized, /birthtime|created_at|creation_time_at/u);
     assert.equal(touched.packet.boundary.creation_time_claimed, false);
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
+
+test("verified hash cache reuse is provenance-bound, expires at 24 hours, and full scans bypass every cache hit", async () => {
+  const fixture = await makeFixture("cache-ttl-provenance");
+  try {
+    await writeVersion(path.join(fixture, "bounded.txt"), "cache payload", "2026-07-12T00:00:00.000Z");
+    const first = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "cache-provenance-first",
+      observedAt: "2026-07-12T00:00:00.000Z",
+      ingestedAt: "2026-07-12T00:00:01.000Z",
+    });
+    const firstEntry = first.next_cache.entries[0];
+    assert.equal(first.next_cache.schema_version, "soulforge.file_scan_cache.v1");
+    assert.equal(firstEntry.provenance.verification_method, "streamed_full_file");
+    assert.equal(firstEntry.provenance.producer_node_id, "work-01");
+    assert.equal(firstEntry.provenance.source_scan_id, first.packet.scan_id);
+    assert.equal(firstEntry.provenance.source_observation_id, first.packet.observations[0].observation_id);
+    assert.match(firstEntry.provenance.source_packet_digest, /^sha256:[a-f0-9]{64}$/u);
+
+    const withinTtl = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "cache-provenance-within-ttl",
+      observedAt: "2026-07-12T23:59:59.000Z",
+      ingestedAt: "2026-07-13T00:00:00.000Z",
+      previousCache: first.next_cache,
+    });
+    assert.equal(withinTtl.packet.observations[0].hash_status, "cached_exact");
+    assert.equal(withinTtl.next_cache.entries[0].verified_at, firstEntry.verified_at);
+    assert.deepEqual(withinTtl.next_cache.entries[0].provenance, firstEntry.provenance);
+
+    const expired = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "cache-provenance-expired",
+      observedAt: "2026-07-13T00:00:01.001Z",
+      ingestedAt: "2026-07-13T00:00:01.001Z",
+      previousCache: first.next_cache,
+    });
+    assert.equal(expired.packet.observations[0].hash_status, "hashed_exact");
+    assert.equal(expired.packet.counts.cached_exact_count, 0);
+    assert.notEqual(expired.next_cache.entries[0].provenance.source_scan_id, firstEntry.provenance.source_scan_id);
+
+    const full = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "cache-provenance-full",
+      observedAt: "2026-07-12T00:05:00.000Z",
+      ingestedAt: "2026-07-12T00:05:01.000Z",
+      previousCache: first.next_cache,
+      forceRehash: true,
+    });
+    assert.equal(full.packet.counts.cached_exact_count, 0);
+    assert.equal(full.packet.coverage.hash_complete, true);
+    assert(full.packet.observations.every((entry) => entry.hash_status === "hashed_exact"));
+    assert.equal(full.packet.node_sequence, 2);
+    assert.equal(full.cache_chain_state, "preserved");
+
+    const corruptEntry = structuredClone(first.next_cache);
+    corruptEntry.entries[0].unknown_payload = "must not block a full byte pass";
+    const recoveredFull = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "cache-provenance-full-corrupt-entry",
+      observedAt: "2026-07-12T00:07:00.000Z",
+      ingestedAt: "2026-07-12T00:07:01.000Z",
+      previousCache: corruptEntry,
+      forceRehash: true,
+    });
+    assert.equal(recoveredFull.packet.node_sequence, 2);
+    assert.equal(recoveredFull.packet.counts.cached_exact_count, 0);
+    assert.equal(recoveredFull.cache_chain_state, "preserved");
+
+    const legacyCache = structuredClone(first.next_cache);
+    legacyCache.schema_version = "soulforge.file_scan_cache.v0";
+    const resetFull = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "cache-provenance-full-legacy-reset",
+      observedAt: "2026-07-12T00:08:00.000Z",
+      ingestedAt: "2026-07-12T00:08:01.000Z",
+      previousCache: legacyCache,
+      forceRehash: true,
+    });
+    assert.equal(resetFull.packet.node_sequence, 1);
+    assert.equal(resetFull.cache_chain_state, "reset_requires_rebinding");
+
+    const missingProvenance = structuredClone(first.next_cache);
+    delete missingProvenance.entries[0].provenance;
+    await assert.rejects(() => scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "cache-provenance-missing",
+      observedAt: "2026-07-12T00:06:00.000Z",
+      previousCache: missingProvenance,
+    }), /scan_cache_entry_unknown_or_missing_field/u);
+
+    const alteredAnchor = structuredClone(first.next_cache);
+    alteredAnchor.entries[0].provenance.source_observation_id = `obs:${"0".repeat(64)}`;
+    await assert.rejects(() => scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "cache-provenance-anchor",
+      observedAt: "2026-07-12T00:06:00.000Z",
+      previousCache: alteredAnchor,
+    }), /scan_cache_provenance_relationship_invalid/u);
+
+    await assert.rejects(() => scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "cache-provenance-regressed",
+      observedAt: "2026-07-11T23:59:00.000Z",
+      ingestedAt: "2026-07-11T23:59:01.000Z",
+      previousCache: first.next_cache,
+    }), /scan_cache_clock_regressed/u);
+    await assert.rejects(() => scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "cache-provenance-ttl-too-large",
+      observedAt: "2026-07-12T00:06:00.000Z",
+      previousCache: first.next_cache,
+      verifiedHashTtlMs: FILE_ACTIVITY_CACHE_POLICY.max_verified_hash_ttl_ms + 1,
+    }), /verified_hash_cache_ttl_ms_invalid/u);
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
@@ -671,6 +817,48 @@ test("clock skew switches to receipt order after five minutes and blocks exact o
   }
 });
 
+test("reconciler rejects a chained producer packet whose observed or ingested clock regresses", async () => {
+  const fixture = await makeFixture("producer-clock-regression");
+  try {
+    const filePath = path.join(fixture, "clock.txt");
+    await writeVersion(filePath, "A", "2026-07-12T09:00:00.000Z");
+    const first = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "producer-clock-first",
+      observedAt: "2026-07-12T09:00:01.000Z",
+      ingestedAt: "2026-07-12T09:00:02.000Z",
+    });
+    await writeVersion(filePath, "B", "2026-07-12T09:01:00.000Z");
+    const second = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "producer-clock-second",
+      observedAt: "2026-07-12T09:01:01.000Z",
+      ingestedAt: "2026-07-12T09:01:02.000Z",
+      previousCache: first.next_cache,
+    });
+    const state = reconcile(null, [first.packet], { receivedAt: "2026-07-12T09:00:10.000Z" });
+    assert.equal(state.node_cursors[0].last_observed_at, first.packet.observed_at);
+    assert.equal(state.node_cursors[0].last_ingested_at, first.packet.ingested_at);
+
+    const regressed = structuredClone(second.packet);
+    regressed.observed_at = "2026-07-12T08:59:01.000Z";
+    regressed.ingested_at = "2026-07-12T08:59:02.000Z";
+    for (const observation of regressed.observations) {
+      observation.observed_at = regressed.observed_at;
+      observation.ingested_at = regressed.ingested_at;
+    }
+    assert.throws(() => reconcile(state, [regressed], {
+      receivedAt: "2026-07-12T09:01:10.000Z",
+    }), /file_activity_producer_clock_regressed/u);
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
+
 test("only operational-primary always-on node reconciles, and weak hashes are rejected", async () => {
   const fixture = await makeFixture("primary");
   try {
@@ -1004,7 +1192,7 @@ test("previous scan cache requires an exact allowlist and canonical path, stat, 
     await expectRejected("stat-unknown", (cache) => { cache.entries[0].stat_tuple.raw_body = "x"; }, /scan_cache_stat_tuple_unknown_or_missing_field/u);
     await expectRejected("bad-digest", (cache) => { cache.entries[0].content_id = "sha256:not-a-digest"; }, /cache_content_id_invalid/u);
     await expectRejected("bad-stat", (cache) => { cache.entries[0].stat_tuple.changed_time_ms = "0"; }, /cache_stat_changed_time_ms_invalid/u);
-    await expectRejected("future-verified", (cache) => { cache.entries[0].verified_at = "2026-07-12T12:00:00.000Z"; }, /scan_cache_verified_at_invalid/u);
+    await expectRejected("future-verified", (cache) => { cache.entries[0].verified_at = "2026-07-12T12:00:00.000Z"; }, /scan_cache_verified_at_future/u);
     await expectRejected("exact-key", (cache) => {
       cache.entries[0].path_collision_keys.exact = buildPathCollisionKeys("other.txt").exact;
       cache.entries[0].path_fingerprint = pathFingerprintForCollisionKeys(cache.entries[0].path_collision_keys);
@@ -1019,6 +1207,186 @@ test("previous scan cache requires an exact allowlist and canonical path, stat, 
         path_fingerprint: pathFingerprintForCollisionKeys(keys),
       });
     }, /scan_cache_path_spelling_mismatch/u);
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
+
+test("reconcile artifacts are deterministic monthly metadata envelopes and checkpoints restore only canonical state", async () => {
+  const fixture = await makeFixture("reconcile-artifacts");
+  try {
+    await writeFile(path.join(fixture, "projection-private-name.txt"), "private source bytes", "utf8");
+    const scanned = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-01",
+      nodeRole: "work_pc",
+      scanId: "artifact-envelope-one",
+      observedAt: "2026-07-12T12:00:00.000Z",
+      ingestedAt: "2026-07-12T12:00:01.000Z",
+    });
+    const options = {
+      ...PRIMARY,
+      previousState: null,
+      packets: [scanned.packet],
+      receivedAt: "2026-08-01T00:00:00.000Z",
+    };
+    const first = reconcileObservationPacketsWithArtifacts(options);
+    const repeated = reconcileObservationPacketsWithArtifacts(options);
+    assert.deepEqual(repeated, first);
+    assert.equal(first.artifacts.receipt_artifacts.length, 1);
+    assert.match(first.artifacts.refs.receipt_refs[0], /\/receipts\/2026-07\/[a-f0-9]{64}\.json$/u);
+    assert.match(first.artifacts.refs.event_ref, /\/events\/2026-08\/[a-f0-9]{64}\.json$/u);
+    assert.match(first.artifacts.refs.checkpoint_ref, /\/checkpoints\/2026-08\/[a-f0-9]{64}\.json$/u);
+    assert.equal(first.artifacts.receipt_artifacts[0].value.schema_version, FILE_RECONCILE_RECEIPT_SCHEMA);
+    assert.equal(first.artifacts.event_partition.schema_version, FILE_RECONCILE_EVENT_SCHEMA);
+    assert.equal(first.artifacts.checkpoint.schema_version, FILE_REVISION_CHECKPOINT_SCHEMA);
+    assert.equal(first.artifacts.checkpoint.boundary.tail_replay_supported, false);
+    assert.equal(first.state.boundary.checkpoint_tail_replay_supported, false);
+    assert.equal(first.state.storage_bounds.lineage_graph_compaction_enabled, false);
+    assert.equal(first.state.storage_bounds.blocker_codes.revisions, "file_activity_revision_state_revisions_limit_exceeded");
+
+    const projection = first.artifacts.projection;
+    assert.equal(projection.schema_version, FILE_ACTIVITY_LIFE_TREE_PROJECTION_SCHEMA);
+    assert.deepEqual(Object.keys(projection).sort(), [
+      "boundary",
+      "coverage",
+      "events",
+      "generated_at",
+      "project_code",
+      "schema_version",
+      "source_checkpoint",
+      "workspace_binding_id",
+    ]);
+    assert.equal(projection.coverage.state, "partial");
+    assert(projection.coverage.gap_reasons.includes("erp_upload_adapter_unavailable"));
+    assert(projection.coverage.gap_reasons.includes("live_collector_not_activated"));
+    assert.deepEqual(
+      projection.source_checkpoint.partition_refs,
+      [...projection.source_checkpoint.partition_refs].sort(),
+    );
+    assert.equal(projection.boundary.derived_rebuildable, true);
+    assert.equal(projection.events.length, 1);
+    const event = projection.events[0];
+    assert.deepEqual(Object.keys(event).sort(), [
+      "access",
+      "change_interval",
+      "content_id",
+      "erp_upload_event_ref",
+      "event_kind",
+      "evidence_refs",
+      "identity_basis",
+      "identity_claim",
+      "ingested_at",
+      "logical_file_id",
+      "node_id",
+      "node_role",
+      "observation_id",
+      "observed_at",
+      "packet_digest",
+      "received_at",
+      "revision_id",
+      "scan_id",
+      "size_bytes",
+      "source_event_id",
+      "source_kind",
+      "uncertainty",
+    ]);
+    assert.equal(event.source_kind, "scanner_observation");
+    assert.equal(event.event_kind, "file_first_observed");
+    assert.equal(event.uncertainty, "confirmed");
+    assert.equal(event.erp_upload_event_ref, null);
+    assert.match(event.content_id, /^sha256:[a-f0-9]{64}$/u);
+    assert.equal(event.size_bytes, 20);
+    assert.deepEqual(event.evidence_refs, [...event.evidence_refs].sort());
+    assert.deepEqual(event.access, { visibility: "admins", account_refs: [] });
+    const projectionRaw = JSON.stringify(projection);
+    assert.equal(projectionRaw.includes(fixture), false);
+    assert.equal(projectionRaw.includes("projection-private-name.txt"), false);
+    assert.equal(projectionRaw.includes("private source bytes"), false);
+    assert.equal(projectionRaw.includes("relative_path"), false);
+
+    const restored = restoreRevisionStateCheckpoint(first.artifacts.checkpoint, {
+      projectCode: PROJECT,
+      workspaceBindingId: BINDING,
+      reconcilerNodeId: PRIMARY.reconcilerNodeId,
+    });
+    assert.deepEqual(restored, first.state);
+    const unknownTop = structuredClone(first.artifacts.checkpoint);
+    unknownTop.raw_body = "CHECKPOINT_RAW_SENTINEL";
+    assert.throws(() => restoreRevisionStateCheckpoint(unknownTop, {
+      projectCode: PROJECT,
+      workspaceBindingId: BINDING,
+      reconcilerNodeId: PRIMARY.reconcilerNodeId,
+    }), /revision_checkpoint_unknown_or_missing_field/u);
+    const tampered = structuredClone(first.artifacts.checkpoint);
+    tampered.state.raw_body = "CHECKPOINT_RAW_SENTINEL";
+    assert.throws(() => restoreRevisionStateCheckpoint(tampered, {
+      projectCode: PROJECT,
+      workspaceBindingId: BINDING,
+      reconcilerNodeId: PRIMARY.reconcilerNodeId,
+    }), /revision_checkpoint_digest_mismatch/u);
+    assert.throws(() => restoreRevisionStateCheckpoint(first.artifacts.checkpoint, {
+      projectCode: "P99-WRONG",
+      workspaceBindingId: BINDING,
+      reconcilerNodeId: PRIMARY.reconcilerNodeId,
+    }), /revision_checkpoint_scope_mismatch/u);
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
+
+test("reconcile packet batch leaves room for event/checkpoint refs under the strict projection cap", () => {
+  assert.equal(FILE_ACTIVITY_RECONCILE_LIMITS.packet_batch + 2, 5000);
+  assert.throws(() => reconcileObservationPackets({
+    ...PRIMARY,
+    packets: Array(FILE_ACTIVITY_RECONCILE_LIMITS.packet_batch + 1).fill(null),
+    receivedAt: "2026-07-12T12:00:00.000Z",
+  }), /reconcile_packet_batch_limit_exceeded/u);
+});
+
+test("projection clock-skew envelopes use receipt-only intervals required by the strict consumer", async () => {
+  const fixture = await makeFixture("projection-clock-envelope");
+  try {
+    await writeFile(path.join(fixture, "clock.txt"), "clock", "utf8");
+    const warningScan = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-warning",
+      nodeRole: "work_pc",
+      scanId: "projection-clock-warning",
+      observedAt: "2026-07-12T12:00:00.000Z",
+      ingestedAt: "2026-07-12T12:06:00.001Z",
+    });
+    const warning = reconcileObservationPacketsWithArtifacts({
+      ...PRIMARY,
+      packets: [warningScan.packet],
+      receivedAt: "2026-07-12T12:07:00.000Z",
+    }).artifacts.projection.events[0];
+    assert.equal(warning.received_at, "2026-07-12T12:07:00.000Z");
+    assert.deepEqual(warning.change_interval, {
+      after: "2026-07-12T12:07:00.000Z",
+      before: "2026-07-12T12:07:00.000Z",
+      basis: "receipt_order_only_clock_skew",
+    });
+
+    const blockedScan = await scanAt({
+      rootPath: fixture,
+      nodeId: "work-blocked",
+      nodeRole: "work_pc",
+      scanId: "projection-clock-blocked",
+      observedAt: "2026-07-12T12:00:00.000Z",
+      ingestedAt: "2026-07-12T12:16:00.001Z",
+    });
+    const blocked = reconcileObservationPacketsWithArtifacts({
+      ...PRIMARY,
+      packets: [blockedScan.packet],
+      receivedAt: "2026-07-12T12:17:00.000Z",
+    }).artifacts.projection.events[0];
+    assert.equal(blocked.received_at, "2026-07-12T12:17:00.000Z");
+    assert.deepEqual(blocked.change_interval, {
+      after: "2026-07-12T12:17:00.000Z",
+      before: "2026-07-12T12:17:00.000Z",
+      basis: "exact_order_blocked_clock_skew",
+    });
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
@@ -1113,6 +1481,10 @@ test("CLI is dry-run by default and writes only behind --write-outbox / --apply 
     const oversizedCache = spawnSync(process.execPath, scanArgs, { encoding: "utf8" });
     assert.equal(oversizedCache.status, 1);
     assert.match(oversizedCache.stderr, /file_activity_scan_cache_read_failed_size_limit_exceeded/u);
+    const fullRecovery = spawnSync(process.execPath, [...scanArgs, "--full"], { encoding: "utf8" });
+    assert.equal(fullRecovery.status, 0, fullRecovery.stderr);
+    assert.equal(JSON.parse(fullRecovery.stdout).cache_chain_state, "reset_requires_rebinding");
+    assert.equal(JSON.parse(fullRecovery.stdout).counts.cached_exact_count, 0);
 
     const reconcileArgs = [
       cliPath,
@@ -1125,27 +1497,203 @@ test("CLI is dry-run by default and writes only behind --write-outbox / --apply 
       "--binding-valid",
       "--operational-primary",
       "--packet", scanResult.packet_ref,
+      "--received-at", "2026-07-12T09:00:30.000Z",
     ];
     const dryReconcile = spawnSync(process.execPath, reconcileArgs, { encoding: "utf8" });
     assert.equal(dryReconcile.status, 0, dryReconcile.stderr);
     const dryReconcileResult = JSON.parse(dryReconcile.stdout);
     assert.equal(dryReconcileResult.status, "dry_run_no_write");
     await assert.rejects(() => access(path.join(tempRepo, dryReconcileResult.state_ref)));
+    for (const ref of [
+      ...dryReconcileResult.artifact_refs.receipt_refs,
+      dryReconcileResult.artifact_refs.event_ref,
+      dryReconcileResult.artifact_refs.checkpoint_ref,
+      dryReconcileResult.artifact_refs.projection_ref,
+    ]) await assert.rejects(() => access(path.join(tempRepo, ref)));
 
     const reconcileRun = spawnSync(process.execPath, [...reconcileArgs, "--apply"], { encoding: "utf8" });
     assert.equal(reconcileRun.status, 0, reconcileRun.stderr);
     const reconcileResult = JSON.parse(reconcileRun.stdout);
     assert.equal(reconcileResult.schema_version, FILE_REVISION_STATE_SCHEMA);
     assert.equal(reconcileResult.counts.logical_file_count, 1);
+    assert.equal(reconcileResult.artifact_refs.receipt_refs.length, 1);
+    const receipt = JSON.parse(await readFile(path.join(tempRepo, reconcileResult.artifact_refs.receipt_refs[0]), "utf8"));
+    const eventPartition = JSON.parse(await readFile(path.join(tempRepo, reconcileResult.artifact_refs.event_ref), "utf8"));
+    const checkpoint = JSON.parse(await readFile(path.join(tempRepo, reconcileResult.artifact_refs.checkpoint_ref), "utf8"));
+    const projection = JSON.parse(await readFile(path.join(tempRepo, reconcileResult.artifact_refs.projection_ref), "utf8"));
+    assert.equal(receipt.schema_version, FILE_RECONCILE_RECEIPT_SCHEMA);
+    assert.equal(eventPartition.schema_version, FILE_RECONCILE_EVENT_SCHEMA);
+    assert.equal(checkpoint.schema_version, FILE_REVISION_CHECKPOINT_SCHEMA);
+    assert.equal(checkpoint.boundary.tail_replay_supported, false);
+    assert.equal(projection.schema_version, FILE_ACTIVITY_LIFE_TREE_PROJECTION_SCHEMA);
+    assert.equal(projection.events[0].erp_upload_event_ref, null);
+    assert.equal(JSON.stringify(projection).includes("artifact.txt"), false);
     const stateRaw = await readFile(path.join(tempRepo, reconcileResult.state_ref), "utf8");
     assert.equal(stateRaw.includes(tempRepo), false);
     assert.equal(stateRaw.includes("private artifact payload"), false);
 
     const statePath = path.join(tempRepo, reconcileResult.state_ref);
+    const evictedState = JSON.parse(stateRaw);
+    evictedState.scan_receipts = [];
+    evictedState.processed_scan_ids = [];
+    await writeFile(statePath, `${JSON.stringify(evictedState, null, 2)}\n`, "utf8");
+    const evictedStateRaw = await readFile(statePath, "utf8");
+    const durableDuplicate = spawnSync(process.execPath, [...reconcileArgs, "--apply"], { encoding: "utf8" });
+    assert.equal(durableDuplicate.status, 0, durableDuplicate.stderr);
+    assert.equal(JSON.parse(durableDuplicate.stdout).status, "durable_receipt_duplicate_noop");
+    assert.equal(await readFile(statePath, "utf8"), evictedStateRaw);
+
+    const alteredPacket = JSON.parse(packetRaw);
+    alteredPacket.counts.excluded_entry_count += 1;
+    const alteredRef = scanResult.packet_ref.replace(/\.json$/u, "_altered.json");
+    alteredPacket.packet_ref = alteredRef;
+    await writeFile(path.join(tempRepo, alteredRef), `${JSON.stringify(alteredPacket, null, 2)}\n`, "utf8");
+    const conflictArgs = reconcileArgs.map((entry) => entry === scanResult.packet_ref ? alteredRef : entry);
+    const durableConflict = spawnSync(process.execPath, conflictArgs, { encoding: "utf8" });
+    assert.equal(durableConflict.status, 1);
+    assert.match(durableConflict.stderr, /file_activity_scan_digest_conflict/u);
+
+    const rebuildArgs = [
+      cliPath,
+      "rebuild",
+      "--repo-root", tempRepo,
+      "--project", PROJECT,
+      "--binding", BINDING,
+      "--node", "mac-mini-primary",
+      "--node-role", "always_on_node",
+      "--binding-valid",
+      "--operational-primary",
+      "--checkpoint", reconcileResult.artifact_refs.checkpoint_ref,
+    ];
+    const rebuildDry = spawnSync(process.execPath, rebuildArgs, { encoding: "utf8" });
+    assert.equal(rebuildDry.status, 0, rebuildDry.stderr);
+    assert.equal(JSON.parse(rebuildDry.stdout).status, "dry_run_rebuild_no_write");
+    assert.equal(await readFile(statePath, "utf8"), evictedStateRaw);
+    const rebuildApply = spawnSync(process.execPath, [...rebuildArgs, "--apply"], { encoding: "utf8" });
+    assert.equal(rebuildApply.status, 0, rebuildApply.stderr);
+    assert.equal(JSON.parse(rebuildApply.stdout).status, "rebuilt_from_checkpoint");
+    assert.equal(JSON.parse(await readFile(statePath, "utf8")).scan_receipts.length, 1);
+
+    const symlinkStateRef = "revision_state_symlink.json";
+    const outsideState = path.join(tempRepo, "outside-state.json");
+    await writeFile(outsideState, "outside sentinel", "utf8");
+    try {
+      await symlink(outsideState, path.join(path.dirname(statePath), symlinkStateRef));
+      const symlinkRebuild = spawnSync(
+        process.execPath,
+        [...rebuildArgs, "--state-ref", symlinkStateRef, "--apply"],
+        { encoding: "utf8" },
+      );
+      assert.equal(symlinkRebuild.status, 1);
+      assert.match(symlinkRebuild.stderr, /file_activity_write_symlink_path_blocked/u);
+      assert.equal(await readFile(outsideState, "utf8"), "outside sentinel");
+    } catch (error) {
+      if (error?.code !== "EPERM") throw error;
+    }
+
     await truncate(statePath, 256 * 1024 * 1024 + 1);
     const oversizedState = spawnSync(process.execPath, reconcileArgs, { encoding: "utf8" });
     assert.equal(oversizedState.status, 1);
     assert.match(oversizedState.stderr, /file_activity_revision_state_read_failed_size_limit_exceeded/u);
+
+    const checkpointPath = path.join(tempRepo, reconcileResult.artifact_refs.checkpoint_ref);
+    await truncate(checkpointPath, 256 * 1024 * 1024 + 1);
+    const oversizedCheckpoint = spawnSync(process.execPath, rebuildArgs, { encoding: "utf8" });
+    assert.equal(oversizedCheckpoint.status, 1);
+    assert.match(oversizedCheckpoint.stderr, /file_activity_revision_checkpoint_read_failed_size_limit_exceeded/u);
+
+    const fileActivityRoot = path.dirname(statePath);
+    const redirectedFileActivityRoot = path.join(tempRepo, "redirected-file-activity");
+    await rename(fileActivityRoot, redirectedFileActivityRoot);
+    await symlink(redirectedFileActivityRoot, fileActivityRoot);
+    const parentSymlinkRebuild = spawnSync(process.execPath, rebuildArgs, { encoding: "utf8" });
+    assert.equal(parentSymlinkRebuild.status, 1);
+    assert.match(parentSymlinkRebuild.stderr, /file_activity_write_symlink_path_blocked/u);
+  } finally {
+    await rm(tempRepo, { recursive: true, force: true });
+  }
+});
+
+test("reconcile preflights immutable conflicts and publishes durable receipts only after state and projection", async () => {
+  const tempRepo = await makeFixture("cli-receipt-commit-order");
+  const worksite = path.join(tempRepo, "approved-worksite");
+  const cliPath = path.resolve("guild_hall/file_activity/cli.mjs");
+  try {
+    await mkdir(path.join(tempRepo, "_workmeta", PROJECT), { recursive: true });
+    await mkdir(worksite, { recursive: true });
+    const sourcePath = path.join(worksite, "revision.txt");
+    await writeVersion(sourcePath, "A", "2026-07-12T10:00:00.000Z");
+    const scanBase = [
+      cliPath, "scan",
+      "--repo-root", tempRepo,
+      "--project", PROJECT,
+      "--binding", BINDING,
+      "--node", "work-01",
+      "--node-role", "work_pc",
+      "--root", worksite,
+      "--binding-valid",
+      "--write-outbox",
+    ];
+    const firstScan = spawnSync(process.execPath, [
+      ...scanBase,
+      "--observed-at", "2026-07-12T10:00:01.000Z",
+      "--ingested-at", "2026-07-12T10:00:02.000Z",
+      "--scan-id", scanIdFor("commit-order-first"),
+    ], { encoding: "utf8" });
+    assert.equal(firstScan.status, 0, firstScan.stderr);
+    const firstPacketRef = JSON.parse(firstScan.stdout).packet_ref;
+    const reconcileBase = [
+      cliPath, "reconcile",
+      "--repo-root", tempRepo,
+      "--project", PROJECT,
+      "--binding", BINDING,
+      "--node", "mac-mini-primary",
+      "--node-role", "always_on_node",
+      "--binding-valid",
+      "--operational-primary",
+    ];
+    const firstApply = spawnSync(process.execPath, [
+      ...reconcileBase,
+      "--packet", firstPacketRef,
+      "--received-at", "2026-07-12T10:00:10.000Z",
+      "--apply",
+    ], { encoding: "utf8" });
+    assert.equal(firstApply.status, 0, firstApply.stderr);
+
+    await writeVersion(sourcePath, "B", "2026-07-12T10:01:00.000Z");
+    const secondScan = spawnSync(process.execPath, [
+      ...scanBase,
+      "--observed-at", "2026-07-12T10:01:01.000Z",
+      "--ingested-at", "2026-07-12T10:01:02.000Z",
+      "--scan-id", scanIdFor("commit-order-second"),
+    ], { encoding: "utf8" });
+    assert.equal(secondScan.status, 0, secondScan.stderr);
+    const secondPacketRef = JSON.parse(secondScan.stdout).packet_ref;
+    const secondArgs = [
+      ...reconcileBase,
+      "--packet", secondPacketRef,
+      "--received-at", "2026-07-12T10:01:10.000Z",
+    ];
+    const drySecond = spawnSync(process.execPath, secondArgs, { encoding: "utf8" });
+    assert.equal(drySecond.status, 0, drySecond.stderr);
+    const dryResult = JSON.parse(drySecond.stdout);
+    const conflictPath = path.join(tempRepo, dryResult.artifact_refs.event_ref);
+    await mkdir(path.dirname(conflictPath), { recursive: true });
+    await writeFile(conflictPath, "{\"tampered\":true}\n", "utf8");
+    const statePath = path.join(tempRepo, dryResult.state_ref);
+    const stateBefore = await readFile(statePath, "utf8");
+
+    const blockedApply = spawnSync(process.execPath, [...secondArgs, "--apply"], { encoding: "utf8" });
+    assert.equal(blockedApply.status, 1);
+    assert.match(blockedApply.stderr, /file_activity_immutable_artifact_conflict/u);
+    assert.equal(await readFile(statePath, "utf8"), stateBefore);
+    await assert.rejects(() => access(path.join(tempRepo, dryResult.artifact_refs.receipt_refs[0])));
+
+    await unlink(conflictPath);
+    const recoveredApply = spawnSync(process.execPath, [...secondArgs, "--apply"], { encoding: "utf8" });
+    assert.equal(recoveredApply.status, 0, recoveredApply.stderr);
+    await access(path.join(tempRepo, dryResult.artifact_refs.receipt_refs[0]));
+    assert.notEqual(await readFile(statePath, "utf8"), stateBefore);
   } finally {
     await rm(tempRepo, { recursive: true, force: true });
   }
@@ -1179,6 +1727,7 @@ async function scanAt(options) {
     byteBudget: options.byteBudget,
     maxEntries: options.maxEntries,
     forceRehash: options.forceRehash,
+    verifiedHashTtlMs: options.verifiedHashTtlMs,
   });
 }
 

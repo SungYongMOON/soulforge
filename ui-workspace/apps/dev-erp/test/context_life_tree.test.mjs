@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,6 +16,11 @@ import {
   parseContextLifeTreeQuery,
   projectContextLifeTreeTemporalEnvelope,
 } from "../src/context_life_tree.mjs";
+import {
+  FILE_ACTIVITY_LIFE_TREE_PROJECTION_MAX_BYTES,
+  FILE_ACTIVITY_LIFE_TREE_PROJECTION_SCHEMA,
+  readFileActivityLifeTreeProjection,
+} from "../src/file_activity_life_tree_projection.mjs";
 import { openStore } from "../src/store.mjs";
 
 const BOM = "﻿";
@@ -38,6 +43,113 @@ s-review,${project},mail,mailcsv:mail-review,2026-07-12T00:00:00+09:00,검토 �
 s-corrupt,${project},mail,mailcsv:mail-corrupt,2026-07-11T21:00:00Z,손상 가지 메일,work-corrupt,branch:${project}:work-corrupt,,,,h,metadata_only,2026-07-12,2026-07-12
 `);
   return dir;
+}
+
+function digestId(index) {
+  return Number(index).toString(16).padStart(64, "0");
+}
+
+function fileActivityProjectionEvent(index, overrides = {}) {
+  const sourceKind = overrides.source_kind ?? "scanner_observation";
+  const eventKind = overrides.event_kind ?? "observed";
+  const sourceEventId = overrides.source_event_id
+    ?? `${sourceKind === "scanner_observation" ? "obs" : "file-event"}:${digestId(index)}`;
+  const observationId = sourceKind === "scanner_observation" ? sourceEventId : null;
+  const transitionBasis = {
+    missing_candidate: "bounded_by_node_observations",
+    delete: "confirmed_absence_receipt_threshold",
+    restore: "bounded_by_delete_receipt_and_primary_receipt",
+  }[eventKind];
+  const defaultInterval = sourceKind === "reconciler_transition"
+    ? { after: "2026-07-11T23:50:00.000Z", before: "2026-07-12T00:02:00.000Z", basis: transitionBasis }
+    : { after: "2026-07-11T23:50:00.000Z", before: "2026-07-12T00:00:00.000Z", basis: "bounded_by_node_observations" };
+  const identityByKind = {
+    file_first_observed: ["assigned", "first_exact_content_observation"],
+    observed: ["observed", "same_node_path_and_exact_content"],
+    touch: ["observed", "same_exact_content_with_changed_stat_hint"],
+    content_revision: ["observed", "same_node_path_with_changed_exact_content"],
+    rename: ["inferred", "unique_same_node_same_content_move_in_complete_listing"],
+    copy: ["inferred", "same_node_source_path_retained_with_same_exact_content"],
+    joined_shared_path: ["inferred", "cross_node_exact_path_with_existing_logical_file"],
+    cross_node_revision_unordered: ["uncertain", "new_node_content_without_known_parent_revision"],
+    ambiguous_same_content_identity: ["uncertain", "multiple_same_content_identity_candidates"],
+    stale_observation: ["observed", "known_historical_revision_seen_on_node"],
+    hash_pending: ["unavailable", null],
+    held_packet_evidence: ["unavailable", "late_or_stale_node_sequence"],
+  };
+  const [identityClaim, identityBasis] = identityByKind[eventKind] ?? ["unavailable", null];
+  const hasExactContent = !["hash_pending", "held_packet_evidence"].includes(eventKind)
+    && sourceKind === "scanner_observation";
+  const base = {
+    source_event_id: sourceEventId,
+    source_kind: sourceKind,
+    event_kind: eventKind,
+    logical_file_id: `lf:${digestId(index + 1000)}`,
+    revision_id: sourceKind === "scanner_observation" ? `rev:${digestId(index + 2000)}` : null,
+    node_id: "work-01",
+    node_role: "work_pc",
+    scan_id: `scan:${digestId(index + 3000)}`,
+    packet_digest: `sha256:${digestId(index + 4000)}`,
+    observation_id: observationId,
+    observed_at: sourceKind === "scanner_observation" ? "2026-07-12T00:00:00.000Z" : null,
+    ingested_at: sourceKind === "scanner_observation" ? "2026-07-12T00:01:00.000Z" : null,
+    received_at: "2026-07-12T00:02:00.000Z",
+    change_interval: defaultInterval,
+    identity_claim: identityClaim,
+    identity_basis: identityBasis,
+    uncertainty: ["cross_node_revision_unordered", "ambiguous_same_content_identity"].includes(eventKind)
+      ? "review_needed"
+      : ["hash_pending", "held_packet_evidence", "missing_candidate"].includes(eventKind) ? "partial" : "confirmed",
+    content_id: hasExactContent ? `sha256:${digestId(index + 5000)}` : null,
+    size_bytes: sourceKind === "scanner_observation" ? 100 + index : null,
+    erp_upload_event_ref: null,
+    evidence_refs: [sourceEventId, `scan:${digestId(index + 3000)}`, `sha256:${digestId(index + 4000)}`].sort(),
+    access: { visibility: "admins", account_refs: [] },
+  };
+  return { ...base, ...overrides };
+}
+
+function fileActivityProjection(project, events, overrides = {}) {
+  const gapReasons = overrides.gap_reasons ?? ["erp_upload_adapter_unavailable", "live_collector_not_activated"];
+  return {
+    schema_version: FILE_ACTIVITY_LIFE_TREE_PROJECTION_SCHEMA,
+    project_code: project,
+    workspace_binding_id: "shared-worksite",
+    generated_at: "2026-07-12T00:03:00.000Z",
+    source_checkpoint: {
+      checkpoint_id: `checkpoint:${digestId(9000)}`,
+      checkpoint_digest: `sha256:${digestId(9001)}`,
+      through_received_at: "2026-07-12T00:02:00.000Z",
+      partition_refs: [`_workmeta/${project}/reports/file_activity/events/2026-07/${digestId(9002)}.json`],
+    },
+    coverage: {
+      state: "partial",
+      from_received_at: "2026-07-12T00:00:00.000Z",
+      through_received_at: "2026-07-12T00:02:00.000Z",
+      source_months: ["2026-07"],
+      source_event_count: events.length,
+      event_count: events.length,
+      truncated: false,
+      gap_reasons: [...gapReasons].sort(),
+    },
+    boundary: {
+      metadata_only: true,
+      derived_rebuildable: true,
+      absolute_paths_present: false,
+      raw_payload_present: false,
+      live_activation: false,
+    },
+    events,
+    ...overrides.top_level,
+  };
+}
+
+function writeFileActivityProjection(root, project, projection) {
+  const dir = join(root, "_workmeta", project, "reports", "file_activity", "projections");
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, "life_tree_events.json");
+  writeFileSync(file, `${JSON.stringify(projection, null, 2)}\n`, "utf8");
+  return file;
 }
 
 function tableCounts(store) {
@@ -319,6 +431,285 @@ test("deliverable-input adapters redact legacy path-shaped fields and expose onl
     assert.equal(fileEvent.metadata.input_id, unsafe.id);
   } finally {
     store.db.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("precomputed file-activity projection exposes canonical event kinds, receipt clocks, and stable metadata-only IDs", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-life-file-projection-"));
+  const store = openStore(":memory:");
+  const project = "P99-602";
+  const observationKinds = [
+    "file_first_observed", "observed", "touch", "content_revision", "rename", "copy", "joined_shared_path",
+    "cross_node_revision_unordered", "ambiguous_same_content_identity", "stale_observation", "hash_pending",
+    "held_packet_evidence",
+  ];
+  const transitionKinds = ["missing_candidate", "delete", "restore"];
+  try {
+    store.upsertProject({ id: project, title: "파일 투영 검증", class: "active", data_label: "synthetic" });
+    const events = [
+      ...observationKinds.map((eventKind, index) => fileActivityProjectionEvent(index + 1, { event_kind: eventKind })),
+      ...transitionKinds.map((eventKind, index) => fileActivityProjectionEvent(index + 100, {
+        source_kind: "reconciler_transition", event_kind: eventKind,
+      })),
+    ];
+    const skewed = events.find((event) => event.event_kind === "observed");
+    skewed.ingested_at = "2026-07-12T00:10:00.000Z";
+    skewed.change_interval = {
+      after: "2026-07-11T23:50:00.000Z", before: "2026-07-12T00:02:00.000Z",
+      basis: "receipt_order_only_clock_skew",
+    };
+    const blockedOrder = events.find((event) => event.event_kind === "touch");
+    blockedOrder.ingested_at = "2026-07-12T00:20:00.000Z";
+    blockedOrder.change_interval = {
+      after: "2026-07-11T23:50:00.000Z", before: "2026-07-12T00:02:00.000Z",
+      basis: "exact_order_blocked_clock_skew",
+    };
+    writeFileActivityProjection(root, project, fileActivityProjection(project, events));
+
+    const tree = buildContextLifeTree(root, project, {
+      store, days: 2, lanes: ["file_activity"], temporalRoles: ["observed", "state_change"],
+      now: "2026-07-12T03:00:00Z",
+    });
+    assert.equal(tree.events.length, events.length);
+    assert.equal(tree.lanes[0].coverage.projection.state, "loaded");
+    assert.equal(tree.lanes[0].coverage.projection.read_mode, "exact_precomputed_file_only");
+    assert.equal(tree.lanes[0].coverage.projection.live_activation, false);
+    for (const kind of [
+      "file_first_observed", "file_seen", "file_touched", "file_modified", "file_renamed", "file_copied",
+      "file_conflict", "file_hash_pending", "file_evidence_held", "file_missing_candidate", "file_deleted", "file_restored",
+    ]) assert.ok(tree.events.some((event) => event.kind === kind), kind);
+    const skewedLeaf = tree.events.find((event) => event.source_record_ref === `file_activity:${skewed.source_event_id}`);
+    assert.equal(skewedLeaf.time_basis, "received_at");
+    assert.equal(skewedLeaf.time_state, "fallback");
+    assert.equal(skewedLeaf.received_at, "2026-07-12T00:02:00.000Z");
+    assert.equal(skewedLeaf.change_interval.basis, "receipt_order_only_clock_skew");
+    assert.ok(skewedLeaf.uncertainty.reasons.includes("receipt_order_used_clock_skew"));
+    const blockedLeaf = tree.events.find((event) => event.source_record_ref === `file_activity:${blockedOrder.source_event_id}`);
+    assert.equal(blockedLeaf.time_basis, "received_at");
+    assert.equal(blockedLeaf.time_state, "fallback");
+    assert.equal(blockedLeaf.change_interval.basis, "exact_order_blocked_clock_skew");
+    assert.ok(blockedLeaf.uncertainty.reasons.includes("exact_temporal_order_blocked_clock_skew"));
+    const deleted = tree.events.find((event) => event.kind === "file_deleted");
+    const restored = tree.events.find((event) => event.kind === "file_restored");
+    assert.equal(deleted.change_interval.basis, "confirmed_absence_receipt_threshold");
+    assert.equal(restored.change_interval.basis, "bounded_by_delete_receipt_and_primary_receipt");
+    const conflict = tree.events.find((event) => event.kind === "file_conflict");
+    assert.equal(conflict.uncertainty.state, "review_needed");
+    for (const event of tree.events) {
+      assert.equal(event.recorded_at, null, "receipt clock is not relabeled as a recorded clock");
+      for (const field of ["node_id", "node_role", "scan_id", "packet_digest", "content_id", "size_bytes", "erp_upload_event_ref"]) {
+        assert.equal(Object.hasOwn(event.metadata, field), false, field);
+      }
+      assert.match(event.source_record_ref, /^file_activity:(?:obs|file-event):[a-f0-9]{64}$/u);
+      assert.deepEqual(event.evidence_refs, [event.source_record_ref]);
+    }
+    const repeated = buildContextLifeTree(root, project, {
+      store, days: 2, lanes: ["file_activity"], temporalRoles: ["observed", "state_change"],
+      now: "2026-07-12T03:00:00Z",
+    });
+    assert.deepEqual(repeated.events.map((event) => event.event_id), tree.events.map((event) => event.event_id));
+  } finally {
+    store.db.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("ERP upload merges scanner evidence only with explicit exact event/project/hash/size correlation", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-life-file-dedupe-"));
+  const store = openStore(":memory:");
+  const project = "P99-603";
+  const digest = "a".repeat(64);
+  try {
+    store.upsertProject({ id: project, title: "ERP 파일 중복 제거", class: "active", data_label: "synthetic" });
+    store.db.prepare(
+      `INSERT INTO core_deliverable(id,project_id,stage_code,deliverable_no,name,produced,review_stage,data_label)
+       VALUES(?,?,?,?,?,0,0,'synthetic')`
+    ).run("deliverable-dedupe", project, "120_CDR", "D1", "중복 검증 산출물");
+    store.db.prepare(
+      `INSERT INTO deliverable_input(id,deliverable_id,project_id,stage_code,source,sha256,size,status,created_at,data_label)
+       VALUES(?,?,?,?,?,?,?,?,?,'synthetic')`
+    ).run("input-dedupe", "deliverable-dedupe", project, "120_CDR", "erp", digest, 120, "received", "2026-07-12T00:00:00Z");
+    store.appendEvent({
+      at: "2026-07-12T00:01:00Z", actor_ref: "owner", actor_kind: "human", kind: "input_upload",
+      to: "input-dedupe", project_ref: project, data_label: "synthetic",
+    });
+    const eventId = store.db.prepare("SELECT MAX(id) AS id FROM event_log").get().id;
+    const matching = fileActivityProjectionEvent(201, {
+      content_id: `sha256:${digest}`, size_bytes: 120, erp_upload_event_ref: `event_log:${eventId}`,
+    });
+    const sameHashWithoutCorrelation = fileActivityProjectionEvent(202, {
+      content_id: `sha256:${digest}`, size_bytes: 120, erp_upload_event_ref: null,
+    });
+    const mismatchedHash = fileActivityProjectionEvent(203, {
+      content_id: `sha256:${"b".repeat(64)}`, size_bytes: 120, erp_upload_event_ref: `event_log:${eventId}`,
+    });
+    const mismatchedSize = fileActivityProjectionEvent(204, {
+      content_id: `sha256:${digest}`, size_bytes: 121, erp_upload_event_ref: `event_log:${eventId}`,
+    });
+    writeFileActivityProjection(root, project, fileActivityProjection(project, [
+      matching, sameHashWithoutCorrelation, mismatchedHash, mismatchedSize,
+    ], { gap_reasons: ["live_collector_not_activated"] }));
+    const before = tableCounts(store);
+    const tree = buildContextLifeTree(root, project, {
+      store, days: 2, lanes: ["file_activity"], temporalRoles: ["occurred", "observed"],
+      now: "2026-07-12T03:00:00Z",
+    });
+    assert.equal(tree.events.length, 4, "one exact scanner occurrence is folded into the ERP leaf");
+    const erp = tree.events.find((event) => event.kind === "erp_input_uploaded");
+    assert.deepEqual(erp.evidence_refs, [`event_log:${eventId}`, `file_activity:${matching.source_event_id}`].sort());
+    assert.equal(erp.metadata.scanner_evidence_merged, true);
+    assert.equal(erp.uncertainty.reasons.includes("file_activity_projection_partial"), false);
+    assert.equal(tree.lanes[0].coverage.projection.deduplicated_with_erp, 1);
+    const uncorrelated = tree.events.find((event) => event.source_record_ref === `file_activity:${sameHashWithoutCorrelation.source_event_id}`);
+    assert.ok(uncorrelated, "same content without authoritative correlation remains separate");
+    for (const mismatchRow of [mismatchedHash, mismatchedSize]) {
+      const mismatch = tree.events.find((event) => event.source_record_ref === `file_activity:${mismatchRow.source_event_id}`);
+      assert.ok(mismatch.uncertainty.reasons.includes("erp_exact_correlation_unmatched"));
+    }
+    for (const event of tree.events) {
+      for (const field of ["sha256", "size", "content_id", "size_bytes", "erp_upload_event_ref", "node_id", "node_role"]) {
+        assert.equal(Object.hasOwn(event.metadata, field), false, field);
+      }
+    }
+    assert.deepEqual(tableCounts(store), before, "projection read and dedupe mutate no DB rows");
+
+    store.db.prepare("UPDATE deliverable_input SET size=NULL WHERE id=?").run("input-dedupe");
+    writeFileActivityProjection(root, project, fileActivityProjection(project, [matching], {
+      gap_reasons: ["live_collector_not_activated"],
+    }));
+    const oneUnknownSize = buildContextLifeTree(root, project, {
+      store, days: 2, lanes: ["file_activity"], temporalRoles: ["occurred", "observed"],
+      now: "2026-07-12T03:00:00Z",
+    });
+    assert.equal(oneUnknownSize.events.length, 1, "unknown ERP size does not override the exact ref/project/hash match");
+    assert.equal(oneUnknownSize.lanes[0].coverage.projection.deduplicated_with_erp, 1);
+    store.db.prepare("UPDATE deliverable_input SET size=120 WHERE id=?").run("input-dedupe");
+
+    const secondExact = fileActivityProjectionEvent(205, {
+      content_id: `sha256:${digest}`, size_bytes: 120, erp_upload_event_ref: `event_log:${eventId}`,
+    });
+    writeFileActivityProjection(root, project, fileActivityProjection(project, [matching, secondExact], {
+      gap_reasons: ["live_collector_not_activated"],
+    }));
+    const ambiguous = buildContextLifeTree(root, project, {
+      store, days: 2, lanes: ["file_activity"], temporalRoles: ["occurred", "observed"],
+      now: "2026-07-12T03:00:00Z",
+    });
+    assert.equal(ambiguous.events.length, 3, "ambiguous exact correlations keep ERP and both scanner leaves separate");
+    assert.equal(ambiguous.lanes[0].coverage.projection.deduplicated_with_erp, 0);
+    assert.equal(ambiguous.events.filter((event) => event.uncertainty.reasons.includes("erp_exact_correlation_ambiguous")).length, 2);
+  } finally {
+    store.db.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("file-activity account scope is applied before lane cap and admin-only rows stay withheld", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-life-file-scope-"));
+  const store = openStore(":memory:");
+  const project = "P99-604";
+  try {
+    store.upsertProject({ id: project, title: "파일 범위 검증", class: "active", data_label: "synthetic" });
+    const events = Array.from({ length: 501 }, (_, index) => fileActivityProjectionEvent(index + 300));
+    const visible = fileActivityProjectionEvent(900, { access: { visibility: "accounts", account_refs: ["alice"] } });
+    events.push(visible);
+    const projection = fileActivityProjection(project, events);
+    projection.coverage.source_event_count = events.length + 100;
+    projection.coverage.truncated = true;
+    projection.coverage.gap_reasons = [...projection.coverage.gap_reasons, "event_window_truncated"].sort();
+    writeFileActivityProjection(root, project, projection);
+
+    const direct = readFileActivityLifeTreeProjection(root, project, {
+      scope: { actor: "alice", assignee_any: ["alice"] },
+    });
+    assert.equal(direct.events.length, 1);
+    assert.equal(direct.projection_event_count, 1, "inaccessible total count is not exposed");
+    assert.equal(direct.source_event_count, 1);
+    assert.equal(direct.scope_withheld, true);
+    assert.equal(direct.truncated, false, "global truncation does not reveal hidden-row volume");
+    assert.equal(direct.gap_reasons.includes("event_window_truncated"), false);
+
+    const tree = buildContextLifeTree(root, project, {
+      store, days: 2, lanes: ["file_activity"], temporalRoles: ["observed"],
+      now: "2026-07-12T03:00:00Z", perLaneMax: 1,
+      scope: { actor: "alice", assignee_any: ["alice"] },
+    });
+    assert.equal(tree.events.length, 1);
+    assert.equal(tree.events[0].source_record_ref, `file_activity:${visible.source_event_id}`);
+    assert.equal(tree.counts.scanned, 1);
+    assert.equal(tree.lanes[0].coverage.projection.accessible_events, 1);
+    assert.equal(tree.lanes[0].coverage.projection.scope_withheld, true);
+    assert.equal(tree.lanes[0].coverage.projection.truncated, false);
+    assert.ok(tree.lanes[0].coverage.scope_withheld_reasons.includes("file_activity_projection_account_scope_withheld"));
+  } finally {
+    store.db.close();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("file-activity projection rejects unsafe, foreign, conflicting, and oversized artifacts without echoing payload", () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-life-file-reject-"));
+  const project = "P99-605";
+  try {
+    assert.equal(readFileActivityLifeTreeProjection(root, "../escape").rejection_reason, "projection_project_invalid");
+    const event = fileActivityProjectionEvent(1001);
+    const unsafe = fileActivityProjection(project, [{ ...event, raw_path: LOCAL_PATH_SENTINEL }]);
+    writeFileActivityProjection(root, project, unsafe);
+    const unsafeResult = readFileActivityLifeTreeProjection(root, project);
+    assert.equal(unsafeResult.state, "rejected");
+    assert.equal(unsafeResult.rejection_reason, "projection_event_shape_invalid");
+    assert.equal(JSON.stringify(unsafeResult).includes(LOCAL_PATH_SENTINEL), false);
+
+    const foreign = fileActivityProjection("P99-FOREIGN", [event]);
+    writeFileActivityProjection(root, project, foreign);
+    assert.equal(readFileActivityLifeTreeProjection(root, project).rejection_reason, "projection_project_mismatch");
+
+    const badPartition = fileActivityProjection(project, [event]);
+    badPartition.source_checkpoint.partition_refs = [LOCAL_PATH_SENTINEL];
+    writeFileActivityProjection(root, project, badPartition);
+    assert.equal(readFileActivityLifeTreeProjection(root, project).rejection_reason, "projection_partition_ref_invalid");
+
+    const hiddenCountWithoutTruncation = fileActivityProjection(project, [event]);
+    hiddenCountWithoutTruncation.coverage.source_event_count = 2;
+    writeFileActivityProjection(root, project, hiddenCountWithoutTruncation);
+    assert.equal(readFileActivityLifeTreeProjection(root, project).rejection_reason, "projection_truncation_invalid");
+
+    const conflict = { ...event, event_kind: "touch", identity_basis: "same_exact_content_with_changed_stat_hint" };
+    writeFileActivityProjection(root, project, fileActivityProjection(project, [event, conflict]));
+    assert.equal(readFileActivityLifeTreeProjection(root, project).rejection_reason, "projection_duplicate_source_event_conflict");
+
+    writeFileActivityProjection(root, project, fileActivityProjection(project, [event, structuredClone(event)]));
+    const idempotent = readFileActivityLifeTreeProjection(root, project);
+    assert.equal(idempotent.state, "loaded");
+    assert.equal(idempotent.events.length, 1);
+    assert.equal(idempotent.duplicate_count, 1);
+
+    const file = writeFileActivityProjection(root, project, fileActivityProjection(project, [event]));
+    const symlinkTarget = join(root, "projection-symlink-target.json");
+    writeFileSync(symlinkTarget, JSON.stringify(fileActivityProjection(project, [event])), "utf8");
+    rmSync(file);
+    symlinkSync(symlinkTarget, file);
+    assert.equal(readFileActivityLifeTreeProjection(root, project).rejection_reason, "projection_not_regular_file");
+    rmSync(file);
+    writeFileSync(file, "x".repeat(FILE_ACTIVITY_LIFE_TREE_PROJECTION_MAX_BYTES + 1), "utf8");
+    assert.equal(readFileActivityLifeTreeProjection(root, project).rejection_reason, "projection_oversize");
+
+    const projectionDir = join(root, "_workmeta", project, "reports", "file_activity", "projections");
+    const redirectedProjectionDir = join(root, "redirected-projections");
+    rmSync(projectionDir, { recursive: true, force: true });
+    mkdirSync(redirectedProjectionDir, { recursive: true });
+    writeFileSync(
+      join(redirectedProjectionDir, "life_tree_events.json"),
+      JSON.stringify(fileActivityProjection(project, [event])),
+      "utf8",
+    );
+    symlinkSync(redirectedProjectionDir, projectionDir, "dir");
+    assert.equal(
+      readFileActivityLifeTreeProjection(root, project).rejection_reason,
+      "projection_symlink_component_blocked",
+    );
+  } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });

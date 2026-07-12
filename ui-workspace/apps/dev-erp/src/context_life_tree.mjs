@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { parseCsv } from "./autosync.mjs";
+import { readFileActivityLifeTreeProjection } from "./file_activity_life_tree_projection.mjs";
 
 export const CONTEXT_LIFE_TREE_SCHEMA = "dev_erp.context_life_tree.v1";
 export const CONTEXT_LIFE_TREE_MAX_DAYS = 90;
@@ -14,8 +15,8 @@ export const CONTEXT_LIFE_TREE_TEMPORAL_ROLES = Object.freeze(["occurred", "obse
 export const CONTEXT_LIFE_TREE_DEFAULT_TEMPORAL_ROLES = Object.freeze(["occurred", "observed", "state_change"]);
 export const CONTEXT_LIFE_TREE_CHANGE_INTERVAL_BASES = Object.freeze([
   "bounded_by_node_observations",
-  "confirmed_absence_threshold",
-  "bounded_by_delete_and_node_observation",
+  "confirmed_absence_receipt_threshold",
+  "bounded_by_delete_receipt_and_primary_receipt",
   "first_observed_upper_bound_only",
   "receipt_order_only_clock_skew",
   "exact_order_blocked_clock_skew",
@@ -39,7 +40,8 @@ const LANE_DEFS = Object.freeze([
     gap_reason: "no_canonical_general_activity_collector",
   },
   {
-    lane: "file_activity", label: "파일 생성", status: "partial", sources: ["event_log", "deliverable_input"],
+    lane: "file_activity", label: "파일 생성", status: "partial",
+    sources: ["event_log", "deliverable_input", "file_activity_projection"],
     gap_reason: "general_filesystem_activity_unobserved",
   },
 ]);
@@ -170,6 +172,7 @@ export function projectContextLifeTreeTemporalEnvelope({
   observed_at: observedAt = null,
   recorded_at: recordedAt = null,
   ingested_at: ingestedAt = null,
+  received_at: receivedAt = null,
   planned_for: plannedFor = null,
   change_interval: changeInterval = null,
 } = {}) {
@@ -179,6 +182,7 @@ export function projectContextLifeTreeTemporalEnvelope({
     observed_at: parseTimestamp(observedAt),
     recorded_at: parseTimestamp(recordedAt),
     ingested_at: parseTimestamp(ingestedAt),
+    received_at: parseTimestamp(receivedAt),
     planned_for: parseTimestamp(plannedFor),
   };
   if (!Object.hasOwn(clocks, primaryClock)) return { error: "primary_clock_invalid" };
@@ -192,6 +196,7 @@ export function projectContextLifeTreeTemporalEnvelope({
       observed_at: clocks.observed_at.valid ? clocks.observed_at.value : null,
       recorded_at: clocks.recorded_at.valid ? clocks.recorded_at.value : null,
       ingested_at: clocks.ingested_at.valid ? clocks.ingested_at.value : null,
+      received_at: clocks.received_at.valid ? clocks.received_at.value : null,
       planned_for: clocks.planned_for.valid ? clocks.planned_for.value : null,
       display_at: primary.valid ? primary.value : null,
       day_key: primary.valid ? primary.day_key : null,
@@ -358,11 +363,19 @@ function cleanMetadata(obj) {
   return Object.fromEntries(Object.entries(obj ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== ""));
 }
 
+function cleanFileEvidenceRefs(values) {
+  const allowed = /^(?:event_log:[1-9][0-9]*|file_activity:(?:obs|file-event):[a-f0-9]{64})$/u;
+  const refs = [...new Set((values ?? []).map((value) => String(value ?? "").trim()).filter(Boolean))].sort();
+  if (refs.some((ref) => !allowed.test(ref))) throw new Error("file_activity_evidence_ref_invalid");
+  return refs;
+}
+
 function makeEvent({
   project, contextBindings, lane, kind, sourceRef, summaryLabel, temporalRole, primaryClock,
-  occurredAt = null, observedAt = null, recordedAt = null, ingestedAt = null, plannedFor = null,
+  occurredAt = null, observedAt = null, recordedAt = null, ingestedAt = null, receivedAt = null, plannedFor = null,
   changeInterval = null,
-  state, metadata = {}, taskIds = [], contextRefs = [], uncertaintyReasons = [],
+  state, metadata = {}, taskIds = [], contextRefs = [], uncertaintyReasons = [], evidenceRefs = [],
+  sourceUncertaintyState = null, timeStateOverride = null,
 }) {
   const temporal = projectContextLifeTreeTemporalEnvelope({
     temporal_role: temporalRole,
@@ -371,6 +384,7 @@ function makeEvent({
     observed_at: observedAt,
     recorded_at: recordedAt,
     ingested_at: ingestedAt,
+    received_at: receivedAt,
     planned_for: plannedFor,
     change_interval: changeInterval,
   });
@@ -389,9 +403,14 @@ function makeEvent({
     timeReason,
     dateOnlyReason,
   ].filter(Boolean))];
-  const uncertaintyState = resolvedContext.state === "review_needed"
+  const uncertaintyState = sourceUncertaintyState === "review_needed" || resolvedContext.state === "review_needed"
     ? "review_needed"
-    : (!primary.valid || resolvedContext.state === "unassigned" ? "partial" : "confirmed");
+    : (
+        sourceUncertaintyState === "partial" || !primary.valid || resolvedContext.state === "unassigned"
+          ? "partial"
+          : "confirmed"
+      );
+  const timeState = timeStateOverride ?? temporal.envelope.time_state;
   const eventId = stableEventId(lane, kind, sourceRef);
   return {
     event: {
@@ -405,6 +424,7 @@ function makeEvent({
       summary_label: String(summaryLabel ?? "").trim() || kind,
       title: String(summaryLabel ?? "").trim() || kind,
       ...temporal.envelope,
+      time_state: timeState,
       state,
       project_binding: {
         state: "confirmed",
@@ -418,10 +438,11 @@ function makeEvent({
       uncertainty: {
         state: uncertaintyState,
         context: resolvedContext.state,
-        time: primary.valid ? primary.state : "missing_or_invalid",
+        time: primary.valid ? timeState : "missing_or_invalid",
         reasons,
       },
       metadata: cleanMetadata(metadata),
+      ...(evidenceRefs.length ? { evidence_refs: cleanFileEvidenceRefs(evidenceRefs) } : {}),
     },
     sort_ms: primary.valid ? primary.ms : null,
   };
@@ -504,6 +525,68 @@ function sourceWasTruncated(snapshot, keys) {
   return keys.some((key) => snapshot.truncated?.[key] === true);
 }
 
+const FILE_ACTIVITY_KIND_MAP = Object.freeze({
+  file_first_observed: ["file_first_observed", "파일 최초 관측", "active"],
+  observed: ["file_seen", "파일 재관측", "active"],
+  touch: ["file_touched", "파일 메타데이터 변경 관측", "active"],
+  content_revision: ["file_modified", "파일 내용 변경 관측", "active"],
+  rename: ["file_renamed", "파일 이름 변경 관측", "active"],
+  copy: ["file_copied", "파일 복사 관측", "active"],
+  joined_shared_path: ["file_seen", "공유 파일 관측", "active"],
+  cross_node_revision_unordered: ["file_conflict", "파일 개정 충돌", "conflict_review"],
+  ambiguous_same_content_identity: ["file_conflict", "파일 정체성 확인 필요", "conflict_review"],
+  stale_observation: ["file_seen", "과거 파일 개정 관측", "active"],
+  hash_pending: ["file_hash_pending", "파일 해시 확인 대기", "pending"],
+  held_packet_evidence: ["file_evidence_held", "파일 관측 근거 보류", "held"],
+  missing_candidate: ["file_missing_candidate", "파일 부재 후보", "missing_candidate"],
+  delete: ["file_deleted", "파일 삭제 확인", "deleted_after_confirmed_absence"],
+  restore: ["file_restored", "파일 복구 관측", "active"],
+});
+
+function projectionUncertaintyReasons(row, projection, { correlation = null, includeCoverage = true } = {}) {
+  const reasons = [];
+  if (row.uncertainty !== "confirmed") reasons.push(`file_activity_${row.uncertainty}`);
+  if (includeCoverage && projection.coverage_state !== "complete") reasons.push("file_activity_projection_partial");
+  if (correlation === "unmatched") reasons.push("erp_exact_correlation_unmatched");
+  if (correlation === "ambiguous") reasons.push("erp_exact_correlation_ambiguous");
+  if (row.source_kind === "scanner_observation" && row.observed_at && row.ingested_at) {
+    const skewMs = Math.abs(Date.parse(row.ingested_at) - Date.parse(row.observed_at));
+    if (skewMs > 15 * 60 * 1000) reasons.push("exact_temporal_order_blocked_clock_skew");
+    else if (skewMs > 5 * 60 * 1000) reasons.push("receipt_order_used_clock_skew");
+  }
+  return reasons;
+}
+
+function projectionUncertaintyState(row, projection, { correlation = null, includeCoverage = true } = {}) {
+  if (correlation === "ambiguous" || ["review_needed", "conflict"].includes(row.uncertainty)) {
+    return "review_needed";
+  }
+  if (
+    correlation === "unmatched"
+    || row.uncertainty === "partial"
+    || (includeCoverage && projection.coverage_state !== "complete")
+  ) return "partial";
+  return null;
+}
+
+function projectionTiming(row) {
+  if (row.source_kind === "reconciler_transition") {
+    return { temporalRole: "state_change", primaryClock: "received_at", timeStateOverride: null };
+  }
+  const skewMs = Math.abs(Date.parse(row.ingested_at) - Date.parse(row.observed_at));
+  if (skewMs > 5 * 60 * 1000 && row.received_at) {
+    return { temporalRole: "observed", primaryClock: "received_at", timeStateOverride: "fallback" };
+  }
+  return { temporalRole: "observed", primaryClock: "observed_at", timeStateOverride: null };
+}
+
+function exactErpProjectionMatch(row, erpRow) {
+  if (row.erp_upload_event_ref !== `event_log:${erpRow.id}`) return false;
+  if (!erpRow.sha256 || row.content_id !== `sha256:${erpRow.sha256}`) return false;
+  if (row.size_bytes !== null && erpRow.size !== null && erpRow.size !== undefined && row.size_bytes !== erpRow.size) return false;
+  return true;
+}
+
 export function buildContextLifeTree(root, projectRaw, {
   store,
   days = 30,
@@ -535,6 +618,9 @@ export function buildContextLifeTree(root, projectRaw, {
     window,
   });
   if (snapshot.error) return snapshot;
+  const fileActivityProjection = selectedLanes.has("file_activity")
+    ? readFileActivityLifeTreeProjection(root, parsed.project, { scope })
+    : null;
   const contextBindings = loadExactContextBindings(root, parsed.project);
   const project = snapshot.project;
 
@@ -720,19 +806,100 @@ export function buildContextLifeTree(root, projectRaw, {
   }
 
   if (selectedLanes.has("file_activity")) {
-    setRun("file_activity", snapshot.rows.file_activity_events.map((row) => makeEvent({
-      project, contextBindings,
-      lane: "file_activity", kind: "erp_input_uploaded", sourceRef: `event_log:${row.id}`,
-      summaryLabel: "입력 파일 업로드",
-      temporalRole: "occurred", primaryClock: "occurred_at",
-      occurredAt: row.at, recordedAt: row.at, ingestedAt: row.created_at,
-      state: row.status || "received", contextRefs: row.deliverable_id ? [`deliverable:${row.deliverable_id}`] : [],
-      metadata: {
-        source_type: "erp_input_upload", input_id: row.input_id, deliverable_id: row.deliverable_id,
-        stage_code: row.stage_code, intake_source: row.source, sha256: row.sha256,
-        size: row.size, actor_ref: row.actor_ref, actor_kind: row.actor_kind,
+    const projectionRows = fileActivityProjection?.events ?? [];
+    const correlatedByEventRef = new Map();
+    for (const row of projectionRows) {
+      if (!row.erp_upload_event_ref) continue;
+      if (!correlatedByEventRef.has(row.erp_upload_event_ref)) correlatedByEventRef.set(row.erp_upload_event_ref, []);
+      correlatedByEventRef.get(row.erp_upload_event_ref).push(row);
+    }
+    const mergedByErpId = new Map();
+    const consumedProjectionIds = new Set();
+    const ambiguousProjectionIds = new Set();
+    for (const erpRow of snapshot.rows.file_activity_events) {
+      const eventRef = `event_log:${erpRow.id}`;
+      const exact = (correlatedByEventRef.get(eventRef) ?? []).filter((row) => exactErpProjectionMatch(row, erpRow));
+      if (exact.length === 1) {
+        mergedByErpId.set(erpRow.id, exact[0]);
+        consumedProjectionIds.add(exact[0].source_event_id);
+      } else if (exact.length > 1) {
+        for (const row of exact) ambiguousProjectionIds.add(row.source_event_id);
+      }
+    }
+
+    const erpWrappers = snapshot.rows.file_activity_events.map((row) => {
+      const sourceRef = `event_log:${row.id}`;
+      const merged = mergedByErpId.get(row.id) ?? null;
+      return makeEvent({
+        project, contextBindings,
+        lane: "file_activity", kind: "erp_input_uploaded", sourceRef,
+        summaryLabel: "입력 파일 업로드",
+        temporalRole: "occurred", primaryClock: "occurred_at",
+        occurredAt: row.at, recordedAt: row.at, ingestedAt: row.created_at,
+        receivedAt: merged?.received_at ?? null,
+        state: row.status || "received", contextRefs: row.deliverable_id ? [`deliverable:${row.deliverable_id}`] : [],
+        uncertaintyReasons: merged
+          ? projectionUncertaintyReasons(merged, fileActivityProjection, { includeCoverage: false })
+          : [],
+        sourceUncertaintyState: merged
+          ? projectionUncertaintyState(merged, fileActivityProjection, { includeCoverage: false })
+          : null,
+        evidenceRefs: [sourceRef, ...(merged ? [`file_activity:${merged.source_event_id}`] : [])],
+        metadata: {
+          source_type: "erp_input_upload", input_id: row.input_id, deliverable_id: row.deliverable_id,
+          stage_code: row.stage_code, intake_source: row.source,
+          actor_ref: row.actor_ref, actor_kind: row.actor_kind,
+          scanner_evidence_merged: Boolean(merged), scanner_event_kind: merged?.event_kind,
+        },
+      });
+    });
+
+    const scannerWrappers = projectionRows
+      .filter((row) => !consumedProjectionIds.has(row.source_event_id))
+      .map((row) => {
+        const [kind, summaryLabel, state] = FILE_ACTIVITY_KIND_MAP[row.event_kind];
+        const timing = projectionTiming(row);
+        const correlation = ambiguousProjectionIds.has(row.source_event_id)
+          ? "ambiguous"
+          : row.erp_upload_event_ref ? "unmatched" : null;
+        return makeEvent({
+          project, contextBindings,
+          lane: "file_activity", kind, sourceRef: `file_activity:${row.source_event_id}`,
+          summaryLabel, temporalRole: timing.temporalRole, primaryClock: timing.primaryClock,
+          observedAt: row.observed_at, ingestedAt: row.ingested_at, receivedAt: row.received_at,
+          changeInterval: row.change_interval,
+          state,
+          contextRefs: [row.source_event_id, row.logical_file_id, row.revision_id].filter(Boolean),
+          uncertaintyReasons: projectionUncertaintyReasons(row, fileActivityProjection, { correlation }),
+          sourceUncertaintyState: projectionUncertaintyState(row, fileActivityProjection, { correlation }),
+          timeStateOverride: timing.timeStateOverride,
+          evidenceRefs: [`file_activity:${row.source_event_id}`],
+          metadata: {
+            source_type: "file_activity_projection", source_kind: row.source_kind,
+            logical_file_id: row.logical_file_id, revision_id: row.revision_id,
+            identity_claim: row.identity_claim, identity_basis: row.identity_basis,
+            projection_uncertainty: row.uncertainty,
+          },
+        });
+      });
+    runs.set("file_activity", {
+      wrappers: uniqueWrappers([...erpWrappers, ...scannerWrappers]),
+      scanned: snapshot.rows.file_activity_events.length + projectionRows.length,
+      pre_skipped: fileActivityProjection?.state === "rejected" ? 1 : 0,
+      source_truncated: sourceWasTruncated(snapshot, ["file_activity_events"]) || fileActivityProjection?.truncated === true,
+      projection: {
+        state: fileActivityProjection?.state ?? "missing",
+        coverage_state: fileActivityProjection?.coverage_state ?? "partial",
+        read_mode: fileActivityProjection?.read_mode ?? "exact_precomputed_file_only",
+        accessible_events: projectionRows.length,
+        scope_withheld: fileActivityProjection?.scope_withheld === true,
+        deduplicated_with_erp: consumedProjectionIds.size,
+        truncated: fileActivityProjection?.truncated === true,
+        gap_reasons: fileActivityProjection?.gap_reasons ?? ["projection_not_precomputed"],
+        rejection_reason: fileActivityProjection?.rejection_reason ?? null,
+        live_activation: false,
       },
-    })), snapshot.rows.file_activity_events.length, ["file_activity_events"]);
+    });
   }
 
   const selectedByLane = new Map();
@@ -750,7 +917,11 @@ export function buildContextLifeTree(root, projectRaw, {
 
   const laneRows = parsed.lanes.map((lane) => {
     const def = LANE_BY_ID.get(lane);
-    const scopeWithheldReasons = snapshot.scope?.withheld_by_lane?.[lane] ?? [];
+    const run = selectedByLane.get(lane);
+    const scopeWithheldReasons = [
+      ...(snapshot.scope?.withheld_by_lane?.[lane] ?? []),
+      ...(run?.projection?.scope_withheld ? ["file_activity_projection_account_scope_withheld"] : []),
+    ];
     if (def.status === "gap") {
       return {
         lane: def.lane, lane_id: def.lane, label: def.label, status: "gap", sources: [],
@@ -762,8 +933,8 @@ export function buildContextLifeTree(root, projectRaw, {
         gap_reason: def.gap_reason,
       };
     }
-    const run = selectedByLane.get(lane) ?? { scanned: 0, pre_skipped: 0, source_truncated: false, accepted: [], capped: [] };
-    const shown = run.capped.filter((row) => shownIds.has(row.event.event_id));
+    const currentRun = run ?? { scanned: 0, pre_skipped: 0, source_truncated: false, accepted: [], capped: [] };
+    const shown = currentRun.capped.filter((row) => shownIds.has(row.event.event_id));
     return {
       lane: def.lane,
       lane_id: def.lane,
@@ -771,16 +942,17 @@ export function buildContextLifeTree(root, projectRaw, {
       status: def.status,
       sources: def.sources,
       coverage: {
-        scanned: run.scanned,
-        accepted: run.accepted.length,
+        scanned: currentRun.scanned,
+        accepted: currentRun.accepted.length,
         shown: shown.length,
-        skipped: Math.max(0, run.scanned - run.accepted.length),
-        source_rejected: run.pre_skipped,
+        skipped: Math.max(0, currentRun.scanned - currentRun.accepted.length),
+        source_rejected: currentRun.pre_skipped,
         undated: shown.filter((row) => row.event.day_key == null).length,
         cap: laneCap,
-        truncated: run.source_truncated || run.accepted.length > laneCap || shown.length < run.capped.length,
+        truncated: currentRun.source_truncated || currentRun.accepted.length > laneCap || shown.length < currentRun.capped.length,
         scope_limited: scopeWithheldReasons.length > 0,
         scope_withheld_reasons: scopeWithheldReasons,
+        ...(currentRun.projection ? { projection: currentRun.projection } : {}),
       },
       gap_reason: def.gap_reason ?? null,
     };

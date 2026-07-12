@@ -5,7 +5,11 @@ import path from "node:path";
 
 export const FILE_OBSERVATION_PACKET_SCHEMA = "soulforge.file_observation_packet.v0";
 export const FILE_REVISION_STATE_SCHEMA = "soulforge.file_revision_state.v0";
-export const FILE_SCAN_CACHE_SCHEMA = "soulforge.file_scan_cache.v0";
+export const FILE_SCAN_CACHE_SCHEMA = "soulforge.file_scan_cache.v1";
+export const FILE_RECONCILE_RECEIPT_SCHEMA = "soulforge.file_scan_receipt.v1";
+export const FILE_RECONCILE_EVENT_SCHEMA = "soulforge.file_reconcile_event_partition.v1";
+export const FILE_REVISION_CHECKPOINT_SCHEMA = "soulforge.file_revision_checkpoint.v1";
+export const FILE_ACTIVITY_LIFE_TREE_PROJECTION_SCHEMA = "soulforge.file_activity_life_tree_projection.v1";
 
 export const NODE_ROLES = Object.freeze([
   "work_pc",
@@ -28,6 +32,12 @@ export const FILE_ACTIVITY_STATE_LIMITS = Object.freeze({
   per_entry_refs: 1000,
 });
 export const FILE_ACTIVITY_CACHE_LIMITS = Object.freeze({ entries: 100_000 });
+export const FILE_ACTIVITY_CACHE_POLICY = Object.freeze({
+  verified_hash_ttl_ms: 24 * 60 * 60 * 1000,
+  max_verified_hash_ttl_ms: 24 * 60 * 60 * 1000,
+});
+export const FILE_ACTIVITY_PROJECTION_LIMITS = Object.freeze({ events: 2000 });
+export const FILE_ACTIVITY_RECONCILE_LIMITS = Object.freeze({ packet_batch: 4998 });
 
 const DEFAULT_IMMEDIATE_HASH_BYTES = 64 * 1024 * 1024;
 const DEFAULT_SCAN_BYTE_BUDGET = 512 * 1024 * 1024;
@@ -35,6 +45,10 @@ const DEFAULT_ABSENCE_THRESHOLD = 2;
 const DEFAULT_DELETION_GRACE_MS = 24 * 60 * 60 * 1000;
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+const RETRIABLE_RECEIPT_DISPOSITIONS = new Set([
+  "sequence_gap_held",
+  "producer_chain_mismatch_no_mutation",
+]);
 
 const CADENCE_BY_ROLE = Object.freeze({
   work_pc: Object.freeze({
@@ -172,6 +186,14 @@ export async function scanWorkspace(options = {}) {
   const ingestedAt = normalizeIso(options.ingestedAt ?? new Date().toISOString(), "ingested_at");
   const scanId = normalizeScanId(options.scanId ?? makeScanId({ nodeId, observedAt, ingestedAt }));
   const clockAssessment = assessClock(observedAt, ingestedAt);
+  const verifiedHashTtlMs = normalizeNonNegativeInteger(
+    options.verifiedHashTtlMs,
+    FILE_ACTIVITY_CACHE_POLICY.verified_hash_ttl_ms,
+    "verified_hash_cache_ttl_ms",
+  );
+  if (verifiedHashTtlMs < 1 || verifiedHashTtlMs > FILE_ACTIVITY_CACHE_POLICY.max_verified_hash_ttl_ms) {
+    throw new Error("file_activity_verified_hash_cache_ttl_ms_invalid");
+  }
   const immediateHashBytes = normalizeNonNegativeInteger(
     options.immediateHashBytes,
     DEFAULT_IMMEDIATE_HASH_BYTES,
@@ -183,11 +205,27 @@ export async function scanWorkspace(options = {}) {
     "byte_budget",
   );
   const maxEntries = normalizePositiveIntegerOrInfinity(options.maxEntries, Number.POSITIVE_INFINITY, "max_entries");
-  const previousCache = normalizePreviousCache(options.previousCache, {
-    projectCode,
-    workspaceBindingId,
-    nodeId,
-  });
+  let cacheChainState = options.previousCache ? "preserved" : "initialized";
+  let previousCache;
+  try {
+    previousCache = normalizePreviousCache(options.previousCache, {
+      projectCode,
+      workspaceBindingId,
+      nodeId,
+      ingestedAt,
+      ignoreEntries: options.forceRehash === true,
+    });
+  } catch (error) {
+    if (options.forceRehash !== true) throw error;
+    previousCache = normalizePreviousCache(null, {
+      projectCode,
+      workspaceBindingId,
+      nodeId,
+      ingestedAt,
+      ignoreEntries: true,
+    });
+    cacheChainState = "reset_requires_rebinding";
+  }
   const producerChain = nextProducerChain(previousCache);
   const rootInput = options.rootPath;
   if (!rootInput) throw new Error("file_activity_root_required");
@@ -401,8 +439,8 @@ export async function scanWorkspace(options = {}) {
       const pathFingerprint = pathFingerprintForCollisionKeys(pathCollisionKeys);
       const statTuple = {
         size_bytes: Number(entryStat.size),
-        modified_time_ms: Math.trunc(entryStat.mtimeMs),
-        changed_time_ms: Math.trunc(entryStat.ctimeMs),
+        modified_time_ms: entryStat.mtime.getTime(),
+        changed_time_ms: entryStat.ctime.getTime(),
       };
       const fsModifiedAt = {
         value: entryStat.mtime.toISOString(),
@@ -416,6 +454,7 @@ export async function scanWorkspace(options = {}) {
       if (
         options.forceRehash !== true
         && cached
+        && Date.parse(ingestedAt) - Date.parse(cached.verified_at) <= verifiedHashTtlMs
         && cached.stat_tuple?.size_bytes === statTuple.size_bytes
         && cached.stat_tuple?.modified_time_ms === statTuple.modified_time_ms
         && cached.stat_tuple?.changed_time_ms === statTuple.changed_time_ms
@@ -441,8 +480,8 @@ export async function scanWorkspace(options = {}) {
             postHashStat.isFile()
             && !postHashStat.isSymbolicLink()
             && Number(postHashStat.size) === statTuple.size_bytes
-            && Math.trunc(postHashStat.mtimeMs) === statTuple.modified_time_ms
-            && Math.trunc(postHashStat.ctimeMs) === statTuple.changed_time_ms
+            && postHashStat.mtime.getTime() === statTuple.modified_time_ms
+            && postHashStat.ctime.getTime() === statTuple.changed_time_ms
           );
           if (stableAfterHash) {
             hashStatus = "hashed_exact";
@@ -483,6 +522,7 @@ export async function scanWorkspace(options = {}) {
       observations.push(observation);
 
       if (isExactContentId(contentId)) {
+        const reusedCacheEntry = hashStatus === "cached_exact" ? cached : null;
         nextCacheEntries.push({
           path_fingerprint: pathFingerprint,
           relative_path: normalizedRelative,
@@ -490,7 +530,17 @@ export async function scanWorkspace(options = {}) {
           path_collision_keys: pathCollisionKeys,
           stat_tuple: statTuple,
           content_id: contentId,
-          verified_at: ingestedAt,
+          verified_at: reusedCacheEntry?.verified_at ?? ingestedAt,
+          provenance: reusedCacheEntry
+            ? structuredClone(reusedCacheEntry.provenance)
+            : {
+                verification_method: "streamed_full_file",
+                algorithm: "sha256",
+                producer_node_id: nodeId,
+                source_scan_id: scanId,
+                source_observation_id: observation.observation_id,
+                source_packet_digest: null,
+              },
         });
       }
     }
@@ -586,15 +636,32 @@ export async function scanWorkspace(options = {}) {
   };
 
   const packetDigest = canonicalPacketDigest(packet);
+  for (const entry of nextCache.entries) {
+    if (entry.provenance.source_scan_id === scanId && entry.provenance.source_packet_digest === null) {
+      entry.provenance.source_packet_digest = packetDigest;
+    }
+  }
   nextCache.last_node_sequence = producerChain.node_sequence;
   nextCache.next_node_sequence = producerChain.node_sequence + 1;
   nextCache.last_scan_id = scanId;
   nextCache.last_packet_digest = packetDigest;
 
-  return { packet, next_cache: nextCache };
+  return { packet, next_cache: nextCache, cache_chain_state: cacheChainState };
 }
 
 export function reconcileObservationPackets(options = {}) {
+  return reconcileObservationPacketsInternal(options).state;
+}
+
+export function reconcileObservationPacketsWithArtifacts(options = {}) {
+  const result = reconcileObservationPacketsInternal(options);
+  return {
+    state: result.state,
+    artifacts: buildReconciliationArtifacts(result),
+  };
+}
+
+function reconcileObservationPacketsInternal(options = {}) {
   const projectCode = normalizeIdentifier(options.projectCode, "project_code");
   const workspaceBindingId = normalizeIdentifier(options.workspaceBindingId, "workspace_binding_id");
   const reconcilerNodeId = normalizeIdentifier(options.reconcilerNodeId, "reconciler_node_id");
@@ -616,12 +683,18 @@ export function reconcileObservationPackets(options = {}) {
     "deletion_grace_ms",
   );
   const receivedAt = normalizeIso(options.receivedAt ?? new Date().toISOString(), "reconcile_received_at");
+  if (!Array.isArray(options.packets ?? []) || (options.packets ?? []).length > FILE_ACTIVITY_RECONCILE_LIMITS.packet_batch) {
+    throw new Error("file_activity_reconcile_packet_batch_limit_exceeded");
+  }
 
   const state = normalizePreviousState(options.previousState, {
     projectCode,
     workspaceBindingId,
     reconcilerNodeId,
   });
+  const priorObservationIds = new Set(state.observations.map((entry) => entry.observation_id));
+  const priorReconciliationEventIds = new Set(state.recent_events.map((entry) => entry.event_id));
+  const priorCoverageGapIds = new Set(state.coverage_gaps.map((entry) => entry.gap_id));
   if ((options.packets ?? []).length > 0 && state.updated_at && receivedAt < state.updated_at) {
     throw new Error("file_activity_primary_receipt_clock_regressed");
   }
@@ -644,7 +717,7 @@ export function reconcileObservationPackets(options = {}) {
   for (const candidate of candidates) {
     const { packet, packet_digest: packetDigest } = candidate;
     let receipt = state.scan_receipts.find((entry) => entry.scan_id === packet.scan_id);
-    if (receipt && receipt.disposition !== "sequence_gap_held") continue;
+    if (receipt && !RETRIABLE_RECEIPT_DISPOSITIONS.has(receipt.disposition)) continue;
     state.updated_at = laterIso(state.updated_at, receivedAt);
     let cursor = state.node_cursors.find((entry) => entry.node_id === packet.node_id);
     if (!cursor) {
@@ -653,6 +726,8 @@ export function reconcileObservationPackets(options = {}) {
         last_sequence: 0,
         last_scan_id: null,
         last_packet_digest: null,
+        last_observed_at: null,
+        last_ingested_at: null,
         last_received_at: null,
       };
       state.node_cursors.push(cursor);
@@ -703,6 +778,12 @@ export function reconcileObservationPackets(options = {}) {
       addSequenceGap(state, packet, "producer_chain_mismatch", true, cursor.last_sequence + 1);
       continue;
     }
+    if (
+      (cursor.last_observed_at !== null && packet.observed_at < cursor.last_observed_at)
+      || (cursor.last_ingested_at !== null && packet.ingested_at < cursor.last_ingested_at)
+    ) {
+      throw new Error("file_activity_producer_clock_regressed");
+    }
 
     reducePacketIntoState(state, packet, { absenceThreshold, deletionGraceMs, receivedAt });
     upsertScanReceipt(state, {
@@ -717,13 +798,56 @@ export function reconcileObservationPackets(options = {}) {
     cursor.last_sequence = packet.node_sequence;
     cursor.last_scan_id = packet.scan_id;
     cursor.last_packet_digest = packetDigest;
+    cursor.last_observed_at = packet.observed_at;
+    cursor.last_ingested_at = packet.ingested_at;
     cursor.last_received_at = receivedAt;
     state.updated_at = laterIso(state.updated_at, receivedAt);
   }
 
+  const runCapture = {
+    receipt_rows: candidates.map(({ packet, packet_digest: packetDigest }) => {
+      const receipt = state.scan_receipts.find((entry) => entry.scan_id === packet.scan_id);
+      if (!receipt || receipt.packet_digest !== packetDigest) {
+        throw new Error("file_activity_reconcile_receipt_capture_missing");
+      }
+      return {
+        scan_id: receipt.scan_id,
+        packet_digest: receipt.packet_digest,
+        packet_ref: receipt.packet_ref,
+        node_id: receipt.node_id,
+        node_role: packet.node_role,
+        node_sequence: receipt.node_sequence,
+        packet_observed_at: packet.observed_at,
+        packet_ingested_at: packet.ingested_at,
+        receipt_received_at: receipt.received_at,
+        reconciled_at: receivedAt,
+        disposition: receipt.disposition,
+      };
+    }),
+    observation_events: state.observations
+      .filter((entry) => !priorObservationIds.has(entry.observation_id))
+      .map((entry) => structuredClone(entry)),
+    reconciliation_events: state.recent_events
+      .filter((entry) => !priorReconciliationEventIds.has(entry.event_id))
+      .map((entry) => structuredClone(entry)),
+    coverage_gaps: state.coverage_gaps
+      .filter((entry) => !priorCoverageGapIds.has(entry.gap_id))
+      .map((entry) => structuredClone(entry)),
+  };
   state.processed_scan_ids = state.scan_receipts.map((entry) => entry.scan_id);
   finalizeRevisionState(state);
-  return state;
+  return {
+    state,
+    runCapture,
+    projectCode,
+    workspaceBindingId,
+    reconcilerNodeId,
+    receivedAt,
+    validatedPackets: candidates.map((entry) => ({
+      packet: entry.packet,
+      packet_digest: entry.packet_digest,
+    })),
+  };
 }
 
 export const reduceFileObservationState = reconcileObservationPackets;
@@ -739,6 +863,462 @@ export function canonicalPacketDigest(packet) {
 function digestValidatedPacket(validatedPacket) {
   const { packet_ref: _packetRef, ...digestSurface } = validatedPacket;
   return `sha256:${createHash("sha256").update(canonicalJson(digestSurface), "utf8").digest("hex")}`;
+}
+
+export function canonicalRevisionStateDigest(state) {
+  return `sha256:${createHash("sha256").update(canonicalJson(state), "utf8").digest("hex")}`;
+}
+
+export function durableReceiptIdFor({ projectCode, workspaceBindingId, scanId }) {
+  return stableId(
+    "receipt",
+    normalizeIdentifier(projectCode, "receipt_project_code"),
+    normalizeIdentifier(workspaceBindingId, "receipt_workspace_binding_id"),
+    normalizeScanId(scanId),
+  );
+}
+
+export function validateDurableReceiptArtifact(receipt, options = {}) {
+  requireExactRecordKeys(receipt, [
+    "schema_version",
+    "receipt_id",
+    "project_code",
+    "workspace_binding_id",
+    "scan_id",
+    "packet_digest",
+    "packet_ref",
+    "node_id",
+    "node_role",
+    "node_sequence",
+    "packet_observed_at",
+    "packet_ingested_at",
+    "first_received_at",
+    "acceptance",
+    "boundary",
+  ], "durable_receipt");
+  if (receipt.schema_version !== FILE_RECONCILE_RECEIPT_SCHEMA) {
+    throw new Error("file_activity_durable_receipt_schema_invalid");
+  }
+  const projectCode = normalizeIdentifier(options.projectCode, "receipt_project_code");
+  const workspaceBindingId = normalizeIdentifier(options.workspaceBindingId, "receipt_workspace_binding_id");
+  if (receipt.project_code !== projectCode || receipt.workspace_binding_id !== workspaceBindingId) {
+    throw new Error("file_activity_durable_receipt_scope_mismatch");
+  }
+  const scanId = normalizeScanId(receipt.scan_id);
+  const nodeId = normalizeIdentifier(receipt.node_id, "receipt_node_id");
+  const nodeRole = String(receipt.node_role ?? "");
+  assertNodeRole(nodeRole);
+  const sanitized = {
+    schema_version: FILE_RECONCILE_RECEIPT_SCHEMA,
+    receipt_id: durableReceiptIdFor({ projectCode, workspaceBindingId, scanId }),
+    project_code: projectCode,
+    workspace_binding_id: workspaceBindingId,
+    scan_id: scanId,
+    packet_digest: normalizeContentDigest(receipt.packet_digest, "receipt_packet_digest"),
+    packet_ref: sanitizePacketRef(receipt.packet_ref, projectCode, nodeId),
+    node_id: nodeId,
+    node_role: nodeRole,
+    node_sequence: requiredPositiveStateInteger(receipt.node_sequence, "receipt_node_sequence"),
+    packet_observed_at: normalizeIso(receipt.packet_observed_at, "receipt_packet_observed_at"),
+    packet_ingested_at: normalizeIso(receipt.packet_ingested_at, "receipt_packet_ingested_at"),
+    first_received_at: normalizeIso(receipt.first_received_at, "receipt_first_received_at"),
+    acceptance: receipt.acceptance,
+    boundary: receipt.boundary,
+  };
+  if (receipt.receipt_id !== sanitized.receipt_id || receipt.acceptance !== "digest_registered") {
+    throw new Error("file_activity_durable_receipt_identity_invalid");
+  }
+  requireExactRecordKeys(receipt.boundary, [
+    "metadata_only",
+    "source_contents_present",
+    "absolute_paths_present",
+    "raw_payload_present",
+    "live_activation",
+  ], "durable_receipt_boundary");
+  if (
+    receipt.boundary.metadata_only !== true
+    || receipt.boundary.source_contents_present !== false
+    || receipt.boundary.absolute_paths_present !== false
+    || receipt.boundary.raw_payload_present !== false
+    || receipt.boundary.live_activation !== false
+  ) {
+    throw new Error("file_activity_durable_receipt_boundary_invalid");
+  }
+  return {
+    ...sanitized,
+    boundary: {
+      metadata_only: true,
+      source_contents_present: false,
+      absolute_paths_present: false,
+      raw_payload_present: false,
+      live_activation: false,
+    },
+  };
+}
+
+export function restoreRevisionStateCheckpoint(checkpoint, options = {}) {
+  requireExactRecordKeys(checkpoint, [
+    "schema_version",
+    "checkpoint_id",
+    "project_code",
+    "workspace_binding_id",
+    "reconciler",
+    "through_received_at",
+    "state_digest",
+    "state",
+    "boundary",
+  ], "revision_checkpoint");
+  if (checkpoint.schema_version !== FILE_REVISION_CHECKPOINT_SCHEMA) {
+    throw new Error("file_activity_revision_checkpoint_schema_invalid");
+  }
+  const projectCode = normalizeIdentifier(options.projectCode, "checkpoint_project_code");
+  const workspaceBindingId = normalizeIdentifier(options.workspaceBindingId, "checkpoint_workspace_binding_id");
+  const reconcilerNodeId = normalizeIdentifier(options.reconcilerNodeId, "checkpoint_reconciler_node_id");
+  if (checkpoint.project_code !== projectCode || checkpoint.workspace_binding_id !== workspaceBindingId) {
+    throw new Error("file_activity_revision_checkpoint_scope_mismatch");
+  }
+  requireExactRecordKeys(checkpoint.reconciler, ["node_id", "node_role", "operational_primary"], "checkpoint_reconciler");
+  if (
+    checkpoint.reconciler.node_id !== reconcilerNodeId
+    || checkpoint.reconciler.node_role !== "always_on_node"
+    || checkpoint.reconciler.operational_primary !== true
+  ) {
+    throw new Error("file_activity_revision_checkpoint_reconciler_mismatch");
+  }
+  requireExactRecordKeys(checkpoint.boundary, [
+    "metadata_only",
+    "source_contents_present",
+    "absolute_paths_present",
+    "raw_payload_present",
+    "live_activation",
+    "tail_replay_supported",
+  ], "checkpoint_boundary");
+  if (
+    checkpoint.boundary.metadata_only !== true
+    || checkpoint.boundary.source_contents_present !== false
+    || checkpoint.boundary.absolute_paths_present !== false
+    || checkpoint.boundary.raw_payload_present !== false
+    || checkpoint.boundary.live_activation !== false
+    || checkpoint.boundary.tail_replay_supported !== false
+  ) {
+    throw new Error("file_activity_revision_checkpoint_boundary_invalid");
+  }
+  const throughReceivedAt = normalizeNullableStateIso(
+    checkpoint.through_received_at,
+    "checkpoint_through_received_at",
+  );
+  const declaredStateDigest = normalizeContentDigest(checkpoint.state_digest, "checkpoint_state_digest");
+  if (canonicalRevisionStateDigest(checkpoint.state) !== declaredStateDigest) {
+    throw new Error("file_activity_revision_checkpoint_digest_mismatch");
+  }
+  const expectedCheckpointId = stableId(
+    "checkpoint",
+    projectCode,
+    workspaceBindingId,
+    reconcilerNodeId,
+    declaredStateDigest,
+  );
+  if (checkpoint.checkpoint_id !== expectedCheckpointId) {
+    throw new Error("file_activity_revision_checkpoint_id_mismatch");
+  }
+  const state = normalizePreviousState(checkpoint.state, {
+    projectCode,
+    workspaceBindingId,
+    reconcilerNodeId,
+  });
+  finalizeRevisionState(state);
+  if (canonicalRevisionStateDigest(state) !== declaredStateDigest || state.updated_at !== throughReceivedAt) {
+    throw new Error("file_activity_revision_checkpoint_state_not_canonical");
+  }
+  return state;
+}
+
+function buildReconciliationArtifacts(result) {
+  const {
+    state,
+    runCapture,
+    projectCode,
+    workspaceBindingId,
+    reconcilerNodeId,
+    receivedAt,
+    validatedPackets,
+  } = result;
+  const stateDigest = canonicalRevisionStateDigest(state);
+  const checkpointId = stableId(
+    "checkpoint",
+    projectCode,
+    workspaceBindingId,
+    reconcilerNodeId,
+    stateDigest,
+  );
+  const packetDigests = validatedPackets.map((entry) => entry.packet_digest).sort();
+  const reconcileId = stableId(
+    "reconcile",
+    projectCode,
+    workspaceBindingId,
+    reconcilerNodeId,
+    receivedAt,
+    stateDigest,
+    ...packetDigests,
+  );
+  const month = receivedAt.slice(0, 7);
+  const baseRef = `_workmeta/${projectCode}/reports/file_activity`;
+  const receiptArtifacts = runCapture.receipt_rows
+    .filter((entry) => !RETRIABLE_RECEIPT_DISPOSITIONS.has(entry.disposition))
+    .map((entry) => {
+    const receiptId = durableReceiptIdFor({
+      projectCode,
+      workspaceBindingId,
+      scanId: entry.scan_id,
+    });
+    const receiptMonth = entry.packet_ingested_at.slice(0, 7);
+    return {
+      ref: `${baseRef}/receipts/${receiptMonth}/${receiptId.slice("receipt:".length)}.json`,
+      value: {
+        schema_version: FILE_RECONCILE_RECEIPT_SCHEMA,
+        receipt_id: receiptId,
+        project_code: projectCode,
+        workspace_binding_id: workspaceBindingId,
+        scan_id: entry.scan_id,
+        packet_digest: entry.packet_digest,
+        packet_ref: entry.packet_ref,
+        node_id: entry.node_id,
+        node_role: entry.node_role,
+        node_sequence: entry.node_sequence,
+        packet_observed_at: entry.packet_observed_at,
+        packet_ingested_at: entry.packet_ingested_at,
+        first_received_at: entry.receipt_received_at,
+        acceptance: "digest_registered",
+        boundary: {
+          metadata_only: true,
+          source_contents_present: false,
+          absolute_paths_present: false,
+          raw_payload_present: false,
+          live_activation: false,
+        },
+      },
+    };
+    });
+  const refs = {
+    receipt_refs: receiptArtifacts.map((entry) => entry.ref),
+    event_ref: `${baseRef}/events/${month}/${reconcileId.slice("reconcile:".length)}.json`,
+    checkpoint_ref: `${baseRef}/checkpoints/${month}/${reconcileId.slice("reconcile:".length)}.json`,
+    projection_ref: `${baseRef}/projections/life_tree_events.json`,
+  };
+  const partitionBoundary = {
+    metadata_only: true,
+    source_contents_present: false,
+    absolute_paths_present: false,
+    raw_payload_present: false,
+    live_activation: false,
+  };
+  const runProjectionEvents = buildProjectionEvents({
+    observations: runCapture.observation_events,
+    reconciliationEvents: runCapture.reconciliation_events,
+    state,
+    receivedAt,
+  });
+  const eventPartition = {
+    schema_version: FILE_RECONCILE_EVENT_SCHEMA,
+    reconcile_id: reconcileId,
+    project_code: projectCode,
+    workspace_binding_id: workspaceBindingId,
+    reconciler_node_id: reconcilerNodeId,
+    received_at: receivedAt,
+    source_packets: validatedPackets.map((entry) => ({
+      scan_id: entry.packet.scan_id,
+      packet_digest: entry.packet_digest,
+      packet_ref: entry.packet.packet_ref,
+      node_id: entry.packet.node_id,
+      node_role: entry.packet.node_role,
+      node_sequence: entry.packet.node_sequence,
+      observed_at: entry.packet.observed_at,
+      ingested_at: entry.packet.ingested_at,
+    })),
+    events: runProjectionEvents,
+    coverage_gaps: runCapture.coverage_gaps.map((entry) => ({
+      gap_id: entry.gap_id,
+      scan_id: entry.scan_id,
+      node_id: entry.node_id,
+      reason: entry.reason,
+    })),
+    boundary: partitionBoundary,
+  };
+  const checkpoint = {
+    schema_version: FILE_REVISION_CHECKPOINT_SCHEMA,
+    checkpoint_id: checkpointId,
+    project_code: projectCode,
+    workspace_binding_id: workspaceBindingId,
+    reconciler: structuredClone(state.reconciler),
+    through_received_at: state.updated_at,
+    state_digest: stateDigest,
+    state: structuredClone(state),
+    boundary: {
+      ...partitionBoundary,
+      tail_replay_supported: false,
+    },
+  };
+  const checkpointDigest = `sha256:${createHash("sha256").update(canonicalJson(checkpoint), "utf8").digest("hex")}`;
+  const currentProjectionEvents = buildProjectionEvents({
+    observations: state.observations,
+    reconciliationEvents: state.recent_events,
+    state,
+    receivedAt,
+  });
+  const sortedProjectionEvents = currentProjectionEvents.sort(compareProjectionEvents);
+  const events = sortedProjectionEvents.slice(-FILE_ACTIVITY_PROJECTION_LIMITS.events);
+  const compactionDropped = Object.values(state.compaction).some((value) => value > 0);
+  const truncated = compactionDropped || sortedProjectionEvents.length > events.length;
+  const gapReasons = [...new Set([
+    ...state.coverage_gaps.map((entry) => entry.reason),
+    "erp_upload_adapter_unavailable",
+    "live_collector_not_activated",
+    ...(truncated ? ["event_window_truncated"] : []),
+  ])].sort();
+  const receivedClocks = events.map((entry) => entry.received_at).filter(Boolean).sort();
+  const sourceMonths = [...new Set([
+    month,
+    ...runCapture.receipt_rows.map((entry) => entry.packet_ingested_at.slice(0, 7)),
+    ...receivedClocks.map((value) => value.slice(0, 7)),
+  ])].sort();
+  const projection = {
+    schema_version: FILE_ACTIVITY_LIFE_TREE_PROJECTION_SCHEMA,
+    project_code: projectCode,
+    workspace_binding_id: workspaceBindingId,
+    generated_at: receivedAt,
+    source_checkpoint: {
+      checkpoint_id: checkpointId,
+      checkpoint_digest: checkpointDigest,
+      through_received_at: state.updated_at,
+      partition_refs: [...refs.receipt_refs, refs.event_ref, refs.checkpoint_ref].sort(),
+    },
+    coverage: {
+      state: "partial",
+      from_received_at: receivedClocks[0] ?? state.updated_at,
+      through_received_at: state.updated_at,
+      source_months: sourceMonths,
+      source_event_count: sortedProjectionEvents.length,
+      event_count: events.length,
+      truncated,
+      gap_reasons: gapReasons,
+    },
+    boundary: {
+      metadata_only: true,
+      derived_rebuildable: true,
+      absolute_paths_present: false,
+      raw_payload_present: false,
+      live_activation: false,
+    },
+    events,
+  };
+  return {
+    reconcile_id: reconcileId,
+    refs,
+    receipt_artifacts: receiptArtifacts,
+    event_partition: eventPartition,
+    checkpoint,
+    projection,
+  };
+}
+
+function buildProjectionEvents({ observations, reconciliationEvents, state, receivedAt }) {
+  const receiptByScan = new Map(state.scan_receipts.map((entry) => [entry.scan_id, entry]));
+  const revisionById = new Map(state.revisions.map((entry) => [entry.revision_id, entry]));
+  const events = [];
+  for (const observation of observations) {
+    const receipt = receiptByScan.get(observation.scan_id);
+    const revision = observation.revision_id ? revisionById.get(observation.revision_id) : null;
+    const identityClaim = observation.identity_claim ?? "unavailable";
+    const temporalOrdering = observation.temporal_ordering ?? assessClock(
+      observation.observed_at,
+      observation.ingested_at,
+    ).state;
+    const observationReceivedAt = receipt?.received_at ?? receivedAt;
+    const clockChangeInterval = temporalOrdering === "clock_skew_receipt_order_warning"
+      ? { after: observationReceivedAt, before: observationReceivedAt, basis: "receipt_order_only_clock_skew" }
+      : temporalOrdering === "clock_skew_blocked_exact_order"
+        ? { after: observationReceivedAt, before: observationReceivedAt, basis: "exact_order_blocked_clock_skew" }
+        : null;
+    events.push({
+      source_event_id: observation.observation_id,
+      source_kind: "scanner_observation",
+      event_kind: observation.event_kind,
+      logical_file_id: observation.logical_file_id ?? null,
+      revision_id: observation.revision_id ?? null,
+      node_id: observation.node_id,
+      node_role: observation.node_role,
+      scan_id: observation.scan_id,
+      packet_digest: receipt?.packet_digest ?? null,
+      observation_id: observation.observation_id,
+      observed_at: observation.observed_at,
+      ingested_at: observation.ingested_at,
+      received_at: observationReceivedAt,
+      change_interval: clockChangeInterval,
+      identity_claim: identityClaim,
+      identity_basis: observation.identity_basis ?? null,
+      uncertainty: projectionUncertainty(observation.event_kind, identityClaim),
+      content_id: revision?.content_id ?? observation.content_id ?? null,
+      size_bytes: revision?.size_bytes ?? observation.size_bytes ?? null,
+      erp_upload_event_ref: null,
+      evidence_refs: [
+        observation.scan_id,
+        observation.observation_id,
+        receipt?.packet_digest ?? null,
+      ].filter(Boolean).sort(),
+      access: { visibility: "admins", account_refs: [] },
+    });
+  }
+  for (const event of reconciliationEvents) {
+    const receipt = receiptByScan.get(event.scan_id);
+    events.push({
+      source_event_id: event.event_id,
+      source_kind: "reconciler_transition",
+      event_kind: event.event_kind,
+      logical_file_id: event.logical_file_id,
+      revision_id: null,
+      node_id: event.node_id,
+      node_role: event.node_role,
+      scan_id: event.scan_id,
+      packet_digest: receipt?.packet_digest ?? null,
+      observation_id: null,
+      observed_at: event.observed_at,
+      ingested_at: event.ingested_at,
+      received_at: event.received_at,
+      change_interval: structuredClone(event.change_interval),
+      identity_claim: "unavailable",
+      identity_basis: null,
+      uncertainty: projectionUncertainty(event.event_kind, "unavailable"),
+      content_id: null,
+      size_bytes: null,
+      erp_upload_event_ref: null,
+      evidence_refs: [
+        event.scan_id,
+        event.event_id,
+        event.node_binding_id ?? null,
+        receipt?.packet_digest ?? null,
+      ].filter(Boolean).sort(),
+      access: { visibility: "admins", account_refs: [] },
+    });
+  }
+  return events.sort(compareProjectionEvents);
+}
+
+function projectionUncertainty(eventKind, identityClaim) {
+  if (eventKind === "delete" || eventKind === "restore") return "confirmed";
+  if (identityClaim === "uncertain") return "review_needed";
+  if (
+    identityClaim === "unavailable"
+    || eventKind === "hash_pending"
+    || eventKind === "held_packet_evidence"
+    || eventKind === "missing_candidate"
+  ) return "partial";
+  return "confirmed";
+}
+
+function compareProjectionEvents(left, right) {
+  const leftTime = left.received_at ?? left.ingested_at ?? left.observed_at ?? "";
+  const rightTime = right.received_at ?? right.ingested_at ?? right.observed_at ?? "";
+  return leftTime.localeCompare(rightTime) || left.source_event_id.localeCompare(right.source_event_id);
 }
 
 function upsertScanReceipt(state, value) {
@@ -1292,6 +1872,23 @@ function finalizeRevisionState(state) {
     collision_count: state.collisions.length,
     coverage_gap_count: state.coverage_gaps.length,
   };
+  const graphFields = ["node_cursors", "logical_files", "revisions", "node_bindings"];
+  state.storage_bounds = {
+    strategy: "bounded_current_projection_with_immutable_checkpoint",
+    lineage_graph_compaction_enabled: false,
+    checkpoint_rebuild_supported: true,
+    hard_limits: Object.fromEntries(graphFields.map((field) => [field, FILE_ACTIVITY_STATE_LIMITS[field]])),
+    current_counts: Object.fromEntries(graphFields.map((field) => [field, state[field].length])),
+    remaining_capacity: Object.fromEntries(graphFields.map((field) => [
+      field,
+      FILE_ACTIVITY_STATE_LIMITS[field] - state[field].length,
+    ])),
+    blocker_codes: Object.fromEntries(graphFields.map((field) => [
+      field,
+      `file_activity_revision_state_${field}_limit_exceeded`,
+    ])),
+    blocked_fields: graphFields.filter((field) => state[field].length >= FILE_ACTIVITY_STATE_LIMITS[field]),
+  };
 }
 
 function toRecentEventSummary(observation) {
@@ -1302,6 +1899,7 @@ function toRecentEventSummary(observation) {
     node_role: observation.node_role,
     observed_at: observation.observed_at,
     ingested_at: observation.ingested_at,
+    temporal_ordering: observation.temporal_ordering,
     relative_path: observation.relative_path,
     event_kind: observation.event_kind,
     identity_claim: observation.identity_claim,
@@ -1415,6 +2013,10 @@ function revisionStateBoundary() {
     absence_authority_roles: [...ABSENCE_AUTHORITY_ROLES],
     live_scheduler_enabled: false,
     transport_enabled: false,
+    monthly_partition_artifacts_supported: true,
+    immutable_checkpoint_rebuild_supported: true,
+    checkpoint_tail_replay_supported: false,
+    lineage_graph_compaction_enabled: false,
   };
 }
 
@@ -1441,6 +2043,7 @@ function emptyRevisionState(context) {
     coverage_gaps: [],
     compaction: Object.fromEntries(PREVIOUS_STATE_COMPACTION_FIELDS.map((field) => [field, 0])),
     counts: {},
+    storage_bounds: {},
     boundary: revisionStateBoundary(),
   };
 }
@@ -1552,10 +2155,13 @@ function sanitizePreviousNodeCursor(value) {
   const lastPacketDigest = value.last_packet_digest === null
     ? null
     : normalizeContentDigest(value.last_packet_digest, "previous_state_cursor_packet_digest");
+  const lastObservedAt = normalizeNullableStateIso(value.last_observed_at, "previous_state_cursor_observed_at");
+  const lastIngestedAt = normalizeNullableStateIso(value.last_ingested_at, "previous_state_cursor_ingested_at");
   const lastReceivedAt = normalizeNullableStateIso(value.last_received_at, "previous_state_cursor_received_at");
   if (
     (lastSequence === 0 && (lastScanId !== null || lastPacketDigest !== null || lastReceivedAt !== null))
     || (lastSequence > 0 && (lastScanId === null || lastPacketDigest === null || lastReceivedAt === null))
+    || ((lastObservedAt === null) !== (lastIngestedAt === null))
   ) {
     throw new Error("file_activity_previous_state_cursor_chain_invalid");
   }
@@ -1564,6 +2170,8 @@ function sanitizePreviousNodeCursor(value) {
     last_sequence: lastSequence,
     last_scan_id: lastScanId,
     last_packet_digest: lastPacketDigest,
+    last_observed_at: lastObservedAt,
+    last_ingested_at: lastIngestedAt,
     last_received_at: lastReceivedAt,
   };
 }
@@ -1580,6 +2188,12 @@ function sanitizePreviousObservationSummary(value) {
   }
   const nodeRole = String(value.node_role ?? "");
   assertNodeRole(nodeRole);
+  const observedAt = normalizeIso(value.observed_at, "previous_state_observation_observed_at");
+  const ingestedAt = normalizeIso(value.ingested_at, "previous_state_observation_ingested_at");
+  const temporalOrdering = assessClock(observedAt, ingestedAt).state;
+  if (value.temporal_ordering !== undefined && value.temporal_ordering !== temporalOrdering) {
+    throw new Error("file_activity_previous_state_observation_temporal_ordering_invalid");
+  }
   const relativePath = sanitizeRelativePath(value.relative_path);
   if (isSensitivePath(relativePath)) {
     throw new Error("file_activity_previous_state_observation_sensitive_path_blocked");
@@ -1589,8 +2203,9 @@ function sanitizePreviousObservationSummary(value) {
     scan_id: normalizeScanId(value.scan_id),
     node_id: normalizeIdentifier(value.node_id, "previous_state_observation_node_id"),
     node_role: nodeRole,
-    observed_at: normalizeIso(value.observed_at, "previous_state_observation_observed_at"),
-    ingested_at: normalizeIso(value.ingested_at, "previous_state_observation_ingested_at"),
+    observed_at: observedAt,
+    ingested_at: ingestedAt,
+    temporal_ordering: temporalOrdering,
     relative_path: relativePath,
     event_kind: eventKind,
     identity_claim: identityClaim,
@@ -2257,19 +2872,32 @@ function normalizePreviousCache(previousCache, context) {
   }
   const lastSequence = normalizeNonNegativeInteger(previousCache.last_node_sequence, 0, "cache_last_node_sequence");
   const nextSequence = normalizeNonNegativeInteger(previousCache.next_node_sequence, 0, "cache_next_node_sequence");
+  const lastScanId = normalizeScanId(previousCache.last_scan_id);
+  const lastPacketDigest = normalizeContentDigest(previousCache.last_packet_digest, "cache_last_packet_digest");
   if (
     lastSequence < 1
     || nextSequence !== lastSequence + 1
-    || !normalizeScanId(previousCache.last_scan_id)
-    || !normalizeContentDigest(previousCache.last_packet_digest, "cache_last_packet_digest")
+    || !lastScanId
+    || !lastPacketDigest
   ) {
       throw new Error("file_activity_scan_cache_chain_invalid");
   }
   const updatedAt = normalizeIso(previousCache.updated_at, "cache_updated_at");
-  if (!Array.isArray(previousCache.entries) || previousCache.entries.length > FILE_ACTIVITY_CACHE_LIMITS.entries) {
-    throw new Error("file_activity_scan_cache_entries_invalid");
+  if (updatedAt > context.ingestedAt) {
+    throw new Error("file_activity_scan_cache_clock_regressed");
   }
-  const entries = previousCache.entries.map((entry) => sanitizePreviousCacheEntry(entry, updatedAt));
+  if (!Array.isArray(previousCache.entries) || previousCache.entries.length > FILE_ACTIVITY_CACHE_LIMITS.entries) {
+    if (context.ignoreEntries !== true) throw new Error("file_activity_scan_cache_entries_invalid");
+  }
+  const entries = context.ignoreEntries === true
+    ? []
+    : previousCache.entries.map((entry) => sanitizePreviousCacheEntry(entry, {
+      cacheUpdatedAt: updatedAt,
+      scanIngestedAt: context.ingestedAt,
+      nodeId: context.nodeId,
+      lastScanId,
+      lastPacketDigest,
+    }));
   if (new Set(entries.map((entry) => entry.path_fingerprint)).size !== entries.length) {
     throw new Error("file_activity_scan_cache_entry_duplicate");
   }
@@ -2283,12 +2911,12 @@ function normalizePreviousCache(previousCache, context) {
     entries,
     last_node_sequence: lastSequence,
     next_node_sequence: nextSequence,
-    last_scan_id: normalizeScanId(previousCache.last_scan_id),
-    last_packet_digest: normalizeContentDigest(previousCache.last_packet_digest, "cache_last_packet_digest"),
+    last_scan_id: lastScanId,
+    last_packet_digest: lastPacketDigest,
   };
 }
 
-function sanitizePreviousCacheEntry(value, cacheUpdatedAt) {
+function sanitizePreviousCacheEntry(value, context) {
   requireExactRecordKeys(value, [
     "path_fingerprint",
     "relative_path",
@@ -2297,6 +2925,7 @@ function sanitizePreviousCacheEntry(value, cacheUpdatedAt) {
     "stat_tuple",
     "content_id",
     "verified_at",
+    "provenance",
   ], "scan_cache_entry");
   const relativePathSpelling = sanitizeRelativePathSpelling(value.relative_path_spelling);
   const relativePath = sanitizeRelativePath(value.relative_path);
@@ -2331,15 +2960,69 @@ function sanitizePreviousCacheEntry(value, cacheUpdatedAt) {
     changed_time_ms: requiredSafeInteger(value.stat_tuple.changed_time_ms, "cache_stat_changed_time_ms"),
   };
   const verifiedAt = normalizeIso(value.verified_at, "cache_verified_at");
-  if (verifiedAt > cacheUpdatedAt) throw new Error("file_activity_scan_cache_verified_at_invalid");
+  if (verifiedAt > context.scanIngestedAt) {
+    throw new Error("file_activity_scan_cache_verified_at_future");
+  }
+  if (verifiedAt > context.cacheUpdatedAt) {
+    throw new Error("file_activity_scan_cache_verified_at_invalid");
+  }
+  requireExactRecordKeys(value.provenance, [
+    "verification_method",
+    "algorithm",
+    "producer_node_id",
+    "source_scan_id",
+    "source_observation_id",
+    "source_packet_digest",
+  ], "scan_cache_provenance");
+  if (
+    value.provenance.verification_method !== "streamed_full_file"
+    || value.provenance.algorithm !== "sha256"
+    || value.provenance.producer_node_id !== context.nodeId
+  ) {
+    throw new Error("file_activity_scan_cache_provenance_invalid");
+  }
+  const sourceScanId = normalizeScanId(value.provenance.source_scan_id);
+  const sourceObservationId = normalizeStateId(
+    value.provenance.source_observation_id,
+    "obs",
+    "cache_source_observation_id",
+  );
+  const sourcePacketDigest = normalizeContentDigest(
+    value.provenance.source_packet_digest,
+    "cache_source_packet_digest",
+  );
+  const contentId = normalizeContentDigest(value.content_id, "cache_content_id");
+  const expectedObservationId = observationIdFor({
+    scan_id: sourceScanId,
+    node_id: context.nodeId,
+    path_fingerprint: pathFingerprint,
+    size_bytes: statTuple.size_bytes,
+    fs_modified_at: { value: new Date(statTuple.modified_time_ms).toISOString() },
+    content_id: contentId,
+    hash_status: "hashed_exact",
+  });
+  if (
+    sourceObservationId !== expectedObservationId
+    || (sourceScanId === context.lastScanId && sourcePacketDigest !== context.lastPacketDigest)
+  ) {
+    throw new Error("file_activity_scan_cache_provenance_relationship_invalid");
+  }
   return {
     path_fingerprint: pathFingerprint,
     relative_path: relativePath,
     relative_path_spelling: relativePathSpelling,
     path_collision_keys: pathCollisionKeys,
     stat_tuple: statTuple,
-    content_id: normalizeContentDigest(value.content_id, "cache_content_id"),
+    content_id: contentId,
     verified_at: verifiedAt,
+    provenance: {
+      verification_method: "streamed_full_file",
+      algorithm: "sha256",
+      producer_node_id: context.nodeId,
+      source_scan_id: sourceScanId,
+      source_observation_id: sourceObservationId,
+      source_packet_digest: sourcePacketDigest,
+    },
   };
 }
 

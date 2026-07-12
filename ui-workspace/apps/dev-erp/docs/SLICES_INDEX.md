@@ -37,8 +37,10 @@
 - `slices/ENGINE-12-CONTEXT-LIFE-TREE.md` — 원천별 시간 이력을 합치지 않고 read-only 사건축으로
   투영해 기존 B9의 다섯 번째 `일일 생명수` 렌즈로 표시. ERP 업로드는 partial 파일 사건으로
   연결하고 네 PC 일반 파일은 logical-file/revision/node-observation 분리 helper로 추적
-  (**done 2026-07-12: metadata-only API/UI + mail review gate + activation-candidate helper,
-  live 4-PC collector는 binding/transport/compaction gate로 보류**, G-context-life-tree, codex_gpt-5)
+  (**done 2026-07-12: metadata-only API/UI + mail review gate + 24시간 cache TTL + monthly
+  receipt/event/checkpoint + strict precomputed projection/ERP exact-dedupe validator;
+  live 4-PC collector는 binding/transport/ACL/ERP emitter/graph-compaction gate로 보류**,
+  G-context-life-tree, codex_gpt-5)
 
 권장 순서 E8→E1→E2→E3→E5→E4→E9→**E10**→E6→E7. 같은 parallel_group 은 같은 파일을 만지므로 한 작업자 직렬.
 

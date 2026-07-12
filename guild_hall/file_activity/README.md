@@ -41,10 +41,13 @@ two authoritative complete absences and a 24-hour grace period by default.
 `deleted_at` all use the operational-primary receipt clock. Producer node
 observed/ingested clocks are evidence only and cannot accelerate deletion.
 
-An ERP `input_upload` remains a separate authoritative occurrence and should
-later trigger a targeted reconcile. It is never rewritten as a filesystem
-observation. `project_folder_indexing_v0` remains a downstream search-readiness
-consumer, not the collector or source truth.
+An ERP `input_upload` remains a separate authoritative occurrence and is never
+rewritten as a filesystem observation. The precomputed projection consumer can
+validate an exact ERP event ref plus hash and size, but the scanner producer
+always emits a null ERP ref until an authoritative correlation emitter/binding
+exists; it never infers one from filename or time. `project_folder_indexing_v0`
+remains a downstream search-readiness consumer, not the collector or source
+truth.
 
 ## Storage and write gates
 
@@ -58,6 +61,10 @@ The operational-primary `always_on_node` is the sole reducer for:
 
 ```text
 _workmeta/<project>/reports/file_activity/revision_state.json
+_workmeta/<project>/reports/file_activity/receipts/<YYYY-MM>/<receipt_id>.json
+_workmeta/<project>/reports/file_activity/events/<YYYY-MM>/<reconcile_id>.json
+_workmeta/<project>/reports/file_activity/checkpoints/<YYYY-MM>/<reconcile_id>.json
+_workmeta/<project>/reports/file_activity/projections/life_tree_events.json
 ```
 
 Node-local locks and hash/sequence cache stay outside durable project reports:
@@ -66,16 +73,40 @@ Node-local locks and hash/sequence cache stay outside durable project reports:
 guild_hall/state/local/file_activity/<project>/<binding>/<node>/
 ```
 
-Both CLI commands are dry-run by default. `scan` writes only with
-`--write-outbox`; `reconcile` writes only with `--apply`. Both still require an
+All CLI commands are dry-run by default. `scan` writes only with
+`--write-outbox`; `reconcile` and checkpoint-only `rebuild` write only with
+`--apply`. They still require an
 explicit valid binding, and reconciliation additionally requires the current
 operational-primary `always_on_node` identity. Packet/cache and state writes use
 exclusive node locks plus immutable or atomic publication.
 
+Each terminally received scan gets one immutable receipt ID derived from project, binding,
+and scan ID; the packet digest is deliberately excluded from the ID. The
+`YYYY-MM` receipt directory uses immutable packet `ingested_at` only as a stable
+partition key, never as receipt/deletion clock authority. Before reducing, the
+CLI searches the bounded monthly layout by that stable ID. Same scan/digest is
+a no-write duplicate even after hot receipt eviction, while same
+scan/different digest fails closed. `first_received_at` remains the
+operational-primary clock.
+Retryable sequence/producer-chain holds stay in the monthly event batch and do
+not get a terminal receipt until they apply or otherwise become nonretryable.
+One reconcile accepts at most 4,998 packets so receipt refs plus the event and
+checkpoint refs stay within the 5,000-ref projection envelope.
+
+One reconcile run also produces an immutable monthly event batch and full-state
+checkpoint, then atomically replaces `revision_state.json` and the bounded
+life-tree projection. It preflights every immutable ref before the first write
+and publishes terminal receipts last as commit markers. Exact retries may reuse
+byte-identical immutable artifacts; a different payload at the same immutable ref is an error. Existing
+symlink path components from the repository root through every leaf parent,
+traversal, unknown checkpoint/receipt fields, and
+noncanonical or tampered checkpoint state are rejected.
+
 The CLI checks file size before JSON parsing and checks serialized size again
-before publication: scan caches and immutable packets are limited to 64 MiB
-each, while derived revision state is limited to 256 MiB. These are defensive
-candidate ceilings, not archival or graph-compaction substitutes.
+before publication: scan caches, observation packets, receipt/event partitions,
+and the life-tree projection are limited to 64 MiB each; derived revision state
+and immutable checkpoints are limited to 256 MiB. These are defensive candidate
+ceilings, not graph-compaction substitutes.
 
 ## Identity, ordering, and conflict rules
 
@@ -104,7 +135,9 @@ candidate ceilings, not archival or graph-compaction substitutes.
   canonical allowlisted packet digest. Same scan/digest is idempotent; same
   scan/different digest fails closed. Late packets and sequence gaps remain
   bounded evidence/coverage but cannot mutate bindings or revision heads. A
-  regressing operational-primary receipt clock also fails closed.
+  regressing operational-primary receipt clock also fails closed. Once a node
+  cursor has producer-clock anchors, a chained packet whose `observed_at` or
+  `ingested_at` regresses also fails the whole reconcile before projection.
 - All packet and receipt clocks require exact UTC millisecond ISO strings. More
   than five minutes of observed/ingested skew switches to receipt ordering;
   more than fifteen minutes blocks exact temporal-order claims.
@@ -140,21 +173,32 @@ candidate ceilings, not archival or graph-compaction substitutes.
   512 MiB scan budget. Larger, unstable, or budget-exhausted files are queued
   and make coverage incomplete. Offline roots produce immutable gap packets and
   preserve the prior cache.
-- Unchanged stat tuples may reuse a prior exact hash only after strict cache
+- Unchanged stat tuples may reuse a prior exact hash only after strict v1 cache
   reconstruction verifies the exact schema and field set, relative raw
   spelling, collision keys and path fingerprint, stat tuple, exact digest
-  format, verification clock, producer chain, and entry ceiling. Unknown fields
-  or an inconsistent entry reject the whole cache; they are never partially
-  reused. This proves cache shape, not file-byte truth: a node-local actor able
-  to forge a format-valid digest and matching stat tuple cannot be detected
-  without reading the file again. Daily full scans therefore must use `--full`,
-  which bypasses the cache. No verified-hash TTL exists yet, so live scheduling
-  and any claim that treats cached hashes as freshly byte-verified remain
-  blocked until a TTL/rehash policy and cache-provenance control are validated.
+  format, original `verified_at`, producer node/source scan/source observation/
+  canonical packet-digest provenance, producer chain, and entry ceiling.
+  Provenance relationships are recomputed where the cache has enough evidence.
+  Unknown/missing fields, a future verification clock, or a scan clock
+  regressing behind cache `updated_at` reject the whole cache. Reuse is at most
+  24 hours; `--cache-ttl-ms` may only reduce that ceiling. Cached reuse preserves
+  the original verification time and provenance instead of refreshing their
+  age. Daily full scans must use `--full`, which bypasses every cache entry; a
+  successful full pass has zero `cached_exact_count` and complete hash coverage.
+  A valid v1 cache keeps only its producer-chain envelope during a full pass;
+  entry rows are not parsed or reused. An unreadable, legacy, or invalid cache
+  does not block the byte pass, but resets the producer chain and reports
+  `cache_chain_state=reset_requires_rebinding`; that packet must not silently
+  join an existing cursor and requires owner-approved node rebinding.
+  A node-local actor able to forge all format-valid cache anchors still cannot
+  be detected without re-reading bytes, so authenticated producer/transport
+  provenance remains a live-activation blocker. Legacy v0 caches fail the
+  strict schema transition and must be rebuilt by a full pass.
 
 ## Compact-state ceiling
 
-Immutable per-scan packets are the observation-history source. The derived
+Immutable per-scan packets plus monthly scan receipts and reconcile event
+batches are the durable observation/receipt surfaces. The derived
 `revision_state.json` intentionally retains at most:
 
 - 1,000 recent event summaries;
@@ -168,19 +212,33 @@ Immutable per-scan packets are the observation-history source. The derived
 and restore state transitions use primary-receipt intervals. Dropped counts are
 explicit under `compaction`, and restore clears stale
 deletion metadata. This prevents five-minute scans from growing and rewriting
-an unbounded observation ledger. The logical/revision graph itself is not yet
-partitioned, and receipts or full reconciliation-event history beyond the
-bounded window are not archived by this MVP. Before live scheduling, add
-monthly immutable receipt/event partitions and graph compaction/checkpoint
-validation, plus the cache TTL noted above.
+an unbounded hot observation ledger.
+
+The private derived projection schema is
+`soulforge.file_activity_life_tree_projection.v1`. It contains stable event and
+lineage IDs, controlled clocks/intervals, and exact content ID/size only for
+private ERP correlation validation. Events are admin-only by default and omit
+relative paths and names. Scanner-produced `erp_upload_event_ref` is always
+`null`; no filename/hash/time inference substitutes for a later authoritative
+ERP adapter. API consumers must continue withholding private node/content
+fields from responses.
+An explicit scanner path/display permission and account ACL policy is still
+required before widening access or activating collection.
 
 As a defensive load boundary—not graph compaction—the reducer rejects state
 above 10,000 node cursors, 100,000 logical files, 500,000 revisions, or 500,000
 node bindings, and the scanner rejects a cache above 100,000 entries. The graph
 ceilings are checked again after each reduction, so one current packet cannot
-cross them. Nothing is silently dropped from the lineage graph; reaching a
-ceiling is an activation/partition blocker that requires archival and a
-validated checkpoint design.
+cross them. Nothing is silently dropped from the lineage graph.
+`storage_bounds` publishes hard limits, current counts, remaining capacity, and
+the exact blocker code for each graph surface. Each reconcile can create a
+size-bounded immutable full-state checkpoint, and `rebuild` can restore only
+that canonical checkpoint. This is not graph compaction: tail replay is
+explicitly unsupported, replay parity has not been proven, and no cursor,
+current head, active binding, unresolved conflict, or revision is evicted. Use
+only the latest reviewed checkpoint. Reaching a graph ceiling remains an exact
+live-activation blocker until archive-before-eviction and
+checkpoint-plus-tail/full-replay parity are implemented and validated.
 
 ## Commands
 
@@ -206,7 +264,8 @@ npm run guild-hall:file-activity -- scan \
   --root /owner-approved/worksite \
   --binding-valid --full --write-outbox
 
-# dry-run reconcile by default; add --apply for the sole state write
+# dry-run reconcile by default; --apply writes immutable partitions/checkpoint
+# and atomically replaces revision state plus the bounded private projection
 npm run guild-hall:file-activity -- reconcile \
   --project P00-000 \
   --binding approved_shared_worksite \
@@ -215,6 +274,15 @@ npm run guild-hall:file-activity -- reconcile \
   --binding-valid --operational-primary \
   --packet _workmeta/P00-000/reports/file_activity/observations/work-pc-01/2026/07/<packet>.json \
   --apply
+
+# checkpoint-only validation is dry-run; add --apply to replace revision_state
+npm run guild-hall:file-activity -- rebuild \
+  --project P00-000 \
+  --binding approved_shared_worksite \
+  --node mac-mini-primary \
+  --node-role always_on_node \
+  --binding-valid --operational-primary \
+  --checkpoint _workmeta/P00-000/reports/file_activity/checkpoints/2026-07/<checkpoint>.json
 ```
 
 The root path is an input-only local binding and is never copied into output.

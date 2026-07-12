@@ -6,16 +6,28 @@ import path from "node:path";
 import process from "node:process";
 
 import {
+  FILE_ACTIVITY_LIFE_TREE_PROJECTION_SCHEMA,
   FILE_OBSERVATION_PACKET_SCHEMA,
+  FILE_RECONCILE_EVENT_SCHEMA,
+  FILE_RECONCILE_RECEIPT_SCHEMA,
   FILE_REVISION_STATE_SCHEMA,
-  reconcileObservationPackets,
+  FILE_REVISION_CHECKPOINT_SCHEMA,
+  canonicalPacketDigest,
+  durableReceiptIdFor,
+  reconcileObservationPacketsWithArtifacts,
+  restoreRevisionStateCheckpoint,
   scanWorkspace,
+  validateDurableReceiptArtifact,
 } from "./file_activity.mjs";
 
 const FILE_ACTIVITY_JSON_BYTE_LIMITS = Object.freeze({
   scan_cache: 64 * 1024 * 1024,
   observation_packet: 64 * 1024 * 1024,
+  receipt_partition: 64 * 1024 * 1024,
+  event_partition: 64 * 1024 * 1024,
+  life_tree_projection: 64 * 1024 * 1024,
   revision_state: 256 * 1024 * 1024,
+  revision_checkpoint: 256 * 1024 * 1024,
 });
 
 const BOOLEAN_FLAGS = new Set(["binding-valid", "operational-primary", "write-outbox", "apply", "full", "json"]);
@@ -37,6 +49,7 @@ const FLAGS_BY_COMMAND = {
     "max-immediate-bytes",
     "byte-budget",
     "max-entries",
+    "cache-ttl-ms",
     "json",
   ]),
   reconcile: new Set([
@@ -52,6 +65,20 @@ const FLAGS_BY_COMMAND = {
     "state-ref",
     "absence-threshold",
     "deletion-grace-ms",
+    "received-at",
+    "json",
+  ]),
+  rebuild: new Set([
+    "repo-root",
+    "project",
+    "binding",
+    "node",
+    "node-role",
+    "binding-valid",
+    "operational-primary",
+    "apply",
+    "checkpoint",
+    "state-ref",
     "json",
   ]),
 };
@@ -85,7 +112,11 @@ async function main() {
     await runScan({ repoRoot, projectCode, workspaceBindingId, nodeId, nodeRole, args });
     return;
   }
-  await runReconcile({ repoRoot, projectCode, workspaceBindingId, nodeId, nodeRole, args });
+  if (command === "reconcile") {
+    await runReconcile({ repoRoot, projectCode, workspaceBindingId, nodeId, nodeRole, args });
+    return;
+  }
+  await runRebuild({ repoRoot, projectCode, workspaceBindingId, nodeId, nodeRole, args });
 }
 
 async function runScan({ repoRoot, projectCode, workspaceBindingId, nodeId, nodeRole, args }) {
@@ -105,11 +136,19 @@ async function runScan({ repoRoot, projectCode, workspaceBindingId, nodeId, node
 
   const writeOutbox = args["write-outbox"] === true;
   const executeScan = async () => {
-    const previousCache = await readJsonIfPresent(
-      cachePath,
-      "file_activity_scan_cache_read_failed",
-      FILE_ACTIVITY_JSON_BYTE_LIMITS.scan_cache,
-    );
+    await assertNoSymlinkPath(repoRoot, cachePath);
+    let cacheReadReset = false;
+    let previousCache = null;
+    try {
+      previousCache = await readJsonIfPresent(
+        cachePath,
+        "file_activity_scan_cache_read_failed",
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.scan_cache,
+      );
+    } catch (error) {
+      if (args.full !== true) throw error;
+      cacheReadReset = true;
+    }
     const scanned = await scanWorkspace({
       projectCode,
       workspaceBindingId,
@@ -124,6 +163,7 @@ async function runScan({ repoRoot, projectCode, workspaceBindingId, nodeId, node
       immediateHashBytes: optionalNumber(args["max-immediate-bytes"]),
       byteBudget: optionalNumber(args["byte-budget"]),
       maxEntries: optionalNumber(args["max-entries"]),
+      verifiedHashTtlMs: optionalNumber(args["cache-ttl-ms"]),
       forceRehash: args.full === true,
       previousCache,
     });
@@ -131,6 +171,8 @@ async function runScan({ repoRoot, projectCode, workspaceBindingId, nodeId, node
     const packetPath = resolveRepoRef(repoRoot, packetRef);
     const packet = { ...scanned.packet, packet_ref: packetRef };
     if (writeOutbox) {
+      await assertNoSymlinkPath(repoRoot, packetPath);
+      await assertNoSymlinkPath(repoRoot, cachePath);
       await writeJsonImmutable(
         packetPath,
         packet,
@@ -144,7 +186,11 @@ async function runScan({ repoRoot, projectCode, workspaceBindingId, nodeId, node
         "file_activity_scan_cache_write_size_limit_exceeded",
       );
     }
-    return { packet, packetRef };
+    return {
+      packet,
+      packetRef,
+      cacheChainState: cacheReadReset ? "reset_requires_rebinding" : scanned.cache_chain_state,
+    };
   };
   const result = writeOutbox
     ? await withNodeLock(lockPath, executeScan)
@@ -156,6 +202,7 @@ async function runScan({ repoRoot, projectCode, workspaceBindingId, nodeId, node
     activation_state: "candidate_not_scheduled",
     write_outbox: writeOutbox,
     full_rehash: args.full === true,
+    cache_chain_state: result.cacheChainState,
     scan_id: result.packet.scan_id,
     packet_ref: result.packetRef,
     project_code: projectCode,
@@ -186,25 +233,85 @@ async function runReconcile({ repoRoot, projectCode, workspaceBindingId, nodeId,
     "observations",
   );
   const packets = [];
+  const durableDuplicates = [];
   for (const packetArg of packetArgs) {
     const packetPath = path.resolve(repoRoot, String(packetArg));
     assertContained(packetPath, allowedPacketRoot, "file_activity_packet_ref_outside_observation_root");
-    packets.push(await readJsonRequired(
+    await assertNoSymlinkPath(repoRoot, packetPath);
+    const packet = await readJsonRequired(
       packetPath,
       "file_activity_packet_read_failed",
       FILE_ACTIVITY_JSON_BYTE_LIMITS.observation_packet,
-    ));
+    );
+    const existingReceipt = await findDurableReceiptForPacket({
+      repoRoot,
+      projectCode,
+      workspaceBindingId,
+      packet,
+    });
+    if (existingReceipt) {
+      durableDuplicates.push(existingReceipt);
+    } else {
+      packets.push(packet);
+    }
   }
 
-  const stateRef = String(args["state-ref"] ?? `_workmeta/${projectCode}/reports/file_activity/revision_state.json`)
-    .split(path.sep)
-    .join("/");
-  if (!stateRef.startsWith(`_workmeta/${projectCode}/reports/file_activity/`) || !stateRef.endsWith(".json")) {
-    throw new Error("file_activity_state_ref_invalid");
-  }
+  const stateRef = mutableStateRef(args["state-ref"], projectCode);
   const statePath = resolveRepoRef(repoRoot, stateRef);
   const allowedStateRoot = path.resolve(repoRoot, "_workmeta", projectCode, "reports", "file_activity");
   assertContained(statePath, allowedStateRoot, "file_activity_state_ref_outside_project_root");
+  const receivedAt = String(args["received-at"] ?? new Date().toISOString());
+
+  if (durableDuplicates.length > 0 && packets.length === 0) {
+    if (
+      args["binding-valid"] !== true
+      || args["operational-primary"] !== true
+      || nodeRole !== "always_on_node"
+    ) {
+      throw new Error("file_activity_reconcile_requires_operational_primary_always_on_node");
+    }
+    await assertNoSymlinkPath(repoRoot, statePath);
+    const previousState = await readJsonIfPresent(
+      statePath,
+      "file_activity_revision_state_read_failed",
+      FILE_ACTIVITY_JSON_BYTE_LIMITS.revision_state,
+    );
+    if (!previousState) throw new Error("file_activity_durable_receipt_state_missing");
+    const validated = reconcileObservationPacketsWithArtifacts({
+      projectCode,
+      workspaceBindingId,
+      reconcilerNodeId: nodeId,
+      reconcilerNodeRole: nodeRole,
+      bindingValid: true,
+      operationalPrimary: true,
+      receivedAt,
+      previousState,
+      packets: [],
+    });
+    printJson({
+      schema_version: FILE_REVISION_STATE_SCHEMA,
+      status: "durable_receipt_duplicate_noop",
+      activation_state: "candidate_not_scheduled",
+      apply: args.apply === true,
+      project_code: projectCode,
+      workspace_binding_id: workspaceBindingId,
+      state_ref: stateRef,
+      counts: validated.state.counts,
+      storage_bounds: validated.state.storage_bounds,
+      durable_duplicate_count: durableDuplicates.length,
+      receipt_ids: durableDuplicates.map((entry) => entry.receipt_id).sort(),
+      side_effects: {
+        state_written: false,
+        receipt_partition_written: false,
+        event_partition_written: false,
+        checkpoint_written: false,
+        life_tree_projection_written: false,
+        live_scheduler_enabled: false,
+        transport_enabled: false,
+      },
+    });
+    return;
+  }
   const lockPath = path.join(
     repoRoot,
     "guild_hall",
@@ -219,37 +326,125 @@ async function runReconcile({ repoRoot, projectCode, workspaceBindingId, nodeId,
 
   const apply = args.apply === true;
   const executeReconcile = async () => {
+    await assertNoSymlinkPath(repoRoot, statePath);
     const previousState = await readJsonIfPresent(
       statePath,
       "file_activity_revision_state_read_failed",
       FILE_ACTIVITY_JSON_BYTE_LIMITS.revision_state,
     );
-    const reconciled = reconcileObservationPackets({
+    const reconciled = reconcileObservationPacketsWithArtifacts({
       projectCode,
       workspaceBindingId,
       reconcilerNodeId: nodeId,
       reconcilerNodeRole: nodeRole,
       bindingValid: args["binding-valid"] === true,
       operationalPrimary: args["operational-primary"] === true,
-      receivedAt: new Date().toISOString(),
+      receivedAt,
       previousState,
       packets,
       absenceThreshold: optionalNumber(args["absence-threshold"]),
       deletionGraceMs: optionalNumber(args["deletion-grace-ms"]),
     });
     if (apply) {
-      await writeJsonAtomic(
-        statePath,
-        reconciled,
+      const artifactPaths = {
+        receipts: reconciled.artifacts.refs.receipt_refs.map((ref) => resolveRepoRef(repoRoot, ref)),
+        event: resolveRepoRef(repoRoot, reconciled.artifacts.refs.event_ref),
+        checkpoint: resolveRepoRef(repoRoot, reconciled.artifacts.refs.checkpoint_ref),
+        projection: resolveRepoRef(repoRoot, reconciled.artifacts.refs.projection_ref),
+      };
+      for (const artifactPath of [...artifactPaths.receipts, artifactPaths.event, artifactPaths.checkpoint, artifactPaths.projection]) {
+        assertContained(artifactPath, allowedStateRoot, "file_activity_artifact_ref_outside_project_root");
+        await assertNoSymlinkPath(repoRoot, artifactPath);
+      }
+      await assertNoSymlinkPath(repoRoot, statePath);
+      for (const artifact of reconciled.artifacts.receipt_artifacts) {
+        serializeJsonWithinLimit(
+          artifact.value,
+          FILE_ACTIVITY_JSON_BYTE_LIMITS.receipt_partition,
+          "file_activity_receipt_partition_write_size_limit_exceeded",
+        );
+      }
+      serializeJsonWithinLimit(
+        reconciled.artifacts.event_partition,
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.event_partition,
+        "file_activity_event_partition_write_size_limit_exceeded",
+      );
+      serializeJsonWithinLimit(
+        reconciled.artifacts.checkpoint,
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.revision_checkpoint,
+        "file_activity_revision_checkpoint_write_size_limit_exceeded",
+      );
+      serializeJsonWithinLimit(
+        reconciled.artifacts.projection,
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.life_tree_projection,
+        "file_activity_life_tree_projection_write_size_limit_exceeded",
+      );
+      serializeJsonWithinLimit(
+        reconciled.state,
         FILE_ACTIVITY_JSON_BYTE_LIMITS.revision_state,
         "file_activity_revision_state_write_size_limit_exceeded",
       );
+      for (let index = 0; index < reconciled.artifacts.receipt_artifacts.length; index += 1) {
+        await assertJsonImmutableCompatible(
+          artifactPaths.receipts[index],
+          reconciled.artifacts.receipt_artifacts[index].value,
+          FILE_ACTIVITY_JSON_BYTE_LIMITS.receipt_partition,
+          "file_activity_receipt_partition_write_size_limit_exceeded",
+        );
+      }
+      await assertJsonImmutableCompatible(
+        artifactPaths.event,
+        reconciled.artifacts.event_partition,
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.event_partition,
+        "file_activity_event_partition_write_size_limit_exceeded",
+      );
+      await assertJsonImmutableCompatible(
+        artifactPaths.checkpoint,
+        reconciled.artifacts.checkpoint,
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.revision_checkpoint,
+        "file_activity_revision_checkpoint_write_size_limit_exceeded",
+      );
+      await writeJsonImmutableIdempotent(
+        artifactPaths.event,
+        reconciled.artifacts.event_partition,
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.event_partition,
+        "file_activity_event_partition_write_size_limit_exceeded",
+      );
+      await writeJsonImmutableIdempotent(
+        artifactPaths.checkpoint,
+        reconciled.artifacts.checkpoint,
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.revision_checkpoint,
+        "file_activity_revision_checkpoint_write_size_limit_exceeded",
+      );
+      await writeJsonAtomic(
+        statePath,
+        reconciled.state,
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.revision_state,
+        "file_activity_revision_state_write_size_limit_exceeded",
+      );
+      await writeJsonAtomic(
+        artifactPaths.projection,
+        reconciled.artifacts.projection,
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.life_tree_projection,
+        "file_activity_life_tree_projection_write_size_limit_exceeded",
+      );
+      // Durable receipts are the terminal commit markers. They are published only
+      // after every immutable artifact and both mutable consumers are durable.
+      for (let index = 0; index < reconciled.artifacts.receipt_artifacts.length; index += 1) {
+        await writeJsonImmutableIdempotent(
+          artifactPaths.receipts[index],
+          reconciled.artifacts.receipt_artifacts[index].value,
+          FILE_ACTIVITY_JSON_BYTE_LIMITS.receipt_partition,
+          "file_activity_receipt_partition_write_size_limit_exceeded",
+        );
+      }
     }
     return reconciled;
   };
-  const state = apply
+  const reconciled = apply
     ? await withNodeLock(lockPath, executeReconcile)
     : await executeReconcile();
+  const { state, artifacts } = reconciled;
 
   printJson({
     schema_version: FILE_REVISION_STATE_SCHEMA,
@@ -257,10 +452,101 @@ async function runReconcile({ repoRoot, projectCode, workspaceBindingId, nodeId,
     activation_state: "candidate_not_scheduled",
     apply,
     state_ref: stateRef,
+    reconcile_id: artifacts.reconcile_id,
+    artifact_refs: artifacts.refs,
+    artifact_schemas: {
+      receipt: FILE_RECONCILE_RECEIPT_SCHEMA,
+      event: FILE_RECONCILE_EVENT_SCHEMA,
+      checkpoint: FILE_REVISION_CHECKPOINT_SCHEMA,
+      projection: FILE_ACTIVITY_LIFE_TREE_PROJECTION_SCHEMA,
+    },
+    durable_duplicate_count: durableDuplicates.length,
     project_code: projectCode,
     workspace_binding_id: workspaceBindingId,
     reconciler: state.reconciler,
     counts: state.counts,
+    boundary: state.boundary,
+    side_effects: {
+      state_written: apply,
+      receipt_partition_written: apply,
+      event_partition_written: apply,
+      checkpoint_written: apply,
+      life_tree_projection_written: apply,
+      live_scheduler_enabled: false,
+      transport_enabled: false,
+    },
+  });
+}
+
+async function runRebuild({ repoRoot, projectCode, workspaceBindingId, nodeId, nodeRole, args }) {
+  if (
+    args["binding-valid"] !== true
+    || args["operational-primary"] !== true
+    || nodeRole !== "always_on_node"
+  ) {
+    throw new Error("file_activity_rebuild_requires_operational_primary_always_on_node");
+  }
+  const checkpointRef = normalizeProjectArtifactRef(
+    requireArg(args, "checkpoint"),
+    projectCode,
+    "checkpoints",
+    "file_activity_checkpoint_ref_invalid",
+  );
+  const checkpointPath = resolveRepoRef(repoRoot, checkpointRef);
+  const checkpointRoot = path.resolve(repoRoot, "_workmeta", projectCode, "reports", "file_activity", "checkpoints");
+  assertContained(checkpointPath, checkpointRoot, "file_activity_checkpoint_ref_outside_checkpoint_root");
+  await assertNoSymlinkPath(repoRoot, checkpointPath);
+  const checkpoint = await readJsonRequired(
+    checkpointPath,
+    "file_activity_revision_checkpoint_read_failed",
+    FILE_ACTIVITY_JSON_BYTE_LIMITS.revision_checkpoint,
+  );
+  const state = restoreRevisionStateCheckpoint(checkpoint, {
+    projectCode,
+    workspaceBindingId,
+    reconcilerNodeId: nodeId,
+  });
+  const stateRef = mutableStateRef(args["state-ref"], projectCode);
+  const statePath = resolveRepoRef(repoRoot, stateRef);
+  const allowedStateRoot = path.resolve(repoRoot, "_workmeta", projectCode, "reports", "file_activity");
+  assertContained(statePath, allowedStateRoot, "file_activity_state_ref_outside_project_root");
+  const apply = args.apply === true;
+  if (apply) {
+    const lockPath = path.join(
+      repoRoot,
+      "guild_hall",
+      "state",
+      "local",
+      "file_activity",
+      projectCode,
+      workspaceBindingId,
+      nodeId,
+      "reconcile.lock",
+    );
+    await withNodeLock(lockPath, async () => {
+      await assertNoSymlinkPath(repoRoot, statePath);
+      await writeJsonAtomic(
+        statePath,
+        state,
+        FILE_ACTIVITY_JSON_BYTE_LIMITS.revision_state,
+        "file_activity_revision_state_write_size_limit_exceeded",
+      );
+    });
+  }
+  printJson({
+    schema_version: FILE_REVISION_STATE_SCHEMA,
+    checkpoint_schema_version: FILE_REVISION_CHECKPOINT_SCHEMA,
+    status: apply ? "rebuilt_from_checkpoint" : "dry_run_rebuild_no_write",
+    activation_state: "candidate_not_scheduled",
+    apply,
+    checkpoint_ref: checkpointRef,
+    checkpoint_id: checkpoint.checkpoint_id,
+    state_ref: stateRef,
+    project_code: projectCode,
+    workspace_binding_id: workspaceBindingId,
+    reconciler: state.reconciler,
+    counts: state.counts,
+    storage_bounds: state.storage_bounds,
     boundary: state.boundary,
     side_effects: {
       state_written: apply,
@@ -316,6 +602,56 @@ async function writeJsonImmutable(filePath, value, maxBytes, sizeErrorCode) {
   }
 }
 
+async function writeJsonImmutableIdempotent(filePath, value, maxBytes, sizeErrorCode) {
+  const serialized = serializeJsonWithinLimit(value, maxBytes, sizeErrorCode);
+  const existing = await readTextIfPresent(filePath, maxBytes);
+  if (existing !== null) {
+    if (existing === serialized) return;
+    throw new Error("file_activity_immutable_artifact_conflict");
+  }
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  const temporaryPath = `${filePath}.tmp-${randomBytes(8).toString("hex")}`;
+  try {
+    await fs.writeFile(temporaryPath, serialized, { encoding: "utf8", mode: 0o600 });
+    await fs.link(temporaryPath, filePath);
+    await fs.rm(temporaryPath, { force: true });
+  } catch (error) {
+    await fs.rm(temporaryPath, { force: true }).catch(() => {});
+    if (error?.code === "EEXIST") {
+      const racedExisting = await readTextIfPresent(filePath, maxBytes);
+      if (racedExisting === serialized) return;
+      throw new Error("file_activity_immutable_artifact_conflict");
+    }
+    throw new Error("file_activity_atomic_artifact_write_failed");
+  }
+}
+
+async function assertJsonImmutableCompatible(filePath, value, maxBytes, sizeErrorCode) {
+  const serialized = serializeJsonWithinLimit(value, maxBytes, sizeErrorCode);
+  const existing = await readTextIfPresent(filePath, maxBytes);
+  if (existing !== null && existing !== serialized) {
+    throw new Error("file_activity_immutable_artifact_conflict");
+  }
+}
+
+async function readTextIfPresent(filePath, maxBytes) {
+  let fileStat;
+  try {
+    fileStat = await fs.lstat(filePath);
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw new Error("file_activity_immutable_artifact_read_failed");
+  }
+  if (!fileStat.isFile() || fileStat.isSymbolicLink() || fileStat.size > maxBytes) {
+    throw new Error("file_activity_immutable_artifact_read_failed");
+  }
+  const raw = await fs.readFile(filePath, "utf8");
+  if (Buffer.byteLength(raw, "utf8") > maxBytes) {
+    throw new Error("file_activity_immutable_artifact_read_failed");
+  }
+  return raw;
+}
+
 async function readJsonIfPresent(filePath, errorCode, maxBytes) {
   try {
     await fs.access(filePath, fsConstants.F_OK);
@@ -328,11 +664,11 @@ async function readJsonIfPresent(filePath, errorCode, maxBytes) {
 async function readJsonRequired(filePath, errorCode, maxBytes) {
   let fileStat;
   try {
-    fileStat = await fs.stat(filePath);
+    fileStat = await fs.lstat(filePath);
   } catch {
     throw new Error(errorCode);
   }
-  if (!fileStat.isFile() || fileStat.size > maxBytes) {
+  if (!fileStat.isFile() || fileStat.isSymbolicLink() || fileStat.size > maxBytes) {
     throw new Error(`${errorCode}_size_limit_exceeded`);
   }
   try {
@@ -355,11 +691,107 @@ function serializeJsonWithinLimit(value, maxBytes, errorCode) {
 
 async function assertProjectWorkmetaExists(repoRoot, projectCode) {
   const projectRoot = path.resolve(repoRoot, "_workmeta", projectCode);
+  await assertNoSymlinkPath(repoRoot, projectRoot);
   try {
-    const stat = await fs.stat(projectRoot);
-    if (!stat.isDirectory()) throw new Error();
+    const stat = await fs.lstat(projectRoot);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error();
   } catch {
     throw new Error("file_activity_project_workmeta_missing");
+  }
+}
+
+async function findDurableReceiptForPacket({ repoRoot, projectCode, workspaceBindingId, packet }) {
+  const receiptId = durableReceiptIdFor({
+    projectCode,
+    workspaceBindingId,
+    scanId: packet?.scan_id,
+  });
+  const receiptRoot = path.resolve(repoRoot, "_workmeta", projectCode, "reports", "file_activity", "receipts");
+  await assertNoSymlinkPath(repoRoot, receiptRoot);
+  let monthEntries;
+  try {
+    monthEntries = await fs.readdir(receiptRoot, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw new Error("file_activity_durable_receipt_partition_read_failed");
+  }
+  if (monthEntries.length > 240) throw new Error("file_activity_durable_receipt_month_limit_exceeded");
+  const receiptFileName = `${receiptId.slice("receipt:".length)}.json`;
+  const matches = [];
+  for (const entry of monthEntries.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (!entry.isDirectory() || !/^\d{4}-\d{2}$/u.test(entry.name)) {
+      throw new Error("file_activity_durable_receipt_partition_layout_invalid");
+    }
+    const candidatePath = path.join(receiptRoot, entry.name, receiptFileName);
+    const raw = await readJsonIfPresent(
+      candidatePath,
+      "file_activity_durable_receipt_read_failed",
+      FILE_ACTIVITY_JSON_BYTE_LIMITS.receipt_partition,
+    );
+    if (!raw) continue;
+    matches.push(validateDurableReceiptArtifact(raw, { projectCode, workspaceBindingId }));
+  }
+  if (matches.length > 1) throw new Error("file_activity_durable_receipt_duplicate_partition_conflict");
+  if (matches.length === 0) return null;
+  const receipt = matches[0];
+  const packetDigest = canonicalPacketDigest(packet);
+  if (receipt.packet_digest !== packetDigest) throw new Error("file_activity_scan_digest_conflict");
+  if (
+    receipt.scan_id !== packet.scan_id
+    || receipt.node_id !== packet.node_id
+    || receipt.node_role !== packet.node_role
+    || receipt.node_sequence !== packet.node_sequence
+    || receipt.packet_observed_at !== packet.observed_at
+    || receipt.packet_ingested_at !== packet.ingested_at
+  ) {
+    throw new Error("file_activity_durable_receipt_packet_mismatch");
+  }
+  return receipt;
+}
+
+function mutableStateRef(value, projectCode) {
+  const leaf = value === undefined
+    ? "revision_state.json"
+    : String(value).replace(`_workmeta/${projectCode}/reports/file_activity/`, "");
+  if (
+    !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json$/u.test(leaf)
+    || leaf.includes("..")
+    || String(value ?? "").includes("\\")
+  ) {
+    throw new Error("file_activity_state_ref_invalid");
+  }
+  return `_workmeta/${projectCode}/reports/file_activity/${leaf}`;
+}
+
+function normalizeProjectArtifactRef(value, projectCode, partition, errorCode) {
+  const normalized = String(value).normalize("NFC");
+  const prefix = `_workmeta/${projectCode}/reports/file_activity/${partition}/`;
+  const suffix = normalized.slice(prefix.length);
+  if (
+    !normalized.startsWith(prefix)
+    || normalized.includes("\\")
+    || /[\u0000-\u001f\u007f]/u.test(normalized)
+    || !/^\d{4}-\d{2}\/[a-f0-9]{64}\.json$/u.test(suffix)
+  ) {
+    throw new Error(errorCode);
+  }
+  return normalized;
+}
+
+async function assertNoSymlinkPath(rootPath, candidatePath) {
+  assertContained(candidatePath, rootPath, "file_activity_write_ref_outside_project_root");
+  const relative = path.relative(rootPath, candidatePath);
+  let current = rootPath;
+  for (const segment of [null, ...relative.split(path.sep).filter(Boolean)]) {
+    if (segment !== null) current = path.join(current, segment);
+    try {
+      const stat = await fs.lstat(current);
+      if (stat.isSymbolicLink()) throw new Error("file_activity_write_symlink_path_blocked");
+    } catch (error) {
+      if (error?.code === "ENOENT") return;
+      if (error?.message === "file_activity_write_symlink_path_blocked") throw error;
+      throw new Error("file_activity_write_path_check_failed");
+    }
   }
 }
 
@@ -445,13 +877,15 @@ function printJson(value) {
 function printUsage(exitCode) {
   const lines = [
     "Usage:",
-    "  node guild_hall/file_activity/cli.mjs scan --project <code> --binding <id> --node <id> --node-role <role> --root <dir> --binding-valid [--operational-primary] [--write-outbox] [--full] [limits/times]",
-    "  node guild_hall/file_activity/cli.mjs reconcile --project <code> --binding <id> --node <id> --node-role always_on_node --binding-valid --operational-primary --packet <_workmeta/...json>... [--apply] [--state-ref <_workmeta/...json>]",
+    "  node guild_hall/file_activity/cli.mjs scan --project <code> --binding <id> --node <id> --node-role <role> --root <dir> --binding-valid [--operational-primary] [--write-outbox] [--full] [--cache-ttl-ms <=86400000] [limits/times]",
+    "  node guild_hall/file_activity/cli.mjs reconcile --project <code> --binding <id> --node <id> --node-role always_on_node --binding-valid --operational-primary --packet <_workmeta/...json>... [--apply] [--received-at <UTC>] [--state-ref <leaf.json>]",
+    "  node guild_hall/file_activity/cli.mjs rebuild --project <code> --binding <id> --node <id> --node-role always_on_node --binding-valid --operational-primary --checkpoint <_workmeta/.../checkpoints/YYYY-MM/id.json> [--apply] [--state-ref <leaf.json>]",
     "",
     "Roles: work_pc | tool_pc | portable_dev_pc | always_on_node",
-    "Dry-run is the default. --write-outbox writes an immutable packet/cache; --apply writes revision state.",
+    "Dry-run is the default. --write-outbox writes an immutable packet/cache; reconcile --apply writes partitions/checkpoint/projection/state; rebuild --apply restores checkpoint state only.",
     "Durable metadata stays below _workmeta/<project>/reports/file_activity/**; local locks/cache stay below guild_hall/state/local/file_activity/**.",
     "The always-on operational primary is the sole revision-state reconciler.",
+    "Checkpoint rebuild does not replay a tail and is not graph compaction; use the latest reviewed checkpoint only.",
     "ERP input_upload events are a separate authoritative adapter and are not scanner observations.",
     "This CLI is an activation candidate only; it does not install a scheduler, watcher, or transport.",
   ];
