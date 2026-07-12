@@ -14,7 +14,9 @@ Canonical runtime data:
 - Live app and DB: `<runtime-root>\ui-workspace\apps\dev-erp`
 - Live DB: `<runtime-root>\ui-workspace\apps\dev-erp\data\dev-erp.db`
 - Local runtime logs: `<runtime-root>\ui-workspace\apps\dev-erp\logs`
+- Runtime supplemental data: `<runtime-root>\DATA`
 - NAS backup root: `<nas-root>`
+- Additive runtime-data backup: `<nas-root>\RUNTIME_DATA_BACKUP`
 - Canonical DB backup namespace: `<nas-root>\01_db_backups`
 - Restore-test reports: `<nas-root>\02_restore_tests`
 - Coherent Codex payload generations: `<nas-root>\03_codex_payload_backups`
@@ -360,6 +362,20 @@ Retention target:
 
 The `latest/runtime_live` copy is for quick restore. Scheduled stamped backup
 folders are the history.
+
+The `DATA` backup is additive and copy-only. It does not replace the existing
+SQLite-safe DB backup, restore test, coherent Codex payload backup, workspace
+mirror, workmeta backup, or release backup. Do not use delete, purge, or mirror
+semantics. Secrets, Codex home/auth material, private keys, and the live SQLite
+DB must not enter this backup. Preserve the previous runtime checkout as rollback
+until the new runtime path, DATA copy, DB restore, and ERP health checks pass and
+the owner separately approves cleanup.
+
+Run the bounded copy helper manually or from a dedicated scheduled task:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\backup-runtime-data.ps1 -Source <runtime-root>\DATA -Destination <nas-root>\RUNTIME_DATA_BACKUP -Json
+```
 
 ## Update Procedure
 

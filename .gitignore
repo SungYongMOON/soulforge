@@ -15,6 +15,9 @@ _workspaces/**
 
 /_workmeta/
 
+# Runtime-checkout local ERP file data. Never publish this payload through Git.
+/DATA/
+
 guild_hall/state/**
 !guild_hall/state/README.md
 

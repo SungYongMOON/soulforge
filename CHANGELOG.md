@@ -10,6 +10,15 @@
   고정했다. `charge_breaker` 전환은 blocker와 다음 직접 변경이 모두 명확할 때만
   허용하며 model/MCP/tool runtime owner는 바꾸지 않았다. (worker: codex_gpt-5)
 
+### dev-ERP runtime DATA 최소 저장·백업 경계
+
+- 운영 checkout 최상위에 Git 제외 `DATA/` 보조 파일 영역을 허용하고, 기존 DB·
+  복구검증·Codex payload·workspace·workmeta·release 백업은 유지한 채 copy-only
+  DATA 백업만 추가하도록 경계를 고정했다. 기존 runtime은 전환 검증과 별도 정리
+  승인 전까지 rollback으로 보존한다. secret-like 파일명, live SQLite와 reparse
+  point를 제외하고 delete/purge 없이 복사하는 전용 helper도 추가했다.
+  (worker: codex_gpt-5)
+
 ### dev-ERP 과제 생명수 시간축과 할일 검토 게이트
 
 - 받은·보낸 메일, ERP 작업, SE 예정, 수락된 음성 인입, Codex 사용자 지시,

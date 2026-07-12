@@ -105,9 +105,16 @@ Soulforge 정본 구조의 authority 는 아니다.
 - 개발 checkout: `<dev-checkout>`
 - 운영 checkout: `<runtime-checkout>`
 - 앱 루트: `ui-workspace/apps/dev-erp`
+- 선택적 runtime 보조 파일 영역: `<runtime-checkout>\DATA`
 
 `<dev-checkout>` 는 개발, 패치, 검토, commit/push 의 자리다. `<runtime-checkout>`
 은 승인된 commit 을 받아 실제 서버 프로세스를 돌리는 자리다.
+
+`<runtime-checkout>\DATA`는 ERP가 추가로 관리해야 하는 파일이 생길 때만 쓰는
+runtime-local 보조 영역이다. 기존 Soulforge `_workspaces`, Codex message/attachment
+payload owner, runtime SQLite, secret/Codex home 경계를 옮기지 않는다. 이 폴더는
+Git에서 제외하며 기존 DB·payload·workspace 백업을 유지한 채 별도 copy-only
+백업만 추가한다.
 
 ## 2. 권한 경계
 
