@@ -2,18 +2,20 @@ skill_id: shield_wall
 kind: skill
 status: active
 title: Shield Wall
-summary: Stabilize the frontline before advancing or widening scope.
+summary: Stabilize one unresolved boundary before advancing or widening scope.
 behavior:
-  intent: Reduce risk and establish a safe boundary before forward action.
+  intent: Resolve the boundary question blocking safe action without expanding into a general audit.
   use_when:
     - uncertainty is high
     - boundary violations are still being localized
     - the next change path is not yet safe
   avoid_when:
     - the fix path is already clear and low-risk
+    - no unresolved boundary question blocks safe action
   expected_outcome:
-    - the active boundary is understood
+    - one active boundary question is understood or its blocker is explicit
     - the safest next step is explicit
+    - inspection ends without widening into a general audit
 execution_requirements:
   required_capabilities:
     - boundary_review
@@ -30,3 +32,4 @@ execution_requirements:
 notes:
   - "`shield_wall` is the canonical skill behind `knight.frontline_guard`."
   - "behavior is canon; runtime tool selection belongs to the execution layer."
+  - "When the path becomes clear and low-risk, leave `shield_wall` and continue through normal scoped action; use `charge_breaker` only when a localized blocker remains and the next direct change is clear."

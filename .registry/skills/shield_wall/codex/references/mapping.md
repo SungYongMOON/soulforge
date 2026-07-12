@@ -10,10 +10,12 @@
 ## Output shape
 
 - `Applied skill: soulforge-shield-wall`
-- `Boundary check: ...`
+- `Boundary check: <one active boundary question plus inspected and excluded scope>`
+- `Decision: shield_wall_not_needed | safe_to_act | no_change | blocked`
 - `Safest next step: ...`
 
 ## Boundary note
 
 - Detailed mapping lives here so `codex/SKILL.md` can stay lean.
+- Inspection must stop once the named boundary is understood or its blocker is explicit.
 - Actual model, MCP, tool, and installed skill selection remain runtime binding concerns.

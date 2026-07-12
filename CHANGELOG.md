@@ -1,5 +1,15 @@
 # CHANGELOG
 
+### Shield Wall 호출 기준과 검토 종료선 정렬
+
+- `soulforge-shield-wall` Codex bridge의 암시 호출 조건을 정본의 높은 불확실성,
+  경계 위반 국소화 중, 안전하지 않은 다음 변경 경로에 맞추고, 이미 명확하고
+  저위험한 수정이나 미해결 경계가 없는 일반 검토·편집은 제외했다.
+- 한 번의 실행을 활성 경계 질문 하나와 이를 해소하는 최소 증거로 제한하고,
+  경계 또는 blocker가 명확해지면 일반 scoped action으로 돌아가도록 종료선을
+  고정했다. `charge_breaker` 전환은 blocker와 다음 직접 변경이 모두 명확할 때만
+  허용하며 model/MCP/tool runtime owner는 바꾸지 않았다. (worker: codex_gpt-5)
+
 ### dev-ERP 과제 생명수 시간축과 할일 검토 게이트
 
 - 받은·보낸 메일, ERP 작업, SE 예정, 수락된 음성 인입, Codex 사용자 지시,

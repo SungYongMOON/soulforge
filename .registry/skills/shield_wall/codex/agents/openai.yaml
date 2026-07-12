@@ -1,7 +1,7 @@
 interface:
   display_name: "Shield Wall"
-  short_description: "Boundary-first review and stabilization"
-  default_prompt: "Use $soulforge-shield-wall to inspect the current boundary before making changes."
+  short_description: "Bound one unresolved risk before action"
+  default_prompt: "Use $soulforge-shield-wall only when one unresolved boundary blocks safe action; inspect the minimum evidence needed and stop when the boundary or blocker is explicit."
 
 dependencies:
   tools:
