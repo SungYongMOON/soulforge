@@ -467,6 +467,49 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .trunk-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
 #trunkMapSvg { touch-action: none; user-select: none; } /* 드래그 중 화면 스크롤·텍스트 선택 차단 */
 #trunkMapSvg .drop-ok rect { stroke: var(--accent, #1f48d4); stroke-width: 3; } /* 드롭 가능 게이트 하이라이트 */
+.life-filter-details { margin: 8px 0 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); min-width: 0; }
+.life-filter-details > summary { cursor: pointer; font-size: 12px; font-weight: 700; }
+.life-filter-row, .life-filter-lanes { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; min-width: 0; }
+.life-filter-row label { display: inline-flex; align-items: center; gap: 6px; }
+.life-filter-row select { min-height: 30px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); }
+.life-role-fixed { padding: 3px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 11px; }
+.life-filter-lanes > span:first-child { margin-right: 2px; color: var(--muted); font-size: 11px; }
+.life-live-status { padding: 18px 12px; text-align: center; color: var(--muted); }
+.life-tree-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 12px; align-items: start; min-width: 0; }
+.life-tree-main, .life-contexts { display: grid; gap: 8px; min-width: 0; }
+.life-day, .life-context, .life-story { min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overflow: hidden; }
+.life-day.undated { border-style: dashed; }
+.life-day > summary, .life-context > summary, .life-story > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 11px; cursor: pointer; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.life-day > summary > :first-child, .life-context > summary > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.life-day > summary small, .life-context > summary small { flex: 0 0 auto; color: var(--muted); font-weight: 500; }
+.life-contexts { padding: 0 9px 9px; }
+.life-context { background: var(--bg); }
+.life-context.needs-review { border-style: dashed; }
+.life-context > .life-open-story, .life-context > .life-evidence { margin: 0 10px 8px; }
+.life-event-list { display: grid; gap: 7px; margin: 0; padding: 0 9px 9px; list-style: none; min-width: 0; }
+.life-event { display: grid; gap: 6px; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--panel); overflow-wrap: anywhere; }
+.life-event.needs-review { border-left-color: var(--danger); border-style: dashed; }
+.life-event header, .life-event-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; min-width: 0; }
+.life-event header > span { color: var(--muted); font-size: 10.5px; }
+.life-lane-badge, .life-role-badge { display: inline-flex; align-items: center; max-width: 100%; padding: 2px 6px; border: 1px solid var(--line); border-radius: 999px; background: var(--chip); color: var(--text) !important; overflow-wrap: anywhere; }
+.life-event-title { font-size: 13px; line-height: 1.45; }
+.life-event-time { display: flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: 11px; }
+.life-evidence { padding: 7px 8px; border-radius: 7px; background: color-mix(in srgb, var(--danger) 8%, var(--bg)); color: var(--muted); font-size: 11px; }
+.life-evidence strong { display: block; margin-bottom: 3px; color: var(--text); }
+.life-evidence ul { margin: 0; padding-left: 18px; }
+.life-event-actions button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.life-story-panel:empty { display: none; }
+.life-story-panel { min-width: 0; }
+.life-story { margin-bottom: 2px; }
+.life-story > :not(summary) { margin-left: 10px; margin-right: 10px; }
+.life-coverage { min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.life-coverage h4 { margin: 0 0 8px; }
+.life-coverage-alert { margin-bottom: 8px; padding: 7px 8px; border-radius: 7px; background: color-mix(in srgb, var(--danger) 8%, var(--bg)); }
+.life-coverage-alert p { margin: 2px 0; font-size: 11px; overflow-wrap: anywhere; }
+.life-coverage ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.life-coverage li { min-width: 0; padding-top: 7px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.life-coverage li > div { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.life-coverage li span, .life-coverage li small { display: block; color: var(--muted); font-size: 10.5px; }
 .pager-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin: 8px 0; }
 .pager-row .fav-chip:disabled { opacity: .45; cursor: default; }
 /* 메일 등록 폼(베타1) */
@@ -1285,6 +1328,7 @@ nav button[disabled]:hover { background: transparent; }
   .mail-subj { max-width: 72vw; }
   .mail-from { max-width: 44vw; }
   .mail-meta { max-width: 100%; }
+  .life-tree-layout { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 640px) {
@@ -1339,6 +1383,17 @@ nav button[disabled]:hover { background: transparent; }
   .widget-head { padding: 8px 10px; }
   .widget-ctrls { gap: 2px; }
   .wfold, .wdots, .wrefresh, .wpop, .wcreate { padding: 4px 5px; }
+  .life-filter-details { padding: 7px 8px; }
+  .life-filter-row, .life-filter-lanes { align-items: stretch; }
+  .life-filter-row label { width: 100%; justify-content: space-between; }
+  .life-filter-row select { max-width: 120px; }
+  .life-filter-lanes > span:first-child { flex: 1 0 100%; }
+  .life-lane-filter { flex: 1 1 calc(50% - 6px); min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+  .life-day > summary, .life-context > summary { align-items: flex-start; padding: 8px 9px; }
+  .life-contexts { padding: 0 6px 7px; }
+  .life-event-list { padding: 0 6px 7px; }
+  .life-event { padding: 8px; }
+  .life-coverage li > div { align-items: flex-start; flex-direction: column; }
 
   .chat-overlay {
     left: max(8px, env(safe-area-inset-left));

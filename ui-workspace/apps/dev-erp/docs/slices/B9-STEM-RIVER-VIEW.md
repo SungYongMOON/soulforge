@@ -1,6 +1,6 @@
 # B9 — 줄기 강(江) 뷰: 맥락 그래프의 목표 모양 (owner 비전 정본)
 
-- 상태: 설계 정본 (2026-07-06 owner 구술 → claude_fable-5 정리). B9a·B9b core·B9c 구현 완료, B9d 대기.
+- 상태: 설계 정본 (2026-07-06 owner 구술 → claude_fable-5 정리). B9a·B9b core·B9c 구현 완료, B9d 대기. ENGINE-12가 기존 화면에 별도 다섯 번째 `일일 생명수` 렌즈를 추가하되 B9 장기 지도와 B9d 순서는 바꾸지 않는다.
 - 상위 정본: `STEM-V2-ONTOLOGY.md` (골격/작업/이력 3종, 연결 등급, 드래그=사람 확정 — 전부 그대로 유효. 본 패킷은 온톨로지가 아니라 **읽는 모양**의 정본)
 - 관계: B8(지도 v2, 방사형)은 "무엇이 얼마나 쌓였나" 조감 입구로 유지. 맥락(이야기)을 읽는 주 표면은 본 패킷의 뷰가 맡는다.
 
@@ -68,6 +68,9 @@
    - **도구 결정(2026-07-07)**: 문제는 도구가 아니라 레이아웃 모델 — 시간축 레인은 결정적 배치라 vanilla SVG 로 충분. d3 등 vendored 라이브러리 도입은 B9b 구현 중 zoom/pan/링크 곡선이 손으로 감당 안 될 때만 재검토(오프라인 파일 내장 전제, zero-dep 철학 예외는 owner 승인 필요).
 3. **B9c 진단 뷰 (§4) — done 2026-07-11(codex_gpt-5)**: `/api/context/graph` 응답에 `dev_erp.context_diagnostics.v1`을 일괄 파생해 네 번째 `진단` 렌즈로 표시. 기록 밀도는 B9a와 같은 실일시(`sources.source_time`/과제 exact `core_mail.at`)와 사람 확정 item 이벤트만 쓰고 Asia/Seoul 업무일 기준 최근 52주를 cap+truncated로 표시한다. 사람 표는 담당 가지·사람 이벤트·완료 건수의 exact-ref 단순 분포(개인 점수·alias 추측 없음), 요청 패턴은 core_mail에서 방향이 `in`으로 확인된 상대·시기만 집계한다. §4의 '죽은 가지'는 확정 판정이 아니라 **후속 사용 미관찰 후보**로 구현 — 유효 `closed_at`+work+실재 `core_item` exact 연결이 있고, 종결 뒤 공유 external_ref와 `core_knowledge source_ref=completion:<item>`이 모두 0일 때만 회색 표시한다. 존재하지 않는 item 참조, 시각 없는 교차 관계, store 미조인, MAX_NODES/진단 입력 잘림이면 `unknown`으로 유보한다. UI에 dated/undated·메일/할일 exact 조인·legacy 제외·cap 범위를 표시. 전부 읽기전용·metadata_only, 원장 변경 0. 다음 큐=B9d.
 4. B9d 지식 역링크 (§5-②) — `sources.csv.branch_ref` 역조회 링크.
+5. **ENGINE-12 일일 생명수 — done 2026-07-12(codex_gpt-5)** — B9의 장기 SE 기둥/가지 지도를 대체하지 않고,
+   source-local 메일·음성·ERP·Codex·일정·산출물 사건을 `과제→날짜→확정 맥락→사건`으로
+   읽는 다섯 번째 lazy 렌즈다. planned 기본 OFF, 날짜 미상/partial/gap 보존, exact ref만 이동.
 
 부수 정리(순서 무관 소품): 엔진 라벨 정제는 위 표 엔진 행. 화면측 표시 정제(trunkMapLabel)는 2026-07-06 선반영.
 

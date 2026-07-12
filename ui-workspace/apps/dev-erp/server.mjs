@@ -74,6 +74,7 @@ import { CODEX_DEDICATED_WORKER_VERSION, readWorkerIdentity } from "./src/codex_
 import { buildMorningBrief, hasContent, localDateKey, runMorningBriefCycle } from "./src/morning_brief.mjs";
 import { buildKnowledgeOverview, readWikiPage } from "./src/knowledge_overview.mjs";
 import { buildBranchStory, buildContextGraph, listContextProjects } from "./src/context_graph.mjs";
+import { buildContextLifeTree, parseContextLifeTreeQuery } from "./src/context_life_tree.mjs";
 import { readRouterBinding } from "./src/mail_router_binding.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -3740,6 +3741,27 @@ const server = createServer(async (req, res) => {
     if (path === "/api/context/branch_story" && req.method === "GET") {
       if (!currentAccount(req)) return send(res, 401, { error: "login_required" });
       const r = buildBranchStory(KNOWLEDGE_SHELL.root, qp.project || "", qp.branch || "", { store });
+      return send(res, r.error ? 400 : 200, r);
+    }
+    // ENGINE-12 일일 생명수 — source-local 원장을 합치지 않는 metadata-only/read-only 파생.
+    // project/day/filter는 fail-closed, exact project 접근과 project_context branch ref만 사용한다.
+    if (path === "/api/context/life_tree" && req.method === "GET") {
+      if (!currentAccount(req)) return send(res, 401, { error: "login_required" });
+      const query = parseContextLifeTreeQuery({
+        project: qp.project,
+        days: qp.days,
+        lanes: qp.lanes,
+        temporal_roles: qp.temporal_roles,
+      });
+      if (query.error) return send(res, 400, query);
+      if (!canAccessProject(req, query.project)) return send(res, 403, { error: "project_forbidden" });
+      const r = buildContextLifeTree(KNOWLEDGE_SHELL.root, query.project, {
+        store,
+        days: query.days,
+        lanes: query.lanes,
+        temporalRoles: query.temporal_roles,
+        scope: requestScope(req, qp),
+      });
       return send(res, r.error ? 400 : 200, r);
     }
     if (path === "/api/events/recent") return send(res, 200, publicEventRows(store.recentEvents(qp.limit ? Number(qp.limit) : 30, qp.project ?? null, requestScope(req, qp))));

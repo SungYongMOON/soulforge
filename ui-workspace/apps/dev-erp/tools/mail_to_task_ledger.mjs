@@ -234,9 +234,15 @@ function toRow(histKey, cand, splitIdx) {
   const dueInfo = resolveDue(cand, mail);
   const due = dueInfo.due;
   const reminderDue = due ? addDaysIso(due, reminderDays) : "";
-  // 상태: open 은 (SE단계 + 업무유형 + 완료기준 전부 + auto-open 정책) 일 때만. 아니면 unclassified(=needs_review 격리).
+  const requestedReviewStatus = String(cand.review_status ?? "").trim();
+  const explicitReviewStatus = ["needs_review", "ready", "reviewed", "approved", "rejected", "corrected"].includes(requestedReviewStatus)
+    ? requestedReviewStatus
+    : "";
+  const unsupportedReviewStatus = !!requestedReviewStatus && !explicitReviewStatus;
+  const reviewGateBlocked = unsupportedReviewStatus || ["needs_review", "rejected"].includes(explicitReviewStatus);
+  // 상태: open 은 (SE단계 + 업무유형 + 완료기준 전부 + auto-open 정책 + 검토 게이트 통과) 일 때만.
   const full = stage && wt && cc;
-  const status = autoOpen && full ? "open" : "unclassified";
+  const status = autoOpen && full && !reviewGateBlocked ? "open" : "unclassified";
   const candidateAssignee = safeRef(pick(cand, ["assignee_ref", "assignee"]));
   const candidateSuggested = safeRef(pick(cand, ["suggested_assignee_ref", "suggested_assignee"]));
   const mailboxOwner = safeRef(mail.mailbox || "");
@@ -247,13 +253,14 @@ function toRow(histKey, cand, splitIdx) {
     ? `기한출처=${dueInfo.source}${dueInfo.text ? `(${dueInfo.text})` : ""}${reminderDue ? `·리마인드=${reminderDue}` : ""}`
     : "";
   // 검토사유: 왜 needs_review 인지(LLM 저신뢰/필드부족/단계없음).
-  const reason = status === "open" ? dueReason : [!stage && "SE단계없음", !wt && "업무유형미정", !cc && "완료기준미정", cand.review_reason, mailboxReason, dueReason].filter(Boolean).join("·");
+  const reviewGateReason = reviewGateBlocked
+    ? `검토게이트=${unsupportedReviewStatus ? "unsupported_review_status" : explicitReviewStatus}`
+    : "";
+  const reason = status === "open" ? dueReason : [reviewGateReason, !stage && "SE단계없음", !wt && "업무유형미정", !cc && "완료기준미정", cand.review_reason, mailboxReason, dueReason].filter(Boolean).join("·");
   const mailKeyRef = relPathOk(histKey) ? `mailcsv:${histKey}` : "";
   const finalAssignee = candidateAssignee || (mailboxFinalDefaulted ? mailboxOwner : "");
   const suggestedAssignee = candidateSuggested || candidateAssignee || (mailboxSuggestedDefaulted ? mailboxOwner : "");
-  const reviewStatus = ["needs_review", "ready", "reviewed", "approved", "rejected", "corrected"].includes(String(cand.review_status ?? "").trim())
-    ? String(cand.review_status).trim()
-    : (status === "open" ? "ready" : "needs_review");
+  const reviewStatus = explicitReviewStatus || (status === "open" ? "ready" : "needs_review");
   const sourceCandidate = safeRef(pick(cand, ["source_candidate_ref", "candidate_ref", "candidate_id"], key));
   const sourceThread = safeRef(pick(cand, ["source_thread_ref", "thread_ref", "thread_id"], mail.thread || ""));
   const sourceGroup = safeRef(pick(cand, ["source_group_ref", "group_ref", "group_id"], mail.group || ""));

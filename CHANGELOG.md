@@ -1,5 +1,43 @@
 # CHANGELOG
 
+### dev-ERP 과제 생명수 시간축과 할일 검토 게이트
+
+- 받은·보낸 메일, ERP 작업, SE 예정, 수락된 음성 인입, Codex 사용자 지시,
+  등록 산출물과 일부 ERP 파일 인입을 원천별 lane으로 분리한 뒤 서울 일자와
+  확정 과제 가지에만 묶는 읽기전용 `context life tree` 투영과 다섯 번째 줄기
+  렌즈를 추가했다. 예정 시각은 기본 화면에서 분리하고, 날짜 미상·권한으로
+  숨긴 범위·수집기 부재·시간 근거·잘림을 별도 coverage로 드러낸다. 비관리자
+  조회는 본인에게 허용된 메일·할일·작업 사건 범위를 source query 단계에서
+  제한하며, 메일 본문·음성 본문·Codex 지시 본문·로컬 경로는 복사하지 않는다.
+  legacy 입력행의 파일명·하위폴더·임의 ID도 writer 신뢰 없이 generic label,
+  opaque ID와 형식 allowlist로 투영해 과거 로컬 경로가 응답에 섞이지 않게 했다.
+- 메일 자동 인입에서 명시적으로 `needs_review` 또는 `rejected`인 후보가
+  `--auto-open` 때문에 완료 할일로 열릴 수 있던 경로를 fail-closed로 고쳤다.
+  검토 완료 상태와 필수 분류 근거가 모두 있을 때만 기존 자동 생성 경로를
+  유지한다. (worker: codex_gpt-5)
+
+### 4노드 프로젝트 파일 관찰·개정 이력 activation candidate
+
+- 작업 PC, 도구/고성능 PC, 휴대 개발 PC, 24시간 운영 노드와 ERP 업로드가
+  동시에 같은 과제를 다룰 때 파일명·mtime을 identity로 오해하지 않도록
+  workspace binding, logical file, exact content, revision occurrence, observation을
+  분리한 metadata-only 스캐너·단일 primary reducer 후보를 추가했다. touch,
+  rename/copy 후보, A-B-A 개정, 병렬 head 충돌, 반복 완전 스캔 뒤 삭제 후보,
+  복구를 서로 다른 사건으로 보존한다.
+- CLI는 기본 dry-run이며 명시적 outbox/apply gate 뒤에서만 쓰고, 비밀 경로는
+  이름·경로·해시 없이 집계만 남긴다. 패킷 sequence/digest chain, primary receipt
+  clock, strict UTC, cross-node 이름 충돌과 bounded recent receipt/event window를
+  검사한다. logical/revision graph 전체는 아직 선형 증가하므로 현재
+  watcher·scheduler·transport·ERP adapter는 설치하거나 활성화하지 않았으며,
+  장기 partition/graph compaction/cache TTL과 실제 node binding 검증 전에는 상시
+  가동하지 않는다. (worker: codex_gpt-5)
+- 이전 revision state와 hash cache도 신뢰 입력으로 보지 않고 allowlist·ID/ref·clock·
+  path key·크기 상한으로 다시 검증한다. repo root가 과하게 binding되어도 `.git`,
+  `_workmeta`, `private-state`, collector local state는 관찰하지 않으며, packet/cache는
+  64 MiB, derived state는 256 MiB를 넘기기 전에 중단한다. 형식상 유효하게 위조된
+  cache digest의 byte 진실성은 `--full` 재해시 없이는 증명하지 못하므로 live gate로
+  계속 남긴다. (worker: codex_gpt-5)
+
 ### dev-ERP team preflight 운영 DB read-only 보강
 
 - 회사 PC 팀 준비도 점검 CLI가 쓰기 가능한 `openStore()`를 통해 점검 대상 SQLite의

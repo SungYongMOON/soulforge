@@ -17,6 +17,7 @@
    → 지식후보 자동적재 E2 → 승인 1클릭 → 인덱스/위키 자동 E6
    → 후속할일 후보 (완료루프 — owner 결정 대기, KNOWLEDGE_ASSISTANT_ACTIVATION_PLAN_V0)
    → 팔로업/SLA E4
+   → 원천별 이력 E12 → 통합 사건축 → 일별 과제 생명수(파생 read model)
 ```
 
 ## 슬라이스 목록 · 순서 · 의존성
@@ -31,10 +32,12 @@
 | E5 | ENGINE-5-RAG-GROUNDED-JUDGE | 판단에 근거 조회 부착 | 중 | 없음(v1) | G-llm-adapter |
 | E6 | ENGINE-6-KNOWLEDGE-PIPELINE-AUTOMATION | 승인 후 인덱스/위키 자동 + 주간 트리아지 | 중 | 없음 | G-guildhall-rag (Codex 소유 표면) |
 | E7 | ENGINE-7-VOICE-INTAKE | 음성 보관함 → 할일 합류 | 상 | E1 권장 | G-voice |
+| E12 | ENGINE-12-CONTEXT-LIFE-TREE | source-local 시간 이력 → 통합 사건축 → 일별 과제 생명수 + multi-PC 파일 revision 관측 | 상 | B9, ERP source adapters | G-context-life-tree |
 
 - **권장 착수 순서**: **E8** → E1 → E2 → E3 (E8 선행 이유: 팀 수집 체제에서 사본 중복이
   하루 여러 번 발생 — owner 관측. E8 없이 E1~E5 를 돌리면 사본 수만큼 할일·leaf 가 복제됨)
-  → E5(v1) → E4 → E6 → E7.
+  → E5(v1) → E4 → E6 → E7. E12는 source adapter와 B9를 읽는 별도 read-model
+  group으로 병렬 가능하며, 새 source writer를 대신하지 않는다.
 - 같은 parallel_group 은 같은 파일(`tools/auto_intake_cycle.mjs`, `tools/mail_to_task_pending.mjs`)을
   만지므로 **한 작업자 직렬**. 다른 그룹은 병렬 가능.
 

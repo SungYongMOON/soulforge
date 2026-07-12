@@ -495,6 +495,65 @@ test("mail_to_task_ledger: 스레드 빈 값은 fallback 소스스레드키로 �
   assert.match(taskText, new RegExp(fallbackThreadKey({ subject: "[P99] 견적 검토 요청", from: "vendor@example.com" })));
 });
 
+test("mail_to_task_ledger: --auto-open 은 명시적 검토 게이트를 우회하지 않는다", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "ai-ledger-review-gate-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const proj = join(root, "P99-001");
+  mkdirSync(join(proj, "reports", "메일_이력"), { recursive: true });
+  const cases = ["needs_review", "rejected", "unsupported", "ready", "reviewed", "approved", "corrected", "unspecified"];
+  writeFileSync(join(proj, "reports", "메일_이력", "메일_이력.csv"),
+    "이력키,제목,발신자,메일수신시각,메일함,메일소스ID\n"
+    + cases.map((name, i) => `M-${name},${name} 요청,vendor@example.com,2026-07-${String(i + 1).padStart(2, "0")}T09:00:00,user@example.com,src-${i + 1}`).join("\n")
+    + "\n");
+  const candidates = Object.fromEntries(cases.map((name) => [
+    `M-${name}`,
+    {
+      title: `${name} 처리`,
+      work_type: "review",
+      completion_criteria: "검토 완료",
+      ...(name === "unspecified" ? {} : { review_status: name }),
+    },
+  ]));
+  const candidatesPath = join(root, "candidates.json");
+  writeFileSync(candidatesPath, JSON.stringify(candidates));
+
+  const result = spawnSync(process.execPath, [
+    "tools/mail_to_task_ledger.mjs",
+    "--project", "P99-001",
+    "--workmeta", root,
+    "--candidates", candidatesPath,
+    "--stage", "CDR",
+    "--auto-open",
+    "--apply",
+  ], { cwd: join(import.meta.dirname, ".."), encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+
+  const [headerLine, ...lines] = readFileSync(join(proj, "reports", "할일_장부", "할일_장부.csv"), "utf8")
+    .replace(/^﻿/, "").trim().split("\n");
+  const headers = headerLine.split(",");
+  const rows = lines.map((line) => Object.fromEntries(headers.map((header, i) => [header, line.split(",")[i] ?? ""])));
+  const byKey = new Map(rows.map((row) => [row["할일키"], row]));
+
+  for (const reviewStatus of ["needs_review", "rejected"]) {
+    const row = byKey.get(`mailtask:M-${reviewStatus}`);
+    assert.equal(row["상태"], "unclassified");
+    assert.equal(row["검토상태"], reviewStatus);
+    assert.match(row["검토사유"], new RegExp(`검토게이트=${reviewStatus}`));
+  }
+  const unsupported = byKey.get("mailtask:M-unsupported");
+  assert.equal(unsupported["상태"], "unclassified");
+  assert.equal(unsupported["검토상태"], "needs_review");
+  assert.match(unsupported["검토사유"], /검토게이트=unsupported_review_status/);
+  for (const reviewStatus of ["ready", "reviewed", "approved", "corrected"]) {
+    const row = byKey.get(`mailtask:M-${reviewStatus}`);
+    assert.equal(row["상태"], "open");
+    assert.equal(row["검토상태"], reviewStatus);
+  }
+  assert.equal(byKey.get("mailtask:M-unspecified")["상태"], "open");
+  assert.equal(byKey.get("mailtask:M-unspecified")["검토상태"], "ready");
+  assert.ok(rows.every((row) => row["상태"] !== "open" || !["needs_review", "rejected"].includes(row["검토상태"])));
+});
+
 test("runCycle apply: candidates 파일 작성 + ledger/haengbogwan 자식 인자 검증 + receipts 기록", async (t) => {
   const root = mkdtempSync(join(tmpdir(), "ai-cycle-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));

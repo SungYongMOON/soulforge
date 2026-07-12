@@ -133,6 +133,14 @@
 - 데이터 보관: ERP DB 는 매일 dump 백업(3-2-1), 대화 본문·첨부 파일은 DB 에 넣지
   않고 Soulforge `_workspaces/system/dev-erp`의 service-owned payload store에 둠,
   projection 은 재생성 가능하므로 백업 불필요, 민감 데이터는 별도 테이블+감사.
+- 사건축/생명수 경계(2026-07-12): 메일·음성·SE 일정·ERP 작업·Codex 지시·산출물은
+  각 source owner의 이력을 유지하고, dev-ERP는 metadata allowlist만 읽어
+  `과제→서울 업무일→확정 맥락→사건` read model을 재생성한다. 발생·상태변경과 예정
+  시각을 분리하고 날짜 미상·partial/gap을 숨기지 않는다. 파일은 경로/mtime이 아니라
+  `workspace binding → logical file → revision`과 node별 observation으로 추적하는
+  activation-candidate helper를 둔다. live 연결 뒤에도 단일 always-on reconciler만
+  canonical projection을 쓰며 현재 scheduler/transport는 꺼져 있다. 상세 계약은
+  `docs/slices/ENGINE-12-CONTEXT-LIFE-TREE.md`를 따른다.
 - Codex 복구 경계: 일반 DB 백업과 별도로 maintenance lock 아래 ERP와 전용 worker를
   모두 중지한 뒤 SQLite DB, opaque 대화 payload, 첨부 manifest/file을 하나의
   `dev_erp.codex_payload_backup_generation.v1` generation으로 묶는다. NAS 정본 위치는

@@ -75,6 +75,10 @@ read-only snapshot
 
 - active slice: **dev-erp (사내 개발팀 운영 콕핏)** — owner 1순위. 정본: `ui-workspace/apps/dev-erp/docs/DESIGN.md`, `ui-workspace/apps/dev-erp/docs/MASTER_PLAN_20260613.md`, 현재 작업 큐: `ui-workspace/apps/dev-erp/docs/SLICES_INDEX.md`. `checklist_phase1.json` 은 완료된 P1 이력 체크리스트로 보존한다.
 - 상태 해석: 2026-06 실제 개발의 대부분이 dev-erp(읽기 콕핏 P1 → 할일쓰기 P2 → 재고/BOM/부품 P3 → 챗봇 RAG/Ollama → 매뉴얼/FAQ, run1~17)에 집중됐고 owner 1순위가 이쪽으로 이동했다.
+- active sub-slice(2026-07-12): `ENGINE-12-CONTEXT-LIFE-TREE`가 source-local 시간 이력을
+  읽기 전용 사건축과 일별 과제 생명수로 투영한다. 네 PC/ERP 파일 이력은 logical file,
+  immutable revision, node observation을 분리한 helper까지만 public-safe로 구현하고,
+  live scheduler·private transport·reconciler-primary 활성화는 node binding 확인 뒤 진행한다.
 - 판단(2026-06-14 갱신): snapshot→작전판 게임루프는 장기 북극성으로 유지하되, 지금 손이 가는 active slice 는 dev-erp 다. 과거 active slice `snapshot_to_operation_board_v0` 는 '다음 후보'로 내린다(스펙은 아래 'Active Slice 001' 절에 보존, 재개 시 참조).
 
 ## SE assistant program direction

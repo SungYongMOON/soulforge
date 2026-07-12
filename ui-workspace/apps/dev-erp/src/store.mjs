@@ -3,7 +3,7 @@
 // 원칙: 몬스터=업무 레코드 동일 행, 게임 전용은 확장 테이블, 점수는 계산,
 //       연결은 stable id + ref 문자열.
 import { DatabaseSync } from "node:sqlite";
-import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -82,6 +82,43 @@ function scopedInClause(column, values) {
   const ids = values.filter((x) => x != null && String(x).trim() !== "");
   if (!ids.length) return { sql: "1=0", args: [] };
   return { sql: `${column} IN (${ids.map(() => "?").join(",")})`, args: ids };
+}
+
+const LIFE_TREE_DELIVERABLE_INPUT_SOURCES = new Set(["erp", "mail", "codex"]);
+const LIFE_TREE_DELIVERABLE_INPUT_STATUSES = new Set(["needed", "received", "used"]);
+const LIFE_TREE_SAFE_REF_RE = /^[^\\/\x00-\x1f]{1,240}$/u;
+const LIFE_TREE_EXACT_SHA256_RE = /^[a-f0-9]{64}$/u;
+const LIFE_TREE_STRICT_CLOCK_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:?\d{2})$/u;
+
+function opaqueLifeTreeDeliverableInputId(value) {
+  return `di:${createHash("sha256").update(String(value ?? ""), "utf8").digest("hex")}`;
+}
+
+function safeLifeTreeRef(value) {
+  const ref = String(value ?? "").trim();
+  return LIFE_TREE_SAFE_REF_RE.test(ref) ? ref : null;
+}
+
+function safeLifeTreeClock(value) {
+  const clock = String(value ?? "").trim();
+  return LIFE_TREE_STRICT_CLOCK_RE.test(clock) && Number.isFinite(Date.parse(clock)) ? clock : null;
+}
+
+function sanitizeLifeTreeDeliverableInput(row) {
+  const source = String(row?.source ?? "").trim();
+  const status = String(row?.status ?? "").trim();
+  const digest = String(row?.sha256 ?? "").trim().toLowerCase();
+  const size = row?.size === null || row?.size === undefined || row?.size === "" ? null : Number(row.size);
+  return {
+    id: opaqueLifeTreeDeliverableInputId(row?.id),
+    deliverable_id: safeLifeTreeRef(row?.deliverable_id),
+    stage_code: safeLifeTreeRef(row?.stage_code),
+    source: LIFE_TREE_DELIVERABLE_INPUT_SOURCES.has(source) ? source : null,
+    sha256: LIFE_TREE_EXACT_SHA256_RE.test(digest) ? digest : null,
+    size: Number.isSafeInteger(size) && size >= 0 ? size : null,
+    status: LIFE_TREE_DELIVERABLE_INPUT_STATUSES.has(status) ? status : null,
+    created_at: safeLifeTreeClock(row?.created_at),
+  };
 }
 
 function normalizeMailboxKey(mailbox) {
@@ -2612,6 +2649,418 @@ export class Store {
       ).all(...chunk));
     }
     return out;
+  }
+
+  // ENGINE-12 일일 생명수 원천 adapter. source-local 원장을 바꾸지 않고, projection 에 필요한
+  // allowlist metadata 만 읽는다. 본문/body, note, used_refs, pointer/path, transcript/audio/file payload,
+  // Codex message text/payload_ref 는 SELECT 단계에서 제외한다.
+  contextLifeTreeSources(projectRaw, { lanes = null, perSourceLimit = 500, scope = null, window = null } = {}) {
+    const projectId = String(projectRaw ?? "").trim();
+    const project = this.db.prepare("SELECT id, title FROM core_project WHERE id=?").get(projectId);
+    if (!project) return { error: "project_not_found", project: projectId };
+
+    const hasLaneFilter = lanes instanceof Set || Array.isArray(lanes);
+    const selected = lanes instanceof Set ? lanes : new Set(Array.isArray(lanes) ? lanes : []);
+    const wants = (...ids) => !hasLaneFilter || ids.some((id) => selected.has(id));
+    const limit = Math.max(1, Math.min(2000, Math.trunc(Number(perSourceLimit) || 500)));
+    const truncated = {};
+    const read = (key, sql, args = []) => {
+      const rows = this.db.prepare(`${sql} LIMIT ?`).all(...args, limit + 1);
+      truncated[key] = rows.length > limit;
+      return rows.slice(0, limit);
+    };
+    const scopeAll = !scope || scope.all === true;
+    const scopeActor = String(scope?.actor ?? "").trim();
+    const scopeMailbox = String(scope?.mailbox ?? "").trim().toLowerCase();
+    const itemAccess = (alias) => {
+      if (scopeAll) return { sql: "1=1", args: [] };
+      const pieces = [
+        `${alias}.status='unclassified'`,
+        `((${alias}.assignee_ref IS NULL OR ${alias}.assignee_ref='') AND ${alias}.status NOT IN ('done','archived'))`,
+      ];
+      const assigned = scopedInClause(`${alias}.assignee_ref`, scope?.assignee_any);
+      if (assigned) { pieces.push(assigned.sql); }
+      return { sql: `(${pieces.join(" OR ")})`, args: assigned?.args ?? [] };
+    };
+    // 일반 팀원은 자기 mailbox와 팀 공용(blank mailbox)만 본다. 타 계정 mailbox는
+    // SELECT/LIMIT 전에 제외한다. mailbox가 없는 계정도 공용 큐만 볼 수 있다.
+    const mailAccess = (alias) => {
+      if (scopeAll) return { sql: "1=1", args: [] };
+      const pieces = [`TRIM(COALESCE(${alias}.mailbox,''))=''`];
+      if (scopeMailbox && scopeMailbox !== "team" && scopeMailbox !== "__none__") {
+        const ownMailbox = this.mailboxScopeClause(`${alias}.mailbox`, scopeMailbox);
+        if (ownMailbox) { pieces.push(ownMailbox.sql); return { sql: `(${pieces.join(" OR ")})`, args: ownMailbox.args }; }
+      }
+      return { sql: `(${pieces.join(" OR ")})`, args: [] };
+    };
+    const eventAccess = (alias) => {
+      if (scopeAll) return { sql: "1=1", args: [] };
+      const pieces = [];
+      const args = [];
+      if (scopeActor) { pieces.push(`${alias}.actor_ref=?`); args.push(scopeActor); }
+      const accessibleItem = itemAccess("scope_item");
+      pieces.push(`EXISTS (
+        SELECT 1 FROM core_item scope_item
+        WHERE scope_item.id=${alias}.item_ref AND scope_item.project_id=? AND ${accessibleItem.sql}
+      )`);
+      args.push(projectId, ...accessibleItem.args);
+      const accessibleMail = mailAccess("scope_mail");
+      pieces.push(`EXISTS (
+        SELECT 1 FROM core_mail scope_mail
+        WHERE scope_mail.id=${alias}.item_ref AND scope_mail.project_id=? AND ${accessibleMail.sql}
+      )`);
+      args.push(projectId, ...accessibleMail.args);
+      return { sql: `(${pieces.join(" OR ")})`, args };
+    };
+    const scopeWithheldByLane = scopeAll ? {} : {
+      mail_received: ["other_mailboxes_withheld"],
+      mail_sent: ["other_mailboxes_withheld"],
+      erp_work: ["inaccessible_actor_item_mailbox_events_withheld"],
+      se_planned: ["inaccessible_items_and_unbound_project_plans_withheld"],
+      voice_intake: ["inaccessible_items_withheld"],
+      codex_instruction: ["inaccessible_items_withheld"],
+      artifact_metadata: ["unbound_project_artifacts_withheld"],
+      file_activity: ["inaccessible_upload_events_withheld", "general_filesystem_activity_unobserved"],
+    };
+    const shiftWindowDate = (dateKey, delta) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateKey ?? ""))) return null;
+      const date = new Date(`${dateKey}T00:00:00Z`);
+      if (!Number.isFinite(date.getTime())) return null;
+      date.setUTCDate(date.getUTCDate() + delta);
+      return date.toISOString().slice(0, 10);
+    };
+    // SQL clock window runs before LIMIT. Zoned values keep their offset; naive values use the
+    // projection contract's +09:00 default. Empty/invalid clocks remain candidates for undated.
+    const sourceWindow = (column, temporalRole) => {
+      const planned = temporalRole === "planned";
+      const from = planned ? window?.planned_from : window?.actual_from;
+      const through = planned ? window?.planned_through : window?.actual_through;
+      const endExclusive = shiftWindowDate(through, 1);
+      if (!shiftWindowDate(from, 0) || !endExclusive) return { sql: "1=1", args: [] };
+      const raw = `TRIM(COALESCE(${column},''))`;
+      const invalidOffset = `(
+        (substr(${raw},-6,1) IN ('+','-') AND (
+          CAST(substr(${raw},-5,2) AS INTEGER)>14 OR CAST(substr(${raw},-2,2) AS INTEGER)>59
+          OR (CAST(substr(${raw},-5,2) AS INTEGER)=14 AND CAST(substr(${raw},-2,2) AS INTEGER)<>0)
+        ))
+        OR (substr(${raw},-5,1) IN ('+','-') AND (
+          CAST(substr(${raw},-4,2) AS INTEGER)>14 OR CAST(substr(${raw},-2,2) AS INTEGER)>59
+          OR (CAST(substr(${raw},-4,2) AS INTEGER)=14 AND CAST(substr(${raw},-2,2) AS INTEGER)<>0)
+        ))
+      )`;
+      const normalized = `(CASE
+        WHEN length(${raw})=10 THEN ${raw} || 'T00:00:00+09:00'
+        WHEN UPPER(substr(${raw},-1,1))='Z' THEN replace(${raw},' ','T')
+        WHEN substr(${raw},-6,1) IN ('+','-') THEN replace(${raw},' ','T')
+        WHEN substr(${raw},-5,1) IN ('+','-') THEN
+          substr(replace(${raw},' ','T'),1,length(${raw})-5) || substr(${raw},-5,3) || ':' || substr(${raw},-2,2)
+        ELSE replace(${raw},' ','T') || '+09:00'
+      END)`;
+      const clock = `julianday(${normalized})`;
+      return {
+        sql: `(${raw}='' OR ${clock} IS NULL OR ${invalidOffset}
+          OR (${clock}>=julianday(?) AND ${clock}<julianday(?)))`,
+        args: [`${from}T00:00:00+09:00`, `${endExclusive}T00:00:00+09:00`],
+      };
+    };
+    const rows = {
+      mail: [],
+      mail_item_links: [],
+      work_events: [],
+      schedule_items: [],
+      meetings: [],
+      deliverables: [],
+      voice_items: [],
+      codex_instructions: [],
+      artifacts: [],
+      attachments: [],
+      deliverable_inputs: [],
+      file_activity_events: [],
+    };
+
+    if (wants("mail_received", "mail_sent")) {
+      const mailScope = mailAccess("m");
+      const mailTime = sourceWindow("m.at", "occurred");
+      const readMailDirection = (lane, direction) => read(lane, `
+        SELECT id, project_id, at, direction, subject, counterpart, stage_code
+        FROM core_mail m
+        WHERE project_id=? AND direction=? AND COALESCE(hidden,0)=0
+          AND ${mailScope.sql} AND ${mailTime.sql}
+        ORDER BY CASE WHEN julianday(at) IS NULL THEN 1 ELSE 0 END, julianday(at) DESC, id DESC
+      `, [projectId, direction, ...mailScope.args, ...mailTime.args]);
+      rows.mail = [
+        ...(wants("mail_received") ? readMailDirection("mail_received", "in") : []),
+        ...(wants("mail_sent") ? readMailDirection("mail_sent", "out") : []),
+      ];
+      const linkedItemScope = itemAccess("i");
+      rows.mail_item_links = read("mail_item_links", `
+        SELECT id AS item_id, origin_mail_id, source_mail_ref
+        FROM core_item i
+        WHERE project_id=? AND (origin_mail_id IS NOT NULL OR source_mail_ref IS NOT NULL)
+          AND ${linkedItemScope.sql}
+        ORDER BY id
+      `, [projectId, ...linkedItemScope.args]);
+    }
+
+    if (wants("erp_work")) {
+      const kinds = [
+        "item_create", "item_promote", "item_confirm", "item_status", "item_assign", "item_move",
+        "item_reanchor", "item_occurrence_set", "item_archive", "item_restore", "mail_reattach",
+        "work_started", "work_completed", "task_spawn_deliverable", "deliverable_add",
+        "deliverable_due_edit", "deliverable_review", "meeting_create", "meeting_edit", "meeting_delete",
+      ];
+      const joinedItemScope = itemAccess("i");
+      const scopedEvent = eventAccess("e");
+      const workTime = sourceWindow("e.at", "occurred");
+      rows.work_events = read("work_events", `
+        SELECT e.id, e.at, e.actor_ref, e.actor_kind, e.kind,
+          i.id AS item_id, i.title AS item_title,
+          CASE WHEN e.kind IN ('item_status','work_started','work_completed','item_archive','item_restore')
+            THEN e.to_val ELSE NULL END AS event_state,
+          CASE WHEN e.item_ref IS NOT NULL AND i.id IS NULL THEN 1 ELSE 0 END AS item_link_withheld
+        FROM event_log e
+        LEFT JOIN core_item i ON i.id=e.item_ref AND i.project_id=? AND ${joinedItemScope.sql}
+        WHERE (e.project_ref=? OR (e.project_ref IS NULL AND i.project_id=?))
+          AND e.kind IN (${kinds.map(() => "?").join(",")})
+          AND ${workTime.sql}
+          AND ${scopedEvent.sql}
+        ORDER BY CASE WHEN julianday(e.at) IS NULL THEN 1 ELSE 0 END, julianday(e.at) DESC, e.id DESC
+      `, [projectId, ...joinedItemScope.args, projectId, projectId, ...kinds, ...workTime.args, ...scopedEvent.args]);
+    }
+
+    if (wants("se_planned")) {
+      const scheduleItemScope = itemAccess("i");
+      const scheduleTime = sourceWindow("COALESCE(i.due,i.anchor_date)", "planned");
+      rows.schedule_items = read("schedule_items", `
+        SELECT id, project_id, title, status, due, anchor_date, anchor_stage_code, stage_id,
+          assignee_ref, created_at, done_at, work_type, link_kind
+        FROM core_item i
+        WHERE project_id=? AND origin='schedule' AND ${scheduleItemScope.sql} AND ${scheduleTime.sql}
+        ORDER BY CASE WHEN julianday(COALESCE(due,anchor_date)) IS NULL THEN 1 ELSE 0 END,
+          julianday(COALESCE(due,anchor_date)) DESC, id DESC
+      `, [projectId, ...scheduleItemScope.args, ...scheduleTime.args]);
+      const meetingTime = sourceWindow("m.at", "planned");
+      const deliverableTime = sourceWindow("d.due", "planned");
+      if (scopeAll) {
+        rows.meetings = read("meetings", `
+          SELECT m.id, m.project_id, m.title, m.at, m.created_at, m.status
+          FROM core_meeting m
+          WHERE m.project_id=? AND m.status='active' AND ${meetingTime.sql}
+          ORDER BY CASE WHEN julianday(m.at) IS NULL THEN 1 ELSE 0 END, julianday(m.at) DESC, m.id DESC
+        `, [projectId, ...meetingTime.args]);
+        rows.deliverables = read("deliverables", `
+          SELECT d.id, d.project_id, d.stage_code, d.deliverable_no, d.name, d.submit_type,
+            d.due, d.due_source, d.produced, d.review_stage
+          FROM core_deliverable d
+          WHERE d.project_id=? AND ${deliverableTime.sql}
+          ORDER BY CASE WHEN julianday(d.due) IS NULL THEN 1 ELSE 0 END, julianday(d.due) DESC, d.id DESC
+        `, [projectId, ...deliverableTime.args]);
+      } else {
+        const meetingItemScope = itemAccess("meeting_item");
+        const meetingPieces = [
+          `EXISTS (
+            SELECT 1 FROM meeting_action_map mam
+            JOIN core_item meeting_item ON meeting_item.id=mam.item_id
+            WHERE mam.meeting_id=m.id AND ${meetingItemScope.sql}
+          )`,
+        ];
+        const meetingArgs = [...meetingItemScope.args];
+        if (scopeActor) {
+          meetingPieces.push("EXISTS (SELECT 1 FROM event_log me WHERE me.kind='meeting_create' AND me.to_val=m.id AND me.actor_ref=?)");
+          meetingArgs.push(scopeActor);
+        }
+        rows.meetings = read("meetings", `
+          SELECT m.id, m.project_id, m.title, m.at, m.created_at, m.status
+          FROM core_meeting m
+          WHERE m.project_id=? AND m.status='active' AND (${meetingPieces.join(" OR ")})
+            AND ${meetingTime.sql}
+          ORDER BY CASE WHEN julianday(m.at) IS NULL THEN 1 ELSE 0 END, julianday(m.at) DESC, m.id DESC
+        `, [projectId, ...meetingArgs, ...meetingTime.args]);
+      }
+    }
+
+    if (wants("voice_intake")) {
+      const voiceItemScope = itemAccess("i");
+      const voiceTime = sourceWindow("i.created_at", "state_change");
+      rows.voice_items = read("voice_items", `
+        SELECT id, project_id, title, status, review_status, assignee_ref, created_at, done_at,
+          work_type, anchor_stage_code
+        FROM core_item i
+        WHERE project_id=? AND origin='voice' AND ${voiceItemScope.sql} AND ${voiceTime.sql}
+        ORDER BY CASE WHEN julianday(created_at) IS NULL THEN 1 ELSE 0 END, julianday(created_at) DESC, id DESC
+      `, [projectId, ...voiceItemScope.args, ...voiceTime.args]);
+    }
+
+    if (wants("codex_instruction")) {
+      const codexItemScope = itemAccess("i");
+      const codexTime = sourceWindow("m.at", "state_change");
+      rows.codex_instructions = read("codex_instructions", `
+        SELECT m.id, m.at, m.item_id, m.role, m.actor_ref, m.mode, m.payload_byte_length,
+          i.title AS item_title, i.status AS item_status
+        FROM codex_thread_message m
+        JOIN core_item i ON i.id=m.item_id
+        WHERE i.project_id=? AND m.role='user' AND ${codexItemScope.sql} AND ${codexTime.sql}
+        ORDER BY CASE WHEN julianday(m.at) IS NULL THEN 1 ELSE 0 END, julianday(m.at) DESC, m.id DESC
+      `, [projectId, ...codexItemScope.args, ...codexTime.args]);
+    }
+
+    if (wants("artifact_metadata")) {
+      const artifactTime = sourceWindow("a.updated_at", "state_change");
+      const attachmentTime = sourceWindow("a.created_at", "state_change");
+      const inputTime = sourceWindow("di.created_at", "state_change");
+      if (scopeAll) {
+        rows.artifacts = read("artifacts", `
+          SELECT a.id, a.project_id, a.kind, a.title, a.sha256, a.updated_at
+          FROM core_artifact a
+          WHERE a.project_id=? AND ${artifactTime.sql}
+          ORDER BY CASE WHEN julianday(a.updated_at) IS NULL THEN 1 ELSE 0 END, julianday(a.updated_at) DESC, a.id DESC
+        `, [projectId, ...artifactTime.args]);
+        rows.attachments = read("attachments", `
+          SELECT a.id, a.entity_type, a.entity_id, a.name, a.kind, a.category, a.artifact_type,
+            a.created_by, a.created_at,
+            CASE WHEN a.entity_type='item' AND i.project_id=? THEN i.id ELSE NULL END AS item_id
+          FROM core_attachment a
+          LEFT JOIN core_item i ON a.entity_type='item' AND i.id=a.entity_id
+          LEFT JOIN core_meeting m ON a.entity_type='meeting' AND m.id=a.entity_id
+          WHERE (
+            (a.entity_type='project' AND a.entity_id=?)
+            OR (a.entity_type='item' AND i.project_id=?)
+            OR (a.entity_type='meeting' AND m.project_id=?)
+            OR (a.entity_type='purchase' AND EXISTS (
+              SELECT 1 FROM purchase_project_map ppm WHERE ppm.purchase_id=a.entity_id AND ppm.project_id=?
+            ))
+            OR (a.entity_type='part' AND EXISTS (
+              SELECT 1 FROM part_project_map ppm WHERE ppm.part_id=a.entity_id AND ppm.project_id=?
+            ))
+          ) AND ${attachmentTime.sql}
+          ORDER BY CASE WHEN julianday(a.created_at) IS NULL THEN 1 ELSE 0 END,
+            julianday(a.created_at) DESC, a.id DESC
+        `, [projectId, projectId, projectId, projectId, projectId, projectId, ...attachmentTime.args]);
+      } else {
+        const attachmentItemScope = itemAccess("attachment_item");
+        const attachmentMeetingItemScope = itemAccess("attachment_meeting_item");
+        const attachmentAccess = [];
+        const attachmentArgs = [];
+        if (scopeActor) { attachmentAccess.push("a.created_by=?"); attachmentArgs.push(scopeActor); }
+        attachmentAccess.push(`(a.entity_type='item' AND EXISTS (
+          SELECT 1 FROM core_item attachment_item
+          WHERE attachment_item.id=a.entity_id AND ${attachmentItemScope.sql}
+        ))`);
+        attachmentArgs.push(...attachmentItemScope.args);
+        if (scopeActor) {
+          attachmentAccess.push(`(a.entity_type='meeting' AND EXISTS (
+            SELECT 1 FROM event_log attachment_meeting_event
+            WHERE attachment_meeting_event.kind='meeting_create'
+              AND attachment_meeting_event.to_val=a.entity_id
+              AND attachment_meeting_event.actor_ref=?
+          ))`);
+          attachmentArgs.push(scopeActor);
+        }
+        attachmentAccess.push(`(a.entity_type='meeting' AND EXISTS (
+          SELECT 1 FROM meeting_action_map attachment_map
+          JOIN core_item attachment_meeting_item ON attachment_meeting_item.id=attachment_map.item_id
+          WHERE attachment_map.meeting_id=a.entity_id AND ${attachmentMeetingItemScope.sql}
+        ))`);
+        attachmentArgs.push(...attachmentMeetingItemScope.args);
+        rows.attachments = read("attachments", `
+          SELECT a.id, a.entity_type, a.entity_id, a.name, a.kind, a.category, a.artifact_type,
+            a.created_by, a.created_at, NULL AS item_id
+          FROM core_attachment a
+          LEFT JOIN core_item i ON a.entity_type='item' AND i.id=a.entity_id
+          LEFT JOIN core_meeting m ON a.entity_type='meeting' AND m.id=a.entity_id
+          WHERE (
+            (a.entity_type='project' AND a.entity_id=?)
+            OR (a.entity_type='item' AND i.project_id=?)
+            OR (a.entity_type='meeting' AND m.project_id=?)
+            OR (a.entity_type='purchase' AND EXISTS (
+              SELECT 1 FROM purchase_project_map ppm WHERE ppm.purchase_id=a.entity_id AND ppm.project_id=?
+            ))
+            OR (a.entity_type='part' AND EXISTS (
+              SELECT 1 FROM part_project_map ppm WHERE ppm.part_id=a.entity_id AND ppm.project_id=?
+            ))
+          ) AND (${attachmentAccess.join(" OR ")}) AND ${attachmentTime.sql}
+          ORDER BY CASE WHEN julianday(a.created_at) IS NULL THEN 1 ELSE 0 END,
+            julianday(a.created_at) DESC, a.id DESC
+        `, [projectId, projectId, projectId, projectId, projectId, ...attachmentArgs, ...attachmentTime.args]);
+      }
+      // 산출물 등록 사건은 authoritative 등록시각이 없어 undated 로 보존한다. due 계획 사건은 se_planned
+      // adapter 가 별도로 읽으며, 둘은 같은 원천행의 서로 다른 투영 역할이다.
+      if (scopeAll && !wants("se_planned")) {
+        rows.deliverables = read("deliverables", `
+          SELECT id, project_id, stage_code, deliverable_no, name, submit_type, due, due_source,
+            produced, review_stage
+          FROM core_deliverable
+          WHERE project_id=? ORDER BY id DESC
+        `, [projectId]);
+      }
+      if (scopeAll) {
+        rows.deliverable_inputs = read("deliverable_inputs", `
+          SELECT di.id, di.deliverable_id, di.stage_code, di.source, di.sha256, di.size,
+            di.status, di.created_at
+          FROM deliverable_input di
+          WHERE di.project_id=? AND ${inputTime.sql}
+          ORDER BY CASE WHEN julianday(di.created_at) IS NULL THEN 1 ELSE 0 END,
+            julianday(di.created_at) DESC, di.id DESC
+        `, [projectId, ...inputTime.args]).map(sanitizeLifeTreeDeliverableInput);
+      } else if (scopeActor) {
+        rows.deliverable_inputs = read("deliverable_inputs", `
+          SELECT di.id, di.deliverable_id, di.stage_code, di.source, di.sha256, di.size,
+            di.status, di.created_at
+          FROM deliverable_input di
+          WHERE di.project_id=? AND EXISTS (
+            SELECT 1 FROM event_log input_event
+            WHERE input_event.to_val=di.id
+              AND input_event.kind IN ('input_upload','deliverable_input')
+              AND input_event.actor_ref=?
+          ) AND ${inputTime.sql}
+          ORDER BY CASE WHEN julianday(di.created_at) IS NULL THEN 1 ELSE 0 END,
+            julianday(di.created_at) DESC, di.id DESC
+        `, [projectId, scopeActor, ...inputTime.args]).map(sanitizeLifeTreeDeliverableInput);
+      }
+    }
+
+    if (wants("file_activity")) {
+      // 현재 증명 가능한 파일 사건은 dev-ERP 업로드가 만든 input_upload event와
+      // 같은 id의 deliverable_input 행 사이 exact join뿐이다. 일반 파일시스템 활동은 읽지 않는다.
+      const fileEventScope = eventAccess("e");
+      const fileEventTime = sourceWindow("e.at", "occurred");
+      rows.file_activity_events = read("file_activity_events", `
+        SELECT e.id, e.at, e.actor_ref, e.actor_kind, e.to_val AS input_id,
+          di.deliverable_id, di.stage_code, di.source, di.sha256, di.size,
+          di.status, di.created_at
+        FROM event_log e
+        JOIN deliverable_input di ON di.id=e.to_val
+        WHERE e.kind='input_upload' AND e.project_ref=? AND di.project_id=?
+          AND ${fileEventScope.sql} AND ${fileEventTime.sql}
+        ORDER BY CASE WHEN julianday(e.at) IS NULL THEN 1 ELSE 0 END,
+          julianday(e.at) DESC, e.id DESC
+      `, [projectId, projectId, ...fileEventScope.args, ...fileEventTime.args]).map((row) => {
+        const { id: inputId, ...input } = sanitizeLifeTreeDeliverableInput({ ...row, id: row.input_id });
+        return {
+          id: row.id,
+          at: row.at,
+          actor_ref: row.actor_ref,
+          actor_kind: row.actor_kind,
+          input_id: inputId,
+          ...input,
+        };
+      });
+    }
+
+    return {
+      schema: "dev_erp.context_life_tree_sources.v1",
+      content_policy: "metadata_only_allowlist",
+      read_only: true,
+      project,
+      rows,
+      truncated,
+      per_source_limit: limit,
+      scope: {
+        mode: scopeAll ? "all" : "account_scoped",
+        limited: !scopeAll,
+        withheld_by_lane: scopeWithheldByLane,
+      },
+    };
   }
 
   // SE 기준점 확정(slice2): 미분류 할 일에 단계/연결대상 + 업무유형을 붙여 정식(open) 승격.

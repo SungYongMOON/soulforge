@@ -2188,7 +2188,7 @@ async function renderKnowWiki(el) {
   }));
 }
 
-// 탭3: 줄기 그래프 — 시간축 강줄기 SVG + 목록/우선순위/읽기전용 진단, 가지 클릭→이야기.
+// 탭3: 줄기 그래프 — 시간축 강줄기 SVG + 목록/우선순위/진단/일일 생명수, 가지 클릭→이야기.
 async function renderKnowTrunk(el) {
   const L = state.lex;
   el.innerHTML = `<div class="empty small">…</div>`;
@@ -2261,11 +2261,12 @@ function trunkStoryHtml(story, L) {
   return `${originHtml}<table class="small"><tbody>${rows || `<tr><td class="dim">${L.trunk_story_empty ?? "기록 점 없음"}</td></tr>`}</tbody></table>${trunc}${closeHtml}`;
 }
 
-// 공용 줄기 렌더러 — 4렌즈(시간축 지도 / 목록 / 우선순위 / 모양 진단), 각 뷰는 결정 하나에 대응.
-// 지식 탭(전역 탐색, 드롭다운 header)과 과제 허브(고정 과제) 겸용. 데이터는 g 하나로 전 뷰 파생(서버 무변경).
+// 공용 줄기 렌더러 — 5렌즈(시간축 지도 / 목록 / 우선순위 / 모양 진단 / 일일 생명수), 각 뷰는 결정 하나에 대응.
+// 지식 탭(전역 탐색, 드롭다운 header)과 과제 허브(고정 과제) 겸용. 앞의 4렌즈는 g로 파생하고 일일 생명수만 선택 시 읽기 전용 API를 부른다.
 function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
   const L = state.lex;
-  const view = ["map", "tree", "triage", "diagnostics"].includes(state.trunkView) ? state.trunkView : "map";
+  const view = ["map", "tree", "triage", "diagnostics", "life"].includes(state.trunkView) ? state.trunkView : "map";
+  state.trunkView = view;
   const c = g.counts ?? {};
   // 중요도(소스+할일+미결) 순 정렬 — 전 뷰 공용 랭킹.
   const ranked = (g.branches ?? []).slice().sort((a, b) =>
@@ -2283,8 +2284,8 @@ function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
     .map(([k, label]) => `<span class="fav-chip mini"><span class="trunk-dot" style="background:${TRUNK_KIND_STYLE[k].fill}"></span>${esc(label)} ${visible.filter((b) => trunkKindOf(b) === k).length}</span>`).join(" ") : "";
   const legacyToggle = hasV2 && legacyCount
     ? `<button id="trunkLegacyToggle" class="fav-chip mini ${state.trunkShowLegacy ? "on" : ""}">${state.trunkShowLegacy ? esc(L.trunk_legacy_hide) : esc(String(L.trunk_legacy_show ?? "").replace("{n}", legacyCount))}</button>` : "";
-  const views = [["map", L.trunk_view_map], ["tree", L.trunk_view_tree], ["triage", L.trunk_view_triage], ["diagnostics", L.trunk_view_diagnostics]];
-  const switcher = views.map(([k, label]) => `<button class="fav-chip mini trunk-view ${view === k ? "on" : ""}" data-tv="${k}">${label}</button>`).join(" ");
+  const views = [["map", L.trunk_view_map], ["tree", L.trunk_view_tree], ["triage", L.trunk_view_triage], ["diagnostics", L.trunk_view_diagnostics], ["life", L.trunk_view_life]];
+  const switcher = views.map(([k, label]) => `<button class="fav-chip mini trunk-view ${view === k ? "on" : ""}" data-tv="${k}" aria-pressed="${view === k}">${esc(label)}</button>`).join(" ");
   el.innerHTML = `
     <div class="item-form">${headerHtml}
       <span class="fav-chip mini danger-text">${L.trunk_open_reviews}: ${c.open_reviews ?? 0}</span>
@@ -2298,11 +2299,16 @@ function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
     if (state.trunkView === "tree") return drawTrunkTree(body, g, visible);
     if (state.trunkView === "triage") return drawTrunkTriage(body, g, visible);
     if (state.trunkView === "diagnostics") return drawTrunkDiagnostics(body, g);
+    if (state.trunkView === "life") return drawTrunkLifeTree(body, g);
     return drawTrunkMap(body, g, visible);
   };
   el.querySelectorAll(".trunk-view").forEach((b) => b.addEventListener("click", () => {
     state.trunkView = b.dataset.tv;
-    el.querySelectorAll(".trunk-view").forEach((x) => x.classList.toggle("on", x.dataset.tv === state.trunkView));
+    el.querySelectorAll(".trunk-view").forEach((x) => {
+      const on = x.dataset.tv === state.trunkView;
+      x.classList.toggle("on", on);
+      x.setAttribute("aria-pressed", String(on));
+    });
     paint();
   }));
   $("#trunkLegacyToggle")?.addEventListener("click", () => {
@@ -2310,6 +2316,585 @@ function drawTrunkGraph(el, g, { headerHtml = "", afterRender = null } = {}) {
     drawTrunkGraph(el, g, { headerHtml, afterRender });
   });
   paint();
+}
+
+// ENGINE-12 일일 생명수 — source truth를 건드리지 않고 과제→날짜→확정 맥락/확인 필요→사건을 읽는 다섯 번째 렌즈.
+// API는 이 렌즈가 선택된 뒤에만 호출하고, exact ref + confirmed marker가 둘 다 있을 때만 기존 상세 행동을 연다.
+const LIFE_TREE_SCHEMA = "dev_erp.context_life_tree.v1";
+const LIFE_TREE_ACTUAL_ROLES = Object.freeze(["occurred", "observed", "state_change"]);
+const LIFE_TREE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const LIFE_TREE_CACHE_TTL_MS = 60_000;
+
+function lifeTreePayloadProjectId(payload, fallback = "") {
+  const value = payload?.project_id ?? (payload?.project && typeof payload.project === "object" ? payload.project.id : payload?.project) ?? fallback;
+  return String(value ?? "");
+}
+
+// 백엔드 이행 중의 flat events+context_nodes와 정본 nested contexts+events 둘 다를 표시 모델로 정규화한다.
+// 표시에 필요한 allowlist 필드만 복사하며 raw payload/source body를 보관·표시하지 않는다.
+function normalizeLifeTreePayload(payload, project) {
+  const list = (v) => Array.isArray(v) ? v : [];
+  const text = (v) => v == null ? "" : String(v);
+  const numberOf = (v) => v != null && Number.isFinite(Number(v)) ? Number(v) : null;
+  const reasonsOf = (v) => list(v).filter((x) => typeof x === "string" && x.trim()).slice(0, 8);
+  const dayKeyOf = (v) => {
+    const key = text(v);
+    if (!LIFE_TREE_DATE_RE.test(key)) return "undated";
+    const probe = new Date(`${key}T00:00:00Z`);
+    return Number.isFinite(probe.getTime()) && probe.toISOString().slice(0, 10) === key ? key : "undated";
+  };
+  const uncertaintyOf = (v, fallback = null) => {
+    if (v && typeof v === "object" && !Array.isArray(v)) return {
+      context: text(v.context || v.state || fallback) || null,
+      time: text(v.time) || null,
+      reasons: reasonsOf(v.reasons),
+    };
+    return { context: text(v || fallback) || null, time: null, reasons: [] };
+  };
+  const taskLinkOf = (v) => v && typeof v === "object" && !Array.isArray(v) ? {
+    ref: text(v.ref), item_id: text(v.item_id || v.task_id),
+    link_state: text(v.link_state || v.binding_state), label: text(v.label),
+  } : null;
+  const contextLinkOf = (v) => v && typeof v === "object" && !Array.isArray(v) ? {
+    ref: text(v.ref || v.branch_ref), branch_key: text(v.branch_key),
+    link_state: text(v.link_state || v.binding_state), label: text(v.label),
+  } : null;
+  const eventOf = (v, fallbackId, fallbackDay = null) => {
+    const raw = v && typeof v === "object" && !Array.isArray(v) ? v : {};
+    const projectBinding = raw.project_binding && typeof raw.project_binding === "object"
+      ? text(raw.project_binding.state || raw.project_binding.binding_state)
+      : text(raw.project_binding);
+    const uncertainty = uncertaintyOf(raw.uncertainty, projectBinding || null);
+    return {
+      event_id: text(raw.event_id || raw.id || raw.ref || fallbackId),
+      lane_id: text(raw.lane_id || raw.lane) || "unknown",
+      kind: text(raw.kind), summary_label: text(raw.summary_label || raw.title),
+      temporal_role: text(raw.temporal_role), display_at: text(raw.display_at),
+      day_key: dayKeyOf(raw.day_key || raw.day || fallbackDay),
+      time_basis: text(raw.time_basis), time_state: text(raw.time_state || raw.state || uncertainty.time),
+      project_binding: projectBinding || uncertainty.context || null,
+      task_links: list(raw.task_links).map(taskLinkOf).filter(Boolean),
+      context_links: list(raw.context_links).map(contextLinkOf).filter(Boolean),
+      uncertainty: {
+        ...uncertainty,
+        reasons: [...new Set([...uncertainty.reasons, ...reasonsOf(raw.reasons), ...reasonsOf(raw.evidence_gaps), text(raw.gap_reason)].filter(Boolean))].slice(0, 8),
+      },
+    };
+  };
+
+  const laneById = new Map();
+  const addLane = (v) => {
+    if (!v || typeof v !== "object" || Array.isArray(v)) return;
+    const laneId = text(v.lane_id || v.lane || v.id);
+    if (!laneId) return;
+    const old = laneById.get(laneId) || {};
+    const cv = v.coverage && typeof v.coverage === "object" && !Array.isArray(v.coverage)
+      ? v.coverage : (v.coverage != null && Number.isFinite(Number(v.coverage)) ? { events: Number(v.coverage) } : {});
+    laneById.set(laneId, {
+      lane_id: laneId, label: text(v.label) || old.label || laneId,
+      status: text(v.status) || old.status || "available",
+      coverage: {
+        scanned: numberOf(cv.scanned) ?? old.coverage?.scanned ?? null,
+        accepted: numberOf(cv.accepted) ?? old.coverage?.accepted ?? null,
+        events: numberOf(cv.events ?? cv.shown) ?? old.coverage?.events ?? null,
+        skipped: numberOf(cv.skipped) ?? old.coverage?.skipped ?? null,
+        undated: numberOf(cv.undated) ?? old.coverage?.undated ?? null,
+        cap: numberOf(cv.cap) ?? old.coverage?.cap ?? null,
+        truncated: Boolean(cv.truncated ?? old.coverage?.truncated),
+        scope_limited: Boolean(cv.scope_limited ?? old.coverage?.scope_limited),
+        scope_withheld_reasons: reasonsOf(cv.scope_withheld_reasons ?? old.coverage?.scope_withheld_reasons),
+      },
+      gap_reason: text(v.gap_reason) || old.gap_reason || null,
+    });
+  };
+  list(payload?.lane_catalog).forEach(addLane);
+  list(payload?.lanes).forEach(addLane);
+  for (const laneId of list(payload?.coverage?.gap_lane_ids).map(text).filter(Boolean)) {
+    if (!laneById.has(laneId)) addLane({ lane_id: laneId, status: "gap" });
+  }
+
+  const topEvents = list(payload?.events).map((e, i) => eventOf(e, `flat:${i}`));
+  const eventById = new Map(topEvents.map((e) => [e.event_id, e]));
+  const usedEventIds = new Set();
+  const missingEventIds = new Set();
+  const dayByKey = new Map();
+  const ensureDay = (rawKey) => {
+    const key = dayKeyOf(rawKey);
+    if (!dayByKey.has(key)) dayByKey.set(key, { day_key: key, state: key === "undated" ? "undated" : "dated", contexts: [] });
+    return dayByKey.get(key);
+  };
+  const rawDays = list(payload?.days);
+  rawDays.forEach((rawDay, dayIndex) => {
+    const day = ensureDay(rawDay?.day_key || rawDay?.day);
+    const directIds = new Set(list(rawDay?.event_ids).map(text).filter(Boolean));
+    const contextRows = list(rawDay?.contexts).length ? list(rawDay.contexts) : list(rawDay?.context_nodes);
+    contextRows.forEach((rawContext, contextIndex) => {
+      const nested = list(rawContext?.events).map((rawEvent, eventIndex) => {
+        const candidateId = text(rawEvent?.event_id || rawEvent?.id || rawEvent?.ref);
+        const event = (candidateId && eventById.get(candidateId)) || eventOf(rawEvent, `nested:${dayIndex}:${contextIndex}:${eventIndex}`, day.day_key);
+        if (!eventById.has(event.event_id)) eventById.set(event.event_id, event);
+        return event;
+      });
+      const linked = list(rawContext?.event_ids).map((id) => {
+        const key = text(id); const event = eventById.get(key);
+        if (key && !event) missingEventIds.add(key);
+        return event;
+      }).filter(Boolean);
+      const events = nested.length ? nested : linked;
+      for (const event of events) { usedEventIds.add(event.event_id); directIds.delete(event.event_id); }
+      day.contexts.push({
+        context_ref: text(rawContext?.context_ref || rawContext?.node_id || rawContext?.branch_ref) || null,
+        branch_key: text(rawContext?.branch_key) || null,
+        label: text(rawContext?.label),
+        binding_state: text(rawContext?.binding_state || rawContext?.state) || "review_needed",
+        reasons: [...new Set([...reasonsOf(rawContext?.reasons), text(rawContext?.gap_reason)].filter(Boolean))].slice(0, 8),
+        events,
+      });
+    });
+    const directEvents = [
+      ...list(rawDay?.events).map((rawEvent, eventIndex) => {
+        const candidateId = text(rawEvent?.event_id || rawEvent?.id || rawEvent?.ref);
+        return (candidateId && eventById.get(candidateId)) || eventOf(rawEvent, `day:${dayIndex}:${eventIndex}`, day.day_key);
+      }),
+      ...[...directIds].map((id) => {
+        const event = eventById.get(id);
+        if (id && !event) missingEventIds.add(id);
+        return event;
+      }).filter(Boolean),
+    ].filter((event) => !usedEventIds.has(event.event_id));
+    if (directEvents.length) {
+      directEvents.forEach((event) => usedEventIds.add(event.event_id));
+      day.contexts.push({ context_ref: null, branch_key: null, label: "", binding_state: "review_needed", reasons: [], events: directEvents });
+    }
+  });
+  for (const event of topEvents) {
+    if (usedEventIds.has(event.event_id)) continue;
+    ensureDay(event.day_key).contexts.push({ context_ref: null, branch_key: null, label: "", binding_state: "review_needed", reasons: [], events: [event] });
+    usedEventIds.add(event.event_id);
+  }
+
+  const days = [...dayByKey.values()].sort((a, b) => {
+    if (a.day_key === "undated") return b.day_key === "undated" ? 0 : 1;
+    if (b.day_key === "undated") return -1;
+    return b.day_key.localeCompare(a.day_key);
+  });
+  const derivedUndatedCount = (dayByKey.get("undated")?.contexts ?? [])
+    .reduce((count, context) => count + (context.events?.length ?? 0), 0);
+  return {
+    schema: text(payload?.schema), project: lifeTreePayloadProjectId(payload, project), timezone: text(payload?.timezone || payload?.query?.timezone || "Asia/Seoul"),
+    lanes: [...laneById.values()], days,
+    coverage: payload?.coverage && typeof payload.coverage === "object" && !Array.isArray(payload.coverage) ? {
+      truncated: Boolean(payload.coverage.truncated),
+      gap_lane_ids: list(payload.coverage.gap_lane_ids).map(text).filter(Boolean),
+      scanned: numberOf(payload.coverage.scanned ?? payload.counts?.scanned),
+      accepted: numberOf(payload.coverage.accepted ?? payload.counts?.accepted),
+      shown: numberOf(payload.coverage.shown ?? payload.counts?.events),
+      undated_count: numberOf(payload.coverage.undated_count) ?? derivedUndatedCount,
+      projection_gap_count: missingEventIds.size,
+      scope_limited: Boolean(payload.coverage.scope_limited),
+      scope_withheld_lane_ids: list(payload.coverage.scope_withheld_lane_ids).map(text).filter(Boolean),
+    } : {
+      truncated: false, gap_lane_ids: [], scanned: numberOf(payload?.counts?.scanned), accepted: numberOf(payload?.counts?.accepted),
+      shown: numberOf(payload?.counts?.events), undated_count: derivedUndatedCount, projection_gap_count: missingEventIds.size,
+      scope_limited: false, scope_withheld_lane_ids: [],
+    },
+  };
+}
+
+function lifeTreeProjectState(project) {
+  if (!(state._lifeTreeProjects instanceof Map)) state._lifeTreeProjects = new Map();
+  if (!state._lifeTreeProjects.has(project)) state._lifeTreeProjects.set(project, {
+    days: 30, showPlanned: false, selectedLanes: null, knownLanes: [],
+  });
+  return state._lifeTreeProjects.get(project);
+}
+
+function lifeTreeCacheKey(project, config) {
+  const lanes = config.selectedLanes instanceof Set ? [...config.selectedLanes].sort().join(",") : "*";
+  const roles = [...LIFE_TREE_ACTUAL_ROLES, ...(config.showPlanned ? ["planned"] : [])].join(",");
+  return `${project}|${config.days}|${lanes}|${roles}`;
+}
+
+function lifeTreeRequestPath(project, config) {
+  const q = new URLSearchParams({
+    project, days: String(config.days),
+    temporal_roles: [...LIFE_TREE_ACTUAL_ROLES, ...(config.showPlanned ? ["planned"] : [])].join(","),
+  });
+  if (config.selectedLanes instanceof Set) q.set("lanes", [...config.selectedLanes].sort().join(","));
+  return `/api/context/life_tree?${q}`;
+}
+
+function lifeTreeLaneLabel(lane, L) {
+  const keys = {
+    mail_received: "life_lane_mail_received", mail_sent: "life_lane_mail_sent", erp_work: "life_lane_erp_work",
+    se_planned: "life_lane_se_planned", voice_intake: "life_lane_voice_intake", codex_instruction: "life_lane_codex_instruction",
+    artifact_metadata: "life_lane_artifact_metadata", general_activity: "life_lane_general_activity", file_activity: "life_lane_file_activity",
+  };
+  return L[keys[lane?.lane_id]] ?? lane?.label ?? lane?.lane_id ?? L.life_lane_unknown;
+}
+
+function lifeTreeStateLabel(value, L) {
+  return ({
+    confirmed_exact: L.life_confirmed, confirmed: L.life_confirmed,
+    review_needed: L.life_review_needed, suggested: L.life_review_needed,
+    unassigned: L.life_unassigned, inbox: L.life_unassigned,
+    conflict: L.life_conflict, partial: L.life_partial,
+    exact: L.life_time_exact, date_only: L.life_time_date_only,
+    fallback: L.life_time_fallback, unknown: L.life_time_unknown,
+    missing_or_invalid: L.life_time_unknown,
+  })[value] ?? (value ? value : L.life_time_unknown);
+}
+
+function lifeTreeRoleLabel(value, L) {
+  return ({ occurred: L.life_role_occurred, observed: L.life_role_observed, state_change: L.life_role_state_change, planned: L.life_role_planned })[value] ?? (value ? value : L.life_role_unknown);
+}
+
+function lifeTreeGapReason(value, L) {
+  return ({
+    no_canonical_general_activity_collector: L.life_gap_general_activity,
+    no_canonical_filesystem_create_collector: L.life_gap_file_activity,
+    general_filesystem_activity_unobserved: L.life_gap_file_activity,
+  })[value] ?? value ?? L.life_gap_unknown;
+}
+
+function lifeTreeScopeReasonLabel(value, L) {
+  return ({
+    other_mailboxes_withheld: L.life_scope_mail_withheld,
+    inaccessible_actor_item_mailbox_events_withheld: L.life_scope_work_withheld,
+    inaccessible_items_and_unbound_project_plans_withheld: L.life_scope_plan_withheld,
+    inaccessible_items_withheld: L.life_scope_work_withheld,
+    unbound_project_artifacts_withheld: L.life_scope_artifact_withheld,
+    inaccessible_upload_events_withheld: L.life_scope_file_withheld,
+    general_filesystem_activity_unobserved: L.life_gap_file_activity,
+  })[value] ?? L.life_scope_limited;
+}
+
+function lifeTreeReasonLabel(value, L) {
+  const keys = {
+    multiple_exact_context_links: "life_reason_multiple_contexts",
+    suggested_context_not_confirmed: "life_reason_suggested_context",
+    no_exact_context_link: "life_reason_no_context",
+    source_time_missing: "life_reason_time_missing",
+    source_time_invalid: "life_reason_time_invalid",
+    date_only_precision: "life_reason_date_only",
+    voice_occurrence_clock_unavailable: "life_reason_voice_clock_missing",
+    message_text_withheld: "life_reason_content_withheld",
+    registration_timestamp_unavailable: "life_reason_registration_time_missing",
+    scope_withheld: "life_reason_scope_withheld",
+    cross_project_item_mismatch: "life_reason_cross_project_mismatch",
+    item_link_withheld_or_project_mismatch: "life_reason_cross_project_mismatch",
+  };
+  const key = keys[String(value ?? "")];
+  return key ? L[key] : L.life_reason_review;
+}
+
+function lifeTreeTimeBasisLabel(value, L) {
+  const keys = {
+    occurred_at: "life_basis_occurred",
+    observed_at: "life_basis_observed",
+    recorded_at: "life_basis_recorded",
+    ingested_at: "life_basis_ingested",
+    planned_for: "life_basis_planned",
+    undated: "life_basis_undated",
+  };
+  const key = keys[String(value ?? "")];
+  return key ? L[key] : L.life_basis_unknown;
+}
+
+function lifeTreeMergeKnownLanes(config, lanes) {
+  const merged = new Map((config.knownLanes ?? []).map((lane) => [lane.lane_id, lane]));
+  for (const lane of lanes ?? []) merged.set(lane.lane_id, { ...(merged.get(lane.lane_id) || {}), ...lane });
+  config.knownLanes = [...merged.values()];
+}
+
+function lifeTreeFiltersHtml(config) {
+  const L = state.lex;
+  const lanes = config.knownLanes ?? [];
+  const laneButtons = lanes.map((lane) => {
+    const on = !(config.selectedLanes instanceof Set) || config.selectedLanes.has(lane.lane_id);
+    const gap = ["gap", "partial"].includes(lane.status) ? ` · ${L.life_gap}` : "";
+    return `<button type="button" class="fav-chip mini life-lane-filter ${on ? "on" : ""}" data-life-lane="${esc(lane.lane_id)}" aria-pressed="${on}">${esc(lifeTreeLaneLabel(lane, L))}${esc(gap)}</button>`;
+  }).join("");
+  return `<details class="life-filter-details" open>
+    <summary>${esc(L.life_filters)}</summary>
+    <div class="life-filter-row">
+      <label>${esc(L.life_range)} <select class="life-days" aria-label="${esc(L.life_range)}">
+        ${[7, 30, 90].map((n) => `<option value="${n}" ${config.days === n ? "selected" : ""}>${n}${esc(L.life_days_suffix)}</option>`).join("")}
+      </select></label>
+      <span class="life-role-fixed">${esc(L.life_role_actual_state)} · ${esc(L.life_on)}</span>
+      <button type="button" class="fav-chip mini life-planned ${config.showPlanned ? "on" : ""}" aria-pressed="${config.showPlanned}">${esc(L.life_role_planned)} · ${esc(config.showPlanned ? L.life_on : L.life_off)}</button>
+    </div>
+    ${laneButtons ? `<div class="life-filter-lanes"><span>${esc(L.life_lanes)}</span>${laneButtons}</div>` : ""}
+  </details>`;
+}
+
+function lifeTreeEventVisible(event, config) {
+  if (!config.showPlanned && event.temporal_role === "planned") return false;
+  return !(config.selectedLanes instanceof Set) || config.selectedLanes.has(event.lane_id);
+}
+
+function lifeTreeContextConfirmed(context) {
+  return ["confirmed_exact", "confirmed"].includes(String(context?.binding_state ?? ""));
+}
+
+function lifeTreeConfirmedTaskLink(link) {
+  if (!link || !["confirmed_exact", "confirmed"].includes(String(link.link_state ?? ""))) return null;
+  const itemId = String(link.item_id ?? "");
+  if (!itemId || String(link.ref ?? "") !== `item:${itemId}`) return null;
+  return { item_id: itemId, label: String(link.label ?? "") };
+}
+
+function lifeTreeConfirmedBranchLink(link, project, branches) {
+  if (!link || !["confirmed_exact", "confirmed"].includes(String(link.link_state ?? ""))) return null;
+  const branchKey = String(link.branch_key ?? "");
+  const ref = String(link.ref ?? "");
+  if (!branchKey || ref !== `branch:${project}:${branchKey}`) return null;
+  const branch = (branches ?? []).find((row) => String(row.branch_key ?? "") === branchKey);
+  return branch ? { branch_key: branchKey, label: String(link.label || branch.label || branchKey) } : null;
+}
+
+function lifeTreeEventNeedsReview(event, context) {
+  if (!lifeTreeContextConfirmed(context)) return true;
+  const states = [event.project_binding, event.uncertainty?.context].map((v) => String(v ?? ""));
+  return states.some((v) => ["review_needed", "suggested", "unassigned", "inbox", "conflict", "partial", "withheld"].includes(v));
+}
+
+function lifeTreeEventActionsHtml(event, context, g) {
+  if (lifeTreeEventNeedsReview(event, context)) return "";
+  const L = state.lex;
+  const tasks = [...new Map((event.task_links ?? []).map(lifeTreeConfirmedTaskLink).filter(Boolean).map((link) => [link.item_id, link])).values()];
+  const branches = [...new Map((event.context_links ?? [])
+    .map((link) => lifeTreeConfirmedBranchLink(link, g.project, g.branches)).filter(Boolean)
+    .map((link) => [link.branch_key, link])).values()];
+  const taskButtons = tasks.map((link) => `<button type="button" class="fav-chip mini life-open-item" data-life-item="${esc(link.item_id)}" data-life-label="${esc(link.label || event.summary_label)}" aria-label="${esc(`${L.life_open_task}: ${link.item_id}`)}">${esc(L.life_open_task)}</button>`).join("");
+  const branchButtons = branches.map((link) => `<button type="button" class="fav-chip mini life-open-story" data-life-branch="${esc(link.branch_key)}" aria-label="${esc(`${L.life_open_story}: ${link.label}`)}">${esc(L.life_open_story)}</button>`).join("");
+  return taskButtons || branchButtons ? `<div class="life-event-actions">${taskButtons}${branchButtons}</div>` : "";
+}
+
+function lifeTreeTimeHtml(event) {
+  const L = state.lex;
+  const shown = String(event.display_at ?? "");
+  const time = shown ? `<time datetime="${esc(shown)}">${esc(shown.slice(0, 16).replace("T", " "))}</time>` : `<span>${esc(L.life_undated)}</span>`;
+  const basis = event.time_basis ? `${L.life_time_basis}: ${lifeTreeTimeBasisLabel(event.time_basis, L)}` : "";
+  const stateLabel = lifeTreeStateLabel(event.time_state, L);
+  return `${time}<span>${esc([basis, stateLabel].filter(Boolean).join(" · "))}</span>`;
+}
+
+function lifeTreeEventHtml(event, context, g, laneById) {
+  const L = state.lex;
+  const lane = laneById.get(event.lane_id) ?? { lane_id: event.lane_id, label: event.lane_id };
+  const review = lifeTreeEventNeedsReview(event, context);
+  const reasons = [...new Set([...(context.reasons ?? []), ...(event.uncertainty?.reasons ?? [])].filter(Boolean))].slice(0, 8);
+  const evidence = review || reasons.length ? `<div class="life-evidence">
+    <strong>${esc(review ? L.life_review_needed : L.life_evidence)}</strong>
+    ${reasons.length ? `<ul>${reasons.map((reason) => `<li>${esc(lifeTreeReasonLabel(reason, L))}</li>`).join("")}</ul>` : `<span>${esc(L.life_gap_unknown)}</span>`}
+  </div>` : "";
+  const binding = event.project_binding ? `<span>${esc(lifeTreeStateLabel(event.project_binding, L))}</span>` : "";
+  return `<li><article class="life-event ${review ? "needs-review" : "confirmed"}">
+    <header><span class="life-lane-badge">${esc(lifeTreeLaneLabel(lane, L))}</span><span class="life-role-badge">${esc(lifeTreeRoleLabel(event.temporal_role, L))}</span>${binding}</header>
+    <strong class="life-event-title">${esc(event.summary_label || L.life_event_untitled)}</strong>
+    <div class="life-event-time">${lifeTreeTimeHtml(event)}</div>
+    ${evidence}${lifeTreeEventActionsHtml(event, context, g)}
+  </article></li>`;
+}
+
+function lifeTreeCoverageHtml(model, config) {
+  const L = state.lex;
+  const gaps = new Set([...(model.coverage?.gap_lane_ids ?? []), ...(config.knownLanes ?? []).filter((lane) => ["gap", "partial"].includes(lane.status)).map((lane) => lane.lane_id)]);
+  const laneRows = (config.knownLanes ?? []).map((lane) => {
+    const cv = lane.coverage ?? {};
+    const count = cv.events != null && Number.isFinite(Number(cv.events)) ? Number(cv.events) : null;
+    const cap = cv.cap != null && Number.isFinite(Number(cv.cap)) ? Number(cv.cap) : null;
+    const bits = [
+      cv.scanned == null ? "" : `${L.life_scanned} ${cv.scanned}`,
+      cv.accepted == null ? "" : `${L.life_accepted} ${cv.accepted}`,
+      count == null ? "" : `${L.life_shown} ${count}`,
+      cv.skipped == null ? "" : `${L.life_skipped} ${cv.skipped}`,
+      cv.undated == null || Number(cv.undated) === 0 ? "" : `${L.life_undated} ${cv.undated}`,
+      cap == null ? "" : `${L.life_cap} ${cap}`,
+      cv.truncated ? L.life_truncated : "",
+    ].filter(Boolean).join(" · ");
+    const gap = ["gap", "partial"].includes(lane.status) || gaps.has(lane.lane_id);
+    const scopeReasons = (cv.scope_withheld_reasons ?? []).map((reason) => lifeTreeScopeReasonLabel(reason, L));
+    const scopeDetail = cv.scope_limited
+      ? [L.life_scope_limited, ...new Set(scopeReasons)].filter(Boolean).join(" · ")
+      : "";
+    return `<li><div><strong>${esc(lifeTreeLaneLabel(lane, L))}</strong><span>${esc(gap ? L.life_gap : L.life_available)}</span></div>
+      ${bits ? `<small>${esc(bits)}</small>` : ""}${gap ? `<small class="danger-text">${esc(lifeTreeGapReason(lane.gap_reason, L))}</small>` : ""}
+      ${scopeDetail ? `<small class="danger-text">${esc(scopeDetail)}</small>` : ""}</li>`;
+  }).join("");
+  const undated = model.coverage?.undated_count;
+  const totalBits = [
+    model.coverage?.scanned == null ? "" : `${L.life_scanned} ${model.coverage.scanned}`,
+    model.coverage?.accepted == null ? "" : `${L.life_accepted} ${model.coverage.accepted}`,
+    model.coverage?.shown == null ? "" : `${L.life_shown} ${model.coverage.shown}`,
+  ].filter(Boolean).join(" · ");
+  const alerts = [
+    model.coverage?.truncated ? L.life_truncated_detail : "",
+    gaps.size ? `${L.life_gap_lanes}: ${[...gaps].map((id) => lifeTreeLaneLabel((config.knownLanes ?? []).find((lane) => lane.lane_id === id) ?? { lane_id: id }, L)).join(", ")}` : "",
+    Number(undated) > 0 ? `${L.life_undated} ${Number(undated)}` : "",
+    Number(model.coverage?.projection_gap_count) > 0 ? `${L.life_projection_gaps} ${Number(model.coverage.projection_gap_count)}` : "",
+    model.coverage?.scope_limited ? L.life_scope_limited : "",
+  ].filter(Boolean);
+  return `<aside class="life-coverage" aria-live="polite">
+    <h4>${esc(L.life_coverage)}</h4>
+    <p class="dim small">${esc(L.life_timezone)}: ${esc(model.timezone || "Asia/Seoul")}</p>
+    ${totalBits ? `<p class="dim small">${esc(totalBits)}</p>` : ""}
+    ${alerts.length ? `<div class="life-coverage-alert">${alerts.map((line) => `<p>${esc(line)}</p>`).join("")}</div>` : `<p class="dim small">${esc(L.life_coverage_complete)}</p>`}
+    <ul>${laneRows}</ul>
+  </aside>`;
+}
+
+function lifeTreeDaysHtml(model, config, g) {
+  const L = state.lex;
+  const laneById = new Map((config.knownLanes ?? []).map((lane) => [lane.lane_id, lane]));
+  const days = [];
+  for (const day of model.days ?? []) {
+    const contextHtml = [];
+    let dayCount = 0;
+    for (const context of day.contexts ?? []) {
+      const events = (context.events ?? []).filter((event) => lifeTreeEventVisible(event, config));
+      if (!events.length) continue;
+      dayCount += events.length;
+      const confirmed = lifeTreeContextConfirmed(context);
+      const label = context.label || (confirmed ? L.life_confirmed_context : L.life_review_needed);
+      const groupBranch = confirmed ? lifeTreeConfirmedBranchLink({
+        ref: context.context_ref, branch_key: context.branch_key, link_state: context.binding_state,
+      }, g.project, g.branches) : null;
+      const groupAction = groupBranch
+        ? `<button type="button" class="fav-chip mini life-open-story" data-life-branch="${esc(groupBranch.branch_key)}" aria-label="${esc(`${L.life_open_story}: ${groupBranch.label}`)}">${esc(L.life_open_story)}</button>` : "";
+      const contextEvidence = !confirmed && (context.reasons ?? []).length
+        ? `<div class="life-evidence"><strong>${esc(L.life_review_needed)}</strong><ul>${context.reasons.map((reason) => `<li>${esc(lifeTreeReasonLabel(reason, L))}</li>`).join("")}</ul></div>` : "";
+      contextHtml.push(`<details class="life-context ${confirmed ? "confirmed" : "needs-review"}" open>
+        <summary><span>${esc(label)}</span><small>${esc(lifeTreeStateLabel(context.binding_state, L))} · ${events.length}</small></summary>
+        ${groupAction}${contextEvidence}<ul class="life-event-list">${events.map((event) => lifeTreeEventHtml(event, context, g, laneById)).join("")}</ul>
+      </details>`);
+    }
+    if (!dayCount) continue;
+    const dated = day.day_key !== "undated" && LIFE_TREE_DATE_RE.test(day.day_key);
+    const dayLabel = dated ? day.day_key : L.life_undated;
+    days.push(`<details class="life-day ${dated ? "dated" : "undated"}" ${days.length === 0 ? "open" : ""}>
+      <summary>${dated ? `<time datetime="${esc(day.day_key)}">${esc(dayLabel)}</time>` : `<span>${esc(dayLabel)}</span>`}<small>${dayCount}${esc(L.life_event_suffix)}</small></summary>
+      <div class="life-contexts">${contextHtml.join("")}</div>
+    </details>`);
+  }
+  return days.join("") || `<div class="empty">${esc(L.life_no_events)}</div>`;
+}
+
+function wireLifeTreeFilters(body, g, config) {
+  body.querySelector(".life-days")?.addEventListener("change", (event) => {
+    const days = Number(event.target.value);
+    config.days = [7, 30, 90].includes(days) ? days : 30;
+    drawTrunkLifeTree(body, g);
+  });
+  body.querySelector(".life-planned")?.addEventListener("click", () => {
+    config.showPlanned = !config.showPlanned;
+    drawTrunkLifeTree(body, g);
+  });
+  body.querySelectorAll(".life-lane-filter").forEach((button) => button.addEventListener("click", () => {
+    const allIds = (config.knownLanes ?? []).map((lane) => lane.lane_id);
+    const next = config.selectedLanes instanceof Set ? new Set(config.selectedLanes) : new Set(allIds);
+    if (next.has(button.dataset.lifeLane)) {
+      if (next.size === 1) return;
+      next.delete(button.dataset.lifeLane);
+    } else next.add(button.dataset.lifeLane);
+    config.selectedLanes = next.size === allIds.length ? null : next;
+    drawTrunkLifeTree(body, g);
+  }));
+}
+
+async function lifeTreeOpenStory(body, g, branchKey, trigger) {
+  const L = state.lex;
+  const panel = body.querySelector(".life-story-panel");
+  if (!panel) return;
+  const requestKey = `${branchKey}:${Date.now()}`;
+  panel.dataset.lifeStoryRequest = requestKey;
+  panel.onkeydown = (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    panel.innerHTML = "";
+    panel.removeAttribute("tabindex");
+    trigger?.focus();
+  };
+  panel.innerHTML = `<div class="life-live-status" role="status" aria-live="polite">${esc(L.life_story_loading)}</div>`;
+  const story = await api(`/api/context/branch_story?project=${encodeURIComponent(g.project)}&branch=${encodeURIComponent(branchKey)}`).catch(() => null);
+  if (!panel.isConnected || panel.dataset.lifeStoryRequest !== requestKey) return;
+  if (!story || story.error || story.content_policy !== "metadata_only" || story.branch?.branch_key !== branchKey) {
+    panel.innerHTML = `<div class="life-live-status" role="status" aria-live="polite">${esc(L.life_story_error)}</div>`;
+    return;
+  }
+  panel.innerHTML = `<details class="life-story" open><summary>${esc(L.life_story_title)} · ${esc(story.branch?.label || branchKey)}</summary>${trunkStoryHtml(story, L)}</details>`;
+  panel.setAttribute("tabindex", "-1");
+  panel.focus({ preventScroll: true });
+}
+
+function wireLifeTreeActions(body, g) {
+  const L = state.lex;
+  body.querySelectorAll(".life-open-story").forEach((button) => button.addEventListener("click", () => {
+    lifeTreeOpenStory(body, g, button.dataset.lifeBranch, button);
+  }));
+  body.querySelectorAll(".life-open-item").forEach((button) => button.addEventListener("click", async () => {
+    if (button.disabled) return;
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    const rows = await api(`/api/items?project=${encodeURIComponent(g.project)}&limit=1000`).catch(() => null);
+    const items = Array.isArray(rows) ? rows : (Array.isArray(rows?.rows) ? rows.rows : []);
+    const item = items.find((row) => String(row.id) === button.dataset.lifeItem && String(row.project_id) === String(g.project));
+    if (item) {
+      (state._itemCache || (state._itemCache = {}))[item.id] = item;
+      openItemQuickEdit(item.id, item.project_id, item.title || button.dataset.lifeLabel);
+    } else toast(L.life_item_unavailable, "warn");
+    if (button.isConnected) { button.disabled = false; button.removeAttribute("aria-busy"); }
+  }));
+}
+
+function renderLifeTreeModel(body, g, config, model) {
+  lifeTreeMergeKnownLanes(config, model.lanes);
+  body.innerHTML = `${lifeTreeFiltersHtml(config)}
+    <div class="life-tree-layout">
+      <section class="life-tree-main" aria-label="${esc(state.lex.life_title)}">
+        <div class="life-story-panel"></div>
+        ${lifeTreeDaysHtml(model, config, g)}
+      </section>
+      ${lifeTreeCoverageHtml(model, config)}
+    </div>`;
+  wireLifeTreeFilters(body, g, config);
+  wireLifeTreeActions(body, g);
+}
+
+async function drawTrunkLifeTree(body, g) {
+  const L = state.lex;
+  const config = lifeTreeProjectState(g.project);
+  if (!(state._lifeTreeCache instanceof Map)) state._lifeTreeCache = new Map();
+  // Every draw invalidates an older in-flight request, including a cache hit. Without
+  // this generation bump, an earlier filter response can overwrite the cached view.
+  const requestId = String((state._lifeTreeRequestSeq = (state._lifeTreeRequestSeq ?? 0) + 1));
+  body.dataset.lifeRequest = requestId;
+  const cacheKey = lifeTreeCacheKey(g.project, config);
+  const cached = state._lifeTreeCache.get(cacheKey);
+  if (cached && Date.now() - cached.cached_at < LIFE_TREE_CACHE_TTL_MS) {
+    renderLifeTreeModel(body, g, config, cached.model);
+    return;
+  }
+  if (cached) state._lifeTreeCache.delete(cacheKey);
+
+  body.innerHTML = `${lifeTreeFiltersHtml(config)}<div class="life-live-status" role="status" aria-live="polite">${esc(L.life_loading)}</div>`;
+  wireLifeTreeFilters(body, g, config);
+  const raw = await api(lifeTreeRequestPath(g.project, config)).catch(() => null);
+  if (!body.isConnected || state.trunkView !== "life" || body.dataset.lifeRequest !== requestId) return;
+  if (!raw || raw.error) {
+    body.innerHTML = `${lifeTreeFiltersHtml(config)}<div class="life-live-status danger-text" role="status" aria-live="polite">${esc(L.life_error)}</div>`;
+    wireLifeTreeFilters(body, g, config);
+    return;
+  }
+  if (raw.schema !== LIFE_TREE_SCHEMA || raw.content_policy !== "metadata_only" || raw.read_only !== true || lifeTreePayloadProjectId(raw) !== String(g.project)) {
+    body.innerHTML = `${lifeTreeFiltersHtml(config)}<div class="life-live-status danger-text" role="status" aria-live="polite">${esc(L.life_contract_error)}</div>`;
+    wireLifeTreeFilters(body, g, config);
+    return;
+  }
+  const model = normalizeLifeTreePayload(raw, g.project);
+  state._lifeTreeCache.set(cacheKey, { cached_at: Date.now(), model });
+  renderLifeTreeModel(body, g, config, model);
 }
 
 // B9c 진단 렌즈 — 저장/자동판정 없이 context/graph 응답의 설명 통계만 렌더한다.
