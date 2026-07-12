@@ -19,7 +19,7 @@ import { tmpdir } from "node:os";
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 
 export const CODEX_TASK_BRIDGE_VERSION = Object.freeze({
-  release: "v0.7.0",
+  release: "v0.8.0",
   source: "src/codex_bridge.mjs",
 });
 
@@ -106,7 +106,12 @@ function pathIsInside(root, target) {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
-export function buildCodexPermissionProfile({ cwd, writableRoots = [], readOnlyPaths = [] } = {}) {
+export function buildCodexPermissionProfile({
+  cwd,
+  writableRoots = [],
+  readOnlyPaths = [],
+  deniedReadPaths = [],
+} = {}) {
   const roots = uniqueAbsolutePaths([cwd], "codex_permission_workspace_root_invalid");
   const workspaceRoot = roots[0];
   const writes = uniqueAbsolutePaths(writableRoots, "codex_permission_write_root_invalid");
@@ -114,11 +119,15 @@ export function buildCodexPermissionProfile({ cwd, writableRoots = [], readOnlyP
     throw new Error("codex_permission_write_root_outside_workspace");
   }
   const reads = uniqueAbsolutePaths(readOnlyPaths, "codex_permission_read_path_invalid");
+  const denies = uniqueAbsolutePaths(deniedReadPaths, "codex_permission_deny_path_invalid");
   const accessByPath = new Map([[pathKey(workspaceRoot), { path: workspaceRoot, access: "read" }]]);
   for (const target of writes) accessByPath.set(pathKey(target), { path: target, access: "write" });
   for (const target of reads) {
     const key = pathKey(target);
     if (!accessByPath.has(key)) accessByPath.set(key, { path: target, access: "read" });
+  }
+  if (denies.some((target) => accessByPath.has(pathKey(target)))) {
+    throw new Error("codex_permission_path_conflict");
   }
   const prefix = `permissions.${CODEX_TASK_PERMISSION_PROFILE_ID}`;
   const filesystemEntries = [
@@ -126,11 +135,12 @@ export function buildCodexPermissionProfile({ cwd, writableRoots = [], readOnlyP
     [":minimal", "read"],
     [":tmpdir", "deny"],
     [":slash_tmp", "deny"],
+    ...denies.map((path) => [path, "deny"]),
     ...[...accessByPath.values()].map(({ path, access }) => [path, access]),
   ];
   const configOverrides = [
     `default_permissions=${tomlString(CODEX_TASK_PERMISSION_PROFILE_ID)}`,
-    `${prefix}.description=${tomlString("dev-ERP exact-path command boundary")}`,
+    `${prefix}.description=${tomlString("dev-ERP immutable turn-projection boundary")}`,
     `${prefix}.filesystem={${filesystemEntries.map(([path, access]) => `${tomlString(path)}=${tomlString(access)}`).join(",")}}`,
     `${prefix}.network.enabled=false`,
   ];
@@ -139,6 +149,7 @@ export function buildCodexPermissionProfile({ cwd, writableRoots = [], readOnlyP
     runtimeWorkspaceRoots: Object.freeze([workspaceRoot]),
     writableRoots: Object.freeze(writes),
     readOnlyPaths: Object.freeze(reads),
+    deniedReadPaths: Object.freeze(denies),
     configOverrides: Object.freeze(configOverrides),
   });
 }
@@ -400,26 +411,47 @@ function powershellLiteral(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-export function probeCodexPermissionBoundary({ codexHome, timeoutMs = 30_000, spawnSyncImpl = spawnSync } = {}) {
+export function probeCodexPermissionBoundary({
+  codexHome,
+  projectionRoot,
+  timeoutMs = 30_000,
+  spawnSyncImpl = spawnSync,
+} = {}) {
   if (process.platform !== "win32") {
-    return Object.freeze({ proven: false, source: "codex_sandbox_exact_path_probe_v3", error: "windows_probe_required" });
+    return Object.freeze({ proven: false, source: "codex_sandbox_turn_projection_probe_v4", error: "windows_probe_required" });
   }
   if (!codexHome || !isAbsolute(String(codexHome))) {
-    return Object.freeze({ proven: false, source: "codex_sandbox_exact_path_probe_v3", error: "codex_home_required" });
+    return Object.freeze({ proven: false, source: "codex_sandbox_turn_projection_probe_v4", error: "codex_home_required" });
+  }
+  if (!projectionRoot || !isAbsolute(String(projectionRoot))) {
+    return Object.freeze({ proven: false, source: "codex_sandbox_turn_projection_probe_v4", error: "projection_root_required" });
   }
   const base = mkdtempSync(join(tmpdir(), "dev-erp-codex-boundary-"));
+  let deniedProbeRoot = null;
+  let otherProjectionProbeRoot = null;
+  let projectionProbeRoot = null;
   const allowedRoot = join(base, "workspace");
   const sourceRoot = join(allowedRoot, "Source");
   const writableRoot = join(allowedRoot, "Output");
   const unapprovedRoot = join(allowedRoot, "Unapproved");
-  const attachmentRoot = join(base, "attachments");
-  const deniedRoot = join(base, "denied");
+  const selectedProjection = join(resolve(projectionRoot), `.permission-probe-${process.pid}-${Date.now()}`, "selected-revision");
+  projectionProbeRoot = dirname(selectedProjection);
+  // Keep forbidden fixtures outside the workspace's temp parent. Windows sandbox
+  // grants can reopen parent directories, so putting both sides under `base`
+  // would test a layout that production explicitly forbids.
+  deniedProbeRoot = mkdtempSync(join(resolve(codexHome), ".permission-probe-denied-"));
+  const otherProjection = join(resolve(projectionRoot), `.permission-probe-other-${process.pid}-${Date.now()}`, "other-revision");
+  otherProjectionProbeRoot = dirname(otherProjection);
+  const sourceAttachmentRoot = join(deniedProbeRoot, "source-attachments");
+  const deniedRoot = join(deniedProbeRoot, "denied");
   const allowedRead = join(sourceRoot, "read-sentinel.txt");
   const deniedWorkspaceWrite = join(sourceRoot, "write-sentinel.txt");
   const allowedWrite = join(writableRoot, "write-sentinel.txt");
   const unapprovedWrite = join(unapprovedRoot, "write-sentinel.txt");
-  const allowedAttachment = join(attachmentRoot, "allowed-attachment.txt");
-  const siblingAttachment = join(attachmentRoot, "sibling-attachment.txt");
+  const allowedAttachment = join(selectedProjection, "allowed-attachment.txt");
+  const siblingAttachment = join(selectedProjection, "selected-sibling.txt");
+  const otherProjectionAttachment = join(otherProjection, "other-projection.txt");
+  const sourceAttachment = join(sourceAttachmentRoot, "source-attachment.txt");
   const deniedRead = join(deniedRoot, "read-sentinel.txt");
   const deniedWrite = join(deniedRoot, "write-sentinel.txt");
   const sourceJunction = join(sourceRoot, "linked-denied");
@@ -431,11 +463,15 @@ export function probeCodexPermissionBoundary({ codexHome, timeoutMs = 30_000, sp
     mkdirSync(sourceRoot, { recursive: true });
     mkdirSync(writableRoot, { recursive: true });
     mkdirSync(unapprovedRoot, { recursive: true });
-    mkdirSync(attachmentRoot, { recursive: true });
+    mkdirSync(selectedProjection, { recursive: true });
+    mkdirSync(otherProjection, { recursive: true });
+    mkdirSync(sourceAttachmentRoot, { recursive: true });
     mkdirSync(deniedRoot, { recursive: true });
     writeFileSync(allowedRead, "allowed-v1", "utf8");
     writeFileSync(allowedAttachment, "attachment-v1", "utf8");
     writeFileSync(siblingAttachment, "sibling-v1", "utf8");
+    writeFileSync(otherProjectionAttachment, "other-projection-v1", "utf8");
+    writeFileSync(sourceAttachment, "source-attachment-v1", "utf8");
     writeFileSync(deniedRead, "denied-v1", "utf8");
     symlinkSync(deniedRoot, sourceJunction, "junction");
     symlinkSync(deniedRoot, outputJunction, "junction");
@@ -444,6 +480,13 @@ export function probeCodexPermissionBoundary({ codexHome, timeoutMs = 30_000, sp
       cwd: allowedRoot,
       writableRoots: [writableRoot],
       readOnlyPaths: [allowedAttachment],
+      deniedReadPaths: [
+        resolve(projectionRoot),
+        otherProjectionAttachment,
+        deniedProbeRoot,
+        sourceAttachment,
+        deniedRead,
+      ],
     });
     const script = [
       "$ErrorActionPreference='Stop'",
@@ -452,16 +495,17 @@ export function probeCodexPermissionBoundary({ codexHome, timeoutMs = 30_000, sp
       `try { [System.IO.File]::WriteAllText(${powershellLiteral(deniedWorkspaceWrite)}, 'forbidden') | Out-Null; exit 43 } catch {}`,
       `try { [System.IO.File]::WriteAllText(${powershellLiteral(unapprovedWrite)}, 'forbidden') | Out-Null; exit 44 } catch {}`,
       `if ([System.IO.File]::ReadAllText(${powershellLiteral(allowedAttachment)}) -ne 'attachment-v1') { exit 45 }`,
-      `try { [System.IO.File]::ReadAllText(${powershellLiteral(siblingAttachment)}) | Out-Null; exit 46 } catch {}`,
+      `if ([System.IO.File]::ReadAllText(${powershellLiteral(siblingAttachment)}) -ne 'sibling-v1') { exit 46 }`,
       `try { [System.IO.File]::WriteAllText(${powershellLiteral(allowedAttachment)}, 'forbidden') | Out-Null; exit 47 } catch {}`,
-      `try { [System.IO.Directory]::GetFiles(${powershellLiteral(attachmentRoot)}) | Out-Null; exit 48 } catch {}`,
-      `try { [System.IO.File]::ReadAllText(${powershellLiteral(deniedRead)}) | Out-Null; exit 49 } catch {}`,
-      `try { [System.IO.File]::WriteAllText(${powershellLiteral(deniedWrite)}, 'forbidden') | Out-Null; exit 50 } catch {}`,
-      `try { [System.IO.File]::ReadAllText(${powershellLiteral(join(sourceJunction, "read-sentinel.txt"))}) | Out-Null; exit 51 } catch {}`,
-      `try { [System.IO.File]::WriteAllText(${powershellLiteral(join(outputJunction, "junction-write.txt"))}, 'forbidden') | Out-Null; exit 52 } catch {}`,
-      `try { [System.IO.File]::ReadAllText(${powershellLiteral(sourceHardlink)}) | Out-Null; exit 53 } catch {}`,
-      `try { [System.IO.File]::Delete(${powershellLiteral(allowedAttachment)}); if (-not [System.IO.File]::Exists(${powershellLiteral(allowedAttachment)})) { exit 54 } } catch {}`,
-      `try { [System.IO.File]::Move(${powershellLiteral(allowedAttachment)}, ${powershellLiteral(movedAttachment)}); if ([System.IO.File]::Exists(${powershellLiteral(movedAttachment)})) { exit 55 } } catch {}`,
+      `try { [System.IO.File]::ReadAllText(${powershellLiteral(sourceAttachment)}) | Out-Null; exit 48 } catch {}`,
+      `try { [System.IO.File]::ReadAllText(${powershellLiteral(otherProjectionAttachment)}) | Out-Null; exit 49 } catch {}`,
+      `try { [System.IO.File]::ReadAllText(${powershellLiteral(deniedRead)}) | Out-Null; exit 50 } catch {}`,
+      `try { [System.IO.File]::WriteAllText(${powershellLiteral(deniedWrite)}, 'forbidden') | Out-Null; exit 51 } catch {}`,
+      `try { [System.IO.File]::ReadAllText(${powershellLiteral(join(sourceJunction, "read-sentinel.txt"))}) | Out-Null; exit 52 } catch {}`,
+      `try { [System.IO.File]::WriteAllText(${powershellLiteral(join(outputJunction, "junction-write.txt"))}, 'forbidden') | Out-Null; exit 53 } catch {}`,
+      `try { [System.IO.File]::ReadAllText(${powershellLiteral(sourceHardlink)}) | Out-Null; exit 54 } catch {}`,
+      `try { [System.IO.File]::Delete(${powershellLiteral(allowedAttachment)}); if (-not [System.IO.File]::Exists(${powershellLiteral(allowedAttachment)})) { exit 55 } } catch {}`,
+      `try { [System.IO.File]::Move(${powershellLiteral(allowedAttachment)}, ${powershellLiteral(movedAttachment)}); if ([System.IO.File]::Exists(${powershellLiteral(movedAttachment)})) { exit 56 } } catch {}`,
       "exit 0",
     ].join("; ");
     const sandboxArgs = [
@@ -472,7 +516,7 @@ export function probeCodexPermissionBoundary({ codexHome, timeoutMs = 30_000, sp
     sandboxArgs.push("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script);
     const direct = resolveWindowsCodexDirectSpawnSpec(sandboxArgs);
     if (!direct) {
-      return Object.freeze({ proven: false, source: "codex_sandbox_exact_path_probe_v3", error: "direct_codex_spawn_required" });
+      return Object.freeze({ proven: false, source: "codex_sandbox_turn_projection_probe_v4", error: "direct_codex_spawn_required" });
     }
     const commandIdentity = codexCommandIdentityForSpawnSpec(direct, { codexHome, timeoutMs: 5000, spawnSyncImpl });
     const result = spawnSyncImpl(direct.command, direct.args, {
@@ -490,25 +534,30 @@ export function probeCodexPermissionBoundary({ codexHome, timeoutMs = 30_000, sp
       && !existsSync(deniedWorkspaceWrite)
       && !existsSync(unapprovedWrite)
       && readFileSync(allowedAttachment, "utf8") === "attachment-v1"
+      && readFileSync(siblingAttachment, "utf8") === "sibling-v1"
+      && readFileSync(otherProjectionAttachment, "utf8") === "other-projection-v1"
+      && readFileSync(sourceAttachment, "utf8") === "source-attachment-v1"
       && readFileSync(deniedRead, "utf8") === "denied-v1"
       && !existsSync(deniedWrite)
       && !existsSync(deniedJunctionWrite)
       && existsSync(sourceHardlink)
       && !existsSync(movedAttachment);
     const permissionProfileRevision = sha256Bytes(Buffer.from(JSON.stringify({
-      schema: "dev_erp.codex_permission_profile.v3",
+      schema: "dev_erp.codex_permission_profile.v4",
       profile_id: profile.id,
       bridge_release: CODEX_TASK_BRIDGE_VERSION.release,
       semantics: [
         "disk_default_deny", "workspace_read", "approved_prefix_write", "workspace_other_write_deny",
-        "exact_attachment_read", "attachment_sibling_read_deny", "attachment_write_deny", "network_deny",
+        "selected_projection_exact_file_read", "selected_projection_sibling_read",
+        "other_projection_read_deny", "source_attachment_read_deny",
+        "projection_write_deny", "network_deny",
         "workspace_junction_read_deny", "write_prefix_junction_write_deny", "workspace_hardlink_read_deny",
         "attachment_delete_deny", "attachment_move_deny",
       ],
     }), "utf8"));
     return Object.freeze({
       proven,
-      source: "codex_sandbox_exact_path_probe_v3",
+      source: "codex_sandbox_turn_projection_probe_v4",
       error: proven ? null : (result.error?.code === "ETIMEDOUT" ? "probe_timeout" : `probe_exit_${result.status ?? "error"}`),
       codex_command_revision: commandIdentity.revision,
       codex_command_version: commandIdentity.version,
@@ -516,10 +565,13 @@ export function probeCodexPermissionBoundary({ codexHome, timeoutMs = 30_000, sp
       permission_profile_revision: permissionProfileRevision,
     });
   } catch {
-    return Object.freeze({ proven: false, source: "codex_sandbox_exact_path_probe_v3", error: "probe_failed" });
+    return Object.freeze({ proven: false, source: "codex_sandbox_turn_projection_probe_v4", error: "probe_failed" });
   } finally {
     try { rmSync(sourceJunction, { recursive: true, force: true }); } catch {}
     try { rmSync(outputJunction, { recursive: true, force: true }); } catch {}
+    try { if (projectionProbeRoot) rmSync(projectionProbeRoot, { recursive: true, force: true }); } catch {}
+    try { if (otherProjectionProbeRoot) rmSync(otherProjectionProbeRoot, { recursive: true, force: true }); } catch {}
+    try { if (deniedProbeRoot) rmSync(deniedProbeRoot, { recursive: true, force: true }); } catch {}
     try { rmSync(base, { recursive: true, force: true }); } catch {}
   }
 }
@@ -935,6 +987,7 @@ export async function runCodexTaskTurn({
   skills = [],
   localImages = [],
   readOnlyPaths = [],
+  deniedReadPaths = [],
   sandboxMode = null,
   writableRoots = [],
   signal = null,
@@ -946,7 +999,7 @@ export async function runCodexTaskTurn({
     return runMockTaskTurn({ threadId, threadTitle, cwd, item, userMessage, initial, writableRoots, signal });
   }
   if (mode !== "app-server") throw new Error(`unsupported_codex_task_bridge_mode:${mode}`);
-  return runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, readOnlyPaths, sandboxMode, writableRoots, signal, appServerSpawnSpec, expectedCommandRevision });
+  return runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, readOnlyPaths, deniedReadPaths, sandboxMode, writableRoots, signal, appServerSpawnSpec, expectedCommandRevision });
 }
 
 function runMockTaskTurn({ threadId, threadTitle, cwd, item, userMessage, initial, writableRoots = [], signal = null }) {
@@ -990,7 +1043,7 @@ function runMockTaskTurn({ threadId, threadTitle, cwd, item, userMessage, initia
   });
 }
 
-function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, readOnlyPaths = [], sandboxMode = null, writableRoots = [], signal = null, appServerSpawnSpec = null, expectedCommandRevision = null }) {
+function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, initial, timeoutMs, model, effort, serviceTier, skills, localImages, readOnlyPaths = [], deniedReadPaths = [], sandboxMode = null, writableRoots = [], signal = null, appServerSpawnSpec = null, expectedCommandRevision = null }) {
   const requestedSandboxMode = resolveSandboxMode(sandboxMode);
   const sbMode = requestedSandboxMode === "workspace-write" && !(Array.isArray(writableRoots) && writableRoots.length)
     ? "read-only"
@@ -1003,6 +1056,7 @@ function runCodexAppServerTurn({ threadId, threadTitle, cwd, item, userMessage, 
       ...(Array.isArray(readOnlyPaths) ? readOnlyPaths : []),
       ...(Array.isArray(localImages) ? localImages.map((image) => image?.path).filter(Boolean) : []),
     ],
+    deniedReadPaths,
   });
   let spec;
   if (appServerSpawnSpec) {

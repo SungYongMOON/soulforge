@@ -52,8 +52,9 @@
 
 ## 4. 아키텍처 (보고서 4·8절 요약)
 
-- 3존: 읽기존(Soulforge projection, read-only) / 쓰기존(ERP 자체 DB: 구매·재고·
-  요청함·계산기) / 포인터존(원문은 보호 저장소, ERP 는 포인터+SHA-256+권한+감사).
+- 3존: 본체존(Soulforge `_workspaces`, 유일한 프로젝트/대화/첨부 owner) /
+  ERP존(껍데기·read model과 ERP 자체 DB) / worker존(재생성 가능한 static cwd와
+  single-active turn projection). NAS는 backup/restore 전용이며 live body가 아니다.
 - 스택: Node.js 서버 + SQLite(파일럿) → 팀 동시 쓰기 시점에 PostgreSQL 검토.
   Docker 불필요(파일럿). 프론트는 단일 웹앱.
 - LLM 분리: 코어는 LLM 0%. AI/규칙 산출은 `ai_proposal` 큐(테이블)로만 —
@@ -73,7 +74,10 @@
   ERP는 worker URL이 정확한 `http://127.0.0.1:<port>`인지 확인하고, 실제 turn
   직전·직후마다 worker-only Ed25519 키의 새 nonce 서명을 검증한다. owner가 고정한
   identity SHA-256, public-key fingerprint, source commit, 별도 PID, registry/home/
-  첨부/보호-root revision, `app-server` mode가 모두 같은 worker일 때만 결과를 저장한다.
+  projection/deny-root revision, `app-server` mode가 모두 같은 worker일 때만 결과를 저장한다.
+  별도 pathless `payload_deny_binding_revision`은 ERP가 실제 effective canonical
+  attachment/message lexical root 두 개로 독립 계산한 기대값과 정확히 일치해야 한다.
+  양쪽 계산은 root를 stat/read하지 않으며, 형식만 맞는 다른 결박값은 거부한다.
   직접 `app-server`는 개발용이고 `mock`은 test에서만
   허용한다. worker는 호스트 전역 Codex 설정을 읽어 고치지 않는다. 설정 parse가
   실패하면 사용자가 worker identity에서 직접 고친 뒤 재시작한다. 모델은 worker
@@ -88,22 +92,22 @@
   ref key는 active+previous keyring으로 단계적으로 회전하며, key를 잃은 binding은
   명시적으로 retire하고 다른 실행경로로 fallback하지 않는다. 기존 inline message/부분 binding은 coherent backup 뒤
   owner mapping 기반 migration dry-run이 완전할 때만 `--apply`한다.
-- Codex 팀 작업실 규칙(2026-07-10): 실제 ERP runtime 껍데기와 업무 데이터
-  위치를 분리한다. runtime-local ignored JSON이 논리 `workspace_id`를 승인된
-  local/UNC root에 연결하고, 스레드는 workspace ID·workspace revision·root
-  fingerprint에 고정된다. raw root는 API/DB 감사 응답에 노출하지 않는다.
-  offline 또는 mapping 변경은 fallback 없이 중단한다. 기본은 read-only이고
-  `danger-full-access`는 비활성화한다. 등록부의 `allowed_write_prefixes`와 OS ACL을
-  정적 쓰기 상한으로 두고, 그 안에서만 관리자 승인과 최대 8시간 TTL을 가진 기존
-  상대 하위 폴더를 `workspace-write`로 승격한다. 만료/철회는 active
-  turn도 중단한다. 각 작업실은 과제와 선택적 계정/역할 allowlist를 가지며 새
-  스레드는 사용자가 직접 선택·확인한다. UI allowlist는 파일 기밀성 경계가 아니므로
-  한 등록부는 같은 `trust_domain_id`만 담는다. 실제 읽기 경계는 ERP HTTP/메일과
-  분리된 저권한 Codex worker Windows 계정, 전용 `DEV_ERP_CODEX_HOME`, SMB/NTFS
-  ACL, 전체 디스크 기본 거부의 `dev_erp_bounded` named permission profile이 소유한다.
+- Codex 팀 작업실 규칙(2026-07-12 단일-body 교정): Soulforge `_workspaces`가 유일한
+  프로젝트 본체이며 ERP runtime은 껍데기/read model이다. runtime-local ignored JSON은
+  논리 `workspace_id`를 `_workspaces`가 materialize한 owner-approved local/UNC worksite에
+  연결하고, 스레드는 workspace ID·revision·root fingerprint에 고정된다. raw root는
+  API/DB 감사 응답에 노출하지 않는다. 대화·첨부 원본은
+  `_workspaces/system/dev-erp`에만 영구 저장한다. ERP는 매 후속 메시지의 선택 첨부만
+  rehash해 worker의 single-active turn projection으로 복사하고 종료 뒤 검증 삭제한다.
+  worker에는 원본 경로나 canonical payload root를 전달하지 않는다. 첫 production slice는
+  read-only이며 write grant를 즉시 거부한다. 각 작업실은 과제와 선택적 계정/역할
+  allowlist를 가지며 새 스레드는 사용자가 직접 선택·확인한다. UI allowlist는 파일
+  기밀성 경계가 아니므로 한 등록부는 같은 `trust_domain_id`만 담는다. 실제 읽기 경계는
+  ERP HTTP/메일과 분리된 저권한 Codex worker Windows 계정, 전용
+  `DEV_ERP_CODEX_HOME`, SMB/NTFS ACL, `dev_erp_bounded` permission profile이 소유한다.
   app-server 응답의 active profile/runtime roots/빈 instruction sources를 확인하고,
-  exact-path probe v3와 owner-pinned Codex runtime identity가 workspace/approved-write/
-  attachment/outside-root/junction/hardlink 경계를 증명하지 못하면 worker 기동과 release를 차단한다.
+  turn-projection probe v4가 source/other-projection/junction/hardlink/network 경계를
+  증명하지 못하면 worker 기동과 release를 차단한다.
   Enabled root는 local/UNC authority를 섞지 않고 UNC는 단일 share namespace만 허용한다.
   lexical/realpath/junction/share-alias overlap과 보호 이름/link는 bounded child가
   metadata-only로 검사한다. 대화/첨부 payload는 Soulforge 서비스 전용 `_workspaces` 영역에
@@ -119,10 +123,11 @@
   Production dedicated-worker turns disable all skills and project instruction
   discovery. 이미지와 allowlist 문서/데이터 첨부는 item-bound
   v1 manifest에 크기/hash/저장명을 기록하고 브라우저에는 opaque attachment ID만
-  반환한다. 서버가 매 턴 item/size/hash/realpath를 검증한 뒤 image는 `localImage`,
-  일반 파일은 서버 내부 경로 참조로 전달한다. `.hwp`는 HWPX 전처리 전에는 거부하고,
+  반환한다. 서버가 매 턴 item/size/hash/realpath를 검증한 뒤 선택 파일만 immutable
+  turn projection으로 복사하고, worker는 그 projected 경로만 `localImage`/파일 참조로
+  사용한다. `.hwp`는 HWPX 전처리 전에는 거부하고,
   실행형 등 allowlist 밖 확장자는 400 거부한다. app-server child는 최소 환경만
-  상속하며 MCP/hooks/web search를 끈다. read-only와 workspace-write 모두 network
+  상속하며 MCP/hooks/web search를 끈다. 첫 production slice는 read-only이고 network
   access는 false다. Real
   collab subagents work in app-server turns, but durable Codex worker-thread
   creation is not exposed to this app-server runtime; `$soulforge-codex-thread-manager`

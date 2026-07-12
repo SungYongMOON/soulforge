@@ -11,7 +11,7 @@ test("npm test 는 자동 발견 글롭 하나로 test/ 전체를 실행한다",
   // 무따옴표 글롭 단일형이 정답: npm-on-Windows(cmd)·POSIX sh·verify_gate
   // testRunnerCommand(execFileSync) 세 실행 경로 모두에서 node 가 확장/수신한다.
   // 이스케이프 따옴표를 넣으면 verify_gate 경로가 리터럴 따옴표 인자로 pass 0 이 된다.
-  assert.equal(pkg.scripts.test, "node --test test/*.test.mjs");
+  assert.equal(pkg.scripts.test, "node --test --test-concurrency=4 test/*.test.mjs");
 });
 
 test("test/ 밖·서브디렉터리 *.test.mjs 는 글롭이 못 잡으므로 존재하면 안 된다", () => {

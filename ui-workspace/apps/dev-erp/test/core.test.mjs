@@ -4939,6 +4939,8 @@ test("Codex task UI: 대기 중 단계와 경과시간을 보여준다", () => {
   assert.match(app, /한번 연결하면 이 스레드의 작업실은 바꿀 수 없습니다/);
   assert.match(app, /capabilities\?item_id=/);
   assert.match(app, /taskCodexWrite/);
+  assert.match(app, /writeBtn\.hidden = workerReadOnly && grants\.length === 0/);
+  assert.match(app, /첫 production worker 단계에서는 쓰기 승인을 만들 수 없습니다/);
   assert.doesNotMatch(app, /taskCodexTier/); // 속도(tier) 드롭다운 제거됨
   assert.match(app, /defaults: \{ model: "gpt-5\.5", effort: "medium", workspace_id: null \}/);
   assert.doesNotMatch(app, /id="taskCodexFA"/);

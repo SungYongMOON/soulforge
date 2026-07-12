@@ -20,6 +20,7 @@ if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_CODEX_WORKER_EXPECTED_RUNTIME
 if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_CODEX_WORKER_ATTEST_PUBLIC_KEY_FILE (echo [dev-erp] ERROR: DEV_ERP_CODEX_WORKER_ATTEST_PUBLIC_KEY_FILE is required. & exit /b 2)
 if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_CODEX_WORKER_EXPECTED_ATTESTATION_KEY_ID (echo [dev-erp] ERROR: DEV_ERP_CODEX_WORKER_EXPECTED_ATTESTATION_KEY_ID is required. & exit /b 2)
 if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_BACKEND_ROOT (echo [dev-erp] ERROR: DEV_ERP_BACKEND_ROOT must point to the Soulforge data owner. & exit /b 2)
+if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_CODEX_TURN_PROJECTION_ROOT (echo [dev-erp] ERROR: DEV_ERP_CODEX_TURN_PROJECTION_ROOT is required. & exit /b 2)
 if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_CODEX_WORKSPACE_REGISTRY (echo [dev-erp] ERROR: DEV_ERP_CODEX_WORKSPACE_REGISTRY is required. & exit /b 2)
 if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_CODEX_TRUST_DOMAIN (echo [dev-erp] ERROR: DEV_ERP_CODEX_TRUST_DOMAIN is required. & exit /b 2)
 if "%DEV_ERP_PORT%"=="4300" if not defined DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT (echo [dev-erp] ERROR: DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT is required. & exit /b 2)
@@ -38,7 +39,7 @@ if not defined ERP_LLM_QUEUE_WAIT_MS set "ERP_LLM_QUEUE_WAIT_MS=60000"
 if not defined ERP_LLM_CONCURRENCY set "ERP_LLM_CONCURRENCY=1"
 REM ── 채팅 Codex 기본 샌드박스(전역 floor) ──────────────────────────────────
 REM   기본 read-only + 네트워크 차단. danger-full-access는 지원하지 않습니다.
-REM   쓰기는 ERP 관리자가 기존 하위폴더를 최대 8시간 승인한 경우에만 workspace-write로 전환됩니다.
+REM   첫 운영 슬라이스는 write grant를 거부하며, 선택 첨부의 일회성 projection만 읽습니다.
 REM   운영 Codex는 별도 Windows 실행계정과 DEV_ERP_CODEX_HOME을 사용해야 하며,
 REM   팀 폴더는 data\codex-workspaces.runtime.json의 과제/계정/역할 allowlist로만 등록합니다.
 if not defined DEV_ERP_CODEX_SANDBOX set "DEV_ERP_CODEX_SANDBOX=read-only"

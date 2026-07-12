@@ -54,6 +54,7 @@ test("B1: 게이트 개별 체크 — 통과/고의 실패 양쪽", () => {
   assert.equal(checkTests(() => { throw new Error("boom"); }).ok, false);
   const testRunner = testRunnerCommand();
   assert.ok(testRunner.args.includes("--test-concurrency=1"));
+  assert.equal(testRunner.args.includes("--test-concurrency=4"), false);
 
   // packet
   assert.equal(checkPacket(null, () => true, () => "").ok, false);

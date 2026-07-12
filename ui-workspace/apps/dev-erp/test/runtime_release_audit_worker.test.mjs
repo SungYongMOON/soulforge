@@ -20,7 +20,7 @@ import {
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 
-test("UNC share receipt binds the exact registry, worker, v3 probe, and mutation control", () => {
+test("UNC share receipt binds the exact registry, worker, v4 projection probe, and mutation control", () => {
   const workerIdentity = "a".repeat(64);
   const registryRevision = "b".repeat(64);
   const uncRows = [{ workspace_id: "team_unc", root_kind: "unc", allowed_write_prefixes: ["Output"] }];
@@ -31,7 +31,7 @@ test("UNC share receipt binds the exact registry, worker, v3 probe, and mutation
     worker_identity_sha256: workerIdentity,
     worker_release: CODEX_DEDICATED_WORKER_VERSION.release,
     bridge_release: CODEX_TASK_BRIDGE_VERSION.release,
-    permission_probe_source: "codex_sandbox_exact_path_probe_v3",
+    permission_probe_source: "codex_sandbox_turn_projection_probe_v4",
     verified_at: new Date().toISOString(),
     mutation_control: "acl_turn_lock",
     server_share_target_nonoverlap: true,
@@ -56,8 +56,10 @@ test("UNC share receipt binds the exact registry, worker, v3 probe, and mutation
     uncRows,
   };
   assert.deepEqual(validateCodexShareBoundaryReceipt(receipt, context), { ok: true, workspace_count: 1 });
+  assert.equal(validateCodexShareBoundaryReceipt({ ...receipt, schema: "dev_erp.codex_share_boundary_receipt.v1" }, context).error, "receipt_schema_invalid");
   assert.equal(validateCodexShareBoundaryReceipt({ ...receipt, mutation_control: "none" }, context).error, "receipt_boundary_unproven");
   assert.equal(validateCodexShareBoundaryReceipt({ ...receipt, worker_identity_sha256: "c".repeat(64) }, context).error, "receipt_binding_mismatch");
+  assert.equal(validateCodexShareBoundaryReceipt({ ...receipt, permission_probe_source: "codex_sandbox_exact_path_probe_v3" }, context).error, "receipt_binding_mismatch");
   assert.equal(validateCodexShareBoundaryReceipt({ ...receipt, raw_root: "forbidden" }, context).error, "receipt_schema_invalid");
 });
 
@@ -90,6 +92,7 @@ function auditOptions(root, port, overrides = {}) {
     dbPath: join(root, "missing.db"),
     metaPath: join(root, "missing-real-meta.json"),
     workspacesDir: join(root, "_workspaces"),
+    codexTurnProjectionRoot: root,
     nasRoot: false,
     expectedCommit: "a".repeat(40),
     codexWorkerExpectedRuntimeIdentityHash: "c".repeat(64),
@@ -120,6 +123,7 @@ test("runtime release audit requires an exact worker loopback URL and keeps iden
         codexWorkerUrl: `http://localhost:${port}`,
         codexWorkerExpectedIdentityHash: identityMarker,
         codexWorkerExpectedRuntimeIdentityHash: "invalid-runtime-identity",
+        codexTurnProjectionRoot: "relative-turn-projection",
       }))
     ));
     assert.equal(result.checks.codex_worker_boundary.worker_url_configured, true);
@@ -129,6 +133,8 @@ test("runtime release audit requires an exact worker loopback URL and keeps iden
     assert.ok(result.blockers.some((issue) => issue.code === "codex_worker_url_not_loopback"));
     assert.ok(result.blockers.some((issue) => issue.code === "codex_worker_expected_identity_missing"));
     assert.ok(result.blockers.some((issue) => issue.code === "codex_worker_expected_runtime_identity_missing"));
+    assert.equal(result.checks.codex_runtime_isolation.turn_projection_root_configured, false);
+    assert.ok(result.blockers.some((issue) => issue.code === "codex_turn_projection_root_invalid"));
     assert.equal(JSON.stringify(result).includes(identityMarker), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -148,6 +154,7 @@ test("runtime release audit projects and validates every dedicated-worker live a
     mkdirSync(messageRoot, { recursive: true });
     const payloadOwner = inspectCodexPayloadOwner({
       backendRoot: root,
+      workspaceOwnerRoot: join(root, "_workspaces", "system"),
       ownerBase: payloadBase,
       roots: [attachmentRoot, messageRoot],
     });
@@ -170,7 +177,9 @@ test("runtime release audit projects and validates every dedicated-worker live a
         codex_worker_identity_separate: true,
         codex_worker_registry_revision_match: true,
         codex_worker_root_isolation_ready: true,
-        codex_worker_attachment_root_ready: true,
+        codex_worker_projection_root_ready: true,
+        codex_worker_denied_read_roots_ready: true,
+        codex_worker_payload_deny_binding_match: true,
         codex_worker_forbidden_roots_ready: true,
         codex_worker_permission_profile_match: true,
         codex_worker_filesystem_boundary_proven: true,
@@ -195,6 +204,8 @@ test("runtime release audit projects and validates every dedicated-worker live a
     })));
 
     assert.equal(result.checks.codex_worker_boundary.loopback_url_valid, true);
+    assert.equal(result.checks.codex_runtime_isolation.turn_projection_root_configured, true);
+    assert.equal(result.checks.codex_runtime_isolation.turn_projection_root_directory_available, true);
     assert.equal(result.checks.live_server.attestation.execution_boundary, "dedicated_worker");
     assert.equal(result.checks.live_server.attestation.worker_ready, true);
     assert.equal(result.checks.live_server.attestation.worker_release_match, true);
@@ -207,6 +218,9 @@ test("runtime release audit projects and validates every dedicated-worker live a
     assert.equal(result.checks.live_server.attestation.worker_identity_separate, true);
     assert.equal(result.checks.live_server.attestation.worker_registry_revision_match, true);
     assert.equal(result.checks.live_server.attestation.worker_root_isolation_ready, true);
+    assert.equal(result.checks.live_server.attestation.worker_projection_root_ready, true);
+    assert.equal(result.checks.live_server.attestation.worker_denied_read_roots_ready, true);
+    assert.equal(result.checks.live_server.attestation.worker_payload_deny_binding_match, true);
     assert.equal(result.checks.live_server.attestation.worker_permission_profile_match, true);
     assert.equal(result.checks.live_server.attestation.worker_filesystem_boundary_proven, true);
     assert.equal(result.checks.live_server.attestation.worker_command_identity_match, true);
@@ -226,7 +240,9 @@ test("runtime release audit projects and validates every dedicated-worker live a
       "live_codex_worker_identity_not_separate",
       "live_codex_worker_registry_revision_mismatch",
       "live_codex_worker_root_isolation_unready",
-      "live_codex_worker_attachment_root_unready",
+      "live_codex_worker_projection_root_unready",
+      "live_codex_worker_denied_read_roots_unready",
+      "live_codex_worker_payload_deny_binding_mismatch",
       "live_codex_worker_forbidden_roots_unready",
       "live_codex_worker_permission_profile_mismatch",
       "live_codex_worker_filesystem_boundary_unproven",
@@ -265,7 +281,9 @@ test("runtime release audit fails closed for each invalid dedicated-worker attes
         codex_worker_identity_separate: false,
         codex_worker_registry_revision_match: false,
         codex_worker_root_isolation_ready: false,
-        codex_worker_attachment_root_ready: false,
+        codex_worker_projection_root_ready: false,
+        codex_worker_denied_read_roots_ready: false,
+        codex_worker_payload_deny_binding_match: false,
         codex_worker_forbidden_roots_ready: false,
         codex_worker_permission_profile_match: false,
         codex_worker_filesystem_boundary_proven: false,
@@ -292,7 +310,9 @@ test("runtime release audit fails closed for each invalid dedicated-worker attes
       "live_codex_worker_identity_not_separate",
       "live_codex_worker_registry_revision_mismatch",
       "live_codex_worker_root_isolation_unready",
-      "live_codex_worker_attachment_root_unready",
+      "live_codex_worker_projection_root_unready",
+      "live_codex_worker_denied_read_roots_unready",
+      "live_codex_worker_payload_deny_binding_mismatch",
       "live_codex_worker_forbidden_roots_unready",
       "live_codex_worker_permission_profile_mismatch",
       "live_codex_worker_filesystem_boundary_unproven",

@@ -106,7 +106,8 @@ export function testRunnerCommand(root = APP) {
       const testScript = String(pkg?.scripts?.test ?? "").trim();
       const nodeTest = /^node\s+--test(?:\s+(.*))?$/u.exec(testScript);
       if (nodeTest) {
-        const files = String(nodeTest[1] ?? "").split(/\s+/).filter(Boolean);
+        const files = String(nodeTest[1] ?? "").split(/\s+/)
+          .filter((arg) => arg && !/^--test-concurrency=\d+$/.test(arg));
         return {
           cmd: process.execPath,
           args: ["--test", "--test-concurrency=1", ...files],

@@ -55,7 +55,7 @@ const CODEX_PAYLOAD_SHA256_RE = /^[a-f0-9]{64}$/;
 const CODEX_PAYLOAD_MANIFEST_MAX_BYTES = 64 * 1024 * 1024;
 const CODEX_PAYLOAD_MAX_RECORDS = 100_000;
 const CODEX_WORKER_IDENTITY_SHA256_RE = /^[a-f0-9]{64}$/;
-export const CODEX_SHARE_BOUNDARY_RECEIPT_SCHEMA = "dev_erp.codex_share_boundary_receipt.v1";
+export const CODEX_SHARE_BOUNDARY_RECEIPT_SCHEMA = "dev_erp.codex_share_boundary_receipt.v2";
 const CODEX_SHARE_RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const CODEX_SHARE_RECEIPT_FIELDS = new Set([
   "schema", "registry_revision", "trust_domain_id", "worker_identity_sha256",
@@ -111,7 +111,7 @@ export function validateCodexShareBoundaryReceipt(receipt, {
       || receipt.worker_identity_sha256 !== expectedWorkerIdentityHash
       || receipt.worker_release !== CODEX_DEDICATED_WORKER_VERSION.release
       || receipt.bridge_release !== CODEX_TASK_BRIDGE_VERSION.release
-      || receipt.permission_probe_source !== "codex_sandbox_exact_path_probe_v3") {
+      || receipt.permission_probe_source !== "codex_sandbox_turn_projection_probe_v4") {
     return fail("receipt_binding_mismatch");
   }
   const verifiedAt = Date.parse(String(receipt.verified_at || ""));
@@ -1618,7 +1618,9 @@ async function checkLiveServer(result, {
       const workerIdentitySeparate = attestation?.codex_worker_identity_separate === true;
       const workerRegistryRevisionMatch = attestation?.codex_worker_registry_revision_match === true;
       const workerRootIsolationReady = attestation?.codex_worker_root_isolation_ready === true;
-      const workerAttachmentRootReady = attestation?.codex_worker_attachment_root_ready === true;
+      const workerProjectionRootReady = attestation?.codex_worker_projection_root_ready === true;
+      const workerDeniedReadRootsReady = attestation?.codex_worker_denied_read_roots_ready === true;
+      const workerPayloadDenyBindingMatch = attestation?.codex_worker_payload_deny_binding_match === true;
       const workerForbiddenRootsReady = attestation?.codex_worker_forbidden_roots_ready === true;
       const workerPermissionProfileMatch = attestation?.codex_worker_permission_profile_match === true;
       const workerFilesystemBoundaryProven = attestation?.codex_worker_filesystem_boundary_proven === true;
@@ -1651,7 +1653,9 @@ async function checkLiveServer(result, {
         worker_identity_separate: workerIdentitySeparate,
         worker_registry_revision_match: workerRegistryRevisionMatch,
         worker_root_isolation_ready: workerRootIsolationReady,
-        worker_attachment_root_ready: workerAttachmentRootReady,
+        worker_projection_root_ready: workerProjectionRootReady,
+        worker_denied_read_roots_ready: workerDeniedReadRootsReady,
+        worker_payload_deny_binding_match: workerPayloadDenyBindingMatch,
         worker_forbidden_roots_ready: workerForbiddenRootsReady,
         worker_permission_profile_match: workerPermissionProfileMatch,
         worker_filesystem_boundary_proven: workerFilesystemBoundaryProven,
@@ -1714,14 +1718,20 @@ async function checkLiveServer(result, {
       if (requireLive && !workerRootIsolationReady) {
         add(result, "blocker", "live_codex_worker_root_isolation_unready", "Live worker does not attest realpath isolation across enabled workspace roots");
       }
-      if (requireLive && !workerAttachmentRootReady) {
-        add(result, "blocker", "live_codex_worker_attachment_root_unready", "Live worker does not attest its service-owned attachment boundary");
+      if (requireLive && !workerProjectionRootReady) {
+        add(result, "blocker", "live_codex_worker_projection_root_unready", "Live worker does not attest its disposable selected-file projection boundary");
+      }
+      if (requireLive && !workerDeniedReadRootsReady) {
+        add(result, "blocker", "live_codex_worker_denied_read_roots_unready", "Live worker does not attest the revision-bound denied-read roots");
+      }
+      if (requireLive && !workerPayloadDenyBindingMatch) {
+        add(result, "blocker", "live_codex_worker_payload_deny_binding_mismatch", "Live worker deny binding does not match the ERP canonical attachment and message payload roots");
       }
       if (requireLive && !workerForbiddenRootsReady) {
         add(result, "blocker", "live_codex_worker_forbidden_roots_unready", "Live worker does not attest the protected service-root overlap boundary");
       }
       if (requireLive && !workerPermissionProfileMatch) {
-        add(result, "blocker", "live_codex_worker_permission_profile_mismatch", "Live worker does not attest the release-matched exact-path Codex permission profile");
+        add(result, "blocker", "live_codex_worker_permission_profile_mismatch", "Live worker does not attest the release-matched selected-file projection permission profile");
       }
       if (requireLive && !workerFilesystemBoundaryProven) {
         add(result, "blocker", "live_codex_worker_filesystem_boundary_unproven", "Live worker did not pass the harmless outside-root read/write denial probe");
@@ -1754,16 +1764,29 @@ async function checkLiveServer(result, {
   }
 }
 
-function checkCodexRuntimeIsolation(result, { requireLive = false, codexHome = null, codexTrustDomain = null } = {}) {
+function checkCodexRuntimeIsolation(result, {
+  requireLive = false,
+  codexHome = null,
+  codexTrustDomain = null,
+  codexTurnProjectionRoot = null,
+} = {}) {
   const configuredValue = String(codexHome || process.env.DEV_ERP_CODEX_HOME || "").trim();
+  const projectionValue = String(codexTurnProjectionRoot || process.env.DEV_ERP_CODEX_TURN_PROJECTION_ROOT || "").trim();
   let directoryAvailable = false;
   if (configuredValue) {
     try { directoryAvailable = statSync(resolve(configuredValue)).isDirectory(); }
     catch { directoryAvailable = false; }
   }
+  let projectionDirectoryAvailable = false;
+  if (projectionValue && isAbsolute(projectionValue)) {
+    try { projectionDirectoryAvailable = statSync(resolve(projectionValue)).isDirectory(); }
+    catch { projectionDirectoryAvailable = false; }
+  }
   result.checks.codex_runtime_isolation = {
     dedicated_home_configured: !!configuredValue,
     dedicated_home_directory_available: directoryAvailable,
+    turn_projection_root_configured: !!projectionValue && isAbsolute(projectionValue),
+    turn_projection_root_directory_available: projectionDirectoryAvailable,
     trust_domain_configured: !!String(codexTrustDomain || process.env.DEV_ERP_CODEX_TRUST_DOMAIN || "").trim(),
     forbidden_extension_surfaces_absent: directoryAvailable
       ? !["hooks.json", "plugins", "marketplaces"].some((name) => existsSync(join(resolve(configuredValue), name)))
@@ -1774,6 +1797,13 @@ function checkCodexRuntimeIsolation(result, { requireLive = false, codexHome = n
   } else if (!directoryAvailable) {
     add(result, requireLive ? "blocker" : "warning", "codex_dedicated_home_unavailable", "The configured ERP Codex home directory is unavailable");
   }
+  if (!projectionValue) {
+    add(result, requireLive ? "blocker" : "warning", "codex_turn_projection_root_missing", "DEV_ERP_CODEX_TURN_PROJECTION_ROOT is not explicitly configured for the dedicated worker");
+  } else if (!isAbsolute(projectionValue)) {
+    add(result, requireLive ? "blocker" : "warning", "codex_turn_projection_root_invalid", "DEV_ERP_CODEX_TURN_PROJECTION_ROOT must be absolute");
+  } else if (!projectionDirectoryAvailable) {
+    add(result, requireLive ? "blocker" : "warning", "codex_turn_projection_root_unavailable", "The configured disposable turn-projection root is unavailable");
+  }
   if (directoryAvailable && !result.checks.codex_runtime_isolation.forbidden_extension_surfaces_absent) {
     add(result, requireLive ? "blocker" : "warning", "codex_dedicated_profile_extensions_present", "Dedicated ERP Codex home contains hooks, plugins, or marketplace surfaces");
   }
@@ -1783,6 +1813,7 @@ function checkCodexRuntimeIsolation(result, { requireLive = false, codexHome = n
 }
 
 function checkCodexPayloadOwner(result, paths, { requireLive = false } = {}) {
+  const workspaceOwnerRoot = resolve(paths.workspacesDir, "system");
   const ownerBase = resolve(paths.workspacesDir, "system", "dev-erp");
   const roots = [
     resolve(process.env.DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT || join(ownerBase, "codex-task-attachments")),
@@ -1790,6 +1821,7 @@ function checkCodexPayloadOwner(result, paths, { requireLive = false } = {}) {
   ];
   const owner = inspectCodexPayloadOwner({
     backendRoot: dirname(paths.workspacesDir),
+    workspaceOwnerRoot,
     ownerBase,
     roots,
     configured: true,

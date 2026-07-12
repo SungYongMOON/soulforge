@@ -14,7 +14,10 @@ Canonical runtime data:
 - Live app and DB: `<runtime-root>\ui-workspace\apps\dev-erp`
 - Live DB: `<runtime-root>\ui-workspace\apps\dev-erp\data\dev-erp.db`
 - Local runtime logs: `<runtime-root>\ui-workspace\apps\dev-erp\logs`
-- Runtime supplemental data: `<runtime-root>\DATA`
+- Sole logical project body: `<soulforge-root>\_workspaces\<project>`
+- Durable Codex payloads: `<soulforge-root>\_workspaces\system\dev-erp\codex-{task-attachments,message-payloads}`
+- Disposable worker data: `<worker-root>\{workspace-projections,turn-projections}`
+- Runtime supplemental data only: `<runtime-root>\DATA` (never project truth or Codex payloads)
 - NAS backup root: `<nas-root>`
 - Additive runtime-data backup: `<nas-root>\RUNTIME_DATA_BACKUP`
 - Canonical DB backup namespace: `<nas-root>\01_db_backups`
@@ -74,10 +77,10 @@ NSSM responsibilities:
 Run the ERP HTTP/mail service and Codex worker as two services under different
 Windows identities. The ERP identity owns the DB, mail settings, and service
 payload roots but receives no team-share ACL. The Codex worker identity owns a
-dedicated `DEV_ERP_CODEX_HOME`, receives read ACL only on approved shares and
-write ACL only on separately approved output subfolders, and receives no ERP
-DB/mail/private-state ACL. It also receives read-only ACL on the Soulforge-owned
-attachment root so verified attachments can be supplied to Codex. Do not point either service at an owner's personal
+dedicated `DEV_ERP_CODEX_HOME`, a sanitized static workspace projection, and the
+single-active turn projection. It receives no ERP DB/mail/private-state or
+canonical Soulforge payload-root ACL. The ERP service verifies selected attachments
+and copies only those files into the turn projection. Do not point either service at an owner's personal
 Codex home. Production worker skills are always disabled. Its home and workspace
 root must not contain `.codex`, `AGENTS.md`, `AGENTS.override.md`, hooks, plugins,
 marketplaces, rules, or `config.toml`. Direct in-process app-server mode is
@@ -86,6 +89,9 @@ development-only.
 Start and supervise the worker before starting ERP. The following shows service
 environment names; inject the token from an ACL-restricted Windows service
 secret store and never place its value in a command line, repo file, DB, or log.
+The legacy ERP launchers do not yet enforce this worker-first dependency by
+themselves. Until an attached readiness-gated launcher is implemented and
+reviewed, keep ERP stopped whenever the worker probe or attestation is not ready.
 Generate exactly 32 random bytes once, encode them as canonical unpadded
 base64url (43 characters), write the value directly to the approved service
 secret store without printing it, inject the same secret into both services,
@@ -100,6 +106,7 @@ $env:DEV_ERP_CODEX_WORKER_TOKEN="<32-byte-base64url-HMAC-HKDF-key>"
 $env:DEV_ERP_CODEX_WORKER_REF_KEYS_JSON='{"active_kid":"2026q3","keys":{"2026q3":"<32-byte-base64url>"}}'
 $env:DEV_ERP_CODEX_WORKER_ATTEST_PRIVATE_KEY_FILE="<worker-only-ed25519-private-key.pem>"
 $env:DEV_ERP_CODEX_HOME="<codex-worker-home>"
+$env:DEV_ERP_CODEX_TURN_PROJECTION_ROOT="<worker-root>\turn-projections"
 $env:DEV_ERP_CODEX_WORKSPACE_REGISTRY="<runtime-root>\ui-workspace\apps\dev-erp\data\codex-workspaces.runtime.json"
 $env:DEV_ERP_CODEX_TRUST_DOMAIN="<trust-domain-id>"
 $env:DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT="<soulforge-root>\_workspaces\system\dev-erp\codex-task-attachments"
@@ -111,7 +118,7 @@ npm.cmd run dev-erp:codex-worker
 Before setting that expected value, run the following metadata-only command under
 the worker identity and owner-approve the aggregate 64-hex result. It exposes no
 runtime path or component hash. On every Codex update, stop the worker, recompute
-the value, rerun the exact-path permission probe, approve the new value, and only
+the value, rerun the turn-projection permission probe, approve the new value, and only
 then restart both services.
 
 ```powershell
@@ -134,6 +141,7 @@ $env:DEV_ERP_CODEX_WORKER_EXPECTED_RUNTIME_IDENTITY_SHA256="<same-owner-approved
 $env:DEV_ERP_CODEX_WORKER_ATTEST_PUBLIC_KEY_FILE="<erp-readable-ed25519-public-key.pem>"
 $env:DEV_ERP_CODEX_WORKER_EXPECTED_ATTESTATION_KEY_ID="<approved-public-key-sha256>"
 $env:DEV_ERP_BACKEND_ROOT="<soulforge-root>"
+$env:DEV_ERP_CODEX_TURN_PROJECTION_ROOT="<worker-root>\turn-projections"
 $env:DEV_ERP_CODEX_WORKSPACE_REGISTRY="<runtime-root>\ui-workspace\apps\dev-erp\data\codex-workspaces.runtime.json"
 $env:DEV_ERP_CODEX_TRUST_DOMAIN="<trust-domain-id>"
 $env:DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT="<soulforge-root>\_workspaces\system\dev-erp\codex-task-attachments"
@@ -165,21 +173,25 @@ ordinary NAS payload backup must contain pointers or fingerprints only.
 
 Before and after every real turn, ERP requests a fresh signed nonce and requires
 the same signed worker PID, identity, pinned Codex runtime, source commit, port, Codex-home boundary,
-attachment boundary, and key. Any mismatch makes the turn fail before its result
-is persisted.
+projection-root boundary, denied-root revision, and key. Any mismatch makes the turn fail before its result
+is persisted. The signed, pathless `payload_deny_binding_revision` must also equal
+the revision that ERP independently computes from the exact effective canonical
+attachment and message lexical roots. Neither calculation stats or reads those roots;
+a valid signature over a different binding still fails closed.
 
 The worker also forces the `dev_erp_bounded` named Codex permission profile:
-deny the disk by default, read only the exact workspace and verified attachment
-paths, write only approved existing output roots, and disable network. Startup
-runs exact-path probe v3 and verifies workspace reads, approved-output writes,
-unapproved workspace write denial, exact attachment read-only access, sibling and
-parent-listing denial, outside-root read/write denial, junction/hardlink denial,
-and attachment delete/move denial. It refuses app-server
+deny the disk by default, explicitly deny canonical payload roots and the worker
+parent, reopen only the static sanitized cwd and current projected files, and
+disable network. The first production slice rejects every write grant. Startup
+runs turn-projection probe v4 and verifies workspace read, bounded write carveout,
+source attachment and other-projection read denial, projection mutation denial,
+junction/hardlink denial, and network denial. It refuses app-server
 mode with `worker_permission_boundary_unproven` unless every check passes. The
 live release audit requires the signed profile and runtime revisions and
-probe result. Codex 0.144.1 on the current development PC does not pass this
-native-Windows read-denial probe, so do not deploy there; use a team PC/backend
-and each real UNC mapping that pass the worker-identity sentinel preflight.
+probe result. Codex 0.144.1 on the current development PC does not block the
+source read from a shell subprocess, so probe v4 fails and the runtime must stay
+off. Do not deploy until the real worker identity's NTFS/SMB ACL and the same probe
+both pass.
 WSL/container is not a currently implemented fallback profile.
 
 Run this under the worker identity before starting services. It emits only a
@@ -197,6 +209,8 @@ Enabled roots cannot mix local and UNC authorities; an UNC registry uses one
 case-folded server/share namespace. Roots are recursively metadata-scanned for
 protected names and link/reparse/hardlink evidence. This scan does not replace
 SMB/NTFS ACLs that prevent mutation during a turn or an immutable projection.
+The turn-projection root must be a plain local directory, globally single-active,
+empty before and after each turn, and excluded from backup as rebuildable data.
 
 Ed25519/HMAC/ref keys and the two service identities remain owner provisioning
 inputs. This repository intentionally does not print or persist generated secrets.
@@ -204,7 +218,7 @@ Do not mark deployment ready until the owner-selected secret store paths and ACL
 are verified and the fingerprint-only commands above pass.
 If any enabled workspace is UNC, pass a fresh metadata-only receipt through
 `--codex-share-boundary-receipt`. The release audit rejects a missing, stale, raw-field,
-wrong-registry, wrong-worker, non-v3, non-overlap, ADS-uncleared, or mutation-uncontrolled receipt.
+wrong-registry, wrong-worker, non-v4, non-overlap, ADS-uncleared, or mutation-uncontrolled receipt.
 
 Use `127.0.0.1` plus HTTPS/Tailscale for the default tunnel-only posture.
 Use `0.0.0.0` only for owner-approved trusted LAN HTTP, and pass
@@ -363,7 +377,9 @@ Retention target:
 The `latest/runtime_live` copy is for quick restore. Scheduled stamped backup
 folders are the history.
 
-The `DATA` backup is additive and copy-only. It does not replace the existing
+The `DATA` backup is additive, optional, and copy-only. An empty `DATA` directory
+is valid. Project files, durable Codex payloads, workspace projections, and turn
+projections must never be placed there. This backup does not replace the existing
 SQLite-safe DB backup, restore test, coherent Codex payload backup, workspace
 mirror, workmeta backup, or release backup. Do not use delete, purge, or mirror
 semantics. Secrets, Codex home/auth material, private keys, and the live SQLite

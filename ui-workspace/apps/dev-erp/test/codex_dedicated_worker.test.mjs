@@ -21,13 +21,12 @@ import {
   verifyCodexDedicatedWorkerAttestation,
   verifyCodexWorkerTurnSelection,
 } from "../src/codex_dedicated_worker_client.mjs";
-import {
-  createAttachmentManifest,
-  createAttachmentManifestRecord,
-  createOpaqueAttachmentId,
-  publicAttachmentDescriptor,
-} from "../src/codex_attachment_registry.mjs";
 import { selectWorkerTurnModel } from "../src/codex_dedicated_worker.mjs";
+import {
+  materializeCodexTurnProjection,
+  removeCodexTurnProjection,
+} from "../src/codex_turn_projection.mjs";
+import { codexPayloadDenyBindingRevision } from "../src/codex_payload_owner.mjs";
 
 const APP_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const WORKER_ENTRY = join(APP_DIR, "tools", "codex_dedicated_worker.mjs");
@@ -284,15 +283,6 @@ async function stopChild(child) {
   if (child.exitCode === null && child.signalCode === null) child.kill();
 }
 
-async function waitForPath(path, timeoutMs = 5000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (existsSync(path)) return;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error("fixture_path_timeout");
-}
-
 function auth(overrides = {}) {
   return {
     authenticated: true,
@@ -341,7 +331,12 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
   const docsRoot = join(workspaceRoot, "docs");
   const attachmentRoot = join(dir, "attachments");
   const messagePayloadRoot = join(dir, "messages");
-  const itemAttachmentRoot = join(attachmentRoot, "ITEM-001");
+  const payloadDenyBindingRevision = codexPayloadDenyBindingRevision({
+    attachmentRoot,
+    messagePayloadRoot,
+  });
+  const projectionRoot = join(dir, "turn-projection");
+  const projectionSourceRoot = join(dir, "projection-source");
   const registryOwner = join(dir, "registry-owner");
   const registryPath = join(registryOwner, "codex-workspaces.runtime.json");
   const workerKeyOwner = join(dir, "worker-key-owner");
@@ -362,8 +357,8 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
   const attestationKeys = generateKeyPairSync("ed25519");
   mkdirSync(codexHome, { recursive: true });
   mkdirSync(docsRoot, { recursive: true });
-  mkdirSync(itemAttachmentRoot, { recursive: true });
-  mkdirSync(messagePayloadRoot, { recursive: true });
+  mkdirSync(projectionRoot, { recursive: true });
+  mkdirSync(projectionSourceRoot, { recursive: true });
   mkdirSync(registryOwner, { recursive: true });
   mkdirSync(workerKeyOwner, { recursive: true });
   chmodSync(workerKeyOwner, 0o700);
@@ -394,27 +389,22 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     .digest("hex"));
   assert.equal(keyProbe.stderr, "");
   writeFileSync(join(docsRoot, "fixture.txt"), "fixture", "utf8");
-  const attachmentRecords = [
+  const projectionFiles = [
     { name: "evidence.txt", extension: ".txt", type: "localFile", bytes: Buffer.from("worker local file fixture") },
     { name: "figure.png", extension: ".png", type: "localImage", bytes: Buffer.from("worker local image fixture") },
   ].map(({ name, extension, type, bytes }) => {
-    const attachmentId = createOpaqueAttachmentId();
-    const record = createAttachmentManifestRecord({
+    const attachmentId = `att_${randomBytes(24).toString("base64url")}`;
+    const sourcePath = join(projectionSourceRoot, `${attachmentId}${extension}`);
+    writeFileSync(sourcePath, bytes);
+    return Object.freeze({
       attachment_id: attachmentId,
-      item_id: "ITEM-001",
       name,
-      stored_name: `${attachmentId}${extension}`,
       size: bytes.length,
       sha256: createHash("sha256").update(bytes).digest("hex"),
       type,
+      source_path: sourcePath,
     });
-    writeFileSync(join(itemAttachmentRoot, record.stored_name), bytes);
-    return record;
   });
-  writeFileSync(join(itemAttachmentRoot, "codex-attachment-manifest.v1.json"), `${JSON.stringify(createAttachmentManifest({
-    item_id: "ITEM-001",
-    attachments: attachmentRecords,
-  }), null, 2)}\n`, "utf8");
   const registryDocument = (root) => ({
     schema: "dev_erp.codex_workspace_registry.v1",
     machine_id: "dedicated-worker-test",
@@ -438,6 +428,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     DEV_ERP_CODEX_WORKER_PORT: "0",
     DEV_ERP_CODEX_WORKER_BRIDGE: "mock",
     DEV_ERP_CODEX_HOME: codexHome,
+    DEV_ERP_CODEX_TURN_PROJECTION_ROOT: projectionRoot,
     DEV_ERP_CODEX_TASK_ATTACHMENT_ROOT: attachmentRoot,
     DEV_ERP_CODEX_MESSAGE_PAYLOAD_ROOT: messagePayloadRoot,
     DEV_ERP_CODEX_WORKSPACE_REGISTRY: registryPath,
@@ -465,6 +456,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
   let rotatedWorker = null;
   let wrongKeyWorker = null;
   let restartReplayChannel = null;
+  let turnProjection = null;
 
   try {
     const ready = await waitForReady(child, initialWorker.stderr);
@@ -477,6 +469,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
       token: TOKEN,
       timeoutMs: 10_000,
       attestationPublicKeyFile: attestationPublicKeyPath,
+      expectedPayloadDenyBindingRevision: payloadDenyBindingRevision,
     });
 
     let response = await fetch(`${baseUrl}/v1/health`);
@@ -513,13 +506,13 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     assert.deepEqual(await response.json(), { ok: false, error: "authentication_timestamp_stale" });
 
     const health = await client.health();
-    assert.equal(health.release, "v0.5.0");
-    assert.equal(health.schema, "dev_erp.codex_dedicated_worker.v5");
+    assert.equal(health.release, "v0.6.0");
+    assert.equal(health.schema, "dev_erp.codex_dedicated_worker.v6");
     assert.equal(health.execution_boundary, "dedicated_worker");
     assert.equal(health.worker_pid, child.pid);
     assert.equal(health.listen_host, "127.0.0.1");
     assert.equal(health.codex_home_ready, true);
-    assert.equal(health.attachment_root_ready, true);
+    assert.equal(health.projection_root_ready, true);
     assert.equal(health.workspace_registry_ready, true);
     assert.equal(health.trust_domain_match, true);
     assert.equal(health.identity.proof_source, process.platform === "win32" ? "windows_whoami" : "os_userinfo");
@@ -529,8 +522,11 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     assert.equal(typeof health.source_tree_clean, "boolean");
     assert.equal(health.forbidden_roots_ready, true);
     assert.ok(health.forbidden_root_count >= 5);
-    assert.equal(health.capabilities.attachment_refs, "opaque_item_bound");
+    assert.equal(health.payload_deny_binding_revision, payloadDenyBindingRevision);
+    assert.equal(health.capabilities.turn_projection, "immutable_selected_files");
     assert.equal(health.capabilities.skills, false);
+    assert.equal(existsSync(attachmentRoot), false);
+    assert.equal(existsSync(messagePayloadRoot), false);
 
     const responseBodyTamperClient = new CodexDedicatedWorkerClient({
       baseUrl,
@@ -588,8 +584,8 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     const attested = await client.attest(nonce);
     assert.equal(attested.verified, true);
     assert.equal(attested.attestation.nonce, nonce);
-    assert.equal(attested.attestation.worker_release, "v0.5.0");
-    assert.equal(attested.attestation.worker_schema, "dev_erp.codex_dedicated_worker.v5");
+    assert.equal(attested.attestation.worker_release, "v0.6.0");
+    assert.equal(attested.attestation.worker_schema, "dev_erp.codex_dedicated_worker.v6");
     assert.equal(attested.attestation.worker_pid, child.pid);
     assert.equal(attested.attestation.listen_port, ready.port);
     assert.equal(attested.attestation.bridge_mode, "mock");
@@ -600,6 +596,9 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     assert.match(attested.attestation.codex_command_revision, /^[a-f0-9]{64}$/);
     assert.match(attested.attestation.filesystem_boundary_revision, /^[a-f0-9]{64}$/);
     assert.match(attested.attestation.permission_profile_revision, /^[a-f0-9]{64}$/);
+    assert.match(attested.attestation.projection_root_boundary_revision, /^[a-f0-9]{64}$/);
+    assert.match(attested.attestation.denied_read_roots_revision, /^[a-f0-9]{64}$/);
+    assert.equal(attested.attestation.payload_deny_binding_revision, payloadDenyBindingRevision);
     assert.match(attested.attestation.channel_nonce, /^[A-Za-z0-9_-]{43}$/);
     assert.equal(Object.hasOwn(attested.attestation, "identity_name"), false);
 
@@ -611,11 +610,23 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
       publicKey: readFileSync(attestationPublicKeyPath),
       expectedNonce: nonce,
       expectedListenPort: ready.port,
+      expectedPayloadDenyBindingRevision: payloadDenyBindingRevision,
     }).verified, true);
     assert.equal(verifyCodexDedicatedWorkerAttestation(rawAttestation, {
       publicKey: attestationKeys.publicKey.export({ type: "spki", format: "der" }),
       expectedNonce: nonce,
     }).verified, true);
+    const wrongPayloadDenyBindingRevision = payloadDenyBindingRevision === "0".repeat(64)
+      ? "1".repeat(64)
+      : "0".repeat(64);
+    assert.throws(
+      () => verifyCodexDedicatedWorkerAttestation(rawAttestation, {
+        publicKey: readFileSync(attestationPublicKeyPath),
+        expectedNonce: nonce,
+        expectedPayloadDenyBindingRevision: wrongPayloadDenyBindingRevision,
+      }),
+      assertClientError("worker_attestation_payload_deny_binding_mismatch", 0),
+    );
     assert.throws(
       () => verifyCodexDedicatedWorkerAttestation(rawAttestation, {
         publicKey: readFileSync(attestationPublicKeyPath),
@@ -723,6 +734,15 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
       workspace_id: "team_project_a",
       authorization: auth(),
       relative_path: "",
+    });
+    turnProjection = await materializeCodexTurnProjection({
+      projectionRoot,
+      itemId: "ITEM-001",
+      projectId: "P26-014",
+      workspaceId: "team_project_a",
+      workspaceRevision: rootBinding.workspace_revision,
+      workspaceRootFingerprint: rootBinding.root_fingerprint,
+      attachments: projectionFiles,
     });
 
     let protectedTurnRequestBody = "";
@@ -906,7 +926,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     writeFileSync(registryPath, JSON.stringify(registryDocument(messagePayloadRoot)), "utf8");
     await assert.rejects(
       client.resolve({ workspace_id: "team_project_a", authorization: auth(), relative_path: "" }),
-      assertClientError("workspace_root_boundary_overlap", 503),
+      assertClientError("workspace_root_isolation_unavailable", 503),
     );
     writeFileSync(registryPath, JSON.stringify(registryDocument(workspaceRoot)), "utf8");
     assert.equal((await client.resolve({
@@ -987,7 +1007,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
         effort: "medium",
         timeout_ms: 5000,
       }),
-      assertClientError("workspace_write_prefix_forbidden", 403),
+      assertClientError("workspace_write_unsupported", 403),
     );
     writeFileSync(registryPath, JSON.stringify(registryDocument(workspaceRoot)), "utf8");
 
@@ -995,7 +1015,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
       workspace_id: "team_project_a",
       authorization: auth(),
       working_relative_path: "docs",
-      relative_write_prefixes: ["docs"],
+      relative_write_prefixes: [],
       item: item(),
       initial: true,
       user_message: "",
@@ -1005,8 +1025,8 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     });
     assert.equal(opened.ok, true);
     assert.equal(opened.created, true);
-    assert.equal(opened.effective_access, "workspace-write");
-    assert.equal(readFileSync(join(docsRoot, "codex-mock-write.txt"), "utf8"), "bounded mock write\n");
+    assert.equal(opened.effective_access, "read-only");
+    assert.equal(existsSync(join(docsRoot, "codex-mock-write.txt")), false);
     assert.match(opened.thread_ref, /^dwr2\.ref-old\./);
     assert.ok(opened.thread_ref.length > 200);
     assert.equal(opened.thread_ref.includes("thread_id"), false);
@@ -1015,30 +1035,6 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     assert.equal(opened.thread_ref.includes("ITEM-001"), false);
     assert.equal(Object.hasOwn(opened, "threadId"), false);
     assert.equal(Object.hasOwn(opened, "cwd"), false);
-
-    const mockWriteMarker = join(docsRoot, "codex-mock-write.txt");
-    const immutableSource = join(workspaceRoot, "source.txt");
-    rmSync(mockWriteMarker, { force: true });
-    writeFileSync(immutableSource, "before", "utf8");
-    const concurrentOutsideMutation = turnWithBinding(client, rootBinding, {
-      workspace_id: "team_project_a",
-      authorization: auth(),
-      working_relative_path: "docs",
-      relative_write_prefixes: ["docs"],
-      item: item(),
-      initial: false,
-      thread_ref: opened.thread_ref,
-      user_message: "bounded write with concurrent outside mutation",
-      model: "gpt-5.5",
-      effort: "medium",
-      timeout_ms: 5000,
-    });
-    await waitForPath(mockWriteMarker);
-    writeFileSync(immutableSource, "changed outside approved prefix", "utf8");
-    await assert.rejects(
-      concurrentOutsideMutation,
-      assertClientError("workspace_immutable_tree_changed", 409),
-    );
 
     await assert.rejects(
       turnWithBinding(client, rootBinding, {
@@ -1049,12 +1045,28 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
         item: item(),
         initial: false,
         thread_ref: opened.thread_ref,
-        user_message: "raw attachment path field must fail",
+        user_message: "missing projection must fail closed",
         model: "gpt-5.5",
         effort: "medium",
-        attachments: [{ attachment_id: attachmentRecords[0].attachment_id, path: workspaceRoot }],
       }),
-      assertClientError("client_attachment_path_forbidden", 400),
+      assertClientError("projection_required", 400),
+    );
+
+    await assert.rejects(
+      turnWithBinding(client, rootBinding, {
+        workspace_id: "team_project_a",
+        authorization: auth(),
+        working_relative_path: "docs",
+        relative_write_prefixes: [],
+        item: item(),
+        initial: false,
+        projection: { ...turnProjection, path: workspaceRoot },
+        thread_ref: opened.thread_ref,
+        user_message: "raw projection path field must fail",
+        model: "gpt-5.5",
+        effort: "medium",
+      }),
+      assertClientError("projection_descriptor_unknown_field", 400),
     );
 
     const followup = await turnWithBinding(client, rootBinding, {
@@ -1064,15 +1076,17 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
       relative_write_prefixes: [],
       item: item(),
       initial: false,
+      projection: turnProjection,
       thread_ref: opened.thread_ref,
       user_message: `Do not return this absolute path: ${workspaceRoot}`,
       model: "gpt-5.5",
       effort: "medium",
       timeout_ms: 5000,
-      attachments: attachmentRecords.map((record) => publicAttachmentDescriptor(record)),
     });
     assert.equal(followup.ok, true);
-    assert.deepEqual(followup.attachments, attachmentRecords.map((record) => publicAttachmentDescriptor(record)));
+    assert.equal(followup.projection.projection_revision, turnProjection.revision);
+    assert.equal(followup.projection.file_count, projectionFiles.length);
+    assert.equal(Object.hasOwn(followup, "attachments"), false);
     assert.doesNotMatch(followup.text, new RegExp(workspaceRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
     assert.match(followup.text, /\[path redacted\]/);
 
@@ -1085,6 +1099,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
         relative_write_prefixes: [],
         item: item(),
         initial: false,
+        projection: turnProjection,
         thread_ref: tamperedRef,
         user_message: "tampered",
         model: "gpt-5.5",
@@ -1103,6 +1118,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
         relative_write_prefixes: [],
         item: item(),
         initial: false,
+        projection: turnProjection,
         thread_ref: unknownKidParts.join("."),
         user_message: "unknown key id",
         model: "gpt-5.5",
@@ -1119,6 +1135,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
       relative_write_prefixes: [],
       item: item(),
       initial: false,
+      projection: turnProjection,
       thread_ref: opened.thread_ref,
       user_message: "abort this request",
       model: "gpt-5.5",
@@ -1154,6 +1171,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
         relative_write_prefixes: [],
         item: item(),
         initial: false,
+        projection: turnProjection,
         thread_ref: opened.thread_ref,
         user_message: "workspace instruction surface must fail",
         model: "gpt-5.5",
@@ -1176,6 +1194,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
         relative_write_prefixes: [],
         item: item(),
         initial: false,
+        projection: turnProjection,
         thread_ref: opened.thread_ref,
         user_message: "must fail after unsafe profile drift",
         model: "gpt-5.5",
@@ -1187,7 +1206,15 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     assert.equal((await client.health()).ok, true);
 
     const allPublicOutput = JSON.stringify({ ready, health, models, resolved, opened, followup, stderr: initialWorker.stderr() });
-    for (const forbidden of [workspaceRoot, codexHome, registryPath, attachmentRoot, messagePayloadRoot, ...attachmentRecords.map((record) => join(itemAttachmentRoot, record.stored_name))]) {
+    for (const forbidden of [
+      workspaceRoot,
+      codexHome,
+      registryPath,
+      attachmentRoot,
+      messagePayloadRoot,
+      projectionRoot,
+      ...projectionFiles.map((record) => record.source_path),
+    ]) {
       assert.equal(allPublicOutput.toLowerCase().includes(forbidden.toLowerCase()), false);
     }
     assert.equal(initialWorker.stderr(), "");
@@ -1224,6 +1251,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
       relative_write_prefixes: [],
       item: item(),
       initial: false,
+      projection: turnProjection,
       thread_ref: opened.thread_ref,
       user_message: "resume with a rotated bearer and previous ref key",
       model: "gpt-5.5",
@@ -1251,6 +1279,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
         relative_write_prefixes: [],
         item: item(),
         initial: false,
+        projection: turnProjection,
         thread_ref: opened.thread_ref,
         user_message: "wrong key material must fail",
         model: "gpt-5.5",
@@ -1263,6 +1292,10 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     await stopChild(child);
     await stopChild(rotatedWorker?.child);
     await stopChild(wrongKeyWorker?.child);
+    if (turnProjection) {
+      try { await removeCodexTurnProjection({ projectionRoot, descriptor: turnProjection }); }
+      catch {}
+    }
     rmSync(dir, { recursive: true, force: true });
   }
 });

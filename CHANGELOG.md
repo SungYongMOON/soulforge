@@ -1,5 +1,35 @@
 # CHANGELOG
 
+### dev-ERP 단일-body Codex turn projection v4
+
+- Soulforge `_workspaces`를 프로젝트의 유일한 논리 본체로 고정하고 ERP runtime은
+  껍데기/read model, worker 저장소는 재생성 가능한 static cwd와 single-active
+  turn projection, NAS는 backup/restore 전용으로 교정했다. runtime `DATA/`는
+  보조 runtime-local 파일만 허용하며 프로젝트나 Codex payload owner가 될 수 없다.
+- 대화·첨부 영구 owner를 `_workspaces/system/dev-erp`의 정확한 두 하위 root로
+  제한하고 정상 `system` junction의 실제 filesystem identity를 revision에 고정했다.
+  임의 owner/세 번째 root/child junction escape와 junction retarget을 fail-closed한다.
+- ERP가 후속 메시지의 선택 첨부만 hash-bound immutable projection으로 복사하고,
+  원본 경로 없는 descriptor만 dedicated worker v6에 전달하도록 바꿨다. projection은
+  전체에서 한 번에 하나만 존재하고 stale/tampered/sibling entry를 거부하며 turn 종료
+  뒤 재검증 삭제한다. worker는 canonical payload root를 stat/read하지 않고 projected
+  file만 Codex input에 넣으며 첫 production slice의 write grant를 거부한다.
+- 고성능 Windows PC에서 기본 `node:test` 파일 동시성이 `whoami`·root-isolation·test
+  server child를 포화시키지 않도록 dev-ERP 전체 test 동시성을 4로 고정하고, 같은
+  프로세스에서 성공한 Windows name+SID 증거만 process lifetime 동안 재사용한다.
+  production attestation·expected identity 비교·실패 결과의 fail-closed 처리는 바꾸지 않았다.
+- permission probe와 live attestation을 v4 projection/source/deny-root 계약으로 올렸다.
+  worker가 서명한 pathless `payload_deny_binding_revision`은 ERP가 정확한 canonical
+  attachment/message lexical root 두 개로 독립 계산한 기대 revision과 일치해야 하며,
+  형식만 맞거나 다른 root를 결박한 서명값은 release audit에서 차단한다. 이 계산은
+  payload root를 stat/read하지 않는다.
+  현재 Codex 0.144.1 native Windows 실측에서는 shell subprocess가 source 첨부를 읽어
+  probe가 실패하므로 worker 기동과 release는 코드에서 차단되고 ERP 재가동은 운영
+  절차상 계속 보류한다. 기존 ERP launcher 자체의 worker-first 강제 gate는 아직
+  activation blocker다. GPT-5.6은
+  worker account의 live `model/list`에 광고된 slug만 UI와 turn 선택에 사용한다.
+  (worker: codex_gpt-5)
+
 ### Shield Wall 호출 기준과 검토 종료선 정렬
 
 - `soulforge-shield-wall` Codex bridge의 암시 호출 조건을 정본의 높은 불확실성,

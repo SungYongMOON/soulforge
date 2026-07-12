@@ -43,16 +43,17 @@ const RESPONSE_AUTH_HEADERS = Object.freeze({
 });
 const MAX_KEY_FILE_BYTES = 16 * 1024;
 const ATTESTATION_SCHEMA = "dev_erp.codex_dedicated_worker_attestation.v1";
-const WORKER_RELEASE = "v0.5.0";
-const WORKER_SCHEMA = "dev_erp.codex_dedicated_worker.v5";
+const WORKER_RELEASE = "v0.6.0";
+const WORKER_SCHEMA = "dev_erp.codex_dedicated_worker.v6";
 const ATTESTATION_RESPONSE_FIELDS = Object.freeze(["ok", "algorithm", "attestation", "signature"]);
 const ATTESTATION_PAYLOAD_FIELDS = Object.freeze([
   "schema", "nonce", "channel_nonce", "worker_release", "worker_schema", "source_commit", "source_tree_clean", "worker_pid", "execution_boundary",
   "listen_host", "listen_port", "bridge_mode", "skills_disabled", "worker_identity_hash", "identity_proof_source", "workspace_registry_revision",
   "workspace_registry_ready", "workspace_root_isolation_revision", "workspace_root_isolation_ready",
   "trust_domain_hash", "trust_domain_match", "codex_home_boundary_revision",
-  "codex_home_ready", "attachment_root_boundary_revision", "attachment_root_ready", "forbidden_roots_ready",
-  "forbidden_root_count", "permission_profile_id", "permission_profile_bridge_release", "filesystem_boundary_proven",
+  "codex_home_ready", "projection_root_boundary_revision", "projection_root_ready", "forbidden_roots_ready",
+  "forbidden_root_count", "denied_read_roots_revision", "payload_deny_binding_revision",
+  "permission_profile_id", "permission_profile_bridge_release", "filesystem_boundary_proven",
   "filesystem_boundary_proof_source", "filesystem_boundary_revision", "codex_command_identity_ready",
   "codex_command_revision", "codex_command_version", "codex_command_kind", "permission_profile_revision", "attestation_key_id",
 ]);
@@ -417,6 +418,7 @@ export function verifyCodexDedicatedWorkerAttestation(response, {
   publicKey,
   expectedNonce,
   expectedListenPort = null,
+  expectedPayloadDenyBindingRevision = null,
   requireChannel = true,
 } = {}) {
   const nonce = normalizeAttestationNonce(expectedNonce);
@@ -424,6 +426,10 @@ export function verifyCodexDedicatedWorkerAttestation(response, {
   if (expectedListenPort !== null
       && (!Number.isInteger(expectedListenPort) || expectedListenPort < 1 || expectedListenPort > 65535)) {
     fail("worker_attestation_expected_port_invalid");
+  }
+  if (expectedPayloadDenyBindingRevision !== null
+      && !SHA256_RE.test(expectedPayloadDenyBindingRevision)) {
+    fail("worker_attestation_expected_payload_deny_binding_invalid");
   }
   if (!hasExactFields(response, ATTESTATION_RESPONSE_FIELDS)
       || response.ok !== true
@@ -459,14 +465,16 @@ export function verifyCodexDedicatedWorkerAttestation(response, {
       || value.trust_domain_match !== true
       || !SHA256_RE.test(value.codex_home_boundary_revision)
       || value.codex_home_ready !== true
-      || !SHA256_RE.test(value.attachment_root_boundary_revision)
-      || value.attachment_root_ready !== true
+      || !SHA256_RE.test(value.projection_root_boundary_revision)
+      || value.projection_root_ready !== true
       || value.forbidden_roots_ready !== true
       || !Number.isInteger(value.forbidden_root_count) || value.forbidden_root_count < 5 || value.forbidden_root_count > 39
+      || !SHA256_RE.test(value.denied_read_roots_revision)
+      || !SHA256_RE.test(value.payload_deny_binding_revision)
       || value.permission_profile_id !== CODEX_TASK_PERMISSION_PROFILE_ID
       || value.permission_profile_bridge_release !== CODEX_TASK_BRIDGE_VERSION.release
       || value.filesystem_boundary_proven !== true
-      || !new Set(["codex_sandbox_exact_path_probe_v3", "mock_test_boundary"]).has(value.filesystem_boundary_proof_source)
+      || !new Set(["codex_sandbox_turn_projection_probe_v4", "mock_test_boundary"]).has(value.filesystem_boundary_proof_source)
       || !SHA256_RE.test(value.filesystem_boundary_revision)
       || value.codex_command_identity_ready !== true
       || !SHA256_RE.test(value.codex_command_revision)
@@ -485,6 +493,10 @@ export function verifyCodexDedicatedWorkerAttestation(response, {
   try { verified = verifyBytes(null, canonical, key, signature); }
   catch { fail("worker_attestation_signature_invalid"); }
   if (!verified) fail("worker_attestation_signature_invalid");
+  if (expectedPayloadDenyBindingRevision !== null
+      && value.payload_deny_binding_revision !== expectedPayloadDenyBindingRevision) {
+    fail("worker_attestation_payload_deny_binding_mismatch");
+  }
   return Object.freeze({
     ok: true,
     verified: true,
@@ -599,6 +611,7 @@ export class CodexDedicatedWorkerClient {
   #maxResponseBytes;
   #fetch;
   #attestationPublicKey;
+  #expectedPayloadDenyBindingRevision;
   #listenPort;
 
   constructor({
@@ -609,6 +622,7 @@ export class CodexDedicatedWorkerClient {
     maxResponseBytes = DEFAULT_MAX_RESPONSE_BYTES,
     attestationPublicKey = null,
     attestationPublicKeyFile = null,
+    expectedPayloadDenyBindingRevision = null,
     fetchImpl = globalThis.fetch,
   } = {}) {
     if (typeof fetchImpl !== "function") fail("worker_fetch_unavailable");
@@ -622,6 +636,11 @@ export class CodexDedicatedWorkerClient {
     this.#attestationPublicKey = attestationPublicKeyFile
       ? loadAttestationPublicKeyFile(attestationPublicKeyFile)
       : (attestationPublicKey ? normalizeAttestationPublicKey(attestationPublicKey) : null);
+    if (expectedPayloadDenyBindingRevision !== null
+        && !SHA256_RE.test(expectedPayloadDenyBindingRevision)) {
+      fail("worker_attestation_expected_payload_deny_binding_invalid");
+    }
+    this.#expectedPayloadDenyBindingRevision = expectedPayloadDenyBindingRevision;
     this.#fetch = fetchImpl;
     Object.freeze(this);
   }
@@ -700,6 +719,7 @@ export class CodexDedicatedWorkerClient {
       publicKey: this.#attestationPublicKey,
       expectedNonce,
       expectedListenPort: this.#listenPort,
+      expectedPayloadDenyBindingRevision: this.#expectedPayloadDenyBindingRevision,
       requireChannel: issueChannel,
     });
   }
@@ -714,6 +734,10 @@ export class CodexDedicatedWorkerClient {
         || !isRecord(verified.attestation)
         || verified.attestation.listen_port !== this.#listenPort) {
       fail("worker_verified_channel_invalid");
+    }
+    if (this.#expectedPayloadDenyBindingRevision !== null
+        && verified.attestation.payload_deny_binding_revision !== this.#expectedPayloadDenyBindingRevision) {
+      fail("worker_attestation_payload_deny_binding_mismatch");
     }
     return normalizeChannelNonce(verified.attestation.channel_nonce);
   }

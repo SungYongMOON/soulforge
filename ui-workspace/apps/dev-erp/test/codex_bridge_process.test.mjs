@@ -144,14 +144,16 @@ test("Codex child environment drops ERP/provider secrets before process launch",
   assert.equal(probe.stdout, "false");
 });
 
-test("Codex command permission profile denies the disk by default and reopens only exact paths", () => {
+test("Codex command permission profile records selected reads and explicit deny roots", () => {
   const root = join(process.cwd(), "workspace-root");
   const writable = join(root, "approved-output");
-  const attachment = join(process.cwd(), "service-payloads", "attachment.txt");
+  const payloadRoot = join(process.cwd(), "service-payloads");
+  const attachment = join(payloadRoot, "attachment.txt");
   const profile = buildCodexPermissionProfile({
     cwd: root,
     writableRoots: [writable],
     readOnlyPaths: [attachment],
+    deniedReadPaths: [payloadRoot],
   });
   assert.equal(profile.id, CODEX_TASK_PERMISSION_PROFILE_ID);
   assert.deepEqual(profile.runtimeWorkspaceRoots, [root]);
@@ -159,9 +161,12 @@ test("Codex command permission profile denies the disk by default and reopens on
   assert.match(filesystem, /":root"="deny"/);
   assert.equal(filesystem.includes(`${JSON.stringify(root)}="read"`), true);
   assert.equal(filesystem.includes(`${JSON.stringify(writable)}="write"`), true);
+  assert.equal(filesystem.includes(`${JSON.stringify(payloadRoot)}="deny"`), true);
   assert.equal(filesystem.includes(`${JSON.stringify(attachment)}="read"`), true);
+  assert.deepEqual(profile.deniedReadPaths, [payloadRoot]);
   assert.equal(profile.configOverrides.includes(`permissions.${profile.id}.network.enabled=false`), true);
   assert.throws(() => buildCodexPermissionProfile({ cwd: root, writableRoots: [join(process.cwd(), "outside")] }), /write_root_outside_workspace/);
+  assert.throws(() => buildCodexPermissionProfile({ cwd: root, readOnlyPaths: [attachment], deniedReadPaths: [attachment] }), /path_conflict/);
 });
 
 test("Codex app-server args select the bounded profile and filter tool environment identity paths", () => {

@@ -160,18 +160,20 @@ owner 가 `owner.env` 를 직접 만들고 값을 입력한다. agent 는 파일
 
 ## 4.1 Codex 팀 작업실 경계
 
-Codex 작업 파일은 runtime checkout으로 복사하지 않고 Soulforge `_workspaces` 또는
-owner-approved 팀 공유 폴더에 둔다. runtime-local 등록부의 logical workspace ID만
-ERP DB와 브라우저에 노출하며, 스레드 생성 뒤 mapping 변경·공유 폴더 offline은
-fail-closed한다. 기본은 read-only이고 danger-full-access는 금지한다. 등록부의
-`allowed_write_prefixes`와 OS ACL을 정적 상한으로 삼고, 그 안에서만 쓰기를 관리자,
-할일, 과제, 작업실, 기존 상대 하위 폴더, 최대 8시간 TTL에 묶으며 만료/철회 시
-active turn도 중단한다. 등록부 row는 non-empty 과제 allowlist와 선택적 계정/역할
+Soulforge `_workspaces`가 유일한 논리 프로젝트 본체다. 실제 바이트가 OneDrive/NAS/
+팀 PC worksite에 있어도 `_workspaces/<과제>`의 owner-approved junction/symlink로
+materialize하며 runtime checkout에 두 번째 body를 만들지 않는다. runtime-local
+등록부의 logical workspace ID만 ERP DB와 브라우저에 노출하고, 스레드 생성 뒤 mapping
+변경·공유 폴더 offline은 fail-closed한다. 첫 production slice는 read-only이며
+danger-full-access와 write grant를 모두 거부한다. 등록부 row는 non-empty 과제
+allowlist와 선택적 계정/역할
 allowlist를 가지며, 브라우저에는 현재 item/account에 허용된 ID와 label만 보인다.
 `trust_domain_id`는 필수이며 서로 다른 기밀영역은 등록부와 worker를 분리한다.
 첨부도 raw path 대신 item-bound opaque ID만 노출한다. 첨부와 대화 본문은 Soulforge
 `_workspaces/system/dev-erp`의 service-owned 영역에 저장하고 SQLite에는 opaque
-payload ref와 메타데이터만 둔다. HWP는 직접 읽지 않고 HWPX 전처리 후 사용한다.
+payload ref와 메타데이터만 둔다. worker는 이 canonical root를 읽지 않으며 ERP가
+현재 메시지의 선택 첨부만 single-active immutable turn projection으로 복사한다.
+projection은 재검증 후 turn 종료 시 삭제한다. HWP는 직접 읽지 않고 HWPX 전처리 후 사용한다.
 
 cwd와 read-only sandbox는 읽기 allowlist 자체가 아니므로 운영 PC에서는 ERP
 HTTP/메일 프로세스와 분리된 저권한 Codex worker Windows 계정, 전용
@@ -179,18 +181,22 @@ HTTP/메일 프로세스와 분리된 저권한 Codex worker Windows 계정, 전
 ERP DB/mail secret/private-state와 다른 trust domain을 읽지 못해야 한다. production
 worker는 skill과 project instruction discovery를 항상 끄고 전용 home에는
 hooks/plugins/marketplaces/rules/AGENTS/MCP/`config.toml`을 두지 않으며,
-read/write sandbox 모두 network를 차단한다.
-각 app-server에는 전체 디스크를 기본 거부하고 정확한 workspace/첨부만 읽으며
-승인 출력 하위폴더만 쓰는 `dev_erp_bounded` permission profile을 강제한다. worker는
-시작할 때 workspace/승인 출력/exact attachment/sibling·outside denial과
-junction/hardlink/attachment mutation denial을 포함한 exact-path probe v3를 실제 실행하고, 실패하면
+network를 차단한다. 각 app-server에는 canonical payload root와 worker 부모를
+명시적으로 deny하고 static sanitized cwd와 현재 projected 파일만 다시 읽는
+`dev_erp_bounded` permission profile을 강제한다. worker는 시작할 때 source/다른
+projection read denial, projection mutation denial, junction/hardlink/network denial을
+포함한 turn-projection probe v4를 실제 실행하고, 실패하면
 `worker_permission_boundary_unproven`으로 기동하지 않는다. live audit는 signed
-profile revision, owner-pinned Codex runtime identity, probe 통과를 모두 요구한다.
+profile revision, owner-pinned Codex runtime identity, probe 통과와
+`codex_worker_payload_deny_binding_match=true`를 모두 요구한다. 이 pathless binding은
+worker 서명 뒤에도 ERP가 exact canonical attachment/message lexical root로 독립 계산한
+기대 revision과 비교하며, 두 계산 모두 해당 root를 stat/read하지 않는다.
 Enabled workspace root는 local/UNC를 섞지 않으며 UNC는 단일 share namespace만 허용한다.
 lexical/realpath/junction/share alias와 보호 이름/link 검사는 stdin-only bounded child가
-timeout fail-closed한다. 현재 개발 PC의 Codex 0.144.1 native Windows sandbox는 이
-probe를 통과하지 못했으므로 실제 팀 PC·각 UNC mapping의 probe와 turn 중 mutation 차단
-ACL 전에는 production 배포를 금지한다. WSL/container는 별도 구현이 필요한 향후 후보다.
+timeout fail-closed한다. 현재 개발 PC의 Codex 0.144.1 native Windows sandbox는 shell
+subprocess의 원본 read denial을 증명하지 못해 probe v4가 실패한다. 실제 팀 PC에서
+별도 저권한 worker identity의 NTFS/SMB ACL까지 검증되기 전에는 production 배포를
+금지한다. WSL/container는 별도 구현이 필요한 향후 후보다.
 SMB 자격증명과 Codex auth는 사용자가 OS/Codex에 직접 설정하고 등록부·DB·Git에
 복사하지 않는다. 상세 등록 및 검증 절차는
 [`CODEX_TEAM_WORKSPACE.md`](CODEX_TEAM_WORKSPACE.md)를 따른다.

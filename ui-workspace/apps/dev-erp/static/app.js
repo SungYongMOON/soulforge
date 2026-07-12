@@ -4523,6 +4523,9 @@ function openTaskCodex(itemId) {
     if (payload?.detail) statusEl.textContent = payload.detail;
     if (writeBtn) {
       const grants = Array.isArray(payload?.write_grants) ? payload.write_grants : [];
+      const workerReadOnly = mode === "worker";
+      writeBtn.hidden = workerReadOnly && grants.length === 0;
+      writeBtn.disabled = workerReadOnly && grants.length === 0;
       writeBtn.textContent = grants.length ? `✍ 쓰기 승인 ${grants.length}` : "🔒 읽기 전용";
       writeBtn.classList.toggle("on", grants.length > 0);
       writeBtn.title = grants.length
@@ -4545,6 +4548,9 @@ function openTaskCodex(itemId) {
       }
       render();
       return toast("쓰기 승인을 철회했습니다. 다음 메시지부터 읽기 전용입니다.", "ok");
+    }
+    if ((payload?.mode || state.version?.runtime?.codex_task?.mode) === "worker") {
+      return toast("첫 production worker 단계에서는 쓰기 승인을 만들 수 없습니다.", "error");
     }
     const prefix = window.prompt("쓰기를 허용할 작업실 내부의 기존 하위 폴더를 입력하세요.\n예: 03_Out/검토결과", "");
     if (prefix == null || !prefix.trim()) return;
