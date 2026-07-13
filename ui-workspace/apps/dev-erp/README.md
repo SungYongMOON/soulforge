@@ -31,10 +31,13 @@ HTTPS proxy/tunnel 뒤에서만 로그인 세션이 정상 유지된다. 첫 관
 - 개발/작업본에서 `4300`을 쓰려 하면 서버가 기본 거부한다. 긴급 예외만
   `DEV_ERP_ALLOW_DEV_4300=1` 또는 `--allow-dev-4300`으로 명시한다.
 
-운영 메모: AI(Claude)가 코드를 수정하면 `--watch` 실행 중인 서버가 스스로
-재시작한다 — 수동 재시작 불필요. 상시 운영(tool_pc 이전 시)은 Soulforge
-always-on(launchd) 패턴으로 등록해 부팅 자동 시작 + 비정상 종료 자동 복구를
-붙인다 (P2 항목).
+운영 메모: `--watch` 개발 서버는 코드 변경 때 스스로 재시작한다. Windows에서
+Task Scheduler를 쓸 때의 tracked 경로는 `ops/register-dev-erp-scheduled-task.ps1`이다.
+기본 호출은 audit-only이고, `-Register`를 명시해야 현재 사용자의 로그온 작업을
+만든다. 이 작업은 `run-dev-erp-background.ps1 -Foreground`를 실행해 Node 종료까지
+살아 있고 Node exit status를 Scheduler에 반환한다. credential 저장이나 pre-login
+service 등록은 하지 않는다. 인계·rollback 절차는
+[`docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`](docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md)를 따른다.
 
 - 요구: Node.js 22.5+ (내장 `node:sqlite` 사용. 외부 패키지 0개)
 - DB 가 비어 있어도 샘플은 자동 적재하지 않음. 데모가 필요할 때만 `--fixture`

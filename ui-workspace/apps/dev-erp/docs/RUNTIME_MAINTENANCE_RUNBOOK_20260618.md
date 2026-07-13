@@ -226,10 +226,12 @@ preferred. For an approved HTTP-only pilot, pass `-CookieSecure 0` on the
 NSSM/watchdog surfaces; with the background launcher below, pass `-ListenOnLan`
 and omit `-SecureCookie` so login cookies work.
 
-## Background launcher safe default
+## Launcher safe default
 
-`ops/run-dev-erp-background.ps1` is a bounded background launcher, not a full
-team-release approval. With no switches it binds `127.0.0.1`, uses stub chat,
+`ops/run-dev-erp-background.ps1` is a bounded launcher, not a full team-release
+approval. It returns after attested spawn by default; `-Foreground` keeps the
+wrapper alive until Node exits and returns Node's exit status. With no switches
+it binds `127.0.0.1`, uses stub chat,
 disables scheduled mail collection, auto-intake, autosync, morning brief,
 fixture loading, real-metadata ingest, file I/O, and self-registration, and
 keeps Codex in unconfigured worker mode so it cannot fall back to in-process
@@ -295,14 +297,50 @@ Every integration is explicit opt-in:
   not authorize in-process Codex or satisfy the dedicated-worker release gate.
 
 Do not combine these switches merely to reproduce the former broad launcher.
-Enable only the reviewed integration set. Task Scheduler/service registration,
-firewall changes, and worker-first supervision remain separate owner-approved
-operations. For persistent direct LAN HTTPS, keep the same absolute TLS path
+Enable only the reviewed integration set. Task Scheduler registration uses the
+guarded current-user path below; service registration, firewall changes, and
+worker-first supervision remain separate owner-approved operations. For
+persistent direct LAN HTTPS, keep the same absolute TLS path
 arguments in the Task Scheduler action, grant its execution identity read access
 to the certificate/CA and narrowly scoped read access to the private key, and run
 the same action with `-DryRun` before registration and after path or ACL changes.
 Do not copy the key into the tracked checkout. Inherited `DEV_ERP_TLS_*` values
 are scrubbed, so they are not a persistence substitute for these explicit args.
+
+## Current-user Task Scheduler foreground registration
+
+`ops/register-dev-erp-scheduled-task.ps1` is audit-only by default. It inventories
+enabled actions before `-Register`, resolves canonical launcher and direct Node
+actions to their DB, and refuses a same-DB match or any enabled dev-ERP backend
+action whose DB cannot be resolved. It never infers an unresolved action is safe.
+
+```powershell
+$registrar = "<runtime-root>\ui-workspace\apps\dev-erp\ops\register-dev-erp-scheduled-task.ps1"
+& $registrar -SecureCookie
+& $registrar -SecureCookie -Register -WhatIf
+& $registrar -SecureCookie -Register
+```
+
+The registered task uses the current Windows identity with `AtLogOn`,
+`Interactive`, and `Limited`; it stores no credential and is not a boot or
+pre-login service. Its action pins the default runtime DB explicitly and invokes
+the launcher with `-Foreground`. `IgnoreNew`, a zero execution limit, and three
+one-minute restart attempts keep one supervised wrapper and make restart depend
+on Node's propagated exit status. Registration does not start the task immediately.
+
+For handoff, first enter the normal maintenance/backup boundary. Stop the old
+controller and its Node process, then disable (do not delete) its task. Rerun the
+audit and register with the exact disabled task identity, for example
+`-HandoffFromTaskId "\Legacy dev-ERP"`. Enabled conflicts cannot be overridden;
+an existing target task is overwritten only when that exact disabled,
+single-action, same-DB handoff is supplied. The helper never stops, disables, or
+deletes another task/process and never opens the DB.
+
+For rollback, stop and disable the new task, confirm its Node process no longer
+owns the DB, and only then re-enable/start the retained old task. Never enable
+both controllers together. This audit covers Task Scheduler actions, not NSSM,
+services, or manually started processes; the launcher's exact port/process gate
+remains the final runtime guard.
 
 If another controller continuously owns and restores an HTTP backend at
 `127.0.0.1:4300`, do not fight it or start a second ERP application process on

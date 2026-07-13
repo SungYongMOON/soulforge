@@ -18,9 +18,11 @@ param(
   [string]$MorningBriefDomainAllow = "",
   [switch]$EnableCodexWorker,
   [string]$BackendRoot = "",
+  [string]$DatabasePath = "",
   [string]$TlsCertPath = "",
   [string]$TlsKeyPath = "",
   [string]$TlsCaPath = "",
+  [switch]$Foreground,
   [switch]$DryRun
 )
 
@@ -93,6 +95,15 @@ if ([string]::IsNullOrWhiteSpace($BackendRoot)) {
 }
 $BackendRoot = [IO.Path]::GetFullPath($BackendRoot)
 
+$DatabaseSummary = "default"
+if (-not [string]::IsNullOrWhiteSpace($DatabasePath)) {
+  if (-not [IO.Path]::IsPathRooted($DatabasePath)) {
+    $DatabasePath = Join-Path $App $DatabasePath
+  }
+  $DatabasePath = [IO.Path]::GetFullPath($DatabasePath)
+  $DatabaseSummary = "explicit"
+}
+
 $ProcessArgs = @(
   $ServerPath,
   "--host", $ListenHost,
@@ -101,6 +112,7 @@ $ProcessArgs = @(
   "--no-real-meta",
   "--no-fixture"
 )
+if ($DatabaseSummary -eq "explicit") { $ProcessArgs += @("--db", $DatabasePath) }
 if ($SecureCookie) { $ProcessArgs += "--secure-cookie" }
 if ($HasTlsCertPath) {
   $ProcessArgs += @("--tls-cert", $TlsCertPath, "--tls-key", $TlsKeyPath)
@@ -217,8 +229,9 @@ $IntegrationSummary = if ($EnabledIntegrations.Count) { $EnabledIntegrations -jo
 
 if ($DryRun) {
   $Action = if ($MatchedProcessIds.Count) { "would_replace_exact_match" } else { "would_start" }
+  $Mode = if ($Foreground) { "foreground" } else { "background" }
   $CookieSummary = if ($SecureCookie) { "on" } else { "auto" }
-  Write-Output "dev-erp dry-run: action=$Action host=$ListenHost port=$Port secure-cookie=$CookieSummary tls=$TlsSummary integrations=$IntegrationSummary real-meta=off fixture=off"
+  Write-Output "dev-erp dry-run: action=$Action mode=$Mode host=$ListenHost port=$Port db=$DatabaseSummary secure-cookie=$CookieSummary tls=$TlsSummary integrations=$IntegrationSummary real-meta=off fixture=off"
   return
 }
 
@@ -362,6 +375,7 @@ $Started = Start-Process -FilePath $NodeExe -ArgumentList $ArgumentLine `
   -RedirectStandardOutput (Join-Path $LogDir "dev-erp.out.log") `
   -RedirectStandardError (Join-Path $LogDir "dev-erp.err.log")
 $StartedProcessId = $Started.Id
+$NodeExitCode = $null
 
 $StartupFailure = $null
 try {
@@ -390,6 +404,13 @@ try {
   if (-not $StartedListenerProcessIds.Count) {
     throw "Spawned dev-ERP process did not bind port $Port within $StartupTimeoutSeconds seconds."
   }
+
+  if ($Foreground) {
+    $CookieSummary = if ($SecureCookie) { "on" } else { "auto" }
+    Write-Output "dev-erp foreground running: pid=$StartedProcessId host=$ListenHost port=$Port db=$DatabaseSummary secure-cookie=$CookieSummary tls=$TlsSummary integrations=$IntegrationSummary real-meta=off fixture=off"
+    $Started.WaitForExit()
+    $NodeExitCode = $Started.ExitCode
+  }
 } catch {
   $StartupFailure = $_
   try {
@@ -408,4 +429,9 @@ try {
 }
 
 $CookieSummary = if ($SecureCookie) { "on" } else { "auto" }
-Write-Output "dev-erp background started: pid=$StartedProcessId host=$ListenHost port=$Port secure-cookie=$CookieSummary tls=$TlsSummary integrations=$IntegrationSummary real-meta=off fixture=off"
+if ($Foreground) {
+  Write-Output "dev-erp foreground exited: exit=$NodeExitCode host=$ListenHost port=$Port db=$DatabaseSummary secure-cookie=$CookieSummary tls=$TlsSummary integrations=$IntegrationSummary real-meta=off fixture=off"
+  exit $NodeExitCode
+}
+
+Write-Output "dev-erp background started: pid=$StartedProcessId host=$ListenHost port=$Port db=$DatabaseSummary secure-cookie=$CookieSummary tls=$TlsSummary integrations=$IntegrationSummary real-meta=off fixture=off"

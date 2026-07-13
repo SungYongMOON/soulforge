@@ -82,6 +82,13 @@ function powerShellLiteral(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
+function windowsCommandLine(arguments_) {
+  return arguments_.map((value) => {
+    assert.equal(String(value).includes('"'), false);
+    return `"${value}"`;
+  }).join(" ");
+}
+
 async function reservePort(excluded = new Set()) {
   while (true) {
     const port = await new Promise((resolve, reject) => {
@@ -136,7 +143,12 @@ async function waitForPortClosed(port, timeoutMs = 5_000) {
   throw new Error(`listener ${port} did not close`);
 }
 
-async function createLauncherFixture({ delegateListener = false, parentControlPort = 0 } = {}) {
+async function createLauncherFixture({
+  delegateListener = false,
+  parentControlPort = 0,
+  shutdownExitCode = 0,
+  autoExitMilliseconds = 0,
+} = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "dev-erp-launcher-"));
   const app = path.join(root, "ui-workspace", "apps", "dev-erp");
   const ops = path.join(app, "ops");
@@ -161,6 +173,8 @@ const port = Number(value("--port", "0"));
 const shutdownToken = ${JSON.stringify(shutdownToken)};
 const delegateListener = ${JSON.stringify(delegateListener)};
 const parentControlPort = ${JSON.stringify(parentControlPort)};
+const shutdownExitCode = ${JSON.stringify(shutdownExitCode)};
+const autoExitMilliseconds = ${JSON.stringify(autoExitMilliseconds)};
 writeFileSync(path.join(here, "fixture.pid"), String(process.pid));
 writeFileSync(path.join(here, "fixture.argv.json"), JSON.stringify(process.argv.slice(1)));
 writeFileSync(path.join(here, "fixture.env.json"), JSON.stringify({
@@ -190,7 +204,7 @@ const server = createServer((req, res) => {
       && req.url === "/__fixture_shutdown__"
       && req.headers["x-fixture-token"] === shutdownToken) {
     res.writeHead(202, { connection: "close" });
-    res.end("stopping", () => server.close(() => process.exit(0)));
+    res.end("stopping", () => server.close(() => process.exit(shutdownExitCode)));
     return;
   }
   res.end("ok");
@@ -206,7 +220,11 @@ if (delegateListener) {
     child.unref();
   });
 } else {
-  server.listen(port, host);
+  server.listen(port, host, () => {
+    if (autoExitMilliseconds > 0) {
+      setTimeout(() => server.close(() => process.exit(shutdownExitCode)), autoExitMilliseconds);
+    }
+  });
 }
 `, "utf8");
   await writeFile(path.join(app, "delegated-listener.mjs"), `
@@ -333,6 +351,52 @@ test("background launcher defaults to loopback core-only posture and requires op
     assert.match(optedIn.stdout, /host=0\.0\.0\.0/);
     assert.match(optedIn.stdout, /secure-cookie=on/);
     assert.match(optedIn.stdout, /integrations=lan,local-llm,mail-collect,auto-intake,autosync,morning-brief,codex-worker/);
+  } finally {
+    await removeFixtureRoot(fixture.root);
+  }
+});
+
+test("foreground launcher remains attached and returns the exact Node exit status", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createLauncherFixture({
+    shutdownExitCode: 7,
+    autoExitMilliseconds: 5_000,
+  });
+  const port = await reservePort();
+  const databasePath = path.join(fixture.app, "data", "scheduled.db");
+  const processArguments = [
+    fixture.serverPath,
+    "--host", "127.0.0.1",
+    "--port", String(port),
+    "--knowledge_shell_root", fixture.root,
+    "--no-real-meta",
+    "--no-fixture",
+    "--db", databasePath,
+  ];
+  const expectedCommandLine = windowsCommandLine([process.execPath, ...processArguments]);
+
+  try {
+    const command = [
+      `$global:FixturePidPath = ${powerShellLiteral(fixture.pidFile)}`,
+      `$global:FixtureExecutablePath = ${powerShellLiteral(process.execPath)}`,
+      `$global:FixtureCommandLine = ${powerShellLiteral(expectedCommandLine)}`,
+      "function global:Get-NetTCPConnection { param($LocalPort,$State,$ErrorAction); if (Test-Path -LiteralPath $global:FixturePidPath) { [pscustomobject]@{ OwningProcess=[int](Get-Content -LiteralPath $global:FixturePidPath -Raw) } } }",
+      "function global:Get-CimInstance { param($ClassName,$Filter,$ErrorAction); [pscustomobject]@{ ExecutablePath=$global:FixtureExecutablePath; CommandLine=$global:FixtureCommandLine } }",
+      `& ${powerShellLiteral(fixture.launcher)} -Port ${port} -BackendRoot ${powerShellLiteral(fixture.root)} -DatabasePath ${powerShellLiteral(databasePath)} -Foreground`,
+      "exit $LASTEXITCODE",
+    ].join("; ");
+    const result = await runPowerShellCommand(command);
+    assert.equal(result.code, 7, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /foreground running/);
+    assert.match(result.stdout, /foreground exited: exit=7/);
+    assert.equal(result.stdout.includes(databasePath), false);
+    await waitForPortClosed(port);
+    assert.deepEqual(JSON.parse(await readFile(fixture.argvFile, "utf8")), processArguments);
+    const env = JSON.parse(await readFile(fixture.envFile, "utf8"));
+    assert.equal(env.codex_bridge, "worker");
+    assert.equal(env.fileio, null);
+    assert.equal(env.self_register, null);
   } finally {
     await removeFixtureRoot(fixture.root);
   }

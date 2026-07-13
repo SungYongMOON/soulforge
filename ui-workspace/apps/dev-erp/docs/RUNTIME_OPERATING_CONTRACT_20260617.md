@@ -313,6 +313,8 @@ tailscale serve status
 
 - NSSM service install: 관리자 권한 필요.
 - Task Scheduler boot task with elevated privilege: 관리자 권한이 필요할 수 있음.
+  tracked `register-dev-erp-scheduled-task.ps1` 경로는 이 방식이 아니라 현재 사용자
+  `AtLogOn` + `Interactive` + `Limited`이며 credential을 저장하지 않는 foreground 경로다.
 - direct LAN access 용 TCP `4300` inbound firewall rule: 관리자 권한 필요.
 
 Tailscale HTTPS 우선 운영의 NSSM 설정은 runtime clone 과 localhost bind 를 가리켜야 한다.
