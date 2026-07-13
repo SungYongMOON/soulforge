@@ -12,6 +12,9 @@
 _workspaces/system/voice_capture/sessions/<YYYY-MM-DD>/<session_id>/
   audio/
   transcripts/
+  analysis/local_asr/<run_id>/
+  analysis/diarization/<run_id>/
+  analysis/context_resolution/<run_id>/
   transcript.jsonl
   transcript.txt
   session_manifest.json
@@ -35,7 +38,28 @@ _workspaces/system/voice_capture/delivery/
   producer_receipts/<session_id>.json
   consumer_acknowledgements/<consumer_node>/<session_id>.json
   consumer_acknowledgements/<consumer_node>/latest.json
+
+_workspaces/system/voice_capture/plaud_mail_triggers/
+  pending/<trigger_id>.json
+  processed/<YYYY-MM-DD>/<trigger_id>.json
+  unresolved/<YYYY-MM-DD>/<trigger_id>.json
 ```
+
+## 저장·기록·동기화 지도
+
+| 정보 | 정본 위치 | 동기화 수단 | writer |
+| --- | --- | --- | --- |
+| 원음, provider 전사, 독립 전사, 화자·맥락 분석 payload | `_workspaces/system/voice_capture/sessions/**` | owner-approved shared worksite | 맥미니 voice primary |
+| 녹음 색인, route 상태, 회의 묶음, queue, 전달 receipt/ack | `_workspaces/system/voice_capture/{library,meeting_bundles,local_asr_queue,plaud_mail_triggers,delivery}/**` | 같은 shared worksite | 맥미니; consumer ack만 각 PC |
+| 프로젝트별 음성 source event | `_workmeta/<project_code>/reports/voice_source_events/**` | project private Git | project metadata worker |
+| 프로젝트 맥락·업무 후보 | `_workmeta/<project_code>/project_context/**`, `_workmeta/<project_code>/reports/할일_장부/**` | project private Git | 승인된 project worker |
+| 공통 실행 이력·ingress 상태 | `private-state/guild_hall/state/**` | private-state Git | operational-primary |
+| 코드, 계약, 테스트, public-safe 예시 | Soulforge public tracked tree | public Git | 개발 작업자 |
+
+`_workspaces/system`의 실제 물리 위치는 PC마다 임의 폴더가 아니라
+owner-approved shared worksite를 가리키는 동일 logical view여야 한다. raw payload는
+Git으로 복제하지 않는다. Git에는 코드와 metadata만 두며, raw가 다른 PC에 실제로
+도착했는지는 producer receipt만으로 주장하지 않고 그 PC의 consumer ack로 증명한다.
 
 ## 경계
 
@@ -57,6 +81,8 @@ _workspaces/system/voice_capture/delivery/
 
 ## 상태 모델
 
+현재 구현이 쓰고 읽는 상태는 아래 네 가지다.
+
 | route status | 의미 |
 | --- | --- |
 | `unclassified_needs_owner_confirmation` | 아직 프로젝트가 확정되지 않은 기본 inbox 상태다. |
@@ -66,6 +92,20 @@ _workspaces/system/voice_capture/delivery/
 
 초기 등록은 `P00-000_INBOX` + `unclassified_needs_owner_confirmation` 을 기본값으로 쓴다.
 
+2026-07-13 owner가 승인한 목표 구현은 사람의 매 건 확인을 병목으로 두지 않는다.
+다만 현재 `accepted_project_route`와 섞거나 사람 승인을 가장하지 않도록 다음
+별도 상태를 schema, writer, validator, fixture와 함께 추가한 뒤 활성화해야 한다.
+
+| target route status | 의미 | 허용되는 다음 단계 |
+| --- | --- | --- |
+| `ai_provisional_project_route` | AI가 프로젝트 context card와 복수 근거를 이용해 내부 작업용 route를 임시 확정했다. 사람 승인이나 공식 사실이 아니다. | 회의/주제 구간별 project draft, 담당자·할일 후보, 재검증 |
+| `exception_review_required` | 서로 다른 프로젝트 근거가 충돌하거나 새 프로젝트·낮은 신뢰도·필수 맥락 누락이 있다. | 자동 진행 보류, 예외 검토함 |
+
+AI 임시 확정은 `accepted_by`, `accepted_at`을 쓰지 않는다. 대신 사용한 source ref,
+project context version, 모델/규칙 version, confidence band, 반대 근거, 재검증 시각을
+남겨야 한다. 같은 녹음 안의 서로 다른 구간은 서로 다른 프로젝트 route를 가질 수
+있다.
+
 ## 처리 순서
 
 1. 녹음 또는 import 결과를 session 으로 만든다.
@@ -74,6 +114,26 @@ _workspaces/system/voice_capture/delivery/
 4. AI 는 session/bundle metadata, transcript ref, 프로젝트 wiki/RAG metadata 를 보고 프로젝트 후보를 제안할 수 있다.
 5. 책임자가 프로젝트 route 를 확정하면 project route manifest 를 갱신한다.
 6. 전사 품질, 화자분리 품질, action item 누락 가능성을 검토한 뒤에만 `_workmeta/<project_code>/reports/voice_source_events/**` 또는 공식 task ledger 후보로 넘긴다.
+
+### 승인된 목표 처리선
+
+1. 맥미니가 Hiworks trigger 또는 명시 recovery 신호로 PLAUD 원음을 수집한다.
+2. provider 결과와 독립된 local ASR을 만들고 품질 flag를 계산한다.
+3. 평상시 녹음, 회의, 통화, 개인 메모를 분류하고 긴 녹음을 회의·주제 구간으로
+   나눈다.
+4. 익명 화자 구간을 만들고, 동의·등록된 화자만 실명 후보로 연결한다.
+5. 음성만 보지 않고 메일, 체계공학 일정, project context card를 함께 읽어 구간별
+   프로젝트를 `ai_provisional_project_route`로 정한다.
+6. 발언자와 업무 담당자를 구분해 담당자, 결정, 할일, 기한, 의존성 후보를 만든다.
+7. 내부 업무 초안과 metadata ledger를 AI 임시 확정 상태로 기록하고, 새 메일·일정·
+   음성이 들어오면 재검증·정정 이력을 append한다.
+8. 정상 건은 계속 진행하고 충돌·근거 부족·새 프로젝트·낮은 화자 신뢰도만
+   `exception_review_required`로 모은다.
+9. 외부 발송·공식 승인·구매·기술 truth 변경은 별도 사람 승인 전 실행하지 않는다.
+
+이 목표 처리선 중 3~8은 아직 구현 완료 상태가 아니다. 다른 PC는 구현 여부를
+`_workmeta/system/dev_worker_queue/autonomous_voice_context_resolver_v0.yaml`과
+검증 결과로 판단하며 문서만 보고 동작 완료로 간주하지 않는다.
 
 ## dev-ERP 할일 후보 합류
 
@@ -118,7 +178,9 @@ _workspaces/system/voice_capture/delivery/
 
 - 녹음별 원문 전사 본문을 public repo, `_workmeta`, changelog, review packet 에 붙여 넣지 않는다.
 - 프로젝트 route 후보를 공식 프로젝트 확정으로 취급하지 않는다.
-- AI가 추론한 할일을 owner review 없이 task ledger 에 바로 승격하지 않는다.
+- AI가 추론한 route·담당자·할일을 사람 승인 또는 공식 사실로 가장하지 않는다.
+- 별도 AI 임시 확정 schema와 validator가 구현되기 전에는 현재 formal task ledger에
+  자동 승격하지 않는다. 구현 후에도 외부 실행·공식 승인 truth와 분리한다.
 - 여러 녹음의 전사 본문을 하나의 파일로 합쳐 원본 provenance 를 잃지 않는다.
 
 ## CLI
@@ -148,3 +210,9 @@ npm run guild-hall:voice-capture -- register-library \
 - PLAUD import/library 등록과 독립 ASR 완료 뒤 producer receipt를 best-effort로 한 번 준비한다. receipt 실패는 retryable delivery warning이며 이미 성공한 import/ASR를 rollback하지 않는다.
 - `recordings.current.json` 와 `project_routes/P00-000_INBOX/**` 를 먼저 보고 미분류 녹음부터 route 검토한다.
 - 맥미니 수집 노드는 `_workspaces/system`이 active OneDrive shared link인지 audit한 뒤에만 기본 수집 경로를 사용한다. launchd plist와 로그는 `_workspaces/_local/<node_id>/` 및 사용자 로그 폴더에 둔다.
+- 맥미니를 voice payload와 session/runtime metadata의 단일 writer로 둔다. 다른 PC는
+  같은 session/library/queue 파일을 동시에 수정하지 않고 read, consumer ack, 허용된
+  project metadata write만 수행한다.
+- 이어받을 PC는 public repo, 필요한 `_workmeta/<project_code>`, `private-state`를 각각
+  pull한다. 세 저장소의 commit이 같다는 이유만으로 raw payload 동기화가 끝났다고
+  보지 않으며, shared worksite materialization과 consumer ack를 별도로 확인한다.

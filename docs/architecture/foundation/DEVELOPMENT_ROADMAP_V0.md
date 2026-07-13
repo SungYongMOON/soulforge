@@ -83,6 +83,22 @@ read-only snapshot
   emitter·scanner ACL과 graph compaction/tail replay 활성화는 owner binding과 후속 검증 뒤 진행한다.
 - 판단(2026-06-14 갱신): snapshot→작전판 게임루프는 장기 북극성으로 유지하되, 지금 손이 가는 active slice 는 dev-erp 다. 과거 active slice `snapshot_to_operation_board_v0` 는 '다음 후보'로 내린다(스펙은 아래 'Active Slice 001' 절에 보존, 재개 시 참조).
 
+### Owner-approved adjacent lane — autonomous voice context resolver
+
+- 2026-07-13 owner는 24시간 맥미니를 voice processing operational-primary로
+  지정하고, 사람의 매 건 확인을 기다리지 않는 `AI 임시 확정 -> 재검증 -> 예외만
+  사람 확인` 방향을 승인했다. PLAUD 장치 자체의 단독 정본 채택은 별도 파일럿으로
+  유지한다.
+- 목표는 평상시 녹음·회의·통화를 구분하고, 긴 녹음을 회의/주제별로 나눈 뒤,
+  동의된 화자 후보와 mail·SE schedule·project context를 결합해 프로젝트, 담당자,
+  결정, 할일, 기한을 내부 임시 상태로 계속 적재하는 것이다.
+- AI 임시 확정은 현재 `accepted_project_route`나 사람 승인 필드를 재사용하지 않는다.
+  외부 발송, 외부 공유, 구매, 공식 승인, 기술 truth 변경은 계속 별도 승인을 요구한다.
+- 이 lane은 dev-ERP active slice를 대체하지 않는 승인된 인접 구현 작업이다. 실행
+  정본과 acceptance/stop 조건은
+  `_workmeta/system/dev_worker_queue/autonomous_voice_context_resolver_v0.yaml`이
+  소유하며, public 문서에는 상세 backlog를 복제하지 않는다.
+
 ## SE assistant program direction
 
 Current structural target:

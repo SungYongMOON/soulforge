@@ -16,16 +16,38 @@ does not replace the provider transcript.
 
 - Raw audio and raw transcripts stay under `_workspaces/system/voice_capture/**`
   or another owner-approved workspace root.
-- `_workmeta` receives only reviewed metadata, route candidates, and draft task
-  packets after a separate review step.
+- `_workmeta` receives only metadata: current review drafts and route candidates,
+  and, after the target schema/validator is implemented, explicitly labelled
+  AI-provisional route/task records. It never receives raw transcript bodies.
 - The CLI never copies raw audio, transcript bodies, secrets, credentials, or
   private source payloads into public repo files.
-- Project route and formal task ledger promotion remain owner-reviewed.
+- The current CLI stops at unclassified/candidate route state and does not
+  mutate a formal task ledger automatically.
+- The owner-approved next target lets an AI context resolver keep internal work
+  moving with explicitly labelled provisional project/assignee/task records.
+  It must never write human acceptance fields or execute external/official
+  actions; only exception cases and irreversible actions remain human-gated.
 
 The current PLAUD adoption decision is documented in
 [`PLAUD_ADOPTION_DECISION_V0.md`](../../docs/architecture/workspace/PLAUD_ADOPTION_DECISION_V0.md):
 use PLAUD as a pilot primary-audio candidate, not as authoritative transcript,
 speaker identity, minutes, or task evidence.
+
+## Storage and cross-PC ownership
+
+| Surface | Location | Transfer |
+| --- | --- | --- |
+| Audio, transcripts, speaker/context analysis | `_workspaces/system/voice_capture/sessions/**` | owner-approved shared worksite |
+| Library, bundles, queues, delivery proof | `_workspaces/system/voice_capture/{library,meeting_bundles,local_asr_queue,plaud_mail_triggers,delivery}/**` | same shared worksite |
+| Project route/task metadata | `_workmeta/<project_code>/**` | project private Git |
+| Cross-project operational continuity | `private-state/guild_hall/state/**` | private-state Git |
+| CLI, contracts, tests | public Soulforge tree | public Git |
+
+The Mac mini is the single writer for shared voice session/runtime surfaces.
+Other PCs pull the three applicable Git histories, materialize the shared
+workspace, verify raw arrival with their own consumer acknowledgement, and only
+write their permitted project metadata. Raw audio and transcript bodies never
+move through Git.
 
 ## Cross-PC delivery receipts
 

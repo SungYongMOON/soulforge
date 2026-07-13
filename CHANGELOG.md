@@ -1,5 +1,20 @@
 # CHANGELOG
 
+### 맥미니 음성 처리 주노드와 AI 임시 확정 운영 방향
+
+- PLAUD 단독 정본 수집기 채택은 기존 5~10회 파일럿으로 유지하면서, 24시간
+  맥미니를 원음 회수·독립 전사·보관함·후속 분석 queue의 단일 operational-primary로
+  분리 지정했다.
+- 원음/전사 payload는 owner-approved shared worksite의
+  `_workspaces/system/voice_capture/**`, 프로젝트별 업무 metadata는
+  `_workmeta/<project_code>/**`, 공통 실행 연속성은 `private-state/guild_hall/state/**`,
+  코드·계약·테스트는 public Git에 저장하는 PC 간 경계를 고정했다.
+- 후속 목표를 녹음 종류·회의/주제 구간·화자 후보·프로젝트·담당자·할일·기한
+  분석에서 `AI 임시 확정 -> 재검증 -> 예외 검토`까지 이어지도록 승인했다. 현재
+  사람 승인 상태를 가장하거나 외부 발송·구매·공식 승인·기술 truth를 자동 실행하지
+  않으며, 자동 resolver는 별도 schema/validator와 dev-worker 작업으로 구현한다.
+  (worker: codex_gpt-5)
+
 ### Codex pet cross-PC opt-in 배포
 
 - `.registry/docs/operations/codex_pets/`의 public-safe v2 pet package를 각 PC의

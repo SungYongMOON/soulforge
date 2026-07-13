@@ -148,7 +148,7 @@
 - `PROJECT_LEDGER_UPDATE_V0.md` 는 owner 가 주기적으로 전달하는 회사 PJT 관리 대장을 private source 로 보관하고 current/open project metadata 를 갱신하는 절차를 잠근다.
 - `COMPANY_COMMON_SOURCE_STORAGE_V0.md` 는 특정 프로젝트가 아닌 회사 공통 조직/연락처/자리배치/운영 참조 자료를 `_workspaces/knowledge/common/company/` 아래 source packet 으로 보관하고, `_workmeta` 에는 metadata-only 기록만 남기는 규칙을 잠근다.
 - `PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md` 는 프로젝트 지식 추출 산출물을 `project_code` 단위로 격리해, 장서목록은 `_workmeta/<project_code>/reports/source_research/`, derived_text payload 는 `_workspaces/<project_code>/reference_payloads/knowledge_extract/<batch>/derived_text/`, 회사 공통은 `_workspaces/knowledge/common/company/` 로 두고 `_local` 임의 폴더를 금지하는 규칙을 잠근다.
-- `VOICE_RECORDING_LIBRARY_V0.md` 는 전체 녹음 보관함을 `_workspaces/system/voice_capture/library/` 로 고정하고, 프로젝트 route 는 확정 전 metadata-only 후보로만 다루는 규칙을 잠근다.
+- `VOICE_RECORDING_LIBRARY_V0.md` 는 전체 녹음 보관함을 `_workspaces/system/voice_capture/library/` 로 고정하고, 현재 확정 전 metadata-only 후보와 후속 AI 임시 확정 상태를 사람 승인·공식 truth와 분리하며, 맥미니 단일 writer와 shared payload/private metadata의 PC 간 전달 규칙을 잠근다.
 - `SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md` 는 사람에게 보이는 SE workspace 폴더명은 짧은 한글 의미명으로 두고, 날짜/source/mail/hash/import provenance 는 `_workmeta` metadata 또는 manifest 로 분리하는 기준을 잠근다.
 - shared project payload 는 owner-approved shared worksite 에 두고 `_workspaces/<project_code>/` 는 junction/symlink view 로 materialize 하는 것을 current-default 로 둔다.
 - `PROJECT_START_WORKFLOW_V0.md` 는 첫 과제 시작 시 사람과 Codex 가 어디에 기록하고 어떤 순서로 bounded task 를 열지 잠근다.

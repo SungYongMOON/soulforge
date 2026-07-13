@@ -36,6 +36,46 @@ Apple Notes 같은 독립 녹음을 함께 유지하고, 단독 정본 수집기
 단계가 담당한다. 프로젝트가 불명확한 자료는 `P00-000_INBOX`에 남기고,
 누락 방지를 위해 과제명이 틀리더라도 미분류 기록 자체는 보존한다.
 
+## 2026-07-13 owner 승인 운영 방향
+
+PLAUD를 단독 정본 수집기로 전환하는 결정과 맥미니를 음성 처리의
+`operational-primary`로 지정하는 결정은 분리한다.
+
+- PLAUD 장치는 위 파일럿 종료 기준을 통과하기 전까지 단독 정본 수집기로
+  확정하지 않는다.
+- 24시간 맥미니는 지금부터 음성 수집 trigger, 원음 회수, 독립 전사, 보관함
+  등록, 후속 분석 queue를 책임지는 단일 writer다.
+- 목표 처리선은 `원음 수집 -> 독립 전사/품질 확인 -> 녹음 종류 분류 ->
+  회의·주제 구간 분리 -> 화자 후보 -> 프로젝트 구간 route -> 담당자·할일·
+  기한·결정 추출 -> AI 임시 확정 기록 -> 재검증 -> 요약/예외 알림`이다.
+- AI 임시 확정은 사람의 매 건 승인을 기다리지 않고 내부 후속 처리를 계속하기
+  위한 상태다. 사람의 승인, 공식 사실, 완료 사실을 뜻하지 않으며
+  `accepted_by: owner` 같은 값을 AI가 대신 기록해서는 안 된다.
+- 프로젝트를 하나로 확정하기 어려운 장시간 녹음은 전체 파일을 억지로 한
+  프로젝트에 넣지 않고 구간별로 여러 프로젝트에 임시 route할 수 있다.
+- 외부 메일 발송, 외부 공유, 구매, 공식 승인, 기술 기준값 확정처럼 되돌리기
+  어려운 행위는 별도 승인 경계를 유지한다. 모순, 근거 부족, 새 프로젝트,
+  낮은 화자 신뢰도만 예외 검토함으로 보낸다.
+
+이 방향은 승인된 개발 목표이며 현재 코드가 전 구간을 구현했다는 뜻은 아니다.
+현 구현은 원음 수집·독립 전사·보관함 등록·안전한 완료 알림까지 동작하고,
+자동 구간 분리, 화자 실명 후보, 프로젝트/담당자 임시 확정, 업무 장부 연결은
+후속 구현 대상이다.
+
+## 저장과 PC 간 전달
+
+| 구분 | 저장 위치 | 다른 PC 전달 방식 |
+| --- | --- | --- |
+| 원음·전사·화자 분석 | `_workspaces/system/voice_capture/sessions/**` | owner-approved shared worksite, Git 금지 |
+| 녹음 보관함·회의 묶음·전달 확인 | `_workspaces/system/voice_capture/{library,meeting_bundles,delivery}/**` | 같은 shared worksite + receipt/ack |
+| 프로젝트별 route·업무 metadata | `_workmeta/<project_code>/**` | project private Git |
+| 공통 운영 이력 | `private-state/guild_hall/state/**` | private-state Git |
+| 코드·규칙·테스트 | Soulforge public tracked tree | public Git |
+
+맥미니 외 PC는 원음 처리 surface를 동시에 쓰지 않는다. 다른 PC는 public/private
+Git을 pull하고 shared worksite의 payload를 확인한 뒤 자기 node 이름의 consumer
+ack와 허용된 프로젝트 metadata만 기록한다.
+
 ## 파일럿 종료 기준
 
 5~10회 회의 동안 다음을 확인한다.

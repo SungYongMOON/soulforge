@@ -38,10 +38,21 @@ PLAUD account collector on an always-on node
 - `_workspaces/system/voice_capture/**`: raw audio, raw transcripts, ASR
   sidecars, profiles, local source event drafts, recording library manifests,
   and rendered launchd plists.
-- `_workmeta/**`: reviewed metadata only. Raw audio and transcript bodies are not
-  copied there.
-- Project owners: approve project route, assignee, due date, completion
-  criteria, and formal task ledger promotion.
+- `_workmeta/**`: reviewed or explicitly AI-provisional metadata only. Raw audio
+  and transcript bodies are not copied there.
+- Mac mini voice primary: write shared voice sessions, queues, library state,
+  independent ASR results, and downstream analysis requests as the single
+  operational writer.
+- AI context resolver target: produce separately labelled provisional project,
+  assignee, due-date, decision, and task records without claiming human
+  approval. Only exceptions and irreversible actions wait for a person.
+- Project owners: retain authority for external execution, official approval,
+  technical truth, and correction of exception cases.
+
+The AI context resolver is an owner-approved target, not a current runtime
+claim. The current MVP still stops at `P00-000_INBOX`, metadata-only source
+pointers, and completion notification until the provisional-state schema,
+project-context resolver, writer, validator, and fixtures are implemented.
 
 ## Runtime Contract
 
@@ -189,8 +200,11 @@ voice embeddings remain local payloads and are not part of the example.
 ## Non-Goals
 
 - No model training.
-- No automatic project route acceptance.
-- No formal task ledger mutation.
+- No human-accepted project route or human approval fabricated by AI.
+- No current-runtime claim that automatic project/assignee/task resolution has
+  already been implemented.
+- No external send, purchase, official approval, or technical-truth mutation
+  from an AI provisional record.
 - No raw payload under `_workmeta` or public repo files.
 - No automatic launchd installation.
 - No production-quality speaker diarization claim. Local experimental sidecars
