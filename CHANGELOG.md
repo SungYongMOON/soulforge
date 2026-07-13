@@ -63,6 +63,9 @@
   sanitized 502/504만 제공하며 TLS 경로와 업무 payload는 기록하지 않는다. 합성 동적 포트
   테스트로 option fail-closed, header/cookie, body/status, CA, failure/timeout 경계를 고정했다.
   (worker: codex_gpt-5)
+### 폴더 메타데이터 목록화용 Codex 보조 에이전트
+
+- `.codex/agents/`에 단일 폴더, 메타데이터 전용, read-only 범위로 동작하는 `folder_inventory` 설정과 부모 에이전트 인계 규칙을 추가했다. 활성 Codex 모델 카탈로그에서 `gpt-5.6-luna` 가용성을 먼저 확인하고, 대상 폴더만 실행별 추가 루트로 지정하며, 파일 본문·secret·해시·OCR·텍스트 추출과 원본 변경을 금지한다. (worker: codex_gpt-5.6)
 
 ### Owner Outlook 메일의 AI 재수집 가능 업무 구조 보강
 
