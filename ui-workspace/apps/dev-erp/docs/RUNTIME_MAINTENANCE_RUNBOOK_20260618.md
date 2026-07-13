@@ -304,6 +304,17 @@ the same action with `-DryRun` before registration and after path or ACL changes
 Do not copy the key into the tracked checkout. Inherited `DEV_ERP_TLS_*` values
 are scrubbed, so they are not a persistence substitute for these explicit args.
 
+If another controller continuously owns and restores an HTTP backend at
+`127.0.0.1:4300`, do not fight it or start a second ERP application process on
+the same database. Bind the zero-dependency `ops/dev-erp-lan-https-proxy.mjs`
+to one exact LAN IPv4 address on port 4300 and forward only to
+`127.0.0.1:4300`. Distinct local addresses can share the port on Windows. The
+proxy rejects wildcard/non-loopback upstream exposure, overwrites forwarding
+headers, strips hop-by-hop fields, forces `Secure` on response cookies, and
+does not log payloads or TLS paths. Register its exact Node command as a
+foreground Task Scheduler Action; keep backend ownership in the existing
+controller.
+
 ## Watchdog
 
 `ops/dev-erp-watchdog.ps1` is a one-shot health and recovery script. Run it

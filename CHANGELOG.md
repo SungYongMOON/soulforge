@@ -1,5 +1,16 @@
 # CHANGELOG
 
+### dev-ERP loopback 공존 LAN HTTPS proxy
+
+- 외부 controller가 `127.0.0.1:4300` backend를 복구하는 Windows 환경에서 backend를
+  강제 교체하거나 같은 DB를 여는 두 번째 ERP process를 띄우지 않고, exact LAN IP의 같은
+  포트에만 TLS를 종단하는 zero-dependency proxy를 추가했다.
+- proxy는 upstream을 loopback으로 고정하고 wildcard listen, spoofed forwarding,
+  hop-by-hop 전달을 차단한다. 응답 cookie에는 `Secure`를 강제하고 public CA 배포와
+  sanitized 502/504만 제공하며 TLS 경로와 업무 payload는 기록하지 않는다. 합성 동적 포트
+  테스트로 option fail-closed, header/cookie, body/status, CA, failure/timeout 경계를 고정했다.
+  (worker: codex_gpt-5)
+
 ### Owner Outlook 메일의 AI 재수집 가능 업무 구조 보강
 
 - 업무 요청 메일의 공통 표시 필드를 `수신/사유/목적/요청 업무/회신기한/완료·회신 기준`으로 정리하고, 변경 전후·적용 방안·적용 대상품·검토 사안·참여 부서·첨부·비고는 근거가 있을 때만 붙이는 조건부 블록으로 분리했다.
