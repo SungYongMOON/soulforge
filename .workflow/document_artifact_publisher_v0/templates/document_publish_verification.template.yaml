@@ -1,0 +1,27 @@
+verification_version: document_publish_verification.v0
+workflow_id: document_artifact_publisher_v0
+run_id: <run id>
+verifier_context:
+  fresh_context: true
+  separate_from_executor: true
+  executor_builder_source_visible: false
+identities:
+  workflow_revision_match: pass|fail
+  immutable_package_ref_match: pass|fail
+  packet_sha256_match: pass|fail
+  schema_sha256_match: pass|fail
+  token_version_and_sha256_match: pass|fail
+requested_output_checks:
+  only_requested_outputs_exist: pass|fail
+  native_editability: pass|fail
+  structural_validation: pass|fail
+  semantic_parity: pass|fail
+  visual_review_complete: pass|fail
+  accessibility_checks: pass|fail|needs_owner_review
+storage_boundary:
+  payloads_under_workspaces: pass|fail
+  workmeta_is_metadata_only: pass|fail
+  no_runtime_absolute_path_or_secret: pass|fail
+verdict: pass|revise
+blocker_codes: []
+residual_owner_gates: []

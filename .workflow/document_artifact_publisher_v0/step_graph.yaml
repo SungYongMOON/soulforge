@@ -1,0 +1,216 @@
+workflow_id: document_artifact_publisher_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: validate_publish_request
+    title: Validate Approved Publish Request
+    actor_slot: request_validator
+    action:
+      kind: approved_document_publish_request_validation
+      artifacts_in:
+        - document_publish_request
+        - approved_team_document_content_packet_ref
+        - approved_team_document_design_tokens_ref
+      artifacts_out:
+        - validated_publish_scope
+        - packet_identity_record
+        - token_identity_record
+      validates:
+        - workflow_id_revision_and_immutable_package_ref_are_present
+        - packet_state_is_approved_for_render_or_declared_synthetic_fixture
+        - packet_ref_and_sha256_match_request
+        - schema_ref_revision_and_sha256_match_request
+        - token_ref_version_and_sha256_match_request
+        - requested_outputs_are_unique_subset_of_docx_xlsx_html
+        - output_refs_resolve_under_workspaces
+        - receipt_ref_resolves_under_workmeta
+        - idempotency_key_is_present
+        - request_does_not_contain_authoring_rewrite_translation_or_PPT_instructions
+    summary: Accept only an approved or explicitly synthetic, hash-bound content packet and token contract for DOCX, XLSX, and/or HTML publication.
+    next:
+      on_success: validate_packet_contract
+      on_review_required: write_metadata_only_receipt
+      on_fail: write_metadata_only_receipt
+  - step_id: validate_packet_contract
+    title: Validate Strict Packet Contract
+    actor_slot: contract_validator
+    action:
+      kind: deterministic_content_packet_and_token_validation
+      artifacts_in:
+        - validated_publish_scope
+        - packet_identity_record
+        - token_identity_record
+      artifacts_out:
+        - validated_content_packet
+        - contract_validation_receipt
+      tool_ref: tools/validate_document_packet.mjs
+      required_checks:
+        - packet_parses_as_JSON
+        - packet_schema_version_is_team_document_content_packet_v0
+        - unknown_top_level_fields_are_rejected
+        - output_formats_are_limited_to_docx_xlsx_html
+        - source_evidence_metric_section_table_chart_action_risk_and_omission_ids_are_unique
+        - all_internal_refs_resolve
+        - metric_comparison_results_match_values_and_bounds
+        - table_rows_match_declared_columns_and_native_types
+        - source_and_output_pointers_respect_portable_storage_policy
+        - raw_HTML_secret_external_asset_and_PPT_boundaries_pass
+        - design_token_id_and_supported_outputs_match
+    summary: Reject broken cross-references, unsafe pointers, altered verdict logic, raw HTML, unsupported formats, and storage-boundary violations before adapter execution.
+    next:
+      on_success: publish_requested_formats
+      on_review_required: write_metadata_only_receipt
+      on_fail: write_metadata_only_receipt
+  - step_id: publish_requested_formats
+    title: Publish Requested Native Formats
+    actor_slot: native_adapter_dispatcher
+    action:
+      kind: requested_format_native_adapter_dispatch
+      artifacts_in:
+        - validated_publish_scope
+        - validated_content_packet
+        - token_identity_record
+      artifacts_out:
+        - editable_document_artifacts
+        - adapter_run_receipts
+      dispatch:
+        docx:
+          actor_slot: docx_publisher
+          backend_capability: installed_documents_skill
+          rules:
+            - use_real_styles_numbering_tables_headers_and_footers
+            - keep_text_and_tables_editable
+            - static_chart_visual_requires_editable_source_table_and_alt_text
+            - render_and_review_every_page
+        xlsx:
+          actor_slot: xlsx_publisher
+          backend_capability: installed_spreadsheets_skill_plus_loader_provided_artifact_tool
+          rules:
+            - use_only_loader_provided_artifact_tool_for_authoring
+            - keep_values_dates_formulas_tables_and_charts_native
+            - inspect_key_ranges_and_formula_errors
+            - render_and_review_every_sheet
+        html:
+          actor_slot: html_publisher
+          backend_capability: local_escaped_semantic_html_renderer
+          rules:
+            - escape_packet_text_by_default
+            - forbid_remote_fonts_scripts_styles_images_and_requests
+            - preserve_semantic_landmarks_and_table_fallbacks
+            - review_desktop_narrow_and_every_A4_print_page
+      global_rules:
+        - do_not_convert_one_output_format_into_another
+        - preserve_approved_content_order_facts_semantic_roles_negation_warnings_omissions_and_verdicts
+        - do_not_paraphrase_summarize_translate_reorder_or_add_claims
+        - route_overflow_or_unmappable_content_to_review_required_without_abridging
+        - write_payloads_and_render_review_assets_only_under_workspaces
+        - write_no_payload_or_visible_content_into_workmeta
+    summary: Materialize each requested format natively from the same validated packet and token contract; no format becomes another format's source of truth.
+    next:
+      on_success: verify_artifact_bundle
+      on_review_required: write_metadata_only_receipt
+      on_fail: write_metadata_only_receipt
+  - step_id: verify_artifact_bundle
+    title: Verify Artifact Bundle
+    actor_slot: artifact_self_checker
+    action:
+      kind: cross_format_artifact_structure_semantic_and_visual_verification
+      artifacts_in:
+        - validated_content_packet
+        - token_identity_record
+        - editable_document_artifacts
+        - adapter_run_receipts
+      artifact_out: document_publish_self_check
+      required_checks:
+        - each_requested_output_exists_under_workspaces
+        - each_output_size_and_sha256_are_recorded
+        - each_output_structure_is_valid_and_native_content_remains_editable
+        - canonical_fact_set_matches_the_validated_packet
+        - common_information_order_and_semantic_design_roles_are_preserved
+        - no_unapproved_content_asset_remote_dependency_or_PPT_output_was_added
+        - all_required_pages_sheets_viewports_and_print_pages_were_reviewed
+        - workmeta_record_is_metadata_only_and_contains_no_visible_content_or_runtime_absolute_path
+      verdicts:
+        - complete
+        - review_required
+        - failed
+    summary: Verify each native artifact and the cross-format canonical fact set before independent review.
+    next:
+      on_success: independently_verify_artifact_bundle
+      on_review_required: write_metadata_only_receipt
+      on_fail: write_metadata_only_receipt
+  - step_id: independently_verify_artifact_bundle
+    title: Independently Verify Artifact Bundle
+    actor_slot: independent_artifact_verifier
+    action:
+      kind: fresh_context_document_artifact_verification
+      artifacts_in:
+        - document_publish_request
+        - approved_team_document_content_packet_ref
+        - approved_team_document_design_tokens_ref
+        - editable_document_artifacts
+        - adapter_run_receipts
+        - document_publish_self_check
+      artifact_out: document_publish_verification
+      required_checks:
+        - independent_verifier_did_not_use_executor_builder_source
+        - packet_schema_token_workflow_and_output_identities_match_request
+        - requested_outputs_and_only_requested_outputs_exist
+        - facts_numbers_units_dates_signs_ids_tables_comparisons_negation_warnings_omissions_and_verdicts_match_packet
+        - DOCX_XLSX_and_HTML_editability_and_native_structure_checks_pass_as_applicable
+        - all_rendered_pages_sheets_viewports_and_print_pages_are_reviewed
+        - payload_and_metadata_storage_boundaries_pass
+      verdicts:
+        - pass
+        - revise
+    summary: A fresh verifier independently checks the requested artifact bundle, content parity, editability, visual evidence, and storage boundaries.
+    next:
+      on_success: write_metadata_only_receipt
+      on_review_required: write_metadata_only_receipt
+      on_fail: write_metadata_only_receipt
+  - step_id: write_metadata_only_receipt
+    title: Write Metadata-Only Receipt
+    actor_slot: receipt_writer
+    action:
+      kind: document_publish_receipt_write
+      artifacts_in:
+        - document_publish_request
+      optional_artifacts_in:
+        - packet_identity_record
+        - token_identity_record
+        - contract_validation_receipt
+        - editable_document_artifacts
+        - adapter_run_receipts
+        - document_publish_self_check
+        - document_publish_verification
+      artifact_out: document_publish_receipt
+      records:
+        - request_and_idempotency_identity
+        - workflow_revision_and_immutable_package_ref
+        - packet_schema_and_token_refs_versions_and_sha256
+        - output_media_type_pointer_size_and_sha256
+        - adapter_self_check_and_independent_verification_statuses
+        - blocker_codes_retryability_and_next_action
+      checks:
+        - receipt_ref_is_under_workmeta
+        - receipt_is_metadata_only
+        - payload_body_visible_content_and_rendered_assets_are_not_copied
+        - no_secret_private_body_or_runtime_absolute_path
+    summary: Store only portable pointers, hashes, sizes, version identities, validation outcomes, blockers, and next actions in workmeta.
+    next:
+      on_success: complete
+      on_fail: stop
+stop_conditions:
+  - packet_is_not_approved_or_declared_synthetic_fixture
+  - packet_schema_token_workflow_revision_or_immutable_package_identity_is_missing_or_mismatched
+  - requested_output_is_not_docx_xlsx_or_html
+  - request_contains_PPT_PPTX_authoring_rewrite_translation_or_fact_change
+  - packet_has_broken_ID_reference_metric_verdict_table_type_or_storage_boundary
+  - source_body_secret_credential_or_unapproved_external_asset_is_embedded
+  - XLSX_backend_is_not_the_installed_spreadsheets_skill_plus_loader_provided_artifact_tool
+  - output_requires_cross_format_conversion_or_unapproved_content_abridgement
+  - required_native_editability_or_visual_QA_cannot_be_produced_or_verified
+  - canonical_fact_or_semantic_role_parity_fails
+  - independent_verification_is_missing_or_revises_the_candidate
+  - payload_or_receipt_storage_boundary_is_invalid
+  - default_route_production_ready_or_owner_approval_claim_would_exceed_evidence

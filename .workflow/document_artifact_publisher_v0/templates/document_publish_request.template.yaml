@@ -1,0 +1,28 @@
+request_version: document_publish_request.v0
+workflow:
+  id: document_artifact_publisher_v0
+  revision: <workflow revision>
+  immutable_package_ref: <git commit or immutable release ref>
+run:
+  run_id: <run id>
+  project_code: <project code>
+  item_id: <item id>
+  idempotency_key: <stable unique key>
+content_packet:
+  ref: _workspaces/<project_code>/<path>/content_packet.json
+  sha256: sha256:<64 lowercase hex>
+  state: approved_for_render|synthetic_fixture
+  approval_ref: <owner approval receipt or declared synthetic fixture ref>
+schema:
+  ref: .workflow/document_artifact_publisher_v0/contracts/team_document_content_packet.schema.json
+  sha256: sha256:<64 lowercase hex>
+design_tokens:
+  ref: .workflow/document_artifact_publisher_v0/contracts/team_document_design_tokens.yaml
+  version: soulforge_team_document_v0
+  sha256: sha256:<64 lowercase hex>
+requested_outputs:
+  - format: docx|xlsx|html
+    output_ref: _workspaces/<project_code>/<path>/<artifact file>
+receipt_ref: _workmeta/<project_code>/runs/<run_id>/document_publish_receipt.yaml
+authoring_or_rewrite_instructions_present: false
+ppt_or_pptx_requested: false

@@ -1,0 +1,31 @@
+workflow_id: document_artifact_publisher_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: request_validator
+    title: Request Validator
+    summary: Confirms approved or explicitly synthetic packet, schema, token, output, idempotency, and storage identities without authoring content.
+  - slot_id: contract_validator
+    title: Contract Validator
+    summary: Runs deterministic packet, cross-reference, verdict, table, token, format, and storage-boundary checks before publication.
+  - slot_id: native_adapter_dispatcher
+    title: Native Adapter Dispatcher
+    summary: Dispatches only the requested DOCX, XLSX, and HTML lanes from the same validated packet without cross-format conversion.
+  - slot_id: docx_publisher
+    title: DOCX Publisher
+    summary: Uses the installed Documents capability to produce editable Word structures and review every rendered page.
+  - slot_id: xlsx_publisher
+    title: XLSX Publisher
+    summary: Uses the installed Spreadsheets capability and loader-provided @oai/artifact-tool only, preserving native types, formulas, tables, and charts.
+  - slot_id: html_publisher
+    title: HTML Publisher
+    summary: Produces escaped, self-contained semantic HTML with no remote dependencies and reviews desktop, narrow, and print output.
+  - slot_id: artifact_self_checker
+    title: Artifact Self Checker
+    summary: Checks native structure, editability, canonical fact parity, semantic design parity, visual evidence, and storage boundaries.
+  - slot_id: independent_artifact_verifier
+    title: Independent Artifact Verifier
+    summary: Uses a fresh context without executor builder-source access to verify the complete requested artifact bundle and metadata boundary.
+  - slot_id: receipt_writer
+    title: Receipt Writer
+    summary: Writes metadata-only pointers, hashes, sizes, versions, statuses, blocker codes, and next actions.

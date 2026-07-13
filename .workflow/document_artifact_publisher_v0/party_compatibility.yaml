@@ -1,0 +1,18 @@
+workflow_id: document_artifact_publisher_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+required_capabilities:
+  - strict_content_packet_and_token_validation
+  - editable_DOCX_native_publication_and_all_page_review
+  - editable_XLSX_artifact_tool_publication_and_all_sheet_review
+  - escaped_self_contained_HTML_publication_and_print_review
+  - canonical_fact_and_semantic_parity_verification
+  - fresh_context_independent_artifact_verification
+  - metadata_only_receipt_writing
+  - public_private_boundary_review
+notes:
+  - No party is bound by this package; classification and compatibility do not grant execution authority.
+  - Concrete runtime paths and tool installations resolve outside reusable canon.
+  - Supporting format-specific synthetic pilots exist, but a fresh end-to-end replay and owner real-report pilots remain required.

@@ -22,5 +22,6 @@
 - temporal knowledge binding sample 은 `temporal_knowledge_binding/` 아래에 exact source revision과 project/gate/branch/task/artifact 지식 적용 관계의 metadata-only template만 둔다.
 - Soulforge report format sample 은 `soulforge_report_format/` 아래에 Markdown 정본 template 과 standalone HTML companion template 만 둔다.
 - presentation artifact render sample 은 `presentation_artifact_render/` 아래에 합성 approved-content fixture만 두며 실제 PPTX와 팀 템플릿 파일은 `_workspaces`에 둔다.
+- document artifact publisher sample 은 `document_artifact_publisher/` 아래에 portable 합성 strict packet만 두며 실제 DOCX/XLSX/HTML과 render QA payload는 `_workspaces`에 둔다.
 - separate private state repo 템플릿이 필요하면 `private_state_repo/` 예시와 `PRIVATE_STATE_REPO_V0.md` 를 함께 본다.
 - 다른 PC 세팅 순서는 [`../MULTI_PC_DEVELOPMENT_V0.md`](../../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md) 를 먼저 본다.

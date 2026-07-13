@@ -1,5 +1,26 @@
 # CHANGELOG
 
+### 팀 문서 DOCX/XLSX/HTML publisher와 얇은 Codex launcher
+
+- `document_artifact_publisher_v0`를 owner-requested non-default candidate로
+  등록했다. 승인된 strict content packet 하나와 공유 design-token contract
+  하나를 입력으로 받아 DOCX, XLSX, HTML을 각각 native adapter로 만들며, 한
+  형식을 다른 형식의 중간 원본으로 변환하지 않는다.
+- portable packet schema, design tokens, 합성 fixture, dependency-free Node
+  validator를 추가했다. validator는 ID/근거 참조, metric 판정, table 자료형,
+  정보 순서, raw HTML, portable `_workspaces` 경계와 PPT 제외를 검사하고,
+  PPT·broken ref·absolute output pointer negative fixture를 거부한다.
+- `$soulforge-document-artifact-publisher` 얇은 launcher를 추가했다. launcher는
+  `report_authoring_v0`의 작성·final polish·fact/voice authority를 복제하지 않고,
+  XLSX는 installed Spreadsheets + loader-provided `@oai/artifact-tool`만 기본
+  authoring 경로로 허용한다.
+- DOCX/HTML 합성 adapter receipt는 통과했다. XLSX는 semantic/formula/round-trip/
+  all-sheet visual 검사는 통과했지만 독립 검증에서 OOXML `pageSetup`과
+  `Print_Area` 누락이 발견되어 `blocked_print_configuration`이다. fresh
+  end-to-end replay, Microsoft Word/Excel owner-sample round-trip, 실제 보고서 3건과 owner acceptance 전에는
+  default route, team-default, production-ready를 주장하지 않는다. PPT 생성은
+  이번 문서 시스템 범위에서 중단 상태다. (worker: codex_gpt-5)
+
 ### 장기 스레드 인계의 fresh-worker·writer 안전 계약 정합화
 
 - `long_thread_handoff`를 명시적 phase-transition opt-in으로 고정하고, 현행 Codex의

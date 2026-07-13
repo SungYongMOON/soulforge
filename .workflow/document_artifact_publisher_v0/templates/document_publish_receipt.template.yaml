@@ -1,0 +1,39 @@
+receipt_version: document_publish_receipt.v0
+workflow:
+  id: document_artifact_publisher_v0
+  revision: <workflow revision>
+  immutable_package_ref: <git commit or immutable release ref>
+run:
+  run_id: <run id>
+  idempotency_key: <stable unique key>
+state: queued|running|review_required|complete|failed
+input_identity:
+  packet_ref: _workspaces/<project_code>/<path>/content_packet.json
+  packet_sha256: sha256:<64 lowercase hex>
+  schema_ref: .workflow/document_artifact_publisher_v0/contracts/team_document_content_packet.schema.json
+  schema_sha256: sha256:<64 lowercase hex>
+  token_ref: .workflow/document_artifact_publisher_v0/contracts/team_document_design_tokens.yaml
+  token_version: soulforge_team_document_v0
+  token_sha256: sha256:<64 lowercase hex>
+outputs:
+  - format: docx|xlsx|html
+    pointer: _workspaces/<project_code>/<path>/<artifact file>
+    size_bytes: <integer>
+    sha256: sha256:<64 lowercase hex>
+    adapter_status: complete|review_required|failed
+validation:
+  contract: pass|fail
+  structure: pass|fail
+  semantic_parity: pass|fail
+  visual: pass|fail|needs_owner_review
+  accessibility: pass|fail|needs_owner_review
+  independent_verification: pass|revise|not_run
+blocker_codes: []
+retryable: true|false
+retry_condition: <condition or null>
+next_action: <next action>
+boundary:
+  metadata_only: true
+  payload_or_visible_content_embedded: false
+  runtime_absolute_path_embedded: false
+  secret_embedded: false

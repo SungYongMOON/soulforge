@@ -1,0 +1,40 @@
+workflow_id: document_artifact_publisher_v0
+kind: profile_policy
+status: active
+profile_resolution:
+  authority: runtime_binding_only
+  hard_coded_model_species_class_or_reasoning: false
+  local_install_paths_in_canon: forbidden
+required_runtime_capabilities:
+  common:
+    - Node.js_standard_library_for_contract_validation
+    - SHA-256_hashing
+    - editable_artifact_storage_under_workspaces
+    - metadata_only_receipt_storage_under_workmeta
+  docx:
+    - installed_Documents_skill
+    - editable_DOCX_generation
+    - DOCX_structure_validation
+    - all_page_render_and_visual_review
+  xlsx:
+    - installed_Spreadsheets_skill
+    - loader_provided_@oai/artifact-tool
+    - key_range_and_formula_error_inspection
+    - all_sheet_render_and_visual_review
+  html:
+    - local_escaped_semantic_renderer
+    - network_blocked_browser_QA
+    - desktop_narrow_and_A4_print_review
+forbidden_runtime_fallbacks:
+  - remote_template_or_asset_fetch
+  - remote_document_generation_service
+  - cross_format_conversion_as_primary_authoring_path
+  - openpyxl
+  - XlsxWriter
+  - pandas_ExcelWriter
+  - SheetJS
+  - PPT_or_PPTX_renderer
+fallback_policy:
+  missing_required_capability: stop_and_emit_runtime_capability_blocker
+  automatic_dependency_install: forbidden
+  owner_opt_in_required_for_new_dependency: true

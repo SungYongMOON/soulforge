@@ -1,0 +1,52 @@
+workflow_id: document_artifact_publisher_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: request_validator
+    to: contract_validator
+    condition: approved_or_synthetic_hash_bound_request_validated
+    summary: The contract validator receives stable packet, schema, token, workflow, output, and storage identities only after request validation.
+  - from: contract_validator
+    to: native_adapter_dispatcher
+    condition: strict_packet_and_token_contract_passed
+    summary: Adapter dispatch receives only a packet whose schema, cross-references, metric verdicts, table types, and storage boundary pass deterministically.
+  - from: native_adapter_dispatcher
+    to: docx_publisher
+    condition: requested_outputs_contains_docx
+    summary: DOCX publication receives the validated packet and token identity without authority to rewrite facts or use another format as input.
+  - from: native_adapter_dispatcher
+    to: xlsx_publisher
+    condition: requested_outputs_contains_xlsx
+    summary: XLSX publication receives the validated packet and token identity with the artifact-tool-only authoring constraint.
+  - from: native_adapter_dispatcher
+    to: html_publisher
+    condition: requested_outputs_contains_html
+    summary: HTML publication receives the validated packet and token identity with escaping, self-contained output, and zero-remote-request constraints.
+  - from: native_adapter_dispatcher
+    to: artifact_self_checker
+    condition: all_requested_native_adapters_completed
+    summary: The self checker receives requested artifacts and adapter receipts, never permission to repair content by paraphrase or omission.
+  - from: artifact_self_checker
+    to: independent_artifact_verifier
+    condition: executor_self_check_completed
+    summary: The independent verifier receives packet, token, artifact, render-evidence, and self-check pointers but not executor builder source.
+  - from: request_validator
+    to: receipt_writer
+    condition: request_rejected_or_review_required
+    summary: Invalid approval, identity, output, idempotency, or storage bindings produce a metadata-only receipt without publication.
+  - from: contract_validator
+    to: receipt_writer
+    condition: contract_failed_or_review_required
+    summary: Broken references, verdicts, tables, token identity, or boundaries are recorded as blockers without silent repair.
+  - from: native_adapter_dispatcher
+    to: receipt_writer
+    condition: adapter_failed_or_review_required
+    summary: Missing runtime capability, overflow, or editability failure is recorded without format substitution, abridgement, or unsupported dependency use.
+  - from: artifact_self_checker
+    to: receipt_writer
+    condition: executor_self_check_failed_or_review_required
+    summary: A failed self-check cannot claim independent verification or completion.
+  - from: independent_artifact_verifier
+    to: receipt_writer
+    condition: independent_verification_completed
+    summary: The receipt writer receives verdicts and metadata only; visible document content and payloads remain in workspaces.

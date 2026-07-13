@@ -1,0 +1,62 @@
+skill_id: document_artifact_publisher
+kind: skill
+status: candidate
+title: Document Artifact Publisher
+summary: Thin Codex launcher for `document_artifact_publisher_v0` that validates workflow-owned packet and token bindings, publishes approved content as editable DOCX, XLSX, and/or self-contained HTML, and returns metadata-only verification receipts without owning report content or template design.
+behavior:
+  intent: >
+    Map `$soulforge-document-artifact-publisher` to
+    `.workflow/document_artifact_publisher_v0`. The workflow owns strict packet
+    validation, shared design-token binding, native adapter dispatch, artifact
+    QA, and receipts. This launcher resolves the workflow, validates its current
+    request, executes through available runtime bindings, and returns the
+    workflow-owned result.
+  use_when:
+    - an approved strict content packet must be published as editable DOCX, XLSX, or HTML
+    - one approved packet must produce several native document formats under one token system
+    - a document artifact needs structure, semantic-parity, visual-QA, and metadata-only receipts
+    - the user invokes `$soulforge-document-artifact-publisher`
+  avoid_when:
+    - report facts, structure, final polish, or personal voice still need authoring
+    - the content packet or design-token identity is missing, unapproved, or inconsistent
+    - the request needs PPT or PPTX
+    - the request needs a remote template, external asset download, or unsupported XLSX library
+    - the target workflow is missing, unregistered, or cannot validate the request
+  expected_outcome:
+    - Codex resolves the invocation to `document_artifact_publisher_v0`
+    - Codex reads the workflow package and workflow-owned profile policy at execution time
+    - packet, schema, token, requested-output, idempotency, and storage bindings are validated before publication
+    - requested editable DOCX, XLSX, and/or HTML artifacts are written only under allowed `_workspaces` paths
+    - "`_workmeta` receives only portable pointers, hashes, sizes, statuses, blocker codes, and receipts"
+    - workflow-owned self-check and independent-verification receipts are returned without copying document bodies into the launcher
+execution_requirements:
+  required_capabilities:
+    - workflow_launcher_routing
+    - workflow_owned_request_validation
+    - strict_document_packet_and_token_validation
+    - native_DOCX_XLSX_HTML_adapter_dispatch
+    - artifact_structure_semantic_parity_and_visual_QA
+    - metadata_only_receipt_review
+    - storage_boundary_review
+  preferred_capabilities:
+    - installed_documents_skill
+    - installed_spreadsheets_skill_plus_loader_artifact_tool
+    - escaped_semantic_HTML_renderer
+    - all_page_all_sheet_and_print_visual_review
+  preferred_tools:
+    - rg
+    - node
+    - yaml_reader
+    - documents_skill
+    - spreadsheets_skill
+    - npm_validate
+  notes:
+    - "The workflow package owns the procedure, contracts, adapter policy, QA criteria, and receipts; this launcher must not copy them as binding authority."
+    - "Report content authoring and final polish remain owned by report_authoring_v0."
+    - "Actual DOCX, XLSX, HTML, PDF, and rendered-image payloads belong in `_workspaces`; `_workmeta` is metadata and receipt only."
+    - "XLSX authoring resolves to the installed Spreadsheets skill plus loader-provided @oai/artifact-tool; no alternate library is an automatic fallback."
+    - "Skill activation does not approve content, templates, default routing, unattended execution, team-default promotion, or production readiness."
+notes:
+  - "`document_artifact_publisher` is the thin Codex bridge for `.workflow/document_artifact_publisher_v0`."
+  - "The installed Codex mirror name is expected to be `soulforge-document-artifact-publisher` after skill sync."
+  - "DOCX and HTML synthetic receipts pass; XLSX is blocked because independent verification found missing OOXML pageSetup and Print_Area. Keep candidate status and default routing disabled until artifact-tool-only XLSX correction, a fresh end-to-end replay, owner sample round-trip, three real-report pilots, and explicit owner acceptance pass."

@@ -105,6 +105,8 @@ entries:
     path: outbound_mail_authoring_v0/workflow.yaml
   - workflow_id: report_authoring_v0
     path: report_authoring_v0/workflow.yaml
+  - workflow_id: document_artifact_publisher_v0
+    path: document_artifact_publisher_v0/workflow.yaml
   - workflow_id: presentation_artifact_render_v0
     path: presentation_artifact_render_v0/workflow.yaml
   - workflow_id: outlook_mail_reconcile_v0

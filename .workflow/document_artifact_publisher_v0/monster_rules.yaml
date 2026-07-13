@@ -1,0 +1,40 @@
+workflow_id: document_artifact_publisher_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: unapproved_or_freeform_content_input
+    response: stop_and_require_approved_or_declared_synthetic_packet
+    summary: This publisher does not turn freeform prompts, drafts, or conversations into report content.
+  - monster_id: report_authoring_ownership_leak
+    response: route_back_to_report_authoring_v0
+    summary: Missing facts, structure, final-polish, or voice-profile work belongs to report_authoring_v0, not this publisher.
+  - monster_id: unsupported_output_or_PPT_request
+    response: stop_and_report_v0_format_boundary
+    summary: v0 publishes only DOCX, XLSX, and HTML; PPT and PPTX remain explicitly excluded.
+  - monster_id: remote_template_or_asset_dependency
+    response: stop_and_require_team_owned_or_separately_licensed_local_asset
+    summary: Remote template download, CDN use, stock assets, and unclear redistribution rights are not allowed by this workflow.
+  - monster_id: content_rewrite_for_layout_fit
+    response: mark_review_required_without_mutation
+    summary: Overflow or mapping pressure must not trigger paraphrase, summarization, translation, reordering, or removal.
+  - monster_id: fact_semantic_role_or_verdict_drift
+    response: fail_semantic_parity_and_preserve_source_authority
+    summary: Changes to facts, numbers, units, dates, signs, IDs, comparisons, negation, warnings, omissions, or verdicts are publication failures.
+  - monster_id: cross_format_conversion_as_source_of_truth
+    response: stop_and_republish_from_the_validated_packet
+    summary: DOCX, XLSX, and HTML are native sibling outputs; none may be converted into another as the content source.
+  - monster_id: unsupported_XLSX_library
+    response: stop_and_require_installed_spreadsheets_plus_loader_artifact_tool
+    summary: openpyxl, XlsxWriter, pandas ExcelWriter, SheetJS, and other fallback authoring libraries are forbidden by default.
+  - monster_id: flattened_artifact_masquerades_as_editable
+    response: fail_native_editability_check
+    summary: Required editable text, tables, formulas, charts, or semantic HTML may not be replaced with flattened screenshots or PDF-only output.
+  - monster_id: output_payload_written_to_workmeta
+    response: stop_and_emit_storage_boundary_blocker
+    summary: DOCX, XLSX, HTML, PDF previews, and rendered images belong in workspaces, never workmeta.
+  - monster_id: receipt_contains_content_payload_or_runtime_path
+    response: stop_and_emit_receipt_boundary_blocker
+    summary: Receipts may contain portable pointers, hashes, sizes, versions, states, and blocker codes but no visible content, payload, secret, or host-specific absolute path.
+  - monster_id: default_route_or_readiness_claim_without_owner_gates
+    response: keep_non_default_candidate_and_report_residual_gates
+    summary: Synthetic evidence cannot authorize default routing, team-default promotion, production readiness, or owner approval.

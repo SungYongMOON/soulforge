@@ -1,0 +1,114 @@
+workflow_id: document_artifact_publisher_v0
+revision: "0.1.0"
+kind: workflow
+status: active
+title: Document Artifact Publisher v0
+summary: Publish one approved strict content packet as editable DOCX, XLSX, and/or self-contained HTML through format-native adapters while preserving facts, semantic order, evidence links, and one shared design-token system.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - document_publish_request
+  - approved_team_document_content_packet_ref
+  - approved_team_document_design_tokens_ref
+outputs:
+  - editable_document_artifacts
+  - document_publish_self_check
+  - document_publish_verification
+  - document_publish_receipt
+validation_level: structure_plus_portable_contract_fixture_and_prior_format_adapter_receipts
+output_state: registered
+registration_policy: owner_requested_registration
+runtime_readiness:
+  end_to_end_workflow_pilot_executed: false
+  supporting_format_pilots_observed: partial
+  supporting_format_pilot_scope: docx_and_html_complete_receipts_xlsx_blocked_print_configuration
+  default_route_safe: false
+  residual_gates:
+    - XLSX_A4_page_setup_and_explicit_print_area_with_artifact_tool_only
+    - fresh_end_to_end_workflow_executor_and_separate_verifier
+    - Microsoft_Word_and_Excel_roundtrip_on_owner_sample
+    - three_representative_real_report_pilots
+    - explicit_owner_acceptance
+workflow_modes:
+  - publish_approved_content_packet
+  - validate_content_packet_only
+classification_lane:
+  primary: documentation
+  primary_name_ko: 문서화
+  secondary:
+    - quality_review
+  secondary_name_ko:
+    - 품질 검토
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+publisher_contract:
+  owns:
+    - request_and_content_packet_identity_validation
+    - strict_schema_and_cross_reference_validation
+    - shared_design_token_identity_validation
+    - requested_format_dispatch_to_native_adapters
+    - artifact_structure_semantic_parity_editability_and_visual_verification
+    - metadata_only_publish_receipt
+  does_not_own:
+    - report_authoring_or_final_polish
+    - fact_number_unit_date_sign_id_quote_table_verdict_or_claim_creation_or_change
+    - personal_voice_profile_or_report_structure_doctrine
+    - template_or_asset_download_selection_or_approval
+    - PPT_or_PPTX_generation
+    - final_owner_approval
+    - default_route_or_unattended_execution_authority
+  authority_boundary:
+    approved_or_declared_synthetic_content_packet_only: true
+    packet_schema_and_design_token_identity_required: true
+    requested_outputs_limited_to_docx_xlsx_html: true
+    cross_format_conversion_forbidden: true
+    content_mutation_for_layout_fit_forbidden: true
+    facts_semantic_roles_negation_warnings_omissions_and_verdicts_preserved: true
+    outputs_must_remain_editable_in_native_form: true
+    actual_payloads_stay_in_workspaces: true
+    receipts_are_workmeta_metadata_only: true
+    runtime_tool_binding_is_not_workflow_canon: true
+  storage_boundary:
+    content_and_output_payload_root: _workspaces/<project_code>/
+    reusable_reference_library_root: _workspaces/SE_TEMPLATE_LIBRARY/
+    render_review_asset_root: _workspaces/<project_code>/
+    receipt_root: _workmeta/<project_code>/runs/<run_id>/
+    receipt_is_metadata_only: true
+    receipt_contains_content_or_payload: false
+  format_boundaries:
+    docx:
+      backend_capability: installed_documents_skill
+      required_output: editable_docx
+      verification: package_structure_plus_all_page_render_review
+    xlsx:
+      backend_capability: installed_spreadsheets_skill_plus_loader_provided_artifact_tool
+      alternate_libraries_allowed_by_default: false
+      required_output: editable_xlsx_with_native_values_formulas_tables_and_charts
+      verification: key_range_formula_error_chart_and_all_sheet_render_review
+    html:
+      backend_capability: local_escaped_semantic_html_renderer
+      required_output: self_contained_source_editable_html
+      verification: schema_escape_remote_request_desktop_narrow_and_all_print_page_review
+  required_input_shapes:
+    document_publish_request: templates/document_publish_request.template.yaml
+    content_packet_schema: contracts/team_document_content_packet.schema.json
+    design_tokens: contracts/team_document_design_tokens.yaml
+  required_output_shapes:
+    document_publish_verification: templates/document_publish_verification.template.yaml
+    document_publish_receipt: templates/document_publish_receipt.template.yaml
+notes:
+  - Registered by explicit owner-requested creation as a non-default candidate.
+  - The workflow consumes report_authoring_v0 output but never duplicates its authoring, final-polish, fact-preservation, or voice-profile responsibilities.
+  - Public workflow files contain no document payload, external template binary, private source body, secret, or runtime absolute path.
+  - Supporting DOCX and HTML synthetic adapter receipts exist. XLSX semantic, formula, roundtrip, and all-sheet visual checks passed, but independent verification found missing OOXML pageSetup and Print_Area; its receipt is blocked_print_configuration. A fresh end-to-end replay of this extracted workflow and owner real-report pilots remain required.

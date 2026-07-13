@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge Document Artifact Publisher"
+  short_description: "Publish approved packets as editable DOCX, XLSX, and HTML."
+  default_prompt: "Use $soulforge-document-artifact-publisher to publish an approved strict content packet in the requested editable document formats and return QA receipts."
+
+policy:
+  allow_implicit_invocation: true

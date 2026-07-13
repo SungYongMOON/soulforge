@@ -1,0 +1,668 @@
+{
+  "schema_version": "team_document_content_packet.v0",
+  "packet_id": "synth-eq-001-verification-v0",
+  "packet_state": "synthetic_fixture",
+  "document": {
+    "title": "열교환 펌프 P-204 운전 조건 검증 보고서",
+    "subtitle": "정비 후 60·80·100% 부하 단계 점검",
+    "document_type": "engineering_verification",
+    "audience": [
+      "설비 운영 담당자",
+      "품질 검토자"
+    ],
+    "language": "ko-KR",
+    "project_code": "SYNTH-EQ-001",
+    "item_id": "P-204-VERIFY-01",
+    "owner_label": "합성 설비 검증 담당자",
+    "reporting_period": {
+      "start_date": "2026-07-10",
+      "end_date": "2026-07-10"
+    },
+    "classification": "public_safe",
+    "revision": "0.1",
+    "status": "synthetic"
+  },
+  "authoring": {
+    "workflow_id": "report_authoring_v0",
+    "workflow_revision": "research-contract-v0",
+    "mode": "author",
+    "claim_ceiling": "observed",
+    "created_at": "2026-07-14T09:00:00+09:00",
+    "created_by": "codex_gpt-5"
+  },
+  "requested_outputs": [
+    "docx",
+    "xlsx",
+    "html"
+  ],
+  "storage_policy": {
+    "artifact_root_pointer": "_workspaces/system/team_document_system_research_20260714/generated_reference/",
+    "workmeta_policy": "pointer_hash_receipt_only"
+  },
+  "source_boundary": {
+    "raw_source_bodies_embedded": false,
+    "secrets_embedded": false,
+    "external_assets_embedded": false,
+    "allowed_source_ids": [
+      "SRC-001",
+      "SRC-002",
+      "SRC-003"
+    ],
+    "notes": "이 패킷은 공개 가능한 합성 fixture다. source hash는 실제 파일 hash가 아니라 UTF-8 fixture pointer 문자열의 SHA-256이며 synthetic smoke test에서만 사용한다."
+  },
+  "sources": [
+    {
+      "source_id": "SRC-001",
+      "label": "합성 운전 검증 절차 v1",
+      "pointer": "fixture://SYNTH-EQ-001/procedure-v1",
+      "sha256": "sha256:d9284bc655965cefa883a293374757c75a0a58fce7187b16768a0b53500d5cc5",
+      "hash_scope": "pointer_string_for_synthetic_fixture",
+      "source_kind": "synthetic_fixture",
+      "media_type": "application/json",
+      "usage": [
+        "acceptance_criteria"
+      ],
+      "observed_at": "2026-07-10T09:00:00+09:00"
+    },
+    {
+      "source_id": "SRC-002",
+      "label": "합성 단계 부하 측정 데이터 v1",
+      "pointer": "fixture://SYNTH-EQ-001/measurement-data-v1",
+      "sha256": "sha256:410efd43099b20910a79622d8b4ed82104db79278de4313f05bdb91eef6ac493",
+      "hash_scope": "pointer_string_for_synthetic_fixture",
+      "source_kind": "synthetic_fixture",
+      "media_type": "application/json",
+      "usage": [
+        "measurement_input"
+      ],
+      "observed_at": "2026-07-10T10:30:00+09:00"
+    },
+    {
+      "source_id": "SRC-003",
+      "label": "합성 누설 육안 점검 기록 v1",
+      "pointer": "fixture://SYNTH-EQ-001/inspection-record-v1",
+      "sha256": "sha256:b908242c7940b523214f9ebbc75d7e9556568d294961a289d5f76393be56f946",
+      "hash_scope": "pointer_string_for_synthetic_fixture",
+      "source_kind": "synthetic_fixture",
+      "media_type": "application/json",
+      "usage": [
+        "qualitative_observation"
+      ],
+      "observed_at": "2026-07-10T11:00:00+09:00"
+    }
+  ],
+  "evidence_items": [
+    {
+      "evidence_id": "EV-001",
+      "kind": "criterion",
+      "statement": "100% 부하에서 유량은 115.0 L/min 이상, 진동은 4.5 mm/s 이하, 베어링 온도는 75.0 °C 이하, 토출 압력은 5.8~6.4 bar, 외부 누설은 없음이어야 한다.",
+      "source_refs": [
+        "SRC-001"
+      ],
+      "derivation": null,
+      "claim_ceiling": "observed"
+    },
+    {
+      "evidence_id": "EV-002",
+      "kind": "measurement",
+      "statement": "60·80·100% 부하에서 유량은 각각 72.4·95.8·118.6 L/min, 진동은 2.1·2.7·3.4 mm/s, 베어링 온도는 56.2·61.8·68.7 °C, 토출 압력은 3.8·4.9·6.1 bar로 기록되었다.",
+      "source_refs": [
+        "SRC-002"
+      ],
+      "derivation": null,
+      "claim_ceiling": "observed"
+    },
+    {
+      "evidence_id": "EV-003",
+      "kind": "observation",
+      "statement": "세 부하 단계 모두 펌프와 연결부에서 외부 누설이 관찰되지 않았다.",
+      "source_refs": [
+        "SRC-003"
+      ],
+      "derivation": null,
+      "claim_ceiling": "observed"
+    },
+    {
+      "evidence_id": "EV-004",
+      "kind": "decision",
+      "statement": "100% 부하 측정점은 다섯 개 acceptance criterion을 모두 충족해 합격으로 판정한다.",
+      "source_refs": [],
+      "derivation": {
+        "method": "EV-001의 다섯 기준을 EV-002의 100% 부하 수치와 EV-003의 누설 관찰에 각각 비교했다.",
+        "input_evidence_refs": [
+          "EV-001",
+          "EV-002",
+          "EV-003"
+        ]
+      },
+      "claim_ceiling": "observed"
+    },
+    {
+      "evidence_id": "EV-005",
+      "kind": "calculation",
+      "statement": "60%에서 100% 부하로 증가할 때 진동은 1.3 mm/s, 베어링 온도는 12.5 °C 증가했으며 100% 부하에서도 각 상한 이내였다.",
+      "source_refs": [],
+      "derivation": {
+        "method": "100% 부하 값에서 60% 부하 값을 뺀 뒤 EV-001의 상한과 비교했다.",
+        "input_evidence_refs": [
+          "EV-001",
+          "EV-002"
+        ]
+      },
+      "claim_ceiling": "observed"
+    },
+    {
+      "evidence_id": "EV-006",
+      "kind": "limitation",
+      "statement": "100% 부하 연속 측정 시간은 30분이며 2시간 장기 운전 데이터는 제공되지 않았다.",
+      "source_refs": [
+        "SRC-002"
+      ],
+      "derivation": null,
+      "claim_ceiling": "observed"
+    }
+  ],
+  "metrics": [
+    {
+      "metric_id": "MET-FLOW_100",
+      "label": "100% 부하 유량",
+      "value": 118.6,
+      "unit": "L/min",
+      "number_format": "0.0",
+      "comparison": {
+        "operator": "gte",
+        "target": 115.0,
+        "lower_bound": null,
+        "upper_bound": null,
+        "expected_text": null,
+        "result": "pass"
+      },
+      "evidence_refs": [
+        "EV-002",
+        "EV-004"
+      ]
+    },
+    {
+      "metric_id": "MET-VIB_100",
+      "label": "100% 부하 진동",
+      "value": 3.4,
+      "unit": "mm/s",
+      "number_format": "0.0",
+      "comparison": {
+        "operator": "lte",
+        "target": 4.5,
+        "lower_bound": null,
+        "upper_bound": null,
+        "expected_text": null,
+        "result": "pass"
+      },
+      "evidence_refs": [
+        "EV-002",
+        "EV-004"
+      ]
+    },
+    {
+      "metric_id": "MET-TEMP_100",
+      "label": "100% 부하 베어링 온도",
+      "value": 68.7,
+      "unit": "°C",
+      "number_format": "0.0",
+      "comparison": {
+        "operator": "lte",
+        "target": 75.0,
+        "lower_bound": null,
+        "upper_bound": null,
+        "expected_text": null,
+        "result": "pass"
+      },
+      "evidence_refs": [
+        "EV-002",
+        "EV-004"
+      ]
+    },
+    {
+      "metric_id": "MET-PRESSURE_100",
+      "label": "100% 부하 토출 압력",
+      "value": 6.1,
+      "unit": "bar",
+      "number_format": "0.0",
+      "comparison": {
+        "operator": "between_inclusive",
+        "target": null,
+        "lower_bound": 5.8,
+        "upper_bound": 6.4,
+        "expected_text": null,
+        "result": "pass"
+      },
+      "evidence_refs": [
+        "EV-002",
+        "EV-004"
+      ]
+    },
+    {
+      "metric_id": "MET-LEAKAGE_100",
+      "label": "100% 부하 외부 누설",
+      "value": "없음",
+      "unit": null,
+      "number_format": null,
+      "comparison": {
+        "operator": "equals",
+        "target": null,
+        "lower_bound": null,
+        "upper_bound": null,
+        "expected_text": "없음",
+        "result": "pass"
+      },
+      "evidence_refs": [
+        "EV-003",
+        "EV-004"
+      ]
+    }
+  ],
+  "sections": [
+    {
+      "section_id": "SEC-EXEC_SUMMARY",
+      "heading": "요약",
+      "level": 1,
+      "purpose": "executive_summary",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "success",
+          "heading": "최종 판정: 합격",
+          "text": "100% 부하에서 유량, 진동, 베어링 온도, 토출 압력, 외부 누설의 다섯 기준을 모두 충족했다. 다만 2시간 장기 운전 데이터가 없어 장기 안정성은 이번 판정 범위에 포함하지 않았다.",
+          "evidence_refs": [
+            "EV-004",
+            "EV-006"
+          ]
+        },
+        {
+          "type": "metric_strip",
+          "metric_ids": [
+            "MET-FLOW_100",
+            "MET-VIB_100",
+            "MET-TEMP_100",
+            "MET-PRESSURE_100",
+            "MET-LEAKAGE_100"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "SEC-SCOPE",
+      "heading": "검증 범위",
+      "level": 1,
+      "purpose": "scope",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "정비 후 펌프 P-204를 60%, 80%, 100% 부하에서 운전하고 유량, 진동, 베어링 온도, 토출 압력과 외부 누설을 확인했다. 합격 판정은 100% 부하 기준에 한정한다.",
+          "evidence_refs": [
+            "EV-001",
+            "EV-002",
+            "EV-003"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "SEC-CRITERIA",
+      "heading": "판정 기준",
+      "level": 1,
+      "purpose": "criteria",
+      "blocks": [
+        {
+          "type": "table_ref",
+          "table_id": "TBL-CRITERIA"
+        }
+      ]
+    },
+    {
+      "section_id": "SEC-RESULTS",
+      "heading": "측정 결과",
+      "level": 1,
+      "purpose": "results",
+      "blocks": [
+        {
+          "type": "table_ref",
+          "table_id": "TBL-RESULTS"
+        },
+        {
+          "type": "chart_ref",
+          "chart_id": "CHT-VIBRATION"
+        }
+      ]
+    },
+    {
+      "section_id": "SEC-INTERPRETATION",
+      "heading": "해석",
+      "level": 1,
+      "purpose": "interpretation",
+      "blocks": [
+        {
+          "type": "bullet_list",
+          "items": [
+            {
+              "text": "100% 부하 유량은 기준보다 3.6 L/min 높다.",
+              "evidence_refs": [
+                "EV-001",
+                "EV-002",
+                "EV-004"
+              ]
+            },
+            {
+              "text": "100% 부하 진동은 상한보다 1.1 mm/s 낮고 베어링 온도는 상한보다 6.3 °C 낮다.",
+              "evidence_refs": [
+                "EV-001",
+                "EV-002",
+                "EV-004"
+              ]
+            },
+            {
+              "text": "부하 증가에 따라 진동과 온도가 증가했지만 100% 부하에서 각 상한 이내였다.",
+              "evidence_refs": [
+                "EV-005"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "SEC-ACTIONS_RISKS",
+      "heading": "조치와 위험",
+      "level": 1,
+      "purpose": "actions_and_risks",
+      "blocks": [
+        {
+          "type": "action_list",
+          "action_ids": [
+            "ACT-LONG_RUN"
+          ]
+        },
+        {
+          "type": "risk_list",
+          "risk_ids": [
+            "RSK-DURATION"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "SEC-SOURCES_GAPS",
+      "heading": "출처와 누락",
+      "level": 1,
+      "purpose": "sources_and_omissions",
+      "blocks": [
+        {
+          "type": "source_list",
+          "source_ids": [
+            "SRC-001",
+            "SRC-002",
+            "SRC-003"
+          ]
+        },
+        {
+          "type": "omission_list",
+          "omission_ids": [
+            "OMI-LONG_RUN"
+          ]
+        }
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "table_id": "TBL-CRITERIA",
+      "caption": "표 1. 100% 부하 acceptance criterion",
+      "description": "100% 부하에서 적용하는 합성 검증 기준이다.",
+      "columns": [
+        {
+          "key": "metric",
+          "label": "항목",
+          "data_type": "string",
+          "unit": null,
+          "number_format": null,
+          "alignment": "left"
+        },
+        {
+          "key": "operator",
+          "label": "연산",
+          "data_type": "string",
+          "unit": null,
+          "number_format": null,
+          "alignment": "center"
+        },
+        {
+          "key": "lower_limit",
+          "label": "하한",
+          "data_type": "decimal",
+          "unit": null,
+          "number_format": "0.0",
+          "alignment": "right"
+        },
+        {
+          "key": "upper_limit",
+          "label": "상한",
+          "data_type": "decimal",
+          "unit": null,
+          "number_format": "0.0",
+          "alignment": "right"
+        },
+        {
+          "key": "expected_text",
+          "label": "기대 문자",
+          "data_type": "string",
+          "unit": null,
+          "number_format": null,
+          "alignment": "center"
+        },
+        {
+          "key": "unit",
+          "label": "단위",
+          "data_type": "string",
+          "unit": null,
+          "number_format": null,
+          "alignment": "center"
+        }
+      ],
+      "rows": [
+        {
+          "row_id": "CRIT_FLOW",
+          "cells": [
+            { "column_key": "metric", "value": "유량" },
+            { "column_key": "operator", "value": "이상" },
+            { "column_key": "lower_limit", "value": 115.0 },
+            { "column_key": "upper_limit", "value": null },
+            { "column_key": "expected_text", "value": null },
+            { "column_key": "unit", "value": "L/min" }
+          ],
+          "evidence_refs": ["EV-001"]
+        },
+        {
+          "row_id": "CRIT_VIBRATION",
+          "cells": [
+            { "column_key": "metric", "value": "진동" },
+            { "column_key": "operator", "value": "이하" },
+            { "column_key": "lower_limit", "value": null },
+            { "column_key": "upper_limit", "value": 4.5 },
+            { "column_key": "expected_text", "value": null },
+            { "column_key": "unit", "value": "mm/s" }
+          ],
+          "evidence_refs": ["EV-001"]
+        },
+        {
+          "row_id": "CRIT_TEMPERATURE",
+          "cells": [
+            { "column_key": "metric", "value": "베어링 온도" },
+            { "column_key": "operator", "value": "이하" },
+            { "column_key": "lower_limit", "value": null },
+            { "column_key": "upper_limit", "value": 75.0 },
+            { "column_key": "expected_text", "value": null },
+            { "column_key": "unit", "value": "°C" }
+          ],
+          "evidence_refs": ["EV-001"]
+        },
+        {
+          "row_id": "CRIT_PRESSURE",
+          "cells": [
+            { "column_key": "metric", "value": "토출 압력" },
+            { "column_key": "operator", "value": "범위" },
+            { "column_key": "lower_limit", "value": 5.8 },
+            { "column_key": "upper_limit", "value": 6.4 },
+            { "column_key": "expected_text", "value": null },
+            { "column_key": "unit", "value": "bar" }
+          ],
+          "evidence_refs": ["EV-001"]
+        },
+        {
+          "row_id": "CRIT_LEAKAGE",
+          "cells": [
+            { "column_key": "metric", "value": "외부 누설" },
+            { "column_key": "operator", "value": "일치" },
+            { "column_key": "lower_limit", "value": null },
+            { "column_key": "upper_limit", "value": null },
+            { "column_key": "expected_text", "value": "없음" },
+            { "column_key": "unit", "value": null }
+          ],
+          "evidence_refs": ["EV-001"]
+        }
+      ],
+      "source_note": "출처: SRC-001 합성 운전 검증 절차 v1"
+    },
+    {
+      "table_id": "TBL-RESULTS",
+      "caption": "표 2. 단계 부하 측정 결과",
+      "description": "60%, 80%, 100% 부하에서 기록한 합성 측정값과 판정 범위다.",
+      "columns": [
+        { "key": "load_pct", "label": "부하", "data_type": "integer", "unit": "%", "number_format": "0", "alignment": "right" },
+        { "key": "flow_l_min", "label": "유량", "data_type": "decimal", "unit": "L/min", "number_format": "0.0", "alignment": "right" },
+        { "key": "vibration_mm_s", "label": "진동", "data_type": "decimal", "unit": "mm/s", "number_format": "0.0", "alignment": "right" },
+        { "key": "bearing_temp_c", "label": "베어링 온도", "data_type": "decimal", "unit": "°C", "number_format": "0.0", "alignment": "right" },
+        { "key": "pressure_bar", "label": "토출 압력", "data_type": "decimal", "unit": "bar", "number_format": "0.0", "alignment": "right" },
+        { "key": "leakage", "label": "외부 누설", "data_type": "string", "unit": null, "number_format": null, "alignment": "center" },
+        { "key": "verdict", "label": "판정", "data_type": "string", "unit": null, "number_format": null, "alignment": "center" }
+      ],
+      "rows": [
+        {
+          "row_id": "LOAD_60",
+          "cells": [
+            { "column_key": "load_pct", "value": 60 },
+            { "column_key": "flow_l_min", "value": 72.4 },
+            { "column_key": "vibration_mm_s", "value": 2.1 },
+            { "column_key": "bearing_temp_c", "value": 56.2 },
+            { "column_key": "pressure_bar", "value": 3.8 },
+            { "column_key": "leakage", "value": "없음" },
+            { "column_key": "verdict", "value": "경향 관찰" }
+          ],
+          "evidence_refs": ["EV-002", "EV-003"]
+        },
+        {
+          "row_id": "LOAD_80",
+          "cells": [
+            { "column_key": "load_pct", "value": 80 },
+            { "column_key": "flow_l_min", "value": 95.8 },
+            { "column_key": "vibration_mm_s", "value": 2.7 },
+            { "column_key": "bearing_temp_c", "value": 61.8 },
+            { "column_key": "pressure_bar", "value": 4.9 },
+            { "column_key": "leakage", "value": "없음" },
+            { "column_key": "verdict", "value": "경향 관찰" }
+          ],
+          "evidence_refs": ["EV-002", "EV-003"]
+        },
+        {
+          "row_id": "LOAD_100",
+          "cells": [
+            { "column_key": "load_pct", "value": 100 },
+            { "column_key": "flow_l_min", "value": 118.6 },
+            { "column_key": "vibration_mm_s", "value": 3.4 },
+            { "column_key": "bearing_temp_c", "value": 68.7 },
+            { "column_key": "pressure_bar", "value": 6.1 },
+            { "column_key": "leakage", "value": "없음" },
+            { "column_key": "verdict", "value": "합격" }
+          ],
+          "evidence_refs": ["EV-002", "EV-003", "EV-004"]
+        }
+      ],
+      "source_note": "출처: SRC-002 합성 단계 부하 측정 데이터 v1, SRC-003 합성 누설 육안 점검 기록 v1"
+    }
+  ],
+  "charts": [
+    {
+      "chart_id": "CHT-VIBRATION",
+      "title": "부하별 진동 추이",
+      "chart_type": "line",
+      "data_ref": "TBL-RESULTS",
+      "x_key": "load_pct",
+      "series": [
+        {
+          "column_key": "vibration_mm_s",
+          "label": "진동",
+          "unit": "mm/s",
+          "semantic_color": "primary"
+        }
+      ],
+      "y_axis": {
+        "label": "진동",
+        "unit": "mm/s",
+        "minimum": 0.0,
+        "maximum": 5.0,
+        "reference_value": 4.5
+      },
+      "alt_text": "부하 60%, 80%, 100%에서 진동은 각각 2.1, 2.7, 3.4 mm/s이며 100% 부하 기준선 4.5 mm/s보다 낮다.",
+      "table_fallback_id": "TBL-RESULTS",
+      "evidence_refs": [
+        "EV-001",
+        "EV-002",
+        "EV-005"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "action_id": "ACT-LONG_RUN",
+      "action": "다음 정기 점검에서 100% 부하 2시간 연속 운전 데이터를 추가 확보하고 진동과 베어링 온도를 다시 확인한다.",
+      "owner_label": "설비 운영 담당자",
+      "due_date": "2026-10-31",
+      "priority": "medium",
+      "status": "planned",
+      "evidence_refs": [
+        "EV-005",
+        "EV-006"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "risk_id": "RSK-DURATION",
+      "risk": "현재 100% 부하 데이터가 30분 구간뿐이어서 장기 열 안정성과 진동 포화 여부는 확인되지 않았다.",
+      "likelihood": "medium",
+      "impact": "medium",
+      "mitigation": "2시간 연속 운전에서 10분 간격으로 진동과 베어링 온도를 기록하고 동일 기준으로 재검토한다.",
+      "owner_label": "설비 운영 담당자",
+      "evidence_refs": [
+        "EV-006"
+      ]
+    }
+  ],
+  "omissions": [
+    {
+      "omission_id": "OMI-LONG_RUN",
+      "field_path": "durability.full_load_duration",
+      "reason": "source_not_provided",
+      "explanation": "2시간 연속 운전 데이터가 없어 장기 안정성 판단은 이번 합격 판정에서 제외했다.",
+      "blocking": false,
+      "source_refs": [
+        "SRC-002"
+      ]
+    }
+  ],
+  "presentation_profile": {
+    "design_token_id": "soulforge_team_document_v0",
+    "density": "standard",
+    "page_profile": "A4_portrait",
+    "number_locale": "ko-KR",
+    "date_format": "yyyy-MM-dd",
+    "pixel_identity_required": false
+  }
+}
