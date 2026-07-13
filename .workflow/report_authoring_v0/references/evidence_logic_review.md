@@ -17,7 +17,9 @@ Do not promote temporal sequence to causality, reported material to laboratory
 verification, or conditional/unconfirmed status to pass. If a logic review changes
 a protected field, reopen technical-content review before polish.
 
-Select the required role matrix from `editorial_contract.md`. Check the
+Select the minimum role matrix and material optional roles from
+`editorial_contract.md`. Reject repeated facts or placeholder prose used only to
+populate an optional role. Check the
 type-specific logic:
 
 - experiment: named criteria, result/uncertainty bindings, tested-scope verdict;

@@ -93,7 +93,7 @@
       "type": "array",
       "maxItems": 64,
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,95}$" }
+      "items": { "$ref": "#/$defs/safe_id" }
     },
     "claim_ceiling": { "enum": ["observed", "source_supported", "rejected_or_blocked"] },
     "boundary": {

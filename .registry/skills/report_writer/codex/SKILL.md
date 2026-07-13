@@ -39,7 +39,13 @@ implement a renderer here.
    finalize skeleton emitted by `prepare`; do not reconstruct a second finalize
    envelope from memory. Use a fresh author/executor context to produce every
    stage result named by the preparation packet. Validate each result with the
-   fixed `validate` subcommand.
+   fixed `validate` subcommand. Every CLI request/config/input filename is an
+   absolute filesystem path; do not rely on the current working directory.
+
+   ```powershell
+   npm.cmd run guild-hall:workflow-runner -- validate --kind <fixed-kind> --input <absolute-result-json>
+   ```
+
    The Node runner validates and orchestrates supplied results; it does not call a
    model or author the report.
 6. Use a separate fresh verifier context to compare every hash-bound approved
@@ -58,6 +64,9 @@ implement a renderer here.
    ```powershell
    npm.cmd run guild-hall:workflow-runner -- issue-authority --config <absolute-authority-json>
    ```
+
+   Replace only the skeleton's declared fields, leave no placeholder or retained
+   command output in the JSON, and use real RFC 3339 UTC date-times ending in `Z`.
 
    Retain the returned record digest. A deployment identity claim requires a
    different trusted deployment verifier and is not available through this local

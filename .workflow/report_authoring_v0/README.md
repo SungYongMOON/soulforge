@@ -31,8 +31,9 @@ source truth, approval, publish, send, or default-route authority.
   the mode or trigger an interview.
 
 Report type is independently selected as `experiment`, `analysis`, `progress`,
-`presentation`, or `other`. Each type uses its own required role matrix; the workflow
-does not force one universal section order or empty decorative headings.
+`presentation`, or `other`. Each type uses a minimum role matrix plus material
+optional roles. Omit roles with no supported content instead of repeating facts,
+inventing placeholders, or forcing empty decorative headings.
 
 ## Editorial and verification order
 

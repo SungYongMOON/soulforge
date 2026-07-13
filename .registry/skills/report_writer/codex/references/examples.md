@@ -14,6 +14,7 @@ for a management reader.
 
 Expected route: bind exactly one `draft_report`, skip optional-input questions,
 coordinate a fresh author and separate verifier, then call the fixed runner.
+All runner `--request`, `--config`, and `--input` values are absolute paths.
 
 ## Author from approved source material
 

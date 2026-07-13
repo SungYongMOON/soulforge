@@ -37,13 +37,18 @@ Section roles depend on report type and reader decision. Do not impose one
 universal order or render empty decorative headings. The exact runtime matrix is
 owned by `.workflow/report_authoring_v0/references/editorial_contract.md`.
 
-| Report type | Core reader roles |
+| Report type | Minimum reader roles |
 | --- | --- |
-| Experiment/test | purpose; conditions/method; criteria; results; discussion/limits; bounded verdict; next actions; traceability |
-| Analysis/trade | decision question/scope; method/assumptions; criteria/weights; alternatives evidence; tradeoffs; recommendation/decision Ask; traceability |
-| Progress | status; baseline; milestones/actuals; deliverables; issues/risks/dependencies; forecast; support requests; next actions; traceability |
-| Presentation | title/context; verified evidence; body-derived BLUF/Ask; minimum background; recommendation/next; visible sources |
+| Experiment/test | purpose; conditions/method; results; discussion/limits; bounded verdict; next actions |
+| Analysis/trade | decision question/scope; method/assumptions; alternatives evidence; tradeoffs; recommendation/decision Ask |
+| Progress | status; baseline; milestones/actuals; issues/risks/dependencies; next actions |
+| Presentation | title/context; body-derived BLUF/Ask; verified evidence; recommendation/next |
 | Other | purpose; scope/evidence basis; findings; interpretation/limits; bounded conclusion/status; next action or explicit no-action state; traceability |
+
+Criteria/weights, deliverables, forecast, support requests, minimum background,
+and traceability sections are added only when the input supports distinct material
+content. Omit an unsupported optional role instead of repeating another section,
+inventing a placeholder, or expanding a short internal report mechanically.
 
 An executive summary is required for management/customer/regulator audiences.
 For `other`, it is also required above six sections and optional for the exact

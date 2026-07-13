@@ -418,6 +418,12 @@ test("ReportDocument validates the synthetic fixture and all five adaptive role 
   assert.equal(shortOther.sections.length, 6);
   validateReportDocument(shortOther);
   validateReportDocument(shortOtherDocument());
+  const compactProgress = documentForType("progress");
+  compactProgress.sections = compactProgress.sections.filter((section) => new Set([
+    "status_summary", "scope_baseline", "milestones_actuals", "issues_risks_dependencies", "next_actions",
+  ]).has(section.role));
+  assert.equal(compactProgress.sections.length, 5);
+  validateReportDocument(compactProgress);
   const universalOther = clone(fixture);
   universalOther.report_type = "other";
   universalOther.sections = [{ section_id: "only", heading: "기타", role: "other", claim_refs: [], blocks: [{ block_id: "only-p", type: "paragraph", text: "단일 구조", claim_refs: [], source_refs: [] }] }];
@@ -1238,6 +1244,25 @@ test("runner completes draft-only final_polish and replays the durable outcome",
   const replay = await runWorkflowJob(runtime.request, runtime.adapters);
   assert.equal(replay.replayed, true);
   assert.equal(replay.state.status, "succeeded");
+});
+
+test("runner preserves a valid hyphenated unconfirmed item id in the result", async (t) => {
+  const runtime = await makeRuntime("runner-hyphen-unconfirmed", {
+    stageDocumentTransform(document) {
+      document.unconfirmed_items = [{
+        item_id: "cause-unconfirmed",
+        statement: "Cause remains unconfirmed.",
+        impact: "The conclusion remains conditional.",
+        close_condition: "Confirm the cause.",
+        owner_ref: null,
+        due_or_trigger: null,
+      }];
+    },
+  });
+  t.after(() => fs.rm(runtime.temporary, { recursive: true, force: true }));
+  const outcome = await runWorkflowJob(runtime.request, runtime.adapters);
+  assert.equal(outcome.state.status, "succeeded", JSON.stringify(outcome));
+  assert.deepEqual(outcome.result.unconfirmed_codes, ["cause-unconfirmed"]);
 });
 
 test("runner accepts the exact six-role short internal other report without a summary", async (t) => {

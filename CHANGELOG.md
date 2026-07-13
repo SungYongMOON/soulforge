@@ -30,6 +30,12 @@
   items, and kept the result at `private_work_product` / `observed` / `partial`.
   The candidate/default-off and human-owner-review boundaries remain unchanged.
   (worker: codex_gpt-5)
+- Fresh installed-skill evaluation exposed two candidate defects and both were
+  corrected: valid hyphenated unconfirmed item IDs now survive the result contract,
+  and short reports use minimum type roles plus material optional roles instead of
+  forcing repeated placeholder sections. Launcher examples now make absolute CLI
+  paths, clean authority skeletons, and RFC 3339 UTC timestamps explicit.
+  (worker: codex_gpt-5)
 
 ### report_authoring_v0 fixed runner·editorial contract 정렬
 

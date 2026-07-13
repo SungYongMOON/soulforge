@@ -50,11 +50,11 @@ const SECTION_ROLES = [
   "title_context", "bluf_and_ask", "minimum_background", "evidence", "recommendation_next",
   "scope_evidence_basis", "findings_current_state", "interpretation_limitations", "bounded_conclusion_decision_status", "boundary_note", "appendix", "other",
 ];
-const REPORT_ROLE_MATRIX = Object.freeze({
-  experiment: ["executive_summary", "purpose", "conditions_method", "criteria_request_items", "results", "discussion_considerations", "conclusion_verdict", "next_actions", "references_traceability"],
-  analysis: ["executive_summary", "decision_question_scope", "method_assumptions", "criteria_weights", "alternatives_evidence", "analysis_discussion", "conclusion_recommendation", "decision_ask_next_actions", "references_traceability"],
-  progress: ["status_summary", "scope_baseline", "milestones_actuals", "deliverables_evidence", "issues_risks_dependencies", "forecast", "decision_support_requests", "next_actions", "references_traceability"],
-  presentation: ["title_context", "bluf_and_ask", "minimum_background", "evidence", "recommendation_next", "references_traceability"],
+const REPORT_REQUIRED_ROLE_MATRIX = Object.freeze({
+  experiment: ["purpose", "conditions_method", "results", "discussion_considerations", "conclusion_verdict", "next_actions"],
+  analysis: ["decision_question_scope", "method_assumptions", "alternatives_evidence", "analysis_discussion", "conclusion_recommendation", "decision_ask_next_actions"],
+  progress: ["status_summary", "scope_baseline", "milestones_actuals", "issues_risks_dependencies", "next_actions"],
+  presentation: ["title_context", "bluf_and_ask", "evidence", "recommendation_next"],
   other: ["purpose", "scope_evidence_basis", "findings_current_state", "interpretation_limitations", "bounded_conclusion_decision_status", "next_actions"],
 });
 const SUMMARY_ROLES = new Set(["executive_summary", "status_summary", "bluf_and_ask"]);
@@ -340,7 +340,7 @@ export function validateWorkflowJobResult(result) {
   if ((result.identity_assurance.claim === "deployment_attested_process_separation") !== (result.identity_assurance.deployment_attestation_ref !== null)) {
     fail("result_identity_claim_mismatch", "Result identity claim and deployment attestation must agree");
   }
-  uniqueStrings(result.unconfirmed_codes, "$result.unconfirmed_codes", { max: 64, validator: reasonCode });
+  uniqueStrings(result.unconfirmed_codes, "$result.unconfirmed_codes", { max: 64, validator: safeId });
   enumValue(result.claim_ceiling, CLAIM_CEILINGS, "$result.claim_ceiling");
   exactObject(result.boundary, ["content_classification", "raw_input_payload_copy_detected", "known_secret_pattern_scan_status", "runtime_absolute_path_detected", "source_owned_absolute_path_count", "forbidden_internal_scaffold_detected", "artifact_storage_class", "receipt_metadata_only"], "$result.boundary");
   enumValue(result.boundary.content_classification, ["public_safe", "private_work_product"], "$result.boundary.content_classification");
@@ -643,8 +643,9 @@ export function validateReportDocument(document) {
     });
     explicitBlockClaimRefs.set(section.section_id, blockClaims);
   });
-  const requiredRoles = [...REPORT_ROLE_MATRIX[document.report_type]];
-  if (document.report_type === "other" && (["management", "customer", "regulator"].includes(document.audience) || document.sections.length > 6)) requiredRoles.unshift("executive_summary");
+  const requiredRoles = [...REPORT_REQUIRED_ROLE_MATRIX[document.report_type]];
+  if (["management", "customer", "regulator"].includes(document.audience) && ["experiment", "analysis", "other"].includes(document.report_type)) requiredRoles.unshift("executive_summary");
+  else if (document.report_type === "other" && document.sections.length > 6) requiredRoles.unshift("executive_summary");
   let previousIndex = -1;
   for (const role of requiredRoles) {
     const roleIndex = document.sections.findIndex((section, index) => index > previousIndex && section.role === role);

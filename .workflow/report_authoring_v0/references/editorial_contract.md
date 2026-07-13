@@ -23,16 +23,24 @@ supports the rules; it is not a style corpus or text-imitation target.
 
 Choose roles from report type and reader decision. Do not force one universal
 section order or render an empty decorative role. The v0 `ReportDocument` encodes
-one role per section and does not implement combined-role sections; keep every
-required role as its own identifiable section.
+one role per section and does not implement combined-role sections. Keep each
+minimum role as its own identifiable section; add an optional role only when the
+approved input supports material content for it. Do not fill an absent role by
+repeating another section or writing a decorative "none provided" placeholder.
 
-| Type | Required roles |
+| Type | Minimum required roles |
 | --- | --- |
-| `experiment` | purpose; conditions/method; criteria/request items; results; discussion/limits; bounded conclusion/verdict; next actions; references/traceability |
-| `analysis` | decision question/scope; method/assumptions; criteria/weights before alternatives; alternatives evidence; tradeoff discussion; conclusion/recommendation; decision Ask; references/traceability |
-| `progress` | status summary; scope/baseline; milestones/actuals; deliverables evidence; issues/risks/dependencies; forecast; support/decision requests; next actions; references/traceability |
-| `presentation` | title/context; body evidence; body-supported BLUF and Ask; minimum background; recommendation/next action; visible references/traceability |
+| `experiment` | purpose; conditions/method; results; discussion/limits; bounded conclusion/verdict; next actions |
+| `analysis` | decision question/scope; method/assumptions; alternatives evidence; tradeoff discussion; conclusion/recommendation; decision Ask/next actions |
+| `progress` | status summary; scope/baseline; milestones/actuals; issues/risks/dependencies; next actions |
+| `presentation` | title/context; body-supported BLUF and Ask; body evidence; recommendation/next action |
 | `other` | purpose/decision question; scope and evidence basis; findings/current state; interpretation/limits; bounded conclusion or decision status when supported; next action or explicit no-action state; references when used |
+
+Criteria/weights, deliverables, forecast, support requests, minimum background,
+and references/traceability are optional when material. Omit them when the input
+does not support distinct reader-useful content. If the omission itself is a
+decision-critical gap, record that gap as unconfirmed instead of manufacturing a
+section.
 
 An executive summary is required for management, customer, or regulator readers.
 For `other`, it is also required when the document has more than six sections and
