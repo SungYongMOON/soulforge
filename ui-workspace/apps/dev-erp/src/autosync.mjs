@@ -136,9 +136,9 @@ export function importTaskLedgerFile(store, filePath) {
   const rows = readTaskLedgerRows(filePath);
   for (const row of rows) {
     const existing = store.db.prepare("SELECT * FROM core_item WHERE id=?").get(row.id);
+    const rowHash = stableTaskHash(row);
     if (existing) {
       const existingHash = stableTaskHash(existing);
-      const rowHash = stableTaskHash(row);
       const revision = row.sync_revision || existing.sync_revision || "1";
       if (rowHash === existingHash) {
         if (row.sync_state !== "synced" || row.sync_hash !== rowHash || existing.sync_state !== "synced" || existing.sync_hash !== existingHash) {
@@ -150,10 +150,15 @@ export function importTaskLedgerFile(store, filePath) {
         out.skipped++;
         continue;
       }
-      const at = new Date().toISOString();
-      store.db.prepare("UPDATE core_item SET sync_state='conflict', sync_error='existing_item_not_imported', sync_hash=?, sync_at=? WHERE id=?")
-        .run(existingHash, at, row.id);
-      patches.set(row.id, syncPatch("conflict", { error: "existing_item_not_imported", hash: rowHash, revision, at }));
+      const error = "existing_item_not_imported";
+      const stableConflict = row.sync_state === "conflict" && row.sync_error === error && row.sync_hash === rowHash
+        && existing.sync_state === "conflict" && existing.sync_error === error && existing.sync_hash === existingHash;
+      if (!stableConflict) {
+        const at = new Date().toISOString();
+        store.db.prepare("UPDATE core_item SET sync_state='conflict', sync_error='existing_item_not_imported', sync_hash=?, sync_at=? WHERE id=?")
+          .run(existingHash, at, row.id);
+        patches.set(row.id, syncPatch("conflict", { error, hash: rowHash, revision, at }));
+      }
       out.skipped++; out.conflicts++;
       continue;
     }
@@ -168,7 +173,10 @@ export function importTaskLedgerFile(store, filePath) {
       patches.set(row.id, syncPatch("synced", { hash, revision, at }));
       out.imported++;
     } else {
-      patches.set(row.id, syncPatch("error", { error: r.error || "ingest_failed", revision: row.sync_revision || "1" }));
+      const error = r.error || "ingest_failed";
+      if (row.sync_state !== "error" || row.sync_error !== error || row.sync_hash !== rowHash) {
+        patches.set(row.id, syncPatch("error", { error, hash: rowHash, revision: row.sync_revision || "1" }));
+      }
       out.skipped++; out.errors++;
     }
   }
@@ -371,8 +379,10 @@ export function startAutosyncPoll(store, { root, intervalMs = 10000, log = () =>
           files++;
           const m = statSync(f).mtimeMs;
           if (seen.get(f) !== m) {
-            seen.set(f, m); changed = true;
-            imported += importTaskLedgerFile(store, f).imported;
+            changed = true;
+            const result = importTaskLedgerFile(store, f);
+            imported += result.imported;
+            if (!result.errors) seen.set(f, statSync(f).mtimeMs);
           }
         }
         // 입력파일_장부(신규 입력키만, 산출물 없으면 skip)
@@ -380,11 +390,14 @@ export function startAutosyncPoll(store, { root, intervalMs = 10000, log = () =>
         if (existsSync(fi)) {
           const mi = statSync(fi).mtimeMs;
           if (seen.get(fi) !== mi) {
-            seen.set(fi, mi); changed = true;
+            changed = true;
+            let failed = false;
             for (const row of readInputLedgerRows(fi)) {
               if (store.db.prepare("SELECT 1 FROM deliverable_input WHERE id=?").get(row.id)) continue;
               if (store.registerDeliverableInput(row, { sync: false }).ok) importedInput++;
+              else failed = true;
             }
+            if (!failed) seen.set(fi, statSync(fi).mtimeMs);
           }
         }
       }

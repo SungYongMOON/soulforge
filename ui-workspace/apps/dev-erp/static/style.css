@@ -96,6 +96,23 @@ body[data-mode="fantasy"][data-theme="dark"][data-dungeon] .side,
 body[data-mode="fantasy"][data-theme="dark"][data-dungeon] .topbar { background: rgba(20,25,38,.84); }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+.connection-status { position: fixed; z-index: 900; top: 10px; left: 50%; transform: translateX(-50%);
+  width: min(680px, calc(100vw - 24px)); display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 10px 12px; border: 1px solid var(--warn); border-radius: 10px;
+  background: var(--panel); color: var(--text); box-shadow: 0 8px 28px rgba(0,0,0,.18); }
+.connection-status[hidden] { display: none; }
+.connection-status[data-kind="network"], .connection-status[data-kind="timeout"],
+.connection-status[data-kind="unauthorized"], .connection-status[data-kind="http"] { border-color: var(--danger); }
+.connection-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; }
+.connection-copy strong { font-size: 13px; }
+.connection-status button { flex: 0 0 auto; padding: 7px 12px; border: 1px solid var(--accent); border-radius: 8px;
+  background: var(--accent); color: #fff; cursor: pointer; }
+.connection-status button:disabled { opacity: .55; cursor: wait; }
+body:not([data-connection="online"]) [data-connection-disabled="1"] { opacity: .5; cursor: not-allowed; }
+.connection-recovery { max-width: 680px; margin: 8vh auto 0; padding: 28px; border: 1px solid var(--line);
+  border-radius: 14px; background: var(--panel); box-shadow: 0 8px 24px rgba(0,0,0,.08); text-align: center; }
+.connection-recovery strong { display: block; margin-bottom: 8px; font-size: 18px; }
+.connection-recovery p { margin: 8px 0 0; line-height: 1.55; }
 /* 폼 컨트롤 기본을 테마색으로 — 브라우저 기본 흰색이라 다크/판타지 나이트에서 밝게 떠 보이던 것 수정. 특정 규칙은 그대로 우선. */
 select, textarea, input[type="text"], input[type="search"], input[type="date"], input[type="number"],
 input[type="email"], input[type="password"], input[type="time"], input:not([type]) {

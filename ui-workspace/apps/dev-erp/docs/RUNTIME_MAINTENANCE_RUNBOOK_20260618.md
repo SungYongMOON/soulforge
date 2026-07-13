@@ -221,8 +221,67 @@ If any enabled workspace is UNC, pass a fresh metadata-only receipt through
 wrong-registry, wrong-worker, non-v4, non-overlap, ADS-uncleared, or mutation-uncontrolled receipt.
 
 Use `127.0.0.1` plus HTTPS/Tailscale for the default tunnel-only posture.
-Use `0.0.0.0` only for owner-approved trusted LAN HTTP, and pass
-`-CookieSecure 0` for that HTTP-only pilot so login cookies work.
+Use `0.0.0.0` only for owner-approved trusted LAN HTTP. On the NSSM/watchdog
+surfaces, pass `-CookieSecure 0`; with the background launcher below, pass
+`-ListenOnLan` and omit `-SecureCookie` for that HTTP-only pilot so login cookies work.
+
+## Background launcher safe default
+
+`ops/run-dev-erp-background.ps1` is a bounded background launcher, not a full
+team-release approval. With no switches it binds `127.0.0.1`, uses stub chat,
+disables scheduled mail collection, auto-intake, autosync, morning brief,
+fixture loading, real-metadata ingest, file I/O, and self-registration, and
+keeps Codex in unconfigured worker mode so it cannot fall back to in-process
+execution. Before launch it removes inherited dev-ERP/integration/Codex values,
+Node injection and proxy/CA overrides, and generic credential-like environment
+names. Only the selected integration's bounded settings are restored;
+`-EnableCodexWorker` restores the documented dedicated-worker variables but not
+mock variables or generic `CODEX_HOME`. Run a side-effect-free preflight first:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\run-dev-erp-background.ps1 -DryRun
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\run-dev-erp-background.ps1
+```
+
+For a Tailscale Serve HTTPS front end, include `-SecureCookie` in both commands:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\run-dev-erp-background.ps1 -SecureCookie -DryRun
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\run-dev-erp-background.ps1 -SecureCookie
+```
+
+Preflight never stops a process based on a port or PID alone. It replaces a
+listener only when `node.exe`, the absolute runtime `server.mjs` path, and the
+entire expected command line match. An old relative-path launcher process, a
+different checkout, or any process whose executable/command line cannot be
+read remains alive and blocks startup. Use `-Port <alternate-port> -DryRun` for
+diagnostics without touching the runtime listener. After spawn, success is
+reported only when that retained process is the sole listener on the requested
+port and its executable plus full argv still match. If attestation fails, the
+launcher terminates only its retained spawned-process handle; an unexpected
+listener remains alive.
+
+Every integration is explicit opt-in:
+
+- `-ListenOnLan`: bind `0.0.0.0`; requires the existing owner exposure gate.
+- `-SecureCookie`: force the session cookie's `Secure` attribute when the
+  loopback listener is behind Tailscale Serve or another approved HTTPS
+  termination proxy. Direct in-app TLS enables it automatically. Do not use
+  this switch for direct plain-HTTP LAN access.
+- `-EnableLocalLlm`: enable the local Ollama chat provider.
+- `-EnableMailCollect [-MailCollectSeconds 900]`: enable scheduled mail collection.
+- `-EnableAutoIntake`: enable the post-collection intake hook; requires `-EnableMailCollect`.
+- `-EnableAutosync`: enable ledger/ERP bidirectional autosync.
+- `-EnableMorningBrief -MorningBriefPublicUrl <url> -MorningBriefDomainAllow <domain>`:
+  enable outbound morning brief scheduling with explicit public URL and domain.
+- `-EnableCodexWorker`: pass the already provisioned worker environment through.
+  Missing or invalid worker configuration remains fail-closed; this switch does
+  not authorize in-process Codex or satisfy the dedicated-worker release gate.
+
+Do not combine these switches merely to reproduce the former broad launcher.
+Enable only the reviewed integration set. Task Scheduler/service registration,
+firewall changes, and worker-first supervision remain separate owner-approved
+operations.
 
 ## Watchdog
 

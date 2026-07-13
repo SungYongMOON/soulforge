@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
+    <section id="connectionStatus" class="connection-status" data-kind="checking" role="status" aria-live="assertive">
+      <span class="connection-copy">
+        <strong id="connectionTitle">서버 연결 확인 중</strong>
+        <span id="connectionDetail">잠시만 기다려 주세요.</span>
+      </span>
+      <button id="connectionRetry" type="button" data-connection-action disabled>확인 중…</button>
+    </section>
     <div id="app">
       <!-- Row 0: 최상단 유틸/바로가기 바 (ECount 최상단 단축영역식) — 검색·바로가기 전용 행, 1분류와 분리 -->
       <div class="util-bar">

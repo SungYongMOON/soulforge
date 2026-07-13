@@ -47,7 +47,36 @@
   job의 기존 schedule은 유지한다. 완료본과 chunk를 재사용할 때는 음원 해시, 실행 ID,
   엔진과 모델 ID·해시가 모두 현재 계획과 일치해야 하며, 하나라도 달라지면 이전 chunk를
   버리고 새로 전사한다. (worker: codex_gpt-5)
+### dev-ERP Windows background launcher fail-closed 기본값
 
+- 기존 background launcher의 무조건 port-owner 종료와 LAN/메일/LLM/자동 인입/
+  autosync/아침 브리핑 일괄 활성화를 제거했다. 기본 기동은 loopback, stub chat,
+  real-meta/fixture off, 외부 통합 off이며 Codex는 미구성 worker mode로 고정해
+  in-process 실행으로 폴백하지 않는다. LAN, 로컬 LLM, 메일 수집, 자동 인입,
+  autosync, morning brief, dedicated worker는 각각 명시적 opt-in 인자를 요구한다.
+- port 충돌은 실행 파일, 절대 runtime `server.mjs`, 전체 command line이 모두
+  일치하는 기존 인스턴스만 교체한다. 미식별·조회 불가·다른 checkout listener는
+  그대로 두고 시작을 차단한다. listener 조회 실패도 empty로 오인하지 않는다.
+  inherited integration/security/Codex/credential-like env는 선제 제거하고 명시적
+  opt-in만 복원한다. 시작 뒤에는 retained process handle의 PID, sole-listener,
+  실행 파일, 전체 argv를 다시 검증하며 실패 시 그 handle만 정리한다.
+  side-effect-free dry-run과 보호된 4300을 제외한 대체 포트 합성 테스트로 기본
+  posture, unknown-owner 생존, changed/extra argv 거부, env 격리, actual bind와
+  post-start attestation을 검증한다. Tailscale launcher 절차는 `-SecureCookie`를
+  명시해 server의 `--secure-cookie`로 전달한다.
+  (worker: codex_gpt-5)
+
+### dev-ERP 동기화 멱등성·서버 장애 복구 UI
+
+- 할일 장부의 동일 conflict/error 상태는 DB `sync_at`과 CSV를 반복 갱신하지
+  않도록 안정 지문으로 멱등화했다. autosync polling의 `seen`은 처리 성공과
+  자체 write-through 이후 mtime으로만 전진해, 실패는 재시도하고 실제 원본
+  변경은 한 번 다시 처리한다.
+- 공통 API 요청에 15초 timeout, 401/HTTP/network 분류, `no-store`를 적용하고
+  cold-start 및 실행 중 서버 단절에서 복구 안내와 재연결을 제공한다. 연결이
+  확인되지 않은 동안 변경 요청과 입력 컨트롤은 fail-closed하며, 복구 후 현재
+  화면을 그대로 다시 그린다. 연결 상태나 API payload는 새로 저장하지 않는다.
+  (worker: codex_gpt-5)
 ### dev-ERP 단일-body Codex turn projection v4
 
 - Soulforge `_workspaces`를 프로젝트의 유일한 논리 본체로 고정하고 ERP runtime은

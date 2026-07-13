@@ -6,6 +6,8 @@ const VERSION_FALLBACK = Object.freeze({
   runtime: Object.freeze({ port: "?", checkout: "unknown", llm: Object.freeze({}), codex_task: Object.freeze({ mode: "?", bridge: "v?" }) })
 });
 const CHAT_REQUEST_TIMEOUT_MS = 310000;
+const REQUEST_TIMEOUT_MS = 15000;
+const UPLOAD_REQUEST_TIMEOUT_MS = 120000;
 
 function browserVersionText(ua = navigator.userAgent || "") {
   const rules = [
@@ -72,7 +74,9 @@ const state = {
   itemLimit: 100,
   itemOffset: Number(localStorage.getItem("dev_erp_item_offset")) || 0,
   mailLimit: 100,
-  mailOffset: Number(localStorage.getItem("dev_erp_mail_offset")) || 0
+  mailOffset: Number(localStorage.getItem("dev_erp_mail_offset")) || 0,
+  connection: { status: "checking", failure: null },
+  booted: false
 };
 // 새로고침/이동 시 "보던 페이지에서" 유지: 언로드 직전 현재 위치(페이지 offset·뷰)를 저장 → 시작 시 위에서 복원.
 window.addEventListener("beforeunload", () => {
@@ -169,13 +173,11 @@ function permOf(resource) {
 }
 
 async function loadMe() {
-  try {
-    const me = await api("/api/me");
-    state.account = me.anonymous ? null : (me.account ?? null);
-    state.perms = me.perms ?? [];
-    state.accountCount = me.account_count ?? (me.anonymous ? me.account_count : state.accountCount) ?? 0;
-    state.allowSelfRegister = !!me.allow_self_register;
-  } catch { state.account = null; state.perms = []; state.allowSelfRegister = false; }
+  const me = await api("/api/me");
+  state.account = me.anonymous ? null : (me.account ?? null);
+  state.perms = me.perms ?? [];
+  state.accountCount = me.account_count ?? (me.anonymous ? me.account_count : state.accountCount) ?? 0;
+  state.allowSelfRegister = !!me.allow_self_register;
 }
 // 로그인 시 서버 레이아웃을 localStorage 로 동기화(이후 dashLayout()이 그대로 사용 → sync 코드 무변경)
 async function pullServerLayout() {
@@ -261,7 +263,10 @@ function renderAuth() {
     }
     $("#myMemBtn")?.addEventListener("click", openMyMemory);
     $("#pwBtn").addEventListener("click", openPasswordChange);
-    $("#logoutBtn").addEventListener("click", async () => { await fetch("/api/auth/logout", { method: "POST" }).catch(() => {}); location.reload(); });
+    $("#logoutBtn").addEventListener("click", async () => {
+      await request("/api/auth/logout", { method: "POST", acceptHttpError: true }).catch(() => {});
+      location.reload();
+    });
   } else if (state.accountCount > 0) {
     box.innerHTML = `<button id="loginBtn" class="fav-chip">${L.login}</button>`;
     $("#loginBtn").addEventListener("click", openLogin);
@@ -292,7 +297,13 @@ function openLogin() {
   const submit = async () => {
     const username = ov.querySelector("#loginUser").value.trim();
     const password = ov.querySelector("#loginPw").value;
-    const r = await fetch("/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username, password }) }).catch(() => null);
+    const r = await request("/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, password }),
+      acceptHttpError: true,
+      retryableUnauthorized: true
+    }).catch(() => null);
     if (r && r.ok) { close(); location.reload(); }
     else ov.querySelector(".login-err").textContent = L.login_fail;
   };
@@ -409,7 +420,13 @@ function openBootstrap() {
       email: ov.querySelector("#bsEmail").value.trim(),
       password: ov.querySelector("#bsPw").value
     };
-    const r = await post("/api/auth/bootstrap", body).catch(() => null);
+    const r = await request("/api/auth/bootstrap", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      acceptHttpError: true,
+      retryableUnauthorized: true
+    }).catch(() => null);
     if (r && r.ok) { close(); location.reload(); }
     else ov.querySelector(".login-err").textContent = L.login_fail;
   };
@@ -506,11 +523,11 @@ function renderGate() {
     try {
       let r;
       if (tab === "login") {
-        r = await fetch("/api/auth/login", J({ username: v("gUser"), password: pw }));
+        r = await request("/api/auth/login", { ...J({ username: v("gUser"), password: pw }), acceptHttpError: true, retryableUnauthorized: true });
         if (!r.ok) { err.textContent = L.login_fail; return; }
       } else {
         const ep = tab === "master" ? "/api/auth/bootstrap" : "/api/auth/register";
-        r = await fetch(ep, J({ display_name: v("gName"), username: v("gUser"), email: v("gEmail"), password: pw }));
+        r = await request(ep, { ...J({ display_name: v("gName"), username: v("gUser"), email: v("gEmail"), password: pw }), acceptHttpError: true, retryableUnauthorized: true });
         if (!r.ok) { err.textContent = tab === "master" ? L.login_fail : L.register_fail; return; }
       }
       location.reload();
@@ -1138,7 +1155,12 @@ async function openDeliverableInputs(deliverableId, name) {
     const sub = ov.querySelector("#diSub").value.trim();
     const url = `/api/deliverables/inputs/upload?deliverable=${encodeURIComponent(deliverableId)}&subfolder=${encodeURIComponent(sub)}&filename=${encodeURIComponent(f.name)}`;
     msg.textContent = L.di_uploading ?? "업로드 중…";
-    const r = await fetch(url, { method: "POST", body: f }).then((x) => x.json()).catch(() => null);
+    const r = await request(url, {
+      method: "POST",
+      body: f,
+      timeoutMs: UPLOAD_REQUEST_TIMEOUT_MS,
+      acceptHttpError: true
+    }).then((x) => x.json()).catch(() => null);
     if (r && r.ok) { ov.querySelector("#diUpload").value = ""; msg.textContent = L.di_added ?? "등록됨"; renderList(); }
     else {
       const e = r?.error || "오류";
@@ -1166,7 +1188,127 @@ function labelFor(v) {
 }
 
 const $ = (sel) => document.querySelector(sel);
-const api = async (path) => (await fetch(path)).json();
+
+class RequestFailure extends Error {
+  constructor(kind, path, { status = null, message = "" } = {}) {
+    super(message || kind);
+    this.name = "RequestFailure";
+    this.kind = kind;
+    this.path = path;
+    this.status = status;
+  }
+}
+
+function connectionCopy(status = state.connection.status, failure = state.connection.failure) {
+  if (status === "checking") return { title: "서버 연결 확인 중", detail: "잠시만 기다려 주세요." };
+  if (status === "timeout") return { title: "요청 시간이 초과되었습니다", detail: "서버 응답이 늦습니다. 저장 작업은 연결이 확인될 때까지 중지됩니다." };
+  if (status === "unauthorized") return { title: "로그인이 만료되었거나 권한이 없습니다", detail: "다시 연결한 뒤 로그인 화면에서 인증해 주세요." };
+  if (status === "http") return { title: "서버가 요청을 처리하지 못했습니다", detail: `HTTP ${failure?.status ?? "오류"}. 잠시 후 다시 연결해 주세요.` };
+  return { title: "ERP 서버에 연결할 수 없습니다", detail: "서버가 꺼져 있거나 네트워크 연결이 끊겼습니다. 저장 작업은 중지되었습니다." };
+}
+
+function syncConnectionControls() {
+  const blocked = state.connection.status !== "online";
+  document.querySelectorAll("button, input, select, textarea").forEach((el) => {
+    if (el.matches("[data-connection-action]")) return;
+    if (blocked) {
+      if (!el.disabled) {
+        el.dataset.connectionDisabled = "1";
+        el.disabled = true;
+      }
+    } else if (el.dataset.connectionDisabled === "1") {
+      delete el.dataset.connectionDisabled;
+      el.disabled = false;
+    }
+  });
+}
+
+function renderConnectionStatus() {
+  const el = $("#connectionStatus");
+  if (!el) return;
+  const online = state.connection.status === "online";
+  el.hidden = online;
+  el.dataset.kind = state.connection.status;
+  if (online) return;
+  const copy = connectionCopy();
+  $("#connectionTitle").textContent = copy.title;
+  $("#connectionDetail").textContent = copy.detail;
+  const retry = $("#connectionRetry");
+  retry.textContent = state.connection.status === "checking" ? "확인 중…" : "다시 연결";
+  retry.disabled = state.connection.status === "checking";
+}
+
+function renderColdConnectionFailure() {
+  if (state.booted) return;
+  const copy = connectionCopy();
+  $("#viewTitle").textContent = "ERP 연결 문제";
+  $("#view").innerHTML = `<div class="connection-recovery" role="alert">
+    <strong>${esc(copy.title)}</strong>
+    <p>${esc(copy.detail)}</p>
+    <p class="dim">위의 ‘다시 연결’을 누르면 현재 화면에서 서버 상태와 로그인을 다시 확인합니다.</p>
+  </div>`;
+}
+
+function setConnectionState(status, failure = null) {
+  state.connection = { status, failure };
+  document.body.dataset.connection = status;
+  renderConnectionStatus();
+  syncConnectionControls();
+  if (status !== "online" && status !== "checking") renderColdConnectionFailure();
+}
+
+function requestFailureFromResponse(path, response) {
+  if (response.status === 401) {
+    return new RequestFailure("unauthorized", path, { status: response.status, message: "unauthorized" });
+  }
+  return new RequestFailure("http", path, { status: response.status, message: `http_${response.status}` });
+}
+
+async function request(path, {
+  timeoutMs = REQUEST_TIMEOUT_MS,
+  acceptHttpError = false,
+  retryableUnauthorized = false,
+  ...options
+} = {}) {
+  const method = String(options.method || "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD") assertMutationAllowed(path);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  let response;
+  try {
+    response = await fetch(path, { ...options, cache: "no-store", signal: ctl.signal });
+  } catch (error) {
+    const failure = error?.name === "AbortError"
+      ? new RequestFailure("timeout", path, { message: "request_timeout" })
+      : new RequestFailure("network", path, { message: "network_unavailable" });
+    setConnectionState(failure.kind, failure);
+    throw failure;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!response.ok) {
+    const failure = requestFailureFromResponse(path, response);
+    const retryableAuthFailure = retryableUnauthorized
+      && failure.kind === "unauthorized"
+      && ["/api/auth/login", "/api/auth/bootstrap", "/api/auth/register"].includes(path);
+    if (!retryableAuthFailure && (!acceptHttpError || failure.kind === "unauthorized" || response.status >= 500)) {
+      setConnectionState(failure.kind, failure);
+    }
+    if (!acceptHttpError) throw failure;
+  }
+  return response;
+}
+
+const api = async (path) => {
+  const response = await request(path);
+  try {
+    return await response.json();
+  } catch {
+    const failure = new RequestFailure("http", path, { status: response.status, message: "invalid_json_response" });
+    setConnectionState(failure.kind, failure);
+    throw failure;
+  }
+};
 // XSS 방지: 외부 유래 문자열(메일 제목/상대/할일 제목 등)은 전부 esc() 경유
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const daysAgo = (iso, lex) => {
@@ -1174,22 +1316,30 @@ const daysAgo = (iso, lex) => {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   return d <= 0 ? lex.today_word : `${d}${lex.days_ago}`;
 };
-const post = (path, body) =>
-  fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+function assertMutationAllowed(path) {
+  if (state.connection.status === "online") return;
+  const failure = state.connection.failure || new RequestFailure("network", path, { message: "connection_not_ready" });
+  syncConnectionControls();
+  throw failure;
+}
+
+const post = async (path, body) => {
+  return request(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    acceptHttpError: true
+  });
+};
 
 const postJsonWithTimeout = async (path, body, timeoutMs = CHAT_REQUEST_TIMEOUT_MS) => {
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), timeoutMs);
-  try {
-    return await fetch(path, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      signal: ctl.signal,
-      body: JSON.stringify(body)
-    });
-  } finally {
-    clearTimeout(timer);
-  }
+  return request(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    timeoutMs,
+    acceptHttpError: true
+  });
 };
 
 function logView(view) {
@@ -1778,7 +1928,12 @@ function dashLayout() {
 function saveDashLayout(arr) {
   localStorage.setItem("dev_erp_widgets", JSON.stringify(arr));
   // 로그인 상태면 계정별 서버 저장(logout 내성). 미로그인=localStorage 만.
-  if (state.account) fetch("/api/dashboard/layout", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ layout: arr }) }).catch(() => {});
+  if (state.account) request("/api/dashboard/layout", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ layout: arr }),
+    acceptHttpError: true
+  }).catch(() => {});
 }
 // 이름 붙인 저장 배치 슬롯들. 구버전 단일 슬롯(SAVED_KEY)은 첫 로드 시 '내 배치'로 마이그레이션.
 function savedSlots() {
@@ -4004,9 +4159,9 @@ function openChat() {
       finalEntry = { role: "ai", text: r.text || L.chat_empty_reply, source: r.source, matched: r.matched, candidates: r.candidates || [], llm: r.llm, thinking: r.thinking, reasoning: r.reasoning, provider: r.provider, model: r.model, chatbot_version: r.chatbot_version, handled_by_llm: r.handled_by_llm, handled_by_runtime: r.handled_by_runtime, context_used: r.context_used, mode: r.mode };
       finalStatus = L.chat_done_status || "답변 완료";
     } catch (error) {
-      const msgText = error?.name === "AbortError"
+      const msgText = error?.name === "AbortError" || error?.kind === "timeout"
         ? (L.chat_timeout_retry || "답변이 오래 걸려 중단했어요. 입력창은 다시 열렸으니 같은 질문을 한 번만 다시 보내 주세요.")
-        : (error?.message === "login_required"
+        : (error?.message === "login_required" || error?.kind === "unauthorized"
           ? (L.chat_login_required || "로그인이 풀렸어요. 다시 로그인한 뒤 질문해 주세요.")
           : L.chat_error_retry);
       finalEntry = { role: "ai", text: msgText, matched: false, candidates: [] };
@@ -4368,7 +4523,13 @@ function openTaskCodex(itemId) {
     const uploaded = [];
     for (const file of stagedImages) {
       const url = `/api/codex-task/attachment?item_id=${encodeURIComponent(itemId)}&filename=${encodeURIComponent(file.name)}`;
-      const resp = await fetch(url, { method: "POST", headers: { "content-type": file.type || "application/octet-stream" }, body: file });
+      const resp = await request(url, {
+        method: "POST",
+        headers: { "content-type": file.type || "application/octet-stream" },
+        body: file,
+        timeoutMs: UPLOAD_REQUEST_TIMEOUT_MS,
+        acceptHttpError: true
+      });
       const body = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(body.error || "image_upload_failed");
       if (body.attachment) uploaded.push(body.attachment);
@@ -8257,15 +8418,12 @@ async function openNotifications() {
 }
 $("#notifBtn")?.addEventListener("click", openNotifications);
 
-await loadMe();
-await loadLexicon(); // 게이트 라벨에도 필요 — 인증 분기보다 먼저
-if (!state.account) {
-  // 인증 벽: 미로그인이면 앱 대신 첫 페이지(달빛 길드 입성)만 보인다. '무조건 회원가입해야 보임'.
-  renderGate();
-} else {
-  await pullServerLayout();
-  render();
-  refreshNotifBadge(); // 🔔 알림 배지 초기 집계
+let reconnecting = false;
+let refreshLoopsStarted = false;
+
+function startRefreshLoops() {
+  if (refreshLoopsStarted) return;
+  refreshLoopsStarted = true;
   // 배지를 세션 내내 살려둔다 — 완료 시 생기는 AI 요약 제안·새 차단/연체가 새로고침 없이 ~30초 내 벨에 뜨도록(발견성).
   setInterval(() => { if (state.account && document.visibilityState !== "hidden") refreshNotifBadge(); }, 30000);
   // 메일 위젯(미분류 메일함·최근 메일) 자동 갱신 — 스냅샷이라 새 메일이 안 뜨던 문제. 90초 주기 + 탭 복귀 시. 위젯 검색 입력 중엔 스킵(검색어 보존).
@@ -8276,7 +8434,71 @@ if (!state.account) {
   };
   setInterval(autoRefreshMailWidgets, 90000);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoRefreshMailWidgets(); });
+  // 로그인 여부와 무관하게 서버 단절을 감지한다. 실패 후에는 같은 주기로 자동 재연결을 시도한다.
+  setInterval(() => {
+    if (document.visibilityState === "hidden") return;
+    if (state.connection.status === "online") request("/api/health", { timeoutMs: 5000 }).catch(() => {});
+    else if (navigator.onLine !== false) retryConnection();
+  }, 30000);
 }
+
+async function retryConnection() {
+  if (reconnecting) return;
+  reconnecting = true;
+  setConnectionState("checking");
+  try {
+    await request("/api/health", { timeoutMs: 5000 });
+    await loadMe();
+    await loadLexicon(); // 인증 화면과 본문 양쪽의 라벨을 함께 복구한다.
+    if (state.account && !state.booted) await pullServerLayout();
+    setConnectionState("online");
+    if (!state.account) {
+      // 인증 벽: 미로그인이면 앱 대신 첫 페이지(달빛 길드 입성)만 보인다.
+      renderGate();
+    } else {
+      await render();
+      refreshNotifBadge();
+    }
+    state.booted = true;
+    startRefreshLoops();
+  } catch (error) {
+    const failure = error instanceof RequestFailure
+      ? error
+      : new RequestFailure("http", "bootstrap", { message: error?.message || "bootstrap_failed" });
+    setConnectionState(failure.kind, failure);
+  } finally {
+    reconnecting = false;
+    renderConnectionStatus();
+  }
+}
+
+document.addEventListener("click", (event) => {
+  if (state.connection.status === "online" || event.target.closest("[data-connection-action]")) return;
+  if (event.target.closest("button, input, select, textarea")) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    syncConnectionControls();
+  }
+}, true);
+document.addEventListener("submit", (event) => {
+  if (state.connection.status !== "online") {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }
+}, true);
+new MutationObserver(() => {
+  if (state.connection.status !== "online") syncConnectionControls();
+}).observe(document.body, { childList: true, subtree: true });
+
+$("#connectionRetry").addEventListener("click", retryConnection);
+window.addEventListener("offline", () => {
+  const failure = new RequestFailure("network", location.pathname, { message: "browser_offline" });
+  setConnectionState(failure.kind, failure);
+});
+window.addEventListener("online", () => retryConnection());
+
+setConnectionState("checking");
+await retryConnection();
 
 // ── 마이크 받아쓰기(공용): 브라우저 내장 SpeechRecognition 을 입력창에 연결 ──────────────
 //   주의: Chrome/Edge 의 음성 인식은 브라우저 벤더 서버에서 처리될 수 있음 — 민감 내용 구두 입력 주의(툴팁 고지).
