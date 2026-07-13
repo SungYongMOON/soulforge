@@ -1,5 +1,26 @@
 # CHANGELOG
 
+### 발표자료 퍼블리셔와 `team_default_v0` template seed
+
+- 승인된 presentation packet/storyline만 hash-pinned 템플릿에 배치하는
+  `.workflow/presentation_artifact_render_v0/`를 non-default candidate로 등록하고,
+  내용 작성·요약·사실 판정과 렌더링 책임을 분리했다.
+- `$soulforge-presentation-publisher` 얇은 Codex 런처를 추가했다. 런처는 workflow를
+  읽고 실행할 뿐 템플릿 규칙이나 발표 내용을 복제하지 않는다.
+- `SOULFORGE_ARTIFACT_TEMPLATE_SYSTEM_V0.md`와 합성 preservation fixture를 추가해
+  template family/revision/SHA-256, `_workspaces` payload, `_workmeta` metadata-only
+  receipt 경계를 고정했다.
+- owner-controlled `_workspaces/SE_TEMPLATE_LIBRARY/team_default_v0/`에 외부 자산을
+  복제하지 않은 editable PPTX 10장 파일럿을 만들었다. artifact-tool의 native
+  master/layout export 한계 때문에 revision `0.1.0`은 exemplar-slide 방식이며,
+  owner 실제 보고서 3건 승인 전에는 default route로 승격하지 않는다.
+  (worker: codex_gpt-5)
+- 첫 fresh synthetic replay는 `do_not_claim` 부정 의미가 긍정 badge처럼 표시되고
+  list text에 literal bullet이 추가된 사실 보존 실패를 별도 verifier가 검출해
+  `pilot_executed: false`로 유지했다. workflow revision/package provenance,
+  executor self-check, independent verification, retryability를 정식 스키마로 추가하고
+  corrected-contract replay를 승격 전 필수로 고정했다. (worker: codex_gpt-5)
+
 ### dev-ERP 빈 줄기 화면의 서버 장애 오인 수정
 
 - 과제에 아직 `project_context` 줄기 데이터가 없을 때 `/api/context/graph`의 예상 가능한

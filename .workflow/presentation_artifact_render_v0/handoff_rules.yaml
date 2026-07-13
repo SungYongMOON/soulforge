@@ -1,0 +1,40 @@
+workflow_id: presentation_artifact_render_v0
+kind: handoff_rules
+status: active
+rules:
+  - from: request_validator
+    to: template_binder
+    condition: approved_content_and_storage_binding_validated
+    summary: The template binder receives stable content and template identities only after approval, revision, SHA-256, idempotency, and storage boundaries pass.
+  - from: template_binder
+    to: presentation_renderer
+    condition: approved_template_identity_verified
+    summary: The renderer receives the approved content ref and the exact verified template binding; it receives no authority to select another family or rewrite content.
+  - from: presentation_renderer
+    to: fidelity_verifier
+    condition: editable_pptx_candidate_materialized
+    summary: The verifier receives the candidate pointer, render manifest, source identity, and template trace needed to check fidelity and layout without repairing the candidate.
+  - from: fidelity_verifier
+    to: independent_fidelity_verifier
+    condition: executor_self_check_completed
+    summary: The independent verifier receives approved input and template identities, artifact and render-evidence pointers, and the executor self-check, but not the executor's builder source.
+  - from: request_validator
+    to: receipt_writer
+    condition: request_rejected_or_review_required
+    summary: Invalid approval, identity, idempotency, or storage bindings route to a metadata-only receipt without rendering a PPTX.
+  - from: template_binder
+    to: receipt_writer
+    condition: template_binding_failed_or_review_required
+    summary: Template identity or hash failures are recorded as blockers; the binder must not infer or substitute a template.
+  - from: presentation_renderer
+    to: receipt_writer
+    condition: rendering_failed_or_review_required
+    summary: Overflow, unmapped content, or editability failure is recorded without automatic abridgement, paraphrase, flattening, or template substitution.
+  - from: fidelity_verifier
+    to: receipt_writer
+    condition: executor_self_check_failed_or_review_required
+    summary: A failed self-check routes to a metadata-only receipt without claiming independent verification or completion.
+  - from: independent_fidelity_verifier
+    to: receipt_writer
+    condition: independent_verification_completed
+    summary: The receipt writer receives only verdicts, hashes, sizes, pointers, provenance, blocker codes, and next actions; it does not copy presentation text or payloads.

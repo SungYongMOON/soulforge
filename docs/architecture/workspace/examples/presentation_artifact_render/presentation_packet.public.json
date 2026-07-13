@@ -1,0 +1,101 @@
+{
+  "schema_version": "0.1",
+  "packet_id": "public-presentation-fixture-001",
+  "content_state": "source_supported",
+  "content_receipt_ref": "synthetic://presentation-fixture/source-receipt-001",
+  "synthetic_fixture": true,
+  "project_code": "PUBLIC-DEMO",
+  "item_id": "PRESENTATION-001",
+  "audience": "engineering owner",
+  "purpose": "pilot template and renderer verification",
+  "workflow_id": "presentation_artifact_render_v0",
+  "template": {
+    "template_family_id": "team_default_v0",
+    "template_revision": "0.1.0",
+    "template_sha256": "5e84152b27bf43a208e9398736b057ccf13048a950df827ccc2a9fbcb39322ac",
+    "template_snapshot_ref": "_workspaces/SE_TEMPLATE_LIBRARY/team_default_v0/presentation/team_default_v0.pptx"
+  },
+  "output": {
+    "format": "pptx",
+    "editable": true,
+    "output_root_ref": "_workspaces/PUBLIC-DEMO/outputs/presentation",
+    "filename": "presentation_fixture_team_default_v0.pptx",
+    "idempotency_key": "PUBLIC-DEMO-PRESENTATION-001-team_default_v0-0.1.0"
+  },
+  "preservation_manifest": {
+    "numbers_and_units": ["82%", "24 / 24", "2건", "-3.2 dB", "10 ms 이하"],
+    "dates": ["2026-07-18"],
+    "identifiers": ["RQ-017", "TC-204"],
+    "verdicts": ["PASS", "REVIEW"],
+    "negation": ["불합격이 아니다"],
+    "comparators": ["10 ms 이하"],
+    "directional_claims": ["증가했지만 승인 전에는 종결하지 않는다"]
+  },
+  "slides": [
+    {
+      "layout": "cover",
+      "title": "검증 결과가 먼저 보이는 발표자료",
+      "subtitle": "합성 fixture · team_default_v0 · 2026-07-18"
+    },
+    {
+      "layout": "bluf_and_ask",
+      "title": "24 / 24 항목은 PASS지만 owner 승인 전에는 종결하지 않습니다",
+      "bottom_line": "완료율은 82%이며 잔여 위험은 2건입니다.",
+      "ask": "revision 0.1.0의 파일럿 사용 승인"
+    },
+    {
+      "layout": "section",
+      "section_number": "02",
+      "title": "요구사항에서 판정까지 추적합니다"
+    },
+    {
+      "layout": "metrics",
+      "title": "수치는 기준·방향·상태를 함께 보여줍니다",
+      "metrics": [
+        {"label": "완료율", "value": "82%", "status": "증가"},
+        {"label": "검증 항목", "value": "24 / 24", "status": "PASS"},
+        {"label": "잔여 위험", "value": "2건", "status": "REVIEW"},
+        {"label": "납기", "value": "2026-07-18", "status": "유지"}
+      ]
+    },
+    {
+      "layout": "chart_and_interpretation",
+      "title": "진척은 증가했지만 승인 전에는 종결하지 않습니다",
+      "categories": ["기획", "작성", "검증", "승인"],
+      "values": [100, 92, 82, 38],
+      "interpretation": "승인 대기 구간이 병목이며 REVIEW 상태를 유지합니다."
+    },
+    {
+      "layout": "table_and_conclusion",
+      "title": "요구사항과 시험 근거를 같은 표에서 확인합니다",
+      "columns": ["요구사항", "시험", "결과", "판정"],
+      "rows": [
+        ["RQ-017", "TC-204", "-3.2 dB", "PASS"],
+        ["응답 시간", "TC-204", "10 ms 이하", "REVIEW"]
+      ],
+      "conclusion": "현재 결과는 불합격이 아니다. 다만 REVIEW는 owner 승인 전까지 유지합니다."
+    },
+    {
+      "layout": "comparison",
+      "title": "고정 revision이 외부 템플릿 모음보다 재현성이 높습니다",
+      "recommended": ["명확한 소유권", "SHA-256 고정", "편집 가능한 객체"],
+      "not_recommended": ["라이선스 불명", "서로 다른 layout", "무음 교체"]
+    },
+    {
+      "layout": "decision_request",
+      "title": "파일럿 승인을 요청합니다",
+      "decision": "team_default_v0 revision 0.1.0을 실제 보고서 3건에 사용",
+      "do_not_claim": "production/default route 승인"
+    },
+    {
+      "layout": "next_actions",
+      "title": "세 단계 검증 뒤에만 기본값으로 승격합니다",
+      "steps": ["합성 fixture", "실제 보고서 3건", "owner 승격 판단"]
+    },
+    {
+      "layout": "appendix_and_evidence",
+      "title": "입력·템플릿·검사 영수증으로 추적합니다",
+      "evidence_refs": ["RQ-017", "TC-204", "synthetic://presentation-fixture/source-receipt-001"]
+    }
+  ]
+}

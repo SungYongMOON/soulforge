@@ -1,0 +1,49 @@
+workflow_id: presentation_artifact_render_v0
+kind: monster_rules
+status: active
+rules:
+  - monster_id: freeform_or_unapproved_content_input
+    response: stop_and_require_approved_packet_or_storyline
+    summary: This renderer must not turn a freeform prompt, unapproved draft, or conversation transcript into presentation content.
+  - monster_id: template_identity_missing_or_inferred
+    response: stop_and_require_family_revision_sha256
+    summary: Template family, revision, and SHA-256 are mandatory and may not be guessed, defaulted, or silently repaired.
+  - monster_id: template_hash_mismatch_or_substitution
+    response: stop_and_record_template_identity_blocker
+    summary: A hash mismatch or alternate template selection blocks rendering until an approved binding is supplied.
+  - monster_id: content_rewrite_for_layout_fit
+    response: mark_review_required_without_mutation
+    summary: Overflow or mapping pressure must not trigger paraphrase, summarization, translation, reordering, or removal of approved content.
+  - monster_id: fact_number_or_verdict_drift
+    response: fail_fidelity_verification_and_preserve_source_authority
+    summary: Any change to facts, numbers, units, dates, signs, IDs, quotes, tables, comparisons, negation, or verdicts is a render failure.
+  - monster_id: semantic_role_or_negation_label_lost
+    response: fail_fidelity_verification_and_mark_review_required
+    summary: A field such as do_not_claim, warning, exclusion, failure, or negation must remain visibly unambiguous; rendering only its value as an affirmative badge is a fidelity failure.
+  - monster_id: literal_bullet_character_injected_as_content
+    response: use_native_list_formatting_or_mark_review_required
+    summary: List markers belong to native formatting; adding a bullet character to approved text changes raw text identity and is not allowed.
+  - monster_id: unapproved_claim_or_asset_added
+    response: remove_candidate_from_complete_state_and_require_review
+    summary: The rendered deck may use only content and asset refs already approved by the input packet or storyline.
+  - monster_id: flattened_presentation_masquerades_as_editable
+    response: fail_editability_check
+    summary: Required editable text, tables, charts, or diagrams may not be replaced with slide-sized images or other flattened substitutes.
+  - monster_id: output_payload_written_to_workmeta
+    response: stop_and_emit_storage_boundary_blocker
+    summary: PPTX, template, images, and other actual payloads belong in workspaces, never in workmeta.
+  - monster_id: receipt_contains_content_or_payload
+    response: stop_and_emit_receipt_boundary_blocker
+    summary: Receipts may contain pointers, hashes, sizes, approval refs, states, and blocker codes but no copied presentation body or binary payload.
+  - monster_id: tool_specific_binding_promoted_to_workflow_canon
+    response: stop_and_emit_canon_boundary_blocker
+    summary: Concrete render engines and adapters resolve at runtime; correction of reusable workflow canon belongs to the workflow owner, not this renderer run.
+  - monster_id: idempotency_or_output_collision
+    response: stop_and_write_metadata_only_collision_receipt
+    summary: A reused key with different content, template, or output identity, or an existing output without a matching receipt, must never overwrite or silently rerender.
+  - monster_id: default_route_or_pilot_claim_without_evidence
+    response: keep_registered_candidate_and_default_route_disabled
+    summary: Structure review alone cannot make this candidate pilot-executed, default-route-safe, usable, or production-ready.
+  - monster_id: secret_private_body_or_runtime_path_leak
+    response: stop_and_emit_boundary_blocker
+    summary: Reusable files and receipts must not contain secrets, private source bodies, credentials, sessions, or host-specific runtime paths.

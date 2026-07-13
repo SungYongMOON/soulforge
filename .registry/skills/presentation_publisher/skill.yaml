@@ -1,0 +1,59 @@
+skill_id: presentation_publisher
+kind: skill
+status: candidate
+title: Presentation Publisher
+summary: Thin Codex launcher for `presentation_artifact_render_v0` that validates workflow-owned input bindings, publishes approved content as an editable presentation artifact, and returns render and boundary receipts without owning presentation content or template logic.
+behavior:
+  intent: >
+    Map `$soulforge-presentation-publisher` to
+    `.workflow/presentation_artifact_render_v0`. The workflow owns request and
+    receipt schemas, template binding, artifact rendering, render QA, and stop
+    conditions. This launcher only resolves the workflow, validates the current
+    workflow-owned input packet, executes through available runtime bindings,
+    and returns workflow-owned receipts.
+  use_when:
+    - approved presentation content must be published as an editable PPTX
+    - a presentation must use an approved template family, revision, and SHA-256 binding
+    - a presentation artifact needs render QA and metadata-only closeout receipts
+    - the user invokes `$soulforge-presentation-publisher`
+  avoid_when:
+    - presentation content still needs to be authored, summarized, rewritten, or fact-checked
+    - template selection, template approval, or template design is unresolved
+    - the request is for a freeform presentation without a workflow-approved content packet
+    - the target workflow is missing, unregistered, or cannot validate the input packet
+  expected_outcome:
+    - Codex resolves the invocation to `presentation_artifact_render_v0`
+    - Codex reads the workflow package and any workflow-owned profile policy at execution time
+    - approved content and template reference, family, revision, and SHA-256 bindings are validated before execution
+    - an editable PPTX is written only to an allowed `_workspaces` or owner-approved shared-worksite path
+    - "`_workmeta` receives only workflow-owned pointers, hashes, statuses, and QA receipts"
+    - workflow-owned artifact, render-QA, and boundary receipts are returned without copying payload content into the launcher
+execution_requirements:
+  required_capabilities:
+    - workflow_launcher_routing
+    - workflow_owned_input_packet_validation
+    - approved_content_binding_review
+    - template_identity_binding_review
+    - editable_presentation_artifact_execution
+    - render_qa_receipt_review
+    - storage_boundary_review
+  preferred_capabilities:
+    - presentation_runtime_binding
+    - pptx_render_inspection
+    - yaml_review
+    - hash_receipt_review
+  preferred_tools:
+    - rg
+    - yaml_reader
+    - presentations_skill
+    - powershell
+    - npm_validate
+  notes:
+    - "The workflow package owns the procedure, schemas, template logic, renderer policy, QA criteria, and receipts; this launcher must not copy them as binding authority."
+    - "Codex runtime may map editable PPTX generation and render QA to the installed Presentations skill when the workflow and current runtime binding permit it."
+    - "Actual presentation payloads belong in `_workspaces` or an owner-approved shared worksite; `_workmeta` is metadata and receipt only."
+    - "Skill activation does not approve content or templates and does not grant fact, summary, default-route, unattended-execution, or production-readiness authority."
+notes:
+  - "`presentation_publisher` is the thin Codex bridge for `.workflow/presentation_artifact_render_v0`."
+  - "The installed Codex mirror name is expected to be `soulforge-presentation-publisher` after skill sync."
+  - "Keep candidate status until the target workflow is registered and the skill first-build verification gate passes."

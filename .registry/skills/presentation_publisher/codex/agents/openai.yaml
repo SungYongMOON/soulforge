@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge Presentation Publisher"
+  short_description: "Publish approved content as editable, QA-checked PPTX."
+  default_prompt: "Use $soulforge-presentation-publisher to publish approved presentation content with the bound template and return render-QA receipts."
+
+policy:
+  allow_implicit_invocation: true

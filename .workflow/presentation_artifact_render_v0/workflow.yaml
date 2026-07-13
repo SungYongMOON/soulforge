@@ -1,0 +1,94 @@
+workflow_id: presentation_artifact_render_v0
+revision: "0.1.0"
+kind: workflow
+status: active
+title: Presentation Artifact Render v0
+summary: Render one approved presentation packet or storyline into an editable PPTX with an approved, hash-pinned template while preserving the approved content, facts, numbers, and verdicts exactly.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+inputs:
+  - presentation_render_request
+  - approved_presentation_packet_or_storyline_ref
+  - approved_presentation_template_ref
+outputs:
+  - editable_pptx_artifact
+  - presentation_render_manifest
+  - presentation_render_self_check
+  - presentation_render_verification
+  - presentation_render_receipt
+validation_level: structure_reviewed_pilot_pending
+output_state: registered
+registration_policy: registered_candidate
+runtime_readiness:
+  pilot_executed: false
+  default_route_safe: false
+workflow_modes:
+  - render_approved_presentation_packet
+  - render_approved_storyline
+classification_lane:
+  primary: documentation
+  primary_name_ko: 문서화
+  secondary:
+    - quality_review
+  secondary_name_ko:
+    - 품질 검토
+  purpose: discovery_only
+  authority: none
+execution_binding:
+  party_required: false
+  candidate_party_id: null
+  bound_party_id: null
+  binding_authority: none
+render_contract:
+  owns:
+    - approved_content_input_validation
+    - approved_template_identity_and_hash_validation
+    - template_bound_editable_pptx_materialization
+    - content_fidelity_and_layout_verification
+    - metadata_only_render_receipt
+  does_not_own:
+    - report_authoring
+    - storyline_authoring
+    - content_rewriting_summarization_translation_or_reordering
+    - fact_number_unit_date_sign_id_quote_table_or_verdict_creation_or_change
+    - template_family_revision_or_sha256_inference
+    - template_design_or_approval
+    - final_owner_approval
+  authority_boundary:
+    approved_presentation_packet_or_storyline_only: true
+    approved_template_binding_required: true
+    template_family_revision_and_sha256_required: true
+    content_mutation_for_layout_fit_forbidden: true
+    layout_overflow_routes_to_review_required: true
+    output_must_remain_editable_pptx: true
+    actual_payloads_stay_in_workspaces: true
+    receipts_are_workmeta_metadata_only: true
+    runtime_tool_binding_is_not_workflow_canon: true
+  storage_boundary:
+    content_template_and_output_payload_root: _workspaces/<project_code>/
+    reusable_template_library_root: _workspaces/SE_TEMPLATE_LIBRARY/
+    render_review_asset_root: _workspaces/<project_code>/
+    render_manifest_root: _workmeta/<project_code>/runs/<run_id>/
+    verification_root: _workmeta/<project_code>/runs/<run_id>/
+    receipt_root: _workmeta/<project_code>/runs/<run_id>/
+    render_manifest_is_metadata_only: true
+    verification_is_metadata_only: true
+    receipt_contains_payload: false
+  required_input_shapes:
+    presentation_render_request: templates/presentation_render_request.template.yaml
+  required_output_shapes:
+    presentation_render_manifest: templates/presentation_render_manifest.template.yaml
+    presentation_render_self_check: templates/presentation_render_self_check.template.yaml
+    presentation_render_verification: templates/presentation_render_verification.template.yaml
+    presentation_render_receipt: templates/presentation_render_receipt.template.yaml
+notes:
+  - This is a registered structure-reviewed candidate and is not a default route.
+  - The workflow names tool-neutral rendering and verification capabilities. Concrete tools and adapters resolve in runtime bindings outside this package.
+  - Public workflow files contain no presentation payload, template payload, private source body, secret, or runtime absolute path.
+  - A controlled editable-PPTX pilot under an immutable workflow revision and a separate fresh-context verification are required before changing `pilot_executed`.
+  - Owner real-report pilots and explicit owner approval remain required before changing `default_route_safe`.

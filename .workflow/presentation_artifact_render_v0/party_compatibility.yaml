@@ -1,0 +1,19 @@
+workflow_id: presentation_artifact_render_v0
+kind: party_compatibility
+status: active
+compatible_party_templates:
+  - workflow_research_build_verify
+required_capabilities:
+  - approved_presentation_packet_or_storyline_reading
+  - template_identity_revision_and_hash_verification
+  - template_bound_editable_pptx_rendering
+  - content_fidelity_and_claim_critical_value_verification
+  - presentation_structure_and_layout_verification
+  - fresh_context_independent_fidelity_verification
+  - metadata_only_receipt_writing
+  - public_private_boundary_review
+notes:
+  - No party is bound by this seed package; classification does not grant execution authority.
+  - Concrete render and verification tools resolve through runtime bindings and are not named as workflow authority.
+  - A controlled fresh executor run under an immutable workflow revision and a separate fresh-context verification are required before any pilot-executed claim.
+  - Real owner-report pilots and explicit owner approval remain required before any default-route-safe, usable, or production-ready claim.
