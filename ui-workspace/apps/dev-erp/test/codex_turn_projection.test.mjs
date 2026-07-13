@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   rmSync,
   symlinkSync,
@@ -26,6 +27,7 @@ import {
 
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
+const TEMP_ROOT = realpathSync(tmpdir());
 
 function attachment(path, bytes, overrides = {}) {
   return {
@@ -61,7 +63,7 @@ function assertCode(code) {
 }
 
 test("projection copies only selected attachments and exposes no source path", async (t) => {
-  const root = mkdtempSync(join(tmpdir(), "dev-erp-projection-selected-"));
+  const root = mkdtempSync(join(TEMP_ROOT, "dev-erp-projection-selected-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const sourceRoot = join(root, "source-payloads", "ITEM-001");
   mkdirSync(sourceRoot, { recursive: true });
@@ -109,7 +111,7 @@ test("projection copies only selected attachments and exposes no source path", a
 });
 
 test("projected file or manifest tampering fails closed and is not cleaned up", async (t) => {
-  const root = mkdtempSync(join(tmpdir(), "dev-erp-projection-tamper-"));
+  const root = mkdtempSync(join(TEMP_ROOT, "dev-erp-projection-tamper-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const source = join(root, "source.txt");
   const bytes = Buffer.from("original", "utf8");
@@ -134,7 +136,7 @@ test("projected file or manifest tampering fails closed and is not cleaned up", 
     assertCode("projection_root_not_empty"),
   );
 
-  const secondRoot = mkdtempSync(join(tmpdir(), "dev-erp-projection-manifest-tamper-"));
+  const secondRoot = mkdtempSync(join(TEMP_ROOT, "dev-erp-projection-manifest-tamper-"));
   t.after(() => rmSync(secondRoot, { recursive: true, force: true }));
   const secondSource = join(secondRoot, "source.txt");
   writeFileSync(secondSource, bytes);
@@ -154,7 +156,7 @@ test("projected file or manifest tampering fails closed and is not cleaned up", 
 });
 
 test("one projection is globally active and any stale sibling blocks open, cleanup, and replacement", async (t) => {
-  const root = mkdtempSync(join(tmpdir(), "dev-erp-projection-single-active-"));
+  const root = mkdtempSync(join(TEMP_ROOT, "dev-erp-projection-single-active-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const source = join(root, "source.txt");
   const bytes = Buffer.from("single active", "utf8");
@@ -191,7 +193,7 @@ test("one projection is globally active and any stale sibling blocks open, clean
 });
 
 test("source symlinks and hardlinks are rejected before publication", async (t) => {
-  const root = mkdtempSync(join(tmpdir(), "dev-erp-projection-links-"));
+  const root = mkdtempSync(join(TEMP_ROOT, "dev-erp-projection-links-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const realSource = join(root, "real.txt");
   const bytes = Buffer.from("linked", "utf8");
@@ -219,7 +221,7 @@ test("source symlinks and hardlinks are rejected before publication", async (t) 
 });
 
 test("an ancestor junction cannot retarget the projection root", async (t) => {
-  const root = mkdtempSync(join(tmpdir(), "dev-erp-projection-ancestor-link-"));
+  const root = mkdtempSync(join(TEMP_ROOT, "dev-erp-projection-ancestor-link-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const realWorkerRoot = join(root, "real-worker-root");
   const linkedWorkerRoot = join(root, "linked-worker-root");
@@ -246,7 +248,7 @@ test("an ancestor junction cannot retarget the projection root", async (t) => {
 });
 
 test("source content changes or stale verified metadata never publish a projection", async (t) => {
-  const root = mkdtempSync(join(tmpdir(), "dev-erp-projection-source-change-"));
+  const root = mkdtempSync(join(TEMP_ROOT, "dev-erp-projection-source-change-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const source = join(root, "source.bin");
   const before = Buffer.alloc(8 * 1024 * 1024, 0x31);
@@ -270,7 +272,7 @@ test("source content changes or stale verified metadata never publish a projecti
 });
 
 test("traversal-like binding and attachment names are rejected without path-bearing errors", async (t) => {
-  const root = mkdtempSync(join(tmpdir(), "dev-erp-projection-traversal-"));
+  const root = mkdtempSync(join(TEMP_ROOT, "dev-erp-projection-traversal-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const source = join(root, "source.txt");
   const bytes = Buffer.from("fixture", "utf8");

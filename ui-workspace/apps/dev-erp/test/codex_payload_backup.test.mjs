@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   rmSync,
   symlinkSync,
@@ -61,7 +62,7 @@ function expectBackupError(fn, codes) {
 }
 
 async function createFixture({ nasNamespaces = false } = {}) {
-  const root = mkdtempSync(join(tmpdir(), "dev-erp-codex-backup-"));
+  const root = mkdtempSync(join(realpathSync(tmpdir()), "dev-erp-codex-backup-"));
   const databaseDir = join(root, "database");
   const attachmentRoot = join(root, "attachments");
   const messageRoot = join(root, "message-owner");

@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -21,6 +22,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readWorkerIdentity, startCodexDedicatedWorker } from "../src/codex_dedicated_worker.mjs";
 
 const APP_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const TEMP_ROOT = realpathSync(tmpdir());
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -95,7 +97,7 @@ async function waitForProjectionManifest(projectionRoot) {
 }
 
 test("ERP delegates model, workspace, attachment, and turn execution to the attested dedicated worker", async () => {
-  const root = mkdtempSync(join(tmpdir(), "dev-erp-worker-integration-"));
+  const root = mkdtempSync(join(TEMP_ROOT, "dev-erp-worker-integration-"));
   const workerHome = join(root, "worker-home");
   const workspaceRoot = join(root, "team-share", "project-56");
   const workspaceOwnerRoot = join(root, "_workspaces", "system");

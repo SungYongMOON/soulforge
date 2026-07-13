@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { classifyMailForTasks, intakeLlmProvider } from "../src/llm.mjs";
-import { parseCycleArgs, acquireLock, releaseLock, runCycle, buildProjectContextLines, enrichCandidateWithRules, teamMailDedupPrePass } from "../tools/auto_intake_cycle.mjs";
+import { parseCycleArgs, acquireLock, releaseLock, runCycle as runCycleImpl, buildProjectContextLines, enrichCandidateWithRules, teamMailDedupPrePass } from "../tools/auto_intake_cycle.mjs";
 import { openStore } from "../src/store.mjs";
 import { branchHintForProject, loadContextHintRules } from "../tools/haengbogwan_run.mjs";
 import { autoIntakeConfig, shouldRunAutoIntake } from "../src/mail_collect.mjs";
@@ -18,6 +18,13 @@ const PENDING = [
   { history_key: "20260701-001", subject: "[P99] 견적 검토 요청", from: "vendor@example.com", received_at: "2026-07-01T09:00:00", mailbox: "user@example.com", due_hint: "" },
   { history_key: "20260701-002", subject: "[광고] 뉴스레터", from: "news@example.com", received_at: "2026-07-01T10:00:00", mailbox: "user@example.com", due_hint: "" },
 ];
+
+function runCycle(opts, deps) {
+  return runCycleImpl({
+    ...opts,
+    knowledgeRoot: opts.knowledgeRoot ?? join(opts.workmeta, "knowledge_indexes"),
+  }, deps);
+}
 
 test("classifyMailForTasks: provider none 은 판단 없이 llm_unavailable", async () => {
   const r = await classifyMailForTasks(PENDING, { provider: "none" });

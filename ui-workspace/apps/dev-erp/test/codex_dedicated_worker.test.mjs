@@ -10,7 +10,7 @@ import {
   randomBytes,
 } from "node:crypto";
 import { createInterface } from "node:readline";
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,6 +36,7 @@ const WRONG_KEY_TOKEN = randomBytes(32).toString("base64url");
 const AUTH_VERSION = "dwh1";
 const RESPONSE_AUTH_VERSION = "dwhr1";
 const CHANNEL_AEAD_SCHEMA = "dev_erp.codex_worker_channel_aead.v1";
+const TEMP_ROOT = realpathSync(tmpdir());
 
 test("auto model selection upgrades a stale GPT-5.5 request when fresh GPT-5.6 is available", () => {
   const model = (slug, isDefault = false) => ({
@@ -325,7 +326,7 @@ function assertClientError(code, status) {
 }
 
 test("dedicated Codex worker is loopback/authenticated, reauthorizes logical workspaces, and never returns raw paths", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "dev-erp-dedicated-worker-"));
+  const dir = mkdtempSync(join(TEMP_ROOT, "dev-erp-dedicated-worker-"));
   const codexHome = join(dir, "codex-home");
   const workspaceRoot = join(dir, "team", "approved", "project-a");
   const docsRoot = join(workspaceRoot, "docs");
