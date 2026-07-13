@@ -114,9 +114,12 @@ signed channel에서 HKDF-SHA256으로 파생한 key로 AES-256-GCM 암호화하
 AES-256-GCM keyring의 `dwr2.<kid>.*` ref로 보관하므로 HMAC 키 회전은 기존 ref를
 무효화하지 않는다. ref key는 새 active key와 이전 key를 함께 두는 단계적 절차로
 회전한다. keyring을 잃은 스레드는 조용히 fallback하지 말고 명시적으로 retire한 뒤
-새 스레드로 연다. 기존 inline message와 부분 binding은
-먼저 `dev-erp:migrate-legacy-codex` dry-run을 검토하고 같은 명령에 `--apply`를
-추가해 owner 승인 mapping만 이행한다. 전체 절차와 명령은 runtime runbook을 따른다.
+새 스레드로 연다. 기존 inline message와 불완전한 workspace binding 전환은 runtime
+runbook의 maintenance 경계에서만 수행한다. 모든 불완전 binding을 retire하는 방안을
+검토할 때는 `--plan-retire-all`로 metadata-only candidate를 만들 수 있지만, 이 결과는
+owner-approved mapping이 아니며 어떤 변경도 적용하지 않는다. 실제 `--apply` 전에는
+v2 pre-migration backup과 전용 restore verification을 완료하고, 적용 뒤에는 release
+audit가 인정하는 새 v1 coherent backup/restore evidence를 다시 만든다.
 
 현재 개발 PC의 Codex 0.144.1 native Windows sandbox는 harmless outside-root read
 denial probe를 통과하지 못했다. 따라서 실제 팀 PC와 각 실제 UNC mapping에서 같은
@@ -205,6 +208,8 @@ npm run ops:backup-db -- --db data/dev-erp.db --nas-root <nas-root> --json
 npm run ops:restore-test -- --nas-root <nas-root> --json
 npm run ops:backup-codex-payloads -- --db data/dev-erp.db --attachment-root <soulforge-root>\_workspaces\system\dev-erp\codex-task-attachments --message-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --backup-root <nas-root>\03_codex_payload_backups
 npm run ops:restore-verify-codex-payloads -- --backup-root <nas-root>\03_codex_payload_backups --generation-id <cpb-generation-id> --restore-root <nas-root>\04_codex_payload_restore_tests
+npm run ops:backup-codex-payloads-pre-migration -- --db data/dev-erp.db --attachment-root <soulforge-root>\_workspaces\system\dev-erp\codex-task-attachments --message-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --backup-root <nas-root>\03_codex_payload_backups
+node tools/codex_payload_backup.mjs pre-migration-restore-verify --backup-root <nas-root>\03_codex_payload_backups --generation-id <pre-migration-generation-id> --restore-root <nas-root>\04_codex_payload_restore_tests
 ```
 
 From the Soulforge repo root:
@@ -215,6 +220,9 @@ npm run dev-erp:backup-runtime -- --db <runtime-db> --nas-root <nas-root> --json
 npm run dev-erp:restore-test -- --nas-root <nas-root> --json
 npm run dev-erp:backup-codex-payloads -- --db <runtime-db> --attachment-root <soulforge-root>\_workspaces\system\dev-erp\codex-task-attachments --message-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --backup-root <nas-root>\03_codex_payload_backups
 npm run dev-erp:restore-verify-codex-payloads -- --backup-root <nas-root>\03_codex_payload_backups --generation-id <cpb-generation-id> --restore-root <nas-root>\04_codex_payload_restore_tests
+npm run dev-erp:backup-codex-payloads-pre-migration -- --db <runtime-db> --attachment-root <soulforge-root>\_workspaces\system\dev-erp\codex-task-attachments --message-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --backup-root <nas-root>\03_codex_payload_backups
+node ui-workspace/apps/dev-erp/tools/codex_payload_backup.mjs pre-migration-restore-verify --backup-root <nas-root>\03_codex_payload_backups --generation-id <pre-migration-generation-id> --restore-root <nas-root>\04_codex_payload_restore_tests
+npm run dev-erp:migrate-legacy-codex -- --plan-retire-all --db <runtime-db> --expected-count <owner-confirmed-legacy-binding-count>
 ```
 
 The DB-only backup remains useful for frequent recovery points, but it is not a
@@ -223,6 +231,12 @@ maintenance lock and stop both the ERP service and the dedicated Codex worker
 so the DB pointers, immutable message objects, and attachment manifests cannot
 change across the generation boundary. Keep only the returned generation ID
 and manifest SHA-256 in release evidence; never copy payload bodies into logs.
+
+The existing `backup-codex-payloads` and `restore-verify-codex-payloads` commands
+produce v1 release evidence and continue to reject legacy inline messages. The
+explicit pre-migration command produces v2 rollback evidence for a legacy DB;
+it is not release evidence. Its restore verifier currently uses the direct
+`pre-migration-restore-verify` subcommand shown above.
 
 ## Runtime Corrections
 

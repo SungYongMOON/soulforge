@@ -57,7 +57,10 @@ npm run dev-erp:backup-runtime -- --db <runtime-db> --nas-root <nas-root> --json
 npm run dev-erp:restore-test -- --nas-root <nas-root> --json
 npm run dev-erp:backup-codex-payloads -- --db <runtime-db> --attachment-root <soulforge-root>\_workspaces\system\dev-erp\codex-task-attachments --message-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --backup-root <nas-root>\03_codex_payload_backups
 npm run dev-erp:restore-verify-codex-payloads -- --backup-root <nas-root>\03_codex_payload_backups --generation-id <cpb-generation-id> --restore-root <nas-root>\04_codex_payload_restore_tests
+npm run dev-erp:backup-codex-payloads-pre-migration -- --db <runtime-db> --attachment-root <soulforge-root>\_workspaces\system\dev-erp\codex-task-attachments --message-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --backup-root <nas-root>\03_codex_payload_backups
+node ui-workspace/apps/dev-erp/tools/codex_payload_backup.mjs pre-migration-restore-verify --backup-root <nas-root>\03_codex_payload_backups --generation-id <pre-migration-generation-id> --restore-root <nas-root>\04_codex_payload_restore_tests
 npm run dev-erp:codex-worker
+npm run dev-erp:migrate-legacy-codex -- --plan-retire-all --db <runtime-db> --expected-count <owner-confirmed-legacy-binding-count>
 npm run dev-erp:migrate-legacy-codex -- --db <runtime-db> --payload-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --mapping <owner-approved-mapping.json>
 npm run dev-erp:migrate-legacy-codex -- --db <runtime-db> --payload-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --mapping <owner-approved-mapping.json> --apply
 ```
@@ -69,6 +72,13 @@ that DB pointers, message objects, and attachment objects belong to one release
 boundary. Release evidence records only the generation ID, manifest SHA-256,
 bounded counts/sizes, and restore status; it never records message bodies,
 attachment names, raw roots, or Codex auth material.
+
+`dev-erp:backup-codex-payloads` and `dev-erp:restore-verify-codex-payloads` are
+v1 release-evidence commands. When legacy inline messages remain, use only the
+explicit `dev-erp:backup-codex-payloads-pre-migration` and
+`pre-migration-restore-verify` v2 path. v2 is rollback evidence and cannot
+satisfy the `--require-live` release audit. After migration, create and verify a
+new v1 generation before either service is released.
 
 ## Runtime Correction Patch Rule
 
@@ -223,8 +233,10 @@ fallback은 GPT-5.5 하나뿐이다. fallback 상태는 GPT-5.6 rollout 통과 �
 자동 선택한 GPT-5.6에서 GPT-5.5로 내려갈 때만, 기존 effort가 호환되지 않으면
 GPT-5.5 catalog가 광고한 `high`/기본/첫 허용 effort 순으로 다시 선택한다. 직접 선택한
 모델이나 같은 모델의 잘못된 effort는 자동 교체하지 않고 중단한다.
-legacy inline message/부분 binding은 restore-verified coherent backup 뒤 owner mapping
-dry-run이 모든 row를 bind 또는 retire할 때만 같은 명령의 `--apply`를 허용한다.
+legacy inline message와 불완전 binding은 restore-verified v2 pre-migration backup 뒤
+owner mapping dry-run이 모든 row를 정확히 bind 또는 retire할 때만 `--apply`를
+허용한다. 모두 retire하는 방안을 검토할 때의 `--plan-retire-all` 출력은 metadata-only
+candidate일 뿐 owner mapping이나 승인 상태가 아니다.
 
 ## 5. runtime clone 모델
 

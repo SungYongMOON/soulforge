@@ -101,6 +101,7 @@
     "dev-erp:backup-runtime": "node ui-workspace/apps/dev-erp/tools/runtime_ops.mjs backup-db",
     "dev-erp:restore-test": "node ui-workspace/apps/dev-erp/tools/runtime_ops.mjs restore-test",
     "dev-erp:backup-codex-payloads": "node ui-workspace/apps/dev-erp/tools/codex_payload_backup.mjs backup",
+    "dev-erp:backup-codex-payloads-pre-migration": "node ui-workspace/apps/dev-erp/tools/codex_payload_backup.mjs backup-pre-migration",
     "dev-erp:restore-verify-codex-payloads": "node ui-workspace/apps/dev-erp/tools/codex_payload_backup.mjs restore-verify",
     "dev-erp:codex-worker": "node ui-workspace/apps/dev-erp/tools/codex_dedicated_worker.mjs",
     "dev-erp:probe-codex-permission-boundary": "node ui-workspace/apps/dev-erp/tools/codex_permission_boundary_probe.mjs",

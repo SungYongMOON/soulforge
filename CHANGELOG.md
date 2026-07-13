@@ -7,6 +7,21 @@
   HTTP 400 서버 장애로 바뀌거나 다른 입력·버튼이 잠기지 않으며, 실제 인증 만료·5xx·네트워크
   실패에 대한 기존 fail-closed 동작은 유지한다. (worker: codex_gpt-5)
 
+### dev-ERP 레거시 Codex 전환 보호
+
+- 기존 v1 release backup을 유지하면서 complete externalized message와 pure legacy
+  inline message가 섞인 DB를 위한 명시적 v2 pre-migration backup/restore 경로를
+  추가했다. v2 manifest는 legacy body 대신 bounded metadata만 기록하고 partial/hybrid
+  상태를 거부하며, release audit는 v2를 release evidence로 인정하지 않는다.
+- `--plan-retire-all`은 incomplete binding만 metadata-only retire candidate로 만들고
+  complete binding은 제외한다. owner-confirmed count와 선택적 candidate SHA-256 drift
+  pin을 요구하며, 출력은 owner mapping이나 apply 권한을 만들지 않는다.
+- migration 중 같은 프로세스에서 포착된 실패는 DB rollback 뒤 해당 실행이 만든
+  payload만 정리한다. cleanup이 끝나지 않으면 path/body를 노출하지 않는 blocker를
+  남기며 crash recovery까지 주장하지 않는다.
+- backup CLI는 command별 flag allowlist를 적용하고, 알 수 없는 첫 command token을
+  출력하지 않은 채 고정 `kind: "invalid"`로 반환한다. (worker: codex_gpt-5)
+
 ### dev-ERP loopback 공존 LAN HTTPS proxy
 
 - 외부 controller가 `127.0.0.1:4300` backend를 복구하는 Windows 환경에서 backend를

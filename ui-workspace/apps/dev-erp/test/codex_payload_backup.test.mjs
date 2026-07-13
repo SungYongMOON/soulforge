@@ -8,6 +8,7 @@ import {
   readFileSync,
   realpathSync,
   readdirSync,
+  renameSync,
   rmSync,
   symlinkSync,
   unlinkSync,
@@ -27,10 +28,15 @@ import {
 import { createCodexMessagePayloadStore } from "../src/codex_message_payload_store.mjs";
 import {
   CODEX_PAYLOAD_BACKUP_SCHEMA,
+  CODEX_PAYLOAD_BACKUP_RESULT_SCHEMA,
+  CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_SCHEMA,
+  CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_RESULT_SCHEMA,
   CodexPayloadBackupError,
   createCodexPayloadBackup,
+  createPreMigrationCodexPayloadBackup,
   parseCodexPayloadBackupCli,
   restoreAndVerifyCodexPayloadBackup,
+  restoreAndVerifyPreMigrationCodexPayloadBackup,
 } from "../tools/codex_payload_backup.mjs";
 import { runRuntimeReleaseAudit } from "../tools/runtime_release_audit.mjs";
 
@@ -170,6 +176,8 @@ test("payload backup is WAL-safe, pointer-coherent, metadata-only, and atomicall
   const manifestText = readFileSync(join(generationDirectory, "generation-manifest.v1.json"), "utf8");
   const manifest = JSON.parse(manifestText);
   assert.equal(manifest.schema, CODEX_PAYLOAD_BACKUP_SCHEMA);
+  assert.deepEqual(Object.keys(manifest), ["schema", "generation_id", "created_at", "database", "messages", "attachments", "totals"]);
+  assert.equal(existsSync(join(generationDirectory, "generation-manifest.v2.json")), false);
   assert.equal(manifestText.includes(MESSAGE_TEXT), false);
   assert.equal(manifestText.includes(ATTACHMENT_NAME), false);
   assert.equal(manifestText.includes(fixture.root), false);
@@ -421,10 +429,69 @@ test("restore rejects uncommitted generations and the CLI surface stays path-fre
     generationId,
     restoreRoot: "restore-root",
   });
+  assert.deepEqual(parseCodexPayloadBackupCli([
+    "backup-pre-migration",
+    "--db", "database.sqlite",
+    "--attachment-root", "attachments",
+    "--message-root", "messages",
+    "--backup-root", "backups",
+    "--generation-id", generationId,
+  ]), {
+    command: "backup-pre-migration",
+    help: false,
+    dbPath: "database.sqlite",
+    attachmentRoot: "attachments",
+    messagePayloadRoot: "messages",
+    backupRoot: "backups",
+    generationId,
+    restoreRoot: null,
+  });
+  expectBackupError(
+    () => parseCodexPayloadBackupCli(["backup-pre-migration", "restore-verify"]),
+    ["cli_argument_invalid"],
+  );
+  expectBackupError(
+    () => parseCodexPayloadBackupCli(["backup-pre-migration", "--unexpected", "value"]),
+    ["cli_argument_invalid"],
+  );
+  expectBackupError(
+    () => parseCodexPayloadBackupCli(["restore-verify", "--db", "database.sqlite"]),
+    ["cli_argument_invalid"],
+  );
   const help = spawnSync(process.execPath, [TOOL, "--help"], { encoding: "utf8" });
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /restore-verify/);
   assert.equal(help.stdout.includes(fixture.root), false);
+  const failedPreMigration = spawnSync(process.execPath, [TOOL, "backup-pre-migration"], { encoding: "utf8" });
+  assert.equal(failedPreMigration.status, 1);
+  assert.deepEqual(JSON.parse(failedPreMigration.stdout), {
+    schema: CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_RESULT_SCHEMA,
+    kind: "backup-pre-migration",
+    ok: false,
+    error: "database_path_required",
+  });
+  const rejectedFlag = spawnSync(
+    process.execPath,
+    [TOOL, "backup-pre-migration", "--unexpected", "value"],
+    { encoding: "utf8" },
+  );
+  assert.equal(rejectedFlag.status, 1);
+  assert.deepEqual(JSON.parse(rejectedFlag.stdout), {
+    schema: CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_RESULT_SCHEMA,
+    kind: "backup-pre-migration",
+    ok: false,
+    error: "cli_argument_invalid",
+  });
+  const unknownCommandSentinel = "SENTINEL_UNKNOWN_COMMAND_MUST_NOT_ECHO";
+  const rejectedCommand = spawnSync(process.execPath, [TOOL, unknownCommandSentinel], { encoding: "utf8" });
+  assert.equal(rejectedCommand.status, 1);
+  assert.deepEqual(JSON.parse(rejectedCommand.stdout), {
+    schema: CODEX_PAYLOAD_BACKUP_RESULT_SCHEMA,
+    kind: "invalid",
+    ok: false,
+    error: "cli_argument_invalid",
+  });
+  assert.equal(`${rejectedCommand.stdout}\n${rejectedCommand.stderr}`.includes(unknownCommandSentinel), false);
 });
 
 test("required roots are explicit and backup/restore roots cannot overlap protected inputs", async (t) => {
@@ -448,4 +515,209 @@ test("required roots are explicit and backup/restore roots cannot overlap protec
     generationId,
     restoreRoot: fixture.backupRoot,
   }), ["restore_root_overlaps_backup"]);
+});
+
+test("explicit pre-migration backup snapshots mixed complete and pure legacy messages without body leakage", async (t) => {
+  const fixture = await createFixture();
+  t.after(() => {
+    try { fixture.db.close(); } catch {}
+    rmSync(fixture.root, { recursive: true, force: true });
+  });
+  const legacyBodies = [
+    "legacy body alpha must remain only in sqlite",
+    "legacy body beta must remain only in sqlite",
+  ];
+  fixture.db.prepare(
+    `INSERT INTO codex_thread_message(item_id,role,text,payload_ref,payload_byte_length,payload_sha256)
+     VALUES(?,?,?,NULL,NULL,NULL)`,
+  ).run(fixture.itemId, "assistant", legacyBodies[0]);
+  fixture.db.prepare(
+    `INSERT INTO codex_thread_message(item_id,role,text,payload_ref,payload_byte_length,payload_sha256)
+     VALUES(?,?,?,NULL,NULL,NULL)`,
+  ).run(fixture.itemId, "user", legacyBodies[1]);
+
+  assert.throws(
+    () => backupFixture(fixture, "cpb_legacy_default_reject"),
+    (error) => error instanceof CodexPayloadBackupError && error.code === "database_message_payload_ref_invalid",
+  );
+
+  const generationId = "cpb_legacy_mixed_v2_01";
+  const backup = createPreMigrationCodexPayloadBackup({
+    dbPath: fixture.dbPath,
+    attachmentRoot: fixture.attachmentRoot,
+    messagePayloadRoot: fixture.messageRoot,
+    backupRoot: fixture.backupRoot,
+    generationId,
+    now: new Date("2026-07-13T06:00:00.000Z"),
+  });
+  assert.equal(backup.kind, "pre_migration_backup");
+  assert.equal(backup.schema, CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_RESULT_SCHEMA);
+  assert.deepEqual(backup.messages, {
+    count: 3,
+    bytes: Buffer.byteLength(MESSAGE_TEXT) + legacyBodies.reduce((sum, body) => sum + Buffer.byteLength(body), 0),
+    externalized_count: 1,
+    legacy_count: 2,
+  });
+
+  const generationDirectory = join(fixture.backupRoot, generationId);
+  assert.equal(existsSync(join(generationDirectory, "generation-manifest.v1.json")), false);
+  const manifestText = readFileSync(join(generationDirectory, "generation-manifest.v2.json"), "utf8");
+  const manifest = JSON.parse(manifestText);
+  assert.equal(manifest.schema, CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_SCHEMA);
+  assert.deepEqual(manifest.legacy_messages.map((row) => row.id), [2, 3]);
+  assert.deepEqual(manifest.legacy_messages.map((row) => row.byte_length), legacyBodies.map((body) => Buffer.byteLength(body)));
+  assert.ok(manifest.legacy_messages.every((row) => /^[a-f0-9]{64}$/.test(row.sha256)));
+  assert.equal(readdirSync(join(generationDirectory, "message-objects")).length, 1);
+  for (const forbidden of [...legacyBodies, MESSAGE_TEXT, fixture.root]) {
+    assert.equal(manifestText.includes(forbidden), false);
+    assert.equal(JSON.stringify(backup).includes(forbidden), false);
+  }
+
+  expectBackupError(() => restoreAndVerifyCodexPayloadBackup({
+    backupRoot: fixture.backupRoot,
+    generationId,
+    restoreRoot: fixture.restoreRoot,
+  }), ["generation_manifest_mode_mismatch"]);
+  const restored = restoreAndVerifyPreMigrationCodexPayloadBackup({
+    backupRoot: fixture.backupRoot,
+    generationId,
+    restoreRoot: fixture.restoreRoot,
+    now: new Date("2026-07-13T06:01:00.000Z"),
+  });
+  assert.equal(restored.schema, CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_RESULT_SCHEMA);
+  assert.equal(restored.kind, "pre_migration_restore_verify");
+  assert.deepEqual(restored.messages, backup.messages);
+  const restoredDb = new DatabaseSync(join(fixture.restoreRoot, generationId, "database.sqlite"), { readOnly: true });
+  try {
+    const rows = restoredDb.prepare(
+      "SELECT id,text,payload_ref,payload_byte_length,payload_sha256 FROM codex_thread_message ORDER BY id",
+    ).all();
+    assert.equal(rows[0].text, fixture.payload.payload_ref);
+    assert.deepEqual(rows.slice(1).map((row) => row.text), legacyBodies);
+    assert.ok(rows.slice(1).every((row) => row.payload_ref === null && row.payload_byte_length === null && row.payload_sha256 === null));
+  } finally {
+    restoredDb.close();
+  }
+});
+
+test("pre-migration backup rejects hybrid partial messages and restore recomputes legacy metadata", async (t) => {
+  const fixture = await createFixture();
+  t.after(() => {
+    try { fixture.db.close(); } catch {}
+    rmSync(fixture.root, { recursive: true, force: true });
+  });
+  fixture.db.prepare(
+    `INSERT INTO codex_thread_message(item_id,role,text,payload_ref,payload_byte_length,payload_sha256)
+     VALUES(?,?,?,NULL,?,NULL)`,
+  ).run(fixture.itemId, "user", "partial legacy body", 19);
+  expectBackupError(() => createPreMigrationCodexPayloadBackup({
+    dbPath: fixture.dbPath,
+    attachmentRoot: fixture.attachmentRoot,
+    messagePayloadRoot: fixture.messageRoot,
+    backupRoot: fixture.backupRoot,
+    generationId: "cpb_legacy_partial_01",
+  }), ["database_message_partial_state"]);
+
+  fixture.db.prepare("DELETE FROM codex_thread_message WHERE id=2").run();
+  const legacyBody = "legacy metadata recomputation sentinel";
+  fixture.db.prepare(
+    `INSERT INTO codex_thread_message(item_id,role,text,payload_ref,payload_byte_length,payload_sha256)
+     VALUES(?,?,?,NULL,NULL,NULL)`,
+  ).run(fixture.itemId, "assistant", legacyBody);
+  const generationId = "cpb_legacy_tamper_01";
+  createPreMigrationCodexPayloadBackup({
+    dbPath: fixture.dbPath,
+    attachmentRoot: fixture.attachmentRoot,
+    messagePayloadRoot: fixture.messageRoot,
+    backupRoot: fixture.backupRoot,
+    generationId,
+  });
+  const generationDirectory = join(fixture.backupRoot, generationId);
+  const manifestPath = join(generationDirectory, "generation-manifest.v2.json");
+  const wrongManifestPath = join(generationDirectory, "generation-manifest.v1.json");
+  renameSync(manifestPath, wrongManifestPath);
+  expectBackupError(() => restoreAndVerifyPreMigrationCodexPayloadBackup({
+    backupRoot: fixture.backupRoot,
+    generationId,
+    restoreRoot: fixture.restoreRoot,
+  }), ["generation_manifest_filename_schema_mismatch"]);
+  renameSync(wrongManifestPath, manifestPath);
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  manifest.legacy_messages[0].sha256 = "0".repeat(64);
+  const tamperedBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  writeFileSync(manifestPath, tamperedBytes);
+  writeFileSync(join(generationDirectory, "COMMITTED"), `${sha256(tamperedBytes)}\n`, "ascii");
+  expectBackupError(() => restoreAndVerifyPreMigrationCodexPayloadBackup({
+    backupRoot: fixture.backupRoot,
+    generationId,
+    restoreRoot: fixture.restoreRoot,
+  }), ["restored_database_legacy_metadata_mismatch"]);
+});
+
+test("runtime release evidence does not accept a v2 pre-migration generation", async (t) => {
+  const fixture = await createFixture({ nasNamespaces: true });
+  t.after(() => {
+    try { fixture.db.close(); } catch {}
+    rmSync(fixture.root, { recursive: true, force: true });
+  });
+  fixture.db.prepare(
+    `INSERT INTO codex_thread_message(item_id,role,text,payload_ref,payload_byte_length,payload_sha256)
+     VALUES(?,?,?,NULL,NULL,NULL)`,
+  ).run(fixture.itemId, "user", "legacy release evidence must be rejected");
+  createPreMigrationCodexPayloadBackup({
+    dbPath: fixture.dbPath,
+    attachmentRoot: fixture.attachmentRoot,
+    messagePayloadRoot: fixture.messageRoot,
+    backupRoot: fixture.backupRoot,
+    generationId: "cpb_release_reject_v2",
+  });
+  const audit = await runRuntimeReleaseAudit({
+    sourceRoot: fixture.root,
+    runtimeRoot: fixture.root,
+    appRoot: resolve(HERE, ".."),
+    dbPath: fixture.dbPath,
+    metaPath: join(fixture.root, "missing-real-meta.json"),
+    workspacesDir: join(fixture.root, "_workspaces"),
+    nasRoot: fixture.nasRoot,
+    skipGit: true,
+    targetMembers: 0,
+  });
+  const issue = [...audit.blockers, ...audit.warnings]
+    .find((entry) => entry.code === "codex_payload_backup_latest_invalid");
+  assert.equal(issue?.error_code, "manifest_file_invalid");
+});
+
+test("pre-migration backup and restore support an all-legacy DB without an initialized payload service", async (t) => {
+  const fixture = await createFixture();
+  t.after(() => {
+    try { fixture.db.close(); } catch {}
+    rmSync(fixture.root, { recursive: true, force: true });
+  });
+  fixture.db.prepare("DELETE FROM codex_thread_message").run();
+  fixture.db.prepare(
+    `INSERT INTO codex_thread_message(item_id,role,text,payload_ref,payload_byte_length,payload_sha256)
+     VALUES(?,?,?,NULL,NULL,NULL)`,
+  ).run(fixture.itemId, "user", "only legacy body");
+  rmSync(fixture.messageRoot, { recursive: true, force: true });
+  mkdirSync(fixture.messageRoot);
+  const generationId = "cpb_all_legacy_v2_01";
+  const backup = createPreMigrationCodexPayloadBackup({
+    dbPath: fixture.dbPath,
+    attachmentRoot: fixture.attachmentRoot,
+    messagePayloadRoot: fixture.messageRoot,
+    backupRoot: fixture.backupRoot,
+    generationId,
+  });
+  assert.deepEqual(backup.messages, {
+    count: 1,
+    bytes: Buffer.byteLength("only legacy body"),
+    externalized_count: 0,
+    legacy_count: 1,
+  });
+  const restored = restoreAndVerifyPreMigrationCodexPayloadBackup({
+    backupRoot: fixture.backupRoot,
+    generationId,
+    restoreRoot: fixture.restoreRoot,
+  });
+  assert.equal(restored.ok, true);
 });

@@ -34,11 +34,14 @@ import {
 } from "../src/codex_attachment_registry.mjs";
 import {
   CODEX_MESSAGE_PAYLOAD_SCHEMA,
+  DEFAULT_CODEX_MESSAGE_PAYLOAD_MAX_BYTES,
   validateMessagePayloadRef,
 } from "../src/codex_message_payload_store.mjs";
 
 export const CODEX_PAYLOAD_BACKUP_SCHEMA = "dev_erp.codex_payload_backup_generation.v1";
+export const CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_SCHEMA = "dev_erp.codex_payload_backup_generation.v2";
 export const CODEX_PAYLOAD_BACKUP_RESULT_SCHEMA = "dev_erp.codex_payload_backup_result.v1";
+export const CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_RESULT_SCHEMA = "dev_erp.codex_payload_backup_result.v2";
 
 const ATTACHMENT_MANIFEST_FILE = "codex-attachment-manifest.v1.json";
 const MESSAGE_SERVICE_DIRECTORY = ".dev-erp-codex-message-payloads-v1";
@@ -46,6 +49,7 @@ const MESSAGE_ITEMS_DIRECTORY = "items";
 const MESSAGE_PAYLOAD_FILE = "payload.json";
 const MESSAGE_COMMIT_FILE = "committed";
 const GENERATION_MANIFEST_FILE = "generation-manifest.v1.json";
+const PRE_MIGRATION_GENERATION_MANIFEST_FILE = "generation-manifest.v2.json";
 const GENERATION_COMMIT_FILE = "COMMITTED";
 const RESTORE_COMMIT_FILE = "RESTORE_VERIFIED";
 const DATABASE_OBJECT_FILE = "database.sqlite";
@@ -630,11 +634,74 @@ function normalizeMessageRow(row) {
   };
 }
 
-function collectMessages({ dbPath, messageRoot, objectDirectory, maxRecords, maxEnvelopeBytes, budget }) {
-  const rows = readDatabaseMessageRows(dbPath, maxRecords).map(normalizeMessageRow);
+function normalizeLegacyMessageRow(row) {
+  const id = Number(row.id);
+  const itemId = normalizeItemId(row.item_id);
+  const role = String(row.role ?? "");
+  const noPayloadRef = row.payload_ref === null || row.payload_ref === "";
+  if (
+    !Number.isSafeInteger(id)
+    || id < 1
+    || !noPayloadRef
+    || row.payload_byte_length !== null
+    || row.payload_sha256 !== null
+    || !MESSAGE_ROLES.has(role)
+    || typeof row.text !== "string"
+    || !isWellFormedUnicode(row.text)
+  ) {
+    fail("database_message_partial_state");
+  }
+  const bytes = Buffer.from(row.text, "utf8");
+  if (bytes.length < 1 || bytes.length > DEFAULT_CODEX_MESSAGE_PAYLOAD_MAX_BYTES) {
+    fail("database_message_partial_state");
+  }
+  return {
+    id,
+    item_id: itemId,
+    role,
+    byte_length: bytes.length,
+    sha256: sha256Bytes(bytes),
+  };
+}
+
+function classifyDatabaseMessageRows(dbPath, maxRecords, { allowLegacyMessages }) {
+  const complete = [];
+  const legacy = [];
+  const seenIds = new Set();
+  for (const row of readDatabaseMessageRows(dbPath, maxRecords)) {
+    if (allowLegacyMessages) {
+      const id = Number(row.id);
+      if (!Number.isSafeInteger(id) || id < 1 || seenIds.has(id)) fail("database_message_partial_state");
+      seenIds.add(id);
+    }
+    try {
+      complete.push(normalizeMessageRow(row));
+      continue;
+    } catch (error) {
+      if (!allowLegacyMessages) throw error;
+    }
+    legacy.push(normalizeLegacyMessageRow(row));
+  }
+  return { complete, legacy };
+}
+
+function collectMessages({
+  dbPath,
+  messageRoot,
+  objectDirectory,
+  maxRecords,
+  maxEnvelopeBytes,
+  budget,
+  allowLegacyMessages,
+}) {
+  const classified = classifyDatabaseMessageRows(dbPath, maxRecords, { allowLegacyMessages });
+  const rows = classified.complete;
   const seen = new Set();
-  const service = assertChildDirectory(join(messageRoot.real, MESSAGE_SERVICE_DIRECTORY), messageRoot, "message_service_root_invalid");
-  const items = assertChildDirectory(join(service.real, MESSAGE_ITEMS_DIRECTORY), service, "message_items_root_invalid");
+  let items = null;
+  if (rows.length || !allowLegacyMessages) {
+    const service = assertChildDirectory(join(messageRoot.real, MESSAGE_SERVICE_DIRECTORY), messageRoot, "message_service_root_invalid");
+    items = assertChildDirectory(join(service.real, MESSAGE_ITEMS_DIRECTORY), service, "message_items_root_invalid");
+  }
   const inventory = [];
   for (const row of rows) {
     if (seen.has(row.payload_ref)) fail("database_duplicate_message_payload_ref");
@@ -666,7 +733,7 @@ function collectMessages({ dbPath, messageRoot, objectDirectory, maxRecords, max
     inventory.push({ ...row, ...verified });
   }
   assertPinnedRootStable(messageRoot, "message_owner_root_retargeted");
-  return inventory;
+  return { messages: inventory, legacyMessages: classified.legacy };
 }
 
 function listPlainChildDirectories(root) {
@@ -777,7 +844,7 @@ function safeCleanupPartial(path, parent, prefix) {
   }
 }
 
-export function createCodexPayloadBackup({
+function createCodexPayloadBackupGeneration({
   dbPath,
   attachmentRoot,
   messagePayloadRoot,
@@ -788,6 +855,7 @@ export function createCodexPayloadBackup({
   maxTotalBytes = DEFAULT_MAX_TOTAL_BYTES,
   maxMessageEnvelopeBytes = DEFAULT_MAX_MESSAGE_ENVELOPE_BYTES,
   maxAttachmentBytes = DEFAULT_MAX_ATTACHMENT_BYTES,
+  allowLegacyMessages = false,
 } = {}) {
   const recordsLimit = validatePositiveLimit(maxRecords, DEFAULT_MAX_RECORDS, "max_records_invalid");
   const totalLimit = validatePositiveLimit(maxTotalBytes, DEFAULT_MAX_TOTAL_BYTES, "max_total_bytes_invalid");
@@ -824,14 +892,17 @@ export function createCodexPayloadBackup({
     const database = snapshotDatabase(databaseRoot, databasePath, databaseObjectPath);
     const budget = { bytes: database.size, limit: totalLimit };
     if (budget.bytes > budget.limit) fail("backup_total_size_limit_exceeded");
-    const messageInventory = collectMessages({
+    const collectedMessages = collectMessages({
       dbPath: databaseObjectPath,
       messageRoot: messages,
       objectDirectory: messageObjects,
       maxRecords: recordsLimit,
       maxEnvelopeBytes: envelopeLimit,
       budget,
+      allowLegacyMessages,
     });
+    const messageInventory = collectedMessages.messages;
+    const legacyMessageInventory = collectedMessages.legacyMessages;
     const attachmentInventory = collectAttachments({
       attachmentRoot: attachments,
       objectDirectory: attachmentObjects,
@@ -842,8 +913,21 @@ export function createCodexPayloadBackup({
     });
     assertPinnedRootStable(databaseRoot, "database_root_retargeted");
     assertPinnedRootStable(backups, "backup_root_retargeted");
+    const totals = {
+      message_count: messageInventory.length + legacyMessageInventory.length,
+      message_bytes: sumInventory(messageInventory, "message")
+        + legacyMessageInventory.reduce((sum, row) => sum + row.byte_length, 0),
+      attachment_count: attachmentInventory.reduce((sum, row) => sum + row.files.length, 0),
+      attachment_bytes: sumInventory(attachmentInventory, "attachment"),
+      generation_payload_bytes: budget.bytes,
+    };
+    if (allowLegacyMessages) {
+      totals.externalized_message_count = messageInventory.length;
+      totals.legacy_message_count = legacyMessageInventory.length;
+      totals.legacy_message_bytes = legacyMessageInventory.reduce((sum, row) => sum + row.byte_length, 0);
+    }
     const manifest = {
-      schema: CODEX_PAYLOAD_BACKUP_SCHEMA,
+      schema: allowLegacyMessages ? CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_SCHEMA : CODEX_PAYLOAD_BACKUP_SCHEMA,
       generation_id: id,
       created_at: now.toISOString(),
       database: {
@@ -852,33 +936,38 @@ export function createCodexPayloadBackup({
         quick_check: "ok",
       },
       messages: messageInventory,
+      ...(allowLegacyMessages ? { legacy_messages: legacyMessageInventory } : {}),
       attachments: attachmentInventory,
-      totals: {
-        message_count: messageInventory.length,
-        message_bytes: sumInventory(messageInventory, "message"),
-        attachment_count: attachmentInventory.reduce((sum, row) => sum + row.files.length, 0),
-        attachment_bytes: sumInventory(attachmentInventory, "attachment"),
-        generation_payload_bytes: budget.bytes,
-      },
+      totals,
     };
     const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, "utf8");
     if (manifestBytes.length > MAX_MANIFEST_BYTES) fail("generation_manifest_too_large");
     if (budget.bytes + manifestBytes.length + 65 > budget.limit) fail("backup_total_size_limit_exceeded");
     const manifestSha256 = sha256Bytes(manifestBytes);
-    writeExclusiveBytes(join(partial.real, GENERATION_MANIFEST_FILE), manifestBytes);
+    writeExclusiveBytes(join(
+      partial.real,
+      allowLegacyMessages ? PRE_MIGRATION_GENERATION_MANIFEST_FILE : GENERATION_MANIFEST_FILE,
+    ), manifestBytes);
     writeExclusiveBytes(join(partial.real, GENERATION_COMMIT_FILE), Buffer.from(`${manifestSha256}\n`, "ascii"));
     syncDirectoryBestEffort(partial.real);
     renameSync(partial.real, finalDirectory);
     syncDirectoryBestEffort(backups.real);
     return Object.freeze({
-      schema: CODEX_PAYLOAD_BACKUP_RESULT_SCHEMA,
-      kind: "backup",
+      schema: allowLegacyMessages ? CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_RESULT_SCHEMA : CODEX_PAYLOAD_BACKUP_RESULT_SCHEMA,
+      kind: allowLegacyMessages ? "pre_migration_backup" : "backup",
       ok: true,
       generation_id: id,
       created_at: now.toISOString(),
       manifest_sha256: manifestSha256,
       database: Object.freeze({ bytes: database.size, sha256: database.sha256, quick_check: "ok" }),
-      messages: Object.freeze({ count: manifest.totals.message_count, bytes: manifest.totals.message_bytes }),
+      messages: Object.freeze({
+        count: manifest.totals.message_count,
+        bytes: manifest.totals.message_bytes,
+        ...(allowLegacyMessages ? {
+          externalized_count: manifest.totals.externalized_message_count,
+          legacy_count: manifest.totals.legacy_message_count,
+        } : {}),
+      }),
       attachments: Object.freeze({ count: manifest.totals.attachment_count, bytes: manifest.totals.attachment_bytes }),
     });
   } catch (error) {
@@ -888,16 +977,49 @@ export function createCodexPayloadBackup({
   }
 }
 
+export function createCodexPayloadBackup(options = {}) {
+  return createCodexPayloadBackupGeneration({ ...options, allowLegacyMessages: false });
+}
+
+export function createPreMigrationCodexPayloadBackup(options = {}) {
+  return createCodexPayloadBackupGeneration({ ...options, allowLegacyMessages: true });
+}
+
 const TOP_MANIFEST_KEYS = new Set(["schema", "generation_id", "created_at", "database", "messages", "attachments", "totals"]);
+const PRE_MIGRATION_TOP_MANIFEST_KEYS = new Set([
+  "schema",
+  "generation_id",
+  "created_at",
+  "database",
+  "messages",
+  "legacy_messages",
+  "attachments",
+  "totals",
+]);
 const DATABASE_MANIFEST_KEYS = new Set(["bytes", "sha256", "quick_check"]);
 const MESSAGE_MANIFEST_KEYS = new Set(["item_id", "payload_ref", "role", "byte_length", "sha256", "envelope_bytes", "envelope_sha256"]);
+const LEGACY_MESSAGE_MANIFEST_KEYS = new Set(["id", "item_id", "role", "byte_length", "sha256"]);
 const ATTACHMENT_GROUP_KEYS = new Set(["item_id", "manifest_bytes", "manifest_sha256", "files"]);
 const ATTACHMENT_FILE_KEYS = new Set(["attachment_id", "size", "sha256", "type"]);
 const TOTALS_KEYS = new Set(["message_count", "message_bytes", "attachment_count", "attachment_bytes", "generation_payload_bytes"]);
+const PRE_MIGRATION_TOTALS_KEYS = new Set([
+  ...TOTALS_KEYS,
+  "externalized_message_count",
+  "legacy_message_count",
+  "legacy_message_bytes",
+]);
 
 function validateGenerationManifest(document, generationId, maxRecords, maxTotalBytes) {
-  assertExactKeys(document, TOP_MANIFEST_KEYS, "generation_manifest_invalid");
-  if (document.schema !== CODEX_PAYLOAD_BACKUP_SCHEMA || document.generation_id !== generationId) {
+  const preMigration = document?.schema === CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_SCHEMA;
+  if (!preMigration && document?.schema !== CODEX_PAYLOAD_BACKUP_SCHEMA) {
+    fail("generation_manifest_identity_invalid");
+  }
+  assertExactKeys(
+    document,
+    preMigration ? PRE_MIGRATION_TOP_MANIFEST_KEYS : TOP_MANIFEST_KEYS,
+    "generation_manifest_invalid",
+  );
+  if (document.generation_id !== generationId) {
     fail("generation_manifest_identity_invalid");
   }
   if (typeof document.created_at !== "string" || !Number.isFinite(Date.parse(document.created_at))) fail("generation_manifest_time_invalid");
@@ -926,6 +1048,30 @@ function validateGenerationManifest(document, generationId, maxRecords, maxTotal
       fail("generation_message_manifest_invalid");
     }
     return { ...normalized, envelope_bytes: row.envelope_bytes, envelope_sha256: row.envelope_sha256 };
+  });
+  const legacyMessages = preMigration ? document.legacy_messages : [];
+  if (!Array.isArray(legacyMessages) || messages.length + legacyMessages.length > maxRecords) {
+    fail("generation_legacy_messages_manifest_invalid");
+  }
+  const seenLegacyIds = new Set();
+  const normalizedLegacyMessages = legacyMessages.map((row) => {
+    assertExactKeys(row, LEGACY_MESSAGE_MANIFEST_KEYS, "generation_legacy_message_manifest_invalid");
+    if (!Number.isSafeInteger(row.id) || row.id < 1 || seenLegacyIds.has(row.id)) {
+      fail("generation_legacy_message_manifest_invalid");
+    }
+    seenLegacyIds.add(row.id);
+    const itemId = normalizeItemId(row.item_id);
+    const role = String(row.role ?? "");
+    if (
+      !MESSAGE_ROLES.has(role)
+      || !Number.isSafeInteger(row.byte_length)
+      || row.byte_length < 1
+      || row.byte_length > DEFAULT_CODEX_MESSAGE_PAYLOAD_MAX_BYTES
+      || !SHA256_RE.test(String(row.sha256 ?? ""))
+    ) {
+      fail("generation_legacy_message_manifest_invalid");
+    }
+    return { id: row.id, item_id: itemId, role, byte_length: row.byte_length, sha256: row.sha256 };
   });
   if (!Array.isArray(document.attachments) || document.attachments.length > maxRecords) fail("generation_attachments_manifest_invalid");
   const seenItems = new Set();
@@ -960,13 +1106,23 @@ function validateGenerationManifest(document, generationId, maxRecords, maxTotal
       files,
     };
   });
-  assertExactKeys(document.totals, TOTALS_KEYS, "generation_totals_invalid");
+  assertExactKeys(
+    document.totals,
+    preMigration ? PRE_MIGRATION_TOTALS_KEYS : TOTALS_KEYS,
+    "generation_totals_invalid",
+  );
   const expectedTotals = {
-    message_count: messages.length,
-    message_bytes: sumInventory(messages, "message"),
+    message_count: messages.length + normalizedLegacyMessages.length,
+    message_bytes: sumInventory(messages, "message")
+      + normalizedLegacyMessages.reduce((sum, row) => sum + row.byte_length, 0),
     attachment_count: attachmentCount,
     attachment_bytes: sumInventory(attachments, "attachment"),
   };
+  if (preMigration) {
+    expectedTotals.externalized_message_count = messages.length;
+    expectedTotals.legacy_message_count = normalizedLegacyMessages.length;
+    expectedTotals.legacy_message_bytes = normalizedLegacyMessages.reduce((sum, row) => sum + row.byte_length, 0);
+  }
   for (const [key, expected] of Object.entries(expectedTotals)) {
     if (document.totals[key] !== expected) fail("generation_totals_mismatch");
   }
@@ -980,29 +1136,50 @@ function validateGenerationManifest(document, generationId, maxRecords, maxTotal
   ) {
     fail("generation_totals_invalid");
   }
-  return { ...document, messages, attachments };
+  return {
+    ...document,
+    messages,
+    legacy_messages: normalizedLegacyMessages,
+    attachments,
+    pre_migration: preMigration,
+  };
 }
 
-function readCommittedGeneration(backupRoot, generationId, maxRecords, maxTotalBytes) {
+function readCommittedGeneration(backupRoot, generationId, maxRecords, maxTotalBytes, { expectPreMigration }) {
   const generation = assertChildDirectory(join(backupRoot.real, generationId), backupRoot, "generation_unavailable");
-  const manifestFile = readVerifiedFile(join(generation.real, GENERATION_MANIFEST_FILE), generation, { maxBytes: MAX_MANIFEST_BYTES });
+  const v1ManifestPath = join(generation.real, GENERATION_MANIFEST_FILE);
+  const v2ManifestPath = join(generation.real, PRE_MIGRATION_GENERATION_MANIFEST_FILE);
+  const present = [v1ManifestPath, v2ManifestPath].filter((path) => existsSync(path));
+  if (present.length !== 1) fail("generation_manifest_file_ambiguous");
+  const manifestFile = readVerifiedFile(present[0], generation, { maxBytes: MAX_MANIFEST_BYTES });
   const commitFile = readVerifiedFile(join(generation.real, GENERATION_COMMIT_FILE), generation, { maxBytes: 65 });
   if (commitFile.bytes.toString("ascii") !== `${manifestFile.sha256}\n`) fail("generation_commit_invalid");
   let document;
   try { document = JSON.parse(manifestFile.bytes.toString("utf8")); }
   catch { fail("generation_manifest_json_invalid"); }
   const manifest = validateGenerationManifest(document, generationId, maxRecords, maxTotalBytes);
+  const expectedFilename = manifest.pre_migration ? PRE_MIGRATION_GENERATION_MANIFEST_FILE : GENERATION_MANIFEST_FILE;
+  if (basename(present[0]) !== expectedFilename) fail("generation_manifest_filename_schema_mismatch");
+  if (manifest.pre_migration !== expectPreMigration) fail("generation_manifest_mode_mismatch");
   return { generation, manifest, manifest_sha256: manifestFile.sha256 };
 }
 
-function compareDatabaseRowsToManifest(dbPath, manifestMessages, maxRecords) {
-  const rows = readDatabaseMessageRows(dbPath, maxRecords).map(normalizeMessageRow);
-  if (rows.length !== manifestMessages.length) fail("restored_database_pointer_count_mismatch");
-  for (let index = 0; index < rows.length; index += 1) {
-    const left = rows[index];
+function compareDatabaseRowsToManifest(dbPath, manifestMessages, manifestLegacyMessages, maxRecords, { preMigration }) {
+  const rows = classifyDatabaseMessageRows(dbPath, maxRecords, { allowLegacyMessages: preMigration });
+  if (rows.complete.length !== manifestMessages.length) fail("restored_database_pointer_count_mismatch");
+  for (let index = 0; index < rows.complete.length; index += 1) {
+    const left = rows.complete[index];
     const right = manifestMessages[index];
     for (const key of ["item_id", "payload_ref", "role", "byte_length", "sha256"]) {
       if (left[key] !== right[key]) fail("restored_database_pointer_mismatch");
+    }
+  }
+  if (rows.legacy.length !== manifestLegacyMessages.length) fail("restored_database_legacy_count_mismatch");
+  for (let index = 0; index < rows.legacy.length; index += 1) {
+    const left = rows.legacy[index];
+    const right = manifestLegacyMessages[index];
+    for (const key of ["id", "item_id", "role", "byte_length", "sha256"]) {
+      if (left[key] !== right[key]) fail("restored_database_legacy_metadata_mismatch");
     }
   }
 }
@@ -1074,9 +1251,17 @@ function restoreAttachments({ generation, restoreRoot, attachments, maxAttachmen
   return owner;
 }
 
-function verifyRestoredMessages({ dbPath, messageRoot, expected, maxRecords, maxEnvelopeBytes }) {
-  compareDatabaseRowsToManifest(dbPath, expected, maxRecords);
-  const rows = readDatabaseMessageRows(dbPath, maxRecords).map(normalizeMessageRow);
+function verifyRestoredMessages({
+  dbPath,
+  messageRoot,
+  expected,
+  expectedLegacy,
+  preMigration,
+  maxRecords,
+  maxEnvelopeBytes,
+}) {
+  compareDatabaseRowsToManifest(dbPath, expected, expectedLegacy, maxRecords, { preMigration });
+  const rows = classifyDatabaseMessageRows(dbPath, maxRecords, { allowLegacyMessages: preMigration }).complete;
   const service = assertChildDirectory(join(messageRoot.real, MESSAGE_SERVICE_DIRECTORY), messageRoot, "restored_message_service_invalid");
   const items = assertChildDirectory(join(service.real, MESSAGE_ITEMS_DIRECTORY), service, "restored_message_items_invalid");
   for (const row of rows) {
@@ -1113,7 +1298,7 @@ function verifyRestoredAttachments({ attachmentRoot, expected, maxAttachmentByte
   }
 }
 
-export function restoreAndVerifyCodexPayloadBackup({
+function restoreAndVerifyCodexPayloadBackupGeneration({
   backupRoot,
   generationId,
   restoreRoot,
@@ -1122,6 +1307,7 @@ export function restoreAndVerifyCodexPayloadBackup({
   maxTotalBytes = DEFAULT_MAX_TOTAL_BYTES,
   maxMessageEnvelopeBytes = DEFAULT_MAX_MESSAGE_ENVELOPE_BYTES,
   maxAttachmentBytes = DEFAULT_MAX_ATTACHMENT_BYTES,
+  expectPreMigration = false,
 } = {}) {
   const recordsLimit = validatePositiveLimit(maxRecords, DEFAULT_MAX_RECORDS, "max_records_invalid");
   const totalLimit = validatePositiveLimit(maxTotalBytes, DEFAULT_MAX_TOTAL_BYTES, "max_total_bytes_invalid");
@@ -1134,7 +1320,7 @@ export function restoreAndVerifyCodexPayloadBackup({
   const backups = pinRoot(backupPath, { code: "backup_root_invalid" });
   const restores = pinRoot(restorePath, { create: true, code: "restore_root_invalid" });
   if (pathsOverlap(backups.real, restores.real)) fail("restore_root_overlaps_backup");
-  const committed = readCommittedGeneration(backups, id, recordsLimit, totalLimit);
+  const committed = readCommittedGeneration(backups, id, recordsLimit, totalLimit, { expectPreMigration });
   const finalDirectory = safeObjectPath(restores, id);
   if (existsSync(finalDirectory)) fail("restore_collision");
   const partialPrefix = `.partial-restore-${id}-`;
@@ -1154,7 +1340,13 @@ export function restoreAndVerifyCodexPayloadBackup({
     );
     if (databaseCopy.sha256 !== committed.manifest.database.sha256) fail("database_object_hash_mismatch");
     databaseQuickCheck(databaseDestination);
-    compareDatabaseRowsToManifest(databaseDestination, committed.manifest.messages, recordsLimit);
+    compareDatabaseRowsToManifest(
+      databaseDestination,
+      committed.manifest.messages,
+      committed.manifest.legacy_messages,
+      recordsLimit,
+      { preMigration: committed.manifest.pre_migration },
+    );
     const messageRoot = restoreMessages({
       generation: committed.generation,
       restoreRoot: partial,
@@ -1171,6 +1363,8 @@ export function restoreAndVerifyCodexPayloadBackup({
       dbPath: databaseDestination,
       messageRoot,
       expected: committed.manifest.messages,
+      expectedLegacy: committed.manifest.legacy_messages,
+      preMigration: committed.manifest.pre_migration,
       maxRecords: recordsLimit,
       maxEnvelopeBytes: envelopeLimit,
     });
@@ -1182,8 +1376,8 @@ export function restoreAndVerifyCodexPayloadBackup({
     renameSync(partial.real, finalDirectory);
     syncDirectoryBestEffort(restores.real);
     return Object.freeze({
-      schema: CODEX_PAYLOAD_BACKUP_RESULT_SCHEMA,
-      kind: "restore_verify",
+      schema: expectPreMigration ? CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_RESULT_SCHEMA : CODEX_PAYLOAD_BACKUP_RESULT_SCHEMA,
+      kind: expectPreMigration ? "pre_migration_restore_verify" : "restore_verify",
       ok: true,
       generation_id: id,
       verified_at: now.toISOString(),
@@ -1196,6 +1390,10 @@ export function restoreAndVerifyCodexPayloadBackup({
       messages: Object.freeze({
         count: committed.manifest.totals.message_count,
         bytes: committed.manifest.totals.message_bytes,
+        ...(committed.manifest.pre_migration ? {
+          externalized_count: committed.manifest.totals.externalized_message_count,
+          legacy_count: committed.manifest.totals.legacy_message_count,
+        } : {}),
       }),
       attachments: Object.freeze({
         count: committed.manifest.totals.attachment_count,
@@ -1209,38 +1407,88 @@ export function restoreAndVerifyCodexPayloadBackup({
   }
 }
 
-function argValue(argv, name, fallback = null) {
-  const index = argv.indexOf(`--${name}`);
-  return index >= 0 && argv[index + 1] && !argv[index + 1].startsWith("--") ? argv[index + 1] : fallback;
+export function restoreAndVerifyCodexPayloadBackup(options = {}) {
+  return restoreAndVerifyCodexPayloadBackupGeneration({ ...options, expectPreMigration: false });
+}
+
+export function restoreAndVerifyPreMigrationCodexPayloadBackup(options = {}) {
+  return restoreAndVerifyCodexPayloadBackupGeneration({ ...options, expectPreMigration: true });
 }
 
 export function parseCodexPayloadBackupCli(argv = process.argv.slice(2)) {
-  const command = argv.find((value) => !value.startsWith("--")) || "help";
-  return {
+  const empty = (command, help) => ({
     command,
-    help: argv.includes("--help") || argv.includes("-h") || command === "help",
-    dbPath: argValue(argv, "db"),
-    attachmentRoot: argValue(argv, "attachment-root"),
-    messagePayloadRoot: argValue(argv, "message-root"),
-    backupRoot: argValue(argv, "backup-root"),
-    generationId: argValue(argv, "generation-id"),
-    restoreRoot: argValue(argv, "restore-root"),
+    help,
+    dbPath: null,
+    attachmentRoot: null,
+    messagePayloadRoot: null,
+    backupRoot: null,
+    generationId: null,
+    restoreRoot: null,
+  });
+  if (argv.length === 0 || (argv.length === 1 && new Set(["--help", "-h"]).has(argv[0]))) {
+    return empty("help", true);
+  }
+  const command = argv[0];
+  const backupCommands = new Set(["backup", "backup-pre-migration"]);
+  const restoreCommands = new Set(["restore-verify", "pre-migration-restore-verify"]);
+  if (!backupCommands.has(command) && !restoreCommands.has(command)) fail("cli_argument_invalid");
+  const allowed = backupCommands.has(command)
+    ? new Set(["--db", "--attachment-root", "--message-root", "--backup-root", "--generation-id"])
+    : new Set(["--backup-root", "--generation-id", "--restore-root"]);
+  const propertyByFlag = {
+    "--db": "dbPath",
+    "--attachment-root": "attachmentRoot",
+    "--message-root": "messagePayloadRoot",
+    "--backup-root": "backupRoot",
+    "--generation-id": "generationId",
+    "--restore-root": "restoreRoot",
   };
+  const options = empty(command, false);
+  const seen = new Set();
+  for (let index = 1; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (token === "--help" || token === "-h") {
+      if (seen.has("help")) fail("cli_argument_invalid");
+      seen.add("help");
+      options.help = true;
+      continue;
+    }
+    if (!allowed.has(token) || seen.has(token)) fail("cli_argument_invalid");
+    const value = argv[index + 1];
+    if (!value || value.startsWith("-")) fail("cli_argument_invalid");
+    seen.add(token);
+    options[propertyByFlag[token]] = value;
+    index += 1;
+  }
+  return options;
 }
 
 function printHelp() {
   console.log(`Usage:
   node tools/codex_payload_backup.mjs backup --db <db> --attachment-root <root> --message-root <root> --backup-root <root> [--generation-id <id>]
+  node tools/codex_payload_backup.mjs backup-pre-migration --db <db> --attachment-root <root> --message-root <root> --backup-root <root> [--generation-id <id>]
   node tools/codex_payload_backup.mjs restore-verify --backup-root <root> --generation-id <id> --restore-root <root>
+  node tools/codex_payload_backup.mjs pre-migration-restore-verify --backup-root <root> --generation-id <id> --restore-root <root>
 
+backup-pre-migration is the only mode that accepts pure legacy inline messages. It still rejects partial states and keeps legacy bodies only in the SQLite snapshot.
 The JSON result contains hashes, byte counts, and opaque IDs only. It never emits source or restore paths, message text, attachment names, or file bodies.
 `);
 }
 
 function safeCliError(error, kind) {
+  const safeKinds = new Set([
+    "backup",
+    "backup-pre-migration",
+    "restore-verify",
+    "pre-migration-restore-verify",
+  ]);
+  const safeKind = safeKinds.has(kind) ? kind : "invalid";
   return {
-    schema: CODEX_PAYLOAD_BACKUP_RESULT_SCHEMA,
-    kind,
+    schema: new Set(["backup-pre-migration", "pre-migration-restore-verify"]).has(safeKind)
+      ? CODEX_PAYLOAD_PRE_MIGRATION_BACKUP_RESULT_SCHEMA
+      : CODEX_PAYLOAD_BACKUP_RESULT_SCHEMA,
+    kind: safeKind,
     ok: false,
     error: error instanceof CodexPayloadBackupError ? error.code : "operation_failed",
   };
@@ -1248,22 +1496,26 @@ function safeCliError(error, kind) {
 
 export function runCodexPayloadBackupCli(options = parseCodexPayloadBackupCli()) {
   if (options.command === "backup") return createCodexPayloadBackup(options);
+  if (options.command === "backup-pre-migration") return createPreMigrationCodexPayloadBackup(options);
   if (options.command === "restore-verify") return restoreAndVerifyCodexPayloadBackup(options);
+  if (options.command === "pre-migration-restore-verify") return restoreAndVerifyPreMigrationCodexPayloadBackup(options);
   return safeCliError(new CodexPayloadBackupError("unknown_command"), options.command);
 }
 
 if (resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url)) {
-  const options = parseCodexPayloadBackupCli();
-  if (options.help) {
-    printHelp();
-  } else {
-    try {
+  let options = null;
+  try {
+    options = parseCodexPayloadBackupCli();
+    if (options.help) {
+      printHelp();
+    } else {
       const result = runCodexPayloadBackupCli(options);
       console.log(JSON.stringify(result, null, 2));
       if (!result.ok) process.exitCode = 1;
-    } catch (error) {
-      console.log(JSON.stringify(safeCliError(error, options.command), null, 2));
-      process.exitCode = 1;
     }
+  } catch (error) {
+    const kind = options?.command || process.argv[2] || "invalid";
+    console.log(JSON.stringify(safeCliError(error, kind), null, 2));
+    process.exitCode = 1;
   }
 }
