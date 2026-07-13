@@ -15,5 +15,5 @@ required_capabilities:
 notes:
   - No party is bound by this seed package; classification does not grant execution authority.
   - Concrete render and verification tools resolve through runtime bindings and are not named as workflow authority.
-  - A controlled fresh executor run under an immutable workflow revision and a separate fresh-context verification are required before any pilot-executed claim.
+  - One controlled fresh executor run under an immutable workflow revision and a separate fresh-context verification passed for a single synthetic fixture.
   - Real owner-report pilots and explicit owner approval remain required before any default-route-safe, usable, or production-ready claim.

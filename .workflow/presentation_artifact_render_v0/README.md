@@ -43,10 +43,12 @@ The workflow names capabilities such as editable-PPTX rendering, structure valid
 
 ## Current Maturity
 
-- `output_state: registered`
-- `validation_level: structure_reviewed_pilot_pending`
-- `pilot_executed: no`
+- `output_state: pilot-executed`
+- `validation_level: structure_plus_fresh_b_v_single_synthetic_fixture`
+- `pilot_executed: yes`, limited to one synthetic fixture
 - `default_route_safe: no`
 - Registration: registered in `.workflow/index.yaml` as a non-default candidate.
 
-The original `team_default_v0` seed deck was rendered and visually inspected while the workflow package was being prepared. The first fresh replay was rejected because a `do_not_claim` semantic role became visually affirmative and literal bullet characters were injected into list text. A replay against the corrected immutable contract and a separate verifier pass are still required before changing `pilot_executed`.
+The original `team_default_v0` seed deck was rendered and visually inspected while the workflow package was being prepared. The first fresh replay was rejected because a `do_not_claim` semantic role became visually affirmative and literal bullet characters were injected into list text. The corrected contract at `git:2bbd81883f853c407fe7e3ece28f2aca04802db2` then passed a fresh executor and separate verifier on one synthetic fixture; the metadata-only receipt is `_workmeta/system/runs/presentation-publisher-pilot-002/presentation_render_receipt.yaml`.
+
+This does not make the workflow default-route-safe or production-ready. Three owner real-report pilots, owner brand/font/color/print approval, and an explicit owner promotion decision remain open.

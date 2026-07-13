@@ -143,3 +143,7 @@ production/default route로 승격하지 않는다.
 3. immutable workflow revision의 fresh-context executor 1회와 builder source를 보지 않은 별도 verifier 1회 통과
 4. owner 실제 보고서 3건 비교
 5. owner의 로고·폰트·색상·인쇄성 승인
+
+현재 1~3은 단일 합성 fixture에 한해 통과했다. workflow의 strongest state는
+`pilot-executed / single_synthetic_fixture`이며, 4~5와 owner의 명시적 승격 결정이
+남아 있으므로 `default_route_safe: false`를 유지한다.

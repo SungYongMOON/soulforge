@@ -21,11 +21,15 @@ outputs:
   - presentation_render_self_check
   - presentation_render_verification
   - presentation_render_receipt
-validation_level: structure_reviewed_pilot_pending
-output_state: registered
+validation_level: structure_plus_fresh_b_v_single_synthetic_fixture
+output_state: pilot-executed
 registration_policy: registered_candidate
 runtime_readiness:
-  pilot_executed: false
+  pilot_executed: true
+  pilot_scope: single_synthetic_fixture
+  pilot_evidence:
+    workflow_package_ref: git:2bbd81883f853c407fe7e3ece28f2aca04802db2
+    receipt_ref: _workmeta/system/runs/presentation-publisher-pilot-002/presentation_render_receipt.yaml
   default_route_safe: false
 workflow_modes:
   - render_approved_presentation_packet
@@ -87,8 +91,8 @@ render_contract:
     presentation_render_verification: templates/presentation_render_verification.template.yaml
     presentation_render_receipt: templates/presentation_render_receipt.template.yaml
 notes:
-  - This is a registered structure-reviewed candidate and is not a default route.
+  - This is a registered single-synthetic-pilot candidate and is not a default route.
   - The workflow names tool-neutral rendering and verification capabilities. Concrete tools and adapters resolve in runtime bindings outside this package.
   - Public workflow files contain no presentation payload, template payload, private source body, secret, or runtime absolute path.
-  - A controlled editable-PPTX pilot under an immutable workflow revision and a separate fresh-context verification are required before changing `pilot_executed`.
+  - One controlled editable-PPTX synthetic pilot passed under the immutable package ref recorded in `runtime_readiness.pilot_evidence`, including a fresh executor and separate fresh-context verifier.
   - Owner real-report pilots and explicit owner approval remain required before changing `default_route_safe`.

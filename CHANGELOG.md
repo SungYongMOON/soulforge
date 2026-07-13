@@ -20,6 +20,12 @@
   `pilot_executed: false`로 유지했다. workflow revision/package provenance,
   executor self-check, independent verification, retryability를 정식 스키마로 추가하고
   corrected-contract replay를 승격 전 필수로 고정했다. (worker: codex_gpt-5)
+- corrected immutable package `2bbd8188`에서 fresh executor와 별도 fresh verifier가
+  단일 합성 fixture를 통과했다. 10장 editable PPTX, 네이티브 표 2개·차트 1개,
+  literal bullet 0/native bullet 6, semantic negation, 전 장 시각·bounds 검사와
+  metadata-only 최종 receipt를 확인해 workflow를 `pilot-executed`로 표시하되,
+  owner 실제 보고서 3건과 brand/print 승인 전까지 `default_route_safe: false`를
+  유지한다. (worker: codex_gpt-5)
 
 ### dev-ERP 빈 줄기 화면의 서버 장애 오인 수정
 

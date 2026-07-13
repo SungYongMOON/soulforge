@@ -33,7 +33,11 @@ soulforge-presentation-publisher
 
 ## Status
 
-The package remains `candidate` until `presentation_artifact_render_v0` is
-registered and the Soulforge skill first-build verification gate passes. A
-missing or unregistered workflow is a stop condition, not permission for the
+The package remains `candidate`, but its first-build gate passed against one
+synthetic fixture: deterministic skill/canon validation, a fresh workflow
+executor, and a separate fresh verifier all completed. The target workflow is
+registered as a non-default single-synthetic-pilot candidate.
+
+This evidence does not authorize default routing or production use. A missing
+or unregistered workflow is still a stop condition, not permission for the
 launcher to invent a workflow.

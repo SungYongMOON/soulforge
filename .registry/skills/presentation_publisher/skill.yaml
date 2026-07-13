@@ -56,4 +56,4 @@ execution_requirements:
 notes:
   - "`presentation_publisher` is the thin Codex bridge for `.workflow/presentation_artifact_render_v0`."
   - "The installed Codex mirror name is expected to be `soulforge-presentation-publisher` after skill sync."
-  - "Keep candidate status until the target workflow is registered and the skill first-build verification gate passes."
+  - "The first-build gate passed on one synthetic fixture; keep candidate status until owner real-report pilots and explicit promotion review are complete."
