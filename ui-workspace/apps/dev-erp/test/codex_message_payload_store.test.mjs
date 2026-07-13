@@ -16,6 +16,8 @@ import {
 
 const ITEM_A = "ITEM-001";
 const ITEM_B = "ITEM-002";
+const ITEM_WITH_UNDERSCORE_TAG = "synthetic_underscore_tag_10";
+const ITEM_WITH_HYPHEN_TAG = "synthetic_hyphen_tag_4";
 const SERVICE_DIRECTORY = ".dev-erp-codex-message-payloads-v1";
 const ITEM_DIRECTORY_DOMAIN = "dev-erp-codex-message-item-directory-v1\0";
 
@@ -71,6 +73,30 @@ test("opaque message refs are strict, high-entropy, and cryptographically item-b
   assert.throws(() => validateMessagePayloadRef(first, { itemId: ITEM_B }), expectStoreError("payload_cross_item_forbidden"));
   for (const invalid of ["", "cmp_short", "../payload", "cmp_C:/private_value_________________________"]) {
     assert.throws(() => validateMessagePayloadRef(invalid), expectStoreError("payload_ref_invalid"));
+  }
+});
+
+test("fixed-width item tags accept base64url separators without weakening cross-item checks or cleanup", async (t) => {
+  const { root } = await workspace(t, "dev-erp-message-tag-separators-");
+  const store = await createCodexMessagePayloadStore({ root, enableMigrationCleanup: true });
+  const cases = [
+    { itemId: ITEM_WITH_UNDERSCORE_TAG, expectedTag: "Y_UsDpb1Hqsn" },
+    { itemId: ITEM_WITH_HYPHEN_TAG, expectedTag: "PCJnkNIXSQc-" },
+  ];
+
+  for (const { itemId, expectedTag } of cases) {
+    const metadata = await store.writeMessagePayload({ itemId, role: "user", text: `payload for ${expectedTag}` });
+    assert.equal(metadata.payload_ref.slice(4, 16), expectedTag);
+    assert.equal(validateMessagePayloadRef(metadata.payload_ref, { itemId }), metadata.payload_ref);
+    assert.throws(
+      () => validateMessagePayloadRef(metadata.payload_ref, { itemId: ITEM_B }),
+      expectStoreError("payload_cross_item_forbidden"),
+    );
+    assert.equal((await store.resolveAuthorizedMessagePayload({ itemId, payloadRef: metadata.payload_ref })).ok, true);
+    assert.deepEqual(
+      await store.removeVerifiedMessagePayload(cleanupRequest(itemId, metadata)),
+      { ok: true, payload_ref: metadata.payload_ref },
+    );
   }
 });
 

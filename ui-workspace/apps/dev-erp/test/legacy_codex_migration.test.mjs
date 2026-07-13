@@ -324,6 +324,49 @@ test("legacy Codex migration: DB update failure rolls back and never echoes body
   assertReportRedacted(result, f);
 });
 
+test("legacy Codex migration cleans underscore-tag payloads after a later DB failure rolls back", async () => {
+  const f = fixture({ includeRetire: false });
+  const adversarialItemId = "synthetic_underscore_tag_10";
+  const writable = new DatabaseSync(f.dbPath);
+  writable.exec("BEGIN");
+  writable.prepare("UPDATE core_item SET id=? WHERE id='item_bind'").run(adversarialItemId);
+  writable.prepare("UPDATE codex_thread_binding SET item_id=? WHERE item_id='item_bind'").run(adversarialItemId);
+  writable.prepare("UPDATE codex_thread_message SET item_id=? WHERE item_id='item_bind'").run(adversarialItemId);
+  writable.exec(`
+    CREATE TRIGGER reject_later_pointer_update
+    BEFORE UPDATE OF payload_ref ON codex_thread_message
+    WHEN OLD.id=2
+    BEGIN
+      SELECT RAISE(ABORT, 'private later failure must not escape');
+    END;
+  `);
+  writable.exec("COMMIT");
+  writable.close();
+  const mapping = {
+    ...f.mapping,
+    bindings: f.mapping.bindings.map((entry) => (
+      entry.item_id === "item_bind" ? { ...entry, item_id: adversarialItemId } : entry
+    )),
+  };
+
+  const result = await runLegacyCodexMigration({
+    dbPath: f.dbPath,
+    payloadRoot: f.payloadRoot,
+    mapping,
+    apply: true,
+  });
+  assert.equal(result.status, "failed");
+  assert.deepEqual(result.codes, ["message_database_update_failed"]);
+  assert.equal(countPayloadRefDirectories(f.payloadRoot), 0);
+  const db = openReadOnly(f.dbPath);
+  try {
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM codex_thread_message WHERE payload_ref IS NOT NULL").get().n, 0);
+  } finally {
+    db.close();
+  }
+  assertReportRedacted(result, f);
+});
+
 test("legacy Codex migration CLI is dry-run by default and mutates only with --apply", () => {
   const f = fixture();
   const baseArgs = [TOOL, "--db", f.dbPath, "--payload-root", f.payloadRoot, "--mapping", f.mappingPath];

@@ -12,6 +12,8 @@ const ITEMS_DIRECTORY = "items";
 const PAYLOAD_FILE = "payload.json";
 const COMMIT_FILE = "committed";
 const PAYLOAD_REF_RE = /^cmp_[A-Za-z0-9_-]{12}_[A-Za-z0-9_-]{32}$/;
+const PAYLOAD_REF_PREFIX_LENGTH = "cmp_".length;
+const PAYLOAD_REF_ITEM_TAG_LENGTH = 12;
 const ITEM_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const SHA256_RE = /^[a-f0-9]{64}$/;
 const ROLES = new Set(["user", "assistant", "error", "system"]);
@@ -182,7 +184,10 @@ export function validateMessagePayloadRef(value, { itemId } = {}) {
   }
   if (itemId !== undefined) {
     const normalizedItemId = normalizeItemId(itemId);
-    const actualTag = Buffer.from(payloadRef.split("_")[1], "ascii");
+    const actualTag = Buffer.from(
+      payloadRef.slice(PAYLOAD_REF_PREFIX_LENGTH, PAYLOAD_REF_PREFIX_LENGTH + PAYLOAD_REF_ITEM_TAG_LENGTH),
+      "ascii",
+    );
     const expectedTag = Buffer.from(itemTag(normalizedItemId), "ascii");
     if (actualTag.length !== expectedTag.length || !timingSafeEqual(actualTag, expectedTag)) {
       throw new CodexMessagePayloadStoreError("payload_cross_item_forbidden");

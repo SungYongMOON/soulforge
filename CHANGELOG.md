@@ -147,6 +147,11 @@
 - migration 중 같은 프로세스에서 포착된 실패는 DB rollback 뒤 해당 실행이 만든
   payload만 정리한다. cleanup이 끝나지 않으면 path/body를 노출하지 않는 blocker를
   남기며 crash recovery까지 주장하지 않는다.
+- message payload ref의 12자 base64url item tag를 `_` delimiter로 분해하지 않고
+  `cmp_` 직후 고정폭으로 읽게 했다. `_`·`-` tag의 조회·교차 item 차단·same-process
+  cleanup과 합성 adversarial item을 사용한 migration rollback 회귀 테스트를 추가했다.
+  이전 실행의 `payload_cleanup_failed` orphan은 새 process가 소급 소유하지 않으므로
+  검증된 v2 DB+payload 경계 복구 없이 수동 삭제하거나 재시도하지 않는다.
 - backup CLI는 command별 flag allowlist를 적용하고, 알 수 없는 첫 command token을
   출력하지 않은 채 고정 `kind: "invalid"`로 반환한다. (worker: codex_gpt-5)
 

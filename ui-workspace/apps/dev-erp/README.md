@@ -246,6 +246,13 @@ explicit pre-migration command produces v2 rollback evidence for a legacy DB;
 it is not release evidence. Its restore verifier currently uses the direct
 `pre-migration-restore-verify` subcommand shown above.
 
+Codex message refs bind an item with the fixed 12-character base64url tag
+immediately after `cmp_`; `_` and `-` inside that tag are data, not delimiters.
+A caught apply failure can clean only exact refs owned by that same process. A
+previous `payload_cleanup_failed` still requires the verified v2 DB and payload
+rollback boundary described in the maintenance runbook, not manual deletion or
+an immediate retry.
+
 ## Runtime Corrections
 
 Runtime DB data is not shared through Git. When another PC's code patch exposes

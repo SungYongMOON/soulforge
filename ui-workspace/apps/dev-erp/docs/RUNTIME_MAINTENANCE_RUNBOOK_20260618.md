@@ -611,6 +611,13 @@ incomplete, treat `payload_cleanup_failed` as a blocker, keep the maintenance
 marker, and do not retry or delete payloads manually. This guarantee does not
 claim OS-crash recovery.
 
+The item tag in a `cmp_` ref is the fixed 12-character base64url field directly
+after the prefix; `_` and `-` inside that field are not separators. Deploying a
+parser correction does not give a new process ownership of payloads left by an
+earlier `payload_cleanup_failed`. Recover the verified v2 DB and matching
+payload boundary before retrying unless an owner-approved procedure separately
+identifies and quarantines the exact orphan set.
+
 `pre-migration-restore-verify` validates an isolated restore namespace and never
 overwrites the live paths. A real rollback must restore the verified v2 DB and
 corresponding payload boundary together through an owner-approved procedure;
