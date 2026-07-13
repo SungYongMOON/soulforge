@@ -1,5 +1,19 @@
 # CHANGELOG
 
+### Codex pet cross-PC opt-in 배포
+
+- `.registry/docs/operations/codex_pets/`의 public-safe v2 pet package를 각 PC의
+  `${CODEX_HOME:-$HOME/.codex}/pets/`로 명시적으로 sync, SHA-256 verify, remove하는
+  표준 Node CLI와 npm command를 추가했다. source/target은 안전한 pet ID와 정확한
+  두 파일로 제한하며, staged rollback-safe replacement와 반복 no-op을 사용한다. 다른 ID,
+  예상 밖 파일, 심볼릭 링크가 있는 target은 덮어쓰거나 삭제하지 않는다.
+- macOS/Linux와 Windows PowerShell 명령을 문서화하고 pet update는 opt-in으로
+  유지했다. 일반 bootstrap, doctor, skill sync는 pet을 자동 설치하지 않는다.
+  fresh/repeat sync, tamper detection, manifest/path validation, removal safety,
+  공백 포함 `CODEX_HOME`을 합성 `node:test`로 고정했다. (worker: codex_gpt-5)
+- 최신 roadmap 변경을 검토한 뒤 boot digest source manifest를 canonical guard로
+  재서명해 root `validate`와 `done:check`의 drift gate를 복구했다.
+
 ### macOS 24시간 interval LaunchAgent 정체 방지
 
 - GUI launchd domain이 `on-demand-only`로 전환된 뒤 `StartInterval` 작업이

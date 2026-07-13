@@ -4,6 +4,9 @@
   "packageManager": "npm@11.9.0",
   "scripts": {
     "skills:sync": "node .registry/docs/operations/scripts/sync_codex_skill.mjs",
+    "pets:sync": "node .registry/docs/operations/scripts/sync_codex_pet.mjs sync",
+    "pets:verify": "node .registry/docs/operations/scripts/sync_codex_pet.mjs verify",
+    "pets:remove": "node .registry/docs/operations/scripts/sync_codex_pet.mjs remove",
     "guild-hall:doctor": "node guild_hall/doctor/cli.mjs",
     "guild-hall:validate:canon": "node guild_hall/validate/canon_validate.mjs",
     "canon:validate": "npm run guild-hall:validate:canon --",

@@ -27,6 +27,7 @@
 | `TOOL_PC_BOOTSTRAP_PROMPT_V0.md` | 고성능 PC 의 Codex 가 읽고 project metadata read/write 가 가능한 `tool_pc` owner-with-state bootstrap 을 수행할 prompt source 다. 같은 물리 PC 가 24시간 운영도 맡으면 별도 clone/identity 에 `ALWAYS_ON_NODE_BOOTSTRAP_PROMPT_V0.md` 를 적용한다. |
 | `DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md` | task packet 을 받아 검증 가능한 branch 를 만드는 `dev_worker_pc` bootstrap prompt source 다. |
 | `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` | `/goal` 과 promptfoo 같은 workflow evolution harness 후보를 owner PC 에 설치하고 확인하는 절차다. |
+| `../../../.registry/docs/operations/CODEX_PET_INSTALL_SYNC.md` | tracked Codex pet package를 각 PC에 명시적으로 sync/verify/remove하는 opt-in 절차다. |
 | `../workspace/INSTALLATION_MANUAL_V0.md` | workspace 문서군이 소유하는 다른 PC 첫 설치 상위 runbook 이다. |
 | `../workspace/MULTI_PC_DEVELOPMENT_V0.md` | 여러 PC clone, local runtime, node role, push/pull 운영 절차를 둔다. |
 | `../workspace/PRIVATE_STATE_REPO_V0.md` | owner-only continuity mirror repo 의 포함/제외 범위를 둔다. |
@@ -70,6 +71,7 @@
 - `workflow_evolution` 실험을 맡는 owner PC 는 `WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md` 에 따라 Codex CLI `goals` feature 를 켜고, 필요 시 `promptfoo` 를 설치한다.
 - bootstrap 전에는 sync 가능한 Soulforge Codex skill 전체를 local 에 맞추고, canonical 명령은 `npm run skills:sync -- --all` 이다.
 - `codex/SKILL.md` 가 없는 registry entry 는 install/sync 대상이 아니다.
+- Codex pet package는 일반 bootstrap 또는 skill sync에 포함하지 않는다. 원하는 PC에서만 [`../../../.registry/docs/operations/CODEX_PET_INSTALL_SYNC.md`](../../../.registry/docs/operations/CODEX_PET_INSTALL_SYNC.md)에 따라 `npm run pets:sync -- <pet_id>`를 명시적으로 실행한다.
 - clone 후 첫 readiness 점검은 `npm run guild-hall:doctor` 를 canonical entrypoint 로 쓴다.
 - operator local env 를 다룰 PC 는 `npm run guild-hall:doctor -- --profile operator` 를 쓴다.
 - owner PC 에서 nested `_workmeta/`, `private-state/` repo 까지 포함해 점검할 때는 `npm run guild-hall:doctor -- --profile owner-with-state` 를 쓴다.
@@ -102,6 +104,7 @@
 - [`TOOL_PC_BOOTSTRAP_PROMPT_V0.md`](TOOL_PC_BOOTSTRAP_PROMPT_V0.md)
 - [`DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md`](DEV_WORKER_PC_BOOTSTRAP_PROMPT_V0.md)
 - [`WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md`](WORKFLOW_EVOLUTION_HARNESS_INSTALL_V0.md)
+- [`../../../.registry/docs/operations/CODEX_PET_INSTALL_SYNC.md`](../../../.registry/docs/operations/CODEX_PET_INSTALL_SYNC.md)
 - [`../workspace/INSTALLATION_MANUAL_V0.md`](../workspace/INSTALLATION_MANUAL_V0.md)
 - [`../workspace/MULTI_PC_DEVELOPMENT_V0.md`](../workspace/MULTI_PC_DEVELOPMENT_V0.md)
 - [`../workspace/PRIVATE_STATE_REPO_V0.md`](../workspace/PRIVATE_STATE_REPO_V0.md)
