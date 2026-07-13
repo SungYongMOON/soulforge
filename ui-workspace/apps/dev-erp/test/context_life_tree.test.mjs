@@ -689,9 +689,13 @@ test("file-activity projection rejects unsafe, foreign, conflicting, and oversiz
     const symlinkTarget = join(root, "projection-symlink-target.json");
     writeFileSync(symlinkTarget, JSON.stringify(fileActivityProjection(project, [event])), "utf8");
     rmSync(file);
-    symlinkSync(symlinkTarget, file);
-    assert.equal(readFileActivityLifeTreeProjection(root, project).rejection_reason, "projection_not_regular_file");
-    rmSync(file);
+    try {
+      symlinkSync(symlinkTarget, file);
+      assert.equal(readFileActivityLifeTreeProjection(root, project).rejection_reason, "projection_not_regular_file");
+    } catch (error) {
+      if (error?.code !== "EPERM") throw error;
+    }
+    rmSync(file, { force: true });
     writeFileSync(file, "x".repeat(FILE_ACTIVITY_LIFE_TREE_PROJECTION_MAX_BYTES + 1), "utf8");
     assert.equal(readFileActivityLifeTreeProjection(root, project).rejection_reason, "projection_oversize");
 
@@ -704,11 +708,15 @@ test("file-activity projection rejects unsafe, foreign, conflicting, and oversiz
       JSON.stringify(fileActivityProjection(project, [event])),
       "utf8",
     );
-    symlinkSync(redirectedProjectionDir, projectionDir, "dir");
-    assert.equal(
-      readFileActivityLifeTreeProjection(root, project).rejection_reason,
-      "projection_symlink_component_blocked",
-    );
+    try {
+      symlinkSync(redirectedProjectionDir, projectionDir, "dir");
+      assert.equal(
+        readFileActivityLifeTreeProjection(root, project).rejection_reason,
+        "projection_symlink_component_blocked",
+      );
+    } catch (error) {
+      if (error?.code !== "EPERM") throw error;
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

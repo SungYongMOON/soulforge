@@ -1605,10 +1605,14 @@ test("CLI is dry-run by default and writes only behind --write-outbox / --apply 
     const fileActivityRoot = path.dirname(statePath);
     const redirectedFileActivityRoot = path.join(tempRepo, "redirected-file-activity");
     await rename(fileActivityRoot, redirectedFileActivityRoot);
-    await symlink(redirectedFileActivityRoot, fileActivityRoot);
-    const parentSymlinkRebuild = spawnSync(process.execPath, rebuildArgs, { encoding: "utf8" });
-    assert.equal(parentSymlinkRebuild.status, 1);
-    assert.match(parentSymlinkRebuild.stderr, /file_activity_write_symlink_path_blocked/u);
+    try {
+      await symlink(redirectedFileActivityRoot, fileActivityRoot);
+      const parentSymlinkRebuild = spawnSync(process.execPath, rebuildArgs, { encoding: "utf8" });
+      assert.equal(parentSymlinkRebuild.status, 1);
+      assert.match(parentSymlinkRebuild.stderr, /file_activity_write_symlink_path_blocked/u);
+    } catch (error) {
+      if (error?.code !== "EPERM") throw error;
+    }
   } finally {
     await rm(tempRepo, { recursive: true, force: true });
   }

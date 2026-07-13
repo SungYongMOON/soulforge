@@ -12,8 +12,9 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SOURCE_LAUNCHER = path.resolve(HERE, "..", "ops", "run-dev-erp-background.ps1");
 const PROTECTED_RUNTIME_PORT = 4300;
+const WINDOWS_ROOT = process.env.SystemRoot || process.env.WINDIR || path.parse(process.execPath).root;
 const POWERSHELL = path.join(
-  process.env.SystemRoot || "C:\\Windows",
+  WINDOWS_ROOT,
   "System32",
   "WindowsPowerShell",
   "v1.0",
