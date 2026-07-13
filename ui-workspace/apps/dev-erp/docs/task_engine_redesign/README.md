@@ -75,7 +75,9 @@ task/source/canon truth를 대신하지 않는다.
    [`09_VALIDATION_AND_ACCEPTANCE.md`](09_VALIDATION_AND_ACCEPTANCE.md)까지 번호순
 7. 실제 고성능 PC에서는 마지막에만
    [`10_HIGH_PERFORMANCE_PC_PLAN_MODE_RUNBOOK.md`](10_HIGH_PERFORMANCE_PC_PLAN_MODE_RUNBOOK.md)
-8. 실행 slice는 [`ENGINE-13`](../slices/ENGINE-13-TASK-DRIVER-CLOSED-LOOP.md)
+8. 구현·pilot 이후 현재 상태와 RAG 재개선은
+   [`11_IMPLEMENTATION_STATUS_AND_RESUME_GATE.md`](11_IMPLEMENTATION_STATUS_AND_RESUME_GATE.md)
+9. 실행 slice는 [`ENGINE-13`](../slices/ENGINE-13-TASK-DRIVER-CLOSED-LOOP.md)
 
 ## 잠긴 owner 결정
 
@@ -93,7 +95,8 @@ task/source/canon truth를 대신하지 않는다.
 
 ## 열린 결정과 verification gate
 
-- TaskDriver의 최종 physical table/ledger shape와 기존 할일 장부 migration 방식
+- TaskDriver physical table/ledger의 synthetic shape는 구현됐고, live DB 설치·기존 할일
+  migration 방식은 operational-primary 검증 대기
 - 허용 `driver_kind`, auto-apply policy scope, revocation/expiry의 owner 승인
 - `cancelled`/`merged`와 현행 `archived`의 UI·migration 의미
 - 고성능 PC가 `tool_pc`와 `always_on_node`를 겸하는지, sole reconciler가 어느 node인지

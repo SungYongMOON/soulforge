@@ -662,3 +662,21 @@ not read the source text.
   metadata-only navigation, not source-text RAG or source truth.
 - Future sourcebound retrieval must add approved source-slice records and
   source-text index artifacts behind separate validators.
+
+## Project-local RAG V1
+
+ENGINE-13의 project RAG migration surface는 common RAG와 분리된다.
+
+- `project_rag_paths.mjs`: `_workspaces/<project_code>/reference_payloads/rag/**` owner root,
+  traversal, Windows alias, junction/symlink, cross-project collision을 fail-closed한다.
+- `project_rag_migration_dry_run.mjs`: legacy asset과 consumer를 project/common/unresolved로
+  분류하고 target/rollback evidence가 하나라도 없으면 `HOLD`한다.
+- `project_rag_pilot.mjs`: exact source-card bytes와 legacy lineage를 V1 index, sidecar,
+  answer reference, rollback manifest의 metadata-only bundle로 만든다.
+- `project_rag_writer.mjs`: exact owner-decision attestation 뒤 exclusive immutable create,
+  readback digest, idempotent no-op, receipt-scoped rollback을 수행한다.
+
+project별 색인은 source revision, dry-run `READY`, exact owner-root binding, apply/readback,
+rollback/reapply가 닫힌 뒤 재개할 수 있다. legacy 삭제, reader 전환, common corpus 승격은
+이 writer의 권한이 아니다. 상세 관문은 dev-ERP task engine redesign의
+`11_IMPLEMENTATION_STATUS_AND_RESUME_GATE.md`를 따른다.

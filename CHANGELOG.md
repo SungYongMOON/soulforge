@@ -1,5 +1,20 @@
 # CHANGELOG
 
+### 프로젝트별 RAG V1 pilot과 TaskDriver synthetic engine
+
+- source/file/RAG/task identity의 canonical JSON, typed ref, exact byte hash, deterministic ID,
+  collision 계약을 `ID_CONTRACT_V1`과 공통 helper로 고정했다.
+- project RAG owner root/path guard, legacy migration dry-run, metadata-only V1 bundle,
+  owner-attested exclusive writer/readback/rollback을 추가하고 단일 private project에서
+  apply→rollback→reapply→idempotent no-op를 검증했다. 실제 project ref와 payload는 public
+  기록에 포함하지 않았다.
+- TaskDriver intent/causal record/two-axis state/authority/idempotency/bitemporal replay와
+  completion-followup candidate-only를 구현했다. opt-in SQLite adapter는 append-only ledger,
+  `core_item` projection, receipt/event를 한 transaction으로 적용하지만 runtime startup에는
+  자동 연결하지 않았다. live DB pilot은 operational-primary 검증 대기다.
+- `npm run validate:task-engine-rag-v1`에서 79개 synthetic test를 실행한다.
+  (worker: codex_gpt-5)
+
 ### 장기 스레드 인계의 fresh-worker·writer 안전 계약 정합화
 
 - `long_thread_handoff`를 명시적 phase-transition opt-in으로 고정하고, 현행 Codex의

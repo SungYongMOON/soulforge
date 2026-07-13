@@ -11,10 +11,13 @@
 
 ## exact cut line
 
-**현재 PC:** public contract/docs, synthetic fixtures와 validator 설계까지만.
+**public 개발 checkout:** public contract/docs와 synthetic implementation/validator만.
 
-**고성능 PC:** safe sync 후 read-only metadata inventory -> crosswalk -> dry-run -> 한 project
-vertical pilot. live writer/scanner/scheduler/network alert는 모든 activation gate 뒤 별도 승인.
+**승인된 `tool_pc`:** safe sync 후 read-only metadata inventory -> crosswalk -> dry-run ->
+project-local RAG 한 project pilot. project owner decision과 rollback gate를 요구한다.
+
+**`operational-primary` runtime checkout:** dev-ERP live DB의 TaskDriver vertical pilot. live
+writer/scanner/scheduler/network alert 확대는 모든 activation gate 뒤 별도 승인이다.
 
 ## phases
 
@@ -25,7 +28,8 @@ vertical pilot. live writer/scanner/scheduler/network alert는 모든 activation
 | 2 | read-only inventory | source/task/RAG/path/status/consumer crosswalk | none |
 | 3 | migration dry-run | old->target map, collision/gap/rollback manifest | none |
 | 4 | synthetic engine | Driver/two-axis/replay validators | synthetic only |
-| 5 | one-project vertical pilot | source revision->Driver->task->completion->follow-up candidate | bounded approved writes |
+| 5A | one-project RAG pilot | source revision->project-local index/lineage/answer | bounded project worksite writes |
+| 5B | one-project TaskDriver pilot | Driver->task->completion->follow-up candidate | operational-primary DB only |
 | 6 | independent acceptance | matrix verdict + rollback drill | no expansion |
 | 7 | activation | explicit writers/scanners/schedulers/alerts | separate approval |
 

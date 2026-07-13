@@ -38,6 +38,7 @@
     "validate:team-ops-app": "npm --prefix ui-workspace run team-ops-app:test",
     "validate:workmeta-sync": "node --test guild_hall/workmeta_sync/sync.test.mjs",
     "validate:shared": "node --test guild_hall/shared/*.test.mjs",
+    "validate:task-engine-rag-v1": "node --test guild_hall/shared/temporal_identity.test.mjs guild_hall/rag/project_rag_paths.test.mjs guild_hall/rag/project_rag_migration_dry_run.test.mjs guild_hall/rag/project_rag_pilot.test.mjs guild_hall/rag/project_rag_writer.test.mjs ui-workspace/apps/dev-erp/test/task_driver.test.mjs ui-workspace/apps/dev-erp/test/task_driver_persistence.test.mjs",
     "validate:private-state-sync": "node --test guild_hall/private_state_sync/sync.test.mjs",
     "validate:battle-log": "node --test guild_hall/battle_log/battle_log.test.mjs",
     "validate:town-crier": "node --test guild_hall/town_crier/town_crier.test.mjs",

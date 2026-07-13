@@ -24,6 +24,7 @@
 | `AGENT_WORLD_MODEL.md` | agent 가 species, class, unit, workflow, party, mission 을 어떤 세계 모델로 읽는지 설명한다. |
 | `ONTOLOGY_MODEL_V0.md` | 반복 개념을 ontology 후보와 canon relation 으로 다루는 기준을 둔다. |
 | `TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md` | 프로젝트 시간축과 source revision, RAG, Wiki, SE 규칙, 지식 정본을 exact ID와 관계로 연결한다. |
+| `ID_CONTRACT_V1.md` | source/file/RAG/task identity의 정규화, 생성 basis, typed ref, 충돌 규칙을 고정한다. |
 | `ONTOLOGY_REVIEW_MANUAL_V0.md` | project-local 반복 패턴을 ontology candidate 로 검토하는 절차를 둔다. |
 | `ONTOLOGY_RELATION_MATRIX_V1.md` | validator 와 harness 가 참조할 owner relation 요약 matrix 다. |
 | `REPOSITORY_IMPROVEMENT_PLAN_V0.md` | 저장소 개선 단계를 별도 plan 으로 추적한다. |
@@ -48,6 +49,7 @@
 - [`AGENT_WORLD_MODEL.md`](AGENT_WORLD_MODEL.md)
 - [`ONTOLOGY_MODEL_V0.md`](ONTOLOGY_MODEL_V0.md)
 - [`TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`](TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md)
+- [`ID_CONTRACT_V1.md`](ID_CONTRACT_V1.md)
 - [`ONTOLOGY_REVIEW_MANUAL_V0.md`](ONTOLOGY_REVIEW_MANUAL_V0.md)
 - [`ONTOLOGY_RELATION_MATRIX_V1.md`](ONTOLOGY_RELATION_MATRIX_V1.md)
 - [`REPOSITORY_IMPROVEMENT_PLAN_V0.md`](REPOSITORY_IMPROVEMENT_PLAN_V0.md)

@@ -9,6 +9,8 @@
 
 - `doctor`, `gateway`, `town_crier`, `night_watch` 같은 cross-project 운영 owner 에서 중복되던 helper 를 모은다.
 - project truth, private continuity, runtime state 자체를 소유하지는 않는다.
+- `temporal_identity.mjs`는 source/file/RAG/task owner가 공유하는 canonical JSON, typed ref,
+  content hash와 deterministic ID builder만 제공한다. semantic ID 발급 authority는 각 owner에 남는다.
 
 ## 원칙
 
