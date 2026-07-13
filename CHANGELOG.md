@@ -53,6 +53,18 @@
   job의 기존 schedule은 유지한다. 완료본과 chunk를 재사용할 때는 음원 해시, 실행 ID,
   엔진과 모델 ID·해시가 모두 현재 계획과 일치해야 하며, 하나라도 달라지면 이전 chunk를
   버리고 새로 전사한다. (worker: codex_gpt-5)
+
+### dev-ERP Windows background launcher split TLS 경로 지원
+
+- hardened background launcher에 paired `-TlsCertPath`/`-TlsKeyPath`와 optional
+  `-TlsCaPath`를 추가해 인증서와 private key가 서로 다른 runtime 위치에 있어도 exact
+  server argv로 direct LAN HTTPS를 지속할 수 있게 했다. 파일 존재만 확인하고 key 내용을
+  읽지 않으며, CA-only 입력은 거부한다. dry-run과 시작 결과의 `tls=explicit`은 cert/key
+  pair가 명시됐다는 뜻이고, 경로 대신 `tls=explicit|auto`만 표시한다.
+- 대체 동적 포트와 합성 dummy 파일로 split-path argv 전달, unpaired fail-closed, 경로
+  비노출을 고정하고, LAN 배포/유지보수 문서에 direct HTTPS 예시와 Task Scheduler
+  persistence/실행계정 ACL 지침을 추가했다. (worker: codex_gpt-5)
+
 ### dev-ERP Windows background launcher fail-closed 기본값
 
 - 기존 background launcher의 무조건 port-owner 종료와 LAN/메일/LLM/자동 인입/

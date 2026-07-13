@@ -311,6 +311,7 @@ test("background launcher defaults to loopback core-only posture and requires op
     assert.equal(safe.code, 0, safe.stderr);
     assert.match(safe.stdout, /host=127\.0\.0\.1/);
     assert.match(safe.stdout, /secure-cookie=auto/);
+    assert.match(safe.stdout, /tls=auto/);
     assert.match(safe.stdout, /integrations=none/);
     assert.match(safe.stdout, /real-meta=off fixture=off/);
 
@@ -331,6 +332,102 @@ test("background launcher defaults to loopback core-only posture and requires op
     assert.match(optedIn.stdout, /host=0\.0\.0\.0/);
     assert.match(optedIn.stdout, /secure-cookie=on/);
     assert.match(optedIn.stdout, /integrations=lan,local-llm,mail-collect,auto-intake,autosync,morning-brief,codex-worker/);
+  } finally {
+    await removeFixtureRoot(fixture.root);
+  }
+});
+
+test("background launcher passes explicit split TLS paths without reporting them", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createLauncherFixture();
+  const port = await reservePort();
+  const certDir = path.join(fixture.root, "synthetic certificate location");
+  const keyDir = path.join(fixture.root, "synthetic private key location");
+  const certPath = path.join(certDir, "server.crt");
+  const keyPath = path.join(keyDir, "server.key");
+  const caPath = path.join(certDir, "ca.crt");
+  let fixtureStarted = false;
+  try {
+    await mkdir(certDir, { recursive: true });
+    await mkdir(keyDir, { recursive: true });
+    await writeFile(certPath, "synthetic-certificate", "utf8");
+    await writeFile(keyPath, "synthetic-private-key", "utf8");
+    await writeFile(caPath, "synthetic-ca", "utf8");
+
+    const pairOnly = await runPowerShell(fixture.launcher, [
+      "-Port", String(port),
+      "-BackendRoot", fixture.root,
+      "-TlsCertPath", certPath,
+      "-TlsKeyPath", keyPath,
+      "-DryRun",
+    ]);
+    assert.equal(pairOnly.code, 0, pairOnly.stderr);
+    assert.match(pairOnly.stdout, /tls=explicit/);
+    for (const value of [certPath, keyPath]) {
+      assert.equal(`${pairOnly.stdout}\n${pairOnly.stderr}`.includes(value), false);
+    }
+
+    const result = await runPowerShell(fixture.launcher, [
+      "-Port", String(port),
+      "-BackendRoot", fixture.root,
+      "-TlsCertPath", certPath,
+      "-TlsKeyPath", keyPath,
+      "-TlsCaPath", caPath,
+    ]);
+    fixtureStarted = result.code === 0;
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /tls=explicit/);
+    for (const value of [certPath, keyPath, caPath]) {
+      assert.equal(`${result.stdout}\n${result.stderr}`.includes(value), false);
+    }
+    await waitForHttp(port);
+    assert.deepEqual(JSON.parse(await readFile(fixture.argvFile, "utf8")), [
+      fixture.serverPath,
+      "--host", "127.0.0.1",
+      "--port", String(port),
+      "--knowledge_shell_root", fixture.root,
+      "--no-real-meta",
+      "--no-fixture",
+      "--tls-cert", certPath,
+      "--tls-key", keyPath,
+      "--tls-ca", caPath,
+    ]);
+  } finally {
+    if (fixtureStarted) await shutdownFixture(port, fixture.shutdownToken);
+    await removeFixtureRoot(fixture.root);
+  }
+});
+
+test("background launcher rejects incomplete TLS paths without disclosing them", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createLauncherFixture();
+  const port = await reservePort();
+  const certPath = path.join(fixture.root, "synthetic-cert-only.crt");
+  const keyPath = path.join(fixture.root, "synthetic-key-only.key");
+  const caPath = path.join(fixture.root, "synthetic-ca-only.crt");
+  try {
+    await writeFile(certPath, "synthetic-certificate", "utf8");
+    await writeFile(keyPath, "synthetic-private-key", "utf8");
+    await writeFile(caPath, "synthetic-ca", "utf8");
+    for (const [parameter, value, expectedError] of [
+      ["-TlsCertPath", certPath, /-TlsCertPath and -TlsKeyPath must be provided together/],
+      ["-TlsKeyPath", keyPath, /-TlsCertPath and -TlsKeyPath must be provided together/],
+      ["-TlsCaPath", caPath, /-TlsCaPath requires -TlsCertPath and -TlsKeyPath/],
+    ]) {
+      const result = await runPowerShell(fixture.launcher, [
+        "-Port", String(port),
+        "-BackendRoot", fixture.root,
+        parameter, value,
+        "-DryRun",
+      ]);
+      const output = `${result.stdout}\n${result.stderr}`;
+      assert.notEqual(result.code, 0);
+      assert.match(output, expectedError);
+      assert.equal(output.includes(value), false);
+    }
+    await assert.rejects(readFile(fixture.pidFile, "utf8"), { code: "ENOENT" });
   } finally {
     await removeFixtureRoot(fixture.root);
   }

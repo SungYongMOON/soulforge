@@ -221,9 +221,10 @@ If any enabled workspace is UNC, pass a fresh metadata-only receipt through
 wrong-registry, wrong-worker, non-v4, non-overlap, ADS-uncleared, or mutation-uncontrolled receipt.
 
 Use `127.0.0.1` plus HTTPS/Tailscale for the default tunnel-only posture.
-Use `0.0.0.0` only for owner-approved trusted LAN HTTP. On the NSSM/watchdog
-surfaces, pass `-CookieSecure 0`; with the background launcher below, pass
-`-ListenOnLan` and omit `-SecureCookie` for that HTTP-only pilot so login cookies work.
+Use `0.0.0.0` only for owner-approved trusted LAN exposure, with direct TLS
+preferred. For an approved HTTP-only pilot, pass `-CookieSecure 0` on the
+NSSM/watchdog surfaces; with the background launcher below, pass `-ListenOnLan`
+and omit `-SecureCookie` so login cookies work.
 
 ## Background launcher safe default
 
@@ -250,6 +251,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-worksp
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\run-dev-erp-background.ps1 -SecureCookie
 ```
 
+For owner-approved direct LAN HTTPS with the certificate and private key in
+separate runtime locations, pass the paths explicitly. Run the dry-run first;
+it reports `tls=explicit` without reporting any path. Direct in-app TLS enables
+secure cookies automatically, so do not add `-SecureCookie` merely for this mode:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\run-dev-erp-background.ps1 -ListenOnLan -TlsCertPath "<certificate-root>\server.crt" -TlsKeyPath "<protected-key-root>\server.key" -TlsCaPath "<certificate-root>\ca.crt" -DryRun
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-workspace\apps\dev-erp\ops\run-dev-erp-background.ps1 -ListenOnLan -TlsCertPath "<certificate-root>\server.crt" -TlsKeyPath "<protected-key-root>\server.key" -TlsCaPath "<certificate-root>\ca.crt"
+```
+
 Preflight never stops a process based on a port or PID alone. It replaces a
 listener only when `node.exe`, the absolute runtime `server.mjs` path, and the
 entire expected command line match. An old relative-path launcher process, a
@@ -268,6 +279,11 @@ Every integration is explicit opt-in:
   loopback listener is behind Tailscale Serve or another approved HTTPS
   termination proxy. Direct in-app TLS enables it automatically. Do not use
   this switch for direct plain-HTTP LAN access.
+- `-TlsCertPath <file> -TlsKeyPath <file> [-TlsCaPath <file>]`: resolve existing
+  files and append exact `--tls-cert`, `--tls-key`, and optional `--tls-ca`
+  server argv. Certificate and key are a required pair, and CA is accepted only
+  with that pair. `tls=explicit` means the cert/key pair was supplied. The
+  launcher neither reads the key content nor reports these paths.
 - `-EnableLocalLlm`: enable the local Ollama chat provider.
 - `-EnableMailCollect [-MailCollectSeconds 900]`: enable scheduled mail collection.
 - `-EnableAutoIntake`: enable the post-collection intake hook; requires `-EnableMailCollect`.
@@ -281,7 +297,12 @@ Every integration is explicit opt-in:
 Do not combine these switches merely to reproduce the former broad launcher.
 Enable only the reviewed integration set. Task Scheduler/service registration,
 firewall changes, and worker-first supervision remain separate owner-approved
-operations.
+operations. For persistent direct LAN HTTPS, keep the same absolute TLS path
+arguments in the Task Scheduler action, grant its execution identity read access
+to the certificate/CA and narrowly scoped read access to the private key, and run
+the same action with `-DryRun` before registration and after path or ACL changes.
+Do not copy the key into the tracked checkout. Inherited `DEV_ERP_TLS_*` values
+are scrubbed, so they are not a persistence substitute for these explicit args.
 
 ## Watchdog
 

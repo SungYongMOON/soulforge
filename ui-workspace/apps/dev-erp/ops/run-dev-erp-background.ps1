@@ -18,10 +18,30 @@ param(
   [string]$MorningBriefDomainAllow = "",
   [switch]$EnableCodexWorker,
   [string]$BackendRoot = "",
+  [string]$TlsCertPath = "",
+  [string]$TlsKeyPath = "",
+  [string]$TlsCaPath = "",
   [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
+
+function Resolve-ExplicitTlsPath {
+  param(
+    [Parameter(Mandatory = $true)][string]$Value,
+    [Parameter(Mandatory = $true)][string]$ParameterName
+  )
+
+  try {
+    $Resolved = Resolve-Path -LiteralPath $Value -ErrorAction Stop
+    if (-not (Test-Path -LiteralPath $Resolved.Path -PathType Leaf)) {
+      throw "not_a_file"
+    }
+    return $Resolved.Path
+  } catch {
+    throw "$ParameterName must identify an existing file."
+  }
+}
 
 if ($EnableAutoIntake -and -not $EnableMailCollect) {
   throw "-EnableAutoIntake requires -EnableMailCollect."
@@ -37,6 +57,24 @@ if ($EnableMorningBrief) {
     throw "-EnableMorningBrief requires -MorningBriefDomainAllow."
   }
 }
+
+$HasTlsCertPath = -not [string]::IsNullOrWhiteSpace($TlsCertPath)
+$HasTlsKeyPath = -not [string]::IsNullOrWhiteSpace($TlsKeyPath)
+$HasTlsCaPath = -not [string]::IsNullOrWhiteSpace($TlsCaPath)
+if ($HasTlsCertPath -ne $HasTlsKeyPath) {
+  throw "-TlsCertPath and -TlsKeyPath must be provided together."
+}
+if ($HasTlsCaPath -and -not $HasTlsCertPath) {
+  throw "-TlsCaPath requires -TlsCertPath and -TlsKeyPath."
+}
+if ($HasTlsCertPath) {
+  $TlsCertPath = Resolve-ExplicitTlsPath -Value $TlsCertPath -ParameterName "-TlsCertPath"
+  $TlsKeyPath = Resolve-ExplicitTlsPath -Value $TlsKeyPath -ParameterName "-TlsKeyPath"
+}
+if ($HasTlsCaPath) {
+  $TlsCaPath = Resolve-ExplicitTlsPath -Value $TlsCaPath -ParameterName "-TlsCaPath"
+}
+$TlsSummary = if ($HasTlsCertPath) { "explicit" } else { "auto" }
 
 $App = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $ServerPath = (Resolve-Path -LiteralPath (Join-Path $App "server.mjs")).Path
@@ -64,6 +102,10 @@ $ProcessArgs = @(
   "--no-fixture"
 )
 if ($SecureCookie) { $ProcessArgs += "--secure-cookie" }
+if ($HasTlsCertPath) {
+  $ProcessArgs += @("--tls-cert", $TlsCertPath, "--tls-key", $TlsKeyPath)
+}
+if ($HasTlsCaPath) { $ProcessArgs += @("--tls-ca", $TlsCaPath) }
 
 if (-not ("DevErpCommandLine" -as [type])) {
   Add-Type -TypeDefinition @"
@@ -176,7 +218,7 @@ $IntegrationSummary = if ($EnabledIntegrations.Count) { $EnabledIntegrations -jo
 if ($DryRun) {
   $Action = if ($MatchedProcessIds.Count) { "would_replace_exact_match" } else { "would_start" }
   $CookieSummary = if ($SecureCookie) { "on" } else { "auto" }
-  Write-Output "dev-erp dry-run: action=$Action host=$ListenHost port=$Port secure-cookie=$CookieSummary integrations=$IntegrationSummary real-meta=off fixture=off"
+  Write-Output "dev-erp dry-run: action=$Action host=$ListenHost port=$Port secure-cookie=$CookieSummary tls=$TlsSummary integrations=$IntegrationSummary real-meta=off fixture=off"
   return
 }
 
@@ -366,4 +408,4 @@ try {
 }
 
 $CookieSummary = if ($SecureCookie) { "on" } else { "auto" }
-Write-Output "dev-erp background started: pid=$StartedProcessId host=$ListenHost port=$Port secure-cookie=$CookieSummary integrations=$IntegrationSummary real-meta=off fixture=off"
+Write-Output "dev-erp background started: pid=$StartedProcessId host=$ListenHost port=$Port secure-cookie=$CookieSummary tls=$TlsSummary integrations=$IntegrationSummary real-meta=off fixture=off"
