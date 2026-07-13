@@ -17,7 +17,9 @@ supports the rules; it is not a style corpus or text-imitation target.
   material gap that could change purpose, tested conditions, a protected field,
   applicability, conclusion/verdict, decision Ask, or a required owner field.
   Ask exactly one question, wait, update the gap register, and rescan. Unknowns
-  become `unconfirmed` with a close condition.
+  become `unconfirmed` with an impact and close condition. Every protected
+  `unconfirmed` invariant uses the same ID as its `unconfirmed_items` register
+  entry; an in-body unknown without that traceable register entry is invalid.
 
 ## Adaptive report roles
 

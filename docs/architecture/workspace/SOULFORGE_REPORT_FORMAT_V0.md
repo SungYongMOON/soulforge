@@ -67,6 +67,11 @@ and current decision status in one concise passage. Separate baseline or milesto
 sections are added only for distinct comparison material; they must not repeat the
 same inspection fact to satisfy structure.
 
+Every protected unknown stated in the body must have a same-ID entry in
+`unconfirmed_items` that records its decision impact and close condition. This
+register is rendered as reader-facing unresolved work while its IDs remain on the
+audit surface. A semantic verifier pass cannot waive the deterministic linkage.
+
 The source record may still carry internal fields such as claim ceiling and
 boundary status, but the owner-facing report surface should use report terms
 such as `판정 범위`, `적용 범위`, `출처 및 추적성`, `고려사항`, and `문서 관리`.

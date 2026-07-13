@@ -38,6 +38,9 @@ Short `internal_review` progress reports use a compact status / issue / next-act
 minimum. Their status block is source-owned body content and may carry the scope,
 actual result, and current decision status once; separate baseline or milestone
 sections require distinct comparison material.
+Each protected in-body unknown must also have a same-ID `unconfirmed_items` entry
+with impact and close condition; the fixed validator rejects an omitted register
+even if a semantic verifier otherwise passes.
 
 ## Editorial and verification order
 

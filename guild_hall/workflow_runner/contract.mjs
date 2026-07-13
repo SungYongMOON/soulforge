@@ -745,6 +745,14 @@ export function validateReportDocument(document) {
     if (item.owner_ref !== null) opaqueRef(item.owner_ref, `${itemPath}.owner_ref`);
     nullableText(item.due_or_trigger, `${itemPath}.due_or_trigger`);
   });
+  for (const invariant of document.semantic_manifest.invariants.filter((item) => item.kind === "unconfirmed")) {
+    if (!unconfirmedIds.has(invariant.invariant_id)) {
+      fail(
+        "document_unconfirmed_register_missing",
+        `Protected unconfirmed claim requires a same-ID register item with impact and close condition: ${invariant.invariant_id}`,
+      );
+    }
+  }
   exactObject(document.boundary, ["content_classification", "owner_contract_ref"], "$document.boundary");
   enumValue(document.boundary.content_classification, ["public_safe", "private_work_product"], "$document.boundary.content_classification");
   if (document.boundary.owner_contract_ref !== null) opaqueRef(document.boundary.owner_contract_ref, "$document.boundary.owner_contract_ref");

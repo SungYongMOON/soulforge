@@ -431,6 +431,25 @@ test("ReportDocument validates the synthetic fixture and all five adaptive role 
   const statusSection = sourceOwnedStatus.sections.find((section) => section.role === "status_summary");
   delete statusSection.blocks[0].sentences;
   validateReportDocument(sourceOwnedStatus);
+  const missingUnconfirmedRegister = clone(compactProgress);
+  const unconfirmedInvariant = missingUnconfirmedRegister.semantic_manifest.invariants[0];
+  unconfirmedInvariant.kind = "unconfirmed";
+  unconfirmedInvariant.verdict = "unconfirmed";
+  unconfirmedInvariant.causality = "not_established";
+  unconfirmedInvariant.modality = "unknown";
+  assert.throws(
+    () => validateReportDocument(missingUnconfirmedRegister),
+    (error) => error.code === "document_unconfirmed_register_missing",
+  );
+  missingUnconfirmedRegister.unconfirmed_items = [{
+    item_id: unconfirmedInvariant.invariant_id,
+    statement: "원인은 아직 확인하지 못했다.",
+    impact: "현재 판정은 조건부다.",
+    close_condition: "원인을 확인한다.",
+    owner_ref: null,
+    due_or_trigger: null,
+  }];
+  validateReportDocument(missingUnconfirmedRegister);
   const universalOther = clone(fixture);
   universalOther.report_type = "other";
   universalOther.sections = [{ section_id: "only", heading: "기타", role: "other", claim_refs: [], blocks: [{ block_id: "only-p", type: "paragraph", text: "단일 구조", claim_refs: [], source_refs: [] }] }];

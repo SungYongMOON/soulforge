@@ -24,6 +24,11 @@
   end-to-end replay, Microsoft Word/Excel owner-sample round-trip, 실제 보고서 3건과 owner acceptance 전에는
   default route, team-default, production-ready를 주장하지 않는다. PPT 생성은
   이번 문서 시스템 범위에서 중단 상태다. (worker: codex_gpt-5)
+- Controller review rejected a semantic-verifier pass whose body protected an
+  unconfirmed cause while leaving the unresolved-item register empty. The fixed
+  document validator now requires every protected `unconfirmed` invariant to have
+  a same-ID `unconfirmed_items` entry with decision impact and close condition, so
+  a verifier cannot accidentally waive closure traceability. (worker: codex_gpt-5)
 - Fresh independent evaluation rejected a short internal progress report that
   repeated its inspection fact solely to satisfy separate status and scope roles.
   The runtime now treats `status_summary` as source-owned body content and permits
