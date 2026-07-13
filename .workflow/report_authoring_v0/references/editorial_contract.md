@@ -86,9 +86,11 @@ document metadata only. It excludes workflow stages, prompts, gap-register
 scaffolding, protected manifests, claim IDs, validator output, audit receipts,
 reviewer work notes, and runtime paths.
 
-Keep the structured document, claim/source maps, summary-derivation map,
-authorized-change records, preservation audit, verifier result, and receipt as
-separate audit artifacts. Legitimate report prose is never rejected merely
+Keep the structured document, unconfirmed-item register, claim/source maps,
+summary-derivation map, authorized-change records, preservation audit, verifier
+result, and receipt as separate audit artifacts. The reader renderer does not append
+the unconfirmed register as a second section: the body states each reader-relevant
+unknown and its supported next action once. Legitimate report prose is never rejected merely
 because it uses a word such as `workflow`, `semantic manifest`, or `AI detector`.
 
 ## Tone and meaning

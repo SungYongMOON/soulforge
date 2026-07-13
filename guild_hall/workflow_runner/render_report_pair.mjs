@@ -7,6 +7,14 @@ const CLAIM_LABELS = Object.freeze({ observed: "관찰 범위", source_supported
 const SOURCE_STATUS_LABELS = Object.freeze({ complete: "완전", partial: "부분", unconfirmed: "미확인" });
 const CONCLUSION_ROLES = new Set(["conclusion_verdict", "conclusion_recommendation", "bounded_conclusion_decision_status", "recommendation_next", "status_summary"]);
 const NEXT_ACTION_ROLES = new Set(["next_actions", "decision_ask_next_actions", "decision_support_requests", "recommendation_next"]);
+const COMPACT_INTERNAL_PROGRESS_ROLES = Object.freeze(["status_summary", "issues_risks_dependencies", "next_actions"]);
+
+function isCompactInternalProgress(document) {
+  return document.report_type === "progress"
+    && document.audience === "internal_review"
+    && document.sections.length === COMPACT_INTERNAL_PROGRESS_ROLES.length
+    && document.sections.every((section, index) => section.role === COMPACT_INTERNAL_PROGRESS_ROLES[index]);
+}
 
 function escapeHtml(value) {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -44,13 +52,6 @@ function markdownBlock(block) {
   return [`**${escapeMarkdownInline(block.caption)}**`, "", `| ${headings.map(escapeMarkdownTable).join(" | ")} |`, `| ${headings.map(() => "---").join(" | ")} |`, ...rows, "", markdownSourceLine(block)].filter((line, index, array) => line || index < array.length - 1).join("\n");
 }
 
-function markdownUnconfirmed(item) {
-  const lines = [`### ${escapeMarkdownInline(item.statement)}`, "", `- 영향: ${escapeMarkdownInline(item.impact)}`, `- 종료 조건: ${escapeMarkdownInline(item.close_condition)}`];
-  if (item.owner_ref) lines.push(`- 담당: ${escapeMarkdownInline(item.owner_ref)}`);
-  if (item.due_or_trigger) lines.push(`- 기한·트리거: ${escapeMarkdownInline(item.due_or_trigger)}`);
-  return lines.join("\n");
-}
-
 function markdownReferences(references) {
   if (references.length === 0) return "";
   const rows = references.map((reference) => `| ${escapeMarkdownTable(reference.reference_id)} | ${escapeMarkdownTable(reference.label)} | ${escapeMarkdownTable(reference.source_ref)} |`);
@@ -70,7 +71,6 @@ export function renderMarkdown(document) {
     lines.push(`## ${escapeMarkdownInline(section.heading)}`, "");
     for (const block of section.blocks) lines.push(markdownBlock(block), "");
   }
-  if (document.unconfirmed_items.length) lines.push("## 미확인 사항", "", ...document.unconfirmed_items.flatMap((item) => [markdownUnconfirmed(item), ""]));
   if (document.references.length) lines.push(markdownReferences(document.references), "");
   return `${lines.join("\n").replace(/\n{3,}/gu, "\n\n").trimEnd()}\n`;
 }
@@ -88,13 +88,6 @@ function htmlBlock(block) {
   return `<figure><figcaption>${escapeHtml(block.caption)}</figcaption><table><thead><tr>${header.map((item) => `<th scope="col">${escapeHtml(item)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>${source}</figure>`;
 }
 
-function htmlUnconfirmed(item) {
-  const details = [`<li><strong>영향</strong>: ${escapeHtml(item.impact)}</li>`, `<li><strong>종료 조건</strong>: ${escapeHtml(item.close_condition)}</li>`];
-  if (item.owner_ref) details.push(`<li><strong>담당</strong>: ${escapeHtml(item.owner_ref)}</li>`);
-  if (item.due_or_trigger) details.push(`<li><strong>기한·트리거</strong>: ${escapeHtml(item.due_or_trigger)}</li>`);
-  return `<article><h3>${escapeHtml(item.statement)}</h3><ul>${details.join("")}</ul></article>`;
-}
-
 function blockPlainText(block) {
   if (block.type === "paragraph") return block.text;
   if (block.type === "bullets") return block.items.map((item) => item.text).join(" ");
@@ -108,9 +101,7 @@ function sectionPlainText(section) {
 function htmlVerdictCards(document) {
   const conclusion = document.sections.find((section) => CONCLUSION_ROLES.has(section.role));
   const nextAction = document.sections.find((section) => NEXT_ACTION_ROLES.has(section.role));
-  const followUp = document.unconfirmed_items.length
-    ? document.unconfirmed_items.map((item) => item.statement).join(" · ")
-    : sectionPlainText(nextAction);
+  const followUp = sectionPlainText(nextAction);
   return `<section class="verdict-grid" aria-label="판정 요약"><article class="verdict-card"><h2>주요 결론</h2><p>${escapeHtml(sectionPlainText(conclusion))}</p></article><article class="verdict-card"><h2>적용 범위</h2><p>판정 범위: ${escapeHtml(CLAIM_LABELS[document.claim_ceiling])}<br>원천 기록 상태: ${escapeHtml(SOURCE_STATUS_LABELS[document.source_record_status])}</p></article><article class="verdict-card"><h2>후속 확인 범위</h2><p>${escapeHtml(followUp)}</p></article></section>`;
 }
 
@@ -135,7 +126,6 @@ function htmlNextActionTable(document) {
       else actions.push(...block.rows.map((row) => ({ action: `${block.caption}: ${row.label} — ${row.cells.map((cell) => cell.text).join(" / ")}`, owner: "", due: "" })));
     }
   }
-  actions.push(...document.unconfirmed_items.map((item) => ({ action: item.close_condition, owner: item.owner_ref ?? "", due: item.due_or_trigger ?? "" })));
   if (actions.length === 0) return "";
   const rows = actions.map((item) => `<tr><td>${escapeHtml(item.action)}</td><td>${escapeHtml(item.owner)}</td><td>${escapeHtml(item.due)}</td></tr>`).join("");
   return `<section><h2>후속 조치 표</h2><table><thead><tr><th scope="col">조치</th><th scope="col">담당</th><th scope="col">기한·트리거</th></tr></thead><tbody>${rows}</tbody></table></section>`;
@@ -144,14 +134,16 @@ function htmlNextActionTable(document) {
 export function renderHtml(document) {
   validateReportDocument(document);
   const sections = document.sections.map((section) => `<section data-role="${escapeHtml(section.role)}"><h2>${escapeHtml(section.heading)}</h2>${section.blocks.map(htmlBlock).join("")}</section>`).join("");
-  const unconfirmed = document.unconfirmed_items.length ? `<section><h2>미확인 사항</h2>${document.unconfirmed_items.map(htmlUnconfirmed).join("")}</section>` : "";
+  const compactInternalProgress = isCompactInternalProgress(document);
+  const decisionProjection = compactInternalProgress ? "" : htmlVerdictCards(document);
+  const actionProjection = compactInternalProgress ? "" : htmlNextActionTable(document);
   const reportDate = document.report_date === null ? "" : `<div><strong>기준일</strong><br>${escapeHtml(document.report_date)}</div>`;
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(document.title)}</title>
 <style>:root{color-scheme:light;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#17212b;background:#f4f6f8}body{margin:0}.page{max-width:960px;margin:0 auto;padding:32px;background:#fff;min-height:100vh}.companion-banner{margin:0 -32px 24px;padding:10px 32px;background:#243747;color:#fff;font-weight:700}.meta,.verdict-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;padding:16px 0}.meta div,.verdict-card{border:1px solid #d8e0e7;padding:12px}.verdict-card h2{margin:0 0 8px;border:0;padding:0;font-size:1rem}.verdict-card p{margin:0}h1,h2{line-height:1.25}h2{margin-top:28px;border-bottom:1px solid #d8e0e7;padding-bottom:6px}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #b8c4ce;padding:8px;text-align:left;vertical-align:top}thead{background:#edf3f8}figcaption{font-weight:700}.source{font-size:.9rem;color:#4b5b68}@media print{body{background:#fff}.page{max-width:none;padding:0}.companion-banner{margin:0 0 16px;padding:8px;border:1px solid #243747;color:#17212b;background:#fff}}</style></head>
 <body><main class="page"><p class="companion-banner">HTML companion - canonical record remains the Markdown/structured text file.</p><h1>${escapeHtml(document.title)}</h1>
 <div class="meta"><div><strong>보고서 ID</strong><br>${escapeHtml(document.report_id)}</div><div><strong>프로젝트</strong><br>${escapeHtml(document.project_code)}</div>${reportDate}<div><strong>보고 유형</strong><br>${escapeHtml(REPORT_TYPE_LABELS[document.report_type])}</div><div><strong>독자</strong><br>${escapeHtml(AUDIENCE_LABELS[document.audience])}</div><div><strong>판단 범위</strong><br>${escapeHtml(CLAIM_LABELS[document.claim_ceiling])}</div><div><strong>원천 기록 상태</strong><br>${escapeHtml(SOURCE_STATUS_LABELS[document.source_record_status])}</div><div><strong>정본 레코드</strong><br>final_report_md / report_document_json</div><div><strong>HTML 상태</strong><br>derived_human_review_artifact</div><div><strong>자료 경계</strong><br>${escapeHtml(document.boundary.content_classification)}</div></div>
-${htmlVerdictCards(document)}${sections}${unconfirmed}${htmlEvidenceTable(document)}${htmlNextActionTable(document)}</main></body></html>
+${decisionProjection}${sections}${htmlEvidenceTable(document)}${actionProjection}</main></body></html>
 `;
 }
 

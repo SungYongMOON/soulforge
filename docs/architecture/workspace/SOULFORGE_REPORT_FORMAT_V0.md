@@ -69,8 +69,10 @@ same inspection fact to satisfy structure.
 
 Every protected unknown stated in the body must have a same-ID entry in
 `unconfirmed_items` that records its decision impact and close condition. This
-register is rendered as reader-facing unresolved work while its IDs remain on the
-audit surface. A semantic verifier pass cannot waive the deterministic linkage.
+register remains on the structured audit surface; the Markdown/HTML renderer does
+not append it as a second reader section. The body must state each reader-relevant
+unknown and supported next action once. A semantic verifier pass cannot waive the
+deterministic linkage.
 
 The source record may still carry internal fields such as claim ceiling and
 boundary status, but the owner-facing report surface should use report terms

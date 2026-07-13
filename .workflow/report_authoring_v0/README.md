@@ -43,6 +43,9 @@ remains primary verified body content.
 Each protected in-body unknown must also have a same-ID `unconfirmed_items` entry
 with impact and close condition; the fixed validator rejects an omitted register
 even if a semantic verifier otherwise passes.
+The register remains audit-only during reader projection, so renderers do not append
+a duplicate unresolved-items section. Exact compact internal progress HTML also
+omits duplicate verdict cards and action tables.
 
 ## Editorial and verification order
 

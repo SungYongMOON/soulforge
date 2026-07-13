@@ -650,12 +650,12 @@ test("boundary guard is provenance-aware and does not ban legitimate vocabulary"
   await expectCode(() => scanFinalReportBoundary(leaked, new Map()), "final_report_boundary_scan_failed");
 });
 
-test("reader projection omits audit structures and renders reader-facing unconfirmed details", () => {
+test("reader projection keeps the unconfirmed register audit-only and does not repeat it", () => {
   const document = clone(fixture);
   document.unconfirmed_items = [{ item_id: "gap-one", statement: "원인은 아직 확인되지 않았다.", impact: "판정 범위가 제한된다.", close_condition: "추가 시험으로 원인을 확인한다.", owner_ref: null, due_or_trigger: null }];
   const rendered = renderReportPair(document);
-  assert.match(rendered.markdown, /미확인 사항/u);
-  assert.match(rendered.markdown, /원인은 아직 확인되지 않았다/u);
+  assert.doesNotMatch(rendered.markdown, /미확인 사항|원인은 아직 확인되지 않았다|판정 범위가 제한된다|추가 시험으로 원인을 확인한다/u);
+  assert.doesNotMatch(rendered.html, /미확인 사항|원인은 아직 확인되지 않았다|판정 범위가 제한된다|추가 시험으로 원인을 확인한다/u);
   assert.doesNotMatch(rendered.markdown, /gap-one|semantic_manifest|claim_refs|workflow_bundle_sha256/u);
   assert.doesNotMatch(rendered.html, /gap-one|semantic_manifest|claim_refs|workflow_bundle_sha256/u);
   assert.match(rendered.markdown, /참고문헌 레지스트리/u);
@@ -665,6 +665,22 @@ test("reader projection omits audit structures and renders reader-facing unconfi
   assert.match(rendered.html, /근거·참고문헌 레지스트리/u);
   assert.match(rendered.html, /후속 조치 표/u);
   assert.match(rendered.html, /Synthetic source \[1\]/u);
+
+  const compactProgress = documentForType("progress");
+  compactProgress.sections = compactProgress.sections.filter((section) => new Set([
+    "status_summary", "issues_risks_dependencies", "next_actions",
+  ]).has(section.role));
+  const compactTexts = ["상태 근거 문장.", "확인 근거 문장.", "후속 확인 문장."];
+  compactProgress.sections.forEach((section, index) => {
+    section.blocks[0].text = compactTexts[index];
+    if (section.role === "status_summary") delete section.blocks[0].sentences;
+  });
+  const compactRendered = renderReportPair(compactProgress);
+  for (const phrase of compactTexts) {
+    assert.equal(compactRendered.markdown.split(phrase).length - 1, 1);
+    assert.equal(compactRendered.html.split(phrase).length - 1, 1);
+  }
+  assert.doesNotMatch(compactRendered.html, /<section class="verdict-grid"|후속 조치 표/u);
 
   const noRegistry = documentForType("other");
   const noRegistryRendered = renderReportPair(noRegistry);
