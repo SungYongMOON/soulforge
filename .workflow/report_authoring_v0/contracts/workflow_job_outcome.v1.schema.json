@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.workflow_job_outcome.v1",
+  "title": "Soulforge workflow job outcome v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "state", "result", "receipt_confirmation", "error", "recovery", "replayed"],
+  "properties": {
+    "schema": { "const": "soulforge.workflow_job_outcome.v1" },
+    "state": { "type": "object" },
+    "result": { "type": ["object", "null"] },
+    "receipt_confirmation": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["payload_ref", "sha256", "size", "media_type"],
+          "properties": {
+            "payload_ref": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+            "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "size": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+            "media_type": { "const": "application/json" }
+          }
+        }
+      ]
+    },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code"],
+          "properties": { "code": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,95}$" } }
+        }
+      ]
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "artifact_refs", "reason_code", "receipt_confirmation"],
+      "properties": {
+        "status": { "enum": ["not_required", "rolled_back", "manual_required"] },
+        "artifact_refs": { "type": "array", "maxItems": 6, "items": { "type": "object" } },
+        "reason_code": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{0,95}$" },
+        "receipt_confirmation": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["payload_ref", "sha256", "size", "media_type"],
+              "properties": {
+                "payload_ref": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "size": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+                "media_type": { "const": "application/json" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "replayed": { "type": "boolean" }
+  }
+}

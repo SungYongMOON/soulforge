@@ -24,6 +24,37 @@
   end-to-end replay, Microsoft Word/Excel owner-sample round-trip, 실제 보고서 3건과 owner acceptance 전에는
   default route, team-default, production-ready를 주장하지 않는다. PPT 생성은
   이번 문서 시스템 범위에서 중단 상태다. (worker: codex_gpt-5)
+- `report_authoring_v0` completed a real Korean `final_polish` pilot through the
+  fixed prepare/validate/authority/finalize path. The run adopted a metadata-only
+  receipt, replayed exactly, preserved 37/37 semantic invariants and 22 lexical
+  items, and kept the result at `private_work_product` / `observed` / `partial`.
+  The candidate/default-off and human-owner-review boundaries remain unchanged.
+  (worker: codex_gpt-5)
+
+### report_authoring_v0 fixed runner·editorial contract 정렬
+
+- `report_authoring_v0`의 runtime-critical 행동을 workflow-owned editorial/reference
+  계약으로 모으고, draft 하나만 받는 `final_polish`, material gap만 한 번에 한 질문씩
+  묻는 `full_authoring`, 타입별 adaptive role, 검증된 body에서 파생하는 summary/BLUF,
+  technical-content/evidence-logic/final-polish 분리, reader/audit projection 분리를 문서화했다.
+  문체 gate는 단어 목록이나 AI detector가 아니라 기능·근거·의미 보존으로 판단한다.
+- `report_writer`를 고정 runner의 `prepare -> fresh executor outputs -> separate fresh
+  semantic verifier -> finalize`만 연결하는 thin Codex launcher로 줄였다. Node runner는
+  모델을 호출하거나 보고서를 작성하지 않으며 ERP는 skill이 아니라 workflow/runner를
+  직접 호출한다.
+- report/source/stage body와 생성 artifact는 `_workspaces` 또는 owner-approved
+  worksite에 두고 `_workmeta`에는 metadata-only receipt만 남기도록 format/storage
+  충돌을 해소했다. default route, approval, publish/send, project-share writeback은
+  계속 꺼져 있다. root에 fixed runner 호출·검증 npm surface를 추가했다.
+  (worker: codex_gpt-5)
+- v0 보존 범위를 실제 구현에 맞춰 축소했다. 보호 anchor와 수치·단위·인용 표면은
+  정확히 유지하며 단위 변환·인용 번호 변경·보호 내용 이동은 거부한다. 날짜 근거가
+  없으면 `report_date: null`로 두고 독자용 날짜 행을 생략한다. 최종 문서의
+  project/type/audience를 요청에 묶고, 분류 authority가 없는 v0는
+  `private_work_product`, 초안 단독 정리는 `observed` 및 `partial|unconfirmed`로
+  제한한다. 로컬 identity claim은 실제 process 증명이 아닌
+  `local_context_separation_declared`로 정정하고 post-commit journal 복구 회귀를
+  추가했다. (worker: codex_gpt-5)
 
 ### 장기 스레드 인계의 fresh-worker·writer 안전 계약 정합화
 

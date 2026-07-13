@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.workflow_job_state.v1",
+  "title": "Soulforge workflow job state v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "request_sha256",
+    "state_version",
+    "status",
+    "phase",
+    "attempt",
+    "created_at",
+    "updated_at",
+    "terminal_reason_code"
+  ],
+  "properties": {
+    "schema": { "const": "soulforge.workflow_job_state.v1" },
+    "job_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" },
+    "request_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "state_version": { "type": "integer", "minimum": 0 },
+    "status": { "enum": ["queued", "running", "blocked", "succeeded", "failed", "cancelled", "interrupted"] },
+    "phase": {
+      "enum": [
+        "validate",
+        "intake",
+        "draft",
+        "technical_content",
+        "evidence_logic",
+        "derive_executive_summary",
+        "final_polish",
+        "preservation",
+        "semantic_verify",
+        "document_validate",
+        "render",
+        "boundary",
+        "receipt"
+      ]
+    },
+    "attempt": { "type": "integer", "minimum": 0 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "terminal_reason_code": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,95}$" }
+      ]
+    }
+  }
+}

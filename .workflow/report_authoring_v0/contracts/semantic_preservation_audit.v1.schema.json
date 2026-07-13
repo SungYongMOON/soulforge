@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.semantic_preservation_audit.v1",
+  "title": "Soulforge semantic preservation audit v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "status", "baseline_inventory_sha256", "candidate_inventory_sha256", "counts", "differences", "limitation", "surface_binding", "lexical_guard", "editorial_passes", "summary_derivation"],
+  "properties": {
+    "schema": { "const": "soulforge.semantic_preservation_audit.v1" },
+    "status": { "enum": ["pass", "fail"] },
+    "baseline_inventory_sha256": { "$ref": "#/$defs/sha256" },
+    "candidate_inventory_sha256": { "$ref": "#/$defs/sha256" },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline", "candidate", "matched", "missing", "changed", "unexpected"],
+      "properties": {
+        "baseline": { "type": "integer", "minimum": 0 },
+        "candidate": { "type": "integer", "minimum": 0 },
+        "matched": { "type": "integer", "minimum": 0 },
+        "missing": { "type": "integer", "minimum": 0 },
+        "changed": { "type": "integer", "minimum": 0 },
+        "unexpected": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "differences": {
+      "type": "array",
+      "maxItems": 8192,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["identity", "code"],
+        "properties": {
+          "identity": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "code": { "enum": ["missing_invariant", "protected_value_changed", "unexpected_invariant", "source_document_ref_changed"] },
+          "baseline_sha256": { "$ref": "#/$defs/sha256" },
+          "candidate_sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "limitation": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "surface_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checked", "issues"],
+      "properties": {
+        "status": { "enum": ["pass", "fail"] },
+        "checked": { "type": "integer", "minimum": 0 },
+        "issues": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["invariant_id", "code"],
+            "properties": {
+              "invariant_id": { "type": "string", "minLength": 1, "maxLength": 96 },
+              "code": { "enum": ["anchor_document_field_missing", "anchor_section_missing", "anchor_block_missing", "anchor_not_table", "anchor_table_cell_missing", "surface_occurrence_missing"] },
+              "required_occurrence": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "lexical_guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "status", "scope", "baseline_inventory_sha256", "candidate_inventory_sha256", "protected_count", "missing", "unexpected", "limitation"],
+      "properties": {
+        "schema": { "const": "soulforge.lexical_guard_audit.v1" },
+        "status": { "enum": ["pass", "fail"] },
+        "scope": { "enum": ["final_polish_input_draft", "full_authoring_technical_content_adopted_claims"] },
+        "baseline_inventory_sha256": { "$ref": "#/$defs/sha256" },
+        "candidate_inventory_sha256": { "$ref": "#/$defs/sha256" },
+        "protected_count": { "type": "integer", "minimum": 0 },
+        "missing": { "type": "array", "maxItems": 8192, "items": { "$ref": "#/$defs/lexical_item" } },
+        "unexpected": { "type": "array", "maxItems": 8192, "items": { "$ref": "#/$defs/unexpected_lexical_item" } },
+        "limitation": { "type": "string", "minLength": 1, "maxLength": 1024 }
+      }
+    },
+    "editorial_passes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/editorial_pass_record" }
+    },
+    "summary_derivation": { "$ref": "#/$defs/summary_derivation_record" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "lexical_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "surface_form", "occurrence", "candidate_occurrence"],
+      "properties": {
+        "kind": { "enum": ["number", "date", "identifier", "citation", "table_cell"] },
+        "surface_form": { "type": "string", "minLength": 1, "maxLength": 8192 },
+        "occurrence": { "type": "integer", "minimum": 1 },
+        "candidate_occurrence": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "unexpected_lexical_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "surface_form", "occurrence"],
+      "properties": {
+        "kind": { "enum": ["number", "date", "identifier", "citation", "table_cell"] },
+        "surface_form": { "type": "string", "minLength": 1, "maxLength": 8192 },
+        "occurrence": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "editorial_pass_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "stage", "status", "checks"],
+      "properties": {
+        "schema": { "const": "soulforge.editorial_pass_record.v1" },
+        "stage": { "enum": ["technical_content", "evidence_logic", "derive_executive_summary", "final_polish"] },
+        "status": { "const": "pass" },
+        "checks": { "type": "array", "minItems": 4, "maxItems": 5, "items": { "$ref": "#/$defs/editorial_check" } }
+      }
+    },
+    "editorial_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "applicable", "answer", "evidence_refs", "blocker_code"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,95}$" },
+        "applicable": { "type": "boolean" },
+        "answer": { "enum": ["yes", "no", "not_applicable"] },
+        "evidence_refs": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:-]*$" } },
+        "blocker_code": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{0,95}$" }
+      }
+    },
+    "summary_derivation_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "status", "verified_body_sha256", "derived_document_sha256", "body_claim_refs", "summary_assertions"],
+      "properties": {
+        "schema": { "const": "soulforge.summary_derivation_record.v1" },
+        "status": { "const": "pass" },
+        "verified_body_sha256": { "$ref": "#/$defs/sha256" },
+        "derived_document_sha256": { "$ref": "#/$defs/sha256" },
+        "body_claim_refs": { "type": "array", "maxItems": 4096, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" } },
+        "summary_assertions": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["section_id", "block_id", "sentence_id", "sentence_sha256", "claim_refs", "source_refs", "citation_refs"],
+            "properties": {
+              "section_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" },
+              "block_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" },
+              "sentence_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" },
+              "sentence_sha256": { "$ref": "#/$defs/sha256" },
+              "claim_refs": { "type": "array", "minItems": 1, "maxItems": 4096, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" } },
+              "source_refs": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:-]*$" } },
+              "citation_refs": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

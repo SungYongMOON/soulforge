@@ -1,0 +1,58 @@
+{
+  "schema": "soulforge.report_authoring_regression_cases.v2",
+  "fixture": "synthetic_report_document.json",
+  "automation_boundary": {
+    "deterministic_and_contract_gates": "Execute structural, lexical, boundary, manifest, mode, citation, and summary-map checks without a model.",
+    "fresh_verifier_required": "Semantic equivalence, attribution equivalence, causality, and evidence sufficiency are never auto-accepted by this fixture catalog; a separately identified fresh verifier must return the case result. v0 rejects numeric/unit and citation surface changes before that review.",
+    "no_general_nlp_claim": true
+  },
+  "negative_cases": [
+    { "id": "N01", "source": "2.4 mA", "candidate": "24 mA", "expected_reason_code": "numeric_value_changed", "gate": "deterministic_manifest" },
+    { "id": "N02", "source": "2.4 mA", "candidate": "2.4 A without verified conversion", "expected_reason_code": "unit_binding_changed", "gate": "deterministic_manifest" },
+    { "id": "N03", "source": "5.00 V ± 0.15 V (k=2, about 95%)", "candidate": "5.00 V", "expected_reason_code": "uncertainty_or_coverage_removed", "gate": "deterministic_manifest" },
+    { "id": "N04", "source": "Not detected", "candidate": "Detected", "expected_reason_code": "polarity_changed", "gate": "deterministic_manifest" },
+    { "id": "N05", "source": "T <= 50 °C; 50.0 °C; pass", "candidate": "T < 50 °C; 50.0 °C; pass", "expected_reason_code": "comparator_changed_verdict_stale", "gate": "deterministic_manifest" },
+    { "id": "N06", "source": "A is 12% lower than B", "candidate": "A is 12% higher than B", "expected_reason_code": "comparison_direction_changed", "gate": "deterministic_manifest" },
+    { "id": "N07", "source": "shall", "candidate": "should", "expected_reason_code": "modality_weakened", "gate": "deterministic_manifest" },
+    { "id": "N08", "source": "Supplier-reported 98.1%, not laboratory-verified", "candidate": "Laboratory-verified 98.1%", "expected_reason_code": "attribution_or_assurance_changed", "gate": "deterministic_manifest" },
+    { "id": "N09", "source": "Reviewer attributed result to supplier", "candidate": "Supplier attributed result to reviewer", "expected_reason_code": "entity_role_binding_changed", "gate": "deterministic_manifest" },
+    { "id": "N10", "source": "Conditional pass only at 25 °C and 12 V", "candidate": "Pass", "expected_reason_code": "scope_and_verdict_upgraded", "gate": "deterministic_manifest" },
+    { "id": "N11", "source": "Hypothesis not excluded; mechanism unconfirmed", "candidate": "Hypothesis confirmed as cause", "expected_reason_code": "causality_promoted", "gate": "deterministic_manifest" },
+    { "id": "N12", "source": "Table A=4.8 V; B=5.1 V", "candidate": "Table A=5.1 V; B=4.8 V", "expected_reason_code": "table_binding_changed", "gate": "deterministic_manifest" },
+    { "id": "N13", "source": "Claim C cites reference-1", "candidate": "Citation removed, orphaned, or rebound", "expected_reason_code": "citation_trace_broken", "gate": "citation_contract" },
+    { "id": "N14", "source": "Verified body has no improvement percentage", "candidate": "Summary adds 12% improvement", "expected_reason_code": "summary_only_claim", "gate": "summary_contract" },
+    { "id": "N15", "source": "Summary says pass", "candidate": "Conclusion says EMI retest required and conditional pass", "expected_reason_code": "cross_surface_verdict_drift", "gate": "fresh_verifier_required" },
+    { "id": "N16", "source": "Ten tested samples", "candidate": "All production units", "expected_reason_code": "scope_projection_unsupported", "gate": "fresh_verifier_required" },
+    { "id": "N17", "source": "Results only; no causal analysis", "candidate": "Root cause and recommendation asserted", "expected_reason_code": "evidence_logic_incomplete", "gate": "fresh_verifier_required" },
+    { "id": "N18", "source": "Reader-facing report", "candidate": "Contains {{placeholder}}, gap-register questions, stage output, or receipt fields", "expected_reason_code": "internal_artifact_role_leaked", "gate": "boundary_contract" },
+    { "id": "N19", "source": "Legitimate report about a semantic manifest", "candidate": "Validator rejects it solely for vocabulary", "expected_reason_code": "vocabulary_only_false_positive", "gate": "false_positive_control" },
+    { "id": "N20", "source": "Adaptive presentation/progress structure", "candidate": "Forced Method/Findings/Risks structure with empty sections", "expected_reason_code": "nonadaptive_structure", "gate": "structure_contract" },
+    { "id": "N21", "source": "One material question", "candidate": "Five intake questions at once", "expected_reason_code": "interview_not_single_question", "gate": "fresh_verifier_required" },
+    { "id": "N22", "source": "No material content gap", "candidate": "Interview asks only style preference", "expected_reason_code": "interview_gap_not_material", "gate": "fresh_verifier_required" },
+    { "id": "N23", "source": "Adequate draft-only final_polish request", "candidate": "Blocked for absent optional source or manifest", "expected_reason_code": "draft_only_mode_wrongly_blocked", "gate": "mode_contract" },
+    { "id": "N24", "source": "Verified body before summary derivation", "candidate": "Summary drafted independently before body review", "expected_reason_code": "summary_not_body_derived", "gate": "summary_contract" }
+  ],
+  "positive_controls": [
+    { "id": "P01", "source": "The team measured 2.4 mA", "candidate": "We measured 2.4 mA", "pass_condition": "Same identified actor and attribution", "gate": "fresh_verifier_required" },
+    { "id": "P02", "source": "2.4 mA", "candidate": "2.4 mA", "pass_condition": "v0 preserves the exact numeric and unit surface; conversion requires a future authorized-change contract", "gate": "deterministic_manifest" },
+    { "id": "P03", "source": "One conditional sentence", "candidate": "Two sentences", "pass_condition": "If/then relation, exception, modality, and scope remain explicit", "gate": "fresh_verifier_required" },
+    { "id": "P04", "source": "Redundant sentences", "candidate": "Combined sentence", "pass_condition": "No distinct claim, citation, occurrence, or surface role is lost", "gate": "fresh_verifier_required" },
+    { "id": "P05", "source": "Claim cites [1]", "candidate": "Claim cites [1]", "pass_condition": "v0 preserves the exact citation surface and its reference-entry binding", "gate": "citation_contract" },
+    { "id": "P06", "source": "Reproducibility detail in body", "candidate": "Reproducibility detail at the same protected anchor", "pass_condition": "v0 preserves the protected anchor and surface; movement requires a future authorized-change contract", "gate": "deterministic_manifest" },
+    { "id": "P07", "source": "Active voice", "candidate": "Passive voice", "pass_condition": "Actor, responsibility, attribution, and assurance do not change", "gate": "fresh_verifier_required" },
+    { "id": "P08", "source": "In summary", "candidate": "Phrase deleted", "pass_condition": "No semantic or provenance content is lost", "gate": "fresh_verifier_required" },
+    { "id": "P09", "source": "Plain Markdown or structured draft only", "candidate": "Polished body", "pass_condition": "No optional source or manifest is required", "gate": "runner_e2e" },
+    { "id": "P10", "source": "One material full-authoring gap", "candidate": "One question then gap-register rescan", "pass_condition": "Exactly one question is active before rescan", "gate": "fresh_verifier_required" },
+    { "id": "P11", "source": "Presentation fixture", "candidate": "BLUF/Ask plus evidence", "pass_condition": "No empty generic chapters and limitations remain on decision surface", "gate": "structure_contract" },
+    { "id": "P12", "source": "Progress fixture", "candidate": "Plan-vs-actual, risks, forecast, Ask, next actions", "pass_condition": "No invented technical verdict", "gate": "structure_contract" },
+    { "id": "P13", "source": "Source-owned workflow, AI detector, or semantic manifest vocabulary", "candidate": "Same legitimate vocabulary", "pass_condition": "Boundary gate accepts genuine content and still rejects structural leakage", "gate": "false_positive_control" },
+    { "id": "P14", "source": "Verified body claims", "candidate": "Compressed summary", "pass_condition": "Every sentence has body claim IDs and no new modality, scope, or verdict", "gate": "summary_contract" }
+  ],
+  "type_fixtures": [
+    { "report_type": "experiment", "roles": ["executive_summary", "purpose", "conditions_method", "criteria_request_items", "results", "discussion_considerations", "conclusion_verdict", "next_actions", "references_traceability"] },
+    { "report_type": "analysis", "roles": ["executive_summary", "decision_question_scope", "method_assumptions", "criteria_weights", "alternatives_evidence", "analysis_discussion", "conclusion_recommendation", "decision_ask_next_actions", "references_traceability"] },
+    { "report_type": "progress", "roles": ["status_summary", "scope_baseline", "milestones_actuals", "deliverables_evidence", "issues_risks_dependencies", "forecast", "decision_support_requests", "next_actions", "references_traceability"] },
+    { "report_type": "presentation", "roles": ["title_context", "bluf_and_ask", "minimum_background", "evidence", "recommendation_next", "references_traceability"] },
+    { "report_type": "other", "roles": ["executive_summary", "purpose", "scope_evidence_basis", "findings_current_state", "interpretation_limitations", "bounded_conclusion_decision_status", "next_actions"] }
+  ]
+}

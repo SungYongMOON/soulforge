@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.workflow_receipt.v1",
+  "title": "Soulforge metadata-only workflow receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "workflow_id",
+    "request_sha256",
+    "result_sha256",
+    "workflow_bundle_sha256",
+    "bundle_integrity_claim",
+    "runner_release",
+    "binding_revision",
+    "input_refs",
+    "output_refs",
+    "execution",
+    "phase_transition_digest_before_receipt_confirmation",
+    "validator_summary",
+    "boundary",
+    "started_at",
+    "completed_at",
+    "stop_error_code"
+  ],
+  "properties": {
+    "schema": { "const": "soulforge.workflow_receipt.v1" },
+    "job_id": { "$ref": "#/$defs/safe_id" },
+    "workflow_id": { "const": "report_authoring_v0" },
+    "request_sha256": { "$ref": "#/$defs/sha256" },
+    "result_sha256": { "$ref": "#/$defs/sha256" },
+    "workflow_bundle_sha256": { "$ref": "#/$defs/sha256" },
+    "bundle_integrity_claim": { "enum": ["local_self_integrity_only", "externally_pinned_digest_match"] },
+    "runner_release": { "const": "workflow-runner.v1" },
+    "binding_revision": { "const": "report_authoring_v0.binding.v1" },
+    "input_refs": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/ref_metadata" } },
+    "output_refs": { "type": "array", "minItems": 5, "maxItems": 6, "items": { "$ref": "#/$defs/ref_metadata" } },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_actor_ref", "final_rewriter_actor_ref", "final_rewriter_run_ref", "final_rewriter_context_ref", "final_rewriter_identity_attestation_ref", "semantic_verifier_actor_ref", "semantic_verifier_run_ref", "semantic_verifier_context_ref", "semantic_verifier_identity_attestation_ref", "identity_authority_ref", "identity_authority_record_sha256", "identity_claim", "deployment_attestation_ref", "author_pass_receipt_sha256", "verifier_pass_receipt_sha256", "model_ref", "reasoning_ref"],
+      "properties": {
+        "request_actor_ref": { "$ref": "#/$defs/opaque_ref" },
+        "final_rewriter_actor_ref": { "$ref": "#/$defs/opaque_ref" },
+        "final_rewriter_run_ref": { "$ref": "#/$defs/opaque_ref" },
+        "final_rewriter_context_ref": { "$ref": "#/$defs/opaque_ref" },
+        "final_rewriter_identity_attestation_ref": { "$ref": "#/$defs/opaque_ref" },
+        "semantic_verifier_actor_ref": { "$ref": "#/$defs/opaque_ref" },
+        "semantic_verifier_run_ref": { "$ref": "#/$defs/opaque_ref" },
+        "semantic_verifier_context_ref": { "$ref": "#/$defs/opaque_ref" },
+        "semantic_verifier_identity_attestation_ref": { "$ref": "#/$defs/opaque_ref" },
+        "identity_authority_ref": { "$ref": "#/$defs/opaque_ref" },
+        "identity_authority_record_sha256": { "$ref": "#/$defs/sha256" },
+        "identity_claim": { "enum": ["local_context_separation_declared", "deployment_attested_process_separation"] },
+        "deployment_attestation_ref": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/opaque_ref" }] },
+        "author_pass_receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "verifier_pass_receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "model_ref": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/opaque_ref" }] },
+        "reasoning_ref": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/opaque_ref" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "identity_claim": { "const": "deployment_attested_process_separation" } }, "required": ["identity_claim"] },
+          "then": { "properties": { "deployment_attestation_ref": { "$ref": "#/$defs/opaque_ref" } } },
+          "else": { "properties": { "deployment_attestation_ref": { "type": "null" } } }
+        }
+      ]
+    },
+    "phase_transition_digest_before_receipt_confirmation": { "$ref": "#/$defs/sha256" },
+    "validator_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_contract", "document_contract", "deterministic_preservation", "lexical_guard", "independent_semantic_verification", "render", "boundary", "counts"],
+      "properties": {
+        "request_contract": { "enum": ["pass", "fail"] },
+        "document_contract": { "enum": ["pass", "fail"] },
+        "deterministic_preservation": { "enum": ["pass", "fail"] },
+        "lexical_guard": { "enum": ["pass", "fail"] },
+        "independent_semantic_verification": { "enum": ["pass", "fail"] },
+        "render": { "enum": ["pass", "fail"] },
+        "boundary": { "enum": ["pass", "fail"] },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["protected_baseline", "protected_candidate", "protected_matched", "lexical_protected", "unconfirmed"],
+          "properties": {
+            "protected_baseline": { "type": "integer", "minimum": 0 },
+            "protected_candidate": { "type": "integer", "minimum": 0 },
+            "protected_matched": { "type": "integer", "minimum": 0 },
+            "lexical_protected": { "type": "integer", "minimum": 0 },
+            "unconfirmed": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_classification", "raw_input_payload_copy_detected", "known_secret_pattern_scan_status", "runtime_absolute_path_detected", "source_owned_absolute_path_count", "forbidden_internal_scaffold_detected", "artifact_storage_class", "receipt_metadata_only"],
+      "properties": {
+        "content_classification": { "enum": ["public_safe", "private_work_product"] },
+        "raw_input_payload_copy_detected": { "const": false },
+        "known_secret_pattern_scan_status": { "const": "pass" },
+        "runtime_absolute_path_detected": { "const": false },
+        "source_owned_absolute_path_count": { "type": "integer", "minimum": 0 },
+        "forbidden_internal_scaffold_detected": { "const": false },
+        "artifact_storage_class": { "enum": ["workspace_system", "owner_approved_shared_worksite"] },
+        "receipt_metadata_only": { "const": true }
+      }
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "completed_at": { "type": "string", "format": "date-time" },
+    "stop_error_code": { "type": "null" }
+  },
+  "$defs": {
+    "safe_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "opaque_ref": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "ref_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "payload_ref", "sha256", "size", "media_type"],
+      "properties": {
+        "role": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "payload_ref": { "$ref": "#/$defs/opaque_ref" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "media_type": { "enum": ["application/json", "text/markdown", "text/html", "text/plain"] }
+      }
+    }
+  }
+}

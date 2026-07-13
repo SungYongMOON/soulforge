@@ -22,6 +22,9 @@
 - `snapshot/`: UI 와 외부 host 가 읽는 read-only sanitized 상태 projection
 - `assistant_dashboard/`: 프로젝트별 deadline/open-action/work 장부를 읽는 local-only 비서 종합판 composer
 - `validate/`: canonical root 최소 무결성 검사와 validation harness
+- `workflow_runner/`: static allowlist와 exact contract로 fixed workflow request를
+  prepare/validate/finalize하는 shared runner. 모델·installed skill·plugin·caller command를
+  발견하거나 호출하지 않으며 deterministic validation/render/state/artifact/receipt 조율만 소유
 - `town_crier/`: 공용 notify queue 와 Telegram outbound transport
 - `night_watch/`: nightly review / summary owner
 - `dev_worker/`: task packet 을 받아 reviewable branch 를 만드는 bounded development worker lane
@@ -42,6 +45,11 @@
 - 실제 프로젝트 파일, project-side monster status, raw run truth 는 계속 `_workspaces/<project_code>/` 가 소유한다.
 - Soulforge 전체 활동 최근 맥락 같은 cross-project 총괄 context 는 project `_workmeta/` 가 아니라 `guild_hall/state/operations/**` 가 소유한다.
 - cross-project 운영 명령 표면은 `guild-hall:*` 만 canonical 로 사용한다.
+- `workflow_runner/`의 report/source/stage body와 생성 artifact는 `_workspaces` 또는
+  owner-approved worksite에만 두고, `_workmeta`에는 metadata-only receipt만 둔다.
+  Codex launcher와 ERP adapter는 같은 runner contract를 쓸 수 있으나 ERP는 launcher
+  skill을 호출하지 않는다. fixed runner는 default route, approval, publish/send,
+  project-share writeback authority를 갖지 않는다.
 - `knowledge_access/` 는 명시된 ledger root/file 에만 쓰며 source payload 를 ledger row 에 저장하지 않는다.
 - `daily_ledger/` 는 명시된 daily ledger file/ref 만 읽고 report time 에 mail, git history, system log, raw source ref, live `_workspaces` payload 를 스캔하지 않는다.
 - `file_activity/` 는 승인된 project worksite를 명시적으로 scan할 때만 file bytes를 streaming SHA-256으로 읽고, payload를 보존하지 않는다. node별 packet과 logical-file/revision state, monthly receipt/event, checkpoint와 life-tree projection은 metadata-only다. checkpoint tail replay와 graph compaction은 아직 지원하지 않으며 live scheduler/transport/ACL/ERP correlation emitter는 별도 활성화 전까지 소유하지 않는다.

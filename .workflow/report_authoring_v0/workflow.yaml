@@ -1,10 +1,17 @@
 workflow_id: report_authoring_v0
 kind: workflow
 status: active
-title: Report Authoring v0 (So-What 보고 골격 + 빈칸 채움)
-summary: Public-safe workflow for turning experiment/test/analysis/progress results into a conclusion-driven Soulforge report or briefing. Interviews the author grill-style to fill the missing So-What pieces (왜/뭘/뭘얻/그래서/다음), drafts by report type with practitioner register, runs a separate de-slop pass (bans ungrounded hedging only, keeps grounded judgment), and closes with a self-check and boundary review. Style and structure only — facts, numbers, and verdicts stay owner/source authority; the workflow never invents values.
+title: Report Authoring v0
+summary: >
+  Candidate fixed-bundle workflow for full report authoring or final polish. It
+  generates a protected-claim baseline from approved source material or the input
+  draft, separates technical-content, evidence-logic, and final-polish passes,
+  requires deterministic preservation plus an independent semantic verifier, and
+  emits a first-class final report separately from audit artifacts. Automated
+  checks do not guarantee semantic preservation.
 entrypoint: run
-execution_mode: local_tool_sequence
+execution_mode: fixed_bundle_skills_disabled
+runtime_binding: runtime_binding.json
 role_slots: role_slots.yaml
 step_graph: step_graph.yaml
 handoff_rules: handoff_rules.yaml
@@ -17,30 +24,33 @@ global_invocation:
   primary_alias: report_writer
   slash_alias: /report-writer
   resolves_to_workflow_id: report_authoring_v0
-  status: owner_requested_registration_alias
+  status: registered_alias_candidate_runtime
   notes:
-    - The alias is a human invocation label. It does not grant fact, number, or verdict authority; those remain owner/source.
+    - The alias does not enable a default route or grant source, verdict, publish, or approval authority.
 inputs:
-  - report_authoring_request
-  - report_writing_guide_ref
-  - report_format_ref
-optional_inputs:
-  - raw_measurement_or_draft_material
-  - report_type_hint
-  - applicable_spec_or_requirement_ref
-  - owner_answers_to_gap_questions
-  - audience_hint
-  - prior_report_or_template_ref
+  required_by_mode:
+    full_authoring:
+      - source_material_ref
+    final_polish:
+      - draft_report_ref
+  optional_strengthening:
+    - owner_contract_ref
+    - source_material_ref
+    - semantic_manifest_ref
 outputs:
-  - report_authoring_scope
-  - so_what_gap_register
-  - filled_so_what
-  - report_draft
-  - de_slop_change_log
-  - self_check_result
-  - boundary_review_note
-validation_level: structure_plus_fresh_eval_pilot_public_safe
-registration_policy: owner_requested_registration
+  user_deliverables:
+    - report_document_json
+    - final_report_md
+    - final_report_html_optional
+  audit_artifacts:
+    - protected_semantic_manifest
+    - preservation_audit
+    - semantic_verification
+    - editorial_pass_records
+    - summary_derivation_record
+    - workflow_receipt_metadata
+validation_level: strict_contract_synthetic_controls_and_bounded_real_pilot
+registration_policy: existing_registration_no_maturity_promotion
 output_state: pilot-executed
 classification_lane:
   primary: project_management
@@ -59,54 +69,70 @@ execution_binding:
   bound_party_id: null
   binding_authority: none
 workflow_modes:
-  - interview_gap_fill
-  - direct_draft
-  - experiment_report
-  - analysis_report
-  - progress_report
-  - presentation_brief
-downstream_workflows:
-  - workflow_id: post_development_review_gate_v0
-    expected_input: workflow_or_doctrine_change_packet
-    status: required_before_public_or_canon_policy_change
+  - full_authoring
+  - final_polish
+runtime_contract:
+  workflow_id: report_authoring_v0
+  binding_revision: report_authoring_v0.binding.v1
+  handler_id: report_authoring_v0
+  skills_disabled: true
+  caller_entrypoint_allowed: false
+  default_route_enabled: false
+  input_body_inline_allowed: false
+  input_path_inline_allowed: false
+  caller_prompt_or_command_allowed: false
+  request_schema: contracts/workflow_job_request.v1.schema.json
+  state_schema: contracts/workflow_job_state.v1.schema.json
+  result_schema: contracts/workflow_job_result.v1.schema.json
+  receipt_schema: contracts/workflow_receipt.v1.schema.json
+  report_document_schema: contracts/report_document.v1.schema.json
 report_authoring_contract:
   owns:
-    - report_scope_and_type_binding
-    - so_what_gap_scan
-    - grill_style_gap_interview
-    - report_draft_by_type_spine
-    - separate_de_slop_pass
-    - self_check
-    - boundary_review_note
+    - fixed_report_and_tone_policy
+    - protected_claim_baseline_generation
+    - technical_content_review
+    - evidence_logic_review
+    - body_verified_summary_derivation
+    - adaptive_report_type_structure
+    - sentence_level_body_claim_binding
+    - final_polish
+    - deterministic_semantic_preservation
+    - exact_protected_anchor_and_surface_preservation
+    - independent_semantic_verification_requirement
+    - deterministic_markdown_and_escaped_html_render
+    - final_deliverable_and_audit_artifact_separation
+    - metadata_only_receipt_shape
   does_not_own:
-    - fact_number_or_test_result_creation
-    - overall_pass_fail_verdict_without_source
-    - measurement_uncertainty_or_spec_id_without_source
-    - claim_ceiling_promotion_beyond_evidence
-    - private_raw_payload_or_secret_inclusion
-    - legal_or_customer_mandated_form_override
+    - source_truth_or_missing_fact_creation
+    - owner_contract_or_publish_approval
+    - semantic_guarantee_from_automation
+    - default_routing_or_external_send
+    - project_share_writeback
   doctrine_refs:
+    editorial_contract: references/editorial_contract.md
+    editorial_research_basis: references/editorial_research_basis.md
     report_writing_guide: docs/architecture/workspace/SOULFORGE_REPORT_WRITING_GUIDE_V0.md
     report_format: docs/architecture/workspace/SOULFORGE_REPORT_FORMAT_V0.md
-    interview_protocol: .registry/skills/report_writer/codex/references/interview.md
-    scaffold_and_register: .registry/skills/report_writer/codex/references/scaffold_and_register.md
-    filled_examples: .registry/skills/report_writer/codex/references/examples.md
-    launcher_skill: .registry/skills/report_writer
-  required_input_shapes:
-    report_authoring_request: templates/report_authoring_request.template.yaml
-  required_output_shapes:
-    report_packet: templates/report_packet.template.yaml
-    self_check_checklist: templates/self_check_checklist.template.yaml
-    boundary_review_note: templates/boundary_review_note.template.md
+    interview_protocol: references/interview_protocol.md
+    technical_content_review: references/technical_content_review.md
+    evidence_logic_review: references/evidence_logic_review.md
+    final_polish_policy: references/final_polish_policy.md
+    semantic_preservation_policy: references/semantic_preservation_policy.md
   authority_boundary:
     facts_numbers_verdicts_remain_owner_or_source: true
-    missing_value_marked_unconfirmed_not_invented: true
-    overall_verdict_requires_named_spec_or_source: true
-    de_slop_keeps_grounded_judgment_verbs: true
-    public_package_contains_no_private_payload: true
-    public_package_contains_no_runtime_absolute_paths: true
+    semantic_manifest_may_be_generated_from_source_or_draft: true
+    caller_supplied_manifest_is_optional_strengthening: true
+    independent_verifier_required_for_success: true
+    independent_human_review_required_before_publishable_or_production_ready: true
+    automated_checks_claim_semantic_guarantee: false
+    report_date_nullable_and_never_invented: true
+    v0_content_classification_fixed_to_private_work_product: true
+    draft_only_claim_ceiling_observed: true
+    authorized_unit_conversion_citation_renumber_or_protected_move_supported: false
+    local_identity_claim_observes_actor_or_process_independence: false
+    report_bodies_or_artifacts_in_workmeta: false
+    workmeta_receipt_metadata_only: true
 notes:
-  - This package is registered in `.workflow/index.yaml` by owner request (build via workflow-generator + workflow-check).
-  - It covers report logic, register, and gap interview — not fact, number, or verdict creation.
-  - Detailed doctrine lives in `SOULFORGE_REPORT_WRITING_GUIDE_V0.md`; structure lives in `SOULFORGE_REPORT_FORMAT_V0.md`. The workflow references them at runtime and does not duplicate them as authority.
-  - `output_state: pilot-executed` rests on fresh-context evaluator/judge runs over experiment/analysis/progress/presentation/interview scenarios; no CLI model calibration was run (see profile_policy.yaml). Default route remains off.
+  - The package remains registered in `.workflow/index.yaml`; this evolution does not change that path or index entry.
+  - One fresh Builder/Verifier cycle and one bounded real final-polish pilot passed; human owner review and deployment calibration remain open.
+  - Natural reader-centered practitioner tone is used without an AI detector, detector-evasion target, or word blacklist.

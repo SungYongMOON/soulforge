@@ -3,45 +3,62 @@ kind: role_slots
 status: active
 role_slots:
   - slot_id: intake_scanner
-    title: Intake and Gap Scanner
+    title: Intake and Boundary Scanner
     responsibilities:
-      - bind report type, audience, and available material
-      - map the So-What 5 and required fields onto the input and list the gaps
-      - stop early when an overall verdict would need a missing spec or source
-    suggested_classes:
-      - archivist
-  - slot_id: gap_interviewer
-    title: Gap Interviewer
+      - validate the exact fixed request and opaque input refs
+      - bind full_authoring or final_polish without accepting caller prompts, paths, commands, or entrypoints
+      - identify source, owner-contract, and unconfirmed gaps
+  - slot_id: protected_claim_builder
+    title: Protected-claim Baseline Builder
     responsibilities:
-      - ask the author one question at a time to fill 왜/그래서/다음 and missing fields
-      - never invent facts, numbers, or verdicts; mark unknowns as 미확인
-    suggested_classes:
-      - auditor
+      - generate the protected semantic manifest from source material or the input draft when no optional manifest is supplied
+      - preserve multiplicity and associations for every declared invariant class
+      - record generation limits without claiming complete semantic extraction
   - slot_id: report_drafter
-    title: Report Drafter
+    title: ReportDocument Drafter
     responsibilities:
-      - expand the filled scaffold into the report type spine using the guide register
-      - keep conclusion-first and map recommendation to a decision
-    suggested_classes:
-      - writer
-  - slot_id: de_slop_reviewer
-    title: De-slop Reviewer
+      - produce or normalize exact ReportDocumentV1
+      - use the fixed workflow-owned report/tone policy and preserve the protected baseline
+  - slot_id: technical_content_reviewer
+    title: Technical-content Reviewer
     responsibilities:
-      - run a separate de-slop pass after drafting
-      - flag hedging only when ungrounded; keep grounded judgment verbs and 미확인 labels
-    suggested_classes:
-      - auditor
-  - slot_id: report_checker
-    title: Report Checker
+      - check facts, quantities, uncertainty, ids, citations, roles, scope and verdict support
+      - block missing or conflicting evidence instead of inventing rationale
+  - slot_id: evidence_logic_reviewer
+    title: Evidence-logic Reviewer
     responsibilities:
-      - confirm the report answers 왜/그래서/다음, carries a one-sentence verdict and a decision request
-      - confirm it is deliverable-only with no working notes or scaffold labels leaking
-    suggested_classes:
-      - auditor
-  - slot_id: boundary_reviewer
-    title: Boundary Reviewer
+      - check result-to-discussion-to-conclusion-to-recommendation traceability
+      - check summary/body/table/conclusion associations and limitations
+  - slot_id: summary_deriver
+    title: Body-bound Summary Deriver
     responsibilities:
-      - check fact/number/verdict attribution, unconfirmed marking, and public/private boundary
-      - name the final output state and claim ceiling
-    suggested_classes:
-      - auditor
+      - derive the report-type summary only after body technical-content and evidence-logic passes
+      - bind every summary paragraph and bullet item to verified body claim ids
+      - leave the verified body and semantic manifest unchanged
+  - slot_id: final_rewriter
+    title: Final Rewriter
+    responsibilities:
+      - improve organization and natural practitioner tone without a word blacklist or detector target
+      - preserve protected meaning and return to technical review when a protected delta is detected
+  - slot_id: deterministic_preservation_checker
+    title: Deterministic Preservation Checker
+    responsibilities:
+      - compare normalized protected invariants with multiplicity and association
+      - validate surface anchors and table row/column/cell bindings
+      - state that automated checks do not guarantee meaning preservation
+  - slot_id: independent_semantic_verifier
+    title: Independent Semantic Verifier
+    responsibilities:
+      - compare approved inputs and reasoning to the final document in a different actor and run from the final rewriter
+      - fail on unresolved differences and never self-confirm the rewrite
+  - slot_id: renderer
+    title: Deterministic Renderer
+    responsibilities:
+      - validate ReportDocumentV1 and render deterministic Markdown plus escaped standalone HTML
+      - keep user deliverables separate from audit artifacts
+  - slot_id: boundary_and_receipt_reviewer
+    title: Boundary and Receipt Reviewer
+    responsibilities:
+      - require bodies and generated artifacts under _workspaces or an approved worksite
+      - emit only pointer, hash, size, status, validator and receipt metadata for _workmeta
+      - keep default routing and publish authority disabled

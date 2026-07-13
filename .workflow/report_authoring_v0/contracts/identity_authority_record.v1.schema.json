@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.workflow_identity_authority_record.v1",
+  "title": "Soulforge fixed identity authority record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "record_id", "status", "identity_claim", "request_sha256", "workflow_bundle_sha256", "candidate_document_sha256", "author_pass_receipt", "verifier_pass_receipt", "authority"],
+  "properties": {
+    "schema": { "const": "soulforge.workflow_identity_authority_record.v1" },
+    "record_id": { "$ref": "#/$defs/safe_id" },
+    "status": { "const": "pass" },
+    "identity_claim": { "enum": ["local_context_separation_declared", "deployment_attested_process_separation"] },
+    "request_sha256": { "$ref": "#/$defs/sha256" },
+    "workflow_bundle_sha256": { "$ref": "#/$defs/sha256" },
+    "candidate_document_sha256": { "$ref": "#/$defs/sha256" },
+    "author_pass_receipt": { "$ref": "#/$defs/author_pass" },
+    "verifier_pass_receipt": { "$ref": "#/$defs/verifier_pass" },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority_ref", "actor_ref", "run_ref", "context_ref", "identity_attestation_ref", "process_ref", "recorded_at", "deployment_attestation_ref"],
+      "properties": {
+        "authority_ref": { "$ref": "#/$defs/opaque_ref" },
+        "actor_ref": { "$ref": "#/$defs/opaque_ref" },
+        "run_ref": { "$ref": "#/$defs/opaque_ref" },
+        "context_ref": { "$ref": "#/$defs/opaque_ref" },
+        "identity_attestation_ref": { "$ref": "#/$defs/opaque_ref" },
+        "process_ref": { "$ref": "#/$defs/opaque_ref" },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "deployment_attestation_ref": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/opaque_ref" }] }
+      }
+    }
+  },
+  "$defs": {
+    "safe_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "opaque_ref": { "type": "string", "minLength": 3, "maxLength": 224, "pattern": "^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "pass_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "sequence", "actor_ref", "run_ref", "context_ref", "identity_attestation_ref", "pass_process_ref", "request_sha256", "workflow_bundle_sha256", "candidate_document_sha256", "result_sha256", "completed_at"],
+      "properties": {
+        "role": { "enum": ["final_rewriter", "semantic_verifier"] },
+        "sequence": { "enum": [1, 2] },
+        "actor_ref": { "$ref": "#/$defs/opaque_ref" },
+        "run_ref": { "$ref": "#/$defs/opaque_ref" },
+        "context_ref": { "$ref": "#/$defs/opaque_ref" },
+        "identity_attestation_ref": { "$ref": "#/$defs/opaque_ref" },
+        "pass_process_ref": { "$ref": "#/$defs/opaque_ref" },
+        "request_sha256": { "$ref": "#/$defs/sha256" },
+        "workflow_bundle_sha256": { "$ref": "#/$defs/sha256" },
+        "candidate_document_sha256": { "$ref": "#/$defs/sha256" },
+        "result_sha256": { "$ref": "#/$defs/sha256" },
+        "completed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "author_pass": {
+      "allOf": [
+        { "$ref": "#/$defs/pass_base" },
+        { "type": "object", "properties": { "role": { "const": "final_rewriter" }, "sequence": { "const": 1 } } }
+      ]
+    },
+    "verifier_pass": {
+      "allOf": [
+        { "$ref": "#/$defs/pass_base" },
+        { "type": "object", "properties": { "role": { "const": "semantic_verifier" }, "sequence": { "const": 2 } } }
+      ]
+    }
+  }
+}

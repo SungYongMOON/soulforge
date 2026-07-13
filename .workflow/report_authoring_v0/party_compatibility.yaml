@@ -7,8 +7,8 @@ candidate_parties:
     fit: future_candidate_only
     reason: Report authoring can later sit in the SE assistant chain after stage-gap and review steps, but no allowed-workflow binding is registered yet.
 compatibility_rules:
-  - The workflow is runnable directly by a Codex controller or the report_writer launcher skill.
+  - The workflow is callable through the fixed shared runner by a Codex controller or a later explicitly bound worker adapter; the report_writer skill only launches it.
   - A future party may call this workflow after results exist, but that binding must be explicit.
   - Party binding cannot grant fact, number, or verdict authority; those stay owner/source.
 default_route_safe: no
-default_route_reason: Report authoring needs per-task material and owner-confirmed facts/verdicts; it is not a default scheduled automation stage.
+default_route_reason: Report authoring needs per-task material, independent verification, and owner review; the candidate fixed-bundle lane is not a default scheduled route.

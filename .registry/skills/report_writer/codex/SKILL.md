@@ -1,38 +1,96 @@
 ---
 name: soulforge-report-writer
-description: "Use as a thin launcher for the Soulforge report authoring workflow when a teammate has measurement data or a draft but the report/briefing has no conclusion, or when turning experiment/test/analysis/progress results into a report. Resolves /report-writer to .workflow/report_authoring_v0, which interviews the author (grill-style, one question at a time) to fill the missing So-What pieces (왜/뭘/뭘얻/그래서/다음), drafts by report type with practitioner register, runs a separate de-slop pass, and self-checks. Style/structure only — facts, numbers, and verdicts stay owner/source; never invents values."
+description: "Launch the fixed Soulforge report_authoring_v0 workflow for full authoring from approved source material or final polish of one supplied draft. Use for experiment, test, analysis, progress, presentation, or other decision-oriented reports; for conclusionless data dumps; or when the user invokes /report-writer. The workflow owns all editorial behavior. This skill only completes material-gap intake, prepares the exact request, coordinates fresh executor and independent verifier outputs, and calls the fixed runner."
 ---
 
 # Soulforge Report Writer
 
-Thin launcher for `.workflow/report_authoring_v0`. The workflow owns the procedure;
-this skill maps the invocation and carries the interview/scaffold/examples references
-the workflow consumes. Do not re-create the workflow body here.
+Launch `.workflow/report_authoring_v0`; do not reproduce its editorial doctrine or
+implement a renderer here.
 
-## Operating Steps
+## Launch
 
 1. Read `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`.
-2. Resolve `$soulforge-report-writer` or `/report-writer` to `.workflow/report_authoring_v0`.
-3. Read `.workflow/report_authoring_v0/workflow.yaml`, `step_graph.yaml`, and `profile_policy.yaml`.
-4. Read `docs/architecture/workspace/SOULFORGE_REPORT_WRITING_GUIDE_V0.md` (doctrine) and `SOULFORGE_REPORT_FORMAT_V0.md` (structure) before drafting.
-5. Mode: if input is measurement data/draft with no conclusion, or So-What ①왜/④그래서/⑤다음 are missing, run the workflow's interview step with [`references/interview.md`](references/interview.md) — one question at a time. If information is complete, go direct_draft.
-6. Map facts to the So-What scaffold; expand into the report type spine (실험/분석/진도/발표) using the register rules. Never invent facts, numbers, or verdicts; missing values stay "미확인".
-7. Run the de-slop step as a SEPARATE pass: remove ungrounded hedging/과장/빈 전환구, keep grounded judgment verbs and 미확인 labels.
-8. Self-check (왜/그래서/다음 answered, 종합 판정 1문장, 권고→의사결정, no data dump, no fabrication, deliverable-only output) and close with the boundary review.
+2. Resolve `$soulforge-report-writer` or `/report-writer` to the exact workflow id
+   `report_authoring_v0`. Read its `README.md`, `runtime_binding.json`, contracts,
+   and workflow-owned references before producing stage output.
+3. Select one mode:
+   - `final_polish`: bind exactly one `draft_report` input. Source material, owner
+     contract, and semantic manifest are optional strengthening inputs. Do not
+     interview because an optional input is absent; ask one question only when a
+     genuine ambiguity would change meaning.
+   - `full_authoring`: bind approved `source_material`. Before preparing the
+     request, apply the workflow interview protocol. Ask exactly one material-gap
+     question at a time, rescan after each answer, and record an unknown as
+     `unconfirmed` with a close condition. Skip the interview when no material gap
+     remains.
+4. Write the exact request JSON in `_workspaces` or an approved worksite, using
+   the workflow-owned `templates/report_authoring_request.template.json` and
+   request schema. The controller—not the user-facing form—issues each opaque
+   payload ref, computes the exact byte hash and size, and keeps the ref-to-file
+   binding in the runtime config. The request never contains inline bodies, host
+   paths, prompts, commands, modules, plugins, or skill names. Prepare it with:
 
-## Boundary Rules
+   ```powershell
+   npm.cmd run guild-hall:workflow-runner -- prepare --request <absolute-request-json>
+   ```
 
-- 출력은 산출물만. 첫 줄부터 산출물이어야 하며 작업 메모/사고 과정/모드 판단을 보고문·발표에 넣지 않는다. 발표자료에는 ①②③ 골격 라벨을 그대로 노출하지 말고 결론 헤드라인·근거·Ask 로 변환한다.
-- 사실, 수치, 시험결과, 합부 판정을 만들어내지 않는다. 빈 곳은 "미확인" 또는 owner question. 종합 판정은 명명된 규격/source 가 있을 때만 단정한다.
-- claim ceiling 을 실제 검증 수준 이상으로 올리지 않는다. production-ready/합격 단정은 source·review 근거가 있을 때만.
-- 비공개 업무 원문, secret, runtime 절대경로를 산출물이나 public 파일에 넣지 않는다. 공개 예시는 합성만.
-- 법정 별지/고객 양식이 강제되면 그 양식을 우선하고 골격은 내용 점검용으로만 쓴다.
-- 워크플로/가이드 변경은 `.workflow/post_development_review_gate_v0/` 로 닫는다.
+5. Retain the preparation packet and its bundle digest. Use the digest-bound
+   finalize skeleton emitted by `prepare`; do not reconstruct a second finalize
+   envelope from memory. Use a fresh author/executor context to produce every
+   stage result named by the preparation packet. Validate each result with the
+   fixed `validate` subcommand.
+   The Node runner validates and orchestrates supplied results; it does not call a
+   model or author the report.
+6. Use a separate fresh verifier context to compare every hash-bound approved
+   input with the final candidate. Keep its actor, run, and context identities
+   distinct from the final rewriter, and do not give it the expected verdict or an
+   author transcript. An unresolved difference blocks finalization.
+7. Fill the emitted `authority_issue_config_skeleton` with the exact final-rewriter
+   result, semantic-verifier result, and caller-declared distinct controller
+   actor/run/context/attestation/process refs. Do not infer or invent any of those
+   refs. The local issuer verifies exact request/bundle/result hashes and declared
+   ref inequality only; it does not observe actor identity or operating-system
+   process independence. Keep `local_context_separation_declared` and a null
+   deployment attestation, then issue the
+   canonical fixed-root authority record with:
 
-## Load On Demand
+   ```powershell
+   npm.cmd run guild-hall:workflow-runner -- issue-authority --config <absolute-authority-json>
+   ```
 
-- 대화형 빈칸 채우기 절차·질문 뱅크: [`references/interview.md`](references/interview.md)
-- 골격·register 규칙·체크리스트·조건부 de-slop quick-card: [`references/scaffold_and_register.md`](references/scaffold_and_register.md)
-- 타입별 채워진 예시 + 데이터덤프 Before/After: [`references/examples.md`](references/examples.md)
-- 워크플로 패키지: `.workflow/report_authoring_v0/` (workflow.yaml, step_graph.yaml, profile_policy.yaml)
-- 전체 doctrine / 구조: `docs/architecture/workspace/SOULFORGE_REPORT_WRITING_GUIDE_V0.md`, `SOULFORGE_REPORT_FORMAT_V0.md`
+   Retain the returned record digest. A deployment identity claim requires a
+   different trusted deployment verifier and is not available through this local
+   issuer.
+8. Put the validated executor results and verifier result in the emitted finalize
+   skeleton. Bind the returned authority-record digest; never hand-craft a record
+   or treat different-looking strings as separation evidence. Then call:
+
+   ```powershell
+   npm.cmd run guild-hall:workflow-runner -- finalize --config <absolute-finalize-json>
+   ```
+
+9. Return the reader-facing Markdown/optional HTML refs separately from audit refs.
+   Treat success as receipt-confirmed only.
+
+## Boundaries
+
+- The workflow owns adaptive report roles, body-derived summaries, meaning-based
+  tone rules, semantic preservation, rendering, and receipts. Do not copy or
+  override them in the skill.
+- Store source bodies, drafts, stage payloads, and generated artifacts only under
+  `_workspaces` or an owner-approved worksite. `_workmeta` receives receipt
+  metadata only: pointers, hashes, sizes, status, validator counts, and provenance.
+- Never invent a fact, number, citation, cause, role, or verdict. Preserve explicit
+  limits and `unconfirmed` states.
+- Preserve protected anchors and numeric/unit/citation surfaces exactly. v0 rejects
+  unit conversion, citation renumbering, and protected-content movement because it
+  has no executable authorized-change contract.
+- Leave `report_date` null when the draft has no source-owned date. v0 output stays
+  `private_work_product`; draft-only final polish is capped at `observed` and a
+  `partial` or `unconfirmed` source record.
+- Do not use a word blacklist, AI-detector score, or detector-evasion target.
+- Default routing, owner approval, publishing, sending, and project-share writeback
+  remain disabled. ERP calls the workflow/runner directly, never this skill.
+- [`references/examples.md`](references/examples.md) is synthetic illustration
+  only and is not runtime policy.

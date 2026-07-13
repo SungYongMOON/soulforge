@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.editorial_pass_record.v1",
+  "title": "Soulforge editorial pass record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "stage", "status", "checks"],
+  "properties": {
+    "schema": { "const": "soulforge.editorial_pass_record.v1" },
+    "stage": { "enum": ["technical_content", "evidence_logic", "derive_executive_summary", "final_polish"] },
+    "status": { "enum": ["pass", "fail"] },
+    "checks": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "applicable", "answer", "evidence_refs", "blocker_code"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,95}$" },
+          "applicable": { "type": "boolean" },
+          "answer": { "enum": ["yes", "no", "not_applicable"] },
+          "evidence_refs": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:-]*$" } },
+          "blocker_code": { "type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{0,95}$" }
+        }
+      }
+    }
+  }
+}

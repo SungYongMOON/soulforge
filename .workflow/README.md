@@ -29,6 +29,23 @@
 - 따라서 workflow 가 `project_management` lane 에 있어도 project party 가 자동으로 배정되는 것은 아니며, mail 관련 workflow 라도 mail party 가 step 을 소유하는 것은 아니다.
 - lane id 와 한글 표시 이름의 초안 표는 [`docs/WORKFLOW_LANE_TAXONOMY_V0.md`](docs/WORKFLOW_LANE_TAXONOMY_V0.md) 에 둔다.
 
+### fixed-bundle, skills-disabled lane
+
+- workflow가 `runtime_binding.json`과 strict contract를 선언하면
+  `guild_hall/workflow_runner/`의 static allowlist/handler lane으로 실행할 수 있다.
+- 이 lane은 기존 `action.skill_id` 실행과 구분한다. 실행 중 installed skill, plugin,
+  ambient instruction, caller prompt/command/module/entrypoint를 발견하거나 선택하지 않는다.
+- controller 또는 승인된 worker가 계약에 맞는 stage output을 만들고, Node runner는
+  고정 request 검증, bundle digest 확인, stage/result 검증, deterministic render,
+  artifact/receipt 채택을 담당한다. Node runner 자체가 모델을 호출한다는 뜻이 아니다.
+- `prepare -> validate -> finalize` 명령은 Codex launcher와 ERP worker adapter가
+  공유할 수 있지만, ERP는 launcher skill을 호출하지 않고 workflow id와 runner
+  contract를 직접 사용한다.
+- 보고서 body와 audit artifact는 `_workspaces` 또는 owner-approved worksite에 두고,
+  `_workmeta`에는 pointer/hash/size/status 등 receipt metadata만 둔다.
+- fixed binding은 default route, owner approval, publish/send, project-share writeback,
+  source truth, production readiness를 부여하지 않는다.
+
 ## canon 과 성숙도 구분
 
 - workflow 의 public-safe package owner 와 runtime 성숙도 평가는 같은 말이 아니다.
@@ -159,6 +176,7 @@ sequenceDiagram
 - [`accepted_verification_result_packet_v0/workflow.yaml`](accepted_verification_result_packet_v0/workflow.yaml): private-pilot-executed governance workflow for recording accepted verification result rows, blocked/inconclusive rows, and scoped acceptance provenance so later audit consumers do not mistake planning packets for accepted evidence.
 - [`owner_decision_packet_v0/workflow.yaml`](owner_decision_packet_v0/workflow.yaml): private-pilot-executed governance workflow for recording scoped owner decisions and downstream effects so later workflows can consume a consistent decision packet without confusing it with source truth or mutating upstream artifacts.
 - [`post_development_review_gate_v0/workflow.yaml`](post_development_review_gate_v0/workflow.yaml): private-pilot-executed generic closing workflow for routing bounded development work through deterministic validation, boundary inspection, value judgment, optional B/V escalation, and supervisor decision before acceptance.
+- [`report_authoring_v0/workflow.yaml`](report_authoring_v0/workflow.yaml): registered workflow with a candidate fixed-bundle runtime lane for source-backed full authoring or draft-only final polish, adaptive report roles, body-derived summary, separate reader/audit surfaces, and independent semantic verification; default route and publish/send authority remain off.
 - [`sourcebound_knowledge_packet_operating_loop_v0/workflow.yaml`](sourcebound_knowledge_packet_operating_loop_v0/workflow.yaml): pilot-executed private-evidence workflow for operating a Karpathy-style source-bound knowledge packet loop from source refs through private projection, contradiction/gap lint, concept candidates, claim ceilings, optional advisory NotebookLM handoff, and workflowization routing.
 - [`monster_knowledge_preflight_v0/workflow.yaml`](monster_knowledge_preflight_v0/workflow.yaml): pilot-executed private-evidence query-first front gate for knowledge-heavy monsters, checking project wiki state, NotebookLM bindings, source ledgers, approved references, and known source gaps before a main workflow begins.
 - [`knowledge_candidate_triage_v0/workflow.yaml`](knowledge_candidate_triage_v0/workflow.yaml): pilot-executed private-evidence workflow for routing raw knowledge candidates into bookshelf placement, owner-review, hold-private, packet-eligibility, or reject lanes without creating source truth or canon promotion.

@@ -2,38 +2,63 @@ workflow_id: report_authoring_v0
 kind: handoff_rules
 status: active
 rules:
-  - rule_id: from_report_writing_guide
-    from_surface: docs/architecture/workspace/SOULFORGE_REPORT_WRITING_GUIDE_V0.md
+  - rule_id: from_fixed_workflow_doctrine
+    from_surfaces:
+      - docs/architecture/workspace/SOULFORGE_REPORT_WRITING_GUIDE_V0.md
+      - docs/architecture/workspace/SOULFORGE_REPORT_FORMAT_V0.md
+      - references/interview_protocol.md
+      - references/technical_content_review.md
+      - references/evidence_logic_review.md
+      - references/final_polish_policy.md
+      - references/semantic_preservation_policy.md
+    requirement: Runtime-critical behavior is workflow-owned and included in the fixed bundle; it does not depend on installed skill references.
+  - rule_id: from_request_to_protected_baseline
     consume:
-      - so_what_scaffold
-      - register_rules
-      - conditioned_de_slop_rules
-      - report_type_spines
-    requirement: The guide supplies doctrine only. The workflow references it at runtime and does not duplicate it as authority.
-  - rule_id: from_report_format
-    from_surface: docs/architecture/workspace/SOULFORGE_REPORT_FORMAT_V0.md
-    consume:
-      - required_sections
-      - md_plus_html_companion_pair_rule
-      - owner_facing_terms
-      - storage_boundary
-    requirement: Report structure and storage boundary come from the format doc.
-  - rule_id: from_skill_references
-    from_surface: .registry/skills/report_writer/codex/references/
-    consume:
-      - interview_protocol
-      - scaffold_quick_card
-      - filled_examples
-    requirement: The launcher skill references carry the interview question bank and worked examples consumed by the steps.
-  - rule_id: to_owner_review
+      - source_material_ref_for_full_authoring
+      - draft_report_ref_for_final_polish
+      - optional_owner_contract_ref
+      - optional_semantic_manifest_ref
     provide:
-      - report_draft
-      - filled_so_what
-      - so_what_gap_register
-      - self_check_result
-    requirement: Drafts with missing facts, missing verdict source, or missing approval stay draft and mark the gaps as 미확인 or owner question.
+      - protected_semantic_manifest
+    requirement: The workflow generates the baseline when the optional manifest is absent; users are not required to author a contract or manifest.
+  - rule_id: from_final_rewriter_to_verifier
+    provide:
+      - final_report_document
+      - protected_semantic_manifest
+      - preservation_audit
+      - approved_input_refs
+    requirement: The verifier must have a different actor and run identity and must inspect source-to-final meaning rather than two projections of the same normalized object.
+  - rule_id: to_user_deliverable
+    provide:
+      - final_report_md
+      - final_report_html
+    requirement: The final report is a first-class user deliverable. Protected manifests and verification records are separate audit artifacts, not report-body appendices.
+  - rule_id: to_workspace_artifact_store
+    provide:
+      - final_report_md
+      - final_report_html
+      - protected_semantic_manifest
+      - preservation_audit
+      - semantic_verification
+    requirement: Write a confined atomic no-overwrite artifact set under `_workspaces` or an owner-approved worksite.
+  - rule_id: to_workmeta_receipt_sink
+    provide:
+      - opaque_pointer
+      - sha256
+      - size
+      - media_type
+      - workflow_bundle_digest
+      - validator_status_and_counts
+      - phase_transition_digest_before_receipt_confirmation
+    requirement: `_workmeta` receives metadata and receipts only, never report/source bodies or generated artifacts; receipt confirmation is required before success.
+  - rule_id: to_publish_review
+    provide:
+      - user_deliverable_refs
+      - audit_artifact_refs
+      - unresolved_items
+    requirement: Independent human verification and owner approval remain required before a publishable or production-ready claim.
   - rule_id: to_post_development_review_gate
     to_surface: .workflow/post_development_review_gate_v0/
     provide:
-      - workflow_or_doctrine_change_packet
-    requirement: Any public or canon change to the workflow or the writing guide is closed through the post-development review gate.
+      - workflow_or_runner_change_packet
+    requirement: Runtime authority, maturity, production, or default-route changes require the applicable post-development review gate.

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.workflow_cli_issue_authority.v1",
+  "title": "Soulforge local identity authority issue config v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "request", "expected_workflow_bundle_sha256", "final_rewriter", "semantic_verifier", "controller"],
+  "properties": {
+    "schema": { "const": "soulforge.workflow_cli_issue_authority.v1" },
+    "request": { "type": "object" },
+    "expected_workflow_bundle_sha256": { "$ref": "#/$defs/sha256" },
+    "final_rewriter": { "type": "object" },
+    "semantic_verifier": { "type": "object" },
+    "controller": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["record_id", "authority_ref", "actor_ref", "run_ref", "context_ref", "identity_attestation_ref", "process_ref", "author_pass_process_ref", "verifier_pass_process_ref", "author_completed_at", "recorded_at"],
+      "properties": {
+        "record_id": { "$ref": "#/$defs/safe_id" },
+        "authority_ref": { "$ref": "#/$defs/opaque_ref" },
+        "actor_ref": { "$ref": "#/$defs/opaque_ref" },
+        "run_ref": { "$ref": "#/$defs/opaque_ref" },
+        "context_ref": { "$ref": "#/$defs/opaque_ref" },
+        "identity_attestation_ref": { "$ref": "#/$defs/opaque_ref" },
+        "process_ref": { "$ref": "#/$defs/opaque_ref" },
+        "author_pass_process_ref": { "$ref": "#/$defs/opaque_ref" },
+        "verifier_pass_process_ref": { "$ref": "#/$defs/opaque_ref" },
+        "author_completed_at": { "type": "string", "format": "date-time" },
+        "recorded_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "$defs": {
+    "safe_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "opaque_ref": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:-]*$" }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.semantic_verifier_result.v1",
+  "title": "Independent semantic verifier result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "status",
+    "actor_ref",
+    "run_ref",
+    "context_ref",
+    "identity_attestation_ref",
+    "checked_inputs",
+    "candidate_document_sha256",
+    "baseline_manifest_sha256",
+    "reason_codes",
+    "unresolved_differences",
+    "completed_at"
+  ],
+  "properties": {
+    "schema": { "const": "soulforge.semantic_verifier_result.v1" },
+    "status": { "enum": ["pass", "fail"] },
+    "actor_ref": { "$ref": "#/$defs/opaque_ref" },
+    "run_ref": { "$ref": "#/$defs/opaque_ref" },
+    "context_ref": { "$ref": "#/$defs/opaque_ref" },
+    "identity_attestation_ref": { "$ref": "#/$defs/opaque_ref" },
+    "checked_inputs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "payload_ref", "sha256"],
+        "properties": {
+          "role": { "enum": ["source_material", "draft_report", "owner_contract", "semantic_manifest"] },
+          "payload_ref": { "$ref": "#/$defs/opaque_ref" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      }
+    },
+    "candidate_document_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "baseline_manifest_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "reason_codes": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,95}$" }
+    },
+    "unresolved_differences": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+    },
+    "completed_at": { "type": "string", "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pass" } }, "required": ["status"] },
+      "then": { "properties": { "unresolved_differences": { "type": "array", "maxItems": 0 } } }
+    }
+  ],
+  "$defs": {
+    "opaque_ref": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 224,
+      "pattern": "^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    }
+  }
+}

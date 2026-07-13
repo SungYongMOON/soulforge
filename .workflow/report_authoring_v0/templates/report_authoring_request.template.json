@@ -1,0 +1,24 @@
+{
+  "schema": "soulforge.workflow_job_request.v1",
+  "job_id": "replace-with-job-id",
+  "idempotency_key": "replace-with-idempotency-key",
+  "workflow_id": "report_authoring_v0",
+  "workflow_binding_revision": "report_authoring_v0.binding.v1",
+  "mode": "final_polish",
+  "project_code": "replace-project",
+  "actor_ref": "actor:replace-with-requester",
+  "input_refs": [
+    {
+      "role": "draft_report",
+      "payload_ref": "payload:replace-with-server-issued-handle",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size": 1,
+      "media_type": "text/markdown"
+    }
+  ],
+  "report_type": "experiment",
+  "audience": "internal_review",
+  "output_formats": ["md"],
+  "boundary_policy": "soulforge.report.boundary.v1",
+  "acceptance_profile": "soulforge.report.semantic_preservation.v1"
+}

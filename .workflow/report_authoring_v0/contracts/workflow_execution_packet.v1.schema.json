@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.workflow_execution_packet.v1",
+  "title": "Soulforge workflow prepare execution packet v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "request_sha256", "workflow_id", "mode", "binding_revision", "workflow_bundle_sha256", "inner_runner", "contract_refs", "prepared_outputs_required", "authority_issue_config_skeleton", "finalize_config_skeleton", "note"],
+  "properties": {
+    "schema": { "const": "soulforge.workflow_execution_packet.v1" },
+    "request_sha256": { "$ref": "#/$defs/sha256" },
+    "workflow_id": { "const": "report_authoring_v0" },
+    "mode": { "enum": ["full_authoring", "final_polish"] },
+    "binding_revision": { "const": "report_authoring_v0.binding.v1" },
+    "workflow_bundle_sha256": { "$ref": "#/$defs/sha256" },
+    "inner_runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skills_enabled", "model_api_available", "arbitrary_module_loading"],
+      "properties": {
+        "skills_enabled": { "const": false },
+        "model_api_available": { "const": false },
+        "arbitrary_module_loading": { "const": false }
+      }
+    },
+    "contract_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request", "finalize_config", "issue_authority_config", "identity_authority_record"],
+      "properties": {
+        "request": { "const": ".workflow/report_authoring_v0/contracts/workflow_job_request.v1.schema.json" },
+        "finalize_config": { "const": ".workflow/report_authoring_v0/contracts/workflow_cli_finalize.v1.schema.json" },
+        "issue_authority_config": { "const": ".workflow/report_authoring_v0/contracts/workflow_cli_issue_authority.v1.schema.json" },
+        "identity_authority_record": { "const": ".workflow/report_authoring_v0/contracts/identity_authority_record.v1.schema.json" }
+      }
+    },
+    "prepared_outputs_required": {
+      "const": ["protected_baseline", "draft", "technical_content", "evidence_logic", "derive_executive_summary", "final_polish", "semantic_verifier"]
+    },
+    "authority_issue_config_skeleton": { "type": "object" },
+    "finalize_config_skeleton": { "type": "object" },
+    "note": { "type": "string", "minLength": 1 }
+  },
+  "$defs": { "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

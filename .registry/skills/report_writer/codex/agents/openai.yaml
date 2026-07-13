@@ -1,0 +1,7 @@
+interface:
+  display_name: "Soulforge Report Writer"
+  short_description: "근거를 보존해 실제 보고서로 정리하는 Soulforge launcher"
+  default_prompt: "Use $soulforge-report-writer to turn this draft into a decision-ready report without changing its facts, limits, or verdict."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,41 +1,57 @@
 workflow_id: report_authoring_v0
 kind: workflow_profile_policy
 status: active
-calibration_status: not_calibrated
-calibration_mode: none
-validation_level: structure_plus_fresh_eval_pilot_public_safe
-measurement_policy:
-  quality_source: fresh_context_evaluator_judge_scenarios
-  model_cost_calibration_run: false
-  model_cost_calibration_reason: >
-    No CLI model-cost calibration matrix was run. The pilot evidence is fresh-context
-    evaluator/judge runs that drove the procedure on synthetic public-safe scenarios.
-    A CLI quality-equivalence calibration can be added later if a model profile lock is wanted.
-pilot_evidence:
-  method: fresh_context_evaluator_plus_separate_judge
-  fixtures_public_safe_synthetic: true
-  scenarios:
-    - data_dump_sensor_sensitivity
-    - analysis_tradeoff_material_selection
-    - progress_report_milestone_slippage
-    - exec_presentation_decision_request
-    - interview_mode_incomplete_input
-  result_summary: >
-    Drafting/analysis/progress/interview scenarios passed the judge acceptance
-    criteria; the data-dump scenario also caught a worst-case uncertainty margin
-    without inventing a verdict. The presentation scenario passed on content
-    after an output-hygiene rule was added to suppress working-note leakage.
-  evidence_location: run-local subagent transcripts (not copied into public canon)
-rerun_triggers:
-  - the So-What scaffold, register rules, or report type spines change
-  - the conditioned de-slop rule changes
-  - the interview question bank changes
-  - a live report-authoring pilot exposes boundary ambiguity
+runtime_lane_status: candidate
+calibration_status: bounded_real_pilot_completed_not_deployment_calibrated
+validation_level: strict_contract_synthetic_controls_and_bounded_real_pilot
+execution_policy:
+  binding_revision: report_authoring_v0.binding.v1
+  skills_disabled_inside_fixed_runner_lane: true
+  static_handler_only: true
+  allowed_modes:
+    - full_authoring
+    - final_polish
+  default_route_enabled: false
+  launcher_interview_before_request:
+    full_authoring_incomplete_input: one_question_at_a_time_until_material_intake_is_complete
+    final_polish: skip_unless_material_ambiguity_would_change_meaning
+  shared_runner_entry_condition: material_intake_complete
+stage_separation:
+  required_executor_stages:
+    - protected_claim_baseline
+    - draft_or_normalize
+    - technical_content
+    - evidence_logic
+    - derive_executive_summary
+    - final_polish
+  independent_verifier_required: true
+  verifier_actor_run_and_context_must_differ_from_final_rewriter: true
+  verifier_checks_all_hash_bound_inputs: true
+  identity_separation_attestation_required: true
+  human_review_required_before_publishable_or_production_ready: true
+policy_loading:
+  bundle_digest_verified_before_execution: true
+  workflow_owned_policy_files_passed_to_fixed_adapters: true
+  installed_skill_runtime_doctrine_dependency: false
+quality_policy:
+  reader_centered_natural_practitioner_tone: true
+  technical_terms_and_qualifiers_preserved: true
+  ai_detector_gate: false
+  detector_evasion_objective: false
+  word_blacklist_gate: false
+evidence:
+  synthetic_contract_and_preservation_fixtures: passed
+  fresh_builder_verifier_cycles_for_this_runtime_revision: 1
+  bounded_real_report_pilot: passed_private_observed_partial_human_owner_review_pending
 non_claims:
-  - no_fact_number_or_verdict_created_by_the_workflow
-  - no_real_owner_data_used_in_calibration
+  - no_semantic_guarantee_from_automated_checks
   - no_production_ready_claim
+  - no_publishable_claim
   - no_default_route_claim
-notes:
-  - The launcher skill reads this file at runtime and must not copy values into the skill body.
-  - This policy records pilot evidence shape only; raw run payloads stay out of public canon.
+  - no_worker_or_erp_activation_claim
+  - no_model_quality_or_cost_equivalence_claim
+promotion_gate:
+  - all_required_positive_and_negative_controls_pass
+  - at_least_two_fresh_builder_to_verifier_cycles_pass
+  - bounded_real_report_human_review_passes
+  - post_development_review_level_3_passes_for_authority_change

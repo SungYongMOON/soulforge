@@ -12,8 +12,11 @@ non_triggers:
   - a legal 별지 form or customer-mandated form is already strictly required (use that form; this is content check only)
   - a simple text memo or non-report document
 classification_rules:
-  - if the input is measurement data/graphs/draft with no conclusion, route to interview_gap_fill mode.
-  - if ①왜/④그래서/⑤다음 are present and source-backed, route to direct_draft mode.
+  - if the user supplies source material and asks for a new report, route to full_authoring.
+  - if the user supplies a draft and asks for cleanup, completion, or final filtering, route to final_polish; draft_report alone is sufficient.
+  - owner_contract, source_material, and semantic_manifest are optional strengthening inputs for final_polish, not user prerequisites.
+  - generate a protected-claim baseline from the source or draft when no optional semantic manifest is supplied.
   - if an overall verdict is needed but no spec/source is available, stop for owner/source rather than inventing a verdict.
   - if measurement uncertainty or spec ID is missing, mark 미확인 and keep the in-range result stated, do not fabricate.
   - if a legal/customer form is mandated, keep that form and use the So-What scaffold only to check that 왜/그래서/다음 are present.
+  - never use an AI-detector score, detector-evasion objective, or word blacklist as the polish gate.

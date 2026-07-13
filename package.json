@@ -8,6 +8,8 @@
     "pets:verify": "node .registry/docs/operations/scripts/sync_codex_pet.mjs verify",
     "pets:remove": "node .registry/docs/operations/scripts/sync_codex_pet.mjs remove",
     "guild-hall:doctor": "node guild_hall/doctor/cli.mjs",
+    "guild-hall:workflow-runner": "node guild_hall/workflow_runner/cli.mjs",
+    "validate:workflow-runner": "node --check guild_hall/workflow_runner/cli.mjs && node --test guild_hall/workflow_runner/*.test.mjs",
     "guild-hall:validate:canon": "node guild_hall/validate/canon_validate.mjs",
     "canon:validate": "npm run guild-hall:validate:canon --",
     "validate:canon": "node guild_hall/validate/canon_validate.mjs",
@@ -183,6 +185,7 @@
     "renderer:web:preview": "npm run ui:preview"
   },
   "dependencies": {
+    "ajv": "^8.18.0",
     "esbuild": "^0.28.0",
     "three": "^0.184.0",
     "yaml": "^2.8.1"

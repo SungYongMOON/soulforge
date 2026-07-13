@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.workflow_job_result.v1",
+  "title": "Soulforge workflow job result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "job_id",
+    "workflow_id",
+    "binding_revision",
+    "status",
+    "artifact_refs",
+    "preservation",
+    "identity_assurance",
+    "unconfirmed_codes",
+    "claim_ceiling",
+    "boundary"
+  ],
+  "properties": {
+    "schema": { "const": "soulforge.workflow_job_result.v1" },
+    "job_id": { "$ref": "#/$defs/safe_id" },
+    "workflow_id": { "const": "report_authoring_v0" },
+    "binding_revision": { "const": "report_authoring_v0.binding.v1" },
+    "status": { "enum": ["succeeded", "blocked", "failed"] },
+    "artifact_refs": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 6,
+      "items": { "$ref": "#/$defs/artifact_ref" }
+    },
+    "preservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deterministic_status",
+        "lexical_status",
+        "lexical_scope",
+        "lexical_inventory_sha256",
+        "lexical_count",
+        "semantic_status",
+        "semantic_verdict_ref",
+        "semantic_verifier_actor_ref",
+        "semantic_verifier_run_ref",
+        "inventory_sha256",
+        "counts"
+      ],
+      "properties": {
+        "deterministic_status": { "enum": ["pass", "fail"] },
+        "lexical_status": { "enum": ["pass", "fail"] },
+        "lexical_scope": { "enum": ["final_polish_input_draft", "full_authoring_technical_content_adopted_claims"] },
+        "lexical_inventory_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "lexical_count": { "type": "integer", "minimum": 0 },
+        "semantic_status": { "enum": ["pass", "fail"] },
+        "semantic_verdict_ref": { "$ref": "#/$defs/opaque_ref" },
+        "semantic_verifier_actor_ref": { "$ref": "#/$defs/opaque_ref" },
+        "semantic_verifier_run_ref": { "$ref": "#/$defs/opaque_ref" },
+        "inventory_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["baseline", "candidate", "matched", "missing", "changed", "unexpected"],
+          "properties": {
+            "baseline": { "type": "integer", "minimum": 0 },
+            "candidate": { "type": "integer", "minimum": 0 },
+            "matched": { "type": "integer", "minimum": 0 },
+            "missing": { "type": "integer", "minimum": 0 },
+            "changed": { "type": "integer", "minimum": 0 },
+            "unexpected": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "identity_assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim", "authority_ref", "authority_record_sha256", "deployment_attestation_ref"],
+      "properties": {
+        "claim": { "enum": ["local_context_separation_declared", "deployment_attested_process_separation"] },
+        "authority_ref": { "$ref": "#/$defs/opaque_ref" },
+        "authority_record_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "deployment_attestation_ref": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/opaque_ref" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "claim": { "const": "deployment_attested_process_separation" } }, "required": ["claim"] },
+          "then": { "properties": { "deployment_attestation_ref": { "$ref": "#/$defs/opaque_ref" } } },
+          "else": { "properties": { "deployment_attestation_ref": { "type": "null" } } }
+        }
+      ]
+    },
+    "unconfirmed_codes": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,95}$" }
+    },
+    "claim_ceiling": { "enum": ["observed", "source_supported", "rejected_or_blocked"] },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["content_classification", "raw_input_payload_copy_detected", "known_secret_pattern_scan_status", "runtime_absolute_path_detected", "source_owned_absolute_path_count", "forbidden_internal_scaffold_detected", "artifact_storage_class", "receipt_metadata_only"],
+      "properties": {
+        "content_classification": { "enum": ["public_safe", "private_work_product"] },
+        "raw_input_payload_copy_detected": { "type": "boolean" },
+        "known_secret_pattern_scan_status": { "enum": ["pass", "detected"] },
+        "runtime_absolute_path_detected": { "type": "boolean" },
+        "source_owned_absolute_path_count": { "type": "integer", "minimum": 0 },
+        "forbidden_internal_scaffold_detected": { "type": "boolean" },
+        "artifact_storage_class": { "enum": ["workspace_system", "owner_approved_shared_worksite"] },
+        "receipt_metadata_only": { "type": "boolean" }
+      }
+    }
+  },
+  "$defs": {
+    "safe_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$" },
+    "opaque_ref": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,31}:[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "payload_ref", "sha256", "size", "media_type"],
+      "properties": {
+        "role": { "enum": ["report_document_json", "final_report_md", "final_report_html", "protected_semantic_manifest", "preservation_audit", "semantic_verification"] },
+        "payload_ref": { "$ref": "#/$defs/opaque_ref" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "size": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "media_type": { "enum": ["text/markdown", "text/html", "application/json"] }
+      }
+    }
+  }
+}
