@@ -41,6 +41,7 @@ verification:
   self_check_ref: "{{_workmeta/<project_code>/runs/<run_id>/presentation_render_self_check.yaml|not_created}}"
   independent_verification_ref: "{{_workmeta/<project_code>/runs/<run_id>/presentation_render_verification.yaml|not_created}}"
   independent_verifier_context: "{{fresh|not_run}}"
+  independent_verifier_builder_source_isolation: "{{pass|fail|not_run}}"
   pptx_structure: "{{pass|fail|not_run}}"
   template_trace: "{{pass|fail|not_run}}"
   approved_visible_content_fidelity: "{{pass|fail|not_run}}"
@@ -48,6 +49,7 @@ verification:
   approved_assets_only: "{{pass|fail|not_run}}"
   required_elements_editable: "{{pass|fail|not_run}}"
   semantic_roles_and_negation_preserved: "{{pass|fail|not_run}}"
+  native_list_formatting_without_literal_bullet_injection: "{{pass|fail|not_run}}"
   layout_render_review: "{{pass|review_required|fail|not_run}}"
   blocker_codes:
     - "{{blocker_code_or_none}}"

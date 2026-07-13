@@ -15,17 +15,20 @@ independent_verifier:
   worker_ref: "{{verifier_tool_and_model_ref}}"
   context_ref: "{{fresh_verifier_context_ref}}"
   fresh_context: true
+  executor_builder_source_used: false
 artifact:
   ref: "{{_workspaces/<project_code>/.../<output_name>.pptx}}"
   sha256: "{{output_sha256}}"
 checks:
   approval_scope_and_hashes: "{{pass|fail}}"
+  executor_builder_source_isolation: "{{pass|fail}}"
   pptx_package_structure: "{{pass|fail}}"
   template_identity_and_fidelity: "{{pass|fail}}"
   approved_visible_text_and_order: "{{pass|fail}}"
   semantic_roles_and_negation: "{{pass|fail}}"
   claim_critical_values: "{{pass|fail}}"
   native_text_tables_and_charts_editable: "{{pass|fail}}"
+  native_list_formatting_without_literal_bullet_injection: "{{pass|fail}}"
   approved_assets_only: "{{pass|fail}}"
   all_slide_visual_and_bounds_review: "{{pass|fail}}"
   payload_and_metadata_boundary: "{{pass|fail}}"

@@ -16,7 +16,7 @@ slots:
     summary: Performs the executor-side PPTX structure, template trace, editability, content fidelity, semantic-role, claim-critical-value, and rendered-layout self-check.
   - slot_id: independent_fidelity_verifier
     title: Independent Fidelity Verifier
-    summary: Uses a fresh context without executor builder-source access to verify approval scope, semantic roles and negation, template fidelity, editability, every rendered slide, and storage boundaries.
+    summary: Uses a fresh context without executor builder-source access to verify approval scope, semantic roles and negation, native list formatting without injected text characters, template fidelity, editability, every rendered slide, and storage boundaries.
   - slot_id: receipt_writer
     title: Receipt Writer
     summary: Writes metadata-only workmeta receipts containing pointers, hashes, sizes, approval refs, verification results, blockers, and next actions.

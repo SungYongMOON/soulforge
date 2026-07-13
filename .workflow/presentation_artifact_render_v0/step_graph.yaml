@@ -74,7 +74,7 @@ steps:
         - verified_template_binding
       artifacts_out:
         - editable_pptx_artifact
-        - render_manifest
+        - presentation_render_manifest
       rules:
         - use_only_approved_content_and_asset_refs
         - preserve_approved_visible_text_and_content_order
@@ -105,7 +105,7 @@ steps:
         - content_identity_record
         - verified_template_binding
         - editable_pptx_artifact
-        - render_manifest
+        - presentation_render_manifest
       artifact_out: presentation_render_self_check
       required_checks:
         - pptx_package_structure_is_valid
@@ -138,7 +138,7 @@ steps:
         - approved_presentation_packet_or_storyline_ref
         - approved_presentation_template_ref
         - editable_pptx_artifact
-        - render_manifest
+        - presentation_render_manifest
         - presentation_render_self_check
       artifact_out: presentation_render_verification
       required_checks:
@@ -148,6 +148,7 @@ steps:
         - template_ref_family_revision_and_sha256_match_request
         - approved_visible_text_order_semantic_roles_negation_and_verdicts_are_preserved
         - native_text_tables_charts_and_list_formatting_remain_editable
+        - native_list_formatting_does_not_inject_literal_bullet_characters
         - all_rendered_slides_and_layout_bounds_are_reviewed
         - output_and_metadata_storage_boundaries_pass
       verdicts:
@@ -169,7 +170,7 @@ steps:
         - content_identity_record
         - verified_template_binding
         - editable_pptx_artifact
-        - render_manifest
+        - presentation_render_manifest
         - presentation_render_self_check
         - presentation_render_verification
       artifact_out: presentation_render_receipt

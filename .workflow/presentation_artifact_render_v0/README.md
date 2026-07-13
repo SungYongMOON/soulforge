@@ -19,7 +19,7 @@ Freeform prompts, unapproved drafts, raw conversation text, missing template ide
 2. Verify the pinned template family, revision, and computed SHA-256 without changing the source template.
 3. Render the approved content into editable PPTX objects using only mappings allowed by the approved template revision.
 4. Run the executor self-check for structure, template trace, editability, visible-text fidelity, semantic roles and negation, claim-critical values, and rendered layout.
-5. Run a fresh-context independent verification without exposing the executor's builder source.
+5. Run a fresh-context independent verification, including semantic-role and native-list-text checks, without exposing the executor's builder source.
 6. Write a metadata-only receipt with immutable workflow identity, evidence pointers, hashes, sizes, provenance, validation states, blockers, next action, and retryability.
 
 If content overflows, lacks a template mapping, or cannot remain editable, the workflow returns `review_required`. It must not solve layout pressure by abbreviating, paraphrasing, reordering, flattening, or selecting another template.
