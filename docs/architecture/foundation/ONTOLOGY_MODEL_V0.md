@@ -41,6 +41,33 @@
 - `Event`
   - 상태 전이, 실행 결과, battle log, continuity record
 
+## 프로젝트·지식 시간축 확장
+
+위 최소 타입은 Soulforge canon/runtime의 기존 핵심 타입이다. 프로젝트 생명수와
+sourcebound 지식을 exact 시점으로 연결할 때는 아래 타입을 얇은 공통 계층으로
+추가한다.
+
+- 사용자 업무 개체
+  - `Project`, `Gate`, `Branch`, `Task`, `Actor`
+- 원본·개정 개체
+  - `SourceCollection`, `Source`, `SourceRevision`, `EvidenceLocator`, `FileRevision`,
+    `ArtifactType`, `ArtifactRevision`
+- 파생·지식 개체
+  - `ExtractionRun`, `RagIndex`, `RagChunk`, `WikiPage`, `WikiRevision`,
+    `Claim`, `Rule`, `RuleRevision`, exact `KnowledgeRevisionRef`
+
+각 개체는 자기 ID 하나를 갖고 다른 개체는 관계 ref로 가리킨다. RAG chunk, Wiki
+revision, Neo4j node는 source truth가 아니라 파생 개체다. exact 원본 시점의 중앙
+연결키는 `source_revision_id`다.
+
+관계 endpoint의 전역 식별 범위는 bare ID가 아니라
+`{entity_type, owner_surface, entity_id}`다. `project_code`가 cross-system Project
+identity이며 DB 정수 ID는 owner-local alias다. `Actor`는 사람뿐 아니라 팀, Codex,
+bot, collector/system worker를 포괄한다.
+
+ID·시간·저장·SE 규칙 연결의 상세 계약은
+[`TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`](TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md)가 소유한다.
+
 ## 최소 관계 타입
 
 - `unit has_species species`
@@ -55,6 +82,30 @@
 - `mission produces artifact`
 - `artifact becomes_input_of next_mission`
 - `event records transition`
+
+프로젝트·지식 시간축 확장 관계:
+
+- `source_collection contains source`
+- `source has_revision source_revision`
+- `knowledge has_revision knowledge_revision`
+- `source_revision materialized_as file_revision`
+- `artifact_revision materialized_as file_revision`
+- `source_bearing_event sourced_from source_revision`
+- `file_observation_event observes file_revision`
+- `transcript_or_normalized_source_revision derived_from parent_source_revision`
+- `rag_chunk derived_from source_revision`
+- `rag_chunk traces_to evidence_locator`
+- `wiki_revision derived_from source_revision`
+- `wiki_revision presents claim`
+- `evidence_locator supports claim`
+- `rule_revision derived_from claim`
+- `knowledge_revision consolidates claim_or_rule_revision`
+- `newer_revision supersedes older_revision`
+- `rule_revision applies_to gate_or_artifact_type`
+- `event_or_task uses source_revision_or_rule_or_knowledge`
+- `task_or_artifact_revision generated_from rule_revision`
+- `event_or_task on_branch branch`
+- `event_or_task at_gate gate`
 
 ## owner별 저장 위치
 
@@ -134,3 +185,8 @@
   - mission produces minutes / action items / followup artifacts
 
 즉 이 예시는 `_workmeta/P26-030/ontology/` 에 project-local instance 로 남길 수 있지만, 규칙 자체는 public foundation 문서가 소유한다.
+
+## 관련 경로
+
+- [`TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`](TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md)
+- [`ONTOLOGY_RELATION_MATRIX_V1.md`](ONTOLOGY_RELATION_MATRIX_V1.md)

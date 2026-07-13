@@ -23,6 +23,7 @@
 | `POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml` | post-development review gate 결과를 남길 때 쓰는 public-safe packet shape 다. |
 | `AGENT_WORLD_MODEL.md` | agent 가 species, class, unit, workflow, party, mission 을 어떤 세계 모델로 읽는지 설명한다. |
 | `ONTOLOGY_MODEL_V0.md` | 반복 개념을 ontology 후보와 canon relation 으로 다루는 기준을 둔다. |
+| `TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md` | 프로젝트 시간축과 source revision, RAG, Wiki, SE 규칙, 지식 정본을 exact ID와 관계로 연결한다. |
 | `ONTOLOGY_REVIEW_MANUAL_V0.md` | project-local 반복 패턴을 ontology candidate 로 검토하는 절차를 둔다. |
 | `ONTOLOGY_RELATION_MATRIX_V1.md` | validator 와 harness 가 참조할 owner relation 요약 matrix 다. |
 | `REPOSITORY_IMPROVEMENT_PLAN_V0.md` | 저장소 개선 단계를 별도 plan 으로 추적한다. |
@@ -46,6 +47,7 @@
 - [`POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml`](POST_DEVELOPMENT_REVIEW_PACKET_TEMPLATE_V0.yaml)
 - [`AGENT_WORLD_MODEL.md`](AGENT_WORLD_MODEL.md)
 - [`ONTOLOGY_MODEL_V0.md`](ONTOLOGY_MODEL_V0.md)
+- [`TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`](TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md)
 - [`ONTOLOGY_REVIEW_MANUAL_V0.md`](ONTOLOGY_REVIEW_MANUAL_V0.md)
 - [`ONTOLOGY_RELATION_MATRIX_V1.md`](ONTOLOGY_RELATION_MATRIX_V1.md)
 - [`REPOSITORY_IMPROVEMENT_PLAN_V0.md`](REPOSITORY_IMPROVEMENT_PLAN_V0.md)
@@ -58,6 +60,7 @@
 - 저장소 전체 기준선과 장기 참조 문서를 묶는다.
 - active owner-local canon 은 `.registry/`, `.unit/`, `.workflow/`, `.party/`, `.mission/`, `_workspaces/` 에서 읽는다.
 - active semantics 는 `AGENT_WORLD_MODEL.md`, `ONTOLOGY_MODEL_V0.md`, `ONTOLOGY_REVIEW_MANUAL_V0.md` 에서 통합한다.
+- project/event/file revision과 source/RAG/Wiki/SE rule의 공통 시점 연결은 `TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`에서 읽는다.
 - 저장소를 다시 잡기 위한 한 장짜리 탐색 지도는 `PROJECT_MAP_V0.md` 에서 읽는다.
 - ERP/BOM처럼 실제 계층을 펼쳐 보는 구조 지도는 `SOULFORGE_ERP_BOM_HIERARCHY_V0.md` 에서 읽는다.
 - 큰 개발 방향과 현재 우선순위의 단일 정본은 `DEVELOPMENT_ROADMAP_V0.md` 에서 읽는다.

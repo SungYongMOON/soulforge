@@ -19,6 +19,36 @@ ready to become durable knowledge.
 | 2 | 업무용 RAG | The source can support bounded work answers with warnings and evidence. |
 | 3 | 정본 지식화 | The source-derived knowledge is validated enough to enter a durable knowledge surface. |
 
+## Exact Source Revision Rule
+
+All three stages bind to an exact `source_revision_id`, not only a mutable path,
+file name, `source_handle`, or current `source_id`.
+
+Minimum lineage:
+
+```text
+source_id
+  -> source_revision_id + content_id
+  -> extraction_run_id
+  -> rag_index_id / rag_chunk_id
+  -> claim / Wiki / knowledge promotion
+```
+
+For mail, voice, SE schedule, and exact request records, the temporal input event
+uses `event sourced_from source_revision`. This is the bridge that makes the
+timeline and retrieval index point to the same original revision. A later work
+application separately records `event/task/artifact_revision uses
+source_revision|rule_revision|knowledge_revision_ref`.
+
+Point-in-time retrieval requires both `valid_at` (what was effective/occurred)
+and `known_at` (what the system had ingested by then). A bare `as_of` is not a
+new-writer contract.
+
+Legacy indexes without an exact source revision remain searchable legacy assets,
+but they cannot prove point-in-time work readiness or source-supported SE rule
+application until migrated. The common ID and owner contract is
+[`TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`](../foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md).
+
 Do not call Stage 1 "done" when the owner asks for full RAG completion. For
 whole-document work, "RAG complete" normally means Stage 1 is closed for the
 whole document and Stage 2/3 status is explicitly reported.
@@ -290,4 +320,3 @@ Status: complete | partial | blocked
 Evidence: <refs>
 Next: <one concrete action>
 ```
-

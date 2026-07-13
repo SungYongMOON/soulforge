@@ -10,6 +10,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(__dirname, "../..");
 let repoRoot = defaultRepoRoot;
 const schemaVersion = "soulforge.canon.validate.v0";
+const sourceIdentityLineageContractRef = "docs/architecture/foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md";
+const sha256DigestPattern = /^[a-f0-9]{64}$/u;
+const sha256ContentIdPattern = /^sha256:[a-f0-9]{64}$/u;
 const publicMissionDraftSchemaVersion = "soulforge.dungeon_assignment.public_mission_draft.v1";
 const publicMissionDraftAllowedMarkerKeys = new Set(["raw_payload_copied", "raw_payload_markers_absent"]);
 const publicMissionDraftSafeTrueFieldIssues = new Map([
@@ -265,9 +268,105 @@ async function loadKnowledgeCatalog(errors, checked) {
     if (!status) {
       errors.push(buildIssue("knowledge_status_missing", repoPath, "status must be present"));
     }
+
+    validateKnowledgeSourceIdentity(document, repoPath, errors);
   }
 
   return { ids: knowledgeIds };
+}
+
+function validateKnowledgeSourceIdentity(document, repoPath, errors) {
+  if (!isPlainObject(document) || !Object.hasOwn(document, "source_identity")) {
+    return;
+  }
+
+  const sourceIdentity = document.source_identity;
+  if (!isPlainObject(sourceIdentity)) {
+    errors.push(
+      buildIssue(
+        "knowledge_source_identity_invalid",
+        repoPath,
+        "source_identity must be a plain object when present",
+      ),
+    );
+    return;
+  }
+
+  for (const field of ["source_id", "source_revision_id", "revision_label"]) {
+    if (!stringValue(sourceIdentity[field])) {
+      errors.push(
+        buildIssue(
+          `knowledge_source_identity_${field}_invalid`,
+          repoPath,
+          `source_identity.${field} must be a non-empty string`,
+        ),
+      );
+    }
+  }
+
+  const contentId = sourceIdentity.content_id;
+  const contentIdValid = typeof contentId === "string" && sha256ContentIdPattern.test(contentId);
+  if (!contentIdValid) {
+    errors.push(
+      buildIssue(
+        "knowledge_source_identity_content_id_invalid",
+        repoPath,
+        "source_identity.content_id must be sha256: followed by exactly 64 lowercase hexadecimal characters",
+      ),
+    );
+  }
+
+  const identityBasis = sourceIdentity.identity_basis;
+  if (
+    !Array.isArray(identityBasis)
+    || identityBasis.length === 0
+    || identityBasis.some((item) => !stringValue(item))
+  ) {
+    errors.push(
+      buildIssue(
+        "knowledge_source_identity_identity_basis_invalid",
+        repoPath,
+        "source_identity.identity_basis must be a non-empty list of non-empty strings",
+      ),
+    );
+  }
+
+  if (sourceIdentity.lineage_contract_ref !== sourceIdentityLineageContractRef) {
+    errors.push(
+      buildIssue(
+        "knowledge_source_identity_lineage_contract_ref_invalid",
+        repoPath,
+        `source_identity.lineage_contract_ref must equal ${sourceIdentityLineageContractRef}`,
+      ),
+    );
+  }
+
+  const sourceSupport = document.source_support;
+  if (!isPlainObject(sourceSupport) || !Object.hasOwn(sourceSupport, "original_pdf_sha256")) {
+    return;
+  }
+
+  const originalPdfSha256 = sourceSupport.original_pdf_sha256;
+  if (typeof originalPdfSha256 !== "string" || !sha256DigestPattern.test(originalPdfSha256)) {
+    errors.push(
+      buildIssue(
+        "knowledge_source_identity_original_pdf_sha256_invalid",
+        repoPath,
+        "source_support.original_pdf_sha256 must be exactly 64 lowercase hexadecimal characters",
+      ),
+    );
+    return;
+  }
+
+  if (contentIdValid && contentId !== `sha256:${originalPdfSha256}`) {
+    errors.push(
+      buildIssue(
+        "knowledge_source_identity_content_digest_mismatch",
+        repoPath,
+        "source_identity.content_id digest must equal source_support.original_pdf_sha256",
+      ),
+    );
+  }
 }
 
 async function loadWorkflowCatalog(errors, checked) {
@@ -844,6 +943,14 @@ function stringValue(value) {
 
 function arrayValue(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function isPlainObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function* walkYamlValue(value, trail = []) {

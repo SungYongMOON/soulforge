@@ -20,6 +20,18 @@ The public ontology seed in `knowledge.yaml` maps the core concepts:
 
 These concepts may be used for graph/RAG routing and future wiki materialization.
 
+## Exact Source Revision
+
+`knowledge.yaml` binds the registered source to
+`dapa_weapon_system_test_eval_guidebook__2012_07__bd26c922ebc7` and the full
+public PDF SHA-256. This is the first temporal knowledge pilot identity. It does
+not by itself prove that every SE schedule/task rule has an exact page or chunk
+crosswalk.
+
+The `knowledge_id` and `source_id` intentionally share the same readable value
+here, but they are different entities. Relations distinguish them with the
+`{entity_type, owner_surface, entity_id}` canonical ref tuple.
+
 ## Boundary
 
 - The official source itself is approved reference knowledge.

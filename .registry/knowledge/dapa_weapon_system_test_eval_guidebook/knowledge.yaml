@@ -27,6 +27,16 @@ source_support:
   local_source_card_refs:
     - _workspaces/knowledge/common/systems_engineering/dapa/weapon_system_test_eval_guidebook/source_cards/dapa_weapon_system_test_eval_guidebook.source_card.json
   original_pdf_sha256: bd26c922ebc79960d670e951c16466fbff679d70e0e9aeff47aab4cacaeb4068
+source_identity:
+  source_id: dapa_weapon_system_test_eval_guidebook
+  source_revision_id: dapa_weapon_system_test_eval_guidebook__2012_07__bd26c922ebc7
+  revision_label: "2012-07"
+  content_id: sha256:bd26c922ebc79960d670e951c16466fbff679d70e0e9aeff47aab4cacaeb4068
+  identity_basis:
+    - official_public_source_ref
+    - published_revision_label
+    - full_source_sha256
+  lineage_contract_ref: docs/architecture/foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md
 public_registration:
   registry_state: canon_entry
   registration_basis: official_public_dapa_source_owner_rule

@@ -17,6 +17,23 @@
 - 관련 기술값이 세 개 이상이면 조건표 하나, 복수 담당자이면 담당자·선행조건·요청 업무·완료 기준표 하나를 사용한다. 의존성이 표에 이미 드러나면 중복 `처리 순서`는 생략한다.
 - action brief 선택기와 검증 fixture가 단일 담당자 업무에서도 수신·사유·목적·요청 업무·완료 기준을 본문에 노출하도록 조정했다. 개인 메일 원문, 실제 주소, 비공개 값은 public 규칙에 포함하지 않았다 (worker: codex_gpt-5.6).
 
+### 프로젝트 시간축과 지식 근거축의 공통 ID 계약
+
+- 메일·음성·SE 일정·사람/AI 작업·파일 개정으로 만든 프로젝트 시간축과,
+  가이드북 원본·RAG·LLM Wiki·주장·규칙·정본 지식을
+  `source_revision_id` 중심으로 잇는 temporal knowledge ontology 계약을 추가했다.
+  `정본 RAG`는 두지 않고 정본 출처/정본 지식과 재생성 가능한 RAG/Wiki/view를
+  분리했으며, one-entity/one-ID + typed relation ref, `valid_at + known_at` bitemporal 조회,
+  cross-PC location/observation 경계를 고정했다.
+- source revision과 project knowledge application의 public-safe template을 추가하고,
+  ontology entity/relation matrix, RAG 3단계, architecture index, roadmap을 동기화했다.
+  방사청 시험평가 가이드북 등록 항목에는 공개 PDF 발행 label과 full hash에 묶인 첫
+  exact source revision ID를 추가했다. 기존 SE task/rule의 coarse source 표기는 exact
+  page/chunk crosswalk가 생기기 전까지 migration gate로 유지한다.
+- optional registry `source_identity`의 필수 ID/발행 label/full SHA-256/identity basis/
+  lineage ref와 기존 PDF hash 일치를 canon validator 및 회귀 테스트로 고정했다.
+  (worker: codex_gpt-5)
+
 ### 맥미니 음성 처리 주노드와 AI 임시 확정 운영 방향
 
 - PLAUD 단독 정본 수집기 채택은 기존 5~10회 파일럿으로 유지하면서, 24시간

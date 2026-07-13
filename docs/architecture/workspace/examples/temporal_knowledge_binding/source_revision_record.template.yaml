@@ -1,0 +1,61 @@
+schema_version: soulforge.source_revision_record.v0
+kind: source_revision_record
+status: template_placeholder
+
+source_id: example_se_guidebook
+source_revision_id: example_se_guidebook__2026_01__a1b2c3d4e5f6
+content_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+revision_label: "2026-01"
+source_class: official_public_example
+content_basis: raw_bytes
+canonicalization_profile_id: null
+issuance_occurrence_id: official_publication_2026_01
+
+aliases:
+  - alias_type: source_handle
+    alias_value: example_se_guidebook_legacy_handle
+    resolution_status: verified_same_source
+
+legacy_refs:
+  - ref_kind: source_index
+    owner_surface: legacy_knowledge_ingest
+    ref_value: example_source_ref_001
+
+native_occurrence_ref:
+  ref_kind: official_publication
+  owner_surface: public_source_provider
+  ref_value: example_official_publication_2026_01
+
+source_card_ref: _workspaces/knowledge/source_cards/example_se_guidebook.source_card.json
+source_record_ref: _workspaces/knowledge/common/example_se_guidebook/source/example_se_guidebook.pdf
+
+time:
+  published_at: null
+  effective_from: null
+  effective_to: null
+  observed_at: "2026-07-13T00:00:00Z"
+  ingested_at: "2026-07-13T00:01:00Z"
+
+lineage:
+  supersedes_source_revision_id: null
+  same_content_predecessor_ref: null
+
+status_tracking:
+  event_stream_ref: _workmeta/system/knowledge/source_revision_events/2026-07.jsonl
+  current_projection_ref: _workmeta/system/knowledge/source_revision_status/example_se_guidebook__2026_01__a1b2c3d4e5f6.yaml
+  mutable_fields_excluded_from_this_record:
+    - approval_status
+    - content_hash_verification_status
+    - claim_ceiling
+
+immutability:
+  record_scope: identity_content_time_provenance
+  correction_policy: append_status_event_or_create_superseding_record
+  identity_fields_are_immutable: true
+
+boundary:
+  metadata_only: true
+  raw_payload_included: false
+  source_text_included: false
+  runtime_absolute_path_included: false
+  template_is_not_evidence: true

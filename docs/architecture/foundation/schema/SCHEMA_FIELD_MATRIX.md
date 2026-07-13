@@ -60,6 +60,13 @@ This matrix is the schema-local field rule anchor for the root canon validator s
 | `focus` | yes | object | structural focus block for catalog grouping |
 | `focus.primary_domain` | yes | string | primary domain label |
 | `focus.applied_to` | yes | list[string] | reusable application labels |
+| `source_identity` | no | object | exact public-safe source revision identity when a knowledge entry binds a source |
+| `source_identity.source_id` | conditional | string | stable canonical source identity |
+| `source_identity.source_revision_id` | conditional | string | exact source edition/snapshot identity |
+| `source_identity.content_id` | conditional | string | full `sha256:<digest>` byte proof |
+| `source_identity.revision_label` | conditional | string | human-facing edition/publication label, not latest authority |
+| `source_identity.identity_basis` | conditional | list[string] | non-empty public-safe identity evidence kinds |
+| `source_identity.lineage_contract_ref` | conditional | string | fixed `docs/architecture/foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md` |
 | `notes` | no | list[string] | human-readable notes |
 
 Resolution rules:
@@ -70,7 +77,10 @@ Resolution rules:
 | identity | `<knowledge_id>` and `knowledge_id` must match exactly |
 | kind | `kind` must be `knowledge` |
 | refs | class-local `knowledge_refs.yaml` resolves this entry by bare `knowledge_id`, not by file path |
-| validator scope | checks structure and resolution only; truth and approval semantics are out of scope |
+| source identity | when present, source revision identity follows `TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`; path/name alone is insufficient |
+| conditional set | when `source_identity` exists, `source_id`, `source_revision_id`, `revision_label`, full SHA-256 `content_id`, non-empty `identity_basis`, and `lineage_contract_ref` are all required |
+| hash agreement | when `source_support.original_pdf_sha256` exists, it must be full lowercase SHA-256 and equal the digest in `source_identity.content_id` |
+| validator scope | checks structure, hash shape/agreement, and resolution only; truth and approval semantics are out of scope |
 
 ## class-local `*_refs.yaml`
 

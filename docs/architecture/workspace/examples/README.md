@@ -19,6 +19,7 @@
 - gateway/town_crier chain sample 은 같은 monster 가 `notify -> battle_log -> morning_report` 에서 같은 의미로 읽히는 예시를 함께 둔다.
 - gateway outbound sample 은 `mail_send.env` 와 별개로 `outbound/**` snapshot 과 `log/mail_send/**` append-only send log shape 를 보여준다.
 - LLM wiki bookshelf sample 은 `llm_wiki_bookshelf/` 아래에 Google Drive source warehouse 와 NotebookLM query bookshelf planning 을 위한 offline/manual metadata-only checklist 와 template 만 둔다.
+- temporal knowledge binding sample 은 `temporal_knowledge_binding/` 아래에 exact source revision과 project/gate/branch/task/artifact 지식 적용 관계의 metadata-only template만 둔다.
 - Soulforge report format sample 은 `soulforge_report_format/` 아래에 Markdown 정본 template 과 standalone HTML companion template 만 둔다.
 - separate private state repo 템플릿이 필요하면 `private_state_repo/` 예시와 `PRIVATE_STATE_REPO_V0.md` 를 함께 본다.
 - 다른 PC 세팅 순서는 [`../MULTI_PC_DEVELOPMENT_V0.md`](../../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md) 를 먼저 본다.

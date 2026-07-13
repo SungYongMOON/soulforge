@@ -89,6 +89,131 @@ test("canon validator checks knowledge id, kind, status, and class pointer struc
   }
 });
 
+test("canon validator accepts a complete optional knowledge source_identity", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-source-identity-"));
+  try {
+    const digest = "a".repeat(64);
+    await writeValidFixture(root, {
+      knowledgeYaml: [
+        "knowledge_id: frontline_doctrine",
+        "kind: knowledge",
+        "status: active",
+        "title: Frontline Doctrine",
+        "source_identity:",
+        "  source_id: frontline_doctrine_source",
+        "  source_revision_id: frontline_doctrine_source__v1__aaaaaaaaaaaa",
+        "  revision_label: v1",
+        `  content_id: sha256:${digest}`,
+        "  identity_basis:",
+        "    - official_public_source_ref",
+        "    - full_source_sha256",
+        "  lineage_contract_ref: docs/architecture/foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md",
+        "source_support:",
+        `  original_pdf_sha256: ${digest}`,
+        "",
+      ].join("\n"),
+    });
+
+    const result = await runValidator(root);
+
+    assert.equal(result.code, 0);
+    assert.equal(result.report.ok, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("canon validator rejects malformed knowledge source_identity fields", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-source-identity-"));
+  try {
+    await writeValidFixture(root, {
+      knowledgeYaml: [
+        "knowledge_id: frontline_doctrine",
+        "kind: knowledge",
+        "status: active",
+        "title: Frontline Doctrine",
+        "source_identity:",
+        "  source_id: \" \"",
+        "  source_revision_id: 7",
+        "  revision_label: []",
+        "  content_id: sha256:ABC123",
+        "  identity_basis:",
+        "    - valid_basis",
+        "    - \" \"",
+        "  lineage_contract_ref: docs/architecture/foundation/WRONG.md",
+        "source_support:",
+        "  original_pdf_sha256: ABC123",
+        "",
+      ].join("\n"),
+    });
+
+    const result = await runValidator(root);
+    const issueIds = result.report.errors.map((error) => error.id);
+
+    assert.equal(result.code, 1);
+    assert.equal(issueIds.includes("knowledge_source_identity_source_id_invalid"), true);
+    assert.equal(issueIds.includes("knowledge_source_identity_source_revision_id_invalid"), true);
+    assert.equal(issueIds.includes("knowledge_source_identity_revision_label_invalid"), true);
+    assert.equal(issueIds.includes("knowledge_source_identity_content_id_invalid"), true);
+    assert.equal(issueIds.includes("knowledge_source_identity_identity_basis_invalid"), true);
+    assert.equal(issueIds.includes("knowledge_source_identity_lineage_contract_ref_invalid"), true);
+    assert.equal(issueIds.includes("knowledge_source_identity_original_pdf_sha256_invalid"), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("canon validator rejects a non-object or digest-mismatched knowledge source_identity", async () => {
+  const roots = await Promise.all([
+    mkdtemp(path.join(os.tmpdir(), "soulforge-canon-source-identity-shape-")),
+    mkdtemp(path.join(os.tmpdir(), "soulforge-canon-source-identity-digest-")),
+  ]);
+  try {
+    await writeValidFixture(roots[0], {
+      knowledgeYaml: [
+        "knowledge_id: frontline_doctrine",
+        "kind: knowledge",
+        "status: active",
+        "source_identity: []",
+        "",
+      ].join("\n"),
+    });
+
+    const contentDigest = "a".repeat(64);
+    const originalDigest = "b".repeat(64);
+    await writeValidFixture(roots[1], {
+      knowledgeYaml: [
+        "knowledge_id: frontline_doctrine",
+        "kind: knowledge",
+        "status: active",
+        "source_identity:",
+        "  source_id: frontline_doctrine_source",
+        "  source_revision_id: frontline_doctrine_source__v1__aaaaaaaaaaaa",
+        "  revision_label: v1",
+        `  content_id: sha256:${contentDigest}`,
+        "  identity_basis:",
+        "    - full_source_sha256",
+        "  lineage_contract_ref: docs/architecture/foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md",
+        "source_support:",
+        `  original_pdf_sha256: ${originalDigest}`,
+        "",
+      ].join("\n"),
+    });
+
+    const [shapeResult, digestResult] = await Promise.all(roots.map(runValidator));
+
+    assert.equal(shapeResult.code, 1);
+    assert.equal(shapeResult.report.errors.some((error) => error.id === "knowledge_source_identity_invalid"), true);
+    assert.equal(digestResult.code, 1);
+    assert.equal(
+      digestResult.report.errors.some((error) => error.id === "knowledge_source_identity_content_digest_mismatch"),
+      true,
+    );
+  } finally {
+    await Promise.all(roots.map((root) => rm(root, { recursive: true, force: true })));
+  }
+});
+
 test("canon validator accepts redacted public mission drafts with blocked null workflow", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-public-mission-"));
   try {

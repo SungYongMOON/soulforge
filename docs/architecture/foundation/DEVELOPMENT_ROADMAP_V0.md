@@ -81,6 +81,12 @@ read-only snapshot
   checkpoint-only rebuild, strict 생명수 projection/ERP exact-dedupe validator까지 public-safe
   candidate로 구현했다. live scheduler·private transport·reconciler-primary·ERP correlation
   emitter·scanner ACL과 graph compaction/tail replay 활성화는 owner binding과 후속 검증 뒤 진행한다.
+- active design follow-up(2026-07-13): `TEMPORAL-KNOWLEDGE-ONTOLOGY`가
+  `source_revision_id`를 중앙 연결키로 고정해 프로젝트 사건·파일 개정과
+  source/RAG/Wiki/claim/rule/knowledge/SE 산출물 계보를 잇는다. 첫 vertical pilot은
+  등록된 방사청 시험평가 가이드북에서 일정 규칙 1개와 산출물 규칙 1개의 exact
+  page/chunk crosswalk를 닫는 것이다. writer/ERP/graph migration과 legacy bulk rewrite는
+  별도 activation gate로 유지한다.
 - 판단(2026-06-14 갱신): snapshot→작전판 게임루프는 장기 북극성으로 유지하되, 지금 손이 가는 active slice 는 dev-erp 다. 과거 active slice `snapshot_to_operation_board_v0` 는 '다음 후보'로 내린다(스펙은 아래 'Active Slice 001' 절에 보존, 재개 시 참조).
 
 ### Owner-approved adjacent lane — autonomous voice context resolver
@@ -203,6 +209,9 @@ Follow-on fit:
 7. Migrate the legacy sourcebound compiled-projection binding from `_workmeta/**`
    payloads to `_workspaces/**` payloads plus metadata-only `_workmeta/**` refs;
    keep payload-producing execution blocked until its workflow review passes.
+8. Add the temporal knowledge identity bridge: canonical source alias crosswalk,
+   exact source revision records, source-revision-bound RAG/Wiki lineage, and
+   project-local SE rule/application relation packets before wider automation.
 
 ## 장기 후보: engineering co-pilot expansion
 

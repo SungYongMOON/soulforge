@@ -1,0 +1,150 @@
+schema_version: soulforge.project_knowledge_application.v0
+kind: project_knowledge_application_event
+status: template_placeholder
+
+event_id: event:EXAMPLE-PROJECT:knowledge_application_suggestion:001
+entity_lifecycle: candidate
+application_state: suggested
+relation_state: review_required
+relation_lifecycle: active
+
+time:
+  occurred_at: "2026-07-13T01:00:00Z"
+  recorded_at: "2026-07-13T01:00:01Z"
+  ingested_at: "2026-07-13T01:00:02Z"
+  project_applied_at: null
+
+project_context:
+  project_id: EXAMPLE-PROJECT
+  gate_id: gate:EXAMPLE-PROJECT:TRR_DT
+  branch_id: branch:EXAMPLE-PROJECT:test_plan
+  input_event_id: event:EXAMPLE-PROJECT:guidebook_intake:001
+  task_id: task:EXAMPLE-PROJECT:001
+  artifact_type_id: development_test_plan
+  artifact_id: artifact:EXAMPLE-PROJECT:development_test_plan
+  artifact_version: "v0.1"
+  artifact_revision_id: artifact_revision:EXAMPLE-PROJECT:development_test_plan:r1
+  artifact_file_revision_id: file_revision:EXAMPLE-PROJECT:development_test_plan:001
+
+source_lineage:
+  source_id: example_se_guidebook
+  source_revision_id: example_se_guidebook__2026_01__a1b2c3d4e5f6
+  content_id: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  source_file_revision_id: file_revision:system:example_se_guidebook:001
+  evidence_locator_ids:
+    - example_se_guidebook__page_120
+  extraction_run_id: extraction_example_se_guidebook_parser_v1_001
+  rag_index_id: example_se_guidebook__2026_01__parser_v1_index
+  rag_chunk_ids:
+    - example_se_guidebook__2026_01__page_120__chunk_001
+  wiki_page_id: example_se_guidebook_test_planning
+  wiki_revision_id: example_se_guidebook_test_planning__a1b2c3d4__bbbbbbbb
+
+knowledge_lineage:
+  claim_ids:
+    - claim_example_test_plan_timing
+  rule_id: example_test_plan_schedule_rule
+  rule_revision_id: example_test_plan_schedule_rule__r1__20260713
+  knowledge_id: example_test_planning_knowledge
+  knowledge_revision_ref:
+    entity_ref:
+      entity_type: knowledge_revision
+      owner_surface: public_registry
+      entity_id: "example_test_planning_knowledge@git:0000000000000000000000000000000000000000"
+    logical_knowledge_ref:
+      entity_type: knowledge
+      owner_surface: public_registry
+      entity_id: example_test_planning_knowledge
+    revision_kind: git_commit_and_content_hash
+    revision_value: "0000000000000000000000000000000000000000"
+    content_id: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+
+rule_semantics:
+  authority_kind: official_guidance
+  normative_force: should
+  applicability_state: review_required
+  applicability_decision_ref: null
+  auto_apply: false
+
+relations:
+  - predicate: materialized_as
+    from: { entity_type: source_revision, owner_surface: system_knowledge_metadata, entity_id: example_se_guidebook__2026_01__a1b2c3d4e5f6 }
+    to: { entity_type: file_revision, owner_surface: project_file_activity, entity_id: "file_revision:system:example_se_guidebook:001" }
+  - predicate: sourced_from
+    from: { entity_type: event, owner_surface: project_event_ledger, entity_id: "event:EXAMPLE-PROJECT:guidebook_intake:001" }
+    to: { entity_type: source_revision, owner_surface: system_knowledge_metadata, entity_id: example_se_guidebook__2026_01__a1b2c3d4e5f6 }
+  - predicate: locates
+    from: { entity_type: evidence_locator, owner_surface: system_knowledge_metadata, entity_id: example_se_guidebook__page_120 }
+    to: { entity_type: source_revision, owner_surface: system_knowledge_metadata, entity_id: example_se_guidebook__2026_01__a1b2c3d4e5f6 }
+  - predicate: derived_from
+    from: { entity_type: rag_chunk, owner_surface: rag_projection, entity_id: example_se_guidebook__2026_01__page_120__chunk_001 }
+    to: { entity_type: source_revision, owner_surface: system_knowledge_metadata, entity_id: example_se_guidebook__2026_01__a1b2c3d4e5f6 }
+  - predicate: traces_to
+    from: { entity_type: rag_chunk, owner_surface: rag_projection, entity_id: example_se_guidebook__2026_01__page_120__chunk_001 }
+    to: { entity_type: evidence_locator, owner_surface: system_knowledge_metadata, entity_id: example_se_guidebook__page_120 }
+  - predicate: derived_from
+    from: { entity_type: wiki_revision, owner_surface: private_wiki_projection, entity_id: example_se_guidebook_test_planning__a1b2c3d4__bbbbbbbb }
+    to: { entity_type: source_revision, owner_surface: system_knowledge_metadata, entity_id: example_se_guidebook__2026_01__a1b2c3d4e5f6 }
+  - predicate: presents
+    from: { entity_type: wiki_revision, owner_surface: private_wiki_projection, entity_id: example_se_guidebook_test_planning__a1b2c3d4__bbbbbbbb }
+    to: { entity_type: claim, owner_surface: sourcebound_claim_metadata, entity_id: claim_example_test_plan_timing }
+  - predicate: supports
+    from: { entity_type: evidence_locator, owner_surface: system_knowledge_metadata, entity_id: example_se_guidebook__page_120 }
+    to: { entity_type: claim, owner_surface: sourcebound_claim_metadata, entity_id: claim_example_test_plan_timing }
+  - predicate: derived_from
+    from: { entity_type: rule_revision, owner_surface: se_rule_metadata, entity_id: example_test_plan_schedule_rule__r1__20260713 }
+    to: { entity_type: claim, owner_surface: sourcebound_claim_metadata, entity_id: claim_example_test_plan_timing }
+  - predicate: has_revision
+    from: { entity_type: knowledge, owner_surface: public_registry, entity_id: example_test_planning_knowledge }
+    to: { entity_type: knowledge_revision, owner_surface: public_registry, entity_id: "example_test_planning_knowledge@git:0000000000000000000000000000000000000000" }
+  - predicate: consolidates
+    from: { entity_type: knowledge_revision, owner_surface: public_registry, entity_id: "example_test_planning_knowledge@git:0000000000000000000000000000000000000000" }
+    to: { entity_type: claim, owner_surface: sourcebound_claim_metadata, entity_id: claim_example_test_plan_timing }
+  - predicate: consolidates
+    from: { entity_type: knowledge_revision, owner_surface: public_registry, entity_id: "example_test_planning_knowledge@git:0000000000000000000000000000000000000000" }
+    to: { entity_type: rule_revision, owner_surface: se_rule_metadata, entity_id: example_test_plan_schedule_rule__r1__20260713 }
+  - predicate: uses
+    from: { entity_type: event, owner_surface: project_event_ledger, entity_id: "event:EXAMPLE-PROJECT:knowledge_application_suggestion:001" }
+    to: { entity_type: source_revision, owner_surface: system_knowledge_metadata, entity_id: example_se_guidebook__2026_01__a1b2c3d4e5f6 }
+  - predicate: uses
+    from: { entity_type: event, owner_surface: project_event_ledger, entity_id: "event:EXAMPLE-PROJECT:knowledge_application_suggestion:001" }
+    to: { entity_type: rule_revision, owner_surface: se_rule_metadata, entity_id: example_test_plan_schedule_rule__r1__20260713 }
+  - predicate: uses
+    from: { entity_type: event, owner_surface: project_event_ledger, entity_id: "event:EXAMPLE-PROJECT:knowledge_application_suggestion:001" }
+    to: { entity_type: knowledge_revision, owner_surface: public_registry, entity_id: "example_test_planning_knowledge@git:0000000000000000000000000000000000000000" }
+  - predicate: generated_from
+    from: { entity_type: task, owner_surface: project_task_owner, entity_id: "task:EXAMPLE-PROJECT:001" }
+    to: { entity_type: rule_revision, owner_surface: se_rule_metadata, entity_id: example_test_plan_schedule_rule__r1__20260713 }
+  - predicate: generated_from
+    from: { entity_type: artifact_revision, owner_surface: project_artifact_metadata, entity_id: "artifact_revision:EXAMPLE-PROJECT:development_test_plan:r1" }
+    to: { entity_type: rule_revision, owner_surface: se_rule_metadata, entity_id: example_test_plan_schedule_rule__r1__20260713 }
+  - predicate: uses
+    from: { entity_type: task, owner_surface: project_task_owner, entity_id: "task:EXAMPLE-PROJECT:001" }
+    to: { entity_type: rule_revision, owner_surface: se_rule_metadata, entity_id: example_test_plan_schedule_rule__r1__20260713 }
+  - predicate: uses
+    from: { entity_type: artifact_revision, owner_surface: project_artifact_metadata, entity_id: "artifact_revision:EXAMPLE-PROJECT:development_test_plan:r1" }
+    to: { entity_type: rule_revision, owner_surface: se_rule_metadata, entity_id: example_test_plan_schedule_rule__r1__20260713 }
+  - predicate: materialized_as
+    from: { entity_type: artifact_revision, owner_surface: project_artifact_metadata, entity_id: "artifact_revision:EXAMPLE-PROJECT:development_test_plan:r1" }
+    to: { entity_type: file_revision, owner_surface: project_file_activity, entity_id: "file_revision:EXAMPLE-PROJECT:development_test_plan:001" }
+  - predicate: on_branch
+    from: { entity_type: event, owner_surface: project_event_ledger, entity_id: "event:EXAMPLE-PROJECT:knowledge_application_suggestion:001" }
+    to: { entity_type: branch, owner_surface: project_context_graph, entity_id: "branch:EXAMPLE-PROJECT:test_plan" }
+  - predicate: at_gate
+    from: { entity_type: event, owner_surface: project_event_ledger, entity_id: "event:EXAMPLE-PROJECT:knowledge_application_suggestion:001" }
+    to: { entity_type: gate, owner_surface: project_se_metadata, entity_id: "gate:EXAMPLE-PROJECT:TRR_DT" }
+
+authority:
+  source_approval_status: pending_owner_review
+  claim_ceiling: observed
+  evidence_status: pending_exact_locator_review
+  rule_application_allowed: false
+  canon_promotion_allowed: false
+
+boundary:
+  metadata_only: true
+  raw_payload_included: false
+  source_text_included: false
+  rag_chunk_text_included: false
+  wiki_body_included: false
+  template_is_not_evidence: true

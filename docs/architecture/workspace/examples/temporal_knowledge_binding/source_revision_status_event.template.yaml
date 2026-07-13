@@ -1,0 +1,35 @@
+schema_version: soulforge.source_revision_status_event.v0
+kind: source_revision_status_event
+status: template_placeholder
+
+event_id: event:system:source_revision_status:example_se_guidebook:001
+occurred_at: "2026-07-13T00:02:00Z"
+recorded_at: "2026-07-13T00:02:01Z"
+ingested_at: "2026-07-13T00:02:02Z"
+
+source_revision_ref:
+  entity_type: source_revision
+  owner_surface: system_knowledge_metadata
+  entity_id: example_se_guidebook__2026_01__a1b2c3d4e5f6
+
+actor_ref:
+  entity_type: actor
+  owner_surface: system_worker_registry
+  entity_id: example_hash_verifier
+
+status_changes:
+  approval_status: pending_owner_review
+  content_hash_verification_status: pending
+  claim_ceiling: observed
+
+evidence_refs: []
+
+immutability:
+  append_only: true
+  correction_policy: append_superseding_status_event
+
+boundary:
+  metadata_only: true
+  raw_payload_included: false
+  source_text_included: false
+  template_is_not_evidence: true
