@@ -125,11 +125,12 @@ function visibleSections(input, mode) {
     ].filter(Boolean);
   }
   return [
-    distinctRoles(context) >= 2 || stats.assignees >= 2 ? "수신" : null,
+    "수신",
     textPresent(context.mail_reason) ? "사유" : null,
+    stats.items > 0 ? "목적" : null,
     stats.items > 0 ? "요청업무" : null,
-    deadlinePresent ? "요청기한" : null,
-    list(context.facts).length > 0 || textPresent(schedule.rationale) ? "요청사유" : null,
+    deadlinePresent ? "회신기한" : null,
+    response.required === true ? "완료회신기준" : null,
     hasSupportingConstraints(context) ? "비고" : null,
   ].filter(Boolean);
 }

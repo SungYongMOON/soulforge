@@ -261,7 +261,28 @@ outbound_mail_authoring_contract:
     metadata_source_of_truth: outbound_team_mail_context_v1
     visible_body_is_not_metadata_source_truth: true
     modes: [compact, action_brief, decision_brief, status_change, reply_map]
-    action_brief_visible_fields: [수신, 사유, 요청업무, 요청기한, 요청사유, 비고]
+    action_brief_visible_fields: [수신, 사유, 목적, 요청업무, 회신기한, 완료회신기준, 비고]
+    structured_action_mail:
+      core_visible_fields: [수신, 사유, 목적, 요청업무, 회신기한, 완료회신기준]
+      conditional_blocks:
+        - 변경전후
+        - 변경요청사유
+        - 적용방안
+        - 적용대상품
+        - 검토사안
+        - 참여부서
+        - 첨부
+        - 비고
+      action_mail_recipient_policy: display_name_or_role_only_never_raw_address
+      missing_material_deadline_policy: keep_draft_unresolved_and_ask_owner
+      ai_reingest_check:
+        - recipient_and_reason_visible
+        - purpose_and_requested_work_visible
+        - actual_assignee_visible
+        - dependency_visible_when_present
+        - approved_deadline_visible_when_present
+        - completion_or_reply_evidence_visible
+      redundant_processing_order_policy: omit_when_dependency_and_completion_are_already_explicit
     technical_action_brief_layout:
       use_when:
         - approved_technical_constants_or_control_conditions_present
@@ -276,7 +297,7 @@ outbound_mail_authoring_contract:
         - deadline_attachment_and_followup_when_present
       does_not_create_new_mode: true
     empty_section_policy: omit
-    recipient_field_policy: show_only_for_multiple_role_or_assignee_responsibilities
+    recipient_field_policy: show_display_name_or_role_for_action_mail_never_raw_address
     reason_field_policy: merge_mail_reason_and_request_basis_when_redundant
     channel_risk_policy: synchronous_discussion_then_email_record
     channel_risk_does_not_raise_authority: true

@@ -63,7 +63,7 @@ cases:
         response_requirements: {required: true, requested_from_roles: ["설계 검토 담당"], requested_content: "검토 결과", deadline_or_reply_by: "영업일 2일 이내"}
     expected:
       mode: action_brief
-      visible_sections: ["수신", "사유", "요청업무", "요청기한", "요청사유", "비고"]
+      visible_sections: ["수신", "사유", "목적", "요청업무", "회신기한", "완료회신기준", "비고"]
       channel_recommendation: email
   - case_id: action_brief_single_owner_technical_sequence
     input:
@@ -98,7 +98,7 @@ cases:
           deadline_or_reply_by: null
     expected:
       mode: action_brief
-      visible_sections: ["사유", "요청업무", "요청사유", "비고"]
+      visible_sections: ["수신", "사유", "목적", "요청업무", "완료회신기준", "비고"]
       channel_recommendation: email
   - case_id: decision_explicit
     input:

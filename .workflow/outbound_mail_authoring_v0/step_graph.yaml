@@ -95,8 +95,8 @@ steps:
         - keep_normalized_metadata_complete_even_when_body_is_compact
         - select_compact_action_brief_decision_brief_status_change_or_reply_map
         - omit_empty_visible_sections
-        - show_six_field_action_structure_only_when_complexity_requires_it
-        - show_recipient_section_only_for_role_or_assignee_disambiguation
+        - show_structured_action_core_for_action_mail
+        - show_approved_recipient_display_name_or_role_never_raw_address
         - merge_duplicate_reason_and_request_basis
         - use_technical_action_brief_layout_when_constants_ordered_steps_and_result_evidence_are_all_present
         - route_conflict_negotiation_or_material_ambiguity_to_synchronous_discussion_then_email_record
@@ -136,12 +136,16 @@ steps:
         - avoid_private_paths_hashes_run_ids_or_source_refs
         - use_owner_voice_profile_only_as_optional_aggregate_style_guidance
         - preserve_each_assignee_and_requested_work_item
+        - make_action_mail_reason_purpose_requested_work_and_completion_visible
+        - render_conditional_before_after_options_targets_review_items_participants_and_attachments_only_when_supported
         - preserve_global_and_per_assignee_notes
         - preserve_facts_schedule_before_after_rationale_and_deadline_or_reply_by
         - preserve_participant_involvement_format_examples_attachments_and_response_requirements
         - preserve_uncertainties_in_assumptions
         - render_assumptions_only_from_synchronized_v1_assumptions
         - for_technical_action_brief_use_one_conditions_table_then_numbered_steps_then_requested_evidence
+        - omit_redundant_processing_order_when_prerequisite_and_completion_fields_already_encode_dependency
+        - ensure_visible_body_is_recoverable_by_later_ai_without_private_metadata
         - never_copy_synthetic_example_values_as_mail_facts
       missing_fact_policy: add_assumptions_and_keep_draft_only
     summary: Draft the body in the owner's concise business style using only provided or approved facts.
