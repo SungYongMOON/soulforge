@@ -137,7 +137,7 @@ function resolver(request) {
   return authorityAttestation(request);
 }
 
-async function createRepo() {
+async function createRepo({ prepareTargets = true } = {}) {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-writer-"));
   const ownerRoot = path.join(
     repoRoot,
@@ -147,6 +147,17 @@ async function createRepo() {
     "rag",
   );
   await mkdir(ownerRoot, { recursive: true });
+  if (prepareTargets) {
+    const bundle = makeBundle();
+    for (const artifact of [
+      bundle.index,
+      bundle.lineage_sidecar,
+      bundle.answer_run,
+      bundle.rollback_manifest,
+    ]) {
+      await mkdir(path.dirname(nativePath(repoRoot, artifact.target_ref)), { recursive: true });
+    }
+  }
   return { repoRoot, ownerRoot };
 }
 
@@ -228,8 +239,85 @@ test("writer applies canonical artifacts exclusively, verifies readback, and is 
   const second = await applyProjectRagPilotBundle(applyInput(repoRoot, bundle), {
     trusted_owner_decision_resolver: resolver,
   });
-  assert.equal(second.write_count, 0);
-  assert.equal(second.noop_count, 4);
+  assert.equal(second.receipt_digest, first.receipt_digest);
+  assert.equal(second.write_count, 4);
+  assert.equal(second.noop_count, 0);
+});
+
+test("apply journal resumes partial output state and recreates its durable receipt", async (t) => {
+  const { repoRoot } = await createRepo();
+  t.after(() => rm(repoRoot, { recursive: true, force: true }));
+  const bundle = makeBundle();
+  const first = await applyProjectRagPilotBundle(applyInput(repoRoot, bundle), {
+    trusted_owner_decision_resolver: resolver,
+  });
+  const routeParent = path.dirname(nativePath(repoRoot, bundle.rollback_manifest.target_ref));
+  const applyReceiptJournal = path.join(
+    routeParent,
+    `.project_rag_apply_${bundle.bundle_digest.slice("sha256:".length)}.receipt.v1.json`,
+  );
+  await rm(applyReceiptJournal, { force: true });
+  await rm(nativePath(repoRoot, bundle.index.target_ref), { force: true });
+  await rm(nativePath(repoRoot, bundle.lineage_sidecar.target_ref), { force: true });
+  const recovered = await applyProjectRagPilotBundle(applyInput(repoRoot, bundle), {
+    trusted_owner_decision_resolver: resolver,
+  });
+  assert.equal(recovered.receipt_digest, first.receipt_digest);
+  for (const artifact of [
+    bundle.index,
+    bundle.lineage_sidecar,
+    bundle.answer_run,
+    bundle.rollback_manifest,
+  ]) {
+    assert.equal(
+      `sha256:${createHash("sha256").update(await readFile(
+        nativePath(repoRoot, artifact.target_ref),
+      )).digest("hex")}`,
+      artifact.canonical_content_id,
+    );
+  }
+  const afterRecovery = await applyProjectRagPilotBundle(applyInput(repoRoot, bundle), {
+    trusted_owner_decision_resolver: resolver,
+  });
+  assert.equal(afterRecovery.receipt_digest, first.receipt_digest);
+  assert.equal(afterRecovery.write_count, 4);
+  assert.equal(afterRecovery.noop_count, 0);
+});
+
+test("a retry after a lost successful response returns the durable rollback authority", async (t) => {
+  const { repoRoot } = await createRepo();
+  t.after(() => rm(repoRoot, { recursive: true, force: true }));
+  const bundle = makeBundle();
+  const first = await applyProjectRagPilotBundle(applyInput(repoRoot, bundle), {
+    trusted_owner_decision_resolver: resolver,
+  });
+  const recoveredReceipt = await applyProjectRagPilotBundle(applyInput(repoRoot, bundle), {
+    trusted_owner_decision_resolver: resolver,
+  });
+  assert.equal(recoveredReceipt.receipt_digest, first.receipt_digest);
+  const rolledBack = await rollbackProjectRagPilotApply(
+    rollbackInput(repoRoot, recoveredReceipt),
+    { trusted_owner_decision_resolver: resolver },
+  );
+  assert.equal(rolledBack.deleted_outputs.length, 4);
+  assert.equal(rolledBack.preserved_idempotent_outputs.length, 0);
+  for (const output of recoveredReceipt.created_outputs) {
+    await assert.rejects(
+      readFile(nativePath(repoRoot, output.target_ref)),
+      (error) => error?.code === "ENOENT",
+    );
+  }
+});
+
+test("writer refuses to create target directories during immutable apply", async (t) => {
+  const { repoRoot } = await createRepo({ prepareTargets: false });
+  t.after(() => rm(repoRoot, { recursive: true, force: true }));
+  await assert.rejects(
+    applyProjectRagPilotBundle(applyInput(repoRoot), {
+      trusted_owner_decision_resolver: resolver,
+    }),
+    writerError("RAG_WRITER_TARGET_PARENT_NOT_PREPARED"),
+  );
 });
 
 test("writer fails closed before any new output when one immutable target conflicts", async (t) => {
@@ -320,6 +408,39 @@ test("rollback refuses to delete an output whose digest changed", async (t) => {
         nativePath(repoRoot, output.target_ref),
       )).digest("hex")}`,
       output.canonical_content_id,
+    );
+  }
+});
+
+test("rollback journal completes a partially deleted transaction after interruption", async (t) => {
+  const { repoRoot } = await createRepo();
+  t.after(() => rm(repoRoot, { recursive: true, force: true }));
+  const bundle = makeBundle();
+  const applied = await applyProjectRagPilotBundle(applyInput(repoRoot, bundle), {
+    trusted_owner_decision_resolver: resolver,
+  });
+  await rollbackProjectRagPilotApply(rollbackInput(repoRoot, applied), {
+    trusted_owner_decision_resolver: resolver,
+  });
+  const reapplied = await applyProjectRagPilotBundle(applyInput(repoRoot, bundle), {
+    trusted_owner_decision_resolver: resolver,
+  });
+  const routeParent = path.dirname(nativePath(repoRoot, bundle.rollback_manifest.target_ref));
+  const rollbackReceiptJournal = path.join(
+    routeParent,
+    `.project_rag_rollback_${reapplied.receipt_digest.slice("sha256:".length)}.receipt.v1.json`,
+  );
+  await rm(rollbackReceiptJournal, { force: true });
+  await rm(nativePath(repoRoot, bundle.index.target_ref), { force: true });
+  const recovered = await rollbackProjectRagPilotApply(
+    rollbackInput(repoRoot, reapplied),
+    { trusted_owner_decision_resolver: resolver },
+  );
+  assert.equal(recovered.deleted_outputs.length, 4);
+  for (const output of reapplied.created_outputs) {
+    await assert.rejects(
+      readFile(nativePath(repoRoot, output.target_ref)),
+      (error) => error?.code === "ENOENT",
     );
   }
 });

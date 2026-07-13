@@ -17,7 +17,7 @@ import {
 } from "./project_rag_paths.mjs";
 
 export const PROJECT_RAG_MIGRATION_DRY_RUN_SCHEMA_VERSION =
-  "soulforge.project_rag_migration_dry_run.v1";
+  "soulforge.project_rag_migration_dry_run.v2";
 
 export const COMMON_KNOWLEDGE_SCOPE_REF = Object.freeze({
   entity_type: "knowledge_scope",
@@ -42,6 +42,8 @@ const ROW_FIELDS = Object.freeze([
   "current_owner_surface",
   "target_owner_surface",
   "target_name",
+  "target_path_segments",
+  "target_content_id",
   "inbound_consumers",
   "outbound_refs",
   "collision_state",
@@ -52,6 +54,9 @@ const ROW_FIELDS = Object.freeze([
   "decision_or_blocker",
   "claim_ceiling",
 ]);
+const REQUIRED_ROW_FIELDS = Object.freeze(
+  ROW_FIELDS.filter((field) => !["target_path_segments", "target_content_id"].includes(field)),
+);
 
 const CLASSIFICATIONS = new Set(["project", "common", "unresolved", "conflict"]);
 const COLLISION_STATES = new Set(["clear", "unknown", "conflict"]);
@@ -296,8 +301,8 @@ function normalizeProjectRef(value) {
   return projectRef;
 }
 
-function normalizeTargetName(value) {
-  const normalized = normalizeSafeString(value, "target_name", MAX_TARGET_NAME_LENGTH);
+function normalizeTargetName(value, label = "target_name") {
+  const normalized = normalizeSafeString(value, label, MAX_TARGET_NAME_LENGTH);
   if (
     normalized === "." ||
     normalized === ".." ||
@@ -307,7 +312,39 @@ function normalizeTargetName(value) {
     WINDOWS_FORBIDDEN_SEGMENT_PATTERN.test(normalized) ||
     WINDOWS_RESERVED_BASENAME_PATTERN.test(normalized)
   ) {
-    fail("RAG_MIGRATION_TARGET_NAME_INVALID", "target_name must be one safe Windows path segment");
+    fail("RAG_MIGRATION_TARGET_NAME_INVALID", `${label} must be one safe Windows path segment`);
+  }
+  return normalized;
+}
+
+function normalizeTargetPathSegments(value, targetName) {
+  if (value === undefined) return [targetName];
+  if (!Array.isArray(value) || value.length === 0 || value.length > 16) {
+    fail(
+      "RAG_MIGRATION_TARGET_PATH_INVALID",
+      "target_path_segments must contain 1 to 16 safe path segments",
+    );
+  }
+  const segments = value.map((segment, index) => (
+    normalizeTargetName(segment, `target_path_segments[${index}]`)
+  ));
+  if (segments.at(-1) !== targetName) {
+    fail(
+      "RAG_MIGRATION_TARGET_PATH_MISMATCH",
+      "target_path_segments must end with target_name",
+    );
+  }
+  return segments;
+}
+
+function normalizeNullableContentId(value, label) {
+  if (value === undefined || value === null) return null;
+  const normalized = normalizeSafeString(value, label, 71);
+  if (!CONTENT_ID_PATTERN.test(normalized)) {
+    fail(
+      "RAG_MIGRATION_CONTENT_ID_INVALID",
+      `${label} must be null or sha256:<64 lowercase hex>`,
+    );
   }
   return normalized;
 }
@@ -462,7 +499,7 @@ function validateLegacyRouting(row) {
 }
 
 function normalizeRow(input, index) {
-  assertKnownFields(input, ROW_FIELDS, ROW_FIELDS, `rows[${index}]`);
+  assertKnownFields(input, ROW_FIELDS, REQUIRED_ROW_FIELDS, `rows[${index}]`);
   const classification = normalizeEnum(input.classification, CLASSIFICATIONS, "classification");
   const observedScopeRef = normalizeTypedScopeRef(input.observed_scope_ref, "observed_scope_ref");
   const projectRef = normalizeProjectRef(input.project_ref);
@@ -477,14 +514,16 @@ function normalizeRow(input, index) {
       "source_revision_id must be null or sr_<32 lowercase hex>",
     );
   }
-  const contentId =
-    input.content_id === null ? null : normalizeSafeString(input.content_id, "content_id", 71);
-  if (contentId !== null && !CONTENT_ID_PATTERN.test(contentId)) {
-    fail(
-      "RAG_MIGRATION_CONTENT_ID_INVALID",
-      "content_id must be null or sha256:<64 lowercase hex>",
-    );
-  }
+  const contentId = normalizeNullableContentId(input.content_id, "content_id");
+  const targetName = normalizeTargetName(input.target_name);
+  const targetPathSegments = normalizeTargetPathSegments(
+    input.target_path_segments,
+    targetName,
+  );
+  const targetContentId = normalizeNullableContentId(
+    input.target_content_id,
+    "target_content_id",
+  );
   if (classification === "common") {
     if (projectRef !== null) {
       fail("RAG_MIGRATION_SCOPE_MISMATCH", "common classification must have project_ref null");
@@ -530,7 +569,9 @@ function normalizeRow(input, index) {
       "current_owner_surface",
     ),
     target_owner_surface: normalizeSymbol(input.target_owner_surface, "target_owner_surface"),
-    target_name: normalizeTargetName(input.target_name),
+    target_name: targetName,
+    target_path_segments: targetPathSegments,
+    target_content_id: targetContentId,
     inbound_consumers: normalizeRefSet(input.inbound_consumers, "inbound_consumers"),
     outbound_refs: normalizeRefSet(input.outbound_refs, "outbound_refs"),
     collision_state: normalizeEnum(input.collision_state, COLLISION_STATES, "collision_state"),
@@ -558,7 +599,7 @@ function resolveTargetRef(row) {
           owner_scope: "project",
           project_ref: row.project_ref,
           asset_kind: row.asset_kind,
-          path_segments: [row.target_name],
+          path_segments: row.target_path_segments,
         }).target_ref,
     );
   }
@@ -568,7 +609,7 @@ function resolveTargetRef(row) {
         resolveRagAssetTarget({
           owner_scope: "common",
           asset_kind: row.asset_kind,
-          path_segments: [row.target_name],
+          path_segments: row.target_path_segments,
         }).target_ref,
     );
   }

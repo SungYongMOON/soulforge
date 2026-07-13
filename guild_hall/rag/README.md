@@ -65,6 +65,25 @@ Progress must be reported using the three-stage operating model in
 searchable RAG, work-ready RAG, and canon knowledge. Stage 1 indexing, Stage 2
 work answers, and Stage 3 canon promotion are separate claims.
 
+## Project-local RAG V1 safety boundary
+
+`project_rag_migration_dry_run.mjs` v2 records the exact old ref, exact nested target
+segments, legacy digest, and optional rebuilt target digest without copying source or
+chunk bodies. `project_rag_pilot.mjs` accepts legacy inputs only from the exact
+project-owned slot for each source-card, private-project, derived-text, index, and
+answer-run family.
+
+`project_rag_writer.mjs` writes a durable canonical transaction plan before bundle
+outputs and a receipt after completion. The same apply or rollback call is the recovery
+entry point after interruption. Apply retries return the original durable transaction
+receipt, not a new attempt-local no-op receipt, so the returned receipt remains valid
+rollback authority even when a successful response was lost. All target parent directories must be prepared as plain
+directories before apply; the immutable writer does not recursively create them.
+Transaction journals remain under the bundle's project-local `operational_routes`
+directory. This is a local, owner-controlled pilot boundary, not permission for live
+reader switching, external upload, public canon promotion, or concurrent adversarial
+filesystem mutation.
+
 ## Commands
 
 ```bash

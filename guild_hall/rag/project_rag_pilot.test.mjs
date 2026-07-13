@@ -470,6 +470,29 @@ test("project token matching rejects prefix overlap instead of using substring c
   );
 });
 
+test("mixed foreign legacy roots are rejected even when a later segment carries the requested token", () => {
+  const fixture = makeFixture();
+  fixture.artifacts.normalized_text.ref =
+    "_workspaces/knowledge/rag/derived_text/p_syn_999/p_syn_001_workspace.txt";
+  assert.throws(
+    () => buildProjectRagPilotBundle(fixture),
+    (error) => error instanceof ProjectRagPilotError
+      && error.code === "RAG_PILOT_CROSS_PROJECT_REJECTED",
+  );
+});
+
+test("source IDs must begin with the requested project owner token", () => {
+  const fixture = makeFixture();
+  const sourceCard = readEnvelopeJson(fixture.artifacts.source_card);
+  sourceCard.source_id = "p_syn_999_p_syn_001_workspace";
+  refreshSourceCardManifestBinding(fixture, sourceCard);
+  assert.throws(
+    () => buildProjectRagPilotBundle(fixture),
+    (error) => error instanceof ProjectRagPilotError
+      && error.code === "RAG_PILOT_CROSS_PROJECT_REJECTED",
+  );
+});
+
 test("rejects answer citations that do not resolve to exact legacy chunks", () => {
   const fixture = makeFixture();
   const answer = readEnvelopeJson(fixture.artifacts.legacy_answer_run);

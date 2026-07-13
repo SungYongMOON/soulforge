@@ -215,6 +215,13 @@ approved direct trusted-LAN HTTP exposure for the current pilot.
 
 Runtime operations are documented in
 [`docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md`](docs/RUNTIME_MAINTENANCE_RUNBOOK_20260618.md).
+
+TaskDriver V1 remains opt-in. Its v2 authority attestation binds immutable event and
+policy evidence, not the caller's replay cutoff. The persistence adapter rejects an
+apply event that is outside the replay cutoff and compares the current `core_item`
+state with the intent's expected state before any transition. Do not call
+`installTaskDriverPersistence(db)` from runtime startup or install it in a live DB
+without the operational-primary backup, writer, and restore gates.
 The small ops helpers are:
 
 ```bash

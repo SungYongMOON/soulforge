@@ -122,6 +122,42 @@ test("happy project/common rows resolve only to locked owner targets and remain 
   assert.equal(JSON.stringify(plan).includes("legacy_asset_collision_basis"), false);
 });
 
+test("nested target_path_segments resolve the exact immutable pilot artifact ref", () => {
+  const plan = buildProjectRagMigrationDryRun({
+    rows: [projectRow({
+      target_name: "project_rag_index.v1.json",
+      target_path_segments: [
+        "ridx_0123456789abcdef0123456789abcdef",
+        "project_rag_index.v1.json",
+      ],
+      target_content_id: CONTENT_B,
+    })],
+  });
+  assert.equal(
+    plan.rows[0].target_ref,
+    "_workspaces/P24-049/reference_payloads/rag/indexes_local/"
+      + "ridx_0123456789abcdef0123456789abcdef/project_rag_index.v1.json",
+  );
+  assert.equal(plan.rows[0].target_content_id, CONTENT_B);
+});
+
+test("nested target path must end with target_name and target digest must be canonical", () => {
+  assertCode(
+    () => buildProjectRagMigrationDryRun({
+      rows: [projectRow({
+        target_path_segments: ["ridx_001", "other.json"],
+      })],
+    }),
+    "RAG_MIGRATION_TARGET_PATH_MISMATCH",
+  );
+  assertCode(
+    () => buildProjectRagMigrationDryRun({
+      rows: [projectRow({ target_content_id: "sha256:ABC" })],
+    }),
+    "RAG_MIGRATION_CONTENT_ID_INVALID",
+  );
+});
+
 test("unresolved and conflict rows enumerate every bounded hold reason", () => {
   const unresolved = projectRow({
     legacy_asset_ref: "legacy:unresolved:001",

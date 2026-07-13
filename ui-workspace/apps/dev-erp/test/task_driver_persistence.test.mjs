@@ -92,15 +92,13 @@ function authorityAttestation(request) {
     event_valid_at: request.event_valid_at,
     event_known_at: request.event_known_at,
     event_recorded_at: request.event_recorded_at,
-    cutoff: request.cutoff,
     policy_digest: request.policy_digest,
-    policy_revocation_digest: request.policy_revocation_digest,
   };
   return {
     ...payload,
     evidence_digest: canonicalDigest(
       payload,
-      "soulforge.task_driver.authority_attestation.v1",
+      "soulforge.task_driver.authority_attestation.v2",
     ),
   };
 }
@@ -391,6 +389,51 @@ test("a later status driver replays the created task and updates the same core_i
     store.db.prepare("SELECT COUNT(*) AS n FROM core_item WHERE id=?").get(TASK.entity_id).n,
     1,
   );
+  store.db.close();
+});
+
+test("an apply event outside the replay cutoff is rejected before ledger or core persistence", () => {
+  const store = createStore();
+  const fixture = buildCreateDecisionSet();
+  fixture.cutoff = { valid_at: T2, known_at: T2 };
+  assert.throws(
+    () => applyTaskDriverDecisionSet(store.db, fixture, OPTIONS),
+    errorCode("task_driver_persistence_apply_not_visible_at_cutoff"),
+  );
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM task_driver_event").get().n, 0);
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM core_item").get().n, 0);
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM task_driver_apply_receipt").get().n, 0);
+  store.db.close();
+});
+
+test("the same immutable event can be replayed at a later cutoff", () => {
+  const store = createStore();
+  const early = buildCreateDecisionSet();
+  early.cutoff = { valid_at: T3, known_at: T3 };
+  const first = applyTaskDriverDecisionSet(store.db, early, OPTIONS);
+  const later = buildCreateDecisionSet();
+  later.cutoff = { valid_at: T9, known_at: T9 };
+  const second = applyTaskDriverDecisionSet(store.db, later, OPTIONS);
+  assert.equal(second.apply_receipt.receipt_digest, first.apply_receipt.receipt_digest);
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM task_driver_event").get().n, 3);
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM core_item").get().n, 1);
+  store.db.close();
+});
+
+test("current core_item drift blocks a stale ledger projection instead of overwriting task truth", () => {
+  const store = createStore();
+  applyTaskDriverDecisionSet(store.db, buildCreateDecisionSet(), OPTIONS);
+  store.db.prepare("UPDATE core_item SET status='done' WHERE id=?").run(TASK.entity_id);
+  assert.throws(
+    () => applyTaskDriverDecisionSet(store.db, buildStatusDecisionSet(), OPTIONS),
+    errorCode("task_driver_persistence_core_state_drift"),
+  );
+  assert.equal(
+    store.db.prepare("SELECT status FROM core_item WHERE id=?").get(TASK.entity_id).status,
+    "done",
+  );
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM task_driver_event").get().n, 3);
+  assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM task_driver_apply_receipt").get().n, 1);
   store.db.close();
 });
 

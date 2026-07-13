@@ -145,3 +145,18 @@ scanner, scheduler, Tailscale, Telegram, broad corpus migration은 이 단계에
 
 전체 claim은 계속 `canon_candidate`다. RAG 단일 pilot 통과를 TaskDriver 운영 활성화나 전체
 corpus production-ready로 확대 해석하지 않는다.
+
+## 2026-07-14 independent-review hardening
+
+- migration dry-run v2 now records exact nested target refs and optional rebuilt target
+  digests, so an old ref cannot be mapped only to an asset-kind directory.
+- project pilot refs now bind to the exact project owner slot; a foreign root carrying
+  the requested token in a later filename is rejected.
+- project RAG apply and rollback persist local transaction plans and completion receipts.
+  Retrying the same call recovers a partial local operation. Target parents must be
+  prepared plain directories; the writer does not create them recursively.
+- TaskDriver rejects future-cutoff apply persistence, advancing-cutoff replay no longer
+  changes immutable authority evidence, and current `core_item` drift blocks a stale
+  projection.
+- Remaining stop: no live DB install, reader switch, scheduler, external upload, broad
+  corpus expansion, or adversarial concurrent junction-swap safety claim on this PC.

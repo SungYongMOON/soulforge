@@ -722,6 +722,10 @@ function applyCoreProjection(db, { candidate, intent, driver, applyEvent, projec
     }
     beforeWorkStatus = CORE_TO_WORK_STATUS[beforeItem.status];
     if (!beforeWorkStatus) fail("task_driver_persistence_core_status_unsupported");
+    if (
+      beforeWorkStatus !== intent.expected_from_state_or_revision
+      || applyEvent.work_status_transition?.from !== beforeWorkStatus
+    ) fail("task_driver_persistence_core_state_drift");
     const doneAt = nextCoreStatus === "done" ? applyEvent.recorded_at : null;
     db.prepare("UPDATE core_item SET status=?, done_at=? WHERE id=?").run(
       nextCoreStatus,
@@ -781,6 +785,24 @@ function applyCoreProjection(db, { candidate, intent, driver, applyEvent, projec
     canonicalStringify({ ...payload, receipt_digest: receiptDigest }),
   );
   return { ...payload, receipt_digest: receiptDigest };
+}
+
+function assertApplyProjectionReady(projection, applyEvent) {
+  const expectedEventRef = typedRef("event", TASK_DRIVER_OWNER_SURFACE, applyEvent.event_id);
+  const driverProjection = projection.drivers.find((entry) => (
+    refsEqual(entry.driver_ref, applyEvent.driver_ref)
+  ));
+  if (
+    !driverProjection
+    || driverProjection.decision_application_state !== "applied"
+    || !refsEqual(driverProjection.last_event_ref, expectedEventRef)
+  ) fail("task_driver_persistence_apply_not_visible_at_cutoff");
+  const taskProjection = projection.tasks.find((entry) => (
+    refsEqual(entry.task_ref, applyEvent.result_task_ref)
+  ));
+  if (!taskProjection || !refsEqual(taskProjection.last_event_ref, expectedEventRef)) {
+    fail("task_driver_persistence_apply_projection_mismatch");
+  }
 }
 
 export function applyTaskDriverDecisionSet(db, input, options = {}) {
@@ -875,6 +897,9 @@ export function applyTaskDriverDecisionSet(db, input, options = {}) {
       }, input.cutoff),
       { trusted_authority_resolver: authorityResolver },
     );
+    if (applyEvents.length === 1) {
+      assertApplyProjectionReady(projection, applyEvents[0]);
+    }
 
     insertCandidate(db, candidate);
     insertIntent(db, intent);

@@ -326,7 +326,11 @@ export function buildSourceRevisionIdentity(input) {
   );
   const effectiveFrom = normalizeOptionalTimestamp(input.effective_from, "effective_from");
   const effectiveTo = normalizeOptionalTimestamp(input.effective_to, "effective_to");
-  if (effectiveFrom !== null && effectiveTo !== null && effectiveFrom > effectiveTo) {
+  if (
+    effectiveFrom !== null
+    && effectiveTo !== null
+    && Date.parse(effectiveFrom) > Date.parse(effectiveTo)
+  ) {
     fail("effective_from must not be later than effective_to");
   }
   return buildGeneratedIdentity("source_revision", {

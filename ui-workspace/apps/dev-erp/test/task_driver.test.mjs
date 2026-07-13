@@ -246,14 +246,12 @@ function authorityAttestation(request, overrides = {}) {
     event_valid_at: request.event_valid_at,
     event_known_at: request.event_known_at,
     event_recorded_at: request.event_recorded_at,
-    cutoff: request.cutoff,
     policy_digest: request.policy_digest,
-    policy_revocation_digest: request.policy_revocation_digest,
     ...overrides,
   };
   return {
     ...payload,
-    evidence_digest: canonicalDigest(payload, "soulforge.task_driver.authority_attestation.v1"),
+    evidence_digest: canonicalDigest(payload, "soulforge.task_driver.authority_attestation.v2"),
   };
 }
 

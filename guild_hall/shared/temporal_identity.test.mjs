@@ -235,6 +235,19 @@ test("builder schemas reject unknown identity fields and invalid effective range
   );
 });
 
+test("effective ranges compare instants instead of unequal ISO timestamp string shapes", () => {
+  const revision = buildSourceRevisionIdentity({
+    source_id: "src_fractional_range",
+    occurrence_key: "issue_fractional_range",
+    content_id: ABC_CONTENT_ID,
+    canonicalization_profile_id: "raw_bytes.v1",
+    effective_from: "2026-01-01T00:00:00Z",
+    effective_to: "2026-01-01T00:00:00.1Z",
+  });
+  assert.equal(revision.identity_basis.effective_from, "2026-01-01T00:00:00Z");
+  assert.equal(revision.identity_basis.effective_to, "2026-01-01T00:00:00.1Z");
+});
+
 test("collision verifier: same scoped full basis is no-op; different basis conflicts", () => {
   const { source } = buildGoldenFixture();
   const same = buildSourceIdentity({

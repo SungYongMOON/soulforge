@@ -1,5 +1,23 @@
 # CHANGELOG
 
+### 2026-07-14 ENGINE-13 independent-review hardening
+
+- Compare effective source-revision ranges by parsed instants so whole-second and
+  fractional RFC3339 spellings cannot invert a valid interval.
+- Upgrade the metadata-only RAG migration dry-run to v2 with exact nested
+  `target_path_segments` and an optional `target_content_id` for old-to-new digest
+  crosswalks.
+- Bind legacy pilot inputs to their exact project-owned path slot, not to token
+  presence anywhere in a ref.
+- Add durable local apply/rollback transaction plans and receipts to the project RAG
+  writer. Retrying the same operation recovers partial output state and returns the
+  original rollback-authoritative receipt; immutable target
+  parent directories must already exist and must be plain directories.
+- Make TaskDriver authority evidence event-stable (`authority_attestation.v2`), reject
+  apply events outside the requested cutoff, and stop stale ledger projections from
+  overwriting a newer `core_item` state. Live DB installation and runtime activation
+  remain blocked. (worker: codex_gpt-5)
+
 ### 프로젝트별 RAG V1 pilot과 TaskDriver synthetic engine
 
 - source/file/RAG/task identity의 canonical JSON, typed ref, exact byte hash, deterministic ID,

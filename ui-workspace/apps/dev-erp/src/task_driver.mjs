@@ -13,7 +13,7 @@ export const TASK_DRIVER_POLICY_REVOCATION_SCHEMA_VERSION =
   "soulforge.task_driver_policy_revocation.v1";
 export const TASK_DRIVER_PROJECTION_SCHEMA_VERSION = "soulforge.task_driver_projection.v1";
 export const TASK_DRIVER_AUTHORITY_ATTESTATION_SCHEMA_VERSION =
-  "soulforge.task_driver_authority_attestation.v1";
+  "soulforge.task_driver_authority_attestation.v2";
 export const TASK_DRIVER_CANONICALIZATION_VERSION = IDENTITY_GENERATION_PROFILE_ID;
 export const TASK_DRIVER_OWNER_SURFACE = "dev_erp_task_engine";
 export const TASK_OWNER_SURFACE = "dev_erp";
@@ -218,9 +218,7 @@ const AUTHORITY_ATTESTATION_KEYS = [
   "event_valid_at",
   "event_known_at",
   "event_recorded_at",
-  "cutoff",
   "policy_digest",
-  "policy_revocation_digest",
   "evidence_digest",
 ];
 
@@ -1413,7 +1411,7 @@ function authorityRefForEvent(event) {
   return event.authority_kind === "owner_decision" ? event.owner_decision_ref : event.policy_ref;
 }
 
-function buildAuthorityResolutionRequest(event, driver, cutoff, policy, policyRevocation) {
+function buildAuthorityResolutionRequest(event, driver, policy) {
   return deepFreeze({
     project_ref: driver.project_ref,
     event_ref: typedRef("event", TASK_DRIVER_OWNER_SURFACE, event.event_id),
@@ -1432,9 +1430,7 @@ function buildAuthorityResolutionRequest(event, driver, cutoff, policy, policyRe
     event_valid_at: event.valid_at,
     event_known_at: event.known_at,
     event_recorded_at: event.recorded_at,
-    cutoff,
     policy_digest: policy?.policy_digest ?? null,
-    policy_revocation_digest: policyRevocation?.revocation_digest ?? null,
   });
 }
 
@@ -1459,9 +1455,7 @@ function validateAuthorityAttestation(value, request) {
     event_valid_at: request.event_valid_at,
     event_known_at: request.event_known_at,
     event_recorded_at: request.event_recorded_at,
-    cutoff: request.cutoff,
     policy_digest: request.policy_digest,
-    policy_revocation_digest: request.policy_revocation_digest,
   };
   const receivedPayload = { ...value };
   delete receivedPayload.evidence_digest;
@@ -1472,7 +1466,7 @@ function validateAuthorityAttestation(value, request) {
     value.evidence_digest,
     "task_driver_authority_evidence_digest_invalid",
   );
-  if (evidenceDigest !== canonicalDigest(payload, "soulforge.task_driver.authority_attestation.v1")) {
+  if (evidenceDigest !== canonicalDigest(payload, "soulforge.task_driver.authority_attestation.v2")) {
     fail("task_driver_authority_evidence_digest_mismatch");
   }
   return deepFreeze({ ...payload, evidence_digest: evidenceDigest });
@@ -1482,9 +1476,7 @@ function resolveTrustedAuthority(
   authorityResolver,
   event,
   driver,
-  cutoff,
   policy,
-  policyRevocation,
 ) {
   if (typeof authorityResolver !== "function") {
     fail("task_driver_trusted_authority_resolver_required");
@@ -1492,9 +1484,7 @@ function resolveTrustedAuthority(
   const request = buildAuthorityResolutionRequest(
     event,
     driver,
-    cutoff,
     policy,
-    policyRevocation,
   );
   let value;
   try {
@@ -1779,9 +1769,7 @@ export function replayTaskDriverContract(input, options = {}) {
         authorityResolver,
         event,
         entry.driver,
-        cutoff,
         authority.policy,
-        authority.policyRevocation,
       );
     }
     if (event.event_kind === "apply") assertApplyAuthorityChain(event, current);

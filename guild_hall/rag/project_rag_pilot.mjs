@@ -249,12 +249,75 @@ function containsProjectToken(value, projectCode) {
   );
 }
 
+function startsWithProjectToken(value, projectCode) {
+  if (typeof value !== "string") return false;
+  const normalized = value.normalize("NFC").toLowerCase();
+  return projectTokenForms(projectCode).some((token) => (
+    new RegExp(`^${escapeRegularExpression(token)}(?=$|[^a-z0-9])`, "u").test(normalized)
+    || new RegExp(`^project_${escapeRegularExpression(token)}(?=$|[^a-z0-9])`, "u").test(normalized)
+  ));
+}
+
+const PROJECT_BOUND_REF_SHAPES = Object.freeze({
+  source_card_ref: Object.freeze({
+    prefix: Object.freeze(["_workspaces", "knowledge", "source_cards"]),
+    exact_owner_segment: false,
+  }),
+  ready_manifest_ref: Object.freeze({
+    prefix: Object.freeze(["_workspaces", "knowledge", "private", "projects"]),
+    exact_owner_segment: true,
+  }),
+  source_content_ref: Object.freeze({
+    prefix: Object.freeze(["_workspaces", "knowledge", "private", "projects"]),
+    exact_owner_segment: true,
+  }),
+  normalized_text_ref: Object.freeze({
+    prefix: Object.freeze(["_workspaces", "knowledge", "rag", "derived_text"]),
+    exact_owner_segment: false,
+  }),
+  legacy_index_ref: Object.freeze({
+    prefix: Object.freeze([
+      "_workspaces",
+      "knowledge",
+      "rag",
+      "indexes_local",
+      "source_text_indexes",
+    ]),
+    exact_owner_segment: false,
+  }),
+  legacy_reader_ref: Object.freeze({
+    prefix: Object.freeze([
+      "_workspaces",
+      "knowledge",
+      "rag",
+      "indexes_local",
+      "source_text_indexes",
+    ]),
+    exact_owner_segment: false,
+  }),
+  legacy_answer_run_ref: Object.freeze({
+    prefix: Object.freeze(["_workspaces", "knowledge", "rag", "answer_runs"]),
+    exact_owner_segment: false,
+  }),
+});
+
 function assertProjectBoundRef(ref, projectCode, label) {
   const normalized = normalizeRepoRef(ref, label);
-  if (!containsProjectToken(normalized, projectCode)) {
+  const shape = PROJECT_BOUND_REF_SHAPES[label];
+  const segments = normalized.split("/");
+  const prefixMatches = shape !== undefined
+    && shape.prefix.every((segment, index) => segments[index] === segment)
+    && segments.length > shape.prefix.length;
+  const ownerSegment = prefixMatches ? segments[shape.prefix.length] : null;
+  const ownerMatches = ownerSegment !== null && (
+    shape.exact_owner_segment
+      ? projectTokenForms(projectCode).includes(ownerSegment.toLowerCase())
+      : startsWithProjectToken(ownerSegment, projectCode)
+  );
+  if (!ownerMatches) {
     fail(
       "RAG_PILOT_CROSS_PROJECT_REJECTED",
-      `${label} does not carry the exact project token`,
+      `${label} does not use the exact project-owned legacy root`,
     );
   }
   return normalized;
@@ -273,12 +336,12 @@ function assertPrivateProjectScope(card, projectRef, refs) {
     fail("RAG_PILOT_SOURCE_CARD_INVALID", "source card schema version is not v0");
   }
   const sourceId = normalizeSafeLegacyId(card.source_id, "source_card.source_id");
-  if (!containsProjectToken(sourceId, projectRef.entity_id)) {
+  if (!startsWithProjectToken(sourceId, projectRef.entity_id)) {
     fail("RAG_PILOT_CROSS_PROJECT_REJECTED", "source_id does not bind the requested project");
   }
   if (
     !Array.isArray(card.domains) ||
-    !card.domains.some((domain) => containsProjectToken(domain, projectRef.entity_id))
+    !card.domains.some((domain) => startsWithProjectToken(domain, projectRef.entity_id))
   ) {
     fail("RAG_PILOT_CROSS_PROJECT_REJECTED", "source card domains lack the project token");
   }

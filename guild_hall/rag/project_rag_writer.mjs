@@ -31,6 +31,8 @@ export const PROJECT_RAG_ROLLBACK_RECEIPT_SCHEMA_VERSION =
   "soulforge.project_rag_rollback_receipt.v1";
 export const PROJECT_RAG_OWNER_ROOT_BOOTSTRAP_RECEIPT_SCHEMA_VERSION =
   "soulforge.project_rag_owner_root_bootstrap_receipt.v1";
+export const PROJECT_RAG_TRANSACTION_PLAN_SCHEMA_VERSION =
+  "soulforge.project_rag_transaction_plan.v1";
 
 const CONTENT_ID_RE = /^sha256:[0-9a-f]{64}$/u;
 const APPLY_OPERATION = "project_rag_v1_pilot_apply";
@@ -535,11 +537,29 @@ async function safeUnlinkTemp(tempPath) {
 async function exclusiveAtomicCreate(context, artifact) {
   const targetPath = nativeTargetPath(context.repoRoot, artifact.target_ref);
   const targetParent = path.dirname(targetPath);
-  await mkdir(targetParent, { recursive: true });
-  await verifyRagWriteContainment(containmentInput({
+  const parentState = await existingPathState(targetParent);
+  if (
+    !parentState.exists
+    || !parentState.stat.isDirectory()
+    || parentState.stat.isSymbolicLink()
+  ) {
+    fail(
+      "RAG_WRITER_TARGET_PARENT_NOT_PREPARED",
+      "every immutable target parent must be an existing plain directory prepared before apply",
+      { target_ref: artifact.target_ref },
+    );
+  }
+  const initialContainment = await verifyRagWriteContainment(containmentInput({
     ...context,
     targetRef: artifact.target_ref,
   }));
+  const ownerRootRef = `_workspaces/${context.projectRef.entity_id}/reference_payloads/rag`;
+  if (initialContainment.reparse_refs.some((ref) => ref.startsWith(`${ownerRootRef}/`))) {
+    fail(
+      "RAG_WRITER_TARGET_ANCESTOR_REPARSE_BLOCKED",
+      "target ancestors below the exact owner root must not be symlinks or junctions",
+    );
+  }
 
   const targetSegments = artifact.target_ref.split("/");
   const targetName = targetSegments.at(-1);
@@ -549,8 +569,10 @@ async function exclusiveAtomicCreate(context, artifact) {
   await verifyRagWriteContainment(containmentInput({ ...context, targetRef: tempRef }));
 
   let handle = null;
+  let createdTarget = false;
   try {
     handle = await open(tempPath, "wx");
+    await verifyRagWriteContainment(containmentInput({ ...context, targetRef: tempRef }));
     await handle.writeFile(artifact.bytes);
     await handle.sync();
     await handle.close();
@@ -562,6 +584,7 @@ async function exclusiveAtomicCreate(context, artifact) {
     }));
     try {
       await link(tempPath, targetPath);
+      createdTarget = true;
     } catch (error) {
       if (error?.code !== "EEXIST") throw error;
       const racedContentId = await readExistingContentId(targetPath);
@@ -575,10 +598,163 @@ async function exclusiveAtomicCreate(context, artifact) {
       fail("RAG_WRITER_READBACK_MISMATCH", "created output failed readback verification");
     }
     return "created";
+  } catch (error) {
+    if (createdTarget) {
+      try {
+        await verifyRagWriteContainment(containmentInput({
+          ...context,
+          targetRef: artifact.target_ref,
+        }));
+        if (await readExistingContentId(targetPath) === artifact.canonical_content_id) {
+          await unlink(targetPath);
+        }
+      } catch {
+        // The durable transaction plan remains the recovery authority.
+      }
+    }
+    throw error;
   } finally {
     if (handle !== null) await handle.close();
     await safeUnlinkTemp(tempPath);
   }
+}
+
+function transactionJournalRefs(outputs, transactionDigest, operation) {
+  const routeOutput = outputs.find((output) => output.target_ref.includes("/operational_routes/"));
+  if (!routeOutput) {
+    fail("RAG_WRITER_TRANSACTION_ROUTE_MISSING", "transaction requires an operational route output");
+  }
+  const parentRef = routeOutput.target_ref.split("/").slice(0, -1).join("/");
+  const digestSuffix = transactionDigest.slice("sha256:".length);
+  return {
+    plan_ref: `${parentRef}/.${operation}_${digestSuffix}.plan.v1.json`,
+    receipt_ref: `${parentRef}/.${operation}_${digestSuffix}.receipt.v1.json`,
+  };
+}
+
+function journalArtifact(targetRef, payload) {
+  const bytes = Buffer.from(serializeCanonicalIdentity(payload), "utf8");
+  return {
+    target_ref: targetRef,
+    canonical_content_id: `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
+    bytes,
+  };
+}
+
+async function readJournalPayload(context, targetRef) {
+  await verifyRagWriteContainment(containmentInput({ ...context, targetRef }));
+  const targetPath = nativeTargetPath(context.repoRoot, targetRef);
+  let bytes;
+  try {
+    bytes = await readFile(targetPath);
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+  let value;
+  try {
+    value = JSON.parse(bytes.toString("utf8"));
+  } catch {
+    fail("RAG_WRITER_TRANSACTION_JOURNAL_INVALID", "transaction journal is not canonical JSON");
+  }
+  if (!isPlainObject(value) || serializeCanonicalIdentity(value) !== bytes.toString("utf8")) {
+    fail("RAG_WRITER_TRANSACTION_JOURNAL_INVALID", "transaction journal is not canonical JSON");
+  }
+  return value;
+}
+
+async function persistJournalPayload(context, targetRef, payload) {
+  const artifact = journalArtifact(targetRef, payload);
+  await exclusiveAtomicCreate(context, artifact);
+  const stored = await readJournalPayload(context, targetRef);
+  if (serializeCanonicalIdentity(stored) !== serializeCanonicalIdentity(payload)) {
+    fail("RAG_WRITER_TRANSACTION_JOURNAL_CONFLICT", "transaction journal binding mismatches");
+  }
+  return stored;
+}
+
+function assertApplyPlan(plan, expectedBasis, artifacts) {
+  assertExactKeys(
+    plan,
+    [
+      "schema_version",
+      "kind",
+      "project_ref",
+      "bundle_digest",
+      "owner_decision_ref",
+      "authority_evidence_digest",
+      "outputs",
+    ],
+    "RAG_WRITER_TRANSACTION_JOURNAL_INVALID",
+    "apply transaction plan",
+  );
+  const planBasis = { ...plan, outputs: undefined };
+  delete planBasis.outputs;
+  if (
+    plan.schema_version !== PROJECT_RAG_TRANSACTION_PLAN_SCHEMA_VERSION
+    || plan.kind !== "project_rag_apply_transaction_plan"
+    || serializeCanonicalIdentity(planBasis) !== serializeCanonicalIdentity(expectedBasis)
+    || !Array.isArray(plan.outputs)
+    || plan.outputs.length !== artifacts.length
+  ) fail("RAG_WRITER_TRANSACTION_JOURNAL_CONFLICT", "apply transaction plan binding mismatches");
+  const byRef = new Map(artifacts.map((artifact) => [artifact.target_ref, artifact]));
+  for (const output of plan.outputs) {
+    assertExactKeys(
+      output,
+      ["target_ref", "canonical_content_id", "initial_decision"],
+      "RAG_WRITER_TRANSACTION_JOURNAL_INVALID",
+      "apply transaction output",
+    );
+    const artifact = byRef.get(output.target_ref);
+    if (
+      !artifact
+      || artifact.canonical_content_id !== output.canonical_content_id
+      || !["create", "idempotent_noop"].includes(output.initial_decision)
+    ) fail("RAG_WRITER_TRANSACTION_JOURNAL_CONFLICT", "apply transaction output mismatches");
+  }
+  return plan;
+}
+
+function assertRollbackPlan(plan, expectedBasis, outputs) {
+  assertExactKeys(
+    plan,
+    [
+      "schema_version",
+      "kind",
+      "project_ref",
+      "source_apply_receipt_digest",
+      "owner_decision_ref",
+      "authority_evidence_digest",
+      "outputs",
+    ],
+    "RAG_WRITER_TRANSACTION_JOURNAL_INVALID",
+    "rollback transaction plan",
+  );
+  const planBasis = { ...plan };
+  delete planBasis.outputs;
+  if (
+    plan.schema_version !== PROJECT_RAG_TRANSACTION_PLAN_SCHEMA_VERSION
+    || plan.kind !== "project_rag_rollback_transaction_plan"
+    || serializeCanonicalIdentity(planBasis) !== serializeCanonicalIdentity(expectedBasis)
+    || !Array.isArray(plan.outputs)
+    || plan.outputs.length !== outputs.length
+  ) fail("RAG_WRITER_TRANSACTION_JOURNAL_CONFLICT", "rollback transaction plan binding mismatches");
+  const byRef = new Map(outputs.map((output) => [output.target_ref, output]));
+  for (const output of plan.outputs) {
+    assertExactKeys(
+      output,
+      ["target_ref", "canonical_content_id", "initial_state"],
+      "RAG_WRITER_TRANSACTION_JOURNAL_INVALID",
+      "rollback transaction output",
+    );
+    const expected = byRef.get(output.target_ref);
+    if (
+      !expected
+      || expected.canonical_content_id !== output.canonical_content_id
+      || !["present", "absent"].includes(output.initial_state)
+    ) fail("RAG_WRITER_TRANSACTION_JOURNAL_CONFLICT", "rollback transaction output mismatches");
+  }
+  return plan;
 }
 
 function receiptOutput(artifact) {
@@ -608,22 +784,6 @@ function applyReceiptPayload({
     write_count: created.length,
     noop_count: idempotent.length,
   };
-}
-
-async function rollbackCreatedAfterFailure(context, created) {
-  for (const artifact of [...created].reverse()) {
-    try {
-      await verifyRagWriteContainment(containmentInput({
-        ...context,
-        targetRef: artifact.target_ref,
-      }));
-      const targetPath = nativeTargetPath(context.repoRoot, artifact.target_ref);
-      const currentContentId = await readExistingContentId(targetPath);
-      if (currentContentId === artifact.canonical_content_id) await unlink(targetPath);
-    } catch {
-      // The original error remains authoritative; unsafe cleanup is intentionally skipped.
-    }
-  }
 }
 
 export async function applyProjectRagPilotBundle(input, options = {}) {
@@ -674,34 +834,94 @@ export async function applyProjectRagPilotBundle(input, options = {}) {
     approvedOwnerRootRealpath: input.approved_owner_root_realpath,
     projectRef: bundle.projectRef,
   };
-  const preflight = [];
-  for (const artifact of bundle.artifacts) {
-    preflight.push(await preflightArtifact(context, artifact));
-  }
-  const created = [];
-  const idempotent = preflight.filter(
-    (artifact) => artifact.decision === "idempotent_noop",
+  const journalRefs = transactionJournalRefs(
+    bundle.artifacts,
+    bundle.bundleDigest,
+    "project_rag_apply",
   );
-  try {
-    for (const artifact of preflight) {
-      if (artifact.decision === "idempotent_noop") continue;
-      const outcome = await exclusiveAtomicCreate(context, artifact);
-      if (outcome === "created") created.push(artifact);
-      else idempotent.push(artifact);
+  const planBasis = {
+    schema_version: PROJECT_RAG_TRANSACTION_PLAN_SCHEMA_VERSION,
+    kind: "project_rag_apply_transaction_plan",
+    project_ref: bundle.projectRef,
+    bundle_digest: bundle.bundleDigest,
+    owner_decision_ref: ownerDecisionRef,
+    authority_evidence_digest: authority.authority_evidence_digest,
+  };
+  let plan = await readJournalPayload(context, journalRefs.plan_ref);
+  if (plan === null) {
+    const preflight = [];
+    for (const artifact of bundle.artifacts) {
+      preflight.push(await preflightArtifact(context, artifact));
     }
-  } catch (error) {
-    await rollbackCreatedAfterFailure(context, created);
-    throw error;
+    plan = {
+      ...planBasis,
+      outputs: preflight.map((artifact) => ({
+        target_ref: artifact.target_ref,
+        canonical_content_id: artifact.canonical_content_id,
+        initial_decision: artifact.decision,
+      })),
+    };
+    await persistJournalPayload(context, journalRefs.plan_ref, plan);
   }
-  const payload = applyReceiptPayload({
+  assertApplyPlan(plan, planBasis, bundle.artifacts);
+  const originalCreated = [];
+  const originalIdempotent = [];
+  const artifactsByRef = new Map(
+    bundle.artifacts.map((artifact) => [artifact.target_ref, artifact]),
+  );
+  for (const planned of plan.outputs) {
+    const artifact = artifactsByRef.get(planned.target_ref);
+    if (planned.initial_decision === "create") originalCreated.push(artifact);
+    else originalIdempotent.push(artifact);
+  }
+  const originalPayload = applyReceiptPayload({
     projectRef: bundle.projectRef,
     bundleDigest: bundle.bundleDigest,
     ownerDecisionRef,
     authority,
-    created,
-    idempotent,
+    created: originalCreated,
+    idempotent: originalIdempotent,
   });
-  return Object.freeze({ ...payload, receipt_digest: canonicalDigest(payload) });
+  const originalReceipt = {
+    ...originalPayload,
+    receipt_digest: canonicalDigest(originalPayload),
+  };
+  const storedReceipt = await readJournalPayload(context, journalRefs.receipt_ref);
+  if (
+    storedReceipt !== null
+    && serializeCanonicalIdentity(storedReceipt) !== serializeCanonicalIdentity(originalReceipt)
+  ) fail("RAG_WRITER_TRANSACTION_JOURNAL_CONFLICT", "apply transaction receipt mismatches");
+  for (const planned of plan.outputs) {
+    const artifact = artifactsByRef.get(planned.target_ref);
+    await verifyRagWriteContainment(containmentInput({
+      ...context,
+      targetRef: artifact.target_ref,
+    }));
+    const existingContentId = await readExistingContentId(
+      nativeTargetPath(context.repoRoot, artifact.target_ref),
+    );
+    if (planned.initial_decision === "idempotent_noop") {
+      if (existingContentId !== artifact.canonical_content_id) {
+        fail(
+          "RAG_WRITER_TRANSACTION_BASELINE_CHANGED",
+          "an output recorded as pre-existing changed during transaction recovery",
+          { target_ref: artifact.target_ref },
+        );
+      }
+      continue;
+    }
+    if (existingContentId === null) {
+      await exclusiveAtomicCreate(context, artifact);
+    } else if (existingContentId !== artifact.canonical_content_id) {
+      fail("RAG_WRITER_IMMUTABLE_CONFLICT", "transaction target changed during recovery", {
+        target_ref: artifact.target_ref,
+      });
+    }
+  }
+  if (storedReceipt === null) {
+    await persistJournalPayload(context, journalRefs.receipt_ref, originalReceipt);
+  }
+  return Object.freeze(originalReceipt);
 }
 
 function validateApplyReceipt(value) {
@@ -802,6 +1022,7 @@ async function rollbackOne(context, output) {
 }
 
 async function preflightRollback(context, outputs) {
+  const states = [];
   for (const output of outputs) {
     await verifyRagWriteContainment(containmentInput({
       ...context,
@@ -817,7 +1038,13 @@ async function preflightRollback(context, outputs) {
         target_ref: output.target_ref,
       });
     }
+    states.push({
+      target_ref: output.target_ref,
+      canonical_content_id: output.canonical_content_id,
+      initial_state: currentContentId === null ? "absent" : "present",
+    });
   }
+  return states;
 }
 
 export async function rollbackProjectRagPilotApply(input, options = {}) {
@@ -874,15 +1101,35 @@ export async function rollbackProjectRagPilotApply(input, options = {}) {
     approvedOwnerRootRealpath: input.approved_owner_root_realpath,
     projectRef: receipt.project_ref,
   };
-  await preflightRollback(context, receipt.created_outputs);
-  const deletedOutputs = [];
-  const alreadyAbsentOutputs = [];
-  for (const output of [...receipt.created_outputs].reverse()) {
-    const outcome = await rollbackOne(context, output);
-    if (outcome === "deleted") deletedOutputs.push(output);
-    else alreadyAbsentOutputs.push(output);
+  const journalRefs = transactionJournalRefs(
+    outputs,
+    receipt.receipt_digest,
+    "project_rag_rollback",
+  );
+  const planBasis = {
+    schema_version: PROJECT_RAG_TRANSACTION_PLAN_SCHEMA_VERSION,
+    kind: "project_rag_rollback_transaction_plan",
+    project_ref: receipt.project_ref,
+    source_apply_receipt_digest: receipt.receipt_digest,
+    owner_decision_ref: ownerDecisionRef,
+    authority_evidence_digest: authority.authority_evidence_digest,
+  };
+  let plan = await readJournalPayload(context, journalRefs.plan_ref);
+  if (plan === null) {
+    plan = {
+      ...planBasis,
+      outputs: await preflightRollback(context, receipt.created_outputs),
+    };
+    await persistJournalPayload(context, journalRefs.plan_ref, plan);
   }
-  const payload = {
+  assertRollbackPlan(plan, planBasis, receipt.created_outputs);
+  const deletedOutputs = plan.outputs
+    .filter((output) => output.initial_state === "present")
+    .map(({ target_ref, canonical_content_id }) => ({ target_ref, canonical_content_id }));
+  const alreadyAbsentOutputs = plan.outputs
+    .filter((output) => output.initial_state === "absent")
+    .map(({ target_ref, canonical_content_id }) => ({ target_ref, canonical_content_id }));
+  const originalPayload = {
     schema_version: PROJECT_RAG_ROLLBACK_RECEIPT_SCHEMA_VERSION,
     kind: "project_rag_rollback_receipt",
     project_ref: receipt.project_ref,
@@ -893,5 +1140,40 @@ export async function rollbackProjectRagPilotApply(input, options = {}) {
     already_absent_outputs: alreadyAbsentOutputs,
     preserved_idempotent_outputs: receipt.idempotent_outputs,
   };
-  return Object.freeze({ ...payload, receipt_digest: canonicalDigest(payload) });
+  const originalReceipt = {
+    ...originalPayload,
+    receipt_digest: canonicalDigest(originalPayload),
+  };
+  const storedRollbackReceipt = await readJournalPayload(context, journalRefs.receipt_ref);
+  if (
+    storedRollbackReceipt !== null
+    && serializeCanonicalIdentity(storedRollbackReceipt) !== serializeCanonicalIdentity(originalReceipt)
+  ) fail("RAG_WRITER_TRANSACTION_JOURNAL_CONFLICT", "rollback transaction receipt mismatches");
+  const operationDeletedOutputs = [];
+  const operationAlreadyAbsentOutputs = [];
+  for (const output of [...plan.outputs].reverse()) {
+    const outcome = await rollbackOne(context, output);
+    const normalized = {
+      target_ref: output.target_ref,
+      canonical_content_id: output.canonical_content_id,
+    };
+    if (outcome === "deleted") operationDeletedOutputs.push(normalized);
+    else operationAlreadyAbsentOutputs.push(normalized);
+  }
+  const payload = storedRollbackReceipt === null ? originalPayload : {
+    schema_version: PROJECT_RAG_ROLLBACK_RECEIPT_SCHEMA_VERSION,
+    kind: "project_rag_rollback_receipt",
+    project_ref: receipt.project_ref,
+    source_apply_receipt_digest: receipt.receipt_digest,
+    owner_decision_ref: ownerDecisionRef,
+    authority_evidence_digest: authority.authority_evidence_digest,
+    deleted_outputs: operationDeletedOutputs,
+    already_absent_outputs: operationAlreadyAbsentOutputs,
+    preserved_idempotent_outputs: receipt.idempotent_outputs,
+  };
+  const rollbackReceipt = { ...payload, receipt_digest: canonicalDigest(payload) };
+  if (storedRollbackReceipt === null) {
+    await persistJournalPayload(context, journalRefs.receipt_ref, originalReceipt);
+  }
+  return Object.freeze(rollbackReceipt);
 }
