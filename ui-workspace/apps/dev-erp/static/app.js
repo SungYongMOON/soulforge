@@ -3875,7 +3875,7 @@ async function renderReports() {
     wfPreview.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
   };
   const wfJson = async (url, options = {}) => {
-    const response = await fetch(url, options);
+    const response = await request(url, { ...options, acceptHttpError: true });
     const value = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(value?.error?.message || value?.error?.code || `HTTP ${response.status}`);
     return value;

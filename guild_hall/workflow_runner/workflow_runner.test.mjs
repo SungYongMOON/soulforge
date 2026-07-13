@@ -712,16 +712,17 @@ test("Draft 2020-12 schemas compile and reject unknown fields while manual cross
     finalize_config_skeleton: {},
     note: "Prepared results only.",
   };
+  const windowsFixtureRoot = path.win32.join(`C:${path.win32.sep}`, "fixture");
   const finalizeConfig = {
     schema: "soulforge.workflow_cli_finalize.v1",
     request: runtime.request,
     expected_workflow_bundle_sha256: loaded.bundleDigest,
-    payload_bindings: { "payload:draft_report": "C:\\fixture\\draft.json" },
-    allowed_payload_roots: ["C:\\fixture"],
-    artifact_root: "C:\\fixture\\artifacts",
+    payload_bindings: { "payload:draft_report": path.win32.join(windowsFixtureRoot, "draft.json") },
+    allowed_payload_roots: [windowsFixtureRoot],
+    artifact_root: path.win32.join(windowsFixtureRoot, "artifacts"),
     artifact_storage_class: "workspace_system",
     owner_approval_ref: null,
-    state_root: "C:\\fixture\\state",
+    state_root: path.win32.join(windowsFixtureRoot, "state"),
     identity_authority_record_sha256: HASH_A,
     prepared: { protected_baseline: null, draft: null, technical_content: null, evidence_logic: null, derive_executive_summary: null, final_polish: null, semantic_verifier: execution.verdict },
   };
