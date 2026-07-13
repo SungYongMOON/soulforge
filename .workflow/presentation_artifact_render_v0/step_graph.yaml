@@ -1,0 +1,213 @@
+workflow_id: presentation_artifact_render_v0
+kind: step_graph
+status: active
+steps:
+  - step_id: validate_render_request
+    title: Validate Approved Render Request
+    actor_slot: request_validator
+    action:
+      kind: approved_presentation_render_request_validation
+      artifacts_in:
+        - presentation_render_request
+        - approved_presentation_packet_or_storyline_ref
+        - approved_presentation_template_ref
+      artifacts_out:
+        - validated_render_scope
+        - content_identity_record
+      validates:
+        - workflow_revision_and_immutable_package_ref_are_present
+        - content_kind_is_presentation_packet_or_storyline
+        - content_provenance_is_owner_approved_or_declared_synthetic_fixture
+        - provenance_declaration_ref_matches_the_approval_scope
+        - content_approval_status_is_approved
+        - content_ref_revision_and_sha256_are_present
+        - computed_content_sha256_matches_request
+        - content_approval_receipt_authorizes_exact_ref_revision_and_sha256
+        - content_approval_authority_and_time_are_present
+        - template_approval_status_is_approved
+        - template_family_revision_and_sha256_are_present
+        - template_approval_receipt_authorizes_exact_family_revision_and_sha256
+        - template_approval_authority_and_time_are_present
+        - content_template_and_output_refs_resolve_under_workspaces
+        - receipt_ref_resolves_under_workmeta
+        - idempotency_key_is_present
+        - idempotency_key_is_new_or_replay_matches_same_content_template_and_output
+        - output_artifact_does_not_exist_or_matching_idempotent_receipt_allows_noop
+        - request_does_not_contain_freeform_authoring_or_rewrite_instructions
+    summary: Accept only a hash-bound approved packet or storyline plus an approved template identity; reject freeform drafting or rewriting requests.
+    next:
+      on_success: bind_and_verify_template
+      on_review_required: write_metadata_only_receipt
+      on_fail: write_metadata_only_receipt
+  - step_id: bind_and_verify_template
+    title: Bind And Verify Template
+    actor_slot: template_binder
+    action:
+      kind: approved_template_binding_and_identity_verification
+      artifacts_in:
+        - validated_render_scope
+        - approved_presentation_template_ref
+      artifact_out: verified_template_binding
+      validates:
+        - template_family_matches_request
+        - template_revision_matches_request
+        - computed_template_sha256_matches_request
+        - template_is_editable_pptx_source
+        - template_approval_receipt_authorizes_exact_family_revision_and_sha256
+      rules:
+        - do_not_select_a_different_template_family
+        - do_not_infer_or_repair_missing_revision_or_sha256
+        - do_not_mutate_the_approved_template_source
+    summary: Pin the exact approved template family, revision, and SHA-256 before any presentation materialization.
+    next:
+      on_success: render_editable_pptx
+      on_review_required: write_metadata_only_receipt
+      on_fail: write_metadata_only_receipt
+  - step_id: render_editable_pptx
+    title: Render Editable PPTX
+    actor_slot: presentation_renderer
+    action:
+      kind: template_bound_editable_pptx_render
+      artifacts_in:
+        - validated_render_scope
+        - content_identity_record
+        - verified_template_binding
+      artifacts_out:
+        - editable_pptx_artifact
+        - presentation_render_manifest
+      rules:
+        - use_only_approved_content_and_asset_refs
+        - preserve_approved_visible_text_and_content_order
+        - preserve_semantic_field_roles_including_warning_exclusion_and_do_not_claim
+        - render_negation_and_verdict_roles_as_visibly_unambiguous_text
+        - use_native_list_formatting_instead_of_injecting_literal_bullet_characters
+        - do_not_paraphrase_summarize_translate_reorder_or_add_claims
+        - preserve_facts_numbers_units_dates_signs_ids_quotes_tables_and_verdicts
+        - keep_required_text_tables_charts_and_diagrams_editable
+        - do_not_replace_editable_content_with_flattened_images
+        - follow_only_layout_mappings_allowed_by_the_approved_template_revision
+        - route_overflow_or_unmapped_content_to_review_required_without_abridging
+        - write_the_pptx_payload_only_under_workspaces
+        - write_render_review_assets_only_under_workspaces
+        - write_render_manifest_metadata_only_under_workmeta
+        - do_not_copy_visible_content_or_payload_into_render_manifest
+    summary: Materialize the approved content into the pinned template as an editable PPTX without changing the approved message or claim content.
+    next:
+      on_success: verify_content_and_artifact
+      on_review_required: write_metadata_only_receipt
+      on_fail: write_metadata_only_receipt
+  - step_id: verify_content_and_artifact
+    title: Verify Content Fidelity And Artifact
+    actor_slot: fidelity_verifier
+    action:
+      kind: editable_pptx_content_and_layout_verification
+      artifacts_in:
+        - content_identity_record
+        - verified_template_binding
+        - editable_pptx_artifact
+        - presentation_render_manifest
+      artifact_out: presentation_render_self_check
+      required_checks:
+        - pptx_package_structure_is_valid
+        - template_family_revision_and_sha256_trace_are_preserved
+        - approved_visible_text_and_order_are_preserved
+        - semantic_field_roles_and_negation_are_visibly_preserved
+        - facts_numbers_units_dates_signs_ids_quotes_tables_and_verdicts_are_unchanged
+        - no_unapproved_content_or_asset_was_added
+        - required_elements_remain_editable
+        - no_unintended_overlap_clipping_or_unresolved_placeholder
+        - output_ref_is_under_workspaces
+        - verification_record_is_metadata_only_under_workmeta
+        - verification_record_contains_no_visible_content_or_payload
+      verdicts:
+        - complete
+        - review_required
+        - failed
+    summary: Verify structural validity, template identity, editability, visual layout, and exact preservation of claim-critical content.
+    next:
+      on_success: independently_verify_content_and_artifact
+      on_review_required: write_metadata_only_receipt
+      on_fail: write_metadata_only_receipt
+  - step_id: independently_verify_content_and_artifact
+    title: Independently Verify Content Fidelity And Artifact
+    actor_slot: independent_fidelity_verifier
+    action:
+      kind: fresh_context_presentation_artifact_verification
+      artifacts_in:
+        - presentation_render_request
+        - approved_presentation_packet_or_storyline_ref
+        - approved_presentation_template_ref
+        - editable_pptx_artifact
+        - presentation_render_manifest
+        - presentation_render_self_check
+      artifact_out: presentation_render_verification
+      required_checks:
+        - independent_verifier_has_not_seen_or_used_executor_builder_source
+        - approval_scope_hashes_and_provenance_match_request
+        - workflow_revision_and_immutable_package_ref_match_request
+        - template_ref_family_revision_and_sha256_match_request
+        - approved_visible_text_order_semantic_roles_negation_and_verdicts_are_preserved
+        - native_text_tables_charts_and_list_formatting_remain_editable
+        - native_list_formatting_does_not_inject_literal_bullet_characters
+        - all_rendered_slides_and_layout_bounds_are_reviewed
+        - output_and_metadata_storage_boundaries_pass
+      verdicts:
+        - pass
+        - revise
+    summary: A fresh verifier checks the approved inputs, template, artifact, all rendered slides, semantic roles, and metadata boundaries without using the executor's builder source.
+    next:
+      on_success: write_metadata_only_receipt
+      on_review_required: write_metadata_only_receipt
+      on_fail: write_metadata_only_receipt
+  - step_id: write_metadata_only_receipt
+    title: Write Metadata-Only Receipt
+    actor_slot: receipt_writer
+    action:
+      kind: presentation_render_receipt_write
+      artifacts_in:
+        - presentation_render_request
+      optional_artifacts_in:
+        - content_identity_record
+        - verified_template_binding
+        - editable_pptx_artifact
+        - presentation_render_manifest
+        - presentation_render_self_check
+        - presentation_render_verification
+      artifact_out: presentation_render_receipt
+      records:
+        - request_and_idempotency_identity
+        - supplied_content_ref_revision_sha256_and_approval_validation
+        - supplied_template_family_revision_sha256_and_approval_validation
+        - output_pointer_size_sha256_and_format
+        - verification_statuses_and_blocker_codes
+        - workflow_revision_package_ref_and_execution_provenance
+        - manifest_self_check_independent_verification_and_render_review_refs
+        - timestamps_and_next_action
+        - explicit_retryability_and_retry_condition
+      checks:
+        - receipt_ref_is_under_workmeta
+        - receipt_is_metadata_only
+        - presentation_template_and_asset_payloads_are_not_copied
+        - no_content_snippets_private_payload_secret_or_runtime_absolute_path
+    summary: Store only pointers, hashes, sizes, approval refs, validation outcomes, and blockers in workmeta; the PPTX and all actual payloads remain in workspaces.
+    next:
+      on_success: complete
+      on_fail: stop
+stop_conditions:
+  - presentation_packet_or_storyline_is_not_approved
+  - workflow_revision_or_immutable_package_ref_is_missing
+  - synthetic_fixture_provenance_is_undeclared_or_out_of_scope
+  - content_ref_revision_or_sha256_is_missing_or_mismatched
+  - template_family_revision_or_sha256_is_missing_or_mismatched
+  - content_approval_receipt_does_not_authorize_exact_ref_revision_and_sha256
+  - template_approval_receipt_does_not_authorize_exact_family_revision_and_sha256
+  - idempotency_key_collides_with_a_different_binding
+  - output_ref_exists_without_a_matching_idempotent_receipt
+  - request_requires_content_fact_or_verdict_rewriting
+  - layout_fit_requires_unapproved_abridgement_or_reordering
+  - semantic_role_negation_warning_or_verdict_is_not_visibly_preserved
+  - independent_verification_is_missing_or_revises_the_candidate
+  - editable_pptx_cannot_be_produced_or_verified
+  - payload_or_receipt_storage_boundary_is_invalid
+  - runtime_render_or_verification_capability_is_unavailable
+  - private_payload_secret_or_runtime_absolute_path_would_enter_reusable_canon_or_receipt

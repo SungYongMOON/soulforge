@@ -1,0 +1,70 @@
+schema_version: presentation_render_receipt_v0
+kind: presentation_render_receipt
+workflow_id: presentation_artifact_render_v0
+workflow_revision: "{{workflow_revision}}"
+workflow_package_ref: "{{immutable_git_commit_or_package_ref}}"
+request_id: "{{request_id}}"
+run_id: "{{run_id}}"
+project_code: "{{project_code}}"
+item_id: "{{item_id}}"
+idempotency_key: "{{stable_idempotency_key}}"
+state: "{{complete|review_required|failed}}"
+content_identity:
+  kind: "{{presentation_packet|storyline|unknown}}"
+  ref: "{{_workspaces/<project_code>/...|unknown}}"
+  revision: "{{content_revision|unknown}}"
+  expected_sha256: "{{content_sha256|unknown}}"
+  computed_sha256: "{{computed_content_sha256|not_validated}}"
+  hash_match: "{{yes|no|not_run}}"
+  provenance_kind: "{{owner_approved|synthetic_fixture|unknown}}"
+  provenance_declaration_ref: "{{approval_or_synthetic_fixture_declaration_ref|unknown}}"
+  approval_receipt_ref: "{{approval_receipt_ref|unknown}}"
+  approval_scope_match: "{{pass|fail|not_run}}"
+template_identity:
+  family: "{{template_family|unknown}}"
+  revision: "{{template_revision|unknown}}"
+  ref: "{{_workspaces/SE_TEMPLATE_LIBRARY/.../template.pptx|unknown}}"
+  expected_sha256: "{{template_sha256|unknown}}"
+  computed_sha256: "{{computed_template_sha256|not_validated}}"
+  hash_match: "{{yes|no|not_run}}"
+  approval_receipt_ref: "{{template_approval_receipt_ref|unknown}}"
+  approval_scope_match: "{{pass|fail|not_run}}"
+artifact:
+  ref: "{{_workspaces/<project_code>/.../<output_name>.pptx|not_created}}"
+  format: pptx
+  sha256: "{{output_sha256|not_created}}"
+  size_bytes: "{{output_size_bytes|not_created}}"
+  slide_count: "{{slide_count|not_run}}"
+  render_review_asset_root_ref: "{{_workspaces/<project_code>/.../render_review/|not_created}}"
+verification:
+  manifest_ref: "{{_workmeta/<project_code>/runs/<run_id>/presentation_render_manifest.yaml|not_created}}"
+  self_check_ref: "{{_workmeta/<project_code>/runs/<run_id>/presentation_render_self_check.yaml|not_created}}"
+  independent_verification_ref: "{{_workmeta/<project_code>/runs/<run_id>/presentation_render_verification.yaml|not_created}}"
+  independent_verifier_context: "{{fresh|not_run}}"
+  independent_verifier_builder_source_isolation: "{{pass|fail|not_run}}"
+  pptx_structure: "{{pass|fail|not_run}}"
+  template_trace: "{{pass|fail|not_run}}"
+  approved_visible_content_fidelity: "{{pass|fail|not_run}}"
+  claim_critical_value_preservation: "{{pass|fail|not_run}}"
+  approved_assets_only: "{{pass|fail|not_run}}"
+  required_elements_editable: "{{pass|fail|not_run}}"
+  semantic_roles_and_negation_preserved: "{{pass|fail|not_run}}"
+  native_list_formatting_without_literal_bullet_injection: "{{pass|fail|not_run}}"
+  layout_render_review: "{{pass|review_required|fail|not_run}}"
+  blocker_codes:
+    - "{{blocker_code_or_none}}"
+boundary:
+  artifact_payload_under_workspaces: "{{yes|no|not_created}}"
+  receipt_under_workmeta: yes
+  receipt_is_metadata_only: yes
+  copied_presentation_or_template_payload: no
+  copied_content_snippets: no
+  private_body_secret_or_runtime_absolute_path: no
+timestamps:
+  started_at: "{{ISO-8601 timestamp}}"
+  finished_at: "{{ISO-8601 timestamp}}"
+next_action: "{{owner_review|retry_after_binding_fix|handoff_complete|none}}"
+retryability:
+  retryable: "{{yes|no}}"
+  condition: "{{none|binding_fix|required_content_fix|required_template_fix|required_render_fix|required_verification_fix}}"
+notes_policy: blocker_codes_and_metadata_only_no_content_excerpt

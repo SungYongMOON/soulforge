@@ -1,0 +1,22 @@
+workflow_id: presentation_artifact_render_v0
+kind: role_slots
+status: active
+slots:
+  - slot_id: request_validator
+    title: Request Validator
+    summary: Confirms the input is an approved, hash-bound presentation packet or storyline and that all payload and receipt paths respect the workspaces/workmeta boundary.
+  - slot_id: template_binder
+    title: Template Binder
+    summary: Verifies the approved template family, revision, SHA-256, editability, and approval ref without selecting or modifying a different template.
+  - slot_id: presentation_renderer
+    title: Presentation Renderer
+    summary: Materializes approved content into the pinned template as editable PPTX objects without rewriting, summarizing, translating, reordering, or adding claims.
+  - slot_id: fidelity_verifier
+    title: Fidelity Verifier
+    summary: Performs the executor-side PPTX structure, template trace, editability, content fidelity, semantic-role, claim-critical-value, and rendered-layout self-check.
+  - slot_id: independent_fidelity_verifier
+    title: Independent Fidelity Verifier
+    summary: Uses a fresh context without executor builder-source access to verify approval scope, semantic roles and negation, native list formatting without injected text characters, template fidelity, editability, every rendered slide, and storage boundaries.
+  - slot_id: receipt_writer
+    title: Receipt Writer
+    summary: Writes metadata-only workmeta receipts containing pointers, hashes, sizes, approval refs, verification results, blockers, and next actions.

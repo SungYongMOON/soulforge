@@ -1,0 +1,42 @@
+schema_version: presentation_render_manifest_v0
+kind: presentation_render_manifest
+workflow_identity:
+  id: presentation_artifact_render_v0
+  revision: "{{workflow_revision}}"
+  package_ref: "{{immutable_git_commit_or_package_ref}}"
+request_id: "{{request_id}}"
+run_id: "{{run_id}}"
+idempotency_key: "{{stable_idempotency_key}}"
+executor:
+  worker_ref: "{{tool_and_model_ref}}"
+  context_ref: "{{fresh_execution_context_ref}}"
+content_identity:
+  ref: "{{_workspaces/<project_code>/...}}"
+  revision: "{{content_revision}}"
+  sha256: "{{content_sha256}}"
+  provenance_kind: "{{owner_approved|synthetic_fixture}}"
+  provenance_declaration_ref: "{{approval_or_synthetic_fixture_declaration_ref}}"
+template_identity:
+  family: "{{template_family}}"
+  revision: "{{template_revision}}"
+  ref: "{{_workspaces/SE_TEMPLATE_LIBRARY/.../template.pptx}}"
+  sha256: "{{template_sha256}}"
+artifact:
+  ref: "{{_workspaces/<project_code>/.../<output_name>.pptx}}"
+  format: pptx
+  sha256: "{{output_sha256}}"
+  size_bytes: "{{output_size_bytes}}"
+  slide_count: "{{slide_count}}"
+  render_review_asset_root_ref: "{{_workspaces/<project_code>/.../render_review/}}"
+materialization:
+  inherited_template_elements_modified: "{{yes|no}}"
+  editable_chart_count: "{{count}}"
+  editable_table_count: "{{count}}"
+  flattened_image_count: "{{count}}"
+  imported_media_count: "{{count}}"
+storage_boundary:
+  metadata_only: true
+  payload_copied_under_workmeta: false
+  content_snippets_copied: false
+  runtime_absolute_paths_recorded: false
+created_at: "{{ISO-8601 timestamp}}"

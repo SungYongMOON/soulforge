@@ -1,0 +1,61 @@
+schema_version: presentation_render_request_v0
+kind: presentation_render_request
+workflow_id: presentation_artifact_render_v0
+workflow_revision: "{{workflow_revision}}"
+workflow_package_ref: "{{immutable_git_commit_or_package_ref}}"
+request_id: "{{request_id}}"
+run_id: "{{run_id}}"
+project_code: "{{project_code}}"
+item_id: "{{item_id}}"
+idempotency_key: "{{stable_idempotency_key}}"
+content_input:
+  kind: "{{presentation_packet|storyline}}"
+  ref: "{{_workspaces/<project_code>/...}}"
+  revision: "{{content_revision}}"
+  sha256: "{{content_sha256}}"
+  provenance:
+    kind: "{{owner_approved|synthetic_fixture}}"
+    declaration_ref: "{{approval_or_synthetic_fixture_declaration_ref}}"
+  approval:
+    status: approved
+    receipt_ref: "{{approval_receipt_ref}}"
+    approved_by_ref: "{{owner_or_authority_ref}}"
+    approved_at: "{{ISO-8601 timestamp}}"
+template_binding:
+  family: "{{template_family}}"
+  revision: "{{template_revision}}"
+  sha256: "{{template_sha256}}"
+  template_ref: "{{_workspaces/SE_TEMPLATE_LIBRARY/.../template.pptx}}"
+  approval:
+    status: approved
+    receipt_ref: "{{template_approval_receipt_ref}}"
+    approved_by_ref: "{{owner_or_authority_ref}}"
+    approved_at: "{{ISO-8601 timestamp}}"
+output_binding:
+  format: pptx
+  editable_required: true
+  artifact_ref: "{{_workspaces/<project_code>/.../<output_name>.pptx}}"
+  render_review_asset_root_ref: "{{_workspaces/<project_code>/.../render_review/}}"
+  manifest_ref: "{{_workmeta/<project_code>/runs/<run_id>/presentation_render_manifest.yaml}}"
+  self_check_ref: "{{_workmeta/<project_code>/runs/<run_id>/presentation_render_self_check.yaml}}"
+  independent_verification_ref: "{{_workmeta/<project_code>/runs/<run_id>/presentation_render_verification.yaml}}"
+  receipt_ref: "{{_workmeta/<project_code>/runs/<run_id>/presentation_render_receipt.yaml}}"
+  overwrite_existing: false
+render_constraints:
+  visible_content_policy: exact_from_approved_content
+  paraphrase_allowed: false
+  summarization_allowed: false
+  translation_allowed: false
+  reorder_allowed: false
+  new_claims_allowed: false
+  semantic_role_or_negation_loss_allowed: false
+  literal_bullet_character_injection_allowed: false
+  unapproved_template_change_allowed: false
+  flatten_required_editable_content_allowed: false
+  overflow_policy: review_required
+  approved_asset_refs_only: true
+receipt_policy:
+  metadata_only: true
+  content_snippets_allowed: false
+  payload_copy_allowed: false
+  runtime_absolute_paths_allowed: false
