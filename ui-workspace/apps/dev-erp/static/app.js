@@ -1267,6 +1267,7 @@ function requestFailureFromResponse(path, response) {
 async function request(path, {
   timeoutMs = REQUEST_TIMEOUT_MS,
   acceptHttpError = false,
+  acceptedDomainStatuses = [],
   retryableUnauthorized = false,
   ...options
 } = {}) {
@@ -1288,13 +1289,19 @@ async function request(path, {
   }
   if (!response.ok) {
     const failure = requestFailureFromResponse(path, response);
+    const acceptedDomainStatus = response.status >= 400
+      && response.status !== 401
+      && response.status < 500
+      && Array.isArray(acceptedDomainStatuses)
+      && acceptedDomainStatuses.includes(response.status);
+    const acceptedFailure = acceptHttpError || acceptedDomainStatus;
     const retryableAuthFailure = retryableUnauthorized
       && failure.kind === "unauthorized"
       && ["/api/auth/login", "/api/auth/bootstrap", "/api/auth/register"].includes(path);
-    if (!retryableAuthFailure && (!acceptHttpError || failure.kind === "unauthorized" || response.status >= 500)) {
+    if (!retryableAuthFailure && (!acceptedFailure || failure.kind === "unauthorized" || response.status >= 500)) {
       setConnectionState(failure.kind, failure);
     }
-    if (!acceptHttpError) throw failure;
+    if (!acceptedFailure) throw failure;
   }
   return response;
 }
@@ -2219,7 +2226,8 @@ async function openItemQuickEdit(itemId, projectId, title) {
   // 원본 메일 내용 로드(있으면) — AI 가 메일을 오해석해 엉뚱한 할일이 됐는지 사람이 대조. 본문은 esc 로 무해화.
   if (info?.origin_mail_id) {
     const mbox = ov.querySelector("#qeMailBody");
-    api("/api/mail/detail?id=" + encodeURIComponent(info.origin_mail_id)).then((m) => {
+    api("/api/mail/detail?id=" + encodeURIComponent(info.origin_mail_id), { acceptedDomainStatuses: [403, 404] }).then((m) => {
+      if (m?.error) throw new Error(m.error);
       if (!mbox) return;
       const bodyText = String(m.body_text || m.body_preview || "").trim();
       const head = `<div class="dim mini" style="margin-bottom:4px">${esc(m.counterpart || "")}${m.at ? " · " + esc(String(m.at).slice(0, 16).replace("T", " ")) : ""}</div>`;
@@ -2335,7 +2343,7 @@ async function renderKnowWiki(el) {
   el.querySelectorAll(".wiki-row").forEach((tr) => tr.addEventListener("click", async () => {
     const box = $("#wikiBody");
     box.innerHTML = `<div class="empty small">…</div>`;
-    const r = await api(`/api/knowledge/wiki/page?ref=${encodeURIComponent(tr.dataset.ref)}`).catch(() => null);
+    const r = await api(`/api/knowledge/wiki/page?ref=${encodeURIComponent(tr.dataset.ref)}`, { acceptedDomainStatuses: [400] }).catch(() => null);
     if (!r || r.error) { box.innerHTML = `<div class="empty small">${esc(r?.error ?? L.know_wiki_login)}</div>`; return; }
     box.innerHTML = `<section class="calc-card" style="margin-top:10px"><h4 class="hub-h4">${esc(r.title)} <span class="dim small">(${esc(r.ref)})</span></h4>
       <div style="white-space:pre-wrap;font-size:13px;line-height:1.55;max-height:60vh;overflow-y:auto">${esc(r.body)}</div></section>`;
@@ -2353,7 +2361,7 @@ async function renderKnowTrunk(el) {
   if (!projects.length) { el.innerHTML = `<div class="empty">${L.trunk_empty}</div>`; return; }
   const cur = projects.includes(state._ctxProject) ? state._ctxProject : projects[0];
   state._ctxProject = cur;
-  const g = await api(`/api/context/graph?project=${encodeURIComponent(cur)}`).catch(() => null);
+  const g = await api(`/api/context/graph?project=${encodeURIComponent(cur)}`, { acceptedDomainStatuses: [400] }).catch(() => null);
   const sel = `<select id="ctxProj">${projects.map((p) => `<option ${p === cur ? "selected" : ""}>${esc(p)}</option>`).join("")}</select>`;
   if (!g || g.error) { el.innerHTML = `<div class="item-form">${sel}</div><div class="empty">${esc(g?.error ?? "-")}</div>`; $("#ctxProj").addEventListener("change", (e) => { state._ctxProject = e.target.value; render(); }); return; }
   return drawTrunkGraph(el, g, {
@@ -2367,7 +2375,7 @@ async function renderKnowTrunk(el) {
 async function hubTrunk(mount, p) {
   const L = state.lex;
   mount.innerHTML = `<div class="empty small">…</div>`;
-  const g = await api(`/api/context/graph?project=${encodeURIComponent(p.id)}`, { acceptHttpError: true }).catch(() => null);
+  const g = await api(`/api/context/graph?project=${encodeURIComponent(p.id)}`, { acceptedDomainStatuses: [400] }).catch(() => null);
   if (!g || g.error) {
     const msg = g?.error === "context_not_found" ? (L.trunk_none_hub ?? "이 과제의 줄기 데이터가 아직 없습니다")
       : g?.error === "login_required" ? L.know_wiki_login : (g?.error ?? "-");
@@ -2972,7 +2980,7 @@ async function lifeTreeOpenStory(body, g, branchKey, trigger) {
     trigger?.focus();
   };
   panel.innerHTML = `<div class="life-live-status" role="status" aria-live="polite">${esc(L.life_story_loading)}</div>`;
-  const story = await api(`/api/context/branch_story?project=${encodeURIComponent(g.project)}&branch=${encodeURIComponent(branchKey)}`).catch(() => null);
+  const story = await api(`/api/context/branch_story?project=${encodeURIComponent(g.project)}&branch=${encodeURIComponent(branchKey)}`, { acceptedDomainStatuses: [400] }).catch(() => null);
   if (!panel.isConnected || panel.dataset.lifeStoryRequest !== requestKey) return;
   if (!story || story.error || story.content_policy !== "metadata_only" || story.branch?.branch_key !== branchKey) {
     panel.innerHTML = `<div class="life-live-status" role="status" aria-live="polite">${esc(L.life_story_error)}</div>`;
@@ -3035,7 +3043,7 @@ async function drawTrunkLifeTree(body, g) {
 
   body.innerHTML = `${lifeTreeFiltersHtml(config)}<div class="life-live-status" role="status" aria-live="polite">${esc(L.life_loading)}</div>`;
   wireLifeTreeFilters(body, g, config);
-  const raw = await api(lifeTreeRequestPath(g.project, config)).catch(() => null);
+  const raw = await api(lifeTreeRequestPath(g.project, config), { acceptedDomainStatuses: [400, 403] }).catch(() => null);
   if (!body.isConnected || state.trunkView !== "life" || body.dataset.lifeRequest !== requestId) return;
   if (!raw || raw.error) {
     body.innerHTML = `${lifeTreeFiltersHtml(config)}<div class="life-live-status danger-text" role="status" aria-live="polite">${esc(L.life_error)}</div>`;
@@ -3346,7 +3354,7 @@ function drawTrunkMap(body, g, ranked) {
       // B9a 이야기 뷰(§3 기원/경로/종결) — 연속 클릭 out-of-order 가드: 늦은 응답이 새 선택을 덮지 않게.
       const seq = (state._trunkStorySeq = (state._trunkStorySeq ?? 0) + 1);
       let story = null;
-      try { story = await api(`/api/context/branch_story?project=${encodeURIComponent(g.project)}&branch=${encodeURIComponent(key)}`); } catch { story = null; }
+      try { story = await api(`/api/context/branch_story?project=${encodeURIComponent(g.project)}&branch=${encodeURIComponent(key)}`, { acceptedDomainStatuses: [400] }); } catch { story = null; }
       if (seq !== state._trunkStorySeq) return;
       const detail = document.getElementById("ctxDetail");
       if (!detail) return; // 렌즈/뷰 전환됨
@@ -3520,9 +3528,15 @@ async function renderRecipe() {
 }
 
 // P-19/P-4 키스톤: 제안 큐 독립 화면 — 추천 스캔 + 승인/반려(게이트 화면 섹션과 동일 라우트).
+async function loadProposalsForCurrentAccount() {
+  if (!state.account?.is_admin) return [];
+  const proposals = await api("/api/proposals", { acceptedDomainStatuses: [403] });
+  return Array.isArray(proposals) ? proposals : [];
+}
+
 async function renderProposals() {
   const L = state.lex;
-  const props = await api("/api/proposals");
+  const props = await loadProposalsForCurrentAccount();
   const rows = props.length
     ? `<table><tbody>${props.map((p) => `<tr data-prop="${esc(p.id)}">
         <td><span class="badge">${esc(p.kind === "completion_digest" ? (L.prop_kind_digest ?? "완료 요약") : eventKindLabel(p.kind))}</span></td>
@@ -3637,9 +3651,11 @@ async function renderBoards() {
   const L = state.lex;
   const parts = await api("/api/parts");
   const boards = parts.filter((p) => p.type === "board");
-  const sel = state.bomBoard || (boards[0] && boards[0].id) || "";
+  const selectedBoard = boards.find((p) => p.id === state.bomBoard);
+  const sel = selectedBoard?.id || boards[0]?.id || "";
+  if (state.bomBoard && !selectedBoard) state.bomBoard = sel;
   const bom = sel ? await api(`/api/bom?parent=${encodeURIComponent(sel)}`) : [];
-  const comp = sel ? await api(`/api/parts/completeness?part=${encodeURIComponent(sel)}`) : null;
+  const comp = sel ? await api(`/api/parts/completeness?part=${encodeURIComponent(sel)}`, { acceptedDomainStatuses: [404] }) : null;
   const atts = sel ? await api(`/api/attachments?entity_type=part&entity_id=${encodeURIComponent(sel)}`) : [];
   const ATYPES = ["bom", "gerber", "digikey", "schematic", "pcb", "block_diagram"];
   const boardOpts = boards.map((b) => `<option value="${esc(b.id)}" ${sel === b.id ? "selected" : ""}>${esc(b.name)}</option>`).join("");
@@ -4489,7 +4505,9 @@ function openTaskCodex(itemId) {
   };
   const loadCapabilities = async () => {
     try {
-      capabilities = await api(`/api/codex-task/capabilities?item_id=${encodeURIComponent(itemId)}`);
+      const nextCapabilities = await api(`/api/codex-task/capabilities?item_id=${encodeURIComponent(itemId)}`, { acceptedDomainStatuses: [403, 404] });
+      if (nextCapabilities?.error) throw new Error(nextCapabilities.error);
+      capabilities = nextCapabilities;
     } catch {
       capabilities = {
         skills: [],
@@ -4732,7 +4750,9 @@ function openTaskCodex(itemId) {
   const load = async () => {
     setPending(true, "연결 상태 확인 중");
     try {
-      payload = await api(`/api/codex-task/thread?item_id=${encodeURIComponent(itemId)}`);
+      const nextPayload = await api(`/api/codex-task/thread?item_id=${encodeURIComponent(itemId)}`, { acceptedDomainStatuses: [403, 404] });
+      if (nextPayload?.error) throw new Error(nextPayload.error);
+      payload = nextPayload;
       render();
       setPending(false, payload.binding?.opened ? "연결됨" : "작업실을 직접 선택한 뒤 첫 메시지를 보내면 연결됩니다.");
     } catch (error) {
@@ -5312,7 +5332,7 @@ async function renderHome() {
     }
     if (id === "proposals") {
       // P-19/P-4 키스톤: AI/규칙 제안 대기 큐(승인 필요). 게이트 화면에서 승인/반려·추천 스캔.
-      const props = await api("/api/proposals");
+      const props = await loadProposalsForCurrentAccount();
       return { title: L.prop_queue_title, html: props.length
         ? `<table><tbody>${props.slice(0, 8).map((p) => miniRow([esc(p.kind), esc(p.summary ?? p.payload?.title ?? p.id)])).join("")}</tbody></table>`
         : `<div class="empty">${L.prop_empty}</div>` };
@@ -6594,7 +6614,8 @@ async function renderMail() {
       };
     } else if (sel.body_text_available && !sel.body_text) {
       try {
-        const detailMail = await api(`/api/mail/detail?id=${encodeURIComponent(sel.id)}`);
+        const detailMail = await api(`/api/mail/detail?id=${encodeURIComponent(sel.id)}`, { acceptedDomainStatuses: [403, 404] });
+        if (detailMail?.error) throw new Error(detailMail.error);
         state.mailDetailCache[sel.id] = detailMail;
         sel = {
           ...sel,
@@ -7548,7 +7569,7 @@ async function hubSchedule(mount, p) {
 async function renderGates() {
   const L = state.lex;
   // SE-UI: 게이트 + 납기위험(P-9) + 제안 큐(P-4 키스톤) 를 한 화면에 표면화.
-  const [data, risks, props] = await Promise.all([api("/api/gates"), api("/api/risk"), api("/api/proposals")]);
+  const [data, risks, props] = await Promise.all([api("/api/gates"), api("/api/risk"), loadProposalsForCurrentAccount()]);
   const stages = data.stages || [];
   const byProj = {};
   for (const s of stages) (byProj[s.project_id] ||= []).push(s);
@@ -8372,7 +8393,7 @@ $("#timelineBtn")?.addEventListener("click", openTimeline);
 // 🔔 알림 — 봐야 할 것 집계(대기 제안·차단/연체 할일·막힌 게이트·품절 부품). 전부 기존 API.
 async function loadNotifications() {
   const [props, blockedData, overdueData, triageOverdueData, gates, low] = await Promise.all([
-    api("/api/proposals").catch(() => []),
+    loadProposalsForCurrentAccount().catch(() => []),
     api("/api/items?status=blocked&page=1&limit=1").catch(() => ({ rows: [], total: 0 })),
     api("/api/items?due=overdue&page=1&limit=1").catch(() => ({ rows: [], total: 0 })),
     api("/api/items?status=unclassified&due=overdue&page=1&limit=1").catch(() => ({ rows: [], total: 0 })),

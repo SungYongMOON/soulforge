@@ -29,6 +29,18 @@
   runtime code, 실제 project payload, private binding은 변경하거나 읽지 않았다.
   (worker: codex_gpt-5)
 
+### dev-ERP 권한·도메인 4xx의 로컬 폴백 복구
+
+- 일반 팀원 화면의 알림·홈 위젯·제안 페이지·게이트가 관리자 전용 `/api/proposals`를
+  호출하지 않고 기존 빈 큐 상태를 표시하도록 했다. 클라이언트 권한 정보가 오래된 관리자도
+  서버의 `403 admin_only`를 로컬 빈 상태로 처리한다.
+- 위키 본문, 두 줄기 그래프 소비자, 가지 이야기, 생명수, 메일 상세, 부품 완성도,
+  Codex capabilities/thread가 서버가 실제 반환하는 도메인 `400/403/404`만 호출부별로
+  허용하고 기존 빈 화면·미리보기·fallback UI를 사용하게 했다. 이 GET 라우트들에는 현재
+  `409` 응답 계약이 없어 허용하지 않았으며, 미등록 4xx·401·5xx·잘못된 JSON·네트워크·
+  timeout은 계속 전역 fail-closed로 처리한다. 부품 목록에서 사라진 보드 선택값도 현재
+  목록의 첫 보드로만 교정한다. (worker: codex_gpt-5)
+
 ### dev-ERP 빈 줄기 화면의 서버 장애 오인 수정
 
 - 과제에 아직 `project_context` 줄기 데이터가 없을 때 `/api/context/graph`의 예상 가능한
