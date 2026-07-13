@@ -24,6 +24,13 @@
   end-to-end replay, Microsoft Word/Excel owner-sample round-trip, 실제 보고서 3건과 owner acceptance 전에는
   default route, team-default, production-ready를 주장하지 않는다. PPT 생성은
   이번 문서 시스템 범위에서 중단 상태다. (worker: codex_gpt-5)
+- Fresh independent evaluation rejected a short internal progress report that
+  repeated its inspection fact solely to satisfy separate status and scope roles.
+  The runtime now treats `status_summary` as source-owned body content and permits
+  the compact `status / issues / next actions` matrix for `internal_review` progress
+  reports; higher-stakes audiences retain the extended five-role matrix. This
+  removes forced filler without weakening fact, condition, modality, or unresolved-
+  cause preservation. (worker: codex_gpt-5)
 - `report_authoring_v0` completed a real Korean `final_polish` pilot through the
   fixed prepare/validate/authority/finalize path. The run adopted a metadata-only
   receipt, replayed exactly, preserved 37/37 semantic invariants and 22 lexical

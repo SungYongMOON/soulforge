@@ -32,7 +32,7 @@ repeating another section or writing a decorative "none provided" placeholder.
 | --- | --- |
 | `experiment` | purpose; conditions/method; results; discussion/limits; bounded conclusion/verdict; next actions |
 | `analysis` | decision question/scope; method/assumptions; alternatives evidence; tradeoff discussion; conclusion/recommendation; decision Ask/next actions |
-| `progress` | status summary; scope/baseline; milestones/actuals; issues/risks/dependencies; next actions |
+| `progress` | internal review: status; issues/risks/dependencies; next actions. Other audiences: status; scope/baseline; milestones/actuals; issues/risks/dependencies; next actions |
 | `presentation` | title/context; body-supported BLUF and Ask; body evidence; recommendation/next action |
 | `other` | purpose/decision question; scope and evidence basis; findings/current state; interpretation/limits; bounded conclusion or decision status when supported; next action or explicit no-action state; references when used |
 
@@ -41,6 +41,15 @@ and references/traceability are optional when material. Omit them when the input
 does not support distinct reader-useful content. If the omission itself is a
 decision-critical gap, record that gap as unconfirmed instead of manufacturing a
 section.
+
+For a short `internal_review` progress report, `status_summary` is the primary
+current-state body section, not a derived summary. It may state the inspected scope,
+actual result, and source-owned decision status together when those facts are needed
+to explain the current state. Do not duplicate those claims in separate
+`scope_baseline` or `milestones_actuals` sections. Add either extended role only when
+it contains distinct reader-useful material such as a named plan baseline or a
+multi-milestone comparison. This compact form must not create filler merely to meet
+a role count.
 
 An executive summary is required for management, customer, or regulator readers.
 For `other`, it is also required when the document has more than six sections and

@@ -57,7 +57,12 @@ const REPORT_REQUIRED_ROLE_MATRIX = Object.freeze({
   presentation: ["title_context", "bluf_and_ask", "evidence", "recommendation_next"],
   other: ["purpose", "scope_evidence_basis", "findings_current_state", "interpretation_limitations", "bounded_conclusion_decision_status", "next_actions"],
 });
-const SUMMARY_ROLES = new Set(["executive_summary", "status_summary", "bluf_and_ask"]);
+const COMPACT_INTERNAL_PROGRESS_ROLES = Object.freeze([
+  "status_summary",
+  "issues_risks_dependencies",
+  "next_actions",
+]);
+const SUMMARY_ROLES = new Set(["executive_summary", "bluf_and_ask"]);
 const PASS_CHECK_IDS = Object.freeze({
   technical_content: ["source_fidelity", "protected_fields", "citation_resolution", "conditions_scope", "authorized_changes"],
   evidence_logic: ["role_matrix", "evidence_logic", "claim_ceiling", "conclusion_support", "unconfirmed_handling"],
@@ -643,7 +648,9 @@ export function validateReportDocument(document) {
     });
     explicitBlockClaimRefs.set(section.section_id, blockClaims);
   });
-  const requiredRoles = [...REPORT_REQUIRED_ROLE_MATRIX[document.report_type]];
+  const requiredRoles = document.report_type === "progress" && document.audience === "internal_review"
+    ? [...COMPACT_INTERNAL_PROGRESS_ROLES]
+    : [...REPORT_REQUIRED_ROLE_MATRIX[document.report_type]];
   if (["management", "customer", "regulator"].includes(document.audience) && ["experiment", "analysis", "other"].includes(document.report_type)) requiredRoles.unshift("executive_summary");
   else if (document.report_type === "other" && document.sections.length > 6) requiredRoles.unshift("executive_summary");
   let previousIndex = -1;

@@ -34,6 +34,10 @@ Report type is independently selected as `experiment`, `analysis`, `progress`,
 `presentation`, or `other`. Each type uses a minimum role matrix plus material
 optional roles. Omit roles with no supported content instead of repeating facts,
 inventing placeholders, or forcing empty decorative headings.
+Short `internal_review` progress reports use a compact status / issue / next-action
+minimum. Their status block is source-owned body content and may carry the scope,
+actual result, and current decision status once; separate baseline or milestone
+sections require distinct comparison material.
 
 ## Editorial and verification order
 

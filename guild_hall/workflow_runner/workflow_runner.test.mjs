@@ -420,10 +420,17 @@ test("ReportDocument validates the synthetic fixture and all five adaptive role 
   validateReportDocument(shortOtherDocument());
   const compactProgress = documentForType("progress");
   compactProgress.sections = compactProgress.sections.filter((section) => new Set([
-    "status_summary", "scope_baseline", "milestones_actuals", "issues_risks_dependencies", "next_actions",
+    "status_summary", "issues_risks_dependencies", "next_actions",
   ]).has(section.role));
-  assert.equal(compactProgress.sections.length, 5);
+  assert.equal(compactProgress.sections.length, 3);
   validateReportDocument(compactProgress);
+  const externalProgress = clone(compactProgress);
+  externalProgress.audience = "management";
+  assert.throws(() => validateReportDocument(externalProgress), (error) => error.code === "document_required_section_missing");
+  const sourceOwnedStatus = clone(compactProgress);
+  const statusSection = sourceOwnedStatus.sections.find((section) => section.role === "status_summary");
+  delete statusSection.blocks[0].sentences;
+  validateReportDocument(sourceOwnedStatus);
   const universalOther = clone(fixture);
   universalOther.report_type = "other";
   universalOther.sections = [{ section_id: "only", heading: "기타", role: "other", claim_refs: [], blocks: [{ block_id: "only-p", type: "paragraph", text: "단일 구조", claim_refs: [], source_refs: [] }] }];

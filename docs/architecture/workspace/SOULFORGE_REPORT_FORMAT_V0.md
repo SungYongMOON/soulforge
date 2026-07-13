@@ -41,7 +41,7 @@ owned by `.workflow/report_authoring_v0/references/editorial_contract.md`.
 | --- | --- |
 | Experiment/test | purpose; conditions/method; results; discussion/limits; bounded verdict; next actions |
 | Analysis/trade | decision question/scope; method/assumptions; alternatives evidence; tradeoffs; recommendation/decision Ask |
-| Progress | status; baseline; milestones/actuals; issues/risks/dependencies; next actions |
+| Progress | internal review: status; issues/risks/dependencies; next actions. Other audiences: status; baseline; milestones/actuals; issues/risks/dependencies; next actions |
 | Presentation | title/context; body-derived BLUF/Ask; verified evidence; recommendation/next |
 | Other | purpose; scope/evidence basis; findings; interpretation/limits; bounded conclusion/status; next action or explicit no-action state; traceability |
 
@@ -60,6 +60,12 @@ does not expose those IDs.
 The v0 structured contract assigns one role to each section and does not encode
 combined-role sections. A verdict, recommendation, risk section, appendix, or
 visual is included only when the report purpose and available evidence support it.
+
+In the compact internal progress form, `status_summary` is a source-owned body
+section rather than a derived executive summary. It can state scope, actual result,
+and current decision status in one concise passage. Separate baseline or milestone
+sections are added only for distinct comparison material; they must not repeat the
+same inspection fact to satisfy structure.
 
 The source record may still carry internal fields such as claim ceiling and
 boundary status, but the owner-facing report surface should use report terms
