@@ -1,5 +1,18 @@
 # CHANGELOG
 
+### 장기 스레드 인계의 fresh-worker·writer 안전 계약 정합화
+
+- `long_thread_handoff`를 명시적 phase-transition opt-in으로 고정하고, 현행 Codex의
+  fresh context 예시는 `fork_turns="none"`으로 맞췄다. 모델·reasoning 선택자가 없는
+  런타임에서는 관찰하지 못한 프로필이나 downgrade를 주장하지 않고
+  `unselectable`/`unknown`으로 보고한다.
+- manager/controller의 통합 소유권, 필요한 역할만 의존 순서로 실행하는 lane 정책,
+  구현 안정화 뒤 검증, HEAD/index lock/dirty ownership/외부 편집/write overlap 사전
+  점검과 writer surface별 단일 writer 원칙을 명시했다.
+- `NIGHT_WORK_HANDOFF`는 owner-approved exact path/reference가 확인될 때만 만들며,
+  Telegram은 현재 요청 또는 적용 가능한 standing authorization이 있을 때만 전송
+  시점 승인 범위와 mechanism을 확인하도록 제한했다. (worker: codex_gpt-5)
+
 ### TaskDriver closed-loop 설계와 고성능 PC cold-start packet
 
 - dev-ERP task truth target을 기존 `core_item` current state와 append-only `event_log`로

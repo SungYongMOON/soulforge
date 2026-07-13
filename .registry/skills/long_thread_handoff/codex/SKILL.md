@@ -1,6 +1,6 @@
 ---
 name: soulforge-long-thread-handoff
-description: Use only when the user explicitly asks for a Soulforge long-thread handoff, contamination-free handoff mode, "장기작업 인계 시작", "오염방지 인계모드", "긴 스레드 인계", or wants to replace the repeated prompt that tells Codex to act as manager, summarize the current long conversation into a goal/checkpoint, delegate analysis/work/review to fresh GPT-5.6 xhigh subagents, use Soulforge Workflow Generator/Check for workflow authoring, persist until done or blocked, and prepare Telegram completion notification.
+description: Use only when the user explicitly opts into a Soulforge long-thread phase transition or handoff, says "장기작업 인계 시작", "오염방지 인계모드", or "긴 스레드 인계", or asks the current manager to continue substantive work through fresh subagents with bounded implementation and verification. Keep the manager as integration owner, use Soulforge Workflow Generator/Check for workflow authoring, and persist until done or blocked.
 ---
 
 # Soulforge Long Thread Handoff
@@ -19,9 +19,10 @@ For context-management rationale and optional tactics, read `references/context-
 - Keep the manager context clean: carry forward structured state and final findings, not raw exploration, failed attempts, or unneeded source text.
 - Prefer a structured checkpoint over prose-only compaction for fragile work when unresolved forward-state must survive. The checkpoint should make omitted or unknown items explicit.
 - During long phases, periodically re-anchor the work by restating the current goal, constraints, completed work, blockers, and next action before continuing or delegating.
-- Use fresh subagents with `fork_context=false` by default for delegated work. Pass only the handoff summary, target files, constraints, and acceptance criteria.
+- Use a runtime-neutral fresh context for delegated work. In the current Codex collaboration runtime, spawn each fresh worker with `fork_turns="none"`. Pass only the handoff summary or bounded continuity refs, target files, constraints, and acceptance criteria.
 - In overnight or continued-work mode, decide whether a handoff is actually needed before refreshing, compacting, or starting clean. Ask the user only when a stop condition or owner decision is involved.
-- Request `gpt-5.6` with `xhigh` reasoning for subagents when available. If the runtime cannot provide that profile, use the strongest available profile and state the downgrade.
+- When the subagent runtime exposes model and reasoning selectors, request the strongest profile the user specified. If the user did not specify one, do not invent a profile requirement. When selectors are absent, use the strongest available fresh worker and report the model/reasoning profile as `unselectable` or `unknown`, as applicable. Do not infer a downgrade or claim a profile assignment that the runtime did not expose.
+- Keep the manager/controller as the integration owner. Create analysis, implementation, and verification lanes only when those distinct roles are actually needed for substantive work, execute them in dependency order, and start verification only after implementation is stable.
 - Continue until the declared goal is complete or a real stop condition is reached.
 
 ## Trigger UX
@@ -42,16 +43,17 @@ If the user gives only the trigger and the current goal is unclear, ask one conc
 
 1. Read the active Soulforge execution contract before changing files or making repo judgments: `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`.
 2. Declare the goal. If Codex goal tools are available, check for an active goal, create or reuse a matching goal, and stop on a conflicting active goal. Include success criteria and stop conditions.
-3. Create or refresh a `NIGHT_WORK_HANDOFF` checkpoint before delegation only when unresolved forward-state must cross a context boundary: a long-running or autonomous session is about to compact, clear, reset, or end; work moves from a non-Codex model/tool to Codex; active execution transfers to another PC or primary controller; blockers, rejected approaches, owner-decision waits, stale-memory corrections, or exact next actions must survive resume; or the user explicitly asks for checkpoint continuity.
+3. Create or refresh a `NIGHT_WORK_HANDOFF` checkpoint before delegation only when unresolved forward-state must cross a context boundary: a long-running or autonomous session is about to compact, clear, reset, or end; work moves from a non-Codex model/tool to Codex; active execution transfers to another PC or primary controller; blockers, rejected approaches, owner-decision waits, stale-memory corrections, or exact next actions must survive resume; or the user explicitly asks for checkpoint continuity. Write only to an exact path or reference confirmed by an applicable owner-approved canonical surface. If that location is absent or ambiguous, do not invent one; ask for the owner decision.
 4. Keep the checkpoint compact. Preserve final goal, current state, changed or inspected files, decisions made, rejected approaches, validation results, blockers, risks, next actions, and user instructions that must survive compaction.
 5. Do not copy raw transcript, secrets, credentials, private payloads, or unneeded source text into the handoff. Mark unknowns explicitly.
 6. Treat `NIGHT_WORK_HANDOFF` as durable continuity state during overnight work only after the need is established. Refresh it after meaningful changes to unresolved forward-state, such as a new blocker, rejected approach, owner-decision wait, stale-memory correction, validator result, subagent integration finding, PC/controller transfer, or changed next action that must survive resume.
 7. If the next phase should start clean, use the checkpoint as the continuity anchor for a fresh session instead of carrying the full conversation forward.
-8. Create separate analysis, implementation, and verification subagent lanes for substantive work. Skip subagents only for a named no-subagent exception: unclear goal, trivial status or preflight, small deterministic local check, unavailable subagent tool/model, unsafe minimal-packet boundary, owner decision, or stop condition. Use subagents especially when the manager only needs final findings or a bounded patch, not the intermediate source material.
-9. For workers, specify write ownership, tell them they are not alone in the codebase, and tell them not to revert others' changes.
-10. After subagents return, inspect the actual file/status state before integrating so stale manager memory does not override fresh work.
-11. Integrate returned work, run appropriate deterministic validators, and keep the final claim ceiling conservative when verification is partial.
-12. Do not create a handoff for clean bounded work already closed by commit, push, self-verification, and no extra forward-state. Refresh `NIGHT_WORK_HANDOFF` before a context reset or phase end only when unresolved forward-state remains, or when the user asks for checkpoint continuity.
+8. For substantive work, decide which distinct analysis, implementation, and verification roles are actually required. Run only the needed lanes in dependency order: analysis before dependent implementation, and verification after implementation is stable. Do not create ceremonial lanes or assume all three can run in parallel. Skip subagents only for a named no-subagent exception: unclear goal, trivial status or preflight, small deterministic local check, unavailable subagent tool, unsafe minimal-packet boundary, owner decision, or stop condition.
+9. Before delegating any writer, pin the expected HEAD and confirm `index.lock` is absent, dirty changes have known ownership, no external actor appears to be editing the same tree, and allowed write paths do not overlap another active writer. Assign exactly one writer per file, database schema, or other writer surface. Sequentialize overlapping work or use a separate worktree; stop if neither is safe.
+10. For workers, specify write ownership, tell them they are not alone in the codebase, and tell them not to revert others' changes. Never run overlapping writer scopes concurrently.
+11. After subagents return, inspect the actual file/status state before integrating so stale manager memory does not override fresh work.
+12. Integrate returned work as the manager/controller, run appropriate deterministic validators, and keep the final claim ceiling conservative when verification is partial.
+13. Do not create a handoff for clean bounded work already closed by commit, push, self-verification, and no extra forward-state. Refresh `NIGHT_WORK_HANDOFF` before a context reset or phase end only when unresolved forward-state remains or the user asks for checkpoint continuity, and only when the exact owner-approved checkpoint path or reference is known.
 
 ## Delegation Packet Minimum
 
@@ -94,8 +96,7 @@ named in the manager notes or closeout:
   before work can be safely delegated
 - the task is only a trivial status check, preflight, or small deterministic
   local check
-- the runtime does not expose usable subagent tools or the requested
-  subagent/model profile is unavailable and no safe fallback exists
+- the runtime does not expose usable subagent tools
 - a safe minimal packet cannot be prepared without raw transcript, private
   payload, secret, or overbroad source material
 - an owner decision, unsafe boundary, conflicting write scope, failed validator,
@@ -130,8 +131,9 @@ When the task requires creating or materially evolving a Soulforge workflow:
 
 ## Telegram Closeout
 
-- If a safe, configured Telegram delivery mechanism is available and the user has authorized sending, send a concise completion brief after the goal is done.
-- If Telegram delivery is unavailable, blocked, or would require secrets/tokens, produce a Telegram-ready brief and state that it was not sent.
+- Consider Telegram only when the user explicitly requested it in the current request or an applicable standing authorization covers this delivery. At send time, confirm both the authorization scope and the configured delivery mechanism.
+- If Telegram was requested but delivery is unavailable, blocked, outside authorization, or would require secrets/tokens, produce a concise unsent brief and state why it was not sent.
+- If Telegram was not requested and no applicable standing authorization calls for it, omit Telegram work and status from closeout.
 - Never ask the agent to read or expose Telegram tokens, bot credentials, session files, or other secrets.
 
 ## Stop Conditions
@@ -143,9 +145,9 @@ Stop and report `blocked` instead of looping when the next step requires a secre
 Report:
 
 - declared goal and completion state
-- subagents used, their roles, and any model/profile downgrade
+- subagents used, their roles, and only model/reasoning profile facts exposed by the runtime; otherwise report `unselectable` or `unknown`
 - files changed or inspected
 - validators and review gates run
-- Telegram sent/not sent status
+- Telegram sent/not-sent status only when Telegram was requested or applicable authorization called for it
 - remaining blockers or next action
 - `지식 트리거 확인: ...` for Soulforge bounded work

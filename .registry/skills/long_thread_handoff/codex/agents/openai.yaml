@@ -1,7 +1,7 @@
 interface:
   display_name: "Soulforge Long Thread Handoff"
-  short_description: "Contamination-free long-thread handoff"
-  default_prompt: "Use $soulforge-long-thread-handoff to continue this long Soulforge thread through fresh subagents and a compact handoff."
+  short_description: "Explicit fresh-worker phase handoff"
+  default_prompt: "Use $soulforge-long-thread-handoff to move this long Soulforge task into its next phase with the current manager integrating fresh workers."
 
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false
