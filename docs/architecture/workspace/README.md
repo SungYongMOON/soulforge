@@ -15,6 +15,7 @@
 | `PROJECT_ONBOARDING_V0.md` | 실제 프로젝트를 `_workspaces/<project_code>/` 로 처음 붙이는 절차를 둔다. |
 | `PROJECT_FOLDER_INDEXING_POLICY_V0.md` | 프로젝트 폴더마다 검색 가능한 파일 색인을 project-local 로 유지하고, 색인과 지식화를 분리하는 운영 규칙이다. |
 | `PROJECT_FILE_ACTIVITY_REVISION_V0.md` | 네 PC와 ERP의 파일 관측을 logical file, immutable revision, node observation으로 분리하고 rename/copy/touch/delete/conflict와 단일 reconciler 경계를 고정한다. |
+| `PROJECT_TASK_ENGINE_LIFECYCLE_V0.md` | dev-ERP task truth, TaskDriver causal record, 판단/적용과 작업 상태의 두 축, writer/approval/idempotency/replay 경계를 고정한다. |
 | `PROJECT_LEDGER_UPDATE_V0.md` | 주기적으로 전달되는 회사 PJT 관리 대장을 private source 로 받아 project registration 을 갱신하는 public-safe 절차다. |
 | `COMPANY_COMMON_SOURCE_STORAGE_V0.md` | 회사 공통 조직/연락처/자리배치/운영 참조 자료를 project worksite 와 분리해 knowledge common source packet 으로 보관하는 규칙이다. |
 | `PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md` | 프로젝트 지식 추출(장서목록·본문추출·추출 메타)의 저장 위치를 `project_code` 단위로 격리해 고정하고, `HWP_NORMALIZATION`/`COMPANY_COMMON` 을 모든 문서 형식으로 일반화하며 `_local` 임의 폴더를 금지하는 규칙이다. |
@@ -78,6 +79,7 @@
 - [`PROJECT_ONBOARDING_V0.md`](PROJECT_ONBOARDING_V0.md)
 - [`PROJECT_FOLDER_INDEXING_POLICY_V0.md`](PROJECT_FOLDER_INDEXING_POLICY_V0.md)
 - [`PROJECT_FILE_ACTIVITY_REVISION_V0.md`](PROJECT_FILE_ACTIVITY_REVISION_V0.md)
+- [`PROJECT_TASK_ENGINE_LIFECYCLE_V0.md`](PROJECT_TASK_ENGINE_LIFECYCLE_V0.md)
 - [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md)
 - [`COMPANY_COMMON_SOURCE_STORAGE_V0.md`](COMPANY_COMMON_SOURCE_STORAGE_V0.md)
 - [`PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md`](PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md)
@@ -145,6 +147,7 @@
 - `PROJECT_ONBOARDING_V0.md` 는 첫 실제 프로젝트를 `_workspaces/<project_code>/` 에 붙일 때 short `project_code`, full `display_name`, read-only first, local-only link materialization 규칙을 잠근다.
 - `PROJECT_FOLDER_INDEXING_POLICY_V0.md` 는 프로젝트 자료 정리, RAG, 지식화 전에 project-local 파일 색인을 만들고, `_workmeta` 에는 원문이 아니라 실행 기록과 포인터만 남기는 규칙을 잠근다.
 - `PROJECT_FILE_ACTIVITY_REVISION_V0.md` 는 path/mtime을 identity로 쓰지 않고 네 PC/ERP의 관측·revision DAG·coverage를 분리하며 live scheduler/transport는 node binding 전까지 비활성으로 둔다.
+- `PROJECT_TASK_ENGINE_LIFECYCLE_V0.md` 는 `core_item` current state와 append-only `event_log`를 task truth target으로 유지하고, TaskDriver와 두 상태축은 migration/validator gate 전까지 `canon_candidate`로 둔다.
 - `PROJECT_LEDGER_UPDATE_V0.md` 는 owner 가 주기적으로 전달하는 회사 PJT 관리 대장을 private source 로 보관하고 current/open project metadata 를 갱신하는 절차를 잠근다.
 - `COMPANY_COMMON_SOURCE_STORAGE_V0.md` 는 특정 프로젝트가 아닌 회사 공통 조직/연락처/자리배치/운영 참조 자료를 `_workspaces/knowledge/common/company/` 아래 source packet 으로 보관하고, `_workmeta` 에는 metadata-only 기록만 남기는 규칙을 잠근다.
 - `PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md` 는 프로젝트 지식 추출 산출물을 `project_code` 단위로 격리해, 장서목록은 `_workmeta/<project_code>/reports/source_research/`, derived_text payload 는 `_workspaces/<project_code>/reference_payloads/knowledge_extract/<batch>/derived_text/`, 회사 공통은 `_workspaces/knowledge/common/company/` 로 두고 `_local` 임의 폴더를 금지하는 규칙을 잠근다.

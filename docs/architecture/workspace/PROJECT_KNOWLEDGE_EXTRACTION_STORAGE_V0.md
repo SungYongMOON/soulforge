@@ -26,7 +26,18 @@
 | 추출 본문(derived text, payload) | `_workspaces/<project_code>/reference_payloads/knowledge_extract/<batch_id>/derived_text/` |
 | 추출 manifest(packet index) | `_workspaces/<project_code>/reference_payloads/knowledge_extract/<batch_id>/extract_manifest.json` |
 | 연결 receipt | `_workmeta/<project_code>/knowledge_ingest_receipts/events/<YYYY-MM>.jsonl` |
-| RAG 인덱스 | `_workspaces/knowledge/rag/indexes_local/source_text_indexes/<source_id>_source_text_index/` (source_id 에 project_code 접두로 격리) |
+| RAG payload root (target) | `_workspaces/<project_code>/reference_payloads/rag/` |
+| RAG index | 위 root의 `indexes_local/source_text_indexes/<source_id>_source_text_index/` |
+| RAG trace/answer/review/work card | 위 root의 `traceability_sidecars/`, `answer_runs/`, `source_text_quality_reviews/`, `source_text_work_cards/` 등 asset-kind 하위 경로 |
+
+현재 runtime/docs 일부가 project RAG asset을
+`_workspaces/knowledge/rag/indexes_local/source_text_indexes/**`에 두고 project_code 접두로
+격리하거나 같은 common root의 traceability sidecar, answer run, source-text quality review,
+work card가 이를 참조한다. 이는 모두 legacy migration input이며 target 지원 완료가 아니다.
+고성능 PC에서 asset/consumer read-only inventory, project/common 분류, metadata receipt owner,
+collision/rollback dry-run, 한 project pilot을 통과한 activation gate 이후에는 project
+payload의 legacy path 신규 write를 금지한다. `_workspaces/knowledge/rag/**`는 cross-project
+common RAG 전용 target이다.
 
 ## 저장 위치 (회사 공통 — 특정 과제 아님)
 

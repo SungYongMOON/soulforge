@@ -146,6 +146,12 @@
   activation-candidate helper를 둔다. live 연결 뒤에도 단일 always-on reconciler만
   canonical projection을 쓰며 현재 scheduler/transport는 꺼져 있다. 상세 계약은
   `docs/slices/ENGINE-12-CONTEXT-LIFE-TREE.md`를 따른다.
+- TaskDriver target(2026-07-13): `core_item` current state와 append-only `event_log`의
+  task truth를 유지하면서, 할일/전이의 `왜`와 `왜 지금`은 exact refs를 가진 별도
+  TaskDriver causal record로 잇는다. 판단/적용 상태와 실제 작업 상태를 분리하며 LLM은
+  후보만 만들고 completion은 후속 Driver 후보를 조용히 auto-open하지 않는다. 현행
+  runtime 지원 주장이 아닌 migration target이며 상세는
+  `docs/task_engine_redesign/README.md`와 `docs/slices/ENGINE-13-TASK-DRIVER-CLOSED-LOOP.md`다.
 - Codex 복구 경계: 일반 DB 백업과 별도로 maintenance lock 아래 ERP와 전용 worker를
   모두 중지한 뒤 SQLite DB, opaque 대화 payload, 첨부 manifest/file을 하나의
   `dev_erp.codex_payload_backup_generation.v1` generation으로 묶는다. NAS 정본 위치는
@@ -240,6 +246,10 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
 문서에 적고 ② 변경 사유를 변경 이력에 기록한다.
 
 ## 변경 이력
+
+- 2026-07-13 (codex_gpt-5): TaskDriver closed-loop 설계 패키지와 ENGINE-13 cold-start
+  packet을 추가했다. project RAG target owner, 두 상태축, 고성능 PC cut line과 activation
+  gate를 문서화했으며 runtime code나 실제 project data는 변경하지 않았다.
 
 - 2026-06-12: 초안 작성 (P0 결정 5건 반영).
 - 2026-06-12: 3절 개정 — 단일 스킨 → "진실 1 + 뷰 2 + 파생 게임 상태"

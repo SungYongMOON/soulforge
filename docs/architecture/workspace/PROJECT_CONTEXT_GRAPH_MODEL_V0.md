@@ -43,8 +43,9 @@ These defaults were captured from the 2026-06-28 owner grill-me decisions.
   the graph view.
 - Every input is stored as graph context first. A task is created only when the
   event implies action.
-- MVP automation may apply context links and task creation. Assignee and due
-  date changes remain review/proposal items.
+- MVP automation may apply context links and task creation only under an exact bounded deterministic
+  policy authority. Otherwise it emits a TaskDriver/task candidate. Assignee and due date changes
+  remain review/proposal items.
 - Context loading uses layers: L0 index, L1 project summary, L2 branch summary,
   L3 related event detail, and L4 source layer.
 - Source reading is expected to be frequent early, then reduced as summary
@@ -195,6 +196,7 @@ Node types:
 - `context_branch`
 - `event_leaf`
 - `task`
+- `task_driver` (TARGET projection; current runtime support claim 아님)
 - `fruit`
 - `milestone`
 - `actor`
@@ -236,6 +238,9 @@ Edge types:
 - `duplicates`
 - `supersedes`
 - `requires_owner_decision`
+- `triggered_by`
+- `justified_by`
+- `justifies`
 
 ## Judgment Rows
 
@@ -293,11 +298,21 @@ Event leaf:
 ingested -> classified -> linked | needs_review -> applied | rejected
 ```
 
-Task:
+Task decision/application (TARGET):
 
 ```text
-candidate -> open -> in_progress | waiting | blocked -> done | cancelled | merged
+candidate -> review_required -> approved -> applied | rejected | superseded
 ```
+
+Task work status (TARGET):
+
+```text
+not_started -> in_progress | waiting | blocked -> done | cancelled | merged -> archived
+```
+
+현행 `core_item.status`와 위 두 축의 보수적 crosswalk, TaskDriver authority와 replay 계약은
+`PROJECT_TASK_ENGINE_LIFECYCLE_V0.md`가 소유한다. context graph는 이를 표시하는 projection이며
+두 번째 task writer가 아니다.
 
 Fruit:
 
@@ -345,3 +360,5 @@ Start with a small set. Do not create a new branch for every subject line.
 - SE stage interpretation remains compatible with `SE_DUNGEON_STAGE_MODEL_V0.md`.
 - Cross-project projections and dashboards should read this model rather than
   inventing a separate source-truth graph.
+- TaskDriver and two-axis task lifecycle are governed by
+  `PROJECT_TASK_ENGINE_LIFECYCLE_V0.md`; this graph only projects their refs and states.

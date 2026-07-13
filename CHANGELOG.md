@@ -1,5 +1,21 @@
 # CHANGELOG
 
+### TaskDriver closed-loop 설계와 고성능 PC cold-start packet
+
+- dev-ERP task truth target을 기존 `core_item` current state와 append-only `event_log`로
+  유지하면서, 할일/전이의 `왜`와 `왜 지금`을 exact refs로 기록하는 TaskDriver owner
+  contract와 10장짜리 public-safe redesign package, ENGINE-13 packet을 추가했다.
+- 판단/적용 상태와 작업 상태를 분리하고 현행 ERP status를 보수적으로 crosswalk했다.
+  LLM은 후보만 만들며 completion은 후속 Driver 후보를 조용히 auto-open하지 않는다.
+- project RAG target을 `_workspaces/<project_code>/reference_payloads/rag/**`, common-only
+  RAG를 `_workspaces/knowledge/rag/**`로 고정했다. 현행 common-root project index는
+  high-performance PC의 inventory/dry-run/one-project pilot을 거치는 legacy migration
+  input이며 current 지원 완료나 production-ready를 주장하지 않는다.
+- Mac mini voice/watchdog와 high-performance engine의 목표 역할, immutable node packet,
+  sole reconciler, state-change/cooldown/recovery alert candidate와 activation gate를 문서화했다.
+  runtime code, 실제 project payload, private binding은 변경하거나 읽지 않았다.
+  (worker: codex_gpt-5)
+
 ### dev-ERP 빈 줄기 화면의 서버 장애 오인 수정
 
 - 과제에 아직 `project_context` 줄기 데이터가 없을 때 `/api/context/graph`의 예상 가능한
