@@ -310,6 +310,72 @@ test("local ASR queue resumes a completed transcript without rerunning audio and
   }
 });
 
+test("local ASR does not reuse completed output across run, model, or source identity changes", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-local-asr-identity-"));
+  try {
+    const fixture = await createSessionFixture(repoRoot);
+    const originalProfile = {
+      ...buildDefaultLocalAsrProfile(),
+      model_path: "model.bin",
+      model_id: "fixture-model-old",
+      run_id: "fixture_run_old",
+      chunk_seconds: 30,
+      overlap_seconds: 0,
+    };
+    await writeFile(path.join(repoRoot, "model.bin"), "model", "utf8");
+    await analyzeLocalAsrSession({
+      repoRoot,
+      profile: originalProfile,
+      sessionDir: fixture.sessionDir,
+      apply: true,
+      commandRunner: commandFixture([]),
+      notificationEmitter: async () => ({ ok: true, status: "disabled" }),
+      deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "fixture-receipt" }),
+    });
+
+    const changedRunProfile = {
+      ...originalProfile,
+      model_id: "fixture-model-new",
+      run_id: "fixture_run_new",
+    };
+    const changedRunCommands = [];
+    const changedRun = await analyzeLocalAsrSession({
+      repoRoot,
+      profile: changedRunProfile,
+      sessionDir: fixture.sessionDir,
+      apply: true,
+      commandRunner: commandFixture(changedRunCommands),
+      notificationEmitter: async () => ({ ok: true, status: "disabled" }),
+      deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "fixture-receipt" }),
+    });
+    assert.equal(changedRun.resumed_completed, undefined);
+    assert.equal(changedRun.run_id, changedRunProfile.run_id);
+    assert.equal(changedRunCommands.length > 0, true);
+
+    const manifestPath = path.join(fixture.sessionDir, "session_manifest.json");
+    const changedSourceManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    changedSourceManifest.source_sha256 = "fixture-audio-sha-new";
+    changedSourceManifest.audio.sha256 = "fixture-audio-sha-new";
+    await writeFile(manifestPath, `${JSON.stringify(changedSourceManifest, null, 2)}\n`, "utf8");
+
+    const changedSourceCommands = [];
+    const changedSource = await analyzeLocalAsrSession({
+      repoRoot,
+      profile: changedRunProfile,
+      sessionDir: fixture.sessionDir,
+      apply: true,
+      commandRunner: commandFixture(changedSourceCommands),
+      notificationEmitter: async () => ({ ok: true, status: "disabled" }),
+      deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "fixture-receipt" }),
+    });
+    assert.equal(changedSource.resumed_completed, undefined);
+    assert.equal(changedSource.source_sha256, "fixture-audio-sha-new");
+    assert.equal(changedSourceCommands.length > 0, true);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("local ASR backlog discovery skips completed current-run sessions and queues only pending audio", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-local-asr-backlog-"));
   try {

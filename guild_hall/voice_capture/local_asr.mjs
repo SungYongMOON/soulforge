@@ -372,6 +372,16 @@ export async function analyzeLocalAsrSession(options = {}) {
     sessionManifest.independent_transcription = {
       ...(sessionManifest.independent_transcription ?? {}),
       status: "completed",
+      source_sha256: resumableManifest.source_sha256,
+      run_id: resumableManifest.run_id,
+      engine: resumableManifest.engine,
+      model_id: resumableManifest.model_id,
+      model_sha1: resumableManifest.model_sha1 ?? null,
+      evidence_role: resumableManifest.evidence_role,
+      transcript_ref: resumableManifest.transcript_ref,
+      transcript_jsonl_ref: resumableManifest.transcript_jsonl_ref,
+      segment_count: resumableManifest.segment_count,
+      completed_at: resumableManifest.completed_at,
       notification,
     };
     await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
@@ -391,6 +401,9 @@ export async function analyzeLocalAsrSession(options = {}) {
     return { applied: true, resumed_completed: true, ...finalManifest, delivery };
   }
 
+  if (!existingManifest || !completionIdentityMatches(existingManifest, plan)) {
+    await fs.rm(chunksDir, { recursive: true, force: true });
+  }
   await fs.mkdir(chunksDir, { recursive: true });
   await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), {
     ...plan,
@@ -522,6 +535,7 @@ export async function analyzeLocalAsrSession(options = {}) {
 
     sessionManifest.independent_transcription = {
       status: "completed",
+      source_sha256: plan.source_sha256,
       run_id: profile.run_id,
       engine: profile.engine,
       model_id: profile.model_id,
@@ -602,15 +616,20 @@ async function prepareLocalAsrDelivery(options) {
 
 async function recoverCompletedAnalysisManifest({ repoRoot, outputDir, plan, sessionManifest, analysisManifest }) {
   const sessionState = sessionManifest.independent_transcription ?? {};
-  const transcriptRef = analysisManifest?.transcript_ref ?? sessionState.transcript_ref ?? null;
-  const transcriptJsonlRef = analysisManifest?.transcript_jsonl_ref ?? sessionState.transcript_jsonl_ref ?? null;
-  const completedState = analysisManifest?.state === "completed" || sessionState.status === "completed";
-  if (!completedState || !transcriptRef || !transcriptJsonlRef) return null;
+  const analysisCompleted = analysisManifest?.state === "completed"
+    && completionIdentityMatches(analysisManifest, plan);
+  const sessionCompleted = sessionState.status === "completed"
+    && completionIdentityMatches(sessionState, plan);
+  if (!analysisCompleted && !sessionCompleted) return null;
+  const completedState = analysisCompleted ? analysisManifest : sessionState;
+  const transcriptRef = completedState.transcript_ref ?? null;
+  const transcriptJsonlRef = completedState.transcript_jsonl_ref ?? null;
+  if (!transcriptRef || !transcriptJsonlRef) return null;
   const transcriptPath = resolveRepoPath(repoRoot, transcriptRef);
   const transcriptJsonlPath = resolveRepoPath(repoRoot, transcriptJsonlRef);
   if (!isInside(repoRoot, transcriptPath) || !isInside(repoRoot, transcriptJsonlPath)) return null;
   if (!existsSync(transcriptPath) || !existsSync(transcriptJsonlPath)) return null;
-  if (analysisManifest?.state === "completed") return analysisManifest;
+  if (analysisCompleted) return analysisManifest;
 
   const kept = await readJsonlRows(transcriptJsonlPath);
   const suppressedPath = path.join(outputDir, "suppressed_segments.jsonl");
@@ -634,6 +653,15 @@ async function recoverCompletedAnalysisManifest({ repoRoot, outputDir, plan, ses
     completed_at: sessionState.completed_at ?? new Date().toISOString(),
     recovered_from_completed_session_manifest: true,
   };
+}
+
+function completionIdentityMatches(candidate, plan) {
+  return Boolean(candidate?.source_sha256)
+    && candidate.source_sha256 === plan.source_sha256
+    && candidate.run_id === plan.run_id
+    && candidate.engine === plan.engine
+    && candidate.model_id === plan.model_id
+    && (candidate.model_sha1 ?? null) === (plan.model_sha1 ?? null);
 }
 
 async function readJsonlRows(filePath) {

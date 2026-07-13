@@ -15,7 +15,9 @@
   진입 실패 시 즉시 종료, 정상·빈 queue 출력 억제와 bounded 실패 상태 로그를 함께
   적용했다. 이미 완료된 전사의 queue가 남거나 재시작 중 analysis 상태만 덮인 경우에는
   session 완료본을 복구해 음성을 재처리하지 않고 알림과 delivery를 재개한다. calendar
-  job의 기존 schedule은 유지한다. (worker: codex_gpt-5)
+  job의 기존 schedule은 유지한다. 완료본과 chunk를 재사용할 때는 음원 해시, 실행 ID,
+  엔진과 모델 ID·해시가 모두 현재 계획과 일치해야 하며, 하나라도 달라지면 이전 chunk를
+  버리고 새로 전사한다. (worker: codex_gpt-5)
 
 ### dev-ERP 단일-body Codex turn projection v4
 
