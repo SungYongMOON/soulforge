@@ -136,6 +136,26 @@ test("scheduled-task audit never infers an unresolved enabled backend action is 
   }
 });
 
+test("scheduled-task audit rejects an unresolved environment variable in a relative launcher base", {
+  skip: process.platform !== "win32",
+}, async () => {
+  const fixture = await createFixture();
+  const unresolvedVariable = "SOULFORGE_TEST_UNDEFINED_TASK_BASE_7A91";
+  assert.equal(process.env[unresolvedVariable], undefined);
+  try {
+    const result = await invokeRegistrar(fixture, [task({
+      args: '-NoProfile -ExecutionPolicy Bypass -File "ops\\run-dev-erp-background.ps1"',
+      workingDirectory: `%${unresolvedVariable}%\\ui-workspace\\apps\\dev-erp`,
+    })]);
+    assert.notEqual(result.code, 0);
+    assert.match(result.stdout, /unresolved-enabled-backend=1/);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Enabled dev-ERP task action conflict/);
+    assert.match(`${result.stdout}\n${result.stderr}`, /no task was changed/);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
 test("scheduled-task audit and WhatIf perform no registration mutation", {
   skip: process.platform !== "win32",
 }, async () => {

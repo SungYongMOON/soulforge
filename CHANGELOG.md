@@ -47,7 +47,8 @@
   environment scrub, `--no-real-meta`, `--no-fixture`, listener/process attestation을 유지하면서
   Node 종료까지 wrapper가 살아 있고 Node exit status를 그대로 반환하도록 했다.
 - audit-only가 기본인 tracked registration helper를 추가했다. 같은 DB의 enabled action과
-  해석 불가능한 enabled dev-ERP backend action을 fail-closed하고, 기존 target overwrite는
+  해석 불가능한 enabled dev-ERP backend action(미해결 작업 디렉터리 환경변수 포함)을
+  fail-closed하고, 기존 target overwrite는
   exact disabled same-DB handoff에서만 허용한다. 실제 등록은 `SupportsShouldProcess`/
   `-WhatIf` 뒤 현재 사용자 `AtLogOn`/`Interactive`/`Limited`로만 수행하며 credential,
   pre-login service, 다른 task/process/DB mutation은 만들지 않는다.

@@ -27,7 +27,11 @@ function Resolve-LexicalPath {
   if ([string]::IsNullOrWhiteSpace($BasePath)) {
     throw "Relative path has no explicit base directory."
   }
-  return [IO.Path]::GetFullPath((Join-Path $BasePath $Expanded))
+  $ExpandedBase = [Environment]::ExpandEnvironmentVariables($BasePath)
+  if ($ExpandedBase -match '%[^%]+%') {
+    throw "Base path contains an unresolved environment variable."
+  }
+  return [IO.Path]::GetFullPath((Join-Path $ExpandedBase $Expanded))
 }
 
 function ConvertTo-TaskArgument {
