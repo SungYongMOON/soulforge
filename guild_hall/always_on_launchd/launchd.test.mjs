@@ -28,7 +28,21 @@ test("renderLaunchdFiles writes the expected plist set", async () => {
 
   const healerLight = await readFile(path.join(outputDir, "ai.soulforge.healer.light.plist"), "utf8");
   assert.equal(healerLight.includes("--notify-on-failure"), true);
-  assert.equal(healerLight.includes("StartInterval"), true);
+  assert.equal(healerLight.includes("StartInterval"), false);
+  assert.equal(healerLight.includes("<key>KeepAlive</key>"), true);
+  assert.equal(healerLight.includes("while true; do"), true);
+  assert.equal(healerLight.includes("sleep 1800"), true);
+
+  const mailFetch = await readFile(path.join(outputDir, "ai.soulforge.gateway.mail-fetch.plist"), "utf8");
+  assert.equal(mailFetch.includes("EMAIL_FETCH_PLAUD_TRIGGER_ENABLED"), true);
+  assert.equal(mailFetch.includes("<string>true</string>"), true);
+  assert.equal(mailFetch.includes("sleep 300"), true);
+  assert.equal(mailFetch.includes("gateway:fetch -- --once --json"), false);
+  assert.equal(mailFetch.includes("gateway:fetch -- --once"), true);
+
+  const healerFull = await readFile(path.join(outputDir, "ai.soulforge.healer.full.plist"), "utf8");
+  assert.equal(healerFull.includes("StartCalendarInterval"), true);
+  assert.equal(healerFull.includes("while true; do"), false);
 });
 
 test("renderLaunchdFiles honors a custom log root", async () => {

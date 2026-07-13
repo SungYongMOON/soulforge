@@ -1,6 +1,6 @@
 # email-fetch 운영 모니터링 런북
 
-> 마지막 업데이트: 2026-03-05
+> 마지막 업데이트: 2026-07-13
 
 `email-fetch` 수집기의 장애/복구 상태를 점검하고 Telegram 알림 정책(장애/복구만)을 운영하는 절차다.
 
@@ -11,7 +11,9 @@
 - 정상 수집 알림은 보내지 않는다.
 - 장애(`WARN/CRITICAL`)와 복구(`RECOVERY`)만 알림 대상으로 한다.
 - 알림은 쿨다운(`EMAIL_FETCH_HEALTH_ALERT_COOLDOWN_SEC`, 기본 3600초)으로 중복 억제한다.
-- 수집기는 상시 루프 프로세스가 아니라 one-shot 주기 실행(`StartInterval`)으로 운영한다.
+- 수집 명령 자체는 one-shot 계약을 유지한다. 지정 macOS always-on node에서는
+  GUI launchd의 interval spawn 보류를 피하기 위해 하나의 persistent LaunchAgent
+  loop가 one-shot 명령을 순차 호출한다.
 
 ---
 
@@ -58,7 +60,9 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 
 ## 주기 실행 기준
 
-- collector/healthcheck 모두 기본 5분 주기 one-shot 실행을 권장한다.
+- collector/healthcheck 명령은 모두 기본 5분 주기 one-shot 호출을 권장한다.
+- 지정 macOS always-on node의 scheduler wrapper는 `RunAtLoad + KeepAlive`로
+  계속 살아 있으면서 앞 호출이 끝난 뒤 5분을 기다린다. 실행이 겹치지 않는다.
 - launchd/crontab/systemd 중 어떤 스케줄러를 쓰더라도 명령은 아래 두 개만 호출하면 된다.
 
 ```bash
@@ -80,9 +84,12 @@ npm run guild-hall:gateway:fetch:healthcheck -- --json
 ## 스킬 추가 원칙
 
 1. `gateway launcher`는 1개만 상시 운영한다.
-2. 새 스킬이 주기 작업이면 해당 스킬 전용 스크립트(one-shot)를 만들고 launchd `StartInterval` 또는 `StartCalendarInterval`로 등록한다.
+2. 새 스킬이 주기 작업이면 해당 스킬 전용 one-shot 스크립트를 만든다. 지정
+   macOS always-on node의 interval job은 공용 persistent wrapper로 호출하고,
+   calendar job은 `StartCalendarInterval`을 사용할 수 있다.
 3. 새 스킬이 이벤트성/사용자 호출 작업이면 별도 런처를 만들지 않고 기존 gateway 명령 경로에서 호출한다.
-4. 기본은 “스크립트 실행 단위 분리 + 스케줄러 연결”이며, 상시 `KeepAlive` 프로세스 증설은 예외로만 허용한다.
+4. 기본은 “스크립트 실행 단위 분리 + 스케줄러 연결”이다. persistent wrapper는
+   always-on job별 하나로 제한하고, 작업 본문을 장기 프로세스로 바꾸지 않는다.
 
 ---
 

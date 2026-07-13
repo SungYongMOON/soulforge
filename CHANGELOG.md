@@ -1,5 +1,17 @@
 # CHANGELOG
 
+### macOS 24시간 interval LaunchAgent 정체 방지
+
+- GUI launchd domain이 `on-demand-only`로 전환된 뒤 `StartInterval` 작업이
+  loaded 상태에서도 실행되지 않던 운영 실패를 막기 위해, interval job plist를
+  `RunAtLoad + KeepAlive` 단일 loop가 기존 one-shot 명령을 순차 호출하는 형태로
+  변경했다. 앞 실행이 끝난 뒤에만 다음 간격을 기다리므로 중복 실행은 만들지
+  않으며, 실패는 stderr에 남기고 다음 주기에 재시도한다.
+- mail-fetch 설치 plist에 PLAUD 메일 trigger 활성화를 명시적으로 포함하고,
+  loaded 여부만 아니라 실제 `running` 상태를 확인하도록 운영 문서를 맞췄다.
+  mail-fetch와 healthcheck 반복 로그는 전체 JSON 대신 bounded summary만 남기며,
+  calendar job의 기존 schedule은 유지한다. (worker: codex_gpt-5)
+
 ### dev-ERP 단일-body Codex turn projection v4
 
 - Soulforge `_workspaces`를 프로젝트의 유일한 논리 본체로 고정하고 ERP runtime은

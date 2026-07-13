@@ -12,16 +12,23 @@
 
 | 항목 | 권장/현재 주기 | LLM 사용 | 역할 |
 | --- | --- | --- | --- |
-| `ai.soulforge.gateway.mail-fetch` | 5분 | no | `mail_fetch/cli.py --once` 로 메일 수집 |
-| `ai.soulforge.gateway.mail-healthcheck` | 5분 | no | mail fetch stale/fail/partial 상태 판정 |
-| `ai.soulforge.private-state-sync` | 10분 | no | 허용된 `guild_hall/state/**` continuity subset 을 `private-state` 로 mirror 후 private GitHub 에 push |
-| `ai.soulforge.town-crier` | 1분 | no | `town_crier` queue 를 Telegram 으로 전송 |
+| `ai.soulforge.gateway.mail-fetch` | 5분 persistent loop | no | `mail_fetch/cli.py --once` 로 메일 수집 |
+| `ai.soulforge.gateway.mail-healthcheck` | 5분 persistent loop | no | mail fetch stale/fail/partial 상태 판정 |
+| `ai.soulforge.private-state-sync` | 10분 persistent loop | no | 허용된 `guild_hall/state/**` continuity subset 을 `private-state` 로 mirror 후 private GitHub 에 push |
+| `ai.soulforge.town-crier` | 1분 persistent loop | no | `town_crier` queue 를 Telegram 으로 전송 |
 | Codex `Soulforge 운영 감시` heartbeat | 4시간 | yes | clean `main` fast-forward pull, 운영 상태 확인, activity sync 결과를 Codex thread 에 짧게 보고 |
 | Codex `always-on activity sync` | 09:00, 18:00 | yes | low-reasoning dedicated fallback 으로 local activity ledger / `private-state` mirror 동기화 |
 
 운영 원칙:
 
 - mail fetch, mail healthcheck, private-state sync, town_crier 는 LLM 을 호출하지 않는다.
+- macOS GUI launchd domain이 `on-demand-only`로 바뀌면 `StartInterval` spawn이
+  장시간 보류될 수 있으므로, interval job은 `RunAtLoad + KeepAlive` persistent
+  loop가 기존 one-shot 명령을 순차 호출한다. calendar job은 기존 launchd
+  calendar schedule을 유지한다.
+- 반복 로그는 bounded operator summary를 사용한다. mail-fetch의 전체 JSON
+  결과처럼 cursor/seen 목록이 포함된 대형 출력은 LaunchAgent stdout에 반복
+  적재하지 않는다.
 - Codex heartbeat 는 비용이 있으므로 짧은 주기 감시에 쓰지 않는다. 2026-05-15 기준 기본 운영 주기는 60분에서 4시간으로 낮췄다.
 - Codex heartbeat 는 운영 점검 전에 public repo 가 clean `main` 이면 `git pull --ff-only origin main` 을 먼저 시도한다. GitHub/DNS/network 실패처럼 일시 장애일 수 있는 실패는 최대 3회까지 재시도하되, 60초 후 1회와 180초 후 1회만 추가 시도한다. 모두 실패하면 local-only 복구 대상이 아니므로 stale/blocker 로 보고하고, private/mail runtime 원문은 읽지 않는다.
 - 24시간 PC 가 `owner-with-state` 조건을 갖추면 `_workmeta/main` 도 주기적으로 pull 해서 shared metadata plane 최신 상태를 유지하고, 이 PC 에서 생긴 metadata 변경은 clean/main 조건에서 commit/push 할 수 있다.
@@ -153,6 +160,9 @@ always-on node 에서 수행한다.
 5. `npm run guild-hall:healer:run -- --json` 를 수동 smoke 로 1회 실행한다.
 6. LaunchAgent 를 설치한다.
 7. `launchctl list | rg 'ai\\.soulforge'` 로 등록 상태를 확인한다.
+   interval job은 추가로 `launchctl print gui/$(id -u)/<label>`의 state가
+   `running`인지 확인한다. plist가 loaded이지만 `pended nondemand spawn = interval`
+   로 남아 있으면 24시간 실행 성공으로 보지 않는다.
 8. 실패 알림 smoke 는 secret 값을 출력하지 않는 방식으로만 확인한다.
 
 권장 명령:

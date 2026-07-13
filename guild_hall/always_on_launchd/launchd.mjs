@@ -11,14 +11,17 @@ const JOB_SPECS = [
     label: "ai.soulforge.gateway.mail-fetch",
     kind: "interval",
     intervalSec: 300,
-    command: "npm run guild-hall:gateway:fetch -- --once --json",
+    command: "npm run guild-hall:gateway:fetch -- --once",
+    environmentVariables: {
+      EMAIL_FETCH_PLAUD_TRIGGER_ENABLED: "true",
+    },
   },
   {
     id: "gateway.mail-healthcheck",
     label: "ai.soulforge.gateway.mail-healthcheck",
     kind: "interval",
     intervalSec: 300,
-    command: "npm run guild-hall:gateway:fetch:healthcheck -- --json",
+    command: "npm run guild-hall:gateway:fetch:healthcheck",
   },
   {
     id: "private-state.sync",
@@ -71,7 +74,9 @@ export function buildLaunchdDefinitions(options = {}) {
   return JOB_SPECS.map((spec) => {
     const stdoutPath = path.join(logRoot, `${spec.label}.out.log`);
     const stderrPath = path.join(logRoot, `${spec.label}.err.log`);
-    const script = `cd ${shellQuote(repoRoot)} && ${spec.command}`;
+    const script = spec.kind === "interval"
+      ? buildPersistentIntervalScript(repoRoot, spec.command, spec.intervalSec)
+      : `cd ${shellQuote(repoRoot)} && ${spec.command}`;
     return {
       ...spec,
       repoRoot,
@@ -95,12 +100,26 @@ export function renderPlist(definition) {
     "  <array>",
     ...definition.programArguments.map((arg) => `    <string>${xmlEscape(arg)}</string>`),
     "  </array>",
-    "  <key>RunAtLoad</key>",
-    "  <true/>",
   ];
 
+  if (definition.environmentVariables) {
+    lines.push("  <key>EnvironmentVariables</key>");
+    lines.push("  <dict>");
+    for (const [key, value] of Object.entries(definition.environmentVariables)) {
+      lines.push(xmlKey(key, xmlString(value), 4));
+    }
+    lines.push("  </dict>");
+  }
+
+  lines.push(
+    "  <key>RunAtLoad</key>",
+    "  <true/>",
+  );
+
   if (definition.kind === "interval") {
-    lines.push(xmlKey("StartInterval", xmlInteger(definition.intervalSec)));
+    lines.push("  <key>KeepAlive</key>");
+    lines.push("  <true/>");
+    lines.push(xmlKey("ThrottleInterval", xmlInteger(30)));
   } else {
     lines.push("  <key>StartCalendarInterval</key>");
     lines.push("  <dict>");
@@ -115,6 +134,20 @@ export function renderPlist(definition) {
   lines.push("</dict>");
   lines.push("</plist>");
   return `${lines.join("\n")}\n`;
+}
+
+function buildPersistentIntervalScript(repoRoot, command, intervalSec) {
+  return [
+    `cd ${shellQuote(repoRoot)}`,
+    "while true; do",
+    command,
+    "command_status=$?",
+    "if [ \"$command_status\" -ne 0 ]; then",
+    "printf '%s\\n' \"soulforge_interval_command_failed status=$command_status\" >&2",
+    "fi",
+    `sleep ${Number(intervalSec)}`,
+    "done",
+  ].join("\n");
 }
 
 export function renderLaunchdFiles(options = {}) {
