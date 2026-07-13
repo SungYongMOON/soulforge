@@ -362,3 +362,11 @@ firewall rule 없이도 pilot 이 가능하다. 앱을 `0.0.0.0` 로 bind 해서
 4. owner 휴대폰 또는 승인된 다른 device 에서 Tailscale 접속이 된다.
 5. runtime clone 에서 `verify_gate` 와 smoke check 가 통과한다.
 6. DB backup 과 rollback 절차가 적혀 있다.
+
+## 보고서 워크플로우 셸 runtime gate
+
+- 기본 상태는 off 이며, `DEV_ERP_REPORT_WORKFLOW_ENABLED=1` 단독 설정은 효력이 없다.
+- fixed shared runner, pinned bundle/source commit, 서로 다른 ERP/worker identity, pass-runner release, ACL probe pass, 별도 actual runtime probe pass, companion `_workmeta` receipt sink, owner approval, 미만료 deployment attestation 의 exact digest 가 모두 일치해야 한다. 현재 actual-probe dependency 가 없으므로 환경 self-attestation 만으로는 활성화할 수 없다.
+- body 는 `_workspaces/system/dev-erp/workflow-jobs/**` 밖에 쓰지 않는다. canonical receipt 는 metadata-only 로 `_workmeta/<project>/runs/<job>/workflow_receipt.json` 에만 쓴다.
+- synthetic adapter test 는 callable structure 증거일 뿐 production/live 증거가 아니다. actual core validator/runner integration, exact result-receipt digest chain, crash adoption, receipt-only recovery, author/verifier 분리와 post-development review gate 가 별도로 통과해야 한다.
+- 조건 하나라도 없거나 mismatch 이면 capability 는 blocker code 만 공개하고 upload/create 를 `503` 으로 닫는다. chat 또는 legacy draft route fallback 은 금지한다.

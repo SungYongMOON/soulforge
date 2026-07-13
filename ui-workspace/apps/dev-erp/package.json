@@ -39,6 +39,7 @@
     "validate:voice-intake": "node --test test/voice_to_task_candidates.test.mjs",
     "auto:intake": "node tools/auto_intake_cycle.mjs",
     "test:snapshot-contract": "node --test test/adapter_snapshot.test.mjs",
+    "test:workflow-jobs": "node --test --test-concurrency=1 test/workflow_job_*.test.mjs",
     "test": "node --test --test-concurrency=4 test/*.test.mjs"
   }
 }

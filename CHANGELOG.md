@@ -69,6 +69,14 @@
   Telegram은 현재 요청 또는 적용 가능한 standing authorization이 있을 때만 전송
   시점 승인 범위와 mechanism을 확인하도록 제한했다. (worker: codex_gpt-5)
 
+- dev-ERP에 Soulforge 공용 workflow runner를 호출하는 보고서 작업 셸을 추가했다.
+  ERP는 보고서 본문을 재작성하지 않고 고정된 request/outcome/result/receipt를
+  검증·저장하며, 성공·차단·실패·중단 상태를 같은 digest chain으로 수렴시킨다.
+  서비스 재시작 시 남은 running 작업은 자동 재작성하지 않고 명시적 interrupted
+  또는 manual-review 상태로 복구한다. 실제 core probe, receipt sink, single-writer,
+  deployment identity가 확인되기 전 production route는 기본 비활성 상태다.
+  (worker: codex_gpt-5)
+
 ### TaskDriver closed-loop 설계와 고성능 PC cold-start packet
 
 - dev-ERP task truth target을 기존 `core_item` current state와 append-only `event_log`로

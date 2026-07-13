@@ -295,3 +295,11 @@ records an app event. It does not read raw project files or secret values.
 - 팀 공개는 회사 PC 호스트 + 계정/RBAC + HTTPS proxy/tunnel 전제.
 - 메일 원문/파일 본문 미저장 — 포인터와 메타만
 - 전장 뷰(몹 시각화 본격판)는 P-G 별도 페이즈. P1 은 홈 카드의 몹 미터까지만
+
+## 보고서 워크플로우 셸
+
+- `report_authoring_v0` 하나만 호출하는 dev-ERP metadata shell 이다. 범용 workflow/prompt/model/skill 실행기는 제공하지 않는다.
+- `final_polish` 입력은 초안 정확히 1개와 선택 근거 자료 최대 1개이며, text/JSON 은 fatal UTF-8, raw uncompressed 합계는 393,216 bytes 이하이다.
+- source/report body 는 `_workspaces/system/dev-erp/workflow-jobs/**`, canonical metadata receipt 는 `_workmeta/<project>/runs/<job>/workflow_receipt.json` 이 소유한다. SQLite 에는 pointer/hash/size/state 만 둔다.
+- canonical shared runner import, exact prepared-result/receipt digest chain, terminal-state convergence 검증은 있으나 production/live actual probe 와 attestation 은 미완료다. 서버 capability 는 default-off 이고 enable flag 또는 환경 self-attestation 만으로 열리지 않는다.
+- 상세 slice: [`docs/slices/REPORT-AUTHORING-WORKFLOW-SHELL.md`](docs/slices/REPORT-AUTHORING-WORKFLOW-SHELL.md)

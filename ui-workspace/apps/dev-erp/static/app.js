@@ -3851,6 +3851,96 @@ async function renderReports() {
       <button id="genCopy" class="copy-btn" style="display:none">${L.copy}</button>
     </div>
     <pre class="gen-preview empty">${L.gen_run} →</pre>`;
+  $("#view").insertAdjacentHTML("beforeend", `
+    <section class="card" id="wfReportCard">
+      <div class="card-head"><h3>고정 보고서 마무리</h3><span class="badge" id="wfCapability">확인 중</span></div>
+      <p class="muted">초안 1개를 고정된 <code>report_authoring_v0</code> 경로로 검증·마무리합니다. 사람 검토는 항상 필요합니다.</p>
+      <div class="filters">
+        <label>프로젝트<select id="wfProject">${opts}</select></label>
+        <label>보고서 종류<select id="wfReportType"><option value="analysis">분석 보고서</option><option value="experiment">실험 보고서</option><option value="progress">진행 보고서</option><option value="presentation">발표 자료</option><option value="other">기타</option></select></label>
+        <label>독자<select id="wfAudience"><option value="internal_review">내부 검토</option><option value="management">경영진</option><option value="customer">고객</option><option value="regulator">규제 기관</option><option value="other">기타</option></select></label>
+      </div>
+      <div class="filters">
+        <label>초안 (필수)<input id="wfDraft" type="file" accept=".md,.txt,.json,text/markdown,text/plain,application/json"></label>
+        <label>근거 자료 (선택, 최대 1개)<input id="wfSources" type="file" accept=".md,.txt,.json,text/markdown,text/plain,application/json"></label>
+        <button id="wfRun" class="primary" disabled>작업 만들기</button><button id="wfRefresh" disabled>상태 새로고침</button>
+      </div>
+      <pre class="gen-preview empty" id="wfPreview">배포 확인이 통과해야 사용할 수 있습니다.</pre>
+    </section>`);
+
+  let wfJobId = null;
+  const wfPreview = $("#wfPreview");
+  const wfShow = (value) => {
+    wfPreview.classList.remove("empty");
+    wfPreview.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  };
+  const wfJson = async (url, options = {}) => {
+    const response = await fetch(url, options);
+    const value = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(value?.error?.message || value?.error?.code || `HTTP ${response.status}`);
+    return value;
+  };
+  const wfMediaType = (file) => {
+    const name = file.name.toLowerCase();
+    if (file.type === "application/json" || name.endsWith(".json")) return "application/json";
+    if (file.type === "text/markdown" || name.endsWith(".md")) return "text/markdown; charset=utf-8";
+    return "text/plain; charset=utf-8";
+  };
+  const wfIdempotencyKey = () => {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return `wfi_${[...bytes].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+  };
+  const wfUpload = async (projectCode, role, file) => wfJson(
+    `/api/workflow-inputs?project_code=${encodeURIComponent(projectCode)}&role=${encodeURIComponent(role)}`,
+    { method: "POST", headers: { "Content-Type": wfMediaType(file) }, body: file },
+  );
+  const wfRefresh = async () => {
+    if (wfJobId) wfShow(await wfJson(`/api/workflow-jobs/${encodeURIComponent(wfJobId)}`));
+  };
+  $("#wfRefresh").addEventListener("click", () => wfRefresh().catch((error) => wfShow(error.message)));
+  $("#wfRun").addEventListener("click", async () => {
+    const projectCode = $("#wfProject").value;
+    const draft = $("#wfDraft").files[0];
+    const sources = [...$("#wfSources").files];
+    if (!draft) return wfShow("초안 파일 1개가 필요합니다.");
+    const files = [draft, ...sources];
+    if (files.reduce((sum, file) => sum + file.size, 0) > 393216) return wfShow("입력 파일 합계는 393,216바이트 이하여야 합니다.");
+    $("#wfRun").disabled = true;
+    try {
+      wfShow("입력 파일을 등록하는 중입니다...");
+      const handles = [(await wfUpload(projectCode, "draft", draft)).input.handle_id];
+      for (const source of sources) handles.push((await wfUpload(projectCode, "source", source)).input.handle_id);
+      const created = await wfJson("/api/workflow-jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": wfIdempotencyKey() },
+        body: JSON.stringify({
+          schema: "dev_erp.workflow_job_create.v1",
+          project_code: projectCode,
+          mode: "final_polish",
+          report_type: $("#wfReportType").value,
+          audience: $("#wfAudience").value,
+          input_handles: handles,
+        }),
+      });
+      wfJobId = created.job.job_id;
+      $("#wfRefresh").disabled = false;
+      wfShow(created);
+    } catch (error) {
+      wfShow(error.message);
+    } finally {
+      $("#wfRun").disabled = false;
+    }
+  });
+  wfJson("/api/workflow-jobs/capabilities").then((capability) => {
+    $("#wfCapability").textContent = capability.enabled ? "사용 가능" : "비활성";
+    $("#wfRun").disabled = !capability.enabled;
+    if (!capability.enabled) wfShow({ enabled: false, blockers: capability.blockers || [] });
+  }).catch((error) => {
+    $("#wfCapability").textContent = "사용 불가";
+    wfShow(error.message);
+  });
+
   const run = async () => {
     const type = $("#genType").value;
     const proj = $("#genProject").value;

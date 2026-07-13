@@ -17,6 +17,14 @@ import { dirname, isAbsolute, join, extname, resolve, sep, basename } from "node
 import { fileURLToPath } from "node:url";
 
 import { openStore } from "./src/store.mjs";
+import {
+  SHA256_RE as WORKFLOW_SHA256_RE,
+  evaluateWorkflowDeploymentAttestation,
+} from "./src/workflow_job_contract.mjs";
+import { createWorkflowJobHttpController } from "./src/workflow_job_http.mjs";
+import { WorkflowJobPayloadStore } from "./src/workflow_job_payload_store.mjs";
+import { WorkflowJobRunnerBridge } from "./src/workflow_job_runner_bridge.mjs";
+import { WorkflowJobService } from "./src/workflow_job_service.mjs";
 import { buildMonthGrid, monthGridRange } from "./src/calendar.mjs";
 import { loadFixture } from "./src/fixture.mjs";
 import { composeInputRefs } from "./src/five_field.mjs";
@@ -461,10 +469,73 @@ const ERP_VERSION = Object.freeze({
 });
 
 const store = openStore(DB_PATH);
+const reportWorkflowBundleSha256 = String(process.env.DEV_ERP_REPORT_WORKFLOW_BUNDLE_SHA256 || "").trim();
+const reportWorkflowPayloadStore = WORKFLOW_SHA256_RE.test(reportWorkflowBundleSha256)
+  ? new WorkflowJobPayloadStore({ backendRoot: BACKEND_ROOT })
+  : null;
+const reportWorkflowService = reportWorkflowPayloadStore
+  ? new WorkflowJobService({
+    store,
+    payloadStore: reportWorkflowPayloadStore,
+    bundleSha256: reportWorkflowBundleSha256,
+  })
+  : null;
+let reportWorkflowStartupRecoveryStatus = reportWorkflowService ? "pending" : "not_configured";
+const reportWorkflowRunnerBridge = new WorkflowJobRunnerBridge();
+
+function reportWorkflowAttestation() {
+  try {
+    return JSON.parse(String(process.env.DEV_ERP_REPORT_WORKFLOW_ATTESTATION_JSON || ""));
+  } catch {
+    return null;
+  }
+}
+
+async function reportWorkflowCapability() {
+  const runner = await reportWorkflowRunnerBridge.capability();
+  const evaluated = evaluateWorkflowDeploymentAttestation({
+    routeEnabled: process.env.DEV_ERP_REPORT_WORKFLOW_ENABLED === "1",
+    attestation: reportWorkflowAttestation(),
+    expectedAttestationSha256: String(process.env.DEV_ERP_REPORT_WORKFLOW_ATTESTATION_SHA256 || ""),
+    sourceCommit: String(process.env.DEV_ERP_REPORT_WORKFLOW_SOURCE_COMMIT || ""),
+    expectedBundleSha256: reportWorkflowBundleSha256,
+    erpIdentitySha256: String(process.env.DEV_ERP_REPORT_WORKFLOW_ERP_IDENTITY_SHA256 || ""),
+    workerIdentitySha256: String(process.env.DEV_ERP_REPORT_WORKFLOW_WORKER_IDENTITY_SHA256 || ""),
+    passRunnerRelease: String(process.env.DEV_ERP_REPORT_WORKFLOW_PASS_RUNNER_RELEASE || ""),
+    runnerAvailable: runner.available === true,
+    actualProbePassed: false,
+  });
+  const blockers = [...new Set([
+    ...(evaluated.blockers || []),
+    ...(!reportWorkflowService ? ["workflow_service_unconfigured"] : []),
+    ...(reportWorkflowStartupRecoveryStatus === "failed" ? ["workflow_startup_recovery_failed"] : []),
+    ...(reportWorkflowStartupRecoveryStatus === "pending" ? ["workflow_startup_recovery_pending"] : []),
+    "workflow_receipt_store_unconfigured",
+    "erp_shared_runner_single_writer_path_unattested",
+  ])].sort();
+  return {
+    schema: "dev_erp.report_workflow_capability.v1",
+    workflow_id: "report_authoring_v0",
+    enabled: false,
+    binding_revision: "report_authoring_v0.binding.v1",
+    raw_input_max_bytes: 393216,
+    blockers,
+  };
+}
 try {
   const recovered = store.recoverInterruptedCodexTurnAudits("service_restart");
   if (recovered.recovered) console.warn(`[dev-erp] recovered ${recovered.recovered} interrupted Codex audit row(s)`);
 } catch { /* schema verification in openStore remains authoritative */ }
+try {
+  if (reportWorkflowService) {
+    const recovered = reportWorkflowService.recoverInterruptedJobs("service_restart");
+    reportWorkflowStartupRecoveryStatus = "pass";
+    if (recovered.recovered) console.warn(`[dev-erp] recovered ${recovered.recovered} interrupted report workflow job(s)`);
+  }
+} catch {
+  reportWorkflowStartupRecoveryStatus = "failed";
+  console.error("[dev-erp] report workflow startup recovery failed; workflow route remains disabled");
+}
 try { const bf = store.backfillCompletionLog(); if (bf.inserted) console.log(`[completion_log] 과거 완료 ${bf.inserted}건 백필`); } catch { /* 백필 실패가 기동을 막지 않음 */ }
 // 분해: 정본 파티 허용목록(.party) — createItem party_ref 검증 + split-suggest 매칭에 재사용(시작 시 1회 로드).
 const PARTY_MATCH = loadPartyMonsterTypes(ROOT);
@@ -2102,6 +2173,17 @@ async function createCodexTaskThread({
   return { ok: true, binding: up.binding, result: { ...result, text: publicResultText } };
 }
 
+const workflowHttpController = createWorkflowJobHttpController({
+  service: reportWorkflowService,
+  getCapability: reportWorkflowCapability,
+  resolvePrincipal: async (req) => {
+    const account = currentAccount(req);
+    return account ? { accountId: account.id } : null;
+  },
+  canAccessProject: (req, projectCode) => canAccessProject(req, projectCode),
+  isAuditAllowed: (_req, principal) => store.isAdmin(principal.accountId),
+});
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
   const path = url.pathname;
@@ -2150,6 +2232,8 @@ const server = createServer(async (req, res) => {
         return send(res, 503, { error: "codex_trust_domain_required" });
       }
     }
+    if (await workflowHttpController(req, res, url)) return;
+
     if (path === "/api/health") {
       // liveness 는 항상 공개. counts(데이터 규모)는 미인증(팀 모드)엔 숨김 — '무조건 로그인해야 보임' 강화.
       const seeCounts = store.accountCount() === 0 || !!currentAccount(req);

@@ -419,3 +419,12 @@ event_log 는 그 라벨의 수집기 역할을 겸한다.
 - 페이즈마다: 합성 fixture 로 화면 검증 + 코어 node:test + 토큰/시간 기록.
 - 사람-판단 항목(스킨 기본값, 화면 우선순위, 권한 정책)은 agent 가 채우지 않고
   owner 질문으로 남긴다.
+
+## 보고서 워크플로우 셸
+
+- UI 는 기존 worklog/report draft generator 를 보존하고 별도 `final_polish` card 만 추가한다.
+- browser payload 는 project, fixed mode, core-canonical report type/audience, opaque input handles 만 보낸다. prompt/model/skill/path/binding 선택은 없다.
+- ERP orchestrator 는 canonical `runWorkflowJob` import 를 정확히 1회 호출한다. core prepared result 를 actual validator 로 검증해 그대로 저장하고 outcome/result/receipt/DB digest chain 뒤 terminal CAS 한다. artifact body writer 는 `_workspaces` payload adapter 하나, receipt metadata writer 는 companion `_workmeta` sink 하나다.
+- author/verifier receipt 는 서버 발행 nonce, 독립 process/context/operation, 종료 순서, exact digest 로 묶고 human review 는 DB/runtime 모두 `required` 로 고정한다.
+- 이 설계는 candidate/default-off 이다. 실제 worker adapter release, service identity, ACL/actual runtime probe, bundle/attestation digest, receipt sink, owner approval, expiry 와 live semantic evidence 없이는 활성화하지 않는다. 환경 self-attestation 만으로는 열리지 않는다.
+- 상세 계약: [`slices/REPORT-AUTHORING-WORKFLOW-SHELL.md`](slices/REPORT-AUTHORING-WORKFLOW-SHELL.md)

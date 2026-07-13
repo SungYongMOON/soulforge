@@ -805,6 +805,168 @@ CREATE TABLE IF NOT EXISTS deliverable_input (
   created_at TEXT,
   data_label TEXT NOT NULL DEFAULT 'real'
 );
+-- report_authoring_v0 ERP shell. Bodies never enter SQLite; input/artifact refs point
+-- only to the fixed _workspaces/system/dev-erp/workflow-jobs payload owner.
+CREATE TABLE IF NOT EXISTS workflow_job (
+  job_id TEXT PRIMARY KEY,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  request_sha256 TEXT NOT NULL,
+  workflow_id TEXT NOT NULL CHECK(workflow_id='report_authoring_v0'),
+  binding_revision TEXT NOT NULL,
+  bundle_sha256 TEXT NOT NULL,
+  mode TEXT NOT NULL CHECK(mode IN ('full_authoring','final_polish')),
+  actor_account_id TEXT NOT NULL REFERENCES core_account(id),
+  project_code TEXT NOT NULL REFERENCES core_project(id),
+  report_type TEXT NOT NULL CHECK(report_type IN ('experiment','analysis','progress','presentation','other')),
+  audience TEXT NOT NULL CHECK(audience IN ('internal_review','management','customer','regulator','other')),
+  status TEXT NOT NULL CHECK(status IN ('queued','running','blocked','succeeded','failed','cancelled','interrupted')),
+  phase TEXT NOT NULL CHECK(phase IN ('validate','intake','draft','final_polish','preservation','semantic_verify','render','receipt')),
+  state_version INTEGER NOT NULL CHECK(state_version>=1),
+  attempt INTEGER NOT NULL DEFAULT 0 CHECK(attempt>=0),
+  operation_id TEXT UNIQUE,
+  author_operation_nonce_sha256 TEXT,
+  verifier_operation_nonce_sha256 TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  started_at TEXT,
+  finished_at TEXT,
+  terminal_reason_code TEXT,
+  result_sha256 TEXT,
+  result_json TEXT,
+  receipt_status TEXT NOT NULL DEFAULT 'pending' CHECK(receipt_status IN ('pending','confirmed','failed')),
+  receipt_ref TEXT,
+  receipt_sha256 TEXT,
+  human_review_status TEXT NOT NULL DEFAULT 'required' CHECK(human_review_status='required'),
+  claim_ceiling TEXT NOT NULL DEFAULT 'observed' CHECK(claim_ceiling IN ('observed','source_supported','rejected_or_blocked')),
+  CHECK(length(request_sha256)=64),
+  CHECK(length(bundle_sha256)=64),
+  CHECK(author_operation_nonce_sha256 IS NULL OR length(author_operation_nonce_sha256)=64),
+  CHECK(verifier_operation_nonce_sha256 IS NULL OR length(verifier_operation_nonce_sha256)=64),
+  CHECK((operation_id IS NULL AND author_operation_nonce_sha256 IS NULL AND verifier_operation_nonce_sha256 IS NULL)
+    OR (operation_id IS NOT NULL AND author_operation_nonce_sha256 IS NOT NULL AND verifier_operation_nonce_sha256 IS NOT NULL)),
+  CHECK(result_sha256 IS NULL OR length(result_sha256)=64),
+  CHECK(receipt_sha256 IS NULL OR length(receipt_sha256)=64),
+  CHECK((status='succeeded' AND receipt_status='confirmed' AND finished_at IS NOT NULL) OR status<>'succeeded')
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_job_project_created ON workflow_job(project_code, created_at DESC, job_id DESC);
+CREATE INDEX IF NOT EXISTS idx_workflow_job_status_updated ON workflow_job(status, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS workflow_job_input (
+  handle_id TEXT PRIMARY KEY,
+  job_id TEXT REFERENCES workflow_job(job_id),
+  ordinal INTEGER CHECK(ordinal IS NULL OR (ordinal>=0 AND ordinal<2)),
+  account_id TEXT NOT NULL REFERENCES core_account(id),
+  project_code TEXT NOT NULL REFERENCES core_project(id),
+  role TEXT NOT NULL CHECK(role IN ('source','draft')),
+  source_owner_ref TEXT NOT NULL,
+  body_ref TEXT NOT NULL UNIQUE,
+  body_sha256 TEXT NOT NULL,
+  body_size INTEGER NOT NULL CHECK(body_size>0 AND body_size<=393216),
+  media_type TEXT NOT NULL CHECK(media_type IN ('text/plain; charset=utf-8','text/markdown; charset=utf-8','application/json')),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK(revision=1),
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','consumed','revoked','expired')),
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  CHECK(length(body_sha256)=64),
+  UNIQUE(job_id, ordinal)
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_job_input_owner ON workflow_job_input(account_id, project_code, status, expires_at);
+
+CREATE TABLE IF NOT EXISTS workflow_job_transition (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_id TEXT NOT NULL REFERENCES workflow_job(job_id),
+  seq INTEGER NOT NULL CHECK(seq>=1),
+  from_status TEXT,
+  to_status TEXT NOT NULL,
+  from_phase TEXT,
+  to_phase TEXT NOT NULL,
+  state_version INTEGER NOT NULL CHECK(state_version>=1),
+  attempt INTEGER NOT NULL CHECK(attempt>=0),
+  reason_code TEXT,
+  actor_account_id TEXT NOT NULL REFERENCES core_account(id),
+  at TEXT NOT NULL,
+  operation_id TEXT,
+  details_sha256 TEXT,
+  UNIQUE(job_id, seq),
+  UNIQUE(job_id, state_version)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_job_pass (
+  job_id TEXT NOT NULL REFERENCES workflow_job(job_id),
+  attempt INTEGER NOT NULL CHECK(attempt>=1),
+  role TEXT NOT NULL CHECK(role IN ('author','verifier')),
+  operation_id TEXT NOT NULL UNIQUE,
+  operation_nonce_sha256 TEXT NOT NULL,
+  process_instance_id TEXT NOT NULL,
+  child_pid INTEGER,
+  started_at TEXT NOT NULL,
+  finished_at TEXT NOT NULL,
+  terminated_at TEXT NOT NULL,
+  bundle_sha256 TEXT NOT NULL,
+  input_sha256 TEXT NOT NULL,
+  output_sha256 TEXT NOT NULL,
+  permission_profile_revision TEXT NOT NULL,
+  skills_json TEXT NOT NULL CHECK(skills_json='[]'),
+  instruction_sources_json TEXT NOT NULL CHECK(instruction_sources_json='[]'),
+  sandbox_mode TEXT NOT NULL CHECK(sandbox_mode='read-only'),
+  writable_roots_json TEXT NOT NULL CHECK(writable_roots_json='[]'),
+  network_access INTEGER NOT NULL CHECK(network_access=0),
+  approval_policy TEXT NOT NULL CHECK(approval_policy='never'),
+  context_sha256 TEXT NOT NULL,
+  receipt_sha256 TEXT NOT NULL,
+  CHECK(length(operation_nonce_sha256)=64),
+  CHECK(length(bundle_sha256)=64),
+  CHECK(length(input_sha256)=64),
+  CHECK(length(output_sha256)=64),
+  CHECK(length(permission_profile_revision)=64),
+  CHECK(length(context_sha256)=64),
+  CHECK(length(receipt_sha256)=64),
+  PRIMARY KEY(job_id, attempt, role)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_job_recovery (
+  job_id TEXT NOT NULL REFERENCES workflow_job(job_id),
+  idempotency_key TEXT NOT NULL,
+  request_sha256 TEXT NOT NULL,
+  expected_state_version INTEGER NOT NULL CHECK(expected_state_version>=1),
+  action TEXT NOT NULL CHECK(action='resume_receipt'),
+  status TEXT NOT NULL CHECK(status IN ('started','completed','blocked')),
+  result_state_version INTEGER,
+  reason_code TEXT,
+  receipt_ref TEXT,
+  receipt_sha256 TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CHECK(length(request_sha256)=64),
+  CHECK(receipt_sha256 IS NULL OR length(receipt_sha256)=64),
+  PRIMARY KEY(job_id, idempotency_key)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_job_artifact (
+  job_id TEXT NOT NULL REFERENCES workflow_job(job_id),
+  role TEXT NOT NULL CHECK(role IN ('report_document_json','final_report_md','final_report_html','protected_semantic_manifest','preservation_audit','semantic_verification')),
+  payload_ref TEXT NOT NULL UNIQUE,
+  sha256 TEXT NOT NULL,
+  size INTEGER NOT NULL CHECK(size>0 AND size<=393216),
+  media_type TEXT NOT NULL,
+  persisted_at TEXT NOT NULL,
+  CHECK(length(sha256)=64),
+  PRIMARY KEY(job_id, role)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_job_artifact_commit (
+  job_id TEXT PRIMARY KEY REFERENCES workflow_job(job_id) ON DELETE CASCADE,
+  attempt INTEGER NOT NULL CHECK(attempt>=1),
+  operation_id TEXT NOT NULL UNIQUE,
+  expected_state_version INTEGER NOT NULL CHECK(expected_state_version>=1),
+  result_sha256 TEXT NOT NULL CHECK(length(result_sha256)=64),
+  result_json TEXT NOT NULL,
+  artifacts_sha256 TEXT NOT NULL CHECK(length(artifacts_sha256)=64),
+  artifacts_json TEXT NOT NULL,
+  status TEXT NOT NULL CHECK(status IN ('planned','committed')),
+  created_at TEXT NOT NULL,
+  committed_at TEXT
+);
 CREATE INDEX IF NOT EXISTS idx_delivinput_deliv ON deliverable_input(deliverable_id);
 CREATE INDEX IF NOT EXISTS idx_attach_entity ON core_attachment(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_chatlog_at ON chat_query_log(at);
@@ -942,6 +1104,11 @@ function safeEval(formula, vars = {}) {
 
 export function openStore(path = ":memory:") {
   const db = new DatabaseSync(path);
+  db.exec("PRAGMA foreign_keys=ON;");
+  if (db.prepare("PRAGMA foreign_keys").get().foreign_keys !== 1) {
+    db.close();
+    throw new Error("sqlite_foreign_keys_unavailable");
+  }
   db.exec("PRAGMA journal_mode=WAL;");
   // 멀티 writer(외부 CLI/autosync/별도 커넥션) 동시 접근 대비: 즉시 SQLITE_BUSY 대신 5s 재시도 + WAL 권장 동기화 수준.
   db.exec("PRAGMA busy_timeout=5000;");
@@ -1105,6 +1272,26 @@ export function openStore(path = ":memory:") {
   const cur = db.prepare("SELECT value FROM meta WHERE key='schema_version'").get();
   if (!cur) {
     db.prepare("INSERT INTO meta(key,value) VALUES('schema_version',?)").run(SCHEMA_VERSION);
+  }
+  db.prepare("INSERT INTO meta(key,value) VALUES('workflow_job_schema_version','dev_erp.workflow_job_store.v1') ON CONFLICT(key) DO UPDATE SET value=excluded.value").run();
+  for (const [table, requiredColumns] of [
+    ["workflow_job", ["actor_account_id", "project_code", "state_version", "operation_id", "author_operation_nonce_sha256", "verifier_operation_nonce_sha256", "receipt_status", "human_review_status"]],
+    ["workflow_job_input", ["account_id", "project_code", "source_owner_ref", "body_ref", "body_sha256", "expires_at"]],
+    ["workflow_job_pass", ["role", "process_instance_id", "terminated_at", "permission_profile_revision", "receipt_sha256"]],
+    ["workflow_job_recovery", ["idempotency_key", "request_sha256", "action", "result_state_version"]],
+    ["workflow_job_artifact_commit", ["attempt", "operation_id", "expected_state_version", "result_sha256", "artifacts_sha256", "status"]],
+  ]) {
+    const present = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((row) => row.name));
+    const missing = requiredColumns.filter((column) => !present.has(column));
+    if (missing.length) {
+      db.close();
+      throw new Error(`workflow_job_schema_migration_failed:${table}:${missing.join(",")}`);
+    }
+  }
+  const foreignKeyViolations = db.prepare("PRAGMA foreign_key_check").all();
+  if (foreignKeyViolations.length) {
+    db.close();
+    throw new Error("sqlite_foreign_key_check_failed");
   }
   return new Store(db);
 }
