@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### dev-ERP 빈 줄기 화면의 서버 장애 오인 수정
+
+- 과제에 아직 `project_context` 줄기 데이터가 없을 때 `/api/context/graph`의 예상 가능한
+  `context_not_found` 응답을 해당 탭의 빈 상태로 처리하도록 했다. 이 경우 전역 연결 배너가
+  HTTP 400 서버 장애로 바뀌거나 다른 입력·버튼이 잠기지 않으며, 실제 인증 만료·5xx·네트워크
+  실패에 대한 기존 fail-closed 동작은 유지한다. (worker: codex_gpt-5)
+
 ### dev-ERP loopback 공존 LAN HTTPS proxy
 
 - 외부 controller가 `127.0.0.1:4300` backend를 복구하는 Windows 환경에서 backend를

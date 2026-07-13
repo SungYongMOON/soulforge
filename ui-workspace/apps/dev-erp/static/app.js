@@ -1299,8 +1299,8 @@ async function request(path, {
   return response;
 }
 
-const api = async (path) => {
-  const response = await request(path);
+const api = async (path, options = {}) => {
+  const response = await request(path, options);
   try {
     return await response.json();
   } catch {
@@ -2367,7 +2367,7 @@ async function renderKnowTrunk(el) {
 async function hubTrunk(mount, p) {
   const L = state.lex;
   mount.innerHTML = `<div class="empty small">…</div>`;
-  const g = await api(`/api/context/graph?project=${encodeURIComponent(p.id)}`).catch(() => null);
+  const g = await api(`/api/context/graph?project=${encodeURIComponent(p.id)}`, { acceptHttpError: true }).catch(() => null);
   if (!g || g.error) {
     const msg = g?.error === "context_not_found" ? (L.trunk_none_hub ?? "이 과제의 줄기 데이터가 아직 없습니다")
       : g?.error === "login_required" ? L.know_wiki_login : (g?.error ?? "-");

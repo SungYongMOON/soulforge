@@ -123,6 +123,23 @@ test("degraded request path distinguishes timeout, unauthorized, HTTP, and netwo
   assert.equal(networkHarness.state.connection.status, "network");
 });
 
+test("expected domain HTTP error stays local instead of becoming a global outage", async () => {
+  const harness = loadRequestHarness(async () => ({
+    ok: false,
+    status: 400,
+    json: async () => ({ error: "context_not_found" }),
+  }));
+  harness.setConnectionState("online");
+
+  const result = await harness.api("/api/context/graph?project=P26-005", { acceptHttpError: true });
+
+  assert.deepEqual(result, { error: "context_not_found" });
+  assert.equal(harness.state.connection.status, "online");
+  assert.equal(harness.control.disabled, false);
+  const hubTrunkBlock = sourceSlice("async function hubTrunk", "// 줄기 노드 종류");
+  assert.match(hubTrunkBlock, /api\(`\/api\/context\/graph[^\n]+\{ acceptHttpError: true \}/);
+});
+
 test("cold failure renders recovery UI and known degraded state fails writes closed", async () => {
   let fetchCount = 0;
   const harness = loadRequestHarness(async () => {
