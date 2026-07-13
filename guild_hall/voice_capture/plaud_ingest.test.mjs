@@ -206,17 +206,37 @@ test("PLAUD sync does not block canonical artifacts when optional summary downlo
   }
 });
 
-test("PLAUD launchd definition watches the mail queue and keeps generated files node-local", () => {
+test("PLAUD launchd definition persistently polls local queues and keeps generated files node-local", () => {
   const repoRoot = path.join(os.tmpdir(), "soulforge-fixture");
   const definition = buildPlaudLaunchdDefinition({ repoRoot, nodeId: "home_always_on_01" });
-  assert.equal(definition.trigger, "hiworks_mail_queue_watch");
+  assert.equal(definition.trigger, "persistent_local_queue_poll");
   assert.match(definition.output_dir, /_workspaces[/\\]_local[/\\]home_always_on_01[/\\]launchd$/u);
-  assert.match(renderPlaudLaunchdPlist(definition), /<key>WatchPaths<\/key>/u);
-  assert.equal(renderPlaudLaunchdPlist(definition).includes("StartInterval"), false);
-  assert.match(renderPlaudLaunchdPlist(definition), /<key>ThrottleInterval<\/key><integer>300<\/integer>/u);
+  const plist = renderPlaudLaunchdPlist(definition);
+  assert.equal(plist.includes("WatchPaths"), false);
+  assert.equal(plist.includes("StartInterval"), false);
+  assert.match(plist, /<key>KeepAlive<\/key><true\/>/u);
+  assert.match(plist, /while true; do/u);
+  assert.match(plist, /cd .* \|\| exit 1/u);
+  assert.match(plist, /&gt;\/dev\/null 2&gt;&amp;1/u);
+  assert.match(plist, /soulforge_plaud_queue_drain_failed/u);
+  assert.match(plist, /sleep 300/u);
+  assert.match(plist, /<key>ThrottleInterval<\/key><integer>30<\/integer>/u);
 });
 
-test("PLAUD launchd also watches the durable local-ASR queue when independent transcription is enabled", () => {
+test("PLAUD persistent queue definition rejects unsafe retry intervals before rendering a tight loop", () => {
+  const base = buildDefaultPlaudSyncProfile();
+  for (const retry_interval_seconds of [0, 29, 86_401, 1.5, "not-a-number"]) {
+    assert.throws(
+      () => buildPlaudLaunchdDefinition({
+        repoRoot: path.join(os.tmpdir(), "soulforge-fixture"),
+        profile: { ...base, launchd: { ...base.launchd, retry_interval_seconds } },
+      }),
+      /plaud_launchd_retry_interval_seconds_invalid/u,
+    );
+  }
+});
+
+test("PLAUD persistent queue definition retains mail and local-ASR queue refs for setup and diagnostics", () => {
   const repoRoot = path.join(os.tmpdir(), "soulforge-fixture");
   const profile = {
     ...buildDefaultPlaudSyncProfile(),
@@ -227,9 +247,8 @@ test("PLAUD launchd also watches the durable local-ASR queue when independent tr
   };
   const definition = buildPlaudLaunchdDefinition({ repoRoot, profile });
   assert.equal(definition.watch_paths.length, 2);
-  const plist = renderPlaudLaunchdPlist(definition);
-  assert.match(plist, /plaud_mail_triggers[/\\]pending/u);
-  assert.match(plist, /local_asr_queue[/\\]pending/u);
+  assert.match(definition.watch_paths[0], /plaud_mail_triggers[/\\]pending/u);
+  assert.match(definition.watch_paths[1], /local_asr_queue[/\\]pending/u);
 });
 
 test("PLAUD watcher drains a pending local-ASR queue even when no mail trigger is waiting", async () => {

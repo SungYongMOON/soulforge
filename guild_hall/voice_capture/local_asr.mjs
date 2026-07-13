@@ -350,6 +350,47 @@ export async function analyzeLocalAsrSession(options = {}) {
   };
   if (!options.apply) return { applied: false, state: "planned", ...plan };
 
+  const existingManifest = await readJsonIfExists(path.join(outputDir, "analysis_manifest.json"));
+  const resumableManifest = await recoverCompletedAnalysisManifest({
+    repoRoot,
+    outputDir,
+    plan,
+    sessionManifest,
+    analysisManifest: existingManifest,
+  });
+  if (resumableManifest) {
+    const previousNotification = sessionManifest.independent_transcription?.notification ?? resumableManifest.notification ?? null;
+    const notification = ["queued", "sent"].includes(previousNotification?.state)
+      ? previousNotification
+      : await emitVoiceTranscriptionCompleted(
+        repoRoot,
+        sessionManifest,
+        resumableManifest,
+        { notificationEmitter: options.notificationEmitter },
+      );
+    const finalManifest = { ...resumableManifest, notification };
+    sessionManifest.independent_transcription = {
+      ...(sessionManifest.independent_transcription ?? {}),
+      status: "completed",
+      notification,
+    };
+    await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
+    await atomicWriteJson(manifestPath, sessionManifest);
+    const delivery = await prepareLocalAsrDelivery({
+      repoRoot,
+      sessionDir,
+      producerNode: options.producerNode,
+      deliveryReceiptEmitter: options.deliveryReceiptEmitter,
+    });
+    if (delivery.warning) {
+      finalManifest.delivery_warning = delivery.warning;
+      sessionManifest.independent_transcription.delivery_warning = delivery.warning;
+      await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
+      await atomicWriteJson(manifestPath, sessionManifest);
+    }
+    return { applied: true, resumed_completed: true, ...finalManifest, delivery };
+  }
+
   await fs.mkdir(chunksDir, { recursive: true });
   await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), {
     ...plan,
@@ -509,24 +550,12 @@ export async function analyzeLocalAsrSession(options = {}) {
     sessionManifest.independent_transcription.notification = notification;
     await atomicWriteJson(path.join(outputDir, "analysis_manifest.json"), finalManifest);
     await atomicWriteJson(manifestPath, sessionManifest);
-    let delivery;
-    try {
-      const emitter = options.deliveryReceiptEmitter ?? prepareDeliveryReceipt;
-      const result = await emitter({
-        repoRoot,
-        sessionDir,
-        stage: "local_asr_ready",
-        producerNode: options.producerNode ?? "always_on_voice_producer",
-        apply: true,
-      });
-      delivery = {
-        state: result.status === "ready" ? "ready" : "prepare_failed_retryable",
-        receipt_ref: result.receipt_ref ?? null,
-        warning: result.status === "ready" ? null : "delivery_receipt_prepare_failed_retryable",
-      };
-    } catch {
-      delivery = { state: "prepare_failed_retryable", warning: "delivery_receipt_prepare_failed_retryable" };
-    }
+    const delivery = await prepareLocalAsrDelivery({
+      repoRoot,
+      sessionDir,
+      producerNode: options.producerNode,
+      deliveryReceiptEmitter: options.deliveryReceiptEmitter,
+    });
     if (delivery.warning) {
       finalManifest.delivery_warning = delivery.warning;
       sessionManifest.independent_transcription.delivery_warning = delivery.warning;
@@ -549,6 +578,67 @@ export async function analyzeLocalAsrSession(options = {}) {
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
+}
+
+async function prepareLocalAsrDelivery(options) {
+  try {
+    const emitter = options.deliveryReceiptEmitter ?? prepareDeliveryReceipt;
+    const result = await emitter({
+      repoRoot: options.repoRoot,
+      sessionDir: options.sessionDir,
+      stage: "local_asr_ready",
+      producerNode: options.producerNode ?? "always_on_voice_producer",
+      apply: true,
+    });
+    return {
+      state: result.status === "ready" ? "ready" : "prepare_failed_retryable",
+      receipt_ref: result.receipt_ref ?? null,
+      warning: result.status === "ready" ? null : "delivery_receipt_prepare_failed_retryable",
+    };
+  } catch {
+    return { state: "prepare_failed_retryable", warning: "delivery_receipt_prepare_failed_retryable" };
+  }
+}
+
+async function recoverCompletedAnalysisManifest({ repoRoot, outputDir, plan, sessionManifest, analysisManifest }) {
+  const sessionState = sessionManifest.independent_transcription ?? {};
+  const transcriptRef = analysisManifest?.transcript_ref ?? sessionState.transcript_ref ?? null;
+  const transcriptJsonlRef = analysisManifest?.transcript_jsonl_ref ?? sessionState.transcript_jsonl_ref ?? null;
+  const completedState = analysisManifest?.state === "completed" || sessionState.status === "completed";
+  if (!completedState || !transcriptRef || !transcriptJsonlRef) return null;
+  const transcriptPath = resolveRepoPath(repoRoot, transcriptRef);
+  const transcriptJsonlPath = resolveRepoPath(repoRoot, transcriptJsonlRef);
+  if (!isInside(repoRoot, transcriptPath) || !isInside(repoRoot, transcriptJsonlPath)) return null;
+  if (!existsSync(transcriptPath) || !existsSync(transcriptJsonlPath)) return null;
+  if (analysisManifest?.state === "completed") return analysisManifest;
+
+  const kept = await readJsonlRows(transcriptJsonlPath);
+  const suppressedPath = path.join(outputDir, "suppressed_segments.jsonl");
+  const suppressed = existsSync(suppressedPath) ? await readJsonlRows(suppressedPath) : [];
+  const transcriptBytes = await fs.readFile(transcriptJsonlPath);
+  const qualityMetrics = buildTranscriptQualityMetrics(kept, suppressed);
+  return {
+    ...plan,
+    state: "completed",
+    segment_count: kept.length,
+    suppressed_segment_ref: relativeRef(repoRoot, suppressedPath),
+    quality_metrics: qualityMetrics,
+    transcript_ref: transcriptRef,
+    transcript_jsonl_ref: transcriptJsonlRef,
+    transcript_sha256: crypto.createHash("sha256").update(transcriptBytes).digest("hex"),
+    evidence_role: sessionState.evidence_role ?? plan.evidence_role,
+    quality: qualityMetrics.flags.length > 0
+      ? "machine_transcript_unverified_attention_required"
+      : "machine_transcript_unverified",
+    claim_ceiling: "observed",
+    completed_at: sessionState.completed_at ?? new Date().toISOString(),
+    recovered_from_completed_session_manifest: true,
+  };
+}
+
+async function readJsonlRows(filePath) {
+  const text = await fs.readFile(filePath, "utf8");
+  return text.split(/\r?\n/u).filter(Boolean).map((line) => JSON.parse(line));
 }
 
 export async function analyzeLocalAsrBacklog(options = {}) {

@@ -663,7 +663,22 @@ export function buildPlaudLaunchdDefinition(options = {}) {
   if (profile.independent_asr?.enabled) {
     watchPaths.push(path.join(resolveRepoPath(repoRoot, profile.independent_asr.queue_root ?? "_workspaces/system/voice_capture/local_asr_queue"), "pending"));
   }
-  const command = `cd ${shellQuote(repoRoot)} && node guild_hall/voice_capture/plaud_ingest_cli.mjs drain-mail-queue --config ${shellQuote(profileRef)} --apply`;
+  const retryIntervalSeconds = Number(profile.launchd?.retry_interval_seconds ?? 300);
+  if (!Number.isInteger(retryIntervalSeconds) || retryIntervalSeconds < 30 || retryIntervalSeconds > 86_400) {
+    throw new Error("plaud_launchd_retry_interval_seconds_invalid");
+  }
+  const drainCommand = `node guild_hall/voice_capture/plaud_ingest_cli.mjs drain-mail-queue --config ${shellQuote(profileRef)} --apply`;
+  const command = [
+    `cd ${shellQuote(repoRoot)} || exit 1`,
+    "while true; do",
+    `${drainCommand} >/dev/null 2>&1`,
+    "command_status=$?",
+    "if [ \"$command_status\" -ne 0 ]; then",
+    "printf '%s\\n' \"soulforge_plaud_queue_drain_failed status=$command_status\" >&2",
+    "fi",
+    `sleep ${retryIntervalSeconds}`,
+    "done",
+  ].join("\n");
   return {
     schema_version: "soulforge.plaud_launchd_definition.v0",
     label,
@@ -673,19 +688,16 @@ export function buildPlaudLaunchdDefinition(options = {}) {
     log_dir: logDir,
     stdout_path: path.join(logDir, `${label}.out.log`),
     stderr_path: path.join(logDir, `${label}.err.log`),
-    trigger: "hiworks_mail_queue_watch",
+    trigger: "persistent_local_queue_poll",
     watch_path: watchPath,
     watch_paths: watchPaths,
-    retry_interval_seconds: Number(profile.launchd?.retry_interval_seconds ?? 300),
+    retry_interval_seconds: retryIntervalSeconds,
     program_arguments: ["/bin/zsh", "-lc", command],
   };
 }
 
 export function renderPlaudLaunchdPlist(definition) {
   const args = definition.program_arguments.map((arg) => `    <string>${xmlEscape(arg)}</string>`).join("\n");
-  const watchPaths = (definition.watch_paths ?? [definition.watch_path])
-    .map((watchPath) => `    <string>${xmlEscape(watchPath)}</string>`)
-    .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -696,15 +708,8 @@ export function renderPlaudLaunchdPlist(definition) {
 ${args}
   </array>
   <key>RunAtLoad</key><true/>
-  <key>WatchPaths</key>
-  <array>
-${watchPaths}
-  </array>
-  <key>KeepAlive</key>
-  <dict>
-    <key>SuccessfulExit</key><false/>
-  </dict>
-  <key>ThrottleInterval</key><integer>${definition.retry_interval_seconds}</integer>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>30</integer>
   <key>StandardOutPath</key><string>${xmlEscape(definition.stdout_path)}</string>
   <key>StandardErrorPath</key><string>${xmlEscape(definition.stderr_path)}</string>
   <key>ProcessType</key><string>Background</string>
@@ -728,6 +733,7 @@ export async function writePlaudLaunchdPlist(options = {}) {
     install_commands: [
       `cp ${shellQuote(definition.plist_path)} ~/Library/LaunchAgents/`,
       `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/${path.basename(definition.plist_path)}`,
+      `launchctl kickstart -k gui/$(id -u)/${definition.label}`,
     ],
   };
 }

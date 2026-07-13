@@ -10,7 +10,12 @@
 - mail-fetch 설치 plist에 PLAUD 메일 trigger 활성화를 명시적으로 포함하고,
   loaded 여부만 아니라 실제 `running` 상태를 확인하도록 운영 문서를 맞췄다.
   mail-fetch와 healthcheck 반복 로그는 전체 JSON 대신 bounded summary만 남기며,
-  calendar job의 기존 schedule은 유지한다. (worker: codex_gpt-5)
+  PLAUD/독립전사 queue watcher도 `WatchPaths` spawn 대기 대신 비어 있을 때 provider를
+  조회하지 않는 5분 persistent local-queue loop로 바꿨다. retry 간격 검증, 작업 루트
+  진입 실패 시 즉시 종료, 정상·빈 queue 출력 억제와 bounded 실패 상태 로그를 함께
+  적용했다. 이미 완료된 전사의 queue가 남거나 재시작 중 analysis 상태만 덮인 경우에는
+  session 완료본을 복구해 음성을 재처리하지 않고 알림과 delivery를 재개한다. calendar
+  job의 기존 schedule은 유지한다. (worker: codex_gpt-5)
 
 ### dev-ERP 단일-body Codex turn projection v4
 

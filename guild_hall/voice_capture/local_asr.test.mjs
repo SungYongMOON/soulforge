@@ -12,6 +12,7 @@ import {
   buildLocalAsrPreflight,
   buildTranscriptQualityMetrics,
   discoverLocalAsrSessions,
+  drainLocalAsrQueue,
   emitVoiceTranscriptionCompleted,
   enqueueLocalAsrBacklog,
   parseWhisperJson,
@@ -237,6 +238,73 @@ test("local ASR delivery receipt failure is retryable and does not roll back com
     const analysis = JSON.parse(await readFile(path.join(fixture.sessionDir, profile.output_subdir, profile.run_id, "analysis_manifest.json"), "utf8"));
     assert.equal(analysis.state, "completed");
     assert.equal(analysis.delivery_warning, "delivery_receipt_prepare_failed_retryable");
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("local ASR queue resumes a completed transcript without rerunning audio and retries an unsent notification", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-local-asr-resume-"));
+  try {
+    const fixture = await createSessionFixture(repoRoot);
+    const profile = {
+      ...buildDefaultLocalAsrProfile(),
+      model_path: "model.bin",
+      run_id: "fixture_run_resume",
+      chunk_seconds: 30,
+      overlap_seconds: 0,
+    };
+    await writeFile(path.join(repoRoot, "model.bin"), "model", "utf8");
+    await analyzeLocalAsrSession({
+      repoRoot,
+      profile,
+      sessionDir: fixture.sessionDir,
+      apply: true,
+      commandRunner: commandFixture([]),
+      notificationEmitter: async () => ({ ok: true, status: "disabled" }),
+      deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "fixture-receipt" }),
+    });
+    const analysisPath = path.join(fixture.sessionDir, profile.output_subdir, profile.run_id, "analysis_manifest.json");
+    const interrupted = JSON.parse(await readFile(analysisPath, "utf8"));
+    await writeFile(analysisPath, `${JSON.stringify({
+      ...interrupted,
+      state: "in_progress",
+      transcript_ref: null,
+      transcript_jsonl_ref: null,
+    })}\n`, "utf8");
+    const queueDir = path.join(repoRoot, profile.queue_root);
+    const queuePath = path.join(queueDir, "pending", "fixture_session.json");
+    await mkdir(path.dirname(queuePath), { recursive: true });
+    await writeFile(queuePath, `${JSON.stringify({
+      schema_version: "soulforge.local_asr_queue_item.v0",
+      session_id: "fixture_session",
+      session_ref: path.relative(repoRoot, fixture.sessionDir).split(path.sep).join("/"),
+    })}\n`, "utf8");
+
+    const commands = [];
+    const notifications = [];
+    const result = await drainLocalAsrQueue({
+      repoRoot,
+      profile,
+      apply: true,
+      now: new Date("2026-07-13T01:00:00Z"),
+      commandRunner: commandFixture(commands),
+      notificationEmitter: async () => {
+        notifications.push("retried");
+        return { ok: true, status: "queued", request_id: "notify-resumed" };
+      },
+      deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "fixture-receipt" }),
+    });
+    assert.equal(result.processed_count, 1);
+    assert.equal(result.remaining_pending_count, 0);
+    assert.equal(commands.length, 0);
+    assert.deepEqual(notifications, ["retried"]);
+    const processedPath = path.join(queueDir, "processed", "2026-07-13", "fixture_session.json");
+    assert.equal(await readFile(processedPath, "utf8").then(() => true), true);
+    const recovered = JSON.parse(await readFile(analysisPath, "utf8"));
+    assert.equal(recovered.recovered_from_completed_session_manifest, true);
+    const manifest = JSON.parse(await readFile(path.join(fixture.sessionDir, "session_manifest.json"), "utf8"));
+    assert.equal(manifest.independent_transcription.notification.state, "queued");
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

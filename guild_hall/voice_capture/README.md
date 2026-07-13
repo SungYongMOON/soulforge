@@ -134,12 +134,14 @@ npm run guild-hall:voice-capture:plaud -- render-launchd \
   --apply
 ```
 
-The rendered plist uses macOS `WatchPaths` on the shared PLAUD mail-trigger
-queue. It runs when the Hiworks collector writes a new sanitized trigger; it
-does not poll PLAUD every 30 minutes. If PLAUD has not exposed the recording
-yet, a non-zero retry result is throttled to five minutes while the trigger
-remains pending. A trigger is completed only when at least one new recording is
-imported. If no matching import appears within one hour, it moves to
+The rendered plist stays running with `RunAtLoad + KeepAlive` and checks the
+local sanitized mail-trigger and independent-ASR queues every five minutes.
+This avoids macOS GUI `WatchPaths` demand being left in `spawn scheduled` while
+the login domain is on-demand-only. It does not query PLAUD when both local
+queues are empty. If PLAUD has not exposed the recording yet, the next loop
+retries after five minutes while the trigger remains pending. A trigger is
+completed only when at least one new recording is imported. If no matching
+import appears within one hour, it moves to
 `plaud_mail_triggers/unresolved/<date>/` for explicit review instead of being
 silently discarded. Multiple pending notices are resolved individually: one
 new recording completes at most one oldest notice, and only notices whose own
@@ -148,13 +150,21 @@ one-hour window expired move to unresolved. The plist stays under
 for manual execution on that Mac. The collector writes the audio and provider
 exports to the shared `_workspaces/system/voice_capture/` view, registers the
 recording in the metadata-only library, and creates a `P00-000_INBOX` review
-event. It does not decide the project or create formal tasks.
+event. It does not decide the project or create formal tasks. The printed
+install commands include one explicit `launchctl kickstart` so the persistent
+loop begins even when the GUI domain is currently demand-limited. The loop
+rejects retry intervals outside 30 seconds to 24 hours, exits if the repo root
+cannot be entered, suppresses successful/empty drain output, and logs only a
+bounded status line when a drain fails.
 
 `sync` remains available as an explicit recovery command when the notification
 mail was missed. Normal operation uses `drain-mail-queue --apply` through the
-launchd watcher. Before each drain, the watcher also discovers imported audio
+launchd queue loop. Before each drain, the loop also discovers imported audio
 that still lacks the current independent run and recreates any missing durable
-queue item.
+queue item. A stale queue item for an already completed transcript is finalized
+from the completed session pointers without rerunning audio inference; an
+unsent completion notification and delivery receipt are retried during that
+finalization.
 
 Create and check the Mac mini independent-ASR profile:
 

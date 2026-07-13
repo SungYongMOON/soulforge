@@ -98,10 +98,18 @@ PLAUD account collector on an always-on node
   stale and must be recomputed.
 - The normal PLAUD collector is event-driven. A fresh Hiworks PLAUD transcript
   notice writes a sanitized trigger to the shared workspace queue, and the Mac
-  mini launchd `WatchPaths` job drains it. A successful import also writes a
-  local-ASR queue item. The same node watches that queue and runs the configured
-  `whisper.cpp` model against the original audio. Explicit `sync` remains a
-  recovery command rather than the normal periodic trigger.
+  mini persistent launchd loop drains local mail and ASR queues every five
+  minutes. It does not query PLAUD when both queues are empty. A successful
+  import also writes a local-ASR queue item, and the same loop runs the
+  configured `whisper.cpp` model against the original audio. Explicit `sync`
+  remains a recovery command rather than the normal provider polling trigger.
+  The loop rejects unsafe retry intervals, fails closed when its repo root is
+  unavailable, and suppresses successful/empty drain output so the persistent
+  job does not create unbounded routine logs.
+- If a restart leaves a queue item after the session transcript already
+  completed, the worker reuses or reconstructs the completed analysis manifest
+  from the session pointers, retries unsent completion bookkeeping, and moves
+  the queue item without running audio inference again.
 - Provider recording IDs provide payload deduplication. A trigger remains
   pending when audio or transcript is not yet available.
 - Every watcher run scans imported audio sessions for the current independent
