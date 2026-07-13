@@ -559,6 +559,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-worksp
    npm.cmd run dev-erp:migrate-legacy-codex -- --plan-retire-all --db <runtime-root>\ui-workspace\apps\dev-erp\data\dev-erp.db --expected-count <owner-confirmed-legacy-binding-count> --expected-candidate-sha256 <reviewed-candidate-sha256>
    ```
 
+   Review candidate v2 `binding_project_mismatch_count` and every
+   `observed_binding_project_id` / `binding_project_status` before pinning the
+   hash. A valid stale binding project is evidence in the candidate, not
+   approval to mutate it. If every other runtime binding field is complete,
+   project mismatch still fails instead of becoming a retirement candidate;
+   invalid project values also fail.
+
 6. Run the owner-approved exact mapping as a dry-run. Apply only after it covers
    every legacy row and the v2 generation passed restore verification.
 

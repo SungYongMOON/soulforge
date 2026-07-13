@@ -122,7 +122,12 @@ runbook의 maintenance 경계에서만 수행한다. 모든 불완전 binding을
 검토할 때는 `--plan-retire-all`로 metadata-only candidate를 만들 수 있지만, 이 결과는
 owner-approved mapping이 아니며 어떤 변경도 적용하지 않는다. 실제 `--apply` 전에는
 v2 pre-migration backup과 전용 restore verification을 완료하고, 적용 뒤에는 release
-audit가 인정하는 새 v1 coherent backup/restore evidence를 다시 만든다.
+audit가 인정하는 새 v1 coherent backup/restore evidence를 다시 만든다. 불완전 binding의
+유효하지만 오래된 project 값은 current `core_item.project_id`를 바꾸지 않고 candidate의
+v2 `observed_binding_project_id`, `binding_project_status: mismatch`, 합계에 기록되어
+실제 관찰값까지 hash에 고정된다. 유효하지 않은 project 값은 계속 실패하며 실제
+mapping/apply 검증은 완화되지 않는다. thread/workspace/revision/fingerprint가 모두
+완전하고 project만 다른 행도 retirement 후보로 낮추지 않고 실패한다.
 
 현재 개발 PC의 Codex 0.144.1 native Windows sandbox는 harmless outside-root read
 denial probe를 통과하지 못했다. 따라서 실제 팀 PC와 각 실제 UNC mapping에서 같은

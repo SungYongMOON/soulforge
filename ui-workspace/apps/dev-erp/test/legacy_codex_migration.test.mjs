@@ -373,8 +373,11 @@ test("retire-all planner emits only incomplete bindings from authoritative proje
   assert.equal(first.candidate.approval_status, "owner_decision_required");
   assert.equal(first.candidate.expected_legacy_binding_count, 2);
   assert.equal(first.candidate.excluded_complete_binding_count, 1);
+  assert.equal(first.candidate.binding_project_mismatch_count, 0);
   assert.deepEqual(first.candidate.retirements.map((row) => row.item_id), ["item_bind", "item_retire"]);
   assert.deepEqual(first.candidate.retirements.map((row) => row.project_id), ["P26-A", "P26-B"]);
+  assert.deepEqual(first.candidate.retirements.map((row) => row.observed_binding_project_id), [null, null]);
+  assert.deepEqual(first.candidate.retirements.map((row) => row.binding_project_status), ["missing", "missing"]);
   assert.equal(first.candidate.candidate_sha256, second.candidate.candidate_sha256);
   assert.match(first.candidate.candidate_sha256, /^[a-f0-9]{64}$/);
   assert.throws(() => validateLegacyCodexOwnerMapping(first.candidate), /mapping_invalid/);
@@ -398,13 +401,130 @@ test("retire-all planner emits only incomplete bindings from authoritative proje
   });
   assert.equal(drift.status, "blocked");
   assert.deepEqual(drift.codes, ["retire_candidate_drift"]);
+});
 
-  const mismatchDb = new DatabaseSync(f.dbPath);
-  mismatchDb.prepare("UPDATE codex_thread_binding SET project_id='P26-X' WHERE item_id='item_retire'").run();
-  mismatchDb.close();
-  const mismatch = await planLegacyCodexRetireAllCandidate({ dbPath: f.dbPath, expectedCount: 2 });
-  assert.equal(mismatch.status, "failed");
-  assert.deepEqual(mismatch.codes, ["retire_candidate_project_mismatch"]);
+test("retire-all planner hash-pins valid stale binding projects without weakening invalid-project rejection", async () => {
+  const f = fixture();
+  const db = new DatabaseSync(f.dbPath);
+  db.prepare("UPDATE codex_thread_binding SET project_id='P26-A' WHERE item_id='item_bind'").run();
+  db.prepare("UPDATE codex_thread_binding SET project_id='P26-X' WHERE item_id='item_retire'").run();
+  db.close();
+
+  const first = await planLegacyCodexRetireAllCandidate({ dbPath: f.dbPath, expectedCount: 2 });
+  assert.equal(first.status, "ready");
+  assert.equal(first.candidate.binding_project_mismatch_count, 1);
+  assert.deepEqual(
+    first.candidate.retirements.map((row) => row.observed_binding_project_id),
+    ["P26-A", "P26-X"],
+  );
+  assert.deepEqual(first.candidate.retirements.map((row) => row.binding_project_status), ["match", "mismatch"]);
+  assert.deepEqual(first.candidate.retirements.map((row) => row.project_id), ["P26-A", "P26-B"]);
+
+  const pinned = await planLegacyCodexRetireAllCandidate({
+    dbPath: f.dbPath,
+    expectedCount: 2,
+    expectedCandidateSha256: first.candidate.candidate_sha256,
+  });
+  assert.equal(pinned.status, "ready");
+  assert.equal(pinned.candidate.candidate_sha256, first.candidate.candidate_sha256);
+  assertReportRedacted(first, f);
+
+  const changedObservedProjectDb = new DatabaseSync(f.dbPath);
+  changedObservedProjectDb.prepare("UPDATE codex_thread_binding SET project_id='P26-Y' WHERE item_id='item_retire'").run();
+  changedObservedProjectDb.close();
+  const changedObservedProject = await planLegacyCodexRetireAllCandidate({
+    dbPath: f.dbPath,
+    expectedCount: 2,
+    expectedCandidateSha256: first.candidate.candidate_sha256,
+  });
+  assert.equal(changedObservedProject.status, "blocked");
+  assert.deepEqual(changedObservedProject.codes, ["retire_candidate_drift"]);
+
+  const invalidDb = new DatabaseSync(f.dbPath);
+  invalidDb.prepare("UPDATE codex_thread_binding SET project_id='invalid project' WHERE item_id='item_retire'").run();
+  invalidDb.close();
+  const invalid = await planLegacyCodexRetireAllCandidate({ dbPath: f.dbPath, expectedCount: 2 });
+  assert.equal(invalid.status, "failed");
+  assert.deepEqual(invalid.codes, ["retire_candidate_binding_project_invalid"]);
+});
+
+test("retire-all planner fails closed when only project mismatch prevents a complete binding", async () => {
+  const f = fixture();
+  const db = new DatabaseSync(f.dbPath);
+  db.prepare(
+    `UPDATE codex_thread_binding
+        SET project_id=?, workspace_id=?, workspace_revision=?, workspace_root_fingerprint=?
+      WHERE item_id=?`,
+  ).run("P26-X", "team_complete", HASH_A, HASH_B, "item_bind");
+  db.close();
+
+  const result = await planLegacyCodexRetireAllCandidate({ dbPath: f.dbPath, expectedCount: 2 });
+  assert.equal(result.status, "failed");
+  assert.deepEqual(result.codes, ["retire_candidate_project_mismatch"]);
+  assertReportRedacted(result, f);
+});
+
+test("legacy Codex mapping still rejects a stale binding project for bind decisions", async () => {
+  const f = fixture({ includeRetire: false });
+  const db = new DatabaseSync(f.dbPath);
+  db.prepare("UPDATE codex_thread_binding SET project_id='P26-X' WHERE item_id='item_bind'").run();
+  db.close();
+
+  const result = await preflightLegacyCodexMigration({
+    dbPath: f.dbPath,
+    payloadRoot: f.payloadRoot,
+    mapping: f.mapping,
+  });
+  assert.equal(result.preflight.status, "blocked");
+  assert.ok(result.preflight.codes.includes("mapping_binding_conflict"));
+  assertReportRedacted(result, f);
+});
+
+test("legacy Codex retire mapping accepts only the current item project when the binding project is stale", async () => {
+  const f = fixture();
+  const db = new DatabaseSync(f.dbPath);
+  db.prepare("UPDATE codex_thread_binding SET project_id='P26-X' WHERE item_id='item_retire'").run();
+  db.close();
+
+  const staleProjectMapping = {
+    ...f.mapping,
+    bindings: f.mapping.bindings.map((entry) => (
+      entry.action === "retire" ? { ...entry, project_id: "P26-X" } : entry
+    )),
+  };
+  const blocked = await preflightLegacyCodexMigration({
+    dbPath: f.dbPath,
+    payloadRoot: f.payloadRoot,
+    mapping: staleProjectMapping,
+  });
+  assert.equal(blocked.preflight.status, "blocked");
+  assert.ok(blocked.preflight.codes.includes("mapping_project_mismatch"));
+
+  const ready = await preflightLegacyCodexMigration({
+    dbPath: f.dbPath,
+    payloadRoot: f.payloadRoot,
+    mapping: f.mapping,
+  });
+  assert.equal(ready.preflight.status, "ready");
+
+  const applied = await runLegacyCodexMigration({
+    dbPath: f.dbPath,
+    payloadRoot: f.payloadRoot,
+    mapping: f.mapping,
+    apply: true,
+  });
+  assert.equal(applied.status, "applied");
+  assert.equal(applied.applied_counts.retired_bindings, 1);
+  assert.equal(applied.verification.status, "passed");
+  const verified = openReadOnly(f.dbPath);
+  try {
+    assert.equal(verified.prepare("SELECT 1 FROM codex_thread_binding WHERE item_id='item_retire'").get(), undefined);
+  } finally {
+    verified.close();
+  }
+  assertReportRedacted(blocked, f);
+  assertReportRedacted(ready, f);
+  assertReportRedacted(applied, f);
 });
 
 test("retire-all planner CLI is read-only and cannot be combined with apply", () => {

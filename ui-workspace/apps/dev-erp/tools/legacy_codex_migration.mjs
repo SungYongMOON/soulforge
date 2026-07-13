@@ -13,7 +13,7 @@ import {
 
 export const LEGACY_CODEX_OWNER_MAPPING_SCHEMA = "dev_erp.legacy_codex_owner_mapping.v1";
 export const LEGACY_CODEX_MIGRATION_REPORT_SCHEMA = "dev_erp.legacy_codex_migration_report.v1";
-export const LEGACY_CODEX_RETIRE_ALL_CANDIDATE_SCHEMA = "dev_erp.legacy_codex_retire_all_candidate.v1";
+export const LEGACY_CODEX_RETIRE_ALL_CANDIDATE_SCHEMA = "dev_erp.legacy_codex_retire_all_candidate.v2";
 export const LEGACY_CODEX_RETIRE_ALL_PLAN_REPORT_SCHEMA = "dev_erp.legacy_codex_retire_all_plan_report.v1";
 
 const RECEIPT_TABLE = "codex_legacy_migration_receipt";
@@ -391,24 +391,40 @@ export async function planLegacyCodexRetireAllCandidate({
     const seen = new Set();
     const retirements = [];
     let completeBindingCount = 0;
+    let bindingProjectMismatchCount = 0;
     for (const row of rows) {
       const itemId = String(row.item_id ?? "");
       const projectId = String(row.item_project_id ?? "");
       if (!ITEM_ID_RE.test(itemId) || seen.has(itemId)) fail("retire_candidate_item_invalid");
       if (!PROJECT_ID_RE.test(projectId)) fail("retire_candidate_project_invalid");
       const bindingProjectId = row.binding_project_id;
+      let observedBindingProjectId = null;
+      let bindingProjectStatus = "missing";
       if (bindingProjectId !== null && bindingProjectId !== "") {
-        if (!PROJECT_ID_RE.test(String(bindingProjectId))) fail("retire_candidate_binding_project_invalid");
-        if (bindingProjectId !== projectId) fail("retire_candidate_project_mismatch");
+        observedBindingProjectId = String(bindingProjectId);
+        if (!PROJECT_ID_RE.test(observedBindingProjectId)) fail("retire_candidate_binding_project_invalid");
+        bindingProjectStatus = observedBindingProjectId === projectId ? "match" : "mismatch";
+      }
+      if (
+        bindingProjectStatus === "mismatch"
+        && THREAD_REF_RE.test(String(row.thread_id ?? ""))
+        && WORKSPACE_ID_RE.test(String(row.workspace_id ?? ""))
+        && HASH_RE.test(String(row.workspace_revision ?? ""))
+        && HASH_RE.test(String(row.workspace_root_fingerprint ?? ""))
+      ) {
+        fail("retire_candidate_project_mismatch");
       }
       seen.add(itemId);
       if (isCompleteBinding({ ...row, project_id: row.binding_project_id })) {
         completeBindingCount += 1;
         continue;
       }
+      if (bindingProjectStatus === "mismatch") bindingProjectMismatchCount += 1;
       retirements.push(Object.freeze({
         item_id: itemId,
         project_id: projectId,
+        observed_binding_project_id: observedBindingProjectId,
+        binding_project_status: bindingProjectStatus,
         proposed_action: "retire",
         proposed_reason_code: "owner_decision_pending",
       }));
@@ -423,6 +439,7 @@ export async function planLegacyCodexRetireAllCandidate({
       approval_status: "owner_decision_required",
       expected_legacy_binding_count: count,
       excluded_complete_binding_count: completeBindingCount,
+      binding_project_mismatch_count: bindingProjectMismatchCount,
       retirements,
     };
     const candidateSha256 = sha256(canonicalJson(candidateBody));

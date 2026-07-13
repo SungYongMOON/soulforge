@@ -283,9 +283,14 @@ npm.cmd run dev-erp:migrate-legacy-codex -- --plan-retire-all --db <runtime-db> 
 ```
 
 planner는 complete binding을 제외하고 `core_item.project_id`가 확인된 불완전
-binding만 candidate에 넣는다. count 불일치, project 불일치, candidate hash drift는
-중단 조건이다. 출력은 `candidate_only: true`이며 owner 승인이나 apply 권한을 만들지
-않고, `--apply`, `--mapping`, `--payload-root`와 함께 사용할 수 없다.
+binding만 candidate에 넣는다. 유효하지만 오래된 binding project는 current item
+project로 덮어쓰지 않고 candidate v2 각 retirement의
+`observed_binding_project_id`, `binding_project_status: mismatch`와
+`binding_project_mismatch_count`에 기록되어 실제 관찰값까지 candidate hash에 포함된다.
+다른 runtime binding 필드가 모두 완전하고 project만 다른 행은 candidate로 낮추지 않고
+실패한다. count 불일치, 유효하지 않은 project, candidate hash drift는 중단 조건이다. 출력은
+`candidate_only: true`이며 owner 승인이나 apply 권한을 만들지 않고, `--apply`,
+`--mapping`, `--payload-root`와 함께 사용할 수 없다.
 
 실제 migration 적용 전에는 v2 pre-migration generation을 만들고 같은 generation을
 격리된 restore namespace에서 검증한다.

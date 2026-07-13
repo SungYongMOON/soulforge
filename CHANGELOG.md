@@ -139,6 +139,11 @@
 - `--plan-retire-all`은 incomplete binding만 metadata-only retire candidate로 만들고
   complete binding은 제외한다. owner-confirmed count와 선택적 candidate SHA-256 drift
   pin을 요구하며, 출력은 owner mapping이나 apply 권한을 만들지 않는다.
+- incomplete binding의 valid-but-stale project mismatch는 candidate v2에서 current
+  item project 기준 retirement의 관찰값, 상태, 합계로 명시하고 실제 stale value까지
+  candidate hash에 포함한다. invalid project와 실제 mapping/apply conflict는 계속
+  fail-closed하며, 다른 runtime binding 필드가 완전한 project-only mismatch도 후보로
+  낮추지 않는다.
 - migration 중 같은 프로세스에서 포착된 실패는 DB rollback 뒤 해당 실행이 만든
   payload만 정리한다. cleanup이 끝나지 않으면 path/body를 노출하지 않는 blocker를
   남기며 crash recovery까지 주장하지 않는다.
