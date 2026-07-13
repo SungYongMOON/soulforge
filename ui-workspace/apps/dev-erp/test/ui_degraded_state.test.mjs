@@ -6,6 +6,29 @@ const APP_SOURCE = readFileSync(new URL("../static/app.js", import.meta.url), "u
 const INDEX_SOURCE = readFileSync(new URL("../static/index.html", import.meta.url), "utf8");
 const CSS_SOURCE = readFileSync(new URL("../static/style.css", import.meta.url), "utf8");
 
+const DOMAIN_GET_CASES = [
+  { name: "wiki page", path: "/api/knowledge/wiki/page?ref=missing.md", accepted: [400], responses: [{ status: 400, error: "wiki_page_not_found" }] },
+  { name: "context graph", path: "/api/context/graph?project=P99-999", accepted: [400], responses: [{ status: 400, error: "context_not_found" }] },
+  { name: "branch story", path: "/api/context/branch_story?project=P99-999&branch=missing", accepted: [400], responses: [{ status: 400, error: "context_not_found" }] },
+  { name: "life tree", path: "/api/context/life_tree?project=P99-999", accepted: [400, 403], responses: [
+    { status: 400, error: "days_invalid", path: "/api/context/life_tree?project=P99-999&days=0" },
+    { status: 403, error: "project_forbidden" },
+  ] },
+  { name: "mail detail", path: "/api/mail/detail?id=missing", accepted: [403, 404], responses: [
+    { status: 403, error: "mail_forbidden", path: "/api/mail/detail?id=foreign" },
+    { status: 404, error: "mail_not_found" },
+  ] },
+  { name: "parts completeness", path: "/api/parts/completeness?part=missing", accepted: [404], responses: [{ status: 404, error: "part_not_found" }] },
+  { name: "Codex capabilities", path: "/api/codex-task/capabilities?item_id=missing", accepted: [403, 404], responses: [
+    { status: 403, error: "item_forbidden", path: "/api/codex-task/capabilities?item_id=foreign" },
+    { status: 404, error: "item_not_found" },
+  ] },
+  { name: "Codex thread", path: "/api/codex-task/thread?item_id=missing", accepted: [403, 404], responses: [
+    { status: 403, error: "codex_workspace_forbidden", path: "/api/codex-task/thread?item_id=foreign" },
+    { status: 404, error: "item_not_found" },
+  ] },
+];
+
 function sourceSlice(from, to) {
   const start = APP_SOURCE.indexOf(from);
   const end = APP_SOURCE.indexOf(to, start);
@@ -107,37 +130,174 @@ test("degraded request path distinguishes timeout, unauthorized, HTTP, and netwo
       reject(error);
     }, { once: true });
   }));
-  await assert.rejects(timeoutHarness.request("/api/slow", { timeoutMs: 1 }), (error) => error.kind === "timeout");
+  await assert.rejects(timeoutHarness.request("/api/slow", { timeoutMs: 1, acceptedDomainStatuses: [400] }), (error) => error.kind === "timeout");
   assert.equal(timeoutHarness.state.connection.status, "timeout");
 
   const unauthorizedHarness = loadRequestHarness(async () => ({ ok: false, status: 401 }));
-  await assert.rejects(unauthorizedHarness.api("/api/private"), (error) => error.kind === "unauthorized" && error.status === 401);
+  await assert.rejects(unauthorizedHarness.api("/api/private", { acceptedDomainStatuses: [400, 403, 404] }), (error) => error.kind === "unauthorized" && error.status === 401);
   assert.equal(unauthorizedHarness.state.connection.status, "unauthorized");
 
   const httpHarness = loadRequestHarness(async () => ({ ok: false, status: 503 }));
-  await assert.rejects(httpHarness.api("/api/unavailable"), (error) => error.kind === "http" && error.status === 503);
+  await assert.rejects(httpHarness.api("/api/unavailable", { acceptedDomainStatuses: [400, 403, 404] }), (error) => error.kind === "http" && error.status === 503);
   assert.equal(httpHarness.state.connection.status, "http");
 
   const networkHarness = loadRequestHarness(async () => { throw new TypeError("fetch failed"); });
-  await assert.rejects(networkHarness.api("/api/items"), (error) => error.kind === "network");
+  await assert.rejects(networkHarness.api("/api/items", { acceptedDomainStatuses: [400] }), (error) => error.kind === "network");
   assert.equal(networkHarness.state.connection.status, "network");
 });
 
-test("expected domain HTTP error stays local instead of becoming a global outage", async () => {
-  const harness = loadRequestHarness(async () => ({
+test("documented domain GET statuses stay local through exact per-call allowlists", async () => {
+  for (const entry of DOMAIN_GET_CASES) {
+    for (const { status, error, path = entry.path } of entry.responses) {
+      const harness = loadRequestHarness(async () => ({
+        ok: false,
+        status,
+        json: async () => ({ error }),
+      }));
+      harness.setConnectionState("online");
+
+      const result = await harness.api(path, { acceptedDomainStatuses: entry.accepted });
+
+      assert.deepEqual(result, { error }, `${entry.name} ${status} returns its local domain payload`);
+      assert.equal(harness.state.connection.status, "online", `${entry.name} ${status} does not become a global outage`);
+      assert.equal(harness.control.disabled, false, `${entry.name} ${status} keeps unrelated controls enabled`);
+    }
+  }
+});
+
+test("exact domain allowlists reject undocumented 4xx and invalid JSON", async () => {
+  const unexpectedHarness = loadRequestHarness(async () => ({
     ok: false,
-    status: 400,
-    json: async () => ({ error: "context_not_found" }),
+    status: 418,
+    json: async () => ({ error: "unexpected_status" }),
   }));
-  harness.setConnectionState("online");
+  unexpectedHarness.setConnectionState("online");
+  await assert.rejects(
+    unexpectedHarness.api("/api/context/graph?project=P26-005", { acceptedDomainStatuses: [400] }),
+    (error) => error.kind === "http" && error.status === 418,
+  );
+  assert.equal(unexpectedHarness.state.connection.status, "http");
+  assert.equal(unexpectedHarness.control.disabled, true);
 
-  const result = await harness.api("/api/context/graph?project=P26-005", { acceptHttpError: true });
+  const invalidJsonHarness = loadRequestHarness(async () => ({
+    ok: false,
+    status: 404,
+    json: async () => { throw new SyntaxError("invalid JSON"); },
+  }));
+  invalidJsonHarness.setConnectionState("online");
+  await assert.rejects(
+    invalidJsonHarness.api("/api/mail/detail?id=missing", { acceptedDomainStatuses: [403, 404] }),
+    (error) => error.kind === "http" && error.message === "invalid_json_response",
+  );
+  assert.equal(invalidJsonHarness.state.connection.status, "http");
+  assert.equal(invalidJsonHarness.control.disabled, true);
+});
 
-  assert.deepEqual(result, { error: "context_not_found" });
-  assert.equal(harness.state.connection.status, "online");
-  assert.equal(harness.control.disabled, false);
-  const hubTrunkBlock = sourceSlice("async function hubTrunk", "// 줄기 노드 종류");
-  assert.match(hubTrunkBlock, /api\(`\/api\/context\/graph[^\n]+\{ acceptHttpError: true \}/);
+test("domain GET consumers declare exact statuses and retain their existing local fallback", () => {
+  const consumers = [
+    {
+      name: "wiki page viewer", from: "async function renderKnowWiki", to: "async function renderKnowTrunk",
+      call: 'api(`/api/knowledge/wiki/page?ref=${encodeURIComponent(tr.dataset.ref)}`, { acceptedDomainStatuses: [400] })',
+      fallback: "if (!r || r.error)",
+    },
+    {
+      name: "knowledge trunk", from: "async function renderKnowTrunk", to: "async function hubTrunk",
+      call: 'api(`/api/context/graph?project=${encodeURIComponent(cur)}`, { acceptedDomainStatuses: [400] })',
+      fallback: "if (!g || g.error)",
+    },
+    {
+      name: "hub trunk", from: "async function hubTrunk", to: "function trunkTypeLabel",
+      call: 'api(`/api/context/graph?project=${encodeURIComponent(p.id)}`, { acceptedDomainStatuses: [400] })',
+      fallback: "if (!g || g.error)",
+    },
+    {
+      name: "life-tree story", from: "async function lifeTreeOpenStory", to: "function wireLifeTreeActions",
+      call: 'api(`/api/context/branch_story?project=${encodeURIComponent(g.project)}&branch=${encodeURIComponent(branchKey)}`, { acceptedDomainStatuses: [400] })',
+      fallback: "!story || story.error",
+    },
+    {
+      name: "map story", from: "function drawTrunkMap", to: "function drawTrunkTree",
+      call: 'api(`/api/context/branch_story?project=${encodeURIComponent(g.project)}&branch=${encodeURIComponent(key)}`, { acceptedDomainStatuses: [400] })',
+      fallback: "story && !story.error",
+    },
+    {
+      name: "life tree", from: "async function drawTrunkLifeTree", to: "function trunkHeatmapHtml",
+      call: "api(lifeTreeRequestPath(g.project, config), { acceptedDomainStatuses: [400, 403] })",
+      fallback: "if (!raw || raw.error)",
+    },
+    {
+      name: "quick-edit mail", from: "async function openItemQuickEdit", to: "async function renderKnowledge",
+      call: 'api("/api/mail/detail?id=" + encodeURIComponent(info.origin_mail_id), { acceptedDomainStatuses: [403, 404] })',
+      fallback: "if (m?.error) throw new Error(m.error)",
+    },
+    {
+      name: "mail page detail", from: "async function renderMail", to: "function mailPromoteErrorText",
+      call: 'api(`/api/mail/detail?id=${encodeURIComponent(sel.id)}`, { acceptedDomainStatuses: [403, 404] })',
+      fallback: "if (detailMail?.error) throw new Error(detailMail.error)",
+    },
+    {
+      name: "parts completeness", from: "async function renderBoards", to: "async function renderStockwatch",
+      call: 'api(`/api/parts/completeness?part=${encodeURIComponent(sel)}`, { acceptedDomainStatuses: [404] })',
+      fallback: "sel && comp && comp.required",
+    },
+    {
+      name: "Codex capabilities", from: "const loadCapabilities = async", to: "const renderAttachments",
+      call: 'api(`/api/codex-task/capabilities?item_id=${encodeURIComponent(itemId)}`, { acceptedDomainStatuses: [403, 404] })',
+      fallback: "if (nextCapabilities?.error) throw new Error(nextCapabilities.error)",
+    },
+    {
+      name: "Codex thread", from: "const load = async", to: "const ensureCodexThread",
+      call: 'api(`/api/codex-task/thread?item_id=${encodeURIComponent(itemId)}`, { acceptedDomainStatuses: [403, 404] })',
+      fallback: "if (nextPayload?.error) throw new Error(nextPayload.error)",
+    },
+  ];
+
+  for (const consumer of consumers) {
+    const block = sourceSlice(consumer.from, consumer.to);
+    assert.ok(block.includes(consumer.call), `${consumer.name} owns only its documented domain statuses`);
+    assert.ok(block.includes(consumer.fallback), `${consumer.name} keeps its local fallback`);
+  }
+
+  const boardBlock = sourceSlice("async function renderBoards", "async function renderStockwatch");
+  assert.ok(boardBlock.includes("if (state.bomBoard && !selectedBoard) state.bomBoard = sel"),
+    "a stale board selection is replaced only from the current board source list");
+  assert.doesNotMatch(APP_SOURCE, /acceptedDomainStatuses:\s*true|acceptedDomainStatuses:\s*\[\s*418\s*\]/,
+    "the exact-status option has no blanket or undocumented 418 acceptance");
+});
+
+test("proposal GET is skipped for members and shared consumers use the local empty queue", async () => {
+  const helperSource = sourceSlice("async function loadProposalsForCurrentAccount", "async function renderProposals");
+  const makeLoader = (account, apiImpl) => Function(
+    "state", "api",
+    `${helperSource}\nreturn loadProposalsForCurrentAccount;`,
+  )({ account }, apiImpl);
+
+  let memberCalls = 0;
+  const memberLoader = makeLoader({ id: "member-1", is_admin: false }, async () => { memberCalls += 1; return []; });
+  assert.deepEqual(await memberLoader(), []);
+  assert.equal(memberCalls, 0, "ordinary members do not request the admin-only proposal queue");
+
+  const adminCalls = [];
+  const adminLoader = makeLoader({ id: "admin-1", is_admin: true }, async (path, options) => {
+    adminCalls.push({ path, options });
+    return [{ id: "prop-1" }];
+  });
+  assert.deepEqual(await adminLoader(), [{ id: "prop-1" }]);
+  assert.deepEqual(adminCalls, [{ path: "/api/proposals", options: { acceptedDomainStatuses: [403] } }]);
+
+  const staleAdminLoader = makeLoader({ id: "admin-2", is_admin: true }, async () => ({ error: "admin_only" }));
+  assert.deepEqual(await staleAdminLoader(), [], "a stale client-side admin flag still renders the local empty state");
+
+  for (const [name, from, to] of [
+    ["proposal page", "async function renderProposals", "async function renderEmbeds"],
+    ["home widget", "async function widgetBody", "const widgetSearchHtml"],
+    ["gate page", "async function renderGates", "async function renderSchedule"],
+    ["notification loop", "async function loadNotifications", "function refreshNotifBadge"],
+  ]) {
+    const block = sourceSlice(from, to);
+    assert.match(block, /loadProposalsForCurrentAccount\(\)/, `${name} uses the account-aware proposal loader`);
+    assert.doesNotMatch(block, /api\("\/api\/proposals"\)/, `${name} has no direct admin-only GET`);
+  }
 });
 
 test("cold failure renders recovery UI and known degraded state fails writes closed", async () => {
