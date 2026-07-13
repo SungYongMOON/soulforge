@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import { parse as parseYaml } from "yaml";
 import {
   analyzeKnowledgeAccessLedgers,
+  appendKnowledgeAccessEventBatch,
   buildKnowledgeAccessEvent,
   normalizeKnowledgeRef,
   readKnowledgeRefAndRecord,
@@ -31,6 +32,171 @@ const notebookLmBridgeFixtureDir = path.resolve(
   "examples",
   "notebooklm_bridge",
 );
+
+test("retrieve events require complete strict retrieval context and keep event ids cross-PC stable", () => {
+  const base = {
+    knowledgeRef: "docs/knowledge/retrieval-guide.md",
+    now: "2026-05-16T00:00:00Z",
+    actorType: "tool",
+    actorId: "retrieval_test",
+    accessType: "retrieve",
+    outcomeState: "routed",
+  };
+
+  const missingContext = buildKnowledgeAccessEvent(base);
+  assert.equal(validateKnowledgeAccessEvent(missingContext).ok, false);
+  assert.ok(validateKnowledgeAccessEvent(missingContext).errors.includes("retrieve access requires retrieval_context"));
+
+  const notSelected = buildKnowledgeAccessEvent({
+    ...base,
+    retrievalContext: {
+      retrievalRunRef: "run:fixture",
+      queryFingerprint: "sha256:fixture",
+      resultRank: 1,
+      selectedForContext: false,
+    },
+  });
+  assert.equal(validateKnowledgeAccessEvent(notSelected).ok, false);
+  assert.ok(
+    validateKnowledgeAccessEvent(notSelected).errors.includes(
+      "retrieve access requires retrieval_context.selected_for_context true",
+    ),
+  );
+
+  assert.throws(
+    () =>
+      buildKnowledgeAccessEvent({
+        ...base,
+        retrievalContext: {
+          retrievalRunRef: "run:fixture",
+          queryFingerprint: "sha256:fixture",
+          resultRank: "1junk",
+          selectedForContext: true,
+        },
+      }),
+    /retrieval_context_result_rank_must_be_positive_integer/,
+  );
+
+  const validOptions = {
+    ...base,
+    retrievalContext: {
+      retrievalRunRef: "run:fixture",
+      queryFingerprint: "sha256:fixture",
+      resultRank: 1,
+      selectedForContext: true,
+    },
+  };
+  const onMac = buildKnowledgeAccessEvent({ ...validOptions, repoRoot: path.join(os.tmpdir(), "mac-mini-clone") });
+  const onPc = buildKnowledgeAccessEvent({
+    ...validOptions,
+    repoRoot: path.join(os.tmpdir(), "high-performance-pc-clone"),
+  });
+  assert.equal(validateKnowledgeAccessEvent(onMac).ok, true);
+  assert.equal(onMac.event_id, onPc.event_id);
+  assert.equal(onMac.dedupe_key, onPc.dedupe_key);
+
+  const unsafeInjected = { ...onMac, reason_used: "token=DO_NOT_STORE_THIS" };
+  assert.equal(validateKnowledgeAccessEvent(unsafeInjected).ok, false);
+  assert.ok(validateKnowledgeAccessEvent(unsafeInjected).errors.some((error) => error.endsWith("_contains_secret_like_text")));
+
+  const differentTarget = buildKnowledgeAccessEvent({
+    ...validOptions,
+    knowledgeRef: "docs/knowledge/different-retrieval-guide.md",
+  });
+  const forgedDedupeKey = { ...differentTarget, dedupe_key: onMac.dedupe_key };
+  assert.equal(validateKnowledgeAccessEvent(forgedDedupeKey).ok, false);
+  assert.ok(
+    validateKnowledgeAccessEvent(forgedDedupeKey).errors.includes(
+      "dedupe_key must match canonical logical event identity",
+    ),
+  );
+  const legacyWithoutDedupeKey = { ...onMac };
+  delete legacyWithoutDedupeKey.dedupe_key;
+  assert.equal(validateKnowledgeAccessEvent(legacyWithoutDedupeKey).ok, true);
+});
+
+test("batch append validates every row before one writer-sharded append", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-batch-"));
+  const ledgerRoot = path.join(repoRoot, "_workmeta", "TEST", "reports", "knowledge_access");
+  const common = {
+    knowledgeRef: "docs/knowledge/batch-guide.md",
+    captureMode: "search_tool_appended",
+    actorType: "tool",
+    actorId: "batch_test",
+    accessType: "retrieve",
+    outcomeState: "routed",
+    retrievalContext: {
+      retrievalRunRef: "run:batch",
+      queryFingerprint: "sha256:batch",
+      selectedForContext: true,
+    },
+  };
+
+  try {
+    const written = await appendKnowledgeAccessEventBatch({
+      repoRoot,
+      ledgerRoot,
+      ledgerShardId: "node_fixture",
+      now: "2026-05-16T00:00:00Z",
+      events: [
+        { ...common, retrievalContext: { ...common.retrievalContext, resultRank: 1 } },
+        { ...common, retrievalContext: { ...common.retrievalContext, resultRank: 2 } },
+      ],
+    });
+    assert.equal(written.events.length, 2);
+    assert.equal(
+      written.ledger_ref,
+      "_workmeta/TEST/reports/knowledge_access/events/2026/2026-05/node_fixture.jsonl",
+    );
+    assert.equal((await readRows(written.ledger_path)).length, 2);
+
+    const mirrored = await appendKnowledgeAccessEventBatch({
+      repoRoot,
+      ledgerRoot,
+      ledgerShardId: "node_mirror_fixture",
+      now: "2026-05-16T00:00:00Z",
+      events: [
+        { ...common, retrievalContext: { ...common.retrievalContext, resultRank: 1 } },
+        { ...common, retrievalContext: { ...common.retrievalContext, resultRank: 2 } },
+      ],
+    });
+    assert.deepEqual(
+      mirrored.events.map((event) => event.event_id),
+      written.events.map((event) => event.event_id),
+    );
+    assert.deepEqual(
+      mirrored.events.map((event) => event.dedupe_key),
+      written.events.map((event) => event.dedupe_key),
+    );
+
+    const invalidTarget = resolveLedgerTarget({
+      repoRoot,
+      ledgerRoot,
+      ledgerShardId: "node_invalid_fixture",
+      now: "2026-05-16T00:00:00Z",
+    });
+    await assert.rejects(
+      () =>
+        appendKnowledgeAccessEventBatch({
+          repoRoot,
+          ledgerRoot,
+          ledgerShardId: "node_invalid_fixture",
+          now: "2026-05-16T00:00:00Z",
+          events: [
+            { ...common, retrievalContext: { ...common.retrievalContext, resultRank: 1 } },
+            {
+              ...common,
+              retrievalContext: { ...common.retrievalContext, resultRank: 2, selectedForContext: false },
+            },
+          ],
+        }),
+      /knowledge_access_event_batch_invalid/,
+    );
+    await assert.rejects(() => readFile(invalidTarget.path, "utf8"), /ENOENT/);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
 
 test("readKnowledgeRefAndRecord returns target content and appends one metadata-only row", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-knowledge-read-"));
@@ -546,9 +712,20 @@ test("analyzeKnowledgeAccessLedgers rolls up explicit JSONL ledgers without copy
       now: "2026-05-16T07:00:00.000Z",
       actorType: "tool",
       actorId: "tool_fixture",
-      accessType: "read",
+      accessType: "retrieve",
       outcomeState: "useful",
+      projectCode: "P24-049",
+      gateId: "CDR",
+      branchId: "branch:fixture:design",
       workflowId: "workflow_fixture",
+      revisionRef: "source_revision:fixture:v1",
+      retrievalContext: {
+        retrievalRunRef: "run:fixture:retrieval",
+        traceId: "trace_fixture",
+        queryFingerprint: "query_fixture_hash",
+        resultRank: 1,
+        selectedForContext: true,
+      },
       manualAgentNote: "DO_NOT_COPY_THIS_LEDGER_NOTE",
     });
     await recordKnowledgeAccess({
@@ -592,13 +769,21 @@ test("analyzeKnowledgeAccessLedgers rolls up explicit JSONL ledgers without copy
     assert.equal(targetA.total_access_count, 2);
     assert.equal(targetA.useful_access_count, 1);
     assert.equal(targetA.blocked_access_count, 1);
+    assert.equal(targetA.retrieve_count, 1);
+    assert.equal(targetA.apply_count, 0);
+    assert.equal(targetA.substantive_use_count, 1);
     assert.equal(targetA.cite_or_promote_count, 1);
     assert.deepEqual(targetA.actor_type_counts, { tool: 1, workflow: 1 });
-    assert.deepEqual(targetA.access_type_counts, { cite: 1, read: 1 });
+    assert.deepEqual(targetA.access_type_counts, { cite: 1, retrieve: 1 });
     assert.deepEqual(targetA.context_counts, { "workflow:workflow_fixture": 2 });
+    assert.deepEqual(targetA.project_counts, { "P24-049": 1 });
+    assert.deepEqual(targetA.gate_counts, { CDR: 1 });
+    assert.deepEqual(targetA.branch_counts, { "branch:fixture:design": 1 });
 
     const targetB = result.usage_rollup.counts_by_target.find((row) => row.knowledge_ref === "docs/knowledge/b.md");
     assert.equal(targetB.total_access_count, 1);
+    assert.equal(targetB.apply_count, 0);
+    assert.equal(targetB.substantive_use_count, 1);
     assert.equal(targetB.cite_or_promote_count, 1);
     assert.deepEqual(targetB.context_counts, { "skill:skill_fixture": 1 });
     assert.equal(result.boundary_review_note.boundary_decision, "metadata_rollup_only");

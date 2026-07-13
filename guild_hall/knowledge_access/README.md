@@ -3,6 +3,9 @@
 ## Purpose
 
 - `knowledge_access/` is a small public-safe command surface for proving that ordinary knowledge ref reads/uses can append metadata-only ledger rows.
+- Persisted metadata-RAG and source-text answer runs use the same writer to append selected-evidence `retrieve` rows automatically; ordinary editor/file/Wiki reads remain unobserved unless their adapter calls the writer.
+- Automatic RAG writers validate the whole selected-evidence batch before one append and use an opaque per-node shard under `events/<year>/<year-month>/`; this prevents validation-partial batches and avoids four PCs writing the same monthly file.
+- New rows carry a storage-independent logical `dedupe_key`; validators recompute it from canonical event identity before snapshot aggregation, which falls back to legacy `event_id` only for older rows without the key.
 - It supports `read` for repo-relative public knowledge files and `record` for use/citation events where the target payload is not read.
 - It supports `analyze`/`rollup` for explicit JSONL ledger files or repo-relative ledger refs, producing metadata-only usage rollup and boundary review note JSON.
 - It supports `notebooklm-bridge` for importing explicit NotebookLM-like metadata binding/source-ledger/query-log files into `imported_log_entry` rows plus a metadata-only summary.
@@ -17,6 +20,7 @@
 ```bash
 npm run guild-hall:knowledge-access -- read --ref docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md --ledger-root _workmeta/system/reports/knowledge_access --reason-used "checked activity contract"
 npm run guild-hall:knowledge-access -- record --ref docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md --ledger-root _workmeta/system/reports/knowledge_access --access-type cite --reason-used "cited activity contract" --output-ref _workmeta/system/reports/example.md
+npm run guild-hall:knowledge-access -- record --ref knowledge:dapa_guidebook --ledger-root _workmeta/system/reports/knowledge_access --access-type apply --project-code P24-049 --gate-id CDR --branch-id branch:P24-049:verification --revision-ref source_revision:dapa:v1 --reason-used "applied approved guide rule" --output-ref _workmeta/P24-049/reports/example.md
 npm run guild-hall:knowledge-access -- record --ref docs/architecture/guild_hall/KNOWLEDGE_OPERATING_MODEL_V0.md --ledger-root _workmeta/system/reports/knowledge_access --capture-mode automatic_end_of_task_trigger_check --access-type route --trigger-result metadata_only_record --suggested-route knowledge_access_ledger --claim-ceiling observed --reason-used "end-of-task trigger check used this ref"
 npm run guild-hall:knowledge-access -- analyze --ledger-ref _workmeta/system/reports/knowledge_access/events/2026/2026-05.jsonl
 npm run guild-hall:knowledge-access -- notebooklm-bridge --binding-ref docs/architecture/workspace/examples/notebooklm_bridge/synthetic_notebooklm_binding.yaml --ledger-file _workmeta/system/reports/knowledge_access/notebooklm_bridge.jsonl
@@ -73,10 +77,14 @@ Keep this in user/project Codex hook config, not in public runtime ledger data. 
 - Stop hook guard output is a compact missing-line continuation request only; it does not evaluate candidate quality, scan transcripts, or store `없음` / legacy `no_trigger` rows.
 - Rule-hardening Stop hook output is also a compact missing-line continuation request only; it does not judge candidate quality, scan transcripts, write indexes, or promote rules.
 - Source file payloads are returned only by `read`; they are never copied into the JSONL row.
+- `retrieve` means selected into an answer context. `cite` and `apply` are separate later events; retrieval count alone is not evidence of project application or source importance.
+- Persisted RAG answer writers record opaque chunk/unit ids, index refs, rank, query fingerprint, and output refs. They do not copy raw questions, source text, chunk bodies, or private runtime paths.
 - `analyze`/`rollup` reads only explicit `.jsonl` ledger files or repo-relative ledger refs. It does not scan directories, follow ledger roots, read target payloads, or mutate canon/ontology/graph state.
 - `notebooklm-bridge` reads only explicit metadata files. It does not call `nlm`, inspect NotebookLM auth/session files, copy source/query payloads or free-form query-log reason prose, or infer events when the query log has no importable rows.
 - `notebooklm-bridge` rejects malformed `timestamp_utc` values, unsafe `entry_ref` auth/session/runtime paths, and invalid event enum cells without echoing rejected cell payloads.
 - Rollup output includes counts, recency, actor/access/context count metadata, issue summaries, and boundary note checks only. Invalid rows are reported by safe source ref and line number without echoing row payloads.
+- `apply_count` means exact `apply` events. `substantive_use_count` includes `apply`, `cite`, `promote`, and `validate`; neither is inferred from retrieval.
+- Persisted RAG outputs use an atomically reserved occurrence-immutable path plus `output_revision_ref`. Shared workspace outputs use one output-global reservation in the shared workspace coordination surface, independent of project code; project-private outputs reserve inside their `_workmeta` owner. A metadata-only pending receipt lives under the matching project/system `_workmeta` access-history owner before the artifact and is marked recorded only after ledger append plus read-back verification of the expected physical `ledger_ref`. Reconciliation uses the recovering PC's separate shard, so pending receipts can be closed without rerunning the LLM answer or writing another PC's shard. Cross-PC exclusion requires every writer to see the same shared workspace filesystem.
 - NotebookLM-like imported rows remain advisory signals only; analyzer output is not canon validation, owner approval, or graph mutation.
 - Candidate ledger rows are metadata-only deferred signals; validation rejects raw payload-like fields, raw payload refs/extensions, absolute runtime paths, traversal, secret-like values, invalid project codes, and routes/claim ceilings that imply automatic source truth, graph mutation, canon promotion, or RAG ingestion.
 - Candidate ledger triage reads only explicit candidate JSONL rows and emits dry-run grouping, owner questions, and recommended next actions; it performs no sourcebound review, RAG ingestion, ontology/canon promotion, graph mutation, archive, or retire action.

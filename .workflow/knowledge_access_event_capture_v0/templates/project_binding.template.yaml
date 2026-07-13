@@ -17,12 +17,23 @@ ledger_capture_policy:
   workflow_run_required_per_access: false
   early_capture_mode: manual_agent_entry
   automation_appenders_allowed_later: true
+  persisted_rag_answer_retrieve_events_enabled: true
+  persisted_rag_answer_pending_receipt_required: true
+  persisted_rag_output_occurrence_immutable: true
+  wiki_and_general_read_writers_required_separately: true
 public_safety_policy:
   store_metadata_only: true
   copy_raw_knowledge_payloads: false
   copy_advisory_answers: false
   host_absolute_paths_allowed: false
 retention_label_policy_ref: "<policy_ref>"
+retention_importance_guards:
+  - authority
+  - applicability
+  - dependency
+  - uniqueness
+  - lifecycle_or_conflict
+  - access_log_coverage
 archive_retire_authority:
   requires_owner_decision_or_declared_policy: true
   owner_decision_refs: []

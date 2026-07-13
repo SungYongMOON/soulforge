@@ -12,12 +12,19 @@ counts_by_target:
     total_access_count: 0
     useful_access_count: 0
     blocked_access_count: 0
+    retrieve_count: 0
+    apply_count: 0
+    substantive_use_count: 0
     cite_or_promote_count: 0
     last_access_timestamp_utc: null
     actor_type_counts: {}
     access_type_counts: {}
     context_counts: {}
+    project_counts: {}
+    gate_counts: {}
+    branch_counts: {}
 count_semantics:
   count_is_signal_not_truth: true
   duplicate_suspects_excluded_or_flagged: true
   blocked_events_counted_separately: true
+  retrieval_and_application_counted_separately: true

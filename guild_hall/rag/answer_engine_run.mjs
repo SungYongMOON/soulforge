@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import path from "node:path";
-import { normalizeRepoPath, readJson, writeJson } from "../shared/io.mjs";
+import { normalizeRepoPath, pathExists, readJson, writeJson } from "../shared/io.mjs";
 import {
   buildRagRetrievalTrace,
   loadRagMetadataIndex,
@@ -15,6 +15,12 @@ import {
   loadSourceTextExtractionRunReport,
   validateSourceTextExtractionRunReport,
 } from "./source_text_extraction_run_report.mjs";
+import {
+  prepareRagRetrievalAccessPendingReceipt,
+  recordRagRetrievalAccessEvents,
+  releaseRagOutputOccurrence,
+  reserveRagOutputOccurrence,
+} from "./knowledge_access_capture.mjs";
 
 export const RAG_ANSWER_ENGINE_RUN_SCHEMA_VERSION = "soulforge.rag_answer_engine_run.v0";
 export const RAG_ANSWER_ENGINE_RUN_VALIDATION_SCHEMA_VERSION =
@@ -74,11 +80,12 @@ export async function buildRagAnswerEngineRun(options = {}) {
     ? await loadSourceTextExtractionRunReport({ repoRoot, runReportRef: options.extractionRunReportRef })
     : null);
   const reportValidation = extractionRunReport ? validateSourceTextExtractionRunReport(extractionRunReport) : null;
+  const generatedAtUtc = formatTimestampUtc(options.now);
   const runId = normalizeSimpleId(
-    options.runId ?? `answer_engine_run_${stableHash(`${metadataIndex?.index_id ?? "unknown"}:${question}`).slice(0, 12)}`,
+    options.runId ??
+      `answer_engine_run_${compactOccurrenceTimestamp(generatedAtUtc)}_${stableHash(`${metadataIndex?.index_id ?? "unknown"}:${question}`).slice(0, 12)}`,
     "run_id",
   );
-  const generatedAtUtc = formatTimestampUtc(options.now);
   const base = {
     schema_version: RAG_ANSWER_ENGINE_RUN_SCHEMA_VERSION,
     kind: "rag_answer_engine_run",
@@ -208,15 +215,63 @@ export async function writeRagAnswerEngineRun(options = {}) {
     projectCode: options.projectCode,
   });
   const outputPath = path.join(repoRoot, safeAnswerEngineRunOutputPath(outputRef));
-  await writeJson(outputPath, run);
-  return {
-    status: "written",
-    answer_engine_run_ref: normalizeRepoPath(path.relative(repoRoot, outputPath)),
-    run_id: run.run_id,
-    response_status: run.status,
-    retrieved_unit_count: run.response.retrieved_unit_count,
-    sourcebound_target_count: run.response.sourcebound_target_count,
+  const answerEngineRunRef = normalizeRepoPath(path.relative(repoRoot, outputPath));
+  const knowledgeAccessOptions = {
+    repoRoot,
+    enabled: options.knowledgeAccessLog !== false,
+    ledgerRoot: options.knowledgeAccessLedgerRoot,
+    ledgerShardId: options.knowledgeAccessLedgerShardId,
+    projectCode: options.projectCode,
+    gateId: options.gateId,
+    branchId: options.branchId,
+    taskRef: options.taskRef,
+    outputRef: answerEngineRunRef,
+    outputRevisionRef: `sha256:${stableHash(run)}`,
+    actorId: "guild_hall.rag.answer_engine",
+    reasonUsed: "rag metadata retrieval selected evidence for answer context",
+    queryFingerprint: run.query?.query_fingerprint,
+    traceId: run.retrieval_trace?.trace_id,
+    targets: (run.retrieval_trace?.retrieved_units ?? []).map((unit, index) => ({
+      knowledgeRef: `rag_unit:${stableHash(unit.unit_ref).slice(0, 32)}`,
+      targetType: "rag_metadata_unit",
+      revisionRef: run.source_refs?.index_id ? `rag_index:${run.source_refs.index_id}` : null,
+      resultRank: index + 1,
+    })),
+    now: run.generated_at_utc,
   };
+  const reservation = await reserveRagOutputOccurrence({
+    repoRoot,
+    projectCode: options.projectCode,
+    outputRef: answerEngineRunRef,
+    outputRevisionRef: knowledgeAccessOptions.outputRevisionRef,
+    now: run.generated_at_utc,
+  });
+  try {
+    if (await pathExists(outputPath)) {
+      throw new Error("answer_engine_run_output_already_exists");
+    }
+    const pendingKnowledgeAccess = await prepareRagRetrievalAccessPendingReceipt(knowledgeAccessOptions);
+    await writeJson(outputPath, run);
+    const knowledgeAccess = await recordRagRetrievalAccessEvents({
+      ...knowledgeAccessOptions,
+      pendingReceiptRef: pendingKnowledgeAccess.pending_receipt_ref,
+    });
+    return {
+      status: "written",
+      answer_engine_run_ref: answerEngineRunRef,
+      run_id: run.run_id,
+      response_status: run.status,
+      retrieved_unit_count: run.response.retrieved_unit_count,
+      sourcebound_target_count: run.response.sourcebound_target_count,
+      knowledge_access_status: knowledgeAccess.status,
+      knowledge_access_event_count: knowledgeAccess.event_count,
+      knowledge_access_ledger_ref: knowledgeAccess.ledger_ref,
+      knowledge_access_receipt_ref: knowledgeAccess.receipt_ref ?? null,
+      output_revision_ref: knowledgeAccessOptions.outputRevisionRef,
+    };
+  } finally {
+    await releaseRagOutputOccurrence({ repoRoot, reservationRef: reservation.reservation_ref });
+  }
 }
 
 export async function loadRagAnswerEngineRun({ repoRoot = process.cwd(), runRef } = {}) {
@@ -577,6 +632,10 @@ function formatTimestampUtc(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) throw new Error("invalid_timestamp");
   return date.toISOString();
+}
+
+function compactOccurrenceTimestamp(value) {
+  return String(value).replace(/[-:.]/gu, "");
 }
 
 function stableHash(value) {

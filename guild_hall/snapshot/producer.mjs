@@ -1,10 +1,15 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { promises as fs } from "node:fs";
+import { createReadStream, promises as fs } from "node:fs";
 import path from "node:path";
+import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { normalizeBattleEvent } from "../battle_log/battle_log.mjs";
+import {
+  KNOWLEDGE_ACCESS_EVENT_SCHEMA_VERSION,
+  validateKnowledgeAccessEvent,
+} from "../knowledge_access/ledger.mjs";
 import { pathExists, readJson, writeJson } from "../shared/io.mjs";
 
 export const SNAPSHOT_VERSION = "soulforge.snapshot.v0";
@@ -110,6 +115,30 @@ const KNOWLEDGE_LANE_OWNER_GATED_STATES = new Set([
 ]);
 const AUTH_SESSION_ENTRY_NAME_PATTERN =
   /(^|[._-])(auth|oauth|session|sessions|token|tokens|cookie|cookies|credential|credentials|secret|secrets)([._-]|$)/i;
+const KNOWLEDGE_ACCESS_SUBSTANTIVE_TYPES = new Set(["apply", "cite", "promote", "validate"]);
+const KNOWLEDGE_LANE_NUMERIC_EVIDENCE_COUNT_KEYS = [
+  "project_knowledge_access_surface_count",
+  "project_knowledge_access_entry_count",
+  "project_procedure_capture_surface_count",
+  "project_ontology_surface_count",
+  "system_knowledge_access_entry_count",
+  "knowledge_access_retrieve_count",
+  "knowledge_access_apply_count",
+  "knowledge_access_substantive_use_count",
+  "knowledge_access_useful_access_count",
+  "knowledge_access_ledger_file_count",
+  "knowledge_access_jsonl_row_count",
+  "knowledge_access_invalid_event_count",
+  "knowledge_access_duplicate_event_count",
+  "knowledge_access_unreadable_file_count",
+  "system_procedure_capture_entry_count",
+];
+const KNOWLEDGE_LANE_BOOLEAN_EVIDENCE_COUNT_KEYS = [
+  "system_knowledge_access_present",
+  "system_procedure_capture_present",
+  "local_activity_surface_present",
+  "private_activity_mirror_present",
+];
 const KNOWLEDGE_LANE_REFS = {
   operatingModel: "docs/architecture/guild_hall/KNOWLEDGE_OPERATING_MODEL_V0.md",
   helperRoot: "guild_hall/knowledge_access",
@@ -171,10 +200,11 @@ export async function buildSnapshot(options = {}) {
   const missions = await summarizeMissions(repoRoot, diagnostics);
   const gateway = await summarizeGateway(repoRoot);
   const privateState = await summarizePrivateState(repoRoot);
-  const knowledgeLane = await summarizeKnowledgeLane(repoRoot);
+  const knowledgeLaneSurface = await collectKnowledgeLaneSurfaceSignals(repoRoot);
+  const knowledgeLane = await summarizeKnowledgeLane(repoRoot, knowledgeLaneSurface);
   const battleLog = await summarizeBattleLog(repoRoot);
   const repo = summarizeRepo(repoRoot);
-  const sourceObservations = await collectSourceObservations(repoRoot, generatedAt);
+  const sourceObservations = await collectSourceObservations(repoRoot, generatedAt, { knowledgeLaneSurface });
   const nextActions = [
     {
       id: "snapshot_schema",
@@ -1131,6 +1161,25 @@ function validateKnowledgeLaneSnapshotContract(snapshot, errors, options = {}) {
   }
   if (!evidence?.counts || typeof evidence.counts !== "object" || Array.isArray(evidence.counts)) {
     errors.push(`${label}knowledge_lane.evidence.counts must be an object`);
+  } else {
+    for (const key of KNOWLEDGE_LANE_NUMERIC_EVIDENCE_COUNT_KEYS) {
+      if (!Number.isSafeInteger(evidence.counts[key]) || evidence.counts[key] < 0) {
+        errors.push(`${label}knowledge_lane.evidence.counts.${key} must be a nonnegative safe integer`);
+      }
+    }
+    for (const key of KNOWLEDGE_LANE_BOOLEAN_EVIDENCE_COUNT_KEYS) {
+      if (typeof evidence.counts[key] !== "boolean") {
+        errors.push(`${label}knowledge_lane.evidence.counts.${key} must be a boolean`);
+      }
+    }
+  }
+  const latestAccessTimestampUtc = evidence?.latest_access_timestamp_utc;
+  if (
+    latestAccessTimestampUtc !== null &&
+    latestAccessTimestampUtc !== undefined &&
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/u.test(String(latestAccessTimestampUtc))
+  ) {
+    errors.push(`${label}knowledge_lane.evidence.latest_access_timestamp_utc must be null or second-precision UTC`);
   }
 
   if (typeof state === "string" && KNOWLEDGE_LANE_OWNER_GATED_STATES.has(state) && blockers && evidencePresent !== null) {
@@ -1184,6 +1233,14 @@ function validateKnowledgeLaneSnapshotContract(snapshot, errors, options = {}) {
   ) {
     errors.push(`${label}operation_board.summary.knowledge_evidence_surface_count must match knowledge_lane.evidence.total_surface_count`);
   }
+  if ((boardLane.latest_access_timestamp_utc ?? null) !== (latestAccessTimestampUtc ?? null)) {
+    errors.push(
+      `${label}operation_board.sections.knowledge_lane.latest_access_timestamp_utc must match knowledge_lane.evidence.latest_access_timestamp_utc`,
+    );
+  }
+  if (stableStringify(boardLane.evidence_counts ?? {}) !== stableStringify(evidence?.counts ?? {})) {
+    errors.push(`${label}operation_board.sections.knowledge_lane.evidence_counts must match knowledge_lane.evidence.counts`);
+  }
 }
 
 function compareKnowledgeLaneFreshnessSupport(storedSnapshot, currentSnapshot, errors) {
@@ -1215,7 +1272,7 @@ function knowledgeLaneFreshnessSupport(lane) {
   };
 }
 
-async function collectSourceObservations(repoRoot, observedAt) {
+async function collectSourceObservations(repoRoot, observedAt, options = {}) {
   const rawItems = await Promise.all([
     observeGitSource(repoRoot),
     observeFileSource(repoRoot, {
@@ -1241,7 +1298,7 @@ async function collectSourceObservations(repoRoot, observedAt) {
     observeWorkmetaSource(repoRoot),
     observeBattleLogSource(repoRoot),
     observeGatewaySource(repoRoot),
-    observeKnowledgeLaneSource(repoRoot),
+    observeKnowledgeLaneSource(repoRoot, options.knowledgeLaneSurface),
     observePrivateStateSource(repoRoot),
   ]);
   const items = rawItems.map(withObservationSignature);
@@ -1433,8 +1490,8 @@ async function observeGatewaySource(repoRoot) {
   };
 }
 
-async function observeKnowledgeLaneSource(repoRoot) {
-  const surface = await collectKnowledgeLaneSurfaceSignals(repoRoot);
+async function observeKnowledgeLaneSource(repoRoot, suppliedSurface = null) {
+  const surface = suppliedSurface ?? (await collectKnowledgeLaneSurfaceSignals(repoRoot));
   return {
     id: "knowledge_lane",
     source_ref: KNOWLEDGE_LANE_REFS.operatingModel,
@@ -1450,6 +1507,18 @@ async function observeKnowledgeLaneSource(repoRoot) {
       workflow_present_count: surface.workflows.present_count,
       fixture_present: surface.fixtures.notebooklm_bridge_public_synthetic_present,
       project_knowledge_access_surface_count: surface.evidence.counts.project_knowledge_access_surface_count,
+      project_knowledge_access_entry_count: surface.evidence.counts.project_knowledge_access_entry_count,
+      system_knowledge_access_entry_count: surface.evidence.counts.system_knowledge_access_entry_count,
+      knowledge_access_retrieve_count: surface.evidence.counts.knowledge_access_retrieve_count,
+      knowledge_access_apply_count: surface.evidence.counts.knowledge_access_apply_count,
+      knowledge_access_substantive_use_count: surface.evidence.counts.knowledge_access_substantive_use_count,
+      knowledge_access_useful_access_count: surface.evidence.counts.knowledge_access_useful_access_count,
+      knowledge_access_ledger_file_count: surface.evidence.counts.knowledge_access_ledger_file_count,
+      knowledge_access_jsonl_row_count: surface.evidence.counts.knowledge_access_jsonl_row_count,
+      knowledge_access_invalid_event_count: surface.evidence.counts.knowledge_access_invalid_event_count,
+      knowledge_access_duplicate_event_count: surface.evidence.counts.knowledge_access_duplicate_event_count,
+      knowledge_access_unreadable_file_count: surface.evidence.counts.knowledge_access_unreadable_file_count,
+      latest_access_timestamp_utc: surface.evidence.latest_access_timestamp_utc,
       project_procedure_capture_surface_count: surface.evidence.counts.project_procedure_capture_surface_count,
       project_ontology_surface_count: surface.evidence.counts.project_ontology_surface_count,
       latest_surface_mtime_ms: surface.latest_surface_mtime_ms,
@@ -1907,8 +1976,8 @@ async function summarizePrivateState(repoRoot) {
   };
 }
 
-async function summarizeKnowledgeLane(repoRoot) {
-  const surface = await collectKnowledgeLaneSurfaceSignals(repoRoot);
+async function summarizeKnowledgeLane(repoRoot, suppliedSurface = null) {
+  const surface = suppliedSurface ?? (await collectKnowledgeLaneSurfaceSignals(repoRoot));
   const blockers = buildKnowledgeLaneBlockers(surface);
 
   return {
@@ -1919,6 +1988,7 @@ async function summarizeKnowledgeLane(repoRoot) {
       source_fields: [
         "known public helper/doc/workflow/fixture path presence",
         "known private evidence directory presence and counts",
+        "canonical knowledge-access event metadata aggregates",
         "owner-gate and claim-ceiling metadata",
       ],
       excluded_fields: [
@@ -1946,6 +2016,7 @@ async function summarizeKnowledgeLane(repoRoot) {
       present: surface.evidence.present,
       total_surface_count: surface.evidence.total_surface_count,
       private_surface_count: surface.evidence.private_surface_count,
+      latest_access_timestamp_utc: surface.evidence.latest_access_timestamp_utc,
       counts: surface.evidence.counts,
     },
     claim_ceiling: KNOWLEDGE_LANE_CLAIM_CEILING,
@@ -2014,9 +2085,12 @@ async function collectKnowledgeLaneSurfaceSignals(repoRoot) {
   const projectSurfaceDirs = [];
   const projectEvidenceCounts = {
     project_knowledge_access_surface_count: 0,
+    project_knowledge_access_entry_count: 0,
     project_procedure_capture_surface_count: 0,
     project_ontology_surface_count: 0,
   };
+  const knowledgeAccessActivity = emptyKnowledgeAccessActivity();
+  const seenKnowledgeAccessEventIds = new Set();
 
   for (const projectCode of projectCodes) {
     const projectRoot = path.join(repoRoot, "_workmeta", projectCode);
@@ -2025,7 +2099,12 @@ async function collectKnowledgeLaneSurfaceSignals(repoRoot) {
     const ontologyRoot = path.join(projectRoot, "ontology");
     projectSurfaceDirs.push(knowledgeAccessRoot, procedureCaptureRoot, ontologyRoot);
 
-    if ((await countKnowledgeAccessEntryFiles(knowledgeAccessRoot)) > 0) {
+    const projectKnowledgeAccess = await summarizeKnowledgeAccessEntries(knowledgeAccessRoot, {
+      seenEventIds: seenKnowledgeAccessEventIds,
+    });
+    mergeKnowledgeAccessActivity(knowledgeAccessActivity, projectKnowledgeAccess);
+    projectEvidenceCounts.project_knowledge_access_entry_count += projectKnowledgeAccess.event_count;
+    if (projectKnowledgeAccess.event_count > 0) {
       projectEvidenceCounts.project_knowledge_access_surface_count += 1;
     }
     if (await pathExists(procedureCaptureRoot)) {
@@ -2036,11 +2115,24 @@ async function collectKnowledgeLaneSurfaceSignals(repoRoot) {
     }
   }
 
-  const systemKnowledgeAccessEntryCount = await countKnowledgeAccessEntryFiles(systemKnowledgeAccessRoot);
+  const systemKnowledgeAccess = await summarizeKnowledgeAccessEntries(systemKnowledgeAccessRoot, {
+    seenEventIds: seenKnowledgeAccessEventIds,
+  });
+  mergeKnowledgeAccessActivity(knowledgeAccessActivity, systemKnowledgeAccess);
+  const systemKnowledgeAccessEntryCount = systemKnowledgeAccess.event_count;
   const evidenceCounts = {
     ...projectEvidenceCounts,
     system_knowledge_access_present: await pathExists(systemKnowledgeAccessRoot),
     system_knowledge_access_entry_count: systemKnowledgeAccessEntryCount,
+    knowledge_access_retrieve_count: knowledgeAccessActivity.retrieve_count,
+    knowledge_access_apply_count: knowledgeAccessActivity.apply_count,
+    knowledge_access_substantive_use_count: knowledgeAccessActivity.substantive_use_count,
+    knowledge_access_useful_access_count: knowledgeAccessActivity.useful_access_count,
+    knowledge_access_ledger_file_count: knowledgeAccessActivity.ledger_file_count,
+    knowledge_access_jsonl_row_count: knowledgeAccessActivity.jsonl_row_count,
+    knowledge_access_invalid_event_count: knowledgeAccessActivity.invalid_event_count,
+    knowledge_access_duplicate_event_count: knowledgeAccessActivity.duplicate_event_count,
+    knowledge_access_unreadable_file_count: knowledgeAccessActivity.unreadable_file_count,
     system_procedure_capture_present: await pathExists(systemProcedureCaptureRoot),
     system_procedure_capture_entry_count: await countDirectoryEntries(systemProcedureCaptureRoot, { filesOnly: true }),
     local_activity_surface_present: await pathExists(localActivityRoot),
@@ -2080,6 +2172,7 @@ async function collectKnowledgeLaneSurfaceSignals(repoRoot) {
       present: privateSurfaceCount > 0,
       total_surface_count: privateSurfaceCount,
       private_surface_count: privateSurfaceCount,
+      latest_access_timestamp_utc: knowledgeAccessActivity.latest_access_timestamp_utc,
       counts: evidenceCounts,
     },
     latest_surface_mtime_ms: await latestMtimeMs([
@@ -2312,6 +2405,7 @@ function buildOperationBoardKnowledgeLane(knowledgeLane) {
     fixture_present: Boolean(knowledgeLane.fixtures?.notebooklm_bridge_public_synthetic_present),
     evidence_present: Boolean(knowledgeLane.evidence?.present),
     evidence_surface_count: numberValue(knowledgeLane.evidence?.total_surface_count) ?? 0,
+    latest_access_timestamp_utc: knowledgeLane.evidence?.latest_access_timestamp_utc ?? null,
     evidence_counts: knowledgeLane.evidence?.counts ?? {},
     blockers: Array.isArray(knowledgeLane.blockers) ? knowledgeLane.blockers : [],
     next_owner_review_action: knowledgeLane.next_owner_review_action,
@@ -2562,13 +2656,122 @@ async function countDirectoryEntries(root, options = {}) {
   }
 }
 
-async function countKnowledgeAccessEntryFiles(root) {
-  try {
-    const entries = await fs.readdir(root, { withFileTypes: true });
-    return entries.filter((entry) => entry.isFile() && !isAuthSessionEntryName(entry.name)).length;
-  } catch {
-    return 0;
+function emptyKnowledgeAccessActivity() {
+  return {
+    event_count: 0,
+    retrieve_count: 0,
+    apply_count: 0,
+    substantive_use_count: 0,
+    useful_access_count: 0,
+    ledger_file_count: 0,
+    jsonl_row_count: 0,
+    invalid_event_count: 0,
+    duplicate_event_count: 0,
+    unreadable_file_count: 0,
+    latest_access_timestamp_utc: null,
+  };
+}
+
+function mergeKnowledgeAccessActivity(target, source) {
+  target.event_count += source.event_count;
+  target.retrieve_count += source.retrieve_count;
+  target.apply_count += source.apply_count;
+  target.substantive_use_count += source.substantive_use_count;
+  target.useful_access_count += source.useful_access_count;
+  target.ledger_file_count += source.ledger_file_count;
+  target.jsonl_row_count += source.jsonl_row_count;
+  target.invalid_event_count += source.invalid_event_count;
+  target.duplicate_event_count += source.duplicate_event_count;
+  target.unreadable_file_count += source.unreadable_file_count;
+  if (
+    source.latest_access_timestamp_utc &&
+    (!target.latest_access_timestamp_utc || source.latest_access_timestamp_utc > target.latest_access_timestamp_utc)
+  ) {
+    target.latest_access_timestamp_utc = source.latest_access_timestamp_utc;
   }
+}
+
+async function summarizeKnowledgeAccessEntries(root, options = {}) {
+  const summary = emptyKnowledgeAccessActivity();
+  const jsonlFiles = await collectKnowledgeAccessJsonlFiles(root);
+  const seenEventIds = options.seenEventIds ?? new Set();
+  summary.ledger_file_count = jsonlFiles.length;
+
+  for (const filePath of jsonlFiles) {
+    try {
+      const lines = createInterface({ input: createReadStream(filePath), crlfDelay: Infinity });
+      for await (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) {
+          continue;
+        }
+        summary.jsonl_row_count += 1;
+
+        let event;
+        try {
+          event = JSON.parse(line);
+        } catch {
+          summary.invalid_event_count += 1;
+          continue;
+        }
+        if (
+          event?.schema_version !== KNOWLEDGE_ACCESS_EVENT_SCHEMA_VERSION ||
+          event?.kind !== "knowledge_access_event" ||
+          !validateKnowledgeAccessEvent(event).ok
+        ) {
+          summary.invalid_event_count += 1;
+          continue;
+        }
+        const dedupeKey = event.dedupe_key ?? event.event_id;
+        if (seenEventIds.has(dedupeKey)) {
+          summary.duplicate_event_count += 1;
+          continue;
+        }
+        seenEventIds.add(dedupeKey);
+
+        summary.event_count += 1;
+        if (event.access_type === "retrieve") {
+          summary.retrieve_count += 1;
+        }
+        if (event.access_type === "apply") {
+          summary.apply_count += 1;
+        }
+        if (KNOWLEDGE_ACCESS_SUBSTANTIVE_TYPES.has(event.access_type)) {
+          summary.substantive_use_count += 1;
+        }
+        if (event.outcome_state === "useful") {
+          summary.useful_access_count += 1;
+        }
+        if (!summary.latest_access_timestamp_utc || event.timestamp_utc > summary.latest_access_timestamp_utc) {
+          summary.latest_access_timestamp_utc = event.timestamp_utc;
+        }
+      }
+    } catch {
+      summary.unreadable_file_count += 1;
+      continue;
+    }
+  }
+
+  return summary;
+}
+
+async function collectKnowledgeAccessJsonlFiles(root) {
+  const files = [];
+  const entries = await readDirectoryEntries(root);
+
+  for (const entry of entries) {
+    if (isAuthSessionEntryName(entry.name)) {
+      continue;
+    }
+    const entryPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await collectKnowledgeAccessJsonlFiles(entryPath)));
+    } else if (entry.isFile() && path.extname(entry.name).toLowerCase() === ".jsonl") {
+      files.push(entryPath);
+    }
+  }
+
+  return files.sort();
 }
 
 function isAuthSessionEntryName(name) {

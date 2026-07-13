@@ -99,10 +99,17 @@ knowledge_access_contract:
     - outcome_state
   access_event_optional_fields:
     - ledger_ref
+    - dedupe_key
     - event_source_ref
     - manual_agent_note
+    - target.revision_ref
     - reason_used
     - output_ref
+    - output_revision_ref
+    - work_context.project_code
+    - work_context.gate_id
+    - work_context.branch_id
+    - retrieval_context
     - accumulation_delta_hint
   capture_modes:
     - manual_agent_entry
@@ -127,9 +134,11 @@ knowledge_access_contract:
     - tool
     - advisory_handoff
   access_types:
+    - retrieve
     - read
     - cite
     - summarize
+    - apply
     - route
     - promote
     - compare
@@ -157,6 +166,7 @@ knowledge_access_contract:
     - hot
     - warm
     - cold
+    - cold_essential
     - stale
     - archive_candidate
     - retire_candidate
@@ -171,6 +181,9 @@ knowledge_access_contract:
     ledger_entry_is_metadata_not_source_truth: true
     target_ref_points_to_existing_knowledge_not_copied_payload: true
     usage_count_is_signal_not_acceptance: true
+    retrieval_is_not_the_same_as_application: true
+    low_use_is_not_low_importance: true
+    important_low_use_knowledge_is_protected_from_automatic_archive: true
     retention_label_is_candidate_until_owner_policy_accepts: true
     archive_or_retire_requires_owner_decision_or_policy_gate: true
     knowledge_accumulation_delta_is_candidate_signal_not_acceptance: true
@@ -192,7 +205,9 @@ knowledge_access_contract:
 notes:
   - During ordinary work, agents or tooling append lightweight metadata-only ledger/register rows when a knowledge ref is used; this workflow is the later normalization, rollup, analysis, and routing lane for those rows.
   - This workflow must not copy source text, private packet payloads, advisory answers, credentials, or local runtime paths into public workflow canon.
-  - Labels such as hot, warm, cold, stale, archive candidate, retire candidate, strong, weak, orphan, and redundant are candidate signals until a project policy or owner decision accepts an action.
+  - Labels such as hot, warm, cold, cold_essential, stale, archive candidate, retire candidate, strong, weak, orphan, and redundant are candidate signals until a project policy or owner decision accepts an action.
+  - Retrieve events mean that a ref reached answer context; cite and apply events must be recorded separately when a ref is actually used in an answer, decision, task, or artifact.
+  - Retention review must combine usage with authority, applicability, dependency, uniqueness, lifecycle/conflict, and access-coverage guards; low use alone never authorizes archive or retire.
   - Output packets are designed to feed later graph or Obsidian-style visualization by carrying stable node refs, edge refs, event ids, counts, recency, outcome states, and confidence hints.
   - Knowledge accumulation deltas capture metadata-only changes in observed usage or candidate linkage; they are not ontology acceptance, source truth, or canon promotion.
   - The workflow is not profile-optimized and does not claim production readiness.

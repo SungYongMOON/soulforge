@@ -54,6 +54,23 @@ function normalizeMappedMonsterItem(item: unknown) {
 }
 
 const fixture = JSON.parse(await readFile(fixtureUrl, "utf8")) as Record<string, unknown>;
+const seededOperationBoard = asRecord(fixture.operation_board);
+const seededSections = asRecord(seededOperationBoard.sections);
+const seededKnowledgeLane = asRecord(seededSections.knowledge_lane);
+seededKnowledgeLane.latest_access_timestamp_utc = "2026-07-13T01:02:03Z";
+seededKnowledgeLane.evidence_counts = {
+  project_knowledge_access_entry_count: 4,
+  system_knowledge_access_entry_count: 3,
+  knowledge_access_retrieve_count: 2,
+  knowledge_access_apply_count: 1,
+  knowledge_access_substantive_use_count: 3,
+  knowledge_access_useful_access_count: 5,
+  knowledge_access_ledger_file_count: 2,
+  knowledge_access_jsonl_row_count: 8,
+  knowledge_access_invalid_event_count: 0,
+  knowledge_access_duplicate_event_count: 1,
+  knowledge_access_unreadable_file_count: 0
+};
 const response = mapSnapshotResponse(fixture, "fresh");
 
 assert.equal(response.status, "fresh");
@@ -132,6 +149,26 @@ const knowledgeLane = asRecord(sections.knowledge_lane);
 const fixtureKnowledgeLane = asRecord(fixtureSections.knowledge_lane);
 assert.equal(knowledgeLane.owner_gated_state, fixtureKnowledgeLane.owner_gated_state);
 assert.equal(knowledgeLane.claim_ceiling, fixtureKnowledgeLane.claim_ceiling);
+assert.equal(knowledgeLane.latest_access_timestamp_utc, "2026-07-13T01:02:03Z");
+assert.deepEqual(asRecord(knowledgeLane.evidence_counts), {
+  project_knowledge_access_surface_count: 0,
+  project_knowledge_access_entry_count: 4,
+  project_procedure_capture_surface_count: 0,
+  project_ontology_surface_count: 0,
+  system_knowledge_access_entry_count: 3,
+  knowledge_access_retrieve_count: 2,
+  knowledge_access_apply_count: 1,
+  knowledge_access_substantive_use_count: 3,
+  knowledge_access_useful_access_count: 5,
+  knowledge_access_ledger_file_count: 2,
+  knowledge_access_jsonl_row_count: 8,
+  knowledge_access_invalid_event_count: 0,
+  knowledge_access_duplicate_event_count: 1,
+  knowledge_access_unreadable_file_count: 0,
+  system_procedure_capture_entry_count: 0,
+  local_activity_surface_present: false,
+  private_activity_mirror_present: false
+});
 assert.deepEqual(
   asArray(knowledgeLane.blockers).map((item) => asRecord(item).summary),
   asArray(fixtureKnowledgeLane.blockers).map((item) => asRecord(item).summary)

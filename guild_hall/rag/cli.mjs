@@ -233,11 +233,22 @@ import {
   validateKnowledgeSourceStorageAudit,
   writeKnowledgeSourceStorageAudit,
 } from "./source_storage_audit.mjs";
+import { reconcileRagRetrievalAccessPendingReceipt } from "./knowledge_access_capture.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
   const args = parseArgs(rest);
   const repoRoot = path.resolve(args["repo-root"] ?? process.cwd());
+
+  if (command === "reconcile-knowledge-access-receipt") {
+    printJson(
+      await reconcileRagRetrievalAccessPendingReceipt({
+        repoRoot,
+        receiptRef: optionalStringArg(args, "receipt-ref"),
+      }),
+    );
+    return;
+  }
 
   if (command === "master-inventory-refresh" || command === "refresh-master-inventory") {
     const scanRoots = arrayArg(args, "scan-root");
@@ -848,6 +859,12 @@ async function main() {
       outputRef: optionalStringArg(args, "output-ref"),
       maxChunks: args["max-chunks"],
       traceabilitySidecarRef: optionalStringArg(args, "traceability-sidecar-ref"),
+      projectCode: optionalStringArg(args, "project-code"),
+      gateId: optionalStringArg(args, "gate-id"),
+      branchId: optionalStringArg(args, "branch-id"),
+      taskRef: optionalStringArg(args, "task-ref"),
+      knowledgeAccessLedgerRoot: optionalStringArg(args, "knowledge-access-ledger-root"),
+      knowledgeAccessLog: true,
       now: optionalStringArg(args, "now"),
     };
     if (args.write) {
@@ -2045,6 +2062,11 @@ async function main() {
       traceId: optionalStringArg(args, "trace-id"),
       outputRef: optionalStringArg(args, "output-ref"),
       projectCode: optionalStringArg(args, "project-code"),
+      gateId: optionalStringArg(args, "gate-id"),
+      branchId: optionalStringArg(args, "branch-id"),
+      taskRef: optionalStringArg(args, "task-ref"),
+      knowledgeAccessLedgerRoot: optionalStringArg(args, "knowledge-access-ledger-root"),
+      knowledgeAccessLog: true,
       maxUnits: args["max-units"],
       now: optionalStringArg(args, "now"),
     };
@@ -2308,6 +2330,7 @@ function printUsageAndExit() {
   process.stderr.write(
     [
       "Usage:",
+      "  node guild_hall/rag/cli.mjs reconcile-knowledge-access-receipt --receipt-ref <repo-relative-pending-receipt-json>",
       "  node guild_hall/rag/cli.mjs master-inventory-refresh [--write] [--date YYYY-MM-DD | --now <iso>] [--inventory-id <id>] [--output-root-ref <repo-relative-dir>] [--ledger-root-ref <repo-relative-dir>] [--notebooklm-metadata-ref <repo-relative-json>] [--scan-root <repo-relative-dir> ...] [--full]",
       "  node guild_hall/rag/cli.mjs validate-master-inventory-refresh --inventory-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs knowledge-source-storage-audit [--write] [--date YYYY-MM-DD | --now <iso>] [--audit-id <id>] [--output-root-ref <repo-relative-dir>] [--workmeta-root-ref <repo-relative-dir>] [--workspace-root-ref <repo-relative-dir> ...] [--skip-workspace-scan] [--hash-files] [--max-orphan-rows <n>] [--full]",
@@ -2341,7 +2364,7 @@ function printUsageAndExit() {
       "  node guild_hall/rag/cli.mjs validate-weekly-triage-report --report-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs source-text-traceability-sidecar [--write] --source-text-index-ref <repo-relative-json> --docling-json-ref <repo-relative-json> [--traceability-id <id>] [--output-ref <repo-relative-json>]",
       "  node guild_hall/rag/cli.mjs validate-source-text-traceability-sidecar --traceability-sidecar-ref <repo-relative-json>",
-      "  node guild_hall/rag/cli.mjs source-text-answer-run [--write] --source-text-index-ref <repo-relative-json> --question <question> [--traceability-sidecar-ref <repo-relative-json>] [--run-id <id>] [--max-chunks <n>] [--text]",
+      "  node guild_hall/rag/cli.mjs source-text-answer-run [--write] --source-text-index-ref <repo-relative-json> --question <question> [--traceability-sidecar-ref <repo-relative-json>] [--run-id <id>] [--max-chunks <n>] [--project-code <code>] [--gate-id <id>] [--branch-id <id>] [--task-ref <ref>] [--text]",
       "  node guild_hall/rag/cli.mjs validate-source-text-answer-run --run-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs source-text-quality-review [--write] --source-text-index-ref <repo-relative-json> --traceability-sidecar-ref <repo-relative-json> [--answer-run-ref <repo-relative-json>] [--page <n|start-end>] [--review-id <id>] [--output-ref <repo-relative-json>]",
       "  node guild_hall/rag/cli.mjs validate-source-text-quality-review --review-ref <repo-relative-json>",
@@ -2407,7 +2430,7 @@ function printUsageAndExit() {
       "  node guild_hall/rag/cli.mjs operational-route-status [--write] --route-registry-ref <repo-relative-yaml> [--usage-root-ref <repo-relative-dir>] [--candidate-root-ref <repo-relative-dir>] [--text]",
       "  node guild_hall/rag/cli.mjs validate-operational-route-status --operational-route-status-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs operational-route-status-view --operational-route-status-ref <repo-relative-json> [--json]",
-      "  node guild_hall/rag/cli.mjs answer-engine-run [--write] --metadata-index-ref <repo-relative-json> [--extraction-packet-ref <repo-relative-json>] [--extraction-run-report-ref <repo-relative-json>] --question <question> [--run-id <id>] [--text]",
+      "  node guild_hall/rag/cli.mjs answer-engine-run [--write] --metadata-index-ref <repo-relative-json> [--extraction-packet-ref <repo-relative-json>] [--extraction-run-report-ref <repo-relative-json>] --question <question> [--run-id <id>] [--project-code <code>] [--gate-id <id>] [--branch-id <id>] [--task-ref <ref>] [--text]",
       "  node guild_hall/rag/cli.mjs validate-answer-engine-run --run-ref <repo-relative-json>",
       "  node guild_hall/rag/cli.mjs metadata-index [--write] --manifest-ref <repo-relative-json> [--decision-packet-ref <repo-relative-json>] [--owner-decision-record-ref <repo-relative-json>] [--index-id <id>] [--project-code <code>] [--output-ref <repo-relative-json>]",
       "  node guild_hall/rag/cli.mjs validate-metadata-index --metadata-index-ref <repo-relative-json>",
@@ -2421,6 +2444,7 @@ function printUsageAndExit() {
       "Notes:",
       "  master-inventory-refresh regenerates the private metadata-only knowledge control surface under _workmeta/system/reports/knowledge_wiki; it uses NotebookLM metadata mirrors only and does not query NotebookLM live.",
       "  knowledge-source-storage-audit generates private metadata-only storage reports from _workmeta ledgers and workspace pointers; it does not copy, move, delete, upload, or decode source payloads.",
+      "  Persisted answer-engine and source-text answer runs append selected-evidence retrieve events to _workmeta/<project|system>/reports/knowledge_access; raw questions and source/chunk bodies are not copied into the ledger.",
       "  The manifest/metadata commands stay metadata-only. The source-text commands read only owner-approved _workspaces/knowledge source cards and write private workspace payload artifacts.",
       "  Operational route candidate records persist only query fingerprints for unmatched labels; they do not update route registries or create default routes.",
       "  Operational route status combines registry validation, usage summaries, and candidate counts into one metadata-only operator dashboard.",

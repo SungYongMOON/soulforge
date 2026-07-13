@@ -18,9 +18,19 @@ const KNOWLEDGE_LANE_OWNER_GATED_STATES = new Set<KnowledgeLaneOwnerGatedState>(
 const KNOWLEDGE_LANE_CLAIM_CEILING: KnowledgeLaneClaimCeiling = "observed";
 const KNOWLEDGE_LANE_NUMERIC_EVIDENCE_COUNT_KEYS = [
   "project_knowledge_access_surface_count",
+  "project_knowledge_access_entry_count",
   "project_procedure_capture_surface_count",
   "project_ontology_surface_count",
   "system_knowledge_access_entry_count",
+  "knowledge_access_retrieve_count",
+  "knowledge_access_apply_count",
+  "knowledge_access_substantive_use_count",
+  "knowledge_access_useful_access_count",
+  "knowledge_access_ledger_file_count",
+  "knowledge_access_jsonl_row_count",
+  "knowledge_access_invalid_event_count",
+  "knowledge_access_duplicate_event_count",
+  "knowledge_access_unreadable_file_count",
   "system_procedure_capture_entry_count"
 ] as const satisfies readonly KnowledgeLaneNumericEvidenceCountKey[];
 const KNOWLEDGE_LANE_BOOLEAN_EVIDENCE_COUNT_KEYS = [
@@ -63,9 +73,19 @@ type KnowledgeLaneOwnerGatedState = "blocked_missing_surface" | "awaiting_metada
 type KnowledgeLaneClaimCeiling = "observed";
 type KnowledgeLaneNumericEvidenceCountKey =
   | "project_knowledge_access_surface_count"
+  | "project_knowledge_access_entry_count"
   | "project_procedure_capture_surface_count"
   | "project_ontology_surface_count"
   | "system_knowledge_access_entry_count"
+  | "knowledge_access_retrieve_count"
+  | "knowledge_access_apply_count"
+  | "knowledge_access_substantive_use_count"
+  | "knowledge_access_useful_access_count"
+  | "knowledge_access_ledger_file_count"
+  | "knowledge_access_jsonl_row_count"
+  | "knowledge_access_invalid_event_count"
+  | "knowledge_access_duplicate_event_count"
+  | "knowledge_access_unreadable_file_count"
   | "system_procedure_capture_entry_count";
 type KnowledgeLaneBooleanEvidenceCountKey = "local_activity_surface_present" | "private_activity_mirror_present";
 type KnowledgeLaneEvidenceCounts = Record<KnowledgeLaneNumericEvidenceCountKey, number> & Record<KnowledgeLaneBooleanEvidenceCountKey, boolean>;
@@ -150,6 +170,7 @@ interface DungeonMapKnowledgeLane {
   fixture_present: boolean;
   evidence_present: boolean;
   evidence_surface_count: number;
+  latest_access_timestamp_utc: string | null;
   evidence_counts: KnowledgeLaneEvidenceCounts;
   blockers: DungeonMapKnowledgeLaneBlocker[];
   next_owner_review_action: string | null;
@@ -854,6 +875,7 @@ function mapKnowledgeLane(item: unknown): DungeonMapKnowledgeLane | null {
     fixture_present: booleanField(item.fixture_present),
     evidence_present: booleanField(item.evidence_present),
     evidence_surface_count: countField(item.evidence_surface_count),
+    latest_access_timestamp_utc: nullableStringField(item.latest_access_timestamp_utc),
     evidence_counts: mapKnowledgeLaneEvidenceCounts(item.evidence_counts),
     blockers: arrayField(item.blockers).map(mapKnowledgeLaneBlocker),
     next_owner_review_action: nullableStringField(item.next_owner_review_action)

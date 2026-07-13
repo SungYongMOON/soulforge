@@ -17,9 +17,19 @@ type KnowledgeLaneOwnerGatedState = "blocked_missing_surface" | "awaiting_metada
 type KnowledgeLaneClaimCeiling = "observed";
 type KnowledgeLaneNumericEvidenceCountKey =
   | "project_knowledge_access_surface_count"
+  | "project_knowledge_access_entry_count"
   | "project_procedure_capture_surface_count"
   | "project_ontology_surface_count"
   | "system_knowledge_access_entry_count"
+  | "knowledge_access_retrieve_count"
+  | "knowledge_access_apply_count"
+  | "knowledge_access_substantive_use_count"
+  | "knowledge_access_useful_access_count"
+  | "knowledge_access_ledger_file_count"
+  | "knowledge_access_jsonl_row_count"
+  | "knowledge_access_invalid_event_count"
+  | "knowledge_access_duplicate_event_count"
+  | "knowledge_access_unreadable_file_count"
   | "system_procedure_capture_entry_count";
 type KnowledgeLaneBooleanEvidenceCountKey = "local_activity_surface_present" | "private_activity_mirror_present";
 type KnowledgeLaneEvidenceCountKey = KnowledgeLaneNumericEvidenceCountKey | KnowledgeLaneBooleanEvidenceCountKey;
@@ -195,6 +205,7 @@ interface DungeonMapKnowledgeLane {
   fixture_present: boolean;
   evidence_present: boolean;
   evidence_surface_count: number;
+  latest_access_timestamp_utc: string | null;
   evidence_counts: KnowledgeLaneEvidenceCounts;
   blockers: DungeonMapKnowledgeLaneBlocker[];
   next_owner_review_action: string | null;
@@ -378,9 +389,19 @@ const HEADER_THEME_OPTIONS: { id: HeaderThemeMode; label: string }[] = [
 ];
 const KNOWLEDGE_LANE_EVIDENCE_COUNT_LABELS: Record<KnowledgeLaneEvidenceCountKey, string> = {
   project_knowledge_access_surface_count: "Project knowledge access surfaces",
+  project_knowledge_access_entry_count: "Project knowledge access events",
   project_procedure_capture_surface_count: "Project procedure capture surfaces",
   project_ontology_surface_count: "Project ontology surfaces",
   system_knowledge_access_entry_count: "System knowledge access entries",
+  knowledge_access_retrieve_count: "Retrieved events",
+  knowledge_access_apply_count: "Applied events",
+  knowledge_access_substantive_use_count: "Substantive-use events",
+  knowledge_access_useful_access_count: "Useful events",
+  knowledge_access_ledger_file_count: "Ledger files scanned",
+  knowledge_access_jsonl_row_count: "Ledger rows scanned",
+  knowledge_access_invalid_event_count: "Invalid ledger rows",
+  knowledge_access_duplicate_event_count: "Duplicate events ignored",
+  knowledge_access_unreadable_file_count: "Unreadable ledger files",
   system_procedure_capture_entry_count: "System procedure capture entries",
   local_activity_surface_present: "Local activity surface",
   private_activity_mirror_present: "Private activity mirror"
@@ -2347,6 +2368,7 @@ function App() {
                         <span>
                           evidence {knowledgeLane.evidence_present ? "present" : "missing"} / surfaces {knowledgeLane.evidence_surface_count}
                         </span>
+                        <span>latest access {formatTimestamp(knowledgeLane.latest_access_timestamp_utc)}</span>
                         <span>next owner review {knowledgeLane.next_owner_review_action ?? "not supplied"}</span>
                       </div>
                       <p className="cc-readonly-note">

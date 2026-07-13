@@ -238,7 +238,7 @@ Follow-on fit:
 
 구체화 순서:
 
-1. `knowledge_access_event_capture_v0` 와 ledger helper 를 안정화해 어떤 지식이 언제, 왜 쓰였는지 metadata-only 로 남긴다.
+1. `knowledge_access_event_capture_v0` 와 ledger helper 를 안정화해 어떤 지식이 언제, 왜 쓰였는지 metadata-only 로 남긴다. 2026-07-13 첫 수직 경로로 저장되는 metadata/source-text RAG 답변의 selected-evidence `retrieve`, occurrence-immutable output revision, pending receipt/reconciliation, snapshot/UI 집계를 연결했다. 다음 단계는 exact source revision 전파, Wiki adapter, 실제 `cite/apply`, 중요도 결합 retention pilot 이다.
 2. SE assistant 의 `design-support gap scan` 이 stage artifact manager 의 최소 입력/출력 shape 을 제공하도록 만든다.
 3. schematic intake 는 먼저 public-safe synthetic fixture 로 datasheet/source packet, simulation prep, layout guide handoff 의 output shape 만 검증한다.
 4. daily worklog analyst 는 private `_workmeta/<project_code>/reports/**` evidence 를 대상으로 owner-only digest 로 시작한다.
@@ -437,7 +437,9 @@ Initial development target:
 3. Define a NotebookLM packet map that records which approved source handles belong
    to which notebook or topic.
 4. Route source-use events through `guild_hall/knowledge_access` and keep
-   accumulated evidence under `_workmeta/**/reports/knowledge_access`.
+   accumulated evidence under `_workmeta/**/reports/knowledge_access`. Persisted
+   RAG answer writers now cover selected-evidence `retrieve`; Wiki queries and
+   actual downstream `cite/apply` remain follow-up adapters.
 
 Non-goals:
 

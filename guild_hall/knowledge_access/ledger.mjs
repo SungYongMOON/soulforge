@@ -37,9 +37,11 @@ const KNOWLEDGE_CLAIM_CEILINGS = new Set([
 export const ACTOR_TYPES = new Set(["workflow", "skill", "mission", "user", "tool", "advisory_handoff"]);
 
 export const ACCESS_TYPES = new Set([
+  "retrieve",
   "read",
   "cite",
   "summarize",
+  "apply",
   "route",
   "promote",
   "compare",
@@ -162,10 +164,7 @@ export async function analyzeKnowledgeAccessLedgers(options = {}) {
         continue;
       }
 
-      const eventErrors = [
-        ...validateKnowledgeAccessEvent(event).errors,
-        ...validateAnalysisSafeEvent(event),
-      ];
+      const eventErrors = validateKnowledgeAccessEvent(event).errors;
       if (eventErrors.length > 0) {
         issues.push(
           buildAnalysisIssue({
@@ -256,6 +255,7 @@ export async function appendKnowledgeAccessEvent(options = {}) {
     repoRoot,
     ledgerRoot: options.ledgerRoot,
     ledgerFile: options.ledgerFile,
+    ledgerShardId: options.ledgerShardId ?? options.ledger_shard_id,
     now,
   });
   const event = buildKnowledgeAccessEvent({
@@ -279,8 +279,59 @@ export async function appendKnowledgeAccessEvent(options = {}) {
   };
 }
 
-export function buildKnowledgeAccessEvent(options = {}) {
+export async function appendKnowledgeAccessEventBatch(options = {}) {
+  const prepared = prepareKnowledgeAccessEventBatch(options);
+  await fs.mkdir(path.dirname(prepared.ledger_path), { recursive: true });
+  await fs.appendFile(
+    prepared.ledger_path,
+    `${prepared.events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+    "utf8",
+  );
+  return prepared;
+}
+
+export function prepareKnowledgeAccessEventBatch(options = {}) {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
+  const now = normalizeNow(options.now);
+  const eventOptions = Array.isArray(options.events) ? options.events : [];
+  if (eventOptions.length === 0) {
+    throw new Error("knowledge_access_event_batch_requires_events");
+  }
+  const ledger = resolveLedgerTarget({
+    repoRoot,
+    ledgerRoot: options.ledgerRoot,
+    ledgerFile: options.ledgerFile,
+    ledgerShardId: options.ledgerShardId ?? options.ledger_shard_id,
+    now,
+  });
+  const events = eventOptions.map((eventOption) =>
+    buildKnowledgeAccessEvent({
+      ...options,
+      ...eventOption,
+      repoRoot,
+      now,
+      ledgerRef: options.ledgerRef ?? ledger.ledger_ref,
+    }));
+
+  const invalid = events
+    .map((event, index) => ({ index, validation: validateKnowledgeAccessEvent(event) }))
+    .filter((item) => !item.validation.ok);
+  if (invalid.length > 0) {
+    throw new Error(
+      `knowledge_access_event_batch_invalid: ${invalid
+        .map((item) => `row_${item.index + 1}:${item.validation.errors.join(";")}`)
+        .join(" | ")}`,
+    );
+  }
+
+  return {
+    events,
+    ledger_path: ledger.path,
+    ledger_ref: ledger.ledger_ref,
+  };
+}
+
+export function buildKnowledgeAccessEvent(options = {}) {
   const now = normalizeNow(options.now);
   const timestampUtc = formatTimestampUtc(now);
   const knowledgeRef = normalizeKnowledgeRef(options.knowledgeRef ?? options.ref);
@@ -302,6 +353,7 @@ export function buildKnowledgeAccessEvent(options = {}) {
     knowledge_ref: knowledgeRef,
     target_type: sanitizeMetadataText(options.targetType ?? options.target_type ?? "knowledge_node", "target_type", 120),
     source_workflow_id: sanitizeNullableRef(options.sourceWorkflowId ?? options.source_workflow_id),
+    revision_ref: sanitizeNullableRef(options.revisionRef ?? options.revision_ref),
   };
   const eventBase = {
     schema_version: KNOWLEDGE_ACCESS_EVENT_SCHEMA_VERSION,
@@ -318,6 +370,7 @@ export function buildKnowledgeAccessEvent(options = {}) {
     access_type: accessType,
     reason_used: sanitizeMetadataText(options.reasonUsed ?? options.reason_used ?? "knowledge ref used", "reason_used", 500),
     output_ref: sanitizeNullableRef(options.outputRef ?? options.output_ref),
+    output_revision_ref: sanitizeNullableRef(options.outputRevisionRef ?? options.output_revision_ref),
     work_context: workContext,
     outcome_state: outcomeState,
     usefulness: {
@@ -333,6 +386,7 @@ export function buildKnowledgeAccessEvent(options = {}) {
       duplicate_or_redundant_with: normalizeRefList(options.duplicateOrRedundantWith ?? options.duplicate_or_redundant_with),
       orphan_reason_hint: sanitizeNullableText(options.orphanReasonHint ?? options.orphan_reason_hint, "orphan_reason_hint", 240),
     },
+    retrieval_context: normalizeRetrievalContext(options.retrievalContext ?? options.retrieval_context),
     accumulation_delta_hint: normalizeAccumulationDeltaHint(
       options.accumulationDeltaHint ?? options.accumulation_delta_hint,
     ),
@@ -347,7 +401,8 @@ export function buildKnowledgeAccessEvent(options = {}) {
 
   return {
     ...eventBase,
-    event_id: buildEventId({ ...eventBase, repo_root: repoRoot }),
+    dedupe_key: buildDedupeKey(eventBase),
+    event_id: buildEventId(eventBase),
   };
 }
 
@@ -378,6 +433,12 @@ export function validateKnowledgeAccessEvent(event) {
 
   if (!/^knowledge_access_\d{8}T\d{6}Z_[a-f0-9]{12}$/.test(String(event.event_id ?? ""))) {
     errors.push("event_id must use the knowledge_access timestamp/hash shape");
+  }
+  if (event.dedupe_key !== undefined && !/^knowledge_access_dedupe_[a-f0-9]{24}$/.test(String(event.dedupe_key))) {
+    errors.push("dedupe_key must use the knowledge_access logical hash shape");
+  }
+  if (event.dedupe_key !== undefined && event.dedupe_key !== buildDedupeKey(event)) {
+    errors.push("dedupe_key must match canonical logical event identity");
   }
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(String(event.timestamp_utc ?? ""))) {
     errors.push("timestamp_utc must be second-precision UTC");
@@ -415,6 +476,26 @@ export function validateKnowledgeAccessEvent(event) {
     errors.push("redaction.runtime_absolute_path_present must be false");
   }
   errors.push(...validateAccumulationDeltaHint(event.accumulation_delta_hint));
+  errors.push(...validateRetrievalContext(event.retrieval_context));
+  errors.push(...validateAnalysisSafeEvent(event));
+  if (event.access_type === "retrieve") {
+    if (!event.retrieval_context) {
+      errors.push("retrieve access requires retrieval_context");
+    } else {
+      if (!event.retrieval_context.retrieval_run_ref) {
+        errors.push("retrieve access requires retrieval_context.retrieval_run_ref");
+      }
+      if (!event.retrieval_context.query_fingerprint) {
+        errors.push("retrieve access requires retrieval_context.query_fingerprint");
+      }
+      if (!Number.isSafeInteger(event.retrieval_context.result_rank) || event.retrieval_context.result_rank < 1) {
+        errors.push("retrieve access requires a positive retrieval_context.result_rank");
+      }
+      if (event.retrieval_context.selected_for_context !== true) {
+        errors.push("retrieve access requires retrieval_context.selected_for_context true");
+      }
+    }
+  }
 
   return {
     ok: errors.length === 0,
@@ -464,17 +545,23 @@ export function normalizeKnowledgeRef(value) {
   return normalized;
 }
 
-export function resolveLedgerTarget({ repoRoot = process.cwd(), ledgerRoot, ledgerFile, now = new Date() } = {}) {
+export function resolveLedgerTarget({ repoRoot = process.cwd(), ledgerRoot, ledgerFile, ledgerShardId, now = new Date() } = {}) {
   if ((ledgerRoot && ledgerFile) || (!ledgerRoot && !ledgerFile)) {
     throw new Error("provide exactly one of ledgerRoot or ledgerFile");
+  }
+  if (ledgerFile && ledgerShardId) {
+    throw new Error("ledger_shard_id_requires_ledger_root");
   }
 
   const root = path.resolve(repoRoot);
   const resolvedNow = normalizeNow(now);
   const stamps = buildDateStamps(resolvedNow);
+  const shardId = ledgerShardId ? normalizeLedgerShardId(ledgerShardId) : null;
   const filePath = ledgerFile
     ? path.resolve(String(ledgerFile))
-    : path.join(path.resolve(String(ledgerRoot)), "events", stamps.year, `${stamps.yearMonth}.jsonl`);
+    : shardId
+      ? path.join(path.resolve(String(ledgerRoot)), "events", stamps.year, stamps.yearMonth, `${shardId}.jsonl`)
+      : path.join(path.resolve(String(ledgerRoot)), "events", stamps.year, `${stamps.yearMonth}.jsonl`);
 
   if (path.extname(filePath).toLowerCase() !== ".jsonl") {
     throw new Error("ledger_file_must_be_jsonl");
@@ -629,11 +716,17 @@ function buildUsageRollup({ rollupId, sourceEventLogRef, events }) {
       total_access_count: 0,
       useful_access_count: 0,
       blocked_access_count: 0,
+      retrieve_count: 0,
+      apply_count: 0,
+      substantive_use_count: 0,
       cite_or_promote_count: 0,
       last_access_timestamp_utc: null,
       actor_type_counts: {},
       access_type_counts: {},
       context_counts: {},
+      project_counts: {},
+      gate_counts: {},
+      branch_counts: {},
     };
 
     group.total_access_count += 1;
@@ -642,6 +735,15 @@ function buildUsageRollup({ rollupId, sourceEventLogRef, events }) {
     }
     if (event.outcome_state === "blocked") {
       group.blocked_access_count += 1;
+    }
+    if (event.access_type === "retrieve") {
+      group.retrieve_count += 1;
+    }
+    if (event.access_type === "apply") {
+      group.apply_count += 1;
+    }
+    if (["apply", "cite", "promote", "validate"].includes(event.access_type)) {
+      group.substantive_use_count += 1;
     }
     if (event.access_type === "cite" || event.access_type === "promote") {
       group.cite_or_promote_count += 1;
@@ -653,6 +755,9 @@ function buildUsageRollup({ rollupId, sourceEventLogRef, events }) {
     incrementCount(group.actor_type_counts, event.actor.type);
     incrementCount(group.access_type_counts, event.access_type);
     incrementCount(group.context_counts, buildContextCountKey(event.work_context));
+    incrementOptionalCount(group.project_counts, event.work_context?.project_code);
+    incrementOptionalCount(group.gate_counts, event.work_context?.gate_id);
+    incrementOptionalCount(group.branch_counts, event.work_context?.branch_id);
     groups.set(knowledgeRef, group);
   }
 
@@ -663,6 +768,9 @@ function buildUsageRollup({ rollupId, sourceEventLogRef, events }) {
       actor_type_counts: sortObjectByKey(group.actor_type_counts),
       access_type_counts: sortObjectByKey(group.access_type_counts),
       context_counts: sortObjectByKey(group.context_counts),
+      project_counts: sortObjectByKey(group.project_counts),
+      gate_counts: sortObjectByKey(group.gate_counts),
+      branch_counts: sortObjectByKey(group.branch_counts),
     }));
 
   return {
@@ -880,6 +988,11 @@ function incrementCount(counts, key) {
   counts[key] = (counts[key] ?? 0) + 1;
 }
 
+function incrementOptionalCount(counts, key) {
+  if (!key) return;
+  incrementCount(counts, sanitizeRollupCountKey(key));
+}
+
 function sortObjectByKey(value) {
   return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)));
 }
@@ -909,11 +1022,71 @@ function normalizeWorkContext(options) {
   return {
     task_ref: sanitizeNullableRef(options.taskRef ?? options.task_ref),
     run_ref: sanitizeNullableRef(options.runRef ?? options.run_ref),
+    project_code: sanitizeNullableText(options.projectCode ?? options.project_code, "project_code", 120),
+    gate_id: sanitizeNullableText(options.gateId ?? options.gate_id, "gate_id", 120),
+    branch_id: sanitizeNullableText(options.branchId ?? options.branch_id, "branch_id", 160),
     workflow_id: sanitizeNullableText(options.workflowId ?? options.workflow_id, "workflow_id", 120),
     skill_id: sanitizeNullableText(options.skillId ?? options.skill_id, "skill_id", 120),
     mission_id: sanitizeNullableText(options.missionId ?? options.mission_id, "mission_id", 120),
     advisory_handoff_ref: sanitizeNullableRef(options.advisoryHandoffRef ?? options.advisory_handoff_ref),
   };
+}
+
+function normalizeRetrievalContext(value) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("retrieval_context_must_be_object");
+  }
+  const rankValue = value.resultRank ?? value.result_rank;
+  let resultRank = null;
+  if (rankValue !== undefined && rankValue !== null && rankValue !== "") {
+    const rankText = String(rankValue).trim();
+    if (!/^[1-9]\d*$/u.test(rankText)) {
+      throw new Error("retrieval_context_result_rank_must_be_positive_integer");
+    }
+    resultRank = Number(rankText);
+  }
+  if (resultRank !== null && !Number.isSafeInteger(resultRank)) {
+    throw new Error("retrieval_context_result_rank_must_be_positive_integer");
+  }
+  const selectedValue = value.selectedForContext ?? value.selected_for_context;
+  if (selectedValue !== undefined && selectedValue !== null && typeof selectedValue !== "boolean") {
+    throw new Error("retrieval_context_selected_for_context_must_be_boolean");
+  }
+  return {
+    retrieval_run_ref: sanitizeNullableRef(value.retrievalRunRef ?? value.retrieval_run_ref),
+    trace_id: sanitizeNullableText(value.traceId ?? value.trace_id, "trace_id", 160),
+    query_fingerprint: sanitizeNullableText(
+      value.queryFingerprint ?? value.query_fingerprint,
+      "query_fingerprint",
+      160,
+    ),
+    result_rank: resultRank,
+    selected_for_context: selectedValue ?? null,
+  };
+}
+
+function validateRetrievalContext(value) {
+  if (value === undefined || value === null) return [];
+  if (typeof value !== "object" || Array.isArray(value)) {
+    return ["retrieval_context must be an object"];
+  }
+  const errors = [];
+  if (value.result_rank !== null && value.result_rank !== undefined) {
+    if (!Number.isSafeInteger(value.result_rank) || value.result_rank < 1) {
+      errors.push("retrieval_context.result_rank must be a positive integer");
+    }
+  }
+  if (
+    value.selected_for_context !== null &&
+    value.selected_for_context !== undefined &&
+    typeof value.selected_for_context !== "boolean"
+  ) {
+    errors.push("retrieval_context.selected_for_context must be boolean or null");
+  }
+  return errors;
 }
 
 function normalizeAccumulationDeltaHint(value) {
@@ -1078,8 +1251,43 @@ function buildDateStamps(value) {
 
 function buildEventId(event) {
   const stamps = buildDateStamps(new Date(event.timestamp_utc));
-  const hash = crypto.createHash("sha256").update(stableStringify(event)).digest("hex").slice(0, 12);
+  const hash = crypto
+    .createHash("sha256")
+    .update(stableStringify(knowledgeAccessIdentityPayload(event)))
+    .digest("hex")
+    .slice(0, 12);
   return `knowledge_access_${stamps.compact}_${hash}`;
+}
+
+function buildDedupeKey(event) {
+  const hash = crypto
+    .createHash("sha256")
+    .update(stableStringify(knowledgeAccessIdentityPayload(event, { logical: true })))
+    .digest("hex")
+    .slice(0, 24);
+  return `knowledge_access_dedupe_${hash}`;
+}
+
+function knowledgeAccessIdentityPayload(event, options = {}) {
+  const {
+    ledger_ref: _ledgerRef,
+    status: _status,
+    event_id: _eventId,
+    dedupe_key: _dedupeKey,
+    ...identity
+  } = event;
+  if (options.logical === true && (identity.event_source_ref || identity.output_ref)) {
+    delete identity.timestamp_utc;
+  }
+  return identity;
+}
+
+function normalizeLedgerShardId(value) {
+  const shardId = requireNonEmptyText(value, "ledger_shard_id");
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,80}$/u.test(shardId)) {
+    throw new Error("ledger_shard_id_must_be_safe");
+  }
+  return shardId;
 }
 
 function isSubpath(root, candidate) {

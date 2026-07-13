@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { buildKnowledgeAccessEvent } from "../knowledge_access/ledger.mjs";
 import { buildSnapshot, compareSnapshotFreshness, validateSnapshot } from "./producer.mjs";
 
 test("buildSnapshot summarizes private project surfaces without reading private content", async () => {
@@ -13,9 +14,11 @@ test("buildSnapshot summarizes private project surfaces without reading private 
     await mkdir(path.join(repoRoot, "_workmeta", "PX-001", "bindings"), { recursive: true });
     await mkdir(path.join(repoRoot, "_workmeta", "PX-001", "ontology"), { recursive: true });
     await mkdir(path.join(repoRoot, "_workmeta", "PX-001", "reports", "knowledge_access"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workmeta", "PX-001", "reports", "knowledge_access", "events", "2026"), { recursive: true });
     await mkdir(path.join(repoRoot, "_workmeta", "PX-001", "reports", "onboarding"), { recursive: true });
     await mkdir(path.join(repoRoot, "_workmeta", "PX-001", "reports", "procedure_capture"), { recursive: true });
     await mkdir(path.join(repoRoot, "_workmeta", "system", "reports", "knowledge_access"), { recursive: true });
+    await mkdir(path.join(repoRoot, "_workmeta", "system", "reports", "knowledge_access", "events", "2026"), { recursive: true });
     await mkdir(path.join(repoRoot, "_workmeta", "system", "reports", "procedure_capture"), { recursive: true });
     await mkdir(path.join(repoRoot, ".workflow", "knowledge_access_event_capture_v0", "templates"), { recursive: true });
     await mkdir(path.join(repoRoot, ".workflow", "sourcebound_knowledge_packet_operating_loop_v0", "templates"), { recursive: true });
@@ -72,6 +75,79 @@ test("buildSnapshot summarizes private project surfaces without reading private 
     await writeFile(
       path.join(repoRoot, "_workmeta", "system", "reports", "knowledge_access", "knowledge_access_event.jsonl"),
       "{\"event\":\"metadata_only\"}\n",
+      "utf8",
+    );
+    const projectKnowledgeAccessEvents = [
+      buildKnowledgeAccessEvent({
+        repoRoot,
+        knowledgeRef: "docs/knowledge/project-guide.md",
+        now: "2026-05-01T01:00:00Z",
+        actorType: "tool",
+        actorId: "snapshot_test",
+        accessType: "retrieve",
+        outcomeState: "useful",
+        taskRef: "task:snapshot_test",
+        retrievalContext: {
+          retrievalRunRef: "run:snapshot_test",
+          queryFingerprint: "sha256:fixture",
+          resultRank: 1,
+          selectedForContext: true,
+        },
+      }),
+      buildKnowledgeAccessEvent({
+        repoRoot,
+        knowledgeRef: "docs/knowledge/project-guide.md",
+        now: "2026-05-01T02:00:00Z",
+        actorType: "tool",
+        actorId: "snapshot_test",
+        accessType: "apply",
+        outcomeState: "useful",
+        taskRef: "task:snapshot_test",
+      }),
+    ];
+    await writeFile(
+      path.join(repoRoot, "_workmeta", "PX-001", "reports", "knowledge_access", "events", "2026", "2026-05.jsonl"),
+      `${projectKnowledgeAccessEvents.map((event) => JSON.stringify(event)).join("\n")}\n`,
+      "utf8",
+    );
+    const systemKnowledgeAccessEvent = buildKnowledgeAccessEvent({
+      repoRoot,
+      knowledgeRef: "docs/knowledge/system-guide.md",
+      now: "2026-05-01T03:00:00Z",
+      actorType: "tool",
+      actorId: "snapshot_test",
+      accessType: "cite",
+      outcomeState: "partially_useful",
+      taskRef: "task:snapshot_test",
+    });
+    await writeFile(
+      path.join(repoRoot, "_workmeta", "system", "reports", "knowledge_access", "events", "2026", "2026-05.jsonl"),
+      `${JSON.stringify(systemKnowledgeAccessEvent)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      path.join(repoRoot, "_workmeta", "system", "reports", "knowledge_access", "duplicate_copy.jsonl"),
+      `${JSON.stringify(systemKnowledgeAccessEvent)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      path.join(repoRoot, "_workmeta", "system", "reports", "knowledge_access", "unsafe_injected_row.jsonl"),
+      `${JSON.stringify({ ...systemKnowledgeAccessEvent, reason_used: "token=DO_NOT_ACCEPT_THIS_ROW" })}\n`,
+      "utf8",
+    );
+    const forgedDedupeEvent = buildKnowledgeAccessEvent({
+      repoRoot,
+      knowledgeRef: "docs/knowledge/different-system-guide.md",
+      now: "2026-05-01T04:00:00Z",
+      actorType: "tool",
+      actorId: "snapshot_test",
+      accessType: "cite",
+      outcomeState: "partially_useful",
+      taskRef: "task:snapshot_test",
+    });
+    await writeFile(
+      path.join(repoRoot, "_workmeta", "system", "reports", "knowledge_access", "forged_dedupe_row.jsonl"),
+      `${JSON.stringify({ ...forgedDedupeEvent, dedupe_key: systemKnowledgeAccessEvent.dedupe_key })}\n`,
       "utf8",
     );
     await writeFile(path.join(repoRoot, "_workmeta", "system", "reports", "procedure_capture", "node_smoke.md"), "node smoke\n", "utf8");
@@ -179,9 +255,21 @@ test("buildSnapshot summarizes private project surfaces without reading private 
     assert.equal(snapshot.knowledge_lane.workflows.present_count, 2);
     assert.equal(snapshot.knowledge_lane.fixtures.notebooklm_bridge_public_synthetic_present, true);
     assert.equal(snapshot.knowledge_lane.evidence.counts.project_knowledge_access_surface_count, 1);
+    assert.equal(snapshot.knowledge_lane.evidence.counts.project_knowledge_access_entry_count, 2);
     assert.equal(snapshot.knowledge_lane.evidence.counts.project_procedure_capture_surface_count, 1);
     assert.equal(snapshot.knowledge_lane.evidence.counts.project_ontology_surface_count, 1);
     assert.equal(snapshot.knowledge_lane.evidence.counts.system_knowledge_access_entry_count, 1);
+    assert.equal(snapshot.knowledge_lane.evidence.counts.knowledge_access_retrieve_count, 1);
+    assert.equal(snapshot.knowledge_lane.evidence.counts.knowledge_access_apply_count, 1);
+    assert.equal(snapshot.knowledge_lane.evidence.counts.knowledge_access_substantive_use_count, 2);
+    assert.equal(snapshot.knowledge_lane.evidence.counts.knowledge_access_useful_access_count, 2);
+    assert.equal(snapshot.knowledge_lane.evidence.counts.knowledge_access_ledger_file_count, 7);
+    assert.equal(snapshot.knowledge_lane.evidence.counts.knowledge_access_jsonl_row_count, 8);
+    assert.equal(snapshot.knowledge_lane.evidence.counts.knowledge_access_invalid_event_count, 4);
+    assert.equal(snapshot.knowledge_lane.evidence.counts.knowledge_access_duplicate_event_count, 1);
+    assert.equal(snapshot.knowledge_lane.evidence.counts.knowledge_access_unreadable_file_count, 0);
+    assert.equal(snapshot.knowledge_lane.evidence.latest_access_timestamp_utc, "2026-05-01T03:00:00Z");
+    assert.equal(snapshot.operation_board.sections.knowledge_lane.latest_access_timestamp_utc, "2026-05-01T03:00:00Z");
     assert.equal(snapshot.knowledge_lane.evidence.total_surface_count, 7);
     assert.equal(snapshot.knowledge_lane.public_surface_count > snapshot.knowledge_lane.evidence.total_surface_count, true);
     assert.equal(snapshot.operation_board.summary.knowledge_evidence_surface_count, 7);
@@ -1010,6 +1098,36 @@ test("knowledge_lane keeps public surfaces separate from metadata evidence and r
     assert.equal(
       invalidStateValidation.errors.includes(
         "knowledge_lane.owner_gated.state must be awaiting_metadata_evidence for current blockers/evidence",
+      ),
+      true,
+    );
+
+    const invalidAccessProjection = JSON.parse(JSON.stringify(snapshot));
+    invalidAccessProjection.operation_board.sections.knowledge_lane.latest_access_timestamp_utc = "2026-05-03T00:00:00Z";
+    invalidAccessProjection.operation_board.sections.knowledge_lane.evidence_counts.knowledge_access_retrieve_count = 99;
+    const invalidAccessProjectionValidation = validateSnapshot(invalidAccessProjection);
+    assert.equal(invalidAccessProjectionValidation.ok, false);
+    assert.equal(
+      invalidAccessProjectionValidation.errors.includes(
+        "operation_board.sections.knowledge_lane.latest_access_timestamp_utc must match knowledge_lane.evidence.latest_access_timestamp_utc",
+      ),
+      true,
+    );
+
+    const invalidAccessCountType = JSON.parse(JSON.stringify(snapshot));
+    invalidAccessCountType.knowledge_lane.evidence.counts.knowledge_access_retrieve_count = "oops";
+    invalidAccessCountType.operation_board.sections.knowledge_lane.evidence_counts.knowledge_access_retrieve_count = "oops";
+    const invalidAccessCountTypeValidation = validateSnapshot(invalidAccessCountType);
+    assert.equal(invalidAccessCountTypeValidation.ok, false);
+    assert.equal(
+      invalidAccessCountTypeValidation.errors.includes(
+        "knowledge_lane.evidence.counts.knowledge_access_retrieve_count must be a nonnegative safe integer",
+      ),
+      true,
+    );
+    assert.equal(
+      invalidAccessProjectionValidation.errors.includes(
+        "operation_board.sections.knowledge_lane.evidence_counts must match knowledge_lane.evidence.counts",
       ),
       true,
     );

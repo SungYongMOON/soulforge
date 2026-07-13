@@ -7,6 +7,7 @@ import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { exportKnowledgeGraph } from "../knowledge_graph/graph_export.mjs";
+import { validateKnowledgeAccessEvent } from "../knowledge_access/ledger.mjs";
 
 const RUNTIME_PREFLIGHT_FAKE_SECRET_ENV_KEY = [
   "SOULFORGE",
@@ -73,6 +74,10 @@ import {
   validateRagAnswerEngineRun,
   writeRagAnswerEngineRun,
 } from "./answer_engine_run.mjs";
+import {
+  prepareRagRetrievalAccessPendingReceipt,
+  reconcileRagRetrievalAccessPendingReceipt,
+} from "./knowledge_access_capture.mjs";
 import {
   buildSourceTextExtractionRunReport,
   validateSourceTextExtractionRunReport,
@@ -1523,6 +1528,53 @@ test("blocks default RAG system outputs while system binding is planned and loca
   }
 });
 
+test("RAG access receipts reject public outputs and route workspace history to private workmeta", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-rag-access-owner-"));
+  const common = {
+    repoRoot,
+    outputRevisionRef: `sha256:${"a".repeat(64)}`,
+    actorId: "fixture_rag_owner_guard",
+    queryFingerprint: `sha256:${"b".repeat(64)}`,
+    traceId: "trace_fixture_owner_guard",
+    now: "2026-05-25T00:00:00Z",
+    targets: [
+      {
+        knowledgeRef: "docs/knowledge/fixture-owner-guide.md",
+        targetType: "rag_chunk",
+        revisionRef: "rag_index:fixture_owner_guard",
+        resultRank: 1,
+      },
+    ],
+  };
+  try {
+    await assert.rejects(
+      () =>
+        prepareRagRetrievalAccessPendingReceipt({
+          ...common,
+          outputRef: "docs/public-answer.json",
+        }),
+      /rag_knowledge_access_output_ref_not_allowed/,
+    );
+    await assert.rejects(
+      () => readFile(path.join(repoRoot, "docs/public-answer.json.knowledge_access_receipt.json"), "utf8"),
+      /ENOENT/,
+    );
+
+    const outputRef = "_workspaces/knowledge/rag/answer_runs/fixture_owner_guard/source_text_answer_run.json";
+    const pending = await prepareRagRetrievalAccessPendingReceipt({ ...common, outputRef });
+    assert.match(
+      pending.pending_receipt_ref,
+      /^_workmeta\/system\/reports\/knowledge_access\/receipts\/2026\/2026-05\/[a-f0-9]{24}\.json$/,
+    );
+    const receipt = JSON.parse(await readFile(path.join(repoRoot, pending.pending_receipt_ref), "utf8"));
+    assert.equal(receipt.status, "pending");
+    assert.equal(receipt.output_ref, outputRef);
+    await assert.rejects(() => readFile(path.join(repoRoot, pending.ledger_ref), "utf8"), /ENOENT/);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
 test("company knowledge intake packet validator accepts metadata-only packets and blocks raw material markers", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-company-intake-"));
   const fixtureFileUrl = ["file:", "", "", "Volumes", "company", "private.docx"].join("/");
@@ -2142,8 +2194,56 @@ test("source text metadata profile reuses extraction status metadata without loa
     });
     assert.equal(answerEngineWrite.status, "written");
     assert.match(answerEngineWrite.answer_engine_run_ref, /^_workmeta\/system\/reports\/rag\/answer_engine_runs\//);
+    assert.equal(answerEngineWrite.knowledge_access_status, "recorded");
+    assert.equal(answerEngineWrite.knowledge_access_event_count, answerEngineWrite.retrieved_unit_count);
+    assert.match(
+      answerEngineWrite.knowledge_access_ledger_ref,
+      /^_workmeta\/system\/reports\/knowledge_access\/events\/2026\/2026-05\/node_[a-f0-9]{16}\.jsonl$/,
+    );
+    const answerEngineAccessRows = (await readFile(path.join(repoRoot, answerEngineWrite.knowledge_access_ledger_ref), "utf8"))
+      .trim()
+      .split(/\r?\n/u)
+      .map((line) => JSON.parse(line));
+    assert.equal(answerEngineAccessRows.length, answerEngineWrite.retrieved_unit_count);
+    assert.ok(answerEngineAccessRows.every((row) => validateKnowledgeAccessEvent(row).ok));
+    assert.ok(answerEngineAccessRows.every((row) => row.access_type === "retrieve"));
+    assert.ok(answerEngineAccessRows.every((row) => row.retrieval_context.selected_for_context === true));
+    assert.ok(answerEngineAccessRows.every((row) => row.output_revision_ref === answerEngineWrite.output_revision_ref));
+    assert.equal(JSON.stringify(answerEngineAccessRows).includes("GraphRAG source supported retrieval"), false);
+    const answerEngineAccessReceipt = JSON.parse(
+      await readFile(path.join(repoRoot, answerEngineWrite.knowledge_access_receipt_ref), "utf8"),
+    );
+    assert.equal(answerEngineAccessReceipt.status, "recorded");
+    assert.equal(answerEngineAccessReceipt.output_revision_ref, answerEngineWrite.output_revision_ref);
     const writtenAnswerEngineRun = JSON.parse(await readFile(path.join(repoRoot, answerEngineWrite.answer_engine_run_ref), "utf8"));
     assert.equal(validateRagAnswerEngineRun(writtenAnswerEngineRun).status, "pass");
+
+    const concurrentAnswerEngineWrites = await Promise.allSettled([
+      writeRagAnswerEngineRun({
+        repoRoot,
+        metadataIndexRef: metadataIndexWrite.metadata_index_ref,
+        extractionPacketRef: packetWriteResult.packet_ref,
+        extractionRunReportRef: runReportWrite.run_report_ref,
+        question: "GraphRAG source supported retrieval",
+        runId: "fixture_answer_engine_run_concurrent",
+        now: "2026-05-25T01:49:10Z",
+      }),
+      writeRagAnswerEngineRun({
+        repoRoot,
+        metadataIndexRef: metadataIndexWrite.metadata_index_ref,
+        extractionPacketRef: packetWriteResult.packet_ref,
+        extractionRunReportRef: runReportWrite.run_report_ref,
+        question: "Source Criticism evidence",
+        runId: "fixture_answer_engine_run_concurrent",
+        now: "2026-05-25T01:49:11Z",
+      }),
+    ]);
+    assert.equal(concurrentAnswerEngineWrites.filter((result) => result.status === "fulfilled").length, 1);
+    assert.equal(concurrentAnswerEngineWrites.filter((result) => result.status === "rejected").length, 1);
+    assert.match(
+      String(concurrentAnswerEngineWrites.find((result) => result.status === "rejected").reason),
+      /rag_output_occurrence_already_reserved|answer_engine_run_output_already_exists/,
+    );
 
     const unsafePacket = validateSourceTextExtractionPacket({
       ...packet,
@@ -2667,8 +2767,225 @@ test("source-text index reads owner-approved workspace knowledge source cards", 
     });
     assert.equal(answerWrite.status, "written");
     assert.match(answerWrite.source_text_answer_run_ref, /^_workspaces\/knowledge\/rag\/answer_runs\//);
+    assert.equal(answerWrite.knowledge_access_status, "recorded");
+    assert.equal(answerWrite.knowledge_access_event_count, answerWrite.retrieved_chunk_count);
+    assert.match(
+      answerWrite.knowledge_access_ledger_ref,
+      /^_workmeta\/system\/reports\/knowledge_access\/events\/2026\/2026-05\/node_[a-f0-9]{16}\.jsonl$/,
+    );
+    const sourceTextAccessRows = (await readFile(path.join(repoRoot, answerWrite.knowledge_access_ledger_ref), "utf8"))
+      .trim()
+      .split(/\r?\n/u)
+      .map((line) => JSON.parse(line));
+    assert.equal(sourceTextAccessRows.length, answerWrite.retrieved_chunk_count);
+    assert.ok(sourceTextAccessRows.every((row) => validateKnowledgeAccessEvent(row).ok));
+    assert.ok(sourceTextAccessRows.every((row) => row.access_type === "retrieve"));
+    assert.ok(sourceTextAccessRows.every((row) => row.target.target_type === "rag_chunk"));
+    assert.ok(sourceTextAccessRows.every((row) => row.retrieval_context.result_rank >= 1));
+    assert.ok(sourceTextAccessRows.every((row) => row.output_revision_ref === answerWrite.output_revision_ref));
+    assert.equal(JSON.stringify(sourceTextAccessRows).includes("project workspace common knowledge"), false);
+    const sourceTextAccessReceipt = JSON.parse(
+      await readFile(path.join(repoRoot, answerWrite.knowledge_access_receipt_ref), "utf8"),
+    );
+    assert.match(
+      answerWrite.knowledge_access_receipt_ref,
+      /^_workmeta\/system\/reports\/knowledge_access\/receipts\/2026\/2026-05\/[a-f0-9]{24}\.json$/,
+    );
+    assert.equal(answerWrite.knowledge_access_receipt_ref.startsWith(answerWrite.source_text_answer_run_ref), false);
+    assert.equal(sourceTextAccessReceipt.status, "recorded");
+    assert.equal(sourceTextAccessReceipt.output_revision_ref, answerWrite.output_revision_ref);
     const writtenAnswerRun = JSON.parse(await readFile(path.join(repoRoot, answerWrite.source_text_answer_run_ref), "utf8"));
     assert.equal(validateSourceTextAnswerRun(writtenAnswerRun).status, "pass");
+
+    await assert.rejects(
+      () =>
+        writeSourceTextAnswerRun({
+          repoRoot,
+          sourceTextIndexRef: indexWrite.source_text_index_ref,
+          traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+          question: "project workspace common knowledge",
+          runId: "fixture_source_text_answer_run_written",
+          now: "2026-05-25T08:04:00Z",
+        }),
+      /source_text_answer_run_output_already_exists/,
+    );
+
+    const concurrentRunId = "fixture_source_text_answer_run_concurrent";
+    const concurrentWrites = await Promise.allSettled([
+      writeSourceTextAnswerRun({
+        repoRoot,
+        sourceTextIndexRef: indexWrite.source_text_index_ref,
+        traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+        question: "project workspace common knowledge",
+        runId: concurrentRunId,
+        now: "2026-05-25T08:04:10Z",
+      }),
+      writeSourceTextAnswerRun({
+        repoRoot,
+        sourceTextIndexRef: indexWrite.source_text_index_ref,
+        traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+        question: "NotebookLM authority",
+        runId: concurrentRunId,
+        now: "2026-05-25T08:04:11Z",
+      }),
+    ]);
+    const concurrentWinners = concurrentWrites.filter((result) => result.status === "fulfilled");
+    const concurrentLosers = concurrentWrites.filter((result) => result.status === "rejected");
+    assert.equal(concurrentWinners.length, 1);
+    assert.equal(concurrentLosers.length, 1);
+    assert.match(
+      String(concurrentLosers[0].reason),
+      /rag_output_occurrence_already_reserved|source_text_answer_run_output_already_exists/,
+    );
+    const concurrentWinner = concurrentWinners[0].value;
+    const concurrentOutput = JSON.parse(
+      await readFile(path.join(repoRoot, concurrentWinner.source_text_answer_run_ref), "utf8"),
+    );
+    assert.equal(validateSourceTextAnswerRun(concurrentOutput).status, "pass");
+    const concurrentLedgerRows = (await readFile(path.join(repoRoot, concurrentWinner.knowledge_access_ledger_ref), "utf8"))
+      .trim()
+      .split(/\r?\n/u)
+      .map((line) => JSON.parse(line))
+      .filter((row) => row.output_ref === concurrentWinner.source_text_answer_run_ref);
+    assert.equal(concurrentLedgerRows.length, concurrentWinner.knowledge_access_event_count);
+    assert.ok(concurrentLedgerRows.every((row) => row.output_revision_ref === concurrentWinner.output_revision_ref));
+
+    const crossProjectConcurrentRunId = "fixture_source_text_answer_run_cross_project_concurrent";
+    const crossProjectConcurrentWrites = await Promise.allSettled([
+      writeSourceTextAnswerRun({
+        repoRoot,
+        sourceTextIndexRef: indexWrite.source_text_index_ref,
+        traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+        question: "project workspace common knowledge",
+        runId: crossProjectConcurrentRunId,
+        projectCode: "P1",
+        now: "2026-05-25T08:04:20Z",
+      }),
+      writeSourceTextAnswerRun({
+        repoRoot,
+        sourceTextIndexRef: indexWrite.source_text_index_ref,
+        traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+        question: "NotebookLM authority",
+        runId: crossProjectConcurrentRunId,
+        projectCode: "P2",
+        now: "2026-05-25T08:04:21Z",
+      }),
+    ]);
+    assert.equal(crossProjectConcurrentWrites.filter((result) => result.status === "fulfilled").length, 1);
+    assert.equal(crossProjectConcurrentWrites.filter((result) => result.status === "rejected").length, 1);
+    assert.match(
+      String(crossProjectConcurrentWrites.find((result) => result.status === "rejected").reason),
+      /rag_output_occurrence_already_reserved|source_text_answer_run_output_already_exists/,
+    );
+
+    const occurrenceA = await writeSourceTextAnswerRun({
+      repoRoot,
+      sourceTextIndexRef: indexWrite.source_text_index_ref,
+      traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+      question: "same question separate occurrence",
+      now: "2026-05-25T08:05:00Z",
+    });
+    const occurrenceB = await writeSourceTextAnswerRun({
+      repoRoot,
+      sourceTextIndexRef: indexWrite.source_text_index_ref,
+      traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+      question: "same question separate occurrence",
+      now: "2026-05-25T08:06:00Z",
+    });
+    assert.notEqual(occurrenceA.source_text_answer_run_ref, occurrenceB.source_text_answer_run_ref);
+
+    const recoveryLedgerRootRef = "_workmeta/RECOVER/reports/knowledge_access";
+    const failedWriterShardId = "node_failure_fixture";
+    const failedWriterLedgerRef = `${recoveryLedgerRootRef}/events/2026/2026-05/${failedWriterShardId}.jsonl`;
+    await mkdir(path.join(repoRoot, failedWriterLedgerRef), { recursive: true });
+    const failureRunId = "fixture_source_text_answer_run_ledger_failure";
+    const failureOutputRef = `_workspaces/knowledge/rag/answer_runs/${failureRunId}/source_text_answer_run.json`;
+    const failureReceiptRef = `${recoveryLedgerRootRef}/receipts/2026/2026-05/${sha256Hex(failureOutputRef).slice(0, 24)}.json`;
+    await assert.rejects(
+      () =>
+        writeSourceTextAnswerRun({
+          repoRoot,
+          sourceTextIndexRef: indexWrite.source_text_index_ref,
+          traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+          question: "project workspace common knowledge",
+          runId: failureRunId,
+          projectCode: "RECOVER",
+          knowledgeAccessLedgerShardId: failedWriterShardId,
+          now: "2026-05-25T08:07:00Z",
+        }),
+      /rag_knowledge_access_append_failed_pending_receipt/,
+    );
+    assert.equal(validateSourceTextAnswerRun(JSON.parse(await readFile(path.join(repoRoot, failureOutputRef), "utf8"))).status, "pass");
+    const pendingReceipt = JSON.parse(
+      await readFile(path.join(repoRoot, failureReceiptRef), "utf8"),
+    );
+    assert.equal(pendingReceipt.status, "pending");
+    await rm(path.join(repoRoot, failedWriterLedgerRef), { recursive: true, force: true });
+    const recoveryShardId = `node_${sha256Hex(os.hostname()).slice(0, 16)}_recovery_${sha256Hex(failureReceiptRef).slice(0, 12)}`;
+    const recoveryLedgerRef = `${recoveryLedgerRootRef}/events/2026/2026-05/${recoveryShardId}.jsonl`;
+    await mkdir(path.dirname(path.join(repoRoot, recoveryLedgerRef)), { recursive: true });
+    const wrongProvenanceEvent = {
+      ...pendingReceipt.events[0],
+      ledger_ref: failedWriterLedgerRef,
+    };
+    assert.ok(validateKnowledgeAccessEvent(wrongProvenanceEvent).ok);
+    await writeFile(
+      path.join(repoRoot, recoveryLedgerRef),
+      `{"schema_version":\n${JSON.stringify(wrongProvenanceEvent)}\n`,
+      "utf8",
+    );
+    const reconciled = await reconcileRagRetrievalAccessPendingReceipt({
+      repoRoot,
+      receiptRef: failureReceiptRef,
+    });
+    assert.equal(reconciled.status, "recorded");
+    assert.equal(reconciled.event_count, pendingReceipt.event_count);
+    assert.equal(reconciled.ledger_ref, recoveryLedgerRef);
+    const recoveryLedgerText = await readFile(path.join(repoRoot, recoveryLedgerRef), "utf8");
+    assert.ok(recoveryLedgerText.startsWith('{"schema_version":\n'));
+    const recoveredValidRows = recoveryLedgerText
+      .split(/\r?\n/u)
+      .flatMap((line) => {
+        if (!line.trim()) return [];
+        try {
+          const row = JSON.parse(line);
+          return validateKnowledgeAccessEvent(row).ok ? [row] : [];
+        } catch {
+          return [];
+        }
+      });
+    assert.equal(recoveredValidRows.length, pendingReceipt.event_count + 1);
+    assert.equal(
+      recoveredValidRows.filter((row) => row.ledger_ref === recoveryLedgerRef).length,
+      pendingReceipt.event_count,
+    );
+    const reconciledReceipt = JSON.parse(
+      await readFile(path.join(repoRoot, failureReceiptRef), "utf8"),
+    );
+    assert.equal(reconciledReceipt.status, "recorded");
+    assert.equal(reconciledReceipt.ledger_ref, recoveryLedgerRef);
+    assert.equal(
+      (await reconcileRagRetrievalAccessPendingReceipt({ repoRoot, receiptRef: failureReceiptRef })).status,
+      "already_recorded",
+    );
+
+    const mismatchRunId = "fixture_source_text_answer_run_project_mismatch";
+    const mismatchOutputRef = `_workspaces/knowledge/rag/answer_runs/${mismatchRunId}/source_text_answer_run.json`;
+    await assert.rejects(
+      () =>
+        writeSourceTextAnswerRun({
+          repoRoot,
+          sourceTextIndexRef: indexWrite.source_text_index_ref,
+          traceabilitySidecarRef: sidecarWrite.traceability_sidecar_ref,
+          question: "project workspace common knowledge",
+          runId: mismatchRunId,
+          projectCode: "P1",
+          knowledgeAccessLedgerRoot: "_workmeta/P2/reports/knowledge_access",
+          now: "2026-05-25T08:08:00Z",
+        }),
+      /rag_knowledge_access_ledger_root_project_mismatch/,
+    );
+    await assert.rejects(() => readFile(path.join(repoRoot, mismatchOutputRef), "utf8"), /ENOENT/);
 
     const qualityReviewWrite = await writeSourceTextQualityReview({
       repoRoot,

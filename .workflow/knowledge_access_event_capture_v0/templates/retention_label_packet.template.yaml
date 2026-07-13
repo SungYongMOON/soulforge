@@ -17,6 +17,7 @@ allowed_labels:
   - hot
   - warm
   - cold
+  - cold_essential
   - stale
   - archive_candidate
   - retire_candidate
@@ -24,4 +25,6 @@ allowed_labels:
 authority_boundary:
   labels_are_candidates: true
   archive_or_retire_requires_owner_decision_or_declared_policy: true
+  low_use_alone_never_authorizes_archive_or_retire: true
+  important_low_use_routes_to_cold_essential: true
   no_archive_or_retire_execution_claim: true

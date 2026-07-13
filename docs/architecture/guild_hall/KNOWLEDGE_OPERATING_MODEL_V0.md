@@ -8,15 +8,30 @@ public canon by accident.
 
 General file reads are not automatically observed. A read creates a ledger row
 only when the worker or tool uses the `guild_hall/knowledge_access` read wrapper
-or writes an explicit metadata-only record through the helper. Ordinary shell,
-editor, search, or model-context reads leave no ledger event unless they are
-recorded on purpose.
+or writes an explicit metadata-only record through the helper. Persisted
+metadata-RAG and source-text answer runs are the first automatic integration:
+they append `retrieve` rows for evidence selected into answer context. Ordinary
+shell/editor reads and Wiki adapters that do not call the writer still leave no
+ledger event. Automatic RAG writers validate a full selected-evidence batch
+before append and write to an opaque per-node monthly shard, so multiple PCs do
+not share one writable JSONL file. Snapshot aggregation deduplicates
+storage-independent logical keys (legacy rows fall back to event ids) and
+exposes invalid, duplicate, and unreadable counts as coverage.
+Persisted answer runs are occurrence-immutable and point to an exact output
+revision. Their output path is exclusively reserved in an output-global
+coordination surface before a private pending
+receipt is written under the matching project/system `_workmeta` access-history
+owner. The receipt becomes recorded only after ledger append and read-back
+verification of the expected physical ledger owner; a failed append remains explicitly reconcilable into the
+recovering PC's own shard instead of silently leaving an unlogged answer or
+writing another PC's shard. Shared-output exclusion across PCs is claimed only
+when those PCs resolve the same `_workspaces/knowledge` coordination filesystem.
 
 ## Layer Model
 
 | Layer | Trigger condition | Output target and owner boundary | Automation level | Approval needed | Promotion path | Failure mode |
 | --- | --- | --- | --- | --- | --- | --- |
-| Knowledge access ledger / read-use record | A worker, workflow, skill, tool, or advisory handoff actually uses a public-safe knowledge ref and wants traceable use. | Metadata-only JSONL rows in an explicit ledger target such as `_workmeta/<project_code>/reports/knowledge_access/**`, `_workmeta/system/reports/knowledge_access/**`, `guild_hall/state/**`, `private-state/**`, or a temp path. Public canon owns the helper and schema, not runtime ledger rows. | Explicit helper call today: `read` for file content plus a row, `record` for use/citation without reading payload, or `notebooklm-bridge` for importing explicit NotebookLM-like metadata rows as advisory `imported_log_entry` events. Later routers may append equivalent rows only from approved surfaces. | No owner approval is needed for a payload-free row in the correct private/local owner. Approval is needed before exposing private payloads or turning row-derived conclusions into canon. | Rows can feed `knowledge_access_event_capture_v0` for normalization, rollup, relation candidates, and review routing. | If the helper or explicit record is not used, no row exists. Secret-like refs, private/runtime roots, absolute paths, traversal refs, auth/session paths, empty NotebookLM query logs, or metadata with embedded runtime absolute paths must reject before append. |
+| Knowledge access ledger / read-use record | A worker, workflow, skill, tool, or advisory handoff actually retrieves or uses a knowledge ref and wants traceable use. | Metadata-only JSONL rows in an explicit ledger target such as `_workmeta/<project_code>/reports/knowledge_access/**`, `_workmeta/system/reports/knowledge_access/**`, `guild_hall/state/**`, `private-state/**`, or a temp path. Public canon owns the helper and schema, not runtime ledger rows. | `read`/`record`/`notebooklm-bridge` are explicit. Persisted metadata-RAG and source-text answer writers automatically append selected-evidence `retrieve` rows. Wiki/general reads and later `cite`/`apply` still need their adapter or worker to record them. | No owner approval is needed for a payload-free row in the correct private/local owner. Approval is needed before exposing private payloads or turning row-derived conclusions into canon. | Rows can feed `knowledge_access_event_capture_v0` for normalization, rollup, relation candidates, and review routing. | If a read path bypasses the helper, no row exists. Retrieval must not be miscounted as application. Secret-like refs, private/runtime roots, absolute paths, traversal refs, auth/session paths, empty NotebookLM query logs, or metadata with embedded runtime absolute paths must reject before append. |
 | Manual candidate capture | A worker notices a repeatable procedure, missing link, reusable entity/relation pattern, open owner decision, or future workflow/skill candidate during bounded work. | Promotion-ready evidence under `_workmeta/<project_code>/reports/procedure_capture/**` or `_workmeta/system/reports/procedure_capture/**` when no project owner applies. Public docs receive only public-safe accepted summaries. | Manual capture by the worker. | Yes before public canon promotion or owner-action claims. | Candidate register -> review gate -> `skill`, `.workflow`, `.mission`, role/class, data contract, ontology candidate, or owner decision packet. | Candidate is left only in chat memory, copied into a public doc with private/raw details, or promoted without repeatable steps and acceptance criteria. |
 | Knowledge ingest receipt / missing audit | A bounded knowledge ingest request, file intake, chat candidate, source audit, wiki/RAG prep, or closeout needs durable cross-PC visibility of layer status. | Metadata-only receipt JSONL rows under `_workmeta/<project_code>/knowledge_ingest_receipts/**` or `_workmeta/system/knowledge_ingest_receipts/**`; missing-audit tables under `_workmeta/**/reports/knowledge_ingest_missing_audit/**`. Public code/docs own the schema and helper. | Explicit helper call today: `ingest-receipt-append`, `ingest-receipt-validate`, and `ingest-receipt-missing-audit` through `guild_hall/knowledge_access`. `knowledge_ingest_pipeline_v0` should emit receipt refs before closeout. | No owner approval is needed for metadata-only receipt rows. Approval is needed before source-text extraction, index build, Drive/NotebookLM upload, canon promotion, ontology acceptance, or owner-decision application. | Receipt -> missing audit -> source audit, wiki/RAG preparation, owner decision packet, sourcebound review, or no-action closure. | Another PC records only chat memory or local unpushed files, so this PC cannot see the candidate; or a receipt claims source/Wiki/RAG/canon completion without refs and review evidence. |
 | LLM suggestion / manual approval capture | An LLM or advisory tool suggests a pattern, relation, route, consolidation, archive, or adoption decision. | Advisory note, promotion candidate, or owner-decision evidence in `_workmeta/**` or `guild_hall/state/**` depending on scope. The suggestion is evidence, not authority. | LLM-assisted suggestion with manual capture and review. | Yes. Owner approval or an appropriate review gate is required before mutation, adoption, archive/retire action, graph update, or canon promotion. | Approved suggestion -> owner decision packet, workflow evolution, graph update packet, docs patch, or private hold. | Treating advisory text as accepted truth, hiding uncertainty, or letting an LLM suggestion mutate canon without human/review approval. |
@@ -47,6 +62,9 @@ recorded on purpose.
 - Analysis workflows produce candidate signals. They do not decide retention,
   graph changes, archive/retire execution, ontology acceptance, or canon
   promotion by themselves.
+- Retention always separates use (`retrieve/read/cite/apply`) from importance
+  (authority, applicability, dependency, uniqueness, lifecycle/conflict, and
+  access coverage). Low use alone never authorizes archive or retire.
 - End-of-work sweep is the catch point: if a useful pattern appears during work
   but no ledger row or candidate capture was made, record the gap and next
   action instead of pretending the system observed it.
@@ -88,6 +106,10 @@ recorded on purpose.
   cards, auto-registers public-safe metadata knowledge before backlog, prepares
   owner-review queues without reading source bodies, and routes insufficient
   evidence to sourcebound retrieval or owner review.
+- Persisted RAG answer runs append selected-evidence `retrieve` rows to the
+  project or system per-node monthly knowledge-access shard. This is a first vertical
+  writer integration, not evidence that all Wiki/file reads or actual project
+  applications are observed.
 - `rag_source_text_quality_review_v0` and `rag_work_card_router_v0` are
   registered optional support workflows for approved source-text lane refs.
   They remain below source truth, answer authority, project execution authority,

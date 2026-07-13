@@ -6,6 +6,36 @@
   `context_not_found` 응답을 해당 탭의 빈 상태로 처리하도록 했다. 이 경우 전역 연결 배너가
   HTTP 400 서버 장애로 바뀌거나 다른 입력·버튼이 잠기지 않으며, 실제 인증 만료·5xx·네트워크
   실패에 대한 기존 fail-closed 동작은 유지한다. (worker: codex_gpt-5)
+### RAG 선택 근거 사용이력과 저사용·고중요 보호 계약
+
+- 저장되는 metadata RAG 및 source-text RAG 답변 실행이 선택한 근거를 월별
+  metadata-only knowledge-access JSONL에 `retrieve`로 자동 기록하도록 첫 수직 경로를
+  연결했다. opaque unit/chunk ID, index/run/rank, project/gate/branch/task, output ref만
+  남기며 raw 질문·원문·chunk body는 원장에 복사하지 않는다. `retrieve`와 실제
+  `cite`/`apply`를 분리하고 rollup에 검색, exact apply, substantive use와 과제 맥락별
+  집계를 추가했다. 자동 RAG writer는 전체 batch를 먼저 검증한 뒤 PC별 opaque monthly
+  shard에 한 번만 append한다.
+- event identity와 logical dedupe에서 물리 ledger/shard 위치를 분리하고, 과제 코드와
+  in-repo 원장 owner가 다르면 기록 전에 차단한다. logical dedupe key는 event 내용에서
+  재계산해 forged key가 실제 사용을 숨기지 못하게 했다. 저장 답변은 원자적으로 선점한
+  실행별 불변 경로와 output revision hash를 쓰며, 과제별 `_workmeta`에 답변 전 pending
+  receipt→append·read-back 검증 후 recorded 절차를 둔다. 명시적 reconciliation은 복구를
+  수행한 PC의 별도 shard를 쓰고 partial JSONL tail을 유효 사건으로 오인하지 않는다.
+  shared workspace 답변의 선점은 project code와 무관한 output-global coordination
+  surface에 두고, read-back은 logical event뿐 아니라 실제 ledger provenance도 확인한다.
+- operation board의 지식 lane이 직속 파일 수가 아니라 재귀 canonical JSONL 유효 행을
+  집계하고 stable event ID를 중복 제거하며 최근 접근 시각, 검색·exact apply·substantive
+  use·유용 이벤트 수와 무효/중복/읽기 실패 coverage를 표시하도록 보강했다. 일반
+  file/editor/Wiki read는 아직 writer adapter가 없으면 관측되지 않는 경계를 유지한다.
+  shape-valid 행도 secret/runtime-path 안전 검사를 다시 통과해야 집계하며, 새 evidence
+  count는 nonnegative safe integer/boolean 형식을 검증한다.
+- 전체 시간축·지식축 계약에 작은 SE 중심 맥락, catalog-filtered RAG, 얇은 Wiki,
+  on-demand tool의 역할과 토큰 경계를 고정했다. 저사용만으로 폐기하지 않고 authority,
+  applicability, dependency, uniqueness, lifecycle/conflict, access coverage를 함께 보며,
+  중요·저사용은 `cold_essential`, 적용 대상 무검색은 검색 coverage 점검 후보로 둔다.
+  계산기는 반복성·재현성·감사 필요가 확인될 때만 별도 도구로 강화한다.
+  로드맵 동기화 후 boot digest source manifest를 재검토·재서명했다.
+  (worker: codex_gpt-5)
 
 ### dev-ERP loopback 공존 LAN HTTPS proxy
 

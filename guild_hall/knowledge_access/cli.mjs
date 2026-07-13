@@ -25,6 +25,7 @@ async function main() {
     knowledgeRef: args.ref ?? args["knowledge-ref"],
     ledgerRoot: args["ledger-root"],
     ledgerFile: args["ledger-file"],
+    ledgerShardId: args["ledger-shard-id"],
     ledgerRef: args["ledger-ref"],
     captureMode: args["capture-mode"],
     actorType: args["actor-type"],
@@ -36,14 +37,19 @@ async function main() {
     outcomeState: args["outcome-state"],
     taskRef: args["task-ref"],
     runRef: args["run-ref"],
+    projectCode: args["project-code"],
+    gateId: args["gate-id"],
+    branchId: args["branch-id"],
     workflowId: args["workflow-id"],
     skillId: args["skill-id"],
     missionId: args["mission-id"],
     advisoryHandoffRef: args["advisory-handoff-ref"],
     targetType: args["target-type"],
+    revisionRef: args["revision-ref"],
     sourceWorkflowId: args["source-workflow-id"],
     eventSourceRef: args["event-source-ref"],
     manualAgentNote: args["manual-agent-note"],
+    retrievalContext: buildRetrievalContextFromArgs(args),
     accumulationDeltaHint: buildAccumulationDeltaHintFromArgs(args),
   };
 
@@ -292,6 +298,29 @@ function buildAccumulationDeltaHintFromArgs(args) {
   return hint;
 }
 
+function buildRetrievalContextFromArgs(args) {
+  const context = {
+    retrievalRunRef: args["retrieval-run-ref"],
+    traceId: args["trace-id"],
+    queryFingerprint: args["query-fingerprint"],
+    resultRank: args["result-rank"],
+    selectedForContext: parseOptionalBoolean(args["selected-for-context"], "selected-for-context"),
+  };
+
+  if (Object.values(context).every((value) => value === undefined)) {
+    return undefined;
+  }
+
+  return context;
+}
+
+function parseOptionalBoolean(value, label) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (value === true || value === "true") return true;
+  if (value === false || value === "false") return false;
+  throw new Error(`${label}_must_be_boolean`);
+}
+
 function buildRepeatedUseSignalFromArgs(args) {
   const signal = {
     count: args["repeated-count"],
@@ -369,7 +398,7 @@ function printUsageAndExit() {
     [
       "Usage:",
       "  node guild_hall/knowledge_access/cli.mjs read --ref <repo-relative-file> (--ledger-root <path> | --ledger-file <path.jsonl>) [--reason-used <text>] [--actor-id <id>] [--json]",
-      "  node guild_hall/knowledge_access/cli.mjs record --ref <repo-relative-ref> (--ledger-root <path> | --ledger-file <path.jsonl>) [--access-type <type>] [--reason-used <text>] [--output-ref <ref>] [--json]",
+      "  node guild_hall/knowledge_access/cli.mjs record --ref <stable-knowledge-ref-or-id> (--ledger-root <path> | --ledger-file <path.jsonl>) [--ledger-shard-id <opaque-writer-id>] [--access-type <retrieve|read|cite|apply|...>] [--project-code <code>] [--gate-id <id>] [--branch-id <id>] [--revision-ref <ref>] [--reason-used <text>] [--output-ref <ref>] [--json]",
       "  node guild_hall/knowledge_access/cli.mjs record --ref <repo-relative-ref> --capture-mode automatic_end_of_task_trigger_check --trigger-result <result> --claim-ceiling <ceiling> (--ledger-root <path> | --ledger-file <path.jsonl>) [--suggested-route <route>] [--trigger-reason <text>] [--json]",
       "  node guild_hall/knowledge_access/cli.mjs analyze (--ledger-file <path.jsonl> | --ledger-ref <repo-relative-jsonl>)... [--json]",
       "  node guild_hall/knowledge_access/cli.mjs notebooklm-bridge --binding-ref <repo-relative-yaml> (--ledger-root <path> | --ledger-file <path.jsonl>) [--source-ledger-ref <ref>] [--query-log-ref <ref>]",
@@ -388,7 +417,8 @@ function printUsageAndExit() {
       "  End-of-task trigger flags append only accumulation_delta_hint metadata; they do not validate source truth, approve owner decisions, mutate graphs, archive/retire refs, or promote canon.",
       "  Candidate ledger commands read/write only explicit candidate JSONL metadata rows; triage performs no sourcebound review, RAG ingestion, ontology/canon promotion, graph mutation, archive, or retire action.",
       "  Ingest receipt commands write only explicit metadata-only receipt JSONL rows and missing-audit tables; they do not read source payloads, upload to Drive/NotebookLM, build indexes, or promote canon.",
-      "  Targets must be repo-relative public knowledge refs; secret-like, private, runtime, absolute, and traversal paths are blocked.",
+      "  read targets must be repo-relative public files; record also accepts stable opaque knowledge ids. Secret-like, private path, runtime, absolute, and traversal refs are blocked.",
+      "  ledger-shard-id may be used only with ledger-root and separates concurrent writer nodes without exposing a device name.",
     ].join("\n"),
   );
   process.exit(1);

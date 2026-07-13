@@ -1,8 +1,14 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import { normalizeRepoPath, readJson, writeJson } from "../shared/io.mjs";
+import { normalizeRepoPath, pathExists, readJson, writeJson } from "../shared/io.mjs";
 import { validateSourceSyncReadyRef } from "./source_sync_ready_manifest.mjs";
+import {
+  prepareRagRetrievalAccessPendingReceipt,
+  recordRagRetrievalAccessEvents,
+  releaseRagOutputOccurrence,
+  reserveRagOutputOccurrence,
+} from "./knowledge_access_capture.mjs";
 
 export const KNOWLEDGE_SOURCE_CARD_SCHEMA_VERSION = "soulforge.knowledge_source_card.v0";
 export const SOURCE_TEXT_INDEX_SCHEMA_VERSION = "soulforge.source_text_index.v0";
@@ -651,8 +657,10 @@ export async function buildSourceTextAnswerRun(options = {}) {
     ? new Map((traceabilitySidecar.chunks ?? []).map((chunk) => [chunk.chunk_id, chunk]))
     : new Map();
   const nativePageTraceabilityAvailable = indexChunksHaveNativePageTraceability(index);
+  const generatedAtUtc = formatTimestampUtc(options.now);
   const runId = normalizeSimpleId(
-    options.runId ?? `source_text_answer_run_${stableHash(`${index?.index_id ?? "unknown"}:${question}`).slice(0, 12)}`,
+    options.runId ??
+      `source_text_answer_run_${compactOccurrenceTimestamp(generatedAtUtc)}_${stableHash(`${index?.index_id ?? "unknown"}:${question}`).slice(0, 12)}`,
     "run_id",
   );
   const base = {
@@ -660,7 +668,7 @@ export async function buildSourceTextAnswerRun(options = {}) {
     kind: "source_text_answer_run",
     run_id: runId,
     generator_id: SOURCE_TEXT_ANSWER_RUN_GENERATOR_ID,
-    generated_at_utc: formatTimestampUtc(options.now),
+    generated_at_utc: generatedAtUtc,
     status: "blocked_invalid_source_text_index",
     source_refs: {
       source_text_index_ref: options.sourceTextIndexRef ?? null,
@@ -714,14 +722,62 @@ export async function writeSourceTextAnswerRun(options = {}) {
   const run = await buildSourceTextAnswerRun(options);
   const outputRef = options.outputRef ?? defaultAnswerRunOutputRef(run);
   const outputPath = path.join(repoRoot, safeSourceTextAnswerRunOutputPath(outputRef));
-  await writeJson(outputPath, run);
-  return {
-    status: "written",
-    source_text_answer_run_ref: normalizeRepoPath(path.relative(repoRoot, outputPath)),
-    run_id: run.run_id,
-    response_status: run.status,
-    retrieved_chunk_count: run.response.retrieved_chunk_count,
+  const sourceTextAnswerRunRef = normalizeRepoPath(path.relative(repoRoot, outputPath));
+  const knowledgeAccessOptions = {
+    repoRoot,
+    enabled: options.knowledgeAccessLog !== false,
+    ledgerRoot: options.knowledgeAccessLedgerRoot,
+    ledgerShardId: options.knowledgeAccessLedgerShardId,
+    projectCode: options.projectCode,
+    gateId: options.gateId,
+    branchId: options.branchId,
+    taskRef: options.taskRef,
+    outputRef: sourceTextAnswerRunRef,
+    outputRevisionRef: `sha256:${stableHash(JSON.stringify(run))}`,
+    actorId: "guild_hall.rag.source_text_answer",
+    reasonUsed: "rag source text retrieval selected evidence for answer context",
+    queryFingerprint: run.query?.query_fingerprint,
+    traceId: run.run_id,
+    targets: (run.response?.citations ?? []).map((citation, index) => ({
+      knowledgeRef: `rag_chunk:${run.source_refs?.index_id}:${citation.chunk_id}`,
+      targetType: "rag_chunk",
+      revisionRef: run.source_refs?.index_id ? `rag_index:${run.source_refs.index_id}` : null,
+      resultRank: index + 1,
+    })),
+    now: run.generated_at_utc,
   };
+  const reservation = await reserveRagOutputOccurrence({
+    repoRoot,
+    projectCode: options.projectCode,
+    outputRef: sourceTextAnswerRunRef,
+    outputRevisionRef: knowledgeAccessOptions.outputRevisionRef,
+    now: run.generated_at_utc,
+  });
+  try {
+    if (await pathExists(outputPath)) {
+      throw new Error("source_text_answer_run_output_already_exists");
+    }
+    const pendingKnowledgeAccess = await prepareRagRetrievalAccessPendingReceipt(knowledgeAccessOptions);
+    await writeJson(outputPath, run);
+    const knowledgeAccess = await recordRagRetrievalAccessEvents({
+      ...knowledgeAccessOptions,
+      pendingReceiptRef: pendingKnowledgeAccess.pending_receipt_ref,
+    });
+    return {
+      status: "written",
+      source_text_answer_run_ref: sourceTextAnswerRunRef,
+      run_id: run.run_id,
+      response_status: run.status,
+      retrieved_chunk_count: run.response.retrieved_chunk_count,
+      knowledge_access_status: knowledgeAccess.status,
+      knowledge_access_event_count: knowledgeAccess.event_count,
+      knowledge_access_ledger_ref: knowledgeAccess.ledger_ref,
+      knowledge_access_receipt_ref: knowledgeAccess.receipt_ref ?? null,
+      output_revision_ref: knowledgeAccessOptions.outputRevisionRef,
+    };
+  } finally {
+    await releaseRagOutputOccurrence({ repoRoot, reservationRef: reservation.reservation_ref });
+  }
 }
 
 export async function loadSourceTextAnswerRun({ repoRoot = process.cwd(), runRef } = {}) {
@@ -1469,6 +1525,10 @@ function isSafeId(value) {
 
 function formatTimestampUtc(value) {
   return value ? new Date(value).toISOString() : new Date().toISOString();
+}
+
+function compactOccurrenceTimestamp(value) {
+  return String(value).replace(/[-:.]/gu, "");
 }
 
 function stableHash(value) {

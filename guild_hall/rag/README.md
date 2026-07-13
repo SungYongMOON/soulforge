@@ -13,6 +13,37 @@ The default manifest/index path is still metadata-only. A separate
 `_workspaces/knowledge` and writes its payload artifacts back under that private
 workspace alias.
 
+Persisted `answer-engine-run` and `source-text-answer-run` outputs append one
+metadata-only `retrieve` event per selected evidence unit to an opaque per-node
+monthly knowledge-access shard. Pass `--project-code`, `--gate-id`, `--branch-id`, and
+`--task-ref` when known. The event stores opaque unit/chunk ids, index/run/rank,
+and output refs—not the raw question or source/chunk body. `cite` or `apply`
+remains a separate event when the evidence is actually used downstream.
+Each persisted run uses an occurrence-specific output path and an exact output
+revision hash. The writer first takes an exclusive output-global reservation,
+then
+creates a metadata-only pending receipt under
+`_workmeta/<project|system>/reports/knowledge_access/receipts/**` before writing
+the answer. Shared `_workspaces/knowledge/rag/answer_runs/**` outputs coordinate
+through `_workspaces/knowledge/rag/output_reservations/**`, independent of the
+declared project; project-private outputs keep the reservation in their
+`_workmeta` owner. This coordinates multiple writers only when they see the same
+shared workspace filesystem. Successful ledger append and post-append
+verification, including exact physical `ledger_ref`, change the
+receipt to `recorded`. If append fails, repair the ledger owner and run:
+
+```bash
+npm run guild-hall:rag -- reconcile-knowledge-access-receipt --receipt-ref <repo-relative-pending-receipt-json>
+```
+
+Reconciliation writes to an opaque recovery shard owned by the PC performing
+the recovery, preserves any partial historical tail as an invalid row, and
+marks the receipt recorded only after every expected logical event is readable
+and valid. It never writes another PC's original shard. In-repo custom ledger
+roots must match the declared project. Explicit external roots remain
+test/operator surfaces; recovery still lands in the declared project's private
+`_workmeta` owner.
+
 Default metadata manifests, source-slice cards, and metadata indexes are written
 under the path-identity controlled `_workspaces/system/rag/**` view. PC-local
 RAG experiments must pass an explicit `--output-ref` under
@@ -70,7 +101,7 @@ npm run guild-hall:rag -- approved-build-runner --write --date 2026-07-03 --ledg
 npm run guild-hall:rag -- validate-approved-build-run --run-ref _workmeta/system/reports/rag/approved_build_runs/<run_id>/approved_build_run.json
 npm run guild-hall:rag -- source-text-traceability-sidecar --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/<source_id>_source_text_index/source_text_index.json --docling-json-ref _workspaces/knowledge/common/<source_id>/derived_text/<docling_json_export>.json --traceability-id <source_id>_traceability
 npm run guild-hall:rag -- validate-source-text-traceability-sidecar --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json
-npm run guild-hall:rag -- source-text-answer-run --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json --question "NotebookLM authority" --run-id soulforge_common_knowledge_answer_20260525 --text
+npm run guild-hall:rag -- source-text-answer-run --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/soulforge_common_knowledge_starter_20260525/source_text_index.json --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json --question "NotebookLM authority" --run-id soulforge_common_knowledge_answer_20260525 --project-code P24-049 --gate-id CDR --branch-id branch:P24-049:verification --text
 npm run guild-hall:rag -- validate-source-text-answer-run --run-ref _workspaces/knowledge/rag/answer_runs/soulforge_common_knowledge_answer_20260525/source_text_answer_run.json
 npm run guild-hall:rag -- source-text-quality-review --write --source-text-index-ref _workspaces/knowledge/rag/indexes_local/source_text_indexes/<source_id>_docling_json_index/source_text_index.json --traceability-sidecar-ref _workspaces/knowledge/rag/traceability_sidecars/<source_id>_traceability/source_text_traceability_sidecar.json --answer-run-ref _workspaces/knowledge/rag/answer_runs/<answer_run_id>/source_text_answer_run.json --page 18-19 --page 39 --page 120-121 --review-id <source_id>_quality_review
 npm run guild-hall:rag -- validate-source-text-quality-review --review-ref _workspaces/knowledge/rag/source_text_quality_reviews/<source_id>_quality_review/source_text_quality_review.json
@@ -152,7 +183,7 @@ npm run guild-hall:rag -- operational-route-candidate-record-view --candidate-re
 npm run guild-hall:rag -- operational-route-status --write --route-registry-ref _workspaces/knowledge/rag/operational_routes/<route_set_id>/route_registry.yaml --status-id <status_id>
 npm run guild-hall:rag -- validate-operational-route-status --operational-route-status-ref _workmeta/system/reports/rag/operational_route_status/<status_id>/status.json
 npm run guild-hall:rag -- operational-route-status-view --operational-route-status-ref _workmeta/system/reports/rag/operational_route_status/<status_id>/status.json
-npm run guild-hall:rag -- answer-engine-run --write --metadata-index-ref _workspaces/system/rag/metadata_retrieval_indexes/metadata_index_rag_manifest_knowledge_graph_view_v0/metadata_index.json --extraction-packet-ref _workmeta/system/reports/rag/source_text_extraction_packets/source_text_extraction_packet_v0/source_text_extraction_packet.json --extraction-run-report-ref _workmeta/system/reports/rag/source_text_extraction_runs/source_text_extraction_packet_v0/source_text_extraction_run_report.json --question "knowledge wiki"
+npm run guild-hall:rag -- answer-engine-run --write --metadata-index-ref _workspaces/system/rag/metadata_retrieval_indexes/metadata_index_rag_manifest_knowledge_graph_view_v0/metadata_index.json --extraction-packet-ref _workmeta/system/reports/rag/source_text_extraction_packets/source_text_extraction_packet_v0/source_text_extraction_packet.json --extraction-run-report-ref _workmeta/system/reports/rag/source_text_extraction_runs/source_text_extraction_packet_v0/source_text_extraction_run_report.json --question "knowledge wiki" --project-code P24-049 --gate-id CDR --branch-id branch:P24-049:verification
 npm run guild-hall:rag -- validate-answer-engine-run --run-ref _workmeta/system/reports/rag/answer_engine_runs/answer_engine_run_<id>/answer_engine_run.json
 npm run guild-hall:rag -- metadata-index --write --manifest-ref _workspaces/system/rag/manifests/rag_manifest_knowledge_graph_view_v0/rag_manifest.json --decision-packet-ref _workmeta/system/reports/rag/source_slice_decision_packets/source_slice_decision_source_slice_triage_source_slices_rag_manifest_knowledge_graph_view_v0/source_slice_decision_packet.json --owner-decision-record-ref _workmeta/system/reports/rag/source_slice_owner_decisions/source_slice_owner_decision_source_slice_decision_source_slice_triage_source_slices_rag_manifest_knowledge_graph_view_v0/source_slice_owner_decision_record.json
 npm run guild-hall:rag -- validate-metadata-index --metadata-index-ref _workspaces/system/rag/metadata_retrieval_indexes/metadata_index_rag_manifest_knowledge_graph_view_v0/metadata_index.json

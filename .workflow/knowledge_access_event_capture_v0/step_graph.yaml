@@ -39,14 +39,19 @@ steps:
         - knowledge_access_event_batch
       allowed_content:
         - event_id
+        - logical_dedupe_key
         - stable_actor_ref
         - stable_target_ref
+        - target_revision_ref
         - capture_mode
         - access_type
         - work_context_ref
+        - project_gate_branch_context
+        - retrieval_run_rank_and_selection_state
         - timestamp
         - reason_used
         - output_ref
+        - output_revision_ref
         - outcome_state
         - usefulness_signal
         - relation_hint
@@ -127,6 +132,9 @@ steps:
         - work_context.workflow_id
         - work_context.mission_id
         - work_context.run_id
+        - work_context.project_code
+        - work_context.gate_id
+        - work_context.branch_id
         - outcome_state
         - time_window
       count_semantics:
@@ -151,6 +159,7 @@ steps:
         - hot
         - warm
         - cold
+        - cold_essential
         - stale
         - archive_candidate
         - retire_candidate
@@ -160,6 +169,17 @@ steps:
         stale_can_trigger_review_not_deletion: true
         promoted_or_recently_useful_events_raise_temperature: true
         blocked_or_not_useful_events_lower_confidence_not_truth: true
+        retrieve_is_lower_weight_than_cite_apply_validate_or_promote: true
+        low_use_alone_cannot_create_archive_or_retire_candidate: true
+        importance_guard_dimensions:
+          - authority
+          - current_or_future_applicability
+          - decision_task_artifact_dependency
+          - uniqueness_or_verified_replacement
+          - lifecycle_or_conflict
+          - access_log_coverage
+        important_low_use_routes_to_cold_essential: true
+        applicable_without_retrieval_routes_to_search_coverage_review: true
     summary: Convert usage, recency, and outcome signals into reviewable retention labels.
     next:
       on_success: analyze_relation_strength
@@ -184,7 +204,7 @@ steps:
         - review_required
       analysis_rules:
         repeated_useful_access_strengthens_link: true
-        cite_promote_validate_access_has_higher_weight_than_read_only: true
+        cite_apply_promote_validate_access_has_higher_weight_than_retrieve_or_read: true
         no_recent_access_can_suggest_orphan_review: true
         duplicate_or_redundant_hints_require_review: true
         graph_weight_is_navigation_signal_not_truth_score: true
