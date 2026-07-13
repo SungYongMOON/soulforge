@@ -1305,6 +1305,54 @@ test("runner accepts the exact six-role short internal other report without a su
   assert.deepEqual(prepared.execution.summaryDerivation.summary_assertions, []);
 });
 
+test("runner accepts the exact three-role compact internal progress report without a derived summary", async (t) => {
+  const document = documentForType("progress");
+  document.report_date = null;
+  document.sections = document.sections.filter((section) => new Set([
+    "status_summary", "issues_risks_dependencies", "next_actions",
+  ]).has(section.role));
+  document.semantic_manifest.invariants = document.semantic_manifest.invariants
+    .filter((invariant) => invariant.invariant_id === "inv-number");
+  const compactTexts = ["상태 근거 문장.", "확인 근거 문장.", "후속 근거 문장."];
+  document.sections.forEach((section, index) => {
+    section.blocks[0].text = compactTexts[index];
+  });
+  const compactStatus = document.sections.find((section) => section.role === "status_summary");
+  delete compactStatus.blocks[0].sentences;
+  Object.assign(document.semantic_manifest.invariants[0], {
+    kind: "condition_scope",
+    association_key: "compact-status",
+    anchor: { section_id: compactStatus.section_id, block_id: compactStatus.blocks[0].block_id, row_id: null, column_id: null },
+    surface_form: compactTexts[0],
+    subject: "진행 상태",
+    predicate: "상태 근거",
+    object: null,
+    value: null,
+    unit: null,
+    comparator: "none",
+    range: null,
+    uncertainty: null,
+    polarity: "positive",
+    direction: "not_applicable",
+    modality: "observed",
+    attribution: null,
+    conditions: [],
+    scope: ["internal_review"],
+    causality: "not_applicable",
+    verdict: "not_applicable",
+  });
+  const runtime = await makeRuntime("runner-compact-progress", {
+    fixtureDocument: document,
+    requestPatch: { report_type: "progress", audience: "internal_review" },
+  });
+  t.after(() => fs.rm(runtime.temporary, { recursive: true, force: true }));
+  const outcome = await runWorkflowJob(runtime.request, runtime.adapters);
+  assert.equal(outcome.state.status, "succeeded", JSON.stringify(outcome));
+  const prepared = JSON.parse(await fs.readFile(path.join(runtime.repositoryRoot, "_workspaces", "system", "state", "jobs", runtime.request.job_id, "prepared_execution.json"), "utf8"));
+  assert.deepEqual(prepared.execution.summaryDerivation.body_claim_refs, []);
+  assert.deepEqual(prepared.execution.summaryDerivation.summary_assertions, []);
+});
+
 test("handler binds final metadata and safe draft-only provenance to the request", async (t) => {
   const cases = [
     { jobId: "bind-project", options: { requestPatch: { project_code: "other-project" } }, code: "document_project_code_request_mismatch" },

@@ -103,7 +103,12 @@ async function runExecutorStage(executorAdapter, stage, context) {
   return result;
 }
 
-const SUMMARY_ROLES = new Set(["executive_summary", "status_summary", "bluf_and_ask"]);
+const SUMMARY_ROLES = new Set(["executive_summary", "bluf_and_ask"]);
+const COMPACT_INTERNAL_PROGRESS_ROLES = Object.freeze([
+  "status_summary",
+  "issues_risks_dependencies",
+  "next_actions",
+]);
 
 function bodyProjection(document) {
   return {
@@ -151,9 +156,16 @@ function verifySummaryDerivation(bodyDocument, derivedDocument) {
     fail("summary_derivation_changed_verified_body", "Executive summary derivation may not change the verified body or its semantic manifest");
   }
   const summarySections = derivedDocument.sections.filter((section) => SUMMARY_ROLES.has(section.role));
-  const summaryOptional = derivedDocument.report_type === "other"
-    && new Set(["internal_review", "other"]).has(derivedDocument.audience)
-    && derivedDocument.sections.length === 6;
+  const sectionRoles = derivedDocument.sections.map((section) => section.role);
+  const summaryOptional = (
+    derivedDocument.report_type === "other"
+      && new Set(["internal_review", "other"]).has(derivedDocument.audience)
+      && derivedDocument.sections.length === 6
+  ) || (
+    derivedDocument.report_type === "progress"
+      && derivedDocument.audience === "internal_review"
+      && canonicalJson(sectionRoles) === canonicalJson(COMPACT_INTERNAL_PROGRESS_ROLES)
+  );
   if (summarySections.length === 0 && summaryOptional) {
     return {
       schema: "soulforge.summary_derivation_record.v1",
@@ -164,7 +176,7 @@ function verifySummaryDerivation(bodyDocument, derivedDocument) {
       summary_assertions: [],
     };
   }
-  if (summarySections.length !== 1) fail("summary_derivation_cardinality", "Exactly one report-type summary projection is required unless the exact six-role short internal other form is used");
+  if (summarySections.length !== 1) fail("summary_derivation_cardinality", "Exactly one report-type summary projection is required unless an exact compact internal form is used");
   const claimRefs = [...new Set(summarySections.flatMap((section) => section.claim_refs))].sort();
   if (claimRefs.length < 1) fail("summary_derivation_claim_path_missing", "Derived summary must carry body claim refs");
   const summaryAssertions = summaryAssertionProjection(derivedDocument);

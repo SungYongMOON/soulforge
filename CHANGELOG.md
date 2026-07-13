@@ -24,6 +24,11 @@
   end-to-end replay, Microsoft Word/Excel owner-sample round-trip, 실제 보고서 3건과 owner acceptance 전에는
   default route, team-default, production-ready를 주장하지 않는다. PPT 생성은
   이번 문서 시스템 범위에서 중단 상태다. (worker: codex_gpt-5)
+- The final fixed-run pilot then exposed a stale handler assumption that still
+  treated compact-progress `status_summary` as a derived summary. The handler now
+  keeps that role in verified body projection and permits summary omission only for
+  the exact three-role `internal_review` progress form, with an end-to-end success
+  regression. (worker: codex_gpt-5)
 - Controller review rejected a semantic-verifier pass whose body protected an
   unconfirmed cause while leaving the unresolved-item register empty. The fixed
   document validator now requires every protected `unconfirmed` invariant to have

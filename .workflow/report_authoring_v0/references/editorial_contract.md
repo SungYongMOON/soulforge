@@ -51,7 +51,9 @@ to explain the current state. Do not duplicate those claims in separate
 `scope_baseline` or `milestones_actuals` sections. Add either extended role only when
 it contains distinct reader-useful material such as a named plan baseline or a
 multi-milestone comparison. This compact form must not create filler merely to meet
-a role count.
+a role count. The exact three-role compact form omits summary derivation; its status
+section remains verified body content and must not be removed from the body-claim
+projection.
 
 An executive summary is required for management, customer, or regulator readers.
 For `other`, it is also required when the document has more than six sections and
