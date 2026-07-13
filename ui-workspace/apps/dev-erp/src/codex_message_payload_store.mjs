@@ -26,6 +26,7 @@ const ENVELOPE_KEYS = new Set([
 ]);
 const WRITE_KEYS = new Set(["itemId", "role", "text"]);
 const RESOLVE_KEYS = new Set(["itemId", "payloadRef"]);
+const REMOVE_KEYS = new Set(["itemId", "payloadRef", "role", "byteLength", "sha256"]);
 const WINDOWS_DEVICE_PATH_RE = /^(?:\\\\[?.]\\|\/\/[?.]\/)/;
 const ITEM_TAG_DOMAIN = "dev-erp-codex-message-item-tag-v1\0";
 const ITEM_DIRECTORY_DOMAIN = "dev-erp-codex-message-item-directory-v1\0";
@@ -401,6 +402,7 @@ export async function createCodexMessagePayloadStore({
   maxBytes = DEFAULT_CODEX_MESSAGE_PAYLOAD_MAX_BYTES,
   fs = nodeFs,
   randomBytes = nodeRandomBytes,
+  enableMigrationCleanup = false,
 } = {}) {
   const limit = normalizeMaxBytes(maxBytes);
   if (!fs || !["lstat", "stat", "realpath", "mkdir", "open"].every((name) => typeof fs[name] === "function")) {
@@ -409,7 +411,14 @@ export async function createCodexMessagePayloadStore({
   if (typeof randomBytes !== "function") {
     throw new CodexMessagePayloadStoreError("payload_random_source_invalid");
   }
+  if (typeof enableMigrationCleanup !== "boolean") {
+    throw new CodexMessagePayloadStoreError("payload_cleanup_option_invalid");
+  }
+  if (enableMigrationCleanup && !["readdir", "unlink", "rmdir"].every((name) => typeof fs[name] === "function")) {
+    throw new CodexMessagePayloadStoreError("payload_cleanup_unavailable");
+  }
   const { lexicalRoot, style, api } = normalizeOwnerRoot(root);
+  const cleanupOwnedPayloads = new Map();
 
   let rootReal;
   let rootIdentity;
@@ -488,6 +497,23 @@ export async function createCodexMessagePayloadStore({
     }
   }
 
+  async function failAfterOwnedWrite(error, cleanupReceipt) {
+    if (!enableMigrationCleanup || !cleanupReceipt) throw mapFilesystemError(error, "payload_write_failed");
+    try {
+      await removeVerifiedMessagePayload(cleanupReceipt);
+    } catch {
+      const cleanupError = new CodexMessagePayloadStoreError("payload_write_cleanup_failed");
+      Object.defineProperty(cleanupError, "cleanup_receipt", {
+        value: cleanupReceipt,
+        enumerable: false,
+        configurable: false,
+        writable: false,
+      });
+      throw cleanupError;
+    }
+    throw new CodexMessagePayloadStoreError("payload_write_failed");
+  }
+
   async function writeMessagePayload(input) {
     assertPlainObject(input, "payload_write_request_invalid");
     assertExactKeys(input, WRITE_KEYS, "payload_write_request_unknown_field");
@@ -500,6 +526,7 @@ export async function createCodexMessagePayloadStore({
     let payloadRef;
     let refLexical;
     let refDirectory;
+    let cleanupReceipt = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       payloadRef = createPayloadRef(itemId, randomBytes);
       refLexical = api.join(item.real, payloadRef);
@@ -510,10 +537,20 @@ export async function createCodexMessagePayloadStore({
         throw mapFilesystemError(error, "payload_write_failed");
       }
       if (!created) continue;
+      if (enableMigrationCleanup) {
+        cleanupReceipt = Object.freeze({
+          itemId,
+          payloadRef,
+          role,
+          byteLength: normalized.bytes.length,
+          sha256: sha256(normalized.bytes),
+        });
+        cleanupOwnedPayloads.set(payloadRef, { ...cleanupReceipt, published: false });
+      }
       try {
         refDirectory = await verifyOwnedDirectory({ fs, lexicalPath: refLexical, parentReal: item.real, style });
       } catch (error) {
-        throw mapFilesystemError(error, "payload_write_failed");
+        await failAfterOwnedWrite(error, cleanupReceipt);
       }
       break;
     }
@@ -531,7 +568,7 @@ export async function createCodexMessagePayloadStore({
     const envelopeBytes = Buffer.from(JSON.stringify(envelope), "utf8");
     const maxEnvelopeBytes = (limit * 6) + 4096;
     if (envelopeBytes.length > maxEnvelopeBytes) {
-      throw new CodexMessagePayloadStoreError("payload_envelope_size_invalid");
+      await failAfterOwnedWrite(new CodexMessagePayloadStoreError("payload_envelope_size_invalid"), cleanupReceipt);
     }
 
     try {
@@ -539,6 +576,7 @@ export async function createCodexMessagePayloadStore({
       // The zero-byte marker is the atomic publication point. An interrupted write has no marker
       // and is never returned by resolveAuthorizedMessagePayload.
       await writeExclusiveFile(fs, api.join(refDirectory.real, COMMIT_FILE), Buffer.alloc(0));
+      if (enableMigrationCleanup) cleanupOwnedPayloads.get(payloadRef).published = true;
       await assertStoreStable();
       await verifyOwnedDirectory({
         fs,
@@ -548,15 +586,16 @@ export async function createCodexMessagePayloadStore({
         expectedReal: refDirectory.real,
       });
     } catch (error) {
-      throw mapFilesystemError(error, "payload_write_failed");
+      await failAfterOwnedWrite(error, cleanupReceipt);
     }
 
-    return Object.freeze({
+    const metadata = Object.freeze({
       payload_ref: payloadRef,
       role,
       byte_length: normalized.bytes.length,
       sha256: envelope.sha256,
     });
+    return metadata;
   }
 
   // Authorization is deliberately a caller boundary: the server must first authorize access to
@@ -600,5 +639,113 @@ export async function createCodexMessagePayloadStore({
     }
   }
 
-  return Object.freeze({ writeMessagePayload, resolveAuthorizedMessagePayload });
+  // This capability is exposed only when explicitly enabled. It recognizes refs written by this
+  // exact store instance and is retry-safe across failures after marker or payload removal.
+  async function removeVerifiedMessagePayload(input) {
+    assertPlainObject(input, "payload_remove_request_invalid");
+    assertExactKeys(input, REMOVE_KEYS, "payload_remove_request_unknown_field");
+    const itemId = normalizeItemId(input.itemId);
+    const payloadRef = validateMessagePayloadRef(input.payloadRef, { itemId });
+    const role = normalizeRole(input.role);
+    const byteLength = Number(input.byteLength);
+    const expectedSha256 = String(input.sha256 ?? "");
+    if (!Number.isSafeInteger(byteLength) || byteLength < 1 || byteLength > limit || !SHA256_RE.test(expectedSha256)) {
+      throw new CodexMessagePayloadStoreError("payload_remove_metadata_invalid");
+    }
+    const owned = cleanupOwnedPayloads.get(payloadRef);
+    if (!owned) throw new CodexMessagePayloadStoreError("payload_cleanup_not_owned");
+    if (
+      owned.itemId !== itemId
+      || owned.role !== role
+      || owned.byteLength !== byteLength
+      || owned.sha256 !== expectedSha256
+    ) {
+      throw new CodexMessagePayloadStoreError("payload_cleanup_metadata_mismatch");
+    }
+
+    try {
+      await assertStoreStable();
+      const item = await ensureItemDirectory(itemId, { create: false });
+      const refLexical = api.join(item.real, payloadRef);
+      for (let step = 0; step < 4; step += 1) {
+        let refDirectory;
+        try {
+          refDirectory = await verifyOwnedDirectory({
+            fs,
+            lexicalPath: refLexical,
+            parentReal: item.real,
+            style,
+          });
+        } catch (error) {
+          if (error?.code === "ENOENT") {
+            cleanupOwnedPayloads.delete(payloadRef);
+            return Object.freeze({ ok: true, payload_ref: payloadRef });
+          }
+          throw error;
+        }
+        const names = (await fs.readdir(refDirectory.real)).slice().sort();
+        const committedShape = names.length === 2 && names[0] === COMMIT_FILE && names[1] === PAYLOAD_FILE;
+        const uncommittedShape = names.length === 1 && names[0] === PAYLOAD_FILE;
+        const markerOnlyShape = names.length === 1 && names[0] === COMMIT_FILE;
+        const emptyShape = names.length === 0;
+        const ownedIncompleteShape = !owned.published
+          && names.length <= 2
+          && names.every((name) => name === COMMIT_FILE || name === PAYLOAD_FILE);
+        if (
+          (!owned.published && !ownedIncompleteShape)
+          || (owned.published && !committedShape && !uncommittedShape && !emptyShape)
+          || (owned.published && markerOnlyShape)
+        ) {
+          throw new CodexMessagePayloadStoreError("payload_cleanup_object_shape_invalid");
+        }
+        if (owned.published && committedShape) {
+          const marker = await readVerifiedFile({
+            fs,
+            candidate: api.join(refDirectory.real, COMMIT_FILE),
+            parentReal: refDirectory.real,
+            style,
+            maxBytes: 0,
+            expectedSize: 0,
+          });
+          if (marker.length !== 0) throw new CodexMessagePayloadStoreError("payload_commit_marker_invalid");
+        }
+        if (owned.published && (committedShape || uncommittedShape)) {
+          const envelopeBytes = await readVerifiedFile({
+            fs,
+            candidate: api.join(refDirectory.real, PAYLOAD_FILE),
+            parentReal: refDirectory.real,
+            style,
+            maxBytes: (limit * 6) + 4096,
+          });
+          const payload = parseEnvelope(envelopeBytes, { itemId, payloadRef, maxBytes: limit });
+          if (payload.role !== role || payload.byte_length !== byteLength || payload.sha256 !== expectedSha256) {
+            throw new CodexMessagePayloadStoreError("payload_cleanup_metadata_mismatch");
+          }
+        }
+        await assertStoreStable();
+        await verifyOwnedDirectory({
+          fs,
+          lexicalPath: refLexical,
+          parentReal: item.real,
+          style,
+          expectedReal: refDirectory.real,
+        });
+        if (names.includes(COMMIT_FILE)) await fs.unlink(api.join(refDirectory.real, COMMIT_FILE));
+        else if (names.includes(PAYLOAD_FILE)) await fs.unlink(api.join(refDirectory.real, PAYLOAD_FILE));
+        else await fs.rmdir(refDirectory.real);
+      }
+      cleanupOwnedPayloads.delete(payloadRef);
+      await assertStoreStable();
+      return Object.freeze({ ok: true, payload_ref: payloadRef });
+    } catch (error) {
+      throw mapFilesystemError(error, "payload_cleanup_failed");
+    }
+  }
+
+  const store = {
+    writeMessagePayload,
+    resolveAuthorizedMessagePayload,
+  };
+  if (enableMigrationCleanup) store.removeVerifiedMessagePayload = removeVerifiedMessagePayload;
+  return Object.freeze(store);
 }

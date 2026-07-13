@@ -488,6 +488,22 @@ its bounded v1 manifest and hash marker, rejects evidence older than the live
 DB/WAL state, and requires the matching restore marker. Audit output keeps only
 the logical generation ID, hashes, counts, sizes, timestamps, and status.
 
+### Legacy pre-migration v2 backup
+
+When any legacy inline message remains, the standard v1 command fails closed.
+Keep both services and every writer stopped, then create and verify an explicit
+v2 generation:
+
+```powershell
+npm.cmd run dev-erp:backup-codex-payloads-pre-migration -- --db <runtime-root>\ui-workspace\apps\dev-erp\data\dev-erp.db --attachment-root <soulforge-root>\_workspaces\system\dev-erp\codex-task-attachments --message-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --backup-root <nas-root>\03_codex_payload_backups
+node ui-workspace/apps/dev-erp/tools/codex_payload_backup.mjs pre-migration-restore-verify --backup-root <nas-root>\03_codex_payload_backups --generation-id <pre-migration-generation-id> --restore-root <nas-root>\04_codex_payload_restore_tests
+```
+
+v2 accepts complete externalized messages and pure legacy inline messages but
+rejects partial or hybrid pointer state. Legacy bodies remain only in the
+WAL-safe SQLite snapshot; the v2 manifest contains bounded metadata. This
+generation proves a rollback boundary only and is never release-audit evidence.
+
 Pilot schedule:
 
 - 07:00 daily DB backup and restore-test, before people arrive
@@ -526,18 +542,25 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-worksp
 
 1. Confirm the development patch is committed, pushed, and independently
    reviewed. Record the currently deployed commit as `<old-commit>`.
-2. Create the maintenance marker and stop the `dev-erp` service or Node process
-   so no new write begins during the release boundary.
-3. While both services remain stopped, create a WAL-safe DB backup and a
-   coherent Codex payload generation, run both restore verifiers, and retain
-   their exact refs/hashes as `<pre-update-backup>`. Do not use a raw live DB
-   copy or a DB-only backup for a release that contains Codex turns.
+2. Create the maintenance marker and stop both `dev-erp` and the dedicated Codex
+   worker so no new write begins during the release boundary.
+3. While both services remain stopped, create a WAL-safe DB backup. If legacy
+   inline messages remain, create the v2 pre-migration generation above and run
+   its dedicated restore verifier. Record the DB backup ref/hash plus only the
+   v2 generation ID and manifest hash together as `<pre-update-backup>`.
 4. Pull the approved commit into `<runtime-root>` and confirm the runtime
    checkout is clean.
-5. Run the owner-approved legacy Codex migration dry-run. Apply only after its
-   explicit item/workspace map is complete and the DB+payload backup generation
-   has passed restore verification. Then start the new ERP and worker code once;
-   do not open the migrated DB with two code versions at once.
+5. If the owner is considering retiring every incomplete binding, create a
+   metadata-only candidate and pin the reviewed hash. This does not approve or
+   apply the candidate.
+
+   ```powershell
+   npm.cmd run dev-erp:migrate-legacy-codex -- --plan-retire-all --db <runtime-root>\ui-workspace\apps\dev-erp\data\dev-erp.db --expected-count <owner-confirmed-legacy-binding-count>
+   npm.cmd run dev-erp:migrate-legacy-codex -- --plan-retire-all --db <runtime-root>\ui-workspace\apps\dev-erp\data\dev-erp.db --expected-count <owner-confirmed-legacy-binding-count> --expected-candidate-sha256 <reviewed-candidate-sha256>
+   ```
+
+6. Run the owner-approved exact mapping as a dry-run. Apply only after it covers
+   every legacy row and the v2 generation passed restore verification.
 
    ```powershell
    npm.cmd run dev-erp:migrate-legacy-codex -- --db <runtime-root>\ui-workspace\apps\dev-erp\data\dev-erp.db --payload-root <soulforge-root>\_workspaces\system\dev-erp\codex-message-payloads --mapping <owner-approved-mapping.json>
@@ -546,10 +569,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File <runtime-root>\ui-worksp
 
    The first command is read-only. The second must perform exactly the reviewed
    bind/retire decisions; any unmapped legacy row remains a release blocker.
-6. Run health, the zero-blocker `--require-live` audit, and the Codex model/turn
-   smoke above.
-7. Run a post-update backup and restore-test only after all release checks pass.
-8. Remove the maintenance marker and reopen team traffic.
+7. Keep both services stopped and create a standard v1 coherent generation with
+   its matching `restore-verify` marker. Only this post-migration v1 evidence can
+   satisfy the release audit.
+8. Start the new ERP and worker code once; do not open the migrated DB with two
+   code versions at once. Run health, the zero-blocker `--require-live` audit,
+   and the Codex model/turn smoke above.
+9. Run a post-update DB backup and restore-test after all release checks pass.
+10. Remove the maintenance marker and reopen team traffic.
 
 ## Failed Update Rollback
 
@@ -570,6 +597,17 @@ If startup, migration, audit, or the required Codex smoke fails:
 Record the old commit, backup ref/hash, failed check code, rollback health
 result, and operator identity. Do not record DB contents, mail bodies, raw
 workspace roots, secrets, or Codex auth material.
+
+A caught same-process migration failure rolls back the DB transaction and then
+removes only the exact payload refs created by that invocation. If cleanup is
+incomplete, treat `payload_cleanup_failed` as a blocker, keep the maintenance
+marker, and do not retry or delete payloads manually. This guarantee does not
+claim OS-crash recovery.
+
+`pre-migration-restore-verify` validates an isolated restore namespace and never
+overwrites the live paths. A real rollback must restore the verified v2 DB and
+corresponding payload boundary together through an owner-approved procedure;
+the old code and restored data must come from the same pre-migration boundary.
 
 ## Troubleshooting
 

@@ -10,8 +10,11 @@ import { fileURLToPath } from "node:url";
 import { createCodexMessagePayloadStore } from "../src/codex_message_payload_store.mjs";
 import {
   LEGACY_CODEX_OWNER_MAPPING_SCHEMA,
+  LEGACY_CODEX_RETIRE_ALL_CANDIDATE_SCHEMA,
+  planLegacyCodexRetireAllCandidate,
   preflightLegacyCodexMigration,
   runLegacyCodexMigration,
+  validateLegacyCodexOwnerMapping,
 } from "../tools/legacy_codex_migration.mjs";
 
 const roots = [];
@@ -137,6 +140,16 @@ function assertReportRedacted(value, fixtureValue) {
   }
 }
 
+function countPayloadRefDirectories(root) {
+  let count = 0;
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith("cmp_")) count += 1;
+    count += countPayloadRefDirectories(join(root, entry.name));
+  }
+  return count;
+}
+
 test("legacy Codex migration: dry-run reports counts without changing DB or payload root", async () => {
   const f = fixture();
   const result = await preflightLegacyCodexMigration({
@@ -161,6 +174,7 @@ test("legacy Codex migration: dry-run reports counts without changing DB or payl
   } finally {
     db.close();
   }
+  assert.equal(countPayloadRefDirectories(f.payloadRoot), 0);
   assertReportRedacted(result, f);
 });
 
@@ -306,6 +320,7 @@ test("legacy Codex migration: DB update failure rolls back and never echoes body
   } finally {
     db.close();
   }
+  assert.equal(countPayloadRefDirectories(f.payloadRoot), 0);
   assertReportRedacted(result, f);
 });
 
@@ -324,4 +339,165 @@ test("legacy Codex migration CLI is dry-run by default and mutates only with --a
   assert.equal(result.applied_counts.migrated_messages, 2);
   assertReportRedacted(result, f);
   assert.equal(readFileSync(f.mappingPath, "utf8"), JSON.stringify(f.mapping));
+});
+
+test("retire-all planner emits only incomplete bindings from authoritative projects with a deterministic candidate hash", async () => {
+  const f = fixture();
+  const db = new DatabaseSync(f.dbPath);
+  db.prepare("INSERT INTO core_item(id,project_id) VALUES(?,?)").run("item_complete", "P26-C");
+  db.prepare(
+    `INSERT INTO codex_thread_binding(
+       item_id,thread_id,thread_title,project_id,workspace_id,workspace_revision,workspace_root_fingerprint,
+       mode,sync_state,last_sync_at,data_label
+     ) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+  ).run(
+    "item_complete",
+    THREAD_REF,
+    "complete",
+    "P26-C",
+    "team_complete",
+    HASH_A,
+    HASH_B,
+    "app-server",
+    "linked",
+    new Date(0).toISOString(),
+    "meta",
+  );
+  db.close();
+
+  const first = await planLegacyCodexRetireAllCandidate({ dbPath: f.dbPath, expectedCount: 2 });
+  const second = await planLegacyCodexRetireAllCandidate({ dbPath: f.dbPath, expectedCount: 2 });
+  assert.equal(first.status, "ready");
+  assert.equal(first.candidate.schema, LEGACY_CODEX_RETIRE_ALL_CANDIDATE_SCHEMA);
+  assert.equal(first.candidate.candidate_only, true);
+  assert.equal(first.candidate.approval_status, "owner_decision_required");
+  assert.equal(first.candidate.expected_legacy_binding_count, 2);
+  assert.equal(first.candidate.excluded_complete_binding_count, 1);
+  assert.deepEqual(first.candidate.retirements.map((row) => row.item_id), ["item_bind", "item_retire"]);
+  assert.deepEqual(first.candidate.retirements.map((row) => row.project_id), ["P26-A", "P26-B"]);
+  assert.equal(first.candidate.candidate_sha256, second.candidate.candidate_sha256);
+  assert.match(first.candidate.candidate_sha256, /^[a-f0-9]{64}$/);
+  assert.throws(() => validateLegacyCodexOwnerMapping(first.candidate), /mapping_invalid/);
+  assertReportRedacted(first, f);
+
+  const unchanged = openReadOnly(f.dbPath);
+  try {
+    assert.equal(unchanged.prepare("SELECT COUNT(*) AS n FROM codex_thread_binding").get().n, 3);
+    assert.equal(unchanged.prepare("SELECT COUNT(*) AS n FROM codex_thread_message").get().n, 2);
+  } finally {
+    unchanged.close();
+  }
+
+  const driftDb = new DatabaseSync(f.dbPath);
+  driftDb.prepare("UPDATE core_item SET project_id='P26-Z' WHERE id='item_retire'").run();
+  driftDb.close();
+  const drift = await planLegacyCodexRetireAllCandidate({
+    dbPath: f.dbPath,
+    expectedCount: 2,
+    expectedCandidateSha256: first.candidate.candidate_sha256,
+  });
+  assert.equal(drift.status, "blocked");
+  assert.deepEqual(drift.codes, ["retire_candidate_drift"]);
+
+  const mismatchDb = new DatabaseSync(f.dbPath);
+  mismatchDb.prepare("UPDATE codex_thread_binding SET project_id='P26-X' WHERE item_id='item_retire'").run();
+  mismatchDb.close();
+  const mismatch = await planLegacyCodexRetireAllCandidate({ dbPath: f.dbPath, expectedCount: 2 });
+  assert.equal(mismatch.status, "failed");
+  assert.deepEqual(mismatch.codes, ["retire_candidate_project_mismatch"]);
+});
+
+test("retire-all planner CLI is read-only and cannot be combined with apply", () => {
+  const f = fixture();
+  const before = readFileSync(f.dbPath);
+  const planned = spawnSync(process.execPath, [
+    TOOL,
+    "--plan-retire-all",
+    "--db", f.dbPath,
+    "--expected-count", "2",
+  ], { encoding: "utf8" });
+  assert.equal(planned.status, 0, planned.stderr);
+  const result = JSON.parse(planned.stdout);
+  assert.equal(result.status, "ready");
+  assert.equal(result.candidate.retirements.length, 2);
+
+  const rejected = spawnSync(process.execPath, [
+    TOOL,
+    "--plan-retire-all",
+    "--db", f.dbPath,
+    "--expected-count", "2",
+    "--apply",
+  ], { encoding: "utf8" });
+  assert.equal(rejected.status, 1);
+  assert.equal(JSON.parse(rejected.stdout).status, "failed");
+  assert.deepEqual(readFileSync(f.dbPath), before);
+  assert.deepEqual(readdirSync(f.payloadRoot), []);
+});
+
+test("binding-plan failure rolls back DB changes and removes every newly written payload", async () => {
+  const f = fixture();
+  const db = new DatabaseSync(f.dbPath);
+  db.exec(`
+    CREATE TRIGGER reject_binding_plan
+    BEFORE UPDATE OF workspace_id ON codex_thread_binding
+    BEGIN
+      SELECT RAISE(ABORT, 'private binding failure must not escape');
+    END;
+  `);
+  db.close();
+  const result = await runLegacyCodexMigration({
+    dbPath: f.dbPath,
+    payloadRoot: f.payloadRoot,
+    mapping: f.mapping,
+    apply: true,
+  });
+  assert.equal(result.status, "failed");
+  assert.ok(result.codes.includes("binding_database_update_failed"));
+  assert.equal(countPayloadRefDirectories(f.payloadRoot), 0);
+  const check = openReadOnly(f.dbPath);
+  try {
+    assert.equal(check.prepare("SELECT COUNT(*) AS n FROM codex_thread_message WHERE payload_ref IS NOT NULL").get().n, 0);
+    assert.equal(check.prepare("SELECT COUNT(*) AS n FROM codex_thread_binding").get().n, 2);
+  } finally {
+    check.close();
+  }
+  assertReportRedacted(result, f);
+});
+
+test("cleanup failure is a redacted explicit blocker and does not hide the primary DB failure", async () => {
+  const f = fixture({ includeRetire: false });
+  const db = new DatabaseSync(f.dbPath);
+  db.exec(`
+    CREATE TRIGGER reject_pointer_update_for_cleanup_failure
+    BEFORE UPDATE OF payload_ref ON codex_thread_message
+    WHEN OLD.id=2
+    BEGIN
+      SELECT RAISE(ABORT, 'private cleanup failure sentinel');
+    END;
+  `);
+  db.close();
+  let cleanupCalls = 0;
+  const payloadStoreFactory = async (options) => {
+    const store = await createCodexMessagePayloadStore(options);
+    return Object.freeze({
+      ...store,
+      async removeVerifiedMessagePayload() {
+        cleanupCalls += 1;
+        throw new Error("private injected cleanup failure");
+      },
+    });
+  };
+  const result = await runLegacyCodexMigration({
+    dbPath: f.dbPath,
+    payloadRoot: f.payloadRoot,
+    mapping: f.mapping,
+    apply: true,
+    payloadStoreFactory,
+  });
+  assert.equal(result.status, "failed");
+  assert.deepEqual(result.codes, ["message_database_update_failed", "payload_cleanup_failed"]);
+  assert.equal(cleanupCalls, 2);
+  assert.ok(countPayloadRefDirectories(f.payloadRoot) > 0);
+  assertReportRedacted(result, f);
+  assert.equal(JSON.stringify(result).includes("private injected cleanup failure"), false);
 });

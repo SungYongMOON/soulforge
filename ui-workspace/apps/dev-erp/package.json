@@ -16,6 +16,7 @@
     "ops:backup-db": "node tools/runtime_ops.mjs backup-db",
     "ops:restore-test": "node tools/runtime_ops.mjs restore-test",
     "ops:backup-codex-payloads": "node tools/codex_payload_backup.mjs backup",
+    "ops:backup-codex-payloads-pre-migration": "node tools/codex_payload_backup.mjs backup-pre-migration",
     "ops:restore-verify-codex-payloads": "node tools/codex_payload_backup.mjs restore-verify",
     "worker:codex": "node tools/codex_dedicated_worker.mjs",
     "probe:codex-permission-boundary": "node tools/codex_permission_boundary_probe.mjs",

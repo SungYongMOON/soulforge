@@ -52,6 +52,16 @@ function isLinkPrivilegeError(error) {
   return ["EACCES", "EPERM", "UNKNOWN"].includes(error?.code);
 }
 
+function cleanupRequest(itemId, metadata) {
+  return {
+    itemId,
+    payloadRef: metadata.payload_ref,
+    role: metadata.role,
+    byteLength: metadata.byte_length,
+    sha256: metadata.sha256,
+  };
+}
+
 test("opaque message refs are strict, high-entropy, and cryptographically item-bound", () => {
   const first = createOpaqueMessagePayloadRef(ITEM_A);
   const second = createOpaqueMessagePayloadRef(ITEM_A);
@@ -62,6 +72,169 @@ test("opaque message refs are strict, high-entropy, and cryptographically item-b
   for (const invalid of ["", "cmp_short", "../payload", "cmp_C:/private_value_________________________"]) {
     assert.throws(() => validateMessagePayloadRef(invalid), expectStoreError("payload_ref_invalid"));
   }
+});
+
+test("migration cleanup is opt-in, same-instance owned, exact-metadata bound, and retry-safe", async (t) => {
+  const { root } = await workspace(t, "dev-erp-message-cleanup-");
+  const ordinaryStore = await createCodexMessagePayloadStore({ root });
+  assert.deepEqual(Object.keys(ordinaryStore).sort(), ["resolveAuthorizedMessagePayload", "writeMessagePayload"]);
+
+  let injectAfterMarkerRemoval = true;
+  const injectedFs = {
+    ...nodeFs,
+    async unlink(path) {
+      await nodeFs.unlink(path);
+      if (injectAfterMarkerRemoval && basename(path) === "committed") {
+        injectAfterMarkerRemoval = false;
+        const error = new Error("injected after marker removal");
+        error.code = "EIO";
+        throw error;
+      }
+    },
+  };
+  const cleanupStore = await createCodexMessagePayloadStore({
+    root,
+    fs: injectedFs,
+    enableMigrationCleanup: true,
+  });
+  assert.equal(typeof cleanupStore.removeVerifiedMessagePayload, "function");
+  const preexisting = await ordinaryStore.writeMessagePayload({ itemId: ITEM_B, role: "assistant", text: "preexisting body" });
+  await assert.rejects(
+    () => cleanupStore.removeVerifiedMessagePayload(cleanupRequest(ITEM_B, preexisting)),
+    expectStoreError("payload_cleanup_not_owned"),
+  );
+  assert.equal((await ordinaryStore.resolveAuthorizedMessagePayload({
+    itemId: ITEM_B,
+    payloadRef: preexisting.payload_ref,
+  })).ok, true);
+  const metadata = await cleanupStore.writeMessagePayload({ itemId: ITEM_A, role: "user", text: "cleanup-owned body" });
+  const request = cleanupRequest(ITEM_A, metadata);
+
+  await assert.rejects(
+    () => cleanupStore.removeVerifiedMessagePayload({ ...request, sha256: "0".repeat(64) }),
+    expectStoreError("payload_cleanup_metadata_mismatch"),
+  );
+  assert.equal((await cleanupStore.resolveAuthorizedMessagePayload({
+    itemId: ITEM_A,
+    payloadRef: metadata.payload_ref,
+  })).ok, true);
+
+  await assert.rejects(
+    () => cleanupStore.removeVerifiedMessagePayload(request),
+    expectStoreError("payload_cleanup_failed"),
+  );
+  assert.deepEqual(await nodeFs.readdir(payloadDirectory(root, ITEM_A, metadata.payload_ref)), ["payload.json"]);
+  assert.deepEqual(await cleanupStore.removeVerifiedMessagePayload(request), { ok: true, payload_ref: metadata.payload_ref });
+  await assert.rejects(() => nodeFs.lstat(payloadDirectory(root, ITEM_A, metadata.payload_ref)), { code: "ENOENT" });
+
+  const foreignStore = await createCodexMessagePayloadStore({ root, enableMigrationCleanup: true });
+  await assert.rejects(
+    () => foreignStore.removeVerifiedMessagePayload(request),
+    expectStoreError("payload_cleanup_not_owned"),
+  );
+});
+
+test("late post-publication write failure cleans its owned ref or returns a redacted retry capability", async (t) => {
+  const { root } = await workspace(t, "dev-erp-message-late-write-");
+  const firstBody = "late failure body must not leak";
+  let failNextRootRealpath = false;
+  let armFirstLateFailure = true;
+  const selfCleaningFs = {
+    ...nodeFs,
+    async open(...args) {
+      const handle = await nodeFs.open(...args);
+      if (armFirstLateFailure && basename(String(args[0])) === "committed") {
+        armFirstLateFailure = false;
+        failNextRootRealpath = true;
+      }
+      return handle;
+    },
+    async realpath(path) {
+      if (failNextRootRealpath && String(path) === root) {
+        failNextRootRealpath = false;
+        const error = new Error("injected late stability failure");
+        error.code = "EIO";
+        throw error;
+      }
+      return nodeFs.realpath(path);
+    },
+  };
+  const selfCleaningStore = await createCodexMessagePayloadStore({
+    root,
+    fs: selfCleaningFs,
+    enableMigrationCleanup: true,
+  });
+  let cleanedError;
+  try {
+    await selfCleaningStore.writeMessagePayload({ itemId: ITEM_A, role: "user", text: firstBody });
+    assert.fail("late failure injection did not fire");
+  } catch (error) {
+    cleanedError = error;
+  }
+  assert.ok(cleanedError instanceof CodexMessagePayloadStoreError);
+  assert.equal(cleanedError.code, "payload_write_failed");
+  assert.equal(cleanedError.cleanup_receipt, undefined);
+  assert.deepEqual(await nodeFs.readdir(itemDirectory(root, ITEM_A)), []);
+  assert.equal(JSON.stringify(cleanedError).includes(firstBody), false);
+  assert.equal(JSON.stringify(cleanedError).includes(root), false);
+
+  const secondBody = "late cleanup blocker body must not leak";
+  let failSecondRootRealpath = false;
+  let armSecondLateFailure = true;
+  let failFirstCleanupUnlink = true;
+  const receiptFs = {
+    ...nodeFs,
+    async open(...args) {
+      const handle = await nodeFs.open(...args);
+      if (armSecondLateFailure && basename(String(args[0])) === "committed") {
+        armSecondLateFailure = false;
+        failSecondRootRealpath = true;
+      }
+      return handle;
+    },
+    async realpath(path) {
+      if (failSecondRootRealpath && String(path) === root) {
+        failSecondRootRealpath = false;
+        const error = new Error("injected late stability failure");
+        error.code = "EIO";
+        throw error;
+      }
+      return nodeFs.realpath(path);
+    },
+    async unlink(path) {
+      if (failFirstCleanupUnlink && basename(String(path)) === "committed") {
+        failFirstCleanupUnlink = false;
+        const error = new Error("injected cleanup blocker");
+        error.code = "EIO";
+        throw error;
+      }
+      return nodeFs.unlink(path);
+    },
+  };
+  const receiptStore = await createCodexMessagePayloadStore({
+    root,
+    fs: receiptFs,
+    enableMigrationCleanup: true,
+  });
+  let receiptError;
+  try {
+    await receiptStore.writeMessagePayload({ itemId: ITEM_B, role: "assistant", text: secondBody });
+    assert.fail("late cleanup blocker injection did not fire");
+  } catch (error) {
+    receiptError = error;
+  }
+  assert.ok(receiptError instanceof CodexMessagePayloadStoreError);
+  assert.equal(receiptError.code, "payload_write_cleanup_failed");
+  assert.equal(Object.keys(receiptError).includes("cleanup_receipt"), false);
+  assert.deepEqual(Object.keys(receiptError.cleanup_receipt).sort(), ["byteLength", "itemId", "payloadRef", "role", "sha256"]);
+  const redacted = JSON.stringify({ code: receiptError.code, receipt: receiptError.cleanup_receipt });
+  assert.equal(redacted.includes(secondBody), false);
+  assert.equal(redacted.includes(root), false);
+  assert.deepEqual(
+    await receiptStore.removeVerifiedMessagePayload(receiptError.cleanup_receipt),
+    { ok: true, payload_ref: receiptError.cleanup_receipt.payloadRef },
+  );
+  assert.deepEqual(await nodeFs.readdir(itemDirectory(root, ITEM_B)), []);
 });
 
 test("Windows, UNC, and POSIX containment is separator-aware and platform-correct", () => {

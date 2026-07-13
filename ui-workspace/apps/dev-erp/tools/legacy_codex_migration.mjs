@@ -13,6 +13,8 @@ import {
 
 export const LEGACY_CODEX_OWNER_MAPPING_SCHEMA = "dev_erp.legacy_codex_owner_mapping.v1";
 export const LEGACY_CODEX_MIGRATION_REPORT_SCHEMA = "dev_erp.legacy_codex_migration_report.v1";
+export const LEGACY_CODEX_RETIRE_ALL_CANDIDATE_SCHEMA = "dev_erp.legacy_codex_retire_all_candidate.v1";
+export const LEGACY_CODEX_RETIRE_ALL_PLAN_REPORT_SCHEMA = "dev_erp.legacy_codex_retire_all_plan_report.v1";
 
 const RECEIPT_TABLE = "codex_legacy_migration_receipt";
 const MAX_MAPPING_BYTES = 1024 * 1024;
@@ -221,13 +223,13 @@ function report({ mode, status, preflight, appliedCounts = emptyAppliedCounts(),
   return Object.freeze(value);
 }
 
-function safeFailure(mode, code, preflight = null, appliedCounts = emptyAppliedCounts()) {
+function safeFailure(mode, code, preflight = null, appliedCounts = emptyAppliedCounts(), additionalCodes = []) {
   return report({
     mode,
     status: "failed",
     preflight: preflight ?? publicPreflight("failed", emptyPreflightCounts(), [code]),
     appliedCounts,
-    codes: [code],
+    codes: [code, ...additionalCodes],
   });
 }
 
@@ -319,6 +321,124 @@ function openDatabase(path, { readOnly }) {
 
 function tableExists(db, name) {
   return Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name));
+}
+
+function validateRetirePlannerSchema(db) {
+  const required = {
+    core_item: ["id", "project_id"],
+    codex_thread_binding: [
+      "item_id",
+      "thread_id",
+      "project_id",
+      "workspace_id",
+      "workspace_revision",
+      "workspace_root_fingerprint",
+    ],
+  };
+  for (const [table, columns] of Object.entries(required)) {
+    if (!tableExists(db, table)) fail("retire_candidate_schema_invalid");
+    const present = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((row) => row.name));
+    if (columns.some((column) => !present.has(column))) fail("retire_candidate_schema_invalid");
+  }
+}
+
+function retirePlanReport({ status, codes = [], candidate = null }) {
+  const value = {
+    schema: LEGACY_CODEX_RETIRE_ALL_PLAN_REPORT_SCHEMA,
+    mode: "plan_retire_all",
+    status,
+    codes: Object.freeze(uniqueCodes(codes)),
+  };
+  if (candidate) value.candidate = candidate;
+  return Object.freeze(value);
+}
+
+export async function planLegacyCodexRetireAllCandidate({
+  dbPath,
+  expectedCount,
+  expectedCandidateSha256 = null,
+} = {}) {
+  try {
+    const count = Number(expectedCount);
+    if (!Number.isSafeInteger(count) || count < 0 || count > 10_000) fail("retire_candidate_expected_count_invalid");
+    if (expectedCandidateSha256 !== null && !HASH_RE.test(String(expectedCandidateSha256))) {
+      fail("retire_candidate_expected_sha_invalid");
+    }
+    const databaseIdentity = await pinDatabaseFile(dbPath);
+    let db;
+    let rows;
+    try {
+      db = openDatabase(databaseIdentity.actual, { readOnly: true });
+      validateRetirePlannerSchema(db);
+      db.exec("BEGIN");
+      rows = db.prepare(
+        `SELECT b.item_id AS item_id,
+                b.thread_id AS thread_id,
+                b.project_id AS binding_project_id,
+                b.workspace_id AS workspace_id,
+                b.workspace_revision AS workspace_revision,
+                b.workspace_root_fingerprint AS workspace_root_fingerprint,
+                i.project_id AS item_project_id
+           FROM codex_thread_binding b
+           LEFT JOIN core_item i ON i.id=b.item_id
+          ORDER BY b.item_id`,
+      ).all();
+      db.exec("COMMIT");
+    } finally {
+      try { db?.close(); } catch { /* never surface path-bearing SQLite close errors */ }
+    }
+    await validatePinnedDatabase(databaseIdentity);
+    const seen = new Set();
+    const retirements = [];
+    let completeBindingCount = 0;
+    for (const row of rows) {
+      const itemId = String(row.item_id ?? "");
+      const projectId = String(row.item_project_id ?? "");
+      if (!ITEM_ID_RE.test(itemId) || seen.has(itemId)) fail("retire_candidate_item_invalid");
+      if (!PROJECT_ID_RE.test(projectId)) fail("retire_candidate_project_invalid");
+      const bindingProjectId = row.binding_project_id;
+      if (bindingProjectId !== null && bindingProjectId !== "") {
+        if (!PROJECT_ID_RE.test(String(bindingProjectId))) fail("retire_candidate_binding_project_invalid");
+        if (bindingProjectId !== projectId) fail("retire_candidate_project_mismatch");
+      }
+      seen.add(itemId);
+      if (isCompleteBinding({ ...row, project_id: row.binding_project_id })) {
+        completeBindingCount += 1;
+        continue;
+      }
+      retirements.push(Object.freeze({
+        item_id: itemId,
+        project_id: projectId,
+        proposed_action: "retire",
+        proposed_reason_code: "owner_decision_pending",
+      }));
+    }
+    if (retirements.length !== count) {
+      return retirePlanReport({ status: "blocked", codes: ["retire_candidate_expected_count_mismatch"] });
+    }
+
+    const candidateBody = {
+      schema: LEGACY_CODEX_RETIRE_ALL_CANDIDATE_SCHEMA,
+      candidate_only: true,
+      approval_status: "owner_decision_required",
+      expected_legacy_binding_count: count,
+      excluded_complete_binding_count: completeBindingCount,
+      retirements,
+    };
+    const candidateSha256 = sha256(canonicalJson(candidateBody));
+    if (expectedCandidateSha256 !== null && candidateSha256 !== expectedCandidateSha256) {
+      return retirePlanReport({ status: "blocked", codes: ["retire_candidate_drift"] });
+    }
+    return retirePlanReport({
+      status: "ready",
+      candidate: Object.freeze({ ...candidateBody, candidate_sha256: candidateSha256 }),
+    });
+  } catch (error) {
+    return retirePlanReport({
+      status: "failed",
+      codes: [error instanceof MigrationError ? error.code : "retire_candidate_planning_failed"],
+    });
+  }
 }
 
 function validateSchema(db) {
@@ -538,10 +658,15 @@ function sameLegacyMessage(left, right) {
 }
 
 function rollbackQuietly(db) {
-  try { db.exec("ROLLBACK"); } catch { /* do not surface implementation details */ }
+  try {
+    db.exec("ROLLBACK");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-async function migrateMessages({ db, rows, payloadStore, appliedCounts }) {
+async function migrateMessages({ db, rows, payloadStore, appliedCounts, createdPayloads }) {
   for (const planned of rows) {
     const before = db.prepare(
       `SELECT id,item_id,role,text,payload_ref,payload_byte_length,payload_sha256
@@ -556,6 +681,13 @@ async function migrateMessages({ db, rows, payloadStore, appliedCounts }) {
         role: before.role,
         text: before.text,
       });
+      createdPayloads.push(Object.freeze({
+        itemId: before.item_id,
+        payloadRef: metadata.payload_ref,
+        role: metadata.role,
+        byteLength: metadata.byte_length,
+        sha256: metadata.sha256,
+      }));
       const resolvedPayload = await payloadStore.resolveAuthorizedMessagePayload({
         itemId: before.item_id,
         payloadRef: metadata.payload_ref,
@@ -570,6 +702,7 @@ async function migrateMessages({ db, rows, payloadStore, appliedCounts }) {
         fail("payload_verification_failed");
       }
     } catch (error) {
+      if (error?.cleanup_receipt) createdPayloads.push(error.cleanup_receipt);
       if (error instanceof MigrationError) throw error;
       fail("payload_write_failed");
     }
@@ -599,6 +732,30 @@ async function migrateMessages({ db, rows, payloadStore, appliedCounts }) {
       if (error instanceof MigrationError) throw error;
       fail("message_database_update_failed");
     }
+  }
+}
+
+async function cleanupCreatedPayloads(payloadStore, createdPayloads) {
+  if (!createdPayloads.length) return true;
+  if (typeof payloadStore?.removeVerifiedMessagePayload !== "function") return false;
+  let ok = true;
+  for (let index = createdPayloads.length - 1; index >= 0; index -= 1) {
+    try {
+      const removed = await payloadStore.removeVerifiedMessagePayload(createdPayloads[index]);
+      if (!removed?.ok || removed.payload_ref !== createdPayloads[index].payloadRef) ok = false;
+    } catch {
+      ok = false;
+    }
+  }
+  return ok;
+}
+
+function createdPayloadsAreUnreferenced(db, createdPayloads) {
+  try {
+    const referenced = db.prepare("SELECT 1 FROM codex_thread_message WHERE payload_ref=? LIMIT 1");
+    return createdPayloads.every((entry) => !referenced.get(entry.payloadRef));
+  } catch {
+    return false;
   }
 }
 
@@ -679,6 +836,7 @@ export async function runLegacyCodexMigration({
   const mode = "apply";
   let inspection;
   const appliedCounts = emptyAppliedCounts();
+  let cleanupFailed = false;
   try {
     inspection = await inspectInputs({ dbPath, payloadRoot, mapping });
     if (inspection.preflight.status !== "ready") {
@@ -703,11 +861,21 @@ export async function runLegacyCodexMigration({
       db = openDatabase(inspection.databaseIdentity.actual, { readOnly: false });
       await validatePinnedDatabase(inspection.databaseIdentity);
       validateSchema(db);
-      const payloadStore = await payloadStoreFactory({ root: inspection.payloadRootIdentity.actual });
+      const payloadStore = await payloadStoreFactory({
+        root: inspection.payloadRootIdentity.actual,
+        enableMigrationCleanup: true,
+      });
+      const createdPayloads = [];
       try {
         db.exec("BEGIN IMMEDIATE");
         db.exec(RECEIPT_DDL);
-        await migrateMessages({ db, rows: inspection.messagePlan, payloadStore, appliedCounts });
+        await migrateMessages({
+          db,
+          rows: inspection.messagePlan,
+          payloadStore,
+          appliedCounts,
+          createdPayloads,
+        });
         applyBindingPlan({
           db,
           validatedMapping: inspection.validatedMapping,
@@ -716,7 +884,12 @@ export async function runLegacyCodexMigration({
         });
         db.exec("COMMIT");
       } catch (error) {
-        rollbackQuietly(db);
+        const rolledBack = rollbackQuietly(db);
+        cleanupFailed = createdPayloads.length > 0 && (
+          !rolledBack
+          || !createdPayloadsAreUnreferenced(db, createdPayloads)
+          || !(await cleanupCreatedPayloads(payloadStore, createdPayloads))
+        );
         appliedCounts.migrated_messages = 0;
         appliedCounts.bound_bindings = 0;
         appliedCounts.retired_bindings = 0;
@@ -748,28 +921,48 @@ export async function runLegacyCodexMigration({
       error instanceof MigrationError ? error.code : "migration_failed",
       inspection?.preflight,
       appliedCounts,
+      cleanupFailed ? ["payload_cleanup_failed"] : [],
     );
   }
 }
 
 export function parseLegacyCodexMigrationArgs(argv) {
-  const options = { apply: false };
+  const options = { apply: false, planRetireAll: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--apply") options.apply = true;
+    else if (arg === "--plan-retire-all") options.planRetireAll = true;
     else if (arg === "--help" || arg === "-h") options.help = true;
-    else if (["--db", "--payload-root", "--mapping"].includes(arg)) {
+    else if (["--db", "--payload-root", "--mapping", "--expected-count", "--expected-candidate-sha256"].includes(arg)) {
       const value = argv[index + 1];
       if (!value || value.startsWith("--")) fail("cli_argument_invalid");
       if (arg === "--db") options.dbPath = resolve(value);
       else if (arg === "--payload-root") options.payloadRoot = resolve(value);
-      else options.mappingPath = resolve(value);
+      else if (arg === "--mapping") options.mappingPath = resolve(value);
+      else if (arg === "--expected-count") options.expectedCount = Number(value);
+      else options.expectedCandidateSha256 = value;
       index += 1;
     } else {
       fail("cli_argument_invalid");
     }
   }
-  if (!options.help && (!options.dbPath || !options.payloadRoot || !options.mappingPath)) fail("cli_argument_invalid");
+  if (!options.help && options.planRetireAll) {
+    if (
+      options.apply
+      || options.payloadRoot
+      || options.mappingPath
+      || !options.dbPath
+      || !Number.isSafeInteger(options.expectedCount)
+    ) fail("cli_argument_invalid");
+  } else if (!options.help && (
+    !options.dbPath
+    || !options.payloadRoot
+    || !options.mappingPath
+    || options.expectedCount !== undefined
+    || options.expectedCandidateSha256 !== undefined
+  )) {
+    fail("cli_argument_invalid");
+  }
   return options;
 }
 
@@ -815,7 +1008,9 @@ async function readMappingFile(mappingPath) {
 function printHelp() {
   process.stdout.write(
     "Usage: node tools/legacy_codex_migration.mjs --db <sqlite-file> --payload-root <owner-directory> --mapping <owner-mapping.json> [--apply]\n"
-    + "Default mode is a read-only preflight. --apply performs only the exact approved mapping.\n",
+    + "       node tools/legacy_codex_migration.mjs --plan-retire-all --db <sqlite-file> --expected-count <n> [--expected-candidate-sha256 <sha256>]\n"
+    + "Default mode is a read-only preflight. --apply performs only the exact approved mapping.\n"
+    + "The retire-all planner is metadata-only and emits a candidate that still requires an owner decision; it never applies changes.\n",
   );
 }
 
@@ -826,6 +1021,11 @@ async function main(argv) {
     if (options.help) {
       printHelp();
       return 0;
+    }
+    if (options.planRetireAll) {
+      const result = await planLegacyCodexRetireAllCandidate(options);
+      process.stdout.write(`${JSON.stringify(result)}\n`);
+      return result.status === "ready" ? 0 : result.status === "blocked" ? 2 : 1;
     }
     const mapping = await readMappingFile(options.mappingPath);
     const result = await runLegacyCodexMigration({
