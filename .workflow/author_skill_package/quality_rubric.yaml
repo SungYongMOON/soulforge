@@ -1,0 +1,60 @@
+workflow_id: author_skill_package
+kind: skill_quality_rubric
+status: active
+rubric_id: skill_package_predictability_v0
+title: Skill Package Predictability Rubric
+authority:
+  definition_owner: this_file
+  reference_rule: Other workflow files and output templates may cite rubric item ids, but must not restate their definitions.
+source_basis:
+  - source_id: writing_great_skills
+    source_type: official_public_repository
+    source_url: https://github.com/mattpocock/skills/blob/main/skills/productivity/writing-great-skills/SKILL.md
+    adopted_scope: Predictable process, distinct trigger branches, checkable completion criteria, information hierarchy, single source of truth, and sentence-level pruning.
+  - source_id: workflow_generator_verification_gate
+    source_type: soulforge_canon
+    source_path: .registry/skills/workflow_generator/codex/references/verification-gate.md
+    adopted_scope: Fresh executor, separate verifier, safe validation, and conservative completion labels.
+evaluation_values:
+  item_status:
+    - pass
+    - fail
+    - not_observed
+  overall_rule: Every rubric item must be pass; fail or not_observed blocks a completed quality claim.
+items:
+  - item_id: process_predictability
+    target: The same request branch follows the same ordered process, handoffs, and observable gates even when exact output content varies.
+    checks:
+      - Every branch names its ordered actions, required inputs, outputs, and stop path.
+      - Branch changes are explicit rather than inferred from prose or platform-specific invocation mechanics.
+    pass_evidence: A branch-to-step map accounts for every required workflow output and stop condition.
+  - item_id: distinct_trigger_branches
+    target: Each genuinely different request mode has one trigger branch, synonym-only restatements are collapsed, and an adjacent non-trigger boundary is explicit.
+    checks:
+      - A normal trigger fixture reaches the intended skill-authoring route.
+      - An adjacent one-off request does not force reusable skill authoring.
+    pass_evidence: Trigger and non-trigger fixture results match their expected routes without duplicate trigger meanings.
+  - item_id: checkable_and_exhaustive_completion
+    target: Each material step ends with an observable done-or-not-done criterion that accounts for every required output or changed element.
+    checks:
+      - Completion criteria can be evaluated from named artifacts or validation results.
+      - Multi-file or multi-item work explicitly accounts for every required item.
+    pass_evidence: No required artifact, validation, or boundary check remains unaccounted for when the step passes.
+  - item_id: information_hierarchy_and_ssot
+    target: Always-needed steps stay in the primary instruction surface, conditional detail is reached through an explicit context pointer, and each meaning has one authoritative location.
+    checks:
+      - Conditional references say when they must be loaded.
+      - Definitions, rules, and caveats for one concept are co-located rather than scattered or duplicated.
+    pass_evidence: A pointer and duplication audit finds no hidden required instruction or competing definition.
+  - item_id: pruning
+    target: Every sentence changes relevant behavior, duplication and stale sediment are removed, and any indispensable hard guard is paired with the positive target behavior.
+    checks:
+      - Each sentence passes a sentence-level relevance and no-op test.
+      - Redundant trigger synonyms, repeated definitions, and unused background are absent.
+    pass_evidence: The review records removed no-ops or states with evidence that none remain.
+portability_guard:
+  required_behavior: Use stable skill/workflow ids and Soulforge-root-relative POSIX paths in reusable package material.
+  blocked_content:
+    - host-specific absolute paths
+    - platform-specific invocation frontmatter copied from an external runtime
+    - runtime credentials, private project truth, or release authority

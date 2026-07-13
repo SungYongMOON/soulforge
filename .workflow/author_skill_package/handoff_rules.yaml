@@ -38,16 +38,25 @@ rules:
       notes:
         - The prepared install handoff note must not add runtime truth or host-local install ownership back into the tracked skill package draft.
   - from_step: smoke_check_package
-    to_step: final_release_review
+    to_step: forward_evaluate_package
     handoff:
       required_outputs:
         - skill_smoke_check.md
       notes:
         - The smoke record should capture the smallest reproducible local verification path, expected runtime inputs, and whether validation succeeded.
+  - from_step: forward_evaluate_package
+    to_step: final_release_review
+    handoff:
+      required_outputs:
+        - skill_forward_evaluation.md
+      notes:
+        - Route create requests to `workflow_generator` `single_skill_build` and revision requests to `single_skill_modify`.
+        - Carry structure validation, safe script checks, all three fixture results, fresh B evidence, separate V evidence, rubric item ids, and the conservative completion label.
+        - Stop when required evidence is failed, not run, or not observed; do not upgrade the completion label during handoff.
   - from_step: final_release_review
     to_step: complete
     handoff:
       required_outputs:
         - skill_release_review.md
       notes:
-        - Completion of this workflow means the package draft passed authoring-time review, resource split review, and release-time boundary review; actual mirror sync remains a local operating step described in `.registry/docs/operations/SKILL_INSTALL_SYNC.md`.
+        - Completion of this workflow means the package draft passed authoring-time review, resource split review, forward evaluation, and release-time boundary review; actual mirror sync remains a local operating step described in `.registry/docs/operations/SKILL_INSTALL_SYNC.md`.

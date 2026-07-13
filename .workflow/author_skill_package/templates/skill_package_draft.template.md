@@ -26,6 +26,8 @@
 
 ## Draft Notes
 
+- Authoritative quality rubric: `quality_rubric.yaml#skill_package_predictability_v0`
+- Rubric preparation evidence by item id:
 - Required behavior:
 - Required execution hints:
 - Resource bundle scope:

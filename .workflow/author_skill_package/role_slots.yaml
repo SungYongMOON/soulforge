@@ -10,4 +10,20 @@ slots:
     summary: Assembles the tracked package draft and the later install handoff note.
   - slot_id: checker
     title: Checker
-    summary: Validates canon, optional bridge, resource split, and runtime binding boundaries before promotion.
+    summary: Validates canon, optional bridge, resource split, and runtime binding boundaries, then routes forward evaluation through workflow_generator and accepts only supported B/V evidence before promotion.
+delegated_evaluation_roles:
+  - role_id: fresh_executor_B
+    delegated_by_slot: checker
+    routed_via: workflow_generator
+    allowed_controller_modes:
+      - single_skill_build
+      - single_skill_modify
+    freshness: fresh_context_per_evaluation_round
+    authority: candidate_execution_only
+  - role_id: separate_verifier_V
+    delegated_by_slot: checker
+    routed_via: workflow_generator
+    freshness: separate_fresh_context_after_B_output
+    authority: read_only_acceptance_verification
+notes:
+  - Delegated B and V are evaluation roles, not new party ownership slots; current party compatibility remains unchanged.

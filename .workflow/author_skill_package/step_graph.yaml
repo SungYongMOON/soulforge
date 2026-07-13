@@ -92,6 +92,37 @@ steps:
       - skill_smoke_check.md
     summary: Record the smallest local smoke path, expected runtime inputs, and validation evidence before release.
     next:
+      on_success: forward_evaluate_package
+      on_fail: stop
+  - step_id: forward_evaluate_package
+    actor_slot: checker
+    execution_profile_ref: analysis_heavy
+    action:
+      kind: skill
+      skill_id: workflow_generator
+      operation: single_skill_build_or_modify
+      mode_selection:
+        create: single_skill_build
+        revise: single_skill_modify
+    inputs:
+      - skill_boundary_brief.md
+      - skill_package_draft.md
+      - skill_resource_bundle_review.md
+      - skill_boundary_review.md
+      - skill_install_sync_request.md
+      - skill_smoke_check.md
+      - quality_rubric.yaml
+      - supporting_examples
+    outputs:
+      - skill_forward_evaluation.md
+    summary: Route the package through workflow_generator single-skill build or modify evaluation with deterministic checks, three trigger/execution fixtures, a fresh executor B, and a separate verifier V.
+    completion_criteria:
+      - The target skill folder has structure-validator evidence.
+      - Every changed script has a safe check or an explicit non-ready blocker.
+      - Normal trigger, adjacent non-trigger, and realistic execution fixtures each have observed status and evidence.
+      - Fresh B execution and separate read-only V verification are recorded independently.
+      - Every item in quality_rubric.yaml passes before the result may use a completed quality claim.
+    next:
       on_success: final_release_review
       on_fail: stop
   - step_id: final_release_review
@@ -104,9 +135,10 @@ steps:
       - skill_boundary_review.md
       - skill_install_sync_request.md
       - skill_smoke_check.md
+      - skill_forward_evaluation.md
     outputs:
       - skill_release_review.md
-    summary: Confirm that the tracked package, resource split, install handoff, and smoke record still preserve canon, bridge, and runtime ownership boundaries at release time.
+    summary: Confirm that the tracked package, resource split, install handoff, smoke record, and conservative forward-evaluation claim preserve canon, bridge, and runtime ownership boundaries at release time.
     next:
       on_success: complete
       on_fail: stop

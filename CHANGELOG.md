@@ -56,6 +56,17 @@
   propagation, collision/unresolved refusal, audit/WhatIf no-mutation, handoff, principal 경계를
   고정하고 LAN/maintenance/operating 문서를 동기화했다. (worker: codex_gpt-5)
 
+### 스킬 패키지 예측 가능성·forward evaluation 게이트
+
+- `author_skill_package`에 trigger branch, 판정 가능한 완료조건, 정보 계층/단일 정본,
+  문장 단위 pruning을 묶은 공통 품질 rubric을 추가했다. 외부 저자의 Claude 전용 호출
+  문법은 가져오지 않고 공식 원문에서 Codex와 Soulforge에 맞는 일반 원칙만 채택했다.
+- smoke 뒤 release review 전에 기존 `workflow_generator`의 `single_skill_build` 또는
+  `single_skill_modify`로 위임하는 forward-evaluation 단계를 추가했다. 구조검증, 안전한
+  script check, 정상 trigger, 인접 non-trigger, 현실적 실행, fresh B와 separate V 근거가
+  없으면 보수적인 completion label을 유지한다. 새 skill-maker authority는 만들지 않았다.
+  (worker: codex_gpt-5)
+
 ### dev-ERP 빈 줄기 화면의 서버 장애 오인 수정
 
 - 과제에 아직 `project_context` 줄기 데이터가 없을 때 `/api/context/graph`의 예상 가능한
