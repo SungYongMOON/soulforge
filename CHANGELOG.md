@@ -2,6 +2,17 @@
 
 ## 2026-07-15
 
+### 할일 엔진 H00 ratification packet exactness 보정
+
+- H00의 세 public candidate blob 의미와 20/20 helper/test coverage는 유지하면서, future owner
+  ratification이 accepted+unexpired C00B receipt, approval-time clean HEAD의 three-blob match,
+  exact validator receipt와 fresh Level 2 review receipt에 결합되도록 packet을 보정했다.
+- Validity는 exact blobs에 대한 `content-addressed-until-revoked`로 고정하고 issued-at/null expiry/
+  revocation semantics와 authority-effect map을 추가했다. Overall RATIFY는 H01~H05 exact child-packet
+  review만 열며 adapter, H06, D19~D26, completeness, file edit, writer/migration/live/activation 권한은
+  만들지 않는다. H00 ratification·candidate file 수정·private/live 조회·구현은 수행하지 않았다.
+  (worker: codex_gpt-5)
+
 ### 할일 엔진 C00B authority packet readiness 보정
 
 - C00B를 H00 이전의 authority-backed source owner/root/writer/consumer/source-availability inventory로

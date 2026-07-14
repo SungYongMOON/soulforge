@@ -1562,7 +1562,7 @@ TaskDriver/ERP task schema, source owner mutation, unrelated project, `_workmeta
 
 | phase card | goal / depends_on | inputs → outputs | target surfaces (write allowlist 아님) | future child-packet validators | rollback / stop / owner gate |
 | --- | --- | --- | --- | --- | --- |
-| `H00` | common envelope+coverage contract ratification / `C00B PASS` | five owner maps는 sequencing/advisory evidence로만 사용 → existing candidate의 ratify 또는 HOLD receipt; live lane membership/existence 판정은 H01~H05 소유 | `docs/architecture/workspace/PROJECT_HISTORY_ENVELOPE_V0.md`, `guild_hall/shared/project_history_envelope.mjs`, `guild_hall/shared/project_history_envelope.test.mjs`의 read-only pinned candidate; write `0` | exact `node --test guild_hall/shared/project_history_envelope.test.mjs`; envelope schema, clock/null semantics, digest, raw sentinel | file delta 없음 / stop on owner or clock ambiguity / owner `RATIFY | HOLD` |
+| `H00` | common envelope+coverage contract ratification / accepted+unexpired `C00B PASS` | five owner maps는 sequencing/advisory evidence로만 사용 → existing candidate의 ratify 또는 HOLD receipt; live lane membership/existence 판정은 H01~H05 소유 | `docs/architecture/workspace/PROJECT_HISTORY_ENVELOPE_V0.md`, `guild_hall/shared/project_history_envelope.mjs`, `guild_hall/shared/project_history_envelope.test.mjs`의 read-only pinned candidate; write `0` | approval-time three-blob match + exact `node --test guild_hall/shared/project_history_envelope.test.mjs` 20/20 + Level 2 receipt; envelope schema, clock/null semantics, digest, raw sentinel | file delta 없음 / stop on precondition expiry, blob/test/review drift, owner or clock ambiguity / owner `RATIFY | HOLD` |
 | `H01` | mail append-only occurrence/classification history shadow / `H00` | three-writer/caller map + synthetic mail → stable occurrence/event/coverage shadow, no file cutover | gateway mail writer/reconcile modules and tests, proposed mail v2 contracts, dev-ERP scanner tests, README, CHANGELOG | `MAIL-01..12` applicable contract/shadow subset, occurrence project-independence; existing legacy writers unchanged, new projector OFF | feature OFF+revert / stop on caller gap or raw need / D21~D23; D26 exact mail mapping 전 adapter 금지, D25 mail coverage policy 전 lane acceptance 금지 |
 | `H02` | voice history envelope / `H00` | voice source-event refs+delivery status → envelope/coverage adapter | voice capture adapter/tests, `VOICE_RECORDING_LIBRARY_V0.md` sync if contract changes, README, CHANGELOG | revision/ack/gap/supersession, raw transcript sentinel | adapter OFF+revert / stop on route/coverage ambiguity / voice owner; D26 exact voice mapping 전 adapter 금지, D25 voice coverage policy 전 lane acceptance 금지 |
 | `H03` | structured PC work + external SE schedule history / `H00`; internal `H03A→H03B` | H03A ERP MCP WorkSession/approved instruction fixtures + daily-ledger projection-only fixture + H03B owner-approved schedule current/revision/event fixture → combined structured history+gap receipt | `erp_mcp_service.mjs`, server/tests, daily-ledger modules/tests, proposed schedule contract, README, CHANGELOG | WorkSession idempotency, task-chat/full-conversation payload reject, daily-ledger non-occurrence/projection-only, schedule stale revision/current-event replay | adapter OFF+revert / H03A alone cannot close H03; stop on surveillance or D20 exact owner/path/writer gap / D19+D20; D26 exact structured-work/schedule mapping 전 adapter 금지, D25 H03 coverage policy 전 lane acceptance 금지 |
@@ -3010,7 +3010,7 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | `C00A` / 지금 | `public_only_stdout`; approval-time `HEAD==origin/main` SHA, approval ref와 expiry | public-only·stdout, live facts `UNKNOWN/VERIFY_HP`, P1 `BLOCKED` | §18.1 public ref/static inventory | private/live query, report write, code mutation | exact baseline·candidate writer/consumer map·raw sentinel `0`·tracked zero-mutation blocker receipt → C00Q를 검토할 근거, P1은 계속 잠금 |
 | `C00Q` / accepted C00A blocker 뒤 | inventory CLI/test/schema exact BUILD path, approval-time SHA, synthetic fixtures, validator, review profile, approval ref·expiry | `non_executable_phase_card`, HOLD | 별도 승인 뒤 public/synthetic exact child packet만 | live/private input, report write, DB/API/runtime mutation, P1 unlock | deterministic manifest·query-only fail-closed·raw sentinel·synthetic mutation `0`·independent review → frozen tool/schema receipt |
 | `C00B` / accepted C00Q 뒤 | `owner_authorized_query_only`; approval-time SHA, lane별 exact authority/source/profile, metadata output, approval ref·expiry | `non_executable_hold`, live facts `UNKNOWN/VERIFY_HP`, P1 `BLOCKED` | accepted frozen C00Q tool과 승인된 metadata-only source | doctor/workspace inventory로 대체, raw/private payload, tool 변경, source/tracked/runtime mutation, exact one-path 밖 output write, H00 six-state completeness 선사용 | C00-LIVE-01..04 authority-backed inventory closure·zero-mutation receipt → C00B PASS는 H00 ratification review만 허용 |
-| `H00` / C00B PASS 뒤 | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea`의 `docs/architecture/workspace/PROJECT_HISTORY_ENVELOPE_V0.md`, `guild_hall/shared/project_history_envelope.mjs`, `guild_hall/shared/project_history_envelope.test.mjs`를 exact candidate로 지목하고, independent event envelope+coverage receipt pair, literal `unknown`, `known_at` half-open window, six-state count/null/gap semantics를 각각 `RATIFY | HOLD` | `canon_candidate` HOLD | 세 pinned public file과 exact test command 검토 | file edit, adapter, migration, live use, completeness claim | owner decision ref + `node --test guild_hall/shared/project_history_envelope.test.mjs`; exact independent pair ratification → lane별 owner gate가 있는 H01~H05 contract adapter |
+| `H00` / accepted+unexpired C00B PASS 뒤 | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea`의 세 exact blob과 independent event envelope+coverage receipt pair, literal `unknown`, `known_at` half-open window, six-state count/null/gap semantics를 각각 `RATIFY | HOLD`; content-addressed-until-revoked policy와 issued-at 승인 | `canon_candidate` HOLD | 세 pinned public file의 approval-time blob match, exact test 20/20 receipt, fresh Level 2 review | file edit, adapter, migration, live use, completeness claim, D19~D26 자동승인 | owner decision ref + bound blob/test/review receipts; overall RATIFY는 H01~H05 exact child-packet review만 열고 adapter/H06/writer 권한은 계속 false |
 | `D19` / H03A 전 | negative boundary를 먼저 ratify; 신규 instruction/receipt source마다 exact owner surface, schema/version, ID allocator, consent·retention을 별도 명시 | existing bounded WorkSession만 후보; 나머지 HOLD, broad capture OFF | WorkSession과 negative fixture | whole task chat·hook full-message summary·screen·keystroke·OS capture, owner 미정 source | allowlist/negative test/direct-caller evidence → H03A input binding |
 | `D20` / H03B 전 | schedule current owner/path, immutable revision/event owner/path, stable row-ID owner/schedule scope, canonicalization/timezone, sole writer | `HOLD` | synthetic stale-revision/canonicalization fixture | row ID 발명, live event, task discovery | current/revision/event replay와 stale expected-revision reject → H03B |
 | `D24` / H06 target 확정 전 | 다섯 exact view name과 CSV/XLSX(메일은 ICS 포함) target, redacted projection-field allowlist, HPP sole-normal-projector, Mac/다른 PC normal allowlist empty를 logical TARGET으로 ratify | 이름은 candidate, materialization/export acceptance `OFF` | schema/path/field fixture | unapproved display field export, private folder 생성, non-HPP normal write | target path/field allowlist·shadow schema fixture → H06 target contract; 실제 생성은 P9 별도 |
@@ -3039,12 +3039,16 @@ public-only run은 blocker receipt는 만들 수 있어도 P1을 여는 PASS가 
 authority/source/profile/output/expiry를 다시 승인받아야 한다. C00Q 또는 C00B는 지금 실행 가능한
 packet이 아니다.
 
-C00B가 실제 `PASS`한 뒤에만 다음 답변을 사용할 수 있다. 이 답변은 세 pinned file을 고치거나 adapter를
-구현하는 권한이 아니다.
+C00B가 실제 `PASS`한 뒤에만 다음 답변을 사용할 수 있다. Ratification 시점에는 C00B receipt가
+accepted+unexpired이고, approval-time HEAD의 세 path가 아래 blob과 모두 같으며, 그 blob set을 대상으로
+한 exact 20/20 validator receipt와 fresh Level 2 review receipt가 있어야 한다. 현재 plan validation이나
+과거 test 기록으로 대체하지 않는다. 하나라도 어긋나면 H00는 `HOLD`다. 이 답변은 세 pinned file을
+고치거나 adapter를 구현하는 권한이 아니다.
 
 ```yaml
 TEAX-H00: RATIFY | HOLD
 precondition_receipt: <accepted-TEAX-C00B-receipt-ref>
+precondition_guard: accepted-and-unexpired-at-ratification
 candidate_ref: main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea
 candidate_paths:
   - docs/architecture/workspace/PROJECT_HISTORY_ENVELOPE_V0.md
@@ -3054,7 +3058,15 @@ candidate_blobs:
   PROJECT_HISTORY_ENVELOPE_V0.md: 18f106b6b7f88f12ea0b345f2246c95bf1a2967f
   project_history_envelope.mjs: ea7c23659724b25c487ae0293f7c3c0999108be5
   project_history_envelope.test.mjs: f5edd6c15acdcf060988b005db7e13fec3832a2b
+approval_time_head_ref: <exact-40hex>
+candidate_blob_guard_receipt_ref: <head-origin-clean-no-lock-three-path-blob-match-receipt-ref>
 validator: node --test guild_hall/shared/project_history_envelope.test.mjs
+validator_receipt_ref: <exit-0-tests-20-pass-20-fail-0-receipt-ref>
+validator_tested_candidate_blobs: candidate_blobs
+validator_executed_at: <strict-utc>
+review_level: inspector_and_judge
+review_receipt_ref: <fresh-level-2-accept-receipt-ref>
+review_inputs: [candidate_blobs, validator_receipt_ref]
 ratify_items:
   independent_event_envelope_and_coverage_receipt_pair: RATIFY | HOLD
   literal_unknown_semantics: RATIFY | HOLD
@@ -3063,8 +3075,21 @@ ratify_items:
 overall_rule: any HOLD means TEAX-H00 HOLD
 output: owner-decision-ref-only
 file_edit_adapter_migration_live_claim: 0
-ratification_expires_at: none-because-blobs-pinned | <strict-utc>
+ratification_validity_policy: content-addressed-until-revoked
+ratification_issued_at: <strict-utc>
+ratification_expires_at: null
+revocation_ref: null
 approval_ref: <owner-decision-ref>
+authority_effect:
+  h00_ratified: true-only-if-all-ratify-and-all-guards-pass
+  h01_h05_child_packet_review_unlocked: true-only-if-h00-ratified
+  h01_h05_adapter_execution_unlocked: false
+  h06_unlocked: false
+  d19_to_d26_authority_created: false
+  d25_live_completeness_authority_created: false
+  file_edit_authority_created: false
+  writer_migration_live_activation_authority_created: false
+hold_effect: all-authority-effect-fields-false
 ```
 
 ### 17.2 남은 `UNKNOWN`과 next proof
@@ -3581,10 +3606,10 @@ repo가 작업 시작 전부터 unrelated dirty/ahead 상태라 review/5-field p
 | CV-01 tracked workspace check | `PASS`; `git ls-files -- '_workspaces/**'`는 boundary README 1개만 반환 |
 | plan structural invariant check | latest working delta `PASS`; D01~D26 26개, AC-01~22 22개, CV-01~09 9개, D26-FX-01~20 20개, C00Q-HOLD 6개, C00B-HOLD 8개, code fence 100개 |
 | C00A embedded packet static validation | latest working delta `PASS`; PowerShell parse, packet ID 2곳, expected exit `3`, parent/C00A approval/C00A receipt/H00 YAML parse |
-| fresh `fork_turns="none"` inspector/judge | C00 dependency correction verdict `ACCEPT`; P0↔P9 cycle 제거, C00Q/C00B 비실행·별도 승인, C09A frozen consumer, doctor/workspace 대체 금지, H00=C00B PASS 뒤 확인. C00Q readiness 후속 검토도 `ACCEPT`; `C00Q-HOLD-01..06`, 5-path ceiling, `openStore` 금지, C00Q output의 P0/P1 authority `0` 확인. C00B authority readiness 최신 diff도 `ACCEPT`; source-availability/H00-only unlock, authority 분리, D25 후속화, C00A legacy field 제한, approved output one-write 예외 확인 |
+| fresh `fork_turns="none"` inspector/judge | C00 dependency correction verdict `ACCEPT`; P0↔P9 cycle 제거, C00Q/C00B 비실행·별도 승인, C09A frozen consumer, doctor/workspace 대체 금지, H00=C00B PASS 뒤 확인. C00Q readiness 후속 검토도 `ACCEPT`; `C00Q-HOLD-01..06`, 5-path ceiling, `openStore` 금지, C00Q output의 P0/P1 authority `0` 확인. C00B authority readiness 최신 diff도 `ACCEPT`; source-availability/H00-only unlock, authority 분리, D25 후속화, C00A legacy field 제한, approved output one-write 예외 확인. H00 ratification readiness 최신 diff도 `ACCEPT`; accepted+unexpired C00B, clean three-blob/test/review binding, single validity policy, H01~H05 child-review-only effect 확인 |
 | root `npm.cmd run done:check` | `HISTORICAL_REPORTED`: 원본 correction에서 계획과 무관한 기존 `device_capability_probe.test.mjs` 고정 10초 child timeout으로 nonzero; 같은 CLI는 약 11.3초 뒤 exit `0`. 계획 파일 관련 failure는 없음 |
-| post-development review profile | Level 2 `inspector_and_judge` 적용; deterministic validator+fresh diff review `ACCEPT`, plan-only correction은 `accepted`, C00B 실행은 `owner_decision_required`. user 범위상 private applied packet/ledger write는 `0`; 권장 보수적 모델/effort profile은 현재 API에서 선택 불가해 overclaim하지 않음 |
-| end-of-task knowledge trigger | `owner_decision_needed`; C00B exact profile/source authority/output/zero-mutation 결정이 남음. Claim ceiling은 public `source_supported` plan correction이며 source truth·owner approval·canon promotion 주장 `0` |
+| post-development review profile | Level 2 `inspector_and_judge` 적용; deterministic validator+fresh diff review `ACCEPT`, plan-only correction은 `accepted`, C00B 실행과 H00 ratification은 `owner_decision_required`. user 범위상 private applied packet/ledger write는 `0`; 권장 보수적 모델/effort profile은 현재 API에서 선택 불가해 overclaim하지 않음 |
+| end-of-task knowledge trigger | `owner_decision_needed`; C00B exact profile/source authority/output/zero-mutation과 그 PASS 뒤 H00 RATIFY/HOLD 결정이 남음. Claim ceiling은 public `source_supported` plan correction이며 source truth·owner approval·canon promotion 주장 `0` |
 
 위 receipt는 구현, runtime readiness, private inventory, C00B/P0 acceptance를 증명하지 않는다. Final
 file hash와 commit은 self-reference를 피하기 위해 문서 밖 publish 보고에 남긴다.
