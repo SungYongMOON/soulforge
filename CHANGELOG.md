@@ -13,7 +13,8 @@
   raw/stage log 수용을 금지했다. D26에는 다섯 lane의 typed native occurrence 후보와
   아직 결정되지 않은 owner/subtype을 분리했다. daily ledger/context life tree는 source truth가 아닌
   파생 projection이므로 H00 project-history occurrence/event/coverage count로 중복 산입하지 않으며,
-  current five-field ID는 full-record identity/boundary 검증 전 allowlist에서 제외했다. H06은 H00과
+  current five-field ID는 full-record identity/boundary 검증 전 allowlist에서 제외했다. D26 owner 결정을
+  임의 값으로 메우지 않는 20개 pre-approval 합성 fixture도 계획에 고정했다. H06은 H00과
   H01~H05 acceptance, D24~D26 결정 전 readiness-only 상태를 유지한다.
   (worker: codex_gpt-5)
 
