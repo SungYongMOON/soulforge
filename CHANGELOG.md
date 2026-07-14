@@ -2,6 +2,20 @@
 
 ## 2026-07-15
 
+### 할일 엔진 공개 source traceability 보정
+
+- P1 common history 예시를 독립 event envelope와 coverage receipt pair로 맞추고,
+  `partial>=0+gap`, `failed/not_collected=null+gap`, owner-approved `not_applicable` 규칙을
+  H00 계약과 일치시켰다. H03A/H03B의 D19·D20·D25·D26 선행조건, H04의 immutable source
+  ref와 replaceable bounded projection 구분, mail v2/export redacted field allowlist도 명시했다.
+- P2의 `valid_at/known_at`은 query cutoff이고 persisted source event는 owner-native fact/knowledge
+  clocks를 보존한다는 lossless crosswalk owner gate를 추가했다. 근거가 없는 P5 `signed` 표현과
+  CURRENT처럼 읽힐 수 있던 historical observation 문구를 낮췄다.
+- HPP coordinator/projector, lock·lease·epoch, emergency fallback과 E→E+1→E+2 절차는 current
+  구현이나 기존 canon이 아닌 plan-owned `TARGET` 후보임을 §11.2B에 고정했다. D21~D23 contract
+  sync와 P10 Level 3 evidence 전에는 authority·role switch·failover/failback을 부여하지 않는다.
+  코드·DB·업무 데이터·migration·writer·운영 활성화는 수행하지 않았다. (worker: codex_gpt-5)
+
 ### 할일 엔진 마스터플랜 전체 정합성 보정
 
 - 계획 시점 Git·runtime·validator 관찰값을 현재값과 분리하고, C00 승인 시 exact ref/count를
