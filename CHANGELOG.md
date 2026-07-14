@@ -1,5 +1,15 @@
 # CHANGELOG
 
+### 할일 엔진 맥락 기반 선행구조 교차검증 packet
+
+- 맥미니에서 정의한 project payload/metadata, source-local 시간 이력,
+  exact revision-bound RAG/Wiki 구조가 보존됐는지 고성능 PC가 독립 대조할 수 있도록
+  public-safe CV-01~CV-09 packet을 추가했다.
+- 고성능 PC 마스터플랜 프롬프트의 필수 read order와 acceptance에
+  `history -> identity/time -> revision -> RAG/Wiki -> validated context -> task discovery ->
+  TaskDriver -> ERP writer` dependency 검증을 연결했다. 교차검증은 read-only이며
+  runtime 구현·migration·writer/alert 활성화 권한을 만들지 않는다. (worker: codex_gpt-5)
+
 ### `outlook_mail_reconcile` Codex launcher retired
 
 - Retired the unused `.registry/skills/outlook_mail_reconcile/` launcher while
