@@ -92,6 +92,11 @@ import { buildKnowledgeOverview, readWikiPage } from "./src/knowledge_overview.m
 import { buildBranchStory, buildContextGraph, listContextProjects } from "./src/context_graph.mjs";
 import { buildContextLifeTree, parseContextLifeTreeQuery } from "./src/context_life_tree.mjs";
 import { readRouterBinding } from "./src/mail_router_binding.mjs";
+import {
+  createErpMcpService,
+  ERP_MCP_FILE_MAX,
+  ErpMcpError,
+} from "./src/erp_mcp_service.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -522,6 +527,11 @@ async function reportWorkflowCapability() {
     blockers,
   };
 }
+const ERP_MCP_ARTIFACT_ROOT = resolve(
+  process.env.DEV_ERP_MCP_ARTIFACT_ROOT
+    || join(BACKEND_ROOT, "_workspaces", "system", "dev-erp", "mcp-artifacts"),
+);
+const erpMcp = createErpMcpService({ store, artifactRoot: ERP_MCP_ARTIFACT_ROOT });
 try {
   const recovered = store.recoverInterruptedCodexTurnAudits("service_restart");
   if (recovered.recovered) console.warn(`[dev-erp] recovered ${recovered.recovered} interrupted Codex audit row(s)`);
@@ -781,6 +791,34 @@ function canAccessProject(req, projectId) {
   if (store.isAdmin(me.id)) return true;
   const items = store.db.prepare("SELECT id FROM core_item WHERE project_id=? ORDER BY id LIMIT 500").all(project.id);
   return items.length === 0 || items.some((row) => canAccessItem(req, row.id));
+}
+
+const ERP_MCP_CALLS_PER_MINUTE = Math.max(
+  10,
+  Math.min(600, Math.trunc(Number(process.env.DEV_ERP_MCP_CALLS_PER_MINUTE) || 120)),
+);
+const erpMcpCallsByAccount = new Map();
+function authenticatedMcpAccount(req) {
+  const account = erpMcp.authenticate(req.headers.authorization || "");
+  const cutoff = Date.now() - 60_000;
+  const recent = (erpMcpCallsByAccount.get(account.id) || []).filter((at) => at > cutoff);
+  if (recent.length >= ERP_MCP_CALLS_PER_MINUTE) throw new ErpMcpError("mcp_rate_limited", 429);
+  recent.push(Date.now());
+  erpMcpCallsByAccount.set(account.id, recent);
+  return account;
+}
+function appendMcpAudit(account, tool, { itemId = null, projectId = null, to = "ok" } = {}) {
+  store.appendEvent({
+    actor_ref: account?.username || "mcp_upload_ticket",
+    actor_kind: account ? "human" : "system",
+    kind: "mcp_tool_call",
+    item_ref: itemId,
+    project_ref: projectId,
+    to,
+    used_refs: ["erp_mcp"],
+    data_label: "meta",
+    note: `tool=${tool}`,
+  });
 }
 
 function lastIngestAt() {
@@ -1811,7 +1849,7 @@ function afterWorkStarted({ actor, item, from, to } = {}) {
   });
 }
 
-function afterWorkCompleted({ actor, item, from, to } = {}) {
+function afterWorkCompleted({ actor, accountId = null, item, from, to } = {}) {
   if (!item?.id || to !== "done" || from === "done") return null;
   const binding = store.codexTaskBinding(item.id);
   // 5필드 계약: 결정적 필드(입력 포인터·집계키)는 완료 즉시 기록, LLM 초안은 아래 훅이 보강(needs_backfill=1 시작).
@@ -1833,6 +1871,7 @@ function afterWorkCompleted({ actor, item, from, to } = {}) {
     note: noteParts.join(";"),
   });
   (async () => {
+    const workSession = accountId ? erpMcp.completionPacket({ accountId, itemId: item.id }) : null;
     let msgs = [];
     let latestMsg = null;
     const hookUsedRefs = () => {
@@ -1849,6 +1888,65 @@ function afterWorkCompleted({ actor, item, from, to } = {}) {
       latestMsg?.id ? `codex_last_message_id=${latestMsg.id}` : null,
     ].filter(Boolean).join(";") || null;
     try {
+      if (workSession) {
+        if (clog?.id) store.updateCompletionLog(clog.id, {
+          summary: workSession.summary,
+          knowledge: {
+            note: workSession.knowledge,
+            outputs: workSession.outputs,
+            next_actions: workSession.next_actions,
+            artifact_ids: workSession.artifact_ids,
+            work_session_id: workSession.work_session_id,
+          },
+          verification: workSession.verification,
+          stop_conditions: workSession.stop_conditions,
+          request_kind: workSession.request_kind,
+          data_label: "ai_draft",
+          needs_backfill: 0,
+        });
+        const proposal = store.createProposal({
+          source: "erp_mcp_work_session",
+          kind: "completion_digest",
+          target_ref: item.id,
+          summary: workSession.summary,
+          payload: {
+            item_id: item.id,
+            item_title: item.title ?? "",
+            project_id: item.project_id ?? null,
+            assignee_ref: item.assignee_ref ?? null,
+            work_type: item.work_type ?? null,
+            completion_criteria: item.completion_criteria ?? null,
+            result: item.result ?? null,
+            log_ref: item.log_ref ?? null,
+            work_session_id: workSession.work_session_id,
+            summary: workSession.summary,
+            next_actions: workSession.next_actions,
+            knowledge: workSession.knowledge,
+            verification: workSession.verification ?? "",
+            stop_conditions: workSession.stop_conditions,
+            request_kind: workSession.request_kind ?? "",
+            artifact_ids: workSession.artifact_ids,
+          },
+          used_refs: ["items", "erp_mcp_work_session", "erp_mcp_artifact"],
+          data_label: "real",
+        });
+        store.appendEvent({
+          actor_ref: "completion_hook",
+          actor_kind: "system",
+          kind: "completion_digest",
+          item_ref: item.id,
+          project_ref: item.project_id,
+          used_refs: ["ai_proposal", "completion_log", "erp_mcp_work_session"],
+          data_label: "real",
+          note: [
+            "phase=mcp_work_session",
+            clog?.id ? `completion_log_id=${clog.id}` : null,
+            proposal?.id ? `proposal_id=${proposal.id}` : null,
+            `work_session_id=${workSession.work_session_id}`,
+          ].filter(Boolean).join(";"),
+        });
+        return;
+      }
       msgs = await publicCodexTaskMessages(item.id);
       if (!msgs.length) {
         // 대화 없음: 결정적 필드만 착지(needs_backfill=1 유지). 침묵 대신 감사 이벤트로 부분 캡처를 표시.
@@ -2194,7 +2292,8 @@ const server = createServer(async (req, res) => {
     // F1/BE-1: 팀 모드(계정 1개 이상)에서는 도메인 쓰기에 로그인 필수 — 익명 우회 차단.
     // 계정 0개(단독 localhost 파일럿)는 현행 전체허용(하위호환). 로그인/부트스트랩(/api/auth/*)은 예외.
     if ((req.method === "POST" || req.method === "PUT") && path.startsWith("/api/")
-        && !path.startsWith("/api/auth/") && store.accountCount() > 0 && !currentAccount(req)) {
+        && !path.startsWith("/api/auth/") && !path.startsWith("/api/mcp/")
+        && store.accountCount() > 0 && !currentAccount(req)) {
       return send(res, 401, { error: "login_required" });
     }
     // 읽기도 미인증 차단(팀 모드) — '무조건 로그인해야 보임'. 랜딩에 필요한 비민감 메타데이터만 예외:
@@ -2202,6 +2301,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && path.startsWith("/api/")
         && !["/api/me", "/api/health", "/api/version", "/api/lexicon", "/api/modules"].includes(path)
         && !path.startsWith("/api/auth/")
+        && !path.startsWith("/api/mcp/")
         && store.accountCount() > 0 && !currentAccount(req)) {
       return send(res, 401, { error: "login_required" });
     }
@@ -2234,6 +2334,134 @@ const server = createServer(async (req, res) => {
     }
     if (await workflowHttpController(req, res, url)) return;
 
+    // Personal Codex integration: browser cookie manages credentials; MCP calls use
+    // a distinct per-account bearer. Upload bytes travel over a one-time raw PUT,
+    // never through MCP JSON/model context.
+    if (path === "/api/integrations/mcp/tokens" && req.method === "GET") {
+      const me = currentAccount(req);
+      if (!me) return send(res, 401, { error: "login_required" });
+      return send(res, 200, { tokens: erpMcp.listTokens(me.id) });
+    }
+    if (path === "/api/integrations/mcp/tokens" && req.method === "POST") {
+      const body = await readJson(req, 16 * 1024);
+      const me = currentAccount(req);
+      if (!me) return send(res, 401, { error: "login_required" });
+      const issued = erpMcp.issueToken({
+        accountId: me.id,
+        label: body.label,
+        expiresInDays: body.expires_in_days ?? 30,
+      });
+      store.appendEvent({
+        actor_ref: me.username, actor_kind: "human", kind: "mcp_token_issued",
+        to: issued.token_id, used_refs: ["erp_mcp_access_token"], data_label: "meta",
+      });
+      return send(res, 201, issued);
+    }
+    if (path === "/api/integrations/mcp/tokens/revoke" && req.method === "POST") {
+      const body = await readJson(req, 16 * 1024);
+      const me = currentAccount(req);
+      if (!me) return send(res, 401, { error: "login_required" });
+      const result = erpMcp.revokeToken({ accountId: me.id, tokenId: body.token_id });
+      store.appendEvent({
+        actor_ref: me.username, actor_kind: "human", kind: "mcp_token_revoked",
+        to: result.token_id, used_refs: ["erp_mcp_access_token"], data_label: "meta",
+      });
+      return send(res, 200, result);
+    }
+    if (path.startsWith("/api/mcp/uploads/") && req.method === "PUT") {
+      const ticket = decodeURIComponent(path.slice("/api/mcp/uploads/".length));
+      let result;
+      try {
+        const bytes = await readRawBody(req, ERP_MCP_FILE_MAX);
+        result = erpMcp.commitUpload(ticket, bytes);
+      } catch (error) {
+        if (error?.code === "too_large" || error instanceof ErpMcpError) throw error;
+        console.error("[dev-erp] mcp upload failed:", error?.code || error?.name || "unknown");
+        return send(res, 500, { error: "internal" });
+      }
+      try {
+        const owner = store.db.prepare(
+          `SELECT a.username FROM erp_mcp_artifact f
+           JOIN core_account a ON a.id=f.account_id WHERE f.id=?`,
+        ).get(result.artifact.artifact_id);
+        appendMcpAudit(owner ? { username: owner.username } : null, "artifact_upload", {
+          itemId: result.artifact.item_id,
+          projectId: result.artifact.project_id,
+        });
+      } catch (error) {
+        console.error("[dev-erp] mcp upload audit failed:", error?.code || error?.name || "unknown");
+      }
+      return send(res, 201, result);
+    }
+    if (path === "/api/mcp/whoami" && req.method === "GET") {
+      const account = authenticatedMcpAccount(req);
+      appendMcpAudit(account, "whoami");
+      return send(res, 200, erpMcp.whoami(account));
+    }
+    if (path === "/api/mcp/agenda" && req.method === "GET") {
+      const account = authenticatedMcpAccount(req);
+      const result = erpMcp.agenda(account, qp.date || "today");
+      appendMcpAudit(account, "agenda");
+      return send(res, 200, result);
+    }
+    if (path === "/api/mcp/task" && req.method === "GET") {
+      const account = authenticatedMcpAccount(req);
+      const result = erpMcp.taskContext(account, qp.id);
+      appendMcpAudit(account, "task_context", { itemId: result.item.id, projectId: result.item.project_id });
+      return send(res, 200, result);
+    }
+    if (path === "/api/mcp/mail" && req.method === "GET") {
+      const account = authenticatedMcpAccount(req);
+      const result = erpMcp.listMail(account, {
+        days: qp.days,
+        q: qp.q,
+        direction: qp.direction,
+        limit: qp.limit,
+        offset: qp.offset,
+      });
+      appendMcpAudit(account, "mail_list");
+      return send(res, 200, { rows: result });
+    }
+    if (path === "/api/mcp/mail/detail" && req.method === "GET") {
+      const account = authenticatedMcpAccount(req);
+      const result = erpMcp.mailDetail(account, qp.id, { maxChars: qp.max_chars });
+      appendMcpAudit(account, "mail_detail", { projectId: result.project_id });
+      return send(res, 200, result);
+    }
+    if (path === "/api/mcp/artifacts" && req.method === "GET") {
+      const account = authenticatedMcpAccount(req);
+      const result = erpMcp.listArtifacts(account, qp.item_id);
+      appendMcpAudit(account, "artifact_list", { itemId: qp.item_id });
+      return send(res, 200, { artifacts: result });
+    }
+    if (path === "/api/mcp/work-sessions" && req.method === "POST") {
+      const body = await readJson(req, 128 * 1024);
+      const account = authenticatedMcpAccount(req);
+      const result = erpMcp.publishWorkSession(account, body);
+      const item = store.itemById(result.session.item_id);
+      appendMcpAudit(account, "work_session_publish", {
+        itemId: result.session.item_id,
+        projectId: item?.project_id ?? null,
+        to: result.replayed ? "replayed" : "created",
+      });
+      return send(res, result.replayed ? 200 : 201, result);
+    }
+    if (path === "/api/mcp/uploads/prepare" && req.method === "POST") {
+      const body = await readJson(req, 32 * 1024);
+      const account = authenticatedMcpAccount(req);
+      const result = erpMcp.prepareUpload(account, body);
+      if (!result.already_uploaded) {
+        result.upload_path = `/api/mcp/uploads/${encodeURIComponent(result.upload_ticket)}`;
+        delete result.upload_ticket;
+      }
+      const item = store.itemById(body.item_id);
+      appendMcpAudit(account, "artifact_upload_prepare", {
+        itemId: body.item_id,
+        projectId: item?.project_id ?? null,
+        to: result.already_uploaded ? "deduplicated" : "prepared",
+      });
+      return send(res, result.already_uploaded ? 200 : 201, result);
+    }
     if (path === "/api/health") {
       // liveness 는 항상 공개. counts(데이터 규모)는 미인증(팀 모드)엔 숨김 — '무조건 로그인해야 보임' 강화.
       const seeCounts = store.accountCount() === 0 || !!currentAccount(req);
@@ -2444,6 +2672,7 @@ const server = createServer(async (req, res) => {
       if (id === admin.id) return send(res, 400, { error: "cannot_delete_self" });
       const r = store.deleteAccount(id);
       if (r.error) return send(res, 400, r);
+      erpMcp.purgeAccountCredentials(id);
       const repoRoot = resolve(HERE, "..", "..", "..");
       let envDeleted = false;
       try { envDeleted = !!deleteMailboxEnv(repoRoot, r.mailbox_env_ref || mailboxEnvRelPath(id)).deleted; } catch { /* env 정리 실패가 계정 삭제를 막지 않음 */ }
@@ -2568,7 +2797,7 @@ const server = createServer(async (req, res) => {
       });
       const itemAfterStatus = store.itemById(id);
       if (status === "done" && result.from !== "done") {
-        afterWorkCompleted({ actor, item: itemAfterStatus, from: result.from, to: status });
+        afterWorkCompleted({ actor, accountId: currentAccount(req)?.id ?? null, item: itemAfterStatus, from: result.from, to: status });
       } else if (status === "doing" && result.from !== "doing") {
         afterWorkStarted({ actor, item: itemAfterStatus, from: result.from, to: status });
       }
@@ -4157,7 +4386,9 @@ const server = createServer(async (req, res) => {
   } catch (error) {
     // BE-3: 내부 예외 메시지(SQLite 바인드·JSON 파서 등)를 클라이언트에 노출하지 않음 — 서버 로그에만 남기고 일반화 응답.
     if (error?.code === "too_large") return send(res, 413, { error: "request_too_large" });
-    console.error("[dev-erp] unhandled:", req.method, path, error?.stack ?? error);
+    if (error instanceof ErpMcpError) return send(res, error.status, { error: error.code });
+    const redactedPath = path.replace(/(\/api\/mcp\/uploads\/)[^/]+/g, "$1<redacted>");
+    console.error("[dev-erp] unhandled:", req.method, redactedPath, error?.stack ?? error);
     return send(res, 500, { error: "internal" });
   }
 });

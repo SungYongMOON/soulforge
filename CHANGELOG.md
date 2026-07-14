@@ -216,6 +216,22 @@
   owner 실제 보고서 3건과 brand/print 승인 전까지 `default_route_safe: false`를
   유지한다. (worker: codex_gpt-5)
 
+### 팀원 개인 Codex용 dev-ERP MCP 파일럿
+
+- 팀원별 개인 Codex가 자기 ERP 계정으로 오늘·내일 일정, 업무 맥락, 제한된 메일
+  목록/본문, 완성 artifact를 조회할 수 있는 별도 Streamable HTTP MCP sidecar를 추가했다.
+  sidecar는 LLM을 호출하거나 ERP SQLite를 직접 열지 않으며, 계정별 256-bit bearer의
+  SHA-256 hash만 ERP에 저장한다.
+- 구조화된 작업 결과를 멱등 게시하고 팀원이 ERP에서 완료를 누를 때 기존 completion
+  hook이 완료 로그와 pending digest에 합치도록 했다. MCP가 메일을 보내거나 업무 상태를
+  자동 완료하지는 않는다.
+- 개인 PC의 완성 파일은 MCP JSON/base64가 아니라 10분짜리 1회용 URL의 raw PUT로
+  수령한다. filename/확장자/25 MiB/size/SHA-256/replay를 검증해 service-owned
+  `_workspaces/system/dev-erp/mcp-artifacts`에 배타 저장하고 외부 응답에는 opaque ref만
+  반환한다. 평문 non-loopback public URL은 기본 거부하며 실제 LAN 개방은 HTTPS,
+  서비스 운영, 백업·보존·악성파일 검사 gate 뒤로 남겼다. 합성 MCP SDK client와 실제
+  dev-ERP 완료 훅 통합 테스트를 추가했다. (worker: codex_gpt-5)
+
 ### dev-ERP 빈 줄기 화면의 서버 장애 오인 수정
 
 - 과제에 아직 `project_context` 줄기 데이터가 없을 때 `/api/context/graph`의 예상 가능한

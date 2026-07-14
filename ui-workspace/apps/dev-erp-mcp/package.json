@@ -1,0 +1,19 @@
+{
+  "name": "@soulforge/dev-erp-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal Codex Streamable HTTP MCP sidecar for Soulforge dev-ERP",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "4.4.3"
+  }
+}

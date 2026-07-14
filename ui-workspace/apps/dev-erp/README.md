@@ -110,6 +110,26 @@ Codex runtime aggregate hash는 app-server/model discovery/turn 전후에 다시
 Codex CLI 업데이트 시 worker를 중지하고 fingerprint와 probe를 재승인하기 전에는 새
 실행 파일로 turn을 시작하지 않는다.
 
+### 개인 Codex ERP MCP 파일럿
+
+팀원 각자의 Codex를 ERP에 연결하는 별도 Streamable HTTP sidecar가
+`apps/dev-erp-mcp`에 있다. 중앙 worker와 달리 각 팀원의 개인 Codex가 추론하며,
+sidecar/ERP는 추가 LLM을 호출하지 않는다. 구현 범위는 개인 일정·업무·메일 조회,
+구조화 작업 결과 게시, 25 MiB 이하 완성 파일의 1회용 size/hash 검증 업로드다.
+메일 발송과 자동 완료는 제공하지 않는다. 팀원이 ERP에서 완료를 눌러야 기존 완료
+훅이 개인 Codex의 최근 구조화 결과를 이력과 승인 대기 제안에 합친다.
+
+```powershell
+npm.cmd run dev-erp:mcp-token -- issue --username <erp-username> --label "Personal Codex" --days 30
+$env:ERP_MCP_ERP_BASE_URL="http://127.0.0.1:4300"
+$env:ERP_MCP_PUBLIC_URL="http://127.0.0.1:4311"
+npm.cmd run dev-erp:mcp-server
+```
+
+위 URL은 동일 PC 파일럿용이다. 팀 LAN 운영은 HTTPS reverse proxy/tunnel, artifact
+backup/retention, 실제 팀원 pilot과 release audit가 끝난 뒤 개방한다. Codex 설정과
+파일 업로드 흐름은 [`docs/slices/ERP-MCP-V0.md`](docs/slices/ERP-MCP-V0.md)를 따른다.
+
 worker token 원문은 전송하지 않고 요청/응답 HMAC 키로만 쓴다. 실제 operation은
 worker가 서명한 일회용 channel nonce도 필요하다. operation 요청과 응답은 HMAC key와
 signed channel에서 HKDF-SHA256으로 파생한 key로 AES-256-GCM 암호화하고 redirect를

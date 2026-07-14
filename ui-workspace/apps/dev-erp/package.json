@@ -20,6 +20,7 @@
     "ops:backup-codex-payloads-pre-migration": "node tools/codex_payload_backup.mjs backup-pre-migration",
     "ops:restore-verify-codex-payloads": "node tools/codex_payload_backup.mjs restore-verify",
     "worker:codex": "node tools/codex_dedicated_worker.mjs",
+    "mcp:token": "node tools/mcp_access_admin.mjs",
     "probe:codex-permission-boundary": "node tools/codex_permission_boundary_probe.mjs",
     "migrate:legacy-codex": "node tools/legacy_codex_migration.mjs",
     "smoke:chatbot:ollama": "node tools/chatbot_ollama_smoke.mjs",

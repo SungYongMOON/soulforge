@@ -59,6 +59,15 @@
   Docker 불필요(파일럿). 프론트는 단일 웹앱.
 - LLM 분리: 코어는 LLM 0%. AI/규칙 산출은 `ai_proposal` 큐(테이블)로만 —
   `/api/proposals` 로 pending 적재, 사람이 승인해야 DB 반영(approve/reject).
+- 개인 Codex ERP MCP 규칙(2026-07-13 파일럿): 팀원 PC의 개인 Codex가 추론과 로컬
+  파일 접근을 맡고, 별도 `dev-erp-mcp` Streamable HTTP sidecar는 사용자별 bearer를
+  dev-ERP의 좁은 account-scoped API로 전달한다. sidecar는 LLM을 호출하거나 SQLite를
+  직접 열지 않는다. 조회는 오늘/내일·업무·메일·artifact로 제한하고, 쓰기는 구조화
+  work session과 10분/1회/size/hash-bound artifact upload 준비만 제공한다. 파일 bytes는
+  MCP JSON/base64가 아니라 별도 raw PUT로 수령해 service-owned
+  `_workspaces/system/dev-erp/mcp-artifacts`에 둔다. MCP는 메일 발송과 업무 완료를 제공하지
+  않으며, 업무 완료는 기존 ERP 버튼과 완료 훅이 계속 소유한다. 상세 계약과 운영 전
+  gate는 `docs/slices/ERP-MCP-V0.md`를 따른다.
 - Codex 할일 스레드 연결 규칙(2026-06-19 owner): ERP 할일의 `대화` 버튼이
   Codex 스레드를 만들 때, 사람이 보는 스레드 제목은 `[과제번호] 할일명` 으로
   한다. 같은 과제 안에 같은 할일명이 중복될 때만 제목 끝에 `· 짧은할일ID`
