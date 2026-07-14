@@ -2,6 +2,18 @@
 
 ## 2026-07-15
 
+### 할일 엔진 C00 query-only 선행 의존성 보정
+
+- C00/P0가 요구하는 다섯 lane의 physical owner/default root, writer/caller, consumer, coverage 증거를
+  현재 없는 `task_engine_inventory.mjs`로 닫으면서 그 도구를 C09A/P9에서 처음 만들도록 했던
+  순환 의존성을 확인했다. 기존 doctor/device capability probe와 workspace-system inventory는 이
+  증거를 대신할 수 없음을 public source로 고정했다.
+- P0를 `C00A` public blocker preflight → 별도 승인된 `C00Q` public/synthetic inventory tool/schema/test
+  foundation → 다시 별도 승인된 `C00B` owner-authorized query-only inventory로 분리했다. C09A는
+  C00Q의 frozen 산출물을 소비하고 migration dry-run/apply tooling만 소유하도록 WBS·acceptance·owner
+  gate를 보정했다. 이번 변경은 계획 문서만 수정했으며 C00A/C00Q/C00B 실행, 코드·DB·업무 데이터,
+  migration, writer, 운영 활성화는 수행하지 않았다. (worker: codex_gpt-5)
+
 ### 할일 엔진 C00 public-only preflight packet 보정
 
 - `TEAX-C00/public_only_stdout`에 approval-time SHA equality, tracked-only before/after tree·diff,
