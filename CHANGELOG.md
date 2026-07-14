@@ -2,6 +2,15 @@
 
 ## 2026-07-15
 
+### 할일 엔진 C00 public-only preflight packet 보정
+
+- `TEAX-C00/public_only_stdout`에 approval-time SHA equality, tracked-only before/after tree·diff,
+  literal public file·symbol inspection allowlist와 stdout-only receipt shape를 추가했다.
+- root-wide status/search와 candidate ref 접근을 public-only allowlist에서 제외하고, fixed live-proof
+  목록·raw-field sentinel·`PASS/BLOCKED/BASELINE_DRIFT` exit semantics를 고정했다. 현재 CV-02가 남은
+  public-only fixture는 `BLOCKED`, P1 unlock `false`다. C00 자체나 private/live query는 실행하지 않았다.
+  (worker: codex_gpt-5)
+
 ### 할일 엔진 아침 owner 승인 packet 보정
 
 - 첫 실행 후보 C00의 copy-ready owner 답변에 approval-time baseline SHA, inventory scope/profile,
