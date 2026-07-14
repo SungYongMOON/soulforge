@@ -2,6 +2,17 @@
 
 ## 2026-07-15
 
+### 할일 엔진 마스터플랜 전체 정합성 보정
+
+- 계획 시점 Git·runtime·validator 관찰값을 현재값과 분리하고, C00 승인 시 exact ref/count를
+  다시 pin하도록 고정했다. H01~H05 모든 lane에는 D26 exact mapping 전 adapter 금지와 D25
+  coverage policy 전 acceptance 금지를 명시했다.
+- P8은 feature-OFF cutover fixture, P9은 별도 승인된 한 프로젝트 bounded switch, P10은
+  production cutover·failover/failback으로 분리했다. 마지막 승인 도식도 C00 PASS → H00 ratification →
+  H01~H05+D24~D26 → H06 PASS 순서를 우회할 수 없게 보정하고, 누적 plan-scope 검증 receipt의
+  기준 ref와 historical 범위를 명시했다. 구현·DB·업무 데이터·migration·writer·운영 활성화는
+  수행하지 않았다. (worker: codex_gpt-5)
+
 ### 할일 엔진 P1 H02~H06 readiness 재검토 보정
 
 - 음성, structured PC work/외부 SE 일정, 파일, 실행·로그 레인의 public 계약과
