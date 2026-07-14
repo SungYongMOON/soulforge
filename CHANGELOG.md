@@ -12,6 +12,11 @@
   tampered metadata without logging mail IDs, subjects, or bodies.
 - Added focused reconciliation, tamper, and core-only live-boundary tests and
   synchronized the runtime README/operating contract. (worker: codex_gpt-5)
+- Kept pre-open file identity checks strict while allowing only post-read inode
+  drift on OS-confirmed Windows network drives. This preserves realpath,
+  size/mtime, content-hash, manifest, and commit-marker verification while
+  avoiding false `source_file_retargeted` failures from mapped NAS providers;
+  restore errors now retain a fixed redacted stage code. (worker: codex_gpt-5)
 
 ### dev-ERP runtime source attestation 고정
 

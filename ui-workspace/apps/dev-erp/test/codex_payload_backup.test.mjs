@@ -34,7 +34,9 @@ import {
   CodexPayloadBackupError,
   createCodexPayloadBackup,
   createPreMigrationCodexPayloadBackup,
+  fileIdentityMatches,
   parseCodexPayloadBackupCli,
+  postReadFileMetadataMatches,
   restoreAndVerifyCodexPayloadBackup,
   restoreAndVerifyPreMigrationCodexPayloadBackup,
 } from "../tools/codex_payload_backup.mjs";
@@ -44,6 +46,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const TOOL = resolve(HERE, "..", "tools", "codex_payload_backup.mjs");
 const MESSAGE_TEXT = "private message body that must never enter backup reports";
 const ATTACHMENT_NAME = "private-source-name.txt";
+
+test("post-read verification tolerates unstable NAS file IDs without relaxing pre-open identity", () => {
+  const first = { size: 32, dev: 41, ino: 73, mtimeMs: 1000 };
+  assert.equal(fileIdentityMatches(first, { ...first, mtimeMs: 2000 }), false);
+  assert.equal(fileIdentityMatches(first, { ...first, ino: 74, mtimeMs: 1000 }), false);
+  assert.equal(fileIdentityMatches(first, { ...first, size: 31 }), false);
+  assert.equal(postReadFileMetadataMatches(first, { ...first, ino: 74 }), false);
+  assert.equal(postReadFileMetadataMatches(first, { ...first, ino: 74 }, { allowUnstableFileIds: true }), true);
+  assert.equal(postReadFileMetadataMatches(first, { ...first, size: 31 }), false);
+  assert.equal(postReadFileMetadataMatches(first, { ...first, mtimeMs: 2000 }), false);
+});
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");

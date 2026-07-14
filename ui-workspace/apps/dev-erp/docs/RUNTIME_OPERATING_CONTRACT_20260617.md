@@ -115,6 +115,13 @@ explicit `dev-erp:backup-codex-payloads-pre-migration` and
 satisfy the `--require-live` release audit. After migration, create and verify a
 new v1 generation before either service is released.
 
+On Windows mapped network drives, the verifier confirms the mapping with the
+OS and keeps the pre-open file identity check strict. After a file has been
+read from its pinned handle, mapped-drive inode drift may be ignored only while
+realpath, size, mtime, committed SHA-256, and manifest relations remain exact.
+Local-drive identity checks are unchanged, and any content or path drift still
+fails closed with a redacted stage code.
+
 ## Runtime Correction Patch Rule
 
 Runtime DB drift is corrected with a tool, not by committing the DB file.

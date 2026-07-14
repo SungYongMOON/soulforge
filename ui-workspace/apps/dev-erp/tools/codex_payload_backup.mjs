@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from "node:child_process";
 import {
   closeSync,
   constants as fsConstants,
@@ -76,6 +77,7 @@ const MESSAGE_ENVELOPE_KEYS = new Set([
   "sha256",
   "text",
 ]);
+const NETWORK_DRIVE_CACHE = new Map();
 
 export class CodexPayloadBackupError extends Error {
   constructor(code) {
@@ -87,6 +89,17 @@ export class CodexPayloadBackupError extends Error {
 
 function fail(code) {
   throw new CodexPayloadBackupError(code);
+}
+
+function withRetargetStage(stage, operation) {
+  try {
+    return operation();
+  } catch (error) {
+    if (error instanceof CodexPayloadBackupError && error.code === "source_file_retargeted") {
+      fail(`${stage}_source_file_retargeted`);
+    }
+    throw error;
+  }
 }
 
 function isPlainObject(value) {
@@ -111,6 +124,25 @@ function canonicalPath(value) {
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
+function isNetworkStoragePath(value) {
+  const absolute = resolve(String(value));
+  if (absolute.startsWith("\\\\")) return true;
+  if (process.platform !== "win32") return false;
+  const match = absolute.match(/^([A-Za-z]:)/);
+  if (!match) return false;
+  const drive = match[1].toUpperCase();
+  if (NETWORK_DRIVE_CACHE.has(drive)) return NETWORK_DRIVE_CACHE.get(drive);
+  let network = false;
+  try {
+    execFileSync("net.exe", ["use", drive], { stdio: "ignore", windowsHide: true, timeout: 5000 });
+    network = true;
+  } catch {
+    network = false;
+  }
+  NETWORK_DRIVE_CACHE.set(drive, network);
+  return network;
+}
+
 function isPathInside(root, candidate) {
   const base = canonicalPath(root);
   const target = canonicalPath(candidate);
@@ -126,7 +158,7 @@ function requirePathInput(value, code) {
   return resolve(value);
 }
 
-function identityMatches(left, right, { includeMtime = true } = {}) {
+export function fileIdentityMatches(left, right, { includeMtime = true } = {}) {
   if (!left || !right || Number(left.size) !== Number(right.size)) return false;
   for (const key of ["dev", "ino"]) {
     if (Number.isSafeInteger(left[key]) && Number.isSafeInteger(right[key]) && left[key] !== right[key]) {
@@ -137,6 +169,18 @@ function identityMatches(left, right, { includeMtime = true } = {}) {
     return false;
   }
   return true;
+}
+
+const identityMatches = fileIdentityMatches;
+
+export function postReadFileMetadataMatches(left, right, { allowUnstableFileIds = false } = {}) {
+  const stableMetadata = Boolean(
+    left
+    && right
+    && Number(left.size) === Number(right.size)
+    && (!Number.isFinite(left.mtimeMs) || !Number.isFinite(right.mtimeMs) || left.mtimeMs === right.mtimeMs),
+  );
+  return stableMetadata && (allowUnstableFileIds || fileIdentityMatches(left, right, { includeMtime: false }));
 }
 
 function directoryIdentityMatches(left, right) {
@@ -197,7 +241,9 @@ function pinRoot(path, { create = false, code = "filesystem_root_invalid" } = {}
 
 function assertPinnedRootStable(root, code) {
   const current = assertPlainDirectory(root.lexical, code);
-  if (canonicalPath(current.real) !== canonicalPath(root.real) || !directoryIdentityMatches(root.stat, current.stat)) {
+  const allowUnstableFileIds = isNetworkStoragePath(root.lexical);
+  if (canonicalPath(current.real) !== canonicalPath(root.real)
+      || (!allowUnstableFileIds && !directoryIdentityMatches(root.stat, current.stat))) {
     fail(code);
   }
 }
@@ -311,7 +357,9 @@ function readVerifiedFile(path, root, options) {
   if (
     after.isSymbolicLink()
     || Number(after.nlink) !== 1
-    || !identityMatches(handleStat, after)
+    || !postReadFileMetadataMatches(handleStat, after, {
+      allowUnstableFileIds: isNetworkStoragePath(root.lexical),
+    })
     || canonicalPath(finalReal) !== canonicalPath(inspected.real)
     || bytes.length !== handleStat.size
   ) {
@@ -358,7 +406,9 @@ function hashVerifiedFile(path, root, options) {
   if (
     after.isSymbolicLink()
     || Number(after.nlink) !== 1
-    || !identityMatches(handleStat, after)
+    || !postReadFileMetadataMatches(handleStat, after, {
+      allowUnstableFileIds: isNetworkStoragePath(root.lexical),
+    })
     || canonicalPath(finalReal) !== canonicalPath(inspected.real)
     || total !== handleStat.size
   ) {
@@ -440,7 +490,9 @@ function copyVerifiedFile(sourcePath, sourceRoot, destinationPath, options) {
   if (
     after.isSymbolicLink()
     || Number(after.nlink) !== 1
-    || !identityMatches(sourceStat, after)
+    || !postReadFileMetadataMatches(sourceStat, after, {
+      allowUnstableFileIds: isNetworkStoragePath(sourceRoot.lexical),
+    })
     || canonicalPath(finalReal) !== canonicalPath(inspected.real)
     || total !== sourceStat.size
   ) {
@@ -1320,15 +1372,23 @@ function restoreAndVerifyCodexPayloadBackupGeneration({
   const backups = pinRoot(backupPath, { code: "backup_root_invalid" });
   const restores = pinRoot(restorePath, { create: true, code: "restore_root_invalid" });
   if (pathsOverlap(backups.real, restores.real)) fail("restore_root_overlaps_backup");
-  const committed = readCommittedGeneration(backups, id, recordsLimit, totalLimit, { expectPreMigration });
+  const committed = withRetargetStage("generation", () => readCommittedGeneration(
+    backups,
+    id,
+    recordsLimit,
+    totalLimit,
+    { expectPreMigration },
+  ));
   const finalDirectory = safeObjectPath(restores, id);
   if (existsSync(finalDirectory)) fail("restore_collision");
   const partialPrefix = `.partial-restore-${id}-`;
   const partialDirectory = safeObjectPath(restores, `${partialPrefix}${randomBytes(6).toString("hex")}`);
+  let stage = "partial_create";
   try {
     const partial = mkdirExclusive(partialDirectory);
+    stage = "database_copy";
     const databaseDestination = join(partial.real, DATABASE_OBJECT_FILE);
-    const databaseCopy = copyVerifiedFile(
+    const databaseCopy = withRetargetStage("database", () => copyVerifiedFile(
       join(committed.generation.real, DATABASE_OBJECT_FILE),
       committed.generation,
       databaseDestination,
@@ -1337,8 +1397,9 @@ function restoreAndVerifyCodexPayloadBackupGeneration({
         expectedSize: committed.manifest.database.bytes,
         expectedSha256: committed.manifest.database.sha256,
       },
-    );
+    ));
     if (databaseCopy.sha256 !== committed.manifest.database.sha256) fail("database_object_hash_mismatch");
+    stage = "database_verify";
     databaseQuickCheck(databaseDestination);
     compareDatabaseRowsToManifest(
       databaseDestination,
@@ -1347,19 +1408,22 @@ function restoreAndVerifyCodexPayloadBackupGeneration({
       recordsLimit,
       { preMigration: committed.manifest.pre_migration },
     );
-    const messageRoot = restoreMessages({
+    stage = "message_restore";
+    const messageRoot = withRetargetStage("message_restore", () => restoreMessages({
       generation: committed.generation,
       restoreRoot: partial,
       messages: committed.manifest.messages,
       maxEnvelopeBytes: envelopeLimit,
-    });
-    const attachmentRoot = restoreAttachments({
+    }));
+    stage = "attachment_restore";
+    const attachmentRoot = withRetargetStage("attachment_restore", () => restoreAttachments({
       generation: committed.generation,
       restoreRoot: partial,
       attachments: committed.manifest.attachments,
       maxAttachmentBytes: attachmentLimit,
-    });
-    verifyRestoredMessages({
+    }));
+    stage = "message_verify";
+    withRetargetStage("message_verify", () => verifyRestoredMessages({
       dbPath: databaseDestination,
       messageRoot,
       expected: committed.manifest.messages,
@@ -1367,12 +1431,20 @@ function restoreAndVerifyCodexPayloadBackupGeneration({
       preMigration: committed.manifest.pre_migration,
       maxRecords: recordsLimit,
       maxEnvelopeBytes: envelopeLimit,
-    });
-    verifyRestoredAttachments({ attachmentRoot, expected: committed.manifest.attachments, maxAttachmentBytes: attachmentLimit });
+    }));
+    stage = "attachment_verify";
+    withRetargetStage("attachment_verify", () => verifyRestoredAttachments({
+      attachmentRoot,
+      expected: committed.manifest.attachments,
+      maxAttachmentBytes: attachmentLimit,
+    }));
+    stage = "commit_marker";
     writeExclusiveBytes(join(partial.real, RESTORE_COMMIT_FILE), Buffer.from(`${committed.manifest_sha256}\n`, "ascii"));
     syncDirectoryBestEffort(partial.real);
+    stage = "root_stability";
     assertPinnedRootStable(backups, "backup_root_retargeted");
     assertPinnedRootStable(restores, "restore_root_retargeted");
+    stage = "publish";
     renameSync(partial.real, finalDirectory);
     syncDirectoryBestEffort(restores.real);
     return Object.freeze({
@@ -1403,7 +1475,7 @@ function restoreAndVerifyCodexPayloadBackupGeneration({
   } catch (error) {
     safeCleanupPartial(partialDirectory, restores, partialPrefix);
     if (error instanceof CodexPayloadBackupError) throw error;
-    fail("restore_verification_failed");
+    fail(`restore_${stage}_failed`);
   }
 }
 
