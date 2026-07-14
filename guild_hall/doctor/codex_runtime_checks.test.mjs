@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -8,6 +8,7 @@ import {
   buildRequiredCodexStopHookResult,
   hasStopHookCommand,
 } from "./codex_runtime_checks.mjs";
+import { pruneRetiredSkills } from "../../.registry/docs/operations/scripts/sync_codex_skill.mjs";
 
 async function withTempDir(prefix, fn) {
   const root = await mkdtemp(path.join(os.tmpdir(), prefix));
@@ -37,6 +38,26 @@ test("runtime skill check reports installed and missing local Codex skills", asy
     }, { codexHome });
     assert.equal(missing.status, "missing");
     assert.match(missing.detail, /missing installed skill/);
+  });
+});
+
+test("retired Soulforge skill pruning removes only exact manifest targets", async () => {
+  await withTempDir("retired-skill-", async (root) => {
+    const installRoot = path.join(root, "skills");
+    const retiredDir = path.join(installRoot, "soulforge-mail-to-task-classify");
+    const retainedDir = path.join(installRoot, "soulforge-owner-outlook-mail");
+    const manifestPath = path.join(root, "retired.json");
+    await mkdir(retiredDir, { recursive: true });
+    await mkdir(retainedDir, { recursive: true });
+    await writeFile(manifestPath, JSON.stringify({
+      schema_version: "soulforge.retired_codex_skills.v0",
+      skill_ids: ["mail_to_task_classify"],
+    }), "utf8");
+
+    const results = await pruneRetiredSkills({ installRoot, manifestPath });
+    assert.deepEqual(results.map((result) => result.skillId), ["mail_to_task_classify"]);
+    await assert.rejects(access(retiredDir));
+    await access(retainedDir);
   });
 });
 

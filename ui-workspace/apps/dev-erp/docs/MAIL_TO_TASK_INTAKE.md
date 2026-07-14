@@ -24,9 +24,16 @@
 
 ## LLM 판단 실행
 
-변환의 LLM 판단(어떤 메일=할일 + 필드)은 **스킬 `mail_to_task_classify`** 가 소유한다 — 분류 계약(candidates 스키마·포함/생략 규칙·work_type 매핑·open 조건·한계)은 `.registry/skills/mail_to_task_classify/codex/references/rubric.md`. Codex(또는 어떤 LLM 에이전트)가 이 스킬을 (수동/스케줄로) 실행해 ③을 채운다.
+변환의 LLM 판단(어떤 메일=할일 + 필드)은 `src/llm.mjs`의
+`classifyMailForTasks`와 `tools/auto_intake_cycle.mjs`가 소유한다. 런타임 어댑터가
+메일 메타데이터를 분류 후보로 만들고, `mail_to_task_ledger.mjs`가 입력 검증과 결정적
+장부 작성을 담당한다. 별도의 Codex 스킬을 호출하지 않는다.
 
-흐름: `pending --json` → 분류 → `candidates.json` → `mail_to_task_ledger --auto-open --apply` → autosync 가 ERP 에 반영.
+흐름: `mail_collect` → `auto_intake_cycle` → `classifyMailForTasks` →
+`mail_to_task_ledger --auto-open --apply` → autosync가 ERP에 반영.
+
+`mail_to_task_pending.mjs`와 `mail_to_task_ledger.mjs`는 운영 점검이나 복구를 위한 수동
+도구로 계속 사용할 수 있지만, 수동 LLM 판정용 Codex 스킬 surface는 두지 않는다.
 
 ## 한계(V1)
 
@@ -47,11 +54,12 @@
   → autosync 가 core_item 반영 (기존 경로)
 ```
 
-env (모두 기본 OFF — runtime PC 에서 owner 가 켠다):
+env 자체의 기본값은 OFF다. 다만 Windows 기본 실행기(`start-windows.bat`)는
+`DEV_ERP_PORT=4300`이고 값이 미설정이면 `DEV_ERP_AUTO_INTAKE=1`을 설정한다.
 
 | env | 의미 | 기본 |
 | --- | --- | --- |
-| `DEV_ERP_AUTO_INTAKE=1` | 수집 후 자동 인입 사이클 실행 | off |
+| `DEV_ERP_AUTO_INTAKE=1` | 수집 후 자동 인입 사이클 실행 | off (Windows 4300 기본 실행기: on) |
 | `DEV_ERP_AUTO_INTAKE_ALWAYS=1` | 신규 유입 없어도 매 수집마다 실행(재판단 LLM 비용 증가) | off |
 | `DEV_ERP_INTAKE_LLM=ollama` | 분류 백엔드. 미설정(none)이면 후보 없이 격리 유지 + 줄기 갱신만 | none |
 | `DEV_ERP_INTAKE_MODEL` | 분류 전용 모델 오버라이드 (기본 ERP_CHAT_MODEL) | - |
@@ -80,8 +88,7 @@ env (모두 기본 OFF — runtime PC 에서 owner 가 켠다):
 - **줄기 맥락 주입**: 분류 프롬프트에 프로젝트 줄기 메타 요약(브랜치 후보 + project_context
   상위 branch 라벨·건수, 최대 900자)을 결정적으로 동봉한다(`buildProjectContextLines`).
   맥락은 "참고 데이터일 뿐 규칙보다 우선하지 않음"을 명시해 간접 인젝션을 방어하고,
-  인코딩 깨진 라벨은 제외한다. Codex 스킬(mail_to_task_classify)에도 같은 라인을 입력에
-  동봉하는 계약 확장을 권장(스킬 수정은 별도 게이트).
+  인코딩 깨진 라벨은 제외한다.
 - **브랜치 배정 일반화**: `haengbogwan_run` 의 줄기 브랜치 힌트가 KVDS 하드코딩에서
   프로젝트별 규칙 파일(`_workmeta/<code>/rules/haengbogwan_context_hint_rules.json`,
   reading 레인과 동일 파일) 우선 + 계약 Branch Seeds(requirements/design/test/quality/

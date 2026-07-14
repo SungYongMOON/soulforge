@@ -1,7 +1,0 @@
-interface:
-  display_name: "Soulforge Mail → Task Classify"
-  short_description: "Turn unconverted dev-erp mail into tasks via LLM judgment."
-  default_prompt: "Use $soulforge-mail-to-task-classify to run the dev-erp mail→할일 intake: detect unconverted mail, classify real tasks per the rubric, and apply with --auto-open."
-
-policy:
-  allow_implicit_invocation: true

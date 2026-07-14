@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// tools/mail_to_task_ledger.mjs — 메일 이력 → 할일_장부 자동 작성기(결정적 엔진). Codex 자동화 스킬이 호출한다.
+// tools/mail_to_task_ledger.mjs — 메일 이력 → 할일_장부 자동 작성기(결정적 엔진). auto_intake_cycle 또는 운영자가 호출한다.
 //   역할 분담(autosync mail_history_to_task_generation_rule):
-//     · LLM 판단(어떤 메일이 할일인가 + 업무유형/완료기준/할일명/split) = Codex 가 --candidates JSON 으로 넣는다.
+//     · LLM 판단(어떤 메일이 할일인가 + 업무유형/완료기준/할일명/split) = 분류 어댑터가 --candidates JSON 으로 넣는다.
 //     · 결정적(여기, 코어 LLM 0%): SE단계=프로젝트 현재상태, mailtask:<이력키> 멱등키, 상태규칙, CSV 표준 작성·머지.
-//   Codex 흐름: 메일_이력.csv 읽기 → LLM 분석 → candidates JSON → 이 도구 --apply → 할일_장부.csv → ERP import.
+//   자동 흐름: 메일_이력.csv 읽기 → LLM 분석 → candidates JSON → 이 도구 --apply → 할일_장부.csv → ERP import.
 // 기본 dry-run(건수만). --apply 일 때만 할일_장부.csv 작성(멱등 머지). 원문/첨부/secret 미복사. 절대경로 금지.
 // zero-dependency: node:fs/path/sqlite. SE단계는 --db(프로젝트 현재상태) 또는 --stage 로 주거나 비우면 unclassified.
 import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from "node:fs";
@@ -19,7 +19,7 @@ const REPO = resolve(HERE, "..", "..", "..", "..");
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 && process.argv[i + 1] && !process.argv[i + 1].startsWith("--") ? process.argv[i + 1] : d; };
 const has = (n) => process.argv.includes(`--${n}`);
 const project = arg("project", null);
-const candPath = arg("candidates", null);     // Codex LLM 출력 JSON {이력키: {..} | [..split]}
+const candPath = arg("candidates", null);     // 분류 어댑터 출력 JSON {이력키: {..} | [..split]}
 const skeleton = has("skeleton");             // LLM 없이 메일당 1건 skeleton(테스트/폴백). --limit 권장.
 const limit = Number(arg("limit", "0")) || 0;
 const dbArg = arg("db", null);                // SE단계 읽을 dev-erp DB(상대 권장)
@@ -142,7 +142,7 @@ for (const r of mailRecs.slice(1)) {
     due_hint: g(mc.due), thread: threadKeyForMail({ thread: rawThread, subject, from }), group: g(mc.group), lineage: g(mc.lineage), row_hash: mailRowHash });
 }
 
-// Codex LLM 후보(어떤 메일이 할일인가 + 필드). 없으면 skeleton(메일당 1건, LLM필드 공란).
+// 분류 어댑터 후보(어떤 메일이 할일인가 + 필드). 없으면 skeleton(메일당 1건, LLM필드 공란).
 let candidates = {};
 if (candPath) {
   candidates = JSON.parse(readFileSync(/^([A-Za-z]:[\\/]|\/)/.test(candPath) ? candPath : resolve(process.cwd(), candPath), "utf8"));
@@ -150,7 +150,7 @@ if (candPath) {
   let n = 0;
   for (const [k] of mailById) { if (limit && n >= limit) break; candidates[k] = {}; n++; }
 } else {
-  console.error("후보 입력 필요: --candidates <json>(Codex LLM 출력) 또는 --skeleton [--limit N]."); process.exit(2);
+  console.error("후보 입력 필요: --candidates <json>(분류 어댑터 출력) 또는 --skeleton [--limit N]."); process.exit(2);
 }
 
 const stage = await resolveStageAsync();
@@ -224,7 +224,7 @@ function resolveDue(cand, mail) {
   }
   return { due: "", source: "", text: "", confidence: "" };
 }
-// 후보 1건 → 할일_장부 행(HEADERS 순서). LLM 필드는 Codex 제공값, 없으면 공란/폴백.
+// 후보 1건 → 할일_장부 행(HEADERS 순서). LLM 필드는 분류 어댑터 제공값, 없으면 공란/폴백.
 function toRow(histKey, cand, splitIdx) {
   const mail = mailById.get(histKey) || {};
   const key = splitIdx ? `mailtask:${histKey}:${splitIdx}` : `mailtask:${histKey}`;

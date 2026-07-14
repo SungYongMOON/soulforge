@@ -705,6 +705,8 @@ test("runCycle apply: 승인된 지식 refs 를 context 와 후보/event used_re
   assert.deepEqual(candidate.used_refs, ["knowledge:p99_req"]);
   const runEvent = runEvents.find((event) => event.kind === "auto_intake_run");
   assert.ok(runEvent);
+  assert.ok(runEvent.used_refs.includes("auto_intake_cycle"));
+  assert.equal(runEvent.used_refs.includes("mail_to_task_classify"), false);
   assert.ok(runEvent.used_refs.includes("knowledge:p99_req"));
 });
 
@@ -874,7 +876,9 @@ test("runCycle apply: 고신뢰 not_task 는 no_action 영수증으로 기억되
   assert.equal(first.receipts.written, 1);
   const receiptCsv = join(root, "P99-001", "reports", "haengbogwan_mail_receipts", "mail_receipts.csv");
   assert.ok(existsSync(receiptCsv));
-  assert.match(readFileSync(receiptCsv, "utf8"), /no_action/);
+  const receiptText = readFileSync(receiptCsv, "utf8");
+  assert.match(receiptText, /no_action/);
+  assert.match(receiptText, /auto_intake_cycle/);
   const second = await runCycle({ ...opts, runId: "t-receipt-2" }, deps);
   assert.equal(second.pending_total, 0, "영수증 기록 후 재판단 없어야 함");
 });

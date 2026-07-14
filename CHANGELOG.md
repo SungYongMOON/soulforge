@@ -114,7 +114,17 @@
   제한한다. 로컬 identity claim은 실제 process 증명이 아닌
   `local_context_separation_declared`로 정정하고 post-commit journal 복구 회귀를
   추가했다. (worker: codex_gpt-5)
+### `mail_to_task_classify` 수동 Codex 스킬 폐기
 
+- dev-ERP의 메일→할일 판단은 현재 `auto_intake_cycle.mjs`와
+  `src/llm.mjs#classifyMailForTasks`가 직접 소유하므로, 중복된 수동 Codex 스킬
+  `.registry/skills/mail_to_task_classify/`와 로컬 설치 대상을 폐기했다.
+- 자동 인입 기능과 결정적 `mail_to_task_ledger.mjs`는 유지하고, 실행 기록의 생성 규칙
+  참조를 실제 런타임 소유자인 `auto_intake_cycle`로 맞췄다. 운영 문서에서도 제거된
+  스킬과 분류 계약 경로를 현재 자동 인입 경로로 교체했다.
+- `retired_codex_skills.json`에 폐기 ID를 등록하고 `skills:sync -- --all` 및
+  `--prune-retired`가 그 정확한 로컬 설치 대상만 제거하도록 해 다른 PC의 잔존 설치본도
+  정리할 수 있게 했다. (worker: codex_gpt-5)
 ### 장기 스레드 인계의 fresh-worker·writer 안전 계약 정합화
 
 - `long_thread_handoff`를 명시적 phase-transition opt-in으로 고정하고, 현행 Codex의

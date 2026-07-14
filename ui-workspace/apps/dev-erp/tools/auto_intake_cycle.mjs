@@ -531,7 +531,7 @@ export async function runCycle(opts, deps = {}) {
               source_mail_ref: `mailcsv:${skip.history_key}`,
               source_mail_source_id: item.source_id || "",
               source_lineage_ref: "",
-              generation_rule_ref: "mail_to_task_classify",
+              generation_rule_ref: "auto_intake_cycle",
               generation_run_ref: opts.runId,
               body_access: "metadata_only",
             });
@@ -681,7 +681,7 @@ export async function runCycle(opts, deps = {}) {
     if (deps.appendEvent !== null) {
       try {
         const usedRefs = [
-          "mail_to_task_classify",
+          "auto_intake_cycle",
           "haengbogwan_run",
           `run:${opts.runId}`,
           ...(summary.system_mail_layer.system || summary.system_mail_layer.ad ? ["system_mail_layer"] : []),

@@ -45,6 +45,7 @@ flowchart TD
 node .registry/docs/operations/scripts/sync_codex_skill.mjs skill_check
 node .registry/docs/operations/scripts/sync_codex_skill.mjs shield_wall record_stitch
 node .registry/docs/operations/scripts/sync_codex_skill.mjs --all
+node .registry/docs/operations/scripts/sync_codex_skill.mjs --prune-retired
 ```
 
 ## 규칙
@@ -54,6 +55,9 @@ node .registry/docs/operations/scripts/sync_codex_skill.mjs --all
 3. sync 대상 skill 은 `codex/SKILL.md` 가 있는 skill package 로 한정한다.
 4. installed mirror 이름은 canonical `skill_id` 의 `_` 를 `-` 로 바꾼 `soulforge-<skill-id>` 형식을 기본으로 사용한다.
 5. host-local install path 는 tracked binding 이 아니라 local machine concern 이다.
+6. 폐기된 설치본은 `retired_codex_skills.json`의 정확한 ID 목록만 제거한다. `--all`은
+   현재 bridge를 동기화한 뒤 이 목록을 자동 정리하며, `--prune-retired`는 동기화 없이
+   폐기 목록만 정리한다. 목록에 없는 개인 스킬은 제거하지 않는다.
 
 ## bootstrap 기본값
 

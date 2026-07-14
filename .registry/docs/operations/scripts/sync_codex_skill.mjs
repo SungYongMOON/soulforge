@@ -4,17 +4,63 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { cp, mkdir, readdir, rm, stat } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, realpath, rm, stat } from "node:fs/promises";
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const scriptPath = fileURLToPath(import.meta.url);
+const scriptDir = path.dirname(scriptPath);
 const repoRoot = path.resolve(scriptDir, "../../../..");
 const skillsRoot = path.join(repoRoot, ".registry", "skills");
 const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
 const installRoot = path.join(codexHome, "skills");
+const retiredManifestPath = path.join(repoRoot, ".registry", "docs", "operations", "retired_codex_skills.json");
+const retiredManifestSchema = "soulforge.retired_codex_skills.v0";
+const safeSkillIdPattern = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 
 function usage() {
-  console.error("usage: node .registry/docs/operations/scripts/sync_codex_skill.mjs <skill_id> [skill_id ...] | --all");
+  console.error("usage: node .registry/docs/operations/scripts/sync_codex_skill.mjs <skill_id> [skill_id ...] | --all | --prune-retired");
   process.exit(1);
+}
+
+function installNameForSkill(skillId) {
+  if (!safeSkillIdPattern.test(skillId)) {
+    throw new Error(`invalid skill id: ${skillId}`);
+  }
+  return `soulforge-${skillId.replaceAll("_", "-")}`;
+}
+
+function assertContained(root, candidate) {
+  const relative = path.relative(root, candidate);
+  if (relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error("skill target escapes install root");
+  }
+}
+
+export async function loadRetiredSkillIds(manifestPath = retiredManifestPath) {
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  if (manifest?.schema_version !== retiredManifestSchema || !Array.isArray(manifest.skill_ids)) {
+    throw new Error(`invalid retired skill manifest: ${manifestPath}`);
+  }
+  const ids = [...new Set(manifest.skill_ids)];
+  for (const skillId of ids) installNameForSkill(skillId);
+  return ids;
+}
+
+export async function pruneRetiredSkills(options = {}) {
+  const targetRoot = path.resolve(options.installRoot || installRoot);
+  const retiredIds = await loadRetiredSkillIds(options.manifestPath || retiredManifestPath);
+  const results = [];
+
+  for (const skillId of retiredIds) {
+    if (await hasBridgeSkill(skillId)) {
+      throw new Error(`retired skill still has an active Codex bridge: ${skillId}`);
+    }
+    const targetDir = path.join(targetRoot, installNameForSkill(skillId));
+    assertContained(targetRoot, targetDir);
+    await rm(targetDir, { recursive: true, force: true });
+    results.push({ skillId, targetDir });
+  }
+
+  return results;
 }
 
 async function hasBridgeSkill(skillId) {
@@ -46,7 +92,7 @@ async function availableSkillIds() {
 
 async function syncSkill(skillId) {
   const sourceDir = path.join(skillsRoot, skillId, "codex");
-  const installName = `soulforge-${skillId.replaceAll("_", "-")}`;
+  const installName = installNameForSkill(skillId);
   const targetDir = path.join(installRoot, installName);
 
   if (!(await hasBridgeSkill(skillId))) {
@@ -69,7 +115,15 @@ async function main() {
     usage();
   }
 
-  const skillIds = args.length === 1 && args[0] === "--all" ? await availableSkillIds() : args;
+  if (args.length === 1 && args[0] === "--prune-retired") {
+    for (const result of await pruneRetiredSkills()) {
+      console.log(`pruned retired ${result.skillId} -> ${result.targetDir}`);
+    }
+    return;
+  }
+
+  const syncAll = args.length === 1 && args[0] === "--all";
+  const skillIds = syncAll ? await availableSkillIds() : args;
   if (skillIds.length === 0) {
     console.error(`no syncable Soulforge skills found under ${skillsRoot}`);
     process.exit(1);
@@ -80,6 +134,17 @@ async function main() {
   for (const skillId of skillIds) {
     await syncSkill(skillId);
   }
+
+  if (syncAll) {
+    for (const result of await pruneRetiredSkills()) {
+      console.log(`pruned retired ${result.skillId} -> ${result.targetDir}`);
+    }
+  }
 }
 
-await main();
+const invokedScriptPath = process.argv[1] ? await realpath(process.argv[1]) : undefined;
+const resolvedScriptPath = await realpath(scriptPath);
+
+if (invokedScriptPath === resolvedScriptPath) {
+  await main();
+}
