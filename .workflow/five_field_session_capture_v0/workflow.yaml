@@ -2,7 +2,7 @@ workflow_id: five_field_session_capture_v0
 kind: workflow
 status: draft
 title: Five-Field Session Capture v0
-summary: Codex/Claude 등 어떤 AI 세션이든 bounded 작업이 끝날 때 자동화 자산 5필드(입력/판단/출력/검증/중단조건)+집계키를 _workmeta 레저에 착지시키고, 하네스 훅이 기록 누락을 검사(guard)하게 하는 세션 종료 캡처 절차.
+summary: Codex/Claude 등 어떤 AI 세션이든 bounded 작업이 끝날 때 자동화 자산 5필드(입력/판단/출력/검증/중단조건)+집계키를 _workmeta 레저에 착지시키는 세션 종료 캡처 절차. 차단형 하네스 훅은 운영 장애와 효용 재검토를 위해 비활성 상태다.
 global_name_ko: "오필드캡처"
 global_name_ko_scope: draft_invocation_alias_candidate
 global_name_ko_note: "Korean invocation-ready alias; no slash, spaces, dash, colon, or path-like symbols."
@@ -68,12 +68,25 @@ steps:
     outputs: [five_field_ledger_record, capture_receipt]
     next: { on_success: done, on_fail: stop }
 guard_binding:
-  note: 하네스 훅은 내용을 쓸 수 없다(판단/검증은 모델만 안다) — 훅의 역할은 기록 누락 검사다.
+  status: disabled_pending_owner_review
+  disabled_on: 2026-07-14
+  reason: 운영 장애와 자동화 효용 재검토를 위해 Codex/Claude Code의 PostToolUse 마킹과 Stop 차단 배선을 함께 중지했다.
+  note: 어댑터 스크립트는 후속 검토를 위해 보존하지만 활성 하네스 설정에는 연결하지 않는다.
   check_command: node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --check --session-ref <ref>
   exit_codes: { 0: recorded, 2: missing_record }
-  examples:
-    claude_code: Stop hook 에서 check_command 실행 → exit 2 면 "5필드 기록 누락" 경고 표면화(차단 아님).
-    codex_cli: 세션 종료 지시(AGENTS 실행 계약/post_development_review_gate 후속 바인딩 후보)에 land_record 를 편입.
+  retained_adapters:
+    - tools/codex_hook_guard.mjs
+    - tools/claude_stop_guard.mjs
+  active_harness_bindings: []
+  reactivation_requires:
+    - 현행 Codex/Claude Code 훅 스키마와 설정 로드 검증
+    - 운영 장애 및 자동화 효용 재평가
+    - owner 결정
+  unaffected_surfaces:
+    - five_field_capture_cli
+    - existing_ledgers
+    - dev_erp_completion_capture
+    - daily_sweep
 owner_decision_needed:
   - AGENTS.md end-of-task 체크리스트에 이 워크플로우 1줄 편입 여부(canon 변경)
   - post_development_review_gate_v0 마지막 스텝으로 바인딩 여부
@@ -84,3 +97,4 @@ output_state: draft
 notes:
   - Draft workflow built from a real task (2026-07-04 owner request — "평소 Codex 세션 대화에서도 끝나면 남겨지도록").
   - ERP completion_log(업무 레인)와 같은 스키마 계열(soulforge.five_field_capture.v0) — 승격 감지기(request_kind 반복 집계)가 두 레인을 함께 읽는다.
+  - 2026-07-14 owner 요청으로 Codex/Claude Code 차단형 PostToolUse/Stop 배선을 함께 비활성화했다. CLI, 레저, ERP 캡처, 어댑터 스크립트와 일일 sweep 은 보존한다.

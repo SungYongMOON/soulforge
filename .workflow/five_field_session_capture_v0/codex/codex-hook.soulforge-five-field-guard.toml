@@ -1,18 +1,3 @@
-[[hooks.PostToolUse]]
-matcher = "*"
-
-[[hooks.PostToolUse.hooks]]
-type = "command"
-command = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
-command_windows = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
-timeout = 10
-statusMessage = "5필드 센티널 확인"
-
-[[hooks.Stop]]
-
-[[hooks.Stop.hooks]]
-type = "command"
-command = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
-command_windows = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
-timeout = 20
-statusMessage = "5필드 기록 확인"
+# Historical installation surface retained in a non-executable state.
+# five_field_session_capture_v0 PostToolUse/Stop hooks are disabled.
+# Reactivation requires owner approval and validation against the current Codex hook schema.

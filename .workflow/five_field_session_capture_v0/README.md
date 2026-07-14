@@ -10,7 +10,8 @@
 - location: `.workflow/five_field_session_capture_v0/`
 - package status: `draft` (index.yaml 미등록 — workflow-check 통과 후 owner 결정)
 - CLI smoke check: append/duplicate-skip/check-hit(0)/check-miss(2)/slug-guard 통과 (2026-07-04)
-- Codex hook smoke check: commit sentinel/no-record block, record-after pass, no-commit no-op 통과 (2026-07-05)
+- blocking hook status: **disabled** (2026-07-14 owner 요청). 운영 장애와 자동화 효용 재검토를 위해 Codex/Claude Code의 PostToolUse 마킹과 Stop 차단 배선을 함께 중지했다.
+- historical Codex hook smoke check: commit sentinel/no-record block, record-after pass, no-commit no-op 통과 (2026-07-05, 현재 비활성)
 
 ## 두 레인 분담 (이중 기록 금지)
 
@@ -39,65 +40,24 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs \
 - worktree 세션은 `_workmeta` 가 안 보이므로 `--repo-root C:/Soulforge` 또는 `SOULFORGE_ROOT` 지정.
 - 원문 복사 금지: input_refs 는 포인터만(항목 300자·12개 제한), 전체 12KB 초과 시 거부.
 
-## 하네스 훅 배선 (guard — 기록 누락 검사)
+## 차단형 하네스 훅 상태
 
-셸 훅은 판단/검증 **내용을 쓸 수 없다**(모델만 안다). 그러므로 기록은 AI 가 세션 끝에
-직접 남기고, 훅은 **남겼는지 검사**만 한다(계단 3단 — validator 먼저):
+2026-07-14부터 `five_field_session_capture_v0` 전용 차단형 훅은 모든 하네스에서
+**비활성**이다. Codex와 Claude Code 모두 `PostToolUse` 마킹 훅과 `Stop` 차단 훅을
+한 쌍으로 제거해야 하며, 어느 한쪽만 남기지 않는다.
+
+- 프로젝트 `.codex/config.toml`에는 5필드 `PostToolUse`/`Stop` 등록을 두지 않는다.
+- Claude Code의 프로젝트·사용자 `settings.json`/`hooks.json`에도 5필드 마킹·차단 등록을 두지 않는다.
+- `tools/codex_hook_guard.mjs`와 `tools/claude_stop_guard.mjs`는 후속 검토를 위해 삭제하지 않고 비활성 상태로 보존한다.
+- 기존 `_workmeta/**/five_field_log.jsonl`, `five_field_capture.mjs` CLI, dev-ERP `completion_log` 캡처는 보존한다.
+- 재활성화하려면 현행 Codex/Claude Code 훅 스키마와 설정 로드를 다시 검증하고, 운영 장애·자동화 가치 재평가 후 owner 결정을 받아야 한다.
+
+CLI의 비차단 확인 표면은 보존한다:
 
 ```
 node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --check --session-ref <ref>
-# exit 0 = 기록 있음, exit 2 = 누락(경고 표면화용, 차단 아님)
+# exit 0 = 기록 있음, exit 2 = 누락
 ```
-
-- **Claude Code** (2026-07-04 배선 완료, 어댑터 `tools/claude_stop_guard.mjs`): Stop 훅은
-  매 턴 발화하므로 무조건 차단하지 않는다 — ① PostToolUse(Bash)가 git commit 을 감지해
-  "bounded 작업" 센티널을 마킹(`--mark`, 체인 명령도 내용 검사로 포착) ② Stop(`--guard`)이
-  센티널+기록없음일 때만 **1회 차단**하고 기록 명령을 모델에 되돌림. 기록되면 자동 통과,
-  `stop_hook_active` 로 재차단 루프 방지(2회째는 경고만). 로컬 `.claude/settings.json`:
-
-  ```json
-  { "hooks": {
-      "PostToolUse": [{ "matcher": "Bash", "hooks": [{ "type": "command",
-        "command": "node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/claude_stop_guard.mjs --mark", "timeout": 10 }] }],
-      "Stop": [{ "hooks": [{ "type": "command",
-        "command": "node C:/Soulforge/.workflow/five_field_session_capture_v0/tools/claude_stop_guard.mjs --guard", "timeout": 20 }] }] } }
-  ```
-
-- **Codex Hook** (2026-07-05 배선 완료): Codex lifecycle hook 정식 스키마(`[[hooks.PostToolUse]]`,
-  `[[hooks.Stop]]`)를 사용한다. 등록 위치는 프로젝트 로컬 `.codex/config.toml` 이다. 이유:
-  Soulforge 전용 정책이라 user/global hook 으로 모든 repo 에 뿌리지 않고, `config.toml` 의 `notify`
-  키는 computer-use 런타임이 점유 중이므로 건드리지 않는다. 명령 경로는 PC별 checkout 위치가
-  달라도 동작하도록 프로젝트 root 기준 상대경로를 쓴다. 추적 스니펫은
-  `codex/codex-hook.soulforge-five-field-guard.toml` 에 보존한다.
-
-  ```toml
-  [[hooks.PostToolUse]]
-  matcher = "*"
-
-  [[hooks.PostToolUse.hooks]]
-  type = "command"
-  command = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
-  command_windows = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --mark'
-  timeout = 10
-  statusMessage = "5필드 센티널 확인"
-
-  [[hooks.Stop]]
-
-  [[hooks.Stop.hooks]]
-  type = "command"
-  command = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
-  command_windows = 'node .workflow/five_field_session_capture_v0/tools/codex_hook_guard.mjs --guard'
-  timeout = 20
-  statusMessage = "5필드 기록 확인"
-  ```
-
-  어댑터 `tools/codex_hook_guard.mjs` 는 `PostToolUse` 에서 `git commit` 명령만 감지해
-  session sentinel 을 남기고, `Stop` 에서 sentinel 이 있을 때만 capture CLI 의
-  `--check --session-ref <session_id>` 를 실행한다. 기록이 있으면 통과, 없으면 Codex Stop hook
-  의 `decision: "block"` 으로 "5필드 기록 후 종료" continuation prompt 를 표면화한다.
-  `stop_hook_active`/blocked marker 로 2회 이상 재차단하지 않는다. Codex hook 이 block/feedback 을
-  지원하므로 기본 경로에서 자동 backfill 은 하지 않는다. commit 없는 일상 대화 턴은 sentinel 이 없어
-  무개입한다.
 
 - **Codex daily sweep**: Codex automation `soulforge-five-field-sweep`(일일 07:35, 설치본
   `~/.codex/automations/`, 추적 사본 `codex/automation.soulforge-five-field-sweep.toml`)은
@@ -112,9 +72,9 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
 
 | 단계 | 무엇 | 어느 PC | 방법 |
 |---|---|---|---|
-| 1 | Codex Hook guard | Codex 로 Soulforge 작업하는 전 PC | repo 최신화(`github-down`/git pull) 후 `.codex/config.toml` 이 존재하는지 확인한다. command 는 프로젝트 root 기준 상대경로이므로 PC별 Soulforge 위치가 달라도 파일 수정하지 않는다. Codex 앱 재시작 또는 새 thread 시작 후 Settings > Coding > Hooks 에서 source=project hook 2개(PostToolUse/Stop)를 trust/enable 한다. |
+| 1 | Codex 5필드 훅 비활성 확인 | Codex 로 Soulforge 작업하는 전 PC | repo 최신화(`github-down`/git pull) 후 `.codex/config.toml`에 5필드 `PostToolUse`/`Stop` 등록이 없는지 확인한다. 사용자 `~/.codex/config.toml`과 `hooks.json`의 중복 등록도 제거하고 Codex 앱 재시작 또는 새 thread에서 Hooks 화면에 두 훅이 없는지 확인한다. |
 | 2 | `_workmeta` push 규율 | 전 PC | 각 PC 의 `_workmeta` 클론이 origin push 가능해야 레저가 모임(작업 후 commit+push — AGENTS 기존 규칙 그대로) |
-| 3 | Claude Code Stop guard | Claude 쓰는 PC 만 | 위 "하네스 훅 배선"의 settings.json JSON 복사 — 경로만 그 PC 의 Soulforge 루트로 치환 |
+| 3 | Claude Code 5필드 훅 비활성 확인 | Claude 쓰는 PC 만 | 프로젝트·사용자 `settings.json`/`hooks.json`에서 5필드 `PostToolUse` 마킹과 `Stop` 차단 등록을 함께 제거하고 Claude Code를 재시작한다. |
 | 4 | 일일 sweep 자동화 | **메인 PC 1대만** (중복 설치 금지) | `codex/automation.soulforge-five-field-sweep.toml` 을 `~/.codex/automations/soulforge-five-field-sweep/automation.toml` 로 복사 후 Codex 앱 재시작 → Automations 패널에서 ACTIVE 확인 |
 
 sweep 은 시작 시 두 저장소를 pull 하므로(프롬프트 0단계) **다른 PC 에서 push 된 커밋도

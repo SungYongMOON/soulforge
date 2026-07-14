@@ -1,5 +1,17 @@
 # CHANGELOG
 
+### 5필드 차단형 훅 비활성화
+
+- 운영 장애와 자동화 효용 재검토를 위해 tracked Codex 프로젝트 설정에서
+  `five_field_session_capture_v0`의 `PostToolUse` 마킹 훅과 `Stop` 차단 훅을
+  함께 제거하고, 재설치 스니펫도 실행 불가한 설명 상태로 전환했다.
+- Claude Code를 포함한 모든 하네스에서 동일한 마킹/차단 쌍을 비활성 상태로
+  유지하도록 워크플로 정본과 PC별 확인 절차를 갱신했다. 기존 레저,
+  dev-ERP `completion_log` 캡처, 캡처 CLI, 훅 어댑터 스크립트와 일일 sweep은
+  보존한다.
+- 재활성화에는 현행 Codex/Claude Code 훅 스키마 및 설정 로드 검증,
+  운영 장애·자동화 가치 재평가와 owner 결정이 필요하다. (worker: codex_gpt-5)
+
 ### Revision `working` - dev-ERP owner-approved core-only release gate
 
 - Added a non-default `--core-only-release --require-live` audit path that
