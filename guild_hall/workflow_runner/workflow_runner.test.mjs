@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { parse as parseYaml } from "yaml";
 
 import { createFilesystemArtifactAdapter } from "./artifact_store.mjs";
 import { scanFinalReportBoundary } from "./boundary.mjs";
@@ -658,13 +659,17 @@ test("reader projection keeps the unconfirmed register audit-only and does not r
   assert.doesNotMatch(rendered.html, /미확인 사항|원인은 아직 확인되지 않았다|판정 범위가 제한된다|추가 시험으로 원인을 확인한다/u);
   assert.doesNotMatch(rendered.markdown, /gap-one|semantic_manifest|claim_refs|workflow_bundle_sha256/u);
   assert.doesNotMatch(rendered.html, /gap-one|semantic_manifest|claim_refs|workflow_bundle_sha256/u);
-  assert.match(rendered.markdown, /참고문헌 레지스트리/u);
+  assert.match(rendered.markdown, /출처 및 추적성/u);
   assert.match(rendered.markdown, /Synthetic source \\\[1\\\]/u);
-  assert.match(rendered.html, /HTML companion - canonical record remains the Markdown\/structured text file\./u);
-  assert.match(rendered.html, /final_report_md \/ report_document_json/u);
-  assert.match(rendered.html, /근거·참고문헌 레지스트리/u);
+  assert.match(rendered.html, /검토용 HTML — 정본은 최종 Markdown 보고서입니다\./u);
+  assert.match(rendered.html, /<strong>정본<\/strong><br>최종 Markdown 보고서/u);
+  assert.match(rendered.html, /출처 및 추적성/u);
   assert.match(rendered.html, /후속 조치 표/u);
   assert.match(rendered.html, /Synthetic source \[1\]/u);
+  assert.doesNotMatch(rendered.markdown, /fixture:source|payload:|artifact:/u);
+  assert.doesNotMatch(rendered.html, /fixture:source|payload:|artifact:|report_document_json|derived_human_review_artifact|private_work_product/u);
+  assert.equal(document.references[0].source_ref, "fixture:source");
+  assert.equal(document.sections[0].blocks[0].source_refs[0], "fixture:source");
 
   const compactProgress = documentForType("progress");
   compactProgress.sections = compactProgress.sections.filter((section) => new Set([
@@ -684,10 +689,18 @@ test("reader projection keeps the unconfirmed register audit-only and does not r
 
   const noRegistry = documentForType("other");
   const noRegistryRendered = renderReportPair(noRegistry);
-  assert.match(noRegistryRendered.markdown, /출처: fixture:source/u);
-  assert.match(noRegistryRendered.html, /근거·참고문헌 레지스트리/u);
-  assert.match(noRegistryRendered.html, /본문 직접 근거/u);
-  assert.match(noRegistryRendered.html, /fixture:source/u);
+  assert.doesNotMatch(noRegistryRendered.markdown, /출처:|출처 및 추적성|fixture:source/u);
+  assert.doesNotMatch(noRegistryRendered.html, /출처 및 추적성|본문 직접 근거|fixture:source/u);
+});
+
+test("workflow taxonomy keeps reader deliverables disjoint from structured audit records", async () => {
+  const workflow = parseYaml(await fs.readFile(path.join(REPO_ROOT, ".workflow", "report_authoring_v0", "workflow.yaml"), "utf8"));
+  const handoff = parseYaml(await fs.readFile(path.join(REPO_ROOT, ".workflow", "report_authoring_v0", "handoff_rules.yaml"), "utf8"));
+  assert.deepEqual(workflow.outputs.user_deliverables, ["final_report_md", "final_report_html_optional"]);
+  assert.ok(workflow.outputs.audit_artifacts.includes("report_document_json"));
+  assert.equal(workflow.outputs.audit_artifacts.some((role) => workflow.outputs.user_deliverables.includes(role)), false);
+  assert.deepEqual(handoff.rules.find((rule) => rule.rule_id === "to_user_deliverable").provide, ["final_report_md", "final_report_html"]);
+  assert.ok(handoff.rules.find((rule) => rule.rule_id === "to_workspace_artifact_store").provide.includes("report_document_json"));
 });
 
 test("nullable report_date has manual/Ajv parity, no lexical token, and no rendered metadata row", async (t) => {

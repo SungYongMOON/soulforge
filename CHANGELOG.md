@@ -24,6 +24,14 @@
   end-to-end replay, Microsoft Word/Excel owner-sample round-trip, 실제 보고서 3건과 owner acceptance 전에는
   default route, team-default, production-ready를 주장하지 않는다. PPT 생성은
   이번 문서 시스템 범위에서 중단 상태다. (worker: codex_gpt-5)
+- The final fresh compact Korean `full_authoring` acceptance run passed all six
+  fixed stage validators and an independent semantic/reader review with zero
+  unresolved differences. It preserved 7/7 protected invariants, rendered only
+  the three material roles in both Markdown and HTML, exposed zero opaque source
+  pointers or audit scaffolding, kept `report_document_json` on the audit surface,
+  completed authority/finalize, adopted a metadata-only receipt, and replayed
+  exactly. The workflow remains candidate, default-off, private-work-product, and
+  subject to owner review before publish or production use. (worker: codex_gpt-5)
 - A succeeding fixed run exposed a reader-projection defect: Markdown/HTML appended
   the unconfirmed register after the same unknown and action already appeared in the
   body. The register now stays audit-only, and compact internal progress HTML omits

@@ -8,15 +8,18 @@ and metadata-only receipts. The `report_writer` skill is only a launcher.
 ## Status
 
 - Workflow package: registered in `.workflow/index.yaml`
-- Fixed runtime lane: candidate; one real Korean `final_polish` pilot completed
-  through prepare, independent semantic verification, authority issue, finalize,
-  metadata-only receipt adoption, and exact replay on 2026-07-14
+- Fixed runtime lane: candidate; real Korean `final_polish` and compact
+  `full_authoring` pilots completed through prepare, independent semantic
+  verification, authority issue, finalize, metadata-only receipt adoption, and
+  exact replay on 2026-07-14
 - Short invocation alias: `/report-writer`
 - Default route: no
 - Fresh Builder/Verifier result: accepted for the candidate pilot surface with
   P0/P1/P2 = 0/0/0; this is not deployment calibration or promotion authority
-- Claim ceiling: the completed draft-only pilot remained `private_work_product`,
-  `observed`, and `partial`; not production-ready or publishable
+- Claim ceiling: the draft-only pilot remained `private_work_product`, `observed`,
+  and `partial`; the source-backed full-authoring pilot reached
+  `source_supported`. Neither result is production-ready or publishable without
+  owner review.
 
 Registration names the reusable workflow package; it does not grant runtime maturity,
 source truth, approval, publish, send, or default-route authority.
@@ -46,6 +49,9 @@ even if a semantic verifier otherwise passes.
 The register remains audit-only during reader projection, so renderers do not append
 a duplicate unresolved-items section. Exact compact internal progress HTML also
 omits duplicate verdict cards and action tables.
+Opaque source and artifact pointers also remain audit-only. Reader-facing source
+tables are emitted only from explicitly registered human-readable reference IDs
+and labels.
 
 ## Editorial and verification order
 

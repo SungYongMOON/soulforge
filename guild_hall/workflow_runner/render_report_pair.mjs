@@ -31,31 +31,21 @@ function escapeMarkdownTable(value) {
   return escapeMarkdownInline(value).replaceAll("|", "\\|");
 }
 
-function sourceRefsForBlock(block) {
-  const refs = block.type === "bullets" ? block.items.flatMap((item) => item.source_refs) : block.source_refs;
-  return [...new Set(refs)].sort();
-}
-
-function markdownSourceLine(block) {
-  const refs = sourceRefsForBlock(block);
-  return refs.length ? `출처: ${refs.map(escapeMarkdownInline).join(", ")}` : "";
-}
-
 function markdownBlock(block) {
-  if (block.type === "paragraph") return [escapeMarkdownInline(block.text), "", markdownSourceLine(block)].filter(Boolean).join("\n");
-  if (block.type === "bullets") return [block.items.map((item) => `- ${escapeMarkdownInline(item.text)}`).join("\n"), "", markdownSourceLine(block)].filter(Boolean).join("\n");
+  if (block.type === "paragraph") return escapeMarkdownInline(block.text);
+  if (block.type === "bullets") return block.items.map((item) => `- ${escapeMarkdownInline(item.text)}`).join("\n");
   const headings = ["항목", ...block.columns.map((column) => column.unit ? `${column.heading} (${column.unit})` : column.heading)];
   const rows = block.rows.map((row) => {
     const cells = block.columns.map((column) => row.cells.find((cell) => cell.column_id === column.column_id).text);
     return `| ${[row.label, ...cells].map(escapeMarkdownTable).join(" | ")} |`;
   });
-  return [`**${escapeMarkdownInline(block.caption)}**`, "", `| ${headings.map(escapeMarkdownTable).join(" | ")} |`, `| ${headings.map(() => "---").join(" | ")} |`, ...rows, "", markdownSourceLine(block)].filter((line, index, array) => line || index < array.length - 1).join("\n");
+  return [`**${escapeMarkdownInline(block.caption)}**`, "", `| ${headings.map(escapeMarkdownTable).join(" | ")} |`, `| ${headings.map(() => "---").join(" | ")} |`, ...rows].join("\n");
 }
 
 function markdownReferences(references) {
   if (references.length === 0) return "";
-  const rows = references.map((reference) => `| ${escapeMarkdownTable(reference.reference_id)} | ${escapeMarkdownTable(reference.label)} | ${escapeMarkdownTable(reference.source_ref)} |`);
-  return ["## 참고문헌 레지스트리", "", "| ID | 출처 | 출처 참조 |", "| --- | --- | --- |", ...rows].join("\n");
+  const rows = references.map((reference) => `| ${escapeMarkdownTable(reference.reference_id)} | ${escapeMarkdownTable(reference.label)} |`);
+  return ["## 출처 및 추적성", "", "| ID | 자료 |", "| --- | --- |", ...rows].join("\n");
 }
 
 export function renderMarkdown(document) {
@@ -76,16 +66,14 @@ export function renderMarkdown(document) {
 }
 
 function htmlBlock(block) {
-  const refs = sourceRefsForBlock(block);
-  const source = refs.length ? `<p class="source">출처: ${refs.map(escapeHtml).join(", ")}</p>` : "";
-  if (block.type === "paragraph") return `<p>${escapeHtml(block.text)}</p>${source}`;
-  if (block.type === "bullets") return `<ul>${block.items.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul>${source}`;
+  if (block.type === "paragraph") return `<p>${escapeHtml(block.text)}</p>`;
+  if (block.type === "bullets") return `<ul>${block.items.map((item) => `<li>${escapeHtml(item.text)}</li>`).join("")}</ul>`;
   const header = ["항목", ...block.columns.map((column) => column.unit ? `${column.heading} (${column.unit})` : column.heading)];
   const rows = block.rows.map((row) => {
     const cells = block.columns.map((column) => row.cells.find((cell) => cell.column_id === column.column_id).text);
     return `<tr><th scope="row">${escapeHtml(row.label)}</th>${cells.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`;
   }).join("");
-  return `<figure><figcaption>${escapeHtml(block.caption)}</figcaption><table><thead><tr>${header.map((item) => `<th scope="col">${escapeHtml(item)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>${source}</figure>`;
+  return `<figure><figcaption>${escapeHtml(block.caption)}</figcaption><table><thead><tr>${header.map((item) => `<th scope="col">${escapeHtml(item)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></figure>`;
 }
 
 function blockPlainText(block) {
@@ -106,15 +94,10 @@ function htmlVerdictCards(document) {
 }
 
 function htmlEvidenceTable(document) {
-  const entries = document.references.map((reference) => ({ id: reference.reference_id, label: reference.label, sourceRef: reference.source_ref }));
-  const registeredSourceRefs = new Set(entries.map((entry) => entry.sourceRef));
-  const directSourceRefs = [...new Set(document.sections.flatMap((section) => section.blocks.flatMap(sourceRefsForBlock)))].sort();
-  for (const [index, sourceRef] of directSourceRefs.filter((ref) => !registeredSourceRefs.has(ref)).entries()) {
-    entries.push({ id: `source-${index + 1}`, label: "본문 직접 근거", sourceRef });
-  }
+  const entries = document.references.map((reference) => ({ id: reference.reference_id, label: reference.label }));
   if (entries.length === 0) return "";
-  const rows = entries.map((entry) => `<tr><td>${escapeHtml(entry.id)}</td><td>${escapeHtml(entry.label)}</td><td>${escapeHtml(entry.sourceRef)}</td></tr>`).join("");
-  return `<section><h2>근거·참고문헌 레지스트리</h2><table><thead><tr><th scope="col">ID</th><th scope="col">출처</th><th scope="col">출처 참조</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+  const rows = entries.map((entry) => `<tr><td>${escapeHtml(entry.id)}</td><td>${escapeHtml(entry.label)}</td></tr>`).join("");
+  return `<section><h2>출처 및 추적성</h2><table><thead><tr><th scope="col">ID</th><th scope="col">자료</th></tr></thead><tbody>${rows}</tbody></table></section>`;
 }
 
 function htmlNextActionTable(document) {
@@ -140,9 +123,9 @@ export function renderHtml(document) {
   const reportDate = document.report_date === null ? "" : `<div><strong>기준일</strong><br>${escapeHtml(document.report_date)}</div>`;
   return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(document.title)}</title>
-<style>:root{color-scheme:light;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#17212b;background:#f4f6f8}body{margin:0}.page{max-width:960px;margin:0 auto;padding:32px;background:#fff;min-height:100vh}.companion-banner{margin:0 -32px 24px;padding:10px 32px;background:#243747;color:#fff;font-weight:700}.meta,.verdict-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;padding:16px 0}.meta div,.verdict-card{border:1px solid #d8e0e7;padding:12px}.verdict-card h2{margin:0 0 8px;border:0;padding:0;font-size:1rem}.verdict-card p{margin:0}h1,h2{line-height:1.25}h2{margin-top:28px;border-bottom:1px solid #d8e0e7;padding-bottom:6px}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #b8c4ce;padding:8px;text-align:left;vertical-align:top}thead{background:#edf3f8}figcaption{font-weight:700}.source{font-size:.9rem;color:#4b5b68}@media print{body{background:#fff}.page{max-width:none;padding:0}.companion-banner{margin:0 0 16px;padding:8px;border:1px solid #243747;color:#17212b;background:#fff}}</style></head>
-<body><main class="page"><p class="companion-banner">HTML companion - canonical record remains the Markdown/structured text file.</p><h1>${escapeHtml(document.title)}</h1>
-<div class="meta"><div><strong>보고서 ID</strong><br>${escapeHtml(document.report_id)}</div><div><strong>프로젝트</strong><br>${escapeHtml(document.project_code)}</div>${reportDate}<div><strong>보고 유형</strong><br>${escapeHtml(REPORT_TYPE_LABELS[document.report_type])}</div><div><strong>독자</strong><br>${escapeHtml(AUDIENCE_LABELS[document.audience])}</div><div><strong>판단 범위</strong><br>${escapeHtml(CLAIM_LABELS[document.claim_ceiling])}</div><div><strong>원천 기록 상태</strong><br>${escapeHtml(SOURCE_STATUS_LABELS[document.source_record_status])}</div><div><strong>정본 레코드</strong><br>final_report_md / report_document_json</div><div><strong>HTML 상태</strong><br>derived_human_review_artifact</div><div><strong>자료 경계</strong><br>${escapeHtml(document.boundary.content_classification)}</div></div>
+<style>:root{color-scheme:light;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#17212b;background:#f4f6f8}body{margin:0}.page{max-width:960px;margin:0 auto;padding:32px;background:#fff;min-height:100vh}.companion-banner{margin:0 -32px 24px;padding:10px 32px;background:#243747;color:#fff;font-weight:700}.meta,.verdict-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;padding:16px 0}.meta div,.verdict-card{border:1px solid #d8e0e7;padding:12px}.verdict-card h2{margin:0 0 8px;border:0;padding:0;font-size:1rem}.verdict-card p{margin:0}h1,h2{line-height:1.25}h2{margin-top:28px;border-bottom:1px solid #d8e0e7;padding-bottom:6px}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #b8c4ce;padding:8px;text-align:left;vertical-align:top}thead{background:#edf3f8}figcaption{font-weight:700}@media print{body{background:#fff}.page{max-width:none;padding:0}.companion-banner{margin:0 0 16px;padding:8px;border:1px solid #243747;color:#17212b;background:#fff}}</style></head>
+<body><main class="page"><p class="companion-banner">검토용 HTML — 정본은 최종 Markdown 보고서입니다.</p><h1>${escapeHtml(document.title)}</h1>
+<div class="meta"><div><strong>보고서 ID</strong><br>${escapeHtml(document.report_id)}</div><div><strong>프로젝트</strong><br>${escapeHtml(document.project_code)}</div>${reportDate}<div><strong>보고 유형</strong><br>${escapeHtml(REPORT_TYPE_LABELS[document.report_type])}</div><div><strong>독자</strong><br>${escapeHtml(AUDIENCE_LABELS[document.audience])}</div><div><strong>판정 범위</strong><br>${escapeHtml(CLAIM_LABELS[document.claim_ceiling])}</div><div><strong>원천 기록 상태</strong><br>${escapeHtml(SOURCE_STATUS_LABELS[document.source_record_status])}</div><div><strong>정본</strong><br>최종 Markdown 보고서</div></div>
 ${decisionProjection}${sections}${htmlEvidenceTable(document)}${actionProjection}</main></body></html>
 `;
 }

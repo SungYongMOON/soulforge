@@ -21,7 +21,7 @@ Create HTML when requested. Keep reader deliverables separate from audit artifac
 
 | Role | Format | Typical path |
 | --- | --- | --- |
-| Structured authoring record | `.json` | `_workspaces/<project_code>/reports/<job_id>/report_document.json` or approved worksite |
+| Structured audit authoring record (not reader-facing) | `.json` | `_workspaces/<project_code>/reports/<job_id>/report_document.json` or approved worksite |
 | Canonical reader record | `.md` | `_workspaces/<project_code>/reports/<job_id>/final_report.md` or approved worksite |
 | Optional HTML companion | `.html` | `_workspaces/<project_code>/reports/<job_id>/final_report.html` or approved worksite |
 | Audit artifacts | `.json` | `_workspaces/<project_code>/reports/<job_id>/{protected_semantic_manifest,preservation_audit,semantic_verification}.json` or approved worksite |
@@ -74,6 +74,12 @@ not append it as a second reader section. The body must state each reader-releva
 unknown and supported next action once. A semantic verifier pass cannot waive the
 deterministic linkage.
 
+Block-level `source_refs` are opaque audit pointers. They stay in the structured
+record and do not render as reader prose or table cells. When a report needs a
+reader-visible source list, populate the labeled `references` registry; Markdown
+and HTML show its human-readable ID and label while retaining the opaque binding
+only in the structured record.
+
 The source record may still carry internal fields such as claim ceiling and
 boundary status, but the owner-facing report surface should use report terms
 such as `판정 범위`, `적용 범위`, `출처 및 추적성`, `고려사항`, and `문서 관리`.
@@ -103,10 +109,10 @@ active/passive voice. The following are contextual examples, not banned phrases:
 
 The HTML companion should render the same reader-facing information with:
 
-- a visible banner that says `HTML companion - canonical record remains the
-  Markdown/structured text file`;
-- title block with project, date, report id, 판정 범위, and canonical record
-  ref;
+- a visible Korean banner that identifies it as a review companion and names the
+  final Markdown report as canon;
+- title block with project, date, report id, 판정 범위, and a human-readable
+  canonical-record label;
 - verdict cards for the main conclusion, applicable scope, and follow-up
   confirmation scope;
 - evidence and next-action tables when the corresponding source/action data exists;

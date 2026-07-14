@@ -35,6 +35,7 @@ rules:
     requirement: The final report is a first-class user deliverable. Protected manifests and verification records are separate audit artifacts, not report-body appendices.
   - rule_id: to_workspace_artifact_store
     provide:
+      - report_document_json
       - final_report_md
       - final_report_html
       - protected_semantic_manifest
@@ -50,7 +51,7 @@ rules:
       - workflow_bundle_digest
       - validator_status_and_counts
       - phase_transition_digest_before_receipt_confirmation
-    requirement: `_workmeta` receives metadata and receipts only, never report/source bodies or generated artifacts; receipt confirmation is required before success.
+    requirement: "`_workmeta` receives metadata and receipts only, never report/source bodies or generated artifacts; receipt confirmation is required before success."
   - rule_id: to_publish_review
     provide:
       - user_deliverable_refs

@@ -39,10 +39,10 @@ inputs:
     - semantic_manifest_ref
 outputs:
   user_deliverables:
-    - report_document_json
     - final_report_md
     - final_report_html_optional
   audit_artifacts:
+    - report_document_json
     - protected_semantic_manifest
     - preservation_audit
     - semantic_verification

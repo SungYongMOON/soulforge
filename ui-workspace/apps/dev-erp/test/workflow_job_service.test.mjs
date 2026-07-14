@@ -496,6 +496,27 @@ test('artifact crash is exactly adopted and only the receipt sink resumes', asyn
   });
   assert.equal(completed.job.status, 'succeeded');
   assert.equal(completed.job.human_review_status, 'required');
+  const readerArtifact = fx.service.readArtifact({
+    accountId: fx.owner,
+    canAccessProject: fx.canAccessProject,
+    jobId: created.job.job_id,
+    role: 'final_report_md',
+  });
+  assert.match(readerArtifact.bytes.toString('utf8'), /Final report/);
+  assert.throws(() => fx.service.readArtifact({
+    accountId: fx.owner,
+    canAccessProject: fx.canAccessProject,
+    jobId: created.job.job_id,
+    role: 'report_document_json',
+  }), (error) => errorCode(error) === 'workflow_artifact_forbidden');
+  const auditArtifact = fx.service.readArtifact({
+    accountId: fx.owner,
+    canAccessProject: fx.canAccessProject,
+    jobId: created.job.job_id,
+    role: 'report_document_json',
+    auditAllowed: true,
+  });
+  assert.match(auditArtifact.bytes.toString('utf8'), /report_document_json/);
   const replayed = await fx.service.resumeReceipt({
     accountId: fx.owner,
     canAccessProject: fx.canAccessProject,

@@ -64,7 +64,7 @@
     "guild_hall/workflow_runner/state_machine.mjs",
     "guild_hall/workflow_runner/temporal.mjs"
   ],
-  "bundle_digest": "b52212a69091a69a1ebe95c640519732f2a0a1cd54a3a8a6179d94a2e2c5d883",
+  "bundle_digest": "f31571827fcf9fb596ef453b1e69e0cf21b691f5158fb5d39c21c6041438d18b",
   "contracts": {
     "request": ".workflow/report_authoring_v0/contracts/workflow_job_request.v1.schema.json",
     "state": ".workflow/report_authoring_v0/contracts/workflow_job_state.v1.schema.json",
