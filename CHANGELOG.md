@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### dev-ERP runtime source attestation 고정
+
+- 부하가 큰 Windows 운영 호스트에서도 정식 백엔드가 시작 지연 없이 실행 커밋을 증명하도록 엄격한 40자리 `DEV_ERP_SOURCE_COMMIT` 바인딩을 추가하고, 미지정 실행은 기존 Git 조회로 보수적으로 폴백한다. (worker: codex_gpt-5)
+
 ### 팀 문서 DOCX/XLSX/HTML publisher와 얇은 Codex launcher
 
 - `document_artifact_publisher_v0`를 owner-requested non-default candidate로

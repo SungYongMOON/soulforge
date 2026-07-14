@@ -97,6 +97,10 @@ const flag = (name, fallback) => {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const BACKEND_ROOT = resolve(process.env.DEV_ERP_BACKEND_ROOT || ROOT);
 const RUNTIME_SOURCE_COMMIT = (() => {
+  if (Object.hasOwn(process.env, "DEV_ERP_SOURCE_COMMIT")) {
+    const configured = String(process.env.DEV_ERP_SOURCE_COMMIT || "").trim().toLowerCase();
+    return /^[a-f0-9]{40}$/.test(configured) ? configured : "";
+  }
   try { return execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8", timeout: 3000 }).trim(); }
   catch { return ""; }
 })();
