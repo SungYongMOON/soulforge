@@ -47,11 +47,13 @@ outputs:
   - subject_candidate
   - owner_style_body_draft
   - mail_render_plan
+  - readability_render_plan
   - attachment_selection_basis
   - footer_application_state
   - pre_send_checklist
   - owner_approval_gate_result
   - send_surface_handoff
+  - outlook_draft_application_handoff
   - metadata_record_plan
   - boundary_review_note
 validation_level: pilot_executed_private_application
@@ -138,6 +140,7 @@ outbound_mail_authoring_contract:
     mail_send_style_policy: docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md
     team_mail_context_template: templates/team_mail_context.template.yaml
     mail_render_policy: templates/mail_render_policy.template.yaml
+    outlook_readability_preset: templates/outlook_readability_preset_v1.yaml
     technical_action_brief_example: templates/technical_action_brief.example.md
     mail_send_runner_policy: docs/architecture/workspace/MAIL_SEND_V0.md
     mail_send_capsule: guild_hall/gateway/mail_send/
@@ -258,6 +261,14 @@ outbound_mail_authoring_contract:
   adaptive_render_policy:
     selector_script: scripts/select_mail_render_mode.mjs
     selector_fixture: templates/mail_render_policy.validation_fixture.yaml
+    readability_preset:
+      preset_id: owner_outlook_readability_v1
+      reference: templates/outlook_readability_preset_v1.yaml
+      validation_fixture: templates/outlook_readability_preset_v1.validation_fixture.yaml
+      validator: scripts/validate_outlook_readability_preset.mjs
+      selection_policy: apply_by_default_to_structured_modes_without_restatement
+      compact_mode_policy: preserve_compact_body_without_forced_sections
+      render_only_authority: true
     metadata_source_of_truth: outbound_team_mail_context_v1
     visible_body_is_not_metadata_source_truth: true
     modes: [compact, action_brief, decision_brief, status_change, reply_map]
@@ -306,6 +317,13 @@ outbound_mail_authoring_contract:
     pre_send_checklist: templates/pre_send_checklist.template.yaml
     send_handoff_packet: templates/send_handoff_packet.template.yaml
     boundary_review_note: templates/boundary_review_note.template.md
+  outlook_draft_application_handoff:
+    authoring_workflow_may_emit_render_plan: true
+    authoring_workflow_may_mutate_outlook: false
+    separate_executor_required: true
+    separate_executor_owner_approval_required: true
+    external_send_remains_forbidden_to_authoring_workflow: true
+    exact_signature_footer_payload_stays_runtime_private: true
   authority_boundary:
     default_send_authority: draft_only
     owner_approval_required_for_external_send: true

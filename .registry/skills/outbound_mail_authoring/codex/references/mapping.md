@@ -17,6 +17,7 @@ When invoked, resolve `/outbound-mail` to `outbound_mail_authoring_v0`, then rea
 2. `.workflow/outbound_mail_authoring_v0/step_graph.yaml`
 3. `.workflow/outbound_mail_authoring_v0/profile_policy.yaml`
 4. `docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md`
+5. `.workflow/outbound_mail_authoring_v0/templates/outlook_readability_preset_v1.yaml` for structured modes
 
 Read additional workflow files such as `handoff_rules.yaml`, `monster_rules.yaml`,
 or templates only when needed for the current request.
@@ -87,6 +88,11 @@ The workflow output sequence is:
 9. `metadata_record_plan`
 10. `boundary_review_note`
 
+Structured modes also emit `readability_render_plan` with preset
+`owner_outlook_readability_v1` and an `outlook_draft_application_handoff`.
+These are instructions for a separate owner-approved Outlook draft executor;
+the launcher and authoring workflow do not create or mutate an Outlook item.
+
 Use the templates under `.workflow/outbound_mail_authoring_v0/templates/`.
 
 ## Validation Checklist
@@ -94,6 +100,9 @@ Use the templates under `.workflow/outbound_mail_authoring_v0/templates/`.
 - `.workflow/outbound_mail_authoring_v0/workflow.yaml` was read before execution.
 - `.workflow/outbound_mail_authoring_v0/profile_policy.yaml` was read before selecting or overriding any execution profile.
 - `MAIL_SEND_STYLE_POLICY_V0.md` was read before drafting.
+- Structured modes selected `owner_outlook_readability_v1` without requiring the user to restate its typography or ordering rules.
+- The render plan places a nonempty request/reply-deadline section first, keeps numbered headings contiguous, and omits empty sections.
+- Outlook draft application is assigned only to a separate explicitly owner-approved executor; this launcher did not mutate Outlook.
 - The request's thread mode, mail kind, send surface, recipient, attachment, project, keyword, footer, and owner approval states were bound or marked as gaps.
 - Reply and forward subjects were preserved.
 - New project subjects used only confirmed project mail keywords.

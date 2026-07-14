@@ -1,0 +1,44 @@
+fixture_id: outbound_mail_readability_preset_public_001
+fixture_kind: public_synthetic_render_handoff
+preset_id: owner_outlook_readability_v1
+input:
+  render_mode: action_brief
+  requested_action: "합성 검토 항목을 확인하고 결과를 회신"
+  reply_deadline: "승인된 응답 기한"
+  sections:
+    - title: "기술 조건"
+      table:
+        columns: ["항목", "적용값", "비고"]
+        rows:
+          - ["합성 조건 A", "승인값 A", "확인"]
+          - ["합성 조건 B", "승인값 B", "확인"]
+    - title: "실행 및 시험"
+      ordered_items:
+        - "합성 단계 1 수행"
+        - "합성 단계 2 수행"
+    - title: "회신 요청 자료"
+      bullet_items:
+        - "revision 정보"
+        - "측정 결과"
+    - title: "첨부"
+      bullet_items: []
+    - title: "후속 조치"
+      bullet_items: []
+expected:
+  visible_section_order:
+    - "1. 요청사항"
+    - "2. 기술 조건"
+    - "3. 실행 및 시험"
+    - "4. 회신 요청 자료"
+  omitted_sections:
+    - "첨부"
+    - "후속 조치"
+  typography:
+    body: {font_family: "Malgun Gothic", font_size_pt: 10}
+    headings: {font_family: "Malgun Gothic", font_size_pt: 11, bold: true, space_before_pt: 12, space_after_pt: 6, bottom_rule: true}
+    bullets_and_tables: {font_family: "Malgun Gothic", font_size_pt: 10, spacing: inherit_body}
+  handoff:
+    authoring_workflow_mutates_outlook: false
+    owner_approved_separate_executor_required: true
+    authoring_workflow_sends_mail: false
+    exact_signature_footer_payload_present: false

@@ -1,0 +1,55 @@
+schema_version: outbound_mail_readability_preset_v1
+preset_id: owner_outlook_readability_v1
+status: active
+purpose: public_safe_render_and_application_handoff
+selection:
+  default_for:
+    - action_brief
+    - decision_brief
+    - status_change
+    - reply_map
+  compact_mode_policy: preserve_compact_body_without_forced_sections
+structure:
+  priority_section:
+    title: "요청사항"
+    position: first
+    independent: true
+    numbered_heading: true
+    consumes_sequence_number: true
+    include_when: requested_action_or_reply_deadline_present
+  numbered_section_headings:
+    enabled: true
+    start: 1
+    contiguous: true
+    include_priority_section_when_present: true
+    omit_empty_sections: true
+    renumber_after_omission: true
+  bullets:
+    use_for: parallel_items
+  tables:
+    use_for: repeated_fields_or_three_or_more_related_values
+  follow_up_section:
+    include_when: supported_nonempty_follow_up_exists
+typography:
+  body:
+    font_family: "Malgun Gothic"
+    font_size_pt: 10
+  headings:
+    font_family: "Malgun Gothic"
+    font_size_pt: 11
+    bold: true
+    space_before_pt: 12
+    space_after_pt: 6
+    bottom_rule: true
+  bullets_and_tables:
+    font_family: "Malgun Gothic"
+    font_size_pt: 10
+    spacing: inherit_body
+application_handoff:
+  authoring_output: readability_render_plan
+  application_surface: separate_owner_approved_outlook_draft_executor
+  outlook_mutation_by_authoring_workflow: forbidden
+  owner_approval_required_before_draft_mutation: true
+  external_send_by_authoring_workflow: forbidden
+  signature_footer_payload_source: runtime_private_only
+  public_package_stores_signature_footer_payload: false

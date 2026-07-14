@@ -29,6 +29,8 @@ behavior:
     - Codex resolves the invocation to `outbound_mail_authoring_v0`
     - Codex reads the workflow package and `profile_policy.yaml` at execution time
     - the draft follows the owner mail style policy
+    - structured drafts automatically select the public-safe `owner_outlook_readability_v1` render preset
+    - Outlook draft application remains a separate explicitly owner-approved executor handoff
     - new project subjects use confirmed project mail keywords only
     - replies and forwards preserve existing thread subjects
     - final send handoff requires signature and company security footer exactly once
@@ -58,6 +60,7 @@ execution_requirements:
     - "The workflow `profile_policy.yaml` remains the profile owner; resolve it at execution time instead of copying optimizer outputs into this skill."
     - "Project keyword values, exact footer contact values, and full security disclaimer text remain private/project-local or Outlook/local-template authority."
     - "Skill activation does not grant external send authority, Outlook mutation authority, default-route authority, or production-readiness claims."
+    - "The readability preset is a render plan; this launcher never applies it by mutating Outlook."
 notes:
   - "`outbound_mail_authoring` is a thin Codex bridge for `.workflow/outbound_mail_authoring_v0`."
   - "The installed Codex mirror name is expected to be `soulforge-outbound-mail-authoring` after skill sync."

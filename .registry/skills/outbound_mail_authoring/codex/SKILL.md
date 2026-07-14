@@ -20,10 +20,11 @@ the workflow body inside this skill.
 5. Bind thread mode, mail kind, recipients, attachments, send surface, project metadata, and owner approval state.
 6. For replies and forwards, preserve the existing thread subject.
 7. For new project mail, use only a confirmed project mail keyword in the leading bracket. Do not use internal company project numbers or Soulforge project codes in the outgoing subject.
-8. Draft concise owner-style Korean business mail using only provided or approved facts.
-9. Check that final send handoff includes the owner signature block and company security notice block exactly once. If the exact footer source is unavailable, keep the result draft-only and mark footer confirmation needed.
-10. Keep external sending blocked unless the current owner request explicitly approves recipients, subject, body, attachments or no attachments, send surface, and footer state.
-11. Close with the workflow boundary review before claiming the run state.
+8. Draft concise owner-style Korean business mail using only provided or approved facts. For structured modes, select `owner_outlook_readability_v1` automatically; the user does not need to restate its font, spacing, request-first, numbering, bullet, table, or empty-section rules.
+9. Emit the preset as a render/application handoff only. This launcher never creates or mutates an Outlook draft; that requires an explicit owner-approved separate executor.
+10. Check that final send handoff includes the owner signature block and company security notice block exactly once. If the exact footer source is unavailable, keep the result draft-only and mark footer confirmation needed.
+11. Keep external sending blocked unless the current owner request explicitly approves recipients, subject, body, attachments or no attachments, send surface, and footer state.
+12. Close with the workflow boundary review before claiming the run state.
 
 ## Boundary Rules
 

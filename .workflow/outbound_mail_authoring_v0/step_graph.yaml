@@ -121,6 +121,7 @@ steps:
         - mail_render_plan
       reference_templates:
         - templates/technical_action_brief.example.md
+        - templates/outlook_readability_preset_v1.yaml
       artifact_out: owner_style_body_draft
       style_rules:
         - Korean_business_mail
@@ -144,9 +145,15 @@ steps:
         - preserve_uncertainties_in_assumptions
         - render_assumptions_only_from_synchronized_v1_assumptions
         - for_technical_action_brief_use_one_conditions_table_then_numbered_steps_then_requested_evidence
+        - apply_owner_outlook_readability_v1_by_default_to_structured_modes
+        - place_request_and_reply_deadline_first_as_an_independent_section_when_present
+        - use_contiguous_numbered_headings_and_renumber_after_omitting_empty_sections
+        - use_Malgun_Gothic_10pt_for_body_bullets_and_tables
+        - use_Malgun_Gothic_11pt_bold_12pt_before_6pt_after_and_bottom_rule_for_section_headings
         - omit_redundant_processing_order_when_prerequisite_and_completion_fields_already_encode_dependency
         - ensure_visible_body_is_recoverable_by_later_ai_without_private_metadata
         - never_copy_synthetic_example_values_as_mail_facts
+        - emit_readability_render_plan_only_and_do_not_mutate_Outlook
       missing_fact_policy: add_assumptions_and_keep_draft_only
     summary: Draft the body in the owner's concise business style using only provided or approved facts.
     next:

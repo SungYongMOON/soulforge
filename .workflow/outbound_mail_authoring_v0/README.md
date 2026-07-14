@@ -39,6 +39,16 @@ action mail, not a mandatory shell for every message. Validate the selector
 with `scripts/select_mail_render_mode.mjs --fixture
 templates/mail_render_policy.validation_fixture.yaml`.
 
+Structured modes select the public-safe `owner_outlook_readability_v1` preset
+from `templates/outlook_readability_preset_v1.yaml` without requiring the user
+to repeat typography, priority, numbering, bullet, table, or empty-section
+rules. The workflow emits a render/application handoff only. A separate
+explicitly owner-approved executor is required to create or update an Outlook
+draft, and send authority remains separate.
+Validate the public synthetic contract with
+`scripts/validate_outlook_readability_preset.mjs --fixture
+templates/outlook_readability_preset_v1.validation_fixture.yaml`.
+
 Technical implementation or test requests stay inside `action_brief`; they do
 not create another render mode. When approved constants or control conditions,
 ordered execution steps, and requested result evidence are all present, use the

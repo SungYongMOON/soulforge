@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-07-15
+
+### Revision `working` — outbound mail Outlook 가독성 프리셋
+
+- `outbound_mail_authoring_v0`의 구조화 mode에 public-safe
+  `owner_outlook_readability_v1` 프리셋을 추가했다. 요청·회신기한 선두 구역,
+  연속 번호 표제, 맑은 고딕 본문/표제 규격, bullet·표 일관성, 빈 구역 생략을
+  짧은 launcher 호출만으로 선택한다.
+- authoring은 render plan과 handoff만 만들고 Outlook 초안 적용은 명시 승인된 별도
+  executor로 분리했다. authoring의 Outlook mutation·발송 권한과 exact footer 저장
+  권한은 추가하지 않았다.
+- 요청, 기한, 번호 구역, bullet, 표, 빈 후속 구역 생략을 함께 검사하는 공개 합성
+  fixture를 추가했다. (worker: codex_gpt-5)
+
 ### 할일 엔진 맥락 기반 선행구조 교차검증 packet
 
 - 맥미니에서 정의한 project payload/metadata, source-local 시간 이력,

@@ -74,7 +74,8 @@ rules:
       - copy_ready_body_when_footer_is_confirmed
       - attachment_checklist
       - context_coverage
-    requirement: The handoff preserves the reviewed multi-assignee work, notes, schedule, formats/examples, attachments, and response requirements; it does not click Send or mutate Outlook state without owner instruction in the current request.
+      - readability_render_plan
+    requirement: The handoff preserves the reviewed multi-assignee work, notes, schedule, formats/examples, attachments, response requirements, and owner_outlook_readability_v1 render plan. The authoring workflow never mutates Outlook; draft application requires a separate executor and explicit owner approval in the current request. That executor still must not click Send without separate send approval.
   - rule_id: to_soulforge_send_mail
     to_surface: guild_hall/gateway/mail_send/
     provide:

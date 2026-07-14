@@ -226,6 +226,24 @@ AI가 사용하는 `outbound_team_mail_context_v1` 메타데이터는 항상 완
 `.workflow/outbound_mail_authoring_v0/templates/mail_render_policy.template.yaml`,
 결정적 검사는 `scripts/select_mail_render_mode.mjs`가 소유한다.
 
+### Outlook 가독성 프리셋
+
+구조화 mode에는 별도 재지시가 없어도 `owner_outlook_readability_v1`을 기본 적용한다.
+정본은 `.workflow/outbound_mail_authoring_v0/templates/outlook_readability_preset_v1.yaml`이다.
+
+- 본문, bullet, 표는 맑은 고딕 10 pt와 본문 간격을 일관되게 쓴다.
+- 구역 표제는 맑은 고딕 11 pt bold, 앞 12 pt/뒤 6 pt, 하단 선을 쓴다.
+- 요청이나 회신기한이 있으면 `1. 요청사항` 독립 구역을 가장 먼저 두고 그 안에 요청 내용과 기한을 함께 표시한다.
+- 이후 채워진 구역을 `2.`부터 연속 번호로 표시하고, 빈 구역을 생략한 뒤 전체 번호를 다시 맞춘다. 요청사항 구역이 없으면 첫 가시 구역이 `1.`부터 시작한다.
+- 병렬 항목은 bullet, 반복 필드나 관련 값 3개 이상은 표를 사용한다.
+- 빈 첨부·비고·후속 조치 구역과 `해당 없음` placeholder는 만들지 않는다.
+
+이 프리셋은 authoring 결과에 포함되는 render plan이다. authoring workflow나 얇은
+launcher는 Outlook 항목을 생성·수정하거나 메일을 발송하지 않는다. Outlook 초안에
+실제 적용하려면 현재 요청에서 owner가 승인한 별도 executor handoff가 필요하며,
+발송 승인은 다시 별도 경계로 유지한다. 정확한 서명·footer payload는 계속
+Outlook/local private runtime에만 둔다.
+
 ## 기본 본문 예시
 
 ### 짧은 자료 송부

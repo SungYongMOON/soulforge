@@ -1,6 +1,11 @@
 schema_version: outbound_mail_render_policy_v0
 default_mode: auto
 principle: fixed_metadata_flexible_body
+structured_mode_readability_preset:
+  preset_id: owner_outlook_readability_v1
+  reference: outlook_readability_preset_v1.yaml
+  selection: default_without_user_restatement
+  applies_to: [action_brief, decision_brief, status_change, reply_map]
 modes:
   compact:
     use_when: single_purpose_low_complexity
@@ -96,3 +101,4 @@ global_rules:
   - Treat visual headings as a human view, not as the machine-readable source of truth.
   - Recommend synchronous discussion for conflict, negotiation, or unresolved ambiguity; email records the resulting decision, owner, and deadline.
   - Use the technical action-brief layout only inside action_brief; it is not a sixth render mode.
+  - Apply owner_outlook_readability_v1 to structured modes and emit a render plan; do not mutate Outlook.

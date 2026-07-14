@@ -17,6 +17,14 @@ render_plan:
   omit_empty_sections: true
   metadata_source_of_truth: outbound_team_mail_context_v1
   channel_recommendation: "email | synchronous_discussion_then_email_record"
+readability_render_plan:
+  preset_id: owner_outlook_readability_v1
+  preset_ref: templates/outlook_readability_preset_v1.yaml
+  selected_by_default: true
+  priority_section_first: true
+  numbered_headings_contiguous: true
+  omitted_empty_sections: []
+  application_authority: render_plan_only
 context_coverage:
   recipient_roles: []
   requested_work_by_assignee: []
@@ -54,5 +62,13 @@ send_surface_handoff:
   surface: "draft_only | outlook_manual | soulforge_send_mail"
   allowed: false
   reason: "<why_allowed_or_blocked>"
+outlook_draft_application_handoff:
+  requested: false
+  allowed: false
+  executor: separate_owner_approved_outlook_draft_executor
+  authoring_workflow_mutates_outlook: false
+  authoring_workflow_sends_mail: false
+  signature_footer_payload_ref: runtime_private_only
+  reason: "<explicit_owner_approval_or_blocking_reason>"
 metadata_record_plan_ref: "<metadata_record_plan_ref_or_null>"
 boundary_review_note_ref: "<boundary_review_note_ref>"
