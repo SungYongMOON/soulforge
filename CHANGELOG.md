@@ -7,10 +7,13 @@
 - 음성, structured PC work/외부 SE 일정, 파일, 실행·로그 레인의 public 계약과
   합성 검증면을 다시 대조해 H00 ratification 전 adapter 금지선을 명시했다.
 - H03은 structured PC work(H03A)와 external schedule owner 계약(H03B)의 내부
-  선행순서로 분리하고, task-chat 원문/completion summary를 coverage로 쓰지 않도록
+  선행순서로 분리하고, task-chat 원문과 task-chat completion-hook/full-message summary를 coverage로 쓰지 않도록
   고정했다. H04 bounded projection의 `partial` 의미도 complete ledger와 분리했다.
 - H05는 승인된 exact schema와 명시 ref만 받도록 제한하고 `runs/**` 재귀 탐색,
-  raw/stage log 수용, daily-ledger의 H03/H05 중복 산입을 금지했다. H06은 H00과
+  raw/stage log 수용을 금지했다. D26에는 다섯 lane의 typed native occurrence 후보와
+  아직 결정되지 않은 owner/subtype을 분리했다. daily ledger/context life tree는 source truth가 아닌
+  파생 projection이므로 H00 project-history occurrence/event/coverage count로 중복 산입하지 않으며,
+  current five-field ID는 full-record identity/boundary 검증 전 allowlist에서 제외했다. H06은 H00과
   H01~H05 acceptance, D24~D26 결정 전 readiness-only 상태를 유지한다.
   (worker: codex_gpt-5)
 
