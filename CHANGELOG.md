@@ -2,6 +2,18 @@
 
 ## 2026-07-15
 
+### 할일 엔진 C00Q exact packet readiness 보정
+
+- C00Q의 public/synthetic tool 경계는 정해졌지만 입력 descriptor·literal CLI flags·lane source
+  adapter/authority 계약이 없어 아직 exact implementation packet이 될 수 없음을 확인하고
+  `C00Q-HOLD-01..06`으로 고정했다. C00Q exit `0`은 review-ready manifest일 뿐 P0 PASS/P1 unlock이 아니며,
+  C00B separate judge만 phase receipt를 판정한다.
+- 기존 team preflight의 `DatabaseSync(readOnly)+PRAGMA query_only`와 synthetic hash/size/mtime 불변
+  검증은 재사용 패턴으로, WAL·DDL·migration·backfill을 수행하는 `openStore`는 금지 경로로 명시했다.
+  새 schema owner는 app README와 root CHANGELOG로 닫고, 기본 packet은 package/lock dependency를
+  늘리지 않는다. 구현·C00A/C00Q/C00B 실행·private/live 조회·DB/업무 데이터 변경은 수행하지 않았다.
+  (worker: codex_gpt-5)
+
 ### 할일 엔진 C00 query-only 선행 의존성 보정
 
 - C00/P0가 요구하는 다섯 lane의 physical owner/default root, writer/caller, consumer, coverage 증거를

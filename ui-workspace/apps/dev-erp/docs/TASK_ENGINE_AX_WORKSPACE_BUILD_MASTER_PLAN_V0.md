@@ -1450,7 +1450,7 @@ allowlist에서 제외한다.
 | --- | --- | --- |
 | `C00` parent | `routing_only_non_executable` | `C00A→C00Q→C00B` 외 action 상속 금지; P0 acceptance는 C00B PASS 하나뿐 |
 | `C00A` | exact owner-gated public preflight candidate | owner가 승인하면 §18.1 literal public command와 stdout receipt만 실행 가능. 현재 CV-02 live proof가 남으므로 예상 결과는 `BLOCKED`, P1 unlock `false` |
-| `C00Q` | `non_executable_phase_card` | C00A blocker receipt 뒤 exact child packet과 별도 owner 승인이 있어야 inventory CLI/schema/test를 public/synthetic로만 BUILD. live/private query·report write `0` |
+| `C00Q` | `non_executable_phase_card` | C00A blocker receipt 뒤에도 §18.2 `C00Q-HOLD-01..06`을 닫은 exact child packet과 별도 owner 승인이 있어야 inventory CLI/schema/test를 public/synthetic로만 BUILD. live/private query·report write `0` |
 | `C00B` | `non_executable_hold` | accepted C00Q tool receipt + exact lane별 authority/source/profile/output/expiry를 다시 승인해야 query-only live metadata를 읽음. 기존 doctor/workspace inventory는 C00-LIVE-01..04 대체 불가 |
 | `H00` | exact pinned `canon_candidate`의 ratification-only gate | C00B PASS 뒤 현재 contract/helper/test를 그대로 ratify/hold. 파일 편집은 새 exact packet 필요 |
 | `H01..H06` | `non_executable_phase_card` | literal existing/BUILD paths, symbols, exact validator commands, dependency/decision refs를 가진 full YAML child packet |
@@ -3417,15 +3417,36 @@ CURRENT에는 아래 세 파일이 없고, C09A/P9가 처음 만들도록 두면
 | `ui-workspace/apps/dev-erp/tools/task_engine_inventory.mjs` | `BUILD`; default fail-closed query-only evidence producer, live source binding 없음 |
 | `ui-workspace/apps/dev-erp/test/task_engine_inventory.test.mjs` | `BUILD`; synthetic DB/path/authority/coverage fixtures만 사용 |
 | `ui-workspace/apps/dev-erp/docs/contracts/task_engine_inventory_manifest.v1.schema.json` | `BUILD`; five-lane C00-LIVE-01..04와 zero-mutation field 계약 |
+| `ui-workspace/apps/dev-erp/README.md` | `MODIFY`; command·guard·schema owner와 C00Q/C00B authority ceiling 기록 |
+| `CHANGELOG.md` | `MODIFY`; public tool/contract 변경과 live 실행 `0` 기록 |
 
-C00Q exact child packet은 위 세 path와 필요한 literal app `package.json`/README/`CHANGELOG.md`만
-allowlist로 지정하고, live/private path·DB/API/runtime·report output은 금지한다. C00Q validator는
-synthetic readOnly + `PRAGMA query_only=ON`, deterministic digest, missing authority/source BLOCKED,
-raw/title/body/path sentinel `0`, mutation `0`을 검증한다. C00B는 accepted frozen tool/schema ref와
-lane별 exact authority/source/profile/output/expiry를 별도 owner approval로 받아야 하며, tool을 수정하거나
-doctor/device/workspace-system 결과로 live proof를 대체하지 않는다.
+현재 `docs/contracts/`와 app-local `docs/README.md`는 없고 app-local CHANGELOG도 없다. 새 schema
+directory의 책임은 가장 가까운 owner surface인 app `README.md`와 root `CHANGELOG.md`에서 닫는다.
+기본 child packet은 위 다섯 path만 allowlist로 삼고 `package.json`/lockfile은 바꾸지 않는다. 별도
+script 등록이나 Ajv dependency를 택하려면 exact package/lock path와 dependency owner를 새 packet에
+추가 승인해야 하며, parent/root 설치에 암묵적으로 기대지 않는다.
 
-Future C00Q child packet의 canonical root-cwd validator 후보는
+#### 18.2.1 C00Q readiness verdict — `HOLD / non_executable`
+
+| HOLD ID | 아직 없는 exact 계약 | 안전 기본값 / 닫는 증거 |
+| --- | --- | --- |
+| `C00Q-HOLD-01` | accepted C00A blocker receipt와 별도 C00Q approval-time SHA/ref/expiry | receipt·승인 없이는 BUILD `0`; plan publish로 대체 금지 |
+| `C00Q-HOLD-02` | synthetic/live 공통 입력 descriptor schema와 literal CLI flags | `--db`, `--source`, `--authority` 등을 구현자가 발명하지 않음; input-only locator와 output-safe opaque ref/digest를 구분한 owner-ratified contract |
+| `C00Q-HOLD-03` | lane별 source adapter allowlist, authority 검증, expected source set과 completeness 판정법 | unknown adapter/authority/source는 exit `3 BLOCKED`; 선언값만으로 C00-LIVE-01..04를 resolved 처리 금지 |
+| `C00Q-HOLD-04` | canonicalization·array ordering·digest domain과 exact exit-code 표 | recursively key-sort, 의미 없는 배열만 field별 sort, `manifest_digest` 제외 여부, bare hex/`sha256:` 표기를 ratify; exit `0=review_ready`, `3=BLOCKED`, invalid/guard/raw code를 충돌 없이 고정 |
+| `C00Q-HOLD-05` | manifest runtime validator, schema compiler dependency와 command registration owner | proposed default는 production tool의 built-in exact validator + focused test의 root-owned Ajv2020 schema compile + direct Node commands; root dependency는 read-only. app-isolated Ajv/script를 택하면 app package와 `ui-workspace/package-lock.json` allowlist를 별도 승인 |
+| `C00Q-HOLD-06` | tool output의 authority effect와 C00B judge 경계 | C00Q exit `0`은 `review_ready_manifest`일 뿐 P0 PASS가 아니며 output에 `p1_unlocked`/approval grant를 두지 않음; C00B separate judge만 P0 receipt를 판정 |
+
+공개 재사용 근거는 `tools/team_preflight.mjs`의 `DatabaseSync(...,{readOnly:true})` 뒤 즉시
+`PRAGMA query_only=ON`을 거는 이중 guard와 `test/team_preflight_read_only.test.mjs`의 synthetic write
+reject·before/after SHA-256/size/mtime equality다. 반대로 `src/store.mjs#openStore`는 WAL·DDL·migration·
+backfill을 수행하므로 C00Q가 호출하거나 import하지 않는다. C00Q synthetic validator는 이 패턴에 더해
+`PRAGMA query_only` readback `1`, `total_changes()=0`, finally-close, deterministic digest,
+missing authority/source `BLOCKED`, raw/title/body/path/secret sentinel `0`을 검증해야 한다. C00B는
+accepted frozen tool/schema ref와 lane별 exact authority/source/profile/output/expiry를 별도 owner
+approval로 받아야 하며, tool을 수정하거나 doctor/device/workspace-system 결과로 live proof를 대체하지 않는다.
+
+HOLD를 모두 닫은 future C00Q child packet의 canonical root-cwd validator 후보는
 `node --check ui-workspace/apps/dev-erp/tools/task_engine_inventory.mjs`와
 `node --test ui-workspace/apps/dev-erp/test/task_engine_inventory.test.mjs`다. C00B의 canonical root-cwd
 command 후보는 `node ui-workspace/apps/dev-erp/tools/task_engine_inventory.mjs --query-only --json`이지만,
@@ -3524,7 +3545,7 @@ repo가 작업 시작 전부터 unrelated dirty/ahead 상태라 review/5-field p
 | CV-01 tracked workspace check | `PASS`; `git ls-files -- '_workspaces/**'`는 boundary README 1개만 반환 |
 | plan structural invariant check | latest working delta `PASS`; D01~D26 26개, AC-01~22 22개, CV-01~09 9개, D26-FX-01~20 20개, code fence 100개 |
 | C00A embedded packet static validation | latest working delta `PASS`; PowerShell parse, packet ID 2곳, expected exit `3`, parent/C00A approval/C00A receipt/H00 YAML parse |
-| fresh `fork_turns="none"` inspector/judge | C00 dependency correction latest verdict `ACCEPT`; P0↔P9 cycle 제거, C00Q/C00B 비실행·별도 승인, C09A frozen consumer, doctor/workspace 대체 금지, H00=C00B PASS 뒤 확인 |
+| fresh `fork_turns="none"` inspector/judge | C00 dependency correction verdict `ACCEPT`; P0↔P9 cycle 제거, C00Q/C00B 비실행·별도 승인, C09A frozen consumer, doctor/workspace 대체 금지, H00=C00B PASS 뒤 확인. C00Q readiness 후속 검토도 `ACCEPT`; `C00Q-HOLD-01..06`, 5-path ceiling, `openStore` 금지, C00Q output의 P0/P1 authority `0` 확인 |
 | root `npm.cmd run done:check` | `HISTORICAL_REPORTED`: 원본 correction에서 계획과 무관한 기존 `device_capability_probe.test.mjs` 고정 10초 child timeout으로 nonzero; 같은 CLI는 약 11.3초 뒤 exit `0`. 계획 파일 관련 failure는 없음 |
 | post-development review profile | Level 2 `inspector_and_judge`; 권장 보수적 모델/effort profile은 현재 API에서 선택 불가해 overclaim하지 않음 |
 
