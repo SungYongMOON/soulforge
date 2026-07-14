@@ -2,6 +2,18 @@
 
 ## 2026-07-15
 
+### 할일 엔진 H01 메일 이력 phase 경계 보정
+
+- 현재 JS/Python/Outlook 세 project-mail writer와 ERP CSV consumer의 caller/write 경계를 public source로
+  다시 고정하고, H01을 project-independent occurrence·append-only classification용 `H01A` pure shadow와
+  D25 policy-bound `H01B` coverage acceptance로 분리했다. Exact BUILD path/symbol/command와 D26 mail owner가
+  아직 없으므로 H01 readiness는 `HOLD / REVISE`다.
+- H01은 `MAIL-03` identity/supersession subset, shadow `MAIL-12`, D25 뒤 `MAIL-11` contract/synthetic
+  fixture만 소유하며 실제 Mac/source coverage는 별도 authority 전 `UNKNOWN/VERIFY_HP`다. Lock·epoch,
+  DB current/event/outbox, CSV/ICS/XLSX parity, HPP sole writer, Mac fallback과 failover/failback은 P8/P9/P10으로
+  돌리고 `H01-HOLD-01..06`, literal read-only legacy evidence와 future candidate path를 추가했다. 구현,
+  private/live 조회, DB·업무 데이터·writer·운영 활성화는 수행하지 않았다. (worker: codex_gpt-5)
+
 ### 할일 엔진 H00 ratification packet exactness 보정
 
 - H00의 세 public candidate blob 의미와 20/20 helper/test coverage는 유지하면서, future owner
