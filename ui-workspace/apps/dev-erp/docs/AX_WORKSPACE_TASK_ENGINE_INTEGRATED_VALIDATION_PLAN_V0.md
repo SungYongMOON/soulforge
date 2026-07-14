@@ -13,8 +13,183 @@
 3. 맥미니 계획의 TaskDriver 재설계는 최초 설계를 버리는 새 방향이 아니라, 비대해진 할일 엔진을 **얇은 현재 상태 + 명시적 인과·승인·사건 기록**으로 복구·확장하는 방향이다.
 4. 할일 ID는 source나 Driver hash로 대체하지 않는다. 기존 `project_code`와 `core_item.id`는 owner ID로 유지하고, source revision·TaskIntent·TaskDriver는 별도 immutable ID와 typed ref로 연결한다.
 5. 같은 과제의 생명수는 **장기 B9 지도**와 **ENGINE-12 일일 렌즈** 두 projection이다. 둘 다 task/source truth가 아니며, PDR/CDR은 가지가 아니라 2~5년 시간 기둥 위의 관문이다.
-6. 고성능 PC branch에는 exact ID, project-local RAG, TaskDriver, 두 상태축, replay, opt-in SQLite adapter의 합성 구현이 있다. 그러나 최신 `main`과 아직 합쳐지지 않았고 live TaskDriver DB·생명수 adapter·멀티 PC 운영은 검증되지 않았다.
-7. 이 문서는 AX Workspace를 ERP 대체물이 아니라 **사람과 각자의 Codex가 같은 근거로 일하는 proposed target**으로 둔다. ERP의 공식 상태·통제된 쓰기와 Soulforge의 계약·관계·오케스트레이션 경계를 유지하는 설계 가설이며, owner 승인 전 canon 명칭이나 확정 구조가 아니다.
+6. 저장 구조는 새로 설계하지 않는다. 원안에서 잠근 대로 **project payload는 `_workspaces/<project_code>`**, project metadata는 `_workmeta/<project_code>`, cross-project common payload는 `_workspaces/knowledge`, common metadata는 `_workmeta/system`이 소유한다.
+7. 고성능 PC branch에는 exact ID, project-local RAG, TaskDriver, 두 상태축, replay, opt-in SQLite adapter의 합성 구현이 있다. 그러나 최신 `main`과 아직 합쳐지지 않았고 live TaskDriver DB·생명수 adapter·멀티 PC 운영은 검증되지 않았다.
+8. 이 문서는 AX Workspace를 ERP 대체물이 아니라 **사람과 각자의 Codex가 같은 근거로 일하는 proposed target**으로 둔다. ERP의 공식 상태·통제된 쓰기와 Soulforge의 계약·관계·오케스트레이션 경계를 유지하는 설계 가설이며, owner 승인 전 canon 명칭이나 확정 구조가 아니다.
+
+### 0.1 한 문장으로 무엇을 만들려는가
+
+> 메일·음성·일정·파일에서 일이 생기면, 근거를 잃지 않은 할일 후보로 만들고, 사람 또는
+> 사전 승인된 매우 제한적인 deterministic policy가 허용한 일만 ERP에 등록하며, 사람이나
+> 각자의 Codex가 수행한 결과를 검증해 같은 과제의 이력·지식·다음 할일 후보로 되돌리는
+> **팀 업무 운영 시스템**을 만들려는 것이다.
+
+새 ERP 하나를 더 만들려는 것이 아니다. 기존 ERP를 공식 할일 장부로 유지하고, Soulforge가
+파일·지식·관계·실행 계약을 연결하며, 각자의 Codex가 그 위에서 일하는 작업 자리를 만드는 것이다.
+
+### 0.2 쉬운 비유: 책상·서랍·장부·이유표·지도
+
+| 쉬운 비유 | 실제 이름 | 하는 일 | 하지 않는 일 |
+| --- | --- | --- | --- |
+| 내 작업 책상 | AX Workspace candidate / personal Codex seat | 내 과제·근거·할일·도구·검증을 한 자리에서 사용 | 공식 할일 truth를 따로 만들지 않음 |
+| 원천 기록처 | 메일·음성·일정·파일 source-local owner | 원천 current record와 append-only event/revision을 먼저 보존 | workspace·통합 view가 원천을 대체하지 않음 |
+| 과제 파일 서랍 | `_workspaces/<project_code>` | owner가 승인해 materialize한 원문·첨부·추출본문·RAG·Wiki·산출물 body 보관 | 모든 source를 강제 복사하거나 metadata 장부가 되지 않음 |
+| 과제 색인 카드 | `_workmeta/<project_code>` | ID·revision·pointer·hash·relation·receipt 보관 | 원문·본문·chunk 보관 금지 |
+| 회사 공용 서고 | `_workspaces/knowledge` + `_workmeta/system` | 특정 과제가 아닌 공용 자료와 그 metadata 보관 | project 자료를 섞지 않음 |
+| 시스템 안내 색인 | `_workspaces/system/rag` | metadata-only RAG manifest·navigation output 보관 | project/common source-text body 보관 금지 |
+| 공식 할일 장부 | dev-ERP `core_item` + task events | 승인된 할일과 현재 상태·사건 근거 소유 | RAG·Wiki·생명수 view가 대신하지 않음 |
+| 할일 이유표 | TaskIntent + TaskDriver | 왜 이 일인지, 왜 지금인지, 어느 근거·권한인지 기록 | 모든 파일·지식을 복제하지 않음 |
+| 실행 영수증 | WorkSession / AgentRun candidate | 누가 어떤 도구로 무엇을 했고 무엇을 검증했는지 기록 | TaskDriver나 task truth를 대신하지 않음 |
+| 과제 생명 지도 | B9 장기 지도 + ENGINE-12 일일 렌즈 | 관문·가지·사건·결과를 시간축으로 보여 줌 | 원장에 직접 쓰지 않는 read-only projection |
+
+### 0.3 전체 시스템을 한눈에 보기
+
+아래 화살표는 업무가 진행되는 순서다. 원문을 다른 저장면으로 복사한다는 뜻은 아니다.
+
+```mermaid
+flowchart LR
+  SRC["🟦 CURRENT: source-local owner<br/>메일·음성·SE 일정·파일<br/>current + append ledger"]
+  BODY["🟧 VERIFY_HP: 승인된 파일 몸체<br/>project/common materialization<br/>_workspaces"]
+  META["🟧 VERIFY_HP: 색인·이력<br/>ID·revision·relation<br/>_workmeta"]
+  KNOW["🟨 OBSERVED: 찾는 지식층<br/>RAG·Wiki·ontology<br/>exact revision"]
+  DRIVER["🟨 OBSERVED branch / 🟥 GATE live<br/>TaskDriver writer<br/>후보·근거·권한"]
+  APPROVE["🟥 GATE: 승인 관문<br/>사람 또는 bounded policy"]
+  ERP["🟦 CURRENT: 공식 할일 장부<br/>core_item + task events"]
+  WORK["🟦 CURRENT 수행 / 🟪 TARGET AgentRun<br/>사람·Codex·workflow"]
+  CHECK["🟨 OBSERVED partial / 🟪 TARGET exact<br/>산출물·결정·verification<br/>expected ↔ actual"]
+  ROUTE["🟪 TARGET: feedback handoff/router<br/>exact refs를 분배할 뿐<br/>어느 원장도 쓰지 않음"]
+  KCAND["🟪 TARGET: knowledge candidate owner<br/>후보·교정 review queue"]
+  VIEW["⬜ PROJECTION: 읽기 지도<br/>사건축·B9·일일 생명수<br/>graph·dashboard·alert"]
+
+  SRC -->|owner-approved body만| BODY
+  SRC -->|bounded event·revision ref| META
+  BODY --> KNOW
+  META --> KNOW
+  META --> DRIVER
+  KNOW --> DRIVER
+  DRIVER --> APPROVE --> ERP --> WORK --> CHECK --> ROUTE
+  ROUTE -->|지식 후보 handoff| KCAND
+  KCAND -->|reviewed candidate metadata| META
+  ROUTE -. "후속 인과 ref handoff" .-> DRIVER
+  KNOW --> VIEW
+  META --> VIEW
+  ERP --> VIEW
+  ROUTE -. "exact result refs" .-> VIEW
+
+  classDef current fill:#d7ebff,stroke:#2468a2,color:#222
+  classDef observed fill:#fff3bf,stroke:#8a6d00,color:#222
+  classDef verify fill:#ffe0b2,stroke:#a85b00,color:#222
+  classDef target fill:#eadcff,stroke:#67459a,color:#222
+  classDef gate fill:#ffd9dd,stroke:#a23b49,color:#222
+  classDef view fill:#eeeeee,stroke:#666,color:#222
+  class SRC,ERP,WORK current
+  class KNOW,DRIVER,CHECK observed
+  class BODY,META verify
+  class ROUTE,KCAND target
+  class APPROVE gate
+  class VIEW view
+```
+
+### 0.4 실제 한 건의 일이 처리되는 순서
+
+예를 들어 시험 일정 변경 메일이 들어온 경우다.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant S as 메일·음성·일정·파일 owner
+  participant M as 승인된 workspace + metadata
+  participant K as RAG·Wiki·ontology
+  participant D as TaskDriver 후보
+  actor O as 사람 책임자 / 승인된 policy
+  participant E as ERP task writer
+  participant W as 사람·Codex·workflow
+  participant R as feedback handoff/router (writer 아님)
+  participant Q as knowledge candidate owner
+  participant V as read-only 생명수 view
+
+  S->>S: 원천 current record와 append-only event/revision 보존
+  S->>M: 승인된 body materialization + bounded event/revision ref
+  M->>M: source_revision_id·content_id·시간·project 관계 기록
+  M->>K: exact revision 기준 검색·설명 projection 준비
+  K-->>D: 필요한 page/chunk·rule·knowledge revision ref
+  M-->>D: 왜 지금인지 설명하는 exact event ref
+  D-->>O: 할일 후보·영향·근거·중단조건 제시
+  O-->>D: 승인 또는 기각 결정
+  alt 승인
+    D->>E: 승인된 Driver + authority ref
+    E->>E: 같은 Driver 재시도는 같은 task 또는 no-op
+    E->>W: core_item.id와 완료 기준 전달
+    W-->>E: 진행·대기·완료 task 사건
+    W-->>R: 산출물·결정·검증 receipt exact ref
+    E-->>R: completion task event exact ref
+    R-->>Q: 지식 후보·교정 handoff
+    Q->>Q: 별도 candidate ledger와 review queue 기록
+    R-->>D: 후속 인과 ref handoff
+    D->>D: 별도 TaskDriver writer가 후보 기록
+    V->>E: task event·result read-only 조회
+    V->>Q: reviewed candidate ref read-only 조회
+    V-->>O: 사건축·생명수·gap을 읽기 전용 표시
+  else 기각
+    D->>D: 기각 이유와 authority state 보존
+  end
+```
+
+이 흐름에서 AI가 임의로 공식 일을 만들어 버리는 것이 목표가 아니다. 먼저 정확한 근거와
+중단조건이 붙은 후보를 만들고, 사람 또는 사전 승인된 bounded deterministic policy가 허용한
+한 경로만 ERP를 쓰게 하는 것이 핵심이다. feedback router는 exact ref를 각 owner에게 넘길 뿐
+어떤 원장도 쓰지 않는다. TaskDriver writer, task transition writer, knowledge candidate owner,
+life-tree projection builder는 서로 권한을 빌리지 않으며, 생명수 view는 결과를 보여 줄 뿐 후보를
+생성하지 않는다.
+
+### 0.5 개발할 항목 전체 지도
+
+아래 표는 원안 01~10, ENGINE-12/13, 현재 구현과 AX·Engineering IQ 확장 후보를 한 번에
+빠짐없이 읽기 위한 개발 목록이다. `CURRENT`는 완료라는 뜻이 아니라 현재 일부 코드·계약이
+있다는 뜻이며, `GATE`는 승인 전 구현·활성화를 멈춘다는 뜻이다.
+
+범위를 섞지 않는다. M의 AX/WorkSession, N의 AgentRun, V의 Engineering IQ는 **원안 누락 복원
+항목이 아니라 이 대화에서 요청된 후속 확장축**이다. 나머지 행도 CURRENT·TARGET·GATE 표기를
+따라 구현 완료와 계획을 구분한다.
+
+| 묶음 | 개발 항목 | 실제로 만드는 것 | 완료 판단 | 현재 위치 |
+| --- | --- | --- | --- | --- |
+| A. 저장 기반 | project/common 파일·metadata owner | `_workspaces/<project>`, `_workmeta/<project>`, `_workspaces/knowledge`, `_workmeta/system`, metadata-only `_workspaces/system/rag`의 분리와 binding | foreign-project 혼합 0, `_workmeta`와 system RAG의 body 0 | 🟩 원안 `LOCKED`; 실물은 🟧 `VERIFY_HP` |
+| B. 입력 수집 | 메일·음성·SE 일정·ERP·파일·사람/Codex 지시 adapter | source-local event와 mail/item/event/Codex instruction/artifact/file activity/upload·gap lane을 보존하는 인입 | source/lane별 누락·중복·부분 관측 표시 | 🟨 일부 `CURRENT` |
+| C. 파일 이력 | logical file·immutable revision·node observation | 여러 PC의 같은 파일을 덮어쓰지 않는 revision/관측 packet | hash·revision·observer crosswalk, sole reconciler | 🟨 일부 `CURRENT`; live 수집 🟥 `GATE` |
+| D. ID·시간 | typed ref·owner ID·projection ID·`valid_at/known_at` | project/task/source/file/Driver를 분리하고 장기 이력을 월별 append ledger·revision/checkpoint로 나눔 | bare/fuzzy join 0, replay clock·물리 분할 보존 | 🟦 계약 + 🟨 HP branch |
+| E. 프로젝트 맥락 | gate·skeleton/work/history branch·event | 한 과제의 2~5년 맥락 graph와 exact anchor | orphan/multi-parent conflict 표시 | 🟦 B9/STEM 일부 `CURRENT` |
+| F. 생명수 | B9 장기 지도와 ENGINE-12 일일 렌즈 | 관문→가지→사건→할일→결과와 mail/item/event/Codex instruction/artifact/file activity/upload·gap lane을 읽기 전용으로 표시 | 조회 전후 owner row 불변, lane coverage·gap과 replay parity | 🟦/🟨 부분 `CURRENT` |
+| G. 지식 추출 | source ledger·binding·HWPX 전처리·derived text·manifest | project/common 자료를 섞지 않고 HWP는 HWPX로 먼저 정규화한 뒤 본문을 추출·등록 | ledger↔manifest↔revision exact match, direct HWP parse 0 | 🟦 저장 계약; 실제 coverage 🟧 |
+| H. RAG·Wiki | project/common 검색·설명 projection | exact page/chunk를 찾고 sourcebound 설명을 제공 | 최신 revision 혼입 0, 출처 없는 답변 차단 | 🟨 migration 중 |
+| I. ontology·지식 승격 | relation candidate·rule·reviewed knowledge | 요구·기능·위험·결정·검증 관계와 재사용 지식 후보 | candidate/confirmed 분리, owner/review evidence | 🟪 `TARGET` |
+| J. TaskIntent·TaskDriver | why·why-now·authority·idempotency | 근거가 붙은 할일/전이 후보와 승인 상태 원장 | same canonical intent/Driver payload + same idempotency key는 same ID/no-op; 같은 source의 다른 intent는 별도 ID | 🟨 HP branch; live 🟥 |
+| K. ERP 적용 | 단일 task ID allocator·authoritative writer | 승인된 Driver를 task mutation+event로 원자 적용 | writer 1, duplicate retry no-op, event parity | 🟥 `GATE` |
+| L. 작업 상태 | decision/application 축과 work-status 축 | 후보 승인 상태와 실제 업무 진행 상태를 분리 | 상태 손실 없는 mapping·replay | 🟨 HP branch |
+| M. 후속 확장: 개인 Codex 작업면 | WorkSession·project scope·선택 첨부 | 팀원마다 자기 Codex로 계획·실행·검증하는 자리 | 다른 project 접근 0, 직접 task write 0 | 🟦 MCP pilot + 🟪 AX candidate |
+| N. 후속 확장: 실행 계약·관제 | `.mission`·`.workflow`·`.party`와 AgentRun·capability·lease·budget·receipt | held plan, 재사용 orchestration, 실제 실행 시도와 도구/모델/검증 기록을 분리 | mission/workflow/party/AgentRun이 TaskDriver와 ID·authority를 공유하지 않음 | 🟦 canon 존재 + 🟪 AgentRun candidate |
+| O. 완료·검증 | artifact revision·decision·verification·outcome | 무엇이 끝났고 예상과 실제가 어땠는지 exact ref로 기록 | reopen이 과거 완료를 삭제하지 않음 | 🟨 분산 `CURRENT`; owner ID `UNKNOWN` |
+| P. 피드백 | knowledge candidate·follow-up Driver·correction | 완료 결과를 지식/다음 일 후보로 돌려보냄 | 조용한 auto-open 0, 기각·교정 보존 | 🟪 `TARGET` |
+| Q. PC 운영 | work/tool/portable/always-on 역할·packet | PC별 책임, source collector, reconciler, task writer 분리 | hostname 추정 0, logical primary와 failover 증거 | 🟧 `VERIFY_HP`/🟥 `GATE` |
+| R. 알림·복구 | alert·watchdog·checkpoint·tail replay | gap·stale·writer 충돌·migration 실패를 알리고 복구 | cooldown·recovery sequence·receipt 검증 | 🟪 기본 설계; 운영 🟥 |
+| S. migration | legacy RAG·schema·consumer crosswalk | read-only inventory→dry-run→copy/rebuild pilot→rollback | collision/unresolved 0, original 보존 | 🟨 RAG pilot; task 통합 전 |
+| T. UI·읽기 view | ERP·지식·graph·생명수·운영 화면 | 같은 원장을 역할별로 쉽게 보여 주는 화면 | view가 source/task owner를 쓰지 않음 | 🟦 일부 `CURRENT`; AX는 🟪 |
+| U. 보안·검증 | ACL·public/private·secret·deterministic test | raw 유출, path escape, 권한 확대, 회귀를 막는 gate | V-01~V-16·전체 regression·독립 review | 🟦 계약/검증 존재; HP 재실행 |
+| V. 후속 확장: Engineering IQ | 요구→기능→인터페이스→위험→결정→검증→교정 trace | 조직의 판단 근거와 결과를 재사용 가능한 관계로 연결 | exact source·authority·outcome·correction loop | 🟪 후속 후보 |
+| W. 원안 future ML readiness | project routing·task actionability·retrieval ranking·due/block risk·branch link·이상 탐지의 labeled outcome | owner가 별도로 채택할 때 모델 학습·랭킹 실험을 준비 | 후보/사람 확정 label 분리, `known_at` train/test 분리, raw·개인평가·미확정 actor 기본 학습 금지 | ⬜ 먼 향후 후보; 기본 전제 아님 |
+
+### 0.6 구조 도식 찾아보기
+
+| 궁금한 것 | 먼저 볼 절 | 그 절에서 보는 구조 |
+| --- | --- | --- |
+| ERP·AX Workspace·Soulforge가 어떻게 나뉘나 | §3 | 시스템 경계와 쓰기 관문 |
+| ID가 어떻게 이어지나 | §5.3~§5.6 | owner ID·projection ID·TaskDriver ref |
+| 한 과제의 긴 역사는 어떻게 보이나 | §6.4~§6.7 | 기둥·관문·가지·잎·열매와 일일 렌즈 |
+| 실제 파일과 지식은 어디에 저장하나 | §7.1~§7.7 | LOCKED 표·전체 physical folder tree·지식→할일 연결 |
+| 각 PC와 Codex는 무슨 역할인가 | §8 | seat·worker·reconciler·task writer 운영도 |
+| 고성능 PC에서 무엇을 확인하나 | §10 | ID·storage·tree·writer·rollback 검증표 |
+| 어떤 순서로 개발하나 | §11 | G0~G8 단계와 승인 관문 |
+| 내가 무엇을 결정해야 하나 | §12 | owner 결정 7가지 |
 
 ## 1. 불변 비교 기준선
 
@@ -27,6 +202,7 @@
 | root lifecycle | [`PROJECT_TASK_ENGINE_LIFECYCLE_V0.md`](../../../../docs/architecture/workspace/PROJECT_TASK_ENGINE_LIFECYCLE_V0.md) | 상위 task lifecycle authority |
 | 시간·ID ontology | [`TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`](../../../../docs/architecture/foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md) | typed ref, source revision, 시간·관계 authority |
 | project context tree | [`PROJECT_CONTEXT_GRAPH_MODEL_V0.md`](../../../../docs/architecture/workspace/PROJECT_CONTEXT_GRAPH_MODEL_V0.md) | trunk·branch·leaf·fruit 의미 기준 |
+| 저장 owner 원안 | [`02_OWNER_BOUNDARIES_AND_STORAGE.md`](task_engine_redesign/02_OWNER_BOUNDARIES_AND_STORAGE.md), [`PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md`](../../../../docs/architecture/workspace/PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md) | LOCKED project/common, payload/metadata 저장 경계와 physical owner map |
 | 장기 과제 생명수 | [`B9-STEM-RIVER-VIEW.md`](slices/B9-STEM-RIVER-VIEW.md), [`STEM-V2-ONTOLOGY.md`](slices/STEM-V2-ONTOLOGY.md), [`06_EXECUTION_FEEDBACK_AND_LIFE_TREE.md`](task_engine_redesign/06_EXECUTION_FEEDBACK_AND_LIFE_TREE.md) | 2~5년 시간 기둥·관문·세 종류 가지 기준 |
 | 일일 과제 생명수 | [`ENGINE-12`](slices/ENGINE-12-CONTEXT-LIFE-TREE.md) | 날짜별 read-only 사건 projection 기준 |
 | 맥미니 할일 엔진 계획 | commit `6eb2409d5a543bf06b2f544bfa72c3ba5bf28e49`; [`task_engine_redesign/README.md`](task_engine_redesign/README.md)와 `01`~`10` | 불변 계획 oracle |
@@ -97,7 +273,7 @@ git diff --name-status 6eb2409d5a543bf06b2f544bfa72c3ba5bf28e49..origin/codex/ta
 
 ```mermaid
 flowchart LR
-  P["🟩 사람·팀<br/>판단과 최종 책임"]
+  P["🟩 PRESERVED: 사람·팀<br/>판단과 최종 책임"]
   AX["🟪 TARGET candidate: AX Workspace<br/>각자 Codex + WorkSession<br/>근거·할일·도구·검증을 한 자리에서 사용"]
   ERP["🟦 CURRENT: dev-ERP<br/>project·core_item·gate·권한<br/>공식 현재 상태와 통제된 쓰기"]
   SF["🟦 CURRENT→TARGET: Soulforge<br/>canon·ontology·workflow·party<br/>workspace·evidence·PC 경계"]
@@ -219,19 +395,21 @@ projection/  life tree · calendar · graph · dashboard
 
 ```mermaid
 flowchart LR
-  SRC["🟦 exact source/event/revision refs"] --> D["🟪 TaskDriver<br/>why · why-now<br/>target_intent_ref<br/>authority/policy ref<br/>valid_at · known_at<br/>digest · idempotency"]
-  REL["🟦 exact relation/decision refs"] --> D
-  D --> REC["🟪 ApplicationReceipt"]
-  REC --> TASK["🟦 core_item current row"]
-  REC --> EVT["🟪 append-only TaskEvent"]
+  SRC["🟨 OBSERVED partial: exact source/event/revision refs"] --> D["🟨 OBSERVED branch / 🟥 GATE live<br/>TaskDriver writer<br/>why · why-now<br/>target_intent_ref<br/>authority/policy ref<br/>valid_at · known_at<br/>digest · idempotency"]
+  REL["🟨 OBSERVED partial: exact relation/decision refs"] --> D
+  D --> REC["🟪 TARGET / 🟥 GATE live: ApplicationReceipt"]
+  REC --> TASK["🟦 CURRENT: core_item current row"]
+  REC --> EVT["🟨 OBSERVED partial / 🟪 TARGET: append-only TaskEvent"]
 
-  RAW["🟥 넣지 않음<br/>메일 본문·음성 transcript·RAG chunk<br/>전체 project context·실행 log"] -. pointer only .-> SRC
+  RAW["🟥 GATE: 넣지 않음<br/>메일 본문·음성 transcript·RAG chunk<br/>전체 project context·실행 log"] -. pointer only .-> SRC
 
   classDef current fill:#d7ebff,stroke:#2468a2,color:#222
+  classDef observed fill:#fff3bf,stroke:#8a6d00,color:#222
   classDef target fill:#eadcff,stroke:#67459a,color:#222
   classDef gate fill:#ffd9dd,stroke:#a23b49,color:#222
-  class SRC,REL,TASK current
-  class D,REC,EVT target
+  class TASK current
+  class SRC,REL,D,EVT observed
+  class REC target
   class RAW gate
 ```
 
@@ -405,17 +583,17 @@ authority는 아직 구현 밖의 gap**이다.
 
 ```mermaid
 flowchart LR
-  IN["🟦/🟧 입력<br/>메일·음성·SE 일정·지시·파일 관측"]
-  REV["🟪 source occurrence/revision<br/>stable ID · valid_at · known_at"]
-  KW["🟪 지식층<br/>Ontology · project/common RAG · Wiki"]
-  INT["🟪 TaskIntent 후보"]
-  DRV["🟪 TaskDriver 인과·권한"]
+  IN["🟦 CURRENT / 🟧 VERIFY_HP coverage<br/>메일·음성·SE 일정·지시·파일 관측"]
+  REV["🟨 OBSERVED branch / 🟪 TARGET<br/>source occurrence/revision<br/>stable ID · valid_at · known_at"]
+  KW["🟨 OBSERVED partial / 🟪 TARGET<br/>Ontology · project/common RAG · Wiki"]
+  INT["🟨 OBSERVED branch / 🟥 GATE live<br/>TaskIntent 후보"]
+  DRV["🟨 OBSERVED branch / 🟥 GATE live<br/>TaskDriver 인과·권한"]
   APP["🟥 GATE<br/>사람 승인 또는 bounded policy"]
-  TASK["🟦 ERP task current + append event"]
+  TASK["🟦 CURRENT: ERP task current + append event"]
   RUN["🟪 TARGET candidate: AgentRun/사람 실행"]
-  OUT["🟪 artifact revision + verification receipt"]
-  FB["🟪 actual outcome + review + correction candidate"]
-  VIEW["⬜ 시간축·life tree·graph·dashboard"]
+  OUT["🟨 OBSERVED partial / 🟪 TARGET exact<br/>artifact revision + verification receipt"]
+  FB["🟪 TARGET: actual outcome + review + correction candidate"]
+  VIEW["⬜ PROJECTION: 시간축·life tree·graph·dashboard"]
 
   IN --> REV
   REV --> KW
@@ -433,12 +611,14 @@ flowchart LR
   OUT --> VIEW
 
   classDef current fill:#d7ebff,stroke:#2468a2,color:#222
+  classDef observed fill:#fff3bf,stroke:#8a6d00,color:#222
   classDef target fill:#eadcff,stroke:#67459a,color:#222
   classDef verify fill:#ffe0b2,stroke:#a85b00,color:#222
   classDef gate fill:#ffd9dd,stroke:#a23b49,color:#222
   classDef view fill:#eeeeee,stroke:#666,color:#222
   class IN current
-  class REV,KW,INT,DRV,RUN,OUT,FB target
+  class REV,KW,INT,DRV,OUT observed
+  class RUN,FB target
   class APP gate
   class TASK current
   class VIEW view
@@ -614,11 +794,50 @@ CURRENT ENGINE-12는 여러 clock, date-only, 날짜 미상, skew, gap을 보존
 
 ## 7. 파일·저장소 구조
 
+이 절은 새 폴더 제안이 아니다. 최초 할일 엔진 계획의
+[`02_OWNER_BOUNDARIES_AND_STORAGE.md`](task_engine_redesign/02_OWNER_BOUNDARIES_AND_STORAGE.md)에
+이미 `LOCKED`된 저장 경계와 그 문서가 참조한 project knowledge storage contract를 빠짐없이
+펼쳐 보인 것이다. 실제 폴더 생성·이동·junction 변경은 이 문서 범위가 아니다.
+
+### 7.1 원안 누락 감사
+
+| 원안의 잠긴 항목 | 이전 이 문서 §7 상태 | 이번 반영 | 판정 |
+| --- | --- | --- | --- |
+| project extraction의 `derived_text`·manifest·Wiki | 상위 `reference_payloads/rag`만 표시 | exact project 하위 경로 복원 | 🟩 `PRESERVED` |
+| project RAG의 index·trace·answer·review·work card | RAG root만 표시 | 다섯 asset owner 복원 | 🟩 `PRESERVED` |
+| project source ledger·binding·revision event·ontology event·receipt | `_workmeta`를 일반 설명으로만 표시 | metadata-only 하위 owner 복원 | 🟩 `PRESERVED` |
+| cross-project common source·Wiki·RAG payload | 표시 없음 | `_workspaces/knowledge/**` owner 복원 | 🟩 `PRESERVED` |
+| common ledger·receipt·access metadata | system run만 표시 | `_workmeta/system/**` owner 복원 | 🟩 `PRESERVED` |
+| `_workspaces/system/rag` | 표시 없음 | metadata-only manifest/navigation output로 복원 | 🟩 `PRESERVED` |
+| legacy project RAG migration | 검증표에만 축약 | 모든 asset·consumer·rollback 경계 복원 | 🟩 `PRESERVED` |
+| TaskDriver physical store | 구현 파일만 표시 | **아직 열린 결정이며 임의 경로 생성 금지**를 복원 | 🟧 `VERIFY_HP` |
+
+### 7.2 원안의 LOCKED 저장 표
+
+| 대상 | 잠긴 target owner |
+| --- | --- |
+| project 원본·첨부·추출본문 | `_workspaces/<project_code>/**` |
+| project extraction | `_workspaces/<project_code>/reference_payloads/knowledge_extract/**` |
+| **project RAG payload 전체** | `_workspaces/<project_code>/reference_payloads/rag/**` |
+| project Wiki/private canon payload | `_workspaces/<project_code>/reference_payloads/knowledge_extract/**/wiki/**` |
+| project metadata·ontology·receipt | `_workmeta/<project_code>/**` |
+| cross-project common source·Wiki·source-text RAG payload | `_workspaces/knowledge/**` |
+| system metadata-only RAG manifest·navigation output | `_workspaces/system/rag/**` |
+| common metadata·ledger·receipt·access history | `_workmeta/system/**` |
+
+`_workspaces/knowledge/rag/**`에 project code prefix를 붙였다는 이유만으로 project owner가
+되는 것은 아니다. 그 경로는 TARGET에서 common-only이고, 그 안의 현행 project asset은
+`CURRENT legacy migration input`이다.
+
+### 7.3 전체 physical owner map
+
 ```text
 🟦 public Git: Soulforge/
 ├─ AGENTS.md                                  # 현재 최상위 agent 지침
 ├─ docs/architecture/foundation/              # ID·ontology·roadmap·실행 계약
 ├─ docs/architecture/workspace/               # workspace·task lifecycle authority
+├─ .registry/knowledge/<knowledge_id>/
+│  └─ knowledge.yaml                          # review된 public-safe reusable canon만
 ├─ .registry/ · .unit/                        # species/class와 active subject canon
 ├─ .workflow/ · .party/ · .mission/           # 실행 계약·재사용 orchestration·held plan
 ├─ guild_hall/                                # cross-project public contract·runner·RAG 도구
@@ -631,18 +850,44 @@ CURRENT ENGINE-12는 여러 clock, date-only, 날짜 미상, skew, gap을 보존
    │     └─ AX_WORKSPACE...V0.md               # 이 별도 비교·검증 계획
    └─ dev-erp-mcp/                            # 개인 Codex WorkSession pilot
 
-🟨 local/private payload: _workspaces/<project_code>/
-├─ 실제 원문·첨부·transcript·파생 본문
-├─ 프로젝트 산출물과 immutable revision body
-└─ reference_payloads/rag/                    # project-local RAG target
+🟨 local/private payload: _workspaces/
+├─ <project_code>/                            # 한 과제의 실제 파일·지식 payload
+│  ├─ <owner-approved source folders>/        # 실제 이름은 VERIFY_HP
+│  └─ reference_payloads/
+│     ├─ knowledge_extract/<batch_id>/
+│     │  ├─ derived_text/
+│     │  ├─ extract_manifest.json
+│     │  └─ wiki/                             # project Wiki/private-canon body
+│     └─ rag/
+│        ├─ indexes_local/source_text_indexes/
+│        ├─ traceability_sidecars/
+│        ├─ answer_runs/
+│        ├─ source_text_quality_reviews/
+│        └─ source_text_work_cards/
+├─ knowledge/                                 # 특정 과제가 아닌 cross-project common
+│  ├─ common/company/<source_set_id>/derived_text/
+│  └─ rag/                                    # common-only RAG target
+└─ system/rag/                                # metadata-only manifest/navigation output
 
-🟦 private metadata: _workmeta/<project_code>/
-├─ metadata-only contract·source/file revision metadata
-├─ pointer·digest·count·relation·owner decision·receipt
-└─ redacted validation log·review·worklog·procedure evidence  # raw/source body 금지
+🟦 companion private metadata: _workmeta/
+├─ <project_code>/
+│  ├─ bindings/<set_id>_source_roots.yaml
+│  ├─ reports/source_research/<set_id>_metadata_source_ledger.yaml
+│  ├─ knowledge/source_revision_records/
+│  ├─ knowledge/source_revision_events/<YYYY-MM>.jsonl
+│  ├─ ontology/knowledge_bindings/events/<YYYY-MM>.jsonl
+│  ├─ knowledge_ingest_receipts/events/<YYYY-MM>.jsonl
+│  ├─ runs/<run_id>/                          # 판단·검증 metadata
+│  └─ reports/<source-owner ledgers>/         # exact CURRENT path는 VERIFY_HP
+└─ system/
+   ├─ reports/source_research/<set_id>_metadata_source_ledger.yaml
+   ├─ knowledge_ingest_receipts/events/<YYYY-MM>.jsonl
+   ├─ reports/knowledge_access/**
+   └─ runs/<run_id>/                          # Git/schema/writer/review evidence
 
-🟦 system evidence: _workmeta/system/runs/<run_id>/
-└─ Git baseline·schema/writer inventory·validator exit·review pointer
+🟥 dev-ERP runtime DB
+├─ core_item                                  # task current state
+└─ event_log · completion evidence            # task 사건 근거
 
 🟥 local-only cross-project runtime: guild_hall/state/**
 └─ active ingress·operations·local binding; public Git 금지
@@ -651,17 +896,74 @@ CURRENT ENGINE-12는 여러 clock, date-only, 날짜 미상, skew, gap을 보존
 └─ 승인된 continuity subset만 mirror·sync; active runtime truth로 임의 사용 금지
 ```
 
-### 7.1 저장 규칙
+### 7.4 지식과 할일의 exact 연결
+
+폴더 경로만 TaskDriver 근거로 쓰지 않는다. 원안의 저장 owner와 §5의 ID 계약은 다음처럼
+revision ref로 연결된다.
+
+```text
+project payload bodies
+  _workspaces/<project_code>/**
+    ├─ source original / derived_text
+    ├─ RAG index / chunk / trace / answer / review / work card
+    └─ Wiki body
+         │ exact ID·revision·locator·pointer·receipt만
+         ▼
+project metadata
+  _workmeta/<project_code>/**                 # body/chunk 금지
+    └─ source_revision / Wiki·knowledge revision refs
+         │ justified_by / uses
+         ▼
+       TaskDriver → core_item.id → task event/result
+
+common source body
+  _workspaces/knowledge/**
+        └─ common metadata: _workmeta/system/**
+             └─ review 통과 시에만 .registry/knowledge/** public-safe canon
+```
+
+project private Wiki가 owner-declared canon이어도 body는 project workspace에 남고, TaskDriver는
+bare path가 아니라 exact `wiki_revision_id + content_id + owner_decision_ref`를 가리킨다.
+`.registry/knowledge`는 별도 public-safe reusable canon이며 private project body를 흡수하지 않는다.
+
+### 7.5 legacy migration과 금지선
+
+현행 project RAG 중 `_workspaces/knowledge/rag/**`를 쓰는 것은 TARGET이 아니라 legacy input이다.
+index만 옮기는 것이 아니라 `traceability_sidecars`, `answer_runs`, quality review, work card와 모든
+consumer를 함께 분류한다.
+
+```text
+read-only inventory
+  → project | common | unresolved | conflict 분류
+  → old ref → target ref dry-run + collision + consumer + rollback source
+  → ERP/RAG/Wiki/source-card consumer 합성 crosswalk
+  → owner 승인된 one-project copy/rebuild pilot
+  → hash·lineage·query parity와 rollback
+  → activation 결정 뒤에만 legacy project write 금지
+```
+
+gate 전 writer를 조용히 redirect하지 않는다. gate 뒤 legacy write가 생겨도 자동 복사하지 않고
+fail closed + migration alert로 보낸다. TaskDriver의 최종 table/ledger 위치 역시 열린 migration
+결정이므로, 현재 지도 아래에 새 임의 폴더를 만들지 않는다. one-project pilot에서도 source
+original과 legacy index를 삭제하지 않고 copy/rebuild·readback·rollback 증거가 닫힌 뒤에만
+별도 activation 결정을 한다.
+
+### 7.6 저장 규칙
 
 - public Git: 안정된 계약, 구현 코드, 합성 fixture/test, 식별정보를 제거한 상태 문서만 저장한다.
 - `_workspaces`: 실제 업무 본문과 파일 body를 저장한다.
 - `_workmeta`: metadata-only contract, pointer, digest, count, relation, decision, receipt와 redacted validator/review/worklog evidence를 저장한다. raw/source body는 저장하지 않는다.
+- `_workspaces/<project_code>`와 `_workmeta/<project_code>`는 한 project owner pair이고, common 자료를 섞지 않는다.
+- `_workspaces/knowledge`와 `_workmeta/system`은 특정 project가 아닌 common owner pair다.
+- `_workspaces/system/rag`는 common source body 창고가 아니라 metadata-only system output이다.
+- HWP 원문은 직접 본문 분석하지 않는다. owner-approved worksite에서 먼저 HWPX 파생본으로 저장/export하고, 그 HWPX를 derived-text extraction에 넣는다.
+- `_workmeta`에는 raw question, source body, chunk, answer body를 넣지 않고 query/source fingerprint와 exact pointer·receipt만 둔다.
 - `guild_hall/state`: 이 PC의 local-only cross-project runtime state를 저장한다.
 - `private-state`: 다른 PC로 넘길 승인된 protected continuity subset을 mirror한다.
 - RAG index/chunk도 project payload이면 `_workspaces/<project_code>` owner 아래 둔다.
 - 실제 project code/name, 메일 제목·주소·본문, transcript, 파일명·절대경로, hostname/IP/account, credential은 이 public 문서나 public 검증 로그에 쓰지 않는다.
 
-### 7.2 ID·할일·생명수를 실제로 소유하는 파일
+### 7.7 ID·할일·생명수를 실제로 소유하는 파일
 
 | 파일 | 소유 내용 | 판정 |
 | --- | --- | --- |
@@ -669,6 +971,7 @@ CURRENT ENGINE-12는 여러 clock, date-only, 날짜 미상, skew, gap을 보존
 | `tools/haengbogwan_project_context.mjs` | CURRENT B9 project/source/event/task-candidate/milestone projection ID builder | 🟦 실행 코드; owner entity ID와 구분 |
 | `src/context_life_tree.mjs` | CURRENT 일일 생명수 event ID, exact task/branch binding, read-only projection | 🟦 실행 코드 |
 | `src/file_activity_life_tree_projection.mjs` | reconciler-owned file event projection의 strict reader | 🟦 실행 코드; live 4-PC 수집 보류 |
+| `task_engine_redesign/02_OWNER_BOUNDARIES_AND_STORAGE.md` | project/common, payload/metadata의 LOCKED owner map과 migration gate | 🔒 맥미니 불변 계획 |
 | `docs/slices/B9-STEM-RIVER-VIEW.md` | 장기 과제 기둥·관문·가지·잎·열매의 owner 비전 | 🔒 기존 기준선, 수정 금지 |
 | `docs/slices/STEM-V2-ONTOLOGY.md` | skeleton/work/history 세 가지 줄기와 exact link 등급 | 🔒 기존 기준선, 수정 금지 |
 | `docs/slices/ENGINE-12-CONTEXT-LIFE-TREE.md` | 일일 생명수 시간·lane·API·read-only 계약 | 🔒 기존 기준선, 수정 금지 |
@@ -687,19 +990,19 @@ CURRENT ENGINE-12는 여러 clock, date-only, 날짜 미상, skew, gap을 보존
 
 ```mermaid
 flowchart TB
-  PERSON["🟩 employee identity<br/>책임·승인 범위"]
-  SEAT["🟪 personal Codex seat<br/>account + WorkSession + project scope"]
-  WORK["🟦 work_pc<br/>업무 원문·project body"]
-  PORT["🟦 portable_dev_pc<br/>public-safe 설계·개발"]
+  PERSON["🟩 PRESERVED: employee identity<br/>책임·승인 범위"]
+  SEAT["🟪 TARGET candidate: personal Codex seat<br/>account + WorkSession + project scope"]
+  WORK["🟦 CURRENT role: work_pc<br/>업무 원문·project body"]
+  PORT["🟦 CURRENT role: portable_dev_pc<br/>public-safe 설계·개발"]
   TOOL["🟧 VERIFY_HP: tool_pc<br/>고성능 build·RAG·합성 검증"]
   NODE["🟧 VERIFY_HP: always_on_node<br/>voice/watchdog/gateway"]
   WORKER["🟪 TARGET candidate: dev_worker_pc<br/>승인된 managed AgentRun"]
-  FPKT["🟦 immutable file observation packet"]
+  FPKT["🟧 VERIFY_HP: immutable file observation packet"]
   FREC["🟥 GATE: sole file-activity reconciler<br/>logical file/revision projection만 씀"]
-  FVIEW["⬜ file/revision projection + receipt"]
-  CAND["🟪 TaskIntent·Driver 후보<br/>AgentRun receipt"]
+  FVIEW["⬜ PROJECTION: file/revision view + receipt"]
+  CAND["🟨 OBSERVED branch / 🟥 GATE live<br/>TaskIntent·Driver 후보·AgentRun receipt"]
   TWR["🟥 GATE: ERP task authoritative writer<br/>승인된 TaskDriver만 적용"]
-  ERP["🟦 dev-ERP task truth"]
+  ERP["🟦 CURRENT: dev-ERP task truth"]
 
   PERSON --> SEAT
   SEAT --> WORK
@@ -718,15 +1021,17 @@ flowchart TB
   TWR --> ERP
 
   classDef current fill:#d7ebff,stroke:#2468a2,color:#222
+  classDef observed fill:#fff3bf,stroke:#8a6d00,color:#222
   classDef target fill:#eadcff,stroke:#67459a,color:#222
   classDef verify fill:#ffe0b2,stroke:#a85b00,color:#222
   classDef gate fill:#ffd9dd,stroke:#a23b49,color:#222
   classDef kept fill:#dff4df,stroke:#397a3b,color:#222
   classDef view fill:#eeeeee,stroke:#666,color:#222
   class PERSON kept
-  class WORK,PORT,ERP,FPKT current
-  class SEAT,WORKER,CAND target
-  class TOOL,NODE verify
+  class WORK,PORT,ERP current
+  class CAND observed
+  class SEAT,WORKER target
+  class TOOL,NODE,FPKT verify
   class FREC,TWR gate
   class FVIEW view
 ```
@@ -745,6 +1050,102 @@ flowchart TB
 | ERP task authoritative writer/TaskDriver applier | 승인된 Driver를 atomic task mutation+event로 적용 | file reconciler 권한을 빌리거나 둘 이상의 task writer 허용 |
 
 한 물리 고성능 PC가 `tool_pc`와 `always_on_node`를 겸할 수는 있지만 clone, identity, writer authority를 논리적으로 분리하고 실제 primary는 VERIFY_HP에서 증명해야 한다. file-activity reconciler가 같은 PC에 있어도 ERP task write 권한이 자동으로 생기지 않는다.
+
+### 8.2 PC packet과 두 writer의 운영 구조
+
+각 PC는 공용 mutable 원장을 함께 쓰지 않고 자기 immutable partition에 observation packet을
+쓴다. transport는 packet을 옮길 뿐 authority가 아니다.
+
+```mermaid
+flowchart LR
+  W["🟦 CURRENT: work_pc<br/>업무 관측"]
+  T["🟧 VERIFY_HP: tool_pc<br/>고성능 관측·build"]
+  P["🟦 CURRENT role: portable_dev_pc<br/>간헐 positive 관측"]
+  A["🟧 VERIFY_HP: always_on_node<br/>ingress·watchdog"]
+  PKT["🟧 VERIFY_HP: node별 immutable packet<br/>sequence·prior·digest<br/>time·coverage"]
+  TRANS["🟪 TARGET candidate: authenticated transport<br/>권한 아님"]
+  VERIFY["🟥 GATE: chain·duplicate·conflict 검사<br/>same ID/different digest 격리"]
+  FREC["🟥 GATE: sole file reconciler<br/>logical file·revision view만 write"]
+  FVIEW["⬜ PROJECTION: file view·receipt"]
+  CAND["🟨 OBSERVED branch / 🟥 GATE live<br/>TaskDriver 후보·exact file/event ref"]
+  TWR["🟥 GATE: ERP task writer<br/>승인된 Driver만 atomic apply"]
+  ERP["🟦 CURRENT: core_item + task events"]
+
+  W --> PKT
+  T --> PKT
+  P --> PKT
+  A --> PKT
+  PKT --> TRANS --> VERIFY --> FREC --> FVIEW
+  FVIEW -. "근거 ref만" .-> CAND --> TWR --> ERP
+
+  classDef current fill:#d7ebff,stroke:#2468a2,color:#222
+  classDef observed fill:#fff3bf,stroke:#8a6d00,color:#222
+  classDef target fill:#eadcff,stroke:#67459a,color:#222
+  classDef verify fill:#ffe0b2,stroke:#a85b00,color:#222
+  classDef gate fill:#ffd9dd,stroke:#a23b49,color:#222
+  classDef view fill:#eeeeee,stroke:#666,color:#222
+  class W,P,ERP current
+  class CAND observed
+  class TRANS target
+  class T,A,PKT verify
+  class VERIFY,FREC,TWR gate
+  class FVIEW view
+```
+
+- same packet ID + same digest는 `no-op`, same ID + different digest는 `quarantine`이다.
+- file reconciler는 file projection만 쓰며 `core_item`, TaskDriver, mail/source truth를 쓰지 않는다.
+- ERP task writer는 승인된 Driver를 적용하며 file reconciler 권한을 빌리지 않는다.
+- 한 PC가 두 role을 겸해도 clone/worktree, node ID, outbox/lock, process owner를 분리한다.
+
+### 8.3 watchdog과 alert의 DEFAULT 운영 개념
+
+아래 값은 원안의 `DEFAULT` 후보이며 운영 승인 전 확정값이 아니다. ping 성공은 네트워크 도달만
+뜻하고 ERP/service 정상으로 간주하지 않는다. Telegram 실패도 runtime state를 바꾸지 않는다.
+
+```mermaid
+flowchart LR
+  H["DEFAULT candidate: healthy"]
+  PROBE["DEFAULT candidate: reachability probe<br/>+ service probe 분리"]
+  DEB["DEFAULT candidate: 연속 상태 확인<br/>2회 실패 + 10분 debounce"]
+  BAD["DEFAULT candidate: degraded / offline<br/>transition alert 후보"]
+  REC["DEFAULT candidate: recovering<br/>projection freshness 확인"]
+  OK["DEFAULT candidate: healthy<br/>recovery alert 1회"]
+
+  H --> PROBE
+  PROBE -->|실패 후보| DEB
+  DEB -->|조건 충족| BAD
+  DEB -->|일시 오류| H
+  BAD -->|service 복귀| REC -->|검증 통과| OK
+  OK --> H
+
+  classDef defaultState fill:#f5f5f5,stroke:#666,color:#222
+  class H,PROBE,DEB,BAD,REC,OK defaultState
+```
+
+이 alert 도식의 회색은 §2의 상태 판정색이 아니다. 모든 노드는 원안의 **미승인 DEFAULT
+candidate**이며, live 운영은 전체가 🟥 `GATE`다.
+
+| alert 규칙 | 원안 DEFAULT 후보 |
+| --- | --- |
+| unhealthy debounce | 2회 연속 실패 + 10분 |
+| severity escalation | cooldown과 무관하게 즉시 |
+| 평일 동일 원인 reminder | 6시간에 최대 1회 |
+| 주말 또는 12시간 초과 outage | Asia/Seoul 기준 하루 1회 10:00 요약 |
+| recovery | outage 시작·지속·복구시각과 generic cause code로 즉시 1회 |
+| heartbeat | 보내지 않음 |
+| dedupe | node role + service + outage episode + transition + state + severity + cause |
+
+### 8.4 장애 복구 시퀀스
+
+1. 새 packet 적용을 멈추되 immutable inbox는 지우지 않는다.
+2. 마지막 reviewed checkpoint와 packet sequence/digest를 확인한다.
+3. competing primary 또는 clock/chain conflict를 격리한다.
+4. dry-run replay로 canonical state와 projection digest를 비교한다.
+5. owner가 exact primary/binding을 재확인한 뒤 writer 하나만 재개한다.
+6. `recovering`을 기록하고 projection freshness를 확인한다.
+7. 정상 전환 뒤 recovery alert를 한 번 보내고 이전 cooldown key를 닫는다.
+
+오래된 PC가 다시 연결돼도 최신 head나 삭제를 자동 확정하지 않고 positive observation만 낸다.
 
 ## 9. 고성능 PC 구현 snapshot 평가
 
@@ -831,6 +1232,13 @@ branch `927b3fb045ebf749077951417463c47f12a549bd`, merge-base
 | HP-08 | event 없이 바뀐 task가 있는가 | mutation/event parity | done/reopen/re-done와 writer별 aggregate | 🟧 `VERIFY_HP` |
 | HP-09 | LLM/규칙 auto-open이 실제 켜졌나 | candidate-only 또는 exact bounded policy | env는 값 노출 없이 on/off, authority ref·expiry·revocation | 🟥 `GATE` |
 | HP-10 | 메일·음성·SE 일정·파일 occurrence가 exact revision을 갖나 | source별 stable typed ref | coverage·누락·중복 count | 🟧 `VERIFY_HP` |
+| HP-STORAGE-01 | LOCKED project/common owner map이 실제 materialization과 일치하나 | project payload는 project workspace, common payload만 knowledge workspace | source/body/index/Wiki asset-kind별 owner-root count와 foreign-project count | 🟧 `VERIFY_HP` |
+| HP-STORAGE-02 | `_workmeta/<project>`와 `_workmeta/system`이 metadata-only이고 서로의 owner를 침범하지 않나 | raw question·source body·chunk·answer body·원문 파일·project/common metadata 오배치 0 | 확장자·schema·payload sentinel·owner-route 검사와 pointer/hash/receipt count | 🟥 acceptance |
+| HP-STORAGE-03 | project extraction·RAG·Wiki의 모든 하위 asset과 consumer가 target owner를 읽나 | index뿐 아니라 trace·answer·review·work card까지 orphan 0 | asset/consumer crosswalk와 unresolved/conflict count | 🟧 `VERIFY_HP` |
+| HP-STORAGE-04 | TaskDriver physical store를 원안 밖 임의 폴더나 두 번째 task truth로 만들었나 | 임의 경로 0, 선택한 table/ledger owner와 replay/write authority 하나 | schema/path/writer inventory와 migration rationale | 🟥 `GATE` |
+| HP-STORAGE-05 | `_workspaces/system/rag/**`가 metadata-only system output인가 | project/common source-text·chunk·answer body 0 | asset-kind·content-type count와 project/source ref payload sentinel | 🟥 acceptance |
+| HP-STORAGE-06 | HWP가 HWPX 전처리 없이 직접 본문 입력으로 들어가나 | direct HWP parse 0, HWPX derivative·status·pointer 존재 | normalization receipt와 `needs_hwpx_normalization`/derived-text crosswalk | 🟧 `VERIFY_HP` |
+| HP-STORAGE-07 | one-project migration이 source original이나 legacy index를 삭제하나 | 삭제 0, old reader·legacy ref와 rollback source 보존 | before/after inventory·hash pointer·rollback dry-run | 🟥 `GATE` |
 | HP-ID-01 | 새 task ID를 누가 발급하고 apply 재시도에 무엇을 재사용하나 | ERP authoritative writer 한 곳, same Driver/key면 same task 또는 no-op | candidate→task reservation caller와 duplicate apply trace | 🟥 `GATE` |
 | HP-ID-02 | 기존 project/task/source ID를 hash ID로 rekey하는 경로가 있나 | 0건; verified alias와 typed ref만 추가 | migration dry-run과 changed-primary-ID count | 🟧 `VERIFY_HP` |
 | HP-ID-03 | source/RAG 6종 ID가 같은 basis에서 항상 같나 | golden fixture 일치, full basis·canonical JSON·64hex digest 보존 | branch test 재실행과 collision fixture | 🟧 `VERIFY_HP` |
@@ -862,14 +1270,14 @@ branch `927b3fb045ebf749077951417463c47f12a549bd`, merge-base
 
 ```mermaid
 flowchart LR
-  G0["G0 🟩 기준선 동결<br/>기존 계획 무변경"] --> G1["G1 🟧 최신 main 위<br/>isolated branch 통합 계획"]
-  G1 --> G2["G2 🟪 synthetic 검증<br/>ID·RAG·Driver·replay"]
-  G2 --> G3["G3 🟧 read-only 현장 inventory<br/>schema·writer·PC·RAG"]
-  G3 --> G4["G4 🟥 owner 의미 결정<br/>status·policy·task writer"]
-  G4 --> G5["G5 🟥 1~3 task pilot<br/>backup·apply·replay·restore"]
-  G5 --> G6["G6 🟪 AX Workspace candidate pilot<br/>개인 Codex·WorkSession·AgentRun 후보"]
-  G6 --> G7["G7 🟪 Engineering IQ candidate loop<br/>SE trace·outcome·correction"]
-  G7 --> G8["G8 🟥 팀 운영 활성화<br/>별도 승인"]
+  G0["G0 🟩 PRESERVED: 기준선 동결<br/>기존 계획 무변경"] --> G1["G1 🟧 VERIFY_HP: 최신 main 위<br/>isolated branch 통합 계획"]
+  G1 --> G2["G2 🟪 TARGET 검증: synthetic<br/>ID·RAG·Driver·replay"]
+  G2 --> G3["G3 🟧 VERIFY_HP: read-only 현장 inventory<br/>schema·writer·PC·RAG"]
+  G3 --> G4["G4 🟥 GATE: owner 의미 결정<br/>status·policy·task writer"]
+  G4 --> G5["G5 🟥 GATE: 1~3 task pilot<br/>backup·apply·replay·restore"]
+  G5 --> G6["G6 🟪 TARGET candidate: AX Workspace pilot<br/>개인 Codex·WorkSession·AgentRun 후보"]
+  G6 --> G7["G7 🟪 TARGET candidate: Engineering IQ loop<br/>SE trace·outcome·correction"]
+  G7 --> G8["G8 🟥 GATE: 팀 운영 활성화<br/>별도 승인"]
 
   classDef kept fill:#dff4df,stroke:#397a3b,color:#222
   classDef target fill:#eadcff,stroke:#67459a,color:#222
@@ -896,6 +1304,7 @@ flowchart LR
 
 ### G2 — public synthetic 재검증
 
+- 원안 V-01~V-16 전체를 기준으로 schema, authority, idempotency, replay, storage, packet, alert clock, zero-mutation, rollback을 검증한다.
 - 기존 ID 보존, typed ref, source/RAG 6종 golden ID, full-basis collision, task ID reservation/retry를 검증한다.
 - Driver state·authority·idempotency·stale revision과 reanchor→reopen→re-done의 task/B9/daily replay parity를 검증한다.
 - path traversal/project isolation과 모든 projection의 read-only invariant를 검증한다.
@@ -905,6 +1314,8 @@ flowchart LR
 
 - 실제 DB는 read-only/query-only로 열고 table/column/index/count만 본다.
 - 모든 task ID allocator/writer, auto-open caller, event namespace, source revision coverage, RAG consumer, PC role을 inventory한다.
+- LOCKED owner map대로 project/common payload root와 project/system metadata root가 분리됐는지, `_workmeta`와 `_workspaces/system/rag` raw payload가 0인지 asset-kind별 count로 확인한다.
+- HWP가 HWPX 정규화 없이 직접 추출되지 않는지와 legacy project RAG/source original이 pilot에서 삭제되지 않는지 확인한다.
 - 한 project의 gate·branch·event·task·fruit exact join과 reanchor/reopen 이력 gap을 count로 확인한다.
 
 ### G4 — owner 결정
@@ -951,6 +1362,7 @@ flowchart LR
 
 - 최초 설계의 one truth/view/event/pointer/proposal 원칙
 - 현재 `main`의 core task/event/proposal/MCP/workflow surface
+- 원안의 project/common, payload/metadata LOCKED owner map과 project knowledge extraction 저장 계약
 - B9의 장기 기둥·관문·세 종류 가지와 ENGINE-12 일일 read-only 생명수
 - 현재 `project_code`, `core_item.id`, exact branch ID, daily projection event ID의 코드상 구성
 - 고성능 PC branch의 ID/RAG/TaskDriver source code와 commit topology
@@ -973,6 +1385,7 @@ flowchart LR
 - 실제 high-performance checkout·service·DB와 branch의 일치
 - 실제 task writer 수, auto-open 활성값, source coverage, live status 의미
 - task candidate/task ID 발급 authority, project-qualified gate ID, event namespace crosswalk
+- 실제 PC의 project/common workspace materialization, legacy project RAG 잔존량, `_workmeta` payload 오염 여부
 - HP TaskDriver event와 B9/ENGINE-12 adapter, fruit/verification/outcome의 canonical owner·ID
 - operational-primary, sole file-activity reconciler, ERP task authoritative writer, actual private binding
 - live TaskDriver atomicity/replay/restore와 personal MCP 통합
