@@ -2,6 +2,18 @@
 
 ## 2026-07-15
 
+### 할일 엔진 P1 H02~H06 readiness 재검토 보정
+
+- 음성, structured PC work/외부 SE 일정, 파일, 실행·로그 레인의 public 계약과
+  합성 검증면을 다시 대조해 H00 ratification 전 adapter 금지선을 명시했다.
+- H03은 structured PC work(H03A)와 external schedule owner 계약(H03B)의 내부
+  선행순서로 분리하고, task-chat 원문/completion summary를 coverage로 쓰지 않도록
+  고정했다. H04 bounded projection의 `partial` 의미도 complete ledger와 분리했다.
+- H05는 승인된 exact schema와 명시 ref만 받도록 제한하고 `runs/**` 재귀 탐색,
+  raw/stage log 수용, daily-ledger의 H03/H05 중복 산입을 금지했다. H06은 H00과
+  H01~H05 acceptance, D24~D26 결정 전 readiness-only 상태를 유지한다.
+  (worker: codex_gpt-5)
+
 ### Revision `working` — outbound mail Outlook 가독성 프리셋
 
 - `outbound_mail_authoring_v0`의 구조화 mode에 public-safe
