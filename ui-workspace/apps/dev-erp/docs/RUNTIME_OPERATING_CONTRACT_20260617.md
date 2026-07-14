@@ -41,6 +41,41 @@ Use `--snapshot-freshness` to add the same snapshot readiness check to an
 otherwise non-live audit. Structural snapshot validation remains a separate
 deterministic check and does not depend on the live private runtime.
 
+### Owner-approved core-only release exception
+
+The dedicated-worker gate above remains the default. The non-default
+`--core-only-release` exception is valid only with both explicit owner approval
+and `--require-live`. It keeps Codex execution disabled: worker URL, expected
+identity, runtime identity, public-key path, and expected attestation key must
+all be unconfigured, while live health must report `worker_unattested`,
+`codex_worker_configured=false`, and `codex_worker_ready=false`. Any configured
+worker binding or non-fail-closed live state is a blocker.
+
+Core-only mode does not waive exact source commit, clean source/runtime Git,
+DB/schema/account checks, payload ownership, NAS DB backup and restore test,
+coherent v1 Codex payload backup and matching restore verification, stored
+snapshot readiness, or live health. It only replaces the dedicated-worker
+attestation requirements with the explicit disabled-worker proof.
+
+When `real_meta.json` and the runtime DB have different mail ID sets, preserve
+the source file and reconcile metadata without copying raw mail data:
+
+```powershell
+# dry-run first
+npm run dev-erp:reconcile-mail-set -- --meta <runtime-real-meta> --db <runtime-db> --source-commit <approved-40-char-sha>
+
+# owner-approved apply: byte-exact backup plus hash/count-only receipt
+npm run dev-erp:reconcile-mail-set -- --meta <runtime-real-meta> --db <runtime-db> --source-commit <approved-40-char-sha> --backup-root <runtime-metadata-backup-root> --receipt <runtime-mail-set-receipt> --apply
+
+# the receipt and exact commit are re-verified by the live audit
+npm run dev-erp:audit-runtime -- --source-root <soulforge-root> --runtime-root <runtime-checkout> --workspaces <soulforge-root>\_workspaces --nas-root <nas-root> --mail-set-reconciliation <runtime-mail-set-receipt> --expected-commit <approved-40-char-sha> --target-members 0 --core-only-release --require-live
+```
+
+The sidecar receipt records only counts, SHA-256 values, schema, exact commit,
+and the verified backup pointer. It contains no mail ID, subject, sender, or
+body. The audit recomputes both ID-set hashes, verifies the byte-exact backup,
+and fails closed if the DB, source metadata, backup, receipt, or commit drifts.
+
 ## Runtime Maintenance Runbook
 
 The first-release maintenance procedure is documented in

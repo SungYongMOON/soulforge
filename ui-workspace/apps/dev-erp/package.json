@@ -11,6 +11,7 @@
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
     "audit:runtime": "node tools/runtime_release_audit.mjs",
+    "reconcile:mail-set": "node tools/reconcile_runtime_mail_set.mjs",
     "correct:runtime": "node tools/runtime_corrections.mjs",
     "ops:health": "node tools/runtime_ops.mjs health",
     "ops:backup-db": "node tools/runtime_ops.mjs backup-db",

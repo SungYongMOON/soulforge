@@ -44,6 +44,7 @@ import { buildMorningBrief, briefBodies, hasContent, runMorningBriefCycle } from
 import { buildKnowledgeOverview, readWikiPage } from "../src/knowledge_overview.mjs";
 import { buildContextGraph, listContextProjects } from "../src/context_graph.mjs";
 import { readRouterBinding } from "../src/mail_router_binding.mjs";
+import { createMailSetReconciliation } from "../src/runtime_mail_set_reconciliation.mjs";
 import { applyRuntimeCorrections, planRuntimeCorrections } from "../tools/runtime_corrections.mjs";
 import { backupRuntimeDb, restoreTestRuntimeDb, runtimeHealthCheck } from "../tools/runtime_ops.mjs";
 import { runRuntimeReleaseAudit } from "../tools/runtime_release_audit.mjs";
@@ -933,6 +934,61 @@ test("runtime release audit: read-only DB/meta gate passes a synced pilot DB", a
     assert.equal(result.checks.real_meta.project_id_diff.meta_only, 0);
     assert.equal(result.checks.real_meta.mail_id_diff.db_only, 0);
     assert.equal(result.checks.workspace_projects.count, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("runtime release audit: core-only mode requires an exact metadata-only mail-set reconciliation", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-runtime-audit-mail-reconcile-"));
+  try {
+    const workspaces = join(root, "_workspaces");
+    const data = join(root, "data");
+    const backups = join(root, "logs", "release-meta-backups");
+    mkdirSync(join(workspaces, "P24-049 Project Alpha"), { recursive: true });
+    mkdirSync(data, { recursive: true });
+    mkdirSync(backups, { recursive: true });
+    const metaPath = join(data, "real_meta.json");
+    const dbPath = join(data, "dev-erp.db");
+    const receiptPath = join(data, "real_meta.mail-set-reconciliation.json");
+    const commit = "c".repeat(40);
+    writeFileSync(metaPath, JSON.stringify({
+      projects: [{ id: "P24-049", title: "Project Alpha", health: "ok", class: "active", data_label: "real" }],
+      items: [],
+      mail: [{ id: "mail-1", project_id: "P24-049", subject: "metadata only" }],
+      artifacts: [],
+    }, null, 2));
+
+    const store = openStore(dbPath);
+    store.upsertProject({ id: "P24-049", title: "Project Alpha", health: "ok", class: "active", data_label: "real" });
+    store.ingestMail({ id: "mail-1", project_code: "P24-049", subject: "metadata only", data_label: "real" });
+    store.ingestMail({ id: "mail-2", project_code: "P24-049", subject: "DB authority", data_label: "real" });
+    store.createAccount({ username: "admin", password: "pw123456", roles: ["admin"] });
+    store.db.close();
+
+    const base = {
+      sourceRoot: root,
+      runtimeRoot: root,
+      appRoot: APP_DIR,
+      dbPath,
+      metaPath,
+      mailSetReconciliationPath: receiptPath,
+      workspacesDir: workspaces,
+      nasRoot: false,
+      skipGit: true,
+      skipNas: true,
+      targetMembers: 0,
+      expectedCommit: commit,
+    };
+    const unreconciled = await runRuntimeReleaseAudit(base);
+    assert.ok(unreconciled.blockers.some((issue) => issue.code === "mail_set_drift"));
+
+    createMailSetReconciliation({ metaPath, dbPath, sourceCommit: commit, backupRoot: backups, receiptPath, apply: true });
+    const reconciled = await runRuntimeReleaseAudit({ ...base, coreOnlyRelease: true });
+    assert.equal(reconciled.blockers.some((issue) => issue.code === "mail_set_drift"), false);
+    assert.equal(reconciled.blockers.some((issue) => issue.code === "mail_set_reconciliation_missing_or_invalid"), false);
+    assert.equal(reconciled.checks.real_meta.mail_set_reconciliation.ok, true);
+    assert.ok(reconciled.info.some((issue) => issue.code === "mail_set_drift_reconciled_core_only"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

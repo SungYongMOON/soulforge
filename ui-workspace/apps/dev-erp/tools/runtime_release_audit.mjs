@@ -29,6 +29,7 @@ import { CODEX_TASK_BRIDGE_VERSION } from "../src/codex_bridge.mjs";
 import { CODEX_DEDICATED_WORKER_VERSION } from "../src/codex_dedicated_worker.mjs";
 import { codexWorkerReleaseBindingRevision } from "../src/codex_dedicated_worker_client.mjs";
 import { inspectCodexPayloadOwner } from "../src/codex_payload_owner.mjs";
+import { verifyMailSetReconciliation } from "../src/runtime_mail_set_reconciliation.mjs";
 import { CODEX_PAYLOAD_BACKUP_SCHEMA } from "./codex_payload_backup.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -264,6 +265,7 @@ function isExactCodexWorkerLoopbackUrl(value) {
 
 function checkCodexWorkerBoundaryConfiguration(result, {
   requireLive = false,
+  coreOnlyRelease = false,
   codexWorkerUrl = null,
   codexWorkerExpectedIdentityHash = null,
   codexWorkerExpectedRuntimeIdentityHash = null,
@@ -317,6 +319,7 @@ function checkCodexWorkerBoundaryConfiguration(result, {
 
   result.checks.codex_worker_boundary = {
     checked: true,
+    release_mode: coreOnlyRelease ? "core_only" : "dedicated_worker",
     worker_url_configured: urlConfigured,
     loopback_url_valid: loopbackUrlValid,
     expected_identity_sha256_configured: expectedIdentityConfigured,
@@ -326,6 +329,16 @@ function checkCodexWorkerBoundaryConfiguration(result, {
     attestation_public_key_match: attestationPublicKeyMatch,
     expected_release: CODEX_DEDICATED_WORKER_VERSION.release,
   };
+
+  if (coreOnlyRelease) {
+    const configured = urlConfigured || expectedIdentityConfigured || expectedRuntimeIdentityConfigured
+      || publicKeyFile.length > 0 || expectedAttestationKeyConfigured;
+    result.checks.codex_worker_boundary.worker_disabled_configuration = !configured;
+    if (configured) {
+      add(result, "blocker", "core_only_worker_configuration_present", "Core-only release requires every dedicated-worker endpoint, identity, and attestation binding to remain unconfigured");
+    }
+    return;
+  }
 
   if (!urlConfigured) {
     if (requireLive) add(result, "blocker", "codex_worker_url_missing", "Dedicated Codex worker URL is not configured");
@@ -354,6 +367,9 @@ export function resolveAuditPaths(options = {}) {
   const appRoot = resolve(options.appRoot ?? join(runtimeRoot, "ui-workspace", "apps", "dev-erp"));
   const dbPath = resolve(options.dbPath ?? join(appRoot, "data", "dev-erp.db"));
   const metaPath = resolve(options.metaPath ?? join(appRoot, "data", "real_meta.json"));
+  const mailSetReconciliationPath = resolve(
+    options.mailSetReconciliationPath ?? join(dirname(metaPath), "real_meta.mail-set-reconciliation.json"),
+  );
   const workspacesDir = resolve(options.workspacesDir ?? join(sourceRoot, "_workspaces"));
   const snapshotPath = resolve(options.snapshotPath ?? defaultSnapshotPath(sourceRoot));
   const nasRoot = options.nasRoot === false
@@ -363,7 +379,7 @@ export function resolveAuditPaths(options = {}) {
     join(runtimeRoot, "_workspaces", "system", "dev-erp", "skins"),
     join(appRoot, "static", "skins"),
   ]).map((p) => resolve(p));
-  return { sourceRoot, runtimeRoot, appRoot, dbPath, metaPath, workspacesDir, snapshotPath, nasRoot, skinRoots };
+  return { sourceRoot, runtimeRoot, appRoot, dbPath, metaPath, mailSetReconciliationPath, workspacesDir, snapshotPath, nasRoot, skinRoots };
 }
 
 export async function evaluateSnapshotReadiness({ repoRoot = REPO, snapshotPath } = {}) {
@@ -1034,7 +1050,10 @@ function checkAccountsAndTeam(result, db) {
   }
 }
 
-function checkRealMeta(result, paths, db) {
+function checkRealMeta(result, paths, db, {
+  coreOnlyRelease = false,
+  expectedCommit = null,
+} = {}) {
   const { metaPath, dbPath } = paths;
   const releaseTestPath = join(dirname(metaPath), "real_meta.release-test.json");
   result.checks.real_meta = { path: metaPath, exists: existsSync(metaPath) };
@@ -1104,10 +1123,32 @@ function checkRealMeta(result, paths, db) {
       });
     }
     if (metaOnlyMail.length || dbOnlyMail.length) {
-      add(result, "blocker", "mail_set_drift", "DB and real_meta mail id sets differ", {
-        meta_only_count: metaOnlyMail.length,
-        db_only_count: dbOnlyMail.length,
-      });
+      if (coreOnlyRelease) {
+        const verification = verifyMailSetReconciliation({
+          receiptPath: paths.mailSetReconciliationPath,
+          metaPath: paths.metaPath,
+          dbPath: paths.dbPath,
+          expectedCommit,
+        });
+        result.checks.real_meta.mail_set_reconciliation = verification;
+        if (!verification.ok) {
+          add(result, "blocker", "mail_set_reconciliation_missing_or_invalid", "Core-only release requires a current hash/count-only mail-set reconciliation bound to the runtime DB, real_meta backup, and exact source commit", {
+            error: verification.error,
+            meta_only_count: metaOnlyMail.length,
+            db_only_count: dbOnlyMail.length,
+          });
+        } else {
+          add(result, "info", "mail_set_drift_reconciled_core_only", "Core-only release accepts the runtime DB as mail-set authority through the verified metadata-only reconciliation receipt", {
+            meta_only_count: metaOnlyMail.length,
+            db_only_count: dbOnlyMail.length,
+          });
+        }
+      } else {
+        add(result, "blocker", "mail_set_drift", "DB and real_meta mail id sets differ", {
+          meta_only_count: metaOnlyMail.length,
+          db_only_count: dbOnlyMail.length,
+        });
+      }
     }
 
     const metaProjects = new Map((meta.projects ?? []).filter((p) => p?.id).map((p) => [String(p.id), p]));
@@ -1578,6 +1619,7 @@ function checkNasBackup(result, paths, { skipNas = false, requireNas = false } =
 async function checkLiveServer(result, {
   live = false,
   requireLive = false,
+  coreOnlyRelease = false,
   port = 4300,
   allowLanHttp = false,
   expectedCommit = null,
@@ -1642,6 +1684,7 @@ async function checkLiveServer(result, {
         payload_owner_revision_match: !!result.checks.codex_payload_owner?.owner_revision
           && attestation.codex_payload_owner_revision === result.checks.codex_payload_owner.owner_revision,
         execution_boundary: attestation.codex_execution_boundary || null,
+        worker_configured: attestation.codex_worker_configured === true,
         worker_ready: workerReady,
         worker_release_match: workerReleaseMatch,
         worker_attestation_verified: workerAttestationVerified,
@@ -1670,10 +1713,10 @@ async function checkLiveServer(result, {
           && attestation?.codex_workspace_registry_revision !== result.checks.codex_workspace_registry.mapping_revision) {
         add(result, "blocker", "live_codex_registry_mismatch", "Live ERP process is not using the workspace registry checked by this audit");
       }
-      if (requireLive && (attestation?.codex_dedicated_home_configured !== true || attestation?.codex_dedicated_profile_safe !== true)) {
+      if (requireLive && !coreOnlyRelease && (attestation?.codex_dedicated_home_configured !== true || attestation?.codex_dedicated_profile_safe !== true)) {
         add(result, "blocker", "live_codex_profile_unattested", "Live ERP process does not attest a safe dedicated Codex profile");
       }
-      if (requireLive && attestation?.codex_trust_domain_configured !== true) {
+      if (requireLive && !coreOnlyRelease && attestation?.codex_trust_domain_configured !== true) {
         add(result, "blocker", "live_codex_trust_domain_unattested", "Live ERP process does not attest a configured Codex trust domain");
       }
       if (requireLive && (attestation?.codex_payload_owner_configured !== true
@@ -1682,68 +1725,75 @@ async function checkLiveServer(result, {
           || attestation?.codex_payload_owner_revision !== result.checks.codex_payload_owner.owner_revision)) {
         add(result, "blocker", "live_codex_payload_owner_mismatch", "Live ERP process is not using the Soulforge-owned payload roots checked by this audit");
       }
-      if (requireLive && attestation?.codex_execution_boundary !== "dedicated_worker") {
+      if (requireLive && !coreOnlyRelease && attestation?.codex_execution_boundary !== "dedicated_worker") {
         add(result, "blocker", "codex_worker_process_isolation_missing", "Production Codex must run behind a separately privileged worker identity; in-process spawning is not a filesystem confidentiality boundary");
       }
-      if (requireLive && !workerReady) {
+      if (requireLive && !coreOnlyRelease && !workerReady) {
         add(result, "blocker", "live_codex_worker_not_ready", "Live ERP health does not attest a ready dedicated Codex worker");
       }
-      if (requireLive && !workerReleaseMatch) {
+      if (requireLive && !coreOnlyRelease && !workerReleaseMatch) {
         add(result, "blocker", "live_codex_worker_release_mismatch", "Live ERP health reports a different dedicated Codex worker release");
       }
-      if (requireLive && !workerAttestationVerified) {
+      if (requireLive && !coreOnlyRelease && !workerAttestationVerified) {
         add(result, "blocker", "live_codex_worker_attestation_unverified", "Live ERP health does not confirm a nonce-bound Ed25519 worker attestation");
       }
-      if (requireLive && !workerAttestationKeyMatch) {
+      if (requireLive && !coreOnlyRelease && !workerAttestationKeyMatch) {
         add(result, "blocker", "live_codex_worker_attestation_key_mismatch", "Live ERP health does not confirm the approved worker attestation public key");
       }
-      if (requireLive && !workerSourceCommitMatch) {
+      if (requireLive && !coreOnlyRelease && !workerSourceCommitMatch) {
         add(result, "blocker", "live_codex_worker_source_commit_mismatch", "Live worker source commit does not match the running ERP release commit");
       }
-      if (requireLive && !workerSourceTreeClean) {
+      if (requireLive && !coreOnlyRelease && !workerSourceTreeClean) {
         add(result, "blocker", "live_codex_worker_source_tree_dirty", "Live worker attestation reports an uncommitted source tree");
       }
-      if (requireLive && !workerIdentityMatch) {
+      if (requireLive && !coreOnlyRelease && !workerIdentityMatch) {
         add(result, "blocker", "live_codex_worker_identity_mismatch", "Live ERP health does not attest the owner-approved worker Windows identity");
       }
-      if (requireLive && !workerProcessSeparate) {
+      if (requireLive && !coreOnlyRelease && !workerProcessSeparate) {
         add(result, "blocker", "live_codex_worker_process_not_separate", "Live ERP health does not attest a worker process separate from the ERP process");
       }
-      if (requireLive && !workerIdentitySeparate) {
+      if (requireLive && !coreOnlyRelease && !workerIdentitySeparate) {
         add(result, "blocker", "live_codex_worker_identity_not_separate", "Live ERP and Codex worker must run under different operating-system identities");
       }
-      if (requireLive && !workerRegistryRevisionMatch) {
+      if (requireLive && !coreOnlyRelease && !workerRegistryRevisionMatch) {
         add(result, "blocker", "live_codex_worker_registry_revision_mismatch", "Live ERP health does not attest the workspace registry revision checked by the ERP process");
       }
-      if (requireLive && !workerRootIsolationReady) {
+      if (requireLive && !coreOnlyRelease && !workerRootIsolationReady) {
         add(result, "blocker", "live_codex_worker_root_isolation_unready", "Live worker does not attest realpath isolation across enabled workspace roots");
       }
-      if (requireLive && !workerProjectionRootReady) {
+      if (requireLive && !coreOnlyRelease && !workerProjectionRootReady) {
         add(result, "blocker", "live_codex_worker_projection_root_unready", "Live worker does not attest its disposable selected-file projection boundary");
       }
-      if (requireLive && !workerDeniedReadRootsReady) {
+      if (requireLive && !coreOnlyRelease && !workerDeniedReadRootsReady) {
         add(result, "blocker", "live_codex_worker_denied_read_roots_unready", "Live worker does not attest the revision-bound denied-read roots");
       }
-      if (requireLive && !workerPayloadDenyBindingMatch) {
+      if (requireLive && !coreOnlyRelease && !workerPayloadDenyBindingMatch) {
         add(result, "blocker", "live_codex_worker_payload_deny_binding_mismatch", "Live worker deny binding does not match the ERP canonical attachment and message payload roots");
       }
-      if (requireLive && !workerForbiddenRootsReady) {
+      if (requireLive && !coreOnlyRelease && !workerForbiddenRootsReady) {
         add(result, "blocker", "live_codex_worker_forbidden_roots_unready", "Live worker does not attest the protected service-root overlap boundary");
       }
-      if (requireLive && !workerPermissionProfileMatch) {
+      if (requireLive && !coreOnlyRelease && !workerPermissionProfileMatch) {
         add(result, "blocker", "live_codex_worker_permission_profile_mismatch", "Live worker does not attest the release-matched selected-file projection permission profile");
       }
-      if (requireLive && !workerFilesystemBoundaryProven) {
+      if (requireLive && !coreOnlyRelease && !workerFilesystemBoundaryProven) {
         add(result, "blocker", "live_codex_worker_filesystem_boundary_unproven", "Live worker did not pass the harmless outside-root read/write denial probe");
       }
-      if (requireLive && !workerCommandIdentityMatch) {
+      if (requireLive && !coreOnlyRelease && !workerCommandIdentityMatch) {
         add(result, "blocker", "live_codex_worker_command_identity_mismatch", "Live worker does not match the owner-approved Codex runtime identity");
       }
-      if (requireLive && !workerReleaseBindingMatch) {
+      if (requireLive && !coreOnlyRelease && !workerReleaseBindingMatch) {
         add(result, "blocker", "live_codex_worker_release_binding_mismatch", "Live ERP worker URL and approved identity fingerprints do not match this audit invocation");
       }
-      if (requireLive && !workerBridgeModeMatch) {
+      if (requireLive && !coreOnlyRelease && !workerBridgeModeMatch) {
         add(result, "blocker", "live_codex_worker_bridge_mode_invalid", "Production dedicated Codex worker must use app-server bridge mode");
+      }
+      if (requireLive && coreOnlyRelease) {
+        if (attestation?.codex_execution_boundary !== "worker_unattested"
+            || attestation?.codex_worker_configured !== false
+            || attestation?.codex_worker_ready !== false) {
+          add(result, "blocker", "live_core_only_worker_not_disabled", "Core-only release requires the live ERP to remain in fail-closed worker mode with no configured or ready dedicated worker");
+        }
       }
     } catch {
       add(result, requireLive ? "blocker" : "warning", "live_health_unreachable", "Live /api/health is unreachable on localhost", { port });
@@ -1855,8 +1905,10 @@ function recommendedCommands(paths) {
 
 export async function runRuntimeReleaseAudit(options = {}) {
   const paths = resolveAuditPaths(options);
+  const coreOnlyRelease = options.coreOnlyRelease === true;
   const result = {
     schema_version: SCHEMA,
+    release_mode: coreOnlyRelease ? "core_only" : "dedicated_worker",
     generated_at: new Date().toISOString(),
     ok: false,
     paths,
@@ -1876,7 +1928,10 @@ export async function runRuntimeReleaseAudit(options = {}) {
   if (options.requireLive && !String(options.expectedCommit || "").trim()) {
     add(result, "blocker", "release_expected_commit_missing", "--require-live requires --expected-commit with the approved 40-character release SHA");
   }
-  checkCodexWorkerBoundaryConfiguration(result, options);
+  if (coreOnlyRelease && !options.requireLive) {
+    add(result, "blocker", "core_only_release_requires_live_gate", "--core-only-release is valid only together with --require-live");
+  }
+  checkCodexWorkerBoundaryConfiguration(result, { ...options, coreOnlyRelease });
   const skipGit = Boolean(options.skipGit && !options.requireLive);
   const skipNas = Boolean(options.skipNas && !options.requireLive);
   checkGit(result, paths.sourceRoot, "source", { skipGit, strict: options.requireLive, expectedCommit: options.expectedCommit });
@@ -1891,7 +1946,7 @@ export async function runRuntimeReleaseAudit(options = {}) {
     };
   }
   await checkCodexWorkspaceRegistry(result, paths, {
-    required: options.requireLive,
+    required: options.requireLive && !coreOnlyRelease,
     probe: options.workspaceProbe,
     probeTimeoutMs: options.workspaceProbeTimeoutMs,
     registryPath: options.workspaceRegistryPath || process.env.DEV_ERP_CODEX_WORKSPACE_REGISTRY,
@@ -1901,16 +1956,16 @@ export async function runRuntimeReleaseAudit(options = {}) {
     expectedWorkerIdentityHash: options.codexWorkerExpectedIdentityHash
       || process.env.DEV_ERP_CODEX_WORKER_EXPECTED_IDENTITY_HASH,
   });
-  checkCodexRuntimeIsolation(result, options);
+  checkCodexRuntimeIsolation(result, { ...options, requireLive: options.requireLive && !coreOnlyRelease });
   checkCodexPayloadOwner(result, paths, options);
 
   const db = checkDbAndSchema(result, paths);
   try {
-    checkRealMeta(result, paths, db);
+    checkRealMeta(result, paths, db, { coreOnlyRelease, expectedCommit: options.expectedCommit });
     checkWorkspaceProjects(result, paths, db);
     checkStaticAssets(result, paths);
     checkNasBackup(result, paths, { skipNas, requireNas: options.requireLive });
-    await checkLiveServer(result, options);
+    await checkLiveServer(result, { ...options, coreOnlyRelease });
   } finally {
     db?.close();
   }
@@ -1948,6 +2003,7 @@ function parseCli(argv) {
     appRoot: value("app", undefined),
     dbPath: value("db", undefined),
     metaPath: value("meta", undefined),
+    mailSetReconciliationPath: value("mail-set-reconciliation", undefined),
     workspacesDir: value("workspaces", undefined),
     snapshotPath: value("snapshot", undefined),
     nasRoot: argv.includes("--no-nas") ? false : value("nas-root", undefined),
@@ -1956,6 +2012,7 @@ function parseCli(argv) {
     skipNas: argv.includes("--skip-nas") || argv.includes("--no-nas"),
     live: argv.includes("--live"),
     requireLive: argv.includes("--require-live"),
+    coreOnlyRelease: argv.includes("--core-only-release"),
     codexHome: value("codex-home", undefined),
     codexWorkerUrl: value("codex-worker-url", undefined),
     codexWorkerExpectedIdentityHash: value("codex-worker-expected-identity-sha256", undefined),
@@ -1992,6 +2049,9 @@ Common options:
   --source-root <path>    Development/source checkout root for _workspaces.
   --db <path>             Runtime SQLite DB path.
   --meta <path>           Runtime data/real_meta.json path.
+  --mail-set-reconciliation <path>
+                          Hash/count-only receipt binding real_meta backup and
+                          the runtime DB mail-ID authority for core-only release.
   --workspaces <path>     Approved _workspaces root for project labels.
   --codex-home <path>     Dedicated ERP execution-account Codex home (path is not reported).
   --codex-trust-domain <id> One OS/ACL read-authority domain for every registered workspace.
@@ -2021,6 +2081,11 @@ Common options:
                           a fresh hash-bound coherent payload backup/restore generation,
                           and no unapproved broad LAN listener are blockers. It rejects
                           --skip-git, --skip-nas, and --no-nas.
+  --core-only-release     Owner-approved release mode that keeps the dedicated
+                          Codex worker unconfigured and fail-closed. Requires
+                          --require-live and retains Git, snapshot, DB/schema,
+                          payload-owner, NAS backup/restore, mail reconciliation,
+                          and live-health blockers.
   --skip-git/--skip-nas   Non-release fixture/diagnostic use only.
   --snapshot-freshness    Check structural and freshness readiness without requiring live health.
   --allow-lan-http        Treat broad 0.0.0.0 LAN listening as owner-approved.

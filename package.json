@@ -98,6 +98,7 @@
     "dev-erp:import-actor-overlay": "node ui-workspace/apps/dev-erp/tools/import_actor_overlay.mjs",
     "dev-erp:team-preflight": "node ui-workspace/apps/dev-erp/tools/team_preflight.mjs",
     "dev-erp:audit-runtime": "node ui-workspace/apps/dev-erp/tools/runtime_release_audit.mjs",
+    "dev-erp:reconcile-mail-set": "node ui-workspace/apps/dev-erp/tools/reconcile_runtime_mail_set.mjs",
     "dev-erp:correct-runtime": "node ui-workspace/apps/dev-erp/tools/runtime_corrections.mjs",
     "dev-erp:health": "node ui-workspace/apps/dev-erp/tools/runtime_ops.mjs health",
     "dev-erp:backup-runtime": "node ui-workspace/apps/dev-erp/tools/runtime_ops.mjs backup-db",

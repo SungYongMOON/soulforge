@@ -141,6 +141,64 @@ test("runtime release audit requires an exact worker loopback URL and keeps iden
   }
 });
 
+test("core-only live release requires the worker to stay explicitly unconfigured and fail-closed", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-core-only-audit-"));
+  try {
+    const payloadBase = join(root, "_workspaces", "system", "dev-erp");
+    const attachmentRoot = join(payloadBase, "codex-task-attachments");
+    const messageRoot = join(payloadBase, "codex-message-payloads");
+    mkdirSync(attachmentRoot, { recursive: true });
+    mkdirSync(messageRoot, { recursive: true });
+    const payloadOwner = inspectCodexPayloadOwner({
+      backendRoot: root,
+      workspaceOwnerRoot: join(root, "_workspaces", "system"),
+      ownerBase: payloadBase,
+      roots: [attachmentRoot, messageRoot],
+    });
+    const health = {
+      ok: true,
+      schema: "fixture.health.v1",
+      attestation: {
+        source_commit: "a".repeat(40),
+        codex_bridge: CODEX_TASK_BRIDGE_VERSION.release,
+        codex_execution_boundary: "worker_unattested",
+        codex_worker_configured: false,
+        codex_worker_ready: false,
+        codex_payload_owner_configured: true,
+        codex_payload_roots_safe: true,
+        codex_payload_owner_revision: payloadOwner.revision,
+      },
+    };
+    const result = await withHealthServer(() => health, (port) => runRuntimeReleaseAudit(auditOptions(root, port, {
+      workspacesDir: join(root, "_workspaces"),
+      coreOnlyRelease: true,
+      codexWorkerExpectedRuntimeIdentityHash: null,
+      codexTurnProjectionRoot: null,
+    })));
+    const codes = new Set(result.blockers.map((issue) => issue.code));
+    assert.equal(result.release_mode, "core_only");
+    assert.equal(result.checks.codex_worker_boundary.worker_disabled_configuration, true);
+    assert.equal(result.checks.live_server.attestation.worker_configured, false);
+    assert.equal(codes.has("core_only_worker_configuration_present"), false);
+    assert.equal(codes.has("live_core_only_worker_not_disabled"), false);
+    assert.equal(codes.has("codex_worker_process_isolation_missing"), false);
+    assert.equal(codes.has("live_codex_worker_not_ready"), false);
+    assert.equal(codes.has("codex_dedicated_home_missing"), false);
+    assert.equal(codes.has("live_codex_payload_owner_mismatch"), false);
+
+    const configured = await withHealthServer(() => health, (port) => runRuntimeReleaseAudit(auditOptions(root, port, {
+      workspacesDir: join(root, "_workspaces"),
+      coreOnlyRelease: true,
+      codexWorkerUrl: `http://127.0.0.1:${port}`,
+      codexWorkerExpectedRuntimeIdentityHash: null,
+      codexTurnProjectionRoot: null,
+    })));
+    assert.ok(configured.blockers.some((issue) => issue.code === "core_only_worker_configuration_present"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("runtime release audit projects and validates every dedicated-worker live attestation", async () => {
   const root = mkdtempSync(join(tmpdir(), "dev-erp-worker-audit-live-"));
   const identityMarker = "e".repeat(64);

@@ -1,5 +1,18 @@
 # CHANGELOG
 
+### Revision `working` - dev-ERP owner-approved core-only release gate
+
+- Added a non-default `--core-only-release --require-live` audit path that
+  requires the Codex worker to remain entirely unconfigured and live-attested
+  as fail-closed, while retaining exact commit, clean Git, DB/schema, NAS,
+  coherent backup/restore, snapshot, payload-owner, and live-health blockers.
+- Added a dry-run-first mail-set reconciliation tool that preserves
+  `real_meta.json` with a byte-exact backup and emits only a hash/count sidecar
+  receipt. The audit recomputes the DB/source ID-set hashes and rejects stale or
+  tampered metadata without logging mail IDs, subjects, or bodies.
+- Added focused reconciliation, tamper, and core-only live-boundary tests and
+  synchronized the runtime README/operating contract. (worker: codex_gpt-5)
+
 ### dev-ERP runtime source attestation 고정
 
 - 부하가 큰 Windows 운영 호스트에서도 정식 백엔드가 시작 지연 없이 실행 커밋을 증명하도록 엄격한 40자리 `DEV_ERP_SOURCE_COMMIT` 바인딩을 추가하고, 미지정 실행은 기존 Git 조회로 보수적으로 폴백한다. (worker: codex_gpt-5)

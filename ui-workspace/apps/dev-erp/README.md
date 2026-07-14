@@ -194,10 +194,28 @@ live private runtime state.
 It does not write to the DB and does not read raw project files, mail bodies,
 or secret env values.
 
+The dedicated-worker gate remains the default. An owner may approve the
+non-default `--core-only-release` mode only with `--require-live`. That mode
+requires every worker endpoint and identity binding to remain unconfigured and
+the live server to attest the fail-closed `worker_unattested` boundary. It does
+not relax exact source commit, clean Git, DB/schema, payload-owner, NAS DB
+backup/restore, coherent v1 payload backup/restore, snapshot, or live-health
+checks.
+
+If the runtime DB mail ID set intentionally supersedes stale `real_meta.json`,
+create a byte-exact backup and hash/count-only sidecar receipt before the
+core-only audit. The command is dry-run by default and neither the receipt nor
+its output contains mail IDs, subjects, or bodies.
+
 ```bash
 npm run audit:runtime -- --runtime-root <runtime-checkout> --workspaces <dev-checkout>\_workspaces --nas-root <nas-root> --require-live
 # from Soulforge repo root:
 npm run dev-erp:audit-runtime -- --source-root <soulforge-root> --runtime-root <runtime-checkout> --workspaces <soulforge-root>\_workspaces --nas-root <nas-root> --workspace-registry <runtime-checkout>\ui-workspace\apps\dev-erp\data\codex-workspaces.runtime.json --codex-home <codex-worker-home> --codex-trust-domain <trust-domain-id> --expected-commit <approved-40-char-sha> --require-live
+
+# owner-approved core-only release: dry-run, then apply, then the live gate
+npm run dev-erp:reconcile-mail-set -- --meta <runtime-real-meta> --db <runtime-db> --source-commit <approved-40-char-sha>
+npm run dev-erp:reconcile-mail-set -- --meta <runtime-real-meta> --db <runtime-db> --source-commit <approved-40-char-sha> --backup-root <runtime-metadata-backup-root> --receipt <runtime-mail-set-receipt> --apply
+npm run dev-erp:audit-runtime -- --source-root <soulforge-root> --runtime-root <runtime-checkout> --workspaces <soulforge-root>\_workspaces --nas-root <nas-root> --mail-set-reconciliation <runtime-mail-set-receipt> --expected-commit <approved-40-char-sha> --target-members 0 --core-only-release --require-live
 ```
 
 Use `--target-members <n>` when the release must include at least that many
