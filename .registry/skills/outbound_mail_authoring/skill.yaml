@@ -20,7 +20,7 @@ behavior:
     - a project mail subject needs a real project mail keyword rather than an internal project code
     - a final draft needs signature and company security footer checking before Outlook/manual or send-mail handoff
   avoid_when:
-    - the task is Outlook sent/received ledger reconciliation; use `outlook_mail_reconcile` instead
+    - the task is Outlook sent/received ledger reconciliation; use the `outlook_mail_reconcile_v0` workflow instead
     - the task requires Outlook folder creation, rule editing, mail movement, deletion, category edits, or mark-read changes
     - the task requires raw mail body extraction, raw HTML body extraction, `.msg`/`.eml` export, or attachment archiving
     - the task requires legal, purchasing, contract, or official company-form approval outside the workflow scope

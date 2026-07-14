@@ -8,7 +8,6 @@
 - `codex_thread_manager/` is the tracked Codex launcher for `.workflow/codex_thread_manager_v0`, coordinating actual Codex manager, worker, and worktree threads while preserving handoff and boundary rules.
 - `charge_breaker/` is the tracked Codex bridge for `knight.breach_entry`, converting a localized opening into a small controlled forward action.
 - `evidence_sift/` is the tracked Codex bridge for `archivist.evidence_scan`, separating confirmed facts from weak claims before drafting or deciding.
-- `outlook_mail_reconcile/` is the tracked Codex launcher for `/outlook-reconcile`, resolving to `.workflow/outlook_mail_reconcile_v0` for metadata-only Outlook sent-mail ledger updates and received-mail cross-validation.
 - `long_thread_handoff/` is the tracked Codex wrapper for explicit long-thread contamination-free handoff requests.
 - `party_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.party/<party_id>` loadout into a thin launcher skill without moving party, workflow, or profile policy into the skill.
 - `workflow_launcher_skill_author/` is the tracked Codex authoring aid for turning an existing `.workflow/<workflow_id>` package into a thin launcher skill without moving workflow, profile policy, or runtime bindings into the skill.
@@ -55,7 +54,6 @@
 - `report_writer/` 는 `.workflow/report_authoring_v0` 를 호출하는 candidate 런처 skill 이며, So-What 골격 인터뷰·실무 register·조건부 de-slop 절차는 workflow 가 소유하고 interview/scaffold/examples reference 만 codex/references 로 둔다. 사실·수치·판정 authority 는 owner/source 에 두고 빈 값은 미확인으로 남긴다.
 - `document_artifact_publisher/` 는 `.workflow/document_artifact_publisher_v0` 를 호출하는 candidate 런처 skill 이며, 승인된 strict packet을 동일 token contract의 editable DOCX/XLSX/HTML로 native publication한다. 보고서 작성·PPT·외부 템플릿 다운로드·실제 payload·default route 권한은 launcher 밖에 둔다.
 - `presentation_publisher/` 는 `.workflow/presentation_artifact_render_v0` 를 호출하는 candidate 런처 skill 이며, 승인된 presentation packet과 template family/revision/SHA-256만 받아 editable PPTX와 QA 영수증을 만든다. 내용 작성·요약·사실 판정·템플릿 규칙은 workflow 밖으로 복제하지 않는다.
-- `outlook_mail_reconcile/` is the tracked Codex bridge for routing `/outlook-reconcile` requests through `outlook_mail_reconcile_v0` without copying Outlook runtime state or mail payloads into the skill.
 - `knowledge_ingest_cell_launcher/` is the tracked Codex bridge for routing owner-gated knowledge/source ingest requests through `knowledge_ingest_cell`.
 - `knowledge_ingest_cross_pc/` is the tracked Codex bridge for running cross-PC or side-chat knowledge ingest sessions with start/end sync, metadata-only receipt capture, missing-audit generation, and `_workmeta` publication.
 - `systems_engineering_cell_launcher/` is the tracked Codex bridge for routing project-start, stage-gap, source-gap, readiness, owner-decision, review, and closeout requests through `systems_engineering_cell`.

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### `outlook_mail_reconcile` Codex launcher retired
+
+- Retired the unused `.registry/skills/outlook_mail_reconcile/` launcher while
+  preserving `.workflow/outlook_mail_reconcile_v0/` and its runtime implementation.
+- Added the exact skill ID to `retired_codex_skills.json` so future full skill
+  syncs prune the stale local mirror. The owner-only
+  `soulforge-owner-outlook-mail` launcher remains active. (worker: codex_gpt-5)
+
 ### 5필드 차단형 훅 비활성화
 
 - 운영 장애와 자동화 효용 재검토를 위해 tracked Codex 프로젝트 설정에서

@@ -148,7 +148,6 @@ entry로 본다. `docs/`와 `authoring/`은 보조 문서/작성 템플릿이다
 - `long_thread_handoff`
 - `mission_check`
 - `outbound_mail_authoring`
-- `outlook_mail_reconcile`
 - `party_launcher_skill_author`
 - `pcb_revision_library_cell_launcher`
 - `post_development_review_gate`

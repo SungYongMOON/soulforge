@@ -1,7 +1,0 @@
-interface:
-  display_name: "Soulforge Outlook Mail Reconcile"
-  short_description: "Reconcile Outlook project mail ledgers."
-  default_prompt: "Use $soulforge-outlook-mail-reconcile to run /outlook-reconcile against the registered Outlook mail reconciliation workflow."
-
-policy:
-  allow_implicit_invocation: true

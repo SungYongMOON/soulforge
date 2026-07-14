@@ -33,7 +33,6 @@ Create a launcher package like this:
 
 Choose the default generated launcher id by stripping a trailing version suffix from the workflow id:
 
-- `outlook_mail_reconcile_v0` -> `outlook_mail_reconcile`
 - `outbound_mail_authoring_v0` -> `outbound_mail_authoring`
 
 If the default id collides or is too broad, append `_launcher` or use the explicit user-provided id. Keep ids lowercase snake_case in `.registry/skills`; the installed mirror becomes `soulforge-<launcher-skill-id-with-hyphens>`.
