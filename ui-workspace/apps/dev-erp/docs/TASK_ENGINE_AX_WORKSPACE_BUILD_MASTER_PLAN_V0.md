@@ -1453,11 +1453,13 @@ title: Public baseline과 source-owner inventory를 mutation 0으로 닫기
 goal: P1 입력 계약에 필요한 code/path/writer/consumer/coverage UNKNOWN을 exact public ref와 허용된 metadata-only evidence로 고정
 classification_mix: [REUSE, DEFER]
 depends_on: []
-current_evidence_refs: [main@9df7e57765d818be65f6250da8435826d0a2eea2, CV-01..CV-09]
-allowed_write_paths: [_workmeta/system/reports/task_engine_foundation_inventory/<approved_run_id>/** metadata-only; 권한 없으면 ephemeral/stdout only]
-forbidden_paths: [public code/docs, live DB/schema, _workspaces/**, source payload, guild_hall/state/**, private-state/**]
+plan_evidence_refs: [main@9df7e57765d818be65f6250da8435826d0a2eea2, CV-01..CV-09]
+execution_baseline_ref: [approval-time exact HEAD == origin/main SHA; plan observation SHA를 실행 pin으로 재사용하지 않음]
+execution_mode: [public_only_stdout 또는 owner_authorized_query_only 중 owner가 하나를 exact 승인]
+allowed_write_paths: [public_only_stdout은 ephemeral/stdout only; owner_authorized_query_only만 _workmeta/system/reports/task_engine_foundation_inventory/<approved_run_id>/** metadata-only]
+forbidden_paths: [public code/docs, live DB/schema mutation, raw DB rows, _workspaces/**, source payload, guild_hall/state/**, private-state/**]
 inputs: [root contracts, exact public commit, owner-approved profile/inventory authority or public-only fallback]
-outputs: [baseline manifest, five-lane owner/writer/consumer map, live-completeness UNKNOWN list, P1 start/blocked receipt]
+outputs: [baseline manifest, five-lane owner/writer/consumer map, live-completeness UNKNOWN list, P1 start/blocked receipt; public_only_stdout은 live UNKNOWN을 닫지 못하면 BLOCKED]
 code_delta: [none]
 db_delta: [query-only schema/index/trigger/count aggregate only when separately authorized]
 api_delta: [health/read-only only]
@@ -1469,7 +1471,7 @@ regression_checks: [git status scoped, target plan unchanged by execution]
 migration_or_backfill: none
 rollback: metadata packet revert/removal only; source/runtime state delta 0
 stop_conditions: [profile/ACL absent for required live proof, raw/private value required, writer ambiguity, base drift, any mutation]
-owner_gate: P0 inventory authority and optional metadata output path
+owner_gate: exact execution mode, approval-time baseline, inventory authority, optional metadata output path와 expiry
 risk_and_effort: low / S
 next_slice: TEAX-H00
 ```
@@ -2904,14 +2906,40 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | D16 | runtime code source와 data root 결합 해소 | pinned backend-code 분리 또는 audit의 code/data attestation 분리 | C08F/C08B/C09/C09R/C09D | read-only audit / 개발 checkout을 운영에 복사 금지 |
 | D17 | core-only 유지 vs dedicated worker | 현재 unattested worker는 OFF 유지; 필요성과 복구 절차를 먼저 결정 | C08B/C09D/G01 | health/audit / worker 활성화 금지 |
 | D18 | C09L ledger, C09R restore, C09D deploy, C10 pilot, C09S common/system, G00 binding, G01 production activation | 각 단계 별도 명시 승인 | C09L/C09R/C09D/C10/C09S/G00/G01 | plan/synthetic / live mutation·activation 금지 |
-| D19 | Codex structured-capture boundary | ERP MCP WorkSession, explicit instruction packet, execution/validator receipt만; whole conversation·screen·keystroke·OS surveillance는 기본 OFF | H03/AX01 | existing WorkSession tests / broad capture 금지 |
+| D19 | Codex structured-capture boundary | 금지 경계는 whole conversation·screen·keystroke·OS surveillance 기본 OFF로 먼저 ratify한다. positive allowlist의 현재 eligible source는 bounded ERP MCP WorkSession뿐이다. explicit instruction packet과 execution/validator receipt는 exact owner/schema/ID/consent·retention 전 HOLD | H03/AX01 | existing WorkSession/negative-boundary fixture / broad capture와 owner 미정 source 수용 금지 |
 | D20 | external SE master schedule revision/event owner·path·writer | owner-held current row + project metadata append-only exact revision/event; writer 1개, dev-ERP는 typed ref consumer. exact identity/path/writer가 아직 미정이므로 H03B HOLD | H03/C06A/C07A | synthetic fixture / owner 없는 live event·task discovery 금지 |
 | D21 | mail lease/epoch durable owner·exact CAS record와 HPP logical identities | owner-controlled issuer/revoker, role별 local lock 1개, independent `classification_epoch`/`projector_epoch`; DB/outbox/manifest에는 두 역할을 분리 기록. Durable owner/path는 C09에서 exact 확정 전 C10 BLOCKED, live binding 추론 금지 | H01/C04B/C08F/C08B/C09/C10 | P8 synthetic lease/fencing / exact owner 없는 live claim·publish·role switch 금지 |
 | D22 | mail schema v2, cutover, RTO/RPO, failover/failback approver | v1 paths 유지, shadow→parity→one-project→separate activation; no auto failback | H01/C04B/P9/P10 | schema/dry-run / live cutover·role switch 금지 |
 | D23 | Mac project-history emergency fallback과 mail coverage | normal project-history write allowlist empty; partial mail coverage gap만. 별도 dormant `project_history_emergency_fallback`이 explicit `(C_E+1,P_E+1)`/`(C_E+2,P_E+2)` approval에서만 five-lane projector를 맡고, mail coordinator는 coverage+별도 승인이 있을 때만 동작 | H01/H06/C08B/P10 | monitor/alert candidate / normal·automatic write와 ERP task write 금지 |
 | D24 | proposed `음성_이력/PC_업무_이력/파일_이력/실행_이력` directory names와 five-lane view writer | §3.4 names를 TARGET candidate로 유지; HPP projector만 sole normal writer, Mac/다른 PC allowlist empty; owner 확정 전 materialize하지 않음 | H06/P8/P9/P10 | schema/fixture / private folder creation·non-HPP normal write 금지 |
-| D25 | live five-lane completeness 기준 | 현재 `UNKNOWN/VERIFY_HP`; lane별 window, state, count/null, gap code와 freshness threshold를 owner가 정함 | C00/H00~H06 | public/synthetic / completeness PASS 주장 금지 |
+| D25 | live five-lane completeness 기준 | H00의 여섯 state와 count/null matrix는 재정의하지 않는다. 현재 `UNKNOWN/VERIFY_HP`; D25는 lane별 expected source set, `known_at` window, freshness threshold, gap vocabulary, applicability rule/ref를 정함 | C00/H00~H06 | public/synthetic / completeness PASS·새 state·임의 gap code 주장 금지 |
 | D26 | source-to-lane exact typed identity와 H05 run schema allowlist | §3.4.4의 candidate를 exact `{entity_type,owner_surface,entity_id}` allowlist로 owner ratify한다. voice event/revision과 mail owner, D19 instruction owner, D20 schedule owner, H04 file event subtype은 아직 `TBD`; `logical_file_id`는 lineage ref다. daily ledger/context는 projection ref일 뿐 occurrence/event/count가 아니며 task-chat completion-hook/full-message summary는 coverage가 아니다. H05는 report-authoring exact schema부터 시작하고 current five-field `id`는 full-record digest/conflict/boundary 계약 전 ineligible, `runs/**` recursion 금지 | H01~H06 | public/synthetic / `TBD`·unknown schema·projection 중복·cross-lane duplicate·private run scan 금지 |
+
+#### 17.1.1 첫 승인과 후속 ratification 입력
+
+아래 표는 owner 결정을 대신하지 않고, `승인` 한 단어가 무엇을 포함해야 하는지 고정한다. 결정은
+미리 기록할 수 있지만 선행 acceptance 순서를 건너뛰는 권한은 만들지 않는다.
+
+| gate / earliest apply | owner가 exact하게 답할 것 | 답이 없을 때 안전 기본값 | 승인 전 허용 | 금지 | acceptance evidence / unlock |
+| --- | --- | --- | --- | --- | --- |
+| `C00` / 지금 | `public_only_stdout` 또는 `owner_authorized_query_only`; approval-time `HEAD==origin/main` SHA, inventory scope/profile, metadata output, approval ref와 expiry | public-only·stdout, live facts `UNKNOWN/VERIFY_HP`, P1 `BLOCKED` | public ref/static inventory | private/live query, report write, mutation | exact baseline·writer/consumer map·raw sentinel `0`·zero-mutation receipt → C00 PASS일 때만 H00 |
+| `H00` / C00 PASS 뒤 | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea`의 `PROJECT_HISTORY_ENVELOPE_V0.md`와 pure helper/test를 exact candidate로 지목하고, event/coverage 분리, literal `unknown`, `known_at` half-open window, `failed`/`partial` semantics를 각각 ratify/hold | `canon_candidate` HOLD | public contract/helper/fixture 검토 | adapter, migration, live use, completeness claim | owner decision ref + H00 tests; ratify하면 §3.4.1 nested sketch는 independent coverage receipt가 대체 → lane별 owner gate가 있는 H01~H05 contract adapter |
+| `D19` / H03A 전 | negative boundary를 먼저 ratify; 신규 instruction/receipt source마다 exact owner surface, schema/version, ID allocator, consent·retention을 별도 명시 | existing bounded WorkSession만 후보; 나머지 HOLD, broad capture OFF | WorkSession과 negative fixture | whole task chat·hook full-message summary·screen·keystroke·OS capture, owner 미정 source | allowlist/negative test/direct-caller evidence → H03A input binding |
+| `D20` / H03B 전 | schedule current owner/path, immutable revision/event owner/path, stable row-ID owner/schedule scope, canonicalization/timezone, sole writer | `HOLD` | synthetic stale-revision/canonicalization fixture | row ID 발명, live event, task discovery | current/revision/event replay와 stale expected-revision reject → H03B |
+| `D24` / H06 target 확정 전 | 다섯 exact view name과 CSV/XLSX(메일은 ICS 포함) target, HPP sole-normal-projector, Mac/다른 PC normal allowlist empty를 logical TARGET으로 ratify | 이름은 candidate, materialization `OFF` | schema/path fixture | private folder 생성, non-HPP normal write | target allowlist·shadow schema/path fixture → H06 target contract; 실제 생성은 P9 별도 |
+| `D25` / lane coverage acceptance 전 | policy revision과 lane별 expected source set, `known_at` window, freshness, gap code, applicability rule/ref | `UNKNOWN/VERIFY_HP`, `HOLD` | H00 six-state synthetic matrix | state/count 재정의, gap 발명, live PASS | per-lane policy fixture 뒤 실제 receipt는 별도 authority → H01~H06 coverage acceptance |
+| `D26` / lane adapter 전 | 모든 §3.4.4 subtype의 versioned exact typed triple, owner binding, ID grammar/schema, event/revision relation, existence/conflict validator; five-field ineligible 유지/해제 조건 | 모든 `TBD`와 unknown subtype `HOLD` | `D26-FX-01..20` | wildcard/alias/bare ID, cross-lane duplicate, projection 재입력 | 20 fixture + lane-owner binding/existence evidence → 해당 H01~H05 adapter와 최종 H06 |
+
+현재 바로 요청 가능한 첫 답변 shape는 다음뿐이다. 후속 gate의 선결정은 기록할 수 있지만 C00 PASS를
+대체하지 않는다.
+
+```yaml
+TEAX-C00: APPROVE | HOLD
+execution_mode: public_only_stdout | owner_authorized_query_only
+inventory_authority_ref: <opaque-ref-or-none>
+metadata_output: stdout | <approved-metadata-only-path>
+approval_expires_at: <strict-utc-or-none>
+```
 
 ### 17.2 남은 `UNKNOWN`과 next proof
 
@@ -2982,11 +3010,11 @@ live proof 권한이 없으면 해당 행을 `UNKNOWN/VERIFY_HP`로 남긴다. �
 | `slice_id/title/goal` | `TEAX-C00` / read-only baseline·source-owner inventory / P1 start 또는 exact blocker receipt |
 | `classification_mix` | `[REUSE, DEFER]` |
 | `depends_on` | `[]` |
-| `current_evidence_refs` | `main@9df7e577...`, candidate `927b3fb0...`, merge-base `15e988b4...`, CV-01~09 |
-| `allowed_write_paths` | owner-authorized `_workmeta/system/reports/task_engine_foundation_inventory/<run>/**` metadata-only; 권한 없으면 ephemeral/stdout |
-| `forbidden_paths` | public code/docs, DB/schema, `_workspaces/**`, raw/private payload, runtime state, scheduler/network/alert |
+| `plan_evidence_refs / execution_baseline_ref` | observation은 `main@9df7e577...`, candidate `927b3fb0...`, merge-base `15e988b4...`, CV-01~09; 실행은 approval-time exact `HEAD==origin/main` SHA를 새로 pin |
+| `execution_mode / allowed_write_paths` | owner가 `public_only_stdout` 또는 `owner_authorized_query_only`를 선택; 전자는 ephemeral/stdout only, 후자만 approved `_workmeta/system/reports/task_engine_foundation_inventory/<run>/**` metadata-only |
+| `forbidden_paths` | public code/docs, DB/schema mutation, raw DB rows, `_workspaces/**`, raw/private payload, runtime state mutation, scheduler/network/alert |
 | `inputs` | approved C00 packet, exact public refs, public contracts, established profile 또는 public-only fallback |
-| `outputs` | five-lane owner/writer/consumer/coverage manifest, live-completeness UNKNOWN, P1 start/blocked receipt |
+| `outputs` | five-lane owner/writer/consumer/coverage manifest, live-completeness UNKNOWN, P1 start/blocked receipt; public-only로 필수 live proof가 없으면 PASS가 아니라 BLOCKED |
 | `code_delta` | `none` |
 | `db_delta/api_delta/folder_delta` | `query-only if separately authorized / health-read only / optional metadata report only` |
 | `docs_contract_changelog_delta` | `not_applicable` |
@@ -2997,7 +3025,7 @@ live proof 권한이 없으면 해당 행을 `UNKNOWN/VERIFY_HP`로 남긴다. �
 | `migration_or_backfill` | `none` |
 | `rollback` | metadata packet revert/removal only; source/runtime delta 0 |
 | `stop_conditions` | base drift, profile/ACL 없음, raw value 필요, writer ambiguity, any mutation |
-| `owner_gate` | C00 inventory authority와 optional metadata output path 승인 |
+| `owner_gate` | C00 execution mode, approval-time baseline, inventory authority, optional metadata output path와 expiry 승인 |
 | `risk_and_effort` | `low / S` |
 | `next_slice` | C00 PASS 뒤 `H00`, 그 뒤 H01~H06 |
 
@@ -3011,7 +3039,8 @@ git rev-list --left-right --count main...codex/task-engine-rag-v1
 # live/private query는 exact owner authority와 query-only guard가 있을 때만 별도 packet대로 실행
 ```
 
-Owner가 시작하려면 `TEAX-C00 실행 승인`과 inventory authority/output path를 명시해야 한다.
+Owner가 시작하려면 `TEAX-C00 실행 승인`과 execution mode, approval-time baseline,
+inventory authority/output path/expiry를 명시해야 한다.
 이 문서 publish 자체는 C00 또는 H00 승인으로 간주하지 않는다. 승인 뒤에도 `.mission`이나 queue를 자동으로
 만들거나 approved 상태로 올리지 않는다.
 
@@ -3043,7 +3072,7 @@ flowchart LR
 
 다음 중 하나면 현재 또는 미래 slice를 즉시 중단한다.
 
-- Git base가 움직였거나 dirty/divergent/detached/conflict/overlap/index lock 상태
+- approval-time에 pin한 실행 Git base가 움직였거나 dirty/divergent/detached/conflict/overlap/index lock 상태
 - immutable oracle blob/diff가 변함
 - allowed paths 밖 변경, private/raw/secret 노출, source owner 침범
 - query-only guard 실패 또는 title/body/path 같은 raw value가 필요함
@@ -3058,10 +3087,11 @@ flowchart LR
 - scanner/scheduler/network/alert/operational-primary를 별도 승인 없이 켜야 함
 - `UNKNOWN`을 추정해야 다음 단계로 갈 수 있음
 
-이 문서의 publish 범위는 이 파일 하나다. 독립 리뷰와 validator가 통과한 뒤 public main에 scoped
-commit/push하고 owner에게 commit과 evidence를 보고한다. 이번 correction에서는 companion `_workmeta`
+이 문서의 publish 범위는 이 파일과 root 정책상 필요한 `CHANGELOG.md` 항목뿐이다. 독립 리뷰와
+validator가 통과한 뒤 public main에 scoped commit/push하고 owner에게 commit과 evidence를 보고한다.
+이번 correction에서는 companion `_workmeta`
 repo가 작업 시작 전부터 unrelated dirty/ahead 상태라 review/5-field packet을 쓰지 않았고 해당 repo를
-변경하지 않았다. Public 계획 파일만 publish한다.
+변경하지 않았다. Public 계획 파일과 `CHANGELOG.md`만 publish한다.
 
 ### 계획 범위 최종 검증 receipt
 

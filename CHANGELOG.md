@@ -16,6 +16,10 @@
   current five-field ID는 full-record identity/boundary 검증 전 allowlist에서 제외했다. D26 owner 결정을
   임의 값으로 메우지 않는 20개 pre-approval 합성 fixture도 계획에 고정했다. H06은 H00과
   H01~H05 acceptance, D24~D26 결정 전 readiness-only 상태를 유지한다.
+- C00을 public-only/stdout과 별도 승인된 query-only mode로 분리하고 실행 기준선은 승인 시점에
+  다시 pin하도록 했다. H00 exact candidate ratification, D19 negative/positive capture boundary,
+  D20 schedule owner, D24 logical view target, D25 live coverage policy, D26 typed allowlist에 필요한
+  owner 입력·안전 기본값·acceptance evidence를 한 표로 고정했다.
   (worker: codex_gpt-5)
 
 ### Revision `working` — outbound mail Outlook 가독성 프리셋
