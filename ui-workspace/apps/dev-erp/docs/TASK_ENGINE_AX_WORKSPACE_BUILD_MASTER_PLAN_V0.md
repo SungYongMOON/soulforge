@@ -1531,8 +1531,8 @@ forbidden_paths: [public code/docs, live DB/schema mutation, raw DB rows, _works
 inputs: [root contracts, exact public commit, owner-approved profile/inventory authority or public-only fallback]
 outputs: [baseline manifest, five-lane owner/writer/consumer map, live-completeness UNKNOWN list, P1 start/blocked receipt; public_only_stdout은 live UNKNOWN을 닫지 못하면 BLOCKED]
 code_delta: [none]
-db_delta: [query-only schema/index/trigger/count aggregate only when separately authorized]
-api_delta: [health/read-only only]
+db_delta: [public_only_stdout은 none; owner_authorized_query_only만 approved schema/index/trigger/count aggregate]
+api_delta: [public_only_stdout은 none; owner_authorized_query_only만 approved health/read-only route]
 folder_delta: [optional metadata report directory only]
 docs_contract_changelog_delta: [not_applicable]
 owner_and_writers: [inventory agent; source/DB/file writer 없음]
@@ -1543,7 +1543,8 @@ rollback: metadata packet revert/removal only; source/runtime state delta 0
 stop_conditions: [profile/ACL absent for required live proof, raw/private value required, writer ambiguity, base drift, any mutation]
 owner_gate: exact execution mode, approval-time baseline, inventory authority, optional metadata output path와 expiry
 risk_and_effort: low / S
-next_slice: TEAX-H00
+next_slice: none
+next_gate: TEAX-H00 ratification-only after C00 PASS
 ```
 
 ### H00~H06 — P1 append-only history and coverage phase cards
@@ -1555,7 +1556,7 @@ TaskDriver/ERP task schema, source owner mutation, unrelated project, `_workmeta
 
 | phase card | goal / depends_on | inputs → outputs | target surfaces (write allowlist 아님) | future child-packet validators | rollback / stop / owner gate |
 | --- | --- | --- | --- | --- | --- |
-| `H00` | common envelope+coverage contract / `C00 PASS` | five owner maps → schema, fixtures, coverage receipt | `docs/architecture/workspace/PROJECT_HISTORY_ENVELOPE_V0.md`, `guild_hall/shared/project_history_envelope.mjs`, tests, README, CHANGELOG | envelope schema, clock/null semantics, digest, raw sentinel | revert public slice / stop on owner or clock ambiguity / owner approves envelope |
+| `H00` | common envelope+coverage contract ratification / `C00 PASS` | five owner maps → existing candidate의 ratify 또는 HOLD receipt | `docs/architecture/workspace/PROJECT_HISTORY_ENVELOPE_V0.md`, `guild_hall/shared/project_history_envelope.mjs`, `guild_hall/shared/project_history_envelope.test.mjs`의 read-only pinned candidate; write `0` | exact `node --test guild_hall/shared/project_history_envelope.test.mjs`; envelope schema, clock/null semantics, digest, raw sentinel | file delta 없음 / stop on owner or clock ambiguity / owner `RATIFY | HOLD` |
 | `H01` | mail append-only occurrence/classification history shadow / `H00` | three-writer/caller map + synthetic mail → stable occurrence/event/coverage shadow, no file cutover | gateway mail writer/reconcile modules and tests, proposed mail v2 contracts, dev-ERP scanner tests, README, CHANGELOG | `MAIL-01..12` applicable contract/shadow subset, occurrence project-independence; existing legacy writers unchanged, new projector OFF | feature OFF+revert / stop on caller gap or raw need / D21~D23; D26 exact mail mapping 전 adapter 금지, D25 mail coverage policy 전 lane acceptance 금지 |
 | `H02` | voice history envelope / `H00` | voice source-event refs+delivery status → envelope/coverage adapter | voice capture adapter/tests, `VOICE_RECORDING_LIBRARY_V0.md` sync if contract changes, README, CHANGELOG | revision/ack/gap/supersession, raw transcript sentinel | adapter OFF+revert / stop on route/coverage ambiguity / voice owner; D26 exact voice mapping 전 adapter 금지, D25 voice coverage policy 전 lane acceptance 금지 |
 | `H03` | structured PC work + external SE schedule history / `H00`; internal `H03A→H03B` | H03A ERP MCP WorkSession/approved instruction fixtures + daily-ledger projection-only fixture + H03B owner-approved schedule current/revision/event fixture → combined structured history+gap receipt | `erp_mcp_service.mjs`, server/tests, daily-ledger modules/tests, proposed schedule contract, README, CHANGELOG | WorkSession idempotency, task-chat/full-conversation payload reject, daily-ledger non-occurrence/projection-only, schedule stale revision/current-event replay | adapter OFF+revert / H03A alone cannot close H03; stop on surveillance or D20 exact owner/path/writer gap / D19+D20; D26 exact structured-work/schedule mapping 전 adapter 금지, D25 H03 coverage policy 전 lane acceptance 금지 |
@@ -3002,7 +3003,7 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | gate / earliest apply | owner가 exact하게 답할 것 | 답이 없을 때 안전 기본값 | 승인 전 허용 | 금지 | acceptance evidence / unlock |
 | --- | --- | --- | --- | --- | --- |
 | `C00` / 지금 | `public_only_stdout` 또는 `owner_authorized_query_only`; approval-time `HEAD==origin/main` SHA, inventory scope/profile, metadata output, approval ref와 expiry | public-only·stdout, live facts `UNKNOWN/VERIFY_HP`, P1 `BLOCKED` | public ref/static inventory | private/live query, report write, mutation | exact baseline·writer/consumer map·raw sentinel `0`·zero-mutation receipt → C00 PASS일 때만 H00 |
-| `H00` / C00 PASS 뒤 | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea`의 `PROJECT_HISTORY_ENVELOPE_V0.md`와 pure helper/test를 exact candidate로 지목하고, independent event envelope+coverage receipt pair, literal `unknown`, `known_at` half-open window, six-state count/null/gap semantics를 각각 ratify/hold | `canon_candidate` HOLD | public contract/helper/fixture 검토 | adapter, migration, live use, completeness claim | owner decision ref + H00 tests; exact independent pair ratification → lane별 owner gate가 있는 H01~H05 contract adapter |
+| `H00` / C00 PASS 뒤 | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea`의 `docs/architecture/workspace/PROJECT_HISTORY_ENVELOPE_V0.md`, `guild_hall/shared/project_history_envelope.mjs`, `guild_hall/shared/project_history_envelope.test.mjs`를 exact candidate로 지목하고, independent event envelope+coverage receipt pair, literal `unknown`, `known_at` half-open window, six-state count/null/gap semantics를 각각 `RATIFY | HOLD` | `canon_candidate` HOLD | 세 pinned public file과 exact test command 검토 | file edit, adapter, migration, live use, completeness claim | owner decision ref + `node --test guild_hall/shared/project_history_envelope.test.mjs`; exact independent pair ratification → lane별 owner gate가 있는 H01~H05 contract adapter |
 | `D19` / H03A 전 | negative boundary를 먼저 ratify; 신규 instruction/receipt source마다 exact owner surface, schema/version, ID allocator, consent·retention을 별도 명시 | existing bounded WorkSession만 후보; 나머지 HOLD, broad capture OFF | WorkSession과 negative fixture | whole task chat·hook full-message summary·screen·keystroke·OS capture, owner 미정 source | allowlist/negative test/direct-caller evidence → H03A input binding |
 | `D20` / H03B 전 | schedule current owner/path, immutable revision/event owner/path, stable row-ID owner/schedule scope, canonicalization/timezone, sole writer | `HOLD` | synthetic stale-revision/canonicalization fixture | row ID 발명, live event, task discovery | current/revision/event replay와 stale expected-revision reject → H03B |
 | `D24` / H06 target 확정 전 | 다섯 exact view name과 CSV/XLSX(메일은 ICS 포함) target, redacted projection-field allowlist, HPP sole-normal-projector, Mac/다른 PC normal allowlist empty를 logical TARGET으로 ratify | 이름은 candidate, materialization/export acceptance `OFF` | schema/path/field fixture | unapproved display field export, private folder 생성, non-HPP normal write | target path/field allowlist·shadow schema fixture → H06 target contract; 실제 생성은 P9 별도 |
@@ -3015,9 +3016,48 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 ```yaml
 TEAX-C00: APPROVE | HOLD
 execution_mode: public_only_stdout | owner_authorized_query_only
+execution_baseline_ref: <approval-time exact HEAD==origin/main SHA>
+inventory_scope: <exact public-static scope or separately authorized query-only scope>
+inventory_profile: public-only | <owner-approved-profile>
+required_live_proofs: <exact-list; known CV-02 blockers를 지우지 않음>
 inventory_authority_ref: <opaque-ref-or-none>
 metadata_output: stdout | <approved-metadata-only-path>
-approval_expires_at: <strict-utc-or-none>
+approval_ref: <owner-decision-ref>
+approval_expires_at: <strict-utc>
+```
+
+`public_only_stdout` 권장 안전 기본값은 `inventory_profile: public-only`,
+`inventory_authority_ref: none`, `metadata_output: stdout`이다. 이 경우 private/live query 권한은 생기지
+않고 DB/API query도 `0`이다. C00은 required scope와 acceptance check를 모두 닫지 못하거나 필요한
+live proof의 유효 authority·zero-mutation receipt가 없으면 `PASS`가 아니라 `BLOCKED`를 반환한다.
+현재 CV-02가 남은 public-only run은 blocker receipt는 만들 수 있어도 P1을 여는 PASS가 아니다.
+
+C00이 실제 `PASS`한 뒤에만 다음 답변을 사용할 수 있다. 이 답변은 세 pinned file을 고치거나 adapter를
+구현하는 권한이 아니다.
+
+```yaml
+TEAX-H00: RATIFY | HOLD
+precondition_receipt: <accepted-TEAX-C00-receipt-ref>
+candidate_ref: main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea
+candidate_paths:
+  - docs/architecture/workspace/PROJECT_HISTORY_ENVELOPE_V0.md
+  - guild_hall/shared/project_history_envelope.mjs
+  - guild_hall/shared/project_history_envelope.test.mjs
+candidate_blobs:
+  PROJECT_HISTORY_ENVELOPE_V0.md: 18f106b6b7f88f12ea0b345f2246c95bf1a2967f
+  project_history_envelope.mjs: ea7c23659724b25c487ae0293f7c3c0999108be5
+  project_history_envelope.test.mjs: f5edd6c15acdcf060988b005db7e13fec3832a2b
+validator: node --test guild_hall/shared/project_history_envelope.test.mjs
+ratify_items:
+  independent_event_envelope_and_coverage_receipt_pair: RATIFY | HOLD
+  literal_unknown_semantics: RATIFY | HOLD
+  known_at_half_open_window: RATIFY | HOLD
+  six_state_count_null_gap_matrix: RATIFY | HOLD
+overall_rule: any HOLD means TEAX-H00 HOLD
+output: owner-decision-ref-only
+file_edit_adapter_migration_live_claim: 0
+ratification_expires_at: none-because-blobs-pinned | <strict-utc>
+approval_ref: <owner-decision-ref>
 ```
 
 ### 17.2 남은 `UNKNOWN`과 next proof
@@ -3095,7 +3135,7 @@ live proof 권한이 없으면 해당 행을 `UNKNOWN/VERIFY_HP`로 남긴다. �
 | `inputs` | approved C00 packet, exact public refs, public contracts, established profile 또는 public-only fallback |
 | `outputs` | five-lane owner/writer/consumer/coverage manifest, live-completeness UNKNOWN, P1 start/blocked receipt; public-only로 필수 live proof가 없으면 PASS가 아니라 BLOCKED |
 | `code_delta` | `none` |
-| `db_delta/api_delta/folder_delta` | `query-only if separately authorized / health-read only / optional metadata report only` |
+| `db_delta/api_delta/folder_delta` | `public_only_stdout은 모두 none/stdout-only`; `owner_authorized_query_only`만 approved DB aggregate·health/read-only route·metadata-only output path |
 | `docs_contract_changelog_delta` | `not_applicable` |
 | `owner_and_writers` | inventory agent only; source/DB/project-history/task writer 없음 |
 | `acceptance_checks` | exact refs, raw sentinel 0, writer/caller map, coverage UNKNOWN+next proof, query-only zero-mutation if used |
@@ -3106,7 +3146,7 @@ live proof 권한이 없으면 해당 행을 `UNKNOWN/VERIFY_HP`로 남긴다. �
 | `stop_conditions` | base drift, profile/ACL 없음, raw value 필요, writer ambiguity, any mutation |
 | `owner_gate` | C00 execution mode, approval-time baseline, inventory authority, optional metadata output path와 expiry 승인 |
 | `risk_and_effort` | `low / S` |
-| `next_slice` | C00 PASS 뒤 `H00`, 그 뒤 H01~H06 |
+| `next_slice / next_gate` | `none` / C00 PASS 뒤 `H00` ratification-only; 그 뒤에도 lane별 exact child packet·owner gate 없이는 H01~H06 write 없음 |
 
 예상 실행 검증은 read-only/scoped이며 C00 승인 전에는 private inventory나 evidence path를 만들지 않는다.
 
@@ -3136,7 +3176,9 @@ flowchart LR
   C0 -- "BLOCKED" --> STOP
   C0 -- "PASS" --> O1{"Owner: H00 exact candidate ratification?"}
   O1 -- "HOLD" --> STOP
-  O1 -- "ratified" --> H["H01~H05 adapters<br/>D26 exact mapping first"]
+  O1 -- "ratified" --> LP{"H01~H05 exact child packets<br/>lane owner gates approved?"}
+  LP -- "no" --> STOP
+  LP -- "yes" --> H["H01~H05 contract adapters<br/>D26 exact mapping first"]
   H --> HG{"H01~H05 accepted<br/>D24~D26 decided?"}
   HG -- "HOLD/BLOCKED" --> STOP
   HG -- "yes" --> H6["H06 five-lane acceptance<br/>D25 coverage policy applied"]

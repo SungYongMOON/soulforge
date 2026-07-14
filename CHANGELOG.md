@@ -2,6 +2,16 @@
 
 ## 2026-07-15
 
+### 할일 엔진 아침 owner 승인 packet 보정
+
+- 첫 실행 후보 C00의 copy-ready owner 답변에 approval-time baseline SHA, inventory scope/profile,
+  required live proof, authority/output, approval ref와 expiry를 모두 명시하고, `public_only_stdout`의
+  API/DB/private/live query를 `0`으로 고정했다.
+- H00은 C00 PASS 뒤에만 선택할 수 있는 ratification-only gate로 유지하면서, pinned candidate의
+  계약·helper·test 3개 literal path/blob, exact test command, 네 의미 항목별 `RATIFY | HOLD` 답변
+  shape를 고정했다. H01~H05는 다시 lane별 exact child packet·owner gate를 통과해야 한다.
+  구현·private/live 조회·데이터 변경·writer·운영 활성화는 수행하지 않았다. (worker: codex_gpt-5)
+
 ### 할일 엔진 승인 전 packet 실행성 경계 보정
 
 - C00은 `public_only_stdout` owner 선택에서만 시작 가능한 exact first packet, H00은 C00 PASS 뒤
