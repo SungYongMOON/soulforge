@@ -17,6 +17,12 @@
   size/mtime, content-hash, manifest, and commit-marker verification while
   avoiding false `source_file_retargeted` failures from mapped NAS providers;
   restore errors now retain a fixed redacted stage code. (worker: codex_gpt-5)
+- Replaced the impossible post-restart coherent-backup mtime condition with a
+  bounded logical-current proof: a stale-mtime generation is accepted only
+  when its restored manifest matches every live externalized message pointer,
+  attachments are empty, and a newer live DB backup has a valid manifest plus
+  matching restore-test evidence. Any pointer, attachment, DB-backup, or
+  restore-evidence drift remains a blocker. (worker: codex_gpt-5)
 
 ### dev-ERP runtime source attestation 고정
 

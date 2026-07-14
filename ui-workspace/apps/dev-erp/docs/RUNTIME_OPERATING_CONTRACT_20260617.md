@@ -122,6 +122,16 @@ realpath, size, mtime, committed SHA-256, and manifest relations remain exact.
 Local-drive identity checks are unchanged, and any content or path drift still
 fails closed with a redacted stage code.
 
+Starting SQLite after a stopped-service coherent backup may create a newer WAL
+mtime without changing any Codex payload pointer. The release audit may treat
+that generation as logically current only when the restore marker is valid,
+every live externalized message pointer matches the committed manifest,
+the manifest contains zero attachments, and a newer live DB backup has both a
+valid hash-bound manifest and matching restore-test report. This is not a
+general mtime bypass: any pointer mismatch, attachment presence, stale DB
+backup, invalid manifest, or missing restore evidence keeps the coherent
+generation stale and blocks release.
+
 ## Runtime Correction Patch Rule
 
 Runtime DB drift is corrected with a tool, not by committing the DB file.

@@ -55,6 +55,10 @@ const CODEX_PAYLOAD_GENERATION_RE = /^cpb_[A-Za-z0-9_-]{8,96}$/;
 const CODEX_PAYLOAD_SHA256_RE = /^[a-f0-9]{64}$/;
 const CODEX_PAYLOAD_MANIFEST_MAX_BYTES = 64 * 1024 * 1024;
 const CODEX_PAYLOAD_MAX_RECORDS = 100_000;
+const CODEX_PAYLOAD_MESSAGE_FIELDS = new Set([
+  "item_id", "payload_ref", "role", "byte_length", "sha256", "envelope_bytes", "envelope_sha256",
+]);
+const CODEX_PAYLOAD_MESSAGE_ROLES = new Set(["user", "assistant", "error", "system"]);
 const CODEX_WORKER_IDENTITY_SHA256_RE = /^[a-f0-9]{64}$/;
 export const CODEX_SHARE_BOUNDARY_RECEIPT_SCHEMA = "dev_erp.codex_share_boundary_receipt.v2";
 const CODEX_SHARE_RECEIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -1325,6 +1329,59 @@ function safeNonNegativeInteger(value) {
   return Number.isSafeInteger(value) && value >= 0;
 }
 
+function buildPayloadPointerEvidence(rows, { manifestRows = false } = {}) {
+  const seen = new Set();
+  const normalized = rows.map((row) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) payloadEvidenceFail("message_pointer_shape_invalid");
+    if (manifestRows && !hasExactKeys(row, CODEX_PAYLOAD_MESSAGE_FIELDS)) {
+      payloadEvidenceFail("message_pointer_shape_invalid");
+    }
+    const pointer = {
+      item_id: String(row.item_id ?? ""),
+      payload_ref: String(row.payload_ref ?? ""),
+      role: String(row.role ?? ""),
+      byte_length: Number(row.byte_length),
+      sha256: String(row.sha256 ?? ""),
+    };
+    if (!pointer.item_id || pointer.item_id.length > 128
+        || !pointer.payload_ref || pointer.payload_ref.length > 256
+        || !CODEX_PAYLOAD_MESSAGE_ROLES.has(pointer.role)
+        || !Number.isSafeInteger(pointer.byte_length) || pointer.byte_length < 1
+        || !CODEX_PAYLOAD_SHA256_RE.test(pointer.sha256)
+        || seen.has(pointer.payload_ref)) {
+      payloadEvidenceFail("message_pointer_invalid");
+    }
+    seen.add(pointer.payload_ref);
+    return pointer;
+  }).sort((left, right) => (
+    left.payload_ref.localeCompare(right.payload_ref)
+    || left.item_id.localeCompare(right.item_id)
+    || left.role.localeCompare(right.role)
+  ));
+  return {
+    count: normalized.length,
+    sha256: createHash("sha256").update(`${normalized.map((row) => JSON.stringify(row)).join("\n")}\n`).digest("hex"),
+  };
+}
+
+function readLivePayloadPointerEvidence(dbPath) {
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  try {
+    if (!tableExists(db, "codex_thread_message")) payloadEvidenceFail("live_pointer_table_missing");
+    const rows = db.prepare(`
+      SELECT item_id, payload_ref, role,
+             payload_byte_length AS byte_length,
+             payload_sha256 AS sha256
+      FROM codex_thread_message
+      WHERE payload_ref IS NOT NULL AND payload_ref<>''
+      ORDER BY payload_ref, id
+    `).all();
+    return buildPayloadPointerEvidence(rows);
+  } finally {
+    db.close();
+  }
+}
+
 function validatePayloadEvidenceManifest(manifest, generationId) {
   const topKeys = new Set(["schema", "generation_id", "created_at", "database", "messages", "attachments", "totals"]);
   const databaseKeys = new Set(["bytes", "sha256", "quick_check"]);
@@ -1350,6 +1407,7 @@ function validatePayloadEvidenceManifest(manifest, generationId) {
     || manifest.messages.length > CODEX_PAYLOAD_MAX_RECORDS
     || manifest.attachments.length > CODEX_PAYLOAD_MAX_RECORDS
   ) payloadEvidenceFail("manifest_inventory_invalid");
+  const pointerEvidence = buildPayloadPointerEvidence(manifest.messages, { manifestRows: true });
   let attachmentCount = 0;
   for (const group of manifest.attachments) {
     if (!group || typeof group !== "object" || Array.isArray(group) || !Array.isArray(group.files)) {
@@ -1372,7 +1430,7 @@ function validatePayloadEvidenceManifest(manifest, generationId) {
     || manifest.totals.message_bytes > manifest.totals.generation_payload_bytes
     || manifest.totals.attachment_bytes > manifest.totals.generation_payload_bytes
   ) payloadEvidenceFail("manifest_totals_invalid");
-  return createdAt;
+  return { createdAt, pointerEvidence };
 }
 
 function readLatestCommittedPayloadGeneration(backupNamespace) {
@@ -1411,7 +1469,7 @@ function readLatestCommittedPayloadGeneration(backupNamespace) {
   } catch {
     payloadEvidenceFail("manifest_json_invalid");
   }
-  validatePayloadEvidenceManifest(manifest, latest.generation_id);
+  const validated = validatePayloadEvidenceManifest(manifest, latest.generation_id);
   return {
     generation_count: generationCount,
     committed_generation_count: candidates.length,
@@ -1424,6 +1482,7 @@ function readLatestCommittedPayloadGeneration(backupNamespace) {
       sha256: manifest.database.sha256,
       quick_check: manifest.database.quick_check,
     },
+    pointer_evidence: validated.pointerEvidence,
     totals: { ...manifest.totals },
   };
 }
@@ -1478,6 +1537,9 @@ function checkCodexPayloadBackupEvidence(result, paths, { requireNas = false } =
     created_at: latest.created_at,
     committed_mtime_ms: latest.committed_mtime_ms,
     database: latest.database,
+    pointer_count: latest.pointer_evidence.count,
+    live_pointer_count: null,
+    live_pointer_match: false,
     totals: latest.totals,
     restore_verified: false,
   };
@@ -1485,26 +1547,52 @@ function checkCodexPayloadBackupEvidence(result, paths, { requireNas = false } =
   const dbStat = safeStat(paths.dbPath);
   const walStat = safeStat(`${paths.dbPath}-wal`);
   const liveMtimeMs = Math.max(dbStat?.mtimeMs ?? 0, walStat?.mtimeMs ?? 0);
-  if (latest.committed_mtime_ms + 1000 < liveMtimeMs) {
-    add(result, level, "codex_payload_backup_generation_stale", "Latest coherent Codex payload backup is older than the live DB/WAL state", {
-      backup_mtime_ms: latest.committed_mtime_ms,
-      live_mtime_ms: liveMtimeMs,
+  const generationMtimeStale = latest.committed_mtime_ms + 1000 < liveMtimeMs;
+  try {
+    const livePointerEvidence = readLivePayloadPointerEvidence(paths.dbPath);
+    check.latest.live_pointer_count = livePointerEvidence.count;
+    check.latest.live_pointer_match = livePointerEvidence.count === latest.pointer_evidence.count
+      && livePointerEvidence.sha256 === latest.pointer_evidence.sha256;
+  } catch (error) {
+    add(result, level, "codex_payload_live_pointer_evidence_invalid", "Live Codex payload pointers could not be compared with the coherent generation", {
+      error_code: String(error?.code || "live_pointer_evidence_invalid"),
     });
   }
 
-  if (!check.restore_namespace_available) return;
-  try {
-    check.latest.restore_verified = verifyPayloadRestoreMarker(
-      restoreNamespace,
-      latest.generation_id,
-      latest.manifest_sha256,
-    );
-  } catch (error) {
-    add(result, level, "codex_payload_restore_verification_invalid", "Latest coherent Codex payload backup lacks a matching restore-verification marker", {
-      generation_id: latest.generation_id,
-      manifest_sha256: latest.manifest_sha256,
-      error_code: String(error?.code || "restore_evidence_invalid"),
-    });
+  if (check.restore_namespace_available) {
+    try {
+      check.latest.restore_verified = verifyPayloadRestoreMarker(
+        restoreNamespace,
+        latest.generation_id,
+        latest.manifest_sha256,
+      );
+    } catch (error) {
+      add(result, level, "codex_payload_restore_verification_invalid", "Latest coherent Codex payload backup lacks a matching restore-verification marker", {
+        generation_id: latest.generation_id,
+        manifest_sha256: latest.manifest_sha256,
+        error_code: String(error?.code || "restore_evidence_invalid"),
+      });
+    }
+  }
+
+  if (generationMtimeStale) {
+    const latestDbBackup = result.checks.nas_backup.latest;
+    const logicallyCurrent = check.latest.restore_verified
+      && check.latest.live_pointer_match
+      && latest.totals.attachment_count === 0
+      && latestDbBackup?.fresh === true
+      && latestDbBackup?.manifest_valid === true
+      && result.checks.nas_backup.valid_restore_report_count > 0;
+    if (logicallyCurrent) {
+      add(result, "info", "codex_payload_backup_generation_logically_current", "The stopped-service coherent generation remains current because live message pointers are unchanged, attachments are empty, and a newer live DB backup is hash-bound and restore-tested", {
+        pointer_count: latest.pointer_evidence.count,
+      });
+    } else {
+      add(result, level, "codex_payload_backup_generation_stale", "Latest coherent Codex payload backup is older than the live DB/WAL state", {
+        backup_mtime_ms: latest.committed_mtime_ms,
+        live_mtime_ms: liveMtimeMs,
+      });
+    }
   }
 }
 
@@ -1556,6 +1644,7 @@ function checkNasBackup(result, paths, { skipNas = false, requireNas = false } =
       live_mtime_ms: liveMtimeMs,
       db_mtime_ms: dbStat?.mtimeMs ?? null,
       wal_mtime_ms: walStat?.mtimeMs ?? null,
+      fresh: latest.stat.mtimeMs + 1000 >= liveMtimeMs,
     };
     if (latest.stat.mtimeMs + 1000 < liveMtimeMs) {
       add(result, "blocker", "nas_latest_db_backup_stale", "Latest NAS DB backup is older than the live DB/WAL state", {

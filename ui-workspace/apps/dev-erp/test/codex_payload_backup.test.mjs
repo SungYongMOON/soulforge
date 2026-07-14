@@ -12,6 +12,7 @@ import {
   rmSync,
   symlinkSync,
   unlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
@@ -41,6 +42,7 @@ import {
   restoreAndVerifyPreMigrationCodexPayloadBackup,
 } from "../tools/codex_payload_backup.mjs";
 import { runRuntimeReleaseAudit } from "../tools/runtime_release_audit.mjs";
+import { backupRuntimeDb, restoreTestRuntimeDb } from "../tools/runtime_ops.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TOOL = resolve(HERE, "..", "tools", "codex_payload_backup.mjs");
@@ -306,6 +308,73 @@ test("runtime release audit makes missing matching payload restore evidence a li
   assert.equal(issue?.generation_id, generationId);
   assert.equal(issue?.error_code, "restore_generation_invalid");
   assert.match(issue?.manifest_sha256 || "", /^[a-f0-9]{64}$/);
+});
+
+test("runtime release audit accepts a stale-mtime coherent generation only through exact live pointers and fresh DB restore evidence", async (t) => {
+  const fixture = await createFixture({ nasNamespaces: true });
+  t.after(() => {
+    try { fixture.db.close(); } catch {}
+    rmSync(fixture.root, { recursive: true, force: true });
+  });
+  rmSync(fixture.attachmentRoot, { recursive: true, force: true });
+  mkdirSync(fixture.attachmentRoot, { recursive: true });
+  fixture.db.exec("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+  fixture.db.prepare("INSERT INTO meta(key,value) VALUES('schema_version','dev_erp.v1')").run();
+
+  const generationId = "cpb_audit_logical_current_01";
+  backupFixture(fixture, generationId);
+  restoreAndVerifyCodexPayloadBackup({
+    backupRoot: fixture.backupRoot,
+    generationId,
+    restoreRoot: fixture.restoreRoot,
+  });
+  const old = new Date(Date.now() - 10_000);
+  utimesSync(join(fixture.backupRoot, generationId, "COMMITTED"), old, old);
+
+  fixture.db.exec("CREATE TABLE unrelated_state(id INTEGER PRIMARY KEY, value TEXT NOT NULL)");
+  fixture.db.prepare("INSERT INTO unrelated_state(value) VALUES(?)").run("non-codex change");
+  const latestDir = join(fixture.nasRoot, "01_db_backups", "latest", "runtime_live");
+  const backup = backupRuntimeDb({
+    dbPath: fixture.dbPath,
+    outDir: join(fixture.nasRoot, "01_db_backups", "scheduled"),
+    latestDir,
+  });
+  assert.equal(backup.ok, true);
+  const restored = restoreTestRuntimeDb({ nasRoot: fixture.nasRoot });
+  assert.equal(restored.ok, true);
+
+  const options = {
+    sourceRoot: fixture.root,
+    runtimeRoot: fixture.root,
+    appRoot: resolve(HERE, ".."),
+    dbPath: fixture.dbPath,
+    metaPath: join(fixture.root, "missing-real-meta.json"),
+    workspacesDir: join(fixture.root, "_workspaces"),
+    nasRoot: fixture.nasRoot,
+    skipGit: true,
+    targetMembers: 0,
+  };
+  const audit = await runRuntimeReleaseAudit(options);
+  assert.equal(audit.checks.nas_backup.latest.fresh, true);
+  assert.equal(audit.checks.nas_backup.valid_restore_report_count, 1);
+  assert.equal(audit.checks.nas_backup.codex_payload.latest.live_pointer_match, true);
+  assert.equal(audit.checks.nas_backup.codex_payload.latest.totals.attachment_count, 0);
+  assert.equal(
+    [...audit.blockers, ...audit.warnings].some((issue) => issue.code === "codex_payload_backup_generation_stale"),
+    false,
+  );
+  assert.equal(
+    audit.info.some((issue) => issue.code === "codex_payload_backup_generation_logically_current"),
+    true,
+  );
+
+  fixture.db.prepare("UPDATE codex_thread_message SET payload_sha256=?").run("0".repeat(64));
+  const drifted = await runRuntimeReleaseAudit(options);
+  assert.equal(drifted.checks.nas_backup.codex_payload.latest.live_pointer_match, false);
+  assert.equal(
+    [...drifted.blockers, ...drifted.warnings].some((issue) => issue.code === "codex_payload_backup_generation_stale"),
+    true,
+  );
 });
 
 test("backup rejects a DB pointer whose size or hash does not match its immutable message payload", async (t) => {
