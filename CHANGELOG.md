@@ -2,6 +2,19 @@
 
 ## 2026-07-15
 
+### 할일 엔진 승인 전 packet 실행성 경계 보정
+
+- C00은 `public_only_stdout` owner 선택에서만 시작 가능한 exact first packet, H00은 C00 PASS 뒤
+  pinned `canon_candidate` ratification-only gate로 분리했다.
+- H01~H06과 C01/C04/C06/C07/C08 split 행은 write 권한이 없는
+  `non_executable_phase_card`로 명시했다. 구현 전 child packet은 full YAML field, literal
+  existing/BUILD path, symbol, exact validator command, dependency receipt와 owner decision ref를
+  가져야 하며 generic glob/module/test/package 표현은 allowlist로 사용할 수 없다.
+- 아직 등록되지 않은 `validate:task-engine-core-v1`은 C01A에서 사용하지 않고, C01B exact child
+  packet이 root `package.json`에 canonical cross-root command로 등록한 뒤 C02/C03/C04B가 소비하도록
+  owner와 순서를 고정했다. 구현·DB·업무 데이터·migration·writer·운영 활성화는 수행하지 않았다.
+  (worker: codex_gpt-5)
+
 ### 할일 엔진 공개 source traceability 보정
 
 - P1 common history 예시를 독립 event envelope와 coverage receipt pair로 맞추고,
