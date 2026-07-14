@@ -14,6 +14,17 @@
 - 요청, 기한, 번호 구역, bullet, 표, 빈 후속 구역 생략을 함께 검사하는 공개 합성
   fixture를 추가했다. (worker: codex_gpt-5)
 
+### Project history envelope/coverage `canon_candidate`
+
+- mail, voice, structured PC work, file, run-log의 source-local occurrence를
+  project-independent identity와 exact typed refs로 표현하는 public synthetic event
+  envelope 계약을 추가했다.
+- event와 coverage receipt를 분리해 0건/실패/미수집/비적용 상태가 가짜 event를 만들지
+  않게 했고, strict canonical JSON/SHA-256, classification, supersession collection,
+  half-open `known_at` coverage와 deterministic ordered-event digest helper/test를 추가했다.
+- owner ratification 전에는 `canon_candidate`이며 adapter/live use를 활성화하지 않는다.
+  live completeness와 gap vocabulary는 D25 owner 경계를 유지한다. (worker: codex_gpt-5)
+
 ### 할일 엔진 맥락 기반 선행구조 교차검증 packet
 
 - 맥미니에서 정의한 project payload/metadata, source-local 시간 이력,
