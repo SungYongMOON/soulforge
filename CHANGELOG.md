@@ -2,6 +2,17 @@
 
 ## 2026-07-15
 
+### 할일 엔진 C00B authority packet readiness 보정
+
+- C00B를 H00 이전의 authority-backed source owner/root/writer/consumer/source-availability inventory로
+  한정하고, H00의 six-state completeness·`known_at` window·D25 gap vocabulary를 선사용하던 순환
+  가능성을 제거했다. Authority가 확인한 current 부재·gap과 evidence authority 자체의 누락·만료를
+  분리해 전자는 inventory finding, 후자는 `BLOCKED`로 고정했다.
+- `C00B-HOLD-01..08`에 frozen C00Q ref, baseline/approval/expiry, exact profile·세 authority 분리,
+  lane source descriptor·query allowlist, output owner/destination, source별 zero-mutation, C00-LIVE-01..04
+  closure, separate judge와 H00-only unlock을 명시했다. 구현·C00B 실행·private/live 조회·metadata
+  report write·DB/업무 데이터 변경은 수행하지 않았다. (worker: codex_gpt-5)
+
 ### 할일 엔진 C00Q exact packet readiness 보정
 
 - C00Q의 public/synthetic tool 경계는 정해졌지만 입력 descriptor·literal CLI flags·lane source
