@@ -2,6 +2,16 @@
 
 ## 2026-07-16
 
+### Task Engine C00Q query-only inventory synthetic foundation
+
+- Added the public/synthetic five-lane inventory descriptor and manifest schema,
+  deterministic query-only CLI, pre-open WAL/SHM quiescence and SQLite
+  read-only/zero-mutation guards, and
+  sanitized mail/voice health evaluators with explicit D25/D26 blockers.
+- This slice performed actual live/data/DB/workspace/collector/write execution
+  `0`; C00B live binding and execution remain stopped pending separate owner
+  approval. (worker: codex_gpt-5)
+
 ### Structured Outlook request-mail default
 
 - Reserved compact rendering for pure shares and made any requested work or

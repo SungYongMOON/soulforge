@@ -1,5 +1,52 @@
 # dev-erp — 개발팀 운영 콕핏 (P1: 읽기 전용)
 
+## Task Engine C00Q query-only inventory
+
+`tools/task_engine_inventory.mjs` is the public/synthetic C00Q foundation for a
+five-lane (`mail`, `voice`, `structured_pc_work`, `file`, `run_log`) inventory.
+It accepts only the explicit descriptor command below; there is no environment,
+default, stdin, glob, scan, output-file, apply, source, authority, or DB flag.
+
+```bash
+node tools/task_engine_inventory.mjs --query-only --json --descriptor <literal-json-path>
+```
+
+The descriptor and every `sqlite_catalog_v1.locator.sqlite_path` are input-only.
+They are never copied to stdout. SQLite inspection uses `DatabaseSync(path,
+{ readOnly: true })`, immediately enables and reads back `PRAGMA query_only=ON`,
+requires `total_changes()=0`, runs only descriptor-allowlisted fixed catalog,
+table-count, and enum-count templates, and closes the handle. C00Q opens only a
+sidecar-free, quiescent SQLite database. It fingerprints main/WAL/SHM existence,
+SHA-256, size, and exact mtime before opening; any existing `-wal` or `-shm` is
+BLOCKED before open. It then proves main equivalence and continued sidecar
+absence after close. This slice executed and tested synthetic fixtures only.
+`authorized_observation` is structurally supported for future C00B use, but no
+live profile, locator, or query was executed or validated here. Live use still
+requires separate owner approval and an approved WAL/quiescence method. C00Q
+never initializes, repairs, migrates, or writes a database.
+
+Mail and voice health evaluators consume only strict sanitized metadata embedded
+in a descriptor whose source inventory profile is `synthetic`. They do not use
+the clock, filesystem, environment, network, raw mail/recording content, or any
+writer. Mail output is not D25 coverage evidence and a healthy zero-event run is
+not a completeness claim. Voice treats the recording ID as the sole native
+occurrence candidate; receipt, acknowledgement, session, and bundle aggregates
+contribute zero occurrences. Detailed receipt rows that would require local
+paths or refs remain a future owner-local validation concern and are not modeled
+by C00Q. Every detached health row declares `observation_profile: synthetic` and
+is never live evidence, even when its local status is `NORMAL`.
+
+A successful exit `0` creates only a deterministic `review_ready_manifest`.
+It does not accept P0, unlock H00 review or P1 adapter execution, or create
+writer/activation authority. All `C00-LIVE-01..04` proofs remain unresolved in
+every C00Q manifest, including authorized observations; only a separate C00B
+judge may close them. C00Q uses only
+`available|attested_absent|attested_gap|unknown`; it does not emit H00 six-state
+completeness or D25 gap/window vocabulary. **STOP:** live binding, raw copying,
+collector execution, workspace/runtime inspection, DB or task-data mutation,
+writer activation, and C00B execution require a separate owner-approved C00B
+packet and are outside this command.
+
 설계 정본: [`docs/DESIGN.md`](docs/DESIGN.md) · 작업 큐: [`docs/checklist_phase1.json`](docs/checklist_phase1.json)
 
 하드웨어/체계공학 개발팀의 운영 레이어. P1 은 read-only 콕핏이다:
