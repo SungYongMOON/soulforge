@@ -80,10 +80,14 @@ truth. Select the human-facing view with the workflow render policy and record
 the mode, reason codes, visible sections, and channel recommendation in the
 draft packet.
 
-- `compact`: one purpose and low complexity; no fixed headings.
-- `action_brief`: multiple actions, assignees, deadlines, response needs, or
-  technical basis. Render only populated fields among `수신`, `사유`,
-  `요청업무`, `요청기한`, `요청사유`, and `비고`.
+- `compact`: pure sharing only, with no requested work, confirmation, review,
+  decision, or required response.
+- `action_brief`: use whenever at least one requested work item or required
+  response exists, even for one assignee and one item. Show `수신/사유`, purpose
+  or review result, supported review/technical basis, `요청 업무`, completion or
+  reply criteria, supported follow-up, and attachments. For repeated request
+  fields, use a table with `담당자`, `요청 업무`, `확인 목적` or request basis,
+  and `완료·회신 기준`; show a deadline only when supplied.
 - `decision_brief`: approval or choice; lead with the decision needed and show
   recommendation, alternatives/impact, deadline, and basis only when present.
 - `status_change`: lead with the change, before/after, impact, and next action.
@@ -111,6 +115,8 @@ authority above `draft_only`.
 - Any voice profile use includes aggregate-only provenance.
 - Missing facts remain assumptions; no facts or schedules are invented.
 - Footer gaps keep the result draft-only.
+- Compact was not selected when requested work, confirmation, review, decision, or a required response exists.
+- Newly authored Outlook paragraphs, headings, bullets, and every table cell explicitly use black text and do not inherit colored reply-thread formatting.
 - No external send occurred; any Outlook mutation was limited to one explicitly requested unsent draft through the requested control surface.
 - A terminal/programmatic request used PowerShell Outlook COM only and did not fall back to UI or computer-control automation.
 - Only the exact owner-selected attachment was staged and attached; any runtime password value was neither printed nor persisted.

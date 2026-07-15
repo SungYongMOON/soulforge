@@ -28,7 +28,10 @@ behavior:
     - supported v0 context normalizes to v1-only without inferred assignees or lost ambiguous values
     - multi-assignee work, notes, schedule, formats/examples, attachments, and response requirements survive into draft review
     - the visible body uses compact, action, decision, status-change, or reply-map rendering without empty headings
-    - the six-field Korean action view appears only for complex action mail
+    - compact is limited to pure sharing with no requested work, confirmation, review, decision, or response
+    - any requested work or required response produces a structured action or decision brief even when only one assignee or one work item exists
+    - structured request mail visibly separates purpose, review or technical basis, requested work, completion or reply criteria, follow-up, and attachments
+    - newly authored Outlook text, headings, bullets, and tables are explicitly black and never inherit colored reply-thread formatting
     - optional voice guidance comes from a local/private aggregate profile with provenance
     - an explicitly requested local draft executor may save or display one unsent draft without acquiring send authority
     - a terminal/programmatic request never falls back to UI or computer-control automation

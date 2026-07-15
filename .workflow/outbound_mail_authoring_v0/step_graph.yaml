@@ -94,6 +94,8 @@ steps:
       rules:
         - keep_normalized_metadata_complete_even_when_body_is_compact
         - select_compact_action_brief_decision_brief_status_change_or_reply_map
+        - compact_is_allowed_only_for_pure_share_without_requested_work_confirmation_review_decision_or_required_response
+        - any_requested_work_or_required_response_selects_action_brief_even_for_one_assignee_and_one_item
         - omit_empty_visible_sections
         - show_structured_action_core_for_action_mail
         - show_approved_recipient_display_name_or_role_never_raw_address
@@ -154,6 +156,8 @@ steps:
         - ensure_visible_body_is_recoverable_by_later_ai_without_private_metadata
         - never_copy_synthetic_example_values_as_mail_facts
         - emit_readability_render_plan_only_and_do_not_mutate_Outlook
+        - structured_request_mail_visibly_separates_recipient_reason_purpose_basis_requested_work_completion_criteria_follow_up_and_attachments
+        - Outlook_application_sets_new_body_headings_bullets_and_all_table_cells_to_black_without_inheriting_reply_thread_color
       missing_fact_policy: add_assumptions_and_keep_draft_only
     summary: Draft the body in the owner's concise business style using only provided or approved facts.
     next:

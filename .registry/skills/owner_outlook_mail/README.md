@@ -15,7 +15,10 @@ executor and never fall back to UI or computer-control automation.
 
 The complete v1 metadata stays fixed while the visible body adapts to the
 message: compact, action brief, decision brief, status/change, or mapped reply.
-The six-field Korean action layout is used only when complexity warrants it and
-empty fields are never printed.
+Compact is reserved for pure sharing with no requested work, confirmation,
+review, decision, or response. Any actionable request uses a structured brief
+that visibly separates purpose, basis, requested work, completion/reply
+criteria, follow-up, and attachments. Newly authored Outlook content explicitly
+uses black text instead of inheriting a colored reply-thread style.
 
 Installed skill name: `soulforge-owner-outlook-mail`.

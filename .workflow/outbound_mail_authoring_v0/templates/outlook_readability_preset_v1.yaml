@@ -28,9 +28,20 @@ structure:
     use_for: parallel_items
   tables:
     use_for: repeated_fields_or_three_or_more_related_values
+    request_work_columns:
+      - "담당자"
+      - "요청 업무"
+      - "확인 목적 또는 요청 사유"
+      - "완료·회신 기준"
+      - "요청 기한(값이 있을 때만)"
   follow_up_section:
     include_when: supported_nonempty_follow_up_exists
 typography:
+  color:
+    authored_content: black
+    inherit_reply_thread_color: false
+    applies_to: [body, headings, bullets, tables, table_cells]
+    application_verification: verify_each_authored_paragraph_and_table_cell_before_save
   body:
     font_family: "Malgun Gothic"
     font_size_pt: 10
