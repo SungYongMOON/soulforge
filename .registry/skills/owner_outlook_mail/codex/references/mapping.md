@@ -56,6 +56,23 @@ request does not raise authority above `draft_only`. If a new-mail keyword is
 missing, leave the subject unresolved and continue only with a body draft plus
 an assumption and checklist gap.
 
+## Outlook Terminal Draft Application
+
+When the current user explicitly requests `Outlook terminal`, local Outlook
+terminal, PowerShell Outlook, COM, or another programmatic control surface,
+select PowerShell plus the local Outlook COM object model as the only executor.
+Do not invoke computer-use, app-control, keyboard/pointer automation, or a UI
+fallback. The executor may open only the exact current-request local source
+message, create its reply or one new unsent draft, preserve the thread subject,
+apply the approved body, stage and attach only the exact owner-selected file,
+and save or display that draft. It must never call `.Send()`.
+
+If the owner explicitly binds a password method for the selected Office
+attachment, derive and use the value only at runtime. Do not print, log, store,
+or repeat the value. If COM execution fails, stop and return the copy-ready
+draft; do not substitute UI automation. UI/app-control is eligible only when
+the current user explicitly requests that control surface.
+
 ## Adaptive Body Rendering
 
 Keep `outbound_team_mail_context_v1` as the complete machine-readable source of
@@ -94,5 +111,7 @@ authority above `draft_only`.
 - Any voice profile use includes aggregate-only provenance.
 - Missing facts remain assumptions; no facts or schedules are invented.
 - Footer gaps keep the result draft-only.
-- No external send or Outlook mutation occurred.
+- No external send occurred; any Outlook mutation was limited to one explicitly requested unsent draft through the requested control surface.
+- A terminal/programmatic request used PowerShell Outlook COM only and did not fall back to UI or computer-control automation.
+- Only the exact owner-selected attachment was staged and attached; any runtime password value was neither printed nor persisted.
 - No raw mail payload, exact excerpt, contact value, raw address, exact footer, private path, or project row entered public output.

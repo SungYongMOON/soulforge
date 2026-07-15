@@ -41,6 +41,9 @@ optional_inputs:
   - owner_provided_body_facts
   - owner_decision_refs
   - post_send_metadata_record_ref
+  - requested_outlook_control_surface
+  - outlook_draft_source_ref
+  - attachment_password_handling_instruction
 outputs:
   - mail_authoring_scope
   - project_keyword_resolution
@@ -54,6 +57,7 @@ outputs:
   - owner_approval_gate_result
   - send_surface_handoff
   - outlook_draft_application_handoff
+  - outlook_draft_executor_selection
   - metadata_record_plan
   - boundary_review_note
 validation_level: pilot_executed_private_application
@@ -120,6 +124,7 @@ outbound_mail_authoring_contract:
     - pre_send_checklist
     - owner_approval_gate
     - send_surface_handoff_packet
+    - outlook_draft_executor_selection
     - metadata_record_plan
     - boundary_review_note
   does_not_own:
@@ -324,6 +329,19 @@ outbound_mail_authoring_contract:
     separate_executor_owner_approval_required: true
     external_send_remains_forbidden_to_authoring_workflow: true
     exact_signature_footer_payload_stays_runtime_private: true
+    executor_selection_policy:
+      explicit_terminal_or_programmatic_request: local_programmatic_draft_executor
+      explicit_ui_or_computer_control_request: app_control_draft_executor
+      terminal_request_forbids_ui_or_computer_control_fallback: true
+      implicit_control_surface_substitution: forbidden
+    local_programmatic_draft_executor:
+      mutation_scope: one_current_request_unsent_draft_only
+      exact_source_recipient_subject_body_and_attachment_binding_required: true
+      may_save_or_display_unsent_draft: true
+      may_stage_exact_selected_attachment_under_workspaces: true
+      attachment_password_method_requires_current_owner_instruction: true
+      runtime_password_value_logging_or_persistence: forbidden
+      external_send: forbidden
   authority_boundary:
     default_send_authority: draft_only
     owner_approval_required_for_external_send: true

@@ -273,6 +273,11 @@ steps:
         - draft_only
       rules:
         - outlook_manual_handoff_never_clicks_send_without_owner_instruction
+        - explicit_terminal_or_programmatic_control_surface_emits_local_programmatic_draft_handoff
+        - terminal_or_programmatic_request_forbids_UI_or_computer_control_fallback
+        - app_control_is_eligible_only_for_an_explicit_UI_or_computer_control_request
+        - current_request_source_recipient_subject_body_and_selected_attachment_are_bound_before_draft_application
+        - attachment_password_values_are_runtime_only_and_never_recorded
         - soulforge_send_mail_handoff_requires_MAIL_SEND_V0_approval
         - no_recipient_or_attachment_changes_after_approval
     summary: Prepare a copy-ready Outlook draft or a bounded send-mail handoff when approval allows it.
@@ -312,7 +317,9 @@ steps:
       artifact_out: boundary_review_note
       checks:
         - no_external_send_without_current_owner_approval
-        - no_outlook_folder_rule_or_mail_mutation_claim
+        - no_outlook_folder_or_rule_mutation_claim
+        - any_outlook_mail_mutation_is_limited_to_one_explicitly_requested_unsent_draft
+        - explicit_draft_executor_matches_requested_control_surface
         - no_raw_mail_body_or_attachment_payload_copied
         - no_footer_payload_in_public_package
         - no_internal_project_code_in_subject
@@ -336,5 +343,6 @@ stop_conditions:
   - normalized_and_rendered_assumptions_diverge
   - render_mode_selector_input_unsupported
   - requested_work_assignee_unresolved_for_review_ready_or_send_handoff
-  - Outlook_mutation_requested
+  - Outlook_mutation_beyond_one_current_request_unsent_draft_requested
+  - requested_terminal_or_programmatic_control_surface_would_fall_back_to_UI_or_computer_control
   - public_private_boundary_unclear
