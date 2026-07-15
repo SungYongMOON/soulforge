@@ -277,6 +277,8 @@ outbound_mail_authoring_contract:
     metadata_source_of_truth: outbound_team_mail_context_v1
     visible_body_is_not_metadata_source_truth: true
     modes: [compact, action_brief, decision_brief, status_change, reply_map]
+    compact_mode_eligibility: pure_share_without_requested_work_confirmation_review_decision_or_required_response
+    actionable_request_default: action_brief_even_for_one_assignee_and_one_work_item
     action_brief_visible_fields: [수신, 사유, 목적, 요청업무, 회신기한, 완료회신기준, 비고]
     structured_action_mail:
       core_visible_fields: [수신, 사유, 목적, 요청업무, 회신기한, 완료회신기준]
@@ -299,6 +301,24 @@ outbound_mail_authoring_contract:
         - approved_deadline_visible_when_present
         - completion_or_reply_evidence_visible
       redundant_processing_order_policy: omit_when_dependency_and_completion_are_already_explicit
+      required_visible_structure:
+        - recipient_and_reason
+        - purpose_or_review_result
+        - supported_review_or_technical_basis
+        - requested_work
+        - completion_or_reply_criteria
+        - supported_follow_up
+        - attachment_information
+      request_work_table_fields:
+        - assignee
+        - requested_work
+        - confirmation_purpose_or_request_basis
+        - completion_or_reply_criteria
+        - deadline_only_when_supplied
+      Outlook_application_color_policy:
+        authored_content_color: black
+        inherit_reply_thread_color: false
+        verify_paragraphs_headings_bullets_and_table_cells_before_save: true
     technical_action_brief_layout:
       use_when:
         - approved_technical_constants_or_control_conditions_present

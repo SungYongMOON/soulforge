@@ -2,6 +2,15 @@
 
 ## 2026-07-16
 
+### Structured Outlook request-mail default
+
+- Reserved compact rendering for pure shares and made any requested work or
+  required response select a structured action brief, including single-item
+  requests.
+- Added a stable request-work table contract and forced newly authored Outlook
+  paragraphs, headings, bullets, and table cells to black instead of inheriting
+  reply-thread colors.
+
 ### Outlook draft control-surface binding
 
 - Bound explicit terminal/programmatic Outlook draft requests to the local

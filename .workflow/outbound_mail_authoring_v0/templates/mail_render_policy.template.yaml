@@ -8,10 +8,10 @@ structured_mode_readability_preset:
   applies_to: [action_brief, decision_brief, status_change, reply_map]
 modes:
   compact:
-    use_when: single_purpose_low_complexity
+    use_when: pure_share_without_requested_work_confirmation_review_decision_or_required_response
     visible_sections: []
   action_brief:
-    use_when: multiple_actions_assignees_deadline_or_technical_basis
+    use_when: any_requested_work_confirmation_review_or_required_response
     visible_sections:
       - "수신"
       - "사유"
@@ -80,7 +80,7 @@ selection:
     response_required: 1
     multiple_recipient_roles: 1
     supporting_constraints_present: 1
-    threshold: 3
+    threshold: 1
 conditional_sections:
   "수신": multiple_recipient_roles_or_assignees_only
   "사유": mail_reason_present
@@ -102,3 +102,6 @@ global_rules:
   - Recommend synchronous discussion for conflict, negotiation, or unresolved ambiguity; email records the resulting decision, owner, and deadline.
   - Use the technical action-brief layout only inside action_brief; it is not a sixth render mode.
   - Apply owner_outlook_readability_v1 to structured modes and emit a render plan; do not mutate Outlook.
+  - Never select compact when requested_work is nonempty or response_requirements.required is true.
+  - Structured request mail shows recipient/reason, purpose or result, supported basis, requested work, completion or reply criteria, supported follow-up, and attachments.
+  - Outlook application explicitly sets newly authored paragraphs, headings, bullets, and table cells to black instead of inheriting reply-thread color.

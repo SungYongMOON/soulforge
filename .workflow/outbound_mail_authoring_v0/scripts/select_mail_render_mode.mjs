@@ -85,6 +85,13 @@ function selectMode(input) {
   if ((textPresent(schedule.before) && textPresent(schedule.after)) || input.mail_kind === "일정공유") {
     return { mode: "status_change", score: null, reasons: ["before_after_or_schedule_share"] };
   }
+  if (stats.items >= 1 || response.required === true) {
+    return {
+      mode: "action_brief",
+      score: null,
+      reasons: [stats.items >= 1 ? "requested_work_present" : "required_response_present"],
+    };
+  }
 
   let score = 0;
   const reasons = [];
