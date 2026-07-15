@@ -2,21 +2,23 @@ skill_id: owner_outlook_mail
 kind: skill
 status: active
 title: Owner Outlook Mail
-summary: Select the existing outbound mail authoring workflow for structured-metadata, adaptively rendered Outlook manual drafts without send authority.
+summary: Select the existing outbound mail authoring workflow for structured-metadata, adaptively rendered Outlook drafts while honoring the explicitly requested control surface and withholding send authority.
 behavior:
   intent: >
     Provide a thin Codex launcher for owner-style Outlook mail authoring through
     `.workflow/outbound_mail_authoring_v0`. The workflow remains procedure
-    authority. The launcher selects Outlook manual or draft-only scope, loads
+    authority. The launcher selects Outlook manual or draft-only scope, honors
+    an explicit terminal/programmatic versus UI control-surface request, loads
     the public v1 per-assignee team context template, and may bind a local/private aggregate
     voice profile without copying private evidence into public canon.
   use_when:
     - the user explicitly asks for owner-style Outlook mail
     - the user invokes `$soulforge-owner-outlook-mail`
     - a team mail brief should be normalized before an Outlook manual draft
+    - the user explicitly asks to create an unsent local Outlook draft through a terminal or programmatic control surface
   avoid_when:
     - the task requires Outlook send, move, delete, mark, category, folder, or rule mutation
-    - the task requires raw mail body, raw HTML, `.msg`, `.eml`, attachment payload, secret, or credential access
+    - the task requires raw mail body, raw HTML, `.msg`, `.eml`, attachment payload, secret, or credential access outside an exact current-request local draft application
     - the task is sent or received mail reconciliation
   expected_outcome:
     - Codex resolves to `outbound_mail_authoring_v0`
@@ -28,7 +30,8 @@ behavior:
     - the visible body uses compact, action, decision, status-change, or reply-map rendering without empty headings
     - the six-field Korean action view appears only for complex action mail
     - optional voice guidance comes from a local/private aggregate profile with provenance
-    - no send authority or Outlook mutation authority is granted
+    - an explicitly requested local draft executor may save or display one unsent draft without acquiring send authority
+    - a terminal/programmatic request never falls back to UI or computer-control automation
 execution_requirements:
   required_capabilities:
     - workflow_launcher_routing
@@ -37,6 +40,7 @@ execution_requirements:
     - adaptive_mail_body_rendering
     - private_profile_boundary_review
     - Outlook_manual_handoff_review
+    - explicit_Outlook_control_surface_selection
   preferred_tools:
     - rg
     - yaml_reader
@@ -44,7 +48,7 @@ execution_requirements:
   notes:
     - The workflow package owns the procedure and templates; this skill must remain a thin launcher.
     - The voice profile is optional local/private guidance and is not source truth, send authority, or public canon.
-    - Skill activation grants neither external send authority nor Outlook mutation authority.
+    - Skill activation grants no external send authority. One unsent local draft may be created only by the control surface explicitly requested in the current user turn.
 notes:
   - The installed Codex mirror name is `soulforge-owner-outlook-mail`.
   - The existing `outbound_mail_authoring_v0` workflow remains the sole workflow authority for this slice.

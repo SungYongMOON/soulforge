@@ -1,7 +1,7 @@
 interface:
   display_name: "Soulforge Owner Outlook Mail"
   short_description: "Draft owner-style Outlook mail safely."
-  default_prompt: "Use $soulforge-owner-outlook-mail to draft an owner-style Outlook email without sending or mutating Outlook."
+  default_prompt: "Use $soulforge-owner-outlook-mail to draft an owner-style Outlook email without sending, and honor the user's explicitly requested Outlook control surface."
 
 policy:
   allow_implicit_invocation: true

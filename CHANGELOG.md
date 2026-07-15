@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-07-16
+
+### Outlook draft control-surface binding
+
+- Bound explicit terminal/programmatic Outlook draft requests to the local
+  programmatic executor and prohibited implicit UI or computer-control fallback.
+- Limited the executor to one unsent current-request draft, exact selected
+  attachments, runtime-only attachment password handling, and no send authority.
+
 ## 2026-07-15
 
 ### PLAUD 녹음 시각 KST 정규화
