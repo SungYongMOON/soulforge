@@ -189,7 +189,25 @@ life-tree projection builder는 서로 권한을 빌리지 않으며, 생명수 
 | 각 PC와 Codex는 무슨 역할인가 | §8 | seat·worker·reconciler·task writer 운영도 |
 | 고성능 PC에서 무엇을 확인하나 | §10 | ID·storage·tree·writer·rollback 검증표 |
 | 어떤 순서로 개발하나 | §11 | G0~G8 단계와 승인 관문 |
-| 내가 무엇을 결정해야 하나 | §12 | owner 결정 7가지 |
+| 내가 무엇을 결정해야 하나 | §12 | owner 결정 10가지 |
+
+### 0.7 Ingress·personal WorkSession·team query 후속 보정 (2026-07-15)
+
+이 문서의 기존 비교 구조와 G0~G8 순서는 유지한다. Authoritative 상세는
+[`TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`](TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md)의
+§3.5, §6.2A/6.5A, §7.1, §8~10, §12 side-card, HP-INGRESS/SESSION/QUERY, D27~D29다.
+
+| 영역 | `CURRENT` | `TARGET` | `VERIFY_HP` |
+| --- | --- | --- | --- |
+| payload ingress | source-local owner 계약과 chat/MCP service inbox는 있으나 exact mail raw/attachment physical custody는 `UNKNOWN`이고 공통 promoter/receipt 없음 | pointer 기본, central upload custody 또는 explicit promotion만; source writer/promoter/projector/task writer 분리 | mail raw tension, exact path/role, retention/ACL/scan/backup/delete |
+| personal WorkSession | `erp_mcp_work_session`은 idempotent one-shot structured result record; start/bind/sequence/closeout/outbox ack 없음 | `{assignment epoch,account}` active primary 하나, multiple checkpoint, terminal closeout, completion proposal; 공식 완료는 별도 | opaque thread-ref/node capability, local outbox path/fsync/encryption/retention, missing SLA |
+| team query/knowledge | personal MCP 8개 tool에 accepted project-history/RAG/Wiki query 없음 | ERP UI/MCP primary read, files audit snapshot, explicit `project|common` scope/no fallback, candidate-only team write | ACL/existence leak, generation pointer/cursor, API-file parity, one-project/team binding |
+
+이 보정은 P0→P10/G0→G8 edge를 바꾸지 않는다. P0~P9 ingress/query side-card는 해당 core `Pn`
+acceptance 뒤와 `P(n+1)` 전에만 독립 실행하며 core acceptance에 포함되거나 다음 phase를 unlock하지
+않는다. P10 capability는 accepted P9 뒤 각각 별도 owner approval·Level 3 gate로 실행하고 aggregate P10
+receipt를 만들지 않는다. Personal lifecycle은 H03/P1 또는 core P8 acceptance가 아니며 core C10 뒤
+AX-G1 design→feature-OFF→one-seat→team rollout 순서를 따른다.
 
 ## 1. 불변 비교 기준선
 
@@ -1266,6 +1284,16 @@ branch `927b3fb045ebf749077951417463c47f12a549bd`, merge-base
 | HP-21 | full dev-ERP/root/docs 검증이 통과하나 | 위 네 npm command exit `0` | exact stdout/exit·timeout·skipped reason 포함 | 🟧 `VERIFY_HP` |
 | HP-22 | rollback 후 owner state가 원상 복구되나 | DB·RAG·writer state 불변 | restore/readback·fresh review | 🟥 activation gate |
 
+후속 correction은 추가로 master plan의 `HP-INGRESS-01..10`, `HP-SESSION-01..12`,
+`HP-QUERY-01..11`을 그대로 acceptance로 사용한다. 핵심 claim ceiling은 다음과 같다.
+
+- Upload/classification/history receipt가 project promotion·ArtifactRevision·knowledge acceptance·task 완료를
+  자동 의미하지 않고, promoter와 projector/TaskEngine writer가 분리된다.
+- Accepted server ack 전 client outbox compact `0`, accepted start 없는 missing-closeout `0`, checkpoint/
+  closeout/completion proposal의 ERP task row delta `0`이다.
+- Query는 explicit scope·ACL·generation에 고정되고 API/CSV/XLSX parity, exact revision/locator/claim ceiling,
+  UI/MCP digest parity를 만족한다. Team write는 candidate ledger 한 곳뿐이다.
+
 ## 11. 연속 개발 순서
 
 ```mermaid
@@ -1331,8 +1359,13 @@ flowchart LR
 
 ### G6 — AX Workspace candidate pilot
 
-- owner가 public contract와 명칭을 승인한 뒤 팀원 1~2명의 personal Codex seat에 project scope와 WorkSession을 연결한다.
-- Codex는 candidate와 AgentRun 후보 receipt를 만들고 ERP 쓰기는 승인된 task authoritative writer 한 경로만 사용한다.
+- owner가 public contract와 명칭, D28/D29를 승인한 뒤 먼저 feature-OFF start/bind/sequence/outbox/ack/
+  closeout/query adapter를 검증하고, 그 다음 한 seat·한 project만 bounded pilot한다.
+- 계획 기본 cardinality는 `{assignment epoch,account}` active primary 하나다. Checkpoint는 여러 개지만
+  closeout/completion proposal은 task current/event/status를 쓰지 않고 official completion은 승인된 task
+  authoritative writer 한 경로만 사용한다.
+- Personal MCP query는 accepted generation과 explicit `project|common` scope에 고정하고 implicit fallback,
+  snapshot reverse import, Wiki/RAG/canon/ontology/task direct write를 허용하지 않는다.
 
 ### G7 — Engineering IQ candidate 확장
 
@@ -1344,7 +1377,7 @@ flowchart LR
 
 - multi-PC transport, always-on writer, scheduler, notification, 팀 쓰기 권한은 별도 운영 승인으로 연다.
 
-## 12. owner가 이해하고 결정할 일곱 가지
+## 12. owner가 이해하고 결정할 열 가지
 
 1. **AX Workspace candidate 채택 여부**: 이 작업명을 canon으로 채택할지, 기존 ERP Codex 팀 작업실의 확장명으로만 둘지, ERP 화면과 personal Codex sidecar 중 어느 쪽을 주 작업면으로 둘지.
 2. **상태 의미**: `cancelled`, `merged`, `archived`, `unclassified`를 UI와 DB에서 어떻게 구분할지.
@@ -1353,8 +1386,17 @@ flowchart LR
 5. **ID authority**: ERP task ID를 어느 단일 writer가 언제 예약하고, 재시도에 같은 ID를 어떻게 보존하며, gate/event legacy namespace를 어떤 typed crosswalk로 연결할지.
 6. **생명수 의미**: 같은 목적의 reopen과 새 follow-up을 어디서 나누고, 열매에 completion·artifact·decision·verification/outcome 중 무엇을 필수로 연결할지.
 7. **첫 pilot**: 어떤 한 project와 1~3개 합성 또는 owner-approved task로 closed loop와 B9/일일 projection을 함께 증명할지.
+8. **Ingress·promoter**: source kind별 custody/staging/quarantine/destination, reference/copy/move/derive 권한,
+   mail raw/attachment owner tension, retention/legal hold·ACL·malware scan·backup/rollback/delete authority를
+   누가 어떤 exact binding으로 소유할지.
+9. **Personal WorkSession**: plan default인 one-active-primary/multiple-checkpoint/closeout≠completion 위에서
+   assignment epoch owner, opaque thread-ref/node binding, client outbox path/fsync/encryption/retention,
+   missing SLA와 official completion approver를 무엇으로 정할지.
+10. **Primary query·team knowledge**: ERP UI/MCP primary read와 file audit snapshot을 채택한 상태에서
+    project/common grant·existence-leak policy, accepted generation/current pointer/cursor owner, candidate
+    submitter/reviewer/approver/writer와 project ID crosswalk를 어떻게 고정할지.
 
-이 일곱 결정 전에도 G0~G3의 읽기 전용·합성 조사는 가능하다. G4 이후 mutation과 운영 활성화는 별도 승인이 필요하다.
+이 열 결정 전에도 G0~G3의 읽기 전용·합성 조사는 가능하다. G4 이후 mutation과 운영 활성화는 별도 승인이 필요하다.
 
 ## 13. 증거 강도와 UNKNOWN
 
@@ -1402,6 +1444,9 @@ flowchart LR
 - task truth writer가 둘 이상이거나 ERP task authoritative writer가 불명확하다.
 - task candidate와 실제 task ID의 발급·예약·재시도 authority가 불명확하다.
 - sole file-activity reconciler가 둘 이상이거나 task/source truth write 권한과 섞여 있다.
+- source custody/promoter/projector/task writer가 섞이거나 승인 없이 payload copy/move/delete가 필요하다.
+- personal closeout/proposal을 공식 완료로 간주하거나 durable ack 전 outbox를 지워야 한다.
+- query scope/ACL/accepted generation이 없거나 implicit project/common fallback·team direct truth write가 필요하다.
 - backup/rollback/replay가 없는데 DB schema나 row를 변경해야 한다.
 - exact source revision, Driver authority, policy expiry/revocation, idempotency가 없다.
 - owner가 정하지 않은 상태 의미를 migration에서 임의로 합쳐야 한다.
