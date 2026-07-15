@@ -28,6 +28,9 @@ context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·cle
   해시/출처/사용 상태. HWP·Office·PDF·압축·메일 원문/첨부 저장 금지.
 - `_workspaces/`: 실자료(local-only, tracked 금지). `private-state/`:
   cross-project 보호 데이터. 애매하면 private 쪽으로 해석.
+- PLAUD offset 없는 절대 시각은 UTC로 읽고, 사람용 녹음 시각·session id·
+  날짜 폴더·파생 event time은 KST(`Asia/Seoul`)로 정규화. `Z` audit 시각과
+  녹음 시작 기준 상대 전사 시간은 변환하지 않는다.
 - secret(.env/token/세션): 열어 읽지 않는다. 경로 안내만, 값 출력 금지.
 
 ## 4. AI 작업 규약

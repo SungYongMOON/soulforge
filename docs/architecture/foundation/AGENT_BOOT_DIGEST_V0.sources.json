@@ -1,11 +1,11 @@
 {
   "schema": "boot_digest_guard.v0",
-  "updated_at": "2026-07-13T10:31:20.261Z",
-  "digest_sha256": "f6bcff6b07656ffb077f662432a80300cf264dc5580565f1b30a646a60ae25d6",
+  "updated_at": "2026-07-15T05:05:27.828Z",
+  "digest_sha256": "63970653584a229b6b5322ab993c9dc4a4446d39fd4a859868395da89f4c4bc6",
   "sources": {
     "AGENTS.md": {
-      "sha256": "a25700723d0fd1ff88c09e8b0f90c532b9fc290b493af9bfc592700fc5c566cd",
-      "lines": 150
+      "sha256": "c8fb97a41a8e2540fe0ca6476d660aa961566c7dabd2f0cd95278c7d22d69f96",
+      "lines": 151
     },
     "docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md": {
       "sha256": "c5b160a026b41cd8b19072a101c9fed37a791533af288d3aefd88ff9cd1d9e14",

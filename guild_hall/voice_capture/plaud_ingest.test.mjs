@@ -11,6 +11,7 @@ import {
   drainPlaudMailQueue,
   parsePlaudAudioUrl,
   parsePlaudFileOutput,
+  parsePlaudProviderTimestamp,
   parsePlaudRecentOutput,
   parsePlaudTranscript,
   parsePlaudVersion,
@@ -56,6 +57,14 @@ File Details:
   assert.equal(parsePlaudVersion("plaud 0.3.4\ncommit abc123\n"), "0.3.4");
 });
 
+test("PLAUD timezone-less timestamps are UTC and normalize to KST", () => {
+  const providerTimestamp = parsePlaudProviderTimestamp("2026-07-15T02:16:22");
+  assert.equal(providerTimestamp.date.toISOString(), "2026-07-15T02:16:22.000Z");
+  assert.equal(providerTimestamp.basis, "plaud_cli_utc_without_offset");
+  assert.equal(parsePlaudProviderTimestamp("2026-07-15T11:16:22+0900").date.toISOString(), "2026-07-15T02:16:22.000Z");
+  assert.throws(() => parsePlaudProviderTimestamp(""), /timestamp is missing/u);
+});
+
 test("PLAUD sync materializes one isolated session and skips the same provider id next time", async () => {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-plaud-sync-"));
   try {
@@ -73,8 +82,8 @@ test("PLAUD sync materializes one isolated session and skips the same provider i
       if (args[0] === "file") return [
         `id: ${RECORDING_ID}`,
         "name: 07-10 meeting",
-        "created_at: 2026-07-10T04:04:32.000Z",
-        "start_at: 2026-07-10T04:04:32.000Z",
+        "created_at: 2026-07-10T04:04:32.000",
+        "start_at: 2026-07-10T04:04:32.000",
         "duration: 1h16m",
         "serial_number: do-not-store",
         "audio: available",
@@ -134,6 +143,9 @@ test("PLAUD sync materializes one isolated session and skips the same provider i
     const sessionDir = path.join(repoRoot, "_workspaces", "system", "voice_capture", "sessions", "2026-07-10", sessionId);
     const manifest = JSON.parse(await readFile(path.join(sessionDir, "session_manifest.json"), "utf8"));
     assert.equal(manifest.provider_recording_id, RECORDING_ID);
+    assert.equal(manifest.recorded_at_local, "2026-07-10T13:04:32+09:00");
+    assert.equal(manifest.provider_timestamp.start_at_raw, "2026-07-10T04:04:32.000");
+    assert.equal(manifest.provider_timestamp.basis, "plaud_cli_utc_without_offset");
     assert.equal(manifest.audio.evidence_role, "canonical_source_candidate");
     assert.equal(manifest.transcript.evidence_role, "auxiliary_unverified");
     assert.equal(manifest.provider_summary.direct_task_promotion_allowed, false);

@@ -2,6 +2,17 @@
 
 ## 2026-07-15
 
+### PLAUD 녹음 시각 KST 정규화
+
+- offset 없는 PLAUD CLI `start_at`·`created_at`을 provider UTC로 해석한 뒤
+  `Asia/Seoul`로 정규화하도록 수집 경로를 보정하고, manifest에 원시 시각
+  해석 근거를 남기도록 했다.
+- 기존 `plaud_cli_import`의 잘못 표기된 시각과 session/library/delivery/ASR/
+  project-context pointer를 원문 payload 변경 없이 일괄 이관하는 dry-run 우선
+  `audit-kst`·`migrate-kst` 경로와 회귀 테스트를 추가했다.
+- KST 적용 범위와 예외(명시적 `Z` audit 시각, 녹음 시작 기준 상대 전사 시각)를
+  root agent 지침과 PLAUD 운영 계약에 고정했다. (worker: codex_gpt-5)
+
 ### 할일 엔진 H01 메일 이력 phase 경계 보정
 
 - 현재 JS/Python/Outlook 세 project-mail writer와 ERP CSV consumer의 caller/write 경계를 public source로

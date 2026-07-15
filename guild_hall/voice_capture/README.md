@@ -33,6 +33,30 @@ The current PLAUD adoption decision is documented in
 use PLAUD as a pilot primary-audio candidate, not as authoritative transcript,
 speaker identity, minutes, or task evidence.
 
+## PLAUD time contract
+
+- The PLAUD CLI's absolute `start_at`/`created_at` value is interpreted as UTC
+  when it has no offset. An explicit ISO 8601 offset or `Z` remains authoritative.
+- Owner-facing recording start/end fields, session IDs, date folders, library
+  routes, delivery/ASR pointers, and project-context event times are normalized
+  to `Asia/Seoul` (`+09:00`, KST).
+- Explicit `Z` audit timestamps such as completion/write times stay UTC.
+  Transcript segment times remain offsets from recording start and are not
+  timezone-converted.
+- A session manifest records the provider timestamp basis and normalized
+  timezone so a timezone-less value cannot silently become host-local time.
+
+Audit legacy automatic imports without changing files:
+
+```bash
+npm run guild-hall:voice-capture:plaud -- audit-kst
+```
+
+`migrate-kst --apply` is an explicit repair operation for legacy
+`plaud_cli_import` sessions. It updates active metadata and time-derived paths,
+preserves raw audio/transcript payloads, and can write a metadata-only mapping
+receipt with `--receipt <relative-path>`.
+
 ## Storage and cross-PC ownership
 
 | Surface | Location | Transfer |

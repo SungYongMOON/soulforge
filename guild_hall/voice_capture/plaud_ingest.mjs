@@ -140,6 +140,19 @@ export function parsePlaudVersion(raw) {
   return stripAnsi(raw).match(/\bplaud\s+(\d+\.\d+\.\d+)\b/u)?.[1] ?? null;
 }
 
+export function parsePlaudProviderTimestamp(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) throw new Error("PLAUD recording timestamp is missing");
+  const hasExplicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/iu.test(raw);
+  const parsed = new Date(hasExplicitZone ? raw : `${raw}Z`);
+  if (Number.isNaN(parsed.getTime())) throw new Error("PLAUD recording timestamp is invalid");
+  return {
+    date: parsed,
+    raw,
+    basis: hasExplicitZone ? "explicit_iso8601_zone" : "plaud_cli_utc_without_offset",
+  };
+}
+
 export function parsePlaudTranscript(raw) {
   const segments = [];
   for (const line of String(raw ?? "").split(/\r?\n/u)) {
@@ -406,7 +419,8 @@ export async function drainPlaudMailQueue(options = {}) {
 export async function materializePlaudRecording(options) {
   const { repoRoot, profile, metadata } = options;
   const runner = options.commandRunner ?? runPlaudCommand;
-  const start = parseRecordingDate(metadata.start_at ?? metadata.created_at, options.now ?? new Date());
+  const providerTimestamp = parsePlaudProviderTimestamp(metadata.start_at ?? metadata.created_at);
+  const start = providerTimestamp.date;
   const sessionId = buildPlaudSessionId(start, metadata.id);
   const dateRef = formatKstParts(start).date;
   const outputRoot = resolveRepoPath(repoRoot, profile.output_root);
@@ -465,6 +479,11 @@ export async function materializePlaudRecording(options) {
       recorded_at_local: formatKstParts(start).iso,
       recorded_end_at_local: formatKstParts(end).iso,
       recorded_timezone: "Asia/Seoul",
+      provider_timestamp: {
+        start_at_raw: providerTimestamp.raw,
+        basis: providerTimestamp.basis,
+        normalized_timezone: "Asia/Seoul",
+      },
       duration_seconds: durationSeconds,
       imported_at_local: formatKstParts(importedAt).iso,
       audio: audio
@@ -925,11 +944,6 @@ function audioExtension(contentType, pathname) {
   if (contentType?.includes("mp4")) return ".m4a";
   if (contentType?.includes("flac")) return ".flac";
   return ".bin";
-}
-
-function parseRecordingDate(value, fallback) {
-  const parsed = value ? new Date(value) : fallback;
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
 function formatKstParts(date) {
