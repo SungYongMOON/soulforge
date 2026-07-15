@@ -75,10 +75,19 @@ reconciler 계약은 P1~P2에 정의하되 live scanner/watchdog/Telegram 활성
 | CV-03 | `02`의 “전체 physical owner map”은 context/file-activity owner를 누락 | context graph의 `project_context/**`, `reports/context_graph/**`; file activity의 cache/outbox/ledger 경로 | 전체 지도와 실제 owner path가 일대일로 열거됨 |
 | CV-04 | context graph 최소 schema가 최신 exact revision/time 계약보다 오래됨 | `sources.csv`, `edges.csv` 필드와 temporal/03/04 typed-ref 요구 비교 | `source_revision_id`, `content_id`, `valid_at/known_at` 또는 동등 exact ref가 loss 없이 연결됨 |
 | CV-05 | 실행 순서가 TaskDriver-first로 기울어짐 | `08` phase와 ENGINE-13 required slices의 dependency DAG | 위 P0~P10 방향이 강제되고 foundation acceptance 전 Driver/ERP가 시작 불가 |
-| CV-06 | Codex 작업 이력은 부분 구현이며 dev-ERP 밖 capture owner가 미정 | ENGINE-12 lane, ERP MCP WorkSession schema/API/DB, task-chat payload owner | instruction event와 execution receipt의 owner·path·ID·clock·source revision lineage가 확정되고 전체 대화 비수집 gap이 표시됨 |
+| CV-06 | Codex 작업 이력은 one-shot bounded record 수준이며 dev-ERP 밖 capture owner와 personal lifecycle이 미정 | ENGINE-12 lane, ERP MCP WorkSession schema/API/DB, start/bind/assignment epoch/sequence/closeout/outbox/ack/thread-node capability, task-chat payload owner | H03의 current one-shot source lineage와 AX personal lifecycle을 분리하고, closeout≠official completion·전체 대화 비수집·local pending≠server missing gap이 표시됨 |
 | CV-07 | 외부 SE master schedule 변경 이력 owner/path가 미정 | schedule event/table/writer, external schedule import/version history | current row와 append-only revision/event가 분리되고 exact schedule revision이 context/RAG와 연결됨 |
 | CV-08 | “같은 원장” 표현은 source-local owner 분리와 충돌 가능 | prompt 문구와 ENGINE-12/03의 source-local contract | “분리된 원장과 task event를 exact ref로 함께 읽는 projection”으로 해석·표현 |
 | CV-09 | `ui-workspace`를 canon/orchestration root로 묶은 문구가 root 정본과 충돌 | root `AGENTS.md`와 prompt owner map | `ui-workspace`는 derived UI consumer로, canon owner와 분리 |
+
+Owner가 2026-07-15에 추가한 세 기본안은 CV-01~CV-09를 재번호화하거나 선행순서를 바꾸지 않는다.
+아래 `CV-F`는 후속 보정 finding이며 implementation acceptance가 아니다.
+
+| ID | 후속 판정 | 고성능 PC에서 확인할 증거 | 합격 기준 |
+| --- | --- | --- | --- |
+| CV-F10 ingress | source owner와 service inbox는 있으나 공통 custody/promotion contract가 없음 | source-kind staging/quarantine/promoter/destination, mail raw tension, retention/ACL/scan/backup/delete authority | pointer 기본과 central upload custody를 구분하고 unauthorized copy/move/delete 및 promoter/projector/task-writer 권한 혼합 `0` |
+| CV-F11 personal session | current MCP record는 start/bind/ordered closeout/durable client ack가 없음 | exact assignment epoch/account cardinality, node/thread binding, crash/reboot outbox replay, completion authority | one active primary+multiple checkpoint, closeout/proposal task delta `0`, verified ack 전 compact `0`; exact local binding은 `VERIFY_HP` |
+| CV-F12 query/knowledge | current personal MCP에 accepted history/RAG/Wiki query가 없음 | explicit ACL/scope/generation/cursor, API↔CSV/XLSX parity, exact revision/locator/claim, candidate writer trace | ERP UI/MCP primary query, files audit snapshot, project/common implicit fallback `0`, team direct Wiki/RAG/canon/ontology/task write `0` |
 
 직접 비교할 계약:
 
@@ -94,7 +103,7 @@ reconciler 계약은 P1~P2에 정의하되 live scanner/watchdog/Telegram 활성
 
 1. [`HIGH_PERFORMANCE_PC_TASK_ENGINE_BUILD_MASTER_PLAN_PROMPT_V0.md`](HIGH_PERFORMANCE_PC_TASK_ENGINE_BUILD_MASTER_PLAN_PROMPT_V0.md)의
    sync·role·secret·read-only 경계를 먼저 따른다.
-2. public 계약만으로 CV-01~CV-09의 1차 결과와 exact `file:line` 근거를 작성한다.
+2. public 계약만으로 CV-01~CV-09와 owner가 추가한 CV-F10~F12의 1차 결과와 exact `file:line` 근거를 작성한다.
 3. 유효한 owner-with-state profile과 이번 inventory authority가 확인된 경우에만 DB schema,
    aggregate count, opaque ID/digest, source lane coverage를 metadata-only로 대조한다.
 4. 실제 title/body/transcript/chunk/filename/path/account를 public 결과에 쓰지 않는다.

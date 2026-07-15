@@ -2,6 +2,17 @@
 
 ## 2026-07-15
 
+### 할일 엔진 ingress·팀 WorkSession·지식 조회 계획 보정
+
+- 기존 P0→P10과 HPP sole-writer 구조를 유지하면서 source별 payload custody/promotion receipt,
+  personal WorkSession start/bind/checkpoint/closeout/outbox/ack, ERP UI/MCP accepted-generation
+  primary query와 candidate-only team knowledge 계약을 마스터플랜과 companion 문서에 추가했다.
+- Pointer/reference 기본, central upload inbox custody, promoter/projector/TaskEngine writer 분리,
+  `{assignment epoch,account}` active primary 하나, closeout≠official completion, explicit
+  `project|common` scope/no implicit fallback을 계획 기본값으로 고정했다.
+- 구현·DB·업무 데이터·migration·writer·MCP/network/운영 활성화는 수행하지 않았고 D27~D29와
+  HP-INGRESS/SESSION/QUERY 검증 뒤 별도 owner 승인을 요구한다. (worker: codex_gpt-5)
+
 ### 할일 엔진 H01 메일 이력 phase 경계 보정
 
 - 현재 JS/Python/Outlook 세 project-mail writer와 ERP CSV consumer의 caller/write 경계를 public source로
