@@ -2,6 +2,16 @@
 
 ## 2026-07-16
 
+### HPP MCP/storage/access plan correction
+
+- Preserved `_workspaces/<project>` as the actual logical project body/payload owner, its established OneDrive-
+  junction physical materialization, and P0→P10 while separating narrow active runtime exclusions from HPP TARGET custody.
+- Added independent public/pathless `A8-SYNTH` and `A8-CANARY` only after SYNTH PASS+accepted private
+  `VERIFY_HP` exact binding receipt+strict office LAN+explicit owner+Level 3, plus exact-revision transfer,
+  ACL/RAG/redaction adversarial acceptance, and
+  fail-closed rollback/outage rules. No topology, code, schema, data, binding, or activation change was made.
+  (worker: codex_gpt-5)
+
 ### Task Engine C00B pure judge foundation
 
 - Added a separate deterministic C00B packet judge and strict PASS receipt

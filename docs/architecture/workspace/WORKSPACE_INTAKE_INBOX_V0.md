@@ -56,6 +56,17 @@
 - `CSV` 는 source of truth 로 쓰지 않고, family count, daily volume, unknown ratio 같은 파생 분석 export 로만 쓴다.
 - 분석이 커져도 먼저 monthly `JSONL` partition 을 유지하고, 반복 질의가 늘면 `SQLite` 또는 `DuckDB` 파생 view 를 추가하는 쪽을 기본안으로 본다.
 
+### HPP runtime/cloud-sync exclusion
+
+이 문서의 local intake path와 project-history CSV/XLSX를 HPP central custody와 합치지 않는다.
+`_workspaces/<project>`는 actual project payload/artifact owner이고 OneDrive junction은 그 physical
+materialization/shared-sync mechanism이다. Active DB/WAL/SHM, accepted central ingress RAW/quarantine,
+central intake queue/outbox/checkpoint와 active runtime truth만 sync에서 제외한다. 별도 HPP accepted custody는
+`TARGET`이며 live binding이 아니다. Exact physical binding/service health/activation은 private `VERIFY_HP`이고,
+다른 PC는 D/UNC/SMB/SQLite/central
+queue를 직접 열지 않는다. HPP outage 때 intake는 source-local durable queue에서 `HOLD`하고 remote disk
+mount나 OneDrive reverse-copy로 복구하지 않는다.
+
 ## logging minimum fields
 
 ### `inbox.json`

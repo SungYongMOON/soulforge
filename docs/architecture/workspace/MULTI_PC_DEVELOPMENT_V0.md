@@ -103,7 +103,7 @@ flowchart LR
 | `_workmeta/<project_code>/dev_worker_queue/**` | `portable_dev_pc`, owner-approved promotion helper, 또는 auto-policy promotion helper | owner-approved 또는 auto-policy-approved ready task packet 만 둔다. `dev_worker_pc` 는 이 큐를 claim 할 수 있다. |
 | `guild_hall/state/**` | `always_on_node` | local runtime 이며 public Git 에 올리지 않는다. 필요한 연속성만 `private-state/` 로 mirror 한다. |
 | `private-state/**` | `always_on_node` | owner-only private repo 에 selected continuity subset 과 activity sync 결과만 commit/push 한다. secret 값은 넣지 않는다. |
-| `_workspaces/<project_code>/**` | `work_pc`, tool-bound 범위에서는 `tool_pc` | 실제 프로젝트 worksite view 이며 public Git 에 올리지 않는다. 여러 PC 공유가 필요한 payload 는 owner-approved shared worksite 를 link target 으로 둔다. |
+| `_workspaces/<project_code>/**` | `work_pc`, tool-bound 범위에서는 `tool_pc` | 실제 logical project worksite/body이자 project payload/artifact owner이며 public Git 에 올리지 않는다. 여러 PC 공유 payload는 owner-approved shared worksite/OneDrive를 physical link target으로 둔다. |
 | `_workmeta/<project_code>/**` | `work_pc`, tool-bound run 범위에서는 `tool_pc` | owner-only private shared metadata plane 이며 project metadata, worklog, run truth, log, analytics, selected artifact metadata 를 commit/push 한다. actual project files 와 machine-local temp/cache 는 `_workspaces` 또는 local runtime 에 둔다. |
 | `node_identity.yaml` | 각 PC 자신 | `guild_hall/state/local/` 아래 local-only binding 이며 어떤 Git 에도 올리지 않는다. |
 
@@ -190,6 +190,24 @@ cloud/shared worksite 의 상위 root 전체를 `_workspaces/company` 같은 dir
 같은 `_workspaces/<name>` 경로는 PC마다 다른 실제 폴더를 뜻하면 안 된다. 공유 대상이면 junction/symlink view 로 맞추고, PC별 scratch/cache/local tool state 는 `_workspaces/_local/<node_id>/` 아래에 둔다. 기존 local 폴더를 shared view 로 바꾸는 중간 보존본은 `_workspaces/_local_hold/<workspace_alias>/` 아래에 둔다.
 
 Git push/pull 로 전파되는 것은 public-safe 규칙과 owner-only `_workmeta` binding intent 뿐이다. 각 PC 의 실제 junction, symlink, local absolute path, cloud sync 상태는 Git 이 자동으로 고치지 않으므로 해당 PC 에서 bootstrap/repair 단계를 한 번 수행해야 한다.
+
+### HPP Task Engine/MCP program topology freeze
+
+이 program에서는 HPP·회사 업무 PC·MacBook Air·Mac mini의 동일 logical
+`_workspaces/<project_code>`와 기존 OneDrive junction이 owner-confirmed baseline이다. 위 일반 bootstrap
+규칙을 근거로 rename/rematerialize/repair하지 않으며 topology delta는 `0`이어야 한다. Exact target와
+sync health는 private `VERIFY_HP`다.
+
+`_workspaces/<project_code>`는 actual logical project worksite/body이자 project payload/artifact owner이고
+OneDrive junction은 physical materialization/shared-sync mechanism이다. Active DB/WAL/SHM, accepted central
+ingress RAW/quarantine, central queue/outbox/checkpoint와 active runtime truth만 sync에서 제외한다. 별도 HPP
+private RAW/ERP/runtime custody는 `TARGET`일 뿐 live binding이 아니며 exact physical binding/service health/
+activation은 private `VERIFY_HP`다. 다른 PC는 strict private office LAN의 MCP/API로만 submit/query하고
+HPP drive/UNC/SMB/SQLite/central queue를 직접 열지 않는다. VPN/Tailscale/remote lane은 `OFF/DEFER`다.
+HPP outage는 durable local outbox/HOLD 또는
+last-accepted read-only이며 remote mount/split writer가 아니다. 자세한 plan gate는
+[`TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`](../../../ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md)의
+§0·§5·§7·§11·A8-SYNTH/A8-CANARY를 따른다.
 
 중복 방지 규칙:
 

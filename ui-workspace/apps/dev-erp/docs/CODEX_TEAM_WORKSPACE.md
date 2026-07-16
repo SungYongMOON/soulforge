@@ -2,7 +2,9 @@
 
 ## 한 문장 구조
 
-Soulforge `_workspaces`가 유일한 논리 프로젝트 본체다. ERP runtime은 업무 원문을
+Soulforge `_workspaces`가 실제 logical project worksite/body이자 project payload/artifact owner다.
+Established OneDrive junction은 그 body의 physical materialization/shared-sync mechanism이며
+ERP active DB/accepted central RAW/central queue/runtime custody와 구분한다. ERP runtime은 업무 원문을
 소유하지 않는 껍데기/read model이며, ERP 할일의 Codex 스레드는 처음 선택한
 `workspace_id + workspace revision + root fingerprint`에 고정된다.
 
@@ -36,6 +38,25 @@ worksite나 공식 산출 폴더로의 승격은 별도 승인이다. 상세 계
 3. **Query/knowledge**: ERP UI/MCP가 accepted project history/context/knowledge의 primary query surface다.
    CSV/ICS/XLSX와 private metadata Git은 audit/offline snapshot이다. `project|common` scope를 명시하고
    implicit fallback하지 않으며, 팀원은 exact evidence가 붙은 knowledge candidate만 제출한다.
+
+## HPP MCP 자연스러운 접근 목표 (`TARGET`, feature OFF)
+
+- Device는 사람이 한 번 enrollment하고 routine work는 OS-protected broker가 silent refresh한다. 매 tool
+  call/chunk prompt는 금지하며 new/recovered device, scope 확대, restricted reveal/download,
+  promotion/move/delete, official completion, knowledge promotion에만 step-up한다.
+- Audit은 `user_id+device_id+agent_id+opaque thread_ref+task_id+project_id+artifact_id+revision_id+action+expiry`를
+  분리한다. Delegation은 human grant∩trusted device∩agent policy∩task/object/action, earliest expiry와
+  cascading revoke를 강제한다.
+- MCP는 control plane, authenticated HTTPS는 binary plane이다. HPP target은 strict private office
+  LAN+mTLS reverse proxy만 쓰고 direct HPP drive/UNC/SMB/SQLite, VPN/Tailscale/remote/public ingress/Funnel,
+  client-supplied destination path를 허용하지 않는다. Remote lane은 별도 future owner/threat-model gate다.
+- HPP outage는 durable local outbox/HOLD 또는 last-accepted read-only다. Ack와 unfinished-session recovery는
+  유지하며 remote mount/split writer로 우회하지 않는다.
+
+세부 gate는 [`TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`](TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md)의
+`A8-SYNTH`/`A8-CANARY`, D27~D29, HP-INGRESS/SESSION/QUERY를 따른다. CANARY는 SYNTH PASS+private
+`VERIFY_HP` exact binding receipt+strict office LAN+explicit owner+Level 3 전에는 `OFF`다. 아래 runtime registry/UNC worker 설명은 기존 중앙
+Codex worker surface이며 이 HPP personal MCP target의 remote-storage 권한으로 재사용하지 않는다.
 
 ```mermaid
 flowchart LR
