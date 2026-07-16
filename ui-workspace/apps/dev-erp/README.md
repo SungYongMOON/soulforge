@@ -1,5 +1,46 @@
 # dev-erp — 개발팀 운영 콕핏 (P1: 읽기 전용)
 
+## Task Engine A8-SYNTH secure-access source foundation
+
+`tools/a8_synth_secure_access.mjs` is a public, pathless, feature-OFF pure
+verifier for the D27-D29 secure-access contract. It has no MCP server, live
+binding, DB, network, collector, writer, private value, or operational effect.
+The CLI accepts one relative literal regular JSON file contained under its
+current working directory; absolute, UNC/device, URL, traversal, symlink, and
+oversized inputs are rejected before packet reading.
+
+```bash
+node ui-workspace/apps/dev-erp/tools/a8_synth_secure_access.mjs --synthetic --feature-off --json --packet packet.json --approved-packet-digest <sha256:digest>
+node --test ui-workspace/apps/dev-erp/test/a8_synth_secure_access.test.mjs
+```
+
+The strict packet and receipt schemas are
+`docs/contracts/a8_synth_secure_access_packet.v1.schema.json` and
+`docs/contracts/a8_synth_secure_access_output.v1.schema.json`. The verifier
+computes exactly 60 checks: `HP-STORAGE-01..10`, `HP-INGRESS-01..16`,
+`HP-SESSION-01..18`, and `HP-QUERY-01..16`. The internal public fixture covers
+the seven §3.5 source custody rows; enrollment/mTLS/broker/delegation ceilings;
+ticket actor/object/method/audience/hash/size/expiry binding; idempotent
+finalize, conflict and revoke races; exact-revision bounded range reassembly;
+WorkSession start/bind/event/outbox/ack/handoff/outage behavior; artifact and
+revision existence safety; RAG pre/post filtering, cache revocation, and
+immutable redacted-derivative lineage. Outcomes are computed from fixture
+cases instead of trusting caller-declared PASS fields.
+
+The receipt carries domain-separated packet, policy, suite, category, coverage,
+check-result, and final receipt digests, plus the earliest effective expiry.
+All P0-P10, D27-D29 owner acceptance, `VERIFY_HP`, A8-CANARY, writer, live,
+bulk, team, and production effects remain false. The fixture authority is
+explicitly `synthetic_fixture_only` with `owner_acceptance=false`; therefore a
+60/60 PASS proves only the public source implementation. It does not approve a
+device, server, project, file, private binding, or canary.
+
+Exits are `0` computed synthetic PASS, `2` invalid packet/CLI, `3` approved
+digest mismatch, `4` invariant/coverage failure, `5` raw/path/secret sentinel,
+and `6` contained packet read failure. Safe errors emit one compact stdout line
+with every authority/live/write effect fixed to zero and never echo the input
+path or packet value.
+
 ## Task Engine C00B pure judge foundation
 
 `tools/task_engine_inventory_c00b_judge.mjs` is a separate, pure C00B judge
@@ -72,6 +113,9 @@ never echo the input path or packet values.
 **STOP:** this is a judge foundation only. Live C00B reading/execution remains
 blocked pending exact D bindings, source and judge authority, approved
 quiescence/zero-mutation methods, and a separately authorized live packet.
+The focused test compiles the tracked receipt schema with strict Ajv 2020,
+validates PASS receipts, and rejects unknown receipt keys; manual field checks
+are not treated as schema validation.
 
 ## Task Engine C00Q query-only inventory
 

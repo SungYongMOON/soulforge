@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/contracts/a8_synth_secure_access_output.v1.schema.json",
+  "title": "Soulforge A8-SYNTH secure-access output and safe error envelope v1",
+  "oneOf": [
+    { "$ref": "#/$defs/result_output" },
+    { "$ref": "#/$defs/error_output" }
+  ],
+  "$defs": {
+    "safe_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{1,95}(?::[a-z0-9][a-z0-9_-]{0,95})*$"
+    },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d{1,3})?Z$"
+    },
+    "profile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["public_safe", "pathless", "synthetic", "feature_mode"],
+      "properties": {
+        "public_safe": { "const": true },
+        "pathless": { "const": true },
+        "synthetic": { "const": true },
+        "feature_mode": { "const": "off" }
+      }
+    },
+    "external_approval_binding": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "authority_ref", "approval_ref", "issued_at", "expires_at", "revocation_ref",
+        "revoked_at_or_none", "binding_state", "owner_acceptance"
+      ],
+      "properties": {
+        "authority_ref": { "$ref": "#/$defs/safe_ref" },
+        "approval_ref": { "$ref": "#/$defs/safe_ref" },
+        "issued_at": { "$ref": "#/$defs/timestamp" },
+        "expires_at": { "$ref": "#/$defs/timestamp" },
+        "revocation_ref": { "$ref": "#/$defs/safe_ref" },
+        "revoked_at_or_none": { "oneOf": [{ "const": "none" }, { "$ref": "#/$defs/timestamp" }] },
+        "binding_state": { "const": "synthetic_fixture_only" },
+        "owner_acceptance": { "const": false }
+      }
+    },
+    "authority_effect": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "d27_owner_accepted", "d28_owner_accepted", "d29_owner_accepted",
+        "security_packet_owner_accepted", "owner_approval_created", "writer_authority_created",
+        "verify_hp_resolved", "p0_p10_unlocks", "task_engine_unlocked", "a8_canary_unlocked",
+        "bulk_activation_unlocked", "team_activation_unlocked", "production_activation_unlocked"
+      ],
+      "properties": {
+        "d27_owner_accepted": { "const": false },
+        "d28_owner_accepted": { "const": false },
+        "d29_owner_accepted": { "const": false },
+        "security_packet_owner_accepted": { "const": false },
+        "owner_approval_created": { "const": false },
+        "writer_authority_created": { "const": false },
+        "verify_hp_resolved": { "const": false },
+        "p0_p10_unlocks": { "type": "array", "maxItems": 0 },
+        "task_engine_unlocked": { "const": false },
+        "a8_canary_unlocked": { "const": false },
+        "bulk_activation_unlocked": { "const": false },
+        "team_activation_unlocked": { "const": false },
+        "production_activation_unlocked": { "const": false }
+      }
+    },
+    "live_effect": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "live_binding_created", "live_data_read", "live_endpoint_called", "network_opened",
+        "database_opened", "private_binding_read", "physical_path_discovered"
+      ],
+      "properties": {
+        "live_binding_created": { "const": false },
+        "live_data_read": { "const": false },
+        "live_endpoint_called": { "const": false },
+        "network_opened": { "const": false },
+        "database_opened": { "const": false },
+        "private_binding_read": { "const": false },
+        "physical_path_discovered": { "const": false }
+      }
+    },
+    "write_effect": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "filesystem_written", "payload_written", "binding_written", "task_written", "history_written",
+        "knowledge_written", "pointer_advanced", "source_moved_or_deleted"
+      ],
+      "properties": {
+        "filesystem_written": { "const": false },
+        "payload_written": { "const": false },
+        "binding_written": { "const": false },
+        "task_written": { "const": false },
+        "history_written": { "const": false },
+        "knowledge_written": { "const": false },
+        "pointer_advanced": { "const": false },
+        "source_moved_or_deleted": { "const": false }
+      }
+    },
+    "side_effect_counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["filesystem_writes", "network_calls", "sqlite_opens", "child_processes", "live_data_reads", "authority_mutations"],
+      "properties": {
+        "filesystem_writes": { "const": 0 },
+        "network_calls": { "const": 0 },
+        "sqlite_opens": { "const": 0 },
+        "child_processes": { "const": 0 },
+        "live_data_reads": { "const": 0 },
+        "authority_mutations": { "const": 0 }
+      }
+    },
+    "check_id": {
+      "enum": [
+        "HP-STORAGE-01", "HP-STORAGE-02", "HP-STORAGE-03", "HP-STORAGE-04", "HP-STORAGE-05",
+        "HP-STORAGE-06", "HP-STORAGE-07", "HP-STORAGE-08", "HP-STORAGE-09", "HP-STORAGE-10",
+        "HP-INGRESS-01", "HP-INGRESS-02", "HP-INGRESS-03", "HP-INGRESS-04", "HP-INGRESS-05",
+        "HP-INGRESS-06", "HP-INGRESS-07", "HP-INGRESS-08", "HP-INGRESS-09", "HP-INGRESS-10",
+        "HP-INGRESS-11", "HP-INGRESS-12", "HP-INGRESS-13", "HP-INGRESS-14", "HP-INGRESS-15",
+        "HP-INGRESS-16",
+        "HP-SESSION-01", "HP-SESSION-02", "HP-SESSION-03", "HP-SESSION-04", "HP-SESSION-05",
+        "HP-SESSION-06", "HP-SESSION-07", "HP-SESSION-08", "HP-SESSION-09", "HP-SESSION-10",
+        "HP-SESSION-11", "HP-SESSION-12", "HP-SESSION-13", "HP-SESSION-14", "HP-SESSION-15",
+        "HP-SESSION-16", "HP-SESSION-17", "HP-SESSION-18",
+        "HP-QUERY-01", "HP-QUERY-02", "HP-QUERY-03", "HP-QUERY-04", "HP-QUERY-05",
+        "HP-QUERY-06", "HP-QUERY-07", "HP-QUERY-08", "HP-QUERY-09", "HP-QUERY-10",
+        "HP-QUERY-11", "HP-QUERY-12", "HP-QUERY-13", "HP-QUERY-14", "HP-QUERY-15", "HP-QUERY-16"
+      ]
+    },
+    "check": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "verdict", "reason_code", "fixture_source"],
+      "properties": {
+        "id": { "$ref": "#/$defs/check_id" },
+        "verdict": { "enum": ["PASS", "FAIL"] },
+        "reason_code": { "$ref": "#/$defs/safe_ref" },
+        "fixture_source": { "const": "public_pathless_computed_fixture" }
+      }
+    },
+    "category_summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["category", "total", "passed", "failed", "category_digest"],
+      "properties": {
+        "category": { "enum": ["STORAGE", "INGRESS", "SESSION", "QUERY"] },
+        "total": { "type": "integer", "minimum": 10, "maximum": 18 },
+        "passed": { "type": "integer", "minimum": 0, "maximum": 18 },
+        "failed": { "type": "integer", "minimum": 0, "maximum": 18 },
+        "category_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["expected_total", "observed_total", "complete", "exact_check_ids", "coverage_digest"],
+      "properties": {
+        "expected_total": { "const": 60 },
+        "observed_total": { "const": 60 },
+        "complete": { "const": true },
+        "exact_check_ids": {
+          "type": "array", "minItems": 60, "maxItems": 60, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/check_id" }
+        },
+        "coverage_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total", "passed", "failed", "failed_ids", "check_set_digest"],
+      "properties": {
+        "total": { "const": 60 },
+        "passed": { "type": "integer", "minimum": 0, "maximum": 60 },
+        "failed": { "type": "integer", "minimum": 0, "maximum": 60 },
+        "failed_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/check_id" } },
+        "check_set_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "result_output": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "schema_version", "result", "evaluation_time", "packet_id", "packet_digest",
+        "approved_packet_digest", "approved_packet_digest_match", "baseline_refs", "prerequisite_refs",
+        "external_approval_binding", "policy_digest", "suite_digest", "effective_expires_at", "profile",
+        "checks", "category_summaries", "coverage", "summary", "authority_effect", "live_effect",
+        "write_effect", "side_effect_counts", "raw_sentinel_violations", "receipt_digest"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.a8_synth_secure_access_output.v1" },
+        "result": { "enum": ["PASS", "FAIL"] },
+        "evaluation_time": { "$ref": "#/$defs/timestamp" },
+        "packet_id": { "$ref": "#/$defs/safe_ref" },
+        "packet_digest": { "$ref": "#/$defs/digest" },
+        "approved_packet_digest": { "$ref": "#/$defs/digest" },
+        "approved_packet_digest_match": { "const": true },
+        "baseline_refs": { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "$ref": "#/$defs/safe_ref" } },
+        "prerequisite_refs": { "type": "array", "minItems": 4, "uniqueItems": true, "items": { "$ref": "#/$defs/safe_ref" } },
+        "external_approval_binding": { "$ref": "#/$defs/external_approval_binding" },
+        "policy_digest": { "$ref": "#/$defs/digest" },
+        "suite_digest": { "$ref": "#/$defs/digest" },
+        "effective_expires_at": { "$ref": "#/$defs/timestamp" },
+        "profile": { "$ref": "#/$defs/profile" },
+        "checks": { "type": "array", "minItems": 60, "maxItems": 60, "uniqueItems": true, "items": { "$ref": "#/$defs/check" } },
+        "category_summaries": { "type": "array", "minItems": 4, "maxItems": 4, "uniqueItems": true, "items": { "$ref": "#/$defs/category_summary" } },
+        "coverage": { "$ref": "#/$defs/coverage" },
+        "summary": { "$ref": "#/$defs/summary" },
+        "authority_effect": { "$ref": "#/$defs/authority_effect" },
+        "live_effect": { "$ref": "#/$defs/live_effect" },
+        "write_effect": { "$ref": "#/$defs/write_effect" },
+        "side_effect_counts": { "$ref": "#/$defs/side_effect_counts" },
+        "raw_sentinel_violations": { "type": "array", "maxItems": 0 },
+        "receipt_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "error_output": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "schema_version", "result", "exit_code", "reason_code", "profile", "authority_effect",
+        "live_effect", "write_effect", "side_effect_counts", "raw_sentinel_violations"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.a8_synth_secure_access_error.v1" },
+        "result": { "const": "BLOCKED" },
+        "exit_code": { "enum": [2, 3, 5, 6] },
+        "reason_code": {
+          "enum": [
+            "packet_or_cli_invalid", "approved_packet_digest_mismatch",
+            "raw_path_secret_sentinel", "packet_read_failed"
+          ]
+        },
+        "profile": { "$ref": "#/$defs/profile" },
+        "authority_effect": { "$ref": "#/$defs/authority_effect" },
+        "live_effect": { "$ref": "#/$defs/live_effect" },
+        "write_effect": { "$ref": "#/$defs/write_effect" },
+        "side_effect_counts": { "$ref": "#/$defs/side_effect_counts" },
+        "raw_sentinel_violations": {
+          "type": "array", "maxItems": 1, "uniqueItems": true,
+          "items": { "const": "redacted_input_sentinel" }
+        }
+      }
+    }
+  }
+}

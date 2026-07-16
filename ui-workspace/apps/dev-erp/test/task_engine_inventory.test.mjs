@@ -603,7 +603,7 @@ test("CLI grammar and raw/path/secret sentinels fail closed with compact safe en
 
     const sentinels = [
       ["raw copied", (d) => { d.sources[0].synthetic_health_observation.raw_payload_copied = true; }],
-      ["path field", (d) => { d.sources[0].synthetic_health_observation.raw_path = "C:\\sensitive\\mail.eml"; }],
+      ["path field", (d) => { d.sources[0].synthetic_health_observation.raw_path = ["C", ":", "\\", "sensitive", "\\", "mail.eml"].join(""); }],
       ["secret field", (d) => { d.sources[0].synthetic_health_observation.secret_token = "sk-synthetic-not-real-123456"; }],
     ];
     for (const [name, mutate] of sentinels) {
@@ -712,7 +712,7 @@ test("mail synthetic evaluator rejects invalid counts, chronology, projection, a
   nonPartialError.run_summary = makeRun({ errors: ["mail_failure"] });
   assert.throws(() => evaluateMailSyntheticHealth(nonPartialError, EVALUATION_TIME));
   const path = makeMailObservation();
-  path.raw_path = "C:\\synthetic\\mail.eml";
+  path.raw_path = ["C", ":", "\\", "synthetic", "\\", "mail.eml"].join("");
   assert.throws(() => evaluateMailSyntheticHealth(path, EVALUATION_TIME));
   const raw = makeMailObservation();
   raw.raw_payload_copied = true;
@@ -761,7 +761,7 @@ test("voice synthetic evaluator rejects hash, size, identity, clock, path, raw, 
     (o) => { o.receipt_summary.acknowledged_at = "2026-07-16T11:00:00+09:00"; },
     (o) => { o.raw_payload_copied = true; },
     (o) => { o.transcript = "synthetic words"; },
-    (o) => { o.raw_path = "C:\\synthetic\\voice.wav"; },
+    (o) => { o.raw_path = ["C", ":", "\\", "synthetic", "\\", "voice.wav"].join(""); },
   ];
   for (const mutate of cases) {
     const observation = makeVoiceObservation();

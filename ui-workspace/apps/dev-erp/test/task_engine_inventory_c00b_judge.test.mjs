@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -14,6 +15,8 @@ import {
   runC00BJudgeCli,
 } from "../tools/task_engine_inventory_c00b_judge.mjs";
 
+const require = createRequire(import.meta.url);
+const Ajv2020 = require("ajv/dist/2020").default;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = dirname(HERE);
 const TOOL = join(APP, "tools", "task_engine_inventory_c00b_judge.mjs");
@@ -28,8 +31,8 @@ const EMPTY_DIGEST = `sha256:${"0".repeat(64)}`;
 const FROZEN = {
   tool_blob: "379945f0e2e1d6f3566f2c4479caf2887b011998",
   tool_digest: "sha256:36e2d6e07226d3b6f24d0de33e68a06eb36d1273fdaaaebe81c378d508e5f1e5",
-  test_blob: "9e4a5862b4b82b63b31528685f5bca2051c1e107",
-  test_digest: "sha256:278960fa285616c7fe26084aaa86518fd0d126d4392a1dcfec1e3ed0edfd44dc",
+  test_blob: "ca20b035c14651764dc92627ce4bcd72e6a06361",
+  test_digest: "sha256:36f31964f54ad667e0257631d04eca9f03af4c5f28d1a465b158390f0017d6d6",
   schema_blob: "21595a7ba61a3570221d63a45c4b90f27e4aa01c",
   schema_digest: "sha256:72bf55f30f136f1d30a83b280254eb3b0908c2a85d7e906dd10a6033e92f1f4c",
 };
@@ -292,6 +295,9 @@ function addSource(packet, lane, suffix, requirement) {
 }
 
 function assertReceiptMatchesSchema(receipt, schema) {
+  const ajv = new Ajv2020({ strict: true, allErrors: true });
+  const validateReceipt = ajv.compile(schema);
+  assert.equal(validateReceipt(receipt), true, JSON.stringify(validateReceipt.errors));
   assert.equal(schema.additionalProperties, false);
   assert.deepEqual(Object.keys(receipt).sort(), [...schema.required].sort());
   for (const [key, property] of Object.entries(schema.properties)) {
@@ -399,6 +405,11 @@ test("receipt is schema-valid and deterministic under packet permutations", () =
   assert.equal(first.packet_digest, second.packet_digest);
   assert.deepEqual(a, b);
   assertReceiptMatchesSchema(a, schema);
+  const withUnknownKey = { ...a, unexpected_authority: true };
+  const ajv = new Ajv2020({ strict: true, allErrors: true });
+  const validateReceipt = ajv.compile(schema);
+  assert.equal(validateReceipt(withUnknownKey), false);
+  assert.equal(validateReceipt.errors?.some((error) => error.keyword === "additionalProperties"), true);
   const receiptBody = clone(a);
   delete receiptBody.receipt_digest;
   assert.equal(a.receipt_digest, digestValue(receiptBody));

@@ -2,6 +2,21 @@
 
 ## 2026-07-16
 
+### Task Engine A8-SYNTH secure-access source foundation
+
+- Added a public/pathless/feature-OFF pure verifier with strict packet/output
+  schemas and computed `HP-STORAGE-01..10`, `HP-INGRESS-01..16`,
+  `HP-SESSION-01..18`, and `HP-QUERY-01..16` coverage.
+- Bound seven source custody/policy rows, enrollment and delegation ceilings,
+  exact ticket/finalize/range behavior, WorkSession crash/ack/handoff fixtures,
+  ACL/existence/RAG/cache/redaction cases, and HPP sole-writer/topology guards.
+- Restricted CLI packet reads to a contained relative regular file and added
+  deterministic domain-separated packet/policy/suite/category/coverage/check/
+  receipt digests, strict safe-error effects, and 19 focused adversarial tests.
+- This is source implementation evidence only. D27-D29 owner acceptance,
+  `VERIFY_HP`, live/private binding, DB/data/write/network, A8-CANARY, P0-P10,
+  bulk, team, and production effects remain `0`. (worker: codex_gpt-5)
+
 ### HPP MCP/storage/access plan correction
 
 - Preserved `_workspaces/<project>` as the actual logical project body/payload owner, its established OneDrive-
@@ -35,6 +50,8 @@
 - Required an independent packet- and evidence-bound C00A acceptance authority
   plus the exact C00A BLOCKED receipt-state summary; its authority, revocation,
   and expiry now participate in global uniqueness and effective expiry.
+- Replaced the receipt test's manual schema-shaped assertion with strict Ajv
+  2020 compilation/validation and explicit unknown-key rejection.
 - This is a pure foundation, not a live reader: no source, DB, workspace,
   collector, runtime, or writer was opened or changed. Live C00B remains
   blocked pending exact D bindings, authority, quiescence, and a separately
