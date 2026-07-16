@@ -3960,6 +3960,30 @@ live source에 바인딩하는 실행과 그 manifest를 판정하는 separate j
 authority packet은 없다. 아래 항목을 전부 owner가 고정하기 전에는 live command
 후보를 실행하거나 C00-LIVE-01..04를 닫았다고 주장하지 않는다.
 
+2026-07-16 추가 binding-producer foundation은 owner-approved private binding input에서 private C00Q
+descriptor, safe aggregate evidence, digest-bound C00B packet을 생성하도록 한 공개 도구·strict schema·
+focused test 계약이다. 식별자는 `task_engine_inventory_c00b_binding_producer.mjs`,
+`soulforge.task_engine_inventory_c00b_binding_input.v1`,
+`soulforge.task_engine_inventory_safe_aggregate_evidence.v1`, `validate:task-engine-c00b-binding-v1`이며
+frozen C00Q/C00B 파일은 변경하지 않는다. 현재 live-ready descriptor는 없고 private 면에는 5-lane
+`attested_gap` proposal descriptor만 있으며 public 코드 default는 live binding이 아니다. Locator는
+private input-only다. File mtime은 business freshness가 아니고 불완전한
+grant는 fail closed한다. C00B PASS도 H00 review만 열며 P1·writer·activation을 열지 않는다.
+Producer는 먼저 locator를 출력하지 않는 digest proposal만 만들고, 그 digest·source contract·descriptor·
+safe aggregate evidence에 별도로 결합된 private authority input이 있어야 final packet을 만든다. Producer가
+권한 digest를 스스로 채우는 것은 금지한다. Private control artifact write는 grant에 digest로 결합된 real
+output root와 세 exact filename으로만 허용하며, 이는 C00B judge의 `stdout_only/durable_writes: 0` 업무
+자료 출력 계약과 구분한다. Temp filename은 만들지 않고 failure cleanup도 output pathname을 삭제하지
+않는다. 전체 packet이 proposal 상태여도 descriptor는 별도 `descriptor_binding_state: approved`와 두
+artifact digest에 결합된 `descriptor_materialization_approved`가 있어야만 쓸 수 있다. 업무 freshness는
+source-owned/authority-attested timestamp, 최대 stale 초,
+source authority evidence ref 일치로 검증하고 file mtime으로 대체하지 않는다.
+Proposal 단계의 source evidence authority는 aggregate carrier를 생략할 수 있지만, final packet은 source마다
+safe aggregate evidence digest와 정확히 일치하는 `aggregate:<64hex>` ref 하나를
+`source_evidence_authority.evidence_refs`에 포함해야 한다. Observation evidence refs에는 carrier를 두지 않으며
+missing·wrong·duplicate·misplaced carrier는 모두 fail closed한다. Final packet은 write 전에 unchanged frozen
+C00B judge preflight를 통과해야 하므로 digest-consistent nested manifest extra도 producer 경계에서 차단한다.
+
 | HOLD ID | 아직 없는 exact 계약 | 안전 기본값 / 닫는 증거 |
 | --- | --- | --- |
 | `C00B-HOLD-01` | accepted C00A blocker와 frozen C00Q tool/schema/test/full-BV receipt, approval-time `HEAD==origin/main`, exact root cwd·command/flags, commit/blob/digest refs, approval ref·expiry·revocation | ref/expiry가 없거나 drift하면 query `0`; C00B는 frozen C00Q 파일을 고치지 않음 |

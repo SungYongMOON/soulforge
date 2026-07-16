@@ -57,6 +57,38 @@
   blocked pending exact D bindings, authority, quiescence, and a separately
   authorized live packet. (worker: codex_gpt-5)
 
+### Task Engine C00B private-binding producer foundation
+
+- Reserved `task_engine_inventory_c00b_binding_producer.mjs`, strict
+  `soulforge.task_engine_inventory_c00b_binding_input.v1` and
+  `soulforge.task_engine_inventory_safe_aggregate_evidence.v1` contracts,
+  focused tests, and `validate:task-engine-c00b-binding-v1` for producing a
+  private C00Q descriptor, safe aggregate evidence, and digest-bound C00B
+  packet from an owner-approved private binding input. The public producer,
+  schemas, focused tests, and validation script are implemented; a live private
+  binding remains unavailable until exact lane authority and source evidence
+  exist.
+- Frozen C00Q/C00B files remain unchanged; locators stay private input-only,
+  public defaults are not live bindings, file mtime is not business freshness,
+  incomplete grants fail closed, and final packets require a separately supplied
+  digest-bound authority input rather than producer-created authority. Private
+  artifact writes are restricted to a grant-bound real output root and three
+  exact filenames with no temporary artifact name; descriptor/aggregate writes
+  additionally require an approved descriptor binding state and their
+  digest-bound materialization approval. Failure cleanup never deletes an
+  output pathname. Freshness
+  timestamps, stale ceilings, and evidence refs are
+  authority-coupled. C00B PASS unlocks only H00 review—not P1, writer, or
+  activation. No live-readiness claim was created.
+- Final source-evidence authorities now carry exactly one
+  `aggregate:<64hex>` ref matching the safe aggregate evidence digest. Proposal
+  inputs may omit it, while missing, wrong, duplicate, or misplaced final
+  carriers fail closed. The producer also preflights the complete packet with
+  the unchanged frozen judge before any packet write and rejects nested
+  manifest extras plus GitHub, Slack, and AWS token-shaped strings without
+  reflecting them.
+  (worker: codex_gpt-5)
+
 ### Task Engine C00Q query-only inventory synthetic foundation
 
 - Added the public/synthetic five-lane inventory descriptor and manifest schema,
