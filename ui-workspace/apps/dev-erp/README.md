@@ -1,5 +1,78 @@
 # dev-erp — 개발팀 운영 콕핏 (P1: 읽기 전용)
 
+## Task Engine C00B pure judge foundation
+
+`tools/task_engine_inventory_c00b_judge.mjs` is a separate, pure C00B judge
+foundation. It reads one literal JSON packet and does not open a live source,
+database, workspace, collector, network endpoint, or writer:
+
+```bash
+node ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_judge.mjs --query-only --json --packet <literal-json-path> --approved-packet-digest <sha256:digest>
+```
+
+The separate digest argument must come from an owner-approved command surface.
+The judge recomputes `packet_digest` over the complete packet after removing
+only the top-level `packet_digest` and every authority's
+`bound_packet_digest`, then requires the packet field, external argument, and
+all authority bindings to match. The helper computes a digest; it does not
+create approval. A missing or mismatched external digest is `BLOCKED` and can
+never produce a self-attested P0 PASS.
+
+The strict packet fixes `evaluation_time`, C00A and C00Q full-B/V receipt
+prerequisites, an internally matching clean baseline attestation, the exact
+`owner-with-state` executor identity and inventory authority, three distinct
+unexpired/unrevoked approvals with revocation refs, exact frozen C00Q
+tool/test/schema Git blobs and SHA-256 digests, at least one declared
+`authorized_observation` source row for each of the five lanes, an exact
+expected-source owner rule, producer descriptor/manifest digests, and the safe
+embedded C00Q manifest. Expected sources use exactly
+`required|optional|not_applicable`; only not-applicable rows carry an
+applicability ref, and C00Q lane display follows its applicable-source rule.
+The C00A prerequisite includes an independent `c00a_acceptance` authority bound
+to both the approved packet and C00A receipt digest. Its strict receipt summary
+must remain `TEAX-C00A`, `BLOCKED`, exit `3`, all four live proofs unresolved,
+tracked zero mutation true, no sentinel violations, and legacy
+`p1_unlocked=false`. C00A expiry and revocation participate in the global
+authority set and earliest effective expiry.
+Every source row binds an adapter/version,
+literal-read and query allowlist digests, positive time/row bounds, source
+contract digest, evidence authority, and an unexpired quiescence authority.
+All approvals and authorities carry exact kinds, unique authority refs,
+revocation refs, the approved packet digest, and, for source authorities, the
+source contract digest. C00Q acceptance also binds the prerequisite full-B/V
+receipt digest. Attested metadata requires `no_source_opened_attested`; SQLite
+catalog evidence requires `sidecar_free_exclusive_window_attested`.
+
+The judge uses only `evaluation_time`; it does not consult the wall clock. It
+recomputes the C00Q manifest digest, preserves the C00Q authority ceiling as
+false, requires every lane/source authority to cover `C00-LIVE-01..04`, and
+checks source-level zero mutation. SQLite evidence must have independently
+equal before/after fingerprints, present main files, and absent WAL/SHM files
+even when `equivalent=true`. Aggregate identifiers use the frozen C00Q grammar
+and every aggregate source belongs to the exact expected set. The raw/path/secret
+sentinel and `stdout_only` durable writes `0` output are fixed together with
+field-allowlist and retention refs. Baseline and frozen refs in this foundation
+are packet evidence; the command does not claim it re-observed Git or live
+bindings.
+
+A PASS receipt is deterministic and has only `p0_accepted=true`,
+`next_gate=TEAX-H00_RATIFICATION`, and `h00_review_unlocked=true` as positive
+effects. P1 adapter execution, H00 ratification, D21-D26 authority, and
+writer/activation authority remain false; the receipt never emits
+`p1_unlocked`. It records the approved packet digest, prerequisite and frozen
+evidence digests, producer digests, source contract digests, all authority and
+revocation refs, the earliest effective authority expiry, the exact required
+and resolved live-proof sets, and an empty unresolved set. Every blocked/error
+envelope instead preserves all four proofs as unresolved and every authority
+effect as false. Exits are `0` PASS, `2` invalid packet/CLI, `3` blocked
+approval/authority/source, `4` guard failure, `5` sentinel failure, and `6`
+operational packet-read failure. Errors are compact stdout-only envelopes and
+never echo the input path or packet values.
+
+**STOP:** this is a judge foundation only. Live C00B reading/execution remains
+blocked pending exact D bindings, source and judge authority, approved
+quiescence/zero-mutation methods, and a separately authorized live packet.
+
 ## Task Engine C00Q query-only inventory
 
 `tools/task_engine_inventory.mjs` is the public/synthetic C00Q foundation for a

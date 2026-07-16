@@ -2,6 +2,34 @@
 
 ## 2026-07-16
 
+### Task Engine C00B pure judge foundation
+
+- Added a separate deterministic C00B packet judge and strict PASS receipt
+  schema for exact approval/expiry/revocation, frozen C00Q refs and digest,
+  all authorized-observation sources across five lanes (at least one per lane),
+  C00-LIVE-01..04 scope, zero mutation, sentinel, and stdout-only
+  authority-effect checks.
+- Bound C00A/C00Q full-B/V prerequisites, owner-with-state executor inventory
+  authority, revocation refs, source adapter/allowlist/time/row limits,
+  adapter-specific quiescence authority, output field/retention refs, explicit
+  required/resolved/unresolved proof sets, and deep SQLite fingerprint
+  equivalence. Nonempty catalog aggregate rows are covered by regression tests.
+- Removed self-attested PASS: the judge now requires a separately supplied
+  owner-approved packet digest, recomputes its non-recursive binding domain,
+  and binds every authority plus the C00Q full-B/V and per-source contracts.
+  Frozen C00Q tool/test/schema Git blobs and SHA-256 values are exact constants.
+- Added required/optional/not-applicable expected-source owner rules, producer
+  descriptor/manifest binding, frozen C00Q identifier/source-set validation,
+  SQLite main-present/WAL-SHM-absent equivalence, complete receipt evidence and
+  earliest-expiry fields, and fail-closed BLOCKED proof/effect envelopes.
+- Required an independent packet- and evidence-bound C00A acceptance authority
+  plus the exact C00A BLOCKED receipt-state summary; its authority, revocation,
+  and expiry now participate in global uniqueness and effective expiry.
+- This is a pure foundation, not a live reader: no source, DB, workspace,
+  collector, runtime, or writer was opened or changed. Live C00B remains
+  blocked pending exact D bindings, authority, quiescence, and a separately
+  authorized live packet. (worker: codex_gpt-5)
+
 ### Task Engine C00Q query-only inventory synthetic foundation
 
 - Added the public/synthetic five-lane inventory descriptor and manifest schema,
