@@ -8,6 +8,9 @@
   loopback-only HPP evidence ingress MCP, with client-certificate enrollment,
   revocation, server-certificate pinning, exact Host/audience and certificate-
   to-bearer account/device/agent binding.
+- Added a fail-closed exact RFC1918 client-source guard before handler-level
+  certificate registry and bearer authentication, including IPv4-mapped
+  address normalization; this supplements rather than replaces the OS firewall.
 - Added per-certificate rate/concurrency and request-body bounds plus per-
   credential open-upload, pending-byte, and retained-byte quotas without
   weakening restart-safe idempotent replay.

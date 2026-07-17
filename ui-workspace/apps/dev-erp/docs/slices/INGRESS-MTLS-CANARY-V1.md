@@ -16,7 +16,8 @@ flowchart LR
 
 현재 구현은 다음을 제공한다.
 
-- gateway는 exact RFC1918 IPv4와 port 하나에만 bind하고 backend는 loopback만 사용한다.
+- gateway는 exact RFC1918 IPv4와 port 하나에만 bind하고, 별도의 exact RFC1918 client IPv4만
+  application layer에서 허용하며 backend는 loopback만 사용한다.
 - TLS 1.3, client certificate CA 검증, server certificate pin, exact Host를 검사한다.
 - certificate 등록의 credential/account/device/allowed agent와 bearer identity가 모두 맞아야 한다.
 - 미등록·만료·폐기 certificate와 token, 다른 사람/PC/AI 조합을 즉시 거부한다.
@@ -34,6 +35,7 @@ owner가 실제 외부 조정을 승인한 뒤 HPP 관리자가 자리마다 아
 | client certificate | 한 사람·한 PC용 public certificate |
 | client private key | 해당 PC의 OS-protected private 영역; Git/채팅/명령행 금지 |
 | personal bearer | 한 credential용 1회 표시 값; OS-protected environment만 |
+| gateway binding JSON | exact HPP listen IP와 그 주소와 다른 exact `allowed_client_ipv4`; enabled일 때 null 금지 |
 | client binding JSON | exact HPP private IP, CA/cert/key pointer, server cert SHA-256 pin, expected account/device/agent |
 | project scope | canary 프로젝트 하나만 exact allowlist |
 
@@ -67,7 +69,7 @@ npm.cmd run ingress:mtls-canary -- probe --binding $env:SOULFORGE_INGRESS_MTLS_B
 
 one-seat canary 합격에는 다음이 모두 필요하다.
 
-- 물리 작업 PC에서 HPP private LAN endpoint로만 도달하고 public/VPN/Tailscale 우회가 없다.
+- 물리 작업 PC의 normalized source IPv4가 gateway allowlist와 exact match하고 public/VPN/Tailscale 우회가 없다.
 - client certificate, bearer, account/device/agent, project scope가 exact match한다.
 - 파일 bytes와 SHA-256이 일치하고 source는 삭제·변경되지 않는다.
 - HPP custody ack 전/후 상태가 정확하며 project promotion/ERP/Task 완료는 계속 false다.
@@ -81,6 +83,9 @@ one-seat canary 합격에는 다음이 모두 필요하다.
 - source 삭제·덮어쓰기, DB/ERP/project history mutation, 다른 프로젝트 접근이 발생함
 - malware/backup/retention 또는 quota 운영값이 승인되지 않은 채 실제 업무 파일을 보내야 함
 - 합성 테스트를 물리 canary나 team-ready 증거로 대체하려 함
+
+source IPv4 검사는 TLS handshake 뒤 HTTP handler에서 certificate registry와 bearer auth보다 먼저 수행하는
+추가 fail-closed guard이며, 좁은 OS firewall source rule을 대신하지 않는다.
 
 ## 현재 정확한 중단점
 

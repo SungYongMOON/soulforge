@@ -13,7 +13,7 @@ const AUDIENCE = "hpp_ingress_mcp";
 const HASH = /^[a-f0-9]{64}$/;
 const ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const CONFIG_FIELDS = [
-  "schema_version", "enabled", "audience", "listen_host", "listen_port", "public_url", "backend_url",
+  "schema_version", "enabled", "audience", "listen_host", "allowed_client_ipv4", "listen_port", "public_url", "backend_url",
   "ingress_mcp_binding_path", "tls_cert_path", "tls_key_path", "client_ca_path", "device_registry_path",
   "max_requests_per_minute", "max_concurrent_requests_per_device", "max_body_bytes", "upstream_timeout_ms",
 ];
@@ -67,6 +67,14 @@ function officeLanIpv4(value) {
     || (parts[0] === 192 && parts[1] === 168);
 }
 
+function normalizedRemoteIpv4(socket) {
+  const remoteAddress = typeof socket?.remoteAddress === "string" ? socket.remoteAddress : "";
+  if (isIP(remoteAddress) === 4) return remoteAddress;
+  if (!remoteAddress.toLowerCase().startsWith("::ffff:")) return null;
+  const mapped = remoteAddress.slice(7);
+  return isIP(mapped) === 4 ? mapped : null;
+}
+
 async function normalFile(path, code) {
   let info;
   try { info = await lstat(path); } catch { fail(code); }
@@ -93,8 +101,11 @@ export async function loadIngressMtlsGatewayConfig(configPath) {
   const path = absolute(configPath, "mtls_gateway_config_absolute_required");
   const raw = await readJson(path, "invalid_mtls_gateway_config");
   exactFields(raw, CONFIG_FIELDS, "invalid_mtls_gateway_config");
+  const allowedClientIpv4 = raw.allowed_client_ipv4;
   if (raw.schema_version !== INGRESS_MTLS_GATEWAY_SCHEMA || typeof raw.enabled !== "boolean"
-    || raw.audience !== AUDIENCE || !officeLanIpv4(raw.listen_host)) {
+    || raw.audience !== AUDIENCE || !officeLanIpv4(raw.listen_host)
+    || (allowedClientIpv4 !== null && !officeLanIpv4(allowedClientIpv4))
+    || (raw.enabled && (allowedClientIpv4 === null || allowedClientIpv4 === raw.listen_host))) {
     fail("invalid_mtls_gateway_config");
   }
   const listenPort = Number(raw.listen_port);
@@ -114,6 +125,7 @@ export async function loadIngressMtlsGatewayConfig(configPath) {
     enabled: raw.enabled,
     audience: AUDIENCE,
     listenHost: raw.listen_host,
+    allowedClientIpv4,
     listenPort,
     publicUrl,
     backendUrl,
@@ -291,6 +303,9 @@ export function createIngressMtlsGatewayHandler({ config, authService, now = () 
 
   return async (req, res) => {
     try {
+      if (normalizedRemoteIpv4(req.socket) !== config.allowedClientIpv4) {
+        return sendJson(res, 403, "mtls_source_ip_not_allowed");
+      }
       if (String(req.headers.host || "").toLowerCase() !== config.publicUrl.host.toLowerCase()) {
         return sendJson(res, 421, "host_not_allowed");
       }
@@ -383,7 +398,11 @@ export async function createIngressMtlsGateway({
       requestCert: true,
       rejectUnauthorized: true,
       minVersion: "TLSv1.3",
-    }, createIngressMtlsGatewayHandler({ config, authService, now }));
+    }, createIngressMtlsGatewayHandler({
+      config: allowSyntheticLoopback === true ? { ...config, allowedClientIpv4: "127.0.0.1" } : config,
+      authService,
+      now,
+    }));
   } catch { throw new Error("mtls_gateway_material_invalid"); }
   server.on("upgrade", (_req, socket) => socket.end("HTTP/1.1 426 Upgrade Required\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"));
   server.on("clientError", (_error, socket) => {

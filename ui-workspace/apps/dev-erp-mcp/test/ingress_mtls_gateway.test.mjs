@@ -27,6 +27,7 @@ import {
 } from "../src/ingress_mtls_device_admin.mjs";
 import {
   createIngressMtlsGateway,
+  createIngressMtlsGatewayHandler,
   INGRESS_MTLS_GATEWAY_SCHEMA,
   loadIngressMtlsGatewayConfig,
 } from "../src/ingress_mtls_gateway.mjs";
@@ -82,6 +83,29 @@ function listen(server, port, host = "127.0.0.1") {
 
 function close(server) {
   return new Promise((accept) => server.close(accept));
+}
+
+function capturedResponse() {
+  let status = null;
+  let body = "";
+  return {
+    headersSent: false,
+    writableEnded: false,
+    writeHead(value) {
+      status = value;
+      this.headersSent = true;
+    },
+    end(value = "") {
+      body += value;
+      this.writableEnded = true;
+    },
+    destroy() {
+      this.writableEnded = true;
+    },
+    result() {
+      return { status, body: body ? JSON.parse(body) : null };
+    },
+  };
 }
 
 async function certificates(root, openssl) {
@@ -220,6 +244,7 @@ async function fixture(t) {
     enabled: true,
     audience: "hpp_ingress_mcp",
     listen_host: SYNTHETIC_LAN_IP,
+    allowed_client_ipv4: "172.20.0.11",
     listen_port: gatewayPort,
     public_url: `https://${SYNTHETIC_LAN_IP}:${gatewayPort}`,
     backend_url: `http://127.0.0.1:${backendPort}`,
@@ -306,6 +331,58 @@ test("device enrollment accepts clientAuth public certs, hides full fingerprints
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("source IPv4 guard normalizes mapped addresses and runs before certificate or bearer auth", async () => {
+  let certificateChecks = 0;
+  let bearerChecks = 0;
+  const handler = createIngressMtlsGatewayHandler({
+    config: {
+      allowedClientIpv4: "10.20.30.40",
+      publicUrl: new URL("https://10.20.30.10:8443"),
+    },
+    authService: {
+      async authenticate() {
+        bearerChecks += 1;
+        throw new Error("unexpected_bearer_auth");
+      },
+    },
+  });
+
+  for (const remoteAddress of ["10.20.30.41", "::ffff:10.20.30.41", "2001:db8::1", undefined]) {
+    const res = capturedResponse();
+    const socket = { remoteAddress };
+    Object.defineProperty(socket, "authorized", {
+      get() {
+        certificateChecks += 1;
+        throw new Error("unexpected_certificate_auth");
+      },
+    });
+    await handler({ socket, headers: {}, url: "/health", method: "GET" }, res);
+    assert.deepEqual(res.result(), { status: 403, body: { error: "mtls_source_ip_not_allowed" } });
+  }
+  assert.equal(certificateChecks, 0);
+  assert.equal(bearerChecks, 0);
+
+  for (const remoteAddress of ["10.20.30.40", "::ffff:10.20.30.40"]) {
+    const res = capturedResponse();
+    const socket = { remoteAddress };
+    Object.defineProperty(socket, "authorized", {
+      get() {
+        certificateChecks += 1;
+        return false;
+      },
+    });
+    await handler({
+      socket,
+      headers: { host: "10.20.30.10:8443" },
+      url: "/health",
+      method: "GET",
+    }, res);
+    assert.deepEqual(res.result(), { status: 401, body: { error: "mtls_client_certificate_required" } });
+  }
+  assert.equal(certificateChecks, 2);
+  assert.equal(bearerChecks, 0);
 });
 
 test("synthetic private-LAN mTLS gateway carries all ingress tools and rejects identity, pin, route, and size attacks", async (t) => {
@@ -474,13 +551,20 @@ test("gateway config stays feature-OFF and rejects non-office or VPN-style endpo
     const off = {
       ...f.gateway,
       enabled: false,
+      allowed_client_ipv4: null,
       tls_cert_path: resolve(f.root, "not-materialized-server.crt"),
       tls_key_path: resolve(f.root, "not-materialized-server.key"),
       client_ca_path: resolve(f.root, "not-materialized-ca.crt"),
     };
     await json(f.gatewayPath, off);
-    assert.equal((await loadIngressMtlsGatewayConfig(f.gatewayPath)).enabled, false);
+    const offConfig = await loadIngressMtlsGatewayConfig(f.gatewayPath);
+    assert.equal(offConfig.enabled, false);
+    assert.equal(offConfig.allowedClientIpv4, null);
     await assert.rejects(createIngressMtlsGateway({ configPath: f.gatewayPath }), /mtls_gateway_feature_off/);
+    for (const allowedClientIpv4 of [null, SYNTHETIC_LAN_IP, "127.0.0.1", "100.64.0.10", "203.0.113.10", "172.20.0.999"]) {
+      await json(f.gatewayPath, { ...f.gateway, allowed_client_ipv4: allowedClientIpv4 });
+      await assert.rejects(loadIngressMtlsGatewayConfig(f.gatewayPath), /invalid_mtls_gateway_config/);
+    }
     for (const address of ["0.0.0.0", "127.0.0.1", "100.64.0.10", "203.0.113.10"] ) {
       await json(f.gatewayPath, {
         ...off,

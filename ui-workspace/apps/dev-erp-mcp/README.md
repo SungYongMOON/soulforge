@@ -56,12 +56,14 @@ npm.cmd run ingress:client -- whoami
 
 ## strict office-LAN mTLS 경계
 
-LAN gateway는 RFC1918 사설 IPv4 하나에만 exact bind하도록 제한한다. `0.0.0.0`, loopback, 공인 IP,
-VPN/Tailscale 대역을 config 단계에서 거부하며 backend는 계속 `127.0.0.1` 평문이다. 외부 요청은
-다음 네 값이 모두 일치해야 통과한다.
+LAN gateway는 RFC1918 사설 IPv4 하나에만 exact bind하고, 그 주소와 다른 private
+`allowed_client_ipv4`의 RFC1918 주소 하나만 exact source로 허용한다. enabled일 때 이 필드는 null일
+수 없다. `0.0.0.0`, loopback, 공인 IP, VPN/Tailscale 대역을 config 단계에서 거부하며 backend는 계속
+`127.0.0.1` 평문이다. 외부 요청은 다음 다섯 값이 모두 일치해야 통과한다.
 
 ```text
-CA가 서명한 등록 client certificate
+socket의 exact source IPv4
+  + CA가 서명한 등록 client certificate
   + 폐기되지 않은 credential bearer
   + exact account/device
   + certificate에 허용된 agent
@@ -69,7 +71,10 @@ CA가 서명한 등록 client certificate
 HPP loopback ingress MCP
 ```
 
-gateway는 exact Host, server certificate pin, TLS 1.3, body/request/concurrency 제한을 적용한다.
+gateway handler는 IPv4-mapped `::ffff:x.x.x.x`를 IPv4로 정규화한 뒤 certificate registry나 bearer
+auth보다 먼저 exact source를 검사한다. 이 application-layer guard는 OS firewall을 대체하지 않으며 TLS
+handshake 뒤 HTTP handler에서 적용된다. gateway는 exact Host, server certificate pin, TLS 1.3,
+body/request/concurrency 제한도 적용한다.
 ingress service는 credential별 open upload, pending bytes, retained bytes quota를 별도로 검사한다.
 client key와 token은 CLI 인자로 받지 않으며, 등록 목록은 전체 certificate fingerprint나 token hash를
 출력하지 않는다.
