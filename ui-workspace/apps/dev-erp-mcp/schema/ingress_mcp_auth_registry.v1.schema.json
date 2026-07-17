@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ingress_mcp_auth_registry.v1.schema.json",
+  "title": "Soulforge ingress MCP person-device-agent credentials",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "revision", "tokens"],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.mcp_auth_registry.v1" },
+    "revision": { "$ref": "#/$defs/id" },
+    "tokens": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "credential_id", "account_id", "device_id", "agent_id", "token_hash", "project_scopes",
+          "capabilities", "created_at", "expires_at", "revoked_at"
+        ],
+        "properties": {
+          "credential_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,39}$" },
+          "account_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$" },
+          "device_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$" },
+          "agent_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$" },
+          "token_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "project_scopes": {
+            "type": "array", "maxItems": 100, "uniqueItems": true,
+            "items": { "$ref": "#/$defs/id" }
+          },
+          "capabilities": {
+            "type": "array", "maxItems": 4, "uniqueItems": true,
+            "items": {
+              "enum": [
+                "upload:team_files", "publish:structured_pc_work", "publish:run_logs", "receipt:read"
+              ]
+            }
+          },
+          "created_at": { "type": "string", "format": "date-time" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "revoked_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" }
+  }
+}

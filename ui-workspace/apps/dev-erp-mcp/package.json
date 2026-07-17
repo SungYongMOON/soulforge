@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Personal Codex Streamable HTTP MCP sidecar for Soulforge dev-ERP",
+  "description": "Personal ERP MCP sidecar and feature-gated HPP evidence ingress MCP for Soulforge",
   "engines": {
     "node": ">=22.5"
   },
   "scripts": {
     "start": "node server.mjs",
+    "start:ingress": "node ingress_server.mjs",
+    "ingress:client": "node ingress_client_cli.mjs",
+    "ingress:admin": "node ingress_access_admin_cli.mjs",
     "dev": "node --watch server.mjs",
     "test": "node --test test/*.test.mjs"
   },

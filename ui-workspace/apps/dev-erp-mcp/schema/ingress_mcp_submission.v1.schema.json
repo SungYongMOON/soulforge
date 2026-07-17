@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ingress_mcp_submission.v1.schema.json",
+  "title": "Soulforge ingress submission receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "submission_id", "lane", "credential_id", "account_id", "device_id", "agent_id",
+    "project_hint", "occurrence_id", "outbox_occurrence_id", "task_ref", "filename", "media_type",
+    "sha256", "size", "source_kind", "received_at", "local_outbox_status", "official_completion",
+    "official_history_written", "project_promoted", "source_deleted", "source_overwritten"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.mcp_submission.v1" },
+    "submission_id": { "type": "string", "pattern": "^sfigsub_[A-Za-z0-9_-]{32}$" },
+    "lane": { "enum": ["team_files", "structured_pc_work", "run_logs"] },
+    "credential_id": { "$ref": "#/$defs/id" },
+    "account_id": { "$ref": "#/$defs/id" },
+    "device_id": { "$ref": "#/$defs/id" },
+    "agent_id": { "$ref": "#/$defs/id" },
+    "project_hint": { "$ref": "#/$defs/id" },
+    "occurrence_id": { "$ref": "#/$defs/id" },
+    "outbox_occurrence_id": { "$ref": "#/$defs/id" },
+    "task_ref": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+    "filename": { "type": ["string", "null"], "maxLength": 180 },
+    "media_type": { "type": "string", "minLength": 3, "maxLength": 128 },
+    "sha256": { "$ref": "#/$defs/hash" },
+    "size": { "type": "integer", "minimum": 1 },
+    "source_kind": { "enum": ["authenticated_chunked_upload", "bounded_structured_event"] },
+    "received_at": { "type": "string", "format": "date-time" },
+    "local_outbox_status": { "enum": ["enqueued", "unchanged"] },
+    "official_completion": { "const": false },
+    "official_history_written": { "const": false },
+    "project_promoted": { "const": false },
+    "source_deleted": { "const": false },
+    "source_overwritten": { "const": false }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

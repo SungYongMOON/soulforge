@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ingress_bounded_event.v1.schema.json",
+  "title": "Soulforge bounded PC work or run-log event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "lane", "actor", "project_hint", "occurrence_id", "idempotency_key",
+    "event_kind", "occurred_at", "task_ref", "summary", "outputs", "verification", "next_actions",
+    "stop_conditions", "official_completion", "full_transcript_included", "screen_capture_included",
+    "keystroke_capture_included", "os_surveillance_included", "accepted_history"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.bounded_event.v1" },
+    "lane": { "enum": ["structured_pc_work", "run_logs"] },
+    "actor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["account_id", "device_id", "agent_id"],
+      "properties": {
+        "account_id": { "$ref": "#/$defs/id" },
+        "device_id": { "$ref": "#/$defs/id" },
+        "agent_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "project_hint": { "$ref": "#/$defs/id" },
+    "occurrence_id": { "$ref": "#/$defs/id" },
+    "idempotency_key": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$" },
+    "event_kind": { "$ref": "#/$defs/id" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "task_ref": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 8000 },
+    "outputs": { "$ref": "#/$defs/list" },
+    "verification": { "type": ["string", "null"], "maxLength": 4000 },
+    "next_actions": { "$ref": "#/$defs/list" },
+    "stop_conditions": { "$ref": "#/$defs/list" },
+    "official_completion": { "const": false },
+    "full_transcript_included": { "const": false },
+    "screen_capture_included": { "const": false },
+    "keystroke_capture_included": { "const": false },
+    "os_surveillance_included": { "const": false },
+    "accepted_history": { "const": false }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+    "list": {
+      "type": "array", "maxItems": 20,
+      "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+    }
+  }
+}

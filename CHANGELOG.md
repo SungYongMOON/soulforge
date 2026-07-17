@@ -2,6 +2,27 @@
 
 ## 2026-07-17
 
+### Feature-OFF HPP evidence ingress MCP
+
+- Added a separate loopback-only Streamable HTTP MCP that sends authenticated
+  team files, bounded structured-PC-work events, and bounded run receipts only
+  into the existing HPP local outbox; it does not open ERP DB, `_workspaces`,
+  project promotion, accepted history, or TaskEngine completion paths.
+- Added person/account, device, and AI-agent credential identities with exact
+  project/capability scopes, SHA-256-only token registry storage, expiry,
+  revocation, account/object existence isolation, and local issue/list/revoke
+  administration with one-time token display.
+- Added size/hash-bound resumable chunks, restart-safe idempotency, immutable
+  source retention, pending versus verified HPP acknowledgement, strict schemas,
+  path/extension/boundary guards, and a client CLI that never accepts a token on
+  the command line.
+- Added adversarial unit/integration coverage and a multi-process E2E in which
+  three isolated virtual work PCs exercise all six MCP tools, concurrent file/
+  work/run lanes, project denial, cross-account denial, server restart, ack
+  verification, and credential revocation. LAN/TLS/firewall, actual team tokens,
+  mail credentials, malware scan/quota, promoter/history, and production remain
+  OFF. (worker: codex_gpt-5)
+
 ### Default-OFF continuous non-mail ingress supervisor
 
 - Added a strict private binding schema and one-shot HPP supervisor for the
