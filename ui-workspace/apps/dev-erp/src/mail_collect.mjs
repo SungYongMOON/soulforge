@@ -98,6 +98,14 @@ export function buildAutoIntakeArgs({ dbRel = "data/dev-erp.db", workmetaRoot, p
   return args;
 }
 
+export function teamMailboxRegisterPath({ repoRoot = process.cwd(), env = process.env } = {}) {
+  const explicit = String(env.EMAIL_FETCH_TEAM_REGISTER || "").trim();
+  if (explicit) return resolve(repoRoot, explicit);
+  const privateRoot = String(env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT || "").trim();
+  if (!privateRoot) return "";
+  return resolve(repoRoot, privateRoot, "guild_hall", "state", "gateway", "mailbox", "state", "team_mailboxes.json");
+}
+
 function parseRouteBackfillSummary(stdout) {
   const j = parseJsonLoose(stdout);
   if (!j) return { raw: "ok" };
@@ -145,7 +153,10 @@ export async function collectAllMailboxes(store, { repoRoot, backendRoot = repoR
 
     // ① 팀 등록부 갱신(현재 활성 메일함 반영)
     try {
-      await execFileP("node", ["tools/export_team_mailboxes.mjs", "--db", dbRel, "--apply"],
+      const exportArgs = ["tools/export_team_mailboxes.mjs", "--db", dbRel, "--apply"];
+      const registerPath = teamMailboxRegisterPath({ repoRoot });
+      if (registerPath) exportArgs.push("--out", registerPath);
+      await execFileP("node", exportArgs,
         { cwd: appDir, timeout: 30000, maxBuffer: 4 * 1024 * 1024 });
       result.register = "refreshed";
     } catch (e) { result.register = { error: String(e?.message || e).slice(0, 160) }; result.errors.push("register"); }

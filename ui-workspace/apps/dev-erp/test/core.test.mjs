@@ -6645,6 +6645,14 @@ test("MAILBOX-ENV: 허용 디렉터리에만 atomic 기록, traversal/타 경로
     assert.equal(deleteMailboxEnv(root, mailboxEnvRelPath("kim")).deleted, true);
     assert.equal(deleteMailboxEnv(root, mailboxEnvRelPath("kim")).deleted, false); // 이미 없음
     assert.equal(deleteMailboxEnv(root, "../../../etc/evil.env").error, "mailbox_env_path_unsafe");
+
+    const privateRoot = join(root, "stable-private-config");
+    const external = writeMailboxEnv(root, mailboxEnvRelPath("lee"), { X: "private" }, { privateRoot });
+    assert.equal(external.ok, true);
+    assert.equal(external.path.startsWith(privateRoot), true);
+    assert.equal(readFileSync(external.path, "utf8").includes("X=private"), true);
+    assert.equal(deleteMailboxEnv(root, mailboxEnvRelPath("lee"), { privateRoot }).deleted, true);
+    assert.equal(writeMailboxEnv(root, "../../../escape.env", { X: "1" }, { privateRoot }).error, "mailbox_env_path_unsafe");
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

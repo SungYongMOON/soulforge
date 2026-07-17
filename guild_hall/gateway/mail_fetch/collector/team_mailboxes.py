@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 from typing import Any, Dict, List, Optional, Sequence
@@ -79,8 +80,20 @@ class TeamMailbox:
         return payload
 
 
+def _private_config_root(repo_root: Path) -> Optional[Path]:
+    raw = str(os.environ.get("EMAIL_FETCH_PRIVATE_CONFIG_ROOT", "")).strip()
+    if not raw:
+        return None
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        path = Path(repo_root).expanduser() / path
+    return path.resolve()
+
+
 def default_register_path(repo_root: Path) -> Path:
-    return Path(repo_root).expanduser() / DEFAULT_TEAM_REGISTER_REL
+    repo_root = Path(repo_root).expanduser().resolve()
+    root = _private_config_root(repo_root) or repo_root
+    return root / DEFAULT_TEAM_REGISTER_REL
 
 
 def load_team_mailbox_register(repo_root: Path, register_file: Path) -> List[TeamMailbox]:
@@ -286,15 +299,23 @@ def _validate_relative_ref(raw: str, *, row_index: int) -> str:
 
 
 def _resolve_env_ref(raw: str, *, repo_root: Path, register_file: Path, row_index: int) -> Path:
+    private_root = _private_config_root(repo_root)
     if _is_repo_relative_ref(raw):
-        resolved = (repo_root / Path(raw)).resolve()
+        resolved = ((private_root or repo_root) / Path(raw)).resolve()
     else:
         resolved = (register_file.parent / Path(raw)).resolve()
 
-    try:
-        resolved.relative_to(repo_root)
-    except ValueError as exc:
-        raise TeamMailboxRegisterError("env_ref_outside_repo", row_index=row_index, field="env_file") from exc
+    allowed_roots = [repo_root]
+    if private_root is not None:
+        allowed_roots.append(private_root)
+    for allowed_root in allowed_roots:
+        try:
+            resolved.relative_to(allowed_root)
+            break
+        except ValueError:
+            continue
+    else:
+        raise TeamMailboxRegisterError("env_ref_outside_allowed_root", row_index=row_index, field="env_file")
     return resolved
 
 

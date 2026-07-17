@@ -10,6 +10,21 @@ import { createHash } from "node:crypto";
 
 export const MAILBOX_ENV_DIR_REL = "guild_hall/state/gateway/mailbox/state";
 
+function mailboxConfigRoot(repoRoot, privateRoot = "") {
+  const root = resolve(repoRoot);
+  const configured = String(privateRoot || "").trim();
+  return configured ? resolve(root, configured) : root;
+}
+
+export function resolveMailboxEnvPath(repoRoot, relPath, { privateRoot = "" } = {}) {
+  const root = mailboxConfigRoot(repoRoot, privateRoot);
+  const target = resolve(root, relPath);
+  const allowedDir = resolve(root, MAILBOX_ENV_DIR_REL);
+  const allowedPrefix = allowedDir + sep;
+  if (target !== allowedDir && !`${target}`.startsWith(allowedPrefix)) return null;
+  return target;
+}
+
 // 파일명 키는 계정 id(항상 ASCII·고유)를 넘긴다 — 호출부는 acct.id 사용. 한글 등으로 sanitize 결과가
 // 비면 raw 입력의 해시로 고유 파일명을 만들어, 비ASCII 이름 계정들이 같은 acct_mailbox.env 로 충돌하는 것을 막는다.
 export function safeAccountEnvName(accountKey) {
@@ -63,11 +78,9 @@ export function hiworksEnvUpdates({ host, username, password, port = 995, useSsl
 }
 
 // repoRoot 아래 허용 디렉터리(MAILBOX_ENV_DIR_REL)로만 atomic 기록. 그 밖이면 거부(traversal 방지).
-export function writeMailboxEnv(repoRoot, relPath, updates) {
-  const root = resolve(repoRoot);
-  const target = resolve(root, relPath);
-  const allowedPrefix = resolve(root, MAILBOX_ENV_DIR_REL) + sep;
-  if (!`${target}`.startsWith(allowedPrefix)) return { error: "mailbox_env_path_unsafe" };
+export function writeMailboxEnv(repoRoot, relPath, updates, { privateRoot = "" } = {}) {
+  const target = resolveMailboxEnvPath(repoRoot, relPath, { privateRoot });
+  if (!target) return { error: "mailbox_env_path_unsafe" };
   const existing = existsSync(target) ? readFileSync(target, "utf-8") : "";
   const content = upsertEnv(existing, updates);
   mkdirSync(dirname(target), { recursive: true });
@@ -79,11 +92,9 @@ export function writeMailboxEnv(repoRoot, relPath, updates) {
 
 // 계정 삭제 시 그 계정의 env 파일(자격증명) 제거. 허용 디렉터리 밖이면 거부.
 // 호출부는 per-account 파생 경로(acct_<user>.env)만 넘겨 공유 파일(email_fetch.env 등)을 절대 지우지 않게 한다.
-export function deleteMailboxEnv(repoRoot, relPath) {
-  const root = resolve(repoRoot);
-  const target = resolve(root, relPath);
-  const allowedPrefix = resolve(root, MAILBOX_ENV_DIR_REL) + sep;
-  if (!`${target}`.startsWith(allowedPrefix)) return { error: "mailbox_env_path_unsafe" };
+export function deleteMailboxEnv(repoRoot, relPath, { privateRoot = "" } = {}) {
+  const target = resolveMailboxEnvPath(repoRoot, relPath, { privateRoot });
+  if (!target) return { error: "mailbox_env_path_unsafe" };
   if (existsSync(target)) { rmSync(target, { force: true }); return { ok: true, deleted: true }; }
   return { ok: true, deleted: false };
 }

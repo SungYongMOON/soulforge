@@ -2,6 +2,17 @@
 
 ## 2026-07-17
 
+### Stable private mail collector storage binding
+
+- Added `EMAIL_FETCH_PRIVATE_CONFIG_ROOT` support so ERP mailbox credentials and
+  the team mailbox register can remain in one private data root while immutable
+  release checkouts are replaced.
+- Made ERP mailbox credential write/delete, single-mailbox connection tests,
+  team-register export, and team collection resolve the same stable private
+  root, while retaining traversal rejection and secret-free public metadata.
+- Kept collection activation separate: the new binding does not start a
+  collector, scheduler, MCP service, or writer by itself. (worker: codex_gpt-5)
+
 ### ERP MCP default-OFF runtime guard
 
 - Made ERP MCP DDL and HTTP routes opt-in through `DEV_ERP_MCP_ENABLED=1`.

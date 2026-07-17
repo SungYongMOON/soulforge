@@ -12,6 +12,7 @@ from collector.models import EmailEvent, FetchResult
 from collector.team_mailboxes import (
     TEAM_REGISTER_SCHEMA_VERSION,
     TeamMailboxRegisterError,
+    default_register_path,
     load_team_mailbox_register,
     run_team_mailboxes,
 )
@@ -70,6 +71,35 @@ def _write_env_files(register: Path, names: List[str]) -> None:
             ),
             encoding="utf-8",
         )
+
+
+def test_team_register_and_env_refs_can_live_under_stable_private_config_root(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "release-checkout"
+    repo_root.mkdir()
+    private_root = tmp_path / "stable-private-config"
+    register = _write_team_register(
+        private_root,
+        [
+            {
+                "id": "ops",
+                "account_id": "acct-ops",
+                "email": "ops@example.test",
+                "provider": "hiworks",
+                "enabled": True,
+                "env_file": "guild_hall/state/gateway/mailbox/state/ops.env",
+            }
+        ],
+    )
+    _write_env_files(register, ["ops.env"])
+    monkeypatch.setenv("EMAIL_FETCH_PRIVATE_CONFIG_ROOT", str(private_root))
+
+    assert default_register_path(repo_root) == register
+    mailboxes = load_team_mailbox_register(repo_root=repo_root, register_file=register)
+    assert len(mailboxes) == 1
+    assert mailboxes[0].env_file == register.parent / "ops.env"
+    assert not (repo_root / "guild_hall" / "state" / "gateway" / "mailbox" / "state" / "ops.env").exists()
 
 
 def test_team_runner_isolates_two_mailboxes_and_preserves_mailbox_history(monkeypatch, tmp_path: Path) -> None:

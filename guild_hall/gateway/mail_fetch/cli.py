@@ -17,7 +17,25 @@ def _resolve_paths() -> tuple[Path, Path]:
 
 
 def _default_env_file(repo_root: Path) -> Path:
-    return repo_root / "guild_hall" / "state" / "gateway" / "mailbox" / "state" / "email_fetch.env"
+    private_root = str(os.environ.get("EMAIL_FETCH_PRIVATE_CONFIG_ROOT", "")).strip()
+    root = _resolve_private_root(repo_root, private_root) if private_root else repo_root
+    return root / "guild_hall" / "state" / "gateway" / "mailbox" / "state" / "email_fetch.env"
+
+
+def _resolve_private_root(repo_root: Path, raw: str) -> Path:
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        path = repo_root / path
+    return path.resolve()
+
+
+def _resolve_env_file(repo_root: Path, raw: str) -> Path:
+    path = Path(raw).expanduser()
+    if path.is_absolute():
+        return path.resolve()
+    private_root = str(os.environ.get("EMAIL_FETCH_PRIVATE_CONFIG_ROOT", "")).strip()
+    root = _resolve_private_root(repo_root, private_root) if private_root else repo_root
+    return (root / path).resolve()
 
 
 def _parse_args() -> argparse.Namespace:
@@ -49,9 +67,9 @@ def main() -> int:
     args = _parse_args()
     env_from_var = str(os.environ.get("EMAIL_FETCH_ENV_FILE", "")).strip()
     env_file = (
-        Path(args.env_file).expanduser()
+        _resolve_env_file(repo_root, args.env_file)
         if args.env_file
-        else (Path(env_from_var).expanduser() if env_from_var else _default_env_file(repo_root))
+        else (_resolve_env_file(repo_root, env_from_var) if env_from_var else _default_env_file(repo_root))
     )
     config = build_config_from_env(repo_root=repo_root, env_file=env_file)
 

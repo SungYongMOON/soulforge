@@ -2599,7 +2599,7 @@ const server = createServer(async (req, res) => {
       const r = store.updateAccountMailbox(body.id, { provider: "none", enabled: false });
       if (r.error) return send(res, 400, r);
       let envDeleted = false;
-      try { const repoRoot = resolve(HERE, "..", "..", ".."); envDeleted = !!deleteMailboxEnv(repoRoot, oldRef).deleted; } catch { /* env 정리 실패가 해제를 막지 않음 */ }
+      try { const repoRoot = resolve(HERE, "..", "..", ".."); envDeleted = !!deleteMailboxEnv(repoRoot, oldRef, { privateRoot: process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT }).deleted; } catch { /* env 정리 실패가 해제를 막지 않음 */ }
       store.appendEvent({ actor_ref: admin.username, actor_kind: "human", kind: "account_mailbox_disconnect", to: `none:env_deleted=${envDeleted}`, used_refs: ["auth", "mailbox_metadata", "mailbox_env"], data_label: "meta" });
       return send(res, 200, { ok: true, env_deleted: envDeleted, mailbox: r.mailbox });
     }
@@ -2619,7 +2619,7 @@ const server = createServer(async (req, res) => {
       if (!host || !username || !password) return send(res, 400, { error: "mailbox_credentials_incomplete" });
       const rel = mailboxEnvRelPath(acct.id); // 파일명은 계정 id 기반(ASCII·고유) — 한글 등 username 충돌 방지
       const repoRoot = resolve(HERE, "..", "..", "..");
-      const w = writeMailboxEnv(repoRoot, rel, hiworksEnvUpdates({ host, username, password, port: body.port }));
+      const w = writeMailboxEnv(repoRoot, rel, hiworksEnvUpdates({ host, username, password, port: body.port }), { privateRoot: process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT });
       if (w.error) return send(res, 400, { error: w.error });
       const r = store.updateAccountMailbox(body.id, { provider: "hiworks", env_ref: rel, enabled: true });
       if (r.error) return send(res, 400, r);
@@ -2685,7 +2685,7 @@ const server = createServer(async (req, res) => {
       erpMcp?.purgeAccountCredentials(id);
       const repoRoot = resolve(HERE, "..", "..", "..");
       let envDeleted = false;
-      try { envDeleted = !!deleteMailboxEnv(repoRoot, r.mailbox_env_ref || mailboxEnvRelPath(id)).deleted; } catch { /* env 정리 실패가 계정 삭제를 막지 않음 */ }
+      try { envDeleted = !!deleteMailboxEnv(repoRoot, r.mailbox_env_ref || mailboxEnvRelPath(id), { privateRoot: process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT }).deleted; } catch { /* env 정리 실패가 계정 삭제를 막지 않음 */ }
       store.appendEvent({
         actor_ref: admin.username, actor_kind: "human", kind: "account_deleted",
         to: r.username, used_refs: ["auth"], data_label: "meta"
