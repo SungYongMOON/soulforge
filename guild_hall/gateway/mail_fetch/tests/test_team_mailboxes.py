@@ -237,6 +237,73 @@ def test_team_runner_isolates_two_mailboxes_and_preserves_mailbox_history(monkey
     }
 
 
+def test_team_runner_ingress_only_writes_source_custody_without_projection(monkeypatch, tmp_path: Path) -> None:
+    register = _write_team_register(
+        tmp_path,
+        [
+            {
+                "id": "ops",
+                "account_id": "acct-ops",
+                "email": "ops@example.test",
+                "provider": "gmail",
+                "enabled": True,
+                "env_file": "ops.env",
+                "workspace": "team_ops",
+            }
+        ],
+    )
+    _write_env_files(register, ["ops.env"])
+    data_root = tmp_path / "stable-data"
+    backend_root = tmp_path / "backend"
+    monkeypatch.setenv("EMAIL_FETCH_INBOX_ROOT", str(data_root / "ingress" / "mailbox"))
+    monkeypatch.setenv("EMAIL_FETCH_RUNTIME_DIR", str(data_root / "runtime" / "mail_fetch"))
+    monkeypatch.setenv("EMAIL_FETCH_MAIL_CANDIDATE_QUEUE_ROOT", str(data_root / "state" / "mail_candidate"))
+    monkeypatch.setenv("DEV_ERP_BACKEND_ROOT", str(backend_root))
+    monkeypatch.setattr(
+        runner,
+        "_build_gmail_connector",
+        lambda _config: _FakeConnector(
+            FetchResult(
+                events=[_event("ingress-only-message")],
+                next_cursor={"last_received_epoch": 1772668800},
+                partial=False,
+                errors=[],
+            )
+        ),
+    )
+
+    summary = run_team_mailboxes(
+        repo_root=tmp_path,
+        register_file=register,
+        ingress_only=True,
+    )
+
+    assert summary["partial"] is False
+    result = summary["results"][0]["result"]
+    assert result["ingress_only"] is True
+    source = result["sources"][0]
+    assert source["raw_written"] == 1
+    assert source["event_written"] == 1
+    assert source["mail_candidates"]["skipped_reason"] == "ingress_only"
+    assert source["notifications"]["skipped_reason"] == "ingress_only"
+    assert source["plaud_mail_triggers"]["skipped_reason"] == "ingress_only"
+    assert (
+        data_root
+        / "ingress"
+        / "mailbox"
+        / "team_ops"
+        / "mail"
+        / "raw"
+        / "gmail"
+        / "2026"
+        / "2026-03.jsonl"
+    ).exists()
+    assert (data_root / "runtime" / "mail_fetch" / "mailboxes" / "ops" / "state" / "cursor_state.json").exists()
+    assert not (data_root / "state" / "mail_candidate").exists()
+    assert not (backend_root / "_workmeta").exists()
+    assert not (backend_root / "_workspaces").exists()
+
+
 @pytest.mark.parametrize(
     "row,code,leaked",
     [

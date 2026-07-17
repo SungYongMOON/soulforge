@@ -40,6 +40,14 @@ npm run guild-hall:gateway:fetch:team -- --once --json
 python3 guild_hall/gateway/mail_fetch/healthcheck.py --json
 ```
 
+기존 계정 연결은 유지하면서 중앙 data root 에 원천만 먼저 쌓으려면
+`team_cli.py --data-root <absolute-data-root> --ingress-only --once --json` 을 쓴다.
+`--data-root` 는 `config/`, `ingress/mailbox/`, `runtime/mail_fetch/`,
+`state/mail_candidate/` 경로만 파생하며 계정 secret 을 생성하거나 변경하지 않는다.
+`--ingress-only` 는 raw/event와 cursor/dedupe/run log만 기록하고 project history,
+mail candidate, notification, PLAUD trigger 투영은 명시적으로 건너뛴다.
+네이티브 첨부 저장과 링크 첨부 다운로드도 이 모드에서는 비활성화한다.
+
 When `EMAIL_FETCH_PLAUD_TRIGGER_ENABLED=true`, a fresh Hiworks PLAUD
 transcript-ready notice writes a sanitized trigger under the shared
 `_workspaces/system/voice_capture/plaud_mail_triggers/pending/` queue. The

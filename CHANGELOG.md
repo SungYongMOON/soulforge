@@ -2,6 +2,30 @@
 
 ## 2026-07-17
 
+### ERP-independent team mail raw ingress path
+
+- Added an explicit `--data-root` binding for the existing team mail collector
+  so its private config, mailbox source custody, and restart state can live on
+  one stable data volume without reconnecting mailbox accounts.
+- Added `--ingress-only` / `EMAIL_FETCH_INGRESS_ONLY=true` to store raw and
+  normalized mail events plus cursor/dedupe/run state while skipping project
+  history, candidate, notification, PLAUD-trigger, native-attachment, and
+  link-download writes.
+- Kept activation separate: no account secret was created or changed and no
+  collector, ERP, MCP, or scheduler was started. (worker: codex_gpt-5)
+
+### HPP voice copy-only migration/audit mirror
+
+- Added a path-agnostic, exact-lane voice mirror that verifies source stability
+  and SHA-256 before adding payloads to a central data root.
+- Added restart checkpoints, immutable metadata receipts, legacy-tree seeding,
+  idempotent reruns, bounded per-run copy limits, and no-delete/no-overwrite
+  behavior for missing or changed source files.
+- Kept the Mac mini source-writer role and OneDrive workspace unchanged; the
+  mirror is unaccepted staging, not `transfer_service` acceptance, and does not
+  classify projects or write ERP, task, or workspace history.
+  (worker: codex_gpt-5)
+
 ### Stable private mail collector storage binding
 
 - Added `EMAIL_FETCH_PRIVATE_CONFIG_ROOT` support so ERP mailbox credentials and

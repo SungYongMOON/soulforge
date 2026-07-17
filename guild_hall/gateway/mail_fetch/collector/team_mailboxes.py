@@ -140,6 +140,7 @@ def run_team_mailboxes(
     repo_root: Path,
     register_file: Path,
     dry_run: bool = False,
+    ingress_only: bool = False,
     limit: int = 0,
 ) -> Dict[str, Any]:
     started_at = _now_iso()
@@ -169,6 +170,8 @@ def run_team_mailboxes(
             config = build_config_for_mailbox(repo_root=repo_root, mailbox=mailbox)
             if dry_run:
                 config.dry_run = True
+            if ingress_only:
+                config.ingress_only = True
             if int(limit or 0) > 0:
                 config.limit = int(limit)
             result = runner.run_once(config)
