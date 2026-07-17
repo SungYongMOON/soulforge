@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-07-17
+
+### ERP MCP default-OFF runtime guard
+
+- Made ERP MCP DDL and HTTP routes opt-in through `DEV_ERP_MCP_ENABLED=1`.
+- With the flag absent or disabled, server startup does not materialize
+  `erp_mcp_*` tables and MCP endpoints return 404; existing core ERP behavior
+  remains available.
+- Added an integration regression for the default-OFF boundary and kept the
+  existing MCP pilot test explicitly enabled. This is a feature-OFF deployment
+  foundation, not a live MCP, token, scheduler, writer, or team activation.
+  (worker: codex_gpt-5)
+
 ## 2026-07-16
 
 ### Task Engine A8-SYNTH secure-access source foundation

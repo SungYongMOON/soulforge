@@ -283,7 +283,13 @@ sidecar/ERP는 추가 LLM을 호출하지 않는다. 구현 범위는 개인 일
 메일 발송과 자동 완료는 제공하지 않는다. 팀원이 ERP에서 완료를 눌러야 기존 완료
 훅이 개인 Codex의 최근 구조화 결과를 이력과 승인 대기 제안에 합친다.
 
+ERP의 MCP 저장 테이블과 `/api/mcp/**`, `/api/integrations/mcp/**` route는 기본
+feature-OFF다. `DEV_ERP_MCP_ENABLED=1`을 명시한 승인된 파일럿에서만 서버 시작 시
+MCP DDL과 route를 연다. 값이 없거나 `0`이면 MCP 테이블을 만들지 않고 해당 route는
+404를 반환한다.
+
 ```powershell
+$env:DEV_ERP_MCP_ENABLED="1"
 npm.cmd run dev-erp:mcp-token -- issue --username <erp-username> --label "Personal Codex" --days 30
 $env:ERP_MCP_ERP_BASE_URL="http://127.0.0.1:4300"
 $env:ERP_MCP_PUBLIC_URL="http://127.0.0.1:4311"

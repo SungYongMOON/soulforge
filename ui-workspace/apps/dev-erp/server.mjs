@@ -531,7 +531,10 @@ const ERP_MCP_ARTIFACT_ROOT = resolve(
   process.env.DEV_ERP_MCP_ARTIFACT_ROOT
     || join(BACKEND_ROOT, "_workspaces", "system", "dev-erp", "mcp-artifacts"),
 );
-const erpMcp = createErpMcpService({ store, artifactRoot: ERP_MCP_ARTIFACT_ROOT });
+const ERP_MCP_ENABLED = process.env.DEV_ERP_MCP_ENABLED === "1";
+const erpMcp = ERP_MCP_ENABLED
+  ? createErpMcpService({ store, artifactRoot: ERP_MCP_ARTIFACT_ROOT })
+  : null;
 try {
   const recovered = store.recoverInterruptedCodexTurnAudits("service_restart");
   if (recovered.recovered) console.warn(`[dev-erp] recovered ${recovered.recovered} interrupted Codex audit row(s)`);
@@ -799,6 +802,7 @@ const ERP_MCP_CALLS_PER_MINUTE = Math.max(
 );
 const erpMcpCallsByAccount = new Map();
 function authenticatedMcpAccount(req) {
+  if (!erpMcp) throw new ErpMcpError("mcp_disabled", 404);
   const account = erpMcp.authenticate(req.headers.authorization || "");
   const cutoff = Date.now() - 60_000;
   const recent = (erpMcpCallsByAccount.get(account.id) || []).filter((at) => at > cutoff);
@@ -1871,7 +1875,9 @@ function afterWorkCompleted({ actor, accountId = null, item, from, to } = {}) {
     note: noteParts.join(";"),
   });
   (async () => {
-    const workSession = accountId ? erpMcp.completionPacket({ accountId, itemId: item.id }) : null;
+    const workSession = accountId && erpMcp
+      ? erpMcp.completionPacket({ accountId, itemId: item.id })
+      : null;
     let msgs = [];
     let latestMsg = null;
     const hookUsedRefs = () => {
@@ -2289,6 +2295,10 @@ const server = createServer(async (req, res) => {
   // 작업 행위자 = 로그인 세션 사용자(없으면 익명 'anon'). event_log·created_by 출처를 실제 사용자로 기록(BE-2).
   const actor = currentAccount(req)?.username ?? "anon";
   try {
+    if (!ERP_MCP_ENABLED
+        && (path.startsWith("/api/mcp/") || path.startsWith("/api/integrations/mcp/"))) {
+      return send(res, 404, { error: "not_found" });
+    }
     // F1/BE-1: 팀 모드(계정 1개 이상)에서는 도메인 쓰기에 로그인 필수 — 익명 우회 차단.
     // 계정 0개(단독 localhost 파일럿)는 현행 전체허용(하위호환). 로그인/부트스트랩(/api/auth/*)은 예외.
     if ((req.method === "POST" || req.method === "PUT") && path.startsWith("/api/")
@@ -2672,7 +2682,7 @@ const server = createServer(async (req, res) => {
       if (id === admin.id) return send(res, 400, { error: "cannot_delete_self" });
       const r = store.deleteAccount(id);
       if (r.error) return send(res, 400, r);
-      erpMcp.purgeAccountCredentials(id);
+      erpMcp?.purgeAccountCredentials(id);
       const repoRoot = resolve(HERE, "..", "..", "..");
       let envDeleted = false;
       try { envDeleted = !!deleteMailboxEnv(repoRoot, r.mailbox_env_ref || mailboxEnvRelPath(id)).deleted; } catch { /* env 정리 실패가 계정 삭제를 막지 않음 */ }

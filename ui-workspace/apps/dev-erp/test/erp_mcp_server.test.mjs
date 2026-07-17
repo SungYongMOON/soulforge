@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { createServer as createNetServer } from "node:net";
+import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,6 +79,54 @@ function slowJsonPost(url, { headers = {}, body, duringBody }) {
   });
 }
 
+test("ERP MCP remains feature-OFF without an explicit runtime flag", async () => {
+  const root = mkdtempSync(join(tmpdir(), "dev-erp-mcp-off-"));
+  const dbPath = join(root, "erp.db");
+  const artifactRoot = join(root, "artifact-inbox");
+  const port = await freePort();
+  const base = `http://127.0.0.1:${port}`;
+  const childEnv = { ...process.env };
+  delete childEnv.DEV_ERP_MCP_ENABLED;
+  const child = spawn(process.execPath, ["server.mjs", "--port", String(port), "--db", dbPath], {
+    cwd: APP_DIR,
+    env: {
+      ...childEnv,
+      DEV_ERP_NO_TLS: "1",
+      DEV_ERP_AUTOSYNC: "0",
+      DEV_ERP_NO_FIXTURE: "1",
+      DEV_ERP_MCP_ARTIFACT_ROOT: artifactRoot,
+    },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+  let stderrText = "";
+  child.stderr.on("data", (chunk) => { stderrText += chunk.toString(); });
+  const stop = async () => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    child.kill();
+    await new Promise((resolve) => child.once("exit", resolve));
+  };
+  try {
+    await waitForHttp(`${base}/api/health`, child, () => stderrText);
+    const response = await fetch(`${base}/api/mcp/whoami`);
+    assert.equal(response.status, 404);
+    await stop();
+
+    const db = new DatabaseSync(dbPath, { readOnly: true });
+    try {
+      const tables = db.prepare(
+        "SELECT name FROM sqlite_schema WHERE type='table' AND name LIKE 'erp_mcp_%' ORDER BY name",
+      ).all();
+      assert.deepEqual(tables, []);
+    } finally {
+      db.close();
+    }
+    assert.equal(hasFile(artifactRoot), false);
+  } finally {
+    await stop();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("ERP MCP HTTP pilot stores a completed file and completion hook consumes the structured session", async () => {
   const root = mkdtempSync(join(tmpdir(), "dev-erp-mcp-http-"));
   const dbPath = join(root, "erp.db");
@@ -91,6 +140,7 @@ test("ERP MCP HTTP pilot stores a completed file and completion hook consumes th
       DEV_ERP_NO_TLS: "1",
       DEV_ERP_AUTOSYNC: "0",
       DEV_ERP_NO_FIXTURE: "1",
+      DEV_ERP_MCP_ENABLED: "1",
       DEV_ERP_MCP_ARTIFACT_ROOT: artifactRoot,
     },
     stdio: ["ignore", "ignore", "pipe"],
