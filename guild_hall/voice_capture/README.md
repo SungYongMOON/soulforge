@@ -77,6 +77,9 @@ The HPP may additionally run `copy_only_mirror_cli.mjs` as a bounded,
 source-preserving migration/audit mirror into an owner-approved staging root. The mirror follows an
 exact lane allowlist, verifies streaming SHA-256, writes restart checkpoints
 and immutable metadata receipts, and never deletes or overwrites the source.
+An optional caller-supplied fence assertion can stop the mirror before and
+after each custody item and checkpoint; the continuous HPP supervisor uses it
+to reject a lost lease epoch without changing standalone mirror callers.
 An already copied legacy tree is hash-verified and seeded without copying the
 payload again. A changed source produces an immutable version instead of
 replacing the first live copy. Its output is not HPP accepted quarantine/inbox,

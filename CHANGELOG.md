@@ -2,6 +2,24 @@
 
 ## 2026-07-17
 
+### Default-OFF continuous non-mail ingress supervisor
+
+- Added a strict private binding schema and one-shot HPP supervisor for the
+  existing voice copy-only mirror and explicit team-file, structured-PC-work,
+  and run-log outbox queues.
+- Added a D-local exclusive lease, monotonic epoch and per-payload fence-token
+  revalidation, expired-lease archival, source-preserving queue drain, bounded
+  coverage gaps, restart-safe idempotent replay, run receipts, and health state.
+- Kept mail credential-pending, scheduler installation, arbitrary workspace
+  discovery, client outbox deletion, project promotion, ERP/MCP/TaskEngine
+  writes, and continuous activation outside the public runner. (worker:
+  codex_gpt-5)
+- Added an explicit-file local outbox producer with immutable occurrence
+  payloads, pending metadata receipts, same-key conflict rejection, and safe
+  handoff into the HPP queue drain. Collection still does not imply project
+  classification, official history, verified server acknowledgement, or task
+  completion. (worker: codex_gpt-5)
+
 ### Common file-backed unclassified ingress staging
 
 - Added one default-dry-run command for explicitly staging a regular team file,

@@ -335,6 +335,7 @@ export async function syncCopyOnlyMirror(options) {
   const maxNewFiles = Number.isSafeInteger(options.maxNewFiles) ? options.maxNewFiles : 250;
   const maxNewBytes = Number.isSafeInteger(options.maxNewBytes) ? options.maxNewBytes : 2 * 1024 * 1024 * 1024;
   const now = typeof options.now === "function" ? options.now : () => new Date().toISOString();
+  const assertFence = typeof options.assertFence === "function" ? options.assertFence : async () => {};
 
   if (!sourceOwnerRef || !/^[A-Za-z0-9_.:-]+$/.test(sourceOwnerRef)) fail("invalid_source_owner_ref");
   if (maxNewFiles < 1 || maxNewBytes < 1) fail("invalid_copy_limit");
@@ -370,16 +371,20 @@ export async function syncCopyOnlyMirror(options) {
   const currentKeys = new Set(files.map((file) => file.key));
 
   for (const previous of Object.values(checkpoint.files)) {
+    await assertFence({ phase: "before_previous_custody", source_key: previous.source_key });
     summary.receipts_written += await verifyPreviousCustody(destinationRoot, receiptRoot, previous);
+    await assertFence({ phase: "after_previous_custody", source_key: previous.source_key });
   }
 
   for (const file of files) {
+    await assertFence({ phase: "before_source_file", source_key: file.key });
     const source = await stableDigest(file.path);
     const previous = checkpoint.files[file.key];
     if (previous?.sha256 === source.sha256 && previous?.size === source.size) {
       checkpoint.files[file.key] = { ...previous, source_present: true };
       delete checkpoint.files[file.key].source_missing_observed_at;
       summary.unchanged += 1;
+      await assertFence({ phase: "after_source_file", source_key: file.key });
       continue;
     }
 
@@ -447,6 +452,7 @@ export async function syncCopyOnlyMirror(options) {
       ? [...(Array.isArray(previous.custody_history) ? previous.custody_history : []), receiptFromCheckpoint(previous)]
       : [];
     checkpoint.files[file.key] = { ...receipt, source_present: true, custody_history: custodyHistory };
+    await assertFence({ phase: "after_source_file", source_key: file.key });
   }
 
   for (const [key, value] of Object.entries(checkpoint.files)) {
@@ -459,6 +465,8 @@ export async function syncCopyOnlyMirror(options) {
   checkpoint.source_owner_ref = sourceOwnerRef;
   checkpoint.lanes = lanes;
   checkpoint.updated_at = now();
+  await assertFence({ phase: "before_checkpoint", source_key: null });
   await atomicJson(checkpointPath, checkpoint);
+  await assertFence({ phase: "after_checkpoint", source_key: null });
   return summary;
 }
