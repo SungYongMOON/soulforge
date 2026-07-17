@@ -1,5 +1,35 @@
 # Soulforge dev-ERP MCP sidecar
 
+## 팀원 PC 1회 등록 도구
+
+`ingress:mtls-enrollment`은 client private key를 HPP에서 만들거나 복사하지
+않는다. `prepare`는 팀원 PC의 미리 보호된 로컬 디렉터리에 key와 CSR을 만들고,
+HPP로 전달 가능한 공개 request/CSR 경로만 반환한다. `sign`은 HPP에서 CSR hash를
+대조한 뒤 clientAuth 인증서만 만든다. `finalize`는 팀원 PC에서 반환 인증서가
+원래 로컬 key 및 HPP CA와 일치하는지 확인한 뒤 pinned client binding을 만든다.
+
+```powershell
+# 1) 팀원 PC — 개인키는 이 디렉터리 밖으로 이동하지 않는다.
+npm.cmd run ingress:mtls-enrollment -- prepare --output-dir <protected-local-dir> `
+  --openssl <absolute-openssl-path> --account <account-id> --device <device-id> --agent <agent-id>
+
+# 2) HPP — 공개 request/CSR만 받아 서명한다. CA key 값은 읽거나 출력하지 않는다.
+npm.cmd run ingress:mtls-enrollment -- sign --request <request-json> --csr <csr-pem> `
+  --ca-cert <ca-cert> --ca-key <ca-key> --certificate-output <new-client-cert> `
+  --openssl <absolute-openssl-path> --days 30
+
+# 3) 팀원 PC — 서명 인증서와 공개 CA를 가져와 로컬 binding을 완성한다.
+npm.cmd run ingress:mtls-enrollment -- finalize --request <local-request-json> `
+  --key <local-private-key> --certificate <signed-client-cert> --ca-cert <ca-cert> `
+  --binding-output <local-binding-json> --base-url https://<hpp-private-ip>:4313 `
+  --server-pin <sha256> --openssl <absolute-openssl-path>
+```
+
+이 도구는 bearer를 발급하지 않고 listener/firewall을 열지 않으며 live probe도 하지
+않는다. request와 CSR은 공개키 자료지만 Git/채팅에 올리는 대신 승인된 사내 전달면을
+사용한다. 실제 PC 한 대의 account/device/agent/project credential 발급과 `/32`
+firewall 활성화는 물리 canary 절차에서 별도로 수행한다.
+
 이 앱에는 서로 권한과 저장 목적이 다른 두 MCP 프로세스와 한 개의 보안 게이트웨이가 있다.
 
 | 프로세스 | 시작 파일 | 저장 대상 | 현재 상태 |

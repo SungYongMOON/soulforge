@@ -15,6 +15,7 @@ const schemaUrls = [
   new URL("../schema/ingress_mtls_gateway_binding.v1.schema.json", import.meta.url),
   new URL("../schema/ingress_mtls_device_registry.v1.schema.json", import.meta.url),
   new URL("../schema/ingress_mtls_client_binding.v1.schema.json", import.meta.url),
+  new URL("../schema/ingress_mtls_enrollment_request.v1.schema.json", import.meta.url),
 ];
 
 test("all ingress MCP schemas compile under strict Ajv 2020", async () => {

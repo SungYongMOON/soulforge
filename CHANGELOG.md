@@ -18,8 +18,12 @@
   credential open-upload, pending-byte, and retained-byte quotas without
   weakening restart-safe idempotent replay.
 - Added a bound client transport, public-certificate-only device admin, safe
-  one-seat preflight/read-only identity probe, three strict JSON schemas, and a
+  one-seat preflight/read-only identity probe, four strict JSON schemas, and a
   physical canary runbook that keeps key/token material out of CLI arguments.
+- Added a target-local enrollment flow that creates the private key and CSR on
+  the work PC, sends only the public request/CSR to HPP for CA signing, verifies
+  the returned certificate against the untouched local key, and writes the
+  pinned client binding without printing key or bearer material.
 - Added real TLS socket adversarial E2E for file, structured-PC-work, run-log,
   status, source preservation, unregistered/revoked certificate, bearer
   identity swap, host/route/body/rate bounds, server pin, and feature-OFF

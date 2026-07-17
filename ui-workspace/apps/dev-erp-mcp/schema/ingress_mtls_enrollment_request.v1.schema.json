@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ingress_mtls_enrollment_request.v1.schema.json",
+  "title": "Soulforge target-local mTLS enrollment request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "audience", "account_id", "device_id", "agent_id",
+    "csr_filename", "private_key_filename", "csr_sha256", "created_at",
+    "requested_extended_key_usage", "private_key_transfer_allowed"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.mtls_enrollment_request.v1" },
+    "audience": { "const": "hpp_ingress_mcp" },
+    "account_id": { "$ref": "#/$defs/identity" },
+    "device_id": { "$ref": "#/$defs/identity" },
+    "agent_id": { "$ref": "#/$defs/identity" },
+    "csr_filename": { "const": "ingress-client.csr.pem" },
+    "private_key_filename": { "const": "ingress-client.key.pem" },
+    "csr_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "requested_extended_key_usage": { "const": "clientAuth" },
+    "private_key_transfer_allowed": { "const": false }
+  },
+  "$defs": {
+    "identity": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$" }
+  }
+}

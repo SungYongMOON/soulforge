@@ -1,5 +1,18 @@
 # HPP ingress mTLS one-seat canary v1
 
+## target-local 등록 자동화 보정
+
+실제 팀원 PC가 식별되면 `ingress:mtls-enrollment`의 `prepare -> sign ->
+finalize` 순서로 등록한다. private key는 `prepare`를 실행한 팀원 PC의 보호된 로컬
+디렉터리에만 생성되며 HPP에는 request JSON과 CSR만 전달한다. HPP가 서명한 공개
+client certificate와 CA certificate를 돌려준 뒤, 팀원 PC가 로컬 key 일치와 CA 서명을
+검증하고 binding을 만든다. 이 단계는 bearer 발급, device registry 등록, listener,
+firewall, probe를 자동 활성화하지 않는다.
+
+현재 synthetic acceptance는 이 수명주기와 변조 CSR, 다른 PC key 교환, public URL,
+기존 출력 덮어쓰기를 검증한다. 물리 PC의 target-local 실행과 실제 source IPv4 `/32`
+검증은 여전히 one-seat canary의 남은 항목이다.
+
 - 상태: public source + synthetic adversarial E2E PASS, 실제 PC 연결 전 HOLD
 - 대상: 사내 RFC1918 LAN의 물리 작업 PC 한 대와 HPP 한 대
 - 목적: 파일·bounded PC 업무·실행 receipt가 HPP custody까지 안전하게 도착하는지 확인
