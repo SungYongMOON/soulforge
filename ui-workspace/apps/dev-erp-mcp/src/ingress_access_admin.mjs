@@ -34,6 +34,16 @@ async function assertNormalParent(path) {
   }
 }
 
+async function writeTokenOutput(path, token) {
+  await assertNormalParent(path);
+  try {
+    await writeFile(path, `${token}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+  } catch (error) {
+    if (error?.code === "EEXIST") fail("token_output_exists", 409);
+    throw error;
+  }
+}
+
 async function readRegistry(path) {
   const info = await lstat(path);
   if (!info.isFile() || info.isSymbolicLink()
@@ -126,8 +136,10 @@ export async function issueIngressCredential({
   projectScopes,
   capabilities,
   expiresAt,
+  tokenOutputPath = null,
   now = Date.now(),
 } = {}) {
+  const tokenPath = tokenOutputPath === null ? null : pathValue(tokenOutputPath);
   return withLock(registryPath, async (path) => {
     const raw = await readRegistry(path);
     if (raw.tokens.some((entry) => entry.credential_id === credentialId)) fail("credential_id_conflict", 409);
@@ -148,14 +160,26 @@ export async function issueIngressCredential({
     };
     const next = { ...raw, revision: revision(now), tokens: [...raw.tokens, entry] };
     normalizeIngressAuthRegistry(next);
-    await atomicRegistry(path, next);
-    return {
+    let tokenWritten = false;
+    try {
+      if (tokenPath !== null) {
+        await writeTokenOutput(tokenPath, token);
+        tokenWritten = true;
+      }
+      await atomicRegistry(path, next);
+    } catch (error) {
+      if (tokenWritten) await rm(tokenPath, { force: true }).catch(() => {});
+      throw error;
+    }
+    const result = {
       status: "issued",
       revision: next.revision,
       credential: publicRecord(entry),
-      token,
-      token_display_policy: "one_time_only",
+      token_display_policy: tokenPath === null ? "one_time_only" : "protected_file_only",
     };
+    if (tokenPath === null) result.token = token;
+    else result.token_file_written = true;
+    return result;
   });
 }
 

@@ -11,6 +11,9 @@
 - Added a fail-closed exact RFC1918 client-source guard before handler-level
   certificate registry and bearer authentication, including IPv4-mapped
   address normalization; this supplements rather than replaces the OS firewall.
+- Changed ingress credential CLI issuance to require a new protected token
+  output file, fail before registry mutation on path collision, and omit the
+  token from stdout.
 - Added per-certificate rate/concurrency and request-body bounds plus per-
   credential open-upload, pending-byte, and retained-byte quotas without
   weakening restart-safe idempotent replay.

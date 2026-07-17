@@ -34,7 +34,7 @@ owner가 실제 외부 조정을 승인한 뒤 HPP 관리자가 자리마다 아
 | CA certificate | public trust material; 승인된 사내 전달면 |
 | client certificate | 한 사람·한 PC용 public certificate |
 | client private key | 해당 PC의 OS-protected private 영역; Git/채팅/명령행 금지 |
-| personal bearer | 한 credential용 1회 표시 값; OS-protected environment만 |
+| personal bearer | 한 credential용 값; admin CLI가 operator 준비 OS-protected directory의 새 파일에만 쓰고 stdout에는 출력하지 않음 |
 | gateway binding JSON | exact HPP listen IP와 그 주소와 다른 exact `allowed_client_ipv4`; enabled일 때 null 금지 |
 | client binding JSON | exact HPP private IP, CA/cert/key pointer, server cert SHA-256 pin, expected account/device/agent |
 | project scope | canary 프로젝트 하나만 exact allowlist |
@@ -48,7 +48,8 @@ owner가 실제 외부 조정을 승인한 뒤 HPP 관리자가 자리마다 아
 1. HPP에서 gateway와 loopback ingress의 private binding, quota, backup/retention 값을 검토한다.
 2. HPP server certificate와 자리별 client certificate를 승인된 CA로 만든다.
 3. public client certificate만 HPP private device registry에 등록한다. private key는 HPP registry로 복사하지 않는다.
-4. 자리별 bearer를 한 번 발급하고, 팀원 PC의 OS-protected environment에 사용자가 직접 넣는다.
+4. 자리별 bearer를 새 OS-protected token 파일로 발급하고, 팀원 PC의 OS-protected environment에
+   사용자가 직접 넣는다. CLI stdout, Git, 채팅에는 값을 남기지 않는다.
 5. 팀원 PC에서 쓰기 없는 preflight와 identity probe를 먼저 실행한다.
 
 ```powershell

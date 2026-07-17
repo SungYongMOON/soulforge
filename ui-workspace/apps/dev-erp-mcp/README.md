@@ -49,8 +49,11 @@ $env:SOULFORGE_INGRESS_TOKEN="<one-time-issued-personal-token>"
 npm.cmd run ingress:client -- whoami
 ```
 
-`ingress_access_admin_cli.mjs`는 private registry의 초기화·발급·목록·폐기를 제공한다. 발급 token은
-한 번만 출력하고 registry에는 SHA-256 hash만 저장하며 목록은 hash도 반환하지 않는다. 현재 공개
+`ingress_access_admin_cli.mjs`는 private registry의 초기화·발급·목록·폐기를 제공한다. CLI 발급은
+`--token-output`으로 operator가 준비한 OS-protected directory의 새 파일에만 token을 쓰고 stdout에는
+반환하지 않으며, registry에는
+SHA-256 hash만 저장하고 목록은 hash도 반환하지 않는다. 출력 파일이 이미 있으면 registry 변경 전
+실패한다. 현재 공개
 코드와 D runtime feature-OFF 배치만으로 실제 token, LAN listener, TLS proxy, firewall 또는 팀 PC
 등록이 생기지 않는다.
 

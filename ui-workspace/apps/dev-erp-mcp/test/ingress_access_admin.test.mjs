@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 import {
   initializeIngressAuthRegistry,
@@ -12,8 +15,12 @@ import {
 } from "../src/ingress_access_admin.mjs";
 import {
   createIngressMcpService,
+  hashIngressToken,
   INGRESS_MCP_CONFIG_SCHEMA,
 } from "../src/ingress_mcp_service.mjs";
+
+const execFileAsync = promisify(execFile);
+const ADMIN_CLI = fileURLToPath(new URL("../ingress_access_admin_cli.mjs", import.meta.url));
 
 async function json(path, value) {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
@@ -67,6 +74,87 @@ test("credential lifecycle separates person, device, and AI and never lists toke
     });
     assert.equal(revoked.status, "revoked");
     assert.equal((await revokeIngressCredential({ registryPath, credentialId: "cred_alice_pc1_codex" })).status, "already_revoked");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("credential issue can commit a token only to a new protected output file", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "soulforge-ingress-token-output-"));
+  const registryPath = resolve(root, "auth.json");
+  const tokenPath = resolve(root, "credential.token");
+  const occupiedPath = resolve(root, "occupied.token");
+  try {
+    await initializeIngressAuthRegistry({ registryPath });
+    await writeFile(occupiedPath, "synthetic-existing-value\n", "utf8");
+    await assert.rejects(issueIngressCredential({
+      registryPath,
+      credentialId: "cred_file_collision",
+      accountId: "alice",
+      deviceId: "alice_pc1",
+      agentId: "codex_primary",
+      projectScopes: ["PRJ_A"],
+      capabilities: ["receipt:read"],
+      expiresAt: Date.parse("2027-07-01T00:00:00.000Z"),
+      tokenOutputPath: occupiedPath,
+    }), /token_output_exists/);
+    assert.equal((await listIngressCredentials({ registryPath })).credentials.length, 0);
+    assert.equal(await readFile(occupiedPath, "utf8"), "synthetic-existing-value\n");
+
+    const issued = await issueIngressCredential({
+      registryPath,
+      credentialId: "cred_file_only",
+      accountId: "alice",
+      deviceId: "alice_pc1",
+      agentId: "codex_primary",
+      projectScopes: ["PRJ_A"],
+      capabilities: ["receipt:read"],
+      expiresAt: Date.parse("2027-07-01T00:00:00.000Z"),
+      tokenOutputPath: tokenPath,
+    });
+    const token = (await readFile(tokenPath, "utf8")).trim();
+    const raw = JSON.parse(await readFile(registryPath, "utf8"));
+    assert.equal(issued.token_display_policy, "protected_file_only");
+    assert.equal(issued.token_file_written, true);
+    assert.equal(Object.hasOwn(issued, "token"), false);
+    assert.match(token, /^sfig_v1_[A-Za-z0-9_-]{43}$/);
+    assert.equal(raw.tokens[0].token_hash, hashIngressToken(token));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("credential admin CLI requires token-output and omits the token from stdout", async () => {
+  const root = await mkdtemp(resolve(tmpdir(), "soulforge-ingress-token-cli-"));
+  const registryPath = resolve(root, "auth.json");
+  const tokenPath = resolve(root, "credential.token");
+  try {
+    await initializeIngressAuthRegistry({ registryPath });
+    const common = [
+      "--registry", registryPath,
+      "--account", "alice",
+      "--device", "alice_pc1",
+      "--agent", "codex_primary",
+      "--projects", "PRJ_A",
+      "--capabilities", "receipt:read",
+      "--expires-at", "2030-01-01T00:00:00.000Z",
+    ];
+    await assert.rejects(
+      execFileAsync(process.execPath, [ADMIN_CLI, "issue", "--credential", "cred_cli_missing", ...common]),
+      (error) => String(error?.stderr || "").includes("required_admin_argument_token-output"),
+    );
+    assert.equal((await listIngressCredentials({ registryPath })).credentials.length, 0);
+
+    const { stdout, stderr } = await execFileAsync(process.execPath, [
+      ADMIN_CLI, "issue", "--credential", "cred_cli_file", ...common, "--token-output", tokenPath,
+    ]);
+    const output = JSON.parse(stdout);
+    assert.equal(stderr, "");
+    assert.equal(output.token_display_policy, "protected_file_only");
+    assert.equal(output.token_file_written, true);
+    assert.equal(Object.hasOwn(output, "token"), false);
+    assert.equal(stdout.includes("sfig_v1_"), false);
+    assert.match((await readFile(tokenPath, "utf8")).trim(), /^sfig_v1_[A-Za-z0-9_-]{43}$/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

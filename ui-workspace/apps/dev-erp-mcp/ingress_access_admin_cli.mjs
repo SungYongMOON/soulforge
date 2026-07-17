@@ -57,8 +57,12 @@ async function main() {
   } else if (command === "issue") {
     const values = args(rest, new Set([
       "registry", "credential", "account", "device", "agent", "projects", "capabilities", "expires-at",
+      "token-output",
     ]));
-    required(values, ["registry", "credential", "account", "device", "agent", "projects", "capabilities", "expires-at"]);
+    required(values, [
+      "registry", "credential", "account", "device", "agent", "projects", "capabilities", "expires-at",
+      "token-output",
+    ]);
     output = await issueIngressCredential({
       registryPath: absolute(values.registry),
       credentialId: values.credential,
@@ -68,6 +72,7 @@ async function main() {
       projectScopes: list(values.projects),
       capabilities: list(values.capabilities),
       expiresAt: Date.parse(values["expires-at"]),
+      tokenOutputPath: absolute(values["token-output"]),
     });
   } else if (command === "revoke") {
     const values = args(rest, new Set(["registry", "credential"]));
