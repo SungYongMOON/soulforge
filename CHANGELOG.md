@@ -2,6 +2,22 @@
 
 ## 2026-07-17
 
+### Common file-backed unclassified ingress staging
+
+- Added one default-dry-run command for explicitly staging a regular team file,
+  structured PC work event, or run log into its fixed data-plane incoming lane.
+- Added verified SHA-256 copies, immutable digest paths, metadata-only receipts
+  and checkpoints, idempotent reruns, immutable changed-content versions, and
+  fail-closed manifest/path/symlink/overlap/stability/existing-content guards.
+- Split content identity from opaque source-occurrence identity so identical
+  bytes deduplicate to one payload while each owner/key keeps distinct receipt
+  and checkpoint history, including immutable changed-content generations.
+- Revalidate physical staging parents immediately before temporary writes and
+  final publication so a changed directory fails without publishing metadata.
+- Kept project classification, accepted/quarantine state, source mutation,
+  directory crawling, ERP/DB, network/MCP, service, task, and scheduler writes
+  outside this bounded staging collector. (worker: codex_gpt-5)
+
 ### ERP-independent team mail raw ingress path
 
 - Added an explicit `--data-root` binding for the existing team mail collector
