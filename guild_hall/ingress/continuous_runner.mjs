@@ -1,5 +1,6 @@
 import {
   lstat,
+  link,
   mkdir,
   open,
   readFile,
@@ -20,6 +21,7 @@ export const CONTINUOUS_HEALTH_SCHEMA = "soulforge.ingress.continuous_health.v1"
 export const CONTINUOUS_RUN_RECEIPT_SCHEMA = "soulforge.ingress.continuous_run_receipt.v1";
 export const CONTINUOUS_LEASE_SCHEMA = "soulforge.ingress.continuous_lease.v1";
 export const CONTINUOUS_EPOCH_SCHEMA = "soulforge.ingress.continuous_epoch.v1";
+export const CONTINUOUS_QUEUE_ACK_SCHEMA = "soulforge.ingress.continuous_queue_ack.v1";
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const LANE_VALUES = new Set(["team_files", "structured_pc_work", "run_logs"]);
@@ -52,6 +54,7 @@ const QUEUE_FIELDS = [
   "enabled",
   "lane",
   "source_root",
+  "ack_root",
   "source_owner_ref",
   "max_files_per_run",
   "max_bytes_per_run",
@@ -214,11 +217,16 @@ function normalizeQueue(value, dataRoot) {
     enabled: value.enabled,
     lane: value.lane,
     sourceRoot: absolutePath(value.source_root, "invalid_continuous_queue_binding"),
+    ackRoot: absolutePath(value.ack_root, "invalid_continuous_queue_binding"),
     sourceOwnerRef: safeId(value.source_owner_ref, "invalid_continuous_queue_binding"),
     maxFilesPerRun: integerInRange(value.max_files_per_run, 1, 10000, "invalid_continuous_queue_binding"),
     maxBytesPerRun: integerInRange(value.max_bytes_per_run, 1, Number.MAX_SAFE_INTEGER, "invalid_continuous_queue_binding"),
   };
   if (inside(dataRoot, result.sourceRoot)) fail("continuous_queue_data_root_overlap");
+  const outboxRoot = dirname(result.sourceRoot);
+  if (inside(dataRoot, result.ackRoot)
+    || !inside(outboxRoot, result.ackRoot)
+    || inside(result.sourceRoot, result.ackRoot)) fail("continuous_queue_ack_root_invalid");
   return result;
 }
 
@@ -250,6 +258,7 @@ export async function loadContinuousBinding(bindingPath) {
   if (binding.voice.enabled) await assertNormalDirectory(binding.voice.sourceRoot, "continuous_voice_source_unsafe");
   for (const queue of binding.queues.filter((item) => item.enabled)) {
     await assertNormalDirectory(queue.sourceRoot, "continuous_queue_source_unsafe");
+    await assertNormalDirectory(queue.ackRoot, "continuous_queue_ack_root_unsafe");
   }
   return binding;
 }
@@ -368,13 +377,20 @@ async function collectQueueFiles(queue) {
     for (const entry of entries) {
       const path = resolve(current, entry.name);
       if (!inside(queue.sourceRoot, path)) fail("continuous_queue_path_escape");
-      const info = await lstat(path);
+      const info = await lstat(path, { bigint: true });
       if (info.isSymbolicLink()) {
         withheldLinks += 1;
       } else if (info.isDirectory()) {
         stack.push(path);
       } else if (info.isFile()) {
-        files.push({ path, relativePath: relative(queue.sourceRoot, path).split(sep).join("/"), size: info.size });
+        if (info.size > BigInt(Number.MAX_SAFE_INTEGER)) fail("continuous_queue_source_too_large");
+        files.push({
+          path,
+          relativePath: relative(queue.sourceRoot, path).split(sep).join("/"),
+          size: Number(info.size),
+          mtimeNs: String(info.mtimeNs),
+          ctimeNs: String(info.ctimeNs),
+        });
       }
     }
   }
@@ -393,6 +409,89 @@ function queueSourceKey(queue, relativePath) {
     .digest("hex");
 }
 
+const QUEUE_ACK_FIELDS = [
+  "schema_version",
+  "binding_id",
+  "lane",
+  "source_owner_ref",
+  "source_key",
+  "source_ref",
+  "sha256",
+  "size",
+  "source_mtime_ns",
+  "source_ctime_ns",
+  "storage_ref",
+  "receipt_ref",
+  "checkpoint_ref",
+  "server_node_id",
+  "lease_epoch",
+  "acknowledged_at",
+  "source_deleted",
+  "source_overwritten",
+];
+
+function exactObject(payload, expected, fields) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
+  const keys = Object.keys(payload).sort();
+  const expectedKeys = [...fields].sort();
+  return keys.length === expectedKeys.length
+    && keys.every((key, index) => key === expectedKeys[index])
+    && fields.every((field) => expected[field] === undefined || payload[field] === expected[field]);
+}
+
+function queueAckPath(queue, sourceKey) {
+  const path = resolve(queue.ackRoot, `${sourceKey}.json`);
+  if (!inside(queue.ackRoot, path)) fail("continuous_queue_ack_path_escape");
+  return path;
+}
+
+async function readQueueAck(binding, queue, file, sourceKey) {
+  const path = queueAckPath(queue, sourceKey);
+  if (!(await exists(path))) return null;
+  const ack = await readJson(path, "continuous_queue_ack_invalid");
+  if (!exactObject(ack, {
+    schema_version: CONTINUOUS_QUEUE_ACK_SCHEMA,
+    binding_id: queue.bindingId,
+    lane: queue.lane,
+    source_owner_ref: queue.sourceOwnerRef,
+    source_key: sourceKey,
+    source_ref: file.relativePath,
+    server_node_id: binding.nodeId,
+    source_deleted: false,
+    source_overwritten: false,
+  }, QUEUE_ACK_FIELDS)
+    || !/^[a-f0-9]{64}$/.test(ack.sha256)
+    || !Number.isSafeInteger(ack.size)
+    || ack.size < 0
+    || ack.size !== file.size
+    || ack.source_mtime_ns !== file.mtimeNs
+    || ack.source_ctime_ns !== file.ctimeNs
+    || !Number.isSafeInteger(ack.lease_epoch)
+    || ack.lease_epoch < 1
+    || !Number.isFinite(Date.parse(ack.acknowledged_at))) fail("continuous_queue_ack_invalid");
+  return ack;
+}
+
+async function writeQueueAck(queue, sourceKey, ack) {
+  const path = queueAckPath(queue, sourceKey);
+  await ensureDirectoryChain(queue.ackRoot, dirname(path));
+  const temporary = `${path}.partial-${randomUUID()}`;
+  try {
+    await writeFile(temporary, `${JSON.stringify(ack, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+    try {
+      await link(temporary, path);
+      return true;
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      const current = await readJson(path, "continuous_queue_ack_invalid");
+      if (!exactObject(current, ack, QUEUE_ACK_FIELDS)) fail("continuous_queue_ack_conflict");
+      return false;
+    }
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
 async function processQueue(binding, queue, leaseContext, now, testHooks = {}) {
   const discovered = await collectQueueFiles(queue);
   const result = {
@@ -403,12 +502,20 @@ async function processQueue(binding, queue, leaseContext, now, testHooks = {}) {
     processed_bytes: 0,
     staged_files: 0,
     unchanged_files: 0,
+    acknowledged_files: 0,
+    acknowledgements_written: 0,
     writes_performed: 0,
     withheld_links: discovered.withheldLinks,
     coverage_complete: true,
     gap_reasons: [],
   };
   for (const file of discovered.files) {
+    const sourceKey = queueSourceKey(queue, file.relativePath);
+    const existingAck = await readQueueAck(binding, queue, file, sourceKey);
+    if (existingAck) {
+      result.acknowledged_files += 1;
+      continue;
+    }
     if (result.processed_files >= queue.maxFilesPerRun) {
       result.coverage_complete = false;
       result.gap_reasons.push("file_limit_reached");
@@ -424,7 +531,7 @@ async function processQueue(binding, queue, leaseContext, now, testHooks = {}) {
       lane: queue.lane,
       source: file.path,
       sourceOwnerRef: queue.sourceOwnerRef,
-      sourceKey: queueSourceKey(queue, file.relativePath),
+      sourceKey,
       dataRoot: binding.dataRoot,
       apply: true,
     });
@@ -434,6 +541,31 @@ async function processQueue(binding, queue, leaseContext, now, testHooks = {}) {
     if (staged.status === "unchanged") result.unchanged_files += 1;
     else result.staged_files += 1;
     if (typeof testHooks.afterQueueFile === "function") await testHooks.afterQueueFile({ queue, file, staged });
+    await assertLeaseHeld(binding, leaseContext, now());
+    const ack = {
+      schema_version: CONTINUOUS_QUEUE_ACK_SCHEMA,
+      binding_id: queue.bindingId,
+      lane: queue.lane,
+      source_owner_ref: queue.sourceOwnerRef,
+      source_key: sourceKey,
+      source_ref: file.relativePath,
+      sha256: staged.sha256,
+      size: staged.size,
+      source_mtime_ns: file.mtimeNs,
+      source_ctime_ns: file.ctimeNs,
+      storage_ref: staged.storage_ref,
+      receipt_ref: staged.receipt_ref,
+      checkpoint_ref: staged.checkpoint_ref,
+      server_node_id: binding.nodeId,
+      lease_epoch: leaseContext.lease.lease_epoch,
+      acknowledged_at: new Date(now()).toISOString(),
+      source_deleted: false,
+      source_overwritten: false,
+    };
+    if (await writeQueueAck(queue, sourceKey, ack)) {
+      result.acknowledgements_written += 1;
+      result.writes_performed += 1;
+    }
     await assertLeaseHeld(binding, leaseContext, now());
   }
   if (result.withheld_links > 0) {

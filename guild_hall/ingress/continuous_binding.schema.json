@@ -71,6 +71,7 @@
         "enabled",
         "lane",
         "source_root",
+        "ack_root",
         "source_owner_ref",
         "max_files_per_run",
         "max_bytes_per_run"
@@ -80,6 +81,7 @@
         "enabled": { "type": "boolean" },
         "lane": { "enum": ["team_files", "structured_pc_work", "run_logs"] },
         "source_root": { "type": "string", "minLength": 3 },
+        "ack_root": { "type": "string", "minLength": 3 },
         "source_owner_ref": { "$ref": "#/$defs/safeId" },
         "max_files_per_run": { "type": "integer", "minimum": 1, "maximum": 10000 },
         "max_bytes_per_run": { "type": "integer", "minimum": 1 }

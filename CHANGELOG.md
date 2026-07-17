@@ -17,8 +17,13 @@
 - Added an explicit-file local outbox producer with immutable occurrence
   payloads, pending metadata receipts, same-key conflict rejection, and safe
   handoff into the HPP queue drain. Collection still does not imply project
-  classification, official history, verified server acknowledgement, or task
-  completion. (worker: codex_gpt-5)
+  classification, official history, authenticated cross-PC acknowledgement,
+  or task completion. (worker: codex_gpt-5)
+- Added post-custody queue acknowledgements bound to the active fence epoch.
+  Acknowledged immutable occurrences are skipped on later cycles, crash-before-
+  ack retries remain idempotent, and changed source stat identity fails closed;
+  cross-PC ack delivery and client compaction remain disabled. (worker:
+  codex_gpt-5)
 
 ### Common file-backed unclassified ingress staging
 

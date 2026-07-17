@@ -76,13 +76,19 @@ async function fixture() {
     structured_pc_work: join(sourceRoot, "pc"),
     run_logs: join(sourceRoot, "run"),
   };
+  const acks = {
+    team_files: join(sourceRoot, "acks", "team"),
+    structured_pc_work: join(sourceRoot, "acks", "pc"),
+    run_logs: join(sourceRoot, "acks", "run"),
+  };
   await mkdir(dataRoot);
   await mkdir(sourceRoot);
   await mkdir(voiceRoot);
   for (const path of Object.values(queues)) await mkdir(path);
+  for (const path of Object.values(acks)) await mkdir(path, { recursive: true });
   await writeManifest(dataRoot);
   const bindingPath = join(root, "binding.json");
-  return { root, dataRoot, sourceRoot, voiceRoot, queues, bindingPath };
+  return { root, dataRoot, sourceRoot, voiceRoot, queues, acks, bindingPath };
 }
 
 function binding(f, overrides = {}) {
@@ -113,6 +119,7 @@ function binding(f, overrides = {}) {
       enabled: true,
       lane,
       source_root: sourceRoot,
+      ack_root: f.acks[lane],
       source_owner_ref: `${lane}-owner`,
       max_files_per_run: 10,
       max_bytes_per_run: 1024 * 1024,
@@ -178,7 +185,8 @@ test("all queue lanes stage once, replay unchanged, and leave monotonic epochs",
     assert.equal(first.status, "ok");
     assert.equal(first.queues.length, 3);
     assert.equal(first.queues.reduce((sum, row) => sum + row.staged_files, 0), 3);
-    assert.equal(first.queues.reduce((sum, row) => sum + row.writes_performed, 0), 9);
+    assert.equal(first.queues.reduce((sum, row) => sum + row.writes_performed, 0), 12);
+    assert.equal(first.queues.reduce((sum, row) => sum + row.acknowledgements_written, 0), 3);
     assert.equal(first.source_deleted, false);
     assert.equal(first.erp_written, false);
     assert.equal(await listFiles(join(f.dataRoot, "state", "leases", "continuous_ingress", "active.lock.json")).then((rows) => rows.length), 0);
@@ -186,7 +194,7 @@ test("all queue lanes stage once, replay unchanged, and leave monotonic epochs",
     clock += 1000;
     const second = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now });
     assert.equal(second.status, "ok");
-    assert.equal(second.queues.reduce((sum, row) => sum + row.unchanged_files, 0), 3);
+    assert.equal(second.queues.reduce((sum, row) => sum + row.acknowledged_files, 0), 3);
     assert.equal(second.queues.reduce((sum, row) => sum + row.writes_performed, 0), 0);
     const epoch = JSON.parse(await readFile(join(f.dataRoot, "state", "leases", "continuous_ingress", "epoch.json"), "utf8"));
     assert.equal(epoch.last_epoch, 2);
@@ -195,6 +203,27 @@ test("all queue lanes stage once, replay unchanged, and leave monotonic epochs",
     assert.equal(health.status, "ok");
     assert.equal(health.mail_status, "credential_pending_off");
     assert.equal(health.erp_enabled, false);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("acknowledged queue occurrence rejects later source mutation", async () => {
+  const f = await fixture();
+  try {
+    const source = join(f.queues.team_files, "one.payload");
+    await writeFile(source, "one");
+    const payload = binding(f);
+    payload.queues = payload.queues.map((queue) => ({ ...queue, enabled: queue.lane === "team_files" }));
+    await writeBinding(f, payload);
+    let value = Date.parse("2026-07-17T00:00:00Z");
+    const first = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => value++ });
+    assert.equal(first.queues[0].acknowledgements_written, 1);
+    await writeFile(source, "two");
+    value += 1000;
+    const second = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => value++ });
+    assert.equal(second.status, "degraded");
+    assert.deepEqual(second.errors.map((error) => error.code), ["continuous_queue_ack_invalid"]);
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

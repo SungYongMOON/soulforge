@@ -58,8 +58,11 @@ All three lanes remain unclassified candidates and never mark a task complete.
 
 The HPP supervisor recognizes the direct `<occurrence-id>.payload` form and
 preserves that opaque occurrence identity in its D-local receipt/checkpoint.
-The local receipt is not a verified server acknowledgement; automatic client
-compaction therefore remains disabled.
+After verified D-local staging, the HPP writes a separate immutable server
+acknowledgement under the exact private `ack_root`. A matching acknowledgement
+lets later cycles skip that immutable occurrence; changed size or stat identity
+fails closed. The original local receipt remains immutable/pending, so
+automatic client compaction is still disabled.
 
 ## Command
 
@@ -112,8 +115,11 @@ lease is archived before a higher epoch takes over.
 Every applied cycle writes a metadata-only run receipt and health record under
 the D data root. Queue coverage becomes `degraded` when file/byte limits are
 reached or source links are withheld. Queue files are never deleted or moved.
-Client compaction remains blocked until a future authenticated server ack
-contract is accepted.
+An exact queue acknowledgement is published only after the D payload, receipt,
+and checkpoint succeed under the current fence epoch. A crash before that ack
+retries idempotently. The ack avoids rescanning an ever-growing completed
+outbox, but authenticated cross-PC ack delivery and client compaction remain
+future transport work.
 
 The voice binding reuses the source-preserving copy-only mirror and its existing
 checkpoint. It copies only new or changed custody generations and does not
