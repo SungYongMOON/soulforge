@@ -12,6 +12,9 @@
     "start:ingress": "node ingress_server.mjs",
     "ingress:client": "node ingress_client_cli.mjs",
     "ingress:admin": "node ingress_access_admin_cli.mjs",
+    "ingress:mtls-gateway": "node ingress_mtls_gateway.mjs",
+    "ingress:mtls-device-admin": "node ingress_mtls_device_admin_cli.mjs",
+    "ingress:mtls-canary": "node ingress_mtls_canary_cli.mjs",
     "dev": "node --watch server.mjs",
     "test": "node --test test/*.test.mjs"
   },

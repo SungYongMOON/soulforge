@@ -2,6 +2,24 @@
 
 ## 2026-07-17
 
+### Feature-OFF strict office-LAN mTLS ingress gateway
+
+- Added an exact RFC1918 IPv4/TLS 1.3 mutual-TLS gateway in front of the
+  loopback-only HPP evidence ingress MCP, with client-certificate enrollment,
+  revocation, server-certificate pinning, exact Host/audience and certificate-
+  to-bearer account/device/agent binding.
+- Added per-certificate rate/concurrency and request-body bounds plus per-
+  credential open-upload, pending-byte, and retained-byte quotas without
+  weakening restart-safe idempotent replay.
+- Added a bound client transport, public-certificate-only device admin, safe
+  one-seat preflight/read-only identity probe, three strict JSON schemas, and a
+  physical canary runbook that keeps key/token material out of CLI arguments.
+- Added real TLS socket adversarial E2E for file, structured-PC-work, run-log,
+  status, source preservation, unregistered/revoked certificate, bearer
+  identity swap, host/route/body/rate bounds, server pin, and feature-OFF
+  behavior. The endpoint is synthetic: no actual HPP LAN listener, firewall,
+  certificate/token delivery, or other PC was activated. (worker: codex_gpt-5)
+
 ### Feature-OFF HPP evidence ingress MCP
 
 - Added a separate loopback-only Streamable HTTP MCP that sends authenticated

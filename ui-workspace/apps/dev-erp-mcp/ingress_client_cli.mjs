@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 
 import { IngressClient } from "./src/ingress_client.mjs";
+import { createBoundIngressClient } from "./src/ingress_mtls_client.mjs";
 
 function fail(code) {
   const error = new Error(code);
@@ -39,15 +40,24 @@ async function main() {
   const [command, ...args] = process.argv.slice(2);
   const token = process.env.SOULFORGE_INGRESS_TOKEN;
   if (!token) fail("SOULFORGE_INGRESS_TOKEN_required");
-  const client = new IngressClient({
+  const mtlsBinding = process.env.SOULFORGE_INGRESS_MTLS_BINDING;
+  if (mtlsBinding && process.env.SOULFORGE_INGRESS_URL) fail("conflicting_ingress_endpoint_binding");
+  const bound = mtlsBinding
+    ? await createBoundIngressClient({
+      bindingPath: isAbsolute(mtlsBinding) ? resolve(mtlsBinding) : resolve(process.cwd(), mtlsBinding),
+      token,
+    })
+    : null;
+  const client = bound?.client || new IngressClient({
     baseUrl: process.env.SOULFORGE_INGRESS_URL || "http://127.0.0.1:4312",
     token,
   });
   try {
+    const verifiedIdentity = bound ? await bound.verifyIdentity() : null;
     let result;
     if (command === "whoami") {
       if (args.length) fail("invalid_cli_arguments");
-      result = await client.whoami();
+      result = verifiedIdentity || await client.whoami();
     } else if (command === "upload") {
       const values = flags(args, new Set(["file", "project", "occurrence", "idempotency", "media-type"]));
       required(values, ["file", "project", "occurrence", "idempotency", "media-type"]);

@@ -98,7 +98,7 @@ test("service observes registry revocation without restart and registry locking 
       await mkdir(resolve(outboxRoot, "state", "receipts", lane), { recursive: true });
       await mkdir(resolve(outboxRoot, "state", "acks", lane), { recursive: true });
     }
-    for (const name of ["tickets", "uploads", "indexes", "event_sources", "submissions"]) {
+    for (const name of ["tickets", "uploads", "indexes", "event_sources", "submissions", "quota_locks"]) {
       await mkdir(resolve(stateRoot, name), { recursive: true });
     }
     await json(outboxBindingPath, {
@@ -125,6 +125,9 @@ test("service observes registry revocation without restart and registry locking 
       max_file_bytes: 1024,
       chunk_bytes: 64 * 1024,
       ticket_ttl_seconds: 600,
+      max_open_uploads_per_credential: 8,
+      max_pending_upload_bytes_per_credential: 8192,
+      max_retained_upload_bytes_per_credential: 65536,
     });
     const service = await createIngressMcpService({ configPath });
     assert.equal((await service.authenticate(issued.token)).accountId, "bob");

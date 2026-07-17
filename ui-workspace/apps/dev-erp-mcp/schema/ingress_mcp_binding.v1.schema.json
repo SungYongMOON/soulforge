@@ -7,7 +7,8 @@
   "required": [
     "schema_version", "enabled", "node_id", "listen_host", "listen_port", "public_url",
     "local_outbox_binding_path", "auth_registry_path", "state_root", "submission_root",
-    "max_file_bytes", "chunk_bytes", "ticket_ttl_seconds"
+    "max_file_bytes", "chunk_bytes", "ticket_ttl_seconds", "max_open_uploads_per_credential",
+    "max_pending_upload_bytes_per_credential", "max_retained_upload_bytes_per_credential"
   ],
   "properties": {
     "schema_version": { "const": "soulforge.ingress.mcp_binding.v1" },
@@ -22,7 +23,10 @@
     "submission_root": { "type": "string", "minLength": 1, "maxLength": 32767 },
     "max_file_bytes": { "type": "integer", "minimum": 1, "maximum": 2147483648 },
     "chunk_bytes": { "type": "integer", "minimum": 65536, "maximum": 16777216 },
-    "ticket_ttl_seconds": { "type": "integer", "minimum": 60, "maximum": 86400 }
+    "ticket_ttl_seconds": { "type": "integer", "minimum": 60, "maximum": 86400 },
+    "max_open_uploads_per_credential": { "type": "integer", "minimum": 1, "maximum": 1000 },
+    "max_pending_upload_bytes_per_credential": { "type": "integer", "minimum": 1 },
+    "max_retained_upload_bytes_per_credential": { "type": "integer", "minimum": 1 }
   },
   "$defs": {
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" }

@@ -4,7 +4,7 @@
 - owner: HPP ingress receiver 후보; project promoter·ERP·TaskEngine owner가 아님
 - worker: codex_gpt-5
 - 범위: 팀원 PC의 파일, bounded structured PC work, bounded run receipt
-- 제외: 메일 credential/수집, 음성 source writer, ERP DB, 프로젝트 승격, 공식 이력·업무 완료, LAN/TLS 운영
+- 제외: 메일 credential/수집, 음성 source writer, ERP DB, 프로젝트 승격, 공식 이력·업무 완료, 실제 LAN/TLS 운영
 
 ## 왜 별도 MCP인가
 
@@ -14,8 +14,9 @@ size/hash-bound upload, idempotency, loopback 기본값을 재사용해 별도 i
 
 ```mermaid
 flowchart LR
-  C1["팀원 A PC\nCodex/client"] -->|"MCP control + bearer"| M["HPP ingress MCP\nloopback only"]
-  C2["팀원 B PC\nCodex/client"] -->|"chunked HTTPS bytes"| M
+  C1["팀원 A PC\nCodex/client"] -->|"mTLS + bearer"| G["strict office-LAN gateway\nfeature OFF"]
+  C2["팀원 B PC\nCodex/client"] -->|"mTLS chunked HTTPS"| G
+  G -->|"loopback HTTP only"| M["HPP ingress MCP\n127.0.0.1 only"]
   M --> S["private upload/event source\n원본 보존"]
   S --> O["기존 HPP local outbox\n미분류 3 lanes"]
   O --> R["continuous HPP receiver\nsole writer + fencing"]
@@ -84,6 +85,9 @@ data plane을 사용한다. 다음을 검증한다.
 - upload 중단 offset, client/server 재시작, idempotent replay, source 무변경
 - HPP ack 전 `pending`, digest/size 일치 ack 후 `verified`
 - non-loopback 직접 bind와 config feature-OFF 실행 거부
+- 합성 RFC1918 endpoint의 TLS 1.3/mTLS, server pin, exact Host와 certificate↔bearer↔account/device/agent 결합
+- 미등록·폐기 client certificate, 다른 사람 token 조합, 공인/VPN endpoint, oversized body와 rate 초과 거부
+- credential별 open upload·pending byte·retained byte quota, quota lock과 idempotent replay
 
 이 검증은 실제 팀원 등록이나 사내망 운영 acceptance가 아니다.
 
@@ -91,9 +95,9 @@ data plane을 사용한다. 다음을 검증한다.
 
 아래는 별도 owner 승인 전 계속 OFF다.
 
-1. 실제 팀원 credential 발급·전달과 다른 PC 설치
-2. 사내 LAN hostname, TLS/mTLS reverse proxy, CA trust, firewall 변경
-3. malware scan/quarantine, rate/space quota, backup/restore/retention 운영치
+1. 실제 팀원 credential·client certificate/private key 발급·전달과 다른 PC 설치
+2. HPP의 실제 사내 LAN listener, CA trust, firewall 변경
+3. malware scan/quarantine, backup/restore/retention 운영치와 quota 운영값 승인
 4. project promoter와 accepted history projector 연결
 5. ERP/TaskEngine WorkSession·공식 완료 연결
 6. mail credential과 collector 연결
@@ -101,3 +105,7 @@ data plane을 사용한다. 다음을 검증한다.
 
 현재 구현은 D27~D29와 P0~P10을 자동 승인하거나 `A8-CANARY/team-ready/production-ready`를 주장하지
 않는다. private HPP loopback pilot과 feature-OFF 배치는 운영 공개 없이 별도 검증한다.
+
+strict gateway source, client/admin/preflight와 합성 adversarial E2E는 구현됐지만, 합성 endpoint는 물리
+팀원 PC가 아니다. 실제 1-seat 전환은 [`INGRESS-MTLS-CANARY-V1.md`](INGRESS-MTLS-CANARY-V1.md)의
+외부 조정 중단선을 별도 승인한 뒤 진행한다.

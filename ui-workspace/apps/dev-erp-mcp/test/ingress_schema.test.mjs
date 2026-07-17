@@ -12,6 +12,9 @@ const schemaUrls = [
   new URL("../schema/ingress_mcp_upload_ticket.v1.schema.json", import.meta.url),
   new URL("../schema/ingress_mcp_submission.v1.schema.json", import.meta.url),
   new URL("../schema/ingress_bounded_event.v1.schema.json", import.meta.url),
+  new URL("../schema/ingress_mtls_gateway_binding.v1.schema.json", import.meta.url),
+  new URL("../schema/ingress_mtls_device_registry.v1.schema.json", import.meta.url),
+  new URL("../schema/ingress_mtls_client_binding.v1.schema.json", import.meta.url),
 ];
 
 test("all ingress MCP schemas compile under strict Ajv 2020", async () => {
@@ -26,7 +29,7 @@ test("all ingress MCP schemas compile under strict Ajv 2020", async () => {
 test("bounded-event schema rejects transcript and official completion fields", async () => {
   const ajv = new Ajv2020({ strict: true, allErrors: true });
   addFormats(ajv);
-  const schema = JSON.parse(await readFile(fileURLToPath(schemaUrls.at(-1)), "utf8"));
+  const schema = JSON.parse(await readFile(fileURLToPath(schemaUrls[4]), "utf8"));
   const validate = ajv.compile(schema);
   const event = {
     schema_version: "soulforge.ingress.bounded_event.v1",

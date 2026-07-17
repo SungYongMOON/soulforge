@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ingress_mtls_client_binding.v1.schema.json",
+  "title": "Soulforge one-seat office-LAN mTLS ingress client binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "audience", "base_url", "ca_cert_path", "client_cert_path", "client_key_path",
+    "server_certificate_sha256", "expected_account_id", "expected_device_id", "expected_agent_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.mtls_client_binding.v1" },
+    "audience": { "const": "hpp_ingress_mcp" },
+    "base_url": { "type": "string", "format": "uri", "maxLength": 2048 },
+    "ca_cert_path": { "$ref": "#/$defs/path" },
+    "client_cert_path": { "$ref": "#/$defs/path" },
+    "client_key_path": { "$ref": "#/$defs/path" },
+    "server_certificate_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "expected_account_id": { "$ref": "#/$defs/identity" },
+    "expected_device_id": { "$ref": "#/$defs/identity" },
+    "expected_agent_id": { "$ref": "#/$defs/identity" }
+  },
+  "$defs": {
+    "path": { "type": "string", "minLength": 1, "maxLength": 32767 },
+    "identity": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$" }
+  }
+}

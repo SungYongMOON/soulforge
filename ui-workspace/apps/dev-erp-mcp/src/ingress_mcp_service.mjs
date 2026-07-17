@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import {
   lstat,
   open,
+  readdir,
   readFile,
   realpath,
   rename,
@@ -36,7 +37,8 @@ const CAPABILITIES = new Set([
 const CONFIG_FIELDS = [
   "schema_version", "enabled", "node_id", "listen_host", "listen_port", "public_url",
   "local_outbox_binding_path", "auth_registry_path", "state_root", "submission_root",
-  "max_file_bytes", "chunk_bytes", "ticket_ttl_seconds",
+  "max_file_bytes", "chunk_bytes", "ticket_ttl_seconds", "max_open_uploads_per_credential",
+  "max_pending_upload_bytes_per_credential", "max_retained_upload_bytes_per_credential",
 ];
 const REGISTRY_FIELDS = ["schema_version", "revision", "tokens"];
 const TOKEN_FIELDS = [
@@ -268,10 +270,19 @@ export async function loadIngressMcpConfig(configPath) {
     maxFileBytes: Number(raw.max_file_bytes),
     chunkBytes: Number(raw.chunk_bytes),
     ticketTtlSeconds: Number(raw.ticket_ttl_seconds),
+    maxOpenUploadsPerCredential: Number(raw.max_open_uploads_per_credential),
+    maxPendingUploadBytesPerCredential: Number(raw.max_pending_upload_bytes_per_credential),
+    maxRetainedUploadBytesPerCredential: Number(raw.max_retained_upload_bytes_per_credential),
   };
   if (!Number.isSafeInteger(config.maxFileBytes) || config.maxFileBytes < 1 || config.maxFileBytes > 2 * 1024 ** 3
     || !Number.isSafeInteger(config.chunkBytes) || config.chunkBytes < 64 * 1024 || config.chunkBytes > 16 * 1024 ** 2
     || !Number.isSafeInteger(config.ticketTtlSeconds) || config.ticketTtlSeconds < 60 || config.ticketTtlSeconds > 86400
+    || !Number.isSafeInteger(config.maxOpenUploadsPerCredential) || config.maxOpenUploadsPerCredential < 1
+    || config.maxOpenUploadsPerCredential > 1000
+    || !Number.isSafeInteger(config.maxPendingUploadBytesPerCredential)
+    || config.maxPendingUploadBytesPerCredential < config.maxFileBytes
+    || !Number.isSafeInteger(config.maxRetainedUploadBytesPerCredential)
+    || config.maxRetainedUploadBytesPerCredential < config.maxPendingUploadBytesPerCredential
     || !inside(config.stateRoot, config.submissionRoot)) fail("invalid_ingress_mcp_config");
   await assertNormalDirectory(config.stateRoot, "ingress_mcp_state_unsafe");
   await assertNormalDirectory(config.submissionRoot, "ingress_mcp_submission_root_unsafe");
@@ -413,6 +424,7 @@ export async function createIngressMcpService({ configPath, now = () => Date.now
     uploads: resolve(config.stateRoot, "uploads"),
     indexes: resolve(config.stateRoot, "indexes"),
     events: resolve(config.stateRoot, "event_sources"),
+    quotaLocks: resolve(config.stateRoot, "quota_locks"),
   };
   for (const root of Object.values(roots)) await assertNormalDirectory(root, "ingress_mcp_state_unsafe");
 
@@ -460,6 +472,48 @@ export async function createIngressMcpService({ configPath, now = () => Date.now
     return resolve(config.submissionRoot, `${submissionId}.json`);
   }
 
+  async function withCredentialQuotaLock(principal, operation) {
+    const path = resolve(roots.quotaLocks, `${principal.credentialId}.lock`);
+    let handle;
+    try {
+      handle = await open(path, "wx");
+      await handle.sync();
+    } catch (error) {
+      await handle?.close().catch(() => {});
+      if (error?.code === "EEXIST") fail("ingress_quota_busy", 429);
+      throw error;
+    }
+    try { return await operation(); }
+    finally {
+      await handle.close();
+      await rm(path, { force: true });
+    }
+  }
+
+  async function assertUploadQuota(principal, requestedBytes) {
+    const names = (await readdir(roots.tickets)).filter((name) => /^sfigup_[A-Za-z0-9_-]{32}\.json$/.test(name));
+    if (names.length > 10000) fail("ingress_ticket_inventory_too_large", 429);
+    let openUploads = 0;
+    let pendingBytes = 0;
+    let retainedBytes = 0;
+    for (const name of names) {
+      const ticket = await readTicket(name.slice(0, -5));
+      if (ticket.credential_id !== principal.credentialId) continue;
+      retainedBytes += ticket.expected_size;
+      if (ticket.status === "pending" && Date.parse(ticket.expires_at) > now()) {
+        openUploads += 1;
+        pendingBytes += ticket.expected_size;
+      }
+    }
+    if (openUploads >= config.maxOpenUploadsPerCredential) fail("ingress_open_upload_quota_exceeded", 429);
+    if (pendingBytes + requestedBytes > config.maxPendingUploadBytesPerCredential) {
+      fail("ingress_pending_byte_quota_exceeded", 429);
+    }
+    if (retainedBytes + requestedBytes > config.maxRetainedUploadBytesPerCredential) {
+      fail("ingress_retained_byte_quota_exceeded", 429);
+    }
+  }
+
   async function readTicket(ticketId) {
     const ticket = await readJson(ticketPath(ticketId), "upload_ticket_invalid");
     exactFields(ticket, TICKET_FIELDS, "upload_ticket_invalid");
@@ -498,35 +552,64 @@ export async function createIngressMcpService({ configPath, now = () => Date.now
       if (index.input_digest !== inputDigest) fail("idempotency_conflict", 409);
       return publicTicket(await readTicket(index.ticket_id), true);
     }
-    const ticketId = `sfigup_${sha256(`upload\0${principal.credentialId}\0${normalized.idempotency_key}`).slice(0, 32)}`;
-    const createdAt = new Date(now()).toISOString();
-    const ticket = {
-      schema_version: INGRESS_MCP_TICKET_SCHEMA,
-      ticket_id: ticketId,
-      credential_id: principal.credentialId,
-      account_id: principal.accountId,
-      device_id: principal.deviceId,
-      agent_id: principal.agentId,
-      project_hint: normalized.project_hint,
-      occurrence_id: normalized.occurrence_id,
-      idempotency_key: normalized.idempotency_key,
-      input_digest: inputDigest,
-      filename: normalized.filename,
-      media_type: normalized.media_type,
-      expected_size: normalized.size,
-      expected_sha256: normalized.sha256,
-      received_size: 0,
-      status: "pending",
-      created_at: createdAt,
-      expires_at: new Date(now() + config.ticketTtlSeconds * 1000).toISOString(),
-      finalized_at: null,
-      submission_id: null,
-    };
-    if (await exists(ticketPath(ticketId))) {
-      const recovered = await readTicket(ticketId);
-      const uploadInfo = await stat(uploadPath(ticketId));
-      if (recovered.credential_id !== principal.credentialId || recovered.input_digest !== inputDigest
-        || !uploadInfo.isFile() || uploadInfo.size !== recovered.received_size) fail("upload_ticket_conflict", 409);
+    return withCredentialQuotaLock(principal, async () => {
+      if (await exists(idxPath)) {
+        const index = await readJson(idxPath, "upload_idempotency_index_invalid");
+        if (index.input_digest !== inputDigest) fail("idempotency_conflict", 409);
+        return publicTicket(await readTicket(index.ticket_id), true);
+      }
+      await assertUploadQuota(principal, normalized.size);
+      const ticketId = `sfigup_${sha256(`upload\0${principal.credentialId}\0${normalized.idempotency_key}`).slice(0, 32)}`;
+      const createdAt = new Date(now()).toISOString();
+      const ticket = {
+        schema_version: INGRESS_MCP_TICKET_SCHEMA,
+        ticket_id: ticketId,
+        credential_id: principal.credentialId,
+        account_id: principal.accountId,
+        device_id: principal.deviceId,
+        agent_id: principal.agentId,
+        project_hint: normalized.project_hint,
+        occurrence_id: normalized.occurrence_id,
+        idempotency_key: normalized.idempotency_key,
+        input_digest: inputDigest,
+        filename: normalized.filename,
+        media_type: normalized.media_type,
+        expected_size: normalized.size,
+        expected_sha256: normalized.sha256,
+        received_size: 0,
+        status: "pending",
+        created_at: createdAt,
+        expires_at: new Date(now() + config.ticketTtlSeconds * 1000).toISOString(),
+        finalized_at: null,
+        submission_id: null,
+      };
+      if (await exists(ticketPath(ticketId))) {
+        const recovered = await readTicket(ticketId);
+        const uploadInfo = await stat(uploadPath(ticketId));
+        if (recovered.credential_id !== principal.credentialId || recovered.input_digest !== inputDigest
+          || !uploadInfo.isFile() || uploadInfo.size !== recovered.received_size) fail("upload_ticket_conflict", 409);
+        await immutableJson(config.stateRoot, idxPath, {
+          schema_version: "soulforge.ingress.mcp_idempotency_index.v1",
+          kind: "upload",
+          credential_id: principal.credentialId,
+          idempotency_key: normalized.idempotency_key,
+          input_digest: inputDigest,
+          ticket_id: ticketId,
+        }, "idempotency_conflict");
+        return publicTicket(recovered, true);
+      }
+      let handle;
+      try {
+        handle = await open(uploadPath(ticketId), "wx");
+        await handle.sync();
+      } catch (error) {
+        if (error?.code !== "EEXIST") throw error;
+        const orphan = await stat(uploadPath(ticketId));
+        if (!orphan.isFile() || orphan.size !== 0) fail("upload_orphan_conflict", 409);
+      } finally {
+        await handle?.close();
+      }
+      await immutableJson(config.stateRoot, ticketPath(ticketId), ticket, "upload_ticket_conflict");
       await immutableJson(config.stateRoot, idxPath, {
         schema_version: "soulforge.ingress.mcp_idempotency_index.v1",
         kind: "upload",
@@ -535,29 +618,8 @@ export async function createIngressMcpService({ configPath, now = () => Date.now
         input_digest: inputDigest,
         ticket_id: ticketId,
       }, "idempotency_conflict");
-      return publicTicket(recovered, true);
-    }
-    let handle;
-    try {
-      handle = await open(uploadPath(ticketId), "wx");
-      await handle.sync();
-    } catch (error) {
-      if (error?.code !== "EEXIST") throw error;
-      const orphan = await stat(uploadPath(ticketId));
-      if (!orphan.isFile() || orphan.size !== 0) fail("upload_orphan_conflict", 409);
-    } finally {
-      await handle?.close();
-    }
-    await immutableJson(config.stateRoot, ticketPath(ticketId), ticket, "upload_ticket_conflict");
-    await immutableJson(config.stateRoot, idxPath, {
-      schema_version: "soulforge.ingress.mcp_idempotency_index.v1",
-      kind: "upload",
-      credential_id: principal.credentialId,
-      idempotency_key: normalized.idempotency_key,
-      input_digest: inputDigest,
-      ticket_id: ticketId,
-    }, "idempotency_conflict");
-    return publicTicket(ticket, false);
+      return publicTicket(ticket, false);
+    });
   }
 
   async function requireTicket(principalInput, ticketId) {

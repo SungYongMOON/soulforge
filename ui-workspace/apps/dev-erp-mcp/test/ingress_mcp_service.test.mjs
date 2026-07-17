@@ -38,7 +38,7 @@ async function fixture() {
     await mkdir(resolve(outboxRoot, "state", "receipts", lane), { recursive: true });
     await mkdir(resolve(outboxRoot, "state", "acks", lane), { recursive: true });
   }
-  for (const part of ["tickets", "uploads", "indexes", "event_sources", "submissions"]) {
+  for (const part of ["tickets", "uploads", "indexes", "event_sources", "submissions", "quota_locks"]) {
     await mkdir(resolve(stateRoot, part), { recursive: true });
   }
   await json(outboxBindingPath, {
@@ -100,6 +100,9 @@ async function fixture() {
     max_file_bytes: 1024 * 1024,
     chunk_bytes: 64 * 1024,
     ticket_ttl_seconds: 600,
+    max_open_uploads_per_credential: 8,
+    max_pending_upload_bytes_per_credential: 8 * 1024 * 1024,
+    max_retained_upload_bytes_per_credential: 64 * 1024 * 1024,
   };
   await json(configPath, config);
   return {
@@ -306,6 +309,49 @@ test("hash mismatch, unsafe filenames, state overlap, and corrupted acknowledgem
     const overlapping = { ...f.config, state_root: f.outboxRoot, submission_root: resolve(f.outboxRoot, "state") };
     await json(f.configPath, overlapping);
     await assert.rejects(createIngressMcpService({ configPath: f.configPath }), /ingress_mcp_outbox_state_overlap/);
+  } finally {
+    await f.cleanup();
+  }
+});
+
+test("per-credential open and retained byte quotas fail closed without blocking idempotent replay", async () => {
+  const f = await fixture();
+  try {
+    const config = JSON.parse(await readFile(f.configPath, "utf8"));
+    config.max_open_uploads_per_credential = 1;
+    config.max_pending_upload_bytes_per_credential = 1024 * 1024;
+    config.max_retained_upload_bytes_per_credential = 1024 * 1024;
+    await json(f.configPath, config);
+    const service = await createIngressMcpService({ configPath: f.configPath, now: () => NOW });
+    const principal = await service.authenticate(f.primaryToken);
+    const firstBytes = Buffer.alloc(600 * 1024, 0x31);
+    const firstInput = uploadInput(firstBytes, {
+      occurrence_id: "quota_file_01",
+      idempotency_key: "quota:file:0001",
+      filename: "quota-one.pdf",
+      media_type: "application/pdf",
+    });
+    const first = await service.prepareUpload(principal, firstInput);
+    await assert.rejects(service.prepareUpload(principal, uploadInput(Buffer.from("x"), {
+      occurrence_id: "quota_file_02",
+      idempotency_key: "quota:file:0002",
+      filename: "quota-two.pdf",
+      media_type: "application/pdf",
+    })), /ingress_open_upload_quota_exceeded/);
+    for (let offset = 0; offset < firstBytes.length;) {
+      const chunk = firstBytes.subarray(offset, Math.min(firstBytes.length, offset + 64 * 1024));
+      await service.appendChunk(principal, first.ticket_id, offset, chunk);
+      offset += chunk.length;
+    }
+    await service.finalizeUpload(principal, first.ticket_id);
+    assert.equal((await service.prepareUpload(principal, firstInput)).replayed, true);
+    const secondBytes = Buffer.alloc(600 * 1024, 0x32);
+    await assert.rejects(service.prepareUpload(principal, uploadInput(secondBytes, {
+      occurrence_id: "quota_file_03",
+      idempotency_key: "quota:file:0003",
+      filename: "quota-three.pdf",
+      media_type: "application/pdf",
+    })), /ingress_retained_byte_quota_exceeded/);
   } finally {
     await f.cleanup();
   }

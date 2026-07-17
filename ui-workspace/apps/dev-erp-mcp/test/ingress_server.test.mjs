@@ -49,7 +49,7 @@ async function fixture() {
     await mkdir(resolve(outboxRoot, "state", "receipts", lane), { recursive: true });
     await mkdir(resolve(outboxRoot, "state", "acks", lane), { recursive: true });
   }
-  for (const name of ["tickets", "uploads", "indexes", "event_sources", "submissions"]) {
+  for (const name of ["tickets", "uploads", "indexes", "event_sources", "submissions", "quota_locks"]) {
     await mkdir(resolve(stateRoot, name), { recursive: true });
   }
   await json(outboxBindingPath, {
@@ -95,6 +95,9 @@ async function fixture() {
     max_file_bytes: 1024 * 1024,
     chunk_bytes: 64 * 1024,
     ticket_ttl_seconds: 600,
+    max_open_uploads_per_credential: 8,
+    max_pending_upload_bytes_per_credential: 8 * 1024 * 1024,
+    max_retained_upload_bytes_per_credential: 64 * 1024 * 1024,
   });
   return { root, outboxRoot, stateRoot, configPath, token, foreignToken };
 }

@@ -79,6 +79,7 @@ export class IngressClient {
     this.client = new Client({ name: "soulforge-ingress-client", version: "0.1.0" });
     this.transport = new StreamableHTTPClientTransport(new URL(`${this.baseUrl.pathname}/mcp`.replace(/\/+/g, "/"), this.baseUrl), {
       requestInit: { headers: { Authorization: `Bearer ${this.token}` } },
+      fetch: this.fetchImpl,
     });
     try {
       await this.client.connect(this.transport);
