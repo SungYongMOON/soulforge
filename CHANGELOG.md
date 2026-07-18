@@ -2,6 +2,24 @@
 
 ## 2026-07-18
 
+### HPP-primary and Mac-mini fallback role correction
+
+- Recorded the owner-directed target split that makes the HPP always-on
+  identity the normal primary for central ingress/custody, voice processing,
+  and Task Engine/AX while keeping the Mac mini as lightweight monitoring,
+  source HOLD/outbox, fallback/mirror, and a separate-worktree development
+  host.
+- Preserved the currently active Mac voice collector as a temporary failover
+  while HPP is unavailable. A future HPP cutover requires exact identity,
+  queue freeze and catch-up, receipt/ack parity, and a new lease/epoch; HPP and
+  Mac may not write the same shared runtime concurrently.
+- Kept NAS reachability separate from NAS mutation, automatic ingest, source
+  approval, or canon-promotion authority. No live writer, scheduler, network,
+  credential, storage, or NAS binding was changed. (worker: codex_gpt-5)
+- Preserved `task_engine_redesign/**` and the integrated validation plan as
+  byte-stable historical comparison oracles; their earlier Mac-primary wording
+  is not a current runtime instruction.
+
 ### Windows device-capability validation stability
 
 - Raised the file-only public capability CLI test timeout from 10 to 30 seconds

@@ -12,6 +12,7 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 
+import { comparablePathIdentity as comparable } from "../../../../guild_hall/shared/physical_path_identity.mjs";
 import {
   enqueueLocalOutboxFile,
   loadLocalOutboxBinding,
@@ -84,10 +85,6 @@ export class IngressMcpError extends Error {
 
 function fail(code, status = 400) {
   throw new IngressMcpError(code, status);
-}
-
-function comparable(value) {
-  return process.platform === "win32" ? value.toLowerCase() : value;
 }
 
 function inside(root, target) {

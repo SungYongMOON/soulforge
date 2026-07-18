@@ -5,6 +5,7 @@ import { isIP } from "node:net";
 import { isAbsolute, resolve } from "node:path";
 import { checkServerIdentity, connect as tlsConnect } from "node:tls";
 
+import { comparablePathIdentity as comparable } from "../../../../guild_hall/shared/physical_path_identity.mjs";
 import { IngressClient, IngressClientError } from "./ingress_client.mjs";
 
 export const INGRESS_MTLS_CLIENT_SCHEMA = "soulforge.ingress.mtls_client_binding.v1";
@@ -18,10 +19,6 @@ const FIELDS = [
 
 function fail(code) {
   throw new IngressClientError(code, 400);
-}
-
-function comparable(value) {
-  return process.platform === "win32" ? value.toLowerCase() : value;
 }
 
 function officeLanIpv4(value) {

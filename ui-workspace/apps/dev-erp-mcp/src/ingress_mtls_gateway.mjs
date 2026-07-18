@@ -5,6 +5,7 @@ import { createServer as createHttpsServer } from "node:https";
 import { isIP } from "node:net";
 import { isAbsolute, resolve } from "node:path";
 
+import { comparablePathIdentity as comparable } from "../../../../guild_hall/shared/physical_path_identity.mjs";
 import { createIngressMcpService, IngressMcpError } from "./ingress_mcp_service.mjs";
 
 export const INGRESS_MTLS_GATEWAY_SCHEMA = "soulforge.ingress.mtls_gateway_binding.v1";
@@ -29,10 +30,6 @@ const HOP_BY_HOP = new Set([
 
 function fail(code, status = 400) {
   throw new IngressMcpError(code, status);
-}
-
-function comparable(value) {
-  return process.platform === "win32" ? value.toLowerCase() : value;
 }
 
 function exactFields(value, fields, code) {

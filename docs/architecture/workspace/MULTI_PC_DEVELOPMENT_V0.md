@@ -209,9 +209,17 @@ last-accepted read-only이며 remote mount/split writer가 아니다. 자세한 
 [`TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`](../../../ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md)의
 §0·§5·§7·§11·A8-SYNTH/A8-CANARY를 따른다.
 
+2026-07-18 owner target split에서는 고성능 PC의 별도 `always_on_node` identity가
+central ingress/custody, voice processing, Task Engine/AX와 장시간 DB/tools 운영의
+정상 operational-primary 후보다. 맥미니 `always_on_node`는 경량 감시,
+source-local HOLD/outbox, fallback/mirror와 별도 개발 worktree를 맡는다. 이 target
+지정만으로 live writer를 전환하지 않는다. HPP가 내려가 있으면 기존 맥미니 writer는
+temporary failover로 계속 동작할 수 있고, HPP 복귀 뒤 exact identity, queue freeze,
+receipt/ack parity, catch-up/replay와 새 lease/epoch가 확인된 뒤에만 writer를 넘긴다.
+
 중복 방지 규칙:
 
-1. `gateway_fetch_primary` 와 `night_watch_active` 는 current-default 에서 owner 가 지정한 `always_on_node` 한 대만 가진다. 현재 지정 장비는 고성능 PC 일 수 있고, 맥미니는 owner 지정이 없으면 fallback/mirror 로 본다.
+1. `gateway_fetch_primary`, `night_watch_active`, shared voice runtime writer는 각각 owner가 지정한 `always_on_node` 한 대만 가진다. 2026-07-18 target은 고성능 PC이며 맥미니는 fallback/mirror다. HPP unavailable 기간의 temporary failover도 같은 job에 active writer를 둘 이상 만들지 않고 cutover/failback receipt를 남긴다.
 2. 일반 project 파일과 project-local 업무 기록은 `work_pc` 가 primary 로 쓴다.
 3. 회로설계, PCBArtwork, CAD/CAE/EDA 처럼 특정 tool 이 필요한 project 작업은 `tool_pc` 가 해당 task 의 `_workspaces` / `_workmeta` primary writer 가 된다.
 4. public docs/code/UI 변경은 owner-designated public dev lane 이 primary 로 쓴다. 기본 예시는 `portable_dev_pc` 이지만, 현재 Codex 작업 host 나 승인된 `tool_pc` 가 맡을 수 있다.

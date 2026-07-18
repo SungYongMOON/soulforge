@@ -40,25 +40,33 @@ PLAUD account collector on an always-on node
   and rendered launchd plists.
 - `_workmeta/**`: reviewed or explicitly AI-provisional metadata only. Raw audio
   and transcript bodies are not copied there.
-- Mac mini voice primary: write shared voice sessions, queues, library state,
-  independent ASR results, and downstream analysis requests as the single
-  operational writer.
+- HPP voice processing target: after an explicit cutover receipt, the
+  high-performance PC's separate always-on identity is the single normal writer
+  for shared voice sessions, queues, library state, independent ASR results,
+  and downstream analysis requests.
+- Mac mini fallback: keep source-local capture/HOLD/outbox, lightweight health,
+  and temporary failover. While HPP is unavailable and no accepted cutover
+  exists, the currently active Mac writer remains the only writer rather than
+  being shut down or joined by a second writer.
 - AI context resolver target: produce separately labelled provisional project,
   assignee, due-date, decision, and task records without claiming human
   approval. Only exceptions and irreversible actions wait for a person.
 - Project owners: retain authority for external execution, official approval,
   technical truth, and correction of exception cases.
 
-For the HPP Task Engine/MCP target, the Mac is a **source-local spool and source
-producer**, not the accepted central custody writer. It keeps recorder/ASR queue,
+For the HPP Task Engine/MCP target, HPP is both the accepted central custody
+writer and the normal voice-processing primary after explicit cutover. The Mac
+is a **source-local spool and fallback producer**. It keeps recorder/ASR queue,
 raw audio, transcript revisions, and durable local outbox until an HPP
 strict-private-office-LAN mTLS/authenticated-HTTPS transfer receipt is verified.
 VPN/Tailscale/remote transfer remains `OFF/DEFER`. HPP `transfer_service` alone
 writes accepted quarantine/inbox bytes; a separate HPP promoter alone creates an
 approved project binding. OneDrive arrival or shared-link visibility is not HPP
-acceptance. During HPP outage the Mac holds/retries locally and never mounts HPP
-storage or becomes a split central writer. Exact HPP path/network/cert binding is
-private `VERIFY_HP`; HPP custody is `TARGET` and no live binding is created by this document.
+acceptance. During HPP outage the Mac holds/retries locally and may retain the
+explicit temporary writer lease, but it never mounts HPP storage or becomes a
+split central writer. Exact HPP path/network/cert binding is private `VERIFY_HP`;
+HPP custody and voice processing are `TARGET` and no live binding is created by
+this document.
 
 The AI context resolver is an owner-approved target, not a current runtime
 claim. The current MVP still stops at `P00-000_INBOX`, metadata-only source
@@ -119,9 +127,10 @@ project-context resolver, writer, validator, and fixtures are implemented.
   `local_asr_ready` supersedes `plaud_import_ready`, so the previous ack becomes
   stale and must be recomputed.
 - The normal PLAUD collector is event-driven. A fresh Hiworks PLAUD transcript
-  notice writes a sanitized trigger to the shared workspace queue, and the Mac
-  mini persistent launchd loop drains local mail and ASR queues every five
-  minutes. It does not query PLAUD when both queues are empty. A successful
+  notice writes a sanitized trigger to the shared workspace queue. The current
+  Mac temporary-failover launchd loop drains local mail and ASR queues every five
+  minutes; after accepted HPP cutover the HPP always-on identity owns that normal
+  writer loop. It does not query PLAUD when both queues are empty. A successful
   import also writes a local-ASR queue item, and the same loop runs the
   configured `whisper.cpp` model against the original audio. Explicit `sync`
   remains a recovery command rather than the normal provider polling trigger.

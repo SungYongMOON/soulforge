@@ -15,6 +15,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { dirname, isAbsolute, posix, relative, resolve, sep } from "node:path";
 import { stageIngressFile } from "./collector.mjs";
 import { syncCopyOnlyMirror } from "../voice_capture/copy_only_mirror.mjs";
+import { comparablePathIdentity as comparable } from "../shared/physical_path_identity.mjs";
 
 export const CONTINUOUS_BINDING_SCHEMA = "soulforge.ingress.continuous_binding.v1";
 export const CONTINUOUS_HEALTH_SCHEMA = "soulforge.ingress.continuous_health.v1";
@@ -64,10 +65,6 @@ function fail(code) {
   const error = new Error(code);
   error.code = code;
   throw error;
-}
-
-function comparable(value) {
-  return process.platform === "win32" ? value.toLowerCase() : value;
 }
 
 function inside(root, target) {

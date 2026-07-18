@@ -17,6 +17,8 @@ import {
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import { comparablePathIdentity as comparable } from "../../../../guild_hall/shared/physical_path_identity.mjs";
+
 export const MAIL_SET_RECONCILIATION_SCHEMA = "dev_erp.mail_set_reconciliation.v1";
 export const MAIL_SET_AUTHORITY_MODE = "runtime_db_authoritative_no_real_meta";
 
@@ -31,9 +33,7 @@ function inspectRegularFile(path, { maxBytes = 64 * 1024 * 1024 } = {}) {
   const lexical = resolve(path);
   const entry = lstatSync(lexical);
   const real = resolve(realpathSync(lexical));
-  const same = process.platform === "win32"
-    ? lexical.toLowerCase() === real.toLowerCase()
-    : lexical === real;
+  const same = comparable(lexical) === comparable(real);
   if (!entry.isFile() || entry.isSymbolicLink() || !same || entry.size < 1 || entry.size > maxBytes) {
     throw new Error("unsafe_regular_file");
   }

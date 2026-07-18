@@ -14,6 +14,7 @@ import {
 } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { comparablePathIdentity as comparable } from "../shared/physical_path_identity.mjs";
 
 export const CHECKPOINT_SCHEMA = "soulforge.voice.copy_only_checkpoint.v1";
 export const RECEIPT_SCHEMA = "soulforge.voice.copy_only_receipt.v1";
@@ -58,7 +59,6 @@ async function assertNormalExistingDirectory(path) {
   if (!info.isDirectory() || info.isSymbolicLink()) fail("unsafe_directory");
   const physical = await realpath(path);
   const lexical = resolve(path);
-  const comparable = (value) => process.platform === "win32" ? value.toLowerCase() : value;
   if (comparable(physical) !== comparable(lexical)) fail("unsafe_directory");
 }
 

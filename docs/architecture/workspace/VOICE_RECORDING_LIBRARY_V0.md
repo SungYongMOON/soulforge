@@ -49,8 +49,8 @@ _workspaces/system/voice_capture/plaud_mail_triggers/
 
 | 정보 | 정본 위치 | 동기화 수단 | writer |
 | --- | --- | --- | --- |
-| 원음, provider 전사, 독립 전사, 화자·맥락 분석 payload | `_workspaces/system/voice_capture/sessions/**` | owner-approved shared worksite | 맥미니 voice primary |
-| 녹음 색인, route 상태, 회의 묶음, queue, 전달 receipt/ack | `_workspaces/system/voice_capture/{library,meeting_bundles,local_asr_queue,plaud_mail_triggers,delivery}/**` | 같은 shared worksite | 맥미니; consumer ack만 각 PC |
+| 원음, provider 전사, 독립 전사, 화자·맥락 분석 payload | `_workspaces/system/voice_capture/sessions/**` | owner-approved shared worksite | TARGET HPP voice primary; cutover 전 맥미니 temporary failover |
+| 녹음 색인, route 상태, 회의 묶음, queue, 전달 receipt/ack | `_workspaces/system/voice_capture/{library,meeting_bundles,local_asr_queue,plaud_mail_triggers,delivery}/**` | 같은 shared worksite | 동일 active writer 1대; consumer ack만 각 PC |
 | 프로젝트별 음성 source event | `_workmeta/<project_code>/reports/voice_source_events/**` | project private Git | project metadata worker |
 | 프로젝트 맥락·업무 후보 | `_workmeta/<project_code>/project_context/**`, `_workmeta/<project_code>/reports/할일_장부/**` | project private Git | 승인된 project worker |
 | 공통 실행 이력·ingress 상태 | `private-state/guild_hall/state/**` | private-state Git | operational-primary |
@@ -117,7 +117,7 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
 
 ### 승인된 목표 처리선
 
-1. 맥미니가 Hiworks trigger 또는 명시 recovery 신호로 PLAUD 원음을 수집한다.
+1. active voice writer가 Hiworks trigger 또는 명시 recovery 신호로 PLAUD 원음을 수집한다. 정상 TARGET은 HPP이고 HPP unavailable/cutover 전에는 맥미니가 temporary failover다.
 2. provider 결과와 독립된 local ASR을 만들고 품질 flag를 계산한다.
 3. 평상시 녹음, 회의, 통화, 개인 메모를 분류하고 긴 녹음을 회의·주제 구간으로
    나눈다.
@@ -209,9 +209,10 @@ npm run guild-hall:voice-capture -- register-library \
 - `<session_id>.json`은 latest-stage pointer다. `local_asr_ready`가 같은 session의 `plaud_import_ready`를 의도적으로 덮어쓰며 기존 ack는 stale이 된다. immutable stage history archive는 아니다.
 - PLAUD import/library 등록과 독립 ASR 완료 뒤 producer receipt를 best-effort로 한 번 준비한다. receipt 실패는 retryable delivery warning이며 이미 성공한 import/ASR를 rollback하지 않는다.
 - `recordings.current.json` 와 `project_routes/P00-000_INBOX/**` 를 먼저 보고 미분류 녹음부터 route 검토한다.
-- 맥미니 수집 노드는 `_workspaces/system`이 active OneDrive shared link인지 audit한 뒤에만 기본 수집 경로를 사용한다. launchd plist와 로그는 `_workspaces/_local/<node_id>/` 및 사용자 로그 폴더에 둔다.
-- 맥미니를 voice payload와 session/runtime metadata의 단일 writer로 둔다. 다른 PC는
-  같은 session/library/queue 파일을 동시에 수정하지 않고 read, consumer ack, 허용된
+- active 수집 노드는 `_workspaces/system`이 active OneDrive shared link인지 audit한 뒤에만 기본 수집 경로를 사용한다. launchd plist와 로그는 `_workspaces/_local/<node_id>/` 및 사용자 로그 폴더에 둔다.
+- TARGET HPP와 temporary-failover 맥미니 중 유효 lease/epoch를 가진 정확히 한 대만
+  voice payload와 session/runtime metadata를 쓴다. 다른 PC는 같은
+  session/library/queue 파일을 동시에 수정하지 않고 read, consumer ack, 허용된
   project metadata write만 수행한다.
 - 이어받을 PC는 public repo, 필요한 `_workmeta/<project_code>`, `private-state`를 각각
   pull한다. 세 저장소의 commit이 같다는 이유만으로 raw payload 동기화가 끝났다고

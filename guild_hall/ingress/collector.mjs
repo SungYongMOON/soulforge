@@ -13,6 +13,7 @@ import {
 } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import { dirname, isAbsolute, posix, relative, resolve, sep } from "node:path";
+import { comparablePathIdentity as comparable } from "../shared/physical_path_identity.mjs";
 
 export const RUN_SCHEMA = "soulforge.ingress.staging_run.v1";
 export const RECEIPT_SCHEMA = "soulforge.ingress.staging_receipt.v1";
@@ -79,10 +80,6 @@ function fail(code) {
   const error = new Error(code);
   error.code = code;
   throw error;
-}
-
-function comparable(value) {
-  return process.platform === "win32" ? value.toLowerCase() : value;
 }
 
 function inside(root, target) {

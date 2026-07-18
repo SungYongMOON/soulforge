@@ -67,11 +67,14 @@ receipt with `--receipt <relative-path>`.
 | Cross-project operational continuity | `private-state/guild_hall/state/**` | private-state Git |
 | CLI, contracts, tests | public Soulforge tree | public Git |
 
-The Mac mini is the single writer for shared voice session/runtime surfaces.
-Other PCs pull the three applicable Git histories, materialize the shared
-workspace, verify raw arrival with their own consumer acknowledgement, and only
-write their permitted project metadata. Raw audio and transcript bodies never
-move through Git.
+The HPP always-on identity is the target normal writer for shared voice
+session/runtime surfaces. Until an explicit HPP cutover receipt exists, the
+currently active Mac mini collector remains the temporary-failover single
+writer. Other PCs pull the three applicable Git histories, materialize the
+shared workspace, verify raw arrival with their own consumer acknowledgement,
+and only write their permitted project metadata. Raw audio and transcript
+bodies never move through Git, and HPP plus Mac never write the same shared
+runtime concurrently.
 
 The HPP may additionally run `copy_only_mirror_cli.mjs` as a bounded,
 source-preserving migration/audit mirror into an owner-approved staging root. The mirror follows an
@@ -85,8 +88,9 @@ payload again. A changed source produces an immutable version instead of
 replacing the first live copy. Its output is not HPP accepted quarantine/inbox,
 does not create an authenticated transfer receipt, and must not be presented as
 the `transfer_service` or project promoter. It does not classify a project,
-write ERP, or change the Mac mini writer role. Continuous accepted-ingress use
-remains blocked on the private `VERIFY_HP` transfer-service binding.
+write ERP, or by itself switch the active voice writer. Continuous
+accepted-ingress use remains blocked on the private `VERIFY_HP`
+transfer-service binding and an explicit cutover receipt.
 
 ## Cross-PC delivery receipts
 

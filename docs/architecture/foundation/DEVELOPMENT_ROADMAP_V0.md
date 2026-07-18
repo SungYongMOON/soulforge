@@ -98,8 +98,14 @@ read-only snapshot
 
 - 2026-07-13 owner는 24시간 맥미니를 voice processing operational-primary로
   지정하고, 사람의 매 건 확인을 기다리지 않는 `AI 임시 확정 -> 재검증 -> 예외만
-  사람 확인` 방향을 승인했다. PLAUD 장치 자체의 단독 정본 채택은 별도 파일럿으로
-  유지한다.
+  사람 확인` 방향을 승인했다. 이 장비 지정은 아래 2026-07-18 결정으로 대체됐지만,
+  AI 임시 확정 방향과 PLAUD 단독 정본 채택의 별도 파일럿 경계는 유지한다.
+- 2026-07-18 owner는 회사 NAS에 접근할 수 있고 장시간 고성능 처리가 가능한 HPP를
+  voice processing, central ingress/custody, Task Engine/AX의 정상 운영
+  operational-primary TARGET으로 재지정했다. 맥미니는 경량 상시 감시·source
+  spool·fallback/mirror와 별도 worktree의 public 개발면을 맡는다. HPP가 꺼져 있거나
+  exact binding/cutover receipt가 아직 없을 때는 기존 맥미니 writer를 즉시 끄지 않고
+  temporary failover로 유지하며, 두 장비의 동일 shared surface 동시 write는 금지한다.
 - 목표는 평상시 녹음·회의·통화를 구분하고, 긴 녹음을 회의/주제별로 나눈 뒤,
   동의된 화자 후보와 mail·SE schedule·project context를 결합해 프로젝트, 담당자,
   결정, 할일, 기한을 내부 임시 상태로 계속 적재하는 것이다.

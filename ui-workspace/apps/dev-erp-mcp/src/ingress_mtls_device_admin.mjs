@@ -2,6 +2,7 @@ import { createHash, randomBytes, X509Certificate } from "node:crypto";
 import { lstat, open, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 
+import { comparablePathIdentity as comparable } from "../../../../guild_hall/shared/physical_path_identity.mjs";
 import {
   INGRESS_MTLS_DEVICE_REGISTRY_SCHEMA,
   normalizeIngressMtlsDeviceRegistry,
@@ -12,10 +13,6 @@ function fail(code, status = 400) {
   error.code = code;
   error.status = status;
   throw error;
-}
-
-function comparable(value) {
-  return process.platform === "win32" ? value.toLowerCase() : value;
 }
 
 function absolute(value) {

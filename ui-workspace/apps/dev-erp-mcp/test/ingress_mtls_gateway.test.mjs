@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash, X509Certificate } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer as createNetServer } from "node:net";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { delimiter, resolve } from "node:path";
 import test from "node:test";
 
 import { createIngressMcpHttpServer } from "../ingress_server.mjs";
@@ -38,14 +38,17 @@ function opensslPath() {
   const bundled = process.platform === "win32" && process.env.ProgramFiles
     ? resolve(process.env.ProgramFiles, "Git", "usr", "bin", "openssl.exe")
     : null;
-  const candidates = process.platform === "win32"
-    ? [bundled, "openssl"].filter(Boolean)
-    : ["openssl"];
+  const executableName = process.platform === "win32" ? "openssl.exe" : "openssl";
+  const pathCandidates = String(process.env.PATH || "")
+    .split(delimiter)
+    .filter(Boolean)
+    .map((entry) => resolve(entry, executableName));
+  const candidates = [bundled, ...pathCandidates].filter(Boolean);
   for (const candidate of candidates) {
-    if (candidate !== "openssl" && !existsSync(candidate)) continue;
+    if (!existsSync(candidate)) continue;
     try {
       execFileSync(candidate, ["version"], { stdio: "ignore" });
-      return candidate;
+      return realpathSync(candidate);
     } catch {}
   }
   return null;

@@ -12,6 +12,7 @@ import {
 } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { comparablePathIdentity as comparable } from "../shared/physical_path_identity.mjs";
 
 export const LOCAL_OUTBOX_BINDING_SCHEMA = "soulforge.ingress.local_outbox_binding.v1";
 export const LOCAL_OUTBOX_RECEIPT_SCHEMA = "soulforge.ingress.local_outbox_receipt.v1";
@@ -40,10 +41,6 @@ function fail(code) {
   const error = new Error(code);
   error.code = code;
   throw error;
-}
-
-function comparable(value) {
-  return process.platform === "win32" ? value.toLowerCase() : value;
 }
 
 function inside(root, target) {

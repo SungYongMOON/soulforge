@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { lstat, open, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 
+import { comparablePathIdentity as comparable } from "../../../../guild_hall/shared/physical_path_identity.mjs";
 import {
   generateIngressToken,
   hashIngressToken,
@@ -19,10 +20,6 @@ function fail(code, status = 400) {
 function pathValue(value) {
   if (typeof value !== "string" || !isAbsolute(value)) fail("auth_registry_absolute_required");
   return resolve(value);
-}
-
-function comparable(value) {
-  return process.platform === "win32" ? value.toLowerCase() : value;
 }
 
 async function assertNormalParent(path) {

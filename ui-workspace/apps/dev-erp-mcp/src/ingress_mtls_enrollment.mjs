@@ -7,6 +7,7 @@ import { constants as fsConstants } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { promisify } from "node:util";
 
+import { comparablePathIdentity as comparable } from "../../../../guild_hall/shared/physical_path_identity.mjs";
 import { INGRESS_MTLS_CLIENT_SCHEMA } from "./ingress_mtls_client.mjs";
 
 export const INGRESS_MTLS_ENROLLMENT_SCHEMA = "soulforge.ingress.mtls_enrollment_request.v1";
@@ -24,10 +25,6 @@ function fail(code, status = 400) {
   error.code = code;
   error.status = status;
   throw error;
-}
-
-function comparable(value) {
-  return process.platform === "win32" ? value.toLowerCase() : value;
 }
 
 function absolute(value, code = "enrollment_absolute_path_required") {
