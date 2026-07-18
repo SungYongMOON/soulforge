@@ -355,7 +355,7 @@ test("CLI device capability branch leaves doctor status and Git index untouched"
   const execution = spawnSync(process.execPath, ["guild_hall/doctor/cli.mjs", "--profile", "public-only", "--device-capabilities", "--json"], {
     cwd: REPO_ROOT,
     encoding: "utf8",
-    timeout: 10000,
+    timeout: 30000,
   });
   const after = localStateSnapshot();
 

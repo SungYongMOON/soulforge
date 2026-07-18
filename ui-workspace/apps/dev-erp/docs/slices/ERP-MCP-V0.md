@@ -91,6 +91,26 @@ knowledge candidate만 제출하며 Wiki/RAG index/canon/ontology/task를 직접
 token `last_used_at` 같은 audit field를 갱신할 수 있으므로 read의 zero-mutation은 보호 대상 업무·할일·
 지식 row delta `0`으로 정의하고 DB file byte-zero로 과장하지 않는다.
 
+### HPP brokered upload/download `TARGET` (아직 구현 아님)
+
+현행 bearer와 service-owned upload inbox는 위 `CURRENT` pilot로 보존한다. Production target은 one-time
+human-approved device enrollment, mTLS, OS-protected silent broker refresh와
+`user+device+agent+opaque-thread+task+project+artifact+revision+action+expiry` delegation chain을 사용한다.
+Routine chunk마다 prompt하지 않고 recovery/scope expansion/restricted reveal-download/promotion-move-delete/
+official completion/knowledge promotion만 step-up한다.
+
+MCP는 ticket을 준비하는 control plane이고 XLSX/PPT/HWPX/PDF/ZIP/audio bytes는 strict private office
+LAN의 mTLS/authenticated HTTPS data plane으로 이동한다. VPN/Tailscale/remote access는 `OFF/DEFER`이며
+별도 future owner approval·threat model·trust/CA/ACL·acceptance gate 전에는 HPP authority가 없다.
+HPP `transfer_service`만 quarantine/inbox binary를,
+HPP `promoter`만 project binding을 쓴다. Ticket은 actor chain과 method/audience/hash/size/media/expiry를
+결박하고 URL만으로 authority가 되지 않는다. Client destination path, direct D/UNC/SMB, public ingress,
+port-forward/Funnel은 금지한다. Exact revision download는 bounded range resume와 final hash를 검증하며
+latest/raw fallback하지 않는다. 상세 계획은
+[`TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`](../TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md)의
+`A8-SYNTH`/`A8-CANARY`, D27~D29를 따른다. CANARY는 SYNTH PASS+accepted private `VERIFY_HP` exact
+binding receipt+strict office LAN+explicit owner approval+Level 3 live gate 전에는 실행하지 않는다.
+
 ## 토큰과 비용
 
 - 자연어 추론과 문서 작성 토큰: 팀원 개인 Codex 계정/구독에서 소비된다.
@@ -175,7 +195,7 @@ bearer_token_env_var = "SOULFORGE_ERP_MCP_TOKEN"
 default_tools_approval_mode = "writes"
 ```
 
-팀 LAN 운영에서는 평문 `http://172.16.10.196:4311`을 사용하지 않는다. HTTPS reverse
+팀 LAN 운영에서는 평문 `http://<approved-lan-host>:<mcp-port>`을 사용하지 않는다. HTTPS reverse
 proxy/tunnel 뒤의 URL을 `ERP_MCP_PUBLIC_URL`과 Codex config에 넣고, sidecar는 기본처럼
 loopback에만 bind한다. 현재 코드는 실제 listen host와 public URL의 non-loopback 평문을
 기본 거부하고, sidecar에서 ERP로 개인 bearer를 전달하는 upstream URL도 평문이면

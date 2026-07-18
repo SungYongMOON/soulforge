@@ -19,8 +19,8 @@ tracked files under `.registry/knowledge`.
   reconcile `.registry/knowledge` automatically.
 
 ```powershell
-npm.cmd run guild-hall:knowledge-canon -- create --repo-root C:\Soulforge `
-  --output-root C:\Soulforge\_workspaces\system\ontology_canon\<release_id> `
+npm.cmd run guild-hall:knowledge-canon -- create --repo-root . `
+  --output-root _workspaces/system/ontology_canon/<release_id> `
   --release-id <release_id> --git-commit <commit> --created-at <iso8601> `
   --owner-decision-ref <metadata-only-ref>
 

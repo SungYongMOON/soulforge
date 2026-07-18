@@ -49,6 +49,17 @@ PLAUD account collector on an always-on node
 - Project owners: retain authority for external execution, official approval,
   technical truth, and correction of exception cases.
 
+For the HPP Task Engine/MCP target, the Mac is a **source-local spool and source
+producer**, not the accepted central custody writer. It keeps recorder/ASR queue,
+raw audio, transcript revisions, and durable local outbox until an HPP
+strict-private-office-LAN mTLS/authenticated-HTTPS transfer receipt is verified.
+VPN/Tailscale/remote transfer remains `OFF/DEFER`. HPP `transfer_service` alone
+writes accepted quarantine/inbox bytes; a separate HPP promoter alone creates an
+approved project binding. OneDrive arrival or shared-link visibility is not HPP
+acceptance. During HPP outage the Mac holds/retries locally and never mounts HPP
+storage or becomes a split central writer. Exact HPP path/network/cert binding is
+private `VERIFY_HP`; HPP custody is `TARGET` and no live binding is created by this document.
+
 The AI context resolver is an owner-approved target, not a current runtime
 claim. The current MVP still stops at `P00-000_INBOX`, metadata-only source
 pointers, and completion notification until the provisional-state schema,

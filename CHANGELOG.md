@@ -1,6 +1,255 @@
 # CHANGELOG
 
+## 2026-07-18
+
+### Windows device-capability validation stability
+
+- Raised the file-only public capability CLI test timeout from 10 to 30 seconds
+  so the full parallel core-loop suite does not misclassify a valid Windows
+  probe as `status: null` under load. The probe remains read-only and its
+  runtime behavior is unchanged. (worker: codex_gpt-5)
+- Raised the dev-ERP life-tree HTTP fixture readiness budget from 3 to 15
+  seconds so a valid Windows cold start is not misclassified as a server
+  failure. Production server behavior is unchanged. (worker: codex_gpt-5)
+- Raised the dedicated-worker integration client's request budget from 10 to
+  30 seconds and the runtime workspace child probe from 1.5 to 5 seconds
+  (bounded at 10 seconds), preventing valid fail-closed checks from timing out
+  under the four-way Windows test load. (worker: codex_gpt-5)
+
+## 2026-07-17
+
+### Feature-OFF strict office-LAN mTLS ingress gateway
+
+- Added an exact RFC1918 IPv4/TLS 1.3 mutual-TLS gateway in front of the
+  loopback-only HPP evidence ingress MCP, with client-certificate enrollment,
+  revocation, server-certificate pinning, exact Host/audience and certificate-
+  to-bearer account/device/agent binding.
+- Added a fail-closed exact RFC1918 client-source guard before handler-level
+  certificate registry and bearer authentication, including IPv4-mapped
+  address normalization; this supplements rather than replaces the OS firewall.
+- Changed ingress credential CLI issuance to require a new protected token
+  output file, fail before registry mutation on path collision, and omit the
+  token from stdout.
+- Added per-certificate rate/concurrency and request-body bounds plus per-
+  credential open-upload, pending-byte, and retained-byte quotas without
+  weakening restart-safe idempotent replay.
+- Added a bound client transport, public-certificate-only device admin, safe
+  one-seat preflight/read-only identity probe, four strict JSON schemas, and a
+  physical canary runbook that keeps key/token material out of CLI arguments.
+- Added a target-local enrollment flow that creates the private key and CSR on
+  the work PC, sends only the public request/CSR to HPP for CA signing, verifies
+  the returned certificate against the untouched local key, and writes the
+  pinned client binding without printing key or bearer material.
+- Added real TLS socket adversarial E2E for file, structured-PC-work, run-log,
+  status, source preservation, unregistered/revoked certificate, bearer
+  identity swap, host/route/body/rate bounds, server pin, and feature-OFF
+  behavior. The endpoint is synthetic: no actual HPP LAN listener, firewall,
+  certificate/token delivery, or other PC was activated. (worker: codex_gpt-5)
+
+### Feature-OFF HPP evidence ingress MCP
+
+- Added a separate loopback-only Streamable HTTP MCP that sends authenticated
+  team files, bounded structured-PC-work events, and bounded run receipts only
+  into the existing HPP local outbox; it does not open ERP DB, `_workspaces`,
+  project promotion, accepted history, or TaskEngine completion paths.
+- Added person/account, device, and AI-agent credential identities with exact
+  project/capability scopes, SHA-256-only token registry storage, expiry,
+  revocation, account/object existence isolation, and local issue/list/revoke
+  administration with one-time token display.
+- Added size/hash-bound resumable chunks, restart-safe idempotency, immutable
+  source retention, pending versus verified HPP acknowledgement, strict schemas,
+  path/extension/boundary guards, and a client CLI that never accepts a token on
+  the command line.
+- Added adversarial unit/integration coverage and a multi-process E2E in which
+  three isolated virtual work PCs exercise all six MCP tools, concurrent file/
+  work/run lanes, project denial, cross-account denial, server restart, ack
+  verification, and credential revocation. LAN/TLS/firewall, actual team tokens,
+  mail credentials, malware scan/quota, promoter/history, and production remain
+  OFF. (worker: codex_gpt-5)
+
+### Default-OFF continuous non-mail ingress supervisor
+
+- Added a strict private binding schema and one-shot HPP supervisor for the
+  existing voice copy-only mirror and explicit team-file, structured-PC-work,
+  and run-log outbox queues.
+- Added a D-local exclusive lease, monotonic epoch and per-payload fence-token
+  revalidation, expired-lease archival, source-preserving queue drain, bounded
+  coverage gaps, restart-safe idempotent replay, run receipts, and health state.
+- Kept mail credential-pending, scheduler installation, arbitrary workspace
+  discovery, client outbox deletion, project promotion, ERP/MCP/TaskEngine
+  writes, and continuous activation outside the public runner. (worker:
+  codex_gpt-5)
+- Added an explicit-file local outbox producer with immutable occurrence
+  payloads, pending metadata receipts, same-key conflict rejection, and safe
+  handoff into the HPP queue drain. Collection still does not imply project
+  classification, official history, authenticated cross-PC acknowledgement,
+  or task completion. (worker: codex_gpt-5)
+- Added post-custody queue acknowledgements bound to the active fence epoch.
+  Acknowledged immutable occurrences are skipped on later cycles, crash-before-
+  ack retries remain idempotent, and changed source stat identity fails closed;
+  cross-PC ack delivery and client compaction remain disabled. (worker:
+  codex_gpt-5)
+
+### Common file-backed unclassified ingress staging
+
+- Added one default-dry-run command for explicitly staging a regular team file,
+  structured PC work event, or run log into its fixed data-plane incoming lane.
+- Added verified SHA-256 copies, immutable digest paths, metadata-only receipts
+  and checkpoints, idempotent reruns, immutable changed-content versions, and
+  fail-closed manifest/path/symlink/overlap/stability/existing-content guards.
+- Split content identity from opaque source-occurrence identity so identical
+  bytes deduplicate to one payload while each owner/key keeps distinct receipt
+  and checkpoint history, including immutable changed-content generations.
+- Revalidate physical staging parents immediately before temporary writes and
+  final publication so a changed directory fails without publishing metadata.
+- Kept project classification, accepted/quarantine state, source mutation,
+  directory crawling, ERP/DB, network/MCP, service, task, and scheduler writes
+  outside this bounded staging collector. (worker: codex_gpt-5)
+
+### ERP-independent team mail raw ingress path
+
+- Added an explicit `--data-root` binding for the existing team mail collector
+  so its private config, mailbox source custody, and restart state can live on
+  one stable data volume without reconnecting mailbox accounts.
+- Added `--ingress-only` / `EMAIL_FETCH_INGRESS_ONLY=true` to store raw and
+  normalized mail events plus cursor/dedupe/run state while skipping project
+  history, candidate, notification, PLAUD-trigger, native-attachment, and
+  link-download writes.
+- Kept activation separate: no account secret was created or changed and no
+  collector, ERP, MCP, or scheduler was started. (worker: codex_gpt-5)
+
+### HPP voice copy-only migration/audit mirror
+
+- Added a path-agnostic, exact-lane voice mirror that verifies source stability
+  and SHA-256 before adding payloads to a central data root.
+- Added restart checkpoints, immutable metadata receipts, legacy-tree seeding,
+  idempotent reruns, bounded per-run copy limits, and no-delete/no-overwrite
+  behavior for missing or changed source files.
+- Kept the Mac mini source-writer role and OneDrive workspace unchanged; the
+  mirror is unaccepted staging, not `transfer_service` acceptance, and does not
+  classify projects or write ERP, task, or workspace history.
+  (worker: codex_gpt-5)
+
+### Stable private mail collector storage binding
+
+- Added `EMAIL_FETCH_PRIVATE_CONFIG_ROOT` support so ERP mailbox credentials and
+  the team mailbox register can remain in one private data root while immutable
+  release checkouts are replaced.
+- Made ERP mailbox credential write/delete, single-mailbox connection tests,
+  team-register export, and team collection resolve the same stable private
+  root, while retaining traversal rejection and secret-free public metadata.
+- Kept collection activation separate: the new binding does not start a
+  collector, scheduler, MCP service, or writer by itself. (worker: codex_gpt-5)
+
+### ERP MCP default-OFF runtime guard
+
+- Made ERP MCP DDL and HTTP routes opt-in through `DEV_ERP_MCP_ENABLED=1`.
+- With the flag absent or disabled, server startup does not materialize
+  `erp_mcp_*` tables and MCP endpoints return 404; existing core ERP behavior
+  remains available.
+- Added an integration regression for the default-OFF boundary and kept the
+  existing MCP pilot test explicitly enabled. This is a feature-OFF deployment
+  foundation, not a live MCP, token, scheduler, writer, or team activation.
+  (worker: codex_gpt-5)
+
 ## 2026-07-16
+
+### Task Engine A8-SYNTH secure-access source foundation
+
+- Added a public/pathless/feature-OFF pure verifier with strict packet/output
+  schemas and computed `HP-STORAGE-01..10`, `HP-INGRESS-01..16`,
+  `HP-SESSION-01..18`, and `HP-QUERY-01..16` coverage.
+- Bound seven source custody/policy rows, enrollment and delegation ceilings,
+  exact ticket/finalize/range behavior, WorkSession crash/ack/handoff fixtures,
+  ACL/existence/RAG/cache/redaction cases, and HPP sole-writer/topology guards.
+- Restricted CLI packet reads to a contained relative regular file and added
+  deterministic domain-separated packet/policy/suite/category/coverage/check/
+  receipt digests, strict safe-error effects, and 19 focused adversarial tests.
+- This is source implementation evidence only. D27-D29 owner acceptance,
+  `VERIFY_HP`, live/private binding, DB/data/write/network, A8-CANARY, P0-P10,
+  bulk, team, and production effects remain `0`. (worker: codex_gpt-5)
+
+### HPP MCP/storage/access plan correction
+
+- Preserved `_workspaces/<project>` as the actual logical project body/payload owner, its established OneDrive-
+  junction physical materialization, and P0→P10 while separating narrow active runtime exclusions from HPP TARGET custody.
+- Added independent public/pathless `A8-SYNTH` and `A8-CANARY` only after SYNTH PASS+accepted private
+  `VERIFY_HP` exact binding receipt+strict office LAN+explicit owner+Level 3, plus exact-revision transfer,
+  ACL/RAG/redaction adversarial acceptance, and
+  fail-closed rollback/outage rules. No topology, code, schema, data, binding, or activation change was made.
+  (worker: codex_gpt-5)
+
+### Task Engine C00B pure judge foundation
+
+- Added a separate deterministic C00B packet judge and strict PASS receipt
+  schema for exact approval/expiry/revocation, frozen C00Q refs and digest,
+  all authorized-observation sources across five lanes (at least one per lane),
+  C00-LIVE-01..04 scope, zero mutation, sentinel, and stdout-only
+  authority-effect checks.
+- Bound C00A/C00Q full-B/V prerequisites, owner-with-state executor inventory
+  authority, revocation refs, source adapter/allowlist/time/row limits,
+  adapter-specific quiescence authority, output field/retention refs, explicit
+  required/resolved/unresolved proof sets, and deep SQLite fingerprint
+  equivalence. Nonempty catalog aggregate rows are covered by regression tests.
+- Removed self-attested PASS: the judge now requires a separately supplied
+  owner-approved packet digest, recomputes its non-recursive binding domain,
+  and binds every authority plus the C00Q full-B/V and per-source contracts.
+  Frozen C00Q tool/test/schema Git blobs and SHA-256 values are exact constants.
+- Added required/optional/not-applicable expected-source owner rules, producer
+  descriptor/manifest binding, frozen C00Q identifier/source-set validation,
+  SQLite main-present/WAL-SHM-absent equivalence, complete receipt evidence and
+  earliest-expiry fields, and fail-closed BLOCKED proof/effect envelopes.
+- Required an independent packet- and evidence-bound C00A acceptance authority
+  plus the exact C00A BLOCKED receipt-state summary; its authority, revocation,
+  and expiry now participate in global uniqueness and effective expiry.
+- Replaced the receipt test's manual schema-shaped assertion with strict Ajv
+  2020 compilation/validation and explicit unknown-key rejection.
+- This is a pure foundation, not a live reader: no source, DB, workspace,
+  collector, runtime, or writer was opened or changed. Live C00B remains
+  blocked pending exact D bindings, authority, quiescence, and a separately
+  authorized live packet. (worker: codex_gpt-5)
+
+### Task Engine C00B private-binding producer foundation
+
+- Reserved `task_engine_inventory_c00b_binding_producer.mjs`, strict
+  `soulforge.task_engine_inventory_c00b_binding_input.v1` and
+  `soulforge.task_engine_inventory_safe_aggregate_evidence.v1` contracts,
+  focused tests, and `validate:task-engine-c00b-binding-v1` for producing a
+  private C00Q descriptor, safe aggregate evidence, and digest-bound C00B
+  packet from an owner-approved private binding input. The public producer,
+  schemas, focused tests, and validation script are implemented; a live private
+  binding remains unavailable until exact lane authority and source evidence
+  exist.
+- Frozen C00Q/C00B files remain unchanged; locators stay private input-only,
+  public defaults are not live bindings, file mtime is not business freshness,
+  incomplete grants fail closed, and final packets require a separately supplied
+  digest-bound authority input rather than producer-created authority. Private
+  artifact writes are restricted to a grant-bound real output root and three
+  exact filenames with no temporary artifact name; descriptor/aggregate writes
+  additionally require an approved descriptor binding state and their
+  digest-bound materialization approval. Failure cleanup never deletes an
+  output pathname. Freshness
+  timestamps, stale ceilings, and evidence refs are
+  authority-coupled. C00B PASS unlocks only H00 review—not P1, writer, or
+  activation. No live-readiness claim was created.
+- Final source-evidence authorities now carry exactly one
+  `aggregate:<64hex>` ref matching the safe aggregate evidence digest. Proposal
+  inputs may omit it, while missing, wrong, duplicate, or misplaced final
+  carriers fail closed. The producer also preflights the complete packet with
+  the unchanged frozen judge before any packet write and rejects nested
+  manifest extras plus GitHub, Slack, and AWS token-shaped strings without
+  reflecting them.
+  (worker: codex_gpt-5)
+
+### Task Engine C00Q query-only inventory synthetic foundation
+
+- Added the public/synthetic five-lane inventory descriptor and manifest schema,
+  deterministic query-only CLI, pre-open WAL/SHM quiescence and SQLite
+  read-only/zero-mutation guards, and
+  sanitized mail/voice health evaluators with explicit D25/D26 blockers.
+- This slice performed actual live/data/DB/workspace/collector/write execution
+  `0`; C00B live binding and execution remain stopped pending separate owner
+  approval. (worker: codex_gpt-5)
 
 ### Structured Outlook request-mail default
 
@@ -27,6 +276,17 @@
   attachments, runtime-only attachment password handling, and no send authority.
 
 ## 2026-07-15
+
+### PLAUD 녹음 시각 KST 정규화
+
+- offset 없는 PLAUD CLI `start_at`·`created_at`을 provider UTC로 해석한 뒤
+  `Asia/Seoul`로 정규화하도록 수집 경로를 보정하고, manifest에 원시 시각
+  해석 근거를 남기도록 했다.
+- 기존 `plaud_cli_import`의 잘못 표기된 시각과 session/library/delivery/ASR/
+  project-context pointer를 원문 payload 변경 없이 일괄 이관하는 dry-run 우선
+  `audit-kst`·`migrate-kst` 경로와 회귀 테스트를 추가했다.
+- KST 적용 범위와 예외(명시적 `Z` audit 시각, 녹음 시작 기준 상대 전사 시각)를
+  root agent 지침과 PLAUD 운영 계약에 고정했다. (worker: codex_gpt-5)
 
 ### 할일 엔진 ingress·팀 WorkSession·지식 조회 계획 보정
 

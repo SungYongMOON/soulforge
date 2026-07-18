@@ -33,6 +33,30 @@ The current PLAUD adoption decision is documented in
 use PLAUD as a pilot primary-audio candidate, not as authoritative transcript,
 speaker identity, minutes, or task evidence.
 
+## PLAUD time contract
+
+- The PLAUD CLI's absolute `start_at`/`created_at` value is interpreted as UTC
+  when it has no offset. An explicit ISO 8601 offset or `Z` remains authoritative.
+- Owner-facing recording start/end fields, session IDs, date folders, library
+  routes, delivery/ASR pointers, and project-context event times are normalized
+  to `Asia/Seoul` (`+09:00`, KST).
+- Explicit `Z` audit timestamps such as completion/write times stay UTC.
+  Transcript segment times remain offsets from recording start and are not
+  timezone-converted.
+- A session manifest records the provider timestamp basis and normalized
+  timezone so a timezone-less value cannot silently become host-local time.
+
+Audit legacy automatic imports without changing files:
+
+```bash
+npm run guild-hall:voice-capture:plaud -- audit-kst
+```
+
+`migrate-kst --apply` is an explicit repair operation for legacy
+`plaud_cli_import` sessions. It updates active metadata and time-derived paths,
+preserves raw audio/transcript payloads, and can write a metadata-only mapping
+receipt with `--receipt <relative-path>`.
+
 ## Storage and cross-PC ownership
 
 | Surface | Location | Transfer |
@@ -48,6 +72,21 @@ Other PCs pull the three applicable Git histories, materialize the shared
 workspace, verify raw arrival with their own consumer acknowledgement, and only
 write their permitted project metadata. Raw audio and transcript bodies never
 move through Git.
+
+The HPP may additionally run `copy_only_mirror_cli.mjs` as a bounded,
+source-preserving migration/audit mirror into an owner-approved staging root. The mirror follows an
+exact lane allowlist, verifies streaming SHA-256, writes restart checkpoints
+and immutable metadata receipts, and never deletes or overwrites the source.
+An optional caller-supplied fence assertion can stop the mirror before and
+after each custody item and checkpoint; the continuous HPP supervisor uses it
+to reject a lost lease epoch without changing standalone mirror callers.
+An already copied legacy tree is hash-verified and seeded without copying the
+payload again. A changed source produces an immutable version instead of
+replacing the first live copy. Its output is not HPP accepted quarantine/inbox,
+does not create an authenticated transfer receipt, and must not be presented as
+the `transfer_service` or project promoter. It does not classify a project,
+write ERP, or change the Mac mini writer role. Continuous accepted-ingress use
+remains blocked on the private `VERIFY_HP` transfer-service binding.
 
 ## Cross-PC delivery receipts
 

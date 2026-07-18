@@ -1,5 +1,169 @@
 # dev-erp — 개발팀 운영 콕핏 (P1: 읽기 전용)
 
+## Task Engine A8-SYNTH secure-access source foundation
+
+`tools/a8_synth_secure_access.mjs` is a public, pathless, feature-OFF pure
+verifier for the D27-D29 secure-access contract. It has no MCP server, live
+binding, DB, network, collector, writer, private value, or operational effect.
+The CLI accepts one relative literal regular JSON file contained under its
+current working directory; absolute, UNC/device, URL, traversal, symlink, and
+oversized inputs are rejected before packet reading.
+
+```bash
+node ui-workspace/apps/dev-erp/tools/a8_synth_secure_access.mjs --synthetic --feature-off --json --packet packet.json --approved-packet-digest <sha256:digest>
+node --test ui-workspace/apps/dev-erp/test/a8_synth_secure_access.test.mjs
+```
+
+The strict packet and receipt schemas are
+`docs/contracts/a8_synth_secure_access_packet.v1.schema.json` and
+`docs/contracts/a8_synth_secure_access_output.v1.schema.json`. The verifier
+computes exactly 60 checks: `HP-STORAGE-01..10`, `HP-INGRESS-01..16`,
+`HP-SESSION-01..18`, and `HP-QUERY-01..16`. The internal public fixture covers
+the seven §3.5 source custody rows; enrollment/mTLS/broker/delegation ceilings;
+ticket actor/object/method/audience/hash/size/expiry binding; idempotent
+finalize, conflict and revoke races; exact-revision bounded range reassembly;
+WorkSession start/bind/event/outbox/ack/handoff/outage behavior; artifact and
+revision existence safety; RAG pre/post filtering, cache revocation, and
+immutable redacted-derivative lineage. Outcomes are computed from fixture
+cases instead of trusting caller-declared PASS fields.
+
+The receipt carries domain-separated packet, policy, suite, category, coverage,
+check-result, and final receipt digests, plus the earliest effective expiry.
+All P0-P10, D27-D29 owner acceptance, `VERIFY_HP`, A8-CANARY, writer, live,
+bulk, team, and production effects remain false. The fixture authority is
+explicitly `synthetic_fixture_only` with `owner_acceptance=false`; therefore a
+60/60 PASS proves only the public source implementation. It does not approve a
+device, server, project, file, private binding, or canary.
+
+Exits are `0` computed synthetic PASS, `2` invalid packet/CLI, `3` approved
+digest mismatch, `4` invariant/coverage failure, `5` raw/path/secret sentinel,
+and `6` contained packet read failure. Safe errors emit one compact stdout line
+with every authority/live/write effect fixed to zero and never echo the input
+path or packet value.
+
+## Task Engine C00B pure judge foundation
+
+`tools/task_engine_inventory_c00b_judge.mjs` is a separate, pure C00B judge
+foundation. It reads one literal JSON packet and does not open a live source,
+database, workspace, collector, network endpoint, or writer:
+
+```bash
+node ui-workspace/apps/dev-erp/tools/task_engine_inventory_c00b_judge.mjs --query-only --json --packet <literal-json-path> --approved-packet-digest <sha256:digest>
+```
+
+The separate digest argument must come from an owner-approved command surface.
+The judge recomputes `packet_digest` over the complete packet after removing
+only the top-level `packet_digest` and every authority's
+`bound_packet_digest`, then requires the packet field, external argument, and
+all authority bindings to match. The helper computes a digest; it does not
+create approval. A missing or mismatched external digest is `BLOCKED` and can
+never produce a self-attested P0 PASS.
+
+The strict packet fixes `evaluation_time`, C00A and C00Q full-B/V receipt
+prerequisites, an internally matching clean baseline attestation, the exact
+`owner-with-state` executor identity and inventory authority, three distinct
+unexpired/unrevoked approvals with revocation refs, exact frozen C00Q
+tool/test/schema Git blobs and SHA-256 digests, at least one declared
+`authorized_observation` source row for each of the five lanes, an exact
+expected-source owner rule, producer descriptor/manifest digests, and the safe
+embedded C00Q manifest. Expected sources use exactly
+`required|optional|not_applicable`; only not-applicable rows carry an
+applicability ref, and C00Q lane display follows its applicable-source rule.
+The C00A prerequisite includes an independent `c00a_acceptance` authority bound
+to both the approved packet and C00A receipt digest. Its strict receipt summary
+must remain `TEAX-C00A`, `BLOCKED`, exit `3`, all four live proofs unresolved,
+tracked zero mutation true, no sentinel violations, and legacy
+`p1_unlocked=false`. C00A expiry and revocation participate in the global
+authority set and earliest effective expiry.
+Every source row binds an adapter/version,
+literal-read and query allowlist digests, positive time/row bounds, source
+contract digest, evidence authority, and an unexpired quiescence authority.
+All approvals and authorities carry exact kinds, unique authority refs,
+revocation refs, the approved packet digest, and, for source authorities, the
+source contract digest. C00Q acceptance also binds the prerequisite full-B/V
+receipt digest. Attested metadata requires `no_source_opened_attested`; SQLite
+catalog evidence requires `sidecar_free_exclusive_window_attested`.
+
+The judge uses only `evaluation_time`; it does not consult the wall clock. It
+recomputes the C00Q manifest digest, preserves the C00Q authority ceiling as
+false, requires every lane/source authority to cover `C00-LIVE-01..04`, and
+checks source-level zero mutation. SQLite evidence must have independently
+equal before/after fingerprints, present main files, and absent WAL/SHM files
+even when `equivalent=true`. Aggregate identifiers use the frozen C00Q grammar
+and every aggregate source belongs to the exact expected set. The raw/path/secret
+sentinel and `stdout_only` durable writes `0` output are fixed together with
+field-allowlist and retention refs. Baseline and frozen refs in this foundation
+are packet evidence; the command does not claim it re-observed Git or live
+bindings.
+
+A PASS receipt is deterministic and has only `p0_accepted=true`,
+`next_gate=TEAX-H00_RATIFICATION`, and `h00_review_unlocked=true` as positive
+effects. P1 adapter execution, H00 ratification, D21-D26 authority, and
+writer/activation authority remain false; the receipt never emits
+`p1_unlocked`. It records the approved packet digest, prerequisite and frozen
+evidence digests, producer digests, source contract digests, all authority and
+revocation refs, the earliest effective authority expiry, the exact required
+and resolved live-proof sets, and an empty unresolved set. Every blocked/error
+envelope instead preserves all four proofs as unresolved and every authority
+effect as false. Exits are `0` PASS, `2` invalid packet/CLI, `3` blocked
+approval/authority/source, `4` guard failure, `5` sentinel failure, and `6`
+operational packet-read failure. Errors are compact stdout-only envelopes and
+never echo the input path or packet values.
+
+**STOP:** this is a judge foundation only. Live C00B reading/execution remains
+blocked pending exact D bindings, source and judge authority, approved
+quiescence/zero-mutation methods, and a separately authorized live packet.
+The focused test compiles the tracked receipt schema with strict Ajv 2020,
+validates PASS receipts, and rejects unknown receipt keys; manual field checks
+are not treated as schema validation.
+
+## Task Engine C00Q query-only inventory
+
+`tools/task_engine_inventory.mjs` is the public/synthetic C00Q foundation for a
+five-lane (`mail`, `voice`, `structured_pc_work`, `file`, `run_log`) inventory.
+It accepts only the explicit descriptor command below; there is no environment,
+default, stdin, glob, scan, output-file, apply, source, authority, or DB flag.
+
+```bash
+node tools/task_engine_inventory.mjs --query-only --json --descriptor <literal-json-path>
+```
+
+The descriptor and every `sqlite_catalog_v1.locator.sqlite_path` are input-only.
+They are never copied to stdout. SQLite inspection uses `DatabaseSync(path,
+{ readOnly: true })`, immediately enables and reads back `PRAGMA query_only=ON`,
+requires `total_changes()=0`, runs only descriptor-allowlisted fixed catalog,
+table-count, and enum-count templates, and closes the handle. C00Q opens only a
+sidecar-free, quiescent SQLite database. It fingerprints main/WAL/SHM existence,
+SHA-256, size, and exact mtime before opening; any existing `-wal` or `-shm` is
+BLOCKED before open. It then proves main equivalence and continued sidecar
+absence after close. This slice executed and tested synthetic fixtures only.
+`authorized_observation` is structurally supported for future C00B use, but no
+live profile, locator, or query was executed or validated here. Live use still
+requires separate owner approval and an approved WAL/quiescence method. C00Q
+never initializes, repairs, migrates, or writes a database.
+
+Mail and voice health evaluators consume only strict sanitized metadata embedded
+in a descriptor whose source inventory profile is `synthetic`. They do not use
+the clock, filesystem, environment, network, raw mail/recording content, or any
+writer. Mail output is not D25 coverage evidence and a healthy zero-event run is
+not a completeness claim. Voice treats the recording ID as the sole native
+occurrence candidate; receipt, acknowledgement, session, and bundle aggregates
+contribute zero occurrences. Detailed receipt rows that would require local
+paths or refs remain a future owner-local validation concern and are not modeled
+by C00Q. Every detached health row declares `observation_profile: synthetic` and
+is never live evidence, even when its local status is `NORMAL`.
+
+A successful exit `0` creates only a deterministic `review_ready_manifest`.
+It does not accept P0, unlock H00 review or P1 adapter execution, or create
+writer/activation authority. All `C00-LIVE-01..04` proofs remain unresolved in
+every C00Q manifest, including authorized observations; only a separate C00B
+judge may close them. C00Q uses only
+`available|attested_absent|attested_gap|unknown`; it does not emit H00 six-state
+completeness or D25 gap/window vocabulary. **STOP:** live binding, raw copying,
+collector execution, workspace/runtime inspection, DB or task-data mutation,
+writer activation, and C00B execution require a separate owner-approved C00B
+packet and are outside this command.
+
 설계 정본: [`docs/DESIGN.md`](docs/DESIGN.md) · 작업 큐: [`docs/checklist_phase1.json`](docs/checklist_phase1.json)
 
 하드웨어/체계공학 개발팀의 운영 레이어. P1 은 read-only 콕핏이다:
@@ -119,7 +283,13 @@ sidecar/ERP는 추가 LLM을 호출하지 않는다. 구현 범위는 개인 일
 메일 발송과 자동 완료는 제공하지 않는다. 팀원이 ERP에서 완료를 눌러야 기존 완료
 훅이 개인 Codex의 최근 구조화 결과를 이력과 승인 대기 제안에 합친다.
 
+ERP의 MCP 저장 테이블과 `/api/mcp/**`, `/api/integrations/mcp/**` route는 기본
+feature-OFF다. `DEV_ERP_MCP_ENABLED=1`을 명시한 승인된 파일럿에서만 서버 시작 시
+MCP DDL과 route를 연다. 값이 없거나 `0`이면 MCP 테이블을 만들지 않고 해당 route는
+404를 반환한다.
+
 ```powershell
+$env:DEV_ERP_MCP_ENABLED="1"
 npm.cmd run dev-erp:mcp-token -- issue --username <erp-username> --label "Personal Codex" --days 30
 $env:ERP_MCP_ERP_BASE_URL="http://127.0.0.1:4300"
 $env:ERP_MCP_PUBLIC_URL="http://127.0.0.1:4311"

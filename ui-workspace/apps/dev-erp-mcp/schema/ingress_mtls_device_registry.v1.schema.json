@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ingress_mtls_device_registry.v1.schema.json",
+  "title": "Soulforge ingress mTLS public client-certificate registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "revision", "devices"],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.mtls_device_registry.v1" },
+    "revision": { "$ref": "#/$defs/id" },
+    "devices": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "certificate_sha256", "credential_id", "account_id", "device_id", "allowed_agent_ids",
+          "created_at", "expires_at", "revoked_at"
+        ],
+        "properties": {
+          "certificate_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "credential_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,39}$" },
+          "account_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$" },
+          "device_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$" },
+          "allowed_agent_ids": {
+            "type": "array", "minItems": 1, "maxItems": 20, "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$" }
+          },
+          "created_at": { "type": "string", "format": "date-time" },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "revoked_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" }
+  }
+}

@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 
-import { parseTeamFetchSummary, mailboxRegisterToken, buildAutoIntakeArgs } from "../src/mail_collect.mjs";
+import { parseTeamFetchSummary, mailboxRegisterToken, buildAutoIntakeArgs, teamMailboxRegisterPath } from "../src/mail_collect.mjs";
 
 // 생산자 스키마 fixture: guild_hall/gateway/mail_fetch/collector/team_mailboxes.py 의
 // email.fetch.team_mailbox_run.v1 — results[]={mailbox: operator_summary, result: runner 결과}.
@@ -67,4 +68,19 @@ test("mail collect: auto-intake spawn args carry backend workmeta and projects",
   assert.equal(args[args.indexOf("--workmeta") + 1], "/backend/_workmeta");
   assert.deepEqual(args.filter((token) => token === "--project"), ["--project", "--project"]);
   assert.deepEqual(args.slice(args.indexOf("--project")), ["--project", "P26-014", "--project", "P00-000_INBOX"]);
+});
+
+test("mail collect: stable private config root selects the team register outside a release checkout", () => {
+  const repoRoot = resolve("repo-root");
+  const privateRoot = resolve("stable-private-config");
+  assert.equal(
+    teamMailboxRegisterPath({ repoRoot, env: { EMAIL_FETCH_PRIVATE_CONFIG_ROOT: privateRoot } }),
+    resolve(privateRoot, "guild_hall", "state", "gateway", "mailbox", "state", "team_mailboxes.json"),
+  );
+  const explicit = resolve("explicit", "team_mailboxes.json");
+  assert.equal(
+    teamMailboxRegisterPath({ repoRoot, env: { EMAIL_FETCH_TEAM_REGISTER: explicit, EMAIL_FETCH_PRIVATE_CONFIG_ROOT: privateRoot } }),
+    explicit,
+  );
+  assert.equal(teamMailboxRegisterPath({ repoRoot, env: {} }), "");
 });

@@ -3,6 +3,15 @@
 서버 1대(회사 고성능 **Windows** PC)에서 돌리고, 팀원이 각자 PC에서 사내 LAN으로 접속하는 구성.
 팀 공개 기본값은 Tailscale Serve HTTPS 이며, 직접 LAN HTTP 는 owner 가 승인한 소수 파일럿일 때만 쓴다.
 
+> Scope boundary: 이 문서의 LAN HTTP/direct HTTPS/browser pilot은 HPP MCP target acceptance가 아니다.
+> HPP MCP target은 backend loopback + strict private office LAN의 mTLS reverse proxy를 control plane으로,
+> authenticated HTTPS ticket transfer를 binary plane으로 사용한다. VPN/Tailscale/remote access, public
+> Internet ingress, router port forwarding/Funnel, direct SMB/UNC와 ticket URL-only authority는 `OFF/DEFER`다.
+> 아래 existing legacy dev-ERP Tailscale Serve CURRENT는 HPP authority를 만들지 않는다. Remote lane은
+> 별도 future owner approval·threat model·trust/CA/ACL·acceptance gate가 필요하다. 상세 gate는
+> [`TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`](TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md)의
+> `A8-SYNTH`/`A8-CANARY`, D27~D29를 따른다.
+
 전제: **Node.js 22.5 이상**(내장 `node:sqlite` 사용 — 외부 패키지 설치 0개).
 
 ---
@@ -267,6 +276,11 @@ preflight `configuration_ready` OK + 관리자·팀원 로그인 + 팀원이 자
 > DB·로컬 데이터·메일함 env 는 그대로 유지된다(git 제외). 코드만 갱신된다.
 
 ## 9. 데이터 평면 아키텍처 (2026-07-05 owner 결정)
+
+아래는 기존 dev-ERP runtime의 `CURRENT`/legacy 운영 설명이다. HPP MCP/storage `TARGET`에서는
+OneDrive-backed project workspace를 active DB/RAW/quarantine/queue/outbox plane으로 쓰지 않고 HPP private
+custody의 logical storage classes로 분리한다. 다른 PC의 direct backend/D/UNC/SMB/SQLite 접근은 `0`이며
+정확한 path/IP/domain/certificate binding은 private `VERIFY_HP`다.
 
 **Soulforge(dev checkout, 예: `<backend-root>`) = 데이터 백엔드. runtime clone = 무상태 앱 서버(껍데기).**
 runtime 에 데이터를 동기화하거나 쌓지 않는다 — owner 결정: "Soulforge 에 있는 데이터를 ERP 에

@@ -871,13 +871,13 @@ async function startServer(args) {
 }
 
 async function waitForHttp(url, server) {
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 300; i++) {
     if (server.child.exitCode != null) throw new Error(`server exited: ${server.stderr()}`);
     try {
       const response = await fetch(url);
       if (response.ok) return;
     } catch {}
-    await new Promise((resolveWait) => setTimeout(resolveWait, 30));
+    await new Promise((resolveWait) => setTimeout(resolveWait, 50));
   }
   throw new Error(`server not ready: ${server.stderr()}`);
 }

@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schemas/task_engine_inventory_c00b_binding_input.v1.schema.json",
+  "title": "Task Engine C00B private binding input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "evaluation_time", "baseline", "prerequisites", "executor",
+    "approvals", "sources", "output", "binding_grant", "aggregate_observations",
+    "raw_payload_copied"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.task_engine_inventory_c00b_binding_input.v1" },
+    "evaluation_time": { "$ref": "#/$defs/timestamp" },
+    "baseline": { "$ref": "#/$defs/baseline" },
+    "prerequisites": { "$ref": "#/$defs/prerequisites" },
+    "executor": { "$ref": "#/$defs/executor" },
+    "approvals": { "$ref": "#/$defs/approvals" },
+    "sources": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "output": { "$ref": "#/$defs/output" },
+    "binding_grant": { "$ref": "#/$defs/binding_grant" },
+    "aggregate_observations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/observation" }
+    },
+    "raw_payload_copied": { "const": false }
+  },
+  "$defs": {
+    "safe_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{1,63}(?::[a-z0-9][a-z0-9_-]{0,63})*$"
+    },
+    "safe_ref_set": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/safe_ref" }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?(?:Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_ref", "authority_kind", "bound_packet_digest", "issued_at", "expires_at", "revoked",
+        "revocation_ref"
+      ],
+      "properties": {
+        "approval_ref": { "$ref": "#/$defs/safe_ref" },
+        "authority_kind": { "$ref": "#/$defs/safe_ref" },
+        "bound_packet_digest": { "$ref": "#/$defs/digest" },
+        "issued_at": { "$ref": "#/$defs/timestamp" },
+        "expires_at": { "$ref": "#/$defs/timestamp" },
+        "revoked": { "type": "boolean" },
+        "revocation_ref": { "$ref": "#/$defs/safe_ref" },
+        "bound_evidence_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_refs", "head_commit", "origin_main_commit", "clean"],
+      "properties": {
+        "baseline_refs": { "$ref": "#/$defs/safe_ref_set" },
+        "head_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "origin_main_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "clean": { "const": true }
+      }
+    },
+    "prerequisites": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "c00a_receipt_ref", "c00a_receipt_digest", "c00a_acceptance",
+        "c00q_full_bv_receipt_ref", "c00q_full_bv_receipt_digest", "packet_id",
+        "result", "exit_code", "required_live_proofs", "unresolved_live_proofs",
+        "tracked_zero_mutation", "raw_sentinel_violations", "p1_unlocked"
+      ],
+      "properties": {
+        "c00a_receipt_ref": { "$ref": "#/$defs/safe_ref" },
+        "c00a_receipt_digest": { "$ref": "#/$defs/digest" },
+        "c00a_acceptance": { "$ref": "#/$defs/approval" },
+        "c00q_full_bv_receipt_ref": { "$ref": "#/$defs/safe_ref" },
+        "c00q_full_bv_receipt_digest": { "$ref": "#/$defs/digest" },
+        "packet_id": { "const": "TEAX-C00A" },
+        "result": { "const": "BLOCKED" },
+        "exit_code": { "const": 3 },
+        "required_live_proofs": { "$ref": "#/$defs/proof_set" },
+        "unresolved_live_proofs": { "$ref": "#/$defs/proof_set" },
+        "tracked_zero_mutation": { "const": true },
+        "raw_sentinel_violations": { "type": "array", "maxItems": 0 },
+        "p1_unlocked": { "const": false }
+      }
+    },
+    "proof_set": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": { "enum": ["C00-LIVE-01", "C00-LIVE-02", "C00-LIVE-03", "C00-LIVE-04"] }
+    },
+    "executor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_identity_ref", "bootstrap_profile", "inventory_authority"],
+      "properties": {
+        "node_identity_ref": { "$ref": "#/$defs/safe_ref" },
+        "bootstrap_profile": { "const": "owner-with-state" },
+        "inventory_authority": { "$ref": "#/$defs/approval" }
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["c00q_acceptance", "c00b_execution", "c00b_judge"],
+      "properties": {
+        "c00q_acceptance": { "$ref": "#/$defs/approval" },
+        "c00b_execution": { "$ref": "#/$defs/approval" },
+        "c00b_judge": { "$ref": "#/$defs/approval" }
+      }
+    },
+    "descriptor_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_authority_ref", "issued_at", "expires_at", "proof_scope", "evidence_refs"],
+      "properties": {
+        "source_authority_ref": { "$ref": "#/$defs/safe_ref" },
+        "issued_at": { "$ref": "#/$defs/timestamp" },
+        "expires_at": { "$ref": "#/$defs/timestamp" },
+        "proof_scope": { "$ref": "#/$defs/proof_set" },
+        "evidence_refs": { "$ref": "#/$defs/safe_ref_set" }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile", "physical_owner_ref", "default_root_ref", "writer_candidates",
+        "direct_caller_candidates", "consumer_candidates", "source_availability_summary"
+      ],
+      "properties": {
+        "profile": { "enum": ["synthetic", "authorized_observation"] },
+        "physical_owner_ref": { "$ref": "#/$defs/safe_ref" },
+        "default_root_ref": { "$ref": "#/$defs/safe_ref" },
+        "writer_candidates": { "$ref": "#/$defs/safe_ref_set" },
+        "direct_caller_candidates": { "$ref": "#/$defs/safe_ref_set" },
+        "consumer_candidates": { "$ref": "#/$defs/safe_ref_set" },
+        "source_availability_summary": { "enum": ["available", "attested_absent", "attested_gap", "unknown"] }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["table_count_allowlist", "enum_count_allowlist"],
+      "properties": {
+        "table_count_allowlist": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$" }
+        },
+        "enum_count_allowlist": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["table", "column", "values"],
+            "properties": {
+              "table": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$" },
+              "column": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,62}$" },
+              "values": {
+                "type": "array", "minItems": 1, "uniqueItems": true,
+                "items": { "type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,62}$" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "source_evidence_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_ref", "authority_kind", "bound_packet_digest", "bound_source_contract_digest", "issued_at", "expires_at", "revoked",
+        "revocation_ref", "proof_scope", "evidence_refs"
+      ],
+      "properties": {
+        "authority_ref": { "$ref": "#/$defs/safe_ref" },
+        "authority_kind": { "const": "c00b_source_evidence" },
+        "bound_packet_digest": { "$ref": "#/$defs/digest" },
+        "bound_source_contract_digest": { "$ref": "#/$defs/digest" },
+        "issued_at": { "$ref": "#/$defs/timestamp" },
+        "expires_at": { "$ref": "#/$defs/timestamp" },
+        "revoked": { "type": "boolean" },
+        "revocation_ref": { "$ref": "#/$defs/safe_ref" },
+        "proof_scope": { "$ref": "#/$defs/proof_set" },
+        "evidence_refs": { "$ref": "#/$defs/safe_ref_set" }
+      }
+    },
+    "quiescence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "authority_ref", "authority_kind", "bound_packet_digest", "bound_source_contract_digest", "issued_at", "expires_at", "revoked", "revocation_ref"],
+      "properties": {
+        "method": { "enum": ["no_source_opened_attested", "sidecar_free_exclusive_window_attested"] },
+        "authority_ref": { "$ref": "#/$defs/safe_ref" },
+        "authority_kind": { "const": "c00b_source_quiescence" },
+        "bound_packet_digest": { "$ref": "#/$defs/digest" },
+        "bound_source_contract_digest": { "$ref": "#/$defs/digest" },
+        "issued_at": { "$ref": "#/$defs/timestamp" },
+        "expires_at": { "$ref": "#/$defs/timestamp" },
+        "revoked": { "type": "boolean" },
+        "revocation_ref": { "$ref": "#/$defs/safe_ref" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lane", "source_ref", "requirement", "applicability_ref", "adapter_id",
+        "adapter_version", "authority", "inventory", "max_runtime_ms", "max_result_rows",
+        "source_evidence_authority", "quiescence"
+      ],
+      "properties": {
+        "lane": { "enum": ["mail", "voice", "structured_pc_work", "file", "run_log"] },
+        "source_ref": { "$ref": "#/$defs/safe_ref" },
+        "requirement": { "enum": ["required", "optional", "not_applicable"] },
+        "applicability_ref": { "oneOf": [{ "$ref": "#/$defs/safe_ref" }, { "type": "null" }] },
+        "adapter_id": { "enum": ["attested_metadata_v1", "sqlite_catalog_v1"] },
+        "adapter_version": { "const": "v1" },
+        "authority": { "$ref": "#/$defs/descriptor_authority" },
+        "inventory": { "$ref": "#/$defs/inventory" },
+        "locator": {
+          "type": "object", "additionalProperties": false, "required": ["sqlite_path"],
+          "properties": { "sqlite_path": { "type": "string", "minLength": 1 } }
+        },
+        "query": { "$ref": "#/$defs/query" },
+        "max_runtime_ms": { "type": "integer", "minimum": 1, "maximum": 60000 },
+        "max_result_rows": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "source_evidence_authority": { "$ref": "#/$defs/source_evidence_authority" },
+        "quiescence": { "$ref": "#/$defs/quiescence" }
+      }
+    },
+    "output": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "durable_writes", "field_allowlist_ref", "retention_ref"],
+      "properties": {
+        "mode": { "const": "stdout_only" },
+        "durable_writes": { "const": 0 },
+        "field_allowlist_ref": { "$ref": "#/$defs/safe_ref" },
+        "retention_ref": { "$ref": "#/$defs/safe_ref" }
+      }
+    },
+    "binding_grant": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "grant_ref", "binding_state", "digest_binding_approved", "descriptor_binding_state",
+        "descriptor_materialization_approved",
+        "approved_packet_digest", "descriptor_digest",
+        "aggregate_evidence_digest", "authority_set_digest", "private_output_root_digest",
+        "artifact_write_allowlist_digest", "authority_refs", "issued_at",
+        "expires_at", "revoked", "revocation_ref"
+      ],
+      "properties": {
+        "grant_ref": { "$ref": "#/$defs/safe_ref" },
+        "binding_state": { "enum": ["proposed", "approved"] },
+        "digest_binding_approved": { "type": "boolean" },
+        "descriptor_binding_state": { "enum": ["proposed", "approved"] },
+        "descriptor_materialization_approved": { "type": "boolean" },
+        "approved_packet_digest": { "$ref": "#/$defs/digest" },
+        "descriptor_digest": { "$ref": "#/$defs/digest" },
+        "aggregate_evidence_digest": { "$ref": "#/$defs/digest" },
+        "authority_set_digest": { "$ref": "#/$defs/digest" },
+        "private_output_root_digest": { "$ref": "#/$defs/digest" },
+        "artifact_write_allowlist_digest": { "$ref": "#/$defs/digest" },
+        "authority_refs": { "$ref": "#/$defs/safe_ref_set" },
+        "issued_at": { "$ref": "#/$defs/timestamp" },
+        "expires_at": { "$ref": "#/$defs/timestamp" },
+        "revoked": { "const": false },
+        "revocation_ref": { "$ref": "#/$defs/safe_ref" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "binding_state": { "const": "proposed" } } },
+          "then": { "properties": { "digest_binding_approved": { "const": false } } },
+          "else": { "properties": { "digest_binding_approved": { "const": true } } }
+        },
+        {
+          "if": { "properties": { "descriptor_binding_state": { "const": "proposed" } } },
+          "then": { "properties": { "descriptor_materialization_approved": { "const": false } } },
+          "else": { "properties": { "descriptor_materialization_approved": { "const": true } } }
+        }
+      ]
+    },
+    "aggregate_count": {
+      "type": "object", "additionalProperties": false, "required": ["metric_ref", "count"],
+      "properties": {
+        "metric_ref": { "$ref": "#/$defs/safe_ref" },
+        "count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "observation": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "source_ref", "evidence_kind", "observed_at", "business_freshness_basis",
+        "authority_ref", "evidence_refs", "aggregate_counts", "last_success_at",
+        "watermark_at", "gap_codes", "max_stale_sec", "raw_row_read_count", "raw_payload_copied"
+      ],
+      "properties": {
+        "source_ref": { "$ref": "#/$defs/safe_ref" },
+        "evidence_kind": { "enum": ["source_owned_aggregate", "authority_attested", "authority_attested_gap"] },
+        "observed_at": { "$ref": "#/$defs/timestamp" },
+        "business_freshness_basis": {
+          "enum": ["source_owned_event_time", "source_owned_commit_time", "authority_attested_success_time", "authority_attested_watermark_time", "not_established"]
+        },
+        "authority_ref": { "$ref": "#/$defs/safe_ref" },
+        "evidence_refs": { "$ref": "#/$defs/safe_ref_set" },
+        "aggregate_counts": { "type": "array", "items": { "$ref": "#/$defs/aggregate_count" } },
+        "last_success_at": { "oneOf": [{ "$ref": "#/$defs/timestamp" }, { "type": "null" }] },
+        "watermark_at": { "oneOf": [{ "$ref": "#/$defs/timestamp" }, { "type": "null" }] },
+        "gap_codes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/safe_ref" } },
+        "max_stale_sec": { "type": "integer", "minimum": 1, "maximum": 2678400 },
+        "raw_row_read_count": { "const": 0 },
+        "raw_payload_copied": { "const": false }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "evidence_kind": { "const": "source_owned_aggregate" } } },
+          "then": {
+            "properties": {
+              "business_freshness_basis": { "enum": ["source_owned_event_time", "source_owned_commit_time"] },
+              "aggregate_counts": { "type": "array", "minItems": 1 },
+              "gap_codes": { "type": "array", "maxItems": 0 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "evidence_kind": { "const": "authority_attested" } } },
+          "then": {
+            "properties": {
+              "business_freshness_basis": { "enum": ["authority_attested_success_time", "authority_attested_watermark_time"] },
+              "gap_codes": { "type": "array", "maxItems": 0 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "evidence_kind": { "const": "authority_attested_gap" } } },
+          "then": {
+            "properties": {
+              "business_freshness_basis": { "const": "not_established" },
+              "aggregate_counts": { "type": "array", "maxItems": 0 },
+              "last_success_at": { "type": "null" },
+              "watermark_at": { "type": "null" },
+              "gap_codes": { "type": "array", "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "business_freshness_basis": { "enum": ["source_owned_commit_time", "authority_attested_success_time"] } } },
+          "then": { "properties": { "last_success_at": { "$ref": "#/$defs/timestamp" } } }
+        },
+        {
+          "if": { "properties": { "business_freshness_basis": { "enum": ["source_owned_event_time", "authority_attested_watermark_time"] } } },
+          "then": { "properties": { "watermark_at": { "$ref": "#/$defs/timestamp" } } }
+        }
+      ]
+    }
+  }
+}

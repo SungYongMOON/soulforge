@@ -373,6 +373,7 @@ class CollectorConfig:
         "dropbox.com",
     )
     dry_run: bool = False
+    ingress_only: bool = False
     source_workspace_map: Optional[Dict[str, str]] = None
     blocked_attachment_extensions: Sequence[str] = DEFAULT_BLOCKED_ATTACHMENT_EXTENSIONS
     ad_keywords: Sequence[str] = DEFAULT_AD_KEYWORDS
@@ -535,6 +536,7 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
         attachment_max_bytes=max(attachment_max, 0),
         allowed_link_hosts=tuple(hosts),
         dry_run=_parse_bool(env.get("EMAIL_FETCH_DRY_RUN"), False),
+        ingress_only=_parse_bool(env.get("EMAIL_FETCH_INGRESS_ONLY"), False),
         source_workspace_map=map_override,
         blocked_attachment_extensions=blocked_exts,
         ad_keywords=ad_keywords,
@@ -616,7 +618,7 @@ def _build_gmail_connector(config: CollectorConfig) -> GmailConnector:
         include_spam_trash=config.gmail_include_spam_trash,
         attachment_max_bytes=config.attachment_max_bytes,
         blocked_attachment_extensions=config.blocked_attachment_extensions,
-        download_attachments=not config.dry_run,
+        download_attachments=not config.dry_run and not config.ingress_only,
         attachment_root=_attachment_root_for_source(config, "gmail"),
         initial_after_epoch=config.gmail_initial_after_epoch,
     )
@@ -634,7 +636,7 @@ def _build_hiworks_connector(config: CollectorConfig) -> HiworksPop3Connector:
         max_line_bytes=config.hiworks_pop3_max_line_bytes,
         attachment_max_bytes=config.attachment_max_bytes,
         blocked_attachment_extensions=config.blocked_attachment_extensions,
-        download_attachments=not config.dry_run,
+        download_attachments=not config.dry_run and not config.ingress_only,
         attachment_root=_attachment_root_for_source(config, "hiworks"),
     )
 
@@ -770,6 +772,7 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
         "total_new_events": 0,
         "total_duplicates": 0,
         "errors": [],
+        "ingress_only": bool(config.ingress_only),
     }
     operator_mailbox = _operator_mailbox_summary(config)
     if operator_mailbox:
@@ -832,7 +835,7 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
             fresh_events, duplicates = dedupe_store.filter_new(normalized)
 
             link_config = LinkDownloadConfig(
-                enabled=config.link_download_enabled and (not config.dry_run),
+                enabled=config.link_download_enabled and (not config.dry_run) and (not config.ingress_only),
                 timeout_sec=config.link_download_timeout_sec,
                 max_bytes=config.link_download_max_bytes,
                 retry_max=config.link_download_retry_max,
@@ -866,41 +869,71 @@ def run_once(config: CollectorConfig) -> Dict[str, Any]:
             raw_rows = [event.raw for event in fresh_events if isinstance(event.raw, dict)]
 
             if not config.dry_run:
-                plaud_trigger_summary = enqueue_plaud_mail_triggers(
-                    config.plaud_mail_trigger_queue_root,
-                    fresh_events,
-                    enabled=config.plaud_mail_trigger_enabled,
-                    sender_domains=config.plaud_mail_sender_domains,
-                    subject_keywords=config.plaud_mail_subject_keywords,
-                )
-                source_row["plaud_mail_triggers"] = plaud_trigger_summary.to_dict()
-                sink_summary = sink.write_batch(source, raw_rows, fresh_events)
-                candidate_summary = mail_candidate_queue.enqueue_events(fresh_events)
-                source_row["raw_written"] = sink_summary.raw_written
-                source_row["event_written"] = sink_summary.event_written
-                source_row["mail_candidates"] = candidate_summary.to_dict()
-                dedupe_store.commit(fresh_events)
-                cursor_store.set_cursor(source, result.next_cursor)
-                try:
-                    notification_summary = enqueue_mail_received_notifications(config.repo_root, fresh_events)
-                    source_row["notifications"] = notification_summary.to_dict()
-                except Exception as exc:  # noqa: BLE001
-                    source_row["partial"] = True
-                    source_row["notifications"] = {
-                        "enabled": True,
+                if config.ingress_only:
+                    sink_summary = sink.write_batch(source, raw_rows, fresh_events)
+                    source_row["raw_written"] = sink_summary.raw_written
+                    source_row["event_written"] = sink_summary.event_written
+                    dedupe_store.commit(fresh_events)
+                    cursor_store.set_cursor(source, result.next_cursor)
+                    source_row["mail_candidates"] = {
+                        "enabled": False,
                         "queued": 0,
-                        "skipped_reason": "notification_enqueue_error",
+                        "skipped": len(fresh_events),
+                        "skipped_reason": "ingress_only",
+                        "queue_files": [],
+                        "history_updated": 0,
+                        "history_files": [],
+                    }
+                    source_row["notifications"] = {
+                        "enabled": False,
+                        "queued": 0,
+                        "skipped_reason": "ingress_only",
                         "queue_files": [],
                     }
-                    source_row["errors"].append(
-                        ConnectorError(
-                            source=source,
-                            code="notification_enqueue_error",
-                            message=str(exc),
-                            retryable=False,
-                            detail={"type": type(exc).__name__},
-                        ).to_dict()
+                    source_row["plaud_mail_triggers"] = {
+                        "enabled": False,
+                        "matched": 0,
+                        "queued": 0,
+                        "duplicates": 0,
+                        "skipped": len(fresh_events),
+                        "skipped_reason": "ingress_only",
+                    }
+                else:
+                    plaud_trigger_summary = enqueue_plaud_mail_triggers(
+                        config.plaud_mail_trigger_queue_root,
+                        fresh_events,
+                        enabled=config.plaud_mail_trigger_enabled,
+                        sender_domains=config.plaud_mail_sender_domains,
+                        subject_keywords=config.plaud_mail_subject_keywords,
                     )
+                    source_row["plaud_mail_triggers"] = plaud_trigger_summary.to_dict()
+                    sink_summary = sink.write_batch(source, raw_rows, fresh_events)
+                    candidate_summary = mail_candidate_queue.enqueue_events(fresh_events)
+                    source_row["raw_written"] = sink_summary.raw_written
+                    source_row["event_written"] = sink_summary.event_written
+                    source_row["mail_candidates"] = candidate_summary.to_dict()
+                    dedupe_store.commit(fresh_events)
+                    cursor_store.set_cursor(source, result.next_cursor)
+                    try:
+                        notification_summary = enqueue_mail_received_notifications(config.repo_root, fresh_events)
+                        source_row["notifications"] = notification_summary.to_dict()
+                    except Exception as exc:  # noqa: BLE001
+                        source_row["partial"] = True
+                        source_row["notifications"] = {
+                            "enabled": True,
+                            "queued": 0,
+                            "skipped_reason": "notification_enqueue_error",
+                            "queue_files": [],
+                        }
+                        source_row["errors"].append(
+                            ConnectorError(
+                                source=source,
+                                code="notification_enqueue_error",
+                                message=str(exc),
+                                retryable=False,
+                                detail={"type": type(exc).__name__},
+                            ).to_dict()
+                        )
             else:
                 source_row["raw_written"] = len(raw_rows)
                 source_row["event_written"] = len(fresh_events)

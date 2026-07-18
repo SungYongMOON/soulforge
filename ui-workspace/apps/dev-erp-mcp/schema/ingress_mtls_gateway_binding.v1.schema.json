@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ingress_mtls_gateway_binding.v1.schema.json",
+  "title": "Soulforge strict office-LAN mTLS ingress gateway binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "enabled", "audience", "listen_host", "allowed_client_ipv4", "listen_port", "public_url",
+    "backend_url", "ingress_mcp_binding_path", "tls_cert_path", "tls_key_path", "client_ca_path",
+    "device_registry_path", "max_requests_per_minute", "max_concurrent_requests_per_device",
+    "max_body_bytes", "upstream_timeout_ms"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.mtls_gateway_binding.v1" },
+    "enabled": { "type": "boolean" },
+    "audience": { "const": "hpp_ingress_mcp" },
+    "listen_host": { "$ref": "#/$defs/private_ipv4" },
+    "allowed_client_ipv4": {
+      "description": "Exact source IPv4 allowlist entry; must differ from listen_host when enabled.",
+      "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/private_ipv4" }]
+    },
+    "listen_port": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+    "public_url": { "type": "string", "format": "uri", "maxLength": 2048 },
+    "backend_url": { "type": "string", "format": "uri", "maxLength": 2048 },
+    "ingress_mcp_binding_path": { "$ref": "#/$defs/path" },
+    "tls_cert_path": { "$ref": "#/$defs/path" },
+    "tls_key_path": { "$ref": "#/$defs/path" },
+    "client_ca_path": { "$ref": "#/$defs/path" },
+    "device_registry_path": { "$ref": "#/$defs/path" },
+    "max_requests_per_minute": { "type": "integer", "minimum": 10, "maximum": 10000 },
+    "max_concurrent_requests_per_device": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "max_body_bytes": { "type": "integer", "minimum": 65536, "maximum": 16777216 },
+    "upstream_timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 300000 }
+  },
+  "allOf": [{
+    "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] },
+    "then": { "properties": { "allowed_client_ipv4": { "$ref": "#/$defs/private_ipv4" } } }
+  }],
+  "$defs": {
+    "private_ipv4": {
+      "type": "string",
+      "format": "ipv4",
+      "pattern": "^(10\\.(?:[0-9]{1,3}\\.){2}[0-9]{1,3}|172\\.(?:1[6-9]|2[0-9]|3[01])\\.(?:[0-9]{1,3}\\.)[0-9]{1,3}|192\\.168\\.(?:[0-9]{1,3}\\.)[0-9]{1,3})$"
+    },
+    "path": { "type": "string", "minLength": 1, "maxLength": 32767 }
+  }
+}

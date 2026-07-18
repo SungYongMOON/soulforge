@@ -36,6 +36,23 @@ Apple Notes 같은 독립 녹음을 함께 유지하고, 단독 정본 수집기
 단계가 담당한다. 프로젝트가 불명확한 자료는 `P00-000_INBOX`에 남기고,
 누락 방지를 위해 과제명이 틀리더라도 미분류 기록 자체는 보존한다.
 
+## 녹음 시간 정본 규칙
+
+- PLAUD CLI가 offset 없이 제공하는 `start_at`·`created_at` 절대 시각은
+  provider UTC로 해석한 뒤 KST로 변환한다. 값에 `Z` 또는 명시적 ISO 8601
+  offset이 있으면 그 offset을 우선한다.
+- 사람이 보는 `recorded_at_local`·`recorded_end_at_local`, session id의
+  시각부, 날짜 폴더, 녹음 보관함·전달·독립 전사·project-context의 파생
+  event time과 pointer는 항상 `Asia/Seoul` (`+09:00`, KST) 기준이다.
+- 전사본의 구간 시각은 녹음 시작 후 경과 초이므로 시간대 변환 대상이 아니다.
+  `completed_at`처럼 `Z`가 명시된 생성·완료 audit 시각도 UTC 표기를 유지한다.
+- session manifest에는 provider 원시 시각의 offset 유무를 판단한 근거와
+  `normalized_timezone: Asia/Seoul`을 기록한다. host의 로컬 시간대에 기대어
+  offset 없는 provider 시각을 해석해서는 안 된다.
+- 과거 잘못 표기된 active metadata와 time-derived pointer는 KST로 이관하되,
+  원본 음성·전사 payload와 append-only 과거 감사 로그는 다시 쓰지 않는다.
+  과거 로그에는 별도의 metadata-only 이관 receipt로 old/new mapping을 남긴다.
+
 ## 2026-07-13 owner 승인 운영 방향
 
 PLAUD를 단독 정본 수집기로 전환하는 결정과 맥미니를 음성 처리의

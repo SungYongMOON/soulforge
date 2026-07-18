@@ -110,6 +110,6 @@ NAS recovery:
 3. Restore into a new Drive staging/release path, not over the approved release.
 4. Re-register the Drive package and revalidate NotebookLM membership.
 
-An empty or reachable NAS path is not approval. The candidate path
-`Z:\개발1팀\Soulforge_Project_Backup` remains unusable until owner approval is
-recorded.
+An empty or reachable NAS path is not approval. The candidate location
+`<owner-approved-NAS-root>/Soulforge_Project_Backup` remains unusable until
+owner approval is recorded.

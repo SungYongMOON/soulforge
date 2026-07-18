@@ -55,6 +55,45 @@ def _write_env(tmp_path: Path, content: str) -> Path:
     return env_file
 
 
+def test_ingress_only_disables_native_and_link_attachment_writers(monkeypatch, tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    config.ingress_only = True
+    config.link_download_enabled = True
+    gmail_kwargs: Dict[str, Any] = {}
+    hiworks_kwargs: Dict[str, Any] = {}
+
+    monkeypatch.setattr(runner, "GmailConnector", lambda **kwargs: gmail_kwargs.update(kwargs) or object())
+    monkeypatch.setattr(runner, "HiworksPop3Connector", lambda **kwargs: hiworks_kwargs.update(kwargs) or object())
+    runner._build_gmail_connector(config)
+    runner._build_hiworks_connector(config)
+
+    assert gmail_kwargs["download_attachments"] is False
+    assert hiworks_kwargs["download_attachments"] is False
+
+    connector = _FakeConnector(
+        FetchResult(
+            events=[_event("ingress-no-attachment")],
+            next_cursor={"last_received_epoch": 1772668800},
+            partial=False,
+            errors=[],
+        )
+    )
+    link_enabled: List[bool] = []
+    original_hydrate = runner.hydrate_link_attachments
+
+    def capture_hydrate(events, **kwargs):
+        link_enabled.append(bool(kwargs["config"].enabled))
+        return original_hydrate(events, **kwargs)
+
+    monkeypatch.setattr(runner, "_build_gmail_connector", lambda _config: connector)
+    monkeypatch.setattr(runner, "hydrate_link_attachments", capture_hydrate)
+    summary = runner.run_once(config)
+
+    assert summary["partial"] is False
+    assert link_enabled == [False]
+    assert not (config.inbox_root / "personal" / "mail" / "attachments").exists()
+
+
 def _write_notify_policy(repo_root: Path, *, mail_received: bool) -> None:
     policy_file = repo_root / "guild_hall" / "state" / "gateway" / "bindings" / "notify_policy.yaml"
     policy_file.parent.mkdir(parents=True, exist_ok=True)

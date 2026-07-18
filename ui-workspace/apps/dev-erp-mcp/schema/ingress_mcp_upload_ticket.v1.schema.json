@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ingress_mcp_upload_ticket.v1.schema.json",
+  "title": "Soulforge ingress resumable upload ticket",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "ticket_id", "credential_id", "account_id", "device_id", "agent_id",
+    "project_hint", "occurrence_id", "idempotency_key", "input_digest", "filename", "media_type",
+    "expected_size", "expected_sha256", "received_size", "status", "created_at", "expires_at",
+    "finalized_at", "submission_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.mcp_upload_ticket.v1" },
+    "ticket_id": { "type": "string", "pattern": "^sfigup_[A-Za-z0-9_-]{32}$" },
+    "credential_id": { "$ref": "#/$defs/id" },
+    "account_id": { "$ref": "#/$defs/id" },
+    "device_id": { "$ref": "#/$defs/id" },
+    "agent_id": { "$ref": "#/$defs/id" },
+    "project_hint": { "$ref": "#/$defs/id" },
+    "occurrence_id": { "$ref": "#/$defs/id" },
+    "idempotency_key": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{7,127}$" },
+    "input_digest": { "$ref": "#/$defs/hash" },
+    "filename": { "type": "string", "minLength": 1, "maxLength": 180 },
+    "media_type": { "type": "string", "minLength": 3, "maxLength": 128 },
+    "expected_size": { "type": "integer", "minimum": 1 },
+    "expected_sha256": { "$ref": "#/$defs/hash" },
+    "received_size": { "type": "integer", "minimum": 0 },
+    "status": { "enum": ["pending", "finalized"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "finalized_at": { "type": ["string", "null"], "format": "date-time" },
+    "submission_id": { "type": ["string", "null"], "pattern": "^sfigsub_[A-Za-z0-9_-]{32}$" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

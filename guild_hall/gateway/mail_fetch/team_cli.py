@@ -24,6 +24,16 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--once", action="store_true", help="Run once and exit.")
     parser.add_argument("--dry-run", action="store_true", help="Fetch without writing cursor/sink files.")
+    parser.add_argument(
+        "--ingress-only",
+        action="store_true",
+        help="Write mailbox raw/events and collector state only; skip project history, candidates, notifications, and triggers.",
+    )
+    parser.add_argument(
+        "--data-root",
+        default="",
+        help="Stable data root. Derives private config, inbox, runtime, and candidate paths without changing account secrets.",
+    )
     parser.add_argument("--limit", type=int, default=0, help="Override EMAIL_FETCH_LIMIT when >0.")
     parser.add_argument("--json", action="store_true", help="Print summary as JSON.")
     return parser.parse_args()
@@ -40,6 +50,16 @@ def main() -> int:
     )
 
     args = _parse_args()
+    if args.data_root:
+        data_root = Path(args.data_root).expanduser()
+        if not data_root.is_absolute():
+            print("[gateway-mail-fetch-team] error=data_root_must_be_absolute", file=sys.stderr)
+            return 2
+        data_root = data_root.resolve()
+        os.environ["EMAIL_FETCH_PRIVATE_CONFIG_ROOT"] = str(data_root / "config")
+        os.environ["EMAIL_FETCH_INBOX_ROOT"] = str(data_root / "ingress" / "mailbox")
+        os.environ["EMAIL_FETCH_RUNTIME_DIR"] = str(data_root / "runtime" / "mail_fetch")
+        os.environ["EMAIL_FETCH_MAIL_CANDIDATE_QUEUE_ROOT"] = str(data_root / "state" / "mail_candidate")
     register_from_env = str(os.environ.get("EMAIL_FETCH_TEAM_REGISTER", "")).strip()
     register_file = (
         Path(args.register).expanduser()
@@ -52,6 +72,7 @@ def main() -> int:
             repo_root=repo_root,
             register_file=register_file,
             dry_run=bool(args.dry_run),
+            ingress_only=bool(args.ingress_only),
             limit=int(args.limit or 0),
         )
         if args.json:

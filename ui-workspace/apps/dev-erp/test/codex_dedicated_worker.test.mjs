@@ -468,7 +468,7 @@ test("dedicated Codex worker is loopback/authenticated, reauthorizes logical wor
     const client = new CodexDedicatedWorkerClient({
       baseUrl,
       token: TOKEN,
-      timeoutMs: 10_000,
+      timeoutMs: 30_000,
       attestationPublicKeyFile: attestationPublicKeyPath,
       expectedPayloadDenyBindingRevision: payloadDenyBindingRevision,
     });

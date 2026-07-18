@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.ingress.local_outbox_binding.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "node_id", "outbox_root", "lanes"],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.local_outbox_binding.v1" },
+    "node_id": { "$ref": "#/$defs/safeId" },
+    "outbox_root": { "type": "string", "minLength": 3 },
+    "lanes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["team_files", "structured_pc_work", "run_logs"],
+      "properties": {
+        "team_files": { "$ref": "#/$defs/lane" },
+        "structured_pc_work": { "$ref": "#/$defs/lane" },
+        "run_logs": { "$ref": "#/$defs/lane" }
+      }
+    }
+  },
+  "$defs": {
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+    },
+    "lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "queue_root", "source_owner_ref"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "queue_root": { "type": "string", "minLength": 3 },
+        "source_owner_ref": { "$ref": "#/$defs/safeId" }
+      }
+    }
+  }
+}

@@ -31,6 +31,9 @@ context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·cle
 - 지식 ontology package 정본은 승인 manifest/hash/revision을 갖춘 Google
   Drive release만, `.registry/knowledge`는 Git 실행 투영, NotebookLM은
   advisory 책장, NAS는 owner-approved 단방향 재해복구 사본으로 분리한다.
+- PLAUD offset 없는 절대 시각은 UTC로 읽고, 사람용 녹음 시각·session id·
+  날짜 폴더·파생 event time은 KST(`Asia/Seoul`)로 정규화. `Z` audit 시각과
+  녹음 시작 기준 상대 전사 시간은 변환하지 않는다.
 - secret(.env/token/세션): 열어 읽지 않는다. 경로 안내만, 값 출력 금지.
 
 ## 4. AI 작업 규약

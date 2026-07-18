@@ -12,6 +12,7 @@ from collector.models import EmailEvent, FetchResult
 from collector.team_mailboxes import (
     TEAM_REGISTER_SCHEMA_VERSION,
     TeamMailboxRegisterError,
+    default_register_path,
     load_team_mailbox_register,
     run_team_mailboxes,
 )
@@ -70,6 +71,35 @@ def _write_env_files(register: Path, names: List[str]) -> None:
             ),
             encoding="utf-8",
         )
+
+
+def test_team_register_and_env_refs_can_live_under_stable_private_config_root(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "release-checkout"
+    repo_root.mkdir()
+    private_root = tmp_path / "stable-private-config"
+    register = _write_team_register(
+        private_root,
+        [
+            {
+                "id": "ops",
+                "account_id": "acct-ops",
+                "email": "ops@example.test",
+                "provider": "hiworks",
+                "enabled": True,
+                "env_file": "guild_hall/state/gateway/mailbox/state/ops.env",
+            }
+        ],
+    )
+    _write_env_files(register, ["ops.env"])
+    monkeypatch.setenv("EMAIL_FETCH_PRIVATE_CONFIG_ROOT", str(private_root))
+
+    assert default_register_path(repo_root) == register
+    mailboxes = load_team_mailbox_register(repo_root=repo_root, register_file=register)
+    assert len(mailboxes) == 1
+    assert mailboxes[0].env_file == register.parent / "ops.env"
+    assert not (repo_root / "guild_hall" / "state" / "gateway" / "mailbox" / "state" / "ops.env").exists()
 
 
 def test_team_runner_isolates_two_mailboxes_and_preserves_mailbox_history(monkeypatch, tmp_path: Path) -> None:
@@ -205,6 +235,73 @@ def test_team_runner_isolates_two_mailboxes_and_preserves_mailbox_history(monkey
         "_workspaces/P00-000_INBOX/reports/메일_이력/메일_이력.xlsx",
         "_workmeta/P00-000_INBOX/reports/메일_이력/메일_일정이벤트.ics",
     }
+
+
+def test_team_runner_ingress_only_writes_source_custody_without_projection(monkeypatch, tmp_path: Path) -> None:
+    register = _write_team_register(
+        tmp_path,
+        [
+            {
+                "id": "ops",
+                "account_id": "acct-ops",
+                "email": "ops@example.test",
+                "provider": "gmail",
+                "enabled": True,
+                "env_file": "ops.env",
+                "workspace": "team_ops",
+            }
+        ],
+    )
+    _write_env_files(register, ["ops.env"])
+    data_root = tmp_path / "stable-data"
+    backend_root = tmp_path / "backend"
+    monkeypatch.setenv("EMAIL_FETCH_INBOX_ROOT", str(data_root / "ingress" / "mailbox"))
+    monkeypatch.setenv("EMAIL_FETCH_RUNTIME_DIR", str(data_root / "runtime" / "mail_fetch"))
+    monkeypatch.setenv("EMAIL_FETCH_MAIL_CANDIDATE_QUEUE_ROOT", str(data_root / "state" / "mail_candidate"))
+    monkeypatch.setenv("DEV_ERP_BACKEND_ROOT", str(backend_root))
+    monkeypatch.setattr(
+        runner,
+        "_build_gmail_connector",
+        lambda _config: _FakeConnector(
+            FetchResult(
+                events=[_event("ingress-only-message")],
+                next_cursor={"last_received_epoch": 1772668800},
+                partial=False,
+                errors=[],
+            )
+        ),
+    )
+
+    summary = run_team_mailboxes(
+        repo_root=tmp_path,
+        register_file=register,
+        ingress_only=True,
+    )
+
+    assert summary["partial"] is False
+    result = summary["results"][0]["result"]
+    assert result["ingress_only"] is True
+    source = result["sources"][0]
+    assert source["raw_written"] == 1
+    assert source["event_written"] == 1
+    assert source["mail_candidates"]["skipped_reason"] == "ingress_only"
+    assert source["notifications"]["skipped_reason"] == "ingress_only"
+    assert source["plaud_mail_triggers"]["skipped_reason"] == "ingress_only"
+    assert (
+        data_root
+        / "ingress"
+        / "mailbox"
+        / "team_ops"
+        / "mail"
+        / "raw"
+        / "gmail"
+        / "2026"
+        / "2026-03.jsonl"
+    ).exists()
+    assert (data_root / "runtime" / "mail_fetch" / "mailboxes" / "ops" / "state" / "cursor_state.json").exists()
+    assert not (data_root / "state" / "mail_candidate").exists()
+    assert not (backend_root / "_workmeta").exists()
+    assert not (backend_root / "_workspaces").exists()
 
 
 @pytest.mark.parametrize(

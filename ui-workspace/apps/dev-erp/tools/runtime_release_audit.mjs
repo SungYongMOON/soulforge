@@ -45,7 +45,7 @@ const PROJECT_HEALTHS = ["ok", "watch", "risk", "stopped"];
 const PROJECT_CLASSES = ["active", "inbox", "internal", "archive"];
 const DATA_LABELS = ["real", "synthetic", "meta"];
 const CODEX_WORKSPACE_REGISTRY_FILE = "codex-workspaces.runtime.json";
-const CODEX_WORKSPACE_PROBE_TIMEOUT_MS = 1500;
+const CODEX_WORKSPACE_PROBE_TIMEOUT_MS = 5000;
 const CODEX_THREAD_REF_RE = /^dwr2\.[A-Za-z0-9][A-Za-z0-9_-]{0,31}\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{1,10923}\.[A-Za-z0-9_-]{22}$/;
 const CODEX_WORKSPACE_PROBE_CONCURRENCY = 8;
 const CODEX_WORKSPACE_PROBE_SCRIPT = "const{statSync}=require('node:fs');let s='';process.stdin.setEncoding('utf8');process.stdin.on('data',c=>{s+=c;if(s.length>8192)process.exit(3)});process.stdin.on('end',()=>{try{const p=JSON.parse(s);process.exit(p&&typeof p.root==='string'&&statSync(p.root).isDirectory()?0:2)}catch{process.exit(2)}})";
@@ -557,7 +557,7 @@ async function checkCodexWorkspaceRegistry(result, paths, {
   shareBoundaryReceiptPath = null,
   expectedWorkerIdentityHash = null,
 } = {}) {
-  const timeoutMs = Math.max(100, Math.min(2000, Math.floor(Number(probeTimeoutMs) || CODEX_WORKSPACE_PROBE_TIMEOUT_MS)));
+  const timeoutMs = Math.max(100, Math.min(10_000, Math.floor(Number(probeTimeoutMs) || CODEX_WORKSPACE_PROBE_TIMEOUT_MS)));
   const check = {
     checked: Boolean(required),
     required: Boolean(required),

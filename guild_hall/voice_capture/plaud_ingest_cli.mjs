@@ -8,6 +8,11 @@ import {
   writeDefaultPlaudSyncProfile,
   writePlaudLaunchdPlist,
 } from "./plaud_ingest.mjs";
+import {
+  applyPlaudKstMigration,
+  buildPlaudKstMigrationPlan,
+  describePlaudKstMigrationPlan,
+} from "./plaud_kst_migration.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -48,6 +53,18 @@ async function main() {
     }));
     return;
   }
+  if (command === "audit-kst") {
+    print(describePlaudKstMigrationPlan(await buildPlaudKstMigrationPlan({ repoRoot })));
+    return;
+  }
+  if (command === "migrate-kst") {
+    print(await applyPlaudKstMigration({
+      repoRoot,
+      apply: flag(args, "apply"),
+      receiptRef: args.receipt,
+    }));
+    return;
+  }
   usage();
   process.exitCode = 1;
 }
@@ -84,6 +101,8 @@ function usage() {
     "  node guild_hall/voice_capture/plaud_ingest_cli.mjs sync [--config <path>] [--apply]",
     "  node guild_hall/voice_capture/plaud_ingest_cli.mjs drain-mail-queue [--config <path>] [--apply]",
     "  node guild_hall/voice_capture/plaud_ingest_cli.mjs render-launchd [--config <path>] [--node-id <id>] [--apply]",
+    "  node guild_hall/voice_capture/plaud_ingest_cli.mjs audit-kst [--repo-root <path>]",
+    "  node guild_hall/voice_capture/plaud_ingest_cli.mjs migrate-kst [--repo-root <path>] [--apply] [--receipt <path>]",
     "",
   ].join("\n"));
 }

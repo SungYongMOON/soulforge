@@ -40,6 +40,14 @@ npm run guild-hall:gateway:fetch:team -- --once --json
 python3 guild_hall/gateway/mail_fetch/healthcheck.py --json
 ```
 
+기존 계정 연결은 유지하면서 중앙 data root 에 원천만 먼저 쌓으려면
+`team_cli.py --data-root <absolute-data-root> --ingress-only --once --json` 을 쓴다.
+`--data-root` 는 `config/`, `ingress/mailbox/`, `runtime/mail_fetch/`,
+`state/mail_candidate/` 경로만 파생하며 계정 secret 을 생성하거나 변경하지 않는다.
+`--ingress-only` 는 raw/event와 cursor/dedupe/run log만 기록하고 project history,
+mail candidate, notification, PLAUD trigger 투영은 명시적으로 건너뛴다.
+네이티브 첨부 저장과 링크 첨부 다운로드도 이 모드에서는 비활성화한다.
+
 When `EMAIL_FETCH_PLAUD_TRIGGER_ENABLED=true`, a fresh Hiworks PLAUD
 transcript-ready notice writes a sanitized trigger under the shared
 `_workspaces/system/voice_capture/plaud_mail_triggers/pending/` queue. The
@@ -79,6 +87,15 @@ npm run dev-erp:export-team-mailboxes -- --db ui-workspace/apps/dev-erp/data/dev
 The register stores account/mailbox metadata and relative env-file references only.
 Secret values stay in each referenced env file. Env refs must be repo-relative or
 relative to the register file, and absolute/traversal refs are rejected.
+
+For an always-on runtime whose release checkout can be replaced, set
+`EMAIL_FETCH_PRIVATE_CONFIG_ROOT` to a stable private directory outside the
+checkout. The default register and repo-relative mailbox env references are then
+resolved beneath that directory. `EMAIL_FETCH_TEAM_REGISTER` can still select an
+explicit register path. Keep `EMAIL_FETCH_INBOX_ROOT`, `EMAIL_FETCH_RUNTIME_DIR`,
+and `EMAIL_FETCH_MAIL_CANDIDATE_QUEUE_ROOT` on the same approved data volume when
+the collected payload and state must survive release replacement. These values
+change storage locations only; they do not enable collection by themselves.
 
 Team runs keep one project mail history ledger and write account identity into
 the existing `메일함` column. Source bucket/workspace identity remains in
