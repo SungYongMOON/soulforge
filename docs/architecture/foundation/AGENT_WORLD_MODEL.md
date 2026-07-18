@@ -9,7 +9,7 @@
 
 | 세계관 개념 | 실제 구조 | 의미 |
 | --- | --- | --- |
-| Outer Canon Store | `.registry/**` | species, class, skill, tool, knowledge canon |
+| Outer Canon Store | `.registry/**` | species, class, skill, tool canon과 승인된 Drive knowledge release의 Git 실행 투영 |
 | Species Catalog | `.registry/species/<species_id>/species.yaml` | species truth 와 inline hero candidate set |
 | Active Unit | `.unit/<unit_id>/` | active owner surface |
 | Class Package Catalog | `.registry/classes/<class_id>/**` | reusable class / package canon |
@@ -37,6 +37,7 @@
 - automation party 는 chain 을 설명하고, local scheduler 는 시간표와 ACTIVE/PAUSED 상태만 맡는다.
 - mission 은 workflow/party-chain/runtime assignment 를 실제 실행 계획으로 묶은 owner surface 다.
 - Soulforge 는 위 개념들을 ontology-style 로 읽되, 정의는 foundation 문서에, project-local instance 는 `_workmeta/<project_code>/ontology/` 에 둔다.
+- reusable knowledge ontology의 release lineage는 승인된 Google Drive package가 소유하고, `.registry/knowledge`는 public-safe 실행 투영을 소유한다.
 - ontology candidate 는 project-local capture 로 끝내지 않고, `guild_master` / `night_watch` lane 이 cross-project carry-forward 대상으로 다시 상기할 수 있어야 한다.
 
 ## 업무 세계관 고정안

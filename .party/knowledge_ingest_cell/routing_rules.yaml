@@ -31,8 +31,8 @@ request_classes:
       - "upload to Drive"
       - "put this in NotebookLM"
       - "add to a notebook"
-    route: require_owner_decision_packet_and_downstream_tool_authority
-    note: "The party may model the gate, but it does not upload or mutate external services."
+    route: require_applicable_owner_decision_or_standing_policy_and_downstream_tool_authority
+    note: "A qualifying ontology release or approved bookshelf query may use the 2026-07-15 standing policy; all other external mutations need their own owner decision."
   - request_class: public_canon_promotion_request
     trigger_signals:
       - "promote to public canon"
@@ -66,8 +66,8 @@ blocked_routes:
     response: "Keep `default_route_safe: false` and require explicit owner routing."
   - blocked_case: brute_force_or_password_guessing
     response: "Reject and limit preprocessing to owner-provided copy-only candidates."
-  - blocked_case: upload_without_owner_decision
-    response: "Route to `owner_decision_packet_v0`; do not upload from this party."
+  - blocked_case: upload_without_owner_decision_or_applicable_standing_policy
+    response: "Route to `owner_decision_packet_v0`; do not upload from this party unless the bounded ontology package policy and all package guards apply."
   - blocked_case: index_build_without_downstream_authority
     response: "Route to a registered RAG/source-text workflow with explicit authority."
 notes:

@@ -10,6 +10,14 @@
 - Added a stable request-work table contract and forced newly authored Outlook
   paragraphs, headings, bullets, and table cells to black instead of inheriting
   reply-thread colors.
+- Added an owner correction lock, visible top `수신/사유`, purpose/status and
+  review-basis ordering, completion/reply criteria, stale-term rejection, and a
+  deterministic file-only validator before Outlook application.
+- Defined the complete derived validation packet and added a 16-case file-only
+  regression matrix for required fields, visible recipients, subject/thread,
+  attachment, deadline, body/HTML, address, and footer/application guards.
+- Kept all synthetic skill evaluation outside Outlook and prohibited sample
+  draft creation, recipients, attachments, COM objects, and send actions.
 
 ### Outlook draft control-surface binding
 
@@ -30,6 +38,19 @@
   `project|common` scope/no implicit fallback을 계획 기본값으로 고정했다.
 - 구현·DB·업무 데이터·migration·writer·MCP/network/운영 활성화는 수행하지 않았고 D27~D29와
   HP-INGRESS/SESSION/QUERY 검증 뒤 별도 owner 승인을 요구한다. (worker: codex_gpt-5)
+
+### 지식·온톨로지 정본 저장 권한 등록
+
+- owner 승인과 manifest/revision/SHA-256/source/review/classification/
+  NotebookLM/recovery 조건을 모두 갖춘 Google Drive ontology release만
+  package 정본으로 인정하고, `.registry/knowledge`는 public-safe Git 실행
+  투영, `_workmeta`는 metadata-only catalog로 고정했다.
+- NotebookLM은 승인된 책장을 우선 질의하는 advisory view로, 회사 NAS는
+  owner-approved one-way 재해복구 사본으로, OneDrive는 active 편집면으로
+  분리했다. 자동 overwrite와 미승인 NAS 경로 사용은 금지했다.
+- 선택된 registry 파일에서 release inventory/hash/query view를 만들고
+  restore sample을 검증하는 `guild_hall/knowledge_canon` helper와 focused
+  validator를 추가했다. (worker: codex_gpt-5)
 
 ### 할일 엔진 H01 메일 이력 phase 경계 보정
 

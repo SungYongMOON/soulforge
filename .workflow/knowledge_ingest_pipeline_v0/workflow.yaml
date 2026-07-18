@@ -120,6 +120,8 @@ operating_contract:
       workflow_id: owner_decision_packet_v0
       required_before_action: true
       granted_by_this_workflow: false
+      standing_policy_exception: bounded_public_safe_ontology_release_or_approved_bookshelf_query_only
+      standing_policy_ref: docs/architecture/guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md
     public_canon_promotion:
       workflow_id: owner_decision_packet_v0
       required_before_action: true

@@ -11,7 +11,7 @@
 | --- | --- | --- | --- |
 | `Species` | `.registry/species/<species_id>/` | `species.yaml` | `unit has_species species` |
 | `Class` | `.registry/classes/<class_id>/` | `class.yaml` | `unit has_class class` |
-| `Knowledge` | `.registry/knowledge/<knowledge_id>/` | `knowledge.yaml` | `class uses knowledge`, `workflow may use knowledge` |
+| `Knowledge` | Google Drive approved ontology release -> `.registry/knowledge/<knowledge_id>/` execution projection | release manifest + `knowledge.yaml` | `class uses knowledge`, `workflow may use knowledge`, `release projects knowledge` |
 | `Unit` | `.unit/<unit_id>/` | `unit.yaml` | `workflow profile may recommend unit` |
 | `Workflow` | `.workflow/<workflow_id>/` | `workflow.yaml` | `workflow guides mission` |
 | `Party` | `.party/<party_id>/` | `party.yaml` | `party chains workflow`, `party routes workflow` |
@@ -93,7 +93,9 @@ relation state, relation lifecycle, claim ceiling, application state, entity lif
 ## owner 경계
 
 - ontology 정의와 관계 규칙은 public foundation 문서가 소유한다.
-- reusable canon entry 는 각 owner root 가 소유한다.
+- reusable canon entry 는 각 owner root 가 소유한다. `Knowledge`의 release
+  lineage는 승인된 Drive ontology package가, public-safe Git 실행 투영은
+  `.registry/knowledge`가 소유한다.
 - project-local relation truth 는 `_workmeta/<project_code>/ontology/` 가 소유한다.
 - runtime event 는 `guild_hall/state/**`, `private-state/**` 가 소유한다.
 - runtime event plane 은 ontology schema owner 가 아니다.

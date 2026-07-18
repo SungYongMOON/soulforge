@@ -2,7 +2,7 @@ skill_id: owner_outlook_mail
 kind: skill
 status: active
 title: Owner Outlook Mail
-summary: Select the existing outbound mail authoring workflow for structured-metadata, adaptively rendered Outlook drafts while honoring the explicitly requested control surface and withholding send authority.
+summary: Select the outbound mail authoring workflow for correction-locked, structured Outlook drafts with deterministic pre-application validation while honoring the requested control surface and withholding send authority.
 behavior:
   intent: >
     Provide a thin Codex launcher for owner-style Outlook mail authoring through
@@ -16,6 +16,7 @@ behavior:
     - the user invokes `$soulforge-owner-outlook-mail`
     - a team mail brief should be normalized before an Outlook manual draft
     - the user explicitly asks to create an unsent local Outlook draft through a terminal or programmatic control surface
+    - the user expects visible 수신/사유, numbered purpose/status and basis sections, a request table, completion/reply criteria, or black Outlook formatting
   avoid_when:
     - the task requires Outlook send, move, delete, mark, category, folder, or rule mutation
     - the task requires raw mail body, raw HTML, `.msg`, `.eml`, attachment payload, secret, or credential access outside an exact current-request local draft application
@@ -30,10 +31,13 @@ behavior:
     - the visible body uses compact, action, decision, status-change, or reply-map rendering without empty headings
     - compact is limited to pure sharing with no requested work, confirmation, review, decision, or response
     - any requested work or required response produces a structured action or decision brief even when only one assignee or one work item exists
+    - actionable request mail shows approved recipient display and reason at the top, applies latest owner corrections last, and rejects superseded wording
     - structured request mail visibly separates purpose, review or technical basis, requested work, completion or reply criteria, follow-up, and attachments
+    - a deterministic local packet validator passes before Outlook draft application
     - newly authored Outlook text, headings, bullets, and tables are explicitly black and never inherit colored reply-thread formatting
     - optional voice guidance comes from a local/private aggregate profile with provenance
     - an explicitly requested local draft executor may save or display one unsent draft without acquiring send authority
+    - synthetic evaluation remains file/text only and never creates or sends an Outlook item
     - a terminal/programmatic request never falls back to UI or computer-control automation
 execution_requirements:
   required_capabilities:
@@ -44,6 +48,7 @@ execution_requirements:
     - private_profile_boundary_review
     - Outlook_manual_handoff_review
     - explicit_Outlook_control_surface_selection
+    - structured_request_mail_validation
   preferred_tools:
     - rg
     - yaml_reader

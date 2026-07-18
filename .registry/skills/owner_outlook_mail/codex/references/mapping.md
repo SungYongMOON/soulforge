@@ -20,6 +20,16 @@ deadline or reply-by; participant involvement; requested formats and examples;
 attachment metadata; response requirements; and assumptions.
 Keep contact values and private paths out of the public template.
 
+## Source Agenda Preservation
+
+When the requester provides an originating numbered agenda, treat it as the
+visible mail's canonical outer order. Do not replace it with an assignee-first
+summary. Keep each agenda number and title, then place its `담당`, `요청 업무`,
+`요청 기한`, `요청 사유`, and `회신/완료 기준` directly beneath it. Use
+`지정 필요` or `확인 필요` when a field is not supplied, copy that same gap to
+`assumptions`, and keep the result `draft_only`; do not infer a missing owner,
+deadline, rationale, or completion evidence.
+
 ## v0 Compatibility
 
 Accept `outbound_team_mail_context_v0` only as normalization input. Use the
@@ -56,6 +66,16 @@ request does not raise authority above `draft_only`. If a new-mail keyword is
 missing, leave the subject unresolved and continue only with a body draft plus
 an assumption and checklist gap.
 
+## Outlook Draft Preview
+
+After the authoring workflow completes, a separate app-control executor may
+open one new unsent Outlook draft only when the current user explicitly asks
+to open or show it. It may enter only the bound subject, recipient display
+names, and body; it must not send, attach files, reuse prior recipients, alter
+other mailbox state, or treat the preview as send approval. If app control
+fails, stop UI actions and return the copy-ready draft. This does not change
+`requested_send_surface: outlook_manual` or `authority_state: draft_only`.
+
 ## Outlook Terminal Draft Application
 
 When the current user explicitly requests `Outlook terminal`, local Outlook
@@ -82,6 +102,8 @@ draft packet.
 
 - `compact`: pure sharing only, with no requested work, confirmation, review,
   decision, or required response.
+- For a numbered source agenda, preserve its order in `action_brief`; under
+  each item show the five mandatory agenda fields or their explicit gaps.
 - `action_brief`: use whenever at least one requested work item or required
   response exists, even for one assignee and one item. Show `수신/사유`, purpose
   or review result, supported review/technical basis, `요청 업무`, completion or
@@ -93,12 +115,30 @@ draft packet.
 - `status_change`: lead with the change, before/after, impact, and next action.
 - `reply_map`: answer two or more source items in a numbered one-to-one map.
 
-Do not repeat TO/CC values as a `수신` block. Use that section only to map
-multiple roles or assignees to responsibilities. Merge `사유` and `요청사유`
-when they would repeat the same content. For conflict, negotiation, material
-ambiguity, or rapid back-and-forth, recommend live discussion followed by a
-short decision/owner/deadline recap. This recommendation never raises send
-authority above `draft_only`.
+The public workflow normally avoids repeating TO/CC values as a `수신` block.
+The owner structured-request specialization below deliberately narrows that
+rule by showing approved display names or roles, never addresses. Merge `사유`
+and `요청사유` when they would repeat the same content. For conflict,
+negotiation, material ambiguity, or rapid back-and-forth, recommend live
+discussion followed by a short decision/owner/deadline recap. This
+recommendation never raises send authority above `draft_only`.
+
+## Owner Structured-request Specialization
+
+For this installed owner launcher, an actionable request always shows a body
+top line for the approved recipient display name or role and a second line for
+the reason, even with one recipient. Never show an address. Then render greeting
+and immediate purpose, purpose or status, supported review basis, requested
+work, completion or reply criteria, and supported attachment/follow-up sections.
+Preserve a supplied numbered source agenda instead of imposing this default.
+
+Before rendering, lock the latest owner corrections, forbidden superseded
+terms, required phrases, recipient display order, and required visible sections.
+Apply corrections last-write-wins and rebuild stale passages. Before any Outlook
+application, run the local structured-request validator and require zero
+forbidden terms, all required phrases, unchanged recipient order, required
+tables/headers, and explicit Malgun Gothic plus black formatting on authored
+paragraphs, headings, bullets, and table cells.
 
 ## Validation Checklist
 
@@ -110,6 +150,8 @@ authority above `draft_only`.
 - The v1 assumptions array and rendered assumptions contain the same gaps.
 - The draft packet and checklist explicitly name `requested_send_surface: outlook_manual` and `authority_state: draft_only` (or checklist `authority_result: draft_only`) separately; never leave authority implied by gaps.
 - Every requested work item retains its actual assignee or an explicit unresolved-assignee assumption.
+- A supplied numbered source agenda is preserved in the visible body in the same order; the body is not regrouped by assignee.
+- Every visible agenda item has `담당`, `요청 업무`, `요청 기한`, `요청 사유`, and `회신/완료 기준`, either as supplied values or explicit `지정 필요`/`확인 필요` gaps mirrored in `assumptions`.
 - Global/per-assignee notes, schedule before/after/rationale/deadline, participants, formats/examples, attachments, and response requirements survive into draft context coverage and the pre-send checklist.
 - Requested send surface is `outlook_manual`, authority state is named separately, and `draft_only` is never treated as the requested surface by this launcher.
 - Any voice profile use includes aggregate-only provenance.
@@ -118,6 +160,7 @@ authority above `draft_only`.
 - Compact was not selected when requested work, confirmation, review, decision, or a required response exists.
 - Newly authored Outlook paragraphs, headings, bullets, and every table cell explicitly use black text and do not inherit colored reply-thread formatting.
 - No external send occurred; any Outlook mutation was limited to one explicitly requested unsent draft through the requested control surface.
+- No synthetic or evaluator mail item was created in Outlook; samples remain local text or validation packets only.
 - A terminal/programmatic request used PowerShell Outlook COM only and did not fall back to UI or computer-control automation.
 - Only the exact owner-selected attachment was staged and attached; any runtime password value was neither printed nor persisted.
 - No raw mail payload, exact excerpt, contact value, raw address, exact footer, private path, or project row entered public output.

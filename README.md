@@ -54,6 +54,7 @@ flowchart TD
 - [`guild_hall/README.md`](guild_hall/README.md): cross-project 운영 루트와 state 경계
 - [`docs/architecture/guild_hall/README.md`](docs/architecture/guild_hall/README.md): `guild_hall` owner 기준 문서 색인
 - [`docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`](docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md): Soulforge 전체 활동 로그 surface 와 recent-context 읽기 규칙
+- [`docs/architecture/guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md`](docs/architecture/guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md): Google Drive ontology canon package, `.registry/knowledge` 실행 투영, NotebookLM 책장, NAS 재해복구 권한 지도
 - [`docs/architecture/guild_hall/NIGHT_WATCH_AUTOMATION_V0.md`](docs/architecture/guild_hall/NIGHT_WATCH_AUTOMATION_V0.md): 길마 새벽 점검 자동화 후보와 Codex app local automation 경계
 - [`docs/architecture/guild_hall/DEV_WORKER_AUTOMATION_V0.md`](docs/architecture/guild_hall/DEV_WORKER_AUTOMATION_V0.md): task packet 을 받아 검증 가능한 branch 를 만드는 dev worker 자동화 경계
 - [`docs/architecture/bootstrap/README.md`](docs/architecture/bootstrap/README.md): clone 이후 설치, doctor, private state restore 가이드 묶음

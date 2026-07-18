@@ -24,11 +24,11 @@ notes:
   - Party owns the workflow chain only; each workflow owns its own internal steps and optimized execution profile.
   - Each workflow in this party chain is expected to execute through a fresh subagent stage in real runs.
   - Source truth remains in source packets or owner-held files; generated wiki material is private derivative projection until reviewed.
-  - Google Drive or another owner-held archive may be used as the central file archive and backup for inbox candidates, source files, working bundles, and canon packages.
+  - Google Drive is the central archive for source refs and working bundles; a fully qualified ontology release is the narrow package-level canon exception defined by ONTOLOGY_CANON_OPERATING_POLICY_V0.md.
   - Drive and NotebookLM placement follows `docs/architecture/guild_hall/KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md`; Drive is the source warehouse, NotebookLM notebooks are query bookshelves, and `_workmeta` remains the source catalog.
-  - Archive manifest handling belongs inside the source intake, sourcebound projection, or composite knowledge wiki pipeline stages; the party records the chain and must not treat archive presence as canon.
+  - Archive manifest handling belongs inside the source intake, sourcebound projection, or composite knowledge wiki pipeline stages; archive presence without a valid ontology release manifest must not be treated as canon.
   - When archive policy declares `codex_skill_auto_sync`, the party may let approved Codex skills or the Google Drive connector upload/sync bounded archive files without per-file owner confirmation.
-  - Automatic upload/sync remains storage authority only; it cannot promote canon, approve source truth, or bypass secret/private boundaries.
+  - Automatic archive upload/sync remains storage authority only. Bounded ontology release registration additionally requires the explicit owner policy, package guards, and review; it still cannot approve original source truth or bypass secret/private boundaries.
   - ZIP containers are not retained as source truth; extracted files and inventories are used instead.
   - NotebookLM or other advisory handoffs may assist navigation but cannot approve source truth, ontology canon, or workflow promotion.
   - Official public source families approved by owner rule may produce public-safe summaries, ontology seeds, NotebookLM packet manifests, and registry entries; NotebookLM answers remain advisory and raw/chunk payloads stay outside public canon.

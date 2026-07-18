@@ -22,7 +22,9 @@ passwords, or mutates originals.
 - Public workflow files are metadata and orchestration only.
 - Google Drive upload, NotebookLM upload or query, public canon promotion,
   source-text extraction, index build, replacement, migration, and controlled
-  internal source handling are not granted here.
+  internal source handling are not granted by this workflow alone. A bounded
+  public-safe ontology release or approved bookshelf query may proceed under
+  `ONTOLOGY_CANON_OPERATING_POLICY_V0.md` plus downstream tool authority.
 - Stronger actions must route through `owner_decision_packet_v0` plus the
   downstream workflow or tool that actually owns that authority.
 - Unlocked output manifests are input pointers, not replacement authority.

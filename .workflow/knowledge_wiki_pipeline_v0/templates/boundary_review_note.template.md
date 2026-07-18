@@ -3,7 +3,8 @@
 - workflow_id: `knowledge_wiki_pipeline_v0`
 - orchestration_only: `true`
 - zip_container_is_not_source_truth: `true`
-- owner_held_archive_is_storage_and_backup_not_authority: `true`
+- ordinary_owner_held_archive_is_storage_not_authority: `true`
+- qualified_drive_ontology_release_requires_policy_and_package_guards: `true`
 - codex_skill_auto_sync_allowed_when_declared: `true`
 - per_file_owner_confirmation_not_required_when_declared: `true`
 - downstream_private_derivative_outputs: `true`

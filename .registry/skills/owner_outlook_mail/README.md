@@ -21,4 +21,9 @@ that visibly separates purpose, basis, requested work, completion/reply
 criteria, follow-up, and attachments. Newly authored Outlook content explicitly
 uses black text instead of inheriting a colored reply-thread style.
 
+The owner specialization also locks the newest corrections before rendering,
+shows approved `수신/사유` lines at the top, rejects superseded wording, and
+requires the local structured-request validator before Outlook application.
+Synthetic evaluation is text/file-only and never creates or sends Outlook mail.
+
 Installed skill name: `soulforge-owner-outlook-mail`.

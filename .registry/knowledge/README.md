@@ -13,7 +13,10 @@
   copying document bodies, filenames, hashes, chunks, or private paths.
 
 - `towed_body_sensor_stability/` is a public-safe source-supported reusable knowledge entry for towed-body stability, internal sensor-axis quieting, liquid damping, cable/body vibration, appendage case planning, and pointing-budget orientation.
-- `knowledge/` 는 reusable knowledge canon 을 두는 registry surface 다.
+- `knowledge/` 는 승인된 Google Drive ontology canon release의 public-safe,
+  Git-tracked 실행 투영을 두는 registry surface 다.
+- Drive와 이 투영이 다르면 마지막 승인 release를 lineage 기준으로 삼되,
+  diff/hash/영향을 검토하기 전에는 어느 쪽도 자동 덮어쓰지 않는다.
 - 각 knowledge folder 는 `knowledge.yaml` 을 canon entry 로 사용한다.
 - class-local `knowledge_refs.yaml` 는 여기의 knowledge id 를 assign/ref 로 연결한다.
 - `boundary_governance/` 는 skill package authoring 과 boundary review lane 을 위한 minimal canonical knowledge sample 이다.

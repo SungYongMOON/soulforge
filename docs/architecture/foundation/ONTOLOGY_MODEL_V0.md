@@ -144,6 +144,13 @@ writer/approval/state/replay contract는
   - reusable package / template / profile
   - schema-constrained entry
 
+`Knowledge`의 외부 release lineage는 예외적으로 승인된 Google Drive
+ontology canon package가 소유하고, `.registry/knowledge`는 그 public-safe
+Git 실행 투영을 소유한다. Foundation은 계속 entity/relation schema와 owner
+경계를 소유한다. 상세 release/NotebookLM/NAS 계약은
+[`../guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md`](../guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md)를
+따른다.
+
 ### 3. project-local ontology instance
 
 - project-local private metadata 로 둔다.

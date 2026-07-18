@@ -18,7 +18,7 @@ _workmeta records metadata-only refs, hashes, bindings, approvals, reviews, and 
 
 | Term | Korean working term | Meaning | Authority boundary |
 | --- | --- | --- | --- |
-| Drive source warehouse | 창고 | Owner-held Google Drive storage/archive/backup for source files, source refs, and packages. | Stores files; folder placement alone is not approval, source truth, or canon. |
+| Drive source warehouse | 창고 | Owner-held Google Drive storage/archive for source files, source refs, and packages. | Folder placement alone is not approval, source truth, or canon. A fully approved and validated ontology canon package is the narrow package-level exception. |
 | NotebookLM query bookshelf | 책장 | One NotebookLM notebook or equivalent selected source set. | Advisory query surface; answers are not validation or canon. |
 | Source item | 책 | One source handle, file, source packet, or Drive-native source ref. | Must be represented by a metadata source card before durable use. |
 | Source catalog | 장서목록 | `_workmeta` ledgers, packet maps, NotebookLM bindings, query/use metadata, and review packets. | Records refs, hashes, decisions, claim ceilings, and reproducible source selections; it stores no source, projection, or wiki bodies. |
@@ -34,12 +34,12 @@ approval, source truth, owner approval, or canon status.
 | Surface | Primary role | May hold | Authority boundary and default posture |
 | --- | --- | --- | --- |
 | OneDrive or another owner-approved shared worksite | Active editable project files and shared work products. | Current documents, media, measurements, and editable deliverables. | Working-file access only; it is not the durable knowledge source warehouse or canon owner. |
-| Company NAS | Company owner-held external originals. | Original source files governed outside Soulforge. | Default read-only from Soulforge. Reachability does not authorize copy, modification, automatic ingest, Drive upload, source approval, or canon promotion. |
+| Company NAS | Company owner-held originals and owner-approved ontology disaster-recovery copies. | Original source files governed outside Soulforge and one-way copies of approved Drive ontology releases. | Default read-only from Soulforge. A DR copy is not jointly edited canon, and reachability alone grants no write or backup authority. |
 | Soulforge `_workspaces/**` | Working view and derived payload worksite. | Approved working copies, extracted text, private projection/wiki bodies, RAG payloads, and generated views. | Working/derived runtime surface only; content here is not approved knowledge or canon by location. |
-| Google Drive source warehouse | Durable source storage and cross-PC source archive. | Candidate and approved source files, source refs, and packages grouped by durable source/domain logic. | Folder placement, a `CANON` label, connector visibility, or connector read does not prove approval, source truth, or canon. Approval and claim state require `_workmeta` evidence plus the applicable owner/review route. |
+| Google Drive source warehouse and ontology package canon | Durable source storage plus canon owner for fully qualified reusable ontology releases. | Candidate/approved source refs and `30_Domain_CANON/Soulforge_ontology/<release_id>` packages. | Ordinary placement is not canon. Only an owner-approved release with manifest, revision, hashes, source refs, classification, NotebookLM membership, and recovery evidence is ontology package canon. |
 | Soulforge `_workmeta/**` | Metadata-only catalog and decision evidence. | Refs, hashes, provenance, approval/review state, bindings, use metadata, claim ceilings, and ontology candidates. | No source bodies, extracted text, chunks, projection/wiki bodies, or generated answer payloads. Metadata records do not approve their targets. |
 | NotebookLM, RAG, Obsidian, and generated graph views | Advisory query, retrieval, and derived navigation surfaces. | Selected source bindings, answers, indexes, generated notes, and graph signals within their own bounded runtime surfaces. | Advisory/derived only; they cannot approve sources, accept ontology, raise claim ceilings, or promote canon. |
-| Soulforge `.registry/knowledge/**` | Accepted reusable knowledge canon. | Public-safe knowledge entries accepted by the correct owner and review route. | This is the reusable knowledge canon surface; entry requires source support, boundary checks, and applicable review/registration evidence. |
+| Soulforge `.registry/knowledge/**` | Git-tracked execution projection of approved ontology releases. | Public-safe knowledge entries accepted by the correct owner and review route. | Projection lineage must identify an approved Drive release. Differences are reviewed by diff/hash/impact before reconciliation; no automatic overwrite. |
 
 ### Migration gate
 
@@ -90,6 +90,7 @@ Google Drive source warehouse
       <project_code>/<source_context>/
     30_Domain_CANON/
       <domain>/<subdomain>/<source_family>/
+      Soulforge_ontology/<ontology_release_id>/
     80_SUPERSEDED/
       <domain>/<source_family>/
     90_REJECTED_or_UNCLEAR/
@@ -102,9 +103,10 @@ Google Drive source warehouse
 ```
 
 Folder state, including a `CANON` label, is a storage convenience rather than an
-approval. The `_workmeta` source catalog remains the place that records approval
-state, claim ceiling, source handle, hash, NotebookLM binding, and review
-history; connector access or a successful read does not raise that state.
+approval. The only exception is a package that passes the ontology release
+contract in `ONTOLOGY_CANON_OPERATING_POLICY_V0.md`. `_workmeta` records its
+approval state, hash, revision, NotebookLM binding, and review history without
+storing the package body.
 
 ## Bookshelf Creation Rule
 
@@ -187,8 +189,10 @@ bookshelf_card:
 
 ## Ontology Rule
 
-The ontology does not live in Drive folders or NotebookLM notebooks. Those
-surfaces are too operational and too fluid.
+Ontology candidates and project-local relation truth do not become canon by
+living in Drive folders or NotebookLM notebooks. A reusable ontology release is
+canon only through the package contract in
+`ONTOLOGY_CANON_OPERATING_POLICY_V0.md`; NotebookLM remains advisory.
 
 Use `_workmeta` to record candidate graph edges such as:
 

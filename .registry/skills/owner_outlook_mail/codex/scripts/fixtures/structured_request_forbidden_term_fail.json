@@ -1,0 +1,49 @@
+{
+  "schema_version": "soulforge.structured_request_mail_validation.v1",
+  "source_context_schema": "outbound_team_mail_context_v1",
+  "validation_intent": "file_only",
+  "authority_state": "draft_only",
+  "requested_send_surface": "outlook_manual",
+  "application_requested": false,
+  "actionable": true,
+  "render_mode": "action_brief",
+  "recipient_label": "수신",
+  "reason_label": "사유",
+  "body_text": "수신 : 기술 담당자\n사유 : 합성 검증\n\n안녕하세요. 합성 검증을 요청드립니다.\n\n금지된 이전 표현",
+  "body_html": "<p style=\"font-family:'Malgun Gothic';color:#000000\">수신 : 기술 담당자</p><p style=\"font-family:'Malgun Gothic';color:#000000\">사유 : 합성 검증</p><p style=\"font-family:'Malgun Gothic';color:#000000\">안녕하세요. 합성 검증을 요청드립니다.</p><p style=\"font-family:'Malgun Gothic';color:#000000\">금지된 이전 표현</p>",
+  "purpose_phrases": ["합성 검증"],
+  "required_sections": [],
+  "required_phrases": [],
+  "forbidden_terms": ["금지된 이전 표현"],
+  "recipient_display_order": ["기술 담당자"],
+  "actual_recipient_display_order": ["기술 담당자"],
+  "require_table": false,
+  "requested_work_count": 0,
+  "technical_value_count": 0,
+  "required_table_headers": [],
+  "subject": {
+    "mode": "new",
+    "value": "합성 검증 요청",
+    "original_thread_subject": null,
+    "resolved": true,
+    "required_phrases": [],
+    "forbidden_terms": []
+  },
+  "attachments": {
+    "owner_selected": [],
+    "staged": [],
+    "inline_thread_assets_ignored": true
+  },
+  "deadline": {
+    "supplied": false,
+    "value": null,
+    "visible": false
+  },
+  "footer": {
+    "confirmed": false,
+    "signature_count": 0,
+    "security_footer_count": 0,
+    "signature_marker": null,
+    "security_footer_marker": null
+  }
+}

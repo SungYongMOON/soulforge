@@ -90,7 +90,9 @@ downstream_workflows:
 boundaries:
   orchestration_only: true
   zip_container_is_not_source_truth: true
-  owner_held_archive_is_storage_and_backup_not_authority: true
+  ordinary_owner_held_archive_is_storage_not_authority: true
+  qualified_drive_ontology_release_is_package_canon: true
+  ontology_release_policy_ref: docs/architecture/guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md
   codex_skill_auto_sync_allowed_when_declared: true
   per_file_owner_confirmation_not_required_when_declared: true
   downstream_private_derivative_outputs: true
@@ -107,6 +109,6 @@ notes:
   - The workflow is now registered in `.workflow/index.yaml`.
   - "`knowledge_wiki_cell` may use this workflow as its default entry while the registered four-stage lane remains the downstream execution chain owned by this composite package."
   - "`query_only_with_existing_projection` may bypass fresh intake and fresh projection when a bounded existing private projection ref is already available."
-  - Owner-held archive refs may be inserted before intake for Drive inbox/candidate storage and after projection/review for working or canon package backup, but storage status does not promote canon.
+  - Owner-held archive refs may be inserted before intake for Drive inbox/candidate storage and after projection/review for working packages. Storage status alone does not promote canon; a qualified Drive ontology release follows the dedicated package policy.
   - Obsidian export is a generated read-only local view over canon-backed knowledge only. It is not a canon owner surface and must not expose `_workmeta` payloads, raw source files, or NotebookLM answers.
   - RAG refresh handoff is optional metadata-only routing after sourcebound/wiki metadata changes; `rag_metadata_refresh_v0` owns refresh execution and stronger source-text/index permissions remain false unless a separate owner decision grants them.

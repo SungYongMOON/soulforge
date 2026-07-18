@@ -69,6 +69,11 @@
   - project packet map or operating packet when present
   - known common references
   - known claim ceilings and source gaps
+- When an approved NotebookLM binding exists and the request is a knowledge
+  question, preflight should actually query that bounded bookshelf before new
+  source acquisition. Record only notebook/source IDs, purpose, sync state,
+  and result status; trace important conclusions to the connected source or
+  approved ontology package.
 - It produces a packet that the main monster workflow can consume.
 
 ### Curation
@@ -136,7 +141,8 @@ Knowledge-heavy monsters usually include:
 - “which sources are relevant?” questions
 - NotebookLM-backed synthesis or gap-scan work
 
-Do not run the preflight first for every monster automatically. Skip it when:
+Do not run the preflight first for every monster automatically. Use it by
+default for knowledge questions with an approved bookshelf, and skip it when:
 
 - the work is a local code edit or bounded refactor
 - the workflow already has a fully locked input packet

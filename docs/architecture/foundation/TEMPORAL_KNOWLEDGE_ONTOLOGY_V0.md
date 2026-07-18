@@ -398,8 +398,9 @@ event만 사용한다. 현재 최신 문서를 과거 판단에 조용히 끼워
 과제 source/revision/적용/관계/이력 metadata
 └─ _workmeta/<project_code>/**
 
-검토된 공개 재사용 지식
-└─ .registry/knowledge/**
+승인된 공개 재사용 지식 release lineage
+├─ Google Drive ontology canon package
+└─ .registry/knowledge/** public-safe Git execution projection
 
 owner가 명시적으로 선언한 비공개 정본 지식 본문
 └─ _workspaces/knowledge/**/wiki/** 또는
@@ -415,8 +416,8 @@ Neo4j·Obsidian·HTML·ERP read model
 └─ 위 정본을 읽어 다시 만드는 generated view
 ```
 
-`.registry/knowledge/**`의 `source_identity`는 공식 공개 source의 public-safe accepted
-mirror다. operational revision record는 `_workmeta`가 소유하고, 양쪽의 exact
+`.registry/knowledge/**`의 `source_identity`는 공식 공개 source와 승인된 Drive
+ontology release의 public-safe accepted projection이다. operational revision record는 `_workmeta`가 소유하고, 양쪽의 exact
 `source_revision_id`와 full hash가 일치해야 한다. 이 public `source_identity` block에는
 private path, provider ID, approval note를 넣지 않는다. 다른 registry source ref도 기존
 public/private boundary 계약을 그대로 따른다.
@@ -545,7 +546,8 @@ source_revision_id
   public registry는 exact git commit/content hash, private canon은 exact
   `wiki_revision_id + content hash + owner_decision_ref`를
   `knowledge_revision_ref`로 함께 고정한다.
-- `.registry/knowledge/<knowledge_id>` 승격은 별도 review 결과다.
+- `.registry/knowledge/<knowledge_id>` 승격은 별도 review 결과이며 승인된
+  Drive `ontology_release_id`, manifest/content hash, Git commit lineage를 함께 고정한다.
 
 ### 10.1 과제 맥락에 넣는 지식의 세 층
 

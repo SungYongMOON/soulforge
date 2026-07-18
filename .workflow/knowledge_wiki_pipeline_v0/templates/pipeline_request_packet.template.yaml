@@ -20,7 +20,8 @@ owner_held_archive_policy:
   allowed_tooling:
     - codex_skill
     - google_drive_connector
-  archive_presence_is_source_or_canon_authority: false
+  archive_presence_alone_is_source_or_canon_authority: false
+  qualified_ontology_release_policy_ref: docs/architecture/guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md
 obsidian_view_policy:
   export_mode: "not_requested|generated_read_only"
   suggested_runtime_repo_path: "_workspaces/system/knowledge_view/obsidian_export/<export_id>|not_requested"

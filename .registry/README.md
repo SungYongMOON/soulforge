@@ -45,7 +45,9 @@ flowchart TD
 - 실제 조합은 `.unit/<unit_id>/unit.yaml` 의 `identity.species_id + class_ids` 가 결정한다.
 - 따라서 `orc + knight`, `human + archivist`, `dwarf + administrator` 같은 조합은 canon 상 허용되며, 제한이 필요하면 unit/party/workflow/mission 쪽에서 표현한다.
 - current starter species set 은 `human`, `orc`, `elf`, `dwarf`, `darkelf` 다.
-- `skills/`, `tools/`, `knowledge/` 는 reusable canon surface 이며, class-local refs 가 가리키는 entry 를 둘 수 있다.
+- `skills/`, `tools/` 는 reusable canon surface 이며, `knowledge/` 는 승인된
+  Google Drive ontology release의 public-safe Git 실행 투영이다. class-local
+  refs 는 검증된 entry만 가리킬 수 있다.
 - `skills/shield_wall`, `skills/charge_breaker`, `tools/kite_shield`, `tools/field_lance`, `knowledge/frontline_doctrine`, `knowledge/escort_etiquette` 는 `knight` sample 을 해석하기 위한 minimal canon entry 다.
 - skill canon 은 behavior 와 execution requirement 를 기록할 수 있지만, 실제 모델/MCP/tool 장착은 runtime binding 에서 최종 resolve 한다.
 

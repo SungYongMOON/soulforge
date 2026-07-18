@@ -13,6 +13,7 @@
 | `KNOWLEDGE_OPERATING_MODEL_V0.md` | Combines the knowledge access ledger, manual candidate capture, LLM suggestion approval, end-of-work sweep, sourcebound packet, and access-event analysis layers. |
 | `KNOWLEDGE_WORKFLOW_STACK_V0.md` | project work 에서 실제로 knowledge layer 를 어떤 순서와 workflow stack 으로 쓰는지 고정한다. |
 | `KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md` | Fixes the Google Drive source warehouse, NotebookLM query bookshelf, source catalog, and ontology-candidate vocabulary and placement rules. |
+| `ONTOLOGY_CANON_OPERATING_POLICY_V0.md` | Fixes the approved Google Drive ontology canon package, `.registry/knowledge` execution projection, NotebookLM advisory bookshelf, and NAS disaster-recovery authority split. |
 | `KNOWLEDGE_GRAPH_VIEW_MODEL_V0.md` | Defines the metadata-only graph view, visual encoding, source trace, layout, and Obsidian/operations export split for knowledge graph views. |
 | `../foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md` | Connects project time/event/file revision IDs to exact source revisions, RAG/Wiki lineage, SE rules, and canon knowledge. |
 | `PROJECT_CONTEXT_GRAPH_V0.md` | Defines the guild_hall/dev-ERP projection model for consuming the workspace project context graph in haengbogwan. |
@@ -78,6 +79,7 @@
 - [`KNOWLEDGE_OPERATING_MODEL_V0.md`](KNOWLEDGE_OPERATING_MODEL_V0.md)
 - [`KNOWLEDGE_WORKFLOW_STACK_V0.md`](KNOWLEDGE_WORKFLOW_STACK_V0.md)
 - [`KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md`](KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md)
+- [`ONTOLOGY_CANON_OPERATING_POLICY_V0.md`](ONTOLOGY_CANON_OPERATING_POLICY_V0.md)
 - [`KNOWLEDGE_GRAPH_VIEW_MODEL_V0.md`](KNOWLEDGE_GRAPH_VIEW_MODEL_V0.md)
 - [`../foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`](../foundation/TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md)
 - [`PROJECT_CONTEXT_GRAPH_V0.md`](PROJECT_CONTEXT_GRAPH_V0.md)

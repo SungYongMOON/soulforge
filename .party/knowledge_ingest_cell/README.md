@@ -19,7 +19,10 @@ to stay public/private safe.
 
 - No password guessing, brute force, or secret exposure.
 - No original source mutation.
-- No Drive or NotebookLM upload.
+- No Drive or NotebookLM upload/query without an applicable owner decision or
+  standing policy ref and downstream tool authority. The 2026-07-15 ontology
+  canon policy permits bounded public-safe package registration and approved
+  bookshelf queries; it does not make the party default-route-safe.
 - No public canon promotion.
 - No source-text extraction or index build.
 - No replacement, migration, or source-of-record authority.

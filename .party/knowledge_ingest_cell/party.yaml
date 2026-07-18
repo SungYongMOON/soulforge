@@ -73,5 +73,5 @@ notes:
   - Party owns the reusable chain/loadout only; each workflow owns its own steps and profile policy.
   - Real runs should dispatch each material stage to a fresh subagent and record private evidence under `_workmeta/<project_code>/runs/<run_id>/` or `_workmeta/system/runs/<run_id>/`.
   - Optional copy-only unlock preprocessing may use an existing manifest or owner-approved execution, but this party never grants brute-force, secret logging, or original mutation authority.
-  - Drive, NotebookLM, public canon promotion, source-text/index build, replacement, migration, and controlled/internal source handling require explicit owner decisions and downstream authority.
+  - Drive, NotebookLM, public canon promotion, source-text/index build, replacement, migration, and controlled/internal source handling require an applicable explicit owner decision or standing policy plus downstream authority; the 2026-07-15 ontology policy is bounded to public-safe release packages and approved bookshelf queries.
   - Bounded ingest runs should leave metadata-only knowledge ingest receipt refs and missing-audit refs under `_workmeta/**` before closeout so later PCs can recover unresolved candidate/source/wiki/RAG/canon state after private metadata sync.

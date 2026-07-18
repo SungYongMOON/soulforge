@@ -33,15 +33,17 @@ routes handle support-trace quality review and deterministic work-card routing
 after approved source-text lane artifacts already exist.
 
 Google Drive or another owner-held archive can sit around that chain as the file
-archive and backup: incoming candidate files go to an inbox/candidate manifest,
-working packets and canon packages get archive refs later, and the workflow keeps
-status labels so storage does not look like approval.
+archive: incoming candidate files go to an inbox/candidate manifest and working
+packets get archive refs later. An approved Google Drive ontology release is a
+narrow package-level canon exception only when it passes
+`ONTOLOGY_CANON_OPERATING_POLICY_V0.md`; ordinary storage still is not approval.
 
 Drive and NotebookLM placement follows
 `docs/architecture/guild_hall/KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md`:
-Google Drive is the source warehouse, NotebookLM notebooks are query
-bookshelves, `_workmeta` is the source catalog, and Drive manifests or
-shortcuts must not become source truth or canon authority.
+Google Drive is the source warehouse and qualified ontology package canon,
+NotebookLM notebooks are advisory query bookshelves, and `_workmeta` is the
+metadata-only catalog. Drive manifests or shortcuts do not replace original
+source truth.
 
 This party does not own the inner steps of those workflows and does not choose the best model, reasoning effort, species, class, or unit. Those choices stay with each workflow's profile and calibration files.
 

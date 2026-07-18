@@ -97,7 +97,7 @@ steps:
   - step_id: archive_working_package_stage
     title: Archive Working Package Stage
     actor_slot: pipeline_planner
-    action: Record working-packet, reviewed-private, blocked, or canon-package archive entries after projection and any owner-decision route. The stage prepares manifest refs for Drive backup and NotebookLM/Obsidian handoff eligibility without uploading or promoting by itself.
+    action: Record working-packet, reviewed-private, blocked, or ontology-release package entries after projection and any owner-decision route. Ordinary archive refs remain storage-only; a release becomes package canon only after the dedicated policy, manifest, hash, source, classification, NotebookLM, recovery, and review guards pass.
     inputs:
       - sourcebound_packet_refs
       - routing_decision_note
@@ -192,7 +192,7 @@ stop_conditions:
   - source_intake_bypassed_without_existing_approved_refs
   - zip_container_requested_as_source_truth
   - remote_archive_upload_requested_outside_declared_codex_skill_or_connector_policy
-  - drive_archive_presence_treated_as_source_truth_or_canon_authority
+  - drive_archive_presence_without_qualified_ontology_release_manifest_treated_as_source_truth_or_canon_authority
   - obsidian_export_requested_without_canon_backed_source
   - hwp_page_exact_claim_requested_without_page_stable_surface
   - public_promotion_requested_without_authority_register

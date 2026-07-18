@@ -46,9 +46,15 @@ The candidate exists to express one reusable request-level orchestration surface
 
 - This workflow owns orchestration only.
 - Source truth remains with source packets or owner-held files.
-- Google Drive or another owner-held archive is the storage and backup surface for candidate files, working bundles, and canon packages; it is not source truth, canon authority, or review approval.
+- Google Drive is the storage surface for candidate files and working bundles.
+  A fully qualified ontology release is the narrow package-level canon owner
+  defined by `ONTOLOGY_CANON_OPERATING_POLICY_V0.md`; ordinary archive presence
+  is not source truth, canon authority, or review approval.
 - When archive policy sets `agent_upload_authority: codex_skill_auto_sync`, an approved Codex skill or Google Drive connector may upload/sync bounded archive files without per-file owner confirmation.
-- Automatic upload/sync is still storage authority only. It cannot promote canon, approve source truth, or bypass secret/private boundaries.
+- Automatic archive upload/sync is still storage authority only. Ontology
+  release registration additionally requires the owner policy, manifest/hash/
+  revision/source/classification guards, and review. It cannot approve original
+  source truth or bypass secret/private boundaries.
 - Generated wiki pages remain private derivative outputs in downstream stages.
 - Obsidian output is a generated read-only local view over canon-backed knowledge only. `_workmeta` payloads, Drive candidate files, and NotebookLM answers are not valid vault body sources.
 - ZIP containers are not retained as source truth.
