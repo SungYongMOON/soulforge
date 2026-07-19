@@ -25,8 +25,10 @@
 - `io.mjs`: 공통 JSON/JSONL 및 atomic text I/O helper
 - `python_bin.mjs`: Python executable 선택 helper
 - `project_history_envelope.mjs`: public synthetic history envelope/coverage validator
+- `project_history_readiness.mjs`: public gate-map and synthetic five-lane Shadow/H06 readiness validator
 
 ## 상태
 
 - shared helper owner boundary는 Stable이다.
 - `project_history_envelope.mjs` 계약은 `canon_candidate`이며 live adapter가 아니다.
+- `project_history_readiness.mjs`는 readiness-only이며 progression grant, source binding, writer activation을 할 수 없다.

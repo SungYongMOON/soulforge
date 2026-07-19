@@ -1,0 +1,20 @@
+{
+  "schema_version": "soulforge.task_engine_public_gate_map.v1",
+  "map_id": "task-engine-hpp-five-lane-ingress-pilot-v1",
+  "entries": [
+    { "gate_id": "C00A", "status": "historical_blocker_accepted", "evidence_ref": "task_engine_c00a_public_result_c00q_next_owner_packet_v1", "evidence_scope": "public_static", "progression_accepted": false, "blocking_reasons": ["current_execution_authority_absent"], "private_locator_copied": false },
+    { "gate_id": "C00Q", "status": "retained_formal_pass_receipt", "evidence_ref": "task_engine_c00q_formal_acceptance_pass_v1", "evidence_scope": "public_synthetic", "progression_accepted": false, "blocking_reasons": ["current_execution_authority_expired"], "private_locator_copied": false },
+    { "gate_id": "C00B", "status": "blocked", "evidence_ref": "task_engine_c00b_live_binding_actual_inventory_result_v1", "evidence_scope": "private_metadata_ref", "progression_accepted": false, "blocking_reasons": ["formal_pass_receipt_absent"], "private_locator_copied": false },
+    { "gate_id": "P0", "status": "hold", "evidence_ref": "none", "evidence_scope": "none", "progression_accepted": false, "blocking_reasons": ["c00b_formal_pass_required"], "private_locator_copied": false },
+    { "gate_id": "H00", "status": "hold", "evidence_ref": "project_history_envelope_v0_candidate", "evidence_scope": "public_static", "progression_accepted": false, "blocking_reasons": ["owner_ratification_required"], "private_locator_copied": false },
+    { "gate_id": "H01", "status": "hold", "evidence_ref": "none", "evidence_scope": "none", "progression_accepted": false, "blocking_reasons": ["mail_owner_mapping_required"], "private_locator_copied": false },
+    { "gate_id": "H02", "status": "hold", "evidence_ref": "none", "evidence_scope": "none", "progression_accepted": false, "blocking_reasons": ["voice_mapping_ratification_required"], "private_locator_copied": false },
+    { "gate_id": "H03", "status": "hold", "evidence_ref": "none", "evidence_scope": "none", "progression_accepted": false, "blocking_reasons": ["external_schedule_owner_required"], "private_locator_copied": false },
+    { "gate_id": "H04", "status": "hold", "evidence_ref": "none", "evidence_scope": "none", "progression_accepted": false, "blocking_reasons": ["file_subtype_mapping_required"], "private_locator_copied": false },
+    { "gate_id": "H05", "status": "hold", "evidence_ref": "none", "evidence_scope": "none", "progression_accepted": false, "blocking_reasons": ["run_schema_ratification_required"], "private_locator_copied": false },
+    { "gate_id": "H06", "status": "hold", "evidence_ref": "none", "evidence_scope": "none", "progression_accepted": false, "blocking_reasons": ["five_lane_acceptance_required"], "private_locator_copied": false },
+    { "gate_id": "P1", "status": "hold", "evidence_ref": "none", "evidence_scope": "none", "progression_accepted": false, "blocking_reasons": ["h06_formal_pass_required"], "private_locator_copied": false }
+  ],
+  "activation_allowed": false,
+  "private_locator_copied": false
+}

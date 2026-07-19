@@ -2,6 +2,19 @@
 
 ## 2026-07-19
 
+### Five-lane project-history readiness foundation
+
+- Added a public-safe C00A/C00Q/C00B-to-P1 gate map that cannot grant
+  progression or activation and pins the V1 current-state snapshot so a map
+  edit cannot self-declare later retained receipts.
+- Added a synthetic-only five-lane Shadow, deterministic replay, conflict and
+  cross-lane double-count guards, lane/type enforcement, exact initial
+  classification transition, and H06 coverage fixture on top of the H00
+  envelope/coverage candidate. All default lane profiles remain unratified
+  and no live adapter, writer, exporter, source binding, or service is enabled.
+- Added the readiness suite to both root validation modes. (worker:
+  codex_gpt-5.5)
+
 ### Root acceptance covers HPP ingress and MCP
 
 - Added the bounded ingress staging, fenced continuous-ingress, and dev-ERP

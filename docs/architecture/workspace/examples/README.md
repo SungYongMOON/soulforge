@@ -1,5 +1,9 @@
 # docs/architecture/workspace/examples
 
+`task_engine_history_foundation/` adds the public-safe P0/P1 gate map and the
+synthetic five-lane Shadow/coverage readiness example. It contains no private
+locator or live activation authority.
+
 ## 목적
 
 - `examples/` 는 tracked workspace contract 예시를 둔다.

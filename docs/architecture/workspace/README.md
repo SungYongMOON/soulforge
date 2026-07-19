@@ -17,6 +17,7 @@
 | `PROJECT_FILE_ACTIVITY_REVISION_V0.md` | 네 PC와 ERP의 파일 관측을 logical file, immutable revision, node observation으로 분리하고 rename/copy/touch/delete/conflict와 단일 reconciler 경계를 고정한다. |
 | `PROJECT_TASK_ENGINE_LIFECYCLE_V0.md` | dev-ERP task truth, TaskDriver causal record, 판단/적용과 작업 상태의 두 축, writer/approval/idempotency/replay 경계를 고정한다. |
 | `PROJECT_HISTORY_ENVELOPE_V0.md` | mail/voice/structured PC work/file/run-log occurrence를 public-safe metadata envelope로 맞추고 0건을 가짜 event 없이 별도 coverage receipt로 증명하는 `canon_candidate` 계약이다. |
+| `PROJECT_HISTORY_READINESS_FOUNDATION_V0.md` | C00A/C00Q receipt와 C00B 이후 HOLD 경계를 public-safe map으로 연결하고, one-project five-lane Shadow/H06 synthetic replay만 검증하는 readiness 계약이다. |
 | `PROJECT_LEDGER_UPDATE_V0.md` | 주기적으로 전달되는 회사 PJT 관리 대장을 private source 로 받아 project registration 을 갱신하는 public-safe 절차다. |
 | `COMPANY_COMMON_SOURCE_STORAGE_V0.md` | 회사 공통 조직/연락처/자리배치/운영 참조 자료를 project worksite 와 분리해 knowledge common source packet 으로 보관하는 규칙이다. |
 | `PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md` | 프로젝트 지식 추출(장서목록·본문추출·추출 메타)의 저장 위치를 `project_code` 단위로 격리해 고정하고, `HWP_NORMALIZATION`/`COMPANY_COMMON` 을 모든 문서 형식으로 일반화하며 `_local` 임의 폴더를 금지하는 규칙이다. |
@@ -83,6 +84,7 @@
 - [`PROJECT_FILE_ACTIVITY_REVISION_V0.md`](PROJECT_FILE_ACTIVITY_REVISION_V0.md)
 - [`PROJECT_TASK_ENGINE_LIFECYCLE_V0.md`](PROJECT_TASK_ENGINE_LIFECYCLE_V0.md)
 - [`PROJECT_HISTORY_ENVELOPE_V0.md`](PROJECT_HISTORY_ENVELOPE_V0.md)
+- [`PROJECT_HISTORY_READINESS_FOUNDATION_V0.md`](PROJECT_HISTORY_READINESS_FOUNDATION_V0.md)
 - [`PROJECT_LEDGER_UPDATE_V0.md`](PROJECT_LEDGER_UPDATE_V0.md)
 - [`COMPANY_COMMON_SOURCE_STORAGE_V0.md`](COMPANY_COMMON_SOURCE_STORAGE_V0.md)
 - [`PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md`](PROJECT_KNOWLEDGE_EXTRACTION_STORAGE_V0.md)
