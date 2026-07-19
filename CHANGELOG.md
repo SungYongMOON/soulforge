@@ -9,7 +9,8 @@
   edit cannot self-declare later retained receipts.
 - Added a synthetic-only five-lane Shadow, deterministic replay, conflict and
   cross-lane double-count guards, lane/type enforcement, exact initial
-  classification transition, and H06 coverage fixture on top of the H00
+  classification transition, typed null/own-option-boundary failures, and H06
+  coverage fixture on top of the H00
   envelope/coverage candidate. All default lane profiles remain unratified
   and no live adapter, writer, exporter, source binding, or service is enabled.
 - Added the readiness suite to both root validation modes. (worker:

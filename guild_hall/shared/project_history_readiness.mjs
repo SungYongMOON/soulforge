@@ -115,7 +115,7 @@ function fail(code, path, message) {
   throw new ProjectHistoryReadinessError(code, path, message);
 }
 
-function exactKeys(value, expected, path) {
+function plainDataObjectKeys(value, path) {
   if (value === null || typeof value !== "object" || Array.isArray(value)
       || Object.getPrototypeOf(value) !== Object.prototype) {
     fail("plain_object_required", path, "Expected a plain object");
@@ -128,11 +128,27 @@ function exactKeys(value, expected, path) {
       fail("data_property_required", `${path}.${key}`, "Only enumerable data properties are allowed");
     }
   }
-  const keys = ownKeys.sort();
+  return ownKeys;
+}
+
+function exactKeys(value, expected, path) {
+  const keys = plainDataObjectKeys(value, path).sort();
   const wanted = [...expected].sort();
   if (keys.length !== wanted.length || keys.some((key, index) => key !== wanted[index])) {
     fail("exact_fields_required", path, "Fields do not match the public contract");
   }
+}
+
+function allowedKeys(value, allowed, path) {
+  const allowedSet = new Set(allowed);
+  for (const key of plainDataObjectKeys(value, path)) {
+    if (!allowedSet.has(key)) fail("unexpected_option", `${path}.${key}`, "Unknown option is not allowed");
+  }
+}
+
+function ownDataValue(value, key, fallback) {
+  if (!Object.hasOwn(value, key)) return fallback;
+  return Object.getOwnPropertyDescriptor(value, key).value;
 }
 
 function denseArray(value, path) {
@@ -284,7 +300,8 @@ function classification(projectRef) {
 }
 
 export function buildSyntheticFiveLaneShadowFixture(options = {}) {
-  const projectEntityId = options.project_entity_id ?? "synthetic-project-alpha";
+  allowedKeys(options, ["project_entity_id"], "$options");
+  const projectEntityId = ownDataValue(options, "project_entity_id", "synthetic-project-alpha");
   safeSyntheticProjectId(projectEntityId, "$options.project_entity_id");
   const projectRef = typedRef("project", "synthetic_project_registry", projectEntityId);
   const envelopes = PROJECT_HISTORY_LANES.map((lane, index) => {
@@ -370,8 +387,9 @@ export function replayProjectHistoryShadow(currentEnvelopes, incomingEnvelopes) 
 export function buildSyntheticH06CoverageFixture(envelopes, options = {}) {
   denseArray(envelopes, "$envelopes");
   validateProjectHistoryEnvelopeCollection(envelopes);
-  const windowStart = options.window_start ?? "2026-07-19T00:00:00.000Z";
-  const windowEnd = options.window_end ?? "2026-07-20T00:00:00.000Z";
+  allowedKeys(options, ["window_start", "window_end"], "$options");
+  const windowStart = ownDataValue(options, "window_start", "2026-07-19T00:00:00.000Z");
+  const windowEnd = ownDataValue(options, "window_end", "2026-07-20T00:00:00.000Z");
   const receipts = PROJECT_HISTORY_LANES.map((lane) => {
     const laneEnvelopes = envelopes.filter((envelope) => envelope.lane === lane);
     if (laneEnvelopes.length === 0) fail("lane_fixture_missing", `$envelopes.${lane}`, "Synthetic H06 fixture requires every lane");
@@ -415,7 +433,9 @@ export function validateSyntheticH06CoverageFixture(value) {
     if (!SYNTHETIC_PROJECT_ID_TOKEN.test(envelope.project_ref?.entity_id ?? "")) {
       fail("synthetic_project_id_invalid", `$fixture.envelopes[${index}].project_ref.entity_id`, "H06 readiness accepts synthetic-project-* identifiers only");
     }
-    if (envelope.classification_before.state !== "unclassified"
+    if (envelope.classification_before === null
+        || envelope.classification_after === null
+        || envelope.classification_before.state !== "unclassified"
         || envelope.classification_before.project_ref !== null
         || envelope.classification_after.state !== "classified"
         || envelope.supersedes_event_ref !== null) {
@@ -441,11 +461,14 @@ export function validateSyntheticH06CoverageFixture(value) {
     const receipt = value.receipts[index];
     const laneEnvelopes = value.envelopes.filter((envelope) => envelope.lane === lane);
     if (laneEnvelopes.length !== 1) fail("one_event_per_lane_required", `$fixture.envelopes.${lane}`, "Readiness fixture requires one event per lane");
+    if (receipt === null || typeof receipt !== "object" || Array.isArray(receipt)) {
+      fail("coverage_receipt_required", `$fixture.receipts[${index}]`, "Every lane requires one coverage receipt object");
+    }
+    validateProjectHistoryCoverageReceipt(receipt, laneEnvelopes);
     if (receipt.lane !== lane) fail("coverage_lane_order_invalid", `$fixture.receipts[${index}]`, "Receipt order must match the lane contract");
     if (receipt.state !== "complete_with_events" || receipt.event_count !== 1) {
       fail("synthetic_coverage_state_invalid", `$fixture.receipts[${index}]`, "Readiness coverage must bind its one synthetic event");
     }
-    validateProjectHistoryCoverageReceipt(receipt, laneEnvelopes);
   }
   return value;
 }

@@ -168,6 +168,69 @@ test("synthetic project override rejects host, endpoint, and email carriers", ()
   );
 });
 
+test("builder option bags reject null, primitives, arrays, extras, and accessors", () => {
+  const shadow = buildSyntheticFiveLaneShadowFixture();
+  for (const invalidOptions of [null, "options", 7, []]) {
+    assertCode(() => buildSyntheticFiveLaneShadowFixture(invalidOptions), "plain_object_required");
+    assertCode(() => buildSyntheticH06CoverageFixture(shadow.envelopes, invalidOptions), "plain_object_required");
+  }
+
+  assertCode(
+    () => buildSyntheticFiveLaneShadowFixture({ unknown: true }),
+    "unexpected_option",
+  );
+  assertCode(
+    () => buildSyntheticH06CoverageFixture(shadow.envelopes, { unknown: true }),
+    "unexpected_option",
+  );
+
+  const projectAccessor = {};
+  Object.defineProperty(projectAccessor, "project_entity_id", {
+    enumerable: true,
+    get: () => { throw new Error("must not execute"); },
+  });
+  assertCode(() => buildSyntheticFiveLaneShadowFixture(projectAccessor), "data_property_required");
+
+  const windowAccessor = {};
+  Object.defineProperty(windowAccessor, "window_start", {
+    enumerable: true,
+    get: () => { throw new Error("must not execute"); },
+  });
+  assertCode(
+    () => buildSyntheticH06CoverageFixture(shadow.envelopes, windowAccessor),
+    "data_property_required",
+  );
+});
+
+test("builder defaults never read inherited option accessors", () => {
+  let inheritedReadCount = 0;
+  Object.defineProperties(Object.prototype, {
+    project_entity_id: {
+      configurable: true,
+      get: () => { inheritedReadCount += 1; throw new Error("must not execute"); },
+    },
+    window_start: {
+      configurable: true,
+      get: () => { inheritedReadCount += 1; throw new Error("must not execute"); },
+    },
+    window_end: {
+      configurable: true,
+      get: () => { inheritedReadCount += 1; throw new Error("must not execute"); },
+    },
+  });
+  try {
+    const shadow = buildSyntheticFiveLaneShadowFixture({});
+    const coverage = buildSyntheticH06CoverageFixture(shadow.envelopes, {});
+    assert.equal(shadow.project_ref.entity_id, "synthetic-project-alpha");
+    assert.equal(coverage.receipts.length, 5);
+    assert.equal(inheritedReadCount, 0);
+  } finally {
+    delete Object.prototype.project_entity_id;
+    delete Object.prototype.window_start;
+    delete Object.prototype.window_end;
+  }
+});
+
 test("shadow replay is deterministic, idempotent, and conflict-closed", () => {
   const fixture = buildSyntheticFiveLaneShadowFixture();
   const first = replayProjectHistoryShadow([], fixture.envelopes);
@@ -218,6 +281,10 @@ test("H06 coverage fixture rejects missing lanes and raw promotion", () => {
   const coverage = buildSyntheticH06CoverageFixture(shadow.envelopes);
   coverage.raw_payload_copied = true;
   assertCode(() => validateSyntheticH06CoverageFixture(coverage), "raw_payload_forbidden");
+
+  const nullReceipt = buildSyntheticH06CoverageFixture(shadow.envelopes);
+  nullReceipt.receipts[0] = null;
+  assertCode(() => validateSyntheticH06CoverageFixture(nullReceipt), "coverage_receipt_required");
 });
 
 test("H06 coverage fixture rejects mixed projects and non-synthetic provenance", () => {
@@ -259,4 +326,14 @@ test("H06 coverage fixture rejects lane/type mismatch and missing Shadow transit
     () => buildSyntheticH06CoverageFixture(noTransition.envelopes),
     "synthetic_classification_transition_required",
   );
+
+  for (const nullableField of ["classification_before", "classification_after"]) {
+    const nullTransition = buildSyntheticFiveLaneShadowFixture();
+    nullTransition.envelopes[0][nullableField] = null;
+    nullTransition.envelopes[0].metadata_digest = computeMetadataDigest(nullTransition.envelopes[0]);
+    assertCode(
+      () => buildSyntheticH06CoverageFixture(nullTransition.envelopes),
+      "synthetic_classification_transition_required",
+    );
+  }
 });
