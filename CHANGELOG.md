@@ -2,6 +2,17 @@
 
 ## 2026-07-19
 
+### Root acceptance covers HPP ingress and MCP
+
+- Added the bounded ingress staging, fenced continuous-ingress, and dev-ERP
+  ingress MCP suites to both root `validate` and `done:check`, so changes to
+  HPP custody or team ingress cannot pass the repository gate only through
+  unrelated shared and voice tests.
+- Extended the root-step wiring regression test for all three surfaces. The
+  change affects validation only; it does not enable a collector, writer,
+  scheduler, credential, listener, project promoter, or ERP route. (worker:
+  codex_gpt-5.5)
+
 ### HPP AX AI delegation cross-review result
 
 - Added the HPP-side Level 2 review result for the proposed expiring AI
