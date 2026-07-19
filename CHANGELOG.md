@@ -2,6 +2,23 @@
 
 ## 2026-07-19
 
+### HPP AX AI delegation cross-review result
+
+- Added the HPP-side Level 2 review result for the proposed expiring AI
+  capability model. The result is `REVISE`: public/synthetic Stage A can move
+  one exact child packet at a time, while source coverage Shadow, cross-source
+  readiness, provisional writes, and live activation remain separate gated
+  stages.
+- Reconciled the public plan with aggregate HPP/Mac runtime evidence: some
+  collectors are active, but the HPP runtime is not at the public baseline and
+  ERP/MCP/project-history promotion and HPP mail sole-writer cutover are not
+  accepted. The result adds explicit identity, fencing, parity, lease/epoch,
+  and failback requirements without exposing private locators or raw payload.
+- Reused the existing H06 coverage and accepted-generation concepts instead
+  of creating a second ledger/pulse canon. No code, database, business data,
+  writer, scheduler, service, or runtime binding was changed. (worker:
+  codex_gpt-5.5)
+
 ### HPP AX AI delegation review packet
 
 - Added a public-safe, read-only review packet for the actual high-performance
