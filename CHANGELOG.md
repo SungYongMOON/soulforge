@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-07-19
+
+### HPP AX AI delegation review packet
+
+- Added a public-safe, read-only review packet for the actual high-performance
+  PC to challenge the proposed shift from per-step approval to expiring,
+  conditional capability bundles.
+- Kept public/synthetic development, private source-read Shadow work, and
+  provisional writes as separate candidate lanes. The packet grants no code,
+  project-read, writer, scheduler, official-truth, or live-activation authority;
+  private evidence remains metadata-only in its private owner surface.
+- Required a Level 2 inspector-and-judge decision and scoped non-force publish
+  protocol for the future HPP review result. (worker: codex_gpt-5)
+
 ## 2026-07-18
 
 ### HPP-primary and Mac-mini fallback role correction
