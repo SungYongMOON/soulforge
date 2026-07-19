@@ -21,6 +21,22 @@ export const CHECKPOINT_SCHEMA = "soulforge.ingress.staging_checkpoint.v1";
 export const STORAGE_MANIFEST_SCHEMA = "soulforge.hpp_private_custody.v1";
 
 export const LANE_CONFIG = Object.freeze({
+  mail: Object.freeze({
+    manifestLane: "mail",
+    payloadRoot: "ingress/mailbox",
+    incomingRoot: "ingress/mailbox/canary/incoming",
+    receiptRoot: "state/receipts/mail",
+    checkpointRoot: "state/checkpoints/mail",
+    quarantineRoot: "quarantine/mail",
+  }),
+  voice: Object.freeze({
+    manifestLane: "voice",
+    payloadRoot: "ingress/voice",
+    incomingRoot: "ingress/voice/canary/incoming",
+    receiptRoot: "state/receipts/voice",
+    checkpointRoot: "state/checkpoints/voice",
+    quarantineRoot: "quarantine/voice",
+  }),
   team_files: Object.freeze({
     manifestLane: "team_files",
     payloadRoot: "ingress/team_files",

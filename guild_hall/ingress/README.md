@@ -2,17 +2,22 @@
 
 ## Purpose
 
-`ingress/` provides a bounded file-backed staging command and a default-OFF
+`ingress/` provides a bounded file-backed staging command and a fenced
 continuous HPP supervisor. The staging command copies one explicitly named
-regular file. The supervisor drains only private, explicitly bound outbox
-directories and can reuse the existing voice copy-only mirror. Both surfaces
-remain source-preserving and unclassified; neither is a project router,
-accepted-ingress promoter, ERP writer, MCP service, or TaskEngine writer.
+regular file and now covers all five logical history lanes. Mail and voice use
+dedicated `canary/incoming` subtrees so a bounded receipt cannot be confused
+with the existing mail export or voice migration mirror. The supervisor drains
+only private, explicitly bound outbox directories and can reuse the existing
+voice copy-only mirror. Both surfaces remain source-preserving and unclassified;
+neither is a project router, accepted-ingress promoter, ERP writer, MCP service,
+knowledge promoter, or TaskEngine writer.
 
 ## Fixed lanes
 
 | CLI lane | Manifest lane | Immutable payload root |
 | --- | --- | --- |
+| `mail` | `mail` | `ingress/mailbox/canary/incoming/<shard>/<sha256>` |
+| `voice` | `voice` | `ingress/voice/canary/incoming/<shard>/<sha256>` |
 | `team_files` | `team_files` | `ingress/team_files/incoming/<shard>/<sha256>` |
 | `structured_pc_work` | `pc_activity` | `ingress/pc_activity/work_events/incoming/<shard>/<sha256>` |
 | `run_logs` | `run_logs` | `ingress/run_logs/incoming/<shard>/<sha256>` |
@@ -80,7 +85,11 @@ npm run guild-hall:ingress:stage -- \
 Add `--apply` only after reviewing the safe metadata plan. Apply streams
 SHA-256, copies to a temporary file, verifies the copy and unchanged source,
 then installs the digest-addressed payload without overwriting an existing
-file. The source is never deleted or overwritten.
+file. The source is never deleted or overwritten. `mail` accepts one explicitly
+exported source occurrence; it does not fetch or mutate a mailbox. `voice`
+accepts one explicitly selected recording and remains custody/audit-only. A
+receipt from either lane does not accept project classification, knowledge, or
+Task completion.
 
 ## Continuous supervisor
 

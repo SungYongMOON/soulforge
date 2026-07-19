@@ -30,15 +30,16 @@ npm.cmd run ingress:mtls-enrollment -- finalize --request <local-request-json> `
 사용한다. 실제 PC 한 대의 account/device/agent/project credential 발급과 `/32`
 firewall 활성화는 물리 canary 절차에서 별도로 수행한다.
 
-이 앱에는 서로 권한과 저장 목적이 다른 두 MCP 프로세스와 한 개의 보안 게이트웨이가 있다.
+이 앱에는 서로 권한과 저장 목적이 다른 세 MCP 프로세스와 한 개의 보안 게이트웨이가 있다.
 
 | 프로세스 | 시작 파일 | 저장 대상 | 현재 상태 |
 | --- | --- | --- | --- |
 | 개인 ERP MCP | `server.mjs` | dev-ERP API/DB와 ERP artifact inbox | 기존 파일럿, 기본 OFF |
+| copied Project History MCP | `project_history_server.mjs` | 저장 없음; attested standalone ERP copy와 server-bound CSV/XLSX만 읽음 | feature OFF, 합성 및 bounded actual-copy loopback 검증 |
 | HPP evidence ingress MCP | `ingress_server.mjs` | HPP local outbox의 미분류 파일·bounded PC work·run receipt | 구현·합성 검증 완료, private binding 기본 OFF |
 | ingress mTLS gateway | `ingress_mtls_gateway.mjs` | 저장하지 않고 사설 LAN 요청을 loopback ingress로 전달 | 구현·합성 검증 완료, private binding 기본 OFF |
 
-세 프로세스 모두 LLM을 호출하지 않는다. 개인 ERP MCP는 사용자 bearer를 기존 dev-ERP의
+네 프로세스 모두 LLM을 호출하지 않는다. 개인 ERP MCP는 사용자 bearer를 기존 dev-ERP의
 account-scoped `/api/mcp/*` API로 전달한다. HPP ingress MCP는 ERP DB나 `_workspaces`를 열지 않고
 기존 HPP local outbox에만 전달한다.
 
@@ -59,6 +60,46 @@ reverse proxy/tunnel 뒤에 둔다. `/health`만 공개 liveness이며 `/mcp`는
 실제 listen host와 `ERP_MCP_PUBLIC_URL`은 non-loopback 평문을 기본 거부한다. 개인 bearer를
 전달하는 `ERP_MCP_ERP_BASE_URL`도 `http://`이면 loopback만 허용한다. 토큰 회수, 계정 정지,
 업무 접근권한 상실은 아직 쓰지 않은 upload ticket의 저장 권한도 무효화한다.
+
+## copied Project History MCP
+
+이 별도 서버는 기본 활성화 경로가 없다. 실행할 때마다 기존 standalone copied ERP DB, projection
+root, full-generation attestation, artifact-attestation digest를 정확히 지정하고 `--pilot-copy`를
+명시해야 한다. bearer는 명령행이나 stdout이 아니라
+`SOULFORGE_PROJECT_HISTORY_MCP_TOKEN` 환경변수로만 주입한다.
+
+```powershell
+$env:SOULFORGE_PROJECT_HISTORY_MCP_TOKEN="<ephemeral-random-token>"
+npm.cmd run start:project-history -- --pilot-copy --attestation <sha256:...> `
+  --artifact-attestation <sha256:...> `
+  --db <absolute-existing-copy.sqlite> --projection-root <absolute-existing-project-history-root>
+```
+
+서버는 `127.0.0.1`에만 bind하고 DB를 `readOnly`와 `PRAGMA query_only=ON`으로 연다. 한 read-only
+transaction 안에서 canonical projection schema fingerprint를 확인하고 immutable JSON row로 exact
+generation을 재구성·검증한 뒤 full-generation digest를 다시 계산한다. 도구는
+`erp_get_project_history`, `erp_prepare_project_history_download` 두 개뿐이며 둘 다 exact
+`project_id`와 `generation_id`를 요구한다. 다운로드 파일은
+`<projection-root>/<project_id>/<generation_id>/project_history.{csv,xlsx}`에서만 고르고,
+MCP JSON에는 bytes나 host path 대신 짧은 수명의 1회용 `/download/<ticket>`만 반환한다. URL authority는
+설정값이나 Host alias가 아니라 실제 `127.0.0.1:<listener-port>`에서 만들며, `Origin`이 있으면 그
+authority와 byte-exact 일치하지 않는 요청은 403으로 거부한다.
+
+같은 generation 폴더에는 아래 다섯 파일이 모두 있어야 한다.
+
+- `project_history.csv`
+- `project_history.xlsx-input.json`
+- `project_history.xlsx-readback.json`
+- `project_history.xlsx`
+- `project_history.artifact-attestation.json`
+
+artifact attestation은 exact `schema_version`, `project_id`, `generation_id`, `generation_digest`,
+`projection_schema_fingerprint`, `ordered_event_digest`, `ordered_row_digest`, `artifacts`만 가진다.
+`artifacts`에는 `csv`, `xlsx_input`, `xlsx_readback`, `xlsx`가 각각 exact
+`filename`, `size`, `sha256`을 가진다. `--artifact-attestation` 값은 이 object의 canonical SHA-256이다.
+서버는 CSV rows, XLSX input, XLSX readback을 reconstructed DB model과 대조하고 네 파일의 size/hash를
+attestation과 대조한 뒤 CSV/XLSX buffer를 시작 시 한 번만 seal한다. ticket은 buffer를 복제하지 않고
+참조하며 active-ticket 개수와 총 byte quota를 함께 적용한다.
 
 ## HPP evidence ingress MCP
 

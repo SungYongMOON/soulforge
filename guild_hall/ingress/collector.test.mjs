@@ -20,6 +20,22 @@ import { parseArgs } from "./cli.mjs";
 
 const execFile = promisify(execFileCallback);
 const FIXED_LANES = {
+  mail: {
+    manifestLane: "mail",
+    payload: "ingress/mailbox",
+    incoming: "ingress/mailbox/canary/incoming",
+    receipt: "state/receipts/mail",
+    checkpoint: "state/checkpoints/mail",
+    quarantine: "quarantine/mail",
+  },
+  voice: {
+    manifestLane: "voice",
+    payload: "ingress/voice",
+    incoming: "ingress/voice/canary/incoming",
+    receipt: "state/receipts/voice",
+    checkpoint: "state/checkpoints/voice",
+    quarantine: "quarantine/voice",
+  },
   team_files: {
     manifestLane: "team_files",
     payload: "ingress/team_files",
@@ -115,7 +131,7 @@ function stageOptions(f, lane, source, extra = {}) {
   };
 }
 
-test("all three lanes dry-run with zero writes, then apply idempotently", async (t) => {
+test("all five lanes dry-run with zero writes, then apply idempotently", async (t) => {
   const f = await fixture();
   try {
     for (const [lane, config] of Object.entries(FIXED_LANES)) {

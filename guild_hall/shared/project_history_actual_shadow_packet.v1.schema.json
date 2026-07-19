@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schemas/project_history_actual_shadow_packet.v1.schema.json",
+  "title": "Soulforge feature-OFF actual five-lane Shadow pilot packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "feature_state",
+    "generation_id",
+    "project_ref",
+    "window_start",
+    "window_end",
+    "lanes"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.project_history_actual_shadow_pilot_packet.v1" },
+    "feature_state": { "const": "off" },
+    "generation_id": { "$ref": "#/$defs/safe_token" },
+    "project_ref": { "$ref": "#/$defs/typed_ref" },
+    "window_start": { "$ref": "#/$defs/utc" },
+    "window_end": { "$ref": "#/$defs/utc" },
+    "lanes": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/lane_entry" }
+    }
+  },
+  "$defs": {
+    "safe_token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\s/\\\\*?]+$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "utc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "typed_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_type", "owner_surface", "entity_id"],
+      "properties": {
+        "entity_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "owner_surface": { "$ref": "#/$defs/safe_token" },
+        "entity_id": { "$ref": "#/$defs/safe_token" }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "project_ref"],
+      "properties": {
+        "state": { "enum": ["classified", "unclassified"] },
+        "project_ref": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/typed_ref" }
+          ]
+        }
+      }
+    },
+    "classification_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "evidence_ref",
+        "generation_id",
+        "lane",
+        "native_occurrence_ref",
+        "event_ref",
+        "custody_receipt_ref",
+        "custody_receipt_digest",
+        "source_digest",
+        "project_ref",
+        "classification_before",
+        "classification_after",
+        "shadow_only",
+        "evidence_digest"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.project_history_shadow_classification_evidence.v1" },
+        "evidence_ref": { "$ref": "#/$defs/typed_ref" },
+        "generation_id": { "$ref": "#/$defs/safe_token" },
+        "lane": { "$ref": "#/$defs/history_lane" },
+        "native_occurrence_ref": { "$ref": "#/$defs/typed_ref" },
+        "event_ref": { "$ref": "#/$defs/typed_ref" },
+        "custody_receipt_ref": { "$ref": "#/$defs/typed_ref" },
+        "custody_receipt_digest": { "$ref": "#/$defs/digest" },
+        "source_digest": { "$ref": "#/$defs/digest" },
+        "project_ref": { "$ref": "#/$defs/typed_ref" },
+        "classification_before": { "$ref": "#/$defs/classification" },
+        "classification_after": { "$ref": "#/$defs/classification" },
+        "shadow_only": { "const": true },
+        "evidence_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "semantic_occurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_owner_ref",
+        "native_occurrence_ref",
+        "event_ref",
+        "source_revision_ref",
+        "content_ref",
+        "event_at",
+        "valid_at",
+        "observed_at",
+        "known_at",
+        "recorded_at",
+        "source_digest",
+        "custody_receipt_ref",
+        "custody_receipt_digest",
+        "classification_evidence"
+      ],
+      "properties": {
+        "source_owner_ref": { "$ref": "#/$defs/typed_ref" },
+        "native_occurrence_ref": { "$ref": "#/$defs/typed_ref" },
+        "event_ref": { "$ref": "#/$defs/typed_ref" },
+        "source_revision_ref": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/typed_ref" }
+          ]
+        },
+        "content_ref": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/typed_ref" }
+          ]
+        },
+        "event_at": {
+          "oneOf": [
+            { "const": "unknown" },
+            { "$ref": "#/$defs/utc" }
+          ]
+        },
+        "valid_at": {
+          "oneOf": [
+            { "const": "unknown" },
+            { "$ref": "#/$defs/utc" }
+          ]
+        },
+        "observed_at": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/utc" }
+          ]
+        },
+        "known_at": { "$ref": "#/$defs/utc" },
+        "recorded_at": { "$ref": "#/$defs/utc" },
+        "source_digest": { "$ref": "#/$defs/digest" },
+        "custody_receipt_ref": { "$ref": "#/$defs/typed_ref" },
+        "custody_receipt_digest": { "$ref": "#/$defs/digest" },
+        "classification_evidence": { "$ref": "#/$defs/classification_evidence" }
+      }
+    },
+    "custody_receipt_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "receipt_schema_version",
+        "receipt_ref",
+        "custody_lane",
+        "source_owner_ref",
+        "source_identity_digest",
+        "source_digest",
+        "source_size",
+        "project_state",
+        "source_deleted",
+        "source_overwritten",
+        "receipt_digest",
+        "proof_digest"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.project_history_custody_receipt_proof.v1" },
+        "receipt_schema_version": { "const": "soulforge.ingress.staging_receipt.v1" },
+        "receipt_ref": { "$ref": "#/$defs/typed_ref" },
+        "custody_lane": {
+          "enum": ["mail", "voice", "structured_pc_work", "team_files", "run_logs"]
+        },
+        "source_owner_ref": { "$ref": "#/$defs/typed_ref" },
+        "source_identity_digest": { "$ref": "#/$defs/digest" },
+        "source_digest": { "$ref": "#/$defs/digest" },
+        "source_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "project_state": { "const": "unclassified" },
+        "source_deleted": { "const": false },
+        "source_overwritten": { "const": false },
+        "receipt_digest": { "$ref": "#/$defs/digest" },
+        "proof_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "history_lane": {
+      "enum": ["mail", "voice", "structured_pc_work", "file", "run_log"]
+    },
+    "lane_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "custody_lane", "semantic_occurrence", "custody_receipt_proof"],
+      "properties": {
+        "lane": { "$ref": "#/$defs/history_lane" },
+        "custody_lane": {
+          "enum": ["mail", "voice", "structured_pc_work", "team_files", "run_logs"]
+        },
+        "semantic_occurrence": { "$ref": "#/$defs/semantic_occurrence" },
+        "custody_receipt_proof": { "$ref": "#/$defs/custody_receipt_proof" }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["lane"], "properties": { "lane": { "const": "mail" } } },
+          "then": {
+            "properties": {
+              "semantic_occurrence": {
+                "type": "object",
+                "properties": {
+                  "native_occurrence_ref": {
+                    "type": "object",
+                    "properties": { "entity_type": { "const": "mail_occurrence" } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "required": ["lane"], "properties": { "lane": { "const": "voice" } } },
+          "then": {
+            "properties": {
+              "semantic_occurrence": {
+                "type": "object",
+                "properties": {
+                  "native_occurrence_ref": {
+                    "type": "object",
+                    "properties": { "entity_type": { "const": "voice_recording" } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "required": ["lane"], "properties": { "lane": { "const": "structured_pc_work" } } },
+          "then": {
+            "properties": {
+              "semantic_occurrence": {
+                "type": "object",
+                "properties": {
+                  "native_occurrence_ref": {
+                    "type": "object",
+                    "properties": { "entity_type": { "const": "bounded_pc_work_event" } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "required": ["lane"], "properties": { "lane": { "const": "file" } } },
+          "then": {
+            "properties": {
+              "semantic_occurrence": {
+                "type": "object",
+                "properties": {
+                  "native_occurrence_ref": {
+                    "type": "object",
+                    "properties": { "entity_type": { "const": "file_observation" } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "required": ["lane"], "properties": { "lane": { "const": "run_log" } } },
+          "then": {
+            "properties": {
+              "semantic_occurrence": {
+                "type": "object",
+                "properties": {
+                  "native_occurrence_ref": {
+                    "type": "object",
+                    "properties": { "entity_type": { "const": "bounded_run_event" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

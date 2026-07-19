@@ -2,6 +2,67 @@
 
 ## 2026-07-19
 
+### Bounded actual five-lane custody staging
+
+- Extended the source-preserving HPP staging command to one explicitly selected
+  mail or voice occurrence in addition to the existing team-file, bounded PC
+  work, and run-log lanes. Mail and voice are isolated under canary subtrees;
+  their receipts remain unclassified custody evidence and cannot promote
+  projects, knowledge, tasks, ERP rows, or live operating authority.
+- Kept the existing continuous supervisor, mailbox collector, voice mirror,
+  workspace, and knowledge/ontology canon owners unchanged. (worker:
+  codex_gpt-5.5)
+
+### Actual five-lane Shadow and copied-ERP projection
+
+- Added a strict metadata-only builder for one actual five-lane Shadow
+  generation, including native occurrence identity, immutable receipt-byte
+  binding, exact initial project classification evidence, H06 coverage, and
+  deterministic replay/conflict guards. Raw, body, transcript, payload,
+  locator, and accepted-history fields fail closed.
+- Added an explicitly authorized standalone copied-ERP projector and a separate
+  query-only verifier. The projector uses an attested generation and immutable
+  generation/event/coverage tables; the verifier checks copied DB, CSV, XLSX
+  input, and XLSX readback row parity without advancing accepted/current
+  pointers. (worker: codex_gpt-5.5)
+
+### Feature-OFF copied Project History MCP
+
+- Added a separate localhost-only MCP for one attested generation in a
+  standalone copied ERP database. It exposes exactly two read-only tools for
+  exact project/generation history and short-lived one-time CSV/XLSX download
+  tickets, with bearer, Host/bind, path/reparse/hardlink, range, hash, expiry,
+  replay, SQLite read-only, query-only, and zero-change guards.
+- The MCP reconstructs and hashes the complete immutable generation under the
+  canonical table/index/trigger fingerprint, requires DB/CSV/XLSX-input/XLSX-
+  readback parity, and consumes an externally pinned manifest that binds the
+  generation, ordered row digest, and exact artifact sizes/hashes. Present
+  browser origins, listener authority, and aggregate ticket bytes are bounded
+  fail-closed; ticket records share sealed artifact buffers instead of copying
+  them per request.
+- Kept the server default OFF and separate from the personal ERP and evidence
+  ingress services; no LAN listener, credential issuance, firewall, or
+  production database route was enabled. (worker: codex_gpt-5.5)
+
+### Feature-OFF project/common knowledge projection
+
+- Added an explicit-scope projection from the actual P26-016 Shadow generation
+  to held project or common knowledge candidates, a fully derived graph view,
+  and a rebuildable metadata-only RAG manifest/index. Project candidates remain
+  P26-016-owned; common candidates are system-owned and retain their P26-016
+  origin.
+- The public helper has no fixed project constant: callers must supply an exact
+  expected origin project code matching the generation, while common scope
+  remains explicit and retains that origin.
+- Added lineage, exact whole-ID origin, canonical chronology, five-lane set,
+  graph-derivation, and manifest-laundering guards. The projection identity now
+  binds the source attestation, and persisted metadata indexes must equal the
+  complete deterministic manifest projection, so extra raw-text or authority
+  aliases fail closed. Every authority remains false and no source text, RAW
+  payload, locator, accepted knowledge, graph/canon mutation, Drive upload,
+  NotebookLM synchronization, or live RAG activation occurs. (worker:
+  codex_gpt-5.5)
+
 ### Five-lane project-history readiness foundation
 
 - Added a public-safe C00A/C00Q/C00B-to-P1 gate map that cannot grant

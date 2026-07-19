@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Personal ERP MCP sidecar and feature-gated HPP evidence ingress MCP for Soulforge",
+  "description": "Personal ERP, copied-project-history, and feature-gated HPP evidence ingress MCP services for Soulforge",
   "engines": {
     "node": ">=22.5"
   },
   "scripts": {
     "start": "node server.mjs",
+    "start:project-history": "node project_history_server.mjs",
     "start:ingress": "node ingress_server.mjs",
     "ingress:client": "node ingress_client_cli.mjs",
     "ingress:admin": "node ingress_access_admin_cli.mjs",

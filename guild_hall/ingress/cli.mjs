@@ -13,7 +13,7 @@ function fail(code) {
 function usage() {
   return [
     "Usage:",
-    "  npm run guild-hall:ingress:stage -- --lane <team_files|structured_pc_work|run_logs> --source <file> --source-owner-ref <safe-id> --source-key <safe-id> --data-root <absolute-path> [--apply]",
+    "  npm run guild-hall:ingress:stage -- --lane <mail|voice|team_files|structured_pc_work|run_logs> --source <file> --source-owner-ref <safe-id> --source-key <safe-id> --data-root <absolute-path> [--apply]",
     "",
     "Default mode is dry-run and writes nothing. --apply stages one explicit regular file.",
   ].join("\n");

@@ -2,78 +2,129 @@
 
 ## Decision
 
-The bounded pilot foundation is implemented and independently testable, but it
-does not open P0, H00, P1, or live operation. Current evidence proves four HPP
-non-mail custody lanes and a separate healthy mail collector. It does not prove
-one five-lane HPP generation, accepted project history, or production parity.
+The bounded, feature-OFF end-to-end pilot is implemented and executed with
+actual source occurrences. It proves one fresh five-lane HPP custody set, one
+`P26-016` Shadow generation, copied-ERP persistence, DB/CSV/XLSX parity,
+localhost MCP query/download, and project/common knowledge and metadata-RAG
+previews. It does not activate a production writer or promote the Shadow data
+to accepted history or accepted knowledge.
 
 ```text
-mail collector (current, separate writer) ---- health evidence only
-                                                  |
-voice + file custody + PC work + run/log ----------+--> HPP custody receipts
-                                                  |
-                                                  v
-                                      unclassified / no ERP / no MCP
-
-public synthetic Shadow --> H00 envelope candidate --> H06 fixture/replay
-                                      |
-                                      +--> no live adapter and no gate unlock
+actual mail + voice + PC work + file + run/log
+                       |
+                       v
+          HPP immutable custody + receipt
+                       |  first apply + replay no-op
+                       v
+             P26-016 Shadow history
+                       |  5 events + 5 coverage rows
+                       v
+             standalone ERP copy
+                /          |          \
+             CSV         XLSX       localhost MCP
+                \          |          /
+                 exact row/hash parity
+                       |
+                       v
+       project/common knowledge + metadata-RAG preview
+                 (feature OFF / held)
 ```
 
-## CURRENT
+## Actual result
 
-| Surface | Confirmed result | Claim ceiling |
+| Surface | Executed result | Claim ceiling |
 | --- | --- | --- |
-| feature-OFF baseline | root validation now includes bounded staging, continuous ingress, MCP, and five-lane history readiness | validation coverage only; the active D runtime was not replaced |
-| mail | the current collector reports normal, non-partial aggregate health; a prior isolated one-item raw/metadata trial remains accepted evidence | no current HPP mail custody receipt and no five-lane same-generation claim |
-| voice | one current HPP custody receipt was rechecked against its immutable stored payload; source size and preservation flags match | the cloud-managed source itself was not force-hashed during this review |
-| file custody | one current `team_files` receipt, source, and HPP payload agree by size and SHA-256 | custody lane only; not an accepted H04 event |
-| structured PC work | one current receipt, source, and HPP payload agree by size and SHA-256 | bounded explicit event only; no broad PC surveillance |
-| run/log | one current receipt, source, and HPP payload agree by size and SHA-256 | custody candidate only; not an accepted H05 workflow occurrence |
-| dedupe | all current queue candidates are already acknowledged and the latest scheduled cycle performed zero writes | proves replay/no-op for current custody, not history completeness |
-| one-project Shadow | one synthetic project receives one lane-typed initial unclassified-to-classified event per lane; identical replay adds zero and conflict/cross-lane double count fails closed | public synthetic only; no real project was promoted or written |
-| coverage | one synthetic H06 receipt per lane matches count, ordering, window, and digest | readiness fixture only; H01-H05 acceptance is absent |
-| CSV/XLSX | out-of-repo evidence token `task_engine_hpp_five_lane_parity_dry_run_v1` records a fresh public-synthetic workbook with five history rows and five coverage rows and an identical CSV/XLSX row digest | manual dry-run artifact only; no tracked exporter, D22/D24 production target, or real project file materialization |
-| ERP DB copy | the retained accepted trial receipt still proves its isolated copied-DB migration preserved aggregate rows and integrity | no currently attested copy locator was available, so no fresh DB was opened |
-| MCP loopback | disabled binding and nine synthetic state JSON files parse with stable hashes; listener count is zero | storage/query revalidation only; no credential, payload, network request, or live service |
+| five-lane custody | one newly selected actual occurrence for mail, voice, structured PC work, team file, and run log has an immutable HPP payload, receipt, and checkpoint or receiver acknowledgement | bounded canary only; not full-source coverage |
+| source preservation | all five custody payload hashes match their receipts; source deleted and overwritten flags are false | proves the selected occurrences only |
+| dedupe/replay | mail and voice first apply wrote three custody objects each and identical replay wrote zero; the three outbox lanes first enqueue wrote two objects each and replay wrote zero | idempotence for this pilot set |
+| one-project Shadow | `P26-016` has exactly five lane-typed events and five H06 coverage receipts; identical replay adds zero and replays five | `classification_state=shadow`; no accepted/current pointer |
+| ERP copy | the generation was inserted only into a standalone copied ERP DB and replayed idempotently; `quick_check=ok`, foreign-key violations are zero, the canonical table/index/trigger fingerprint matches, and the authoritative ERP main-file hash stayed unchanged | online snapshot; source WAL/SHM moved during the original copy window, so this is not a quiesced production-migration proof |
+| DB/CSV/XLSX | copied DB, CSV, XLSX input, and XLSX readback have the same ordered row digest; one external digest binds the exact generation, schema fingerprint, file sizes, and four artifact hashes; the workbook has one visible sheet, zero formulas, zero hidden sheets, and zero external links | one project and one generation |
+| localhost MCP | the actual copied DB returned five events and five coverage rows through exactly two read-only tools only after reconstructing the generation and verifying the external artifact attestation; CSV and XLSX full downloads matched size/hash, range download returned 206, and one-time replay returned 404 | temporary loopback canary only; no persistent or LAN listener |
+| copied DB immutability | MCP used SQLite `readOnly`, `PRAGMA query_only=ON`, and `total_changes=0`; copied DB SHA-256 was unchanged after query and downloads | copied pilot DB only |
+| project knowledge | five held `P26-016` candidates, an eight-node/sixteen-edge graph view, five retrieval units, and five metadata index documents rebuild byte-identically | metadata preview; not accepted project Wiki/RAG truth |
+| common knowledge | five system-owned held candidates preserve `origin_project_code=P26-016`; graph and metadata index rebuild byte-identically | metadata preview; no implicit project-to-common fallback |
 
-## Gate map
+## Storage ownership remains unchanged
 
-The machine-checked public map is
-[`task_engine_public_gate_map_v1.json`](../../../../docs/architecture/workspace/examples/task_engine_history_foundation/task_engine_public_gate_map_v1.json).
+The pilot uses the existing owners instead of replacing the Soulforge folder
+model:
 
-| Gate | Current state | Effect |
-| --- | --- | --- |
-| C00A | historical blocker evidence | no current execution authority |
-| C00Q | retained public/synthetic formal receipt | its execution authority expired; no current progression authority |
-| C00B | blocked; formal PASS receipt absent | P0 remains closed |
-| P0 / H00 | HOLD | H01-H05 live adapters remain forbidden |
-| H01-H05 | candidate profile/fixture only | no source connection or project history write |
-| H06 / P1 | synthetic coverage/replay only, HOLD | no accepted export/current pointer |
+```text
+HPP private data root
+├─ ingress/
+│  ├─ mailbox/canary/incoming/<digest>       actual mail custody
+│  ├─ voice/canary/incoming/<digest>         actual voice custody
+│  ├─ team_files/incoming/<digest>           actual file custody
+│  ├─ pc_activity/work_events/incoming/...   bounded PC-work custody
+│  └─ run_logs/incoming/<digest>             bounded run/log custody
+├─ state/receipts|checkpoints/...             hash, receipt, dedupe state
+└─ isolated pilot/
+   ├─ standalone ERP copy                     five Shadow events/coverage
+   └─ project-history/P26-016/<generation>/
+      ├─ project_history.csv
+      └─ project_history.xlsx
 
-The pure implementation is documented in
-[`PROJECT_HISTORY_READINESS_FOUNDATION_V0.md`](../../../../docs/architecture/workspace/PROJECT_HISTORY_READINESS_FOUNDATION_V0.md).
+_workmeta/system/...                          metadata evidence only
+_workspaces/<project>/...                     existing OneDrive worksite unchanged
+Google Drive ontology / .registry/knowledge   canon ownership unchanged
+NotebookLM / live RAG                         unchanged
+```
 
-## VERIFY_HP / remaining gates
+RAW bodies and office files are not copied into `_workmeta` or public Git.
+Project history is a relationship/projection over centrally deduplicated
+custody; the same RAW object is not multiplied into every project directory.
 
-1. issue a fresh digest-bound C00B authority packet and obtain a real strict
-   PASS receipt;
-2. ratify the pinned H00 document, helper, and test receipt;
-3. ratify D19, D20, D25, and D26, then implement H01-H05 source adapters in
-   their fixed order;
-4. nominate one quiescent unacknowledged source occurrence when a real new
-   canary exists; do not fabricate or duplicate one;
-5. run one actual project Shadow only after the preceding gates;
-6. provide an explicitly attested copied ERP DB locator before a fresh
-   query-only parity rerun;
-7. ratify D22/D24 field and view targets before materializing project CSV,
-   XLSX, or ICS files;
-8. keep physical LAN MCP, credentials, listener, firewall, writer cutover,
-   migration, failover, and failback in their separate activation gates.
+## Public implementation
+
+- `guild_hall/ingress/collector.mjs` supports bounded mail and voice custody in
+  addition to the existing three lanes.
+- `guild_hall/shared/project_history_actual_shadow.mjs` validates the private
+  metadata packet and builds the exact five-lane Shadow generation without a DB
+  or filesystem writer.
+- `ui-workspace/apps/dev-erp/tools/project_history_copy_projector.mjs` writes
+  only to an explicitly authorized, standalone ERP copy; its separate verifier
+  is query-only and checks DB/CSV/XLSX parity.
+- `ui-workspace/apps/dev-erp-mcp/project_history_server.mjs` is a separate
+  default-OFF loopback server with only `erp_get_project_history` and
+  `erp_prepare_project_history_download`. It reconstructs the exact generation,
+  checks the canonical schema and DB/CSV/XLSX readback parity, and requires an
+  externally pinned artifact-attestation digest before serving sealed bytes.
+- `guild_hall/shared/project_history_knowledge_projection.mjs` creates only
+  explicit project/common held candidates, a derived graph view, and a
+  metadata-only RAG preview. It requires an exact whole project ID, preserves
+  canonical history chronology while requiring all five lanes, binds source
+  attestation into projection identity, and verifies the complete persisted
+  RAG index shape rather than accepting extra authority or raw-text aliases.
+
+## Formal gate state
+
+This executed pilot supplies stronger implementation evidence, but it does not
+self-ratify the master plan's formal authorities. `P0`, `H00`, `H01-H05`,
+`H06`, and `P1` remain HOLD until their owner acceptance route is completed.
+No actual history or knowledge current pointer was advanced.
+
+## Remaining production activation work
+
+1. freeze and back up the existing runtime, then prove a quiescent production
+   migration window;
+2. bind production mail and voice credentials/sources to HPP and cut over each
+   existing writer under one lease/epoch and fencing rule;
+3. ratify H00 and H01-H06 adapters/coverage, then enable continuous project
+   classification and accepted-history promotion;
+4. migrate the verified copied-DB projection into the authoritative ERP under
+   rollback and DB/CSV/XLSX parity checks;
+5. issue per-person/per-agent access, mTLS and authorization policy before any
+   LAN MCP listener or team download route is enabled;
+6. review the held project/common candidates before source-text indexing,
+   Google Drive canon publication, NotebookLM synchronization, or live RAG;
+7. prove Mac mini monitor/fallback takeover and failback without two writers
+   owning the same source lane.
 
 ## Stop line
 
-This pilot did not stop an existing writer, replace the active D runtime, open
-or migrate a live database, write an actual project history, fetch new mail,
-force-hydrate a cloud source, enable an MCP listener, or activate a collector,
-promoter, scheduler, network service, failover, or failback route.
+No existing writer was stopped or replaced. No production DB, workspace,
+junction, OneDrive tree, Google Drive canon, NotebookLM shelf, firewall,
+scheduler, credential, LAN listener, or current pointer was changed. The next
+step is the production writer/migration activation boundary and requires an
+explicit owner approval packet.

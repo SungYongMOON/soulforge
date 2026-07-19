@@ -2,7 +2,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 문서 상태 | `READY_FOR_OWNER_REVIEW` |
+| 문서 상태 | `PILOT_EXECUTED_PRODUCTION_HOLD` |
 | 기준일 | 2026-07-15 |
 | 기준 public ref | `main@9df7e57765d818be65f6250da8435826d0a2eea2` (계획 보정 최초 관찰 당시 `origin/main`과 동일; 현재 HEAD 주장 아님) |
 | P1 readiness 재검토 ref | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea` (후속 관찰 당시 `origin/main`과 동일; 현재 HEAD 주장 아님); H00 candidate와 H02~H05 public 코드·계약만 후속 대조 |
@@ -11,11 +11,12 @@
 | correction goal | `TASK-ENGINE-PLAN-CORRECTION-V1`을 보존하고 `TASK-ENGINE-INGRESS-TEAM-KNOWLEDGE-PLAN-CORRECTION-V1`에서 ingress·personal WorkSession·team query/knowledge를 최소 diff로 후속 보정 |
 | HPP MCP/storage/access correction | owner-confirmed logical topology freeze와 HPP private custody, brokered MCP control/authenticated HTTPS binary plane, artifact/revision/action ACL을 기존 P0→P10에 non-unlocking addendum으로 통합 |
 | 2026-07-18 owner role correction | HPP를 central ingress/custody·voice processing·Task Engine/AX 정상 operational-primary TARGET으로, 맥미니를 temporary failover/fallback으로 지정; live binding·writer cutover는 여전히 `VERIFY_HP/G01` |
-| [2026-07-19 five-lane pilot foundation](TASK_ENGINE_HPP_FIVE_LANE_INGRESS_PILOT_V1_RESULT.md) | public gate map, candidate-only five-lane readiness profile, one synthetic project Shadow, H06 coverage/replay를 구현하고, out-of-repo 증적 토큰 `task_engine_hpp_five_lane_parity_dry_run_v1`로 CSV/XLSX 수동 synthetic parity와 current custody receipt를 재검증; tracked exporter·C00B PASS·H00 ratification·actual project promotion·live activation은 계속 `HOLD` |
-| HPP correction review state | `READY_FOR_OWNER_REVIEW`; claim ceiling `source_supported` plan only; implementation·owner approval·live readiness claim `0` |
-| 문서 성격 | 실제 구현을 시작하기 전 owner 승인용 구축 계획 |
+| [2026-07-19 five-lane bounded pilot execution](TASK_ENGINE_HPP_FIVE_LANE_INGRESS_PILOT_V1_RESULT.md) | actual mail·voice·PC work·file·run/log 1건씩을 HPP 격리 custody에 수집하고 `P26-016` actual Shadow 5 event/5 coverage, copied ERP, tracked CSV/XLSX projector·query-only verifier, temporary localhost MCP query/download, explicit project/common metadata-only RAG preview까지 feature-OFF로 실행·검증; P0·H00·H01~H06·P1 owner acceptance, accepted/current pointer, production writer/migration/live activation은 계속 `HOLD` |
+| HPP correction review state | bounded pilot는 `PILOT_EXECUTED`; formal master-plan authority와 production readiness는 계속 `READY_FOR_OWNER_REVIEW/HOLD`; accepted history·accepted knowledge·live readiness claim `0` |
+| bounded pilot 실행 authority | owner task envelope `TASK-ENGINE-HPP-FIVE-LANE-INGRESS-PILOT-V1` 및 `TASK-ENGINE-OPERATIONAL-DATA-KNOWLEDGE-E2E-V1`; execution baseline `main@1110c8ca5e8370271799a9f266a4c17b72188f62`; feature-OFF·standalone-copy·localhost·metadata-only 범위 |
+| 문서 성격 | 계획 정본과 실제 bounded pilot receipt를 함께 유지하는 living master plan; 생산 운영 전환은 별도 owner gate |
 | 공개 안전성 | 실제 프로젝트명, 원문, 제목·본문, 장비명, 절대경로, secret을 포함하지 않음 |
-| 이번 실행 결과 | foundation-first 순서를 유지한 채 source custody/promotion, personal WorkSession lifecycle, accepted-generation query/knowledge와 HPP MCP/storage/access 계획 보정; topology·구현·데이터·binding·운영 활성화 변경 `0` |
+| 이번 실행 결과 | 기존 topology와 owner를 유지한 채 실제 5-lane bounded custody, P26-016 Shadow, standalone ERP-copy projection, DB/CSV/XLSX parity, localhost read-only MCP, project/common metadata knowledge preview를 구현·실행; production DB·writer·scheduler·LAN·Drive/NotebookLM·accepted pointer 변경 `0` |
 
 ## 0. 목적·authority·이번 단계 중단선
 
@@ -39,15 +40,19 @@ Authority는 다음 순서로 적용한다.
 `task_engine_redesign/**`와 통합 검증 문서의 과거 Mac-primary 문구는 byte-stable 비교 oracle로
 그대로 보존하며, 현재 runtime 지시나 HPP cutover 증거로 사용하지 않는다.
 
-이번 단계에서 허용된 것은 이 문서와 root 정책상 필요한 `CHANGELOG.md` 항목의 작성·검증·공개 Git
-publish뿐이다. 다음 행위는
-owner가 구현 slice를 별도로 승인하기 전까지 모두 중단한다.
+초기 계획 보정 단계의 허용 범위는 이 문서와 `CHANGELOG.md`의 작성·검증·공개 Git publish뿐이었다.
+그 제한은 위 표의 owner task envelope가 별도 승인한 2026-07-19 bounded 구현 slice로 대체되었다.
+이번 slice는 public 코드·테스트, private metadata receipt, 실제 원천 5건의 격리 custody,
+standalone ERP copy, CSV/XLSX, temporary localhost MCP, held knowledge/RAG preview까지만 허용했다.
 
-- 애플리케이션 코드, DB schema, runtime 데이터, project/common RAG asset 변경
-- migration/backfill/복사/이동/삭제/rename/junction repair
-- TaskDriver writer, mail/voice/file scanner, scheduler, alert, network transport 활성화
-- 운영 clone 갱신, ERP writer 전환, failover 승격
-- private 원문·업무 payload 조회 또는 public 문서로의 복사
+다음 행위는 bounded pilot이 끝난 뒤에도 별도 production activation 승인 전까지 중단한다.
+
+- 운영 ERP DB schema/data migration, backfill, accepted/current pointer 변경
+- 기존 TaskDriver 또는 mail/voice/file writer 중지·교체, scheduler·alert·network service 활성화
+- 운영 clone 갱신, HPP sole-writer cutover, Mac mini failover/failback 승격
+- workspace/OneDrive/junction rename·이동·삭제·repair
+- private 원문·업무 payload의 public 복사, Drive/NotebookLM publication, live RAG ingestion
+- LAN listener, firewall, team credential·mTLS 발급 또는 production download 권한 활성화
 
 ### ASSUMPTIONS
 

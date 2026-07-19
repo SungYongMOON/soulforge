@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schemas/project_history_actual_shadow_generation.v1.schema.json",
+  "title": "Soulforge feature-OFF actual five-lane Shadow generation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generation_id",
+    "project_ref",
+    "classification_state",
+    "envelopes",
+    "coverage_receipts",
+    "ordered_event_digest",
+    "source_attestation_digest",
+    "raw_payload_copied",
+    "accepted_history"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.project_history_actual_shadow_generation.v1" },
+    "generation_id": { "$ref": "#/$defs/safe_token" },
+    "project_ref": { "$ref": "#/$defs/typed_ref" },
+    "classification_state": { "const": "shadow" },
+    "envelopes": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/envelope" }
+    },
+    "coverage_receipts": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/coverage" }
+    },
+    "ordered_event_digest": { "$ref": "#/$defs/digest" },
+    "source_attestation_digest": { "$ref": "#/$defs/digest" },
+    "raw_payload_copied": { "const": false },
+    "accepted_history": { "const": false }
+  },
+  "$defs": {
+    "safe_token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\s/\\\\*?]+$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "utc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "history_lane": {
+      "enum": ["mail", "voice", "structured_pc_work", "file", "run_log"]
+    },
+    "typed_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_type", "owner_surface", "entity_id"],
+      "properties": {
+        "entity_type": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" },
+        "owner_surface": { "$ref": "#/$defs/safe_token" },
+        "entity_id": { "$ref": "#/$defs/safe_token" }
+      }
+    },
+    "nullable_typed_ref": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/typed_ref" }
+      ]
+    },
+    "classification": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "project_ref"],
+          "properties": {
+            "state": { "enum": ["classified", "unclassified"] },
+            "project_ref": { "$ref": "#/$defs/nullable_typed_ref" }
+          }
+        }
+      ]
+    },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "occurrence_id",
+        "lane",
+        "source_owner_ref",
+        "native_occurrence_ref",
+        "event_ref",
+        "source_revision_ref",
+        "content_ref",
+        "project_ref",
+        "event_at",
+        "valid_at",
+        "observed_at",
+        "known_at",
+        "recorded_at",
+        "classification_before",
+        "classification_after",
+        "supersedes_event_ref",
+        "metadata_digest",
+        "raw_payload_copied"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.project_history_envelope.v1" },
+        "occurrence_id": { "type": "string", "pattern": "^ph-occ:[0-9a-f]{64}$" },
+        "lane": { "$ref": "#/$defs/history_lane" },
+        "source_owner_ref": { "$ref": "#/$defs/typed_ref" },
+        "native_occurrence_ref": { "$ref": "#/$defs/typed_ref" },
+        "event_ref": { "$ref": "#/$defs/typed_ref" },
+        "source_revision_ref": { "$ref": "#/$defs/nullable_typed_ref" },
+        "content_ref": { "$ref": "#/$defs/nullable_typed_ref" },
+        "project_ref": { "$ref": "#/$defs/typed_ref" },
+        "event_at": {
+          "oneOf": [
+            { "const": "unknown" },
+            { "$ref": "#/$defs/utc" }
+          ]
+        },
+        "valid_at": {
+          "oneOf": [
+            { "const": "unknown" },
+            { "$ref": "#/$defs/utc" }
+          ]
+        },
+        "observed_at": { "$ref": "#/$defs/nullable_utc" },
+        "known_at": { "$ref": "#/$defs/utc" },
+        "recorded_at": { "$ref": "#/$defs/utc" },
+        "classification_before": { "$ref": "#/$defs/classification" },
+        "classification_after": { "$ref": "#/$defs/classification" },
+        "supersedes_event_ref": { "type": "null" },
+        "metadata_digest": { "$ref": "#/$defs/digest" },
+        "raw_payload_copied": { "const": false }
+      }
+    },
+    "nullable_utc": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/utc" }
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "lane",
+        "source_owner_ref",
+        "project_ref",
+        "window_start",
+        "window_end",
+        "state",
+        "event_count",
+        "gap_codes",
+        "applicability_ref",
+        "ordered_event_digest",
+        "metadata_digest",
+        "raw_payload_copied"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.project_history_coverage_receipt.v1" },
+        "lane": { "$ref": "#/$defs/history_lane" },
+        "source_owner_ref": { "$ref": "#/$defs/typed_ref" },
+        "project_ref": { "$ref": "#/$defs/typed_ref" },
+        "window_start": { "$ref": "#/$defs/utc" },
+        "window_end": { "$ref": "#/$defs/utc" },
+        "state": { "const": "complete_with_events" },
+        "event_count": { "const": 1 },
+        "gap_codes": { "type": "array", "maxItems": 0 },
+        "applicability_ref": { "type": "null" },
+        "ordered_event_digest": { "$ref": "#/$defs/digest" },
+        "metadata_digest": { "$ref": "#/$defs/digest" },
+        "raw_payload_copied": { "const": false }
+      }
+    }
+  }
+}
