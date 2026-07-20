@@ -35,6 +35,7 @@ guild_hall/state/gateway/
 │   ├── company/
 │   │   ├── mail/
 │   │   │   ├── raw/
+│   │   │   ├── source_custody/
 │   │   │   ├── events/
 │   │   │   └── attachments/
 │   │   └── ads/
@@ -42,6 +43,7 @@ guild_hall/state/gateway/
 │   ├── personal/
 │   │   └── mail/
 │   │       ├── raw/
+│   │       ├── source_custody/
 │   │       ├── events/
 │   │       └── attachments/
 │   └── state/
@@ -117,6 +119,26 @@ gateway `mail_received` Telegram policy only after rows are written.
 - Hiworks POP3 수집은 `last_uidl` 이 현재 mailbox 에 남아 있으면 그 이후 메시지만 후보로 본다.
 - `seen_uidls` 는 dedupe 보조 window 로 유지하되, window 밖의 오래된 UIDL 이 새 메일보다 먼저 재수집되지 않도록 `last_uidl` 진행선을 우선한다.
 - pipeline 은 dedupe 를 통과한 fresh event 의 raw row 만 materialize 한다.
+
+## Hiworks RFC822 source custody
+
+- Hiworks POP3 `RETR`로 받은 exact RFC822 bytes는 MIME 파싱과 pipeline dedupe
+  전에 mailbox workspace의
+  `mail/source_custody/hiworks/sha256/<prefix>/<sha256>.eml`에 저장한다.
+- `storage_ref`는 `source_custody` root 기준 상대경로이며 normalized event의
+  `raw.source_custody`에 SHA-256과 exact byte size와 함께 남는다. `.eml` bytes는
+  raw/event JSONL이나 public fixture에 복사하지 않는다.
+- content-addressed replay는 같은 bytes를 다시 쓰지 않는다. 기존 hash path가
+  다른 bytes, symlink, junction, reparse point, 또는 root escape를 가리키면
+  fail closed하고 해당 UIDL 진행을 멈춘다.
+- `--ingress-only`에서도 이 immutable source custody는 기록한다. native/link
+  attachment 추출과 project history, candidate, notification, ERP/MCP/project
+  promotion은 계속 비활성화한다. 첨부 복구의 원천은 저장된 RFC822 MIME이다.
+- offline custody link CLI는 private normalized-event JSONL과 이 custody root를
+  명시 입력으로 받아 immutable metadata receipt를 만든다. EML은 정확히
+  `hiworks/sha256/<2-lowercase-hex-prefix>/<64-lowercase-hex-sha256>.eml` shape만
+  허용한다. output은 caller-selected private mailbox runtime/custody evidence
+  owner가 소유하며 public/tracked 또는 publication surface로 자동 이동하지 않는다.
 
 ## 경계
 

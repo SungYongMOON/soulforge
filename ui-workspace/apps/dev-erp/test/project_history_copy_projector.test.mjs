@@ -5,6 +5,7 @@ import {
   linkSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -37,6 +38,7 @@ import {
 import {
   PROJECT_HISTORY_COPY_COLUMNS,
   PROJECT_HISTORY_COPY_PROJECTION_CLAIM_CEILING,
+  createProjectHistoryProjectionSchema,
   inspectStandaloneSqliteCopy,
   productionLookingPathReasons,
   projectCopiedErpHistory,
@@ -316,6 +318,192 @@ test("projects one immutable generation into an existing copied DB and replays b
   assert.equal(verified.xlsx_readback, "verified_from_workbook");
 });
 
+test("stages deterministic CSV and workbook artifacts before opening the DB mutation boundary", (t) => {
+  const fixture = makeFixture(t);
+  const generation = makeGeneration();
+  let observed = false;
+  projectCopiedErpHistory({
+    ...fixture,
+    generation,
+    attestation: sha256Canonical(generation),
+    testHooks: {
+      beforeDatabaseMutation({ staged, stagePath }) {
+        observed = true;
+        assert.equal(staged, true);
+        assert.equal(existsSync(fixture.directory), false);
+        assert.deepEqual(readdirSync(stagePath).sort(), [
+          "project_history.csv",
+          "project_history.xlsx",
+          "project_history.xlsx-input.json",
+          "project_history.xlsx-readback.json",
+        ]);
+        const db = new DatabaseSync(fixture.dbPath, { readOnly: true });
+        try {
+          assert.equal(db.prepare(
+            "SELECT COUNT(*) AS count FROM sqlite_master WHERE name LIKE 'project_history_%'",
+          ).get().count, 0);
+        } finally {
+          db.close();
+        }
+      },
+    },
+  });
+  assert.equal(observed, true);
+});
+
+test("final rename failure leaves one durable pending intent and same-binding replay publishes without duplicate rows", (t) => {
+  const fixture = makeFixture(t);
+  const generation = makeGeneration();
+  const attestation = sha256Canonical(generation);
+  assert.throws(
+    () => projectCopiedErpHistory({
+      ...fixture,
+      generation,
+      attestation,
+      testHooks: {
+        beforeArtifactBundlePublish() {
+          const error = new Error("synthetic final rename failure");
+          error.code = "synthetic_final_rename_failure";
+          throw error;
+        },
+      },
+    }),
+    (error) => error.code === "synthetic_final_rename_failure",
+  );
+  assert.equal(existsSync(fixture.directory), false);
+  let db = new DatabaseSync(fixture.dbPath, { readOnly: true });
+  try {
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_generation").get().count, 1);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_event").get().count, 5);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_outbox").get().count, 1);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_replay_guard").get().count, 1);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_receipt").get().count, 0);
+  } finally {
+    db.close();
+  }
+
+  assert.throws(
+    () => verifyCopiedProjectHistoryProjection({
+      ...fixture,
+      generationId: generation.generation_id,
+      attestation,
+      artifactManifestDigest: sha256Canonical({ unavailable: true }),
+    }),
+    (error) => error.code === "publication_pending",
+  );
+
+  const replayed = projectCopiedErpHistory({ ...fixture, generation, attestation });
+  assert.equal(replayed.status, "replayed");
+  db = new DatabaseSync(fixture.dbPath, { readOnly: true });
+  try {
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_generation").get().count, 1);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_event").get().count, 5);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_outbox").get().count, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_replay_guard").get().count, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_receipt").get().count, 1);
+  } finally {
+    db.close();
+  }
+  const verified = verifyCopiedProjectHistoryProjection({
+    ...fixture,
+    generationId: generation.generation_id,
+    attestation,
+    artifactManifestDigest: replayed.artifact_manifest_digest,
+  });
+  assert.equal(verified.publication_receipt_digest, replayed.publication_receipt_digest);
+});
+
+test("crash after manifest rename remains pending and same-binding replay seals the same generation", (t) => {
+  const fixture = makeFixture(t);
+  const generation = makeGeneration();
+  const attestation = sha256Canonical(generation);
+  let publishedManifestDigest;
+  assert.throws(
+    () => projectCopiedErpHistory({
+      ...fixture,
+      generation,
+      attestation,
+      testHooks: {
+        afterArtifactManifestPublish({ artifactManifestDigest }) {
+          publishedManifestDigest = artifactManifestDigest;
+          const error = new Error("synthetic crash after manifest publication");
+          error.code = "synthetic_post_manifest_crash";
+          throw error;
+        },
+      },
+    }),
+    (error) => error.code === "synthetic_post_manifest_crash",
+  );
+  assert.equal(existsSync(fixture.artifactManifestPath), true);
+  assert.throws(
+    () => verifyCopiedProjectHistoryProjection({
+      ...fixture,
+      generationId: generation.generation_id,
+      attestation,
+      artifactManifestDigest: publishedManifestDigest,
+    }),
+    (error) => error.code === "publication_pending",
+  );
+
+  const replayed = projectCopiedErpHistory({ ...fixture, generation, attestation });
+  assert.equal(replayed.status, "replayed");
+  const db = new DatabaseSync(fixture.dbPath, { readOnly: true });
+  try {
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_generation").get().count, 1);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_outbox").get().count, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_receipt").get().count, 1);
+  } finally {
+    db.close();
+  }
+});
+
+test("verifier rejects DB-only and artifact-only publication halves", (t) => {
+  const fixture = makeFixture(t);
+  const generation = makeGeneration();
+  const attestation = sha256Canonical(generation);
+  const projected = projectCopiedErpHistory({ ...fixture, generation, attestation });
+
+  const heldArtifacts = `${fixture.directory}.held`;
+  renameSync(fixture.directory, heldArtifacts);
+  assert.throws(
+    () => verifyCopiedProjectHistoryProjection({
+      ...fixture,
+      generationId: generation.generation_id,
+      attestation,
+      artifactManifestDigest: projected.artifact_manifest_digest,
+    }),
+  );
+  renameSync(heldArtifacts, fixture.directory);
+
+  const emptyDbPath = path.join(fixture.root, "artifact-only-copy.sqlite");
+  createCopiedDatabase(emptyDbPath);
+  const emptyDb = new DatabaseSync(emptyDbPath);
+  try {
+    createProjectHistoryProjectionSchema(emptyDb);
+  } finally {
+    emptyDb.close();
+  }
+  const artifactOnlyBindingPath = path.join(fixture.root, "artifact-only-binding.json");
+  const artifactOnlyBinding = createProjectHistoryCopyBinding({
+    dbPath: emptyDbPath,
+    projectionRoot: fixture.projectionRoot,
+    allowedProjectIds: [generation.project_ref.entity_id],
+  });
+  writeProjectHistoryCopyBinding(artifactOnlyBindingPath, artifactOnlyBinding);
+  assert.throws(
+    () => verifyCopiedProjectHistoryProjection({
+      ...fixture,
+      dbPath: emptyDbPath,
+      bindingPath: artifactOnlyBindingPath,
+      bindingDigest: artifactOnlyBinding.binding_digest,
+      generationId: generation.generation_id,
+      attestation,
+      artifactManifestDigest: projected.artifact_manifest_digest,
+    }),
+    (error) => error.code === "publication_receipt_missing",
+  );
+});
+
 test("fails closed on conflicting generation digest without touching accepted pointers", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
@@ -482,9 +670,9 @@ test("weakened lookalike projection schema rolls back all newly created schema",
 });
 
 test("trusted-clock expiry at the in-transaction commit fence rolls back every Shadow DB mutation", (t) => {
-  let now = Date.parse("2026-07-20T08:00:00.000Z");
-  t.mock.method(Date, "now", () => now);
-  const fixture = makeFixture(t);
+  const fixture = makeFixture(t, "copy", {
+    authorityOptions: { expiresInMs: 20_000 },
+  });
   const generation = makeGeneration();
   assert.throws(
     () => projectCopiedErpHistory({
@@ -493,7 +681,7 @@ test("trusted-clock expiry at the in-transaction commit fence rolls back every S
       attestation: sha256Canonical(generation),
       testHooks: {
         beforeDatabaseCommit() {
-          now = Date.parse(fixture.authority.record.expires_at);
+          waitUntilAuthorityExpires(fixture.authority);
         },
       },
     }),
@@ -538,8 +726,8 @@ test("authority replacement immediately before the publication helper opens fail
   const db = new DatabaseSync(fixture.dbPath, { readOnly: true });
   try {
     assert.equal(db.prepare(
-      "SELECT COUNT(*) AS count FROM project_history_generation WHERE accepted_history = 0",
-    ).get().count, 1);
+      "SELECT COUNT(*) AS count FROM sqlite_master WHERE name LIKE 'project_history_%'",
+    ).get().count, 0);
     assert.equal(
       db.prepare("SELECT generation_id FROM accepted_project_history_current").get().generation_id,
       "production-generation-sentinel",
@@ -549,7 +737,7 @@ test("authority replacement immediately before the publication helper opens fail
   }
 });
 
-test("retained authority handle keeps new and replay publication on one immutable record", (t) => {
+test("retained authority handle keeps publication and successful replay on one immutable record", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const attestation = sha256Canonical(generation);
@@ -582,15 +770,15 @@ test("retained authority handle keeps new and replay publication on one immutabl
     generation,
     attestation,
     testHooks: {
-      afterArtifactParentCheckBeforeMutation({ boundary }) {
-        if (boundary === "publish_replay_manifest_handle_rename") project(boundary);
+      beforeDatabaseCommit() {
+        project("replay_noop_commit");
       },
     },
   });
   assert.equal(replayed.status, "replayed");
   for (const boundary of [
     "publish_bundle_handle_rename",
-    "publish_replay_manifest_handle_rename",
+    "replay_noop_commit",
   ]) {
     assert(["EBUSY", "EPERM", "EACCES"].includes(replacementResults.get(boundary)));
   }
@@ -615,40 +803,62 @@ test("retained authority expiry prevents a new artifact bundle publication", (t)
         },
       },
     }),
-    (error) => error.code === "secure_handle_rename_failed",
+    (error) => ["stale_writer_authority", "secure_handle_rename_failed"].includes(error.code),
   );
   assert.equal(existsSync(fixture.directory), false);
   assert.equal(existsSync(fixture.artifactManifestPath), false);
 });
 
 test("retained authority expiry leaves the replay manifest unchanged", (t) => {
-  const fixture = makeFixture(t);
+  const fixture = makeFixture(t, "copy", {
+    authorityOptions: { expiresInMs: 30_000 },
+  });
   const generation = makeGeneration();
   const attestation = sha256Canonical(generation);
-  projectCopiedErpHistory({ ...fixture, generation, attestation });
-  const originalManifest = readFileSync(fixture.artifactManifestPath);
-  refreshBinding(fixture);
-  const replayAuthority = createAuthorityCapability(
-    fixture.root,
-    generation.project_ref,
-    { expiresInMs: 20_000 },
-  );
-  fixture.authority = replayAuthority;
-  fixture.authoritySnapshot = replayAuthority.authoritySnapshot;
   assert.throws(
     () => projectCopiedErpHistory({
       ...fixture,
       generation,
       attestation,
       testHooks: {
-        afterArtifactParentCheckBeforeMutation({ boundary }) {
-          if (boundary === "publish_replay_manifest_handle_rename") {
-            waitUntilAuthorityExpires(replayAuthority);
-          }
+        afterArtifactManifestPublish() {
+          const error = new Error("synthetic crash after manifest publication");
+          error.code = "synthetic_post_manifest_crash";
+          throw error;
         },
       },
     }),
-    (error) => error.code === "secure_handle_rename_failed",
+    (error) => error.code === "synthetic_post_manifest_crash",
+  );
+  const originalManifest = readFileSync(fixture.artifactManifestPath);
+  const replacementAuthorityRoot = path.join(fixture.root, "replacement-authority");
+  mkdirSync(replacementAuthorityRoot);
+  const replacementAuthority = createAuthorityCapability(
+    replacementAuthorityRoot,
+    generation.project_ref,
+  );
+  assert.throws(
+    () => projectCopiedErpHistory({
+      ...fixture,
+      authoritySnapshot: replacementAuthority.authoritySnapshot,
+      generation,
+      attestation,
+    }),
+    (error) => error.code === "pending_replay_guard_conflict",
+  );
+  assert.deepEqual(readFileSync(fixture.artifactManifestPath), originalManifest);
+  assert.throws(
+    () => projectCopiedErpHistory({
+      ...fixture,
+      generation,
+      attestation,
+      testHooks: {
+        beforeDatabaseCommit() {
+          waitUntilAuthorityExpires(fixture.authority);
+        },
+      },
+    }),
+    (error) => ["stale_writer_authority", "secure_handle_rename_failed"].includes(error.code),
   );
   assert.deepEqual(readFileSync(fixture.artifactManifestPath), originalManifest);
 });

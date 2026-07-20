@@ -32,6 +32,12 @@ const TEAM_REGISTER_SCHEMA = "email.fetch.team_mailbox_register.v1";
 const SAFE_ERROR_CODE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const ALLOWED_CHILD_ERROR_CODES = new Set([
   "gateway_mail_fetch_team_cli_error",
+  "mail_capsule_nested_credential_file_not_preloaded",
+  "mail_capsule_nested_credential_file_unsupported",
+  "mail_capsule_nested_credential_name_mismatch",
+  "mail_capsule_nested_credential_parent_mismatch",
+  "mail_capsule_nested_credential_path_mismatch",
+  "mail_capsule_nested_credential_preload_empty",
   "mailbox_run_error",
 ]);
 const REPO_RELATIVE_PREFIXES = [
@@ -733,7 +739,6 @@ const SECURE_WINDOWS_LAUNCH_SCRIPT = String.raw`
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $locks = New-Object 'System.Collections.Generic.List[System.IO.FileStream]'
-$child = $null
 $spawned = $false
 function Get-SidValue($identity) {
   if ($identity -is [System.Security.Principal.SecurityIdentifier]) { return $identity.Value }
@@ -758,6 +763,79 @@ function Assert-ProtectedAcl([string]$path) {
     if ($allowedSids -notcontains $sid -and (($rule.FileSystemRights -band $dangerous) -ne 0)) {
       throw 'secure_launch_acl_write_grant_invalid'
     }
+  }
+}
+function Resolve-NormalContainedFile([string]$root, [string]$path) {
+  $comparison = [System.StringComparison]::OrdinalIgnoreCase
+  $rootPath = [System.IO.Path]::GetFullPath($root).TrimEnd('\', '/')
+  $candidate = [System.IO.Path]::GetFullPath($path)
+  $prefix = $rootPath + [System.IO.Path]::DirectorySeparatorChar
+  if ($candidate.Equals($rootPath, $comparison) -or -not $candidate.StartsWith($prefix, $comparison)) {
+    throw 'secure_launch_nested_path_escape'
+  }
+  $rootAttributes = [System.IO.File]::GetAttributes($rootPath)
+  if (($rootAttributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+      ($rootAttributes -band [System.IO.FileAttributes]::Directory) -eq 0) {
+    throw 'secure_launch_nested_root_unsafe'
+  }
+  $cursor = [System.IO.Path]::GetDirectoryName($candidate)
+  while (-not $cursor.Equals($rootPath, $comparison)) {
+    if ([string]::IsNullOrWhiteSpace($cursor) -or -not $cursor.StartsWith($prefix, $comparison)) {
+      throw 'secure_launch_nested_path_escape'
+    }
+    $attributes = [System.IO.File]::GetAttributes($cursor)
+    if (($attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+        ($attributes -band [System.IO.FileAttributes]::Directory) -eq 0) {
+      throw 'secure_launch_nested_reparse_point'
+    }
+    $cursor = [System.IO.Path]::GetDirectoryName($cursor)
+  }
+  $fileAttributes = [System.IO.File]::GetAttributes($candidate)
+  if (($fileAttributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or
+      ($fileAttributes -band [System.IO.FileAttributes]::Directory) -ne 0) {
+    throw 'secure_launch_nested_file_unsafe'
+  }
+  return $candidate
+}
+function Invoke-IsolatedChild($config, [string]$arguments, $environment, [int]$timeoutMs, [ref]$startedFlag) {
+  $process = New-Object System.Diagnostics.Process
+  try {
+    $start = New-Object System.Diagnostics.ProcessStartInfo
+    $start.FileName = [string]$config.executablePath
+    $start.Arguments = $arguments
+    $start.WorkingDirectory = [string]$config.cwd
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $start.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $start.StandardErrorEncoding = New-Object System.Text.UTF8Encoding($false)
+    $start.EnvironmentVariables.Clear()
+    foreach ($property in $environment.PSObject.Properties) {
+      $start.EnvironmentVariables[[string]$property.Name] = [string]$property.Value
+    }
+    $process.StartInfo = $start
+    if (-not $process.Start()) { throw 'secure_launch_start_failed' }
+    $startedFlag.Value = $true
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $timedOut = -not $process.WaitForExit($timeoutMs)
+    if ($timedOut) {
+      try { $process.Kill() } catch { }
+      try { $process.WaitForExit() } catch { }
+    }
+    return [pscustomobject]@{
+      exitCode = if ($process.HasExited) { [int]$process.ExitCode } else { $null }
+      timedOut = [bool]$timedOut
+      stdout = [string]$stdoutTask.GetAwaiter().GetResult()
+      stderr = [string]$stderrTask.GetAwaiter().GetResult()
+    }
+  } finally {
+    if ($startedFlag.Value -and -not $process.HasExited) {
+      try { $process.Kill() } catch { }
+      try { $process.WaitForExit() } catch { }
+    }
+    $process.Dispose()
   }
 }
 try {
@@ -794,48 +872,49 @@ try {
     $locks.Add($stream)
   }
 
-  $start = New-Object System.Diagnostics.ProcessStartInfo
-  $start.FileName = [string]$config.executablePath
-  $start.Arguments = [string]$config.arguments
-  $start.WorkingDirectory = [string]$config.cwd
-  $start.UseShellExecute = $false
-  $start.CreateNoWindow = $true
-  $start.RedirectStandardOutput = $true
-  $start.RedirectStandardError = $true
-  $start.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
-  $start.StandardErrorEncoding = New-Object System.Text.UTF8Encoding($false)
-  $start.EnvironmentVariables.Clear()
+  $discoveryStarted = $false
+  $discovery = Invoke-IsolatedChild $config ([string]$config.discoveryArguments) $config.childEnvironment ([int]$config.discoveryTimeoutMs) ([ref]$discoveryStarted)
+  if ($discovery.timedOut -or $discovery.exitCode -ne 0) {
+    throw 'secure_launch_nested_discovery_failed'
+  }
+  $discoveryPayload = ConvertFrom-Json -InputObject ([string]$discovery.stdout)
+  if ([string]$discoveryPayload.schema_version -cne 'soulforge.mail.nested_credentials.v1') {
+    throw 'secure_launch_nested_discovery_invalid'
+  }
+  $nestedRows = @($discoveryPayload.nested_credentials)
+  if ($nestedRows.Count -gt 256) { throw 'secure_launch_nested_discovery_invalid' }
+  $nestedPaths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+  foreach ($row in $nestedRows) {
+    $nestedPath = Resolve-NormalContainedFile ([string]$config.privateConfigRoot) ([string]$row.path)
+    if ($nestedPaths.Add($nestedPath)) {
+      $nestedStream = [System.IO.File]::Open(
+        $nestedPath,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+      )
+      $locks.Add($nestedStream)
+    }
+  }
+  $nestedPayloadB64 = [System.Convert]::ToBase64String(
+    [System.Text.Encoding]::UTF8.GetBytes([string]$discovery.stdout)
+  )
+  $actualEnvironmentValues = [ordered]@{}
   foreach ($property in $config.childEnvironment.PSObject.Properties) {
-    $start.EnvironmentVariables[[string]$property.Name] = [string]$property.Value
+    $actualEnvironmentValues[[string]$property.Name] = [string]$property.Value
   }
-
-  $child = New-Object System.Diagnostics.Process
-  $child.StartInfo = $start
-  if (-not $child.Start()) { throw 'secure_launch_start_failed' }
-  $spawned = $true
-  $stdoutTask = $child.StandardOutput.ReadToEndAsync()
-  $stderrTask = $child.StandardError.ReadToEndAsync()
-  $timedOut = -not $child.WaitForExit([int]$config.timeoutMs)
-  if ($timedOut) {
-    try { $child.Kill() } catch { }
-    try { $child.WaitForExit() } catch { }
-  }
-  $stdout = $stdoutTask.GetAwaiter().GetResult()
-  $stderr = $stderrTask.GetAwaiter().GetResult()
-  $exitCode = if ($child.HasExited) { [int]$child.ExitCode } else { $null }
+  $actualEnvironmentValues['SOULFORGE_MAIL_NESTED_CREDENTIALS_B64'] = $nestedPayloadB64
+  $actualEnvironment = [pscustomobject]$actualEnvironmentValues
+  $actual = Invoke-IsolatedChild $config ([string]$config.arguments) $actualEnvironment ([int]$config.timeoutMs) ([ref]$spawned)
   $result = [ordered]@{
-    exitCode = $exitCode
+    exitCode = $actual.exitCode
     errorCode = $null
-    timedOut = [bool]$timedOut
+    timedOut = [bool]$actual.timedOut
     spawned = $true
-    stdout = [string]$stdout
-    stderr = [string]$stderr
+    stdout = [string]$actual.stdout
+    stderr = [string]$actual.stderr
   }
 } catch {
-  if ($spawned -and $null -ne $child -and -not $child.HasExited) {
-    try { $child.Kill() } catch { }
-    try { $child.WaitForExit() } catch { }
-  }
   $result = [ordered]@{
     exitCode = $null
     errorCode = 'mail_bridge_secure_launch_failed'
@@ -848,7 +927,6 @@ try {
   foreach ($stream in $locks) {
     try { $stream.Dispose() } catch { }
   }
-  if ($null -ne $child) { $child.Dispose() }
 }
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 [Console]::Out.Write(($result | ConvertTo-Json -Compress -Depth 6))
@@ -922,7 +1000,7 @@ function essentialWindowsEnvironment(operationTemp) {
   };
 }
 
-async function defaultExecutor({ executablePath, args, timeoutMs, cwd, lockFiles }) {
+async function defaultExecutor({ executablePath, args, timeoutMs, cwd, lockFiles, privateConfigRoot }) {
   if (platform() !== "win32") fail("mail_bridge_secure_launch_unsupported");
   const childEnvironment = essentialWindowsEnvironment(join(cwd, "temp"));
   const powershellPath = await trustedWindowsPowerShellPath();
@@ -949,12 +1027,19 @@ async function defaultExecutor({ executablePath, args, timeoutMs, cwd, lockFiles
     });
   }
   if (uniqueLocks.size === 0) fail("mail_bridge_secure_launch_config_invalid");
+  if (typeof privateConfigRoot !== "string" || !isAbsolute(privateConfigRoot)) {
+    fail("mail_bridge_secure_launch_config_invalid");
+  }
   const launchConfig = {
     executablePath,
     arguments: args.map(quoteWindowsArgument).join(" "),
+    discoveryArguments: [...args, "--discover-nested-credentials"]
+      .map(quoteWindowsArgument).join(" "),
     cwd,
     timeoutMs,
+    discoveryTimeoutMs: Math.min(timeoutMs, 30_000),
     lockFiles: [...uniqueLocks.values()],
+    privateConfigRoot: resolve(privateConfigRoot),
     childEnvironment,
   };
   const encodedConfig = Buffer.from(JSON.stringify(launchConfig), "utf8").toString("base64");
@@ -1106,6 +1191,8 @@ export async function runMailBridge(binding, options = {}) {
     capsule.identityManifestPath,
     "--identity-manifest-sha256",
     capsule.identityManifestSha256,
+    "--private-config-root",
+    binding.privateConfigRoot,
     "--ingress-only",
     "--once",
     "--limit",
@@ -1123,6 +1210,7 @@ export async function runMailBridge(binding, options = {}) {
       timeoutMs: MAIL_BRIDGE_TIMEOUT_MS,
       cwd: capsule.root,
       lockFiles: capsule.launchLockFiles,
+      privateConfigRoot: binding.privateConfigRoot,
     });
   } catch {
     executorFailed = true;

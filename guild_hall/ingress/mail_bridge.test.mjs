@@ -9,9 +9,11 @@ import {
   readdir,
   rename,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -250,33 +252,143 @@ test("real Windows launcher locks the release and runs the hard-linked capsule P
   }
 });
 
-test("real capsule launcher rejects nested credential file indirection before mailbox work", {
+test("real capsule launcher discovers and preloads a nested password before mailbox work", {
   skip: process.platform !== "win32",
   timeout: 120_000,
 }, async () => {
-  const root = await mkdtemp(join(tmpdir(), "mail-bridge-nested-credential-reject-"));
+  const root = await mkdtemp(join(tmpdir(), "mail-bridge-nested-credential-"));
+  let acceptedSocket;
+  const server = createServer((socket) => {
+    acceptedSocket = socket;
+  });
   try {
+    await new Promise((resolveListen, rejectListen) => {
+      server.once("error", rejectListen);
+      server.listen(0, "127.0.0.1", resolveListen);
+    });
+    const port = server.address().port;
     const dataRoot = join(root, "data");
     const privateConfigRoot = join(dataRoot, "config");
     await mkdir(privateConfigRoot, { recursive: true });
     const teamCliPath = fileURLToPath(new URL("../gateway/mail_fetch/team_cli.py", import.meta.url));
     const registerPath = join(privateConfigRoot, "team_mailboxes.json");
     const credentialPath = join(privateConfigRoot, "mailbox.env");
+    const nestedCredentialPath = join(privateConfigRoot, "secrets", "hiworks-password.txt");
     const registerBytes = Buffer.from(`${JSON.stringify({
       schema_version: "email.fetch.team_mailbox_register.v1",
       mailboxes: [{
-        id: "nested-reject",
+        id: "nested-password",
         account_id: "synthetic",
         email: "nested@example.test",
-        display_name: "Nested Reject",
-        provider: "gmail",
+        display_name: "Nested Password",
+        provider: "hiworks",
         enabled: true,
         env_file: "mailbox.env",
         workspace: "synthetic",
       }],
     })}\n`);
     await writeFile(registerPath, registerBytes);
-    await writeFile(credentialPath, "GMAIL_ACCESS_TOKEN_FILE=must-not-open.json\n");
+    await mkdir(dirname(nestedCredentialPath), { recursive: true });
+    await writeFile(nestedCredentialPath, "synthetic-password-must-not-escape\n");
+    await writeFile(credentialPath, [
+      "HIWORKS_POP3_HOST=127.0.0.1",
+      `HIWORKS_POP3_PORT=${port}`,
+      "HIWORKS_POP3_USERNAME=synthetic",
+      "HIWORKS_POP3_TIMEOUT_SEC=5",
+      "EMAIL_FETCH_RETRY_MAX=1",
+      "HIWORKS_POP3_PASSWORD_FILE=secrets/hiworks-password.txt",
+      "",
+    ].join("\n"));
+    const pythonExecutable = execFileSync(
+      "python",
+      ["-c", "import sys; print(sys.executable)"],
+      { encoding: "utf8", windowsHide: true },
+    ).trim();
+    const release = await inspectMailCollectorRelease(teamCliPath);
+    const bridgePromise = runMailBridge({
+      dataRoot,
+      privateConfigRoot,
+      pythonExecutable,
+      teamCliPath,
+      teamCliSha256: release.team_cli_sha256,
+      collectorTreeSha256: release.collector_tree_sha256,
+      registerPath,
+      registerSha256: digest(registerBytes),
+      limit: 25,
+    });
+    await new Promise((resolveConnection, rejectConnection) => {
+      const deadline = setTimeout(
+        () => rejectConnection(new Error("synthetic POP3 connection did not start")),
+        60_000,
+      );
+      const poll = () => {
+        if (acceptedSocket) {
+          clearTimeout(deadline);
+          resolveConnection();
+          return;
+        }
+        setTimeout(poll, 25);
+      };
+      poll();
+    });
+    await assert.rejects(
+      rename(nestedCredentialPath, `${nestedCredentialPath}.replaced`),
+      (error) => ["EACCES", "EBUSY", "EPERM"].includes(error?.code),
+    );
+    acceptedSocket.destroy();
+    const result = await bridgePromise;
+    assert.equal(result.status, "partial");
+    assert.equal(result.spawned, true);
+    assert.equal(result.mailboxes_enabled, 1);
+    assert.equal(result.mailboxes_run, 1);
+    assert.deepEqual(result.error_codes, ["mail_child_failed"]);
+    assert.equal(JSON.stringify(result).includes("synthetic-password-must-not-escape"), false);
+    await access(nestedCredentialPath);
+  } finally {
+    if (acceptedSocket) acceptedSocket.destroy();
+    await new Promise((resolveClose) => server.close(resolveClose));
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("real capsule launcher rejects nested credential junction traversal", {
+  skip: process.platform !== "win32",
+  timeout: 120_000,
+}, async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "mail-bridge-nested-junction-"));
+  try {
+    const dataRoot = join(root, "data");
+    const privateConfigRoot = join(dataRoot, "config");
+    const outsideRoot = join(root, "outside");
+    await mkdir(privateConfigRoot, { recursive: true });
+    await mkdir(outsideRoot, { recursive: true });
+    await writeFile(join(outsideRoot, "password.txt"), "synthetic-outside\n");
+    try {
+      await symlink(outsideRoot, join(privateConfigRoot, "linked"), "junction");
+    } catch (error) {
+      if (["EACCES", "EPERM"].includes(error?.code)) {
+        t.skip("junction creation is unavailable on this Windows profile");
+        return;
+      }
+      throw error;
+    }
+    const teamCliPath = fileURLToPath(new URL("../gateway/mail_fetch/team_cli.py", import.meta.url));
+    const registerPath = join(privateConfigRoot, "team_mailboxes.json");
+    const registerBytes = Buffer.from(`${JSON.stringify({
+      schema_version: "email.fetch.team_mailbox_register.v1",
+      mailboxes: [{
+        id: "nested-junction",
+        email: "nested@example.test",
+        provider: "hiworks",
+        enabled: true,
+        env_file: "mailbox.env",
+      }],
+    })}\n`);
+    await writeFile(registerPath, registerBytes);
+    await writeFile(
+      join(privateConfigRoot, "mailbox.env"),
+      "HIWORKS_POP3_PASSWORD_FILE=linked/password.txt\n",
+    );
     const pythonExecutable = execFileSync(
       "python",
       ["-c", "import sys; print(sys.executable)"],
@@ -294,12 +406,10 @@ test("real capsule launcher rejects nested credential file indirection before ma
       registerSha256: digest(registerBytes),
       limit: 25,
     });
-    assert.equal(result.status, "partial");
-    assert.equal(result.spawned, true);
-    assert.equal(result.mailboxes_enabled, 1);
-    assert.equal(result.mailboxes_run, 0);
-    assert.deepEqual(result.error_codes, ["mailbox_run_error"]);
-    await assert.rejects(access(join(privateConfigRoot, "must-not-open.json")), { code: "ENOENT" });
+
+    assert.equal(result.status, "failed");
+    assert.equal(result.spawned, false);
+    assert.deepEqual(result.error_codes, ["mail_child_spawn_failed"]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -380,6 +490,12 @@ checks = [
     importlib.util.find_spec("ambient_injection") is None,
     all("ambient-python-injection" not in entry for entry in sys.path),
 ]
+if "--discover-nested-credentials" in sys.argv:
+    print(json.dumps({
+        "schema_version": "soulforge.mail.nested_credentials.v1",
+        "nested_credentials": [],
+    }))
+    raise SystemExit(0)
 if not all(checks):
     raise RuntimeError("isolated_launch_contract_failed")
 print(json.dumps({

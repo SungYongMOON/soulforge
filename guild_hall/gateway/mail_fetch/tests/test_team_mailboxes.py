@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -389,7 +390,7 @@ def test_capsule_preloads_all_primary_credentials_and_ignores_ambient_overrides(
         ("hiworks", "HIWORKS_POP3_PASSWORD_FILE=password.txt"),
     ],
 )
-def test_capsule_rejects_nested_credential_file_indirection_before_mailbox_effect(
+def test_capsule_rejects_nested_credential_file_indirection_without_a_pinned_preload(
     monkeypatch, tmp_path: Path, provider: str, nested_field: str
 ) -> None:
     register = _write_team_register(
@@ -425,7 +426,72 @@ def test_capsule_rejects_nested_credential_file_indirection_before_mailbox_effec
     assert calls == 0
     assert summary["partial"] is True
     assert summary["mailboxes_run"] == 0
+    assert summary["errors"][0]["code"] == "mail_capsule_nested_credential_file_unsupported"
     assert summary["errors"][0]["message"] == "mail_capsule_nested_credential_file_unsupported"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows equivalent-path spelling")
+def test_capsule_accepts_only_one_preloaded_windows_equivalent_path(tmp_path: Path) -> None:
+    env_path = tmp_path / "owner.env"
+    password_path = tmp_path / "password.txt"
+    env_text = "HIWORKS_POP3_PASSWORD_FILE=password.txt\n"
+    env_path.write_text(env_text, encoding="utf-8")
+    password_path.write_text("synthetic-password\n", encoding="utf-8")
+
+    config = runner.build_config_from_env(
+        repo_root=tmp_path,
+        env_file=env_path,
+        env_text=env_text,
+        include_ambient=False,
+        disable_credential_persistence=True,
+        credential_file_texts_by_path={str(password_path).upper().replace("\\", "/"): "synthetic-password\n"},
+    )
+
+    assert config.hiworks_pop3_password == "synthetic-password"
+
+
+def test_hiworks_mailbox_does_not_load_irrelevant_gmail_nested_credential(
+    monkeypatch, tmp_path: Path
+) -> None:
+    register = _write_team_register(
+        tmp_path,
+        [{
+            "id": "hiworks-only",
+            "email": "owner@example.test",
+            "provider": "hiworks",
+            "enabled": True,
+            "env_file": "owner.env",
+        }],
+    )
+    env_path = register.parent / "owner.env"
+    env_text = (
+        "GMAIL_ACCESS_TOKEN_FILE=irrelevant-token.json\n"
+        "HIWORKS_POP3_PASSWORD=synthetic-password\n"
+    )
+    env_path.write_text(env_text, encoding="utf-8")
+    seen = []
+
+    def capture(config: runner.CollectorConfig) -> Dict[str, Any]:
+        seen.append(config)
+        return {
+            "partial": False,
+            "total_events": 0,
+            "total_new_events": 0,
+            "total_duplicates": 0,
+        }
+
+    monkeypatch.setattr(runner, "run_once", capture)
+    summary = run_team_mailboxes(
+        repo_root=tmp_path,
+        register_file=register,
+        credential_texts_by_path={str(env_path): env_text},
+        nested_credential_texts_by_path={},
+    )
+
+    assert summary["partial"] is False
+    assert summary["mailboxes_run"] == 1
+    assert len(seen) == 1
+    assert seen[0].hiworks_pop3_password == "synthetic-password"
 
 
 @pytest.mark.parametrize(

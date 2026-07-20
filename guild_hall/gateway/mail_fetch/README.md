@@ -47,6 +47,32 @@ python3 guild_hall/gateway/mail_fetch/healthcheck.py --json
 `--ingress-only` 는 raw/event와 cursor/dedupe/run log만 기록하고 project history,
 mail candidate, notification, PLAUD trigger 투영은 명시적으로 건너뛴다.
 네이티브 첨부 저장과 링크 첨부 다운로드도 이 모드에서는 비활성화한다.
+단, Hiworks POP3 `RETR`의 exact RFC822 bytes는 MIME 파싱 전에
+`<data-root>/ingress/mailbox/<workspace>/mail/source_custody/hiworks/sha256/<prefix>/<sha256>.eml`
+content-addressed custody에 기록한다. 이 source custody는 `--ingress-only`에서도
+필수이며, 동일 bytes replay는 기존 파일을 검증만 하고 덮어쓰지 않는다.
+normalized event의 `raw.source_custody`에는 SHA-256, exact byte size,
+custody-root-relative `storage_ref`만 연결한다. 실제 메일이나 첨부 fixture는
+tracked source/public Git에 두지 않으며, 추출하지 않은 첨부는 이 `.eml` MIME에서
+복구한다.
+
+## Offline custody link index
+
+`collector/storage/custody_link_index.py`는 private normalized-event JSONL과
+Hiworks source-custody EML을 읽어 immutable JSONL link receipt를 만드는 standalone
+CLI다. `--event-root`는 반복할 수 있고, `--eml-root`와 `--output`은 각각 하나씩
+필수다. EML root 아래에서는 정확히
+`hiworks/sha256/<2-lowercase-hex-prefix>/<64-lowercase-hex-sha256>.eml` shape만
+받으며 임의 중간 segment, hash/path 불일치, read 중 file identity 변화는 fail
+closed한다.
+
+receipt row는 `event_id`, hashed provider id, EML SHA-256/size, canonical
+`storage_ref`, match method, verified flag만 담는다. stdout은 record count와 output
+digest를 포함한 sanitized summary만 반환하고, 실패 stderr도 error code와 가능한
+경우 event id만 반환한다. `--output`은 caller가 선택한 private mailbox
+runtime/custody evidence owner에 두며 public/tracked tree, publication packet,
+메일 원문 owner에는 두지 않는다. CLI 자체는 output locator를 추정하거나
+자동 publish하지 않는다.
 
 When `EMAIL_FETCH_PLAUD_TRIGGER_ENABLED=true`, a fresh Hiworks PLAUD
 transcript-ready notice writes a sanitized trigger under the shared
@@ -96,11 +122,26 @@ bootstrap opens and retains each credential source with read-only sharing while
 `team_cli.py` opens its own read handle and checks that externally captured
 identity. The child builds every enabled mailbox config and loads all direct
 values from the retained primary env sources before the first mailbox run. HPP
-capsule mode rejects `GMAIL_ACCESS_TOKEN_FILE` and
-`HIWORKS_POP3_PASSWORD_FILE` before any `run_once`; standalone collector mode
-retains those indirections for compatibility. The capsule ignores ambient
-overrides and never persists refreshed token data to a credential path. Any
-identity drift fails closed. The binding also
+capsule mode also supports `GMAIL_ACCESS_TOKEN_FILE` and
+`HIWORKS_POP3_PASSWORD_FILE` under this narrower contract:
+
+- the file value is a relative path resolved from its env file (`./name` is
+  normalized to `name`);
+- the env file and resolved credential are normal, single-link, non-reparse files whose
+  lexical and physical paths stay inside the exact `private_config_root`;
+- absolute, tilde, traversal, external-root, symlink, junction, and
+  reparse paths fail closed;
+- a discovery-only isolated child returns metadata identity only, the Windows
+  bootstrap retains a read lock through the actual child, and the actual child
+  preloads the credential only when that identity still matches.
+
+Nested credential bytes are never added to the identity manifest, launch
+configuration, child summary, or durable output. Arbitrary external paths are
+not supported; place an existing nested credential beneath the approved private
+config root or the capsule will fail closed. Standalone collector mode retains
+its prior file-indirection behavior. The capsule ignores ambient overrides and
+never persists refreshed token data to a credential path. Any identity drift
+fails closed. The binding also
 pins the complete collector-tree release digest; the runtime, collector code,
 register, manifest, and credentials remain pre-opened and locked through the
 operation-local capsule launch. Unsupported platforms fail closed.

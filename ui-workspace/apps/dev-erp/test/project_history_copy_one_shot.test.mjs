@@ -66,7 +66,7 @@ function databaseDigest(dbPath) {
   return byteDigest(readFileSync(dbPath));
 }
 
-function createFixture(t) {
+function createFixture(t, { authorityExpiresInMs = null } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), "sf-ph-one-shot-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const receiptRoot = path.join(root, "private-receipts");
@@ -146,11 +146,16 @@ function createFixture(t) {
     };
   });
 
+  const dynamicAuthority = authorityExpiresInMs === null ? null : {
+    issued_at: new Date(Date.now() - 5_000).toISOString(),
+    generated_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + authorityExpiresInMs).toISOString(),
+  };
   const request = {
     schema_version: PROJECT_HISTORY_RECEIPT_ADAPTER_REQUEST_SCHEMA_VERSION,
     feature_state: "off",
     generation_id: "generation:p26-016:one-shot:001",
-    generated_at: "2026-07-20T12:00:00.000Z",
+    generated_at: dynamicAuthority?.generated_at ?? "2026-07-20T12:00:00.000Z",
     receipt_root: receiptRoot,
     project_ref: projectRef,
     window_start: "2026-07-20T00:00:00.000Z",
@@ -161,8 +166,8 @@ function createFixture(t) {
       epoch: 7,
       digest: sha256Canonical({ writer: "synthetic-one-shot", epoch: 7 }),
       node_id: "synthetic-one-shot-node",
-      issued_at: "2026-07-20T00:00:00.000Z",
-      expires_at: "2026-07-21T00:00:00.000Z",
+      issued_at: dynamicAuthority?.issued_at ?? "2026-07-20T00:00:00.000Z",
+      expires_at: dynamicAuthority?.expires_at ?? "2026-07-21T00:00:00.000Z",
       revoked: false,
     },
     coverage: PROJECT_HISTORY_LANES.map((lane) => ({
@@ -223,6 +228,26 @@ function createFixture(t) {
     binding,
     artifactPaths,
   };
+}
+
+async function runPilotCopy(fixture, projectionTestHooks = null) {
+  return runProjectHistoryCopyOneShot({
+    request: fixture.request,
+    authorityPath: fixture.authorityPath,
+    authorityDigest: fixture.authorityDigest,
+    bindingPath: fixture.bindingPath,
+    bindingDigest: fixture.binding.binding_digest,
+    pilotCopy: true,
+    projectionTestHooks,
+  });
+}
+
+function waitUntilExpired(expiresAt) {
+  const deadline = Date.parse(expiresAt);
+  const cell = new Int32Array(new SharedArrayBuffer(4));
+  while (Date.now() <= deadline + 25) {
+    Atomics.wait(cell, 0, 0, Math.min(50, deadline + 26 - Date.now()));
+  }
 }
 
 test("one-shot defaults to a locator-free dry run without changing the copied DB", async (t) => {
@@ -294,6 +319,27 @@ test("one-shot refuses missing authority evidence and authority replacement befo
   assert.equal(existsSync(raced.artifactPaths.directory), false);
 });
 
+test("authorized one-shot rejects a binding that authorizes more than one project", async (t) => {
+  const fixture = createFixture(t);
+  const binding = createProjectHistoryCopyBinding({
+    dbPath: fixture.dbPath,
+    projectionRoot: fixture.projectionRoot,
+    allowedProjectIds: [fixture.request.project_ref.entity_id, "project:other"],
+  });
+  writeProjectHistoryCopyBinding(fixture.bindingPath, binding, { overwrite: true });
+  await assert.rejects(
+    runProjectHistoryCopyOneShot({
+      request: fixture.request,
+      authorityPath: fixture.authorityPath,
+      authorityDigest: fixture.authorityDigest,
+      bindingPath: fixture.bindingPath,
+      bindingDigest: binding.binding_digest,
+    }),
+    (error) => error.code === "one_shot_single_project_binding_required",
+  );
+  assert.equal(existsSync(fixture.artifactPaths.directory), false);
+});
+
 test("explicit pilot-copy one-shot generates DB, CSV, XLSX/readback, and verifier evidence", (t) => {
   const fixture = createFixture(t);
   const toolPath = fileURLToPath(new URL("../tools/project_history_copy_one_shot.mjs", import.meta.url));
@@ -348,4 +394,124 @@ test("explicit pilot-copy one-shot generates DB, CSV, XLSX/readback, and verifie
   } finally {
     db.close();
   }
+});
+
+test("one-shot replays the identical binding and request after final bundle rename failure", async (t) => {
+  const fixture = createFixture(t);
+  await assert.rejects(
+    runPilotCopy(fixture, {
+      beforeArtifactBundlePublish() {
+        const error = new Error("synthetic final rename failure");
+        error.code = "synthetic_final_rename_failure";
+        throw error;
+      },
+    }),
+    (error) => error.code === "synthetic_final_rename_failure",
+  );
+  assert.equal(existsSync(fixture.artifactPaths.directory), false);
+
+  const replayed = await runPilotCopy(fixture);
+  assert.equal(replayed.status, "verified_replay");
+  assert.equal(replayed.binding_digest, fixture.binding.binding_digest);
+  const db = new DatabaseSync(fixture.dbPath, { readOnly: true });
+  try {
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_generation").get().count, 1);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_outbox").get().count, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_replay_guard").get().count, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_receipt").get().count, 1);
+  } finally {
+    db.close();
+  }
+});
+
+test("one-shot replays the identical binding and request after a post-manifest crash", async (t) => {
+  const fixture = createFixture(t);
+  await assert.rejects(
+    runPilotCopy(fixture, {
+      afterArtifactManifestPublish() {
+        const error = new Error("synthetic post-manifest crash");
+        error.code = "synthetic_post_manifest_crash";
+        throw error;
+      },
+    }),
+    (error) => error.code === "synthetic_post_manifest_crash",
+  );
+  assert.equal(existsSync(fixture.artifactPaths.artifactManifestPath), true);
+
+  const replayed = await runPilotCopy(fixture);
+  assert.equal(replayed.status, "verified_replay");
+  assert.equal(replayed.binding_digest, fixture.binding.binding_digest);
+});
+
+test("pending same-binding replay rejects unrelated DB mutation, guard tamper, and authority expiry", async (t) => {
+  await t.test("unrelated DB mutation", async (t) => {
+    const fixture = createFixture(t);
+    await assert.rejects(
+      runPilotCopy(fixture, {
+        beforeArtifactBundlePublish() {
+          const error = new Error("synthetic final rename failure");
+          error.code = "synthetic_final_rename_failure";
+          throw error;
+        },
+      }),
+      (error) => error.code === "synthetic_final_rename_failure",
+    );
+    const db = new DatabaseSync(fixture.dbPath);
+    try {
+      db.exec("UPDATE accepted_project_history_current SET generation_id = 'unrelated-change'");
+    } finally {
+      db.close();
+    }
+    await assert.rejects(
+      runPilotCopy(fixture),
+      (error) => error.code === "pending_replay_database_state_mismatch",
+    );
+  });
+
+  await t.test("replay-guard tamper", async (t) => {
+    const fixture = createFixture(t);
+    await assert.rejects(
+      runPilotCopy(fixture, {
+        beforeArtifactBundlePublish() {
+          const error = new Error("synthetic final rename failure");
+          error.code = "synthetic_final_rename_failure";
+          throw error;
+        },
+      }),
+      (error) => error.code === "synthetic_final_rename_failure",
+    );
+    const db = new DatabaseSync(fixture.dbPath);
+    try {
+      db.exec(`
+        DROP TRIGGER project_history_publication_replay_guard_no_update;
+        UPDATE project_history_publication_replay_guard
+           SET binding_digest = 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+      `);
+    } finally {
+      db.close();
+    }
+    await assert.rejects(
+      runPilotCopy(fixture),
+      (error) => ["projection_schema_conflict", "pending_replay_guard_conflict"].includes(error.code),
+    );
+  });
+
+  await t.test("authority expiry", async (t) => {
+    const fixture = createFixture(t, { authorityExpiresInMs: 25_000 });
+    await assert.rejects(
+      runPilotCopy(fixture, {
+        beforeArtifactBundlePublish() {
+          const error = new Error("synthetic final rename failure");
+          error.code = "synthetic_final_rename_failure";
+          throw error;
+        },
+      }),
+      (error) => error.code === "synthetic_final_rename_failure",
+    );
+    waitUntilExpired(fixture.request.writer_authority.expires_at);
+    await assert.rejects(
+      runPilotCopy(fixture),
+      (error) => error.code === "stale_writer_authority",
+    );
+  });
 });

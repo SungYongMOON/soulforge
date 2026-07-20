@@ -18,15 +18,30 @@
   opens that exact file, binds its identity and bytes, and checks its validity
   against the trusted operation clock rather than request time. An opaque
   capability is checked at the copied-SQLite and artifact-bundle boundaries.
-  New directories are
-  created and verified one direct component at a time, so a junction cannot
-  cause even an out-of-root staging side effect. The standalone projector CLI
-  is validation-only. Operational Shadow publication remains disabled: the HPP
-  scheduler must not invoke the one-shot route until an independent review proves
-  one continuous authority fence through database commit and final publication,
-  plus immutable staged bytes through rename. RAW-ingress authority cannot be reused as classification or
-  projector authority; those production epochs remain deliberately
-  unimplemented.
+  New directories are created and verified one direct component at a time, so
+  a junction cannot cause even an out-of-root staging side effect. The
+  authorized one-shot requires a singleton project binding, stages deterministic
+  CSV/XLSX/readback bytes before DB mutation, commits generation plus a durable
+  pending publication intent and immutable replay guard, publishes the manifest,
+  and only then seals an immutable DB receipt. After a final-rename failure or
+  post-manifest crash, only the identical request and original binding digest may
+  replay: the current authority/capability, physical DB/root identities, project,
+  generation/intent, whole-DB logical state digest, and absence of an accepted
+  pointer must all still match. Unrelated DB mutation, guard/schema tamper,
+  authority expiry, a receipt, or any conflicting state fails closed. First-run
+  and dry-run validation still require the binding's initial DB SHA-256.
+  Query-only verification requires receipt, manifest, DB, and artifact parity;
+  pending, DB-only, and artifact-only states fail closed.
+  The standalone projector CLI remains validation-only. Operational Shadow
+  publication remains disabled because Node `DatabaseSync` does not expose its
+  retained native DB handle: a separate NTFS delete-deny identity handle blocks
+  SQLite open before it and receives a sharing violation after it. The retained
+  helper therefore fences the authority and projection root across DB open,
+  commit, and final rename, while DB identity is rechecked and one
+  `DatabaseSync` connection is retained, but this is not a complete native DB
+  identity fence or cross-resource ACID. RAW-ingress authority cannot be reused
+  as classification or projector authority; those production epochs remain
+  deliberately unimplemented.
 
 ## Continuous receipt-to-Shadow orchestrator v1
 

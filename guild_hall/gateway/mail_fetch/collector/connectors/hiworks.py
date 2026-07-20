@@ -13,6 +13,7 @@ import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from ..models import Address, Attachment, ConnectorError, EmailEvent, FetchResult
+from ..storage.source_custody import SourceCustodyError, SourceCustodyRecord, persist_hiworks_rfc822
 from .base import BaseConnector, ConnectorExecutionError
 
 
@@ -112,6 +113,7 @@ class HiworksPop3Connector(BaseConnector):
         blocked_attachment_extensions: Optional[Sequence[str]] = None,
         download_attachments: bool = True,
         attachment_root: Optional[Path] = None,
+        source_custody_root: Optional[Path] = None,
         pop3_factory: Optional[Callable[[str, int, bool, int], Any]] = None,
     ) -> None:
         super().__init__("hiworks")
@@ -132,6 +134,7 @@ class HiworksPop3Connector(BaseConnector):
         }
         self.download_attachments = bool(download_attachments)
         self.attachment_root = Path(attachment_root).expanduser() if attachment_root else None
+        self.source_custody_root = Path(source_custody_root).expanduser() if source_custody_root else None
         self._pop3_factory = pop3_factory or self._default_pop3_factory
 
     def fetch_since(self, cursor: Optional[Dict[str, Any]], limit: int) -> FetchResult:
@@ -167,11 +170,13 @@ class HiworksPop3Connector(BaseConnector):
             for msg_num, uidl in selected_rows:
                 try:
                     raw_bytes, message_size = self._retrieve_message(client, msg_num)
+                    source_custody = self._persist_source_custody(raw_bytes)
                     event = self._parse_email_event(
                         raw_bytes=raw_bytes,
                         uidl=uidl,
                         message_num=msg_num,
                         message_size=message_size,
+                        source_custody=source_custody,
                     )
                     events.append(event)
                     processed_uidls.append(uidl)
@@ -186,7 +191,14 @@ class HiworksPop3Connector(BaseConnector):
                             detail=exc.detail,
                         )
                     )
-                    if exc.code in {"network_error", "pop3_line_too_long", "retr_eof"}:
+                    if exc.code in {
+                        "network_error",
+                        "pop3_line_too_long",
+                        "retr_eof",
+                        "source_custody_existing_mismatch",
+                        "source_custody_path_escape",
+                        "source_custody_reparse_forbidden",
+                    } or exc.code.startswith("source_custody_"):
                         break
                 except Exception as exc:  # noqa: BLE001
                     partial = True
@@ -401,6 +413,7 @@ class HiworksPop3Connector(BaseConnector):
         uidl: str,
         message_num: int,
         message_size: int,
+        source_custody: Optional[SourceCustodyRecord] = None,
     ) -> EmailEvent:
         message = BytesParser(policy=policy.default).parsebytes(raw_bytes)
         subject = _decode_header_text(message.get("Subject", ""))
@@ -413,6 +426,21 @@ class HiworksPop3Connector(BaseConnector):
 
         event_seed = f"hiworks:{message_id}:{received_at}"
         event_id = hashlib.sha256(event_seed.encode("utf-8")).hexdigest()[:16]
+
+        raw_metadata: Dict[str, Any] = {
+            "uidl": uidl,
+            "message_num": message_num,
+            "message_id": message_id,
+            "message_size": message_size,
+            "headers": {
+                "subject": subject,
+                "from": message.get("From", ""),
+                "to": message.get("To", ""),
+                "date": message.get("Date", ""),
+            },
+        }
+        if source_custody is not None:
+            raw_metadata["source_custody"] = source_custody.to_metadata()
 
         return EmailEvent(
             event_id=event_id,
@@ -427,24 +455,25 @@ class HiworksPop3Connector(BaseConnector):
             body_text=body_text,
             body_html=body_html,
             attachments=attachments,
-            raw={
-                "uidl": uidl,
-                "message_num": message_num,
-                "message_id": message_id,
-                "message_size": message_size,
-                "headers": {
-                    "subject": subject,
-                    "from": message.get("From", ""),
-                    "to": message.get("To", ""),
-                    "date": message.get("Date", ""),
-                },
-            },
+            raw=raw_metadata,
             metadata={
                 "uidl": uidl,
                 "message_num": message_num,
                 "message_size": message_size,
             },
         )
+
+    def _persist_source_custody(self, raw_bytes: bytes) -> Optional[SourceCustodyRecord]:
+        if self.source_custody_root is None:
+            return None
+        try:
+            return persist_hiworks_rfc822(self.source_custody_root, raw_bytes)
+        except SourceCustodyError as exc:
+            raise ConnectorExecutionError(
+                code=exc.code,
+                message="Hiworks RFC822 원천 custody 저장에 실패했습니다.",
+                retryable=exc.retryable,
+            ) from exc
 
     def _extract_payload(self, *, message: Message, uidl: str) -> Tuple[Optional[str], Optional[str], List[Attachment]]:
         text_chunks: List[str] = []

@@ -110,6 +110,8 @@ def test_team_cli_rejects_credential_swap_before_mailbox_runner(
         register_sha256=hashlib.sha256(register_text.encode("utf-8")).hexdigest(),
         identity_manifest=str(manifest_path),
         identity_manifest_sha256=hashlib.sha256(manifest_text.encode("utf-8")).hexdigest(),
+        private_config_root=str(config_root),
+        discover_nested_credentials=False,
     )
     real_open = file_identity_guard._open_readonly
     swapped = False
@@ -203,3 +205,207 @@ def test_reparse_path_is_rejected(tmp_path: Path) -> None:
         pytest.skip("symlink creation is unavailable")
     with pytest.raises(CredentialIdentityError, match="unsafe"):
         file_identity(link, unsafe_code="unsafe")
+
+
+def _nested_mailbox_fixture(tmp_path: Path, nested_ref: str = "./secrets/password.txt") -> tuple:
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    register = config_root / "team_mailboxes.json"
+    register.write_text(
+        json.dumps(
+            {
+                "schema_version": "email.fetch.team_mailbox_register.v1",
+                "mailboxes": [
+                    {
+                        "id": "synthetic",
+                        "email": "synthetic@example.test",
+                        "provider": "hiworks",
+                        "enabled": True,
+                        "env_file": "mailbox.env",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    env_file = config_root / "mailbox.env"
+    env_text = "\n".join(
+        [
+            "HIWORKS_POP3_HOST=pop3.example.test",
+            "HIWORKS_POP3_USERNAME=synthetic",
+            f"HIWORKS_POP3_PASSWORD_FILE={nested_ref}",
+            "",
+        ]
+    )
+    env_file.write_text(env_text, encoding="utf-8")
+    mailboxes = team_mailboxes.load_team_mailbox_register(tmp_path, register)
+    return config_root, register, env_file, env_text, mailboxes
+
+
+def test_capsule_nested_password_file_is_preloaded_before_mailbox_effect(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_root, register, env_file, env_text, mailboxes = _nested_mailbox_fixture(tmp_path)
+    password_file = config_root / "secrets" / "password.txt"
+    password_file.parent.mkdir()
+    password_file.write_text("synthetic-password\n", encoding="utf-8")
+    credential_texts = {str(env_file): env_text}
+
+    discovery = team_cli.discover_nested_credentials(mailboxes, credential_texts, config_root)
+    serialized = json.dumps(discovery)
+    assert "synthetic-password" not in serialized
+    nested_texts = team_cli.preload_nested_credentials(
+        discovery,
+        mailboxes,
+        credential_texts,
+        config_root,
+    )
+    seen = []
+
+    def fake_run_once(config: object) -> dict:
+        seen.append(config.hiworks_pop3_password)
+        return {
+            "partial": False,
+            "total_events": 0,
+            "total_new_events": 0,
+            "total_duplicates": 0,
+        }
+
+    monkeypatch.setattr(team_mailboxes.runner, "run_once", fake_run_once)
+    summary = team_mailboxes.run_team_mailboxes(
+        repo_root=tmp_path,
+        register_file=register,
+        mailboxes=mailboxes,
+        credential_texts_by_path=credential_texts,
+        nested_credential_texts_by_path=nested_texts,
+        capsule_env_overrides={"EMAIL_FETCH_RUNTIME_DIR": str(tmp_path / "runtime")},
+    )
+
+    assert seen == ["synthetic-password"]
+    assert summary["partial"] is False
+    assert "synthetic-password" not in json.dumps(summary)
+
+
+def test_capsule_nested_gmail_token_file_is_preloaded_without_persistence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    register = config_root / "team_mailboxes.json"
+    register.write_text(
+        json.dumps(
+            {
+                "schema_version": "email.fetch.team_mailbox_register.v1",
+                "mailboxes": [
+                    {
+                        "id": "gmail-synthetic",
+                        "email": "gmail@example.test",
+                        "provider": "gmail",
+                        "enabled": True,
+                        "env_file": "gmail.env",
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    env_file = config_root / "gmail.env"
+    env_text = "GMAIL_ACCESS_TOKEN_FILE=secrets/gmail-token.json\n"
+    env_file.write_text(env_text, encoding="utf-8")
+    token_file = config_root / "secrets" / "gmail-token.json"
+    token_file.parent.mkdir()
+    token_file.write_text(json.dumps({"access_token": "synthetic-token"}) + "\n", encoding="utf-8")
+    mailboxes = team_mailboxes.load_team_mailbox_register(tmp_path, register)
+    credential_texts = {str(env_file): env_text}
+    discovery = team_cli.discover_nested_credentials(mailboxes, credential_texts, config_root)
+    nested_texts = team_cli.preload_nested_credentials(
+        discovery,
+        mailboxes,
+        credential_texts,
+        config_root,
+    )
+    seen = []
+
+    def fake_run_once(config: object) -> dict:
+        seen.append((config.gmail_access_token, config.gmail_token_store_file))
+        return {
+            "partial": False,
+            "total_events": 0,
+            "total_new_events": 0,
+            "total_duplicates": 0,
+        }
+
+    monkeypatch.setattr(team_mailboxes.runner, "run_once", fake_run_once)
+    summary = team_mailboxes.run_team_mailboxes(
+        repo_root=tmp_path,
+        register_file=register,
+        mailboxes=mailboxes,
+        credential_texts_by_path=credential_texts,
+        nested_credential_texts_by_path=nested_texts,
+        capsule_env_overrides={"EMAIL_FETCH_RUNTIME_DIR": str(tmp_path / "runtime")},
+    )
+
+    assert seen == [("synthetic-token", None)]
+    assert summary["partial"] is False
+    assert "synthetic-token" not in json.dumps(summary)
+
+
+def test_capsule_nested_credential_path_escape_is_rejected(tmp_path: Path) -> None:
+    config_root, _register, env_file, env_text, mailboxes = _nested_mailbox_fixture(
+        tmp_path,
+        "../outside-password.txt",
+    )
+    (tmp_path / "outside-password.txt").write_text("synthetic\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="mail_nested_credential_ref_invalid"):
+        team_cli.discover_nested_credentials(
+            mailboxes,
+            {str(env_file): env_text},
+            config_root,
+        )
+
+
+def test_capsule_nested_credential_reparse_path_is_rejected(tmp_path: Path) -> None:
+    config_root, _register, env_file, env_text, mailboxes = _nested_mailbox_fixture(
+        tmp_path,
+        "linked/password.txt",
+    )
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "password.txt").write_text("synthetic\n", encoding="utf-8")
+    link = config_root / "linked"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlink or junction creation is unavailable")
+
+    with pytest.raises(RuntimeError, match="mail_nested_credential_file_unsafe"):
+        team_cli.discover_nested_credentials(
+            mailboxes,
+            {str(env_file): env_text},
+            config_root,
+        )
+
+
+def test_capsule_nested_credential_identity_replacement_is_rejected(tmp_path: Path) -> None:
+    config_root, _register, env_file, env_text, mailboxes = _nested_mailbox_fixture(tmp_path)
+    password_file = config_root / "secrets" / "password.txt"
+    password_file.parent.mkdir()
+    password_file.write_text("synthetic-original\n", encoding="utf-8")
+    replacement = config_root / "replacement.txt"
+    replacement.write_text("synthetic-swapped\n", encoding="utf-8")
+    credential_texts = {str(env_file): env_text}
+    discovery = team_cli.discover_nested_credentials(mailboxes, credential_texts, config_root)
+    os.replace(replacement, password_file)
+
+    with pytest.raises(CredentialIdentityError, match="mail_nested_credential_identity_mismatch"):
+        team_cli.preload_nested_credentials(
+            discovery,
+            mailboxes,
+            credential_texts,
+            config_root,
+        )

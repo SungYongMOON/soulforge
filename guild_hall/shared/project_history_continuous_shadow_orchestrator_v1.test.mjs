@@ -250,6 +250,27 @@ test("actual-style five-lane metadata becomes one feature-OFF project Shadow wit
   assert.equal(result.generation.authority_attestation.raw_ingress_authority_reused, false);
 });
 
+test("live continuous receipts may use a bare writer digest without weakening RAW-authority separation", async (t) => {
+  const fixture = await makeFixture(t);
+  const canonicalRawAuthorityDigest = fixture.input.continuous_run_receipt.writer_authority_digest;
+  fixture.input.continuous_run_receipt.writer_authority_digest = canonicalRawAuthorityDigest.slice("sha256:".length);
+  fixture.input.continuous_run_receipt_digest = sha256Canonical(fixture.input.continuous_run_receipt);
+
+  const result = await runProjectHistoryContinuousShadowOrchestratorV1(fixture.input, {
+    authorityPath: fixture.authorityPath,
+    authorityDigest: fixture.authorityDigest,
+  });
+  assert.equal(result.generation.envelopes.length, 5);
+  assert.equal(result.generation.authority_attestation.raw_ingress_authority_reused, false);
+
+  const reusedAuthority = structuredClone(fixture.input);
+  reusedAuthority.shadow_authority.digest = canonicalRawAuthorityDigest;
+  assertCode(
+    () => buildProjectHistoryReceiptAdapterRequestV2FromContinuousRun(reusedAuthority),
+    "raw_ingress_authority_reuse_forbidden",
+  );
+});
+
 test("input order is deterministic, identical replay is idempotent, and same-run conflicts fail closed", async (t) => {
   const fixture = await makeFixture(t);
   const first = await runProjectHistoryContinuousShadowOrchestratorV1(fixture.input, {

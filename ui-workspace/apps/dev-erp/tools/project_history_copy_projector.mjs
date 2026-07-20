@@ -46,6 +46,7 @@ import {
   createProjectHistoryCopyArtifactManifest,
   inspectStandaloneProjectHistoryCopy,
   productionLookingPathReasons,
+  readProjectHistoryCopyArtifactManifest,
   readProjectHistoryCopyBinding,
 } from "./project_history_copy_binding.mjs";
 import {
@@ -81,8 +82,42 @@ const PROJECTION_TABLES = Object.freeze([
   "project_history_generation",
   "project_history_event",
   "project_history_coverage",
+  "project_history_publication_outbox",
+  "project_history_publication_replay_guard",
+  "project_history_publication_receipt",
+]);
+const PUBLICATION_ARTIFACT_KEYS = Object.freeze(["csv", "xlsx_input", "xlsx", "xlsx_readback"]);
+const PUBLICATION_INTENT_FIELDS = Object.freeze([
+  "schema_version",
+  "project_id",
+  "generation_id",
+  "generation_digest",
+  "ordered_event_digest",
+  "ordered_row_digest",
+  "artifacts",
+  "publication_intent_digest",
+]);
+const PUBLICATION_RECEIPT_FIELDS = Object.freeze([
+  "schema_version",
+  "project_id",
+  "generation_id",
+  "generation_digest",
+  "publication_intent_digest",
+  "binding_digest",
+  "artifact_manifest_digest",
+  "artifact_manifest_file_digest",
+  "ordered_event_digest",
+  "ordered_row_digest",
+  "publication_receipt_digest",
 ]);
 let expectedProjectionSchemaFingerprint = null;
+
+export const PROJECT_HISTORY_COPY_PUBLICATION_INTENT_SCHEMA_VERSION =
+  "soulforge.project_history_copy_publication_intent.v1";
+export const PROJECT_HISTORY_COPY_PUBLICATION_RECEIPT_SCHEMA_VERSION =
+  "soulforge.project_history_copy_publication_receipt.v1";
+const PROJECT_HISTORY_COPY_PUBLICATION_REPLAY_GUARD_SCHEMA_VERSION =
+  "soulforge.project_history_copy_publication_replay_guard.v1";
 
 export class ProjectHistoryCopyProjectionError extends Error {
   constructor(code, message) {
@@ -244,6 +279,117 @@ export function renderProjectHistoryCopyXlsxInput(model) {
   return `${canonicalJson(model)}\n`;
 }
 
+function assertPublicationArtifacts(value) {
+  assertExactKeys(value, PUBLICATION_ARTIFACT_KEYS, "publication artifacts");
+  for (const key of PUBLICATION_ARTIFACT_KEYS) {
+    const record = value[key];
+    assertExactKeys(record, ["filename", "size", "sha256"], `publication artifact ${key}`);
+    if (record.filename !== PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES[key]
+        || !Number.isSafeInteger(record.size) || record.size < 1) {
+      fail("publication_artifact_invalid", `Publication artifact ${key} is invalid`);
+    }
+    assertDigest(record.sha256, `publication artifact ${key} sha256`);
+  }
+}
+
+function publicationBody(value, fields, digestField) {
+  return Object.fromEntries(fields
+    .filter((field) => field !== digestField)
+    .map((field) => [field, value[field]]));
+}
+
+export function createProjectHistoryCopyPublicationIntent({
+  generation,
+  model,
+  artifacts,
+}) {
+  const body = {
+    schema_version: PROJECT_HISTORY_COPY_PUBLICATION_INTENT_SCHEMA_VERSION,
+    project_id: generation.project_ref.entity_id,
+    generation_id: generation.generation_id,
+    generation_digest: sha256Canonical(generation),
+    ordered_event_digest: model.ordered_event_digest,
+    ordered_row_digest: model.ordered_row_digest,
+    artifacts,
+  };
+  return validateProjectHistoryCopyPublicationIntent({
+    ...body,
+    publication_intent_digest: sha256Canonical(body),
+  });
+}
+
+export function validateProjectHistoryCopyPublicationIntent(value) {
+  assertExactKeys(value, PUBLICATION_INTENT_FIELDS, "publication intent");
+  if (value.schema_version !== PROJECT_HISTORY_COPY_PUBLICATION_INTENT_SCHEMA_VERSION) {
+    fail("publication_intent_schema_invalid", "Unexpected publication intent schema");
+  }
+  for (const [label, digest] of [
+    ["generation_digest", value.generation_digest],
+    ["ordered_event_digest", value.ordered_event_digest],
+    ["ordered_row_digest", value.ordered_row_digest],
+    ["publication_intent_digest", value.publication_intent_digest],
+  ]) assertDigest(digest, label);
+  if (typeof value.project_id !== "string" || value.project_id.length === 0
+      || typeof value.generation_id !== "string" || value.generation_id.length === 0) {
+    fail("publication_intent_identity_invalid", "Publication intent identity is invalid");
+  }
+  assertPublicationArtifacts(value.artifacts);
+  if (sha256Canonical(publicationBody(
+    value,
+    PUBLICATION_INTENT_FIELDS,
+    "publication_intent_digest",
+  )) !== value.publication_intent_digest) {
+    fail("publication_intent_digest_mismatch", "Publication intent digest is invalid");
+  }
+  return value;
+}
+
+function createProjectHistoryCopyPublicationReceipt({
+  intent,
+  bindingDigest,
+  artifactManifestDigest,
+  artifactManifestFileDigest,
+}) {
+  const body = {
+    schema_version: PROJECT_HISTORY_COPY_PUBLICATION_RECEIPT_SCHEMA_VERSION,
+    project_id: intent.project_id,
+    generation_id: intent.generation_id,
+    generation_digest: intent.generation_digest,
+    publication_intent_digest: intent.publication_intent_digest,
+    binding_digest: bindingDigest,
+    artifact_manifest_digest: artifactManifestDigest,
+    artifact_manifest_file_digest: artifactManifestFileDigest,
+    ordered_event_digest: intent.ordered_event_digest,
+    ordered_row_digest: intent.ordered_row_digest,
+  };
+  return validateProjectHistoryCopyPublicationReceipt({
+    ...body,
+    publication_receipt_digest: sha256Canonical(body),
+  });
+}
+
+export function validateProjectHistoryCopyPublicationReceipt(value) {
+  assertExactKeys(value, PUBLICATION_RECEIPT_FIELDS, "publication receipt");
+  if (value.schema_version !== PROJECT_HISTORY_COPY_PUBLICATION_RECEIPT_SCHEMA_VERSION) {
+    fail("publication_receipt_schema_invalid", "Unexpected publication receipt schema");
+  }
+  for (const field of PUBLICATION_RECEIPT_FIELDS.filter((entry) => entry.endsWith("digest"))) {
+    assertDigest(value[field], field);
+  }
+  if (typeof value.project_id !== "string" || value.project_id.length === 0
+      || typeof value.generation_id !== "string" || value.generation_id.length === 0) {
+    fail("publication_receipt_identity_invalid", "Publication receipt identity is invalid");
+  }
+  if (sha256Canonical(publicationBody(
+    value,
+    PUBLICATION_RECEIPT_FIELDS,
+    "publication_receipt_digest",
+  )) !== value.publication_receipt_digest) {
+    fail("publication_receipt_digest_mismatch", "Publication receipt digest is invalid");
+  }
+  return value;
+}
+
 export function createProjectHistoryProjectionSchema(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS project_history_generation (
@@ -295,6 +441,44 @@ export function createProjectHistoryProjectionSchema(db) {
       PRIMARY KEY (generation_id, lane)
     ) STRICT;
 
+    CREATE TABLE IF NOT EXISTS project_history_publication_outbox (
+      generation_id TEXT PRIMARY KEY NOT NULL REFERENCES project_history_generation(generation_id)
+        ON DELETE RESTRICT,
+      schema_version TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      generation_digest TEXT NOT NULL,
+      ordered_event_digest TEXT NOT NULL,
+      ordered_row_digest TEXT NOT NULL,
+      artifacts_json TEXT NOT NULL,
+      publication_intent_digest TEXT NOT NULL UNIQUE
+    ) STRICT;
+
+    CREATE TABLE IF NOT EXISTS project_history_publication_receipt (
+      generation_id TEXT PRIMARY KEY NOT NULL REFERENCES project_history_generation(generation_id)
+        ON DELETE RESTRICT,
+      schema_version TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      generation_digest TEXT NOT NULL,
+      publication_intent_digest TEXT NOT NULL UNIQUE,
+      binding_digest TEXT NOT NULL,
+      artifact_manifest_digest TEXT NOT NULL UNIQUE,
+      artifact_manifest_file_digest TEXT NOT NULL,
+      ordered_event_digest TEXT NOT NULL,
+      ordered_row_digest TEXT NOT NULL,
+      publication_receipt_digest TEXT NOT NULL UNIQUE
+    ) STRICT;
+
+    CREATE TABLE IF NOT EXISTS project_history_publication_replay_guard (
+      generation_id TEXT PRIMARY KEY NOT NULL REFERENCES project_history_publication_outbox(generation_id)
+        ON DELETE RESTRICT,
+      schema_version TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      publication_intent_digest TEXT NOT NULL UNIQUE,
+      binding_digest TEXT NOT NULL,
+      authority_capability_digest TEXT NOT NULL,
+      database_state_digest TEXT NOT NULL
+    ) STRICT;
+
     CREATE TRIGGER IF NOT EXISTS project_history_generation_no_update
       BEFORE UPDATE ON project_history_generation BEGIN
         SELECT RAISE(ABORT, 'project_history_generation is immutable');
@@ -326,6 +510,49 @@ export function createProjectHistoryProjectionSchema(db) {
     CREATE TRIGGER IF NOT EXISTS project_history_coverage_no_delete
       BEFORE DELETE ON project_history_coverage BEGIN
         SELECT RAISE(ABORT, 'project_history_coverage is immutable');
+      END;
+    CREATE TRIGGER IF NOT EXISTS project_history_publication_outbox_no_update
+      BEFORE UPDATE ON project_history_publication_outbox BEGIN
+        SELECT RAISE(ABORT, 'project_history_publication_outbox is immutable');
+      END;
+    CREATE TRIGGER IF NOT EXISTS project_history_publication_outbox_guarded_delete
+      BEFORE DELETE ON project_history_publication_outbox
+      WHEN NOT EXISTS (
+        SELECT 1 FROM project_history_publication_receipt AS receipt
+        WHERE receipt.generation_id = OLD.generation_id
+          AND receipt.publication_intent_digest = OLD.publication_intent_digest
+      ) BEGIN
+        SELECT RAISE(ABORT, 'project_history_publication_outbox requires a published receipt');
+      END;
+    CREATE TRIGGER IF NOT EXISTS project_history_publication_replay_guard_no_update
+      BEFORE UPDATE ON project_history_publication_replay_guard BEGIN
+        SELECT RAISE(ABORT, 'project_history_publication_replay_guard is immutable');
+      END;
+    CREATE TRIGGER IF NOT EXISTS project_history_publication_replay_guard_guarded_delete
+      BEFORE DELETE ON project_history_publication_replay_guard
+      WHEN NOT EXISTS (
+        SELECT 1 FROM project_history_publication_receipt AS receipt
+        WHERE receipt.generation_id = OLD.generation_id
+          AND receipt.publication_intent_digest = OLD.publication_intent_digest
+          AND receipt.binding_digest = OLD.binding_digest
+      ) BEGIN
+        SELECT RAISE(ABORT, 'project_history_publication_replay_guard requires a published receipt');
+      END;
+    CREATE TRIGGER IF NOT EXISTS project_history_publication_receipt_no_update
+      BEFORE UPDATE ON project_history_publication_receipt BEGIN
+        SELECT RAISE(ABORT, 'project_history_publication_receipt is immutable');
+      END;
+    CREATE TRIGGER IF NOT EXISTS project_history_publication_receipt_no_delete
+      BEFORE DELETE ON project_history_publication_receipt BEGIN
+        SELECT RAISE(ABORT, 'project_history_publication_receipt is immutable');
+      END;
+    CREATE TRIGGER IF NOT EXISTS project_history_publication_receipt_no_replace
+      BEFORE INSERT ON project_history_publication_receipt
+      WHEN EXISTS (
+        SELECT 1 FROM project_history_publication_receipt AS receipt
+        WHERE receipt.generation_id = NEW.generation_id
+      ) BEGIN
+        SELECT RAISE(ABORT, 'project_history_publication_receipt is immutable');
       END;
     CREATE TRIGGER IF NOT EXISTS project_history_event_generation_sealed
       BEFORE INSERT ON project_history_event
@@ -504,6 +731,339 @@ function insertGeneration(db, generation, packetDigest) {
     generation.source_attestation_digest,
     packetDigest,
   );
+}
+
+function publicationIntentFromRow(row) {
+  if (row === undefined) return null;
+  let artifacts;
+  try {
+    artifacts = JSON.parse(row.artifacts_json);
+  } catch {
+    fail("publication_intent_json_invalid", "Stored publication intent artifacts are invalid JSON");
+  }
+  return validateProjectHistoryCopyPublicationIntent({
+    schema_version: row.schema_version,
+    project_id: row.project_id,
+    generation_id: row.generation_id,
+    generation_digest: row.generation_digest,
+    ordered_event_digest: row.ordered_event_digest,
+    ordered_row_digest: row.ordered_row_digest,
+    artifacts,
+    publication_intent_digest: row.publication_intent_digest,
+  });
+}
+
+function publicationReceiptFromRow(row) {
+  if (row === undefined) return null;
+  return validateProjectHistoryCopyPublicationReceipt({
+    schema_version: row.schema_version,
+    project_id: row.project_id,
+    generation_id: row.generation_id,
+    generation_digest: row.generation_digest,
+    publication_intent_digest: row.publication_intent_digest,
+    binding_digest: row.binding_digest,
+    artifact_manifest_digest: row.artifact_manifest_digest,
+    artifact_manifest_file_digest: row.artifact_manifest_file_digest,
+    ordered_event_digest: row.ordered_event_digest,
+    ordered_row_digest: row.ordered_row_digest,
+    publication_receipt_digest: row.publication_receipt_digest,
+  });
+}
+
+function quoteSqliteIdentifier(value) {
+  return `"${String(value).replace(/"/gu, '""')}"`;
+}
+
+function projectHistoryCopyDatabaseStateDigest(db) {
+  const schema = db.prepare(`
+    SELECT type, name, tbl_name, sql
+      FROM sqlite_schema
+     WHERE name NOT LIKE 'sqlite_autoindex_%'
+     ORDER BY type, name
+  `).all().map((row) => ({
+    type: row.type,
+    name: row.name,
+    table_name: row.tbl_name,
+    sql: row.sql,
+  }));
+  const tables = db.prepare(`
+    SELECT name
+      FROM sqlite_schema
+     WHERE type = 'table'
+       AND name NOT LIKE 'sqlite_%'
+       AND name <> 'project_history_publication_replay_guard'
+     ORDER BY name
+  `).all().map(({ name }) => {
+    const identifier = quoteSqliteIdentifier(name);
+    const columns = db.prepare(`PRAGMA table_xinfo(${identifier})`).all();
+    const expressions = columns.flatMap(({ name: column }, index) => {
+      const quoted = quoteSqliteIdentifier(column);
+      return [`typeof(${quoted}) AS type_${index}`, `quote(${quoted}) AS value_${index}`];
+    });
+    const orderBy = expressions.map((ignored, index) => String(index + 1)).join(", ");
+    const rows = db.prepare(
+      `SELECT ${expressions.join(", ")} FROM ${identifier} ORDER BY ${orderBy}`,
+    ).all().map((row) => expressions.map((ignored, index) => row[
+      `${index % 2 === 0 ? "type" : "value"}_${Math.floor(index / 2)}`
+    ]));
+    return {
+      name,
+      columns: columns.map((column) => ({
+        cid: column.cid,
+        name: column.name,
+        type: column.type,
+        notnull: column.notnull,
+        default_value: column.dflt_value,
+        primary_key: column.pk,
+        hidden: column.hidden,
+      })),
+      rows,
+    };
+  });
+  return sha256Canonical({
+    schema,
+    pragmas: {
+      application_id: Number(db.prepare("PRAGMA application_id").get().application_id),
+      user_version: Number(db.prepare("PRAGMA user_version").get().user_version),
+    },
+    tables,
+  });
+}
+
+function publicationReplayGuardFromRow(row) {
+  if (row === undefined) return null;
+  if (row.schema_version !== PROJECT_HISTORY_COPY_PUBLICATION_REPLAY_GUARD_SCHEMA_VERSION
+      || typeof row.project_id !== "string" || row.project_id.length === 0
+      || typeof row.generation_id !== "string" || row.generation_id.length === 0) {
+    fail("publication_replay_guard_invalid", "Stored publication replay guard is invalid");
+  }
+  for (const [label, digest] of [
+    ["publication_intent_digest", row.publication_intent_digest],
+    ["binding_digest", row.binding_digest],
+    ["authority_capability_digest", row.authority_capability_digest],
+    ["database_state_digest", row.database_state_digest],
+  ]) assertDigest(digest, label);
+  return Object.freeze({
+    schema_version: row.schema_version,
+    project_id: row.project_id,
+    generation_id: row.generation_id,
+    publication_intent_digest: row.publication_intent_digest,
+    binding_digest: row.binding_digest,
+    authority_capability_digest: row.authority_capability_digest,
+    database_state_digest: row.database_state_digest,
+  });
+}
+
+export function readProjectHistoryCopyPublicationState(db, generationId) {
+  const pending = publicationIntentFromRow(db.prepare(
+    "SELECT * FROM project_history_publication_outbox WHERE generation_id = ?",
+  ).get(generationId));
+  const receipt = publicationReceiptFromRow(db.prepare(
+    "SELECT * FROM project_history_publication_receipt WHERE generation_id = ?",
+  ).get(generationId));
+  const replayGuard = publicationReplayGuardFromRow(db.prepare(
+    "SELECT * FROM project_history_publication_replay_guard WHERE generation_id = ?",
+  ).get(generationId));
+  if ((pending !== null && receipt !== null)
+      || (pending === null) !== (replayGuard === null)
+      || (receipt !== null && replayGuard !== null)) {
+    fail("publication_state_conflict", "Generation cannot be pending and published at the same time");
+  }
+  return Object.freeze({ pending, replay_guard: replayGuard, receipt });
+}
+
+function assertSamePublicationIntent(actual, expected) {
+  if (actual === null
+      || actual.publication_intent_digest !== expected.publication_intent_digest
+      || canonicalJson(actual) !== canonicalJson(expected)) {
+    fail("publication_intent_conflict", "Stored publication intent differs from deterministic artifacts");
+  }
+}
+
+function insertPublicationIntent(db, intent) {
+  validateProjectHistoryCopyPublicationIntent(intent);
+  db.prepare(`
+    INSERT INTO project_history_publication_outbox (
+      generation_id, schema_version, project_id, generation_digest,
+      ordered_event_digest, ordered_row_digest, artifacts_json,
+      publication_intent_digest
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    intent.generation_id,
+    intent.schema_version,
+    intent.project_id,
+    intent.generation_digest,
+    intent.ordered_event_digest,
+    intent.ordered_row_digest,
+    canonicalJson(intent.artifacts),
+    intent.publication_intent_digest,
+  );
+}
+
+function insertPublicationReplayGuard(
+  db,
+  intent,
+  bindingDigest,
+  authorityCapabilityDigest,
+) {
+  assertDigest(bindingDigest, "binding_digest");
+  assertDigest(authorityCapabilityDigest, "authority_capability_digest");
+  const databaseStateDigest = projectHistoryCopyDatabaseStateDigest(db);
+  db.prepare(`
+    INSERT INTO project_history_publication_replay_guard (
+      generation_id, schema_version, project_id, publication_intent_digest,
+      binding_digest, authority_capability_digest, database_state_digest
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    intent.generation_id,
+    PROJECT_HISTORY_COPY_PUBLICATION_REPLAY_GUARD_SCHEMA_VERSION,
+    intent.project_id,
+    intent.publication_intent_digest,
+    bindingDigest,
+    authorityCapabilityDigest,
+    databaseStateDigest,
+  );
+}
+
+function assertNoAcceptedGenerationPointer(db, generationId) {
+  const candidates = db.prepare(`
+    SELECT name
+      FROM sqlite_schema
+     WHERE type = 'table'
+       AND name NOT LIKE 'sqlite_%'
+       AND name NOT LIKE 'project_history_%'
+     ORDER BY name
+  `).all();
+  for (const { name } of candidates) {
+    const identifier = quoteSqliteIdentifier(name);
+    const columns = db.prepare(`PRAGMA table_xinfo(${identifier})`).all();
+    const generationColumn = columns.find((column) => column.name === "generation_id");
+    if (generationColumn === undefined) continue;
+    const acceptedColumn = columns.find((column) => column.name === "accepted_history");
+    const tableLooksLikePointer = /(?:accepted|current)/iu.test(name);
+    if (!tableLooksLikePointer && acceptedColumn === undefined) continue;
+    const acceptedClause = acceptedColumn === undefined
+      ? ""
+      : ` AND ${quoteSqliteIdentifier(acceptedColumn.name)} = 1`;
+    const found = db.prepare(`
+      SELECT 1 AS found
+        FROM ${identifier}
+       WHERE ${quoteSqliteIdentifier(generationColumn.name)} = ?${acceptedClause}
+       LIMIT 1
+    `).get(generationId);
+    if (found !== undefined) {
+      fail("pending_replay_accepted_pointer", "Pending generation is already referenced by an accepted/current pointer");
+    }
+  }
+}
+
+function assertPendingPublicationReplay(
+  db,
+  generation,
+  packetDigest,
+  intent,
+  bindingDigest,
+  authorityCapabilityDigest,
+) {
+  assertCanonicalProjectHistoryProjectionSchema(db);
+  if (!assertGenerationReplay(db, generation, packetDigest)) {
+    fail("pending_replay_generation_missing", "Pending replay requires the exact durable generation");
+  }
+  const state = readProjectHistoryCopyPublicationState(db, generation.generation_id);
+  if (state.pending === null || state.receipt !== null || state.replay_guard === null) {
+    fail("pending_replay_not_authorized", "Only a durable pending publication can use same-binding replay");
+  }
+  assertSamePublicationIntent(state.pending, intent);
+  if (state.replay_guard.project_id !== intent.project_id
+      || state.replay_guard.publication_intent_digest !== intent.publication_intent_digest
+      || state.replay_guard.binding_digest !== bindingDigest
+      || state.replay_guard.authority_capability_digest !== authorityCapabilityDigest) {
+    fail("pending_replay_guard_conflict", "Pending replay guard differs from the exact request or binding");
+  }
+  assertNoAcceptedGenerationPointer(db, generation.generation_id);
+  if (projectHistoryCopyDatabaseStateDigest(db) !== state.replay_guard.database_state_digest) {
+    fail("pending_replay_database_state_mismatch", "Copied database changed after the pending generation transaction");
+  }
+  return state;
+}
+
+function assertInitialOrPendingReplayTarget({
+  binding,
+  bindingDigest,
+  dbPath,
+  generation,
+  packetDigest,
+  intent,
+  authorityCapabilityDigest,
+  artifactPaths,
+}) {
+  try {
+    return assertProjectHistoryCopyBindingTarget(binding, {
+      bindingDigest,
+      dbPath,
+      projectId: generation.project_ref.entity_id,
+      generationId: generation.generation_id,
+      artifactPaths,
+      requireDatabaseHash: true,
+    });
+  } catch (error) {
+    if (error?.code !== "database_hash_mismatch") throw error;
+  }
+  const target = assertProjectHistoryCopyBindingTarget(binding, {
+    bindingDigest,
+    dbPath,
+    projectId: generation.project_ref.entity_id,
+    generationId: generation.generation_id,
+    artifactPaths,
+    requireDatabaseHash: false,
+  });
+  const db = new DatabaseSync(target.database.path, { readOnly: true });
+  try {
+    db.exec("PRAGMA query_only = ON");
+    assertPendingPublicationReplay(
+      db,
+      generation,
+      packetDigest,
+      intent,
+      bindingDigest,
+      authorityCapabilityDigest,
+    );
+  } finally {
+    db.close();
+  }
+  return target;
+}
+
+function finalizePublicationReceipt(db, receipt, expectedIntent) {
+  validateProjectHistoryCopyPublicationReceipt(receipt);
+  const state = readProjectHistoryCopyPublicationState(db, receipt.generation_id);
+  assertSamePublicationIntent(state.pending, expectedIntent);
+  db.prepare(`
+    INSERT INTO project_history_publication_receipt (
+      generation_id, schema_version, project_id, generation_digest,
+      publication_intent_digest, binding_digest, artifact_manifest_digest,
+      artifact_manifest_file_digest, ordered_event_digest, ordered_row_digest,
+      publication_receipt_digest
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    receipt.generation_id,
+    receipt.schema_version,
+    receipt.project_id,
+    receipt.generation_digest,
+    receipt.publication_intent_digest,
+    receipt.binding_digest,
+    receipt.artifact_manifest_digest,
+    receipt.artifact_manifest_file_digest,
+    receipt.ordered_event_digest,
+    receipt.ordered_row_digest,
+    receipt.publication_receipt_digest,
+  );
+  db.prepare(
+    "DELETE FROM project_history_publication_replay_guard WHERE generation_id = ?",
+  ).run(receipt.generation_id);
+  db.prepare(
+    "DELETE FROM project_history_publication_outbox WHERE generation_id = ?",
+  ).run(receipt.generation_id);
 }
 
 function directoryIdentity(directory, entry, real) {
@@ -700,14 +1260,17 @@ function acquireWindowsPathLock(
       added = true;
     },
     renameTo(targetPath, { replace = false } = {}) {
+      const relativeName = path.relative(identities[0].path, path.resolve(targetPath));
       if (!added || released || renamed
-          || normalizePathForComparison(path.dirname(targetPath))
-            !== normalizePathForComparison(identities[0].path)) {
+          || relativeName === ""
+          || path.isAbsolute(relativeName)
+          || relativeName === ".."
+          || relativeName.startsWith(`..${path.sep}`)) {
         fail("secure_handle_rename_invalid", "Path lock cannot perform this rename");
       }
       const temporaryCommandPath = `${renameCommandPath}.tmp`;
       writeFileSync(temporaryCommandPath, JSON.stringify({
-        relative_name: path.basename(path.resolve(targetPath)),
+        relative_name: relativeName,
         replace,
       }), { flag: "wx", mode: 0o600 });
       renameSync(temporaryCommandPath, renameCommandPath);
@@ -857,7 +1420,9 @@ function validateTestHooks(testHooks) {
   }
   const allowed = new Set([
     "beforeDatabaseCommit",
+    "beforeDatabaseMutation",
     "beforeArtifactBundlePublish",
+    "afterArtifactManifestPublish",
     "afterArtifactParentCheckBeforeMutation",
   ]);
   for (const [key, value] of Object.entries(testHooks)) {
@@ -937,18 +1502,14 @@ function prepareDirectArtifactDirectory(
       target: root,
     });
     beforeMutation();
-    if (parentSegments.length === 0) {
-      invokeTestHook(hooks, "afterArtifactParentCheckBeforeMutation", {
-        boundary: "acquire_publication_authority_lock",
-        parent: path.dirname(root),
-        target: root,
-      });
-    }
-    const rootLock = acquireWindowsPathLock(ancestorChain, {
-      publicationAuthority: parentSegments.length === 0 ? publicationAuthority : null,
+    invokeTestHook(hooks, "afterArtifactParentCheckBeforeMutation", {
+      boundary: "acquire_publication_authority_lock",
+      parent: path.dirname(root),
+      target: root,
     });
+    const rootLock = acquireWindowsPathLock(ancestorChain, { publicationAuthority });
     locks.push(rootLock);
-    if (parentSegments.length === 0) publicationParentLock = rootLock;
+    publicationParentLock = rootLock;
     for (const identity of ancestorChain) assertDirectoryIdentityCurrent(identity);
     for (const [index, segment] of parentSegments.entries()) {
       for (const identity of chain) assertDirectoryIdentityCurrent(identity);
@@ -970,20 +1531,8 @@ function prepareDirectArtifactDirectory(
         identity = inspectDirectDirectory(cursor);
         created.push(identity);
       }
-      const isPublicationParent = index === parentSegments.length - 1;
-      if (isPublicationParent) {
-        beforeMutation();
-        invokeTestHook(hooks, "afterArtifactParentCheckBeforeMutation", {
-          boundary: "acquire_publication_authority_lock",
-          parent: path.dirname(identity.path),
-          target: identity.path,
-        });
-      }
-      const componentLock = acquireWindowsPathLock([identity], {
-        publicationAuthority: isPublicationParent ? publicationAuthority : null,
-      });
+      const componentLock = acquireWindowsPathLock([identity]);
       locks.push(componentLock);
-      if (isPublicationParent) publicationParentLock = componentLock;
       assertDirectoryIdentityCurrent(identity);
       chain.push(identity);
     }
@@ -996,7 +1545,7 @@ function prepareDirectArtifactDirectory(
     targetIdentity = inspectDirectDirectory(target, { allowMissing: true });
     for (const identity of chain) assertDirectoryIdentityCurrent(identity);
     if (targetIdentity !== null) {
-      targetLock = acquireWindowsPathLock([targetIdentity], { publicationAuthority });
+      targetLock = acquireWindowsPathLock([targetIdentity]);
       locks.push(targetLock);
       assertDirectoryIdentityCurrent(targetIdentity);
     }
@@ -1039,11 +1588,11 @@ function prepareDirectArtifactDirectory(
       return publicationParentLock;
     },
     addReplayManifestRenameIdentity(identity) {
-      if (targetLock === null) {
+      if (targetLock === null || publicationParentLock === null) {
         fail("secure_path_lock_missing", "Replay artifact directory is not identity-locked");
       }
-      targetLock.addRenameIdentity(identity, { directory: false });
-      return targetLock;
+      publicationParentLock.addRenameIdentity(identity, { directory: false });
+      return publicationParentLock;
     },
     releaseLocks({ suppressErrors = false } = {}) {
       releasePathLocks(locks, { suppressErrors });
@@ -1081,7 +1630,7 @@ function stageArtifactBundle(pathGuard, artifacts, beforeMutation, hooks) {
       path: stagePath,
       identity: stageIdentity,
       lock: stageLock,
-      files: Object.freeze(files),
+      files,
     });
   } catch (error) {
     cleanupStagedArtifactBundle(pathGuard, {
@@ -1092,6 +1641,14 @@ function stageArtifactBundle(pathGuard, artifacts, beforeMutation, hooks) {
     });
     throw error;
   }
+}
+
+function appendStagedArtifact(pathGuard, stage, filename, bytes, beforeMutation) {
+  beforeMutation();
+  pathGuard.assertTargetAbsent();
+  assertDirectoryIdentityCurrent(stage.identity);
+  stage.files.push(writeExclusiveDirectArtifact(path.join(stage.path, filename), bytes));
+  assertDirectoryIdentityCurrent(stage.identity);
 }
 
 function cleanupStagedArtifactBundle(pathGuard, stage) {
@@ -1279,6 +1836,7 @@ export function projectCopiedErpHistory({
   assertAuthorityCurrent();
   const publicationAuthority =
     getProjectHistoryShadowProjectionAuthorityPublicationLockSpecV1(authoritySnapshot);
+  const authorityCapabilityDigest = sha256Canonical(publicationAuthority);
   if (typeof bindingPath !== "string" || bindingPath.length === 0) {
     fail("binding_required", "A private copied-ERP binding path is required");
   }
@@ -1308,7 +1866,7 @@ export function projectCopiedErpHistory({
     projectId: generation.project_ref.entity_id,
     generationId: generation.generation_id,
     artifactPaths: requestedArtifacts,
-    requireDatabaseHash: true,
+    requireDatabaseHash: false,
   });
   assertExistingArtifactPathPrefixDirect(
     binding.projection_root,
@@ -1323,20 +1881,72 @@ export function projectCopiedErpHistory({
   const csvBytes = Buffer.from(csv, "utf8");
   const xlsxInputBytes = Buffer.from(xlsxInput, "utf8");
   const xlsxReadbackBytes = Buffer.from(renderProjectHistoryCopyXlsxReadback(xlsxReadback), "utf8");
+  const artifactRecords = Object.freeze({
+    csv: artifactRecord(PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.csv, csvBytes),
+    xlsx_input: artifactRecord(PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx_input, xlsxInputBytes),
+    xlsx: artifactRecord(PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx, xlsx),
+    xlsx_readback: artifactRecord(PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx_readback, xlsxReadbackBytes),
+  });
+  const publicationIntent = createProjectHistoryCopyPublicationIntent({
+    generation,
+    model,
+    artifacts: artifactRecords,
+  });
+  const deterministicArtifacts = Object.freeze([
+    [PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.csv, csvBytes],
+    [PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx_input, xlsxInputBytes],
+    [PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx, xlsx],
+    [PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx_readback, xlsxReadbackBytes],
+  ]);
 
-  const preOpen = assertProjectHistoryCopyBindingTarget(binding, {
+  const preOpen = assertInitialOrPendingReplayTarget({
+    binding,
     bindingDigest,
     dbPath,
-    projectId: generation.project_ref.entity_id,
-    generationId: generation.generation_id,
+    generation,
+    packetDigest: attestation,
+    intent: publicationIntent,
+    authorityCapabilityDigest,
     artifactPaths: requestedArtifacts,
-    requireDatabaseHash: true,
   });
   assertAuthorityCurrent();
   assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
-  const db = new DatabaseSync(preOpen.database.path);
+  const pathGuard = prepareDirectArtifactDirectory(
+    binding.projection_root,
+    binding.projection_root_identity,
+    bound.artifactPaths.directory,
+    publicationAuthority,
+    assertAuthorityCurrent,
+    hooks,
+  );
+  let stage = null;
+  let db = null;
   let replayed = false;
+  let publicationReceipt = null;
+  let artifactManifest = null;
+  let manifestBytes = null;
+  let postCommit = null;
+  let finalDatabase = null;
+  let publicationError = null;
   try {
+    if (pathGuard.targetIdentity === null) {
+      stage = stageArtifactBundle(
+        pathGuard,
+        deterministicArtifacts,
+        assertAuthorityCurrent,
+        hooks,
+      );
+    } else {
+      pathGuard.assertTargetCurrent();
+    }
+
+    assertAuthorityCurrent();
+    assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
+    invokeTestHook(hooks, "beforeDatabaseMutation", {
+      staged: stage !== null,
+      stagePath: stage?.path ?? null,
+    });
+    db = new DatabaseSync(preOpen.database.path);
     db.exec("PRAGMA foreign_keys = ON");
     assertAuthorityCurrent();
     assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
@@ -1347,7 +1957,38 @@ export function projectCopiedErpHistory({
       replayed = assertGenerationReplay(db, generation, attestation);
       if (!replayed) {
         assertNoEventRefConflict(db, generation);
+        assertNoAcceptedGenerationPointer(db, generation.generation_id);
         insertGeneration(db, generation, attestation);
+        insertPublicationIntent(db, publicationIntent);
+        insertPublicationReplayGuard(
+          db,
+          publicationIntent,
+          binding.binding_digest,
+          authorityCapabilityDigest,
+        );
+      } else {
+        const state = readProjectHistoryCopyPublicationState(db, generation.generation_id);
+        if (state.pending !== null) {
+          assertPendingPublicationReplay(
+            db,
+            generation,
+            attestation,
+            publicationIntent,
+            binding.binding_digest,
+            authorityCapabilityDigest,
+          );
+        } else if (state.receipt !== null) {
+          if (state.receipt.project_id !== publicationIntent.project_id
+              || state.receipt.generation_digest !== publicationIntent.generation_digest
+              || state.receipt.publication_intent_digest !== publicationIntent.publication_intent_digest
+              || state.receipt.ordered_event_digest !== publicationIntent.ordered_event_digest
+              || state.receipt.ordered_row_digest !== publicationIntent.ordered_row_digest) {
+            fail("publication_receipt_conflict", "Published receipt differs from deterministic generation artifacts");
+          }
+          publicationReceipt = state.receipt;
+        } else {
+          fail("publication_state_missing", "Stored generation has neither pending intent nor published receipt");
+        }
       }
       invokeTestHook(hooks, "beforeDatabaseCommit", {
         generationId: generation.generation_id,
@@ -1364,80 +2005,120 @@ export function projectCopiedErpHistory({
       }
       throw error;
     }
-  } finally {
-    db.close();
-  }
 
-  const postCommit = assertProjectHistoryCopyBindingTarget(binding, {
-    bindingDigest,
-    dbPath,
-    projectId: generation.project_ref.entity_id,
-    generationId: generation.generation_id,
-    artifactPaths: requestedArtifacts,
-    requireDatabaseHash: false,
-  });
-
-  const artifactManifest = createProjectHistoryCopyArtifactManifest({
-    binding,
-    projectId: generation.project_ref.entity_id,
-    generationId: generation.generation_id,
-    generationDigest: attestation,
-    databaseBeforeSha256: binding.database_sha256,
-    databaseAfterSha256: postCommit.database.sha256,
-    orderedEventDigest: model.ordered_event_digest,
-    orderedRowDigest: model.ordered_row_digest,
-    artifacts: {
-      csv: artifactRecord(PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.csv, csvBytes),
-      xlsx_input: artifactRecord(PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx_input, xlsxInputBytes),
-      xlsx: artifactRecord(PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx, xlsx),
-      xlsx_readback: artifactRecord(PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx_readback, xlsxReadbackBytes),
-    },
-  });
-  const manifestBytes = Buffer.from(`${canonicalJson(artifactManifest)}\n`, "utf8");
-  const artifacts = Object.freeze([
-    [PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.csv, csvBytes],
-    [PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx_input, xlsxInputBytes],
-    [PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx, xlsx],
-    [PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx_readback, xlsxReadbackBytes],
-    [PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.manifest, manifestBytes],
-  ]);
-  const pathGuard = prepareDirectArtifactDirectory(
-    binding.projection_root,
-    binding.projection_root_identity,
-    bound.artifactPaths.directory,
-    publicationAuthority,
-    assertAuthorityCurrent,
-    hooks,
-  );
-  let publicationError = null;
-  try {
-    if (pathGuard.targetIdentity === null) {
-      const stage = stageArtifactBundle(pathGuard, artifacts, assertAuthorityCurrent, hooks);
-      try {
-        publishNewArtifactBundle(pathGuard, stage, assertAuthorityCurrent, hooks);
-      } catch (error) {
-        cleanupStagedArtifactBundle(pathGuard, stage);
-        throw error;
-      }
-    } else {
+    if (stage === null) {
       pathGuard.assertTargetCurrent();
       assertDirectArtifactBytes(csvPath, csvBytes);
       assertDirectArtifactBytes(xlsxInputPath, xlsxInputBytes);
       assertDirectArtifactBytes(xlsxPath, xlsx);
       assertDirectArtifactBytes(xlsxReadbackPath, xlsxReadbackBytes);
-      publishReplayManifest(
-        pathGuard,
-        artifactManifestPath,
-        manifestBytes,
-        assertAuthorityCurrent,
-        hooks,
-      );
     }
+
+    postCommit = assertProjectHistoryCopyBindingTarget(binding, {
+      bindingDigest,
+      dbPath,
+      projectId: generation.project_ref.entity_id,
+      generationId: generation.generation_id,
+      artifactPaths: requestedArtifacts,
+      requireDatabaseHash: false,
+    });
+
+    if (publicationReceipt !== null) {
+      if (pathGuard.targetIdentity === null) {
+        fail("published_artifact_bundle_missing", "Published receipt exists without its immutable artifact bundle");
+      }
+      const publishedManifestBytes = readDirectArtifactBytes(artifactManifestPath);
+      if (publishedManifestBytes.digest !== publicationReceipt.artifact_manifest_file_digest) {
+        fail("published_manifest_file_mismatch", "Published manifest bytes differ from the immutable receipt");
+      }
+      artifactManifest = readProjectHistoryCopyArtifactManifest(artifactManifestPath, {
+        expectedDigest: publicationReceipt.artifact_manifest_digest,
+      });
+      if (artifactManifest.project_id !== publicationReceipt.project_id
+          || artifactManifest.generation_id !== publicationReceipt.generation_id
+          || artifactManifest.generation_digest !== publicationReceipt.generation_digest
+          || artifactManifest.binding_digest !== publicationReceipt.binding_digest
+          || artifactManifest.ordered_event_digest !== publicationReceipt.ordered_event_digest
+          || artifactManifest.ordered_row_digest !== publicationReceipt.ordered_row_digest
+          || canonicalJson(artifactManifest.artifacts) !== canonicalJson(publicationIntent.artifacts)) {
+        fail("published_manifest_receipt_mismatch", "Published manifest differs from the immutable receipt");
+      }
+      manifestBytes = publishedManifestBytes.bytes;
+    } else {
+      artifactManifest = createProjectHistoryCopyArtifactManifest({
+        binding,
+        projectId: generation.project_ref.entity_id,
+        generationId: generation.generation_id,
+        generationDigest: attestation,
+        databaseBeforeSha256: binding.database_sha256,
+        databaseAfterSha256: postCommit.database.sha256,
+        orderedEventDigest: model.ordered_event_digest,
+        orderedRowDigest: model.ordered_row_digest,
+        artifacts: artifactRecords,
+      });
+      manifestBytes = Buffer.from(`${canonicalJson(artifactManifest)}\n`, "utf8");
+      if (stage !== null) {
+        appendStagedArtifact(
+          pathGuard,
+          stage,
+          PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.manifest,
+          manifestBytes,
+          assertAuthorityCurrent,
+        );
+        publishNewArtifactBundle(pathGuard, stage, assertAuthorityCurrent, hooks);
+      } else {
+        publishReplayManifest(
+          pathGuard,
+          artifactManifestPath,
+          manifestBytes,
+          assertAuthorityCurrent,
+          hooks,
+        );
+      }
+      assertDirectArtifactBytes(artifactManifestPath, manifestBytes);
+      invokeTestHook(hooks, "afterArtifactManifestPublish", {
+        generationId: generation.generation_id,
+        artifactManifestDigest: artifactManifest.artifact_manifest_digest,
+      });
+      assertAuthorityCurrent();
+      assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
+      publicationReceipt = createProjectHistoryCopyPublicationReceipt({
+        intent: publicationIntent,
+        bindingDigest: binding.binding_digest,
+        artifactManifestDigest: artifactManifest.artifact_manifest_digest,
+        artifactManifestFileDigest: sha256Bytes(manifestBytes),
+      });
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        finalizePublicationReceipt(db, publicationReceipt, publicationIntent);
+        assertAuthorityCurrent();
+        assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
+        db.exec("COMMIT");
+      } catch (error) {
+        try {
+          db.exec("ROLLBACK");
+        } catch {
+          // The original error is the actionable failure.
+        }
+        throw error;
+      }
+    }
+
+    finalDatabase = assertProjectHistoryCopyBindingTarget(binding, {
+      bindingDigest,
+      dbPath,
+      projectId: generation.project_ref.entity_id,
+      generationId: generation.generation_id,
+      artifactPaths: requestedArtifacts,
+      requireDatabaseHash: false,
+    });
   } catch (error) {
     publicationError = error;
+    if (stage !== null) cleanupStagedArtifactBundle(pathGuard, stage);
     pathGuard.cleanupCreated();
     throw error;
   } finally {
+    if (db !== null) db.close();
     pathGuard.releaseLocks({ suppressErrors: publicationError !== null });
   }
   return Object.freeze({
@@ -1455,7 +2136,10 @@ export function projectCopiedErpHistory({
     xlsx_digest: sha256Bytes(xlsx),
     xlsx_readback_digest: sha256Bytes(xlsxReadbackBytes),
     database_before_digest: binding.database_sha256,
-    database_after_digest: postCommit.database.sha256,
+    database_generation_commit_digest: postCommit.database.sha256,
+    database_after_digest: finalDatabase.database.sha256,
+    publication_intent_digest: publicationIntent.publication_intent_digest,
+    publication_receipt_digest: publicationReceipt.publication_receipt_digest,
     artifact_manifest_digest: artifactManifest.artifact_manifest_digest,
     artifact_manifest_file_digest: sha256Bytes(manifestBytes),
     raw_payload_copied: false,

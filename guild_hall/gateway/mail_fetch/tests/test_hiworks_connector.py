@@ -1,12 +1,23 @@
 from __future__ import annotations
 
+from email import policy
 from email.message import EmailMessage
+from email.parser import BytesParser
+import hashlib
 import io
+import os
 from pathlib import Path
 import poplib
+import stat
+from types import SimpleNamespace
 from typing import Dict
 
+import pytest
+
 from collector.connectors.hiworks import HiworksPop3Connector
+from collector.pipeline.normalize import normalize_events
+from collector.storage import source_custody as source_custody_module
+from collector.storage.source_custody import SourceCustodyError, persist_hiworks_rfc822
 
 
 class _FakePop3:
@@ -262,3 +273,177 @@ def test_hiworks_connector_does_not_download_blocked_extension(tmp_path: Path) -
     assert attachment.type == "reference_attachment"
     assert attachment.local_path is None
     assert attachment.metadata["blocked_extension"] == ".dmg"
+
+
+def test_hiworks_connector_preserves_exact_rfc822_and_attachment_in_source_custody(tmp_path: Path) -> None:
+    attachment_bytes = b"\x00synthetic-attachment\xff\r\nexact"
+    message = EmailMessage()
+    message["Message-ID"] = "<custody@example.com>"
+    message["From"] = "Alice <alice@example.com>"
+    message["To"] = "Bob <bob@example.com>"
+    message["Date"] = "Thu, 05 Mar 2026 09:00:00 +0900"
+    message["Subject"] = "synthetic custody"
+    message.set_content("source body")
+    message.add_attachment(
+        attachment_bytes,
+        maintype="application",
+        subtype="octet-stream",
+        filename="recover.bin",
+    )
+    raw = message.as_bytes(policy=policy.SMTP)
+    custody_root = tmp_path / "mail" / "source_custody"
+    attachment_root = tmp_path / "mail" / "attachments"
+
+    connector = HiworksPop3Connector(
+        host="pop3.example.com",
+        username="user@example.com",
+        password="pw",
+        download_attachments=False,
+        attachment_root=attachment_root,
+        source_custody_root=custody_root,
+        pop3_factory=lambda host, port, use_ssl, timeout_sec: _FakePop3(
+            messages={1: raw},
+            uidl_map={1: "../../provider-controlled-uidl"},
+        ),
+    )
+
+    first = connector.fetch_since(cursor=None, limit=10)
+    assert first.partial is False
+    assert len(first.events) == 1
+    source_custody = first.events[0].raw["source_custody"]
+    expected_sha256 = hashlib.sha256(raw).hexdigest()
+    assert source_custody == {
+        "sha256": expected_sha256,
+        "size": len(raw),
+        "storage_ref": f"hiworks/sha256/{expected_sha256[:2]}/{expected_sha256}.eml",
+        "media_type": "message/rfc822",
+    }
+    normalized = normalize_events(first.events, allowed_hosts=(), attachment_max_bytes=0)[0]
+    assert normalized.to_dict()["raw"]["source_custody"] == source_custody
+
+    stored = custody_root.joinpath(*source_custody["storage_ref"].split("/"))
+    assert stored.read_bytes() == raw
+    assert "provider-controlled-uidl" not in stored.as_posix()
+    assert not attachment_root.exists()
+
+    reparsed = BytesParser(policy=policy.default).parsebytes(stored.read_bytes())
+    recovered = [
+        part.get_payload(decode=True)
+        for part in reparsed.walk()
+        if part.get_filename() == "recover.bin"
+    ]
+    assert recovered == [attachment_bytes]
+
+    before = stored.stat()
+    replay = connector.fetch_since(cursor=None, limit=10)
+    after = stored.stat()
+    assert replay.partial is False
+    assert replay.events[0].raw["source_custody"] == source_custody
+    assert (after.st_ino, after.st_size, after.st_mtime_ns) == (
+        before.st_ino,
+        before.st_size,
+        before.st_mtime_ns,
+    )
+    assert list(stored.parent.glob("*.partial")) == []
+
+
+def test_source_custody_fails_closed_on_existing_hash_path_mismatch(tmp_path: Path) -> None:
+    raw = b"Message-ID: <collision@example.com>\r\n\r\nexpected\r\n"
+    digest = hashlib.sha256(raw).hexdigest()
+    custody_root = tmp_path / "source_custody"
+    target = custody_root / "hiworks" / "sha256" / digest[:2] / f"{digest}.eml"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"different bytes")
+
+    with pytest.raises(SourceCustodyError) as error:
+        persist_hiworks_rfc822(custody_root, raw)
+
+    assert error.value.code == "source_custody_existing_mismatch"
+    assert target.read_bytes() == b"different bytes"
+
+
+def test_source_custody_rejects_symlink_or_reparse_root(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    custody_root = tmp_path / "source_custody"
+    try:
+        os.symlink(outside, custody_root, target_is_directory=True)
+    except (NotImplementedError, OSError):
+        pytest.skip("directory symlink creation is unavailable on this host")
+
+    with pytest.raises(SourceCustodyError) as error:
+        persist_hiworks_rfc822(custody_root, b"Message-ID: <unsafe@example.com>\r\n\r\n")
+
+    assert error.value.code == "source_custody_reparse_forbidden"
+    assert list(outside.iterdir()) == []
+
+
+def test_source_custody_rejects_windows_reparse_attribute(monkeypatch, tmp_path: Path) -> None:
+    custody_root = tmp_path / "source_custody"
+    custody_root.mkdir()
+    original_lstat = source_custody_module._lstat
+
+    def fake_lstat(path: Path, *, missing_ok: bool = False):
+        if Path(path) == custody_root:
+            return SimpleNamespace(
+                st_mode=stat.S_IFDIR,
+                st_file_attributes=source_custody_module._REPARSE_POINT_ATTRIBUTE,
+            )
+        return original_lstat(path, missing_ok=missing_ok)
+
+    monkeypatch.setattr(source_custody_module, "_lstat", fake_lstat)
+    with pytest.raises(SourceCustodyError) as error:
+        persist_hiworks_rfc822(custody_root, b"Message-ID: <unsafe@example.com>\r\n\r\n")
+
+    assert error.value.code == "source_custody_reparse_forbidden"
+
+
+def test_source_custody_parent_swap_during_publish_is_blocked_or_detected(
+    monkeypatch, tmp_path: Path
+) -> None:
+    raw = b"Message-ID: <parent-swap@example.test>\r\n\r\nexact bytes\r\n"
+    digest = hashlib.sha256(raw).hexdigest()
+    custody_root = tmp_path / "source_custody"
+    parent = custody_root / "hiworks" / "sha256" / digest[:2]
+    moved_parent = parent.with_name(f"{parent.name}-moved")
+    original_publish = source_custody_module._publish_at
+    swap_attempted = False
+
+    def adversarial_publish(directory, temporary: str, target: str) -> None:
+        nonlocal swap_attempted
+        swap_attempted = True
+        if os.name == "nt":
+            with pytest.raises(OSError):
+                parent.rename(moved_parent)
+        else:
+            parent.rename(moved_parent)
+            parent.mkdir()
+        original_publish(directory, temporary, target)
+
+    monkeypatch.setattr(source_custody_module, "_publish_at", adversarial_publish)
+    if os.name == "nt":
+        record = persist_hiworks_rfc822(custody_root, raw)
+        assert record.written is True
+        assert (parent / f"{digest}.eml").read_bytes() == raw
+    else:
+        with pytest.raises(SourceCustodyError) as error:
+            persist_hiworks_rfc822(custody_root, raw)
+        assert error.value.code == "source_custody_parent_changed"
+        assert list(parent.iterdir()) == []
+        assert list(moved_parent.iterdir()) == []
+    assert swap_attempted is True
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows directory identity handle contract")
+def test_source_custody_windows_directory_handle_blocks_rename(tmp_path: Path) -> None:
+    parent = tmp_path / "retained-parent"
+    renamed = tmp_path / "renamed-parent"
+    parent.mkdir()
+
+    with source_custody_module._RetainedDirectoryChain(parent) as retained:
+        retained.assert_stable()
+        with pytest.raises(OSError):
+            parent.rename(renamed)
+
+    parent.rename(renamed)
+    assert renamed.is_dir()

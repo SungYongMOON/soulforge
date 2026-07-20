@@ -262,6 +262,44 @@ def _resolve_path(raw: str, *, base_dir: Path, repo_root: Optional[Path] = None)
     return (base_dir / resolved).resolve()
 
 
+def _preloaded_credential_text(
+    credential_file_texts_by_path: Dict[str, str],
+    credential_path: Path,
+) -> str:
+    """Return only the already identity-verified value for one equivalent path.
+
+    The secure Windows launcher records a lexical absolute path while pathlib
+    may later render the same non-reparse file with different case or separators.
+    Normalizing that spelling does not open another file or weaken the retained
+    identity lock.
+    """
+
+    expected = os.path.normcase(os.path.abspath(os.fspath(credential_path)))
+    matches = [
+        value
+        for raw_path, value in credential_file_texts_by_path.items()
+        if os.path.normcase(os.path.abspath(os.fspath(raw_path))) == expected
+    ]
+    if len(matches) != 1:
+        if not credential_file_texts_by_path:
+            code = "mail_capsule_nested_credential_preload_empty"
+        else:
+            expected_parent = os.path.dirname(expected)
+            expected_name = os.path.basename(expected)
+            candidate_paths = [
+                os.path.normcase(os.path.abspath(os.fspath(raw_path)))
+                for raw_path in credential_file_texts_by_path
+            ]
+            if any(os.path.basename(path) == expected_name for path in candidate_paths):
+                code = "mail_capsule_nested_credential_parent_mismatch"
+            elif any(os.path.dirname(path) == expected_parent for path in candidate_paths):
+                code = "mail_capsule_nested_credential_name_mismatch"
+            else:
+                code = "mail_capsule_nested_credential_path_mismatch"
+        raise ValueError(code)
+    return matches[0]
+
+
 def _env_path(
     env: Dict[str, str],
     key: str,
@@ -328,7 +366,11 @@ def _validate_link_host_policy(
 def _read_token_payload_from_file(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
-    text = read_pinned_text(path).strip()
+    return _read_token_payload_text(read_pinned_text(path))
+
+
+def _read_token_payload_text(value: str) -> Dict[str, Any]:
+    text = str(value or "").strip()
     if not text:
         return {}
     try:
@@ -441,6 +483,8 @@ def build_config_from_env(
     include_ambient: bool = True,
     env_overrides: Optional[Dict[str, str]] = None,
     disable_credential_persistence: bool = False,
+    credential_file_texts_by_path: Optional[Dict[str, str]] = None,
+    provider_scope: Optional[str] = None,
 ) -> CollectorConfig:
     env = _load_env(
         env_file,
@@ -449,6 +493,11 @@ def build_config_from_env(
         env_overrides=env_overrides,
     )
     env_base_dir = env_file.parent
+    normalized_provider_scope = str(provider_scope or "").strip().lower()
+    if normalized_provider_scope not in {"", "gmail", "hiworks"}:
+        raise ValueError("mail_provider_scope_invalid")
+    load_gmail_credentials = normalized_provider_scope in {"", "gmail"}
+    load_hiworks_credentials = normalized_provider_scope in {"", "hiworks"}
 
     default_runtime = repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch"
     runtime_root = _env_path(
@@ -476,18 +525,23 @@ def build_config_from_env(
     gmail_label_ids = tuple(item.strip() for item in label_raw.split(",") if item.strip())
     gmail_include_spam_trash = _parse_bool(env.get("EMAIL_FETCH_GMAIL_INCLUDE_SPAM_TRASH"), False)
 
-    access_token = str(env.get("GMAIL_ACCESS_TOKEN", "")).strip()
-    refresh_token = str(env.get("GMAIL_REFRESH_TOKEN", "")).strip()
-    client_id = str(env.get("GMAIL_CLIENT_ID", "")).strip()
-    client_secret = str(env.get("GMAIL_CLIENT_SECRET", "")).strip()
+    access_token = str(env.get("GMAIL_ACCESS_TOKEN", "")).strip() if load_gmail_credentials else ""
+    refresh_token = str(env.get("GMAIL_REFRESH_TOKEN", "")).strip() if load_gmail_credentials else ""
+    client_id = str(env.get("GMAIL_CLIENT_ID", "")).strip() if load_gmail_credentials else ""
+    client_secret = str(env.get("GMAIL_CLIENT_SECRET", "")).strip() if load_gmail_credentials else ""
     token_uri = str(env.get("GMAIL_TOKEN_URI", "")).strip() or "https://oauth2.googleapis.com/token"
-    token_file_raw = str(env.get("GMAIL_ACCESS_TOKEN_FILE", "")).strip()
-    if disable_credential_persistence and token_file_raw:
+    token_file_raw = str(env.get("GMAIL_ACCESS_TOKEN_FILE", "")).strip() if load_gmail_credentials else ""
+    if disable_credential_persistence and token_file_raw and credential_file_texts_by_path is None:
         raise ValueError("mail_capsule_nested_credential_file_unsupported")
     token_file_path = _resolve_path(token_file_raw, base_dir=env_base_dir) if token_file_raw else None
     token_payload: Dict[str, Any] = {}
     if token_file_path:
-        token_payload = _read_token_payload_from_file(token_file_path)
+        if credential_file_texts_by_path is not None:
+            token_payload = _read_token_payload_text(
+                _preloaded_credential_text(credential_file_texts_by_path, token_file_path)
+            )
+        else:
+            token_payload = _read_token_payload_from_file(token_file_path)
         if not access_token:
             access_token = str(token_payload.get("access_token", "")).strip()
         if not refresh_token:
@@ -535,13 +589,22 @@ def build_config_from_env(
         "o365": str(env.get("EMAIL_FETCH_WORKSPACE_O365", "company")).strip() or "company",
     }
 
-    hiworks_password = str(env.get("HIWORKS_POP3_PASSWORD", "")).strip()
-    hiworks_password_file = str(env.get("HIWORKS_POP3_PASSWORD_FILE", "")).strip()
-    if disable_credential_persistence and hiworks_password_file:
+    hiworks_password = str(env.get("HIWORKS_POP3_PASSWORD", "")).strip() if load_hiworks_credentials else ""
+    hiworks_password_file = (
+        str(env.get("HIWORKS_POP3_PASSWORD_FILE", "")).strip()
+        if load_hiworks_credentials
+        else ""
+    )
+    if disable_credential_persistence and hiworks_password_file and credential_file_texts_by_path is None:
         raise ValueError("mail_capsule_nested_credential_file_unsupported")
     if not hiworks_password and hiworks_password_file:
         password_path = _resolve_path(hiworks_password_file, base_dir=env_base_dir)
-        if password_path.exists():
+        if credential_file_texts_by_path is not None:
+            hiworks_password = _preloaded_credential_text(
+                credential_file_texts_by_path,
+                password_path,
+            ).strip()
+        elif password_path.exists():
             hiworks_password = read_pinned_text(password_path).strip()
 
     return CollectorConfig(
@@ -671,6 +734,14 @@ def _build_hiworks_connector(config: CollectorConfig) -> HiworksPop3Connector:
         blocked_attachment_extensions=config.blocked_attachment_extensions,
         download_attachments=not config.dry_run and not config.ingress_only,
         attachment_root=_attachment_root_for_source(config, "hiworks"),
+        source_custody_root=(
+            config.inbox_root
+            / _workspace_for_source(config, "hiworks")
+            / "mail"
+            / "source_custody"
+            if not config.dry_run
+            else None
+        ),
     )
 
 

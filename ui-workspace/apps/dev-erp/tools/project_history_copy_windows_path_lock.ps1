@@ -15,6 +15,7 @@ $ErrorActionPreference = "Stop"
 Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -231,9 +232,14 @@ public static class SoulforgeProjectHistoryPathLock {
         string relativeName,
         bool replace
     ) {
-        if (relativeName.IndexOfAny(new char[] { '\\', '/' }) >= 0
-            || relativeName == "." || relativeName == ".." || relativeName.Length == 0) {
-            throw new InvalidOperationException("rename target must be one relative basename");
+        string[] segments = relativeName.Split(new char[] { '\\', '/' });
+        if (Path.IsPathRooted(relativeName) || segments.Length == 0) {
+            throw new InvalidOperationException("rename target must stay below the retained root handle");
+        }
+        foreach (string segment in segments) {
+            if (segment.Length == 0 || segment == "." || segment == ".." || segment.Contains(":")) {
+                throw new InvalidOperationException("rename target contains an unsafe relative segment");
+            }
         }
         byte[] name = Encoding.Unicode.GetBytes(relativeName);
         const int fileNameOffset = 20;

@@ -23,6 +23,8 @@ import {
   ProjectHistoryCopyProjectionError,
   assertCanonicalProjectHistoryProjectionSchema,
   buildCanonicalProjectHistoryCopyModel,
+  createProjectHistoryCopyPublicationIntent,
+  readProjectHistoryCopyPublicationState,
 } from "./project_history_copy_projector.mjs";
 import {
   PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES,
@@ -367,19 +369,10 @@ export function verifyCopiedProjectHistoryProjection({
     artifactPaths,
     requireDatabaseHash: false,
   });
-  const manifest = readProjectHistoryCopyArtifactManifest(path.resolve(artifactManifestPath), {
-    binding,
-    expectedDigest: artifactManifestDigest,
-  });
-  if (manifest.project_id !== projectId
-      || manifest.generation_id !== generationId
-      || manifest.generation_digest !== attestation
-      || manifest.database_after_sha256 !== bound.database.sha256) {
-    fail("artifact_binding_mismatch", "Artifact manifest does not match the requested bound DB generation");
-  }
-
   const db = new DatabaseSync(bound.database.path, { readOnly: true });
   let model;
+  let generation;
+  let publicationReceipt;
   let totalChangesBefore;
   let totalChangesAfter;
   try {
@@ -388,7 +381,15 @@ export function verifyCopiedProjectHistoryProjection({
     if (queryOnly !== 1) fail("query_only_guard_failed", "SQLite query_only could not be enabled");
     totalChangesBefore = Number(db.prepare("SELECT total_changes() AS count").get().count);
     assertCanonicalProjectHistoryProjectionSchema(db);
-    const generation = readValidatedProjectHistoryGenerationQueryOnly(
+    const publicationState = readProjectHistoryCopyPublicationState(db, generationId);
+    if (publicationState.pending !== null) {
+      fail("publication_pending", "Generation has a durable pending publication intent but no published receipt");
+    }
+    if (publicationState.receipt === null) {
+      fail("publication_receipt_missing", "Generation is not accepted without an immutable published receipt");
+    }
+    publicationReceipt = publicationState.receipt;
+    generation = readValidatedProjectHistoryGenerationQueryOnly(
       db,
       generationId,
       attestation,
@@ -402,6 +403,26 @@ export function verifyCopiedProjectHistoryProjection({
   if (totalChangesBefore !== 0 || totalChangesAfter !== 0) {
     fail("query_only_mutation_detected", "Verifier connection reported SQLite mutations");
   }
+  if (artifactManifestDigest !== publicationReceipt.artifact_manifest_digest) {
+    fail("publication_receipt_manifest_mismatch", "Pinned manifest digest differs from the published receipt");
+  }
+  const manifest = readProjectHistoryCopyArtifactManifest(path.resolve(artifactManifestPath), {
+    expectedDigest: artifactManifestDigest,
+  });
+  const manifestArtifact = readStableArtifact(
+    artifactManifestPath,
+    PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.manifest,
+  );
+  if (manifestArtifact.record.sha256 !== publicationReceipt.artifact_manifest_file_digest
+      || manifest.project_id !== projectId
+      || manifest.generation_id !== generationId
+      || manifest.generation_digest !== attestation
+      || manifest.binding_digest !== publicationReceipt.binding_digest
+      || manifest.artifact_manifest_digest !== publicationReceipt.artifact_manifest_digest
+      || manifest.ordered_event_digest !== publicationReceipt.ordered_event_digest
+      || manifest.ordered_row_digest !== publicationReceipt.ordered_row_digest) {
+    fail("publication_receipt_manifest_mismatch", "Published receipt and manifest do not match");
+  }
   const afterRead = assertProjectHistoryCopyBindingTarget(binding, {
     bindingDigest,
     dbPath,
@@ -410,9 +431,6 @@ export function verifyCopiedProjectHistoryProjection({
     artifactPaths,
     requireDatabaseHash: false,
   });
-  if (afterRead.database.sha256 !== manifest.database_after_sha256) {
-    fail("database_hash_mismatch", "Copied DB hash changed after the artifact manifest was sealed");
-  }
   if (manifest.ordered_event_digest !== model.ordered_event_digest
       || manifest.ordered_row_digest !== model.ordered_row_digest) {
     fail("artifact_model_digest_mismatch", "Artifact manifest row/event digests differ from the copied DB model");
@@ -426,6 +444,16 @@ export function verifyCopiedProjectHistoryProjection({
   };
   for (const [key, artifact] of Object.entries(artifacts)) {
     assertArtifactRecord(artifact.record, manifest.artifacts[key], key);
+  }
+  const publicationIntent = createProjectHistoryCopyPublicationIntent({
+    generation,
+    model,
+    artifacts: Object.fromEntries(Object.entries(artifacts).map(([key, value]) => [key, value.record])),
+  });
+  if (publicationIntent.publication_intent_digest !== publicationReceipt.publication_intent_digest
+      || publicationIntent.project_id !== publicationReceipt.project_id
+      || publicationIntent.generation_digest !== publicationReceipt.generation_digest) {
+    fail("publication_receipt_intent_mismatch", "Published receipt differs from DB/artifact parity intent");
   }
 
   const csvRows = parseProjectHistoryCopyCsv(decodeUtf8(artifacts.csv.bytes, "CSV"));
@@ -453,6 +481,7 @@ export function verifyCopiedProjectHistoryProjection({
     ordered_row_digest: model.ordered_row_digest,
     binding_digest: binding.binding_digest,
     artifact_manifest_digest: manifest.artifact_manifest_digest,
+    publication_receipt_digest: publicationReceipt.publication_receipt_digest,
     database_digest: afterRead.database.sha256,
     db_csv_parity: true,
     db_xlsx_input_parity: true,

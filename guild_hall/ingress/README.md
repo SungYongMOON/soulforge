@@ -179,12 +179,23 @@ environment, operation owner ACL, and installed runtime/DLL ACL remain explicit
 trust ceilings. The
 child verifies six-field file identities including
 birth/change time and preloads every enabled mailbox's directly held credential
-values before the first mailbox effect. Secure capsule mode rejects
-`GMAIL_ACCESS_TOKEN_FILE` and `HIWORKS_POP3_PASSWORD_FILE` indirection because
-Node cannot discover those paths without crossing the no-secret-read boundary.
-Standalone collector runs retain their existing file-indirection compatibility.
-The capsule child also ignores ambient overrides and disables token-file
-persistence. Child output is reduced to counts, status, and
+values before the first mailbox effect. For `GMAIL_ACCESS_TOKEN_FILE` and
+`HIWORKS_POP3_PASSWORD_FILE`, the bootstrap first runs the pinned capsule in a
+discovery-only mode. That pass emits path and six-field identity metadata only;
+it never emits credential contents. The bootstrap accepts only a normalized
+relative reference resolved from the primary env file whose lexical and
+physical target stays inside the exact `private_config_root`. Absolute paths,
+tilde expansion, traversal segments, escape, non-regular or
+multi-link files, and
+symlink/junction/reparse traversal fail closed. It opens every accepted nested
+file with read-only sharing, retains that lock through the actual child, and the
+actual child preloads the file only when its identity still matches. Nested
+credential metadata is ephemeral bootstrap state and is not added to the
+capsule manifest or operator output. Arbitrary external credential-file paths
+are intentionally unsupported. Standalone collector runs retain their existing
+file-indirection compatibility. The capsule child also ignores ambient
+overrides and disables token-file persistence. Child output is reduced to
+counts, status, and
 allowlisted error codes. A missing credential or partial mail run degrades only
 mail; the enabled non-mail lanes still run.
 Mail-enabled bindings must keep the payload lease and authority validity window

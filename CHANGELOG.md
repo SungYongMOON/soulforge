@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## 2026-07-21
+
+### Hardened HPP nested mail credentials
+
+- Allowed existing `GMAIL_ACCESS_TOKEN_FILE` and
+  `HIWORKS_POP3_PASSWORD_FILE` bindings inside the hardened Windows mail
+  capsule without exposing credential bytes to Node, manifests, launch
+  configuration, or operator output. A pinned discovery-only child resolves
+  only normalized env-relative files beneath the exact private config root;
+  the bootstrap rejects escape/reparse paths, locks each discovered file, and
+  the actual child preloads it only under the discovered physical identity.
+  Arbitrary external credential paths remain fail-closed. (worker:
+  codex_gpt-5)
+
+### Preserve immutable Hiworks RFC822 source custody
+
+- Added exact POP3 RFC822 byte custody under the data-root-derived mailbox as
+  content-addressed `.eml` files. Publication is atomic and no-overwrite;
+  replay verifies and reuses identical bytes, while hash-path mismatch,
+  traversal, symlink, junction, and reparse paths fail closed. Normalized
+  events retain SHA-256, exact size, and a relative storage ref without
+  embedding the message bytes. Synthetic MIME tests prove round-trip byte
+  identity and attachment recovery while extracted attachment writes remain
+  disabled in ingress-only mode. (worker: codex_gpt-5)
+- Added a standalone offline custody-link CLI that accepts explicit private
+  event/EML inputs, enforces the exact Hiworks content-addressed path shape,
+  reads hash and headers from one identity-stable descriptor, and writes only
+  immutable privacy-safe link metadata to a caller-selected private runtime
+  owner. Source publication now retains the parent directory identity through
+  temporary write, no-overwrite hardlink, and final verification. (worker:
+  codex_gpt-5)
+
 ## 2026-07-20
 
 ### Feature-OFF unified daily backup-controller composition
@@ -42,8 +74,9 @@
   complete externally pinned collector release, a Windows pre-opened/locked
   operation-local code/register capsule, birth/change-time credential identity
   checks without Node-side secret reads or content digests, all-mailbox primary
-  credential preload, capsule-only nested credential-file rejection, sanitized child
-  output, and per-lane authority validation. Applied scheduler runs additionally
+  credential preload, metadata-only nested credential discovery with retained
+  file locks, sanitized child output, and per-lane authority validation.
+  Applied scheduler runs additionally
   require an external SHA-256 pin for the exact raw continuous-binding bytes.
 - Added a strict receipt-to-Shadow v2 adapter that accepts zero or more explicit
   staging/voice receipts, emits exactly five honest coverage rows, separates
@@ -54,6 +87,27 @@
   validation-only, and the HPP cutover leaves Shadow publication unscheduled
   until one authority fence spans database commit and final publication and
   staged bytes remain immutable through rename.
+- Hardened the authorized copied-ERP one-shot to one exact project and added a
+  replayable Shadow publication state machine. CSV/XLSX/readback bytes are
+  deterministically staged before DB mutation; the immutable generation and a
+  pending publication intent plus immutable replay guard commit together; final
+  manifest rename precedes an immutable published receipt. Recovery after a
+  failed final rename or post-manifest crash now accepts only the identical
+  request under the original binding digest, with the same current authority,
+  capability, physical DB/root identities, project, generation/intent, exact
+  whole-DB logical state digest, and no accepted pointer. Unrelated mutation,
+  guard/schema tamper, authority expiry, receipt/conflict state, and a first-run
+  copied DB whose SHA-256 is not allowlisted all fail closed. The query-only
+  verifier rejects pending, DB-only, and artifact-only halves and requires
+  receipt/manifest/DB/artifact parity.
+- The retained native Windows helper now holds the exact authority and
+  projection-root identities from before DB open through both DB transactions
+  and final rename, while the same `DatabaseSync` connection stays open through
+  final receipt sealing. This does not claim a native DB-file identity handle:
+  an NTFS delete-deny handle opened before `DatabaseSync` prevents SQLite open,
+  and opening it afterward fails with sharing violation because Node does not
+  expose SQLite's retained native handle. Operational scheduling remains
+  disabled pending a DB owner/driver surface that can supply that final fence.
 - Added a feature-OFF continuous receipt-to-Shadow orchestrator that binds one
   externally pinned continuous run receipt and one explicit project to the
   existing v2 adapter under a separate Shadow authority epoch. It reports

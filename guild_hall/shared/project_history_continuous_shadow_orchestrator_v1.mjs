@@ -72,6 +72,7 @@ const CONTINUOUS_RECEIPT_REQUIRED_FIELDS = Object.freeze([
 ]);
 const CANONICAL_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const DIGEST = /^sha256:[0-9a-f]{64}$/u;
+const BARE_DIGEST = /^[0-9a-f]{64}$/u;
 const CONTINUOUS_RUN_RECEIPT_V2 = "soulforge.ingress.continuous_run_receipt.v2";
 const CONTINUOUS_STATUSES = new Set(["ok", "degraded"]);
 const WRITER_MODES = new Set(["primary", "fallback"]);
@@ -140,6 +141,12 @@ function assertDigest(value, path) {
   }
 }
 
+function canonicalDigest(value, path) {
+  if (typeof value === "string" && BARE_DIGEST.test(value)) return `sha256:${value}`;
+  assertDigest(value, path);
+  return value;
+}
+
 function refsEqual(left, right) {
   return canonicalJson(left) === canonicalJson(right);
 }
@@ -197,7 +204,7 @@ function validateContinuousRunReceipt(receipt, expectedDigest) {
       || !Number.isSafeInteger(receipt.writer_authority_epoch) || receipt.writer_authority_epoch < 1) {
     fail("continuous_receipt_epoch_invalid", "$input.continuous_run_receipt", "Lease and custody authority epochs must be positive integers");
   }
-  assertDigest(receipt.writer_authority_digest, "$input.continuous_run_receipt.writer_authority_digest");
+  canonicalDigest(receipt.writer_authority_digest, "$input.continuous_run_receipt.writer_authority_digest");
   if (receipt.writer_authority_node_id !== receipt.node_id
       || !WRITER_MODES.has(receipt.writer_authority_mode)) {
     fail("continuous_receipt_authority_invalid", "$input.continuous_run_receipt", "Custody authority tuple is inconsistent");
@@ -263,7 +270,10 @@ export function buildProjectHistoryReceiptAdapterRequestV2FromContinuousRun(inpu
   const projectRef = validateSingleExplicitProject(input.explicit_project_refs);
   exactKeys(input.shadow_authority, SHADOW_AUTHORITY_FIELDS, "$input.shadow_authority");
   assertDigest(input.shadow_authority.digest, "$input.shadow_authority.digest");
-  if (input.shadow_authority.digest === continuousReceipt.writer_authority_digest) {
+  if (input.shadow_authority.digest === canonicalDigest(
+    continuousReceipt.writer_authority_digest,
+    "$input.continuous_run_receipt.writer_authority_digest",
+  )) {
     fail("raw_ingress_authority_reuse_forbidden", "$input.shadow_authority.digest", "Shadow authority must be independent from RAW custody authority");
   }
   validateProjectScope(input.coverage, projectRef, "$input.coverage");

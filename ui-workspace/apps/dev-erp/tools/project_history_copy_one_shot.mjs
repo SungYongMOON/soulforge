@@ -142,6 +142,7 @@ export async function runProjectHistoryCopyOneShot({
   bindingDigest,
   pilotCopy = false,
   beforeProjectionAuthorityRecheck = null,
+  projectionTestHooks = null,
 } = {}) {
   if (pilotCopy !== false && pilotCopy !== true) fail("pilot_copy_flag_invalid");
   if (typeof authorityPath !== "string" || authorityPath.length === 0) fail("authority_path_required");
@@ -168,23 +169,26 @@ export async function runProjectHistoryCopyOneShot({
   const binding = readProjectHistoryCopyBinding(path.resolve(bindingPath), {
     expectedDigest: bindingDigest,
   });
+  if (binding.allowed_project_ids.length !== 1
+      || binding.allowed_project_ids[0] !== projectionGeneration.project_ref.entity_id) {
+    fail("one_shot_single_project_binding_required");
+  }
   const artifactPaths = resolveProjectHistoryCopyArtifactPaths(binding, {
     projectId: projectionGeneration.project_ref.entity_id,
     generationId: projectionGeneration.generation_id,
   });
-  assertProjectHistoryCopyBindingTarget(binding, {
-    bindingDigest,
-    dbPath: binding.database_path,
-    projectId: projectionGeneration.project_ref.entity_id,
-    generationId: projectionGeneration.generation_id,
-    artifactPaths,
-    requireDatabaseHash: true,
-  });
-
   if (beforeProjectionAuthorityRecheck !== null) await beforeProjectionAuthorityRecheck();
   assertProjectHistoryShadowAdapterAuthorityCurrentV1(authoritySnapshot, request);
 
   if (!pilotCopy) {
+    assertProjectHistoryCopyBindingTarget(binding, {
+      bindingDigest,
+      dbPath: binding.database_path,
+      projectId: projectionGeneration.project_ref.entity_id,
+      generationId: projectionGeneration.generation_id,
+      artifactPaths,
+      requireDatabaseHash: true,
+    });
     return safeSummary({
       mode: "dry_run",
       sourceGeneration,
@@ -203,6 +207,7 @@ export async function runProjectHistoryCopyOneShot({
     authoritySnapshot,
     pilotCopy: true,
     attestation: projectionAttestation,
+    testHooks: projectionTestHooks,
   });
   const verified = verifyCopiedProjectHistoryProjection({
     ...artifactPaths,

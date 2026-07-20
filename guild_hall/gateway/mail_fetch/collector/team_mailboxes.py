@@ -13,6 +13,20 @@ from . import runner
 
 TEAM_REGISTER_SCHEMA_VERSION = "email.fetch.team_mailbox_register.v1"
 TEAM_RUN_SCHEMA_VERSION = "email.fetch.team_mailbox_run.v1"
+
+_SAFE_MAILBOX_ERROR_CODES = {
+    "mail_capsule_nested_credential_file_not_preloaded",
+    "mail_capsule_nested_credential_file_unsupported",
+    "mail_capsule_nested_credential_name_mismatch",
+    "mail_capsule_nested_credential_parent_mismatch",
+    "mail_capsule_nested_credential_path_mismatch",
+    "mail_capsule_nested_credential_preload_empty",
+}
+
+
+def _safe_mailbox_error_code(exc: Exception) -> str:
+    value = str(exc or "").strip()
+    return value if value in _SAFE_MAILBOX_ERROR_CODES else "mailbox_run_error"
 SUPPORTED_PROVIDERS = {"gmail", "hiworks"}
 DEFAULT_TEAM_REGISTER_REL = Path("guild_hall/state/gateway/mailbox/state/team_mailboxes.json")
 _REPO_RELATIVE_PREFIXES = (
@@ -151,6 +165,7 @@ def run_team_mailboxes(
     limit: int = 0,
     mailboxes: Optional[Sequence[TeamMailbox]] = None,
     credential_texts_by_path: Optional[Dict[str, str]] = None,
+    nested_credential_texts_by_path: Optional[Dict[str, str]] = None,
     capsule_env_overrides: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     started_at = _now_iso()
@@ -194,6 +209,7 @@ def run_team_mailboxes(
                 include_ambient_env=credential_texts_by_path is None,
                 env_overrides=capsule_env_overrides,
                 disable_credential_persistence=credential_texts_by_path is not None,
+                credential_file_texts_by_path=nested_credential_texts_by_path,
             )
             if dry_run:
                 config.dry_run = True
@@ -207,7 +223,7 @@ def run_team_mailboxes(
             summary["errors"].append(
                 {
                     "mailbox": mailbox.operator_summary(),
-                    "code": "mailbox_run_error",
+                    "code": _safe_mailbox_error_code(exc),
                     "type": type(exc).__name__,
                     "message": str(exc),
                 }
@@ -232,7 +248,7 @@ def run_team_mailboxes(
             summary["errors"].append(
                 {
                     "mailbox": mailbox.operator_summary(),
-                    "code": "mailbox_run_error",
+                    "code": _safe_mailbox_error_code(exc),
                     "type": type(exc).__name__,
                     "message": str(exc),
                 }
@@ -250,6 +266,7 @@ def build_config_for_mailbox(
     include_ambient_env: bool = True,
     env_overrides: Optional[Dict[str, str]] = None,
     disable_credential_persistence: bool = False,
+    credential_file_texts_by_path: Optional[Dict[str, str]] = None,
 ) -> runner.CollectorConfig:
     config = runner.build_config_from_env(
         repo_root=Path(repo_root).expanduser(),
@@ -258,6 +275,8 @@ def build_config_for_mailbox(
         include_ambient=include_ambient_env,
         env_overrides=env_overrides,
         disable_credential_persistence=disable_credential_persistence,
+        credential_file_texts_by_path=credential_file_texts_by_path,
+        provider_scope=mailbox.provider,
     )
 
     config.gmail_enabled = mailbox.provider == "gmail"
