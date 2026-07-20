@@ -2,6 +2,18 @@
 
 ## 2026-07-21
 
+### Produce a bound legacy mail dry-run descriptor safely
+
+- Added an explicit-binding adapter for actual HPP event/custody, gateway
+  `EmailEvent`, and ERP normalized JSONL files. It reads only named files,
+  verifies before/after file identity and content, hashes all identifiers and
+  conservative match inputs, validates HPP event-to-EML custody one-to-one,
+  and passes a digest-only descriptor to the existing dry-run merge builder.
+  Output and fixed-code failures expose no source values or paths; copy, write,
+  apply, discovery, collector, scheduler, MCP, and activation paths remain
+  absent. Synthetic tests cover real-like schemas and fail-closed boundaries.
+  (worker: codex_gpt-5)
+
 ### Plan legacy mail custody merge without reading mail
 
 - Added a dry-run-only legacy mail merge manifest CLI over one explicit,

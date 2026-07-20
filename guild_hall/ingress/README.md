@@ -31,6 +31,23 @@ and writes only sanitized counts, digests, an action plan, and a no-copy/no-writ
 proof to stdout. It does not invoke a collector or change writer, scheduler,
 MCP, promotion, or activation state.
 
+For an actual private dry run, `legacy_mail_source_binding.schema.json` binds
+only explicit absolute JSONL files: HPP normalized events plus one custody
+index, gateway `EmailEvent` files, and ERP normalized mail files. The public
+adapter reads only those files, verifies each file's before/after identity,
+size, mtime, and SHA-256, converts identifiers and conservative matching values
+to digests in memory, and calls the same merge-manifest builder.
+
+```bash
+npm run guild-hall:ingress:legacy-mail-bound-manifest -- \
+  --binding <one-explicit-private-binding>
+```
+
+HPP event/custody links must be one-to-one. Gateway body and attachment-set
+digests and ERP body/preview digests never expose source values. The command
+has no directory, root discovery, glob, traversal, apply, copy, writer,
+collector, scheduler, MCP, or activation path; failures emit only fixed codes.
+
 ## Fixed lanes
 
 | CLI lane | Manifest lane | Immutable payload root |
