@@ -309,7 +309,10 @@ async function preflight(binding) {
   }
   for (const entry of binding.files) {
     const source = await inspectSourceFile(sourceRoot.physical, entry);
-    const sourceIdentityKey = `${source.identity.dev}:${source.identity.ino}`;
+    // Windows/OneDrive-backed files can report colliding dev/ino pairs for
+    // distinct real paths. Canonical realpath catches actual aliases without
+    // turning that provider metadata collision into a false duplicate.
+    const sourceIdentityKey = source.source.normalize("NFC").toLowerCase();
     if (seenSourceIdentities.has(sourceIdentityKey)) fail("legacy_custody_source_identity_duplicate");
     seenSourceIdentities.add(sourceIdentityKey);
     const objectPath = join(binding.destination_root, "objects", "sha256", entry.sha256.slice(0, 2), `${entry.sha256}.bin`);
