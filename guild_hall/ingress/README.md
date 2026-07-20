@@ -201,10 +201,33 @@ hashes every included regular file but performs no writes and emits only
 sanitized JSON (counts, digests, custody watermark, and exclusion counts; no
 physical locators or excluded names):
 
+Before inventory, recovery requires an explicit absolute `--recovery-policy`
+path outside the source, backup, and restore roots. The exact
+`soulforge.hpp_ingress_recovery_policy.v1` sidecar fixes the five payload roots,
+five quarantine roots, five stable state roots, optional/required writer
+authority record, exact legacy-empty references, exclusions, and the byte SHA-256 of
+`storage_manifest.json`. Recovery then validates the full 13-key
+`soulforge.hpp_private_custody.v1` storage manifest and binds its size and hash
+into the source digest. The voice lane's `acceptance_state` remains a validated
+manifest field, not an additional recovery selector.
+
+Recovery enumerates all source-root names, then all direct `ingress`,
+`quarantine`, and `state` children before it opens an included payload. It
+recurses only through the ten exact lane/quarantine references and the five
+stable state references; it never performs a broad `state/**` walk. Unknown
+root or direct-child names fail closed. Secret-like entries found inside an
+included reference fail the operation instead of being silently omitted.
+The sole v1 legacy-empty reference is `quarantine/files`: it must exist as a
+plain, empty directory and is checked before any included file is opened. It is
+never descended for capture, recorded in the file inventory, or recreated by
+restore. A missing, nonempty, symlinked, junction, or reparse replacement fails
+closed.
+
 ```bash
 npm run guild-hall:ingress:recovery -- snapshot \
   --source-root <absolute-live-ingress-root> \
   --backup-root <absolute-existing-backup-root> \
+  --recovery-policy <absolute-external-policy-json> \
   [--sqlite-db <absolute-live-sqlite-db>]
 ```
 
@@ -217,6 +240,7 @@ generation:
 npm run guild-hall:ingress:recovery -- snapshot \
   --source-root <absolute-live-ingress-root> \
   --backup-root <absolute-existing-backup-root> \
+  --recovery-policy <absolute-external-policy-json> \
   [--sqlite-db <absolute-live-sqlite-db>] \
   --apply \
   --expected-source-identity <sha256> \
@@ -231,29 +255,41 @@ size, hash, and quick-check result in the recovery manifest. Undeclared
 `.db`/`.sqlite`/`.sqlite3` files fail closed, and SQLite WAL/SHM/journal runtime
 files are not copied.
 
-The fixed top-level `backups/**` subtree is also excluded so a live data root
-can be snapshotted without recursively ingesting older backup generations.
-Ordinary business directories named `session` or `sessions` are retained;
-only credential-like `*.session` files are excluded.
+The sidecar's exact excluded references are metadata-checked but never
+descended: `README.private.md`, `backups`, `config`, `ingress-mcp`, `manifests`,
+`runtime`, `state/health`, and `state/backup_controller`. The backup-controller
+ledger and lease are deliberately not restored; after recovery the controller
+must be reseeded from externally retained backup receipts and anchor inputs.
+Ordinary business directories named `session` or `sessions` remain valid inside
+an included lane.
 
-Every `active.lock.json` is excluded even when its timestamp is stale. Stable
-epoch records, archived stale leases, receipts, and checkpoint JSON remain in
-the file inventory. A separately hashed custody checkpoint carries the maximum
-observed stable custody epoch plus the checkpoint inventory digest, preventing
-an ephemeral lock from becoming recovery authority.
+Every `active.lock.json` is excluded even when its timestamp is stale. CAS lock
+and recovery markers, candidate files, `*.recovery`, generated partials, and
+plain `state/**/*.lock` / `state/**/*.partial` runtime markers are also
+excluded. Stable epoch records, archived stale leases, receipts, and checkpoint
+JSON remain in the file inventory. A separately hashed custody checkpoint
+carries the maximum observed stable custody epoch plus the checkpoint inventory
+digest, preventing an ephemeral lock from becoming recovery authority.
 
 Restore testing accepts only a caller-supplied, existing, empty directory that
-does not overlap the backup root. The default dry-run verifies the commit,
-manifest, every object size/hash, SQLite quick-check, checkpoint inventory, and
-custody watermark without writing. `--apply` additionally requires the exact
-source identity, source digest, and approval reference bound into the manifest:
+does not overlap the backup root. A v2 generation also requires the exact
+external recovery policy whose hash and storage-manifest pin are bound into the
+generation. An unanchored default dry-run observes and
+reports the generation's sanitized manifest SHA-256 but does not claim verified
+trust. Supplying `--expected-manifest-sha256` makes dry-run compare an external
+anchor while checking the commit, manifest, exact generation tree, every object
+size/hash, SQLite quick-check, checkpoint inventory, and custody watermark.
+`--apply` requires that external manifest anchor plus the exact source identity,
+source digest, and approval reference bound into the manifest:
 
 ```bash
 npm run guild-hall:ingress:recovery -- restore-test \
   --backup-root <absolute-existing-backup-root> \
   --generation-id <generation-id> \
   --restore-root <absolute-existing-empty-directory> \
+  --recovery-policy <absolute-external-policy-json> \
   --apply \
+  --expected-manifest-sha256 <externally-recorded-sha256> \
   --expected-source-identity <sha256> \
   --expected-source-digest <sha256> \
   --approval-ref <opaque-safe-id>
@@ -262,14 +298,39 @@ npm run guild-hall:ingress:recovery -- restore-test \
 Apply restores into an invocation-owned temporary child and atomically publishes
 it as `<restore-root>/restored/`. Failure cleanup verifies that temporary
 directory's original identity and removes only that directory; a concurrently
-created external file is never swept or deleted.
+created external file is never swept or deleted. Immediately before each
+snapshot or restore rename, recovery reopens and hashes every expected file and
+rejects any extra file or directory. Snapshot rename publishes an uncommitted
+generation first, reopens that final tree, and writes `COMMITTED.json` as the
+last publication step only after it still matches. Restore reopens the renamed
+isolated tree and moves a failed publication to an invocation-owned
+`.rejected-ingress-restore-*` quarantine name instead of reporting success.
+These checks bind cooperative publication; they do not claim atomic protection
+against a writer that ignores the protocol and can mutate the same ACL surface.
 
-Source/backup/restore overlap, a non-empty restore root, destination collision,
-path escape, symlink, junction/reparse traversal, hard-linked source, unstable
-file, manifest tamper, or object tamper stops the operation. Secret-like names,
-credential/key extensions, credential directories, partial files, and active
-locks are never captured. This surface verifies a recovery generation in
-isolation; it never overwrites or promotes a live root.
+New generations use `soulforge.ingress.recovery_manifest.v2`, persist a
+path-free source-digest basis plus policy, storage-manifest, and writer-authority
+descriptors, and recompute that digest during restore verification. Existing v1
+generations remain inspectable and restorable without a sidecar only when the
+caller supplies their exact external manifest SHA-256. Because v1 did not retain
+the SQLite source-digest basis, its result is explicitly labeled
+`legacy_external_anchor_required`; a v1 manifest containing a now-forbidden
+coordination artifact is diagnostic-only and apply fails closed.
+
+Immutable backup reads use the internal `hash_pinned_network_read` verification
+profile. It tolerates pseudo-inode drift and first-read ctime hydration observed
+on some NAS/RaiDrive mounts only when the expected content hash matches.
+Path/realpath, file type, link count, device, size, and mtime must remain stable.
+Live source copy, restore staging, publication, and cleanup identity remain
+ctime- and inode-strict.
+
+Source/backup/restore/policy overlap, a non-empty restore root, destination
+collision, path escape, symlink, junction/reparse traversal, hard-linked source,
+unstable file, manifest tamper, or object tamper stops the operation. Active
+locks, generated partials, CAS/recovery/candidate markers, state coordination
+files, and declared SQLite runtime files retain their fixed exclusions. This
+surface verifies a recovery generation in isolation; it never overwrites or
+promotes a live root.
 
 ## Fail-closed boundary
 

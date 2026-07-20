@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.backup_controller.binding.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "controller_id", "feature_state", "automation", "writer", "mac", "state_root", "resources", "activation", "stages"],
+  "properties": {
+    "schema_version": { "const": "soulforge.backup_controller.binding.v1" },
+    "controller_id": { "const": "soulforge-backup-controller" },
+    "feature_state": { "enum": ["off", "on"] },
+    "automation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "mode", "minute", "timezone", "ignore_new"],
+          "properties": {
+            "name": { "const": "Soulforge Backup Controller" },
+            "mode": { "const": "hourly_tick" },
+            "minute": { "type": "integer", "minimum": 0, "maximum": 59 },
+            "timezone": { "const": "Asia/Seoul" },
+            "ignore_new": { "const": true }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "mode", "local_time", "timezone", "ignore_new"],
+          "properties": {
+            "name": { "const": "Soulforge Backup Controller" },
+            "mode": { "const": "daily_cycle" },
+            "local_time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+            "timezone": { "const": "Asia/Seoul" },
+            "ignore_new": { "const": true }
+          }
+        }
+      ]
+    },
+    "writer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "hostname", "platform", "role", "mode"],
+      "properties": {
+        "node_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "hostname": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "platform": { "const": "win32" },
+        "role": { "const": "hpp" },
+        "mode": { "const": "writer" }
+      }
+    },
+    "mac": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "mode", "takeover_allowed"],
+      "properties": {
+        "node_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+        "mode": { "enum": ["monitor_only", "fallback_hold"] },
+        "takeover_allowed": { "const": false }
+      }
+    },
+    "state_root": { "type": "string", "minLength": 3 },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hpp_data_root", "hpp_recovery_policy", "hpp_restore_test_root", "runtime_checkout_root", "workspace_root", "erp_db_file", "project_metadata_root", "cross_project_state_root", "nas_hpp_backup_root", "nas_workspace_backup_root", "nas_erp_backup_root", "nas_restore_root", "nas_report_root"],
+      "properties": {
+        "hpp_data_root": { "$ref": "#/$defs/directoryResource" },
+        "hpp_recovery_policy": { "$ref": "#/$defs/pinnedFileResource" },
+        "hpp_restore_test_root": { "$ref": "#/$defs/directoryResource" },
+        "runtime_checkout_root": { "$ref": "#/$defs/directoryResource" },
+        "workspace_root": { "$ref": "#/$defs/oneDriveCloudDirectoryResource" },
+        "erp_db_file": { "$ref": "#/$defs/fileResource" },
+        "project_metadata_root": { "$ref": "#/$defs/directoryResource" },
+        "cross_project_state_root": { "$ref": "#/$defs/directoryResource" },
+        "nas_hpp_backup_root": { "$ref": "#/$defs/raiDriveNetworkDirectoryResource" },
+        "nas_workspace_backup_root": { "$ref": "#/$defs/raiDriveNetworkDirectoryResource" },
+        "nas_erp_backup_root": { "$ref": "#/$defs/raiDriveNetworkDirectoryResource" },
+        "nas_restore_root": { "$ref": "#/$defs/raiDriveNetworkDirectoryResource" },
+        "nas_report_root": { "$ref": "#/$defs/raiDriveNetworkDirectoryResource" }
+      }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approval_ref", "not_before", "seed_receipts"],
+      "properties": {
+        "approval_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{7,127}$" },
+        "not_before": { "type": "string", "format": "date-time" },
+        "seed_receipts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hpp_snapshot", "workspace_copy", "erp_backup", "health", "weekly_restore"],
+          "properties": {
+            "hpp_snapshot": { "oneOf": [{ "$ref": "#/$defs/seedReceipt" }, { "type": "null" }] },
+            "workspace_copy": { "oneOf": [{ "$ref": "#/$defs/seedReceipt" }, { "type": "null" }] },
+            "erp_backup": { "oneOf": [{ "$ref": "#/$defs/seedReceipt" }, { "type": "null" }] },
+            "health": { "oneOf": [{ "$ref": "#/$defs/seedReceipt" }, { "type": "null" }] },
+            "weekly_restore": { "oneOf": [{ "$ref": "#/$defs/seedReceipt" }, { "type": "null" }] }
+          }
+        }
+      }
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stage_id", "cadence", "local_time", "deadline_minutes", "max_runtime_seconds", "command_id"],
+        "properties": {
+          "stage_id": { "enum": ["hpp_snapshot", "workspace_copy", "erp_backup", "health", "weekly_restore"] },
+          "cadence": { "enum": ["daily", "weekly"] },
+          "local_time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+          "day_of_week": { "enum": ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] },
+          "deadline_minutes": { "type": "integer", "minimum": 1, "maximum": 10080 },
+          "max_runtime_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+          "command_id": { "enum": ["hpp_snapshot_v1", "workspace_copy_v1", "erp_backup_v1", "backup_health_v1", "isolated_restore_v1"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "seedReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["period_key", "completed_at", "receipt_sha256"],
+      "properties": {
+        "period_key": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "completed_at": { "type": "string", "format": "date-time" },
+        "receipt_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "directoryResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "const": "directory" },
+        "path": { "type": "string", "minLength": 3 }
+      }
+    },
+    "fileResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "const": "file" },
+        "path": { "type": "string", "minLength": 3 }
+      }
+    },
+    "pinnedFileResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "sha256"],
+      "properties": {
+        "kind": { "const": "pinned_file" },
+        "path": { "type": "string", "minLength": 3 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "oneDriveCloudDirectoryResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "reparse_profile"],
+      "properties": {
+        "kind": { "const": "onedrive_cloud_directory" },
+        "path": { "type": "string", "minLength": 3 },
+        "reparse_profile": { "const": "microsoft_onedrive_cloud_0x9000601a" }
+      }
+    },
+    "raiDriveNetworkDirectoryResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "unc_prefix"],
+      "properties": {
+        "kind": { "const": "raidrive_network_directory" },
+        "path": { "type": "string", "minLength": 3 },
+        "unc_prefix": { "type": "string", "pattern": "^\\\\\\\\RaiDrive-[A-Za-z0-9._-]+\\\\[A-Za-z0-9 $._-]+$" }
+      }
+    }
+  }
+}

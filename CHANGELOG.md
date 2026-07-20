@@ -2,6 +2,30 @@
 
 ## 2026-07-20
 
+### Feature-OFF unified daily backup-controller composition
+
+- Added a one-wakeup daily-cycle composition for the future `Soulforge Backup
+  Controller` Codex automation while retaining the hourly tick API. The daily
+  cycle runs HPP snapshot, ERP DB plus metadata, health, due weekly verification,
+  then the long workspace copy under one IgnoreNew lease. Critical receipts are
+  durable before the workspace lane can finish with a warning.
+- Added metadata-only idempotent cutover seeding, `not_before`, checkpoint/retry
+  status, deadline/overlap gates, sanitized JSON results, HPP-only writer and Mac
+  monitor/fallback-hold metadata, exact typed operational resource roots, and
+  injected fixed command IDs with stage-bounded resource, stable operation key,
+  lease fence, and abort context. Added exact external activation sidecars,
+  pinned runtime checkout commit/clean-tree checks, typed OneDrive and RaiDrive
+  UNC profiles, writer-exclusive local ACL gates, policy digest enforcement,
+  fixed HPP/runtime DB/copy/health/verification handlers, atomic external
+  receipts, crash reconciliation, and safe same-host stale-lease recovery.
+  Runtime DB backup uses the existing WAL-safe runtime_ops backup plus read-only
+  quick_check/hash verification; metadata and workspace copies are copy-only
+  and junction/secret excluding. Recurring weekly recovery is full anchored
+  no-write verification only. OFF short-circuits before preflight or probes.
+  No automation mutation, live binding, delete/retention action, or takeover
+  path is enabled.
+  (worker: codex_gpt-5)
+
 ### HPP five-lane production-ingress cutover foundation
 
 - Added an additive content-addressed ingress backup with an independently

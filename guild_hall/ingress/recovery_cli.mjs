@@ -11,11 +11,13 @@ import { fileURLToPath } from "node:url";
 const VALUE_OPTIONS = new Set([
   "source-root",
   "backup-root",
+  "recovery-policy",
   "sqlite-db",
   "generation-id",
   "restore-root",
   "expected-source-identity",
   "expected-source-digest",
+  "expected-manifest-sha256",
   "approval-ref",
 ]);
 const FLAG_OPTIONS = new Set(["apply", "help"]);
@@ -51,6 +53,7 @@ function parseArguments(argv) {
     ? new Set([
       "source-root",
       "backup-root",
+      "recovery-policy",
       "sqlite-db",
       "generation-id",
       "expected-source-identity",
@@ -59,10 +62,12 @@ function parseArguments(argv) {
     ])
     : new Set([
       "backup-root",
+      "recovery-policy",
       "generation-id",
       "restore-root",
       "expected-source-identity",
       "expected-source-digest",
+      "expected-manifest-sha256",
       "approval-ref",
     ]);
   for (const name of values.keys()) if (!allowed.has(name)) fail("recovery_cli_argument_invalid");
@@ -72,11 +77,13 @@ function parseArguments(argv) {
     help: flags.has("help"),
     sourceRoot: values.get("source-root"),
     backupRoot: values.get("backup-root"),
+    recoveryPolicyPath: values.get("recovery-policy"),
     sqlitePath: values.get("sqlite-db"),
     generationId: values.get("generation-id"),
     restoreRoot: values.get("restore-root"),
     expectedSourceIdentity: values.get("expected-source-identity"),
     expectedSourceDigest: values.get("expected-source-digest"),
+    expectedManifestSha256: values.get("expected-manifest-sha256"),
     approvalRef: values.get("approval-ref"),
   };
 }
@@ -88,10 +95,10 @@ function helpResult() {
     operation: "help",
     status: "no_write",
     usage: [
-      "recovery snapshot --source-root <absolute> --backup-root <absolute> [--sqlite-db <absolute>]",
-      "recovery snapshot --source-root <absolute> --backup-root <absolute> [--sqlite-db <absolute>] --apply --expected-source-identity <sha256> --expected-source-digest <sha256> --approval-ref <opaque-id>",
-      "recovery restore-test --backup-root <absolute> --generation-id <id> --restore-root <absolute>",
-      "recovery restore-test --backup-root <absolute> --generation-id <id> --restore-root <absolute> --apply --expected-source-identity <sha256> --expected-source-digest <sha256> --approval-ref <opaque-id>",
+      "recovery snapshot --source-root <absolute> --backup-root <absolute> --recovery-policy <absolute> [--sqlite-db <absolute>]",
+      "recovery snapshot --source-root <absolute> --backup-root <absolute> --recovery-policy <absolute> [--sqlite-db <absolute>] --apply --expected-source-identity <sha256> --expected-source-digest <sha256> --approval-ref <opaque-id>",
+      "recovery restore-test --backup-root <absolute> --generation-id <id> --restore-root <absolute> --recovery-policy <absolute>",
+      "recovery restore-test --backup-root <absolute> --generation-id <id> --restore-root <absolute> --recovery-policy <absolute> --apply --expected-manifest-sha256 <sha256> --expected-source-identity <sha256> --expected-source-digest <sha256> --approval-ref <opaque-id>",
     ],
     dry_run_default: true,
     output: "sanitized_json_only",
@@ -110,7 +117,9 @@ function sanitizedFailure(error, command) {
     schema_version: INGRESS_RECOVERY_RESULT_SCHEMA,
     ok: false,
     operation: new Set(["snapshot", "restore-test"]).has(command) ? command.replace("-", "_") : "unknown",
-    status: "blocked_no_write_claim",
+    status: error?.mutationStatus && error.mutationStatus !== "no_write_claim"
+      ? `blocked_${error.mutationStatus}`
+      : "blocked_no_write_claim",
     code: error instanceof IngressRecoveryError ? error.code : "recovery_internal_failure",
   };
 }

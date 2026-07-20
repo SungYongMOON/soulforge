@@ -16,6 +16,9 @@
 - `daily_ledger/`: metadata-only daily work ledger validator and ledger-only worklog draft renderer
 - `file_activity/`: multi-PC project file observation packets, single-primary logical-file/revision reconciliation,
   monthly metadata receipts/events, checkpoint-only rebuild, and bounded life-tree projection helper
+- `backup_controller/`: feature-OFF, single-writer daily backup composition with
+  exact activation/binding validation, one durable state ledger, live preflight,
+  fixed handlers, and an hourly-tick compatibility API
 - `ingress/`: explicit-file, content-deduplicated unclassified staging plus a
   default-OFF HPP lease/fence supervisor for private voice and outbox bindings;
   no project binding, accepted-ingress, ERP, MCP, or TaskEngine authority
@@ -58,6 +61,7 @@
 - `knowledge_canon/` 은 package payload를 `_workspaces/system/**`에만 만들고 `_workmeta`에는 manifest, Drive/NotebookLM binding, validation, recovery metadata refs만 남긴다. 외부 upload나 NAS write authority는 소유하지 않는다.
 - `daily_ledger/` 는 명시된 daily ledger file/ref 만 읽고 report time 에 mail, git history, system log, raw source ref, live `_workspaces` payload 를 스캔하지 않는다.
 - `file_activity/` 는 승인된 project worksite를 명시적으로 scan할 때만 file bytes를 streaming SHA-256으로 읽고, payload를 보존하지 않는다. node별 packet과 logical-file/revision state, monthly receipt/event, checkpoint와 life-tree projection은 metadata-only다. checkpoint tail replay와 graph compaction은 아직 지원하지 않으며 live scheduler/transport/ACL/ERP correlation emitter는 별도 활성화 전까지 소유하지 않는다.
+- `backup_controller/` 는 기본 feature-OFF 이며 exact activation sidecar 하나로만 daily composition을 연다. binding·runtime commit·writer·시간창·resource type을 고정하고, HPP/ERP/health/weekly verification/workspace fixed handler와 외부 receipt를 제공한다. OFF는 preflight 전에 종료하며 scheduler 설치·automation 교체·ACL 변경·Mac takeover·delete/retention mutation은 소유하지 않는다.
 - `ingress/` 는 절대 data root의 metadata manifest를 검증한 뒤 명시된 regular file 하나만 unclassified content-digest path로 복사하고, opaque source identity별 receipt/checkpoint history를 분리한다. 연속 supervisor는 private exact binding의 voice/outbox만 one-shot으로 drain하고 D-local lease epoch/fence를 매 payload 전후 재검증한다. source locator/body를 metadata나 operator output에 남기지 않으며 accepted/quarantine/project binding, DB/network/MCP/service/task writer 또는 scheduler 설치 권한을 소유하지 않는다.
 - `knowledge_graph/` 는 generated local view 만 만들며 graph weight, usage count, Obsidian link 를 truth/approval 로 취급하지 않는다.
 - `rag/` 의 기본 manifest/index/trace/evaluation/answer path 는 metadata-only 이며 source text, private payload, NotebookLM answer, chunk, source-text vector/BM25 store 를 읽지 않는다.
