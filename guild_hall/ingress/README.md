@@ -244,6 +244,39 @@ If a spawned child times out or returns an invalid summary, the receipt marks
 the run partial with `write_count_known: false`; aggregate writes become an
 explicit lower bound and are never reported as an exact zero.
 
+## Legacy mail custody materialization
+
+`legacy_mail_custody_materializer.mjs` moves an explicitly frozen legacy mail
+tree into HPP custody without discovering, deleting, moving, or modifying the
+source. The private binding lists every relative file reference, byte size, and
+SHA-256 and pins the canonical list digest. Dry-run is the default and emits
+only counts, digests, and fixed status fields; it never emits source paths or
+file names:
+
+```bash
+npm run guild-hall:ingress:legacy-mail-custody -- \
+  --binding <absolute-private-binding-json>
+```
+
+Apply additionally requires the exact approval reference stored in that
+binding. Each unique payload is published once as
+`objects/sha256/<prefix>/<sha256>.bin`. An immutable snapshot binds the
+original relative references to those objects and becomes visible only with a
+matching `COMMITTED.json`. Identical replay verifies and reuses both objects
+and snapshot; a changed source, destination conflict, path escape, link,
+reparse point, hard link, or unstable file fails closed.
+
+```bash
+npm run guild-hall:ingress:legacy-mail-custody -- \
+  --binding <absolute-private-binding-json> \
+  --apply \
+  --approval-ref <exact-binding-approval-ref>
+```
+
+The tool has no collector, scheduler, writer-authority, ERP, MCP, project
+classification, or live-activation surface. It is a one-way, copy-only custody
+bridge for a fixed legacy snapshot.
+
 ## Recovery snapshot and isolated restore test
 
 `recovery_cli.mjs` creates an additive, immutable backup generation for one

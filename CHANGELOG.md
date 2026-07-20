@@ -2,6 +2,18 @@
 
 ## 2026-07-21
 
+### Materialize frozen legacy mail into immutable HPP custody
+
+- Added a copy-only legacy mail custody materializer over one exact private
+  binding. It verifies every named source before and after read, stores unique
+  bytes as content-addressed objects, and publishes an immutable committed
+  snapshot linking original relative references to those objects. Dry-run is
+  path-free and write-free; apply requires the binding's approval reference.
+  Replay is idempotent, while path escape, overlap, link/reparse/hard-link,
+  source drift, destination conflict, and snapshot conflict fail closed.
+  Synthetic tests cover copy, replay, redaction, approval, tamper, traversal,
+  and cleanup boundaries. (worker: codex_gpt-5)
+
 ### Produce a bound legacy mail dry-run descriptor safely
 
 - Added an explicit-binding adapter for actual HPP event/custody, gateway
