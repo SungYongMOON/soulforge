@@ -12,6 +12,25 @@ voice copy-only mirror. Both surfaces remain source-preserving and unclassified;
 neither is a project router, accepted-ingress promoter, ERP writer, MCP service,
 knowledge promoter, or TaskEngine writer.
 
+Before any legacy mail custody unification, the dry-run-only merge manifest CLI
+accepts one explicitly named sanitized JSON descriptor. Records contain only
+digest identities and a fixed source kind; mail bodies, previews, subjects,
+addresses, attachment names, raw payloads, and source paths are not accepted.
+It prefers `hpp_eml_current`, then `gateway_normalized_attachments`, then
+`erp_legacy_body_preview`, then `metadata_only`. Exact event/provider ID
+digests may form a future dedupe group. A conservative fingerprint match is
+reported as ambiguous and is never merged automatically.
+
+```bash
+npm run guild-hall:ingress:legacy-mail-merge-manifest -- \
+  --input <one-explicit-sanitized-json-descriptor>
+```
+
+The command has no apply mode, does not search roots or read source payloads,
+and writes only sanitized counts, digests, an action plan, and a no-copy/no-write
+proof to stdout. It does not invoke a collector or change writer, scheduler,
+MCP, promotion, or activation state.
+
 ## Fixed lanes
 
 | CLI lane | Manifest lane | Immutable payload root |
