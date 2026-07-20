@@ -1,5 +1,33 @@
 # guild_hall/shared
 
+## Receipt-to-Shadow adapter v2
+
+- `project_history_receipt_adapter_v2.mjs` converts an explicit set of HPP
+  staging or voice-copy receipts into zero or more metadata-only Shadow events
+  for each of the five lanes. It never reads a RAW payload and never accepts a
+  project classification.
+- The adapter always emits exactly five independent coverage receipts, so an
+  empty or degraded lane is visible rather than silently treated as complete.
+  Writer-authority evidence is a separate attestation and cannot be smuggled in
+  as source evidence.
+- Replay is deterministic. Reusing an occurrence identity with different
+  receipt evidence fails closed. Version 1 remains unchanged for retained pilot
+  evidence.
+- A feature-OFF validation build additionally requires a separately supplied private
+  Shadow-adapter authority record and its externally pinned digest. The adapter
+  opens that exact file, binds its identity and bytes, and checks its validity
+  against the trusted operation clock rather than request time. An opaque
+  capability is checked at the copied-SQLite and artifact-bundle boundaries.
+  New directories are
+  created and verified one direct component at a time, so a junction cannot
+  cause even an out-of-root staging side effect. The standalone projector CLI
+  is validation-only. Operational Shadow publication remains disabled: the HPP
+  scheduler must not invoke the one-shot route until an independent review proves
+  one continuous authority fence through database commit and final publication,
+  plus immutable staged bytes through rename. RAW-ingress authority cannot be reused as classification or
+  projector authority; those production epochs remain deliberately
+  unimplemented.
+
 ## Feature-OFF project-history knowledge projection
 
 - `project_history_knowledge_projection.mjs` derives explicit `project` or

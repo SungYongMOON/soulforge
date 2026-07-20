@@ -17,7 +17,7 @@ const READ_ONLY_TICKET = Object.freeze({
 
 const PATH_ID = z.string().min(1).max(256);
 
-export const PROJECT_HISTORY_MCP_INSTRUCTIONS = `This feature-OFF server reads exactly one attested generation from an existing copied ERP database. Always provide both project_id and generation_id. There is no latest-generation or raw-source fallback. Download tools return only a short-lived one-time ticket and safe metadata; fetch artifact bytes from the returned localhost URL outside MCP JSON.`;
+export const PROJECT_HISTORY_MCP_INSTRUCTIONS = `This feature-OFF server reads exactly one private-binding- and artifact-manifest-attested generation from an existing copied ERP database. Always provide both project_id and generation_id. There is no latest-generation or raw-source fallback. Download tools return only a short-lived one-time ticket and safe metadata; fetch artifact bytes from the returned localhost URL outside MCP JSON.`;
 
 function result(payload) {
   return {

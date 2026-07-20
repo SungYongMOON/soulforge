@@ -313,9 +313,10 @@ async function removeTemporaryIfSafe(dataRoot, temporary) {
   }
 }
 
-async function installTemporary(dataRoot, temporary, target, mismatchVerifier) {
+async function installTemporary(dataRoot, temporary, target, mismatchVerifier, assertFence, fenceContext) {
   try {
     await inspectDirectoryChain(dataRoot, dirname(target));
+    await assertFence(fenceContext);
     await link(temporary, target);
     return true;
   } catch (error) {
@@ -327,7 +328,7 @@ async function installTemporary(dataRoot, temporary, target, mismatchVerifier) {
   }
 }
 
-async function writeImmutableJson(dataRoot, path, payload, fields, mismatchCode) {
+async function writeImmutableJson(dataRoot, path, payload, fields, mismatchCode, assertFence, artifact) {
   const parent = dirname(path);
   await inspectDirectoryChain(dataRoot, parent, { create: true });
   const temporary = `${path}.partial-${randomUUID()}`;
@@ -339,13 +340,15 @@ async function writeImmutableJson(dataRoot, path, payload, fields, mismatchCode)
       temporary,
       path,
       () => inspectExistingJson(dataRoot, path, payload, fields, mismatchCode),
+      assertFence,
+      { phase: `before_${artifact}_publish`, artifact, target: path },
     );
   } finally {
     await removeTemporaryIfSafe(dataRoot, temporary);
   }
 }
 
-async function copyImmutablePayload(dataRoot, sourcePath, target, expected, testHooks = {}) {
+async function copyImmutablePayload(dataRoot, sourcePath, target, expected, testHooks = {}, assertFence) {
   const current = await sourceIdentity(sourcePath);
   if (!sameIdentity(current, expected.identity)) fail("source_unstable");
   const parent = dirname(target);
@@ -372,6 +375,8 @@ async function copyImmutablePayload(dataRoot, sourcePath, target, expected, test
       temporary,
       target,
       () => inspectExistingPayload(dataRoot, target, expected),
+      assertFence,
+      { phase: "before_payload_publish", artifact: "payload", target },
     );
   } finally {
     await removeTemporaryIfSafe(dataRoot, temporary);
@@ -384,6 +389,7 @@ export async function stageIngressFile(options = {}) {
   if (!laneConfig) fail("invalid_lane");
   const sourceOwnerRef = sourceIdentifier(options.sourceOwnerRef, "source_owner_ref");
   const sourceKey = sourceIdentifier(options.sourceKey, "source_key");
+  const assertFence = typeof options.assertFence === "function" ? options.assertFence : async () => {};
   if (typeof options.dataRoot !== "string" || !isAbsolute(options.dataRoot)) fail("data_root_must_be_absolute");
   if (typeof options.source !== "string" || options.source.length === 0) fail("source_required");
 
@@ -462,6 +468,7 @@ export async function stageIngressFile(options = {}) {
       payloadPath,
       source,
       options.testHooks,
+      assertFence,
     )) writesPerformed += 1;
     if (!receiptExists && await writeImmutableJson(
       dataRoot,
@@ -469,6 +476,8 @@ export async function stageIngressFile(options = {}) {
       receipt,
       RECEIPT_FIELDS,
       "existing_receipt_mismatch",
+      assertFence,
+      "receipt",
     )) writesPerformed += 1;
     if (!checkpointExists && await writeImmutableJson(
       dataRoot,
@@ -476,6 +485,8 @@ export async function stageIngressFile(options = {}) {
       checkpoint,
       CHECKPOINT_FIELDS,
       "existing_checkpoint_mismatch",
+      assertFence,
+      "checkpoint",
     )) writesPerformed += 1;
   }
 

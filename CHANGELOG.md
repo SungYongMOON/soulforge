@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## 2026-07-20
+
+### HPP five-lane production-ingress cutover foundation
+
+- Added an additive content-addressed ingress backup with an independently
+  verified restore-test path, stable custody watermark, declared SQLite
+  `VACUUM INTO` snapshot, secret/ephemeral exclusion, and exact dry-run identity
+  authorization. It never overwrites the live root.
+- Added a durable five-lane writer-authority epoch with explicit
+  primary/fallback modes, CAS transitions, active-run interlock, stale-writer
+  fencing, guarded failback, and local-process liveness gates. Timestamp expiry
+  alone cannot reap a paused local owner or a remote-host lock. Continuous
+  binding v2 retains v1 compatibility while adding bounded team mail, a
+  complete externally pinned collector release, a Windows pre-opened/locked
+  operation-local code/register capsule, birth/change-time credential identity
+  checks without Node-side secret reads or content digests, all-mailbox primary
+  credential preload, capsule-only nested credential-file rejection, sanitized child
+  output, and per-lane authority validation. Applied scheduler runs additionally
+  require an external SHA-256 pin for the exact raw continuous-binding bytes.
+- Added a strict receipt-to-Shadow v2 adapter that accepts zero or more explicit
+  staging/voice receipts, emits exactly five honest coverage rows, separates
+  source and writer attestations, requires an externally pinned independent
+  Shadow authority record for validation builds, and keeps RAW copying, accepted
+  history, ERP, MCP, and project promotion disabled. RAW-ingress writer
+  authority remains scoped to custody only. The standalone projector CLI is
+  validation-only, and the HPP cutover leaves Shadow publication unscheduled
+  until one authority fence spans database commit and final publication and
+  staged bytes remain immutable through rename.
+  (worker: codex_gpt-5.5)
+
 ## 2026-07-19
 
 ### Bounded actual five-lane custody staging

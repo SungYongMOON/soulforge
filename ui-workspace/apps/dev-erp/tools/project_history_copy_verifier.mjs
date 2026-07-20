@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
+import {
+  lstatSync,
+  readFileSync,
+  realpathSync,
+} from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { DatabaseSync } from "node:sqlite";
@@ -16,50 +20,29 @@ import {
 } from "../../../../guild_hall/shared/project_history_envelope.mjs";
 import {
   PROJECT_HISTORY_COPY_COLUMNS,
-  PROJECT_HISTORY_COPY_XLSX_INPUT_SCHEMA_VERSION,
   ProjectHistoryCopyProjectionError,
+  assertCanonicalProjectHistoryProjectionSchema,
   buildCanonicalProjectHistoryCopyModel,
-  inspectStandaloneSqliteCopy,
-  productionLookingPathReasons,
 } from "./project_history_copy_projector.mjs";
+import {
+  PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES,
+  artifactRecord,
+  assertProjectHistoryCopyBindingTarget,
+  readProjectHistoryCopyArtifactManifest,
+  readProjectHistoryCopyBinding,
+} from "./project_history_copy_binding.mjs";
+import {
+  PROJECT_HISTORY_COPY_XLSX_READBACK_SCHEMA_VERSION,
+  readProjectHistoryCopyXlsx,
+  validateProjectHistoryCopyXlsxInput as validateXlsxInput,
+  verifyProjectHistoryCopyXlsxReadback,
+} from "./project_history_copy_xlsx.mjs";
 
-export const PROJECT_HISTORY_COPY_XLSX_READBACK_SCHEMA_VERSION =
-  "soulforge.project_history_copy_xlsx_readback.v1";
+export { PROJECT_HISTORY_COPY_XLSX_READBACK_SCHEMA_VERSION };
 
 const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/u;
 const INTEGER_COLUMNS = new Set(["event_count", "coverage_count", "sort_ordinal"]);
 const BOOLEAN_COLUMNS = new Set(["raw_payload_copied", "accepted_history"]);
-const XLSX_INPUT_FIELDS = Object.freeze([
-  "schema_version",
-  "generation_id",
-  "project_id",
-  "classification_state",
-  "event_count",
-  "coverage_count",
-  "ordered_event_digest",
-  "source_attestation_digest",
-  "raw_payload_copied",
-  "accepted_history",
-  "columns",
-  "rows",
-  "ordered_row_digest",
-  "hidden_sheets",
-  "external_links",
-  "formula_cells",
-]);
-const XLSX_READBACK_FIELDS = Object.freeze([
-  "schema_version",
-  "generation_id",
-  "event_count",
-  "coverage_count",
-  "ordered_event_digest",
-  "ordered_row_digest",
-  "columns",
-  "rows",
-  "hidden_sheet_count",
-  "external_link_count",
-  "formula_cell_count",
-]);
 
 function fail(code, message) {
   throw new ProjectHistoryCopyProjectionError(code, message);
@@ -76,15 +59,9 @@ function assertExactKeys(value, expected, label) {
   }
 }
 
-function assertVerifierAuthorization(dbPath, pilotCopy, attestation) {
-  if (pilotCopy !== true) {
-    fail("pilot_copy_flag_required", "The copy verifier requires explicit --pilot-copy");
-  }
+function assertVerifierAttestation(attestation) {
   if (typeof attestation !== "string" || !DIGEST_PATTERN.test(attestation)) {
     fail("digest_invalid", "Attestation must be a canonical sha256 digest");
-  }
-  if (productionLookingPathReasons(dbPath).length > 0 && (!pilotCopy || !attestation)) {
-    fail("production_path_refused", "A production-looking path requires pilot-copy authorization and attestation");
   }
 }
 
@@ -245,38 +222,76 @@ export function readValidatedProjectHistoryGenerationQueryOnly(
 }
 
 export function validateProjectHistoryCopyXlsxInput(value, expectedModel) {
-  assertExactKeys(value, XLSX_INPUT_FIELDS, "XLSX input");
-  if (value.schema_version !== PROJECT_HISTORY_COPY_XLSX_INPUT_SCHEMA_VERSION) {
-    fail("xlsx_input_schema_invalid", "Unexpected XLSX-input schema version");
-  }
-  if (value.hidden_sheets !== false || value.external_links !== false || value.formula_cells !== false) {
-    fail("xlsx_input_boundary_invalid", "XLSX input cannot request hidden, external, or formula data");
-  }
-  if (canonicalJson(value) !== canonicalJson(expectedModel)) {
-    fail("xlsx_input_parity_mismatch", "XLSX input differs from the canonical DB row model");
-  }
+  return validateXlsxInput(value, expectedModel);
 }
 
 export function verifyXlsxReadbackManifest(value, expectedModel) {
-  assertExactKeys(value, XLSX_READBACK_FIELDS, "XLSX readback");
-  if (value.schema_version !== PROJECT_HISTORY_COPY_XLSX_READBACK_SCHEMA_VERSION) {
-    fail("xlsx_readback_schema_invalid", "Unexpected XLSX readback schema version");
+  return verifyProjectHistoryCopyXlsxReadback(value, expectedModel);
+}
+
+function normalizedPath(value) {
+  const resolved = path.resolve(value);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+function stableStatEqual(left, right) {
+  return left.dev === right.dev
+    && left.ino === right.ino
+    && left.nlink === right.nlink
+    && left.size === right.size
+    && left.mtimeNs === right.mtimeNs
+    && left.ctimeNs === right.ctimeNs;
+}
+
+function readStableArtifact(filePath, filename) {
+  const resolved = path.resolve(filePath);
+  let before;
+  let after;
+  let real;
+  let bytes;
+  try {
+    before = lstatSync(resolved, { bigint: true });
+    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1n || before.size < 1n) {
+      fail("artifact_not_standalone", `${filename} must be a direct single-link file`);
+    }
+    bytes = readFileSync(resolved);
+    after = lstatSync(resolved, { bigint: true });
+    real = realpathSync.native(resolved);
+  } catch (error) {
+    if (error instanceof ProjectHistoryCopyProjectionError) throw error;
+    fail("artifact_unreadable", `${filename} could not be read`);
   }
-  if (value.hidden_sheet_count !== 0
-      || value.external_link_count !== 0
-      || value.formula_cell_count !== 0) {
-    fail("xlsx_readback_boundary_invalid", "XLSX readback found hidden, external, or formula data");
+  if (!stableStatEqual(before, after)
+      || bytes.length !== Number(after.size)
+      || normalizedPath(real) !== normalizedPath(resolved)) {
+    fail("artifact_changed_during_read", `${filename} changed while it was being read`);
   }
-  if (value.generation_id !== expectedModel.generation_id
-      || value.event_count !== expectedModel.event_count
-      || value.coverage_count !== expectedModel.coverage_count
-      || value.ordered_event_digest !== expectedModel.ordered_event_digest
-      || value.ordered_row_digest !== expectedModel.ordered_row_digest
-      || canonicalJson(value.columns) !== canonicalJson(expectedModel.columns)
-      || canonicalJson(value.rows) !== canonicalJson(expectedModel.rows)) {
-    fail("xlsx_readback_parity_mismatch", "XLSX readback differs from the canonical DB row model");
+  return Object.freeze({ bytes, record: artifactRecord(filename, bytes) });
+}
+
+function assertArtifactRecord(actual, expected, label) {
+  if (actual.filename !== expected.filename
+      || actual.size !== expected.size
+      || actual.sha256 !== expected.sha256) {
+    fail("artifact_hash_mismatch", `${label} bytes do not match the bound artifact manifest`);
   }
-  return true;
+}
+
+function decodeUtf8(bytes, label) {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    fail("artifact_utf8_invalid", `${label} is not strict UTF-8`);
+  }
+}
+
+function decodeJson(bytes, label) {
+  try {
+    return JSON.parse(decodeUtf8(bytes, label).replace(/^\uFEFF/u, ""));
+  } catch (error) {
+    if (error instanceof ProjectHistoryCopyProjectionError) throw error;
+    fail("artifact_json_invalid", `${label} is not JSON`);
+  }
 }
 
 export function verifyCopiedProjectHistoryProjection({
@@ -284,19 +299,86 @@ export function verifyCopiedProjectHistoryProjection({
   generationId,
   csvPath,
   xlsxInputPath,
-  xlsxReadbackPath = null,
+  xlsxPath,
+  xlsxReadbackPath,
+  artifactManifestPath,
+  artifactManifestDigest,
+  bindingPath,
+  bindingDigest,
   pilotCopy = false,
   attestation = null,
 }) {
-  for (const [label, value] of [["db", dbPath], ["csv", csvPath], ["xlsx-input", xlsxInputPath]]) {
+  for (const [label, value] of [
+    ["db", dbPath],
+    ["csv", csvPath],
+    ["xlsx-input", xlsxInputPath],
+    ["xlsx", xlsxPath],
+    ["xlsx-readback", xlsxReadbackPath],
+    ["artifact-manifest", artifactManifestPath],
+    ["binding", bindingPath],
+  ]) {
     if (typeof value !== "string" || value.length === 0) fail("path_required", `${label} path is required`);
   }
   if (typeof generationId !== "string" || generationId.length === 0) {
     fail("generation_id_required", "An explicit generation ID is required; current pointers are never consulted");
   }
-  assertVerifierAuthorization(dbPath, pilotCopy, attestation);
-  inspectStandaloneSqliteCopy(dbPath);
-  const db = new DatabaseSync(path.resolve(dbPath), { readOnly: true });
+  assertVerifierAttestation(attestation);
+  if (typeof bindingDigest !== "string" || bindingDigest.length === 0) {
+    fail("binding_digest_required", "An externally pinned private binding digest is required");
+  }
+  if (typeof artifactManifestDigest !== "string" || artifactManifestDigest.length === 0) {
+    fail("artifact_manifest_digest_required", "An externally pinned artifact manifest digest is required");
+  }
+  const binding = readProjectHistoryCopyBinding(path.resolve(bindingPath), {
+    expectedDigest: bindingDigest,
+  });
+  const artifactPaths = {
+    csvPath,
+    xlsxInputPath,
+    xlsxPath,
+    xlsxReadbackPath,
+    artifactManifestPath,
+  };
+  const projectMatches = binding.allowed_project_ids.filter((projectId) => {
+    try {
+      assertProjectHistoryCopyBindingTarget(binding, {
+        bindingDigest,
+        dbPath,
+        projectId,
+        generationId,
+        artifactPaths,
+        requireDatabaseHash: false,
+      });
+      return true;
+    } catch (error) {
+      if (error?.code === "projection_root_mismatch") return false;
+      throw error;
+    }
+  });
+  if (projectMatches.length !== 1) {
+    fail("projection_root_mismatch", "Artifact paths do not identify exactly one allowed project root");
+  }
+  const projectId = projectMatches[0];
+  const bound = assertProjectHistoryCopyBindingTarget(binding, {
+    bindingDigest,
+    dbPath,
+    projectId,
+    generationId,
+    artifactPaths,
+    requireDatabaseHash: false,
+  });
+  const manifest = readProjectHistoryCopyArtifactManifest(path.resolve(artifactManifestPath), {
+    binding,
+    expectedDigest: artifactManifestDigest,
+  });
+  if (manifest.project_id !== projectId
+      || manifest.generation_id !== generationId
+      || manifest.generation_digest !== attestation
+      || manifest.database_after_sha256 !== bound.database.sha256) {
+    fail("artifact_binding_mismatch", "Artifact manifest does not match the requested bound DB generation");
+  }
+
+  const db = new DatabaseSync(bound.database.path, { readOnly: true });
   let model;
   let totalChangesBefore;
   let totalChangesAfter;
@@ -305,7 +387,13 @@ export function verifyCopiedProjectHistoryProjection({
     const queryOnly = Number(db.prepare("PRAGMA query_only").get().query_only);
     if (queryOnly !== 1) fail("query_only_guard_failed", "SQLite query_only could not be enabled");
     totalChangesBefore = Number(db.prepare("SELECT total_changes() AS count").get().count);
-    const generation = readValidatedProjectHistoryGenerationQueryOnly(db, generationId, attestation);
+    assertCanonicalProjectHistoryProjectionSchema(db);
+    const generation = readValidatedProjectHistoryGenerationQueryOnly(
+      db,
+      generationId,
+      attestation,
+      { projectId },
+    );
     model = buildCanonicalProjectHistoryCopyModel(generation);
     totalChangesAfter = Number(db.prepare("SELECT total_changes() AS count").get().count);
   } finally {
@@ -314,19 +402,44 @@ export function verifyCopiedProjectHistoryProjection({
   if (totalChangesBefore !== 0 || totalChangesAfter !== 0) {
     fail("query_only_mutation_detected", "Verifier connection reported SQLite mutations");
   }
+  const afterRead = assertProjectHistoryCopyBindingTarget(binding, {
+    bindingDigest,
+    dbPath,
+    projectId,
+    generationId,
+    artifactPaths,
+    requireDatabaseHash: false,
+  });
+  if (afterRead.database.sha256 !== manifest.database_after_sha256) {
+    fail("database_hash_mismatch", "Copied DB hash changed after the artifact manifest was sealed");
+  }
+  if (manifest.ordered_event_digest !== model.ordered_event_digest
+      || manifest.ordered_row_digest !== model.ordered_row_digest) {
+    fail("artifact_model_digest_mismatch", "Artifact manifest row/event digests differ from the copied DB model");
+  }
 
-  const csvRows = parseProjectHistoryCopyCsv(readFileSync(path.resolve(csvPath), "utf8"));
+  const artifacts = {
+    csv: readStableArtifact(csvPath, PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.csv),
+    xlsx_input: readStableArtifact(xlsxInputPath, PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx_input),
+    xlsx: readStableArtifact(xlsxPath, PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx),
+    xlsx_readback: readStableArtifact(xlsxReadbackPath, PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.xlsx_readback),
+  };
+  for (const [key, artifact] of Object.entries(artifacts)) {
+    assertArtifactRecord(artifact.record, manifest.artifacts[key], key);
+  }
+
+  const csvRows = parseProjectHistoryCopyCsv(decodeUtf8(artifacts.csv.bytes, "CSV"));
   if (canonicalJson(csvRows) !== canonicalJson(model.rows)) {
     fail("csv_parity_mismatch", "CSV rows differ from the canonical DB row model");
   }
-  const xlsxInput = JSON.parse(readFileSync(path.resolve(xlsxInputPath), "utf8").replace(/^\uFEFF/u, ""));
+  const xlsxInput = decodeJson(artifacts.xlsx_input.bytes, "XLSX input");
   validateProjectHistoryCopyXlsxInput(xlsxInput, model);
-
-  let xlsxReadback = "not_supplied";
-  if (xlsxReadbackPath !== null) {
-    const manifest = JSON.parse(readFileSync(path.resolve(xlsxReadbackPath), "utf8").replace(/^\uFEFF/u, ""));
-    verifyXlsxReadbackManifest(manifest, model);
-    xlsxReadback = "verified";
+  const actualXlsxReadback = readProjectHistoryCopyXlsx(artifacts.xlsx.bytes);
+  verifyProjectHistoryCopyXlsxReadback(actualXlsxReadback, model);
+  const persistedXlsxReadback = decodeJson(artifacts.xlsx_readback.bytes, "XLSX readback");
+  verifyXlsxReadbackManifest(persistedXlsxReadback, model);
+  if (canonicalJson(persistedXlsxReadback) !== canonicalJson(actualXlsxReadback)) {
+    fail("xlsx_readback_parity_mismatch", "Persisted readback differs from independently parsed workbook bytes");
   }
 
   return Object.freeze({
@@ -338,9 +451,14 @@ export function verifyCopiedProjectHistoryProjection({
     coverage_count: model.coverage_count,
     ordered_event_digest: model.ordered_event_digest,
     ordered_row_digest: model.ordered_row_digest,
+    binding_digest: binding.binding_digest,
+    artifact_manifest_digest: manifest.artifact_manifest_digest,
+    database_digest: afterRead.database.sha256,
     db_csv_parity: true,
     db_xlsx_input_parity: true,
-    xlsx_readback: xlsxReadback,
+    db_xlsx_parity: true,
+    xlsx_readback: "verified_from_workbook",
+    legacy_pilot_copy_flag_seen: pilotCopy === true,
     raw_payload_copied: false,
     accepted_history: false,
   });
@@ -353,7 +471,12 @@ function parseArgs(argv) {
     ["--generation-id", "generationId"],
     ["--csv", "csvPath"],
     ["--xlsx-input", "xlsxInputPath"],
+    ["--xlsx", "xlsxPath"],
     ["--xlsx-readback", "xlsxReadbackPath"],
+    ["--artifact-manifest", "artifactManifestPath"],
+    ["--artifact-manifest-digest", "artifactManifestDigest"],
+    ["--binding", "bindingPath"],
+    ["--binding-digest", "bindingDigest"],
     ["--attestation", "attestation"],
   ]);
   for (let index = 0; index < argv.length; index += 1) {
@@ -375,14 +498,18 @@ function parseArgs(argv) {
 
 function helpText() {
   return [
-    "Query-only verifier for a feature-OFF copied-ERP history projection.",
+    "Query-only verifier for a private-binding-authorized copied-ERP history projection.",
     "",
     "Usage:",
-    "  node tools/project_history_copy_verifier.mjs --pilot-copy --attestation <sha256> \\",
+    "  node tools/project_history_copy_verifier.mjs --binding <private-binding.json> \\",
+    "    --binding-digest <sha256> --attestation <sha256> \\",
     "    --db <existing-copy.sqlite> --generation-id <id> --csv <projection.csv> \\",
-    "    --xlsx-input <projection.xlsx-input.json> [--xlsx-readback <artifact-tool-readback.json>]",
+    "    --xlsx-input <projection.xlsx-input.json> --xlsx <projection.xlsx> \\",
+    "    --xlsx-readback <projection.xlsx-readback.json> \\",
+    "    --artifact-manifest <artifact-manifest.json> --artifact-manifest-digest <sha256> [--pilot-copy]",
     "",
-    "The DB is opened readOnly and PRAGMA query_only=ON is verified before all queries.",
+    "The workbook is parsed directly; caller readback is only accepted when it equals that independent readback.",
+    "The legacy --pilot-copy flag grants no authorization, and live/production DB paths remain refused.",
   ].join("\n");
 }
 

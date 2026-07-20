@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schemas/project_history_receipt_adapter_request.v2.schema.json",
+  "title": "Soulforge metadata-only continuous project-history receipt adapter request v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "feature_state",
+    "generation_id",
+    "generated_at",
+    "receipt_root",
+    "project_ref",
+    "window_start",
+    "window_end",
+    "classification_state",
+    "required_writer_epoch",
+    "writer_authority",
+    "coverage",
+    "occurrences",
+    "raw_payload_copied",
+    "accepted_history"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.project_history_receipt_adapter_request.v2" },
+    "feature_state": { "const": "off" },
+    "generation_id": { "$ref": "#/$defs/safeToken" },
+    "generated_at": { "$ref": "#/$defs/canonicalUtc" },
+    "receipt_root": { "type": "string", "minLength": 1, "maxLength": 32767 },
+    "project_ref": { "$ref": "#/$defs/projectRef" },
+    "window_start": { "$ref": "#/$defs/canonicalUtc" },
+    "window_end": { "$ref": "#/$defs/canonicalUtc" },
+    "classification_state": { "const": "shadow" },
+    "required_writer_epoch": { "type": "integer", "minimum": 1 },
+    "writer_authority": { "$ref": "#/$defs/writerAuthority" },
+    "coverage": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/coverageDeclaration" }
+    },
+    "occurrences": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/occurrence" }
+    },
+    "raw_payload_copied": { "const": false },
+    "accepted_history": { "const": false }
+  },
+  "$defs": {
+    "canonicalUtc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "safeToken": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9._:@+-]+$"
+    },
+    "lane": {
+      "enum": ["mail", "voice", "structured_pc_work", "file", "run_log"]
+    },
+    "typedRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_type", "owner_surface", "entity_id"],
+      "properties": {
+        "entity_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "owner_surface": { "$ref": "#/$defs/safeToken" },
+        "entity_id": { "$ref": "#/$defs/safeToken" }
+      }
+    },
+    "projectRef": {
+      "allOf": [
+        { "$ref": "#/$defs/typedRef" },
+        {
+          "type": "object",
+          "properties": { "entity_type": { "const": "project" } }
+        }
+      ]
+    },
+    "sourceOwnerRef": {
+      "allOf": [
+        { "$ref": "#/$defs/typedRef" },
+        {
+          "type": "object",
+          "properties": { "entity_type": { "const": "source_owner" } }
+        }
+      ]
+    },
+    "eventRef": {
+      "allOf": [
+        { "$ref": "#/$defs/typedRef" },
+        {
+          "type": "object",
+          "properties": { "entity_type": { "const": "event" } }
+        }
+      ]
+    },
+    "sourceRevisionRef": {
+      "allOf": [
+        { "$ref": "#/$defs/typedRef" },
+        {
+          "type": "object",
+          "properties": { "entity_type": { "const": "source_revision" } }
+        }
+      ]
+    },
+    "contentRef": {
+      "allOf": [
+        { "$ref": "#/$defs/typedRef" },
+        {
+          "type": "object",
+          "properties": {
+            "entity_type": { "const": "content" },
+            "entity_id": { "$ref": "#/$defs/digest" }
+          }
+        }
+      ]
+    },
+    "classificationEvidenceRef": {
+      "allOf": [
+        { "$ref": "#/$defs/typedRef" },
+        {
+          "type": "object",
+          "properties": { "entity_type": { "const": "classification_evidence" } }
+        }
+      ]
+    },
+    "custodyReceiptRef": {
+      "allOf": [
+        { "$ref": "#/$defs/typedRef" },
+        {
+          "type": "object",
+          "properties": { "entity_type": { "const": "custody_receipt" } }
+        }
+      ]
+    },
+    "writerAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["epoch", "digest", "node_id", "issued_at", "expires_at", "revoked"],
+      "properties": {
+        "epoch": { "type": "integer", "minimum": 1 },
+        "digest": { "$ref": "#/$defs/digest" },
+        "node_id": { "$ref": "#/$defs/safeToken" },
+        "issued_at": { "$ref": "#/$defs/canonicalUtc" },
+        "expires_at": { "$ref": "#/$defs/canonicalUtc" },
+        "revoked": { "const": false }
+      }
+    },
+    "gapCodes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "maxLength": 128,
+        "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+      }
+    },
+    "coverageDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "source_owner_ref", "project_ref", "state", "gap_codes"],
+      "properties": {
+        "lane": { "$ref": "#/$defs/lane" },
+        "source_owner_ref": { "$ref": "#/$defs/sourceOwnerRef" },
+        "project_ref": { "$ref": "#/$defs/projectRef" },
+        "state": {
+          "enum": ["complete_with_events", "complete_no_events", "partial", "not_collected"]
+        },
+        "gap_codes": { "$ref": "#/$defs/gapCodes" }
+      }
+    },
+    "occurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lane",
+        "project_ref",
+        "receipt_path",
+        "expected_receipt_digest",
+        "custody_receipt_ref",
+        "source_owner_ref",
+        "native_occurrence_ref",
+        "event_ref",
+        "source_revision_ref",
+        "content_ref",
+        "event_at",
+        "valid_at",
+        "observed_at",
+        "known_at",
+        "recorded_at",
+        "classification_evidence_ref"
+      ],
+      "properties": {
+        "lane": { "$ref": "#/$defs/lane" },
+        "project_ref": { "$ref": "#/$defs/projectRef" },
+        "receipt_path": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 4096,
+          "pattern": "^(?!/)(?!.*\\\\)(?!\\.\\.?$)(?!\\.\\.?/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//$).+\\.json$"
+        },
+        "expected_receipt_digest": { "$ref": "#/$defs/digest" },
+        "custody_receipt_ref": { "$ref": "#/$defs/custodyReceiptRef" },
+        "source_owner_ref": { "$ref": "#/$defs/sourceOwnerRef" },
+        "native_occurrence_ref": { "$ref": "#/$defs/typedRef" },
+        "event_ref": { "$ref": "#/$defs/eventRef" },
+        "source_revision_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/sourceRevisionRef" },
+            { "type": "null" }
+          ]
+        },
+        "content_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/contentRef" },
+            { "type": "null" }
+          ]
+        },
+        "event_at": { "$ref": "#/$defs/canonicalUtc" },
+        "valid_at": { "$ref": "#/$defs/canonicalUtc" },
+        "observed_at": { "$ref": "#/$defs/canonicalUtc" },
+        "known_at": { "$ref": "#/$defs/canonicalUtc" },
+        "recorded_at": { "$ref": "#/$defs/canonicalUtc" },
+        "classification_evidence_ref": { "$ref": "#/$defs/classificationEvidenceRef" }
+      }
+    }
+  }
+}

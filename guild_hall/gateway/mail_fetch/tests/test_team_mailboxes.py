@@ -304,6 +304,130 @@ def test_team_runner_ingress_only_writes_source_custody_without_projection(monke
     assert not (backend_root / "_workspaces").exists()
 
 
+def test_capsule_preloads_all_primary_credentials_and_ignores_ambient_overrides(
+    monkeypatch, tmp_path: Path
+) -> None:
+    register = _write_team_register(
+        tmp_path,
+        [
+            {
+                "id": "first",
+                "email": "first@example.test",
+                "provider": "hiworks",
+                "enabled": True,
+                "env_file": "first.env",
+            },
+            {
+                "id": "second",
+                "email": "second@example.test",
+                "provider": "hiworks",
+                "enabled": True,
+                "env_file": "second.env",
+            },
+        ],
+    )
+    first_env = "\n".join(
+        [
+            "HIWORKS_POP3_HOST=pop3.example.test",
+            "HIWORKS_POP3_USERNAME=first",
+            "HIWORKS_POP3_PASSWORD=first-trusted",
+            "",
+        ]
+    )
+    second_env = "\n".join(
+        [
+            "HIWORKS_POP3_HOST=pop3.example.test",
+            "HIWORKS_POP3_USERNAME=second",
+            "HIWORKS_POP3_PASSWORD=second-trusted",
+            "",
+        ]
+    )
+    (register.parent / "first.env").write_text(first_env, encoding="utf-8")
+    (register.parent / "second.env").write_text(second_env, encoding="utf-8")
+    forced_runtime = tmp_path / "forced-runtime"
+    monkeypatch.setenv("HIWORKS_POP3_PASSWORD", "ambient-must-not-win")
+    monkeypatch.setenv("EMAIL_FETCH_RUNTIME_DIR", str(tmp_path / "ambient-runtime"))
+    seen = []
+
+    def fake_run_once(config: runner.CollectorConfig) -> Dict[str, Any]:
+        seen.append((config.mailbox_metadata["id"], config.hiworks_pop3_password, config.runtime_root))
+        if len(seen) == 1:
+            (register.parent / "second.env").write_text(
+                "HIWORKS_POP3_PASSWORD=second-swapped\n",
+                encoding="utf-8",
+            )
+        return {
+            "partial": False,
+            "total_events": 0,
+            "total_new_events": 0,
+            "total_duplicates": 0,
+        }
+
+    monkeypatch.setattr(runner, "run_once", fake_run_once)
+    summary = run_team_mailboxes(
+        repo_root=tmp_path,
+        register_file=register,
+        credential_texts_by_path={
+            str(register.parent / "first.env"): first_env,
+            str(register.parent / "second.env"): second_env,
+        },
+        capsule_env_overrides={"EMAIL_FETCH_RUNTIME_DIR": str(forced_runtime)},
+    )
+
+    assert summary["partial"] is False
+    assert [(row[0], row[1]) for row in seen] == [
+        ("first", "first-trusted"),
+        ("second", "second-trusted"),
+    ]
+    assert all(str(row[2]).startswith(str(forced_runtime)) for row in seen)
+
+
+@pytest.mark.parametrize(
+    "provider,nested_field",
+    [
+        ("gmail", "GMAIL_ACCESS_TOKEN_FILE=token.json"),
+        ("hiworks", "HIWORKS_POP3_PASSWORD_FILE=password.txt"),
+    ],
+)
+def test_capsule_rejects_nested_credential_file_indirection_before_mailbox_effect(
+    monkeypatch, tmp_path: Path, provider: str, nested_field: str
+) -> None:
+    register = _write_team_register(
+        tmp_path,
+        [
+            {
+                "id": "nested",
+                "email": "nested@example.test",
+                "provider": provider,
+                "enabled": True,
+                "env_file": "nested.env",
+            }
+        ],
+    )
+    env_text = f"{nested_field}\n"
+    env_path = register.parent / "nested.env"
+    env_path.write_text(env_text, encoding="utf-8")
+    calls = 0
+
+    def forbidden_run_once(_config: runner.CollectorConfig) -> Dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("run_once must not start")
+
+    monkeypatch.setattr(runner, "run_once", forbidden_run_once)
+    summary = run_team_mailboxes(
+        repo_root=tmp_path,
+        register_file=register,
+        credential_texts_by_path={str(env_path): env_text},
+        capsule_env_overrides={"EMAIL_FETCH_RUNTIME_DIR": str(tmp_path / "runtime")},
+    )
+
+    assert calls == 0
+    assert summary["partial"] is True
+    assert summary["mailboxes_run"] == 0
+    assert summary["errors"][0]["message"] == "mail_capsule_nested_credential_file_unsupported"
+
+
 @pytest.mark.parametrize(
     "row,code,leaked",
     [

@@ -25,15 +25,21 @@ import {
   createProjectHistoryMcpHttpServer,
 } from "../project_history_server.mjs";
 import {
-  PROJECT_HISTORY_MCP_ARTIFACT_ATTESTATION_SCHEMA_VERSION,
   createProjectHistoryMcpService,
 } from "../src/project_history_service.mjs";
 import {
   ACTUAL_SHADOW_GENERATION_SCHEMA_VERSION,
 } from "../../../../guild_hall/shared/project_history_actual_shadow.mjs";
 import {
+  PROJECT_HISTORY_LANES,
+  canonicalJson,
   sha256Canonical,
 } from "../../../../guild_hall/shared/project_history_envelope.mjs";
+import {
+  PROJECT_HISTORY_RECEIPT_ADAPTER_REQUEST_SCHEMA_VERSION,
+  PROJECT_HISTORY_SHADOW_ADAPTER_AUTHORITY_RECORD_SCHEMA_VERSION,
+  openProjectHistoryShadowAdapterAuthorityV1,
+} from "../../../../guild_hall/shared/project_history_receipt_adapter_v2.mjs";
 import {
   buildSyntheticFiveLaneShadowFixture,
   buildSyntheticH06CoverageFixture,
@@ -44,8 +50,10 @@ import {
   projectCopiedErpHistory,
 } from "../../dev-erp/tools/project_history_copy_projector.mjs";
 import {
-  PROJECT_HISTORY_COPY_XLSX_READBACK_SCHEMA_VERSION,
-} from "../../dev-erp/tools/project_history_copy_verifier.mjs";
+  createProjectHistoryCopyBinding,
+  resolveProjectHistoryCopyArtifactPaths,
+  writeProjectHistoryCopyBinding,
+} from "../../dev-erp/tools/project_history_copy_binding.mjs";
 
 const TOKEN = "synthetic_project_history_token_000000000001";
 
@@ -54,7 +62,7 @@ function makeGeneration() {
   const coverage = buildSyntheticH06CoverageFixture(shadow.envelopes);
   return {
     schema_version: ACTUAL_SHADOW_GENERATION_SCHEMA_VERSION,
-    generation_id: "generation-001",
+    generation_id: "generation:001",
     project_ref: shadow.project_ref,
     classification_state: "shadow",
     envelopes: shadow.envelopes,
@@ -93,13 +101,75 @@ function digestFile(filePath) {
   return sha256(readFileSync(filePath));
 }
 
-function attestedArtifact(filename, filePath) {
-  const bytes = readFileSync(filePath);
-  return {
-    filename,
-    size: bytes.length,
-    sha256: `sha256:${sha256(bytes)}`,
+function authorityRef(entityType, ownerSurface, entityId) {
+  return { entity_type: entityType, owner_surface: ownerSurface, entity_id: entityId };
+}
+
+function createProjectionAuthority(root) {
+  const now = Date.now();
+  const issuedAt = new Date(now - 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(now + 60 * 60 * 1000).toISOString();
+  const request = {
+    schema_version: PROJECT_HISTORY_RECEIPT_ADAPTER_REQUEST_SCHEMA_VERSION,
+    feature_state: "off",
+    generation_id: "generation:mcp-projector-authority:test",
+    generated_at: new Date(now).toISOString(),
+    receipt_root: path.resolve(root),
+    project_ref: GENERATION.project_ref,
+    window_start: new Date(now - 1000).toISOString(),
+    window_end: new Date(now + 1000).toISOString(),
+    classification_state: "shadow",
+    required_writer_epoch: 23,
+    writer_authority: {
+      epoch: 23,
+      digest: sha256Canonical({ pending: true }),
+      node_id: "mcp-projector-test-node",
+      issued_at: issuedAt,
+      expires_at: expiresAt,
+      revoked: false,
+    },
+    coverage: PROJECT_HISTORY_LANES.map((lane) => ({
+      lane,
+      source_owner_ref: authorityRef("source_owner", "private_mcp_test", `owner-${lane}`),
+      project_ref: GENERATION.project_ref,
+      state: "complete_no_events",
+      gap_codes: [],
+    })),
+    occurrences: [],
+    raw_payload_copied: false,
+    accepted_history: false,
   };
+  const record = {
+    schema_version: PROJECT_HISTORY_SHADOW_ADAPTER_AUTHORITY_RECORD_SCHEMA_VERSION,
+    authority_scope: "project_history_shadow_adapter",
+    feature_state: "off",
+    classification_state: "shadow",
+    epoch: 23,
+    node_id: "mcp-projector-test-node",
+    not_before: issuedAt,
+    expires_at: expiresAt,
+    revoked: false,
+    owner_approval_ref: authorityRef(
+      "owner_approval",
+      "private_mcp_projector_authority",
+      "approval:mcp-projector-test",
+    ),
+    classification_epoch: null,
+    projector_epoch: null,
+    production_authority_granted: false,
+    raw_ingress_authority_reused: false,
+    accepted_history: false,
+  };
+  const bytes = Buffer.from(`${JSON.stringify(record)}\n`, "utf8");
+  const authorityPath = path.join(root, "private-mcp-projector-authority.json");
+  writeFileSync(authorityPath, bytes);
+  const authorityDigest = `sha256:${sha256(bytes)}`;
+  request.writer_authority.digest = authorityDigest;
+  return openProjectHistoryShadowAdapterAuthorityV1({
+    authorityPath,
+    authorityDigest,
+    request,
+  });
 }
 
 function createFixture(t) {
@@ -107,83 +177,60 @@ function createFixture(t) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const dbPath = path.join(root, "copied-erp.sqlite");
   const projectionRoot = path.join(root, "project-history");
-  const artifactDirectory = path.join(projectionRoot, PROJECT_ID, GENERATION_ID);
-  mkdirSync(artifactDirectory, { recursive: true });
+  const bindingPath = path.join(root, "private-binding.json");
+  mkdirSync(projectionRoot, { recursive: true });
 
   const db = new DatabaseSync(dbPath);
   db.exec("CREATE TABLE copied_erp_sentinel (value TEXT NOT NULL); INSERT INTO copied_erp_sentinel VALUES ('unchanged');");
   db.close();
 
-  const csvPath = path.join(artifactDirectory, "project_history.csv");
-  const xlsxInputPath = path.join(artifactDirectory, "project_history.xlsx-input.json");
-  const xlsxReadbackPath = path.join(artifactDirectory, "project_history.xlsx-readback.json");
-  const xlsxPath = path.join(artifactDirectory, "project_history.xlsx");
-  const artifactAttestationPath = path.join(artifactDirectory, "project_history.artifact-attestation.json");
-  const attestation = sha256Canonical(GENERATION);
-  projectCopiedErpHistory({
+  const binding = createProjectHistoryCopyBinding({
     dbPath,
+    projectionRoot,
+    allowedProjectIds: [PROJECT_ID],
+  });
+  writeProjectHistoryCopyBinding(bindingPath, binding);
+  const paths = resolveProjectHistoryCopyArtifactPaths(binding, {
+    projectId: PROJECT_ID,
+    generationId: GENERATION_ID,
+  });
+  const attestation = sha256Canonical(GENERATION);
+  const authoritySnapshot = createProjectionAuthority(root);
+  const projected = projectCopiedErpHistory({
+    ...paths,
+    dbPath,
+    bindingPath,
+    bindingDigest: binding.binding_digest,
     generation: GENERATION,
-    csvPath,
-    xlsxInputPath,
+    authoritySnapshot,
     pilotCopy: true,
     attestation,
   });
-  const xlsxInput = JSON.parse(readFileSync(xlsxInputPath, "utf8"));
-  writeFileSync(xlsxReadbackPath, `${JSON.stringify({
-    schema_version: PROJECT_HISTORY_COPY_XLSX_READBACK_SCHEMA_VERSION,
-    generation_id: xlsxInput.generation_id,
-    event_count: xlsxInput.event_count,
-    coverage_count: xlsxInput.coverage_count,
-    ordered_event_digest: xlsxInput.ordered_event_digest,
-    ordered_row_digest: xlsxInput.ordered_row_digest,
-    columns: xlsxInput.columns,
-    rows: xlsxInput.rows,
-    hidden_sheet_count: 0,
-    external_link_count: 0,
-    formula_cell_count: 0,
-  })}\n`, "utf8");
-  writeFileSync(xlsxPath, makeXlsxContainer());
-  const artifactAttestationPacket = {
-    schema_version: PROJECT_HISTORY_MCP_ARTIFACT_ATTESTATION_SCHEMA_VERSION,
-    project_id: PROJECT_ID,
-    generation_id: GENERATION_ID,
-    generation_digest: attestation,
-    projection_schema_fingerprint: canonicalProjectHistoryProjectionSchemaFingerprint(),
-    ordered_event_digest: GENERATION.ordered_event_digest,
-    ordered_row_digest: xlsxInput.ordered_row_digest,
-    artifacts: {
-      csv: attestedArtifact("project_history.csv", csvPath),
-      xlsx_input: attestedArtifact("project_history.xlsx-input.json", xlsxInputPath),
-      xlsx_readback: attestedArtifact("project_history.xlsx-readback.json", xlsxReadbackPath),
-      xlsx: attestedArtifact("project_history.xlsx", xlsxPath),
-    },
-  };
-  writeFileSync(artifactAttestationPath, `${JSON.stringify(artifactAttestationPacket)}\n`, "utf8");
+  const artifactManifestPacket = JSON.parse(readFileSync(paths.artifactManifestPath, "utf8"));
   return {
     root,
     dbPath,
     projectionRoot,
-    artifactDirectory,
-    csvPath,
-    xlsxInputPath,
-    xlsxReadbackPath,
-    xlsxPath,
-    artifactAttestationPath,
-    artifactAttestationPacket,
+    bindingPath,
+    binding,
+    bindingDigest: binding.binding_digest,
+    artifactDirectory: paths.directory,
+    ...paths,
+    artifactManifestPacket,
     attestation,
-    artifactAttestation: sha256Canonical(artifactAttestationPacket),
-    csvBytes: readFileSync(csvPath),
-    xlsxBytes: readFileSync(xlsxPath),
+    artifactManifestDigest: projected.artifact_manifest_digest,
+    csvBytes: readFileSync(paths.csvPath),
+    xlsxBytes: readFileSync(paths.xlsxPath),
     dbDigest: digestFile(dbPath),
   };
 }
 
 function createService(fixture, options = {}) {
   return createProjectHistoryMcpService({
-    dbPath: fixture.dbPath,
-    projectionRoot: fixture.projectionRoot,
-    attestation: fixture.attestation,
-    artifactAttestation: fixture.artifactAttestation,
+    bindingPath: fixture.bindingPath,
+    bindingDigest: fixture.bindingDigest,
+    artifactManifestPath: fixture.artifactManifestPath,
+    artifactManifestDigest: fixture.artifactManifestDigest,
     bearerToken: TOKEN,
     pilotCopy: true,
     ...options,
@@ -383,9 +430,10 @@ test("projection traversal is rejected and artifacts remain sealed after startup
     });
     assert.equal(rawTraversal.status, 404);
 
+    const projectDirectory = path.dirname(fixture.artifactDirectory);
     const outside = path.join(fixture.projectionRoot, "reparse-target");
-    renameSync(path.join(fixture.projectionRoot, PROJECT_ID), outside);
-    symlinkSync(outside, path.join(fixture.projectionRoot, PROJECT_ID), "junction");
+    renameSync(projectDirectory, outside);
+    symlinkSync(outside, projectDirectory, "junction");
     const sealed = payload(await connected.client.callTool({
       name: "erp_prepare_project_history_download",
       arguments: { project_id: PROJECT_ID, generation_id: GENERATION_ID, format: "xlsx" },
@@ -403,12 +451,13 @@ test("projection traversal is rejected and artifacts remain sealed after startup
 
 test("startup rejects symlink or reparse artifact directories before sealing", (t) => {
   const fixture = createFixture(t);
+  const projectDirectory = path.dirname(fixture.artifactDirectory);
   const outside = path.join(fixture.projectionRoot, "reparse-target");
-  renameSync(path.join(fixture.projectionRoot, PROJECT_ID), outside);
-  symlinkSync(outside, path.join(fixture.projectionRoot, PROJECT_ID), "junction");
+  renameSync(projectDirectory, outside);
+  symlinkSync(outside, projectDirectory, "junction");
   assert.throws(
     () => createService(fixture),
-    (error) => error.code === "project_history_unavailable",
+    (error) => error.code === "project_history_projection_or_artifact_invalid",
   );
 });
 
@@ -419,7 +468,7 @@ test("startup rejects weakened schema and generation JSON tampering", (t) => {
   db.close();
   assert.throws(
     () => createService(weakened),
-    (error) => error.code === "project_history_projection_or_artifact_invalid",
+    (error) => error.code === "project_history_artifact_manifest_invalid",
   );
 
   const tampered = createFixture(t);
@@ -437,30 +486,34 @@ test("startup rejects weakened schema and generation JSON tampering", (t) => {
   db.close();
   assert.throws(
     () => createService(tampered),
-    (error) => error.code === "project_history_projection_or_artifact_invalid",
+    (error) => error.code === "project_history_artifact_manifest_invalid",
   );
 });
 
-test("artifact attestation rejects XLSX substitution and cannot launder readback parity", (t) => {
+test("artifact manifest rejects XLSX substitution and cannot launder readback parity", (t) => {
   const substituted = createFixture(t);
   writeFileSync(substituted.xlsxPath, makeXlsxContainer("substituted"));
   assert.throws(
     () => createService(substituted),
-    (error) => error.code === "project_history_artifact_attestation_invalid",
+    (error) => error.code === "project_history_artifact_manifest_invalid",
   );
 
   const laundered = createFixture(t);
   const readback = JSON.parse(readFileSync(laundered.xlsxReadbackPath, "utf8"));
   readback.rows[0].lane = readback.rows[0].lane === "mail" ? "voice" : "mail";
   writeFileSync(laundered.xlsxReadbackPath, `${JSON.stringify(readback)}\n`, "utf8");
-  const packet = structuredClone(laundered.artifactAttestationPacket);
-  packet.artifacts.xlsx_readback = attestedArtifact(
-    "project_history.xlsx-readback.json",
-    laundered.xlsxReadbackPath,
-  );
-  writeFileSync(laundered.artifactAttestationPath, `${JSON.stringify(packet)}\n`, "utf8");
+  const packet = structuredClone(laundered.artifactManifestPacket);
+  const bytes = readFileSync(laundered.xlsxReadbackPath);
+  packet.artifacts.xlsx_readback = {
+    filename: "project_history.xlsx-readback.json",
+    size: bytes.length,
+    sha256: `sha256:${sha256(bytes)}`,
+  };
+  delete packet.artifact_manifest_digest;
+  packet.artifact_manifest_digest = sha256Canonical(packet);
+  writeFileSync(laundered.artifactManifestPath, `${canonicalJson(packet)}\n`, "utf8");
   assert.throws(
-    () => createService(laundered, { artifactAttestation: sha256Canonical(packet) }),
+    () => createService(laundered, { artifactManifestDigest: packet.artifact_manifest_digest }),
     (error) => error.code === "project_history_projection_or_artifact_invalid",
   );
 });
@@ -526,10 +579,10 @@ test("CLI stays feature-OFF without explicit pilot-copy and never accepts a toke
   const fixture = createFixture(t);
   assert.throws(
     () => createProjectHistoryMcpService({
-      dbPath: fixture.dbPath,
-      projectionRoot: fixture.projectionRoot,
-      attestation: fixture.attestation,
-      artifactAttestation: fixture.artifactAttestation,
+      bindingPath: fixture.bindingPath,
+      bindingDigest: fixture.bindingDigest,
+      artifactManifestPath: fixture.artifactManifestPath,
+      artifactManifestDigest: fixture.artifactManifestDigest,
       bearerToken: TOKEN,
     }),
     (error) => error.code === "project_history_mcp_feature_off",
@@ -537,10 +590,10 @@ test("CLI stays feature-OFF without explicit pilot-copy and never accepts a toke
   const serverPath = fileURLToPath(new URL("../project_history_server.mjs", import.meta.url));
   const result = spawnSync(process.execPath, [
     serverPath,
-    "--attestation", fixture.attestation,
-    "--artifact-attestation", fixture.artifactAttestation,
-    "--db", fixture.dbPath,
-    "--projection-root", fixture.projectionRoot,
+    "--binding", fixture.bindingPath,
+    "--binding-digest", fixture.bindingDigest,
+    "--artifact-manifest", fixture.artifactManifestPath,
+    "--artifact-manifest-digest", fixture.artifactManifestDigest,
   ], {
     cwd: path.dirname(serverPath),
     encoding: "utf8",

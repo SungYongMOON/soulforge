@@ -94,9 +94,10 @@ Task completion.
 ## Continuous supervisor
 
 The public binding schema is `continuous_binding.schema.json`. A live binding
-is private and contains exact physical paths but no credentials. It explicitly
-binds one HPP node, the D data root, a voice source, and zero or more local
-outbox queues. Queue lanes are limited to `team_files`,
+is private and contains exact physical paths but no credential values. Version
+1 binds one HPP node, the D data root, a voice source, and zero or more local
+outbox queues. Version 2 adds an exact writer-authority record plus an optional
+team-mail bridge. Queue lanes remain limited to `team_files`,
 `structured_pc_work`, and `run_logs`.
 
 Validate a binding without acquiring a lease or writing data:
@@ -106,20 +107,49 @@ npm run guild-hall:ingress:continuous -- \
   --config <absolute-private-binding-path>
 ```
 
+The dry-run response includes `config_digest: sha256:<hex>` for the exact raw
+binding bytes read through a stable file handle. Pin that value outside the
+binding in the OS scheduler action. Applied runs require the external pin and
+fail closed if the file changes before, during, or after the stable read.
+
 Run exactly one enabled cycle:
 
 ```bash
 npm run guild-hall:ingress:continuous -- \
   --config <absolute-private-binding-path> \
+  --config-digest sha256:<externally-pinned-binding-bytes-digest> \
   --apply
 ```
 
 The command is intentionally one-shot. An OS scheduler may invoke it only
 after the private binding has `enabled: true` and the scheduler's actual state
 matches `scheduler_enabled`. The runner acquires a D-local exclusive lease,
-increments a monotonic epoch, and rechecks its fence token before and after
-every queue payload. A live unexpired lease blocks a second writer; an expired
-lease is archived before a higher epoch takes over.
+increments a monotonic epoch, and rechecks its fence token before and at every
+final payload, receipt, checkpoint, and health-record publication boundary. A
+second writer is blocked while the recorded local owner process is alive, even
+after the lease timestamp expires. Automatic stale-lease recovery requires an
+expired lease whose exact host is the current host and whose recorded PID is
+verified dead. A remote-host lease, an unverifiable owner, or PID reuse fails
+closed and requires controlled operator recovery.
+
+Version 2 explicitly declares `writer_mode: primary|fallback` and additionally
+acquires the same durable writer-authority snapshot for
+every enabled lane in the fixed order `mail`, `voice`, `structured_pc_work`,
+`team_files`, `run_logs`. Each lane revalidates that authority before and after
+its payload work. Authority transitions use `writer_authority_cli.mjs` with an
+exact current epoch, digest, node identity, time window, and approval ref. An
+active writer cannot be switched directly to another active writer: freeze or
+revoke must put the record in `off` mode first, and failback requires the
+recorded fallback epoch to have been revoked. A transition is also blocked
+while the continuous runner's recorded local process is alive, and a runner is
+blocked while an authority CAS transition is in progress. Authority CAS locks
+use the same expired-plus-same-host-plus-dead-PID recovery rule; cross-host
+recovery is never inferred from a timestamp alone. This authority covers only
+RAW ingress custody. It does not grant project classification, history
+projection, ERP acceptance, TaskDriver, or knowledge-promotion authority.
+The record is local to one data root and is not a cross-host authority
+transport. Mac source-local emergency spool remains a manually opened HOLD
+window unless a separate authenticated epoch/revoke transport is implemented.
 
 Every applied cycle writes a metadata-only run receipt and health record under
 the D data root. Queue coverage becomes `degraded` when file/byte limits are
@@ -133,8 +163,113 @@ future transport work.
 The voice binding reuses the source-preserving copy-only mirror and its existing
 checkpoint. It copies only new or changed custody generations and does not
 claim authenticated cross-PC delivery, project acceptance, or history
-projection. Mail is not a continuous-supervisor lane; its status remains
-`credential_pending_off` until an independently approved mail binding exists.
+projection. In a version-2 binding, mail runs through the existing bounded team
+mail CLI. The binding pins the CLI, complete sorted collector-tree release, and
+mailbox-register hashes. The Node bridge captures only six-field metadata
+identity for each credential source; it never reads credential bytes or emits a
+credential content digest. On Windows, an OS-protected inline
+bootstrap opens and holds the hard-linked Python runtime, capsule
+code/register/manifest, and credential sources with read-only sharing, verifies
+all non-secret release digests, and only then starts isolated Python. Unsupported launch
+platforms fail closed. Python runs with isolated, no-bytecode, and no-site
+flags; `PYTHONPATH`, `PYTHONHOME`, and ambient `TEMP`/`TMP` are not inherited.
+Only the capsule modules plus the installed standard library/runtime DLLs are
+loadable; the standard `<drive>:\Windows` PowerShell topology, scheduled-task OS
+environment, operation owner ACL, and installed runtime/DLL ACL remain explicit
+trust ceilings. The
+child verifies six-field file identities including
+birth/change time and preloads every enabled mailbox's directly held credential
+values before the first mailbox effect. Secure capsule mode rejects
+`GMAIL_ACCESS_TOKEN_FILE` and `HIWORKS_POP3_PASSWORD_FILE` indirection because
+Node cannot discover those paths without crossing the no-secret-read boundary.
+Standalone collector runs retain their existing file-indirection compatibility.
+The capsule child also ignores ambient overrides and disables token-file
+persistence. Child output is reduced to counts, status, and
+allowlisted error codes. A missing credential or partial mail run degrades only
+mail; the enabled non-mail lanes still run.
+Mail-enabled bindings must keep the payload lease and authority validity window
+longer than the bounded ten-minute child timeout plus a safety margin.
+If a spawned child times out or returns an invalid summary, the receipt marks
+the run partial with `write_count_known: false`; aggregate writes become an
+explicit lower bound and are never reported as an exact zero.
+
+## Recovery snapshot and isolated restore test
+
+`recovery_cli.mjs` creates an additive, immutable backup generation for one
+explicit ingress control/data root. Dry-run is the default. It inventories and
+hashes every included regular file but performs no writes and emits only
+sanitized JSON (counts, digests, custody watermark, and exclusion counts; no
+physical locators or excluded names):
+
+```bash
+npm run guild-hall:ingress:recovery -- snapshot \
+  --source-root <absolute-live-ingress-root> \
+  --backup-root <absolute-existing-backup-root> \
+  [--sqlite-db <absolute-live-sqlite-db>]
+```
+
+Snapshot apply requires the exact source identity digest and content digest
+returned by that dry-run plus an opaque approval reference. It never deletes,
+moves, or overwrites a source file, and it publishes only a new exclusive
+generation:
+
+```bash
+npm run guild-hall:ingress:recovery -- snapshot \
+  --source-root <absolute-live-ingress-root> \
+  --backup-root <absolute-existing-backup-root> \
+  [--sqlite-db <absolute-live-sqlite-db>] \
+  --apply \
+  --expected-source-identity <sha256> \
+  --expected-source-digest <sha256> \
+  --approval-ref <opaque-safe-id>
+```
+
+A declared live SQLite database is never copied as a normal tree file. The
+module creates a transaction-consistent `VACUUM INTO` snapshot in a separate
+content-addressed object and records only its immutable relative reference,
+size, hash, and quick-check result in the recovery manifest. Undeclared
+`.db`/`.sqlite`/`.sqlite3` files fail closed, and SQLite WAL/SHM/journal runtime
+files are not copied.
+
+The fixed top-level `backups/**` subtree is also excluded so a live data root
+can be snapshotted without recursively ingesting older backup generations.
+Ordinary business directories named `session` or `sessions` are retained;
+only credential-like `*.session` files are excluded.
+
+Every `active.lock.json` is excluded even when its timestamp is stale. Stable
+epoch records, archived stale leases, receipts, and checkpoint JSON remain in
+the file inventory. A separately hashed custody checkpoint carries the maximum
+observed stable custody epoch plus the checkpoint inventory digest, preventing
+an ephemeral lock from becoming recovery authority.
+
+Restore testing accepts only a caller-supplied, existing, empty directory that
+does not overlap the backup root. The default dry-run verifies the commit,
+manifest, every object size/hash, SQLite quick-check, checkpoint inventory, and
+custody watermark without writing. `--apply` additionally requires the exact
+source identity, source digest, and approval reference bound into the manifest:
+
+```bash
+npm run guild-hall:ingress:recovery -- restore-test \
+  --backup-root <absolute-existing-backup-root> \
+  --generation-id <generation-id> \
+  --restore-root <absolute-existing-empty-directory> \
+  --apply \
+  --expected-source-identity <sha256> \
+  --expected-source-digest <sha256> \
+  --approval-ref <opaque-safe-id>
+```
+
+Apply restores into an invocation-owned temporary child and atomically publishes
+it as `<restore-root>/restored/`. Failure cleanup verifies that temporary
+directory's original identity and removes only that directory; a concurrently
+created external file is never swept or deleted.
+
+Source/backup/restore overlap, a non-empty restore root, destination collision,
+path escape, symlink, junction/reparse traversal, hard-linked source, unstable
+file, manifest tamper, or object tamper stops the operation. Secret-like names,
+credential/key extensions, credential directories, partial files, and active
+locks are never captured. This surface verifies a recovery generation in
+isolation; it never overwrites or promotes a live root.
 
 ## Fail-closed boundary
 
@@ -164,4 +299,6 @@ Tests use synthetic files under the operating system temporary directory only:
 ```bash
 npm run validate:ingress-staging
 npm run validate:ingress-continuous
+npm run validate:ingress-authority
+npm run validate:ingress-recovery
 ```

@@ -1,70 +1,52 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import {
-  existsSync,
   lstatSync,
-  openSync,
   readFileSync,
-  readSync,
   realpathSync,
-  closeSync,
 } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import {
   canonicalJson,
-  sha256Canonical,
 } from "../../../../guild_hall/shared/project_history_envelope.mjs";
 import {
   assertCanonicalProjectHistoryProjectionSchema,
   buildCanonicalProjectHistoryCopyModel,
-  canonicalProjectHistoryProjectionSchemaFingerprint,
   renderProjectHistoryCopyCsv,
 } from "../../dev-erp/tools/project_history_copy_projector.mjs";
+import {
+  PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES,
+  assertProjectHistoryCopyBindingTarget,
+  readProjectHistoryCopyArtifactManifest,
+  readProjectHistoryCopyBinding,
+  resolveProjectHistoryCopyArtifactPaths,
+} from "../../dev-erp/tools/project_history_copy_binding.mjs";
 import {
   parseProjectHistoryCopyCsv,
   readValidatedProjectHistoryGenerationQueryOnly,
   validateProjectHistoryCopyXlsxInput,
   verifyXlsxReadbackManifest,
 } from "../../dev-erp/tools/project_history_copy_verifier.mjs";
+import {
+  readProjectHistoryCopyXlsx,
+  verifyProjectHistoryCopyXlsxReadback,
+} from "../../dev-erp/tools/project_history_copy_xlsx.mjs";
 
-const SQLITE_HEADER = Buffer.from("SQLite format 3\0", "binary");
 const ATTESTATION_RE = /^sha256:[0-9a-f]{64}$/u;
 const TICKET_RE = /^sfphd_v1_[A-Za-z0-9_-]{43}$/u;
-const PATH_ID_RE = /^(?=.{1,256}$)(?=.*[A-Za-z0-9])[A-Za-z0-9_@+.-]+$/u;
+const EXACT_ID_RE = /^(?=.{1,256}$)(?=.*[A-Za-z0-9])[A-Za-z0-9_:@+.-]+$/u;
 const DEFAULT_TICKET_TTL_MS = 60_000;
 const DEFAULT_MAX_ARTIFACT_BYTES = 64 * 1024 * 1024;
 const DEFAULT_MAX_ACTIVE_TICKETS = 32;
 const DEFAULT_MAX_ACTIVE_TICKET_BYTES = 128 * 1024 * 1024;
-const MAX_ARTIFACT_ATTESTATION_BYTES = 1024 * 1024;
-const ARTIFACT_ATTESTATION_FILENAME = "project_history.artifact-attestation.json";
-const ARTIFACT_FILENAMES = Object.freeze({
-  csv: "project_history.csv",
-  xlsx_input: "project_history.xlsx-input.json",
-  xlsx_readback: "project_history.xlsx-readback.json",
-  xlsx: "project_history.xlsx",
+const ARTIFACT_KEYS = Object.freeze(["csv", "xlsx_input", "xlsx", "xlsx_readback"]);
+const ARTIFACT_PATH_KEYS = Object.freeze({
+  csv: "csvPath",
+  xlsx_input: "xlsxInputPath",
+  xlsx: "xlsxPath",
+  xlsx_readback: "xlsxReadbackPath",
 });
-const ARTIFACT_KEYS = Object.freeze(Object.keys(ARTIFACT_FILENAMES));
-const ARTIFACT_ATTESTATION_FIELDS = Object.freeze([
-  "schema_version",
-  "project_id",
-  "generation_id",
-  "generation_digest",
-  "projection_schema_fingerprint",
-  "ordered_event_digest",
-  "ordered_row_digest",
-  "artifacts",
-]);
-const ARTIFACT_RECORD_FIELDS = Object.freeze(["filename", "size", "sha256"]);
-const XLSX_REQUIRED_ZIP_ENTRIES = Object.freeze([
-  "[Content_Types].xml",
-  "_rels/.rels",
-  "xl/workbook.xml",
-  "xl/worksheets/sheet1.xml",
-]);
-
-export const PROJECT_HISTORY_MCP_ARTIFACT_ATTESTATION_SCHEMA_VERSION =
-  "soulforge.project_history_mcp_artifact_attestation.v1";
 
 export class ProjectHistoryMcpError extends Error {
   constructor(code, status = 500) {
@@ -81,23 +63,6 @@ function fail(code, status = 500) {
 
 function unavailable(status = 404) {
   fail("project_history_unavailable", status);
-}
-
-function assertExactKeys(value, expected, code) {
-  if (value === null || typeof value !== "object" || Array.isArray(value)
-      || Object.getPrototypeOf(value) !== Object.prototype) {
-    fail(code);
-  }
-  const keys = Object.keys(value).sort();
-  const wanted = [...expected].sort();
-  if (keys.length !== wanted.length || keys.some((key, index) => key !== wanted[index])) {
-    fail(code);
-  }
-}
-
-function assertDigest(value, code) {
-  if (typeof value !== "string" || !ATTESTATION_RE.test(value)) fail(code);
-  return value;
 }
 
 function sha256Bytes(value) {
@@ -151,35 +116,9 @@ function plainExistingPath(value, { directory, code }) {
   return Object.freeze({ path: resolved, stat: entry });
 }
 
-function inspectStandaloneCopy(dbPath) {
-  const inspected = plainExistingPath(dbPath, {
-    directory: false,
-    code: "project_history_copy_db_invalid",
-  });
-  if (inspected.stat.nlink !== 1) fail("project_history_copy_db_not_standalone");
-  for (const suffix of ["-wal", "-shm", "-journal"]) {
-    if (existsSync(`${inspected.path}${suffix}`)) fail("project_history_copy_db_not_standalone");
-  }
-  const header = Buffer.alloc(SQLITE_HEADER.length);
-  let descriptor;
-  try {
-    descriptor = openSync(inspected.path, "r");
-    if (readSync(descriptor, header, 0, header.length, 0) !== header.length || !header.equals(SQLITE_HEADER)) {
-      fail("project_history_copy_db_invalid");
-    }
-  } catch (error) {
-    if (error instanceof ProjectHistoryMcpError) throw error;
-    fail("project_history_copy_db_invalid");
-  } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
-  }
-  return inspected.path;
-}
-
 function assertPathId(value) {
-  if (typeof value !== "string" || !PATH_ID_RE.test(value)
-      || value === "." || value === ".." || value.includes("...")
-      || value.startsWith(".") || value.endsWith(".")) {
+  if (typeof value !== "string" || !EXACT_ID_RE.test(value)
+      || value === "." || value === ".." || value.includes("...")) {
     unavailable();
   }
   return value;
@@ -241,23 +180,23 @@ function buildHistorySnapshot(generation) {
   });
 }
 
-function readBoundGenerationTransaction(db, attestation) {
+function readBoundGenerationTransaction(db, manifest) {
   db.exec("BEGIN");
   try {
     const projectionSchemaFingerprint = assertCanonicalProjectHistoryProjectionSchema(db);
     const rows = db.prepare(`
       SELECT project_id, generation_id
         FROM project_history_generation
-       WHERE packet_digest = ?
+       WHERE project_id = ? AND generation_id = ? AND packet_digest = ?
        ORDER BY project_id, generation_id
-    `).all(attestation);
+    `).all(manifest.project_id, manifest.generation_id, manifest.generation_digest);
     if (rows.length !== 1) fail("full_generation_attestation_unbound");
     const projectId = assertPathId(rows[0].project_id);
     const generationId = assertPathId(rows[0].generation_id);
     const generation = readValidatedProjectHistoryGenerationQueryOnly(
       db,
       generationId,
-      attestation,
+      manifest.generation_digest,
       { projectId },
     );
     const model = buildCanonicalProjectHistoryCopyModel(generation);
@@ -267,7 +206,7 @@ function readBoundGenerationTransaction(db, attestation) {
     return Object.freeze({
       projectId,
       generationId,
-      attestation,
+      attestation: manifest.generation_digest,
       generation,
       model,
       history,
@@ -283,27 +222,7 @@ function readBoundGenerationTransaction(db, attestation) {
   }
 }
 
-function resolveGenerationArtifactDirectory(root, projectId, generationId) {
-  const projectDirectory = path.join(root, projectId);
-  const generationDirectory = path.join(projectDirectory, generationId);
-  if (!containedBy(root, generationDirectory)) unavailable();
-  for (const candidate of [projectDirectory, generationDirectory]) {
-    let inspected;
-    try {
-      inspected = plainExistingPath(candidate, {
-        directory: true,
-        code: "project_history_unavailable",
-      });
-    } catch {
-      unavailable();
-    }
-    if (!containedBy(root, inspected.path)) unavailable();
-  }
-  return generationDirectory;
-}
-
-function loadSealedFile(root, generationDirectory, filename, maxBytes) {
-  const artifactPath = path.join(generationDirectory, filename);
+function loadSealedFile(root, artifactPath, filename, maxBytes) {
   if (!containedBy(root, artifactPath)) unavailable();
   let inspected;
   try {
@@ -350,72 +269,43 @@ function loadSealedFile(root, generationDirectory, filename, maxBytes) {
   });
 }
 
-function assertXlsxContainer(artifact) {
-  const bytes = artifact.bytes;
-  const localHeader = bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
-  const endOfCentralDirectory = bytes.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
-  const searchStart = Math.max(0, bytes.length - 65_557);
-  if (!localHeader || endOfCentralDirectory < searchStart
-      || XLSX_REQUIRED_ZIP_ENTRIES.some((entry) => bytes.indexOf(Buffer.from(entry, "utf8")) < 0)) {
-    fail("project_history_xlsx_container_invalid");
-  }
-}
-
-function validateArtifactAttestation(
-  value,
-  externalDigest,
-  { bound, projectionSchemaFingerprint, artifacts },
-) {
-  assertExactKeys(value, ARTIFACT_ATTESTATION_FIELDS, "project_history_artifact_attestation_invalid");
-  if (sha256Canonical(value) !== externalDigest) fail("project_history_artifact_attestation_mismatch");
-  if (value.schema_version !== PROJECT_HISTORY_MCP_ARTIFACT_ATTESTATION_SCHEMA_VERSION
-      || value.project_id !== bound.projectId
-      || value.generation_id !== bound.generationId
-      || value.generation_digest !== bound.attestation
-      || value.projection_schema_fingerprint !== projectionSchemaFingerprint
-      || value.projection_schema_fingerprint !== canonicalProjectHistoryProjectionSchemaFingerprint()
-      || value.ordered_event_digest !== bound.generation.ordered_event_digest
-      || value.ordered_row_digest !== bound.model.ordered_row_digest) {
-    fail("project_history_artifact_attestation_invalid");
-  }
-  assertExactKeys(value.artifacts, ARTIFACT_KEYS, "project_history_artifact_attestation_invalid");
-  for (const key of ARTIFACT_KEYS) {
-    const record = value.artifacts[key];
-    const artifact = artifacts[key];
-    assertExactKeys(record, ARTIFACT_RECORD_FIELDS, "project_history_artifact_attestation_invalid");
-    assertDigest(record.sha256, "project_history_artifact_attestation_invalid");
-    if (record.filename !== ARTIFACT_FILENAMES[key]
-        || !Number.isSafeInteger(record.size) || record.size < 1
-        || record.size !== artifact.size
-        || record.sha256 !== artifact.digest) {
-      fail("project_history_artifact_attestation_invalid");
-    }
-  }
-  return Object.freeze(value);
-}
-
 function loadAndValidateSealedArtifacts({
   root,
   bound,
-  externalAttestationDigest,
+  manifest,
+  artifactPaths,
   maxArtifactBytes,
 }) {
-  const generationDirectory = resolveGenerationArtifactDirectory(
-    root,
-    bound.projectId,
-    bound.generationId,
-  );
-  const attestationFile = loadSealedFile(
-    root,
-    generationDirectory,
-    ARTIFACT_ATTESTATION_FILENAME,
-    Math.min(maxArtifactBytes, MAX_ARTIFACT_ATTESTATION_BYTES),
-  );
+  const generationDirectory = plainExistingPath(artifactPaths.directory, {
+    directory: true,
+    code: "project_history_unavailable",
+  }).path;
+  if (!containedBy(root, generationDirectory)) unavailable();
   const artifacts = Object.fromEntries(ARTIFACT_KEYS.map((key) => [
     key,
-    loadSealedFile(root, generationDirectory, ARTIFACT_FILENAMES[key], maxArtifactBytes),
+    loadSealedFile(
+      root,
+      artifactPaths[ARTIFACT_PATH_KEYS[key]],
+      PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES[key],
+      maxArtifactBytes,
+    ),
   ]));
-  assertXlsxContainer(artifacts.xlsx);
+  if (manifest.project_id !== bound.projectId
+      || manifest.generation_id !== bound.generationId
+      || manifest.generation_digest !== bound.attestation
+      || manifest.ordered_event_digest !== bound.generation.ordered_event_digest
+      || manifest.ordered_row_digest !== bound.model.ordered_row_digest) {
+    fail("project_history_artifact_manifest_invalid");
+  }
+  for (const key of ARTIFACT_KEYS) {
+    const record = manifest.artifacts[key];
+    const artifact = artifacts[key];
+    if (record.filename !== artifact.filename
+        || record.size !== artifact.size
+        || record.sha256 !== artifact.digest) {
+      fail("project_history_artifact_manifest_invalid");
+    }
+  }
 
   const expectedCsv = Buffer.from(renderProjectHistoryCopyCsv(bound.model), "utf8");
   if (!artifacts.csv.bytes.equals(expectedCsv)) fail("project_history_csv_parity_invalid");
@@ -433,11 +323,15 @@ function loadAndValidateSealedArtifacts({
     decodeUtf8Json(artifacts.xlsx_readback.bytes, "project_history_xlsx_readback_invalid"),
     bound.model,
   );
-  validateArtifactAttestation(
-    decodeUtf8Json(attestationFile.bytes, "project_history_artifact_attestation_invalid"),
-    externalAttestationDigest,
-    { bound, projectionSchemaFingerprint: bound.projectionSchemaFingerprint, artifacts },
+  const workbookReadback = readProjectHistoryCopyXlsx(artifacts.xlsx.bytes);
+  verifyProjectHistoryCopyXlsxReadback(workbookReadback, bound.model);
+  const persistedReadback = decodeUtf8Json(
+    artifacts.xlsx_readback.bytes,
+    "project_history_xlsx_readback_invalid",
   );
+  if (canonicalJson(workbookReadback) !== canonicalJson(persistedReadback)) {
+    fail("project_history_xlsx_readback_invalid");
+  }
   return Object.freeze({
     csv: artifacts.csv,
     xlsx: artifacts.xlsx,
@@ -468,10 +362,10 @@ function parseSingleRange(value, size) {
 }
 
 export function createProjectHistoryMcpService({
-  dbPath,
-  projectionRoot,
-  attestation,
-  artifactAttestation,
+  bindingPath,
+  bindingDigest,
+  artifactManifestPath,
+  artifactManifestDigest,
   bearerToken,
   pilotCopy = false,
   now = () => Date.now(),
@@ -481,11 +375,17 @@ export function createProjectHistoryMcpService({
   maxActiveTicketBytes = DEFAULT_MAX_ACTIVE_TICKET_BYTES,
 } = {}) {
   if (pilotCopy !== true) fail("project_history_mcp_feature_off");
-  if (typeof attestation !== "string" || !ATTESTATION_RE.test(attestation)) {
-    fail("full_generation_attestation_required");
+  if (typeof bindingPath !== "string" || bindingPath.length === 0) {
+    fail("project_history_binding_required");
   }
-  if (typeof artifactAttestation !== "string" || !ATTESTATION_RE.test(artifactAttestation)) {
-    fail("project_history_artifact_attestation_required");
+  if (typeof bindingDigest !== "string" || !ATTESTATION_RE.test(bindingDigest)) {
+    fail("project_history_binding_digest_required");
+  }
+  if (typeof artifactManifestPath !== "string" || artifactManifestPath.length === 0) {
+    fail("project_history_artifact_manifest_required");
+  }
+  if (typeof artifactManifestDigest !== "string" || !ATTESTATION_RE.test(artifactManifestDigest)) {
+    fail("project_history_artifact_manifest_digest_required");
   }
   const tokenDigest = digestToken(assertConfiguredBearer(bearerToken));
   if (!Number.isSafeInteger(ticketTtlMs) || ticketTtlMs < 1_000 || ticketTtlMs > 5 * 60_000) {
@@ -503,11 +403,42 @@ export function createProjectHistoryMcpService({
     fail("project_history_ticket_byte_limit_invalid");
   }
 
-  const copyPath = inspectStandaloneCopy(dbPath);
-  const root = plainExistingPath(projectionRoot, {
-    directory: true,
-    code: "project_history_projection_root_invalid",
-  }).path;
+  let binding;
+  let manifest;
+  let artifactPaths;
+  let initialTarget;
+  try {
+    binding = readProjectHistoryCopyBinding(path.resolve(bindingPath), {
+      expectedDigest: bindingDigest,
+    });
+    manifest = readProjectHistoryCopyArtifactManifest(path.resolve(artifactManifestPath), {
+      binding,
+      expectedDigest: artifactManifestDigest,
+    });
+    artifactPaths = resolveProjectHistoryCopyArtifactPaths(binding, {
+      projectId: manifest.project_id,
+      generationId: manifest.generation_id,
+    });
+    initialTarget = assertProjectHistoryCopyBindingTarget(binding, {
+      bindingDigest,
+      dbPath: binding.database_path,
+      projectId: manifest.project_id,
+      generationId: manifest.generation_id,
+      artifactPaths: {
+        ...artifactPaths,
+        artifactManifestPath: path.resolve(artifactManifestPath),
+      },
+      requireDatabaseHash: false,
+    });
+    if (initialTarget.database.sha256 !== manifest.database_after_sha256) {
+      fail("project_history_artifact_manifest_invalid");
+    }
+  } catch (error) {
+    if (error instanceof ProjectHistoryMcpError) throw error;
+    fail("project_history_projection_or_artifact_invalid");
+  }
+  const copyPath = initialTarget.database.path;
+  const root = binding.projection_root;
   let db;
   try {
     db = new DatabaseSync(copyPath, { readOnly: true });
@@ -525,13 +456,25 @@ export function createProjectHistoryMcpService({
   let bound;
   let sealedArtifacts;
   try {
-    bound = readBoundGenerationTransaction(db, attestation);
+    bound = readBoundGenerationTransaction(db, manifest);
     sealedArtifacts = loadAndValidateSealedArtifacts({
       root,
       bound,
-      externalAttestationDigest: artifactAttestation,
+      manifest,
+      artifactPaths,
       maxArtifactBytes,
     });
+    const finalTarget = assertProjectHistoryCopyBindingTarget(binding, {
+      bindingDigest,
+      dbPath: binding.database_path,
+      projectId: manifest.project_id,
+      generationId: manifest.generation_id,
+      artifactPaths,
+      requireDatabaseHash: false,
+    });
+    if (finalTarget.database.sha256 !== manifest.database_after_sha256) {
+      fail("project_history_artifact_manifest_invalid");
+    }
     if (totalChanges(db) !== 0) fail("project_history_query_only_guard_failed");
   } catch (error) {
     db.close();

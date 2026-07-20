@@ -10,6 +10,8 @@ import re
 import time
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
+from file_identity_guard import read_pinned_text
+
 from .connectors import ConnectorExecutionError, GmailConnector, HiworksPop3Connector
 from .models import ConnectorError
 from .pipeline import (
@@ -180,11 +182,9 @@ def _parse_bool(value: Optional[str], default: bool = False) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _parse_env_file(path: Path) -> Dict[str, str]:
+def _parse_env_text(text: str) -> Dict[str, str]:
     result: Dict[str, str] = {}
-    if not path.exists():
-        return result
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -193,10 +193,25 @@ def _parse_env_file(path: Path) -> Dict[str, str]:
     return result
 
 
-def _load_env(path: Path) -> Dict[str, str]:
-    payload = dict(_parse_env_file(path))
-    for key, value in os.environ.items():
-        payload[key] = value
+def _parse_env_file(path: Path) -> Dict[str, str]:
+    if not path.exists():
+        return {}
+    return _parse_env_text(read_pinned_text(path))
+
+
+def _load_env(
+    path: Path,
+    *,
+    env_text: Optional[str] = None,
+    include_ambient: bool = True,
+    env_overrides: Optional[Dict[str, str]] = None,
+) -> Dict[str, str]:
+    payload = dict(_parse_env_text(env_text) if env_text is not None else _parse_env_file(path))
+    if include_ambient:
+        for key, value in os.environ.items():
+            payload[key] = value
+    for key, value in (env_overrides or {}).items():
+        payload[str(key)] = str(value)
     return payload
 
 
@@ -227,8 +242,9 @@ def _is_repo_relative_ref(raw: str) -> bool:
     ))
 
 
-def _backend_root_from_env(repo_root: Path) -> Path:
-    raw = str(os.environ.get("DEV_ERP_BACKEND_ROOT", "")).strip()
+def _backend_root_from_env(repo_root: Path, env: Optional[Dict[str, str]] = None) -> Path:
+    source = os.environ if env is None else env
+    raw = str(source.get("DEV_ERP_BACKEND_ROOT", "")).strip()
     if not raw:
         return Path(repo_root).expanduser().resolve()
     path = Path(raw).expanduser()
@@ -312,7 +328,7 @@ def _validate_link_host_policy(
 def _read_token_payload_from_file(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
-    text = path.read_text(encoding="utf-8").strip()
+    text = read_pinned_text(path).strip()
     if not text:
         return {}
     try:
@@ -417,8 +433,21 @@ class CollectorConfig:
     plaud_mail_subject_keywords: Sequence[str] = DEFAULT_PLAUD_SUBJECT_KEYWORDS
 
 
-def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
-    env = _load_env(env_file)
+def build_config_from_env(
+    repo_root: Path,
+    env_file: Path,
+    *,
+    env_text: Optional[str] = None,
+    include_ambient: bool = True,
+    env_overrides: Optional[Dict[str, str]] = None,
+    disable_credential_persistence: bool = False,
+) -> CollectorConfig:
+    env = _load_env(
+        env_file,
+        env_text=env_text,
+        include_ambient=include_ambient,
+        env_overrides=env_overrides,
+    )
     env_base_dir = env_file.parent
 
     default_runtime = repo_root / "guild_hall" / "state" / "gateway" / "log" / "mail_fetch"
@@ -436,7 +465,7 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
         base_dir=env_base_dir,
         repo_root=repo_root,
     )
-    backend_root = _backend_root_from_env(repo_root)
+    backend_root = _backend_root_from_env(repo_root, env)
 
     attachment_max = _env_int(env, "EMAIL_FETCH_ATTACHMENT_MAX_BYTES", 30 * 1024 * 1024)
     limit = _env_int(env, "EMAIL_FETCH_LIMIT", 50)
@@ -453,6 +482,8 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
     client_secret = str(env.get("GMAIL_CLIENT_SECRET", "")).strip()
     token_uri = str(env.get("GMAIL_TOKEN_URI", "")).strip() or "https://oauth2.googleapis.com/token"
     token_file_raw = str(env.get("GMAIL_ACCESS_TOKEN_FILE", "")).strip()
+    if disable_credential_persistence and token_file_raw:
+        raise ValueError("mail_capsule_nested_credential_file_unsupported")
     token_file_path = _resolve_path(token_file_raw, base_dir=env_base_dir) if token_file_raw else None
     token_payload: Dict[str, Any] = {}
     if token_file_path:
@@ -506,10 +537,12 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
 
     hiworks_password = str(env.get("HIWORKS_POP3_PASSWORD", "")).strip()
     hiworks_password_file = str(env.get("HIWORKS_POP3_PASSWORD_FILE", "")).strip()
+    if disable_credential_persistence and hiworks_password_file:
+        raise ValueError("mail_capsule_nested_credential_file_unsupported")
     if not hiworks_password and hiworks_password_file:
         password_path = _resolve_path(hiworks_password_file, base_dir=env_base_dir)
         if password_path.exists():
-            hiworks_password = password_path.read_text(encoding="utf-8").strip()
+            hiworks_password = read_pinned_text(password_path).strip()
 
     return CollectorConfig(
         repo_root=repo_root,
@@ -548,7 +581,7 @@ def build_config_from_env(repo_root: Path, env_file: Path) -> CollectorConfig:
         gmail_client_secret=client_secret,
         gmail_token_uri=token_uri,
         gmail_access_token_expires_at=access_token_expires_at,
-        gmail_token_store_file=token_file_path,
+        gmail_token_store_file=None if disable_credential_persistence else token_file_path,
         gmail_user_id=str(env.get("GMAIL_USER_ID", "me")).strip() or "me",
         gmail_timeout_sec=max(_env_int(env, "GMAIL_TIMEOUT_SEC", 30), 1),
         gmail_query=gmail_query,

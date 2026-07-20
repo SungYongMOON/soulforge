@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.ingress.writer_authority.v1",
+  "title": "Soulforge HPP raw-ingress custody writer authority",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority_id",
+    "authority_scope",
+    "epoch",
+    "transition",
+    "mode",
+    "node_id",
+    "primary_node_id",
+    "fallback_node_id",
+    "lanes",
+    "not_before",
+    "expires_at",
+    "owner_approval_ref",
+    "previous_digest",
+    "revoked_digest",
+    "revoked_epoch",
+    "revoked_mode",
+    "revoked_node_id",
+    "request_digest",
+    "record_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ingress.writer_authority.v1" },
+    "authority_id": { "const": "task-engine-hpp-production-ingress" },
+    "authority_scope": { "const": "raw_ingress_custody_only" },
+    "epoch": { "type": "integer", "minimum": 1 },
+    "transition": {
+      "enum": ["initialize", "freeze", "revoke", "promote", "failback"]
+    },
+    "mode": { "enum": ["off", "primary", "fallback"] },
+    "node_id": { "$ref": "#/$defs/nodeId" },
+    "primary_node_id": { "$ref": "#/$defs/nodeId" },
+    "fallback_node_id": { "$ref": "#/$defs/nodeId" },
+    "lanes": {
+      "const": ["mail", "voice", "structured_pc_work", "team_files", "run_logs"]
+    },
+    "not_before": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "owner_approval_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "previous_digest": { "$ref": "#/$defs/nullableDigest" },
+    "revoked_digest": { "$ref": "#/$defs/nullableDigest" },
+    "revoked_epoch": {
+      "anyOf": [
+        { "type": "integer", "minimum": 1 },
+        { "type": "null" }
+      ]
+    },
+    "revoked_mode": {
+      "anyOf": [
+        { "enum": ["primary", "fallback"] },
+        { "type": "null" }
+      ]
+    },
+    "revoked_node_id": {
+      "anyOf": [
+        { "$ref": "#/$defs/nodeId" },
+        { "type": "null" }
+      ]
+    },
+    "request_digest": { "$ref": "#/$defs/digest" },
+    "record_digest": { "$ref": "#/$defs/digest" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "transition": { "const": "initialize" } } },
+      "then": {
+        "properties": {
+          "epoch": { "const": 1 },
+          "mode": { "const": "off" },
+          "previous_digest": { "type": "null" },
+          "revoked_digest": { "type": "null" },
+          "revoked_epoch": { "type": "null" },
+          "revoked_mode": { "type": "null" },
+          "revoked_node_id": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "transition": { "enum": ["freeze", "revoke"] } } },
+      "then": { "properties": { "mode": { "const": "off" } } }
+    },
+    {
+      "if": { "properties": { "transition": { "const": "promote" } } },
+      "then": { "properties": { "mode": { "enum": ["primary", "fallback"] } } }
+    },
+    {
+      "if": { "properties": { "transition": { "const": "failback" } } },
+      "then": {
+        "properties": {
+          "mode": { "const": "primary" },
+          "revoked_mode": { "const": "fallback" }
+        }
+      }
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "revoked_digest": { "type": "null" },
+            "revoked_epoch": { "type": "null" },
+            "revoked_mode": { "type": "null" },
+            "revoked_node_id": { "type": "null" }
+          }
+        },
+        {
+          "properties": {
+            "revoked_digest": { "$ref": "#/$defs/digest" },
+            "revoked_epoch": { "type": "integer", "minimum": 1 },
+            "revoked_mode": { "enum": ["primary", "fallback"] },
+            "revoked_node_id": { "$ref": "#/$defs/nodeId" }
+          }
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "nodeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "nullableDigest": {
+      "anyOf": [
+        { "$ref": "#/$defs/digest" },
+        { "type": "null" }
+      ]
+    }
+  }
+}

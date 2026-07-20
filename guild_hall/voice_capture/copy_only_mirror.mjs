@@ -155,7 +155,7 @@ async function readCheckpoint(path) {
   }
 }
 
-async function atomicJson(path, payload) {
+async function atomicJson(path, payload, assertFence, fenceContext) {
   if (await exists(path)) {
     const info = await lstat(path);
     if (!info.isFile() || info.isSymbolicLink()) fail("unsafe_json_target");
@@ -163,6 +163,7 @@ async function atomicJson(path, payload) {
   const temporary = `${path}.partial-${randomUUID()}`;
   await writeFile(temporary, `${JSON.stringify(payload, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
   try {
+    await assertFence(fenceContext);
     await rename(temporary, path);
   } finally {
     await rm(temporary, { force: true });
@@ -236,7 +237,7 @@ async function readReceiptByIdentity(receiptRoot, sourceOwnerRef, sourceKey, dig
   return payload;
 }
 
-async function writeReceipt(receiptRoot, receipt) {
+async function writeReceipt(receiptRoot, receipt, assertFence) {
   const id = receiptId(receipt.source_owner_ref, receipt.source_key, receipt.sha256);
   const path = resolve(receiptRoot, `${id}.json`);
   if (!inside(receiptRoot, path)) fail("receipt_path_escape");
@@ -254,11 +255,16 @@ async function writeReceipt(receiptRoot, receipt) {
     return false;
   }
   await ensureSafeDirectoryChain(receiptRoot, dirname(path), { create: true });
-  await atomicJson(path, payload);
+  await atomicJson(path, payload, assertFence, {
+    phase: "before_receipt_publish",
+    artifact: "receipt",
+    source_key: receipt.source_key,
+    target: path,
+  });
   return true;
 }
 
-async function verifiedCopy(destinationRoot, sourcePath, destinationPath, expected) {
+async function verifiedCopy(destinationRoot, sourcePath, destinationPath, expected, assertFence, fenceContext) {
   await ensureSafeDirectoryChain(destinationRoot, dirname(destinationPath), { create: true });
   const temporary = `${destinationPath}.partial-${randomUUID()}`;
   try {
@@ -267,6 +273,7 @@ async function verifiedCopy(destinationRoot, sourcePath, destinationPath, expect
     if (copied.sha256 !== expected.sha256 || copied.size !== expected.size) fail("copy_hash_mismatch");
     if (await exists(destinationPath)) fail("destination_race");
     await ensureSafeDirectoryChain(destinationRoot, dirname(destinationPath));
+    await assertFence(fenceContext);
     await rename(temporary, destinationPath);
   } finally {
     await rm(temporary, { force: true });
@@ -293,19 +300,19 @@ function receiptFromCheckpoint(row) {
   };
 }
 
-async function verifyCustodyEntry(destinationRoot, receiptRoot, entry) {
+async function verifyCustodyEntry(destinationRoot, receiptRoot, entry, assertFence) {
   const storedPath = resolve(destinationRoot, String(entry.storage_ref || ""));
   if (!inside(destinationRoot, storedPath) || !(await exists(storedPath))) fail("checkpoint_custody_missing");
   const stored = await safeStoredDigest(destinationRoot, storedPath);
   if (stored.sha256 !== entry.sha256 || stored.size !== entry.size) fail("checkpoint_custody_mismatch");
-  return writeReceipt(receiptRoot, receiptFromCheckpoint(entry));
+  return writeReceipt(receiptRoot, receiptFromCheckpoint(entry), assertFence);
 }
 
-async function verifyPreviousCustody(destinationRoot, receiptRoot, previous) {
+async function verifyPreviousCustody(destinationRoot, receiptRoot, previous, assertFence) {
   let receiptsWritten = 0;
   const history = Array.isArray(previous.custody_history) ? previous.custody_history : [];
   for (const entry of [...history, previous]) {
-    if (await verifyCustodyEntry(destinationRoot, receiptRoot, entry)) receiptsWritten += 1;
+    if (await verifyCustodyEntry(destinationRoot, receiptRoot, entry, assertFence)) receiptsWritten += 1;
   }
   return receiptsWritten;
 }
@@ -372,7 +379,7 @@ export async function syncCopyOnlyMirror(options) {
 
   for (const previous of Object.values(checkpoint.files)) {
     await assertFence({ phase: "before_previous_custody", source_key: previous.source_key });
-    summary.receipts_written += await verifyPreviousCustody(destinationRoot, receiptRoot, previous);
+    summary.receipts_written += await verifyPreviousCustody(destinationRoot, receiptRoot, previous, assertFence);
     await assertFence({ phase: "after_previous_custody", source_key: previous.source_key });
   }
 
@@ -407,7 +414,12 @@ export async function syncCopyOnlyMirror(options) {
       if (!inside(destinationRoot, livePath)) fail("destination_path_escape");
       if (!(await exists(livePath))) {
         destinationPath = livePath;
-        await verifiedCopy(destinationRoot, file.path, destinationPath, source);
+        await verifiedCopy(destinationRoot, file.path, destinationPath, source, assertFence, {
+          phase: "before_payload_publish",
+          artifact: "payload",
+          source_key: file.key,
+          target: destinationPath,
+        });
         summary.copied_new += 1;
         copiedPayload = true;
       } else {
@@ -419,7 +431,12 @@ export async function syncCopyOnlyMirror(options) {
           destinationPath = resolve(destinationRoot, "versions", `${file.key}.${source.sha256}`);
           if (!inside(destinationRoot, destinationPath)) fail("destination_path_escape");
           if (!(await exists(destinationPath))) {
-            await verifiedCopy(destinationRoot, file.path, destinationPath, source);
+            await verifiedCopy(destinationRoot, file.path, destinationPath, source, assertFence, {
+              phase: "before_payload_publish",
+              artifact: "payload",
+              source_key: file.key,
+              target: destinationPath,
+            });
             summary.copied_version += 1;
             copiedPayload = true;
           } else {
@@ -447,7 +464,7 @@ export async function syncCopyOnlyMirror(options) {
       source_deleted: false,
       source_overwritten: false,
     };
-    if (await writeReceipt(receiptRoot, receipt)) summary.receipts_written += 1;
+    if (await writeReceipt(receiptRoot, receipt, assertFence)) summary.receipts_written += 1;
     const custodyHistory = previous
       ? [...(Array.isArray(previous.custody_history) ? previous.custody_history : []), receiptFromCheckpoint(previous)]
       : [];
@@ -466,7 +483,12 @@ export async function syncCopyOnlyMirror(options) {
   checkpoint.lanes = lanes;
   checkpoint.updated_at = now();
   await assertFence({ phase: "before_checkpoint", source_key: null });
-  await atomicJson(checkpointPath, checkpoint);
+  await atomicJson(checkpointPath, checkpoint, assertFence, {
+    phase: "before_checkpoint_publish",
+    artifact: "checkpoint",
+    source_key: null,
+    target: checkpointPath,
+  });
   await assertFence({ phase: "after_checkpoint", source_key: null });
   return summary;
 }

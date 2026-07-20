@@ -89,6 +89,22 @@ The register stores account/mailbox metadata and relative env-file references on
 Secret values stay in each referenced env file. Env refs must be repo-relative or
 relative to the register file, and absolute/traversal refs are rejected.
 
+For HPP continuous-ingress runs, the Node bridge reads no credential bytes and
+captures only a six-field metadata identity; no credential content digest is
+placed in the manifest, launch config, output, or durable state. A Windows
+bootstrap opens and retains each credential source with read-only sharing while
+`team_cli.py` opens its own read handle and checks that externally captured
+identity. The child builds every enabled mailbox config and loads all direct
+values from the retained primary env sources before the first mailbox run. HPP
+capsule mode rejects `GMAIL_ACCESS_TOKEN_FILE` and
+`HIWORKS_POP3_PASSWORD_FILE` before any `run_once`; standalone collector mode
+retains those indirections for compatibility. The capsule ignores ambient
+overrides and never persists refreshed token data to a credential path. Any
+identity drift fails closed. The binding also
+pins the complete collector-tree release digest; the runtime, collector code,
+register, manifest, and credentials remain pre-opened and locked through the
+operation-local capsule launch. Unsupported platforms fail closed.
+
 For an always-on runtime whose release checkout can be replaced, set
 `EMAIL_FETCH_PRIVATE_CONFIG_ROOT` to a stable private directory outside the
 checkout. The default register and repo-relative mailbox env references are then

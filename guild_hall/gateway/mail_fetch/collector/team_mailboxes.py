@@ -96,7 +96,12 @@ def default_register_path(repo_root: Path) -> Path:
     return root / DEFAULT_TEAM_REGISTER_REL
 
 
-def load_team_mailbox_register(repo_root: Path, register_file: Path) -> List[TeamMailbox]:
+def load_team_mailbox_register(
+    repo_root: Path,
+    register_file: Path,
+    *,
+    register_text: Optional[str] = None,
+) -> List[TeamMailbox]:
     repo_root = Path(repo_root).expanduser().resolve()
     register_file = Path(register_file).expanduser()
     if not register_file.is_absolute():
@@ -105,7 +110,9 @@ def load_team_mailbox_register(repo_root: Path, register_file: Path) -> List[Tea
         register_file = register_file.resolve()
 
     try:
-        payload = json.loads(register_file.read_text(encoding="utf-8"))
+        payload = json.loads(
+            register_text if register_text is not None else register_file.read_text(encoding="utf-8")
+        )
     except FileNotFoundError as exc:
         raise TeamMailboxRegisterError("register_not_found") from exc
     except json.JSONDecodeError as exc:
@@ -142,10 +149,16 @@ def run_team_mailboxes(
     dry_run: bool = False,
     ingress_only: bool = False,
     limit: int = 0,
+    mailboxes: Optional[Sequence[TeamMailbox]] = None,
+    credential_texts_by_path: Optional[Dict[str, str]] = None,
+    capsule_env_overrides: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     started_at = _now_iso()
-    mailboxes = load_team_mailbox_register(repo_root=repo_root, register_file=register_file)
-    enabled = [mailbox for mailbox in mailboxes if mailbox.enabled]
+    selected_mailboxes = list(mailboxes) if mailboxes is not None else load_team_mailbox_register(
+        repo_root=repo_root,
+        register_file=register_file,
+    )
+    enabled = [mailbox for mailbox in selected_mailboxes if mailbox.enabled]
 
     summary: Dict[str, Any] = {
         "schema_version": TEAM_RUN_SCHEMA_VERSION,
@@ -153,27 +166,55 @@ def run_team_mailboxes(
         "finished_at": "",
         "partial": False,
         "dry_run": bool(dry_run),
-        "mailboxes_total": len(mailboxes),
+        "mailboxes_total": len(selected_mailboxes),
         "mailboxes_enabled": len(enabled),
         "mailboxes_run": 0,
-        "mailboxes_skipped": len(mailboxes) - len(enabled),
+        "mailboxes_skipped": len(selected_mailboxes) - len(enabled),
         "total_events": 0,
         "total_new_events": 0,
         "total_duplicates": 0,
-        "mailboxes": [mailbox.operator_summary() for mailbox in mailboxes],
+        "mailboxes": [mailbox.operator_summary() for mailbox in selected_mailboxes],
         "results": [],
         "errors": [],
     }
 
+    prepared = []
     for mailbox in enabled:
         try:
-            config = build_config_for_mailbox(repo_root=repo_root, mailbox=mailbox)
+            credential_text = None
+            if credential_texts_by_path is not None:
+                credential_key = str(mailbox.env_file)
+                if credential_key not in credential_texts_by_path:
+                    raise TeamMailboxRegisterError("credential_not_preloaded", field="env_file")
+                credential_text = credential_texts_by_path[credential_key]
+            config = build_config_for_mailbox(
+                repo_root=repo_root,
+                mailbox=mailbox,
+                credential_text=credential_text,
+                include_ambient_env=credential_texts_by_path is None,
+                env_overrides=capsule_env_overrides,
+                disable_credential_persistence=credential_texts_by_path is not None,
+            )
             if dry_run:
                 config.dry_run = True
             if ingress_only:
                 config.ingress_only = True
             if int(limit or 0) > 0:
                 config.limit = int(limit)
+            prepared.append((mailbox, config))
+        except Exception as exc:  # noqa: BLE001
+            summary["partial"] = True
+            summary["errors"].append(
+                {
+                    "mailbox": mailbox.operator_summary(),
+                    "code": "mailbox_run_error",
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                }
+            )
+
+    for mailbox, config in prepared:
+        try:
             result = runner.run_once(config)
             summary["mailboxes_run"] += 1
             summary["total_events"] += int(result.get("total_events") or 0)
@@ -201,8 +242,23 @@ def run_team_mailboxes(
     return runner.sanitize_for_operator_output(summary)
 
 
-def build_config_for_mailbox(*, repo_root: Path, mailbox: TeamMailbox) -> runner.CollectorConfig:
-    config = runner.build_config_from_env(repo_root=Path(repo_root).expanduser(), env_file=mailbox.env_file)
+def build_config_for_mailbox(
+    *,
+    repo_root: Path,
+    mailbox: TeamMailbox,
+    credential_text: Optional[str] = None,
+    include_ambient_env: bool = True,
+    env_overrides: Optional[Dict[str, str]] = None,
+    disable_credential_persistence: bool = False,
+) -> runner.CollectorConfig:
+    config = runner.build_config_from_env(
+        repo_root=Path(repo_root).expanduser(),
+        env_file=mailbox.env_file,
+        env_text=credential_text,
+        include_ambient=include_ambient_env,
+        env_overrides=env_overrides,
+        disable_credential_persistence=disable_credential_persistence,
+    )
 
     config.gmail_enabled = mailbox.provider == "gmail"
     config.hiworks_enabled = mailbox.provider == "hiworks"

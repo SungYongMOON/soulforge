@@ -173,10 +173,10 @@ export function createProjectHistoryMcpHttpServer({
 function parseArguments(argv) {
   const options = {};
   const values = new Map([
-    ["--attestation", "attestation"],
-    ["--artifact-attestation", "artifactAttestation"],
-    ["--db", "dbPath"],
-    ["--projection-root", "projectionRoot"],
+    ["--binding", "bindingPath"],
+    ["--binding-digest", "bindingDigest"],
+    ["--artifact-manifest", "artifactManifestPath"],
+    ["--artifact-manifest-digest", "artifactManifestDigest"],
     ["--port", "port"],
   ]);
   for (let index = 0; index < argv.length; index += 1) {
@@ -205,12 +205,12 @@ function helpText() {
     "",
     "Usage:",
     "  $env:SOULFORGE_PROJECT_HISTORY_MCP_TOKEN=\"<ephemeral-random-token>\"",
-    "  node project_history_server.mjs --pilot-copy --attestation <sha256:...> \\",
-    "    --artifact-attestation <sha256:...> \\",
-    "    --db <absolute-existing-copy.sqlite> --projection-root <absolute-existing-root> [--port 4312]",
+    "  node project_history_server.mjs --pilot-copy --binding <private-binding.json> \\",
+    "    --binding-digest <sha256:...> --artifact-manifest <artifact-manifest.json> \\",
+    "    --artifact-manifest-digest <sha256:...> [--port 4312]",
     "",
     "The token is read only from the environment and is never printed. The server binds 127.0.0.1 only.",
-    "The artifact digest pins project_history.artifact-attestation.json and its four fixed artifact records.",
+    "The exact private binding and artifact-manifest digests pin the copied DB generation and four fixed artifacts.",
   ].join("\n");
 }
 
@@ -221,16 +221,21 @@ if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
     if (options.help) {
       process.stdout.write(`${helpText()}\n`);
     } else {
-      for (const key of ["attestation", "artifactAttestation", "dbPath", "projectionRoot"]) {
+      for (const key of [
+        "bindingPath",
+        "bindingDigest",
+        "artifactManifestPath",
+        "artifactManifestDigest",
+      ]) {
         if (typeof options[key] !== "string" || options[key].length === 0) throw new Error("argument_required");
       }
       const port = options.port === undefined ? DEFAULT_PORT : Number(options.port);
       if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error("port_invalid");
       service = createProjectHistoryMcpService({
-        dbPath: options.dbPath,
-        projectionRoot: options.projectionRoot,
-        attestation: options.attestation,
-        artifactAttestation: options.artifactAttestation,
+        bindingPath: options.bindingPath,
+        bindingDigest: options.bindingDigest,
+        artifactManifestPath: options.artifactManifestPath,
+        artifactManifestDigest: options.artifactManifestDigest,
         bearerToken: process.env.SOULFORGE_PROJECT_HISTORY_MCP_TOKEN,
         pilotCopy: options.pilotCopy === true,
       });
