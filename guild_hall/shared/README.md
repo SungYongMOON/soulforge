@@ -28,6 +28,20 @@
   projector authority; those production epochs remain deliberately
   unimplemented.
 
+## Continuous receipt-to-Shadow orchestrator v1
+
+- `project_history_continuous_shadow_orchestrator_v1.mjs` binds one externally
+  pinned continuous-ingress v2 run receipt, one explicit project, explicit
+  custody receipt metadata, and a separate private Shadow authority epoch into
+  the existing receipt-adapter v2 request and in-memory generation/replay path.
+- The orchestrator rejects missing, ambiguous, or mixed project classification
+  and RAW-ingress authority reuse. H01-H05 preserve each lane's honest coverage,
+  including `complete_no_events`; H06 is only a feature-OFF Shadow coverage
+  aggregate and never grants production readiness.
+- This surface has no CLI or output writer. It does not schedule work, write a
+  live/copy ERP database, publish accepted history, or enable a classifier,
+  projector epoch, service, or external side effect.
+
 ## Feature-OFF project-history knowledge projection
 
 - `project_history_knowledge_projection.mjs` derives explicit `project` or

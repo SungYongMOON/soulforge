@@ -54,6 +54,11 @@
   validation-only, and the HPP cutover leaves Shadow publication unscheduled
   until one authority fence spans database commit and final publication and
   staged bytes remain immutable through rename.
+- Added a feature-OFF continuous receipt-to-Shadow orchestrator that binds one
+  externally pinned continuous run receipt and one explicit project to the
+  existing v2 adapter under a separate Shadow authority epoch. It reports
+  H01-H06 Shadow coverage in memory only and grants no scheduler, live DB,
+  accepted-history, or production-readiness authority.
   (worker: codex_gpt-5.5)
 
 ## 2026-07-19
