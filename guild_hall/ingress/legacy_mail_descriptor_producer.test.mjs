@@ -107,8 +107,8 @@ async function makeFixture(root, overrides = {}) {
   const erpTwo = join(root, "erp-two.jsonl");
   await writeJsonl(hppEvents, overrides.hppRows ?? [hppEvent]);
   await writeJsonl(custodyIndex, overrides.custodyRows ?? [custody(hppEvent)]);
-  await writeJsonl(gatewayOne, [event({ source: "gmail" })]);
-  await writeJsonl(gatewayTwo, [event({
+  await writeJsonl(gatewayOne, overrides.gatewayOneRows ?? [event({ source: "gmail" })]);
+  await writeJsonl(gatewayTwo, [overrides.gatewayTwoEvent ?? event({
     event_id: "SENSITIVE_GATEWAY_METADATA_ID",
     provider_message_id: "SENSITIVE_GATEWAY_METADATA_PROVIDER",
     body_text: null,
@@ -131,7 +131,7 @@ async function makeFixture(root, overrides = {}) {
   };
   const bindingPath = join(root, "PRIVATE_BINDING_DO_NOT_PRINT.json");
   await writeFile(bindingPath, JSON.stringify(binding));
-  return { binding, bindingPath, sourcePaths };
+  return { binding, bindingPath, gatewayOne, sourcePaths };
 }
 
 async function snapshot(paths) {
@@ -187,6 +187,43 @@ test("explicit real-like HPP, gateway, and ERP JSONL produce only a sanitized ac
     const reordered = spawnSync(process.execPath, [cliPath, "--binding", reorderedPath], { encoding: "utf8" });
     assert.equal(reordered.status, 0, reordered.stderr);
     assert.deepEqual(JSON.parse(reordered.stdout), output);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("gateway rows reordered inside one JSONL produce byte-identical full output", async () => {
+  const root = await mkdtemp(join(tmpdir(), "legacy-mail-producer-row-order-"));
+  try {
+    const rows = [
+      event({ event_id: "row-order-a", provider_message_id: "row-provider-a", source: "gmail" }),
+      event({ event_id: "row-order-b", provider_message_id: "row-provider-b", source: "gmail" }),
+    ];
+    const fixture = await makeFixture(root, { gatewayOneRows: rows });
+    const first = spawnSync(process.execPath, [cliPath, "--binding", fixture.bindingPath], { encoding: "utf8" });
+    assert.equal(first.status, 0, first.stderr);
+    await writeJsonl(fixture.gatewayOne, [...rows].reverse());
+    const reversed = spawnSync(process.execPath, [cliPath, "--binding", fixture.bindingPath], { encoding: "utf8" });
+    assert.equal(reversed.status, 0, reversed.stderr);
+    assert.equal(reversed.stdout, first.stdout);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("gateway attachment-only events retain gateway content quality", async () => {
+  const root = await mkdtemp(join(tmpdir(), "legacy-mail-producer-attachment-only-"));
+  try {
+    const fixture = await makeFixture(root, { gatewayTwoEvent: event({
+      event_id: "attachment-only-event",
+      provider_message_id: "attachment-only-provider",
+      body_text: null,
+      body_html: null,
+      attachments: [attachment()],
+    }) });
+    const manifest = await buildLegacyMailManifestFromBinding(fixture.bindingPath);
+    assert.equal(manifest.inventory.source_counts.gateway_normalized_attachments, 2);
+    assert.equal(manifest.inventory.source_counts.metadata_only, 1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

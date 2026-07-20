@@ -262,15 +262,19 @@ function gatewayRecord(event) {
   const bodyText = typeof event.body_text === "string" && event.body_text.trim() ? canonicalText(event.body_text) : null;
   const bodyHtml = typeof event.body_html === "string" && event.body_html.trim() ? canonicalText(event.body_html) : null;
   const hasBody = bodyText !== null || bodyHtml !== null;
+  const hasAttachments = event.attachments.length > 0;
+  const hasGatewayContent = hasBody || hasAttachments;
   return {
-    source_kind: hasBody ? "gateway_normalized_attachments" : "metadata_only",
+    source_kind: hasGatewayContent ? "gateway_normalized_attachments" : "metadata_only",
     event_id_digest: rawDigest(event.event_id),
     provider_id_digest: rawDigest(event.provider_message_id),
     conservative_fingerprint_digest: conservativeFingerprint({
       at: event.received_at, subject: event.subject, counterparts: eventCounterparts(event),
     }),
-    content_digest: hasBody ? sha256Canonical({ body_html: bodyHtml, body_text: bodyText }) : null,
-    attachment_set_digest: hasBody ? attachmentSetDigest(event.attachments) : null,
+    content_digest: hasBody
+      ? sha256Canonical({ body_html: bodyHtml, body_text: bodyText })
+      : (hasAttachments ? sha256Canonical({ body_html: null, body_text: null, provenance: "attachment_only" }) : null),
+    attachment_set_digest: hasGatewayContent ? attachmentSetDigest(event.attachments) : null,
   };
 }
 
@@ -349,6 +353,20 @@ async function readJsonlFiles(paths) {
   return rows;
 }
 
+function sortDescriptorRecords(records) {
+  return records.map((record) => ({
+    record,
+    digest: sha256Canonical(record),
+    canonical: canonicalJson(record),
+  })).sort((left, right) => {
+    if (left.digest < right.digest) return -1;
+    if (left.digest > right.digest) return 1;
+    if (left.canonical < right.canonical) return -1;
+    if (left.canonical > right.canonical) return 1;
+    return 0;
+  }).map(({ record }) => record);
+}
+
 function withActualProof(base, sourceFileCount) {
   const { manifest_digest: ignored, ...manifestFields } = base;
   const manifest = {
@@ -378,13 +396,14 @@ export async function buildLegacyMailManifestFromBinding(bindingPath) {
   )));
   const gatewayEvents = await readJsonlFiles(binding.gateway.event_files);
   const erpRows = await readJsonlFiles(binding.erp.normalized_files);
+  const records = sortDescriptorRecords([
+    ...hppRecords(hppEvents, custody),
+    ...gatewayEvents.map(gatewayRecord),
+    ...erpRows.map(erpRecord),
+  ]);
   const descriptor = {
     schema_version: LEGACY_MAIL_MERGE_DESCRIPTOR_SCHEMA,
-    records: [
-      ...hppRecords(hppEvents, custody),
-      ...gatewayEvents.map(gatewayRecord),
-      ...erpRows.map(erpRecord),
-    ],
+    records,
   };
   const sourceFileCount = binding.hpp.event_files.length + 1
     + binding.gateway.event_files.length + binding.erp.normalized_files.length;
