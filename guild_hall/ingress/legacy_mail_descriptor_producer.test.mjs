@@ -57,8 +57,8 @@ function event(overrides = {}) {
   };
 }
 
-function custody(eventValue) {
-  const emlSha256 = hexDigest("SENSITIVE_RFC822_BYTES");
+function custody(eventValue, emlValue = "SENSITIVE_RFC822_BYTES") {
+  const emlSha256 = hexDigest(emlValue);
   return {
     event_id: eventValue.event_id,
     provider_id_sha256: hexDigest(eventValue.provider_message_id),
@@ -187,6 +187,34 @@ test("explicit real-like HPP, gateway, and ERP JSONL produce only a sanitized ac
     const reordered = spawnSync(process.execPath, [cliPath, "--binding", reorderedPath], { encoding: "utf8" });
     assert.equal(reordered.status, 0, reordered.stderr);
     assert.deepEqual(JSON.parse(reordered.stdout), output);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("HPP provider collision with distinct EML digests retains both originals for review", async () => {
+  const root = await mkdtemp(join(tmpdir(), "legacy-mail-producer-hpp-provider-collision-"));
+  try {
+    const providerMessageId = "SENSITIVE_COLLIDING_HPP_PROVIDER";
+    const hppOne = event({ event_id: "SENSITIVE_HPP_EVENT_ONE", provider_message_id: providerMessageId });
+    const hppTwo = event({ event_id: "SENSITIVE_HPP_EVENT_TWO", provider_message_id: providerMessageId });
+    const fixture = await makeFixture(root, {
+      hppEvent: hppOne,
+      hppRows: [hppOne, hppTwo],
+      custodyRows: [
+        custody(hppOne, "SENSITIVE_RFC822_BYTES_ONE"),
+        custody(hppTwo, "SENSITIVE_RFC822_BYTES_TWO"),
+      ],
+    });
+    const manifest = await buildLegacyMailManifestFromBinding(fixture.bindingPath);
+    assert.equal(manifest.inventory.source_counts.hpp_eml_current, 2);
+    assert.equal(manifest.dedupe_plan.exact_provider_id_group_count, 0);
+    assert.equal(manifest.dedupe_plan.conflicting_provider_id_group_count, 1);
+    assert.equal(manifest.dedupe_plan.conflicting_provider_id_record_count, 2);
+    assert.equal(manifest.dedupe_plan.planned_distinct_record_count, 6);
+    assert.equal(manifest.action_plan.future_review_conflicting_provider_id_group_count, 1);
+    assert.equal(manifest.action_plan.future_review_conflicting_provider_id_record_count, 2);
+    assert.equal(manifest.action_plan.preferred_source_counts.hpp_eml_current, 2);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

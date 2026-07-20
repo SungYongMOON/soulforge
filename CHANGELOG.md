@@ -17,12 +17,15 @@
 ### Plan legacy mail custody merge without reading mail
 
 - Added a dry-run-only legacy mail merge manifest CLI over one explicit,
-  sanitized digest descriptor. Exact event/provider IDs drive future dedupe,
-  source choice follows HPP EML/current → gateway normalized+attachments → ERP
-  body/preview → metadata-only, and conservative fingerprints remain ambiguous
-  review items. Output is counts, digests, an action plan, and no-copy/no-write
-  proof; there is no apply, collector, writer, scheduler, MCP, or activation
-  path. Synthetic tests use temporary fixtures only. (worker: codex_gpt-5)
+  sanitized digest descriptor. Exact event IDs drive future dedupe; provider ID
+  groups do so only when same-source differing events have identical non-null
+  content proof. Conflicting or unproved provider groups remain distinct and
+  review-only with deterministic group/record counts. Source choice follows HPP
+  EML/current → gateway normalized+attachments → ERP body/preview →
+  metadata-only, and conservative fingerprints remain ambiguous review items.
+  Output is counts, digests, an action plan, and no-copy/no-write proof; there is
+  no apply, collector, writer, scheduler, MCP, or activation path. Synthetic
+  tests use temporary fixtures only. (worker: codex_gpt-5)
 
 ### Hardened HPP nested mail credentials
 

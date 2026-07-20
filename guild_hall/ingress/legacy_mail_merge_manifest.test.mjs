@@ -62,14 +62,80 @@ test("an exact provider ID dedupes records when event IDs differ", () => {
   const manifest = buildLegacyMailMergeManifest({
     schema_version: LEGACY_MAIL_MERGE_DESCRIPTOR_SCHEMA,
     records: [
+      record("hpp_eml_current", "provider-hpp", { provider_id_digest: provider }),
       record("erp_legacy_body_preview", "provider-a", { provider_id_digest: provider }),
       record("gateway_normalized_attachments", "provider-b", { provider_id_digest: provider }),
     ],
   });
   assert.equal(manifest.dedupe_plan.exact_event_id_group_count, 0);
   assert.equal(manifest.dedupe_plan.exact_provider_id_group_count, 1);
+  assert.equal(manifest.dedupe_plan.conflicting_provider_id_group_count, 0);
+  assert.equal(manifest.dedupe_plan.conflicting_provider_id_record_count, 0);
   assert.equal(manifest.dedupe_plan.planned_distinct_record_count, 1);
-  assert.equal(manifest.action_plan.preferred_source_counts.gateway_normalized_attachments, 1);
+  assert.equal(manifest.action_plan.preferred_source_counts.hpp_eml_current, 1);
+});
+
+test("same-source provider collisions with distinct content stay distinct for review", async (t) => {
+  for (const sourceKind of [
+    "hpp_eml_current",
+    "gateway_normalized_attachments",
+    "erp_legacy_body_preview",
+  ]) {
+    await t.test(sourceKind, () => {
+      const provider = digest(`colliding-provider-${sourceKind}`);
+      const manifest = buildLegacyMailMergeManifest({
+        schema_version: LEGACY_MAIL_MERGE_DESCRIPTOR_SCHEMA,
+        records: [
+          record(sourceKind, `${sourceKind}-a`, { provider_id_digest: provider }),
+          record(sourceKind, `${sourceKind}-b`, { provider_id_digest: provider }),
+        ],
+      });
+      assert.equal(manifest.dedupe_plan.exact_provider_id_group_count, 0);
+      assert.equal(manifest.dedupe_plan.conflicting_provider_id_group_count, 1);
+      assert.equal(manifest.dedupe_plan.conflicting_provider_id_record_count, 2);
+      assert.equal(manifest.dedupe_plan.planned_distinct_record_count, 2);
+      assert.equal(manifest.action_plan.future_review_conflicting_provider_id_group_count, 1);
+      assert.equal(manifest.action_plan.future_review_conflicting_provider_id_record_count, 2);
+      assert.equal(manifest.action_plan.preferred_source_counts[sourceKind], 2);
+    });
+  }
+});
+
+test("same-source provider duplicates with identical non-null content may dedupe", () => {
+  const provider = digest("same-content-provider");
+  const content = digest("same-content");
+  const manifest = buildLegacyMailMergeManifest({
+    schema_version: LEGACY_MAIL_MERGE_DESCRIPTOR_SCHEMA,
+    records: [
+      record("erp_legacy_body_preview", "same-content-a", {
+        provider_id_digest: provider,
+        content_digest: content,
+      }),
+      record("erp_legacy_body_preview", "same-content-b", {
+        provider_id_digest: provider,
+        content_digest: content,
+      }),
+    ],
+  });
+  assert.equal(manifest.dedupe_plan.exact_provider_id_group_count, 1);
+  assert.equal(manifest.dedupe_plan.conflicting_provider_id_group_count, 0);
+  assert.equal(manifest.dedupe_plan.conflicting_provider_id_record_count, 0);
+  assert.equal(manifest.dedupe_plan.planned_distinct_record_count, 1);
+});
+
+test("metadata-only provider duplicates cannot prove content equality", () => {
+  const provider = digest("metadata-provider");
+  const manifest = buildLegacyMailMergeManifest({
+    schema_version: LEGACY_MAIL_MERGE_DESCRIPTOR_SCHEMA,
+    records: [
+      record("metadata_only", "metadata-a", { provider_id_digest: provider }),
+      record("metadata_only", "metadata-b", { provider_id_digest: provider }),
+    ],
+  });
+  assert.equal(manifest.dedupe_plan.exact_provider_id_group_count, 0);
+  assert.equal(manifest.dedupe_plan.conflicting_provider_id_group_count, 1);
+  assert.equal(manifest.dedupe_plan.conflicting_provider_id_record_count, 2);
+  assert.equal(manifest.dedupe_plan.planned_distinct_record_count, 2);
 });
 
 test("descriptor rejects payload-bearing fields and invalid source-quality claims", () => {

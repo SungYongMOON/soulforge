@@ -107,6 +107,47 @@ function unionExactMatches(records, field, graph) {
   return [...countByDigest.values()].filter((count) => count > 1).length;
 }
 
+function providerGroupConflicts(records, indexes) {
+  const recordsBySource = new Map();
+  for (const index of indexes) {
+    const record = records[index];
+    if (!recordsBySource.has(record.source_kind)) recordsBySource.set(record.source_kind, []);
+    recordsBySource.get(record.source_kind).push(record);
+  }
+  return [...recordsBySource.values()].some((sourceRecords) => {
+    const eventIds = new Set(sourceRecords.map((record) => record.event_id_digest));
+    if (eventIds.size <= 1) return false;
+    const contentDigests = new Set(sourceRecords.map((record) => record.content_digest).filter(Boolean));
+    return contentDigests.size > 1 || sourceRecords.some((record) => record.content_digest === null);
+  });
+}
+
+function unionProviderMatches(records, graph) {
+  const indexesByDigest = new Map();
+  for (let index = 0; index < records.length; index += 1) {
+    const digest = records[index].provider_id_digest;
+    if (!digest) continue;
+    if (!indexesByDigest.has(digest)) indexesByDigest.set(digest, []);
+    indexesByDigest.get(digest).push(index);
+  }
+  let exactGroupCount = 0;
+  let conflictingGroupCount = 0;
+  let conflictingRecordCount = 0;
+  for (const indexes of indexesByDigest.values()) {
+    if (indexes.length <= 1) continue;
+    if (providerGroupConflicts(records, indexes)) {
+      conflictingGroupCount += 1;
+      conflictingRecordCount += indexes.length;
+      continue;
+    }
+    exactGroupCount += 1;
+    for (let offset = 1; offset < indexes.length; offset += 1) {
+      graph.union(indexes[0], indexes[offset]);
+    }
+  }
+  return { exactGroupCount, conflictingGroupCount, conflictingRecordCount };
+}
+
 function preferredRecord(records) {
   return [...records].sort((left, right) => (
     SOURCE_RANK.get(left.source_kind) - SOURCE_RANK.get(right.source_kind)
@@ -130,7 +171,7 @@ export function buildLegacyMailMergeManifest(descriptor) {
 
   const graph = unionFind(records.length);
   const eventIdGroupCount = unionExactMatches(records, "event_id_digest", graph);
-  const providerIdGroupCount = unionExactMatches(records, "provider_id_digest", graph);
+  const providerIdGroups = unionProviderMatches(records, graph);
   const componentsByRoot = new Map();
   for (let index = 0; index < records.length; index += 1) {
     const root = graph.find(index);
@@ -167,7 +208,9 @@ export function buildLegacyMailMergeManifest(descriptor) {
     },
     dedupe_plan: {
       exact_event_id_group_count: eventIdGroupCount,
-      exact_provider_id_group_count: providerIdGroupCount,
+      exact_provider_id_group_count: providerIdGroups.exactGroupCount,
+      conflicting_provider_id_group_count: providerIdGroups.conflictingGroupCount,
+      conflicting_provider_id_record_count: providerIdGroups.conflictingRecordCount,
       exact_match_group_count: exactMatchGroupCount,
       exact_duplicate_record_count: exactDuplicateRecordCount,
       planned_distinct_record_count: components.length,
@@ -178,6 +221,8 @@ export function buildLegacyMailMergeManifest(descriptor) {
     action_plan: {
       future_retain_preferred_count: components.length,
       future_skip_exact_duplicate_count: exactDuplicateRecordCount,
+      future_review_conflicting_provider_id_group_count: providerIdGroups.conflictingGroupCount,
+      future_review_conflicting_provider_id_record_count: providerIdGroups.conflictingRecordCount,
       future_review_ambiguous_fingerprint_group_count: ambiguousFingerprintGroups.length,
       preferred_source_counts: preferredSourceCounts,
       live_apply_authorized: false,

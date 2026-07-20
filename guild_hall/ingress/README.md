@@ -17,9 +17,13 @@ accepts one explicitly named sanitized JSON descriptor. Records contain only
 digest identities and a fixed source kind; mail bodies, previews, subjects,
 addresses, attachment names, raw payloads, and source paths are not accepted.
 It prefers `hpp_eml_current`, then `gateway_normalized_attachments`, then
-`erp_legacy_body_preview`, then `metadata_only`. Exact event/provider ID
-digests may form a future dedupe group. A conservative fingerprint match is
-reported as ambiguous and is never merged automatically.
+`erp_legacy_body_preview`, then `metadata_only`. Exact event ID digests form a
+future dedupe group. Exact provider ID digests do so only when each source kind
+has no differing-event content conflict: distinct content digests or missing
+content proof keep the entire provider group distinct and review-only.
+Same-content duplicates and one-record-per-source-kind provider matches remain
+eligible. A conservative fingerprint match is reported as ambiguous and is
+never merged automatically.
 
 ```bash
 npm run guild-hall:ingress:legacy-mail-merge-manifest -- \
