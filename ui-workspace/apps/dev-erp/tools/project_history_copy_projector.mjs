@@ -6,6 +6,7 @@ import {
   closeSync,
   constants,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -1412,6 +1413,64 @@ function assertBoundDatabaseIdentityCurrent(dbPath, expectedIdentity) {
   }
 }
 
+export function openDatabaseFileIdentityFence(dbPath, expectedIdentity) {
+  const resolved = path.resolve(dbPath);
+  const noFollow = typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0;
+  let descriptor;
+  let checkpoint;
+  try {
+    descriptor = openSync(resolved, constants.O_RDONLY | noFollow);
+    checkpoint = fstatSync(descriptor, { bigint: true });
+    if (!checkpoint.isFile() || checkpoint.nlink !== 1n
+        || String(checkpoint.dev) !== expectedIdentity.dev
+        || String(checkpoint.ino) !== expectedIdentity.ino
+        || Number(checkpoint.nlink) !== expectedIdentity.nlink) {
+      fail("database_identity_changed", "Retained copied-database handle differs from the binding");
+    }
+  } catch (error) {
+    if (descriptor !== undefined) closeSync(descriptor);
+    if (error instanceof ProjectHistoryCopyProjectionError) throw error;
+    fail("database_identity_fence_failed", "Copied database identity handle could not be retained");
+  }
+  let released = false;
+  const assertCurrent = ({ requireUnchanged = false } = {}) => {
+    if (released) fail("database_identity_fence_released", "Copied database identity fence was released early");
+    const retained = fstatSync(descriptor, { bigint: true });
+    if (!retained.isFile() || retained.nlink !== 1n
+        || String(retained.dev) !== expectedIdentity.dev
+        || String(retained.ino) !== expectedIdentity.ino
+        || Number(retained.nlink) !== expectedIdentity.nlink) {
+      fail("database_identity_changed", "Retained copied-database identity changed");
+    }
+    assertBoundDatabaseIdentityCurrent(resolved, expectedIdentity);
+    if (requireUnchanged
+        && (retained.size !== checkpoint.size
+          || retained.mtimeNs !== checkpoint.mtimeNs
+          || retained.ctimeNs !== checkpoint.ctimeNs)) {
+      fail("database_file_tampered", "Copied database bytes changed outside an authorized transaction");
+    }
+    return retained;
+  };
+  return Object.freeze({
+    identity: Object.freeze({
+      path: resolved,
+      dev: expectedIdentity.dev,
+      ino: expectedIdentity.ino,
+      nlink: expectedIdentity.nlink,
+      directory: false,
+    }),
+    assertCurrent,
+    checkpointAuthorizedMutation() {
+      checkpoint = assertCurrent();
+    },
+    release() {
+      if (released) return;
+      released = true;
+      closeSync(descriptor);
+    },
+  });
+}
+
 function validateTestHooks(testHooks) {
   if (testHooks === null) return Object.freeze({});
   if (typeof testHooks !== "object" || Array.isArray(testHooks)
@@ -1911,16 +1970,24 @@ export function projectCopiedErpHistory({
   });
   assertAuthorityCurrent();
   assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
-  const pathGuard = prepareDirectArtifactDirectory(
-    binding.projection_root,
-    binding.projection_root_identity,
-    bound.artifactPaths.directory,
-    publicationAuthority,
-    assertAuthorityCurrent,
-    hooks,
-  );
+  const databaseFence = openDatabaseFileIdentityFence(dbPath, preOpen.database.identity);
+  let pathGuard;
+  try {
+    pathGuard = prepareDirectArtifactDirectory(
+      binding.projection_root,
+      binding.projection_root_identity,
+      bound.artifactPaths.directory,
+      publicationAuthority,
+      assertAuthorityCurrent,
+      hooks,
+    );
+  } catch (error) {
+    databaseFence.release();
+    throw error;
+  }
   let stage = null;
   let db = null;
+  let nativeDatabaseLock = null;
   let replayed = false;
   let publicationReceipt = null;
   let artifactManifest = null;
@@ -1941,15 +2008,24 @@ export function projectCopiedErpHistory({
     }
 
     assertAuthorityCurrent();
-    assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
+    databaseFence.assertCurrent({ requireUnchanged: true });
     invokeTestHook(hooks, "beforeDatabaseMutation", {
       staged: stage !== null,
       stagePath: stage?.path ?? null,
     });
+    databaseFence.assertCurrent({ requireUnchanged: true });
     db = new DatabaseSync(preOpen.database.path);
     db.exec("PRAGMA foreign_keys = ON");
+    databaseFence.assertCurrent({ requireUnchanged: true });
+    nativeDatabaseLock = acquireWindowsPathLock([databaseFence.identity]);
+    databaseFence.assertCurrent({ requireUnchanged: true });
+    invokeTestHook(hooks, "afterArtifactParentCheckBeforeMutation", {
+      boundary: "acquire_database_identity_lock",
+      parent: path.dirname(preOpen.database.path),
+      target: preOpen.database.path,
+    });
     assertAuthorityCurrent();
-    assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
+    databaseFence.assertCurrent({ requireUnchanged: true });
     db.exec("BEGIN IMMEDIATE");
     try {
       createProjectHistoryProjectionSchema(db);
@@ -1995,8 +2071,9 @@ export function projectCopiedErpHistory({
         replayed,
       });
       assertAuthorityCurrent();
-      assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
+      databaseFence.assertCurrent();
       db.exec("COMMIT");
+      databaseFence.checkpointAuthorizedMutation();
     } catch (error) {
       try {
         db.exec("ROLLBACK");
@@ -2081,7 +2158,7 @@ export function projectCopiedErpHistory({
         artifactManifestDigest: artifactManifest.artifact_manifest_digest,
       });
       assertAuthorityCurrent();
-      assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
+      databaseFence.assertCurrent({ requireUnchanged: true });
       publicationReceipt = createProjectHistoryCopyPublicationReceipt({
         intent: publicationIntent,
         bindingDigest: binding.binding_digest,
@@ -2092,8 +2169,9 @@ export function projectCopiedErpHistory({
       try {
         finalizePublicationReceipt(db, publicationReceipt, publicationIntent);
         assertAuthorityCurrent();
-        assertBoundDatabaseIdentityCurrent(dbPath, preOpen.database.identity);
+        databaseFence.assertCurrent();
         db.exec("COMMIT");
+        databaseFence.checkpointAuthorizedMutation();
       } catch (error) {
         try {
           db.exec("ROLLBACK");
@@ -2112,14 +2190,32 @@ export function projectCopiedErpHistory({
       artifactPaths: requestedArtifacts,
       requireDatabaseHash: false,
     });
+    databaseFence.assertCurrent({ requireUnchanged: true });
   } catch (error) {
     publicationError = error;
     if (stage !== null) cleanupStagedArtifactBundle(pathGuard, stage);
     pathGuard.cleanupCreated();
     throw error;
   } finally {
-    if (db !== null) db.close();
-    pathGuard.releaseLocks({ suppressErrors: publicationError !== null });
+    try {
+      if (db !== null) db.close();
+    } finally {
+      try {
+        if (nativeDatabaseLock !== null) {
+          try {
+            nativeDatabaseLock.release();
+          } catch (error) {
+            if (publicationError === null) throw error;
+          }
+        }
+      } finally {
+        try {
+          databaseFence.release();
+        } finally {
+          pathGuard.releaseLocks({ suppressErrors: publicationError !== null });
+        }
+      }
+    }
   }
   return Object.freeze({
     status: replayed ? "replayed" : "inserted",

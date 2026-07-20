@@ -60,6 +60,18 @@
 
 ### HPP five-lane production-ingress cutover foundation
 
+- Closed the copied-ERP Shadow publication database-file identity HOLD without
+  enabling publication. The projector now retains an identity-checked native
+  read handle from before `DatabaseSync` open through final receipt sealing,
+  checks path-to-handle identity at every commit/publication boundary, and
+  rejects out-of-transaction byte metadata changes. After SQLite opens, the
+  Windows helper adds a compatible read-only/no-delete-share native handle so
+  rename and same-path replacement are denied without requesting SQLite's
+  unshared DELETE access. The query-only verifier retains the same portable
+  identity fence across DB/artifact parity checks. Shadow remains feature-OFF;
+  accepted history, ERP/MCP routing, scheduling, cross-platform artifact
+  publication, and cross-resource ACID authority remain disabled. (worker:
+  codex_gpt-5)
 - Added an additive content-addressed ingress backup with an independently
   verified restore-test path, stable custody watermark, declared SQLite
   `VACUUM INTO` snapshot, secret/ephemeral exclusion, and exact dry-run identity

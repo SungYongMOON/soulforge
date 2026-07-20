@@ -32,16 +32,20 @@
   and dry-run validation still require the binding's initial DB SHA-256.
   Query-only verification requires receipt, manifest, DB, and artifact parity;
   pending, DB-only, and artifact-only states fail closed.
-  The standalone projector CLI remains validation-only. Operational Shadow
-  publication remains disabled because Node `DatabaseSync` does not expose its
-  retained native DB handle: a separate NTFS delete-deny identity handle blocks
-  SQLite open before it and receives a sharing violation after it. The retained
-  helper therefore fences the authority and projection root across DB open,
-  commit, and final rename, while DB identity is rechecked and one
-  `DatabaseSync` connection is retained, but this is not a complete native DB
-  identity fence or cross-resource ACID. RAW-ingress authority cannot be reused
-  as classification or projector authority; those production epochs remain
-  deliberately unimplemented.
+  The standalone projector CLI remains validation-only. The projector now
+  retains an identity-checked native read handle from before `DatabaseSync`
+  open through final receipt sealing. Every commit/publication boundary checks
+  that the bound path still names that handle and that bytes did not change
+  outside an authorized DB transaction. On Windows, after SQLite opens, the
+  helper adds a compatible `GENERIC_READ` handle that shares read/write but not
+  delete, so it denies rename/replacement without requesting SQLite's unshared
+  DELETE access. The query-only verifier retains the same portable identity
+  fence through DB/artifact parity. This closes the current Windows fixture's
+  native DB-file identity HOLD, but it does not create cross-resource ACID,
+  cross-platform artifact publication, scheduling, or production authority.
+  Operational Shadow publication therefore remains feature-OFF. RAW-ingress
+  authority cannot be reused as classification or projector authority; those
+  production epochs remain deliberately unimplemented.
 
 ## Continuous receipt-to-Shadow orchestrator v1
 

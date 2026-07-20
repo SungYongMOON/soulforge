@@ -737,6 +737,90 @@ test("authority replacement immediately before the publication helper opens fail
   }
 });
 
+test("retained database handle detects same-path replacement before SQLite opens", (t) => {
+  const fixture = makeFixture(t);
+  const generation = makeGeneration();
+  const originalPath = `${fixture.dbPath}.original`;
+  assert.throws(
+    () => projectCopiedErpHistory({
+      ...fixture,
+      generation,
+      attestation: sha256Canonical(generation),
+      testHooks: {
+        beforeDatabaseMutation() {
+          renameSync(fixture.dbPath, originalPath);
+          writeFileSync(fixture.dbPath, readFileSync(originalPath));
+        },
+      },
+    }),
+    (error) => error.code === "database_identity_changed",
+  );
+  assert.equal(existsSync(fixture.directory), false);
+  assert.equal(existsSync(fixture.artifactManifestPath), false);
+});
+
+test("native database fence blocks rename throughout publication", (t) => {
+  const fixture = makeFixture(t);
+  const generation = makeGeneration();
+  const renameResults = new Map();
+  const attemptRename = (boundary) => {
+    try {
+      renameSync(fixture.dbPath, `${fixture.dbPath}.${boundary}.moved`);
+      renameResults.set(boundary, "succeeded");
+    } catch (error) {
+      renameResults.set(boundary, error.code);
+    }
+  };
+  const projected = projectCopiedErpHistory({
+    ...fixture,
+    generation,
+    attestation: sha256Canonical(generation),
+    testHooks: {
+      afterArtifactParentCheckBeforeMutation({ boundary }) {
+        if (boundary !== "acquire_database_identity_lock") return;
+        attemptRename("after_acquire");
+      },
+      afterArtifactManifestPublish() {
+        attemptRename("after_manifest");
+      },
+    },
+  });
+  assert.equal(projected.status, "inserted");
+  for (const boundary of ["after_acquire", "after_manifest"]) {
+    assert(["EBUSY", "EPERM", "EACCES"].includes(renameResults.get(boundary)));
+  }
+});
+
+test("retained database fence rejects byte tamper between manifest publication and receipt seal", (t) => {
+  const fixture = makeFixture(t);
+  const generation = makeGeneration();
+  assert.throws(
+    () => projectCopiedErpHistory({
+      ...fixture,
+      generation,
+      attestation: sha256Canonical(generation),
+      testHooks: {
+        afterArtifactManifestPublish() {
+          writeFileSync(fixture.dbPath, Buffer.concat([
+            readFileSync(fixture.dbPath),
+            Buffer.from([0]),
+          ]));
+        },
+      },
+    }),
+    (error) => error.code === "database_file_tampered",
+  );
+  assert.equal(existsSync(fixture.directory), true);
+  assert.equal(existsSync(fixture.artifactManifestPath), true);
+  const db = new DatabaseSync(fixture.dbPath, { readOnly: true });
+  try {
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_outbox").get().count, 1);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM project_history_publication_receipt").get().count, 0);
+  } finally {
+    db.close();
+  }
+});
+
 test("retained authority handle keeps publication and successful replay on one immutable record", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();

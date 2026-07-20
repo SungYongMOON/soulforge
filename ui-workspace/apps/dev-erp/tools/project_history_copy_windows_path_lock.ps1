@@ -106,9 +106,13 @@ public static class SoulforgeProjectHistoryPathLock {
         bool directory,
         bool renameCapable
     ) {
-        // DELETE access plus no FILE_SHARE_DELETE makes the identity a real
-        // rename/delete lock even when this handle will not itself rename.
-        uint access = DELETE;
+        // A retained database identity handle must coexist with SQLite's
+        // already-open read/write handle. GENERIC_READ plus no
+        // FILE_SHARE_DELETE still denies a later rename/delete without
+        // requesting DELETE access that SQLite does not share. Directory and
+        // rename-capable handles retain DELETE access for handle-relative
+        // publication operations.
+        uint access = (!directory && !renameCapable) ? GENERIC_READ : DELETE;
         if (directory) {
             access |= FILE_LIST_DIRECTORY | FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY;
         }

@@ -24,6 +24,7 @@ import {
   assertCanonicalProjectHistoryProjectionSchema,
   buildCanonicalProjectHistoryCopyModel,
   createProjectHistoryCopyPublicationIntent,
+  openDatabaseFileIdentityFence,
   readProjectHistoryCopyPublicationState,
 } from "./project_history_copy_projector.mjs";
 import {
@@ -369,7 +370,13 @@ export function verifyCopiedProjectHistoryProjection({
     artifactPaths,
     requireDatabaseHash: false,
   });
+  const databaseFence = openDatabaseFileIdentityFence(
+    bound.database.path,
+    bound.database.identity,
+  );
+  try {
   const db = new DatabaseSync(bound.database.path, { readOnly: true });
+  databaseFence.assertCurrent({ requireUnchanged: true });
   let model;
   let generation;
   let publicationReceipt;
@@ -469,6 +476,7 @@ export function verifyCopiedProjectHistoryProjection({
   if (canonicalJson(persistedXlsxReadback) !== canonicalJson(actualXlsxReadback)) {
     fail("xlsx_readback_parity_mismatch", "Persisted readback differs from independently parsed workbook bytes");
   }
+  databaseFence.assertCurrent({ requireUnchanged: true });
 
   return Object.freeze({
     ok: true,
@@ -491,6 +499,9 @@ export function verifyCopiedProjectHistoryProjection({
     raw_payload_copied: false,
     accepted_history: false,
   });
+  } finally {
+    databaseFence.release();
+  }
 }
 
 function parseArgs(argv) {
