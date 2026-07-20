@@ -1,0 +1,42 @@
+mission_id: task_engine_hpp_production_ingress_cutover_v1
+kind: mission_readiness
+status: blocked
+summary: >-
+  Bounded five-lane canaries, exact current-mail custody, and the copied-ERP
+  Shadow DB identity fence are verified, but production readiness remains
+  blocked before C08B, G00, and G01.
+checks:
+  workflow_present: pass
+  party_present: pass
+  workflow_party_compatible: pass
+  actor_slots_resolved: pass
+  unit_assignments_present: pass
+  bounded_five_lane_canaries_recorded: pass
+  exact_current_mail_custody_recorded: pass
+  shadow_db_identity_fence_verified: pass
+  accepted_runtime_surfaces_off: pass
+  hpp_writer_authority_off: pass
+  incumbent_gateway_monitor_only: fail
+  hpp_sole_writer_proven: fail
+  legacy_mail_physically_unified: missing
+  isolated_restore_receipt: missing
+  c08b_full_b_v_operational_contract: missing
+  mac_monitor_alert_and_process_takeover: missing
+  manual_failover_failback: missing
+  g00_authority_binding_approval: missing
+  g00_feature_off_binding_receipt: missing
+  g01_zero_blocker_release_audit: missing
+  g01_valid_restore: missing
+  g01_explicit_owner_activation: missing
+blockers:
+  - The incumbent gateway mail collector is still active rather than monitor-only, so HPP sole-writer activation is prohibited.
+  - Prior gateway-only mail is not yet physically unified into HPP custody, and historical exact RFC822 recovery is incomplete.
+  - A valid isolated restore receipt is still required before production activation.
+  - C08B requires a separate Level 3 operational lease, fencing, monitor, alert, failover, and failback receipt.
+  - G00 requires explicit authority-binding approval and a feature-OFF binding receipt after C08B passes.
+  - G01 requires accepted G00, a zero-blocker live audit, valid restore, rollback readiness, and explicit activation authority.
+  - Automatic failback and unapproved ERP, MCP, RAG, or TaskDriver activation remain prohibited.
+latest_run_id: null
+notes:
+  - This readiness surface records public-safe state only and cannot replace private runtime proof.
+  - Bounded canary success is not P9 or P10 acceptance.

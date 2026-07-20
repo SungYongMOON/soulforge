@@ -54,7 +54,9 @@ flowchart TD
 ## 현재 상태
 
 - `.mission/` 은 새 owner root 로 도입된 baseline 이다.
-- 현재는 public-safe sample mission 3건과 owner-local 운영 초안 문서군을 포함한다.
+- 현재는 public-safe sample mission 3건과 실제 owner-approved 목표의 public-safe
+  readiness mission을 포함한다. 실제 운영 binding, epoch, raw receipt는 mission 정본이
+  아니라 private runtime evidence owner에 남긴다.
 - `DECISION_LOG.md`, `OPS_NOTES.md` 는 러프해도 계속 누적하는 owner-local operating draft 다.
 - `GOVERNANCE_PACKET_MISSION_PROMOTION_RULES.md` 는 현재 phase 의 승격 규칙 잠금 작업 패킷이다.
 - `FUTURE_AGGREGATION_PLAN.md` 는 나중에 만들 종합 기능을 위한 owner-local planning note 다.
@@ -65,4 +67,3 @@ flowchart TD
 - `BATTLE_LOG_STORAGE_PLAN.md`, `MISSION_CLOSE_PROVENANCE_V0.md`, `MAILBOX_CONCRETE_CONTRACT_V0.md` 는 mission owner-local note 가 아니라 workspace contract draft 로 보고 [`docs/architecture/workspace/`](../docs/architecture/workspace/README.md) 아래로 이동했다.
 - mission 절차형 매뉴얼 초안은 [`docs/architecture/workspace/MISSION_MANUAL_DRAFT.md`](../docs/architecture/workspace/MISSION_MANUAL_DRAFT.md) 에 둔다.
 - 실제 local/private run truth 는 계속 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남긴다.
-

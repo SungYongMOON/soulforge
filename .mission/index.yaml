@@ -3,6 +3,13 @@ owner: .mission
 kind: mission_catalog
 status: active
 entries:
+  - mission_id: task_engine_hpp_production_ingress_cutover_v1
+    title: HPP Five-Lane Production Ingress Cutover Readiness
+    status: blocked
+    workflow_id: post_development_review_gate_v0
+    party_id: guild_master_cell
+    project_code: system
+    readiness_status: blocked
   - mission_id: author_pptx_autofill_conversion_001
     title: Author PPTX Autofill Conversion
     status: completed
@@ -27,4 +34,3 @@ entries:
 notes:
   - "`.mission/` owns held mission plans and readiness metadata."
   - "Raw execution truth remains under `_workmeta/<project_code>/runs/<run_id>/`."
-

@@ -1,0 +1,22 @@
+mission_id: task_engine_hpp_production_ingress_cutover_v1
+kind: mission_dispatch_request
+status: recorded
+request:
+  source: owner request
+  request_mode: production_cutover_readiness_review
+  monster_type: production_ingress_cutover_request
+  workflow_id: post_development_review_gate_v0
+  workflow_mode: escalate_full_b_v_gate
+  party_id: guild_master_cell
+  project_code: system
+  target_system_id: task_engine_hpp_five_lane_ingress
+  summary: >-
+    Preserve the existing Soulforge workspace and canon topology while safely
+    preparing and proving HPP five-lane sole-writer production ingress, with
+    Mac mini monitor, alert, and emergency fallback behavior.
+constraints:
+  - Do not enable accepted ERP history, LAN MCP, Drive/NotebookLM/live RAG, or TaskDriver.
+  - Do not expose secrets, private locator values, raw payloads, or runtime receipts in tracked mission files.
+  - Stop production activation when sole-writer, restore, rollback, monitoring, or failover evidence is incomplete.
+notes:
+  - This is a public-safe dispatch view, not an activation receipt or raw run truth.

@@ -1,0 +1,41 @@
+mission_id: task_engine_hpp_production_ingress_cutover_v1
+kind: mission
+status: blocked
+title: HPP Five-Lane Production Ingress Cutover Readiness
+summary: >-
+  Held pre-activation review mission for the owner-approved five-lane HPP
+  cutover objective. This tracked record grants no production activation,
+  writer authority, scheduler enablement, or HPP/Mac role switch.
+project_code: system
+workflow_id: post_development_review_gate_v0
+party_id: guild_master_cell
+request_mode: production_cutover_readiness_review
+monster_type: production_ingress_cutover_request
+target_system_id: task_engine_hpp_five_lane_ingress
+unit_assignments:
+  workflow_runner: guild_master
+  review_router: guild_master
+  validation_runner: guild_master
+  builder_report_curator: guild_master
+  inspector: guild_master
+  judge: guild_master
+  bv_gate_coordinator: guild_master
+  supervisor: guild_master
+  evidence_archivist: scribe_01
+input_refs:
+  request_ref: TASK-ENGINE-HPP-PRODUCTION-INGRESS-CUTOVER-V1
+  public_plan_ref: ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md
+  public_implementation_ref: codex/task-engine-hpp-production-ingress-cutover-v1@8c2c832d8eaea27ab9ad8d5938ec6ebe740cd43e
+run_refs:
+  latest_run_id: null
+  runtime_truth_root: _workmeta/system/runs/
+notifications:
+  telegram:
+    mission_blocked: false
+    mission_ready: false
+    mission_closed: false
+    mission_failed: false
+notes:
+  - Exact epochs, device bindings, private evidence locators, and raw receipts remain runtime-owned.
+  - Accepted ERP history, LAN MCP, Drive/NotebookLM/live RAG, and TaskDriver remain outside this mission's current authority.
+  - HPP and Mac roles remain unchanged until every named readiness gate passes.

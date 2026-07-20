@@ -1,0 +1,41 @@
+mission_id: task_engine_hpp_production_ingress_cutover_v1
+kind: resolved_mission_plan
+status: blocked
+workflow:
+  workflow_id: post_development_review_gate_v0
+  workflow_mode: escalate_full_b_v_gate
+party:
+  party_id: guild_master_cell
+unit_assignments:
+  workflow_runner: {unit_id: guild_master, class_ids: [administrator]}
+  review_router: {unit_id: guild_master, class_ids: [administrator]}
+  validation_runner: {unit_id: guild_master, class_ids: [administrator]}
+  builder_report_curator: {unit_id: guild_master, class_ids: [administrator]}
+  inspector: {unit_id: guild_master, class_ids: [administrator]}
+  judge: {unit_id: guild_master, class_ids: [administrator]}
+  bv_gate_coordinator: {unit_id: guild_master, class_ids: [administrator]}
+  supervisor: {unit_id: guild_master, class_ids: [administrator]}
+  evidence_archivist: {unit_id: scribe_01, class_ids: [archivist]}
+activation_sequence:
+  - stage_id: C08B
+    status: blocked
+  - stage_id: G00
+    status: blocked
+    depends_on: [C08B]
+  - stage_id: G01
+    status: blocked
+    depends_on: [G00]
+step_outputs:
+  - post_development_review_packet
+  - validation_log
+  - boundary_review_note
+  - judge_decision_note
+  - bv_gate_handoff
+  - supervisor_decision
+  - followup_register
+run_refs:
+  latest_run_id: null
+  raw_truth_root: _workmeta/system/runs/
+notes:
+  - This is a public-safe review plan, not an operational binding or activation receipt.
+  - Runtime authority must remain OFF until the independent stage receipts are accepted in order.

@@ -60,6 +60,11 @@
 
 ### HPP five-lane production-ingress cutover foundation
 
+- Registered the owner-approved HPP five-lane production-ingress objective as
+  a blocked public-safe mission/readiness surface. It binds the existing
+  post-development full B/V workflow and records the C08B -> G00 -> G01 order
+  without granting runtime authority, exposing private bindings, or enabling
+  HPP/Mac role switches. (worker: codex_gpt-5)
 - Closed the copied-ERP Shadow publication database-file identity HOLD without
   enabling publication. The projector now retains an identity-checked native
   read handle from before `DatabaseSync` open through final receipt sealing,
