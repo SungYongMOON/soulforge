@@ -198,6 +198,37 @@ test("snapshot excludes stale active locks and secrets, carries custody epochs, 
   }
 });
 
+test("one owned generation deduplicates repeated source bytes without reopening a partial object", async () => {
+  const f = await fixture();
+  try {
+    const duplicate = join(f.sourceRoot, "ingress", "team_files", "incoming", "payload-copy.bin");
+    await writeFile(duplicate, "payload-v1", "utf8");
+    const dryRun = await createIngressRecoverySnapshot({
+      sourceRoot: f.sourceRoot,
+      backupRoot: f.backupRoot,
+    });
+    const applied = await createIngressRecoverySnapshot({
+      sourceRoot: f.sourceRoot,
+      backupRoot: f.backupRoot,
+      generationId: "igr_synthetic_duplicate_bytes",
+      apply: true,
+      expectedSourceIdentity: dryRun.source_identity_digest,
+      expectedSourceDigest: dryRun.source_digest,
+      approvalRef: "TASK-ENGINE-HPP-PRODUCTION-INGRESS-CUTOVER-V1",
+    });
+    const generationRoot = join(f.backupRoot, "generations", applied.generation_id);
+    const manifest = JSON.parse(await readFile(join(generationRoot, "manifest.json"), "utf8"));
+    const originals = manifest.inventory.filter((item) => item.restore_ref.endsWith("payload.bin"));
+    const copies = manifest.inventory.filter((item) => item.restore_ref.endsWith("payload-copy.bin"));
+    assert.equal(originals.length, 1);
+    assert.equal(copies.length, 1);
+    assert.equal(originals[0].object_ref, copies[0].object_ref);
+    assert.equal(originals[0].sha256, copies[0].sha256);
+  } finally {
+    await f.cleanup();
+  }
+});
+
 test("restore verification fails closed after an immutable object is tampered", async () => {
   const f = await fixture();
   try {

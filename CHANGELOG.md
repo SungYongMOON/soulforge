@@ -7,7 +7,9 @@
 - Added an additive content-addressed ingress backup with an independently
   verified restore-test path, stable custody watermark, declared SQLite
   `VACUUM INTO` snapshot, secret/ephemeral exclusion, and exact dry-run identity
-  authorization. It never overwrites the live root.
+  authorization. Repeated source bytes are deduplicated from the owned plan
+  without reopening a provider-visible partial object. It never overwrites the
+  live root.
 - Added a durable five-lane writer-authority epoch with explicit
   primary/fallback modes, CAS transitions, active-run interlock, stale-writer
   fencing, guarded failback, and local-process liveness gates. Timestamp expiry

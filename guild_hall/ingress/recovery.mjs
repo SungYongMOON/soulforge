@@ -607,17 +607,22 @@ async function snapshotDatabase(database, generationRoot) {
 
 async function copyInventoryObjects(plan, generationRoot) {
   let writes = 0;
+  const copied = new Map();
   for (const item of plan.inventory) {
+    const prior = copied.get(item.object_ref);
+    if (prior) {
+      if (prior.size !== item.size || prior.sha256 !== item.sha256) {
+        fail("recovery_object_collision");
+      }
+      continue;
+    }
     const sourcePath = resolve(plan.sourceRoot, ...item.restore_ref.split("/"));
     const objectPath = resolve(generationRoot, ...item.object_ref.split("/"));
     if (!inside(generationRoot, objectPath)) fail("recovery_object_path_escape");
     await ensureDirectory(generationRoot, dirname(objectPath));
-    if (await pathExists(objectPath)) {
-      const verified = await hashVerifiedFile(objectPath, generationRoot, { code: "recovery_object_collision" });
-      if (verified.size !== item.size || verified.sha256 !== item.sha256) fail("recovery_object_collision");
-      continue;
-    }
+    if (await pathExists(objectPath)) fail("recovery_object_collision");
     await copyVerifiedFile(sourcePath, plan.sourceRoot, objectPath, item);
+    copied.set(item.object_ref, { size: item.size, sha256: item.sha256 });
     writes += 1;
   }
   return writes;
