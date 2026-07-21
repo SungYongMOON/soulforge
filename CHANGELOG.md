@@ -2,6 +2,18 @@
 
 ## 2026-07-21
 
+### Single hidden HPP ingress supervisor
+
+- Replaced the production design that repeatedly launched the one-shot ingress
+  CLI with one long-lived supervisor that performs fenced cycles at the pinned
+  binding interval. Added safe signal handling, sanitized cycle events, and a
+  fail-closed process exit for bounded Windows restart.
+- Added a current-user hidden PowerShell launcher and exact-hash guarded task
+  registrar. The task has one `AtLogOn` trigger, no repetition, `IgnoreNew`, a
+  process-lifetime named mutex, bounded restart, and private redirected logs;
+  the collector no longer opens a console window every cycle. (worker:
+  codex_gpt-5.6)
+
 ### Bind copied Project History MCP to the terminal publication receipt
 
 - Replaced the invalid comparison between the manifest's pre-receipt copied-DB

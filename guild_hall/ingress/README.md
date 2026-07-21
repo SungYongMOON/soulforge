@@ -161,9 +161,26 @@ npm run guild-hall:ingress:continuous -- \
   --apply
 ```
 
-The command is intentionally one-shot. An OS scheduler may invoke it only
-after the private binding has `enabled: true` and the scheduler's actual state
-matches `scheduler_enabled`. The runner acquires a D-local exclusive lease,
+The command is intentionally one-shot and is the reusable fenced cycle, not the
+production scheduler. Production uses `continuous_supervisor_cli.mjs` as one
+long-lived process. The supervisor reloads the exact digest-pinned binding,
+runs one cycle, waits `poll_interval_seconds`, and repeats until it receives a
+stop signal. It exits on a fatal cycle error so the OS can perform a bounded
+restart, while degraded lane results remain recorded cycles.
+
+On Windows, `ops/register-continuous-ingress-supervisor-task.ps1` replaces the
+old repeating trigger with one current-user `AtLogOn` trigger. Its action starts
+PowerShell with `WindowStyle Hidden`, and
+`ops/run-continuous-ingress-supervisor.ps1` holds one process-lifetime named
+mutex, pins the binding SHA-256 again, launches the Node supervisor without a
+visible console, and redirects sanitized JSONL stdout/stderr below the private
+control root. Task Scheduler `IgnoreNew`, the named mutex, and the existing
+per-cycle lease prevent duplicate supervisors and writers. The task has no
+15-minute repetition; Windows restarts only a terminated supervisor, up to the
+bounded task setting.
+
+The private binding must have `enabled: true`, and the scheduler's actual state
+must match `scheduler_enabled`. Each cycle acquires a D-local exclusive lease,
 increments a monotonic epoch, and rechecks its fence token before and at every
 final payload, receipt, checkpoint, and health-record publication boundary. A
 second writer is blocked while the recorded local owner process is alive, even
