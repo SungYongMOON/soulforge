@@ -46,7 +46,8 @@ try {
     $Acquired = $true
   }
   if (-not $Acquired) {
-    throw "continuous supervisor already running"
+    Write-Output "continuous supervisor already running; duplicate launch ignored"
+    return
   }
 
   $Stamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
