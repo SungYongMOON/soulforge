@@ -132,6 +132,8 @@ test("Windows task contract is one hidden at-logon supervisor with a process-lif
     readFile(REGISTRAR, "utf8"),
   ]);
   assert.match(launcher, /Local\\Soulforge\.HPP\.ContinuousIngress\.Supervisor/);
+  assert.match(launcher, /continuous-supervisor\.instance\.lock/);
+  assert.match(launcher, /\[IO\.FileShare\]::None/);
   assert.match(launcher, /continuous_supervisor_cli\.mjs/);
   assert.match(launcher, /--apply/);
   assert.match(launcher, /duplicate launch ignored/);
