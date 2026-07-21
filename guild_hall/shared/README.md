@@ -77,6 +77,12 @@
   authoritative manifest laundering, accepted knowledge, and feature
   activation fail closed. Every authority flag stays false and the route stays
   `owner_decision_needed`.
+- `project_history_knowledge_query.mjs` adds the next read-only step over one
+  validated projection. The caller must repeat the exact `project` or `common`
+  scope and origin project; a mismatched projection is rejected instead of
+  falling back to another scope. Its CLI emits metadata-only stdout, keeps the
+  raw question transient, and performs no file, DB, network, Wiki, RAG, graph,
+  Drive, NotebookLM, or canon write.
 
 ## 목적
 

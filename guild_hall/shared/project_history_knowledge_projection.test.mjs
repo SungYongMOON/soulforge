@@ -28,10 +28,16 @@ import {
   validateProjectHistoryKnowledgeRagManifest,
   validateProjectHistoryKnowledgeProjection,
 } from "./project_history_knowledge_projection.mjs";
+import {
+  ProjectHistoryKnowledgeQueryError,
+  queryProjectHistoryKnowledgeProjection,
+  validateProjectHistoryKnowledgeQueryResult,
+} from "./project_history_knowledge_query.mjs";
 import { validateRagManifest, validateRagMetadataIndex } from "../rag/rag.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, "project_history_knowledge_projection_cli.mjs");
+const QUERY_CLI = join(HERE, "project_history_knowledge_query_cli.mjs");
 const ORIGIN_PROJECT_CODE = "P26-016";
 const SECOND_PROJECT_CODE = "P27-042";
 
@@ -599,6 +605,201 @@ test("CLI requires explicit scope and origin and emits canonical stdout without 
 
     const persisted = JSON.parse(await readFile(generationPath, "utf8"));
     assert.equal(persisted.accepted_history, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("explicit project and common queries return only their exact held metadata scope", async () => {
+  const generation = makeGeneration();
+  const projectProjection = await buildProjectHistoryKnowledgeProjection(generation, {
+    knowledgeScope: "project",
+    originProjectCode: ORIGIN_PROJECT_CODE,
+  });
+  const commonProjection = await buildProjectHistoryKnowledgeProjection(generation, {
+    knowledgeScope: "common",
+    originProjectCode: ORIGIN_PROJECT_CODE,
+  });
+  const options = {
+    originProjectCode: ORIGIN_PROJECT_CODE,
+    question: `${ORIGIN_PROJECT_CODE} mail history candidate`,
+    maxUnits: 5,
+    now: "2026-07-21T12:00:00.000Z",
+  };
+  const firstProject = await queryProjectHistoryKnowledgeProjection(projectProjection, {
+    ...options,
+    knowledgeScope: "project",
+  });
+  const secondProject = await queryProjectHistoryKnowledgeProjection(clone(projectProjection), {
+    ...options,
+    knowledge_scope: "project",
+    origin_project_code: ORIGIN_PROJECT_CODE,
+  });
+  assert.equal(canonicalJson(firstProject), canonicalJson(secondProject));
+  assert.equal(validateProjectHistoryKnowledgeQueryResult(firstProject), firstProject);
+  assert.equal(firstProject.knowledge_scope, "project");
+  assert.equal(firstProject.owner_project_code, ORIGIN_PROJECT_CODE);
+  assert.ok(firstProject.hits.length > 0);
+  assert.ok(firstProject.hits.every((hit) => hit.knowledge_scope === "project"));
+
+  const common = await queryProjectHistoryKnowledgeProjection(commonProjection, {
+    ...options,
+    knowledgeScope: "common",
+  });
+  assert.equal(common.knowledge_scope, "common");
+  assert.equal(common.owner_project_code, "system");
+  assert.ok(common.hits.length > 0);
+  assert.ok(common.hits.every((hit) => hit.knowledge_scope === "common"));
+  assert.notEqual(firstProject.selection.projection_id, common.selection.projection_id);
+});
+
+test("query scope is mandatory and both implicit fallback directions fail closed", async () => {
+  const generation = makeGeneration();
+  const projectProjection = await buildProjectHistoryKnowledgeProjection(generation, {
+    knowledgeScope: "project",
+    originProjectCode: ORIGIN_PROJECT_CODE,
+  });
+  const commonProjection = await buildProjectHistoryKnowledgeProjection(generation, {
+    knowledgeScope: "common",
+    originProjectCode: ORIGIN_PROJECT_CODE,
+  });
+  const base = {
+    originProjectCode: ORIGIN_PROJECT_CODE,
+    question: `${ORIGIN_PROJECT_CODE} mail history candidate`,
+    now: "2026-07-21T12:01:00.000Z",
+  };
+  await assert.rejects(
+    queryProjectHistoryKnowledgeProjection(projectProjection, base),
+    (error) => error instanceof ProjectHistoryKnowledgeQueryError
+      && error.code === "knowledge_scope_required",
+  );
+  await assert.rejects(
+    queryProjectHistoryKnowledgeProjection(projectProjection, { ...base, knowledgeScope: "automatic" }),
+    (error) => error.code === "knowledge_scope_invalid",
+  );
+  await assert.rejects(
+    queryProjectHistoryKnowledgeProjection(projectProjection, {
+      ...base,
+      knowledgeScope: "project",
+      knowledge_scope: "common",
+    }),
+    (error) => error.code === "knowledge_scope_conflict",
+  );
+  await assert.rejects(
+    queryProjectHistoryKnowledgeProjection(projectProjection, { ...base, knowledgeScope: "common" }),
+    (error) => error.code === "knowledge_scope_mismatch",
+  );
+  await assert.rejects(
+    queryProjectHistoryKnowledgeProjection(commonProjection, { ...base, knowledgeScope: "project" }),
+    (error) => error.code === "knowledge_scope_mismatch",
+  );
+  await assert.rejects(
+    queryProjectHistoryKnowledgeProjection(projectProjection, {
+      ...base,
+      knowledgeScope: "project",
+      originProjectCode: SECOND_PROJECT_CODE,
+    }),
+    (error) => error.code === "origin_project_code_mismatch",
+  );
+});
+
+test("query rejects projection tampering and never returns raw question or source-bearing fields", async () => {
+  const projection = await buildProjectHistoryKnowledgeProjection(makeGeneration(), {
+    knowledgeScope: "project",
+    originProjectCode: ORIGIN_PROJECT_CODE,
+  });
+  const tampered = clone(projection);
+  tampered.authority.owner_approval = true;
+  refreshProjectionDigest(tampered);
+  await assert.rejects(
+    queryProjectHistoryKnowledgeProjection(tampered, {
+      knowledgeScope: "project",
+      originProjectCode: ORIGIN_PROJECT_CODE,
+      question: "mail history candidate",
+    }),
+    (error) => error.code === "authority_must_be_false",
+  );
+
+  const sentinel = "RAW_QUESTION_SENTINEL_BODY_CHUNK_LOCATOR_SECRET";
+  const result = await queryProjectHistoryKnowledgeProjection(projection, {
+    knowledgeScope: "project",
+    originProjectCode: ORIGIN_PROJECT_CODE,
+    question: `${ORIGIN_PROJECT_CODE} mail ${sentinel}`,
+    now: "2026-07-21T12:02:00.000Z",
+  });
+  const serialized = JSON.stringify(result);
+  assert.equal(serialized.includes(sentinel), false);
+  assert.equal(result.boundary.raw_question_persisted, false);
+  assert.equal(result.boundary.implicit_scope_fallback_allowed, false);
+  for (const forbidden of [
+    '"question":',
+    '"source_text":',
+    '"chunk_text":',
+    '"source_locator":',
+    '"storage_locator":',
+    '"raw_payload":',
+  ]) {
+    assert.equal(serialized.includes(forbidden), false);
+  }
+});
+
+test("query CLI is stdout-only and preserves its synthetic projection fixture", async () => {
+  const root = await mkdtemp(join(tmpdir(), "soulforge-project-history-knowledge-query-"));
+  try {
+    const projectionPath = join(root, "common-projection.json");
+    const projection = await buildProjectHistoryKnowledgeProjection(makeGeneration(), {
+      knowledgeScope: "common",
+      originProjectCode: ORIGIN_PROJECT_CODE,
+    });
+    const original = `${canonicalJson(projection)}\n`;
+    await writeFile(projectionPath, original, "utf8");
+    const result = spawnSync(process.execPath, [
+      QUERY_CLI,
+      "--projection",
+      projectionPath,
+      "--knowledge-scope",
+      "common",
+      "--origin-project-code",
+      ORIGIN_PROJECT_CODE,
+      "--question",
+      `${ORIGIN_PROJECT_CODE} mail history candidate`,
+      "--max-units",
+      "3",
+      "--now",
+      "2026-07-21T12:03:00.000Z",
+    ], { encoding: "utf8", windowsHide: true });
+    assert.equal(result.status, 0, result.stderr);
+    const query = JSON.parse(result.stdout);
+    assert.equal(validateProjectHistoryKnowledgeQueryResult(query), query);
+    assert.equal(query.knowledge_scope, "common");
+    assert.deepEqual(await readdir(root), ["common-projection.json"]);
+    assert.equal(await readFile(projectionPath, "utf8"), original);
+
+    const missingScope = spawnSync(process.execPath, [
+      QUERY_CLI,
+      "--projection",
+      projectionPath,
+      "--origin-project-code",
+      ORIGIN_PROJECT_CODE,
+      "--question",
+      "mail history candidate",
+    ], { encoding: "utf8", windowsHide: true });
+    assert.equal(missingScope.status, 1);
+    assert.match(missingScope.stderr, /invalid_arguments/u);
+
+    const mismatchedScope = spawnSync(process.execPath, [
+      QUERY_CLI,
+      "--projection",
+      projectionPath,
+      "--knowledge-scope",
+      "project",
+      "--origin-project-code",
+      ORIGIN_PROJECT_CODE,
+      "--question",
+      "mail history candidate",
+    ], { encoding: "utf8", windowsHide: true });
+    assert.equal(mismatchedScope.status, 1);
+    assert.match(mismatchedScope.stderr, /knowledge_scope_mismatch/u);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
