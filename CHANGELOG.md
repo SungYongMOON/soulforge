@@ -14,6 +14,14 @@
   the collector no longer opens a console window every cycle. (worker:
   codex_gpt-5.6)
 
+### Easy Explain tracked skill candidate
+
+- Added the public-safe `easy_explain` canonical skill candidate and Codex bridge
+  for owner-invoked, easy visual explanations of long or complex work. The
+  bridge uses a proportionate visual, checks applicable structure, flow, files,
+  data, functions, roles, boundaries, and next actions, and does not inherit
+  authority to rerun or mutate the underlying task. (worker: codex_gpt-5)
+
 ### Bind copied Project History MCP to the terminal publication receipt
 
 - Replaced the invalid comparison between the manifest's pre-receipt copied-DB

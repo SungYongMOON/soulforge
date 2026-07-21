@@ -3,6 +3,7 @@
 - `github_down/` is the tracked Codex wrapper for routing GitHub download/update requests to `.workflow/latest_update_sync_and_followup_v0/`.
 - `github_up/` is the tracked Codex wrapper for routing GitHub upload/publish requests to `.workflow/github_upload_publish_v0/`.
 - `grill_me/` is the tracked Codex candidate skill for `/grill-me` style plan pressure-testing and design-decision interview.
+- `easy_explain/` is the tracked Codex candidate for restating long or complex work as an easy, visual, structurally complete explanation without inheriting execution authority.
 - `dual_deep_research/` is the tracked Codex candidate launcher for `.workflow/dual_deep_research_v0`, which compares NotebookLM CLI Deep Research with Codex direct source research before downstream registration.
 - `external_gpt/` is the tracked Codex launcher for `.workflow/external_reasoning_workspace_v0`, calling bounded external ChatGPT browser sessions as advisory-only reasoning support with DOM readback and strict side-effect boundaries.
 - `codex_thread_manager/` is the tracked Codex launcher for `.workflow/codex_thread_manager_v0`, coordinating actual Codex manager, worker, and worktree threads while preserving handoff and boundary rules.
@@ -34,6 +35,7 @@
 - `codex/SKILL.md` 가 없는 skill folder 는 canon-only 또는 test package 로 둘 수 있고, local install mirror 기본 대상에 넣지 않는다.
 - baseline 절차는 [`.registry/docs/operations/SKILL_INSTALL_SYNC.md`](../docs/operations/SKILL_INSTALL_SYNC.md) 를 따른다.
 - `grill_me/` 는 `/grill-me` 스타일의 대화형 설계 의사결정 인터뷰를 Codex bridge 로 제공하는 candidate skill package 다.
+- `easy_explain/` 은 긴 작업을 한 문장 결론, 적정 수준의 색상 도식, 구조·파일·기능·경계·다음 행동을 포함한 쉬운 설명으로 바꾸는 candidate skill package 다.
 - `dual_deep_research/` 는 `.workflow/dual_deep_research_v0` 를 호출하는 candidate launcher 이며, 실제 NotebookLM CLI 기반 딥 리서치와 Codex 직접 조사 비교 절차는 workflow 가 소유한다.
 - `external_gpt/` 는 `.workflow/external_reasoning_workspace_v0` 를 호출하는 launcher 이며, 실제 외부 GPT 호출 절차와 session/readback/side-effect 경계는 workflow 가 소유한다.
 - `codex_thread_manager/` 는 `.workflow/codex_thread_manager_v0` 를 호출하는 launcher 이며, 실제 Codex manager/worker/worktree thread 운영 절차와 handoff/check/closeout 경계는 workflow 가 소유한다.

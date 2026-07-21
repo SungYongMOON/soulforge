@@ -1,0 +1,36 @@
+skill_id: easy_explain
+kind: skill
+status: candidate
+title: Easy Explain
+summary: Restate completed or in-progress work as an easy, visual, structured explanation without omitting applicable operational detail.
+behavior:
+  intent: Help the owner understand complex work quickly by combining a plain-language conclusion, a proportionate visual, and a completeness pass over structure, flow, files, data, functions, boundaries, and next actions.
+  use_when:
+    - the user explicitly invokes the skill after a long or complex task
+    - the user asks for an easier, visual, color-coded, structural, or complete explanation
+    - a system, workflow, project, document set, or implementation result has multiple components whose relationships matter
+  avoid_when:
+    - the request is a simple factual question that can be answered clearly in a few sentences
+    - the user is asking to execute, modify, approve, or promote work rather than explain it
+    - the available context is too incomplete to identify the explanation target
+  expected_outcome:
+    - the result starts with a one-sentence conclusion in the user's language
+    - the smallest useful visual makes the main relationship or sequence easy to grasp
+    - all applicable structure, file and data locations, functions, roles, interfaces, constraints, and next actions are covered
+    - confirmed facts, inference, proposal, unknowns, and approval boundaries remain distinct
+execution_requirements:
+  required_capabilities:
+    - audience_adaptation
+    - structured_explanation
+    - completeness_review
+  preferred_capabilities:
+    - visual_reasoning
+    - diagram_generation
+    - information_architecture
+  notes:
+    - "Use the smallest visualization that materially improves understanding; do not make every answer interactive."
+    - "The skill explains existing context and does not inherit authority to rerun or mutate the underlying task."
+    - "Actual model, rendering tool, installed skill name, and runtime context resolve outside tracked canon."
+notes:
+  - "`easy_explain` is a public-safe Soulforge skill candidate for owner-facing explanation of complex work."
+  - "It composes with domain-specific work and visualization capabilities without taking ownership of their source truth or execution policy."
