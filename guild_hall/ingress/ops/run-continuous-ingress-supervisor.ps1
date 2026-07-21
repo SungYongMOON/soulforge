@@ -37,9 +37,24 @@ if (-not $LogRoot.StartsWith($ControlRoot + [IO.Path]::DirectorySeparatorChar, [
 }
 New-Item -ItemType Directory -Force -Path $LogRoot | Out-Null
 
-$Mutex = [Threading.Mutex]::new($false, "Local\Soulforge.HPP.ContinuousIngress.Supervisor")
+$InstanceLockPath = [IO.Path]::GetFullPath((Join-Path $ControlRoot "continuous-supervisor.instance.lock"))
+$InstanceLock = $null
+$Mutex = $null
 $Acquired = $false
 try {
+  try {
+    $InstanceLock = [IO.File]::Open(
+      $InstanceLockPath,
+      [IO.FileMode]::OpenOrCreate,
+      [IO.FileAccess]::ReadWrite,
+      [IO.FileShare]::None
+    )
+  } catch [IO.IOException] {
+    Write-Output "continuous supervisor already running; duplicate launch ignored"
+    return
+  }
+
+  $Mutex = [Threading.Mutex]::new($false, "Local\Soulforge.HPP.ContinuousIngress.Supervisor")
   try {
     $Acquired = $Mutex.WaitOne(0)
   } catch [Threading.AbandonedMutexException] {
@@ -66,5 +81,6 @@ try {
   if ($Acquired) {
     try { $Mutex.ReleaseMutex() } catch { }
   }
-  $Mutex.Dispose()
+  if ($Mutex) { $Mutex.Dispose() }
+  if ($InstanceLock) { $InstanceLock.Dispose() }
 }

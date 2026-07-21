@@ -10,7 +10,8 @@
   fail-closed process exit for bounded Windows restart.
 - Added a current-user hidden PowerShell launcher and exact-hash guarded task
   registrar. The task has one `AtLogOn` trigger, no repetition, `IgnoreNew`, a
-  process-lifetime named mutex, bounded restart, and private redirected logs;
+  process-lifetime named mutex plus a cross-session exclusive file handle,
+  bounded restart, and private redirected logs;
   duplicate launcher attempts exit successfully without disturbing the active
   process, and server power-policy defaults cannot stop ingestion. The collector
   no longer opens a console window every cycle. (worker: codex_gpt-5.6)

@@ -172,10 +172,12 @@ On Windows, `ops/register-continuous-ingress-supervisor-task.ps1` replaces the
 old repeating trigger with one current-user `AtLogOn` trigger. Its action starts
 PowerShell with `WindowStyle Hidden`, and
 `ops/run-continuous-ingress-supervisor.ps1` holds one process-lifetime named
-mutex, pins the binding SHA-256 again, launches the Node supervisor without a
-visible console, and redirects sanitized JSONL stdout/stderr below the private
-control root. Task Scheduler `IgnoreNew`, the named mutex, and the existing
-per-cycle lease prevent duplicate supervisors and writers. The task has no
+mutex plus an exclusive file handle below the private control root, pins the
+binding SHA-256 again, launches the Node supervisor without a visible console,
+and redirects sanitized JSONL stdout/stderr below the private control root. The
+file handle closes automatically after a crash and prevents duplicates across
+Windows sessions. Task Scheduler `IgnoreNew`, the process lock, and the
+existing per-cycle lease prevent duplicate supervisors and writers. The task has no
 15-minute repetition; Windows restarts only a terminated supervisor, up to the
 bounded task setting.
 
