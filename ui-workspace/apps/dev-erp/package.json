@@ -37,6 +37,7 @@
     "haengbogwan:task-decisions": "node tools/haengbogwan_task_decisions.mjs",
     "mail:project-rule-candidates": "node tools/mail_project_rule_candidates.mjs",
     "mail:project-route-backfill": "node tools/mail_project_route_backfill.mjs",
+    "mail:outlook-shadow-classify": "node tools/mail_outlook_shadow_classify.mjs",
     "voice:task-candidates": "node tools/voice_to_task_candidates.mjs",
     "validate:voice-intake": "node --test test/voice_to_task_candidates.test.mjs",
     "validate:task-engine-c00b-binding-v1": "node --check tools/task_engine_inventory_c00b_binding_producer.mjs && node --test test/task_engine_inventory_c00b_binding_producer.test.mjs",

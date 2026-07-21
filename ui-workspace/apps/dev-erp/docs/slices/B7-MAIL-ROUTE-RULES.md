@@ -1,5 +1,16 @@
 # B7-MAIL-ROUTE-RULES — Outlook식 메일→과제 라우팅 규칙 (사용자 입력 UI + 소급 적용)
 
+## 2026-07-22 Outlook Shadow replay 보강
+
+- `tools/mail_outlook_shadow_classify.mjs`는 Outlook 규칙 export와 owner가 말로 확정한
+  날짜/제목 규칙을 ERP `core_mail` 메타데이터에 읽기 전용으로 재생한다.
+- 우선순위는 `기존 프로젝트 배정 보존 -> 제목의 명시적 프로젝트 코드 -> owner override
+  -> Outlook 실행 순서 -> 미분류`다.
+- SQLite는 `readOnly + PRAGMA query_only + total_changes=0`으로 열며 제목, 상대 주소,
+  날짜, 송수신 방향, 현재 프로젝트만 조회한다. 본문과 첨부는 조회하지 않는다.
+- 결과는 private output directory의 규칙 packet/result/summary JSON으로만 남는다.
+  이 단계에서는 ERP 프로젝트 값, Outlook 폴더, 메일 원문을 변경하지 않는다.
+
 - task_id: B7-MAIL-ROUTE-RULES
 - status: done 2026-07-05
 - owner_approval: 2026-07-05 owner 지시 원문 — "실제 메일이 프로젝트로 변경되는 규칙?? 키워드라던지,

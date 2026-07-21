@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-07-22
+
+### Outlook 규칙 기반 메일 Shadow 분류
+
+- Outlook 규칙 export와 owner 날짜/제목 override를 기존 ERP 메일 메타데이터에
+  query-only로 재생하는 `mail:outlook-shadow-classify` 도구를 추가했다.
+- 기존 프로젝트 배정 보존, 제목의 명시적 프로젝트 코드 우선, 규칙 충돌 및
+  비프로젝트/미분류 분리를 추가하고 ERP DB·Outlook 무변경 검증을 포함했다.
+
 ## 2026-07-21
 
 ### Single hidden HPP ingress supervisor
