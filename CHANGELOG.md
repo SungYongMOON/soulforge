@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-07-21
+
+### Feature-OFF explicit-scope knowledge query
+
+- Added a stdout-only metadata query over one validated project-history
+  knowledge projection. Callers must explicitly repeat the exact `project` or
+  `common` scope and origin project; scope and foreign-project mismatches fail
+  closed, so neither direction can use an implicit fallback.
+- Added deterministic synthetic coverage for project/common reads, both
+  fallback directions, origin isolation, projection tampering, transient raw
+  questions, and zero-write CLI behavior. The slice remains held metadata only:
+  it does not expose source/body/chunk/locator/private paths or enable accepted
+  knowledge, ERP/MCP service integration, Wiki/RAG/canon mutation, or external
+  publication. (worker: codex_gpt-5)
+
 ## 2026-07-20
 
 ### Feature-OFF unified daily backup-controller composition
