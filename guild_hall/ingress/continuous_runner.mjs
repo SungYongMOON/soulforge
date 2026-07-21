@@ -227,6 +227,15 @@ async function assertNormalDirectory(path, code) {
   return physical;
 }
 
+async function assertNormalDirectoryIfPresent(path, code) {
+  const info = await optionalLstat(path);
+  if (!info) return null;
+  if (!info.isDirectory() || info.isSymbolicLink()) fail(code);
+  const physical = await realpath(path);
+  if (comparable(physical) !== comparable(resolve(path))) fail(code);
+  return physical;
+}
+
 async function assertNormalFile(path, code) {
   let info;
   try {
@@ -497,10 +506,12 @@ export async function loadContinuousBinding(bindingPath, options = {}) {
   const ids = binding.queues.map((queue) => queue.bindingId);
   if (new Set(ids).size !== ids.length) fail("duplicate_continuous_queue_binding");
   await assertNormalDirectory(binding.dataRoot, "continuous_data_root_unsafe");
-  if (binding.voice.enabled) await assertNormalDirectory(binding.voice.sourceRoot, "continuous_voice_source_unsafe");
+  if (binding.voice.enabled) {
+    await assertNormalDirectoryIfPresent(binding.voice.sourceRoot, "continuous_voice_source_unsafe");
+  }
   for (const queue of binding.queues.filter((item) => item.enabled)) {
-    await assertNormalDirectory(queue.sourceRoot, "continuous_queue_source_unsafe");
-    await assertNormalDirectory(queue.ackRoot, "continuous_queue_ack_root_unsafe");
+    await assertNormalDirectoryIfPresent(queue.sourceRoot, "continuous_queue_source_unsafe");
+    await assertNormalDirectoryIfPresent(queue.ackRoot, "continuous_queue_ack_root_unsafe");
   }
   return binding;
 }
@@ -1168,6 +1179,7 @@ export async function runContinuousIngress(options = {}) {
     if (binding.voice.enabled) {
       await assertLaneFences(binding, leaseContext, authorityContext, "voice", "before_payload", now);
       try {
+        await assertNormalDirectory(binding.voice.sourceRoot, "continuous_voice_source_unsafe");
         voiceResult = await syncCopyOnlyMirror({
           sourceRoot: binding.voice.sourceRoot,
           destinationRoot: binding.voice.destinationRoot,
@@ -1202,6 +1214,8 @@ export async function runContinuousIngress(options = {}) {
     for (const queue of binding.queues.filter((item) => item.enabled)) {
       await assertLaneFences(binding, leaseContext, authorityContext, queue.lane, "before_payload", now);
       try {
+        await assertNormalDirectory(queue.sourceRoot, "continuous_queue_source_unsafe");
+        await assertNormalDirectory(queue.ackRoot, "continuous_queue_ack_root_unsafe");
         const result = await processQueue(
           binding,
           queue,

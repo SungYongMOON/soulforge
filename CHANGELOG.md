@@ -15,6 +15,9 @@
   duplicate launcher attempts exit successfully without disturbing the active
   process, and server power-policy defaults cannot stop ingestion. The collector
   no longer opens a console window every cycle. (worker: codex_gpt-5.6)
+- Isolated a temporarily missing voice or queue source to that lane so mail and
+  other healthy lanes continue with a degraded receipt. Existing unsafe linked
+  sources remain fail-closed during binding validation. (worker: codex_gpt-5.6)
 
 ### Bind copied Project History MCP to the terminal publication receipt
 

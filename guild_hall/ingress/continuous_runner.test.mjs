@@ -903,6 +903,42 @@ test("v2 applies all five lanes under one authority snapshot and emits only sani
   }
 });
 
+test("a temporarily missing voice source degrades only voice while mail and queues continue", async () => {
+  const f = await fixture();
+  try {
+    const authority = await activateWriterAuthority(f);
+    const mail = await v2Binding(f, authority);
+    mail.payload.voice.enabled = true;
+    await rm(f.voiceRoot, { recursive: true, force: true });
+    await writeFile(join(f.queues.team_files, "team.bin"), "synthetic-team");
+    await writeBinding(f, mail.payload);
+
+    const loaded = await loadContinuousBinding(f.bindingPath);
+    assert.equal(loaded.voice.enabled, true);
+    const result = await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: advancingClock(),
+      mailExecutor: async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify(syntheticMailSummary()),
+        stderr: "",
+      }),
+    });
+
+    assert.equal(result.status, "degraded");
+    assert.equal(result.mail.status, "ok");
+    assert.equal(result.mail.total_new_events, 1);
+    assert.equal(result.voice, null);
+    assert.ok(result.errors.some((row) => row.binding_id === "voice"
+      && row.code === "continuous_voice_source_unsafe"));
+    assert.equal(result.queues.length, 3);
+    assert.equal(result.queues.find((row) => row.lane === "team_files").staged_files, 1);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
 test("mail-disabled v2 still runs every enabled non-mail lane", async () => {
   const f = await fixture();
   try {
