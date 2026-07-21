@@ -4,7 +4,7 @@
 //   · 비밀번호는 이 env 파일 텍스트에만 들어가고 DB/로그/응답엔 절대 넣지 않는다.
 //   · 수신(fetch)은 이 모듈이 아니라 별도 수집기 프로세스가 한다(no_server_egress 유지).
 // zero-dependency: node:fs/path.
-import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, rmSync, statSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { createHash } from "node:crypto";
 
@@ -13,15 +13,16 @@ export const MAILBOX_ENV_DIR_REL = "guild_hall/state/gateway/mailbox/state";
 function mailboxConfigRoot(repoRoot, privateRoot = "") {
   const root = resolve(repoRoot);
   const configured = String(privateRoot || "").trim();
-  return configured ? resolve(root, configured) : root;
+  return configured ? resolve(root, configured) : null;
 }
 
 export function resolveMailboxEnvPath(repoRoot, relPath, { privateRoot = "" } = {}) {
   const root = mailboxConfigRoot(repoRoot, privateRoot);
+  if (!root) return null;
   const target = resolve(root, relPath);
   const allowedDir = resolve(root, MAILBOX_ENV_DIR_REL);
   const allowedPrefix = allowedDir + sep;
-  if (target !== allowedDir && !`${target}`.startsWith(allowedPrefix)) return null;
+  if (target === allowedDir || !`${target}`.startsWith(allowedPrefix)) return null;
   return target;
 }
 
@@ -34,6 +35,22 @@ export function safeAccountEnvName(accountKey) {
 }
 export function mailboxEnvRelPath(accountKey) {
   return `${MAILBOX_ENV_DIR_REL}/${safeAccountEnvName(accountKey)}`;
+}
+
+export function mailboxCredentialState(repoRoot, accountKey, envRef, { privateRoot = "" } = {}) {
+  if (!String(privateRoot || "").trim()) return { exists: false, error: "mailbox_private_config_root_required" };
+  const expectedRef = mailboxEnvRelPath(accountKey);
+  const normalizedRef = String(envRef || "").replace(/\\/g, "/").trim();
+  if (normalizedRef !== expectedRef) return { exists: false, error: "mailbox_env_ref_noncanonical" };
+  const target = resolveMailboxEnvPath(repoRoot, expectedRef, { privateRoot });
+  if (!target) return { exists: false, error: "mailbox_env_path_unsafe" };
+  try {
+    return statSync(target).isFile()
+      ? { exists: true, error: null }
+      : { exists: false, error: "mailbox_credential_file_missing" };
+  } catch {
+    return { exists: false, error: "mailbox_credential_file_missing" };
+  }
 }
 
 // 기존 env 텍스트에 key=value upsert(주석/타 키 보존). 새 키는 끝에 추가.
@@ -104,10 +121,55 @@ export function parseMailTestResult(jsonText) {
   let d;
   try { d = JSON.parse(String(jsonText || "")); } catch { return { ok: false, fetched: 0, error: "parse_error", message: "" }; }
   const sources = Array.isArray(d?.sources) ? d.sources : [];
-  const s = sources.find((x) => x && x.source === "hiworks") || sources[0] || {};
+  const s = sources.find((x) => x && x.source === "hiworks");
+  if (!s) return { ok: false, fetched: 0, error: "hiworks_source_missing", message: "" };
+  if (s.enabled === false || s.disabled === true || String(s.status || "").toLowerCase() === "disabled") {
+    return { ok: false, fetched: 0, error: "hiworks_disabled", message: "" };
+  }
   const errs = Array.isArray(s.errors) ? s.errors : [];
-  const BAD = ["auth_failed", "missing_config", "network_error", "connect_error", "uidl_error", "unexpected_error"];
-  const bad = errs.find((e) => BAD.includes(e?.code));
-  if (bad) return { ok: false, fetched: Number(s.fetched) || 0, error: bad.code, message: String(bad.message || "").slice(0, 200) };
+  const bad = errs[0];
+  if (bad) return { ok: false, fetched: Number(s.fetched) || 0, error: safeMailTestErrorCode(bad.code), message: "" };
+  if (s.partial === true || d?.partial === true) return { ok: false, fetched: Number(s.fetched) || 0, error: "connection_test_partial", message: "" };
   return { ok: true, fetched: Number(s.fetched) || 0, error: null, message: "" };
+}
+
+function safeMailTestErrorCode(raw) {
+  const code = String(raw || "").trim().toLowerCase();
+  const allowed = new Set([
+    "auth_failed", "missing_config", "missing_token", "network_error", "connect_error",
+    "uidl_error", "timeout", "unexpected_error", "source_pipeline_error", "no_enabled_sources",
+    "hiworks_source_missing", "hiworks_disabled", "parse_error", "connection_test_partial",
+    "mailbox_private_config_root_required", "mailbox_env_ref_noncanonical", "mailbox_env_path_unsafe",
+    "mailbox_credential_file_missing", "test_run_error",
+  ]);
+  return allowed.has(code) ? code : "connection_test_failed";
+}
+
+export function mailboxStatusPatch(result) {
+  return result?.ok
+    ? { status: "ok", last_error: "" }
+    : { status: "error", last_error: safeMailTestErrorCode(result?.error) };
+}
+
+export async function runMailboxConnectionDryRun({
+  repoRoot,
+  accountKey,
+  envRef,
+  privateRoot = "",
+  execFile,
+  pythonBin = process.platform === "win32" ? "python" : "python3",
+  timeout = 25000,
+} = {}) {
+  const presence = mailboxCredentialState(repoRoot, accountKey, envRef, { privateRoot });
+  if (!presence.exists) return { ok: false, fetched: 0, error: presence.error, message: "" };
+  try {
+    const { stdout } = await execFile(
+      pythonBin,
+      ["guild_hall/gateway/mail_fetch/cli.py", "--env-file", mailboxEnvRelPath(accountKey), "--dry-run", "--limit", "3", "--once", "--json"],
+      { cwd: resolve(repoRoot), timeout, maxBuffer: 4 * 1024 * 1024 },
+    );
+    return parseMailTestResult(stdout);
+  } catch {
+    return { ok: false, fetched: 0, error: "test_run_error", message: "" };
+  }
 }

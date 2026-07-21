@@ -5698,7 +5698,7 @@ export class Store {
     if (unclassified > 0) warnings.push({ code: "unclassified_queue", count: unclassified });
     if (unclassifiedOverdue > 0) warnings.push({ code: "unclassified_overdue", count: unclassifiedOverdue });
     const mailRequiredRows = rows.filter((a) => a.status === "active" && !a.is_admin);
-    const configuredMailboxCount = mailRequiredRows.filter((a) => a.email && a.mailbox_enabled && a.mailbox_provider !== "none" && a.mailbox_env_ref).length;
+    const configuredMailboxCount = mailRequiredRows.filter((a) => a.email && a.mailbox_enabled && a.mailbox_provider !== "none" && a.mailbox_env_ref && a.mailbox_status === "ok").length;
     const fetchSeenCount = mailRequiredRows.filter((a) => a.mailbox_last_fetch_at).length;
     const mailboxErrorCount = mailRequiredRows.filter((a) => a.mailbox_enabled && a.mailbox_status === "error").length;
     const nextActions = [];

@@ -823,6 +823,7 @@ async function openAdminPanel() {
       const isSelf = state.account && a.id === state.account.id;
       const selfRoleDisabled = isSelf ? "disabled" : "";
       const mailboxEnabled = !!a.mailbox_enabled;
+      const mailboxConnected = !!a.mailbox_connected;
       const mailboxStatus = a.mailbox_status || (mailboxEnabled ? "ready" : "disabled");
       const mailboxAt = a.mailbox_last_fetch_at ? String(a.mailbox_last_fetch_at).replace("T", " ").slice(0, 16) : "-";
       return `<tr>
@@ -842,7 +843,7 @@ async function openAdminPanel() {
           <label class="dim mini"><input type="checkbox" class="mb-enabled" ${mailboxEnabled ? "checked" : ""} /> ${mailboxEnabled ? (L.acct_active ?? "활성") : (L.acct_disabled ?? "비활성")}</label>
           <input class="login-input mb-env" style="width:170px" value="${esc(a.mailbox_env_ref || "")}" placeholder="${L["mailbox_env_ref"] ?? "env ref"}" autocomplete="off" />
           <button class="fav-chip mb-save" data-id="${esc(a.id)}">${L.acct_save ?? "저장"}</button>
-          <button class="fav-chip mb-connect" data-id="${esc(a.id)}" data-user="${esc(a.username)}" data-email="${esc(a.email || "")}" data-provider="${esc(a.mailbox_provider || "none")}">${L.mailbox_connect ?? "메일 연결"}</button>
+          <button class="fav-chip mb-connect" data-id="${esc(a.id)}" data-user="${esc(a.username)}" data-email="${esc(a.email || "")}" data-provider="${esc(a.mailbox_provider || "none")}" data-connected="${mailboxConnected ? "true" : "false"}">${L.mailbox_connect ?? "메일 연결"}</button>
           ${(a.mailbox_provider && a.mailbox_provider !== "none") || a.mailbox_env_ref ? `<button class="fav-chip mb-disconnect" data-id="${esc(a.id)}" title="${L.mailbox_disconnect_hint ?? "연결 해제 + 비번 파일 삭제(메일·할일 보존)"}">${L.mailbox_disconnect ?? "해제"}</button>` : ""}
         </div></td>
         <td class="muted" title="${esc(a.mailbox_last_error || "")}">${esc(mailboxStatus)}<div class="mini">${esc(mailboxAt)}</div></td>
@@ -920,7 +921,7 @@ async function openAdminPanel() {
       }
     }));
     ov.querySelectorAll(".mb-connect").forEach((b) => b.addEventListener("click", () =>
-      openMailConnect({ id: b.dataset.id, username: b.dataset.user, email: b.dataset.email, provider: b.dataset.provider }, renderList)));
+      openMailConnect({ id: b.dataset.id, username: b.dataset.user, email: b.dataset.email, provider: b.dataset.provider, connected: b.dataset.connected === "true" }, renderList)));
     ov.querySelectorAll(".mb-disconnect").forEach((b) => b.addEventListener("click", async () => {
       if (!(await uiConfirm(L.mailbox_disconnect_confirm ?? "메일함 연결을 해제할까요? 저장된 비밀번호 파일이 삭제됩니다. (메일·할일은 보존)"))) return;
       errBox.textContent = "";
@@ -948,7 +949,7 @@ async function openAdminPanel() {
 // 메일 연결: 계정에 이메일+비밀번호+호스트 입력 → 서버가 env 파일에 기록(DB 아님). 수신은 별도 수집기.
 function openMailConnect(acct, onDone) {
   const L = state.lex;
-  const configured = acct.provider && acct.provider !== "none"; // 이미 메일 연결됨?(덮어쓰기 안내용)
+  const configured = !!acct.connected; // credential 파일 실재 + 마지막 dry-run 성공만 연결로 표시
   const ov = document.createElement("div");
   ov.className = "ui-confirm-overlay";
   ov.innerHTML = `<div class="ui-confirm" role="dialog" aria-label="${esc(L.mailbox_connect_title ?? "메일 연결")}" style="text-align:left">
@@ -988,11 +989,14 @@ function openMailConnect(acct, onDone) {
     const r = await post("/api/accounts/mailbox/credentials", { id: acct.id, provider: "hiworks", host, username, password })
       .then((x) => x.json()).catch(() => null);
     if (r && r.ok) {
+      const t = r.connection;
       toast(L.mailbox_connect_done ?? "저장됨");
       onDone?.(); // 목록 갱신(provider/env 반영)
-      errBox.style.color = "var(--ok)";
-      errBox.textContent = `${L.mailbox_saved ?? "✅ 저장되었습니다"} — ${L.mailbox_test_prompt ?? "연결을 테스트할까요?"}`;
-      testBtn.disabled = false; testBtn.focus(); // "연결 테스트" 버튼으로 안내(자동 아님, 눌러서 테스트)
+      errBox.style.color = t?.ok ? "var(--ok)" : "var(--danger)";
+      errBox.textContent = t?.ok
+        ? (L.mailbox_test_ok ?? "✅ 연결 성공")
+        : `${L.mailbox_test_fail ?? "❌ 연결 실패"}: ${t?.error || "connection_test_failed"}`;
+      testBtn.disabled = false;
     } else {
       errBox.style.color = "var(--danger)";
       errBox.textContent = r?.error === "mailbox_credentials_incomplete" ? (L.mailbox_connect_incomplete ?? "입력 누락") : (r?.error || L.login_fail);

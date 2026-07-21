@@ -2,6 +2,17 @@
 
 ## 2026-07-21
 
+### Fail closed when registering ERP team mailboxes
+
+- Reused the dev-ERP Hiworks credential form and connection-test API while
+  requiring account-derived env files below `EMAIL_FETCH_PRIVATE_CONFIG_ROOT`.
+  Credential saves now immediately run the existing collector in dry-run mode
+  and persist only safe `ok`/`error` status codes. Missing files, Gmail-only or
+  disabled results, and `missing_token` can no longer leave or display a stale
+  connected state. No collector loop, mail persistence, or HPP writer was
+  activated. Synthetic tests cover the private-root and fail-closed boundaries.
+  (worker: codex_gpt-5)
+
 ### Materialize frozen legacy mail into immutable HPP custody
 
 - Added a copy-only legacy mail custody materializer over one exact private

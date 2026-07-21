@@ -19,7 +19,18 @@ import {
 } from "../src/store.mjs";
 import { importNewTaskLedgers, writeTaskToLedger, readTaskLedgerRows, importNewInputLedgers, writeInputToLedger, readInputLedgerRows } from "../src/autosync.mjs";
 import { pendingForProject, scanPending } from "../tools/mail_to_task_pending.mjs";
-import { safeAccountEnvName, mailboxEnvRelPath, upsertEnv, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv, parseMailTestResult } from "../src/mailbox_env.mjs";
+import {
+  safeAccountEnvName,
+  mailboxEnvRelPath,
+  upsertEnv,
+  hiworksEnvUpdates,
+  writeMailboxEnv,
+  deleteMailboxEnv,
+  parseMailTestResult,
+  mailboxCredentialState,
+  mailboxStatusPatch,
+  runMailboxConnectionDryRun,
+} from "../src/mailbox_env.mjs";
 import { loadFixture } from "../src/fixture.mjs";
 import { ingestNormalized, mapSoulforgeSnapshot } from "../src/adapter.mjs";
 import { getLexicon, LEXICON } from "../src/lexicon.mjs";
@@ -6606,7 +6617,52 @@ test("MAILBOX-TEST: 수집기 dry-run JSON → 연결 성공/인증실패 판정
   assert.equal(ok.ok, true); assert.equal(ok.fetched, 3);
   const fail = parseMailTestResult(JSON.stringify({ sources: [{ source: "hiworks", fetched: 0, errors: [{ code: "auth_failed", message: "Access denied" }] }] }));
   assert.equal(fail.ok, false); assert.equal(fail.error, "auth_failed");
+  const wrongSource = parseMailTestResult(JSON.stringify({ sources: [{ source: "gmail", fetched: 0, errors: [{ code: "missing_token" }] }] }));
+  assert.deepEqual(wrongSource, { ok: false, fetched: 0, error: "hiworks_source_missing", message: "" });
+  const missingToken = parseMailTestResult(JSON.stringify({ sources: [{ source: "hiworks", fetched: 0, errors: [{ code: "missing_token", message: "redacted" }] }] }));
+  assert.equal(missingToken.ok, false); assert.equal(missingToken.error, "missing_token"); assert.equal(missingToken.message, "");
+  assert.equal(parseMailTestResult(JSON.stringify({ sources: [] })).error, "hiworks_source_missing");
+  assert.equal(parseMailTestResult(JSON.stringify({ sources: [{ source: "hiworks", disabled: true, errors: [] }] })).error, "hiworks_disabled");
   assert.equal(parseMailTestResult("not json").ok, false);
+});
+
+test("MAILBOX-TEST: canonical private credential presence gates dry-run and status clears stale ok", async () => {
+  const root = mkdtempSync(join(tmpdir(), "mbtest-"));
+  const privateRoot = join(root, "private-config");
+  const accountKey = "acc_synthetic";
+  const envRef = mailboxEnvRelPath(accountKey);
+  try {
+    assert.equal(mailboxCredentialState(root, accountKey, envRef).error, "mailbox_private_config_root_required");
+    assert.equal(mailboxCredentialState(root, accountKey, envRef, { privateRoot }).error, "mailbox_credential_file_missing");
+    assert.equal(mailboxCredentialState(root, accountKey, "guild_hall/state/gateway/mailbox/state/other.env", { privateRoot }).error, "mailbox_env_ref_noncanonical");
+    let called = 0;
+    const missing = await runMailboxConnectionDryRun({
+      repoRoot: root, accountKey, envRef, privateRoot,
+      execFile: async () => { called += 1; return { stdout: "{}" }; },
+    });
+    assert.equal(missing.error, "mailbox_credential_file_missing");
+    assert.equal(called, 0, "missing credential must fail before launching the collector");
+    assert.equal(writeMailboxEnv(root, envRef, { EMAIL_FETCH_SOURCE_HIWORKS_ENABLED: "true" }, { privateRoot }).ok, true);
+    assert.equal(mailboxCredentialState(root, accountKey, envRef, { privateRoot }).exists, true);
+
+    const result = await runMailboxConnectionDryRun({
+      repoRoot: root,
+      accountKey,
+      envRef,
+      privateRoot,
+      execFile: async (_bin, args) => {
+        called += 1;
+        assert.ok(args.includes("--dry-run"));
+        assert.ok(args.includes(envRef));
+        assert.equal(args.includes("--loop"), false);
+        return { stdout: JSON.stringify({ sources: [{ source: "hiworks", fetched: 0, errors: [{ code: "auth_failed", message: "must not escape" }] }] }) };
+      },
+    });
+    assert.equal(called, 1);
+    assert.deepEqual(result, { ok: false, fetched: 0, error: "auth_failed", message: "" });
+    assert.deepEqual(mailboxStatusPatch(result), { status: "error", last_error: "auth_failed" });
+    assert.deepEqual(mailboxStatusPatch({ ok: true }), { status: "ok", last_error: "" });
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test("MAIL-COLLECT: enabled 메일함 없으면 자식프로세스 없이 조기반환 + 락 해제", async () => {
@@ -6633,20 +6689,20 @@ test("MAIL-COLLECT: 서버 엔드포인트 + 자동 인터벌 env + UI 버튼 �
 
 test("MAILBOX-ENV: 허용 디렉터리에만 atomic 기록, traversal/타 경로 거부, 비번은 파일에만", () => {
   const root = mkdtempSync(join(tmpdir(), "mbenv-"));
+  const privateRoot = join(root, "stable-private-config");
   try {
-    const r = writeMailboxEnv(root, mailboxEnvRelPath("kim"), hiworksEnvUpdates({ host: "pop3s.hiworks.com", username: "kim@x.com", password: "p@ss!" }));
+    const r = writeMailboxEnv(root, mailboxEnvRelPath("kim"), hiworksEnvUpdates({ host: "pop3s.hiworks.com", username: "kim@x.com", password: "p@ss!" }), { privateRoot });
     assert.equal(r.ok, true);
     const written = readFileSync(r.path, "utf-8");
     assert.match(written, /HIWORKS_POP3_PASSWORD=p@ss!/);       // 비번은 env 파일에
     assert.match(written, /HIWORKS_POP3_USERNAME=kim@x\.com/);
-    assert.equal(writeMailboxEnv(root, "../../../etc/evil.env", { X: "1" }).error, "mailbox_env_path_unsafe");
-    assert.equal(writeMailboxEnv(root, "ui-workspace/apps/dev-erp/data/x.env", { X: "1" }).error, "mailbox_env_path_unsafe");
+    assert.equal(writeMailboxEnv(root, "../../../etc/evil.env", { X: "1" }, { privateRoot }).error, "mailbox_env_path_unsafe");
+    assert.equal(writeMailboxEnv(root, "ui-workspace/apps/dev-erp/data/x.env", { X: "1" }, { privateRoot }).error, "mailbox_env_path_unsafe");
     // 삭제: 허용 디렉터리 내 파일은 지우고, 밖이면 거부
-    assert.equal(deleteMailboxEnv(root, mailboxEnvRelPath("kim")).deleted, true);
-    assert.equal(deleteMailboxEnv(root, mailboxEnvRelPath("kim")).deleted, false); // 이미 없음
-    assert.equal(deleteMailboxEnv(root, "../../../etc/evil.env").error, "mailbox_env_path_unsafe");
+    assert.equal(deleteMailboxEnv(root, mailboxEnvRelPath("kim"), { privateRoot }).deleted, true);
+    assert.equal(deleteMailboxEnv(root, mailboxEnvRelPath("kim"), { privateRoot }).deleted, false); // 이미 없음
+    assert.equal(deleteMailboxEnv(root, "../../../etc/evil.env", { privateRoot }).error, "mailbox_env_path_unsafe");
 
-    const privateRoot = join(root, "stable-private-config");
     const external = writeMailboxEnv(root, mailboxEnvRelPath("lee"), { X: "private" }, { privateRoot });
     assert.equal(external.ok, true);
     assert.equal(external.path.startsWith(privateRoot), true);

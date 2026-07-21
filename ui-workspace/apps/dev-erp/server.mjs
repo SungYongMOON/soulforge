@@ -46,7 +46,15 @@ import { crossSearch } from "./src/search.mjs";
 import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEnabled, suggestSplit, summarizeCompletion } from "./src/llm.mjs";
 import { loadPartyMonsterTypes } from "./src/party_match.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
-import { mailboxEnvRelPath, hiworksEnvUpdates, writeMailboxEnv, deleteMailboxEnv, parseMailTestResult } from "./src/mailbox_env.mjs";
+import {
+  mailboxEnvRelPath,
+  hiworksEnvUpdates,
+  writeMailboxEnv,
+  deleteMailboxEnv,
+  mailboxCredentialState,
+  mailboxStatusPatch,
+  runMailboxConnectionDryRun,
+} from "./src/mailbox_env.mjs";
 import { collectAllMailboxes, isCollecting } from "./src/mail_collect.mjs";
 const execFileP = promisify(execFile);
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
@@ -474,6 +482,53 @@ const ERP_VERSION = Object.freeze({
 });
 
 const store = openStore(DB_PATH);
+const MAILBOX_REPO_ROOT = resolve(HERE, "..", "..", "..");
+
+function safeMailboxResponse(mailbox, connected) {
+  return {
+    provider: mailbox?.mailbox_provider || "none",
+    enabled: !!mailbox?.mailbox_enabled,
+    status: mailbox?.mailbox_status || "disabled",
+    last_error: mailbox?.mailbox_last_error || null,
+    connected: !!connected,
+  };
+}
+
+function reconcileMailboxCredentialPresence() {
+  const privateRoot = process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT;
+  for (const account of store.listAccounts()) {
+    if (!account.mailbox_enabled || account.mailbox_provider !== "hiworks") continue;
+    const presence = mailboxCredentialState(MAILBOX_REPO_ROOT, account.id, account.mailbox_env_ref, { privateRoot });
+    if (!presence.exists && (account.mailbox_status !== "error" || account.mailbox_last_error !== presence.error)) {
+      store.updateAccountMailbox(account.id, { status: "error", last_error: presence.error });
+    }
+  }
+  return store.listAccounts().map((account) => {
+    const presence = account.mailbox_provider === "hiworks"
+      ? mailboxCredentialState(MAILBOX_REPO_ROOT, account.id, account.mailbox_env_ref, { privateRoot })
+      : { exists: true };
+    return {
+      ...account,
+      mailbox_connected: !!account.mailbox_enabled && account.mailbox_status === "ok" && presence.exists,
+    };
+  });
+}
+
+async function testAndRecordMailboxConnection(account) {
+  store.updateAccountMailbox(account.id, { status: "pending", last_error: "" });
+  const result = await runMailboxConnectionDryRun({
+    repoRoot: MAILBOX_REPO_ROOT,
+    accountKey: account.id,
+    envRef: account.mailbox_env_ref,
+    privateRoot: process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT,
+    execFile: execFileP,
+  });
+  const updated = store.updateAccountMailbox(account.id, mailboxStatusPatch(result));
+  return {
+    result,
+    mailbox: safeMailboxResponse(updated.mailbox, result.ok),
+  };
+}
 const reportWorkflowBundleSha256 = String(process.env.DEV_ERP_REPORT_WORKFLOW_BUNDLE_SHA256 || "").trim();
 const reportWorkflowPayloadStore = WORKFLOW_SHA256_RE.test(reportWorkflowBundleSha256)
   ? new WorkflowJobPayloadStore({ backendRoot: BACKEND_ROOT })
@@ -2542,7 +2597,7 @@ const server = createServer(async (req, res) => {
     // 계정 생성/조회/수정/상태 — 관리자 전용.
     if (path === "/api/accounts" && req.method === "GET") {
       if (!requireAdmin(req)) return send(res, 403, { error: "admin_only" });
-      return send(res, 200, { accounts: store.listAccounts(), roles: store.db.prepare("SELECT id,name FROM rbac_role ORDER BY id").all() });
+      return send(res, 200, { accounts: reconcileMailboxCredentialPresence(), roles: store.db.prepare("SELECT id,name FROM rbac_role ORDER BY id").all() });
     }
     if (path === "/api/accounts" && req.method === "POST") {
       const admin = requireAdmin(req);
@@ -2579,14 +2634,21 @@ const server = createServer(async (req, res) => {
       const admin = requireAdmin(req);
       if (!admin) return send(res, 403, { error: "admin_only" });
       const body = await readJson(req);
-      const r = store.updateAccountMailbox(body.id, body);
+      const r = store.updateAccountMailbox(body.id, {
+        provider: body.provider,
+        enabled: body.enabled,
+        env_ref: body.env_ref,
+        status: "pending",
+        last_error: "",
+      });
       if (r.error) return send(res, 400, r);
+      const mailbox = reconcileMailboxCredentialPresence().find((account) => account.id === body.id);
       store.appendEvent({
         actor_ref: admin.username, actor_kind: "human", kind: "account_mailbox_update",
-        to: `${r.mailbox.mailbox_provider}:${r.mailbox.mailbox_enabled ? "enabled" : "disabled"}`,
+        to: `${mailbox?.mailbox_provider || "none"}:${mailbox?.mailbox_enabled ? "enabled" : "disabled"}`,
         used_refs: ["auth", "mailbox_metadata"], data_label: "meta"
       });
-      return send(res, 200, r);
+      return send(res, 200, { ok: true, mailbox });
     }
     // 메일함 해제: provider=none·비활성 + 비번 env 파일 삭제(비활성 후 잔존하던 보안 공백 제거). 메일/할일은 보존.
     if (path === "/api/accounts/mailbox/disconnect" && req.method === "POST") {
@@ -2595,11 +2657,11 @@ const server = createServer(async (req, res) => {
       const body = await readJson(req);
       const before = store.listAccounts().find((a) => a.id === body.id);
       if (!before) return send(res, 400, { error: "account_not_found" });
-      const oldRef = before.mailbox_env_ref || mailboxEnvRelPath(body.id);
+      const oldRef = mailboxEnvRelPath(body.id);
       const r = store.updateAccountMailbox(body.id, { provider: "none", enabled: false });
       if (r.error) return send(res, 400, r);
       let envDeleted = false;
-      try { const repoRoot = resolve(HERE, "..", "..", ".."); envDeleted = !!deleteMailboxEnv(repoRoot, oldRef, { privateRoot: process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT }).deleted; } catch { /* env 정리 실패가 해제를 막지 않음 */ }
+      try { envDeleted = !!deleteMailboxEnv(MAILBOX_REPO_ROOT, oldRef, { privateRoot: process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT }).deleted; } catch { /* env 정리 실패가 해제를 막지 않음 */ }
       store.appendEvent({ actor_ref: admin.username, actor_kind: "human", kind: "account_mailbox_disconnect", to: `none:env_deleted=${envDeleted}`, used_refs: ["auth", "mailbox_metadata", "mailbox_env"], data_label: "meta" });
       return send(res, 200, { ok: true, env_deleted: envDeleted, mailbox: r.mailbox });
     }
@@ -2617,17 +2679,20 @@ const server = createServer(async (req, res) => {
       const username = String(body.username || acct.email || "").trim();
       const password = String(body.password ?? "");
       if (!host || !username || !password) return send(res, 400, { error: "mailbox_credentials_incomplete" });
+      if (!String(process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT || "").trim()) {
+        return send(res, 400, { error: "mailbox_private_config_root_required" });
+      }
       const rel = mailboxEnvRelPath(acct.id); // 파일명은 계정 id 기반(ASCII·고유) — 한글 등 username 충돌 방지
-      const repoRoot = resolve(HERE, "..", "..", "..");
-      const w = writeMailboxEnv(repoRoot, rel, hiworksEnvUpdates({ host, username, password, port: body.port }), { privateRoot: process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT });
+      const w = writeMailboxEnv(MAILBOX_REPO_ROOT, rel, hiworksEnvUpdates({ host, username, password, port: body.port }), { privateRoot: process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT });
       if (w.error) return send(res, 400, { error: w.error });
-      const r = store.updateAccountMailbox(body.id, { provider: "hiworks", env_ref: rel, enabled: true });
+      const r = store.updateAccountMailbox(body.id, { provider: "hiworks", env_ref: rel, enabled: true, status: "pending", last_error: "" });
       if (r.error) return send(res, 400, r);
+      const tested = await testAndRecordMailboxConnection(r.mailbox);
       store.appendEvent({
         actor_ref: admin.username, actor_kind: "human", kind: "account_mailbox_credentials_set",
-        to: `hiworks:${rel}`, used_refs: ["auth", "mailbox_env"], data_label: "meta"
+        to: `hiworks:${tested.result.ok ? "ok" : "error"}`, used_refs: ["auth", "mailbox_env"], data_label: "meta"
       }); // 비밀번호는 로그/이벤트/DB에 남기지 않음 — env 파일에만
-      return send(res, 200, { ok: true, env_ref: rel, mailbox: r.mailbox });
+      return send(res, 200, { ok: true, connection: tested.result, mailbox: tested.mailbox });
     }
     // 메일 연결 테스트(admin): 별도 수집기 프로세스를 dry-run 으로 띄워 접속·인증만 확인(메일 미저장).
     // 웹서버는 직접 외부접속 안 함 — 자식 프로세스(수집기)가 접속하고 결과만 받아 표시.
@@ -2636,18 +2701,9 @@ const server = createServer(async (req, res) => {
       if (!admin) return send(res, 403, { error: "admin_only" });
       const { id } = await readJson(req);
       const acct = store.listAccounts().find((a) => a.id === id);
-      if (!acct || !acct.mailbox_env_ref) return send(res, 400, { error: "no_mailbox_env" });
-      const repoRoot = resolve(HERE, "..", "..", "..");
-      try {
-        const { stdout } = await execFileP(
-          process.platform === "win32" ? "python" : "python3",
-          ["guild_hall/gateway/mail_fetch/cli.py", "--env-file", acct.mailbox_env_ref, "--dry-run", "--limit", "3", "--once", "--json"],
-          { cwd: repoRoot, timeout: 25000, maxBuffer: 4 * 1024 * 1024 },
-        );
-        return send(res, 200, parseMailTestResult(stdout));
-      } catch (e) {
-        return send(res, 200, { ok: false, error: "test_run_error", message: String(e?.message || e).slice(0, 200) });
-      }
+      if (!acct) return send(res, 400, { error: "account_not_found" });
+      const tested = await testAndRecordMailboxConnection(acct);
+      return send(res, 200, tested.result);
     }
     // 메일 수집(수동 버튼 + 자동 인터벌 공용). 웹서버는 직접 egress 안 함 — 자식 수집기가 fetch 후 원장→core_mail ingest.
     if (path === "/api/mail/collect" && req.method === "POST") {
@@ -2661,6 +2717,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/api/accounts/readiness" && req.method === "GET") {
       if (!requireAdmin(req)) return send(res, 403, { error: "admin_only" });
+      reconcileMailboxCredentialPresence();
       return send(res, 200, store.teamReadiness({
         target_members: intParam(qp.target_members ?? qp.target, 5, { min: 1, max: 50 }),
         today: /^\d{4}-\d{2}-\d{2}$/.test(String(qp.today ?? "")) ? String(qp.today) : todayKey(),
@@ -2683,9 +2740,8 @@ const server = createServer(async (req, res) => {
       const r = store.deleteAccount(id);
       if (r.error) return send(res, 400, r);
       erpMcp?.purgeAccountCredentials(id);
-      const repoRoot = resolve(HERE, "..", "..", "..");
       let envDeleted = false;
-      try { envDeleted = !!deleteMailboxEnv(repoRoot, r.mailbox_env_ref || mailboxEnvRelPath(id), { privateRoot: process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT }).deleted; } catch { /* env 정리 실패가 계정 삭제를 막지 않음 */ }
+      try { envDeleted = !!deleteMailboxEnv(MAILBOX_REPO_ROOT, mailboxEnvRelPath(id), { privateRoot: process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT }).deleted; } catch { /* env 정리 실패가 계정 삭제를 막지 않음 */ }
       store.appendEvent({
         actor_ref: admin.username, actor_kind: "human", kind: "account_deleted",
         to: r.username, used_refs: ["auth"], data_label: "meta"
