@@ -168,6 +168,11 @@ runs one cycle, waits `poll_interval_seconds`, and repeats until it receives a
 stop signal. It exits on a fatal cycle error so the OS can perform a bounded
 restart, while degraded lane results remain recorded cycles.
 
+A temporarily missing enabled voice or queue source is isolated to that lane:
+the cycle records a sanitized degraded error and continues the other available
+lanes. An existing source that resolves through a link or other unsafe path is
+still rejected while loading the pinned binding.
+
 On Windows, `ops/register-continuous-ingress-supervisor-task.ps1` replaces the
 old repeating trigger with one current-user `AtLogOn` trigger. Its action starts
 PowerShell with `WindowStyle Hidden`, and
