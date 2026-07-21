@@ -1,0 +1,7 @@
+interface:
+  display_name: "쉽게 설명"
+  short_description: "긴 작업을 색상 도식과 빠짐없는 구조로 쉽게 설명"
+  default_prompt: "Use $soulforge-easy-explain to explain the current work clearly, visually, and without omitting applicable structure, files, functions, boundaries, or next actions."
+
+policy:
+  allow_implicit_invocation: true
