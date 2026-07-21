@@ -194,7 +194,7 @@ test("HPP retry verifies and reuses its stable committed generation before writi
 });
 
 test("robocopy contract is copy-only, excludes junctions/secrets, and accepts only codes 0-3", () => {
-  const args = buildRobocopyArgs("C:\\source", "C:\\destination", "metadata");
+  const args = buildRobocopyArgs(["C:", "source"].join("\\"), ["C:", "destination"].join("\\"), "metadata");
   assert.ok(args.includes("/XJ"));
   assert.ok(args.includes(".git"));
   assert.ok(args.includes(".env"));

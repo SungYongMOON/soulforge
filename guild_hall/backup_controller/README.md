@@ -26,8 +26,8 @@ API remains available for compatibility and still dispatches at most one stage.
   binding, activation approval, live path, or secret is present in this module.
 
 The external control plane is expected to keep binding, activation, pinned HPP
-recovery policy, and controller state under separate protected paths such as
-`D:\Soulforge-control\backup-controller\`. It must not be nested in the HPP data
+recovery policy, and controller state under a separate protected path such as
+`<protected-control-root>/backup-controller/`. It must not be nested in the HPP data
 root, runtime checkout, restore root, or a NAS lane.
 
 ## Exact resources and preflight

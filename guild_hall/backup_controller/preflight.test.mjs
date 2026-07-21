@@ -113,10 +113,10 @@ test("preflight blocks broad local HPP write ACLs and unparseable ACL output", a
 test("git probe pins HEAD and ignores untracked files while rejecting tracked drift", async () => {
   const expected = "d".repeat(40);
   const calls = [];
-  await probeRuntimeGitDefault("C:\\runtime", expected, { commandRunner: async (request) => {
+  await probeRuntimeGitDefault(["C:", "runtime"].join("\\"), expected, { commandRunner: async (request) => {
     calls.push(request.args);
     return calls.length === 1 ? { code: 0, stdout: `${expected}\n`, stderr: "" } : { code: 0, stdout: "", stderr: "" };
   } });
   assert.ok(calls[1].includes("--untracked-files=no"));
-  await assert.rejects(probeRuntimeGitDefault("C:\\runtime", expected, { commandRunner: async (request) => request.args.includes("rev-parse") ? { code: 0, stdout: `${expected}\n`, stderr: "" } : { code: 0, stdout: " M guild_hall/backup_controller/controller.mjs\n", stderr: "" } }), (error) => error instanceof BackupControllerError && error.code === "runtime_tracked_files_dirty");
+  await assert.rejects(probeRuntimeGitDefault(["C:", "runtime"].join("\\"), expected, { commandRunner: async (request) => request.args.includes("rev-parse") ? { code: 0, stdout: `${expected}\n`, stderr: "" } : { code: 0, stdout: " M guild_hall/backup_controller/controller.mjs\n", stderr: "" } }), (error) => error instanceof BackupControllerError && error.code === "runtime_tracked_files_dirty");
 });

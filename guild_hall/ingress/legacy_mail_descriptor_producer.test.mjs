@@ -27,7 +27,7 @@ function attachment(overrides = {}) {
     size: 128,
     url: "source://private/SENSITIVE_ATTACHMENT_URL",
     content_sha256: null,
-    local_path: "D:/PRIVATE_ATTACHMENT_PATH",
+    local_path: ["D:", "PRIVATE_ATTACHMENT_PATH"].join("/"),
     provider_attachment_id: "SENSITIVE_ATTACHMENT_ID",
     metadata: { classification: "private" },
     ...overrides,

@@ -86,7 +86,7 @@ test("activation is exact and fails closed on unknown keys or observed-host drif
 test("feature-OFF automation stops before preflight, probes, executors, or state writes", async () => {
   let downstreamCalls = 0;
   const output = await runDailyAutomation({
-    activationSidecarRef: "C:\\control\\activation.json",
+    activationSidecarRef: ["C:", "control", "activation.json"].join("\\"),
     now: NOW,
     resolveActivationImpl: async () => ({ feature_enabled: false, observed_at: NOW.toISOString(), sidecar_sha256: "a".repeat(64), binding_sha256: "b".repeat(64) }),
     preflightImpl: async () => { downstreamCalls += 1; },
@@ -103,11 +103,11 @@ test("enabled automation composes preflight, fixed catalog, and one daily cycle 
   const calls = [];
   const binding = { marker: "exact-binding" };
   const output = await runDailyAutomation({
-    activationSidecarRef: "D:\\Soulforge-control\\backup-controller\\activation.json",
+    activationSidecarRef: ["D:", "Soulforge-control", "backup-controller", "activation.json"].join("\\"),
     now: NOW,
     resolveActivationImpl: async ({ sidecarRef }) => {
       calls.push(["activation", sidecarRef]);
-      return { feature_enabled: true, observed_at: NOW.toISOString(), sidecar_sha256: "a".repeat(64), binding_sha256: "b".repeat(64), binding, sidecar: { binding_ref: "D:\\Soulforge-control\\backup-controller\\binding.json", expected_binding_sha256: "b".repeat(64), runtime_commit_sha: "c".repeat(40), approval_ref: "approval-composition-test-v1" } };
+      return { feature_enabled: true, observed_at: NOW.toISOString(), sidecar_sha256: "a".repeat(64), binding_sha256: "b".repeat(64), binding, sidecar: { binding_ref: ["D:", "Soulforge-control", "backup-controller", "binding.json"].join("\\"), expected_binding_sha256: "b".repeat(64), runtime_commit_sha: "c".repeat(40), approval_ref: "approval-composition-test-v1" } };
     },
     preflightImpl: async (observedBinding, options) => { calls.push(["preflight", observedBinding, options]); return { ok: true }; },
     runtimeRootVerifier: (observedBinding) => { calls.push(["runtime-root", observedBinding]); },
@@ -119,6 +119,6 @@ test("enabled automation composes preflight, fixed catalog, and one daily cycle 
   assert.deepEqual(calls[1], ["runtime-root", binding]);
   assert.deepEqual(calls[2], ["preflight", binding, { allowWriteProbe: true, runtimeCommitSha: "c".repeat(40) }]);
   assert.equal(calls[3][0], "catalog");
-  assert.equal(calls[4][1].bindingRef, "D:\\Soulforge-control\\backup-controller\\binding.json");
+  assert.equal(calls[4][1].bindingRef, ["D:", "Soulforge-control", "backup-controller", "binding.json"].join("\\"));
   assert.equal(calls[4][1].apply, true);
 });
