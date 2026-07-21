@@ -134,11 +134,15 @@ test("Windows task contract is one hidden at-logon supervisor with a process-lif
   assert.match(launcher, /Local\\Soulforge\.HPP\.ContinuousIngress\.Supervisor/);
   assert.match(launcher, /continuous_supervisor_cli\.mjs/);
   assert.match(launcher, /--apply/);
+  assert.match(launcher, /duplicate launch ignored/);
+  assert.doesNotMatch(launcher, /throw "continuous supervisor already running"/);
   assert.match(registrar, /New-ScheduledTaskTrigger -AtLogOn/);
   assert.match(registrar, /-WindowStyle", "Hidden"/);
   assert.match(registrar, /-MultipleInstances IgnoreNew/);
   assert.match(registrar, /-RestartCount 3/);
   assert.match(registrar, /-ExecutionTimeLimit \(\[TimeSpan\]::Zero\)/);
+  assert.match(registrar, /-AllowStartIfOnBatteries/);
+  assert.match(registrar, /-DontStopIfGoingOnBatteries/);
   assert.doesNotMatch(registrar, /RepetitionInterval|New-TimeSpan -Minutes 15/);
 
   if (process.platform !== "win32") {

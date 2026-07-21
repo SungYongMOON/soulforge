@@ -11,8 +11,9 @@
 - Added a current-user hidden PowerShell launcher and exact-hash guarded task
   registrar. The task has one `AtLogOn` trigger, no repetition, `IgnoreNew`, a
   process-lifetime named mutex, bounded restart, and private redirected logs;
-  the collector no longer opens a console window every cycle. (worker:
-  codex_gpt-5.6)
+  duplicate launcher attempts exit successfully without disturbing the active
+  process, and server power-policy defaults cannot stop ingestion. The collector
+  no longer opens a console window every cycle. (worker: codex_gpt-5.6)
 
 ### Easy Explain tracked skill candidate
 
