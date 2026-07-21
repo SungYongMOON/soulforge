@@ -83,8 +83,9 @@ Map the normalized context and lock into these required groups:
 - execution boundary: `source_context_schema`, `validation_intent: file_only`,
   `authority_state`, `requested_send_surface: outlook_manual`, and
   `application_requested`;
-- rendered content: `body_text`, `body_html`, fixed `recipient_label: 수신`,
-  fixed `reason_label: 사유`, `purpose_phrases`, required/forbidden phrases,
+- rendered content: `body_text`, `body_html`, recipient-language label pair
+  (`recipient_label: 수신` with `reason_label: 사유`, or `recipient_label: To`
+  with `reason_label: Reason`), `purpose_phrases`, required/forbidden phrases,
   required sections, table counts, and table headers;
 - recipient lock: `recipient_display_order` and the separately observed
   `actual_recipient_display_order`; every expected display role must also be

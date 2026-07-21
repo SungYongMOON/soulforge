@@ -87,6 +87,19 @@ message, create its reply or one new unsent draft, preserve the thread subject,
 apply the approved body, stage and attach only the exact owner-selected file,
 and save or display that draft. It must never call `.Send()`.
 
+For terminal/COM execution, keep signature insertion inside the Outlook body.
+Never parse or concatenate the signature HTML file and never attach its RTF.
+Resolve the runtime-private signature by logical name and insert the matching
+RTF through the Outlook Word editor at a bounded placeholder with
+`Range.InsertFile`; `scripts/insert_outlook_signature.ps1` implements this
+step without reading or logging footer text. Verify that the draft has no RTF
+attachment, the footer occurs once, any Hangul is intact, and no Unicode
+replacement character is present. Use the Word editor for non-ASCII text
+corrections because Outlook can entity-encode `HTMLBody`. For external
+reference links, prefer the official primary-source specification and verify
+both visible anchor text and the final HTML `href`. Match `To/Reason` versus
+`수신/사유` to the approved recipient-facing language.
+
 If the owner explicitly binds a password method for the selected Office
 attachment, derive and use the value only at runtime. Do not print, log, store,
 or repeat the value. If COM execution fails, stop and return the copy-ready

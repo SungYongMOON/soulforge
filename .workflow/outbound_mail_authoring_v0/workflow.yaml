@@ -359,6 +359,12 @@ outbound_mail_authoring_contract:
       exact_source_recipient_subject_body_and_attachment_binding_required: true
       may_save_or_display_unsent_draft: true
       may_stage_exact_selected_attachment_under_workspaces: true
+      recipient_facing_label_language_matches_approved_mail_language: true
+      official_external_reference_requires_visible_anchor_and_final_href: true
+      signature_html_read_decode_or_concatenation: forbidden
+      signature_rtf_is_inserted_as_word_editor_body_content_not_attachment: true
+      non_ascii_post_render_correction_surface: outlook_word_editor
+      footer_unicode_replacement_character_count: 0
       attachment_password_method_requires_current_owner_instruction: true
       runtime_password_value_logging_or_persistence: forbidden
       external_send: forbidden

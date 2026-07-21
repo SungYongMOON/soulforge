@@ -103,6 +103,16 @@
   temporary write, no-overwrite hardlink, and final verification. (worker:
   codex_gpt-5)
 
+### Outlook terminal draft repeatability guard
+
+- Fixed the owner Outlook mail launcher to keep explicit terminal requests on
+  PowerShell/Outlook COM only, insert the selected signature as Word-editor
+  body content without parsing signature HTML or attaching RTF, and verify
+  non-ASCII text after Outlook rendering.
+- Added recipient-language label selection and clickable primary-source link
+  checks so an English external mail does not inherit Korean `수신/사유` and a
+  plain URL is not mistaken for a working specification link. (worker:
+  codex_gpt-5.6)
 ## 2026-07-20
 
 ### Feature-OFF unified daily backup-controller composition
@@ -202,7 +212,6 @@
   H01-H06 Shadow coverage in memory only and grants no scheduler, live DB,
   accepted-history, or production-readiness authority.
   (worker: codex_gpt-5.5)
-
 ## 2026-07-19
 
 ### Bounded actual five-lane custody staging

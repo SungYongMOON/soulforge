@@ -129,8 +129,10 @@ if (([regex]::Matches($bodyText, $reasonCountPattern)).Count -ne 1) {
 }
 $expectedRecipientLabel = -join ([char]0xC218, [char]0xC2E0)
 $expectedReasonLabel = -join ([char]0xC0AC, [char]0xC720)
-if ($recipientLabel -cne $expectedRecipientLabel -or $reasonLabel -cne $expectedReasonLabel) {
-    Add-Failure 'visible_labels_must_be_fixed_korean_labels'
+$isKoreanLabelPair = $recipientLabel -ceq $expectedRecipientLabel -and $reasonLabel -ceq $expectedReasonLabel
+$isEnglishLabelPair = $recipientLabel -ceq 'To' -and $reasonLabel -ceq 'Reason'
+if (-not ($isKoreanLabelPair -or $isEnglishLabelPair)) {
+    Add-Failure 'visible_labels_must_be_supported_language_pair'
 }
 if ($bodyText -match '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b') {
     Add-Failure 'contact_address_must_not_appear_in_body'

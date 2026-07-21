@@ -34,6 +34,33 @@ New-Item -ItemType Directory -Path $tempRoot | Out-Null
 try {
     Invoke-Validator 'base_pass' (Read-PassPacket) 0
 
+    $packet = Read-PassPacket
+    $packet.recipient_label = 'To'
+    $packet.reason_label = 'Reason'
+    $koreanRecipientLabel = -join ([char]0xC218, [char]0xC2E0)
+    $koreanReasonLabel = -join ([char]0xC0AC, [char]0xC720)
+    $packet.body_text = [regex]::Replace(
+        $packet.body_text,
+        '(?m)^' + [regex]::Escape($koreanRecipientLabel) + '\s*:',
+        'To:'
+    )
+    $packet.body_text = [regex]::Replace(
+        $packet.body_text,
+        '(?m)^' + [regex]::Escape($koreanReasonLabel) + '\s*:',
+        'Reason:'
+    )
+    $packet.body_html = [regex]::Replace(
+        $packet.body_html,
+        '>' + [regex]::Escape($koreanRecipientLabel) + '\s*:',
+        '>To:'
+    )
+    $packet.body_html = [regex]::Replace(
+        $packet.body_html,
+        '>' + [regex]::Escape($koreanReasonLabel) + '\s*:',
+        '>Reason:'
+    )
+    Invoke-Validator 'english_label_pair_pass' $packet 0
+
     $forbiddenPacket = Get-Content -LiteralPath $forbiddenFixture -Raw -Encoding UTF8 | ConvertFrom-Json
     Invoke-Validator 'forbidden_term' $forbiddenPacket 1 'forbidden_term_present:'
 
