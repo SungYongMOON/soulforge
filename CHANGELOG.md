@@ -2,6 +2,18 @@
 
 ## 2026-07-21
 
+### Bind copied Project History MCP to the terminal publication receipt
+
+- Replaced the invalid comparison between the manifest's pre-receipt copied-DB
+  hash and the final receipt-mutated DB. The feature-OFF MCP now requires a
+  terminal publication receipt, rejects pending or missing publication state,
+  verifies receipt-bound generation/ordering/manifest digests and publication
+  intent, and still detects a DB mutation during startup. Updated the MCP launch
+  documentation to the current private-binding and artifact-manifest CLI.
+- Refreshed two synthetic default authority expiries that reached their fixed
+  2026 date; production expiry and fencing checks remain unchanged.
+  (workers: codex_gpt-5)
+
 ### Fail closed when registering ERP team mailboxes
 
 - Reused the dev-ERP Hiworks credential form and connection-test API while
@@ -12,6 +24,17 @@
   connected state. No collector loop, mail persistence, or HPP writer was
   activated. Synthetic tests cover the private-root and fail-closed boundaries.
   (worker: codex_gpt-5)
+- The administrator account form now distinguishes an invalid email format,
+  a duplicate username, and a duplicate email instead of reporting all three
+  as the same duplicate-account error.
+- Team-mail register export now includes only active mailboxes whose latest
+  connection state is `ok` and whose canonical private credential file exists.
+  Pending or missing-credential accounts no longer block already connected
+  teammates from entering the bounded HPP mail lane.
+- The legacy dev-ERP manual and interval mail writer is now fail-closed unless
+  `DEV_ERP_LEGACY_MAIL_WRITER_ENABLED=1` is set exactly. Mailbox connection
+  dry-runs remain available, while the manual write API, interval registration,
+  and the child-process orchestration path all require the explicit opt-in.
 
 ### Materialize frozen legacy mail into immutable HPP custody
 

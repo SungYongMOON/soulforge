@@ -1356,6 +1356,19 @@ test("lexicon: business/fantasy 키 완전 일치 (INFRA-004, TEST-003)", () => 
   assert.equal(getLexicon("unknown_mode").app_title, LEXICON.business.app_title);
 });
 
+test("관리자 계정 추가: validation 오류별 안내를 구분한다", () => {
+  const app = readFileSync(join(APP_DIR, "static", "app.js"), "utf8");
+  const start = app.indexOf('ov.querySelector("#acAdd").addEventListener');
+  const block = app.slice(start, app.indexOf("renderList();\n}", start));
+  assert.match(block, /username_taken: L\.acct_username_taken/);
+  assert.match(block, /email_taken: L\.acct_email_taken/);
+  assert.match(block, /email_format: L\.acct_email_format/);
+  assert.doesNotMatch(block, /taken\|format/);
+  assert.equal(LEXICON.business.acct_username_taken, "이미 쓰는 아이디입니다");
+  assert.equal(LEXICON.business.acct_email_taken, "이미 쓰는 이메일입니다");
+  assert.equal(LEXICON.business.acct_email_format, "이메일 형식을 확인해 주세요");
+});
+
 test("search: 검색 1회로 3종 묶기 (UI-005)", () => {
   const store = freshStore();
   loadFixture(store);
@@ -6382,20 +6395,32 @@ test("TEAM-ACCT: export_team_mailboxes 가 ERP 계정 메타에서 metadata-only
   const outPath = join(root, "team_mailboxes.json");
   const store = openStore(dbPath);
   const active = store.createAccount({ username: "mail-a", password: "pw123456", email: "mail-a@corp.com", display_name: "메일A" });
-  const disabled = store.createAccount({ username: "mail-b", password: "pw123456", email: "mail-b@corp.com", display_name: "메일B" });
-  const noRef = store.createAccount({ username: "mail-c", password: "pw123456", email: "mail-c@corp.com", display_name: "메일C" });
-  assert.equal(store.updateAccountMailbox(active.id, { provider: "gmail", enabled: true, env_ref: "guild_hall/state/gateway/mailbox/state/mail-a.env" }).ok, true);
-  assert.equal(store.updateAccountMailbox(disabled.id, { provider: "hiworks", enabled: false, env_ref: "guild_hall/state/gateway/mailbox/state/mail-b.env" }).ok, true);
-  assert.equal(store.updateAccountMailbox(noRef.id, { provider: "gmail", enabled: false }).ok, true);
+  const pending = store.createAccount({ username: "mail-b", password: "pw123456", email: "mail-b@corp.com", display_name: "메일B" });
+  const missingFile = store.createAccount({ username: "mail-c", password: "pw123456", email: "mail-c@corp.com", display_name: "메일C" });
+  const activeRef = mailboxEnvRelPath(active.id);
+  const pendingRef = mailboxEnvRelPath(pending.id);
+  const missingRef = mailboxEnvRelPath(missingFile.id);
+  for (const ref of [activeRef, pendingRef]) {
+    const target = join(root, ...ref.split("/"));
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, "SYNTHETIC_TEST_ONLY=1\n", "utf8");
+  }
+  assert.equal(store.updateAccountMailbox(active.id, { provider: "gmail", enabled: true, env_ref: activeRef, status: "ok" }).ok, true);
+  assert.equal(store.updateAccountMailbox(pending.id, { provider: "hiworks", enabled: true, env_ref: pendingRef, status: "pending" }).ok, true);
+  assert.equal(store.updateAccountMailbox(missingFile.id, { provider: "gmail", enabled: true, env_ref: missingRef, status: "ok" }).ok, true);
   store.db.close();
 
-  execFileSync(process.execPath, [join(APP_DIR, "tools", "export_team_mailboxes.mjs"), "--db", dbPath, "--out", outPath, "--apply"], { cwd: APP_DIR, encoding: "utf8" });
+  execFileSync(process.execPath, [join(APP_DIR, "tools", "export_team_mailboxes.mjs"), "--db", dbPath, "--out", outPath, "--apply"], {
+    cwd: APP_DIR,
+    encoding: "utf8",
+    env: { ...process.env, EMAIL_FETCH_PRIVATE_CONFIG_ROOT: root },
+  });
   const payload = JSON.parse(readFileSync(outPath, "utf8"));
   assert.equal(payload.schema_version, "email.fetch.team_mailbox_register.v1");
-  assert.equal(payload.mailboxes.length, 1, "enabled + env ref 있는 계정만 export");
+  assert.equal(payload.mailboxes.length, 1, "연결 ok + 실제 canonical credential 파일이 있는 계정만 export");
   assert.equal(payload.mailboxes[0].email, "mail-a@corp.com");
   assert.equal(payload.mailboxes[0].provider, "gmail");
-  assert.equal(payload.mailboxes[0].env_file, "guild_hall/state/gateway/mailbox/state/mail-a.env");
+  assert.equal(payload.mailboxes[0].env_file, activeRef);
   const raw = JSON.stringify(payload);
   assert.equal(/password|refresh_token|access_token|client_secret/i.test(raw), false, "secret 필드 없음");
   rmSync(root, { recursive: true, force: true });

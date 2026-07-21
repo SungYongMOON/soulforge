@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, writeFileSync, renameSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openStore } from "../src/store.mjs";
+import { mailboxCredentialState } from "../src/mailbox_env.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = resolve(HERE, "..");
@@ -20,6 +21,7 @@ const has = (n) => process.argv.includes(`--${n}`);
 const dbArg = arg("db");
 const outArg = arg("out", DEFAULT_OUT);
 const apply = has("apply");
+const privateConfigRoot = String(process.env.EMAIL_FETCH_PRIVATE_CONFIG_ROOT || "").trim();
 
 function fail(message, code = 2) {
   console.error(`[export-team-mailboxes] ${message}`);
@@ -55,12 +57,22 @@ function safeRelativeRef(raw) {
 
 const store = openStore(resolveDb(dbArg));
 const rows = store.listAccountMailboxConfigs()
-  .filter((row) => row.status === "active" && row.email && row.mailbox_enabled && ["gmail", "hiworks"].includes(row.mailbox_provider));
+  .filter((row) => row.status === "active"
+    && row.email
+    && row.mailbox_enabled
+    && row.mailbox_status === "ok"
+    && ["gmail", "hiworks"].includes(row.mailbox_provider));
+
+if (!privateConfigRoot) {
+  store.db.close();
+  fail("private_config_root_required");
+}
 
 const mailboxes = [];
 for (const row of rows) {
   const envRef = safeRelativeRef(row.mailbox_env_ref);
   if (!envRef) continue;
+  if (!mailboxCredentialState(REPO, row.id, envRef, { privateRoot: privateConfigRoot }).exists) continue;
   mailboxes.push({
     id: safeToken(row.id, row.email), // 계정 id(ASCII·고유) 기반 — 한글 username 충돌(duplicate_id) 방지
     account_id: row.id,

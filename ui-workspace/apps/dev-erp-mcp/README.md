@@ -63,16 +63,17 @@ reverse proxy/tunnel 뒤에 둔다. `/health`만 공개 liveness이며 `/mcp`는
 
 ## copied Project History MCP
 
-이 별도 서버는 기본 활성화 경로가 없다. 실행할 때마다 기존 standalone copied ERP DB, projection
-root, full-generation attestation, artifact-attestation digest를 정확히 지정하고 `--pilot-copy`를
-명시해야 한다. bearer는 명령행이나 stdout이 아니라
+이 별도 서버는 기본 활성화 경로가 없다. 실행할 때마다 copied ERP DB와 projection root를 고정한
+private binding, 그 binding digest, terminal publication이 만든 artifact manifest와 manifest digest를
+정확히 지정하고 `--pilot-copy`를 명시해야 한다. bearer는 명령행이나 stdout이 아니라
 `SOULFORGE_PROJECT_HISTORY_MCP_TOKEN` 환경변수로만 주입한다.
 
 ```powershell
 $env:SOULFORGE_PROJECT_HISTORY_MCP_TOKEN="<ephemeral-random-token>"
-npm.cmd run start:project-history -- --pilot-copy --attestation <sha256:...> `
-  --artifact-attestation <sha256:...> `
-  --db <absolute-existing-copy.sqlite> --projection-root <absolute-existing-project-history-root>
+npm.cmd run start:project-history -- --pilot-copy --binding <private-binding.json> `
+  --binding-digest <sha256:...> `
+  --artifact-manifest <project_history.artifact-manifest.json> `
+  --artifact-manifest-digest <sha256:...>
 ```
 
 서버는 `127.0.0.1`에만 bind하고 DB를 `readOnly`와 `PRAGMA query_only=ON`으로 연다. 한 read-only
@@ -91,14 +92,24 @@ authority와 byte-exact 일치하지 않는 요청은 403으로 거부한다.
 - `project_history.xlsx-input.json`
 - `project_history.xlsx-readback.json`
 - `project_history.xlsx`
-- `project_history.artifact-attestation.json`
+- `project_history.artifact-manifest.json`
 
-artifact attestation은 exact `schema_version`, `project_id`, `generation_id`, `generation_digest`,
-`projection_schema_fingerprint`, `ordered_event_digest`, `ordered_row_digest`, `artifacts`만 가진다.
-`artifacts`에는 `csv`, `xlsx_input`, `xlsx_readback`, `xlsx`가 각각 exact
-`filename`, `size`, `sha256`을 가진다. `--artifact-attestation` 값은 이 object의 canonical SHA-256이다.
+The server accepts only a completed publication: the copied DB must contain no
+pending publication row and must contain the matching terminal publication
+receipt. The receipt binds the private binding, generation, ordered event/row
+digests, artifact-manifest object digest, manifest-file byte digest, and
+deterministic publication-intent digest. `database_after_sha256` in the manifest
+attests the pre-receipt projection state; the receipt commit changes the final
+copied-DB bytes, so startup detects runtime mutation by comparing the current DB
+hash before and after sealing instead of equating it with that manifest field.
+
+artifact manifest는 exact `schema_version`, `binding_digest`, `project_id`, `generation_id`,
+`generation_digest`, `database_before_sha256`, `database_after_sha256`, `ordered_event_digest`,
+`ordered_row_digest`, `artifacts`, `artifact_manifest_digest`를 가진다. `artifacts`에는 `csv`,
+`xlsx_input`, `xlsx_readback`, `xlsx`가 각각 exact `filename`, `size`, `sha256`을 가진다.
+`--artifact-manifest-digest` 값은 이 manifest의 externally pinned canonical SHA-256이다.
 서버는 CSV rows, XLSX input, XLSX readback을 reconstructed DB model과 대조하고 네 파일의 size/hash를
-attestation과 대조한 뒤 CSV/XLSX buffer를 시작 시 한 번만 seal한다. ticket은 buffer를 복제하지 않고
+manifest 및 terminal publication receipt와 대조한 뒤 CSV/XLSX buffer를 시작 시 한 번만 seal한다. ticket은 buffer를 복제하지 않고
 참조하며 active-ticket 개수와 총 byte quota를 함께 적용한다.
 
 ## HPP evidence ingress MCP

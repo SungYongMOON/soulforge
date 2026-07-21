@@ -941,7 +941,11 @@ async function openAdminPanel() {
     };
     const r = await post("/api/accounts", body).then((x) => x.json()).catch(() => null);
     if (r && r.ok) { ["#acName", "#acUser", "#acEmail", "#acPw"].forEach((s) => (ov.querySelector(s).value = "")); renderList(); }
-    else errBox.textContent = (r && /taken|format/.test(r.error || "")) ? L.acct_taken : L.login_fail;
+    else errBox.textContent = ({
+      username_taken: L.acct_username_taken,
+      email_taken: L.acct_email_taken,
+      email_format: L.acct_email_format
+    })[r?.error] || L.login_fail;
   });
   renderList();
 }

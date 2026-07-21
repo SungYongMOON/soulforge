@@ -285,6 +285,10 @@ function rawRequest({ port, path: requestPath, host = `127.0.0.1:${port}`, heade
 
 test("feature-OFF MCP exposes exactly two exact-generation tools without mutating the copied DB", async (t) => {
   const fixture = createFixture(t);
+  assert.notEqual(
+    `sha256:${fixture.dbDigest}`,
+    fixture.artifactManifestPacket.database_after_sha256,
+  );
   const service = createService(fixture);
   const server = createProjectHistoryMcpHttpServer({ service });
   const port = await listen(server);
@@ -468,7 +472,7 @@ test("startup rejects weakened schema and generation JSON tampering", (t) => {
   db.close();
   assert.throws(
     () => createService(weakened),
-    (error) => error.code === "project_history_artifact_manifest_invalid",
+    (error) => error.code === "project_history_projection_or_artifact_invalid",
   );
 
   const tampered = createFixture(t);
@@ -486,7 +490,7 @@ test("startup rejects weakened schema and generation JSON tampering", (t) => {
   db.close();
   assert.throws(
     () => createService(tampered),
-    (error) => error.code === "project_history_artifact_manifest_invalid",
+    (error) => error.code === "project_history_projection_or_artifact_invalid",
   );
 });
 
@@ -514,7 +518,7 @@ test("artifact manifest rejects XLSX substitution and cannot launder readback pa
   writeFileSync(laundered.artifactManifestPath, `${canonicalJson(packet)}\n`, "utf8");
   assert.throws(
     () => createService(laundered, { artifactManifestDigest: packet.artifact_manifest_digest }),
-    (error) => error.code === "project_history_projection_or_artifact_invalid",
+    (error) => error.code === "project_history_artifact_manifest_invalid",
   );
 });
 

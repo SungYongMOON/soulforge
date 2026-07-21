@@ -7,6 +7,7 @@
 //        ③ scan_mail_ledger 로 원장 → core_mail 인입.
 //        ④ mail_project_route_backfill 로 P00 exact 프로젝트 라우팅 반영.
 //   수동 버튼(/api/mail/collect)과 자동 인터벌(DEV_ERP_MAIL_COLLECT_SEC)이 같은 경로를 쓴다.
+//   legacy writer 는 DEV_ERP_LEGACY_MAIL_WRITER_ENABLED=1 명시 opt-in 없이는 실행하지 않는다.
 //   원문 미노출: 요약은 건수만(제목·발신자 등 업무 원문 없음).
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -16,6 +17,11 @@ const execFileP = promisify(execFile);
 
 let collecting = false; // 동시/중복 수집 방지(자동+수동 겹침 차단)
 export function isCollecting() { return collecting; }
+
+export function legacyMailWriterPolicy(env = process.env) {
+  const enabled = env.DEV_ERP_LEGACY_MAIL_WRITER_ENABLED === "1";
+  return { enabled, reason: enabled ? "explicitly_enabled" : "legacy_mail_writer_disabled" };
+}
 
 function pyBin() { return process.platform === "win32" ? "python" : "python3"; }
 
@@ -150,6 +156,8 @@ export async function collectAllMailboxes(store, { repoRoot, backendRoot = repoR
     const accts = store.listAccounts().filter((a) =>
       a.status === "active" && a.mailbox_enabled && a.mailbox_provider && a.mailbox_provider !== "none" && a.mailbox_env_ref);
     if (!accts.length) { result.note = "no_enabled_mailbox"; return result; }
+    const writerPolicy = legacyMailWriterPolicy();
+    if (!writerPolicy.enabled) return { ok: false, error: writerPolicy.reason };
 
     // ① 팀 등록부 갱신(현재 활성 메일함 반영)
     try {

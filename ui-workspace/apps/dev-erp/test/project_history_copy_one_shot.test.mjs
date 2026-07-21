@@ -167,7 +167,7 @@ function createFixture(t, { authorityExpiresInMs = null } = {}) {
       digest: sha256Canonical({ writer: "synthetic-one-shot", epoch: 7 }),
       node_id: "synthetic-one-shot-node",
       issued_at: dynamicAuthority?.issued_at ?? "2026-07-20T00:00:00.000Z",
-      expires_at: dynamicAuthority?.expires_at ?? "2026-07-21T00:00:00.000Z",
+      expires_at: dynamicAuthority?.expires_at ?? "2100-07-21T00:00:00.000Z",
       revoked: false,
     },
     coverage: PROJECT_HISTORY_LANES.map((lane) => ({
@@ -240,14 +240,6 @@ async function runPilotCopy(fixture, projectionTestHooks = null) {
     pilotCopy: true,
     projectionTestHooks,
   });
-}
-
-function waitUntilExpired(expiresAt) {
-  const deadline = Date.parse(expiresAt);
-  const cell = new Int32Array(new SharedArrayBuffer(4));
-  while (Date.now() <= deadline + 25) {
-    Atomics.wait(cell, 0, 0, Math.min(50, deadline + 26 - Date.now()));
-  }
 }
 
 test("one-shot defaults to a locator-free dry run without changing the copied DB", async (t) => {
@@ -497,7 +489,7 @@ test("pending same-binding replay rejects unrelated DB mutation, guard tamper, a
   });
 
   await t.test("authority expiry", async (t) => {
-    const fixture = createFixture(t, { authorityExpiresInMs: 25_000 });
+    const fixture = createFixture(t, { authorityExpiresInMs: 300_000 });
     await assert.rejects(
       runPilotCopy(fixture, {
         beforeArtifactBundlePublish() {
@@ -508,10 +500,15 @@ test("pending same-binding replay rejects unrelated DB mutation, guard tamper, a
       }),
       (error) => error.code === "synthetic_final_rename_failure",
     );
-    waitUntilExpired(fixture.request.writer_authority.expires_at);
-    await assert.rejects(
-      runPilotCopy(fixture),
-      (error) => error.code === "stale_writer_authority",
-    );
+    const realDateNow = Date.now;
+    Date.now = () => Date.parse(fixture.request.writer_authority.expires_at);
+    try {
+      await assert.rejects(
+        runPilotCopy(fixture),
+        (error) => error.code === "stale_writer_authority",
+      );
+    } finally {
+      Date.now = realDateNow;
+    }
   });
 });

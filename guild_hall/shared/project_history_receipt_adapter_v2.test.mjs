@@ -159,7 +159,7 @@ async function makeFixture(t) {
       digest: sha256Canonical({ authority: "hpp-project-history", epoch: 7 }),
       node_id: "hpp-node-01",
       issued_at: "2026-07-20T00:00:00.000Z",
-      expires_at: "2026-07-21T00:00:00.000Z",
+      expires_at: "2100-07-21T00:00:00.000Z",
       revoked: false,
     },
     coverage: PROJECT_HISTORY_LANES.map((lane) => ({

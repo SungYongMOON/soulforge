@@ -55,7 +55,7 @@ import {
   mailboxStatusPatch,
   runMailboxConnectionDryRun,
 } from "./src/mailbox_env.mjs";
-import { collectAllMailboxes, isCollecting } from "./src/mail_collect.mjs";
+import { collectAllMailboxes, isCollecting, legacyMailWriterPolicy } from "./src/mail_collect.mjs";
 const execFileP = promisify(execFile);
 import { safeWorkspacePath, safeUploadTarget, commitUpload, readSafe } from "./src/filevault.mjs";
 import {
@@ -2709,6 +2709,8 @@ const server = createServer(async (req, res) => {
     if (path === "/api/mail/collect" && req.method === "POST") {
       const admin = requireAdmin(req);
       if (!admin) return send(res, 403, { error: "admin_only" });
+      const writerPolicy = legacyMailWriterPolicy();
+      if (!writerPolicy.enabled) return send(res, 503, { ok: false, error: writerPolicy.reason });
       if (isCollecting()) return send(res, 200, { ok: false, error: "already_collecting" });
       const repoRoot = resolve(HERE, "..", "..", "..");
       const r = await collectAllMailboxes(store, { repoRoot, backendRoot: BACKEND_ROOT, appDir: HERE, dbRel: DB_IS_DEFAULT ? "data/dev-erp.db" : DB_PATH, log: console.log });
@@ -4509,10 +4511,11 @@ const onReady = () => {
     };
     console.log(`[dev-erp] autosync ON — 할일_장부·입력파일_장부 ↔ ERP 양방향(import 폴링 ${Number(process.env.DEV_ERP_AUTOSYNC_MS) || 10000}ms + write-through). root: ${root}`);
   }
-  // 메일 자동 수집: 활성 메일함을 주기적으로 fetch → 원장 → core_mail ingest(수동 버튼과 같은 경로).
-  // 기본 OFF(테스트·:memory: 무영향). 켜기: DEV_ERP_MAIL_COLLECT_SEC=<초>(예: 900=15분).
+  // legacy 메일 자동 수집: 활성 메일함을 주기적으로 fetch → 원장 → core_mail ingest(수동 버튼과 같은 경로).
+  // 기본 OFF. 켜기: DEV_ERP_LEGACY_MAIL_WRITER_ENABLED=1 + DEV_ERP_MAIL_COLLECT_SEC=<초>.
   const mailCollectSec = Number(process.env.DEV_ERP_MAIL_COLLECT_SEC) || 0;
-  if (mailCollectSec > 0) {
+  const legacyMailWriter = legacyMailWriterPolicy();
+  if (mailCollectSec > 0 && legacyMailWriter.enabled) {
     const repoRoot = resolve(HERE, "..", "..", "..");
     const collectDbRel = DB_IS_DEFAULT ? "data/dev-erp.db" : DB_PATH;
     setInterval(() => {
@@ -4520,6 +4523,8 @@ const onReady = () => {
         .catch((e) => console.error("[mail-collect] 자동수집 오류:", e.message));
     }, mailCollectSec * 1000);
     console.log(`[dev-erp] 메일 자동수집 ON: ${mailCollectSec}s 간격`);
+  } else if (mailCollectSec > 0) {
+    console.warn("[dev-erp] legacy 메일 자동수집 OFF: DEV_ERP_LEGACY_MAIL_WRITER_ENABLED=1 명시 opt-in 필요");
   }
   // 아침 브리핑 push v1: 기본 OFF. DEV_ERP_MORNING_BRIEF=1 + 시각 DEV_ERP_MORNING_BRIEF_HHMM(기본 0800).
   // 수신=활성+이메일 계정(도메인 allowlist 게이트), 빈 브리핑(행동 걸이 0건)은 스킵.

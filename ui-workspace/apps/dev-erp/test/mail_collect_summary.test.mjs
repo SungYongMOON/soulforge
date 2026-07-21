@@ -2,7 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 
-import { parseTeamFetchSummary, mailboxRegisterToken, buildAutoIntakeArgs, teamMailboxRegisterPath } from "../src/mail_collect.mjs";
+import { parseTeamFetchSummary, mailboxRegisterToken, buildAutoIntakeArgs, teamMailboxRegisterPath, legacyMailWriterPolicy } from "../src/mail_collect.mjs";
+
+test("mail collect: legacy writer 는 exact opt-in 없이는 fail-closed 이다", () => {
+  for (const value of [undefined, "", "0", "true", "yes", "on", " 1 "]) {
+    const env = value === undefined ? {} : { DEV_ERP_LEGACY_MAIL_WRITER_ENABLED: value };
+    assert.deepEqual(legacyMailWriterPolicy(env), { enabled: false, reason: "legacy_mail_writer_disabled" });
+  }
+  assert.deepEqual(
+    legacyMailWriterPolicy({ DEV_ERP_LEGACY_MAIL_WRITER_ENABLED: "1" }),
+    { enabled: true, reason: "explicitly_enabled" },
+  );
+});
 
 // 생산자 스키마 fixture: guild_hall/gateway/mail_fetch/collector/team_mailboxes.py 의
 // email.fetch.team_mailbox_run.v1 — results[]={mailbox: operator_summary, result: runner 결과}.

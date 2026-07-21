@@ -13,6 +13,8 @@ import {
 import {
   assertCanonicalProjectHistoryProjectionSchema,
   buildCanonicalProjectHistoryCopyModel,
+  createProjectHistoryCopyPublicationIntent,
+  readProjectHistoryCopyPublicationState,
   renderProjectHistoryCopyCsv,
 } from "../../dev-erp/tools/project_history_copy_projector.mjs";
 import {
@@ -184,6 +186,19 @@ function readBoundGenerationTransaction(db, manifest) {
   db.exec("BEGIN");
   try {
     const projectionSchemaFingerprint = assertCanonicalProjectHistoryProjectionSchema(db);
+    const publicationState = readProjectHistoryCopyPublicationState(db, manifest.generation_id);
+    if (publicationState.pending !== null) fail("project_history_publication_pending");
+    if (publicationState.receipt === null) fail("project_history_publication_receipt_missing");
+    const publicationReceipt = publicationState.receipt;
+    if (publicationReceipt.project_id !== manifest.project_id
+        || publicationReceipt.generation_id !== manifest.generation_id
+        || publicationReceipt.generation_digest !== manifest.generation_digest
+        || publicationReceipt.binding_digest !== manifest.binding_digest
+        || publicationReceipt.artifact_manifest_digest !== manifest.artifact_manifest_digest
+        || publicationReceipt.ordered_event_digest !== manifest.ordered_event_digest
+        || publicationReceipt.ordered_row_digest !== manifest.ordered_row_digest) {
+      fail("project_history_artifact_manifest_invalid");
+    }
     const rows = db.prepare(`
       SELECT project_id, generation_id
         FROM project_history_generation
@@ -211,6 +226,7 @@ function readBoundGenerationTransaction(db, manifest) {
       model,
       history,
       projectionSchemaFingerprint,
+      publicationReceipt,
     });
   } catch (error) {
     try {
@@ -290,6 +306,15 @@ function loadAndValidateSealedArtifacts({
       maxArtifactBytes,
     ),
   ]));
+  const manifestArtifact = loadSealedFile(
+    root,
+    artifactPaths.artifactManifestPath,
+    PROJECT_HISTORY_COPY_ARTIFACT_FILENAMES.manifest,
+    maxArtifactBytes,
+  );
+  if (manifestArtifact.digest !== bound.publicationReceipt.artifact_manifest_file_digest) {
+    fail("project_history_artifact_manifest_invalid");
+  }
   if (manifest.project_id !== bound.projectId
       || manifest.generation_id !== bound.generationId
       || manifest.generation_digest !== bound.attestation
@@ -305,6 +330,16 @@ function loadAndValidateSealedArtifacts({
         || record.sha256 !== artifact.digest) {
       fail("project_history_artifact_manifest_invalid");
     }
+  }
+  const publicationIntent = createProjectHistoryCopyPublicationIntent({
+    generation: bound.generation,
+    model: bound.model,
+    artifacts: manifest.artifacts,
+  });
+  if (publicationIntent.publication_intent_digest !== bound.publicationReceipt.publication_intent_digest
+      || publicationIntent.project_id !== bound.publicationReceipt.project_id
+      || publicationIntent.generation_digest !== bound.publicationReceipt.generation_digest) {
+    fail("project_history_artifact_manifest_invalid");
   }
 
   const expectedCsv = Buffer.from(renderProjectHistoryCopyCsv(bound.model), "utf8");
@@ -430,9 +465,6 @@ export function createProjectHistoryMcpService({
       },
       requireDatabaseHash: false,
     });
-    if (initialTarget.database.sha256 !== manifest.database_after_sha256) {
-      fail("project_history_artifact_manifest_invalid");
-    }
   } catch (error) {
     if (error instanceof ProjectHistoryMcpError) throw error;
     fail("project_history_projection_or_artifact_invalid");
@@ -472,8 +504,8 @@ export function createProjectHistoryMcpService({
       artifactPaths,
       requireDatabaseHash: false,
     });
-    if (finalTarget.database.sha256 !== manifest.database_after_sha256) {
-      fail("project_history_artifact_manifest_invalid");
+    if (finalTarget.database.sha256 !== initialTarget.database.sha256) {
+      fail("project_history_copy_db_invalid");
     }
     if (totalChanges(db) !== 0) fail("project_history_query_only_guard_failed");
   } catch (error) {
