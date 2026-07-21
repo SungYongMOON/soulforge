@@ -96,7 +96,7 @@ $null = Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Tri
 $TriggerNodes = @($RegisteredXml.Task.Triggers.ChildNodes)
 $RegistrationValid = $TriggerNodes.Count -eq 1 `
   -and $TriggerNodes[0].LocalName -eq "LogonTrigger" `
-  -and -not $TriggerNodes[0].Repetition `
+  -and $null -eq $TriggerNodes[0].SelectSingleNode("./*[local-name()='Repetition']") `
   -and $RegisteredXml.Task.Settings.MultipleInstancesPolicy -eq "IgnoreNew" `
   -and $RegisteredXml.Task.Actions.Exec.Command -eq $PowerShellExe `
   -and $RegisteredXml.Task.Actions.Exec.Arguments -match '-WindowStyle\s+Hidden'
