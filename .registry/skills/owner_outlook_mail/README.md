@@ -34,7 +34,8 @@ that visibly separates purpose, basis, requested work, completion/reply
 criteria, follow-up, and attachments. Newly authored Outlook content explicitly
 uses black text instead of inheriting a colored reply-thread style. Structured
 tables use the workflow preset's bounded fixed width and wrap long cell text
-instead of expanding to the Outlook window width.
+instead of expanding to the Outlook window width. The executor verifies that
+the applied width survives save, close, and reopen of the same locked draft.
 
 The owner specialization also locks the newest corrections before rendering,
 shows approved `수신/사유` lines at the top, rejects superseded wording, and

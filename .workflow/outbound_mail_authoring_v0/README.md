@@ -44,7 +44,8 @@ from `templates/outlook_readability_preset_v1.yaml` without requiring the user
 to repeat typography, priority, numbering, bullet, table, or empty-section
 rules. Structured tables default to a left-aligned fixed width no greater than
 470 pt with cell wrapping instead of expanding to the Outlook window. The
-workflow emits a render/application handoff only. A separate
+executor verifies persistence after save, close, and reopen. The workflow emits
+a render/application handoff only. A separate
 explicitly owner-approved executor is required to create or update an Outlook
 draft. An unspecified local Outlook draft request uses `GetActiveObject` only
 for an already running classic Outlook session and never starts a process; UI

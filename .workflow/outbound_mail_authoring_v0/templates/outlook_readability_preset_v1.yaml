@@ -36,6 +36,11 @@ structure:
       auto_fit_to_window: false
       wrap_cell_text: true
       column_sizing: content_weighted_within_fixed_width
+      outlook_word_width_unit: points
+      outlook_word_preferred_width_type:
+        name: wdPreferredWidthPoints
+        value: 3
+      persistence_verification: verify_after_save_close_and_reopen
       owner_explicit_width_override:
         allowed: true
         verification: verify_actual_table_width_matches_owner_selected_width_before_save

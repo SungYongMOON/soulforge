@@ -7,8 +7,9 @@
 - Set the structured Outlook mail preset to render request tables left-aligned at
   a fixed default width of 470 pt (about 16.6 cm), with AutoFit-to-window disabled
   and long cell text wrapped. The local Outlook executor now verifies the bounded
-  width before saving unless the owner's latest correction explicitly selects a
-  different width. (worker: codex_gpt-5.6-sol)
+  width after save, close, and reopen, uses Word's point-width enum rather than
+  its percent-width enum, and applies an owner-selected width only through the
+  explicit override path. (worker: codex_gpt-5.6-sol)
 
 ### Outlook owner-mail bound continuation fast path
 

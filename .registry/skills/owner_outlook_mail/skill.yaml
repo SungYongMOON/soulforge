@@ -41,7 +41,7 @@ behavior:
     - structured request mail visibly separates purpose, review or technical basis, requested work, completion or reply criteria, follow-up, and attachments
     - a deterministic local packet validator passes before Outlook draft application
     - newly authored Outlook text, headings, bullets, and tables are explicitly black and never inherit colored reply-thread formatting
-    - structured Outlook tables use the workflow preset's bounded fixed width, left alignment, and wrapped cell text unless the owner's latest correction explicitly selects another width
+    - structured Outlook tables use the workflow preset's bounded fixed width, left alignment, and wrapped cell text unless the owner's latest correction explicitly selects another width, and the applied width persists after save, close, and reopen
     - optional voice guidance comes from a local/private aggregate profile with provenance
     - an explicitly requested local draft executor may save or display one unsent draft without acquiring send authority
     - an unspecified local Outlook draft request uses the safe local programmatic executor after a non-mutating availability probe or stops with a copy-ready draft
