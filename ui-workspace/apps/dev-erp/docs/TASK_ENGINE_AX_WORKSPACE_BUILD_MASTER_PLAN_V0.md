@@ -695,6 +695,29 @@ RAG body, Wiki body는 dev-ERP DB에 넣지 않고 각각의 승인된 payload o
 이 logical DB 선택은 HPP의 exact physical drive/path를 공개하거나 OneDrive project workspace를 active
 DB plane으로 만든다는 뜻이 아니다. HPP private binding과 backup owner는 `VERIFY_HP`다.
 
+### 5.3 optional agent-client owner matrix
+
+외부 agent 도구는 AX·TaskEngine과 같은 정본 계층이 아니라 Soulforge MCP 뒤의 선택적 client adapter다.
+ERP/TaskEngine이 소유하는 진실은 **공식 task identity, assignment epoch, 업무 상태, apply receipt,
+official completion**으로 한정한다. Source fact, payload/ArtifactRevision, accepted history/context,
+Wiki/RAG knowledge와 mission/workflow/party는 기존 owner를 유지하며 MCP 자체도 이 진실을 소유하지 않는다.
+
+| logical client role | 후보 구현 | 허용 책임 | client-local로만 남길 상태 | 금지 |
+| --- | --- | --- | --- | --- |
+| `TeamAgentGatewayAdapter` | Hermes형 persistent agent shell | 사람/Slack 등 channel session, Soulforge MCP의 최소 allowlist query, 알림·handoff·candidate 제출 | transcript, preference memory, local goal/Kanban/delegation 상태 | ERP task/current/done, accepted knowledge, `.mission/.workflow/.party` mutation |
+| `EngineeringWorkbenchAdapter` | Orca형 multi-agent engineering workbench | 한 approved WorkSession 안에서 bounded subtask 분배, 격리 worktree, diff·artifact·validator candidate 수집 | native task/dispatch/decision gate/worker-finished/branch/PR 상태 | official completion, direct main/push/PR, live ERP/DB/RAG write, 다른 agent shell 실행 |
+| direct worker client | Codex/승인된 MCP client | 작은 업무의 직접 query→work→checkpoint/proposal | local thread/tool state | TaskEngine coordinator 사칭, raw transcript 자동 수집 |
+
+두 adapter는 sibling MCP client다. Hermes형 gateway가 Orca형 workbench를 실행하거나 그 반대가 되는
+parent/child orchestration chain은 금지한다. 같은 `{assignment epoch,account}` WorkSession에는 write-capable
+surface coordinator 하나만 존재하며 child agent는 MCP checkpoint·completion proposal을 직접 쓰지 않는다.
+Surface를 바꾸려면 old delegation을 revoke하고 terminal handoff와 superseding binding을 먼저 기록한다.
+
+Text/code는 isolated worktree candidate로 병렬화할 수 있다. Allegro/OrCAD, HWPX, Excel, PowerPoint,
+CAD 등 merge가 안전하지 않은 binary engineering artifact는 여러 agent가 read/review할 수 있어도 실제
+artifact revision writer는 하나뿐이다. Drag/drop/chat attachment는 project acceptance가 아니며 §3.5의
+authenticated HTTPS custody→promotion→exact ArtifactRevision 경계를 그대로 따른다.
+
 ## 6. code·DB·API·ID·event 상세 설계
 
 ### 6.1 코드 delta와 caller/consumer
@@ -1429,15 +1452,45 @@ AgentRun 성공은 task `done`이나 verification pass와 같지 않다.
 AgentRun은 P1 run/log history prerequisite가 아니다. P1은 기존 run metadata와 structured receipts로
 coverage를 닫고, AgentRun control plane은 P9 이후 별도 owner gate에서만 검토한다.
 
-### 10.3 후속 phase gate
+### 10.3 optional team gateway·engineering workbench와 anti-second-truth
+
+복잡한 engineering task는 Soulforge가 official assignment/context를 제공한 뒤 한 WorkSession 안에서
+여러 specialist candidate로 나눌 수 있다. 이때 외부 도구의 native task/session/memory/dispatch/`done`은
+모두 client-local coordination evidence다. Orca형 workbench의 terminal idle·worker completion·decision
+gate와 Hermes형 shell의 Kanban `done`·goal judge·memory는 ERP status, WorkSession closeout, AgentRun
+success, verification pass, owner approval 또는 accepted knowledge로 직접 변환하지 않는다.
+
+```text
+ERP/TaskEngine official assignment
+  -> Soulforge MCP accepted context/query
+  -> one PersonalWorkSession + one writable surface coordinator
+     -> direct Codex OR Orca-type engineering workbench OR Hermes-type team gateway/shell candidate path
+  -> candidate diff/artifact + validator receipt
+  -> WorkSession checkpoint/closeout + completion proposal
+  -> separate TaskEngine authority가 official completion 판단
+```
+
+Default는 `direct_codex`이며 외부 adapter는 모두 `OFF/DEFER`다. Generic adapter contract와 negative
+fixtures를 먼저 닫고, Orca형과 Hermes형 trial은 서로 독립된 P10 gate로 실행한다. 둘은 같은 task에서
+중첩하거나 write-capable token을 공유하지 않는다. Hermes형 gateway는 worker/workbench를 spawn하지 않는다.
+초기 Orca형 worker는 agent 자체 subagent/team spawn도 끄고, Orca coordinator가 직접 관리하는 2~3개
+worker만 허용해 orchestration layer를 하나로 제한한다. AR-G1/G2 전 external run은 AgentRun이 아니며
+bounded WorkSession evidence ref일 뿐이다.
+
+### 10.4 후속 phase gate
 
 | gate | 선행조건 | 산출물 | 금지 |
 | --- | --- | --- | --- |
 | AX-G1 | core C10 pilot pass, D01~D09+D12+D28+D29 결정 | lifecycle/query schema·UI design packet | ERP writer 복제 |
 | AX-G2 | start/bind/sequence/outbox/ack/closeout/query synthetic tests | feature-OFF implementation | live MCP direct task/knowledge write |
-| AX-G3 | one-seat·one-project owner pilot 승인 | candidate-only lifecycle+accepted query pilot | team rollout·official completion 자동화 |
+| AX-G3 | AX-G2 pass, one-seat·one-project owner pilot 승인 | direct client candidate-only lifecycle+accepted query baseline | external tool 자동 포함·team rollout·official completion 자동화 |
 | AR-G1 | AX-G2 또는 독립 필요성 증명 | AgentRun contract | mission/workflow/party 의미 변경 |
 | AR-G2 | capability/adversarial tests | bounded run receipt | unattended privilege escalation |
+| EXT-G0 | core C10 pilot pass, D30 generic boundary 결정 | direct Codex vs optional gateway/workbench authority·fit comparison, frozen engineering-task rubric | AX-G1~G3 차단, 설치·구독·live 연결·제품을 canon owner로 고정 |
+| EXT-G1 | EXT-G0+AX-G2 pass, public-safe engineering task 승인 | generic adapter/non-nesting/receipt negative tests | AgentRun 필수화, vendor install·real payload·live endpoint |
+| ORCA-T1 | AX-G3 direct baseline+EXT-G1 pass, D32와 별도 owner/Level 3 승인 | matched direct-Codex baseline이 있는 public-safe engineering task 1건 candidate-only trial | Hermes nesting, permission bypass, binary multi-writer, direct main/push/PR |
+| ORCA-T2 | ORCA-T1 pass, 별도 owner/Level 3 승인 | 2주 또는 10건 확장 가치 시험 | T1 결과 없는 확대, production/team rollout |
+| HERMES-T1 | AX-G3 direct baseline+EXT-G1 pass, D31와 별도 owner/Level 3 승인 | one-seat gateway/query/candidate-only trial | Orca nesting, worker/workbench spawn, Kanban/goal→ERP 완료, team rollout |
 
 ## 11. PC 역할·배포·alert·장애 복구
 
@@ -1775,10 +1828,15 @@ capability-specific owner approval·Level 3 gate로 실행하며 서로를 unloc
 | P7 | I7 Driver provenance에 promotion receipt exact ref | Q7 Driver provenance read projection | W7 closeout→Driver candidate link contract, official completion 분리 |
 | P8 | I8 feature-OFF promoter/receipt/authority-separation contract | Q8 feature-OFF ERP UI/MCP adapters+atomic accepted pointer/API-file parity | W8 schema/API fixture 설계만; core P8 acceptance나 writer 권한에 포함하지 않음 |
 | P9 | I9 한 project promotion/copy/readback/rollback pilot | Q9 one-project ACL/parity/no-fallback pilot | W9 core C10 PASS 뒤 AX-G1 design review; 아직 live personal write 없음 |
-| P10 | I10 scan/ACL/retention/backup·production promoter 별도 activation | Q10 UI query/MCP query/candidate submit을 capability별 별도 activation | W10 AX-G2 feature-OFF→AX-G3 one-seat→team rollout을 각각 별도 승인 |
+| P10 | I10 scan/ACL/retention/backup·production promoter 별도 activation | Q10 UI query/MCP query/candidate submit을 capability별 별도 activation | W10 핵심 AX-G1→AX-G2→AX-G3 direct baseline과 선택 EXT-G0→EXT-G1→ORCA-T1/ORCA-T2·HERMES-T1 독립 trial→team rollout을 각각 별도 승인 |
 
 I8/Q8은 feature-OFF synthetic contract일 뿐 exact physical path, service binding, live data, node lease를
 만들지 않는다. W lifecycle은 P1 history나 core P8의 선행조건이 아니며 기존 AX gate를 앞당기지 않는다.
+
+P10 external surface는 핵심 AX-G1~G3 경로를 차단하지 않는 선택형 sibling branch다. `EXT-G0` 비교와
+`EXT-G1` generic negative contract 뒤 `ORCA-T1`과 `HERMES-T1`을 따로 심사하고, Orca 확대는 다시
+`ORCA-T2`로 분리한다. 한 trial은 다른 trial, AR01, IQ/ML, production activation 또는 team rollout을
+unlock하지 않는다. Tool-native completion은 candidate evidence이고 TaskEngine official completion은 별도다.
 
 `A8-SYNTH`는 public/pathless/feature-OFF secure-access contract·fixture side-card다. D27~D29와 exact public
 security child packet prerequisite가 accepted되면 core P8과 무관하게 독립 실행할 수 있다. One-time device
@@ -2996,6 +3054,33 @@ owner_gate: AgentRun schema/capability approval
 risk_and_effort: high / L
 next_slice: none required for core
 ---
+slice_id: TEAX-EXT01
+packet_status: non_executable_phase_card
+title: Optional external agent-client adapter와 engineering-task trial foundation
+goal: Soulforge MCP의 sibling client로서 direct/Hermes형/Orca형 실행면을 비교하되 native 상태를 정본으로 승격하지 않음
+classification_mix: [DEFER, BUILD]
+depends_on: [TEAX-AX01]
+current_evidence_refs: [official product docs support candidate capabilities, local AX integration UNKNOWN]
+allowed_write_paths: []
+target_surfaces: [D30~D32 owner-approved child packets에서 exact tool/version/path/command/fixture로 다시 고정]
+forbidden_paths: [live ERP/TaskEngine/history/Wiki/RAG/canon writer, .mission/**, .workflow/**, .party/**, private payload, direct main/push/PR, Hermes-Orca cross-adapter nesting]
+inputs: [accepted AX-G2 receipt, D30 generic boundary, public-safe low-risk engineering task packet, exact latest-main base ref, optional AgentRunRef only when AR-G2 already accepted; otherwise bounded WorkSession evidence ref]
+outputs: [external surface ref, subtask/dispatch refs, candidate diff/artifact refs, validator receipts, WorkSession coordinator receipt, comparative metrics]
+code_delta: [EXT-G1 generic adapter/negative fixtures only; product adapter는 ORCA-T1/HERMES-T1 별도 approval 전 없음]
+db_delta: [none; external native stores remain client-local and are not ERP/WorkSession/AgentRun truth]
+api_delta: [synthetic/loopback MCP allowlist only; child direct checkpoint/completion write 0]
+folder_delta: [no canonical top-level root; disposable external worktrees are runtime-local]
+docs_contract_changelog_delta: [master plan, exact child packet, root CHANGELOG]
+owner_and_writers: [one WorkSession surface coordinator; TaskEngine/history/knowledge/artifact/mission/workflow/party owners unchanged]
+acceptance_checks: [HP-EXT-01..08, native done promotion 0, cross-adapter nesting 0, binary single writer]
+regression_checks: [full dev-ERP/docs/path, current-main bounded reimplementation and validator rerun]
+migration_or_backfill: none
+rollback: [feature/tool OFF, delegation revoke, terminal handoff, runtime-local trial worktree/session cleanup after exact path confirmation]
+stop_conditions: [permission bypass, secret/raw/private access, client-local truth promotion, direct main/push/PR, Hermes-Orca cross-adapter nesting, unapproved attachment/binary write, child direct MCP write]
+owner_gate: EXT-G0, EXT-G1, ORCA-T1, ORCA-T2, HERMES-T1, external team rollout은 각각 별도 approval
+risk_and_effort: very-high / M
+next_slice: none required for core
+---
 slice_id: TEAX-IQ01
 title: Engineering IQ trace projection
 goal: requirement→function→interface→risk→decision→verification→outcome→correction exact trace 구축
@@ -3315,6 +3400,30 @@ fallback을 소유한다. 앞 phase의 합성 PASS를 뒤 phase의 live authorit
 | HP-QUERY-14 | cache revocation | ACL/policy/revision이 cache key에 결박되고 revoke 뒤 stale cached body/locator `0` |
 | HP-QUERY-15 | redacted derivative lineage | sensitive Excel/PPT hidden/formula/comment/note/embed policy 적용, immutable derivative→exact source revision lineage, raw fallback `0` |
 | HP-QUERY-16 | exact download parity | exact revision range resume의 final digest가 accepted manifest와 같고 audience/method/revision swap `0` |
+| HP-EXT-01 | authority separation | external native task/session/memory/dispatch/done가 ERP task, WorkSession, AgentRun, accepted knowledge, canon을 mutate하거나 대체 `0` |
+| HP-EXT-02 | one writable surface | `{assignment epoch,account}`에 WorkSession checkpoint/proposal writer 하나; child direct MCP write `0` |
+| HP-EXT-03 | cross-adapter non-nesting | Hermes형 gateway와 Orca형 workbench가 서로 launch/call하거나 write token을 공유 `0`; Orca coordinator의 bounded direct worker는 HP-ORCA-05로만 제한 |
+| HP-EXT-04 | handoff/revoke | surface 변경 전 old delegation revoke+terminal handoff+superseding binding; stale child completion accept `0` |
+| HP-EXT-05 | receipt chain | official task/session/external run/subtask/base revision/candidate artifact/validator refs가 typed relation으로 보존되고 raw transcript 복사 `0` |
+| HP-EXT-06 | completion ceiling | terminal idle, worker done, decision gate, Kanban done, goal judge가 official completion/verification/approval로 승격 `0` |
+| HP-EXT-07 | binary boundary | non-mergeable engineering artifact actual writer 하나, authenticated HTTPS custody/promotion/exact revision 밖 drag/drop·첨부 write `0` |
+| HP-EXT-08 | rollback | tool OFF·delegation revoke·prior direct client restore 뒤 task/history/knowledge/canon delta `0` |
+| HP-ORCA-01 | pinned base/worktree | exact latest-main base, isolated worktree별 file ownership, hidden shared writable root `0` |
+| HP-ORCA-02 | Manual permission | Codex/Claude/Antigravity 등 모든 launch의 bypass/yolo flag `0`; custom override까지 exact command 검증 |
+| HP-ORCA-03 | host boundary | worktree를 sandbox로 과대 주장 `0`; secret/home/D:/OneDrive/private repo/network outside allowlist 접근 `0` |
+| HP-ORCA-04 | candidate Git ceiling | Orca commit/push/PR/main merge `0`; Codex가 current main에서 bounded 재검토·재구현·validator rerun |
+| HP-ORCA-05 | orchestration depth | Orca coordinator 하나와 2~3 disjoint worker; worker native subagent/team spawn과 Hermes launch `0` |
+| HP-ORCA-06 | value rubric | ORCA-T1은 matched direct-Codex baseline과 public-safe task 1건 비교; ORCA-T2만 별도 승인 뒤 2주 또는 10건의 time/intervention/quality/rework/usage 비교 |
+| HP-ORCA-07 | experimental-state honesty | task/dispatch/decision gate/worker_done를 local coordination evidence로만 기록하고 production readiness claim `0` |
+| HP-ORCA-08 | integration receipt | candidate diff/artifact+validator receipt를 coordinator 하나가 ordered WorkSession checkpoint로 제출, child 제출 `0` |
+| HP-HERMES-01 | human/channel mapping | platform user→ERP account/project grant exact mapping, shared/unknown identity write `0` |
+| HP-HERMES-02 | MCP minimum allowlist | query/candidate tools만 explicit include, sampling·write-capable extra tool·catalog auto-install `0` |
+| HP-HERMES-03 | transcript/memory custody | encryption/retention/delete/consent policy와 accepted knowledge 분리; memory→Wiki/RAG/canon 자동승격 `0` |
+| HP-HERMES-04 | task-state ceiling | Kanban/goal/delegation done이 ERP task/current/completion을 mutate `0` |
+| HP-HERMES-05 | attachment boundary | generated/received file은 ingress custody receipt로만 전달; ArtifactRevision/project acceptance 자동 생성 `0` |
+| HP-HERMES-06 | delivery replay | at-least-once message/retry가 same idempotent receipt를 회수하고 duplicate WorkSession event `0` |
+| HP-HERMES-07 | no Orca nesting | Hermes가 Orca/lane/MCP를 launch하거나 같은 WorkSession write token을 공유 `0` |
+| HP-HERMES-08 | one-seat ceiling | one-seat candidate query/submission만; team rollout·scheduler·unattended production activation `0` |
 
 #### 14.6.1 D26 pre-approval synthetic fixture matrix
 
@@ -3378,7 +3487,7 @@ npm run ui:docs:check
 npm run validate:path-policy
 npm run ui:done:check
 immutable oracle working-tree diff + before/after blob
-AC-01~AC-23 completeness
+AC-01~AC-24 completeness
 fresh root validation/review (공개 기준선 `main@310640b7a5692298227026b547a68bcb25d2b330`까지 PASS;
 후속 delta는 publish 전 재검증)
 ```
@@ -3474,6 +3583,9 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | D27 | ingress custody·promoter·reference/copy/move/derive와 per-source security policy | plan default는 pointer/hash/reference이며 중앙 service가 직접 upload를 받으면 그 inbox가 custody를 가진다. exact mail raw/attachment owner tension, promoter identity/path, destination binding, retention/legal hold, ACL, required malware scan, backup/restore, deletion authority를 source kind별 결정한다. projector/task writer와 분리하고 move/delete 기본 금지 | I0~I10/H01/H04/P2/P3/P8/P9/P10 | public/synthetic matrix / physical folder 생성·payload read/copy/move/delete·scan enforcement·live promotion 금지 |
 | D28 | personal WorkSession cardinality·thread/node binding·outbox/ack·missing SLA·completion approver | owner가 plan default로 `{assignment epoch,account}` active primary 하나와 multiple checkpoint, closeout≠official completion을 채택했다. exact opaque thread-ref capability, registered node, handoff/supersession, local outbox writer/path/fsync/encryption/retention, stale/missing SLA, official completion authority는 별도 확정 | W0~W10/AX01 | schema/synthetic fixture / current record 소급 해석·raw thread 저장·live team write·auto completion 금지 |
 | D29 | ERP UI/MCP primary query·accepted generation·ACL/no-fallback·team knowledge candidate authority | owner가 ERP UI/MCP primary read, files=audit snapshot, explicit `project|common` scope/no implicit fallback, team candidate-only를 plan default로 채택했다. exact grant/admin existence-leak policy, manifest/current-pointer owner, cursor/retention, candidate reviewer/approver/writer와 project ID crosswalk는 확정 필요 | Q0~Q10/P4/P5/P8/P9/P10 | schema/read-only/synthetic / accepted pointer advance·live endpoint·implicit fallback·direct Wiki/RAG/canon/task write 금지 |
+| D30 | generic external agent surface schema·truth ceiling·non-nesting | direct Codex가 기본이고 `TeamAgentGatewayAdapter`와 `EngineeringWorkbenchAdapter`는 sibling optional MCP client다. native task/session/memory/done은 client-local, WorkSession writer 하나, surface 변경은 revoke+handoff+supersession, official completion은 별도 TaskEngine authority | EXT-G0/EXT-G1 | official-doc/read-only comparison과 public synthetic negative fixture / AX-G1~G3 차단·install·live endpoint·cross-adapter nesting·native done promotion 금지 |
+| D31 | Hermes형 gateway identity·MCP allowlist·transcript/memory retention·attachment·team consent | one-seat query/candidate-only, exact platform-user→ERP-account mapping, minimum tool include-list, memory/knowledge 분리, Kanban/goal/delegation non-authoritative, scheduler/team rollout OFF | HERMES-T1/P10 | contract/synthetic fixture / secret read·catalog auto-install·attachment direct promotion·ERP completion write 금지 |
+| D32 | Orca형 workbench version·worktree·permission·credential·diff/artifact·Git policy | stable pinned version, Manual launch, one coordinator+disjoint workers, no native subteams, public-safe code task, direct main/push/PR 0, Codex current-main bounded reimplementation | ORCA-T1/ORCA-T2/P10 | frozen rubric/public synthetic fixture / permission bypass·host-secret access·Hermes nesting·binary multi-writer 금지 |
 
 #### 17.1.1 첫 승인과 후속 ratification 입력
 
@@ -3485,7 +3597,7 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | `C00A` / retained | historical accepted `BLOCKED` receipt | prerequisite evidence only, current execution authority `false`, P1 `BLOCKED` | retained public receipt ref | private/live query, report write, code mutation | C00Q prerequisite history만 보존, P1은 계속 잠금 |
 | `C00Q` / retained | frozen inventory CLI/test/schema exact refs와 `task_engine_c00q_formal_acceptance_pass_v1` | formal receipt retained, execution approval expired | public/synthetic foundation과 retained receipt 검증 | live/private input, report write, DB/API/runtime mutation, P1 unlock | 새 실행은 새 authority가 필요하며 retained receipt는 P0 effect가 아님 |
 | `C00B` / retained C00Q receipt 뒤 | `owner_authorized_query_only`; approval-time SHA, lane별 exact authority/source/profile, metadata output, approval ref·expiry | `non_executable_hold`, live facts `UNKNOWN/VERIFY_HP`, P1 `BLOCKED` | retained frozen C00Q tool receipt와 별도 승인된 metadata-only source | doctor/workspace inventory로 대체, raw/private payload, tool 변경, source/tracked/runtime mutation, exact one-path 밖 output write, H00 six-state completeness 선사용 | C00-LIVE-01..04 authority-backed inventory closure·zero-mutation receipt → C00B PASS는 H00 ratification review만 허용 |
-| `H00` / accepted+unexpired C00B PASS 뒤 | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea`의 세 exact blob과 independent event envelope+coverage receipt pair, literal `unknown`, `known_at` half-open window, six-state count/null/gap semantics를 각각 `RATIFY | HOLD`; content-addressed-until-revoked policy와 issued-at 승인 | `canon_candidate` HOLD | 세 pinned public file의 approval-time blob match, exact test 20/20 receipt, fresh Level 2 review | file edit, adapter, migration, live use, completeness claim, D19~D29 자동승인 | owner decision ref + bound blob/test/review receipts; overall RATIFY는 H01~H05 exact child-packet review만 열고 adapter/H06/writer 권한은 계속 false |
+| `H00` / accepted+unexpired C00B PASS 뒤 | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea`의 세 exact blob과 independent event envelope+coverage receipt pair, literal `unknown`, `known_at` half-open window, six-state count/null/gap semantics를 각각 `RATIFY | HOLD`; content-addressed-until-revoked policy와 issued-at 승인 | `canon_candidate` HOLD | 세 pinned public file의 approval-time blob match, exact test 20/20 receipt, fresh Level 2 review | file edit, adapter, migration, live use, completeness claim, D19~D32 자동승인 | owner decision ref + bound blob/test/review receipts; overall RATIFY는 H01~H05 exact child-packet review만 열고 adapter/H06/writer 권한은 계속 false |
 | `D19` / H03A 전 | negative boundary를 먼저 ratify; 신규 instruction/receipt source마다 exact owner surface, schema/version, ID allocator, consent·retention을 별도 명시 | existing bounded WorkSession만 후보; 나머지 HOLD, broad capture OFF | WorkSession과 negative fixture | whole task chat·hook full-message summary·screen·keystroke·OS capture, owner 미정 source | allowlist/negative test/direct-caller evidence → H03A input binding |
 | `D20` / H03B 전 | schedule current owner/path, immutable revision/event owner/path, stable row-ID owner/schedule scope, canonicalization/timezone, sole writer | `HOLD` | synthetic stale-revision/canonicalization fixture | row ID 발명, live event, task discovery | current/revision/event replay와 stale expected-revision reject → H03B |
 | `D24` / H06 target 확정 전 | 다섯 exact view name과 CSV/XLSX(메일은 ICS 포함) target, redacted projection-field allowlist, HPP sole-normal-projector, Mac/다른 PC normal allowlist empty를 logical TARGET으로 ratify | 이름은 candidate, materialization/export acceptance `OFF` | schema/path/field fixture | unapproved display field export, private folder 생성, non-HPP normal write | target path/field allowlist·shadow schema fixture → H06 target contract; 실제 생성은 P9 별도 |
@@ -3494,6 +3606,9 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | `D27` / I8·A8-SYNTH contract 전 | source-kind custody/staging/quarantine/promoter/destination, HPP logical RAW/ERP/runtime storage classes, transfer-service/promoter sole-writer split, control-vs-binary plane, upload/download ticket binding, operation allowlist, retention/legal hold/ACL/scan/archive-bomb/media/hash/size/backup/delete authority | HPP custody is `TARGET`; pointer/reference 기본, strict office-LAN authenticated HTTPS data plane, client destination path·remote D/UNC/SMB·VPN/Tailscale·move/delete·live promotion `OFF`; exact path/network/certs/service health `VERIFY_HP` | public custody/actor-ticket matrix, swap/replay/revoke-race/path-traversal/archive-bomb/hash/size/media mismatch, idempotent finalize와 exact-revision range fixture | path 생성/열거, payload read/copy/move/delete, cloud-synced DB/central RAW/queue, malware-scan overclaim | D27~D29+exact public security packet acceptance → independent A8-SYNTH; canary는 private receipt+owner+Level 3 별도 |
 | `D28` / A8-SYNTH·AX-G1 전 | exact assignment epoch owner, `user/device/agent/opaque-thread/task/project/artifact/revision/action/expiry` actor chain, one-time enrollment/recovery, mTLS trust, OS broker refresh, delegation parent/child/revoke cascade, step-up action set, opaque thread-ref/node binding, local outbox writer/path/fsync/encryption/retention, missing SLA, official completion approver | human grant∩trusted device∩agent policy∩task/object/action, earliest expiry, routine silent refresh, one active primary, multiple checkpoints, closeout≠completion; exact binding은 `VERIFY_HP` | enrollment/broker/delegation ceiling+revoke cascade, routine no-repeat-prompt, pure lifecycle/outbox/crash/ack replay/adversarial fixture | current record 소급 migration, raw thread ID, ticket/child grant surviving revoke, per-chunk prompt, team activation | HP-SESSION synthetic → independent A8-SYNTH/AX-G2 feature-OFF; canary/one-seat/team은 각각 별도 |
 | `D29` / Q8·A8-SYNTH adapter 전 | artifact/revision/action grant authority와 uniform existence policy, project/common grant, accepted-generation manifest/current-pointer/cursor owner, ACL-aware RAG field/chunk pre/post filter+cache key/revoke, exact revision range download, immutable redacted derivative lineage including hidden sheet/slide·formula·comment/note·embedded object, candidate reviewer/approver/writer | ERP UI/MCP primary query, files audit snapshot, explicit scope/no fallback, exact revision/action only, redacted derivative no raw fallback, team candidate-only | schema/ACL/existence/generation/API-file parity, field/chunk/cache revoke, derivative lineage, range resume/ticket audience fixture | live endpoint/pointer advance, implicit/latest/raw fallback, direct truth write, unauthorized existence/cache hit | HP-QUERY synthetic → independent A8-SYNTH/Q8 feature-OFF; canary exact revision은 private receipt+owner+Level 3 별도 |
+| `D30` / EXT-G0·EXT-G1 전 | generic client identity, native state claim ceiling, one WorkSession writer, child write 금지, cross-adapter non-nesting, revoke/handoff/supersession, external receipt crosswalk | direct Codex default, external adapter OFF | official-doc comparison과 EXT-G0 design; EXT-G1에서 HP-EXT public synthetic | AX-G1~G3 차단, install, live MCP, task/knowledge/canon write, native done promotion | D30 결정→EXT-G0; EXT-G1 HP-EXT PASS는 product-specific trial review만 허용 |
+| `D31` / HERMES-T1 전 | exact version/channel/account mapping, MCP include-list/sampling, transcript/memory encryption·retention·delete·consent, attachment custody, delivery idempotency | Hermes adapter OFF, one-seat only | HP-HERMES synthetic | secret read, team rollout, scheduler, Kanban/goal completion promotion, Orca launch | HP-HERMES PASS + owner + Level 3 → HERMES-T1만 허용 |
+| `D32` / ORCA-T1 전 | exact stable version/hash, Manual command, OS/credential/network roots, base ref/worktree ownership, candidate artifact/validator/Git policy, frozen value rubric | Orca adapter OFF, direct Codex 유지 | HP-ORCA public-safe fixture | bypass/yolo, real payload, direct main/push/PR, Hermes launch, binary multi-writer | HP-ORCA PASS + owner + Level 3 → ORCA-T1만 허용 |
 
 아래는 completed C00A/C00Q의 historical retained 상태를 요약한다. 현재 새로 요청할 수 있는 실행
 shape는 §18.2의 current-authority C00B packet이며, 어떤 retained receipt도 C00B PASS를 대체하지 않는다.
@@ -4093,6 +4208,14 @@ flowchart LR
   상태로 간주하거나 승인 없이 payload copy/move/delete·physical ingress folder 생성이 필요함
 - personal WorkSession closeout/proposal을 ERP 공식 완료로 간주하거나, accepted server ack 전 local
   outbox를 지우거나, local pending과 server missing-closeout을 같은 상태로 해석함
+- external client의 terminal idle·worker done·decision gate·Kanban done·goal judge를 WorkSession closeout,
+  AgentRun success, verification pass, owner approval 또는 ERP official completion으로 승격함
+- Hermes형 gateway와 Orca형 workbench가 서로를 launch/call하거나 같은 write-capable WorkSession token을
+  공유하고, child agent가 checkpoint/completion proposal을 직접 씀
+- external agent가 permission-bypass/yolo로 실행되거나 worktree를 host sandbox로 오인하고 secret/home/D:/
+  OneDrive/private repo/network를 allowlist 밖에서 접근함
+- Orca형 client가 main commit/push/PR을 직접 수행하거나 unapproved drag/drop/attachment와 binary artifact를
+  multi-writer로 수정함
 - query scope/ACL/generation/claim ceiling이 없거나 project/common implicit fallback, snapshot reverse import,
   team의 Wiki/RAG/canon/ontology/task 직접 쓰기가 필요함
 - valid backup/restore가 없거나 replay/readback/rollback이 불일치
@@ -4144,12 +4267,12 @@ owner approval, canary/runtime readiness evidence가 아니다.
 | `npm.cmd run ui:done:check` | 후속 working delta `PASS`; 약 227초, validate/lint/docs/build/theme-pack 완료 |
 | immutable oracle scoped diff | `PASS`; lifecycle, ENGINE-13, `task_engine_redesign/**` 변경 `0` |
 | CV-01 tracked workspace check | `PASS`; `git ls-files -- '_workspaces/**'`는 boundary README 1개만 반환 |
-| plan structural invariant check | 후속 delta `PASS`; D01~D29 29/29 unique, AC-01~23 23/23, CV-01~09 9/9, D26-FX-01~20 20, code fence 104/even, HP-INGRESS/SESSION/QUERY 존재 |
+| plan structural invariant check | 후속 delta `PASS`; D01~D32 32/32 unique, AC-01~24 24/24, CV-01~09 9/9, D26-FX-01~20 20, code fence 짝수, HP-INGRESS/SESSION/QUERY/EXT/ORCA/HERMES 존재 |
 | C00A embedded packet static validation | `HISTORICAL_REPORTED`; 이번 follow-up에서 embedded packet을 변경하지 않았고 별도 재실행하지 않음 |
 | fresh `fork_turns="none"` inspector/judge | 최초 correction evidence는 `HISTORICAL_REPORTED`. 이번 follow-up은 ingress, MCP/session, query/RAG inspector 3명이 모두 `REVISE`로 gap을 제시했고 root single writer가 통합. Final Level 2 inspector는 phase/AX/receipt/stale CURRENT/ingress evidence를 `REVISE`한 뒤 최신 diff `ACCEPT`; independent judge도 companion phase 문구 보정 뒤 `ACCEPT` |
 | root `npm.cmd run done:check` | `HISTORICAL_REPORTED`: 원본 correction에서 계획과 무관한 기존 `device_capability_probe.test.mjs` 고정 10초 child timeout으로 nonzero; 같은 CLI는 약 11.3초 뒤 exit `0`. 계획 파일 관련 failure는 없음 |
 | post-development review profile | Level 2 `inspector_and_judge` `accepted_for_plan_scope`; implementation/owner binding은 `owner_decision_required`. 권장 conservative `gpt-5.5/xhigh/auditor` runtime은 이 session에서 선택 불가해 high-confidence/production claim을 하지 않음. Applied private packet은 pre-existing dirty/ahead companion과 user의 scoped public publish 경계 때문에 쓰지 않음 |
-| end-of-task knowledge trigger | `owner_decision_needed`; 기존 C00B/H00/D25/D26 gate와 D27 ingress binding/policy, D28 thread/node/outbox/SLA/completion authority, D29 ACL/generation/candidate authority가 남음. Claim ceiling은 public `source_supported` plan correction, source truth·owner approval·canon promotion 주장 `0` |
+| end-of-task knowledge trigger | `owner_decision_needed`; 기존 C00B/H00/D25/D26 gate와 D27 ingress binding/policy, D28 thread/node/outbox/SLA/completion authority, D29 ACL/generation/candidate authority, D30 generic external surface, D31 Hermes형 gateway, D32 Orca형 workbench owner 결정이 남음. Claim ceiling은 public `source_supported` plan correction, source truth·owner approval·canon promotion 주장 `0` |
 | current HPP exact nine-file `git diff --check` | `PASS` |
 | current HPP docs links | `PASS` |
 | current HPP canon | `PASS`; checked `132`, errors `0`, warnings `0` |
@@ -4158,11 +4281,18 @@ owner approval, canary/runtime readiness evidence가 아니다.
 | current HPP Level 2 final review | fresh inspector `ACCEPT`; independent judge `ACCEPT`; plan scope only |
 | current applied private evidence | `OMITTED_BY_SCOPE`; private packet/five-field ledger writes were explicitly prohibited |
 | current nine-file HPP addendum | `READY_FOR_OWNER_REVIEW`; claim ceiling `source_supported` plan only; implementation·private binding·live readiness·owner authority `0` |
+| 2026-07-22 external agent-client addendum | fresh `gpt-5.6-sol/ultra` authority·fit review와 첫 exact-diff review `REVISE`; optional/core gate 분리, AgentRun 비필수화, bounded T1·별도 T2, gateway/workbench role, acceptance owner 분리로 보정. Frozen functional snapshot final re-review `ACCEPT`; plan scope only |
+| current external exact two-file `git diff --check` | `PASS` |
+| current external docs links | `PASS` |
+| current external canon | `PASS`; checked `136`, errors/warnings `0` |
+| current external changed-path policy | `PASS`; changed paths `2`, violations `0`; symlink fixture `1`은 Windows EPERM으로 skip |
+| current external `npm.cmd run ui:done:check` | `PASS`; validate/lint/docs/build/theme-pack |
+| current external structural checks | `PASS`; D01~D32 32/32, AC-01~24 24/24, CV-01~09 9/9, D26-FX-01~20 20, code fence even, HP-EXT/ORCA/HERMES 각 8 |
 
 위 receipt는 구현, runtime readiness, private inventory, C00B/P0 acceptance를 증명하지 않는다. Final
 file hash와 commit은 self-reference를 피하기 위해 문서 밖 publish 보고에 남긴다.
 
-### AC-01~AC-23 completeness — verified for plan scope
+### AC-01~AC-24 completeness — verified for plan scope
 
 최초 correction과 2026-07-15 follow-up의 reviewer/validator 결과는 위 historical receipt 범위에서만
 유효하다. 현재 exact nine-file HPP addendum도 fresh final inspector와 independent judge가 plan scope에서
@@ -4190,12 +4320,13 @@ approval·canary/runtime readiness·live activation을 뜻하지 않는다. C00A
 | AC-15 | `VERIFIED_FOR_PLAN_SCOPE` | §9와 도식 7의 projection owner mutation `0` |
 | AC-16 | `VERIFIED_FOR_PLAN_SCOPE` | §11 roles/packet/coordinator/projector/transfer/promoter/lease/fencing/manual failover 분리; HPP outage는 local HOLD/last-accepted read-only, remote mount `0` |
 | AC-17 | `VERIFIED_FOR_PLAN_SCOPE` | §14 V/HP/MAIL/HP-HISTORY, replay/adversarial/regression |
-| AC-18 | `VERIFIED_FOR_PLAN_SCOPE` | §17 D01~D29, 도식 11 activation gates, 승인 전 중단 |
+| AC-18 | `VERIFIED_FOR_PLAN_SCOPE` | §17 D01~D32, 도식 11 activation gates, 승인 전 중단 |
 | AC-19 | `VERIFIED_FOR_PLAN_SCOPE` | §10·§16과 P10에서 core/AX/AgentRun/IQ/ML 독립 phase |
 | AC-20 | `VERIFIED_FOR_PLAN_SCOPE` | root validators와 independent review 뒤 `READY_FOR_OWNER_REVIEW`로 전환; 구현 승인은 별도 |
 | AC-21 | `VERIFIED_FOR_PLAN_SCOPE` | §2.6 CV-01~09 evidence-calibrated verdict와 §12 P5→P6→P7→P8 hard receipt ordering |
 | AC-22 | `VERIFIED_FOR_PLAN_SCOPE` | §3.4 five histories와 HPP sole normal projector + HPP TARGET active custody/remote storage access `0` + §14 tests |
 | AC-23 | `VERIFIED_FOR_PLAN_SCOPE` | §3.5/§6.2A/§7.1, §9.3, independent `A8-SYNTH`와 privately gated `A8-CANARY`, HP-INGRESS/SESSION/QUERY와 D27~D29; core unlock·bulk·team authority `0` |
+| AC-24 | `VERIFIED_FOR_PLAN_SCOPE` | §5.3·§10.3~10.4·§12 `TEAX-EXT01`·§14 HP-EXT/ORCA/HERMES·§17 D30~D32; external native state는 client-local, 핵심 AX와 선택 경로 분리, AgentRun 비필수, one WorkSession writer, cross-adapter non-nesting, direct main/push/PR와 official completion promotion `0`; fresh Ultra final `ACCEPT` |
 
 Clean scoped commit+push, 이 문서의 결정표, validator/review evidence로 forward state가 모두
 보존되면 `NIGHT_WORK_HANDOFF`를 만들지 않는다. 미해결 시도나 controller/PC 전환으로만 남는
@@ -4254,5 +4385,12 @@ claim_ceiling: source_supported_plan_only
 - [`outlook_mail_reconcile.mjs`](../../../../guild_hall/gateway/outlook_mail_reconcile.mjs)
 - [`scan_mail_ledger.mjs`](../tools/scan_mail_ledger.mjs)
 - [`erp_mcp_service.mjs`](../src/erp_mcp_service.mjs)
+- [Orca official docs](https://www.onorca.dev/docs)
+- [Orca supported agents and permission defaults](https://www.onorca.dev/docs/agents/supported)
+- [Orca structured orchestration](https://www.onorca.dev/docs/cli/orchestration)
+- [Orca usage and rate-limit tracking](https://www.onorca.dev/docs/agents/usage-tracking)
+- [Hermes Agent official docs](https://hermes-agent.nousresearch.com/docs)
+- [Hermes MCP client](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)
+- [Hermes Codex app-server runtime](https://hermes-agent.nousresearch.com/docs/user-guide/features/codex-app-server-runtime)
 
 결과: `READY_FOR_OWNER_REVIEW`

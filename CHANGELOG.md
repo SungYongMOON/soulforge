@@ -16,6 +16,19 @@
   launcher to its real executable before applying the no-symlink identity
   guard. (worker: codex_gpt-5)
 
+### AX optional external agent-client boundary
+
+- Added a plan-only, vendor-neutral boundary for optional team-agent gateways
+  and intra-task engineering workbenches. Hermes and Orca are recorded only as
+  candidate adapters behind Soulforge MCP; their native task, memory, dispatch,
+  and completion state cannot become ERP, WorkSession, AgentRun, knowledge, or
+  canon truth.
+- Added non-nesting, single WorkSession-writer, binary single-writer, Manual
+  permission, candidate-only Git, independent P10 trial, rollback, and
+  acceptance requirements. No product was installed, subscribed, connected, or
+  activated. (worker: codex_gpt-5.6, independent review:
+  gpt-5.6-sol ultra `REVISE`→보정→`ACCEPT`)
+
 ### Outlook 규칙 기반 메일 Shadow 분류
 
 - Outlook 규칙 export와 owner 날짜/제목 override를 기존 ERP 메일 메타데이터에
