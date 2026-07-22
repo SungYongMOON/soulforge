@@ -13,7 +13,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import test from "node:test";
@@ -25,6 +25,7 @@ import {
   CONTINUOUS_EPOCH_SCHEMA,
   CONTINUOUS_LEASE_SCHEMA,
   loadContinuousBinding,
+  plaudSessionCustodyPrefixes,
   runContinuousIngress as runContinuousIngressImpl,
 } from "./continuous_runner.mjs";
 import { inspectMailCollectorRelease } from "./mail_bridge.mjs";
@@ -1793,6 +1794,35 @@ test("PLAUD v3 observes provider backlog inside the existing fenced cycle withou
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }
+});
+
+test("PLAUD custody prefixes use resolved workspace paths across a junction-style mapping", async () => {
+  const workspaceRoot = resolve(tmpdir(), "plaud-logical-workspace");
+  const voiceSourceRoot = resolve(tmpdir(), "plaud-physical-voice");
+  const sessionRef = join(
+    "_workspaces",
+    "system",
+    "voice_capture",
+    "sessions",
+    "2026-07-22",
+    "synthetic-session",
+  );
+  const logicalSession = resolve(workspaceRoot, sessionRef);
+  const physicalSession = resolve(voiceSourceRoot, "sessions", "2026-07-22", "synthetic-session");
+  const fakeRealpath = async (value) => {
+    const target = resolve(value);
+    if (target === voiceSourceRoot) return voiceSourceRoot;
+    if (target === logicalSession) return physicalSession;
+    throw Object.assign(new Error("missing synthetic realpath"), { code: "ENOENT" });
+  };
+  const prefixes = await plaudSessionCustodyPrefixes({
+    recordings: [{ state: "imported", session_ref: sessionRef }],
+    custody_required_session_refs: [sessionRef],
+  }, {
+    plaud: { workspaceRoot },
+    voice: { sourceRoot: voiceSourceRoot },
+  }, fakeRealpath);
+  assert.deepEqual(prefixes, ["sessions/2026-07-22/synthetic-session"]);
 });
 
 test("PLAUD v3 primary writer imports through the existing fenced cycle without exposing provider metadata", async () => {

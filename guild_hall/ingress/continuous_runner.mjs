@@ -1514,8 +1514,14 @@ function sanitizePlaudCycle(sync, writerEnabled = false) {
   };
 }
 
-function plaudSessionCustodyPrefixes(sync, binding) {
+export async function plaudSessionCustodyPrefixes(sync, binding, resolveRealpath = realpath) {
   const prefixes = [];
+  let voiceSourceRoot;
+  try {
+    voiceSourceRoot = await resolveRealpath(binding.voice.sourceRoot);
+  } catch {
+    fail("continuous_plaud_session_ref_invalid");
+  }
   const currentRefs = (Array.isArray(sync?.recordings) ? sync.recordings : [])
     .filter((recording) => ["imported", "reconciled"].includes(recording?.state))
     .map((recording) => recording?.session_ref);
@@ -1526,9 +1532,14 @@ function plaudSessionCustodyPrefixes(sync, binding) {
     if (typeof sessionRef !== "string" || !sessionRef.trim()) {
       fail("continuous_plaud_session_ref_invalid");
     }
-    const sessionPath = resolve(binding.plaud.workspaceRoot, sessionRef);
-    if (!inside(binding.voice.sourceRoot, sessionPath)) fail("continuous_plaud_session_ref_invalid");
-    const sourcePrefix = relative(binding.voice.sourceRoot, sessionPath).split(sep).join("/");
+    let sessionPath;
+    try {
+      sessionPath = await resolveRealpath(resolve(binding.plaud.workspaceRoot, sessionRef));
+    } catch {
+      fail("continuous_plaud_session_ref_invalid");
+    }
+    if (!inside(voiceSourceRoot, sessionPath)) fail("continuous_plaud_session_ref_invalid");
+    const sourcePrefix = relative(voiceSourceRoot, sessionPath).split(sep).join("/");
     if (!sourcePrefix.startsWith("sessions/") || sourcePrefix.split("/").some((part) => !part || part === "." || part === "..")) {
       fail("continuous_plaud_session_ref_invalid");
     }
@@ -1666,7 +1677,11 @@ export async function runContinuousIngress(options = {}) {
           requireHppCustody: binding.plaud.writerEnabled,
         });
         if (binding.plaud.writerEnabled) {
-          plaudRequiredSourcePrefixes = plaudSessionCustodyPrefixes(sync, binding);
+          plaudRequiredSourcePrefixes = await plaudSessionCustodyPrefixes(
+            sync,
+            binding,
+            options.testHooks?.plaudRealpath ?? realpath,
+          );
         }
         plaudResult = sanitizePlaudCycle(sync, binding.plaud.writerEnabled);
         if (plaudResult.status !== "ok") {

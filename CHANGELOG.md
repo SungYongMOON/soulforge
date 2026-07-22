@@ -56,6 +56,9 @@
   readiness false. The HPP-custody obligation is embedded in the atomic session manifest
   and rediscovered across later cycles or restarts until verified, while
   historical observe-only v3 bindings remain compatible.
+  Required-session routing resolves both the logical workspace path and the
+  physical voice root before containment checks, so a supported cross-volume
+  junction layout cannot be misclassified after a successful import.
   Runtime activation still requires the external binding digest and confirmed
   single-writer cutover from the Mac mini. (worker: codex_gpt-5.6)
 
