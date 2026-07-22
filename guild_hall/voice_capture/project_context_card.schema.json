@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/voice_project_context_card.v1.json",
+  "title": "Soulforge voice project context card",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "card_ref", "project_ref", "card_version", "valid_at", "known_at", "input_set_digest", "authority_state", "claim_ceiling", "acl_state", "coverage_gap_codes", "aliases", "people", "terms", "negative_terms", "source_refs"],
+  "properties": {
+    "schema_version": { "const": "soulforge.voice_project_context_card.v1" },
+    "card_ref": { "$ref": "#/$defs/safeRelativeRef" },
+    "project_ref": { "type": "string", "pattern": "^(?!.*\\.\\.)[A-Za-z0-9가-힣][A-Za-z0-9가-힣_.:/-]{0,255}$" },
+    "card_version": { "type": "string", "minLength": 1 },
+    "valid_at": { "type": ["string", "null"] },
+    "known_at": { "type": ["string", "null"] },
+    "input_set_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "authority_state": { "const": "shadow_unaccepted_input" },
+    "claim_ceiling": { "const": "observed" },
+    "acl_state": { "const": "unresolved" },
+    "coverage_gap_codes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "aliases": { "type": "array", "items": { "$ref": "#/$defs/alias" } },
+    "people": { "type": "array", "items": { "$ref": "#/$defs/person" } },
+    "terms": { "type": "array", "items": { "$ref": "#/$defs/term" } },
+    "negative_terms": { "type": "array", "items": { "$ref": "#/$defs/negativeTerm" } },
+    "source_refs": { "type": "array", "items": { "$ref": "#/$defs/safeRelativeRef" }, "uniqueItems": true }
+  },
+  "$defs": {
+    "safeRelativeRef": { "type": "string", "minLength": 1, "not": { "pattern": "(^[\\\\/]|^[A-Za-z][A-Za-z0-9+.-]*:|(^|[\\\\/])\\.\\.([\\\\/]|$))" } },
+    "contextEntityValue": {
+      "type": "string", "minLength": 1, "maxLength": 80,
+      "pattern": "^[^\\r\\n.!?。！？]+$",
+      "not": {
+        "anyOf": [
+          { "pattern": "(?:주세요|주십시오|바랍니다|합니다|했습니다|됩니다|됐습니다|입니다|이에요|예요|할게요|하겠습니다)$" },
+          { "pattern": "(?:[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|비밀번호|비번|암호|패스워드|토큰|인증(?:정보|키|코드|번호)|보안(?:키|코드)|접속(?:키|암호)|쿠키|[Pp][Ii][Nn]|[Oo][Tt][Pp])(?:(?:\\s*(?:[:=_-]|은|는|이|가)\\s*|\\s+)\\S+|[A-Za-z0-9_-]{4,})" }
+        ]
+      }
+    },
+    "alias": {
+      "type": "object", "additionalProperties": false, "required": ["value", "kind"],
+      "properties": { "value": { "$ref": "#/$defs/contextEntityValue" }, "kind": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" } }
+    },
+    "person": {
+      "type": "object", "additionalProperties": false, "required": ["person_ref", "aliases", "roles"],
+      "properties": {
+        "person_ref": { "type": "string", "minLength": 1 },
+        "aliases": { "type": "array", "items": { "$ref": "#/$defs/contextEntityValue" }, "uniqueItems": true },
+        "roles": { "type": "array", "items": { "$ref": "#/$defs/contextEntityValue" }, "uniqueItems": true }
+      }
+    },
+    "term": {
+      "type": "object", "additionalProperties": false, "required": ["value", "kind", "weight"],
+      "properties": { "value": { "$ref": "#/$defs/contextEntityValue" }, "kind": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" }, "weight": { "type": "number", "minimum": 1, "maximum": 5 } }
+    },
+    "negativeTerm": {
+      "type": "object", "additionalProperties": false, "required": ["value", "weight"],
+      "properties": { "value": { "$ref": "#/$defs/contextEntityValue" }, "weight": { "type": "number", "minimum": 1, "maximum": 5 } }
+    }
+  }
+}

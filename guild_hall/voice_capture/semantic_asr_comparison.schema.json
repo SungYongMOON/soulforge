@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/voice_semantic_asr_comparison.v1.json",
+  "title": "Soulforge voice semantic ASR comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "comparison_id", "recording_id", "fast_run_id", "stronger_run_id", "fast_material_unit_count", "stronger_material_unit_count", "disagreement_count", "state", "human_review_windows", "boundaries"],
+  "allOf": [
+    {
+      "if": { "properties": { "state": { "const": "shadow_reviewable" } }, "required": ["state"] },
+      "then": {
+        "properties": {
+          "disagreement_count": { "const": 0 },
+          "human_review_windows": { "type": "array", "maxItems": 0 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "state": { "const": "human_audio_review_required" } }, "required": ["state"] },
+      "then": {
+        "properties": {
+          "disagreement_count": { "type": "integer", "minimum": 1 },
+          "human_review_windows": { "type": "array", "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.voice_semantic_asr_comparison.v1" },
+    "comparison_id": { "type": "string", "pattern": "^vsc_[a-f0-9]{24}$" },
+    "recording_id": { "type": "string" },
+    "fast_run_id": { "type": "string", "pattern": "^vsl_[a-f0-9]{24}$" },
+    "stronger_run_id": { "type": "string", "pattern": "^vsl_[a-f0-9]{24}$" },
+    "fast_material_unit_count": { "type": "integer", "minimum": 0 },
+    "stronger_material_unit_count": { "type": "integer", "minimum": 0 },
+    "disagreement_count": { "type": "integer", "minimum": 0 },
+    "state": { "enum": ["shadow_reviewable", "human_audio_review_required"] },
+    "human_review_windows": { "type": "array", "items": { "$ref": "#/$defs/reviewWindow" } },
+    "boundaries": { "$ref": "#/$defs/boundaries" }
+  },
+  "$defs": {
+    "stringArray": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "reviewWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_id", "start_seconds", "duration_seconds", "source_unit_refs", "importance_state", "importance_reason_codes", "escalation_state", "human_listen_required", "transcript_text_copied"],
+      "properties": {
+        "window_id": { "type": "string", "pattern": "^vrw_[a-f0-9]{24}$" },
+        "start_seconds": { "type": "number", "minimum": 0 },
+        "duration_seconds": { "type": "number", "minimum": 30, "maximum": 90 },
+        "source_unit_refs": { "$ref": "#/$defs/stringArray" },
+        "importance_state": { "const": "material_ambiguity_candidate" },
+        "importance_reason_codes": { "$ref": "#/$defs/stringArray" },
+        "escalation_state": { "const": "human_audio_review_required" },
+        "human_listen_required": { "const": true },
+        "transcript_text_copied": { "const": false }
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transcript_body_copied", "provider_transcript_used", "trivial_ambiguity_escalated", "official_task_mutated"],
+      "properties": {
+        "transcript_body_copied": { "const": false },
+        "provider_transcript_used": { "const": false },
+        "trivial_ambiguity_escalated": { "const": false },
+        "official_task_mutated": { "const": false }
+      }
+    }
+  }
+}

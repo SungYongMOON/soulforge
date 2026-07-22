@@ -13,6 +13,7 @@ _workspaces/system/voice_capture/sessions/<YYYY-MM-DD>/<session_id>/
   audio/
   transcripts/
   analysis/local_asr/<run_id>/
+  analysis/semantic_labels/<run_id>/
   analysis/diarization/<run_id>/
   analysis/context_resolution/<run_id>/
   transcript.jsonl
@@ -111,29 +112,91 @@ project context version, 모델/규칙 version, confidence band, 반대 근거, 
 1. 녹음 또는 import 결과를 session 으로 만든다.
 2. `register-library --apply` 로 전체 녹음 보관함에 metadata-only entry 를 만든다.
 3. 동일 회의의 다른 source가 있으면 별도 session을 유지한 채 meeting bundle로 연결한다.
-4. AI 는 session/bundle metadata, transcript ref, 프로젝트 wiki/RAG metadata 를 보고 프로젝트 후보를 제안할 수 있다.
+4. provider 전사만으로는 프로젝트·할일·RAG 검색어를 만들지 않는다. 빠른 독립 전사는 중요 구간만 찾고, 강한 독립 재전사를 통과한 구간만 session/bundle metadata와 프로젝트 wiki/RAG metadata를 이용한 Shadow 프로젝트 후보로 진행할 수 있다.
 5. 책임자가 프로젝트 route 를 확정하면 project route manifest 를 갱신한다.
 6. 전사 품질, 화자분리 품질, action item 누락 가능성을 검토한 뒤에만 `_workmeta/<project_code>/reports/voice_source_events/**` 또는 공식 task ledger 후보로 넘긴다.
 
 ### 승인된 목표 처리선
 
 1. active voice writer가 Hiworks trigger 또는 명시 recovery 신호로 PLAUD 원음을 수집한다. 정상 TARGET은 HPP이고 HPP unavailable/cutover 전에는 맥미니가 temporary failover다.
-2. provider 결과와 독립된 local ASR을 만들고 품질 flag를 계산한다.
-3. 평상시 녹음, 회의, 통화, 개인 메모를 분류하고 긴 녹음을 회의·주제 구간으로
+2. provider 결과와 독립된 빠른 local ASR을 만들고 token probability·반복·coverage 품질 flag를 계산하되, 확률을 정확도 보증으로 취급하지 않는다.
+3. 요청·담당·기한·결정·약속·취소·진행상태·시험/측정 결과 또는 안전·비용·납기·고객·설계·품질 영향이 있는 구간만 강한 local ASR로 다시 읽는다. 잡담·인사·감사·맞장구·식사 이야기·일반적인 부탁말·반복·배경음·단순 종료말의 불명확성은 사람에게 넘기지 않고 무시한다.
+   일반적인 `보내 주세요`형 실제 업무 요청, `아직 완료되지 않았다`형 미완료 상태, `10Ω` 같은 공학 단위, 제출 기한, 품질 점수·안전 등급처럼 조사가 붙은 수량·측정값도 중요 후보에서 누락하지 않는다. 반대로 `점심을 준비해 주세요`, `잘 부탁드립니다`, `문제가 발생하지 않았습니다`, `비용은 증가하지 않았습니다`는 할일·위험으로 승격하지 않는다.
+4. 강한 재전사 후에도 중요한 의미가 갈릴 때만 질문 하나에 필요한 30~90초 원음 구간을 사람에게 확인 요청한다.
+   서로 같은 사람·날짜·수치가 전사별로 다른 문장 경계에 들어간 것뿐이면 앞뒤 문맥을 합쳐 자동으로 같은 뜻으로 닫고 사람에게 넘기지 않는다.
+   비교 권한은 같은 exact manifest/source/model/chunk/transcript 검증 호출이 함께 만든 fast/strong 메모리 객체 쌍에만 부여한다. 두 객체는 같은 pair receipt를 가져야 하며, semantic 분석 때 다시 읽은 manifest byte의 해시도 receipt와 같아야 한다. 복사·역직렬화하거나 합성 receipt를 붙인 객체는 다시 검증하기 전까지 권한이 없다.
+   검증된 fast/strong run과 comparison 객체는 내용 digest에 결합하고 재귀적으로 동결한다. 합성 비교 helper는 권한을 만들지 않으며, 합성 review-audio helper는 realpath 기준 OS 임시 테스트 루트에서만 동작한다.
+   production review clip은 comparison에 봉인된 `session_manifest` 해시와 원음 해시를 현재 선택된 세션·원음과 다시 비교한다. 원음 pathname을 ffmpeg에 다시 넘기지 않고, 검증 대상 원음 byte stream 자체를 ffmpeg stdin으로 보내면서 끝까지 SHA-256을 계산하므로 검사 직후 경로가 바뀌는 경우도 실패로 닫는다. 같은 session id를 가진 다른 날짜 폴더나 manifest·원음 동시 교체도 허용하지 않는다.
+   의미 검토 window는 `start_seconds + duration_seconds`만 정본으로 저장하고 `end_seconds`는 clip manifest를 만들 때 계산한다.
+5. 평상시 녹음, 회의, 통화, 개인 메모를 분류하고 긴 녹음을 회의·주제 구간으로
    나눈다.
-4. 익명 화자 구간을 만들고, 동의·등록된 화자만 실명 후보로 연결한다.
-5. 음성만 보지 않고 메일, 체계공학 일정, project context card를 함께 읽어 구간별
+6. 익명 화자 구간을 만들고, 동의·등록된 화자만 실명 후보로 연결한다.
+7. 음성만 보지 않고 메일, 체계공학 일정, project context card를 함께 읽어 구간별
    프로젝트를 `ai_provisional_project_route`로 정한다.
-6. 발언자와 업무 담당자를 구분해 담당자, 결정, 할일, 기한, 의존성 후보를 만든다.
-7. 내부 업무 초안과 metadata ledger를 AI 임시 확정 상태로 기록하고, 새 메일·일정·
+8. 발언자와 업무 담당자를 구분해 담당자, 결정, 할일, 기한, 의존성 후보를 만든다.
+9. 내부 업무 초안과 metadata ledger를 AI 임시 확정 상태로 기록하고, 새 메일·일정·
    음성이 들어오면 재검증·정정 이력을 append한다.
-8. 정상 건은 계속 진행하고 충돌·근거 부족·새 프로젝트·낮은 화자 신뢰도만
+10. 정상 건은 계속 진행하고 충돌·근거 부족·새 프로젝트·낮은 화자 신뢰도만
    `exception_review_required`로 모은다.
-9. 외부 발송·공식 승인·구매·기술 truth 변경은 별도 사람 승인 전 실행하지 않는다.
+11. 외부 발송·공식 승인·구매·기술 truth 변경은 별도 사람 승인 전 실행하지 않는다.
 
-이 목표 처리선 중 3~8은 아직 구현 완료 상태가 아니다. 다른 PC는 구현 여부를
+2026-07-22 기준으로 위 안전 cascade의 첫 Shadow 조각은 구현됐다. provider
+transcript는 위치 후보만 만들고 action/project/RAG authority는 0이다. 빠른 local-ASR
+manifest는 중요 구간 후보를 만들며, 검증된 fast/strong manifest pair를
+통과한 경우에만 구간별 발화 행위·극성·양태·귀속·행동 cue·entity·프로젝트 근거·
+project-independent 후보·coverage·후속 검색 계획을 계산한다.
+여기서 검증은 이름표가 아니라 session manifest, 실제 원음 SHA-256, 승인된 모델
+파일 SHA-256, 모든 chunk 결과/receipt, chunk로 재구성한 transcript SHA-256을 묶는다.
+이는 로컬 artifact chain 증명이며 hardware attestation으로 과대 주장하지 않는다.
+stdout은 원문 없는 요약이고, 현재 CLI는 dry-run 전용이며 `--apply`를 거부한다.
+context card가 없거나 근거가 부족해도 강한 전사에서 확인된 요청·약속 후보는 버리지 않고 프로젝트 미정
+상태로 남긴다. 같은 녹음 전체를 프로젝트 하나로 강제하지 않는다.
+한 개의 약한 프로젝트 단서만으로는 `project_candidate_needs_review`로 올리지 않으며,
+최소 점수, 서로 다른 두 anchor 종류, 서로 다른 두 실제 anchor 값을 모두 충족해야 한다.
+같은 단어가 별칭과 용어에 중복 등록되거나 한 단서가 다른 단서 전체를 포함해도 두
+독립 단서로 세지 않는다. context card의 별칭·
+인명·역할·용어는 짧은 label만 허용하고, 문장이나 전사 본문 복사·secret 유사 값은
+검증에서 거부한다. card loader는 읽기 전에
+`_workmeta/<project>/project_context/cards/<card>.json` 모양을 확인하며 다른
+`_workmeta` JSON은 열지 않는다.
+JSON Schema는 구조를 검증하고 runtime은 그 위에 in-memory 권한 brand,
+artifact digest, 경로 custody를 추가 검증한다. context card의 절대경로 ref와
+상위경로 이동 ref는 둘 다 거부한다.
+
+현재 HPP pilot의 빠른 turbo와 강한 full `large-v3` 실행은 둘 다 선택한 session
+전체를 전사한다. 중요 구간 선별과 최대 90초 사람 확인 clip은 구현됐지만,
+강한 모델을 그 구간에만 실행하는 별도 bounded runner는 아직 없다. 따라서 현
+단계를 window-only strong 실행으로 과대 주장하지 않으며, partial run이 canonical
+whole-session 전사 포인터·완료 알림·delivery receipt를 덮어쓰게 하지 않는다.
+
+아직 구현 완료가 아닌 것은 실제 topic segmentation, production diarization,
+메일·일정·파일·PC 이력·RAG/Wiki retrieval 실행, context card producer,
+reconciliation writer, metadata 후보 투영, TaskDriver 연결과 공식 Task Engine write다.
+따라서 현재 Shadow 결과는 `accepted_project_route`, 공식 할일, 완료·결정 정본이 아니다.
+다른 PC는 구현 여부를
 `_workmeta/system/dev_worker_queue/autonomous_voice_context_resolver_v0.yaml`과
 검증 결과로 판단하며 문서만 보고 동작 완료로 간주하지 않는다.
+
+### 연구 근거와 적용 한계
+
+- Whisper는 대규모 weak supervision으로 다양한 음성 조건의 전사를 다룬다는
+  근거를 제공하지만, 특정 회사 통화의 고유명사·과제번호 정확도를 보증하지는
+  않는다: <https://arxiv.org/abs/2212.04356>
+- 공식 `large-v3`와 `large-v3-turbo` model card는 정확도/속도 역할을 구분하는
+  구현 근거다. Soulforge는 이 설명을 그대로 신뢰 점수로 쓰지 않고 실제 HPP
+  녹음 golden set으로 별도 평가한다:
+  <https://huggingface.co/openai/whisper-large-v3>,
+  <https://huggingface.co/openai/whisper-large-v3-turbo>
+- Silero VAD와 pyannote는 각각 음성 구간 탐지와 diarization 후보 도구다. VAD
+  구간과 화자 cluster는 발화자 실명 또는 업무 담당자 권한을 뜻하지 않는다:
+  <https://github.com/snakers4/silero-vad>, <https://arxiv.org/abs/1911.01255>
+- 발화행위/업무 약속 추출 연구는 후보 탐지에 참고할 수 있지만, 회사 메일·일정·
+  파일 이력과 대조하지 않은 음성 문장만으로 공식 할일을 만들 근거는 아니다:
+  <https://aclanthology.org/L16-1117/>, <https://arxiv.org/abs/2508.05055>
+
+위 자료는 구조 선택의 근거이며 Soulforge threshold의 calibration 증거가 아니다.
+사람 확인 비율, 중요 의미 누락률, 고유명사 CER/WER, 두 전사 합의율은 실제
+audio-adjudicated golden set에서 측정한 뒤에만 운영 threshold로 승격한다.
 
 ## dev-ERP 할일 후보 합류
 

@@ -12,6 +12,18 @@ versioned local-ASR runner. The runner uses resumable fixed windows, writes
 outputs only under each session's `analysis/local_asr/<run_id>/` directory, and
 does not replace the provider transcript.
 
+The semantic-label command is a body-safe shadow analyzer. Provider text has
+locator-only authority and can emit neither task/project candidates nor RAG
+query terms. Fast independent ASR screens the full recording; a material
+request, assignee, deadline, decision, commitment, cancellation, safety, cost,
+schedule, customer, design, or quality signal must be re-transcribed by the
+stronger local lane before a reviewable candidate can exist. Ambiguous trivial
+chat is ignored. If important meaning remains unresolved after the stronger
+lane, the output contains only a bounded 30–90 second audio-review window. Its
+stdout contains counts and states only. It does not print transcript text,
+accept a project, create an official task, infer that the speaker is the
+assignee, or write any file.
+
 ## Boundary
 
 - Raw audio and raw transcripts stay under `_workspaces/system/voice_capture/**`
@@ -300,6 +312,171 @@ metadata-only project-context source pointer with companion input kinds
 `mail` and `se_schedule`; it does not accept a project route automatically.
 `refresh-context-events --apply` can rebuild the metadata-only project-context
 event adapters for completed runs without reading or copying transcript text.
+
+### Semantic shadow labeling
+
+Run against a completed independent-ASR manifest. The transcript bytes must
+match the manifest SHA-256 and segment count before analysis starts:
+
+```bash
+npm run guild-hall:voice-capture -- semantic-label \
+  --analysis-manifest _workspaces/system/voice_capture/sessions/<date>/<session>/analysis/local_asr/<run>/analysis_manifest.json
+```
+
+For a newly imported session that has only the auxiliary provider transcript,
+an explicit session path can be inspected at the lower evidence ceiling:
+
+```bash
+npm run guild-hall:voice-capture -- semantic-label \
+  --session-dir _workspaces/system/voice_capture/sessions/<date>/<session>
+```
+
+`semantic-label` is dry-run only and rejects `--apply`. A provider-only run
+returns `independent_asr_required`, zero action candidates, zero project
+candidates, and zero retrieval terms. A fast independent run with a material
+signal returns `stronger_local_asr_required`; a fast run with no material signal
+returns `screened_no_material_signal_ignored` without asking a person to listen.
+Only a verified fast/strong artifact chain may expose Shadow action/project
+candidates. Verification binds the session manifest, actual source-audio hash,
+exact approved model hashes, every chunk output/receipt, and the transcript
+reconstructed from those chunks. This is local artifact-chain evidence, not
+hardware attestation. A global ASR quality flag is an uncalibrated signal,
+not authority to ask a person to listen. Only a material speech-act or critical
+value conflict between the verified pair returns `human_audio_review_required`
+and hashed time windows without transcript text. Project matching is
+segment-level, never recording-level.
+
+Production comparison accepts only the in-memory fast and strong runs created
+together by the same exact manifest/artifact verification call. The pair
+receipt identity and both object digests must agree. A copied, deserialized, or
+self-consistent synthetic receipt cannot grant strong-ASR authority or expose a
+candidate/comparison summary or create review clips. Verified run/comparison
+objects are digest-bound and recursively frozen before they reach downstream
+production helpers. The separately exported untrusted comparison helper never
+creates authority, and its review-audio fixture helper is restricted to an OS
+temporary test root. Runtime validation applies strict JSON Schemas to label
+runs, ASR comparisons, and project context cards, followed by authority,
+provenance, and digest checks that JSON Schema alone cannot express. Unknown
+fields, absolute context-card refs, and engine-identity changes fail closed.
+The loader rejects a context-card path before reading it unless it has the exact
+custody shape `_workmeta/<project>/project_context/cards/<card>.json`; arbitrary
+JSON elsewhere under `_workmeta` is never opened as a card. A verified ASR-pair
+receipt is also rechecked against the exact manifest bytes used for semantic
+analysis, closing substitution between provenance verification and labeling.
+
+The material screen explicitly covers ordinary polite Korean requests and
+offer-shaped requests, common unfinished-work forms, engineering units such as
+`Ω`, quality scores, safety grades, standalone submission deadlines, and values
+followed by Korean particles or count/period suffixes. Greetings,
+acknowledgements (including acknowledgement-plus-thanks), meal talk or meal
+preparation, generic courtesy wording,
+thanks, weather, routine closings such as `이상입니다`, repetition, and casual
+chat remain ignored even when global ASR quality is poor. The same word inside
+a real threshold or risk statement remains material, and common `덜 끝났다`
+wording remains a negated status rather than a completion claim. Compound
+closings and explicit no-problem statements remain non-material, while normal
+progress, test/measurement results, colloquial decisions, and delivery-risk
+wording remain material. Standalone schedule/deadline statements and explicit
+cost, customer churn, safety, and quality impacts also remain material. Negated
+future actions, `문제가 발생하지 않았습니다`, `비용은 증가하지 않았습니다`,
+and `... 가능성은 없습니다` do not become positive commitments or risks, and
+approval-condition wording remains conditional. Adjacent meal or chat
+quantities are excluded from an otherwise material comparison window.
+Any change to recording time, transcript ref,
+title, duration, turn grouping, transcript segments, context, or evidence lane
+changes the deterministic semantic run identity.
+Caller-supplied, versioned project
+context cards and at least two distinct, non-overlapping lexical anchors from
+independent anchor kinds can rank a review
+candidate, but cannot create `ai_provisional_project_route`: the DB-free P5
+context-card producer, ACL envelope, temporal acceptance receipt, and actual
+retrieval executor do not exist yet. Without those cards, project state remains
+unresolved while stronger-ASR request, commitment, decision, cancellation, and
+risk candidates remain preserved for later context resolution. Context-card
+entity values are compact labels only: sentence-like aliases, transcript-body
+copies, and secret-like values fail validation. The schemas are
+[`semantic_label_run.schema.json`](semantic_label_run.schema.json) and
+[`project_context_card.schema.json`](project_context_card.schema.json).
+
+Compare the fast and stronger independent runs without printing either body:
+
+```bash
+npm run guild-hall:voice-capture -- semantic-compare \
+  --fast-analysis-manifest <fast-run>/analysis_manifest.json \
+  --strong-analysis-manifest <strong-run>/analysis_manifest.json \
+  --context-cards <owner-approved-card-path,...> \
+  --allowed-external-model-root <owner-approved-model-root-if-needed>
+```
+
+The comparator aligns overlapping material units and includes adjacent context
+when comparing people, dates, project codes, and measured values. Equivalent
+meaning split at different ASR sentence boundaries is not escalated. A material
+speech-act mismatch, a missing material window, or conflicting critical values
+produces a 30–90 second review window. If such a window remains, prepare
+only that audio derivative under the same session:
+
+Candidates whose source units overlap an unresolved material conflict are
+removed from the safe summary. While any such conflict remains, the complete
+strong semantic run is not exposed to downstream consumers; only body-safe
+counts, blocked counts, the comparison state, and bounded review metadata are
+returned.
+
+```bash
+npm run guild-hall:voice-capture -- semantic-prepare-review \
+  --fast-analysis-manifest <fast-run>/analysis_manifest.json \
+  --strong-analysis-manifest <strong-run>/analysis_manifest.json \
+  --ffmpeg-binary <absolute-owner-installed-ffmpeg> \
+  --allowed-external-model-root <owner-approved-model-root-if-needed> \
+  --apply
+```
+
+The review manifest contains only time bounds, reason codes, refs, hashes, and
+sizes. It never contains transcript text and never changes a project or task.
+Production clip generation accepts only the original in-memory verified
+comparison and rechecks both the exact session-manifest digest and source-audio
+digest sealed into that comparison. A same-named session in another date folder
+or a coordinated manifest/audio replacement therefore fails closed.
+It does not reopen the audio pathname from ffmpeg. Instead it streams the
+verified source bytes to ffmpeg stdin, calculates SHA-256 over that exact
+consumed stream, and forces full-stream consumption before accepting the clip.
+Any stream, digest, or ffmpeg failure removes the temporary clip and fails
+closed.
+Semantic review windows store only `start_seconds + duration_seconds`; the clip
+manifest derives `end_seconds`, avoiding two independently mutable
+representations of the same bound.
+An absolute model path is accepted only when its real path stays under the
+explicit external model root supplied for that run; the root and model path are
+not copied into the public-safe comparison receipt.
+
+### Transcription model routing
+
+The cost-controlled default remains local whisper.cpp
+`large-v3-turbo-q5_0`, Korean, with VAD and overlap. The runner requests full
+JSON token probabilities, records only uncalibrated aggregate signals, and does
+not treat those probabilities as correctness guarantees. It is the whole-library
+first pass because it needs no API tokens and is materially faster than full
+`large-v3`. Do not re-transcribe the full library merely because one action
+candidate is uncertain.
+
+The target route is to re-transcribe only a bounded 30–90 second window when a material request,
+assignment, commitment, decision, cancellation, negation, person's name,
+project term, number, deadline, safety, cost, schedule, customer, design, or
+quality meaning is present. The first escalation is local full `large-v3`,
+evaluated on an audio-adjudicated golden set. If the two local lanes still give
+different important meanings, a person hears that bounded audio question only;
+the person is not asked to review greetings, acknowledgements, repetition,
+background noise, or unrelated chat. A cloud transcription or diarization model is
+not enabled by this package and requires a separate privacy, cost, retention,
+credential, and network approval. Semantic processing follows the same cost
+rule: deterministic labeling over all windows, then a stronger model only for
+ambiguous candidate windows rather than the entire transcript corpus.
+
+Current HPP pilot truth: both the turbo and full `large-v3` runs transcribe the
+whole selected session. The bounded-window selector and human-review clip
+builder exist, but a separate bounded strong-ASR runner does not yet exist.
+Until that runner is implemented, do not describe the strong lane as a
+window-only production execution and do not overwrite the canonical whole-
+session transcription pointer with a partial run.
 
 Enable the body-safe Telegram completion event on the always-on node:
 

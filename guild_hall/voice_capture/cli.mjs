@@ -23,6 +23,12 @@ import {
   getDeliveryStatus,
   prepareDeliveryReceipt,
 } from "./delivery_receipt.mjs";
+import {
+  analyzeVoiceSemanticManifest,
+  analyzeVoiceSemanticSession,
+  compareVoiceSemanticManifests,
+  prepareVoiceSemanticReviewClips,
+} from "./semantic_labeling.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -186,6 +192,111 @@ async function main() {
     return;
   }
 
+  if (command === "semantic-label") {
+    if (flagValue(args, "apply") === true) {
+      throw new Error("semantic-label is shadow dry-run only; --apply is not available");
+    }
+    const repoRoot = args["repo-root"] ? path.resolve(args["repo-root"]) : process.cwd();
+    const contextCardPaths = String(args["context-cards"] ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((value) => path.resolve(value));
+    let result;
+    if (args["analysis-manifest"] && !args["session-dir"]) {
+      result = await analyzeVoiceSemanticManifest({
+        repoRoot,
+        analysisManifestPath: path.resolve(args["analysis-manifest"]),
+        contextCardPaths,
+      });
+    } else if (args["session-dir"] && !args["analysis-manifest"]) {
+      result = await analyzeVoiceSemanticSession({
+        repoRoot,
+        sessionDir: path.resolve(args["session-dir"]),
+        contextCardPaths,
+        apply: false,
+      });
+    } else {
+      throw new Error("semantic-label requires exactly one of --analysis-manifest or --session-dir");
+    }
+    process.stdout.write(`${JSON.stringify({ ...result.summary, mode: "shadow_dry_run", applied: false }, null, 2)}\n`);
+    return;
+  }
+
+  if (command === "semantic-compare") {
+    if (flagValue(args, "apply") === true) {
+      throw new Error("semantic-compare is shadow dry-run only; --apply is not available");
+    }
+    if (!args["fast-analysis-manifest"] || !args["strong-analysis-manifest"]) {
+      throw new Error("semantic-compare requires --fast-analysis-manifest and --strong-analysis-manifest");
+    }
+    const repoRoot = args["repo-root"] ? path.resolve(args["repo-root"]) : process.cwd();
+    const allowedExternalModelRoots = args["allowed-external-model-root"]
+      ? [path.resolve(args["allowed-external-model-root"])]
+      : [];
+    const contextCardPaths = String(args["context-cards"] ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((value) => path.resolve(value));
+    const result = await compareVoiceSemanticManifests({
+      repoRoot,
+      fastAnalysisManifestPath: path.resolve(args["fast-analysis-manifest"]),
+      strongerAnalysisManifestPath: path.resolve(args["strong-analysis-manifest"]),
+      allowedExternalModelRoots,
+      contextCardPaths,
+    });
+    process.stdout.write(`${JSON.stringify({
+      ...result.summary,
+      semantic_action_candidate_count: result.semantic_summary.action_candidate_count,
+      semantic_action_candidate_kinds: result.semantic_summary.action_candidate_kinds,
+      semantic_blocked_action_candidate_count: result.semantic_summary.blocked_action_candidate_count,
+      semantic_project_candidate_count: result.semantic_summary.project_candidate_count,
+      semantic_blocked_project_candidate_count: result.semantic_summary.blocked_project_candidate_count,
+      semantic_project_resolution_state: result.semantic_summary.project_resolution_state,
+      semantic_comparison_gate_state: result.semantic_summary.comparison_gate_state,
+      mode: "shadow_dry_run",
+      applied: false,
+    }, null, 2)}\n`);
+    return;
+  }
+
+  if (command === "semantic-prepare-review") {
+    if (!args["fast-analysis-manifest"] || !args["strong-analysis-manifest"]) {
+      throw new Error("semantic-prepare-review requires --fast-analysis-manifest and --strong-analysis-manifest");
+    }
+    const repoRoot = args["repo-root"] ? path.resolve(args["repo-root"]) : process.cwd();
+    const allowedExternalModelRoots = args["allowed-external-model-root"]
+      ? [path.resolve(args["allowed-external-model-root"])]
+      : [];
+    const contextCardPaths = String(args["context-cards"] ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((value) => path.resolve(value));
+    const result = await prepareVoiceSemanticReviewClips({
+      repoRoot,
+      fastAnalysisManifestPath: path.resolve(args["fast-analysis-manifest"]),
+      strongerAnalysisManifestPath: path.resolve(args["strong-analysis-manifest"]),
+      allowedExternalModelRoots,
+      contextCardPaths,
+      ffmpegBinary: args["ffmpeg-binary"],
+      apply: flagValue(args, "apply") ?? false,
+    });
+    process.stdout.write(`${JSON.stringify({
+      schema_version: "soulforge.voice_semantic_review_clip_summary.v1",
+      applied: result.applied,
+      duplicate: result.duplicate ?? false,
+      comparison_id: result.plan.comparison_id,
+      recording_id: result.plan.recording_id,
+      clip_count: result.plan.clip_count,
+      manifest_ref: result.manifest_ref ?? null,
+      clip_refs: result.plan.clips.map((clip) => clip.clip_ref),
+      boundaries: result.plan.boundaries,
+    }, null, 2)}\n`);
+    return;
+  }
+
   printUsageAndExit();
 }
 
@@ -293,6 +404,9 @@ function printUsageAndExit() {
       "  node guild_hall/voice_capture/cli.mjs prepare-delivery --session-dir <path> --stage <plaud_import_ready|local_asr_ready> --producer-node <safe-id> [--apply] [--json]",
       "  node guild_hall/voice_capture/cli.mjs ack-delivery --session-id <id> --consumer-node <safe-id> [--apply] [--json]",
       "  node guild_hall/voice_capture/cli.mjs delivery-status --session-id <id> --consumer-node <safe-id> [--json]",
+      "  node guild_hall/voice_capture/cli.mjs semantic-label (--analysis-manifest <path> | --session-dir <path>) [--context-cards <path,...>]",
+      "  node guild_hall/voice_capture/cli.mjs semantic-compare --fast-analysis-manifest <path> --strong-analysis-manifest <path> [--context-cards <path,...>] [--allowed-external-model-root <path>]",
+      "  node guild_hall/voice_capture/cli.mjs semantic-prepare-review --fast-analysis-manifest <path> --strong-analysis-manifest <path> --ffmpeg-binary <path> [--context-cards <path,...>] [--allowed-external-model-root <path>] [--apply]",
       "",
       "Options:",
       "  --config <path>           JSON profile under _workspaces/system/voice_capture/config",

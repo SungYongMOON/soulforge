@@ -177,6 +177,7 @@ export function parseWhisperJson(value, window, options = {}) {
       source: "whisper_cpp_independent_local",
       analysis_run_id: options.runId ?? null,
       chunk_index: window.chunk_index,
+      asr_confidence: summarizeTokenProbabilities(segment?.tokens),
     });
   }
   return rows;
@@ -210,16 +211,54 @@ export function buildTranscriptQualityMetrics(kept, suppressed = []) {
   const rawCount = kept.length + suppressed.length;
   const uniqueCount = new Set([...kept, ...suppressed].map((segment) => normalizeRepeatedText(segment.content)).filter(Boolean)).size;
   const suppressedRatio = rawCount > 0 ? suppressed.length / rawCount : 0;
+  const tokenProbabilityCount = kept.reduce((count, segment) => count + Number(segment.asr_confidence?.token_probability_count ?? 0), 0);
+  const weightedProbabilitySum = kept.reduce((sum, segment) => {
+    const count = Number(segment.asr_confidence?.token_probability_count ?? 0);
+    const mean = Number(segment.asr_confidence?.mean_token_probability ?? 0);
+    return sum + count * mean;
+  }, 0);
+  const lowProbabilityTokenCount = kept.reduce((count, segment) => count + Number(segment.asr_confidence?.low_probability_token_count ?? 0), 0);
+  const meanTokenProbability = tokenProbabilityCount > 0 ? weightedProbabilitySum / tokenProbabilityCount : null;
+  const lowProbabilityTokenRatio = tokenProbabilityCount > 0 ? lowProbabilityTokenCount / tokenProbabilityCount : null;
   const flags = [];
   if (rawCount >= 20 && suppressedRatio >= 0.2) flags.push("high_exact_repetition_suppressed");
   if (kept.length === 0) flags.push("no_speech_transcript_segments");
+  if (tokenProbabilityCount > 0 && (meanTokenProbability < 0.65 || lowProbabilityTokenRatio >= 0.2)) flags.push("low_token_probability_signal");
   return {
     raw_segment_count: rawCount,
     retained_segment_count: kept.length,
     suppressed_segment_count: suppressed.length,
     unique_raw_text_count: uniqueCount,
     suppressed_segment_ratio: roundRatio(suppressedRatio),
+    token_probability_state: tokenProbabilityCount > 0 ? "available_uncalibrated" : "unavailable",
+    token_probability_count: tokenProbabilityCount,
+    mean_token_probability: meanTokenProbability == null ? null : roundRatio(meanTokenProbability),
+    low_probability_token_count: lowProbabilityTokenCount,
+    low_probability_token_ratio: lowProbabilityTokenRatio == null ? null : roundRatio(lowProbabilityTokenRatio),
     flags,
+  };
+}
+
+export function summarizeTokenProbabilities(tokens) {
+  const probabilities = Array.isArray(tokens)
+    ? tokens.map((token) => Number(token?.p)).filter((value) => Number.isFinite(value) && value >= 0 && value <= 1)
+    : [];
+  if (probabilities.length === 0) {
+    return {
+      state: "unavailable",
+      token_probability_count: 0,
+      mean_token_probability: null,
+      minimum_token_probability: null,
+      low_probability_token_count: 0,
+    };
+  }
+  const mean = probabilities.reduce((sum, value) => sum + value, 0) / probabilities.length;
+  return {
+    state: "available_uncalibrated",
+    token_probability_count: probabilities.length,
+    mean_token_probability: roundRatio(mean),
+    minimum_token_probability: roundRatio(Math.min(...probabilities)),
+    low_probability_token_count: probabilities.filter((value) => value < 0.5).length,
   };
 }
 
@@ -439,7 +478,7 @@ export async function analyzeLocalAsrSession(options = {}) {
         "-m", modelPath,
         "-f", wavPath,
         "-l", profile.language,
-        "-otxt", "-osrt", "-oj", "-of", outputBase,
+        "-otxt", "-osrt", "-ojf", "-of", outputBase,
         "-np",
       ];
       if (profile.decoding?.no_fallback) whisperArgs.push("-nf");

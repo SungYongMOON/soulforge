@@ -2,6 +2,130 @@
 
 ## 2026-07-22
 
+### Voice semantic Shadow labeler
+
+- Added a deterministic, body-safe voice semantic labeler for an explicitly
+  selected provider transcript or a SHA-256-bound completed local-ASR manifest.
+  It accounts for every segment and detects controlled request, assignment,
+  commitment, offer, decision, question, risk, completion-claim, cancellation,
+  deadline, negation, and reported-speech states without printing transcript
+  text or mutating accepted project routes or formal tasks.
+- Added strict run/context-card schemas, synthetic adversarial tests, project-
+  independent action candidates, conservative two-anchor project evidence, and
+  an explicit later retrieval plan spanning mail, SE schedule, files, PC work,
+  run logs, voice, RAG, and Wiki. The CLI is Shadow dry-run only and rejects
+  `--apply`; context retrieval, context-card production, candidate projection,
+  TaskDriver, and authoritative writers remain later gates.
+- Fixed transcription cost policy on local `large-v3-turbo-q5_0` as the default
+  whole-library pass and short ambiguous windows as the target stronger route.
+  The current HPP pilot still uses whole-session `large-v3`; the separate
+  bounded strong-ASR runner remains a later slice. Any cloud model requires a
+  separate privacy/cost/network gate.
+- Gave provider/PLAUD transcript text zero task, project, and retrieval-term
+  authority; fast independent ASR can only select material windows for a
+  stronger local pass, while unclear trivial conversation is discarded and
+  only unresolved material meaning can request a bounded human audio review.
+- Switched whisper.cpp output to full JSON so uncalibrated token-probability
+  aggregates can be retained as quality signals without claiming calibrated
+  correctness or exposing transcript text in summaries.
+- Added a body-safe fast-versus-stronger ASR comparator and bounded review-audio
+  builder. It tolerates equivalent critical values split across adjacent ASR
+  turn boundaries, escalates only material semantic/value conflicts, and caps a
+  human clip at 90 seconds without transcript bodies or task/project mutation.
+- Bound strong-ASR authority to a verified fast/strong manifest pair, exact
+  approved model artifacts, the actual session-audio digest, reconstructed
+  transcript bytes from every chunk output/receipt, and a deterministic
+  provenance receipt. The receipt explicitly states that this is a local
+  artifact chain rather than hardware attestation. Global quality flags cannot independently trigger human
+  review; review audio is source-hash checked and replay-bound to the exact
+  window plan. Closed candidate/driver taxonomies and added adversarial guards
+  for reported, negated, prohibited, questioned, conditional, incomplete-state,
+  one-sided critical-value, and secret-like language. Review-window runtime and
+  JSON Schema bounds now agree on an exact positive duration capped at 90 seconds.
+- Added explicit regressions for ordinary Korean polite requests (including
+  `보내줄래요` and `확인 가능하실까요`), unfinished work wording, and
+  particle/suffix-bearing counts such as `3개를`, `3개씩`, or `3주간` so
+  important meaning cannot be discarded as chat or falsely treated as ASR
+  agreement. Greetings, acknowledgements, meals, thanks, weather, routine
+  closings such as `이상입니다`, and casual chat remain no-review inputs, while
+  genuine threshold/risk wording containing `이상` remains material. Common
+  `덜 끝났습니다` wording stays a negated incomplete status rather than a
+  completion claim. Semantic run identity now binds all
+  output-determining recording/turn inputs; transcript-derived speaker labels
+  are secret-filtered, including generic token/cookie/credential/authorization
+  key-value forms and bearer credentials; and completed ASR provenance rejects missing or extra
+  chunk JSON, receipt, text, or subtitle artifacts.
+- Closed the in-memory authority gap: only module-branded fast and strong runs
+  produced together by exact manifest/artifact verification can enter production
+  comparison or candidate-summary projection. Serialized or self-consistent
+  synthetic receipts remain untrusted; exported summary and review-clip helpers
+  enforce the same in-memory provenance brands. Branded run/comparison objects
+  are digest-bound and recursively frozen; the untrusted comparison path cannot
+  produce summaries, and its review fixture is OS-temp-only. Runtime validation
+  executes strict JSON Schemas plus authority/provenance checks for label runs,
+  ASR comparisons, and project context cards, including unknown fields,
+  absolute refs, and engine identity. Review windows now keep only start and
+  duration; review-clip manifests derive the end bound.
+- Added Korean regressions for compound routine closings and negated risk
+  statements, plus normal-progress status, test/measurement results,
+  colloquial decisions, and delivery-risk wording so ordinary business signals
+  are neither discarded nor confused with casual conversation.
+- Extended the material boundary to reading requests, self-assigned work,
+  ordinary decisions, progress percentages, engineering values, standalone
+  deadlines, and explicit cost/customer/safety/quality impacts. Negated future
+  actions, approval conditions, and negated risk possibilities remain
+  non-authoritative; acknowledgements and nearby meal quantities cannot create
+  human-listen windows. Korean credential labels are filtered from speaker and
+  entity surfaces.
+- Bound production comparison to both frozen fast and strong runs from the same
+  verified pair receipt, closed temporary junction escape in the untrusted
+  fixture helper, bound transcript refs into run identity, aligned relative-ref
+  and project-ref schema/runtime checks, and made the two-anchor/minimum-score
+  project gate effective. Reported casual speech without an action signal no
+  longer produces an obligation candidate.
+- Hardened the final relevance boundary so courtesy and meal-preparation wording,
+  negated risk events, and negated business changes remain no-review inputs,
+  while `Ω` values, standalone submission dates, quality scores, safety grades,
+  and customer-churn risks remain material. Project evidence now needs two
+  distinct lexical values as well as two anchor kinds, and context-card entity
+  values reject sentence-like transcript copies. Korean password, PIN,
+  authentication-code, and access-key variants remain excluded from output.
+- Closed fresh-review gaps for acknowledgement-plus-thanks, colloquial Korean
+  requests/commitments/decisions, short relative deadlines, delivery-delay
+  risks, Korean `옴`/temperature values, and delimiter-free Korean credential
+  labels. Review windows are now exactly 30–90 seconds. Pair-authorized semantic
+  analysis rebinds the reread manifest bytes to the provenance digest, and the
+  context-card loader rejects every path outside the exact project card custody
+  shape before opening JSON. Contained lexical phrases count as one project
+  anchor rather than two. The behavior change advances the deterministic
+  semantic engine to `1.10.7`.
+- Bound production review-clip creation to the verified pair's exact session-
+  manifest and source-audio digests, preventing a same-named session directory
+  or coordinated manifest/audio replacement from borrowing comparison
+  authority. Added regressions for colloquial Korean requests, promises,
+  decisions, bare deadlines, delivery delay, copula-free engineering values,
+  acknowledgement-plus-`고맙습니다`, and delimiter-free credential labels.
+- Added indirect and noun-form polite request regressions for `송부`, `회신`,
+  `답변`, and `...주면 좋겠습니다` so ordinary office requests reach the
+  stronger-ASR gate instead of being discarded as context.
+- Streamed the verified source bytes themselves into ffmpeg while hashing the
+  exact consumed stream, eliminating the source-path check/use interval and
+  deleting temporary clip output after runner, digest, read, conflict, rename,
+  or process failure. The full-
+  stream verification sink uses explicit `pipe:1` so Windows cannot create a
+  stray file named `-`.
+- Separated Korean polite requests from self-commitments, added conditional
+  `...는 대로` and reported `달랍니다` boundaries, and retained ordinary
+  progress, inspection-result, measured-voltage, and delayed-shipment wording
+  as material. Explicit greetings/courtesy/meal talk still stop cheaply, while
+  low-quality nontrivial text can no longer prove that a stronger ASR pass is
+  unnecessary. Atomic manifest failure now removes its temporary file too.
+- Generalized self-commitment detection around an allowlist of work verbs and
+  Korean commitment endings, covering `송부하겠습니다`, `전달하겠습니다`,
+  `공유하겠습니다`, and `확인해보겠습니다` without restoring the broad
+  `하겠습니다` match that confused courtesy wording with a promise.
+  (worker: codex_gpt-5.6-sol)
+
 ### Outlook request-table bounded width
 
 - Set the structured Outlook mail preset to render request tables left-aligned at

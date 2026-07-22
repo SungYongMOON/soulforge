@@ -52,7 +52,7 @@ test("local ASR parser converts chunk-relative offsets and removes overlap dupli
   const rows = parseWhisperJson({
     transcription: [
       { offsets: { from: 0, to: 1000 }, text: "중복" },
-      { offsets: { from: 2000, to: 4000 }, text: "유효 구간" },
+      { offsets: { from: 2000, to: 4000 }, text: "유효 구간", tokens: [{ p: 0.9 }, { p: 0.4 }] },
       { offsets: { from: 11500, to: 13000 }, text: "다음 구간" },
     ],
   }, window, { runId: "fixture" });
@@ -61,6 +61,13 @@ test("local ASR parser converts chunk-relative offsets and removes overlap dupli
   assert.equal(rows[0].end_seconds, 12);
   assert.equal(rows[0].speaker, "UNKNOWN");
   assert.equal(rows[0].analysis_run_id, "fixture");
+  assert.deepEqual(rows[0].asr_confidence, {
+    state: "available_uncalibrated",
+    token_probability_count: 2,
+    mean_token_probability: 0.65,
+    minimum_token_probability: 0.4,
+    low_probability_token_count: 1,
+  });
 });
 
 test("local ASR repetition filter keeps one nearby phrase and exposes aggregate quality flags", () => {
@@ -84,6 +91,11 @@ test("local ASR repetition filter keeps one nearby phrase and exposes aggregate 
     suppressed_segment_count: 1,
     unique_raw_text_count: 2,
     suppressed_segment_ratio: 0.25,
+    token_probability_state: "unavailable",
+    token_probability_count: 0,
+    mean_token_probability: null,
+    low_probability_token_count: 0,
+    low_probability_token_ratio: null,
     flags: [],
   });
 });
@@ -174,6 +186,7 @@ test("local ASR writes versioned independent transcript without replacing provid
     assert.equal(whisperArgs.includes("--vad"), true);
     assert.equal(whisperArgs.includes("-nf"), true);
     assert.equal(whisperArgs.includes("-sns"), true);
+    assert.equal(whisperArgs.includes("-ojf"), true);
     assert.equal(whisperArgs[whisperArgs.indexOf("-mc") + 1], "0");
 
     const providerTranscript = await readFile(path.join(fixture.sessionDir, "transcript.txt"), "utf8");

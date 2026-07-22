@@ -1,0 +1,487 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/voice_semantic_label_run.v1.json",
+  "title": "Soulforge voice semantic shadow run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "recording_ref", "evidence_provenance", "engine", "evidence_gate", "recording_classification", "context", "segment_labels", "action_candidates", "review_windows", "retrieval_plan", "project_resolution", "coverage", "boundaries"],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "recording_ref": {
+            "type": "object",
+            "properties": {
+              "evidence_role": { "type": "string", "pattern": "(?:[Pp][Rr][Oo][Vv][Ii][Dd][Ee][Rr]|[Pp][Ll][Aa][Uu][Dd]|[Aa][Uu][Xx][Ii][Ll][Ii][Aa][Rr][Yy])" }
+            },
+            "required": ["evidence_role"]
+          }
+        },
+        "required": ["recording_ref"]
+      },
+      "then": {
+        "properties": {
+          "evidence_gate": {
+            "type": "object",
+            "properties": { "input_class": { "const": "provider_locator_only" } },
+            "required": ["input_class"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_gate": {
+            "type": "object",
+            "properties": { "input_class": { "const": "provider_locator_only" } },
+            "required": ["input_class"]
+          }
+        },
+        "required": ["evidence_gate"]
+      },
+      "then": {
+        "properties": {
+          "engine": {
+            "type": "object",
+            "properties": { "claim_ceiling": { "const": "locator_only_untrusted" } },
+            "required": ["claim_ceiling"]
+          },
+          "evidence_gate": {
+            "type": "object",
+            "properties": {
+              "action_candidate_emission_allowed": { "const": false },
+              "project_candidate_emission_allowed": { "const": false }
+            },
+            "required": ["action_candidate_emission_allowed", "project_candidate_emission_allowed"]
+          },
+          "recording_ref": {
+            "type": "object",
+            "properties": { "evidence_role": { "const": "provider_transcript_auxiliary_unverified" } },
+            "required": ["evidence_role"]
+          },
+          "evidence_provenance": { "type": "null" },
+          "segment_labels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "project_match": {
+                  "type": "object",
+                  "properties": { "candidates": { "type": "array", "maxItems": 0 } },
+                  "required": ["candidates"]
+                },
+                "disposition": { "const": "locator_only_untrusted" }
+              },
+              "required": ["project_match", "disposition"]
+            }
+          },
+          "action_candidates": { "type": "array", "maxItems": 0 },
+          "retrieval_plan": {
+            "type": "object",
+            "properties": {
+              "query_terms": { "type": "array", "maxItems": 0 },
+              "candidate_project_refs": { "type": "array", "maxItems": 0 }
+            },
+            "required": ["query_terms", "candidate_project_refs"]
+          },
+          "project_resolution": {
+            "type": "object",
+            "properties": { "candidates": { "type": "array", "maxItems": 0 } },
+            "required": ["candidates"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_gate": {
+            "type": "object",
+            "properties": { "input_class": { "const": "independent_asr_fast" } },
+            "required": ["input_class"]
+          }
+        },
+        "required": ["evidence_gate"]
+      },
+      "then": {
+        "properties": {
+          "recording_ref": {
+            "type": "object",
+            "properties": { "evidence_role": { "const": "independent_machine_transcript_unverified" } },
+            "required": ["evidence_role"]
+          },
+          "evidence_provenance": { "type": "null" },
+          "evidence_gate": {
+            "type": "object",
+            "properties": {
+              "action_candidate_emission_allowed": { "const": false },
+              "project_candidate_emission_allowed": { "const": false }
+            },
+            "required": ["action_candidate_emission_allowed", "project_candidate_emission_allowed"]
+          },
+          "action_candidates": { "type": "array", "maxItems": 0 },
+          "retrieval_plan": {
+            "type": "object",
+            "properties": {
+              "query_terms": { "type": "array", "maxItems": 0 },
+              "candidate_project_refs": { "type": "array", "maxItems": 0 }
+            },
+            "required": ["query_terms", "candidate_project_refs"]
+          },
+          "project_resolution": {
+            "type": "object",
+            "properties": { "candidates": { "type": "array", "maxItems": 0 } },
+            "required": ["candidates"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "evidence_gate": {
+            "type": "object",
+            "properties": { "input_class": { "const": "independent_asr_stronger" } },
+            "required": ["input_class"]
+          }
+        },
+        "required": ["evidence_gate"]
+      },
+      "then": {
+        "properties": {
+          "recording_ref": {
+            "type": "object",
+            "properties": { "evidence_role": { "const": "independent_machine_transcript_stronger_verified_pair" } },
+            "required": ["evidence_role"]
+          },
+          "evidence_provenance": { "$ref": "#/$defs/asrPairProvenance" },
+          "evidence_gate": {
+            "type": "object",
+            "properties": {
+              "state": { "const": "shadow_reviewable" },
+              "action_candidate_emission_allowed": { "const": true },
+              "project_candidate_emission_allowed": { "const": true },
+              "next_step": { "const": "shadow_context_correlation" }
+            },
+            "required": ["state", "action_candidate_emission_allowed", "project_candidate_emission_allowed", "next_step"]
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.voice_semantic_label_run.v1" },
+    "run_id": { "type": "string", "pattern": "^vsl_[a-f0-9]{24}$" },
+    "recording_ref": { "$ref": "#/$defs/recordingRef" },
+    "evidence_provenance": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/asrPairProvenance" }
+      ]
+    },
+    "engine": { "$ref": "#/$defs/engine" },
+    "evidence_gate": { "$ref": "#/$defs/evidenceGate" },
+    "recording_classification": { "$ref": "#/$defs/recordingClassification" },
+    "context": { "$ref": "#/$defs/context" },
+    "segment_labels": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/segmentLabel" } },
+    "action_candidates": { "type": "array", "items": { "$ref": "#/$defs/actionCandidate" } },
+    "review_windows": { "type": "array", "items": { "$ref": "#/$defs/reviewWindow" } },
+    "retrieval_plan": { "$ref": "#/$defs/retrievalPlan" },
+    "project_resolution": { "$ref": "#/$defs/projectResolution" },
+    "coverage": { "$ref": "#/$defs/coverage" },
+    "boundaries": { "$ref": "#/$defs/boundaries" }
+  },
+  "$defs": {
+    "nullableString": { "type": ["string", "null"] },
+    "stringArray": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "safeRelativeRef": { "type": "string", "minLength": 1, "not": { "pattern": "(^[\\\\/]|^[A-Za-z][A-Za-z0-9+.-]*:|(^|[\\\\/])\\.\\.([\\\\/]|$))" } },
+    "safeExtractedValue": {
+      "type": "string",
+      "not": {
+        "anyOf": [
+          { "pattern": "(?:[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Pp][Aa][Ss][Ss][Ww][Dd]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Pp][Ii][ _-]?[Kk][Ee][Yy]|[Aa][Cc][Cc][Ee][Ss][Ss][ _-]?[Tt][Oo][Kk][Ee][Nn]|[Bb][Ee][Aa][Rr][Ee][Rr])\\s*[:=_-]?\\s*\\S+" },
+          { "pattern": "(?:[Tt][Oo][Kk][Ee][Nn]|[Cc][Oo][Oo][Kk][Ii][Ee]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]|[Aa][Uu][Tt][Hh][Oo][Rr][Ii][Zz][Aa][Tt][Ii][Oo][Nn])\\s*[:=_-]\\s*\\S+" },
+          { "pattern": "(?:비밀번호|비번|암호|패스워드|토큰|인증(?:정보|키|코드|번호)|보안(?:키|코드)|접속(?:키|암호)|쿠키|접근\\s*키|[Aa][Pp][Ii]\\s*키|[Pp][Ii][Nn]|[Oo][Tt][Pp])(?:(?:\\s*(?:[:=_-]|은|는|이|가)\\s*|\\s+)\\S+|[A-Za-z0-9_-]{4,})" },
+          { "pattern": "\\b[Ss][Kk]-(?:[Pp][Rr][Oo][Jj]-)?[A-Za-z0-9_-]{10,}\\b" },
+          { "pattern": "\\b(?:[Gg][Hh][Pp]|[Gg][Ii][Tt][Hh][Uu][Bb]_[Pp][Aa][Tt]|[Xx][Oo][Xx][bBaApPrRsS])[-_A-Za-z0-9]{10,}\\b" },
+          { "pattern": "\\b[Aa][Kk][Ii][Aa][A-Z0-9]{12,}\\b" },
+          { "pattern": "\\b[Ee][Yy][Jj][A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\b" }
+        ]
+      }
+    },
+    "nullableSafeExtractedValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/safeExtractedValue" }
+      ]
+    },
+    "safeExtractedStringArray": { "type": "array", "items": { "$ref": "#/$defs/safeExtractedValue" }, "uniqueItems": true },
+    "countMap": { "type": "object", "propertyNames": { "type": "string" }, "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "asrPairLane": {
+      "type": "object", "additionalProperties": false,
+      "required": ["manifest_sha256", "run_id", "engine", "model_id", "model_sha1", "model_sha256", "transcript_sha256", "execution_artifact_set_sha256", "transcript_reconstruction_verified"],
+      "properties": {
+        "manifest_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "run_id": { "type": "string", "minLength": 1 },
+        "engine": { "const": "whisper.cpp" },
+        "model_id": { "enum": ["large-v3-turbo-q5_0", "large-v3-q5_0"] },
+        "model_sha1": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "model_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "transcript_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "execution_artifact_set_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "transcript_reconstruction_verified": { "const": true }
+      }
+    },
+    "asrPairProvenance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "session_id", "session_manifest_sha256", "source_sha256", "source_audio_hash_verified", "fast", "stronger", "verification_state", "execution_attestation_state", "receipt_id"],
+      "properties": {
+        "schema_version": { "const": "soulforge.voice_asr_pair_provenance.v1" },
+        "session_id": { "type": "string", "minLength": 1 },
+        "session_manifest_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source_audio_hash_verified": { "const": true },
+        "fast": {
+          "allOf": [
+            { "$ref": "#/$defs/asrPairLane" },
+            { "type": "object", "properties": { "model_id": { "const": "large-v3-turbo-q5_0" }, "model_sha256": { "const": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2" } } }
+          ]
+        },
+        "stronger": {
+          "allOf": [
+            { "$ref": "#/$defs/asrPairLane" },
+            { "type": "object", "properties": { "model_id": { "const": "large-v3-q5_0" }, "model_sha256": { "const": "d75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1" } } }
+          ]
+        },
+        "verification_state": { "const": "source_model_transcript_and_execution_artifacts_verified" },
+        "execution_attestation_state": { "const": "local_artifact_chain_not_hardware_attested" },
+        "receipt_id": { "type": "string", "pattern": "^vap_[a-f0-9]{24}$" }
+      }
+    },
+    "recordingRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["recording_id", "transcript_ref", "transcript_sha256", "transcript_schema_versions", "recorded_at", "evidence_role", "transcript_quality"],
+      "properties": {
+        "recording_id": { "type": "string" }, "transcript_ref": { "$ref": "#/$defs/safeRelativeRef" },
+        "transcript_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "transcript_schema_versions": { "$ref": "#/$defs/stringArray" }, "recorded_at": { "$ref": "#/$defs/nullableString" },
+        "evidence_role": { "type": "string" }, "transcript_quality": { "type": "string" }
+      }
+    },
+    "engine": {
+      "type": "object", "additionalProperties": false,
+      "required": ["engine_id", "engine_version", "ruleset_sha256", "mode", "claim_ceiling"],
+      "properties": {
+        "engine_id": { "const": "soulforge_voice_semantic_baseline" }, "engine_version": { "const": "1.10.7" },
+        "ruleset_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "mode": { "enum": ["transcript_only_rules", "context_assisted_rules"] }, "claim_ceiling": { "enum": ["machine_generated_reviewable", "locator_only_untrusted"] }
+      }
+    },
+    "evidenceGate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["input_class", "state", "reason_codes", "action_candidate_emission_allowed", "project_candidate_emission_allowed", "next_step"],
+      "properties": {
+        "input_class": { "enum": ["provider_locator_only", "independent_asr_fast", "independent_asr_stronger"] },
+        "state": { "enum": ["independent_asr_required", "stronger_local_asr_required", "human_audio_review_required", "shadow_reviewable", "screened_no_material_signal_ignored"] },
+        "reason_codes": { "$ref": "#/$defs/stringArray" },
+        "action_candidate_emission_allowed": { "type": "boolean" },
+        "project_candidate_emission_allowed": { "type": "boolean" },
+        "next_step": { "enum": ["run_independent_fast_asr", "run_stronger_local_asr_on_material_windows", "request_bounded_human_audio_review", "shadow_context_correlation", "no_further_action"] }
+      }
+    },
+    "recordingClassification": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type_candidate", "evidence_codes", "confidence_band", "human_confirmed"],
+      "properties": {
+        "type_candidate": { "enum": ["unknown", "phone_call", "personal_memo", "meeting", "meeting_candidate", "personal_memo_candidate"] },
+        "evidence_codes": { "$ref": "#/$defs/stringArray" }, "confidence_band": { "enum": ["high", "low", "unknown"] },
+        "human_confirmed": { "const": false }
+      }
+    },
+    "context": {
+      "type": "object", "additionalProperties": false,
+      "required": ["project_context_card_refs", "project_context_digest", "missing_context_kinds"],
+      "properties": {
+        "project_context_card_refs": { "$ref": "#/$defs/stringArray" },
+        "project_context_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "missing_context_kinds": { "$ref": "#/$defs/stringArray" }
+      }
+    },
+    "entity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "value", "value_sha256"],
+      "properties": {
+        "kind": { "type": "string" }, "value": { "$ref": "#/$defs/safeExtractedValue" },
+        "value_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "role_label": { "type": "string" },
+        "project_ref": { "type": "string" }, "person_ref": { "type": "string" }, "card_ref": { "type": "string" }
+      }
+    },
+    "anchor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "value_sha256", "card_ref", "weight"],
+      "properties": { "kind": { "type": "string" }, "value_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "card_ref": { "type": "string" }, "weight": { "type": "number" } }
+    },
+    "projectCandidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["project_ref", "card_ref", "score", "independent_anchor_kinds", "independent_anchor_value_count", "supporting_evidence", "contradictory_evidence"],
+      "properties": {
+        "project_ref": { "type": "string" }, "card_ref": { "type": "string" }, "score": { "type": "number" },
+        "independent_anchor_kinds": { "$ref": "#/$defs/stringArray" },
+        "independent_anchor_value_count": { "type": "integer", "minimum": 0 },
+        "supporting_evidence": { "type": "array", "items": { "$ref": "#/$defs/anchor" } },
+        "contradictory_evidence": { "type": "array", "items": { "$ref": "#/$defs/anchor" } }
+      }
+    },
+    "projectMatch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "candidates"],
+      "properties": {
+        "state": { "enum": ["unresolved_needs_context", "project_candidate_needs_review", "exception_review_required"] },
+        "candidates": { "type": "array", "items": { "$ref": "#/$defs/projectCandidate" } }
+      }
+    },
+    "segmentLabel": {
+      "type": "object", "additionalProperties": false,
+      "required": ["unit_id", "source_segment_ids", "start_seconds", "end_seconds", "speaker_label", "content_sha256", "content_char_count", "speech_acts", "polarity", "modality", "attribution_mode", "negation_scope", "speech_decision_state", "speech_commitment_state", "action_codes", "entities", "project_match", "disposition"],
+      "properties": {
+        "unit_id": { "type": "string", "pattern": "^unit_[0-9]+_[0-9]+$" },
+        "source_segment_ids": { "type": "array", "minItems": 1, "items": { "type": ["integer", "string"] } },
+        "start_seconds": { "type": ["number", "null"] }, "end_seconds": { "type": ["number", "null"] }, "speaker_label": { "$ref": "#/$defs/safeExtractedValue" },
+        "content_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "content_char_count": { "type": "integer", "minimum": 0 },
+        "speech_acts": { "type": "array", "items": { "enum": ["cancellation", "assignment", "request", "offer", "commitment", "decision", "open_question", "risk_or_issue", "status_update", "result_report", "acknowledgement", "deadline_mention", "reported_speech", "conditional_statement", "context_statement"] }, "uniqueItems": true }, "polarity": { "enum": ["affirmed", "negated", "mixed", "unknown"] },
+        "modality": { "enum": ["actual", "required", "intended", "offered", "conditional", "uncertain", "unknown"] },
+        "attribution_mode": { "enum": ["direct_current_speaker", "reported_unknown_actor", "unknown"] },
+        "negation_scope": { "enum": ["none", "necessity_or_action", "completion", "unknown"] },
+        "speech_decision_state": { "enum": ["not_applicable", "agreed_speech_only", "tentative", "reported_only"] },
+        "speech_commitment_state": { "enum": ["not_applicable", "self_committed_candidate", "third_party_reported", "offered"] },
+        "action_codes": { "type": "array", "items": { "enum": ["send_or_share", "check_or_confirm", "review", "prepare_or_create", "contact", "schedule", "test_or_measure", "fix_or_update", "purchase_or_quote", "decide", "completion_state"] }, "uniqueItems": true }, "entities": { "type": "array", "items": { "$ref": "#/$defs/entity" } },
+        "project_match": { "$ref": "#/$defs/projectMatch" },
+        "disposition": { "enum": ["actionable_candidate", "reviewable_candidate", "context_with_action_signal", "context_only", "locator_only_untrusted", "material_ambiguity_deferred"] }
+      }
+    },
+    "actorCandidates": {
+      "type": "object", "additionalProperties": false,
+      "required": ["speaker_candidate", "requester_candidate", "assignee_candidate", "mentioned_person_candidates"],
+      "properties": {
+        "speaker_candidate": { "$ref": "#/$defs/nullableSafeExtractedValue" }, "requester_candidate": { "$ref": "#/$defs/nullableSafeExtractedValue" },
+        "assignee_candidate": { "$ref": "#/$defs/nullableSafeExtractedValue" }, "mentioned_person_candidates": { "$ref": "#/$defs/safeExtractedStringArray" }
+      }
+    },
+    "actionCandidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["candidate_id", "lineage_id", "revision_id", "candidate_kind", "source_unit_ref", "driver_kind", "decision_application_state", "project_ref", "project_resolution_state", "actor_candidates", "action_codes", "due_candidate_state", "supporting_source_refs", "contradictory_evidence_count", "unresolved_fields", "exception_codes", "claim_ceiling"],
+      "allOf": [
+        {
+          "if": { "type": "object", "properties": { "candidate_kind": { "const": "assignment" } }, "required": ["candidate_kind"] },
+          "then": { "type": "object", "properties": { "driver_kind": { "const": "assignment" } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "candidate_kind": { "const": "request" } }, "required": ["candidate_kind"] },
+          "then": { "type": "object", "properties": { "driver_kind": { "const": "request" } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "candidate_kind": { "const": "decision" } }, "required": ["candidate_kind"] },
+          "then": { "type": "object", "properties": { "driver_kind": { "const": "decision" } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "candidate_kind": { "const": "risk_followup" } }, "required": ["candidate_kind"] },
+          "then": { "type": "object", "properties": { "driver_kind": { "const": "risk" } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "candidate_kind": { "const": "completion_claim_review" } }, "required": ["candidate_kind"] },
+          "then": { "type": "object", "properties": { "driver_kind": { "const": "result" } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "candidate_kind": { "enum": ["cancellation_or_hold", "commitment", "reported_obligation_review"] } }, "required": ["candidate_kind"] },
+          "then": { "type": "object", "properties": { "driver_kind": { "const": "followup" } } }
+        }
+      ],
+      "properties": {
+        "candidate_id": { "type": "string", "pattern": "^vac_[a-f0-9]{24}$" }, "candidate_kind": { "enum": ["cancellation_or_hold", "assignment", "request", "commitment", "decision", "risk_followup", "completion_claim_review", "reported_obligation_review"] },
+        "lineage_id": { "type": "string", "pattern": "^vad_[a-f0-9]{24}$" }, "revision_id": { "type": "string", "pattern": "^var_[a-f0-9]{24}$" },
+        "source_unit_ref": { "type": "string" }, "driver_kind": { "enum": ["followup", "assignment", "request", "decision", "risk", "result"] }, "decision_application_state": { "const": "candidate" },
+        "project_ref": { "$ref": "#/$defs/nullableString" }, "project_resolution_state": { "type": "string" },
+        "actor_candidates": { "$ref": "#/$defs/actorCandidates" }, "action_codes": { "$ref": "#/$defs/stringArray" },
+        "due_candidate_state": { "type": "string" }, "supporting_source_refs": { "$ref": "#/$defs/stringArray" },
+        "contradictory_evidence_count": { "type": "integer", "minimum": 0 }, "unresolved_fields": { "$ref": "#/$defs/stringArray" },
+        "exception_codes": { "$ref": "#/$defs/stringArray" }, "claim_ceiling": { "type": "string" }
+      }
+    },
+    "reviewWindow": {
+      "type": "object", "additionalProperties": false,
+      "required": ["window_id", "start_seconds", "duration_seconds", "source_unit_refs", "importance_state", "importance_reason_codes", "escalation_state", "human_listen_required", "transcript_text_copied"],
+      "properties": {
+        "window_id": { "type": "string", "pattern": "^vrw_[a-f0-9]{24}$" },
+        "start_seconds": { "type": "number", "minimum": 0 },
+        "duration_seconds": { "type": "number", "minimum": 30, "maximum": 90 },
+        "source_unit_refs": { "$ref": "#/$defs/stringArray" },
+        "importance_state": { "const": "material_ambiguity_candidate" },
+        "importance_reason_codes": { "$ref": "#/$defs/stringArray" },
+        "escalation_state": { "enum": ["independent_asr_required", "stronger_local_asr_required", "human_audio_review_required"] },
+        "human_listen_required": { "type": "boolean" },
+        "transcript_text_copied": { "const": false }
+      }
+    },
+    "queryTerm": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "value", "value_sha256"],
+      "properties": { "kind": { "type": "string" }, "value": { "$ref": "#/$defs/safeExtractedValue" }, "value_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+    },
+    "timeWindow": {
+      "type": "object", "additionalProperties": false, "required": ["state", "start", "end"],
+      "properties": { "state": { "enum": ["bounded", "unknown"] }, "start": { "$ref": "#/$defs/nullableString" }, "end": { "$ref": "#/$defs/nullableString" } }
+    },
+    "retrievalGuards": {
+      "type": "object", "additionalProperties": false,
+      "required": ["transcript_only_auto_accept", "implicit_cross_project_fallback", "unknown_project_candidate_preserved", "retrieval_result_is_not_authority"],
+      "properties": {
+        "transcript_only_auto_accept": { "const": false }, "implicit_cross_project_fallback": { "const": false },
+        "unknown_project_candidate_preserved": { "const": true }, "retrieval_result_is_not_authority": { "const": true }
+      }
+    },
+    "retrievalPlan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "source_kinds", "query_terms", "time_window", "candidate_project_refs", "required_result_fields", "guards"],
+      "properties": {
+        "mode": { "const": "hybrid_exact_metadata_then_semantic" }, "source_kinds": { "$ref": "#/$defs/stringArray" },
+        "query_terms": { "type": "array", "items": { "$ref": "#/$defs/queryTerm" } }, "time_window": { "$ref": "#/$defs/timeWindow" },
+        "candidate_project_refs": { "$ref": "#/$defs/stringArray" }, "required_result_fields": { "$ref": "#/$defs/stringArray" },
+        "guards": { "$ref": "#/$defs/retrievalGuards" }
+      }
+    },
+    "projectResolutionCandidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["project_ref", "score", "unit_count", "contradictory_evidence_count"],
+      "properties": { "project_ref": { "type": "string" }, "score": { "type": "number" }, "unit_count": { "type": "integer" }, "contradictory_evidence_count": { "type": "integer" } }
+    },
+    "projectResolution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["state", "selected_project_unit_counts", "candidates", "whole_recording_single_project_forced", "human_acceptance_state"],
+      "properties": {
+        "state": { "type": "string" }, "selected_project_unit_counts": { "$ref": "#/$defs/countMap" },
+        "candidates": { "type": "array", "items": { "$ref": "#/$defs/projectResolutionCandidate" } },
+        "whole_recording_single_project_forced": { "const": false }, "human_acceptance_state": { "const": "not_claimed" }
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_segment_count", "covered_source_segment_count", "semantic_unit_count", "labeled_semantic_unit_count", "unlabeled_semantic_unit_count", "action_candidate_count", "disposition_counts", "action_recall_verified", "every_source_segment_accounted_for"],
+      "properties": {
+        "source_segment_count": { "type": "integer", "minimum": 1 }, "covered_source_segment_count": { "type": "integer", "minimum": 0 },
+        "semantic_unit_count": { "type": "integer", "minimum": 1 }, "labeled_semantic_unit_count": { "type": "integer", "minimum": 0 },
+        "unlabeled_semantic_unit_count": { "const": 0 }, "action_candidate_count": { "type": "integer", "minimum": 0 },
+        "disposition_counts": { "$ref": "#/$defs/countMap" }, "action_recall_verified": { "const": false },
+        "every_source_segment_accounted_for": { "const": true }
+      }
+    },
+    "boundaries": {
+      "type": "object", "additionalProperties": false,
+      "required": ["transcript_body_copied_to_output", "raw_audio_read", "provider_summary_used", "human_acceptance_fabricated", "official_task_mutated", "employee_scoring_enabled", "provider_transcript_authority_zero", "speaker_is_not_assignee", "ambiguous_trivial_content_ignored"],
+      "properties": {
+        "transcript_body_copied_to_output": { "const": false }, "raw_audio_read": { "const": false }, "provider_summary_used": { "const": false },
+        "human_acceptance_fabricated": { "const": false }, "official_task_mutated": { "const": false }, "employee_scoring_enabled": { "const": false },
+        "provider_transcript_authority_zero": { "const": true }, "speaker_is_not_assignee": { "const": true }, "ambiguous_trivial_content_ignored": { "const": true }
+      }
+    }
+  }
+}
