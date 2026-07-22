@@ -44,7 +44,9 @@ from `templates/outlook_readability_preset_v1.yaml` without requiring the user
 to repeat typography, priority, numbering, bullet, table, or empty-section
 rules. The workflow emits a render/application handoff only. A separate
 explicitly owner-approved executor is required to create or update an Outlook
-draft, and send authority remains separate.
+draft. An unspecified local Outlook draft request uses `GetActiveObject` only
+for an already running classic Outlook session and never starts a process; UI
+remains explicit-only. Send authority remains separate.
 Validate the public synthetic contract with
 `scripts/validate_outlook_readability_preset.mjs --fixture
 templates/outlook_readability_preset_v1.validation_fixture.yaml`.
@@ -84,6 +86,14 @@ The workflow keeps external sending at `draft_only` unless the current request
 explicitly approves recipients, subject, body, attachments or no attachments,
 send surface, and footer state.
 
+Within one bounded mail task, the executor handoff carries forward the latest
+validated subject, recipient order, body corrections, selected attachment,
+control surface, logical signature, and the saved draft's runtime-private
+StoreID/EntryID. A later separate current send instruction resolves that exact
+draft, produces a revalidation result, permits one `.Send()` call, and checks
+Sent Items/Outbox once per second for at most 30 seconds without automatic retry
+of an unknown or ambiguous result.
+
 ## Core Rules
 
 - New project subjects use a real project mail keyword:
@@ -98,6 +108,9 @@ send surface, and footer state.
   signature block plus company security notice block.
 - Outlook manual send should use the default signature whose logical name is
   `서명+보안`; account-specific suffixes and exact footer payloads stay local.
+- Programmatic signature insertion uses the Outlook Word editor and explicitly
+  sets `Range.InsertFile`'s `Attachment` argument to `false`; inline body change
+  and zero RTF attachments are both required before saving the insertion.
 - Exact footer contact values and full security disclaimer text stay in Outlook
   default signature or an owner-approved local/private footer template.
 - Public workflow files must not store raw mail bodies, raw HTML, `.msg` or

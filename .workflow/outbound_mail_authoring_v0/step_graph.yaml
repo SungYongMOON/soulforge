@@ -280,10 +280,19 @@ steps:
         - explicit_terminal_or_programmatic_control_surface_emits_local_programmatic_draft_handoff
         - terminal_or_programmatic_request_forbids_UI_or_computer_control_fallback
         - app_control_is_eligible_only_for_an_explicit_UI_or_computer_control_request
+        - unspecified_local_Outlook_draft_request_uses_GetActiveObject_only_for_an_already_running_classic_Outlook_session_and_never_starts_a_process
+        - unspecified_local_Outlook_draft_request_without_classic_COM_stops_with_copy_ready_draft
+        - successful_draft_save_produces_runtime_private_StoreID_and_EntryID_identity
+        - same_bounded_mail_task_carries_forward_validated_subject_recipients_body_attachment_surface_logical_signature_and_exact_draft_identity
+        - already_bound_values_are_reasked_only_for_missing_changed_drifted_ambiguous_or_untrusted_state
         - current_request_source_recipient_subject_body_and_selected_attachment_are_bound_before_draft_application
         - attachment_password_values_are_runtime_only_and_never_recorded
         - soulforge_send_mail_handoff_requires_MAIL_SEND_V0_approval
         - no_recipient_or_attachment_changes_after_approval
+        - separate_current_explicit_send_instruction_targets_only_the_exact_locked_draft
+        - exact_locked_draft_is_resolved_by_StoreID_and_EntryID_and_produces_a_revalidation_result_before_one_Send_call
+        - Sent_Items_and_Outbox_are_polled_once_per_second_for_at_most_30_seconds_with_runtime_private_exact_correlation
+        - unknown_or_ambiguous_send_outcome_is_never_retried_automatically
     summary: Prepare a copy-ready Outlook draft or a bounded send-mail handoff when approval allows it.
     next:
       on_success: plan_metadata_record
@@ -322,8 +331,12 @@ steps:
       checks:
         - no_external_send_without_current_owner_approval
         - no_outlook_folder_or_rule_mutation_claim
-        - any_outlook_mail_mutation_is_limited_to_one_explicitly_requested_unsent_draft
+        - any_draft_mutation_is_limited_to_one_explicitly_requested_current_draft
+        - any_external_send_is_limited_to_one_call_for_the_exact_locked_draft_after_separate_current_explicit_instruction
+        - unknown_or_ambiguous_send_outcome_never_triggers_automatic_retry
         - explicit_draft_executor_matches_requested_control_surface
+        - unspecified_local_Outlook_draft_executor_used_classic_COM_only_after_read_only_availability_probe
+        - same_task_continuation_reused_only_trusted_current_request_bindings
         - no_raw_mail_body_or_attachment_payload_copied
         - no_footer_payload_in_public_package
         - no_internal_project_code_in_subject
@@ -347,6 +360,6 @@ stop_conditions:
   - normalized_and_rendered_assumptions_diverge
   - render_mode_selector_input_unsupported
   - requested_work_assignee_unresolved_for_review_ready_or_send_handoff
-  - Outlook_mutation_beyond_one_current_request_unsent_draft_requested
+  - Outlook_draft_mutation_beyond_one_current_request_draft_or_send_without_a_separate_current_explicit_instruction_requested
   - requested_terminal_or_programmatic_control_surface_would_fall_back_to_UI_or_computer_control
   - public_private_boundary_unclear

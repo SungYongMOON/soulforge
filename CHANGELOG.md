@@ -2,6 +2,22 @@
 
 ## 2026-07-22
 
+### Outlook owner-mail bound continuation fast path
+
+- Extended the owner Outlook mail launcher and outbound authoring workflow with
+  a same-task binding lock for subject, recipient order, body corrections,
+  selected attachment, control surface, and logical signature. An unspecified
+  local Outlook draft request now selects classic Outlook COM after a read-only
+  availability probe, while UI control remains explicit-only.
+- Corrected registered RTF signature insertion so Word `Range.InsertFile`
+  receives `Attachment: false`, verifies an inline body-content delta, and
+  rejects any RTF attachment before saving the insertion. A no-Outlook contract
+  self-test covers the explicit InsertFile argument and non-starting COM probe;
+  runtime checks own the inline-content and RTF-attachment guard. A separate
+  file-only send regression covers one `.Send()` maximum, 30-second Sent
+  Items/Outbox classification, and no automatic retry for an unknown or
+  ambiguous result. (worker: codex_gpt-5.6)
+
 ### Feature-OFF HPP PLAUD provider observation
 
 - Added continuous-ingress binding v3 so the existing single hidden Windows

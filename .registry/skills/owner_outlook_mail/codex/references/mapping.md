@@ -66,6 +66,25 @@ request does not raise authority above `draft_only`. If a new-mail keyword is
 missing, leave the subject unresolved and continue only with a body draft plus
 an assumption and checklist gap.
 
+## Bound Continuation and Default Executor
+
+For one bounded mail task, retain the latest validated subject, recipient
+display order, body corrections, exact selected attachment, requested control
+surface, logical signature name, and the saved draft's runtime-private Outlook
+StoreID/EntryID. A short continuation reuses those values
+and adds only the newly requested operation. Re-ask only when a value changed,
+validation detects drift, multiple candidate drafts exist, the file changed, or
+trusted lock metadata is unavailable after a context boundary. Never carry this
+lock into an unrelated mail task.
+
+When the owner asks for a local Outlook draft without naming a control surface,
+run `scripts/insert_outlook_signature.ps1 -AvailabilityProbe`. It uses only
+`Marshal.GetActiveObject('Outlook.Application')` against an already running
+classic Outlook session and never instantiates COM, starts Outlook, or launches
+a process. Select the local programmatic executor when available. Otherwise
+return the copy-ready draft and stop; do not substitute UI automation.
+UI/app-control remains eligible only when the user explicitly requests it.
+
 ## Outlook Draft Preview
 
 After the authoring workflow completes, a separate app-control executor may
@@ -85,15 +104,20 @@ Do not invoke computer-use, app-control, keyboard/pointer automation, or a UI
 fallback. The executor may open only the exact current-request local source
 message, create its reply or one new unsent draft, preserve the thread subject,
 apply the approved body, stage and attach only the exact owner-selected file,
-and save or display that draft. It must never call `.Send()`.
+and save or display that draft. After its first successful save, capture the
+Outlook StoreID and EntryID in the runtime-private current-request lock. It must
+never call `.Send()`.
 
 For terminal/COM execution, keep signature insertion inside the Outlook body.
 Never parse or concatenate the signature HTML file and never attach its RTF.
 Resolve the runtime-private signature by logical name and insert the matching
 RTF through the Outlook Word editor at a bounded placeholder with
-`Range.InsertFile`; `scripts/insert_outlook_signature.ps1` implements this
-step without reading or logging footer text. Verify that the draft has no RTF
-attachment, the footer occurs once, any Hangul is intact, and no Unicode
+`Range.InsertFile` and explicitly set its `Attachment` argument to `false`;
+`scripts/insert_outlook_signature.ps1` implements this step without reading or
+logging footer text. Maintainers can run its `-ContractSelfTest` without opening
+Outlook. Before saving the insertion, verify that inline body content increased,
+the draft has no RTF attachment, the footer occurs once, any Hangul is intact,
+and no Unicode
 replacement character is present. Use the Word editor for non-ASCII text
 corrections because Outlook can entity-encode `HTMLBody`. For external
 reference links, prefer the official primary-source specification and verify
@@ -105,6 +129,21 @@ attachment, derive and use the value only at runtime. Do not print, log, store,
 or repeat the value. If COM execution fails, stop and return the copy-ready
 draft; do not substitute UI automation. UI/app-control is eligible only when
 the current user explicitly requests that control surface.
+
+## Owner-approved Send Continuation
+
+A later separate, current, explicit `보내줘` or scheduled-send instruction
+authorizes only the exact current locked draft. Resolve it by StoreID/EntryID,
+then produce the pre-send revalidation result for recipient values/order,
+subject, latest body corrections, exact attachment list, footer, and schedule
+when applicable. Call `.Send()` exactly once, then poll Sent Items and Outbox
+once per second for at most 30 seconds. Correlate only on the runtime-private
+locked subject, ordered recipient SMTP values, attachment name/size/digest,
+normalized body digest, and send-start UTC time. Zero matches at the bound is
+`unknown`; more than one is `ambiguous`; neither allows automatic resend. Run
+`scripts/test_outlook_send_continuation.ps1` for the file-only contract test.
+This continuation does not authorize bulk mailbox mutation or any synthetic or
+evaluator send.
 
 ## Adaptive Body Rendering
 
@@ -172,8 +211,10 @@ paragraphs, headings, bullets, and table cells.
 - Footer gaps keep the result draft-only.
 - Compact was not selected when requested work, confirmation, review, decision, or a required response exists.
 - Newly authored Outlook paragraphs, headings, bullets, and every table cell explicitly use black text and do not inherit colored reply-thread formatting.
-- No external send occurred; any Outlook mutation was limited to one explicitly requested unsent draft through the requested control surface.
+- No external send occurred unless the owner gave a separate current explicit instruction for the exact locked draft; any authorized send called `.Send()` once and its Sent Items/Outbox result was checked without automatic retry.
 - No synthetic or evaluator mail item was created in Outlook; samples remain local text or validation packets only.
 - A terminal/programmatic request used PowerShell Outlook COM only and did not fall back to UI or computer-control automation.
+- An unspecified local Outlook draft request used COM only after its read-only availability probe, or stopped with a copy-ready draft when COM was unavailable.
+- A same-task continuation reused validated bindings and re-asked only for a missing, changed, drifted, ambiguous, or untrusted value.
 - Only the exact owner-selected attachment was staged and attached; any runtime password value was neither printed nor persisted.
 - No raw mail payload, exact excerpt, contact value, raw address, exact footer, private path, or project row entered public output.

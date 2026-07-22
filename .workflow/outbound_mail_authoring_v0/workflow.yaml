@@ -352,22 +352,94 @@ outbound_mail_authoring_contract:
     executor_selection_policy:
       explicit_terminal_or_programmatic_request: local_programmatic_draft_executor
       explicit_ui_or_computer_control_request: app_control_draft_executor
+      unspecified_local_Outlook_draft_request_with_classic_COM_available: local_programmatic_draft_executor
+      unspecified_local_Outlook_draft_request_without_classic_COM: stop_with_copy_ready_draft
+      unspecified_request_default_probe_method: Marshal_GetActiveObject_for_already_running_classic_Outlook_only
+      unspecified_request_probe_may_instantiate_COM_or_start_process: false
       terminal_request_forbids_ui_or_computer_control_fallback: true
       implicit_control_surface_substitution: forbidden
+      implicit_cross_surface_fallback: forbidden
+    bound_continuation_fast_path:
+      scope: one_bounded_current_mail_task_only
+      carry_forward:
+        - validated_subject
+        - validated_To_Cc_Bcc_display_order
+        - latest_body_corrections
+        - exact_selected_attachment_path_and_visible_name
+        - requested_control_surface
+        - logical_Outlook_signature_name
+        - exact_saved_draft_StoreID_and_EntryID
+      reask_only_when:
+        - required_value_missing
+        - owner_changed_value
+        - Outlook_state_drift_detected
+        - multiple_matching_drafts_exist
+        - selected_file_changed
+        - trusted_lock_metadata_unavailable_after_context_boundary
+      cross_mail_reuse: forbidden
     local_programmatic_draft_executor:
       mutation_scope: one_current_request_unsent_draft_only
       exact_source_recipient_subject_body_and_attachment_binding_required: true
       may_save_or_display_unsent_draft: true
+      produces:
+        - runtime_private_current_request_binding_lock
+        - exact_saved_draft_StoreID_and_EntryID_after_first_successful_save
+      subject_only_draft_identity: forbidden
+      runtime_draft_identity_public_or_workmeta_logging: forbidden
       may_stage_exact_selected_attachment_under_workspaces: true
       recipient_facing_label_language_matches_approved_mail_language: true
       official_external_reference_requires_visible_anchor_and_final_href: true
       signature_html_read_decode_or_concatenation: forbidden
       signature_rtf_is_inserted_as_word_editor_body_content_not_attachment: true
+      signature_InsertFile_Attachment_argument: false
+      signature_inline_body_content_delta_required: true
+      signature_guard_runs_before_persisting_insertion: true
+      failed_signature_insertion_is_discarded_unsaved: true
+      signature_contract_self_test_opens_Outlook: false
       non_ascii_post_render_correction_surface: outlook_word_editor
       footer_unicode_replacement_character_count: 0
       attachment_password_method_requires_current_owner_instruction: true
       runtime_password_value_logging_or_persistence: forbidden
       external_send: forbidden
+    owner_approved_send_executor:
+      eligibility: separate_current_explicit_send_or_scheduled_send_instruction
+      target_scope: exact_current_request_locked_draft_only
+      resolves_target_by: locked_StoreID_and_EntryID
+      requires:
+        - runtime_private_current_request_binding_lock
+        - exact_saved_draft_StoreID_and_EntryID
+        - separate_current_explicit_owner_instruction
+      required_pre_send_revalidation:
+        - draft_store_identity
+        - recipient_values_and_display_order
+        - thread_subject
+        - latest_body_corrections
+        - exact_attachment_list
+        - footer_present_once
+        - scheduled_delivery_time_when_applicable
+      produces:
+        - pre_send_revalidation_result
+        - bounded_send_confirmation_result
+      Outlook_Send_call_maximum: 1
+      result_confirmation:
+        surfaces:
+          - Sent_Items
+          - Outbox
+        confirmation_window_seconds: 30
+        poll_interval_seconds: 1
+        runtime_private_exact_correlation_fields:
+          - locked_subject
+          - ordered_recipient_SMTP_values
+          - attachment_name_size_and_digest
+          - normalized_body_digest
+          - send_started_at_utc
+        zero_matches_at_bound: unknown
+        multiple_matches: ambiguous
+      unknown_outcome_policy: report_and_never_retry_automatically
+      ambiguous_outcome_policy: report_and_never_retry_automatically
+      file_only_contract_test: .registry/skills/owner_outlook_mail/codex/scripts/test_outlook_send_continuation.ps1
+      synthetic_or_evaluator_send: forbidden
+      bulk_mailbox_mutation: forbidden
   authority_boundary:
     default_send_authority: draft_only
     owner_approval_required_for_external_send: true

@@ -25,8 +25,8 @@
 | owner | 책임 |
 | --- | --- |
 | human owner | 최종 수신자, 참조, 첨부, 본문, 발송 여부를 결정한다. |
-| AI/Codex | 초안, 제목 후보, 점검표, 발송 후 metadata 기록안을 만든다. 외부 발송 권한은 갖지 않는다. |
-| Outlook | owner 의 수동 발송 surface 다. 이 문서는 Outlook 폴더나 규칙을 변경하지 않는다. |
+| AI/Codex | 초안, 제목 후보, 점검표, 발송 후 metadata 기록안을 만든다. 상시 외부 발송 권한은 없으며, 별도의 현재 owner 명시 지시가 있을 때만 정확히 잠긴 현재 초안을 제한된 executor로 1회 발송할 수 있다. |
+| Outlook | owner 의 수동 또는 owner가 명시한 제한적 local executor 발송 surface 다. 이 문서는 Outlook 폴더나 규칙을 변경하지 않는다. |
 | `guild_hall/gateway/mail_send` | 명시 승인된 SMTP 발송과 local-only send record 생성을 맡는다. |
 | `_workspaces/<project_code>/` | 실제 첨부, 산출물, 원문 파일을 둔다. |
 | `_workmeta/<project_code>/` | 발송 metadata, 경로 포인터, 크기, 해시, 본문 요지만 기록한다. |
@@ -38,7 +38,7 @@
 | --- | --- | --- | --- |
 | 0 | `draft_only` | 제목/본문 초안과 점검표 작성 | 수신자 확정, 첨부 확정, 외부 발송 |
 | 1 | `owner_review_ready` | owner 가 Outlook 에 붙여 넣을 수 있는 최종 초안 작성 | owner 확인 없는 발송 |
-| 2 | `owner_approved_send` | owner 가 같은 요청에서 수신자, 제목, 본문, 첨부, 발송 방식을 명시한 경우 발송 실행 | 다른 수신자 추가, 첨부 변경, 본문 임의 확장 |
+| 2 | `owner_approved_send` | 같은 bounded 메일 작업에서 owner가 수신자, 제목, 본문, 첨부, 발송 방식을 승인해 trusted lock에 묶었고, 이후 별도의 현재 발송 지시를 명시한 경우 정확히 잠긴 초안 발송 실행 | 다른 수신자 추가, 첨부 변경, 본문 임의 확장 |
 | 3 | `approved_automation` | 기존 승인된 자동화의 고정 recipient/scope/status mail 발송 | 프로젝트 원문, 메일 본문, 첨부, 새 대외 수신자 포함 |
 
 외부 발송은 기본값이 `draft_only` 이다.
@@ -160,6 +160,7 @@
 AI 초안의 footer 처리 규칙:
 
 - Outlook 수동 작성: Outlook 이 삽입한 서명/보안 문구를 유지하고 본문만 그 위에 쓴다.
+- Outlook local programmatic 작성: 논리 이름으로 승인된 `.rtf` 서명을 Word editor 본문에 삽입하되 `Range.InsertFile`의 `Attachment` 인수를 명시적으로 `false`로 둔다. 저장 전에 본문 content 증가와 `.rtf` 첨부 0건을 모두 확인하고, 실패하면 삽입 변경을 저장하지 않고 폐기한다.
 - Outlook 기본 서명이 `서명+보안` 이 아니거나 보안 문구가 자동 삽입되지 않으면, 발송 전 확인에서 멈추고 owner 지시가 있을 때만 Outlook 서명 설정을 바로잡는다.
 - 복사용 최종 본문: local/private footer template 이 확인된 경우에만 본문 끝에 서명 block 과 보안 문구 block 을 붙인다.
 - footer template 미확인: 본문 초안만 작성하고 발송 전 확인에 `서명/보안 footer 확인 필요` 를 남긴다.
@@ -431,6 +432,9 @@ Outlook 수동 초안은 출력 packet 과 점검표에 `requested_send_surface:
 13. AI가 미검증 수치나 일정 약속을 만들어 넣지 않았는가.
 14. 발송 후 metadata 기록 위치가 정해졌는가.
 15. 서명 block 과 보안 문구 block 이 정확히 1회 포함되어 있는가.
+16. 같은 업무의 후속 지시라면 제목, 수신자 순서, 본문 수정, 첨부, control surface, 논리 서명, runtime-private Outlook StoreID/EntryID binding이 현재 검증값과 일치하는가.
+17. 별도 현재 발송 지시가 있다면 정확히 잠긴 초안 하나만 대상으로 `.Send()`를 최대 1회 호출하도록 제한했는가.
+18. 발송 결과가 불명확하면 자동 재발송하지 않고 Sent Items와 Outbox 확인 결과를 그대로 보고하는가.
 
 ## 발송 후 기록
 
@@ -461,6 +465,10 @@ Outlook 수동 초안은 출력 packet 과 점검표에 `requested_send_surface:
 ## Outlook 수동 발송 규칙
 
 - AI는 Outlook 창 조작이나 붙여넣기 도움을 줄 수 있지만, owner 가 명시하지 않은 발송 버튼 클릭은 하지 않는다.
+- 같은 bounded 메일 작업에서는 마지막으로 검증된 제목, To/Cc/Bcc 표시 순서, 본문 수정, 정확한 첨부, control surface, 논리 서명과 첫 저장 후 얻은 runtime-private Outlook StoreID/EntryID를 유지한다. `계속`, `서명 넣어줘`, `보내줘` 같은 후속 지시는 그 현재 초안에만 적용하며, 누락·변경·상태 drift·복수 후보·파일 변경·신뢰할 lock 부재가 있을 때만 다시 묻는다.
+- owner가 local Outlook 초안 작성을 요청하면서 control surface를 지정하지 않은 경우 `Marshal.GetActiveObject('Outlook.Application')`으로 이미 실행 중인 classic Outlook session만 확인하고, 사용 가능하면 local programmatic executor를 기본 선택한다. 이 probe는 새 COM instance나 process를 시작하지 않는다. 사용할 수 없으면 복사용 초안에서 중단하며 UI로 자동 전환하지 않는다.
+- UI 또는 computer control은 현재 owner가 그 surface를 명시적으로 요청한 경우에만 사용한다.
+- 별도의 현재 `보내줘` 또는 예약발송 지시가 있으면 StoreID/EntryID로 정확히 잠긴 초안을 찾고, 현재 lock 전체의 재검증 결과를 만든 뒤 `.Send()`를 1회만 호출한다. Sent Items와 Outbox는 1초 간격으로 최대 30초 확인하고, runtime-private 제목·순서 있는 recipient SMTP 값·첨부 이름/크기/digest·정규화 본문 digest·send-start UTC가 모두 맞는 1건만 확인한다. 0건은 `unknown`, 복수건은 `ambiguous`이며 둘 다 자동 재시도하지 않는다.
 - 답장은 원본 thread 에서 작성한다.
 - 전달 메일은 원문 chain 과 첨부가 외부 공유 가능한지 확인한 뒤 작성한다.
 - Outlook folder/rule 작업은 `outlook_mail_reconcile_v0` 또는 별도 Outlook operations task 로 분리한다.

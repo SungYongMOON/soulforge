@@ -2,13 +2,16 @@ skill_id: owner_outlook_mail
 kind: skill
 status: active
 title: Owner Outlook Mail
-summary: Select the outbound mail authoring workflow for correction-locked, structured Outlook drafts with deterministic pre-application validation while honoring the requested control surface and withholding send authority.
+summary: Select the outbound mail authoring workflow for correction-locked Outlook drafts, exact attachments, safe inline signatures, and a separately authorized one-send continuation while preserving current-request bindings.
 behavior:
   intent: >
     Provide a thin Codex launcher for owner-style Outlook mail authoring through
     `.workflow/outbound_mail_authoring_v0`. The workflow remains procedure
     authority. The launcher selects Outlook manual or draft-only scope, honors
-    an explicit terminal/programmatic versus UI control-surface request, loads
+    an explicit terminal/programmatic versus UI control-surface request, defaults
+    an unspecified local Outlook draft request to the safe local programmatic
+    executor when it is available, preserves trusted bindings across the same
+    bounded mail task, loads
     the public v1 per-assignee team context template, and may bind a local/private aggregate
     voice profile without copying private evidence into public canon.
   use_when:
@@ -16,9 +19,12 @@ behavior:
     - the user invokes `$soulforge-owner-outlook-mail`
     - a team mail brief should be normalized before an Outlook manual draft
     - the user explicitly asks to create an unsent local Outlook draft through a terminal or programmatic control surface
+    - the user asks to attach an exact selected file or insert the registered Outlook signature in the current draft
+    - the owner separately instructs Codex to send the exact validated current-request draft
     - the user expects visible 수신/사유, numbered purpose/status and basis sections, a request table, completion/reply criteria, or black Outlook formatting
   avoid_when:
-    - the task requires Outlook send, move, delete, mark, category, folder, or rule mutation
+    - the task requires Outlook send without a separate current explicit owner instruction for one exact locked draft
+    - the task requires Outlook move, delete, mark, category, folder, rule, bulk, or unattended mutation
     - the task requires raw mail body, raw HTML, `.msg`, `.eml`, attachment payload, secret, or credential access outside an exact current-request local draft application
     - the task is sent or received mail reconciliation
   expected_outcome:
@@ -37,6 +43,10 @@ behavior:
     - newly authored Outlook text, headings, bullets, and tables are explicitly black and never inherit colored reply-thread formatting
     - optional voice guidance comes from a local/private aggregate profile with provenance
     - an explicitly requested local draft executor may save or display one unsent draft without acquiring send authority
+    - an unspecified local Outlook draft request uses the safe local programmatic executor after a non-mutating availability probe or stops with a copy-ready draft
+    - same-task continuations reuse trusted subject, recipient order, body correction, exact attachment, control-surface, logical-signature, and exact saved-draft identity bindings
+    - the registered signature is inserted into the authored body, verified before save, and never becomes a business attachment
+    - a separate current explicit send instruction revalidates the exact locked draft, performs at most one send action, checks a bounded confirmation result, and never retries an unknown or ambiguous outcome
     - synthetic evaluation remains file/text only and never creates or sends an Outlook item
     - a terminal/programmatic request never falls back to UI or computer-control automation
 execution_requirements:
@@ -49,6 +59,8 @@ execution_requirements:
     - Outlook_manual_handoff_review
     - explicit_Outlook_control_surface_selection
     - structured_request_mail_validation
+    - bound_Outlook_continuation_control
+    - inline_Outlook_signature_insertion
   preferred_tools:
     - rg
     - yaml_reader
@@ -56,7 +68,7 @@ execution_requirements:
   notes:
     - The workflow package owns the procedure and templates; this skill must remain a thin launcher.
     - The voice profile is optional local/private guidance and is not source truth, send authority, or public canon.
-    - Skill activation grants no external send authority. One unsent local draft may be created only by the control surface explicitly requested in the current user turn.
+    - Skill activation grants no standing external send authority. One current locked draft may be sent only after a separate current explicit owner instruction and one final revalidation.
 notes:
   - The installed Codex mirror name is `soulforge-owner-outlook-mail`.
   - The existing `outbound_mail_authoring_v0` workflow remains the sole workflow authority for this slice.

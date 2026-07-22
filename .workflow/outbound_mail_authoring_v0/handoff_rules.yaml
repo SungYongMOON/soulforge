@@ -75,7 +75,28 @@ rules:
       - attachment_checklist
       - context_coverage
       - readability_render_plan
-    requirement: The handoff preserves the reviewed multi-assignee work, notes, schedule, formats/examples, attachments, response requirements, and owner_outlook_readability_v1 render plan. The authoring workflow never mutates Outlook; draft application requires a separate executor and explicit owner approval in the current request. That executor still must not click Send without separate send approval.
+      - current_request_binding_seed
+      - logical_signature_name
+      - requested_control_surface
+    requirement: The handoff preserves the reviewed multi-assignee work, notes, schedule, formats/examples, attachments, response requirements, owner_outlook_readability_v1 render plan, and current-request binding seed. The authoring workflow never mutates Outlook; draft application requires a separate executor and explicit owner approval in the current request. An unspecified local Outlook draft request uses GetActiveObject only for an already running classic Outlook session, never starts a process, and never falls back to UI. Programmatic signature insertion sets Range.InsertFile Attachment to false, verifies inline content plus zero RTF attachments before save, and discards a failed unsaved insertion. That executor still must not click Send without separate send approval.
+  - rule_id: from_outlook_draft_executor
+    from_surface: Outlook_exact_current_request_draft_executor
+    consume:
+      - first_successful_draft_save
+      - Outlook_StoreID
+      - Outlook_EntryID
+      - validated_current_request_bindings
+    produce:
+      - runtime_private_current_request_binding_lock
+      - exact_draft_store_identity
+    requirement: The separate draft executor produces the trusted continuation identity after the first successful save. StoreID, EntryID, recipient SMTP values, and body or attachment digests remain runtime-private and are not written to public canon or workmeta.
+  - rule_id: to_outlook_owner_approved_send
+    to_surface: Outlook_exact_locked_draft_send_executor
+    provide:
+      - current_request_binding_lock
+      - exact_draft_store_identity
+      - owner_current_explicit_send_instruction
+    requirement: A separate current explicit send instruction authorizes only the exact locked draft. The executor resolves it by StoreID and EntryID, produces the pre-send revalidation result for recipients and order, subject, latest body corrections, attachment list, footer, and schedule when applicable, then calls Send exactly once. It polls Sent Items and Outbox once per second for at most 30 seconds using the runtime-private exact correlation tuple and never automatically retries an unknown or ambiguous result.
   - rule_id: to_soulforge_send_mail
     to_surface: guild_hall/gateway/mail_send/
     provide:
