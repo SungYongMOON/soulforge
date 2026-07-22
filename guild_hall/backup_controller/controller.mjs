@@ -97,10 +97,13 @@ function requireInteger(value, min, max, code) {
 }
 
 function assertSafeAbsolutePath(value, code) {
-  if (typeof value !== "string" || !path.isAbsolute(value)) fail(code);
-  const segments = path.resolve(value).split(/[\\/]+/).filter(Boolean);
+  if (typeof value !== "string") fail(code);
+  const pathApi = path.isAbsolute(value) ? path : path.win32.isAbsolute(value) ? path.win32 : null;
+  if (!pathApi) fail(code);
+  const resolved = pathApi.resolve(value);
+  const segments = resolved.split(/[\\/]+/).filter(Boolean);
   if (segments.some((segment) => SECRET_LIKE_SEGMENT.test(segment))) fail("secret_like_path_rejected");
-  return path.resolve(value);
+  return resolved;
 }
 
 function requireSafeId(value, code) {
@@ -172,8 +175,8 @@ export function validateBinding(binding) {
     if (expectedKind === "onedrive_cloud_directory" && resource.reparse_profile !== "microsoft_onedrive_cloud_0x9000601a") fail("binding_resource_profile_invalid");
     if (expectedKind === "raidrive_network_directory") {
       if (typeof resource.unc_prefix !== "string" || !/^\\\\RaiDrive-[A-Za-z0-9._-]+\\[A-Za-z0-9 $._-]+$/.test(resource.unc_prefix)) fail("binding_resource_unc_prefix_invalid");
-      const relative = path.relative(path.resolve(resource.unc_prefix), resource.path);
-      if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) fail("binding_resource_unc_path_invalid");
+      const relative = path.win32.relative(path.win32.resolve(resource.unc_prefix), resource.path);
+      if (relative === "" || relative.startsWith("..") || path.win32.isAbsolute(relative)) fail("binding_resource_unc_path_invalid");
     }
   }
   exactKeys(binding.activation, ["approval_ref", "not_before", "seed_receipts"], "binding_activation_invalid");

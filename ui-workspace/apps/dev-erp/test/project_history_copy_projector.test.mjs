@@ -53,6 +53,10 @@ import {
   writeProjectHistoryCopyBinding,
 } from "../tools/project_history_copy_binding.mjs";
 
+const windowsPathLockTest = process.platform === "win32"
+  ? test
+  : (name, fn) => test(name, { skip: "requires the Windows identity-bound path lock" }, fn);
+
 const TEST_WAIT_CELL = new Int32Array(new SharedArrayBuffer(4));
 
 function makeGeneration(overrides = {}) {
@@ -224,7 +228,7 @@ function refreshBinding(fixture) {
   });
 }
 
-test("projects one immutable generation into an existing copied DB and replays byte-identically", (t) => {
+windowsPathLockTest("projects one immutable generation into an existing copied DB and replays byte-identically", (t) => {
   assert.deepEqual(PROJECT_HISTORY_COPY_PROJECTION_CLAIM_CEILING, {
     scope: "windows_current_fixture_feature_off_shadow_pilot",
     supported_platform: "win32",
@@ -318,7 +322,7 @@ test("projects one immutable generation into an existing copied DB and replays b
   assert.equal(verified.xlsx_readback, "verified_from_workbook");
 });
 
-test("stages deterministic CSV and workbook artifacts before opening the DB mutation boundary", (t) => {
+windowsPathLockTest("stages deterministic CSV and workbook artifacts before opening the DB mutation boundary", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   let observed = false;
@@ -351,7 +355,7 @@ test("stages deterministic CSV and workbook artifacts before opening the DB muta
   assert.equal(observed, true);
 });
 
-test("final rename failure leaves one durable pending intent and same-binding replay publishes without duplicate rows", (t) => {
+windowsPathLockTest("final rename failure leaves one durable pending intent and same-binding replay publishes without duplicate rows", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const attestation = sha256Canonical(generation);
@@ -413,7 +417,7 @@ test("final rename failure leaves one durable pending intent and same-binding re
   assert.equal(verified.publication_receipt_digest, replayed.publication_receipt_digest);
 });
 
-test("crash after manifest rename remains pending and same-binding replay seals the same generation", (t) => {
+windowsPathLockTest("crash after manifest rename remains pending and same-binding replay seals the same generation", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const attestation = sha256Canonical(generation);
@@ -457,7 +461,7 @@ test("crash after manifest rename remains pending and same-binding replay seals 
   }
 });
 
-test("verifier rejects DB-only and artifact-only publication halves", (t) => {
+windowsPathLockTest("verifier rejects DB-only and artifact-only publication halves", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const attestation = sha256Canonical(generation);
@@ -504,7 +508,7 @@ test("verifier rejects DB-only and artifact-only publication halves", (t) => {
   );
 });
 
-test("fails closed on conflicting generation digest without touching accepted pointers", (t) => {
+windowsPathLockTest("fails closed on conflicting generation digest without touching accepted pointers", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   projectCopiedErpHistory({
@@ -639,7 +643,7 @@ test("standalone-copy inspection rejects hardlinked database aliases", (t) => {
   );
 });
 
-test("weakened lookalike projection schema rolls back all newly created schema", (t) => {
+windowsPathLockTest("weakened lookalike projection schema rolls back all newly created schema", (t) => {
   const fixture = makeFixture(t);
   const db = new DatabaseSync(fixture.dbPath);
   try {
@@ -669,7 +673,7 @@ test("weakened lookalike projection schema rolls back all newly created schema",
   }
 });
 
-test("trusted-clock expiry at the in-transaction commit fence rolls back every Shadow DB mutation", (t) => {
+windowsPathLockTest("trusted-clock expiry at the in-transaction commit fence rolls back every Shadow DB mutation", (t) => {
   const fixture = makeFixture(t, "copy", {
     authorityOptions: { expiresInMs: 20_000 },
   });
@@ -702,7 +706,7 @@ test("trusted-clock expiry at the in-transaction commit fence rolls back every S
   }
 });
 
-test("authority replacement immediately before the publication helper opens fails closed", (t) => {
+windowsPathLockTest("authority replacement immediately before the publication helper opens fails closed", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   assert.throws(
@@ -737,7 +741,7 @@ test("authority replacement immediately before the publication helper opens fail
   }
 });
 
-test("retained database handle detects same-path replacement before SQLite opens", (t) => {
+windowsPathLockTest("retained database handle detects same-path replacement before SQLite opens", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const originalPath = `${fixture.dbPath}.original`;
@@ -759,7 +763,7 @@ test("retained database handle detects same-path replacement before SQLite opens
   assert.equal(existsSync(fixture.artifactManifestPath), false);
 });
 
-test("native database fence blocks rename throughout publication", (t) => {
+windowsPathLockTest("native database fence blocks rename throughout publication", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const renameResults = new Map();
@@ -791,7 +795,7 @@ test("native database fence blocks rename throughout publication", (t) => {
   }
 });
 
-test("retained database fence rejects byte tamper between manifest publication and receipt seal", (t) => {
+windowsPathLockTest("retained database fence rejects byte tamper between manifest publication and receipt seal", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   assert.throws(
@@ -821,7 +825,7 @@ test("retained database fence rejects byte tamper between manifest publication a
   }
 });
 
-test("retained authority handle keeps publication and successful replay on one immutable record", (t) => {
+windowsPathLockTest("retained authority handle keeps publication and successful replay on one immutable record", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const attestation = sha256Canonical(generation);
@@ -869,7 +873,7 @@ test("retained authority handle keeps publication and successful replay on one i
   assert.equal(existsSync(fixture.artifactManifestPath), true);
 });
 
-test("retained authority expiry prevents a new artifact bundle publication", (t) => {
+windowsPathLockTest("retained authority expiry prevents a new artifact bundle publication", (t) => {
   const fixture = makeFixture(t, "copy", {
     authorityOptions: { expiresInMs: 20_000 },
   });
@@ -893,7 +897,7 @@ test("retained authority expiry prevents a new artifact bundle publication", (t)
   assert.equal(existsSync(fixture.artifactManifestPath), false);
 });
 
-test("retained authority expiry leaves the replay manifest unchanged", (t) => {
+windowsPathLockTest("retained authority expiry leaves the replay manifest unchanged", (t) => {
   const fixture = makeFixture(t, "copy", {
     authorityOptions: { expiresInMs: 30_000 },
   });
@@ -947,7 +951,7 @@ test("retained authority expiry leaves the replay manifest unchanged", (t) => {
   assert.deepEqual(readFileSync(fixture.artifactManifestPath), originalManifest);
 });
 
-test("existing junction component is rejected before DB writes and creates no escaped child", (t) => {
+windowsPathLockTest("existing junction component is rejected before DB writes and creates no escaped child", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const projectDirectory = path.dirname(fixture.directory);
@@ -977,7 +981,7 @@ test("existing junction component is rejected before DB writes and creates no es
   }
 });
 
-test("root swap after identity check but before native lock acquisition fails without escaped output", (t) => {
+windowsPathLockTest("root swap after identity check but before native lock acquisition fails without escaped output", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const heldRootDirectory = path.join(fixture.root, "held-root-before-lock");
@@ -1006,7 +1010,7 @@ test("root swap after identity check but before native lock acquisition fails wi
   assert.equal(existsSync(fixture.artifactManifestPath), false);
 });
 
-test("identity-bound directory handles block root and project swaps in post-check mutation gaps", (t) => {
+windowsPathLockTest("identity-bound directory handles block root and project swaps in post-check mutation gaps", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const projectDirectory = path.dirname(fixture.directory);
@@ -1065,7 +1069,7 @@ test("identity-bound directory handles block root and project swaps in post-chec
   }
 });
 
-test("verifier requires manifest-bound artifact hashes before parsing caller readback", (t) => {
+windowsPathLockTest("verifier requires manifest-bound artifact hashes before parsing caller readback", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const attestation = sha256Canonical(generation);
@@ -1109,7 +1113,7 @@ test("formula protection neutralizes every spreadsheet execution prefix", () => 
   assert.equal(protectSpreadsheetFormula("2026-07-19T00:00:00.000Z"), "2026-07-19T00:00:00.000Z");
 });
 
-test("standalone projector CLI is validation-only and the authorized API remains verifier-compatible", (t) => {
+windowsPathLockTest("standalone projector CLI is validation-only and the authorized API remains verifier-compatible", (t) => {
   const fixture = makeFixture(t);
   const generation = makeGeneration();
   const attestation = sha256Canonical(generation);

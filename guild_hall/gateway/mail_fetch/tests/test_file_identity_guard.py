@@ -80,7 +80,7 @@ def test_team_cli_rejects_credential_swap_before_mailbox_runner(
     ) + "\n"
     register_snapshot.write_bytes(register_text.encode("utf-8"))
 
-    runtime_path = Path(sys.executable)
+    runtime_path = Path(sys.executable).resolve(strict=True)
     runtime_sha256 = hashlib.sha256(runtime_path.read_bytes()).hexdigest()
     manifest = {
         "schema_version": "soulforge.ingress.mail_identity_manifest.v1",
@@ -136,6 +136,7 @@ def test_team_cli_rejects_credential_swap_before_mailbox_runner(
     monkeypatch.setenv("EMAIL_FETCH_INBOX_ROOT", str(data_root / "ingress" / "mailbox"))
     monkeypatch.setenv("EMAIL_FETCH_RUNTIME_DIR", str(data_root / "runtime" / "mail_fetch"))
     monkeypatch.setenv("EMAIL_FETCH_MAIL_CANDIDATE_QUEUE_ROOT", str(data_root / "state" / "mail_candidate"))
+    monkeypatch.setattr(file_identity_guard.sys, "executable", str(runtime_path))
     monkeypatch.setattr(file_identity_guard, "_open_readonly", swap_then_open)
     monkeypatch.setattr(team_mailboxes, "run_team_mailboxes", mailbox_runner)
     with pytest.raises(CredentialIdentityError, match="mail_credential_identity_mismatch"):

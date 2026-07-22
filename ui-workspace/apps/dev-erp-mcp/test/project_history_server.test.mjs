@@ -55,6 +55,10 @@ import {
   writeProjectHistoryCopyBinding,
 } from "../../dev-erp/tools/project_history_copy_binding.mjs";
 
+const windowsPathLockTest = process.platform === "win32"
+  ? test
+  : (name, fn) => test(name, { skip: "requires the Windows identity-bound path lock" }, fn);
+
 const TOKEN = "synthetic_project_history_token_000000000001";
 
 function makeGeneration() {
@@ -283,7 +287,7 @@ function rawRequest({ port, path: requestPath, host = `127.0.0.1:${port}`, heade
   });
 }
 
-test("feature-OFF MCP exposes exactly two exact-generation tools without mutating the copied DB", async (t) => {
+windowsPathLockTest("feature-OFF MCP exposes exactly two exact-generation tools without mutating the copied DB", async (t) => {
   const fixture = createFixture(t);
   assert.notEqual(
     `sha256:${fixture.dbDigest}`,
@@ -350,7 +354,7 @@ test("feature-OFF MCP exposes exactly two exact-generation tools without mutatin
   verify.close();
 });
 
-test("raw downloads are hash-bound, single-use, range-bounded, and expire", async (t) => {
+windowsPathLockTest("raw downloads are hash-bound, single-use, range-bounded, and expire", async (t) => {
   const fixture = createFixture(t);
   let clock = Date.parse("2026-07-19T00:00:00.000Z");
   const service = createService(fixture, { now: () => clock, ticketTtlMs: 1_000 });
@@ -413,7 +417,7 @@ test("raw downloads are hash-bound, single-use, range-bounded, and expire", asyn
   assert.equal(digestFile(fixture.dbPath), fixture.dbDigest);
 });
 
-test("projection traversal is rejected and artifacts remain sealed after startup", async (t) => {
+windowsPathLockTest("projection traversal is rejected and artifacts remain sealed after startup", async (t) => {
   const fixture = createFixture(t);
   const service = createService(fixture);
   const server = createProjectHistoryMcpHttpServer({ service });
@@ -453,7 +457,7 @@ test("projection traversal is rejected and artifacts remain sealed after startup
   }
 });
 
-test("startup rejects symlink or reparse artifact directories before sealing", (t) => {
+windowsPathLockTest("startup rejects symlink or reparse artifact directories before sealing", (t) => {
   const fixture = createFixture(t);
   const projectDirectory = path.dirname(fixture.artifactDirectory);
   const outside = path.join(fixture.projectionRoot, "reparse-target");
@@ -465,7 +469,7 @@ test("startup rejects symlink or reparse artifact directories before sealing", (
   );
 });
 
-test("startup rejects weakened schema and generation JSON tampering", (t) => {
+windowsPathLockTest("startup rejects weakened schema and generation JSON tampering", (t) => {
   const weakened = createFixture(t);
   let db = new DatabaseSync(weakened.dbPath);
   db.exec("DROP TRIGGER project_history_event_no_update");
@@ -494,7 +498,7 @@ test("startup rejects weakened schema and generation JSON tampering", (t) => {
   );
 });
 
-test("artifact manifest rejects XLSX substitution and cannot launder readback parity", (t) => {
+windowsPathLockTest("artifact manifest rejects XLSX substitution and cannot launder readback parity", (t) => {
   const substituted = createFixture(t);
   writeFileSync(substituted.xlsxPath, makeXlsxContainer("substituted"));
   assert.throws(
@@ -522,7 +526,7 @@ test("artifact manifest rejects XLSX substitution and cannot launder readback pa
   );
 });
 
-test("tickets share sealed buffers and enforce aggregate active byte quota", (t) => {
+windowsPathLockTest("tickets share sealed buffers and enforce aggregate active byte quota", (t) => {
   const fixture = createFixture(t);
   const service = createService(fixture, { maxActiveTicketBytes: fixture.csvBytes.length });
   try {
@@ -543,7 +547,7 @@ test("tickets share sealed buffers and enforce aggregate active byte quota", (t)
   }
 });
 
-test("bind and Host guards remain loopback-only", async (t) => {
+windowsPathLockTest("bind and Host guards remain loopback-only", async (t) => {
   const fixture = createFixture(t);
   const service = createService(fixture);
   const server = createProjectHistoryMcpHttpServer({ service });
@@ -579,7 +583,7 @@ test("bind and Host guards remain loopback-only", async (t) => {
   }
 });
 
-test("CLI stays feature-OFF without explicit pilot-copy and never accepts a token argument", (t) => {
+windowsPathLockTest("CLI stays feature-OFF without explicit pilot-copy and never accepts a token argument", (t) => {
   const fixture = createFixture(t);
   assert.throws(
     () => createProjectHistoryMcpService({

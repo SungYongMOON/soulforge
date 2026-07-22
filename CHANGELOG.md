@@ -2,6 +2,20 @@
 
 ## 2026-07-22
 
+### Backup controller UNC path portability
+
+- Windows drive and UNC resource paths now use `path.win32` validation even
+  when the deterministic backup-controller tests run on macOS. RaiDrive UNC
+  containment checks use the same path flavor, preventing valid Windows
+  bindings from failing as `binding_resource_path_invalid`.
+- Project History publication tests that require the Windows identity-bound
+  path lock now remain active on Windows and are explicitly skipped on other
+  platforms; validation-only tests still run everywhere. The team-readiness
+  fixture now counts only mailboxes with current `ok` status, matching the
+  fail-closed mailbox contract. Mail identity tests resolve the `uv` Python
+  launcher to its real executable before applying the no-symlink identity
+  guard. (worker: codex_gpt-5)
+
 ### Outlook 규칙 기반 메일 Shadow 분류
 
 - Outlook 규칙 export와 owner 날짜/제목 override를 기존 ERP 메일 메타데이터에

@@ -39,6 +39,10 @@ import {
   runProjectHistoryCopyOneShot,
 } from "../tools/project_history_copy_one_shot.mjs";
 
+const windowsPathLockTest = process.platform === "win32"
+  ? test
+  : (name, fn) => test(name, { skip: "requires the Windows identity-bound path lock" }, fn);
+
 function ref(entityType, ownerSurface, entityId) {
   return { entity_type: entityType, owner_surface: ownerSurface, entity_id: entityId };
 }
@@ -332,7 +336,7 @@ test("authorized one-shot rejects a binding that authorizes more than one projec
   assert.equal(existsSync(fixture.artifactPaths.directory), false);
 });
 
-test("explicit pilot-copy one-shot generates DB, CSV, XLSX/readback, and verifier evidence", (t) => {
+windowsPathLockTest("explicit pilot-copy one-shot generates DB, CSV, XLSX/readback, and verifier evidence", (t) => {
   const fixture = createFixture(t);
   const toolPath = fileURLToPath(new URL("../tools/project_history_copy_one_shot.mjs", import.meta.url));
   const result = spawnSync(process.execPath, [
@@ -388,7 +392,7 @@ test("explicit pilot-copy one-shot generates DB, CSV, XLSX/readback, and verifie
   }
 });
 
-test("one-shot replays the identical binding and request after final bundle rename failure", async (t) => {
+windowsPathLockTest("one-shot replays the identical binding and request after final bundle rename failure", async (t) => {
   const fixture = createFixture(t);
   await assert.rejects(
     runPilotCopy(fixture, {
@@ -416,7 +420,7 @@ test("one-shot replays the identical binding and request after final bundle rena
   }
 });
 
-test("one-shot replays the identical binding and request after a post-manifest crash", async (t) => {
+windowsPathLockTest("one-shot replays the identical binding and request after a post-manifest crash", async (t) => {
   const fixture = createFixture(t);
   await assert.rejects(
     runPilotCopy(fixture, {
@@ -435,7 +439,7 @@ test("one-shot replays the identical binding and request after a post-manifest c
   assert.equal(replayed.binding_digest, fixture.binding.binding_digest);
 });
 
-test("pending same-binding replay rejects unrelated DB mutation, guard tamper, and authority expiry", async (t) => {
+windowsPathLockTest("pending same-binding replay rejects unrelated DB mutation, guard tamper, and authority expiry", async (t) => {
   await t.test("unrelated DB mutation", async (t) => {
     const fixture = createFixture(t);
     await assert.rejects(

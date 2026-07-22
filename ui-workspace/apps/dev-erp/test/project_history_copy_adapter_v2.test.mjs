@@ -50,6 +50,10 @@ import {
   writeProjectHistoryCopyBinding,
 } from "../tools/project_history_copy_binding.mjs";
 
+const windowsPathLockTest = process.platform === "win32"
+  ? test
+  : (name, fn) => test(name, { skip: "requires the Windows identity-bound path lock" }, fn);
+
 function ref(entityType, ownerSurface, entityId) {
   return { entity_type: entityType, owner_surface: ownerSurface, entity_id: entityId };
 }
@@ -219,7 +223,7 @@ function makeBoundedV2Generation() {
   return validateProjectHistoryReceiptAdapterGenerationV2(generation);
 }
 
-test("strict bounded receipt-adapter v2 generation adapts into the existing feature-OFF copy projection", (t) => {
+windowsPathLockTest("strict bounded receipt-adapter v2 generation adapts into the existing feature-OFF copy projection", (t) => {
   const sourceGeneration = makeBoundedV2Generation();
   const projectionGeneration = adaptProjectHistoryReceiptAdapterGenerationV2ToCopyProjection(sourceGeneration);
   assert.equal(projectionGeneration.schema_version, ACTUAL_SHADOW_GENERATION_SCHEMA_VERSION);
