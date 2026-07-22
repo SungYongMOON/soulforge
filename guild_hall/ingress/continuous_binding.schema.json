@@ -3,7 +3,8 @@
   "$id": "soulforge.ingress.continuous_binding.v1",
   "oneOf": [
     { "$ref": "#/$defs/bindingV1" },
-    { "$ref": "#/$defs/bindingV2" }
+    { "$ref": "#/$defs/bindingV2" },
+    { "$ref": "#/$defs/bindingV3" }
   ],
   "$defs": {
     "bindingV1": {
@@ -62,6 +63,40 @@
         "mail": { "$ref": "#/$defs/mail" },
         "voice": { "$ref": "#/$defs/voice" },
         "queues": { "type": "array", "items": { "$ref": "#/$defs/queue" } }
+      }
+    },
+    "bindingV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "enabled",
+        "scheduler_enabled",
+        "node_id",
+        "data_root",
+        "poll_interval_seconds",
+        "lease_ttl_seconds",
+        "writer_authority_record_path",
+        "writer_mode",
+        "mail",
+        "voice",
+        "queues",
+        "plaud"
+      ],
+      "properties": {
+        "schema_version": { "const": "soulforge.ingress.continuous_binding.v3" },
+        "enabled": { "type": "boolean" },
+        "scheduler_enabled": { "type": "boolean" },
+        "node_id": { "$ref": "#/$defs/safeId" },
+        "data_root": { "type": "string", "minLength": 3 },
+        "poll_interval_seconds": { "type": "integer", "minimum": 30, "maximum": 86400 },
+        "lease_ttl_seconds": { "type": "integer", "minimum": 60, "maximum": 172800 },
+        "writer_authority_record_path": { "type": "string", "minLength": 3 },
+        "writer_mode": { "enum": ["primary", "fallback"] },
+        "mail": { "$ref": "#/$defs/mail" },
+        "voice": { "$ref": "#/$defs/voice" },
+        "queues": { "type": "array", "items": { "$ref": "#/$defs/queue" } },
+        "plaud": { "$ref": "#/$defs/plaud" }
       }
     },
     "safeId": {
@@ -124,6 +159,61 @@
               "register_path": { "type": "string", "minLength": 3 },
               "register_sha256": { "$ref": "#/$defs/digest" },
               "private_config_root": { "type": "string", "minLength": 3 }
+            }
+          }
+        }
+      ]
+    },
+    "plaud": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "operational_mode",
+        "workspace_root",
+        "profile_path",
+        "profile_sha256",
+        "expected_cli_versions",
+        "command_timeout_seconds",
+        "max_candidates_per_cycle",
+        "writer_enabled"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "operational_mode": { "const": "observe_only" },
+        "workspace_root": { "type": ["string", "null"], "minLength": 3 },
+        "profile_path": { "type": ["string", "null"], "minLength": 3 },
+        "profile_sha256": {
+          "anyOf": [
+            { "$ref": "#/$defs/digest" },
+            { "type": "null" }
+          ]
+        },
+        "expected_cli_versions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }
+        },
+        "command_timeout_seconds": { "type": "integer", "minimum": 5, "maximum": 120 },
+        "max_candidates_per_cycle": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "writer_enabled": { "const": false }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] },
+          "then": {
+            "properties": {
+              "workspace_root": { "type": "string", "minLength": 3 },
+              "profile_path": { "type": "string", "minLength": 3 },
+              "profile_sha256": { "$ref": "#/$defs/digest" }
+            }
+          },
+          "else": {
+            "properties": {
+              "workspace_root": { "type": "null" },
+              "profile_path": { "type": "null" },
+              "profile_sha256": { "type": "null" }
             }
           }
         }

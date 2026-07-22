@@ -40,7 +40,18 @@ test("one supervisor process performs repeated one-shot cycles without overlappi
     },
     runCycleImpl: async (options) => {
       cycles.push(options);
-      return { status: "ok", run_id: `run-${cycles.length}`, errors: [], writes_performed: 0 };
+      return {
+        status: "ok",
+        run_id: `run-${cycles.length}`,
+        errors: [],
+        writes_performed: 0,
+        plaud: {
+          status: "ok",
+          ready_to_import_count: 4,
+          pending_provider_processing_count: 10,
+          cutover_ready: false,
+        },
+      };
     },
     delayImpl: async (milliseconds) => {
       delays.push(milliseconds);
@@ -63,6 +74,10 @@ test("one supervisor process performs repeated one-shot cycles without overlappi
     "supervisor_stopped",
   ]);
   assert.ok(events.every((event) => event.schema_version === CONTINUOUS_SUPERVISOR_EVENT_SCHEMA));
+  assert.equal(events[1].plaud_status, "ok");
+  assert.equal(events[1].plaud_ready_to_import_count, 4);
+  assert.equal(events[1].plaud_pending_provider_processing_count, 10);
+  assert.equal(events[1].plaud_cutover_ready, false);
 });
 
 test("abort stops the persistent loop between cycles", async () => {

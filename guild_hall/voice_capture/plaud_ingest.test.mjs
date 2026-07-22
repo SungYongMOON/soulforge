@@ -8,6 +8,7 @@ import {
   buildDefaultPlaudSyncProfile,
   buildPlaudLaunchdDefinition,
   buildPlaudSessionId,
+  commandAvailability,
   drainPlaudMailQueue,
   parsePlaudAudioUrl,
   parsePlaudFileOutput,
@@ -16,10 +17,61 @@ import {
   parsePlaudTranscript,
   parsePlaudVersion,
   renderPlaudLaunchdPlist,
+  runPlaudCommand,
   runPlaudSync,
 } from "./plaud_ingest.mjs";
 
 const RECORDING_ID = "df8097c8505379f1702100f6fbd9cc16";
+
+test("PLAUD executable discovery uses where.exe on Windows and command -v on POSIX", () => {
+  const calls = [];
+  const windowsExecutable = ["C:", "Tools", "plaud.cmd"].join("\\");
+  const windowsExtensionlessShim = windowsExecutable.slice(0, -4);
+  const spawnImpl = (command, args) => {
+    calls.push([command, args]);
+    return { status: 0, stdout: command === "where.exe" ? `${windowsExtensionlessShim}\r\n${windowsExecutable}\r\n` : "/usr/local/bin/plaud\n" };
+  };
+  const windows = commandAvailability("plaud", { platform: "win32", spawnImpl });
+  const posix = commandAvailability("plaud", { platform: "darwin", spawnImpl });
+  assert.equal(windows.ok, true);
+  assert.equal(windows.resolved_path, windowsExecutable);
+  assert.equal(posix.ok, true);
+  assert.equal(posix.resolved_path, "/usr/local/bin/plaud");
+  assert.deepEqual(calls[0], ["where.exe", ["plaud"]]);
+  assert.equal(calls[1][0], "/bin/sh");
+  assert.deepEqual(commandAvailability("plaud", {
+    platform: "win32",
+    spawnImpl: () => ({ status: 1, stdout: "" }),
+  }), { ok: false, resolved_path: null });
+});
+
+test("PLAUD Windows runner executes a discovered npm cmd shim through the system cmd safely", () => {
+  const systemRoot = ["C:", "Windows"].join("\\");
+  const shimPath = ["C:", "Users", "fixture", "AppData", "Roaming", "npm", "plaud.cmd"].join("\\");
+  const calls = [];
+  const stdout = runPlaudCommand("plaud", ["version"], {
+    platform: "win32",
+    systemRoot,
+    timeoutMs: 15000,
+    availabilityChecker: () => ({ ok: true, resolved_path: shimPath }),
+    spawnImpl: (command, args, options) => {
+      calls.push({ command, args, options });
+      return { status: 0, stdout: "plaud 0.3.4\n", stderr: "" };
+    },
+  });
+  assert.equal(stdout, "plaud 0.3.4\n");
+  assert.equal(calls[0].command, [systemRoot, "System32", "cmd.exe"].join("\\"));
+  assert.deepEqual(calls[0].args.slice(0, 3), ["/d", "/s", "/c"]);
+  assert.match(calls[0].args[3], /plaud\.cmd/u);
+  assert.equal(calls[0].options.windowsVerbatimArguments, true);
+  assert.equal(calls[0].options.timeout, 15000);
+  assert.throws(() => runPlaudCommand("plaud", ["file", "unsafe%PATH%"], {
+    platform: "win32",
+    systemRoot,
+    availabilityChecker: () => ({ ok: true, resolved_path: shimPath }),
+    spawnImpl: () => assert.fail("unsafe command must not spawn"),
+  }), { code: "plaud_windows_command_argument_unsafe" });
+});
 
 test("PLAUD CLI parsers keep ids, availability, timestamps, and speaker labels", () => {
   const recent = parsePlaudRecentOutput(`

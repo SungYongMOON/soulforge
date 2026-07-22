@@ -63,6 +63,10 @@ function safeCycleSummary(result, cycle) {
       ? result.writes_performed
       : null,
     mail_status: result?.mail?.status ?? null,
+    plaud_status: result?.plaud?.status ?? null,
+    plaud_ready_to_import_count: result?.plaud?.ready_to_import_count ?? 0,
+    plaud_pending_provider_processing_count: result?.plaud?.pending_provider_processing_count ?? 0,
+    plaud_cutover_ready: result?.plaud?.cutover_ready ?? false,
     mcp_written: result?.mcp_written ?? false,
     erp_written: result?.erp_written ?? false,
     project_promoted: result?.project_promoted ?? false,

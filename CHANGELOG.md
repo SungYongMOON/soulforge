@@ -2,6 +2,20 @@
 
 ## 2026-07-22
 
+### Feature-OFF HPP PLAUD provider observation
+
+- Added continuous-ingress binding v3 so the existing single hidden Windows
+  supervisor can hold a digest-pinned PLAUD profile and observe provider backlog
+  without creating another scheduled automation. The v3 path reuses the
+  existing voice authority/fence cycle, always invokes PLAUD with `apply: false`,
+  and emits counts only; raw payloads, IDs, titles, URLs, and absolute paths are
+  excluded.
+- PLAUD remains disabled in the current production v2 binding. V3 rejects
+  profile drift, writer enablement, and missing voice authority before provider
+  access. Windows executable discovery now uses `where.exe` while POSIX keeps
+  `command -v`. No CLI installation, login, D: RAW write, collector switch, or
+  Mac mini shutdown was performed. (worker: codex_gpt-5.6)
+
 ### Backup controller UNC path portability
 
 - Windows drive and UNC resource paths now use `path.win32` validation even

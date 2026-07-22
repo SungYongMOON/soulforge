@@ -22,14 +22,22 @@ import {
 } from "./mail_bridge.mjs";
 import { acquireWriterLease, validateWriterLease } from "./writer_authority.mjs";
 import { syncCopyOnlyMirror } from "../voice_capture/copy_only_mirror.mjs";
+import {
+  plaudSyncProfileSchemaVersion,
+  runPlaudCommand,
+  runPlaudSync,
+} from "../voice_capture/plaud_ingest.mjs";
 import { comparablePathIdentity as comparable } from "../shared/physical_path_identity.mjs";
 
 export const CONTINUOUS_BINDING_SCHEMA = "soulforge.ingress.continuous_binding.v1";
 export const CONTINUOUS_BINDING_SCHEMA_V2 = "soulforge.ingress.continuous_binding.v2";
+export const CONTINUOUS_BINDING_SCHEMA_V3 = "soulforge.ingress.continuous_binding.v3";
 export const CONTINUOUS_HEALTH_SCHEMA = "soulforge.ingress.continuous_health.v1";
 export const CONTINUOUS_HEALTH_SCHEMA_V2 = "soulforge.ingress.continuous_health.v2";
+export const CONTINUOUS_HEALTH_SCHEMA_V3 = "soulforge.ingress.continuous_health.v3";
 export const CONTINUOUS_RUN_RECEIPT_SCHEMA = "soulforge.ingress.continuous_run_receipt.v1";
 export const CONTINUOUS_RUN_RECEIPT_SCHEMA_V2 = "soulforge.ingress.continuous_run_receipt.v2";
+export const CONTINUOUS_RUN_RECEIPT_SCHEMA_V3 = "soulforge.ingress.continuous_run_receipt.v3";
 export const CONTINUOUS_LEASE_SCHEMA = "soulforge.ingress.continuous_lease.v1";
 export const CONTINUOUS_EPOCH_SCHEMA = "soulforge.ingress.continuous_epoch.v1";
 export const CONTINUOUS_QUEUE_ACK_SCHEMA = "soulforge.ingress.continuous_queue_ack.v1";
@@ -40,6 +48,7 @@ const LANE_VALUES = new Set(["team_files", "structured_pc_work", "run_logs"]);
 const AUTHORITY_LANE_ORDER = ["mail", "voice", "structured_pc_work", "team_files", "run_logs"];
 const AUTHORITY_MODES = new Set(["primary", "fallback"]);
 const MAIL_LEASE_MARGIN_MS = 60 * 1000;
+const PLAUD_LEASE_MARGIN_MS = 60 * 1000;
 const TOP_FIELDS_V1 = [
   "schema_version",
   "enabled",
@@ -57,6 +66,7 @@ const TOP_FIELDS_V2 = [
   "writer_mode",
   "mail",
 ];
+const TOP_FIELDS_V3 = [...TOP_FIELDS_V2, "plaud"];
 const MAIL_FIELDS = [
   "enabled",
   "python_executable",
@@ -67,6 +77,17 @@ const MAIL_FIELDS = [
   "register_sha256",
   "private_config_root",
   "limit",
+];
+const PLAUD_FIELDS = [
+  "enabled",
+  "operational_mode",
+  "workspace_root",
+  "profile_path",
+  "profile_sha256",
+  "expected_cli_versions",
+  "command_timeout_seconds",
+  "max_candidates_per_cycle",
+  "writer_enabled",
 ];
 const VOICE_FIELDS = [
   "enabled",
@@ -429,6 +450,140 @@ function normalizeMail(value, dataRoot) {
   return result;
 }
 
+async function readStablePlaudProfile(profilePath, testHooks = {}) {
+  let before;
+  try {
+    before = await lstat(profilePath, { bigint: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") fail("continuous_plaud_profile_missing");
+    throw error;
+  }
+  if (!before.isFile() || before.isSymbolicLink()) fail("continuous_plaud_profile_unsafe");
+  const beforeIdentity = stableReadIdentity(before);
+  const handle = await open(profilePath, "r");
+  let openedIdentity;
+  let bytes;
+  try {
+    const opened = await handle.stat({ bigint: true });
+    openedIdentity = stableReadIdentity(opened);
+    if (!opened.isFile() || !sameStableReadIdentity(beforeIdentity, openedIdentity)) {
+      fail("continuous_plaud_profile_unstable");
+    }
+    if (typeof testHooks.afterPlaudProfileOpened === "function") {
+      await testHooks.afterPlaudProfileOpened({ path: profilePath });
+    }
+    bytes = await handle.readFile();
+    if (!sameStableReadIdentity(openedIdentity, stableReadIdentity(await handle.stat({ bigint: true })))) {
+      fail("continuous_plaud_profile_unstable");
+    }
+  } finally {
+    await handle.close();
+  }
+  const after = await lstat(profilePath, { bigint: true }).catch(() => fail("continuous_plaud_profile_unstable"));
+  if (!after.isFile() || after.isSymbolicLink()
+    || !sameStableReadIdentity(beforeIdentity, stableReadIdentity(after))) {
+    fail("continuous_plaud_profile_unstable");
+  }
+  return bytes;
+}
+
+function normalizeCliVersions(value, code) {
+  if (!Array.isArray(value)
+    || value.length === 0
+    || value.some((item) => typeof item !== "string" || !/^\d+\.\d+\.\d+$/.test(item))) fail(code);
+  return [...new Set(value)].sort();
+}
+
+async function normalizePlaud(value, testHooks = {}) {
+  exactFields(value, PLAUD_FIELDS, "invalid_continuous_plaud_binding");
+  if (typeof value.enabled !== "boolean"
+    || typeof value.writer_enabled !== "boolean"
+    || value.operational_mode !== "observe_only") fail("invalid_continuous_plaud_binding");
+  if (value.writer_enabled) fail("continuous_plaud_writer_not_implemented");
+  const expectedCliVersions = normalizeCliVersions(
+    value.expected_cli_versions,
+    "invalid_continuous_plaud_binding",
+  );
+  const commandTimeoutSeconds = integerInRange(
+    value.command_timeout_seconds,
+    5,
+    120,
+    "invalid_continuous_plaud_binding",
+  );
+  const maxCandidatesPerCycle = integerInRange(
+    value.max_candidates_per_cycle,
+    1,
+    20,
+    "invalid_continuous_plaud_binding",
+  );
+  if (!value.enabled) {
+    if (value.workspace_root !== null || value.profile_path !== null || value.profile_sha256 !== null) {
+      fail("invalid_continuous_plaud_binding");
+    }
+    return {
+      enabled: false,
+      operationalMode: "observe_only",
+      writerEnabled: false,
+      workspaceRoot: null,
+      profilePath: null,
+      profileSha256: null,
+      expectedCliVersions,
+      commandTimeoutSeconds,
+      maxCandidatesPerCycle,
+      profile: null,
+    };
+  }
+
+  const workspaceRoot = absolutePath(value.workspace_root, "invalid_continuous_plaud_binding");
+  await assertNormalDirectory(workspaceRoot, "continuous_plaud_workspace_root_unsafe");
+  const profilePath = absolutePath(value.profile_path, "invalid_continuous_plaud_binding");
+  if (!inside(workspaceRoot, profilePath)) fail("continuous_plaud_profile_outside_workspace");
+  const profileSha256 = sha256(value.profile_sha256, "invalid_continuous_plaud_binding");
+  const profileBytes = await readStablePlaudProfile(profilePath, testHooks);
+  if (createHash("sha256").update(profileBytes).digest("hex") !== profileSha256) {
+    fail("continuous_plaud_profile_digest_mismatch");
+  }
+  let profile;
+  try {
+    profile = JSON.parse(profileBytes.toString("utf8"));
+  } catch {
+    fail("continuous_plaud_profile_invalid");
+  }
+  if (profile?.schema_version !== plaudSyncProfileSchemaVersion) fail("continuous_plaud_profile_invalid");
+  if (profile.plaud_command !== "plaud"
+    || !Number.isSafeInteger(profile.poll_days)
+    || profile.poll_days < 1
+    || profile.poll_days > 90
+    || !Number.isSafeInteger(profile.max_new_per_run)
+    || profile.max_new_per_run < 1
+    || profile.max_new_per_run > 100
+    || profile.output_root !== "_workspaces/system/voice_capture"
+    || profile.shared_workspace_required !== true
+    || typeof profile.readiness?.require_audio !== "boolean"
+    || typeof profile.readiness?.require_transcript !== "boolean") {
+    fail("continuous_plaud_profile_invalid");
+  }
+  const profileCliVersions = normalizeCliVersions(
+    profile.supported_cli_versions,
+    "continuous_plaud_profile_invalid",
+  );
+  if (JSON.stringify(profileCliVersions) !== JSON.stringify(expectedCliVersions)) {
+    fail("continuous_plaud_profile_cli_versions_mismatch");
+  }
+  return {
+    enabled: true,
+    operationalMode: "observe_only",
+    writerEnabled: false,
+    workspaceRoot,
+    profilePath,
+    profileSha256,
+    expectedCliVersions,
+    commandTimeoutSeconds,
+    maxCandidatesPerCycle,
+    profile,
+  };
+}
+
 function normalizeQueue(value, dataRoot) {
   exactFields(value, QUEUE_FIELDS, "invalid_continuous_queue_binding");
   if (typeof value.enabled !== "boolean" || !LANE_VALUES.has(value.lane)) fail("invalid_continuous_queue_binding");
@@ -466,13 +621,14 @@ export async function loadContinuousBinding(bindingPath, options = {}) {
   }
   const isV1 = raw?.schema_version === CONTINUOUS_BINDING_SCHEMA;
   const isV2 = raw?.schema_version === CONTINUOUS_BINDING_SCHEMA_V2;
-  if (!isV1 && !isV2) fail("invalid_continuous_binding");
-  exactFields(raw, isV2 ? TOP_FIELDS_V2 : TOP_FIELDS_V1, "invalid_continuous_binding");
+  const isV3 = raw?.schema_version === CONTINUOUS_BINDING_SCHEMA_V3;
+  if (!isV1 && !isV2 && !isV3) fail("invalid_continuous_binding");
+  exactFields(raw, isV3 ? TOP_FIELDS_V3 : isV2 ? TOP_FIELDS_V2 : TOP_FIELDS_V1, "invalid_continuous_binding");
   if (typeof raw.enabled !== "boolean" || typeof raw.scheduler_enabled !== "boolean") {
     fail("invalid_continuous_binding");
   }
   const dataRoot = absolutePath(raw.data_root, "invalid_continuous_binding");
-  const writerAuthorityRecordPath = isV2
+  const writerAuthorityRecordPath = isV2 || isV3
     ? absolutePath(raw.writer_authority_record_path, "invalid_continuous_binding")
     : null;
   if (writerAuthorityRecordPath
@@ -491,17 +647,26 @@ export async function loadContinuousBinding(bindingPath, options = {}) {
     voice: normalizeVoice(raw.voice, dataRoot),
     queues: Array.isArray(raw.queues) ? raw.queues.map((queue) => normalizeQueue(queue, dataRoot)) : null,
   };
-  if (isV2) {
+  if (isV2 || isV3) {
     binding.writerAuthorityRecordPath = writerAuthorityRecordPath;
     if (!AUTHORITY_MODES.has(raw.writer_mode)) fail("invalid_continuous_binding");
     binding.writerMode = raw.writer_mode;
     binding.mail = normalizeMail(raw.mail, dataRoot);
   }
+  if (isV3) binding.plaud = await normalizePlaud(raw.plaud, options.testHooks);
   if (!binding.queues || binding.leaseTtlSeconds < binding.pollIntervalSeconds * 2) fail("invalid_continuous_binding");
-  if (isV2
+  if ((isV2 || isV3)
     && binding.mail.enabled
     && binding.leaseTtlSeconds * 1000 < MAIL_BRIDGE_TIMEOUT_MS + MAIL_LEASE_MARGIN_MS) {
     fail("continuous_mail_lease_ttl_too_short");
+  }
+  if (isV3 && binding.plaud.enabled) {
+    const plaudWindowMs = (binding.plaud.maxCandidatesPerCycle + 3)
+      * binding.plaud.commandTimeoutSeconds * 1000
+      + PLAUD_LEASE_MARGIN_MS;
+    const combinedWindowMs = plaudWindowMs
+      + (binding.mail.enabled ? MAIL_BRIDGE_TIMEOUT_MS + MAIL_LEASE_MARGIN_MS : 0);
+    if (binding.leaseTtlSeconds * 1000 < combinedWindowMs) fail("continuous_plaud_lease_ttl_too_short");
   }
   const ids = binding.queues.map((queue) => queue.bindingId);
   if (new Set(ids).size !== ids.length) fail("duplicate_continuous_queue_binding");
@@ -517,14 +682,19 @@ export async function loadContinuousBinding(bindingPath, options = {}) {
 }
 
 function isV2Binding(binding) {
-  return binding.schemaVersion === CONTINUOUS_BINDING_SCHEMA_V2;
+  return binding.schemaVersion === CONTINUOUS_BINDING_SCHEMA_V2
+    || binding.schemaVersion === CONTINUOUS_BINDING_SCHEMA_V3;
+}
+
+function isV3Binding(binding) {
+  return binding.schemaVersion === CONTINUOUS_BINDING_SCHEMA_V3;
 }
 
 function enabledHistoryLanes(binding) {
   if (!isV2Binding(binding)) return [];
   const enabled = new Set();
   if (binding.mail.enabled) enabled.add("mail");
-  if (binding.voice.enabled) enabled.add("voice");
+  if (binding.voice.enabled || (isV3Binding(binding) && binding.plaud.enabled)) enabled.add("voice");
   for (const queue of binding.queues.filter((item) => item.enabled)) enabled.add(queue.lane);
   return AUTHORITY_LANE_ORDER.filter((lane) => enabled.has(lane));
 }
@@ -1100,6 +1270,74 @@ function disabledMailResult() {
   };
 }
 
+function disabledPlaudResult() {
+  return {
+    schema_version: "soulforge.voice.plaud_hpp_observation.v1",
+    status: "disabled",
+    applied: false,
+    recent_count: 0,
+    existing_provider_id_count: 0,
+    new_candidate_count: 0,
+    candidate_count: 0,
+    truncated_new_candidate_count: 0,
+    ready_to_import_count: 0,
+    pending_provider_processing_count: 0,
+    import_failed_retryable_count: 0,
+    unknown_state_count: 0,
+    preflight_ok: null,
+    blocking_check_ids: [],
+    raw_written: false,
+    provider_payload_read: false,
+    writer_enabled: false,
+    cutover_ready: false,
+  };
+}
+
+function sanitizePlaudObservation(sync) {
+  const recordings = Array.isArray(sync?.recordings) ? sync.recordings : [];
+  const count = (state) => recordings.filter((item) => item?.state === state).length;
+  const ready = count("ready_to_import");
+  const processing = count("pending_provider_processing");
+  const retryable = count("import_failed_retryable");
+  const known = ready + processing + retryable;
+  return {
+    schema_version: "soulforge.voice.plaud_hpp_observation.v1",
+    status: sync?.ok === false ? "blocked" : retryable > 0 || known !== recordings.length ? "degraded" : "ok",
+    applied: false,
+    recent_count: Number(sync?.recent_count ?? 0),
+    existing_provider_id_count: Number(sync?.existing_provider_id_count ?? 0),
+    new_candidate_count: Number(sync?.new_candidate_count ?? 0),
+    candidate_count: Number(sync?.candidate_count ?? 0),
+    truncated_new_candidate_count: Number(sync?.truncated_new_candidate_count ?? 0),
+    ready_to_import_count: ready,
+    pending_provider_processing_count: processing,
+    import_failed_retryable_count: retryable,
+    unknown_state_count: Math.max(recordings.length - known, 0),
+    preflight_ok: sync?.preflight?.ok ?? true,
+    blocking_check_ids: Array.isArray(sync?.preflight?.checks)
+      ? sync.preflight.checks
+        .filter((check) => check?.ok === false)
+        .map((check) => String(check.id))
+        .filter((id) => SAFE_ID.test(id))
+        .sort()
+      : [],
+    raw_written: false,
+    provider_payload_read: false,
+    writer_enabled: false,
+    cutover_ready: false,
+  };
+}
+
+function receiptSchema(binding) {
+  if (isV3Binding(binding)) return CONTINUOUS_RUN_RECEIPT_SCHEMA_V3;
+  return isV2Binding(binding) ? CONTINUOUS_RUN_RECEIPT_SCHEMA_V2 : CONTINUOUS_RUN_RECEIPT_SCHEMA;
+}
+
+function healthSchema(binding) {
+  if (isV3Binding(binding)) return CONTINUOUS_HEALTH_SCHEMA_V3;
+  return isV2Binding(binding) ? CONTINUOUS_HEALTH_SCHEMA_V2 : CONTINUOUS_HEALTH_SCHEMA;
+}
+
 function authorityReceiptFields(binding, authorityContext) {
   if (!isV2Binding(binding)) return {};
   return {
@@ -1120,7 +1358,7 @@ export async function runContinuousIngress(options = {}) {
   const checkedAt = new Date(now()).toISOString();
   if (options.apply !== true || !binding.enabled) {
     const result = {
-      schema_version: isV2Binding(binding) ? CONTINUOUS_RUN_RECEIPT_SCHEMA_V2 : CONTINUOUS_RUN_RECEIPT_SCHEMA,
+      schema_version: receiptSchema(binding),
       status: binding.enabled ? "dry_run_no_write" : "disabled_no_write",
       node_id: binding.nodeId,
       checked_at: checkedAt,
@@ -1140,6 +1378,13 @@ export async function runContinuousIngress(options = {}) {
         writer_authority_mode: null,
       });
     }
+    if (isV3Binding(binding)) {
+      Object.assign(result, {
+        plaud_enabled: binding.plaud.enabled,
+        plaud_status: binding.plaud.enabled ? "held_no_query_in_dry_run" : "disabled",
+        plaud_writer_enabled: false,
+      });
+    }
     return result;
   }
 
@@ -1148,6 +1393,7 @@ export async function runContinuousIngress(options = {}) {
   const id = runId(binding.nodeId, leaseContext.lease.lease_epoch, startedAt);
   const queueResults = [];
   let mailResult = isV2Binding(binding) ? disabledMailResult() : null;
+  let plaudResult = isV3Binding(binding) ? disabledPlaudResult() : null;
   let voiceResult = null;
   let finalStatus = "ok";
   const errors = [];
@@ -1175,6 +1421,39 @@ export async function runContinuousIngress(options = {}) {
         errors.push({ binding_id: "mail", code });
       }
       await assertLaneFences(binding, leaseContext, authorityContext, "mail", "after_payload", now);
+    }
+    if (isV3Binding(binding) && binding.plaud.enabled) {
+      await assertLaneFences(binding, leaseContext, authorityContext, "voice", "before_payload", now);
+      try {
+        const baseCommandRunner = options.plaudCommandRunner ?? runPlaudCommand;
+        const commandRunner = (command, args, commandOptions = {}) => baseCommandRunner(command, args, {
+          ...commandOptions,
+          timeoutMs: binding.plaud.commandTimeoutSeconds * 1000,
+        });
+        const sync = await (options.plaudSyncRunner ?? runPlaudSync)({
+          repoRoot: binding.plaud.workspaceRoot,
+          profile: {
+            ...binding.plaud.profile,
+            max_new_per_run: Math.min(
+              binding.plaud.profile.max_new_per_run,
+              binding.plaud.maxCandidatesPerCycle,
+            ),
+          },
+          apply: false,
+          commandRunner,
+        });
+        plaudResult = sanitizePlaudObservation(sync);
+        if (plaudResult.status !== "ok") {
+          finalStatus = "degraded";
+          errors.push({ binding_id: "plaud", code: `plaud_observation_${plaudResult.status}` });
+        }
+      } catch (error) {
+        if (fencingError(error)) throw error;
+        plaudResult = { ...disabledPlaudResult(), status: "failed", preflight_ok: false };
+        finalStatus = "degraded";
+        errors.push({ binding_id: "plaud", code: "plaud_observation_failed" });
+      }
+      await assertLaneFences(binding, leaseContext, authorityContext, "voice", "after_payload", now);
     }
     if (binding.voice.enabled) {
       await assertLaneFences(binding, leaseContext, authorityContext, "voice", "before_payload", now);
@@ -1241,7 +1520,7 @@ export async function runContinuousIngress(options = {}) {
       + Number(mailResult?.total_new_events || 0);
     const writesPerformedExact = !isV2Binding(binding) || mailResult?.write_count_known !== false;
     const receipt = {
-      schema_version: isV2Binding(binding) ? CONTINUOUS_RUN_RECEIPT_SCHEMA_V2 : CONTINUOUS_RUN_RECEIPT_SCHEMA,
+      schema_version: receiptSchema(binding),
       run_id: id,
       status: finalStatus,
       node_id: binding.nodeId,
@@ -1250,6 +1529,7 @@ export async function runContinuousIngress(options = {}) {
       started_at: startedAt,
       completed_at: completedAt,
       ...(isV2Binding(binding) ? { mail: mailResult } : {}),
+      ...(isV3Binding(binding) ? { plaud: plaudResult } : {}),
       voice: voiceResult,
       queues: queueResults,
       errors,
@@ -1286,7 +1566,7 @@ export async function runContinuousIngress(options = {}) {
     await assertLeaseHeld(binding, leaseContext, now());
     await validateAllAuthorityLanes(binding, authorityContext, "after_payload", now);
     const health = {
-      schema_version: isV2Binding(binding) ? CONTINUOUS_HEALTH_SCHEMA_V2 : CONTINUOUS_HEALTH_SCHEMA,
+      schema_version: healthSchema(binding),
       status: finalStatus,
       node_id: binding.nodeId,
       lease_epoch: leaseContext.lease.lease_epoch,
@@ -1303,6 +1583,13 @@ export async function runContinuousIngress(options = {}) {
       ...(isV2Binding(binding) ? {
         mail_enabled: binding.mail.enabled,
         mail_write_count_known: mailResult.write_count_known,
+      } : {}),
+      ...(isV3Binding(binding) ? {
+        plaud_enabled: binding.plaud.enabled,
+        plaud_status: plaudResult.status,
+        plaud_writer_enabled: false,
+        plaud_ready_to_import_count: plaudResult.ready_to_import_count,
+        plaud_pending_provider_processing_count: plaudResult.pending_provider_processing_count,
       } : {}),
       erp_enabled: false,
       mcp_enabled: false,

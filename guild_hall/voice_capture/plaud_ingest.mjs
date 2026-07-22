@@ -175,10 +175,14 @@ export function parsePlaudTranscript(raw) {
 }
 
 export function runPlaudCommand(command, args, options = {}) {
-  const result = spawnSync(command, args, {
+  const spawn = options.spawnImpl ?? spawnSync;
+  const invocation = resolvePlaudCommandInvocation(command, args, options);
+  const result = spawn(invocation.command, invocation.args, {
     cwd: options.cwd,
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
+    ...(Number.isSafeInteger(options.timeoutMs) && options.timeoutMs > 0 ? { timeout: options.timeoutMs } : {}),
+    ...invocation.spawnOptions,
     env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0", CI: "1", PLAUD_NO_UPDATE_NOTIFIER: "1" },
   });
   if (result.status !== 0) {
@@ -188,6 +192,49 @@ export function runPlaudCommand(command, args, options = {}) {
     throw error;
   }
   return String(result.stdout ?? "");
+}
+
+function resolvePlaudCommandInvocation(command, args, options = {}) {
+  const platform = options.platform ?? process.platform;
+  if (platform !== "win32") return { command, args, spawnOptions: {} };
+  const availability = (options.availabilityChecker ?? commandAvailability)(command, {
+    platform,
+    spawnImpl: options.spawnImpl ?? spawnSync,
+  });
+  if (!availability.ok || !availability.resolved_path) {
+    return { command, args, spawnOptions: {} };
+  }
+  const resolvedCommand = availability.resolved_path;
+  const extension = path.win32.extname(resolvedCommand).toLowerCase();
+  if (![".cmd", ".bat"].includes(extension)) {
+    if (extension && ![".exe", ".com"].includes(extension)) {
+      const error = new Error("unsupported Windows PLAUD command shim");
+      error.code = "plaud_windows_command_shim_unsupported";
+      throw error;
+    }
+    return { command: resolvedCommand, args, spawnOptions: {} };
+  }
+  const systemRoot = options.systemRoot ?? process.env.SystemRoot;
+  if (typeof systemRoot !== "string" || !path.win32.isAbsolute(systemRoot)) {
+    const error = new Error("Windows system root is unavailable");
+    error.code = "plaud_windows_system_root_invalid";
+    throw error;
+  }
+  const quote = (value) => {
+    const text = String(value);
+    if (/[\u0000\r\n"%!]/u.test(text)) {
+      const error = new Error("unsafe Windows PLAUD command argument");
+      error.code = "plaud_windows_command_argument_unsafe";
+      throw error;
+    }
+    return `"${text}"`;
+  };
+  const commandLine = `"${[resolvedCommand, ...args].map(quote).join(" ")}"`;
+  return {
+    command: path.win32.join(systemRoot, "System32", "cmd.exe"),
+    args: ["/d", "/s", "/c", commandLine],
+    spawnOptions: { windowsVerbatimArguments: true },
+  };
 }
 
 export async function buildPlaudPreflight(options = {}) {
@@ -864,9 +911,19 @@ function renderPlaudSourceEventDraft({ repoRoot, profile, sessionDir, manifest }
   ].join("\n");
 }
 
-function commandAvailability(command) {
-  const result = spawnSync("/bin/sh", ["-lc", `command -v ${shellQuote(command)}`], { encoding: "utf8" });
-  return { ok: result.status === 0, resolved_path: result.stdout?.trim() || null };
+export function commandAvailability(command, options = {}) {
+  const platform = options.platform ?? process.platform;
+  const spawn = options.spawnImpl ?? spawnSync;
+  const result = platform === "win32"
+    ? spawn("where.exe", [command], { encoding: "utf8" })
+    : spawn("/bin/sh", ["-lc", `command -v ${shellQuote(command)}`], { encoding: "utf8" });
+  const candidates = String(result.stdout ?? "").split(/\r?\n/u).map((value) => value.trim()).filter(Boolean);
+  const resolvedPath = platform === "win32"
+    ? [".exe", ".com", ".cmd", ".bat"]
+      .map((extension) => candidates.find((candidate) => path.win32.extname(candidate).toLowerCase() === extension))
+      .find(Boolean) ?? null
+    : candidates[0] ?? null;
+  return { ok: result.status === 0 && Boolean(resolvedPath), resolved_path: resolvedPath };
 }
 
 function classifyPlaudImportFailure(error) {
@@ -929,8 +986,8 @@ async function checkSharedWorkspace(sharedRoot) {
 
 function buildPreflightNextSteps(blockers) {
   const steps = [];
-  if (blockers.some((item) => item.includes("plaud"))) steps.push("Install @plaud-ai/cli and run `plaud login` on the Mac mini.");
-  if (blockers.some((item) => item.includes("ffprobe"))) steps.push("Install ffmpeg on the Mac mini.");
+  if (blockers.some((item) => item.includes("plaud"))) steps.push("Install the pinned @plaud-ai/cli and complete `plaud login` on the active collector.");
+  if (blockers.some((item) => item.includes("ffprobe"))) steps.push("Install ffmpeg on the active collector.");
   if (blockers.some((item) => item.includes("shared link"))) steps.push("Materialize the active _workspaces/system OneDrive link and rerun the workspace junction audit.");
   return steps;
 }

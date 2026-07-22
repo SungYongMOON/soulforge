@@ -20,6 +20,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import {
   CONTINUOUS_BINDING_SCHEMA,
   CONTINUOUS_BINDING_SCHEMA_V2,
+  CONTINUOUS_BINDING_SCHEMA_V3,
   CONTINUOUS_EPOCH_SCHEMA,
   CONTINUOUS_LEASE_SCHEMA,
   loadContinuousBinding,
@@ -30,6 +31,7 @@ import {
   WRITER_AUTHORITY_ABSENT_DIGEST,
   transitionWriterAuthority,
 } from "./writer_authority.mjs";
+import { buildDefaultPlaudSyncProfile } from "../voice_capture/plaud_ingest.mjs";
 
 const execFile = promisify(execFileCallback);
 const CLI = fileURLToPath(new URL("./continuous_cli.mjs", import.meta.url));
@@ -343,6 +345,47 @@ async function v2Binding(f, authority, options = {}) {
     envFile,
     privateConfigRoot,
   };
+}
+
+async function v3Binding(f, authority, options = {}) {
+  const mail = await v2Binding(f, authority, { ...options, mailEnabled: options.mailEnabled ?? false });
+  mail.payload.schema_version = CONTINUOUS_BINDING_SCHEMA_V3;
+  if (options.plaudEnabled === false) {
+    mail.payload.plaud = {
+      enabled: false,
+      operational_mode: "observe_only",
+      workspace_root: null,
+      profile_path: null,
+      profile_sha256: null,
+      expected_cli_versions: ["0.3.4"],
+      command_timeout_seconds: 15,
+      max_candidates_per_cycle: 20,
+      writer_enabled: false,
+    };
+    return { ...mail, profilePath: null, workspaceRoot: null };
+  }
+  const workspaceRoot = join(f.root, "workspace");
+  const profilePath = join(workspaceRoot, "_workspaces", "system", "voice_capture", "config", "plaud_sync.profile.json");
+  await mkdir(dirname(profilePath), { recursive: true });
+  const profile = {
+    ...buildDefaultPlaudSyncProfile(),
+    register_library: false,
+    write_workmeta_draft: false,
+  };
+  const profileBytes = `${JSON.stringify(profile, null, 2)}\n`;
+  await writeFile(profilePath, profileBytes);
+  mail.payload.plaud = {
+    enabled: true,
+    operational_mode: "observe_only",
+    workspace_root: workspaceRoot,
+    profile_path: profilePath,
+    profile_sha256: digest(profileBytes),
+    expected_cli_versions: ["0.3.4"],
+    command_timeout_seconds: 15,
+    max_candidates_per_cycle: 20,
+    writer_enabled: false,
+  };
+  return { ...mail, profilePath, workspaceRoot };
 }
 
 function syntheticMailSummary(overrides = {}) {
@@ -1616,7 +1659,150 @@ test("v2 dry-run performs zero writes and never invokes the mail executor", asyn
   }
 });
 
-test("public continuous binding schema accepts exact v1 and v2 shapes only", async () => {
+test("PLAUD v3 stays feature-OFF without a private profile or provider call", async () => {
+  const f = await fixture();
+  try {
+    const authority = await activateWriterAuthority(f);
+    const plaud = await v3Binding(f, authority, { plaudEnabled: false });
+    plaud.payload.queues = plaud.payload.queues.map((queue) => ({ ...queue, enabled: false }));
+    await writeBinding(f, plaud.payload);
+    let calls = 0;
+    const dryRun = await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      plaudSyncRunner: async () => { calls += 1; },
+    });
+    assert.equal(dryRun.status, "dry_run_no_write");
+    assert.equal(dryRun.plaud_enabled, false);
+    assert.equal(dryRun.plaud_status, "disabled");
+    assert.equal(dryRun.plaud_writer_enabled, false);
+    assert.equal(calls, 0);
+    const { stdout } = await execFile(process.execPath, [CLI, "--config", f.bindingPath], { cwd: dirname(CLI) });
+    const safe = JSON.parse(stdout);
+    assert.equal(safe.plaud_enabled, false);
+    assert.equal(safe.plaud_status, "disabled");
+    assert.equal(safe.plaud_writer_enabled, false);
+    assert.equal(safe.plaud_raw_written, false);
+    assert.equal(stdout.includes(f.root), false);
+
+    const applied = await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: advancingClock(),
+      plaudSyncRunner: async () => { calls += 1; },
+    });
+    assert.equal(applied.plaud.status, "disabled");
+    assert.equal(applied.plaud.raw_written, false);
+    assert.equal(applied.plaud.writer_enabled, false);
+    assert.equal(calls, 0);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("PLAUD v3 observes provider backlog inside the existing fenced cycle without RAW writes", async () => {
+  const f = await fixture();
+  try {
+    const authority = await activateWriterAuthority(f);
+    const plaud = await v3Binding(f, authority);
+    plaud.payload.queues = plaud.payload.queues.map((queue) => ({ ...queue, enabled: false }));
+    await writeBinding(f, plaud.payload);
+    const calls = [];
+    const commandCalls = [];
+    const result = await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: advancingClock(),
+      plaudCommandRunner: (command, args, options) => {
+        commandCalls.push({ command, args, options });
+        return "synthetic";
+      },
+      plaudSyncRunner: async (options) => {
+        calls.push(options);
+        options.commandRunner("plaud", ["recent"], { cwd: f.root });
+        return {
+          ok: true,
+          applied: false,
+          recent_count: 20,
+          existing_provider_id_count: 6,
+          new_candidate_count: 14,
+          candidate_count: 14,
+          recordings: [
+            ...Array.from({ length: 4 }, (_, index) => ({ id: `private-ready-${index}`, name: "private title", state: "ready_to_import" })),
+            ...Array.from({ length: 10 }, (_, index) => ({ id: `private-pending-${index}`, state: "pending_provider_processing" })),
+          ],
+        };
+      },
+    });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].apply, false);
+    assert.equal(calls[0].profile.max_new_per_run, 20);
+    assert.equal(commandCalls[0].options.timeoutMs, 15000);
+    assert.equal(result.plaud.status, "ok");
+    assert.equal(result.plaud.ready_to_import_count, 4);
+    assert.equal(result.plaud.pending_provider_processing_count, 10);
+    assert.equal(result.plaud.raw_written, false);
+    assert.equal(result.plaud.cutover_ready, false);
+    assert.equal(result.writes_performed, 0);
+    assert.equal(JSON.stringify(result).includes("private"), false);
+
+    const health = JSON.parse(await readFile(join(f.dataRoot, "state", "health", "continuous_ingress.json"), "utf8"));
+    assert.equal(health.plaud_enabled, true);
+    assert.equal(health.plaud_ready_to_import_count, 4);
+    assert.equal(health.plaud_writer_enabled, false);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("PLAUD v3 rejects profile drift, writer enablement, and missing voice authority before provider access", async () => {
+  const f = await fixture();
+  try {
+    const authority = await activateWriterAuthority(f);
+    const plaud = await v3Binding(f, authority);
+    plaud.payload.queues = plaud.payload.queues.map((queue) => ({ ...queue, enabled: false }));
+    await writeBinding(f, plaud.payload);
+
+    await writeFile(plaud.profilePath, `${JSON.stringify({ ...buildDefaultPlaudSyncProfile(), poll_days: 1 })}\n`);
+    await assert.rejects(loadContinuousBinding(f.bindingPath), { code: "continuous_plaud_profile_digest_mismatch" });
+
+    const invalidProfileBytes = `${JSON.stringify({
+      ...buildDefaultPlaudSyncProfile(),
+      max_new_per_run: -1,
+    }, null, 2)}\n`;
+    await writeFile(plaud.profilePath, invalidProfileBytes);
+    plaud.payload.plaud.profile_sha256 = digest(invalidProfileBytes);
+    await writeBinding(f, plaud.payload);
+    await assert.rejects(loadContinuousBinding(f.bindingPath), { code: "continuous_plaud_profile_invalid" });
+
+    plaud.payload.plaud.writer_enabled = true;
+    await writeBinding(f, plaud.payload);
+    await assert.rejects(loadContinuousBinding(f.bindingPath), { code: "continuous_plaud_writer_not_implemented" });
+
+    plaud.payload.plaud.writer_enabled = false;
+    const originalProfile = {
+      ...buildDefaultPlaudSyncProfile(),
+      register_library: false,
+      write_workmeta_draft: false,
+    };
+    const profileBytes = `${JSON.stringify(originalProfile, null, 2)}\n`;
+    await writeFile(plaud.profilePath, profileBytes);
+    plaud.payload.plaud.profile_sha256 = digest(profileBytes);
+    await writeBinding(f, plaud.payload);
+    await revokeWriterAuthority(f, authority, authority.active);
+    let calls = 0;
+    await assert.rejects(runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: advancingClock(),
+      plaudSyncRunner: async () => { calls += 1; },
+    }), { code: "writer_authority_mode_off" });
+    assert.equal(calls, 0);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("public continuous binding schema accepts exact v1, v2, and v3 shapes only", async () => {
   const f = await fixture();
   try {
     const schemaPath = fileURLToPath(new URL("./continuous_binding.schema.json", import.meta.url));
@@ -1627,6 +1813,10 @@ test("public continuous binding schema accepts exact v1 and v2 shapes only", asy
       recordPath: join(f.dataRoot, "state", "writer_authority", "active.json"),
     });
     assert.equal(validate(mail.payload), true, JSON.stringify(validate.errors));
+    const plaud = await v3Binding(f, {
+      recordPath: join(f.dataRoot, "state", "writer_authority", "active.json"),
+    });
+    assert.equal(validate(plaud.payload), true, JSON.stringify(validate.errors));
     assert.equal(validate({ ...mail.payload, unexpected: true }), false);
   } finally {
     await rm(f.root, { recursive: true, force: true });

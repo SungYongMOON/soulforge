@@ -137,7 +137,9 @@ The public binding schema is `continuous_binding.schema.json`. A live binding
 is private and contains exact physical paths but no credential values. Version
 1 binds one HPP node, the D data root, a voice source, and zero or more local
 outbox queues. Version 2 adds an exact writer-authority record plus an optional
-team-mail bridge. Queue lanes remain limited to `team_files`,
+team-mail bridge. Version 3 adds a digest-pinned PLAUD profile whose only
+permitted mode is query-only provider observation; its writer flag is fixed
+`false`. Queue lanes remain limited to `team_files`,
 `structured_pc_work`, and `run_logs`.
 
 Validate a binding without acquiring a lease or writing data:
@@ -186,6 +188,20 @@ existing per-cycle lease prevent duplicate supervisors and writers. The task has
 15-minute repetition; Windows restarts only a terminated supervisor, up to the
 bounded task setting.
 
+PLAUD does not create a second scheduled task. When a private version 3 binding
+explicitly enables it, the same long-lived supervisor checks provider metadata
+once per fenced cycle with `apply: false`. Receipts contain only counts and
+fixed health states: recording IDs, titles, provider URLs, transcript bodies,
+and absolute paths are omitted. A disabled PLAUD block does not open the
+profile, invoke the CLI, or touch the network. Enabling the observer requires a
+stable SHA-256-pinned profile under the declared workspace root, the exact
+supported CLI version set, and the existing `voice` writer-authority snapshot.
+The binding also caps metadata candidates per cycle and applies a per-command
+timeout; its lease window must cover the bounded mail and PLAUD worst case.
+It still cannot download audio, publish a session, acknowledge HPP delivery, or
+declare cutover ready. Those writer actions require a later binding schema with
+final-publication fences and a separate owner-approved cutover.
+
 The private binding must have `enabled: true`, and the scheduler's actual state
 must match `scheduler_enabled`. Each cycle acquires a D-local exclusive lease,
 increments a monotonic epoch, and rechecks its fence token before and at every
@@ -196,7 +212,7 @@ expired lease whose exact host is the current host and whose recorded PID is
 verified dead. A remote-host lease, an unverifiable owner, or PID reuse fails
 closed and requires controlled operator recovery.
 
-Version 2 explicitly declares `writer_mode: primary|fallback` and additionally
+Versions 2 and 3 explicitly declare `writer_mode: primary|fallback` and additionally
 acquires the same durable writer-authority snapshot for
 every enabled lane in the fixed order `mail`, `voice`, `structured_pc_work`,
 `team_files`, `run_logs`. Each lane revalidates that authority before and after

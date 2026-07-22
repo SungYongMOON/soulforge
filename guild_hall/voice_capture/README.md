@@ -148,6 +148,27 @@ historical receipt archive.
 
 ## Commands
 
+### HPP query-only PLAUD readiness
+
+The Windows HPP reuses the existing hidden continuous-ingress supervisor; it
+does not install a second Task Scheduler automation. Public binding version 3
+can hold a SHA-256-pinned, secret-free PLAUD profile and poll provider metadata
+inside the existing `voice` authority/fence cycle. This observation path always
+calls PLAUD sync with `apply: false` and publishes only counts and health states.
+It never downloads audio or transcripts, writes a session, reads/copies a CLI
+token, or changes the active writer.
+
+The version 3 PLAUD block is feature-OFF when `enabled: false`. In that state its
+workspace/profile fields are `null`, no PLAUD command is invoked, and the
+current version 2 HPP production binding remains unchanged. Windows executable
+preflight uses `where.exe`; macOS/Linux continue to use `command -v`.
+
+Live HPP profile materialization, pinned CLI installation, owner login,
+provider catch-up, direct D: custody writes, current receipt repair, HPP
+consumer acknowledgement, and Mac-to-HPP writer cutover remain separate gated
+steps. The Mac mini collector must stay active until those checks and an exact
+cutover receipt pass.
+
 ### PLAUD account intake on an always-on Mac
 
 PLAUD account intake is separate from microphone recording. It uses the
