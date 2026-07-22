@@ -42,7 +42,9 @@ templates/mail_render_policy.validation_fixture.yaml`.
 Structured modes select the public-safe `owner_outlook_readability_v1` preset
 from `templates/outlook_readability_preset_v1.yaml` without requiring the user
 to repeat typography, priority, numbering, bullet, table, or empty-section
-rules. The workflow emits a render/application handoff only. A separate
+rules. Structured tables default to a left-aligned fixed width no greater than
+470 pt with cell wrapping instead of expanding to the Outlook window. The
+workflow emits a render/application handoff only. A separate
 explicitly owner-approved executor is required to create or update an Outlook
 draft. An unspecified local Outlook draft request uses `GetActiveObject` only
 for an already running classic Outlook session and never starts a process; UI

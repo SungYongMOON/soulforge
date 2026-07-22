@@ -13,7 +13,7 @@ authoring and Outlook application without granting unattended send authority.
 ## Operating Steps
 
 1. Read the root agent contract and the workflow's `workflow.yaml`, `step_graph.yaml`, and `profile_policy.yaml`.
-2. Read `docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md` and `.workflow/outbound_mail_authoring_v0/templates/team_mail_context.template.yaml`.
+2. Read `docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md`, `.workflow/outbound_mail_authoring_v0/templates/team_mail_context.template.yaml`, and `.workflow/outbound_mail_authoring_v0/templates/outlook_readability_preset_v1.yaml`.
 3. Normalize supplied facts to `outbound_team_mail_context_v1`. Preserve role-only `to`/`cc`/`bcc` recipients and reasons, every actual assignee with requested work and notes, global notes, facts, schedule before/after/rationale/deadline or reply-by, participant involvement, format/examples, attachments, and response requirements.
    - When a requester supplies a numbered source agenda, preserve that agenda's number, title, and order as the outer structure of the visible mail. Do not regroup the mail by assignee.
    - For every agenda item, bind and render: `담당`, `요청 업무`, `요청 기한`, `요청 사유`, and `회신/완료 기준`. If a value is unknown, render `지정 필요` or `확인 필요` in that item and add the same gap to `assumptions`; never silently omit it or invent it.
@@ -50,6 +50,7 @@ authoring and Outlook application without granting unattended send authority.
    - Render approved external references as visible clickable anchors and prefer the official manufacturer or primary-source specification URL. Verify both the visible link label and the final HTML `href`; plain URL text alone does not satisfy this check.
    - Use Word-editor find/replace for non-ASCII visible-text corrections after Outlook has rendered the item. Raw `HTMLBody.Replace()` is not sufficient because Outlook may entity-encode or rewrite the text.
    - Apply the validator-passed body without summarizing or rewriting it. For every newly authored Outlook body range, explicitly apply Malgun Gothic and RGB black font color to body paragraphs, numbered headings, bullets, and every table cell. Never inherit blue or other colored formatting from the replied message. Verify the authored paragraphs, headings, bullets, and table cells are black before saving.
+   - Apply `structure.tables.layout` from the readability preset in the Outlook Word editor; do not duplicate its width or layout constants in this bridge. Use the preset's default verification path unless the latest owner correction explicitly selects another width, then use its owner-override verification path.
    - When the current user explicitly authorizes a password method for the selected Office attachment, derive the value at runtime from the approved source, apply it only to that attachment, and never print, log, persist, or repeat the value.
    - If the requested programmatic executor fails, stop and return the copy-ready draft. Never switch to UI automation implicitly.
    - Use an app-control executor only when the current user explicitly requests UI or computer control. That UI executor remains limited to one unsent draft and must not send mail.

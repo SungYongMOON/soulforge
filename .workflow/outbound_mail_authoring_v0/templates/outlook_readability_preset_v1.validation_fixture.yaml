@@ -37,6 +37,20 @@ expected:
     body: {font_family: "Malgun Gothic", font_size_pt: 10}
     headings: {font_family: "Malgun Gothic", font_size_pt: 11, bold: true, space_before_pt: 12, space_after_pt: 6, bottom_rule: true}
     bullets_and_tables: {font_family: "Malgun Gothic", font_size_pt: 10, spacing: inherit_body}
+  tables:
+    width_mode: fixed
+    default_width_pt: 470
+    maximum_width_pt: 470
+    horizontal_alignment: left
+    auto_fit_to_window: false
+    wrap_cell_text: true
+    column_sizing: content_weighted_within_fixed_width
+    owner_explicit_width_override:
+      allowed: true
+      verification: verify_actual_table_width_matches_owner_selected_width_before_save
+    application_verification:
+      default: verify_actual_table_width_at_or_below_maximum_before_save
+      owner_override: verify_actual_table_width_matches_owner_selected_width_before_save
   handoff:
     authoring_workflow_mutates_outlook: false
     owner_approved_separate_executor_required: true

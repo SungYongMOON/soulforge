@@ -32,7 +32,9 @@ Compact is reserved for pure sharing with no requested work, confirmation,
 review, decision, or response. Any actionable request uses a structured brief
 that visibly separates purpose, basis, requested work, completion/reply
 criteria, follow-up, and attachments. Newly authored Outlook content explicitly
-uses black text instead of inheriting a colored reply-thread style.
+uses black text instead of inheriting a colored reply-thread style. Structured
+tables use the workflow preset's bounded fixed width and wrap long cell text
+instead of expanding to the Outlook window width.
 
 The owner specialization also locks the newest corrections before rendering,
 shows approved `수신/사유` lines at the top, rejects superseded wording, and
