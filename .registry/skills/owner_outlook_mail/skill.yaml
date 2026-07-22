@@ -41,13 +41,13 @@ behavior:
     - structured request mail visibly separates purpose, review or technical basis, requested work, completion or reply criteria, follow-up, and attachments
     - a deterministic local packet validator passes before Outlook draft application
     - newly authored Outlook text, headings, bullets, and tables are explicitly black and never inherit colored reply-thread formatting
-    - structured Outlook tables use the workflow preset's bounded fixed width, left alignment, and wrapped cell text unless the owner's latest correction explicitly selects another width, and the applied width persists after save, close, and reopen
+    - structured Outlook tables use the workflow preset's bounded fixed width, left alignment, and wrapped cell text unless the owner's latest correction explicitly selects another width; the preferred three-column request-work profile gives completion or reply criteria the widest column, and applied table and column widths persist after save, close, and reopen
     - optional voice guidance comes from a local/private aggregate profile with provenance
     - an explicitly requested local draft executor may save or display one unsent draft without acquiring send authority
     - an unspecified local Outlook draft request uses the safe local programmatic executor after a non-mutating availability probe or stops with a copy-ready draft
     - same-task continuations reuse trusted subject, recipient order, body correction, exact attachment, control-surface, logical-signature, and exact saved-draft identity bindings
     - the registered signature is inserted into the authored body, verified before save, and never becomes a business attachment
-    - a separate current explicit send instruction revalidates the exact locked draft, performs at most one send action, checks a bounded confirmation result, and never retries an unknown or ambiguous outcome
+    - a separate current explicit send instruction revalidates the exact locked draft, represents direct SMTP recipients and MAPIPDL groups with typed runtime-private correlation identities, performs at most one send action, checks a bounded confirmation result, and never retries an unknown or ambiguous outcome
     - synthetic evaluation remains file/text only and never creates or sends an Outlook item
     - a terminal/programmatic request never falls back to UI or computer-control automation
 execution_requirements:

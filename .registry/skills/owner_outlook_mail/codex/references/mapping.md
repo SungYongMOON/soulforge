@@ -138,12 +138,18 @@ then produce the pre-send revalidation result for recipient values/order,
 subject, latest body corrections, exact attachment list, footer, and schedule
 when applicable. Call `.Send()` exactly once, then poll Sent Items and Outbox
 once per second for at most 30 seconds. Correlate only on the runtime-private
-locked subject, ordered recipient SMTP values, attachment name/size/digest,
-normalized body digest, and send-start UTC time. Zero matches at the bound is
-`unknown`; more than one is `ambiguous`; neither allows automatic resend. Run
-`scripts/test_outlook_send_continuation.ps1` for the file-only contract test.
-This continuation does not authorize bulk mailbox mutation or any synthetic or
-evaluator send.
+locked subject, ordered typed recipient identities, attachment
+name/size/digest, normalized body digest, and send-start UTC time. Use a
+normalized direct SMTP identity when available. For `MAPIPDL` without direct
+SMTP, resolve every member SMTP, canonicalize the set, and use only its
+runtime-private SHA-256 fingerprint while preserving the group's top-level
+recipient position. An unresolved member blocks send before `.Send()` and no
+member address is logged or persisted. Use
+`scripts/outlook_recipient_correlation.ps1` for normalization. Zero matches at
+the bound is `unknown`; more than one is `ambiguous`; neither allows automatic
+resend. Run `scripts/test_outlook_send_continuation.ps1` for the file-only
+contract test. This continuation does not authorize bulk mailbox mutation or
+any synthetic or evaluator send.
 
 ## Adaptive Body Rendering
 
@@ -160,8 +166,13 @@ draft packet.
   response exists, even for one assignee and one item. Show `수신/사유`, purpose
   or review result, supported review/technical basis, `요청 업무`, completion or
   reply criteria, supported follow-up, and attachments. For repeated request
-  fields, use a table with `담당자`, `요청 업무`, `확인 목적` or request basis,
-  and `완료·회신 기준`; show a deadline only when supplied.
+  fields, prefer `담당자 | 요청 업무 | 완료·회신 기준` and render shared reason
+  or context outside the table. Use the readability preset's
+  `request_work_three_column` semantic profile when those conditions match and
+  no latest owner explicit width override exists. Width precedence is owner
+  override, then semantic profile, then generic default.
+  Add a reason/basis column only when it differs by row and remains readable;
+  show a deadline only when supplied.
 - `decision_brief`: approval or choice; lead with the decision needed and show
   recommendation, alternatives/impact, deadline, and basis only when present.
 - `status_change`: lead with the change, before/after, impact, and next action.
@@ -211,6 +222,8 @@ paragraphs, headings, bullets, and table cells.
 - Footer gaps keep the result draft-only.
 - Compact was not selected when requested work, confirmation, review, decision, or a required response exists.
 - Newly authored Outlook paragraphs, headings, bullets, and every table cell explicitly use black text and do not inherit colored reply-thread formatting.
+- A matching three-column request-work table used the preset semantic profile and retained its table and column widths after save, close, and reopen.
+- Direct SMTP and MAPIPDL recipients used ordered typed correlation identities; no unresolved group member passed pre-send validation and no group member address was logged.
 - No external send occurred unless the owner gave a separate current explicit instruction for the exact locked draft; any authorized send called `.Send()` once and its Sent Items/Outbox result was checked without automatic retry.
 - No synthetic or evaluator mail item was created in Outlook; samples remain local text or validation packets only.
 - A terminal/programmatic request used PowerShell Outlook COM only and did not fall back to UI or computer-control automation.

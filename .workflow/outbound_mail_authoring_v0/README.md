@@ -43,8 +43,11 @@ Structured modes select the public-safe `owner_outlook_readability_v1` preset
 from `templates/outlook_readability_preset_v1.yaml` without requiring the user
 to repeat typography, priority, numbering, bullet, table, or empty-section
 rules. Structured tables default to a left-aligned fixed width no greater than
-470 pt with cell wrapping instead of expanding to the Outlook window. The
-executor verifies persistence after save, close, and reopen. The workflow emits
+470 pt with cell wrapping instead of expanding to the Outlook window. When a
+request table has `담당자 | 요청 업무 | 완료·회신 기준` and shared context is
+outside the table, the preset selects its 580 pt three-column semantic profile
+with 90/225/265 pt columns. The executor verifies table and column persistence
+after save, close, and reopen. The workflow emits
 a render/application handoff only. A separate
 explicitly owner-approved executor is required to create or update an Outlook
 draft. An unspecified local Outlook draft request uses `GetActiveObject` only
@@ -95,7 +98,9 @@ control surface, logical signature, and the saved draft's runtime-private
 StoreID/EntryID. A later separate current send instruction resolves that exact
 draft, produces a revalidation result, permits one `.Send()` call, and checks
 Sent Items/Outbox once per second for at most 30 seconds without automatic retry
-of an unknown or ambiguous result.
+of an unknown or ambiguous result. Recipient correlation uses ordered typed
+identities: normalized SMTP when direct, or a runtime-private fingerprint of a
+fully resolved canonical MAPIPDL member set without logging member addresses.
 
 ## Core Rules
 

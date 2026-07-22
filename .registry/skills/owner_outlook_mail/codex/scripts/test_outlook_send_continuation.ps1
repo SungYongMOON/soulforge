@@ -3,6 +3,8 @@ param()
 
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'outlook_recipient_correlation.ps1')
+
 function Resolve-OutlookSendOutcome {
     param(
         [Parameter(Mandatory = $true)]
@@ -52,7 +54,7 @@ function Resolve-OutlookSendOutcome {
         poll_interval_seconds = 1
         correlation_fields = @(
             'subject'
-            'ordered_recipient_SMTP_values'
+            'ordered_recipient_identities'
             'attachment_name_size_digest'
             'normalized_body_digest'
             'send_started_at_utc'
@@ -68,11 +70,28 @@ $unknown = Resolve-OutlookSendOutcome `
     -SendCallCount 1 -ElapsedSeconds 30 -ExactSentMatches 0 -ExactOutboxMatches 0
 $expectedCorrelationFields = @(
     'subject'
-    'ordered_recipient_SMTP_values'
+    'ordered_recipient_identities'
     'attachment_name_size_digest'
     'normalized_body_digest'
     'send_started_at_utc'
 )
+$directIdentity = New-OutlookRecipientCorrelationIdentity `
+    -AddressEntryType SMTP -SmtpAddress 'direct@example.invalid'
+$groupIdentityA = New-OutlookRecipientCorrelationIdentity `
+    -AddressEntryType MAPIPDL `
+    -MemberSmtpAddresses @('member-b@example.invalid', 'member-a@example.invalid')
+$groupIdentityB = New-OutlookRecipientCorrelationIdentity `
+    -AddressEntryType MAPIPDL `
+    -MemberSmtpAddresses @('MEMBER-A@example.invalid', 'MEMBER-B@example.invalid', 'member-a@example.invalid')
+$groupOutput = $groupIdentityA | ConvertTo-Json -Compress
+$groupMemberFailureRejected = $false
+try {
+    $null = New-OutlookRecipientCorrelationIdentity `
+        -AddressEntryType MAPIPDL `
+        -MemberSmtpAddresses @('member@example.invalid', '')
+} catch {
+    $groupMemberFailureRejected = $_.Exception.Message -eq 'mapipdl_member_smtp_unresolved'
+}
 $correlationFieldsExact =
     [string]::Join('|', $unknown.correlation_fields) -eq
     [string]::Join('|', $expectedCorrelationFields)
@@ -101,6 +120,11 @@ $result = [ordered]@{
         $unknown.confirmation_window_seconds -eq 30 -and
         $unknown.poll_interval_seconds -eq 1 -and
         $correlationFieldsExact -and
+        $directIdentity.kind -eq 'smtp' -and
+        $groupIdentityA.kind -eq 'mapipdl' -and
+        $groupIdentityA.identity -eq $groupIdentityB.identity -and
+        -not $groupOutput.Contains('@') -and
+        $groupMemberFailureRejected -and
         $secondSendRejected -and
         $ambiguousMatchRejected
     confirmed_state = $confirmed.state
@@ -110,6 +134,9 @@ $result = [ordered]@{
     second_send_rejected = $secondSendRejected
     ambiguous_match_rejected = $ambiguousMatchRejected
     correlation_fields_exact = $correlationFieldsExact
+    mapipdl_fingerprint_stable = $groupIdentityA.identity -eq $groupIdentityB.identity
+    mapipdl_output_redacted = -not $groupOutput.Contains('@')
+    mapipdl_unresolved_member_rejected = $groupMemberFailureRejected
 }
 
 if (-not $result.ok) {

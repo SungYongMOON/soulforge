@@ -47,12 +47,35 @@ structure:
       application_verification:
         default: verify_actual_table_width_at_or_below_maximum_before_save
         owner_override: verify_actual_table_width_matches_owner_selected_width_before_save
+      selection_precedence:
+        - owner_explicit_width_override
+        - matching_semantic_profile
+        - generic_default
+      semantic_profiles:
+        request_work_three_column:
+          applies_when:
+            owner_explicit_width_override_absent: true
+            exact_columns:
+              - "담당자"
+              - "요청 업무"
+              - "완료·회신 기준"
+            shared_reason_or_context_is_rendered_outside_table: true
+          total_width_pt: 580
+          overrides_generic_maximum_width: true
+          column_widths_pt:
+            assignee: 90
+            requested_work: 225
+            completion_or_reply_criteria: 265
+          completion_or_reply_criteria_is_widest: true
+          verification: verify_profile_widths_after_save_close_and_reopen
     request_work_columns:
-      - "담당자"
-      - "요청 업무"
-      - "확인 목적 또는 요청 사유"
-      - "완료·회신 기준"
-      - "요청 기한(값이 있을 때만)"
+      preferred:
+        - "담당자"
+        - "요청 업무"
+        - "완료·회신 기준"
+      optional_when_row_specific_and_readable:
+        - "확인 목적 또는 요청 사유"
+        - "요청 기한(값이 있을 때만)"
   follow_up_section:
     include_when: supported_nonempty_follow_up_exists
 typography:

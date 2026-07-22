@@ -45,7 +45,11 @@ order as the outer structure.
 Use one table when there are multiple assignees, repeated request fields, or
 three or more related technical values.
 
-- Work table: `담당자 | 요청 업무 | 확인 목적·요청 사유 | 완료·회신 기준`
+- Preferred work table: `담당자 | 요청 업무 | 완료·회신 기준`. Keep a
+  shared reason or context in the introduction or basis section and use the
+  readability preset's `request_work_three_column` semantic profile.
+- Add `확인 목적·요청 사유` only when it differs by row and the resulting
+  table remains readable.
 - Add `요청 기한` only when the owner supplied a deadline or reply-by value.
 - Technical table: `항목 | 적용·확인 내용 | 비고`
 - A two-column key/value table is allowed for one request when three or more

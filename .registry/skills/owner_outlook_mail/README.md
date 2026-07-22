@@ -34,12 +34,18 @@ that visibly separates purpose, basis, requested work, completion/reply
 criteria, follow-up, and attachments. Newly authored Outlook content explicitly
 uses black text instead of inheriting a colored reply-thread style. Structured
 tables use the workflow preset's bounded fixed width and wrap long cell text
-instead of expanding to the Outlook window width. The executor verifies that
-the applied width survives save, close, and reopen of the same locked draft.
+instead of expanding to the Outlook window width. A matching three-column
+request-work table uses the preset's wider completion/reply column profile. The
+executor verifies that the applied table and column widths survive save, close,
+and reopen of the same locked draft.
 
 The owner specialization also locks the newest corrections before rendering,
 shows approved `수신/사유` lines at the top, rejects superseded wording, and
 requires the local structured-request validator before Outlook application.
 Synthetic evaluation is text/file-only and never creates or sends Outlook mail.
+At send-continuation time, direct SMTP recipients and personal distribution
+lists use typed runtime-private correlation identities. Group member addresses
+are canonicalized only in memory and represented by a non-address fingerprint;
+an unresolved member blocks the send before `.Send()`.
 
 Installed skill name: `soulforge-owner-outlook-mail`.

@@ -10,6 +10,13 @@
   width after save, close, and reopen, uses Word's point-width enum rather than
   its percent-width enum, and applies an owner-selected width only through the
   explicit override path. (worker: codex_gpt-5.6-sol)
+- Added a semantic profile for three-column request-work tables. When shared
+  context is outside the table, `담당자 | 요청 업무 | 완료·회신 기준` now uses
+  580 pt total width with 90/225/265 pt columns so the completion/reply column is
+  not cramped. Added typed send-correlation identities for direct SMTP and
+  Outlook personal distribution lists; MAPIPDL members are fully resolved in
+  memory and represented only by a canonical set fingerprint, with unresolved
+  members blocking send before `.Send()`. (worker: codex_gpt-5.6-sol)
 
 ### Outlook owner-mail bound continuation fast path
 

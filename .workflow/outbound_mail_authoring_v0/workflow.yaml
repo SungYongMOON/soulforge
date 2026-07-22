@@ -312,8 +312,8 @@ outbound_mail_authoring_contract:
       request_work_table_fields:
         - assignee
         - requested_work
-        - confirmation_purpose_or_request_basis
         - completion_or_reply_criteria
+        - confirmation_purpose_or_request_basis_only_when_row_specific_and_readable
         - deadline_only_when_supplied
       Outlook_application_color_policy:
         authored_content_color: black
@@ -412,6 +412,7 @@ outbound_mail_authoring_contract:
       required_pre_send_revalidation:
         - draft_store_identity
         - recipient_values_and_display_order
+        - typed_ordered_recipient_correlation_identities
         - thread_subject
         - latest_body_corrections
         - exact_attachment_list
@@ -429,10 +430,16 @@ outbound_mail_authoring_contract:
         poll_interval_seconds: 1
         runtime_private_exact_correlation_fields:
           - locked_subject
-          - ordered_recipient_SMTP_values
+          - ordered_recipient_identities
           - attachment_name_size_and_digest
           - normalized_body_digest
           - send_started_at_utc
+        recipient_identity_policy:
+          direct_SMTP: normalized_lowercase_SMTP
+          MAPIPDL_without_direct_SMTP: sha256_of_sorted_unique_normalized_member_SMTP_set
+          preserve_top_level_recipient_order: true
+          unresolved_group_member_SMTP: block_before_Send_call
+          member_address_logging_or_persistence: forbidden
         zero_matches_at_bound: unknown
         multiple_matches: ambiguous
       unknown_outcome_policy: report_and_never_retry_automatically

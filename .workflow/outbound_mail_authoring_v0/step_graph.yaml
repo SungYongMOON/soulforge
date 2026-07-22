@@ -148,6 +148,7 @@ steps:
         - render_assumptions_only_from_synchronized_v1_assumptions
         - for_technical_action_brief_use_one_conditions_table_then_numbered_steps_then_requested_evidence
         - apply_owner_outlook_readability_v1_by_default_to_structured_modes
+        - width_precedence_is_owner_explicit_override_then_matching_request_work_three_column_profile_then_generic_default
         - place_request_and_reply_deadline_first_as_an_independent_section_when_present
         - use_contiguous_numbered_headings_and_renumber_after_omitting_empty_sections
         - use_Malgun_Gothic_10pt_for_body_bullets_and_tables
@@ -291,6 +292,8 @@ steps:
         - no_recipient_or_attachment_changes_after_approval
         - separate_current_explicit_send_instruction_targets_only_the_exact_locked_draft
         - exact_locked_draft_is_resolved_by_StoreID_and_EntryID_and_produces_a_revalidation_result_before_one_Send_call
+        - recipient_correlation_uses_typed_ordered_direct_SMTP_or_MAPIPDL_fingerprint_identities
+        - unresolved_MAPIPDL_member_SMTP_blocks_send_before_Send_call_and_member_addresses_are_not_logged
         - Sent_Items_and_Outbox_are_polled_once_per_second_for_at_most_30_seconds_with_runtime_private_exact_correlation
         - unknown_or_ambiguous_send_outcome_is_never_retried_automatically
     summary: Prepare a copy-ready Outlook draft or a bounded send-mail handoff when approval allows it.

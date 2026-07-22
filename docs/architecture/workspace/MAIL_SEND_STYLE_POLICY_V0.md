@@ -132,7 +132,7 @@
 
 기본 톤은 짧고 실무적인 한국어 업무 메일이다.
 
-기존 보낸메일이나 특정 개인의 메일 형식은 품질 기준 또는 정답으로 사용하지 않는다. 이 정책의 구조 기준은 아래 외부 근거와 승인된 업무 사실이다. 로컬/private owner voice profile 은 owner 가 별도로 요청한 경우에만 말끝, 문장 길이 같은 표면 문체를 제한적으로 보조하며, 구조 선택·사실 판단·행동/기한 추출을 덮어쓰지 않는다. profile 사용 시 집계 대상·건수·관찰 방식 같은 provenance 를 함께 확인하고, 정확한 샘플 문장·연락처·raw address·footer 전문·private path·project row 는 public 문서나 초안 packet 으로 복사하지 않는다.
+일반적인 기존 보낸메일이나 특정 개인의 메일 형식을 자동으로 품질 기준 또는 정답으로 사용하지 않는다. 다만 owner가 특정 발송본을 명시적으로 기준 사례로 지정하면, 그 항목은 private metadata pointer와 추상화한 문체·레이아웃 특성만 가진 reference exemplar로 사용할 수 있다. 이 경우에도 수신자 주소, 정확한 샘플 문장, 프로젝트 사실, 첨부 원문, footer 전문을 public canon에 복사하지 않으며 다른 메일의 사실 근거로 재사용하지 않는다. 이 정책의 구조 기준은 아래 외부 근거와 승인된 업무 사실이다. 로컬/private owner voice profile 은 owner 가 별도로 요청한 경우에만 말끝, 문장 길이 같은 표면 문체를 제한적으로 보조하며, 구조 선택·사실 판단·행동/기한 추출을 덮어쓰지 않는다. profile 사용 시 집계 대상·건수·관찰 방식 같은 provenance 를 함께 확인하고, 정확한 샘플 문장·연락처·raw address·footer 전문·private path·project row 는 public 문서나 초안 packet 으로 복사하지 않는다.
 
 - 첫 문장에 메일 목적을 바로 쓴다.
 - 긴 배경 설명보다 요청사항, 첨부, 확인 필요일, 다음 행동을 앞세운다.
@@ -237,10 +237,14 @@ AI가 사용하는 `outbound_team_mail_context_v1` 메타데이터는 항상 완
 - 요청이나 회신기한이 있으면 `1. 요청사항` 독립 구역을 가장 먼저 두고 그 안에 요청 내용과 기한을 함께 표시한다.
 - 이후 채워진 구역을 `2.`부터 연속 번호로 표시하고, 빈 구역을 생략한 뒤 전체 번호를 다시 맞춘다. 요청사항 구역이 없으면 첫 가시 구역이 `1.`부터 시작한다.
 - 병렬 항목은 bullet, 반복 필드나 관련 값 3개 이상은 표를 사용한다.
-- Outlook 업무 표는 창 폭에 맞춰 자동 확장하지 않는다. 기본은 왼쪽 정렬 고정 폭
-  470 pt(약 16.6 cm) 이내로 두고, 열은 그 폭 안에서 내용 비중에 따라 배분하며
-  긴 내용은 셀 안에서 줄바꿈한다. owner의 최신 지시가 있을 때만 다른 폭을 적용한다.
-  적용 결과는 저장 후 초안을 닫았다 다시 열어도 실제 폭이 유지되는지 확인한다.
+- Outlook 업무 표는 창 폭에 맞춰 자동 확장하지 않는다. 일반 표 기본은 왼쪽 정렬
+  고정 폭 470 pt(약 16.6 cm) 이내로 두고, 열은 그 폭 안에서 내용 비중에 따라
+  배분하며 긴 내용은 셀 안에서 줄바꿈한다. `담당자 | 요청 업무 | 완료·회신 기준`
+  3열 요청표이고 공통 사유·맥락이 표 밖에 있으면 preset의
+  `request_work_three_column` profile을 자동 선택한다. 이 profile은 전체 580 pt,
+  열 90/225/265 pt로 완료·회신 기준을 가장 넓게 둔다. 행마다 다른 사유만 별도
+  사유 열로 추가한다. owner의 최신 지시가 있을 때는 그 폭을 우선한다. 적용 결과는
+  저장 후 초안을 닫았다 다시 열어도 실제 표 폭과 열 폭이 유지되는지 확인한다.
 - 빈 첨부·비고·후속 조치 구역과 `해당 없음` placeholder는 만들지 않는다.
 
 이 프리셋은 authoring 결과에 포함되는 render plan이다. authoring workflow나 얇은
@@ -438,7 +442,8 @@ Outlook 수동 초안은 출력 packet 과 점검표에 `requested_send_surface:
 15. 서명 block 과 보안 문구 block 이 정확히 1회 포함되어 있는가.
 16. 같은 업무의 후속 지시라면 제목, 수신자 순서, 본문 수정, 첨부, control surface, 논리 서명, runtime-private Outlook StoreID/EntryID binding이 현재 검증값과 일치하는가.
 17. 별도 현재 발송 지시가 있다면 정확히 잠긴 초안 하나만 대상으로 `.Send()`를 최대 1회 호출하도록 제한했는가.
-18. 발송 결과가 불명확하면 자동 재발송하지 않고 Sent Items와 Outbox 확인 결과를 그대로 보고하는가.
+18. 직접 SMTP 주소가 없는 Outlook 개인 배포목록은 모든 구성원의 SMTP를 해석한 뒤 정규화·중복제거·정렬한 구성원 집합의 runtime-private 지문으로 수신자 위치를 검증하며, 해석 실패나 구성원 주소 노출 없이 중단하는가.
+19. 발송 결과가 불명확하면 자동 재발송하지 않고 Sent Items와 Outbox 확인 결과를 그대로 보고하는가.
 
 ## 발송 후 기록
 
@@ -472,7 +477,7 @@ Outlook 수동 초안은 출력 packet 과 점검표에 `requested_send_surface:
 - 같은 bounded 메일 작업에서는 마지막으로 검증된 제목, To/Cc/Bcc 표시 순서, 본문 수정, 정확한 첨부, control surface, 논리 서명과 첫 저장 후 얻은 runtime-private Outlook StoreID/EntryID를 유지한다. `계속`, `서명 넣어줘`, `보내줘` 같은 후속 지시는 그 현재 초안에만 적용하며, 누락·변경·상태 drift·복수 후보·파일 변경·신뢰할 lock 부재가 있을 때만 다시 묻는다.
 - owner가 local Outlook 초안 작성을 요청하면서 control surface를 지정하지 않은 경우 `Marshal.GetActiveObject('Outlook.Application')`으로 이미 실행 중인 classic Outlook session만 확인하고, 사용 가능하면 local programmatic executor를 기본 선택한다. 이 probe는 새 COM instance나 process를 시작하지 않는다. 사용할 수 없으면 복사용 초안에서 중단하며 UI로 자동 전환하지 않는다.
 - UI 또는 computer control은 현재 owner가 그 surface를 명시적으로 요청한 경우에만 사용한다.
-- 별도의 현재 `보내줘` 또는 예약발송 지시가 있으면 StoreID/EntryID로 정확히 잠긴 초안을 찾고, 현재 lock 전체의 재검증 결과를 만든 뒤 `.Send()`를 1회만 호출한다. Sent Items와 Outbox는 1초 간격으로 최대 30초 확인하고, runtime-private 제목·순서 있는 recipient SMTP 값·첨부 이름/크기/digest·정규화 본문 digest·send-start UTC가 모두 맞는 1건만 확인한다. 0건은 `unknown`, 복수건은 `ambiguous`이며 둘 다 자동 재시도하지 않는다.
+- 별도의 현재 `보내줘` 또는 예약발송 지시가 있으면 StoreID/EntryID로 정확히 잠긴 초안을 찾고, 현재 lock 전체의 재검증 결과를 만든 뒤 `.Send()`를 1회만 호출한다. Sent Items와 Outbox는 1초 간격으로 최대 30초 확인하고, runtime-private 제목·순서 있는 typed recipient identity·첨부 이름/크기/digest·정규화 본문 digest·send-start UTC가 모두 맞는 1건만 확인한다. 직접 SMTP 주소가 있는 수신자는 정규화 SMTP를 쓰고, 직접 SMTP가 없는 Outlook 개인 배포목록(`MAPIPDL`)은 모든 구성원 SMTP를 소문자 정규화·중복 제거·정렬한 뒤 그 집합의 SHA-256 지문을 사용한다. 배포목록은 상위 수신자 순서를 유지하고 구성원 주소는 로그·문서에 남기지 않으며, 하나라도 해석되지 않으면 `.Send()` 전에 중단한다. 0건은 `unknown`, 복수건은 `ambiguous`이며 둘 다 자동 재시도하지 않는다.
 - 답장은 원본 thread 에서 작성한다.
 - 전달 메일은 원문 chain 과 첨부가 외부 공유 가능한지 확인한 뒤 작성한다.
 - Outlook folder/rule 작업은 `outlook_mail_reconcile_v0` 또는 별도 Outlook operations task 로 분리한다.
@@ -486,7 +491,7 @@ Outlook 수동 초안은 출력 packet 과 점검표에 `requested_send_surface:
 
 ## ASSUMPTIONS
 
-- 기존 보낸메일과 특정 개인의 메일은 품질 oracle 로 사용하지 않는다.
+- owner가 명시적으로 지정하지 않은 기존 보낸메일과 특정 개인의 메일은 품질 oracle 로 사용하지 않는다. 지정된 private reference exemplar도 문체·레이아웃 보조일 뿐 사실·수신자·첨부의 재사용 근거가 아니다.
 - 일반 업무 이메일에서 헤딩 수와 LLM 파싱 정확도를 함께 무작위 비교한 직접 연구는 확인하지 못했다. 사람 대상 텍스트 이해·접근성 연구와 semantic email 연구를 보수적으로 결합한 정책이다.
 - 프로젝트별 고객/상대방이 별도 제목 키워드 규칙을 요구하면 이 문서보다 해당 project-local rule 이 우선한다.
 

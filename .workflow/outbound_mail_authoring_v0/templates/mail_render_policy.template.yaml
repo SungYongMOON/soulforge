@@ -104,4 +104,5 @@ global_rules:
   - Apply owner_outlook_readability_v1 to structured modes and emit a render plan; do not mutate Outlook.
   - Never select compact when requested_work is nonempty or response_requirements.required is true.
   - Structured request mail shows recipient/reason, purpose or result, supported basis, requested work, completion or reply criteria, supported follow-up, and attachments.
+  - Select width in this order: latest owner explicit override, matching request-work three-column semantic profile when shared reason or context is outside the table, then generic default; add a reason column only for row-specific content that remains readable.
   - Outlook application explicitly sets newly authored paragraphs, headings, bullets, and table cells to black instead of inheriting reply-thread color.

@@ -5,6 +5,20 @@ input:
   render_mode: action_brief
   requested_action: "합성 검토 항목을 확인하고 결과를 회신"
   reply_deadline: "승인된 응답 기한"
+  table_width_selection_cases:
+    - case_id: owner_override_wins
+      columns: ["담당자", "요청 업무", "완료·회신 기준"]
+      shared_reason_or_context_is_rendered_outside_table: true
+      owner_explicit_width_override_pt: 540
+      expected_policy: owner_explicit_width_override
+    - case_id: matching_semantic_profile
+      columns: ["담당자", "요청 업무", "완료·회신 기준"]
+      shared_reason_or_context_is_rendered_outside_table: true
+      expected_policy: request_work_three_column
+    - case_id: generic_default
+      columns: ["항목", "적용·확인 내용", "비고"]
+      shared_reason_or_context_is_rendered_outside_table: false
+      expected_policy: generic_default
   sections:
     - title: "기술 조건"
       table:
@@ -56,6 +70,24 @@ expected:
     application_verification:
       default: verify_actual_table_width_at_or_below_maximum_before_save
       owner_override: verify_actual_table_width_matches_owner_selected_width_before_save
+    selection_precedence:
+      - owner_explicit_width_override
+      - matching_semantic_profile
+      - generic_default
+    semantic_profiles:
+      request_work_three_column:
+        applies_when:
+          owner_explicit_width_override_absent: true
+          exact_columns: ["담당자", "요청 업무", "완료·회신 기준"]
+          shared_reason_or_context_is_rendered_outside_table: true
+        total_width_pt: 580
+        overrides_generic_maximum_width: true
+        column_widths_pt:
+          assignee: 90
+          requested_work: 225
+          completion_or_reply_criteria: 265
+        completion_or_reply_criteria_is_widest: true
+        verification: verify_profile_widths_after_save_close_and_reopen
   handoff:
     authoring_workflow_mutates_outlook: false
     owner_approved_separate_executor_required: true
