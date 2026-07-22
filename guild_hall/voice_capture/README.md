@@ -126,8 +126,9 @@ safe IDs, strict UTC audit timestamps, relative refs, roles, expected receipt
 sizes/hashes, observed acknowledgement sizes/hashes, and verification states. They do
 not contain recording titles, transcript bodies, absolute paths, credentials,
 or provider URLs. Successful PLAUD registration and completed local ASR attempt
-producer receipt emission once with the public-safe producer role label
-`always_on_voice_producer`. A receipt failure is a retryable delivery warning
+producer receipt emission once. Standalone callers default to the public-safe
+role label `always_on_voice_producer`; the HPP continuous writer supplies its
+bound node identity. A receipt failure is a retryable delivery warning
 and never rolls back the successful import or transcription.
 
 Producer and consumer node labels are operational assertions, not cryptographic
@@ -148,26 +149,51 @@ historical receipt archive.
 
 ## Commands
 
-### HPP query-only PLAUD readiness
+### HPP fenced PLAUD readiness and primary intake
 
 The Windows HPP reuses the existing hidden continuous-ingress supervisor; it
 does not install a second Task Scheduler automation. Public binding version 3
-can hold a SHA-256-pinned, secret-free PLAUD profile and poll provider metadata
-inside the existing `voice` authority/fence cycle. This observation path always
-calls PLAUD sync with `apply: false` and publishes only counts and health states.
-It never downloads audio or transcripts, writes a session, reads/copies a CLI
-token, or changes the active writer.
+can hold a SHA-256-pinned, secret-free PLAUD profile inside the existing
+`voice` authority/fence cycle. `observe_only` calls PLAUD with `apply: false`.
+Explicit `primary_writer` downloads the bounded ready candidates, writes the
+unclassified shared session/library/producer receipt, and lets the same cycle
+mirror the generation into D-local custody. Both paths publish only counts and
+health states and never expose provider IDs, titles, URLs, transcript bodies,
+or absolute paths in operator output.
 
 The version 3 PLAUD block is feature-OFF when `enabled: false`. In that state its
 workspace/profile fields are `null`, no PLAUD command is invoked, and the
 current version 2 HPP production binding remains unchanged. Windows executable
 preflight uses `where.exe`; macOS/Linux continue to use `command -v`.
 
-Live HPP profile materialization, pinned CLI installation, owner login,
-provider catch-up, direct D: custody writes, current receipt repair, HPP
-consumer acknowledgement, and Mac-to-HPP writer cutover remain separate gated
-steps. The Mac mini collector must stay active until those checks and an exact
-cutover receipt pass.
+Writer mode requires the externally pinned binding digest, current HPP voice
+authority, library registration, `_workmeta` draft writes off, intake-time
+independent ASR off, required source audio, and a confirmed Mac-to-HPP
+single-writer cutover. The private binding pins a short-lived cutover receipt
+whose source collector is stopped with process count zero and whose target node
+and profile digest match the pending HPP writer. It also proves that the source
+service is disabled and unloaded, its restart policy is off, and the receipt is
+valid for no more than 30 days. The Mac mini collector must
+stay active until HPP preflight succeeds, then must be stopped before the first
+HPP apply cycle. The HPP writer assembles a hidden partial session, rechecks its
+voice fence before every shared write, puts a pending post-import repair sidecar
+inside the atomic session, and publishes it with one final rename. Interrupted
+library or delivery work is reconciled on the next cycle. Audio is capped at
+2 GiB, its returned size is checked against the actual file, and download plus
+`ffprobe` are bounded by the configured timeout; provider transcript and summary
+artifacts each have a 64 MiB cap. The complete atomic session is capped at
+2.25 GiB and eight files, with 4 KiB reserved before atomic publication for
+bounded post-import state and warning growth. Executable discovery is
+timeout-bounded too. The mirror rejects a smaller per-cycle cap, prioritizes required HPP RAW sessions
+over unrelated backlog, and reports required-session coverage by counts only.
+The same cycle mirrors the RAW session into D-local custody only when that
+coverage is complete; otherwise the cycle is degraded and cutover readiness
+stays false. Any remaining mirror limit also keeps cutover readiness false even
+when the prioritized RAW session itself reached custody. Every HPP-created
+atomic session keeps a manifest-level custody obligation, so a restart or a
+later provider replay cannot forget an unverified D-local copy. Project
+classification, independent ASR, consumer acknowledgement, and accepted
+history remain separate downstream steps.
 
 ### PLAUD account intake on an always-on Mac
 

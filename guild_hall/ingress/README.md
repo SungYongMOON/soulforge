@@ -137,9 +137,8 @@ The public binding schema is `continuous_binding.schema.json`. A live binding
 is private and contains exact physical paths but no credential values. Version
 1 binds one HPP node, the D data root, a voice source, and zero or more local
 outbox queues. Version 2 adds an exact writer-authority record plus an optional
-team-mail bridge. Version 3 adds a digest-pinned PLAUD profile whose only
-permitted mode is query-only provider observation; its writer flag is fixed
-`false`. Queue lanes remain limited to `team_files`,
+team-mail bridge. Version 3 adds a digest-pinned PLAUD profile with either
+`observe_only` or explicit `primary_writer` mode. Queue lanes remain limited to `team_files`,
 `structured_pc_work`, and `run_logs`.
 
 Validate a binding without acquiring a lease or writing data:
@@ -188,19 +187,58 @@ existing per-cycle lease prevent duplicate supervisors and writers. The task has
 15-minute repetition; Windows restarts only a terminated supervisor, up to the
 bounded task setting.
 
-PLAUD does not create a second scheduled task. When a private version 3 binding
-explicitly enables it, the same long-lived supervisor checks provider metadata
-once per fenced cycle with `apply: false`. Receipts contain only counts and
-fixed health states: recording IDs, titles, provider URLs, transcript bodies,
-and absolute paths are omitted. A disabled PLAUD block does not open the
-profile, invoke the CLI, or touch the network. Enabling the observer requires a
-stable SHA-256-pinned profile under the declared workspace root, the exact
-supported CLI version set, and the existing `voice` writer-authority snapshot.
-The binding also caps metadata candidates per cycle and applies a per-command
-timeout; its lease window must cover the bounded mail and PLAUD worst case.
-It still cannot download audio, publish a session, acknowledge HPP delivery, or
-declare cutover ready. Those writer actions require a later binding schema with
-final-publication fences and a separate owner-approved cutover.
+PLAUD does not create a second scheduled task. In `observe_only` mode the same
+long-lived supervisor checks provider metadata once per fenced cycle with
+`apply: false`. In `primary_writer` mode it passes the HPP node identity into
+the existing PLAUD importer, downloads only the bounded candidate set, writes
+the unclassified shared session/library/producer receipt, then lets the same
+cycle's copy-only mirror place the new generation in D-local custody. Both
+modes publish only counts and fixed health states: recording IDs, titles,
+provider URLs, transcript bodies, and absolute paths are omitted. A disabled
+PLAUD block does not open the profile, invoke the CLI, or touch the network.
+Enabling either mode requires a stable SHA-256-pinned profile under the declared
+workspace root, the exact supported CLI version set, and the existing `voice`
+writer-authority snapshot. Writer mode additionally requires library
+registration, requires actual source-audio collection, disables `_workmeta`
+draft writes and intake-time independent ASR, and fails closed when its mode
+and writer flag disagree. The binding caps candidates per cycle and applies a
+timeout to executable discovery, CLI commands, audio download, and audio probe;
+its lease window must cover the bounded mail and PLAUD worst case. Writer mode
+also rejects a voice mirror whose per-run cap cannot advance one maximum-size
+RAW session: 2.25 GiB and eight files. It rechecks the voice lease and
+authority before and after every selected provider recording and immediately
+before every shared-workspace publication. A session is assembled below a
+hidden partial sibling and becomes discoverable only through its final atomic
+rename; failed pre-publication attempts remove that owned partial.
+
+Writer activation also requires `cutover_receipt_path` and
+`cutover_receipt_sha256` in the private PLAUD binding. The stable-read,
+digest-pinned receipt must use
+`soulforge.voice.plaud_writer_cutover_receipt.v1`, identify the stopped
+`ai.soulforge.plaud-ingest` source collector with process count zero, prove its
+service is disabled and unloaded with restart disabled, bind the HPP target node
+and exact PLAUD profile digest, carry a validity window of at most 30 days, and
+cite the operator approval reference. Historical observe-only v3 bindings
+remain valid without these optional fields; when present outside writer mode
+both fields must be `null`. Writer mode also requires the copy-only mirror's
+source to resolve to the exact PLAUD output root and its lanes to include
+`sessions`, `library`, and `delivery`. The atomic session already includes a
+pending post-import repair sidecar, so interrupted library or delivery work is
+retried on the next cycle. Audio is capped at 2 GiB, the returned download size
+must match the actual file, and both download and `ffprobe` are bounded by the
+configured timeout. The complete atomic session is capped at 2.25 GiB and eight
+files; 4 KiB of that byte budget is reserved before publication for the bounded
+post-import state and warning updates. Required HPP RAW sessions are mirrored
+before unrelated voice backlog.
+Newly published RAW enters D-local custody in the same cycle only when the
+mirror's required-session coverage check passes. An import that misses
+same-cycle custody remains degraded with `cutover_ready: false` and is retried
+by the continuing mirror. The atomic session manifest carries this HPP-custody
+obligation, so it survives a process restart and remains required on every
+later cycle until the D-local copy verifies. Any remaining mirror limit also
+keeps the whole run degraded and cutover readiness false, even when the
+prioritized RAW session itself reached custody. It does not classify a project,
+accept ERP history, or promote knowledge or tasks.
 
 The private binding must have `enabled: true`, and the scheduler's actual state
 must match `scheduler_enabled`. Each cycle acquires a D-local exclusive lease,

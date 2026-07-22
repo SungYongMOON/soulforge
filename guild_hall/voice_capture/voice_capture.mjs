@@ -768,11 +768,15 @@ export async function writeRecordingLibraryEntry(options = {}) {
     throw new Error(`cannot register invalid voice recording session: ${plan.entry.status_summary.errors.join("; ")}`);
   }
 
+  if (typeof options.beforeWrite === "function") await options.beforeWrite();
   await fs.mkdir(path.dirname(plan.recording_manifest_path), { recursive: true });
+  if (typeof options.beforeWrite === "function") await options.beforeWrite();
   await fs.writeFile(plan.recording_manifest_path, `${JSON.stringify(plan.entry, null, 2)}\n`, "utf8");
-  await upsertJsonlByKey(plan.global_index_path, plan.entry, "recording_id");
-  await writeCurrentRecordingIndex(plan.current_index_path, plan.global_index_path);
+  await upsertJsonlByKey(plan.global_index_path, plan.entry, "recording_id", options.beforeWrite);
+  await writeCurrentRecordingIndex(plan.current_index_path, plan.global_index_path, options.beforeWrite);
+  if (typeof options.beforeWrite === "function") await options.beforeWrite();
   await fs.mkdir(path.dirname(plan.project_route_path), { recursive: true });
+  if (typeof options.beforeWrite === "function") await options.beforeWrite();
   await fs.writeFile(plan.project_route_path, `${JSON.stringify(plan.entry, null, 2)}\n`, "utf8");
 
   return {
@@ -914,7 +918,9 @@ export async function writeWorkmetaDraft(options = {}) {
   }
 
   for (const file of plan._files) {
+    if (typeof options.beforeWrite === "function") await options.beforeWrite();
     await fs.mkdir(path.dirname(file.path), { recursive: true });
+    if (typeof options.beforeWrite === "function") await options.beforeWrite();
     await fs.writeFile(file.path, file.content, "utf8");
   }
 
@@ -1048,22 +1054,26 @@ async function readJsonl(filePath) {
     .map((line) => JSON.parse(line));
 }
 
-async function upsertJsonlByKey(filePath, value, key) {
+async function upsertJsonlByKey(filePath, value, key, beforeWrite) {
   const rows = await readJsonl(filePath);
   const filtered = rows.filter((row) => row?.[key] !== value?.[key]);
   filtered.push(value);
   filtered.sort((left, right) => String(left?.[key] ?? "").localeCompare(String(right?.[key] ?? "")));
+  if (typeof beforeWrite === "function") await beforeWrite();
   await fs.mkdir(path.dirname(filePath), { recursive: true });
+  if (typeof beforeWrite === "function") await beforeWrite();
   await fs.writeFile(filePath, `${filtered.map((row) => JSON.stringify(row)).join("\n")}\n`, "utf8");
 }
 
-async function writeCurrentRecordingIndex(outputPath, indexPath) {
+async function writeCurrentRecordingIndex(outputPath, indexPath, beforeWrite) {
   const rows = await readJsonl(indexPath);
   rows.sort((left, right) =>
     String(left.recording_date ?? "").localeCompare(String(right.recording_date ?? "")) ||
     String(left.recording_id ?? "").localeCompare(String(right.recording_id ?? "")),
   );
+  if (typeof beforeWrite === "function") await beforeWrite();
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  if (typeof beforeWrite === "function") await beforeWrite();
   await fs.writeFile(
     outputPath,
     `${JSON.stringify(

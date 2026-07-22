@@ -114,7 +114,7 @@ export async function prepareDeliveryReceipt(options = {}) {
   }
   validateReceipt(receipt);
   const write = options.apply
-    ? await writeJsonIfChanged(repoRoot, receiptRef, receipt)
+    ? await writeJsonIfChanged(repoRoot, receiptRef, receipt, options.beforeWrite)
     : { applied: false, changed: false };
   return {
     schema_version: "soulforge.voice_delivery_prepare_result.v0",
@@ -544,11 +544,11 @@ async function readJson(filePath, label) {
   }
 }
 
-async function writeJsonIfChanged(repoRoot, ref, value) {
+async function writeJsonIfChanged(repoRoot, ref, value, beforeWrite) {
   const outputPath = await assertSafeRef(repoRoot, ref, { mustExist: false });
   const content = `${JSON.stringify(value, null, 2)}\n`;
   const previous = pendingJsonWrites.get(outputPath) ?? Promise.resolve();
-  const current = previous.catch(() => {}).then(() => writeJsonPathIfChanged(outputPath, content));
+  const current = previous.catch(() => {}).then(() => writeJsonPathIfChanged(outputPath, content, beforeWrite));
   pendingJsonWrites.set(outputPath, current);
   try {
     return await current;
@@ -557,17 +557,20 @@ async function writeJsonIfChanged(repoRoot, ref, value) {
   }
 }
 
-async function writeJsonPathIfChanged(outputPath, content) {
+async function writeJsonPathIfChanged(outputPath, content, beforeWrite) {
   try {
     if (await fs.readFile(outputPath, "utf8") === content) return { applied: true, changed: false };
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
   }
+  if (typeof beforeWrite === "function") await beforeWrite();
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   const tempPath = `${outputPath}.tmp-${process.pid}-${crypto.randomUUID()}`;
   try {
+    if (typeof beforeWrite === "function") await beforeWrite();
     await fs.writeFile(tempPath, content, "utf8");
     try {
+      if (typeof beforeWrite === "function") await beforeWrite();
       await fs.rename(tempPath, outputPath);
     } catch (error) {
       if (!["EEXIST", "ENOTEMPTY", "EPERM"].includes(error?.code)) throw error;

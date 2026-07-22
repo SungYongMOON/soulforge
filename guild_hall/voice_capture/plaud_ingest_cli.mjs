@@ -29,7 +29,12 @@ async function main() {
     return;
   }
   if (command === "sync") {
-    const result = await runPlaudSync({ repoRoot, profileRef, apply: flag(args, "apply") });
+    const result = await runPlaudSync({
+      repoRoot,
+      profileRef,
+      apply: flag(args, "apply"),
+      producerNode: args["producer-node"],
+    });
     print(result);
     if (!result.ok || result.recordings.some((recording) => recording.state === "import_failed_retryable")) {
       process.exitCode = 75;
@@ -98,7 +103,7 @@ function usage() {
     "Usage:",
     "  node guild_hall/voice_capture/plaud_ingest_cli.mjs init-config [--apply] [--force]",
     "  node guild_hall/voice_capture/plaud_ingest_cli.mjs preflight [--config <path>]",
-    "  node guild_hall/voice_capture/plaud_ingest_cli.mjs sync [--config <path>] [--apply]",
+    "  node guild_hall/voice_capture/plaud_ingest_cli.mjs sync [--config <path>] [--producer-node <id>] [--apply]",
     "  node guild_hall/voice_capture/plaud_ingest_cli.mjs drain-mail-queue [--config <path>] [--apply]",
     "  node guild_hall/voice_capture/plaud_ingest_cli.mjs render-launchd [--config <path>] [--node-id <id>] [--apply]",
     "  node guild_hall/voice_capture/plaud_ingest_cli.mjs audit-kst [--repo-root <path>]",

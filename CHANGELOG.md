@@ -18,6 +18,38 @@
   Items/Outbox classification, and no automatic retry for an unknown or
   ambiguous result. (worker: codex_gpt-5.6)
 
+### Fenced HPP PLAUD primary-writer capability
+
+- Extended continuous-ingress binding v3 with an explicit `primary_writer`
+  mode. The existing single HPP supervisor now passes the current node identity
+  into PLAUD producer receipts, imports at most the bound number of recordings,
+  and mirrors the new shared voice session into D-local custody during the same
+  voice-authority-fenced cycle. Operator output remains metadata-only and does
+  not expose provider IDs, titles, URLs, transcript bodies, or absolute paths.
+- Writer mode fails closed unless the pinned profile registers the recording
+  library, requires actual source-audio collection, disables `_workmeta` draft
+  writes, and keeps independent ASR off for the intake cycle. Primary activation
+  also requires a stable-read, SHA-256-pinned, at-most-30-day Mac-stop receipt
+  proving the source service is disabled/unloaded with restart off and binding
+  the exact HPP node and profile. Shared session publication is hidden until
+  atomic rename and carries a durable pending repair sidecar; audio download is
+  capped at 2 GiB with actual-size verification and bounded probing; every
+  provider text artifact is capped at 64 MiB; executable discovery and all
+  child work are timeout-bounded; every shared write rechecks the voice fence;
+  and the D-local mirror resolves from the exact PLAUD output
+  root with `sessions`/`library`/`delivery` lanes. Synthetic integration now
+  proves one actual RAW session is created and mirrored byte-for-byte in the
+  same cycle. Atomic sessions are capped at 2.25 GiB and eight files, with a
+  4 KiB pre-publication reserve for bounded post-import metadata growth; required
+  HPP RAW sessions receive mirror priority over unrelated backlog. Required-
+  session custody is checked after the mirror, insufficient capacity fails
+  closed, and incomplete custody or any remaining mirror limit keeps cutover
+  readiness false. The HPP-custody obligation is embedded in the atomic session manifest
+  and rediscovered across later cycles or restarts until verified, while
+  historical observe-only v3 bindings remain compatible.
+  Runtime activation still requires the external binding digest and confirmed
+  single-writer cutover from the Mac mini. (worker: codex_gpt-5.6)
+
 ### Feature-OFF HPP PLAUD provider observation
 
 - Added continuous-ingress binding v3 so the existing single hidden Windows
@@ -26,8 +58,8 @@
   existing voice authority/fence cycle, always invokes PLAUD with `apply: false`,
   and emits counts only; raw payloads, IDs, titles, URLs, and absolute paths are
   excluded.
-- PLAUD remains disabled in the current production v2 binding. V3 rejects
-  profile drift, writer enablement, and missing voice authority before provider
+- PLAUD remains disabled in the historical production v2 binding. V3 rejects
+  profile drift, inconsistent mode/writer settings, and missing voice authority
   access. Windows executable discovery now uses `where.exe` while POSIX keeps
   `command -v`. No CLI installation, login, D: RAW write, collector switch, or
   Mac mini shutdown was performed. (worker: codex_gpt-5.6)

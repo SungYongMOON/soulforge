@@ -77,16 +77,20 @@ try {
     Object.assign(safe, {
       plaud_enabled: result.plaud_enabled ?? result.plaud?.status !== "disabled",
       plaud_status: result.plaud?.status ?? result.plaud_status ?? "unknown",
-      plaud_writer_enabled: false,
+      plaud_writer_enabled: result.plaud_writer_enabled ?? result.plaud?.writer_enabled ?? false,
       plaud_recent_count: result.plaud?.recent_count ?? 0,
       plaud_new_candidate_count: result.plaud?.new_candidate_count ?? 0,
       plaud_ready_to_import_count: result.plaud?.ready_to_import_count ?? 0,
       plaud_pending_provider_processing_count: result.plaud?.pending_provider_processing_count ?? 0,
+      plaud_imported_count: result.plaud?.imported_count ?? 0,
+      plaud_post_import_warning_count: result.plaud?.post_import_warning_count ?? 0,
       plaud_blocking_check_ids: Array.isArray(result.plaud?.blocking_check_ids)
         ? result.plaud.blocking_check_ids
         : [],
-      plaud_raw_written: false,
-      plaud_cutover_ready: false,
+      plaud_raw_written: Object.hasOwn(result.plaud ?? {}, "raw_written")
+        ? result.plaud.raw_written
+        : false,
+      plaud_cutover_ready: result.plaud?.cutover_ready ?? false,
     });
   }
   process.stdout.write(`${JSON.stringify(safe)}\n`);

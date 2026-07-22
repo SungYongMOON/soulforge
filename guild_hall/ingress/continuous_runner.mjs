@@ -78,7 +78,7 @@ const MAIL_FIELDS = [
   "private_config_root",
   "limit",
 ];
-const PLAUD_FIELDS = [
+const PLAUD_FIELDS_V3 = [
   "enabled",
   "operational_mode",
   "workspace_root",
@@ -89,6 +89,29 @@ const PLAUD_FIELDS = [
   "max_candidates_per_cycle",
   "writer_enabled",
 ];
+const PLAUD_CUTOVER_FIELDS = [
+  ...PLAUD_FIELDS_V3,
+  "cutover_receipt_path",
+  "cutover_receipt_sha256",
+];
+const PLAUD_CUTOVER_RECEIPT_FIELDS = [
+  "schema_version",
+  "source_node_id",
+  "source_collector_label",
+  "source_writer_status",
+  "source_process_count",
+  "source_service_state",
+  "source_restart_policy_enabled",
+  "target_node_id",
+  "target_mode",
+  "profile_sha256",
+  "observed_at",
+  "valid_until",
+  "owner_approval_ref",
+];
+const STRICT_UTC_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
+const PLAUD_MAX_SESSION_BYTES = 2 * 1024 * 1024 * 1024 + 256 * 1024 * 1024;
+const PLAUD_MIN_SESSION_FILES_PER_RECORDING = 8;
 const VOICE_FIELDS = [
   "enabled",
   "source_root",
@@ -450,41 +473,62 @@ function normalizeMail(value, dataRoot) {
   return result;
 }
 
-async function readStablePlaudProfile(profilePath, testHooks = {}) {
+async function readStablePlaudFile(filePath, options = {}) {
+  const missingCode = options.missingCode;
+  const unsafeCode = options.unsafeCode;
+  const unstableCode = options.unstableCode;
   let before;
   try {
-    before = await lstat(profilePath, { bigint: true });
+    before = await lstat(filePath, { bigint: true });
   } catch (error) {
-    if (error?.code === "ENOENT") fail("continuous_plaud_profile_missing");
+    if (error?.code === "ENOENT") fail(missingCode);
     throw error;
   }
-  if (!before.isFile() || before.isSymbolicLink()) fail("continuous_plaud_profile_unsafe");
+  if (!before.isFile() || before.isSymbolicLink()) fail(unsafeCode);
   const beforeIdentity = stableReadIdentity(before);
-  const handle = await open(profilePath, "r");
+  const handle = await open(filePath, "r");
   let openedIdentity;
   let bytes;
   try {
     const opened = await handle.stat({ bigint: true });
     openedIdentity = stableReadIdentity(opened);
     if (!opened.isFile() || !sameStableReadIdentity(beforeIdentity, openedIdentity)) {
-      fail("continuous_plaud_profile_unstable");
+      fail(unstableCode);
     }
-    if (typeof testHooks.afterPlaudProfileOpened === "function") {
-      await testHooks.afterPlaudProfileOpened({ path: profilePath });
+    if (typeof options.afterOpened === "function") {
+      await options.afterOpened({ path: filePath });
     }
     bytes = await handle.readFile();
     if (!sameStableReadIdentity(openedIdentity, stableReadIdentity(await handle.stat({ bigint: true })))) {
-      fail("continuous_plaud_profile_unstable");
+      fail(unstableCode);
     }
   } finally {
     await handle.close();
   }
-  const after = await lstat(profilePath, { bigint: true }).catch(() => fail("continuous_plaud_profile_unstable"));
+  const after = await lstat(filePath, { bigint: true }).catch(() => fail(unstableCode));
   if (!after.isFile() || after.isSymbolicLink()
     || !sameStableReadIdentity(beforeIdentity, stableReadIdentity(after))) {
-    fail("continuous_plaud_profile_unstable");
+    fail(unstableCode);
   }
   return bytes;
+}
+
+function readStablePlaudProfile(profilePath, testHooks = {}) {
+  return readStablePlaudFile(profilePath, {
+    missingCode: "continuous_plaud_profile_missing",
+    unsafeCode: "continuous_plaud_profile_unsafe",
+    unstableCode: "continuous_plaud_profile_unstable",
+    afterOpened: testHooks.afterPlaudProfileOpened,
+  });
+}
+
+function readStablePlaudCutoverReceipt(receiptPath, testHooks = {}) {
+  return readStablePlaudFile(receiptPath, {
+    missingCode: "continuous_plaud_cutover_receipt_missing",
+    unsafeCode: "continuous_plaud_cutover_receipt_unsafe",
+    unstableCode: "continuous_plaud_cutover_receipt_unstable",
+    afterOpened: testHooks.afterPlaudCutoverReceiptOpened,
+  });
 }
 
 function normalizeCliVersions(value, code) {
@@ -494,12 +538,22 @@ function normalizeCliVersions(value, code) {
   return [...new Set(value)].sort();
 }
 
-async function normalizePlaud(value, testHooks = {}) {
-  exactFields(value, PLAUD_FIELDS, "invalid_continuous_plaud_binding");
+async function normalizePlaud(value, targetNodeId, testHooks = {}) {
+  const hasCutoverFields = Object.hasOwn(value ?? {}, "cutover_receipt_path")
+    || Object.hasOwn(value ?? {}, "cutover_receipt_sha256");
+  exactFields(value, hasCutoverFields ? PLAUD_CUTOVER_FIELDS : PLAUD_FIELDS_V3, "invalid_continuous_plaud_binding");
+  if (hasCutoverFields
+    && (!Object.hasOwn(value, "cutover_receipt_path")
+      || !Object.hasOwn(value, "cutover_receipt_sha256"))) {
+    fail("invalid_continuous_plaud_binding");
+  }
+  const operationalMode = value.operational_mode;
+  const writerEnabled = value.writer_enabled;
   if (typeof value.enabled !== "boolean"
-    || typeof value.writer_enabled !== "boolean"
-    || value.operational_mode !== "observe_only") fail("invalid_continuous_plaud_binding");
-  if (value.writer_enabled) fail("continuous_plaud_writer_not_implemented");
+    || typeof writerEnabled !== "boolean"
+    || !["observe_only", "primary_writer"].includes(operationalMode)
+    || writerEnabled !== (operationalMode === "primary_writer")
+    || (!value.enabled && writerEnabled)) fail("invalid_continuous_plaud_binding");
   const expectedCliVersions = normalizeCliVersions(
     value.expected_cli_versions,
     "invalid_continuous_plaud_binding",
@@ -517,7 +571,11 @@ async function normalizePlaud(value, testHooks = {}) {
     "invalid_continuous_plaud_binding",
   );
   if (!value.enabled) {
-    if (value.workspace_root !== null || value.profile_path !== null || value.profile_sha256 !== null) {
+    if (value.workspace_root !== null
+      || value.profile_path !== null
+      || value.profile_sha256 !== null
+      || (hasCutoverFields && value.cutover_receipt_path !== null)
+      || (hasCutoverFields && value.cutover_receipt_sha256 !== null)) {
       fail("invalid_continuous_plaud_binding");
     }
     return {
@@ -531,6 +589,9 @@ async function normalizePlaud(value, testHooks = {}) {
       commandTimeoutSeconds,
       maxCandidatesPerCycle,
       profile: null,
+      cutoverReceiptPath: null,
+      cutoverReceiptSha256: null,
+      cutoverReceipt: null,
     };
   }
 
@@ -560,8 +621,18 @@ async function normalizePlaud(value, testHooks = {}) {
     || profile.output_root !== "_workspaces/system/voice_capture"
     || profile.shared_workspace_required !== true
     || typeof profile.readiness?.require_audio !== "boolean"
-    || typeof profile.readiness?.require_transcript !== "boolean") {
+    || typeof profile.readiness?.require_transcript !== "boolean"
+    || typeof profile.collect?.audio !== "boolean"
+    || typeof profile.collect?.provider_transcript !== "boolean"
+    || typeof profile.collect?.provider_summary !== "boolean") {
     fail("continuous_plaud_profile_invalid");
+  }
+  if (writerEnabled && (profile.readiness.require_audio !== true
+    || profile.collect.audio !== true
+    || profile.register_library !== true
+    || profile.write_workmeta_draft !== false
+    || profile.independent_asr?.enabled !== false)) {
+    fail("continuous_plaud_writer_profile_unsafe");
   }
   const profileCliVersions = normalizeCliVersions(
     profile.supported_cli_versions,
@@ -570,10 +641,54 @@ async function normalizePlaud(value, testHooks = {}) {
   if (JSON.stringify(profileCliVersions) !== JSON.stringify(expectedCliVersions)) {
     fail("continuous_plaud_profile_cli_versions_mismatch");
   }
+  let cutoverReceiptPath = null;
+  let cutoverReceiptSha256 = null;
+  let cutoverReceipt = null;
+  if (writerEnabled) {
+    if (!hasCutoverFields) fail("invalid_continuous_plaud_binding");
+    cutoverReceiptPath = absolutePath(value.cutover_receipt_path, "invalid_continuous_plaud_binding");
+    cutoverReceiptSha256 = sha256(value.cutover_receipt_sha256, "invalid_continuous_plaud_binding");
+    const receiptBytes = await readStablePlaudCutoverReceipt(cutoverReceiptPath, testHooks);
+    if (createHash("sha256").update(receiptBytes).digest("hex") !== cutoverReceiptSha256) {
+      fail("continuous_plaud_cutover_receipt_digest_mismatch");
+    }
+    try {
+      cutoverReceipt = JSON.parse(receiptBytes.toString("utf8"));
+    } catch {
+      fail("continuous_plaud_cutover_receipt_invalid");
+    }
+    exactFields(cutoverReceipt, PLAUD_CUTOVER_RECEIPT_FIELDS, "continuous_plaud_cutover_receipt_invalid");
+    const observedAt = Date.parse(cutoverReceipt.observed_at);
+    const validUntil = Date.parse(cutoverReceipt.valid_until);
+    if (cutoverReceipt.schema_version !== "soulforge.voice.plaud_writer_cutover_receipt.v1"
+      || safeId(cutoverReceipt.source_node_id, "continuous_plaud_cutover_receipt_invalid") === targetNodeId
+      || safeId(cutoverReceipt.source_collector_label, "continuous_plaud_cutover_receipt_invalid") !== "ai.soulforge.plaud-ingest"
+      || cutoverReceipt.source_writer_status !== "stopped"
+      || cutoverReceipt.source_process_count !== 0
+      || cutoverReceipt.source_service_state !== "disabled_unloaded"
+      || cutoverReceipt.source_restart_policy_enabled !== false
+      || safeId(cutoverReceipt.target_node_id, "continuous_plaud_cutover_receipt_invalid") !== targetNodeId
+      || cutoverReceipt.target_mode !== "primary_writer"
+      || sha256(cutoverReceipt.profile_sha256, "continuous_plaud_cutover_receipt_invalid") !== profileSha256
+      || !STRICT_UTC_TIMESTAMP.test(cutoverReceipt.observed_at)
+      || !STRICT_UTC_TIMESTAMP.test(cutoverReceipt.valid_until)
+      || !Number.isFinite(observedAt)
+      || !Number.isFinite(validUntil)
+      || validUntil <= observedAt
+      || validUntil - observedAt > 30 * 24 * 60 * 60 * 1000
+      || observedAt > Date.now() + 5 * 60 * 1000
+      || validUntil <= Date.now()
+      || !SAFE_ID.test(cutoverReceipt.owner_approval_ref)) {
+      fail("continuous_plaud_cutover_receipt_invalid");
+    }
+  } else if (hasCutoverFields
+    && (value.cutover_receipt_path !== null || value.cutover_receipt_sha256 !== null)) {
+    fail("invalid_continuous_plaud_binding");
+  }
   return {
     enabled: true,
-    operationalMode: "observe_only",
-    writerEnabled: false,
+    operationalMode,
+    writerEnabled,
     workspaceRoot,
     profilePath,
     profileSha256,
@@ -581,6 +696,9 @@ async function normalizePlaud(value, testHooks = {}) {
     commandTimeoutSeconds,
     maxCandidatesPerCycle,
     profile,
+    cutoverReceiptPath,
+    cutoverReceiptSha256,
+    cutoverReceipt,
   };
 }
 
@@ -653,7 +771,7 @@ export async function loadContinuousBinding(bindingPath, options = {}) {
     binding.writerMode = raw.writer_mode;
     binding.mail = normalizeMail(raw.mail, dataRoot);
   }
-  if (isV3) binding.plaud = await normalizePlaud(raw.plaud, options.testHooks);
+  if (isV3) binding.plaud = await normalizePlaud(raw.plaud, binding.nodeId, options.testHooks);
   if (!binding.queues || binding.leaseTtlSeconds < binding.pollIntervalSeconds * 2) fail("invalid_continuous_binding");
   if ((isV2 || isV3)
     && binding.mail.enabled
@@ -661,12 +779,39 @@ export async function loadContinuousBinding(bindingPath, options = {}) {
     fail("continuous_mail_lease_ttl_too_short");
   }
   if (isV3 && binding.plaud.enabled) {
-    const plaudWindowMs = (binding.plaud.maxCandidatesPerCycle + 3)
+    const plaudTimeoutSlots = binding.plaud.writerEnabled
+      ? binding.plaud.maxCandidatesPerCycle * 10 + 9
+      : binding.plaud.maxCandidatesPerCycle * 2 + 9;
+    const plaudWindowMs = plaudTimeoutSlots
       * binding.plaud.commandTimeoutSeconds * 1000
       + PLAUD_LEASE_MARGIN_MS;
     const combinedWindowMs = plaudWindowMs
       + (binding.mail.enabled ? MAIL_BRIDGE_TIMEOUT_MS + MAIL_LEASE_MARGIN_MS : 0);
     if (binding.leaseTtlSeconds * 1000 < combinedWindowMs) fail("continuous_plaud_lease_ttl_too_short");
+    if (binding.plaud.writerEnabled) {
+      if (!binding.voice.enabled) fail("continuous_plaud_writer_voice_mirror_required");
+      if (binding.voice.maxNewBytes < PLAUD_MAX_SESSION_BYTES
+        || binding.voice.maxNewFiles < PLAUD_MIN_SESSION_FILES_PER_RECORDING) {
+        fail("continuous_plaud_writer_voice_capacity_too_small");
+      }
+      const requiredVoiceLanes = ["delivery", "library", "sessions"];
+      if (requiredVoiceLanes.some((lane) => !binding.voice.lanes.includes(lane))) {
+        fail("continuous_plaud_writer_voice_lanes_incomplete");
+      }
+      let plaudOutputRoot;
+      let voiceSourceRoot;
+      try {
+        [plaudOutputRoot, voiceSourceRoot] = await Promise.all([
+          realpath(resolve(binding.plaud.workspaceRoot, binding.plaud.profile.output_root)),
+          realpath(binding.voice.sourceRoot),
+        ]);
+      } catch {
+        fail("continuous_plaud_writer_voice_source_unavailable");
+      }
+      if (comparable(plaudOutputRoot) !== comparable(voiceSourceRoot)) {
+        fail("continuous_plaud_writer_voice_source_mismatch");
+      }
+    }
   }
   const ids = binding.queues.map((queue) => queue.bindingId);
   if (new Set(ids).size !== ids.length) fail("duplicate_continuous_queue_binding");
@@ -1283,6 +1428,9 @@ function disabledPlaudResult() {
     ready_to_import_count: 0,
     pending_provider_processing_count: 0,
     import_failed_retryable_count: 0,
+    imported_count: 0,
+    reconciled_count: 0,
+    post_import_warning_count: 0,
     unknown_state_count: 0,
     preflight_ok: null,
     blocking_check_ids: [],
@@ -1293,27 +1441,57 @@ function disabledPlaudResult() {
   };
 }
 
-function sanitizePlaudObservation(sync) {
+function sanitizePlaudCycle(sync, writerEnabled = false) {
   const recordings = Array.isArray(sync?.recordings) ? sync.recordings : [];
   const count = (state) => recordings.filter((item) => item?.state === state).length;
   const ready = count("ready_to_import");
   const processing = count("pending_provider_processing");
-  const retryable = count("import_failed_retryable");
-  const known = ready + processing + retryable;
+  const retryable = count("import_failed_retryable") + count("existing_reconciliation_failed_retryable");
+  const imported = count("imported");
+  const reconciled = count("reconciled");
+  const importedWithoutAudio = recordings.filter((item) => item?.state === "imported"
+    && item?.audio_present !== true).length;
+  const remainingExistingWarnings = Math.max(
+    Number(sync?.existing_post_import_warning_count ?? 0) - reconciled,
+    0,
+  );
+  const postImportWarnings = remainingExistingWarnings + recordings.filter((item) => item?.state === "imported"
+    && (item?.audio_present !== true
+      || item?.library?.state === "registration_failed_retryable"
+      || item?.delivery?.state === "prepare_failed_retryable"
+      || item?.workmeta?.state === "write_failed_retryable")).length;
+  const known = ready + processing + retryable + imported + reconciled;
+  const recentCount = Number(sync?.recent_count ?? 0);
+  const existingCount = Number(sync?.existing_provider_id_count ?? 0);
+  const newCandidateCount = Number(sync?.new_candidate_count ?? 0);
+  const candidateCount = Number(sync?.candidate_count ?? 0);
+  const truncatedCount = Number(sync?.truncated_new_candidate_count ?? 0);
+  const preflightOk = sync?.preflight?.ok ?? true;
+  const unknown = Math.max(recordings.length - known, 0);
+  const rawWritten = writerEnabled
+    ? (retryable > 0 ? null : imported > importedWithoutAudio)
+    : false;
   return {
     schema_version: "soulforge.voice.plaud_hpp_observation.v1",
-    status: sync?.ok === false ? "blocked" : retryable > 0 || known !== recordings.length ? "degraded" : "ok",
-    applied: false,
-    recent_count: Number(sync?.recent_count ?? 0),
-    existing_provider_id_count: Number(sync?.existing_provider_id_count ?? 0),
-    new_candidate_count: Number(sync?.new_candidate_count ?? 0),
-    candidate_count: Number(sync?.candidate_count ?? 0),
-    truncated_new_candidate_count: Number(sync?.truncated_new_candidate_count ?? 0),
+    status: sync?.ok === false
+      ? "blocked"
+      : retryable > 0 || postImportWarnings > 0 || known !== recordings.length
+        ? "degraded"
+        : "ok",
+    applied: Boolean(writerEnabled && sync?.applied),
+    recent_count: recentCount,
+    existing_provider_id_count: existingCount,
+    new_candidate_count: newCandidateCount,
+    candidate_count: candidateCount,
+    truncated_new_candidate_count: truncatedCount,
     ready_to_import_count: ready,
     pending_provider_processing_count: processing,
     import_failed_retryable_count: retryable,
-    unknown_state_count: Math.max(recordings.length - known, 0),
-    preflight_ok: sync?.preflight?.ok ?? true,
+    imported_count: imported,
+    reconciled_count: reconciled,
+    post_import_warning_count: postImportWarnings,
+    unknown_state_count: unknown,
+    preflight_ok: preflightOk,
     blocking_check_ids: Array.isArray(sync?.preflight?.checks)
       ? sync.preflight.checks
         .filter((check) => check?.ok === false)
@@ -1321,11 +1499,42 @@ function sanitizePlaudObservation(sync) {
         .filter((id) => SAFE_ID.test(id))
         .sort()
       : [],
-    raw_written: false,
-    provider_payload_read: false,
-    writer_enabled: false,
-    cutover_ready: false,
+    raw_written: rawWritten,
+    provider_payload_read: Boolean(writerEnabled && (imported > 0 || retryable > 0)),
+    writer_enabled: writerEnabled,
+    custody_complete: writerEnabled ? null : false,
+    cutover_ready: Boolean(writerEnabled
+      && preflightOk
+      && retryable === 0
+      && postImportWarnings === 0
+      && unknown === 0
+      && processing === 0
+      && truncatedCount === 0
+      && Math.max(newCandidateCount - imported, 0) === 0),
   };
+}
+
+function plaudSessionCustodyPrefixes(sync, binding) {
+  const prefixes = [];
+  const currentRefs = (Array.isArray(sync?.recordings) ? sync.recordings : [])
+    .filter((recording) => ["imported", "reconciled"].includes(recording?.state))
+    .map((recording) => recording?.session_ref);
+  const durableRefs = Array.isArray(sync?.custody_required_session_refs)
+    ? sync.custody_required_session_refs
+    : [];
+  for (const sessionRef of [...durableRefs, ...currentRefs]) {
+    if (typeof sessionRef !== "string" || !sessionRef.trim()) {
+      fail("continuous_plaud_session_ref_invalid");
+    }
+    const sessionPath = resolve(binding.plaud.workspaceRoot, sessionRef);
+    if (!inside(binding.voice.sourceRoot, sessionPath)) fail("continuous_plaud_session_ref_invalid");
+    const sourcePrefix = relative(binding.voice.sourceRoot, sessionPath).split(sep).join("/");
+    if (!sourcePrefix.startsWith("sessions/") || sourcePrefix.split("/").some((part) => !part || part === "." || part === "..")) {
+      fail("continuous_plaud_session_ref_invalid");
+    }
+    prefixes.push(sourcePrefix);
+  }
+  return [...new Set(prefixes)].sort();
 }
 
 function receiptSchema(binding) {
@@ -1382,7 +1591,7 @@ export async function runContinuousIngress(options = {}) {
       Object.assign(result, {
         plaud_enabled: binding.plaud.enabled,
         plaud_status: binding.plaud.enabled ? "held_no_query_in_dry_run" : "disabled",
-        plaud_writer_enabled: false,
+        plaud_writer_enabled: binding.plaud.writerEnabled,
       });
     }
     return result;
@@ -1394,6 +1603,7 @@ export async function runContinuousIngress(options = {}) {
   const queueResults = [];
   let mailResult = isV2Binding(binding) ? disabledMailResult() : null;
   let plaudResult = isV3Binding(binding) ? disabledPlaudResult() : null;
+  let plaudRequiredSourcePrefixes = [];
   let voiceResult = null;
   let finalStatus = "ok";
   const errors = [];
@@ -1430,6 +1640,12 @@ export async function runContinuousIngress(options = {}) {
           ...commandOptions,
           timeoutMs: binding.plaud.commandTimeoutSeconds * 1000,
         });
+        const beforePlaudRecording = binding.plaud.writerEnabled
+          ? () => assertLaneFences(binding, leaseContext, authorityContext, "voice", "before_payload", now)
+          : undefined;
+        const afterPlaudRecording = binding.plaud.writerEnabled
+          ? () => assertLaneFences(binding, leaseContext, authorityContext, "voice", "after_payload", now)
+          : undefined;
         const sync = await (options.plaudSyncRunner ?? runPlaudSync)({
           repoRoot: binding.plaud.workspaceRoot,
           profile: {
@@ -1439,19 +1655,38 @@ export async function runContinuousIngress(options = {}) {
               binding.plaud.maxCandidatesPerCycle,
             ),
           },
-          apply: false,
+          apply: binding.plaud.writerEnabled,
           commandRunner,
+          producerNode: binding.nodeId,
+          beforeRecording: beforePlaudRecording,
+          afterRecording: afterPlaudRecording,
+          beforeSharedWrite: beforePlaudRecording,
+          audioDownloadTimeoutMs: binding.plaud.commandTimeoutSeconds * 1000,
+          commandTimeoutMs: binding.plaud.commandTimeoutSeconds * 1000,
+          requireHppCustody: binding.plaud.writerEnabled,
         });
-        plaudResult = sanitizePlaudObservation(sync);
+        if (binding.plaud.writerEnabled) {
+          plaudRequiredSourcePrefixes = plaudSessionCustodyPrefixes(sync, binding);
+        }
+        plaudResult = sanitizePlaudCycle(sync, binding.plaud.writerEnabled);
         if (plaudResult.status !== "ok") {
           finalStatus = "degraded";
-          errors.push({ binding_id: "plaud", code: `plaud_observation_${plaudResult.status}` });
+          const operation = binding.plaud.writerEnabled ? "collection" : "observation";
+          errors.push({ binding_id: "plaud", code: `plaud_${operation}_${plaudResult.status}` });
         }
       } catch (error) {
         if (fencingError(error)) throw error;
-        plaudResult = { ...disabledPlaudResult(), status: "failed", preflight_ok: false };
+        plaudResult = {
+          ...disabledPlaudResult(),
+          status: "failed",
+          preflight_ok: false,
+          writer_enabled: binding.plaud.writerEnabled,
+          raw_written: binding.plaud.writerEnabled ? null : false,
+          provider_payload_read: binding.plaud.writerEnabled,
+        };
         finalStatus = "degraded";
-        errors.push({ binding_id: "plaud", code: "plaud_observation_failed" });
+        const operation = binding.plaud.writerEnabled ? "collection" : "observation";
+        errors.push({ binding_id: "plaud", code: `plaud_${operation}_failed` });
       }
       await assertLaneFences(binding, leaseContext, authorityContext, "voice", "after_payload", now);
     }
@@ -1470,6 +1705,7 @@ export async function runContinuousIngress(options = {}) {
           lanes: binding.voice.lanes,
           maxNewFiles: binding.voice.maxNewFiles,
           maxNewBytes: binding.voice.maxNewBytes,
+          requiredSourcePrefixes: plaudRequiredSourcePrefixes,
           assertFence: async (context) => {
             await assertFinalLanePublication(
               binding,
@@ -1489,6 +1725,22 @@ export async function runContinuousIngress(options = {}) {
         errors.push({ binding_id: "voice", code: error?.code || "voice_collection_failed" });
       }
       await assertLaneFences(binding, leaseContext, authorityContext, "voice", "after_payload", now);
+    }
+    if (isV3Binding(binding) && binding.plaud.writerEnabled) {
+      const custodyComplete = plaudRequiredSourcePrefixes.length === 0
+        ? voiceResult !== null
+        : voiceResult?.required_coverage?.complete === true;
+      const mirrorLimitReached = voiceResult?.limit_reached === true;
+      plaudResult.custody_complete = custodyComplete;
+      if (!custodyComplete || mirrorLimitReached) {
+        plaudResult.cutover_ready = false;
+        plaudResult.status = "degraded";
+        finalStatus = "degraded";
+        errors.push({
+          binding_id: "plaud",
+          code: custodyComplete ? "plaud_voice_mirror_limit_reached" : "plaud_custody_incomplete",
+        });
+      }
     }
     for (const queue of binding.queues.filter((item) => item.enabled)) {
       await assertLaneFences(binding, leaseContext, authorityContext, queue.lane, "before_payload", now);
@@ -1517,8 +1769,17 @@ export async function runContinuousIngress(options = {}) {
       + Number(voiceResult?.copied_new || 0)
       + Number(voiceResult?.copied_version || 0)
       + Number(voiceResult?.receipts_written || 0)
-      + Number(mailResult?.total_new_events || 0);
-    const writesPerformedExact = !isV2Binding(binding) || mailResult?.write_count_known !== false;
+      + Number(mailResult?.total_new_events || 0)
+      + Number(plaudResult?.imported_count || 0)
+      + Number(plaudResult?.reconciled_count || 0);
+    const plaudWriteCountKnown = !isV3Binding(binding)
+      || !binding.plaud.writerEnabled
+      || (plaudResult.status !== "failed"
+        && plaudResult.import_failed_retryable_count === 0
+        && plaudResult.imported_count === 0
+        && plaudResult.reconciled_count === 0);
+    const writesPerformedExact = (!isV2Binding(binding) || mailResult?.write_count_known !== false)
+      && plaudWriteCountKnown;
     const receipt = {
       schema_version: receiptSchema(binding),
       run_id: id,
@@ -1587,9 +1848,10 @@ export async function runContinuousIngress(options = {}) {
       ...(isV3Binding(binding) ? {
         plaud_enabled: binding.plaud.enabled,
         plaud_status: plaudResult.status,
-        plaud_writer_enabled: false,
+        plaud_writer_enabled: plaudResult.writer_enabled,
         plaud_ready_to_import_count: plaudResult.ready_to_import_count,
         plaud_pending_provider_processing_count: plaudResult.pending_provider_processing_count,
+        plaud_imported_count: plaudResult.imported_count,
       } : {}),
       erp_enabled: false,
       mcp_enabled: false,

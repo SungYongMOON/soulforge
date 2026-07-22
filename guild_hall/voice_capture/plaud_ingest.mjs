@@ -22,6 +22,18 @@ export const defaultPlaudProfileRef = "_workspaces/system/voice_capture/config/p
 
 const ANSI_PATTERN = /\u001b\[[0-?]*[ -/]*[@-~]/gu;
 const PLAUD_ID_PATTERN = /^[0-9a-f]{32,64}$/iu;
+const MAX_PLAUD_AUDIO_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_PLAUD_PROVIDER_TEXT_BYTES = 64 * 1024 * 1024;
+const MAX_PLAUD_SESSION_BYTES = MAX_PLAUD_AUDIO_BYTES + 256 * 1024 * 1024;
+const MAX_PLAUD_SESSION_FILES = 8;
+const MAX_PLAUD_POST_PUBLICATION_GROWTH_BYTES = 4 * 1024;
+const DEFAULT_PLAUD_COMMAND_TIMEOUT_MS = 120000;
+
+export const plaudSessionCustodyBudget = Object.freeze({
+  max_bytes: MAX_PLAUD_SESSION_BYTES,
+  max_files: MAX_PLAUD_SESSION_FILES,
+  post_publication_reserve_bytes: MAX_PLAUD_POST_PUBLICATION_GROWTH_BYTES,
+});
 
 export function buildDefaultPlaudSyncProfile() {
   return {
@@ -176,12 +188,15 @@ export function parsePlaudTranscript(raw) {
 
 export function runPlaudCommand(command, args, options = {}) {
   const spawn = options.spawnImpl ?? spawnSync;
-  const invocation = resolvePlaudCommandInvocation(command, args, options);
+  const timeoutMs = Number.isSafeInteger(options.timeoutMs) && options.timeoutMs > 0
+    ? options.timeoutMs
+    : DEFAULT_PLAUD_COMMAND_TIMEOUT_MS;
+  const invocation = resolvePlaudCommandInvocation(command, args, { ...options, timeoutMs });
   const result = spawn(invocation.command, invocation.args, {
     cwd: options.cwd,
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
-    ...(Number.isSafeInteger(options.timeoutMs) && options.timeoutMs > 0 ? { timeout: options.timeoutMs } : {}),
+    timeout: timeoutMs,
     ...invocation.spawnOptions,
     env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0", CI: "1", PLAUD_NO_UPDATE_NOTIFIER: "1" },
   });
@@ -200,6 +215,7 @@ function resolvePlaudCommandInvocation(command, args, options = {}) {
   const availability = (options.availabilityChecker ?? commandAvailability)(command, {
     platform,
     spawnImpl: options.spawnImpl ?? spawnSync,
+    timeoutMs: options.timeoutMs,
   });
   if (!availability.ok || !availability.resolved_path) {
     return { command, args, spawnOptions: {} };
@@ -245,9 +261,12 @@ export async function buildPlaudPreflight(options = {}) {
   const blockers = [];
   const outputRoot = resolveRepoPath(repoRoot, profile.output_root);
   const sharedRoot = path.join(repoRoot, "_workspaces", "system");
+  const commandTimeoutMs = Number.isSafeInteger(options.commandTimeoutMs) && options.commandTimeoutMs > 0
+    ? options.commandTimeoutMs
+    : DEFAULT_PLAUD_COMMAND_TIMEOUT_MS;
 
   for (const command of [profile.plaud_command, "ffprobe"]) {
-    const check = commandAvailability(command);
+    const check = commandAvailability(command, { timeoutMs: commandTimeoutMs });
     checks.push({ id: `${command}_available`, ...check });
     if (!check.ok) blockers.push(`missing executable: ${command}`);
   }
@@ -258,9 +277,9 @@ export async function buildPlaudPreflight(options = {}) {
     if (!sharedCheck.ok) blockers.push("_workspaces/system must be a shared link on the always-on collector");
   }
 
-  if (commandAvailability(profile.plaud_command).ok) {
+  if (commandAvailability(profile.plaud_command, { timeoutMs: commandTimeoutMs }).ok) {
     try {
-      const versionOutput = runner(profile.plaud_command, ["version"], { cwd: repoRoot });
+      const versionOutput = runner(profile.plaud_command, ["version"], { cwd: repoRoot, timeoutMs: commandTimeoutMs });
       const version = parsePlaudVersion(versionOutput);
       const supported = Array.isArray(profile.supported_cli_versions)
         ? profile.supported_cli_versions.includes(version)
@@ -272,7 +291,7 @@ export async function buildPlaudPreflight(options = {}) {
       blockers.push(error.message);
     }
     try {
-      runner(profile.plaud_command, ["me"], { cwd: repoRoot });
+      runner(profile.plaud_command, ["me"], { cwd: repoRoot, timeoutMs: commandTimeoutMs });
       checks.push({ id: "plaud_authenticated", ok: true });
     } catch (error) {
       checks.push({ id: "plaud_authenticated", ok: false });
@@ -309,7 +328,12 @@ export async function runPlaudSync(options = {}) {
   const runner = options.commandRunner ?? runPlaudCommand;
   const preflight = options.skipPreflight
     ? { ok: true, blockers: [], checks: [] }
-    : await buildPlaudPreflight({ repoRoot, profile, commandRunner: runner });
+    : await buildPlaudPreflight({
+        repoRoot,
+        profile,
+        commandRunner: runner,
+        commandTimeoutMs: options.commandTimeoutMs,
+      });
   if (!preflight.ok) {
     return { schema_version: plaudSyncResultSchemaVersion, ok: false, applied: false, preflight, recordings: [] };
   }
@@ -318,10 +342,47 @@ export async function runPlaudSync(options = {}) {
   const recent = parsePlaudRecentOutput(recentRaw);
   const existing = await discoverExistingPlaudRecordings(resolveRepoPath(repoRoot, profile.output_root));
   const allCandidates = recent.filter((row) => !existing.has(row.id));
-  const candidates = allCandidates.slice(0, profile.max_new_per_run);
   const recordings = [];
+  const existingWarningEntries = [...existing.entries()]
+    .filter(([, value]) => (
+      (value.manifest?.post_import_contract?.library_required === true
+        && value.post_import_state?.library_state !== "registered")
+      || (value.manifest?.post_import_contract?.delivery_required === true
+        && value.post_import_state?.delivery_state !== "ready")
+      || (value.manifest?.library_warning && value.post_import_state?.library_state !== "registered")
+      || (value.manifest?.delivery_warning && value.post_import_state?.delivery_state !== "ready")
+    ));
+  const reconciliationCandidates = options.apply
+    ? existingWarningEntries.slice(0, profile.max_new_per_run)
+    : [];
+
+  for (const [recordingId, existingRecording] of reconciliationCandidates) {
+    if (typeof options.beforeRecording === "function") await options.beforeRecording();
+    try {
+      const reconciled = await reconcileExistingPlaudSession({
+        repoRoot,
+        profile,
+        recordingId,
+        existingRecording,
+        deliveryReceiptEmitter: options.deliveryReceiptEmitter,
+        producerNode: options.producerNode,
+        now: options.now,
+        beforeSharedWrite: options.beforeSharedWrite,
+      });
+      recordings.push(reconciled);
+    } catch (error) {
+      if (error?.plaudSharedWriteGuardFailure) throw error;
+      recordings.push({ id: recordingId, state: "existing_reconciliation_failed_retryable" });
+    } finally {
+      if (typeof options.afterRecording === "function") await options.afterRecording();
+    }
+  }
+
+  const remainingCandidateSlots = Math.max(profile.max_new_per_run - reconciliationCandidates.length, 0);
+  const candidates = allCandidates.slice(0, remainingCandidateSlots);
 
   for (const candidate of candidates) {
+    if (typeof options.beforeRecording === "function") await options.beforeRecording();
     try {
       const fileRaw = runner(profile.plaud_command, ["file", candidate.id], { cwd: repoRoot });
       const metadata = parsePlaudFileOutput(fileRaw);
@@ -348,33 +409,145 @@ export async function runPlaudSync(options = {}) {
         deliveryReceiptEmitter: options.deliveryReceiptEmitter,
         producerNode: options.producerNode,
         now: options.now,
+        beforeSharedWrite: options.beforeSharedWrite,
+        audioDownloadTimeoutMs: options.audioDownloadTimeoutMs,
+        requireHppCustody: options.requireHppCustody === true,
       });
       recordings.push(imported);
     } catch (error) {
+      if (error?.plaudSharedWriteGuardFailure) throw error;
       recordings.push({
         id: candidate.id,
         state: "import_failed_retryable",
         failure_kind: classifyPlaudImportFailure(error),
       });
+    } finally {
+      if (typeof options.afterRecording === "function") await options.afterRecording();
     }
   }
 
+  const custodyRequiredSessionRefs = [
+    ...[...existing.values()]
+      .filter((value) => value.manifest?.post_import_contract?.hpp_custody_required === true)
+      .map((value) => relativeRef(repoRoot, path.dirname(value.manifest_path))),
+    ...recordings
+      .filter((value) => options.requireHppCustody === true
+        && ["imported", "reconciled"].includes(value?.state)
+        && typeof value.session_ref === "string")
+      .map((value) => value.session_ref),
+  ];
   return {
     schema_version: plaudSyncResultSchemaVersion,
     ok: true,
     applied: Boolean(options.apply),
     recent_count: recent.length,
     existing_provider_id_count: existing.size,
+    existing_post_import_warning_count: existingWarningEntries.length,
+    reconciliation_candidate_count: reconciliationCandidates.length,
+    reconciled_count: recordings.filter((item) => item.state === "reconciled").length,
     new_candidate_count: allCandidates.length,
     candidate_count: candidates.length,
     truncated_new_candidate_count: Math.max(allCandidates.length - candidates.length, 0),
     recordings,
+    custody_required_session_refs: [...new Set(custodyRequiredSessionRefs)].sort(),
     raw_payload_boundary: {
       audio_and_transcripts_under_workspaces_only: true,
       provider_download_url_stored: false,
       plaud_token_file_read_or_copied: false,
       workmeta_payload_copied: false,
     },
+  };
+}
+
+async function invokePlaudSharedWriteGuard(callback) {
+  if (typeof callback !== "function") return;
+  try {
+    await callback();
+  } catch (error) {
+    const guarded = new Error(error?.message ?? "PLAUD shared-write guard failed", { cause: error });
+    guarded.code = error?.code;
+    guarded.plaudSharedWriteGuardFailure = true;
+    throw guarded;
+  }
+}
+
+async function reconcileExistingPlaudSession(options) {
+  const { repoRoot, profile, recordingId, existingRecording } = options;
+  const sessionDir = path.dirname(existingRecording.manifest_path);
+  const manifest = structuredClone(existingRecording.manifest);
+  const statePath = path.join(sessionDir, "post_import_state.json");
+  const postImportState = {
+    schema_version: "soulforge.voice.plaud_post_import_state.v1",
+    library_state: existingRecording.post_import_state?.library_state ?? "unknown",
+    delivery_state: existingRecording.post_import_state?.delivery_state ?? "unknown",
+  };
+  const beforeSharedWrite = () => invokePlaudSharedWriteGuard(options.beforeSharedWrite);
+  const writePostImportState = async () => {
+    await beforeSharedWrite();
+    await fs.writeFile(statePath, `${JSON.stringify(postImportState, null, 2)}\n`, "utf8");
+  };
+  let library = {
+    state: (manifest.post_import_contract?.library_required === true || manifest.library_warning)
+      && postImportState.library_state !== "registered"
+      ? "registration_failed_retryable"
+      : "registered",
+  };
+  let delivery = {
+    state: (manifest.post_import_contract?.delivery_required === true || manifest.delivery_warning)
+      && postImportState.delivery_state !== "ready"
+      ? "prepare_failed_retryable"
+      : "ready",
+  };
+
+  if ((manifest.post_import_contract?.library_required === true || manifest.library_warning)
+    && postImportState.library_state !== "registered") {
+    await beforeSharedWrite();
+    await writeRecordingLibraryEntry({
+      repoRoot,
+      sessionDir,
+      projectCode: profile.project_code_candidate,
+      routeStatus: "unclassified_needs_owner_confirmation",
+      meetingType: "unclassified_voice_recording",
+      apply: true,
+      beforeWrite: beforeSharedWrite,
+    });
+    postImportState.library_state = "registered";
+    await writePostImportState();
+    library = { state: "registered" };
+  }
+
+  if ((manifest.post_import_contract?.delivery_required === true || manifest.delivery_warning)
+    && postImportState.delivery_state !== "ready") {
+    try {
+      const emitter = options.deliveryReceiptEmitter ?? prepareDeliveryReceipt;
+      const result = await emitter({
+        repoRoot,
+        sessionDir,
+        recordingId: manifest.session_id,
+        stage: "plaud_import_ready",
+        producerNode: options.producerNode ?? "always_on_voice_producer",
+        apply: true,
+        now: options.now,
+        beforeWrite: beforeSharedWrite,
+      });
+      if (result.status !== "ready") throw new Error("PLAUD delivery reconciliation incomplete");
+      postImportState.delivery_state = "ready";
+      await writePostImportState();
+      delivery = { state: "ready", receipt_ref: result.receipt_ref ?? null };
+    } catch (error) {
+      if (error?.plaudSharedWriteGuardFailure) throw error;
+      throw error;
+    }
+  }
+
+  return {
+    id: recordingId,
+    state: "reconciled",
+    session_id: manifest.session_id,
+    session_ref: relativeRef(repoRoot, sessionDir),
+    audio_present: manifest.audio?.status === "source_present",
+    library,
+    delivery,
   };
 }
 
@@ -473,6 +646,8 @@ export async function materializePlaudRecording(options) {
   const outputRoot = resolveRepoPath(repoRoot, profile.output_root);
   const sessionDir = path.join(outputRoot, "sessions", dateRef, sessionId);
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "soulforge-plaud-ingest-"));
+  let publishDir = null;
+  const beforeSharedWrite = () => invokePlaudSharedWriteGuard(options.beforeSharedWrite);
 
   try {
     const providerDir = path.join(tempDir, "provider_export");
@@ -483,6 +658,12 @@ export async function materializePlaudRecording(options) {
     const transcriptPath = path.join(providerDir, "transcript.txt");
     if (profile.collect.provider_transcript && metadata.transcript_available) {
       runner(profile.plaud_command, ["transcript", metadata.id, "-o", transcriptPath], { cwd: repoRoot });
+    }
+    if (existsSync(transcriptPath)) {
+      const transcriptStat = await fs.stat(transcriptPath);
+      if (!transcriptStat.isFile() || transcriptStat.size > MAX_PLAUD_PROVIDER_TEXT_BYTES) {
+        throw new Error("PLAUD provider transcript exceeds byte limit");
+      }
     }
     const transcriptRaw = existsSync(transcriptPath) ? await fs.readFile(transcriptPath, "utf8") : "";
     const segments = parsePlaudTranscript(transcriptRaw);
@@ -495,8 +676,13 @@ export async function materializePlaudRecording(options) {
     if (profile.collect.provider_summary && metadata.summary_available) {
       try {
         runner(profile.plaud_command, ["summary", metadata.id, "-o", summaryPath], { cwd: repoRoot });
+        const summaryStat = await fs.stat(summaryPath);
+        if (!summaryStat.isFile() || summaryStat.size > MAX_PLAUD_PROVIDER_TEXT_BYTES) {
+          throw new Error("PLAUD provider summary exceeds byte limit");
+        }
       } catch {
         summaryFetchFailed = true;
+        await fs.rm(summaryPath, { force: true });
       }
     }
 
@@ -506,9 +692,18 @@ export async function materializePlaudRecording(options) {
       const audioUrl = parsePlaudAudioUrl(audioOutput);
       if (!audioUrl) throw new Error(`PLAUD audio URL missing for ${metadata.id}`);
       const downloader = options.audioDownloader ?? downloadPlaudAudio;
-      audio = await downloader(audioUrl, audioDir);
+      audio = await downloader(audioUrl, audioDir, {
+        timeoutMs: options.audioDownloadTimeoutMs,
+        maxBytes: MAX_PLAUD_AUDIO_BYTES,
+      });
+      const downloadedStat = await fs.stat(audio.path);
+      if (!downloadedStat.isFile()
+        || downloadedStat.size > MAX_PLAUD_AUDIO_BYTES
+        || downloadedStat.size !== audio.size_bytes) {
+        throw new Error("PLAUD audio download size contract failed");
+      }
       const probe = options.audioProbe ?? probeAudio;
-      audio.probe = await probe(audio.path);
+      audio.probe = await probe(audio.path, { timeoutMs: options.audioDownloadTimeoutMs });
     }
 
     const durationSeconds = Number(audio?.probe?.duration_seconds ?? segments.at(-1)?.end_seconds ?? 0);
@@ -590,36 +785,114 @@ export async function materializePlaudRecording(options) {
         workmeta_raw_transcript_copy_allowed: false,
         public_git_raw_payload_allowed: false,
       },
+      post_import_contract: {
+        schema_version: "soulforge.voice.plaud_post_import_contract.v1",
+        state_ref: relativeRef(repoRoot, path.join(sessionDir, "post_import_state.json")),
+        library_required: Boolean(profile.register_library),
+        delivery_required: Boolean(profile.register_library),
+        hpp_custody_required: options.requireHppCustody === true,
+      },
+    };
+    const initialPostImportState = {
+      schema_version: "soulforge.voice.plaud_post_import_state.v1",
+      library_state: profile.register_library ? "pending" : "not_required",
+      delivery_state: profile.register_library ? "pending" : "not_required",
     };
 
-    await fs.mkdir(path.join(sessionDir, "audio"), { recursive: true });
-    await fs.mkdir(path.join(sessionDir, "provider_export"), { recursive: true });
-    if (audio) await fs.copyFile(audio.path, path.join(sessionDir, "audio", path.basename(audio.path)));
+    const sessionDateRoot = path.dirname(sessionDir);
+    await beforeSharedWrite();
+    await fs.mkdir(sessionDateRoot, { recursive: true });
+    await beforeSharedWrite();
+    publishDir = await fs.mkdtemp(path.join(sessionDateRoot, `.${sessionId}.partial-`));
+    await beforeSharedWrite();
+    await fs.mkdir(path.join(publishDir, "audio"), { recursive: true });
+    await beforeSharedWrite();
+    await fs.mkdir(path.join(publishDir, "provider_export"), { recursive: true });
+    if (audio) {
+      await beforeSharedWrite();
+      await fs.copyFile(audio.path, path.join(publishDir, "audio", path.basename(audio.path)));
+    }
     if (existsSync(transcriptPath)) {
-      await fs.copyFile(transcriptPath, path.join(sessionDir, "provider_export", "transcript.txt"));
-      await fs.writeFile(path.join(sessionDir, "transcript.txt"), transcriptRaw, "utf8");
-      await fs.writeFile(path.join(sessionDir, "transcript.jsonl"), `${segments.map((row) => JSON.stringify(row)).join("\n")}\n`, "utf8");
+      await beforeSharedWrite();
+      await fs.copyFile(transcriptPath, path.join(publishDir, "provider_export", "transcript.txt"));
+      await beforeSharedWrite();
+      await fs.writeFile(path.join(publishDir, "transcript.txt"), transcriptRaw, "utf8");
+      await beforeSharedWrite();
+      await fs.writeFile(path.join(publishDir, "transcript.jsonl"), `${segments.map((row) => JSON.stringify(row)).join("\n")}\n`, "utf8");
     }
-    if (existsSync(summaryPath)) await fs.copyFile(summaryPath, path.join(sessionDir, "provider_export", "summary.md"));
-    await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-    await fs.writeFile(path.join(sessionDir, "source_event_draft.yaml"), renderPlaudSourceEventDraft({ repoRoot, profile, sessionDir, manifest }), "utf8");
+    if (existsSync(summaryPath)) {
+      await beforeSharedWrite();
+      await fs.copyFile(summaryPath, path.join(publishDir, "provider_export", "summary.md"));
+    }
+    await beforeSharedWrite();
+    await fs.writeFile(path.join(publishDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    await beforeSharedWrite();
+    await fs.writeFile(
+      path.join(publishDir, "post_import_state.json"),
+      `${JSON.stringify(initialPostImportState, null, 2)}\n`,
+      "utf8",
+    );
+    await beforeSharedWrite();
+    await fs.writeFile(path.join(publishDir, "source_event_draft.yaml"), renderPlaudSourceEventDraft({ repoRoot, profile, sessionDir, manifest }), "utf8");
+    const publishMeasure = await measureOwnedFileTree(publishDir);
+    assertPlaudSessionPublicationBudget({
+      fileCount: publishMeasure.file_count,
+      totalBytes: publishMeasure.total_bytes,
+      manifest,
+      postImportState: initialPostImportState,
+    });
+    await beforeSharedWrite();
+    await fs.rename(publishDir, sessionDir);
+    publishDir = null;
 
+    let library = { state: "not_registered" };
     if (profile.register_library) {
-      await writeRecordingLibraryEntry({
-        repoRoot,
-        sessionDir,
-        projectCode: profile.project_code_candidate,
-        routeStatus: "unclassified_needs_owner_confirmation",
-        meetingType: "unclassified_voice_recording",
-        apply: true,
-      });
+      await beforeSharedWrite();
+      try {
+        await writeRecordingLibraryEntry({
+          repoRoot,
+          sessionDir,
+          projectCode: profile.project_code_candidate,
+          routeStatus: "unclassified_needs_owner_confirmation",
+          meetingType: "unclassified_voice_recording",
+          apply: true,
+          beforeWrite: beforeSharedWrite,
+        });
+        library = { state: "registered" };
+      } catch (error) {
+        if (error?.plaudSharedWriteGuardFailure) throw error;
+        library = { state: "registration_failed_retryable" };
+        manifest.library_warning = "library_registration_failed_retryable";
+        try {
+          await beforeSharedWrite();
+          await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+        } catch (error) {
+          if (error?.plaudSharedWriteGuardFailure) throw error;
+          // The returned retryable warning remains visible; session publication is already complete.
+        }
+      }
     }
+    let workmeta = { state: "disabled" };
     if (profile.write_workmeta_draft) {
-      await writeWorkmetaDraft({ repoRoot, sessionDir, projectCode: profile.project_code_candidate, apply: true });
+      await beforeSharedWrite();
+      try {
+        await writeWorkmetaDraft({
+          repoRoot,
+          sessionDir,
+          projectCode: profile.project_code_candidate,
+          apply: true,
+          beforeWrite: beforeSharedWrite,
+        });
+        workmeta = { state: "written" };
+      } catch (error) {
+        if (error?.plaudSharedWriteGuardFailure) throw error;
+        workmeta = { state: "write_failed_retryable" };
+      }
     }
 
     let delivery = { state: "not_emitted_library_registration_disabled" };
     if (profile.register_library) {
+      await beforeSharedWrite();
       try {
         const emitter = options.deliveryReceiptEmitter ?? prepareDeliveryReceipt;
         const result = await emitter({
@@ -629,6 +902,7 @@ export async function materializePlaudRecording(options) {
           stage: "plaud_import_ready",
           producerNode: options.producerNode ?? "always_on_voice_producer",
           apply: true,
+          beforeWrite: beforeSharedWrite,
         });
         delivery = {
           state: result.status === "ready" ? "ready" : "prepare_failed_retryable",
@@ -638,17 +912,22 @@ export async function materializePlaudRecording(options) {
         if (delivery.warning) {
           manifest.delivery_warning = delivery.warning;
           try {
+            await beforeSharedWrite();
             await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-          } catch {
+          } catch (error) {
+            if (error?.plaudSharedWriteGuardFailure) throw error;
             // The returned retryable warning remains visible; delivery bookkeeping cannot roll back import.
           }
         }
-      } catch {
+      } catch (error) {
+        if (error?.plaudSharedWriteGuardFailure) throw error;
         delivery = { state: "prepare_failed_retryable", warning: "delivery_receipt_prepare_failed_retryable" };
         manifest.delivery_warning = delivery.warning;
         try {
+          await beforeSharedWrite();
           await fs.writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-        } catch {
+        } catch (error) {
+          if (error?.plaudSharedWriteGuardFailure) throw error;
           // The returned retryable warning remains visible; delivery bookkeeping cannot roll back import.
         }
       }
@@ -656,6 +935,7 @@ export async function materializePlaudRecording(options) {
 
     let independentAsrQueue = null;
     if (profile.independent_asr?.enabled && profile.independent_asr?.enqueue_on_import !== false) {
+      await beforeSharedWrite();
       try {
         const localAsrProfile = options.localAsrProfile
           ?? (await loadLocalAsrProfile({ repoRoot, profileRef: profile.independent_asr.profile_ref })).profile;
@@ -667,10 +947,23 @@ export async function materializePlaudRecording(options) {
           apply: true,
           now: importedAt,
         });
-      } catch {
+      } catch (error) {
+        if (error?.plaudSharedWriteGuardFailure) throw error;
         independentAsrQueue = { applied: false, state: "enqueue_failed_retryable" };
       }
     }
+
+    const postImportState = {
+      schema_version: "soulforge.voice.plaud_post_import_state.v1",
+      library_state: library.state,
+      delivery_state: delivery.state,
+    };
+    await beforeSharedWrite();
+    await fs.writeFile(
+      path.join(sessionDir, "post_import_state.json"),
+      `${JSON.stringify(postImportState, null, 2)}\n`,
+      "utf8",
+    );
 
     return {
       id: metadata.id,
@@ -683,9 +976,12 @@ export async function materializePlaudRecording(options) {
       provider_summary_fetch_failed: summaryFetchFailed,
       provider_download_url_stored: false,
       independent_asr_queue: independentAsrQueue,
+      library,
+      workmeta,
       delivery,
     };
   } finally {
+    if (publishDir) await fs.rm(publishDir, { recursive: true, force: true });
     await fs.rm(tempDir, { recursive: true, force: true });
   }
 }
@@ -701,7 +997,24 @@ export async function discoverExistingPlaudRecordings(outputRoot) {
       try {
         const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
         if (PLAUD_ID_PATTERN.test(manifest.provider_recording_id ?? "")) {
-          found.set(manifest.provider_recording_id, { session_id: manifest.session_id, manifest_path: manifestPath });
+          let postImportState = null;
+          try {
+            const candidate = JSON.parse(await fs.readFile(
+              path.join(sessionsRoot, dateEntry.name, sessionEntry.name, "post_import_state.json"),
+              "utf8",
+            ));
+            if (candidate?.schema_version === "soulforge.voice.plaud_post_import_state.v1") {
+              postImportState = candidate;
+            }
+          } catch {
+            // Existing sessions predate the repair sidecar or have not repaired yet.
+          }
+          found.set(manifest.provider_recording_id, {
+            session_id: manifest.session_id,
+            manifest_path: manifestPath,
+            manifest,
+            post_import_state: postImportState,
+          });
         }
       } catch {
         // An incomplete unrelated session must not stop discovery.
@@ -804,14 +1117,30 @@ export async function writePlaudLaunchdPlist(options = {}) {
   };
 }
 
-async function downloadPlaudAudio(url, outputDir) {
-  const response = await fetch(url, { redirect: "follow" });
+async function downloadPlaudAudio(url, outputDir, options = {}) {
+  const timeoutMs = Number.isSafeInteger(options.timeoutMs) && options.timeoutMs > 0
+    ? options.timeoutMs
+    : 120000;
+  const maxBytes = Number.isSafeInteger(options.maxBytes) && options.maxBytes > 0
+    ? options.maxBytes
+    : MAX_PLAUD_AUDIO_BYTES;
+  const response = await fetch(url, {
+    redirect: "follow",
+    signal: AbortSignal.timeout(timeoutMs),
+  });
   if (!response.ok || !response.body) throw new Error(`PLAUD audio download failed with status ${response.status}`);
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    throw new Error("PLAUD audio download exceeds byte limit");
+  }
   const extension = audioExtension(response.headers.get("content-type"), new URL(response.url).pathname);
   const outputPath = path.join(outputDir, `source${extension}`);
   const hash = crypto.createHash("sha256");
+  let receivedBytes = 0;
   const tap = new TransformStream({
     transform(chunk, controller) {
+      receivedBytes += chunk.byteLength;
+      if (receivedBytes > maxBytes) throw new Error("PLAUD audio download exceeds byte limit");
       hash.update(chunk);
       controller.enqueue(chunk);
     },
@@ -862,7 +1191,10 @@ async function maybeDrainLocalAsr(options) {
   }
 }
 
-function probeAudio(audioPath) {
+function probeAudio(audioPath, options = {}) {
+  const timeoutMs = Number.isSafeInteger(options.timeoutMs) && options.timeoutMs > 0
+    ? options.timeoutMs
+    : 120000;
   const result = spawnSync("ffprobe", [
     "-v",
     "error",
@@ -871,7 +1203,7 @@ function probeAudio(audioPath) {
     "-of",
     "json",
     audioPath,
-  ], { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 });
+  ], { encoding: "utf8", maxBuffer: 4 * 1024 * 1024, timeout: timeoutMs });
   if (result.status !== 0) throw new Error("ffprobe failed for downloaded PLAUD audio");
   const data = JSON.parse(result.stdout);
   const stream = (data.streams ?? []).find((value) => value.codec_name) ?? {};
@@ -881,6 +1213,66 @@ function probeAudio(audioPath) {
     codec: stream.codec_name ?? null,
     sample_rate_hz: Number(stream.sample_rate ?? 0) || null,
     channels: Number(stream.channels ?? 0) || null,
+  };
+}
+
+async function measureOwnedFileTree(root) {
+  const stack = [root];
+  let fileCount = 0;
+  let totalBytes = 0;
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of await fs.readdir(current, { withFileTypes: true })) {
+      const target = path.join(current, entry.name);
+      if (entry.isDirectory()) stack.push(target);
+      else if (entry.isFile()) {
+        const info = await fs.stat(target);
+        fileCount += 1;
+        totalBytes += info.size;
+      } else {
+        throw new Error("PLAUD session publication contains unsupported entry");
+      }
+    }
+  }
+  return { file_count: fileCount, total_bytes: totalBytes };
+}
+
+function jsonFileBytes(value) {
+  return Buffer.byteLength(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+export function assertPlaudSessionPublicationBudget(options = {}) {
+  const fileCount = Number(options.fileCount);
+  const totalBytes = Number(options.totalBytes);
+  if (!Number.isSafeInteger(fileCount) || fileCount < 0
+    || !Number.isSafeInteger(totalBytes) || totalBytes < 0) {
+    throw new Error("PLAUD session publication budget input is invalid");
+  }
+  const manifest = options.manifest ?? {};
+  const postImportState = options.postImportState ?? {};
+  const largestManifest = {
+    ...manifest,
+    library_warning: "library_registration_failed_retryable",
+    delivery_warning: "delivery_receipt_prepare_failed_retryable",
+  };
+  const largestPostImportState = {
+    schema_version: "soulforge.voice.plaud_post_import_state.v1",
+    library_state: "registration_failed_retryable",
+    delivery_state: "prepare_failed_retryable",
+  };
+  const projectedGrowth = Math.max(0, jsonFileBytes(largestManifest) - jsonFileBytes(manifest))
+    + Math.max(0, jsonFileBytes(largestPostImportState) - jsonFileBytes(postImportState));
+  if (projectedGrowth > MAX_PLAUD_POST_PUBLICATION_GROWTH_BYTES) {
+    throw new Error("PLAUD post-publication growth reserve is insufficient");
+  }
+  if (fileCount > MAX_PLAUD_SESSION_FILES
+    || totalBytes > MAX_PLAUD_SESSION_BYTES - MAX_PLAUD_POST_PUBLICATION_GROWTH_BYTES) {
+    throw new Error("PLAUD session publication exceeds custody budget");
+  }
+  return {
+    projected_growth_bytes: projectedGrowth,
+    reserved_growth_bytes: MAX_PLAUD_POST_PUBLICATION_GROWTH_BYTES,
+    projected_max_total_bytes: totalBytes + projectedGrowth,
   };
 }
 
@@ -914,9 +1306,12 @@ function renderPlaudSourceEventDraft({ repoRoot, profile, sessionDir, manifest }
 export function commandAvailability(command, options = {}) {
   const platform = options.platform ?? process.platform;
   const spawn = options.spawnImpl ?? spawnSync;
+  const timeoutMs = Number.isSafeInteger(options.timeoutMs) && options.timeoutMs > 0
+    ? options.timeoutMs
+    : DEFAULT_PLAUD_COMMAND_TIMEOUT_MS;
   const result = platform === "win32"
-    ? spawn("where.exe", [command], { encoding: "utf8" })
-    : spawn("/bin/sh", ["-lc", `command -v ${shellQuote(command)}`], { encoding: "utf8" });
+    ? spawn("where.exe", [command], { encoding: "utf8", timeout: timeoutMs })
+    : spawn("/bin/sh", ["-lc", `command -v ${shellQuote(command)}`], { encoding: "utf8", timeout: timeoutMs });
   const candidates = String(result.stdout ?? "").split(/\r?\n/u).map((value) => value.trim()).filter(Boolean);
   const resolvedPath = platform === "win32"
     ? [".exe", ".com", ".cmd", ".bat"]

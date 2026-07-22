@@ -97,7 +97,39 @@
         "voice": { "$ref": "#/$defs/voice" },
         "queues": { "type": "array", "items": { "$ref": "#/$defs/queue" } },
         "plaud": { "$ref": "#/$defs/plaud" }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "plaud": {
+                "type": "object",
+                "properties": { "writer_enabled": { "const": true } },
+                "required": ["writer_enabled"]
+              }
+            },
+            "required": ["plaud"]
+          },
+          "then": {
+            "properties": {
+              "voice": {
+                "type": "object",
+                "properties": {
+                  "enabled": { "const": true },
+                  "lanes": {
+                    "type": "array",
+                    "allOf": [
+                      { "contains": { "const": "delivery" } },
+                      { "contains": { "const": "library" } },
+                      { "contains": { "const": "sessions" } }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "safeId": {
       "type": "string",
@@ -180,7 +212,7 @@
       ],
       "properties": {
         "enabled": { "type": "boolean" },
-        "operational_mode": { "const": "observe_only" },
+        "operational_mode": { "enum": ["observe_only", "primary_writer"] },
         "workspace_root": { "type": ["string", "null"], "minLength": 3 },
         "profile_path": { "type": ["string", "null"], "minLength": 3 },
         "profile_sha256": {
@@ -197,7 +229,14 @@
         },
         "command_timeout_seconds": { "type": "integer", "minimum": 5, "maximum": 120 },
         "max_candidates_per_cycle": { "type": "integer", "minimum": 1, "maximum": 20 },
-        "writer_enabled": { "const": false }
+        "writer_enabled": { "type": "boolean" },
+        "cutover_receipt_path": { "type": ["string", "null"], "minLength": 3 },
+        "cutover_receipt_sha256": {
+          "anyOf": [
+            { "$ref": "#/$defs/digest" },
+            { "type": "null" }
+          ]
+        }
       },
       "allOf": [
         {
@@ -214,6 +253,28 @@
               "workspace_root": { "type": "null" },
               "profile_path": { "type": "null" },
               "profile_sha256": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "operational_mode": { "const": "primary_writer" } },
+            "required": ["operational_mode"]
+          },
+          "then": {
+            "required": ["cutover_receipt_path", "cutover_receipt_sha256"],
+            "properties": {
+              "enabled": { "const": true },
+              "writer_enabled": { "const": true },
+              "cutover_receipt_path": { "type": "string", "minLength": 3 },
+              "cutover_receipt_sha256": { "$ref": "#/$defs/digest" }
+            }
+          },
+          "else": {
+            "properties": {
+              "writer_enabled": { "const": false },
+              "cutover_receipt_path": { "type": "null" },
+              "cutover_receipt_sha256": { "type": "null" }
             }
           }
         }

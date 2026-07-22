@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.voice.plaud_writer_cutover_receipt.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_node_id",
+    "source_collector_label",
+    "source_writer_status",
+    "source_process_count",
+    "source_service_state",
+    "source_restart_policy_enabled",
+    "target_node_id",
+    "target_mode",
+    "profile_sha256",
+    "observed_at",
+    "valid_until",
+    "owner_approval_ref"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.voice.plaud_writer_cutover_receipt.v1" },
+    "source_node_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+    "source_collector_label": { "const": "ai.soulforge.plaud-ingest" },
+    "source_writer_status": { "const": "stopped" },
+    "source_process_count": { "const": 0 },
+    "source_service_state": { "const": "disabled_unloaded" },
+    "source_restart_policy_enabled": { "const": false },
+    "target_node_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+    "target_mode": { "const": "primary_writer" },
+    "profile_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "observed_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$" },
+    "valid_until": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$" },
+    "owner_approval_ref": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" }
+  }
+}

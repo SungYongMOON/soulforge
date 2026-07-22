@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  assertPlaudSessionPublicationBudget,
   buildDefaultPlaudSyncProfile,
   buildPlaudLaunchdDefinition,
   buildPlaudSessionId,
@@ -16,6 +17,7 @@ import {
   parsePlaudRecentOutput,
   parsePlaudTranscript,
   parsePlaudVersion,
+  plaudSessionCustodyBudget,
   renderPlaudLaunchdPlist,
   runPlaudCommand,
   runPlaudSync,
@@ -23,12 +25,46 @@ import {
 
 const RECORDING_ID = "df8097c8505379f1702100f6fbd9cc16";
 
+test("PLAUD session budget reserves bounded post-publication metadata growth", () => {
+  const manifest = {
+    schema_version: "soulforge.voice.session_manifest.v0",
+    post_import_contract: {
+      library_required: true,
+      delivery_required: true,
+    },
+  };
+  const postImportState = {
+    schema_version: "soulforge.voice.plaud_post_import_state.v1",
+    library_state: "pending",
+    delivery_state: "pending",
+  };
+  const accepted = assertPlaudSessionPublicationBudget({
+    fileCount: plaudSessionCustodyBudget.max_files,
+    totalBytes: plaudSessionCustodyBudget.max_bytes
+      - plaudSessionCustodyBudget.post_publication_reserve_bytes,
+    manifest,
+    postImportState,
+  });
+  assert.equal(
+    accepted.projected_max_total_bytes <= plaudSessionCustodyBudget.max_bytes,
+    true,
+  );
+  assert.throws(() => assertPlaudSessionPublicationBudget({
+    fileCount: plaudSessionCustodyBudget.max_files,
+    totalBytes: plaudSessionCustodyBudget.max_bytes
+      - plaudSessionCustodyBudget.post_publication_reserve_bytes
+      + 1,
+    manifest,
+    postImportState,
+  }), /exceeds custody budget/);
+});
+
 test("PLAUD executable discovery uses where.exe on Windows and command -v on POSIX", () => {
   const calls = [];
   const windowsExecutable = ["C:", "Tools", "plaud.cmd"].join("\\");
   const windowsExtensionlessShim = windowsExecutable.slice(0, -4);
-  const spawnImpl = (command, args) => {
-    calls.push([command, args]);
+  const spawnImpl = (command, args, options) => {
+    calls.push([command, args, options]);
     return { status: 0, stdout: command === "where.exe" ? `${windowsExtensionlessShim}\r\n${windowsExecutable}\r\n` : "/usr/local/bin/plaud\n" };
   };
   const windows = commandAvailability("plaud", { platform: "win32", spawnImpl });
@@ -37,7 +73,8 @@ test("PLAUD executable discovery uses where.exe on Windows and command -v on POS
   assert.equal(windows.resolved_path, windowsExecutable);
   assert.equal(posix.ok, true);
   assert.equal(posix.resolved_path, "/usr/local/bin/plaud");
-  assert.deepEqual(calls[0], ["where.exe", ["plaud"]]);
+  assert.deepEqual(calls[0].slice(0, 2), ["where.exe", ["plaud"]]);
+  assert.equal(calls[0][2].timeout, 120000);
   assert.equal(calls[1][0], "/bin/sh");
   assert.deepEqual(commandAvailability("plaud", {
     platform: "win32",
@@ -49,11 +86,15 @@ test("PLAUD Windows runner executes a discovered npm cmd shim through the system
   const systemRoot = ["C:", "Windows"].join("\\");
   const shimPath = ["C:", "Users", "fixture", "AppData", "Roaming", "npm", "plaud.cmd"].join("\\");
   const calls = [];
+  let availabilityOptions = null;
   const stdout = runPlaudCommand("plaud", ["version"], {
     platform: "win32",
     systemRoot,
     timeoutMs: 15000,
-    availabilityChecker: () => ({ ok: true, resolved_path: shimPath }),
+    availabilityChecker: (_command, options) => {
+      availabilityOptions = options;
+      return { ok: true, resolved_path: shimPath };
+    },
     spawnImpl: (command, args, options) => {
       calls.push({ command, args, options });
       return { status: 0, stdout: "plaud 0.3.4\n", stderr: "" };
@@ -65,6 +106,7 @@ test("PLAUD Windows runner executes a discovered npm cmd shim through the system
   assert.match(calls[0].args[3], /plaud\.cmd/u);
   assert.equal(calls[0].options.windowsVerbatimArguments, true);
   assert.equal(calls[0].options.timeout, 15000);
+  assert.equal(availabilityOptions.timeoutMs, 15000);
   assert.throws(() => runPlaudCommand("plaud", ["file", "unsafe%PATH%"], {
     platform: "win32",
     systemRoot,
@@ -182,6 +224,7 @@ test("PLAUD sync materializes one isolated session and skips the same provider i
         deliveryCalls.push(options);
         return { status: "ready", receipt_ref: `_workspaces/system/voice_capture/delivery/producer_receipts/${options.recordingId}.json` };
       },
+      requireHppCustody: true,
       now: new Date("2026-07-10T10:00:00.000Z"),
     });
     assert.equal(first.recordings[0].state, "imported");
@@ -201,11 +244,13 @@ test("PLAUD sync materializes one isolated session and skips the same provider i
     assert.equal(manifest.audio.evidence_role, "canonical_source_candidate");
     assert.equal(manifest.transcript.evidence_role, "auxiliary_unverified");
     assert.equal(manifest.provider_summary.direct_task_promotion_allowed, false);
+    assert.equal(manifest.post_import_contract.hpp_custody_required, true);
     assert.equal(JSON.stringify(manifest).includes("signature=do-not-store"), false);
     assert.equal(JSON.stringify(manifest).includes("do-not-store"), false);
 
     const second = await runPlaudSync({ repoRoot, profile, skipPreflight: true, commandRunner });
     assert.equal(second.candidate_count, 0);
+    assert.deepEqual(second.custody_required_session_refs, [first.recordings[0].session_ref]);
     assert.equal(deliveryCalls.length, 1);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
@@ -265,6 +310,164 @@ test("PLAUD sync does not block canonical artifacts when optional summary downlo
     const manifest = JSON.parse(await readFile(path.join(repoRoot, result.recordings[0].session_ref, "session_manifest.json"), "utf8"));
     assert.equal(manifest.provider_summary.status, "provider_output_failed_optional");
     assert.equal(manifest.delivery_warning, "delivery_receipt_prepare_failed_retryable");
+
+    const repaired = await runPlaudSync({
+      repoRoot,
+      profile,
+      apply: true,
+      skipPreflight: true,
+      commandRunner,
+      deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "synthetic-only" }),
+    });
+    assert.equal(repaired.recordings[0].state, "reconciled");
+    assert.equal(repaired.reconciled_count, 1);
+    const repairedManifest = JSON.parse(await readFile(
+      path.join(repoRoot, result.recordings[0].session_ref, "session_manifest.json"),
+      "utf8",
+    ));
+    assert.equal(repairedManifest.delivery_warning, "delivery_receipt_prepare_failed_retryable");
+    const postImportState = JSON.parse(await readFile(
+      path.join(repoRoot, result.recordings[0].session_ref, "post_import_state.json"),
+      "utf8",
+    ));
+    assert.equal(postImportState.delivery_state, "ready");
+
+    const replay = await runPlaudSync({
+      repoRoot,
+      profile,
+      apply: true,
+      skipPreflight: true,
+      commandRunner,
+      deliveryReceiptEmitter: async () => assert.fail("resolved repair must not repeat"),
+    });
+    assert.equal(replay.recordings.length, 0);
+    assert.equal(replay.existing_post_import_warning_count, 0);
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("PLAUD atomic session carries a pending repair sidecar across post-publish fence loss", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-plaud-post-publish-fence-"));
+  try {
+    const profile = {
+      ...buildDefaultPlaudSyncProfile(),
+      shared_workspace_required: false,
+      register_library: true,
+      write_workmeta_draft: false,
+    };
+    const commandRunner = (_command, args) => {
+      if (args[0] === "recent") return `  ${RECORDING_ID}  Meeting  2026-07-10  10m\n`;
+      if (args[0] === "file") return [
+        `id: ${RECORDING_ID}`,
+        "name: Meeting",
+        "start_at: 2026-07-10T04:04:32.000Z",
+        "audio: available",
+        "transcript: available",
+        "summary: -",
+        "",
+      ].join("\n");
+      if (args[0] === "transcript") {
+        mkdirSync(path.dirname(args.at(-1)), { recursive: true });
+        writeFileSync(args.at(-1), "[00:01 - 00:05] Speaker 1: test\n", "utf8");
+        return "saved\n";
+      }
+      if (args[0] === "audio") return "https://example.test/source.ogg";
+      throw new Error(`unexpected command: ${args[0]}`);
+    };
+    const audioDownloader = async (_url, outputDir) => {
+      const audioPath = path.join(outputDir, "source.ogg");
+      await writeFile(audioPath, "audio", "utf8");
+      return { path: audioPath, size_bytes: 5, sha256: "fixture-sha256" };
+    };
+    const audioProbe = async () => ({
+      duration_seconds: 10,
+      format: "ogg",
+      codec: "opus",
+      sample_rate_hz: 48000,
+      channels: 1,
+    });
+    const fenceError = new Error("continuous_lease_lost");
+    fenceError.code = "continuous_lease_lost";
+    fenceError.plaudSharedWriteGuardFailure = true;
+    await assert.rejects(runPlaudSync({
+      repoRoot,
+      profile,
+      apply: true,
+      skipPreflight: true,
+      commandRunner,
+      audioDownloader,
+      audioProbe,
+      deliveryReceiptEmitter: async () => { throw fenceError; },
+    }), { code: "continuous_lease_lost" });
+
+    const sessionId = buildPlaudSessionId(new Date("2026-07-10T04:04:32.000Z"), RECORDING_ID);
+    const sessionDir = path.join(repoRoot, profile.output_root, "sessions", "2026-07-10", sessionId);
+    const pendingState = JSON.parse(await readFile(path.join(sessionDir, "post_import_state.json"), "utf8"));
+    assert.equal(pendingState.library_state, "pending");
+    assert.equal(pendingState.delivery_state, "pending");
+
+    const repaired = await runPlaudSync({
+      repoRoot,
+      profile,
+      apply: true,
+      skipPreflight: true,
+      commandRunner,
+      deliveryReceiptEmitter: async () => ({ status: "ready", receipt_ref: "synthetic-only" }),
+    });
+    assert.equal(repaired.recordings[0].state, "reconciled");
+    const readyState = JSON.parse(await readFile(path.join(sessionDir, "post_import_state.json"), "utf8"));
+    assert.equal(readyState.library_state, "registered");
+    assert.equal(readyState.delivery_state, "ready");
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("PLAUD rejects an audio downloader whose declared size does not match the downloaded file", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-plaud-audio-size-"));
+  try {
+    const profile = {
+      ...buildDefaultPlaudSyncProfile(),
+      shared_workspace_required: false,
+      register_library: false,
+      write_workmeta_draft: false,
+    };
+    const commandRunner = (_command, args) => {
+      if (args[0] === "recent") return `  ${RECORDING_ID}  Meeting  2026-07-10  10m\n`;
+      if (args[0] === "file") return [
+        `id: ${RECORDING_ID}`,
+        "name: Meeting",
+        "start_at: 2026-07-10T04:04:32.000Z",
+        "audio: available",
+        "transcript: available",
+        "summary: -",
+        "",
+      ].join("\n");
+      if (args[0] === "transcript") {
+        mkdirSync(path.dirname(args.at(-1)), { recursive: true });
+        writeFileSync(args.at(-1), "[00:01 - 00:05] Speaker 1: test\n", "utf8");
+        return "saved\n";
+      }
+      if (args[0] === "audio") return "https://example.test/source.ogg";
+      throw new Error(`unexpected command: ${args[0]}`);
+    };
+    const result = await runPlaudSync({
+      repoRoot,
+      profile,
+      apply: true,
+      skipPreflight: true,
+      commandRunner,
+      audioDownloader: async (_url, outputDir) => {
+        const audioPath = path.join(outputDir, "source.ogg");
+        await writeFile(audioPath, "audio", "utf8");
+        return { path: audioPath, size_bytes: 4, sha256: "fixture-sha256" };
+      },
+      audioProbe: async () => assert.fail("size mismatch must fail before probing"),
+    });
+    assert.equal(result.recordings[0].state, "import_failed_retryable");
+    assert.equal(result.recordings[0].failure_kind, "materialization_failed");
+    assert.equal(result.recordings.some((item) => item.state === "imported"), false);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }
@@ -608,6 +811,50 @@ test("PLAUD sync keeps a recording retryable when the required transcript cannot
     });
     assert.equal(result.recordings[0].state, "import_failed_retryable");
     assert.equal(result.recordings[0].failure_kind, "transcript_parse_empty");
+    await assert.rejects(
+      readdir(path.join(repoRoot, profile.output_root, "sessions")),
+      { code: "ENOENT" },
+    );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});
+
+test("PLAUD sync always runs the after-recording fence for pending provider work", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-plaud-pending-fence-"));
+  try {
+    const profile = {
+      ...buildDefaultPlaudSyncProfile(),
+      shared_workspace_required: false,
+      register_library: false,
+      write_workmeta_draft: false,
+    };
+    let before = 0;
+    let after = 0;
+    const result = await runPlaudSync({
+      repoRoot,
+      profile,
+      apply: true,
+      skipPreflight: true,
+      commandRunner: (_command, args) => {
+        if (args[0] === "recent") return `  ${RECORDING_ID}  Pending  2026-07-10  10m\n`;
+        if (args[0] === "file") return [
+          `id: ${RECORDING_ID}`,
+          "name: Pending",
+          "start_at: 2026-07-10T04:04:32.000Z",
+          "audio: processing",
+          "transcript: processing",
+          "summary: -",
+          "",
+        ].join("\n");
+        throw new Error(`unexpected command: ${args[0]}`);
+      },
+      beforeRecording: async () => { before += 1; },
+      afterRecording: async () => { after += 1; },
+    });
+    assert.equal(result.recordings[0].state, "pending_provider_processing");
+    assert.equal(before, 1);
+    assert.equal(after, 1);
   } finally {
     await rm(repoRoot, { recursive: true, force: true });
   }

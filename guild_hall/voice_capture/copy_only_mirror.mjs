@@ -54,6 +54,22 @@ function normalizeLanes(values) {
   return lanes;
 }
 
+function normalizeRequiredSourcePrefixes(values, lanes) {
+  if (values === undefined) return [];
+  if (!Array.isArray(values)) fail("invalid_required_source_prefixes");
+  const prefixes = [...new Set(values.map((value) => String(value).trim().replace(/\\/gu, "/")))].sort();
+  for (const prefix of prefixes) {
+    const parts = prefix.split("/");
+    if (!prefix
+      || prefix.startsWith("/")
+      || parts.some((part) => !part || part === "." || part === "..")
+      || !lanes.includes(parts[0])) {
+      fail("invalid_required_source_prefixes");
+    }
+  }
+  return prefixes;
+}
+
 async function assertNormalExistingDirectory(path) {
   const info = await lstat(path);
   if (!info.isDirectory() || info.isSymbolicLink()) fail("unsafe_directory");
@@ -339,6 +355,7 @@ export async function syncCopyOnlyMirror(options) {
   const receiptRoot = resolve(String(options.receiptRoot || ""));
   const sourceOwnerRef = String(options.sourceOwnerRef || "").trim();
   const lanes = normalizeLanes(options.lanes);
+  const requiredSourcePrefixes = normalizeRequiredSourcePrefixes(options.requiredSourcePrefixes, lanes);
   const maxNewFiles = Number.isSafeInteger(options.maxNewFiles) ? options.maxNewFiles : 250;
   const maxNewBytes = Number.isSafeInteger(options.maxNewBytes) ? options.maxNewBytes : 2 * 1024 * 1024 * 1024;
   const now = typeof options.now === "function" ? options.now : () => new Date().toISOString();
@@ -363,6 +380,19 @@ export async function syncCopyOnlyMirror(options) {
   const checkpoint = await readCheckpoint(checkpointPath);
   validateCheckpointIdentity(checkpoint, sourceOwnerRef, lanes);
   const files = await collectLaneFiles(sourceRoot, lanes);
+  if (requiredSourcePrefixes.length > 0) {
+    const required = (file) => requiredSourcePrefixes.some(
+      (prefix) => file.key === prefix || file.key.startsWith(`${prefix}/`),
+    );
+    files.sort((left, right) => Number(required(right)) - Number(required(left)) || left.key.localeCompare(right.key));
+  }
+  const requiredFiles = files.filter((file) => requiredSourcePrefixes.some(
+    (prefix) => file.key === prefix || file.key.startsWith(`${prefix}/`),
+  ));
+  const requiredPrefixHits = new Set(requiredSourcePrefixes.filter((prefix) => requiredFiles.some(
+    (file) => file.key === prefix || file.key.startsWith(`${prefix}/`),
+  )));
+  const observedSources = new Map();
   const summary = {
     schema_version: "soulforge.voice.copy_only_run.v1",
     scanned: files.length,
@@ -386,6 +416,7 @@ export async function syncCopyOnlyMirror(options) {
   for (const file of files) {
     await assertFence({ phase: "before_source_file", source_key: file.key });
     const source = await stableDigest(file.path);
+    observedSources.set(file.key, source);
     const previous = checkpoint.files[file.key];
     if (previous?.sha256 === source.sha256 && previous?.size === source.size) {
       checkpoint.files[file.key] = { ...previous, source_present: true };
@@ -490,5 +521,23 @@ export async function syncCopyOnlyMirror(options) {
     target: checkpointPath,
   });
   await assertFence({ phase: "after_checkpoint", source_key: null });
+  const verifiedRequiredFiles = requiredFiles.filter((file) => {
+    const source = observedSources.get(file.key);
+    const entry = checkpoint.files[file.key];
+    return Boolean(source
+      && entry
+      && entry.source_present === true
+      && entry.sha256 === source.sha256
+      && entry.size === source.size);
+  }).length;
+  summary.required_coverage = {
+    requested_prefix_count: requiredSourcePrefixes.length,
+    matched_prefix_count: requiredPrefixHits.size,
+    source_file_count: requiredFiles.length,
+    verified_file_count: verifiedRequiredFiles,
+    complete: requiredSourcePrefixes.length === 0
+      || (requiredPrefixHits.size === requiredSourcePrefixes.length
+        && verifiedRequiredFiles === requiredFiles.length),
+  };
   return summary;
 }
