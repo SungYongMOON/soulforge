@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2026-07-23
+
+### Task Engine sent-mail and Slack communication-history plan correction
+
+- Extended the Task Engine master plan without activating collectors or writers:
+  mail now separates one project-independent logical occurrence from multiple
+  account/folder observations, preserves sender/to/cc/bcc roles, and forbids
+  POP3 received-only coverage, fuzzy copy merging, CC assignment, or reply-based
+  completion from being overstated.
+- Recorded the current source gap explicitly: owner Outlook can reconcile local
+  Sent Items, team POP3 collection covers inbox messages, and Soulforge SMTP logs
+  only cover mail sent through that sender; the authoritative team sent-mail
+  source remains an owner decision and live-binding gate.
+- Added H07A/H07B Slack project communication-history planning. Stable
+  `workspace_id+channel_id` bindings provide the default project scope, while
+  message/thread/edit/delete revisions remain append-only, DMs/common/unmapped
+  channels fail closed, and all detected work remains candidate-only.
+- Added D33/D34, S25, AC-25, and HP-COMM-01..12 acceptance coverage. No Slack
+  app/token/channel was connected, no mail source was changed, and no DB,
+  project data, scheduler, network service, or operational writer was activated.
+
 ## 2026-07-22
 
 ### Voice semantic Shadow labeler
