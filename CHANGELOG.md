@@ -2,6 +2,19 @@
 
 ## 2026-07-23
 
+### Backup controller live-binding containment correction
+
+- Corrected the backup-controller preflight to accept only the two strict,
+  typed containments already used by the approved HPP private binding: the
+  bound ERP DB below the pinned runtime checkout and the SHA-256-pinned recovery
+  policy below the project metadata root. Equality, reverse containment, and
+  unrelated resource overlap remain fail-closed.
+- Added regression coverage for accepted relationships, equality, reverse and
+  unrelated overlap, transitive third-resource nesting, and physical type
+  mismatch. This correction does not relax the pinned HEAD and tracked
+  runtime-module cleanliness checks and does not require the active development
+  worktree to be clean during a backup run.
+
 ### Task Engine sent-mail and Slack communication-history plan correction
 
 - Extended the Task Engine master plan without activating collectors or writers:

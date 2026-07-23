@@ -52,8 +52,12 @@ intentionally blocks the currently known broad HPP ACL until it is separately
 approved and repaired; the controller never changes ACLs.
 
 HPP/control/restore/NAS lanes must never overlap the runtime checkout. The only
-allowed containment is the canonically nested `_workmeta` and `private-state`
-source roots beneath that checkout; their `.git` and secret-like entries remain
+allowed containments are exact, typed relationships: canonically nested
+`_workmeta` and `private-state` source roots beneath that checkout, the bound ERP
+DB as a strict descendant of the runtime checkout, and the SHA-256-pinned HPP
+recovery policy as a strict descendant of the project metadata root. Equality,
+reverse containment, transitive closure through a third resource, and every
+other overlap remain rejected. Metadata `.git` and secret-like entries remain
 excluded by the ERP-lane copy profile.
 
 The automation composition also verifies that its own executing module root is

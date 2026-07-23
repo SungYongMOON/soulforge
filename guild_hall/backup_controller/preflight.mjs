@@ -25,13 +25,29 @@ function overlaps(left, right) {
   return a === b || a.startsWith(`${b}${path.sep}`) || b.startsWith(`${a}${path.sep}`);
 }
 
-function approvedRuntimeMetadataContainment(left, right) {
+function strictDescendant(child, parent) {
+  const nested = normalized(child);
+  const owner = normalized(parent);
+  return nested !== owner && nested.startsWith(`${owner}${path.sep}`);
+}
+
+function approvedOperationalContainment(left, right) {
   const entries = new Map([left, right]);
   const runtime = entries.get("runtime_checkout_root");
   const metadata = entries.get("project_metadata_root") ?? entries.get("cross_project_state_root");
-  if (!runtime || !metadata) return false;
-  const expectedLeaf = entries.has("project_metadata_root") ? "_workmeta" : "private-state";
-  return normalized(metadata.path) === normalized(path.join(runtime.path, expectedLeaf));
+  if (runtime && metadata) {
+    const expectedLeaf = entries.has("project_metadata_root") ? "_workmeta" : "private-state";
+    return normalized(metadata.path) === normalized(path.join(runtime.path, expectedLeaf));
+  }
+
+  const erpDb = entries.get("erp_db_file");
+  if (runtime && erpDb) return strictDescendant(erpDb.path, runtime.path);
+
+  const policy = entries.get("hpp_recovery_policy");
+  const projectMetadata = entries.get("project_metadata_root");
+  if (policy && projectMetadata) return strictDescendant(policy.path, projectMetadata.path);
+
+  return false;
 }
 
 export async function runReadOnlyCommand({ file, args, signal }) {
@@ -170,7 +186,7 @@ export async function preflightBinding(bindingInput, {
   const pathEntries = [["state_root", { kind: "directory", path: binding.state_root }], ...Object.entries(binding.resources)];
   for (let left = 0; left < pathEntries.length; left += 1) {
     for (let right = left + 1; right < pathEntries.length; right += 1) {
-      if (approvedRuntimeMetadataContainment(pathEntries[left], pathEntries[right])) continue;
+      if (approvedOperationalContainment(pathEntries[left], pathEntries[right])) continue;
       if (overlaps(pathEntries[left][1].path, pathEntries[right][1].path)) fail("preflight_path_overlap");
     }
   }

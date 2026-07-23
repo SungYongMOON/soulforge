@@ -91,6 +91,68 @@ test("runtime containment allows only exact _workmeta/private-state children, ne
   await assert.rejects(preflightBinding(reverse, fx.options), (error) => error instanceof BackupControllerError && error.code === "preflight_path_overlap");
 });
 
+test("preflight permits only the bound ERP DB and pinned recovery policy as strict operational descendants", async (t) => {
+  const fx = await fixture(t);
+  const allowed = structuredClone(fx.binding);
+  allowed.resources.erp_db_file.path = path.join(allowed.resources.runtime_checkout_root.path, "ui-workspace", "apps", "dev-erp", "data", "dev-erp.db");
+  allowed.resources.hpp_recovery_policy.path = path.join(allowed.resources.project_metadata_root.path, "recovery", "policy.json");
+  await mkdir(path.dirname(allowed.resources.hpp_recovery_policy.path), { recursive: true });
+  await writeFile(allowed.resources.hpp_recovery_policy.path, "{\"schema\":\"test\"}\n");
+  assert.equal((await preflightBinding(allowed, fx.options)).ok, true);
+
+  const equalDb = structuredClone(fx.binding);
+  equalDb.resources.erp_db_file.path = equalDb.resources.runtime_checkout_root.path;
+  await assert.rejects(preflightBinding(equalDb, fx.options), (error) => error instanceof BackupControllerError && error.code === "preflight_path_overlap");
+
+  const equalPolicy = structuredClone(fx.binding);
+  equalPolicy.resources.hpp_recovery_policy.path = equalPolicy.resources.project_metadata_root.path;
+  await assert.rejects(preflightBinding(equalPolicy, fx.options), (error) => error instanceof BackupControllerError && error.code === "preflight_path_overlap");
+
+  const reverseDb = structuredClone(fx.binding);
+  reverseDb.resources.runtime_checkout_root.path = path.join(reverseDb.resources.erp_db_file.path, "runtime");
+  await assert.rejects(preflightBinding(reverseDb, fx.options), (error) => error instanceof BackupControllerError && error.code === "preflight_path_overlap");
+
+  const reversePolicy = structuredClone(fx.binding);
+  reversePolicy.resources.project_metadata_root.path = path.join(reversePolicy.resources.hpp_recovery_policy.path, "metadata");
+  await assert.rejects(preflightBinding(reversePolicy, fx.options), (error) => error instanceof BackupControllerError && error.code === "preflight_path_overlap");
+
+  const unrelatedRuntimeChild = structuredClone(fx.binding);
+  unrelatedRuntimeChild.resources.hpp_data_root.path = path.join(unrelatedRuntimeChild.resources.runtime_checkout_root.path, "hpp");
+  await assert.rejects(preflightBinding(unrelatedRuntimeChild, fx.options), (error) => error instanceof BackupControllerError && error.code === "preflight_path_overlap");
+
+  const transitive = structuredClone(fx.binding);
+  transitive.resources.project_metadata_root.path = path.join(transitive.resources.runtime_checkout_root.path, "_workmeta");
+  transitive.resources.hpp_recovery_policy.path = path.join(transitive.resources.project_metadata_root.path, "recovery", "policy.json");
+  await assert.rejects(preflightBinding(transitive, fx.options), (error) => error instanceof BackupControllerError && error.code === "preflight_path_overlap");
+});
+
+test("preflight still enforces physical file and directory types for approved containment pairs", async (t) => {
+  const fx = await fixture(t);
+  const allowed = structuredClone(fx.binding);
+  allowed.resources.erp_db_file.path = path.join(allowed.resources.runtime_checkout_root.path, "ui-workspace", "apps", "dev-erp", "data", "dev-erp.db");
+  await assert.rejects(preflightBinding(allowed, {
+    ...fx.options,
+    pathInspector: async (resource, context) => ({
+      type: context.resourceId === "erp_db_file" ? "directory" : resource.kind === "file" || resource.kind === "pinned_file" ? "file" : "directory",
+      realpath: resource.path,
+      is_link: false,
+      reparse_tag: resource.kind === "onedrive_cloud_directory" ? "0x9000601a" : null,
+    }),
+  }), (error) => error instanceof BackupControllerError && error.code === "preflight_resource_type_mismatch");
+
+  const policyInsideMetadata = structuredClone(fx.binding);
+  policyInsideMetadata.resources.hpp_recovery_policy.path = path.join(policyInsideMetadata.resources.project_metadata_root.path, "recovery", "policy.json");
+  await assert.rejects(preflightBinding(policyInsideMetadata, {
+    ...fx.options,
+    pathInspector: async (resource, context) => ({
+      type: context.resourceId === "hpp_recovery_policy" ? "directory" : resource.kind === "file" || resource.kind === "pinned_file" ? "file" : "directory",
+      realpath: resource.path,
+      is_link: false,
+      reparse_tag: resource.kind === "onedrive_cloud_directory" ? "0x9000601a" : null,
+    }),
+  }), (error) => error instanceof BackupControllerError && error.code === "preflight_resource_type_mismatch");
+});
+
 test("preflight permits only the exact OneDrive cloud tag and rejects other reparse points", async (t) => {
   const fx = await fixture(t);
   await assert.rejects(preflightBinding(structuredClone(fx.binding), {
