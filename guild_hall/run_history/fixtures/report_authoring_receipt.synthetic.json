@@ -1,0 +1,106 @@
+{
+  "schema": "soulforge.workflow_receipt.v1",
+  "job_id": "synthetic-report-job-001",
+  "workflow_id": "report_authoring_v0",
+  "request_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "result_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "workflow_bundle_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "bundle_integrity_claim": "local_self_integrity_only",
+  "runner_release": "workflow-runner.v1",
+  "binding_revision": "report_authoring_v0.binding.v1",
+  "input_refs": [
+    {
+      "role": "draft_report",
+      "payload_ref": "payload:synthetic_draft",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 1,
+      "media_type": "application/json"
+    }
+  ],
+  "output_refs": [
+    {
+      "role": "report_document_json",
+      "payload_ref": "artifact:synthetic_report:document",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 2,
+      "media_type": "application/json"
+    },
+    {
+      "role": "final_report_md",
+      "payload_ref": "artifact:synthetic_report:markdown",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size": 2,
+      "media_type": "text/markdown"
+    },
+    {
+      "role": "protected_semantic_manifest",
+      "payload_ref": "artifact:synthetic_report:semantic_manifest",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 2,
+      "media_type": "application/json"
+    },
+    {
+      "role": "preservation_audit",
+      "payload_ref": "artifact:synthetic_report:preservation",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size": 2,
+      "media_type": "application/json"
+    },
+    {
+      "role": "semantic_verification",
+      "payload_ref": "artifact:synthetic_report:verification",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 2,
+      "media_type": "application/json"
+    }
+  ],
+  "execution": {
+    "request_actor_ref": "actor:synthetic_requester",
+    "final_rewriter_actor_ref": "actor:synthetic_rewriter",
+    "final_rewriter_run_ref": "run:synthetic_rewriter",
+    "final_rewriter_context_ref": "context:synthetic_rewriter",
+    "final_rewriter_identity_attestation_ref": "attestation:synthetic_rewriter",
+    "semantic_verifier_actor_ref": "actor:synthetic_verifier",
+    "semantic_verifier_run_ref": "run:synthetic_verifier",
+    "semantic_verifier_context_ref": "context:synthetic_verifier",
+    "semantic_verifier_identity_attestation_ref": "attestation:synthetic_verifier",
+    "identity_authority_ref": "authority:synthetic",
+    "identity_authority_record_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "identity_claim": "local_context_separation_declared",
+    "deployment_attestation_ref": null,
+    "author_pass_receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "verifier_pass_receipt_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "model_ref": null,
+    "reasoning_ref": null
+  },
+  "phase_transition_digest_before_receipt_confirmation": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "validator_summary": {
+    "request_contract": "pass",
+    "document_contract": "pass",
+    "deterministic_preservation": "pass",
+    "lexical_guard": "pass",
+    "independent_semantic_verification": "pass",
+    "render": "pass",
+    "boundary": "pass",
+    "counts": {
+      "protected_baseline": 1,
+      "protected_candidate": 1,
+      "protected_matched": 1,
+      "lexical_protected": 1,
+      "unconfirmed": 0
+    }
+  },
+  "boundary": {
+    "content_classification": "private_work_product",
+    "raw_input_payload_copy_detected": false,
+    "known_secret_pattern_scan_status": "pass",
+    "runtime_absolute_path_detected": false,
+    "source_owned_absolute_path_count": 0,
+    "forbidden_internal_scaffold_detected": false,
+    "artifact_storage_class": "workspace_system",
+    "receipt_metadata_only": true
+  },
+  "started_at": "2026-07-20T00:00:00.000Z",
+  "completed_at": "2026-07-20T00:01:00.000Z",
+  "stop_error_code": null
+}

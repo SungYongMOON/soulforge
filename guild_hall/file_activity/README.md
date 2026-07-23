@@ -20,6 +20,45 @@ The helper keeps five identities separate:
    fields. `fs_modified_at` remains an untrusted hint, not a creation-time or
    ordering claim.
 
+## Feature-OFF project-history ref adapter
+
+`project_history_adapter.mjs` is a separate pure H04 candidate surface. It does
+not call `scanWorkspace`, the CLI, a filesystem API, a database, or a network
+source. Its request must set `feature_enabled: false` and supplies only:
+
+- an exact typed source-owner and project ref;
+- exact immutable observation, reconciliation-event, or ERP-upload-event refs;
+- paired source-revision/content refs;
+- an immutable checkpoint ref plus digest and contiguous producer sequence;
+- a caller-supplied H00 six-state coverage input.
+
+The pre-ratification native binding candidates are exact and deliberately
+narrow: `file_observation` and `file_reconciliation_event` belong to the
+`file_activity` owner candidate, while `erp_upload_event` belongs to the
+`dev_erp` owner candidate. `logical_file_id`, path, filename, mtime, and a hash
+alone never become native occurrences. These bindings remain candidates until
+D26 owner ratification and source existence validation.
+
+The reducer is in-memory and accepts its prior validated state explicitly.
+Canonical same-ref/same-digest replay is a no-op. Reusing an event or checkpoint
+ref with different immutable metadata fails closed. A producer sequence gap
+does not advance state and emits a deterministic gap receipt; the caller must
+use `partial` coverage and provide the applicable D25-owned gap code. The
+adapter does not invent a live gap vocabulary.
+
+Coverage reuses the H00 matrix unchanged:
+`complete_with_events`, `complete_no_events`, `partial`, `failed`,
+`not_collected`, and `not_applicable`. Count-bearing states require a checkpoint;
+null-count states forbid one. A bounded/truncated projection must therefore
+remain `partial` with an explicit caller-supplied gap rather than being treated
+as a complete ledger. Exact-key validation and recursive string guards reject
+raw body/payload/log, transcript, file-byte, secret, absolute/UNC, URI, encoded,
+and path-like locator sentinels even when hidden in an otherwise allowed string
+field.
+
+This adapter creates no watcher, scheduler, transport, writer, owner
+ratification, live completeness claim, or project-history activation.
+
 ## Node roles and cadence candidates
 
 | Role | Candidate cadence | Extra triggers |
@@ -290,4 +329,5 @@ All deterministic fixtures use temporary directories:
 
 ```bash
 npm run validate:file-activity
+node --test guild_hall/file_activity/project_history_adapter.test.mjs
 ```
