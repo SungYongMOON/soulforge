@@ -37,6 +37,34 @@
   app/token/channel was connected, no mail source was changed, and no DB,
   project data, scheduler, network service, or operational writer was activated.
 
+### Task Engine cross-input normalized label plan correction
+
+- Split source fact normalization from semantic labeling so mail, voice, Slack,
+  structured PC work, file, and run/log adapters cannot independently invent
+  project, time, person, request, commitment, or decision meanings.
+- Fixed a shared target crosswalk for typed project and party refs, source-native
+  and normalized clocks, immutable revisions, project assignment state/basis,
+  typed account and producer identity, exact evidence spans, policy revision,
+  the owner-ratified PLAUD UTC exception, and unchanged source-relative offsets.
+  Project codes, KST strings, and display names remain projections rather than
+  identity.
+- Added an append-only semantic annotation target with a shared primary signal
+  vocabulary, supporting semantic facets, source-native label refs, a
+  revision-bound lossless crosswalk, policy-bound confidence bands, explicit
+  supersession, unknown and conflict honesty, one-mail/many-mailbox dedupe, and
+  cross-channel non-merge. Existing voice candidate kinds map to the shared
+  signals while all fifteen speech acts remain preserved as primary support,
+  facets, or explicit gaps. Multiple exact spans/signals per occurrence remain
+  distinct; only identical annotation tuples are deduplicated.
+  Semantic annotations remain candidate evidence and cannot create assignees,
+  ERP tasks, or official completion without the later TaskDriver gates.
+- Added HP-LABEL-01..08 and AC-26 plan acceptance coverage and bound it to
+  the limited H00/H06 identity/clock subset, source-native H01~H05/H07
+  preservation, P3 relation normalization, P5 context labeling, and P6
+  candidate discovery. Acceptance also requires append-only lineage replay and
+  raw/secret negative fixtures. No schema, DB, collector, labeler, TaskDriver,
+  or live writer was changed or activated.
+
 ## 2026-07-22
 
 ### Voice semantic Shadow labeler
