@@ -2,6 +2,42 @@
 
 ## 2026-07-23
 
+### Outlook Sent custody pilot and Slack continuous harness
+
+- Added an owner Outlook Sent provider inside the existing team-mailbox
+  capsule. It attaches only to an active Outlook instance, pins the default
+  store and Sent folder, exports bounded Unicode MSG objects into private
+  content-addressed custody, and records sent mailbox observations with exact
+  RFC Message-ID only when available.
+- Made Outlook overlap replay restart-safe despite nondeterministic `SaveAs`
+  bytes: the first native observation retains its immutable custody ref, each
+  replay revalidates the retained object hash and file identity, and metadata
+  drift or custody corruption fails closed. The bounded actual private canary
+  stored two observations and replayed both with zero new objects or gaps.
+- Added mandatory KST collection windows and a once-per-window success gate.
+  The HPP policy is lunch `12:00-14:00` and night `20:00-23:00`; failures may
+  retry on the next supervisor cycle inside the same window, while a successful
+  window cannot query Outlook again.
+- Added a feature-OFF Slack continuous-ingress harness with exact joined public
+  project-channel binding, writer lease/epoch fencing, immutable raw-event
+  custody, restart-safe cursor/dedupe, edit/delete/thread revision handling,
+  and HOLD routing for private/shared/unmapped/file-bearing events.
+- The Slack harness has synthetic transport only and rejects feature activation
+  or embedded secrets. A reusable owner-managed Slack App/token and approved
+  event/backfill transport remain required before any live collector can run.
+- Materialized nine exact project-channel bindings in the HPP private config as
+  feature-OFF metadata only. They contain no token reference, created no raw
+  custody directory, and are not attached to a scheduler.
+- No project classification, shared semantic labeling, CSV/XLSX projection,
+  ERP/TaskDriver mutation, Slack posting, or email sending was enabled.
+- Clarified the Task Engine execution boundary so continuous collection,
+  immutable custody, normalization, exact binding, dedupe, and coverage remain
+  fully deterministic and Codex/LLM-independent. Local `whisper.cpp`, local
+  retrieval/embedding, local models, and Codex are optional inference layers;
+  they may emit revision-bound candidates but cannot become the ERP server,
+  sole writer, confirmed assignment, official completion, or TaskDriver
+  authority.
+
 ### Local activity three-source query-only inventory
 
 - Added separate stdin-only, query-only source inventories for dev-ERP

@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schemas/slack_continuous_binding.schema.json",
+  "title": "Soulforge Slack continuous ingress private binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "feature_enabled",
+    "binding_id",
+    "workspace_id",
+    "channel_id",
+    "project_code",
+    "channel",
+    "credentials",
+    "private_root",
+    "data_root",
+    "forbidden_roots",
+    "writer"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soulforge.slack_continuous.binding.v1"
+    },
+    "feature_enabled": {
+      "const": false
+    },
+    "binding_id": {
+      "$ref": "#/$defs/safeRef"
+    },
+    "workspace_id": {
+      "type": "string",
+      "pattern": "^T[A-Z0-9]{2,31}$"
+    },
+    "channel_id": {
+      "type": "string",
+      "pattern": "^C[A-Z0-9]{2,31}$"
+    },
+    "project_code": {
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9_-]{1,63}$"
+    },
+    "channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "visibility",
+        "is_shared",
+        "is_ext_shared",
+        "is_archived",
+        "is_member"
+      ],
+      "properties": {
+        "kind": {
+          "const": "project"
+        },
+        "visibility": {
+          "const": "public"
+        },
+        "is_shared": {
+          "const": false
+        },
+        "is_ext_shared": {
+          "const": false
+        },
+        "is_archived": {
+          "const": false
+        },
+        "is_member": {
+          "const": true
+        }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "app_token_env",
+        "bot_token_env",
+        "app_token_file",
+        "bot_token_file"
+      ],
+      "properties": {
+        "app_token_env": {
+          "$ref": "#/$defs/nullableEnvName"
+        },
+        "bot_token_env": {
+          "$ref": "#/$defs/nullableEnvName"
+        },
+        "app_token_file": {
+          "$ref": "#/$defs/nullableAbsolutePath"
+        },
+        "bot_token_file": {
+          "$ref": "#/$defs/nullableAbsolutePath"
+        }
+      }
+    },
+    "private_root": {
+      "$ref": "#/$defs/absolutePath"
+    },
+    "data_root": {
+      "$ref": "#/$defs/absolutePath"
+    },
+    "forbidden_roots": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/absolutePath"
+      }
+    },
+    "writer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_id",
+        "epoch"
+      ],
+      "properties": {
+        "authority_id": {
+          "$ref": "#/$defs/safeRef"
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "safeRef": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,255}$"
+    },
+    "nullableEnvName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Z][A-Z0-9_]{2,127}$"
+    },
+    "absolutePath": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 1024,
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z]:[\\\\/]"
+        },
+        {
+          "pattern": "^/"
+        }
+      ]
+    },
+    "nullableAbsolutePath": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/absolutePath"
+        }
+      ]
+    }
+  }
+}

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 import pytest
 
 import collector.runner as runner
+import collector.team_mailboxes as team_mailboxes
 from collector.models import EmailEvent, FetchResult
 from collector.team_mailboxes import (
     TEAM_REGISTER_SCHEMA_VERSION,
@@ -72,6 +73,140 @@ def _write_env_files(register: Path, names: List[str]) -> None:
             ),
             encoding="utf-8",
         )
+
+
+def test_outlook_sent_provider_runs_inside_pinned_team_capsule(
+    monkeypatch, tmp_path: Path
+) -> None:
+    register = _write_team_register(
+        tmp_path,
+        [
+            {
+                "id": "sent-ops",
+                "account_id": "acct-sent-ops",
+                "email": "sent-ops@example.test",
+                "provider": "outlook_sent",
+                "enabled": True,
+                "env_file": "sent-ops.env",
+                "workspace": "team_ops",
+            }
+        ],
+    )
+    env_path = register.parent / "sent-ops.env"
+    env_text = "\n".join(
+        [
+            "OUTLOOK_SENT_ENABLED=true",
+            f"OUTLOOK_SENT_DEFAULT_STORE_FINGERPRINT=sha256:{'1' * 64}",
+            f"OUTLOOK_SENT_DEFAULT_FOLDER_FINGERPRINT=sha256:{'2' * 64}",
+            "OUTLOOK_SENT_ALLOWED_WINDOWS_KST=12:00-14:00,20:00-23:00",
+            "",
+        ]
+    )
+    env_path.write_text(env_text, encoding="utf-8")
+    data_root = tmp_path / "private-data"
+    seen = []
+
+    def synthetic_run(config):
+        seen.append(config)
+        return {
+            "schema_version": "email.fetch.outlook_sent_run.v1",
+            "status": "ok",
+            "partial": False,
+            "total_events": 1,
+            "total_new_events": 1,
+            "total_duplicates": 0,
+            "custody_objects_written": 1,
+            "cursor_advanced": True,
+            "truncated": False,
+            "gap_count": 0,
+        }
+
+    monkeypatch.setattr(team_mailboxes.outlook_sent, "run_outlook_sent", synthetic_run)
+    summary = run_team_mailboxes(
+        repo_root=tmp_path,
+        register_file=register,
+        credential_texts_by_path={str(env_path): env_text},
+        nested_credential_texts_by_path={},
+        capsule_env_overrides={
+            "EMAIL_FETCH_INBOX_ROOT": str(data_root / "ingress" / "mailbox"),
+            "EMAIL_FETCH_RUNTIME_DIR": str(data_root / "runtime" / "mail_fetch"),
+        },
+    )
+
+    assert summary["partial"] is False
+    assert summary["mailboxes_run"] == 1
+    assert summary["total_events"] == 1
+    assert len(seen) == 1
+    assert seen[0].capsule_bound is True
+    assert seen[0].account_role == "owner"
+    assert seen[0].source_custody_root.is_relative_to(data_root)
+
+
+def test_outlook_sent_uses_empty_preloaded_capsule_without_reopen_and_honors_limit(
+    monkeypatch, tmp_path: Path
+) -> None:
+    register = _write_team_register(
+        tmp_path,
+        [
+            {
+                "id": "sent-owner",
+                "account_id": "acct-sent-owner",
+                "email": "sent-owner@example.test",
+                "provider": "outlook_sent",
+                "enabled": True,
+                "env_file": "sent-owner.env",
+                "workspace": "company",
+            }
+        ],
+    )
+    env_path = register.parent / "sent-owner.env"
+    env_path.write_text("must-not-be-reopened=true\n", encoding="utf-8")
+    mailboxes = load_team_mailbox_register(
+        repo_root=tmp_path,
+        register_file=register,
+    )
+    env_path.unlink()
+    data_root = tmp_path / "private-data"
+    seen = []
+
+    def synthetic_run(config):
+        seen.append(config)
+        return {
+            "schema_version": "email.fetch.outlook_sent_run.v1",
+            "status": "ok",
+            "partial": False,
+            "total_events": 0,
+            "total_new_events": 0,
+            "total_duplicates": 0,
+            "custody_objects_written": 0,
+            "cursor_advanced": False,
+            "truncated": False,
+            "gap_count": 0,
+        }
+
+    monkeypatch.setattr(team_mailboxes.outlook_sent, "run_outlook_sent", synthetic_run)
+    summary = run_team_mailboxes(
+        repo_root=tmp_path,
+        register_file=register,
+        mailboxes=mailboxes,
+        limit=2,
+        credential_texts_by_path={str(env_path): ""},
+        nested_credential_texts_by_path={},
+        capsule_env_overrides={
+            "EMAIL_FETCH_INBOX_ROOT": str(data_root / "ingress" / "mailbox"),
+            "EMAIL_FETCH_RUNTIME_DIR": str(data_root / "runtime" / "mail_fetch"),
+            "OUTLOOK_SENT_ENABLED": "true",
+            "OUTLOOK_SENT_DEFAULT_STORE_FINGERPRINT": f"sha256:{'1' * 64}",
+            "OUTLOOK_SENT_DEFAULT_FOLDER_FINGERPRINT": f"sha256:{'2' * 64}",
+            "OUTLOOK_SENT_ALLOWED_WINDOWS_KST": "12:00-14:00,20:00-23:00",
+            "OUTLOOK_SENT_MAX_ITEMS": "100",
+        },
+    )
+
+    assert summary["partial"] is False
+    assert len(seen) == 1
+    assert seen[0].capsule_bound is True
+    assert seen[0].max_items == 2
 
 
 def test_team_register_and_env_refs_can_live_under_stable_private_config_root(

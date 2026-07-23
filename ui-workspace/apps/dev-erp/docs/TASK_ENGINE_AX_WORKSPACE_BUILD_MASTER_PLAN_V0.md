@@ -18,6 +18,8 @@
 | 2026-07-23 live-source interpretation | owner-stated 7-source split은 `2 LIVE_UNACCEPTED / 5 UNCONNECTED`: 받은메일·PLAUD 음성은 owner-supported operational source지만 formal H acceptance와 private exact binding/freshness/coverage는 미증명이고, 보낸메일·Slack·Codex 작업로그·파일변경·PC업무는 continuous source connection이 없다. 새 normalized H→P5 project classification/shared semantic label과 P7 TaskDriver path는 모든 source에서 `OFF`; legacy source-local mail routing·auto-intake는 `VERIFY_HP`이며 P5/P7 acceptance 증거가 아님 |
 | 2026-07-23 owner Outlook Sent query-only canary | 이미 실행 중인 Outlook의 기본 보낸편지함에서 명시적 24시간 window와 bounded item limit로 시각·건수 aggregate만 조회하는 strict query-only surface를 구현하고 실제 조회했다. Inbox·제목·본문·첨부·recipient address·item ID 접근, Send/Receive, repository/`_workmeta`/temp write는 `0`; source availability만 증명하므로 보낸메일 상태는 계속 `UNCONNECTED`, continuous collector·project classification·H01C/HP-LIVE acceptance는 `OFF` |
 | 2026-07-23 Slack query-only source canary | 연결된 Slack의 authenticated-user visible-channel inventory와 프로젝트 채널 1개의 bounded history scope를 metadata-only로 확인하고, public sanitizer는 stable ID를 fingerprint/count로만 반환한다. 채널명·메시지 본문·파일·사용자 주소·secret·literal ID 공개/저장 `0`; source availability만 증명하므로 Slack 상태는 계속 `UNCONNECTED`, exact D34 authority·persistent collector·H07A/H07B·HP-LIVE acceptance는 `OFF` |
+| 2026-07-23 owner Outlook Sent bounded raw-custody pilot | 기존 team mailbox capsule 안에 active-Outlook attach-only `outlook_sent` provider를 추가하고, 격리된 HPP private D: custody에서 owner 기본 보낸편지함의 실제 bounded window를 `.msg` immutable raw object+H01C observation으로 수집했다. 최초 2건 저장 후 강제 overlap replay는 신규 object `0`, duplicate `2`, gap/truncation `0`; Outlook `SaveAs` byte nondeterminism은 source-local native observation이 처음 확정한 custody ref를 재사용하고 기존 SHA-256/file identity를 매회 검증하도록 보정했다. KST `12:00-14:00`·`20:00-23:00` 각 시간대 성공 1회 gate도 actual canary에서 첫 수집 뒤 같은 slot 재호출 `already_collected_in_slot`으로 확인했다. continuous private register/task 연결·project classification·ERP/TaskDriver·H01C/HP-LIVE acceptance는 아직 `OFF` |
+| 2026-07-23 Slack feature-OFF continuous harness | exact joined public project channel 1개 단위 private binding schema, writer lease/epoch, content-addressed raw event custody, restart-safe cursor/dedupe, edit/delete/reply revision, DM/common/unmapped/Slack Connect/file-bearing event HOLD를 synthetic 25/25로 구현·검증했다. 연결된 workspace의 프로젝트 채널 9개를 stable-ID 기반 private feature-OFF binding으로 materialize했으며 token ref와 custody directory는 생성하지 않았다. reusable background app/token transport가 없어 live collector·event subscription·backfill·H07A/H07B/HP-LIVE acceptance는 `OFF` |
 | 2026-07-23 local activity three-source query-only inventory | H03A PC 업무는 dev-ERP `erp_mcp_work_session`, H04 파일변경은 exact `reports/file_activity` metadata root, H05 실행이력은 exact `report_authoring_v0` receipt 목록으로 각각 분리한 stdin-only source inventory를 구현했다. 실제 HPP canary는 WorkSession DB sidecar 때문에 open 전 차단, file-activity owner root 미생성, run receipt descriptor 미제공을 정직하게 보고했으며 전후 metadata fingerprint는 동일했다. whole Codex log·업무 파일 본문·`runs/**` discovery·collector/writer/scheduler/classification/TaskDriver 활성화 `0` |
 | HPP correction review state | bounded pilot는 `PILOT_EXECUTED`; formal master-plan authority와 production readiness는 계속 `READY_FOR_OWNER_REVIEW/HOLD`; accepted history·accepted knowledge·live readiness claim `0` |
 | bounded pilot 실행 authority | owner task envelope `TASK-ENGINE-HPP-FIVE-LANE-INGRESS-PILOT-V1` 및 `TASK-ENGINE-OPERATIONAL-DATA-KNOWLEDGE-E2E-V1`; execution baseline `main@1110c8ca5e8370271799a9f266a4c17b72188f62`; feature-OFF·standalone-copy·localhost·metadata-only 범위 |
@@ -165,9 +167,9 @@ flowchart LR
 | source | foundation | live binding | continuous | new normalized H→P5 project classification | new P5 shared semantic label | new P7 TaskDriver |
 | --- | --- | --- | --- | --- | --- | --- |
 | 받은메일 | H01C feature-OFF evidence input | `LIVE_UNACCEPTED` | formal continuous acceptance 없음; private `N`-window/restart/cursor/replay/freshness 미증명 | `OFF`; legacy source-local routing/classification은 `VERIFY_HP` | `OFF` | `OFF`; legacy mail-to-task auto-intake는 `VERIFY_HP` |
-| 보낸메일 | H01C feature-OFF evidence input + owner Outlook strict query-only source canary | `UNCONNECTED`; bounded source availability만 확인, persistent binding 없음 | `OFF` | `OFF` | `OFF` | `OFF` |
+| 보낸메일 | H01C feature-OFF evidence input + owner Outlook query-only canary + isolated private raw-custody/replay pilot | `UNCONNECTED`; actual bounded source/custody는 확인했지만 production private register·continuous task binding 없음 | `OFF`; 동일 observation replay에서 첫 custody ref 재사용·기존 hash 검증까지 PASS | `OFF` | `OFF` | `OFF` |
 | PLAUD 음성 | H02 feature-OFF evidence input | `LIVE_UNACCEPTED` | formal continuous acceptance 없음; private `N`-window/restart/cursor/replay/freshness 미증명 | `OFF`; legacy/source-local route는 `VERIFY_HP` | `OFF` | `OFF` |
-| Slack | H07 feature-OFF evidence input + connected-source query-only canary | `UNCONNECTED`; authenticated-user 가시 범위의 bounded source availability만 확인, D34 authority·persistent binding 없음 | `OFF` | `OFF`; project-name match는 candidate뿐이고 channel-ID binding 미승인 | `OFF` | `OFF` |
+| Slack | H07 feature-OFF evidence input + connected-source query-only canary + feature-OFF continuous custody/lease harness | `UNCONNECTED`; stable-ID project-channel mapping 후보와 synthetic runtime은 확인했지만 owner-managed background app/token transport·persistent binding 없음 | `OFF` | `OFF`; exact ID mapping은 private candidate이며 live D34 authority/transport 미승인 | `OFF` | `OFF` |
 | Codex 작업로그 | H03A/H05 mapping은 D26 blocker; whole conversation/log inventory 없음 | `UNCONNECTED`; exact source schema·authority·single-lane mapping 없음 | `OFF` | `OFF` | `OFF` | `OFF` |
 | 파일변경 | H04 feature-OFF evidence input + exact metadata-root stat-only query canary | `UNCONNECTED`; actual owner root `not_materialized`, persistent binding 없음 | `OFF` | `OFF` | `OFF` | `OFF` |
 | PC업무 | H03A feature-OFF evidence input + strict WorkSession SQLite query-only canary | `UNCONNECTED`; actual DB는 WAL/SHM 때문에 open 전 차단, persistent binding 없음 | `OFF` | `OFF` | `OFF` | `OFF` |
@@ -465,13 +467,13 @@ public-safe 모듈과 합성 검증이 존재한다는 뜻이며, lane acceptanc
 
 | source slice | public-safe 구현 surface | 현재 주장 한계 |
 | --- | --- | --- |
-| H01C mail | `guild_hall/gateway/mail_fetch/collector/pipeline/mail_occurrence_shadow.py`의 logical occurrence/account-folder observation shadow와 재시작·cursor·six-state 합성 검증 | team sent source와 live backfill은 D33/private binding 뒤; POP3·CC로 sent coverage를 추론하지 않음 |
+| H01C mail | `guild_hall/gateway/mail_fetch/collector/pipeline/mail_occurrence_shadow.py`의 logical occurrence/account-folder observation shadow와 재시작·cursor·six-state 합성 검증 + `collector/outlook_sent.py`의 owner Sent active-Outlook attach-only bounded `.msg` custody/replay provider | owner actual bounded raw-custody canary는 PASS; production register/continuous task binding과 team sent source는 D33/private gate 뒤, POP3·CC로 sent coverage를 추론하지 않음 |
 | H02 voice | `guild_hall/voice_capture/local_asr.mjs`의 승인된 30~90초 bounded strong-ASR request/revision과 HPP continuity receipt | non-canonical append-only 파생본만; whole-session 정본·알림·delivery·project route와 H02 acceptance는 변경하지 않음 |
 | H03A structured PC work | `ui-workspace/apps/dev-erp/src/work_session_lifecycle.mjs`와 `work_session_outbox.mjs`의 feature-OFF lifecycle/outbox/receipt + `work_session_source_inventory.mjs`의 sidecar-free, read-only, fixed aggregate query | 실제 DB는 WAL/SHM 때문에 open 전 차단; 공식 완료·TaskDriver write·HTTP/MCP live route·migration 없음; H03 combined acceptance 아님 |
 | H03B external schedule | `guild_hall/schedule_history/schedule_history.mjs`의 synthetic-only owner/ref/revision/replay/coverage candidate | D20 owner/path/writer와 D25/D26 미확정; live schedule 또는 task discovery 없음 |
 | H04 file | `guild_hall/file_activity/project_history_adapter.mjs`의 caller-supplied immutable ref adapter와 `source_inventory.mjs`의 exact owner-root fixed-layout stat-only query | actual metadata root 미생성; workspace/file-content discovery·live collector·ERP writer 없음 |
 | H05 run/log | `guild_hall/run_history/run_history.mjs`의 exact `report_authoring_v0` receipt adapter와 `source_inventory.mjs`의 explicit-receipt-only query | actual exact receipt descriptor 없음; arbitrary runs/log recursion·raw/stage log read·persistence·writer 없음 |
-| H07 Slack | `guild_hall/slack_history/slack_history.mjs`의 workspace/channel binding, message revision, cursor/dedupe/coverage foundation과 `slack_source_inventory*.mjs`의 redacted query-only source canary | authenticated-user 가시 범위만 확인; Slack app/token/event subscription/persistent collector/backfill 없음; exact D34 authority와 H07A/H07B acceptance 없음 |
+| H07 Slack | `guild_hall/slack_history/slack_history.mjs`의 workspace/channel binding, message revision, cursor/dedupe/coverage foundation, `slack_source_inventory*.mjs` redacted query-only canary, `slack_continuous*.mjs` feature-OFF private custody/lease/restart harness | project-channel stable-ID mapping 후보와 synthetic runtime까지 확인; reusable Slack app/token live transport·event subscription·persistent collector/backfill 없음, exact D34 authority와 H07A/H07B acceptance 없음 |
 
 H00 core는 계속 mail·voice·structured PC work·file·run/log 다섯 lane이다.
 Schedule은 H03B subtype이고 Slack은 H07 extension이므로 둘을 H00의 여섯째·일곱째 lane으로
@@ -736,6 +738,32 @@ pointer/hash/revision/span ref만 허용한다.
   Exact schema/table/path와 각 owner는 H00/P2/P3/P5/P6 child packet에서 정하며, 이 derived UI master
   plan 자체가 cross-channel schema canon owner가 되지 않는다. 이번 addendum은 collector·DB·labeler·
   TaskDriver writer를 활성화하지 않는다.
+
+#### 3.4.7 LLM 비의존 수집과 선택적 추론 경계 (`TARGET`)
+
+ERP와 continuous ingress는 Codex나 외부 LLM이 없어도 계속 동작해야 한다. LLM은 원본 수집,
+custody, receipt, dedupe, cursor, coverage, exact binding의 필수 의존성이 아니며, 수집 실패를
+AI 추론으로 보정하지 않는다.
+
+| 계층 | 기본 실행기 | LLM 필요 여부 | 허용 결과 | 금지 |
+| --- | --- | --- | --- | --- |
+| 원천 수집·보관 | 일반 프로그램/connector/scheduler | 불필요 | immutable raw custody, hash, source time, receipt, cursor, coverage | 요약문만 저장, LLM 장애로 수집 중단 |
+| 정규화·확정 binding | deterministic schema/rule | 불필요 | KST/UTC 정규화, typed source/account/channel/project ref, exact dedupe, owner-approved binding | 시간 근접·제목·LLM 유사도로 occurrence 확정 |
+| 음성 전사 | pinned local `whisper.cpp` model | 외부 LLM 불필요 | versioned transcript revision과 품질/gap | provider 전사나 불명확 단어를 사실로 보정 |
+| 검색·RAG retrieval | local index/embedding 또는 exact search | 생성형 LLM 불필요 | revision-bound 검색 결과와 근거 ref | 검색 점수만으로 project/task 확정 |
+| 의미 후보·맥락 추론 | deterministic rule 우선, local model 또는 Codex를 선택적으로 사용 | 선택 | producer/model revision이 고정된 project·request·commitment·deadline·TaskIntent candidate | model 결과의 confirmed assignment, 공식 완료, ERP task 직접 write |
+| TaskDriver 판정 | deterministic policy/authority/idempotency ledger + 필요한 사람 승인 | LLM은 보조자 | accept/reject/HOLD와 append-only decision receipt | Codex 세션 자체를 ERP 서버 또는 sole writer로 사용 |
+
+RAG는 “자료를 찾아오는 단계”와 “찾은 자료를 설명·판단하는 단계”를 분리한다. 전자는 로컬
+index와 일반 프로그램만으로 수행할 수 있고, 후자는 필요할 때 local LLM이나 Codex를 호출한다.
+모델이 없거나 실패하면 ERP는 `inference_pending|unclassified|human_review_required`를 명시하고
+수집·조회·감사 기능은 계속 제공해야 한다.
+
+Local model은 정확도·지연·자원·재현성 acceptance를 통과하면 P5/P6의 저위험 candidate 생성에
+사용할 수 있다. 강한 cross-source 추론은 Codex 등 상위 모델을 on-demand reviewer로 사용할 수
+있지만, 모든 model output은 exact input revision, model/engine revision, policy revision과
+evidence refs를 남긴다. LLM 교체나 미사용이 raw/history ID와 TaskDriver authority를 바꾸지 않아야
+한다.
 
 ### 3.5 Payload ingress custody와 promotion (`TARGET`, 물리 binding은 `VERIFY_HP`)
 
@@ -4664,6 +4692,8 @@ owner approval, canary/runtime readiness evidence가 아니다.
 | 2026-07-23 live-source interpretation correction | 기존 feature-OFF suite와 historical one-shot canary receipt를 그대로 인정하되 continuous connection으로 재해석하지 않는다. 이 plan-only 보정은 owner-stated `2 LIVE_UNACCEPTED / 5 UNCONNECTED`를 기록할 뿐 새 runtime 검증, private binding 확인, live activation 또는 formal H acceptance를 주장하지 않는다. |
 | 2026-07-23 owner Outlook Sent query-only canary | `PASS` at `source_availability_metadata_only`: explicit bounded window, active-Outlook attach-only, Sent Items class/time aggregate, redacted stdout, repository metadata fingerprint 전후 동일. 실제 건수·시각은 private review evidence에만 두며, 보낸메일 continuous binding·writer·classification·H01C/HP-LIVE acceptance는 여전히 `OFF`다. |
 | 2026-07-23 Slack query-only source canary | `PASS` at `source_availability_metadata_only`: authenticated-user visible-channel pagination과 한 프로젝트 채널의 bounded history scope를 connector read-only로 확인하고, exact-field sanitizer가 stable IDs를 fingerprint/count로만 반환한다. 실제 workspace/channel ID·사용자 주소·시각·건수는 public plan에 두지 않으며, Slack continuous binding·writer·classification·H07A/H07B/HP-LIVE acceptance는 여전히 `OFF`다. |
+| 2026-07-23 owner Outlook Sent bounded raw-custody pilot | `PASS` at `actual_bounded_private_custody`: active Outlook 기본 Sent 24시간 격리 canary 최초 실행은 actual observation/raw object 2건, 즉시 forced-overlap replay는 event 2/duplicate 2/new 0/custody write 0/gap 0/truncation 0. 별도 KST schedule canary도 밤 slot 최초 2건 뒤 같은 slot 재호출 event/write `0`+`already_collected_in_slot` PASS. 최종 mail-fetch full suite는 `155 passed, 3 skipped`, Slack suite는 `25/25` PASS다. actual 식별자·내용·주소·경로·hash는 public plan에 두지 않는다. production register/continuous task·project classification·H01C/HP-LIVE acceptance는 `OFF`다. |
+| 2026-07-23 Slack feature-OFF continuous harness | `PASS` at `synthetic_private_custody_harness`: stable channel binding, binding digest, writer authority/epoch/lease, content-addressed raw custody, cursor/restart/dedupe, edit/delete/thread, scope/privacy/file HOLD 및 feature-ON/embedded-secret/live-transport reject를 포함해 Slack suite `25/25` PASS. 실제 private binding 9개도 schema/digest 검증을 통과했고 모두 feature OFF, token ref 없음, custody root 미생성이다. owner-managed Slack App/token/background transport가 없으므로 live collector·backfill·H07A/H07B/HP-LIVE acceptance는 `OFF`다. |
 | 2026-07-23 local activity three-source query-only inventory | `PASS` at honest-source-state boundary: focused 21 tests 중 20 PASS/0 FAIL/Windows direct file-symlink privilege 1 SKIP, late sidecar regression과 WAL/SHM zero-read/hash guard PASS. Fresh verifier는 late-sidecar race를 최초 `REVISE`한 뒤 보정 재검토 `ACCEPT`. Actual HPP canary는 WorkSession `sqlite_wal_or_shm_present`, file activity `not_materialized`, run history `descriptor_missing`을 반환했고 승인된 source metadata 전후 fingerprint는 동일했다. 이 결과는 차단·미생성을 성공으로 둔 zero-mutation inventory이며 H03A/H04/H05/D19/D25/D26/HP-LIVE acceptance가 아니다. |
 
 위 receipt는 public feature-OFF foundation 구현과 해당 plan-scope validator PASS만 증명한다.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 import json
 import os
@@ -9,6 +9,7 @@ import re
 from typing import Any, Dict, List, Optional, Sequence
 
 from . import runner
+from . import outlook_sent
 
 
 TEAM_REGISTER_SCHEMA_VERSION = "email.fetch.team_mailbox_register.v1"
@@ -27,7 +28,7 @@ _SAFE_MAILBOX_ERROR_CODES = {
 def _safe_mailbox_error_code(exc: Exception) -> str:
     value = str(exc or "").strip()
     return value if value in _SAFE_MAILBOX_ERROR_CODES else "mailbox_run_error"
-SUPPORTED_PROVIDERS = {"gmail", "hiworks"}
+SUPPORTED_PROVIDERS = {"gmail", "hiworks", "outlook_sent"}
 DEFAULT_TEAM_REGISTER_REL = Path("guild_hall/state/gateway/mailbox/state/team_mailboxes.json")
 _REPO_RELATIVE_PREFIXES = (
     "guild_hall/",
@@ -202,21 +203,42 @@ def run_team_mailboxes(
                 if credential_key not in credential_texts_by_path:
                     raise TeamMailboxRegisterError("credential_not_preloaded", field="env_file")
                 credential_text = credential_texts_by_path[credential_key]
-            config = build_config_for_mailbox(
-                repo_root=repo_root,
-                mailbox=mailbox,
-                credential_text=credential_text,
-                include_ambient_env=credential_texts_by_path is None,
-                env_overrides=capsule_env_overrides,
-                disable_credential_persistence=credential_texts_by_path is not None,
-                credential_file_texts_by_path=nested_credential_texts_by_path,
-            )
-            if dry_run:
-                config.dry_run = True
-            if ingress_only:
-                config.ingress_only = True
-            if int(limit or 0) > 0:
-                config.limit = int(limit)
+            if mailbox.provider == "outlook_sent":
+                config = outlook_sent.build_outlook_sent_config(
+                    mailbox_id=mailbox.id,
+                    account_id=mailbox.account_id,
+                    account_role="owner",
+                    workspace=mailbox.workspace or "company",
+                    env_text=(
+                        credential_text
+                        if credential_text is not None
+                        else mailbox.env_file.read_text(encoding="utf-8")
+                    ),
+                    env_overrides=capsule_env_overrides,
+                    capsule_bound=credential_texts_by_path is not None,
+                    dry_run=dry_run,
+                )
+                if int(limit or 0) > 0:
+                    config = replace(
+                        config,
+                        max_items=min(config.max_items, int(limit)),
+                    )
+            else:
+                config = build_config_for_mailbox(
+                    repo_root=repo_root,
+                    mailbox=mailbox,
+                    credential_text=credential_text,
+                    include_ambient_env=credential_texts_by_path is None,
+                    env_overrides=capsule_env_overrides,
+                    disable_credential_persistence=credential_texts_by_path is not None,
+                    credential_file_texts_by_path=nested_credential_texts_by_path,
+                )
+                if dry_run:
+                    config.dry_run = True
+                if ingress_only:
+                    config.ingress_only = True
+                if int(limit or 0) > 0:
+                    config.limit = int(limit)
             prepared.append((mailbox, config))
         except Exception as exc:  # noqa: BLE001
             summary["partial"] = True
@@ -231,7 +253,11 @@ def run_team_mailboxes(
 
     for mailbox, config in prepared:
         try:
-            result = runner.run_once(config)
+            result = (
+                outlook_sent.run_outlook_sent(config)
+                if mailbox.provider == "outlook_sent"
+                else runner.run_once(config)
+            )
             summary["mailboxes_run"] += 1
             summary["total_events"] += int(result.get("total_events") or 0)
             summary["total_new_events"] += int(result.get("total_new_events") or 0)

@@ -471,6 +471,53 @@ def _assert_exact_file_at(
         raise SourceCustodyError(mismatch_code)
 
 
+def _assert_sha256_file_at(
+    directory: _RetainedDirectoryChain,
+    name: str,
+    expected_digest: str,
+    *,
+    mismatch_code: str,
+) -> None:
+    info = _lstat_at(directory, name)
+    if info is None or _is_reparse_or_link(info) or not stat.S_ISREG(info.st_mode):
+        raise SourceCustodyError(mismatch_code)
+
+    try:
+        descriptor = _open_readonly_at(directory, name)
+    except SourceCustodyError as exc:
+        raise SourceCustodyError(mismatch_code) from exc
+    try:
+        opened = os.fstat(descriptor)
+        expected_stability = _file_stability(opened)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or _is_reparse_or_link(opened)
+            or _identity(info) != _identity(opened)
+        ):
+            raise SourceCustodyError(mismatch_code)
+        digest = hashlib.sha256()
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+        if digest.hexdigest() != expected_digest:
+            raise SourceCustodyError(mismatch_code)
+        if _file_stability(os.fstat(descriptor)) != expected_stability:
+            raise SourceCustodyError(mismatch_code)
+    finally:
+        os.close(descriptor)
+
+    final = _lstat_at(directory, name)
+    if (
+        final is None
+        or _is_reparse_or_link(final)
+        or not stat.S_ISREG(final.st_mode)
+        or _file_stability(final) != expected_stability
+    ):
+        raise SourceCustodyError(mismatch_code)
+
+
 def _remove_if_safe(directory: _RetainedDirectoryChain, name: str) -> None:
     try:
         info = _lstat_at(directory, name, missing_ok=True)
@@ -606,3 +653,133 @@ def persist_hiworks_rfc822(source_custody_root: Path, raw_bytes: bytes) -> Sourc
             raise
         finally:
             _remove_if_safe(retained_parent, temporary_name)
+
+
+def persist_outlook_msg(source_custody_root: Path, raw_bytes: bytes) -> SourceCustodyRecord:
+    """Persist one Outlook Unicode MSG as immutable content-addressed custody.
+
+    The MSG remains the sole raw object: no body or attachment is extracted and
+    no provider-controlled value contributes to the storage path.
+    """
+
+    if not isinstance(raw_bytes, bytes):
+        raise SourceCustodyError("source_custody_bytes_required")
+    root = _absolute_path(source_custody_root)
+    digest = hashlib.sha256(raw_bytes).hexdigest()
+    storage_ref = PurePosixPath(
+        "outlook_sent", "sha256", digest[:2], f"{digest}.msg"
+    ).as_posix()
+    target = root.joinpath(*storage_ref.split("/"))
+    _assert_contained(root, target)
+
+    parent = target.parent
+    _ensure_safe_directory_chain(parent)
+    _assert_contained(root, target)
+
+    temporary_name = f".{digest}.{uuid4().hex}.partial"
+    temporary = parent / temporary_name
+    _assert_contained(root, temporary)
+    with _RetainedDirectoryChain(parent) as retained_parent:
+        retained_parent.assert_stable()
+        existing = _lstat_at(retained_parent, target.name, missing_ok=True)
+        if existing is not None:
+            _assert_exact_file_at(
+                retained_parent,
+                target.name,
+                raw_bytes,
+                mismatch_code="source_custody_existing_mismatch",
+            )
+            retained_parent.assert_stable()
+            return SourceCustodyRecord(
+                digest, len(raw_bytes), storage_ref, written=False
+            )
+
+        written = False
+        try:
+            _write_temporary_at(retained_parent, temporary_name, raw_bytes)
+            _assert_exact_file_at(
+                retained_parent,
+                temporary_name,
+                raw_bytes,
+                mismatch_code="source_custody_write_failed",
+            )
+            retained_parent.assert_stable()
+            try:
+                _publish_at(retained_parent, temporary_name, target.name)
+                written = True
+            except FileExistsError:
+                _assert_exact_file_at(
+                    retained_parent,
+                    target.name,
+                    raw_bytes,
+                    mismatch_code="source_custody_existing_mismatch",
+                )
+            _assert_exact_file_at(
+                retained_parent,
+                target.name,
+                raw_bytes,
+                mismatch_code="source_custody_existing_mismatch",
+            )
+            retained_parent.assert_stable()
+            return SourceCustodyRecord(
+                digest, len(raw_bytes), storage_ref, written=written
+            )
+        except SourceCustodyError as exc:
+            if written and exc.code == "source_custody_parent_changed":
+                _remove_if_safe(retained_parent, target.name)
+            raise
+        finally:
+            _remove_if_safe(retained_parent, temporary_name)
+
+
+def verify_outlook_msg(
+    source_custody_root: Path, source_custody_ref: str
+) -> SourceCustodyRecord:
+    """Verify one previously retained Outlook MSG by its immutable digest ref."""
+
+    prefix = "outlook_msg:"
+    if not isinstance(source_custody_ref, str) or not source_custody_ref.startswith(prefix):
+        raise SourceCustodyError("source_custody_existing_mismatch")
+    digest = source_custody_ref[len(prefix) :]
+    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise SourceCustodyError("source_custody_existing_mismatch")
+
+    root = _absolute_path(source_custody_root)
+    storage_ref = PurePosixPath(
+        "outlook_sent", "sha256", digest[:2], f"{digest}.msg"
+    ).as_posix()
+    target = root.joinpath(*storage_ref.split("/"))
+    _assert_contained(root, target)
+    parent = target.parent
+    _ensure_safe_directory_chain(parent)
+    with _RetainedDirectoryChain(parent) as retained_parent:
+        retained_parent.assert_stable()
+        _assert_sha256_file_at(
+            retained_parent,
+            target.name,
+            digest,
+            mismatch_code="source_custody_existing_mismatch",
+        )
+        retained_parent.assert_stable()
+        size = int(_lstat_at(retained_parent, target.name).st_size)
+    return SourceCustodyRecord(digest, size, storage_ref, written=False)
+
+
+def ensure_source_custody_directory(
+    source_custody_root: Path, relative_ref: str
+) -> Path:
+    """Create a fixed collector-owned directory below source custody safely."""
+
+    root = _absolute_path(source_custody_root)
+    relative = PurePosixPath(str(relative_ref or ""))
+    if (
+        not relative.parts
+        or relative.is_absolute()
+        or any(part in {"", ".", ".."} for part in relative.parts)
+    ):
+        raise SourceCustodyError("source_custody_path_escape")
+    target = root.joinpath(*relative.parts)
+    _assert_contained(root, target)
+    _ensure_safe_directory_chain(target)
+    _assert_contained(root, target)
+    return target

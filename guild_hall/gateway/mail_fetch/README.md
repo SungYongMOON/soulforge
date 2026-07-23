@@ -39,6 +39,36 @@ POP3 received copy, `cc`는 cross-mailbox identity나 sent coverage의 근거가
 history·official task writer에는 연결되지 않았고, accepted history나 production
 authority를 만들지 않는다.
 
+## Owner Outlook 보낸메일 source custody
+
+`collector/outlook_sent.py`는 현재 로그인 사용자가 이미 실행한 Outlook의 기본
+보낸편지함에 attach하여 owner sent observation을 수집한다. 새 Outlook을 시작하거나
+Send/Receive를 호출하지 않고, Inbox·메일 발송·이동·삭제·편집도 수행하지 않는다.
+
+- private register의 provider는 `outlook_sent`다.
+- store와 기본 Sent folder의 fingerprint를 private config에 pin해야 한다.
+- `OUTLOOK_SENT_ALLOWED_WINDOWS_KST`를 반드시 지정한다. HPP 기본 운영값은
+  `12:00-14:00,20:00-23:00`이며 각 KST 시간대에서 성공 1회만 수행한다.
+  실패하면 같은 시간대의 다음 supervisor cycle에서 재시도한다.
+- `SentOn` half-open window, bounded item/byte limit, overlap cursor를 사용한다.
+- `PR_INTERNET_MESSAGE_ID`가 유효할 때만 cross-mailbox exact occurrence ref로 쓴다.
+- Outlook EntryID는 store와 함께 hash한 source-local observation ref일 뿐이다.
+- 수신자 주소는 raw event에 복사하지 않고 `to/cc/bcc/unknown` role과 opaque party ref만 남긴다.
+- Unicode `.msg` 전체를
+  `<data-root>/ingress/mailbox/<workspace>/mail/source_custody/outlook_sent/sha256/<prefix>/<sha256>.msg`
+  에 immutable content-addressed raw custody로 보관한다. 본문·첨부는 별도 추출하지 않는다.
+
+Outlook은 같은 item을 `SaveAs`할 때 byte-identical `.msg`를 보장하지 않는다. 따라서
+첫 source-local observation이 보존한 custody ref를 재사용하되, 재수집 때마다 그 기존
+파일의 SHA-256과 file identity를 검증한다. 동일 observation의 시각·recipient role·exact
+message ID가 달라지거나 기존 raw object가 손상되면 fail closed한다.
+
+이 provider 자체는 lease를 만들지 않는다. production 연결은 기존 team mailbox capsule을
+호출하는 상위 continuous mail writer lease 안에서만 허용하며, 독립 실행은 enabled
+config의 `capsule_bound` 검증에서 차단한다.
+프로젝트 자동분류, CSV/XLSX 투영, ERP/TaskDriver 변경은 하지 않는다. 팀원 전체의
+보낸편지함 coverage도 이 owner Sent source로 대체하거나 complete로 주장하지 않는다.
+
 ## Soulforge 기본 경로
 
 - mailbox root: `guild_hall/state/gateway/mailbox/`
