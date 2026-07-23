@@ -150,6 +150,13 @@ def test_outlook_sent_error_code_is_safe_for_operator_diagnosis() -> None:
         team_mailboxes._safe_mailbox_error_code(error)
         == "outlook_sent_folder_pin_mismatch"
     )
+    custody_error = team_mailboxes.outlook_sent.OutlookSentError(
+        "source_custody_reparse_forbidden"
+    )
+    assert (
+        team_mailboxes._safe_mailbox_error_code(custody_error)
+        == "source_custody_reparse_forbidden"
+    )
     assert (
         team_mailboxes._safe_mailbox_error_code(RuntimeError("private detail"))
         == "mailbox_run_error"

@@ -167,6 +167,38 @@ test("mail bridge executes captured code/register and a pinned runtime when sour
   }
 });
 
+test("mail bridge preserves safe Outlook custody error codes and redacts arbitrary child errors", async () => {
+  const f = await fixture();
+  try {
+    const child = {
+      ...summary(),
+      partial: true,
+      mailboxes_run: 0,
+      errors: [
+        { code: "outlook_sent_folder_pin_mismatch" },
+        { code: "source_custody_reparse_forbidden" },
+        { code: "private detail" },
+      ],
+    };
+    const result = await runMailBridge(f.binding, {
+      executor: async () => ({
+        exitCode: 1,
+        timedOut: false,
+        stdout: JSON.stringify(child),
+        stderr: "",
+      }),
+    });
+    assert.equal(result.status, "partial");
+    assert.deepEqual(result.error_codes, [
+      "mail_child_error",
+      "outlook_sent_folder_pin_mismatch",
+      "source_custody_reparse_forbidden",
+    ]);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
 test("mail bridge rejects a collector tree that differs from the externally pinned release", async () => {
   const f = await fixture();
   try {

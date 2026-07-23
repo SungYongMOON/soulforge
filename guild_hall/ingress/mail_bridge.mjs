@@ -40,6 +40,7 @@ const ALLOWED_CHILD_ERROR_CODES = new Set([
   "mail_capsule_nested_credential_preload_empty",
   "mailbox_run_error",
 ]);
+const SAFE_SOURCE_CHILD_ERROR_CODE = /^(?:outlook_sent|source_custody)_[a-z0-9_]+$/;
 const REPO_RELATIVE_PREFIXES = [
   "guild_hall/",
   "private-state/",
@@ -1102,7 +1103,12 @@ function childErrorCodes(value) {
   const codes = [];
   for (const row of value) {
     const code = row && typeof row === "object" ? row.code : null;
-    codes.push(typeof code === "string" && ALLOWED_CHILD_ERROR_CODES.has(code) ? code : "mail_child_error");
+    codes.push(
+      typeof code === "string"
+        && (ALLOWED_CHILD_ERROR_CODES.has(code) || SAFE_SOURCE_CHILD_ERROR_CODE.test(code))
+        ? code
+        : "mail_child_error",
+    );
   }
   return [...new Set(codes)].sort();
 }

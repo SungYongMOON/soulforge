@@ -28,7 +28,7 @@ _SAFE_MAILBOX_ERROR_CODES = {
 def _safe_mailbox_error_code(exc: Exception) -> str:
     value = str(exc or "").strip()
     if isinstance(exc, outlook_sent.OutlookSentError) and re.fullmatch(
-        r"outlook_sent_[a-z0-9_]+",
+        r"(?:outlook_sent|source_custody)_[a-z0-9_]+",
         value,
     ):
         return value
