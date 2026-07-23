@@ -12,6 +12,8 @@ const SCHEMA = JSON.parse(readFileSync(
   "utf8",
 ));
 const EXPLICIT_ZONE_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
+const KST_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?\+09:00$/u;
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const validateSchema = new Ajv2020({
   allErrors: true,
   strict: true,
@@ -19,7 +21,7 @@ const validateSchema = new Ajv2020({
     "date-time": {
       type: "string",
       validate(value) {
-        return EXPLICIT_ZONE_DATE_TIME_PATTERN.test(value)
+        return KST_DATE_TIME_PATTERN.test(value)
           && Number.isFinite(Date.parse(value));
       },
     },
@@ -77,13 +79,13 @@ function digestValue(value, field) {
   return sha256(normalized.normalize("NFKC").toLocaleLowerCase("ko"));
 }
 
-function canonicalDateTime(value, field) {
+export function toKstDateTime(value, field = "date_time") {
   if (typeof value !== "string" || !EXPLICIT_ZONE_DATE_TIME_PATTERN.test(value)) {
     fail("date_time_required", `${field} must include an explicit UTC or numeric offset`);
   }
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) fail("date_time_required", `${field} must be a valid date-time`);
-  return new Date(timestamp).toISOString();
+  return `${new Date(timestamp + KST_OFFSET_MS).toISOString().slice(0, -1)}+09:00`;
 }
 
 function normalizedOffset(value, field) {
@@ -135,7 +137,7 @@ export function createSourceTimelineAnnotation(input) {
     label_kind: input.label_kind,
     source_revision_id: sourceRevisionId,
     body_sha256: input.body_sha256,
-    occurred_at: canonicalDateTime(input.occurred_at, "occurred_at"),
+    occurred_at: toKstDateTime(input.occurred_at, "occurred_at"),
     time_precision: input.time_precision,
     label_value_sha256: labelValueSha256,
     canonical_ref: canonicalRef,

@@ -50,6 +50,10 @@ does not move merely because a project candidate changes.
   `structured_pc_work`, `team_files`, or `run_logs`.
 - Every label is one occurrence. Ten mentions of one person produce ten
   occurrence records linked to the same canonical person ref when known.
+- Every persisted `occurrence.occurred_at` is normalized to the company
+  business timeline, `Asia/Seoul` (`+09:00`, KST). UTC or another explicit
+  offset may be accepted at the adapter boundary, but it is never retained as
+  the stored annotation time.
 - Voice labels carry both absolute event time and relative start/end offsets.
   `word` precision may be claimed only when word alignment exists. Current
   transcript-derived labels honestly use `segment` precision.
@@ -66,15 +70,18 @@ does not move merely because a project candidate changes.
 
 - `guild_hall/shared/source_timeline_annotation.mjs` owns validation,
   deterministic identity, dedupe, append-only supersession, and atomic JSONL.
-- Absolute occurrence time must include `Z` or an explicit numeric offset; an
+- Adapter input time must include `Z` or an explicit numeric offset; an
   offsetless date-time is rejected so identities do not vary by PC timezone.
+  The common constructor converts the same instant to `+09:00`, and persisted
+  annotation validation rejects UTC `Z` or non-KST offsets.
 - The HPP continuous queue writes arrival annotations for
   `structured_pc_work`, `team_files`, and `run_logs`.
 - Slack v2 verifies the token workspace with `auth.test`, then writes one
   arrival annotation per accepted message revision.
 - Voice semantic labeling writes per-occurrence speech, action, person,
   project, equipment, value, and date labels beside each session. Recording
-  absolute time comes from the session source start, never ASR completion.
+  absolute time comes from the session source start, never ASR completion, and
+  both the semantic run time window and occurrence labels are stored in KST.
   The run JSON and timeline JSONL publish together by generation-directory
   rename; the bounded sweep prioritizes transcripts not yet processed by the
   current engine and lets a later valid session advance past an older failed
@@ -82,6 +89,12 @@ does not move merely because a project candidate changes.
 - Mail keeps its exact received/sent `mail_occurrence` identity. A later P5
   semantic annotation may add request/decision labels, but it must not replace
   that native identity.
+
+Audit timestamps such as collector receipt, append, completion, and lease times
+remain explicitly named UTC fields. They are not business-event labels.
+Previously derived UTC annotation generations must be regenerated from their
+retained source evidence; RAW audio, mail, Slack payloads, and source files are
+not rewritten.
 
 ## Authority ceiling
 

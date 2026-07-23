@@ -66,9 +66,11 @@
 - `source_timeline_annotation.mjs` is the common lower-level occurrence
   contract for mail, Slack, voice, structured PC work, team files, and run
   logs.
-- Every annotation has one absolute time, an explicit time precision, source
-  identity/revision/hash, label kind, actor refs, project resolution state,
-  confidence, and immutable authority boundaries.
+- Every annotation has one KST (`+09:00`) absolute business-event time, an
+  explicit time precision, source identity/revision/hash, label kind, actor
+  refs, project resolution state, confidence, and immutable authority
+  boundaries. Source adapters may receive another explicit offset, but the
+  persisted `occurred_at` is always KST.
 - Repeated mentions remain repeated occurrences. The contract never stores raw
   bodies and never mutates an official task or project assignment.
 - See

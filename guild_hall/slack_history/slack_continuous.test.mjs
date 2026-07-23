@@ -455,7 +455,13 @@ test("apply writes content-addressed raw custody and digest-only receipts", asyn
     path.join(binding.data_root, "timeline", "source_arrival"),
     { recursive: true },
   );
-  assert.equal(timelineFiles.filter((entry) => entry.endsWith(".json")).length, 5);
+  const timelineJsonFiles = timelineFiles.filter((entry) => entry.endsWith(".json"));
+  assert.equal(timelineJsonFiles.length, 5);
+  const timelineAnnotation = JSON.parse(await readFile(
+    path.join(binding.data_root, "timeline", "source_arrival", timelineJsonFiles[0]),
+    "utf8",
+  ));
+  assert.match(timelineAnnotation.occurrence.occurred_at, /\+09:00$/u);
 });
 
 test("completed-page replay never regresses provider cursor and the next run remains stable", async () => {

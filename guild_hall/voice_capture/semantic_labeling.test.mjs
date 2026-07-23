@@ -59,6 +59,16 @@ function buildRun(segments, extra = {}) {
   });
 }
 
+test("semantic recording and retrieval times are stored on the KST business axis", () => {
+  const run = buildRun([segment(1, "\uc790\ub8cc\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694")], {
+    recordedAt: "2026-07-23T15:30:00.000Z",
+  });
+  assert.equal(run.recording_ref.recorded_at, "2026-07-24T00:30:00.000+09:00");
+  assert.equal(run.retrieval_plan.time_window.start, "2026-07-10T00:30:00.000+09:00");
+  assert.equal(run.retrieval_plan.time_window.end, "2026-07-26T00:30:00.000+09:00");
+  assert.equal(validateVoiceSemanticLabelRun(run).ok, true);
+});
+
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
@@ -963,7 +973,7 @@ test("completed local ASR manifest is hash-bound and dry-run makes no writes", a
     const second = await analyzeVoiceSemanticManifest({ repoRoot: root, analysisManifestPath: manifestPath });
     assert.equal(first.applied, false);
     assert.deepEqual(first, second);
-    assert.equal(first.run.recording_ref.recorded_at, "2026-07-22T11:00:00.000Z");
+    assert.equal(first.run.recording_ref.recorded_at, "2026-07-22T20:00:00.000+09:00");
     assert.deepEqual(await readFile(manifestPath), beforeManifest);
     assert.deepEqual(await readFile(transcriptPath), beforeTranscript);
 
@@ -1017,7 +1027,7 @@ test("local ASR semantic time uses the session recording start and never ASR com
       repoRoot: root,
       analysisManifestPath: manifestPath,
     });
-    assert.equal(result.run.recording_ref.recorded_at, "2026-07-23T12:00:00.000Z");
+    assert.equal(result.run.recording_ref.recorded_at, "2026-07-23T21:00:00.000+09:00");
 
     const missingTime = JSON.parse(await readFile(path.join(sessionDir, "session_manifest.json"), "utf8"));
     delete missingTime.recorded_at_local;
@@ -1065,7 +1075,7 @@ test("provider transcript session uses the same PLAUD source-time normalization"
       repoRoot: root,
       sessionDir,
     });
-    assert.equal(result.run.recording_ref.recorded_at, "2026-07-23T12:00:00.000Z");
+    assert.equal(result.run.recording_ref.recorded_at, "2026-07-23T21:00:00.000+09:00");
 
     await writeFile(sessionManifestPath, `${JSON.stringify({
       ...manifest,

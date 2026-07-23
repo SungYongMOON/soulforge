@@ -50,6 +50,7 @@ function fixture(extra = {}) {
 test("creates a strict timestamped occurrence without copying raw text", () => {
   const annotation = fixture();
   assert.equal(validateSourceTimelineAnnotation(annotation).ok, true);
+  assert.equal(annotation.occurrence.occurred_at, "2026-07-23T21:00:10.000+09:00");
   assert.equal(annotation.occurrence.relative_start_ms, 10000);
   assert.equal(annotation.label.kind, "person_mention");
   assert.equal(annotation.boundaries.raw_body_copied, false);
@@ -167,6 +168,15 @@ test("forged identities and secret-like references fail closed", () => {
     (error) => error instanceof SourceTimelineAnnotationError
       && error.code === "date_time_required",
   );
+  const utcPersisted = structuredClone(fixture());
+  utcPersisted.occurrence.occurred_at = "2026-07-23T12:00:10.000Z";
+  assert.equal(validateSourceTimelineAnnotation(utcPersisted).ok, false);
+});
+
+test("normalizes every stored occurrence to KST across the UTC date boundary", () => {
+  const annotation = fixture({ occurred_at: "2026-07-23T15:30:00.000Z" });
+  assert.equal(annotation.occurrence.occurred_at, "2026-07-24T00:30:00.000+09:00");
+  assert.equal(validateSourceTimelineAnnotation(annotation).ok, true);
 });
 
 test("rejects partial offsets, secret-like labels, and conflicting deterministic output", async () => {
@@ -224,4 +234,8 @@ test("all six ingress lanes share the same arrival contract", () => {
   assert.deepEqual(annotations.map((entry) => entry.source.lane), lanes);
   assert.equal(annotations.every((entry) => entry.label.kind === "source_arrival"), true);
   assert.equal(annotations.every((entry) => entry.occurrence.time_precision === "event"), true);
+  assert.equal(
+    annotations.every((entry) => entry.occurrence.occurred_at === "2026-07-23T12:00:00.000+09:00"),
+    true,
+  );
 });

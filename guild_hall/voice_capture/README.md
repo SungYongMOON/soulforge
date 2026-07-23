@@ -63,6 +63,8 @@ speaker identity, minutes, or task evidence.
 - Owner-facing recording start/end fields, session IDs, date folders, library
   routes, delivery/ASR pointers, and project-context event times are normalized
   to `Asia/Seoul` (`+09:00`, KST).
+- Semantic label runs, retrieval time windows, and every persisted voice
+  timeline `occurred_at` are also normalized and stored as `+09:00`.
 - Explicit `Z` audit timestamps such as completion/write times stay UTC.
   Transcript segment times remain offsets from recording start and are not
   timezone-converted.

@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import {
   createSourceTimelineAnnotation,
   reduceSourceTimelineAnnotations,
+  toKstDateTime,
 } from "../shared/source_timeline_annotation.mjs";
 
 export const voiceTimelineAdapterVersion = "soulforge.voice_timeline_adapter.v1";
@@ -42,7 +43,10 @@ function milliseconds(value) {
 function occurredAt(recordedAt, relativeStartMs) {
   const base = Date.parse(recordedAt);
   if (!Number.isFinite(base)) throw new Error("voice timeline requires a valid recording start date-time");
-  return new Date(base + Number(relativeStartMs ?? 0)).toISOString();
+  return toKstDateTime(
+    new Date(base + Number(relativeStartMs ?? 0)).toISOString(),
+    "voice occurred_at",
+  );
 }
 
 function normalized(value) {

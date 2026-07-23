@@ -194,6 +194,15 @@
   },
   "$defs": {
     "nullableString": { "type": ["string", "null"] },
+    "nullableKstDateTime": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?\\+09:00$"
+        },
+        { "type": "null" }
+      ]
+    },
     "stringArray": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "safeRelativeRef": { "type": "string", "minLength": 1, "not": { "pattern": "(^[\\\\/]|^[A-Za-z][A-Za-z0-9+.-]*:|(^|[\\\\/])\\.\\.([\\\\/]|$))" } },
     "safeExtractedValue": {
@@ -265,7 +274,7 @@
       "properties": {
         "recording_id": { "type": "string" }, "transcript_ref": { "$ref": "#/$defs/safeRelativeRef" },
         "transcript_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-        "transcript_schema_versions": { "$ref": "#/$defs/stringArray" }, "recorded_at": { "$ref": "#/$defs/nullableString" },
+        "transcript_schema_versions": { "$ref": "#/$defs/stringArray" }, "recorded_at": { "$ref": "#/$defs/nullableKstDateTime" },
         "evidence_role": { "type": "string" }, "transcript_quality": { "type": "string" }
       }
     },
@@ -273,7 +282,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["engine_id", "engine_version", "ruleset_sha256", "mode", "claim_ceiling"],
       "properties": {
-        "engine_id": { "const": "soulforge_voice_semantic_baseline" }, "engine_version": { "const": "1.10.8" },
+        "engine_id": { "const": "soulforge_voice_semantic_baseline" }, "engine_version": { "const": "1.10.9" },
         "ruleset_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "mode": { "enum": ["transcript_only_rules", "context_assisted_rules"] }, "claim_ceiling": { "enum": ["machine_generated_reviewable", "locator_only_untrusted"] }
       }
@@ -429,7 +438,7 @@
     },
     "timeWindow": {
       "type": "object", "additionalProperties": false, "required": ["state", "start", "end"],
-      "properties": { "state": { "enum": ["bounded", "unknown"] }, "start": { "$ref": "#/$defs/nullableString" }, "end": { "$ref": "#/$defs/nullableString" } }
+      "properties": { "state": { "enum": ["bounded", "unknown"] }, "start": { "$ref": "#/$defs/nullableKstDateTime" }, "end": { "$ref": "#/$defs/nullableKstDateTime" } }
     },
     "retrievalGuards": {
       "type": "object", "additionalProperties": false,

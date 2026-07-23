@@ -10,12 +10,15 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { parseWhisperJson, suppressRepetitiveSegments } from "./local_asr.mjs";
 import { parsePlaudProviderTimestamp } from "./plaud_ingest.mjs";
 import { buildVoiceTimelineAnnotations } from "./voice_timeline_adapter.mjs";
-import { writeSourceTimelineJsonl } from "../shared/source_timeline_annotation.mjs";
+import {
+  toKstDateTime,
+  writeSourceTimelineJsonl,
+} from "../shared/source_timeline_annotation.mjs";
 
 export const semanticLabelRunSchemaVersion = "soulforge.voice_semantic_label_run.v1";
 export const projectContextCardSchemaVersion = "soulforge.voice_project_context_card.v1";
 export const semanticLabelEngineId = "soulforge_voice_semantic_baseline";
-export const semanticLabelEngineVersion = "1.10.8";
+export const semanticLabelEngineVersion = "1.10.9";
 
 const VERIFIED_ASR_PAIR_EVIDENCE = Symbol("verifiedAsrPairEvidence");
 const MANIFEST_SOURCE_SEGMENTS = Symbol("manifestSourceSegments");
@@ -226,6 +229,9 @@ function buildVoiceSemanticLabelRunInternal(options = {}, verifiedPairEvidence =
     maxChars: positiveInteger(options.turnOptions?.maxChars, RULESET_DESCRIPTOR.max_turn_chars),
     maxGapSeconds: finiteOrDefault(options.turnOptions?.maxGapSeconds, RULESET_DESCRIPTOR.max_turn_gap_seconds),
   };
+  const recordedAt = normalizeOptional(options.recordedAt) === null
+    ? null
+    : toKstDateTime(options.recordedAt, "recordedAt");
   const identityInputs = {
     recording_id: recordingId,
     transcript_ref: transcriptRef,
@@ -235,7 +241,7 @@ function buildVoiceSemanticLabelRunInternal(options = {}, verifiedPairEvidence =
     context_digest: contextDigest,
     evidence_role: evidenceRole,
     transcript_quality: transcriptQuality,
-    recorded_at: normalizeOptional(options.recordedAt),
+    recorded_at: recordedAt,
     recording_title: normalizeOptional(options.recordingTitle),
     duration_seconds: finiteOrNull(options.durationSeconds),
     turn_options: normalizedTurnOptions,
@@ -261,7 +267,7 @@ function buildVoiceSemanticLabelRunInternal(options = {}, verifiedPairEvidence =
     ? summarizeProjectResolution(labelRows)
     : buildDeferredProjectResolution(evidenceGate);
   const retrievalPlan = buildRetrievalPlan({
-    recordedAt: options.recordedAt,
+    recordedAt,
     labelRows,
     projectResolution,
     allowTerms: evidenceGate.action_candidate_emission_allowed,
@@ -277,7 +283,7 @@ function buildVoiceSemanticLabelRunInternal(options = {}, verifiedPairEvidence =
       transcript_ref: transcriptRef,
       transcript_sha256: transcriptSha256,
       transcript_schema_versions: uniqueSorted(sourceSegments.map((row) => row.schema_version).filter(Boolean)),
-      recorded_at: normalizeOptional(options.recordedAt),
+      recorded_at: recordedAt,
       evidence_role: evidenceRole,
       transcript_quality: transcriptQuality,
     },
@@ -511,11 +517,14 @@ function normalizeVoiceRecordingStart(value, sourceProvider) {
     if (String(sourceProvider ?? "").trim().toUpperCase() !== "PLAUD") {
       throw new Error("offsetless recording start is ambiguous");
     }
-    return parsePlaudProviderTimestamp(raw).date.toISOString();
+    return toKstDateTime(
+      parsePlaudProviderTimestamp(raw).date.toISOString(),
+      "PLAUD recording start",
+    );
   }
   const timestamp = Date.parse(raw);
   if (!Number.isFinite(timestamp)) throw new Error("session recording start is invalid");
-  return new Date(timestamp).toISOString();
+  return toKstDateTime(new Date(timestamp).toISOString(), "session recording start");
 }
 
 export function verifySemanticManifestPairBinding(manifestBytes, receipt, lane) {
@@ -2251,7 +2260,11 @@ function buildTimeWindow(recordedAt) {
   if (!parsed || Number.isNaN(parsed.getTime())) return { state: "unknown", start: null, end: null };
   const start = new Date(parsed.getTime() - 14 * 24 * 60 * 60 * 1000);
   const end = new Date(parsed.getTime() + 2 * 24 * 60 * 60 * 1000);
-  return { state: "bounded", start: start.toISOString(), end: end.toISOString() };
+  return {
+    state: "bounded",
+    start: toKstDateTime(start.toISOString(), "retrieval window start"),
+    end: toKstDateTime(end.toISOString(), "retrieval window end"),
+  };
 }
 
 function normalizeText(value) {

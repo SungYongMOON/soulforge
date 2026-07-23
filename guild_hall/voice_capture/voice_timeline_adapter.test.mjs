@@ -41,6 +41,10 @@ test("preserves repeated person mentions as separate time occurrences", () => {
   assert.notEqual(people[0].occurrence.occurrence_id, people[1].occurrence.occurrence_id);
   assert.equal(people.every((entry) => entry.occurrence.relative_start_ms === 5000), true);
   assert.equal(people.every((entry) => entry.occurrence.time_precision === "segment"), true);
+  assert.equal(
+    annotations.every((entry) => entry.occurrence.occurred_at === "2026-07-23T20:00:05.000+09:00"),
+    true,
+  );
   assert.equal(annotations.some((entry) => entry.label.kind === "request"), true);
   assert.equal(annotations.some((entry) => entry.label.kind === "action"), true);
   assert.equal(annotations.every((entry) => entry.boundaries.official_task_mutated === false), true);
@@ -84,6 +88,10 @@ test("preserves repeated request and action signals as separate time occurrences
   assert.equal(confirms.length, 2);
   assert.equal(new Set(sends.map((entry) => entry.occurrence.occurrence_id)).size, 2);
   assert.equal(annotations.every((entry) => entry.occurrence.time_precision === "segment"), true);
+  assert.equal(
+    annotations.every((entry) => entry.occurrence.occurred_at === "2026-07-23T20:00:30.000+09:00"),
+    true,
+  );
 });
 
 test("does not overclaim project assignment without context evidence", () => {

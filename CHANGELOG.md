@@ -4,6 +4,12 @@
 
 ### Common timeline, voice occurrence labels, and Slack Web API ingress
 
+- Corrected the common business-event timeline to persist every lane's
+  `occurrence.occurred_at` as `Asia/Seoul` (`+09:00`) instead of canonicalizing
+  labels to UTC `Z`. Voice semantic recording times and retrieval windows now
+  use the same KST storage rule; explicitly named receipt/completion/lease audit
+  timestamps remain UTC. Schema and date-boundary regressions reject persisted
+  non-KST labels.
 - Added one strict source-timeline annotation contract that can represent
   received/sent mail, Slack, voice, structured PC work, team files, and
   executor/run logs. Current common-timeline writers cover Slack, voice,
