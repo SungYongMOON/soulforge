@@ -57,7 +57,7 @@ export function parseCycleArgs(argv = process.argv.slice(2), env = process.env) 
     dataDir: arg("data-dir", join(APP, "data")),
     projects,
     limit: Math.max(1, Number(arg("limit", env.DEV_ERP_INTAKE_LIMIT || "12")) || 12),
-    provider: arg("provider", intakeLlmProvider(env)),
+    provider: intakeLlmProvider(),
     fallback: arg("fallback", String(env.DEV_ERP_INTAKE_FALLBACK ?? "skip").trim().toLowerCase() === "deterministic" ? "deterministic" : "skip"),
     knowledge: has("knowledge") || truthyEnv("DEV_ERP_INTAKE_KNOWLEDGE", env),
     knowledgeCommon: truthyEnv("DEV_ERP_INTAKE_KNOWLEDGE_COMMON", env),

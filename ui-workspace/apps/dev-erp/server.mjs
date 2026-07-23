@@ -43,7 +43,7 @@ import {
   scanWikiPageRefs,
 } from "./src/knowledge_shell.mjs";
 import { crossSearch } from "./src/search.mjs";
-import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, llmThinkEnabled, suggestSplit, summarizeCompletion } from "./src/llm.mjs";
+import { buildMetaContext, runLlm, answerFromManual, CHATBOT_VERSION, erpLlmProvider, suggestSplit, summarizeCompletion } from "./src/llm.mjs";
 import { loadPartyMonsterTypes } from "./src/party_match.mjs";
 import { startAutosyncPoll, writeTaskToLedger, writeInputToLedger } from "./src/autosync.mjs";
 import {
@@ -893,9 +893,9 @@ function runtimeVersion() {
       port: PORT,
       checkout: IS_RUNTIME_CHECKOUT ? "runtime" : "development",
       llm: {
-        provider: process.env.ERP_CHAT_PROVIDER || "stub",
-        model: process.env.ERP_CHAT_MODEL || "gemma3:4b",
-        thinking: llmThinkEnabled()
+        provider: erpLlmProvider(),
+        model: null,
+        thinking: false
       },
       codex_task: {
         mode: CODEX_TASK_BRIDGE_MODE,
@@ -2025,7 +2025,7 @@ function afterWorkCompleted({ actor, accountId = null, item, from, to } = {}) {
         return;
       }
       latestMsg = msgs[msgs.length - 1] ?? null;
-      const provider = process.env.ERP_CHAT_PROVIDER || "stub";
+      const provider = erpLlmProvider();
       if (provider !== "ollama") {
         store.appendEvent({
           actor_ref: "completion_hook",
@@ -2889,7 +2889,7 @@ const server = createServer(async (req, res) => {
       const item = store.itemById(id);
       if (!item) return send(res, 404, { error: "item_not_found" });
       const { types, typeToParty } = PARTY_MATCH; // 시작 시 캐시(검증 허용목록과 동일 소스 — 일관)
-      const provider = process.env.ERP_CHAT_PROVIDER || "stub";
+      const provider = erpLlmProvider();
       const sug = await suggestSplit(item, types, { provider });
       const sub_tasks = (sug.sub_tasks || []).map((s) => ({ ...s, party_ref: typeToParty[s.monster_type] ?? null }));
       store.appendEvent({
@@ -3560,16 +3560,15 @@ const server = createServer(async (req, res) => {
     if (path === "/api/guide/templates") return send(res, 200, guideTemplates(qp.mode));
     if (path === "/api/doc/recipes") return send(res, 200, docRecipes(qp.mode));
     if (path === "/api/embeds" && req.method === "GET") return send(res, 200, store.listEmbeds({ project: qp.project ?? null }));
-    // ERP 챗봇 — RAG: 매뉴얼 검색 → (provider 연결 시) 로컬 작은 모델이 '그 근거 안에서만' 표현.
-    // 매뉴얼 밖 추론 금지. provider 없으면 검색 기반 사람형 폴백(끊기지 않음). 질문은 로그에 저장.
-    // provider는 ERP_CHAT_PROVIDER 환경변수로 주입(기본 stub=외부0). 야간 매뉴얼 갱신은 별도 고급 LLM.
+    // ERP 챗봇은 owner policy에 따라 모델을 사용하지 않는다. 매뉴얼 검색 기반
+    // 사람형 폴백만 제공하며, 생성 모델은 별도 RAG 세션 surface에서만 실행한다.
     if (path === "/api/chat" && req.method === "POST") {
       let body = ""; for await (const chunk of req) body += chunk;
       let parsed = {};
       try { parsed = JSON.parse(body || "{}"); }
       catch { return send(res, 400, { error: "invalid_json" }); }
       const { message, thread_id } = parsed;
-      const provider = process.env.ERP_CHAT_PROVIDER || "stub";
+      const provider = erpLlmProvider();
       let r;
       try {
         r = await answerFromManual({ store, question: message, thread_id, actor_ref: actor, provider });

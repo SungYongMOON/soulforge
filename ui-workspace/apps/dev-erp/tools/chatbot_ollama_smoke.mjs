@@ -138,7 +138,7 @@ async function askMeta({ store, cases, provider, failures }) {
 }
 
 async function main() {
-  const provider = process.argv.includes("--stub") ? "stub" : "ollama";
+  const provider = "stub";
   const store = openStore(":memory:");
   loadManual(store);
   const failures = [];

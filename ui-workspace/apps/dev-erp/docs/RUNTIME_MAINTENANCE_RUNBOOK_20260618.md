@@ -286,7 +286,8 @@ Every integration is explicit opt-in:
   server argv. Certificate and key are a required pair, and CA is accepted only
   with that pair. `tls=explicit` means the cert/key pair was supplied. The
   launcher neither reads the key content nor reports these paths.
-- `-EnableLocalLlm`: enable the local Ollama chat provider.
+- `-EnableLocalLlm`: disabled by the 2026-07-23 owner policy; the launcher
+  fails closed and directs model use to the separate RAG session runtime.
 - `-EnableMailCollect [-MailCollectSeconds 900]`: enable scheduled mail collection.
 - `-EnableAutoIntake`: enable the post-collection intake hook; requires `-EnableMailCollect`.
 - `-EnableAutosync`: enable ledger/ERP bidirectional autosync.

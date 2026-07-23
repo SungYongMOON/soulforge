@@ -37,6 +37,19 @@ export function chatLlmRuntimeConfig(env = process.env) {
   };
 }
 
+// Owner policy (2026-07-23): dev-ERP is model-free. Keep the adapter code
+// available for isolated tests, but operational ERP entry points must resolve
+// through this fail-closed provider instead of reading ERP_CHAT_PROVIDER.
+export const ERP_MODEL_POLICY = Object.freeze({
+  enabled: false,
+  chat_provider: "stub",
+  intake_provider: "none",
+});
+
+export function erpLlmProvider() {
+  return ERP_MODEL_POLICY.chat_provider;
+}
+
 // ── 다중 사용자 동시 질문 게이트(로컬 작은 모델 보호) ───────────────────────
 // 다른 PC 의 단일 Ollama 인스턴스를 팀이 공유하면, 동시 요청이 몰릴 때 모델이
 // 과부하·지연된다. ERP 서버(단일 프로세스)에서 인프로세스 세마포어로 동시
@@ -350,9 +363,8 @@ export async function suggestSplit(item = {}, monsterTypes = [], { provider = "s
 // 판단은 제안일 뿐: 실제 행 작성은 mail_to_task_ledger(결정적)가, open 승격은 --auto-open 정책이 정한다.
 export const INTAKE_WORK_TYPES = ["answer", "review", "author", "revise", "purchase", "verify", "decide", "schedule"];
 
-export function intakeLlmProvider(env = process.env) {
-  const v = String(env.DEV_ERP_INTAKE_LLM ?? "").trim().toLowerCase();
-  return v === "ollama" ? "ollama" : "none"; // 기본 none: 후보 없이 격리 유지(안전)
+export function intakeLlmProvider() {
+  return ERP_MODEL_POLICY.intake_provider;
 }
 
 function intakeRuntimeConfig(env = process.env) {

@@ -80,9 +80,9 @@ test("classifyMailForTasks: generate 예외는 llm_error 로 격리(pending 유�
   assert.equal(r.skipped[0].reason, "llm_error");
 });
 
-test("intakeLlmProvider: 명시적 ollama 만 켜지고 기본은 none", () => {
+test("intakeLlmProvider: owner policy가 env override도 none으로 닫음", () => {
   assert.equal(intakeLlmProvider({}), "none");
-  assert.equal(intakeLlmProvider({ DEV_ERP_INTAKE_LLM: "ollama" }), "ollama");
+  assert.equal(intakeLlmProvider({ DEV_ERP_INTAKE_LLM: "ollama" }), "none");
   assert.equal(intakeLlmProvider({ DEV_ERP_INTAKE_LLM: "gpt-cloud" }), "none");
 });
 
@@ -745,7 +745,7 @@ test("parseCycleArgs: 기본값과 env 매핑", () => {
   assert.equal(o.apply, true);
   assert.deepEqual(o.projects, ["P99-001"]);
   assert.equal(o.limit, 5);
-  assert.equal(o.provider, "ollama");
+  assert.equal(o.provider, "none");
   assert.equal(o.fallback, "deterministic");
   assert.equal(o.followup, false);
   const withFollowup = parseCycleArgs(["--today", "2026-07-04"], { DEV_ERP_INTAKE_FOLLOWUP: "1" });

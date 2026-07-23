@@ -1,5 +1,11 @@
 # dev-erp 보조용 로컬 LLM — 다중 사용자 기초설계 (2026-06-16)
 
+> **보존 상태 — 현재 비활성.** 2026-07-23 owner 결정으로 ERP는 모델을
+> 사용하지 않는다. 아래 내용은 과거 설계 근거일 뿐 운영 지시가 아니다.
+> `-EnableLocalLlm`, `ERP_CHAT_PROVIDER=ollama`, LAN Ollama, ERP 모델 상주는
+> 모두 비활성이다. 현재 정책은 `CHATBOT_LLM_SETUP.md`와
+> `KARPATHY_STYLE_WIKI_RAG_ERP_CONTRACT_V0.md`를 따른다.
+
 > 목적: 다른 PC 에서 ERP 보조용 로컬 LLM 을 운영할 때, **여러 명이 동시에 질문해도**
 > 끊김·과부하 없이 동작하는 구조의 기초설계. owner 지시(2026-06-16) 반영.
 > 작업자: claude_opus-4-8 (hybrid lane). 장부/표준 소유권은 Codex.

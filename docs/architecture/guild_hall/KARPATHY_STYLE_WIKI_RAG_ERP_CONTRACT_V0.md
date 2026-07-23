@@ -3,10 +3,10 @@
 ## Purpose
 
 This contract fixes the owner decision for the dev-ERP knowledge layer:
-Soulforge should not install a Karpathy LLM runtime for the ERP knowledge/RAG
-use case. The ERP should consume a Karpathy-style sourcebound wiki/RAG ledger as
-a metadata shell, while the actual response model remains an approved local or
-adapter-backed LLM runtime such as Ollama.
+Soulforge should not install or run a model inside the ERP knowledge surface.
+The ERP consumes a Karpathy-style sourcebound wiki/RAG ledger as a metadata
+shell. Model-backed answer generation is a separate RAG-session responsibility,
+not an ERP responsibility.
 
 In this document, "Karpathy-style" means a practical wiki discipline:
 small stable pages, source-bound claims, provenance refs, explicit confidence
@@ -74,15 +74,32 @@ remain excluded from ERP responses.
 
 ## Runtime Decision
 
-The approved default decision is:
+The owner decision effective 2026-07-23 is:
 
 - `karpathy_llm_runtime_required: false`
 - `karpathy_reference_role: wiki_operating_pattern_only`
-- `preferred_runtime_surface: ollama_or_configured_llm_adapter`
+- `erp_model_enabled: false`
+- `erp_chat_provider: stub`
+- `erp_intake_provider: none`
+- `erp_may_trigger_rag_generation: false`
+- `rag_generation_runtime: ollama_loopback_only`
+- `rag_generation_model: qwen3.5:9b`
+- `rag_model_load_policy: on_demand_session`
+- `rag_model_keep_alive: 5m`
+- `rag_session_close_unload: ollama_stop`
+- `rag_background_preload: false`
 
-The ERP may use Ollama, Codex CLI, or another approved adapter for expression
-over retrieved evidence. That model layer must stay behind the existing
-`src/llm.mjs` adapter and may not turn the wiki ledger into source truth.
+The Ollama daemon may remain running on `127.0.0.1:11434` while no model is
+resident. The first generation request in an authorized RAG session loads
+`qwen3.5:9b` into GPU memory. Requests set `keep_alive: 5m`; closing the RAG
+session runs `ollama stop qwen3.5:9b`, while the idle timeout is the fallback
+unload path. No ERP launcher, endpoint, completion hook, split suggestion, or
+mail-intake cycle may load the model.
+
+The dormant ERP adapter code may remain for isolated compatibility tests, but
+operational ERP provider selection is fail-closed in code. Re-enabling any ERP
+model path requires a new owner decision, a scoped code change, and review; an
+environment-variable override alone is insufficient.
 
 ## Source-To-ERP Flow
 
@@ -96,8 +113,11 @@ over retrieved evidence. That model layer must stay behind the existing
    `.party/knowledge_wiki_cell` -> `.workflow/knowledge_wiki_pipeline_v0`.
 5. Prepare metadata-only `rag_metadata_refresh_v0` handoffs when wiki or
    sourcebound metadata changes affect retrieval.
-6. Let dev-ERP read only metadata shell endpoints.
-7. Promote to public canon only through explicit owner decision and
+6. Run any model-backed answer generation only in the separate, authorized RAG
+   session runtime. Keep evidence refs and the weakest applicable claim ceiling.
+7. Let dev-ERP read only metadata shell endpoints and non-model search/fallback
+   responses; it does not start or call the RAG generation runtime.
+8. Promote to public canon only through explicit owner decision and
    post-development review.
 
 ## Non-Claims
@@ -113,6 +133,7 @@ This contract does not grant:
 - ontology acceptance;
 - default-route changes;
 - answer authority.
+- ERP model activation or ERP-to-RAG generation calls.
 
 Each stronger permission needs its own source card, owner decision, workflow
 packet, and review evidence.

@@ -334,11 +334,14 @@ test("background launcher defaults to loopback core-only posture and requires op
     assert.match(safe.stdout, /integrations=none/);
     assert.match(safe.stdout, /real-meta=off fixture=off/);
 
+    const llmRejected = await runPowerShell(fixture.launcher, [...base, "-EnableLocalLlm"]);
+    assert.notEqual(llmRejected.code, 0);
+    assert.match(`${llmRejected.stdout}\n${llmRejected.stderr}`, /disabled by the 2026-07-23 owner policy/);
+
     const optedIn = await runPowerShell(fixture.launcher, [
       ...base,
       "-ListenOnLan",
       "-SecureCookie",
-      "-EnableLocalLlm",
       "-EnableMailCollect",
       "-EnableAutoIntake",
       "-EnableAutosync",
@@ -350,7 +353,7 @@ test("background launcher defaults to loopback core-only posture and requires op
     assert.equal(optedIn.code, 0, optedIn.stderr);
     assert.match(optedIn.stdout, /host=0\.0\.0\.0/);
     assert.match(optedIn.stdout, /secure-cookie=on/);
-    assert.match(optedIn.stdout, /integrations=lan,local-llm,mail-collect,auto-intake,autosync,morning-brief,codex-worker/);
+    assert.match(optedIn.stdout, /integrations=lan,mail-collect,auto-intake,autosync,morning-brief,codex-worker/);
   } finally {
     await removeFixtureRoot(fixture.root);
   }
@@ -623,7 +626,6 @@ test("background launcher strips inherited sensitive env and restores only expli
       "-Port", String(port),
       "-BackendRoot", fixture.root,
       "-SecureCookie",
-      "-EnableLocalLlm",
       "-EnableMailCollect",
       "-EnableAutoIntake",
       "-EnableAutosync",
@@ -654,7 +656,7 @@ test("background launcher strips inherited sensitive env and restores only expli
     await waitForHttp(port);
 
     const env = JSON.parse(await readFile(fixture.envFile, "utf8"));
-    assert.equal(env.chat_provider, "ollama");
+    assert.equal(env.chat_provider, null);
     assert.equal(env.mail_collect, "900");
     assert.equal(env.auto_intake, "1");
     assert.equal(env.autosync, "1");

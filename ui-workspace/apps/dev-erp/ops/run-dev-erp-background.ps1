@@ -48,6 +48,9 @@ function Resolve-ExplicitTlsPath {
 if ($EnableAutoIntake -and -not $EnableMailCollect) {
   throw "-EnableAutoIntake requires -EnableMailCollect."
 }
+if ($EnableLocalLlm) {
+  throw "-EnableLocalLlm is disabled by the 2026-07-23 owner policy. Use the separate RAG session runtime."
+}
 if ($EnableMorningBrief) {
   if ($MorningBriefHhmm -notmatch '^([01]\d|2[0-3])[0-5]\d$') {
     throw "-MorningBriefHhmm must be HHmm (0000-2359)."
@@ -219,7 +222,6 @@ foreach ($OwnerProcessId in $ListenerProcessIds) {
 
 $EnabledIntegrations = @()
 if ($ListenOnLan) { $EnabledIntegrations += "lan" }
-if ($EnableLocalLlm) { $EnabledIntegrations += "local-llm" }
 if ($EnableMailCollect) { $EnabledIntegrations += "mail-collect" }
 if ($EnableAutoIntake) { $EnabledIntegrations += "auto-intake" }
 if ($EnableAutosync) { $EnabledIntegrations += "autosync" }
@@ -324,22 +326,13 @@ if ($InheritedEnvironmentNames.Count) {
   Remove-LaunchEnvironment -Names $InheritedEnvironmentNames
 }
 
-if ($EnableLocalLlm) {
-  $env:ERP_CHAT_PROVIDER = "ollama"
-  $env:ERP_CHAT_MODEL = "gemma4:e4b"
-  $env:ERP_CHAT_THINK = "1"
-  $env:ERP_CHAT_CONTEXT_TURNS = "5"
-  $env:ERP_CHAT_TIMEOUT_MS = "60000"
-  $env:ERP_LLM_QUEUE_WAIT_MS = "60000"
-  $env:ERP_LLM_CONCURRENCY = "1"
-}
 if ($EnableMailCollect) {
   $env:DEV_ERP_MAIL_COLLECT_SEC = [string]$MailCollectSeconds
   $env:DEV_ERP_MAIL_ROUTE_BACKFILL_INCLUDE_HIDDEN = "1"
 }
 if ($EnableAutoIntake) {
   $env:DEV_ERP_AUTO_INTAKE = "1"
-  $env:DEV_ERP_INTAKE_LLM = "ollama"
+  $env:DEV_ERP_INTAKE_LLM = "none"
 }
 if ($EnableAutosync) {
   $env:DEV_ERP_AUTOSYNC = "1"

@@ -1,19 +1,23 @@
 # dev-erp 원격 PC 런북 (다른 PC의 Codex 수행용)
 
-이 문서는 **다른 PC**(로컬 LLM/GPU가 있는 머신)에서 작업할 에이전트(Codex)가 그대로 따라 실행하는 절차서다.
+이 문서는 **다른 PC**에서 작업할 에이전트(Codex)가 따라 실행하는 절차서다.
 작성: claude_fable-5 (hybrid lane), 2026-06-13. 이 PC에서는 실행하지 않는다.
+
+> **2026-07-23 정책 갱신:** ERP의 로컬/LAN LLM 실험은 중지되었다. ERP는
+> `stub`/비모델 경로만 사용하며, `qwen3.5:9b`는 별도 RAG 세션에서만
+> loopback Ollama로 on-demand 실행한다.
 
 ## 0. 맥락 / 목표
 
 - dev-erp = 무의존 Node(node:http + node:sqlite, Node≥22.5) + 바닐라 JS ERP 앱. 위치: `ui-workspace/apps/dev-erp/`.
 - 챗봇은 **RAG**: 매뉴얼(FAQ)을 검색 → LLM은 그 근거 안에서만 표현(추론·매뉴얼 밖 사실 금지). LLM 없으면 검색 폴백(끊기지 않음).
-- **1순위**: 이 PC에 ERP 서버를 띄우고 **로컬 챗봇(Ollama/Gemma) 동작 실험**.
+- **1순위**: 이 PC에 ERP 서버를 띄우고 **모델 없는 검색/폴백 동작**을 검증한다.
 - **2순위**: 내부 폴더를 분석해 **실데이터를 어디에 어떻게 적재할지** 설계(읽기·제안만, 스키마 확정 금지).
 
 ## 0.1 가드레일 (반드시 준수)
 
 - `git push`는 **owner만**. 에이전트는 커밋까지만.
-- 외부 인터넷 전송 0. 예외는 **로컬/LAN LLM 호출 한 곳**(`src/llm.mjs` 어댑터, localhost 또는 사내 GPU PC IP)뿐.
+- 외부 인터넷 전송 0. ERP의 로컬/LAN LLM 호출도 현재 비활성이다.
 - secret/credential/세션 값 열람·기록 금지. `_workspaces` 원문, `_workmeta` private payload는 본문 복제 금지(메타/경로/카운트 수준만).
 - 역할 경계: dev-erp **앱 파일**(server/app/src/docs/test)은 이 작업 범위. canon `.workflow`/`.party`/RAG 워크플로·구조지도(SOULFORGE_ERP_BOM_HIERARCHY)는 별도 도메인 — 합의 없이 수정 금지.
 - 계정 생성·비밀번호 입력·권한 강제·삭제는 owner 몫.
@@ -55,32 +59,28 @@ node server.mjs --port 4310
 브라우저로 `http://127.0.0.1:4310` → 우하단 💬 챗봇 → "게이트 통과 어떻게 해?" 입력.
 이 단계는 **검색 답변**(matched FAQ 원문)이 나오면 정상. `/new`로 대화 리셋도 확인.
 
-### 1-3. Ollama + Gemma 연결 (LLM 표현 켜기)
+### 1-3. 모델 비활성 확인
 
-이 PC = **Windows + NVIDIA 16GB**. OllamaSetup.exe 설치(서비스 자동 기동, CUDA 자동) 후:
+ERP를 `stub` 상태로 실행한다. Ollama/Gemma를 ERP에 연결하거나 Ollama를 LAN에
+노출하지 않는다.
 
 ```powershell
-ollama pull gemma3:4b          # 공통 기본값(맥미니와 동일 태그). 품질 원하면 gemma2:9b
-
-# 서버를 LLM 모드로 재기동 (PowerShell)
-$env:ERP_CHAT_PROVIDER="ollama"; $env:ERP_CHAT_MODEL="gemma3:4b"; node server.mjs --port 4310
+ollama ps
 ```
 
-> 맥미니(개발기)는 같은 태그를 `brew` + bash 문법으로 실행. 설치/문법 차이만 있고 ERP 코드·동작은 동일.
-> 상세 옵션(타임아웃·출력토큰 상한·원격 GPU PC 지정 등)은 **`docs/CHATBOT_LLM_SETUP.md`** 참고.
-- ERP 서버와 GPU PC가 다르면: GPU PC에서 `OLLAMA_HOST=0.0.0.0 ollama serve`, ERP 쪽 `OLLAMA_HOST=http://<GPU_PC_IP>:11434`.
-- 모델 미기동/타임아웃이면 자동으로 검색 폴백 → 멈추지 않음.
+ERP만 실행 중이면 모델 목록이 비어 있어야 한다. `qwen3.5:9b`의 적재·해제는
+`docs/CHATBOT_LLM_SETUP.md`의 별도 RAG 세션 절차에서만 수행한다.
 
 ### 1-4. 챗봇 실험 체크리스트(자기검증)
 
-- [ ] 매칭 질문 → 매뉴얼 근거로 **사람처럼 다듬어진** 답(LLM on). 응답 속도 측정(목표: 체감 수초 내).
+- [ ] 매칭 질문 → 매뉴얼/FAQ 검색 기반 답(LLM off).
 - [ ] 매뉴얼에 없는 질문 → "정리 안 됨" 안내 + 후보 제시(끊기지 않음). `/api/chat/unanswered`에 적재되는지 확인.
 - [ ] 매뉴얼/FAQ 관리 화면(좌측 메뉴 지식 → mod:knowledge)에서 FAQ 몇 건 추가 → 같은 질문이 이제 매칭되는지.
-- [ ] 속도 튜닝: 느리면 `ERP_CHAT_MAX_TOKENS` 160~240, 모델 2B/4B로.
-- [ ] 이벤트 로그에 `llm_call provider=ollama delivered=true` 기록 확인(외부 인터넷 전송 없음 = LAN/localhost).
+- [ ] `/api/version`에서 `runtime.llm.provider=stub`, `model=null`, `thinking=false` 확인.
+- [ ] `ollama ps`가 비어 있어 ERP가 GPU 모델을 점유하지 않음을 확인.
 - [ ] `npm test` + verify_gate L1 재확인.
 
-산출: 실험 결과(어떤 모델, 응답 속도, 품질 체감, 권장 모델)를 **핸드오프 체크포인트**에 기록.
+산출: 검색/폴백과 모델 비점유 검증 결과를 필요한 작업 기록에 남긴다.
 
 ---
 
@@ -125,6 +125,6 @@ $env:ERP_CHAT_PROVIDER="ollama"; $env:ERP_CHAT_MODEL="gemma3:4b"; node server.mj
 
 ## 참고 문서
 
-- `docs/CHATBOT_LLM_SETUP.md` — Ollama/Gemma 설정·VRAM·속도 옵션.
+- `docs/CHATBOT_LLM_SETUP.md` — ERP 모델 비활성 및 RAG 전용 GPU 세션 정책.
 - `docs/checklist_phase1.json` — run_notes 이력 + verify_gate 검증항목.
 - `AGENTS.md` — 워크플로(메인 직접 작업 허용 등).

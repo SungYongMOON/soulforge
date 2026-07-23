@@ -6,9 +6,10 @@ param(
   [string]$NodeExe = "node.exe",
   [string]$NssmExe = "nssm.exe",
   [int]$CookieSecure = 1,
-  [string]$ChatProvider = "ollama",
-  [string]$ChatModel = "gemma4:e4b",
-  [int]$ChatThink = 1,
+  [ValidateSet("stub")]
+  [string]$ChatProvider = "stub",
+  [string]$ChatModel = "",
+  [int]$ChatThink = 0,
   [int]$ChatContextTurns = 5,
   [int]$ChatTimeoutMs = 45000,
   [int]$QueueWaitMs = 60000,

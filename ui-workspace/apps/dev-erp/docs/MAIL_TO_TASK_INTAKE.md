@@ -24,6 +24,10 @@
 
 ## LLM 판단 실행
 
+> **2026-07-23 owner 결정:** ERP 모델 사용은 현재 비활성이다.
+> `DEV_ERP_INTAKE_LLM`은 코드에서 `none`으로 고정되며, 아래 Ollama 설명은
+> 과거 설계 배경이다. 자동 인입은 모델 후보 없이 격리·결정적 폴백만 사용한다.
+
 변환의 LLM 판단(어떤 메일=할일 + 필드)은 `src/llm.mjs`의
 `classifyMailForTasks`와 `tools/auto_intake_cycle.mjs`가 소유한다. 런타임 어댑터가
 메일 메타데이터를 분류 후보로 만들고, `mail_to_task_ledger.mjs`가 입력 검증과 결정적
@@ -61,7 +65,7 @@ env 자체의 기본값은 OFF다. 다만 Windows 기본 실행기(`start-window
 | --- | --- | --- |
 | `DEV_ERP_AUTO_INTAKE=1` | 수집 후 자동 인입 사이클 실행 | off (Windows 4300 기본 실행기: on) |
 | `DEV_ERP_AUTO_INTAKE_ALWAYS=1` | 신규 유입 없어도 매 수집마다 실행(재판단 LLM 비용 증가) | off |
-| `DEV_ERP_INTAKE_LLM=ollama` | 분류 백엔드. 미설정(none)이면 후보 없이 격리 유지 + 줄기 갱신만 | none |
+| `DEV_ERP_INTAKE_LLM` | owner policy에 따라 `none` 고정. 후보 없이 격리 유지 + 줄기 갱신만 | none |
 | `DEV_ERP_INTAKE_MODEL` | 분류 전용 모델 오버라이드 (기본 ERP_CHAT_MODEL) | - |
 | `DEV_ERP_INTAKE_LIMIT` | 사이클당 프로젝트별 판단 상한 | 12 |
 | `DEV_ERP_INTAKE_FALLBACK=deterministic` | LLM 미가용 시 haengbogwan 결정적 후보(전건 격리)로 폴백 | skip |

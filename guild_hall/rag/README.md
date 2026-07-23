@@ -65,6 +65,26 @@ Progress must be reported using the three-stage operating model in
 searchable RAG, work-ready RAG, and canon knowledge. Stage 1 indexing, Stage 2
 work answers, and Stage 3 canon promotion are separate claims.
 
+## Local generation runtime policy
+
+Owner decision effective 2026-07-23:
+
+- generation model: `qwen3.5:9b`;
+- endpoint: Ollama on loopback only (`127.0.0.1:11434`);
+- load: on the first authorized RAG generation request, not at PC or ERP start;
+- request idle lease: `keep_alive: 5m`;
+- close: `ollama stop qwen3.5:9b` at RAG session close;
+- background prewarm: disabled;
+- ERP model use and ERP-triggered generation: disabled.
+
+`ollama ps` is the operational check. An empty list means the daemon can remain
+available while no model occupies GPU memory. A live RAG request should show
+`qwen3.5:9b` on the GPU; after explicit session close, the list must return to
+empty. The current deterministic/extractive RAG CLI remains usable without a
+generation model. A future generated-answer runner must implement this session
+lifecycle before it can be activated; this policy does not claim that such a
+runner is already wired into every RAG command.
+
 ## Commands
 
 ```bash
