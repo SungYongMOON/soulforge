@@ -104,6 +104,22 @@ write ERP, or by itself switch the active voice writer. Continuous
 accepted-ingress use remains blocked on the private `VERIFY_HP`
 transfer-service binding and an explicit cutover receipt.
 
+The standalone mirror defaults to `full_audit`: it streams and verifies every
+source and retained-custody SHA-256. The continuous HPP supervisor requests
+`incremental` verification instead. After an initial full audit, each ordinary
+cycle enumerates the allowlisted tree and compares size, mtime, and ctime
+against the restart checkpoint; only a new, changed, or reappeared source is
+stream-hashed. A changed source also forces a full hash of all retained
+generations before versioning. The supervisor forces another full audit on the
+first successful cycle at or after each 24-hour boundary. Run summaries
+separate `scanned` metadata entries from `source_files_hashed` and
+`retained_custody_entries_hashed`, so a large metadata scan cannot be mistaken
+for rereading every payload. The custody counter intentionally covers retained
+checkpoint generations; copy verification and legacy-adoption hashes remain
+separate operations. A copy limit or other bounded truncation leaves
+`full_audit_complete: false` and does not advance `last_full_audit_at`, so the
+next cycle retries the required full audit.
+
 ## Cross-PC delivery receipts
 
 Voice payload sync is proven in two steps. A producer receipt says only that a

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -61,6 +61,211 @@ test("new source is copied once and rerun is idempotent", async () => {
     assert.equal(second.unchanged, 1);
     assert.equal(await readFile(join(f.destination, "live_workspace_capture", "sessions", "new.txt"), "utf8"), "voice-new");
     assert.equal((await readdir(f.receipts)).length, 1);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("incremental rerun trusts unchanged metadata and hashes only changed source", async () => {
+  const f = await fixture();
+  try {
+    const sourceFile = join(f.source, "sessions", "incremental.txt");
+    await writeFile(sourceFile, "version-one");
+    const first = await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    const second = await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    assert.equal(first.source_files_hashed, 1);
+    assert.equal(second.verification_mode, "incremental");
+    assert.equal(second.source_files_hashed, 0);
+    assert.equal(second.source_files_metadata_unchanged, 1);
+    assert.equal(second.retained_custody_entries_hashed, 0);
+    assert.equal(second.retained_custody_entries_metadata_checked, 1);
+
+    await writeFile(sourceFile, "version-two");
+    await utimes(sourceFile, new Date("2026-07-17T02:00:00.000Z"), new Date("2026-07-17T02:00:00.000Z"));
+    const changed = await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    assert.equal(changed.source_files_hashed, 1);
+    assert.equal(changed.retained_custody_entries_hashed, 1);
+    assert.equal(changed.copied_version, 1);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("incremental mode performs a periodic full audit and records its checkpoint", async () => {
+  const f = await fixture();
+  try {
+    const sourceFile = join(f.source, "sessions", "audit.txt");
+    await writeFile(sourceFile, "audit-source");
+    const first = await syncCopyOnlyMirror(options(f, {
+      verificationMode: "incremental",
+      fullAuditIntervalSeconds: 24 * 60 * 60,
+      now: () => "2026-07-17T00:00:00.000Z",
+    }));
+    assert.equal(first.requested_verification_mode, "incremental");
+    assert.equal(first.verification_mode, "full_audit");
+
+    const second = await syncCopyOnlyMirror(options(f, {
+      verificationMode: "incremental",
+      fullAuditIntervalSeconds: 24 * 60 * 60,
+      now: () => "2026-07-17T01:00:00.000Z",
+    }));
+    assert.equal(second.verification_mode, "incremental");
+    assert.equal(second.source_files_hashed, 0);
+    assert.equal(second.retained_custody_entries_hashed, 0);
+
+    const third = await syncCopyOnlyMirror(options(f, {
+      verificationMode: "incremental",
+      fullAuditIntervalSeconds: 24 * 60 * 60,
+      now: () => "2026-07-18T00:00:00.000Z",
+    }));
+    assert.equal(third.verification_mode, "full_audit");
+    assert.equal(third.source_files_hashed, 1);
+    assert.equal(third.retained_custody_entries_hashed, 1);
+    const checkpoint = JSON.parse(await readFile(f.checkpoint, "utf8"));
+    assert.equal(checkpoint.last_full_audit_at, "2026-07-18T00:00:00.000Z");
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("incremental change still full-hashes prior custody before versioning", async () => {
+  const f = await fixture();
+  try {
+    const sourceFile = join(f.source, "sessions", "incremental-custody.txt");
+    const liveFile = join(f.destination, "live_workspace_capture", "sessions", "incremental-custody.txt");
+    await writeFile(sourceFile, "version-one");
+    await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    await writeFile(liveFile, "corrupt-old");
+    await writeFile(sourceFile, "version-two");
+    await utimes(sourceFile, new Date("2026-07-17T03:00:00.000Z"), new Date("2026-07-17T03:00:00.000Z"));
+    await assert.rejects(
+      syncCopyOnlyMirror(options(f, { verificationMode: "incremental" })),
+      { code: "checkpoint_custody_mismatch" },
+    );
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("incremental mode rehashes a source that reappears after being marked missing", async () => {
+  const f = await fixture();
+  try {
+    const sourceFile = join(f.source, "sessions", "reappeared.txt");
+    await writeFile(sourceFile, "same-source");
+    await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    await rm(sourceFile);
+    const missing = await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    assert.equal(missing.source_missing_since_checkpoint, 1);
+
+    await writeFile(sourceFile, "same-source");
+    const reappeared = await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    assert.equal(reappeared.source_files_hashed, 1);
+    assert.equal(reappeared.source_files_metadata_unchanged, 0);
+    assert.equal(reappeared.unchanged, 1);
+    const checkpoint = JSON.parse(await readFile(f.checkpoint, "utf8"));
+    assert.equal(checkpoint.files["sessions/reappeared.txt"].source_present, true);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("incremental mode never recreates a missing receipt from size-only custody evidence", async () => {
+  const f = await fixture();
+  try {
+    const sourceFile = join(f.source, "sessions", "missing-receipt.txt");
+    const liveFile = join(f.destination, "live_workspace_capture", "sessions", "missing-receipt.txt");
+    await writeFile(sourceFile, "good-source");
+    await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    const receiptName = (await readdir(f.receipts))[0];
+    await rm(join(f.receipts, receiptName));
+    await writeFile(liveFile, "evil-source");
+    await assert.rejects(
+      syncCopyOnlyMirror(options(f, { verificationMode: "incremental" })),
+      { code: "checkpoint_custody_mismatch" },
+    );
+    assert.deepEqual(await readdir(f.receipts), []);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("truncated full audit does not advance its timestamp and is retried next cycle", async () => {
+  const f = await fixture();
+  try {
+    for (const name of ["a.txt", "b.txt", "c.txt"]) {
+      await writeFile(join(f.source, "sessions", name), name);
+    }
+    const first = await syncCopyOnlyMirror(options(f, {
+      verificationMode: "incremental",
+      fullAuditIntervalSeconds: 24 * 60 * 60,
+      maxNewFiles: 1,
+      now: () => "2026-07-17T00:00:00.000Z",
+    }));
+    assert.equal(first.verification_mode, "full_audit");
+    assert.equal(first.full_audit_complete, false);
+    assert.equal(first.limit_reached, true);
+    assert.ok(first.source_files_hashed < first.scanned);
+    let checkpoint = JSON.parse(await readFile(f.checkpoint, "utf8"));
+    assert.equal(checkpoint.last_full_audit_at, undefined);
+
+    const second = await syncCopyOnlyMirror(options(f, {
+      verificationMode: "incremental",
+      fullAuditIntervalSeconds: 24 * 60 * 60,
+      maxNewFiles: 1,
+      now: () => "2026-07-17T01:00:00.000Z",
+    }));
+    assert.equal(second.verification_mode, "full_audit");
+    assert.equal(second.full_audit_complete, false);
+    checkpoint = JSON.parse(await readFile(f.checkpoint, "utf8"));
+    assert.equal(checkpoint.last_full_audit_at, undefined);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("incremental fast path refreshes metadata after retained-custody checks", async () => {
+  const f = await fixture();
+  try {
+    const sourceFile = join(f.source, "sessions", "stale-enumeration.txt");
+    await writeFile(sourceFile, "old");
+    await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    let changed = false;
+    const result = await syncCopyOnlyMirror(options(f, {
+      verificationMode: "incremental",
+      assertFence: async ({ phase }) => {
+        if (!changed && phase === "before_previous_custody") {
+          changed = true;
+          await writeFile(sourceFile, "new-content");
+        }
+      },
+    }));
+    assert.equal(result.source_files_hashed, 1);
+    assert.equal(result.source_files_metadata_unchanged, 0);
+    assert.equal(result.copied_version, 1);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("incremental fast path rejects a source change before checkpoint publication", async () => {
+  const f = await fixture();
+  try {
+    const sourceFile = join(f.source, "sessions", "late-change.txt");
+    await writeFile(sourceFile, "old");
+    await syncCopyOnlyMirror(options(f, { verificationMode: "incremental" }));
+    let changed = false;
+    await assert.rejects(
+      syncCopyOnlyMirror(options(f, {
+        verificationMode: "incremental",
+        assertFence: async ({ phase }) => {
+          if (!changed && phase === "after_source_file") {
+            changed = true;
+            await writeFile(sourceFile, "changed-after-fast-path");
+          }
+        },
+      })),
+      { code: "source_changed_during_incremental_scan" },
+    );
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

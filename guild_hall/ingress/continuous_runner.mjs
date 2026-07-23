@@ -1720,6 +1720,9 @@ export async function runContinuousIngress(options = {}) {
           lanes: binding.voice.lanes,
           maxNewFiles: binding.voice.maxNewFiles,
           maxNewBytes: binding.voice.maxNewBytes,
+          verificationMode: "incremental",
+          fullAuditIntervalSeconds: 24 * 60 * 60,
+          now: () => new Date(now()).toISOString(),
           requiredSourcePrefixes: plaudRequiredSourcePrefixes,
           assertFence: async (context) => {
             await assertFinalLanePublication(

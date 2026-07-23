@@ -19,6 +19,7 @@ import { comparablePathIdentity as comparable } from "../shared/physical_path_id
 export const CHECKPOINT_SCHEMA = "soulforge.voice.copy_only_checkpoint.v1";
 export const RECEIPT_SCHEMA = "soulforge.voice.copy_only_receipt.v1";
 const SAFE_LANE = /^[A-Za-z0-9_.-]+$/;
+const VERIFICATION_MODES = new Set(["full_audit", "incremental"]);
 const RECEIPT_FIELDS = [
   "schema_version",
   "receipt_id",
@@ -68,6 +69,30 @@ function normalizeRequiredSourcePrefixes(values, lanes) {
     }
   }
   return prefixes;
+}
+
+function normalizeVerificationMode(value) {
+  const mode = value === undefined ? "full_audit" : String(value);
+  if (!VERIFICATION_MODES.has(mode)) fail("invalid_verification_mode");
+  return mode;
+}
+
+function normalizeFullAuditIntervalSeconds(value) {
+  if (value === undefined || value === null) return null;
+  if (!Number.isSafeInteger(value) || value < 3600 || value > 30 * 24 * 60 * 60) {
+    fail("invalid_full_audit_interval_seconds");
+  }
+  return value;
+}
+
+function effectiveVerificationMode(requestedMode, checkpoint, intervalSeconds, observedAt) {
+  if (requestedMode !== "incremental" || intervalSeconds === null) return requestedMode;
+  const observedMs = Date.parse(observedAt);
+  if (!Number.isFinite(observedMs)) fail("invalid_observed_at");
+  if (!checkpoint.last_full_audit_at) return "full_audit";
+  const lastAuditMs = Date.parse(checkpoint.last_full_audit_at);
+  if (!Number.isFinite(lastAuditMs) || lastAuditMs > observedMs) fail("invalid_checkpoint_full_audit_at");
+  return observedMs - lastAuditMs >= intervalSeconds * 1000 ? "full_audit" : "incremental";
 }
 
 async function assertNormalExistingDirectory(path) {
@@ -126,8 +151,15 @@ async function stableDigest(path) {
   if (!before.isFile()) fail("source_not_regular_file");
   const digest = await sha256(path);
   const after = await stat(path);
-  if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) fail("source_changed_during_hash");
-  return { sha256: digest, size: after.size, mtime_ms: after.mtimeMs };
+  if (before.size !== after.size
+    || before.mtimeMs !== after.mtimeMs
+    || before.ctimeMs !== after.ctimeMs) fail("source_changed_during_hash");
+  return {
+    sha256: digest,
+    size: after.size,
+    mtime_ms: after.mtimeMs,
+    ctime_ms: after.ctimeMs,
+  };
 }
 
 async function collectLaneFiles(sourceRoot, lanes) {
@@ -148,11 +180,37 @@ async function collectLaneFiles(sourceRoot, lanes) {
         const info = await lstat(path);
         if (info.isSymbolicLink()) fail("unsafe_source_link");
         if (info.isDirectory()) stack.push(path);
-        else if (info.isFile()) files.push({ path, key: relative(sourceRoot, path).split(sep).join("/") });
+        else if (info.isFile()) {
+          files.push({
+            path,
+            key: relative(sourceRoot, path).split(sep).join("/"),
+            size: info.size,
+            mtime_ms: info.mtimeMs,
+            ctime_ms: info.ctimeMs,
+          });
+        }
       }
     }
   }
   return files.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+async function refreshSourceFileMetadata(file) {
+  const info = await lstat(file.path);
+  if (info.isSymbolicLink()) fail("unsafe_source_link");
+  if (!info.isFile()) fail("source_not_regular_file");
+  return {
+    ...file,
+    size: info.size,
+    mtime_ms: info.mtimeMs,
+    ctime_ms: info.ctimeMs,
+  };
+}
+
+function sameSourceMetadata(left, right) {
+  return left.size === right.size
+    && left.mtime_ms === right.mtime_ms
+    && left.ctime_ms === right.ctime_ms;
 }
 
 async function readCheckpoint(path) {
@@ -212,6 +270,14 @@ async function safeStoredDigest(root, path) {
   const info = await lstat(path);
   if (!info.isFile() || info.isSymbolicLink()) fail("stored_not_regular_file");
   return stableDigest(path);
+}
+
+async function safeStoredMetadata(root, path, expectedSize) {
+  if (!inside(root, path)) fail("stored_path_escape");
+  await ensureSafeDirectoryChain(root, dirname(path));
+  const info = await lstat(path);
+  if (!info.isFile() || info.isSymbolicLink()) fail("stored_not_regular_file");
+  if (info.size !== expectedSize) fail("checkpoint_custody_mismatch");
 }
 
 function receiptMatches(existing, expected) {
@@ -333,6 +399,59 @@ async function verifyPreviousCustody(destinationRoot, receiptRoot, previous, ass
   return receiptsWritten;
 }
 
+async function verifyPreviousCustodyMetadata(destinationRoot, receiptRoot, previous, assertFence) {
+  let receiptsWritten = 0;
+  let hashedCount = 0;
+  let metadataCheckedCount = 0;
+  const history = Array.isArray(previous.custody_history) ? previous.custody_history : [];
+  for (const entry of [...history, previous]) {
+    const storedPath = resolve(destinationRoot, String(entry.storage_ref || ""));
+    if (!inside(destinationRoot, storedPath) || !(await exists(storedPath))) fail("checkpoint_custody_missing");
+    await safeStoredMetadata(destinationRoot, storedPath, entry.size);
+    metadataCheckedCount += 1;
+    const receipt = receiptFromCheckpoint(entry);
+    const existing = await readReceiptByIdentity(
+      receiptRoot,
+      receipt.source_owner_ref,
+      receipt.source_key,
+      receipt.sha256,
+    );
+    if (existing) {
+      const id = receiptId(receipt.source_owner_ref, receipt.source_key, receipt.sha256);
+      const expected = { schema_version: RECEIPT_SCHEMA, receipt_id: id, ...receipt };
+      if (!receiptMatches(existing, expected)) fail("existing_receipt_mismatch");
+      continue;
+    }
+    const stored = await safeStoredDigest(destinationRoot, storedPath);
+    hashedCount += 1;
+    if (stored.sha256 !== entry.sha256 || stored.size !== entry.size) fail("checkpoint_custody_mismatch");
+    if (await writeReceipt(receiptRoot, receipt, assertFence)) receiptsWritten += 1;
+  }
+  return { receiptsWritten, hashedCount, metadataCheckedCount };
+}
+
+function checkpointObservedMetadata(previous) {
+  return {
+    size: Number.isSafeInteger(previous?.source_observed_size)
+      ? previous.source_observed_size
+      : previous?.size,
+    mtime_ms: Number.isFinite(previous?.source_observed_mtime_ms)
+      ? previous.source_observed_mtime_ms
+      : previous?.source_mtime_ms,
+    ctime_ms: Number.isFinite(previous?.source_observed_ctime_ms)
+      ? previous.source_observed_ctime_ms
+      : null,
+  };
+}
+
+function sourceMetadataMatchesCheckpoint(file, previous) {
+  if (!previous || previous.source_present === false) return false;
+  const observed = checkpointObservedMetadata(previous);
+  return observed.size === file.size
+    && observed.mtime_ms === file.mtime_ms
+    && (observed.ctime_ms === null || observed.ctime_ms === file.ctime_ms);
+}
+
 function validateCheckpointIdentity(checkpoint, sourceOwnerRef, lanes) {
   if (checkpoint.source_owner_ref && checkpoint.source_owner_ref !== sourceOwnerRef) fail("checkpoint_identity_mismatch");
   if (Array.isArray(checkpoint.lanes) && checkpoint.lanes.join("\0") !== lanes.join("\0")) fail("checkpoint_lane_mismatch");
@@ -356,6 +475,8 @@ export async function syncCopyOnlyMirror(options) {
   const sourceOwnerRef = String(options.sourceOwnerRef || "").trim();
   const lanes = normalizeLanes(options.lanes);
   const requiredSourcePrefixes = normalizeRequiredSourcePrefixes(options.requiredSourcePrefixes, lanes);
+  const requestedVerificationMode = normalizeVerificationMode(options.verificationMode);
+  const fullAuditIntervalSeconds = normalizeFullAuditIntervalSeconds(options.fullAuditIntervalSeconds);
   const maxNewFiles = Number.isSafeInteger(options.maxNewFiles) ? options.maxNewFiles : 250;
   const maxNewBytes = Number.isSafeInteger(options.maxNewBytes) ? options.maxNewBytes : 2 * 1024 * 1024 * 1024;
   const now = typeof options.now === "function" ? options.now : () => new Date().toISOString();
@@ -379,6 +500,13 @@ export async function syncCopyOnlyMirror(options) {
 
   const checkpoint = await readCheckpoint(checkpointPath);
   validateCheckpointIdentity(checkpoint, sourceOwnerRef, lanes);
+  const cycleObservedAt = now();
+  const verificationMode = effectiveVerificationMode(
+    requestedVerificationMode,
+    checkpoint,
+    fullAuditIntervalSeconds,
+    cycleObservedAt,
+  );
   const files = await collectLaneFiles(sourceRoot, lanes);
   if (requiredSourcePrefixes.length > 0) {
     const required = (file) => requiredSourcePrefixes.some(
@@ -393,9 +521,17 @@ export async function syncCopyOnlyMirror(options) {
     (file) => file.key === prefix || file.key.startsWith(`${prefix}/`),
   )));
   const observedSources = new Map();
+  const metadataFastPathFiles = [];
   const summary = {
     schema_version: "soulforge.voice.copy_only_run.v1",
+    requested_verification_mode: requestedVerificationMode,
+    verification_mode: verificationMode,
+    full_audit_complete: verificationMode === "full_audit" ? false : null,
     scanned: files.length,
+    source_files_hashed: 0,
+    source_files_metadata_unchanged: 0,
+    retained_custody_entries_hashed: 0,
+    retained_custody_entries_metadata_checked: 0,
     seeded_legacy: 0,
     copied_new: 0,
     copied_version: 0,
@@ -409,17 +545,70 @@ export async function syncCopyOnlyMirror(options) {
 
   for (const previous of Object.values(checkpoint.files)) {
     await assertFence({ phase: "before_previous_custody", source_key: previous.source_key });
-    summary.receipts_written += await verifyPreviousCustody(destinationRoot, receiptRoot, previous, assertFence);
+    const retainedCount = 1 + (Array.isArray(previous.custody_history) ? previous.custody_history.length : 0);
+    if (verificationMode === "full_audit") {
+      summary.receipts_written += await verifyPreviousCustody(destinationRoot, receiptRoot, previous, assertFence);
+      summary.retained_custody_entries_hashed += retainedCount;
+    } else {
+      const verified = await verifyPreviousCustodyMetadata(
+        destinationRoot,
+        receiptRoot,
+        previous,
+        assertFence,
+      );
+      summary.receipts_written += verified.receiptsWritten;
+      summary.retained_custody_entries_hashed += verified.hashedCount;
+      summary.retained_custody_entries_metadata_checked += verified.metadataCheckedCount;
+    }
     await assertFence({ phase: "after_previous_custody", source_key: previous.source_key });
   }
 
   for (const file of files) {
     await assertFence({ phase: "before_source_file", source_key: file.key });
-    const source = await stableDigest(file.path);
-    observedSources.set(file.key, source);
+    const currentFile = await refreshSourceFileMetadata(file);
     const previous = checkpoint.files[file.key];
+    if (verificationMode === "incremental" && sourceMetadataMatchesCheckpoint(currentFile, previous)) {
+      const observed = checkpointObservedMetadata(previous);
+      observedSources.set(file.key, {
+        sha256: previous.sha256,
+        size: observed.size,
+        mtime_ms: observed.mtime_ms,
+      });
+      checkpoint.files[file.key] = {
+        ...previous,
+        source_present: true,
+        source_observed_size: currentFile.size,
+        source_observed_mtime_ms: currentFile.mtime_ms,
+        source_observed_ctime_ms: currentFile.ctime_ms,
+      };
+      metadataFastPathFiles.push(currentFile);
+      delete checkpoint.files[file.key].source_missing_observed_at;
+      summary.unchanged += 1;
+      summary.source_files_metadata_unchanged += 1;
+      await assertFence({ phase: "after_source_file", source_key: file.key });
+      continue;
+    }
+    if (verificationMode === "incremental" && previous) {
+      const retainedCount = 1 + (Array.isArray(previous.custody_history) ? previous.custody_history.length : 0);
+      summary.receipts_written += await verifyPreviousCustody(
+        destinationRoot,
+        receiptRoot,
+        previous,
+        assertFence,
+      );
+      summary.retained_custody_entries_hashed += retainedCount;
+    }
+    const source = await stableDigest(currentFile.path);
+    summary.source_files_hashed += 1;
+    observedSources.set(file.key, source);
     if (previous?.sha256 === source.sha256 && previous?.size === source.size) {
-      checkpoint.files[file.key] = { ...previous, source_present: true };
+      checkpoint.files[file.key] = {
+        ...previous,
+        source_present: true,
+        source_observed_size: source.size,
+        source_observed_mtime_ms: source.mtime_ms,
+        source_observed_ctime_ms: source.ctime_ms,
+      };
       delete checkpoint.files[file.key].source_missing_observed_at;
       summary.unchanged += 1;
       await assertFence({ phase: "after_source_file", source_key: file.key });
@@ -499,8 +688,20 @@ export async function syncCopyOnlyMirror(options) {
     const custodyHistory = previous
       ? [...(Array.isArray(previous.custody_history) ? previous.custody_history : []), receiptFromCheckpoint(previous)]
       : [];
-    checkpoint.files[file.key] = { ...receipt, source_present: true, custody_history: custodyHistory };
+    checkpoint.files[file.key] = {
+      ...receipt,
+      source_present: true,
+      source_observed_size: source.size,
+      source_observed_mtime_ms: source.mtime_ms,
+      source_observed_ctime_ms: source.ctime_ms,
+      custody_history: custodyHistory,
+    };
     await assertFence({ phase: "after_source_file", source_key: file.key });
+  }
+
+  for (const file of metadataFastPathFiles) {
+    const confirmed = await refreshSourceFileMetadata(file);
+    if (!sameSourceMetadata(file, confirmed)) fail("source_changed_during_incremental_scan");
   }
 
   for (const [key, value] of Object.entries(checkpoint.files)) {
@@ -512,6 +713,10 @@ export async function syncCopyOnlyMirror(options) {
   checkpoint.schema_version = CHECKPOINT_SCHEMA;
   checkpoint.source_owner_ref = sourceOwnerRef;
   checkpoint.lanes = lanes;
+  if (verificationMode === "full_audit") {
+    summary.full_audit_complete = !summary.limit_reached && observedSources.size === files.length;
+    if (summary.full_audit_complete) checkpoint.last_full_audit_at = cycleObservedAt;
+  }
   checkpoint.updated_at = now();
   await assertFence({ phase: "before_checkpoint", source_key: null });
   await atomicJson(checkpointPath, checkpoint, assertFence, {

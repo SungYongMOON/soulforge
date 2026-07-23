@@ -669,10 +669,44 @@ test("voice mirror copies a new source once and replays without payload writes",
     const first = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => value++ });
     assert.equal(first.voice.copied_new, 1);
     assert.equal(first.voice.source_missing_since_checkpoint, 0);
+    assert.equal(first.voice.requested_verification_mode, "incremental");
+    assert.equal(first.voice.verification_mode, "full_audit");
+    assert.equal(first.voice.source_files_hashed, 1);
     value += 1000;
     const second = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => value++ });
     assert.equal(second.voice.copied_new, 0);
     assert.equal(second.voice.unchanged, 1);
+    assert.equal(second.voice.verification_mode, "incremental");
+    assert.equal(second.voice.source_files_hashed, 0);
+    assert.equal(second.voice.source_files_metadata_unchanged, 1);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("continuous runner forwards its clock to the 24-hour voice audit boundary", async () => {
+  const f = await fixture();
+  try {
+    await mkdir(join(f.voiceRoot, "sessions"));
+    await writeFile(join(f.voiceRoot, "sessions", "audit-clock.bin"), "synthetic-voice");
+    const payload = binding(f);
+    payload.voice.enabled = true;
+    payload.queues = payload.queues.map((queue) => ({ ...queue, enabled: false }));
+    await writeBinding(f, payload);
+    const runAt = (timestamp) => runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: () => Date.parse(timestamp),
+    });
+
+    const first = await runAt("2026-07-17T00:00:00.000Z");
+    assert.equal(first.voice.verification_mode, "full_audit");
+    assert.equal(first.voice.full_audit_complete, true);
+    const beforeBoundary = await runAt("2026-07-17T23:59:59.999Z");
+    assert.equal(beforeBoundary.voice.verification_mode, "incremental");
+    const atBoundary = await runAt("2026-07-18T00:00:00.000Z");
+    assert.equal(atBoundary.voice.verification_mode, "full_audit");
+    assert.equal(atBoundary.voice.full_audit_complete, true);
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

@@ -169,6 +169,17 @@ runs one cycle, waits `poll_interval_seconds`, and repeats until it receives a
 stop signal. It exits on a fatal cycle error so the OS can perform a bounded
 restart, while degraded lane results remain recorded cycles.
 
+Continuous voice custody uses the mirror's incremental mode. Ordinary cycles
+still enumerate allowlisted file metadata for missing/new/change detection, but
+they do not stream-hash unchanged source or custody payloads. New, changed, or
+reappeared sources are fully hashed, and changed sources force a full retained
+custody check before immutable versioning. A full source-and-custody audit is
+forced on the first successful cycle at or after each 24-hour boundary and
+recorded in the checkpoint. The run receipt reports the requested/effective
+verification mode and separate metadata-scan and payload-hash counts.
+An audit truncated by a copy limit is explicitly incomplete and cannot advance
+the checkpoint's last-full-audit timestamp.
+
 A temporarily missing enabled voice or queue source is isolated to that lane:
 the cycle records a sanitized degraded error and continues the other available
 lanes. An existing source that resolves through a link or other unsafe path is

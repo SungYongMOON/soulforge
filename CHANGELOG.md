@@ -2,6 +2,20 @@
 
 ## 2026-07-23
 
+### HPP continuous voice incremental custody
+
+- Split the source-preserving voice mirror into its existing default
+  `full_audit` mode and a checkpoint-based `incremental` mode used by the HPP
+  continuous supervisor. Ordinary cycles compare allowlisted file size, mtime,
+  and ctime and stream-hash only new, changed, or reappeared sources.
+- Kept fail-closed custody behavior: a changed source fully revalidates every
+  retained generation before immutable versioning, receipts remain exact, and
+  the supervisor forces a complete source-and-custody audit on the first
+  successful cycle at or after each 24-hour boundary. A copy-limit truncation
+  cannot advance the last-full-audit checkpoint.
+- Added distinct metadata-scan and payload-hash counters so an enumerated file
+  count is not reported as if every payload had been reread.
+
 ### Task Engine all-source data foundation
 
 - Added feature-OFF, public-safe foundations for bounded strong-ASR voice
