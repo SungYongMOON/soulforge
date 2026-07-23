@@ -27,6 +27,11 @@ _SAFE_MAILBOX_ERROR_CODES = {
 
 def _safe_mailbox_error_code(exc: Exception) -> str:
     value = str(exc or "").strip()
+    if isinstance(exc, outlook_sent.OutlookSentError) and re.fullmatch(
+        r"outlook_sent_[a-z0-9_]+",
+        value,
+    ):
+        return value
     return value if value in _SAFE_MAILBOX_ERROR_CODES else "mailbox_run_error"
 SUPPORTED_PROVIDERS = {"gmail", "hiworks", "outlook_sent"}
 DEFAULT_TEAM_REGISTER_REL = Path("guild_hall/state/gateway/mailbox/state/team_mailboxes.json")

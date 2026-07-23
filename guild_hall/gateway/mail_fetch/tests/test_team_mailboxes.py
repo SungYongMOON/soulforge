@@ -142,6 +142,20 @@ def test_outlook_sent_provider_runs_inside_pinned_team_capsule(
     assert seen[0].source_custody_root.is_relative_to(data_root)
 
 
+def test_outlook_sent_error_code_is_safe_for_operator_diagnosis() -> None:
+    error = team_mailboxes.outlook_sent.OutlookSentError(
+        "outlook_sent_folder_pin_mismatch"
+    )
+    assert (
+        team_mailboxes._safe_mailbox_error_code(error)
+        == "outlook_sent_folder_pin_mismatch"
+    )
+    assert (
+        team_mailboxes._safe_mailbox_error_code(RuntimeError("private detail"))
+        == "mailbox_run_error"
+    )
+
+
 def test_outlook_sent_uses_empty_preloaded_capsule_without_reopen_and_honors_limit(
     monkeypatch, tmp_path: Path
 ) -> None:
