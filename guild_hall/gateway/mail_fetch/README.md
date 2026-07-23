@@ -20,6 +20,25 @@
 - runbooks: `docs/architecture/guild_hall/gateway/mail_fetch/runbooks/**`
 - policies: `docs/architecture/guild_hall/gateway/mail_fetch/policies/**`
 
+## H01C mail occurrence shadow (feature OFF)
+
+`collector/pipeline/mail_occurrence_shadow.py`는 받은메일·보낸메일을 한 logical
+mail occurrence와 여러 account/folder mailbox observation으로 분리하는
+public-safe 합성 검증 모듈이다. RFC Message-ID 또는 namespaced provider-native
+exact ref만 confirmed merge에 사용하며, exact ref가 없으면 observation별
+unmatched occurrence로 유지한다. subject/time/size, ConversationID, thread relation,
+POP3 received copy, `cc`는 cross-mailbox identity나 sent coverage의 근거가 아니다.
+
+이 모듈은 account별 received/sent expected source와 여섯 coverage state를 별도
+`email.fetch.mail_account_coverage_shadow.v1` wrapper에 두고, 그 안에는 공용
+`soulforge.project_history_coverage_receipt.v1` exact-field receipt를 그대로
+중첩한다. atomic batch/cursor replay, observation dedupe, opaque custody ref
+경계도 함께 검증한다.
+팀원 sent source가 정해지지 않은 경우 `not_collected`와
+`team_sent_source_unbound` gap을 유지한다. live collector·runner·DB·project
+history·official task writer에는 연결되지 않았고, accepted history나 production
+authority를 만들지 않는다.
+
 ## Soulforge 기본 경로
 
 - mailbox root: `guild_hall/state/gateway/mailbox/`
