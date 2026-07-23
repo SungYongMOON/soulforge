@@ -50,6 +50,12 @@ function approvedOperationalContainment(left, right) {
   return false;
 }
 
+export function parseWindowsReparseTag(output) {
+  const match = String(output).match(/0x[0-9a-f]{8}(?![0-9a-f])/i);
+  if (!match) fail("preflight_reparse_unparseable");
+  return match[0].toLowerCase();
+}
+
 export async function runReadOnlyCommand({ file, args, signal }) {
   try {
     const { stdout = "", stderr = "" } = await execFileAsync(file, args, { windowsHide: true, encoding: "utf8", maxBuffer: 1024 * 1024, signal });
@@ -73,9 +79,7 @@ async function inspectPathDefault(resource, { commandRunner = runReadOnlyCommand
   if (process.platform === "win32" && resource.kind !== "raidrive_network_directory") {
     const query = await commandRunner({ file: "fsutil.exe", args: ["reparsepoint", "query", resource.path], signal });
     if (query.code === 0) {
-      const match = String(query.stdout).match(/0x[0-9a-f]{8}(?![0-9a-f])/i);
-      if (!match) fail("preflight_reparse_unparseable");
-      reparseTag = match[1].toLowerCase();
+      reparseTag = parseWindowsReparseTag(query.stdout);
     } else if (query.code !== 1) {
       fail("preflight_reparse_query_failed");
     }

@@ -14,6 +14,9 @@
   mismatch. This correction does not relax the pinned HEAD and tracked
   runtime-module cleanliness checks and does not require the active development
   worktree to be clean during a backup run.
+- Fixed the Windows `fsutil reparsepoint query` parser to return the matched tag
+  itself instead of a nonexistent capture group, with valid and malformed
+  output regressions.
 
 ### Task Engine sent-mail and Slack communication-history plan correction
 

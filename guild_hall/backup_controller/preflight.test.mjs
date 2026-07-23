@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { BackupControllerError, DAILY_CYCLE_STAGE_IDS, STAGE_COMMAND_IDS } from "./controller.mjs";
-import { preflightBinding, probeRuntimeGitDefault } from "./preflight.mjs";
+import { parseWindowsReparseTag, preflightBinding, probeRuntimeGitDefault } from "./preflight.mjs";
 
 async function fixture(t) {
   const root = await mkdtemp(path.join(os.tmpdir(), "sf-backup-preflight-"));
@@ -65,6 +65,11 @@ test("preflight accepts exact typed paths, OneDrive tag, RaiDrive UNC roots, ACL
   assert.equal(result.ok, true);
   assert.equal(result.write_probe_performed, false);
   assert.equal(result.policy_sha256, fx.binding.resources.hpp_recovery_policy.sha256);
+});
+
+test("Windows reparse output parser returns the exact tag without requiring a capture group", () => {
+  assert.equal(parseWindowsReparseTag("Reparse Tag Value : 0x9000601A\r\n"), "0x9000601a");
+  assert.throws(() => parseWindowsReparseTag("Reparse Tag Value : unavailable\r\n"), (error) => error instanceof BackupControllerError && error.code === "preflight_reparse_unparseable");
 });
 
 test("preflight rejects host drift and any resource overlap", async (t) => {
