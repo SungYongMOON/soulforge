@@ -164,6 +164,32 @@ collector execution, workspace/runtime inspection, DB or task-data mutation,
 writer activation, and C00B execution require a separate owner-approved C00B
 packet and are outside this command.
 
+## WorkSession query-only source inventory
+
+`src/work_session_source_inventory.mjs` is a narrower H03A availability probe
+for one owner-authorized exact existing dev-ERP SQLite file. It is stdin-only,
+has no default path, and never constructs the WorkSession lifecycle store or
+outbox because those constructors can create schema or directories.
+
+The command checks main/WAL/SHM presence before and after main fingerprinting,
+before open, and after close. WAL/SHM files are never read or hashed; any
+observed sidecar blocks the query. Only a sidecar-free regular file is opened with
+`DatabaseSync(..., { readOnly: true })`, switched to `PRAGMA query_only=ON`, and
+queried for fixed `erp_mcp_work_session` table presence, row count, and
+`MAX(created_at)`. It returns no row ID, account, item/project value, summary,
+knowledge, output, command, or conversation value. Main/WAL/SHM fingerprints
+must remain exactly equivalent and `total_changes()` must remain zero.
+
+```powershell
+'{"database_path":"<exact existing dev-ERP SQLite file>"}' |
+  node src/work_session_source_inventory.mjs
+```
+
+This proves at most `source_availability_metadata_only`. It does not ratify
+D19/D25/D26, accept H03A, migrate a DB, create WorkSessions, capture Codex
+conversations, or activate MCP, a collector, writer, scheduler, classification,
+semantic label, or TaskDriver.
+
 설계 정본: [`docs/DESIGN.md`](docs/DESIGN.md) · 작업 큐: [`docs/checklist_phase1.json`](docs/checklist_phase1.json)
 
 하드웨어/체계공학 개발팀의 운영 레이어. P1 은 read-only 콕핏이다:

@@ -2,6 +2,23 @@
 
 ## 2026-07-23
 
+### Local activity three-source query-only inventory
+
+- Added separate stdin-only, query-only source inventories for dev-ERP
+  WorkSession aggregates, the fixed project `file_activity` metadata layout, and
+  exact `report_authoring_v0` workflow receipts.
+- WorkSession inventory repeatedly checks WAL/SHM presence, never reads or
+  hashes a sidecar, and refuses a late sidecar before DB open; it never
+  constructs lifecycle or outbox writers. File inventory
+  stats only the approved metadata layout and never opens or hashes business
+  files. Run inventory requires explicit receipt paths and never discovers or
+  recurses through `runs/**`.
+- The bounded HPP canary reported the existing WorkSession sidecar guard, an
+  unmaterialized file-activity owner root, and a missing exact run-receipt
+  descriptor without mutating source metadata. No whole Codex log, file body,
+  raw/stage log, conversation, collector, watcher, database writer, scheduler,
+  classification, semantic labeler, MCP live route, or TaskDriver was enabled.
+
 ### Slack read-only source canary
 
 - Added a stdin-only Slack inventory sanitizer that accepts only stable

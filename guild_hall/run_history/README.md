@@ -32,6 +32,30 @@ relation-only until an owner-approved full-record digest, same-ID conflict, and
 raw/secret boundary contract exists. Daily-ledger/context rows are projections,
 not H05 occurrences or coverage events.
 
+## Query-only source inventory
+
+`source_inventory.mjs` accepts one exact authorized run root plus a non-empty
+list of exact `workflow_receipt.json` paths through stdin. It never searches or
+recurses through `runs/**`, uses a wildcard, reads a raw/stage log or transcript,
+or returns a path, filename, receipt ID, or receipt body. Each descriptor must
+remain below the authorized root, have no symlink/junction component, pass the
+existing `validateWorkflowReceipt` contract, and bind exactly to
+`report_authoring_v0.binding.v1`. Type, size, and mtime are checked before and
+after each bounded read.
+
+The redacted result contains only receipt count, latest completion time, a
+receipt-set digest, and mutation proof. An empty exact-receipt list fails as
+`descriptor_missing`; the command does not substitute directory discovery.
+
+```powershell
+'{"authorized_run_root":"<exact run root>","receipt_paths":["<exact workflow_receipt.json>"]}' |
+  node guild_hall/run_history/source_inventory.mjs
+```
+
+This proves at most `source_availability_metadata_only`. It neither accepts H05
+nor activates run capture, persistence, classification, semantic labeling,
+TaskDriver, or any writer/scheduler.
+
 ## Coverage and authority boundary
 
 `createRunHistoryCoverageEvidence` reuses the H00 independent coverage receipt
@@ -47,6 +71,6 @@ records `feature_enabled: false` and `raw_payload_copied: false`.
 ## Focused verification
 
 ```powershell
-node --test guild_hall/run_history/run_history.test.mjs
+node --test guild_hall/run_history/run_history.test.mjs guild_hall/run_history/source_inventory.test.mjs
 git diff --check -- guild_hall/run_history
 ```

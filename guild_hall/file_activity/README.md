@@ -59,6 +59,34 @@ field.
 This adapter creates no watcher, scheduler, transport, writer, owner
 ratification, live completeness claim, or project-history activation.
 
+## Query-only source inventory
+
+`source_inventory.mjs` is a separate stdin-only availability probe for one
+owner-authorized exact `_workmeta/<project>/reports/file_activity` root. It
+does not call the scanner or adapter and never opens or hashes a business file.
+It only stats the fixed metadata layouts documented below:
+
+- `observations/<node>/<YYYY>/<MM>/*.json`
+- `receipts|events|checkpoints/<YYYY-MM>/*.json`
+- `revision_state.json`
+- `projections/life_tree_events.json`
+
+Unknown layouts, symlinks/junctions, non-JSON leaves, arguments, default paths,
+and path guessing fail closed. Output contains only availability, aggregate
+file count/bytes, newest metadata mtime, and a metadata-tree digest; it returns
+no path, filename, native ID, event value, or payload. An absent exact owner
+root is reported as `not_materialized` and is not created.
+
+```powershell
+'{"authorized_metadata_root":"<exact file_activity owner root>"}' |
+  node guild_hall/file_activity/source_inventory.mjs
+```
+
+This proves at most `source_availability_metadata_only`. It does not start file
+observation, materialize the owner root, ratify D19/D25/D26, accept H04, or
+activate a collector, reducer, projector, writer, scheduler, classification,
+semantic label, or TaskDriver.
+
 ## Node roles and cadence candidates
 
 | Role | Candidate cadence | Extra triggers |
