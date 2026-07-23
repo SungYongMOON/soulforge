@@ -716,6 +716,16 @@ def _export_with_active_outlook(
 ) -> Mapping[str, Any]:
     if os.name != "nt":
         raise OutlookSentError("outlook_sent_windows_required")
+    system_root = Path(str(os.environ.get("SystemRoot") or "").strip())
+    powershell = (
+        system_root
+        / "System32"
+        / "WindowsPowerShell"
+        / "v1.0"
+        / "powershell.exe"
+    )
+    if not system_root.is_absolute() or not powershell.is_file():
+        raise OutlookSentError("outlook_sent_powershell_unavailable")
     manifest = staging_root / "export.json"
     env = dict(os.environ)
     env.update(
@@ -729,22 +739,25 @@ def _export_with_active_outlook(
             "SOULFORGE_OUTLOOK_EXPECTED_FOLDER": config.default_folder_fingerprint,
         }
     )
-    completed = subprocess.run(
-        [
-            "powershell.exe",
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            build_outlook_sent_powershell_script(),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=300,
-        env=env,
-    )
+    try:
+        completed = subprocess.run(
+            [
+                str(powershell),
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                build_outlook_sent_powershell_script(),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            env=env,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise OutlookSentError("outlook_sent_export_failed", retryable=True) from exc
     if completed.returncode != 0:
         raise OutlookSentError("outlook_sent_export_failed", retryable=True)
     try:

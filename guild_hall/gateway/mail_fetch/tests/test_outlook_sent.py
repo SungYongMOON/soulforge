@@ -3,10 +3,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+import collector.outlook_sent as outlook_sent
 from collector.outlook_sent import (
     OutlookSentConfig,
     OutlookSentError,
@@ -316,3 +319,41 @@ def test_powershell_is_active_attach_sent_only_unicode_export_static_safe() -> N
         ".Save(",
     ):
         assert forbidden not in script
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows PowerShell path contract")
+def test_active_outlook_export_uses_absolute_system_powershell(
+    monkeypatch, tmp_path: Path
+) -> None:
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    seen = {}
+
+    def fake_run(args, **kwargs):
+        seen["executable"] = args[0]
+        manifest = Path(kwargs["env"]["SOULFORGE_OUTLOOK_MANIFEST"])
+        manifest.write_text(
+            json.dumps(
+                {
+                    "store_fingerprint": STORE_PIN,
+                    "folder_fingerprint": FOLDER_PIN,
+                    "records": [],
+                    "truncated": False,
+                    "gap_codes": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(outlook_sent.subprocess, "run", fake_run)
+    result = outlook_sent._export_with_active_outlook(
+        _config(tmp_path),
+        staging,
+        NOW,
+        NOW.replace(minute=1),
+    )
+
+    assert Path(seen["executable"]).is_absolute()
+    assert Path(seen["executable"]).name.lower() == "powershell.exe"
+    assert result["records"] == []
