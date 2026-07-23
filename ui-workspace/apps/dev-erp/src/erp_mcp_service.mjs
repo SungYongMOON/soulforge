@@ -11,6 +11,11 @@ import {
 } from "node:fs";
 import { basename, extname, isAbsolute, join, relative, resolve } from "node:path";
 
+import {
+  createWorkSessionLifecycleStore,
+  WorkSessionLifecycleError,
+} from "./work_session_lifecycle.mjs";
+
 export const ERP_MCP_FILE_MAX = 25 * 1024 * 1024;
 export const ERP_MCP_UPLOAD_TTL_MS = 10 * 60 * 1000;
 
@@ -219,12 +224,36 @@ export function createErpMcpService({
   timeZone = "Asia/Seoul",
   fileMax = ERP_MCP_FILE_MAX,
   uploadTtlMs = ERP_MCP_UPLOAD_TTL_MS,
+  workSessionLifecycleEnabled = false,
+  workSessionMissingCloseoutAfterMs = 24 * 60 * 60 * 1000,
 } = {}) {
   if (!store?.db) throw new TypeError("store_required");
   const db = store.db;
   const storageRoot = resolve(String(artifactRoot || ""));
   if (!artifactRoot) throw new TypeError("artifact_root_required");
   db.exec(DDL);
+  let personalWorkSessionStore = null;
+
+  function lifecycleStore() {
+    if (workSessionLifecycleEnabled !== true) fail("work_session_lifecycle_disabled", 404);
+    if (!personalWorkSessionStore) {
+      personalWorkSessionStore = createWorkSessionLifecycleStore({
+        db,
+        now,
+        missingCloseoutAfterMs: workSessionMissingCloseoutAfterMs,
+      });
+    }
+    return personalWorkSessionStore;
+  }
+
+  function lifecycleCall(callback) {
+    try {
+      return callback();
+    } catch (error) {
+      if (error instanceof WorkSessionLifecycleError) fail(error.code, error.status);
+      throw error;
+    }
+  }
 
   function accountById(accountId) {
     return db.prepare(
@@ -599,6 +628,63 @@ export function createErpMcpService({
     return latestWorkSession(account, itemId);
   }
 
+  function registerPersonalWorkSessionNode(account, input) {
+    const lifecycle = lifecycleStore();
+    const currentAccount = requireCurrentPrincipal(account);
+    return lifecycleCall(() => lifecycle.registerNode(currentAccount.id, input));
+  }
+
+  function startPersonalWorkSession(account, input) {
+    const lifecycle = lifecycleStore();
+    const currentAccount = requireCurrentPrincipal(account);
+    const item = requireItem(currentAccount, input?.item_id);
+    if (String(input?.project_id || "") !== item.project_id) {
+      fail("work_session_assignment_project_mismatch", 409);
+    }
+    return lifecycleCall(() => lifecycle.start(currentAccount.id, input));
+  }
+
+  function appendPersonalWorkSessionEvent(account, input) {
+    const lifecycle = lifecycleStore();
+    const currentAccount = requireCurrentPrincipal(account);
+    return lifecycleCall(() => {
+      const session = lifecycle.session(currentAccount.id, String(input?.session_id || ""));
+      if (!session) fail("work_session_not_found", 404);
+      const item = requireItem(currentAccount, session.item_id);
+      if (item.project_id !== session.project_id) {
+        fail("work_session_assignment_project_mismatch", 409);
+      }
+      return lifecycle.append(currentAccount.id, input);
+    });
+  }
+
+  function personalWorkSession(account, sessionId) {
+    const lifecycle = lifecycleStore();
+    const currentAccount = requireCurrentPrincipal(account);
+    return lifecycleCall(() => {
+      const session = lifecycle.session(currentAccount.id, String(sessionId || ""));
+      if (!session) fail("work_session_not_found", 404);
+      requireItem(currentAccount, session.item_id);
+      return session;
+    });
+  }
+
+  function missingPersonalWorkSessionCloseouts(account) {
+    const lifecycle = lifecycleStore();
+    const currentAccount = requireCurrentPrincipal(account);
+    return lifecycleCall(() => lifecycle.missingCloseouts(currentAccount.id));
+  }
+
+  function verifyPersonalWorkSessionReceipt(account, input) {
+    const lifecycle = lifecycleStore();
+    const currentAccount = requireCurrentPrincipal(account);
+    return lifecycleCall(() => lifecycle.verifyAcceptedReceipt(
+      currentAccount.id,
+      input?.command,
+      input?.receipt,
+    ));
+  }
+
   function prepareUpload(account, input = {}) {
     try {
       db.exec("BEGIN IMMEDIATE");
@@ -759,6 +845,12 @@ export function createErpMcpService({
     publishWorkSession,
     latestWorkSession,
     completionPacket,
+    registerPersonalWorkSessionNode,
+    startPersonalWorkSession,
+    appendPersonalWorkSessionEvent,
+    personalWorkSession,
+    missingPersonalWorkSessionCloseouts,
+    verifyPersonalWorkSessionReceipt,
     prepareUpload,
     commitUpload,
     purgeExpiredUploadTickets,

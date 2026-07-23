@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schemas/dev-erp/personal-work-session-command.v1.schema.json",
+  "title": "dev-ERP personal WorkSession command v1",
+  "oneOf": [
+    { "$ref": "#/$defs/start" },
+    { "$ref": "#/$defs/checkpoint" },
+    { "$ref": "#/$defs/closeout" }
+  ],
+  "$defs": {
+    "safe_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "opaque_thread_ref": {
+      "type": "string",
+      "pattern": "^ws_thread_sha256:[a-f0-9]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "bounded_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "not": {
+        "pattern": "(?:[Ww][Hh][Oo][Ll][Ee][ _-]+(?:[Cc][Oo][Nn][Vv][Ee][Rr][Ss][Aa][Tt][Ii][Oo][Nn]|[Tt][Aa][Ss][Kk][ _-]*[Cc][Hh][Aa][Tt])|[Rr][Aa][Ww][ _-]+(?:[Cc][Oo][Nn][Vv][Ee][Rr][Ss][Aa][Tt][Ii][Oo][Nn]|[Tt][Aa][Ss][Kk][ _-]*[Cc][Hh][Aa][Tt]|[Cc][Oo][Mm][Pp][Ll][Ee][Tt][Ii][Oo][Nn][ _-]*[Hh][Oo][Oo][Kk])|[Bb][Ee][Gg][Ii][Nn][ _-]+(?:[Cc][Oo][Nn][Vv][Ee][Rr][Ss][Aa][Tt][Ii][Oo][Nn]|[Tt][Rr][Aa][Nn][Ss][Cc][Rr][Ii][Pp][Tt])|[Ss][Cc][Rr][Ee][Ee][Nn][ _-]*(?:[Cc][Aa][Pp][Tt][Uu][Rr][Ee]|[Rr][Ee][Cc][Oo][Rr][Dd][Ii][Nn][Gg])|[Kk][Ee][Yy][Bb][Oo][Aa][Rr][Dd][ _-]*(?:[Cc][Aa][Pp][Tt][Uu][Rr][Ee]|[Ll][Oo][Gg](?:[Gg][Ii][Nn][Gg])?)|[Kk][Ee][Yy][Ss][Tt][Rr][Oo][Kk][Ee][ _-]*(?:[Cc][Aa][Pp][Tt][Uu][Rr][Ee]|[Ll][Oo][Gg](?:[Gg][Ii][Nn][Gg])?)|(?:[Bb][Rr][Oo][Aa][Dd][ _-]+)?[Oo][Ss][ _-]*(?:[Aa][Cc][Tt][Ii][Vv][Ii][Tt][Yy]|[Mm][Oo][Nn][Ii][Tt][Oo][Rr][Ii][Nn][Gg]|[Ss][Uu][Rr][Vv][Ee][Ii][Ll][Ll][Aa][Nn][Cc][Ee])|[Tt][Aa][Ss][Kk][ _-]*[Cc][Hh][Aa][Tt][ _-]*[Cc][Oo][Mm][Pp][Ll][Ee][Tt][Ii][Oo][Nn][ _-]*[Hh][Oo][Oo][Kk]|\\b[Bb][Ee][Aa][Rr][Ee][Rr]\\s+[A-Za-z0-9._~-]{8,}|\\b(?:[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Cc][Oo][Oo][Kk][Ii][Ee]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])\\s*[:=]\\s*\\S+|\\b[Ss][Kk]-[A-Za-z0-9_-]{12,}|[A-Za-z]:[\\\\/]|\\\\\\\\|/(?:[Uu][Ss][Ee][Rr][Ss]|[Hh][Oo][Mm][Ee]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee]|[Rr][Oo][Oo][Tt]|[Vv][Aa][Rr]/[Ll][Ii][Bb])/|_[Ww][Oo][Rr][Kk][Ss][Pp][Aa][Cc][Ee][Ss][\\\\/]|[Ff][Ii][Ll][Ee]://|(?:^|\\n)\\s*(?:[Uu][Ss][Ee][Rr]|[Hh][Uu][Mm][Aa][Nn])\\s*:\\s*\\S[^\\n]*\\n\\s*(?:[Aa][Ss][Ss][Ii][Ss][Tt][Aa][Nn][Tt]|[Aa][Gg][Ee][Nn][Tt]|[Ss][Yy][Ss][Tt][Ee][Mm])\\s*:\\s*\\S)"
+      }
+    },
+    "ref_list": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/safe_ref" }
+    },
+    "completion_proposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_kind",
+        "authority_state",
+        "summary",
+        "evidence_refs",
+        "artifact_refs"
+      ],
+      "properties": {
+        "proposal_kind": { "const": "task_completion" },
+        "authority_state": { "const": "proposal_only" },
+        "summary": { "$ref": "#/$defs/bounded_summary" },
+        "evidence_refs": { "$ref": "#/$defs/ref_list" },
+        "artifact_refs": { "$ref": "#/$defs/ref_list" }
+      }
+    },
+    "start": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "command_kind",
+        "metadata_boundary",
+        "item_id",
+        "project_id",
+        "assignment_epoch",
+        "node_id",
+        "opaque_thread_ref",
+        "idempotency_key",
+        "primary_session",
+        "started_at"
+      ],
+      "properties": {
+        "schema_version": { "const": "dev_erp.personal_work_session_command.v1" },
+        "command_kind": { "const": "start" },
+        "metadata_boundary": { "const": "metadata_only" },
+        "item_id": { "$ref": "#/$defs/safe_ref" },
+        "project_id": { "$ref": "#/$defs/safe_ref" },
+        "assignment_epoch": { "$ref": "#/$defs/safe_ref" },
+        "node_id": { "$ref": "#/$defs/safe_ref" },
+        "opaque_thread_ref": { "$ref": "#/$defs/opaque_thread_ref" },
+        "idempotency_key": { "$ref": "#/$defs/idempotency_key" },
+        "primary_session": { "const": true },
+        "started_at": { "$ref": "#/$defs/timestamp" },
+        "supersedes_session_id": { "$ref": "#/$defs/safe_ref" }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "command_kind",
+        "metadata_boundary",
+        "session_id",
+        "node_id",
+        "opaque_thread_ref",
+        "idempotency_key",
+        "sequence",
+        "previous_event_digest",
+        "occurred_at",
+        "summary",
+        "artifact_refs",
+        "verification_refs"
+      ],
+      "properties": {
+        "schema_version": { "const": "dev_erp.personal_work_session_command.v1" },
+        "command_kind": { "const": "checkpoint" },
+        "metadata_boundary": { "const": "metadata_only" },
+        "session_id": { "$ref": "#/$defs/safe_ref" },
+        "node_id": { "$ref": "#/$defs/safe_ref" },
+        "opaque_thread_ref": { "$ref": "#/$defs/opaque_thread_ref" },
+        "idempotency_key": { "$ref": "#/$defs/idempotency_key" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "previous_event_digest": { "$ref": "#/$defs/digest" },
+        "occurred_at": { "$ref": "#/$defs/timestamp" },
+        "summary": { "$ref": "#/$defs/bounded_summary" },
+        "artifact_refs": { "$ref": "#/$defs/ref_list" },
+        "verification_refs": { "$ref": "#/$defs/ref_list" }
+      }
+    },
+    "closeout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "command_kind",
+        "metadata_boundary",
+        "session_id",
+        "node_id",
+        "opaque_thread_ref",
+        "idempotency_key",
+        "sequence",
+        "previous_event_digest",
+        "occurred_at",
+        "summary",
+        "artifact_refs",
+        "verification_refs",
+        "closeout_kind"
+      ],
+      "properties": {
+        "schema_version": { "const": "dev_erp.personal_work_session_command.v1" },
+        "command_kind": { "const": "closeout" },
+        "metadata_boundary": { "const": "metadata_only" },
+        "session_id": { "$ref": "#/$defs/safe_ref" },
+        "node_id": { "$ref": "#/$defs/safe_ref" },
+        "opaque_thread_ref": { "$ref": "#/$defs/opaque_thread_ref" },
+        "idempotency_key": { "$ref": "#/$defs/idempotency_key" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "previous_event_digest": { "$ref": "#/$defs/digest" },
+        "occurred_at": { "$ref": "#/$defs/timestamp" },
+        "summary": { "$ref": "#/$defs/bounded_summary" },
+        "artifact_refs": { "$ref": "#/$defs/ref_list" },
+        "verification_refs": { "$ref": "#/$defs/ref_list" },
+        "closeout_kind": {
+          "enum": ["completed_candidate", "blocked", "handoff", "abandoned"]
+        },
+        "completion_proposal": { "$ref": "#/$defs/completion_proposal" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "closeout_kind": { "const": "completed_candidate" }
+            },
+            "required": ["closeout_kind"]
+          },
+          "then": {
+            "type": "object",
+            "required": ["completion_proposal"]
+          },
+          "else": {
+            "type": "object",
+            "not": { "required": ["completion_proposal"] }
+          }
+        }
+      ]
+    }
+  }
+}
