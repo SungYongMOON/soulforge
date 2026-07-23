@@ -398,6 +398,23 @@ copies, and secret-like values fail validation. The schemas are
 [`semantic_label_run.schema.json`](semantic_label_run.schema.json) and
 [`project_context_card.schema.json`](project_context_card.schema.json).
 
+Prepare an immutable, metadata-only approval request from the fast semantic
+run's exact material windows:
+
+```bash
+npm run guild-hall:voice-capture -- semantic-approve-strong-windows \
+  --fast-analysis-manifest <fast-run>/analysis_manifest.json \
+  --approved-by <safe-operational-reviewer-id> \
+  --apply
+```
+
+The request is derived from the semantic run rather than caller-supplied
+windows. It binds the canonical fast manifest digest, session/source identity,
+semantic engine/run digest, exact sorted non-overlapping 30–90 second windows,
+and an explicit approval assertion. A window outside the session duration or
+overlapping another approved window fails closed. The reviewer label is an
+operational assertion, not a cryptographic signature.
+
 Compare the fast and stronger independent runs without printing either body:
 
 ```bash
@@ -471,12 +488,47 @@ credential, and network approval. Semantic processing follows the same cost
 rule: deterministic labeling over all windows, then a stronger model only for
 ambiguous candidate windows rather than the entire transcript corpus.
 
-Current HPP pilot truth: both the turbo and full `large-v3` runs transcribe the
-whole selected session. The bounded-window selector and human-review clip
-builder exist, but a separate bounded strong-ASR runner does not yet exist.
-Until that runner is implemented, do not describe the strong lane as a
-window-only production execution and do not overwrite the canonical whole-
-session transcription pointer with a partial run.
+The bounded strong-ASR runner is present but feature-OFF by default. Enabling it
+requires a private/local profile with `bounded_strong_asr.enabled: true`, the
+approved `large-v3-q5_0` SHA-256, and the exact local model SHA-1. Run an
+approved request through the local-ASR CLI:
+
+```bash
+npm run guild-hall:voice-capture:asr -- analyze-bounded-strong \
+  --request <session>/analysis/strong_asr_requests/<request-id>.json \
+  --apply
+```
+
+Each approved request fixes the exact material-window scope. The request plus
+the hash-bound local execution configuration creates one deterministic
+append-only `analysis/local_asr/bounded_large-v3_<revision-id>/` revision.
+Completed exact retries re-verify and reuse that revision without rerunning
+inference or changing its completion timestamp; an execution-configuration
+change creates a different non-canonical revision under the same approved
+window scope. The chunks directory contains only the
+JSON, completion receipt, text, and SRT quartet required by semantic artifact
+verification. Overlapping material windows are deterministically coalesced and
+split back into 30–90 second windows, and end-of-session windows are shifted
+inside the recorded duration without losing source-unit or reason provenance.
+Chunk receipts bind exact time bounds and artifact hashes; segment offsets must
+be finite, ordered, and contained in the extracted window. Request and revision
+write parents are realpath-checked inside session custody before publication.
+Source, model, request, fast manifest, and session-manifest hashes are checked
+before and after inference; temporary extracted audio is removed on success or
+failure.
+
+The revision is explicitly non-canonical and covers only approved windows. It
+does not update `session_manifest.independent_transcription`, send a completion
+notification, emit project-context events, replace a producer delivery receipt,
+or create/accept a project route. A sibling metadata-only HPP continuity
+receipt checks RAW source hash, session manifest, unclassified library entry,
+current producer receipt, revision artifacts, and deterministic restart
+identity. Missing live custody surfaces remain visible as gap codes rather
+than being inferred from Git or provider state. The public schemas are
+[`bounded_strong_asr_request.schema.json`](bounded_strong_asr_request.schema.json),
+[`bounded_strong_asr_revision.schema.json`](bounded_strong_asr_revision.schema.json),
+and
+[`voice_hpp_continuity_receipt.schema.json`](voice_hpp_continuity_receipt.schema.json).
 
 Enable the body-safe Telegram completion event on the always-on node:
 

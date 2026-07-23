@@ -29,6 +29,7 @@ import {
   compareVoiceSemanticManifests,
   prepareVoiceSemanticReviewClips,
 } from "./semantic_labeling.mjs";
+import { prepareBoundedStrongAsrRequest } from "./local_asr.mjs";
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
@@ -261,6 +262,38 @@ async function main() {
     return;
   }
 
+  if (command === "semantic-approve-strong-windows") {
+    if (!args["fast-analysis-manifest"] || !args["approved-by"]) {
+      throw new Error("semantic-approve-strong-windows requires --fast-analysis-manifest and --approved-by");
+    }
+    const repoRoot = args["repo-root"] ? path.resolve(args["repo-root"]) : process.cwd();
+    const fastAnalysisManifestPath = path.resolve(args["fast-analysis-manifest"]);
+    const semantic = await analyzeVoiceSemanticManifest({
+      repoRoot,
+      analysisManifestPath: fastAnalysisManifestPath,
+      contextCardPaths: [],
+    });
+    const result = await prepareBoundedStrongAsrRequest({
+      repoRoot,
+      fastAnalysisManifestPath,
+      semanticRun: semantic.run,
+      approvedBy: args["approved-by"],
+      apply: flagValue(args, "apply") ?? false,
+    });
+    process.stdout.write(`${JSON.stringify({
+      schema_version: result.schema_version,
+      applied: result.applied,
+      duplicate: result.duplicate,
+      request_id: result.request_id,
+      request_ref: result.request_ref,
+      approved_window_count: result.approved_window_count,
+      approved_duration_seconds: result.approved_duration_seconds,
+      project_route_state: result.project_route_state,
+      transcript_body_copied: result.transcript_body_copied,
+    }, null, 2)}\n`);
+    return;
+  }
+
   if (command === "semantic-prepare-review") {
     if (!args["fast-analysis-manifest"] || !args["strong-analysis-manifest"]) {
       throw new Error("semantic-prepare-review requires --fast-analysis-manifest and --strong-analysis-manifest");
@@ -406,6 +439,7 @@ function printUsageAndExit() {
       "  node guild_hall/voice_capture/cli.mjs delivery-status --session-id <id> --consumer-node <safe-id> [--json]",
       "  node guild_hall/voice_capture/cli.mjs semantic-label (--analysis-manifest <path> | --session-dir <path>) [--context-cards <path,...>]",
       "  node guild_hall/voice_capture/cli.mjs semantic-compare --fast-analysis-manifest <path> --strong-analysis-manifest <path> [--context-cards <path,...>] [--allowed-external-model-root <path>]",
+      "  node guild_hall/voice_capture/cli.mjs semantic-approve-strong-windows --fast-analysis-manifest <path> --approved-by <safe-id> [--apply]",
       "  node guild_hall/voice_capture/cli.mjs semantic-prepare-review --fast-analysis-manifest <path> --strong-analysis-manifest <path> --ffmpeg-binary <path> [--context-cards <path,...>] [--allowed-external-model-root <path>] [--apply]",
       "",
       "Options:",

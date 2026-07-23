@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/guild_hall/voice_capture/voice_hpp_continuity_receipt.schema.json",
+  "title": "Soulforge HPP voice continuity receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "coverage_id",
+    "checked_at",
+    "session_id",
+    "recording_id",
+    "revision_id",
+    "state",
+    "gap_codes",
+    "checks",
+    "project_route_state",
+    "boundaries"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.voice_hpp_continuity_receipt.v1" },
+    "coverage_id": { "type": "string", "pattern": "^vhc_[a-f0-9]{24}$" },
+    "checked_at": { "$ref": "#/$defs/utcTimestamp" },
+    "session_id": { "$ref": "#/$defs/safeId" },
+    "recording_id": { "$ref": "#/$defs/safeId" },
+    "revision_id": { "type": "string", "pattern": "^vbr_[a-f0-9]{24}$" },
+    "state": { "enum": ["complete", "gaps_detected"] },
+    "gap_codes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/safeId" },
+      "uniqueItems": true
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_source",
+        "session_manifest",
+        "library_manifest",
+        "producer_receipt",
+        "bounded_revision",
+        "catch_up_restart"
+      ],
+      "properties": {
+        "raw_source": { "$ref": "#/$defs/artifactCheck" },
+        "session_manifest": { "$ref": "#/$defs/artifactCheck" },
+        "library_manifest": { "$ref": "#/$defs/artifactCheck" },
+        "producer_receipt": { "$ref": "#/$defs/artifactCheck" },
+        "bounded_revision": { "$ref": "#/$defs/artifactCheck" },
+        "catch_up_restart": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "deterministic_revision_identity_verified",
+            "completed_artifact_receipts_verified",
+            "canonical_whole_session_pointer_preserved",
+            "retry_creates_new_revision"
+          ],
+          "properties": {
+            "state": { "enum": ["verified", "gap"] },
+            "deterministic_revision_identity_verified": { "type": "boolean" },
+            "completed_artifact_receipts_verified": { "type": "boolean" },
+            "canonical_whole_session_pointer_preserved": { "type": "boolean" },
+            "retry_creates_new_revision": { "const": false }
+          }
+        }
+      }
+    },
+    "project_route_state": { "const": "candidate_only" },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metadata_only",
+        "transcript_body_copied",
+        "audio_body_copied",
+        "absolute_path_copied",
+        "provider_transcript_authority",
+        "accepted_project_route_created",
+        "official_task_mutated"
+      ],
+      "properties": {
+        "metadata_only": { "const": true },
+        "transcript_body_copied": { "const": false },
+        "audio_body_copied": { "const": false },
+        "absolute_path_copied": { "const": false },
+        "provider_transcript_authority": { "const": "none" },
+        "accepted_project_route_created": { "const": false },
+        "official_task_mutated": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,127})$"
+    },
+    "safeRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "artifactCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "ref", "sha256", "size_bytes"],
+      "properties": {
+        "state": { "enum": ["verified", "missing", "mismatch", "invalid"] },
+        "ref": { "oneOf": [{ "$ref": "#/$defs/safeRef" }, { "type": "null" }] },
+        "sha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "size_bytes": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

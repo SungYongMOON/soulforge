@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/guild_hall/voice_capture/bounded_strong_asr_request.schema.json",
+  "title": "Soulforge bounded strong ASR request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "created_at",
+    "session_id",
+    "session_ref",
+    "source_audio_ref",
+    "source_sha256",
+    "fast_analysis_manifest_ref",
+    "fast_analysis_manifest_sha256",
+    "semantic_selection",
+    "approval",
+    "windows",
+    "project_route_state",
+    "boundaries"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.voice_bounded_strong_asr_request.v1" },
+    "request_id": { "type": "string", "pattern": "^vsq_[a-f0-9]{24}$" },
+    "created_at": { "$ref": "#/$defs/utcTimestamp" },
+    "session_id": { "$ref": "#/$defs/safeId" },
+    "session_ref": { "$ref": "#/$defs/safeRef" },
+    "source_audio_ref": { "$ref": "#/$defs/safeRef" },
+    "source_sha256": { "$ref": "#/$defs/sha256" },
+    "fast_analysis_manifest_ref": { "$ref": "#/$defs/safeRef" },
+    "fast_analysis_manifest_sha256": { "$ref": "#/$defs/sha256" },
+    "semantic_selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "run_sha256",
+        "engine_id",
+        "engine_version",
+        "ruleset_sha256",
+        "evidence_gate_state"
+      ],
+      "properties": {
+        "run_id": { "type": "string", "pattern": "^vsl_[a-f0-9]{24}$" },
+        "run_sha256": { "$ref": "#/$defs/sha256" },
+        "engine_id": { "const": "soulforge_voice_semantic_baseline" },
+        "engine_version": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "ruleset_sha256": { "$ref": "#/$defs/sha256" },
+        "evidence_gate_state": { "const": "stronger_local_asr_required" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "approved_by", "approved_at", "scope"],
+      "properties": {
+        "state": { "const": "approved" },
+        "approved_by": { "$ref": "#/$defs/safeId" },
+        "approved_at": { "$ref": "#/$defs/utcTimestamp" },
+        "scope": { "const": "exact_material_windows_only" }
+      }
+    },
+    "windows": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/window" }
+    },
+    "project_route_state": { "const": "candidate_only" },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_transcript_authority",
+        "transcript_text_copied",
+        "human_acceptance_fabricated",
+        "canonical_whole_session_pointer_mutation_allowed",
+        "completion_notification_allowed",
+        "delivery_receipt_replacement_allowed"
+      ],
+      "properties": {
+        "provider_transcript_authority": { "const": "none" },
+        "transcript_text_copied": { "const": false },
+        "human_acceptance_fabricated": { "const": false },
+        "canonical_whole_session_pointer_mutation_allowed": { "const": false },
+        "completion_notification_allowed": { "const": false },
+        "delivery_receipt_replacement_allowed": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,127})$"
+    },
+    "safeRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "window_id",
+        "start_seconds",
+        "duration_seconds",
+        "source_unit_refs",
+        "importance_state",
+        "importance_reason_codes",
+        "escalation_state",
+        "human_listen_required",
+        "transcript_text_copied"
+      ],
+      "properties": {
+        "window_id": { "type": "string", "pattern": "^vrw_[a-f0-9]{24}$" },
+        "start_seconds": { "type": "number", "minimum": 0 },
+        "duration_seconds": { "type": "number", "minimum": 30, "maximum": 90 },
+        "source_unit_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^unit_[0-9]+_[0-9]+$" },
+          "uniqueItems": true
+        },
+        "importance_state": { "const": "material_ambiguity_candidate" },
+        "importance_reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "speech_act_assignment",
+              "speech_act_cancellation",
+              "speech_act_commitment",
+              "speech_act_deadline_mention",
+              "speech_act_decision",
+              "speech_act_request",
+              "speech_act_result_report",
+              "speech_act_risk_or_issue",
+              "speech_act_status_update"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "escalation_state": { "const": "stronger_local_asr_required" },
+        "human_listen_required": { "const": false },
+        "transcript_text_copied": { "const": false }
+      }
+    }
+  }
+}

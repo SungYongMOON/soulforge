@@ -109,10 +109,10 @@ export async function prepareDeliveryReceipt(options = {}) {
   const receiptRef = producerReceiptRef(sessionId);
   const existingReceipt = await readOptionalContractJson(repoRoot, receiptRef, "delivery_receipt");
   if (existingReceipt) {
-    validateReceipt(existingReceipt);
+    validateDeliveryReceipt(existingReceipt);
     if (sameWithoutTimestamp(existingReceipt, receipt, "created_at")) receipt.created_at = existingReceipt.created_at;
   }
-  validateReceipt(receipt);
+  validateDeliveryReceipt(receipt);
   const write = options.apply
     ? await writeJsonIfChanged(repoRoot, receiptRef, receipt, options.beforeWrite)
     : { applied: false, changed: false };
@@ -135,7 +135,7 @@ export async function acknowledgeDelivery(options = {}) {
   const receiptPath = path.join(repoRoot, receiptRef);
   await assertSafeRef(repoRoot, receiptRef, { mustExist: true });
   const receipt = await readJson(receiptPath, "delivery_receipt");
-  validateReceipt(receipt);
+  validateDeliveryReceipt(receipt);
   if (receipt.session_id !== sessionId) throw new DeliveryContractError("receipt_session_id_mismatch");
   if (receipt.producer_node === consumerNode) throw new DeliveryContractError("consumer_node_must_differ_from_producer_node");
   const receiptSha256 = await sha256File(receiptPath);
@@ -216,7 +216,7 @@ export async function getDeliveryStatus(options = {}) {
   const acknowledgementRef = consumerAcknowledgementRef(consumerNode, sessionId);
   const receipt = await readOptionalContractJson(repoRoot, receiptRef, "delivery_receipt");
   if (!receipt) return statusResult("no_receipt", sessionId, consumerNode, receiptRef, acknowledgementRef);
-  validateReceipt(receipt);
+  validateDeliveryReceipt(receipt);
   const receiptSha256 = await sha256File(path.join(repoRoot, receiptRef));
   const acknowledgement = await readOptionalContractJson(repoRoot, acknowledgementRef, "delivery_acknowledgement");
   if (!acknowledgement) return statusResult("no_ack", sessionId, consumerNode, receiptRef, acknowledgementRef, receipt);
@@ -321,7 +321,7 @@ function normalizeFileSpecs(specs) {
   }).sort((left, right) => left.role.localeCompare(right.role) || String(left.ref).localeCompare(String(right.ref)));
 }
 
-function validateReceipt(receipt) {
+export function validateDeliveryReceipt(receipt) {
   validatePlainObject(receipt, RECEIPT_KEYS, "delivery_receipt");
   rejectSecretLikeKeys(receipt, "delivery_receipt");
   if (receipt.schema_version !== deliveryReceiptSchemaVersion) throw new DeliveryContractError("delivery_receipt_schema_version_mismatch");

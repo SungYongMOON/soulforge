@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/guild_hall/voice_capture/bounded_strong_asr_revision.schema.json",
+  "title": "Soulforge bounded strong ASR revision manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "session_id",
+    "session_ref",
+    "source_audio_ref",
+    "source_sha256",
+    "run_id",
+    "engine",
+    "model_id",
+    "model_sha1",
+    "model_sha256",
+    "model_ref",
+    "vad_enabled",
+    "vad_model_id",
+    "vad_model_ref",
+    "vad_model_sha256",
+    "decoding",
+    "repetition_filter",
+    "language",
+    "chunk_count",
+    "provider_transcript_used_as_input",
+    "speaker_identity_verified",
+    "output_ref",
+    "state",
+    "segment_count",
+    "suppressed_segment_ref",
+    "quality_metrics",
+    "transcript_ref",
+    "transcript_jsonl_ref",
+    "transcript_sha256",
+    "evidence_role",
+    "quality",
+    "claim_ceiling",
+    "recorded_at_local",
+    "completed_at",
+    "revision",
+    "canonical_pointer_guard",
+    "boundaries"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.local_asr_run.v0" },
+    "session_id": { "$ref": "#/$defs/safeId" },
+    "session_ref": { "$ref": "#/$defs/safeRef" },
+    "source_audio_ref": { "$ref": "#/$defs/safeRef" },
+    "source_sha256": { "$ref": "#/$defs/sha256" },
+    "run_id": { "type": "string", "pattern": "^bounded_large-v3_vbr_[a-f0-9]{24}$" },
+    "engine": { "const": "whisper.cpp" },
+    "model_id": { "const": "large-v3-q5_0" },
+    "model_sha1": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "model_sha256": {
+      "const": "d75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1"
+    },
+    "model_ref": { "$ref": "#/$defs/safeRef" },
+    "vad_enabled": { "type": "boolean" },
+    "vad_model_id": { "type": ["string", "null"] },
+    "vad_model_ref": { "oneOf": [{ "$ref": "#/$defs/safeRef" }, { "type": "null" }] },
+    "vad_model_sha256": {
+      "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+    },
+    "decoding": { "type": ["object", "null"] },
+    "repetition_filter": { "type": ["object", "null"] },
+    "language": { "type": "string", "minLength": 1, "maxLength": 16 },
+    "chunk_count": { "type": "integer", "minimum": 1, "maximum": 16 },
+    "provider_transcript_used_as_input": { "const": false },
+    "speaker_identity_verified": { "const": false },
+    "output_ref": { "$ref": "#/$defs/safeRef" },
+    "state": { "const": "completed" },
+    "segment_count": { "type": "integer", "minimum": 0 },
+    "suppressed_segment_ref": { "$ref": "#/$defs/safeRef" },
+    "quality_metrics": { "type": "object" },
+    "transcript_ref": { "$ref": "#/$defs/safeRef" },
+    "transcript_jsonl_ref": { "$ref": "#/$defs/safeRef" },
+    "transcript_sha256": { "$ref": "#/$defs/sha256" },
+    "evidence_role": { "const": "independent_machine_transcript_stronger_unverified" },
+    "quality": {
+      "enum": [
+        "machine_transcript_unverified",
+        "machine_transcript_unverified_attention_required"
+      ]
+    },
+    "claim_ceiling": { "const": "observed" },
+    "recorded_at_local": { "type": ["string", "null"] },
+    "completed_at": { "$ref": "#/$defs/utcTimestamp" },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revision_id",
+        "revision_kind",
+        "append_only",
+        "coverage_scope",
+        "canonical_status",
+        "request_id",
+        "request_ref",
+        "request_sha256",
+        "fast_analysis_manifest_ref",
+        "fast_analysis_manifest_sha256",
+        "semantic_run_id",
+        "semantic_run_sha256",
+        "execution_config_sha256",
+        "window_count",
+        "windows"
+      ],
+      "properties": {
+        "revision_id": { "type": "string", "pattern": "^vbr_[a-f0-9]{24}$" },
+        "revision_kind": { "const": "bounded_strong_asr_material_windows" },
+        "append_only": { "const": true },
+        "coverage_scope": { "const": "approved_windows_only" },
+        "canonical_status": { "const": "non_canonical_revision" },
+        "request_id": { "type": "string", "pattern": "^vsq_[a-f0-9]{24}$" },
+        "request_ref": { "$ref": "#/$defs/safeRef" },
+        "request_sha256": { "$ref": "#/$defs/sha256" },
+        "fast_analysis_manifest_ref": { "$ref": "#/$defs/safeRef" },
+        "fast_analysis_manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "semantic_run_id": { "type": "string", "pattern": "^vsl_[a-f0-9]{24}$" },
+        "semantic_run_sha256": { "$ref": "#/$defs/sha256" },
+        "execution_config_sha256": { "$ref": "#/$defs/sha256" },
+        "window_count": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "windows": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "window_id",
+              "start_seconds",
+              "duration_seconds",
+              "source_unit_refs",
+              "importance_reason_codes"
+            ],
+            "properties": {
+              "window_id": { "type": "string", "pattern": "^vrw_[a-f0-9]{24}$" },
+              "start_seconds": { "type": "number", "minimum": 0 },
+              "duration_seconds": { "type": "number", "minimum": 30, "maximum": 90 },
+              "source_unit_refs": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string" },
+                "uniqueItems": true
+              },
+              "importance_reason_codes": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string" },
+                "uniqueItems": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "canonical_pointer_guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_manifest_sha256",
+        "canonical_run_id",
+        "canonical_transcript_ref",
+        "canonical_transcript_jsonl_ref",
+        "preserved"
+      ],
+      "properties": {
+        "session_manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "canonical_run_id": { "$ref": "#/$defs/safeId" },
+        "canonical_transcript_ref": { "$ref": "#/$defs/safeRef" },
+        "canonical_transcript_jsonl_ref": { "$ref": "#/$defs/safeRef" },
+        "preserved": { "const": true }
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "partial_window_revision",
+        "canonical_whole_session_pointer_replaced",
+        "completion_notification_emitted",
+        "delivery_receipt_replaced",
+        "provider_transcript_used_as_authority",
+        "project_route_state",
+        "official_task_mutated"
+      ],
+      "properties": {
+        "partial_window_revision": { "const": true },
+        "canonical_whole_session_pointer_replaced": { "const": false },
+        "completion_notification_emitted": { "const": false },
+        "delivery_receipt_replaced": { "const": false },
+        "provider_transcript_used_as_authority": { "const": false },
+        "project_route_state": { "const": "candidate_only" },
+        "official_task_mutated": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,127})$"
+    },
+    "safeRef": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    }
+  }
+}

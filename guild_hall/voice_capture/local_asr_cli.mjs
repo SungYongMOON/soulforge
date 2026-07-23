@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   analyzeLocalAsrBacklog,
   analyzeLocalAsrSession,
+  analyzeBoundedStrongAsrWindows,
   buildLocalAsrPreflight,
   drainLocalAsrQueue,
   enqueueLocalAsrBacklog,
@@ -27,6 +28,13 @@ async function main() {
   }
   if (command === "analyze-session") {
     print(await analyzeLocalAsrSession({ ...common, sessionDir: required(args, "session-dir") }));
+    return;
+  }
+  if (command === "analyze-bounded-strong") {
+    print(await analyzeBoundedStrongAsrWindows({
+      ...common,
+      requestPath: required(args, "request"),
+    }));
     return;
   }
   if (command === "backlog") {
@@ -93,6 +101,7 @@ function usage() {
     "  node guild_hall/voice_capture/local_asr_cli.mjs init-config [--apply] [--force]",
     "  node guild_hall/voice_capture/local_asr_cli.mjs preflight [--config <path>]",
     "  node guild_hall/voice_capture/local_asr_cli.mjs analyze-session --session-dir <path> [--apply]",
+    "  node guild_hall/voice_capture/local_asr_cli.mjs analyze-bounded-strong --request <path> [--apply]",
     "  node guild_hall/voice_capture/local_asr_cli.mjs backlog [--max-sessions <n>] [--apply]",
     "  node guild_hall/voice_capture/local_asr_cli.mjs enqueue-backlog [--apply]",
     "  node guild_hall/voice_capture/local_asr_cli.mjs drain-queue [--max-sessions <n>] [--apply]",
