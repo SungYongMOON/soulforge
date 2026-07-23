@@ -1,10 +1,28 @@
 # guild_hall/gateway
 
+## Outlook Sent Items query-only canary
+
+- `node guild_hall/gateway/cli.mjs outlook-sent-query-only --window-start <iso> --window-end <iso> [--max-items <1..500>]`
+  - Attaches only to an already-running Outlook instance and reads the default
+    Sent Items folder for a bounded source-availability check.
+  - Returns only redacted aggregate count/freshness metadata. It does not read
+    subjects, bodies, attachments, raw recipient addresses, Inbox rows, rules,
+    categories, or item identifiers.
+  - It creates no repository, `_workmeta`, project-ledger, run-packet, or
+    temporary files and performs no Outlook Send/Receive or other mutation.
+  - `--apply`, `--send-receive`, Inbox, project, fixture, and account-selection
+    options fail closed. Both window endpoints are mandatory and the window
+    cannot exceed seven days.
+  - This canary proves only source availability. It does not activate sent-mail
+    persistence, project classification, continuous collection, or TaskDriver.
+
 ## Outlook reconcile command
 
 - `guild-hall:gateway:outlook-reconcile`
   - Runs the metadata-only `outlook_mail_reconcile_v0` runner.
-  - Default mode is dry-run. Use `--apply` to write sent-mail metadata deltas to
+  - Default mode is a project-ledger dry-run, not a zero-write query: it writes
+    reconciliation run packets under `_workmeta/system/runs/<run_id>`. Use
+    `--apply` to additionally write sent-mail metadata deltas to
     `_workmeta/<project_code>/reports/메일_이력/메일_이력.csv`.
   - `guild-hall:gateway:outlook-reconcile:apply` is the automation alias for
     `--apply --send-receive`.

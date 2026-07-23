@@ -47,7 +47,9 @@ import {
   upsertProjectMailHistory,
 } from "./project_mail_history_writer.mjs";
 import {
+  parseOutlookSentQueryOnlyArgv,
   runOutlookMailReconcile,
+  runOutlookSentQueryOnlyCanary,
 } from "./outlook_mail_reconcile.mjs";
 import {
   appendJsonl,
@@ -77,6 +79,12 @@ const DEFAULT_MAIL_CANDIDATE_BACKLOG_DISPLAY_LIMIT = 10;
 
 async function main() {
   const [command, ...rest] = process.argv.slice(2);
+
+  if (command === "outlook-sent-query-only") {
+    await runOutlookSentQueryOnly(parseOutlookSentQueryOnlyArgv(rest));
+    return;
+  }
+
   const args = parseArgs(rest);
 
   if (command === "intake") {
@@ -225,6 +233,7 @@ function printUsageAndExit() {
       "  node guild_hall/gateway/cli.mjs validate-deadline-watch",
       "  node guild_hall/gateway/cli.mjs deadline-watchdog-reminders [--workmeta-root <path>] [--due-window-hours <hours>] [--cooldown-hours <hours>] [--max-nudge-count <count>] [--output-file <path>] [--write-preview]",
       "  node guild_hall/gateway/cli.mjs outlook-reconcile [--apply] [--send-receive] [--project-code <code>] [--window-start <iso>] [--window-end <iso>] [--fallback-hours <hours>] [--outlook-source <alias>] [--include-inbox-subfolders] [--fixture-outlook <json>]",
+      "  node guild_hall/gateway/cli.mjs outlook-sent-query-only --window-start <iso> --window-end <iso> [--max-items <1..500>]",
       "  node guild_hall/gateway/cli.mjs triage-mail-candidate (--candidate-file <path> | --all-pending) [--queue-root <path>] [--binding-file <path>] [--private-deep] [--force]",
       "  node guild_hall/gateway/cli.mjs notify-gateway --event <event> (--on | --off)",
       "  node guild_hall/gateway/cli.mjs notify-mission --mission-id <id> --event <event> (--on | --off)",
@@ -254,6 +263,15 @@ async function runOutlookReconcile(args) {
     fixtureOutlookPath: args["fixture-outlook"] ? path.resolve(args["fixture-outlook"]) : null,
     maxItems: args["max-items"] ? Number(args["max-items"]) : undefined,
     runId: args["run-id"] || null,
+  });
+  console.log(JSON.stringify(result, null, 2));
+}
+
+async function runOutlookSentQueryOnly(args) {
+  const result = await runOutlookSentQueryOnlyCanary({
+    windowStart: args.windowStart ?? null,
+    windowEnd: args.windowEnd ?? null,
+    maxItems: args.maxItems,
   });
   console.log(JSON.stringify(result, null, 2));
 }

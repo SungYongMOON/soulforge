@@ -16,6 +16,7 @@
 | 2026-07-23 cross-input label correction | mail·voice·Slack·structured PC work·file·run/log가 제각각 project/time/person/action label을 만들지 않도록 공통 사실 envelope와 별도 semantic annotation event를 고정하는 plan-only addendum. 기존 source-native field와 ID는 보존하고, 중앙 context labeler만 shared vocabulary를 사용한다. schema·DB·collector·labeler·TaskDriver live 변경 `0` |
 | 2026-07-23 all-source data foundation execution | H01C mail occurrence/observation, H02 approved-window strong ASR, H03A personal WorkSession, H03B synthetic schedule, H04 file adapter, H05 exact run receipt, H07 Slack revision/cursor의 public-safe feature-OFF 기반을 구현했다. 상태는 `source_foundation_exists_acceptance_hold`; actual private source binding, 공통 label runtime, H00/H01~H07/P1 acceptance, DB migration, collector·writer·service 활성화 `0` |
 | 2026-07-23 live-source interpretation | owner-stated 7-source split은 `2 LIVE_UNACCEPTED / 5 UNCONNECTED`: 받은메일·PLAUD 음성은 owner-supported operational source지만 formal H acceptance와 private exact binding/freshness/coverage는 미증명이고, 보낸메일·Slack·Codex 작업로그·파일변경·PC업무는 continuous source connection이 없다. 새 normalized H→P5 project classification/shared semantic label과 P7 TaskDriver path는 모든 source에서 `OFF`; legacy source-local mail routing·auto-intake는 `VERIFY_HP`이며 P5/P7 acceptance 증거가 아님 |
+| 2026-07-23 owner Outlook Sent query-only canary | 이미 실행 중인 Outlook의 기본 보낸편지함에서 명시적 24시간 window와 bounded item limit로 시각·건수 aggregate만 조회하는 strict query-only surface를 구현하고 실제 조회했다. Inbox·제목·본문·첨부·recipient address·item ID 접근, Send/Receive, repository/`_workmeta`/temp write는 `0`; source availability만 증명하므로 보낸메일 상태는 계속 `UNCONNECTED`, continuous collector·project classification·H01C/HP-LIVE acceptance는 `OFF` |
 | HPP correction review state | bounded pilot는 `PILOT_EXECUTED`; formal master-plan authority와 production readiness는 계속 `READY_FOR_OWNER_REVIEW/HOLD`; accepted history·accepted knowledge·live readiness claim `0` |
 | bounded pilot 실행 authority | owner task envelope `TASK-ENGINE-HPP-FIVE-LANE-INGRESS-PILOT-V1` 및 `TASK-ENGINE-OPERATIONAL-DATA-KNOWLEDGE-E2E-V1`; execution baseline `main@1110c8ca5e8370271799a9f266a4c17b72188f62`; feature-OFF·standalone-copy·localhost·metadata-only 범위 |
 | 문서 성격 | 계획 정본과 실제 bounded pilot receipt를 함께 유지하는 living master plan; 생산 운영 전환은 별도 owner gate |
@@ -162,7 +163,7 @@ flowchart LR
 | source | foundation | live binding | continuous | new normalized H→P5 project classification | new P5 shared semantic label | new P7 TaskDriver |
 | --- | --- | --- | --- | --- | --- | --- |
 | 받은메일 | H01C feature-OFF evidence input | `LIVE_UNACCEPTED` | formal continuous acceptance 없음; private `N`-window/restart/cursor/replay/freshness 미증명 | `OFF`; legacy source-local routing/classification은 `VERIFY_HP` | `OFF` | `OFF`; legacy mail-to-task auto-intake는 `VERIFY_HP` |
-| 보낸메일 | H01C feature-OFF evidence input | `UNCONNECTED` | `OFF` | `OFF` | `OFF` | `OFF` |
+| 보낸메일 | H01C feature-OFF evidence input + owner Outlook strict query-only source canary | `UNCONNECTED`; bounded source availability만 확인, persistent binding 없음 | `OFF` | `OFF` | `OFF` | `OFF` |
 | PLAUD 음성 | H02 feature-OFF evidence input | `LIVE_UNACCEPTED` | formal continuous acceptance 없음; private `N`-window/restart/cursor/replay/freshness 미증명 | `OFF`; legacy/source-local route는 `VERIFY_HP` | `OFF` | `OFF` |
 | Slack | H07 feature-OFF evidence input | `UNCONNECTED` | `OFF` | `OFF` | `OFF` | `OFF` |
 | Codex 작업로그 | H03A/H05 mapping은 D26 blocker | `UNCONNECTED` | `OFF` | `OFF` | `OFF` | `OFF` |
@@ -4652,6 +4653,7 @@ owner approval, canary/runtime readiness evidence가 아니다.
 | current all-source docs/canon/path/diff | `PASS`; docs relative links, canon checked `136` errors/warnings `0`, tracked path-policy violations `0`, baseline→HEAD `git diff --check`, clean status와 index lock 부재 |
 | current all-source Level 2 final review | fresh Inspector `ACCEPT`; independent Judge `ACCEPT`. Claim ceiling은 `source_supported`, scope는 `feature_off_foundation`; H00/H01~H07/P1 acceptance, private binding, common label runtime, DB migration, live collector·writer·service authority `0` |
 | 2026-07-23 live-source interpretation correction | 기존 feature-OFF suite와 historical one-shot canary receipt를 그대로 인정하되 continuous connection으로 재해석하지 않는다. 이 plan-only 보정은 owner-stated `2 LIVE_UNACCEPTED / 5 UNCONNECTED`를 기록할 뿐 새 runtime 검증, private binding 확인, live activation 또는 formal H acceptance를 주장하지 않는다. |
+| 2026-07-23 owner Outlook Sent query-only canary | `PASS` at `source_availability_metadata_only`: explicit bounded window, active-Outlook attach-only, Sent Items class/time aggregate, redacted stdout, repository metadata fingerprint 전후 동일. 실제 건수·시각은 private review evidence에만 두며, 보낸메일 continuous binding·writer·classification·H01C/HP-LIVE acceptance는 여전히 `OFF`다. |
 
 위 receipt는 public feature-OFF foundation 구현과 해당 plan-scope validator PASS만 증명한다.
 Runtime/live readiness, private inventory, C00B/P0 acceptance는 증명하지 않는다. Final file hash와

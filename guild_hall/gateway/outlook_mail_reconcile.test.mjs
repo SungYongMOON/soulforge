@@ -1,11 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdtemp, readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
+  buildOutlookSentQueryOnlyPowerShellScript,
+  formatOutlookSentQueryOnlyResult,
+  parseOutlookSentQueryOnlyArgv,
   runOutlookMailReconcile,
+  runOutlookSentQueryOnlyCanary,
   normalizeMailSubject,
   subjectFingerprint,
 } from "./outlook_mail_reconcile.mjs";
@@ -193,10 +199,191 @@ test("outlook reconcile dry run does not mutate project ledgers", async () => {
   assert.equal(after, before);
 });
 
+test("sent query-only formatter returns only redacted aggregates and writes nothing", async () => {
+  const repoRoot = await createRepoRoot();
+  const markerPath = path.join(repoRoot, "marker.txt");
+  await writeFile(markerPath, "unchanged\n", "utf8");
+  const before = await snapshotTree(repoRoot);
+
+  const result = formatOutlookSentQueryOnlyResult(
+    {
+      observed_at: "2026-07-22T13:00:01.000Z",
+      outlook_available: true,
+      sent_items_observed: 3,
+      scanned_items: 7,
+      truncated_by_max_items: false,
+      latest_sent_at: "2026-07-22T12:55:00.000Z",
+      earliest_sent_at: "2026-07-22T12:10:00.000Z",
+      subject: "LEAK-SENTINEL-SUBJECT",
+      source_folder_alias: "LEAK-SENTINEL-FOLDER",
+      raw_rows: [{ body: "LEAK-SENTINEL-BODY" }],
+    },
+    {
+      dateWindow: {
+        start: "2026-07-22T12:00:00.000Z",
+        end: "2026-07-22T13:00:00.000Z",
+        duration_hours: 1,
+      },
+      maxItems: 25,
+    },
+  );
+
+  const after = await snapshotTree(repoRoot);
+  const serialized = JSON.stringify(result);
+  assert.deepEqual(after, before);
+  assert.equal(result.mode, "query_only_no_persistence");
+  assert.equal(result.sent_items_observed, 3);
+  assert.equal(result.safety.repository_writes, 0);
+  assert.equal(result.safety.temporary_files_created, 0);
+  assert.equal(result.safety.inbox_queried, false);
+  assert.equal(result.safety.raw_rows_returned, false);
+  assert.doesNotMatch(serialized, /LEAK-SENTINEL/u);
+  assert.equal(Object.hasOwn(result, "subject"), false);
+  assert.equal(Object.hasOwn(result, "source_folder_alias"), false);
+  assert.equal(Object.hasOwn(result, "raw_rows"), false);
+});
+
+test("sent query-only canary production options reject every non-query key and implicit window", async () => {
+  const base = {
+    windowStart: "2026-07-22T12:00:00.000Z",
+    windowEnd: "2026-07-22T13:00:00.000Z",
+  };
+  await assert.rejects(
+    () => runOutlookSentQueryOnlyCanary({ ...base, apply: true }),
+    /sent_query_only_forbidden_options:apply/u,
+  );
+  await assert.rejects(
+    () => runOutlookSentQueryOnlyCanary({ ...base, sendReceive: true }),
+    /sent_query_only_forbidden_options:sendReceive/u,
+  );
+  await assert.rejects(
+    () => runOutlookSentQueryOnlyCanary({ ...base, includeInboxSubfolders: true }),
+    /sent_query_only_forbidden_options:includeInboxSubfolders/u,
+  );
+  await assert.rejects(
+    () => runOutlookSentQueryOnlyCanary({ ...base, projectCodes: ["P26-014"] }),
+    /sent_query_only_forbidden_options:projectCodes/u,
+  );
+  await assert.rejects(
+    () => runOutlookSentQueryOnlyCanary({}),
+    /sent_query_only_requires_explicit_window/u,
+  );
+  await assert.rejects(
+    () => runOutlookSentQueryOnlyCanary({ ...base, maxItems: true }),
+    /sent_query_only_max_items_must_be_1_to_500/u,
+  );
+  await assert.rejects(
+    () => runOutlookSentQueryOnlyCanary({ ...base, collectSentAggregate: async () => ({}) }),
+    /sent_query_only_forbidden_options:collectSentAggregate/u,
+  );
+  for (const invalid of [
+    { ...base, windowStart: "not-a-date" },
+    { ...base, windowStart: base.windowEnd, windowEnd: base.windowStart },
+    { ...base, windowEnd: "2026-07-30T13:00:00.000Z" },
+  ]) {
+    await assert.rejects(
+      () => runOutlookSentQueryOnlyCanary(invalid),
+      /sent_query_only_(?:invalid_window|window_exceeds_168_hours)/u,
+    );
+  }
+  for (const maxItems of [0, 501, 1.5, "not-an-integer"]) {
+    await assert.rejects(
+      () => runOutlookSentQueryOnlyCanary({ ...base, maxItems }),
+      /sent_query_only_max_items_must_be_1_to_500/u,
+    );
+  }
+});
+
+test("sent query-only argv parser rejects unknown, positional, duplicate, and missing values", () => {
+  assert.deepEqual(
+    parseOutlookSentQueryOnlyArgv([
+      "--window-start",
+      "2026-07-22T12:00:00.000Z",
+      "--window-end",
+      "2026-07-22T13:00:00.000Z",
+      "--max-items",
+      "25",
+    ]),
+    {
+      windowStart: "2026-07-22T12:00:00.000Z",
+      windowEnd: "2026-07-22T13:00:00.000Z",
+      maxItems: "25",
+    },
+  );
+  assert.throws(() => parseOutlookSentQueryOnlyArgv(["unexpected"]), /sent_query_only_positional_argument/u);
+  assert.throws(() => parseOutlookSentQueryOnlyArgv(["--output-file", "x"]), /sent_query_only_unknown_option/u);
+  assert.throws(() => parseOutlookSentQueryOnlyArgv(["--apply"]), /sent_query_only_unknown_option/u);
+  assert.throws(
+    () => parseOutlookSentQueryOnlyArgv(["--window-start", "x", "--window-start", "y"]),
+    /sent_query_only_duplicate_option/u,
+  );
+  assert.throws(() => parseOutlookSentQueryOnlyArgv(["--max-items"]), /sent_query_only_missing_value/u);
+});
+
+test("sent query-only CLI rejects forbidden and malformed arguments before Outlook access", () => {
+  const cliPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "cli.mjs");
+  for (const args of [
+    ["--apply"],
+    ["--send-receive"],
+    ["--output-file", "x"],
+    ["--max-items"],
+    ["positional"],
+  ]) {
+    const result = spawnSync(process.execPath, [cliPath, "outlook-sent-query-only", ...args], {
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(String(result.stderr), /sent_query_only_(?:unknown_option|missing_value|positional_argument)/u);
+    assert.doesNotMatch(String(result.stdout), /outlook_available|sent_items_observed/u);
+  }
+});
+
+test("sent query-only PowerShell attaches to active Outlook and never queries Inbox or mail payload fields", () => {
+  const script = buildOutlookSentQueryOnlyPowerShellScript({
+    dateWindow: {
+      start: "2026-07-22T12:00:00.000Z",
+      end: "2026-07-22T13:00:00.000Z",
+    },
+    maxItems: 25,
+  });
+
+  assert.match(script, /GetActiveObject\("Outlook\.Application"\)/u);
+  assert.match(script, /GetDefaultFolder\(5\)/u);
+  assert.doesNotMatch(script, /GetDefaultFolder\(6\)|SendAndReceive|New-Object\s+-ComObject/iu);
+  assert.doesNotMatch(script, /\.Subject|\.Body|HTMLBody|SenderEmailAddress|Recipients|Attachments|FolderPath/iu);
+  assert.doesNotMatch(
+    script,
+    /EntryID|ConversationID|Categories|PropertyAccessor|GetRules|\.Rules\b|\.To\b|\.CC\b|\.BCC\b|\.Sender\b/iu,
+  );
+  assert.doesNotMatch(script, /\.(?:Save|Delete|Move|Send|Close|Display)\s*\(/iu);
+  assert.doesNotMatch(script, /Set-Content|Out-File|Add-Content|Export-/iu);
+});
+
 async function createRepoRoot() {
   const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-outlook-reconcile-"));
   await mkdir(path.join(repoRoot, "_workmeta", "system", "runs"), { recursive: true });
   return repoRoot;
+}
+
+async function snapshotTree(root) {
+  const entries = [];
+  async function visit(current) {
+    const names = (await readdir(current)).sort();
+    for (const name of names) {
+      const absolute = path.join(current, name);
+      const info = await stat(absolute);
+      const relative = path.relative(root, absolute).replaceAll("\\", "/");
+      if (info.isDirectory()) {
+        entries.push(`d:${relative}`);
+        await visit(absolute);
+      } else {
+        entries.push(`f:${relative}:${info.size}:${Math.trunc(info.mtimeMs)}`);
+      }
+    }
+  }
+  await visit(root);
+  return entries;
 }
 
 async function writeProjectMailHistory(repoRoot, projectCode, rows) {

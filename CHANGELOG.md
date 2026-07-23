@@ -2,6 +2,20 @@
 
 ## 2026-07-23
 
+### Outlook Sent Items query-only canary
+
+- Added an explicit Sent Items source-availability command that attaches only
+  to an already-running Outlook instance, uses a mandatory bounded window, and
+  returns redacted aggregate count/freshness metadata.
+- The query-only path reads no Inbox, subject, body, attachment, raw recipient
+  address, item identifier, rule, or category data. It creates no repository,
+  `_workmeta`, ledger, run-packet, or temporary files and rejects all mutation
+  and project-selection options.
+- Clarified that the pre-existing Outlook reconcile dry-run writes private run
+  packets and therefore is not the strict query-only surface. No continuous
+  collector, sent-mail writer, project classification, or TaskDriver path was
+  activated.
+
 ### Task Engine live-source state interpretation
 
 - Clarified that the actual five-lane canary was a bounded one-shot execution

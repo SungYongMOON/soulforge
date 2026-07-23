@@ -10,6 +10,9 @@ const MAIL_HISTORY_REL = path.join("reports", "메일_이력", "메일_이력.cs
 const SYSTEM_RUN_ROOT = path.join("_workmeta", "system", "runs");
 const PROJECT_CODE_RE = /^P\d{2}-\d{3}/u;
 const DEFAULT_WINDOW_HOURS = 36;
+const OUTLOOK_SENT_QUERY_ONLY_SCHEMA = "soulforge.outlook_sent_query_only_canary.v1";
+const OUTLOOK_SENT_QUERY_ONLY_MAX_HOURS = 168;
+const OUTLOOK_SENT_QUERY_ONLY_MAX_ITEMS = 500;
 
 const MAIL_HISTORY_HEADERS = [
   "이력키",
@@ -70,6 +73,76 @@ export function normalizeMailSubject(subject) {
 
 export function subjectFingerprint(subject) {
   return `subject:${sha256(normalizeMailSubject(subject)).slice(0, 16)}`;
+}
+
+export async function runOutlookSentQueryOnlyCanary(options = {}) {
+  assertExactSentQueryOnlyOptions(options);
+  const dateWindow = resolveExplicitSentQueryWindow(options.windowStart, options.windowEnd);
+  const maxItems = resolveSentQueryMaxItems(options.maxItems);
+  const observed = await readOutlookSentQueryOnlyAggregate({ dateWindow, maxItems });
+  return formatOutlookSentQueryOnlyResult(observed, { dateWindow, maxItems });
+}
+
+export function formatOutlookSentQueryOnlyResult(observed, { dateWindow, maxItems }) {
+  return {
+    schema_version: OUTLOOK_SENT_QUERY_ONLY_SCHEMA,
+    mode: "query_only_no_persistence",
+    source_kind: "outlook_sent_items",
+    observed_at: normalizeOptionalIso(observed.observed_at) ?? new Date().toISOString(),
+    date_window: dateWindow,
+    outlook_available: observed.outlook_available === true,
+    error_code: normalizeQueryErrorCode(observed.error_code),
+    sent_items_observed: normalizeNonNegativeInteger(observed.sent_items_observed),
+    scanned_items: normalizeNonNegativeInteger(observed.scanned_items),
+    max_items: maxItems,
+    truncated_by_max_items: observed.truncated_by_max_items === true,
+    latest_sent_at: normalizeOptionalIso(observed.latest_sent_at),
+    earliest_sent_at: normalizeOptionalIso(observed.earliest_sent_at),
+    safety: {
+      sent_only: true,
+      active_outlook_attach_only: true,
+      inbox_queried: false,
+      send_receive_attempted: false,
+      outlook_mutation: false,
+      body_or_attachment_read: false,
+      recipient_address_read: false,
+      raw_rows_returned: false,
+      repository_writes: 0,
+      temporary_files_created: 0,
+    },
+    claim_ceiling: "source_availability_metadata_only",
+  };
+}
+
+export function parseOutlookSentQueryOnlyArgv(argv) {
+  const allowed = new Map([
+    ["--window-start", "windowStart"],
+    ["--window-end", "windowEnd"],
+    ["--max-items", "maxItems"],
+  ]);
+  const parsed = {};
+  const seen = new Set();
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = String(argv[index]);
+    if (!token.startsWith("--")) {
+      throw new Error(`sent_query_only_positional_argument:${token}`);
+    }
+    const property = allowed.get(token);
+    if (!property) {
+      throw new Error(`sent_query_only_unknown_option:${token}`);
+    }
+    if (seen.has(token)) {
+      throw new Error(`sent_query_only_duplicate_option:${token}`);
+    }
+    const value = argv[index + 1];
+    if (value === undefined || String(value).startsWith("--")) {
+      throw new Error(`sent_query_only_missing_value:${token}`);
+    }
+    seen.add(token);
+    parsed[property] = String(value);
+    index += 1;
+  }
+  return parsed;
 }
 
 export async function runOutlookMailReconcile(options = {}) {
@@ -147,6 +220,174 @@ export async function runOutlookMailReconcile(options = {}) {
     owner_followup_rows: matched.ownerFollowups.length,
     artifacts,
   };
+}
+
+function assertExactSentQueryOnlyOptions(options) {
+  const allowed = new Set(["windowStart", "windowEnd", "maxItems"]);
+  const unknown = Object.keys(options).filter((key) => !allowed.has(key));
+  if (unknown.length) {
+    throw new Error(`sent_query_only_forbidden_options:${unknown.sort().join(",")}`);
+  }
+}
+
+function resolveExplicitSentQueryWindow(windowStart, windowEnd) {
+  if (!windowStart || !windowEnd) {
+    throw new Error("sent_query_only_requires_explicit_window");
+  }
+  const start = new Date(windowStart);
+  const end = new Date(windowEnd);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end <= start) {
+    throw new Error("sent_query_only_invalid_window");
+  }
+  const durationHours = (end.getTime() - start.getTime()) / 3_600_000;
+  if (durationHours > OUTLOOK_SENT_QUERY_ONLY_MAX_HOURS) {
+    throw new Error(`sent_query_only_window_exceeds_${OUTLOOK_SENT_QUERY_ONLY_MAX_HOURS}_hours`);
+  }
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+    duration_hours: durationHours,
+  };
+}
+
+function resolveSentQueryMaxItems(value) {
+  if (typeof value === "boolean") {
+    throw new Error(`sent_query_only_max_items_must_be_1_to_${OUTLOOK_SENT_QUERY_ONLY_MAX_ITEMS}`);
+  }
+  const maxItems = Number(value ?? 100);
+  if (!Number.isInteger(maxItems) || maxItems < 1 || maxItems > OUTLOOK_SENT_QUERY_ONLY_MAX_ITEMS) {
+    throw new Error(`sent_query_only_max_items_must_be_1_to_${OUTLOOK_SENT_QUERY_ONLY_MAX_ITEMS}`);
+  }
+  return maxItems;
+}
+
+function normalizeNonNegativeInteger(value) {
+  const numeric = Number(value ?? 0);
+  return Number.isInteger(numeric) && numeric >= 0 ? numeric : 0;
+}
+
+function normalizeOptionalIso(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
+function normalizeQueryErrorCode(value) {
+  const allowed = new Set([
+    null,
+    "outlook_active_session_unavailable",
+    "outlook_sent_query_failed",
+    "powershell_query_failed",
+    "powershell_output_invalid",
+    "not_available_non_windows",
+  ]);
+  const code = value == null ? null : String(value);
+  return allowed.has(code) ? code : "outlook_sent_query_failed";
+}
+
+async function readOutlookSentQueryOnlyAggregate({ dateWindow, maxItems }) {
+  if (process.platform !== "win32") {
+    return {
+      outlook_available: false,
+      error_code: "not_available_non_windows",
+      sent_items_observed: 0,
+      scanned_items: 0,
+      truncated_by_max_items: false,
+    };
+  }
+
+  const script = buildOutlookSentQueryOnlyPowerShellScript({ dateWindow, maxItems });
+  const result = spawnSync(
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
+    {
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024,
+      windowsHide: true,
+    },
+  );
+  if (result.status !== 0) {
+    return {
+      outlook_available: false,
+      error_code: "powershell_query_failed",
+      sent_items_observed: 0,
+      scanned_items: 0,
+      truncated_by_max_items: false,
+    };
+  }
+  try {
+    return JSON.parse(String(result.stdout ?? "").replace(/^\uFEFF/u, "").trim());
+  } catch {
+    return {
+      outlook_available: false,
+      error_code: "powershell_output_invalid",
+      sent_items_observed: 0,
+      scanned_items: 0,
+      truncated_by_max_items: false,
+    };
+  }
+}
+
+export function buildOutlookSentQueryOnlyPowerShellScript({ dateWindow, maxItems }) {
+  return `
+$ErrorActionPreference = 'Stop'
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+$since = [datetime]"${dateWindow.start}"
+$until = [datetime]"${dateWindow.end}"
+$observedAt = (Get-Date).ToString("o")
+$outlookAvailable = $false
+$errorCode = $null
+$scannedItems = 0
+$sentItemsObserved = 0
+$latestSentAt = $null
+$earliestSentAt = $null
+$truncated = $false
+$reachedLowerBound = $false
+try {
+  $app = [Runtime.InteropServices.Marshal]::GetActiveObject("Outlook.Application")
+  $session = $app.Session
+  $sentFolder = $session.GetDefaultFolder(5)
+  $items = $sentFolder.Items
+  $items.Sort("[SentOn]", $true)
+  $scanLimit = [Math]::Min($items.Count, ${maxItems})
+  for ($i = 1; $i -le $scanLimit; $i++) {
+    $item = $null
+    try { $item = $items.Item($i) } catch { continue }
+    if ($null -eq $item) { continue }
+    $class = $null
+    try { $class = $item.Class } catch { continue }
+    if ($class -ne 43) { continue }
+    $scannedItems += 1
+    $sentOn = [datetime]$item.SentOn
+    if ($sentOn -gt $until) { continue }
+    if ($sentOn -lt $since) {
+      $reachedLowerBound = $true
+      break
+    }
+    $sentItemsObserved += 1
+    $sentIso = $sentOn.ToString("o")
+    if ($null -eq $latestSentAt) { $latestSentAt = $sentIso }
+    $earliestSentAt = $sentIso
+  }
+  $truncated = ($items.Count -gt ${maxItems}) -and (-not $reachedLowerBound)
+  $outlookAvailable = $true
+} catch [System.Runtime.InteropServices.COMException] {
+  $errorCode = "outlook_active_session_unavailable"
+} catch {
+  $errorCode = "outlook_sent_query_failed"
+}
+[ordered]@{
+  observed_at = $observedAt
+  outlook_available = $outlookAvailable
+  error_code = $errorCode
+  sent_items_observed = $sentItemsObserved
+  scanned_items = $scannedItems
+  truncated_by_max_items = $truncated
+  latest_sent_at = $latestSentAt
+  earliest_sent_at = $earliestSentAt
+} | ConvertTo-Json -Compress
+`;
 }
 
 export async function discoverCodexManagedProjects(repoRoot, { projectCodes = [] } = {}) {
