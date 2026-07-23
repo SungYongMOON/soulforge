@@ -7,8 +7,9 @@ in the shared five-lane project-history envelope.
 ## Current posture
 
 - The collector is feature `OFF` by default.
-- The module is pure and read-only. It has no CLI, Slack client, network call,
-  file writer, database writer, scheduler, projector, or task/knowledge writer.
+- The history module is pure and read-only. It has no Slack client, network
+  call, file writer, database writer, scheduler, projector, or task/knowledge
+  writer.
 - Enabling validation without an explicit private runtime binding fails closed.
   Even a valid private binding only reaches `BOUND_READ_ONLY`; this package has
   no live transport.
@@ -16,9 +17,16 @@ in the shared five-lane project-history envelope.
   message bodies, attachment bytes, authenticated locators, and private paths
   do not belong here.
 
-Live app creation, scope selection, membership, event subscription, backfill,
-retention/legal-hold policy, user mapping, one-channel canary, and production
-activation remain separate owner-approved private gates.
+The separate `slack_source_inventory_cli.mjs` is a query-only sanitizer. It
+accepts only a pre-observed, metadata-only Slack inventory on standard input
+and returns fingerprints and aggregate counts. It does not authenticate,
+connect to Slack, discover channels, read messages, or persist its input. The
+connected Slack tool remains the read-only source transport and must pass only
+the allowlisted fields into this sanitizer.
+
+Live app creation, scope selection, membership changes, event subscription,
+backfill, retention/legal-hold policy, user mapping, persistent collection, and
+production activation remain separate owner-approved private gates.
 
 ## Identity and revision contract
 
@@ -94,9 +102,12 @@ Run the package without any live binding:
 
 ```powershell
 node --check guild_hall/slack_history/slack_history.mjs
-node --test guild_hall/slack_history/slack_history.test.mjs
+node --check guild_hall/slack_history/slack_source_inventory.mjs
+node --check guild_hall/slack_history/slack_source_inventory_cli.mjs
+node --test guild_hall/slack_history/slack_history.test.mjs guild_hall/slack_history/slack_source_inventory.test.mjs
 ```
 
-The tests compile `slack_history.schema.json`, validate the synthetic fixture,
-exercise retry/replay and append-only lineage, verify bounded cursor behavior,
-cover all six coverage states, and run negative boundary checks.
+The tests compile both schemas, validate both synthetic fixtures, exercise
+retry/replay and append-only lineage, verify bounded cursor behavior, cover all
+six coverage states, enforce exact metadata-only input fields, and verify that
+the query-only CLI leaves its working directory unchanged.

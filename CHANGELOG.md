@@ -2,6 +2,20 @@
 
 ## 2026-07-23
 
+### Slack read-only source canary
+
+- Added a stdin-only Slack inventory sanitizer that accepts only stable
+  workspace/channel identifiers, project-name candidates, channel boundary
+  flags, and one bounded history-probe summary, then returns redacted
+  fingerprints and aggregate counts.
+- Added schema and synthetic regression coverage for exact input keys,
+  duplicate and invalid bindings, raw/message/secret field rejection, and
+  zero working-directory writes.
+- Confirmed connected-source availability separately from operation: no Slack
+  app, token, event subscription, persistent collector, database writer,
+  scheduler, project binding authority, TaskDriver, or outbound message path
+  was activated.
+
 ### Outlook Sent Items query-only canary
 
 - Added an explicit Sent Items source-availability command that attaches only

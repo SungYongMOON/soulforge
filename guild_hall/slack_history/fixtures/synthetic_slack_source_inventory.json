@@ -1,0 +1,32 @@
+{
+  "schema_version": "soulforge.slack_source_inventory.query_only.v1",
+  "observed_at": "2026-07-23T10:30:00.000Z",
+  "pagination_complete": true,
+  "workspace_id": "T00000001",
+  "channels": [
+    {
+      "channel_id": "C00000001",
+      "classification_candidate": "project_name_candidate",
+      "project_code_candidate": "P26-014",
+      "is_private": false,
+      "is_archived": false,
+      "is_shared": false,
+      "is_ext_shared": false
+    },
+    {
+      "channel_id": "C00000002",
+      "classification_candidate": "other",
+      "project_code_candidate": null,
+      "is_private": false,
+      "is_archived": false,
+      "is_shared": false,
+      "is_ext_shared": false
+    }
+  ],
+  "history_probe": {
+    "channel_id": "C00000001",
+    "items_observed": 1,
+    "more_available": true,
+    "latest_observed_at": "2026-07-22T10:18:58.000Z"
+  }
+}
