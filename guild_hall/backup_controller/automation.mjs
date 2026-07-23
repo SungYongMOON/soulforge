@@ -39,7 +39,7 @@ export async function runDailyAutomation({
   }
 
   runtimeRootVerifier(activation.binding);
-  const preflight = await preflightImpl(activation.binding, { allowWriteProbe: true, runtimeCommitSha: activation.sidecar.runtime_commit_sha });
+  const preflight = await preflightImpl(activation.binding, { allowWriteProbe: true });
   const catalog = executorCatalogFactory({ approvalRef: activation.sidecar.approval_ref });
   const cycle = await dailyCycleImpl({
     bindingRef: activation.sidecar.binding_ref,

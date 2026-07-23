@@ -11,8 +11,9 @@ API remains available for compatibility and still dispatches at most one stage.
   `--activation-sidecar <absolute-path>`. It has no environment, cwd, or default
   binding fallback.
 - The exact activation sidecar pins the binding path and SHA-256, approval ref,
-  writer node/hostname/platform, feature state, validity window, and the exact
-  40-hex commit of the bound `runtime_checkout_root`.
+  writer node/hostname/platform, feature state, and validity window. Its v1
+  `runtime_commit_sha` is retained only as legacy metadata and never gates a
+  backup run.
 - Approval refs use the same conservative alphanumeric/dot/underscore/hyphen
   identifier grammar accepted by the HPP recovery apply API.
 - `feature_state: off` returns before filesystem preflight, ACL/git/NAS probes,
@@ -36,20 +37,21 @@ The binding owns these typed resources:
 
 - plain local HPP source and distinct empty local HPP restore-test roots;
 - a policy file pinned by SHA-256;
-- a plain `runtime_checkout_root` pinned by activation commit;
+- a plain `runtime_checkout_root` that contains the executing controller;
 - the ERP SQLite file, `_workmeta` source, and `private-state` source;
 - an approved OneDrive cloud directory with exact reparse tag `0x9000601a`;
 - five non-overlapping `raidrive_network_directory` lanes below an exact
   `\\RaiDrive-*\<share>` UNC prefix: HPP, workspace, ERP, restore, and report.
 
 Live preflight checks observed hostname/platform, actual file type, lstat and
-realpath identity, link/reparse drift, path separation, policy digest, exact
-runtime git HEAD, and tracked cleanliness for controller/recovery/runtime_ops
-files. Untracked runtime data and secrets are ignored and never opened. Local
-HPP, restore-test, and controller-state ACLs are read with fixed `icacls.exe`
-only and fail closed on unparseable output or any non-owner write grant. This
-intentionally blocks the currently known broad HPP ACL until it is separately
-approved and repaired; the controller never changes ACLs.
+realpath identity, link/reparse drift, path separation, and policy digest. It
+does not invoke Git or inspect runtime commit, branch, or working-tree state:
+the bound NAS backup runs regardless of those states. Runtime data and secrets
+are never opened. Local HPP, restore-test, and controller-state ACLs are read
+with fixed `icacls.exe` only and fail closed on unparseable output or any
+non-owner write grant. This intentionally blocks the currently known broad HPP
+ACL until it is separately approved and repaired; the controller never changes
+ACLs.
 
 HPP/control/restore/NAS lanes must never overlap the runtime checkout. The only
 allowed containments are exact, typed relationships: canonically nested

@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-07-24
+
+### Backup controller Git-independent preflight
+
+- Removed runtime Git `HEAD` and working-tree checks from the backup controller
+  preflight. A bound NAS backup now proceeds regardless of the runtime checkout's
+  commit, branch, or Git status, while retaining the existing host, path,
+  reparse, policy-digest, ACL, and NAS write-probe safeguards. The v1 activation
+  sidecar's `runtime_commit_sha` remains accepted as legacy metadata only.
+
 ## 2026-07-23
 
 ### Common timeline, voice occurrence labels, and Slack Web API ingress

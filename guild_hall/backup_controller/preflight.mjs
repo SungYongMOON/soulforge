@@ -134,23 +134,6 @@ async function assertWriterExclusiveAcl(resourcePath, code, { commandRunner, sig
   if (!exclusive) fail(code);
 }
 
-const RUNTIME_TRACKED_PATHS = Object.freeze([
-  "guild_hall/backup_controller",
-  "guild_hall/ingress/recovery.mjs",
-  "guild_hall/ingress/recovery_cli.mjs",
-  "ui-workspace/apps/dev-erp/tools/runtime_ops.mjs",
-]);
-
-export async function probeRuntimeGitDefault(runtimeRoot, expectedCommitSha, { commandRunner = runReadOnlyCommand, signal } = {}) {
-  if (typeof expectedCommitSha !== "string" || !/^[a-f0-9]{40}$/.test(expectedCommitSha)) fail("runtime_commit_sha_required");
-  const head = await commandRunner({ file: "git.exe", args: ["-C", runtimeRoot, "rev-parse", "--verify", "HEAD"], signal });
-  if (head.code !== 0 || String(head.stdout).trim().toLowerCase() !== expectedCommitSha) fail("runtime_commit_mismatch");
-  const status = await commandRunner({ file: "git.exe", args: ["-C", runtimeRoot, "status", "--porcelain=v1", "--untracked-files=no", "--", ...RUNTIME_TRACKED_PATHS], signal });
-  if (status.code !== 0) fail("runtime_git_status_failed");
-  if (String(status.stdout).trim() !== "") fail("runtime_tracked_files_dirty");
-  return { head: expectedCommitSha, tracked_clean: true };
-}
-
 export async function probeRaiDriveReportRoot(reportRoot) {
   const probeRef = path.join(reportRoot, `.backup-controller-probe-${randomUUID()}.tmp`);
   const bytes = randomBytes(32);
@@ -179,8 +162,6 @@ export async function preflightBinding(bindingInput, {
   pathInspector = inspectPathDefault,
   commandRunner = runReadOnlyCommand,
   reportProbe = probeRaiDriveReportRoot,
-  gitProbe = probeRuntimeGitDefault,
-  runtimeCommitSha,
   allowWriteProbe = false,
   signal,
 } = {}) {
@@ -212,7 +193,6 @@ export async function preflightBinding(bindingInput, {
   const policyBytes = await readFile(binding.resources.hpp_recovery_policy.path).catch(() => fail("hpp_recovery_policy_read_failed"));
   const policyDigest = createHash("sha256").update(policyBytes).digest("hex");
   if (policyDigest !== binding.resources.hpp_recovery_policy.sha256) fail("hpp_recovery_policy_digest_mismatch");
-  await gitProbe(binding.resources.runtime_checkout_root.path, runtimeCommitSha, { commandRunner, signal });
 
   const writerIdentities = [
     observedHost.user,

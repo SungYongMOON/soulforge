@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { BackupControllerError, DAILY_CYCLE_STAGE_IDS, STAGE_COMMAND_IDS } from "./controller.mjs";
-import { parseWindowsReparseTag, preflightBinding, probeRuntimeGitDefault } from "./preflight.mjs";
+import { parseWindowsReparseTag, preflightBinding } from "./preflight.mjs";
 
 async function fixture(t) {
   const root = await mkdtemp(path.join(os.tmpdir(), "sf-backup-preflight-"));
@@ -53,18 +53,24 @@ async function fixture(t) {
     observedHost: { hostname: "HPP-HOST-TEST", platform: "win32", user: "owner" },
     pathInspector,
     commandRunner: async ({ file }) => file === "icacls.exe" ? { code: 0, stdout: "OWNER:(F)\nNT AUTHORITY\\SYSTEM:(F)", stderr: "" } : { code: 0, stdout: "", stderr: "" },
-    gitProbe: async (_root, sha) => ({ head: sha, tracked_clean: true }),
-    runtimeCommitSha: "c".repeat(40),
   };
   return { root, binding, options };
 }
 
-test("preflight accepts exact typed paths, OneDrive tag, RaiDrive UNC roots, ACL, policy, and pinned git", async (t) => {
+test("preflight accepts exact typed paths, OneDrive tag, RaiDrive UNC roots, ACL, and policy without Git inspection", async (t) => {
   const fx = await fixture(t);
-  const result = await preflightBinding(fx.binding, fx.options);
+  const commands = [];
+  const result = await preflightBinding(fx.binding, {
+    ...fx.options,
+    commandRunner: async ({ file }) => {
+      commands.push(file);
+      return file === "icacls.exe" ? { code: 0, stdout: "OWNER:(F)\nNT AUTHORITY\\SYSTEM:(F)", stderr: "" } : { code: 0, stdout: "", stderr: "" };
+    },
+  });
   assert.equal(result.ok, true);
   assert.equal(result.write_probe_performed, false);
   assert.equal(result.policy_sha256, fx.binding.resources.hpp_recovery_policy.sha256);
+  assert.ok(!commands.includes("git.exe"));
 });
 
 test("Windows reparse output parser returns the exact tag without requiring a capture group", () => {
@@ -175,15 +181,4 @@ test("preflight blocks broad local HPP write ACLs and unparseable ACL output", a
   await assert.rejects(preflightBinding(structuredClone(fx.binding), { ...fx.options, commandRunner: async () => ({ code: 0, stdout: "NT AUTHORITY\\Authenticated Users:(M)\nOWNER:(F)", stderr: "" }) }), (error) => error instanceof BackupControllerError && error.code === "hpp_acl_not_writer_exclusive");
   await assert.rejects(preflightBinding(structuredClone(fx.binding), { ...fx.options, commandRunner: async () => ({ code: 0, stdout: "localized output without entries", stderr: "" }) }), (error) => error instanceof BackupControllerError && error.code === "acl_output_unparseable");
   await assert.rejects(preflightBinding(structuredClone(fx.binding), { ...fx.options, commandRunner: async () => ({ code: 0, stdout: "OWNER:(F)\nNT AUTHORITY\\Authenticated Users:(M) trailing", stderr: "" }) }), (error) => error instanceof BackupControllerError && error.code === "acl_output_unparseable");
-});
-
-test("git probe pins HEAD and ignores untracked files while rejecting tracked drift", async () => {
-  const expected = "d".repeat(40);
-  const calls = [];
-  await probeRuntimeGitDefault(["C:", "runtime"].join("\\"), expected, { commandRunner: async (request) => {
-    calls.push(request.args);
-    return calls.length === 1 ? { code: 0, stdout: `${expected}\n`, stderr: "" } : { code: 0, stdout: "", stderr: "" };
-  } });
-  assert.ok(calls[1].includes("--untracked-files=no"));
-  await assert.rejects(probeRuntimeGitDefault(["C:", "runtime"].join("\\"), expected, { commandRunner: async (request) => request.args.includes("rev-parse") ? { code: 0, stdout: `${expected}\n`, stderr: "" } : { code: 0, stdout: " M guild_hall/backup_controller/controller.mjs\n", stderr: "" } }), (error) => error instanceof BackupControllerError && error.code === "runtime_tracked_files_dirty");
 });

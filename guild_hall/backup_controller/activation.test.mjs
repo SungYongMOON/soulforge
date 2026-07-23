@@ -65,7 +65,7 @@ async function activationFixture(t, featureState = "off") {
   return { root, binding, bindingRef, sidecar, sidecarRef };
 }
 
-test("external activation binds digest, approval, runtime commit, writer, and time window", async (t) => {
+test("external activation binds digest, approval, legacy runtime metadata, writer, and time window", async (t) => {
   const fx = await activationFixture(t);
   const resolved = await resolveActivation({ sidecarRef: fx.sidecarRef, now: NOW, observedHost: { hostname: "HPP-HOST-TEST", platform: "win32" } });
   assert.equal(resolved.feature_enabled, false);
@@ -117,7 +117,7 @@ test("enabled automation composes preflight, fixed catalog, and one daily cycle 
   assert.equal(output.status, "succeeded");
   assert.equal(calls[0][0], "activation");
   assert.deepEqual(calls[1], ["runtime-root", binding]);
-  assert.deepEqual(calls[2], ["preflight", binding, { allowWriteProbe: true, runtimeCommitSha: "c".repeat(40) }]);
+  assert.deepEqual(calls[2], ["preflight", binding, { allowWriteProbe: true }]);
   assert.equal(calls[3][0], "catalog");
   assert.equal(calls[4][1].bindingRef, ["D:", "Soulforge-control", "backup-controller", "binding.json"].join("\\"));
   assert.equal(calls[4][1].apply, true);
