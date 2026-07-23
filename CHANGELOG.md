@@ -2,6 +2,21 @@
 
 ## 2026-07-23
 
+### Task Engine live-source state interpretation
+
+- Clarified that the actual five-lane canary was a bounded one-shot execution
+  and that `CURRENT` inventory or feature-OFF foundations do not prove a live,
+  continuous source binding.
+- Recorded the owner-stated source split: received mail and PLAUD voice are
+  `LIVE_UNACCEPTED`, while sent mail, Slack, Codex work log, file changes, and
+  PC work are `UNCONNECTED`. The new normalized H→P5 project-classification and
+  shared-label path and the P7 TaskDriver path remain OFF; legacy source-local
+  mail routing and auto-intake remain `VERIFY_HP`, not accepted P5/P7 evidence.
+- Added independent per-source operational gates for exact binding,
+  multi-window continuity, classification and semantic/TaskDriver separation,
+  HPP sole-writer fencing, rollback, and manual failover/failback. No runtime,
+  source binding, collector, writer, schema, migration, or service changed.
+
 ### HPP continuous voice incremental custody
 
 - Split the source-preserving voice mirror into its existing default

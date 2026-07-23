@@ -9,6 +9,19 @@ localhost MCP query/download, and project/common knowledge and metadata-RAG
 previews. It does not activate a production writer or promote the Shadow data
 to accepted history or accepted knowledge.
 
+### 2026-07-23 interpretation note — historical receipt unchanged
+
+The receipt below records a bounded, one-shot actual five-lane canary. It is not
+evidence of continuous source bindings. Owner-supported operational truth is
+currently limited to received mail and PLAUD voice, both `LIVE_UNACCEPTED`;
+their private exact binding, freshness, coverage, cursor, and formal H-phase
+acceptance are not asserted here. Sent mail, Slack, Codex work log, file
+changes, and PC work are `UNCONNECTED`. The new normalized H→P5 project
+classification/shared semantic-label path and P7 TaskDriver path remain OFF.
+Legacy source-local mail routing and auto-intake remain `VERIFY_HP` and are not
+accepted P5/P7 evidence. This interpretation does not rewrite or invalidate any
+historical count, digest, or receipt below.
+
 ```text
 actual mail + voice + PC work + file + run/log
                        |
@@ -106,19 +119,27 @@ No actual history or knowledge current pointer was advanced.
 
 ## Remaining production activation work
 
-1. freeze and back up the existing runtime, then prove a quiescent production
-   migration window;
-2. bind production mail and voice credentials/sources to HPP and cut over each
-   existing writer under one lease/epoch and fencing rule;
-3. ratify H00 and H01-H06 adapters/coverage, then enable continuous project
-   classification and accepted-history promotion;
-4. migrate the verified copied-DB projection into the authoritative ERP under
-   rollback and DB/CSV/XLSX parity checks;
-5. issue per-person/per-agent access, mTLS and authorization policy before any
+1. preserve the owner-stated received-mail and PLAUD live paths unchanged while
+   closing their exact private authority, binding, freshness, coverage, cursor,
+   replay, and writer-fencing evidence under the source-specific `HP-LIVE`
+   gates;
+2. complete `P0`, ratify H00 and the applicable H01-H06/P1 Shadow contracts and
+   coverage, then complete P2-P4. If Slack becomes an applied source, H07A/H07B
+   joins before P5; complete P5-P8 afterward in the master plan's fixed order
+   without enabling a continuous collector, shared semantic-label writer,
+   TaskDriver mutation, or a new production writer;
+3. resolve D19/D26/D27/D33/D34 for the five unconnected sources, then run an
+   independently approved P9 bounded canary for each applicable source. A
+   canary PASS must not unlock another source or become a persistent collector;
+4. verify the copied-DB projection, rollback, and DB/CSV/XLSX parity in P9
+   before any authoritative ERP migration;
+5. activate each approved source separately only at P10, after an HPP sole
+   writer, old-writer fence, rollback, and manual failover/failback receipt;
+6. issue per-person/per-agent access, mTLS and authorization policy before any
    LAN MCP listener or team download route is enabled;
-6. review the held project/common candidates before source-text indexing,
+7. review the held project/common candidates before source-text indexing,
    Google Drive canon publication, NotebookLM synchronization, or live RAG;
-7. prove Mac mini monitor/fallback takeover and failback without two writers
+8. prove Mac mini monitor/fallback takeover and failback without two writers
    owning the same source lane.
 
 ## Stop line
@@ -126,5 +147,6 @@ No actual history or knowledge current pointer was advanced.
 No existing writer was stopped or replaced. No production DB, workspace,
 junction, OneDrive tree, Google Drive canon, NotebookLM shelf, firewall,
 scheduler, credential, LAN listener, or current pointer was changed. The next
-step is the production writer/migration activation boundary and requires an
-explicit owner approval packet.
+step is source-specific evidence and formal gate closure. Production
+writer/migration activation remains a later P10 boundary and requires a
+separate explicit owner approval packet for each source or capability.
