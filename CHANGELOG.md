@@ -15,6 +15,10 @@
   cannot advance the last-full-audit checkpoint.
 - Added distinct metadata-scan and payload-hash counters so an enumerated file
   count is not reported as if every payload had been reread.
+- Added a fail-closed one-retry settle for OneDrive ctime-only hydration
+  transitions. Size or mtime drift still fails immediately, and ctime-only
+  transitions pass only when the second complete payload digest is identical
+  and its metadata snapshot remains stable.
 
 ### Task Engine all-source data foundation
 

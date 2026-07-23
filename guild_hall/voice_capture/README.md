@@ -120,6 +120,13 @@ separate operations. A copy limit or other bounded truncation leaves
 `full_audit_complete: false` and does not advance `last_full_audit_at`, so the
 next cycle retries the required full audit.
 
+OneDrive can change only a locally available reparse file's ctime when the
+payload is first read. The stable digest permits one such ctime-only settling
+transition only when size and mtime remain unchanged, a second complete digest
+matches the first digest, and the second size/mtime/ctime snapshot is stable.
+Any size or mtime transition, second-pass metadata drift, or digest difference
+still fails closed as `source_changed_during_hash`.
+
 ## Cross-PC delivery receipts
 
 Voice payload sync is proven in two steps. A producer receipt says only that a

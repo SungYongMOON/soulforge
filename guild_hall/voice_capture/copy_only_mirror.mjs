@@ -146,20 +146,50 @@ async function sha256(path) {
   return hash.digest("hex");
 }
 
-async function stableDigest(path) {
-  const before = await stat(path);
+function sameDigestMetadata(left, right) {
+  return left.size === right.size
+    && left.mtimeMs === right.mtimeMs
+    && left.ctimeMs === right.ctimeMs;
+}
+
+export async function stableDigestFile(path, operations = {}) {
+  const statFile = operations.statFile || stat;
+  const digestFile = operations.digestFile || sha256;
+  const before = await statFile(path);
   if (!before.isFile()) fail("source_not_regular_file");
-  const digest = await sha256(path);
-  const after = await stat(path);
-  if (before.size !== after.size
-    || before.mtimeMs !== after.mtimeMs
-    || before.ctimeMs !== after.ctimeMs) fail("source_changed_during_hash");
+  const digest = await digestFile(path);
+  const after = await statFile(path);
+  if (sameDigestMetadata(before, after)) {
+    return {
+      sha256: digest,
+      size: after.size,
+      mtime_ms: after.mtimeMs,
+      ctime_ms: after.ctimeMs,
+    };
+  }
+  if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) {
+    fail("source_changed_during_hash");
+  }
+
+  // Reading a locally available OneDrive reparse file can hydrate or retag the
+  // file and change only ctime. Settle that metadata-only transition once, but
+  // accept it only when a second complete digest is identical and its own
+  // size/mtime/ctime snapshot remains stable.
+  const settledDigest = await digestFile(path);
+  const settled = await statFile(path);
+  if (!sameDigestMetadata(after, settled) || settledDigest !== digest) {
+    fail("source_changed_during_hash");
+  }
   return {
-    sha256: digest,
-    size: after.size,
-    mtime_ms: after.mtimeMs,
-    ctime_ms: after.ctimeMs,
+    sha256: settledDigest,
+    size: settled.size,
+    mtime_ms: settled.mtimeMs,
+    ctime_ms: settled.ctimeMs,
   };
+}
+
+async function stableDigest(path) {
+  return stableDigestFile(path);
 }
 
 async function collectLaneFiles(sourceRoot, lanes) {

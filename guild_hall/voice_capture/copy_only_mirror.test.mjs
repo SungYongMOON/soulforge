@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { syncCopyOnlyMirror } from "./copy_only_mirror.mjs";
+import { stableDigestFile, syncCopyOnlyMirror } from "./copy_only_mirror.mjs";
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "voice-copy-only-"));
@@ -32,6 +32,67 @@ function options(f, extra = {}) {
     ...extra,
   };
 }
+
+function syntheticStat({ size = 10, mtimeMs = 100, ctimeMs = 100, file = true } = {}) {
+  return {
+    size,
+    mtimeMs,
+    ctimeMs,
+    isFile: () => file,
+  };
+}
+
+test("stable digest settles one ctime-only OneDrive transition with identical payload hashes", async () => {
+  const stats = [
+    syntheticStat({ ctimeMs: 100 }),
+    syntheticStat({ ctimeMs: 200 }),
+    syntheticStat({ ctimeMs: 200 }),
+  ];
+  const digests = ["a".repeat(64), "a".repeat(64)];
+  const result = await stableDigestFile("synthetic", {
+    statFile: async () => stats.shift(),
+    digestFile: async () => digests.shift(),
+  });
+  assert.equal(result.sha256, "a".repeat(64));
+  assert.equal(result.ctime_ms, 200);
+  assert.equal(stats.length, 0);
+  assert.equal(digests.length, 0);
+});
+
+test("stable digest rejects size or mtime changes without a settling retry", async () => {
+  const stats = [
+    syntheticStat({ size: 10, mtimeMs: 100 }),
+    syntheticStat({ size: 11, mtimeMs: 200 }),
+  ];
+  let digestCalls = 0;
+  await assert.rejects(
+    stableDigestFile("synthetic", {
+      statFile: async () => stats.shift(),
+      digestFile: async () => {
+        digestCalls += 1;
+        return "a".repeat(64);
+      },
+    }),
+    { code: "source_changed_during_hash" },
+  );
+  assert.equal(digestCalls, 1);
+});
+
+test("stable digest rejects a ctime transition when the second payload hash differs", async () => {
+  const stats = [
+    syntheticStat({ ctimeMs: 100 }),
+    syntheticStat({ ctimeMs: 200 }),
+    syntheticStat({ ctimeMs: 200 }),
+  ];
+  const digests = ["a".repeat(64), "b".repeat(64)];
+  await assert.rejects(
+    stableDigestFile("synthetic", {
+      statFile: async () => stats.shift(),
+      digestFile: async () => digests.shift(),
+    }),
+    { code: "source_changed_during_hash" },
+  );
+});
 
 test("existing verified tree seeds checkpoint without a second payload copy", async () => {
   const f = await fixture();
