@@ -194,10 +194,11 @@ async function main() {
   }
 
   if (command === "semantic-label") {
-    if (flagValue(args, "apply") === true) {
-      throw new Error("semantic-label is shadow dry-run only; --apply is not available");
-    }
+    const apply = flagValue(args, "apply") ?? false;
     const repoRoot = args["repo-root"] ? path.resolve(args["repo-root"]) : process.cwd();
+    const voiceRoot = args["voice-root"]
+      ? path.resolve(args["voice-root"])
+      : path.join(repoRoot, "_workspaces", "system", "voice_capture");
     const contextCardPaths = String(args["context-cards"] ?? "")
       .split(",")
       .map((value) => value.trim())
@@ -207,20 +208,29 @@ async function main() {
     if (args["analysis-manifest"] && !args["session-dir"]) {
       result = await analyzeVoiceSemanticManifest({
         repoRoot,
+        voiceRoot,
         analysisManifestPath: path.resolve(args["analysis-manifest"]),
         contextCardPaths,
+        apply,
       });
     } else if (args["session-dir"] && !args["analysis-manifest"]) {
       result = await analyzeVoiceSemanticSession({
         repoRoot,
+        voiceRoot,
         sessionDir: path.resolve(args["session-dir"]),
         contextCardPaths,
-        apply: false,
+        apply,
       });
     } else {
       throw new Error("semantic-label requires exactly one of --analysis-manifest or --session-dir");
     }
-    process.stdout.write(`${JSON.stringify({ ...result.summary, mode: "shadow_dry_run", applied: false }, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify({
+      ...result.summary,
+      mode: apply ? "shadow_apply" : "shadow_dry_run",
+      applied: result.applied,
+      duplicate: result.duplicate ?? false,
+      timeline_annotation_count: result.timeline_annotation_count ?? 0,
+    }, null, 2)}\n`);
     return;
   }
 
@@ -437,7 +447,7 @@ function printUsageAndExit() {
       "  node guild_hall/voice_capture/cli.mjs prepare-delivery --session-dir <path> --stage <plaud_import_ready|local_asr_ready> --producer-node <safe-id> [--apply] [--json]",
       "  node guild_hall/voice_capture/cli.mjs ack-delivery --session-id <id> --consumer-node <safe-id> [--apply] [--json]",
       "  node guild_hall/voice_capture/cli.mjs delivery-status --session-id <id> --consumer-node <safe-id> [--json]",
-      "  node guild_hall/voice_capture/cli.mjs semantic-label (--analysis-manifest <path> | --session-dir <path>) [--context-cards <path,...>]",
+      "  node guild_hall/voice_capture/cli.mjs semantic-label (--analysis-manifest <path> | --session-dir <path>) [--voice-root <path>] [--context-cards <path,...>] [--apply]",
       "  node guild_hall/voice_capture/cli.mjs semantic-compare --fast-analysis-manifest <path> --strong-analysis-manifest <path> [--context-cards <path,...>] [--allowed-external-model-root <path>]",
       "  node guild_hall/voice_capture/cli.mjs semantic-approve-strong-windows --fast-analysis-manifest <path> --approved-by <safe-id> [--apply]",
       "  node guild_hall/voice_capture/cli.mjs semantic-prepare-review --fast-analysis-manifest <path> --strong-analysis-manifest <path> --ffmpeg-binary <path> [--context-cards <path,...>] [--allowed-external-model-root <path>] [--apply]",

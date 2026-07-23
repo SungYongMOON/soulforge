@@ -28,6 +28,7 @@ import {
   runPlaudSync,
 } from "../voice_capture/plaud_ingest.mjs";
 import { comparablePathIdentity as comparable } from "../shared/physical_path_identity.mjs";
+import { createSourceArrivalAnnotation } from "../shared/source_timeline_annotation.mjs";
 
 export const CONTINUOUS_BINDING_SCHEMA = "soulforge.ingress.continuous_binding.v1";
 export const CONTINUOUS_BINDING_SCHEMA_V2 = "soulforge.ingress.continuous_binding.v2";
@@ -1301,6 +1302,48 @@ async function writeQueueAck(queue, sourceKey, ack, assertFence) {
   }
 }
 
+async function ensureQueueArrivalTimeline(binding, queue, ack, assertFence) {
+  const annotation = createSourceArrivalAnnotation({
+    source_lane: queue.lane,
+    item_id: ack.source_key,
+    source_revision_id: `queue:${ack.source_key}`,
+    body_sha256: ack.sha256,
+    source_unit_ref: ack.source_key,
+    source_span_ref: `queue-arrival:${ack.source_key.slice(0, 32)}`,
+    occurred_at: ack.acknowledged_at,
+    actor_refs: [`source-owner:${queue.sourceOwnerRef}`],
+    producer_ref: "continuous_ingress_queue_v1",
+  });
+  const target = resolve(
+    binding.dataRoot,
+    "timeline",
+    "source_arrival",
+    queue.lane,
+    annotation.annotation_id.slice(-2),
+    `${annotation.annotation_id}.json`,
+  );
+  if (await exists(target)) {
+    const existing = await readJson(target, "continuous_timeline_annotation_invalid");
+    if (JSON.stringify(existing) !== JSON.stringify(annotation)) {
+      fail("continuous_timeline_annotation_conflict");
+    }
+    return false;
+  }
+  await atomicJson(
+    binding.dataRoot,
+    target,
+    annotation,
+    assertFence,
+    {
+      phase: "before_timeline_annotation_publish",
+      artifact: "source_arrival_annotation",
+      source_key: ack.source_key,
+      target,
+    },
+  );
+  return true;
+}
+
 async function processQueue(binding, queue, leaseContext, authorityContext, now, testHooks = {}) {
   const discovered = await collectQueueFiles(queue);
   const result = {
@@ -1313,6 +1356,7 @@ async function processQueue(binding, queue, leaseContext, authorityContext, now,
     unchanged_files: 0,
     acknowledged_files: 0,
     acknowledgements_written: 0,
+    timeline_annotations_written: 0,
     writes_performed: 0,
     withheld_links: discovered.withheldLinks,
     coverage_complete: true,
@@ -1331,6 +1375,15 @@ async function processQueue(binding, queue, leaseContext, authorityContext, now,
     const sourceKey = queueSourceKey(queue, file.relativePath);
     const existingAck = await readQueueAck(binding, queue, file, sourceKey);
     if (existingAck) {
+      if (result.timeline_annotations_written >= queue.maxFilesPerRun) {
+        result.coverage_complete = false;
+        result.gap_reasons.push("timeline_repair_limit_reached");
+        break;
+      }
+      if (await ensureQueueArrivalTimeline(binding, queue, existingAck, assertQueuePublication)) {
+        result.timeline_annotations_written += 1;
+        result.writes_performed += 1;
+      }
       result.acknowledged_files += 1;
       continue;
     }
@@ -1384,6 +1437,10 @@ async function processQueue(binding, queue, leaseContext, authorityContext, now,
     await assertLaneFences(binding, leaseContext, authorityContext, queue.lane, "before_payload", now);
     if (await writeQueueAck(queue, sourceKey, ack, assertQueuePublication)) {
       result.acknowledgements_written += 1;
+      result.writes_performed += 1;
+    }
+    if (await ensureQueueArrivalTimeline(binding, queue, ack, assertQueuePublication)) {
+      result.timeline_annotations_written += 1;
       result.writes_performed += 1;
     }
     await assertLaneFences(binding, leaseContext, authorityContext, queue.lane, "after_payload", now);

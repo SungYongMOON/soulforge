@@ -932,7 +932,7 @@ function boundedSemanticSelection(fast, windows) {
     },
     engine: {
       engine_id: "soulforge_voice_semantic_baseline",
-      engine_version: "1.10.7",
+      engine_version: "1.10.8",
       ruleset_sha256: "b".repeat(64),
     },
     evidence_gate: {

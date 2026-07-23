@@ -6,17 +6,23 @@ in the shared five-lane project-history envelope.
 
 ## Current posture
 
-- The collector is feature `OFF` by default.
+- The v1 synthetic collector remains feature `OFF` by default.
 - The source-native history module remains pure and read-only.
 - A private-custody continuous harness now validates one exact joined public
   project-channel binding at a time, writer lease/epoch fencing, immutable raw
   event custody for accepted records, restart-safe cursor/dedupe,
-  edits/deletes/replies, and metadata-only HOLD routing. Its only runner
-  transport is synthetic and its binding schema requires
-  `feature_enabled=false`.
-- Enabling validation without an explicit private runtime binding fails closed.
-  Even a valid private binding cannot activate Slack: the runner has no live
-  Web API, Events API, or Socket Mode transport.
+  edits/deletes/replies, metadata-only HOLD routing, and common source-arrival
+  timeline annotations.
+- A v2 private binding can use bounded Web API polling. It verifies the exact
+  token workspace with `auth.test` and the joined public nonshared project
+  channel with `conversations.info`, then reads at most 15 history objects per
+  request. Each request, including body parsing, has a 15-second wall-clock
+  timeout. Bot tokens are read only from the approved private environment name
+  or a single-link, identity-fenced credential file and are never returned in
+  stdout.
+- Live collection still requires an owner-managed Slack App, exact workspace
+  and channel bindings, minimal `channels:history` access, bot membership, and
+  private token provisioning. None are fabricated by the public package.
 - Public fixtures are synthetic metadata. Live cursor values, credentials,
   message bodies, attachment bytes, authenticated locators, and private paths
   do not belong here.
@@ -28,21 +34,20 @@ connect to Slack, discover channels, read messages, or persist its input. The
 connected Slack tool remains the read-only source transport and must pass only
 the allowlisted fields into this sanitizer.
 
-Live app creation, scope selection, membership changes, event subscription,
-backfill, retention/legal-hold policy, user mapping, persistent collection, and
-production activation remain separate owner-approved private gates.
+Live app creation, scope selection, membership changes, token provisioning,
+retention/legal-hold policy, user mapping, and production activation remain
+private gates.
 
-The connected interactive Slack reader can confirm source availability and
-stable channel identity, but it does not provide a reusable background token to
-this Node harness. Continuous collection therefore remains blocked until an
-owner-managed Slack App, minimal scopes, token custody, and event/backfill
-transport are approved and bound.
+The connected interactive Slack reader does not provide a reusable background
+token to this Node harness. Continuous collection therefore remains blocked
+until an owner-managed Slack App and token are bound.
 
-`createSlackWebApiCompatibleAdapter` is a preparation helper only. It maps
-injected calls to `conversations.info` and `conversations.history`, but it has
-no runner-compatible `pull` method, owns no authentication or network client,
-is not used by the CLI, and is rejected if passed to
-`runSlackContinuousIngress`. It is not a live activation path.
+`createSlackWebApiPollingTransport` is the bounded live pull transport.
+`slack_live_cli.mjs` is an explicit `--apply` entrypoint and prints only
+aggregate counts and coverage gaps. Web API polling cannot prove deletions or
+reconstruct edit history that predates activation; those gaps stay explicit.
+Full deletion/event fidelity requires a later Events API or Socket Mode
+adapter.
 
 ## Identity and revision contract
 

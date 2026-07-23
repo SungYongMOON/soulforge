@@ -20,10 +20,13 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "soulforge.slack_continuous.binding.v1"
+      "enum": [
+        "soulforge.slack_continuous.binding.v1",
+        "soulforge.slack_continuous.binding.v2"
+      ]
     },
     "feature_enabled": {
-      "const": false
+      "type": "boolean"
     },
     "binding_id": {
       "$ref": "#/$defs/safeRef"
@@ -128,6 +131,40 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "soulforge.slack_continuous.binding.v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "feature_enabled": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "soulforge.slack_continuous.binding.v2"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "feature_enabled": {
+            "const": true
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "safeRef": {
       "type": "string",

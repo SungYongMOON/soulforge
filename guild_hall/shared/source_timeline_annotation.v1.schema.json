@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schemas/source_timeline_annotation.v1.schema.json",
+  "title": "Soulforge source timeline annotation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "annotation_id",
+    "lineage_id",
+    "revision_id",
+    "source",
+    "occurrence",
+    "label",
+    "project",
+    "actors",
+    "evidence",
+    "producer",
+    "confidence",
+    "boundaries"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.source_timeline_annotation.v1" },
+    "annotation_id": { "$ref": "#/$defs/safeRef" },
+    "lineage_id": { "$ref": "#/$defs/safeRef" },
+    "revision_id": { "$ref": "#/$defs/safeRef" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane", "item_id", "source_revision_id", "body_sha256"],
+      "properties": {
+        "lane": {
+          "enum": [
+            "mail",
+            "slack",
+            "voice",
+            "structured_pc_work",
+            "team_files",
+            "run_logs"
+          ]
+        },
+        "item_id": { "$ref": "#/$defs/safeRef" },
+        "source_revision_id": { "$ref": "#/$defs/safeRef" },
+        "body_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "occurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "occurrence_id",
+        "occurred_at",
+        "time_precision",
+        "relative_start_ms",
+        "relative_end_ms",
+        "source_sequence"
+      ],
+      "properties": {
+        "occurrence_id": { "$ref": "#/$defs/safeRef" },
+        "occurred_at": { "$ref": "#/$defs/dateTime" },
+        "time_precision": { "enum": ["event", "segment", "word"] },
+        "relative_start_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "relative_end_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "source_sequence": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value_sha256", "canonical_ref", "state"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "person_mention",
+            "project_mention",
+            "equipment_mention",
+            "organization_mention",
+            "keyword_mention",
+            "measured_value",
+            "date_or_period",
+            "source_arrival",
+            "request",
+            "assignment",
+            "offer",
+            "commitment",
+            "decision",
+            "deadline_mention",
+            "action",
+            "risk_or_issue",
+            "status_update",
+            "result_report",
+            "open_question",
+            "acknowledgement",
+            "cancellation_or_hold",
+            "reported_speech",
+            "conditional_statement",
+            "context_statement",
+            "non_actionable",
+            "unknown"
+          ]
+        },
+        "value_sha256": { "$ref": "#/$defs/sha256" },
+        "canonical_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        },
+        "state": { "enum": ["candidate", "confirmed", "rejected", "superseded"] }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_ref", "resolution_state", "basis_refs"],
+      "properties": {
+        "project_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        },
+        "resolution_state": {
+          "enum": ["unassigned", "candidate", "confirmed", "exception_review_required"]
+        },
+        "basis_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "actors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["speaker_ref", "actor_refs"],
+      "properties": {
+        "speaker_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        },
+        "actor_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_unit_ref", "source_span_ref", "supersedes_revision_id"],
+      "properties": {
+        "source_unit_ref": { "$ref": "#/$defs/safeRef" },
+        "source_span_ref": { "$ref": "#/$defs/safeRef" },
+        "supersedes_revision_id": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "producer_ref", "policy_ref"],
+      "properties": {
+        "kind": { "enum": ["deterministic", "local_asr", "local_llm", "codex", "human"] },
+        "producer_ref": { "$ref": "#/$defs/safeRef" },
+        "policy_ref": { "$ref": "#/$defs/safeRef" }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "band", "acoustic_score", "context_score"],
+      "properties": {
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "band": { "enum": ["high", "medium", "low", "unknown"] },
+        "acoustic_score": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "context_score": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_body_copied",
+        "official_task_mutated",
+        "official_project_assignment_mutated",
+        "secret_material_present"
+      ],
+      "properties": {
+        "raw_body_copied": { "const": false },
+        "official_task_mutated": { "const": false },
+        "official_project_assignment_mutated": { "const": false },
+        "secret_material_present": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "safeRef": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,255}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "dateTime": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

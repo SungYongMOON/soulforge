@@ -4781,6 +4781,98 @@ implementation_scope: public_feature_off_foundation
 claim_ceiling: source_supported
 ```
 
+## 2026-07-23 실행 보정: 공통 시간축·음성·Slack 실제 수집 기반
+
+이 절은 위의 과거 `plan_docs_only`, `common_all_source_label_runtime:
+false`, `slack ... activation: false` 상태 기록보다 나중의 실행 근거다.
+과거 기록은 당시 감사 흔적으로 유지하되 현재 구현 상태는 이 절을 따른다.
+
+### 공통 하위 뼈대
+
+`soulforge.source_timeline_annotation.v1`을 여섯 입력 창구의 공통
+발생 라벨 계약으로 고정한다.
+
+이 계약은 여섯 lane을 같은 모양으로 표현하지만 현재 공통 timeline writer는
+Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있다. 메일은 기존
+`mail_occurrence`가 정본이며 P5 의미 라벨 전까지 공통 writer가 있다고
+과대 주장하지 않는다.
+
+```text
+메일 / Slack / 음성 / PC 업무 / 파일 / 실행로그
+                    |
+                    v
+     source-native RAW + source revision/hash
+                    |
+                    v
+     source_timeline_annotation.v1
+     time / occurrence / actor / project-state / label
+                    |
+                    v
+       P5 맥락 결합 후보 -> TaskDriver 별도 승인
+```
+
+- 같은 사람이나 장비가 열 번 나오면 열 개의 occurrence다.
+- 모든 occurrence는 절대시각을 가진다.
+- 음성은 상대 start/end도 가진다. 현재 정밀도는 `segment`이며 단어
+  alignment 전에는 `word`를 주장하지 않는다.
+- RAW 본문·원음·첨부·secret은 annotation에 복사하지 않는다.
+- 프로젝트는 `unassigned / candidate / confirmed /
+  exception_review_required`를 구분한다.
+- 정정은 동일 lineage 안의 append-only revision이다.
+- 이 레이어는 ERP 공식 할일, 공식 프로젝트 배정, 완료 권한이 없다.
+
+정본 계약:
+`docs/architecture/workspace/SOURCE_TIMELINE_ANNOTATION_V1.md`
+
+### 현재 구현 상태
+
+1. 음성
+   - 완료된 local ASR 중 세션별 강한 모델을 우선 선택하는 bounded sweep을
+     구현했다.
+   - semantic run과 발생별 timeline JSONL을 해당 세션
+     `analysis/semantic_labels/<run_id>/`에 원자적으로 저장한다.
+   - 비공개 metadata-only receipt
+     `task_engine_contextual_ingress_actual_canary_v1`에 따르면 실제 HPP 기존
+     전사 56세션에서 녹음 시작시각 보정과 반복 발생 보존을 적용한
+     19,110개 발생 라벨을 생성했다.
+   - 전 세션 재실행에서 56/56 duplicate, 실패 0, 공식 task/project 변경
+     0을 확인했다.
+   - local ASR가 아직 없는 세션은 새 전사 완료 뒤 같은 sweep 대상이 된다.
+
+2. Slack
+   - v2 Web API polling transport, `auth.test` token-workspace 일치,
+     정확한 joined/public/nonshared project channel 검증, 15개 제한 page,
+     private bot-token 로딩, RAW custody,
+     revision/dedupe, 프로젝트 확정 arrival annotation을 구현했다.
+   - polling은 활성화 전 삭제와 과거 edit 이력을 완전 증명하지 못하므로
+     coverage gap으로 남긴다. 완전한 삭제 이벤트는 향후 Events API 또는
+     Socket Mode 어댑터가 필요하다.
+   - 현재 live 차단점은 코드가 아니라 owner-managed Slack App/token과
+     exact workspace/channel private binding 부재다.
+
+3. PC 업무·파일·실행로그
+   - 기존 HPP 연속 queue custody/ack 흐름에 공통 arrival annotation을
+     연결했다.
+   - ack 직후 annotation을 쓰며, ack 후 중단되어 annotation만 빠진 경우
+     다음 replay가 복구한다.
+
+4. 메일
+   - 받은편지·보낸편지는 기존 exact `mail_occurrence` identity와 RAW
+     custody를 유지한다.
+   - 공통 P5 의미 라벨은 mail occurrence를 대체하지 않고 그 위에 붙는다.
+
+### 남은 운영 게이트
+
+- Slack App/token과 9개 프로젝트 채널의 exact private v2 binding
+- local ASR가 없는 신규/기존 음성의 연속 전사 운영 연결
+- mail/slack/voice에서 나온 요청·약속·결정 후보를 최근 맥락과 대조하는
+  P5 context resolver
+- P5 후보를 ERP 공식 TaskDriver로 승격하는 owner/role 승인
+- Events API/Socket Mode를 사용할 경우 삭제·edit coverage 강화
+
+운영 원칙은 유지한다. HPP만 RAW/annotation 단일 writer이며 Mac mini는
+감시·장애 알림·승인된 fallback이다.
+
 ## 근거 문서
 
 - [`AGENT_EXECUTION_CONTRACT_V0.md`](../../../../docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md)
@@ -4821,3 +4913,6 @@ claim_ceiling: source_supported
 - [Hermes Codex app-server runtime](https://hermes-agent.nousresearch.com/docs/user-guide/features/codex-app-server-runtime)
 
 결과: `READY_FOR_OWNER_REVIEW`
+
+최신 실행 보정 결과:
+`COMMON_TIMELINE_AND_VOICE_APPLIED_SLACK_PRIVATE_BINDING_PENDING`

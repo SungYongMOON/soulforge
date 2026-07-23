@@ -12,7 +12,8 @@ versioned local-ASR runner. The runner uses resumable fixed windows, writes
 outputs only under each session's `analysis/local_asr/<run_id>/` directory, and
 does not replace the provider transcript.
 
-The semantic-label command is a body-safe shadow analyzer. Provider text has
+The semantic-label command is a body-safe shadow analyzer and private
+per-session derived-artifact writer. Provider text has
 locator-only authority and can emit neither task/project candidates nor RAG
 query terms. Fast independent ASR screens the full recording; a material
 request, assignee, deadline, decision, commitment, cancellation, safety, cost,
@@ -22,7 +23,17 @@ chat is ignored. If important meaning remains unresolved after the stronger
 lane, the output contains only a bounded 30–90 second audio-review window. Its
 stdout contains counts and states only. It does not print transcript text,
 accept a project, create an official task, infer that the speaker is the
-assignee, or write any file.
+assignee. With explicit `--apply`, it writes only the deterministic semantic
+run and common timestamped occurrence annotations below the source session; it
+does not modify audio, transcripts, projects, ERP, or official tasks.
+
+`voice_semantic_sweep_cli.mjs` selects the strongest completed local transcript
+available per session, produces at most the requested number of successful
+session generations, and replays idempotently. Invalid or persistently failing
+older manifests are reported but do not consume the successful-session slot or
+starve later valid sessions; discovery remains hard-capped. It gives repeated
+people/equipment/actions separate occurrence records. Until word alignment
+exists, their timing precision is `segment`, not `word`.
 
 ## Boundary
 
@@ -354,7 +365,8 @@ npm run guild-hall:voice-capture -- semantic-label \
   --session-dir _workspaces/system/voice_capture/sessions/<date>/<session>
 ```
 
-`semantic-label` is dry-run only and rejects `--apply`. A provider-only run
+`semantic-label` is dry-run by default. Explicit `--apply` stores only private
+Shadow artifacts under `analysis/semantic_labels/<run_id>/`. A provider-only run
 returns `independent_asr_required`, zero action candidates, zero project
 candidates, and zero retrieval terms. A fast independent run with a material
 signal returns `stronger_local_asr_required`; a fast run with no material signal

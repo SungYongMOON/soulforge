@@ -2,6 +2,34 @@
 
 ## 2026-07-23
 
+### Common timeline, voice occurrence labels, and Slack Web API ingress
+
+- Added one strict source-timeline annotation contract that can represent
+  received/sent mail, Slack, voice, structured PC work, team files, and
+  executor/run logs. Current common-timeline writers cover Slack, voice,
+  structured PC work, team files, and executor/run logs; mail keeps its
+  existing native `mail_occurrence` until the P5 semantic adapter is added.
+  It preserves source revision/hash, explicit time precision, actors, project
+  resolution state, confidence, dedupe, and append-only corrections without
+  copying RAW bodies or granting TaskDriver authority.
+- Added voice timeline projection and a bounded semantic sweep. Repeated person,
+  project, equipment, value, request, commitment, decision, deadline, and
+  action occurrences remain separate timestamped records. The private
+  metadata-only receipt
+  `task_engine_contextual_ingress_actual_canary_v1` records an HPP canary and
+  corrected full existing-transcript sweep of 19,110 derived annotations across
+  56 sessions; a complete replay reported all 56 as duplicates with zero
+  official task or project mutations.
+- Added Slack v2 Web API polling with token-workspace `auth.test`, exact
+  channel verification, private
+  single-link identity-fenced token loading, bounded history pages and
+  wall-clock request timeout, immutable RAW custody, project-scoped
+  source-arrival annotations, and explicit polling coverage gaps. Live Slack
+  remains unbound until an owner-managed app/token is provisioned.
+- Connected structured PC-work, team-file, and run-log queue acknowledgements
+  to the common timeline, including recovery of a missing timeline annotation
+  from an already valid queue acknowledgement.
+
 ### Outlook Sent custody pilot and Slack continuous harness
 
 - Added an owner Outlook Sent provider inside the existing team-mailbox

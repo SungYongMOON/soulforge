@@ -12,6 +12,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 
 import {
   analyzeVoiceSemanticManifest,
+  analyzeVoiceSemanticSession,
   buildComparisonGatedSemanticSummary,
   buildSafeComparisonSummary,
   buildSafeSemanticSummary,
@@ -935,6 +936,11 @@ test("completed local ASR manifest is hash-bound and dry-run makes no writes", a
   try {
     const runDir = path.join(root, "_workspaces", "system", "voice_capture", "sessions", "2026-07-22", "fixture", "analysis", "local_asr", "run_v1");
     await mkdir(runDir, { recursive: true });
+    await writeFile(path.resolve(runDir, "../../..", "session_manifest.json"), `${JSON.stringify({
+      session_id: "fixture_session",
+      source_provider: "PLAUD",
+      recorded_at_local: "2026-07-22T20:00:00+09:00",
+    })}\n`, "utf8");
     const transcript = `${JSON.stringify(segment(1, "내일까지 자료를 확인해 주세요.", 0))}\n`;
     const transcriptPath = path.join(runDir, "transcript.jsonl");
     await writeFile(transcriptPath, transcript, "utf8");
@@ -957,6 +963,7 @@ test("completed local ASR manifest is hash-bound and dry-run makes no writes", a
     const second = await analyzeVoiceSemanticManifest({ repoRoot: root, analysisManifestPath: manifestPath });
     assert.equal(first.applied, false);
     assert.deepEqual(first, second);
+    assert.equal(first.run.recording_ref.recorded_at, "2026-07-22T11:00:00.000Z");
     assert.deepEqual(await readFile(manifestPath), beforeManifest);
     assert.deepEqual(await readFile(transcriptPath), beforeTranscript);
 
@@ -974,6 +981,99 @@ test("completed local ASR manifest is hash-bound and dry-run makes no writes", a
     await assert.rejects(
       analyzeVoiceSemanticManifest({ repoRoot: root, analysisManifestPath: manifestPath }),
       /SHA-256 mismatch/u,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("local ASR semantic time uses the session recording start and never ASR completion", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "voice-semantic-source-time-"));
+  try {
+    const sessionDir = path.join(root, "_workspaces", "system", "voice_capture", "sessions", "2026-07-23", "fixture_time");
+    const runDir = path.join(sessionDir, "analysis", "local_asr", "run_v1");
+    await mkdir(runDir, { recursive: true });
+    await writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify({
+      session_id: "fixture_time",
+      source_provider: "PLAUD",
+      recorded_at_local: "2026-07-23T12:00:00",
+    })}\n`, "utf8");
+    const transcript = `${JSON.stringify(segment(1, "\uc790\ub8cc\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694", 10))}\n`;
+    const transcriptPath = path.join(runDir, "transcript.jsonl");
+    await writeFile(transcriptPath, transcript, "utf8");
+    const manifestPath = path.join(runDir, "analysis_manifest.json");
+    await writeFile(manifestPath, `${JSON.stringify({
+      state: "completed",
+      session_id: "fixture_time",
+      segment_count: 1,
+      transcript_jsonl_ref: path.relative(root, transcriptPath).split(path.sep).join("/"),
+      transcript_sha256: crypto.createHash("sha256").update(transcript).digest("hex"),
+      evidence_role: "independent_machine_transcript_unverified",
+      quality: "machine_transcript_unverified",
+      completed_at: "2026-07-23T15:00:00Z",
+    })}\n`, "utf8");
+
+    const result = await analyzeVoiceSemanticManifest({
+      repoRoot: root,
+      analysisManifestPath: manifestPath,
+    });
+    assert.equal(result.run.recording_ref.recorded_at, "2026-07-23T12:00:00.000Z");
+
+    const missingTime = JSON.parse(await readFile(path.join(sessionDir, "session_manifest.json"), "utf8"));
+    delete missingTime.recorded_at_local;
+    await writeFile(path.join(sessionDir, "session_manifest.json"), `${JSON.stringify(missingTime)}\n`, "utf8");
+    await assert.rejects(
+      analyzeVoiceSemanticManifest({ repoRoot: root, analysisManifestPath: manifestPath }),
+      /session recording start is required/u,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("provider transcript session uses the same PLAUD source-time normalization", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "voice-semantic-provider-time-"));
+  try {
+    const sessionDir = path.join(
+      root,
+      "_workspaces",
+      "system",
+      "voice_capture",
+      "sessions",
+      "2026-07-23",
+      "provider_fixture",
+    );
+    await mkdir(sessionDir, { recursive: true });
+    const transcriptPath = path.join(sessionDir, "transcript.jsonl");
+    const transcript = `${JSON.stringify(segment(1, "\uc790\ub8cc\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694", 10))}\n`;
+    await writeFile(transcriptPath, transcript, "utf8");
+    const sessionManifestPath = path.join(sessionDir, "session_manifest.json");
+    const manifest = {
+      session_id: "provider_fixture",
+      source_provider: "PLAUD",
+      recorded_at_local: "2026-07-23T12:00:00",
+      transcript: {
+        jsonl_ref: path.relative(root, transcriptPath).split(path.sep).join("/"),
+        segment_count: 1,
+        evidence_role: "provider_transcript_auxiliary_unverified",
+        quality: "provider_transcript_unverified",
+      },
+    };
+    await writeFile(sessionManifestPath, `${JSON.stringify(manifest)}\n`, "utf8");
+
+    const result = await analyzeVoiceSemanticSession({
+      repoRoot: root,
+      sessionDir,
+    });
+    assert.equal(result.run.recording_ref.recorded_at, "2026-07-23T12:00:00.000Z");
+
+    await writeFile(sessionManifestPath, `${JSON.stringify({
+      ...manifest,
+      source_provider: "OTHER",
+    })}\n`, "utf8");
+    await assert.rejects(
+      analyzeVoiceSemanticSession({ repoRoot: root, sessionDir }),
+      /offsetless recording start is ambiguous/u,
     );
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -1347,10 +1447,10 @@ test("project ranking requires two distinct lexical anchors, not one duplicated 
   assert.equal(independent.candidates[0].independent_anchor_value_count, 2);
 });
 
-test("CLI rejects semantic apply before reading a transcript", async () => {
+test("CLI semantic apply requires a real bounded session or analysis manifest", async () => {
   const cliPath = fileURLToPath(new URL("./cli.mjs", import.meta.url));
   await assert.rejects(
     execFileAsync(process.execPath, [cliPath, "semantic-label", "--session-dir", "fixture", "--apply"], { windowsHide: true }),
-    (error) => error.code === 2 && /shadow dry-run only/u.test(error.stderr),
+    (error) => error.code === 2 && /sessionDir|voice_capture|outside/u.test(error.stderr),
   );
 });

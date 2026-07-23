@@ -504,8 +504,9 @@ test("all queue lanes stage once, replay unchanged, and leave monotonic epochs",
     assert.equal(first.status, "ok");
     assert.equal(first.queues.length, 3);
     assert.equal(first.queues.reduce((sum, row) => sum + row.staged_files, 0), 3);
-    assert.equal(first.queues.reduce((sum, row) => sum + row.writes_performed, 0), 12);
+    assert.equal(first.queues.reduce((sum, row) => sum + row.writes_performed, 0), 15);
     assert.equal(first.queues.reduce((sum, row) => sum + row.acknowledgements_written, 0), 3);
+    assert.equal(first.queues.reduce((sum, row) => sum + row.timeline_annotations_written, 0), 3);
     assert.equal(first.source_deleted, false);
     assert.equal(first.erp_written, false);
     assert.equal(await listFiles(join(f.dataRoot, "state", "leases", "continuous_ingress", "active.lock.json")).then((rows) => rows.length), 0);
@@ -538,11 +539,85 @@ test("acknowledged queue occurrence rejects later source mutation", async () => 
     let value = Date.parse("2026-07-17T00:00:00Z");
     const first = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => value++ });
     assert.equal(first.queues[0].acknowledgements_written, 1);
+    assert.equal(first.queues[0].timeline_annotations_written, 1);
     await writeFile(source, "two");
     value += 1000;
     const second = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => value++ });
     assert.equal(second.status, "degraded");
     assert.deepEqual(second.errors.map((error) => error.code), ["continuous_queue_ack_invalid"]);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("a valid queue acknowledgement backfills its missing timeline annotation on replay", async () => {
+  const f = await fixture();
+  try {
+    await writeFile(join(f.queues.run_logs, "run.payload"), "run-log");
+    const payload = binding(f);
+    payload.queues = payload.queues.map((queue) => ({ ...queue, enabled: queue.lane === "run_logs" }));
+    await writeBinding(f, payload);
+    let value = Date.parse("2026-07-17T00:00:00Z");
+    const first = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => value++ });
+    assert.equal(first.queues[0].acknowledgements_written, 1);
+    assert.equal(first.queues[0].timeline_annotations_written, 1);
+    const timelineRoot = join(f.dataRoot, "timeline", "source_arrival", "run_logs");
+    const timelineFiles = await listFiles(timelineRoot);
+    assert.equal(timelineFiles.length, 1);
+    await rm(timelineFiles[0], { force: true });
+
+    value += 1000;
+    const second = await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => value++ });
+    assert.equal(second.queues[0].acknowledged_files, 1);
+    assert.equal(second.queues[0].acknowledgements_written, 0);
+    assert.equal(second.queues[0].timeline_annotations_written, 1);
+    assert.equal((await listFiles(timelineRoot)).length, 1);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("queue timeline repair writes obey the per-run file cap", async () => {
+  const f = await fixture();
+  try {
+    await writeFile(join(f.queues.run_logs, "one.payload"), "run-log-one");
+    await writeFile(join(f.queues.run_logs, "two.payload"), "run-log-two");
+    const payload = binding(f);
+    payload.queues = payload.queues.map((queue) => ({
+      ...queue,
+      enabled: queue.lane === "run_logs",
+      max_files_per_run: 1,
+    }));
+    await writeBinding(f, payload);
+    let value = Date.parse("2026-07-17T00:00:00Z");
+    await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => value++ });
+    value += 1000;
+    await runContinuousIngress({ bindingPath: f.bindingPath, apply: true, now: () => value++ });
+
+    const timelineRoot = join(f.dataRoot, "timeline", "source_arrival", "run_logs");
+    const timelineFiles = await listFiles(timelineRoot);
+    assert.equal(timelineFiles.length, 2);
+    for (const file of timelineFiles) await rm(file, { force: true });
+
+    value += 1000;
+    const firstRepair = await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: () => value++,
+    });
+    assert.equal(firstRepair.queues[0].timeline_annotations_written, 1);
+    assert.equal(firstRepair.queues[0].coverage_complete, false);
+    assert.deepEqual(firstRepair.queues[0].gap_reasons, ["timeline_repair_limit_reached"]);
+    assert.equal((await listFiles(timelineRoot)).length, 1);
+
+    value += 1000;
+    const secondRepair = await runContinuousIngress({
+      bindingPath: f.bindingPath,
+      apply: true,
+      now: () => value++,
+    });
+    assert.equal(secondRepair.queues[0].timeline_annotations_written, 1);
+    assert.equal((await listFiles(timelineRoot)).length, 2);
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

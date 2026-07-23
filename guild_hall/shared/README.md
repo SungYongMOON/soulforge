@@ -61,6 +61,19 @@
   live/copy ERP database, publish accepted history, or enable a classifier,
   projector epoch, service, or external side effect.
 
+## Common source timeline annotations
+
+- `source_timeline_annotation.mjs` is the common lower-level occurrence
+  contract for mail, Slack, voice, structured PC work, team files, and run
+  logs.
+- Every annotation has one absolute time, an explicit time precision, source
+  identity/revision/hash, label kind, actor refs, project resolution state,
+  confidence, and immutable authority boundaries.
+- Repeated mentions remain repeated occurrences. The contract never stores raw
+  bodies and never mutates an official task or project assignment.
+- See
+  `docs/architecture/workspace/SOURCE_TIMELINE_ANNOTATION_V1.md`.
+
 ## Feature-OFF project-history knowledge projection
 
 - `project_history_knowledge_projection.mjs` derives explicit `project` or

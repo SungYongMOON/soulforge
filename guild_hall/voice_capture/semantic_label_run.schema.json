@@ -273,7 +273,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["engine_id", "engine_version", "ruleset_sha256", "mode", "claim_ceiling"],
       "properties": {
-        "engine_id": { "const": "soulforge_voice_semantic_baseline" }, "engine_version": { "const": "1.10.7" },
+        "engine_id": { "const": "soulforge_voice_semantic_baseline" }, "engine_version": { "const": "1.10.8" },
         "ruleset_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "mode": { "enum": ["transcript_only_rules", "context_assisted_rules"] }, "claim_ceiling": { "enum": ["machine_generated_reviewable", "locator_only_untrusted"] }
       }

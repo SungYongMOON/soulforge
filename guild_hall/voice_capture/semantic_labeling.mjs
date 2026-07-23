@@ -8,13 +8,17 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import Ajv2020 from "ajv/dist/2020.js";
 import { parseWhisperJson, suppressRepetitiveSegments } from "./local_asr.mjs";
+import { parsePlaudProviderTimestamp } from "./plaud_ingest.mjs";
+import { buildVoiceTimelineAnnotations } from "./voice_timeline_adapter.mjs";
+import { writeSourceTimelineJsonl } from "../shared/source_timeline_annotation.mjs";
 
 export const semanticLabelRunSchemaVersion = "soulforge.voice_semantic_label_run.v1";
 export const projectContextCardSchemaVersion = "soulforge.voice_project_context_card.v1";
 export const semanticLabelEngineId = "soulforge_voice_semantic_baseline";
-export const semanticLabelEngineVersion = "1.10.7";
+export const semanticLabelEngineVersion = "1.10.8";
 
 const VERIFIED_ASR_PAIR_EVIDENCE = Symbol("verifiedAsrPairEvidence");
+const MANIFEST_SOURCE_SEGMENTS = Symbol("manifestSourceSegments");
 const VERIFIED_FAST_RUNS = new WeakMap();
 const VERIFIED_STRONG_RUNS = new WeakMap();
 const VERIFIED_COMPARISONS = new WeakMap();
@@ -339,15 +343,14 @@ export async function analyzeVoiceSemanticSession(options = {}) {
   if (!existsSync(manifestPath)) throw new Error("session_manifest.json is required");
   const manifest = JSON.parse((await readStableFile(manifestPath)).toString("utf8"));
   const transcriptRefFromManifest = requireSafeRelativeRef(manifest.transcript?.jsonl_ref, "session transcript jsonl_ref");
-  const transcriptPath = path.resolve(repoRoot, transcriptRefFromManifest);
+  const transcriptPath = resolveVoiceWorkspaceRef(transcriptRefFromManifest, repoRoot, voiceRoot);
   await assertInsideExisting(sessionDir, transcriptPath, "session transcript");
   if (!existsSync(transcriptPath)) throw new Error("transcript.jsonl is required");
   const transcriptBytes = await readStableFile(transcriptPath);
   const sourceSegments = parseTranscriptJsonl(transcriptBytes.toString("utf8"));
   if (sourceSegments.length !== Number(manifest.transcript?.segment_count)) throw new Error("session transcript segment_count mismatch");
   const projectContextCards = await loadProjectContextCards(options.contextCardPaths ?? [], repoRoot);
-  const transcriptRef = toPosix(path.relative(repoRoot, transcriptPath));
-  if (transcriptRef.startsWith("../") || path.isAbsolute(transcriptRef)) throw new Error("transcript must use a repo-relative workspace ref");
+  const transcriptRef = logicalVoiceRef(transcriptPath, repoRoot, voiceRoot);
   const run = buildVoiceSemanticLabelRun({
     recordingId: manifest.recording_id ?? manifest.session_id ?? path.basename(sessionDir),
     transcriptRef,
@@ -355,32 +358,84 @@ export async function analyzeVoiceSemanticSession(options = {}) {
     sourceSegments,
     recordingTitle: manifest.source_page_title,
     durationSeconds: manifest.duration_seconds,
-    recordedAt: manifest.recorded_at_local,
+    recordedAt: normalizeVoiceRecordingStart(
+      manifest.recorded_at_local,
+      manifest.source_provider,
+    ),
     evidenceRole: manifest.transcript?.evidence_role ?? "provider_transcript_auxiliary_unverified",
     transcriptQuality: manifest.transcript?.quality ?? "provider_transcript_unverified",
     projectContextCards,
   });
   const summary = buildSafeSemanticSummary(run);
-  if (!options.apply) return { applied: false, summary, run };
-
-  const targetDir = path.join(sessionDir, "analysis", "semantic_labels", run.run_id);
-  await assertInsideExistingOrFuture(sessionDir, targetDir, "semantic label target");
-  const targetPath = path.join(targetDir, "semantic_label_run.json");
-  const content = `${JSON.stringify(run, null, 2)}\n`;
-  await fs.mkdir(targetDir, { recursive: true });
-  if (existsSync(targetPath)) {
-    const existing = await fs.readFile(targetPath, "utf8");
-    if (existing !== content) throw new Error("existing semantic label run conflicts with deterministic output");
-    return { applied: true, duplicate: true, output_ref: toPosix(path.relative(repoRoot, targetPath)), summary, run };
+  const timelineAnnotations = buildVoiceTimelineAnnotations({
+    run,
+    source_segments: sourceSegments,
+    signal_occurrences: buildVoiceSemanticSignalOccurrences(run, sourceSegments),
+  });
+  if (!options.apply) {
+    return {
+      applied: false,
+      summary,
+      run,
+      timeline_annotation_count: timelineAnnotations.length,
+    };
   }
-  const temporaryPath = `${targetPath}.tmp-${process.pid}`;
-  await fs.writeFile(temporaryPath, content, { encoding: "utf8", flag: "wx" });
-  await fs.rename(temporaryPath, targetPath);
-  return { applied: true, duplicate: false, output_ref: toPosix(path.relative(repoRoot, targetPath)), summary, run };
+
+  const persisted = await persistVoiceSemanticArtifacts({
+    repoRoot,
+    voiceRoot,
+    sessionDir,
+    run,
+    timelineAnnotations,
+  });
+  return {
+    applied: true,
+    ...persisted,
+    timeline_annotation_count: timelineAnnotations.length,
+    summary,
+    run,
+  };
 }
 
 export async function analyzeVoiceSemanticManifest(options = {}) {
-  return analyzeVoiceSemanticManifestInternal(options, null);
+  const result = await analyzeVoiceSemanticManifestInternal(options, null);
+  const timelineAnnotations = buildVoiceTimelineAnnotations({
+    run: result.run,
+    source_segments: result[MANIFEST_SOURCE_SEGMENTS],
+    signal_occurrences: buildVoiceSemanticSignalOccurrences(
+      result.run,
+      result[MANIFEST_SOURCE_SEGMENTS],
+    ),
+  });
+  if (!options.apply) {
+    return {
+      ...result,
+      timeline_annotation_count: timelineAnnotations.length,
+    };
+  }
+  const voiceRoot = path.resolve(options.voiceRoot ?? path.join(
+    path.resolve(options.repoRoot ?? process.cwd()),
+    "_workspaces",
+    "system",
+    "voice_capture",
+  ));
+  const sessionDir = await findVoiceSessionDir(
+    path.resolve(options.analysisManifestPath ?? ""),
+    voiceRoot,
+  );
+  const persisted = await persistVoiceSemanticArtifacts({
+    repoRoot: path.resolve(options.repoRoot ?? process.cwd()),
+    voiceRoot,
+    sessionDir,
+    run: result.run,
+    timelineAnnotations,
+  });
+  return {
+    ...result,
+    applied: true,
+    ...persisted,
+    timeline_annotation_count: timelineAnnotations.length,
+  };
 }
 
 async function analyzeVoiceSemanticManifestInternal(options = {}, verifiedPairEvidence = null) {
@@ -395,8 +450,27 @@ async function analyzeVoiceSemanticManifestInternal(options = {}, verifiedPairEv
   }
   const manifest = JSON.parse(manifestBytes.toString("utf8"));
   if (manifest.state !== "completed") throw new Error("local ASR analysis manifest must be completed");
+  const sessionDir = await findVoiceSessionDir(manifestPath, voiceRoot);
+  const sessionManifestPath = path.join(sessionDir, "session_manifest.json");
+  const sessionManifest = JSON.parse((await readStableFile(sessionManifestPath)).toString("utf8"));
+  if (String(sessionManifest.session_id ?? "") !== String(manifest.session_id ?? "")) {
+    throw new Error("analysis manifest session_id does not match session manifest");
+  }
+  const recordedAt = normalizeVoiceRecordingStart(
+    sessionManifest.recorded_at_local,
+    sessionManifest.source_provider,
+  );
+  if (manifest.recorded_at_local !== undefined && manifest.recorded_at_local !== null) {
+    const analysisRecordedAt = normalizeVoiceRecordingStart(
+      manifest.recorded_at_local,
+      sessionManifest.source_provider,
+    );
+    if (analysisRecordedAt !== recordedAt) {
+      throw new Error("analysis recording start does not match session manifest");
+    }
+  }
   const transcriptRef = requireSafeRelativeRef(manifest.transcript_jsonl_ref, "analysis transcript_jsonl_ref");
-  const transcriptPath = path.resolve(repoRoot, transcriptRef);
+  const transcriptPath = resolveVoiceWorkspaceRef(transcriptRef, repoRoot, voiceRoot);
   await assertInsideExisting(path.dirname(manifestPath), transcriptPath, "analysis transcript");
   const transcriptBytes = await readStableFile(transcriptPath);
   const actualDigest = sha256(transcriptBytes);
@@ -410,12 +484,38 @@ async function analyzeVoiceSemanticManifestInternal(options = {}, verifiedPairEv
     transcriptRef,
     transcriptSha256: actualDigest,
     sourceSegments,
-    recordedAt: manifest.recorded_at_local ?? manifest.completed_at,
+    recordedAt,
     evidenceRole: manifest.evidence_role,
     transcriptQuality: manifest.quality,
     projectContextCards,
   }, verifiedPairEvidence);
-  return { applied: false, summary: buildSafeSemanticSummary(run), run, manifest, manifest_bytes: manifestBytes };
+  const result = {
+    applied: false,
+    summary: buildSafeSemanticSummary(run),
+    run,
+    manifest,
+    manifest_bytes: manifestBytes,
+  };
+  Object.defineProperty(result, MANIFEST_SOURCE_SEGMENTS, {
+    value: sourceSegments,
+    enumerable: false,
+  });
+  return result;
+}
+
+function normalizeVoiceRecordingStart(value, sourceProvider) {
+  const raw = String(value ?? "").trim();
+  if (!raw) throw new Error("session recording start is required");
+  const hasExplicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/iu.test(raw);
+  if (!hasExplicitZone) {
+    if (String(sourceProvider ?? "").trim().toUpperCase() !== "PLAUD") {
+      throw new Error("offsetless recording start is ambiguous");
+    }
+    return parsePlaudProviderTimestamp(raw).date.toISOString();
+  }
+  const timestamp = Date.parse(raw);
+  if (!Number.isFinite(timestamp)) throw new Error("session recording start is invalid");
+  return new Date(timestamp).toISOString();
 }
 
 export function verifySemanticManifestPairBinding(manifestBytes, receipt, lane) {
@@ -1227,6 +1327,125 @@ function labelTurn(turn, contextCards) {
   };
 }
 
+function globalPattern(pattern) {
+  return new RegExp(pattern.source, [...new Set(`${pattern.flags.replace(/[gy]/gu, "")}g`)].join(""));
+}
+
+function matchPatternSpans(content, patterns) {
+  const spans = new Map();
+  for (const pattern of patterns) {
+    for (const match of content.matchAll(globalPattern(pattern))) {
+      if (!match[0]) continue;
+      const start = match.index;
+      const end = start + match[0].length;
+      spans.set(`${start}:${end}`, { char_start: start, char_end: end });
+    }
+  }
+  const ordered = [...spans.values()].sort(
+    (left, right) => left.char_start - right.char_start || left.char_end - right.char_end,
+  );
+  const nonOverlapping = [];
+  for (const span of ordered) {
+    const previous = nonOverlapping.at(-1);
+    if (previous && span.char_start < previous.char_end) {
+      previous.char_end = Math.max(previous.char_end, span.char_end);
+    } else {
+      nonOverlapping.push({ ...span });
+    }
+  }
+  return nonOverlapping;
+}
+
+function speechActOccurrencePatterns(speechAct) {
+  switch (speechAct) {
+    case "cancellation": return [CANCELLATION_PATTERN];
+    case "assignment": return [ASSIGNMENT_PATTERN];
+    case "request": return [REQUEST_PATTERN, COMMON_POLITE_REQUEST_PATTERN];
+    case "offer": return [OFFER_PATTERN, PROPOSAL_QUESTION_PATTERN];
+    case "commitment": return [COMMITMENT_PATTERN];
+    case "decision": return [DECISION_PATTERN, COLLOQUIAL_DECISION_PATTERN];
+    case "open_question": return [QUESTION_PATTERN, PROPOSAL_QUESTION_PATTERN];
+    case "risk_or_issue": return [RISK_PATTERN, BUSINESS_IMPACT_RISK_PATTERN];
+    case "status_update": return [NEGATED_COMPLETION_PATTERN, COMMON_INCOMPLETE_PATTERN, PROGRESS_STATUS_PATTERN];
+    case "result_report": return [RESULT_PATTERN];
+    case "acknowledgement": return [ACKNOWLEDGEMENT_PATTERN];
+    case "deadline_mention": return [DEADLINE_PATTERN];
+    case "reported_speech": return [REPORTED_PATTERN];
+    case "conditional_statement": return [CONDITIONAL_PATTERN];
+    default: return [];
+  }
+}
+
+export function buildVoiceSemanticSignalOccurrences(run, sourceSegments) {
+  const segmentById = new Map(sourceSegments.map((segment) => [String(segment.segment_id), segment]));
+  const rows = [];
+  for (const labelRow of run.segment_labels ?? []) {
+    for (const speechAct of labelRow.speech_acts ?? []) {
+      const patterns = speechActOccurrencePatterns(speechAct);
+      let emitted = 0;
+      for (const segmentId of labelRow.source_segment_ids ?? []) {
+        const segment = segmentById.get(String(segmentId));
+        if (!segment) continue;
+        let spans = matchPatternSpans(String(segment.content ?? ""), patterns);
+        if (spans.length === 0 && speechAct === "context_statement") {
+          spans = [{ char_start: 0, char_end: Math.max(1, String(segment.content ?? "").length) }];
+        }
+        for (const span of spans) {
+          rows.push({
+            source_unit_ref: labelRow.unit_id,
+            signal_kind: "speech_act",
+            signal_code: speechAct,
+            source_segment_id: segment.segment_id,
+            ...span,
+          });
+          emitted += 1;
+        }
+      }
+      if (emitted === 0) {
+        rows.push({
+          source_unit_ref: labelRow.unit_id,
+          signal_kind: "speech_act",
+          signal_code: speechAct,
+          source_segment_id: null,
+          char_start: null,
+          char_end: null,
+        });
+      }
+    }
+    for (const actionCode of labelRow.action_codes ?? []) {
+      const patterns = ACTION_PATTERNS
+        .filter(([code]) => code === actionCode)
+        .map(([, pattern]) => pattern);
+      let emitted = 0;
+      for (const segmentId of labelRow.source_segment_ids ?? []) {
+        const segment = segmentById.get(String(segmentId));
+        if (!segment) continue;
+        for (const span of matchPatternSpans(String(segment.content ?? ""), patterns)) {
+          rows.push({
+            source_unit_ref: labelRow.unit_id,
+            signal_kind: "action",
+            signal_code: actionCode,
+            source_segment_id: segment.segment_id,
+            ...span,
+          });
+          emitted += 1;
+        }
+      }
+      if (emitted === 0) {
+        rows.push({
+          source_unit_ref: labelRow.unit_id,
+          signal_kind: "action",
+          signal_code: actionCode,
+          source_segment_id: null,
+          char_start: null,
+          char_end: null,
+        });
+      }
+    }
+  }
+  return rows;
+}
+
 function detectSpeechActs(text) {
   const acts = new Set();
   const trivialSpeech = isExplicitTrivialText(text);
@@ -1820,6 +2039,113 @@ function assertProjectContextCardPathShape(cardRoot, filePath) {
 function stripPrivateText(row) {
   const { _private_text: ignored, ...safe } = row;
   return safe;
+}
+
+function resolveVoiceWorkspaceRef(reference, repoRoot, voiceRoot) {
+  const normalized = String(reference).replace(/\\/gu, "/");
+  const prefix = "_workspaces/system/voice_capture/";
+  if (normalized.startsWith(prefix)) {
+    return path.resolve(voiceRoot, normalized.slice(prefix.length));
+  }
+  return path.resolve(repoRoot, normalized);
+}
+
+function logicalVoiceRef(targetPath, repoRoot, voiceRoot) {
+  const relativeToVoice = path.relative(voiceRoot, targetPath);
+  if (relativeToVoice !== ".."
+    && !relativeToVoice.startsWith(`..${path.sep}`)
+    && !path.isAbsolute(relativeToVoice)) {
+    return `_workspaces/system/voice_capture/${toPosix(relativeToVoice)}`;
+  }
+  const relativeToRepo = toPosix(path.relative(repoRoot, targetPath));
+  if (relativeToRepo.startsWith("../") || path.isAbsolute(relativeToRepo)) {
+    throw new Error("transcript must use a workspace or repository relative reference");
+  }
+  return relativeToRepo;
+}
+
+async function findVoiceSessionDir(manifestPath, voiceRoot) {
+  let current = path.dirname(manifestPath);
+  while (current !== voiceRoot) {
+    const candidate = path.join(current, "session_manifest.json");
+    if (existsSync(candidate)) {
+      await assertInsideExisting(voiceRoot, current, "voice session");
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  throw new Error("analysis manifest is not inside a voice session");
+}
+
+async function persistVoiceSemanticArtifacts({
+  repoRoot,
+  voiceRoot,
+  sessionDir,
+  run,
+  timelineAnnotations,
+}) {
+  const targetDir = path.join(sessionDir, "analysis", "semantic_labels", run.run_id);
+  await assertInsideExistingOrFuture(sessionDir, targetDir, "semantic label target");
+  const targetPath = path.join(targetDir, "semantic_label_run.json");
+  const timelinePath = path.join(targetDir, "source_timeline_annotations.jsonl");
+  const content = `${JSON.stringify(run, null, 2)}\n`;
+  const semanticRoot = path.dirname(targetDir);
+  await fs.mkdir(semanticRoot, { recursive: true });
+
+  const verifyExisting = async () => {
+    if (!existsSync(targetPath) || !existsSync(timelinePath)) {
+      throw new Error("existing semantic generation is incomplete");
+    }
+    const existing = await fs.readFile(targetPath, "utf8");
+    if (existing !== content) throw new Error("existing semantic label run conflicts with deterministic output");
+    const timelineWrite = await writeSourceTimelineJsonl({
+      target_path: timelinePath,
+      annotations: timelineAnnotations,
+    });
+    if (!timelineWrite.duplicate) throw new Error("existing semantic timeline was not stable");
+    return {
+      duplicate: true,
+      output_ref: logicalVoiceRef(targetPath, repoRoot, voiceRoot),
+      timeline_output_ref: logicalVoiceRef(timelinePath, repoRoot, voiceRoot),
+    };
+  };
+
+  if (existsSync(targetDir)) return verifyExisting();
+
+  const temporaryDir = path.join(
+    semanticRoot,
+    `.${run.run_id}.tmp-${process.pid}-${crypto.randomUUID()}`,
+  );
+  await assertInsideExistingOrFuture(sessionDir, temporaryDir, "semantic generation staging target");
+  await fs.mkdir(temporaryDir, { recursive: false });
+  try {
+    await fs.writeFile(
+      path.join(temporaryDir, "semantic_label_run.json"),
+      content,
+      { encoding: "utf8", flag: "wx" },
+    );
+    await writeSourceTimelineJsonl({
+      target_path: path.join(temporaryDir, "source_timeline_annotations.jsonl"),
+      annotations: timelineAnnotations,
+    });
+    try {
+      await fs.rename(temporaryDir, targetDir);
+    } catch (error) {
+      if (!existsSync(targetDir) || !["EEXIST", "EPERM", "ENOTEMPTY"].includes(error?.code)) throw error;
+      await fs.rm(temporaryDir, { recursive: true, force: true });
+      return verifyExisting();
+    }
+    return {
+      duplicate: false,
+      output_ref: logicalVoiceRef(targetPath, repoRoot, voiceRoot),
+      timeline_output_ref: logicalVoiceRef(timelinePath, repoRoot, voiceRoot),
+    };
+  } catch (error) {
+    await fs.rm(temporaryDir, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 function canMergeTurn(current, candidate, maxChars, maxGapSeconds) {

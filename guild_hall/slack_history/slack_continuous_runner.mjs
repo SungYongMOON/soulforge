@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { sha256Canonical } from "../shared/project_history_envelope.mjs";
+import { createSourceArrivalAnnotation } from "../shared/source_timeline_annotation.mjs";
 import {
   applyBoundedSlackBackfill,
   createSlackBackfillCursor,
@@ -17,6 +18,7 @@ import {
 } from "./slack_custody.mjs";
 
 export const SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION = "soulforge.slack_continuous.binding.v1";
+export const SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2 = "soulforge.slack_continuous.binding.v2";
 export const SLACK_CONTINUOUS_STATE_SCHEMA_VERSION = "soulforge.slack_continuous.state.v1";
 
 const BINDING_FIELDS = Object.freeze([
@@ -84,7 +86,7 @@ const WORKSPACE_ID_PATTERN = /^T[A-Z0-9]{2,31}$/u;
 const CHANNEL_ID_PATTERN = /^C[A-Z0-9]{2,31}$/u;
 const PROJECT_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,63}$/u;
 const UTC_MILLISECONDS_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
-const TOKEN_VALUE_PATTERN = /^(?:xox[abprs]-|eyJ[A-Za-z0-9_-]{8,}\.)/u;
+const TOKEN_VALUE_PATTERN = /^(?:(?:xox[abprs]|xapp)-|eyJ[A-Za-z0-9_-]{8,}\.)/u;
 const SHA256_PATTERN = /^sha256:[0-9a-f]{64}$/u;
 
 export class SlackContinuousError extends Error {
@@ -178,11 +180,16 @@ function assertNoEmbeddedSecret(value, target, key = "") {
 
 export function validateSlackContinuousBinding(binding) {
   exactKeys(binding, BINDING_FIELDS, "$binding");
-  if (binding.schema_version !== SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION) {
+  if (![SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION, SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2].includes(binding.schema_version)) {
     fail("binding_schema_invalid", "$binding.schema_version", "Unexpected schema version");
   }
-  if (binding.feature_enabled !== false) {
-    fail("feature_must_remain_off", "$binding.feature_enabled", "This public harness cannot activate Slack");
+  const expectedFeatureEnabled = binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2;
+  if (binding.feature_enabled !== expectedFeatureEnabled) {
+    fail(
+      expectedFeatureEnabled ? "feature_must_be_on" : "feature_must_remain_off",
+      "$binding.feature_enabled",
+      expectedFeatureEnabled ? "v2 live bindings must be enabled" : "v1 synthetic bindings must remain disabled",
+    );
   }
   safeRef(binding.binding_id, "$binding.binding_id");
   if (typeof binding.workspace_id !== "string" || !WORKSPACE_ID_PATTERN.test(binding.workspace_id)) {
@@ -252,6 +259,34 @@ export function validateSlackContinuousBinding(binding) {
       );
     }
   });
+  for (const key of ["app_token_file", "bot_token_file"]) {
+    const credentialPath = binding.credentials[key];
+    if (credentialPath === null) continue;
+    const target = `$binding.credentials.${key}`;
+    if (!isPathWithin(binding.private_root, credentialPath, true)) {
+      fail(
+        "credential_file_not_strict_private_child",
+        target,
+        "Credential files must be strict children of the declared private owner root",
+      );
+    }
+    if (pathsOverlap(binding.data_root, credentialPath)) {
+      fail(
+        "credential_file_data_root_overlap",
+        target,
+        "Credential files must be disjoint from Slack event custody",
+      );
+    }
+    binding.forbidden_roots.forEach((forbiddenRoot) => {
+      if (pathsOverlap(credentialPath, forbiddenRoot)) {
+        fail(
+          "credential_file_forbidden_overlap",
+          target,
+          "Credential files must be disjoint from every forbidden public/runtime root",
+        );
+      }
+    });
+  }
   exactKeys(binding.writer, WRITER_FIELDS, "$binding.writer");
   safeRef(binding.writer.authority_id, "$binding.writer.authority_id");
   if (!Number.isSafeInteger(binding.writer.epoch) || binding.writer.epoch < 1) {
@@ -321,6 +356,10 @@ function fileHoldReason(rawEvent) {
 
 function classifyRecord(binding, record) {
   const reasons = [];
+  if (record.raw_event?.type !== "message"
+    || ![null, undefined, "message_changed", "message_deleted", "tombstone"].includes(record.raw_event?.subtype)) {
+    reasons.push("unsupported_event_shape");
+  }
   if (record.is_private) reasons.push("private_channel");
   if (record.is_shared || record.is_ext_shared) reasons.push("slack_connect_or_shared");
   if (record.is_archived) reasons.push("archived_channel");
@@ -394,11 +433,21 @@ function deliveryFromRecord(record, revisions) {
 
   if (subtype === null) {
     messageTs = raw.ts;
-    revisionTs = raw.ts;
     threadTs = raw.thread_ts ?? null;
-    user = raw.user;
-    revisionKind = threadTs === null || threadTs === messageTs ? "message" : "reply";
-    if (revisionKind === "message") threadTs = null;
+    const prior = latestRevisionFor(revisions, record.workspace_id, record.channel_id, messageTs);
+    const currentEditTs = raw.edited?.ts ?? null;
+    if (currentEditTs !== null && prior !== null) {
+      revisionTs = currentEditTs;
+      user = raw.edited?.user ?? raw.user;
+      revisionKind = "edit";
+      supersedesRevisionRef = prior.revision_ref;
+      if (threadTs === null) threadTs = prior.thread_ts;
+    } else {
+      revisionTs = raw.ts;
+      user = raw.user;
+      revisionKind = threadTs === null || threadTs === messageTs ? "message" : "reply";
+      if (revisionKind === "message") threadTs = null;
+    }
     sourceMetadataDigest = sha256Canonical(raw);
   } else if (subtype === "message_changed") {
     messageTs = raw.message?.ts;
@@ -448,6 +497,51 @@ function deliveryFromRecord(record, revisions) {
     received_at: record.received_at,
     revision: revisionInput,
   };
+}
+
+function slackTimestampToIso(value) {
+  const seconds = Number.parseFloat(String(value ?? ""));
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    fail("slack_timestamp_invalid", "$revision.revision_ts", "Expected a Slack timestamp");
+  }
+  return new Date(Math.round(seconds * 1000)).toISOString();
+}
+
+function timelineAnnotationFromDelivery(binding, delivery) {
+  const revision = createSlackRevision(delivery.revision);
+  return createSourceArrivalAnnotation({
+    source_lane: "slack",
+    item_id: revision.message_ref,
+    source_revision_id: revision.revision_ref,
+    body_sha256: String(revision.source_metadata_digest ?? sha256Canonical(delivery)).slice("sha256:".length),
+    source_unit_ref: revision.message_ref,
+    source_span_ref: `slack-revision:${revision.revision_ref.slice("slack-rev:".length, "slack-rev:".length + 24)}`,
+    source_sequence: 0,
+    occurred_at: slackTimestampToIso(revision.revision_ts),
+    project_ref: binding.project_code,
+    project_resolution_state: "confirmed",
+    project_basis_refs: [binding.binding_id],
+    actor_refs: revision.actor.slack_user_id ? [`slack-user:${revision.actor.slack_user_id}`] : [],
+    producer_ref: "slack_continuous_runner_v2",
+  });
+}
+
+async function writeTimelineAnnotationIfNew(binding, annotation) {
+  const relativeSegments = [
+    "timeline",
+    "source_arrival",
+    annotation.annotation_id.slice(-2),
+    `${annotation.annotation_id}.json`,
+  ];
+  const existing = await readPrivateJson(binding.data_root, relativeSegments);
+  if (existing !== null) {
+    if (sha256Canonical(existing) !== sha256Canonical(annotation)) {
+      fail("timeline_annotation_conflict", "$timeline", "Existing annotation differs");
+    }
+    return false;
+  }
+  await atomicWritePrivateJson(binding.data_root, relativeSegments, annotation);
+  return true;
 }
 
 function initialState(binding, bindingDigest) {
@@ -715,8 +809,17 @@ export async function runSlackContinuousIngress({
   if (transport === null || typeof transport !== "object" || typeof transport.pull !== "function") {
     fail("transport_invalid", "$transport", "Expected an injected pull transport");
   }
-  if (transport.kind !== "synthetic") {
-    fail("live_transport_feature_off", "$transport.kind", "Live Slack transport remains feature-OFF");
+  const expectedTransportKind = binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2
+    ? "web_api"
+    : "synthetic";
+  if (transport.kind !== expectedTransportKind) {
+    fail(
+      binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION
+        ? "live_transport_feature_off"
+        : "transport_binding_mismatch",
+      "$transport.kind",
+      `Expected ${expectedTransportKind} for this binding version`,
+    );
   }
   if (!Number.isSafeInteger(maxEvents) || maxEvents < 1 || maxEvents > 1000) {
     fail("max_events_invalid", "$max_events", "Expected an integer from 1 to 1000");
@@ -828,6 +931,10 @@ export async function runSlackContinuousIngress({
     validatePageEvidenceReceipts(mergedPageEvidenceReceipts, applied.cursor.accepted_pages);
 
     const newCustodyReceipts = [];
+    let timelineAnnotationsWritten = 0;
+    const timelineAnnotations = deliveries.map(
+      (delivery) => timelineAnnotationFromDelivery(binding, delivery),
+    );
     if (!dryRun && applied.processed_pages === 1) {
       for (const accepted of acceptedRecords) {
         const custody = await writeRawEventToCustody({
@@ -842,6 +949,9 @@ export async function runSlackContinuousIngress({
           raw_ref: custody.raw_ref,
           source_refs: [...accepted.record.source_refs].sort(),
         });
+      }
+      for (const annotation of timelineAnnotations) {
+        if (await writeTimelineAnnotationIfNew(binding, annotation)) timelineAnnotationsWritten += 1;
       }
     } else if (dryRun) {
       newCustodyReceipts.push(...acceptedRecords.map((accepted) => ({
@@ -875,7 +985,7 @@ export async function runSlackContinuousIngress({
     }
     return {
       mode: dryRun ? "dry_run" : "apply",
-      feature_status: "OFF",
+      feature_status: binding.feature_enabled ? "ON" : "OFF",
       binding_digest: bindingDigest,
       state_digest: stateDigest,
       pulled_count: page.records.length,
@@ -887,8 +997,13 @@ export async function runSlackContinuousIngress({
       repository_writes: 0,
       private_writes: dryRun
         ? 0
-        : newCustodyReceipts.length + (applied.processed_pages === 1 ? 1 : 0),
-      network_used: false,
+        : newCustodyReceipts.length
+          + (applied.processed_pages === 1 ? 1 : 0)
+          + timelineAnnotationsWritten,
+      network_used: transport.kind === "web_api",
+      coverage_gaps: Array.isArray(page.coverage_gaps) ? [...new Set(page.coverage_gaps)].sort() : [],
+      timeline_annotation_count: timelineAnnotations.length,
+      timeline_annotations_written: timelineAnnotationsWritten,
     };
   } finally {
     await lease?.release();
