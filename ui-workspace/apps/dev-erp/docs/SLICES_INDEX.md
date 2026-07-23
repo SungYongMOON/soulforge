@@ -3,6 +3,7 @@
 ## Active implementation slices
 
 - `slices/ERP-MCP-V0.md` — 팀원 개인 Codex용 ERP MCP sidecar + 계정별 bearer + 오늘/내일·업무·메일 조회 + 구조화 작업 세션 + 완성 파일 1회용 raw upload (**pilot code done 2026-07-13; 운영 HTTPS/service/backup gate는 미완료**, codex_gpt-5)
+- `slices/PC-WORK-SESSION-FOUNDATION-V1.md` — feature-OFF personal WorkSession lifecycle·client outbox·server receipt foundation. 공식 ERP 완료, live MCP/HTTP route, migration, 팀 배포 권한은 없음.
 - `slices/AX-WORK-EVENT-HOOK.md` - ERP start/completion buttons as canonical metadata-only work lifecycle hooks for AX accumulation.
 - `slices/B5-PROPOSAL-INBOX.md` — 제안 수신함 v1 + 수신역할(to/cc) core_mail 배선 (**done 2026-07-03: mailcsv 이력키 조인 + 근거 노출·계정 resolve·1클릭 승인=approved + 영수증 집계 API**, ERP 표면 스레드)
 - `slices/STEM-V2-ONTOLOGY.md` — **줄기 v2 온톨로지 정본** (골격·작업·이력줄기, 연결 등급 원칙, 드래그=사람확정 — 2026-07-05 owner 공동설계 확정). 모든 줄기 관련 레인(생성기·그래프 UI·API)의 공통 기준.

@@ -2,6 +2,22 @@
 
 ## 2026-07-23
 
+### Task Engine all-source data foundation
+
+- Added feature-OFF, public-safe foundations for bounded strong-ASR voice
+  revisions, Slack message/revision history, personal WorkSession lifecycle and
+  client outbox, project file-history adaptation, exact run receipts, and
+  synthetic external-schedule revisions.
+- Added one root validation command that exercises the existing mail gateway
+  together with voice, H00 envelope, file, run, schedule, Slack, WorkSession,
+  and ERP MCP regressions. The implementations preserve source-native identity,
+  append-only replay, six-state coverage honesty, raw/secret boundaries, and
+  candidate-only task authority.
+- This is `source_foundation_exists_acceptance_hold`: no live Slack app,
+  schedule source, collector, DB migration, project classification writer,
+  official completion writer, or operational service was enabled. D20, D25,
+  D26, and D34 and the H00/H01~H07/P1 acceptance gates remain unresolved.
+
 ### Backup controller live-binding containment correction
 
 - Corrected the backup-controller preflight to accept only the two strict,

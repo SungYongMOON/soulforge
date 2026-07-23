@@ -36,6 +36,11 @@
 | `doctor/README.md` | bootstrap/readiness doctor 의 owner-local 설명이다. |
 | `../../../guild_hall/assistant_dashboard/README.md` | assistant dashboard JSON composer 구현 surface 설명이다. |
 | `../../../guild_hall/activity/README.md` | activity log append/refresh 구현 surface 설명이다. |
+| `../../../guild_hall/file_activity/README.md` | project file observation/revision과 feature-OFF H04 project-history adapter 경계를 설명한다. |
+| `../../../guild_hall/run_history/README.md` | feature-OFF H05 exact workflow-receipt history adapter와 coverage 경계를 설명한다. |
+| `../../../guild_hall/schedule_history/README.md` | synthetic-only H03B external schedule revision/coverage candidate를 설명한다. |
+| `../../../guild_hall/slack_history/README.md` | feature-OFF H07 Slack identity/revision/cursor/coverage foundation을 설명한다. |
+| `../../../guild_hall/voice_capture/README.md` | voice capture와 승인-window strong-ASR non-canonical revision/continuity 경계를 설명한다. |
 | `../../../guild_hall/knowledge_access/README.md` | metadata-only knowledge ref read/use ledger helper 설명이다. |
 | `../../../guild_hall/knowledge_graph/README.md` | metadata-only knowledge graph JSON, HTML preview, and Obsidian export generator 설명이다. |
 | `../../../guild_hall/rag/README.md` | metadata-only RAG manifest, source-slice-card, metadata-index, trace/evaluation, and indexed answer helper 설명이다. |
@@ -66,6 +71,11 @@
 - [`../../../guild_hall/README.md`](../../../guild_hall/README.md)
 - [`doctor/README.md`](doctor/README.md)
 - [`../../../guild_hall/activity/README.md`](../../../guild_hall/activity/README.md)
+- [`../../../guild_hall/file_activity/README.md`](../../../guild_hall/file_activity/README.md)
+- [`../../../guild_hall/run_history/README.md`](../../../guild_hall/run_history/README.md)
+- [`../../../guild_hall/schedule_history/README.md`](../../../guild_hall/schedule_history/README.md)
+- [`../../../guild_hall/slack_history/README.md`](../../../guild_hall/slack_history/README.md)
+- [`../../../guild_hall/voice_capture/README.md`](../../../guild_hall/voice_capture/README.md)
 - [`../../../guild_hall/knowledge_access/README.md`](../../../guild_hall/knowledge_access/README.md)
 - [`../../../guild_hall/rag/README.md`](../../../guild_hall/rag/README.md)
 - [`../../../guild_hall/healer/README.md`](../../../guild_hall/healer/README.md)

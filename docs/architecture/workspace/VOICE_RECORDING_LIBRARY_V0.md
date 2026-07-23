@@ -163,11 +163,11 @@ JSON Schema는 구조를 검증하고 runtime은 그 위에 in-memory 권한 bra
 artifact digest, 경로 custody를 추가 검증한다. context card의 절대경로 ref와
 상위경로 이동 ref는 둘 다 거부한다.
 
-현재 HPP pilot의 빠른 turbo와 강한 full `large-v3` 실행은 둘 다 선택한 session
-전체를 전사한다. 중요 구간 선별과 최대 90초 사람 확인 clip은 구현됐지만,
-강한 모델을 그 구간에만 실행하는 별도 bounded runner는 아직 없다. 따라서 현
-단계를 window-only strong 실행으로 과대 주장하지 않으며, partial run이 canonical
-whole-session 전사 포인터·완료 알림·delivery receipt를 덮어쓰게 하지 않는다.
+feature-OFF bounded strong-ASR runner는 approved material window 중 30~90초
+구간만 강한 모델로 재전사할 수 있다. 결과는 append-only non-canonical revision과
+HPP continuity receipt로만 남고, canonical whole-session 전사 포인터·완료
+알림·delivery receipt·project route를 덮어쓰지 않는다. 실제 private 음성,
+운영 모델 경로, live writer에 연결한 pilot은 아직 수행하지 않았다.
 
 아직 구현 완료가 아닌 것은 실제 topic segmentation, production diarization,
 메일·일정·파일·PC 이력·RAG/Wiki retrieval 실행, context card producer,

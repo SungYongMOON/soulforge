@@ -14,6 +14,7 @@
 | [2026-07-19 five-lane bounded pilot execution](TASK_ENGINE_HPP_FIVE_LANE_INGRESS_PILOT_V1_RESULT.md) | actual mail·voice·PC work·file·run/log 1건씩을 HPP 격리 custody에 수집하고 `P26-016` actual Shadow 5 event/5 coverage, copied ERP, tracked CSV/XLSX projector·query-only verifier, temporary localhost MCP query/download, explicit project/common metadata-only RAG preview까지 feature-OFF로 실행·검증; P0·H00·H01~H06·P1 owner acceptance, accepted/current pointer, production writer/migration/live activation은 계속 `HOLD` |
 | 2026-07-23 communication-history correction | 팀원·owner의 받은메일과 보낸메일을 한 logical mail occurrence+계정별 mailbox observation으로 결합하고, owner-approved Slack `channel_id→project_code` binding을 project-context 입력으로 추가하는 plan-only addendum. 팀원 보낸편지함 수집원·Slack app/token/channel allowlist는 `UNKNOWN/VERIFY_HP`; collector·DB·Slack app·live writer 활성화 `0` |
 | 2026-07-23 cross-input label correction | mail·voice·Slack·structured PC work·file·run/log가 제각각 project/time/person/action label을 만들지 않도록 공통 사실 envelope와 별도 semantic annotation event를 고정하는 plan-only addendum. 기존 source-native field와 ID는 보존하고, 중앙 context labeler만 shared vocabulary를 사용한다. schema·DB·collector·labeler·TaskDriver live 변경 `0` |
+| 2026-07-23 all-source data foundation execution | H01C mail occurrence/observation, H02 approved-window strong ASR, H03A personal WorkSession, H03B synthetic schedule, H04 file adapter, H05 exact run receipt, H07 Slack revision/cursor의 public-safe feature-OFF 기반을 구현했다. 상태는 `source_foundation_exists_acceptance_hold`; actual private source binding, 공통 label runtime, H00/H01~H07/P1 acceptance, DB migration, collector·writer·service 활성화 `0` |
 | HPP correction review state | bounded pilot는 `PILOT_EXECUTED`; formal master-plan authority와 production readiness는 계속 `READY_FOR_OWNER_REVIEW/HOLD`; accepted history·accepted knowledge·live readiness claim `0` |
 | bounded pilot 실행 authority | owner task envelope `TASK-ENGINE-HPP-FIVE-LANE-INGRESS-PILOT-V1` 및 `TASK-ENGINE-OPERATIONAL-DATA-KNOWLEDGE-E2E-V1`; execution baseline `main@1110c8ca5e8370271799a9f266a4c17b72188f62`; feature-OFF·standalone-copy·localhost·metadata-only 범위 |
 | 문서 성격 | 계획 정본과 실제 bounded pilot receipt를 함께 유지하는 living master plan; 생산 운영 전환은 별도 owner gate |
@@ -423,6 +424,25 @@ ERP UI/MCP에서 같은 accepted generation을 조회하고, Git은 private meta
 public gate map, candidate-only lane profile, synthetic one-project Shadow와 H06 coverage/replay만
 검증하며 live adapter를 제공하지 않는다. 해당 suite PASS는 C00B/P0/H00/H01~H06/P1 acceptance,
 actual project promotion, production export 또는 writer 권한을 만들지 않는다.
+
+2026-07-23에는 아래 source-local 기반을 추가했다. 이 표의 `구현됨`은 해당
+public-safe 모듈과 합성 검증이 존재한다는 뜻이며, lane acceptance나 실제 자료원 연결을 뜻하지
+않는다.
+
+| source slice | public-safe 구현 surface | 현재 주장 한계 |
+| --- | --- | --- |
+| H01C mail | `guild_hall/gateway/mail_fetch/collector/pipeline/mail_occurrence_shadow.py`의 logical occurrence/account-folder observation shadow와 재시작·cursor·six-state 합성 검증 | team sent source와 live backfill은 D33/private binding 뒤; POP3·CC로 sent coverage를 추론하지 않음 |
+| H02 voice | `guild_hall/voice_capture/local_asr.mjs`의 승인된 30~90초 bounded strong-ASR request/revision과 HPP continuity receipt | non-canonical append-only 파생본만; whole-session 정본·알림·delivery·project route와 H02 acceptance는 변경하지 않음 |
+| H03A structured PC work | `ui-workspace/apps/dev-erp/src/work_session_lifecycle.mjs`와 `work_session_outbox.mjs`의 feature-OFF lifecycle/outbox/receipt | 공식 완료·TaskDriver write·HTTP/MCP live route·migration 없음; H03 combined acceptance 아님 |
+| H03B external schedule | `guild_hall/schedule_history/schedule_history.mjs`의 synthetic-only owner/ref/revision/replay/coverage candidate | D20 owner/path/writer와 D25/D26 미확정; live schedule 또는 task discovery 없음 |
+| H04 file | `guild_hall/file_activity/project_history_adapter.mjs`의 caller-supplied immutable ref adapter와 replay/coverage 검증 | filesystem discovery·live collector·ERP writer 없음 |
+| H05 run/log | `guild_hall/run_history/run_history.mjs`의 exact `report_authoring_v0` receipt adapter와 H00 coverage evidence | arbitrary runs/log recursion·payload read·persistence·writer 없음 |
+| H07 Slack | `guild_hall/slack_history/slack_history.mjs`의 workspace/channel binding, message revision, cursor/dedupe/coverage foundation | Slack app/token/network/backfill 없음; D34와 H07A/H07B acceptance 없음 |
+
+H00 core는 계속 mail·voice·structured PC work·file·run/log 다섯 lane이다.
+Schedule은 H03B subtype이고 Slack은 H07 extension이므로 둘을 H00의 여섯째·일곱째 lane으로
+승격하지 않는다. source-local 구현들이 공통 project/time/party/action 의미를 각자 발명하지
+않도록 중앙 all-source label runtime은 P2/P3/P5 선행 gate 뒤 별도 slice로 남긴다.
 
 H03의 내부 순서는 `H03A structured PC work synthetic adapter → H03B external schedule
 current/revision/event contract+fixture → H03 combined acceptance`다. H03A는 H00 ratification, D19
@@ -4630,12 +4650,12 @@ forward state가 생길 때만 별도 handoff를 만든다.
 ### 이번 단계 최종 불변식
 
 ```text
-document_state: READY_FOR_OWNER_REVIEW
-root_validation: prior_plan_scope_pass; current_hpp_plan_scope_validation_pass; current_communication_plan_validation_pass
+document_state: SOURCE_FOUNDATION_EXISTS_ACCEPTANCE_HOLD
+root_validation: prior_plan_scope_pass; current_hpp_plan_scope_validation_pass; current_communication_plan_validation_pass; current_all_source_feature_off_validation_pending_final_receipt
 full_repo_done_check: nonzero_unrelated_fixed_10s_device_probe_timeout
-implementation_or_data_mutation: false
+implementation_or_data_mutation: public_feature_off_foundation_only
 operational_activation: false
-branch_merge_or_checkout: false
+branch_merge_or_checkout: isolated_integration_worktree_only; foreground_main_unchanged
 schema_or_migration_apply: false
 source_or_project_payload_read: false
 history_projection_materialization: false
@@ -4645,6 +4665,9 @@ slack_app_token_channel_or_collector_activation: false
 payload_ingress_or_promotion_activation: false
 personal_work_session_lifecycle_activation: false
 accepted_query_pointer_or_team_knowledge_activation: false
+source_foundation_exists: true
+source_foundation_acceptance: false
+common_all_source_label_runtime: false
 established_workspace_topology_delta: 0
 onedrive_active_db_raw_queue_runtime_truth: false
 hpp_private_custody_binding_disclosed_or_activated: false
@@ -4652,8 +4675,8 @@ non_hpp_direct_drive_unc_smb_sqlite_access: false
 a8_synth_or_canary_implemented: false
 hpp_correction_review_state: READY_FOR_OWNER_REVIEW
 P0_to_P10_acceptance: none_created_by_this_plan_correction
-owner_approval_wait: true
-claim_ceiling: source_supported_plan_only
+owner_approval_wait: live/private binding and D20/D25/D26/D34 decisions only
+claim_ceiling: source_supported_feature_off
 ```
 
 ## 근거 문서
