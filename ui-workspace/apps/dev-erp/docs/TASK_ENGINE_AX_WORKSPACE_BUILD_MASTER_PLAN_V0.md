@@ -4601,6 +4601,9 @@ owner approval, canary/runtime readiness evidence가 아니다.
 | current cross-input label validation | `PASS`; AC-01~26 26/26, HP-LABEL-01~08 8/8, HP-COMM-01~12 12/12, D01~D34 34/34 unique; voice candidate kind 8/8+speech act 15/15 exact crosswalk; relative links PASS; canon 136 errors/warnings 0; changed-path violations 0; history envelope 20/20; changed-scope secret-like value/diff check PASS |
 | current cross-input broad UI suite | `BLOCKED/NOT_REQUIRED_FOR_PLAN_SCOPE`; isolated worktree에 `tsx` dependency가 없어 `ui:done:check`가 fixture validation 시작 시 중단. 변경은 master plan+CHANGELOG 문서 2개뿐이고 docs/canon/path/specialized checks는 PASS; UI·runtime production claim `0` |
 | current cross-input Level 2 review | fresh Inspector initial `REVISE`→follow-up `ACCEPT`; independent Judge initial `REVISE`→final `ACCEPT`. 8+15 lossless crosswalk, multi-signal cardinality, typed refs/assignment matrix, PLAUD clocks, lineage/replay, raw/secret negative fixtures, H00/P2/P3/P5/P6 ownership 보정 확인. Implementation·live labeler claim `0` |
+| 2026-07-23 all-source feature-OFF integrated suite | `PASS`; `npm.cmd run validate:task-engine-source-foundation-v1` exit `0`. gateway Node `58 passed, 1 skipped`, mail-fetch `138 passed, 3 skipped`, voice `124 passed`, H00/file/run/schedule/Slack/ERP MCP/WorkSession combined `78 passed` |
+| current all-source docs/canon/path/diff | `PASS`; docs relative links, canon checked `136` errors/warnings `0`, tracked path-policy violations `0`, baseline→HEAD `git diff --check`, clean status와 index lock 부재 |
+| current all-source Level 2 final review | fresh Inspector `ACCEPT`; independent Judge `ACCEPT`. 판정 범위는 `source_supported_feature_off`; H00/H01~H07/P1 acceptance, private binding, common label runtime, DB migration, live collector·writer·service authority `0` |
 
 위 receipt는 구현, runtime readiness, private inventory, C00B/P0 acceptance를 증명하지 않는다. Final
 file hash와 commit은 self-reference를 피하기 위해 문서 밖 publish 보고에 남긴다.
@@ -4651,7 +4654,7 @@ forward state가 생길 때만 별도 handoff를 만든다.
 
 ```text
 document_state: SOURCE_FOUNDATION_EXISTS_ACCEPTANCE_HOLD
-root_validation: prior_plan_scope_pass; current_hpp_plan_scope_validation_pass; current_communication_plan_validation_pass; current_all_source_feature_off_validation_pending_final_receipt
+root_validation: prior_plan_scope_pass; current_hpp_plan_scope_validation_pass; current_communication_plan_validation_pass; current_all_source_feature_off_validation_pass
 full_repo_done_check: nonzero_unrelated_fixed_10s_device_probe_timeout
 implementation_or_data_mutation: public_feature_off_foundation_only
 operational_activation: false
