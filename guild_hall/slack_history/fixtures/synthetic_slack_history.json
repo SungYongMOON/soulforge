@@ -1,0 +1,321 @@
+{
+  "schema_version": "soulforge.slack_history.synthetic_fixture.v1",
+  "binding": {
+    "schema_version": "soulforge.slack_history.binding.v1",
+    "binding_id": "binding:synthetic-slack-v1",
+    "binding_origin": "synthetic",
+    "owner_approval_ref": "approval:synthetic-h07a",
+    "workspace_id": "T00000001",
+    "channel_id": "C00000001",
+    "project_code": "P00-SYNTH",
+    "effective_from": "2026-07-01T00:00:00.000Z",
+    "effective_to": null,
+    "allowed_exceptions": []
+  },
+  "channel_facts": {
+    "workspace_id": "T00000001",
+    "channel_id": "C00000001",
+    "channel_name": "project-alpha",
+    "channel_kind": "project",
+    "joined": true,
+    "allowlisted": true,
+    "archived": false,
+    "slack_connect": false,
+    "explicit_rule_ref": null
+  },
+  "hold_cases": [
+    {
+      "case_id": "hold-dm",
+      "channel_facts": {
+        "workspace_id": "T00000001",
+        "channel_id": "C00000001",
+        "channel_name": "direct-message",
+        "channel_kind": "dm",
+        "joined": true,
+        "allowlisted": true,
+        "archived": false,
+        "slack_connect": false,
+        "explicit_rule_ref": null
+      },
+      "expected_hold_reason": "dm_requires_explicit_rule"
+    },
+    {
+      "case_id": "hold-general",
+      "channel_facts": {
+        "workspace_id": "T00000001",
+        "channel_id": "C00000001",
+        "channel_name": "general",
+        "channel_kind": "general",
+        "joined": true,
+        "allowlisted": true,
+        "archived": false,
+        "slack_connect": false,
+        "explicit_rule_ref": null
+      },
+      "expected_hold_reason": "general_requires_explicit_rule"
+    },
+    {
+      "case_id": "hold-common",
+      "channel_facts": {
+        "workspace_id": "T00000001",
+        "channel_id": "C00000001",
+        "channel_name": "common",
+        "channel_kind": "common",
+        "joined": true,
+        "allowlisted": true,
+        "archived": false,
+        "slack_connect": false,
+        "explicit_rule_ref": null
+      },
+      "expected_hold_reason": "common_requires_explicit_rule"
+    },
+    {
+      "case_id": "hold-unmapped",
+      "channel_facts": {
+        "workspace_id": "T00000001",
+        "channel_id": "C00000001",
+        "channel_name": "unmapped",
+        "channel_kind": "unmapped",
+        "joined": true,
+        "allowlisted": true,
+        "archived": false,
+        "slack_connect": false,
+        "explicit_rule_ref": null
+      },
+      "expected_hold_reason": "unmapped_channel_kind"
+    },
+    {
+      "case_id": "hold-archived",
+      "channel_facts": {
+        "workspace_id": "T00000001",
+        "channel_id": "C00000001",
+        "channel_name": "project-alpha-old",
+        "channel_kind": "project",
+        "joined": true,
+        "allowlisted": true,
+        "archived": true,
+        "slack_connect": false,
+        "explicit_rule_ref": null
+      },
+      "expected_hold_reason": "archived_requires_explicit_rule"
+    },
+    {
+      "case_id": "hold-slack-connect",
+      "channel_facts": {
+        "workspace_id": "T00000001",
+        "channel_id": "C00000001",
+        "channel_name": "project-alpha-external",
+        "channel_kind": "project",
+        "joined": true,
+        "allowlisted": true,
+        "archived": false,
+        "slack_connect": true,
+        "explicit_rule_ref": null
+      },
+      "expected_hold_reason": "slack_connect_requires_explicit_rule"
+    }
+  ],
+  "events": [
+    {
+      "delivery_alias": "root-delivery",
+      "revision_alias": "root",
+      "supersedes_alias": null,
+      "event_id": "Ev00000001",
+      "retry_num": 0,
+      "retry_reason": null,
+      "received_at": "2026-07-03T00:00:00.100Z",
+      "revision_kind": "message",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000100",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000100",
+      "slack_user_id": "U00000001",
+      "erp_account_ref": null,
+      "source_metadata_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "attachment_pointers": [
+        {
+          "file_id": "F00000001",
+          "pointer_ref": "slack-file:F00000001",
+          "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size_bytes": 128
+        }
+      ]
+    },
+    {
+      "delivery_alias": "root-retry",
+      "revision_alias": "root",
+      "supersedes_alias": null,
+      "event_id": "Ev00000001",
+      "retry_num": 1,
+      "retry_reason": "http_timeout",
+      "received_at": "2026-07-03T00:00:01.100Z",
+      "revision_kind": "message",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000100",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000100",
+      "slack_user_id": "U00000001",
+      "erp_account_ref": null,
+      "source_metadata_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "attachment_pointers": [
+        {
+          "file_id": "F00000001",
+          "pointer_ref": "slack-file:F00000001",
+          "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size_bytes": 128
+        }
+      ]
+    },
+    {
+      "delivery_alias": "reply-delivery",
+      "revision_alias": "reply",
+      "supersedes_alias": null,
+      "event_id": "Ev00000002",
+      "retry_num": 0,
+      "retry_reason": null,
+      "received_at": "2026-07-03T00:00:02.100Z",
+      "revision_kind": "reply",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000200",
+      "thread_ts": "1720000000.000100",
+      "revision_ts": "1720000000.000200",
+      "slack_user_id": "U00000002",
+      "erp_account_ref": "account:synthetic-member",
+      "source_metadata_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "attachment_pointers": []
+    },
+    {
+      "delivery_alias": "edit-delivery",
+      "revision_alias": "edit",
+      "supersedes_alias": "root",
+      "event_id": "Ev00000003",
+      "retry_num": 0,
+      "retry_reason": null,
+      "received_at": "2026-07-03T00:00:03.100Z",
+      "revision_kind": "edit",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000100",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000300",
+      "slack_user_id": "U00000001",
+      "erp_account_ref": null,
+      "source_metadata_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "attachment_pointers": [
+        {
+          "file_id": "F00000001",
+          "pointer_ref": "slack-file:F00000001",
+          "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size_bytes": 128
+        }
+      ]
+    },
+    {
+      "delivery_alias": "delete-delivery",
+      "revision_alias": "delete",
+      "supersedes_alias": "edit",
+      "event_id": "Ev00000004",
+      "retry_num": 0,
+      "retry_reason": null,
+      "received_at": "2026-07-03T00:00:04.100Z",
+      "revision_kind": "delete",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000100",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000400",
+      "slack_user_id": "U00000001",
+      "erp_account_ref": null,
+      "source_metadata_digest": null,
+      "attachment_pointers": []
+    },
+    {
+      "delivery_alias": "tombstone-delivery",
+      "revision_alias": "tombstone",
+      "supersedes_alias": "delete",
+      "event_id": "Ev00000005",
+      "retry_num": 0,
+      "retry_reason": null,
+      "received_at": "2026-07-03T00:00:05.100Z",
+      "revision_kind": "tombstone",
+      "workspace_id": "T00000001",
+      "channel_id": "C00000001",
+      "message_ts": "1720000000.000100",
+      "thread_ts": null,
+      "revision_ts": "1720000000.000500",
+      "slack_user_id": "U00000001",
+      "erp_account_ref": null,
+      "source_metadata_digest": null,
+      "attachment_pointers": []
+    }
+  ],
+  "backfill_pages": [
+    {
+      "page_id": "page-001",
+      "previous_cursor_digest": null,
+      "next_cursor_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "delivery_aliases": [
+        "root-delivery",
+        "root-retry",
+        "reply-delivery"
+      ]
+    },
+    {
+      "page_id": "page-002",
+      "previous_cursor_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "next_cursor_digest": null,
+      "delivery_aliases": [
+        "edit-delivery",
+        "delete-delivery",
+        "tombstone-delivery"
+      ]
+    }
+  ],
+  "coverage_cases": [
+    {
+      "state": "complete_with_events",
+      "event_count": 5,
+      "gap_codes": [],
+      "applicability_ref": null,
+      "revision_aliases": ["root", "reply", "edit", "delete", "tombstone"]
+    },
+    {
+      "state": "complete_no_events",
+      "event_count": 0,
+      "gap_codes": [],
+      "applicability_ref": null,
+      "revision_aliases": []
+    },
+    {
+      "state": "partial",
+      "event_count": 2,
+      "gap_codes": ["bounded_backfill"],
+      "applicability_ref": null,
+      "revision_aliases": ["root", "reply"]
+    },
+    {
+      "state": "failed",
+      "event_count": null,
+      "gap_codes": ["source_failure"],
+      "applicability_ref": null,
+      "revision_aliases": []
+    },
+    {
+      "state": "not_collected",
+      "event_count": null,
+      "gap_codes": ["feature_off"],
+      "applicability_ref": null,
+      "revision_aliases": []
+    },
+    {
+      "state": "not_applicable",
+      "event_count": null,
+      "gap_codes": [],
+      "applicability_ref": "rule:synthetic-not-applicable",
+      "revision_aliases": []
+    }
+  ]
+}
