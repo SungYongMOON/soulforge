@@ -18,6 +18,11 @@
   The HPP policy is lunch `12:00-14:00` and night `20:00-23:00`; failures may
   retry on the next supervisor cycle inside the same window, while a successful
   window cannot query Outlook again.
+- Connected one owner Outlook Sent row to the existing private HPP team-mail
+  register and continuous supervisor after backup and bounded canary. The
+  operating capsule completed all six enabled mailbox rows with zero mail
+  errors, while project classification, team sent-mail coverage, and
+  ERP/TaskDriver writes remain disabled.
 - Added a feature-OFF Slack continuous-ingress harness with exact joined public
   project-channel binding, writer lease/epoch fencing, immutable raw-event
   custody, restart-safe cursor/dedupe, edit/delete/thread revision handling,
