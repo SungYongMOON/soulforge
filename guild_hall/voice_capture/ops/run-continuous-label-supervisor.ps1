@@ -38,11 +38,11 @@ function Test-UnsafePathItemReparse {
   } else {
     ""
   }
-  $Targets = if ($null -ne $Item.PSObject.Properties["Target"]) {
-    @($Item.Target | Where-Object { $null -ne $_ -and [string]$_ -ne "" })
-  } else {
-    @()
-  }
+  $Targets = @(
+    if ($null -ne $Item.PSObject.Properties["Target"]) {
+      $Item.Target | Where-Object { $null -ne $_ -and [string]$_ -ne "" }
+    }
+  )
   $ExactFullName = [IO.Path]::GetFullPath([string]$Item.FullName).Equals(
     [IO.Path]::GetFullPath($ExpectedPath),
     [StringComparison]::OrdinalIgnoreCase
