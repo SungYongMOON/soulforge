@@ -859,3 +859,64 @@ test("PLAUD sync always runs the after-recording fence for pending provider work
     await rm(repoRoot, { recursive: true, force: true });
   }
 });
+
+test("PLAUD sync probes past pending work to use the bounded ready-import slot", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-plaud-ready-behind-pending-"));
+  const readyId = "a".repeat(32);
+  try {
+    const profile = {
+      ...buildDefaultPlaudSyncProfile(),
+      shared_workspace_required: false,
+      register_library: false,
+      write_workmeta_draft: false,
+      max_new_per_run: 1,
+    };
+    const result = await runPlaudSync({
+      repoRoot,
+      profile,
+      apply: false,
+      skipPreflight: true,
+      commandRunner: (_command, args) => {
+        if (args[0] === "recent") {
+          return [
+            `  ${RECORDING_ID}  Pending  2026-07-10  10m`,
+            `  ${readyId}  Ready  2026-07-09  10m`,
+            "",
+          ].join("\n");
+        }
+        if (args[0] === "file" && args[1] === RECORDING_ID) {
+          return [
+            `id: ${RECORDING_ID}`,
+            "name: Pending",
+            "start_at: 2026-07-10T04:04:32.000Z",
+            "audio: processing",
+            "transcript: processing",
+            "summary: -",
+            "",
+          ].join("\n");
+        }
+        if (args[0] === "file" && args[1] === readyId) {
+          return [
+            `id: ${readyId}`,
+            "name: Ready",
+            "start_at: 2026-07-09T04:04:32.000Z",
+            "audio: available",
+            "transcript: available",
+            "summary: -",
+            "",
+          ].join("\n");
+        }
+        throw new Error(`unexpected command: ${args.join(" ")}`);
+      },
+    });
+
+    assert.equal(result.candidate_count, 2);
+    assert.equal(result.truncated_new_candidate_count, 0);
+    assert.deepEqual(
+      result.recordings.map((recording) => recording.state),
+      ["pending_provider_processing", "ready_to_import"],
+    );
+  } finally {
+    await rm(repoRoot, { recursive: true, force: true });
+  }
+});

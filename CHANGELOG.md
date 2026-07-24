@@ -2,6 +2,14 @@
 
 ## 2026-07-24
 
+### PLAUD ready-candidate head-of-line recovery
+
+- Changed bounded PLAUD discovery so a provider item still processing no
+  longer consumes the only import slot and hides a later ready recording
+  within the bounded probe window. Discovery remains capped, while ready or
+  failed materialization attempts continue to honor the configured per-run
+  import limit.
+
 ### HPP communication collection schedule
 
 - Fixed the HPP Outlook Sent collection windows to

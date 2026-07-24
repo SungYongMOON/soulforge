@@ -379,9 +379,17 @@ export async function runPlaudSync(options = {}) {
   }
 
   const remainingCandidateSlots = Math.max(profile.max_new_per_run - reconciliationCandidates.length, 0);
-  const candidates = allCandidates.slice(0, remainingCandidateSlots);
+  const candidateProbeLimit = Math.min(
+    allCandidates.length,
+    Math.min(Math.max(profile.max_new_per_run * 20, 20), 100),
+  );
+  const candidates = allCandidates.slice(0, candidateProbeLimit);
+  let candidateCount = 0;
+  let consumedCandidateSlots = 0;
 
   for (const candidate of candidates) {
+    if (consumedCandidateSlots >= remainingCandidateSlots) break;
+    candidateCount += 1;
     if (typeof options.beforeRecording === "function") await options.beforeRecording();
     try {
       const fileRaw = runner(profile.plaud_command, ["file", candidate.id], { cwd: repoRoot });
@@ -395,6 +403,7 @@ export async function runPlaudSync(options = {}) {
       }
       if (!options.apply) {
         recordings.push({ id: candidate.id, state: "ready_to_import", metadata });
+        consumedCandidateSlots += 1;
         continue;
       }
       const imported = await materializePlaudRecording({
@@ -414,6 +423,7 @@ export async function runPlaudSync(options = {}) {
         requireHppCustody: options.requireHppCustody === true,
       });
       recordings.push(imported);
+      consumedCandidateSlots += 1;
     } catch (error) {
       if (error?.plaudSharedWriteGuardFailure) throw error;
       recordings.push({
@@ -421,6 +431,7 @@ export async function runPlaudSync(options = {}) {
         state: "import_failed_retryable",
         failure_kind: classifyPlaudImportFailure(error),
       });
+      consumedCandidateSlots += 1;
     } finally {
       if (typeof options.afterRecording === "function") await options.afterRecording();
     }
@@ -446,8 +457,8 @@ export async function runPlaudSync(options = {}) {
     reconciliation_candidate_count: reconciliationCandidates.length,
     reconciled_count: recordings.filter((item) => item.state === "reconciled").length,
     new_candidate_count: allCandidates.length,
-    candidate_count: candidates.length,
-    truncated_new_candidate_count: Math.max(allCandidates.length - candidates.length, 0),
+    candidate_count: candidateCount,
+    truncated_new_candidate_count: Math.max(allCandidates.length - candidateCount, 0),
     recordings,
     custody_required_session_refs: [...new Set(custodyRequiredSessionRefs)].sort(),
     raw_payload_boundary: {

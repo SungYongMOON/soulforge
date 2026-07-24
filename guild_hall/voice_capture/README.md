@@ -276,6 +276,12 @@ recordings on later runs, and skips any provider recording ID already present
 in a session manifest. It downloads all three provider artifacts but assigns
 different evidence roles:
 
+The per-run import limit bounds materialization, not readiness discovery. The
+collector may probe a bounded set of later candidates so that one provider item
+still processing does not block a ready recording inside that probe window.
+Pending items do not consume the import slot; a ready or failed import attempt
+does.
+
 - original audio: canonical source candidate;
 - PLAUD transcript and speaker labels: auxiliary, unverified alignment input;
 - PLAUD summary: quarantined, untrusted provider output with no direct task
