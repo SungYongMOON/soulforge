@@ -59,6 +59,13 @@ Live app creation, scope selection, membership changes, token provisioning,
 retention/legal-hold policy, user mapping, and production activation remain
 private gates.
 
+`slack_app_manifest.yaml` is the public-safe owner-managed app template for the
+current polling collector. It requests only `channels:read`,
+`channels:history`, and `files:read`; it has no message-write, file-write,
+channel-join, user-directory, Socket Mode, or Events API authority. The app
+must still be installed by the owner and explicitly invited to each
+allowlisted project channel before its private bot token is provisioned.
+
 The connected interactive Slack reader does not provide a reusable background
 token to this Node harness. Continuous collection therefore remains blocked
 until an owner-managed Slack App and token are bound.

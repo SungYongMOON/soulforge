@@ -14,6 +14,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { parse as parseYaml } from "yaml";
 
 import {
   preflightSlackBatchLive,
@@ -34,6 +35,7 @@ const TASK_REGISTRAR_PATH = path.join(
   "ops",
   "register-slack-batch-hpp-task.ps1",
 );
+const APP_MANIFEST_PATH = path.join(MODULE_ROOT, "slack_app_manifest.yaml");
 const execFileAsync = promisify(execFile);
 
 function sha256Bytes(bytes) {
@@ -43,6 +45,19 @@ function sha256Bytes(bytes) {
 function sha256CanonicalString(value) {
   return sha256Bytes(Buffer.from(JSON.stringify(value), "utf8"));
 }
+
+test("owner-managed Slack app manifest grants only the bounded read scopes", async () => {
+  const manifest = parseYaml(await readFile(APP_MANIFEST_PATH, "utf8"));
+  assert.deepEqual(manifest.oauth_config.scopes.bot, [
+    "channels:read",
+    "channels:history",
+    "files:read",
+  ]);
+  assert.equal(manifest.settings.socket_mode_enabled, false);
+  assert.equal(manifest.features.bot_user.always_online, false);
+  assert.equal("event_subscriptions" in manifest.settings, false);
+  assert.equal(JSON.stringify(manifest).includes(":write"), false);
+});
 
 async function writePinnedJson(target, value) {
   const bytes = Buffer.from(`${JSON.stringify(value)}\n`, "utf8");

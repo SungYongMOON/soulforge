@@ -13,6 +13,14 @@
 - Made scheduled-task registration restore the prior exported task definition
   or remove the new task when post-registration XML attestation fails, and
   wired its PowerShell structural regression into `validate:slack-history`.
+- Materialized the exact 537-file HPP Slack runtime and nine project-private
+  bindings, then passed manifest verification, 9/9 no-network preflight, and
+  the fixed 02:00/12:00 KST registration dry-run. Live registration remains
+  gated on the owner-managed Slack app token and a real one-channel
+  conversation-and-attachment canary.
+- Added a reusable owner-managed Slack app manifest restricted to
+  `channels:read`, `channels:history`, and `files:read`, with no posting,
+  upload, auto-join, user-directory, Events API, or Socket Mode authority.
 
 ### HPP continuous independent voice ASR and labels
 
@@ -30,6 +38,10 @@
 - Made the semantic-label CLI missing-session regression accept the native
   Windows `ENOENT realpath` failure while retaining the same fail-closed
   behavior.
+- Activated the hidden HPP continuous task and observed consecutive healthy
+  bounded cycles with one independent transcription per cycle, zero failures,
+  and remaining backlog decreasing while project, ERP, TaskDriver, and
+  official-task writes stayed disabled.
 
 ### PLAUD ready-candidate head-of-line recovery
 

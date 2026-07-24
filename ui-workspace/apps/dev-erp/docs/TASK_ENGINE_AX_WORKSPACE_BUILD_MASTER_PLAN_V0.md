@@ -4848,17 +4848,29 @@ Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있�
      process/worker 이중 lock, hidden at-logon `IgnoreNew`, metadata-only
      health/receipt를 사용한다. project 확정·ERP·TaskDriver·공식 task write는
      계속 0이다.
+   - 2026-07-24 HPP의 `Soulforge-HPP-Voice-ASR-Label` 연속 작업을 실제
+     활성화했다. 재부팅 후에도 단일 supervisor가 유지되고, 최근 관측 cycle은
+     독립 전사 1건 성공·실패 0·잔여 16건과 6,331개 발생 라벨을 기록했다.
+     이는 backlog 처리 중이라는 운영 증거이며 전체 backlog 완료 주장은 아니다.
 
 2. Slack
    - v2 Web API polling transport, `auth.test` token-workspace 일치,
      정확한 joined/public/nonshared project channel 검증, 15개 제한 page,
      private bot-token 로딩, RAW custody,
      revision/dedupe, 프로젝트 확정 arrival annotation을 구현했다.
+   - 대화·스레드·수정·삭제 revision과 함께 PNG/JPEG/HEIC/WebP, PDF,
+     Word, Excel, PowerPoint 첨부를 실제 byte custody 대상으로 처리한다.
+     파일은 SHA-256 content-addressed 보관·중복 제거하고, message 단위
+     원자성 실패 시 file-id receipt와 새 content를 함께 rollback한다.
    - polling은 활성화 전 삭제와 과거 edit 이력을 완전 증명하지 못하므로
      coverage gap으로 남긴다. 완전한 삭제 이벤트는 향후 Events API 또는
      Socket Mode 어댑터가 필요하다.
-   - 현재 live 차단점은 코드가 아니라 owner-managed Slack App/token과
-     exact workspace/channel private binding 부재다.
+   - 2026-07-24 HPP 전용 격리 runtime과 9개 프로젝트 exact private v2
+     binding을 만들고, runtime 537개 파일 hash manifest 검증과 9/9
+     no-network preflight, 02:00·12:00 KST 작업 등록 dry-run을 통과했다.
+     현재 live 차단점은 owner-managed Slack App 로그인·최소 scope token과
+     실제 한 채널 대화·첨부 bounded canary다. 실제 canary 전에는 예약 작업을
+     등록하지 않는다.
 
 3. PC 업무·파일·실행로그
    - 기존 HPP 연속 queue custody/ack 흐름에 공통 arrival annotation을
@@ -4873,8 +4885,9 @@ Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있�
 
 ### 남은 운영 게이트
 
-- Slack App/token과 9개 프로젝트 채널의 exact private v2 binding
-- local ASR가 없는 신규/기존 음성의 연속 전사 운영 연결
+- Slack owner-managed App/token 연결, 한 프로젝트 대화·첨부 bounded
+  canary, 재실행 dedupe 뒤 02:00·12:00 KST 예약 작업 등록
+- 음성 backlog의 연속 처리 완료와 장기 health 관측
 - mail/slack/voice에서 나온 요청·약속·결정 후보를 최근 맥락과 대조하는
   P5 context resolver
 - P5 후보를 ERP 공식 TaskDriver로 승격하는 owner/role 승인
