@@ -2,6 +2,18 @@
 
 ## 2026-07-24
 
+### Slack attachment and scheduled-ingress fail-closed guards
+
+- Made all hosted files on one Slack message enter custody as one rollback-safe
+  transaction, with exact content/file-ID receipt cleanup when a later
+  attachment or page-state commit fails.
+- Added single-link, opened-handle identity fences for persistent state reads,
+  exact Slack file-download host/port allowlisting, bounded stream aborts, and
+  an explicit continuation gap when a batch reaches `max_pages`.
+- Made scheduled-task registration restore the prior exported task definition
+  or remove the new task when post-registration XML attestation fails, and
+  wired its PowerShell structural regression into `validate:slack-history`.
+
 ### HPP continuous independent voice ASR and labels
 
 - Added a separate HPP derived-voice worker that queues newly imported sessions,

@@ -10,6 +10,7 @@ import {
 } from "./slack_continuous_runner.mjs";
 import {
   createSlackWebApiCall,
+  createSlackHostedFileTransport,
   createSlackWebApiPollingTransport,
   loadSlackBotToken,
 } from "./slack_transport.mjs";
@@ -34,7 +35,17 @@ try {
     forbidden_roots: binding.forbidden_roots,
   });
   const apiCall = createSlackWebApiCall({ bot_token: botToken });
-  const transport = createSlackWebApiPollingTransport({ apiCall, binding });
+  const hostedFileTransport = binding.attachment_policy.feature_enabled
+    ? createSlackHostedFileTransport({
+      bot_token: botToken,
+      policy: binding.attachment_policy,
+    })
+    : null;
+  const transport = createSlackWebApiPollingTransport({
+    apiCall,
+    binding,
+    hosted_file_transport: hostedFileTransport,
+  });
   const result = await runSlackContinuousIngress({
     binding,
     expected_binding_digest: bindingDigest,

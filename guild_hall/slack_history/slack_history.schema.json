@@ -178,7 +178,7 @@
     "attachmentPointer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file_id", "pointer_ref", "content_sha256", "size_bytes"],
+      "required": ["file_id", "pointer_ref", "content_sha256", "size_bytes", "mime_type"],
       "properties": {
         "file_id": { "$ref": "#/$defs/safeRef" },
         "pointer_ref": { "$ref": "#/$defs/safeRef" },
@@ -188,6 +188,10 @@
             { "type": "integer", "minimum": 0 },
             { "type": "null" }
           ]
+        },
+        "mime_type": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$"
         }
       }
     },

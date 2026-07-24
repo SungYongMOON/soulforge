@@ -138,7 +138,8 @@
           "file_id": "F00000001",
           "pointer_ref": "slack-file:F00000001",
           "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "size_bytes": 128
+          "size_bytes": 128,
+          "mime_type": "image/png"
         }
       ]
     },
@@ -164,7 +165,8 @@
           "file_id": "F00000001",
           "pointer_ref": "slack-file:F00000001",
           "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "size_bytes": 128
+          "size_bytes": 128,
+          "mime_type": "image/png"
         }
       ]
     },
@@ -209,7 +211,8 @@
           "file_id": "F00000001",
           "pointer_ref": "slack-file:F00000001",
           "content_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-          "size_bytes": 128
+          "size_bytes": 128,
+          "mime_type": "image/png"
         }
       ]
     },

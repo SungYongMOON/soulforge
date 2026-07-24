@@ -1,4 +1,5 @@
 import { sha256Canonical } from "../shared/project_history_envelope.mjs";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -118,10 +119,14 @@ function webMessageRecord(message, binding, channel) {
   };
 }
 
-export function createSlackWebApiPollingTransport({ apiCall, binding }) {
+export function createSlackWebApiPollingTransport({
+  apiCall,
+  binding,
+  hosted_file_transport: hostedFileTransport = null,
+}) {
   const adapter = createSlackWebApiCompatibleAdapter({ apiCall });
   if (!binding || typeof binding !== "object") fail("binding_required", "A validated Slack binding is required");
-  return Object.freeze({
+  const transport = {
     kind: "web_api",
     async pull({ cursor_token: cursorToken = null, limit }) {
       assertLimit(limit);
@@ -164,7 +169,14 @@ export function createSlackWebApiPollingTransport({ apiCall, binding }) {
         ],
       };
     },
-  });
+  };
+  if (hostedFileTransport !== null) {
+    if (typeof hostedFileTransport?.fetchHostedFile !== "function") {
+      fail("hosted_file_transport_invalid", "Hosted file transport must expose fetchHostedFile");
+    }
+    transport.fetchHostedFile = (request) => hostedFileTransport.fetchHostedFile(request);
+  }
+  return Object.freeze(transport);
 }
 
 function normalizedBoundaryPath(value) {
@@ -308,4 +320,311 @@ export function createSlackWebApiCall({
     }
     return body;
   };
+}
+
+function headerValue(headers, name) {
+  if (typeof headers?.get === "function") return headers.get(name);
+  const entry = Object.entries(headers ?? {}).find(([key]) => key.toLowerCase() === name.toLowerCase());
+  return entry?.[1] ?? null;
+}
+
+function assertSlackFileUrl(value) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    fail("attachment_url_invalid", "Slack file locator was invalid");
+  }
+  const host = parsed.hostname.toLowerCase();
+  const allowedHosts = new Set(["files.slack.com", "files-origin.slack.com"]);
+  if (parsed.protocol !== "https:"
+    || !allowedHosts.has(host)
+    || !["", "443"].includes(parsed.port)
+    || parsed.username !== ""
+    || parsed.password !== "") {
+    fail("attachment_url_not_slack_owned", "Slack file locator failed the exact HTTPS host and port guard");
+  }
+  return parsed.href;
+}
+
+function attachmentPolicy(policy) {
+  if (!policy || typeof policy !== "object") fail("attachment_policy_required", "Attachment policy is required");
+  for (const key of [
+    "max_file_bytes",
+    "timeout_ms",
+    "max_retries",
+    "max_retry_after_seconds",
+  ]) {
+    if (!Number.isSafeInteger(policy[key])) fail("attachment_policy_invalid", "Attachment policy limits must be integers");
+  }
+  if (!Array.isArray(policy.allowed_mime_types) || !Array.isArray(policy.allowed_file_types)) {
+    fail("attachment_policy_invalid", "Attachment policy allowlists are required");
+  }
+  return policy;
+}
+
+function retryAfterSeconds(response, policy) {
+  const raw = String(headerValue(response?.headers, "retry-after") ?? "");
+  if (!/^\d{1,3}$/u.test(raw)) fail("attachment_retry_after_invalid", "Slack retry delay was absent or invalid");
+  const seconds = Number.parseInt(raw, 10);
+  if (seconds > policy.max_retry_after_seconds) {
+    fail("attachment_retry_after_exceeds_limit", "Slack retry delay exceeded the binding limit");
+  }
+  return seconds;
+}
+
+async function boundedSlackFetch({
+  fetchImpl,
+  request,
+  policy,
+  sleepImpl,
+  operation,
+}) {
+  for (let attempt = 0; attempt <= policy.max_retries; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), policy.timeout_ms);
+    timeout.unref?.();
+    try {
+      const response = await fetchImpl(request.url, {
+        ...request.options,
+        redirect: "manual",
+        signal: controller.signal,
+      });
+      if (response.status === 429) {
+        if (attempt >= policy.max_retries) {
+          fail("attachment_retry_exhausted", `${operation} exhausted its bounded retry count`);
+        }
+        const seconds = retryAfterSeconds(response, policy);
+        clearTimeout(timeout);
+        await sleepImpl(seconds * 1000);
+        continue;
+      }
+      return { response, controller, timeout };
+    } catch (error) {
+      clearTimeout(timeout);
+      if (error instanceof SlackTransportError) throw error;
+      if (controller.signal.aborted) {
+        fail("attachment_timeout", `${operation} exceeded its bounded timeout`);
+      }
+      fail("attachment_network_failed", `${operation} failed`);
+    }
+  }
+  fail("attachment_retry_exhausted", `${operation} exhausted its bounded retry count`);
+}
+
+async function parseSlackJson(fetchState, operation) {
+  try {
+    return await fetchState.response.json();
+  } catch (error) {
+    if (fetchState.controller.signal.aborted) {
+      fail("attachment_timeout", `${operation} exceeded its bounded timeout`);
+    }
+    fail("attachment_response_invalid", `${operation} returned invalid JSON`);
+  } finally {
+    clearTimeout(fetchState.timeout);
+  }
+}
+
+function validateHostedFileMetadata(file, declaredFile, workspaceId, policy) {
+  if (!file || typeof file !== "object" || Array.isArray(file)) {
+    fail("attachment_metadata_invalid", "files.info returned no file metadata");
+  }
+  if (file.id !== declaredFile.id || !/^F[A-Z0-9]{2,31}$/u.test(String(file.id ?? ""))) {
+    fail("attachment_file_id_mismatch", "files.info returned a different file ID");
+  }
+  const workspaceClaims = [file.team_id, file.user_team].filter((value) => value !== undefined && value !== null);
+  if (workspaceClaims.length === 0 || workspaceClaims.some((value) => value !== workspaceId)) {
+    fail("attachment_workspace_mismatch", "Slack file metadata did not match the bound workspace");
+  }
+  if (file.mode !== "hosted"
+    || file.is_external !== false
+    || ![null, undefined, ""].includes(file.external_type)
+    || file.file_access !== "visible"
+    || file.deleted === true) {
+    fail("attachment_not_safe_hosted_file", "Slack file state is not an allowed hosted-file state");
+  }
+  const size = file.size;
+  const mimeType = String(file.mimetype ?? "").toLowerCase();
+  const fileType = String(file.filetype ?? "").toLowerCase();
+  if (!Number.isSafeInteger(size) || size < 0 || size !== declaredFile.size) {
+    fail("attachment_declared_size_mismatch", "Slack file size did not match the message declaration");
+  }
+  if (size > policy.max_file_bytes) fail("attachment_file_too_large", "Slack file exceeded the per-file byte limit");
+  if (mimeType !== declaredFile.mimetype || !policy.allowed_mime_types.includes(mimeType)) {
+    fail("attachment_mime_not_allowed", "Slack file MIME type was mismatched or not allowed");
+  }
+  if (fileType !== declaredFile.filetype || !policy.allowed_file_types.includes(fileType)) {
+    fail("attachment_type_not_allowed", "Slack file type was mismatched or not allowed");
+  }
+  const locator = file.url_private_download || file.url_private;
+  if (typeof locator !== "string" || locator.length === 0) {
+    fail("attachment_locator_missing", "Slack hosted file had no private download locator");
+  }
+  const revisionBasis = {
+    file_id: file.id,
+    timestamp: String(file.timestamp ?? file.created ?? ""),
+    size_bytes: size,
+    mime_type: mimeType,
+    file_type: fileType,
+  };
+  if (!/^\d{1,20}$/u.test(revisionBasis.timestamp)) {
+    fail("attachment_revision_unknown", "Slack file metadata had no stable revision timestamp");
+  }
+  return {
+    file_id: file.id,
+    revision_ref: `slack-file-rev:${sha256Canonical(revisionBasis).slice("sha256:".length)}`,
+    size_bytes: size,
+    mime_type: mimeType,
+    file_type: fileType,
+    download_url: assertSlackFileUrl(locator),
+  };
+}
+
+async function readBoundedFileBody(fetchState, metadata, policy) {
+  const { response, controller, timeout } = fetchState;
+  let activeReader = null;
+  try {
+    if (response.status >= 300 && response.status < 400) {
+      fail("attachment_redirect_forbidden", "Authenticated file downloads never follow redirects");
+    }
+    if (!response.ok) fail("attachment_download_http_failed", "Slack file download returned a non-success status");
+    const contentLength = headerValue(response.headers, "content-length");
+    if (contentLength !== null && contentLength !== undefined) {
+      if (!/^\d+$/u.test(String(contentLength))) {
+        fail("attachment_content_length_invalid", "Slack file Content-Length was invalid");
+      }
+      const declaredLength = Number.parseInt(String(contentLength), 10);
+      if (!Number.isSafeInteger(declaredLength)
+        || declaredLength > policy.max_file_bytes
+        || declaredLength !== metadata.size_bytes) {
+        fail("attachment_content_length_mismatch", "Slack file Content-Length violated declared bounds");
+      }
+    }
+    const responseMime = String(headerValue(response.headers, "content-type") ?? "")
+      .split(";", 1)[0]
+      .trim()
+      .toLowerCase();
+    if (responseMime && responseMime !== metadata.mime_type) {
+      fail("attachment_response_mime_mismatch", "Slack file response MIME type differed from files.info");
+    }
+
+    const chunks = [];
+    const digest = createHash("sha256");
+    let size = 0;
+    const retainChunk = (value) => {
+      const chunk = Buffer.from(value);
+      size += chunk.length;
+      if (size > policy.max_file_bytes || size > metadata.size_bytes) {
+        fail("attachment_stream_too_large", "Slack file stream exceeded its byte cap");
+      }
+      digest.update(chunk);
+      chunks.push(chunk);
+    };
+    if (response.body && typeof response.body.getReader === "function") {
+      const reader = response.body.getReader();
+      activeReader = reader;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        retainChunk(value);
+      }
+      activeReader = null;
+    } else if (response.body && typeof response.body[Symbol.asyncIterator] === "function") {
+      for await (const chunk of response.body) retainChunk(chunk);
+    } else if (typeof response.arrayBuffer === "function") {
+      retainChunk(new Uint8Array(await response.arrayBuffer()));
+    } else {
+      fail("attachment_body_unreadable", "Slack file response had no readable byte stream");
+    }
+    if (size !== metadata.size_bytes) {
+      fail("attachment_stream_truncated", "Slack file stream did not match its declared size");
+    }
+    return {
+      ...metadata,
+      bytes: Buffer.concat(chunks, size),
+      content_sha256: `sha256:${digest.digest("hex")}`,
+    };
+  } catch (error) {
+    controller.abort();
+    if (activeReader !== null) await activeReader.cancel().catch(() => {});
+    else if (typeof response.body?.destroy === "function") response.body.destroy();
+    if (error instanceof SlackTransportError) throw error;
+    if (controller.signal.aborted) fail("attachment_timeout", "Slack file download exceeded its bounded timeout");
+    fail("attachment_network_failed", "Slack file download failed");
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function createSlackHostedFileTransport({
+  bot_token: botToken,
+  fetch_impl: fetchImpl = globalThis.fetch,
+  policy,
+  sleep_impl: sleepImpl = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+}) {
+  if (!/^xoxb-[A-Za-z0-9-]{10,}$/u.test(String(botToken ?? ""))) {
+    fail("bot_token_invalid", "A bot token is required");
+  }
+  if (typeof fetchImpl !== "function" || typeof sleepImpl !== "function") {
+    fail("attachment_transport_invalid", "Fetch and sleep implementations are required");
+  }
+  const retainedPolicy = attachmentPolicy(policy);
+  return Object.freeze({
+    kind: "slack_hosted_files",
+    async fetchHostedFile({ declared_file: declaredFile, workspace_id: workspaceId }) {
+      if (!declaredFile || typeof declaredFile !== "object") {
+        fail("attachment_declaration_invalid", "A bounded message file declaration is required");
+      }
+      const infoState = await boundedSlackFetch({
+        fetchImpl,
+        policy: retainedPolicy,
+        sleepImpl,
+        operation: "files.info",
+        request: {
+          url: "https://slack.com/api/files.info",
+          options: {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${botToken}`,
+              "content-type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({ file: String(declaredFile.id ?? "") }),
+          },
+        },
+      });
+      if (!infoState.response.ok) {
+        clearTimeout(infoState.timeout);
+        fail("attachment_files_info_http_failed", "files.info returned a non-success status");
+      }
+      const infoBody = await parseSlackJson(infoState, "files.info");
+      if (infoBody?.ok !== true) {
+        const safeCode = /^[a-z0-9_]{1,80}$/u.test(String(infoBody?.error ?? ""))
+          ? infoBody.error
+          : "unknown_error";
+        fail("attachment_files_info_failed", `files.info failed with ${safeCode}`);
+      }
+      const metadata = validateHostedFileMetadata(
+        infoBody.file,
+        declaredFile,
+        workspaceId,
+        retainedPolicy,
+      );
+      const downloadState = await boundedSlackFetch({
+        fetchImpl,
+        policy: retainedPolicy,
+        sleepImpl,
+        operation: "file download",
+        request: {
+          url: metadata.download_url,
+          options: {
+            method: "GET",
+            headers: {
+              authorization: `Bearer ${botToken}`,
+            },
+          },
+        },
+      });
+      return readBoundedFileBody(downloadState, metadata, retainedPolicy);
+    },
+  });
 }

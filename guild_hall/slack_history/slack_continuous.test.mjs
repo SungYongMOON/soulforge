@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import {
   mkdir,
@@ -15,6 +16,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { Readable } from "node:stream";
 import test from "node:test";
 
 import {
@@ -28,8 +30,10 @@ import {
   acquireExclusiveLease,
   atomicWritePrivateJson,
   preparePrivateDataRoot,
+  writeSlackHostedFileToCustody,
 } from "./slack_custody.mjs";
 import {
+  createSlackHostedFileTransport,
   createSlackWebApiCompatibleAdapter,
   createSlackWebApiCall,
   createSlackWebApiPollingTransport,
@@ -75,6 +79,21 @@ async function makeBinding() {
       app_token_file: null,
       bot_token_file: null,
     },
+    attachment_policy: {
+      feature_enabled: false,
+      custody_root: path.join(privateRoot, "slack-custody", "attachments"),
+      max_files_per_message: 4,
+      max_file_bytes: 1_048_576,
+      max_total_bytes: 2_097_152,
+      allowed_mime_types: [
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "image/png",
+      ],
+      allowed_file_types: ["docx", "png"],
+      timeout_ms: 1_000,
+      max_retries: 2,
+      max_retry_after_seconds: 2,
+    },
     private_root: privateRoot,
     data_root: path.join(privateRoot, "slack-custody"),
     forbidden_roots: [
@@ -119,6 +138,60 @@ function record(eventId, rawEvent, overrides = {}) {
     is_member: true,
     source_refs: [`slack-event:${eventId}`],
     raw_event: rawEvent,
+    ...overrides,
+  };
+}
+
+function responseHeaders(values = {}) {
+  const normalized = new Map(
+    Object.entries(values).map(([key, value]) => [key.toLowerCase(), String(value)]),
+  );
+  return {
+    get(name) {
+      return normalized.get(String(name).toLowerCase()) ?? null;
+    },
+  };
+}
+
+function jsonResponse(value, { status = 200, headers = {} } = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: responseHeaders(headers),
+    async json() {
+      return clone(value);
+    },
+  };
+}
+
+function byteResponse(bytes, mimeType, { status = 200, headers = {} } = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: responseHeaders({
+      "content-length": bytes.length,
+      "content-type": mimeType,
+      ...headers,
+    }),
+    body: Readable.from([Buffer.from(bytes)]),
+  };
+}
+
+function hostedInfo(declared, workspaceId, overrides = {}) {
+  return {
+    id: declared.id,
+    team_id: workspaceId,
+    user_team: workspaceId,
+    mode: "hosted",
+    is_external: false,
+    external_type: "",
+    file_access: "visible",
+    deleted: false,
+    size: declared.size,
+    mimetype: declared.mimetype,
+    filetype: declared.filetype,
+    timestamp: 1_720_000_000,
+    url_private_download: `https://files.slack.com/files-pri/${workspaceId}-${declared.id}/download`,
     ...overrides,
   };
 }
@@ -552,6 +625,27 @@ test("failed atomic state commit leaves the prior cursor generation intact and r
   assert.equal(afterRecovery.revision_count, 2);
 });
 
+test("persistent state read rejects a second hard link before parsing rollback data", async (t) => {
+  const binding = await makeBinding();
+  await run(binding, fullRevisionRecords().slice(0, 1));
+  const statePath = path.join(binding.data_root, "state", "slack-continuous.json");
+  const outsideLink = path.join(binding.private_root, "outside-channel-state-hardlink.json");
+  try {
+    await link(statePath, outsideLink);
+  } catch (error) {
+    if (["EPERM", "EACCES", "ENOTSUP"].includes(error.code)) {
+      t.skip(`hardlink unavailable: ${error.code}`);
+      return;
+    }
+    throw error;
+  }
+  await assert.rejects(
+    run(binding, fullRevisionRecords().slice(0, 2)),
+    (error) => error instanceof SlackCustodyError
+      && error.code === "custody_read_target_invalid",
+  );
+});
+
 test("path guard rejects reparse roots when the platform permits junction creation", async (t) => {
   const parent = await mkdtemp(path.join(os.tmpdir(), "soulforge-slack-reparse-"));
   const real = path.join(parent, "real");
@@ -876,6 +970,612 @@ test("live polling rejects another workspace before reading channel history", as
     /token_workspace_mismatch/u,
   );
   assert.deepEqual(calls, ["auth.test"]);
+});
+
+test("hosted PNG and DOCX files enter content-addressed custody without locators or secrets", async () => {
+  const binding = await makeBinding();
+  binding.schema_version = "soulforge.slack_continuous.binding.v2";
+  binding.feature_enabled = true;
+  binding.attachment_policy.feature_enabled = true;
+  const sharedBytes = Buffer.from("synthetic duplicate attachment bytes", "utf8");
+  const declaredFiles = [
+    {
+      id: "FPNG00001",
+      size: sharedBytes.length,
+      mimetype: "image/png",
+      filetype: "png",
+      mode: "hosted",
+      is_external: false,
+      file_access: "visible",
+      url_private: "https://files.slack.com/private/signed-png",
+      thumb_360: "https://files.slack.com/thumb/signed-png",
+    },
+    {
+      id: "FDOCX0001",
+      size: sharedBytes.length,
+      mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      filetype: "docx",
+      mode: "hosted",
+      is_external: false,
+      file_access: "visible",
+      url_private_download: "https://files.slack.com/private/signed-docx",
+    },
+  ];
+  const token = FAKE_BOT_TOKEN;
+  const fileById = new Map(declaredFiles.map((file) => [file.id, file]));
+  const authenticatedRequests = [];
+  const hostedFileTransport = createSlackHostedFileTransport({
+    bot_token: token,
+    policy: binding.attachment_policy,
+    sleep_impl: async () => {},
+    async fetch_impl(url, options) {
+      authenticatedRequests.push({
+        host: new URL(url).hostname,
+        redirect: options.redirect,
+        authorization: options.headers.authorization,
+      });
+      if (url === "https://slack.com/api/files.info") {
+        const declared = fileById.get(options.body.get("file"));
+        return jsonResponse({
+          ok: true,
+          file: hostedInfo(declared, binding.workspace_id),
+        });
+      }
+      const declared = declaredFiles.find((file) => url.includes(file.id));
+      return byteResponse(sharedBytes, declared.mimetype);
+    },
+  });
+  const channel = {
+    id: binding.channel_id,
+    is_private: false,
+    is_shared: false,
+    is_ext_shared: false,
+    is_archived: false,
+    is_member: true,
+  };
+  const transport = createSlackWebApiPollingTransport({
+    binding,
+    hosted_file_transport: hostedFileTransport,
+    async apiCall(method) {
+      if (method === "auth.test") return { ok: true, team_id: binding.workspace_id };
+      if (method === "conversations.info") return { ok: true, channel };
+      return {
+        ok: true,
+        messages: [{
+          type: "message",
+          ts: "1720000100.000100",
+          user: "U00000001",
+          text: "attachment fixture",
+          files: clone(declaredFiles),
+        }],
+        response_metadata: { next_cursor: "" },
+      };
+    },
+  });
+  const request = {
+    binding,
+    expected_binding_digest: digestSlackContinuousBinding(binding),
+    writer_authority_id: binding.writer.authority_id,
+    writer_epoch: binding.writer.epoch,
+    transport,
+    dry_run: false,
+    max_events: 15,
+  };
+  const first = await runSlackContinuousIngress(request);
+  assert.equal(first.accepted_count, 1);
+  assert.equal(first.held_count, 0);
+  assert.equal(first.private_writes, 6);
+  const statePath = path.join(binding.data_root, "state", "slack-continuous.json");
+  const firstStateText = await readFile(statePath, "utf8");
+  const state = JSON.parse(firstStateText);
+  assert.equal(state.attachment_receipts.length, 2);
+  assert.deepEqual(
+    state.revisions[0].attachment_pointers.map((pointer) => pointer.mime_type).sort(),
+    [
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "image/png",
+    ],
+  );
+  assert.doesNotMatch(firstStateText, /files\.slack\.com|url_private|thumb_360|xoxb-|synthetic duplicate attachment bytes/u);
+  const rawFiles = await readdir(path.join(binding.data_root, "raw"), { recursive: true });
+  const rawText = await readFile(
+    path.join(binding.data_root, "raw", rawFiles.find((entry) => entry.endsWith(".json"))),
+    "utf8",
+  );
+  assert.doesNotMatch(rawText, /files\.slack\.com|url_private["]|thumb_360["]|xoxb-/u);
+  assert.match(rawText, /metadata_proof_sha256/u);
+  const contentFiles = (await readdir(
+    path.join(binding.attachment_policy.custody_root, "sha256"),
+    { recursive: true },
+  )).filter((entry) => entry.endsWith(".bin"));
+  assert.equal(contentFiles.length, 1);
+  assert.equal(authenticatedRequests.every((requestEntry) => requestEntry.redirect === "manual"), true);
+  assert.equal(authenticatedRequests.every((requestEntry) => requestEntry.authorization === `Bearer ${token}`), true);
+
+  const replay = await runSlackContinuousIngress(request);
+  assert.equal(replay.replayed_pages, 1);
+  assert.equal(await readFile(statePath, "utf8"), firstStateText);
+});
+
+test("hosted-file custody detects same-file conflicts and reparse escapes", async (t) => {
+  const binding = await makeBinding();
+  const receipt = await writeSlackHostedFileToCustody({
+    custody_root: binding.attachment_policy.custody_root,
+    file_id: "FCONFLICT1",
+    revision_ref: "slack-file-rev:stable",
+    bytes: Buffer.from("first", "utf8"),
+    mime_type: "image/png",
+  });
+  const replay = await writeSlackHostedFileToCustody({
+    custody_root: binding.attachment_policy.custody_root,
+    file_id: "FCONFLICT1",
+    revision_ref: "slack-file-rev:stable",
+    bytes: Buffer.from("first", "utf8"),
+    mime_type: "image/png",
+  });
+  assert.deepEqual(replay, receipt);
+  await assert.rejects(
+    writeSlackHostedFileToCustody({
+      custody_root: binding.attachment_policy.custody_root,
+      file_id: "FCONFLICT1",
+      revision_ref: "slack-file-rev:changed",
+      bytes: Buffer.from("changed", "utf8"),
+      mime_type: "image/png",
+    }),
+    (error) => error instanceof SlackCustodyError && error.code === "slack_file_identity_conflict",
+  );
+  const contentHex = receipt.content_sha256.slice("sha256:".length);
+  const contentPath = path.join(
+    binding.attachment_policy.custody_root,
+    "sha256",
+    contentHex.slice(0, 2),
+    `${contentHex}.bin`,
+  );
+  await writeFile(contentPath, "tampered", "utf8");
+  await assert.rejects(
+    writeSlackHostedFileToCustody({
+      custody_root: binding.attachment_policy.custody_root,
+      file_id: "FCONFLICT1",
+      revision_ref: "slack-file-rev:stable",
+      bytes: Buffer.from("first", "utf8"),
+      mime_type: "image/png",
+    }),
+    (error) => error instanceof SlackCustodyError && error.code === "custody_digest_conflict",
+  );
+  const custodyEntries = await readdir(
+    binding.attachment_policy.custody_root,
+    { recursive: true },
+  );
+  assert.equal(custodyEntries.some((entry) => entry.includes(".tmp-")), false);
+
+  const outside = path.join(path.dirname(binding.private_root), "outside-attachment-root");
+  await mkdir(outside, { recursive: true });
+  const linkedRoot = path.join(binding.data_root, "linked-attachments");
+  await mkdir(binding.data_root, { recursive: true });
+  try {
+    await symlink(outside, linkedRoot, process.platform === "win32" ? "junction" : "dir");
+  } catch (error) {
+    if (["EPERM", "EACCES", "ENOTSUP"].includes(error.code)) {
+      t.diagnostic(`attachment reparse probe unavailable: ${error.code}`);
+      return;
+    }
+    throw error;
+  }
+  await assert.rejects(
+    writeSlackHostedFileToCustody({
+      custody_root: linkedRoot,
+      file_id: "FESCAPE001",
+      revision_ref: "slack-file-rev:escape",
+      bytes: Buffer.from("escape", "utf8"),
+      mime_type: "image/png",
+    }),
+    (error) => error instanceof SlackCustodyError && error.code === "reparse_path_forbidden",
+  );
+});
+
+test("hosted-file transport enforces 429 bounds, byte framing, timeout, network, and redirect guards", async () => {
+  const binding = await makeBinding();
+  const declared = {
+    id: "FBOUND001",
+    size: 5,
+    mimetype: "image/png",
+    filetype: "png",
+  };
+  const info = hostedInfo(declared, binding.workspace_id);
+  let calls = 0;
+  const retryDelays = [];
+  const retrying = createSlackHostedFileTransport({
+    bot_token: FAKE_BOT_TOKEN,
+    policy: binding.attachment_policy,
+    sleep_impl: async (milliseconds) => retryDelays.push(milliseconds),
+    async fetch_impl(url) {
+      calls += 1;
+      if (calls === 1) return jsonResponse({}, { status: 429, headers: { "retry-after": "1" } });
+      if (url === "https://slack.com/api/files.info") return jsonResponse({ ok: true, file: info });
+      return byteResponse(Buffer.from("12345"), "image/png");
+    },
+  });
+  const downloaded = await retrying.fetchHostedFile({
+    declared_file: declared,
+    workspace_id: binding.workspace_id,
+  });
+  assert.equal(downloaded.size_bytes, 5);
+  assert.deepEqual(retryDelays, [1_000]);
+
+  const expectFailure = async (downloadResponse, code) => {
+    const client = createSlackHostedFileTransport({
+      bot_token: FAKE_BOT_TOKEN,
+      policy: binding.attachment_policy,
+      sleep_impl: async () => {},
+      async fetch_impl(url) {
+        return url === "https://slack.com/api/files.info"
+          ? jsonResponse({ ok: true, file: info })
+          : downloadResponse;
+      },
+    });
+    await assert.rejects(
+      client.fetchHostedFile({
+        declared_file: declared,
+        workspace_id: binding.workspace_id,
+      }),
+      (error) => error?.code === code,
+    );
+  };
+  await expectFailure(
+    byteResponse(Buffer.from("123456"), "image/png"),
+    "attachment_content_length_mismatch",
+  );
+  await expectFailure(
+    byteResponse(Buffer.from("1234"), "image/png", {
+      headers: { "content-length": "5" },
+    }),
+    "attachment_stream_truncated",
+  );
+
+  for (const unsafeLocator of [
+    "https://attacker.files.slack.com/private/file",
+    "https://files.slack.com:444/private/file",
+  ]) {
+    const unsafeHostClient = createSlackHostedFileTransport({
+      bot_token: FAKE_BOT_TOKEN,
+      policy: binding.attachment_policy,
+      sleep_impl: async () => {},
+      async fetch_impl() {
+        return jsonResponse({
+          ok: true,
+          file: { ...info, url_private_download: unsafeLocator },
+        });
+      },
+    });
+    await assert.rejects(
+      unsafeHostClient.fetchHostedFile({
+        declared_file: declared,
+        workspace_id: binding.workspace_id,
+      }),
+      (error) => error?.code === "attachment_url_not_slack_owned",
+    );
+  }
+
+  let oversizedStreamDestroyed = false;
+  const oversizedBody = {
+    async *[Symbol.asyncIterator]() {
+      yield Buffer.from("123456", "utf8");
+    },
+    destroy() {
+      oversizedStreamDestroyed = true;
+    },
+  };
+  const oversizedStreamClient = createSlackHostedFileTransport({
+    bot_token: FAKE_BOT_TOKEN,
+    policy: binding.attachment_policy,
+    sleep_impl: async () => {},
+    async fetch_impl(url) {
+      if (url === "https://slack.com/api/files.info") {
+        return jsonResponse({ ok: true, file: info });
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: responseHeaders({ "content-type": "image/png" }),
+        body: oversizedBody,
+      };
+    },
+  });
+  await assert.rejects(
+    oversizedStreamClient.fetchHostedFile({
+      declared_file: declared,
+      workspace_id: binding.workspace_id,
+    }),
+    (error) => error?.code === "attachment_stream_too_large",
+  );
+  assert.equal(oversizedStreamDestroyed, true);
+
+  let redirectCalls = 0;
+  const redirectClient = createSlackHostedFileTransport({
+    bot_token: FAKE_BOT_TOKEN,
+    policy: binding.attachment_policy,
+    sleep_impl: async () => {},
+    async fetch_impl(url, options) {
+      redirectCalls += 1;
+      assert.equal(options.redirect, "manual");
+      if (url === "https://slack.com/api/files.info") return jsonResponse({ ok: true, file: info });
+      return jsonResponse({}, {
+        status: 302,
+        headers: { location: "https://attacker.invalid/token-capture" },
+      });
+    },
+  });
+  await assert.rejects(
+    redirectClient.fetchHostedFile({
+      declared_file: declared,
+      workspace_id: binding.workspace_id,
+    }),
+    (error) => error?.code === "attachment_redirect_forbidden"
+      && !/attacker|xoxb|files\.slack\.com/u.test(error.message),
+  );
+  assert.equal(redirectCalls, 2);
+
+  const networkClient = createSlackHostedFileTransport({
+    bot_token: FAKE_BOT_TOKEN,
+    policy: binding.attachment_policy,
+    sleep_impl: async () => {},
+    async fetch_impl() {
+      throw new Error("https://secret.invalid xoxb-leak");
+    },
+  });
+  await assert.rejects(
+    networkClient.fetchHostedFile({
+      declared_file: declared,
+      workspace_id: binding.workspace_id,
+    }),
+    (error) => error?.code === "attachment_network_failed"
+      && !/secret\.invalid|xoxb-leak/u.test(error.message),
+  );
+
+  const timeoutPolicy = { ...binding.attachment_policy, timeout_ms: 100 };
+  const timeoutClient = createSlackHostedFileTransport({
+    bot_token: FAKE_BOT_TOKEN,
+    policy: timeoutPolicy,
+    sleep_impl: async () => {},
+    async fetch_impl(_url, options) {
+      return new Promise((_resolve, reject) => {
+        options.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      });
+    },
+  });
+  await assert.rejects(
+    timeoutClient.fetchHostedFile({
+      declared_file: declared,
+      workspace_id: binding.workspace_id,
+    }),
+    (error) => error?.code === "attachment_timeout",
+  );
+});
+
+test("external, unfurl, deleted, check-file-info, unknown, and Slack Connect files HOLD without authority", async () => {
+  const binding = await makeBinding();
+  binding.schema_version = "soulforge.slack_continuous.binding.v2";
+  binding.feature_enabled = true;
+  binding.attachment_policy.feature_enabled = true;
+  const safeFile = {
+    id: "FHOLD0001",
+    size: 5,
+    mimetype: "image/png",
+    filetype: "png",
+  };
+  const messages = [
+    { ...rawMessage({ ts: "1720000200.000100" }), attachments: [{ service_name: "unfurl" }] },
+    { ...rawMessage({ ts: "1720000200.000200" }), files: [{ ...safeFile, is_external: true }] },
+    { ...rawMessage({ ts: "1720000200.000300" }), files: [{ ...safeFile, deleted: true }] },
+    { ...rawMessage({ ts: "1720000200.000400" }), files: [{ ...safeFile, file_access: "check_file_info" }] },
+    { ...rawMessage({ ts: "1720000200.000500" }), files: [{ id: "FUNKNOWN1" }] },
+    { ...rawMessage({ ts: "1720000200.000600" }), files: [{ ...safeFile, id: "FCONNECT1" }] },
+  ];
+  const records = messages.map((message, index) => record(
+    `EvAttachHold${index}`,
+    message,
+    index === 5 ? { is_shared: true, is_ext_shared: true } : {},
+  ));
+  let downloadCalls = 0;
+  const transport = {
+    kind: "web_api",
+    async pull() {
+      return {
+        page_id: "hosted-hold-page",
+        previous_cursor_digest: null,
+        next_cursor_digest: null,
+        next_cursor_token: null,
+        records,
+      };
+    },
+    async fetchHostedFile() {
+      downloadCalls += 1;
+      throw Object.assign(new Error("unknown state"), { code: "attachment_not_safe_hosted_file" });
+    },
+  };
+  const result = await runSlackContinuousIngress({
+    binding,
+    expected_binding_digest: digestSlackContinuousBinding(binding),
+    writer_authority_id: binding.writer.authority_id,
+    writer_epoch: binding.writer.epoch,
+    transport,
+    dry_run: false,
+  });
+  assert.equal(result.accepted_count, 0);
+  assert.equal(result.held_count, records.length);
+  assert.equal(downloadCalls, 0);
+  assert.deepEqual(result.coverage_gaps, ["attachment_custody_incomplete"]);
+  const state = JSON.parse(await readFile(
+    path.join(binding.data_root, "state", "slack-continuous.json"),
+    "utf8",
+  ));
+  assert.equal(state.attachment_receipts.length, 0);
+  assert.equal(state.revisions.length, 0);
+});
+
+test("attachment feature OFF makes no file call and a partial file failure HOLDs the whole message", async () => {
+  const binding = await makeBinding();
+  binding.schema_version = "soulforge.slack_continuous.binding.v2";
+  binding.feature_enabled = true;
+  const files = [
+    {
+      id: "FPARTIAL1",
+      size: 5,
+      mimetype: "image/png",
+      filetype: "png",
+    },
+    {
+      id: "FPARTIAL2",
+      size: 5,
+      mimetype: "image/png",
+      filetype: "png",
+    },
+  ];
+  const records = [record("EvPartialFiles", {
+    ...rawMessage({ ts: "1720000300.000100" }),
+    files,
+  })];
+  let calls = 0;
+  const transport = {
+    kind: "web_api",
+    async pull() {
+      return {
+        page_id: "partial-file-page",
+        previous_cursor_digest: null,
+        next_cursor_digest: null,
+        next_cursor_token: null,
+        records,
+      };
+    },
+    async fetchHostedFile({ declared_file: declared }) {
+      calls += 1;
+      if (declared.id === "FPARTIAL2") {
+        throw Object.assign(new Error("synthetic network failure"), {
+          code: "attachment_network_failed",
+        });
+      }
+      const bytes = Buffer.from("12345");
+      return {
+        file_id: declared.id,
+        revision_ref: "slack-file-rev:partial",
+        size_bytes: bytes.length,
+        mime_type: declared.mimetype,
+        file_type: declared.filetype,
+        bytes,
+        content_sha256: `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
+      };
+    },
+  };
+  const request = {
+    binding,
+    expected_binding_digest: digestSlackContinuousBinding(binding),
+    writer_authority_id: binding.writer.authority_id,
+    writer_epoch: binding.writer.epoch,
+    transport,
+  };
+  const offResult = await runSlackContinuousIngress(request);
+  assert.equal(offResult.held_count, 1);
+  assert.equal(calls, 0);
+
+  await rm(binding.data_root, { recursive: true, force: true });
+  binding.attachment_policy.feature_enabled = true;
+  request.expected_binding_digest = digestSlackContinuousBinding(binding);
+  const partialResult = await runSlackContinuousIngress(request);
+  assert.equal(calls, 2);
+  assert.equal(partialResult.accepted_count, 0);
+  assert.equal(partialResult.held_count, 1);
+  assert.deepEqual(partialResult.coverage_gaps, ["attachment_custody_incomplete"]);
+  const state = JSON.parse(await readFile(
+    path.join(binding.data_root, "state", "slack-continuous.json"),
+    "utf8",
+  ));
+  assert.equal(state.revisions.length, 0);
+  assert.equal(state.attachment_receipts.length, 0);
+  assert.match(
+    state.hold_receipts[0].hold_reasons.join(","),
+    /attachment_network_failed/u,
+  );
+  await assert.rejects(
+    lstat(path.join(binding.attachment_policy.custody_root, "sha256")),
+    (error) => error.code === "ENOENT",
+  );
+  await assert.rejects(
+    lstat(path.join(binding.attachment_policy.custody_root, "file_ids")),
+    (error) => error.code === "ENOENT",
+  );
+});
+
+test("attachment custody rolls back content and file-ID receipts when the page state commit fails", async () => {
+  const binding = await makeBinding();
+  binding.schema_version = "soulforge.slack_continuous.binding.v2";
+  binding.feature_enabled = true;
+  binding.attachment_policy.feature_enabled = true;
+  const bytes = Buffer.from("atomic-page-attachment", "utf8");
+  const declared = {
+    id: "FATOMIC01",
+    size: bytes.length,
+    mimetype: "image/png",
+    filetype: "png",
+  };
+  const transport = {
+    kind: "web_api",
+    async pull() {
+      return {
+        page_id: "atomic-page-failure",
+        previous_cursor_digest: null,
+        next_cursor_digest: null,
+        next_cursor_token: null,
+        records: [record("EvAtomicAttachment", {
+          ...rawMessage({ ts: "1720000400.000100" }),
+          files: [declared],
+        })],
+      };
+    },
+    async fetchHostedFile() {
+      return {
+        file_id: declared.id,
+        revision_ref: "slack-file-rev:atomic",
+        size_bytes: bytes.length,
+        mime_type: declared.mimetype,
+        file_type: declared.filetype,
+        bytes,
+        content_sha256: `sha256:${createHash("sha256").update(bytes).digest("hex")}`,
+      };
+    },
+  };
+  await assert.rejects(
+    runSlackContinuousIngress({
+      binding,
+      expected_binding_digest: digestSlackContinuousBinding(binding),
+      writer_authority_id: binding.writer.authority_id,
+      writer_epoch: binding.writer.epoch,
+      transport,
+      test_fail_before_state_rename: true,
+    }),
+    (error) => error.code === "injected_atomic_failure",
+  );
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  await assert.rejects(
+    lstat(path.join(
+      binding.attachment_policy.custody_root,
+      "sha256",
+      digest.slice(0, 2),
+      `${digest}.bin`,
+    )),
+    (error) => error.code === "ENOENT",
+  );
+  await assert.rejects(
+    lstat(path.join(
+      binding.attachment_policy.custody_root,
+      "file_ids",
+      `${declared.id}.json`,
+    )),
+    (error) => error.code === "ENOENT",
+  );
+  await assert.rejects(
+    lstat(path.join(binding.data_root, "state", "slack-continuous.json")),
+    (error) => error.code === "ENOENT",
+  );
 });
 
 test("CLI accepts only dry-run and stdout contains aggregate metadata, not raw or secret paths", async () => {

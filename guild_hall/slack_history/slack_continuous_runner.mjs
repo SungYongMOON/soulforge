@@ -14,6 +14,7 @@ import {
   acquireExclusiveLease,
   atomicWritePrivateJson,
   readPrivateJson,
+  writeSlackHostedFilesToCustodyAtomically,
   writeRawEventToCustody,
 } from "./slack_custody.mjs";
 
@@ -30,6 +31,7 @@ const BINDING_FIELDS = Object.freeze([
   "project_code",
   "channel",
   "credentials",
+  "attachment_policy",
   "private_root",
   "data_root",
   "forbidden_roots",
@@ -49,6 +51,18 @@ const CREDENTIAL_FIELDS = Object.freeze([
   "app_token_file",
   "bot_token_file",
 ]);
+const ATTACHMENT_POLICY_FIELDS = Object.freeze([
+  "feature_enabled",
+  "custody_root",
+  "max_files_per_message",
+  "max_file_bytes",
+  "max_total_bytes",
+  "allowed_mime_types",
+  "allowed_file_types",
+  "timeout_ms",
+  "max_retries",
+  "max_retry_after_seconds",
+]);
 const WRITER_FIELDS = Object.freeze(["authority_id", "epoch"]);
 const HOLD_RECEIPT_FIELDS = Object.freeze([
   "page_id",
@@ -63,6 +77,14 @@ const HOLD_RECEIPT_FIELDS = Object.freeze([
 const PAGE_EVIDENCE_RECEIPT_FIELDS = Object.freeze([
   "page_id",
   "page_evidence_digest",
+]);
+const ATTACHMENT_RECEIPT_FIELDS = Object.freeze([
+  "file_id",
+  "revision_ref",
+  "content_sha256",
+  "size_bytes",
+  "mime_type",
+  "pointer_ref",
 ]);
 const RECORD_FIELDS = Object.freeze([
   "event_id",
@@ -88,6 +110,8 @@ const PROJECT_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,63}$/u;
 const UTC_MILLISECONDS_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const TOKEN_VALUE_PATTERN = /^(?:(?:xox[abprs]|xapp)-|eyJ[A-Za-z0-9_-]{8,}\.)/u;
 const SHA256_PATTERN = /^sha256:[0-9a-f]{64}$/u;
+const MIME_TYPE_PATTERN = /^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$/u;
+const FILE_TYPE_PATTERN = /^[a-z0-9][a-z0-9._+-]{0,31}$/u;
 
 export class SlackContinuousError extends Error {
   constructor(code, target, message) {
@@ -219,6 +243,47 @@ export function validateSlackContinuousBinding(binding) {
   }
   nullableAbsolutePath(binding.credentials.app_token_file, "$binding.credentials.app_token_file");
   nullableAbsolutePath(binding.credentials.bot_token_file, "$binding.credentials.bot_token_file");
+  exactKeys(binding.attachment_policy, ATTACHMENT_POLICY_FIELDS, "$binding.attachment_policy");
+  boolean(binding.attachment_policy.feature_enabled, "$binding.attachment_policy.feature_enabled");
+  if (binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION
+    && binding.attachment_policy.feature_enabled) {
+    fail(
+      "attachment_feature_must_remain_off",
+      "$binding.attachment_policy.feature_enabled",
+      "v1 synthetic bindings must not download attachments",
+    );
+  }
+  if (typeof binding.attachment_policy.custody_root !== "string"
+    || !path.isAbsolute(binding.attachment_policy.custody_root)) {
+    fail("absolute_attachment_custody_root_required", "$binding.attachment_policy.custody_root", "Attachment custody root must be absolute");
+  }
+  const boundedInteger = (value, minimum, maximum, target) => {
+    if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+      fail("attachment_policy_limit_invalid", target, `Expected an integer from ${minimum} to ${maximum}`);
+    }
+  };
+  boundedInteger(binding.attachment_policy.max_files_per_message, 1, 20, "$binding.attachment_policy.max_files_per_message");
+  boundedInteger(binding.attachment_policy.max_file_bytes, 1, 104_857_600, "$binding.attachment_policy.max_file_bytes");
+  boundedInteger(binding.attachment_policy.max_total_bytes, 1, 209_715_200, "$binding.attachment_policy.max_total_bytes");
+  if (binding.attachment_policy.max_total_bytes < binding.attachment_policy.max_file_bytes) {
+    fail("attachment_total_limit_invalid", "$binding.attachment_policy.max_total_bytes", "Total byte limit must cover at least one maximum-size file");
+  }
+  boundedInteger(binding.attachment_policy.timeout_ms, 100, 60_000, "$binding.attachment_policy.timeout_ms");
+  boundedInteger(binding.attachment_policy.max_retries, 0, 5, "$binding.attachment_policy.max_retries");
+  boundedInteger(binding.attachment_policy.max_retry_after_seconds, 0, 60, "$binding.attachment_policy.max_retry_after_seconds");
+  for (const [key, pattern] of [
+    ["allowed_mime_types", MIME_TYPE_PATTERN],
+    ["allowed_file_types", FILE_TYPE_PATTERN],
+  ]) {
+    const values = binding.attachment_policy[key];
+    if (!Array.isArray(values) || values.length < 1 || values.length > 32
+      || Object.keys(values).length !== values.length
+      || values.some((value) => typeof value !== "string" || !pattern.test(value))
+      || new Set(values).size !== values.length
+      || values.some((value, index) => index > 0 && values[index - 1].localeCompare(value) >= 0)) {
+      fail("attachment_allowlist_invalid", `$binding.attachment_policy.${key}`, "Attachment allowlists must be canonical, unique, lowercase values");
+    }
+  }
   if (typeof binding.private_root !== "string" || !path.isAbsolute(binding.private_root)) {
     fail("absolute_private_root_required", "$binding.private_root", "Private owner root must be absolute");
   }
@@ -259,6 +324,13 @@ export function validateSlackContinuousBinding(binding) {
       );
     }
   });
+  if (!isPathWithin(binding.data_root, binding.attachment_policy.custody_root, true)) {
+    fail(
+      "attachment_custody_not_strict_data_child",
+      "$binding.attachment_policy.custody_root",
+      "Attachment custody root must be a strict child of the existing private data root",
+    );
+  }
   for (const key of ["app_token_file", "bot_token_file"]) {
     const credentialPath = binding.credentials[key];
     if (credentialPath === null) continue;
@@ -334,17 +406,142 @@ function validateRecord(record, index) {
   return record;
 }
 
-function fileHoldReason(rawEvent) {
-  if ((Array.isArray(rawEvent.files) && rawEvent.files.length > 0)
-    || (Array.isArray(rawEvent.attachments) && rawEvent.attachments.length > 0)) {
-    return "file_bearing_event";
+function messagePayload(rawEvent) {
+  return rawEvent?.subtype === "message_changed" ? rawEvent.message : rawEvent;
+}
+
+function sanitizeSlackRawEvent(rawEvent) {
+  const sanitize = (value, key = "") => {
+    if (typeof value === "string") {
+      return value
+        .replace(
+          /(?:xox[abprs]|xapp)-[A-Za-z0-9-]{10,}/gu,
+          (secret) => `[redacted-secret:${sha256Canonical(secret).slice("sha256:".length)}]`,
+        )
+        .replace(
+          /https:\/\/(?:[a-z0-9-]+\.)*files\.slack\.com\/[^\s"'<>]*/giu,
+          (locator) => `[redacted-slack-file-url:${sha256Canonical(locator).slice("sha256:".length)}]`,
+        );
+    }
+    if (value === null || typeof value !== "object") return value;
+    if (Array.isArray(value)) return value.map((entry) => sanitize(entry, key));
+    const retained = {};
+    for (const [childKey, childValue] of Object.entries(value)) {
+      if (/(?:^|_)(?:url_private(?:_download)?|thumb(?:_\d+)?|external_url|download_url|permalink_public|token|authorization|cookie)$/iu.test(childKey)
+        || /(?:file_bytes|attachment_bytes|local_path)/iu.test(childKey)) {
+        retained[`${childKey}_proof_sha256`] = sha256Canonical(childValue);
+      } else if (childKey === "files" && Array.isArray(childValue)) {
+        retained.files = childValue.map((file) => ({
+          id: typeof file?.id === "string" ? file.id : null,
+          size: Number.isSafeInteger(file?.size) ? file.size : null,
+          mimetype: typeof file?.mimetype === "string" ? file.mimetype.toLowerCase() : null,
+          filetype: typeof file?.filetype === "string" ? file.filetype.toLowerCase() : null,
+          mode: typeof file?.mode === "string" ? file.mode : null,
+          file_access: typeof file?.file_access === "string" ? file.file_access : null,
+          metadata_proof_sha256: sha256Canonical(file),
+        }));
+      } else {
+        retained[childKey] = sanitize(childValue, childKey);
+      }
+    }
+    return retained;
+  };
+  return sanitize(rawEvent);
+}
+
+function attachmentPreflight(binding, rawEvent) {
+  const payload = messagePayload(rawEvent);
+  const reasons = [];
+  const descriptors = [];
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { descriptors, reasons: ["attachment_message_shape_unknown"] };
   }
+  if (Array.isArray(payload.attachments) && payload.attachments.length > 0) {
+    reasons.push("external_or_unfurl_attachment");
+  } else if (payload.attachments !== undefined && !Array.isArray(payload.attachments)) {
+    reasons.push("attachment_state_unknown");
+  }
+  if (payload.files === undefined || (Array.isArray(payload.files) && payload.files.length === 0)) {
+    return { descriptors, reasons };
+  }
+  if (!Array.isArray(payload.files)) {
+    reasons.push("attachment_state_unknown");
+    return { descriptors, reasons };
+  }
+  if (!binding.attachment_policy.feature_enabled) {
+    reasons.push("attachment_feature_off");
+    return { descriptors, reasons };
+  }
+  if (payload.files.length > binding.attachment_policy.max_files_per_message) {
+    reasons.push("attachment_file_count_exceeded");
+    return { descriptors, reasons };
+  }
+  let totalBytes = 0;
+  const ids = new Set();
+  for (const file of payload.files) {
+    if (!file || typeof file !== "object" || Array.isArray(file)
+      || typeof file.id !== "string" || !/^F[A-Z0-9]{2,31}$/u.test(file.id)
+      || !Number.isSafeInteger(file.size) || file.size < 0
+      || typeof file.mimetype !== "string" || !MIME_TYPE_PATTERN.test(file.mimetype.toLowerCase())
+      || typeof file.filetype !== "string" || !FILE_TYPE_PATTERN.test(file.filetype.toLowerCase())) {
+      reasons.push("attachment_declaration_invalid");
+      continue;
+    }
+    if (ids.has(file.id)) {
+      reasons.push("attachment_duplicate_file_id");
+      continue;
+    }
+    ids.add(file.id);
+    if (file.is_external === true
+      || ![undefined, null, ""].includes(file.external_type)
+      || ["external", "snippet", "post"].includes(file.mode)
+      || ["check_file_info", "blocked"].includes(file.file_access)
+      || file.deleted === true) {
+      reasons.push("attachment_not_safe_hosted_file");
+      continue;
+    }
+    if (Object.keys(file).some((key) => /(?:file_bytes|attachment_bytes|local_path)/iu.test(key))) {
+      reasons.push("attachment_inline_bytes_or_path");
+      continue;
+    }
+    const mimeType = file.mimetype.toLowerCase();
+    const fileType = file.filetype.toLowerCase();
+    if (file.size > binding.attachment_policy.max_file_bytes) {
+      reasons.push("attachment_file_too_large");
+    }
+    if (!binding.attachment_policy.allowed_mime_types.includes(mimeType)) {
+      reasons.push("attachment_mime_not_allowed");
+    }
+    if (!binding.attachment_policy.allowed_file_types.includes(fileType)) {
+      reasons.push("attachment_type_not_allowed");
+    }
+    totalBytes += file.size;
+    descriptors.push({
+      id: file.id,
+      size: file.size,
+      mimetype: mimeType,
+      filetype: fileType,
+    });
+  }
+  if (totalBytes > binding.attachment_policy.max_total_bytes) {
+    reasons.push("attachment_total_bytes_exceeded");
+  }
+  return { descriptors, reasons: [...new Set(reasons)].sort() };
+}
+
+function locatorOrBytesHoldReason(rawEvent) {
+  const payload = messagePayload(rawEvent);
+  const allowedFileObjects = new Set(Array.isArray(payload?.files) ? payload.files : []);
   const stack = [rawEvent];
   while (stack.length > 0) {
     const current = stack.pop();
     if (current === null || typeof current !== "object") continue;
     for (const [key, value] of Object.entries(current)) {
-      if (/(?:file_bytes|download_url|url_private|local_path|attachment_bytes)/iu.test(key)
+      if (allowedFileObjects.has(current)
+        && /^(?:url_private(?:_download)?|thumb(?:_\d+)?|permalink_public)$/iu.test(key)) {
+        continue;
+      }
+      if (/(?:file_bytes|download_url|url_private|local_path|attachment_bytes|external_url)/iu.test(key)
         && value !== null && value !== "") {
         return "attachment_locator_or_bytes";
       }
@@ -354,7 +551,7 @@ function fileHoldReason(rawEvent) {
   return null;
 }
 
-function classifyRecord(binding, record) {
+function classifyRecord(binding, record, attachment) {
   const reasons = [];
   if (record.raw_event?.type !== "message"
     || ![null, undefined, "message_changed", "message_deleted", "tombstone"].includes(record.raw_event?.subtype)) {
@@ -364,8 +561,9 @@ function classifyRecord(binding, record) {
   if (record.is_shared || record.is_ext_shared) reasons.push("slack_connect_or_shared");
   if (record.is_archived) reasons.push("archived_channel");
   if (!record.is_member) reasons.push("channel_not_joined");
-  const fileReason = fileHoldReason(record.raw_event);
-  if (fileReason !== null) reasons.push(fileReason);
+  reasons.push(...attachment.reasons);
+  const locatorReason = locatorOrBytesHoldReason(record.raw_event);
+  if (locatorReason !== null) reasons.push(locatorReason);
   const scope = resolveSlackProjectScope({
     binding: {
       schema_version: "soulforge.slack_history.binding.v1",
@@ -420,7 +618,7 @@ function latestRevisionFor(revisions, workspaceId, channelId, messageTs) {
     .at(-1) ?? null;
 }
 
-function deliveryFromRecord(record, revisions) {
+function deliveryFromRecord(record, revisions, attachmentPointers = []) {
   const raw = record.raw_event;
   const subtype = rawMessageShape(raw, "$record.raw_event");
   let messageTs;
@@ -485,7 +683,7 @@ function deliveryFromRecord(record, revisions) {
       erp_account_ref: null,
     },
     source_metadata_digest: sourceMetadataDigest,
-    attachment_pointers: [],
+    attachment_pointers: attachmentPointers,
     supersedes_revision_ref: supersedesRevisionRef,
   };
   const revision = createSlackRevision(revisionInput);
@@ -560,6 +758,7 @@ function initialState(binding, bindingDigest) {
     }),
     revisions: [],
     custody_receipts: [],
+    attachment_receipts: [],
     hold_receipts: [],
     page_evidence_receipts: [],
   };
@@ -580,6 +779,7 @@ function validateLoadedState(state, binding, bindingDigest) {
   validateSlackBackfillCursor(state.cursor);
   if (!Array.isArray(state.revisions)
     || !Array.isArray(state.custody_receipts)
+    || (state.attachment_receipts !== undefined && !Array.isArray(state.attachment_receipts))
     || !Array.isArray(state.hold_receipts)
     || !Array.isArray(state.page_evidence_receipts)) {
     fail("state_collection_invalid", "$state", "State collections must be arrays");
@@ -589,6 +789,31 @@ function validateLoadedState(state, binding, bindingDigest) {
     new Set(state.cursor.delivery_evidence.map((evidence) => evidence.event_id)),
   );
   validatePageEvidenceReceipts(state.page_evidence_receipts, state.cursor.accepted_pages);
+  state.attachment_receipts ??= [];
+  const attachmentIds = new Set();
+  state.attachment_receipts.forEach((receipt, index) => {
+    const target = `$state.attachment_receipts[${index}]`;
+    exactKeys(receipt, ATTACHMENT_RECEIPT_FIELDS, target);
+    if (typeof receipt.file_id !== "string" || !/^F[A-Z0-9]{2,31}$/u.test(receipt.file_id)) {
+      fail("attachment_receipt_file_id_invalid", `${target}.file_id`, "Expected a stable Slack file ID");
+    }
+    safeRef(receipt.revision_ref, `${target}.revision_ref`);
+    validateDigest(receipt.content_sha256, `${target}.content_sha256`);
+    if (!Number.isSafeInteger(receipt.size_bytes) || receipt.size_bytes < 0) {
+      fail("attachment_receipt_size_invalid", `${target}.size_bytes`, "Expected a nonnegative byte count");
+    }
+    if (typeof receipt.mime_type !== "string" || !MIME_TYPE_PATTERN.test(receipt.mime_type)) {
+      fail("attachment_receipt_mime_invalid", `${target}.mime_type`, "Expected a canonical MIME type");
+    }
+    safeRef(receipt.pointer_ref, `${target}.pointer_ref`);
+    if (receipt.pointer_ref !== `slack-file-sha256:${receipt.content_sha256.slice("sha256:".length)}`) {
+      fail("attachment_receipt_pointer_mismatch", `${target}.pointer_ref`, "Custody pointer did not match its content digest");
+    }
+    if (attachmentIds.has(receipt.file_id)) {
+      fail("duplicate_attachment_receipt", `${target}.file_id`, "Attachment receipts must have unique file IDs");
+    }
+    attachmentIds.add(receipt.file_id);
+  });
   return state;
 }
 
@@ -831,6 +1056,8 @@ export async function runSlackContinuousIngress({
   });
 
   let lease = null;
+  const attachmentTransactions = [];
+  let attachmentTransactionsFinalized = false;
   try {
     let state;
     if (dryRun) {
@@ -859,11 +1086,84 @@ export async function runSlackContinuousIngress({
     const deliveries = [];
     const acceptedRecords = [];
     const newHoldReceipts = [];
+    const newAttachmentReceipts = [];
     const validatedRecordEvidence = [];
-    page.records.forEach((candidate, index) => {
+    for (let index = 0; index < page.records.length; index += 1) {
+      const candidate = page.records[index];
       const record = validateRecord(candidate, index);
-      const rawDigest = sha256Canonical(record.raw_event);
-      const holdReasons = classifyRecord(binding, record);
+      const sanitizedRawEvent = sanitizeSlackRawEvent(record.raw_event);
+      const sanitizedRecord = { ...record, raw_event: sanitizedRawEvent };
+      const rawDigest = sha256Canonical(sanitizedRawEvent);
+      const attachment = attachmentPreflight(binding, record.raw_event);
+      const holdReasons = classifyRecord(binding, record, attachment);
+      const recordAttachmentReceipts = [];
+      if (holdReasons.length === 0 && attachment.descriptors.length > 0) {
+        if (typeof transport.fetchHostedFile !== "function") {
+          holdReasons.push("attachment_transport_unavailable");
+        } else {
+          let downloadedTotal = 0;
+          const downloadedFiles = [];
+          for (const descriptor of attachment.descriptors) {
+            try {
+              const downloaded = await transport.fetchHostedFile({
+                declared_file: descriptor,
+                workspace_id: binding.workspace_id,
+              });
+              downloadedTotal += downloaded.size_bytes;
+              if (downloadedTotal > binding.attachment_policy.max_total_bytes) {
+                fail(
+                  "attachment_total_bytes_exceeded",
+                  "$record.raw_event.files",
+                  "Downloaded attachments exceeded the message byte limit",
+                );
+              }
+              downloadedFiles.push(downloaded);
+            } catch (error) {
+              const safeCode = /^[a-z0-9_]{1,96}$/u.test(String(error?.code ?? ""))
+                ? error.code
+                : "unknown_failure";
+              holdReasons.push(safeCode.startsWith("attachment_") ? safeCode : `attachment_${safeCode}`);
+              break;
+            }
+          }
+          if (holdReasons.length === 0) {
+            try {
+              if (dryRun) {
+                recordAttachmentReceipts.push(...downloadedFiles.map((downloaded) => ({
+                  file_id: downloaded.file_id,
+                  revision_ref: downloaded.revision_ref,
+                  content_sha256: downloaded.content_sha256,
+                  size_bytes: downloaded.size_bytes,
+                  mime_type: downloaded.mime_type,
+                  pointer_ref: `slack-file-sha256:${downloaded.content_sha256.slice("sha256:".length)}`,
+                })));
+              } else {
+                const transaction = await writeSlackHostedFilesToCustodyAtomically({
+                  custody_root: binding.attachment_policy.custody_root,
+                  files: downloadedFiles,
+                });
+                for (let receiptIndex = 0; receiptIndex < transaction.receipts.length; receiptIndex += 1) {
+                  const receipt = transaction.receipts[receiptIndex];
+                  const downloaded = downloadedFiles[receiptIndex];
+                  if (receipt.content_sha256 !== downloaded.content_sha256
+                    || receipt.size_bytes !== downloaded.size_bytes) {
+                    await transaction.rollback();
+                    fail("attachment_custody_mismatch", "$attachment_receipt", "Custody receipt differed from transport evidence");
+                  }
+                }
+                attachmentTransactions.push(transaction);
+                recordAttachmentReceipts.push(...transaction.receipts);
+              }
+            } catch (error) {
+              const safeCode = /^[a-z0-9_]{1,96}$/u.test(String(error?.code ?? ""))
+                ? error.code
+                : "unknown_failure";
+              holdReasons.push(safeCode.startsWith("attachment_") ? safeCode : `attachment_${safeCode}`);
+            }
+          }
+        }
+      }
+      holdReasons.sort();
       validatedRecordEvidence.push({
         event_id: record.event_id,
         retry_num: record.retry_num,
@@ -893,11 +1193,19 @@ export async function runSlackContinuousIngress({
           hold_reasons: holdReasons,
           source_refs: [...record.source_refs].sort(),
         });
-        return;
+        continue;
       }
-      deliveries.push(deliveryFromRecord(record, workingRevisions));
-      acceptedRecords.push({ record, raw_digest: rawDigest });
-    });
+      const pointers = recordAttachmentReceipts.map((receipt) => ({
+        file_id: receipt.file_id,
+        pointer_ref: receipt.pointer_ref,
+        content_sha256: receipt.content_sha256,
+        size_bytes: receipt.size_bytes,
+        mime_type: receipt.mime_type,
+      }));
+      deliveries.push(deliveryFromRecord(sanitizedRecord, workingRevisions, pointers));
+      acceptedRecords.push({ record: sanitizedRecord, raw_digest: rawDigest });
+      newAttachmentReceipts.push(...recordAttachmentReceipts);
+    }
 
     const mergedPageEvidenceReceipts = mergePageEvidenceReceipt(
       state.page_evidence_receipts,
@@ -963,6 +1271,16 @@ export async function runSlackContinuousIngress({
 
     const custodyByKey = new Map(state.custody_receipts.map((receipt) => [receiptKey(receipt), receipt]));
     newCustodyReceipts.forEach((receipt) => custodyByKey.set(receiptKey(receipt), receipt));
+    const attachmentByFileId = new Map(
+      state.attachment_receipts.map((receipt) => [receipt.file_id, receipt]),
+    );
+    newAttachmentReceipts.forEach((receipt) => {
+      const retained = attachmentByFileId.get(receipt.file_id);
+      if (retained !== undefined && sha256Canonical(retained) !== sha256Canonical(receipt)) {
+        fail("attachment_receipt_conflict", "$attachment_receipts", "One Slack file ID was bound to different custody evidence");
+      }
+      attachmentByFileId.set(receipt.file_id, receipt);
+    });
     const nextState = {
       ...state,
       provider_cursor_token: applied.processed_pages === 1
@@ -971,6 +1289,7 @@ export async function runSlackContinuousIngress({
       cursor: applied.cursor,
       revisions: applied.revisions,
       custody_receipts: [...custodyByKey.values()].sort((left, right) => receiptKey(left).localeCompare(receiptKey(right))),
+      attachment_receipts: [...attachmentByFileId.values()].sort((left, right) => left.file_id.localeCompare(right.file_id)),
       hold_receipts: mergedHoldReceipts,
       page_evidence_receipts: mergedPageEvidenceReceipts,
     };
@@ -982,6 +1301,13 @@ export async function runSlackContinuousIngress({
         nextState,
         { fail_before_rename: failBeforeStateRename },
       );
+      for (const transaction of attachmentTransactions) await transaction.finalize();
+      attachmentTransactionsFinalized = true;
+    } else if (!dryRun) {
+      for (const transaction of [...attachmentTransactions].reverse()) {
+        await transaction.rollback();
+      }
+      attachmentTransactionsFinalized = true;
     }
     return {
       mode: dryRun ? "dry_run" : "apply",
@@ -999,12 +1325,31 @@ export async function runSlackContinuousIngress({
         ? 0
         : newCustodyReceipts.length
           + (applied.processed_pages === 1 ? 1 : 0)
+          + (applied.processed_pages === 1
+            ? attachmentTransactions.reduce(
+              (total, transaction) => total + transaction.private_writes,
+              0,
+            )
+            : 0)
           + timelineAnnotationsWritten,
       network_used: transport.kind === "web_api",
-      coverage_gaps: Array.isArray(page.coverage_gaps) ? [...new Set(page.coverage_gaps)].sort() : [],
+      coverage_gaps: [...new Set([
+        ...(Array.isArray(page.coverage_gaps) ? page.coverage_gaps : []),
+        ...(newHoldReceipts.some((receipt) => receipt.hold_reasons.some((reason) => reason.startsWith("attachment_")
+          || reason === "external_or_unfurl_attachment"))
+          ? ["attachment_custody_incomplete"]
+          : []),
+      ])].sort(),
       timeline_annotation_count: timelineAnnotations.length,
       timeline_annotations_written: timelineAnnotationsWritten,
     };
+  } catch (error) {
+    if (!attachmentTransactionsFinalized) {
+      for (const transaction of [...attachmentTransactions].reverse()) {
+        await transaction.rollback();
+      }
+    }
+    throw error;
   } finally {
     await lease?.release();
   }

@@ -301,6 +301,7 @@ test("attachment records remain pointers and reject locators, bytes, and unknown
     pointer_ref: "slack-file:F00000001",
     content_sha256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     size_bytes: 128,
+    mime_type: "image/png",
   }]);
 
   const locatorAttachment = {

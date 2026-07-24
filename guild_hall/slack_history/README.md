@@ -23,6 +23,27 @@ in the shared five-lane project-history envelope.
 - Live collection still requires an owner-managed Slack App, exact workspace
   and channel bindings, minimal `channels:history` access, bot membership, and
   private token provisioning. None are fabricated by the public package.
+- Attachment custody is a separately fenced binding feature and remains `OFF`
+  unless `attachment_policy.feature_enabled` is explicitly true. Its policy
+  fixes a strict-child custody root under `data_root`, per-message file count,
+  per-file and total byte caps, MIME/file-type allowlists, request timeout, and
+  bounded `429 Retry-After` retry limits. Policy `OFF` performs no file call.
+- When enabled, only Slack-hosted files proven again by `files.info` are
+  eligible. The exact workspace/file identity, declared size, MIME/file type,
+  hosted/visible/nonexternal state, Slack-owned HTTPS download host, response
+  framing, and streamed byte count must all agree. External files, unfurls,
+  Slack Connect, `check_file_info`, deleted/tombstoned files, redirects, and
+  unknown states fail closed to an explicit metadata-only `HOLD`.
+- Accepted attachment bytes use message-batch atomic SHA-256
+  content-addressed custody plus single-file-ID identity receipts. Every file
+  in one message is downloaded and checked before any content/identity object
+  is committed; a later page/state failure rolls back only the exact objects
+  created by that transaction. Exact retries and restart dedupe are
+  idempotent; changed file ID/revision/content evidence, target tampering, and
+  reparse escapes fail closed. Persistent state reads require a stable,
+  single-link regular file through opened-handle pre/post identity checks. Raw
+  message custody replaces authenticated file and thumbnail locators with
+  bounded digest proofs.
 - Public fixtures are synthetic metadata. Live cursor values, credentials,
   message bodies, attachment bytes, authenticated locators, and private paths
   do not belong here.
@@ -42,12 +63,36 @@ The connected interactive Slack reader does not provide a reusable background
 token to this Node harness. Continuous collection therefore remains blocked
 until an owner-managed Slack App and token are bound.
 
+Attachment collection additionally requires owner-approved `files:read` on
+that same bot token. `files.info` metadata and the selected
+`url_private_download` (falling back to `url_private`) are used only in memory;
+the token and authenticated locator are not written to state, receipts, raw
+custody, pointers, stdout, or errors.
+
 `createSlackWebApiPollingTransport` is the bounded live pull transport.
 `slack_live_cli.mjs` is an explicit `--apply` entrypoint and prints only
 aggregate counts and coverage gaps. Web API polling cannot prove deletions or
 reconstruct edit history that predates activation; those gaps stay explicit.
 Full deletion/event fidelity requires a later Events API or Socket Mode
 adapter.
+
+`slack_batch_live_cli.mjs` runs one SHA-256-pinned private allowlist of project
+channel bindings. Each channel retains its own state root, cursor, lease, and
+attachment custody. A failure in one channel is reported only as a redacted
+aggregate and does not prevent the remaining allowlisted channels from
+running. The batch is bounded by per-channel page and event limits. If a
+provider cursor still has another page when `max_pages` is reached, the batch
+records `max_pages_continuation_pending` instead of implying complete catch-up.
+
+The HPP scheduler is one hidden current-user Windows task with exactly two
+daily local-time triggers: `02:00` and `12:00` KST. It has no persistent polling
+loop or repetition trigger, uses `IgnoreNew`, and verifies the Node executable,
+runtime manifest, complete runtime file allowlist, batch binding, and plan
+digests before execution. Registration is dry-run first and re-attests the
+exported task XML after mutation. A failed attestation removes the new task or
+restores and re-attests the exact prior exported definition; rollback failure
+leaves the task disabled. The scheduler does not change five-lane writer
+authority; Slack remains the H07 communication-history extension.
 
 ## Identity and revision contract
 
@@ -66,8 +111,11 @@ adapter.
 
 The module stores only a source metadata digest and attachment pointer
 candidates. An attachment pointer can contain an opaque Slack file ID, an
-opaque pointer ref, an optional content hash, and an optional byte count. It
-cannot contain bytes, URLs, local paths, or promotion authority.
+opaque custody ref, a MIME type, an optional content hash, and an optional byte
+count. It cannot contain bytes, URLs, local paths, or promotion authority. A
+file-bearing message is accepted only after every file has a complete custody
+receipt; any partial failure holds the whole message and adds
+`attachment_custody_incomplete` to coverage gaps.
 
 ## Project scope
 
@@ -154,11 +202,19 @@ node --check guild_hall/slack_history/slack_custody.mjs
 node --check guild_hall/slack_history/slack_transport.mjs
 node --check guild_hall/slack_history/slack_continuous_runner.mjs
 node --check guild_hall/slack_history/slack_continuous_cli.mjs
-node --test guild_hall/slack_history/slack_history.test.mjs guild_hall/slack_history/slack_source_inventory.test.mjs guild_hall/slack_history/slack_continuous.test.mjs
+node --check guild_hall/slack_history/slack_live_cli.mjs
+node --check guild_hall/slack_history/slack_batch_live_runner.mjs
+node --check guild_hall/slack_history/slack_batch_live_launcher.mjs
+node --check guild_hall/slack_history/slack_batch_live_cli.mjs
+node --test guild_hall/slack_history/slack_history.test.mjs guild_hall/slack_history/slack_source_inventory.test.mjs guild_hall/slack_history/slack_continuous.test.mjs guild_hall/slack_history/slack_batch_live.test.mjs
 ```
 
 The tests compile the schemas, validate synthetic fixtures, exercise
 retry/replay and append-only lineage, verify bounded cursor behavior, cover all
 six coverage states, enforce exact metadata-only input fields, verify private
 custody/lease/restart behavior, and prove that live activation and embedded
-secrets fail closed.
+secrets fail closed. Hosted-file fixtures cover PNG/DOCX, duplicate content,
+file-ID retry/conflict, framing and byte caps, timeout/network/429 behavior,
+redirect isolation, locator/secret nonpersistence, unsafe file states, reparse
+escape, tamper detection, partial-message HOLD, and restart dedupe without a
+live Slack call.

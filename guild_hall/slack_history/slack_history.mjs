@@ -61,6 +61,7 @@ const ATTACHMENT_FIELDS = Object.freeze([
   "pointer_ref",
   "content_sha256",
   "size_bytes",
+  "mime_type",
 ]);
 const ACTOR_FIELDS = Object.freeze(["slack_user_id", "erp_account_ref"]);
 const REVISION_INPUT_FIELDS = Object.freeze([
@@ -453,6 +454,10 @@ function validateAttachmentPointer(value, path) {
   validateSafeRef(value.pointer_ref, `${path}.pointer_ref`);
   validateDigest(value.content_sha256, `${path}.content_sha256`, true);
   validateNullableInteger(value.size_bytes, `${path}.size_bytes`);
+  if (typeof value.mime_type !== "string"
+    || !/^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$/u.test(value.mime_type)) {
+    fail("attachment_mime_type_invalid", `${path}.mime_type`, "Expected a canonical MIME type");
+  }
   return value;
 }
 
