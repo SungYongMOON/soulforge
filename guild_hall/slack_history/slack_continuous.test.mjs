@@ -38,6 +38,7 @@ import {
   createSlackWebApiCall,
   createSlackWebApiPollingTransport,
   createSyntheticSlackTransport,
+  loadSlackAccessToken,
   loadSlackBotToken,
 } from "./slack_transport.mjs";
 
@@ -50,6 +51,7 @@ const schema = JSON.parse(await readFile(
 ));
 const FAKE_BOT_TOKEN = ["xoxb", "1234567890", "abcdefghij"].join("-");
 const OTHER_FAKE_BOT_TOKEN = ["xoxb", "1234567890", "klmnopqrst"].join("-");
+const FAKE_USER_TOKEN = ["xoxp", "1234567890", "uvwxyzabcd"].join("-");
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -808,6 +810,51 @@ test("bot token is loaded only from an approved environment name", async () => {
   );
 });
 
+test("v3 binding loads a read-only user access token without bot credential fields", async () => {
+  const legacy = await makeBinding();
+  const binding = {
+    ...legacy,
+    schema_version: "soulforge.slack_continuous.binding.v3",
+    feature_enabled: true,
+    credentials: {
+      access_token_env: "SLACK_ACCESS_TOKEN",
+      access_token_file: null,
+    },
+  };
+  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  const validate = ajv.compile(schema);
+  assert.equal(validate(binding), true, JSON.stringify(validate.errors));
+  assert.equal(validate({
+    ...binding,
+    credentials: {},
+  }), false);
+  assert.equal(validate({
+    ...binding,
+    credentials: {
+      ...binding.credentials,
+      bot_token_env: null,
+    },
+  }), false);
+  validateSlackContinuousBinding(binding);
+  const token = await loadSlackAccessToken(binding.credentials, {
+    SLACK_ACCESS_TOKEN: FAKE_USER_TOKEN,
+  });
+  assert.equal(token.startsWith("xoxp-"), true);
+  const apiCall = createSlackWebApiCall({
+    access_token: token,
+    fetch_impl: async (_url, options) => {
+      assert.equal(options.headers.authorization, `Bearer ${FAKE_USER_TOKEN}`);
+      return {
+        ok: true,
+        async json() {
+          return { ok: true };
+        },
+      };
+    },
+  });
+  assert.deepEqual(await apiCall("auth.test", {}), { ok: true });
+});
+
 test("bot token file is identity-fenced inside the private owner boundary", async () => {
   const binding = await makeBinding();
   const credentialDir = path.join(binding.private_root, "credentials");
@@ -1045,7 +1092,8 @@ test("hosted PNG and DOCX files enter content-addressed custody without locators
           type: "message",
           ts: "1720000100.000100",
           user: "U00000001",
-          text: "attachment fixture",
+          text: "attachment fixture https://files.slack.com:443/files-pri/signed-image",
+          image_url: "https://files-origin.slack.com:443/files-pri/signed-preview",
           files: clone(declaredFiles),
         }],
         response_metadata: { next_cursor: "" },
@@ -1082,7 +1130,8 @@ test("hosted PNG and DOCX files enter content-addressed custody without locators
     path.join(binding.data_root, "raw", rawFiles.find((entry) => entry.endsWith(".json"))),
     "utf8",
   );
-  assert.doesNotMatch(rawText, /files\.slack\.com|url_private["]|thumb_360["]|xoxb-/u);
+  assert.doesNotMatch(rawText, /files(?:-origin)?\.slack\.com|url_private["]|thumb_360["]|xoxb-/u);
+  assert.match(rawText, /redacted-slack-file-url/u);
   assert.match(rawText, /metadata_proof_sha256/u);
   const contentFiles = (await readdir(
     path.join(binding.attachment_policy.custody_root, "sha256"),

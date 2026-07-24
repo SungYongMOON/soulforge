@@ -12,7 +12,7 @@ import {
   createSlackWebApiCall,
   createSlackHostedFileTransport,
   createSlackWebApiPollingTransport,
-  loadSlackBotToken,
+  loadSlackAccessToken,
 } from "./slack_transport.mjs";
 
 function argument(name) {
@@ -29,15 +29,15 @@ try {
   const bindingPath = path.resolve(argument("--binding"));
   const binding = JSON.parse(await readFile(bindingPath, "utf8"));
   const bindingDigest = digestSlackContinuousBinding(binding);
-  const botToken = await loadSlackBotToken(binding.credentials, process.env, {
+  const accessToken = await loadSlackAccessToken(binding.credentials, process.env, {
     private_root: binding.private_root,
     data_root: binding.data_root,
     forbidden_roots: binding.forbidden_roots,
   });
-  const apiCall = createSlackWebApiCall({ bot_token: botToken });
+  const apiCall = createSlackWebApiCall({ access_token: accessToken });
   const hostedFileTransport = binding.attachment_policy.feature_enabled
     ? createSlackHostedFileTransport({
-      bot_token: botToken,
+      access_token: accessToken,
       policy: binding.attachment_policy,
     })
     : null;

@@ -2,13 +2,9 @@ display_information:
   name: Soulforge HPP Project History
   description: Read-only HPP custody for allowlisted project-channel history and attachments
   background_color: "#243447"
-features:
-  bot_user:
-    display_name: Soulforge History
-    always_online: false
 oauth_config:
   scopes:
-    bot:
+    user:
       - channels:read
       - channels:history
       - files:read

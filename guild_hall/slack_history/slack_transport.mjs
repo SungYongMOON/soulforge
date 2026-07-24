@@ -258,13 +258,31 @@ async function readApprovedCredentialFile(filePath, options) {
   }
 }
 
-export async function loadSlackBotToken(credentials, environment = process.env, options = {}) {
-  const envName = credentials?.bot_token_env;
-  const filePath = credentials?.bot_token_file;
+const SLACK_ACCESS_TOKEN_PATTERN = /^xox[bp]-[A-Za-z0-9-]{10,}$/u;
+
+export async function loadSlackAccessToken(credentials, environment = process.env, options = {}) {
+  const envName = credentials?.access_token_env ?? credentials?.bot_token_env;
+  const filePath = credentials?.access_token_file ?? credentials?.bot_token_file;
   const fromEnvironment = envName ? String(environment[envName] ?? "").trim() : "";
   let fromFile = "";
   if (!fromEnvironment && filePath) fromFile = await readApprovedCredentialFile(filePath, options);
   const token = fromEnvironment || fromFile;
+  if (!SLACK_ACCESS_TOKEN_PATTERN.test(token)) {
+    fail("access_token_unavailable", "A valid Slack access token was not available from the approved private source");
+  }
+  return token;
+}
+
+export async function loadSlackBotToken(credentials, environment = process.env, options = {}) {
+  let token;
+  try {
+    token = await loadSlackAccessToken(credentials, environment, options);
+  } catch (error) {
+    if (error instanceof SlackTransportError && error.code === "access_token_unavailable") {
+      fail("bot_token_unavailable", "A valid bot token was not available from the approved private source");
+    }
+    throw error;
+  }
   if (!/^xoxb-[A-Za-z0-9-]{10,}$/u.test(token)) {
     fail("bot_token_unavailable", "A valid bot token was not available from the approved private source");
   }
@@ -272,12 +290,14 @@ export async function loadSlackBotToken(credentials, environment = process.env, 
 }
 
 export function createSlackWebApiCall({
-  bot_token: botToken,
+  access_token: accessToken,
+  bot_token: legacyBotToken,
   fetch_impl: fetchImpl = globalThis.fetch,
   timeout_ms: timeoutMs = 15_000,
 }) {
-  if (!/^xoxb-[A-Za-z0-9-]{10,}$/u.test(String(botToken ?? ""))) {
-    fail("bot_token_invalid", "A bot token is required");
+  const token = accessToken ?? legacyBotToken;
+  if (!SLACK_ACCESS_TOKEN_PATTERN.test(String(token ?? ""))) {
+    fail("access_token_invalid", "A Slack bot or user access token is required");
   }
   if (typeof fetchImpl !== "function") fail("fetch_unavailable", "fetch implementation is required");
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 60_000) {
@@ -293,7 +313,7 @@ export function createSlackWebApiCall({
       response = await fetchImpl(`https://slack.com/api/${method}`, {
         method: "POST",
         headers: {
-          authorization: `Bearer ${botToken}`,
+          authorization: `Bearer ${token}`,
           "content-type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams(
@@ -557,13 +577,15 @@ async function readBoundedFileBody(fetchState, metadata, policy) {
 }
 
 export function createSlackHostedFileTransport({
-  bot_token: botToken,
+  access_token: accessToken,
+  bot_token: legacyBotToken,
   fetch_impl: fetchImpl = globalThis.fetch,
   policy,
   sleep_impl: sleepImpl = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
 }) {
-  if (!/^xoxb-[A-Za-z0-9-]{10,}$/u.test(String(botToken ?? ""))) {
-    fail("bot_token_invalid", "A bot token is required");
+  const token = accessToken ?? legacyBotToken;
+  if (!SLACK_ACCESS_TOKEN_PATTERN.test(String(token ?? ""))) {
+    fail("access_token_invalid", "A Slack bot or user access token is required");
   }
   if (typeof fetchImpl !== "function" || typeof sleepImpl !== "function") {
     fail("attachment_transport_invalid", "Fetch and sleep implementations are required");
@@ -585,7 +607,7 @@ export function createSlackHostedFileTransport({
           options: {
             method: "POST",
             headers: {
-              authorization: `Bearer ${botToken}`,
+              authorization: `Bearer ${token}`,
               "content-type": "application/x-www-form-urlencoded",
             },
             body: new URLSearchParams({ file: String(declaredFile.id ?? "") }),
@@ -619,7 +641,7 @@ export function createSlackHostedFileTransport({
           options: {
             method: "GET",
             headers: {
-              authorization: `Bearer ${botToken}`,
+              authorization: `Bearer ${token}`,
             },
           },
         },

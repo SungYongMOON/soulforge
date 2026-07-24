@@ -20,6 +20,7 @@
 | 2026-07-23 Slack query-only source canary | 연결된 Slack의 authenticated-user visible-channel inventory와 프로젝트 채널 1개의 bounded history scope를 metadata-only로 확인하고, public sanitizer는 stable ID를 fingerprint/count로만 반환한다. 채널명·메시지 본문·파일·사용자 주소·secret·literal ID 공개/저장 `0`; source availability만 증명하므로 Slack 상태는 계속 `UNCONNECTED`, exact D34 authority·persistent collector·H07A/H07B·HP-LIVE acceptance는 `OFF` |
 | 2026-07-23 owner Outlook Sent bounded raw-custody pilot | 기존 team mailbox capsule 안에 active-Outlook attach-only `outlook_sent` provider를 추가하고, 격리된 HPP private D: custody에서 owner 기본 보낸편지함의 실제 bounded window를 `.msg` immutable raw object+H01C observation으로 수집했다. 최초 2건 저장 후 강제 overlap replay는 신규 object `0`, duplicate `2`, gap/truncation `0`; Outlook `SaveAs` byte nondeterminism은 source-local native observation이 처음 확정한 custody ref를 재사용하고 기존 SHA-256/file identity를 매회 검증하도록 보정했다. KST `12:00-14:00`·`20:00-23:00` 각 시간대 성공 1회 gate도 actual canary에서 첫 수집 뒤 같은 slot 재호출 `already_collected_in_slot`으로 확인했다. 이후 HPP private register와 기존 continuous supervisor에 owner Outlook Sent 1개를 연결했고 mail lane 6/6·error 0을 확인했다. project classification·ERP/TaskDriver·team sent coverage·H01C/HP-LIVE 전체 acceptance는 여전히 `OFF` |
 | 2026-07-23 Slack feature-OFF continuous harness | exact joined public project channel 1개 단위 private binding schema, writer lease/epoch, content-addressed raw event custody, restart-safe cursor/dedupe, edit/delete/reply revision, DM/common/unmapped/Slack Connect/file-bearing event HOLD를 synthetic 25/25로 구현·검증했다. 연결된 workspace의 프로젝트 채널 9개를 stable-ID 기반 private feature-OFF binding으로 materialize했으며 token ref와 custody directory는 생성하지 않았다. reusable background app/token transport가 없어 live collector·event subscription·backfill·H07A/H07B/HP-LIVE acceptance는 `OFF` |
+| 2026-07-24 Slack read-only ingress activation | owner-managed Slack App을 `channels:read`·`channels:history`·`files:read` 사용자 읽기 권한만으로 설치했다. Slack이 봇 앱에 자동 제안한 `chat:write`는 승인하지 않았고, public collector는 bot/user access token을 구분 없이 받되 private v3 binding의 exact token file만 허용한다. 실제 한 채널 canary는 13건 중 일반 메시지 8건을 custody하고 system subtype 5건을 HOLD했으며 PNG 2건·DOCX 2건을 content-addressed custody했다. 전체 9개 프로젝트 채널 batch는 9/9 성공했고 71건 중 9건을 신규 custody, system subtype 62건을 fail-closed HOLD했다. HPP 예약 작업은 KST 02:00·12:00, `IgnoreNew`, 숨김, 낮은 권한으로 등록했으며 실제 수동 예약 실행 결과 `0`과 replay 무중복을 확인했다. token 값·literal ID는 public 문서에 기록하지 않는다. 이는 Slack ingress 운영 증거이며 TaskDriver·세계수 반영이나 H07A/H07B 전체 정본 acceptance를 뜻하지 않는다. |
 | 2026-07-23 local activity three-source query-only inventory | H03A PC 업무는 dev-ERP `erp_mcp_work_session`, H04 파일변경은 exact `reports/file_activity` metadata root, H05 실행이력은 exact `report_authoring_v0` receipt 목록으로 각각 분리한 stdin-only source inventory를 구현했다. 실제 HPP canary는 WorkSession DB sidecar 때문에 open 전 차단, file-activity owner root 미생성, run receipt descriptor 미제공을 정직하게 보고했으며 전후 metadata fingerprint는 동일했다. whole Codex log·업무 파일 본문·`runs/**` discovery·collector/writer/scheduler/classification/TaskDriver 활성화 `0` |
 | HPP correction review state | bounded pilot는 `PILOT_EXECUTED`; formal master-plan authority와 production readiness는 계속 `READY_FOR_OWNER_REVIEW/HOLD`; accepted history·accepted knowledge·live readiness claim `0` |
 | bounded pilot 실행 authority | owner task envelope `TASK-ENGINE-HPP-FIVE-LANE-INGRESS-PILOT-V1` 및 `TASK-ENGINE-OPERATIONAL-DATA-KNOWLEDGE-E2E-V1`; execution baseline `main@1110c8ca5e8370271799a9f266a4c17b72188f62`; feature-OFF·standalone-copy·localhost·metadata-only 범위 |
@@ -4854,9 +4855,9 @@ Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있�
      이는 backlog 처리 중이라는 운영 증거이며 전체 backlog 완료 주장은 아니다.
 
 2. Slack
-   - v2 Web API polling transport, `auth.test` token-workspace 일치,
+   - v2/v3 Web API polling transport, `auth.test` token-workspace 일치,
      정확한 joined/public/nonshared project channel 검증, 15개 제한 page,
-     private bot-token 로딩, RAW custody,
+     private bot/user access-token 로딩, RAW custody,
      revision/dedupe, 프로젝트 확정 arrival annotation을 구현했다.
    - 대화·스레드·수정·삭제 revision과 함께 PNG/JPEG/HEIC/WebP, PDF,
      Word, Excel, PowerPoint 첨부를 실제 byte custody 대상으로 처리한다.
@@ -4868,9 +4869,20 @@ Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있�
    - 2026-07-24 HPP 전용 격리 runtime과 9개 프로젝트 exact private v2
      binding을 만들고, runtime 537개 파일 hash manifest 검증과 9/9
      no-network preflight, 02:00·12:00 KST 작업 등록 dry-run을 통과했다.
-     현재 live 차단점은 owner-managed Slack App 로그인·최소 scope token과
-     실제 한 채널 대화·첨부 bounded canary다. 실제 canary 전에는 예약 작업을
-     등록하지 않는다.
+   - owner-managed Slack App은 2026-07-24 `channels:read`,
+     `channels:history`, `files:read` 사용자 읽기 권한만으로 설치했다.
+     Slack이 봇 설치 화면에 자동 제안한 `chat:write`는 승인하지 않았다.
+     private v3 access-token binding 뒤 실제 한 채널 canary에서 일반 메시지
+     8건, PNG 2건, DOCX 2건을 custody했고 system subtype 5건은 HOLD했다.
+     동일 page replay에서 object count·byte count·metadata digest가 모두
+     유지되어 중복 저장이 없었다.
+   - 전체 9개 프로젝트 exact channel batch는 9/9 성공했다. 최초 범위의
+     71건 중 일반 메시지 9건을 custody하고, join 등 지원하지 않는 system
+     subtype 62건을 `unsupported_event_shape`로 HOLD했으며 continuation은
+     남지 않았다. HPP 작업 스케줄러는 KST 02:00·12:00, `IgnoreNew`, 숨김,
+     낮은 권한으로 등록했고 실제 예약 작업 수동 실행 결과 `0`을 확인했다.
+     이는 Slack RAW ingress 운영 증거이며 TaskDriver·세계수 승격이나
+     H07A/H07B 전체 정본 acceptance를 자동 확정하지 않는다.
 
 3. PC 업무·파일·실행로그
    - 기존 HPP 연속 queue custody/ack 흐름에 공통 arrival annotation을
@@ -4885,8 +4897,6 @@ Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있�
 
 ### 남은 운영 게이트
 
-- Slack owner-managed App/token 연결, 한 프로젝트 대화·첨부 bounded
-  canary, 재실행 dedupe 뒤 02:00·12:00 KST 예약 작업 등록
 - 음성 backlog의 연속 처리 완료와 장기 health 관측
 - mail/slack/voice에서 나온 요청·약속·결정 후보를 최근 맥락과 대조하는
   P5 context resolver
@@ -4938,4 +4948,4 @@ Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있�
 결과: `READY_FOR_OWNER_REVIEW`
 
 최신 실행 보정 결과:
-`COMMON_TIMELINE_AND_VOICE_APPLIED_SLACK_PRIVATE_BINDING_PENDING`
+`COMMON_TIMELINE_VOICE_AND_SLACK_INGRESS_APPLIED_P5_CONTEXT_RESOLVER_PENDING`

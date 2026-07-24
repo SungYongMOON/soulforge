@@ -13,6 +13,7 @@ import {
   digestSlackContinuousBinding,
   runSlackContinuousIngress,
   SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2,
+  SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V3,
   validateSlackContinuousBinding,
 } from "./slack_continuous_runner.mjs";
 import {
@@ -23,7 +24,7 @@ import {
   createSlackHostedFileTransport,
   createSlackWebApiCall,
   createSlackWebApiPollingTransport,
-  loadSlackBotToken,
+  loadSlackAccessToken,
 } from "./slack_transport.mjs";
 
 export const SLACK_BATCH_LIVE_BINDING_SCHEMA_VERSION = "soulforge.slack_batch_live.binding.v1";
@@ -431,9 +432,10 @@ async function loadChannelBinding(context, reference, index) {
     fail("binding_path_state_overlap", `${target}.binding_path`, "Binding file overlaps batch state");
   }
   const binding = validateSlackContinuousBinding(loaded.value);
-  if (binding.schema_version !== SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2
+  if (![SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2, SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V3]
+    .includes(binding.schema_version)
     || binding.feature_enabled !== true) {
-    fail("live_binding_required", target, "Batch entries require enabled v2 live bindings");
+    fail("live_binding_required", target, "Batch entries require enabled v2 or v3 live bindings");
   }
   for (const key of ["binding_id", "workspace_id", "channel_id"]) {
     if (binding[key] !== reference[key]) {
@@ -455,7 +457,8 @@ async function loadChannelBinding(context, reference, index) {
   for (const credentialPath of [
     binding.credentials.app_token_file,
     binding.credentials.bot_token_file,
-  ].filter((entry) => entry !== null)) {
+    binding.credentials.access_token_file,
+  ].filter((entry) => typeof entry === "string")) {
     if (pathsOverlap(loaded.path, credentialPath)) {
       fail("binding_credential_overlap", target, "Binding and credential files must be disjoint");
     }
@@ -587,18 +590,18 @@ export async function preflightSlackBatchLive(options) {
 }
 
 export async function createDefaultSlackBatchTransport({ binding }) {
-  const token = await loadSlackBotToken(binding.credentials, process.env, {
+  const token = await loadSlackAccessToken(binding.credentials, process.env, {
     private_root: binding.private_root,
     data_root: binding.data_root,
     forbidden_roots: binding.forbidden_roots,
   });
   const apiCall = createSlackWebApiCall({
-    bot_token: token,
+    access_token: token,
     timeout_ms: binding.attachment_policy.timeout_ms,
   });
   const hostedFileTransport = binding.attachment_policy.feature_enabled
     ? createSlackHostedFileTransport({
-      bot_token: token,
+      access_token: token,
       policy: binding.attachment_policy,
     })
     : null;

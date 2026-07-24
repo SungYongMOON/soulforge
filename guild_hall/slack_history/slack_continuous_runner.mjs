@@ -20,6 +20,7 @@ import {
 
 export const SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION = "soulforge.slack_continuous.binding.v1";
 export const SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2 = "soulforge.slack_continuous.binding.v2";
+export const SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V3 = "soulforge.slack_continuous.binding.v3";
 export const SLACK_CONTINUOUS_STATE_SCHEMA_VERSION = "soulforge.slack_continuous.state.v1";
 
 const BINDING_FIELDS = Object.freeze([
@@ -45,11 +46,15 @@ const CHANNEL_FIELDS = Object.freeze([
   "is_archived",
   "is_member",
 ]);
-const CREDENTIAL_FIELDS = Object.freeze([
+const LEGACY_CREDENTIAL_FIELDS = Object.freeze([
   "app_token_env",
   "bot_token_env",
   "app_token_file",
   "bot_token_file",
+]);
+const ACCESS_CREDENTIAL_FIELDS = Object.freeze([
+  "access_token_env",
+  "access_token_file",
 ]);
 const ATTACHMENT_POLICY_FIELDS = Object.freeze([
   "feature_enabled",
@@ -194,7 +199,8 @@ function assertNoEmbeddedSecret(value, target, key = "") {
   if (value === null || typeof value !== "object") return;
   for (const [childKey, childValue] of Object.entries(value)) {
     const childPath = `${target}.${childKey}`;
-    if (/(?:access_token|client_secret|password|token_value|credential_value)/iu.test(childKey)) {
+    if (/(?:access_token|client_secret|password|token_value|credential_value)/iu.test(childKey)
+      && !/^access_token_(?:env|file)$/u.test(childKey)) {
       fail("secret_field_forbidden", childPath, "Only token environment names or file paths are allowed");
     }
     assertNoEmbeddedSecret(childValue, childPath, childKey);
@@ -204,10 +210,14 @@ function assertNoEmbeddedSecret(value, target, key = "") {
 
 export function validateSlackContinuousBinding(binding) {
   exactKeys(binding, BINDING_FIELDS, "$binding");
-  if (![SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION, SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2].includes(binding.schema_version)) {
+  if (![
+    SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION,
+    SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2,
+    SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V3,
+  ].includes(binding.schema_version)) {
     fail("binding_schema_invalid", "$binding.schema_version", "Unexpected schema version");
   }
-  const expectedFeatureEnabled = binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2;
+  const expectedFeatureEnabled = binding.schema_version !== SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION;
   if (binding.feature_enabled !== expectedFeatureEnabled) {
     fail(
       expectedFeatureEnabled ? "feature_must_be_on" : "feature_must_remain_off",
@@ -234,15 +244,25 @@ export function validateSlackContinuousBinding(binding) {
     || binding.channel.is_member !== true) {
     fail("unsafe_channel_binding", "$binding.channel", "Only joined, public, nonshared, nonarchived project channels are bindable");
   }
-  exactKeys(binding.credentials, CREDENTIAL_FIELDS, "$binding.credentials");
-  for (const key of ["app_token_env", "bot_token_env"]) {
+  const credentialFields = binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V3
+    ? ACCESS_CREDENTIAL_FIELDS
+    : LEGACY_CREDENTIAL_FIELDS;
+  exactKeys(binding.credentials, credentialFields, "$binding.credentials");
+  const credentialEnvFields = binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V3
+    ? ["access_token_env"]
+    : ["app_token_env", "bot_token_env"];
+  for (const key of credentialEnvFields) {
     const value = binding.credentials[key];
     if (value !== null && (typeof value !== "string" || !ENV_NAME_PATTERN.test(value))) {
       fail("credential_env_name_invalid", `$binding.credentials.${key}`, "Expected null or an environment variable name");
     }
   }
-  nullableAbsolutePath(binding.credentials.app_token_file, "$binding.credentials.app_token_file");
-  nullableAbsolutePath(binding.credentials.bot_token_file, "$binding.credentials.bot_token_file");
+  const credentialFileFields = binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V3
+    ? ["access_token_file"]
+    : ["app_token_file", "bot_token_file"];
+  for (const key of credentialFileFields) {
+    nullableAbsolutePath(binding.credentials[key], `$binding.credentials.${key}`);
+  }
   exactKeys(binding.attachment_policy, ATTACHMENT_POLICY_FIELDS, "$binding.attachment_policy");
   boolean(binding.attachment_policy.feature_enabled, "$binding.attachment_policy.feature_enabled");
   if (binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION
@@ -331,7 +351,7 @@ export function validateSlackContinuousBinding(binding) {
       "Attachment custody root must be a strict child of the existing private data root",
     );
   }
-  for (const key of ["app_token_file", "bot_token_file"]) {
+  for (const key of credentialFileFields) {
     const credentialPath = binding.credentials[key];
     if (credentialPath === null) continue;
     const target = `$binding.credentials.${key}`;
@@ -419,7 +439,7 @@ function sanitizeSlackRawEvent(rawEvent) {
           (secret) => `[redacted-secret:${sha256Canonical(secret).slice("sha256:".length)}]`,
         )
         .replace(
-          /https:\/\/(?:[a-z0-9-]+\.)*files\.slack\.com\/[^\s"'<>]*/giu,
+          /https:\/\/(?:(?:[a-z0-9-]+\.)*files\.slack\.com|files-origin\.slack\.com)(?::443)?\/[^\s"'<>]*/giu,
           (locator) => `[redacted-slack-file-url:${sha256Canonical(locator).slice("sha256:".length)}]`,
         );
     }
@@ -1034,9 +1054,9 @@ export async function runSlackContinuousIngress({
   if (transport === null || typeof transport !== "object" || typeof transport.pull !== "function") {
     fail("transport_invalid", "$transport", "Expected an injected pull transport");
   }
-  const expectedTransportKind = binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2
-    ? "web_api"
-    : "synthetic";
+  const expectedTransportKind = binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION
+    ? "synthetic"
+    : "web_api";
   if (transport.kind !== expectedTransportKind) {
     fail(
       binding.schema_version === SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION

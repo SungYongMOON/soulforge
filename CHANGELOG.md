@@ -21,6 +21,19 @@
 - Added a reusable owner-managed Slack app manifest restricted to
   `channels:read`, `channels:history`, and `files:read`, with no posting,
   upload, auto-join, user-directory, Events API, or Socket Mode authority.
+- Switched the live Slack credential contract to a v3 generic access-token
+  binding so the installed read-only user token works without Slack's
+  automatically proposed `chat:write` bot permission; legacy v1/v2 bot-token
+  bindings remain readable for compatibility.
+- Activated the HPP read-only Slack batch for nine exact project channels at
+  02:00 and 12:00 KST after a live message/PNG/DOCX canary, replay/dedupe
+  verification, and a successful scheduled-task run.
+- Corrected the scheduled-task action to invoke the attested runtime launcher
+  and made exported Task Scheduler XML attestation namespace-safe while
+  cross-checking an omitted default run level against the registered task.
+- Extended accepted Slack RAW sanitization to cover both authorized Slack file
+  hosts, including explicit default port 443, before any locator can enter
+  content-addressed custody.
 
 ### HPP continuous independent voice ASR and labels
 

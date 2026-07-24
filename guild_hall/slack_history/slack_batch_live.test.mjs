@@ -48,13 +48,14 @@ function sha256CanonicalString(value) {
 
 test("owner-managed Slack app manifest grants only the bounded read scopes", async () => {
   const manifest = parseYaml(await readFile(APP_MANIFEST_PATH, "utf8"));
-  assert.deepEqual(manifest.oauth_config.scopes.bot, [
+  assert.deepEqual(manifest.oauth_config.scopes.user, [
     "channels:read",
     "channels:history",
     "files:read",
   ]);
   assert.equal(manifest.settings.socket_mode_enabled, false);
-  assert.equal(manifest.features.bot_user.always_online, false);
+  assert.equal("bot" in manifest.oauth_config.scopes, false);
+  assert.equal("features" in manifest, false);
   assert.equal("event_subscriptions" in manifest.settings, false);
   assert.equal(JSON.stringify(manifest).includes(":write"), false);
 });

@@ -23,7 +23,8 @@
     "schema_version": {
       "enum": [
         "soulforge.slack_continuous.binding.v1",
-        "soulforge.slack_continuous.binding.v2"
+        "soulforge.slack_continuous.binding.v2",
+        "soulforge.slack_continuous.binding.v3"
       ]
     },
     "feature_enabled": {
@@ -79,12 +80,6 @@
     "credentials": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "app_token_env",
-        "bot_token_env",
-        "app_token_file",
-        "bot_token_file"
-      ],
       "properties": {
         "app_token_env": {
           "$ref": "#/$defs/nullableEnvName"
@@ -96,6 +91,12 @@
           "$ref": "#/$defs/nullableAbsolutePath"
         },
         "bot_token_file": {
+          "$ref": "#/$defs/nullableAbsolutePath"
+        },
+        "access_token_env": {
+          "$ref": "#/$defs/nullableEnvName"
+        },
+        "access_token_file": {
           "$ref": "#/$defs/nullableAbsolutePath"
         }
       }
@@ -243,6 +244,70 @@
         "properties": {
           "feature_enabled": {
             "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "enum": [
+              "soulforge.slack_continuous.binding.v1",
+              "soulforge.slack_continuous.binding.v2"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "credentials": {
+            "type": "object",
+            "required": [
+              "app_token_env",
+              "bot_token_env",
+              "app_token_file",
+              "bot_token_file"
+            ],
+            "properties": {
+              "app_token_env": true,
+              "bot_token_env": true,
+              "app_token_file": true,
+              "bot_token_file": true,
+              "access_token_env": false,
+              "access_token_file": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "soulforge.slack_continuous.binding.v3"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "feature_enabled": {
+            "const": true
+          },
+          "credentials": {
+            "type": "object",
+            "required": [
+              "access_token_env",
+              "access_token_file"
+            ],
+            "properties": {
+              "app_token_env": false,
+              "bot_token_env": false,
+              "app_token_file": false,
+              "bot_token_file": false,
+              "access_token_env": true,
+              "access_token_file": true
+            }
           }
         }
       }

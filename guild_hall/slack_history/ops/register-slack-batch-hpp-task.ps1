@@ -65,6 +65,22 @@ function Assert-NoReparsePath {
   }
 }
 
+function Get-XmlNodeText {
+  param(
+    [System.Xml.XmlNode]$Parent,
+    [Parameter(Mandatory = $true)][string]$XPath,
+    [string]$DefaultValue = ""
+  )
+  if ($null -eq $Parent) {
+    return $DefaultValue
+  }
+  $Node = $Parent.SelectSingleNode($XPath)
+  if ($null -eq $Node) {
+    return $DefaultValue
+  }
+  return [string]$Node.InnerText
+}
+
 function Resolve-CanonicalDirectory {
   param([Parameter(Mandatory = $true)][string]$Path)
   $Absolute = [IO.Path]::GetFullPath($Path)
@@ -275,7 +291,12 @@ $TaskNodeArguments = @(
   "--batch-binding", $BatchBindingPath,
   "--expected-batch-binding-sha256", $BatchBindingSha256
 )
-$CommandScript = "& " + (ConvertTo-SingleQuotedLiteral -Value $NodePath) + " " + (
+$CommandScript = "& " `
+  + (ConvertTo-SingleQuotedLiteral -Value $NodePath) `
+  + " " `
+  + (ConvertTo-SingleQuotedLiteral -Value $Launcher) `
+  + " " `
+  + (
   ($TaskNodeArguments | ForEach-Object {
     ConvertTo-SingleQuotedLiteral -Value ([string]$_)
   }) -join " "
@@ -389,29 +410,74 @@ try {
 
   $ExportedTaskXml = Export-ScheduledTask -TaskName $TaskName
   [xml]$RegisteredXml = $ExportedTaskXml
-  $TriggerNodes = @($RegisteredXml.Task.Triggers.ChildNodes)
+  $TaskNode = $RegisteredXml.SelectSingleNode("/*[local-name()='Task']")
+  $TriggersNode = $TaskNode.SelectSingleNode("./*[local-name()='Triggers']")
+  $SettingsNode = $TaskNode.SelectSingleNode("./*[local-name()='Settings']")
+  $PrincipalNode = $TaskNode.SelectSingleNode(
+    "./*[local-name()='Principals']/*[local-name()='Principal']"
+  )
+  $ExecNode = $TaskNode.SelectSingleNode(
+    "./*[local-name()='Actions']/*[local-name()='Exec']"
+  )
+  $RegisteredTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+  $TriggerNodes = @($TriggersNode.ChildNodes | Where-Object {
+    $_.NodeType -eq [System.Xml.XmlNodeType]::Element
+  })
   $TriggerHours = @($TriggerNodes | ForEach-Object {
-    ([DateTime]::Parse([string]$_.StartBoundary)).ToString("HH:mm")
+    $StartBoundary = Get-XmlNodeText `
+      -Parent $_ `
+      -XPath "./*[local-name()='StartBoundary']"
+    ([DateTime]::Parse($StartBoundary)).ToString("HH:mm")
   } | Sort-Object)
-  $RegisteredPrincipalUserId = [string]$RegisteredXml.Task.Principals.Principal.UserId
+  $RegisteredPrincipalUserId = Get-XmlNodeText `
+    -Parent $PrincipalNode `
+    -XPath "./*[local-name()='UserId']" `
+    -DefaultValue ([string]$RegisteredTask.Principal.UserId)
+  $RegisteredRunLevel = Get-XmlNodeText `
+    -Parent $PrincipalNode `
+    -XPath "./*[local-name()='RunLevel']"
+  $RegisteredRunLevelFromTask = [string]$RegisteredTask.Principal.RunLevel
+  $RegisteredMultipleInstancesPolicy = Get-XmlNodeText `
+    -Parent $SettingsNode `
+    -XPath "./*[local-name()='MultipleInstancesPolicy']"
+  $RegisteredHidden = Get-XmlNodeText `
+    -Parent $SettingsNode `
+    -XPath "./*[local-name()='Hidden']"
+  $RegisteredRestartCount = Get-XmlNodeText `
+    -Parent $SettingsNode `
+    -XPath "./*[local-name()='RestartOnFailure']/*[local-name()='Count']"
+  $RegisteredCommand = Get-XmlNodeText `
+    -Parent $ExecNode `
+    -XPath "./*[local-name()='Command']"
+  $RegisteredArguments = Get-XmlNodeText `
+    -Parent $ExecNode `
+    -XPath "./*[local-name()='Arguments']"
+  $RegisteredWorkingDirectory = Get-XmlNodeText `
+    -Parent $ExecNode `
+    -XPath "./*[local-name()='WorkingDirectory']"
+  $RegisteredRunLevelValid = $RegisteredRunLevel -eq "LeastPrivilege" `
+    -or ($RegisteredRunLevel -eq "" `
+      -and $RegisteredRunLevelFromTask -eq "Limited")
   $RegistrationValid = $TriggerNodes.Count -eq 2 `
     -and @($TriggerNodes | Where-Object { $_.LocalName -ne "CalendarTrigger" }).Count -eq 0 `
     -and @($TriggerNodes | Where-Object {
       $null -ne $_.SelectSingleNode("./*[local-name()='Repetition']")
     }).Count -eq 0 `
     -and @($TriggerNodes | Where-Object {
-      [string]$_.ScheduleByDay.DaysInterval -ne "1"
+      [string]$_.SelectSingleNode(
+        "./*[local-name()='ScheduleByDay']/*[local-name()='DaysInterval']"
+      ).InnerText -ne "1"
     }).Count -eq 0 `
     -and ($TriggerHours -join ",") -eq "02:00,12:00" `
-    -and [string]$RegisteredXml.Task.Settings.MultipleInstancesPolicy -eq "IgnoreNew" `
-    -and [string]$RegisteredXml.Task.Settings.Hidden -eq "true" `
-    -and [string]$RegisteredXml.Task.Settings.RestartOnFailure.Count -eq "3" `
-    -and [string]$RegisteredXml.Task.Principals.Principal.RunLevel -eq "LeastPrivilege" `
+    -and $RegisteredMultipleInstancesPolicy -eq "IgnoreNew" `
+    -and $RegisteredHidden -eq "true" `
+    -and $RegisteredRestartCount -eq "3" `
+    -and $RegisteredRunLevelValid `
     -and ($RegisteredPrincipalUserId -eq $CurrentSid `
       -or $RegisteredPrincipalUserId -eq $CurrentUser) `
-    -and [string]$RegisteredXml.Task.Actions.Exec.Command -eq $PowerShellExe `
-    -and [string]$RegisteredXml.Task.Actions.Exec.Arguments -eq $ActionArgumentLine `
-    -and [string]$RegisteredXml.Task.Actions.Exec.WorkingDirectory -eq $RuntimeRoot
+    -and $RegisteredCommand -eq $PowerShellExe `
+    -and $RegisteredArguments -eq $ActionArgumentLine `
+    -and $RegisteredWorkingDirectory -eq $RuntimeRoot
   if (-not $RegistrationValid) {
     throw "registered slack batch task failed exported XML attestation"
   }

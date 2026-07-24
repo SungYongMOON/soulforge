@@ -17,12 +17,13 @@ in the shared five-lane project-history envelope.
   token workspace with `auth.test` and the joined public nonshared project
   channel with `conversations.info`, then reads at most 15 history objects per
   request. Each request, including body parsing, has a 15-second wall-clock
-  timeout. Bot tokens are read only from the approved private environment name
-  or a single-link, identity-fenced credential file and are never returned in
-  stdout.
+  timeout. Slack bot or user access tokens are read only from the approved
+  private environment name or a single-link, identity-fenced credential file
+  and are never returned in stdout.
 - Live collection still requires an owner-managed Slack App, exact workspace
-  and channel bindings, minimal `channels:history` access, bot membership, and
-  private token provisioning. None are fabricated by the public package.
+  and channel bindings, minimal read scopes, and private token provisioning.
+  The current HPP app uses a user access token so no bot membership or Slack
+  write scope is required. None are fabricated by the public package.
 - Attachment custody is a separately fenced binding feature and remains `OFF`
   unless `attachment_policy.feature_enabled` is explicitly true. Its policy
   fixes a strict-child custody root under `data_root`, per-message file count,
@@ -62,16 +63,20 @@ private gates.
 `slack_app_manifest.yaml` is the public-safe owner-managed app template for the
 current polling collector. It requests only `channels:read`,
 `channels:history`, and `files:read`; it has no message-write, file-write,
-channel-join, user-directory, Socket Mode, or Events API authority. The app
-must still be installed by the owner and explicitly invited to each
-allowlisted project channel before its private bot token is provisioned.
+channel-join, user-directory, Socket Mode, bot-user, or Events API authority.
+The app must still be installed by the owner and its private user access token
+must be provisioned outside Git. The token can read only channels and files
+already visible to the installing account; the private stable-ID allowlist
+remains the narrower runtime boundary.
 
 The connected interactive Slack reader does not provide a reusable background
-token to this Node harness. Continuous collection therefore remains blocked
-until an owner-managed Slack App and token are bound.
+token to this Node harness. HPP continuous collection instead uses the
+separately installed owner-managed read-only app and a private v3 access-token
+binding outside Git. The exact project-channel allowlist is collected in one
+bounded batch at 02:00 and 12:00 KST; `IgnoreNew` prevents overlapping runs.
 
 Attachment collection additionally requires owner-approved `files:read` on
-that same bot token. `files.info` metadata and the selected
+that same access token. `files.info` metadata and the selected
 `url_private_download` (falling back to `url_private`) are used only in memory;
 the token and authenticated locator are not written to state, receipts, raw
 custody, pointers, stdout, or errors.
