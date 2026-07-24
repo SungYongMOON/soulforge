@@ -26,14 +26,57 @@ function Test-SameOrChildPath {
     -or $Candidate.StartsWith($Parent + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
 }
 
+function Test-UnsafePathItemReparse {
+  param(
+    [Parameter(Mandatory = $true)][object]$Item,
+    [Parameter(Mandatory = $true)][string]$ExpectedPath
+  )
+  if (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0) { return $false }
+
+  $LinkType = if ($null -ne $Item.PSObject.Properties["LinkType"]) {
+    [string]$Item.LinkType
+  } else {
+    ""
+  }
+  $Targets = if ($null -ne $Item.PSObject.Properties["Target"]) {
+    @($Item.Target | Where-Object { $null -ne $_ -and [string]$_ -ne "" })
+  } else {
+    @()
+  }
+  $ExactFullName = [IO.Path]::GetFullPath([string]$Item.FullName).Equals(
+    [IO.Path]::GetFullPath($ExpectedPath),
+    [StringComparison]::OrdinalIgnoreCase
+  )
+  if ($LinkType -ne "" -or $Targets.Count -gt 0 -or -not $ExactFullName) { return $true }
+
+  $Tag = $null
+  if ($null -ne $Item.PSObject.Properties["ReparseTag"]) {
+    $Tag = [uint64]$Item.ReparseTag
+  } else {
+    $FsUtil = Join-Path $env:SystemRoot "System32\fsutil.exe"
+    $TagOutput = @(& $FsUtil reparsepoint query $ExpectedPath 2>$null)
+    if ($LASTEXITCODE -eq 0) {
+      $TagMatch = [regex]::Match(($TagOutput -join "`n"), '0x([0-9A-Fa-f]{8})')
+      if ($TagMatch.Success) {
+        $Tag = [Convert]::ToUInt64($TagMatch.Groups[1].Value, 16)
+      }
+    }
+  }
+  if ($null -eq $Tag) { return $true }
+  if (($Tag -band [uint64]0x20000000) -ne 0) { return $true }
+  $CloudTagMask = [Convert]::ToUInt64("FFFF0FFF", 16)
+  $CloudTagBase = [Convert]::ToUInt64("9000001A", 16)
+  return ($Tag -band $CloudTagMask) -ne $CloudTagBase
+}
+
 function Assert-NoReparsePath {
   param([Parameter(Mandatory = $true)][string]$Path)
   $Cursor = [IO.Path]::GetFullPath($Path)
   while ($true) {
     if (Test-Path -LiteralPath $Cursor) {
       $Item = Get-Item -LiteralPath $Cursor -Force
-      if (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-        throw "voice label supervisor path contains a reparse point"
+      if (Test-UnsafePathItemReparse -Item $Item -ExpectedPath $Cursor) {
+        throw "voice label supervisor path contains a link or name-surrogate reparse point"
       }
     }
     $Parent = [IO.Directory]::GetParent($Cursor)
@@ -73,8 +116,8 @@ function Assert-SafeStateTree {
   while ($Pending.Count -gt 0) {
     $Current = $Pending.Dequeue()
     foreach ($Child in @(Get-ChildItem -LiteralPath $Current -Force)) {
-      if (($Child.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-        throw "voice label supervisor state tree contains a reparse point"
+      if (Test-UnsafePathItemReparse -Item $Child -ExpectedPath $Child.FullName) {
+        throw "voice label supervisor state tree contains a link or name-surrogate reparse point"
       }
       $ChildPath = [IO.Path]::GetFullPath($Child.FullName)
       Assert-SafeStateChildPath -Root $Root -Candidate $ChildPath
