@@ -738,7 +738,7 @@ test("PowerShell registrar dry-run emits an attestation without task mutation", 
     "",
   ].join("\r\n"), "utf8");
   const powershell = path.join(
-    process.env.SystemRoot ?? "C:\\Windows",
+    process.env.SystemRoot ?? path.win32.join("C:", path.win32.sep, "Windows"),
     "System32",
     "WindowsPowerShell",
     "v1.0",
@@ -840,7 +840,7 @@ test("PowerShell registrar removes a newly registered task when XML attestation 
     "",
   ].join("\r\n"), "utf8");
   const powershell = path.join(
-    process.env.SystemRoot ?? "C:\\Windows",
+    process.env.SystemRoot ?? path.win32.join("C:", path.win32.sep, "Windows"),
     "System32",
     "WindowsPowerShell",
     "v1.0",
