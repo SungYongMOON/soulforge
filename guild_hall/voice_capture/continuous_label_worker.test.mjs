@@ -50,6 +50,45 @@ async function fixture() {
   };
 }
 
+async function workspaceAliasFixture({ wrongTarget = false } = {}) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "voice-label-worker-alias-"));
+  const repoRoot = path.join(root, "repo");
+  const voiceRoot = path.join(root, "company", "system", "voice_capture");
+  const expectedStateRoot = path.join(root, "private-state");
+  const stateRoot = path.join(expectedStateRoot, "worker");
+  const profilePath = path.join(voiceRoot, "config", "profile.json");
+  const asrPath = path.join(repoRoot, "bin", "whisper-cli.exe");
+  const workspaceRoot = path.join(repoRoot, "_workspaces");
+  const aliasTarget = wrongTarget
+    ? path.join(root, "wrong-system")
+    : path.dirname(voiceRoot);
+  const profileBytes = Buffer.from('{"schema_version":"soulforge.local_asr_profile.v0"}\n');
+  const asrBytes = Buffer.from("synthetic-asr");
+  await mkdir(path.dirname(profilePath), { recursive: true });
+  await mkdir(path.dirname(asrPath), { recursive: true });
+  await mkdir(path.join(aliasTarget, "voice_capture"), { recursive: true });
+  await mkdir(workspaceRoot, { recursive: true });
+  await mkdir(expectedStateRoot, { recursive: true });
+  await symlink(
+    aliasTarget,
+    path.join(workspaceRoot, "system"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  await writeFile(profilePath, profileBytes);
+  await writeFile(asrPath, asrBytes);
+  return {
+    root,
+    repoRoot,
+    voiceRoot,
+    expectedStateRoot,
+    stateRoot,
+    profilePath,
+    asrPath,
+    profileSha256: sha256(profileBytes),
+    asrSha256: sha256(asrBytes),
+  };
+}
+
 function implementations(f, calls) {
   return {
     preflightImpl: async () => ({
@@ -294,6 +333,70 @@ test("worker rejects same-or-overlapping runtime and repository roots", async ()
       ...implementations(f, []),
     }), { code: "voice_label_runtime_repo_overlap" });
     await assert.rejects(readFile(path.join(f.stateRoot, "health.json")), { code: "ENOENT" });
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("apply allows only the exact repo workspace alias to the approved queue root", async () => {
+  const f = await workspaceAliasFixture();
+  try {
+    const calls = [];
+    const impl = implementations(f, calls);
+    impl.loadProfileImpl = async () => ({
+      profile: {
+        queue_root: "_workspaces/system/voice_capture/local_asr_queue",
+        output_subdir: "analysis/local_asr",
+        run_id: "synthetic-run",
+      },
+    });
+    const result = await runContinuousVoiceLabelWorker({
+      repoRoot: f.repoRoot,
+      voiceRoot: f.voiceRoot,
+      profileRef: f.profilePath,
+      stateRoot: f.stateRoot,
+      expectedStateRoot: f.expectedStateRoot,
+      expectedAsrBinRoot: path.dirname(f.asrPath),
+      expectedProfileSha256: f.profileSha256,
+      expectedAsrSha256: f.asrSha256,
+      apply: true,
+      ...impl,
+    });
+    assert.equal(result.status, "ok");
+    assert.deepEqual(calls, ["enqueue", "drain", "labels"]);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("apply rejects the repo workspace alias when it targets a different queue root", async () => {
+  const f = await workspaceAliasFixture({ wrongTarget: true });
+  try {
+    const calls = [];
+    const impl = implementations(f, calls);
+    impl.loadProfileImpl = async () => ({
+      profile: {
+        queue_root: "_workspaces/system/voice_capture/local_asr_queue",
+        output_subdir: "analysis/local_asr",
+        run_id: "synthetic-run",
+      },
+    });
+    await assert.rejects(runContinuousVoiceLabelWorker({
+      repoRoot: f.repoRoot,
+      voiceRoot: f.voiceRoot,
+      profileRef: f.profilePath,
+      stateRoot: f.stateRoot,
+      expectedStateRoot: f.expectedStateRoot,
+      expectedAsrBinRoot: path.dirname(f.asrPath),
+      expectedProfileSha256: f.profileSha256,
+      expectedAsrSha256: f.asrSha256,
+      apply: true,
+      ...impl,
+    }), { code: "voice_label_queue_root_unsafe" });
+    assert.deepEqual(calls, []);
+    const health = JSON.parse(await readFile(path.join(f.stateRoot, "health.json"), "utf8"));
+    assert.equal(health.status, "failed");
+    assert.equal(health.error_code, "voice_label_queue_root_unsafe");
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

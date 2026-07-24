@@ -169,6 +169,64 @@ async function assertSafeStateTree(stateRoot) {
   return canonicalStateRoot;
 }
 
+async function canonicalApprovedQueueRoot({ repoRoot, voiceRoot, queueRef }) {
+  const approvedQueueRoot = await canonicalPlannedDirectory(
+    path.join(voiceRoot, "local_asr_queue"),
+    "voice_label_queue_root_unsafe",
+  );
+  const candidate = path.resolve(repoRoot, queueRef);
+  try {
+    const strictCandidate = await canonicalPlannedDirectory(
+      candidate,
+      "voice_label_queue_root_unsafe",
+    );
+    if (pathKey(strictCandidate) !== pathKey(approvedQueueRoot)) {
+      fail("voice_label_queue_root_unsafe");
+    }
+    return strictCandidate;
+  } catch (error) {
+    if (error?.code !== "voice_label_queue_root_unsafe") throw error;
+  }
+
+  const workspaceRoot = await canonicalExisting(
+    path.join(repoRoot, "_workspaces"),
+    "directory",
+    "voice_label_queue_root_unsafe",
+  );
+  if (!isStrictlyInside(repoRoot, workspaceRoot)) {
+    fail("voice_label_queue_root_unsafe");
+  }
+  const aliasRoot = path.join(workspaceRoot, "system");
+  const expectedAliasQueueRoot = path.join(
+    aliasRoot,
+    "voice_capture",
+    "local_asr_queue",
+  );
+  if (pathKey(candidate) !== pathKey(expectedAliasQueueRoot)) {
+    fail("voice_label_queue_root_unsafe");
+  }
+  let aliasInfo;
+  try {
+    aliasInfo = await lstat(aliasRoot);
+  } catch {
+    fail("voice_label_queue_root_unsafe");
+  }
+  if (!aliasInfo.isSymbolicLink()) fail("voice_label_queue_root_unsafe");
+  const aliasTarget = path.resolve(await realpath(aliasRoot));
+  if (pathKey(aliasTarget) !== pathKey(path.dirname(voiceRoot))) {
+    fail("voice_label_queue_root_unsafe");
+  }
+  const resolvedAliasQueueRoot = path.resolve(
+    aliasTarget,
+    "voice_capture",
+    "local_asr_queue",
+  );
+  if (pathKey(resolvedAliasQueueRoot) !== pathKey(approvedQueueRoot)) {
+    fail("voice_label_queue_root_unsafe");
+  }
+  return approvedQueueRoot;
+}
+
 async function validateBaseCustody({
   repoRoot,
   voiceRoot,
@@ -290,17 +348,14 @@ async function validateProfileCustody({
     "voice_label_output_subdir_unsafe",
   );
   safeRelativeRef(profile?.run_id, "voice_label_run_id_unsafe");
-  const queueRoot = await canonicalPlannedDirectory(
-    path.resolve(repoRoot, queueRef),
-    "voice_label_queue_root_unsafe",
-  );
+  const queueRoot = await canonicalApprovedQueueRoot({
+    repoRoot,
+    voiceRoot,
+    queueRef,
+  });
   const sessionsRoot = await canonicalPlannedDirectory(
     path.join(voiceRoot, "sessions"),
     "voice_label_sessions_root_unsafe",
-  );
-  const approvedQueueRoot = await canonicalPlannedDirectory(
-    path.join(voiceRoot, "local_asr_queue"),
-    "voice_label_queue_root_unsafe",
   );
   const outputProbe = path.resolve(sessionsRoot, "custody-probe", outputRef);
   const approvedOutputRoot = path.resolve(
@@ -309,7 +364,7 @@ async function validateProfileCustody({
     "analysis",
     "local_asr",
   );
-  if (!isSameOrInside(approvedQueueRoot, queueRoot)
+  if (pathKey(queueRoot) !== pathKey(path.join(voiceRoot, "local_asr_queue"))
     || !isSameOrInside(approvedOutputRoot, outputProbe)) {
     fail("voice_label_profile_custody_unsafe");
   }
