@@ -2,6 +2,13 @@
 
 ## 2026-07-24
 
+### HPP communication collection schedule
+
+- Fixed the HPP Outlook Sent collection windows to
+  `02:00-04:00,12:00-14:00` KST per the owner-approved 02:00 and 12:00 run
+  times. The HPP capsule now injects this public-safe schedule independently
+  from credential files, with a focused regression test.
+
 ### Backup controller Git-independent preflight
 
 - Removed runtime Git `HEAD` and working-tree checks from the backup controller

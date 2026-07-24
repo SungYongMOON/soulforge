@@ -98,7 +98,7 @@ def test_outlook_sent_provider_runs_inside_pinned_team_capsule(
             "OUTLOOK_SENT_ENABLED=true",
             f"OUTLOOK_SENT_DEFAULT_STORE_FINGERPRINT=sha256:{'1' * 64}",
             f"OUTLOOK_SENT_DEFAULT_FOLDER_FINGERPRINT=sha256:{'2' * 64}",
-            "OUTLOOK_SENT_ALLOWED_WINDOWS_KST=12:00-14:00,20:00-23:00",
+            "OUTLOOK_SENT_ALLOWED_WINDOWS_KST=02:00-04:00,12:00-14:00",
             "",
         ]
     )
@@ -219,7 +219,7 @@ def test_outlook_sent_uses_empty_preloaded_capsule_without_reopen_and_honors_lim
             "OUTLOOK_SENT_ENABLED": "true",
             "OUTLOOK_SENT_DEFAULT_STORE_FINGERPRINT": f"sha256:{'1' * 64}",
             "OUTLOOK_SENT_DEFAULT_FOLDER_FINGERPRINT": f"sha256:{'2' * 64}",
-            "OUTLOOK_SENT_ALLOWED_WINDOWS_KST": "12:00-14:00,20:00-23:00",
+            "OUTLOOK_SENT_ALLOWED_WINDOWS_KST": "02:00-04:00,12:00-14:00",
             "OUTLOOK_SENT_MAX_ITEMS": "100",
         },
     )

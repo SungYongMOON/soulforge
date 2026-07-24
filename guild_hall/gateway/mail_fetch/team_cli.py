@@ -19,6 +19,7 @@ _NESTED_CREDENTIAL_FIELD_BY_PROVIDER = {
     "gmail": "GMAIL_ACCESS_TOKEN_FILE",
     "hiworks": "HIWORKS_POP3_PASSWORD_FILE",
 }
+HPP_OUTLOOK_SENT_ALLOWED_WINDOWS_KST = "02:00-04:00,12:00-14:00"
 
 
 def _resolve_paths() -> tuple[Path, Path]:
@@ -26,6 +27,16 @@ def _resolve_paths() -> tuple[Path, Path]:
     repo_root = script_path.parents[3]
     capsule_root = script_path.parent
     return repo_root, capsule_root
+
+
+def _hpp_capsule_env_overrides(data_root: Path) -> dict[str, str]:
+    return {
+        "EMAIL_FETCH_PRIVATE_CONFIG_ROOT": str(data_root / "config"),
+        "EMAIL_FETCH_INBOX_ROOT": str(data_root / "ingress" / "mailbox"),
+        "EMAIL_FETCH_RUNTIME_DIR": str(data_root / "runtime" / "mail_fetch"),
+        "EMAIL_FETCH_MAIL_CANDIDATE_QUEUE_ROOT": str(data_root / "state" / "mail_candidate"),
+        "OUTLOOK_SENT_ALLOWED_WINDOWS_KST": HPP_OUTLOOK_SENT_ALLOWED_WINDOWS_KST,
+    }
 
 
 def _parse_args() -> argparse.Namespace:
@@ -342,12 +353,7 @@ def _run(args: argparse.Namespace) -> int:
             print("[gateway-mail-fetch-team] error=data_root_must_be_absolute", file=sys.stderr)
             return 2
         data_root = data_root.resolve()
-        capsule_env_overrides = {
-            "EMAIL_FETCH_PRIVATE_CONFIG_ROOT": str(data_root / "config"),
-            "EMAIL_FETCH_INBOX_ROOT": str(data_root / "ingress" / "mailbox"),
-            "EMAIL_FETCH_RUNTIME_DIR": str(data_root / "runtime" / "mail_fetch"),
-            "EMAIL_FETCH_MAIL_CANDIDATE_QUEUE_ROOT": str(data_root / "state" / "mail_candidate"),
-        }
+        capsule_env_overrides = _hpp_capsule_env_overrides(data_root)
         os.environ.update(capsule_env_overrides)
     register_from_env = str(os.environ.get("EMAIL_FETCH_TEAM_REGISTER", "")).strip()
     register_file = (
