@@ -2,6 +2,23 @@
 
 ## 2026-07-24
 
+### HPP continuous independent voice ASR and labels
+
+- Added a separate HPP derived-voice worker that queues newly imported sessions,
+  processes bounded independent `whisper.cpp` ASR, then stores deterministic
+  timestamped semantic labels without changing RAW audio, project assignment,
+  ERP, TaskDriver, or official tasks.
+- Added a single hidden at-logon Windows supervisor with process and worker
+  locks, `IgnoreNew`, profile and ASR binary SHA-256 pins, bounded per-cycle
+  work, metadata-only health/receipts, and transcript-free operational logs.
+- Replayed the current completed independent-ASR set after one GPU canary and
+  one production-shaped worker cycle: 60 sessions produced 20,611 occurrence
+  labels, and a full replay returned 60/60 duplicates with zero failures or
+  official task/project mutations.
+- Made the semantic-label CLI missing-session regression accept the native
+  Windows `ENOENT realpath` failure while retaining the same fail-closed
+  behavior.
+
 ### PLAUD ready-candidate head-of-line recovery
 
 - Changed bounded PLAUD discovery so a provider item still processing no

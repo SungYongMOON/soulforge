@@ -4837,12 +4837,17 @@ Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있�
    - semantic run과 발생별 timeline JSONL을 해당 세션
      `analysis/semantic_labels/<run_id>/`에 원자적으로 저장한다.
    - 비공개 metadata-only receipt
-     `task_engine_contextual_ingress_actual_canary_v1`에 따르면 실제 HPP 기존
-     전사 56세션에서 녹음 시작시각 보정과 반복 발생 보존을 적용한
-     19,110개 발생 라벨을 생성했다.
-   - 전 세션 재실행에서 56/56 duplicate, 실패 0, 공식 task/project 변경
+     `task_engine_contextual_ingress_actual_canary_v1`의 기존 56세션 시험 뒤,
+     HPP GPU 독립 전사 canary와 production-shaped worker 1 cycle 뒤 현 완료
+     전사 전체를 다시 처리해 60세션에서 20,611개 발생 라벨을 생성했다.
+   - 전 세션 재실행에서 60/60 duplicate, 실패 0, 공식 task/project 변경
      0을 확인했다.
-   - local ASR가 아직 없는 세션은 새 전사 완료 뒤 같은 sweep 대상이 된다.
+   - RAW collector와 분리된 HPP derived worker/supervisor가 profile과
+     `whisper-cli` SHA-256을 고정하고 15분마다 새 세션 backlog를 확인한다.
+     매 cycle 독립 전사 최대 1세션, 완료 전사 라벨 최대 20세션을 처리하며
+     process/worker 이중 lock, hidden at-logon `IgnoreNew`, metadata-only
+     health/receipt를 사용한다. project 확정·ERP·TaskDriver·공식 task write는
+     계속 0이다.
 
 2. Slack
    - v2 Web API polling transport, `auth.test` token-workspace 일치,

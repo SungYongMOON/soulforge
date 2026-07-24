@@ -355,6 +355,35 @@ metadata-only project-context source pointer with companion input kinds
 `refresh-context-events --apply` can rebuild the metadata-only project-context
 event adapters for completed runs without reading or copying transcript text.
 
+### HPP continuous ASR and label supervisor
+
+The HPP uses a separate hidden supervisor for derived voice processing. The
+existing five-lane collector remains the RAW owner; this supervisor never
+downloads PLAUD data or rewrites source audio. Each 15-minute cycle:
+
+1. discovers session manifests that still lack the pinned independent-ASR run,
+2. drains at most one queued ASR session,
+3. writes semantic and timestamped occurrence labels for up to 20 completed
+   sessions, and
+4. records a metadata-only health file and per-cycle receipt.
+
+Completed ASR and semantic generations replay idempotently, so the cadence does
+not repeatedly transcribe or relabel old audio. The process and Windows task
+both reject duplicates. The profile and `whisper-cli.exe` are SHA-256 pinned,
+the task is one hidden at-logon supervisor with `IgnoreNew`, and operational
+logs contain counts and states rather than transcript bodies. Project
+assignment, ERP writes, TaskDriver candidates, and official tasks remain out
+of scope.
+
+The Windows entrypoints are:
+
+- `continuous_label_worker_cli.mjs`: one bounded cycle
+- `continuous_label_supervisor_cli.mjs`: persistent cycle loop
+- `ops/run-continuous-label-supervisor.ps1`: binary/profile attestation,
+  process-lifetime lock, and redacted logs
+- `ops/register-continuous-label-supervisor-task.ps1`: dry-run-first scheduled
+  task registration
+
 ### Semantic shadow labeling
 
 Run against a completed independent-ASR manifest. The transcript bytes must
