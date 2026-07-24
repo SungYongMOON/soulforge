@@ -40,6 +40,7 @@ const boundedSchemaValidator = new Ajv2020({
 const validateBoundedStrongAsrRequestSchema = boundedSchemaValidator.compile(BOUNDED_STRONG_ASR_REQUEST_SCHEMA);
 const validateBoundedStrongAsrRevisionSchema = boundedSchemaValidator.compile(BOUNDED_STRONG_ASR_REVISION_SCHEMA);
 const validateVoiceHppContinuityReceiptSchema = boundedSchemaValidator.compile(VOICE_HPP_CONTINUITY_RECEIPT_SCHEMA);
+const WHISPER_TIMESTAMP_EPSILON_SECONDS = 0.05;
 
 export function buildDefaultLocalAsrProfile() {
   return {
@@ -1020,11 +1021,16 @@ export function parseWhisperJson(value, window, options = {}) {
     const localStart = Number(segment?.offsets?.from) / 1000;
     const localEnd = Number(segment?.offsets?.to) / 1000;
     if (!Number.isFinite(localStart) || !Number.isFinite(localEnd)
-      || localStart < 0 || localEnd < localStart || localEnd > extractDuration) {
+      || localStart < 0
+      || localEnd < localStart
+      || localStart > extractDuration + WHISPER_TIMESTAMP_EPSILON_SECONDS
+      || localEnd > extractDuration + WHISPER_TIMESTAMP_EPSILON_SECONDS) {
       throw new Error("ASR segment offsets must be finite, ordered, and contained in the extraction window");
     }
-    const start = extractStart + localStart;
-    const end = extractStart + localEnd;
+    const boundedLocalStart = Math.min(localStart, extractDuration);
+    const boundedLocalEnd = Math.min(localEnd, extractDuration);
+    const start = extractStart + boundedLocalStart;
+    const end = extractStart + boundedLocalEnd;
     const midpoint = (start + end) / 2;
     if (midpoint < nominalStart || midpoint >= nominalEnd) continue;
     rows.push({

@@ -87,7 +87,7 @@ test("local ASR parser rejects non-finite, reversed, negative, and out-of-window
     { from: "NaN", to: 1000 },
     { from: -1, to: 1000 },
     { from: 2000, to: 1000 },
-    { from: 0, to: 30001 },
+    { from: 0, to: 30051 },
   ]) {
     assert.throws(
       () => parseWhisperJson({ transcription: [{ offsets, text: "synthetic" }] }, window),
@@ -97,6 +97,35 @@ test("local ASR parser rejects non-finite, reversed, negative, and out-of-window
   assert.throws(
     () => parseWhisperJson({ transcription: [] }, { ...window, extract_duration_seconds: Number.NaN }),
     /chunk window bounds are invalid/u,
+  );
+});
+
+test("local ASR parser clamps whisper timestamp quantization within 50ms only", () => {
+  const window = {
+    chunk_index: 1,
+    nominal_start_seconds: 0,
+    nominal_end_seconds: 1810,
+    extract_start_seconds: 0,
+    extract_duration_seconds: 1810,
+  };
+  const rows = parseWhisperJson({
+    transcription: [{
+      offsets: { from: 1809000, to: 1810020 },
+      text: "20ms rounding overshoot",
+    }],
+  }, window);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].start_seconds, 1809);
+  assert.equal(rows[0].end_seconds, 1810);
+
+  assert.throws(
+    () => parseWhisperJson({
+      transcription: [{
+        offsets: { from: 1809000, to: 1810051 },
+        text: "epsilon exceeded",
+      }],
+    }, window),
+    /finite, ordered, and contained/u,
   );
 });
 
