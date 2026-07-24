@@ -1457,10 +1457,16 @@ test("project ranking requires two distinct lexical anchors, not one duplicated 
   assert.equal(independent.candidates[0].independent_anchor_value_count, 2);
 });
 
-test("CLI semantic apply requires a real bounded session or analysis manifest", async () => {
+test("CLI semantic apply requires a real bounded session or analysis manifest", async (t) => {
   const cliPath = fileURLToPath(new URL("./cli.mjs", import.meta.url));
+  const outsideSessionDir = await mkdtemp(path.join(os.tmpdir(), "voice-semantic-cli-outside-"));
+  t.after(() => rm(outsideSessionDir, { recursive: true, force: true }));
   await assert.rejects(
-    execFileAsync(process.execPath, [cliPath, "semantic-label", "--session-dir", "fixture", "--apply"], { windowsHide: true }),
+    execFileAsync(
+      process.execPath,
+      [cliPath, "semantic-label", "--session-dir", outsideSessionDir, "--apply"],
+      { windowsHide: true },
+    ),
     (error) => error.code === 2 && /sessionDir|voice_capture|outside/u.test(error.stderr),
   );
 });
