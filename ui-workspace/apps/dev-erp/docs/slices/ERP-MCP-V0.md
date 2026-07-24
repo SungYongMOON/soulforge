@@ -79,6 +79,26 @@ ERP task assignment
 | `erp_search_knowledge` | explicit `project|common` scope의 exact revision/locator/claim 조회 | implicit fallback·truth write `0` |
 | `erp_submit_knowledge_candidate` | sourcebound team candidate 제출 | candidate ledger 한 곳만 append |
 
+### WorkSession 종료 보고 권장 후보(미확정)
+
+아래는 향후 personal MCP 제작 시 반영할 **권장 후보**이며, 현재 tool·DB·운영 계약을
+변경하거나 활성화하지 않는다.
+
+- accepted assignment를 받은 Codex 작업 흐름은 업무를 끝내기 전에 terminal closeout 전송을
+  시도한다. 전송되지 않은 session은 다음 assignment 조회에서 `unclosed`로 먼저 표시한다.
+  새 업무를 경고만 하고 허용할지 차단할지는 D28에서 확정한다.
+- closeout은 작업자가 실제로 수행한 사실만 보낸다. 필수 후보는 server가 이미 알고 있는
+  project/task/assignment ref, actor/node, assignment 수령·결과 제출 KST 시각, 수행 내용,
+  짧은 방법, 결과 상태, artifact ref, verification ref, 관찰된 미완료·문제 사실이다.
+- 작업 도중의 분 단위 행동 시각은 추정하지 않는다. checkpoint는 장기 작업·명시적 인계·
+  중요 blocker처럼 작업자가 실제 전송한 경우에만 선택적으로 남긴다.
+- 후속 할일, 후속 담당자, 우선순위, 기한, 공식 완료 여부는 작업자가 결정하거나 closeout의
+  필수 필드로 보내지 않는다. TaskDriver/할일 엔진이 메일·음성·Slack·파일·실행 이력과
+  함께 판단해 별도 candidate로 만든다.
+- 현행 one-shot `erp_publish_work_session.next_action`은 compatibility field로만 보존하며,
+  TARGET closeout의 필수 사실이나 TaskDriver authority로 해석하지 않는다.
+- whole conversation, raw prompt, hidden reasoning, 화면·키보드 감시는 종료 보고에 포함하지 않는다.
+
 계획 기본값은 assignment epoch와 account마다 active primary session 하나, checkpoint 여러 개다. Actor나
 node가 바뀌면 old binding을 덮어쓰지 않고 `closeout_kind=handoff`와 새 session supersession으로 잇는다.
 Client-local durable outbox는 server receipt digest/status를 검증해 저장한 뒤에만 compact한다. Exact local

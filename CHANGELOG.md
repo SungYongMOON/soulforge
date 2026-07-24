@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-07-25
+
+### Personal MCP closeout recommendation
+
+- Recorded a non-binding MCP contract recommendation that an accepted assignment
+  should end with a structured closeout attempt and that an unclosed session
+  should surface on the next assignment query.
+- Limited the recommended closeout to performed-work facts, results, artifact and
+  verification references, and observed gaps. Follow-up task, assignee, priority,
+  due-date, and official-completion decisions remain TaskDriver responsibilities;
+  the current one-shot `next_action` field remains compatibility-only.
+
 ## 2026-07-24
 
 ### Slack attachment and scheduled-ingress fail-closed guards
