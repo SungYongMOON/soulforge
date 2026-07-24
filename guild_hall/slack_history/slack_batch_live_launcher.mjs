@@ -66,6 +66,10 @@ function samePath(left, right) {
   return normalizedPath(left) === normalizedPath(right);
 }
 
+function compareCanonicalRuntimePath(left, right) {
+  return left.localeCompare(right);
+}
+
 function isPathWithin(parent, candidate, strict = false) {
   const relative = path.relative(normalizedPath(parent), normalizedPath(candidate));
   if (relative === "") return !strict;
@@ -164,7 +168,7 @@ async function inventoryRuntimeFiles(runtimeRoot, manifestPath) {
   const files = [];
   async function visit(directory) {
     const entries = await readdir(directory, { withFileTypes: true });
-    entries.sort((left, right) => left.name.localeCompare(right.name));
+    entries.sort((left, right) => compareCanonicalRuntimePath(left.name, right.name));
     for (const entry of entries) {
       const target = path.join(directory, entry.name);
       const relativePath = portableRelativePath(runtimeRoot, target);
@@ -183,7 +187,7 @@ async function inventoryRuntimeFiles(runtimeRoot, manifestPath) {
     }
   }
   await visit(runtimeRoot);
-  return files.sort();
+  return files.sort(compareCanonicalRuntimePath);
 }
 
 function validateManifest(manifest) {
@@ -213,7 +217,8 @@ function validateManifest(manifest) {
     assertSafeRuntimeBasename(entry.relative_path, `${target}.relative_path`);
     assertDigest(entry.sha256, `${target}.sha256`);
     if (retained.has(entry.relative_path)
-      || (previous !== null && previous.localeCompare(entry.relative_path) >= 0)) {
+      || (previous !== null
+        && compareCanonicalRuntimePath(previous, entry.relative_path) >= 0)) {
       fail("runtime_manifest_not_canonical", target, "Manifest file paths must be unique and sorted");
     }
     retained.add(entry.relative_path);

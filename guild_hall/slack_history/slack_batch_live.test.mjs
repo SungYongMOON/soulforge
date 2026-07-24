@@ -528,6 +528,48 @@ test("exact runtime verifier pins manifest, Node, launcher, entrypoint, and enti
   );
 });
 
+test("runtime inventory and manifest share one canonical mixed-case path order", async () => {
+  const fixture = await createRuntimeFixture();
+  const licensePath = path.join(fixture.runtimeRoot, "LICENSE");
+  const distPath = path.join(fixture.runtimeRoot, "dist", "runtime.mjs");
+  await mkdir(path.dirname(distPath), { recursive: true });
+  await writeFile(licensePath, "synthetic license fixture\n", "utf8");
+  await writeFile(distPath, "export const fixture = true;\n", "utf8");
+
+  const manifest = JSON.parse(await readFile(fixture.manifestPath, "utf8"));
+  manifest.files.push(
+    {
+      relative_path: "LICENSE",
+      sha256: sha256Bytes(await readFile(licensePath)),
+    },
+    {
+      relative_path: "dist/runtime.mjs",
+      sha256: sha256Bytes(await readFile(distPath)),
+    },
+  );
+  manifest.files.sort((left, right) => left.relative_path.localeCompare(right.relative_path));
+  assert.deepEqual(
+    manifest.files.map((entry) => entry.relative_path),
+    [
+      "dist/runtime.mjs",
+      "guild_hall/slack_history/slack_batch_live_cli.mjs",
+      "guild_hall/slack_history/slack_batch_live_launcher.mjs",
+      "LICENSE",
+    ],
+  );
+  const manifestBytes = Buffer.from(`${JSON.stringify(manifest)}\n`, "utf8");
+  await writeFile(fixture.manifestPath, manifestBytes);
+  const result = await verifyExactSlackBatchRuntime({
+    runtime_root: fixture.runtimeRoot,
+    runtime_manifest_path: fixture.manifestPath,
+    expected_runtime_manifest_sha256: sha256Bytes(manifestBytes),
+    node_path: process.execPath,
+    expected_node_sha256: fixture.nodeSha256,
+    launcher_path: fixture.launcherPath,
+  });
+  assert.equal(result.verified_file_count, 4);
+});
+
 test("copied runtime launcher performs verify-only without importing the entrypoint", async () => {
   const fixture = await createRuntimeFixture();
   const { stdout, stderr } = await execFileAsync(process.execPath, [
