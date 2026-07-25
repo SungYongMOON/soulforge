@@ -31,6 +31,41 @@ project trunk
 The implementation may store a graph under this tree, because one event can
 touch multiple branches.
 
+## Durable Context Layers
+
+The durable project context is not one generated prose file. It is an
+append-only chain of exact evidence and reviewed relationships:
+
+```text
+source revision
+  -> source span
+  -> context event
+  -> context unit
+  -> context branch
+  -> project context
+  -> reviewed memory candidate
+  -> candidate-only TaskIntent
+```
+
+- `source span`: an exact metadata locator such as a voice offset range, mail
+  part/paragraph, Slack message revision, document page/sheet/cell, or run
+  receipt ref. It does not copy source text or bytes.
+- `context event`: one proposed or reviewed meaning such as request,
+  commitment, decision, change, risk, completion claim, or status update.
+- `context unit`: a small bounded episode that links related events, for
+  example request -> commitment -> work evidence -> completion claim.
+- `context branch`: a medium-lived project workstream or SE concern.
+- `project context`: the long-lived project history assembled from accepted
+  units, branches, exact source refs, current gaps, and revision lineage.
+- `memory candidate`: a reviewed-reuse candidate derived from project context.
+  It is not accepted Wiki/RAG knowledge and is not an external agent's private
+  preference memory.
+
+Short, medium, and long context therefore mean `context unit`, `context
+branch`, and `project context`. They are durable metadata layers; a bounded
+query-time context pack selects from them but does not recreate the whole
+history from scratch.
+
 ## Owner Decision Defaults
 
 These defaults were captured from the 2026-06-28 owner grill-me decisions.
@@ -95,16 +130,46 @@ Forbidden in `_workmeta` project-context ledgers and reports:
 - local absolute source path when it exposes private host layout
 - `.env`, token, password, cookie, session, credential, or secret value
 
+## ERP, MCP, And Client Boundary
+
+`_workmeta/<project_code>/project_context/**` remains the project-context
+canon. dev-ERP may build a replaceable read model or accepted-generation index
+from it, but the ERP projection is not a second context truth.
+
+```text
+_workmeta project_context canon
+        -> accepted-generation projector
+        -> ERP read model / ACL
+        -> ERP UI or MCP
+        -> per-PC Codex plugin or optional agent client
+```
+
+- ERP owns official task, schedule, assignment, approval, and completion state.
+- MCP and client plugins query ERP services; they do not traverse or write
+  `_workmeta` directly.
+- A client correction, checkpoint, or closeout is a proposal/receipt. The
+  authorized project-context writer validates it before appending context
+  metadata.
+- Binary download uses an authorized source/artifact revision through the
+  approved data plane. It never exposes a client-supplied filesystem path.
+- The TARGET normal topology has one fenced HPP project-context writer.
+  Existing `haengbogwan_project_context.mjs` remains the current compatibility
+  writer until a bounded cutover proves replay, generation parity, and
+  rollback. Mac mini and work PCs have no normal project-context write
+  authority.
+
 ## Minimum Project-Local State
 
-Future project-local live metadata should live under:
+Current project-local live metadata lives under:
 
 ```text
 _workmeta/<project_code>/project_context/
 ```
 
-Recommended files:
+Current v0 compatibility files:
 
+- `branches.csv`
+- `occurrences.csv`
 - `sources.csv`
 - `nodes.csv`
 - `edges.csv`
@@ -113,8 +178,47 @@ Recommended files:
 - `summaries/project_summary.md`
 - `summaries/branch_summaries.csv`
 
-The same shape may be projected into dev-ERP SQLite tables later. The CSV shape
-comes first so another PC can inspect and recover the state.
+The additive TARGET layout is:
+
+```text
+_workmeta/<project_code>/project_context/
+├─ source_spans/<YYYY-MM>.jsonl
+├─ events/<YYYY-MM>.jsonl
+├─ units/<YYYY-MM>.jsonl
+├─ memberships/<YYYY-MM>.jsonl
+├─ summaries/
+│  ├─ project_summary.md
+│  ├─ branch_summaries.csv
+│  └─ revisions/
+│     ├─ unit/<YYYY-MM>.jsonl
+│     ├─ branch/<YYYY-MM>.jsonl
+│     └─ project/<YYYY-MM>.jsonl
+├─ memory_candidates/<YYYY-MM>.jsonl
+└─ projections/erp_receipts/<YYYY-MM>.jsonl
+```
+
+All TARGET JSONL owners are append-only. Corrections append a new immutable
+record with exact predecessor/supersession refs; they never rewrite the source
+span, event, unit, summary revision, or memory candidate. Current CSV/Markdown
+files remain rebuildable human/read-model projections.
+
+The same accepted generation may be projected into dev-ERP SQLite tables for
+query performance. A projection receipt must bind the project, input
+generation/digest, output generation/digest, writer epoch, and row counts so
+the ERP read model can be rebuilt or rolled back without changing
+`project_context/**`.
+
+### Minimum TARGET record responsibilities
+
+| owner | required responsibility |
+| --- | --- |
+| `source_spans` | exact source/revision/locator refs, native clock/relative offset refs, KST business-event projection, no source text |
+| `events` | semantic type, state, evidence span refs, producer/model/policy revision, confidence band, `valid_at`/`known_at`/`recorded_at`, correction lineage |
+| `units` | bounded episode identity, current state, branch candidate/confirmed state, event membership digest, review state |
+| `memberships` | append-only event-to-unit and unit-to-branch relations with exact evidence/judgment refs |
+| `summary revisions` | short/unit, medium/branch, and long/project summaries with input generation and supersession refs |
+| `memory_candidates` | reviewed-reuse proposal, scope, evidence refs, reviewer state, revocation/supersession refs; no automatic Wiki/RAG promotion |
+| `erp_receipts` | accepted-generation projection/parity/rollback evidence; never context truth |
 
 Report/projection outputs may be written under:
 
@@ -130,6 +234,32 @@ Examples:
 
 Reports must be rebuildable from `project_context/**`, dev-ERP task state, and
 approved source refs.
+
+## Context Construction And Authority
+
+Programs own IDs, hashes, exact spans, KST normalization, dedupe, append-only
+lineage, replay, projection, and parity checks. Deterministic rules may propose
+low-risk labels. A local model or Codex may propose semantic events, units,
+branch placement, summaries, memory candidates, or TaskIntent candidates only
+when its exact input revisions, model/engine revision, policy revision, and
+evidence refs are recorded.
+
+If an eligible semantic model is unavailable or the evidence is ambiguous, the
+record stays `inference_pending`, `unclassified`, `held_conflict`, or
+`human_review_required`. Collection, custody, annotation, and read-only query
+continue without inventing context.
+
+Context inference may use only an explicit bounded pack:
+
+1. exact source spans and source-native annotations;
+2. accepted project history and current branch/unit summaries;
+3. approved common systems-engineering knowledge revision refs;
+4. company rules with their normative authority;
+5. current ERP task/schedule state as a read-only input.
+
+Common SE knowledge is advisory, company rules are normative, and neither may
+overwrite project facts. Project/common scope is explicit and has no implicit
+fallback or cross-project leakage.
 
 ## Source Rows
 
@@ -195,6 +325,7 @@ Node types:
 - `project_trunk`
 - `context_branch`
 - `event_leaf`
+- `context_unit` (TARGET projection of an accepted/reviewed unit)
 - `task`
 - `task_driver` (TARGET projection; current runtime support claim 아님)
 - `fruit`
@@ -202,6 +333,7 @@ Node types:
 - `actor`
 - `entity`
 - `source_ref`
+- `memory_candidate` (TARGET projection; accepted knowledge 아님)
 
 ## Edge Rows
 
@@ -222,6 +354,9 @@ Edge types:
 
 - `belongs_to`
 - `on_branch`
+- `contains_event` (TARGET unit membership projection)
+- `contains_unit` (TARGET branch membership projection)
+- `supported_by_span` (TARGET exact evidence projection)
 - `derived_from`
 - `mentions`
 - `creates_task`
@@ -362,3 +497,9 @@ Start with a small set. Do not create a new branch for every subject line.
   inventing a separate source-truth graph.
 - TaskDriver and two-axis task lifecycle are governed by
   `PROJECT_TASK_ENGINE_LIFECYCLE_V0.md`; this graph only projects their refs and states.
+- Cross-lane KST occurrence annotations and correction lineage remain governed
+  by `SOURCE_TIMELINE_ANNOTATION_V1.md`.
+- Exact source/knowledge revisions, bitemporal cutoff, and knowledge promotion
+  remain governed by `TEMPORAL_KNOWLEDGE_ONTOLOGY_V0.md`.
+- Personal ERP MCP and Codex plugins consume accepted projections through
+  `CODEX_TEAM_WORKSPACE.md` and `ERP-MCP-V0.md`; they are not context writers.

@@ -22,6 +22,7 @@
 | 2026-07-23 Slack feature-OFF continuous harness | exact joined public project channel 1개 단위 private binding schema, writer lease/epoch, content-addressed raw event custody, restart-safe cursor/dedupe, edit/delete/reply revision, DM/common/unmapped/Slack Connect/file-bearing event HOLD를 synthetic 25/25로 구현·검증했다. 연결된 workspace의 프로젝트 채널 9개를 stable-ID 기반 private feature-OFF binding으로 materialize했으며 token ref와 custody directory는 생성하지 않았다. reusable background app/token transport가 없어 live collector·event subscription·backfill·H07A/H07B/HP-LIVE acceptance는 `OFF` |
 | 2026-07-24 Slack read-only ingress activation | owner-managed Slack App을 `channels:read`·`channels:history`·`files:read` 사용자 읽기 권한만으로 설치했다. Slack이 봇 앱에 자동 제안한 `chat:write`는 승인하지 않았고, public collector는 bot/user access token을 구분 없이 받되 private v3 binding의 exact token file만 허용한다. 실제 한 채널 canary는 13건 중 일반 메시지 8건을 custody하고 system subtype 5건을 HOLD했으며 PNG 2건·DOCX 2건을 content-addressed custody했다. 전체 9개 프로젝트 채널 batch는 9/9 성공했고 71건 중 9건을 신규 custody, system subtype 62건을 fail-closed HOLD했다. HPP 예약 작업은 KST 02:00·12:00, `IgnoreNew`, 숨김, 낮은 권한으로 등록했으며 실제 수동 예약 실행 결과 `0`과 replay 무중복을 확인했다. token 값·literal ID는 public 문서에 기록하지 않는다. 이는 Slack ingress 운영 증거이며 TaskDriver·세계수 반영이나 H07A/H07B 전체 정본 acceptance를 뜻하지 않는다. |
 | 2026-07-23 local activity three-source query-only inventory | H03A PC 업무는 dev-ERP `erp_mcp_work_session`, H04 파일변경은 exact `reports/file_activity` metadata root, H05 실행이력은 exact `report_authoring_v0` receipt 목록으로 각각 분리한 stdin-only source inventory를 구현했다. 실제 HPP canary는 WorkSession DB sidecar 때문에 open 전 차단, file-activity owner root 미생성, run receipt descriptor 미제공을 정직하게 보고했으며 전후 metadata fingerprint는 동일했다. whole Codex log·업무 파일 본문·`runs/**` discovery·collector/writer/scheduler/classification/TaskDriver 활성화 `0` |
+| 2026-07-25 project-context foundation correction | 기존 owner 경계를 유지한 채 `_workmeta/<project>/project_context`에 `SourceSpan→ContextEvent→ContextUnit→ContextBranch→ProjectContext→memory candidate` TARGET 계층, append-only summary revision, HPP sole context writer, ERP accepted-generation read model, MCP/plugin 직접 파일쓰기 금지와 P5A→P5D thin Shadow 순서를 고정했다. 실제 폴더·writer·ERP index·MCP route·DB·TaskDriver·운영 상태 변경 `0` |
 | HPP correction review state | bounded pilot는 `PILOT_EXECUTED`; formal master-plan authority와 production readiness는 계속 `READY_FOR_OWNER_REVIEW/HOLD`; accepted history·accepted knowledge·live readiness claim `0` |
 | bounded pilot 실행 authority | owner task envelope `TASK-ENGINE-HPP-FIVE-LANE-INGRESS-PILOT-V1` 및 `TASK-ENGINE-OPERATIONAL-DATA-KNOWLEDGE-E2E-V1`; execution baseline `main@1110c8ca5e8370271799a9f266a4c17b72188f62`; feature-OFF·standalone-copy·localhost·metadata-only 범위 |
 | 문서 성격 | 계획 정본과 실제 bounded pilot receipt를 함께 유지하는 living master plan; 생산 운영 전환은 별도 owner gate |
@@ -318,7 +319,7 @@ live acceptance 증거가 아니다.
 | source/file revision | file activity revision은 강함; 공통 SourceRevision 운영 원장은 없음 | logical source→immutable revision→node observation lineage | source별 revision 누락·중복과 HWP→HWPX receipt |
 | 시간축 | occurrence 관련 field가 일부 존재 | `valid_at`와 `known_at`을 분리한 point-in-time replay | null/regression/ordering과 두 번 replay digest |
 | relation ledger | ontology 어휘·relation matrix 계약은 존재 | append/supersede RelationEvent와 exact endpoint | multi-parent, stale alias, fuzzy-confirmed `0` |
-| project context | gate/skeleton/work/history branch와 B9a~c 읽기 모델 | owner relation ledger에서 B9d knowledge backlink까지 투영 | gate→branch→event→task→fruit coverage |
+| project context | `project_context` v0의 source/occurrence/node/edge/branch/judgment/review와 project/branch 현재 요약, B9a~c 읽기 모델 | 같은 owner 안에서 exact SourceSpan→ContextEvent→ContextUnit→ContextBranch→ProjectContext와 append-only summary/memory-candidate lineage를 만든 뒤 B9d knowledge backlink와 ERP accepted-generation read model로 투영 | exact span resolution, unit membership/replay, correction/supersession, short/medium/long summary revision, context writer epoch, `_workmeta`↔ERP generation parity, projection owner mutation `0` |
 | RAG | 공용 `_workspaces/knowledge/rag` 기본 경로가 여러 consumer에 고정 | project/common/system resolver, exact source revision, consumer 전환 | 모든 asset/consumer inventory, foreign-project/orphan/collision `0` |
 | Wiki | 제한된 Markdown reader와 metadata shell | immutable WikiRevision writer, claim/source relation, project ACL | writer owner, cross-project isolation, body 저장 경계 |
 | ERP UI/MCP query | personal MCP는 agenda/task/mail/artifact와 one-shot WorkSession 등 8개 도구를 제공하지만 project-history/RAG/Wiki accepted-generation query는 없다. 인증 과정의 token `last_used_at` audit touch는 발생할 수 있다 | accepted project-history/context/knowledge의 primary user query surface. `scope=project|common` 필수, implicit fallback 없음, exact generation/revision/locator/claim ceiling 반환 | explicit ACL과 existence-leak 정책, API↔CSV/XLSX parity, generation pinning/cursor, feature binding/team pilot |
@@ -765,6 +766,62 @@ Local model은 정확도·지연·자원·재현성 acceptance를 통과하면 P
 있지만, 모든 model output은 exact input revision, model/engine revision, policy revision과
 evidence refs를 남긴다. LLM 교체나 미사용이 raw/history ID와 TaskDriver authority를 바꾸지 않아야
 한다.
+
+#### 3.4.8 지속 맥락 저장 계층과 ERP/MCP 투영 (`TARGET`, P5A→P5D)
+
+P5는 질문 때마다 RAW 전체를 다시 읽어 장문 맥락을 새로 만드는 단계가 아니다. 기존
+`_workmeta/<project>/project_context` owner 안에서 다음 계층을 append-only로 누적하고,
+질의 시 bounded context pack만 조립한다.
+
+```text
+source revision
+  -> SourceSpan
+  -> ContextEvent
+  -> ContextUnit                    # 짧은 맥락
+  -> ContextBranch                  # 중간 맥락
+  -> ProjectContext summary         # 긴 맥락
+  -> reviewed memory candidate
+  -> P6 TaskIntent candidate
+```
+
+TARGET physical responsibility map:
+
+```text
+_workmeta/<project_code>/project_context/
+├─ source_spans/<YYYY-MM>.jsonl
+├─ events/<YYYY-MM>.jsonl
+├─ units/<YYYY-MM>.jsonl
+├─ memberships/<YYYY-MM>.jsonl
+├─ summaries/revisions/{unit,branch,project}/<YYYY-MM>.jsonl
+├─ memory_candidates/<YYYY-MM>.jsonl
+└─ projections/erp_receipts/<YYYY-MM>.jsonl
+```
+
+기존 `branches.csv`, `occurrences.csv`, `sources.csv`, `nodes.csv`, `edges.csv`,
+`judgments.csv`, `review_queue.csv`, `summaries/project_summary.md`,
+`summaries/branch_summaries.csv`는 호환 read-model로 유지하며 새 append-only owner에서
+재생성 가능해야 한다. 원문·음성·첨부·transcript·파일 byte는 이 tree에 들어가지 않는다.
+
+| P5 하위 단계 | 산출물 | acceptance ceiling |
+| --- | --- | --- |
+| P5A contract | exact ID/record/path, correction/supersession, writer/reader, raw/secret negative boundary | public contract/fixture only |
+| P5B feature-OFF writer | SourceSpan/Event/Unit/membership와 summary revision reducer | synthetic metadata only; official task/project write `0` |
+| P5C thin Shadow | owner-selected 한 프로젝트의 Slack+mail+voice exact refs로 짧은→중간→긴 맥락과 gap/review 생성 | Shadow generation only; ambiguous project/event stays HOLD |
+| P5D ERP read model | accepted generation projector, ACL, digest/row parity, rollback receipt, MCP read-only query | ERP projection only; `_workmeta` owner mutation과 plugin direct write `0` |
+
+P5C는 전체 프로젝트 bulk backfill보다 먼저 실행한다. 같은 실제 프로젝트에서 source binding이
+명확한 Slack, exact mail occurrence, versioned voice transcript를 사용하되 source span이 해소되지
+않거나 의미가 애매하면 `inference_pending|unclassified|held_conflict|human_review_required`로
+남긴다. Common SE 지식은 exact revision ref가 붙은 advisory 근거이고 회사 규칙은 normative
+근거다. 어느 쪽도 project fact나 ERP current state를 덮어쓰지 않으며 project/common implicit
+fallback과 cross-project leakage는 금지한다.
+
+정상 writer는 fenced HPP `project_context_writer` 하나다. 현행
+`haengbogwan_project_context.mjs`는 bounded cutover 전 compatibility writer이며, MCP·ERP UI·
+PC plugin·Hermes형 gateway는 직접 `_workmeta`를 쓰지 않는다. 이들은 ERP/MCP에 proposal이나
+checkpoint를 제출하고 accepted generation을 조회한다. ERP DB는 공식 task/schedule/assignment/
+approval/completion과 replaceable context read model을 소유하지만 project context canon을
+흡수하지 않는다.
 
 ### 3.5 Payload ingress custody와 promotion (`TARGET`, 물리 binding은 `VERIFY_HP`)
 
@@ -2175,7 +2232,7 @@ allowlist에서 제외한다.
 | P2 | ID/ref/clock crosswalk/packet identity receipt | `C01A` typed identity only + `C08A` immutable packet identity only | SourceRevision materialization, Wiki, TaskDriver, runtime binding foundation/lease activation |
 | P3 | immutable revision/relation lineage receipt | `C06A` source/file/artifact/relation only | RAG/Wiki indexing, context acceptance, discovery |
 | P4 | exact revision-bound RAG/Wiki receipt | `C05` resolver + `C06B` Wiki/source lineage only | task discovery, Driver, ERP writer |
-| P5 | deterministic `context_acceptance_gate` receipt | `C07A` context assembly/coverage validation only | P6 discovery until receipt accepted |
+| P5 | deterministic `context_acceptance_gate` receipt | `P5A` exact context contract → `P5B` feature-OFF writer → `P5C` one-project Slack+mail+voice thin Shadow → `P5D` ERP read-model/MCP read-only parity; `C07A`는 이 accepted generation의 context assembly/coverage validation만 수행 | P6 discovery, bulk backfill, official task/project write, plugin direct `_workmeta` write until P5D receipt accepted |
 | P6 | candidate-only discovery acceptance | `C04A` source adapters→TaskIntent candidate, ERP write `0` | P7 TaskDriver until P6 receipt accepted |
 | P7 | TaskDriver authority/idempotency acceptance | `C01B` pure TaskDriver contract | P8 schema/outbox/ERP writer until P7 receipt accepted |
 | P8 | sole-writer/atomicity/mail-outbox/binding-foundation acceptance | parallel `C02` + `C08F`, then `C03→C04B`: feature-OFF binding loader, mail assignment/outbox, five-lane projector and ERP persistence | local pilot binding, live role/lease/failover, life-tree pilot |
@@ -3711,7 +3768,7 @@ Candidate의 유용한 pure code는 입력이지만, 다음은 그대로 통합�
 | HP-ID-05 | ERP/source/B9/daily/Driver namespace가 exact crosswalk되나 | C07A/C07B orphan/ambiguous/bare join 0 |
 | HP-ID-06 | gate/branch/task link가 project-qualified인가 | C06A stale/gate collision fixture |
 
-### 14.4 HP-TREE-01~07
+### 14.4 HP-TREE-01~12
 
 | ID | 핵심 질문 | 합격/실행 위치 |
 | --- | --- | --- |
@@ -3722,6 +3779,11 @@ Candidate의 유용한 pure code는 입력이지만, 다음은 그대로 통합�
 | HP-TREE-05 | 동일 cutoff replay가 task/B9/daily에서 같은가 | C07B/C10 두 번 digest 동일 |
 | HP-TREE-06 | 생명수 조회가 owner row를 바꾸지 않나 | C07B/C10 before/after invariant |
 | HP-TREE-07 | fruit가 exact completion/artifact/decision/verification/outcome ref를 갖나 | C07B coverage; 미정 owner는 UNKNOWN |
+| HP-TREE-08 | 모든 ContextEvent가 exact SourceSpan과 source revision에 해소되나 | P5A/P5C orphan·fuzzy span `0`, raw/body copy `0` |
+| HP-TREE-09 | ContextUnit membership와 correction lineage가 replay 가능한가 | P5B 같은 입력 2회 digest 동일, orphan/cycle/two-current-leaf `0` |
+| HP-TREE-10 | 짧은·중간·긴 summary가 exact accepted unit/branch generation을 사용하나 | P5B/P5C input generation+supersession ref, latest-source silent reinterpretation `0` |
+| HP-TREE-11 | HPP context writer 하나와 ERP projection parity가 유지되나 | P5D stale epoch reject, `_workmeta` input digest/row count↔ERP generation receipt 일치, rollback PASS |
+| HP-TREE-12 | ERP UI/MCP/plugin 조회가 context canon을 직접 쓰거나 범위를 넘지 않나 | P5D/Q8 project/common explicit ACL, direct `_workmeta` mutation·implicit fallback·cross-project leak `0` |
 
 ### 14.5 MAIL-01~12 sole-writer/parity/fencing tests
 
@@ -3952,7 +4014,7 @@ npm run ui:docs:check
 npm run validate:path-policy
 npm run ui:done:check
 immutable oracle working-tree diff + before/after blob
-AC-01~AC-26 completeness
+AC-01~AC-28 completeness
 fresh root validation/review (공개 기준선 `main@310640b7a5692298227026b547a68bcb25d2b330`까지 PASS;
 후속 delta는 publish 전 재검증)
 ```
@@ -4054,6 +4116,7 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | D33 | owner·team received/sent mail source coverage와 occurrence/observation/participant identity | 한 logical mail occurrence에 account/folder별 mailbox observation을 append하고 sender/to/cc/bcc를 relation으로 분리한다. exact provider/RFC occurrence ref만 confirmed merge하며 POP3는 received-only다. owner Outlook Sent와 Soulforge SMTP outbound는 각자 관측 범위만 소유하고 팀 sent source는 capability inventory 뒤 archive/export/API, outbound journal, bounded client adapter 중 owner가 선택 | H01C/H06/P5/P8/P9/P10 | HP-COMM-01~06 / team sent source 추정, fuzzy merge, cc assignee, bcc inference, duplicate task candidate, credential/body 공개 금지 |
 | D34 | Slack app/workspace/channel identity·project binding·history/revision/retention·user mapping·attachment boundary | stable `workspace_id+channel_id` effective-dated project binding, allowlisted joined project channels, outer event delivery dedupe와 logical message/thread/edit/delete revision 분리, HPP sole normal collector. project channel은 authoritative default project scope지만 task는 candidate-only. DM/common/unmapped/Slack Connect는 explicit rule 전 HOLD | H07A/H07B/P3/P5/P9/P10 | HP-COMM-07~12 / auto join/post, name/fuzzy project mapping, raw/secret/attachment copy, message/reaction completion promotion, live app·token·scheduler 활성화 금지 |
 | D35 | Soulforge Codex client plugin package·per-PC install/trust·active-task focus·hook/outbox·token budget | plan default는 MCP server와 분리된 동일 public-safe plugin을 PC별 설치하고 account/device credential은 OS-protected provision한다. 새 thread는 `SessionStart`에서 local opaque binding과 ERP active WorkSession receipt를 재검증하며, 초기 `{account,device}` current focus는 하나다. no-active/multiple-active/scope mismatch는 자동 선택하지 않는다. 파일/run evidence는 LLM 없이, 의미 checkpoint/closeout은 bounded boundary에서만 생성한다 | AX-CP1/AX-G3/W10/P10 | official Codex plugin/skill/MCP/hook capability review+feature-OFF five-thread/restart/offline/revoke/uninstall fixture / credential 포함, transcript parser, silent ambiguous binding, every-turn summary, live team install 금지 |
+| D36 | project-context 지속 계층·writer·ERP read-model owner | `_workmeta/<project>/project_context`가 SourceSpan/Event/Unit/membership/summary revision/memory candidate canon을 소유하고 HPP `project_context_writer`만 정상 append; ERP는 accepted-generation read model, MCP/plugin은 query/proposal surface만 소유한다. 현행 CSV/Markdown은 rebuildable compatibility projection이고 Hermes/client memory는 client-local이다 | P5A→P5D/P6/Q5/Q8/AX-G2 | exact schema/lineage/replay/raw-negative, one-project three-source Shadow, `_workmeta`↔ERP digest/row parity, rollback/ACL/no-fallback / 새 top-level root, raw copy, second context truth, multi-writer, implicit project/common fallback, plugin direct write 금지 |
 
 #### 17.1.1 첫 승인과 후속 ratification 입력
 
@@ -4065,7 +4128,7 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | `C00A` / retained | historical accepted `BLOCKED` receipt | prerequisite evidence only, current execution authority `false`, P1 `BLOCKED` | retained public receipt ref | private/live query, report write, code mutation | C00Q prerequisite history만 보존, P1은 계속 잠금 |
 | `C00Q` / retained | frozen inventory CLI/test/schema exact refs와 `task_engine_c00q_formal_acceptance_pass_v1` | formal receipt retained, execution approval expired | public/synthetic foundation과 retained receipt 검증 | live/private input, report write, DB/API/runtime mutation, P1 unlock | 새 실행은 새 authority가 필요하며 retained receipt는 P0 effect가 아님 |
 | `C00B` / retained C00Q receipt 뒤 | `owner_authorized_query_only`; approval-time SHA, lane별 exact authority/source/profile, metadata output, approval ref·expiry | `non_executable_hold`, live facts `UNKNOWN/VERIFY_HP`, P1 `BLOCKED` | retained frozen C00Q tool receipt와 별도 승인된 metadata-only source | doctor/workspace inventory로 대체, raw/private payload, tool 변경, source/tracked/runtime mutation, exact one-path 밖 output write, H00 six-state completeness 선사용 | C00-LIVE-01..04 authority-backed inventory closure·zero-mutation receipt → C00B PASS는 H00 ratification review만 허용 |
-| `H00` / accepted+unexpired C00B PASS 뒤 | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea`의 세 exact blob과 independent event envelope+coverage receipt pair, literal `unknown`, `known_at` half-open window, six-state count/null/gap semantics를 각각 `RATIFY | HOLD`; content-addressed-until-revoked policy와 issued-at 승인 | `canon_candidate` HOLD | 세 pinned public file의 approval-time blob match, exact test 20/20 receipt, fresh Level 2 review | file edit, adapter, migration, live use, completeness claim, D19~D34 자동승인 | owner decision ref + bound blob/test/review receipts; overall RATIFY는 H01~H05 exact child-packet review만 열고 adapter/H06/writer 권한은 계속 false |
+| `H00` / accepted+unexpired C00B PASS 뒤 | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea`의 세 exact blob과 independent event envelope+coverage receipt pair, literal `unknown`, `known_at` half-open window, six-state count/null/gap semantics를 각각 `RATIFY | HOLD`; content-addressed-until-revoked policy와 issued-at 승인 | `canon_candidate` HOLD | 세 pinned public file의 approval-time blob match, exact test 20/20 receipt, fresh Level 2 review | file edit, adapter, migration, live use, completeness claim, D19~D36 자동승인 | owner decision ref + bound blob/test/review receipts; overall RATIFY는 H01~H05 exact child-packet review만 열고 adapter/H06/writer 권한은 계속 false |
 | `D19` / H03A 전 | negative boundary를 먼저 ratify; 신규 instruction/receipt source마다 exact owner surface, schema/version, ID allocator, consent·retention을 별도 명시 | existing bounded WorkSession만 후보; 나머지 HOLD, broad capture OFF | WorkSession과 negative fixture | whole task chat·hook full-message summary·screen·keystroke·OS capture, owner 미정 source | allowlist/negative test/direct-caller evidence → H03A input binding |
 | `D20` / H03B 전 | schedule current owner/path, immutable revision/event owner/path, stable row-ID owner/schedule scope, canonicalization/timezone, sole writer | `HOLD` | synthetic stale-revision/canonicalization fixture | row ID 발명, live event, task discovery | current/revision/event replay와 stale expected-revision reject → H03B |
 | `D24` / H06 target 확정 전 | 다섯 exact view name과 CSV/XLSX(메일은 ICS 포함) target, redacted projection-field allowlist, HPP sole-normal-projector, Mac/다른 PC normal allowlist empty를 logical TARGET으로 ratify | 이름은 candidate, materialization/export acceptance `OFF` | schema/path/field fixture | unapproved display field export, private folder 생성, non-HPP normal write | target path/field allowlist·shadow schema fixture → H06 target contract; 실제 생성은 P9 별도 |
@@ -4080,6 +4143,7 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | `D33` / H01C 전 | account별 received/sent expected source와 applicability/window/freshness, exact native/RFC occurrence ID, mailbox observation ID, sender/to/cc/bcc relation, unmatched/fuzzy candidate policy, team sent acquisition choice | POP3=received-only, owner Outlook/Soulforge SMTP=각 관측 범위만, team sent=`UNKNOWN/HOLD` | synthetic one-message/multi-observation·thread·role fixture | team credential/raw body access, fuzzy confirmed merge, cc/bcc 추정, live source/backfill/DB write | HP-COMM-01~06 PASS는 H01C contract/shadow review만 허용; team sent live는 private binding+owner+Level 3 별도 |
 | `D34` / H07A 전 | exact Slack app/workspace authority, channel-ID project binding+effective dates, minimal scopes, joined allowlist, Socket Mode/HTTPS choice, backfill/cursor/retry, retention/delete/legal hold, user→ERP mapping, Slack Connect/DM/common rule, attachment custody | Slack collector/projector OFF, channel name non-authoritative, unmapped scopes HOLD | public-safe synthetic Events/Web-API fixtures와 source-supported official-doc review | token/secret/raw payload, auto join/post, live app/event subscription, task/knowledge write | H07A HP-COMM-07~12 contract PASS 뒤 H07B는 P3 receipt 필요; one-channel canary와 production은 각각 owner+Level 3 별도 |
 | `D35` / AX-CP1 전 | plugin owner/package path, supported Codex surfaces, per-PC install/update/trust/revoke/uninstall, MCP config template, credential provision, local active-binding/outbox path·writer·encryption·retention, visible banner와 ambiguous binding UX, bounded token budget | plugin absent/OFF, credential 없음, active binding materialization 없음 | official Codex docs review+public synthetic one-task/five-fresh-thread·restart·offline/replay·revoke/uninstall fixture | transcript read, hidden reasoning/screen/keyboard capture, hook semantic-summary authority, live MCP/credential/team install | AX-CP1 PASS는 feature-OFF package만 허용; AX-G3 one-seat private pilot과 team rollout은 각각 별도 owner+Level 3 |
+| `D36` / P5A 전 | exact SourceSpan/Event/Unit/membership/summary-revision/memory-candidate schemas, HPP context-writer identity/epoch, ERP projection manifest/parity/rollback owner, MCP/plugin proposal/query boundary | existing v0 CSV/Markdown remains compatibility state; new append-only paths and ERP read model OFF | public contract, synthetic lineage/replay/raw-negative/parity fixtures | private folder materialization, live source read, DB migration, writer/MCP/plugin activation, bulk backfill | P5A contract PASS opens P5B feature-OFF only; P5C one-project Shadow and P5D ERP projection require their own accepted receipts |
 
 아래는 completed C00A/C00Q의 historical retained 상태를 요약한다. 현재 새로 요청할 수 있는 실행
 shape는 §18.2의 current-authority C00B packet이며, 어떤 retained receipt도 C00B PASS를 대체하지 않는다.
@@ -4796,7 +4860,7 @@ owner approval, canary/runtime readiness evidence가 아니다.
 Runtime/live readiness, private inventory, C00B/P0 acceptance는 증명하지 않는다. Final file hash와
 commit은 self-reference를 피하기 위해 문서 밖 publish 보고에 남긴다.
 
-### AC-01~AC-26 completeness — verified for plan scope
+### AC-01~AC-28 completeness — verified for plan scope
 
 최초 correction과 2026-07-15 follow-up의 reviewer/validator 결과는 위 historical receipt 범위에서만
 유효하다. 현재 exact nine-file HPP addendum도 fresh final inspector와 independent judge가 plan scope에서
@@ -4824,7 +4888,7 @@ approval·canary/runtime readiness·live activation을 뜻하지 않는다. C00A
 | AC-15 | `VERIFIED_FOR_PLAN_SCOPE` | §9와 도식 7의 projection owner mutation `0` |
 | AC-16 | `VERIFIED_FOR_PLAN_SCOPE` | §11 roles/packet/coordinator/projector/transfer/promoter/lease/fencing/manual failover 분리; HPP outage는 local HOLD/last-accepted read-only, remote mount `0` |
 | AC-17 | `VERIFIED_FOR_PLAN_SCOPE` | §14 V/HP/MAIL/HP-HISTORY/HP-COMM/HP-LABEL, replay/adversarial/regression |
-| AC-18 | `VERIFIED_FOR_PLAN_SCOPE` | §17 D01~D35, 도식 11 activation gates, 승인 전 중단 |
+| AC-18 | `VERIFIED_FOR_PLAN_SCOPE` | §17 D01~D36, 도식 11 activation gates, 승인 전 중단 |
 | AC-19 | `VERIFIED_FOR_PLAN_SCOPE` | §10·§16과 P10에서 core/AX/AgentRun/IQ/ML 독립 phase |
 | AC-20 | `VERIFIED_FOR_PLAN_SCOPE` | root validators와 independent review 뒤 `READY_FOR_OWNER_REVIEW`로 전환; 구현 승인은 별도 |
 | AC-21 | `VERIFIED_FOR_PLAN_SCOPE` | §2.6 CV-01~09 evidence-calibrated verdict와 §12 P5→P6→P7→P8 hard receipt ordering |
@@ -4834,6 +4898,7 @@ approval·canary/runtime readiness·live activation을 뜻하지 않는다. C00A
 | AC-25 | `VERIFIED_FOR_PLAN_SCOPE` | §3.1·§3.4.5·§12 H01C/H07·§14 HP-COMM·§17 D33~D34에서 account별 received/sent coverage, logical mail occurrence와 mailbox observation 분리, sender/to/cc/bcc semantics, exact-ID-only merge, stable Slack channel-ID project binding, edit/delete revision, DM/common HOLD, candidate-only authority와 live activation `0`을 고정 |
 | AC-26 | `VERIFIED_FOR_PLAN_SCOPE` | §3.4.6·§12 H00/H06/H07/C06A/C07A/C04A·§14 HP-LABEL에서 project/time/party/revision 사실 필드와 semantic annotation을 분리하고, typed project/party/account/producer ref·assignment basis·PLAUD 절대/상대 clock·voice 8+15 lossless crosswalk·다중 signal cardinality·policy-bound confidence·append-only lineage/replay·raw/secret negative sentinel·cross-channel non-merge·TaskDriver authority ceiling을 고정 |
 | AC-27 | `VERIFIED_FOR_PLAN_SCOPE` | §10.1A·§10.4·§12 `TEAX-AXCP01`·§17 D35에서 MCP server와 per-PC Codex plugin을 분리하고, ERP/server active session truth, SessionStart 재검증, one-task/five-thread continuity, ambiguous binding HOLD, credential/transcript 배제, LLM-free file/run evidence, bounded checkpoint/closeout와 AX-G1→AX-G2→AX-CP1→AX-G3→team rollout 순서를 고정 |
+| AC-28 | `VERIFIED_FOR_PLAN_SCOPE` | §3.4.8·§12 P5A→P5D·§17 D36과 `PROJECT_CONTEXT_GRAPH_MODEL_V0`에서 `_workmeta` owner를 유지하고 SourceSpan→Event→Unit→Branch→ProjectContext, append-only short/medium/long summary revisions, memory candidate, HPP sole writer, ERP accepted-generation read model, MCP/plugin direct write `0`, one-project Slack+mail+voice thin Shadow를 고정 |
 
 Clean scoped commit+push, 이 문서의 결정표, validator/review evidence로 forward state가 모두
 보존되면 `NIGHT_WORK_HANDOFF`를 만들지 않는다. 미해결 시도나 controller/PC 전환으로만 남는

@@ -549,6 +549,46 @@ source_revision_id
 - `.registry/knowledge/<knowledge_id>` 승격은 별도 review 결과이며 승인된
   Drive `ontology_release_id`, manifest/content hash, Git commit lineage를 함께 고정한다.
 
+### 10.0 프로젝트 맥락과 기억의 시간 계층
+
+프로젝트 맥락은 한 번 생성되는 장문 요약이 아니라 exact source revision에서 시작하는
+append-only 관계 계층이다.
+
+```text
+source_revision
+  -> source_span
+  -> context_event
+  -> context_unit
+  -> context_branch
+  -> project_context
+  -> memory_candidate
+```
+
+| 계층 | 시간 범위 | 정본 책임 |
+| --- | --- | --- |
+| `source_span` | 원천의 정확한 구간 | source revision과 locator/offset/page/cell/message revision 연결 |
+| `context_event` | 한 요청·약속·결정·변경·완료 주장 | exact span·producer/model/policy revision과 의미 후보 상태 |
+| `context_unit` | 짧은 사건 묶음 | 관련 event refs, 상태, 검토, correction lineage |
+| `context_branch` | 중간 업무 흐름 | unit membership, SE concern/gate relation, branch summary revisions |
+| `project_context` | 장기 과제 이력 | accepted branch/unit와 gap을 이용한 project summary revisions |
+| `memory_candidate` | 재사용 후보 | evidence·scope·review·revocation refs; 지식 정본 아님 |
+
+이 계층의 project-local live owner는
+`_workmeta/<project_code>/project_context/**`다. ERP의 context table/index,
+Neo4j, CSV/XLSX, UI graph, MCP 응답은 accepted generation을 읽는 projection이며
+두 번째 정본이 아니다.
+
+`memory_candidate`는 검토된 프로젝트 맥락에서 추출한 재사용 제안이다. 승인된
+Wiki/RAG/ontology 지식은 기존 knowledge owner와 promotion 절차를 따르며,
+Hermes형 gateway나 다른 client agent의 preference/transcript memory는 client-local로
+남는다. client memory를 프로젝트 기억으로 자동 승격하거나 반대로 프로젝트 맥락을
+client transcript에 통째로 복사하지 않는다.
+
+질의 시에는 project/gate/branch의 작은 중심 맥락, 관련 unit/event, top-k exact
+source/knowledge refs만 bounded context pack으로 조립한다. 긴 과거를 매번 처음부터
+재추론하지 않으며, accepted summary revision을 재사용하고 새 evidence delta만 후보로
+consolidate한다.
+
 ### 10.1 과제 맥락에 넣는 지식의 세 층
 
 과제 맥락은 모든 지식과 도구를 한 번에 넣지 않는다. 모델이 바뀌어도 남아야 하는

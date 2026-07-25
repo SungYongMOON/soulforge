@@ -96,6 +96,38 @@ Previously derived UTC annotation generations must be regenerated from their
 retained source evidence; RAW audio, mail, Slack payloads, and source files are
 not rewritten.
 
+## Handoff to durable project context
+
+`source_timeline_annotation.v1` is retrieval evidence for the P5 context
+assembler. It does not itself become short, medium, or long context.
+
+```text
+source annotation
+  -> exact source-span metadata
+  -> ContextEvent candidate
+  -> reviewed ContextUnit
+  -> ContextBranch
+  -> ProjectContext summary revisions
+```
+
+- `evidence_span_refs` resolve to metadata-only source spans under the accepted
+  project context owner; source text and bytes remain in source-native custody.
+- One annotation signal may propose one ContextEvent. Repeated mentions remain
+  separate occurrences and may later be related by a ContextUnit.
+- A ContextUnit groups exact event refs; it must not merge source occurrence
+  identities or infer an official task.
+- Confirmed Slack channel binding may provide project scope. Voice, mail, and
+  other context inference remains candidate-only until an accepted
+  classification event or owner decision exists.
+- Unclassified or conflicting inputs stay in cross-project HPP/guild-hall
+  ingress state and review queues. They are not copied into an arbitrary
+  project to make the tree look complete.
+- Corrections preserve annotation, source-span, event, unit, and summary
+  lineage through append-only predecessor/supersession refs.
+
+The durable owner and ERP/MCP projection boundary are defined by
+`PROJECT_CONTEXT_GRAPH_MODEL_V0.md`.
+
 ## Authority ceiling
 
 An annotation is retrieval evidence, not an ERP task or accepted project

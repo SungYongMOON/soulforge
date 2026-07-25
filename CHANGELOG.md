@@ -2,6 +2,21 @@
 
 ## 2026-07-25
 
+### Durable project-context foundation plan
+
+- Kept `_workspaces` as the project payload owner,
+  `_workmeta/<project>/project_context` as the durable project-context canon,
+  and dev-ERP as the official task owner plus replaceable read model.
+- Added the planned append-only
+  `SourceSpan → ContextEvent → ContextUnit → ContextBranch → ProjectContext`
+  hierarchy, short/medium/long summary revisions, reviewed memory candidates,
+  and ERP projection receipts without creating folders, moving payloads, or
+  changing a writer or database.
+- Split P5 into contract, feature-OFF writer, one-project Slack/mail/voice
+  Shadow, and ERP/MCP read-only projection steps. MCP, per-PC plugins, and
+  optional agent clients remain query/proposal surfaces and may not write
+  `_workmeta` directly.
+
 ### Personal MCP closeout recommendation
 
 - Recorded a non-binding MCP contract recommendation that an accepted assignment
