@@ -2,6 +2,18 @@
 
 ## 2026-07-25
 
+### KVDS one-project timeline Shadow
+
+- Added a strict one-project Shadow builder and dry-run-by-default CLI over the
+  common source annotation and append-only project-binding contracts.
+- Materialized the first private `P26-014` (KVDS) timeline with 84 mail
+  metadata occurrences and 3 owner-confirmed voice occurrences, all in KST.
+  Two raw-copied mail rows and 8 Slack system-subtype rows stayed held; PC work,
+  team-file, and run-log coverage remains explicitly `not_collected`.
+- Wrote only immutable generation/month JSONL plus a rebuildable CSV under the
+  private project-context owner. No RAW body, accepted context, official task
+  or project assignment, ERP/DB, scheduler, or production writer was changed.
+
 ### Feature-OFF project timeline foundation
 
 - Added strict public contracts for append-only source scope bindings and

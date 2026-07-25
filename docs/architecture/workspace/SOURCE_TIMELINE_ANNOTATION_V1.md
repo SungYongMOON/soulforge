@@ -121,6 +121,17 @@ title alone is not an authoritative binding.
   candidate/unassigned/common/restricted/conflict entries outside project
   timelines. It has no file writer, live source reader, DB, scheduler, network,
   ERP, MCP, or production authority.
+- `guild_hall/shared/project_timeline_shadow.mjs` and its CLI provide the first
+  bounded private materialization step for one owner-selected project. The CLI
+  is dry-run by default and can write only under the exact project's
+  `_workmeta/<project>/project_context/projections/timeline` owner. It persists
+  immutable generation JSON, month-partitioned JSONL, and a rebuildable
+  `current.csv`; all business-event times remain KST.
+- The first actual Shadow for `P26-014` (KVDS) contains 84 mail metadata
+  occurrences and 3 explicitly owner-confirmed voice occurrences. Two
+  raw-copied legacy mail rows, 8 Slack system-subtype rows, and all ambiguous
+  voice labels remain outside the project timeline. This is source routing
+  evidence, not accepted context or a TaskDriver input.
 - Candidate producers use provider-neutral kinds. `local_llm` and
   `remote_llm` (for example an owner-approved bounded external model runner)
   may propose labels or bindings; neither grants official project or task

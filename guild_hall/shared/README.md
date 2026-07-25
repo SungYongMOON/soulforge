@@ -97,6 +97,29 @@
 - This module is pure and feature-OFF: it has no filesystem, DB, scheduler,
   network, ERP, MCP, or production-writer surface.
 
+## One-project timeline Shadow materializer
+
+- `project_timeline_shadow.mjs` combines one exact project's private mail
+  history metadata, already-confirmed Slack annotations, and explicitly
+  owner-confirmed metadata events into the common annotation/binding contract.
+  It never opens or copies mail bodies, Slack text, audio, attachments, or
+  secrets.
+- Mail rows marked as raw-copied are held outside the projection. Slack rows
+  must already carry the exact confirmed project binding. Voice and the three
+  remaining lanes enter only through an explicit project event with retained
+  basis refs; this builder does not guess a project.
+- `project_timeline_shadow_cli.mjs` is dry-run by default. `--apply` writes only
+  below an exact, non-aliased private project root:
+  `project_context/projections/timeline/`. Immutable generation JSON and
+  monthly JSONL files are replay-safe; `current.csv` is a rebuildable view.
+- The first actual bounded Shadow is `P26-014` (KVDS): 84 legacy mail metadata
+  occurrences and 3 owner-confirmed voice occurrences. Its mapped Slack
+  channel had no accepted human-message occurrence in the observed batch; 8
+  system-subtype rows remained held. PC work, team-file, and run-log lanes
+  remain feature-OFF and are reported as `not_collected`.
+- This surface does not accept context, create a task, change an official
+  project classification, write ERP/DB, or activate a runtime writer.
+
 ## Feature-OFF project-history knowledge projection
 
 - `project_history_knowledge_projection.mjs` derives explicit `project` or
