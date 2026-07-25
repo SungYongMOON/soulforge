@@ -12,6 +12,22 @@
   due-date, and official-completion decisions remain TaskDriver responsibilities;
   the current one-shot `next_action` field remains compatibility-only.
 
+### AX Codex client plugin plan
+
+- Added the missing per-PC Codex client layer to the AX master plan so team
+  members do not need to remember WorkSession IDs or manually announce every
+  thread change.
+- Ordered the client path as
+  `AX-G1 → AX-G2 → AX-CP1 feature-OFF plugin → AX-G3 one-seat pilot → team
+  rollout`, without changing the P0-P9 core or activating an MCP endpoint,
+  credential, hook, writer, or team installation.
+- Defined the planned plugin boundary around a task-work skill, MCP config
+  template, `SessionStart` active-binding check, opaque local binding,
+  durable outbox/ack helper, visible ambiguous-binding guard, and per-PC
+  install/trust/revoke/uninstall verification. Raw transcripts, secrets,
+  screen/keyboard capture, every-turn semantic summaries, and TaskDriver
+  authority remain excluded.
+
 ## 2026-07-24
 
 ### Slack attachment and scheduled-ingress fail-closed guards

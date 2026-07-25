@@ -324,7 +324,7 @@ live acceptance 증거가 아니다.
 | ERP UI/MCP query | personal MCP는 agenda/task/mail/artifact와 one-shot WorkSession 등 8개 도구를 제공하지만 project-history/RAG/Wiki accepted-generation query는 없다. 인증 과정의 token `last_used_at` audit touch는 발생할 수 있다 | accepted project-history/context/knowledge의 primary user query surface. `scope=project|common` 필수, implicit fallback 없음, exact generation/revision/locator/claim ceiling 반환 | explicit ACL과 existence-leak 정책, API↔CSV/XLSX parity, generation pinning/cursor, feature binding/team pilot |
 | ENGINE-12 | 인증 GET, project 접근 검사, mail/ERP/SE/voice/Codex/file adapter와 일일 렌즈 | TaskDriver/task_event/typed ref/bitemporal adapter | `HISTORICAL_REPORTED`: 당시 17 test 중 15 pass; `server not ready` 2건 원인 재현 |
 | B9 | 장기 생명나무 B9a~c 구현, B9d 미완료 | 지식 backlink와 exact completion/outcome fruit | projection이 owner row를 쓰지 않는지 전후 digest |
-| AX Workspace | 완성된 AX 정본/UI는 없고 ERP MCP에는 idempotent one-shot structured result persistence/API만 부분 구현 | one-shot facade는 보존하고 별도 assignment-bound personal lifecycle·accepted query client를 AX-G1 이후 feature-OFF로 구축 | P9 core 뒤 D28/D29와 별도 owner gate; thread/node/outbox capability·whole-conversation capture 없음 |
+| AX Workspace | 완성된 AX 정본/UI나 팀원 PC용 Codex client plugin은 없고 ERP MCP에는 idempotent one-shot structured result persistence/API만 부분 구현 | one-shot facade는 보존하고 assignment-bound personal lifecycle·accepted query server를 AX-G1/G2, per-PC task-linking plugin을 AX-CP1 feature-OFF로 구축한 뒤 AX-G3 one-seat로 검증 | P9 core 뒤 D28/D29/D35와 별도 owner gate; thread/node/outbox/plugin install capability·whole-conversation capture 없음 |
 | AgentRun | mission/workflow/party는 존재하나 run control plane은 분리 미완료 | AgentRun/capability/receipt를 TaskDriver와 별도 owner로 구축 | ID/authority/receipt crosswalk |
 | Engineering IQ/ML | canonical trace와 verified label pool 없음 | trace 먼저, 충분한 검증 label 뒤 ranking/ML 후보 | label 품질·수량·편향 기준 owner 결정 |
 
@@ -1406,6 +1406,8 @@ coordinator가 transaction 안에서 같은 binding digest를 다시 검증한�
 instance가 없으므로 route는 항상 `423 binding_not_active`와 write `0`이다. C09D OFF, C10 pilot,
 G01 production revision 외의 별도 env flag나 fallback grant는 없다.
 §6.5A personal MCP route의 exact binding owner는 D28/AX-G1에서 별도로 정하며, 그 전에는 feature OFF다.
+팀원 PC용 Codex plugin은 이 server tool 계약을 AX-G2에서 accepted한 뒤 AX-CP1에서 별도 제작하며,
+plugin이 tool schema·session truth·TaskDriver authority를 소유하거나 선행 phase를 건너뛰지 않는다.
 
 Golden JSON schema의 top-level field는 다음에서 늘리거나 이름을 바꾸려면 contract review가 필요하다.
 
@@ -1722,6 +1724,62 @@ official completion, knowledge promotion에만 요구한다. Audit actor chain�
 `user_id+device_id+agent_id+opaque thread_ref+task_id+project_id+artifact_id+revision_id+action+expiry`를
 분리 보존한다. Enrollment·refresh는 local outbox/ack와 unfinished-session recovery를 없애지 않는다.
 
+### 10.1A Soulforge Codex 작업 연결 플러그인 (`TARGET`, 미구현)
+
+MCP 서버만으로는 팀원 PC의 새 Codex thread가 이전 thread와 같은 업무인지 알 수 없다. 팀원이
+thread를 바꿀 때 WorkSession 번호나 인계 호출을 기억하게 하는 방식도 기본 UX로 채택하지 않는다.
+따라서 personal MCP server lifecycle이 AX-G2에서 feature-OFF로 고정된 뒤, AX-G3 one-seat pilot 전에
+각 PC에 설치하는 **Soulforge Codex 작업 연결 플러그인**을 AX-CP1로 구축한다.
+
+```text
+ERP/TaskEngine                      팀원 PC의 Soulforge Codex plugin
+official assignment                ├─ MCP client config
+active WorkSession          <----> ├─ task-work skill
+accepted context/receipt           ├─ SessionStart lifecycle hook
+                                   ├─ local active-binding helper
+                                   └─ durable outbox/ack helper
+```
+
+플러그인은 MCP server나 새 task truth가 아니다. ERP가 assignment·active WorkSession 정본을,
+personal session coordinator가 session/event/receipt를 소유하며, 플러그인은 현재 PC의 Codex가 그
+API를 자연스럽게 사용하도록 묶는 client package다.
+
+| 플러그인 요소 | 역할 | 저장·보안 경계 |
+| --- | --- | --- |
+| MCP config template | 팀원별 ERP MCP endpoint와 tool allowlist 연결 | credential 값은 package/public Git에 없음; 팀원별 OS-protected provision |
+| task-work skill | `내 할일→선택→작업→결과 제출` 절차와 사실-only closeout 경계 제공 | 짧은 durable 지침; 후속 할일·공식 완료 판단 금지 |
+| `SessionStart` hook | 새 thread/startup/resume/clear에서 local active binding 존재 여부 확인 | command-only deterministic check; whole transcript·hidden reasoning 읽기 금지 |
+| local active-binding helper | 선택한 assignment/WorkSession의 opaque ref·digest·expiry를 PC 재시작과 thread 변경 사이에 유지 | exact path/encryption/retention은 D28/D35 `VERIFY_HP`; task body·secret 저장 금지 |
+| local outbox/ack helper | offline/retry 시 bounded checkpoint/closeout packet을 ack 전까지 유지 | Git·OneDrive·CSV/XLSX를 transport로 사용 금지 |
+| visible binding banner | 새 thread에 현재 task/project 또는 `unbound/ambiguous` 표시와 switch/unbind 제공 | 여러 active candidate·scope 불일치면 자동 선택 금지 |
+
+초기 파일럿은 `{account,device}`마다 **현재 작업 focus 하나**만 둔다. ERP에 여러 active assignment가
+있거나 local marker와 server receipt가 다르면 silent binding하지 않고 선택/HOLD로 전환한다.
+정상 경로에서는 팀원이 WorkSession ID를 입력하거나 “이어서 할 일”을 먼저 묻지 않는다.
+
+```text
+MCP에서 할일 선택
+  -> ERP active WorkSession receipt
+  -> plugin local opaque binding 저장
+  -> 새 Codex thread SessionStart에서 server와 재검증
+  -> 같은 session에 file/run evidence ref 연결
+  -> 사용자가 "다 했어"라고 요청할 때 accepted evidence를 읽어 사실-only closeout
+  -> server ack 검증 뒤 local binding/outbox 정리
+```
+
+thread 전환 자체를 MCP가 감지할 필요는 없다. 새 thread가 열릴 때 플러그인이 현재 focus를 다시
+조회한다. 반대로 이전 thread의 대화 원문은 ERP나 플러그인이 임의로 가져오지 않는다. 자동 파일
+변경·workflow/run receipt는 LLM 없이 누적하고, 의미 요약은 명시적 checkpoint·최종 closeout처럼
+경계가 있는 시점에만 bounded하게 생성한다. 매 turn 요약, 주기적 transcript 재요약, screen/keyboard
+감시, hook의 transcript parser 의존은 금지한다. `PreCompact`/`Stop`/`SessionEnd` hook은 향후 exact
+Codex capability 검증 뒤 누락 marker·경고에만 사용할 수 있으며, semantic summary의 유일한 writer나
+정본으로 삼지 않는다.
+
+계정·PC가 다르면 동일 public-safe plugin package를 설치하되 enrollment, token, device identity,
+local binding/outbox는 서로 분리한다. 설치·hook trust·Codex 재시작·revoke·uninstall은 PC별 1회
+운영 절차다. 플러그인 설치만으로 team rollout, live writer, official completion 또는 knowledge
+promotion 권한이 생기지 않는다.
+
 권장 최소 entity:
 
 | entity | 최소 field | 쓰기 owner | ERP와의 관계 |
@@ -1798,10 +1856,11 @@ bounded WorkSession evidence ref일 뿐이다.
 | --- | --- | --- | --- |
 | AX-G1 | core C10 pilot pass, D01~D09+D12+D28+D29 결정 | lifecycle/query schema·UI design packet | ERP writer 복제 |
 | AX-G2 | start/bind/sequence/outbox/ack/closeout/query synthetic tests | feature-OFF implementation | live MCP direct task/knowledge write |
-| AX-G3 | AX-G2 pass, one-seat·one-project owner pilot 승인 | direct client candidate-only lifecycle+accepted query baseline | external tool 자동 포함·team rollout·official completion 자동화 |
+| AX-CP1 | AX-G2 pass, D28/D29/D35 client boundary 결정 | feature-OFF Soulforge Codex plugin package, SessionStart binding helper, task-work skill, local outbox/ack synthetic tests | credential 포함, transcript 수집, live hook/MCP 연결, team install |
+| AX-G3 | AX-CP1 pass, one-seat·one-project owner pilot와 exact private binding 승인 | plugin을 사용한 direct client candidate-only lifecycle+accepted query baseline; 새 thread 5회·재시작·offline/replay·revoke/uninstall 검증 | external tool 자동 포함·team rollout·official completion 자동화 |
 | AR-G1 | AX-G2 또는 독립 필요성 증명 | AgentRun contract | mission/workflow/party 의미 변경 |
 | AR-G2 | capability/adversarial tests | bounded run receipt | unattended privilege escalation |
-| EXT-G0 | core C10 pilot pass, D30 generic boundary 결정 | direct Codex vs optional gateway/workbench authority·fit comparison, frozen engineering-task rubric | AX-G1~G3 차단, 설치·구독·live 연결·제품을 canon owner로 고정 |
+| EXT-G0 | core C10 pilot pass, D30 generic boundary 결정 | direct Codex vs optional gateway/workbench authority·fit comparison, frozen engineering-task rubric | 핵심 AX-G1→AX-G2→AX-CP1→AX-G3 차단, 설치·구독·live 연결·제품을 canon owner로 고정 |
 | EXT-G1 | EXT-G0+AX-G2 pass, public-safe engineering task 승인 | generic adapter/non-nesting/receipt negative tests | AgentRun 필수화, vendor install·real payload·live endpoint |
 | ORCA-T1 | AX-G3 direct baseline+EXT-G1 pass, D32와 별도 owner/Level 3 승인 | matched direct-Codex baseline이 있는 public-safe engineering task 1건 candidate-only trial | Hermes nesting, permission bypass, binary multi-writer, direct main/push/PR |
 | ORCA-T2 | ORCA-T1 pass, 별도 owner/Level 3 승인 | 2주 또는 10건 확장 가치 시험 | T1 결과 없는 확대, production/team rollout |
@@ -2143,12 +2202,12 @@ capability-specific owner approval·Level 3 gate로 실행하며 서로를 unloc
 | P7 | I7 Driver provenance에 promotion receipt exact ref | Q7 Driver provenance read projection | W7 closeout→Driver candidate link contract, official completion 분리 |
 | P8 | I8 feature-OFF promoter/receipt/authority-separation contract | Q8 feature-OFF ERP UI/MCP adapters+atomic accepted pointer/API-file parity | W8 schema/API fixture 설계만; core P8 acceptance나 writer 권한에 포함하지 않음 |
 | P9 | I9 한 project promotion/copy/readback/rollback pilot | Q9 one-project ACL/parity/no-fallback pilot | W9 core C10 PASS 뒤 AX-G1 design review; 아직 live personal write 없음 |
-| P10 | I10 scan/ACL/retention/backup·production promoter 별도 activation | Q10 UI query/MCP query/candidate submit을 capability별 별도 activation | W10 핵심 AX-G1→AX-G2→AX-G3 direct baseline과 선택 EXT-G0→EXT-G1→ORCA-T1/ORCA-T2·HERMES-T1 독립 trial→team rollout을 각각 별도 승인 |
+| P10 | I10 scan/ACL/retention/backup·production promoter 별도 activation | Q10 UI query/MCP query/candidate submit을 capability별 별도 activation | W10 핵심 AX-G1→AX-G2→AX-CP1→AX-G3 direct plugin baseline과 선택 EXT-G0→EXT-G1→ORCA-T1/ORCA-T2·HERMES-T1 독립 trial→team rollout을 각각 별도 승인 |
 
 I8/Q8은 feature-OFF synthetic contract일 뿐 exact physical path, service binding, live data, node lease를
 만들지 않는다. W lifecycle은 P1 history나 core P8의 선행조건이 아니며 기존 AX gate를 앞당기지 않는다.
 
-P10 external surface는 핵심 AX-G1~G3 경로를 차단하지 않는 선택형 sibling branch다. `EXT-G0` 비교와
+P10 external surface는 핵심 AX-G1→AX-G2→AX-CP1→AX-G3 경로를 차단하지 않는 선택형 sibling branch다. `EXT-G0` 비교와
 `EXT-G1` generic negative contract 뒤 `ORCA-T1`과 `HERMES-T1`을 따로 심사하고, Orca 확대는 다시
 `ORCA-T2`로 분리한다. 한 trial은 다른 trial, AR01, IQ/ML, production activation 또는 team rollout을
 unlock하지 않는다. Tool-native completion은 candidate evidence이고 TaskEngine official completion은 별도다.
@@ -3357,9 +3416,38 @@ regression_checks: [full dev-ERP/docs/path]
 migration_or_backfill: none
 rollback: feature flag OFF + session store removal on synthetic fixture
 stop_conditions: [AX name/owner undecided, D28/D29 gap, task truth duplication, raw prompt/thread ID logging, local outbox path inference, implicit knowledge fallback]
-owner_gate: separate AX-G1 design, AX-G2 feature-OFF, AX-G3 one-seat, team rollout approvals
+owner_gate: separate AX-G1 design, AX-G2 feature-OFF, AX-CP1 client plugin, AX-G3 one-seat, team rollout approvals
 risk_and_effort: high / L
 next_slice: TEAX-AR01
+client_followup_slice: TEAX-AXCP01
+---
+slice_id: TEAX-AXCP01
+packet_status: non_executable_phase_card
+title: Soulforge Codex 작업 연결 플러그인 feature-OFF 구축
+goal: 팀원이 WorkSession 번호나 thread 인계를 기억하지 않아도 새 Codex thread가 ERP의 current active assignment를 안전하게 재확인하도록 함
+classification_mix: [DEFER, BUILD]
+depends_on: [TEAX-AX01]
+current_evidence_refs: [Codex plugin/skill/MCP/hook public capability, Soulforge client plugin implementation NONE]
+allowed_write_paths: []
+target_surfaces: [D35 owner-approved child packet에서 plugin package, hook, skill, helper, installer, test literal path를 고정]
+forbidden_paths: [credential value, raw transcript, hidden reasoning, screen or keyboard capture, live team config, TaskEngine/history/knowledge writer]
+inputs: [accepted AX-G2 receipt, D28 lifecycle/outbox decision, D29 MCP query/ACL decision, D35 plugin packaging/trust/active-binding decision, exact MCP schema/tool allowlist]
+outputs: [plugin manifest, task-work skill, SessionStart hook, local opaque active-binding helper, durable outbox/ack helper, MCP config template, install/revoke/uninstall runbook, synthetic receipts]
+code_delta: [new-thread active binding check, server receipt revalidation, visible task banner, switch/unbind, offline outbox replay; transcript parser and semantic lifecycle hook 0]
+db_delta: [none; ERP active session remains server truth]
+api_delta: [approved AX-G2 MCP tools only; plugin-private shadow API and direct task completion 0]
+folder_delta: [no new canonical top-level root; exact package and local private-state paths require D35]
+docs_contract_changelog_delta: [plugin owner README, ERP-MCP contract, relevant AX UI/client contract, root CHANGELOG]
+owner_and_writers: [plugin local binding writer one per account/device; personal session coordinator remains server writer]
+acceptance_checks: [one task selection then five fresh Codex threads bind same opaque session without manual ID, no-active and multiple-active fail safe, project/task banner visible, cross-project mismatch HOLD, restart/offline/replay/ack/revoke/uninstall, per-PC credentials isolated, SessionStart check makes no LLM call, raw transcript/prompt/secret writes 0]
+regression_checks: [Codex supported surfaces, plugin structure, hook trust, MCP schema, dev-ERP MCP tests, docs/path]
+migration_or_backfill: none
+rollback: plugin disable/uninstall + hook removal + local binding/outbox quarantine; ERP session truth unchanged
+stop_conditions: [AX-G2 not accepted, D35 unresolved, hook capability mismatch, silent ambiguous binding, credential in package, transcript dependency, every-turn semantic summary, live endpoint or team install request]
+owner_gate: AX-CP1 feature-OFF package review, then separate AX-G3 one-seat one-project install/trust/live pilot, then separate team rollout
+risk_and_effort: medium / M
+next_slice: none
+next_gate: AX-G3
 ---
 slice_id: TEAX-AR01
 title: AgentRun/capability/receipt control plane
@@ -3960,11 +4048,12 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | D27 | ingress custody·promoter·reference/copy/move/derive와 per-source security policy | plan default는 pointer/hash/reference이며 중앙 service가 직접 upload를 받으면 그 inbox가 custody를 가진다. exact mail raw/attachment owner tension, promoter identity/path, destination binding, retention/legal hold, ACL, required malware scan, backup/restore, deletion authority를 source kind별 결정한다. projector/task writer와 분리하고 move/delete 기본 금지 | I0~I10/H01/H04/P2/P3/P8/P9/P10 | public/synthetic matrix / physical folder 생성·payload read/copy/move/delete·scan enforcement·live promotion 금지 |
 | D28 | personal WorkSession cardinality·thread/node binding·outbox/ack·missing SLA·completion approver | owner가 plan default로 `{assignment epoch,account}` active primary 하나와 multiple checkpoint, closeout≠official completion을 채택했다. exact opaque thread-ref capability, registered node, handoff/supersession, local outbox writer/path/fsync/encryption/retention, stale/missing SLA, official completion authority는 별도 확정 | W0~W10/AX01 | schema/synthetic fixture / current record 소급 해석·raw thread 저장·live team write·auto completion 금지 |
 | D29 | ERP UI/MCP primary query·accepted generation·ACL/no-fallback·team knowledge candidate authority | owner가 ERP UI/MCP primary read, files=audit snapshot, explicit `project|common` scope/no implicit fallback, team candidate-only를 plan default로 채택했다. exact grant/admin existence-leak policy, manifest/current-pointer owner, cursor/retention, candidate reviewer/approver/writer와 project ID crosswalk는 확정 필요 | Q0~Q10/P4/P5/P8/P9/P10 | schema/read-only/synthetic / accepted pointer advance·live endpoint·implicit fallback·direct Wiki/RAG/canon/task write 금지 |
-| D30 | generic external agent surface schema·truth ceiling·non-nesting | direct Codex가 기본이고 `TeamAgentGatewayAdapter`와 `EngineeringWorkbenchAdapter`는 sibling optional MCP client다. native task/session/memory/done은 client-local, WorkSession writer 하나, surface 변경은 revoke+handoff+supersession, official completion은 별도 TaskEngine authority | EXT-G0/EXT-G1 | official-doc/read-only comparison과 public synthetic negative fixture / AX-G1~G3 차단·install·live endpoint·cross-adapter nesting·native done promotion 금지 |
+| D30 | generic external agent surface schema·truth ceiling·non-nesting | direct Codex가 기본이고 `TeamAgentGatewayAdapter`와 `EngineeringWorkbenchAdapter`는 sibling optional MCP client다. native task/session/memory/done은 client-local, WorkSession writer 하나, surface 변경은 revoke+handoff+supersession, official completion은 별도 TaskEngine authority | EXT-G0/EXT-G1 | official-doc/read-only comparison과 public synthetic negative fixture / 핵심 AX-G1→AX-G2→AX-CP1→AX-G3 차단·install·live endpoint·cross-adapter nesting·native done promotion 금지 |
 | D31 | Hermes형 gateway identity·MCP allowlist·transcript/memory retention·attachment·team consent | one-seat query/candidate-only, exact platform-user→ERP-account mapping, minimum tool include-list, memory/knowledge 분리, Kanban/goal/delegation non-authoritative, scheduler/team rollout OFF | HERMES-T1/P10 | contract/synthetic fixture / secret read·catalog auto-install·attachment direct promotion·ERP completion write 금지 |
 | D32 | Orca형 workbench version·worktree·permission·credential·diff/artifact·Git policy | stable pinned version, Manual launch, one coordinator+disjoint workers, no native subteams, public-safe code task, direct main/push/PR 0, Codex current-main bounded reimplementation | ORCA-T1/ORCA-T2/P10 | frozen rubric/public synthetic fixture / permission bypass·host-secret access·Hermes nesting·binary multi-writer 금지 |
 | D33 | owner·team received/sent mail source coverage와 occurrence/observation/participant identity | 한 logical mail occurrence에 account/folder별 mailbox observation을 append하고 sender/to/cc/bcc를 relation으로 분리한다. exact provider/RFC occurrence ref만 confirmed merge하며 POP3는 received-only다. owner Outlook Sent와 Soulforge SMTP outbound는 각자 관측 범위만 소유하고 팀 sent source는 capability inventory 뒤 archive/export/API, outbound journal, bounded client adapter 중 owner가 선택 | H01C/H06/P5/P8/P9/P10 | HP-COMM-01~06 / team sent source 추정, fuzzy merge, cc assignee, bcc inference, duplicate task candidate, credential/body 공개 금지 |
 | D34 | Slack app/workspace/channel identity·project binding·history/revision/retention·user mapping·attachment boundary | stable `workspace_id+channel_id` effective-dated project binding, allowlisted joined project channels, outer event delivery dedupe와 logical message/thread/edit/delete revision 분리, HPP sole normal collector. project channel은 authoritative default project scope지만 task는 candidate-only. DM/common/unmapped/Slack Connect는 explicit rule 전 HOLD | H07A/H07B/P3/P5/P9/P10 | HP-COMM-07~12 / auto join/post, name/fuzzy project mapping, raw/secret/attachment copy, message/reaction completion promotion, live app·token·scheduler 활성화 금지 |
+| D35 | Soulforge Codex client plugin package·per-PC install/trust·active-task focus·hook/outbox·token budget | plan default는 MCP server와 분리된 동일 public-safe plugin을 PC별 설치하고 account/device credential은 OS-protected provision한다. 새 thread는 `SessionStart`에서 local opaque binding과 ERP active WorkSession receipt를 재검증하며, 초기 `{account,device}` current focus는 하나다. no-active/multiple-active/scope mismatch는 자동 선택하지 않는다. 파일/run evidence는 LLM 없이, 의미 checkpoint/closeout은 bounded boundary에서만 생성한다 | AX-CP1/AX-G3/W10/P10 | official Codex plugin/skill/MCP/hook capability review+feature-OFF five-thread/restart/offline/revoke/uninstall fixture / credential 포함, transcript parser, silent ambiguous binding, every-turn summary, live team install 금지 |
 
 #### 17.1.1 첫 승인과 후속 ratification 입력
 
@@ -3985,11 +4074,12 @@ core TaskDriver 일정에 끼워 넣지 않는다.
 | `D27` / I8·A8-SYNTH contract 전 | source-kind custody/staging/quarantine/promoter/destination, HPP logical RAW/ERP/runtime storage classes, transfer-service/promoter sole-writer split, control-vs-binary plane, upload/download ticket binding, operation allowlist, retention/legal hold/ACL/scan/archive-bomb/media/hash/size/backup/delete authority | HPP custody is `TARGET`; pointer/reference 기본, strict office-LAN authenticated HTTPS data plane, client destination path·remote D/UNC/SMB·VPN/Tailscale·move/delete·live promotion `OFF`; exact path/network/certs/service health `VERIFY_HP` | public custody/actor-ticket matrix, swap/replay/revoke-race/path-traversal/archive-bomb/hash/size/media mismatch, idempotent finalize와 exact-revision range fixture | path 생성/열거, payload read/copy/move/delete, cloud-synced DB/central RAW/queue, malware-scan overclaim | D27~D29+exact public security packet acceptance → independent A8-SYNTH; canary는 private receipt+owner+Level 3 별도 |
 | `D28` / A8-SYNTH·AX-G1 전 | exact assignment epoch owner, `user/device/agent/opaque-thread/task/project/artifact/revision/action/expiry` actor chain, one-time enrollment/recovery, mTLS trust, OS broker refresh, delegation parent/child/revoke cascade, step-up action set, opaque thread-ref/node binding, local outbox writer/path/fsync/encryption/retention, missing SLA, official completion approver | human grant∩trusted device∩agent policy∩task/object/action, earliest expiry, routine silent refresh, one active primary, multiple checkpoints, closeout≠completion; exact binding은 `VERIFY_HP` | enrollment/broker/delegation ceiling+revoke cascade, routine no-repeat-prompt, pure lifecycle/outbox/crash/ack replay/adversarial fixture | current record 소급 migration, raw thread ID, ticket/child grant surviving revoke, per-chunk prompt, team activation | HP-SESSION synthetic → independent A8-SYNTH/AX-G2 feature-OFF; canary/one-seat/team은 각각 별도 |
 | `D29` / Q8·A8-SYNTH adapter 전 | artifact/revision/action grant authority와 uniform existence policy, project/common grant, accepted-generation manifest/current-pointer/cursor owner, ACL-aware RAG field/chunk pre/post filter+cache key/revoke, exact revision range download, immutable redacted derivative lineage including hidden sheet/slide·formula·comment/note·embedded object, candidate reviewer/approver/writer | ERP UI/MCP primary query, files audit snapshot, explicit scope/no fallback, exact revision/action only, redacted derivative no raw fallback, team candidate-only | schema/ACL/existence/generation/API-file parity, field/chunk/cache revoke, derivative lineage, range resume/ticket audience fixture | live endpoint/pointer advance, implicit/latest/raw fallback, direct truth write, unauthorized existence/cache hit | HP-QUERY synthetic → independent A8-SYNTH/Q8 feature-OFF; canary exact revision은 private receipt+owner+Level 3 별도 |
-| `D30` / EXT-G0·EXT-G1 전 | generic client identity, native state claim ceiling, one WorkSession writer, child write 금지, cross-adapter non-nesting, revoke/handoff/supersession, external receipt crosswalk | direct Codex default, external adapter OFF | official-doc comparison과 EXT-G0 design; EXT-G1에서 HP-EXT public synthetic | AX-G1~G3 차단, install, live MCP, task/knowledge/canon write, native done promotion | D30 결정→EXT-G0; EXT-G1 HP-EXT PASS는 product-specific trial review만 허용 |
+| `D30` / EXT-G0·EXT-G1 전 | generic client identity, native state claim ceiling, one WorkSession writer, child write 금지, cross-adapter non-nesting, revoke/handoff/supersession, external receipt crosswalk | direct Codex default, external adapter OFF | official-doc comparison과 EXT-G0 design; EXT-G1에서 HP-EXT public synthetic | 핵심 AX-G1→AX-G2→AX-CP1→AX-G3 차단, install, live MCP, task/knowledge/canon write, native done promotion | D30 결정→EXT-G0; EXT-G1 HP-EXT PASS는 product-specific trial review만 허용 |
 | `D31` / HERMES-T1 전 | exact version/channel/account mapping, MCP include-list/sampling, transcript/memory encryption·retention·delete·consent, attachment custody, delivery idempotency | Hermes adapter OFF, one-seat only | HP-HERMES synthetic | secret read, team rollout, scheduler, Kanban/goal completion promotion, Orca launch | HP-HERMES PASS + owner + Level 3 → HERMES-T1만 허용 |
 | `D32` / ORCA-T1 전 | exact stable version/hash, Manual command, OS/credential/network roots, base ref/worktree ownership, candidate artifact/validator/Git policy, frozen value rubric | Orca adapter OFF, direct Codex 유지 | HP-ORCA public-safe fixture | bypass/yolo, real payload, direct main/push/PR, Hermes launch, binary multi-writer | HP-ORCA PASS + owner + Level 3 → ORCA-T1만 허용 |
 | `D33` / H01C 전 | account별 received/sent expected source와 applicability/window/freshness, exact native/RFC occurrence ID, mailbox observation ID, sender/to/cc/bcc relation, unmatched/fuzzy candidate policy, team sent acquisition choice | POP3=received-only, owner Outlook/Soulforge SMTP=각 관측 범위만, team sent=`UNKNOWN/HOLD` | synthetic one-message/multi-observation·thread·role fixture | team credential/raw body access, fuzzy confirmed merge, cc/bcc 추정, live source/backfill/DB write | HP-COMM-01~06 PASS는 H01C contract/shadow review만 허용; team sent live는 private binding+owner+Level 3 별도 |
 | `D34` / H07A 전 | exact Slack app/workspace authority, channel-ID project binding+effective dates, minimal scopes, joined allowlist, Socket Mode/HTTPS choice, backfill/cursor/retry, retention/delete/legal hold, user→ERP mapping, Slack Connect/DM/common rule, attachment custody | Slack collector/projector OFF, channel name non-authoritative, unmapped scopes HOLD | public-safe synthetic Events/Web-API fixtures와 source-supported official-doc review | token/secret/raw payload, auto join/post, live app/event subscription, task/knowledge write | H07A HP-COMM-07~12 contract PASS 뒤 H07B는 P3 receipt 필요; one-channel canary와 production은 각각 owner+Level 3 별도 |
+| `D35` / AX-CP1 전 | plugin owner/package path, supported Codex surfaces, per-PC install/update/trust/revoke/uninstall, MCP config template, credential provision, local active-binding/outbox path·writer·encryption·retention, visible banner와 ambiguous binding UX, bounded token budget | plugin absent/OFF, credential 없음, active binding materialization 없음 | official Codex docs review+public synthetic one-task/five-fresh-thread·restart·offline/replay·revoke/uninstall fixture | transcript read, hidden reasoning/screen/keyboard capture, hook semantic-summary authority, live MCP/credential/team install | AX-CP1 PASS는 feature-OFF package만 허용; AX-G3 one-seat private pilot과 team rollout은 각각 별도 owner+Level 3 |
 
 아래는 completed C00A/C00Q의 historical retained 상태를 요약한다. 현재 새로 요청할 수 있는 실행
 shape는 §18.2의 current-authority C00B packet이며, 어떤 retained receipt도 C00B PASS를 대체하지 않는다.
@@ -4080,6 +4170,7 @@ hold_effect: all-authority-effect-fields-false
 | Codex capture boundary outside dev-ERP | WorkSession은 있으나 dev-ERP 밖 structured owner와 consent/coverage 미정 | `DEFER` | D19 + H03 direct-writer/coverage audit; whole conversation remains OFF |
 | personal WorkSession lifecycle binding | current one-shot record에는 assignment epoch/start/thread/node/sequence/closeout/outbox ack가 없음 | `DEFER` | D28 + AX-G1 schema, opaque thread-ref capability probe, HP-SESSION synthetic; P9 core 뒤 feature-OFF |
 | local outbox path/encryption/missing SLA | server tool만으로 client durable outbox를 증명할 수 없음 | `DEFER` | owner-approved node writer/path/fsync/encryption/retention와 crash/reboot pilot; 값 추정 금지 |
+| Soulforge Codex client plugin install·active binding | MCP server만으로 새 Codex thread가 이전 thread의 current task focus를 기억하지 못하고, plugin package/local helper/hook/trust가 아직 없음 | `DEFER` | D35+accepted AX-G2 뒤 AX-CP1 feature-OFF package와 one-task/five-thread synthetic; AX-G3 전 live install 금지 |
 | run/log common source schema and lane assignment | `runs/**`는 위치 owner일 뿐 공통 manifest가 아니고 daily-ledger/context projection을 source truth로 오인하면 H03/H05 중복이 생긴다. current five-field `id`도 full-record identity가 아니다 | `DEFER` | D26 + H05 report-authoring exact-schema/`job_id` immutability fixture + five-field same-ID conflict/boundary redesign; projection event count와 directory recursion `0` |
 | mail normal/fallback writer and epoch | 세 current file writer가 있고 live lease/fencing binding은 public evidence로 확인 불가 | `DEFER` | D21~D23 + P8 MAIL-01~12 synthetic + C08B/P10 manual classification/projector epoch-vector drill |
 | mail raw/attachment physical custody와 project promotion | gateway state raw contract와 root approved-worksite payload 원칙 사이의 exact operational binding 미확정 | `DEFER` | D27 source-kind custody decision, read-only binding inventory, HP-INGRESS fixtures; 자동 이동 금지 |
@@ -4693,6 +4784,10 @@ owner approval, canary/runtime readiness evidence가 아니다.
 | 2026-07-23 live-source interpretation correction | 기존 feature-OFF suite와 historical one-shot canary receipt를 그대로 인정하되 continuous connection으로 재해석하지 않는다. 이 plan-only 보정은 owner-stated `2 LIVE_UNACCEPTED / 5 UNCONNECTED`를 기록할 뿐 새 runtime 검증, private binding 확인, live activation 또는 formal H acceptance를 주장하지 않는다. |
 | 2026-07-23 owner Outlook Sent query-only canary | `PASS` at `source_availability_metadata_only`: explicit bounded window, active-Outlook attach-only, Sent Items class/time aggregate, redacted stdout, repository metadata fingerprint 전후 동일. 실제 건수·시각은 private review evidence에만 두며, 보낸메일 continuous binding·writer·classification·H01C/HP-LIVE acceptance는 여전히 `OFF`다. |
 | 2026-07-23 Slack query-only source canary | `PASS` at `source_availability_metadata_only`: authenticated-user visible-channel pagination과 한 프로젝트 채널의 bounded history scope를 connector read-only로 확인하고, exact-field sanitizer가 stable IDs를 fingerprint/count로만 반환한다. 실제 workspace/channel ID·사용자 주소·시각·건수는 public plan에 두지 않으며, Slack continuous binding·writer·classification·H07A/H07B/HP-LIVE acceptance는 여전히 `OFF`다. |
+| 2026-07-25 AX Codex client plugin plan | `PASS` for plan scope; master plan과 root CHANGELOG만 변경하고 AX-G1→AX-G2→AX-CP1→AX-G3→team rollout, D35, `TEAX-AXCP01`, AC-27을 고정했다. 실제 plugin·hook·MCP binding·credential·DB·writer·team install은 `0`이다. |
+| current AX client plugin docs/canon/structure | `PASS`; docs check, canon checked `136` errors/warnings `0`, D01~D35 35/35 unique, AC-01~27 27/27 unique, `TEAX-AXCP01` 1개, code fence even, exact two-file `git diff --check` |
+| current AX client plugin path/root suite ceiling | 이번 added-line local-path/secret-like value 위반 `0`; 전체 changed-scope nonzero는 범위 밖 기존 untracked `tmp/pdfs/**` 2개 파일의 5건이다. root `npm.cmd run validate`는 184초 동안 output 없이 `TIMEOUT`되어 성공으로 기록하지 않는다. |
+| current AX client plugin Level 2 review | same-context inspector/judge checklist `ACCEPT_FOR_PLAN_SCOPE`; MCP server와 plugin truth 분리, 선행 gate, ambiguous binding HOLD, transcript/secret 배제, rollback을 확인했다. D35 exact package·trust·local binding과 AX-G3 live pilot은 `owner_decision_required`이며 production claim `0`이다. |
 | 2026-07-23 owner Outlook Sent bounded raw-custody pilot | `PASS` at `actual_bounded_private_custody`: active Outlook 기본 Sent 24시간 격리 canary 최초 실행은 actual observation/raw object 2건, 즉시 forced-overlap replay는 event 2/duplicate 2/new 0/custody write 0/gap 0/truncation 0. 별도 KST schedule canary도 밤 slot 최초 2건 뒤 같은 slot 재호출 event/write `0`+`already_collected_in_slot` PASS. 최종 mail-fetch full suite는 `155 passed, 3 skipped`, focused Outlook/team suite는 `33/33`, Slack suite는 `25/25` PASS다. 실제 HPP continuous capsule은 mailboxes 6/6·mail error 0으로 owner Sent row를 수용하고 supervisor 1개가 실행 중이다. actual 식별자·내용·주소·경로·hash는 public plan에 두지 않는다. project classification·team sent coverage·H01C/HP-LIVE 전체 acceptance는 `OFF`다. |
 | 2026-07-23 Slack feature-OFF continuous harness | `PASS` at `synthetic_private_custody_harness`: stable channel binding, binding digest, writer authority/epoch/lease, content-addressed raw custody, cursor/restart/dedupe, edit/delete/thread, scope/privacy/file HOLD 및 feature-ON/embedded-secret/live-transport reject를 포함해 Slack suite `25/25` PASS. 실제 private binding 9개도 schema/digest 검증을 통과했고 모두 feature OFF, token ref 없음, custody root 미생성이다. owner-managed Slack App/token/background transport가 없으므로 live collector·backfill·H07A/H07B/HP-LIVE acceptance는 `OFF`다. |
 | 2026-07-23 local activity three-source query-only inventory | `PASS` at honest-source-state boundary: focused 21 tests 중 20 PASS/0 FAIL/Windows direct file-symlink privilege 1 SKIP, late sidecar regression과 WAL/SHM zero-read/hash guard PASS. Fresh verifier는 late-sidecar race를 최초 `REVISE`한 뒤 보정 재검토 `ACCEPT`. Actual HPP canary는 WorkSession `sqlite_wal_or_shm_present`, file activity `not_materialized`, run history `descriptor_missing`을 반환했고 승인된 source metadata 전후 fingerprint는 동일했다. 이 결과는 차단·미생성을 성공으로 둔 zero-mutation inventory이며 H03A/H04/H05/D19/D25/D26/HP-LIVE acceptance가 아니다. |
@@ -4729,7 +4824,7 @@ approval·canary/runtime readiness·live activation을 뜻하지 않는다. C00A
 | AC-15 | `VERIFIED_FOR_PLAN_SCOPE` | §9와 도식 7의 projection owner mutation `0` |
 | AC-16 | `VERIFIED_FOR_PLAN_SCOPE` | §11 roles/packet/coordinator/projector/transfer/promoter/lease/fencing/manual failover 분리; HPP outage는 local HOLD/last-accepted read-only, remote mount `0` |
 | AC-17 | `VERIFIED_FOR_PLAN_SCOPE` | §14 V/HP/MAIL/HP-HISTORY/HP-COMM/HP-LABEL, replay/adversarial/regression |
-| AC-18 | `VERIFIED_FOR_PLAN_SCOPE` | §17 D01~D34, 도식 11 activation gates, 승인 전 중단 |
+| AC-18 | `VERIFIED_FOR_PLAN_SCOPE` | §17 D01~D35, 도식 11 activation gates, 승인 전 중단 |
 | AC-19 | `VERIFIED_FOR_PLAN_SCOPE` | §10·§16과 P10에서 core/AX/AgentRun/IQ/ML 독립 phase |
 | AC-20 | `VERIFIED_FOR_PLAN_SCOPE` | root validators와 independent review 뒤 `READY_FOR_OWNER_REVIEW`로 전환; 구현 승인은 별도 |
 | AC-21 | `VERIFIED_FOR_PLAN_SCOPE` | §2.6 CV-01~09 evidence-calibrated verdict와 §12 P5→P6→P7→P8 hard receipt ordering |
@@ -4738,6 +4833,7 @@ approval·canary/runtime readiness·live activation을 뜻하지 않는다. C00A
 | AC-24 | `VERIFIED_FOR_PLAN_SCOPE` | §5.3·§10.3~10.4·§12 `TEAX-EXT01`·§14 HP-EXT/ORCA/HERMES·§17 D30~D32; external native state는 client-local, 핵심 AX와 선택 경로 분리, AgentRun 비필수, one WorkSession writer, cross-adapter non-nesting, direct main/push/PR와 official completion promotion `0`; fresh Ultra final `ACCEPT` |
 | AC-25 | `VERIFIED_FOR_PLAN_SCOPE` | §3.1·§3.4.5·§12 H01C/H07·§14 HP-COMM·§17 D33~D34에서 account별 received/sent coverage, logical mail occurrence와 mailbox observation 분리, sender/to/cc/bcc semantics, exact-ID-only merge, stable Slack channel-ID project binding, edit/delete revision, DM/common HOLD, candidate-only authority와 live activation `0`을 고정 |
 | AC-26 | `VERIFIED_FOR_PLAN_SCOPE` | §3.4.6·§12 H00/H06/H07/C06A/C07A/C04A·§14 HP-LABEL에서 project/time/party/revision 사실 필드와 semantic annotation을 분리하고, typed project/party/account/producer ref·assignment basis·PLAUD 절대/상대 clock·voice 8+15 lossless crosswalk·다중 signal cardinality·policy-bound confidence·append-only lineage/replay·raw/secret negative sentinel·cross-channel non-merge·TaskDriver authority ceiling을 고정 |
+| AC-27 | `VERIFIED_FOR_PLAN_SCOPE` | §10.1A·§10.4·§12 `TEAX-AXCP01`·§17 D35에서 MCP server와 per-PC Codex plugin을 분리하고, ERP/server active session truth, SessionStart 재검증, one-task/five-thread continuity, ambiguous binding HOLD, credential/transcript 배제, LLM-free file/run evidence, bounded checkpoint/closeout와 AX-G1→AX-G2→AX-CP1→AX-G3→team rollout 순서를 고정 |
 
 Clean scoped commit+push, 이 문서의 결정표, validator/review evidence로 forward state가 모두
 보존되면 `NIGHT_WORK_HANDOFF`를 만들지 않는다. 미해결 시도나 controller/PC 전환으로만 남는
@@ -4777,7 +4873,7 @@ non_hpp_direct_drive_unc_smb_sqlite_access_created_by_this_correction: false
 a8_synth_or_canary_implemented_by_this_correction: false
 hpp_correction_review_state: READY_FOR_OWNER_REVIEW
 P0_to_P10_acceptance: none_created_by_this_plan_correction
-owner_approval_wait: live/private binding and pending D19/D27/D33/D34 decisions; D20/D25/D26 also remain unresolved
+owner_approval_wait: live/private binding and pending D19/D27/D33/D34/D35 decisions; D20/D25/D26 also remain unresolved
 implementation_scope: public_feature_off_foundation
 claim_ceiling: source_supported
 ```
@@ -4932,6 +5028,10 @@ Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있�
 - [`outlook_mail_reconcile.mjs`](../../../../guild_hall/gateway/outlook_mail_reconcile.mjs)
 - [`scan_mail_ledger.mjs`](../tools/scan_mail_ledger.mjs)
 - [`erp_mcp_service.mjs`](../src/erp_mcp_service.mjs)
+- [Codex AGENTS.md — 새 session에서도 다시 읽는 durable repository guidance](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
+- [Codex skills — progressive disclosure 기반 재사용 workflow](https://learn.chatgpt.com/docs/build-skills)
+- [Codex hooks — SessionStart/PreCompact/Stop/SessionEnd와 plugin-bundled lifecycle hooks](https://learn.chatgpt.com/docs/hooks)
+- [OpenAI plugins — skill·MCP·hook package 경계](https://developers.openai.com/plugins/build/plugins)
 - [Hiworks official POP3/SMTP manual — POP3는 받은편지함만 연동](https://www.hiworks.com/manual/hiworks/3461/6868)
 - [Slack Events API — delivery event ID, retry, Socket Mode/HTTPS](https://docs.slack.dev/apis/events-api/)
 - [Slack message event — edits/deletes/replies](https://docs.slack.dev/reference/events/message/)
