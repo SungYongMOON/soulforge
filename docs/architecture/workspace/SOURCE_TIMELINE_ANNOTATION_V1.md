@@ -35,7 +35,14 @@ source-native RAW custody
     structured_pc_work\           # bounded PC-work payload custody
     team_files\                   # file payload custody
     run_logs\                     # executor/run payload custody
-  timeline\                       # optional cross-lane query projection
+  timeline\                       # TARGET cross-lane routing surface
+    receipts\                     # minimal system completeness/dedupe index
+    routing\
+      unassigned\
+      candidate\
+      conflict\
+      common\
+      restricted\
 ```
 
 The exact private root is a runtime binding and is not committed. The tree
@@ -43,6 +50,24 @@ above is a responsibility map, not a public locator packet.
 
 Project folders receive approved projections and reports later. RAW evidence
 does not move merely because a project candidate changes.
+
+The system receipt ledger is not a human timeline and must not be used as one
+cross-project LLM prompt. Source-native timelines remain separate, and an
+explicit scope binding produces isolated project timelines:
+
+```text
+source-native timeline annotation
+        |
+        +-- exact deterministic binding --> one project timeline
+        |
+        `-- no exact binding ------------> candidate/unassigned/common/
+                                           restricted/conflict routing
+```
+
+Slack channel ID, owner-approved Outlook folder/rule, project worksite, MCP
+WorkSession/task, and an explicit Codex thread binding may provide deterministic
+project evidence. A sender name, adjacent time, keyword, model answer, or thread
+title alone is not an authoritative binding.
 
 ## Required semantics
 
@@ -89,6 +114,18 @@ does not move merely because a project candidate changes.
 - Mail keeps its exact received/sent `mail_occurrence` identity. A later P5
   semantic annotation may add request/decision labels, but it must not replace
   that native identity.
+- `guild_hall/shared/project_timeline_projection.mjs` now provides the public
+  feature-OFF pure projection contract. It accepts all six source lanes,
+  validates append-only `scope_timeline_binding.v1` correction chains, emits
+  minimal system receipts, isolates confirmed project timelines, and holds
+  candidate/unassigned/common/restricted/conflict entries outside project
+  timelines. It has no file writer, live source reader, DB, scheduler, network,
+  ERP, MCP, or production authority.
+- Candidate producers use provider-neutral kinds. `local_llm` and
+  `remote_llm` (for example an owner-approved bounded external model runner)
+  may propose labels or bindings; neither grants official project or task
+  authority. Codex receives only a bounded candidate/project context pack for
+  difficult context reasoning.
 
 Audit timestamps such as collector receipt, append, completion, and lease times
 remain explicitly named UTC fields. They are not business-event labels.
@@ -103,6 +140,8 @@ assembler. It does not itself become short, medium, or long context.
 
 ```text
 source annotation
+  -> explicit scope binding
+  -> isolated project timeline projection
   -> exact source-span metadata
   -> ContextEvent candidate
   -> reviewed ContextUnit

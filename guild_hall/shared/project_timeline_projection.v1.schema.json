@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schemas/project_timeline_projection.v1.schema.json",
+  "title": "Soulforge project timeline projection v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generation_id",
+    "generated_at",
+    "system_receipts",
+    "project_timelines",
+    "routing",
+    "projection_digest",
+    "boundaries"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.project_timeline_projection.v1" },
+    "generation_id": { "$ref": "#/$defs/safeRef" },
+    "generated_at": { "$ref": "#/$defs/utcDateTime" },
+    "system_receipts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/receipt" }
+    },
+    "project_timelines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project_ref", "entries", "ordered_entry_digest"],
+        "properties": {
+          "project_ref": { "$ref": "#/$defs/safeRef" },
+          "entries": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/entry" }
+          },
+          "ordered_entry_digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate", "unassigned", "common", "restricted", "conflict"],
+      "properties": {
+        "candidate": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entry" }
+        },
+        "unassigned": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entry" }
+        },
+        "common": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entry" }
+        },
+        "restricted": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entry" }
+        },
+        "conflict": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entry" }
+        }
+      }
+    },
+    "projection_digest": { "$ref": "#/$defs/digest" },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_body_copied",
+        "official_task_mutated",
+        "official_project_assignment_mutated",
+        "source_annotations_mutated"
+      ],
+      "properties": {
+        "raw_body_copied": { "const": false },
+        "official_task_mutated": { "const": false },
+        "official_project_assignment_mutated": { "const": false },
+        "source_annotations_mutated": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "safeRef": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,255}$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "kstDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?\\+09:00$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_id",
+        "annotation_revision_id",
+        "occurrence_id",
+        "occurred_at",
+        "source_lane",
+        "route_bucket",
+        "project_ref",
+        "binding_id"
+      ],
+      "properties": {
+        "receipt_id": { "$ref": "#/$defs/safeRef" },
+        "annotation_revision_id": { "$ref": "#/$defs/safeRef" },
+        "occurrence_id": { "$ref": "#/$defs/safeRef" },
+        "occurred_at": { "$ref": "#/$defs/kstDateTime" },
+        "source_lane": {
+          "enum": [
+            "mail",
+            "slack",
+            "voice",
+            "structured_pc_work",
+            "team_files",
+            "run_logs"
+          ]
+        },
+        "route_bucket": {
+          "enum": [
+            "project_confirmed",
+            "project_candidate",
+            "unassigned",
+            "common",
+            "restricted",
+            "conflict"
+          ]
+        },
+        "project_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        },
+        "binding_id": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry_id",
+        "annotation_id",
+        "annotation_revision_id",
+        "binding_id",
+        "binding_known_at",
+        "binding_recorded_at",
+        "route_bucket",
+        "occurred_at",
+        "source_lane",
+        "source_item_ref",
+        "source_revision_ref",
+        "source_body_sha256",
+        "source_span_ref",
+        "occurrence_id",
+        "time_precision",
+        "relative_start_ms",
+        "relative_end_ms",
+        "source_sequence",
+        "label_kind",
+        "label_state",
+        "canonical_ref",
+        "project_ref",
+        "project_resolution_state",
+        "project_basis_refs",
+        "candidate_project_refs",
+        "speaker_ref",
+        "actor_refs",
+        "confidence_band",
+        "annotation_producer_ref",
+        "binding_producer_ref"
+      ],
+      "properties": {
+        "entry_id": { "$ref": "#/$defs/safeRef" },
+        "annotation_id": { "$ref": "#/$defs/safeRef" },
+        "annotation_revision_id": { "$ref": "#/$defs/safeRef" },
+        "binding_id": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        },
+        "binding_known_at": {
+          "oneOf": [
+            { "$ref": "#/$defs/utcDateTime" },
+            { "type": "null" }
+          ]
+        },
+        "binding_recorded_at": {
+          "oneOf": [
+            { "$ref": "#/$defs/utcDateTime" },
+            { "type": "null" }
+          ]
+        },
+        "route_bucket": {
+          "enum": [
+            "project_confirmed",
+            "project_candidate",
+            "unassigned",
+            "common",
+            "restricted",
+            "conflict"
+          ]
+        },
+        "occurred_at": { "$ref": "#/$defs/kstDateTime" },
+        "source_lane": {
+          "enum": [
+            "mail",
+            "slack",
+            "voice",
+            "structured_pc_work",
+            "team_files",
+            "run_logs"
+          ]
+        },
+        "source_item_ref": { "$ref": "#/$defs/safeRef" },
+        "source_revision_ref": { "$ref": "#/$defs/safeRef" },
+        "source_body_sha256": { "$ref": "#/$defs/sha256" },
+        "source_span_ref": { "$ref": "#/$defs/safeRef" },
+        "occurrence_id": { "$ref": "#/$defs/safeRef" },
+        "time_precision": { "enum": ["event", "segment", "word"] },
+        "relative_start_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "relative_end_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "source_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "label_kind": { "type": "string", "minLength": 1 },
+        "label_state": { "enum": ["candidate", "confirmed", "rejected", "superseded"] },
+        "canonical_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        },
+        "project_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        },
+        "project_resolution_state": {
+          "enum": ["confirmed", "candidate", "unassigned", "exception_review_required"]
+        },
+        "project_basis_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" },
+          "uniqueItems": true
+        },
+        "candidate_project_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" },
+          "uniqueItems": true
+        },
+        "speaker_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        },
+        "actor_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeRef" },
+          "uniqueItems": true
+        },
+        "confidence_band": { "enum": ["high", "medium", "low", "unknown"] },
+        "annotation_producer_ref": { "$ref": "#/$defs/safeRef" },
+        "binding_producer_ref": {
+          "oneOf": [
+            { "$ref": "#/$defs/safeRef" },
+            { "type": "null" }
+          ]
+        }
+      }
+    }
+  }
+}

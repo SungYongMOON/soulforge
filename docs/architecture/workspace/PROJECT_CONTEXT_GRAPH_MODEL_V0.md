@@ -194,7 +194,10 @@ _workmeta/<project_code>/project_context/
 │     ├─ branch/<YYYY-MM>.jsonl
 │     └─ project/<YYYY-MM>.jsonl
 ├─ memory_candidates/<YYYY-MM>.jsonl
-└─ projections/erp_receipts/<YYYY-MM>.jsonl
+└─ projections/
+   ├─ timeline/<YYYY-MM>.jsonl
+   ├─ timeline/current.csv
+   └─ erp_receipts/<YYYY-MM>.jsonl
 ```
 
 All TARGET JSONL owners are append-only. Corrections append a new immutable
@@ -218,6 +221,7 @@ the ERP read model can be rebuilt or rolled back without changing
 | `memberships` | append-only event-to-unit and unit-to-branch relations with exact evidence/judgment refs |
 | `summary revisions` | short/unit, medium/branch, and long/project summaries with input generation and supersession refs |
 | `memory_candidates` | reviewed-reuse proposal, scope, evidence refs, reviewer state, revocation/supersession refs; no automatic Wiki/RAG promotion |
+| `timeline projection` | confirmed project bindings only, stable KST ordering and opaque source refs; no other project, candidate, unassigned, common, restricted, or conflict row |
 | `erp_receipts` | accepted-generation projection/parity/rollback evidence; never context truth |
 
 Report/projection outputs may be written under:

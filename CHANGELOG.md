@@ -2,6 +2,22 @@
 
 ## 2026-07-25
 
+### Feature-OFF project timeline foundation
+
+- Added strict public contracts for append-only source scope bindings and
+  deterministic project timeline projections across mail, Slack, voice,
+  structured PC work, team files, and run logs.
+- Confirmed project bindings are isolated per project while candidate,
+  unassigned, common, restricted, and conflict entries remain outside project
+  timelines. A minimal system receipt surface checks completeness and dedupe;
+  it is not a cross-project human or LLM timeline.
+- Added deterministic replay, reclassification, stale-binding, branch,
+  identity-forgery, and cross-project leakage fixtures. The implementation is
+  pure and feature-OFF with no RAW, folder, DB, scheduler, network, ERP, MCP,
+  or production-writer activation.
+- Added provider-neutral `remote_llm` candidate provenance without granting
+  classification, context, or task authority.
+
 ### Durable project-context foundation plan
 
 - Kept `_workspaces` as the project payload owner,

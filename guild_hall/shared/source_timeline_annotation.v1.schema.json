@@ -177,7 +177,16 @@
       "additionalProperties": false,
       "required": ["kind", "producer_ref", "policy_ref"],
       "properties": {
-        "kind": { "enum": ["deterministic", "local_asr", "local_llm", "codex", "human"] },
+        "kind": {
+          "enum": [
+            "deterministic",
+            "local_asr",
+            "local_llm",
+            "remote_llm",
+            "codex",
+            "human"
+          ]
+        },
         "producer_ref": { "$ref": "#/$defs/safeRef" },
         "policy_ref": { "$ref": "#/$defs/safeRef" }
       }

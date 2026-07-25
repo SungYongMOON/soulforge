@@ -76,6 +76,27 @@
 - See
   `docs/architecture/workspace/SOURCE_TIMELINE_ANNOTATION_V1.md`.
 
+## Feature-OFF project timeline projection
+
+- `project_timeline_projection.mjs` consumes only validated
+  `source_timeline_annotation.v1` rows and explicit append-only
+  `scope_timeline_binding.v1` records. It does not open RAW sources, infer a
+  project, or write a project folder.
+- A binding routes one current source occurrence into exactly one of
+  `project confirmed`, `project candidate`, `unassigned`, `common`,
+  `restricted`, or `conflict`. Only confirmed project bindings enter a
+  project timeline; every other state remains outside the project projection.
+- The system receipt list is a minimal completeness/dedupe index, not a
+  cross-project prompt or human work view. Project timelines are isolated,
+  rebuildable projections and share only opaque source/revision/span refs.
+- Binding corrections are one append-only chain. Orphans, branches, stale
+  source revisions, forged IDs, duplicate projection entries, and
+  cross-project leakage fail closed.
+- `remote_llm` is a provider-neutral candidate producer kind for a bounded
+  external model lane. It grants no classification or task authority.
+- This module is pure and feature-OFF: it has no filesystem, DB, scheduler,
+  network, ERP, MCP, or production-writer surface.
+
 ## Feature-OFF project-history knowledge projection
 
 - `project_history_knowledge_projection.mjs` derives explicit `project` or

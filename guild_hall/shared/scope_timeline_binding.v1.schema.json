@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schemas/scope_timeline_binding.v1.schema.json",
+  "title": "Soulforge scope timeline binding v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "binding_id",
+    "lineage_id",
+    "annotation_id",
+    "annotation_revision_id",
+    "occurrence_id",
+    "source_lane",
+    "scope_kind",
+    "project_ref",
+    "candidate_project_refs",
+    "resolution_state",
+    "basis_refs",
+    "known_at",
+    "recorded_at",
+    "producer",
+    "supersedes_binding_id",
+    "boundaries"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.scope_timeline_binding.v1" },
+    "binding_id": { "$ref": "#/$defs/safeRef" },
+    "lineage_id": { "$ref": "#/$defs/safeRef" },
+    "annotation_id": { "$ref": "#/$defs/safeRef" },
+    "annotation_revision_id": { "$ref": "#/$defs/safeRef" },
+    "occurrence_id": { "$ref": "#/$defs/safeRef" },
+    "source_lane": {
+      "enum": [
+        "mail",
+        "slack",
+        "voice",
+        "structured_pc_work",
+        "team_files",
+        "run_logs"
+      ]
+    },
+    "scope_kind": {
+      "enum": ["project", "common", "restricted", "unassigned", "conflict"]
+    },
+    "project_ref": {
+      "oneOf": [
+        { "$ref": "#/$defs/safeRef" },
+        { "type": "null" }
+      ]
+    },
+    "candidate_project_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/safeRef" },
+      "uniqueItems": true
+    },
+    "resolution_state": {
+      "enum": ["confirmed", "candidate", "unassigned", "exception_review_required"]
+    },
+    "basis_refs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/safeRef" },
+      "uniqueItems": true
+    },
+    "known_at": { "$ref": "#/$defs/utcDateTime" },
+    "recorded_at": { "$ref": "#/$defs/utcDateTime" },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "producer_ref", "policy_ref"],
+      "properties": {
+        "kind": {
+          "enum": ["deterministic", "local_llm", "remote_llm", "codex", "human"]
+        },
+        "producer_ref": { "$ref": "#/$defs/safeRef" },
+        "policy_ref": { "$ref": "#/$defs/safeRef" }
+      }
+    },
+    "supersedes_binding_id": {
+      "oneOf": [
+        { "$ref": "#/$defs/safeRef" },
+        { "type": "null" }
+      ]
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_body_copied",
+        "official_task_mutated",
+        "official_project_assignment_mutated",
+        "secret_material_present"
+      ],
+      "properties": {
+        "raw_body_copied": { "const": false },
+        "official_task_mutated": { "const": false },
+        "official_project_assignment_mutated": { "const": false },
+        "secret_material_present": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "safeRef": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,255}$"
+    },
+    "utcDateTime": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    }
+  }
+}
