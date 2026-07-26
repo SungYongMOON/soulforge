@@ -2,6 +2,20 @@
 
 ## 2026-07-26
 
+### Task Engine CURRENT status synchronization
+
+- Added one current Task Engine status dashboard that separates live collection,
+  local outboxes, project-timeline projection, accepted context, and TaskDriver
+  activation instead of treating them as one completion state.
+- Updated the observed HPP local-activity, Slack custody, and KVDS V3 timeline
+  counts while retaining older execution rows as explicit historical evidence.
+- Added a repository instruction requiring future collector, scheduler,
+  binding, custody, timeline, context, or TaskDriver changes to refresh the
+  dashboard and its owner README in the same slice.
+- Corrected the remaining boundary: file observations still need sole-writer
+  reconciliation, Slack arrivals need timeline projection, and general Codex
+  runs still need a common exact receipt before they become time-ledger events.
+
 ### Quick explanation skill
 
 - Added the `quick_explain` canon candidate and Codex bridge for owner-facing

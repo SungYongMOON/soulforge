@@ -53,6 +53,23 @@ Soulforge는 canonical 구조와 public/private 경계를 고정한 설계 저�
 - 큰 개발 방향, active slice, 우선순위 판단이 필요하면 `docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md` 를 먼저 확인한다.
 - 개발 예정, backlog, candidate, "나중에 개발할 것" 을 저장해야 하면 새 임의 파일을 만들기 전에 `DEVELOPMENT_ROADMAP_V0.md` 의 개발 예정 저장 규칙을 따른다.
 
+## Task Engine CURRENT 상태표 동기화 규칙
+
+- Task Engine의 collector, scheduler, binding, custody, project timeline, context
+  resolver, TaskDriver 상태가 바뀌면 같은 작업 슬라이스에서
+  `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`
+  맨 앞의 `최신 CURRENT 상태표`를 반드시 갱신한다.
+- 상태표에는 KST 관찰시각, 실제 상태, 근거 범위, 아직 연결되지 않은 다음 단계와
+  claim ceiling을 함께 적는다. 파일 개수와 업무 사건 수, scheduler 실행과 formal
+  acceptance, machine-local outbox와 project timeline 반영을 서로 같은 것으로
+  보고하지 않는다.
+- 날짜가 붙은 과거 실행 기록은 감사 이력으로 보존하되 최신 상태와 충돌하면
+  `HISTORICAL_SUPERSEDED`를 명시한다. `guild_hall/shared/README.md`처럼 같은 상태를
+  설명하는 owner README도 같은 변경에서 동기화한다.
+- 완료 보고 전에는 최신 runtime/receipt를 다시 관찰하고, 상태표보다 뒤의 문단에
+  상충하는 CURRENT 표현이 남지 않았는지 검색한다. 관찰할 수 없는 값은 추정하지
+  않고 `UNKNOWN` 또는 `HOLD`로 둔다.
+
 ## 지식·온톨로지 정본 라우팅
 
 - Soulforge 전체 지식·온톨로지 저장 권한, Google Drive ontology canon package, `.registry/knowledge` 실행 투영, NotebookLM 책장, NAS 재해복구, OneDrive 작업면의 상세 계약은 `docs/architecture/guild_hall/ONTOLOGY_CANON_OPERATING_POLICY_V0.md` 를 따른다.

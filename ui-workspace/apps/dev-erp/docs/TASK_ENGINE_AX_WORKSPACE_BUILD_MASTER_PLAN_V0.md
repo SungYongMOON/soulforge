@@ -2,8 +2,9 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 문서 상태 | `PILOT_EXECUTED_PRODUCTION_HOLD` |
-| 기준일 | 2026-07-15 |
+| 문서 상태 | `MULTI_SOURCE_INGRESS_LIVE_TIMELINE_INTEGRATION_PENDING` |
+| 계획 기준일 | 2026-07-15 |
+| 최신 CURRENT 관찰 | 2026-07-26T19:35:01+09:00; 아래 `최신 CURRENT 상태표`가 현재 운영·투영 상태의 단일 요약이며 날짜가 붙은 과거 행은 감사 이력이다 |
 | 기준 public ref | `main@9df7e57765d818be65f6250da8435826d0a2eea2` (계획 보정 최초 관찰 당시 `origin/main`과 동일; 현재 HEAD 주장 아님) |
 | P1 readiness 재검토 ref | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea` (후속 관찰 당시 `origin/main`과 동일; 현재 HEAD 주장 아님); H00 candidate와 H02~H05 public 코드·계약만 후속 대조 |
 | 비교 candidate ref | `codex/task-engine-rag-v1@927b3fb045ebf749077951417463c47f12a549bd` |
@@ -12,25 +13,61 @@
 | HPP MCP/storage/access correction | owner-confirmed logical topology freeze와 HPP private custody, brokered MCP control/authenticated HTTPS binary plane, artifact/revision/action ACL을 기존 P0→P10에 non-unlocking addendum으로 통합 |
 | 2026-07-18 owner role correction | HPP를 central ingress/custody·voice processing·Task Engine/AX 정상 operational-primary TARGET으로, 맥미니를 temporary failover/fallback으로 지정; live binding·writer cutover는 여전히 `VERIFY_HP/G01` |
 | [2026-07-19 five-lane bounded pilot execution](TASK_ENGINE_HPP_FIVE_LANE_INGRESS_PILOT_V1_RESULT.md) | actual mail·voice·PC work·file·run/log 1건씩을 HPP 격리 custody에 수집하고 `P26-016` actual Shadow 5 event/5 coverage, copied ERP, tracked CSV/XLSX projector·query-only verifier, temporary localhost MCP query/download, explicit project/common metadata-only RAG preview까지 feature-OFF로 실행·검증; P0·H00·H01~H06·P1 owner acceptance, accepted/current pointer, production writer/migration/live activation은 계속 `HOLD` |
-| 2026-07-23 communication-history correction | 팀원·owner의 받은메일과 보낸메일을 한 logical mail occurrence+계정별 mailbox observation으로 결합하고, owner-approved Slack `channel_id→project_code` binding을 project-context 입력으로 추가하는 plan-only addendum. 팀원 보낸편지함 수집원·Slack app/token/channel allowlist는 `UNKNOWN/VERIFY_HP`; collector·DB·Slack app·live writer 활성화 `0` |
+| 2026-07-23 communication-history correction | `HISTORICAL_SUPERSEDED`; 팀원·owner의 받은메일과 보낸메일을 한 logical mail occurrence+계정별 mailbox observation으로 결합하고 Slack binding을 추가한 당시 plan-only 상태다. 이후 Slack exact binding과 read-only collector가 활성화됐으며 팀원 보낸편지함 전체 coverage와 project timeline 자동 투영은 여전히 별도 gap이다. |
 | 2026-07-23 cross-input label correction | mail·voice·Slack·structured PC work·file·run/log가 제각각 project/time/person/action label을 만들지 않도록 공통 사실 envelope와 별도 semantic annotation event를 고정하는 plan-only addendum. 기존 source-native field와 ID는 보존하고, 중앙 context labeler만 shared vocabulary를 사용한다. schema·DB·collector·labeler·TaskDriver live 변경 `0` |
-| 2026-07-23 all-source data foundation execution | H01C mail occurrence/observation, H02 approved-window strong ASR, H03A personal WorkSession, H03B synthetic schedule, H04 file adapter, H05 exact run receipt, H07 Slack revision/cursor의 public-safe feature-OFF 기반을 구현했다. 상태는 `source_foundation_exists_acceptance_hold`; actual private source binding, 공통 label runtime, H00/H01~H07/P1 acceptance, DB migration, collector·writer·service 활성화 `0` |
-| 2026-07-23 live-source interpretation | owner-stated 7-source split은 `2 LIVE_UNACCEPTED / 5 UNCONNECTED`: 받은메일·PLAUD 음성은 owner-supported operational source지만 formal H acceptance와 private exact binding/freshness/coverage는 미증명이고, 보낸메일·Slack·Codex 작업로그·파일변경·PC업무는 continuous source connection이 없다. 새 normalized H→P5 project classification/shared semantic label과 P7 TaskDriver path는 모든 source에서 `OFF`; legacy source-local mail routing·auto-intake는 `VERIFY_HP`이며 P5/P7 acceptance 증거가 아님 |
-| 2026-07-23 owner Outlook Sent query-only canary | 이미 실행 중인 Outlook의 기본 보낸편지함에서 명시적 24시간 window와 bounded item limit로 시각·건수 aggregate만 조회하는 strict query-only surface를 구현하고 실제 조회했다. Inbox·제목·본문·첨부·recipient address·item ID 접근, Send/Receive, repository/`_workmeta`/temp write는 `0`; source availability만 증명하므로 보낸메일 상태는 계속 `UNCONNECTED`, continuous collector·project classification·H01C/HP-LIVE acceptance는 `OFF` |
-| 2026-07-23 Slack query-only source canary | 연결된 Slack의 authenticated-user visible-channel inventory와 프로젝트 채널 1개의 bounded history scope를 metadata-only로 확인하고, public sanitizer는 stable ID를 fingerprint/count로만 반환한다. 채널명·메시지 본문·파일·사용자 주소·secret·literal ID 공개/저장 `0`; source availability만 증명하므로 Slack 상태는 계속 `UNCONNECTED`, exact D34 authority·persistent collector·H07A/H07B·HP-LIVE acceptance는 `OFF` |
+| 2026-07-23 all-source data foundation execution | `HISTORICAL_SUPERSEDED`; H01C mail occurrence/observation, H02 approved-window strong ASR, H03A personal WorkSession, H03B synthetic schedule, H04 file adapter, H05 exact run receipt, H07 Slack revision/cursor의 public-safe feature-OFF 기반을 구현한 당시 상태다. 이후 일부 collector가 운영 활성화됐지만 H00/H01~H07/P1 formal acceptance와 DB migration은 계속 별도 HOLD다. |
+| 2026-07-23 live-source interpretation | `HISTORICAL_SUPERSEDED`; 당시 관찰은 `2 LIVE_UNACCEPTED / 5 UNCONNECTED`였다. 2026-07-24 Slack·음성 운영 활성화와 2026-07-26 all-project local activity bridge 뒤의 CURRENT는 아래 최신 상태표를 따른다. 당시에도 P5 context·P7 TaskDriver는 `OFF`였다. |
+| 2026-07-23 owner Outlook Sent query-only canary | `HISTORICAL_SUPERSEDED`; 당시 strict query-only source availability만 증명했다. 이후 bounded custody와 continuous mailbox capsule에 연결됐지만 project timeline 전면 투영·H01C/HP-LIVE 전체 acceptance는 여전히 별도 상태다. |
+| 2026-07-23 Slack query-only source canary | `HISTORICAL_SUPERSEDED`; 당시 source availability만 증명했다. 2026-07-24 read-only ingress가 운영 활성화됐지만 project timeline 자동 투영과 H07A/H07B 전체 acceptance는 별도 상태다. |
 | 2026-07-23 owner Outlook Sent bounded raw-custody pilot | 기존 team mailbox capsule 안에 active-Outlook attach-only `outlook_sent` provider를 추가하고, 격리된 HPP private D: custody에서 owner 기본 보낸편지함의 실제 bounded window를 `.msg` immutable raw object+H01C observation으로 수집했다. 최초 2건 저장 후 강제 overlap replay는 신규 object `0`, duplicate `2`, gap/truncation `0`; Outlook `SaveAs` byte nondeterminism은 source-local native observation이 처음 확정한 custody ref를 재사용하고 기존 SHA-256/file identity를 매회 검증하도록 보정했다. KST `12:00-14:00`·`20:00-23:00` 각 시간대 성공 1회 gate도 actual canary에서 첫 수집 뒤 같은 slot 재호출 `already_collected_in_slot`으로 확인했다. 이후 HPP private register와 기존 continuous supervisor에 owner Outlook Sent 1개를 연결했고 mail lane 6/6·error 0을 확인했다. project classification·ERP/TaskDriver·team sent coverage·H01C/HP-LIVE 전체 acceptance는 여전히 `OFF` |
-| 2026-07-23 Slack feature-OFF continuous harness | exact joined public project channel 1개 단위 private binding schema, writer lease/epoch, content-addressed raw event custody, restart-safe cursor/dedupe, edit/delete/reply revision, DM/common/unmapped/Slack Connect/file-bearing event HOLD를 synthetic 25/25로 구현·검증했다. 연결된 workspace의 프로젝트 채널 9개를 stable-ID 기반 private feature-OFF binding으로 materialize했으며 token ref와 custody directory는 생성하지 않았다. reusable background app/token transport가 없어 live collector·event subscription·backfill·H07A/H07B/HP-LIVE acceptance는 `OFF` |
+| 2026-07-23 Slack feature-OFF continuous harness | `HISTORICAL_SUPERSEDED`; exact project-channel binding, lease/epoch, raw custody, cursor/dedupe와 HOLD 경계를 synthetic 25/25로 구현한 당시 상태다. 다음 행의 2026-07-24 read-only ingress activation이 live collector 상태를 대체하지만 Events API와 H07A/H07B 전체 acceptance는 여전히 별도다. |
 | 2026-07-24 Slack read-only ingress activation | owner-managed Slack App을 `channels:read`·`channels:history`·`files:read` 사용자 읽기 권한만으로 설치했다. Slack이 봇 앱에 자동 제안한 `chat:write`는 승인하지 않았고, public collector는 bot/user access token을 구분 없이 받되 private v3 binding의 exact token file만 허용한다. 실제 한 채널 canary는 13건 중 일반 메시지 8건을 custody하고 system subtype 5건을 HOLD했으며 PNG 2건·DOCX 2건을 content-addressed custody했다. 전체 9개 프로젝트 채널 batch는 9/9 성공했고 71건 중 9건을 신규 custody, system subtype 62건을 fail-closed HOLD했다. HPP 예약 작업은 KST 02:00·12:00, `IgnoreNew`, 숨김, 낮은 권한으로 등록했으며 실제 수동 예약 실행 결과 `0`과 replay 무중복을 확인했다. token 값·literal ID는 public 문서에 기록하지 않는다. 이는 Slack ingress 운영 증거이며 TaskDriver·세계수 반영이나 H07A/H07B 전체 정본 acceptance를 뜻하지 않는다. |
-| 2026-07-23 local activity three-source query-only inventory | H03A PC 업무는 dev-ERP `erp_mcp_work_session`, H04 파일변경은 exact `reports/file_activity` metadata root, H05 실행이력은 exact `report_authoring_v0` receipt 목록으로 각각 분리한 stdin-only source inventory를 구현했다. 실제 HPP canary는 WorkSession DB sidecar 때문에 open 전 차단, file-activity owner root 미생성, run receipt descriptor 미제공을 정직하게 보고했으며 전후 metadata fingerprint는 동일했다. whole Codex log·업무 파일 본문·`runs/**` discovery·collector/writer/scheduler/classification/TaskDriver 활성화 `0` |
-| 2026-07-26 all-project HPP local activity bridge | 명시적 private project allowlist를 기준으로 현재 HPP의 프로젝트 폴더 file observation, bounded five-field PC 업무, 같은 occurrence를 가리키는 Codex 실행 relation을 machine-local outbox에 모으는 공통 collector를 구현했다. 이는 실제 WorkSession/MCP가 오기 전 HPP-local bridge이며, five-field를 H03/H05 accepted occurrence로 승격하거나 두 lane에 중복 산입하지 않는다. whole chat·screen·keyboard·OS surveillance, project autodiscovery, `_workmeta` canon/ERP/TaskDriver write는 `0`; project-private sole-writer reconciliation과 대표 프로젝트 timeline V2는 후속 gate다. |
+| 2026-07-23 local activity three-source query-only inventory | `HISTORICAL_SUPERSEDED`; H03A PC 업무, H04 파일변경, H05 실행이력을 분리한 query-only inventory 당시에는 세 live source가 모두 미연결이었다. 2026-07-26 local activity bridge가 positive file observation과 bounded work/Codex relation 수집 상태를 대체하지만 reconciler와 common run receipt는 계속 미연결이다. |
+| 2026-07-26 all-project HPP local activity bridge | 명시적 private project allowlist 14개를 기준으로 HPP 프로젝트 폴더 file observation, bounded five-field PC 업무, 같은 occurrence를 가리키는 Codex 실행 relation을 30분 주기 machine-local outbox에 모은다. 2026-07-26T19:35:01+09:00 관찰은 파일 29,301개, exact hash 13,654개, hash 대기 15,647개, bounded work 332건, Codex relation 330건, conflict 0이다. 이는 WorkSession/MCP 전의 HPP-local bridge이며 `_workmeta` reconciler·전체 project timeline·ERP/TaskDriver writer는 아니다. |
 | 2026-07-25 project-context foundation correction | 기존 owner 경계를 유지한 채 `_workmeta/<project>/project_context`에 `SourceSpan→ContextEvent→ContextUnit→ContextBranch→ProjectContext→memory candidate` TARGET 계층, append-only summary revision, HPP sole context writer, ERP accepted-generation read model, MCP/plugin 직접 파일쓰기 금지와 P5A→P5D thin Shadow 순서를 고정했다. 실제 폴더·writer·ERP index·MCP route·DB·TaskDriver·운영 상태 변경 `0` |
 | 2026-07-25 project-timeline feature-OFF foundation | 여섯 source lane의 공통 annotation 뒤에 append-only `scope_timeline_binding.v1`을 두고 confirmed project만 격리된 project timeline으로 투영한다. candidate/unassigned/common/restricted/conflict는 project timeline 밖에 유지하며, 전체 system receipt는 누락·중복 확인용 최소 색인일 뿐 사람/LLM의 cross-project timeline이 아니다. public pure projector와 synthetic 9-case fixture만 구현했고 RAW·private folder·DB·scheduler·network·ERP·MCP·production writer 변경 `0` |
-| 2026-07-25 KVDS one-project timeline Shadow | P5C 선행 확인용으로 `P26-014`의 실제 private mail ledger 86행 중 metadata-only 84행과 owner-confirmed voice occurrence 3건을 exact project timeline으로 materialize했다. 원문복사 표기 mail 2행은 제외했고, KVDS Slack batch의 system-subtype 8행은 HOLD하여 accepted Slack event는 `0`; PC work·team file·run log는 `not_collected`. 결과 87행은 모두 KST이며 immutable generation+월별 JSONL+rebuildable CSV로 저장했다. context acceptance·TaskDriver·ERP/DB·production writer 변경 `0` |
+| 2026-07-25 KVDS one-project timeline Shadow | `HISTORICAL_SUPERSEDED`; 최초 V1은 mail 84+voice 3=87행이었다. 2026-07-26 V3는 bounded PC work 182행을 추가해 총 269행이며, Slack accepted event·file event·common run receipt는 아직 0이다. 최신 local collector의 KVDS bounded work 188건보다 timeline snapshot이 6건 뒤처져 있다. |
 | HPP correction review state | bounded pilot는 `PILOT_EXECUTED`; formal master-plan authority와 production readiness는 계속 `READY_FOR_OWNER_REVIEW/HOLD`; accepted history·accepted knowledge·live readiness claim `0` |
 | bounded pilot 실행 authority | owner task envelope `TASK-ENGINE-HPP-FIVE-LANE-INGRESS-PILOT-V1` 및 `TASK-ENGINE-OPERATIONAL-DATA-KNOWLEDGE-E2E-V1`; execution baseline `main@1110c8ca5e8370271799a9f266a4c17b72188f62`; feature-OFF·standalone-copy·localhost·metadata-only 범위 |
 | 문서 성격 | 계획 정본과 실제 bounded pilot receipt를 함께 유지하는 living master plan; 생산 운영 전환은 별도 owner gate |
 | 공개 안전성 | 실제 프로젝트명, 원문, 제목·본문, 장비명, 절대경로, secret을 포함하지 않음 |
 | 이번 실행 결과 | 기존 topology와 owner를 유지한 채 실제 5-lane bounded custody, P26-016 Shadow, standalone ERP-copy projection, DB/CSV/XLSX parity, localhost read-only MCP, project/common metadata knowledge preview를 구현·실행; production DB·writer·scheduler·LAN·Drive/NotebookLM·accepted pointer 변경 `0` |
+
+## 최신 CURRENT 상태표
+
+이 표는 사람이 현재 위치를 확인하는 단일 요약이다. `LIVE`는 수집기가
+동작한다는 뜻이며 formal H acceptance, project timeline 반영 또는 TaskDriver
+운영 승격을 뜻하지 않는다.
+
+| 입력·단계 | 현재 상태 | 최신 관찰 근거 | 아직 남은 연결 |
+| --- | --- | --- | --- |
+| 받은메일·owner 보낸메일 | `LIVE_COLLECTION / PARTIAL_PROJECT_ROUTE` | 중앙 mail custody 아래 파일 2,221개, 최신 2026-07-26T18:52:41+09:00. 이 숫자는 메시지 건수가 아니라 RAW·metadata·첨부를 포함한 파일 수다. KVDS timeline에는 mail 84 occurrence가 반영됨 | 전체 프로젝트 동일 writer 투영, 재분류 parity, H01 acceptance |
+| PLAUD 음성·독립 전사·발생 라벨 | `LIVE_COLLECTION_AND_DERIVATION` | voice custody/derived 파일 3,870개, 최신 2026-07-25T00:04:37+09:00. HPP voice supervisor는 단일 장기 실행 상태 | backlog 완료·장기 health, project resolver, H02 acceptance |
+| Slack 대화·첨부 | `LIVE_READ_ONLY_COLLECTION` | 9개 exact project channel을 KST 02:00·12:00에 수집. 현재 message RAW 9개, attachment content 4개, source-arrival annotation 9개 | source-arrival+attachment ref의 project timeline 자동 투영, edit/delete coverage, H07 acceptance |
+| 프로젝트 파일 관찰 | `LIVE_LOCAL_OUTBOX / PARTIAL_HASH` | 14개 project, observed 29,301개, exact hash 13,654개, hash 대기 15,647개; 30분 작업 최근 결과 0 | sole reconciler로 first-observed/revision/rename/copy/touch를 `_workmeta` event로 확정. `tool_pc` 관찰만으로 delete 확정 금지 |
+| PC 업무·Codex 관계 | `LIVE_BOUNDED_SUMMARY_OUTBOX` | bounded five-field occurrence 332건, 같은 occurrence를 가리키는 Codex relation 330건, conflict 0 | 정식 WorkSession/MCP receipt와 공통 run receipt. whole chat·screen·keyboard·OS 수집은 계속 OFF |
+| 실행·검증 로그 | `PILOT_ONLY / COMMON_RECEIPT_MISSING` | 중앙 ingress의 run-log 파일 7개는 과거 pilot. project `runs/**`는 형식이 섞여 있어 전체 재귀 수집하지 않음 | 일반 Codex 작업용 exact run receipt/manifest와 H05 adapter |
+| 프로젝트 시간장부 | `KVDS_V3_SHADOW_ONLY` | `P26-014` 269행 = mail 84 + voice 3 + structured PC work 182, 전부 KST. 최신 local PC work 188건보다 6건 뒤처짐 | KVDS에 Slack·file·run/log를 합친 V4, 이후 같은 writer를 다른 프로젝트에 확장 |
+| 맥락·세계수·할일 | `FOUNDATION_ONLY / NOT_OPERATIONAL` | 공통 annotation·project binding·context 계층 계약과 synthetic/Shadow 기반 존재 | P5 context resolver, 체계공학 지식 결합, 검토/정정, ERP accepted generation, TaskDriver 승격 |
+
+Claim ceiling: `observed_operational_ingress_and_private_shadow`.
+accepted project history, accepted context, production TaskDriver readiness는 아직 주장하지 않는다.
+
+### 상태표 유지 지침
+
+1. collector·scheduler·binding·custody·timeline·context·TaskDriver 중 하나라도
+   바뀌면 같은 commit에서 이 표의 해당 행과 `최신 CURRENT 관찰`을 갱신한다.
+2. 근거 우선순위는 fresh runtime/receipt → private current pointer/count →
+   public deterministic test → 날짜가 붙은 historical report 순서다.
+3. 각 행은 `수집`, `정규화/라벨`, `프로젝트 분류`, `시간장부 반영`,
+   `accepted context/TaskDriver`를 섞지 않는다.
+4. count에는 단위를 붙인다. 파일 수를 메시지·세션·업무 사건 수로
+   바꾸어 말하지 않는다.
+5. 과거 행은 삭제하지 않되 최신 표와 충돌하면 `HISTORICAL_SUPERSEDED`로
+   표시한다. shared owner 설명이 바뀌면 `guild_hall/shared/README.md`도
+   같은 변경에서 고친다.
+6. 완료 전 `rg`로 `UNCONNECTED`, `not_collected`, 과거 count와 현재 표의
+   충돌을 검색하고, 의도된 historical 문구가 아니면 수정하거나 HOLD로 낮춘다.
 
 ## 0. 목적·authority·이번 단계 중단선
 
@@ -4852,7 +4889,7 @@ owner approval, canary/runtime readiness evidence가 아니다.
 | 2026-07-23 all-source feature-OFF integrated suite | `PASS`; `npm.cmd run validate:task-engine-source-foundation-v1` exit `0`. gateway Node `58 passed, 1 skipped`, mail-fetch `138 passed, 3 skipped`, voice `124 passed`, H00/file/run/schedule/Slack/ERP MCP/WorkSession combined `78 passed` |
 | current all-source docs/canon/path/diff | `PASS`; docs relative links, canon checked `136` errors/warnings `0`, tracked path-policy violations `0`, baseline→HEAD `git diff --check`, clean status와 index lock 부재 |
 | current all-source Level 2 final review | fresh Inspector `ACCEPT`; independent Judge `ACCEPT`. Claim ceiling은 `source_supported`, scope는 `feature_off_foundation`; H00/H01~H07/P1 acceptance, private binding, common label runtime, DB migration, live collector·writer·service authority `0` |
-| 2026-07-23 live-source interpretation correction | 기존 feature-OFF suite와 historical one-shot canary receipt를 그대로 인정하되 continuous connection으로 재해석하지 않는다. 이 plan-only 보정은 owner-stated `2 LIVE_UNACCEPTED / 5 UNCONNECTED`를 기록할 뿐 새 runtime 검증, private binding 확인, live activation 또는 formal H acceptance를 주장하지 않는다. |
+| 2026-07-23 live-source interpretation correction | `HISTORICAL_SUPERSEDED`; 기존 feature-OFF suite와 historical one-shot canary receipt를 continuous connection으로 재해석하지 않고 당시 `2 LIVE_UNACCEPTED / 5 UNCONNECTED`를 기록한 보정이다. 현재 live 상태는 맨 앞 최신 CURRENT 상태표를 따른다. |
 | 2026-07-23 owner Outlook Sent query-only canary | `PASS` at `source_availability_metadata_only`: explicit bounded window, active-Outlook attach-only, Sent Items class/time aggregate, redacted stdout, repository metadata fingerprint 전후 동일. 실제 건수·시각은 private review evidence에만 두며, 보낸메일 continuous binding·writer·classification·H01C/HP-LIVE acceptance는 여전히 `OFF`다. |
 | 2026-07-23 Slack query-only source canary | `PASS` at `source_availability_metadata_only`: authenticated-user visible-channel pagination과 한 프로젝트 채널의 bounded history scope를 connector read-only로 확인하고, exact-field sanitizer가 stable IDs를 fingerprint/count로만 반환한다. 실제 workspace/channel ID·사용자 주소·시각·건수는 public plan에 두지 않으며, Slack continuous binding·writer·classification·H07A/H07B/HP-LIVE acceptance는 여전히 `OFF`다. |
 | 2026-07-25 AX Codex client plugin plan | `PASS` for plan scope; master plan과 root CHANGELOG만 변경하고 AX-G1→AX-G2→AX-CP1→AX-G3→team rollout, D35, `TEAX-AXCP01`, AC-27을 고정했다. 실제 plugin·hook·MCP binding·credential·DB·writer·team install은 `0`이다. |
@@ -4966,10 +5003,12 @@ offset에 관계없이 모두 `Asia/Seoul`의 `+09:00`으로 정규화한다. �
 lease 같은 명시적 감사 시각은 UTC를 유지하지만 업무 시간축 라벨에는 UTC
 `Z`를 저장하지 않는다.
 
-이 계약은 여섯 lane을 같은 모양으로 표현하지만 현재 공통 timeline writer는
-Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있다. 메일은 기존
-`mail_occurrence`가 정본이며 P5 의미 라벨 전까지 공통 writer가 있다고
-과대 주장하지 않는다.
+이 계약은 여섯 lane을 같은 모양으로 표현한다. 다만 source-arrival annotation,
+machine-local outbox, accepted project timeline은 서로 다른 단계다. 현재 실제
+project timeline Shadow는 KVDS의 mail·voice·bounded PC work만 포함한다. Slack
+annotation과 attachment ref, file reconciled event, common run receipt는 아직
+project timeline writer에 자동 연결되지 않았다. 메일은 기존 `mail_occurrence`가
+정본이며 P5 의미 라벨 전까지 공통 accepted writer가 있다고 과대 주장하지 않는다.
 
 ```text
 메일 / Slack / 음성 / PC 업무 / 파일 / 실행로그
@@ -5052,20 +5091,47 @@ Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있�
      이는 Slack RAW ingress 운영 증거이며 TaskDriver·세계수 승격이나
      H07A/H07B 전체 정본 acceptance를 자동 확정하지 않는다.
 
-3. PC 업무·파일·실행로그
-   - 기존 HPP 연속 queue custody/ack 흐름에 공통 arrival annotation을
-     연결했다.
-   - ack 직후 annotation을 쓰며, ack 후 중단되어 annotation만 빠진 경우
-     다음 replay가 복구한다.
+3. PC 업무·Codex 관계
+   - 14개 exact project allowlist를 대상으로 30분 주기 HPP local collector가
+     bounded five-field occurrence 332건과 relation-only Codex view 330건을
+     machine-local outbox에 모은다.
+   - whole conversation, 화면, 키보드, OS 감시는 하지 않는다.
+   - KVDS V3에는 당시 snapshot 182건이 들어갔지만 최신 local count 188건과
+     6건 차이가 있어 자동 timeline writer는 아직 완성되지 않았다.
 
-4. 메일
+4. 프로젝트 파일
+   - 같은 collector가 프로젝트 폴더의 positive observation 29,301개와 exact
+     hash 13,654개를 모았고, 큰 파일 15,647개는 hash 대기다.
+   - `guild_hall/file_activity`의 first-observed/revision/rename/copy/touch/
+     delete/restore reconciler 계약과 synthetic test는 존재한다.
+   - actual reconciler-primary와 project timeline 투영은 아직 활성화하지 않았다.
+     현재 HPP node role은 `tool_pc`이므로 이 관찰만으로 deletion을 확정하지 않는다.
+
+5. 실행·검증 로그
+   - project `runs/<run_id>/**`는 metadata·artifact·검증물이 섞인 위치라서
+     디렉터리 전체를 실행 사건으로 재귀 산입하지 않는다.
+   - H05는 exact `report_authoring_v0/workflow_receipt.json`만 allowlist한
+     feature-OFF 기반이다. 일반 Codex 작업용 공통 run receipt는 아직 없다.
+
+6. 메일
    - 받은편지·보낸편지는 기존 exact `mail_occurrence` identity와 RAW
      custody를 유지한다.
    - 공통 P5 의미 라벨은 mail occurrence를 대체하지 않고 그 위에 붙는다.
 
+7. 프로젝트 시간장부
+   - 현재 materialized project timeline은 KVDS `P26-014` V3 하나다.
+   - 269행은 mail 84, voice 3, structured PC work 182이며 모두 KST다.
+   - Slack, reconciled file event, common run receipt는 아직 0이고 다른
+     프로젝트 timeline은 아직 materialize하지 않았다.
+
 ### 남은 운영 게이트
 
 - 음성 backlog의 연속 처리 완료와 장기 health 관측
+- Slack source-arrival·attachment pointer를 exact project timeline으로 투영
+- HPP file observation을 sole reconciler가 immutable file event로 확정
+- 일반 Codex 작업용 common run receipt/manifest와 H05 adapter 구현
+- KVDS V4에서 mail·voice·PC work·Slack·file·run/log를 함께 replay한 뒤
+  같은 timeline writer를 나머지 프로젝트로 확장
 - mail/slack/voice에서 나온 요청·약속·결정 후보를 최근 맥락과 대조하는
   P5 context resolver
 - P5 후보를 ERP 공식 TaskDriver로 승격하는 owner/role 승인
@@ -5120,4 +5186,4 @@ Slack·음성·PC 업무·파일·실행로그 다섯 lane에 연결되어 있�
 결과: `READY_FOR_OWNER_REVIEW`
 
 최신 실행 보정 결과:
-`COMMON_TIMELINE_VOICE_AND_SLACK_INGRESS_APPLIED_P5_CONTEXT_RESOLVER_PENDING`
+`MULTI_SOURCE_INGRESS_LIVE_KVDS_TIMELINE_V3_FILE_RUN_RECONCILIATION_PENDING`

@@ -112,11 +112,12 @@
   below an exact, non-aliased private project root:
   `project_context/projections/timeline/`. Immutable generation JSON and
   monthly JSONL files are replay-safe; `current.csv` is a rebuildable view.
-- The first actual bounded Shadow is `P26-014` (KVDS): 84 legacy mail metadata
-  occurrences and 3 owner-confirmed voice occurrences. Its mapped Slack
-  channel had no accepted human-message occurrence in the observed batch; 8
-  system-subtype rows remained held. PC work, team-file, and run-log lanes
-  remain feature-OFF and are reported as `not_collected`.
+- The first actual bounded Shadow is `P26-014` (KVDS). Its current V3 contains
+  269 KST rows: 84 mail metadata occurrences, 3 owner-confirmed voice
+  occurrences, and 182 bounded structured-PC-work occurrences. The latest
+  machine-local collector has 188 KVDS work occurrences, so the materialized
+  timeline is six rows behind that outbox. Slack source-arrival and attachment
+  refs, reconciled file events, and common run receipts are not yet projected.
 - This surface does not accept context, create a task, change an official
   project classification, write ERP/DB, or activate a runtime writer.
 
@@ -194,3 +195,7 @@
 - actual Shadow generation은 `classification_state: shadow`,
   `accepted_history: false`이며 H01~H05 PASS, ERP write, official history promotion,
   live activation을 만들지 않는다.
+- Task Engine의 최신 운영·투영 요약은
+  `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`
+  맨 앞 `최신 CURRENT 상태표`가 소유한다. 이 README의 Shadow 상태가 바뀌면
+  그 표와 같은 commit에서 갱신한다.
