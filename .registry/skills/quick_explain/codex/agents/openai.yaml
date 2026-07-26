@@ -1,0 +1,4 @@
+interface:
+  display_name: "빠른 설명"
+  short_description: "결론·완료·남은 일·다음 행동을 10줄 안에 요약"
+  default_prompt: "Use $soulforge-quick-explain to summarize the current state in no more than 10 lines."

@@ -4,6 +4,7 @@
 - `github_up/` is the tracked Codex wrapper for routing GitHub upload/publish requests to `.workflow/github_upload_publish_v0/`.
 - `grill_me/` is the tracked Codex candidate skill for `/grill-me` style plan pressure-testing and design-decision interview.
 - `easy_explain/` is the tracked Codex candidate for restating long or complex work as an easy, visual, structurally complete explanation without inheriting execution authority.
+- `quick_explain/` is the tracked Codex candidate for summarizing current work in at most 10 logical lines using only conclusion, completed work, remaining work, and one next action.
 - `dual_deep_research/` is the tracked Codex candidate launcher for `.workflow/dual_deep_research_v0`, which compares NotebookLM CLI Deep Research with Codex direct source research before downstream registration.
 - `external_gpt/` is the tracked Codex launcher for `.workflow/external_reasoning_workspace_v0`, calling bounded external ChatGPT browser sessions as advisory-only reasoning support with DOM readback and strict side-effect boundaries.
 - `codex_thread_manager/` is the tracked Codex launcher for `.workflow/codex_thread_manager_v0`, coordinating actual Codex manager, worker, and worktree threads while preserving handoff and boundary rules.

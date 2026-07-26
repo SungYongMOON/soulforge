@@ -2,6 +2,16 @@
 
 ## 2026-07-26
 
+### Quick explanation skill
+
+- Added the `quick_explain` canon candidate and Codex bridge for owner-facing
+  status summaries bounded to 10 logical lines.
+- Kept it separate from `easy_explain`: the quick skill owns conclusion,
+  completed work, remaining work, and one next action, while the existing skill
+  continues to own visual and completeness-oriented explanation.
+- Added local skill-sync metadata without granting investigation, mutation,
+  approval, or publication authority.
+
 ### All-project HPP local activity collection
 
 - Added an exact-private-allowlist HPP collector that writes project-separated

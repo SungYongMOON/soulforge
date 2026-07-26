@@ -1,0 +1,31 @@
+skill_id: quick_explain
+kind: skill
+status: candidate
+title: Quick Explain
+summary: Summarize current work in at most 10 logical lines using only a conclusion, completed work, remaining work, and one next action.
+behavior:
+  intent: Give the owner a fast, low-token status explanation without the completeness pass or visual detail owned by easy_explain.
+  use_when:
+    - the user explicitly invokes the quick explanation skill
+    - the user asks for a very short status, 핵심만, 짧게, 요약해서, or 10줄 이내
+    - the latest bounded work has enough evidence to distinguish completed and remaining work
+  avoid_when:
+    - the user asks for a detailed, visual, structural, or exhaustive explanation
+    - the request is to execute, modify, approve, investigate, or promote work
+    - the explanation target is genuinely ambiguous
+  expected_outcome:
+    - the answer contains no more than 10 newline-delimited logical lines
+    - the first line is a conclusion
+    - completed work, remaining work, and one next action are visibly separated
+    - unsupported certainty, private payloads, and execution claims are excluded
+execution_requirements:
+  required_capabilities:
+    - audience_adaptation
+    - concise_summarization
+    - status_synthesis
+  notes:
+    - "Use only evidence already available in the current context."
+    - "This skill explains; it does not inherit authority to inspect, rerun, modify, approve, or publish the underlying work."
+    - "Actual model, installed skill name, and runtime context resolve outside tracked canon."
+notes:
+  - "`quick_explain` is intentionally separate from `easy_explain`: quick_explain is bounded by line count, while easy_explain owns visual and completeness-oriented explanations."
