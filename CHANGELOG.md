@@ -6,6 +6,8 @@
 
 - Added the `quick_explain` canon candidate and Codex bridge for owner-facing
   status summaries bounded to 10 logical lines.
+- Added `/짧게설명` as its owner-facing Korean invocation alias while retaining
+  the ASCII internal Codex skill id required by the runtime.
 - Kept it separate from `easy_explain`: the quick skill owns conclusion,
   completed work, remaining work, and one next action, while the existing skill
   continues to own visual and completeness-oriented explanation.

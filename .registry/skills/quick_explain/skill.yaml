@@ -6,6 +6,7 @@ summary: Summarize current work in at most 10 logical lines using only a conclus
 behavior:
   intent: Give the owner a fast, low-token status explanation without the completeness pass or visual detail owned by easy_explain.
   use_when:
+    - the user enters /짧게설명
     - the user explicitly invokes the quick explanation skill
     - the user asks for a very short status, 핵심만, 짧게, 요약해서, or 10줄 이내
     - the latest bounded work has enough evidence to distinguish completed and remaining work

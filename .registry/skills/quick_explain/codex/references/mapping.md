@@ -5,6 +5,7 @@
 - Canon skill id: `quick_explain`
 - Canon linkage: `.registry/skills/quick_explain/skill.yaml`
 - Installed invocation: `$soulforge-quick-explain`
+- Owner-facing invocation alias: `/짧게설명`
 - Detailed counterpart: `$soulforge-easy-explain`
 
 ## Output Shape

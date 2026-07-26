@@ -1,4 +1,4 @@
 interface:
-  display_name: "ºü¸¥ ¼³¸í"
-  short_description: "°á·Ğ¡¤¿Ï·á¡¤³²Àº ÀÏ¡¤´ÙÀ½ Çàµ¿À» 10ÁÙ ¾È¿¡ ¿ä¾à"
-  default_prompt: "Use $soulforge-quick-explain to summarize the current state in no more than 10 lines."
+  display_name: "ë¹ ë¥¸ ì„¤ëª…"
+  short_description: "ê²°ë¡ Â·ì™„ë£ŒÂ·ë‚¨ì€ ì¼Â·ë‹¤ìŒ í–‰ë™ì„ 10ì¤„ ì•ˆì— ìš”ì•½"
+  default_prompt: "Use $soulforge-quick-explain for /ì§§ê²Œì„¤ëª… requests and summarize the current state in no more than 10 lines."

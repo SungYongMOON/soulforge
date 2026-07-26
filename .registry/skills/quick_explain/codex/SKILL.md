@@ -1,6 +1,6 @@
 ---
 name: soulforge-quick-explain
-description: Summarize the current or named work in no more than 10 logical lines using only conclusion, completed work, remaining work, and one next action. Use when the user explicitly invokes $soulforge-quick-explain or asks for a very short status explanation, 핵심만, 짧게, 요약해서, or 10줄 이내. Do not use when the user asks for a detailed, visual, or exhaustive explanation.
+description: Summarize the current or named work in no more than 10 logical lines using only conclusion, completed work, remaining work, and one next action. Use when the user enters /짧게설명, explicitly invokes $soulforge-quick-explain, or asks for a very short status explanation, 핵심만, 짧게, 요약해서, or 10줄 이내. Do not use when the user asks for a detailed, visual, or exhaustive explanation.
 ---
 
 # Soulforge Quick Explain
