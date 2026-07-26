@@ -170,6 +170,8 @@
 - `MAIL_SEND_STYLE_POLICY_V0.md` 는 owner 가 직접 보내는 것처럼 보이는 업무 메일 초안, 승인 단계, 제목/본문 스타일, 발송 후 metadata-only 기록 기준을 잠근다.
 - `MULTI_PC_DEVELOPMENT_V0.md` 는 다른 PC 에서 `clone -> local runtime materialize -> push` 하는 최소 운영 절차와 `work_pc` / `tool_pc` / `portable_dev_pc` / `always_on_node` 역할 모델을 잠근다.
 - `WORKSPACE_PATH_IDENTITY_POLICY_V0.md` 는 같은 `_workspaces/<name>` 경로가 PC마다 다른 폴더를 뜻하지 않도록 shared view 와 `_workspaces/_local/<node_id>/` / `_workspaces/_local_hold/...` 경계를 잠근다.
+- `PROJECT_LOCAL_ACTIVITY_COLLECTION_V0.md` 는 모든 명시적 프로젝트에 대해 HPP 로컬 PC 업무,
+  파일 관측, Codex 실행 관계를 한 occurrence 기준으로 모으고 이후 sole-writer 시계열로 넘기는 경계를 잠근다.
 - `SYSTEM_WORKSPACE_SYNC_MIGRATION_V0.md` 는 여러 PC 의 `_workspaces/system/` drift 를 실제 payload 없이 manifest 기반으로 비교하고 공유 view 전환 이후 content disposition 을 결정하는 공개 회람용 runbook 이다.
 - split binding 파일은 `bindings/*.yaml` 상대 경로 포인터 규칙을 사용한다.
 - workflow step 의 `execution_profile_ref` 와 `action.skill_id` 는 local runtime binding 을 통해 model, skill package, MCP/tool preset 으로 resolve 할 수 있다.

@@ -14,6 +14,8 @@
 - `knowledge_access/`: metadata-only knowledge ref read/use ledger append helper
 - `knowledge_canon/`: ontology release inventory/hash package creation and restore verification helper
 - `daily_ledger/`: metadata-only daily work ledger validator and ledger-only worklog draft renderer
+- `local_activity/`: exact-project HPP-local file observation plus bounded PC-work/Codex relation outbox;
+  no conversation or operating-system surveillance and no direct `_workmeta`/ERP write
 - `file_activity/`: multi-PC project file observation packets, single-primary logical-file/revision reconciliation,
   monthly metadata receipts/events, checkpoint-only rebuild, bounded life-tree projection helper,
   and feature-OFF H04 project-history adapter

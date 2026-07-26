@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-07-26
+
+### All-project HPP local activity collection
+
+- Added an exact-private-allowlist HPP collector that writes project-separated
+  file observations and bounded PC-work/Codex views to a machine-local outbox.
+- Kept one native bounded-work occurrence while exposing Codex execution as a
+  relation-only view, with full-record digest and same-ID conflict holding.
+- Prohibited project autodiscovery, whole chat, screen, keyboard, and OS
+  surveillance; the collector does not mutate `_workmeta`, project context,
+  ERP, MCP, or official task state.
+- Added a pinned hidden Windows scheduled-task wrapper with `IgnoreNew`; live
+  materialization remains machine-local and is reported separately from public
+  source delivery.
+
 ## 2026-07-25
 
 ### KVDS one-project timeline Shadow
