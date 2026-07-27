@@ -4,7 +4,7 @@
 | --- | --- |
 | 문서 상태 | `MULTI_SOURCE_INGRESS_LIVE_TIMELINE_INTEGRATION_PENDING` |
 | 계획 기준일 | 2026-07-15 |
-| 최신 CURRENT 관찰 | 2026-07-27T21:53:10+09:00; 아래 `최신 CURRENT 상태표`가 현재 운영·투영 상태의 단일 요약이며 날짜가 붙은 과거 행은 감사 이력이다 |
+| 최신 CURRENT 관찰 | 2026-07-27T22:08:06+09:00; 아래 `최신 CURRENT 상태표`가 현재 운영·투영 상태의 단일 요약이며 날짜가 붙은 과거 행은 감사 이력이다 |
 | 기준 public ref | `main@9df7e57765d818be65f6250da8435826d0a2eea2` (계획 보정 최초 관찰 당시 `origin/main`과 동일; 현재 HEAD 주장 아님) |
 | P1 readiness 재검토 ref | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea` (후속 관찰 당시 `origin/main`과 동일; 현재 HEAD 주장 아님); H00 candidate와 H02~H05 public 코드·계약만 후속 대조 |
 | 비교 candidate ref | `codex/task-engine-rag-v1@927b3fb045ebf749077951417463c47f12a549bd` |
@@ -50,7 +50,7 @@
 | Slack 대화·첨부 | `LIVE_READ_ONLY_COLLECTION` | 9개 exact project channel을 KST 02:00·12:00에 수집. 현재 message RAW 9개, attachment content 4개, source-arrival annotation 9개 | source-arrival+attachment ref의 project timeline 자동 투영, edit/delete coverage, H07 acceptance |
 | 프로젝트 파일 관찰 | `LIVE_LOCAL_DELTA_OUTBOX / PARTIAL_HASH` | 14개 project의 compact inventory 29,326행, exact hash 14,132개, hash 대기 15,194개. 구방식 격리 뒤 최신 실제 실행은 변경 5건/무변경 29,321건, 최신 delta 합계 27,152 bytes, 결과 0, held 0, stale lock 0, 구경로 재생성 0이었다. 중복 구방식 full packet 347개/1,179,013,521 bytes는 독립 실행 검증 후 삭제됐다 | sole reconciler로 first-observed/revision/rename/copy/touch를 `_workmeta` event로 확정. `tool_pc` absence candidate만으로 delete 확정 금지 |
 | Codex 업무 결과 요약 (임시 proxy) | `LIVE_BOUNDED_SUMMARY_OUTBOX` | five-field 기반 결과 요약 351건, 같은 occurrence를 가리키는 Codex-origin relation 349건, conflict 0. 내부 호환 ID는 `bounded_work` | 정식 WorkSession/MCP receipt와 연결. whole chat·screen·keyboard·OS 수집은 계속 OFF이며 이 요약을 실제 PC 활동이나 실행 증거로 과대 해석하지 않음 |
-| Codex 작업 맥락 사건 | `LIVE_HPP_LOCAL_EVENT_OUTBOX / LEADER_GUIDANCE_PENDING` | exact private 14-project allowlist 고정. 현재 활동 팀장 작업 10개를 11개 project code에 등록했고 P25-000/P26-038은 같은 기뢰전 팀장 작업을 공유한다. KVDS 제한 canary 정본 `LW-P26-014-CANARY-20260727-005`는 KST 사건 3개·attached thread 1개·파일 SHA-256 ref 1개·검증 25/25 ref 1개·whole-chat 자동 수집 0으로 완료했다. 이전 canary 4건은 덮어쓰거나 삭제하지 않고 `superseded` 감사 이력으로 보존했다 | 공개 commit·HPP runtime copy 뒤 등록된 팀장 작업 10개에 start/attach/checkpoint/finish/supersede 사용 지침 전달. ERP/WorkSession/H05/timeline promotion은 별도 reconciler 전까지 OFF |
+| Codex 작업 맥락 사건 | `LIVE_HPP_LOCAL_EVENT_OUTBOX / LEADER_GUIDANCE_SENT` | exact private 14-project allowlist 고정. 현재 활동 팀장 작업 10개를 11개 project code에 등록했고 P25-000/P26-038은 같은 기뢰전 팀장 작업을 공유한다. KVDS 제한 canary 정본 `LW-P26-014-CANARY-20260727-005`는 KST 사건 3개·attached thread 1개·파일 SHA-256 ref 1개·검증 25/25 ref 1개·whole-chat 자동 수집 0으로 완료했다. 이전 canary 4건은 덮어쓰거나 삭제하지 않고 `superseded` 감사 이력으로 보존했다. 공개 `21fdad4d`와 같은 3개 실행 파일을 HPP D: runtime에 배치·hash 일치·status 조회 검증했고 등록된 팀장 작업 10/10에 다음 실제 업무부터 적용할 start/attach/checkpoint/finish/supersede 지침을 전달했다 | 팀장 ACK와 첫 실제 업무 적용을 관찰한다. ERP/WorkSession/H05/timeline promotion은 별도 reconciler 전까지 OFF |
 | Codex 실행·검증 증거 | `PILOT_ONLY / COMMON_RECEIPT_MISSING` | 중앙 ingress의 legacy `run_log` 파일 7개는 과거 pilot. project `runs/**`는 형식이 섞여 있어 전체 재귀 수집하지 않음 | 일반 Codex 작업용 exact run receipt/manifest와 H05 adapter |
 | 프로젝트 시간장부 | `KVDS_V3_SHADOW_ONLY` | `P26-014` 269행 = mail 84 + voice 3 + `Codex 업무 결과 요약` proxy 182, 전부 KST. 최신 local proxy 200건보다 18건 뒤처짐 | KVDS에 Slack·reconciled file event·`Codex 실행·검증 증거`를 합친 V4, 이후 같은 writer를 다른 프로젝트에 확장 |
 | 맥락·세계수·할일 | `FOUNDATION_ONLY / NOT_OPERATIONAL` | 공통 annotation·project binding·context 계층 계약과 synthetic/Shadow 기반 존재 | P5 context resolver, 체계공학 지식 결합, 검토/정정, ERP accepted generation, TaskDriver 승격 |
