@@ -69,6 +69,13 @@ Soulforge는 canonical 구조와 public/private 경계를 고정한 설계 저�
 - 완료 보고 전에는 최신 runtime/receipt를 다시 관찰하고, 상태표보다 뒤의 문단에
   상충하는 CURRENT 표현이 남지 않았는지 검색한다. 관찰할 수 없는 값은 추정하지
   않고 `UNKNOWN` 또는 `HOLD`로 둔다.
+- HPP data root에 새 최상위 폴더나 영속 데이터 surface를 추가하는 개발은 같은
+  슬라이스에서 NAS backup/recovery 분류를 함께 갱신한다. 각 surface는
+  `백업·복구 포함`, `재생성 가능 제외`, `secret/운영정보 capture 금지` 중 하나로
+  명시하고 관련 synthetic backup/restore 검증을 통과해야 한다. 미분류 surface
+  때문에 HPP snapshot이 보류되더라도 기존 ERP·metadata·workspace 독립 백업은
+  계속 실행되어야 하며, writer·binding·ACL·NAS 목적지 같은 전역 안전 실패만
+  전체 주기를 중단한다.
 
 ## 지식·온톨로지 정본 라우팅
 

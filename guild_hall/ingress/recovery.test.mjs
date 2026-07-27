@@ -102,7 +102,7 @@ function sha256(value) {
 
 function recoveryPolicy(storageManifestSha256, writerAuthority = {}) {
   return {
-    schema_version: "soulforge.hpp_ingress_recovery_policy.v1",
+    schema_version: "soulforge.hpp_ingress_recovery_policy.v2",
     policy_id: "task-engine-hpp-five-lane-ingress-recovery",
     scope: "five_lane_ingress_custody_continuity",
     guard_profile: "soulforge.ingress_recovery.fixed_guards.v1",
@@ -125,6 +125,9 @@ function recoveryPolicy(storageManifestSha256, writerAuthority = {}) {
       { ref: "state/mail_candidate", required: true },
       { ref: "state/outbox", required: true },
     ],
+    supplemental_refs: [
+      { ref: "timeline", required: true, backup_class: "derived_history" },
+    ],
     legacy_empty_refs: [
       { ref: "quarantine/files", required_empty: true },
     ],
@@ -141,6 +144,7 @@ function recoveryPolicy(storageManifestSha256, writerAuthority = {}) {
       "ingress-mcp",
       "manifests",
       "runtime",
+      "secrets",
       "state/backup_controller",
       "state/health",
     ],
@@ -150,6 +154,7 @@ function recoveryPolicy(storageManifestSha256, writerAuthority = {}) {
       "ingress-mcp",
       "manifests",
       "runtime",
+      "secrets",
       "state/backup_controller",
       "state/health",
     ],
@@ -216,7 +221,7 @@ async function fixture({ sqlite = false } = {}) {
   const restoreRoot = join(root, "restore");
   const recoveryPolicyPath = join(root, "recovery-policy.json");
   await Promise.all([sourceRoot, backupRoot, restoreRoot].map((path) => mkdir(path)));
-  for (const name of ["backups", "config", "ingress", "ingress-mcp", "manifests", "quarantine", "runtime", "state"]) {
+  for (const name of ["backups", "config", "ingress", "ingress-mcp", "manifests", "quarantine", "runtime", "secrets", "state", "timeline"]) {
     await mkdir(join(sourceRoot, name));
   }
   await writeFile(join(sourceRoot, "README.private.md"), "Synthetic private-custody root.\n", "utf8");
@@ -278,6 +283,11 @@ async function fixture({ sqlite = false } = {}) {
   await writeJson(join(configRoot, "api-credentials.json"), { value: "must-not-copy" });
   await writeFile(join(configRoot, "browser-auth.session"), "must-not-copy", "utf8");
   await writeFile(join(sourceRoot, "state", "health", "api-token.json"), "excluded-health", "utf8");
+  await writeFile(join(sourceRoot, "secrets", "password.txt"), "must-not-copy", "utf8");
+  await mkdir(join(sourceRoot, "timeline", "source_arrival"), { recursive: true });
+  await writeJson(join(sourceRoot, "timeline", "source_arrival", "synthetic.json"), {
+    schema_version: "synthetic.timeline.v1",
+  });
   await mkdir(join(sourceRoot, "backups", "prior"), { recursive: true });
   await writeFile(join(sourceRoot, "backups", "prior", "old.db"), "old-backup", "utf8");
 
@@ -488,7 +498,7 @@ test("snapshot restores five lanes, quarantines, and stable state while excluded
   const f = await fixture({ sqlite: true });
   try {
     assert.equal(Object.keys(storageManifest()).length, 13);
-    assert.equal((await readdir(f.sourceRoot)).length, 10);
+    assert.equal((await readdir(f.sourceRoot)).length, 12);
     assert.equal((await readdir(join(f.sourceRoot, "state"))).length, 6);
     assert.equal((await readdir(join(f.sourceRoot, "ingress"))).length, 5);
     assert.equal((await readdir(join(f.sourceRoot, "quarantine"))).length, 6);
@@ -551,6 +561,7 @@ test("snapshot restores five lanes, quarantines, and stable state while excluded
       "state/leases/continuous_ingress/epoch.json",
       "state/mail_candidate/synthetic.json",
       "state/outbox/synthetic.json",
+      "timeline/source_arrival/synthetic.json",
     ]) assert.ok(refs.includes(ref), ref);
     assert.ok(!refs.includes("state/leases/continuous_ingress/active.lock.json"));
     assert.ok(!refs.some((ref) => /(?:\.cas\.lock|\.candidate-|\.recovery$|\.partial(?:-|$)|\.lock$)/u.test(ref)));
@@ -558,6 +569,7 @@ test("snapshot restores five lanes, quarantines, and stable state while excluded
     assert.ok(!refs.some((ref) => ref.startsWith("backups/")));
     assert.ok(!refs.some((ref) => ref.startsWith("quarantine/files/")));
     assert.ok(!refs.some((ref) => ref.startsWith("config/")
+      || ref.startsWith("secrets/")
       || ref.startsWith("state/backup_controller/")
       || ref.startsWith("state/health/")));
     assert.ok(!refs.some((ref) => /\.sqlite3(?:-|$)/u.test(ref)));
@@ -608,6 +620,8 @@ test("snapshot restores five lanes, quarantines, and stable state while excluded
     const restoredRoot = join(f.restoreRoot, restored.restore_subdirectory);
     assert.equal(await exists(join(restoredRoot, "state", "leases", "continuous_ingress", "active.lock.json")), false);
     assert.equal(await exists(join(restoredRoot, "config")), false);
+    assert.equal(await exists(join(restoredRoot, "secrets")), false);
+    assert.equal(await exists(join(restoredRoot, "timeline", "source_arrival", "synthetic.json")), true);
     assert.equal(await exists(join(restoredRoot, "quarantine", "files")), false);
     assert.equal(await exists(join(restoredRoot, "state", "backup_controller")), false);
     assert.equal(await exists(join(restoredRoot, "state", "health")), false);

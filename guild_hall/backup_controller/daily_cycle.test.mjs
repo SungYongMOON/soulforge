@@ -99,6 +99,30 @@ test("workspace failure is last and preserves four critical receipts", async (t)
   assert.equal(state.stages.workspace_copy.status, "failed");
 });
 
+test("an HPP snapshot failure is isolated while independent backup stages continue", async (t) => {
+  const fx = await fixture(t);
+  const calls = [];
+  const executors = successfulExecutors(calls);
+  executors.hpp_snapshot_v1 = async (context) => {
+    calls.push(context.stage_id);
+    throw Object.assign(new Error("synthetic"), { code: "recovery_source_top_level_undeclared" });
+  };
+  executors.backup_health_v1 = async (context) => {
+    calls.push(context.stage_id);
+    throw Object.assign(new Error("synthetic"), { code: "backup_health_hpp_receipt_missing" });
+  };
+  const output = await dailyCycleController({ ...fx.common, apply: true, executors });
+  assert.equal(output.status, "completed_with_warning");
+  assert.deepEqual(calls, ["hpp_snapshot", "erp_backup", "health", "weekly_restore", "workspace_copy"]);
+  assert.deepEqual(output.failed_stage_ids, ["hpp_snapshot", "health"]);
+  const state = JSON.parse(await readFile(path.join(fx.stateRoot, "backup-controller.state.json"), "utf8"));
+  assert.equal(state.stages.hpp_snapshot.status, "failed");
+  assert.equal(state.stages.erp_backup.status, "succeeded");
+  assert.equal(state.stages.health.status, "failed");
+  assert.equal(state.stages.weekly_restore.status, "succeeded");
+  assert.equal(state.stages.workspace_copy.status, "succeeded");
+});
+
 test("a persisted running stage reconciles its external receipt after a crash", async (t) => {
   const fx = await fixture(t);
   const stateRef = path.join(fx.stateRoot, "backup-controller.state.json");

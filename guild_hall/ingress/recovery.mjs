@@ -28,9 +28,10 @@ export const INGRESS_RECOVERY_MANIFEST_SCHEMA = "soulforge.ingress.recovery_mani
 export const INGRESS_RECOVERY_COMMIT_SCHEMA = "soulforge.ingress.recovery_commit.v1";
 export const INGRESS_RECOVERY_CUSTODY_SCHEMA = "soulforge.ingress.recovery_custody.v1";
 export const INGRESS_RECOVERY_RESULT_SCHEMA = "soulforge.ingress.recovery_result.v1";
-export const HPP_INGRESS_RECOVERY_POLICY_SCHEMA = "soulforge.hpp_ingress_recovery_policy.v1";
+export const HPP_INGRESS_RECOVERY_POLICY_SCHEMA = "soulforge.hpp_ingress_recovery_policy.v2";
 
 const LEGACY_INGRESS_RECOVERY_MANIFEST_SCHEMA = "soulforge.ingress.recovery_manifest.v1";
+const PRIOR_HPP_INGRESS_RECOVERY_POLICY_SCHEMA = "soulforge.hpp_ingress_recovery_policy.v1";
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 const MAX_CUSTODY_JSON_BYTES = 16 * 1024 * 1024;
@@ -73,6 +74,9 @@ const RECOVERY_STABLE_STATE_REFS = Object.freeze([
   Object.freeze({ ref: "state/mail_candidate", required: true }),
   Object.freeze({ ref: "state/outbox", required: true }),
 ]);
+const RECOVERY_SUPPLEMENTAL_REFS = Object.freeze([
+  Object.freeze({ ref: "timeline", required: true, backup_class: "derived_history" }),
+]);
 const RECOVERY_LEGACY_EMPTY_REFS = Object.freeze([
   Object.freeze({ ref: "quarantine/files", required_empty: true }),
 ]);
@@ -83,6 +87,7 @@ const RECOVERY_EXCLUDED_REFS = Object.freeze([
   "ingress-mcp",
   "manifests",
   "runtime",
+  "secrets",
   "state/backup_controller",
   "state/health",
 ]);
@@ -92,9 +97,16 @@ const RECOVERY_FORBIDDEN_CAPTURE_ROOTS = Object.freeze([
   "ingress-mcp",
   "manifests",
   "runtime",
+  "secrets",
   "state/backup_controller",
   "state/health",
 ]);
+const PRIOR_RECOVERY_EXCLUDED_REFS = Object.freeze(
+  RECOVERY_EXCLUDED_REFS.filter((ref) => ref !== "secrets"),
+);
+const PRIOR_RECOVERY_FORBIDDEN_CAPTURE_ROOTS = Object.freeze(
+  RECOVERY_FORBIDDEN_CAPTURE_ROOTS.filter((ref) => ref !== "secrets"),
+);
 const RECOVERY_WRITER_AUTHORITY_REF = "state/writer_authority/active.json";
 const RECOVERY_WRITER_AUTHORITY_SCHEMA = "soulforge.ingress.writer_authority.v1";
 
@@ -534,7 +546,13 @@ function exactRelativeStringMap(value, keys, code) {
   for (const key of keys) safeRelativeRef(value[key], code);
 }
 
-function validateRecoveryPolicy(document) {
+function validateRecoveryPolicy(document, { expectedSchema = HPP_INGRESS_RECOVERY_POLICY_SCHEMA } = {}) {
+  if (document?.schema_version !== expectedSchema
+    || !new Set([
+      HPP_INGRESS_RECOVERY_POLICY_SCHEMA,
+      PRIOR_HPP_INGRESS_RECOVERY_POLICY_SCHEMA,
+    ]).has(expectedSchema)) fail("recovery_policy_invalid");
+  const current = expectedSchema === HPP_INGRESS_RECOVERY_POLICY_SCHEMA;
   exactKeys(document, [
     "schema_version",
     "policy_id",
@@ -543,13 +561,13 @@ function validateRecoveryPolicy(document) {
     "storage_manifest",
     "lane_refs",
     "stable_state_refs",
+    ...(current ? ["supplemental_refs"] : []),
     "legacy_empty_refs",
     "writer_authority",
     "excluded_refs",
     "forbidden_capture_roots",
   ], "recovery_policy_invalid");
-  if (document.schema_version !== HPP_INGRESS_RECOVERY_POLICY_SCHEMA
-    || document.policy_id !== RECOVERY_POLICY_ID
+  if (document.policy_id !== RECOVERY_POLICY_ID
     || document.scope !== RECOVERY_POLICY_SCOPE
     || document.guard_profile !== RECOVERY_GUARD_PROFILE) fail("recovery_policy_invalid");
   exactKeys(document.storage_manifest, ["ref", "schema_version", "sha256"], "recovery_policy_invalid");
@@ -558,6 +576,7 @@ function validateRecoveryPolicy(document) {
     || !SHA256.test(document.storage_manifest.sha256)) fail("recovery_policy_invalid");
   exactArray(document.lane_refs, RECOVERY_LANE_REFS, "recovery_policy_invalid");
   exactArray(document.stable_state_refs, RECOVERY_STABLE_STATE_REFS, "recovery_policy_invalid");
+  if (current) exactArray(document.supplemental_refs, RECOVERY_SUPPLEMENTAL_REFS, "recovery_policy_invalid");
   exactArray(document.legacy_empty_refs, RECOVERY_LEGACY_EMPTY_REFS, "recovery_policy_invalid");
   exactKeys(document.writer_authority, [
     "record_ref",
@@ -570,11 +589,20 @@ function validateRecoveryPolicy(document) {
     || typeof document.writer_authority.required !== "boolean"
     || (document.writer_authority.expected_sha256 !== null
       && !SHA256.test(document.writer_authority.expected_sha256))) fail("recovery_policy_invalid");
-  exactArray(document.excluded_refs, RECOVERY_EXCLUDED_REFS, "recovery_policy_invalid");
-  exactArray(document.forbidden_capture_roots, RECOVERY_FORBIDDEN_CAPTURE_ROOTS, "recovery_policy_invalid");
+  exactArray(
+    document.excluded_refs,
+    current ? RECOVERY_EXCLUDED_REFS : PRIOR_RECOVERY_EXCLUDED_REFS,
+    "recovery_policy_invalid",
+  );
+  exactArray(
+    document.forbidden_capture_roots,
+    current ? RECOVERY_FORBIDDEN_CAPTURE_ROOTS : PRIOR_RECOVERY_FORBIDDEN_CAPTURE_ROOTS,
+    "recovery_policy_invalid",
+  );
   const included = [
     ...document.lane_refs.flatMap((lane) => [lane.payload_ref, lane.quarantine_ref]),
     ...document.stable_state_refs.map((item) => item.ref),
+    ...(current ? document.supplemental_refs.map((item) => item.ref) : []),
     document.writer_authority.record_ref,
   ];
   for (const ref of [
@@ -599,7 +627,12 @@ function validateRecoveryPolicy(document) {
   return document;
 }
 
-async function readRecoveryPolicy(policyPath, { sourceRoot = null, backupRoot = null, restoreRoot = null } = {}) {
+async function readRecoveryPolicy(policyPath, {
+  sourceRoot = null,
+  backupRoot = null,
+  restoreRoot = null,
+  expectedSchema = HPP_INGRESS_RECOVERY_POLICY_SCHEMA,
+} = {}) {
   const path = requireAbsolutePath(policyPath, "recovery_policy_path_absolute_required");
   if ((sourceRoot && inside(sourceRoot, path))
     || (backupRoot && inside(backupRoot, path))
@@ -613,7 +646,7 @@ async function readRecoveryPolicy(policyPath, { sourceRoot = null, backupRoot = 
   });
   let document;
   try { document = JSON.parse(checked.bytes.toString("utf8")); } catch { fail("recovery_policy_invalid"); }
-  validateRecoveryPolicy(document);
+  validateRecoveryPolicy(document, { expectedSchema });
   return { path, document, size: checked.size, sha256: checked.sha256 };
 }
 
@@ -734,6 +767,7 @@ async function preflightSourceShape(sourceRoot, policy) {
     "storage_manifest.json",
     ...policy.document.lane_refs.flatMap((lane) => [lane.payload_ref, lane.quarantine_ref]),
     ...policy.document.stable_state_refs.map((item) => item.ref),
+    ...(policy.document.supplemental_refs ?? []).map((item) => item.ref),
     policy.document.writer_authority.record_ref,
   ].map((ref) => ref.split("/")[0]));
   const topExcluded = new Set(policy.document.excluded_refs.filter((ref) => !ref.includes("/")));
@@ -831,6 +865,7 @@ function policyIncludeDirectories(policy) {
   return [
     ...policy.document.lane_refs.flatMap((lane) => [lane.payload_ref, lane.quarantine_ref]),
     ...policy.document.stable_state_refs.map((item) => item.ref),
+    ...(policy.document.supplemental_refs ?? []).map((item) => item.ref),
   ];
 }
 
@@ -1523,7 +1558,10 @@ function validateRecoveryPolicyDescriptor(value) {
     "sha256",
     "legacy_empty_refs",
   ], "recovery_manifest_policy_invalid");
-  if (value.schema_version !== HPP_INGRESS_RECOVERY_POLICY_SCHEMA
+  if (!new Set([
+    HPP_INGRESS_RECOVERY_POLICY_SCHEMA,
+    PRIOR_HPP_INGRESS_RECOVERY_POLICY_SCHEMA,
+  ]).has(value.schema_version)
     || value.policy_id !== RECOVERY_POLICY_ID
     || !SHA256.test(value.sha256)) fail("recovery_manifest_policy_invalid");
   exactArray(value.legacy_empty_refs, RECOVERY_LEGACY_EMPTY_REFS, "recovery_manifest_policy_invalid");
@@ -1561,11 +1599,14 @@ function validateWriterAuthorityDescriptor(value) {
   return value;
 }
 
-function recoveryManifestRefAllowed(ref) {
+function recoveryManifestRefAllowed(ref, policySchemaVersion) {
   if (ref === "storage_manifest.json" || ref === RECOVERY_WRITER_AUTHORITY_REF) return true;
   return [
     ...RECOVERY_LANE_REFS.flatMap((lane) => [lane.payload_ref, lane.quarantine_ref]),
     ...RECOVERY_STABLE_STATE_REFS.map((item) => item.ref),
+    ...(policySchemaVersion === HPP_INGRESS_RECOVERY_POLICY_SCHEMA
+      ? RECOVERY_SUPPLEMENTAL_REFS.map((item) => item.ref)
+      : []),
   ].some((root) => ref.startsWith(`${root}/`));
 }
 
@@ -1615,7 +1656,10 @@ function validateManifest(document, generation) {
     }
     refs.add(entry.restore_ref);
     previous = entry.restore_ref;
-    if (!legacy && !recoveryManifestRefAllowed(entry.restore_ref)) {
+    if (!legacy && !recoveryManifestRefAllowed(
+      entry.restore_ref,
+      document.recovery_policy?.schema_version,
+    )) {
       fail("recovery_manifest_forbidden_file");
     }
     if (isForbiddenCoordinationRef(entry.restore_ref)) {
@@ -1991,7 +2035,13 @@ export async function verifyIngressRecoveryRestore(options = {}) {
   });
   let suppliedPolicy = null;
   if (!generation.legacy || options.recoveryPolicyPath !== undefined) {
-    suppliedPolicy = await readRecoveryPolicy(options.recoveryPolicyPath, { backupRoot, restoreRoot });
+    suppliedPolicy = await readRecoveryPolicy(options.recoveryPolicyPath, {
+      backupRoot,
+      restoreRoot,
+      expectedSchema: generation.legacy
+        ? HPP_INGRESS_RECOVERY_POLICY_SCHEMA
+        : generation.document.recovery_policy.schema_version,
+    });
   }
   if (!generation.legacy) {
     const suppliedDescriptor = recoveryPolicyDocument(suppliedPolicy);

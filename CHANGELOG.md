@@ -2,6 +2,15 @@
 
 ## 2026-07-27
 
+### NAS backup stage isolation and HPP surface coverage
+
+- HPP 데이터 구조 변경이 한 백업 단계에 실패를 일으켜도 ERP, metadata,
+  restore, workspace 독립 NAS 백업을 계속 실행하도록 daily backup cycle의
+  stage failure를 격리했다.
+- recovery policy v2에 `timeline` supplemental backup과 `secrets`의 명시적
+  capture 금지를 추가하고, 새 HPP 최상위 data surface가 생길 때 같은 개발
+  슬라이스에서 backup/recovery 분류와 검증을 함께 갱신하도록 고정했다.
+
 ### Outlook same-thread additive local route
 
 - Added an owner-approved local same-thread additive route to

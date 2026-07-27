@@ -81,10 +81,15 @@ fixed sequence synchronously under one outer exclusive lease:
 4. `weekly_restore` only on its configured weekday
 5. `workspace_copy`
 
-The failure-prone workspace copy is deliberately last. A critical-stage failure
-or unresolved running checkpoint stops the cycle immediately. Workspace failure
-returns `completed_with_warning` after all earlier receipts remain durable.
-Hourly mode retains distinct stage slots and selects at most one stage per tick.
+The failure-prone workspace copy is deliberately last. An unresolved running
+checkpoint still stops the cycle because another side effect may remain in
+flight. A completed stage-local failure does not block independent stages:
+the controller records that stage as failed, continues ERP, health, restore,
+and workspace work where possible, and returns `completed_with_warning` when
+at least one independent stage succeeds. Activation, binding, writer, ACL,
+runtime-root, and NAS-root preflight failures remain whole-cycle stop
+conditions. Hourly mode retains distinct stage slots and selects at most one
+stage per tick.
 
 One metadata ledger, `backup-controller.state.json`, lives below the exact state
 root. Each executing checkpoint records its stable operation key and lease fence.

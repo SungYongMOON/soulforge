@@ -832,6 +832,7 @@ export async function dailyCycleController({ bindingRef, apply = false, expected
     }
     let anyWrite = reconciledBeforeCycle;
     let anyDispatch = false;
+    const stageWarnings = [];
     for (const stageId of DAILY_CYCLE_STAGE_IDS) {
       const stage = binding.stages.find((item) => item.stage_id === stageId);
       if (!isWeeklyStageDueToday(stage, now)) {
@@ -847,9 +848,8 @@ export async function dailyCycleController({ bindingRef, apply = false, expected
       stageResults.push({ stage_id: stageId, status: stageResult.status, period_key: stageResult.period_key ?? null, error_code: stageResult.error_code ?? null });
       anyWrite ||= stageResult.write_performed === true;
       anyDispatch ||= stageResult.command_dispatched === true;
-      if (["resume_required", "executor_unavailable", "skipped_deadline", "failed_retry_pending"].includes(stageResult.status)) {
-        const workspaceWarning = stageId === "workspace_copy";
-        return result("daily_cycle", "apply", workspaceWarning ? "completed_with_warning" : stageResult.status, bindingSha256, now, {
+      if (stageResult.status === "resume_required") {
+        return result("daily_cycle", "apply", stageResult.status, bindingSha256, now, {
           selected_stage: stageId,
           period_key: stageResult.period_key ?? null,
           checkpoint_status: stageResult.checkpoint_status,
@@ -859,8 +859,31 @@ export async function dailyCycleController({ bindingRef, apply = false, expected
           stage_results: stageResults,
         });
       }
+      if (["executor_unavailable", "skipped_deadline", "failed_retry_pending"].includes(stageResult.status)) {
+        stageWarnings.push(stageResult);
+      }
     }
     const executed = reconciledBeforeCycle || stageResults.some((item) => item.status === "succeeded" || item.status === "succeeded_reconciled");
+    if (stageWarnings.length > 0) {
+      const firstWarning = stageWarnings[0];
+      return result(
+        "daily_cycle",
+        "apply",
+        executed ? "completed_with_warning" : firstWarning.status,
+        bindingSha256,
+        now,
+        {
+          selected_stage: firstWarning.selected_stage,
+          period_key: firstWarning.period_key ?? null,
+          checkpoint_status: "partial_complete",
+          write_performed: anyWrite,
+          command_dispatched: anyDispatch,
+          error_code: firstWarning.error_code,
+          failed_stage_ids: stageWarnings.map((item) => item.selected_stage),
+          stage_results: stageResults,
+        },
+      );
+    }
     return result("daily_cycle", "apply", executed ? "succeeded" : "no_due_stage", bindingSha256, now, {
       checkpoint_status: "complete",
       write_performed: anyWrite,

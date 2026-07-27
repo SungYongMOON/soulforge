@@ -430,11 +430,22 @@ files are not copied.
 
 The sidecar's exact excluded references are metadata-checked but never
 descended: `README.private.md`, `backups`, `config`, `ingress-mcp`, `manifests`,
-`runtime`, `state/health`, and `state/backup_controller`. The backup-controller
-ledger and lease are deliberately not restored; after recovery the controller
-must be reseeded from externally retained backup receipts and anchor inputs.
-Ordinary business directories named `session` or `sessions` remain valid inside
-an included lane.
+`runtime`, `secrets`, `state/health`, and `state/backup_controller`. `secrets`
+is allowed to exist only as an explicitly excluded and capture-forbidden
+surface; its children are never opened by recovery. Policy v2 additionally
+captures the exact supplemental `timeline` surface so source-arrival history is
+backed up with the five ingress lanes. The backup-controller ledger and lease
+are deliberately not restored; after recovery the controller must be reseeded
+from externally retained backup receipts and anchor inputs. Ordinary business
+directories named `session` or `sessions` remain valid inside an included lane.
+
+Any new top-level HPP data surface must be classified in the recovery policy in
+the same development slice as `included supplemental data`, `excluded
+rebuildable/runtime data`, or `excluded capture-forbidden data`. An undeclared
+surface still fails the HPP snapshot stage, but the backup controller isolates
+that stage and continues independent ERP, metadata, restore, and workspace
+stages. This preserves known backups without silently copying an unknown or
+secret-bearing root.
 
 Every `active.lock.json` is excluded even when its timestamp is stale. CAS lock
 and recovery markers, candidate files, `*.recovery`, generated partials, and
