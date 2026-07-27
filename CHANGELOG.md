@@ -7,6 +7,13 @@
 - Extended the HPP, ERP, and health daily retry windows to the next 02:00
   cadence boundary, so a corrected stage can retry later the same day without
   increasing schedule frequency.
+- Calibrated the HPP stage maximum runtime to one hour after the current
+  10.6 GB-class custody copy completed its data pass in minutes, preserving a
+  safe late-retry window before the next daily occurrence.
+- Added a SHA-256-pinned writer-quiesce wrapper to the single NAS backup
+  automation. It cooperatively pauses continuous ingress, waits for bounded
+  local/Slack writers, runs backup, and restores/catch-ups the exact tasks even
+  after backup failure; an unconfirmed continuous-writer restart fails closed.
 - HPP 데이터 구조 변경이 한 백업 단계에 실패를 일으켜도 ERP, metadata,
   restore, workspace 독립 NAS 백업을 계속 실행하도록 daily backup cycle의
   stage failure를 격리했다.

@@ -1,9 +1,11 @@
 # Soulforge Backup Controller
 
-This module is the feature-OFF implementation for exactly one daily Codex
-automation named `Soulforge Backup Controller`. It does not install, enable,
-disable, retire, or inspect Codex automations or Windows tasks. The hourly tick
-API remains available for compatibility and still dispatches at most one stage.
+This module implements exactly one daily Codex automation named
+`Soulforge Backup Controller`. The backup core does not install or retire
+automations. Its optional HPP writer-quiesce wrapper may inspect, temporarily
+disable, and restore only the exact Windows tasks pinned by a private
+SHA-256-bound sidecar. The hourly tick API remains available for compatibility
+and still dispatches at most one stage.
 
 ## Authority boundary
 
@@ -95,6 +97,33 @@ Production daily stages should keep a full-cadence retry window when their
 operation is safe and idempotent. A failed 02:00 stage can then retry later in
 the same day without increasing the once-daily schedule frequency.
 
+The HPP runtime budget should be calibrated from observed custody size and
+throughput. The current 10.6 GB class completes well inside one hour, so a
+one-hour bound leaves a late retry window while still preventing overlap with
+the next 02:00 occurrence.
+
+## HPP writer quiescence
+
+An HPP snapshot must not race the sole writers that mutate its source tree.
+The quiesced automation wrapper therefore:
+
+1. verifies each scheduled task by exact task name and action markers;
+2. disables the pinned continuous ingress, local activity, and Slack batch
+   tasks without touching unrelated tasks;
+3. asks the continuous ingress supervisor to stop cooperatively through a
+   protected-control pause marker, so its lease is released normally;
+4. waits for finite local-activity and Slack jobs to finish rather than killing
+   them;
+5. runs the normal backup composition;
+6. removes the pause marker, restores the prior enabled state, starts the
+   continuous writer, and dispatches one local-activity and Slack catch-up;
+7. rejects completion if the continuous writer restart cannot be observed.
+
+The wrapper records a protected metadata-only recovery state before changing a
+task. A later invocation first restores a valid interrupted state. Backup
+success and writer restoration are separate claims: failure in either is
+reported, and `finally` restoration runs even when a backup stage fails.
+
 One metadata ledger, `backup-controller.state.json`, lives below the exact state
 root. Each executing checkpoint records its stable operation key and lease fence.
 Handlers atomically publish a metadata-only external receipt before returning;
@@ -132,17 +161,19 @@ npm.cmd run guild-hall:backup-controller -- tick --binding <private-binding.json
 npm.cmd run guild-hall:backup-activation -- verify --activation-sidecar <activation.json>
 ```
 
-The future daily Codex automation action must invoke the automation CLI from the
-exact bound runtime checkout and its prompt/configuration supplies only the
-sidecar path:
+The daily Codex automation invokes the quiesced CLI from the exact bound runtime
+checkout. Its prompt/configuration supplies only the exact activation and
+writer-quiesce sidecars plus the pinned quiesce SHA-256:
 
 ```powershell
-npm.cmd run guild-hall:backup-automation -- --activation-sidecar <activation.json>
+node guild_hall\backup_controller\quiesced_automation_cli.mjs `
+  --activation-sidecar <activation.json> `
+  --quiesce-sidecar <writer-quiesce.json> `
+  --expected-quiesce-sha256 <sha256>
 ```
 
-Creating or changing that automation is outside this module and remains blocked
-while the activation is OFF. Existing backup automations remain untouched until
-a separately approved canary and observation window complete.
+The quiesce sidecar is private operational metadata. It never carries a secret,
+arbitrary command, executable, or environment value.
 
 ## Validation
 

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.backup_controller.writer_quiesce.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "controller_id",
+    "state_ref",
+    "stop_timeout_seconds",
+    "tasks"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.backup_controller.writer_quiesce.v1" },
+    "controller_id": { "const": "soulforge-backup-controller" },
+    "state_ref": { "type": "string", "minLength": 8 },
+    "stop_timeout_seconds": { "type": "integer", "minimum": 5, "maximum": 900 },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_id", "task_name", "action_markers", "process_markers", "quiesce_mode", "pause_ref", "restore_mode"],
+        "properties": {
+          "task_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$" },
+          "task_name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._-]{2,127}$" },
+          "action_markers": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 8, "maxLength": 260 }
+          },
+          "process_markers": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 8, "maxLength": 260 }
+          },
+          "quiesce_mode": {
+            "enum": ["cooperative_pause", "wait_for_idle"]
+          },
+          "pause_ref": {
+            "type": ["string", "null"]
+          },
+          "restore_mode": {
+            "enum": ["ensure_running", "run_once_after_backup", "restore_previous"]
+          }
+        }
+      }
+    }
+  }
+}

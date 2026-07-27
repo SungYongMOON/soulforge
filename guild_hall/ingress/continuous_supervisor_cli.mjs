@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import process from "node:process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 import {
   CONTINUOUS_SUPERVISOR_EVENT_SCHEMA,
   runContinuousSupervisor,
@@ -47,14 +49,24 @@ try {
   if (args.apply !== true) fail("continuous_supervisor_apply_required");
   if (!args.config) fail("continuous_supervisor_config_required");
   if (!args["config-digest"]) fail("continuous_supervisor_config_digest_required");
+  const pauseRef = path.resolve(path.dirname(args.config), "continuous-supervisor.pause");
+  if (existsSync(pauseRef)) controller.abort();
+  const pauseMonitor = setInterval(() => {
+    if (existsSync(pauseRef)) controller.abort();
+  }, 1000);
+  pauseMonitor.unref();
 
-  await runContinuousSupervisor({
-    bindingPath: args.config,
-    bindingDigest: args["config-digest"],
-    apply: true,
-    signal: controller.signal,
-    emit: (event) => process.stdout.write(`${JSON.stringify(event)}\n`),
-  });
+  try {
+    await runContinuousSupervisor({
+      bindingPath: args.config,
+      bindingDigest: args["config-digest"],
+      apply: true,
+      signal: controller.signal,
+      emit: (event) => process.stdout.write(`${JSON.stringify(event)}\n`),
+    });
+  } finally {
+    clearInterval(pauseMonitor);
+  }
 } catch (error) {
   process.stderr.write(`${JSON.stringify({
     schema_version: CONTINUOUS_SUPERVISOR_EVENT_SCHEMA,
