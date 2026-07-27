@@ -433,8 +433,9 @@ descended: `README.private.md`, `backups`, `config`, `ingress-mcp`, `manifests`,
 `runtime`, `secrets`, `state/health`, and `state/backup_controller`. `secrets`
 is allowed to exist only as an explicitly excluded and capture-forbidden
 surface; its children are never opened by recovery. Policy v2 additionally
-captures the exact supplemental `timeline` surface so source-arrival history is
-backed up with the five ingress lanes. The backup-controller ledger and lease
+captures the exact supplemental `ingress/slack` raw-custody surface, its
+`state/slack` and `state/slack_batch` continuity state, and the `timeline`
+derived-history surface. The backup-controller ledger and lease
 are deliberately not restored; after recovery the controller must be reseeded
 from externally retained backup receipts and anchor inputs. Ordinary business
 directories named `session` or `sessions` remain valid inside an included lane.

@@ -75,6 +75,9 @@ const RECOVERY_STABLE_STATE_REFS = Object.freeze([
   Object.freeze({ ref: "state/outbox", required: true }),
 ]);
 const RECOVERY_SUPPLEMENTAL_REFS = Object.freeze([
+  Object.freeze({ ref: "ingress/slack", required: true, backup_class: "raw_custody" }),
+  Object.freeze({ ref: "state/slack", required: true, backup_class: "stable_state" }),
+  Object.freeze({ ref: "state/slack_batch", required: true, backup_class: "stable_state" }),
   Object.freeze({ ref: "timeline", required: true, backup_class: "derived_history" }),
 ]);
 const RECOVERY_LEGACY_EMPTY_REFS = Object.freeze([
@@ -785,7 +788,13 @@ async function preflightSourceShape(sourceRoot, policy) {
     if (!observed.has(name)) fail("recovery_declared_root_missing");
   }
 
-  const ingressAllowed = new Set(policy.document.lane_refs.map((lane) => lane.payload_ref.split("/")[1]));
+  const ingressAllowed = new Set([
+    ...policy.document.lane_refs.map((lane) => lane.payload_ref.split("/")[1]),
+    ...policy.document.supplemental_refs
+      .map((item) => item.ref.split("/"))
+      .filter((parts) => parts.length > 1 && parts[0] === "ingress")
+      .map((parts) => parts[1]),
+  ]);
   const quarantineLaneChildren = policy.document.lane_refs.map((lane) => lane.quarantine_ref.split("/")[1]);
   const legacyEmptyChildren = policy.document.legacy_empty_refs.map((item) => item.ref.split("/")[1]);
   const quarantineAllowed = new Set([...quarantineLaneChildren, ...legacyEmptyChildren]);
@@ -799,15 +808,22 @@ async function preflightSourceShape(sourceRoot, policy) {
   }
 
   const stableStateChildren = new Set(policy.document.stable_state_refs.map((item) => item.ref.split("/")[1]));
+  const supplementalStateRefs = policy.document.supplemental_refs
+    .map((item) => item.ref.split("/"))
+    .filter((parts) => parts.length > 1 && parts[0] === "state");
   const allowedStateChildren = new Set([
     ...stableStateChildren,
+    ...supplementalStateRefs.map((parts) => parts[1]),
     "backup_controller",
     "health",
     "writer_authority",
   ]);
-  const requiredStateChildren = new Set(policy.document.stable_state_refs
-    .filter((item) => item.required)
-    .map((item) => item.ref.split("/")[1]));
+  const requiredStateChildren = new Set([
+    ...policy.document.stable_state_refs
+      .filter((item) => item.required)
+      .map((item) => item.ref.split("/")[1]),
+    ...supplementalStateRefs.map((parts) => parts[1]),
+  ]);
   const stateChildren = await preflightExactChildren(
     resolve(sourceRoot, "state"),
     allowedStateChildren,

@@ -91,6 +91,10 @@ runtime-root, and NAS-root preflight failures remain whole-cycle stop
 conditions. Hourly mode retains distinct stage slots and selects at most one
 stage per tick.
 
+Production daily stages should keep a full-cadence retry window when their
+operation is safe and idempotent. A failed 02:00 stage can then retry later in
+the same day without increasing the once-daily schedule frequency.
+
 One metadata ledger, `backup-controller.state.json`, lives below the exact state
 root. Each executing checkpoint records its stable operation key and lease fence.
 Handlers atomically publish a metadata-only external receipt before returning;

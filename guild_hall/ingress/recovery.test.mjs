@@ -126,6 +126,9 @@ function recoveryPolicy(storageManifestSha256, writerAuthority = {}) {
       { ref: "state/outbox", required: true },
     ],
     supplemental_refs: [
+      { ref: "ingress/slack", required: true, backup_class: "raw_custody" },
+      { ref: "state/slack", required: true, backup_class: "stable_state" },
+      { ref: "state/slack_batch", required: true, backup_class: "stable_state" },
       { ref: "timeline", required: true, backup_class: "derived_history" },
     ],
     legacy_empty_refs: [
@@ -283,6 +286,18 @@ async function fixture({ sqlite = false } = {}) {
   await writeJson(join(configRoot, "api-credentials.json"), { value: "must-not-copy" });
   await writeFile(join(configRoot, "browser-auth.session"), "must-not-copy", "utf8");
   await writeFile(join(sourceRoot, "state", "health", "api-token.json"), "excluded-health", "utf8");
+  await mkdir(join(sourceRoot, "ingress", "slack"), { recursive: true });
+  await writeJson(join(sourceRoot, "ingress", "slack", "synthetic.json"), {
+    schema_version: "synthetic.slack.v1",
+  });
+  await mkdir(join(sourceRoot, "state", "slack"), { recursive: true });
+  await writeJson(join(sourceRoot, "state", "slack", "cursor.json"), {
+    schema_version: "synthetic.slack.cursor.v1",
+  });
+  await mkdir(join(sourceRoot, "state", "slack_batch"), { recursive: true });
+  await writeJson(join(sourceRoot, "state", "slack_batch", "cursor.json"), {
+    schema_version: "synthetic.slack.batch.cursor.v1",
+  });
   await writeFile(join(sourceRoot, "secrets", "password.txt"), "must-not-copy", "utf8");
   await mkdir(join(sourceRoot, "timeline", "source_arrival"), { recursive: true });
   await writeJson(join(sourceRoot, "timeline", "source_arrival", "synthetic.json"), {
@@ -499,8 +514,8 @@ test("snapshot restores five lanes, quarantines, and stable state while excluded
   try {
     assert.equal(Object.keys(storageManifest()).length, 13);
     assert.equal((await readdir(f.sourceRoot)).length, 12);
-    assert.equal((await readdir(join(f.sourceRoot, "state"))).length, 6);
-    assert.equal((await readdir(join(f.sourceRoot, "ingress"))).length, 5);
+    assert.equal((await readdir(join(f.sourceRoot, "state"))).length, 8);
+    assert.equal((await readdir(join(f.sourceRoot, "ingress"))).length, 6);
     assert.equal((await readdir(join(f.sourceRoot, "quarantine"))).length, 6);
     assert.deepEqual(await readdir(join(f.sourceRoot, "quarantine", "files")), []);
     await mkdir(join(f.sourceRoot, "state", "backup_controller"));
@@ -561,6 +576,9 @@ test("snapshot restores five lanes, quarantines, and stable state while excluded
       "state/leases/continuous_ingress/epoch.json",
       "state/mail_candidate/synthetic.json",
       "state/outbox/synthetic.json",
+      "ingress/slack/synthetic.json",
+      "state/slack/cursor.json",
+      "state/slack_batch/cursor.json",
       "timeline/source_arrival/synthetic.json",
     ]) assert.ok(refs.includes(ref), ref);
     assert.ok(!refs.includes("state/leases/continuous_ingress/active.lock.json"));
@@ -620,6 +638,9 @@ test("snapshot restores five lanes, quarantines, and stable state while excluded
     const restoredRoot = join(f.restoreRoot, restored.restore_subdirectory);
     assert.equal(await exists(join(restoredRoot, "state", "leases", "continuous_ingress", "active.lock.json")), false);
     assert.equal(await exists(join(restoredRoot, "config")), false);
+    assert.equal(await exists(join(restoredRoot, "ingress", "slack", "synthetic.json")), true);
+    assert.equal(await exists(join(restoredRoot, "state", "slack", "cursor.json")), true);
+    assert.equal(await exists(join(restoredRoot, "state", "slack_batch", "cursor.json")), true);
     assert.equal(await exists(join(restoredRoot, "secrets")), false);
     assert.equal(await exists(join(restoredRoot, "timeline", "source_arrival", "synthetic.json")), true);
     assert.equal(await exists(join(restoredRoot, "quarantine", "files")), false);
@@ -1313,6 +1334,7 @@ test("legacy v1 generation remains usable only with an external manifest anchor"
     const generationRoot = join(f.backupRoot, "generations", applied.generation_id);
     const legacySha256 = await resealManifest(generationRoot, (manifest) => {
       manifest.schema_version = "soulforge.ingress.recovery_manifest.v1";
+      manifest.inventory.sort((left, right) => left.restore_ref.localeCompare(right.restore_ref));
       delete manifest.source_database;
       delete manifest.recovery_policy;
       delete manifest.storage_manifest;
