@@ -4,7 +4,7 @@
 | --- | --- |
 | 문서 상태 | `MULTI_SOURCE_INGRESS_LIVE_TIMELINE_INTEGRATION_PENDING` |
 | 계획 기준일 | 2026-07-15 |
-| 최신 CURRENT 관찰 | 2026-07-27T18:07:14+09:00; 아래 `최신 CURRENT 상태표`가 현재 운영·투영 상태의 단일 요약이며 날짜가 붙은 과거 행은 감사 이력이다 |
+| 최신 CURRENT 관찰 | 2026-07-27T18:19:42+09:00; 아래 `최신 CURRENT 상태표`가 현재 운영·투영 상태의 단일 요약이며 날짜가 붙은 과거 행은 감사 이력이다 |
 | 기준 public ref | `main@9df7e57765d818be65f6250da8435826d0a2eea2` (계획 보정 최초 관찰 당시 `origin/main`과 동일; 현재 HEAD 주장 아님) |
 | P1 readiness 재검토 ref | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea` (후속 관찰 당시 `origin/main`과 동일; 현재 HEAD 주장 아님); H00 candidate와 H02~H05 public 코드·계약만 후속 대조 |
 | 비교 candidate ref | `codex/task-engine-rag-v1@927b3fb045ebf749077951417463c47f12a549bd` |

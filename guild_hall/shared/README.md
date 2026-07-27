@@ -100,7 +100,7 @@
 ## HPP all-project file inventory delta
 
 - The live HPP local-activity bridge enumerates 14 exact private project roots
-  without an LLM. Its 2026-07-27T18:07:14+09:00 inventory contains 29,322 file
+  without an LLM. Its 2026-07-27T18:19:42+09:00 inventory contains 29,322 file
   metadata rows.
 - One compact mutable inventory row is retained per observed path. The first
   run emits a metadata-only baseline; later 30-minute runs append only new or
