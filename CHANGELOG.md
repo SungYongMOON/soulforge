@@ -9,6 +9,32 @@
   call, source-layout continuity, and a fixed no-send connector to the private
   Outlook bridge. The route fails closed and does not grant send authority.
 
+### HPP Codex work-context events
+
+- Added a project-separated, append-only HPP-local work-context writer with
+  explicit local work IDs, project-leader registration, task attachment,
+  checkpoints, completion summaries, and file/run evidence references.
+- Supported project leaders that work directly as well as worker,
+  continuation, and verifier tasks sharing the same local work ID, without
+  copying whole Codex conversations.
+- Added exact private project binding, SHA-256 pinning, KST normalization,
+  replay/conflict guards, single-writer locking, rebuildable current snapshots,
+  and synthetic coverage for direct and multi-task work.
+- Clarified that one project may contain many independent work IDs, while only
+  tasks continuing the same real job share an ID.
+- Hardened event-ID retries to preserve the first accepted time and rebuild a
+  missing current snapshot, bounded stale/PID-reused lock recovery, and exposed
+  optional source time plus payload-free status through the Windows wrapper.
+- Added immutable supersession so an incorrect completed summary is retained as
+  audit evidence and replaced by an explicit new local work ID instead of
+  being edited in place.
+- Added a PowerShell wrapper that converts validated object JSON to UTF-8
+  Base64 before calling Node, avoiding Windows native-argument quote loss for
+  Korean project-leader summaries.
+- Kept ERP tasks, formal WorkSession, H05 run receipts, accepted project
+  context, team-PC collection, and automatic completion inference out of
+  scope.
+
 ### Codex activity data terminology
 
 - Renamed the owner-facing five-field proxy from ambiguous `PC work` to

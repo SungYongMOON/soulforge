@@ -18,6 +18,13 @@ This stage is evidence collection, not context inference. A known project
 workspace stays in that project from the beginning; it is not mixed into one
 cross-project timeline and classified again.
 
+The same owner now includes an explicit HPP Codex work-context lane. One
+project may hold many local work IDs, one for each distinct real job. One local
+work ID may bind a project leader task, work performed directly by that leader,
+and any child, continuation, or verifier tasks continuing that same job. The
+lane stores only bounded start/checkpoint/finish facts and references; it does
+not copy conversations or infer an ERP task result.
+
 ## Three views
 
 | view | current HPP source | event rule |
@@ -25,10 +32,21 @@ cross-project timeline and classified again.
 | PC work | bounded project five-field end-of-task record | one candidate work occurrence |
 | file change | exact project workspace observation packet | existing file reconciler later decides revision events |
 | Codex execution | relation over the same bounded work record | relation only; no second occurrence |
+| Codex work context | explicit local work ID and attached Codex task refs | append-only local evidence; no ERP completion |
 
 The five-field record supplies a practical current-HPP bridge while the planned
 ERP WorkSession/MCP/client-plugin path is not live. It does not replace the
 future WorkSession owner or grant H03/H05 acceptance.
+
+The explicit lane does not rely on that disabled completion hook. A project
+leader starts a local work ID, attaches another task whenever work moves, adds
+only meaningful checkpoints, and closes the work ID with bounded result and
+verification references. If closeout is forgotten, the work remains visibly
+active; the collector does not guess that it ended.
+If a completed summary is wrong, it remains immutable and receives a bounded
+`supersede_work` event that may identify one already-started, non-superseded
+replacement local work ID in the same project. Self and dangling replacement
+references are rejected.
 
 ## Storage boundary
 
@@ -54,6 +72,9 @@ Until that step, local outbox packets are collection evidence only.
 - An exact private allowlist owns project membership; no root-wide discovery.
 - A new project needs a binding row and pinned digest before collection.
 - Whole Codex chat, screen, keystroke, and OS surveillance remain prohibited.
+- Project code and availability come only from the pinned private allowlist.
+- Thread title, keyword similarity, or an LLM cannot silently attach work.
+  Every task ref must be explicitly bound to one existing local work ID.
 - File bytes may be streamed only for exact SHA-256 and are never retained.
 - A five-field full-record digest and same-ID conflict check are mandatory.
 - Team-PC records remain deferred to the accepted assignment, WorkSession,
@@ -62,7 +83,8 @@ Until that step, local outbox packets are collection evidence only.
 ## Build order
 
 1. HPP-local exact project binding and local outbox collection.
-2. Repeated scan until OneDrive hydration and hash-budget gaps are visible.
-3. Sole-writer reconciliation into project-private metadata.
-4. Generate one representative project timeline V2 from accepted refs.
-5. Add team-PC MCP/client-plugin delivery after WorkSession is live.
+2. Explicit HPP project-leader/local-work task binding.
+3. Repeated scan until OneDrive hydration and hash-budget gaps are visible.
+4. Sole-writer reconciliation into project-private metadata.
+5. Generate one representative project timeline from accepted refs.
+6. Add team-PC MCP/client-plugin delivery after WorkSession is live.

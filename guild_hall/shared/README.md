@@ -225,3 +225,8 @@
   `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`
   맨 앞 `최신 CURRENT 상태표`가 소유한다. 이 README의 Shadow 상태가 바뀌면
   그 표와 같은 commit에서 갱신한다.
+- HPP Codex 작업 맥락 사건은 현재 machine-local append-only evidence다.
+  한 프로젝트에는 서로 다른 실제 업무마다 여러 local work ID가 있을 수 있고,
+  같은 업무를 이어가는 프로젝트 팀장·자식·계속·검증 작업만 하나의 ID에
+  명시적으로 연결한다. 아직 accepted WorkSession, H05 receipt, project
+  timeline 또는 ERP 완료 입력은 아니다.
