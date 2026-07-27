@@ -41,7 +41,14 @@ if ($actualDigest -ne $expectedDigest) {
 New-Item -ItemType Directory -Path $LogRoot -Force | Out-Null
 $logPath = Join-Path $LogRoot ("{0}.jsonl" -f (Get-Date -Format "yyyy-MM-dd"))
 $startedAt = [DateTime]::UtcNow.ToString("o")
-$output = & $node $cli --binding $binding --binding-sha256 ("sha256:{0}" -f $actualDigest) --apply 2>&1
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+    $output = & $node $cli --binding $binding --binding-sha256 ("sha256:{0}" -f $actualDigest) --apply 2>&1
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
 $exitCode = $LASTEXITCODE
 $finishedAt = [DateTime]::UtcNow.ToString("o")
 $record = [ordered]@{

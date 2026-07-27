@@ -12,6 +12,7 @@ import {
 import path from "node:path";
 
 import {
+  FILE_ACTIVITY_CACHE_POLICY,
   canonicalPacketDigest,
   scanWorkspace,
 } from "../file_activity/file_activity.mjs";
@@ -22,6 +23,10 @@ export const HPP_LOCAL_ACTIVITY_BATCH_SCHEMA =
   "soulforge.hpp_all_project_local_activity_batch.v1";
 export const BOUNDED_WORK_SNAPSHOT_SCHEMA =
   "soulforge.bounded_work_snapshot.v1";
+export const FILE_INVENTORY_STATE_SCHEMA =
+  "soulforge.hpp_project_file_inventory_state.v1";
+export const FILE_ACTIVITY_DELTA_SCHEMA =
+  "soulforge.hpp_project_file_activity_delta.v1";
 
 const FIVE_FIELD_SCHEMA = "soulforge.five_field_capture.v0";
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{1,119}$/u;
@@ -199,7 +204,7 @@ export function normalizeHppLocalActivityBinding(input) {
         cache_ttl_ms: positiveInteger(
           project.file_activity.cache_ttl_ms,
           "file_activity_cache_ttl_ms",
-          86_400_000,
+          FILE_ACTIVITY_CACHE_POLICY.max_verified_hash_ttl_ms,
         ),
       },
       bounded_work: {
@@ -446,7 +451,8 @@ function fileStatePaths(binding, project) {
   return {
     project_root: projectRoot,
     cache: path.join(projectRoot, "state", "file_scan_cache.json"),
-    file_outbox: path.join(projectRoot, "outbox", "file_activity"),
+    inventory: path.join(projectRoot, "state", "file_inventory_state.json"),
+    file_delta_outbox: path.join(projectRoot, "outbox", "file_activity_delta"),
     bounded_outbox: path.join(projectRoot, "outbox", "bounded_work"),
     current: path.join(projectRoot, "current.json"),
   };
@@ -462,9 +468,216 @@ async function readJsonIfPresent(target) {
   }
 }
 
+function compactFileObservation(observation) {
+  const core = {
+    path_fingerprint: observation.path_fingerprint,
+    relative_path: observation.relative_path,
+    relative_path_spelling: observation.relative_path_spelling,
+    size_bytes: observation.size_bytes,
+    fs_modified_at: observation.fs_modified_at,
+    content_id: observation.content_id,
+    hash_state: observation.content_id ? "exact" : observation.hash_status,
+    withheld: observation.withheld,
+  };
+  return {
+    ...core,
+    entry_digest: digest(core),
+  };
+}
+
+function normalizePriorInventory(value, project, binding) {
+  if (value === null) return null;
+  exactObject(value, [
+    "schema_version",
+    "project_code",
+    "workspace_binding_id",
+    "node_id",
+    "updated_at",
+    "latest_scan_id",
+    "listing_complete",
+    "entry_count",
+    "entries",
+  ], "file_inventory_state");
+  if (
+    value.schema_version !== FILE_INVENTORY_STATE_SCHEMA
+    || value.project_code !== project.project_code
+    || value.workspace_binding_id !== project.workspace_binding_id
+    || value.node_id !== binding.node_id
+    || !Number.isFinite(Date.parse(value.updated_at))
+    || typeof value.latest_scan_id !== "string"
+    || typeof value.listing_complete !== "boolean"
+    || !Number.isSafeInteger(value.entry_count)
+    || value.entry_count < 0
+    || !Array.isArray(value.entries)
+    || value.entry_count !== value.entries.length
+  ) {
+    fail("file_inventory_state_invalid");
+  }
+  const seen = new Set();
+  for (const entry of value.entries) {
+    exactObject(entry, [
+      "path_fingerprint",
+      "relative_path",
+      "relative_path_spelling",
+      "size_bytes",
+      "fs_modified_at",
+      "content_id",
+      "hash_state",
+      "withheld",
+      "entry_digest",
+    ], "file_inventory_entry");
+    if (
+      typeof entry.path_fingerprint !== "string"
+      || seen.has(entry.path_fingerprint)
+      || typeof entry.entry_digest !== "string"
+    ) {
+      fail("file_inventory_entry_invalid");
+    }
+    seen.add(entry.path_fingerprint);
+    const { entry_digest: declaredDigest, ...core } = entry;
+    if (digest(core) !== declaredDigest) fail("file_inventory_entry_digest_invalid");
+  }
+  return value;
+}
+
+function classifyFileDelta(prior, current) {
+  if (!prior) return "first_observed";
+  if (prior.content_id && current.content_id && prior.content_id !== current.content_id) {
+    return "content_changed";
+  }
+  if (!prior.content_id && current.content_id) return "hash_completed";
+  if (
+    prior.size_bytes !== current.size_bytes
+    || prior.fs_modified_at?.value !== current.fs_modified_at?.value
+  ) {
+    return "stat_changed";
+  }
+  return "observation_changed";
+}
+
+function buildFileActivityDelta({
+  binding,
+  project,
+  fileResult,
+  priorInventory,
+  observedAt,
+}) {
+  if (!fileResult) {
+    return {
+      delta: null,
+      inventory: priorInventory,
+    };
+  }
+  const prior = normalizePriorInventory(priorInventory, project, binding);
+  const priorByPath = new Map(
+    (prior?.entries ?? []).map((entry) => [entry.path_fingerprint, entry]),
+  );
+  const observedEntries = fileResult.packet.observations
+    .map(compactFileObservation)
+    .sort((left, right) => left.path_fingerprint.localeCompare(right.path_fingerprint, "en"));
+  const currentByPath = new Map(
+    observedEntries.map((entry) => [entry.path_fingerprint, entry]),
+  );
+  const changedObservations = [];
+  for (const observation of fileResult.packet.observations) {
+    const current = currentByPath.get(observation.path_fingerprint);
+    const previous = priorByPath.get(observation.path_fingerprint);
+    if (previous?.entry_digest === current.entry_digest) continue;
+    changedObservations.push({
+      change_kind: classifyFileDelta(previous, current),
+      observation,
+    });
+  }
+  changedObservations.sort((left, right) => (
+    left.observation.path_fingerprint.localeCompare(
+      right.observation.path_fingerprint,
+      "en",
+    )
+  ));
+
+  const absenceCandidates = [];
+  if (fileResult.packet.coverage.listing_complete) {
+    for (const previous of prior?.entries ?? []) {
+      if (currentByPath.has(previous.path_fingerprint)) continue;
+      absenceCandidates.push({
+        path_fingerprint: previous.path_fingerprint,
+        relative_path: previous.relative_path,
+        prior_entry_digest: previous.entry_digest,
+        prior_content_id: previous.content_id,
+        last_observed_at: prior.updated_at,
+        disposition: "absence_candidate_only",
+        deletion_confirmed: false,
+      });
+    }
+  }
+  absenceCandidates.sort((left, right) => (
+    left.path_fingerprint.localeCompare(right.path_fingerprint, "en")
+  ));
+
+  let nextEntries = observedEntries;
+  if (!fileResult.packet.coverage.listing_complete && prior) {
+    for (const previous of prior.entries) {
+      if (!currentByPath.has(previous.path_fingerprint)) {
+        nextEntries.push(previous);
+      }
+    }
+    nextEntries.sort((left, right) => (
+      left.path_fingerprint.localeCompare(right.path_fingerprint, "en")
+    ));
+  }
+  const inventory = {
+    schema_version: FILE_INVENTORY_STATE_SCHEMA,
+    project_code: project.project_code,
+    workspace_binding_id: project.workspace_binding_id,
+    node_id: binding.node_id,
+    updated_at: observedAt,
+    latest_scan_id: fileResult.packet.scan_id,
+    listing_complete: fileResult.packet.coverage.listing_complete,
+    entry_count: nextEntries.length,
+    entries: nextEntries,
+  };
+  const fullPacketDigest = canonicalPacketDigest(fileResult.packet);
+  const deltaCore = {
+    schema_version: FILE_ACTIVITY_DELTA_SCHEMA,
+    project_code: project.project_code,
+    workspace_binding_id: project.workspace_binding_id,
+    node_id: binding.node_id,
+    node_role: binding.node_role,
+    observed_at: observedAt,
+    scan_id: fileResult.packet.scan_id,
+    full_scan_packet_digest: fullPacketDigest,
+    baseline: prior === null,
+    coverage: fileResult.packet.coverage,
+    full_scan_counts: fileResult.packet.counts,
+    changed_observation_count: changedObservations.length,
+    unchanged_observation_count: (
+      fileResult.packet.observations.length - changedObservations.length
+    ),
+    absence_candidate_count: absenceCandidates.length,
+    changed_observations: changedObservations,
+    absence_candidates: absenceCandidates,
+    boundaries: {
+      metadata_only: true,
+      file_bytes_retained: false,
+      llm_used: false,
+      absence_is_deletion: false,
+      workmeta_canon_mutated: false,
+      project_timeline_mutated: false,
+    },
+  };
+  return {
+    inventory,
+    delta: {
+      ...deltaCore,
+      delta_digest: digest(deltaCore),
+    },
+  };
+}
+
 async function collectProject(binding, project, { observedAt, apply }) {
   const paths = fileStatePaths(binding, project);
   const previousCache = await readJsonIfPresent(paths.cache);
+  const previousInventory = await readJsonIfPresent(paths.inventory);
   let fileResult = null;
   if (project.file_activity.enabled) {
     fileResult = await scanWorkspace({
@@ -484,6 +697,13 @@ async function collectProject(binding, project, { observedAt, apply }) {
       previousCache,
     });
   }
+  const fileDelta = buildFileActivityDelta({
+    binding,
+    project,
+    fileResult,
+    priorInventory: previousInventory,
+    observedAt,
+  });
   const ledger = project.bounded_work.enabled
     ? await readBoundedWorkLedger(project)
     : {
@@ -506,6 +726,10 @@ async function collectProject(binding, project, { observedAt, apply }) {
           packet_digest: canonicalPacketDigest(fileResult.packet),
           counts: fileResult.packet.counts,
           coverage: fileResult.packet.coverage,
+          delta_digest: fileDelta.delta.delta_digest,
+          changed_observation_count: fileDelta.delta.changed_observation_count,
+          unchanged_observation_count: fileDelta.delta.unchanged_observation_count,
+          absence_candidate_count: fileDelta.delta.absence_candidate_count,
         }
       : {
           source_availability: "disabled",
@@ -513,6 +737,10 @@ async function collectProject(binding, project, { observedAt, apply }) {
           packet_digest: null,
           counts: null,
           coverage: null,
+          delta_digest: null,
+          changed_observation_count: 0,
+          unchanged_observation_count: 0,
+          absence_candidate_count: 0,
         },
     bounded_work: {
       source_availability: boundedSnapshot.source_availability,
@@ -526,10 +754,15 @@ async function collectProject(binding, project, { observedAt, apply }) {
     const month = observedAt.slice(0, 7);
     if (fileResult) {
       await writeJsonImmutable(
-        path.join(paths.file_outbox, month, `${fileResult.packet.scan_id.replace("scan:", "")}.json`),
-        fileResult.packet,
+        path.join(
+          paths.file_delta_outbox,
+          month,
+          `${fileDelta.delta.delta_digest}.json`,
+        ),
+        fileDelta.delta,
       );
       await writeJsonAtomic(paths.cache, fileResult.next_cache);
+      await writeJsonAtomic(paths.inventory, fileDelta.inventory);
     }
     await writeJsonImmutable(
       path.join(paths.bounded_outbox, `${boundedSnapshot.snapshot_digest}.json`),
@@ -541,9 +774,13 @@ async function collectProject(binding, project, { observedAt, apply }) {
       observed_at: observedAt,
       project_code: project.project_code,
       file_activity_packet_digest: result.file_activity.packet_digest,
+      file_activity_delta_digest: result.file_activity.delta_digest,
+      file_inventory_entry_count: fileDelta.inventory?.entry_count ?? 0,
       bounded_work_snapshot_digest: boundedSnapshot.snapshot_digest,
       boundaries: {
         local_outbox_only: true,
+        full_file_snapshot_persisted_each_scan: false,
+        file_delta_only_after_inventory_baseline: true,
         workmeta_canon_mutated: false,
         project_timeline_mutated: false,
         scheduler_activated: false,
@@ -586,6 +823,10 @@ export async function collectAllProjectLocalActivity({
           packet_digest: null,
           counts: null,
           coverage: null,
+          delta_digest: null,
+          changed_observation_count: 0,
+          unchanged_observation_count: 0,
+          absence_candidate_count: 0,
         },
         bounded_work: {
           source_availability: "held",
@@ -614,6 +855,18 @@ export async function collectAllProjectLocalActivity({
       ),
       exact_content_count: projects.reduce(
         (total, project) => total + Number(project.file_activity.counts?.exact_content_count ?? 0),
+        0,
+      ),
+      changed_file_observation_count: projects.reduce(
+        (total, project) => total + project.file_activity.changed_observation_count,
+        0,
+      ),
+      unchanged_file_observation_count: projects.reduce(
+        (total, project) => total + project.file_activity.unchanged_observation_count,
+        0,
+      ),
+      absence_candidate_count: projects.reduce(
+        (total, project) => total + project.file_activity.absence_candidate_count,
         0,
       ),
       bounded_work_occurrence_count: projects.reduce(

@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-07-27
+
+### Project-separated file inventory delta
+
+- Replaced repeated all-file observation packet persistence with one compact
+  project inventory baseline plus metadata-only changed-observation deltas.
+- Added safe absence candidates that never claim deletion from the HPP
+  `tool_pc`, preserving incomplete listings without dropping prior inventory.
+- Added stale/dead legacy and partial collector-lock recovery with live-owner
+  fencing and made the Windows wrapper retain native failure output in its
+  scheduler log.
+- Extended the owner-bound exact-hash cache ceiling to 30 days so unchanged
+  files are not rehashed daily, while keeping explicit full verification
+  available.
+- Activated the pinned 30-minute HPP task for all 14 project bindings and
+  observed two consecutive successful scheduler runs with no held project or
+  residual lock.
+
 ## 2026-07-26
 
 ### Task Engine CURRENT status synchronization
@@ -37,9 +55,9 @@
 - Prohibited project autodiscovery, whole chat, screen, keyboard, and OS
   surveillance; the collector does not mutate `_workmeta`, project context,
   ERP, MCP, or official task state.
-- Added a pinned hidden Windows scheduled-task wrapper with `IgnoreNew`; live
-  materialization remains machine-local and is reported separately from public
-  source delivery.
+- Added a pinned Windows scheduled-task wrapper with `IgnoreNew` and a hidden
+  PowerShell window; live materialization remains machine-local and is reported
+  separately from public source delivery.
 
 ## 2026-07-25
 

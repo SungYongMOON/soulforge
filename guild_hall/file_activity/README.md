@@ -247,10 +247,11 @@ ceilings, not graph-compaction substitutes.
   canonical packet-digest provenance, producer chain, and entry ceiling.
   Provenance relationships are recomputed where the cache has enough evidence.
   Unknown/missing fields, a future verification clock, or a scan clock
-  regressing behind cache `updated_at` reject the whole cache. Reuse is at most
-  24 hours; `--cache-ttl-ms` may only reduce that ceiling. Cached reuse preserves
-  the original verification time and provenance instead of refreshing their
-  age. Daily full scans must use `--full`, which bypasses every cache entry; a
+  regressing behind cache `updated_at` reject the whole cache. Public code
+  permits an owner-bound reuse ceiling of at most 30 days; each private binding
+  chooses the actual TTL. Cached reuse preserves the original verification time
+  and provenance instead of refreshing their age. Explicit full scans must use
+  `--full`, which bypasses every cache entry; a
   successful full pass has zero `cached_exact_count` and complete hash coverage.
   A valid v1 cache keeps only its producer-chain envelope during a full pass;
   entry rows are not parsed or reused. An unreadable, legacy, or invalid cache

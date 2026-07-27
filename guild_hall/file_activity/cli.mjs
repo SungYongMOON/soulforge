@@ -877,7 +877,7 @@ function printJson(value) {
 function printUsage(exitCode) {
   const lines = [
     "Usage:",
-    "  node guild_hall/file_activity/cli.mjs scan --project <code> --binding <id> --node <id> --node-role <role> --root <dir> --binding-valid [--operational-primary] [--write-outbox] [--full] [--cache-ttl-ms <=86400000] [limits/times]",
+    "  node guild_hall/file_activity/cli.mjs scan --project <code> --binding <id> --node <id> --node-role <role> --root <dir> --binding-valid [--operational-primary] [--write-outbox] [--full] [--cache-ttl-ms <=2592000000] [limits/times]",
     "  node guild_hall/file_activity/cli.mjs reconcile --project <code> --binding <id> --node <id> --node-role always_on_node --binding-valid --operational-primary --packet <_workmeta/...json>... [--apply] [--received-at <UTC>] [--state-ref <leaf.json>]",
     "  node guild_hall/file_activity/cli.mjs rebuild --project <code> --binding <id> --node <id> --node-role always_on_node --binding-valid --operational-primary --checkpoint <_workmeta/.../checkpoints/YYYY-MM/id.json> [--apply] [--state-ref <leaf.json>]",
     "",

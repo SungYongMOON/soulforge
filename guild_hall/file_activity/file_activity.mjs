@@ -34,7 +34,7 @@ export const FILE_ACTIVITY_STATE_LIMITS = Object.freeze({
 export const FILE_ACTIVITY_CACHE_LIMITS = Object.freeze({ entries: 100_000 });
 export const FILE_ACTIVITY_CACHE_POLICY = Object.freeze({
   verified_hash_ttl_ms: 24 * 60 * 60 * 1000,
-  max_verified_hash_ttl_ms: 24 * 60 * 60 * 1000,
+  max_verified_hash_ttl_ms: 30 * 24 * 60 * 60 * 1000,
 });
 export const FILE_ACTIVITY_PROJECTION_LIMITS = Object.freeze({ events: 2000 });
 export const FILE_ACTIVITY_RECONCILE_LIMITS = Object.freeze({ packet_batch: 4998 });

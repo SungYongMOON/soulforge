@@ -47,18 +47,39 @@ binding row and re-pin the private binding digest.
 
 ```text
 <state_root>/
-├── batches/<YYYY-MM-DD>/<batch_digest>.json
-└── projects/<project_code>/
-    ├── current.json
-    ├── state/file_scan_cache.json
-    └── outbox/
-        ├── file_activity/<YYYY-MM>/<scan_id>.json
-        └── bounded_work/<snapshot_digest>.json
+|- batches/<YYYY-MM-DD>/<batch_digest>.json
+`- projects/<project_code>/
+   |- current.json
+   |- state/
+   |  |- file_scan_cache.json
+   |  `- file_inventory_state.json
+   `- outbox/
+      |- file_activity_delta/<YYYY-MM>/<delta_digest>.json
+      `- bounded_work/<snapshot_digest>.json
 ```
+
+The first successful inventory writes one metadata-only baseline delta. Later
+scans still enumerate the exact project root but persist only new or changed
+observations plus non-authoritative absence candidates. They do not persist a
+second full observation packet when nothing changed. The mutable inventory
+state retains one compact row per currently observed path so unchanged files
+can be suppressed without an LLM. An incomplete listing preserves previously
+seen rows and cannot emit absence candidates.
+
+An absence candidate is never a deletion. This HPP collector has the `tool_pc`
+role, so it cannot confirm deletion even after repeated scans. Exact hashes are
+cached by unchanged size/mtime/ctime and may use an owner-bound TTL up to 30
+days; pending or large hashes do not prevent path/size/time observations from
+being retained.
 
 `bounded_work` keeps a bounded work summary, verification summary, refs, and a
 full-record SHA-256. The same source ID with different full content is held.
 The packet is still a candidate projection, not H03/H05 or P1 acceptance.
+
+The CLI lock carries a process identity and owner token. A live owner always
+blocks another run. A dead legacy or current owner lock is atomically
+quarantined and removed after the next successful acquisition, so a crashed
+Node process does not permanently stop the 30-minute scheduler.
 
 ## Commands
 
@@ -71,7 +92,9 @@ node guild_hall/local_activity/cli.mjs `
 ```
 
 `--apply` writes only the machine-local outbox. The scheduler wrapper pins the
-same binding digest and uses a hidden Windows task with `IgnoreNew`.
+same binding digest, uses `IgnoreNew`, and launches PowerShell with a hidden
+window. The Task Scheduler definition itself is not claimed to have
+`Hidden=true`.
 
 ## Verification
 

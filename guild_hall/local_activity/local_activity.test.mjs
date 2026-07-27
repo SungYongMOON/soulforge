@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rm,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import os from "node:os";
@@ -13,6 +16,8 @@ import test from "node:test";
 
 import {
   BOUNDED_WORK_SNAPSHOT_SCHEMA,
+  FILE_ACTIVITY_DELTA_SCHEMA,
+  FILE_INVENTORY_STATE_SCHEMA,
   HPP_LOCAL_ACTIVITY_BINDING_SCHEMA,
   collectAllProjectLocalActivity,
   normalizeHppLocalActivityBinding,
@@ -81,6 +86,26 @@ async function fixture(t) {
   return { root, workspace, workmeta, ledger, state, binding };
 }
 
+function runNode(args, cwd) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.once("error", reject);
+    child.once("close", (code) => resolve({ code, stdout, stderr }));
+  });
+}
+
 test("normalization rejects duplicate projects and non-tool writer identity", async (t) => {
   const fx = await fixture(t);
   assert.throws(
@@ -146,6 +171,26 @@ test("apply writes local outbox and reuses the same bounded snapshot without dou
   assert.equal(snapshot.native_occurrence_count, 1);
   assert.equal(snapshot.codex_run_relation_count, 1);
   assert.equal(snapshot.boundaries.same_record_double_counted, false);
+  const inventory = JSON.parse(await readFile(
+    path.join(projectRoot, "state", "file_inventory_state.json"),
+    "utf8",
+  ));
+  assert.equal(inventory.schema_version, FILE_INVENTORY_STATE_SCHEMA);
+  assert.equal(inventory.entry_count, 1);
+  const firstDelta = JSON.parse(await readFile(
+    path.join(
+      projectRoot,
+      "outbox",
+      "file_activity_delta",
+      "2026-07",
+      `${current.file_activity_delta_digest}.json`,
+    ),
+    "utf8",
+  ));
+  assert.equal(firstDelta.schema_version, FILE_ACTIVITY_DELTA_SCHEMA);
+  assert.equal(firstDelta.baseline, true);
+  assert.equal(firstDelta.changed_observation_count, 1);
+  assert.equal(firstDelta.unchanged_observation_count, 0);
   assert.equal(result.boundaries.project_timeline_mutated, false);
   const replay = await collectAllProjectLocalActivity({
     binding: fx.binding,
@@ -154,6 +199,160 @@ test("apply writes local outbox and reuses the same bounded snapshot without dou
     apply: true,
   });
   assert.equal(replay.totals.bounded_work_occurrence_count, 1);
+  assert.equal(replay.totals.changed_file_observation_count, 0);
+  assert.equal(replay.totals.unchanged_file_observation_count, 1);
+});
+
+test("file delta records changes and treats disappearance only as a candidate", async (t) => {
+  const fx = await fixture(t);
+  await collectAllProjectLocalActivity({
+    binding: fx.binding,
+    bindingSha256: "4".repeat(64),
+    observedAt: "2026-07-26T04:00:00.000Z",
+    apply: true,
+  });
+  await writeFile(path.join(fx.workspace, "design.txt"), "beta\n", "utf8");
+  const changed = await collectAllProjectLocalActivity({
+    binding: fx.binding,
+    bindingSha256: "4".repeat(64),
+    observedAt: "2026-07-26T04:02:00.000Z",
+    apply: true,
+  });
+  assert.equal(changed.totals.changed_file_observation_count, 1);
+  const changedDigest = changed.projects[0].file_activity.delta_digest;
+  const changedDelta = JSON.parse(await readFile(
+    path.join(
+      fx.state,
+      "projects",
+      "demo_project",
+      "outbox",
+      "file_activity_delta",
+      "2026-07",
+      `${changedDigest}.json`,
+    ),
+    "utf8",
+  ));
+  assert.equal(changedDelta.changed_observations[0].change_kind, "content_changed");
+
+  await rm(path.join(fx.workspace, "design.txt"));
+  const missing = await collectAllProjectLocalActivity({
+    binding: fx.binding,
+    bindingSha256: "4".repeat(64),
+    observedAt: "2026-07-26T04:03:00.000Z",
+    apply: true,
+  });
+  assert.equal(missing.totals.absence_candidate_count, 1);
+  const missingDigest = missing.projects[0].file_activity.delta_digest;
+  const missingDelta = JSON.parse(await readFile(
+    path.join(
+      fx.state,
+      "projects",
+      "demo_project",
+      "outbox",
+      "file_activity_delta",
+      "2026-07",
+      `${missingDigest}.json`,
+    ),
+    "utf8",
+  ));
+  assert.equal(missingDelta.absence_candidates[0].deletion_confirmed, false);
+  assert.equal(missingDelta.boundaries.absence_is_deletion, false);
+});
+
+test("CLI recovers a stale legacy lock despite PID reuse and blocks a fresh active lock", async (t) => {
+  const fx = await fixture(t);
+  const bindingPath = path.join(fx.root, "binding.json");
+  const bindingBytes = `${JSON.stringify(fx.binding, null, 2)}\n`;
+  await writeFile(bindingPath, bindingBytes, "utf8");
+  const bindingDigest = createHash("sha256").update(bindingBytes).digest("hex");
+  await mkdir(fx.state, { recursive: true });
+  await writeFile(
+    path.join(fx.state, "collector.lock"),
+    `${JSON.stringify({
+      pid: process.pid,
+      started_at: "2000-01-01T00:00:00.000Z",
+    })}\n`,
+    "utf8",
+  );
+  const cliPath = path.resolve("guild_hall", "local_activity", "cli.mjs");
+  const recovered = await runNode([
+    cliPath,
+    "--binding",
+    bindingPath,
+    "--binding-sha256",
+    `sha256:${bindingDigest}`,
+    "--apply",
+  ], process.cwd());
+  assert.equal(recovered.code, 0, recovered.stderr);
+  await assert.rejects(readFile(path.join(fx.state, "collector.lock")));
+  assert.equal(
+    (await readdir(fx.state)).filter((name) => name.startsWith("collector.lock.stale-")).length,
+    0,
+  );
+
+  await writeFile(
+    path.join(fx.state, "collector.lock"),
+    `${JSON.stringify({
+      pid: process.pid,
+      started_at: new Date().toISOString(),
+    })}\n`,
+    "utf8",
+  );
+  const held = await runNode([
+    cliPath,
+    "--binding",
+    bindingPath,
+    "--binding-sha256",
+    `sha256:${bindingDigest}`,
+    "--apply",
+  ], process.cwd());
+  assert.equal(held.code, 1);
+  assert.match(held.stderr, /collector_already_running/u);
+
+  await writeFile(
+    path.join(fx.state, "collector.lock"),
+    `${JSON.stringify({
+      pid: process.pid,
+      started_at: "2000-01-01T00:00:00.000Z",
+      owner_token: "current-format-owner",
+    })}\n`,
+    "utf8",
+  );
+  const currentFormatHeld = await runNode([
+    cliPath,
+    "--binding",
+    bindingPath,
+    "--binding-sha256",
+    `sha256:${bindingDigest}`,
+    "--apply",
+  ], process.cwd());
+  assert.equal(currentFormatHeld.code, 1);
+  assert.match(currentFormatHeld.stderr, /collector_already_running/u);
+
+  await writeFile(path.join(fx.state, "collector.lock"), "", "utf8");
+  const freshPartialHeld = await runNode([
+    cliPath,
+    "--binding",
+    bindingPath,
+    "--binding-sha256",
+    `sha256:${bindingDigest}`,
+    "--apply",
+  ], process.cwd());
+  assert.equal(freshPartialHeld.code, 1);
+  assert.match(freshPartialHeld.stderr, /collector_lock_invalid/u);
+
+  const staleTime = new Date("2000-01-01T00:00:00.000Z");
+  await utimes(path.join(fx.state, "collector.lock"), staleTime, staleTime);
+  const recoveredPartial = await runNode([
+    cliPath,
+    "--binding",
+    bindingPath,
+    "--binding-sha256",
+    `sha256:${bindingDigest}`,
+    "--apply",
+  ], process.cwd());
+  assert.equal(recoveredPartial.code, 0, recoveredPartial.stderr);
+  await assert.rejects(readFile(path.join(fx.state, "collector.lock")));
 });
 
 test("same five-field id with a different full record is held", async (t) => {

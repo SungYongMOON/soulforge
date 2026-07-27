@@ -97,6 +97,27 @@
 - This module is pure and feature-OFF: it has no filesystem, DB, scheduler,
   network, ERP, MCP, or production-writer surface.
 
+## HPP all-project file inventory delta
+
+- The live HPP local-activity bridge enumerates 14 exact private project roots
+  without an LLM. Its 2026-07-27T18:07:14+09:00 inventory contains 29,322 file
+  metadata rows.
+- One compact mutable inventory row is retained per observed path. The first
+  run emits a metadata-only baseline; later 30-minute runs append only new or
+  changed observations and non-authoritative absence candidates instead of
+  another full packet.
+- The `IgnoreNew` task launches a hidden PowerShell window and passed actual
+  scheduler runs with held project 0 and no residual lock. The Task Scheduler
+  definition itself has `Hidden=false`. Dead/stale legacy or partial locks
+  recover atomically after a bounded grace while a live current owner remains
+  fenced.
+- Exact hashes are still partial and refill under the bounded byte budget.
+  Unchanged stat tuples may reuse the pinned exact hash for the private
+  binding's 30-day TTL. Large or pending hashes still retain path, size, and
+  KST observation metadata.
+- This is a machine-local collection state. It does not reconcile a logical
+  file, confirm deletion, write `_workmeta`, or enter a project timeline.
+
 ## One-project timeline Shadow materializer
 
 - `project_timeline_shadow.mjs` combines one exact project's private mail
@@ -115,8 +136,8 @@
 - The first actual bounded Shadow is `P26-014` (KVDS). Its current V3 contains
   269 KST rows: 84 mail metadata occurrences, 3 owner-confirmed voice
   occurrences, and 182 bounded structured-PC-work occurrences. The latest
-  machine-local collector has 188 KVDS work occurrences, so the materialized
-  timeline is six rows behind that outbox. Slack source-arrival and attachment
+  machine-local collector has 200 KVDS work occurrences, so the materialized
+  timeline is 18 rows behind that outbox. Slack source-arrival and attachment
   refs, reconciled file events, and common run receipts are not yet projected.
 - This surface does not accept context, create a task, change an official
   project classification, write ERP/DB, or activate a runtime writer.
