@@ -100,7 +100,7 @@
 ## HPP all-project file inventory delta
 
 - The live HPP local-activity bridge enumerates 14 exact private project roots
-  without an LLM. Its 2026-07-27T18:34:36+09:00 inventory contains 29,323 file
+  without an LLM. Its 2026-07-27T18:54:45+09:00 inventory contains 29,326 file
   metadata rows.
 - One compact mutable inventory row is retained per observed path. The first
   run emits a metadata-only baseline; later 30-minute runs append only new or
@@ -111,6 +111,11 @@
   definition itself has `Hidden=false`. Dead/stale legacy or partial locks
   recover atomically after a bounded grace while a live current owner remains
   fenced.
+- The superseded repeated full-packet outbox was retired on 2026-07-27 only
+  after all 347 packets (1,179,013,521 bytes) proved semantically unchanged,
+  an exact same-volume quarantine preserved its byte-tree digest, and a fresh
+  14/14 collector run succeeded without recreating the legacy path. Project
+  source files, compact inventories, and delta outboxes were not deleted.
 - Exact hashes are still partial and refill under the bounded byte budget.
   Unchanged stat tuples may reuse the pinned exact hash for the private
   binding's 30-day TTL. Large or pending hashes still retain path, size, and

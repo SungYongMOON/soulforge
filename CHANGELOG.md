@@ -2,6 +2,18 @@
 
 ## 2026-07-27
 
+### Legacy full-packet retention cleanup
+
+- Removed 347 superseded repeated full-file observation packets totaling
+  1,179,013,521 bytes after sequential metadata comparison found no project
+  state transition across the retained series.
+- Used an exact same-volume quarantine and a fresh 14-project collector run to
+  prove the compact inventory and delta pipeline did not depend on or recreate
+  the legacy path before permanent deletion.
+- Preserved all project source files, compact inventory state, change deltas,
+  databases, and `_workmeta`; only the superseded machine-local packets were
+  deleted.
+
 ### Project-separated file inventory delta
 
 - Replaced repeated all-file observation packet persistence with one compact
