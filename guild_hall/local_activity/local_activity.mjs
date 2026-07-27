@@ -468,6 +468,17 @@ async function readJsonIfPresent(target) {
   }
 }
 
+function compactInventoryEntry(core) {
+  const normalized = {
+    ...core,
+    hash_state: core.content_id ? "exact" : "pending",
+  };
+  return {
+    ...normalized,
+    entry_digest: digest(normalized),
+  };
+}
+
 function compactFileObservation(observation) {
   const core = {
     path_fingerprint: observation.path_fingerprint,
@@ -476,13 +487,10 @@ function compactFileObservation(observation) {
     size_bytes: observation.size_bytes,
     fs_modified_at: observation.fs_modified_at,
     content_id: observation.content_id,
-    hash_state: observation.content_id ? "exact" : observation.hash_status,
+    hash_state: observation.content_id ? "exact" : "pending",
     withheld: observation.withheld,
   };
-  return {
-    ...core,
-    entry_digest: digest(core),
-  };
+  return compactInventoryEntry(core);
 }
 
 function normalizePriorInventory(value, project, binding) {
@@ -537,7 +545,12 @@ function normalizePriorInventory(value, project, binding) {
     const { entry_digest: declaredDigest, ...core } = entry;
     if (digest(core) !== declaredDigest) fail("file_inventory_entry_digest_invalid");
   }
-  return value;
+  return {
+    ...value,
+    entries: value.entries.map(({ entry_digest, ...entry }) => (
+      compactInventoryEntry(entry)
+    )),
+  };
 }
 
 function classifyFileDelta(prior, current) {

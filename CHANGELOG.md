@@ -14,6 +14,8 @@
 - Extended the owner-bound exact-hash cache ceiling to 30 days so unchanged
   files are not rehashed daily, while keeping explicit full verification
   available.
+- Normalized all non-exact hash queue reasons to one compact `pending` state so
+  bounded hash scheduling cannot create false file-change deltas.
 - Activated the pinned 30-minute HPP task for all 14 project bindings and
   observed two consecutive successful scheduler runs with no held project or
   residual lock.

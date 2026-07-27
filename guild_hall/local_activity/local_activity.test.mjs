@@ -259,6 +259,61 @@ test("file delta records changes and treats disappearance only as a candidate", 
   assert.equal(missingDelta.boundaries.absence_is_deletion, false);
 });
 
+test("pending hash queue reasons do not create file-history churn", async (t) => {
+  const fx = await fixture(t);
+  fx.binding.projects[0].file_activity.immediate_hash_bytes = 1;
+  fx.binding.projects[0].file_activity.byte_budget = 1;
+  const first = await collectAllProjectLocalActivity({
+    binding: fx.binding,
+    bindingSha256: "5".repeat(64),
+    observedAt: "2026-07-26T04:00:00.000Z",
+    apply: true,
+  });
+  assert.equal(first.totals.changed_file_observation_count, 1);
+  const inventory = JSON.parse(await readFile(
+    path.join(
+      fx.state,
+      "projects",
+      "demo_project",
+      "state",
+      "file_inventory_state.json",
+    ),
+    "utf8",
+  ));
+  assert.equal(inventory.entries[0].hash_state, "pending");
+
+  fx.binding.projects[0].file_activity.immediate_hash_bytes = 1024;
+  const replay = await collectAllProjectLocalActivity({
+    binding: fx.binding,
+    bindingSha256: "5".repeat(64),
+    observedAt: "2026-07-26T04:01:00.000Z",
+    apply: true,
+  });
+  assert.equal(replay.totals.changed_file_observation_count, 0);
+  assert.equal(replay.totals.unchanged_file_observation_count, 1);
+
+  fx.binding.projects[0].file_activity.byte_budget = 1024;
+  const hashed = await collectAllProjectLocalActivity({
+    binding: fx.binding,
+    bindingSha256: "5".repeat(64),
+    observedAt: "2026-07-26T04:02:00.000Z",
+    apply: true,
+  });
+  assert.equal(hashed.totals.changed_file_observation_count, 1);
+  assert.equal(hashed.projects[0].file_activity.counts.exact_content_count, 1);
+
+  fx.binding.projects[0].file_activity.immediate_hash_bytes = 1;
+  fx.binding.projects[0].file_activity.byte_budget = 1;
+  const cached = await collectAllProjectLocalActivity({
+    binding: fx.binding,
+    bindingSha256: "5".repeat(64),
+    observedAt: "2026-07-26T04:03:00.000Z",
+    apply: true,
+  });
+  assert.equal(cached.totals.changed_file_observation_count, 0);
+  assert.equal(cached.projects[0].file_activity.counts.exact_content_count, 1);
+});
+
 test("CLI recovers a stale legacy lock despite PID reuse and blocks a fresh active lock", async (t) => {
   const fx = await fixture(t);
   const bindingPath = path.join(fx.root, "binding.json");

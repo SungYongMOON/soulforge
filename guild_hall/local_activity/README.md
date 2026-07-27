@@ -65,6 +65,9 @@ second full observation packet when nothing changed. The mutable inventory
 state retains one compact row per currently observed path so unchanged files
 can be suppressed without an LLM. An incomplete listing preserves previously
 seen rows and cannot emit absence candidates.
+All non-exact hash queue reasons are normalized to one stable `pending`
+inventory state so byte-budget ordering does not create false file-history
+growth.
 
 An absence candidate is never a deletion. This HPP collector has the `tool_pc`
 role, so it cannot confirm deletion even after repeated scans. Exact hashes are
