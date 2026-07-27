@@ -1,6 +1,6 @@
 ---
 name: soulforge-owner-outlook-mail
-description: Use when Codex should draft, revise, attach, or apply owner-style Korean business mail in Outlook, including a separately authorized send continuation for the exact locked draft; route authoring through the Soulforge outbound-mail workflow, preserve current-request bindings, validate before every Outlook mutation, never send a sample, and use classic Outlook COM by default for an unspecified local Outlook draft request when it is available.
+description: Use when Codex should draft, revise, attach, or apply owner-style Korean business mail in Outlook, including a same-thread additive follow-up to an exact Sent source and a separately authorized send continuation for the exact locked draft; route authoring through the Soulforge outbound-mail workflow, preserve current-request bindings, validate before every Outlook mutation, never send a sample, and use classic Outlook COM by default for an unspecified local Outlook draft request when it is available.
 ---
 
 # Soulforge Owner Outlook Mail
@@ -14,6 +14,15 @@ authoring and Outlook application without granting unattended send authority.
 
 1. Read the root agent contract and the workflow's `workflow.yaml`, `step_graph.yaml`, and `profile_policy.yaml`.
 2. Read `docs/architecture/workspace/MAIL_SEND_STYLE_POLICY_V0.md`, `.workflow/outbound_mail_authoring_v0/templates/team_mail_context.template.yaml`, and `.workflow/outbound_mail_authoring_v0/templates/outlook_readability_preset_v1.yaml`.
+2a. Before full authoring, classify an explicit reply to an already Sent source
+   as `same_thread_additive` only when it adds one to three locked facts and
+   changes no subject, recipient, attachment, signature policy, or source
+   layout. Use the source message's existing visible structure, not the generic
+   structured-request layout. Read
+   [`references/same-thread-additive-fast-path.md`](references/same-thread-additive-fast-path.md)
+   and run its deterministic route before any model call. An unsafe or
+   unavailable route returns `HOLD`; never fall back silently to full
+   authoring.
 3. Normalize supplied facts to `outbound_team_mail_context_v1`. Preserve role-only `to`/`cc`/`bcc` recipients and reasons, every actual assignee with requested work and notes, global notes, facts, schedule before/after/rationale/deadline or reply-by, participant involvement, format/examples, attachments, and response requirements.
    - When a requester supplies a numbered source agenda, preserve that agenda's number, title, and order as the outer structure of the visible mail. Do not regroup the mail by assignee.
    - For every agenda item, bind and render: `담당`, `요청 업무`, `요청 기한`, `요청 사유`, and `회신/완료 기준`. If a value is unknown, render `지정 필요` or `확인 필요` in that item and add the same gap to `assumptions`; never silently omit it or invent it.
@@ -62,6 +71,27 @@ authoring and Outlook application without granting unattended send authority.
 - A short continuation such as `계속`, `서명 넣어줘`, or `보내줘` modifies only the current locked draft. Reuse the bindings and perform only the new requested action plus its required revalidation.
 - Re-ask only when a value is missing, the owner changes it, Outlook state differs from the lock, multiple matching drafts exist, the selected file changed, or trusted continuation metadata did not survive the context boundary.
 - Never transfer bindings between unrelated mail tasks or choose a draft by subject alone when more than one item can match.
+
+## Same-thread Additive Local Fast Path
+
+- Use only for an explicitly requested unsent reply draft against one exact
+  Sent item or exact local `.msg` source.
+- Invoke
+  `scripts/invoke_same_thread_additive_fast_path.ps1`; do not write a per-mail
+  PowerShell script.
+- Keep routing deterministic. Gemini 3.6 Flash Low may write bounded Korean
+  prose slots exactly once with zero retries; locked facts and Outlook
+  application remain deterministic.
+- Preserve the source layout and current Outlook automatic signature. Do not
+  impose the generic owner structured-request headings or a new table.
+- Keep this route local and fail closed when the private bridge, exact source,
+  active classic Outlook session, automatic-signature bookmark, visual
+  fingerprint, or save-close-reopen verification is unavailable.
+- If post-save verification fails, remove only that exact newly created failed
+  item from Drafts. If cleanup itself fails, emit a runtime-private
+  manual-cleanup requirement and never report a usable draft.
+- The connector and runner contain no send authority. A later send still
+  requires the separate exact-draft instruction and validation in step 12.
 
 ## Boundaries
 

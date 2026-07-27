@@ -30,8 +30,73 @@ steps:
         - missing_input_register
     summary: Bind the requested mail mode, send surface, project metadata, recipients, attachments, and owner-provided facts before drafting.
     next:
-      on_success: resolve_project_keyword
+      on_success: classify_same_thread_additive_route
       on_fail: stop
+  - step_id: classify_same_thread_additive_route
+    title: Classify Same-thread Additive Route
+    actor_slot: scope_binder
+    action:
+      kind: deterministic_same_thread_additive_classification
+      artifacts_in:
+        - mail_authoring_scope
+        - normalized_team_mail_context_v1
+      optional_artifacts_in:
+        - exact_current_request_source_binding
+      artifact_out: same_thread_additive_route_decision
+      rules:
+        - run_before_subject_generation_render_selection_and_any_model_call
+        - admit_only_one_exact_Sent_source_and_one_to_three_locked_additive_facts
+        - require_unchanged_subject_recipients_attachments_signature_policy_and_source_layout
+        - route_mismatch_returns_HOLD_without_full_authoring_fallback
+        - ordinary_non_candidate_mail_continues_to_generic_authoring
+        - ordinary_mail_does_not_require_exact_current_request_source_binding
+    summary: Decide the narrow same-thread route before generic authoring or any model call.
+    next:
+      on_same_thread_pass: prepare_same_thread_additive_handoff
+      on_ordinary_mail: resolve_project_keyword
+      on_hold: stop
+      on_fail: stop
+  - step_id: prepare_same_thread_additive_handoff
+    title: Prepare Same-thread Additive Handoff
+    actor_slot: send_surface_planner
+    action:
+      kind: same_thread_additive_local_connector_handoff
+      artifacts_in:
+        - mail_authoring_scope
+        - same_thread_additive_route_decision
+        - exact_current_request_source_binding
+      artifact_out: same_thread_additive_handoff
+      fixed_connector: .registry/skills/owner_outlook_mail/codex/scripts/invoke_same_thread_additive_fast_path.ps1
+      rules:
+        - use_source_layout_not_generic_structured_request_layout
+        - model_is_gemini_3_6_flash_low_with_one_call_and_zero_retries
+        - never_generate_a_per_mail_script
+        - owner_explicit_unsent_draft_request_is_required_before_connector_arm
+        - post_save_verification_failure_removes_the_exact_failed_item_from_Drafts_or_reports_manual_cleanup_required
+        - external_send_is_forbidden
+    summary: Hand the admitted delta to the fixed local no-send connector.
+    next:
+      on_success: same_thread_additive_boundary_review
+      on_hold: stop
+      on_fail: stop
+  - step_id: same_thread_additive_boundary_review
+    title: Same-thread Additive Boundary Review
+    actor_slot: boundary_reviewer
+    action:
+      kind: same_thread_additive_boundary_review
+      artifacts_in:
+        - same_thread_additive_route_decision
+        - same_thread_additive_handoff
+      checks:
+        - route_was_selected_before_any_model_call
+        - exact_Sent_source_and_source_layout_were_preserved
+        - one_model_call_zero_retries_and_no_per_mail_script
+        - save_close_reopen_and_Sent_false_verified
+        - failed_saved_draft_cleanup_state_is_explicit
+        - failed_post_save_lock_is_invalidated_and_not_usable
+        - no_external_send
+    summary: Close the fast path without entering generic authoring.
+    next: []
   - step_id: resolve_project_keyword
     title: Resolve Project Keyword
     actor_slot: keyword_resolver

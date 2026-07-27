@@ -53,6 +53,14 @@ explicitly owner-approved executor is required to create or update an Outlook
 draft. An unspecified local Outlook draft request uses `GetActiveObject` only
 for an already running classic Outlook session and never starts a process; UI
 remains explicit-only. Send authority remains separate.
+
+An exact previously Sent source with one to three additive facts may use the
+owner Outlook same-thread local fast path. Its deterministic route runs before
+any model call, preserves the exact source layout instead of applying the
+generic structured-request layout, and invokes one fixed no-send connector.
+Any envelope, signature-policy, source, layout, or fact-count mismatch returns
+`HOLD` without silent full-authoring fallback.
+
 Validate the public synthetic contract with
 `scripts/validate_outlook_readability_preset.mjs --fixture
 templates/outlook_readability_preset_v1.validation_fixture.yaml`.

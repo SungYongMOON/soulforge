@@ -2,6 +2,13 @@
 
 ## 2026-07-27
 
+### Outlook same-thread additive local route
+
+- Added an owner-approved local same-thread additive route to
+  `owner_outlook_mail`: deterministic pre-routing, one bounded Flash Low prose
+  call, source-layout continuity, and a fixed no-send connector to the private
+  Outlook bridge. The route fails closed and does not grant send authority.
+
 ### Codex activity data terminology
 
 - Renamed the owner-facing five-field proxy from ambiguous `PC work` to

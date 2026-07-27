@@ -4,6 +4,13 @@ Thin Codex launcher for owner-style Outlook manual mail drafting, exact
 attachment application, registered inline signature insertion, and a separately
 authorized send continuation through `.workflow/outbound_mail_authoring_v0`.
 
+For an exact previously Sent source, a local same-thread additive route can add
+one to three locked facts while preserving that source message's visible
+layout. It runs a deterministic classifier before any model call, uses one
+bounded Flash Low prose pass, and invokes one fixed ReplyAll connector instead
+of generating a script per mail. The route is local, unsent-draft-only, and
+fails closed when its private bridge or verification evidence is unavailable.
+
 The launcher binds the workflow-owned v1 per-assignee public team context
 template, including role-only recipients, requested work, notes, schedule,
 participants, formats/examples, attachments, and response requirements. It may use
@@ -49,3 +56,9 @@ are canonicalized only in memory and represented by a non-address fingerprint;
 an unresolved member blocks the send before `.Send()`.
 
 Installed skill name: `soulforge-owner-outlook-mail`.
+
+Materialize the tracked connector and instructions with:
+
+```powershell
+npm.cmd run skills:sync -- owner_outlook_mail
+```

@@ -43,6 +43,7 @@ optional_inputs:
   - post_send_metadata_record_ref
   - requested_outlook_control_surface
   - outlook_draft_source_ref
+  - exact_current_request_source_binding
   - attachment_password_handling_instruction
 outputs:
   - mail_authoring_scope
@@ -58,6 +59,8 @@ outputs:
   - send_surface_handoff
   - outlook_draft_application_handoff
   - outlook_draft_executor_selection
+  - same_thread_additive_route_decision
+  - same_thread_additive_handoff
   - metadata_record_plan
   - boundary_review_note
 validation_level: pilot_executed_private_application
@@ -377,6 +380,28 @@ outbound_mail_authoring_contract:
         - selected_file_changed
         - trusted_lock_metadata_unavailable_after_context_boundary
       cross_mail_reuse: forbidden
+    same_thread_additive_sent_source_fast_path:
+      route_before_model: true
+      source_scope: one_exact_Sent_item_or_exact_local_msg
+      additive_fact_count_minimum: 1
+      additive_fact_count_maximum: 3
+      required_unchanged_fields:
+        - thread_subject
+        - ordered_recipients
+        - attachments
+        - signature_policy
+        - source_layout
+      visible_style_authority: exact_source_message_layout
+      generic_structured_request_layout: forbidden
+      model_profile: gemini_3_6_flash_low
+      model_call_maximum: 1
+      model_retry_maximum: 0
+      per_mail_script_generation: forbidden
+      fixed_connector_ref: .registry/skills/owner_outlook_mail/codex/scripts/invoke_same_thread_additive_fast_path.ps1
+      failed_saved_draft_cleanup_scope: exact_newly_created_failed_item_only
+      post_save_verification_failure: remove_exact_failed_item_from_Drafts_or_report_manual_cleanup_required
+      missing_or_mismatched_route: HOLD_without_full_authoring_fallback
+      external_send: forbidden
     local_programmatic_draft_executor:
       mutation_scope: one_current_request_unsent_draft_only
       exact_source_recipient_subject_body_and_attachment_binding_required: true

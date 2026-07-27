@@ -85,6 +85,21 @@ a process. Select the local programmatic executor when available. Otherwise
 return the copy-ready draft and stop; do not substitute UI automation.
 UI/app-control remains eligible only when the user explicitly requests it.
 
+## Same-thread Additive Local Route
+
+Before generic structured authoring, admit `same_thread_additive` only for one
+exact Sent source, one to three locked additive facts, and no subject,
+recipient, attachment, signature-policy, or source-layout change. Preserve the
+source message's visible layout rather than applying the generic owner
+structured-request layout. Route before any model call and return `HOLD` with
+no silent full-authoring fallback on mismatch.
+
+The tracked connector is
+`scripts/invoke_same_thread_additive_fast_path.ps1`. It locates the validated
+private local bridge under the current Soulforge root, provides a file-only
+self-test, and fails closed when the bridge is unavailable. It never creates a
+per-mail script and contains no send authority.
+
 ## Outlook Draft Preview
 
 After the authoring workflow completes, a separate app-control executor may
