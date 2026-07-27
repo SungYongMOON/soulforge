@@ -24,13 +24,14 @@ import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
 import { LANE_CONFIG, STORAGE_MANIFEST_SCHEMA } from "./collector.mjs";
 
-export const INGRESS_RECOVERY_MANIFEST_SCHEMA = "soulforge.ingress.recovery_manifest.v2";
+export const INGRESS_RECOVERY_MANIFEST_SCHEMA = "soulforge.ingress.recovery_manifest.v3";
 export const INGRESS_RECOVERY_COMMIT_SCHEMA = "soulforge.ingress.recovery_commit.v1";
 export const INGRESS_RECOVERY_CUSTODY_SCHEMA = "soulforge.ingress.recovery_custody.v1";
 export const INGRESS_RECOVERY_RESULT_SCHEMA = "soulforge.ingress.recovery_result.v1";
 export const HPP_INGRESS_RECOVERY_POLICY_SCHEMA = "soulforge.hpp_ingress_recovery_policy.v2";
 
 const LEGACY_INGRESS_RECOVERY_MANIFEST_SCHEMA = "soulforge.ingress.recovery_manifest.v1";
+const PRIOR_INGRESS_RECOVERY_MANIFEST_SCHEMA = "soulforge.ingress.recovery_manifest.v2";
 const PRIOR_HPP_INGRESS_RECOVERY_POLICY_SCHEMA = "soulforge.hpp_ingress_recovery_policy.v1";
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -754,15 +755,20 @@ async function assertDirectEntry(root, entry, kind, code) {
   return { path, info, physical };
 }
 
-async function preflightExactChildren(root, allowed, required, code) {
+async function preflightExactChildren(root, allowed, required, code, { allowUnclassified = false } = {}) {
   const entries = await readDirectoryEntries(root, code);
   const observed = new Set(entries.map((entry) => entry.name));
+  let unclassifiedCount = 0;
   for (const entry of entries) {
-    if (!allowed.has(entry.name)) fail(code);
+    if (!allowed.has(entry.name)) {
+      if (!allowUnclassified) fail(code);
+      unclassifiedCount += 1;
+      continue;
+    }
     await assertDirectEntry(root, entry, "directory", code);
   }
   for (const name of required) if (!observed.has(name)) fail(code);
-  return observed;
+  return { observed, unclassifiedCount };
 }
 
 async function preflightSourceShape(sourceRoot, policy) {
@@ -777,8 +783,12 @@ async function preflightSourceShape(sourceRoot, policy) {
   const allowedTop = new Set([...topIncluded, ...topExcluded]);
   const entries = await readDirectoryEntries(sourceRoot, "recovery_source_directory_read_failed");
   const observed = new Map(entries.map((entry) => [entry.name, entry]));
+  let unclassifiedCount = 0;
   for (const entry of entries) {
-    if (!allowedTop.has(entry.name)) fail("recovery_source_top_level_undeclared");
+    if (!allowedTop.has(entry.name)) {
+      unclassifiedCount += 1;
+      continue;
+    }
     const kind = entry.name === "storage_manifest.json" || entry.name === "README.private.md" ? "file" : "directory";
     await assertDirectEntry(sourceRoot, entry, kind, kind === "file"
       ? "recovery_source_file_unsafe"
@@ -798,8 +808,21 @@ async function preflightSourceShape(sourceRoot, policy) {
   const quarantineLaneChildren = policy.document.lane_refs.map((lane) => lane.quarantine_ref.split("/")[1]);
   const legacyEmptyChildren = policy.document.legacy_empty_refs.map((item) => item.ref.split("/")[1]);
   const quarantineAllowed = new Set([...quarantineLaneChildren, ...legacyEmptyChildren]);
-  await preflightExactChildren(resolve(sourceRoot, "ingress"), ingressAllowed, ingressAllowed, "recovery_ingress_child_undeclared");
-  await preflightExactChildren(resolve(sourceRoot, "quarantine"), quarantineAllowed, quarantineAllowed, "recovery_quarantine_child_undeclared");
+  const ingressShape = await preflightExactChildren(
+    resolve(sourceRoot, "ingress"),
+    ingressAllowed,
+    ingressAllowed,
+    "recovery_ingress_child_undeclared",
+    { allowUnclassified: true },
+  );
+  const quarantineShape = await preflightExactChildren(
+    resolve(sourceRoot, "quarantine"),
+    quarantineAllowed,
+    quarantineAllowed,
+    "recovery_quarantine_child_undeclared",
+    { allowUnclassified: true },
+  );
+  unclassifiedCount += ingressShape.unclassifiedCount + quarantineShape.unclassifiedCount;
   for (const item of policy.document.legacy_empty_refs) {
     const directory = resolve(sourceRoot, ...item.ref.split("/"));
     await assertPlainDirectory(directory, "recovery_legacy_empty_ref_unsafe");
@@ -824,15 +847,18 @@ async function preflightSourceShape(sourceRoot, policy) {
       .map((item) => item.ref.split("/")[1]),
     ...supplementalStateRefs.map((parts) => parts[1]),
   ]);
-  const stateChildren = await preflightExactChildren(
+  const stateShape = await preflightExactChildren(
     resolve(sourceRoot, "state"),
     allowedStateChildren,
     requiredStateChildren,
     "recovery_state_child_undeclared",
+    { allowUnclassified: true },
   );
+  unclassifiedCount += stateShape.unclassifiedCount;
   return {
     topLevel: new Set(observed.keys()),
-    stateChildren,
+    stateChildren: stateShape.observed,
+    unclassifiedCount,
   };
 }
 
@@ -976,6 +1002,7 @@ async function scanSourcePlane(sourceRoot, recoveryPolicyPath, sqlitePath = null
     secret_like_entries: 0,
     sqlite_runtime_files: 0,
     prior_backup_roots: shape.topLevel.has("backups") ? 1 : 0,
+    unclassified_entries: shape.unclassifiedCount,
   };
   let maxObservedEpoch = 0;
 
@@ -1628,6 +1655,7 @@ function recoveryManifestRefAllowed(ref, policySchemaVersion) {
 
 function validateManifest(document, generation) {
   const legacy = document?.schema_version === LEGACY_INGRESS_RECOVERY_MANIFEST_SCHEMA;
+  const prior = document?.schema_version === PRIOR_INGRESS_RECOVERY_MANIFEST_SCHEMA;
   exactKeys(document, [
     "schema_version",
     "generation_id",
@@ -1649,7 +1677,11 @@ function validateManifest(document, generation) {
     "source_overwritten",
     "live_root_overwritten",
   ], "recovery_manifest_invalid");
-  if (!new Set([INGRESS_RECOVERY_MANIFEST_SCHEMA, LEGACY_INGRESS_RECOVERY_MANIFEST_SCHEMA]).has(document.schema_version)
+  if (!new Set([
+    INGRESS_RECOVERY_MANIFEST_SCHEMA,
+    PRIOR_INGRESS_RECOVERY_MANIFEST_SCHEMA,
+    LEGACY_INGRESS_RECOVERY_MANIFEST_SCHEMA,
+  ]).has(document.schema_version)
     || document.generation_id !== generation
     || !Number.isFinite(Date.parse(document.created_at))
     || !SAFE_ID.test(document.approval_ref)
@@ -1719,6 +1751,7 @@ function validateManifest(document, generation) {
     "prior_backup_roots",
     "secret_like_entries",
     "sqlite_runtime_files",
+    ...(legacy || prior ? [] : ["unclassified_entries"]),
   ], "recovery_manifest_exclusions_invalid");
   if (Object.values(document.exclusions).some((value) => !Number.isSafeInteger(value) || value < 0)) {
     fail("recovery_manifest_exclusions_invalid");
@@ -2163,6 +2196,7 @@ export async function verifyIngressRecoveryRestore(options = {}) {
     writer_authority_epoch: manifest.writer_authority?.epoch ?? null,
     writer_authority_digest: manifest.writer_authority?.record_digest ?? null,
     file_count: manifest.inventory.length,
+    exclusions: manifest.exclusions,
     database_included: Boolean(generation.database),
     max_observed_custody_epoch: manifest.custody.max_observed_epoch,
     checkpoint_count: manifest.custody.checkpoint_count,

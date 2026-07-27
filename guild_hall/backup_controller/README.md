@@ -175,6 +175,21 @@ node guild_hall\backup_controller\quiesced_automation_cli.mjs `
 The quiesce sidecar is private operational metadata. It never carries a secret,
 arbitrary command, executable, or environment value.
 
+## New HPP data surfaces
+
+Every new top-level HPP data surface is classified in the same development
+slice as one of:
+
+- included in backup and restore;
+- excluded because it is deterministically rebuildable;
+- forbidden from capture because it contains secrets or runtime-only control
+  state.
+
+The recovery policy and synthetic restore fixture must change together. Until
+classification is committed, an unknown surface is not opened or copied: it is
+counted as `unclassified_entries`, while all already-declared HPP custody and
+the independent ERP, metadata, restore, and workspace stages continue.
+
 ## Validation
 
 ```powershell

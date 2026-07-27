@@ -76,7 +76,14 @@ test("fixed catalog executes all five handlers and writes strict external receip
     return { ok: true, kind: "restore_test", quick_check: "ok", sha256: createHash("sha256").update(bytes).digest("hex") };
   };
   const hppRecoveryAdapter = {
-    snapshot: async () => ({ ok: true, generation_id: "generation-test", manifest_sha256: "b".repeat(64), source_digest: "c".repeat(64), file_count: 3 }),
+    snapshot: async () => ({
+      ok: true,
+      generation_id: "generation-test",
+      manifest_sha256: "b".repeat(64),
+      source_digest: "c".repeat(64),
+      file_count: 3,
+      exclusions: { unclassified_entries: 2 },
+    }),
     verifyAnchored: async (options) => {
       verifyCalls.push(options);
       return {
@@ -85,6 +92,7 @@ test("fixed catalog executes all five handlers and writes strict external receip
         manifest_sha256: options.expected_manifest_sha256,
         recovery_policy_sha256: options.expected_policy_sha256,
         file_count: 3,
+        exclusions: { unclassified_entries: 2 },
         writes_performed: 0,
       };
     },
@@ -122,6 +130,9 @@ test("fixed catalog executes all five handlers and writes strict external receip
   assert.equal(erpReceipt.receipt.result.database.quick_check, "ok");
   assert.match(erpReceipt.receipt.result.database.backup_sha256, /^[a-f0-9]{64}$/);
   assert.deepEqual(Object.keys(erpReceipt.receipt.result).sort(), ["cross_project_state", "database", "project_metadata", "status"]);
+  const hppStore = createExternalReceiptStore(fx.resources.nas_report_root.path);
+  const hppReceipt = await hppStore.read(contexts[0], { acceptedFenceTokens: [contexts[0].fence_token] });
+  assert.equal(hppReceipt.receipt.result.unclassified_entry_count, 2);
 
   const retry = { ...contexts[1], previous_fence_token: contexts[1].fence_token, fence_token: randomUUID(), attempt: 2 };
   const reused = await catalog.executors.erp_backup_v1(retry);
@@ -176,6 +187,7 @@ test("HPP retry verifies and reuses its stable committed generation before writi
           recovery_policy_sha256: options.expected_policy_sha256,
           source_digest: "e".repeat(64),
           file_count: 4,
+          exclusions: { unclassified_entries: 3 },
           writes_performed: 0,
         };
       },
@@ -191,6 +203,7 @@ test("HPP retry verifies and reuses its stable committed generation before writi
   const external = await createExternalReceiptStore(fx.resources.nas_report_root.path).read(current, { acceptedFenceTokens: [current.fence_token] });
   assert.equal(external.receipt.result.reused_committed_generation, true);
   assert.equal(external.receipt.result.manifest_sha256, manifestSha256);
+  assert.equal(external.receipt.result.unclassified_entry_count, 3);
 });
 
 test("robocopy contract is copy-only, excludes junctions/secrets, and accepts only codes 0-3", () => {

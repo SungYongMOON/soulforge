@@ -248,6 +248,7 @@ export function createFixedExecutorCatalog({
         manifest_sha256: snapshot.manifest_sha256,
         source_digest: snapshot.source_digest,
         file_count: snapshot.file_count,
+        unclassified_entry_count: Number(snapshot.exclusions?.unclassified_entries ?? 0),
         reused_committed_generation: Boolean(committed),
       };
     }),
@@ -324,7 +325,12 @@ export function createFixedExecutorCatalog({
       if (erp?.ok !== true || erp.quick_check !== "ok" || erp.sha256 !== erpReceipt.result?.database?.backup_sha256) fail("erp_restore_verification_failed");
       return {
         status: "ok",
-        hpp: { manifest_sha256: hpp.manifest_sha256, file_count: hpp.file_count, writes_performed: 0 },
+        hpp: {
+          manifest_sha256: hpp.manifest_sha256,
+          file_count: hpp.file_count,
+          unclassified_entry_count: Number(hpp.exclusions?.unclassified_entries ?? 0),
+          writes_performed: 0,
+        },
         erp: { backup_sha256: erp.sha256, quick_check: erp.quick_check },
       };
     }),

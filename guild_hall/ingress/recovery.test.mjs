@@ -367,20 +367,19 @@ test("snapshot requires an external exact recovery policy and its storage-manife
   }
 });
 
-test("unknown state children fail before included files open and secret-like included entries fail closed", async () => {
+test("unknown state children are skipped while secret-like entries inside declared custody fail closed", async () => {
   const f = await fixture();
   try {
     await mkdir(join(f.sourceRoot, "state", "unknown_state"));
     let includedFileOpened = false;
-    await assert.rejects(
-      createIngressRecoverySnapshot({
-        sourceRoot: f.sourceRoot,
-        backupRoot: f.backupRoot,
-        testHooks: { beforeIncludedFileRead: () => { includedFileOpened = true; } },
-      }),
-      { code: "recovery_state_child_undeclared" },
-    );
-    assert.equal(includedFileOpened, false);
+    const dryRun = await createIngressRecoverySnapshot({
+      sourceRoot: f.sourceRoot,
+      backupRoot: f.backupRoot,
+      testHooks: { beforeIncludedFileRead: () => { includedFileOpened = true; } },
+    });
+    assert.equal(dryRun.status, "dry_run_no_write");
+    assert.equal(dryRun.exclusions.unclassified_entries, 1);
+    assert.equal(includedFileOpened, true);
     await rm(join(f.sourceRoot, "state", "unknown_state"), { recursive: true });
     await writeFile(
       join(f.sourceRoot, "ingress", "team_files", "incoming", "api-token.json"),
@@ -998,7 +997,7 @@ test("undeclared SQLite and source symlinks fail closed, while CLI output remain
   }
 });
 
-test("snapshot requires the exact HPP storage manifest and rejects undeclared top-level config", async () => {
+test("snapshot requires the exact HPP storage manifest and skips undeclared surfaces without blocking known custody", async () => {
   const f = await fixture();
   try {
     await writeJson(join(f.sourceRoot, "storage_manifest.json"), {
@@ -1012,11 +1011,19 @@ test("snapshot requires the exact HPP storage manifest and rejects undeclared to
     );
     await writeJson(join(f.sourceRoot, "storage_manifest.json"), storageManifest());
     await f.rewriteRecoveryPolicy();
+    const baseline = await createIngressRecoverySnapshot({
+      sourceRoot: f.sourceRoot,
+      backupRoot: f.backupRoot,
+    });
     await writeFile(join(f.sourceRoot, "settings.json"), "synthetic-config-must-not-be-read", "utf8");
-    await assert.rejects(
-      createIngressRecoverySnapshot({ sourceRoot: f.sourceRoot, backupRoot: f.backupRoot }),
-      { code: "recovery_source_top_level_undeclared" },
-    );
+    await mkdir(join(f.sourceRoot, "ingress", "new_lane"));
+    await mkdir(join(f.sourceRoot, "state", "new_state"));
+    const result = await createIngressRecoverySnapshot({ sourceRoot: f.sourceRoot, backupRoot: f.backupRoot });
+    assert.equal(result.status, "dry_run_no_write");
+    assert.equal(result.exclusions.unclassified_entries, 3);
+    assert.equal(result.file_count, baseline.file_count);
+    assert.equal(result.byte_count, baseline.byte_count);
+    assert.equal(result.source_digest, baseline.source_digest);
     assert.deepEqual(await readdir(f.backupRoot), []);
   } finally {
     await f.cleanup();
@@ -1339,6 +1346,7 @@ test("legacy v1 generation remains usable only with an external manifest anchor"
       delete manifest.recovery_policy;
       delete manifest.storage_manifest;
       delete manifest.writer_authority;
+      delete manifest.exclusions.unclassified_entries;
     });
     const anchored = await verifyIngressRecoveryRestoreImpl({
       backupRoot: f.backupRoot,
@@ -1359,6 +1367,39 @@ test("legacy v1 generation remains usable only with an external manifest anchor"
       approvalRef,
     });
     assert.equal(restored.status, "restore_verified");
+  } finally {
+    await f.cleanup();
+  }
+});
+
+test("v2 generation remains restorable after the v3 unclassified-surface field is introduced", async () => {
+  const f = await fixture();
+  try {
+    const dryRun = await createIngressRecoverySnapshot({ sourceRoot: f.sourceRoot, backupRoot: f.backupRoot });
+    const approvalRef = "synthetic-prior-v2-anchor";
+    const applied = await createIngressRecoverySnapshot({
+      sourceRoot: f.sourceRoot,
+      backupRoot: f.backupRoot,
+      generationId: "igr_synthetic_prior_v2",
+      apply: true,
+      expectedSourceIdentity: dryRun.source_identity_digest,
+      expectedSourceDigest: dryRun.source_digest,
+      approvalRef,
+    });
+    const generationRoot = join(f.backupRoot, "generations", applied.generation_id);
+    const priorSha256 = await resealManifest(generationRoot, (manifest) => {
+      manifest.schema_version = "soulforge.ingress.recovery_manifest.v2";
+      delete manifest.exclusions.unclassified_entries;
+    });
+    const anchored = await verifyIngressRecoveryRestoreImpl({
+      backupRoot: f.backupRoot,
+      generationId: applied.generation_id,
+      restoreRoot: f.restoreRoot,
+      recoveryPolicyPath: f.recoveryPolicyPath,
+      expectedManifestSha256: priorSha256,
+    });
+    assert.equal(anchored.status, "dry_run_verified_no_write");
+    assert.equal(anchored.exclusions.unclassified_entries, undefined);
   } finally {
     await f.cleanup();
   }

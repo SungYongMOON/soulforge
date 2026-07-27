@@ -72,10 +72,10 @@ Soulforge는 canonical 구조와 public/private 경계를 고정한 설계 저�
 - HPP data root에 새 최상위 폴더나 영속 데이터 surface를 추가하는 개발은 같은
   슬라이스에서 NAS backup/recovery 분류를 함께 갱신한다. 각 surface는
   `백업·복구 포함`, `재생성 가능 제외`, `secret/운영정보 capture 금지` 중 하나로
-  명시하고 관련 synthetic backup/restore 검증을 통과해야 한다. 미분류 surface
-  때문에 HPP snapshot이 보류되더라도 기존 ERP·metadata·workspace 독립 백업은
-  계속 실행되어야 하며, writer·binding·ACL·NAS 목적지 같은 전역 안전 실패만
-  전체 주기를 중단한다.
+  명시하고 관련 synthetic backup/restore 검증을 통과해야 한다. 미분류 surface는
+  열거나 복사하지 않고 `unclassified_entries`로 보류하되, 이미 선언된 HPP custody와
+  ERP·metadata·workspace 독립 백업은 계속 실행한다. writer·binding·ACL·NAS
+  목적지 같은 전역 안전 실패만 전체 주기를 중단한다.
 
 ## 지식·온톨로지 정본 라우팅
 

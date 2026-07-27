@@ -14,6 +14,12 @@
   automation. It cooperatively pauses continuous ingress, waits for bounded
   local/Slack writers, runs backup, and restores/catch-ups the exact tasks even
   after backup failure; an unconfirmed continuous-writer restart fails closed.
+- Documented the same-slice rule for every newly developed HPP data surface:
+  backup/restore include, rebuildable exclusion, or secret/runtime prohibition,
+  with recovery-policy and synthetic-restore updates required together.
+- HPP recovery manifest v3 now records unknown new surfaces as unclassified
+  without opening or copying them, so declared mail, voice, Slack, timeline, and
+  other custody continue backing up while the new surface awaits classification.
 - HPP 데이터 구조 변경이 한 백업 단계에 실패를 일으켜도 ERP, metadata,
   restore, workspace 독립 NAS 백업을 계속 실행하도록 daily backup cycle의
   stage failure를 격리했다.
