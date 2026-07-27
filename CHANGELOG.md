@@ -2,6 +2,17 @@
 
 ## 2026-07-27
 
+### Codex activity data terminology
+
+- Renamed the owner-facing five-field proxy from ambiguous `PC work` to
+  `Codex work-result summary`.
+- Named the separate exact H05 run-receipt class `Codex
+  execution/verification evidence`, distinguishing a model-authored summary
+  from machine-verifiable run proof.
+- Kept the live v1 `bounded_work` and `run_log` identifiers and machine-local
+  paths as compatibility aliases; this documentation correction performs no
+  runtime data migration.
+
 ### Legacy full-packet retention cleanup
 
 - Removed 347 superseded repeated full-file observation packets totaling

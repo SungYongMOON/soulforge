@@ -140,7 +140,7 @@
   monthly JSONL files are replay-safe; `current.csv` is a rebuildable view.
 - The first actual bounded Shadow is `P26-014` (KVDS). Its current V3 contains
   269 KST rows: 84 mail metadata occurrences, 3 owner-confirmed voice
-  occurrences, and 182 bounded structured-PC-work occurrences. The latest
+  occurrences, and 182 `Codex work-result summary` proxy occurrences. The latest
   machine-local collector has 200 KVDS work occurrences, so the materialized
   timeline is 18 rows behind that outbox. Slack source-arrival and attachment
   refs, reconciled file events, and common run receipts are not yet projected.

@@ -5,11 +5,19 @@ project allowlist:
 
 1. project workspace file observations through the existing
    `guild_hall/file_activity` scanner;
-2. bounded PC-work facts from the project five-field ledger;
-3. a relation-only Codex execution view over the same bounded work facts.
+2. Codex work-result summaries from the project five-field ledger;
+3. a relation-only Codex-origin view over the same result summaries.
 
-The PC-work fact and Codex execution view share one `native_occurrence_id`.
+The work-result summary and Codex-origin view share one `native_occurrence_id`.
 They are not counted as two business events.
+
+`Codex work-result summary` is the owner-facing data name. The v1 schema,
+binding key, IDs, and machine-local directory retain the internal
+`bounded_work` name for compatibility. This is a Codex-authored summary, not
+PC surveillance, a formal WorkSession, or an automatically generated Codex
+execution/verification receipt. The latter data class is named `Codex
+execution/verification evidence` and remains the separate H05 run-receipt
+lane.
 
 ## Boundary
 
@@ -75,9 +83,11 @@ cached by unchanged size/mtime/ctime and may use an owner-bound TTL up to 30
 days; pending or large hashes do not prevent path/size/time observations from
 being retained.
 
-`bounded_work` keeps a bounded work summary, verification summary, refs, and a
-full-record SHA-256. The same source ID with different full content is held.
-The packet is still a candidate projection, not H03/H05 or P1 acceptance.
+The legacy internal `bounded_work` packet keeps a Codex work-result summary,
+verification claim, refs, and a full-record SHA-256. The same source ID with
+different full content is held. The packet is still a candidate projection,
+not a formal H03 WorkSession, H05 execution/verification evidence, or P1
+acceptance.
 
 The CLI lock carries a process identity and owner token. A live owner always
 blocks another run. A dead legacy or current owner lock is atomically
