@@ -26,8 +26,8 @@
 | 2026-07-26 all-project HPP local activity bridge | `HISTORICAL_SUPERSEDED`; 최초 구현은 명시적 private project allowlist 14개를 기준으로 전체 file observation packet을 30분마다 machine-local outbox에 반복 저장했다. 2026-07-27 증분 보정 뒤에는 최초 compact inventory 기준선과 변경 observation·absence candidate만 저장한다. 구방식 packet은 아래 retirement 검증 뒤 삭제됐으며 최신 수치는 아래 CURRENT 상태표를 따른다. |
 | 2026-07-27 all-project file inventory delta activation | 14개 exact project root의 정책 허용 범위를 LLM 없이 열거하고 compact inventory state 29,323행을 만들었다. sensitive/temp/symlink/policy-excluded 경로는 전수 범위에서 제외한다. 이후 30분 작업은 전체 packet을 반복 보존하지 않고 변경 observation과 `absence_candidate_only`만 append한다. non-exact hash queue reason은 stable `pending`으로 정규화해 예산 순서 변화가 가짜 변경을 만들지 않는다. dead/stale legacy·partial collector lock 자동 복구, current owner lock 차단, private binding hash pin, unchanged stat exact-hash cache 최대 30일, `IgnoreNew`와 hidden PowerShell window를 적용했다. Task Scheduler 자체는 `Hidden=false`다. 최신 실제 실행은 변경 1건만 기록해 14개 delta 합계 20,567 bytes, 결과 `0`, held project 0, lock 잔존 0이었다. `tool_pc` 관찰은 삭제를 확정하지 않으며 `_workmeta` reconciler·project timeline·ERP/TaskDriver writer는 여전히 미연결이다. |
 | 2026-07-27 legacy full-packet retirement | 구방식 full packet 347개, 1,179,013,521 bytes를 14개 project별 순차 비교했으며 경로·stat 상태 변화, 추가·제거, same-stat exact-content 변화가 모두 `0`이었다. exact same-volume 격리 뒤 새 collector를 다시 실행해 14/14, 결과 `0`, held `0`, 구경로 재생성 `0`, compact inventory·delta 보존을 확인했다. 격리 byte-tree SHA-256이 이동 전과 일치한 상태에서 구방식 packet만 영구 삭제했고 실제 여유 공간은 1,179,811,840 bytes 증가했다. project 원본, compact inventory, delta, `_workmeta`, DB는 삭제하지 않았다. |
-| 2026-07-27 Codex 활동 데이터 명칭 보정 | 사람에게 보이는 현재 five-field 기반 proxy는 `Codex 업무 결과 요약`, 향후 H05 exact run receipt는 `Codex 실행·검증 증거`로 부른다. 전자는 Codex가 작성한 입력·판단·결과·검증 요약이고, 후자는 프로그램이 자동 생성하는 실행 ID·종료코드·검증 결과·산출물/commit ref 증거다. 기존 `bounded_work`·`run_log`·H03/H05 내부 ID와 machine-local 경로는 무중단 호환을 위해 이번 변경에서 rename하지 않는다. `Codex 업무 결과 요약`은 정식 PC WorkSession이나 H05 증거가 아니다. |
-| 2026-07-27 HPP Codex 작업 맥락 사건 기반 | exact private project allowlist 아래 프로젝트마다 서로 다른 실제 업무 수만큼 local work ID를 만들고, 같은 업무를 이어가는 프로젝트 팀장 작업·자식·계속·검증 작업만 같은 ID에 명시적으로 연결하는 append-only HPP writer와 CLI를 구현했다. 시작·중간 checkpoint·완료 요약과 source/file/run ref만 저장하고 whole conversation·screen·keyboard·OS는 자동 수집하지 않는다. local work close는 ERP 공식 완료·H03 WorkSession·H05 exact run receipt·accepted context가 아니다. |
+| 2026-07-27 Codex 활동 데이터 명칭 보정 | `HISTORICAL_SUPERSEDED`; 당시 five-field proxy를 `Codex 업무 결과 요약`, H05 data class를 `Codex 실행·검증 증거`로 구분한 기록이다. 현재 owner-facing 용어는 아래 CURRENT 상태표와 공통 용어집을 따른다. 기존 `bounded_work`·`run_log`·H03/H05 내부 ID와 machine-local 경로는 무중단 호환을 위해 rename하지 않는다. |
+| 2026-07-27 HPP Codex 작업 맥락 사건 기반 | `HISTORICAL_SUPERSEDED`; 당시의 혼합 표시 이름으로 남긴 구현 기록이다. exact private project allowlist 아래 서로 다른 실제 업무를 분리하고, 같은 업무를 이어가는 프로젝트 팀장 작업·자식·계속·검증 작업만 같은 ID에 명시적으로 연결하는 append-only HPP writer와 CLI를 구현했다. 시작·중간 checkpoint·완료 요약과 source/file/run ref만 저장하고 whole conversation·screen·keyboard·OS는 자동 수집하지 않는다. close는 ERP 공식 완료·H03 WorkSession·H05 exact run receipt·accepted context가 아니다. |
 | 2026-07-25 project-context foundation correction | 기존 owner 경계를 유지한 채 `_workmeta/<project>/project_context`에 `SourceSpan→ContextEvent→ContextUnit→ContextBranch→ProjectContext→memory candidate` TARGET 계층, append-only summary revision, HPP sole context writer, ERP accepted-generation read model, MCP/plugin 직접 파일쓰기 금지와 P5A→P5D thin Shadow 순서를 고정했다. 실제 폴더·writer·ERP index·MCP route·DB·TaskDriver·운영 상태 변경 `0` |
 | 2026-07-25 project-timeline feature-OFF foundation | 여섯 source lane의 공통 annotation 뒤에 append-only `scope_timeline_binding.v1`을 두고 confirmed project만 격리된 project timeline으로 투영한다. candidate/unassigned/common/restricted/conflict는 project timeline 밖에 유지하며, 전체 system receipt는 누락·중복 확인용 최소 색인일 뿐 사람/LLM의 cross-project timeline이 아니다. public pure projector와 synthetic 9-case fixture만 구현했고 RAW·private folder·DB·scheduler·network·ERP·MCP·production writer 변경 `0` |
 | 2026-07-25 KVDS one-project timeline Shadow | `HISTORICAL_SUPERSEDED`; 최초 V1은 mail 84+voice 3=87행이었다. 2026-07-26 V3는 bounded PC work 182행을 추가해 총 269행이며, Slack accepted event·file event·common run receipt는 아직 0이다. 최신 local collector의 KVDS bounded work 188건보다 timeline snapshot이 6건 뒤처져 있다. |
@@ -40,24 +40,28 @@
 ## 최신 CURRENT 상태표
 
 이 표는 사람이 현재 위치를 확인하는 단일 요약이다. `LIVE`는 수집기가
-동작한다는 뜻이며 formal H acceptance, project timeline 반영 또는 TaskDriver
+동작한다는 뜻이며 formal H acceptance, 프로젝트 시간장부(project timeline) 반영 또는 TaskDriver
 운영 승격을 뜻하지 않는다.
 
 | 입력·단계 | 현재 상태 | 최신 관찰 근거 | 아직 남은 연결 |
 | --- | --- | --- | --- |
-| 받은메일·owner 보낸메일 | `LIVE_COLLECTION / PARTIAL_PROJECT_ROUTE` | 중앙 mail custody 아래 파일 2,221개, 최신 2026-07-26T18:52:41+09:00. 이 숫자는 메시지 건수가 아니라 RAW·metadata·첨부를 포함한 파일 수다. KVDS timeline에는 mail 84 occurrence가 반영됨 | 전체 프로젝트 동일 writer 투영, 재분류 parity, H01 acceptance |
+| 받은메일·owner 보낸메일 | `LIVE_COLLECTION / PARTIAL_PROJECT_ROUTE` | 중앙 mail custody 아래 파일 2,221개, 최신 2026-07-26T18:52:41+09:00. 이 숫자는 메시지 건수가 아니라 RAW·metadata·첨부를 포함한 파일 수다. KVDS 프로젝트 시간장부에는 mail 84 occurrence가 반영됨 | 전체 프로젝트 동일 writer 투영, 재분류 parity, H01 acceptance |
 | PLAUD 음성·독립 전사·발생 라벨 | `LIVE_COLLECTION_AND_DERIVATION` | voice custody/derived 파일 3,870개, 최신 2026-07-25T00:04:37+09:00. HPP voice supervisor는 단일 장기 실행 상태 | backlog 완료·장기 health, project resolver, H02 acceptance |
-| Slack 대화·첨부 | `LIVE_READ_ONLY_COLLECTION` | 9개 exact project channel을 KST 02:00·12:00에 수집. 현재 message RAW 9개, attachment content 4개, source-arrival annotation 9개 | source-arrival+attachment ref의 project timeline 자동 투영, edit/delete coverage, H07 acceptance |
-| 프로젝트 파일 관찰 | `LIVE_LOCAL_DELTA_OUTBOX / PARTIAL_HASH` | 14개 project의 compact inventory 29,326행, exact hash 14,132개, hash 대기 15,194개. 구방식 격리 뒤 최신 실제 실행은 변경 5건/무변경 29,321건, 최신 delta 합계 27,152 bytes, 결과 0, held 0, stale lock 0, 구경로 재생성 0이었다. 중복 구방식 full packet 347개/1,179,013,521 bytes는 독립 실행 검증 후 삭제됐다 | sole reconciler로 first-observed/revision/rename/copy/touch를 `_workmeta` event로 확정. `tool_pc` absence candidate만으로 delete 확정 금지 |
-| Codex 업무 결과 요약 (임시 proxy) | `LIVE_BOUNDED_SUMMARY_OUTBOX` | five-field 기반 결과 요약 351건, 같은 occurrence를 가리키는 Codex-origin relation 349건, conflict 0. 내부 호환 ID는 `bounded_work` | 정식 WorkSession/MCP receipt와 연결. whole chat·screen·keyboard·OS 수집은 계속 OFF이며 이 요약을 실제 PC 활동이나 실행 증거로 과대 해석하지 않음 |
-| Codex 작업 맥락 사건 | `LIVE_HPP_LOCAL_EVENT_OUTBOX / LEADER_GUIDANCE_SENT` | exact private 14-project allowlist 고정. 현재 활동 팀장 작업 10개를 11개 project code에 등록했고 P25-000/P26-038은 같은 기뢰전 팀장 작업을 공유한다. KVDS 제한 canary 정본 `LW-P26-014-CANARY-20260727-005`는 KST 사건 3개·attached thread 1개·파일 SHA-256 ref 1개·검증 25/25 ref 1개·whole-chat 자동 수집 0으로 완료했다. 이전 canary 4건은 덮어쓰거나 삭제하지 않고 `superseded` 감사 이력으로 보존했다. 공개 `21fdad4d`와 같은 3개 실행 파일을 HPP D: runtime에 배치·hash 일치·status 조회 검증했고 등록된 팀장 작업 10/10에 다음 실제 업무부터 적용할 start/attach/checkpoint/finish/supersede 지침을 전달했다 | 팀장 ACK와 첫 실제 업무 적용을 관찰한다. ERP/WorkSession/H05/timeline promotion은 별도 reconciler 전까지 OFF |
-| Codex 실행·검증 증거 | `PILOT_ONLY / COMMON_RECEIPT_MISSING` | 중앙 ingress의 legacy `run_log` 파일 7개는 과거 pilot. project `runs/**`는 형식이 섞여 있어 전체 재귀 수집하지 않음 | 일반 Codex 작업용 exact run receipt/manifest와 H05 adapter |
-| 프로젝트 시간장부 | `KVDS_V3_SHADOW_ONLY` | `P26-014` 269행 = mail 84 + voice 3 + `Codex 업무 결과 요약` proxy 182, 전부 KST. 최신 local proxy 200건보다 18건 뒤처짐 | KVDS에 Slack·reconciled file event·`Codex 실행·검증 증거`를 합친 V4, 이후 같은 writer를 다른 프로젝트에 확장 |
+| Slack 대화·첨부 | `LIVE_READ_ONLY_COLLECTION` | 9개 exact project channel을 KST 02:00·12:00에 수집. 현재 message RAW 9개, attachment content 4개, source-arrival annotation 9개 | source-arrival+attachment ref의 프로젝트 시간장부 자동 투영, edit/delete coverage, H07 acceptance |
+| 프로젝트 파일 관찰 | `LIVE_LOCAL_DELTA_OUTBOX / PARTIAL_HASH` | 14개 project의 compact inventory 29,326행, exact hash 14,132개, hash 대기 15,194개. 구방식 격리 뒤 최신 실제 실행은 변경 5건/무변경 29,321건, 최신 delta 합계 27,152 bytes, 결과 0, held 0, stale lock 0, 구경로 재생성 0이었다. 중복 구방식 full packet 347개/1,179,013,521 bytes는 독립 실행 검증 후 삭제됐다 | sole reconciler가 `파일 관찰`을 first-observed/revision/rename/copy/touch `파일 이력`으로 확정. `tool_pc` absence candidate만으로 delete 확정 금지 |
+| 5필드 업무 결과 요약 (임시 proxy) | `LIVE_BOUNDED_SUMMARY_OUTBOX` | five-field 기반 결과 요약 351건, 같은 occurrence를 가리키는 Codex-origin relation 349건, conflict 0. 내부 호환 ID는 `bounded_work` | 정식 WorkSession/MCP receipt와 연결. whole chat·screen·keyboard·OS 수집은 계속 OFF이며 이 요약을 실제 PC 활동이나 실행·검증 증거로 과대 해석하지 않음 |
+| HPP Codex 작업 맥락 수집기 → HPP 로컬 업무 장부 | `LIVE_HPP_LOCAL_EVENT_OUTBOX / LEADER_GUIDANCE_SENT` | exact private 14-project allowlist 고정. 현재 활동 팀장 로컬 업무 10개를 11개 project code에 등록했고 P25-000/P26-038은 같은 팀장 로컬 업무를 공유한다. KVDS 제한 canary 정본 `LW-P26-014-CANARY-20260727-005`는 KST 업무 사건 3개·attached thread 1개·파일 SHA-256 ref 1개·검증 25/25 ref 1개·whole-chat 자동 수집 0으로 완료했다. 이전 canary 4건은 덮어쓰거나 삭제하지 않고 `superseded` 감사 이력으로 보존했다. 공개 `21fdad4d`와 같은 3개 실행 파일을 HPP D: runtime에 배치·hash 일치·status 조회 검증했고 등록된 팀장 로컬 업무 10/10에 다음 실제 업무부터 적용할 start/attach/checkpoint/finish/supersede 지침을 전달했다 | 팀장 ACK와 첫 실제 업무 적용을 관찰한다. ERP/WorkSession/H05/프로젝트 시간장부 promotion은 별도 reconciler 전까지 OFF |
+| 실행·검증 증거 | `PILOT_ONLY / COMMON_RECEIPT_MISSING` | 중앙 ingress의 legacy `run_log` 파일 7개는 과거 pilot. project `runs/**`는 형식이 섞여 있어 전체 재귀 수집하지 않음 | 일반 Codex 작업용 exact 실행·검증 영수증/manifest와 H05 adapter |
+| 프로젝트 시간장부 | `KVDS_V3_SHADOW_ONLY` | `P26-014` 269행 = mail 84 + voice 3 + `5필드 업무 결과 요약` proxy 182, 전부 KST. 최신 local proxy 200건보다 18건 뒤처짐 | KVDS에 Slack·reconciled 파일 이력 event·`실행·검증 증거`를 합친 V4, 이후 같은 writer를 다른 프로젝트에 확장 |
 | NAS 통합 백업·복구 | `LIVE_DAILY_AUTOMATION / HPP_V3_RUNTIME_DEPLOYED / CURRENT_CYCLE_PARTIAL` | Codex 자동화 1개가 매일 KST 02:00 실행된다. 2026-07-28 HPP snapshot은 선언된 custody 11,328파일을 NAS에 commit했고 external receipt SHA-256 `160eaa28…`, manifest SHA-256 `5129a353…`로 검증됐다. exact writer 3개를 일시 정지·실패 시에도 복구하는 wrapper와 stage별 실패 격리를 배치했으며, 신규 미분류 HPP surface를 열거나 복사하지 않으면서 기존 선언 custody를 계속 백업하는 manifest v3는 public synthetic 22/22, controller 44/44를 통과했다. public `c5aa5a14`의 recovery/executor와 D: runtime SHA-256이 일치하고 writer 3개는 04:22 KST에 재활성화됐다. 같은 cycle의 `_workmeta`와 `private-state` 복사는 수행됐지만 ERP 묶음 영수증은 30분 제한의 `fixed_child_aborted`로 미확정이며 workspace 복사는 이 관찰시각 현재 진행 중이다 | 진행 중 workspace 종료 영수증, ERP 증분 재시도·runtime 상한 보정, manifest v3 actual 신규-generation receipt, `_workspaces` OneDrive junction payload coverage, fresh Level 3 B/V |
 | 맥락·세계수·할일 | `FOUNDATION_ONLY / NOT_OPERATIONAL` | 공통 annotation·project binding·context 계층 계약과 synthetic/Shadow 기반 존재 | P5 context resolver, 체계공학 지식 결합, 검토/정정, ERP accepted generation, TaskDriver 승격 |
 
 Claim ceiling: `observed_operational_ingress_and_private_shadow`.
 accepted project history, accepted context, production TaskDriver readiness는 아직 주장하지 않는다.
+
+사람이 보는 업무·증거 이름과 폐기 별칭은
+[`SHARED_GLOSSARY_V0.md`](../../../../docs/architecture/foundation/SHARED_GLOSSARY_V0.md#task-engine--ax-업무증거-용어)
+를 따른다. 이 이름 보정은 runtime·schema·path·운영 상태 migration이 아니다.
 
 ### 상태표 유지 지침
 
@@ -5011,14 +5015,14 @@ lease 같은 명시적 감사 시각은 UTC를 유지하지만 업무 시간축 
 
 이 계약은 여섯 lane을 같은 모양으로 표현한다. 다만 source-arrival annotation,
 machine-local outbox, accepted project timeline은 서로 다른 단계다. 현재 실제
-project timeline Shadow는 KVDS의 mail·voice·`Codex 업무 결과 요약` proxy만
+프로젝트 시간장부(project timeline) Shadow는 KVDS의 mail·voice·`5필드 업무 결과 요약` proxy만
 포함한다. Slack
 annotation과 attachment ref, file reconciled event, common run receipt는 아직
 project timeline writer에 자동 연결되지 않았다. 메일은 기존 `mail_occurrence`가
 정본이며 P5 의미 라벨 전까지 공통 accepted writer가 있다고 과대 주장하지 않는다.
 
 ```text
-메일 / Slack / 음성 / WorkSession / 파일 / Codex 실행·검증 증거
+메일 / Slack / 음성 / WorkSession / 파일 이력 / 실행·검증 증거
                     |
                     v
      source-native RAW + source revision/hash
@@ -5098,47 +5102,61 @@ project timeline writer에 자동 연결되지 않았다. 메일은 기존 `mail
      이는 Slack RAW ingress 운영 증거이며 TaskDriver·세계수 승격이나
      H07A/H07B 전체 정본 acceptance를 자동 확정하지 않는다.
 
-3. Codex 업무 결과 요약 (임시 proxy)
+3. 5필드 업무 결과 요약 (임시 proxy)
    - 14개 exact project allowlist를 대상으로 30분 주기 HPP local collector가
      five-field 기반 결과 요약 351건과 relation-only Codex-origin view 349건을
      machine-local outbox에 모은다. 현재 내부 호환 ID와 폴더명은
      `bounded_work`다.
    - 이 데이터는 Codex가 작성한 업무 종료 요약이지 PC 사용 감시, 정식
-     WorkSession 또는 프로그램이 자동 생성한 실행·검증 증거가 아니다.
+     WorkSession 또는 프로그램이 자동 생성한 실행·검증 영수증이 아니다.
    - whole conversation, 화면, 키보드, OS 감시는 하지 않는다.
    - KVDS V3에는 당시 snapshot 182건이 들어갔지만 최신 local count 200건과
      18건 차이가 있어 자동 timeline writer는 아직 완성되지 않았다.
 
-4. 프로젝트 파일
+4. HPP 로컬 업무 장부
+   - `HPP Codex 작업 맥락 수집기`가 exact private project allowlist와 pinned
+     binding 아래 명시적으로 전달된 시작·task 연결·checkpoint·종료를
+     append-only `업무 사건`으로 저장한다.
+   - 같은 실제 업무를 이어가는 task만 같은 `로컬 업무`의 wire field
+     `work_id`를 공유한다. `begin_work.work_id=null`일 때 생성되는 값은
+     `LW-<project>-<digest>` 형식이지만(`<project>`는 `project_code`)
+     caller-supplied ID 전체에
+     `LW-*`를 강제하지 않는다.
+   - 내부 path `codex_work_context`, schema, operation, module, CLI 이름은
+     유지한다. 이 장부는 ERP task, H03 WorkSession, H05 acceptance,
+     accepted ProjectContext, 프로젝트 시간장부가 아니다.
+
+5. 프로젝트 파일
    - 같은 collector가 14개 프로젝트 폴더의 정책 허용 범위에서 positive
-     observation 29,326개와 exact hash 14,132개를 모았고, 15,194개는 hash
+     `파일 관찰` 29,326개와 exact hash 14,132개를 모았고, 15,194개는 hash
      대기다. sensitive/temp/symlink/policy-excluded 경로는 열거하지 않는다.
    - 최초 compact inventory 뒤 30분 주기에는 전체 packet을 반복 저장하지
-     않고 변경 observation과 비권위 `absence_candidate_only`만 append한다.
+     않고 변경 파일 관찰과 비권위 `absence_candidate_only`만 append한다.
      non-exact hash queue reason은 `pending`으로 정규화하며 최신 실행의
      14개 delta 합계는 27,152 bytes였다.
    - 구방식 full packet 347개/1,179,013,521 bytes는 모든 순차 상태 변화가
      `0`임을 확인하고 exact 격리 상태에서 새 collector 14/14 재실행을 통과한
      뒤 삭제했다. compact inventory와 delta, project 원본은 유지했다.
    - `guild_hall/file_activity`의 first-observed/revision/rename/copy/touch/
-     delete/restore reconciler 계약과 synthetic test는 존재한다.
+     delete/restore `파일 이력` reconciler 계약과 synthetic test는 존재한다.
    - actual reconciler-primary와 project timeline 투영은 아직 활성화하지 않았다.
      현재 HPP node role은 `tool_pc`이므로 이 관찰만으로 deletion을 확정하지 않는다.
 
-5. Codex 실행·검증 증거
+6. 실행·검증 증거
    - project `runs/<run_id>/**`는 metadata·artifact·검증물이 섞인 위치라서
      디렉터리 전체를 실행 사건으로 재귀 산입하지 않는다.
-   - H05는 exact `report_authoring_v0/workflow_receipt.json`만 allowlist한
-     feature-OFF 기반이다. 일반 Codex 작업용 공통 run receipt는 아직 없다.
+   - H05는 exact `report_authoring_v0/workflow_receipt.json` 실행·검증
+     영수증만 allowlist한 feature-OFF 기반이다. 일반 Codex 작업용 공통
+     실행·검증 영수증은 아직 없다.
 
-6. 메일
+7. 메일
    - 받은편지·보낸편지는 기존 exact `mail_occurrence` identity와 RAW
      custody를 유지한다.
    - 공통 P5 의미 라벨은 mail occurrence를 대체하지 않고 그 위에 붙는다.
 
-7. 프로젝트 시간장부
+8. 프로젝트 시간장부
    - 현재 materialized project timeline은 KVDS `P26-014` V3 하나다.
-   - 269행은 mail 84, voice 3, `Codex 업무 결과 요약` proxy 182이며 모두
+   - 269행은 mail 84, voice 3, `5필드 업무 결과 요약` proxy 182이며 모두
      KST다.
    - Slack, reconciled file event, common run receipt는 아직 0이고 다른
      프로젝트 timeline은 아직 materialize하지 않았다.
@@ -5147,10 +5165,10 @@ project timeline writer에 자동 연결되지 않았다. 메일은 기존 `mail
 
 - 음성 backlog의 연속 처리 완료와 장기 health 관측
 - Slack source-arrival·attachment pointer를 exact project timeline으로 투영
-- HPP file observation을 sole reconciler가 immutable file event로 확정
-- 일반 Codex 작업용 common run receipt/manifest와 H05 adapter를 구현해
-  `Codex 실행·검증 증거`로 저장
-- KVDS V4에서 mail·voice·WorkSession·Slack·file·Codex 실행·검증 증거를
+- HPP 파일 관찰을 sole reconciler가 immutable 파일 이력 event로 확정
+- 일반 Codex 작업용 common 실행·검증 영수증/manifest와 H05 adapter를 구현해
+  `실행·검증 증거`로 저장
+- KVDS V4에서 mail·voice·WorkSession·Slack·파일 이력·실행·검증 증거를
   함께 replay한 뒤
   같은 timeline writer를 나머지 프로젝트로 확장
 - mail/slack/voice에서 나온 요청·약속·결정 후보를 최근 맥락과 대조하는
@@ -5164,6 +5182,7 @@ project timeline writer에 자동 연결되지 않았다. 메일은 기존 `mail
 ## 근거 문서
 
 - [`AGENT_EXECUTION_CONTRACT_V0.md`](../../../../docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md)
+- [`SHARED_GLOSSARY_V0.md`](../../../../docs/architecture/foundation/SHARED_GLOSSARY_V0.md#task-engine--ax-업무증거-용어)
 - [`DEVELOPMENT_ROADMAP_V0.md`](../../../../docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md)
 - [`TASK_ENGINE_CONTEXT_FOUNDATION_CROSS_VALIDATION_V0.md`](TASK_ENGINE_CONTEXT_FOUNDATION_CROSS_VALIDATION_V0.md)
 - [`MULTI_PC_DEVELOPMENT_V0.md`](../../../../docs/architecture/workspace/MULTI_PC_DEVELOPMENT_V0.md)

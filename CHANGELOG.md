@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-07-28
+
+### Task Engine / AX 업무·증거 용어 정본화
+
+- 공통 용어집에 `5필드 업무 결과 요약`, `HPP Codex 작업 맥락 수집기`,
+  `HPP 로컬 업무 장부`, `로컬 업무`, `업무 사건`, `파일 관찰`, `파일 이력`,
+  `실행·검증 증거`, `실행·검증 영수증`, `프로젝트 시간장부`의 사람용 정의와
+  비권장·폐기 별칭을 추가했다.
+- Task Engine CURRENT 상태표와 local-activity·shared owner 문서를 같은 이름으로
+  정렬하고, 과거 혼합명 기록은 `HISTORICAL_SUPERSEDED` 감사 이력으로 보존했다.
+- 현행 wire field는 `work_id`이며 `begin_work.work_id=null`일 때만
+  `LW-<project>-<digest>`가 자동 생성됨을 명시했다. `local_work_id`와
+  `LOCAL-WORK-*`는 현행 식별자가 아니다.
+- `bounded_work`, `codex_work_context`, `work_id`, event/time field, operation,
+  `run_log`·H03/H05 ID, receipt/timeline schema·path·module·CLI·기존 한글 호환
+  경로는 그대로 유지했다. 이번 변경은 schema/data migration이나 운영 승격을
+  만들지 않는다.
+
 ## 2026-07-27
 
 ### NAS backup stage isolation and HPP surface coverage

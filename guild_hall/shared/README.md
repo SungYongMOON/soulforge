@@ -76,7 +76,7 @@
 - See
   `docs/architecture/workspace/SOURCE_TIMELINE_ANNOTATION_V1.md`.
 
-## Feature-OFF project timeline projection
+## Feature-OFF 프로젝트 시간장부 (project timeline) projection
 
 - `project_timeline_projection.mjs` consumes only validated
   `source_timeline_annotation.v1` rows and explicit append-only
@@ -85,10 +85,10 @@
 - A binding routes one current source occurrence into exactly one of
   `project confirmed`, `project candidate`, `unassigned`, `common`,
   `restricted`, or `conflict`. Only confirmed project bindings enter a
-  project timeline; every other state remains outside the project projection.
+  프로젝트 시간장부; every other state remains outside the project projection.
 - The system receipt list is a minimal completeness/dedupe index, not a
-  cross-project prompt or human work view. Project timelines are isolated,
-  rebuildable projections and share only opaque source/revision/span refs.
+  cross-project prompt or human work view. 프로젝트 시간장부 projections are
+  isolated, rebuildable, and share only opaque source/revision/span refs.
 - Binding corrections are one append-only chain. Orphans, branches, stale
   source revisions, forged IDs, duplicate projection entries, and
   cross-project leakage fail closed.
@@ -104,8 +104,8 @@
   metadata rows.
 - One compact mutable inventory row is retained per observed path. The first
   run emits a metadata-only baseline; later 30-minute runs append only new or
-  changed observations and non-authoritative absence candidates instead of
-  another full packet.
+  changed `파일 관찰` and non-authoritative absence candidates instead of another
+  full packet.
 - The `IgnoreNew` task launches a hidden PowerShell window and passed actual
   scheduler runs with held project 0 and no residual lock. The Task Scheduler
   definition itself has `Hidden=false`. Dead/stale legacy or partial locks
@@ -120,10 +120,11 @@
   Unchanged stat tuples may reuse the pinned exact hash for the private
   binding's 30-day TTL. Large or pending hashes still retain path, size, and
   KST observation metadata.
-- This is a machine-local collection state. It does not reconcile a logical
-  file, confirm deletion, write `_workmeta`, or enter a project timeline.
+- This is a machine-local collection state. A `파일 관찰` does not reconcile a
+  logical `파일 이력`, confirm deletion, write `_workmeta`, or enter a 프로젝트
+  시간장부.
 
-## One-project timeline Shadow materializer
+## One-project 프로젝트 시간장부 Shadow materializer
 
 - `project_timeline_shadow.mjs` combines one exact project's private mail
   history metadata, already-confirmed Slack annotations, and explicitly
@@ -140,10 +141,11 @@
   monthly JSONL files are replay-safe; `current.csv` is a rebuildable view.
 - The first actual bounded Shadow is `P26-014` (KVDS). Its current V3 contains
   269 KST rows: 84 mail metadata occurrences, 3 owner-confirmed voice
-  occurrences, and 182 `Codex work-result summary` proxy occurrences. The latest
+  occurrences, and 182 `5필드 업무 결과 요약` proxy occurrences. The latest
   machine-local collector has 200 KVDS work occurrences, so the materialized
-  timeline is 18 rows behind that outbox. Slack source-arrival and attachment
-  refs, reconciled file events, and common run receipts are not yet projected.
+  프로젝트 시간장부 is 18 rows behind that outbox. Slack source-arrival and
+  attachment refs, reconciled 파일 이력 events, and common 실행·검증 영수증 are
+  not yet projected.
 - This surface does not accept context, create a task, change an official
   project classification, write ERP/DB, or activate a runtime writer.
 
@@ -225,8 +227,12 @@
   `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`
   맨 앞 `최신 CURRENT 상태표`가 소유한다. 이 README의 Shadow 상태가 바뀌면
   그 표와 같은 commit에서 갱신한다.
-- HPP Codex 작업 맥락 사건은 현재 machine-local append-only evidence다.
-  한 프로젝트에는 서로 다른 실제 업무마다 여러 local work ID가 있을 수 있고,
-  같은 업무를 이어가는 프로젝트 팀장·자식·계속·검증 작업만 하나의 ID에
-  명시적으로 연결한다. 아직 accepted WorkSession, H05 receipt, project
-  timeline 또는 ERP 완료 입력은 아니다.
+- 사람이 보는 Task Engine/AX 업무·증거 이름은
+  [`SHARED_GLOSSARY_V0.md`](../../docs/architecture/foundation/SHARED_GLOSSARY_V0.md#task-engine--ax-업무증거-용어)
+  를 따른다.
+- `HPP Codex 작업 맥락 수집기`가 쓰는 `HPP 로컬 업무 장부`는 현재
+  machine-local append-only evidence다. 한 프로젝트에는 서로 다른 실제 업무마다
+  여러 `로컬 업무`가 있을 수 있고, 같은 업무를 이어가는 프로젝트
+  팀장·자식·계속·검증 작업만 하나의 `work_id`에 명시적으로 연결한다. 각
+  시작·연결·checkpoint·종료는 `업무 사건`이다. 아직 accepted WorkSession,
+  H05 실행·검증 영수증, 프로젝트 시간장부 또는 ERP 완료 입력은 아니다.

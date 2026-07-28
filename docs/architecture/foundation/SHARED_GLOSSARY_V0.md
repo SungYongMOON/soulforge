@@ -43,6 +43,40 @@
 | promotion | 승격 | 반복 성공, source support, review evidence 를 바탕으로 후보를 skill/workflow/party/knowledge/canon 쪽으로 올리는 일 | 승격은 해당 owner surface, README/schema, changelog, 검증 경로를 함께 맞춰야 한다. |
 | public-safe | 공개 안전 | private payload, raw source body, secret, local runtime 값 없이 공개 repo 에 둘 수 있게 추상화된 상태 | 공개 가능 여부가 애매하면 public 이 아니라 private 으로 해석한다. |
 
+## Task Engine / AX 업무·증거 용어
+
+이 절은 사람이 보는 이름을 고정한다. 내부 schema, field, path, module,
+operation, CLI 이름을 바꾸는 migration 계약이 아니다.
+
+| 사람이 보는 이름 | 쉬운 정의 | 무엇이 아닌지 | 내부 식별자·경로 | 허용 / 비권장·폐기 별칭 |
+| --- | --- | --- | --- | --- |
+| 5필드 업무 결과 요약 | AI가 bounded 업무를 마칠 때 입력·판단·출력·검증·중단조건을 요약한 별도 proxy | PC 사용 기록, 정식 WorkSession, 실행을 기계가 증명한 영수증, HPP 로컬 업무 장부가 아님 | source `reports/procedure_capture/five_field_log.jsonl`; 호환 schema·outbox 이름 `bounded_work` | `five-field summary`는 설명용 허용. `Codex 업무 결과 요약`, `Codex 작업 결과 요약`, `Codex work-result summary`는 과거 표시 이름으로만 보존하고 새 owner 표면에서는 비권장 |
+| HPP Codex 작업 맥락 수집기 | 명시적으로 받은 시작·연결·checkpoint·종료 정보를 HPP 장부에 append하는 프로그램 | whole chat·화면·키보드·OS 수집기, ERP writer, 자동 완료 판정기가 아님 | `guild_hall/local_activity/codex_work_context.mjs`, `codex_work_context_cli.mjs`; binding `soulforge.hpp_codex_work_context_binding.v1` | `Codex work-context writer`는 module 설명에서만 허용. 데이터와 프로그램을 함께 뜻하는 `Codex 작업 맥락`, `Codex work context`는 비권장 |
+| HPP 로컬 업무 장부 | 프로젝트별 로컬 업무와 업무 사건을 보존하는 machine-local append-only 저장면 | `_workmeta` 정식 이력, ERP 공식 업무, accepted ProjectContext, 프로젝트 시간장부가 아님 | `<state_root>/projects/<project_code>/codex_work_context/`; 내부 path `codex_work_context` 유지 | `HPP local work ledger`는 첫 정의 병기 허용. `Codex 작업 맥락 사건`을 장부 전체 이름으로 쓰는 것은 폐기 |
+| 로컬 업무 | 같은 실제 업무를 이어가는 팀장·자식·계속·검증 task를 하나로 묶는 HPP-local 단위 | ERP task, H03 WorkSession, H05 acceptance, 공식 완료가 아님 | wire field `work_id`; `work_units/<work_id>/`. `begin_work.work_id=null`일 때만 `LW-<project>-<digest>`를 자동 생성하며 `<project>`는 `project_code`임. caller-supplied ID 전체에 `LW-*`를 강제하지 않음 | `local work`, `로컬 업무 ID`는 설명용 허용. `local_work_id`, `LOCAL-WORK-*`는 현행 wire field·생성형이 아니므로 폐기 |
+| 업무 사건 | 로컬 업무 안에 append되는 시작·task 연결·checkpoint·종료·supersede 한 건 | 로컬 업무 전체, ERP event, 파일 이력이 아님 | `event_id`, `occurred_at`, `work_units/<work_id>/events/**`; operation 이름은 그대로 유지 | `work event`는 첫 정의 병기 허용. `Codex 작업 맥락 사건`은 과거 혼합명으로만 보존하고 새 표면에서는 비권장 |
+| 파일 관찰 | 특정 node가 한 시점에 path·크기·mtime·hash 가능 여부 등을 보았다는 원천 사실 | 논리 파일의 revision 확정, rename/copy/delete 판정, 파일 이력이 아님 | `guild_hall/file_activity`; HPP `outbox/file_activity_delta/**`; `absence_candidate_only`는 삭제가 아님 | `file observation` 허용. reconciler 전 자료를 `파일 변경`, `파일 변경 이력`으로 부르는 것은 비권장 |
+| 파일 이력 | reconciler가 파일 관찰들을 대조해 first-observed·revision·rename·copy·touch·delete·restore로 확정한 파생 이력 | 단일 scanner observation, `tool_pc`의 absence candidate, 원문 파일이 아님 | `_workmeta/<project_code>/reports/file_activity/**`; 기존 schema·event·호환 한글 경로는 유지 | `file history` 허용. 원천 관찰과 섞이는 `파일 변경 이력`은 비권장 |
+| 실행·검증 증거 | 실행과 검증을 뒷받침하는 영수증·manifest·산출물/commit ref 등의 데이터 종류 | 모든 `runs/**`, 임의 log, 5필드 업무 결과 요약, 단일 영수증 객체의 이름이 아님 | H03/H05·`run_log` 등 기존 lane ID는 유지. 일반 Codex 작업용 common receipt는 아직 구현됐다고 주장하지 않음 | `execution/verification evidence` 허용. `Codex 실행·검증 증거`는 범위를 Codex에 한정해야 할 때만 허용 |
+| 실행·검증 영수증 | schema 검증과 immutable identity를 갖춘 exact 단일 실행 결과 객체 | 증거 데이터 종류 전체, run directory 전체, 검증되지 않은 log가 아님 | 구현된 exact schema 예 `soulforge.workflow_receipt.v1`; 기존 receipt path·H05 adapter ID 유지 | `exact run receipt`, `run receipt`는 기술 문맥에서 허용. common Codex receipt가 이미 있다는 표현은 금지 |
+| 프로젝트 시간장부 | mail·Slack·voice·WorkSession·파일 이력·실행 증거 같은 여러 source의 승인된 ref를 시간순으로 모은 프로젝트별 파생 표면 | HPP 로컬 업무 장부, ERP 공식 업무, accepted ProjectContext, cross-project 원장이 아님 | 내부 계약 `scope_timeline_binding.v1`; `_workmeta/<project_code>/project_context/projections/timeline/**` 등 기존 project timeline schema·path 유지 | `project timeline`은 내부 계약·첫 정의 병기에 허용. `프로젝트 업무 장부`처럼 HPP/ERP owner와 섞이는 이름은 비권장 |
+
+관계는 다음처럼 읽는다.
+
+```text
+5필드 업무 결과 요약 ──> 별도 proxy (`bounded_work`)
+
+HPP Codex 작업 맥락 수집기
+  └─> HPP 로컬 업무 장부
+        └─> 로컬 업무 (`work_id`)
+              └─> 업무 사건 0..N (`event_id`, `occurred_at`)
+                    └─> source / 파일 / 실행 ref
+
+파일 관찰 0..N ──> reconciler ──> 파일 이력
+실행·검증 증거 ──> exact 실행·검증 영수증 0..N
+여러 source의 승인된 파생 표면 ──> 프로젝트 시간장부
+```
+
 ## 게임 용어 ↔ 업무 용어 대조표
 
 Soulforge 화면과 문서에 나오는 게임식 이름을 일반 업무 용어로 읽기 위한

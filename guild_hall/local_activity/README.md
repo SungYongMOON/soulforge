@@ -3,28 +3,30 @@
 `guild_hall/local_activity` collects three HPP-local views for an exact private
 project allowlist:
 
-1. project workspace file observations through the existing
+1. project workspace `파일 관찰` through the existing
    `guild_hall/file_activity` scanner;
-2. Codex work-result summaries from the project five-field ledger;
-3. a relation-only Codex-origin view over the same result summaries.
+2. `5필드 업무 결과 요약` from the project five-field ledger;
+3. a relation-only Codex-origin view over the same summaries.
 
-It also provides a separate explicit `Codex work-context event` writer for the
-current HPP. A project may have many local work IDs: each distinct real job
-opens a new ID, while the leader, child, continuation, and verifier tasks that
-continue that same job share its ID. They add bounded checkpoints and close
-the ID with result and verification references. This replaces neither the
-future ERP WorkSession nor the H05 machine-verifiable run receipt.
+별도 `HPP Codex 작업 맥락 수집기`도 제공한다. 이 프로그램은 명시적으로
+전달받은 정보만 `HPP 로컬 업무 장부`에 append한다. 프로젝트마다 서로 다른 실제
+업무 수만큼 `로컬 업무`를 둘 수 있다. 같은 업무를 이어가는 팀장·자식·계속·검증
+task만 하나의 `work_id`를 공유하고, bounded `업무 사건`과 결과·검증 ref를
+추가한다. 이는 향후 ERP WorkSession이나 H05 machine-verifiable
+`실행·검증 영수증`을 대체하지 않는다.
 
-The work-result summary and Codex-origin view share one `native_occurrence_id`.
-They are not counted as two business events.
+`5필드 업무 결과 요약`과 Codex-origin view는 하나의 `native_occurrence_id`를
+공유하며, 서로 다른 업무 사건 두 건으로 세지 않는다.
 
-`Codex work-result summary` is the owner-facing data name. The v1 schema,
-binding key, IDs, and machine-local directory retain the internal
-`bounded_work` name for compatibility. This is a Codex-authored summary, not
-PC surveillance, a formal WorkSession, or an automatically generated Codex
-execution/verification receipt. The latter data class is named `Codex
-execution/verification evidence` and remains the separate H05 run-receipt
-lane.
+사람이 보는 데이터 이름은 `5필드 업무 결과 요약`이다. v1 schema, binding key,
+ID, machine-local directory는 호환성을 위해 내부 이름 `bounded_work`를 유지한다.
+이는 AI가 작성한 요약이며 PC 감시, formal WorkSession, 자동 생성된
+`실행·검증 영수증`이 아니다. 더 넓은 데이터 종류는 `실행·검증 증거`이고, 그
+안의 exact immutable 단일 객체가 `실행·검증 영수증`이다. 일반 Codex 업무용
+common receipt는 아직 구현되지 않았다.
+
+사람이 보는 정본 정의와 폐기 별칭은
+[`SHARED_GLOSSARY_V0.md`](../../docs/architecture/foundation/SHARED_GLOSSARY_V0.md#task-engine--ax-업무증거-용어).
 
 ## Boundary
 
@@ -35,14 +37,13 @@ lane.
 - Workspace file bytes may be streamed for SHA-256 by the existing file
   activity scanner. Bytes are not retained.
 - Output first lands in a machine-local HPP outbox. It does not directly mutate
-  `_workmeta`, an accepted project timeline, an official task, or ERP.
+  `_workmeta`, an accepted 프로젝트 시간장부, an official task, or ERP.
 - Team-PC history still requires the planned MCP/client-plugin WorkSession
   path. This collector proves only the current HPP-local lane.
-- Codex work-context events never copy a whole conversation. They keep only
-  explicit start, attachment, checkpoint, and completion summaries plus
-  bounded source/file/run pointers.
-- The work ID is local context evidence. Closing it does not complete an ERP
-  task, approve project context, or grant H03/H05 acceptance.
+- 업무 사건은 whole conversation을 복사하지 않는다. 명시적 시작·task 연결·
+  checkpoint·완료 요약과 bounded source/file/run pointer만 보존한다.
+- `work_id`는 로컬 업무 하나를 식별한다. 이를 닫아도 ERP task가 완료되거나
+  project context가 승인되거나 H03/H05 acceptance가 생기지 않는다.
 
 ## Private binding
 
@@ -63,10 +64,10 @@ For each project it binds:
 New projects are not silently collected. Project onboarding must add one exact
 binding row and re-pin the private binding digest.
 
-The separate Codex work-context binding uses
-`soulforge.hpp_codex_work_context_binding.v1`. It pins the HPP `state_root`,
-`node_id`, and an explicit `{project_code, enabled}` list. It does not contain
-conversation text, task summaries, or credentials.
+별도 HPP Codex 작업 맥락 수집기 binding은
+`soulforge.hpp_codex_work_context_binding.v1`을 쓴다. HPP `state_root`,
+`node_id`, 명시적 `{project_code, enabled}` 목록을 pin하며 conversation text,
+task summary, credential을 담지 않는다.
 
 ## Output
 
@@ -83,21 +84,21 @@ conversation text, task summaries, or credentials.
       `- bounded_work/<snapshot_digest>.json
 ```
 
-The explicit work-context writer uses a separate append-only surface:
+HPP Codex 작업 맥락 수집기는 다음 별도 append-only HPP 로컬 업무 장부를 쓴다.
 
 ```text
 <state_root>/projects/<project_code>/codex_work_context/
 |- leader_events/<event_id_digest>.json
-`- work_units/<local_work_id>/
+`- work_units/<work_id>/
    |- events/<time>-<event_digest>.json
    `- current.json
 ```
 
-`events/**` is the evidence owner. `current.json` is a rebuildable convenience
-snapshot. A project may contain many independent work IDs. One local work ID
-may include the project leader task and any number of attached worker,
-continuation, or verifier tasks for that same job. A leader that performs the
-work directly is recorded as `leader_executor`.
+`events/**`가 증거 owner이고 `current.json`은 재생성 가능한 convenience
+snapshot이다. 한 프로젝트에는 독립된 로컬 업무가 여러 개 있을 수 있다. 하나의
+`work_id`에는 같은 업무를 이어가는 프로젝트 팀장 task와 worker·continuation·
+verifier task 여러 개를 연결할 수 있다. 팀장이 직접 수행한 업무는
+`leader_executor`로 기록한다.
 
 The first successful inventory writes one metadata-only baseline delta. Later
 scans still enumerate the exact project root but persist only new or changed
@@ -116,11 +117,10 @@ cached by unchanged size/mtime/ctime and may use an owner-bound TTL up to 30
 days; pending or large hashes do not prevent path/size/time observations from
 being retained.
 
-The legacy internal `bounded_work` packet keeps a Codex work-result summary,
-verification claim, refs, and a full-record SHA-256. The same source ID with
-different full content is held. The packet is still a candidate projection,
-not a formal H03 WorkSession, H05 execution/verification evidence, or P1
-acceptance.
+legacy 내부 `bounded_work` packet은 5필드 업무 결과 요약, verification claim,
+ref, full-record SHA-256을 보존한다. 같은 source ID가 다른 전체 내용을 가지면
+HOLD한다. 이 packet은 candidate projection이며 formal H03 WorkSession, exact
+실행·검증 영수증, P1 acceptance가 아니다.
 
 The CLI lock carries a process identity and owner token. A live owner always
 blocks another run. A dead legacy or current owner lock is atomically
@@ -142,8 +142,9 @@ same binding digest, uses `IgnoreNew`, and launches PowerShell with a hidden
 window. The Task Scheduler definition itself is not claimed to have
 `Hidden=true`.
 
-Codex work-context commands use a separate pinned private binding and one
-JSON payload. The CLI supplies the event ID and KST-normalized occurrence time.
+HPP Codex 작업 맥락 수집기 command는 별도 pinned private binding과 JSON
+payload 하나를 쓴다. CLI가 업무 사건의 `event_id`와 KST-normalized
+`occurred_at`을 공급한다.
 Pin the event ID when a write may need to be retried; the first accepted event
 time remains authoritative on replay. `--occurred-at` remains available when
 the caller must preserve a known source time:
@@ -171,13 +172,16 @@ Windows argument parsing can remove JSON quote characters; direct process
 callers may use `--payload-json`.
 The payload cannot override CLI-owned `operation`, `project_code`,
 `occurred_at`, or `event_id`. When `begin_work.work_id` is `null`, the generated
-ID is deterministic for the pinned event ID so a retry cannot create another
-work unit. A replay also reconstructs `current.json` from immutable events, so
-an interrupted snapshot replacement does not leave the work unit permanently
-stale. The CLI does not automatically collect the whole conversation. All text
-fields are structurally bounded, but callers remain responsible for submitting
-short operational summaries and references rather than chat transcripts or
-source contents.
+ID는 pinned event ID에 대해 deterministic `LW-<project>-<digest>` 형식이어서
+retry가 다른 로컬 업무를 만들지 않는다. Caller-supplied `work_id` 값은 schema
+validation을 거치지만 모두 자동 생성형 `LW-*`를 쓸 의무는 없다. 여기서
+`<project>`는 `project_code`다. Replay는
+immutable 업무 사건에서 `current.json`도 다시 만들므로, snapshot replacement가
+중단돼도 로컬 업무가 영구 stale 상태로 남지 않는다.
+The CLI does not automatically collect the whole conversation. All text fields
+are structurally bounded, but callers remain responsible for submitting short
+operational summaries and references rather than chat transcripts or source
+contents.
 
 Windows project-leader tasks should pass a PowerShell object through the
 tracked wrapper so JSON quoting and UTF-8 text survive native argument parsing:
