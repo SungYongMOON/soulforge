@@ -925,6 +925,8 @@
   plain URL is not mistaken for a working specification link. (worker:
   codex_gpt-5.6)
 
+## 2026-07-21
+
 ### Feature-OFF explicit-scope knowledge query
 
 - Added a stdout-only metadata query over one validated project-history
