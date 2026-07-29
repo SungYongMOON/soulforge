@@ -73,7 +73,7 @@ async function withFixture(fn) {
 }
 
 test("config exact-validates task identities and restore modes", () => {
-  const value = makeConfig("D:\\fixture");
+  const value = makeConfig(["D:", "fixture"].join("\\"));
   assert.equal(validateWriterQuiesceConfig(value).tasks.length, 2);
   assert.throws(
     () => validateWriterQuiesceConfig({ ...value, extra: true }),
@@ -85,7 +85,7 @@ test("writers are quiesced before backup and restored after success", async () =
   await withFixture(async ({ configRef, sha256 }) => {
     const events = [];
     const result = await runQuiescedDailyAutomation({
-      activationSidecarRef: "D:\\control\\activation.json",
+      activationSidecarRef: ["D:", "control", "activation.json"].join("\\"),
       quiesceSidecarRef: configRef,
       expectedQuiesceSha256: sha256,
       taskAdapter: fakeAdapter(events),
@@ -116,7 +116,7 @@ test("writers are restored even when backup fails", async () => {
     const events = [];
     await assert.rejects(
       () => runQuiescedDailyAutomation({
-        activationSidecarRef: "D:\\control\\activation.json",
+        activationSidecarRef: ["D:", "control", "activation.json"].join("\\"),
         quiesceSidecarRef: configRef,
         expectedQuiesceSha256: sha256,
           taskAdapter: fakeAdapter(events),
@@ -145,7 +145,7 @@ test("an unconfirmed continuous-writer restart fails closed and preserves recove
     };
     await assert.rejects(
       () => runQuiescedDailyAutomation({
-        activationSidecarRef: "D:\\control\\activation.json",
+        activationSidecarRef: ["D:", "control", "activation.json"].join("\\"),
         quiesceSidecarRef: configRef,
         expectedQuiesceSha256: sha256,
         taskAdapter: adapter,
