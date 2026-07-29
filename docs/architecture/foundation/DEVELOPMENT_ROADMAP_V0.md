@@ -92,6 +92,15 @@ read-only snapshot
   작업 상태의 두 축, completion feedback을 잇는 `canon_candidate`다. 현재 PC는 public
   docs/synthetic까지만, 고성능 PC는 read-only inventory→dry-run→한 project pilot까지만
   진행하고 live writer/scanner/scheduler는 별도 activation gate로 유지한다.
+- owner authority decision(2026-07-29): TARGET의 책임공학 AX engine은 사람과 exact
+  policy authority 아래에서 engineering task 후보 생성, project routing, 정확히 하나의
+  주관 책임 role과 협업·검토 role 지정, 재분류·에스컬레이션, 실행 agent/capability
+  선택을 소유한다. 순서는 accepted P5 context → P6 TaskIntent 후보 → P7
+  `why/why-now`·authority·idempotency TaskDriver → P8 원자적 ERP 기록이며, ERP는
+  정본 기록면이지 engineering judge가 아니고 MCP는 transport/query interface일 뿐이다.
+  accepted assignment 전에는 WorkSession/AgentRun을 열지 않으며 closeout·agent success는
+  공식 완료가 아니다. 이 결정은 schema·entity·runtime을 추가하거나 feature-OFF 및
+  non-operational claim을 올리지 않는다.
 - 판단(2026-06-14 갱신): snapshot→작전판 게임루프는 장기 북극성으로 유지하되, 지금 손이 가는 active slice 는 dev-erp 다. 과거 active slice `snapshot_to_operation_board_v0` 는 '다음 후보'로 내린다(스펙은 아래 'Active Slice 001' 절에 보존, 재개 시 참조).
 
 ### Owner-approved adjacent lane — autonomous voice context resolver

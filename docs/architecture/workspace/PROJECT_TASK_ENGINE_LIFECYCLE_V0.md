@@ -1,9 +1,11 @@
 # Project Task Engine Lifecycle v0
 
 - 상태: `canon_candidate`; public-safe owner contract, runtime migration 미적용
-- owner: dev-ERP task engine (현재 `core_item.id`/current state + application-level
+- owner: AX 책임공학 엔진의 업무 생성·분장 논리 authority + dev-ERP task coordinator의
+  승인 결과 원자 저장 owner (현재 `core_item.id`/current state + application-level
   append event surface; exact Driver event extension은 target)
-- authority: task identity/state transition and the exact causal record that authorized it
+- authority: AX가 만든 task identity/state transition 후보와 그 적용을 허가한 exact
+  사람 결정 또는 policy record; ERP는 engineering judge가 아니다
 - consumers: intake adapters, project context, ENGINE-12 life tree, notification/read models
 
 ## 1. 목적과 authority
@@ -11,6 +13,19 @@
 TaskDriver를 "왜 이 할일 또는 상태 전이가 존재하는가, 왜 지금인가"를 설명하는
 인과 record로 고정한다. source-local ledger는 입력 사실을, dev-ERP task plane은 할일
 정체성과 상태를, TaskDriver는 둘 사이의 근거와 승인 경로를 소유한다.
+
+아래 책임 분리는 TARGET 논리 경계이며 현행 runtime 구현이나 활성화를 주장하지 않는다.
+
+- AX 책임공학 엔진은 업무 후보와 프로젝트 귀속, 주관 책임 role 정확히 하나, 협업·검토,
+  수행 agent와 capability 분장 후보를 만든다. 사람 결정 또는 exact bounded policy가
+  이를 승인하기 전에는 적용하지 않는다.
+- `TaskIntent`와 `TaskDriver`는 적용할 intent, why/why-now, authority와 idempotency를
+  exact ref와 digest로 운반한다.
+- dev-ERP task coordinator는 승인된 결정을 원자적으로 저장하고 current projection을
+  유지할 뿐, 기술 판단·프로젝트 귀속·책임자·agent 분장을 스스로 결정하지 않는다.
+- MCP는 명령·receipt 전달과 조회 인터페이스일 뿐 후보 생성·승인·분장 authority가 아니다.
+- WorkSession과 AgentRun은 accepted assignment 뒤에만 시작하며, WorkSession closeout이나
+  AgentRun success를 공식 완료로 간주하지 않는다.
 
 목표 task truth는 기존 원칙을 유지하되 CURRENT와 TARGET을 섞지 않는다.
 
@@ -110,6 +125,10 @@ owner가 mapping과 UI semantics를 승인하기 전에는 `archived`로 조용�
 ## 4. writer와 승인
 
 - LLM은 TaskDriver와 task/transition **후보만** 만든다.
+- AX 책임공학 엔진은 승인된 입력과 책임 규칙에서 routing candidate를 만들고, 사람 결정 또는
+  exact bounded policy가 승인한 결과만 dev-ERP task coordinator에 적용 요청한다.
+- dev-ERP task coordinator는 승인된 intent/Driver/assignment digest를 검증해 원자 저장하며,
+  ERP나 MCP가 engineering judgment 또는 분장 결정을 보충하지 않는다.
 - deterministic policy가 자동 적용하려면 exact `policy_ref`, 허용 driver/source 범위,
   writer identity, 유효 기간, revocation 조건이 모두 닫혀야 한다.
 - current `--auto-open`이나 다른 writer가 이 target authority를 이미 충족한다고 간주하지
@@ -117,6 +136,8 @@ owner가 mapping과 UI semantics를 승인하기 전에는 `archived`로 조용�
 - 사람 승인, 결정적 정책 적용, reject, supersede는 모두 append-only 사건을 남긴다.
 - 완료는 지식 후보와 `completion_followup` TaskDriver 후보를 만들 수 있지만 후속 할일을
   조용히 auto-open하지 않는다.
+- accepted assignment가 없는 WorkSession/AgentRun은 시작하지 않으며, closeout/success receipt
+  하나만으로 공식 완료 event를 기록하지 않는다.
 - due/assignee/source truth/final close 변경은 각 owner 계약의 승인 경계를 유지한다.
 
 ## 5. 멱등, replay, projection

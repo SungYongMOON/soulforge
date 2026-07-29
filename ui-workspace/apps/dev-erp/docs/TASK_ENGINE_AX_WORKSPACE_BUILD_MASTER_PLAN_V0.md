@@ -12,6 +12,7 @@
 | correction goal | `TASK-ENGINE-PLAN-CORRECTION-V1`을 보존하고 `TASK-ENGINE-INGRESS-TEAM-KNOWLEDGE-PLAN-CORRECTION-V1`에서 ingress·personal WorkSession·team query/knowledge를 최소 diff로 후속 보정 |
 | HPP MCP/storage/access correction | owner-confirmed logical topology freeze와 HPP private custody, brokered MCP control/authenticated HTTPS binary plane, artifact/revision/action ACL을 기존 P0→P10에 non-unlocking addendum으로 통합 |
 | 2026-07-18 owner role correction | HPP를 central ingress/custody·voice processing·Task Engine/AX 정상 operational-primary TARGET으로, 맥미니를 temporary failover/fallback으로 지정; live binding·writer cutover는 여전히 `VERIFY_HP/G01` |
+| 2026-07-29 AX responsibility-engineering authority decision | `TARGET_ONLY / CURRENT_UNCHANGED`; 책임공학 AX engine의 engineering task 후보 생성·role routing·agent/capability 선택 경계와 P6→P7→P8 책임을 고정했다. schema·entity·runtime·DB·MCP activation `0`, 아래 feature-OFF/non-operational CURRENT와 phase gate는 그대로다. |
 | [2026-07-19 five-lane bounded pilot execution](TASK_ENGINE_HPP_FIVE_LANE_INGRESS_PILOT_V1_RESULT.md) | actual mail·voice·PC work·file·run/log 1건씩을 HPP 격리 custody에 수집하고 `P26-016` actual Shadow 5 event/5 coverage, copied ERP, tracked CSV/XLSX projector·query-only verifier, temporary localhost MCP query/download, explicit project/common metadata-only RAG preview까지 feature-OFF로 실행·검증; P0·H00·H01~H06·P1 owner acceptance, accepted/current pointer, production writer/migration/live activation은 계속 `HOLD` |
 | 2026-07-23 communication-history correction | `HISTORICAL_SUPERSEDED`; 팀원·owner의 받은메일과 보낸메일을 한 logical mail occurrence+계정별 mailbox observation으로 결합하고 Slack binding을 추가한 당시 plan-only 상태다. 이후 Slack exact binding과 read-only collector가 활성화됐으며 팀원 보낸편지함 전체 coverage와 project timeline 자동 투영은 여전히 별도 gap이다. |
 | 2026-07-23 cross-input label correction | mail·voice·Slack·structured PC work·file·run/log가 제각각 project/time/person/action label을 만들지 않도록 공통 사실 envelope와 별도 semantic annotation event를 고정하는 plan-only addendum. 기존 source-native field와 ID는 보존하고, 중앙 context labeler만 shared vocabulary를 사용한다. schema·DB·collector·labeler·TaskDriver live 변경 `0` |
@@ -174,9 +175,9 @@ flowchart LR
   P3 --> H7["H07 Slack message/revision Shadow"]
   P4 --> P5["P5 validated context + context_acceptance_gate"]
   H7 --> P5
-  P5 --> P6["P6 candidate-only task discovery"]
-  P6 --> P7["P7 TaskDriver 판단·authority·idempotency"]
-  P7 --> P8["P8 sole ERP writer + mail outbox"]
+  P5 --> P6["P6 AX 책임공학 TaskIntent 후보·role routing"]
+  P6 --> P7["P7 TaskDriver why·authority·idempotency"]
+  P7 --> P8["P8 ERP atomic persistence only + mail outbox"]
   P8 --> P9["P9 one-project pilot·feedback·read-only life trees"]
   P9 --> P10["P10 separately approved activation·failover·AX/AgentRun/ML"]
 ```
@@ -1079,8 +1080,13 @@ flowchart TB
 
 - 원천 내용은 원천 owner가 가진다. Soulforge는 승인된 revision/pointer만 연결한다.
 - P1~P5가 accepted되기 전에는 task candidate/Driver/ERP schema work를 시작하지 않는다.
-- TaskDriver ledger는 왜/누가/언제 적용을 허용했는지를 가진다. 공식 업무 상태는 갖지 않는다.
-- `TaskEngineTransactionCoordinator` 하나만 TaskEngine의 Driver/task/current/receipt 테이블에 쓴다.
+- P6 책임공학 AX engine은 accepted P5 context에서 engineering TaskIntent 후보를 만들고 project,
+  정확히 하나의 주관 책임 role, 협업·검토 role, 재분류·에스컬레이션, 실행 agent/capability 후보를
+  정한다. 이는 사람과 exact policy authority 아래의 후보 권한이며 accepted assignment 자체가 아니다.
+- P7 TaskDriver ledger는 `why/why-now`, 누가/언제 적용을 허용했는지와 idempotency를 가진다.
+  공식 업무 상태는 갖지 않는다.
+- P8 `TaskEngineTransactionCoordinator` 하나만 승인된 TaskEngine 기록을 쓴다. engineering
+  판단이나 assignment 선택·결정은 하지 않지만 이미 승인된 assignment는 기록할 수 있다.
   candidate/decision/apply 명령은 서로 다른 logical authority attestation을 요구하지만 이 task-table
   writer/process는 늘 하나다.
 - Coordinator는 apply 때 task ID 예약, Driver apply event, task event, current row, receipt를 한
@@ -1097,9 +1103,12 @@ flowchart TB
 - feedback은 source별 handoff 후보와 knowledge 후보로 분리하며, 자동으로 source truth가 되지 않는다.
 - `ingress_promoter` 후보는 source custody/storage binding/promotion receipt만 소유한다. source writer,
   mail classification coordinator, history projector, TaskEngine coordinator 권한을 빌리지 않는다.
-- `personal_work_session_coordinator` 후보는 assignment binding/session event/ingest receipt/completion
-  proposal link만 쓴다. closeout·proposal로 task current/event, project history, Wiki/RAG를 직접 쓰지 않는다.
-- ERP UI/MCP query adapter는 accepted generation을 읽는 primary user surface일 뿐 owner가 아니다.
+- `personal_work_session_coordinator` 후보는 accepted assignment 뒤에만 WorkSession/AgentRun을 열고
+  assignment binding/session event/ingest receipt/completion proposal link만 쓴다. closeout·agent
+  success·proposal은 공식 완료가 아니며 task current/event, project history, Wiki/RAG를 직접 쓰지 않는다.
+- dev-ERP가 보유한 승인된 task/assignment/current state/result·evidence ref/receipt record가
+  정본 기록면이다. ERP UI와 MCP query는 read/transport interface일 뿐 engineering
+  판단·assignment 선택·완료 authority가 아니다.
   모든 knowledge query는 explicit `project|common` scope를 요구하고 서로 fallback하지 않는다.
 - HPP `transfer_service`는 quarantine/inbox binary의 유일 writer이고 HPP `promoter`는 project storage
   binding의 유일 writer다. Client·OneDrive sync·history projector는 이 두 권한을 갖지 않는다.
@@ -2287,9 +2296,9 @@ allowlist에서 제외한다.
 | P3 | immutable revision/relation lineage receipt | `C06A` source/file/artifact/relation only | RAG/Wiki indexing, context acceptance, discovery |
 | P4 | exact revision-bound RAG/Wiki receipt | `C05` resolver + `C06B` Wiki/source lineage only | task discovery, Driver, ERP writer |
 | P5 | deterministic `context_acceptance_gate` receipt | `P5A-0` six-lane scope binding/project timeline isolation → `P5A` exact context contract → `P5B` feature-OFF writer → `P5C` one-project Slack+mail+voice thin Shadow → `P5D` ERP read-model/MCP read-only parity; `C07A`는 이 accepted generation의 context assembly/coverage validation만 수행 | P6 discovery, bulk backfill, official task/project write, plugin direct `_workmeta` write until P5D receipt accepted |
-| P6 | candidate-only discovery acceptance | `C04A` source adapters→TaskIntent candidate, ERP write `0` | P7 TaskDriver until P6 receipt accepted |
-| P7 | TaskDriver authority/idempotency acceptance | `C01B` pure TaskDriver contract | P8 schema/outbox/ERP writer until P7 receipt accepted |
-| P8 | sole-writer/atomicity/mail-outbox/binding-foundation acceptance | parallel `C02` + `C08F`, then `C03→C04B`: feature-OFF binding loader, mail assignment/outbox, five-lane projector and ERP persistence | local pilot binding, live role/lease/failover, life-tree pilot |
+| P6 | responsibility-engineering candidate acceptance | `C04A` accepted context→TaskIntent candidate: project, exactly one primary role, collaboration/review, reclassification/escalation, execution agent/capability 후보; ERP write `0` | P7 TaskDriver until P6 receipt accepted; accepted assignment 아님 |
+| P7 | TaskDriver `why/why-now`·authority·idempotency acceptance | `C01B` pure TaskDriver contract | P8 schema/outbox/ERP writer until P7 receipt accepted |
+| P8 | sole-writer/atomicity/mail-outbox/binding-foundation acceptance | parallel `C02` + `C08F`, then `C03→C04B`: TaskEngine coordinator는 engineering 판단이나 assignment 선택·결정 없이 이미 승인된 assignment와 ERP record만 persist한다. feature-OFF binding loader, mail assignment/outbox, five-lane projector는 기존의 서로 다른 owner 경계를 유지한다. | local pilot binding, live role/lease/failover, life-tree pilot |
 | P9 | one-project, per-source bounded canary + rollback + read-only tree receipt | `C09A/C09/C09L/C09R/C09D/C10` + `C07B`; source별 canary는 독립 승인·판정 | multi-project/continuous role, 다른 source 자동 unlock, failover/AX/AgentRun/ML |
 | P10 | source/capability별 별도 owner activation approval | 각 source마다 HPP sole writer, old-writer fence, rollback·manual failover/failback receipt를 갖춘 `C08B`/`G00/G01`; `C09S`, `AX01/AR01/IQ01/ML01`도 별도 | 묶음 activation, unfenced old writer, missing rollback/failback receipt, automatic failback |
 

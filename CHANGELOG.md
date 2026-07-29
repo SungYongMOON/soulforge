@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-07-29
+
+### AX 책임공학 authority 정본 보정
+
+- TARGET에서 책임공학 AX engine이 사람과 exact policy authority 아래 engineering task
+  후보 생성, project routing, 단일 주관 책임 role과 협업·검토 role 지정,
+  재분류·에스컬레이션, 실행 agent/capability 선택을 소유하도록 경계를 고정했다.
+- P5 accepted context → P6 TaskIntent 후보 → P7 causal authority·idempotency → P8
+  원자적 ERP 기록 순서를 유지하고, ERP는 정본 기록면이지 engineering judge가 아니며
+  MCP는 transport/query interface일 뿐임을 명시했다. accepted assignment 전에는
+  WorkSession/AgentRun을 열지 않고 closeout·agent success를 공식 완료로 보지 않는다.
+- 문서 정본만 보정했으며 schema·entity·runtime·DB·MCP activation과 feature-OFF 및
+  non-operational 상태 변경은 없다. (worker: `codex_gpt-5.6-sol`)
+
 ## 2026-07-28
 
 ### Task Engine / AX 업무·증거 용어 정본화
