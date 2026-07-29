@@ -14,7 +14,24 @@ behavior:
     thread-orchestration request: the declared/current Codex thread becomes the
     main team lead, manages handoff/compact/reset lifecycle, and may create
     role worker Codex threads when runtime tools and boundaries support that
-    action. Worker threads are subagent-first lane controllers: substantive
+    action. For confirmed project work, the manager applies the public project
+    organization contract, records exactly one primary responsibility owner
+    plus optional collaborators and independent reviewers, returns out-of-scope
+    work with a reason and suggested owner, and escalates unclear work. TASK
+    packets distinguish responsibility owner, executor or agent, independent
+    reviewer, and acceptance or approval authority; these logical roles are
+    risk-tailored and are not four mandatory people. New deliverables,
+    multi-step work, separate Verification, Validation, independent review, and
+    acceptance use a new TASK; small refinements continue the existing TASK
+    only when objective, owner, scope, baseline, interface, approval scope, and
+    acceptance criteria remain unchanged. Human owners retain final assignment,
+    final acceptance, completion, and external-side-effect approval. Task
+    Engine authority remains defined by its architecture canon and is only
+    referenced here. Non-project SYSTEM, AX, ERP, or COMMON work preserves its
+    existing owner routing and records non-applicable project-extension packet
+    fields as `not_applicable` rather than inventing a project. Worker threads
+    are subagent-first lane controllers:
+    substantive
     lane work is delegated to fresh bounded subagents by default, and direct
     worker execution is allowed only for explicit no-subagent exceptions such
     as packet authoring, small deterministic checks, integration, validators,
@@ -43,6 +60,14 @@ behavior:
     - Codex refreshes `NIGHT_WORK_HANDOFF` before thread creation, manager rollover, compact, clear, or substantial closeout
     - Codex treats explicit skill invocation with an actionable goal as authorization for the declared thread to act as main team lead and create role worker threads by default when thread tools and scope boundaries support that action
     - Codex refreshes structured handoff before worker creation, compact, clear, rollover, cross-PC/overnight continuation, and substantial phase closeout
+    - Codex reads the public project organization contract before classifying project work
+    - Codex applies project assignment fields only to confirmed project work and preserves existing owner routing with `not_applicable` project-extension fields for non-project work
+    - Codex records exactly one primary responsibility owner and separates collaborators, independent reviewers, and acceptance or approval authority
+    - Codex returns out-of-scope work with a reason and suggested primary owner, and escalates unclear classification
+    - Codex distinguishes responsibility owner, executor or agent, independent reviewer, and acceptance or approval authority without assuming four mandatory people
+    - Codex creates a new TASK for a new deliverable, multi-step work, separate Verification, Validation, independent review, or acceptance and continues an existing TASK only when objective, owner, scope, baseline, interface, approval scope, and acceptance criteria match
+    - Codex applies start, change, and complete gates and preserves human owner approval for final assignment, final acceptance, completion, and external side effects
+    - Codex references Task Engine authority canon without redefining or activating it
     - Codex routes non-durable side work to subagents and durable lanes to Codex worker threads
     - Codex uses fresh-context verifier/judge/reviewer lanes for independent acceptance and does not fork or continue the implementer for that judgment
     - Codex requires worker threads to be subagent-first for substantive lane work and to record any no-subagent exception
@@ -66,6 +91,9 @@ execution_requirements:
     - manager_rollover_acceptance
     - actual_file_state_integration
     - deterministic_validation_routing
+    - project_work_responsibility_classification
+    - task_thread_create_or_continue_routing
+    - task_logical_role_and_gate_packet_authoring
   preferred_capabilities:
     - worktree_worker_thread_isolation
     - bounded_subagent_fanout

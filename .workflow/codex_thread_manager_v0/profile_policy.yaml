@@ -82,6 +82,7 @@ selection_rules:
   - Require separate workflow-check and post-development review evidence before
     claiming stronger readiness.
 rerun_triggers:
+  - project responsibility classification TASK logical roles or gate policy changes
   - thread tool availability changes
   - manager rollover policy changes
   - worktree worker policy changes
@@ -109,6 +110,8 @@ non_claims:
   - no_production_ready_claim
   - no_default_route_claim
   - no_default_route_safety_claim
+  - no_live_project_responsibility_assignment_or_task_routing_execution_claim
+  - no_iso_or_other_standard_conformity_claim
 notes:
   - This policy optimizes the model-facing orchestration planning, packet
     shaping, and conservative closeout portion of the workflow on a public-safe

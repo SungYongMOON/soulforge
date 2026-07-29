@@ -93,6 +93,35 @@ tool behavior.
 
 ## Routing Rules
 
+### Project work assignment and TASK routing
+
+- Read
+  `docs/architecture/guild_hall/PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md`
+  before classifying project work.
+- Treat `docs/architecture/workspace/PROJECT_TASK_ENGINE_LIFECYCLE_V0.md` as the
+  Task Engine authority contract. Reference it; do not redefine it here.
+- The project CEO or operations manager classifies incoming work first.
+- Record exactly one primary responsibility owner. Other involved
+  responsibilities are collaborators or independent reviewers, not co-primary
+  owners.
+- A responsibility owner accepts only in-scope work. Return out-of-scope work
+  without performing it, and include the reason and suggested primary owner.
+- Escalate unclear or conflicting classification to the project CEO or
+  operations manager.
+- Record responsibility owner, executor or agent, independent reviewer, and
+  acceptance or approval authority as separate logical roles. They do not
+  require four people; separation is risk-tailored, and implementer self-check
+  is not independent review.
+- Start a new TASK for a new deliverable, multi-step work, separate
+  Verification, Validation, independent review, or acceptance. Continue an
+  existing TASK only for a small refinement with the same objective, primary
+  owner, scope, baseline, interface, approval scope, and acceptance criteria.
+- Apply start, change, and complete gates. A failed start gate returns to
+  clarification or reclassification instead of creating the TASK.
+- Scope acceptance never replaces the human owner's final assignment or
+  approval for sending, purchasing, payment, contracting, baseline change, or
+  public release, final acceptance, or completion approval.
+
 - Use a subagent for bounded non-durable work inside the current lane: focused
   investigation, noisy code search, small non-acceptance verification, or
   parallel analysis that can be integrated immediately.
@@ -128,8 +157,27 @@ tool behavior.
 Use the workflow's worker packet policy as the canonical contract. Every worker,
 worktree worker, verifier, judge, or worker-created subagent packet must include:
 
+Apply the project organization extension only when project scope is confirmed.
+For `[SYSTEM]`, AX, ERP, COMMON, or other non-project work, preserve the
+responsible owner's existing routing. Do not invent a project or project
+responsibility lane; record project-extension packet fields as
+`not_applicable` when they do not apply.
+
 - `title_or_packet_id`: thread title or stable packet id.
 - `objective`: one bounded task goal and lane role.
+- `project_work_assignment_decision`: scope acceptance, reclassification, or
+  unresolved escalation.
+- `primary_owner`: exactly one responsibility owner for routed work.
+- `executor_or_agent`: the bounded performer; it may remain unassigned while
+  human assignment approval is pending.
+- `collaborators`: optional supporting responsibilities that are not
+  co-primary.
+- `independent_reviewers`: optional independent review responsibilities.
+- `acceptance_or_approval_authority`: the defined acceptance role and any
+  required human owner boundary.
+- `task_thread_routing_decision`: create a new TASK, continue an existing TASK,
+  or do not create while escalation is unresolved.
+- `task_gate_state`: start, change, or complete gate evidence and result.
 - `context_refs`: exact checkpoint, files, sections, or command outputs to read.
 - `current_state`: decisions, unknowns, blockers, worker state, and relevant
   prior results.
@@ -167,40 +215,50 @@ available and must not rely only on worker narrative.
    `step_graph.yaml`, `handoff_rules.yaml`, and `profile_policy.yaml`.
 3. Bind the bounded goal, workspace scope, success criteria, stop conditions,
    claim ceiling, and public/private boundary before thread actions.
-4. Refresh `NIGHT_WORK_HANDOFF` before creating threads, compacting, clearing,
+4. Classify project work, record one primary owner plus collaboration,
+   independent review, and acceptance authority, and return or escalate
+   out-of-scope or unclear work.
+5. Decide whether the work starts a new TASK or continues an existing TASK, and
+   check the start gate.
+6. Refresh `NIGHT_WORK_HANDOFF` before creating threads, compacting, clearing,
    rolling over a manager, or ending a substantial phase.
-5. Choose the team topology: manager thread plus role worker threads by default
+7. Choose the team topology: manager thread plus role worker threads by default
    for substantial actionable invocations, worktree worker thread for isolated
    file mutation, fresh manager thread for rollover, same thread for trivial
    preflight or blocked cases, or subagent for non-durable side checks.
-6. Use thread tools when explicit skill invocation, explicit user wording, or
+8. Use thread tools when explicit skill invocation, explicit user wording, or
    durable worker/worktree needs authorize an actual thread lane and the
    runtime tools are available.
-7. For worker threads, provide the Delegation Packet Minimum: title, objective,
+9. For worker threads, provide the Delegation Packet Minimum: title, objective,
    context refs, current state, allowed read/write scope, side-effect limits,
    stop conditions, claim ceiling, report shape, subagent-first default, and
    no-subagent exception rules.
-8. For verifier, judge, review, workflow-check, or acceptance lanes, use a
+10. For verifier, judge, review, workflow-check, or acceptance lanes, use a
    fresh-context thread or fresh bounded subagent with a minimal evidence
    packet. Do not fork or continue the implementer for independent judgment.
-9. For worktree workers, require disjoint write scope or worktree isolation and
+11. For worktree workers, require disjoint write scope or worktree isolation and
    tell workers not to revert others' changes.
-10. Govern recursive fan-out by bounded rules. Workers and subagents may create
+12. Govern recursive fan-out by bounded rules. Workers and subagents may create
    bounded subagents within the packet scope, but creating further worker
    threads, automations, or canon entries requires manager permission. If a
    worker skips subagent creation for substantive work, it must report the
    applicable no-subagent exception.
-11. Integrate worker/subagent results only after checking actual file, status,
+13. Apply the change gate when objective, requirements, baseline, interface,
+    owner, or acceptance changes.
+14. Integrate worker/subagent results only after checking actual file, status,
     and thread state.
-12. Run deterministic validators and `$soulforge-workflow-check` before
+15. Apply the complete gate, then run deterministic validators and
+    `$soulforge-workflow-check` before
     readiness, registration, default-route, or production claims.
-13. Close with thread titles/ids when available, manager lifecycle action,
+16. Close with thread titles/ids when available, manager lifecycle action,
     validation status, remaining blockers, next action, and
     `지식 트리거 확인: ...`.
 
 ## Naming Rule
 
-Use concise Korean-facing thread titles:
+Use concise Korean-facing thread titles. For project organization and TASK
+threads, use the recognizable Korean project name in the visible title and keep
+the project code in private metadata:
 
 ```text
 [<BUCKET>] <짧은작업명>/<역할>
@@ -212,11 +270,11 @@ Examples:
 [SYSTEM] 스레드파일럿/팀장
 [SYSTEM] 스레드파일럿/조사
 [SYSTEM] 스레드파일럿/검토
-[P26-014] 자료정리/WT
+[프로젝트 한글명] 자료정리/WT
 ```
 
-Use `[SYSTEM]` for Soulforge system/reusable work, confirmed project codes for
-company projects, and `/WT` only for worktree file-mutating workers.
+Use `[SYSTEM]` for Soulforge system/reusable work, a recognizable Korean project
+name for company projects, and `/WT` only for worktree file-mutating workers.
 
 ## Boundary Rules
 

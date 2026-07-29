@@ -21,6 +21,10 @@ optional_inputs:
   - active_goal_ref
   - manager_thread_ref
   - active_worker_thread_refs
+  - project_work_organization_ref
+  - project_work_assignment_request
+  - existing_task_thread_refs
+  - task_engine_authority_ref
   - target_file_refs
   - validation_command_refs
   - owner_decision_refs
@@ -38,6 +42,10 @@ outputs:
   - boundary_review_note
   - workflow_check_review_packet
   - verifier_independence_note
+  - project_work_assignment_decision
+  - task_thread_routing_decision
+  - task_logical_role_plan
+  - task_gate_state
   - closeout_report
 validation_level: private_one_worker_pilot_observed
 registration_policy: owner_requested_registration
@@ -97,9 +105,16 @@ codex_thread_manager_contract:
     - thread_id_title_recording_policy
     - workflow_check_review_policy
     - conservative_thread_closeout
+    - project_work_initial_classification_coordination
+    - functional_owner_scope_acceptance_or_reclassification
+    - exactly_one_primary_owner_with_collaboration_and_review
+    - task_thread_create_or_continue_coordination
+    - task_logical_role_and_gate_packet_shape
   does_not_own:
     - source_truth
     - owner_approval
+    - task_engine_architecture_or_assignment_authority
+    - iso_or_other_standard_conformity_judgment
     - private_payload_storage
     - raw_transcript_storage
     - secret_inspection
@@ -146,6 +161,41 @@ codex_thread_manager_contract:
       - context_drift
       - twenty_four_hour_span
       - explicit_user_request
+  project_work_assignment_policy:
+    organization_contract_ref: docs/architecture/guild_hall/PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md
+    task_engine_authority_ref: docs/architecture/workspace/PROJECT_TASK_ENGINE_LIFECYCLE_V0.md
+    task_engine_authority_is_referenced_not_redefined: true
+    applies_only_to_confirmed_project_work: true
+    non_project_work_preserves_existing_owner_routing: true
+    non_project_project_extension_fields: not_applicable
+    project_ceo_or_manager_performs_initial_classification: true
+    functional_owner_accepts_only_in_scope_work: true
+    out_of_scope_work_must_not_be_executed_by_receiving_owner: true
+    reclassification_request_requires_reason_and_primary_owner_candidate: true
+    exactly_one_primary_owner_required: true
+    collaborators_and_reviewers_are_optional_and_not_co_primary: true
+    unclear_or_conflicting_classification_escalates_to_project_ceo_or_manager: true
+    new_task_required_for_new_deliverable_multistep_work_separate_verification_validation_independent_review_or_acceptance: true
+    existing_task_continuation_requires_same_objective_primary_owner_scope_baseline_interface_approval_scope_and_acceptance_criteria: true
+    scope_acceptance_is_not_final_human_assignment_approval: true
+    human_owner_retains_final_assignment_external_commitment_purchase_payment_baseline_public_release_final_acceptance_and_completion_approval: true
+    task_thread_creation_does_not_authorize_external_side_effects: true
+  task_operating_policy:
+    logical_roles:
+      - responsibility_owner
+      - executor_or_agent
+      - independent_reviewer
+      - acceptance_or_approval_authority
+    logical_roles_are_not_four_mandatory_people: true
+    independence_is_risk_tailored: true
+    implementer_self_check_is_not_independent_review: true
+    gates:
+      - start
+      - change
+      - complete
+    start_gate_before_execution_or_thread_creation: true
+    change_gate_reclassifies_scope_baseline_interface_owner_or_acceptance_change: true
+    complete_gate_requires_objective_evidence_and_acceptance: true
   manager_lifecycle:
     declared_thread_is_main_team_lead: true
     manager_owns_context_lifecycle: true
@@ -204,6 +254,14 @@ codex_thread_manager_contract:
       fields:
         - title_or_packet_id
         - objective
+        - project_work_assignment_decision
+        - primary_owner
+        - executor_or_agent
+        - collaborators
+        - independent_reviewers
+        - acceptance_or_approval_authority
+        - task_thread_routing_decision
+        - task_gate_state
         - context_refs
         - current_state
         - acceptance_criteria
@@ -215,6 +273,9 @@ codex_thread_manager_contract:
         - output_shape
         - claim_ceiling
         - stop_conditions
+      non_project_value_policy:
+        preserve_existing_owner_routing: true
+        project_extension_fields: not_applicable
       claim_ceiling_values:
         - observed
         - source_supported
@@ -264,6 +325,8 @@ non_claims:
   - no_full_rollover_execution_claim
   - no_worktree_worker_execution_claim
   - no_party_binding_claim
+  - no_live_project_responsibility_assignment_or_task_routing_execution_claim
+  - no_iso_or_other_standard_conformity_claim
 notes:
   - "Registration means the public-safe orchestration structure is available in `.workflow/index.yaml`."
   - "The local Codex skill may act as a runtime bridge, but local skill files are not public canon authority."

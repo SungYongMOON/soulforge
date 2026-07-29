@@ -14,6 +14,20 @@
 - 문서 정본만 보정했으며 schema·entity·runtime·DB·MCP activation과 feature-OFF 및
   non-operational 상태 변경은 없다. (worker: `codex_gpt-5.6-sol`)
 
+### 프로젝트 조직도·업무분장·TASK 운영 초안
+
+- 한글 프로젝트명으로 표시하는 총괄 CEO/업무운영·팀장과 15개 분야 책임자의
+  public-safe 조직도·역할·경계 초안을 추가했다.
+- 시스템공학·요구사항의 교차 기술관리, Verification과 Validation의
+  목적·기준·증거·판정 분리, 전장 구현과 전 분야 인터페이스 관리의 경계,
+  품질·형상·외부 제공자·생애주기 책임을 보강했다.
+- TASK에 책임 owner, 수행자/에이전트, 독립 검토자, 수락·승인자의 네 가지
+  논리 역할과 시작·변경·완료 gate를 추가하되, 네 명의 고정 인원이나 ISO
+  적합성을 주장하지 않는다.
+- `codex_thread_manager_v0`은 위 분장 규칙을 조정하는 bridge로만 확장했고,
+  Task Engine authority는 기존 정본을 참조할 뿐 다시 정의하지 않는다.
+  실제 조직/TASK 생성, 사람 배정, 외부 전송 또는 runtime 활성화는 없다.
+
 ## 2026-07-28
 
 ### Task Engine / AX 업무·증거 용어 정본화

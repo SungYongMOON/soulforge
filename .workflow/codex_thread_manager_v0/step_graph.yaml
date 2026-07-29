@@ -15,6 +15,10 @@ steps:
     optional_inputs:
       - active_goal_ref
       - owner_decision_refs
+      - project_work_organization_ref
+      - project_work_assignment_request
+      - existing_task_thread_refs
+      - task_engine_authority_ref
     outputs:
       - declared_thread_goal
       - success_criteria
@@ -22,6 +26,38 @@ steps:
       - boundary_constraints
       - manager_activation_decision
       - context_lifecycle_plan
+      - project_work_assignment_decision
+      - scope_acceptance_state
+      - primary_owner
+      - executor_or_agent
+      - collaborators
+      - independent_reviewers
+      - acceptance_or_approval_authority
+      - reclassification_request
+      - escalation_state
+      - task_thread_routing_decision
+      - task_logical_role_plan
+      - task_gate_state
+    rules:
+      organization_contract_is_read_before_project_assignment: true
+      task_engine_authority_is_referenced_not_redefined: true
+      project_assignment_extension_applies_only_to_confirmed_project_work: true
+      non_project_work_preserves_existing_owner_routing: true
+      non_project_project_extension_outputs_are_not_applicable: true
+      project_ceo_or_manager_performs_initial_classification: true
+      exactly_one_primary_owner_required: true
+      collaborators_and_reviewers_are_zero_or_more_and_never_co_primary: true
+      functional_owner_accepts_only_in_scope_work: true
+      out_of_scope_owner_does_not_execute_received_work: true
+      reclassification_request_includes_reason_and_primary_owner_candidate: true
+      unclear_or_conflicting_route_escalates_to_project_ceo_or_manager: true
+      new_deliverable_multistep_work_separate_verification_validation_independent_review_or_acceptance_requires_new_task: true
+      small_refinement_continues_existing_task_only_when_objective_primary_owner_scope_baseline_interface_approval_scope_and_acceptance_match: true
+      task_packet_separates_responsibility_owner_executor_independent_reviewer_and_acceptance_authority: true
+      logical_roles_do_not_require_four_distinct_people: true
+      task_start_gate_must_pass_before_execution_or_thread_creation: true
+      scope_acceptance_does_not_replace_human_owner_final_approval: true
+      classification_or_task_decision_never_authorizes_external_side_effects: true
     next:
       - checkpoint_refresh
   - step_id: checkpoint_refresh
@@ -32,6 +68,10 @@ steps:
     inputs:
       - declared_thread_goal
       - boundary_constraints
+      - project_work_assignment_decision
+      - task_thread_routing_decision
+      - task_logical_role_plan
+      - task_gate_state
     optional_inputs:
       - prior_night_work_handoff_ref
       - active_worker_thread_refs
@@ -40,7 +80,9 @@ steps:
     outputs:
       - night_work_handoff
       - compact_clear_or_rollover_checkpoint
+      - project_work_assignment_checkpoint
     rules:
+      project_extension_inputs_accept_not_applicable_for_non_project_work: true
       required_before_thread_creation: true
       required_before_manager_rollover: true
       required_before_compact_or_clear: true
@@ -57,6 +99,9 @@ steps:
     inputs:
       - night_work_handoff
       - boundary_constraints
+      - project_work_assignment_decision
+      - task_thread_routing_decision
+      - task_gate_state
     optional_inputs:
       - manager_thread_ref
       - active_worker_thread_refs
@@ -68,7 +113,12 @@ steps:
       - delegation_routing_decision
       - manager_lifecycle_action
       - worker_lane_plan
+      - task_thread_routing_decision
     rules:
+      project_extension_inputs_accept_not_applicable_for_non_project_work: true
+      assignment_decision_precedes_thread_routing: true
+      start_gate_precedes_worker_thread_creation: true
+      new_task_and_existing_task_continuation_must_not_both_be_selected: true
       subagent_for_non_durable_side_work: true
       worker_thread_for_durable_lane: true
       explicit_skill_invocation_defaults_to_manager_thread_plus_role_workers: true
@@ -100,6 +150,7 @@ steps:
       - manager_rollover_packet
       - worker_thread_packet_set
     rules:
+      project_extension_packet_fields_use_not_applicable_for_non_project_work: true
       fresh_manager_prompt_self_contained: true
       worker_prompt_names_title_and_scope: true
       worker_prompt_subagent_first_for_substantive_lane_work: true
@@ -111,6 +162,7 @@ steps:
       delegation_packet_minimum_required: true
       worker_prompt_names_context_refs_current_state_acceptance_criteria_allowed_scope_and_side_effect_limits: true
       worker_result_packet_shape_required: true
+      worker_packet_includes_primary_owner_executor_collaborators_independent_reviewers_acceptance_authority_and_task_gate: true
       verifier_packet_must_be_fresh_context_minimal_evidence: true
       verifier_or_judge_must_not_be_fork_or_continuation_of_implementer: true
       implementer_self_check_not_independent_verification: true
@@ -169,6 +221,9 @@ steps:
       validators_before_stronger_claims: true
       independent_review_not_satisfied_by_implementer_fork: true
       partial_pilot_lowers_claim_ceiling: true
+      change_gate_required_when_objective_requirement_baseline_interface_owner_or_acceptance_changes: true
+      verification_and_validation_purpose_criteria_evidence_and_judgment_remain_distinct: true
+      complete_gate_requires_objective_evidence_configuration_state_open_risk_and_acceptance: true
     next:
       - validation_and_review
   - step_id: validation_and_review
@@ -215,6 +270,7 @@ steps:
       registration_requires_explicit_owner_request: true
       party_creation_only_for_multi_workflow_chain: true
       default_route_safety_not_claimed_without_owner_intent: true
+      unresolved_assignment_or_failed_start_gate_returns_without_thread_creation: true
     next: []
 stop_conditions:
   - conflicting_active_goal
