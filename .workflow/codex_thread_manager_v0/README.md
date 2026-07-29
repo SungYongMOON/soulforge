@@ -92,6 +92,17 @@ owner routing. Shared packets record inapplicable project-extension fields as
   purchasing, payment, contracting, baseline approval, public release, or
   final acceptance, completion approval, or another external side effect.
 
+### Stable manager directory maintenance
+
+- Stable manager route create, rollover, retire maintenance applies only to
+  routes already registered in the private stable catalog under the
+  `CODEX_WORK_DIRECTORY_V1` contract. Runtime discovery may verify or maintain
+  those routes but must not invent a route from a task/thread listing.
+- Ephemeral role or worktree workers remain children of the current bounded
+  work and do not become permanent manager routes automatically.
+- Directory maintenance produces no message-send, execution, party, or
+  default-route authority. Ambiguous, stale, retired, unknown, or
+  `do_not_route` results fail closed.
 - Use subagents for non-durable side work that can be integrated immediately:
   focused investigation, noisy search, small non-acceptance verification, or
   parallel analysis.
@@ -130,6 +141,7 @@ owner routing. Shared packets record inapplicable project-extension fields as
 
 ## What It Does Not Own
 
+- Stable route source truth or local live binding source truth.
 - Source truth, owner approval, or canon promotion outside this package.
 - Raw transcripts, private payloads, NotebookLM answer bodies, or secrets.
 - Codex product capability guarantees across accounts or future releases.

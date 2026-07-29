@@ -25,6 +25,9 @@ optional_inputs:
   - project_work_assignment_request
   - existing_task_thread_refs
   - task_engine_authority_ref
+  - stable_route_catalog_ref
+  - local_live_bindings_ref
+  - route_capability_requirements
   - target_file_refs
   - validation_command_refs
   - owner_decision_refs
@@ -36,6 +39,8 @@ outputs:
   - delegation_routing_decision
   - continuation_surface_decision
   - manager_rollover_packet
+  - registered_manager_lifecycle_observation
+  - local_binding_maintenance_result
   - worker_thread_packet_set
   - worker_result_summary_set
   - integration_validation_log
@@ -81,6 +86,7 @@ request_modes:
   - explicit_skill_invocation_manager_worker
   - manager_worker_thread_orchestration
   - manager_rollover
+  - registered_manager_retirement
   - worktree_worker_isolation
   - read_only_worker_pilot
   - bounded_thread_fanout
@@ -94,6 +100,7 @@ codex_thread_manager_contract:
     - subagent_vs_thread_routing_policy
     - continuation_surface_selection
     - manager_lifecycle_and_rollover_policy
+    - registered_manager_local_binding_maintenance_policy
     - role_worker_thread_topology
     - worker_thread_packet_shape
     - worker_subagent_permission_policy
@@ -115,12 +122,18 @@ codex_thread_manager_contract:
     - owner_approval
     - task_engine_architecture_or_assignment_authority
     - iso_or_other_standard_conformity_judgment
+    - stable_route_catalog_authority
+    - project_or_domain_authority_from_local_binding
     - private_payload_storage
     - raw_transcript_storage
     - secret_inspection
     - codex_product_capability_guarantee
     - unbounded_or_unreported_recursive_fanout
     - default_route_switching
+    - message_send_or_dispatch
+    - provider_startup_install_login_or_configuration
+    - runtime_session_or_worktree_creation_for_directory_binding
+    - native_history_or_thread_api_bridge_guarantee
     - public_canon_promotion_beyond_this_package
     - production_ready_claim_without_b_v_evidence
   surface_selection:
@@ -206,6 +219,35 @@ codex_thread_manager_contract:
     rollover_before_overnight_cross_pc_or_24h_span: true
     clear_requires_checkpoint_and_accepted_handoff: true
     worker_threads_are_not_cleared_for_reuse: true
+    stable_route_identity_is_separate_from_runtime_binding: true
+    registered_manager_binding_events:
+      - create
+      - rollover
+      - retire
+    local_binding_refresh_requires_actual_thread_observation: true
+    local_binding_refresh_is_optional_and_local_only: true
+    binding_maintenance_conveys_no_domain_route_or_default_authority: true
+    project_managers_follow_the_same_sibling_leaf_pattern: true
+    ax_is_not_parent_of_project_manager_routes: true
+  directory_binding_policy:
+    stable_route_catalog_is_routing_authority: true
+    local_live_bindings_are_runtime_projection_only: true
+    eligible_route_kind: registered_manager
+    ephemeral_worker_or_performer_threads_are_never_stable_routes_or_org_owners: true
+    provider_neutral_capability_requirements_only_in_public_contract: true
+    actual_provider_account_thread_session_and_worktree_values_are_local_only: true
+    exact_unique_registered_manager_identity_required_for_binding_maintenance: true
+    create_or_rollover_refresh_requires_active_route: true
+    retire_only_invalidates_local_binding_and_never_sends: true
+    ambiguous_stale_unknown_retired_or_do_not_route_resolution_never_sends: true
+    binding_maintenance_has_no_send_or_dispatch_side_effect: true
+    binding_maintenance_does_not_start_or_configure_providers: true
+    bridge_states_without_execution_readiness:
+      - planned
+      - pilot
+      - blocked
+    non_ready_bridge_state_requires_execution_ready_false: true
+    execution_surface_runtime_agent_history_or_thread_api_inheritance_not_assumed: true
   context_lifecycle:
     night_work_handoff_is_team_continuity_object: true
     refresh_before_worker_creation_compact_clear_rollover_or_phase_closeout: true

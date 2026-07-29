@@ -46,6 +46,8 @@
 - `mission_close/`: project-local battle evidence 를 mission terminal pointer 로 닫는 bridge
 - `always_on_launchd/`: 24시간 PC 에 필요한 deterministic launchd job 배포 표면
 - `codex_bridge/`: 로그인된 Codex/ChatGPT 계정에 bounded 분석을 요청하는 bridge (secret 미접촉)
+- `codex_work_directory/`: private stable manager catalog와 local live binding을
+  public-safe schema로 검증하고 side effect 없이 exact route를 해석하는 directory
 - `private_state_sync/`: nested private repo `private-state/` 의 sync helper
 - `workmeta_sync/`: nested private repo `_workmeta/` 의 sync helper
 - `workspace_junction/`: `_workspaces` mount/junction 점검과 system inventory helper
@@ -79,6 +81,11 @@
 - `rag/` 의 기본 manifest/index/trace/evaluation/answer path 는 metadata-only 이며 source text, private payload, NotebookLM answer, chunk, source-text vector/BM25 store 를 읽지 않는다.
 - `rag/` 의 승인된 private source-text command 는 별도 lane 이며 owner-approved `_workspaces/knowledge/**` source text 만 읽을 수 있다. 이 lane 의 저장 출력도 기본은 metadata-only 이고, 명시 승인된 command/source card 가 허용한 경우에만 `_workspaces/knowledge/**` 아래 private proof payload 를 남긴다.
 - `guild_hall/state/**` 는 local-only state 이며 public repo 에 올리지 않는다.
+- `codex_work_directory/`는 실제 route 목록이나 runtime 값을 소유하지 않는다.
+  실제 stable catalog는 owner-approved `_workmeta` private surface, live binding은
+  `guild_hall/state/operations/codex_work_directory/`가 소유한다. directory
+  resolver는 ambiguous/stale/retired/unknown route에서 fail closed하며 message
+  send, route 생성, default route 변경 권한이 없다.
 - `assistant_dashboard/` 는 project-local 장부를 truth 로 읽는 요약 view 만 만들며, deadline/open-action/work 상태 자체를 확정하거나 수정하지 않는다.
 - `voice_capture/` 는 raw audio/transcript 를 `_workspaces` 에만 남기고 `_workmeta` 에는 reviewed metadata pointer 를 별도 단계에서만 남긴다.
   bounded strong-ASR revision은 승인된 30~90초 material window의
@@ -92,6 +99,7 @@
 - [`docs/architecture/guild_hall/SOULFORGE_SNAPSHOT_V0.md`](../docs/architecture/guild_hall/SOULFORGE_SNAPSHOT_V0.md)
 - [`docs/architecture/guild_hall/ASSISTANT_DASHBOARD_V0.md`](../docs/architecture/guild_hall/ASSISTANT_DASHBOARD_V0.md)
 - [`docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`](../docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md)
+- [`docs/architecture/guild_hall/CODEX_WORK_DIRECTORY_V1.md`](../docs/architecture/guild_hall/CODEX_WORK_DIRECTORY_V1.md)
 - [`docs/architecture/workspace/VOICE_CAPTURE_MVP_V0.md`](../docs/architecture/workspace/VOICE_CAPTURE_MVP_V0.md)
 - [`docs/architecture/bootstrap/README.md`](../docs/architecture/bootstrap/README.md)
 - [`_workspaces/README.md`](../_workspaces/README.md)

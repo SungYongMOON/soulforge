@@ -84,6 +84,7 @@ Soulforge는 canonical 구조와 public/private 경계를 고정한 설계 저�
 ## AI 작업 실행 계약
 
 - Soulforge에서 코드, 문서, 구조, 검토, 적용성 판단, 변경 계획, 파일 편집을 다루는 모든 작업은 먼저 `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md` 를 읽고 따른다.
+- 프로젝트별 manager route는 `docs/architecture/guild_hall/CODEX_WORK_DIRECTORY_V1.md`의 public contract와, 사용 가능한 경우 private stable catalog 및 local binding에서 먼저 exact resolve한다. `list_threads`는 검증·유지보수 fallback일 뿐이며 ambiguous, stale, unknown route에는 자동 전송하지 않는다.
 - Task Engine/AX의 사람이 보는 업무·증거 이름은 `docs/architecture/foundation/SHARED_GLOSSARY_V0.md`의 `Task Engine / AX 업무·증거 용어`를 따르며, 표시 이름 보정만으로 `bounded_work`, `codex_work_context`, `work_id`, `event_id`, `occurred_at`, operation 이름, `run_log`·H03/H05 ID, `soulforge.workflow_receipt.v1`, `scope_timeline_binding.v1`, project timeline schema/path, 기존 한글 호환 경로를 rename하지 않는다.
 - 작업 종료 검증을 반복 실행해야 하면 `.workflow/post_development_review_gate_v0/` 또는 설치된 Codex skill `soulforge-post-development-review-gate` 를 사용한다.
 - 모든 bounded 업무 작업은 완료 보고 전 `AGENT_EXECUTION_CONTRACT_V0.md` 의 end-of-task knowledge trigger check 를 수행해 지식 후보 신호가 있는지 닫는다.

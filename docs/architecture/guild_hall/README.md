@@ -21,6 +21,7 @@
 | `RAG_MANIFEST_MVP_V0.md` | Fixes the metadata-only RAG manifest, source-slice-card, decision-record, metadata-index, trace/evaluation, and answer-command boundary. |
 | `RAG_THREE_STAGE_OPERATING_MODEL_V0.md` | Defines the three plain RAG progress stages: searchable RAG, work-ready RAG, and canon knowledge. |
 | `CODEX_ACCOUNT_BRIDGE_V0.md` | Describes the account-based Codex CLI bridge for advisory analysis without storing an API key. |
+| `CODEX_WORK_DIRECTORY_V1.md` | Defines the public-safe stable manager directory, fixed organization topology, private catalog/local binding split, fail-closed resolution, and optional downstream human projections. |
 | `AUTOMATION_PARTY_OPERATING_MODEL_V0.md` | Defines the project-wide recurring automation worldview: workflow, party, cadence party, local scheduler, ledger, and report boundaries. |
 | `CODEX_APP_AUTOMATION_CATALOG_V0.md` | Tracks the human-readable Codex app automation catalog, source-of-truth split, reader tiers, and current default automation concepts. |
 | `EXTERNAL_REASONING_WORKSPACE_V0.md` | Captures the public-safe candidate operating model for using ChatGPT Pro / Thinking through Chrome as a session-aware external advisory workspace. |
@@ -98,6 +99,7 @@
 - [`RAG_MANIFEST_MVP_V0.md`](RAG_MANIFEST_MVP_V0.md)
 - [`RAG_THREE_STAGE_OPERATING_MODEL_V0.md`](RAG_THREE_STAGE_OPERATING_MODEL_V0.md)
 - [`CODEX_ACCOUNT_BRIDGE_V0.md`](CODEX_ACCOUNT_BRIDGE_V0.md)
+- [`CODEX_WORK_DIRECTORY_V1.md`](CODEX_WORK_DIRECTORY_V1.md)
 - [`AUTOMATION_PARTY_OPERATING_MODEL_V0.md`](AUTOMATION_PARTY_OPERATING_MODEL_V0.md)
 - [`CODEX_APP_AUTOMATION_CATALOG_V0.md`](CODEX_APP_AUTOMATION_CATALOG_V0.md)
 - [`EXTERNAL_REASONING_WORKSPACE_V0.md`](EXTERNAL_REASONING_WORKSPACE_V0.md)

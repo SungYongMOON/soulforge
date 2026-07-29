@@ -14,6 +14,24 @@
   false이고 운영 데이터·private payload를 생성하거나 수집하지 않는다.
   (worker: `codex_gpt-5.6-sol`)
 
+### Public-safe Codex work directory candidate
+
+- Added a provider-neutral stable manager directory contract with a
+  navigation-only root and exact sibling branches `COMMON`, `PROJECTS`,
+  `AX DEVELOPMENT`, `ERP DEVELOPMENT`, and `SYSTEM DEVELOPMENT`.
+- Separated project-manager sibling leaves from AX responsibility ownership,
+  and separated organization/routing authority from optional downstream
+  current-work Kanban projection.
+- Defined the public schema/private catalog/local live-binding split,
+  fail-closed exact resolution, non-actionable planned/pilot/blocked runtime
+  states, and local-only runtime value boundary.
+- Added concise directory-first agent routing and registered-manager
+  create/rollover/retire maintenance rules without adding UI, provider
+  integration, automation, send, or default-route authority.
+- Synthetic validators and independent review passed. Claim ceiling remains
+  `canon_candidate`; actual private route catalog and local live bindings are
+  not populated or activated.
+
 ## 2026-07-29
 
 ### AX 책임공학 authority 정본 보정

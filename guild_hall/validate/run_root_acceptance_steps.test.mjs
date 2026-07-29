@@ -27,6 +27,7 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"project-history-receipt-adapter-v2"', "npm run validate:project-history-receipt-adapter-v2"],
     ['"backup-controller"', "npm run validate:backup-controller"],
     ['"dev-erp-mcp"', "npm run validate:dev-erp-mcp"],
+    ['"codex-work-directory"', "npm run validate:codex-work-directory"],
   ];
   for (const [stepId, command] of requiredSteps) {
     const occurrences = source.split(stepId).length - 1;
@@ -40,4 +41,12 @@ test("루트 게이트: continuous ingress 검증이 mail bridge 전용 syntax·
   assert.equal(typeof command, "string");
   assert.equal(command.includes("node --check guild_hall/ingress/mail_bridge.mjs"), true);
   assert.equal(command.includes("guild_hall/ingress/mail_bridge.test.mjs"), true);
+});
+
+test("루트 게이트: Codex work directory 검증이 resolver·CLI syntax와 전용 test를 포함한다", () => {
+  const command = rootPackage.scripts["validate:codex-work-directory"];
+  assert.equal(typeof command, "string");
+  assert.equal(command.includes("node --check guild_hall/codex_work_directory/directory.mjs"), true);
+  assert.equal(command.includes("node --check guild_hall/codex_work_directory/cli.mjs"), true);
+  assert.equal(command.includes("node --test guild_hall/codex_work_directory/directory.test.mjs"), true);
 });

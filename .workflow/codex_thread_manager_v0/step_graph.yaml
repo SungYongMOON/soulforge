@@ -19,6 +19,9 @@ steps:
       - project_work_assignment_request
       - existing_task_thread_refs
       - task_engine_authority_ref
+      - stable_route_catalog_ref
+      - local_live_bindings_ref
+      - route_capability_requirements
     outputs:
       - declared_thread_goal
       - success_criteria
@@ -112,6 +115,7 @@ steps:
       - continuation_surface_decision
       - delegation_routing_decision
       - manager_lifecycle_action
+      - registered_manager_route_resolution
       - worker_lane_plan
       - task_thread_routing_decision
     rules:
@@ -131,6 +135,11 @@ steps:
       fork_rollover_and_continuation_are_same_role_continuity_not_independence: true
       fresh_verifier_or_judge_for_acceptance_and_readiness_claims: true
       subagent_not_durable_lane: true
+      stable_route_resolution_is_read_only: true
+      exact_unique_registered_manager_route_identity_required_for_binding_maintenance: true
+      create_or_rollover_binding_refresh_requires_active_route: true
+      retire_binding_maintenance_is_invalidation_only: true
+      ambiguous_stale_unknown_retired_or_do_not_route_resolution_never_sends: true
     next:
       - manager_rollover_or_worker_packet
   - step_id: manager_rollover_or_worker_packet
@@ -174,19 +183,24 @@ steps:
     next:
       - worker_execution_or_rollover_acceptance
   - step_id: worker_execution_or_rollover_acceptance
-    title: Worker Execution Or Rollover Acceptance
+    title: Worker Execution Or Manager Lifecycle Acceptance
     actor_slot: manager_rollover_controller
     action:
-      kind: thread_creation_observation_and_acceptance_gate
+      kind: manager_lifecycle_observation_and_worker_acceptance_gate
     inputs:
       - manager_rollover_packet
       - worker_thread_packet_set
     optional_inputs:
       - manager_thread_ref
       - active_worker_thread_refs
+      - stable_route_catalog_ref
+      - local_live_bindings_ref
+      - route_capability_requirements
     outputs:
       - thread_creation_log
       - manager_acceptance_report
+      - registered_manager_lifecycle_observation
+      - local_binding_maintenance_request
       - worker_result_summary_set
       - verifier_independence_note
     rules:
@@ -197,6 +211,12 @@ steps:
       worker_direct_substantive_execution_requires_recorded_no_subagent_exception: true
       acceptance_verifier_created_fresh_or_claim_lowered: true
       files_not_modified_in_read_only_pilot: true
+      registered_manager_create_rollover_or_retire_may_request_local_binding_refresh: true
+      binding_refresh_requires_actual_thread_observation: true
+      stable_route_identity_is_not_replaced_by_runtime_binding: true
+      ephemeral_worker_or_performer_thread_never_becomes_stable_route_or_org_owner: true
+      retire_only_invalidates_local_binding_and_never_sends: true
+      planned_pilot_or_blocked_bridge_requires_execution_ready_false: true
     next:
       - integration_and_validation
   - step_id: integration_and_validation
@@ -209,10 +229,15 @@ steps:
       - worker_result_summary_set
       - boundary_constraints
     optional_inputs:
+      - registered_manager_lifecycle_observation
+      - local_binding_maintenance_request
+      - stable_route_catalog_ref
+      - local_live_bindings_ref
       - target_file_refs
       - validation_command_refs
     outputs:
       - integration_validation_log
+      - local_binding_maintenance_result
       - boundary_review_note
       - claim_ceiling
     rules:
@@ -224,6 +249,11 @@ steps:
       change_gate_required_when_objective_requirement_baseline_interface_owner_or_acceptance_changes: true
       verification_and_validation_purpose_criteria_evidence_and_judgment_remain_distinct: true
       complete_gate_requires_objective_evidence_configuration_state_open_risk_and_acceptance: true
+      local_binding_maintenance_is_optional_local_only_and_registered_manager_only: true
+      local_binding_maintenance_conveys_no_domain_route_or_default_authority: true
+      local_binding_maintenance_has_no_send_dispatch_provider_startup_or_configuration_side_effect: true
+      runtime_values_never_materialized_in_tracked_workflow: true
+      non_exact_or_non_ready_resolution_produces_no_actionable_binding: true
     next:
       - validation_and_review
   - step_id: validation_and_review
@@ -283,4 +313,6 @@ stop_conditions:
   - worker_direct_substantive_execution_without_no_subagent_exception
   - unbounded_recursive_subagent_fanout_requested_or_observed
   - validator_failure_unfixable_in_scope
+  - ambiguous_stale_unknown_or_do_not_route_manager_resolution
+  - binding_maintenance_requires_send_dispatch_or_provider_configuration
   - exhausted_user_specified_budget

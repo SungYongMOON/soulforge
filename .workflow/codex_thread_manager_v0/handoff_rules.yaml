@@ -5,7 +5,7 @@ rules:
   - from: thread_manager
     to: checkpoint_curator
     condition: goal_and_boundary_declared
-    summary: Pass the bounded goal, project scope if confirmed, scope-acceptance state, exactly one primary owner or unresolved escalation, executor or agent, optional collaborators and independent reviewers, acceptance or approval authority, reclassification reason and candidate when returned, new-or-existing TASK decision, start-gate state, success criteria, stop conditions, and public/private constraints; scope acceptance does not finalize human assignment or authorize an external side effect, and raw transcript, private payload, or unneeded source text is forbidden.
+    summary: Pass the bounded goal, workspace and confirmed project scope, scope-acceptance state, exactly one primary owner or unresolved escalation, executor or agent, optional collaborators and independent reviewers, acceptance or approval authority, reclassification reason and candidate when returned, new-or-existing TASK decision, start-gate state, success criteria, stop conditions, intended team topology, context lifecycle plan, public/private constraints, and optional stable route catalog, local live binding, and provider-neutral capability refs; scope acceptance does not finalize human assignment or authorize an external side effect, and raw transcript, private payload, unneeded source text, or actual provider, account, thread, session, or worktree values are forbidden in tracked workflow data.
   - from: checkpoint_curator
     to: surface_router
     condition: night_work_handoff_refreshed
@@ -13,19 +13,19 @@ rules:
   - from: surface_router
     to: worker_packet_author
     condition: continuation_surface_selected
-    summary: Pass the exactly-one-primary assignment, executor or agent, optional collaborators, independent reviewer, acceptance authority, TASK creation or continuation decision, start-gate result, and whether the next action is subagent, manager plus role worker threads, same-thread, fresh manager, worktree worker, or fresh verifier/judge, with the routing reason, independence requirement, and claim ceiling.
+    summary: Pass the exactly-one-primary assignment, executor or agent, optional collaborators, independent reviewer, acceptance authority, TASK creation or continuation decision, start-gate result, and whether the next action is subagent, manager plus role worker threads, same-thread, fresh manager, registered-manager retirement, worktree worker, or fresh verifier/judge, with the routing reason, independence requirement, claim ceiling, and read-only stable route resolution. Ambiguous, stale, unknown, retired, or do-not-route resolution never sends.
   - from: worker_packet_author
     to: manager_rollover_controller
     condition: manager_or_worker_packet_prepared
     summary: Pass self-contained prompts containing title or packet id, project assignment, one primary owner, executor or agent, collaborators, independent reviewer, acceptance authority, TASK create-or-continue decision, gate state, objective, context refs, current state, acceptance criteria, allowed read/write scope, handoff context, stop conditions, execution-contract claim ceiling, compact report shape, subagent-first worker-subagent authority, any count limit or denial, no-subagent exceptions, side-effect limits, conflict protocol, and for verifier/judge lanes the minimal evidence packet plus non-fork independence guard.
   - from: manager_rollover_controller
     to: integration_controller
-    condition: acceptance_or_worker_result_available
-    summary: Pass observed thread ids/titles, responsibility owner, executor, independent reviewer, acceptance authority, worker status, change-gate events, subagent-use or no-subagent-exception notes, acceptance result, cross-worker packets, and residual gaps; do not pass hidden reasoning or raw worker logs.
+    condition: manager_lifecycle_observation_or_worker_result_available
+    summary: Pass observed manager lifecycle events and optional local binding maintenance requests only for an exact registered manager route, plus observed thread ids or titles, responsibility owner, executor, independent reviewer, acceptance authority, worker status, change-gate events, subagent-use or no-subagent-exception notes, acceptance result, cross-worker packets, and residual gaps. Ephemeral worker or performer threads remain work-context or handoff records and never become stable routes or org owners. Do not pass hidden reasoning or raw worker logs.
   - from: integration_controller
     to: validation_controller
     condition: actual_state_checked
-    summary: Pass integrated state, changed/inspected refs, validator results, verifier independence note, and boundary notes before any readiness claim.
+    summary: Pass integrated state, optional local-only binding maintenance result, changed/inspected refs, validator results, verifier independence note, and boundary notes before any readiness claim. Binding maintenance conveys no domain, routing, default-route, send, dispatch, provider-startup, or provider-configuration authority; planned, pilot, or blocked bridge state remains execution_ready=false.
   - from: validation_controller
     to: closeout_controller
     condition: validators_run_or_gap_recorded

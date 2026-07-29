@@ -1,0 +1,363 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/codex-work-route-catalog.v1.schema.json",
+  "title": "Soulforge Codex work route catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_revision",
+    "navigation_authority",
+    "branches",
+    "routes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soulforge.codex_work_route_catalog.v1"
+    },
+    "catalog_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "navigation_authority": {
+      "const": "none"
+    },
+    "branches": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/commonBranch"
+        },
+        {
+          "$ref": "#/$defs/projectsBranch"
+        },
+        {
+          "$ref": "#/$defs/axBranch"
+        },
+        {
+          "$ref": "#/$defs/erpBranch"
+        },
+        {
+          "$ref": "#/$defs/systemBranch"
+        }
+      ],
+      "items": false
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/route"
+      }
+    }
+  },
+  "$defs": {
+    "branchBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch_id",
+        "display_name",
+        "parent_branch_id",
+        "navigation_authority"
+      ],
+      "properties": {
+        "branch_id": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "parent_branch_id": {
+          "type": "null"
+        },
+        "navigation_authority": {
+          "const": "none"
+        }
+      }
+    },
+    "commonBranch": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/branchBase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "branch_id": {
+              "const": "common"
+            },
+            "display_name": {
+              "const": "COMMON"
+            }
+          }
+        }
+      ]
+    },
+    "projectsBranch": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/branchBase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "branch_id": {
+              "const": "projects"
+            },
+            "display_name": {
+              "const": "PROJECTS"
+            }
+          }
+        }
+      ]
+    },
+    "axBranch": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/branchBase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "branch_id": {
+              "const": "ax_development"
+            },
+            "display_name": {
+              "const": "AX DEVELOPMENT"
+            }
+          }
+        }
+      ]
+    },
+    "erpBranch": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/branchBase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "branch_id": {
+              "const": "erp_development"
+            },
+            "display_name": {
+              "const": "ERP DEVELOPMENT"
+            }
+          }
+        }
+      ]
+    },
+    "systemBranch": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/branchBase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "branch_id": {
+              "const": "system_development"
+            },
+            "display_name": {
+              "const": "SYSTEM DEVELOPMENT"
+            }
+          }
+        }
+      ]
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "normalizedTerm": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_id",
+        "branch_id",
+        "display_name",
+        "scope",
+        "aliases",
+        "project_code",
+        "owner_role",
+        "manager_route_id",
+        "escalation_route_id",
+        "request_examples",
+        "do_not_route",
+        "lifecycle",
+        "capability_classes"
+      ],
+      "properties": {
+        "route_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "branch_id": {
+          "enum": [
+            "common",
+            "projects",
+            "ax_development",
+            "erp_development",
+            "system_development"
+          ]
+        },
+        "display_name": {
+          "$ref": "#/$defs/normalizedTerm"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "responsibility_terms"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "global",
+                "project",
+                "function"
+              ]
+            },
+            "responsibility_terms": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/normalizedTerm"
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/normalizedTerm"
+          },
+          "uniqueItems": true
+        },
+        "project_code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "owner_role": {
+          "$ref": "#/$defs/normalizedTerm"
+        },
+        "manager_route_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "escalation_route_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "request_examples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/normalizedTerm"
+          },
+          "uniqueItems": true
+        },
+        "do_not_route": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "term",
+              "reason"
+            ],
+            "properties": {
+              "term": {
+                "$ref": "#/$defs/normalizedTerm"
+              },
+              "reason": {
+                "$ref": "#/$defs/normalizedTerm"
+              }
+            }
+          }
+        },
+        "lifecycle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "active",
+                "stale",
+                "retired",
+                "rollover_pending"
+              ]
+            },
+            "successor_route_id": {
+              "$ref": "#/$defs/identifier"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "const": "rollover_pending"
+                  }
+                },
+                "required": [
+                  "state"
+                ]
+              },
+              "then": {
+                "type": "object",
+                "properties": {
+                  "successor_route_id": {
+                    "$ref": "#/$defs/identifier"
+                  }
+                },
+                "required": [
+                  "successor_route_id"
+                ]
+              }
+            }
+          ]
+        },
+        "capability_classes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

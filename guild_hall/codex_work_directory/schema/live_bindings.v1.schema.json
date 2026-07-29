@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/codex-work-live-bindings.v1.schema.json",
+  "title": "Soulforge local Codex work live bindings v1",
+  "description": "Local-only runtime projection. A binding never grants route authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "propertyNames": {
+    "not": {
+      "pattern": "([Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Cc][Oo][Oo][Kk][Ii][Ee]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])"
+    }
+  },
+  "required": [
+    "schema_version",
+    "catalog_schema_version",
+    "catalog_revision",
+    "bindings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soulforge.codex_work_live_bindings.v1"
+    },
+    "catalog_schema_version": {
+      "const": "soulforge.codex_work_route_catalog.v1"
+    },
+    "catalog_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/routeBinding"
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "capabilityClass": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "bindingRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": {
+        "not": {
+          "pattern": "([Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Cc][Oo][Oo][Kk][Ii][Ee]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])"
+        }
+      },
+      "required": [
+        "binding_id",
+        "capability_class"
+      ],
+      "properties": {
+        "binding_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "capability_class": {
+          "$ref": "#/$defs/capabilityClass"
+        },
+        "provider_identifier": {
+          "$ref": "#/$defs/identifier"
+        },
+        "resource_identifier": {
+          "$ref": "#/$defs/identifier"
+        },
+        "resource_title": {
+          "$ref": "#/$defs/identifier"
+        },
+        "host_identifier": {
+          "$ref": "#/$defs/identifier"
+        },
+        "thread_identifier": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    },
+    "routeBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": {
+        "not": {
+          "pattern": "([Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Cc][Oo][Oo][Kk][Ii][Ee]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])"
+        }
+      },
+      "required": [
+        "route_id",
+        "durable_coordination_binding",
+        "preferred_execution_surface",
+        "runtime_agent",
+        "fallback_bindings",
+        "validator_bindings",
+        "observed_status",
+        "verified_at_kst",
+        "source_kind",
+        "binding_state",
+        "prior_resource_history_pointer",
+        "prior_thread_history_pointer",
+        "bridge_state",
+        "execution_ready"
+      ],
+      "properties": {
+        "route_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "durable_coordination_binding": {
+          "$ref": "#/$defs/bindingRef"
+        },
+        "preferred_execution_surface": {
+          "$ref": "#/$defs/bindingRef"
+        },
+        "runtime_agent": {
+          "$ref": "#/$defs/bindingRef"
+        },
+        "runtime_session": {
+          "$ref": "#/$defs/bindingRef"
+        },
+        "worktree_binding": {
+          "$ref": "#/$defs/bindingRef"
+        },
+        "fallback_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bindingRef"
+          }
+        },
+        "validator_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/bindingRef"
+          }
+        },
+        "observed_status": {
+          "$ref": "#/$defs/identifier"
+        },
+        "verified_at_kst": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?\\+09:00$"
+        },
+        "source_kind": {
+          "$ref": "#/$defs/capabilityClass"
+        },
+        "binding_state": {
+          "enum": [
+            "active",
+            "stale",
+            "rollover_pending",
+            "retired",
+            "unknown"
+          ]
+        },
+        "prior_resource_history_pointer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "prior_thread_history_pointer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bridge_state": {
+          "enum": [
+            "planned",
+            "pilot",
+            "active",
+            "blocked",
+            "retired"
+          ]
+        },
+        "execution_ready": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "bridge_state": {
+                "enum": [
+                  "planned",
+                  "pilot",
+                  "blocked",
+                  "retired"
+                ]
+              }
+            },
+            "required": [
+              "bridge_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "execution_ready": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "binding_state": {
+                "enum": [
+                  "stale",
+                  "rollover_pending",
+                  "retired",
+                  "unknown"
+                ]
+              }
+            },
+            "required": [
+              "binding_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "execution_ready": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "binding_state": {
+                "const": "rollover_pending"
+              }
+            },
+            "required": [
+              "binding_state"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "properties": {
+                  "prior_resource_history_pointer": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "prior_thread_history_pointer": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
