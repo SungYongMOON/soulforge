@@ -51,6 +51,7 @@ operation, CLI 이름을 바꾸는 migration 계약이 아니다.
 | 사람이 보는 이름 | 쉬운 정의 | 무엇이 아닌지 | 내부 식별자·경로 | 허용 / 비권장·폐기 별칭 |
 | --- | --- | --- | --- | --- |
 | 5필드 업무 결과 요약 | AI가 bounded 업무를 마칠 때 입력·판단·출력·검증·중단조건을 요약한 별도 proxy | PC 사용 기록, 정식 WorkSession, 실행을 기계가 증명한 영수증, HPP 로컬 업무 장부가 아님 | source `reports/procedure_capture/five_field_log.jsonl`; 호환 schema·outbox 이름 `bounded_work` | `five-field summary`는 설명용 허용. `Codex 업무 결과 요약`, `Codex 작업 결과 요약`, `Codex work-result summary`는 과거 표시 이름으로만 보존하고 새 owner 표면에서는 비권장 |
+| AI 작업 기록 | controlled wrapper/MCP/CLI/hook가 관찰한 bounded AI 업무의 공통 metadata-only 사건 | WorkSession, HPP 로컬 업무 장부, H05 실행·검증 영수증, 공식 업무 완료, whole chat·화면·키보드·OS 활동 수집이 아님 | additive schema `soulforge.ai_work_record_event.v1`; module `guild_hall/shared/ai_work_record_event.mjs`; 기존 `bounded_work`, `codex_work_context`, `work_id`, `event_id`, `occurred_at` 및 operation 이름은 유지 | `AI work record event`는 첫 정의 병기 허용. `AI 전체 작업 기록`, `AI 감시 기록`, `공식 AI 완료 기록`은 범위와 authority를 과장하므로 비권장 |
 | HPP Codex 작업 맥락 수집기 | 명시적으로 받은 시작·연결·checkpoint·종료 정보를 HPP 장부에 append하는 프로그램 | whole chat·화면·키보드·OS 수집기, ERP writer, 자동 완료 판정기가 아님 | `guild_hall/local_activity/codex_work_context.mjs`, `codex_work_context_cli.mjs`; binding `soulforge.hpp_codex_work_context_binding.v1` | `Codex work-context writer`는 module 설명에서만 허용. 데이터와 프로그램을 함께 뜻하는 `Codex 작업 맥락`, `Codex work context`는 비권장 |
 | HPP 로컬 업무 장부 | 프로젝트별 로컬 업무와 업무 사건을 보존하는 machine-local append-only 저장면 | `_workmeta` 정식 이력, ERP 공식 업무, accepted ProjectContext, 프로젝트 시간장부가 아님 | `<state_root>/projects/<project_code>/codex_work_context/`; 내부 path `codex_work_context` 유지 | `HPP local work ledger`는 첫 정의 병기 허용. `Codex 작업 맥락 사건`을 장부 전체 이름으로 쓰는 것은 폐기 |
 | 로컬 업무 | 같은 실제 업무를 이어가는 팀장·자식·계속·검증 task를 하나로 묶는 HPP-local 단위 | ERP task, H03 WorkSession, H05 acceptance, 공식 완료가 아님 | wire field `work_id`; `work_units/<work_id>/`. `begin_work.work_id=null`일 때만 `LW-<project>-<digest>`를 자동 생성하며 `<project>`는 `project_code`임. caller-supplied ID 전체에 `LW-*`를 강제하지 않음 | `local work`, `로컬 업무 ID`는 설명용 허용. `local_work_id`, `LOCAL-WORK-*`는 현행 wire field·생성형이 아니므로 폐기 |
@@ -65,6 +66,9 @@ operation, CLI 이름을 바꾸는 migration 계약이 아니다.
 
 ```text
 5필드 업무 결과 요약 ──> 별도 proxy (`bounded_work`)
+
+controlled path ──> AI 작업 기록 (`soulforge.ai_work_record_event.v1`)
+                     └─> 공식 완료 아님, bypass 실행은 unobserved
 
 HPP Codex 작업 맥락 수집기
   └─> HPP 로컬 업무 장부

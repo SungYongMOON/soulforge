@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-07-30
+
+### AI 작업 기록 공통계약 v1 후보
+
+- `soulforge.ai_work_record_event.v1` metadata-only event schema와 pure
+  validator·canonical digest·reducer, synthetic tests, 호환성 문서를 추가했다.
+- start → checkpoint → closeout_pending → closeout 수명주기, replay·conflict·gap
+  fail-closed, terminal outcome gate, relative metadata pointer와 known-secret
+  sentinel 경계를 고정했다.
+- 이 계약은 `canon_candidate`이며 중앙 receiver, HPP writer/outbox, MCP network,
+  ERP 공식 완료를 구현하거나 활성화하지 않는다. `official_completion`은 항상
+  false이고 운영 데이터·private payload를 생성하거나 수집하지 않는다.
+  (worker: `codex_gpt-5.6-sol`)
+
 ## 2026-07-29
 
 ### AX 책임공학 authority 정본 보정

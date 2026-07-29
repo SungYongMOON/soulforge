@@ -1,5 +1,36 @@
 # guild_hall/shared
 
+## AI 작업 기록 공통 이벤트 v1
+
+- `ai_work_record_event.v1.schema.json`은 controlled wrapper/MCP/CLI/hook가
+  관찰한 bounded AI 업무를 공통 metadata-only 사건으로 표현하는 strict additive
+  계약이다. 기존 WorkSession, `codex_work_context`, H03/H05, ERP task/event,
+  operation, ID 또는 저장 경로를 바꾸지 않는다.
+- `ai_work_record_event.mjs`는 canonical JSON SHA-256, event 검증,
+  strict lifecycle, replay/no-op, atomic conflict/HOLD, outcome gate와 audit-only
+  correction을 메모리에서 판정한다. Filesystem, writer, DB, MCP, network, LLM
+  호출 또는 runtime 활성화 표면은 없다.
+- Unique lifecycle은
+  `start -> checkpoint* -> closeout_pending -> closeout -> correction*`다.
+  Correction은 terminal projection을 바꾸지 않는 exact-reference annotation이다.
+- 모든 closeout kind는 result/packet ref와 evidence-capable ref를 각각 요구한다.
+  `blocked`, `handoff`, `abandoned`에는 추가 stop/packet/uncertainty gate가 있으며,
+  gate 미충족 상태는 `closeout_pending`이다.
+- 모든 사건은 `official_completion=false`다. `completed_candidate`도 공식 완료가
+  아니며 non-completed closeout kind는 성공 또는 ERP 완료가 아니다.
+- Schema-only 검사는 달력 유효성, 시각 순서, digest, replay, lifecycle과 recursive
+  policy를 판정하지 못하므로 pure JS validator/reducer를 함께 사용해야 한다.
+- A1-native ID는 공통 safe wire intersection을 사용한다. 기존 colon-bearing ID는
+  바꾸지 않고 exact source ID와 deterministic alias를 mapping ref로 함께 남긴다.
+- `path_ref`는 normalized relative metadata pointer다. Private instance의
+  owner-approved `_workspaces/`, `_workmeta/`, `guild_hall/state/` pointer는
+  target 읽기·복사·공개 권한을 뜻하지 않으며 public test는 synthetic path만 쓴다.
+- Raw/secret 검사는 알려진 sentinel과 구조 policy enforcement이지 universal DLP가
+  아니다. Caller/writer가 metadata-only input 경계를 지킬 책임이 있다.
+- controlled path 밖 실행은 `unobserved`이며 추정하지 않는다. 수집률 주장은 해당
+  controlled path 범위에만 한정한다. 경계와 호환성은
+  `docs/architecture/workspace/AI_WORK_RECORD_EVENT_V1.md`가 설명한다.
+
 ## Receipt-to-Shadow adapter v2
 
 - `project_history_receipt_adapter_v2.mjs` converts an explicit set of HPP
@@ -214,6 +245,8 @@
 - `project_history_actual_shadow.mjs`: feature-OFF actual five-lane Shadow generation validator/builder
 - `project_history_actual_shadow_cli.mjs`: metadata packet read + canonical stdout-only adapter
 - `project_history_actual_shadow_{packet,generation}.v1.schema.json`: input/output strict schemas
+- `ai_work_record_event.v1.schema.json`: strict common AI work record event contract
+- `ai_work_record_event.mjs`: pure canonical digest, event validator, and chain reducer
 
 ## 상태
 
@@ -223,6 +256,8 @@
 - actual Shadow generation은 `classification_state: shadow`,
   `accepted_history: false`이며 H01~H05 PASS, ERP write, official history promotion,
   live activation을 만들지 않는다.
+- AI 작업 기록 공통 이벤트 v1은 `canon_candidate`이며 collector, writer,
+  receipt acceptance 또는 공식 완료 authority가 아니다.
 - Task Engine의 최신 운영·투영 요약은
   `ui-workspace/apps/dev-erp/docs/TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md`
   맨 앞 `최신 CURRENT 상태표`가 소유한다. 이 README의 Shadow 상태가 바뀌면
