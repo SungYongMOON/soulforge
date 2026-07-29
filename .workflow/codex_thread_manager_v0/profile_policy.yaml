@@ -82,7 +82,6 @@ selection_rules:
   - Require separate workflow-check and post-development review evidence before
     claiming stronger readiness.
 rerun_triggers:
-  - project responsibility classification or TASK routing policy changes
   - thread tool availability changes
   - manager rollover policy changes
   - worktree worker policy changes

@@ -93,13 +93,6 @@ tool behavior.
 
 ## Routing Rules
 
-### Project work assignment and TASK routing
-
-- The project CEO/manager classifies incoming work first. Record exactly one primary owner and optional collaborators/reviewers.
-- A functional owner must not perform out-of-scope work. Return it with a reason and reclassification candidate; unresolved routing escalates to the project CEO/manager.
-- Start a new TASK for a new deliverable, multi-step work, or independently verified result. Continue the existing TASK only for a small refinement of the same objective, primary owner, and scope.
-- This launcher never replaces a human owner's final assignment, send, purchase, payment, or public-release approval.
-
 - Use a subagent for bounded non-durable work inside the current lane: focused
   investigation, noisy code search, small non-acceptance verification, or
   parallel analysis that can be integrated immediately.
