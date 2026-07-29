@@ -53,6 +53,15 @@ safety, or party binding.
 
 ## Routing Rules
 
+### 프로젝트 업무분장과 TASK 기준
+
+- 프로젝트 총괄 CEO 또는 업무운영/팀장은 새 업무를 먼저 분야 책임자에게 분류한다. 한 업무에는 `primary_owner`를 정확히 한 명만 둔다.
+- 협업자와 검토자는 0명 이상 둘 수 있으나, 주관 책임자를 복수로 두지 않는다.
+- 분야 책임자는 자신의 범위 밖 업무를 직접 수행하지 않는다. 거절 사유와 `reclassification_candidate`를 붙여 팀장에게 반환한다.
+- 주관 분야가 불명확하거나 재분류 후보가 충돌하면 프로젝트 총괄 CEO 또는 업무운영/팀장에게 판단을 올린다.
+- 새 결과물, 여러 단계, 또는 독립 검증이 필요한 업무는 새 TASK 스레드로 분리한다. 같은 목표·주관·범위의 작은 보완은 기존 TASK에 이어 기록한다.
+- 사람 owner의 최종 담당 확정, 외부 전송, 구매·결재, 공개는 이 워크플로가 대신 승인하지 않는다.
+
 - Use subagents for non-durable side work that can be integrated immediately:
   focused investigation, noisy search, small non-acceptance verification, or
   parallel analysis.
@@ -105,21 +114,23 @@ safety, or party binding.
 2. Refresh `NIGHT_WORK_HANDOFF`.
 3. Treat the declared thread as main team lead by default for actionable skill
    invocations.
-4. Plan the thread team topology and context lifecycle.
-5. Choose the continuation surface using the subagent-vs-thread routing rules.
-6. Prepare role worker, worktree worker, or fresh manager packets with bounded
+4. 프로젝트 업무를 1차 분류하고 주관·협업·검토·재분류 또는 에스컬레이션을 기록한다.
+5. TASK 신규 생성 또는 기존 TASK 계속 여부를 판단한다.
+6. Plan the thread team topology and context lifecycle.
+7. Choose the continuation surface using the subagent-vs-thread routing rules.
+8. Prepare role worker, worktree worker, or fresh manager packets with bounded
    scope, handoff context, compact report shape, subagent-first bounded
    subagent authority, any count limit or denial, no-subagent exceptions,
    side-effect limits, execution-contract claim ceiling, stop conditions, and
    conflict protocol.
-7. Prepare verifier or judge packets from minimal evidence: objective, changed
+9. Prepare verifier or judge packets from minimal evidence: objective, changed
    refs, acceptance criteria, validators, claims, and risk areas; exclude raw
    transcript and avoid leaking the intended fix except where necessary.
-8. Observe thread ids/titles and acceptance results.
-9. Route bounded result packets between workers when useful.
-10. Integrate worker summaries after checking actual state.
-11. Run validators and `$soulforge-workflow-check`.
-12. Close out with the claim ceiling, blockers, next action, and knowledge
+10. Observe thread ids/titles and acceptance results.
+11. Route bounded result packets between workers when useful.
+12. Integrate worker summaries after checking actual state.
+13. Run validators and `$soulforge-workflow-check`.
+14. Close out with the claim ceiling, blockers, next action, and knowledge
    trigger result.
 
 ## Party Policy

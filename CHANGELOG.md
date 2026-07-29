@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-07-29
+
+### Project assignment and TASK-thread operating draft
+
+- Added a public-safe project organization and TASK-routing draft with a project manager and fifteen functional responsibility lanes.
+- Added manager-first classification, single-primary-owner, out-of-scope reclassification, collaborator/reviewer, unclear-route escalation, and new-versus-continuation TASK rules to the Codex thread-manager workflow and launcher bridge. Human approval remains required for final assignments and external side effects.
+
 ## 2026-07-28
 
 ### Task Engine / AX 업무·증거 용어 정본화

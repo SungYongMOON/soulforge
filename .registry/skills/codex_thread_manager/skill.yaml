@@ -14,7 +14,13 @@ behavior:
     thread-orchestration request: the declared/current Codex thread becomes the
     main team lead, manages handoff/compact/reset lifecycle, and may create
     role worker Codex threads when runtime tools and boundaries support that
-    action. Worker threads are subagent-first lane controllers: substantive
+    action. For project work, the manager classifies the request first, records
+    exactly one primary owner plus optional collaborators/reviewers, returns
+    out-of-scope work with a reclassification candidate, and escalates an
+    unclear route to the project manager. A new deliverable, multi-step work,
+    or independent verification uses a new TASK; a small same-scope refinement
+    continues the existing TASK. Human owners retain final assignment and
+    external-side-effect approval. Worker threads are subagent-first lane controllers: substantive
     lane work is delegated to fresh bounded subagents by default, and direct
     worker execution is allowed only for explicit no-subagent exceptions such
     as packet authoring, small deterministic checks, integration, validators,

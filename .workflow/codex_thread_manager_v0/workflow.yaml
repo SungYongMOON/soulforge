@@ -25,6 +25,8 @@ optional_inputs:
   - validation_command_refs
   - owner_decision_refs
   - context_pressure_signal
+  - responsibility_assignment_request
+  - existing_task_thread_refs
 outputs:
   - declared_thread_goal
   - night_work_handoff
@@ -39,6 +41,8 @@ outputs:
   - workflow_check_review_packet
   - verifier_independence_note
   - closeout_report
+  - responsibility_assignment_decision
+  - task_thread_routing_decision
 validation_level: private_one_worker_pilot_observed
 registration_policy: owner_requested_registration
 output_state: registered
@@ -97,6 +101,10 @@ codex_thread_manager_contract:
     - thread_id_title_recording_policy
     - workflow_check_review_policy
     - conservative_thread_closeout
+    - project_responsibility_initial_classification
+    - out_of_scope_reclassification_return
+    - single_primary_owner_with_collaborators
+    - task_thread_create_or_continue_decision
   does_not_own:
     - source_truth
     - owner_approval
@@ -146,6 +154,17 @@ codex_thread_manager_contract:
       - context_drift
       - twenty_four_hour_span
       - explicit_user_request
+  responsibility_assignment_policy:
+    project_manager_performs_initial_classification: true
+    functional_owner_must_not_execute_out_of_scope_work: true
+    out_of_scope_return_requires_reason_and_reclassification_candidate: true
+    one_primary_owner_required: true
+    collaborators_and_reviewers_are_optional_and_non_primary: true
+    unclear_classification_escalates_to_project_manager: true
+    final_assignment_requires_human_owner_approval_when_requested: true
+    task_thread_create_when_new_deliverable_multistep_or_independent_verification: true
+    existing_task_continuation_only_when_objective_primary_owner_and_scope_match: true
+    task_thread_creation_does_not_authorize_external_side_effects: true
   manager_lifecycle:
     declared_thread_is_main_team_lead: true
     manager_owns_context_lifecycle: true

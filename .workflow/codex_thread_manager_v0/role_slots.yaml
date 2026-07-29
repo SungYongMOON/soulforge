@@ -2,6 +2,13 @@ workflow_id: codex_thread_manager_v0
 kind: role_slots
 status: active
 slots:
+  - slot_id: responsibility_classifier
+    title: Responsibility Classifier
+    summary: >
+      The project manager performs the first classification, names exactly one
+      primary functional owner, records zero or more collaborators or
+      reviewers, returns out-of-scope work with a reason and reclassification
+      candidate, and escalates unclear work without performing it.
   - slot_id: thread_manager
     title: Thread Manager
     summary: Activates the declared Codex thread as main team lead, declares the bounded goal, success criteria, stop conditions, workspace scope, team topology, context lifecycle, and thread orchestration boundary.
