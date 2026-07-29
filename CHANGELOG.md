@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-07-29
+
+### Slack 프로젝트 채널 게시 운영지침
+
+- `guild_hall/slack_history/README.md`에 이미 프로젝트에 바인딩된 채널 안의
+  원 게시글 제목, 유형·선택 영역, thread 상태 기록, 소급 수정·중복 게시 제한,
+  제목·태그 정보 경계를 다루는 승인된 수동 게시 지침을 추가했다.
+- 이 문서 변경은 앞으로 작성하는 권한 있는 사람의 수동 게시에만 적용하며,
+  collector, Slack 앱, bot, connector, automation의 쓰기·게시 권한이나 기존
+  identity, 상태, schema, runtime 동작을 변경하지 않는다.
+
 ## 2026-07-28
 
 ### Task Engine / AX 업무·증거 용어 정본화

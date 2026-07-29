@@ -106,6 +106,36 @@ restores and re-attests the exact prior exported definition; rollback failure
 leaves the task disabled. The scheduler does not change five-lane writer
 authority; Slack remains the H07 communication-history extension.
 
+## 프로젝트 채널 게시 운영지침
+
+이 지침은 이미 프로젝트에 바인딩된 Slack 채널 안에서 권한 있는 사람이
+수동으로 작성하는 원 게시글에 앞으로 적용한다. 여기서 프로젝트 채널 제목은
+Slack 채널 이름이 아니라 원 게시글의 제목 또는 헤드라인을 뜻한다. 이 표시
+지침은 `slack_history`, Slack 앱, bot, connector, automation에 쓰기 또는 게시
+권한을 부여하지 않으며 채널·메시지 identity, 프로젝트 binding, 수집 coverage,
+ERP·task 상태, schema 또는 wire contract를 바꾸지 않는다.
+
+1. 프로젝트 채널의 원 게시글 제목에는 과제코드를 반복하지 않는다.
+2. 제목은 `[유형] [선택 영역] 핵심 제목` 형식을 사용하며, 영역은 선택 사항이다.
+3. 유형은 `업무지시`, `결정`, `문서`, `절차`, `회의`, `구매요청`, `질문`, `공지`만 사용한다.
+4. 선택 영역은 `HW`, `SW`, `기구`, `전장`, `시험`, `구매`, `품질`, `운영`만 사용한다.
+5. 원 게시글은 하나만 작성하고 상태 변경은 그 게시글의 thread에 남긴다.
+6. 상태는 `요청`, `진행중`, `확인대기`, `보류`, `완료`, `취소`만 사용한다.
+7. 진행과 완료 기록은 각각 `[진행중] 날짜 · 변경내용`, `[완료] 날짜 · 완료근거` 형식을 사용한다.
+8. 기존 게시물을 소급 수정하지 않는다.
+9. 다른 채널에 같은 내용을 중복 게시하지 않으며, 필요하면 원문 링크만 공유한다.
+10. 원문, 개인정보, 메일 제목 등 부적절한 정보는 제목이나 태그에 넣지 않는다.
+
+완전히 합성한 공개 안전 예시는 다음과 같다.
+
+```text
+[업무지시] [시험] 장비 점검
+
+thread:
+[진행중] 날짜 · 점검 시작
+[완료] 날짜 · 점검 기록 확인
+```
+
 ## Identity and revision contract
 
 - Workspace/channel identity is `workspace_id + channel_id`.
