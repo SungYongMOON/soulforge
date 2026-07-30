@@ -5,6 +5,20 @@ export function isMobileDetailViewport(width) {
   return Number.isFinite(width) && width >= 0 && width <= MOBILE_DETAIL_MAX_WIDTH;
 }
 
+export function isFocusRestoreCandidate({
+  exists = true,
+  isConnected,
+  disabled = false,
+  hidden = false,
+  inert = false
+}) {
+  return Boolean(exists && isConnected && !disabled && !hidden && !inert);
+}
+
+export function pickFocusRestoreIndex(candidates) {
+  return candidates.findIndex(isFocusRestoreCandidate);
+}
+
 export function resolveMobileDialogKey({
   key,
   shiftKey = false,
