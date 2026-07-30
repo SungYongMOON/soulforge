@@ -1082,12 +1082,3 @@ export async function listPendingAiWorkRecordEvents({
     claim_ceiling: "canon_candidate_public_synthetic_feature_off",
   };
 }
-
-export async function removeAiWorkRecordTestRoot(testRoot) {
-  const resolved = absoluteRoot(testRoot);
-  const marker = path.basename(resolved);
-  if (!marker.startsWith("soulforge-ai-work-record-test-")) {
-    fail("test_root_marker_required");
-  }
-  await rm(resolved, { recursive: true, force: true });
-}

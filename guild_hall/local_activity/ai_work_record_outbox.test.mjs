@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   copyFile,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
@@ -378,6 +379,31 @@ test("mutation is synthetic-temp-only and rejects an HPP-like absolute root", as
       acquiredAt: STARTED_AT,
     }, async () => {}),
     (error) => assertOutboxCode(error, "synthetic_state_root_required"),
+  );
+
+  const outsideTemporaryRoot = path.resolve(
+    process.cwd(),
+    `soulforge-ai-work-record-test-outside-${process.pid}`,
+  );
+  assert.equal(
+    path.basename(outsideTemporaryRoot).startsWith(
+      "soulforge-ai-work-record-test-",
+    ),
+    true,
+  );
+  await assert.rejects(
+    () => withAiWorkRecordOutboxLock({
+      stateRoot: outsideTemporaryRoot,
+      projectCode: PROJECT,
+      ownerToken: "owner.synthetic.outside",
+      fencingToken: "fence.synthetic.outside",
+      acquiredAt: STARTED_AT,
+    }, async () => {}),
+    (error) => assertOutboxCode(error, "synthetic_state_root_required"),
+  );
+  await assert.rejects(
+    () => lstat(outsideTemporaryRoot),
+    (error) => error?.code === "ENOENT",
   );
 });
 
