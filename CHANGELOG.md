@@ -2,6 +2,27 @@
 
 ## 2026-07-30
 
+### AI 작업 결과 누락 복구 Phase C public safety remediation
+
+- append-only 결과 레저의 `writer-workmeta`와 cursor/authority CAS의
+  `writer-private-state`를 분리하고, private-state cursor owner 경로를
+  `guild_hall/state/operations/ai_work_result_recovery/v1/cursors/<source_lane_digest>.json`으로
+  고정했다. source·두 clone·두 local bare remote·runtime·lock과
+  active/forbidden root 전체를 canonical realpath로 비교해 equality·nesting·
+  reparse escape를 mutation 전에 차단한다.
+- owner token·PID·host·acquired/expiry와 monotonic `writer_epoch`을 갖는 exclusive
+  lease, 단일 승자 hard-link quarantine stale takeover, cursor sequence/epoch
+  fencing을 적용했다. recursive exact-key 검증은 secret·private URL/ref·raw
+  계열 입력을 비노출 HOLD하며, receipt는 `official_completion=false`,
+  WorkSession/TaskDriver/ERP/MCP acceptance `false`,
+  `claim_ceiling=operational_evidence_only`로 제한한다.
+- public commit `0c2fee5018a6fb192eebfad27e8e2ceefe21a65d`가 `main`에 포함됐고
+  runner 13/13·planner 12/12와 fresh Level 3 `ACCEPT`를 확인했다. tracked
+  candidate는 `PAUSED`, 설치된 legacy automation은 `ACTIVE` 그대로다. actual
+  runtime·private cursor/ledger·installed automation·NAS·network는 계속
+  `HOLD`이며, `313`은 빈 레저 합성 상한일 뿐 실제 누락 수가 아니다.
+  (worker: `codex_gpt-5.6-sol`)
+
 ### 개발1팀 운영실 업무분장·일반업무 분류 가이드 후보
 
 - 개발1팀 운영실의 일곱 상시 책임, `ROLE/PROJECT/TASK/LOG` 경계,
