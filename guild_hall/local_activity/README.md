@@ -45,6 +45,44 @@ common receipt는 아직 구현되지 않았다.
 - `work_id`는 로컬 업무 하나를 식별한다. 이를 닫아도 ERP task가 완료되거나
   project context가 승인되거나 H03/H05 acceptance가 생기지 않는다.
 
+### AI 작업 기록 A2 feature-OFF 경계
+
+`AI 작업 기록` A2는 공통계약 `soulforge.ai_work_record_event.v1`을 그대로
+소비하는 public-synthetic candidate다. 합성 테스트가 명시적으로 주입한 임시
+`state_root`에서만 `start → checkpoint* → closeout_pending → closeout →
+correction*` 사건을 검증한다. CLI의 쓰기 모드는 운영 HPP 경로가 아니라 운영체제
+임시 디렉터리 아래의 명시적 synthetic root만 허용하며, PowerShell wrapper는
+이를 live hook이나 scheduler로 등록하지 않는다. 지원 경로를 우회한 실행은
+`unobserved`다.
+
+선택된 논리 경로는 다음과 같다. 이 경로는 TARGET/HOLD이며 이번 slice에서 실제
+HPP physical root, private binding, writer, scheduler를 만들거나 갱신하지 않는다.
+
+```text
+<state_root>/projects/<project_code>/
+|- outbox/ai_work_record/
+|  |- events/**
+|  |- pending/**
+|  `- receipts/**
+`- state/ai_work_record/
+   |- lock
+   `- retry_index/**
+```
+
+| 경계 | 이번 slice의 취급 |
+| --- | --- |
+| public | allowlisted 코드·synthetic test·계약 문서만; feature OFF |
+| private/HPP | 실제 root·binding·payload·writer·cursor 생성과 변경 `0` |
+| backup·restore 포함 TARGET | `events`, `pending`, `receipts`, `retry_index`; live NAS 정책 반영 전 HOLD |
+| 재생성 가능 제외 TARGET | `lock`, atomic temporary file |
+| capture 금지 | raw/chat/screen/keyboard/OS/private/secret payload |
+| 미분류 | 알 수 없는 top-level entry는 열거나 복사하지 않고 `unclassified_entries` HOLD |
+
+synthetic test는 포함 대상으로 선언된 네 표면의 복사·복원 parity와 제외 대상의
+비복사를 검증할 수 있지만, 이는 실제 NAS include/restore coverage가 아니다.
+운영 활성화에는 ingress/backup owner의 별도 allowlist와 fixed policy,
+protected pin, runtime 배치 및 fresh acceptance가 필요하다.
+
 ## Private binding
 
 The private JSON binding uses
@@ -188,6 +226,13 @@ are structurally bounded, but callers remain responsible for submitting short
 operational summaries and references rather than chat transcripts or source
 contents.
 
+AI 작업 기록 A2 wrapper/CLI는 dry-run을 기본 경계로 사용한다. 합성 쓰기 smoke는
+테스트가 만든 운영체제 임시 디렉터리 아래 root에서만 명시적으로 허용된다.
+`local_persisted` receipt는 로컬 저장 확인일 뿐 실행·검증 영수증, network ACK,
+ERP write 또는 공식 완료가 아니며 `official_completion=false`를 유지한다.
+`closeout`은 result와 evidence가 모두 없으면 거부되고 상태는
+`closeout_pending`에 남는다.
+
 Windows project-leader tasks should pass a PowerShell object through the
 tracked wrapper so JSON quoting and UTF-8 text survive native argument parsing:
 
@@ -222,5 +267,7 @@ node --check guild_hall/local_activity/local_activity.mjs
 node --check guild_hall/local_activity/cli.mjs
 node --check guild_hall/local_activity/codex_work_context.mjs
 node --check guild_hall/local_activity/codex_work_context_cli.mjs
-node --test guild_hall/local_activity/local_activity.test.mjs guild_hall/local_activity/codex_work_context.test.mjs
+node --check guild_hall/local_activity/ai_work_record_outbox.mjs
+node --check guild_hall/local_activity/ai_work_record_outbox_cli.mjs
+node --test guild_hall/local_activity/local_activity.test.mjs guild_hall/local_activity/codex_work_context.test.mjs guild_hall/local_activity/ai_work_record_outbox.test.mjs
 ```

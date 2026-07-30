@@ -41,6 +41,7 @@ project leader task, 팀장이 직접 수행한 task, child·continuation·verif
 | 파일 관찰 | exact project workspace observation packet | reconciler later decides 파일 이력 events |
 | Codex-origin relation | relation over the same AI 작업 결과 | relation only; no second occurrence |
 | HPP 로컬 업무 장부 | explicit `work_id` and attached Codex task refs | append-only 업무 사건; no ERP completion |
+| AI 작업 기록 A2 candidate | injected synthetic `state_root` only | A1 사건 수명주기와 local outbox를 deterministic 검증; feature OFF |
 
 계획된 ERP WorkSession/MCP/client-plugin path가 live가 아닌 동안 AI 작업 결과가
 current-HPP의 실용적 bridge 역할을 한다. 미래 WorkSession owner를
@@ -75,6 +76,41 @@ _workmeta/<project_code>/
 
 그 단계 전까지 local outbox packet은 collection evidence일 뿐이다. 파일 관찰은
 파일 이력이 아니며, HPP 로컬 업무 장부는 프로젝트 시간장부가 아니다.
+
+### AI 작업 기록 A2 선택 경계
+
+A2는 기존 `soulforge.ingress.local_outbox_binding.v1` 또는
+`structured_pc_work`를 재사용하지 않는다. 두 표면의 custody·semantic·A1 adapter
+authority는 이 slice 밖이다. 대신 테스트가 주입한 임시 `state_root` 아래의 다음
+전용 논리 경로만 사용한다.
+
+```text
+<state_root>/projects/<project_code>/
+|- outbox/ai_work_record/{events,pending,receipts/**}
+`- state/ai_work_record/{lock,retry_index}
+```
+
+공개 코드의 순서는 strict JSON Schema validation →
+`validateAiWorkRecordEvent` → 전체 lifecycle
+`reduceAiWorkRecordEvents`다. reducer가 HOLD하면 append·pending·receipt를
+생성하지 않는다. 같은 identity와 같은 full digest replay는 no-op이고, 다른
+digest, sequence gap, order violation 또는 fencing mismatch는 HOLD한다.
+`closeout`에는 result와 evidence가 모두 필요하며 없으면 completed로 올리지 않고
+`closeout_pending`에 둔다. `local_persisted`는 로컬 저장 확인만 뜻하고
+`official_completion=false`다.
+
+이번 slice는 public-synthetic feature-OFF다. 실제 HPP physical root, private
+binding/policy, NAS manifest/copy/restore, cursor, ERP/MCP/network receiver,
+scheduler, hook, team-PC writer를 만들거나 바꾸지 않는다. 운영체제 임시
+디렉터리 밖의 CLI 쓰기도 허용하지 않는다.
+
+NAS TARGET 분류는 `events`, `pending`, `receipts`, `retry_index`가
+백업·복구 포함, `lock`과 atomic temporary file이 재생성 가능 제외다.
+raw/chat/screen/keyboard/OS/private/secret payload는 capture 금지다. 알 수 없는
+top-level entry는 열거나 복사하지 않고 `unclassified_entries`로 HOLD한다.
+A2 synthetic test의 backup/restore parity는 이 분류의 결정론적 fixture
+검증이며 실제 NAS coverage 주장이 아니다. live activation은 ingress/backup
+owner의 fixed policy와 protected pin을 별도 승인·검증한 뒤에만 가능하다.
 
 ## Project and privacy rules
 

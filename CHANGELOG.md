@@ -2,6 +2,20 @@
 
 ## 2026-07-30
 
+### AI 작업 기록 로컬 outbox A2 candidate
+
+- 공통계약 `soulforge.ai_work_record_event.v1`을 재사용해 strict schema →
+  normative validator → full lifecycle reducer 순서로 검증하는 append-only
+  local outbox·CLI·PowerShell wrapper와 synthetic tests를 추가했다.
+- `start → checkpoint* → closeout_pending → closeout → correction*`,
+  deterministic replay, duplicate no-op, conflict/gap/order/fencing HOLD,
+  offline pending·ack·correction history와 `local_persisted` 로컬 저장 확인을
+  합성 임시 root에서만 검증한다. `official_completion=false`다.
+- 이번 candidate는 public-synthetic feature-OFF다. 실제 HPP root·private
+  binding·NAS policy/runtime·hook·scheduler·network receiver·ERP/MCP·team-PC
+  변경은 없으며 운영 활성화와 실제 NAS include/restore coverage는 별도
+  owner gate까지 HOLD한다. (worker: `codex_gpt-5.6-sol`)
+
 ### AI 작업 결과 누락 복구 cursor candidate
 
 - `five_field_session_capture_v0`에 feature-OFF/public-safe cursor planner와
