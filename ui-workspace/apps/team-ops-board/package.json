@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/core/core.test.mjs"
+    "test": "node --test src/core/*.test.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.475.0",

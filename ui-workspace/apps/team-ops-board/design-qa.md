@@ -1,0 +1,152 @@
+# Workspace Board Owner Action Inbox — Design QA
+
+## Comparison target
+
+- source visual truth:
+  `%USERPROFILE%/.codex/generated_images/019fb3de-28df-7f62-932c-b18d7fad9a87/call_8Y9O5SsyGLqvfWQQXOD4h6xG.png`
+- compact work-tool grammar reference:
+  `%TEMP%/codex-clipboard-213e4c44-7fda-4a80-8087-a9f68a82c991.png`
+- final browser-rendered implementation:
+  `evidence/workspace-board-1440x1024-primary-final.png`
+- final same-input comparison:
+  `evidence/design-qa-comparison-final.png`
+- route/state: `/`, dark theme, synthetic normal state, blocked TASK selected
+- CSS viewport: 1440 × 1024
+- device pixel ratio: 1
+- source pixels: 1487 × 1058, normalized to 1440 × 1024 for comparison
+- implementation screenshot pixels: 1425 × 1013. The in-app browser capture
+  excludes its 15 px scrollbar/frame region while the measured CSS viewport
+  remains 1440 × 1024.
+- density normalization: source resampled once with aspect-preserving near-1:1
+  fit; implementation kept at native DPR 1.
+
+## Browser evidence
+
+- primary desktop:
+  `evidence/workspace-board-1440x1024-primary-final.png`
+- completed-unread selected:
+  `evidence/workspace-board-1440x1024-completed-selected.png`
+- acknowledged history recovery:
+  `evidence/workspace-board-1440x1024-acknowledged-history.png`
+- tablet:
+  `evidence/workspace-board-1024x768-tablet-final.png`
+- mobile board:
+  `evidence/workspace-board-390x844-mobile-final.png`
+- mobile blocked detail:
+  `evidence/workspace-board-390x844-mobile-blocked-detail.png`
+
+The full-view comparison is sufficient for final typography, layout, token,
+copy, and card/detail inspection because the native desktop capture keeps the
+dense card text and right detail readable. A separate crop was not needed.
+The mobile detail has its own focused screenshot because it changes to a fixed
+overlay.
+
+## Findings
+
+No actionable P0/P1/P2 findings remain.
+
+- Fonts and typography: the existing Segoe UI/system stack keeps Korean and
+  Latin labels readable at the compact target density. Project meta is smaller
+  than the TASK title, and long text wraps without overlap.
+- Spacing and layout rhythm: four state columns, 1 px dividers, 4–6 px radii,
+  restrained fills, minimal shadow, and the right detail panel follow the
+  selected visual grammar. Three visible cards per column plus explicit
+  `더보기` prevents scale-driven overflow.
+- Colors and visual tokens: graphite surfaces and subtle blue/purple/red/green
+  column treatments preserve the source state semantics without heavy fills.
+  `completed_unread` is green and blocked/decision text is red.
+- Image quality and assets: the target contains no required raster product
+  imagery. Standard interface icons use the app's existing Lucide library.
+  The Orca orb and host chrome are reference-environment assets and were not
+  copied into the product.
+- Copy and content: every displayed entity is labeled synthetic or observed/
+  UNKNOWN. The copy does not imply live Codex, ERP, worktree, or provider truth.
+- Icons: one consistent outline icon family is used for navigation, status,
+  task, provider, history, and decision surfaces.
+- States and interactions: active/history, search, project/responsibility/
+  status filters, per-column more, detail selection, completed acknowledgement,
+  pointer-preserving history recovery, empty, error, missing-data, UNKNOWN, and
+  multi-agent states were exercised.
+- Accessibility: semantic headings/regions/buttons/labels, `aria-pressed`
+  selection state, skip link, visible 2 px focus ring, reduced-motion handling,
+  no horizontal overflow at tested breakpoints, and 44 px minimum visible
+  mobile control height passed.
+
+## Comparison history
+
+### Iteration 1 — blocked
+
+Evidence: `evidence/design-qa-comparison-iteration-1.png`
+
+- [P1] Card information was materially denser and smaller than the source,
+  weakening scan hierarchy.
+  Fix: reduced the initial per-column limit from four to three, increased TASK
+  title/provider/owner/timestamp sizing, and retained overflow behind `더보기`.
+- [P2] The selected blocked detail headed itself `막힘` instead of the source's
+  decision-oriented `Owner 판단 필요`.
+  Fix: added state-aware detail titles and the source-aligned evidence, impact,
+  and request-message sections.
+- [P2] Mobile visible controls included 29–34 px targets.
+  Fix: raised mobile menu, search, selects, view controls, reset, and more
+  buttons to a 44 px minimum.
+
+### Iteration 2 — blocked
+
+Evidence: `evidence/design-qa-comparison-iteration-2.png`
+
+- The earlier density and detail-hierarchy findings were corrected.
+- [P2] The comparison capture retained a 12 px restored scroll offset, clipping
+  the topbar edge, and the final mobile audit still found 34 px `더보기`
+  controls.
+  Fix: navigated to a fresh local route state for scroll position 0 and raised
+  the remaining input/more targets to 44 px.
+
+### Final comparison — passed
+
+Evidence: `evidence/design-qa-comparison-final.png`
+
+- Source 2, Orca grammar reference, and the browser-rendered MVP are present in
+  one comparison input.
+- Four-column composition, task hierarchy, muted state surfaces, decision
+  detail, and compact work-tool grammar are aligned.
+- Intentional deviations are product-contract driven: the MVP uses
+  project/responsibility/TASK/pointer/provider fields instead of the source's
+  evidence progress bars, and it exposes scale controls required by the
+  acceptance contract.
+- No actionable P0/P1/P2 difference remains.
+
+## Primary interactions and console
+
+- selected blocked TASK and confirmed blocker reason/next decision persistence
+- selected completed-unread TASK, activated `읽고 확인`, confirmed active
+  removal and `owner_acknowledged` history event with original pointer
+- searched the acknowledged title and recovered exactly one history item
+- selected empty, error, and normal fixture modes
+- confirmed missing-data, UNKNOWN, and multi-agent fixtures
+- tested 1024 × 768 two-column tablet and 390 × 844 one-column mobile layouts
+- confirmed mobile detail fixed overlay, no horizontal overflow, and 44 px
+  minimum visible control height
+- inspected DOM tab order, accessible names and pressed states; exercised the
+  skip-link/menu focus ring
+- browser console errors: 0
+- browser console warnings: 0
+
+## Follow-up polish
+
+- [P3] The selected visual uses larger evidence/readiness progress bars. They
+  remain intentionally omitted because the approved MVP's minimum data contract
+  does not define those values and UNKNOWN values must not be inferred.
+
+## Implementation checklist
+
+- [x] Four exact active columns and default exclusions
+- [x] Project-first/TASK-title card hierarchy
+- [x] Observed-only provider badges and UNKNOWN semantics
+- [x] Blocker reason and next decision persistence
+- [x] Completed acknowledgement and pointer-preserving history
+- [x] Scale cap, more, search, and filters
+- [x] Empty/error/missing/UNKNOWN/multi-agent states
+- [x] Desktop/tablet/mobile and keyboard/accessibility checks
+- [x] Final same-input Product Design comparison
+
+final result: passed

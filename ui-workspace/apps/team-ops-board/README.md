@@ -1,49 +1,62 @@
-# 팀 운영 보드 (Team Ops Board MVP 1)
+# Workspace Board — Owner Action Inbox MVP
 
-작은 팀의 하루 운영을 위한 로컬 실동작 보드다.
-설계 출처는 `_workmeta/system/reports/procedure_capture/team_ops_board_fresh_design_20260602.md` 의
-MVP 1 범위이며, `team-ops-board-mockup` (MVP 0, 검증용 목업)의 후속 앱이다.
-목업은 동결된 검증 산출물로 그대로 두고, 이 앱이 실사용 후보를 맡는다.
+Owner가 지금 읽거나 결정해야 하는 TASK만 네 상태로 압축해 보는
+fixture/read-only Workspace Board다. 선택된 Owner Action Inbox 2안의
+dark graphite 작업도구 문법을 기존 `team-ops-board` 앱에 적용했다.
 
-## 확정된 운영 입장 (2026-06-12 owner 결정)
+## 기본 보드
 
-- 진실 저장소: 하이브리드 (Option C). Smartsheet 가 공식 프로젝트 장부로 남고,
-  이 보드는 일일 액션, 차단, 회의 결정을 담당한다. 주간 CSV 내보내기로 대조한다.
-- 편집 권한: 팀원 직접 수정 + 전 변경 감사 로그 기록.
-- 언어: 한국어 우선. 파일/스키마 식별자만 영문 유지.
+기본 열은 정확히 아래 네 개다.
 
-## MVP 1 범위 (설계서 계약)
+- `진행 중`
+- `검토·결정 필요`
+- `막힘`
+- `완료·미확인`
 
-- 로컬 영속 저장: 브라우저 localStorage (`team_ops_board_v1`)
-- CSV 내보내기/가져오기: UTF-8 BOM, 안정 헤더(영문 식별자), 행 단위 오류 보고
-- 필터: 담당자 / 프로젝트 / 상태 / 기간 / 검색
-- 감사 추적: 모든 생성·변경·메모가 누가/언제/무엇을(이전→이후)으로 남음
-- 일일 기준선: 아침 회의에서 "기준선 고정" 후 하루 동안 기준선 대비 변경 표시
-- 백업 파일: 전체 상태 JSON 내려받기/복원
+`todo`, 미착수, 대기, `owner_acknowledged`, 보관, 개인·시험 표본은 기본
+active 보드에서 제외한다. 검색과 `이력·제외` 화면으로 다시 회수할 수 있다.
 
-차단(Blocked) 상태는 차단 사유, 대기(Waiting) 상태는 대기 대상 입력이 강제된다.
+카드는 프로젝트 작은 메타 뒤에 실제 synthetic TASK 제목을 크게 표시한다.
+agent/provider badge는 fixture에서 `observed: true`인 값만 보여 준다. 관찰되지
+않은 값은 badge를 만들지 않고 `UNKNOWN · 추정 안 함`으로 표시한다. worktree도
+실제 연결을 표현하도록 지정한 fixture 카드에만 선택적으로 나타난다.
 
-## 한계 (의도된 것)
+## 데이터와 안전 경계
 
-- 다중 사용자 동시 편집 아님. 데이터는 각 브라우저에 저장된다.
-  공유는 CSV/백업 파일로 하고, 실시간 공유 저장소는 MVP 2 결정 사항이다.
-- Smartsheet API 연동 없음 (MVP 2, owner 결정 후).
-- 실제 회사 프로젝트 데이터를 repo 에 넣지 않는다. 시드는 공개 안전 표본이다.
+- 모든 프로젝트, 책임분야, TASK, agent/provider, pointer, event는 공개 안전
+  synthetic fixture다.
+- 실제 Codex archive/unarchive, ERP writer, 자동 status writer, 외부 backend,
+  network, deployment를 호출하지 않는다.
+- `읽고 확인`은 현재 브라우저 메모리의 synthetic `completed_unread`만
+  `owner_acknowledged`로 바꾸며, 원 TASK pointer를 fixture history event에
+  보존한다. 새로고침하면 초기 fixture로 돌아간다.
+- `막힘`은 blocker reason과 next decision을 유지한 채 active에 남는다.
+
+## 규모·상태 표본
+
+- 10 projects × 15 responsibilities × 책임별 2 TASK
+- 기본 active target subset과 열별 3건 표시 상한
+- project/responsibility/status/search 필터와 열별 더보기
+- empty, error, missing-data, UNKNOWN, multi-agent 상태
+- desktop, tablet, mobile 반응형과 keyboard focus/accessible name/state
 
 ## 실행
 
 ```bash
-npm run ui:team-ops-app:dev       # 개발 서버 (127.0.0.1:4192)
-npm run ui:team-ops-app:build     # 빌드
-npm run ui:team-ops-app:preview   # 빌드 미리보기 (127.0.0.1:4193)
+npm.cmd --prefix ui-workspace run team-ops-app:dev -- --host 127.0.0.1 --port 4192 --strictPort
+npm.cmd --prefix ui-workspace run team-ops-app:build
+npm.cmd --prefix ui-workspace run team-ops-app:test
 ```
+
+로컬 확인 주소는 `http://127.0.0.1:4192/`다.
 
 ## 검증
 
-```bash
-npm run test --workspace @soulforge/team-ops-board   # 코어 로직 node:test (9건)
-npm run ui:build                                     # 전체 UI 빌드에 포함됨
-```
+- pure fixture/transition/scale tests: `src/core/owner-inbox.test.mjs`
+- 기존 MVP 1 core regression tests: `src/core/core.test.mjs`
+- browser evidence: `evidence/`
+- Product Design comparison history와 최종 판정: `design-qa.md`
 
-코어 로직(저장/CSV/기준선/감사)은 의존성 없는 `src/core/*.mjs` 로 분리되어
-브라우저 없이도 node 만으로 검증된다.
+이 결과는 implementer self-check와 browser-rendered design QA를 통과한
+`validated_private` 수준이다. fresh independent acceptance나 production
+연동·배포를 뜻하지 않는다.
