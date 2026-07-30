@@ -1,1421 +1,659 @@
-import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
+import { useMemo, useState } from "react";
 import {
-  AlertTriangle,
-  CalendarDays,
+  AlertCircle,
+  ArchiveRestore,
+  Bell,
+  Bot,
+  Check,
   CheckCircle2,
-  ClipboardList,
-  Columns3,
-  Download,
-  FileText,
+  ChevronRight,
+  CircleHelp,
+  CircleUserRound,
+  Clock3,
+  FileCheck2,
   Filter,
-  Flag,
+  GitBranch,
   History,
-  ListChecks,
-  MessageSquare,
-  Plus,
+  Info,
+  Menu,
+  OctagonAlert,
+  Play,
+  RotateCcw,
   Search,
-  Settings,
-  Upload,
-  UserCircle,
-  Users,
+  ScanSearch,
+  ShieldAlert,
+  UsersRound,
   X
 } from "lucide-react";
 
 import {
-  HEALTH_LABELS_KO,
-  PRIORITIES,
-  PRIORITY_LABELS_KO,
-  PROJECT_HEALTH,
-  STATUSES,
-  STATUS_LABELS_KO,
-  addDaysKey,
-  bucketForItem,
-  requiredNoteField,
-  statusLabel
-} from "./core/model.mjs";
-import {
-  addComment,
-  addItem,
-  makeBackup,
-  restoreBackup,
-  updateItem,
-  upsertPerson,
-  upsertProject
-} from "./core/store.mjs";
-import { exportItemsCsv, importItemsCsv } from "./core/csv.mjs";
-import { baselineSummaryKo, captureBaseline, diffSinceBaseline } from "./core/baseline.mjs";
-import { buildSeedState, loadStoredState, nowIso, saveStoredState, todayKey } from "./storage";
+  DEFAULT_CARD_LIMIT,
+  INBOX_STATUSES,
+  INBOX_STATUS_LABELS,
+  acknowledgeFixtureTask,
+  buildOwnerInboxFixture,
+  selectInboxTasks
+} from "./core/owner-inbox.mjs";
 
-type ViewId = "board" | "projects" | "schedule" | "people" | "settings";
-type RangeFilter = "today" | "week";
-type BucketId = "today" | "blocked" | "due_soon" | "waiting" | "done" | "no_owner";
+type InboxView = "active" | "history";
+type FixtureMode = "normal" | "empty" | "error";
 
-const navItems: Array<{ id: ViewId; label: string; Icon: typeof Columns3 }> = [
-  { id: "board", label: "보드", Icon: Columns3 },
-  { id: "projects", label: "프로젝트", Icon: ClipboardList },
-  { id: "schedule", label: "일정", Icon: CalendarDays },
-  { id: "people", label: "팀원", Icon: Users },
-  { id: "settings", label: "설정", Icon: Settings }
-];
-
-const bucketMeta: Array<{ id: BucketId; label: string; tone: string }> = [
-  { id: "today", label: "오늘", tone: "blue" },
-  { id: "blocked", label: "차단", tone: "red" },
-  { id: "due_soon", label: "마감 임박", tone: "amber" },
-  { id: "waiting", label: "대기", tone: "purple" },
-  { id: "done", label: "완료", tone: "green" },
-  { id: "no_owner", label: "담당 없음", tone: "slate" }
-];
-
-const ERROR_MESSAGES_KO: Record<string, string> = {
-  title_required: "제목을 입력해 주세요.",
-  blocker_reason_required: "차단 상태에는 차단 사유가 필요합니다.",
-  waiting_on_required: "대기 상태에는 대기 대상이 필요합니다.",
-  no_change: "변경된 내용이 없습니다.",
-  comment_empty: "메모 내용을 입력해 주세요.",
-  item_not_found: "항목을 찾을 수 없습니다.",
-  backup_not_json: "백업 파일이 JSON 형식이 아닙니다.",
-  backup_schema_mismatch: "백업 파일의 스키마 버전이 다릅니다.",
-  backup_items_invalid: "백업 파일 안에 잘못된 항목이 있습니다.",
-  project_name_required: "프로젝트 이름을 입력해 주세요.",
-  person_name_required: "팀원 이름을 입력해 주세요."
-};
-
-function errorMessage(code: string | undefined): string {
-  if (!code) {
-    return "알 수 없는 오류";
-  }
-  return ERROR_MESSAGES_KO[code] ?? `처리하지 못했습니다 (${code})`;
-}
-
-interface NewItemForm {
-  title: string;
-  projectId: string;
-  ownerId: string;
-  status: string;
-  priority: string;
-  dueDate: string;
-  nextAction: string;
-  blockerReason: string;
-  waitingOn: string;
-}
+const statusMeta = {
+  in_progress: { label: "진행 중", Icon: Play, hint: "현재 실행 중인 대상" },
+  review_needed: { label: "검토·결정 필요", Icon: ScanSearch, hint: "Owner 또는 검토자의 판단 필요" },
+  blocked: { label: "막힘", Icon: OctagonAlert, hint: "사유와 다음 결정을 유지" },
+  completed_unread: { label: "완료·미확인", Icon: CheckCircle2, hint: "읽고 확인 전까지 표시" }
+} as const;
 
 function App() {
-  const [state, setState] = useState<any>(() => loadStoredState() ?? buildSeedState());
-  const [actor, setActor] = useState("관리자");
-  const [activeView, setActiveView] = useState<ViewId>("board");
-  const [rangeFilter, setRangeFilter] = useState<RangeFilter>("today");
-  const [projectFilter, setProjectFilter] = useState("all");
-  const [ownerFilter, setOwnerFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [fixture, setFixture] = useState<any>(() => buildOwnerInboxFixture());
+  const [view, setView] = useState<InboxView>("active");
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [project, setProject] = useState("all");
+  const [responsibility, setResponsibility] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [fixtureMode, setFixtureMode] = useState<FixtureMode>("normal");
+  const [selectedId, setSelectedId] = useState<string | null>("fixture-aurora-supply");
+  const [limits, setLimits] = useState<Record<string, number>>(
+    Object.fromEntries(INBOX_STATUSES.map((entry: string) => [entry, DEFAULT_CARD_LIMIT]))
+  );
+  const [notice, setNotice] = useState("");
 
-  const today = todayKey();
-  const weekEnd = addDaysKey(today, 6);
+  const maxLimit = Math.max(...Object.values(limits));
+  const selection = useMemo(
+    () =>
+      selectInboxTasks(fixture, {
+        view,
+        query,
+        project,
+        responsibility,
+        status,
+        limit: maxLimit
+      }),
+    [fixture, view, query, project, responsibility, status, maxLimit]
+  );
+  const selectedTask = fixture.tasks.find((task: any) => task.id === selectedId) ?? null;
+  const responsibilityOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          fixture.responsibilities
+            .filter((entry: any) => project === "all" || entry.projectCode === project)
+            .map((entry: any) => entry.responsibility)
+        )
+      ).sort((left, right) => String(left).localeCompare(String(right), "ko")),
+    [fixture.responsibilities, project]
+  );
 
-  useEffect(() => {
-    const saved = saveStoredState(state);
-    if (!saved) {
-      setNotice("브라우저 저장에 실패했습니다. 백업 파일을 내려받아 주세요.");
-    }
-  }, [state]);
+  function resetFilters() {
+    setQuery("");
+    setProject("all");
+    setResponsibility("all");
+    setStatus("all");
+  }
 
-  useEffect(() => {
-    if (!notice) {
+  function acknowledge(taskId: string) {
+    const result = acknowledgeFixtureTask(fixture, {
+      taskId,
+      atKst: "2026-07-31 16:05 KST",
+      actor: "Owner"
+    });
+    if (result.error) {
+      setNotice("완료·미확인 상태만 읽고 확인할 수 있습니다.");
       return;
     }
-    const timer = window.setTimeout(() => setNotice(null), 4000);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
-
-  function runMutation(result: { state: any; error?: string }, successNote?: string): boolean {
-    if (result.error) {
-      setNotice(errorMessage(result.error));
-      return false;
-    }
-    setState(result.state);
-    if (successNote) {
-      setNotice(successNote);
-    }
-    return true;
-  }
-
-  const items = state.items as any[];
-  const selectedItem = items.find((item) => item.id === selectedId) ?? null;
-
-  const filteredItems = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return items.filter((item) => {
-      const inRange =
-        rangeFilter === "today"
-          ? !item.dueDate || item.dueDate <= today || item.status === "blocked" || !item.ownerId
-          : !item.dueDate || item.dueDate <= weekEnd;
-      const inProject = projectFilter === "all" || item.projectId === projectFilter;
-      const inOwner =
-        ownerFilter === "all" || (ownerFilter === "none" ? !item.ownerId : item.ownerId === ownerFilter);
-      const inStatus = statusFilter === "all" || item.status === statusFilter;
-      const project = state.projects.find((entry: any) => entry.id === item.projectId);
-      const owner = state.people.find((entry: any) => entry.id === item.ownerId);
-      const inQuery =
-        !normalizedQuery ||
-        [item.title, item.nextAction, project?.name ?? "", owner?.name ?? "", statusLabel(item.status)]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedQuery);
-      return inRange && inProject && inOwner && inStatus && inQuery;
-    });
-  }, [items, state.projects, state.people, rangeFilter, projectFilter, ownerFilter, statusFilter, query, today, weekEnd]);
-
-  const buckets = useMemo(() => {
-    const groups: Record<BucketId, any[]> = {
-      today: [],
-      blocked: [],
-      due_soon: [],
-      waiting: [],
-      done: [],
-      no_owner: []
-    };
-    for (const item of filteredItems) {
-      groups[bucketForItem(item, today, weekEnd) as BucketId].push(item);
-    }
-    return groups;
-  }, [filteredItems, today, weekEnd]);
-
-  const baselineDiff = useMemo(() => diffSinceBaseline(state), [state]);
-
-  function handleCaptureBaseline() {
-    const baseline = captureBaseline(state, { at: nowIso(), actor });
-    setState({ ...state, baseline });
-    setNotice("오전 기준선을 고정했습니다.");
-  }
-
-  function handleCreateItem(form: NewItemForm) {
-    const ok = runMutation(
-      addItem(state, {
-        at: nowIso(),
-        actor,
-        fields: {
-          ...form,
-          ownerId: form.ownerId === "none" ? null : form.ownerId
-        }
-      }),
-      "항목을 추가했습니다."
-    );
-    if (ok) {
-      setAddOpen(false);
-    }
+    setFixture(result.fixture);
+    setView("history");
+    setNotice("합성 fixture를 읽고 확인했습니다. 원 pointer와 이벤트는 이력에 보존됩니다.");
   }
 
   return (
-    <div className="ops-shell">
-      <aside className="ops-sidebar" aria-label="팀 운영 보드 탐색">
-        <div className="ops-brand">
-          <div className="ops-brand-mark">
-            <ListChecks size={20} aria-hidden="true" />
-          </div>
-          <div>
-            <h1>팀 운영 보드</h1>
-            <p>{formatDateKo(today)}</p>
-          </div>
+    <div className="inbox-app">
+      <a className="inbox-skip-link" href="#inbox-content">
+        본문으로 건너뛰기
+      </a>
+
+      <header className="inbox-topbar">
+        <button className="inbox-icon-button" type="button" aria-label="메뉴 열기" title="메뉴">
+          <Menu size={19} aria-hidden="true" />
+        </button>
+        <div className="inbox-brand">
+          <strong>Owner Action Inbox</strong>
+          <span>Workspace Board</span>
         </div>
-
-        <nav className="ops-nav">
-          {navItems.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              className={`ops-nav-button ${activeView === id ? "is-active" : ""}`}
-              type="button"
-              onClick={() => setActiveView(id)}
-            >
-              <Icon size={18} aria-hidden="true" />
-              <span>{label}</span>
-            </button>
-          ))}
-        </nav>
-
-        <div className="ops-actor">
-          <label>
-            현재 사용자
-            <select value={actor} onChange={(event) => setActor(event.target.value)}>
-              <option value="관리자">관리자</option>
-              {state.people.map((person: any) => (
-                <option key={person.id} value={person.name}>
-                  {person.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </aside>
-
-      <main className="ops-main">
-        <header className="ops-topbar">
-          <div className="ops-title-group">
-            <p className="ops-kicker">일일 운영</p>
-            <h2>{viewTitle(activeView)}</h2>
-          </div>
-
-          <div className="ops-actions">
-            <button className="ops-button" type="button" onClick={handleCaptureBaseline} title="현재 보드를 오전 기준선으로 고정">
-              <Flag size={16} aria-hidden="true" />
-              <span>기준선 고정</span>
-            </button>
-            <span className={`ops-baseline-chip ${baselineDiff && baselineDiff.count > 0 ? "has-change" : ""}`}>
-              {baselineSummaryKo(baselineDiff)}
-            </span>
-            <label className="ops-search">
-              <Search size={16} aria-hidden="true" />
-              <input
-                type="search"
-                placeholder="작업 검색"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-            </label>
-            <button className="ops-button" type="button" onClick={() => setExportOpen(true)}>
-              <Download size={16} aria-hidden="true" />
-              <span>내보내기</span>
-            </button>
-            <button className="ops-button ops-button-primary" type="button" onClick={() => setAddOpen(true)}>
-              <Plus size={16} aria-hidden="true" />
-              <span>항목 추가</span>
-            </button>
-          </div>
-        </header>
-
-        {notice && <div className="ops-notice">{notice}</div>}
-
-        {activeView === "board" && (
-          <BoardView
-            state={state}
-            buckets={buckets}
-            filteredItems={filteredItems}
-            rangeFilter={rangeFilter}
-            projectFilter={projectFilter}
-            ownerFilter={ownerFilter}
-            statusFilter={statusFilter}
-            selectedId={selectedItem?.id}
-            baselineDiff={baselineDiff}
-            onRangeFilterChange={setRangeFilter}
-            onProjectFilterChange={setProjectFilter}
-            onOwnerFilterChange={setOwnerFilter}
-            onStatusFilterChange={setStatusFilter}
-            onSelectItem={(item) => setSelectedId(item.id)}
+        <label className="inbox-search">
+          <Search size={16} aria-hidden="true" />
+          <span className="sr-only">프로젝트, TASK, Agent 검색</span>
+          <input
+            type="search"
+            value={query}
+            placeholder="검색 (프로젝트, TASK, Agent)"
+            onChange={(event) => setQuery(event.target.value)}
           />
-        )}
+          {query && (
+            <button type="button" aria-label="검색어 지우기" onClick={() => setQuery("")}>
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
+        </label>
+        <div className="inbox-synthetic-banner" role="note">
+          <Info size={14} aria-hidden="true" />
+          <span>합성 데이터 · 실제 시스템 미연동 · 2026-07-31 KST</span>
+        </div>
+        <div className="inbox-top-icons">
+          <button type="button" aria-label="알림 예시" title="알림 예시">
+            <Bell size={18} aria-hidden="true" />
+          </button>
+          <button type="button" aria-label="도움말" title="도움말">
+            <CircleHelp size={18} aria-hidden="true" />
+          </button>
+          <span className="inbox-avatar" aria-label="현재 사용자 Owner">
+            O
+          </span>
+        </div>
+      </header>
 
-        {activeView === "projects" && (
-          <ProjectsView state={state} onSelectItem={(item) => { setSelectedId(item.id); setActiveView("board"); }} />
-        )}
-        {activeView === "schedule" && (
-          <ScheduleView state={state} onSelectItem={(item) => { setSelectedId(item.id); setActiveView("board"); }} />
-        )}
-        {activeView === "people" && (
-          <PeopleView state={state} today={today} onSelectItem={(item) => { setSelectedId(item.id); setActiveView("board"); }} />
-        )}
-        {activeView === "settings" && (
-          <SettingsView state={state} actor={actor} runMutation={runMutation} setState={setState} setNotice={setNotice} />
-        )}
+      <section className="inbox-controls" aria-label="보드 필터">
+        <label>
+          <span>프로젝트</span>
+          <select
+            value={project}
+            onChange={(event) => {
+              setProject(event.target.value);
+              setResponsibility("all");
+            }}
+          >
+            <option value="all">전체</option>
+            {fixture.projects.map((entry: any) => (
+              <option key={entry.code} value={entry.code}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>책임분야</span>
+          <select value={responsibility} onChange={(event) => setResponsibility(event.target.value)}>
+            <option value="all">전체</option>
+            {responsibilityOptions.map((entry) => (
+              <option key={String(entry)} value={String(entry)}>
+                {String(entry)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>상태</span>
+          <select value={status} onChange={(event) => setStatus(event.target.value)}>
+            <option value="all">전체 active</option>
+            {INBOX_STATUSES.map((entry: string) => (
+              <option key={entry} value={entry}>
+                {INBOX_STATUS_LABELS[entry as keyof typeof INBOX_STATUS_LABELS]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button className="inbox-text-button" type="button" onClick={resetFilters}>
+          <RotateCcw size={14} aria-hidden="true" />
+          필터 초기화
+        </button>
+        <div className="inbox-view-switch" aria-label="표시 화면">
+          <button
+            type="button"
+            className={view === "active" ? "is-active" : ""}
+            aria-pressed={view === "active"}
+            onClick={() => setView("active")}
+          >
+            <Filter size={14} aria-hidden="true" />
+            Active
+          </button>
+          <button
+            type="button"
+            className={view === "history" ? "is-active" : ""}
+            aria-pressed={view === "history"}
+            onClick={() => setView("history")}
+          >
+            <History size={14} aria-hidden="true" />
+            이력·제외
+          </button>
+        </div>
+      </section>
 
-        {activeView === "board" && selectedItem && (
+      {notice && (
+        <div className="inbox-notice" role="status">
+          <Check size={15} aria-hidden="true" />
+          {notice}
+          <button type="button" aria-label="알림 닫기" onClick={() => setNotice("")}>
+            <X size={14} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
+      <main id="inbox-content" className="inbox-layout">
+        <section className="inbox-workspace" aria-label={view === "active" ? "Owner Action 보드" : "이력과 제외 항목"}>
+          <div className="inbox-scope-row">
+            <div>
+              <strong>{view === "active" ? `Active target ${selection.eligible.length}건` : `회수 가능한 이력·제외 ${selection.eligible.length}건`}</strong>
+              <span>전체 fixture {fixture.projects.length} projects × {fixture.responsibilities.length / fixture.projects.length} responsibilities · {fixture.tasks.length} TASK</span>
+            </div>
+            <label className="inbox-fixture-mode">
+              <span>화면 상태 예시</span>
+              <select
+                value={fixtureMode}
+                onChange={(event) => {
+                  setFixtureMode(event.target.value as FixtureMode);
+                  if (event.target.value !== "normal") {
+                    setSelectedId(null);
+                  }
+                }}
+              >
+                <option value="normal">정상</option>
+                <option value="empty">빈 화면</option>
+                <option value="error">오류</option>
+              </select>
+            </label>
+          </div>
+
+          {fixtureMode === "error" ? (
+            <ErrorState onReset={() => setFixtureMode("normal")} />
+          ) : fixtureMode === "empty" ? (
+            <EmptyState filtered={false} onReset={() => setFixtureMode("normal")} />
+          ) : view === "history" ? (
+            <HistoryView
+              tasks={selection.eligible}
+              events={fixture.history}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onReset={resetFilters}
+            />
+          ) : (
+            <Board
+              selection={selection}
+              limits={limits}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onMore={(statusId) =>
+                setLimits((current) => ({ ...current, [statusId]: current[statusId] + DEFAULT_CARD_LIMIT }))
+              }
+              onReset={resetFilters}
+            />
+          )}
+        </section>
+
+        {selectedTask && (
           <DetailPanel
-            key={selectedItem.id}
-            state={state}
-            item={selectedItem}
-            actor={actor}
-            runMutation={runMutation}
+            task={selectedTask}
             onClose={() => setSelectedId(null)}
+            onAcknowledge={() => acknowledge(selectedTask.id)}
           />
         )}
       </main>
 
-      {addOpen && (
-        <AddItemModal state={state} today={today} onClose={() => setAddOpen(false)} onCreate={handleCreateItem} />
-      )}
-
-      {exportOpen && (
-        <ExportModal state={state} today={today} weekEnd={weekEnd} onClose={() => setExportOpen(false)} />
-      )}
+      <footer className="inbox-footer">
+        <span>fixture/read-only adapter · 새로고침 시 합성 상태 초기화</span>
+        <span>실제 thread·ERP·worktree·provider truth가 아닙니다</span>
+      </footer>
     </div>
   );
 }
 
-function BoardView({
-  state,
-  buckets,
-  filteredItems,
-  rangeFilter,
-  projectFilter,
-  ownerFilter,
-  statusFilter,
+function Board({
+  selection,
+  limits,
   selectedId,
-  baselineDiff,
-  onRangeFilterChange,
-  onProjectFilterChange,
-  onOwnerFilterChange,
-  onStatusFilterChange,
-  onSelectItem
+  onSelect,
+  onMore,
+  onReset
 }: {
-  state: any;
-  buckets: Record<BucketId, any[]>;
-  filteredItems: any[];
-  rangeFilter: RangeFilter;
-  projectFilter: string;
-  ownerFilter: string;
-  statusFilter: string;
-  selectedId: string | undefined;
-  baselineDiff: any;
-  onRangeFilterChange: (value: RangeFilter) => void;
-  onProjectFilterChange: (value: string) => void;
-  onOwnerFilterChange: (value: string) => void;
-  onStatusFilterChange: (value: string) => void;
-  onSelectItem: (item: any) => void;
+  selection: any;
+  limits: Record<string, number>;
+  selectedId: string | null;
+  onSelect: (taskId: string) => void;
+  onMore: (statusId: string) => void;
+  onReset: () => void;
 }) {
-  const recentEvents = (state.audit as any[]).slice(0, 8);
+  if (selection.eligible.length === 0) {
+    return <EmptyState filtered onReset={onReset} />;
+  }
 
   return (
-    <section className="ops-board-shell" aria-label="일일 운영 보드">
-      <div className="ops-board-toolbar">
-        <div className="ops-segmented" aria-label="기간">
-          <button className={rangeFilter === "today" ? "is-selected" : ""} type="button" onClick={() => onRangeFilterChange("today")}>
-            오늘
-          </button>
-          <button className={rangeFilter === "week" ? "is-selected" : ""} type="button" onClick={() => onRangeFilterChange("week")}>
-            이번 주
-          </button>
-        </div>
+    <div className="inbox-board">
+      {INBOX_STATUSES.map((statusId: string) => {
+        const meta = statusMeta[statusId as keyof typeof statusMeta];
+        const group = selection.grouped[statusId];
+        const visible = group.all.slice(0, limits[statusId]);
+        const Icon = meta.Icon;
 
-        <label className="ops-filter-select">
-          <Filter size={16} aria-hidden="true" />
-          <select value={projectFilter} onChange={(event) => onProjectFilterChange(event.target.value)}>
-            <option value="all">전체 프로젝트</option>
-            {state.projects.map((project: any) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="ops-filter-select">
-          <UserCircle size={16} aria-hidden="true" />
-          <select value={ownerFilter} onChange={(event) => onOwnerFilterChange(event.target.value)}>
-            <option value="all">전체 담당</option>
-            <option value="none">담당 없음</option>
-            {state.people.map((person: any) => (
-              <option key={person.id} value={person.id}>
-                {person.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="ops-filter-select">
-          <ListChecks size={16} aria-hidden="true" />
-          <select value={statusFilter} onChange={(event) => onStatusFilterChange(event.target.value)}>
-            <option value="all">전체 상태</option>
-            {STATUSES.map((status: string) => (
-              <option key={status} value={status}>
-                {STATUS_LABELS_KO[status as keyof typeof STATUS_LABELS_KO]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="ops-metrics" aria-label="보드 집계">
-        {bucketMeta.map((bucket) => (
-          <div className={`ops-metric ops-tone-${bucket.tone}`} key={bucket.id}>
-            <span>{bucket.label}</span>
-            <strong>{buckets[bucket.id].length}</strong>
-          </div>
-        ))}
-      </div>
-
-      <div className="ops-board-grid">
-        {bucketMeta.map((bucket) => (
-          <section className="ops-column" key={bucket.id}>
-            <header>
-              <span className={`ops-dot ops-tone-${bucket.tone}`} aria-hidden="true" />
-              <h3>{bucket.label}</h3>
-              <strong>{buckets[bucket.id].length}</strong>
+        return (
+          <section className={`inbox-column inbox-column-${statusId}`} key={statusId} aria-labelledby={`column-${statusId}`}>
+            <header className="inbox-column-header">
+              <Icon size={18} aria-hidden="true" />
+              <h2 id={`column-${statusId}`}>{meta.label}</h2>
+              <span aria-label={`${group.total}건`}>{group.total}</span>
             </header>
-            <div className="ops-column-list">
-              {buckets[bucket.id].map((item) => (
-                <WorkItemCard
-                  key={item.id}
-                  state={state}
-                  item={item}
-                  selected={item.id === selectedId}
-                  onSelect={() => onSelectItem(item)}
+            <p className="inbox-column-hint">{meta.hint}</p>
+            <div className="inbox-card-list">
+              {visible.map((task: any) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  selected={selectedId === task.id}
+                  onSelect={() => onSelect(task.id)}
                 />
               ))}
-              {buckets[bucket.id].length === 0 && <div className="ops-empty-line">항목 없음</div>}
+              {group.total === 0 && <div className="inbox-column-empty">대상 없음</div>}
             </div>
+            {group.total > visible.length && (
+              <button className="inbox-more-button" type="button" onClick={() => onMore(statusId)}>
+                더보기 {group.total - visible.length}건
+              </button>
+            )}
           </section>
-        ))}
-      </div>
-
-      <div className="ops-board-lower">
-        <section className="ops-recent" aria-label="최근 변경">
-          <h4>
-            <History size={16} aria-hidden="true" />
-            최근 변경
-          </h4>
-          {recentEvents.length === 0 && <div className="ops-empty-line">아직 변경 기록이 없습니다</div>}
-          {recentEvents.map((event: any) => (
-            <div className="ops-recent-row" key={event.id}>
-              <span className="ops-recent-time">{formatTimeKo(event.at)}</span>
-              <span className="ops-recent-actor">{event.actor}</span>
-              <span className="ops-recent-summary">
-                {event.summary}
-                {event.field && event.from !== null && event.to !== null && (
-                  <em>
-                    {String(event.from || "없음")} → {String(event.to || "없음")}
-                  </em>
-                )}
-              </span>
-            </div>
-          ))}
-        </section>
-
-        <section className="ops-recent" aria-label="기준선 대비 변경">
-          <h4>
-            <Flag size={16} aria-hidden="true" />
-            기준선 대비
-          </h4>
-          {!baselineDiff && <div className="ops-empty-line">기준선이 아직 없습니다. 아침 회의에서 고정하세요.</div>}
-          {baselineDiff && baselineDiff.count === 0 && <div className="ops-empty-line">기준선 이후 변경 없음</div>}
-          {baselineDiff &&
-            baselineDiff.changed.slice(0, 5).map((entry: any) => (
-              <div className="ops-recent-row" key={entry.id}>
-                <span className="ops-recent-summary">
-                  {entry.title}
-                  {entry.fields.slice(0, 2).map((field: any) => (
-                    <em key={field.field}>
-                      {field.label}: {field.from || "없음"} → {field.to || "없음"}
-                    </em>
-                  ))}
-                </span>
-              </div>
-            ))}
-          {baselineDiff && baselineDiff.added.length > 0 && (
-            <div className="ops-recent-row">
-              <span className="ops-recent-summary">기준선 이후 추가 {baselineDiff.added.length}건</span>
-            </div>
-          )}
-        </section>
-      </div>
-
-      <div className="ops-board-footer">표시 중인 작업 {filteredItems.length}건</div>
-    </section>
+        );
+      })}
+    </div>
   );
 }
 
-function WorkItemCard({ state, item, selected, onSelect }: { state: any; item: any; selected: boolean; onSelect: () => void }) {
-  const project = state.projects.find((entry: any) => entry.id === item.projectId);
-  const owner = state.people.find((entry: any) => entry.id === item.ownerId);
-
+function TaskCard({ task, selected, onSelect }: { task: any; selected: boolean; onSelect: () => void }) {
   return (
-    <button className={`ops-work-card ${selected ? "is-selected" : ""}`} type="button" onClick={onSelect}>
-      <span className={`ops-priority ops-priority-${priorityClass(item.priority)}`}>
-        {PRIORITY_LABELS_KO[item.priority as keyof typeof PRIORITY_LABELS_KO] ?? item.priority}
+    <button
+      className={`inbox-task-card ${selected ? "is-selected" : ""}`}
+      type="button"
+      aria-pressed={selected}
+      aria-label={`${task.project}, ${task.title}, ${INBOX_STATUS_LABELS[task.status as keyof typeof INBOX_STATUS_LABELS]}`}
+      onClick={onSelect}
+    >
+      <span className="inbox-card-meta">
+        <span>{task.project}</span>
+        <span>{task.responsibility || "책임분야 미관찰"}</span>
       </span>
-      <strong>{item.title}</strong>
-      <span className="ops-work-meta">
-        <span style={{ "--project-color": project?.color ?? "#0e7490" } as CSSProperties}>{project?.code ?? "?"}</span>
-        <span>{item.dueDate ? formatDateKo(item.dueDate) : "마감 없음"}</span>
-        {item.nextAction && <span>{item.nextAction}</span>}
+      <strong>
+        <FileCheck2 size={15} aria-hidden="true" />
+        {task.title}
+      </strong>
+      <span className="inbox-card-route">{task.route || "route 미관찰 · UNKNOWN"}</span>
+      <ProviderRow task={task} />
+      <span className="inbox-card-people">
+        <span>책임 {task.owner}</span>
+        <span>검토 {task.reviewer}</span>
       </span>
-      <span className="ops-work-owner">
-        <Avatar person={owner} />
-        <span>{owner?.name ?? "담당 없음"}</span>
+      {task.status === "blocked" && (
+        <span className="inbox-card-alert">
+          <AlertCircle size={13} aria-hidden="true" />
+          {task.blockerReason}
+        </span>
+      )}
+      {task.status === "completed_unread" && <span className="inbox-complete-chip">완료 미확인</span>}
+      <span className="inbox-card-footer">
+        <Clock3 size={12} aria-hidden="true" />
+        {task.lastActivityKst}
+        <ChevronRight size={13} aria-hidden="true" />
       </span>
     </button>
   );
 }
 
-function DetailPanel({
-  state,
-  item,
-  actor,
-  runMutation,
-  onClose
-}: {
-  state: any;
-  item: any;
-  actor: string;
-  runMutation: (result: { state: any; error?: string }, successNote?: string) => boolean;
-  onClose: () => void;
-}) {
-  const [pendingStatus, setPendingStatus] = useState<string>(item.status);
-  const [pendingReason, setPendingReason] = useState("");
-  const [nextActionDraft, setNextActionDraft] = useState(item.nextAction ?? "");
-  const [commentDraft, setCommentDraft] = useState("");
-
-  const owner = state.people.find((entry: any) => entry.id === item.ownerId);
-  const project = state.projects.find((entry: any) => entry.id === item.projectId);
-  const reasonField = requiredNoteField(pendingStatus);
-  const reasonRequired = reasonField !== null && pendingStatus !== item.status;
-  const applyDisabled = pendingStatus === item.status || (reasonRequired && !pendingReason.trim());
-  const itemEvents = (state.audit as any[]).filter((event) => event.itemId === item.id).slice(0, 8);
-
-  function applyStatus() {
-    const patch: Record<string, string> = { status: pendingStatus };
-    if (reasonField) {
-      patch[reasonField] = pendingReason.trim() || item[reasonField] || "";
-    }
-    const ok = runMutation(
-      updateItem(state, { at: nowIso(), actor, itemId: item.id, patch, note: pendingReason.trim() || "" }),
-      "상태를 변경했습니다."
-    );
-    if (ok) {
-      setPendingReason("");
-    }
-  }
-
-  function applyField(field: string, value: string | null) {
-    runMutation(updateItem(state, { at: nowIso(), actor, itemId: item.id, patch: { [field]: value } }));
-  }
-
-  function saveNextAction() {
-    runMutation(
-      updateItem(state, { at: nowIso(), actor, itemId: item.id, patch: { nextAction: nextActionDraft.trim() } }),
-      "다음 행동을 저장했습니다."
-    );
-  }
-
-  function submitComment() {
-    const ok = runMutation(addComment(state, { at: nowIso(), actor, itemId: item.id, message: commentDraft }));
-    if (ok) {
-      setCommentDraft("");
-    }
-  }
-
-  return (
-    <aside className="ops-detail" aria-label="선택한 작업 상세">
-      <div className="ops-detail-heading">
-        <span className={`ops-priority ops-priority-${priorityClass(item.priority)}`}>
-          {PRIORITY_LABELS_KO[item.priority as keyof typeof PRIORITY_LABELS_KO] ?? item.priority}
-        </span>
-        <h3>{item.title}</h3>
-        <StatusBadge status={item.status} />
-        <button className="ops-icon-button" type="button" onClick={onClose} aria-label="상세 닫기" title="닫기">
-          <X size={16} aria-hidden="true" />
-        </button>
-      </div>
-
-      <dl className="ops-detail-grid">
-        <div>
-          <dt>프로젝트</dt>
-          <dd>{project?.name ?? "-"}</dd>
-        </div>
-        <div>
-          <dt>마감</dt>
-          <dd>{item.dueDate ? formatDateKo(item.dueDate) : "없음"}</dd>
-        </div>
-        <div>
-          <dt>담당</dt>
-          <dd>{owner?.name ?? "담당 없음"}</dd>
-        </div>
-        <div>
-          <dt>최근 갱신</dt>
-          <dd>
-            {item.lastUpdate ? `${formatTimeKo(item.lastUpdate.at)} · ${item.lastUpdate.by}` : "-"}
-          </dd>
-        </div>
-      </dl>
-
-      {item.status === "blocked" && item.blockerReason && (
-        <div className="ops-status-note">
-          <AlertTriangle size={16} aria-hidden="true" />
-          <span>차단 사유: {item.blockerReason}</span>
-        </div>
-      )}
-      {item.status === "waiting" && item.waitingOn && (
-        <div className="ops-status-note">
-          <AlertTriangle size={16} aria-hidden="true" />
-          <span>대기 대상: {item.waitingOn}</span>
-        </div>
-      )}
-
-      <div className="ops-field-group">
-        <label>
-          담당자
-          <select value={item.ownerId ?? "none"} onChange={(event) => applyField("ownerId", event.target.value === "none" ? null : event.target.value)}>
-            <option value="none">담당 없음</option>
-            {state.people.map((person: any) => (
-              <option key={person.id} value={person.id}>
-                {person.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          마감일
-          <input type="date" value={item.dueDate ?? ""} onChange={(event) => applyField("dueDate", event.target.value)} />
-        </label>
-
-        <label>
-          우선순위
-          <select value={item.priority} onChange={(event) => applyField("priority", event.target.value)}>
-            {PRIORITIES.map((priority: string) => (
-              <option key={priority} value={priority}>
-                {PRIORITY_LABELS_KO[priority as keyof typeof PRIORITY_LABELS_KO]}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          상태
-          <select value={pendingStatus} onChange={(event) => setPendingStatus(event.target.value)}>
-            {STATUSES.map((status: string) => (
-              <option key={status} value={status}>
-                {STATUS_LABELS_KO[status as keyof typeof STATUS_LABELS_KO]}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {reasonRequired && (
-          <label>
-            {reasonField === "blockerReason" ? "차단 사유 (필수)" : "대기 대상 (필수)"}
-            <textarea value={pendingReason} onChange={(event) => setPendingReason(event.target.value)} rows={3} />
-          </label>
-        )}
-
-        <button className="ops-button ops-button-primary" type="button" disabled={applyDisabled} onClick={applyStatus}>
-          <CheckCircle2 size={16} aria-hidden="true" />
-          <span>상태 적용</span>
-        </button>
-
-        <label>
-          다음 행동
-          <input value={nextActionDraft} onChange={(event) => setNextActionDraft(event.target.value)} placeholder="한 문장으로" />
-        </label>
-        <button className="ops-button" type="button" disabled={nextActionDraft.trim() === (item.nextAction ?? "")} onClick={saveNextAction}>
-          다음 행동 저장
-        </button>
-      </div>
-
-      <div className="ops-comments">
-        <h4>
-          <MessageSquare size={16} aria-hidden="true" />
-          메모
-        </h4>
-        <div className="ops-comment-list">
-          {item.comments.map((comment: any, index: number) => (
-            <div className="ops-comment" key={`${comment.author}-${comment.at}-${index}`}>
-              <strong>{comment.author}</strong>
-              <span>{formatTimeKo(comment.at)}</span>
-              <p>{comment.message}</p>
-            </div>
-          ))}
-          {item.comments.length === 0 && <div className="ops-empty-line">메모 없음</div>}
-        </div>
-        <div className="ops-comment-box">
-          <textarea value={commentDraft} onChange={(event) => setCommentDraft(event.target.value)} rows={3} />
-          <button className="ops-button" type="button" disabled={!commentDraft.trim()} onClick={submitComment}>
-            <MessageSquare size={16} aria-hidden="true" />
-            <span>메모 추가</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="ops-comments">
-        <h4>
-          <History size={16} aria-hidden="true" />
-          변경 이력
-        </h4>
-        <div className="ops-comment-list">
-          {itemEvents.map((event: any) => (
-            <div className="ops-comment" key={event.id}>
-              <strong>{event.actor}</strong>
-              <span>{formatTimeKo(event.at)}</span>
-              <p>
-                {event.summary}
-                {event.field && (
-                  <>
-                    {" "}
-                    ({String(event.from || "없음")} → {String(event.to || "없음")})
-                  </>
-                )}
-              </p>
-            </div>
-          ))}
-          {itemEvents.length === 0 && <div className="ops-empty-line">기록 없음</div>}
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function ProjectsView({ state, onSelectItem }: { state: any; onSelectItem: (item: any) => void }) {
-  return (
-    <section className="ops-view-panel">
-      <div className="ops-section-header">
-        <h3>프로젝트 현황</h3>
-        <span>{state.projects.length}개 진행 중</span>
-      </div>
-      <div className="ops-project-grid">
-        {state.projects.map((project: any) => {
-          const projectItems = (state.items as any[]).filter((item) => item.projectId === project.id);
-          const blocked = projectItems.filter((item) => item.status === "blocked").length;
-          const open = projectItems.filter((item) => item.status !== "done").length;
-
-          return (
-            <section className="ops-project-card" key={project.id}>
-              <header>
-                <span style={{ background: project.color }} aria-hidden="true" />
-                <div>
-                  <h4>{project.name}</h4>
-                  <p>{project.currentGoal || "목표 미입력"}</p>
-                </div>
-                <span className={`ops-health ops-health-${project.health}`}>
-                  {HEALTH_LABELS_KO[project.health as keyof typeof HEALTH_LABELS_KO] ?? project.health}
-                </span>
-              </header>
-              <div className="ops-project-stats">
-                <span>미완료 {open}</span>
-                <span>차단 {blocked}</span>
-                <span>다음 관문: {project.nextGate || "-"}</span>
-                <span>목표일: {project.targetDate ? formatDateKo(project.targetDate) : "-"}</span>
-              </div>
-              <div className="ops-table-list">
-                {projectItems.slice(0, 5).map((item) => (
-                  <button key={item.id} type="button" onClick={() => onSelectItem(item)}>
-                    <span>{item.title}</span>
-                    <StatusBadge status={item.status} />
-                  </button>
-                ))}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function ScheduleView({ state, onSelectItem }: { state: any; onSelectItem: (item: any) => void }) {
-  const items = state.items as any[];
-  const dated = items.filter((item) => item.dueDate);
-  const undated = items.filter((item) => !item.dueDate);
-  const days = groupBy(dated, (item: any) => item.dueDate).sort(([left], [right]) => left.localeCompare(right));
-
-  return (
-    <section className="ops-view-panel">
-      <div className="ops-section-header">
-        <h3>일정</h3>
-        <span>계획된 작업 {items.length}건</span>
-      </div>
-      <div className="ops-schedule-list">
-        {days.map(([day, dayItems]) => (
-          <section className="ops-schedule-day" key={day}>
-            <header>
-              <CalendarDays size={18} aria-hidden="true" />
-              <h4>{formatDateKo(day)}</h4>
-              <span>{dayItems.length}</span>
-            </header>
-            {dayItems.map((item: any) => (
-              <button key={item.id} type="button" onClick={() => onSelectItem(item)}>
-                <span>{item.title}</span>
-                <span>{state.projects.find((entry: any) => entry.id === item.projectId)?.code ?? "?"}</span>
-                <StatusBadge status={item.status} />
-              </button>
-            ))}
-          </section>
-        ))}
-        {undated.length > 0 && (
-          <section className="ops-schedule-day">
-            <header>
-              <CalendarDays size={18} aria-hidden="true" />
-              <h4>마감 미정</h4>
-              <span>{undated.length}</span>
-            </header>
-            {undated.map((item: any) => (
-              <button key={item.id} type="button" onClick={() => onSelectItem(item)}>
-                <span>{item.title}</span>
-                <span>{state.projects.find((entry: any) => entry.id === item.projectId)?.code ?? "?"}</span>
-                <StatusBadge status={item.status} />
-              </button>
-            ))}
-          </section>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function PeopleView({ state, today, onSelectItem }: { state: any; today: string; onSelectItem: (item: any) => void }) {
-  return (
-    <section className="ops-view-panel">
-      <div className="ops-section-header">
-        <h3>팀원</h3>
-        <span>{state.people.length}명</span>
-      </div>
-      <div className="ops-people-table">
-        {state.people.map((person: any) => {
-          const personItems = (state.items as any[]).filter((item) => item.ownerId === person.id);
-          const blocked = personItems.filter((item) => item.status === "blocked").length;
-          const dueToday = personItems.filter((item) => item.dueDate === today && item.status !== "done").length;
-          const open = personItems.filter((item) => item.status !== "done");
-
-          return (
-            <section className="ops-person-row" key={person.id}>
-              <Avatar person={person} />
-              <div>
-                <h4>{person.name}</h4>
-                <p>{person.role || "-"}</p>
-              </div>
-              <strong>미완료 {open.length}</strong>
-              <span>오늘 {dueToday}</span>
-              <span>차단 {blocked}</span>
-              <button type="button" onClick={() => open[0] && onSelectItem(open[0])} disabled={!open[0]}>
-                보기
-              </button>
-            </section>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function SettingsView({
-  state,
-  actor,
-  runMutation,
-  setState,
-  setNotice
-}: {
-  state: any;
-  actor: string;
-  runMutation: (result: { state: any; error?: string }, successNote?: string) => boolean;
-  setState: (state: any) => void;
-  setNotice: (notice: string | null) => void;
-}) {
-  const [projectForm, setProjectForm] = useState({ name: "", code: "", health: "ok", currentGoal: "", nextGate: "", targetDate: "" });
-  const [personForm, setPersonForm] = useState({ name: "", role: "" });
-  const [importReport, setImportReport] = useState<string | null>(null);
-
-  function downloadCsv() {
-    downloadFile(`team-ops-items-${todayKey()}.csv`, exportItemsCsv(state), "text/csv;charset=utf-8");
-    setNotice("CSV 파일을 내려받았습니다.");
-  }
-
-  function downloadBackup() {
-    downloadFile(`team-ops-backup-${todayKey()}.json`, makeBackup(state, { at: nowIso(), actor }), "application/json");
-    setNotice("백업 파일을 내려받았습니다.");
-  }
-
-  async function handleCsvImport(file: File) {
-    const raw = await file.text();
-    const result = importItemsCsv(state, { raw, at: nowIso(), actor });
-    setState(result.state);
-    const errorLines = result.errors.map((entry: any) => `${entry.line}행: ${errorMessage(entry.error)}${entry.value ? ` (${entry.value})` : ""}`);
-    setImportReport(
-      [`가져오기 완료 - 추가 ${result.imported}건, 갱신 ${result.updated}건, 오류 ${result.errors.length}건`, ...errorLines].join("\n")
-    );
-  }
-
-  async function handleRestore(file: File) {
-    const raw = await file.text();
-    const ok = runMutation(restoreBackup(state, { at: nowIso(), actor, raw }), "백업을 복원했습니다.");
-    if (!ok) {
-      setImportReport("백업 복원에 실패했습니다. 파일을 확인해 주세요.");
-    }
-  }
-
-  function resetToSeed() {
-    if (window.confirm("모든 데이터를 지우고 표본 데이터로 초기화할까요? 먼저 백업을 내려받는 것을 권장합니다.")) {
-      setState(buildSeedState());
-      setNotice("표본 데이터로 초기화했습니다.");
-    }
-  }
-
-  function submitProject() {
-    const ok = runMutation(upsertProject(state, { at: nowIso(), actor, project: projectForm }), "프로젝트를 추가했습니다.");
-    if (ok) {
-      setProjectForm({ name: "", code: "", health: "ok", currentGoal: "", nextGate: "", targetDate: "" });
-    }
-  }
-
-  function submitPerson() {
-    const ok = runMutation(upsertPerson(state, { at: nowIso(), actor, person: personForm }), "팀원을 추가했습니다.");
-    if (ok) {
-      setPersonForm({ name: "", role: "" });
-    }
-  }
-
-  return (
-    <section className="ops-view-panel">
-      <div className="ops-section-header">
-        <h3>설정</h3>
-        <span>보드 v1 (로컬 저장)</span>
-      </div>
-
-      <div className="ops-settings-stack">
-        <section className="ops-settings-card">
-          <h4>데이터 관리</h4>
-          <p className="ops-settings-hint">
-            이 보드는 이 브라우저에만 저장됩니다. 공식 프로젝트 장부(Smartsheet)와는 주간 CSV 내보내기로 대조하고,
-            중요한 시점마다 백업 파일을 내려받아 두세요.
-          </p>
-          <div className="ops-settings-actions">
-            <button className="ops-button" type="button" onClick={downloadCsv}>
-              <Download size={16} aria-hidden="true" />
-              <span>CSV 내보내기</span>
-            </button>
-            <label className="ops-button ops-file-button">
-              <Upload size={16} aria-hidden="true" />
-              <span>CSV 가져오기</span>
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    void handleCsvImport(file);
-                  }
-                  event.target.value = "";
-                }}
-              />
-            </label>
-            <button className="ops-button" type="button" onClick={downloadBackup}>
-              <Download size={16} aria-hidden="true" />
-              <span>백업(JSON) 내려받기</span>
-            </button>
-            <label className="ops-button ops-file-button">
-              <Upload size={16} aria-hidden="true" />
-              <span>백업 복원</span>
-              <input
-                type="file"
-                accept=".json,application/json"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    void handleRestore(file);
-                  }
-                  event.target.value = "";
-                }}
-              />
-            </label>
-            <button className="ops-button" type="button" onClick={resetToSeed}>
-              표본 데이터로 초기화
-            </button>
-          </div>
-          {importReport && <pre className="ops-import-report">{importReport}</pre>}
-        </section>
-
-        <section className="ops-settings-card">
-          <h4>프로젝트 관리</h4>
-          <div className="ops-manage-list">
-            {state.projects.map((project: any) => (
-              <div className="ops-manage-row" key={project.id}>
-                <span className="ops-manage-name">{project.name}</span>
-                <select
-                  value={project.health}
-                  onChange={(event) =>
-                    runMutation(
-                      upsertProject(state, { at: nowIso(), actor, project: { ...project, health: event.target.value } })
-                    )
-                  }
-                >
-                  {PROJECT_HEALTH.map((health: string) => (
-                    <option key={health} value={health}>
-                      {HEALTH_LABELS_KO[health as keyof typeof HEALTH_LABELS_KO]}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={project.nextGate}
-                  placeholder="다음 관문"
-                  onChange={(event) =>
-                    runMutation(
-                      upsertProject(state, { at: nowIso(), actor, project: { ...project, nextGate: event.target.value } })
-                    )
-                  }
-                />
-              </div>
-            ))}
-          </div>
-          <div className="ops-manage-form">
-            <input
-              value={projectForm.name}
-              placeholder="새 프로젝트 이름"
-              onChange={(event) => setProjectForm({ ...projectForm, name: event.target.value })}
-            />
-            <input
-              value={projectForm.code}
-              placeholder="코드 (예: GTW)"
-              onChange={(event) => setProjectForm({ ...projectForm, code: event.target.value })}
-            />
-            <button className="ops-button" type="button" disabled={!projectForm.name.trim()} onClick={submitProject}>
-              <Plus size={16} aria-hidden="true" />
-              <span>프로젝트 추가</span>
-            </button>
-          </div>
-        </section>
-
-        <section className="ops-settings-card">
-          <h4>팀원 관리</h4>
-          <div className="ops-manage-list">
-            {state.people.map((person: any) => (
-              <div className="ops-manage-row" key={person.id}>
-                <span className="ops-manage-name">{person.name}</span>
-                <input
-                  value={person.role}
-                  placeholder="역할"
-                  onChange={(event) =>
-                    runMutation(upsertPerson(state, { at: nowIso(), actor, person: { ...person, role: event.target.value } }))
-                  }
-                />
-              </div>
-            ))}
-          </div>
-          <div className="ops-manage-form">
-            <input
-              value={personForm.name}
-              placeholder="새 팀원 이름"
-              onChange={(event) => setPersonForm({ ...personForm, name: event.target.value })}
-            />
-            <input
-              value={personForm.role}
-              placeholder="역할"
-              onChange={(event) => setPersonForm({ ...personForm, role: event.target.value })}
-            />
-            <button className="ops-button" type="button" disabled={!personForm.name.trim()} onClick={submitPerson}>
-              <Plus size={16} aria-hidden="true" />
-              <span>팀원 추가</span>
-            </button>
-          </div>
-        </section>
-      </div>
-    </section>
-  );
-}
-
-function AddItemModal({
-  state,
-  today,
-  onClose,
-  onCreate
-}: {
-  state: any;
-  today: string;
-  onClose: () => void;
-  onCreate: (form: NewItemForm) => void;
-}) {
-  const [form, setForm] = useState<NewItemForm>({
-    title: "",
-    projectId: state.projects[0]?.id ?? "",
-    ownerId: state.people[0]?.id ?? "none",
-    status: "todo",
-    priority: "normal",
-    dueDate: today,
-    nextAction: "",
-    blockerReason: "",
-    waitingOn: ""
-  });
-
-  const reasonField = requiredNoteField(form.status);
-  const createDisabled =
-    !form.title.trim() || (reasonField === "blockerReason" && !form.blockerReason.trim()) || (reasonField === "waitingOn" && !form.waitingOn.trim());
-
-  return (
-    <div className="ops-modal-backdrop" role="presentation">
-      <section className="ops-modal" role="dialog" aria-modal="true" aria-label="작업 항목 추가">
-        <header>
-          <h3>작업 항목 추가</h3>
-          <button className="ops-icon-button" type="button" onClick={onClose} aria-label="추가 닫기" title="닫기">
-            <X size={18} aria-hidden="true" />
-          </button>
-        </header>
-        <label>
-          제목
-          <input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
-        </label>
-        <div className="ops-form-grid">
-          <label>
-            프로젝트
-            <select value={form.projectId} onChange={(event) => setForm({ ...form, projectId: event.target.value })}>
-              {state.projects.map((project: any) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            담당자
-            <select value={form.ownerId} onChange={(event) => setForm({ ...form, ownerId: event.target.value })}>
-              <option value="none">담당 없음</option>
-              {state.people.map((person: any) => (
-                <option key={person.id} value={person.id}>
-                  {person.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            상태
-            <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
-              {STATUSES.map((status: string) => (
-                <option key={status} value={status}>
-                  {STATUS_LABELS_KO[status as keyof typeof STATUS_LABELS_KO]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            우선순위
-            <select value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
-              {PRIORITIES.map((priority: string) => (
-                <option key={priority} value={priority}>
-                  {PRIORITY_LABELS_KO[priority as keyof typeof PRIORITY_LABELS_KO]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            마감일
-            <input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} />
-          </label>
-          <label>
-            다음 행동
-            <input value={form.nextAction} onChange={(event) => setForm({ ...form, nextAction: event.target.value })} placeholder="한 문장으로" />
-          </label>
-        </div>
-        {reasonField === "blockerReason" && (
-          <label>
-            차단 사유 (필수)
-            <textarea value={form.blockerReason} onChange={(event) => setForm({ ...form, blockerReason: event.target.value })} rows={2} />
-          </label>
-        )}
-        {reasonField === "waitingOn" && (
-          <label>
-            대기 대상 (필수)
-            <textarea value={form.waitingOn} onChange={(event) => setForm({ ...form, waitingOn: event.target.value })} rows={2} />
-          </label>
-        )}
-        <footer>
-          <button className="ops-button" type="button" onClick={onClose}>
-            취소
-          </button>
-          <button className="ops-button ops-button-primary" type="button" disabled={createDisabled} onClick={() => onCreate(form)}>
-            <Plus size={16} aria-hidden="true" />
-            <span>추가</span>
-          </button>
-        </footer>
-      </section>
-    </div>
-  );
-}
-
-function ExportModal({
-  state,
-  today,
-  weekEnd,
-  onClose
-}: {
-  state: any;
-  today: string;
-  weekEnd: string;
-  onClose: () => void;
-}) {
-  const [format, setFormat] = useState<"text" | "csv">("text");
-  const summary = useMemo(() => buildWeeklySummaryKo(state, today, weekEnd), [state, today, weekEnd]);
-  const content = format === "text" ? summary.text : summary.csv;
-
-  return (
-    <div className="ops-modal-backdrop" role="presentation">
-      <section className="ops-modal ops-export-modal" role="dialog" aria-modal="true" aria-label="주간 요약 내보내기">
-        <header>
-          <h3>주간 요약 내보내기</h3>
-          <button className="ops-icon-button" type="button" onClick={onClose} aria-label="내보내기 닫기" title="닫기">
-            <X size={18} aria-hidden="true" />
-          </button>
-        </header>
-        <div className="ops-segmented" aria-label="내보내기 형식">
-          <button className={format === "text" ? "is-selected" : ""} type="button" onClick={() => setFormat("text")}>
-            <FileText size={16} aria-hidden="true" />
-            텍스트
-          </button>
-          <button className={format === "csv" ? "is-selected" : ""} type="button" onClick={() => setFormat("csv")}>
-            <FileText size={16} aria-hidden="true" />
-            CSV
-          </button>
-        </div>
-        <textarea readOnly value={content} rows={14} />
-        <footer>
-          <button
-            className="ops-button"
-            type="button"
-            onClick={() => {
-              void navigator.clipboard?.writeText(content);
-            }}
-          >
-            클립보드 복사
-          </button>
-          <button
-            className="ops-button ops-button-primary"
-            type="button"
-            onClick={() =>
-              downloadFile(
-                `team-ops-weekly-${today}.${format === "text" ? "txt" : "csv"}`,
-                format === "csv" ? "﻿" + content : content,
-                format === "csv" ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8"
-              )
-            }
-          >
-            <Download size={16} aria-hidden="true" />
-            <span>파일로 내려받기</span>
-          </button>
-        </footer>
-      </section>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  return <span className={`ops-status ops-status-${statusClass(status)}`}>{statusLabel(status)}</span>;
-}
-
-function Avatar({ person }: { person: any | null | undefined }) {
-  if (!person) {
+function ProviderRow({ task }: { task: any }) {
+  if (task.agentState !== "observed" || task.providers.length === 0) {
     return (
-      <span className="ops-avatar ops-avatar-empty">
-        <UserCircle size={18} aria-hidden="true" />
+      <span className="inbox-agent-unknown">
+        <AlertCircle size={12} aria-hidden="true" />
+        Agent/provider UNKNOWN · 추정 안 함
       </span>
     );
   }
 
   return (
-    <span className="ops-avatar" style={{ "--avatar-color": person.color } as CSSProperties}>
-      {String(person.name).slice(0, 2)}
+    <span className="inbox-provider-row" aria-label={`관찰된 agent ${task.providers.length}개`}>
+      {task.providers.map((entry: any) => (
+        <span className="inbox-provider-badge" key={`${entry.agent}-${entry.provider}`}>
+          <Bot size={12} aria-hidden="true" />
+          {entry.agent}/{entry.provider}
+        </span>
+      ))}
+      {task.providers.length > 1 && (
+        <span className="inbox-multi-badge">
+          <UsersRound size={12} aria-hidden="true" />
+          복수 agent
+        </span>
+      )}
     </span>
   );
 }
 
-function statusClass(status: string) {
-  return {
-    todo: "queued",
-    doing: "in_progress",
-    waiting: "waiting",
-    blocked: "blocked",
-    done: "done"
-  }[status] ?? "queued";
-}
+function DetailPanel({
+  task,
+  onClose,
+  onAcknowledge
+}: {
+  task: any;
+  onClose: () => void;
+  onAcknowledge: () => void;
+}) {
+  const statusLabel =
+    INBOX_STATUS_LABELS[task.status as keyof typeof INBOX_STATUS_LABELS] ?? task.status;
+  const panelTitle =
+    task.status === "blocked" || task.status === "review_needed"
+      ? "Owner 판단 필요"
+      : task.status === "completed_unread"
+        ? "완료 결과 확인"
+        : task.status === "owner_acknowledged"
+          ? "이력 상세"
+          : statusLabel;
 
-function priorityClass(priority: string) {
-  return { high: "p0", normal: "p1", low: "p2" }[priority] ?? "p1";
-}
+  return (
+    <aside className={`inbox-detail inbox-detail-${task.status}`} aria-label="선택한 TASK 상세">
+      <header>
+        <div>
+          <span className="inbox-detail-kicker">{task.synthetic ? "SYNTHETIC FIXTURE" : "관찰됨"}</span>
+          <h2>{panelTitle}</h2>
+        </div>
+        <button className="inbox-icon-button" type="button" onClick={onClose} aria-label="상세 닫기" title="닫기">
+          <X size={18} aria-hidden="true" />
+        </button>
+      </header>
 
-function viewTitle(view: ViewId) {
-  return {
-    board: "보드",
-    projects: "프로젝트",
-    schedule: "일정",
-    people: "팀원",
-    settings: "설정"
-  }[view];
-}
+      <section className="inbox-detail-title">
+        <span>{task.project} · {task.responsibility || "책임분야 미관찰"}</span>
+        <h3>
+          <FileCheck2 size={17} aria-hidden="true" />
+          {task.title}
+        </h3>
+        <p>{task.route || "route 미관찰 · UNKNOWN"}</p>
+      </section>
 
-function formatDateKo(dateKeyValue: string) {
-  const [year, month, day] = dateKeyValue.split("-").map(Number);
-  if (!year || !month || !day) {
-    return dateKeyValue;
-  }
-  return new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", weekday: "short" }).format(
-    new Date(year, month - 1, day)
+      <dl className="inbox-detail-grid">
+        <div>
+          <dt>책임자</dt>
+          <dd>{task.owner}</dd>
+        </div>
+        <div>
+          <dt>검토자</dt>
+          <dd>{task.reviewer}</dd>
+        </div>
+        <div>
+          <dt>검토 필요</dt>
+          <dd>{task.reviewNeeded ? "예" : "아니오"}</dd>
+        </div>
+        <div>
+          <dt>최근 활동</dt>
+          <dd>{task.lastActivityKst}</dd>
+        </div>
+      </dl>
+
+      <section className="inbox-detail-section">
+        <h4>Agent/provider 관찰 상태</h4>
+        <ProviderRow task={task} />
+        {task.worktree && (
+          <p className="inbox-worktree">
+            <GitBranch size={13} aria-hidden="true" />
+            실제 연결 fixture metadata: {task.worktree}
+          </p>
+        )}
+      </section>
+
+      {task.status === "blocked" && (
+        <>
+          <section className="inbox-blocker">
+            <h4>
+              <ShieldAlert size={15} aria-hidden="true" />
+              Blocker
+            </h4>
+            <strong>{task.blockerReason}</strong>
+          </section>
+          <section className="inbox-decision">
+            <span>다음 결정</span>
+            <strong>{task.nextDecision}</strong>
+            <p>막힘은 결정되기 전까지 active 보드에 잔류합니다.</p>
+          </section>
+          {task.evidenceSummary && (
+            <section className="inbox-detail-section">
+              <h4>주요 근거</h4>
+              <p>{task.evidenceSummary}</p>
+            </section>
+          )}
+          {task.impact && (
+            <section className="inbox-detail-section">
+              <h4>영향</h4>
+              <p>{task.impact}</p>
+            </section>
+          )}
+          {task.requestMessage && (
+            <section className="inbox-request-message">
+              <span>요청 메시지</span>
+              <p>{task.requestMessage}</p>
+            </section>
+          )}
+        </>
+      )}
+
+      {task.nextDecision && task.status !== "blocked" && (
+        <section className="inbox-decision">
+          <span>다음 행동</span>
+          <strong>{task.nextDecision}</strong>
+        </section>
+      )}
+
+      <section className="inbox-detail-section">
+        <h4>Thread / TASK pointer</h4>
+        <code>{task.pointer}</code>
+        <p>표시용 synthetic pointer이며 실제 thread를 열거나 변경하지 않습니다.</p>
+      </section>
+
+      {task.events.length > 0 && (
+        <section className="inbox-detail-section">
+          <h4>
+            <History size={14} aria-hidden="true" />
+            보존된 이벤트
+          </h4>
+          {task.events.map((event: any) => (
+            <div className="inbox-event" key={event.id}>
+              <strong>{event.atKst} · {event.actor}</strong>
+              <span>{event.from} → {event.to}</span>
+              <code>{event.originalPointer}</code>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {task.status === "completed_unread" && (
+        <button className="inbox-ack-button" type="button" onClick={onAcknowledge}>
+          <CheckCircle2 size={17} aria-hidden="true" />
+          읽고 확인
+        </button>
+      )}
+      {task.status === "owner_acknowledged" && (
+        <div className="inbox-acknowledged">
+          <Check size={15} aria-hidden="true" />
+          읽고 확인됨 · active에서 제외
+        </div>
+      )}
+    </aside>
   );
 }
 
-function formatTimeKo(iso: string) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
+function HistoryView({
+  tasks,
+  events,
+  selectedId,
+  onSelect,
+  onReset
+}: {
+  tasks: any[];
+  events: any[];
+  selectedId: string | null;
+  onSelect: (taskId: string) => void;
+  onReset: () => void;
+}) {
+  if (tasks.length === 0) {
+    return <EmptyState filtered onReset={onReset} />;
   }
-  return new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
+
+  return (
+    <div className="inbox-history">
+      <div className="inbox-history-summary">
+        <ArchiveRestore size={18} aria-hidden="true" />
+        <div>
+          <strong>acknowledged·제외 상태 회수</strong>
+          <span>검색과 필터로 원 TASK pointer를 다시 찾을 수 있습니다. 확인 이벤트 {events.length}건.</span>
+        </div>
+      </div>
+      <div className="inbox-history-list">
+        {tasks.slice(0, 60).map((task) => (
+          <button
+            key={task.id}
+            type="button"
+            className={selectedId === task.id ? "is-selected" : ""}
+            onClick={() => onSelect(task.id)}
+          >
+            <span>
+              <strong>{task.title}</strong>
+              <small>{task.project} · {task.responsibility || "책임분야 미관찰"}</small>
+            </span>
+            <span>
+              {INBOX_STATUS_LABELS[task.status as keyof typeof INBOX_STATUS_LABELS] ?? task.status}
+            </span>
+            <code>{task.pointer}</code>
+            <ChevronRight size={15} aria-hidden="true" />
+          </button>
+        ))}
+      </div>
+      {tasks.length > 60 && <p className="inbox-history-cap">상위 60건만 표시 · 필터로 범위를 좁혀 주세요.</p>}
+    </div>
+  );
 }
 
-function groupBy<T>(items: T[], getKey: (item: T) => string) {
-  const map = new Map<string, T[]>();
-  for (const item of items) {
-    const key = getKey(item);
-    map.set(key, [...(map.get(key) ?? []), item]);
-  }
-  return Array.from(map.entries());
+function EmptyState({ filtered, onReset }: { filtered: boolean; onReset: () => void }) {
+  return (
+    <div className="inbox-state-panel">
+      <CircleUserRound size={28} aria-hidden="true" />
+      <h2>{filtered ? "조건에 맞는 항목이 없습니다" : "현재 표시할 합성 항목이 없습니다"}</h2>
+      <p>
+        {filtered
+          ? "검색어나 프로젝트·책임분야 필터를 초기화해 다시 확인하세요."
+          : "실제 시스템 상태로 해석하지 마세요. 이 화면은 빈 상태 fixture입니다."}
+      </p>
+      <button className="inbox-text-button" type="button" onClick={onReset}>
+        <RotateCcw size={14} aria-hidden="true" />
+        {filtered ? "필터 초기화" : "정상 fixture로 돌아가기"}
+      </button>
+    </div>
+  );
 }
 
-function buildWeeklySummaryKo(state: any, today: string, weekEnd: string) {
-  const items = state.items as any[];
-  const weekItems = items.filter((item) => !item.dueDate || (item.dueDate >= today && item.dueDate <= weekEnd) || item.status !== "done");
-  const blocked = weekItems.filter((item) => item.status === "blocked");
-  const waiting = weekItems.filter((item) => item.status === "waiting");
-  const noOwner = weekItems.filter((item) => !item.ownerId);
-  const done = items.filter((item) => item.status === "done");
-  const open = weekItems.filter((item) => item.status !== "done");
-  const projectName = (projectId: string) => state.projects.find((entry: any) => entry.id === projectId)?.name ?? "-";
-  const personName = (ownerId: string | null) => state.people.find((entry: any) => entry.id === ownerId)?.name ?? "담당 없음";
-
-  const text = [
-    "팀 운영 보드 주간 요약",
-    `기간: ${formatDateKo(today)} ~ ${formatDateKo(weekEnd)}`,
-    `미완료: ${open.length}건 / 완료: ${done.length}건 / 차단: ${blocked.length}건 / 대기: ${waiting.length}건 / 담당 없음: ${noOwner.length}건`,
-    "",
-    "차단 항목:",
-    ...(blocked.length > 0
-      ? blocked.map((item) => `- ${item.title} (${projectName(item.projectId)}) · ${item.blockerReason || "사유 미입력"}`)
-      : ["- 없음"]),
-    "",
-    "대기 항목:",
-    ...(waiting.length > 0
-      ? waiting.map((item) => `- ${item.title} (${projectName(item.projectId)}) · 대기 대상: ${item.waitingOn || "미입력"}`)
-      : ["- 없음"]),
-    "",
-    "담당 없는 항목:",
-    ...(noOwner.length > 0 ? noOwner.map((item) => `- ${item.title} (${projectName(item.projectId)})`) : ["- 없음"])
-  ].join("\n");
-
-  const csvRows = [
-    ["id", "title", "project", "owner", "status", "priority", "due_date", "next_action"],
-    ...weekItems.map((item) => [
-      item.id,
-      item.title,
-      projectName(item.projectId),
-      personName(item.ownerId),
-      statusLabel(item.status),
-      PRIORITY_LABELS_KO[item.priority as keyof typeof PRIORITY_LABELS_KO] ?? item.priority,
-      item.dueDate ?? "",
-      item.nextAction ?? ""
-    ])
-  ];
-
-  return {
-    text,
-    csv: csvRows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(",")).join("\r\n")
-  };
-}
-
-function downloadFile(filename: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(url);
+function ErrorState({ onReset }: { onReset: () => void }) {
+  return (
+    <div className="inbox-state-panel inbox-state-error" role="alert">
+      <AlertCircle size={28} aria-hidden="true" />
+      <h2>fixture adapter를 읽지 못했습니다</h2>
+      <p>실제 writer나 외부 backend로 우회하지 않습니다. 합성 표본만 다시 불러올 수 있습니다.</p>
+      <button className="inbox-text-button" type="button" onClick={onReset}>
+        <RotateCcw size={14} aria-hidden="true" />
+        합성 fixture 다시 불러오기
+      </button>
+    </div>
+  );
 }
 
 export default App;

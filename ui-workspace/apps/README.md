@@ -10,6 +10,7 @@
 - `renderer-web/`
 - `skin-lab-storybook/`
 - `team-ops-board-mockup/`
+- `team-ops-board/`
 
 ## 제외 대상
 
@@ -21,6 +22,8 @@
 - `renderer-web` 는 fixture host shell 이다.
 - `skin-lab-storybook` 는 isolated story/theme preview app 이다.
 - `team-ops-board-mockup` 은 샘플 데이터 기반의 독립 클릭형 운영 보드 목업이다.
+- `team-ops-board` 는 synthetic/read-only Owner Action Inbox 네 상태
+  Workspace Board MVP다. 실제 Codex/ERP writer나 외부 backend를 호출하지 않는다.
 
 ## 관련 경로
 

@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2026-07-31
+
+### Workspace Board Owner Action Inbox MVP
+
+- 선택된 Owner Action Inbox 2안을 기존 `team-ops-board`에 dark graphite,
+  고밀도 네 상태(`진행 중`, `검토·결정 필요`, `막힘`, `완료·미확인`) 보드로
+  구현했다. 프로젝트 작은 메타→TASK 큰 제목, observed-only agent/provider,
+  optional worktree, UNKNOWN/missing/multi-agent 의미를 synthetic fixture에
+  고정했다.
+- 10 projects × 15 responsibilities × 책임별 2 TASK 규모에서 active target
+  subset, 우선순위 정렬, 열별 표시 상한·더보기, 검색·필터·이력 회수를
+  deterministic tests로 검증했다. `읽고 확인`은 synthetic
+  `completed_unread`만 `owner_acknowledged`로 바꾸고 원 pointer 이벤트를
+  보존하며, 막힘은 reason/next decision과 함께 잔류한다.
+- desktop/tablet/mobile, keyboard/focus/accessibility, empty/error/missing-data,
+  completed acknowledgement, blocked detail, history search와 console을 실제
+  브라우저에서 확인했다. 선택 2안·Orca 참고·실제 MVP를 같은 비교 입력으로
+  두 차례 수정한 뒤 `design-qa.md`를 `final result: passed`로 닫았다.
+  실제 Codex/ERP state writer, external backend, deployment는 추가하지 않았다.
+  (worker: `codex_gpt-5.6`)
+
 ## 2026-07-30
 
 ### AI 작업 결과 누락 복구 Phase C public safety remediation
