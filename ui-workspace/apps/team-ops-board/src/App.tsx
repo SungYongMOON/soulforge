@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArchiveRestore,
@@ -34,9 +34,22 @@ import {
   buildOwnerInboxFixture,
   selectInboxTasks
 } from "./core/owner-inbox.mjs";
+import {
+  MOBILE_DETAIL_MEDIA_QUERY,
+  resolveMobileDialogKey
+} from "./core/mobile-detail.mjs";
 
 type InboxView = "active" | "history";
 type FixtureMode = "normal" | "empty" | "error";
+
+const FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "[href]",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])'
+].join(",");
 
 const statusMeta = {
   in_progress: { label: "진행 중", Icon: Play, hint: "현재 실행 중인 대상" },
@@ -58,6 +71,13 @@ function App() {
     Object.fromEntries(INBOX_STATUSES.map((entry: string) => [entry, DEFAULT_CARD_LIMIT]))
   );
   const [notice, setNotice] = useState("");
+  const [isMobileDetail, setIsMobileDetail] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(MOBILE_DETAIL_MEDIA_QUERY).matches
+  );
+  const detailRef = useRef<HTMLElement | null>(null);
+  const detailCloseRef = useRef<HTMLButtonElement | null>(null);
+  const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const restoreDetailFocusRef = useRef(false);
 
   const maxLimit = Math.max(...Object.values(limits));
   const selection = useMemo(
@@ -73,6 +93,7 @@ function App() {
     [fixture, view, query, project, responsibility, status, maxLimit]
   );
   const selectedTask = fixture.tasks.find((task: any) => task.id === selectedId) ?? null;
+  const mobileDialogOpen = Boolean(isMobileDetail && selectedTask);
   const responsibilityOptions = useMemo(
     () =>
       Array.from(
@@ -92,6 +113,18 @@ function App() {
     setStatus("all");
   }
 
+  function selectTask(taskId: string, trigger: HTMLButtonElement) {
+    detailTriggerRef.current = trigger;
+    setSelectedId(taskId);
+  }
+
+  function closeDetail() {
+    if (mobileDialogOpen) {
+      restoreDetailFocusRef.current = true;
+    }
+    setSelectedId(null);
+  }
+
   function acknowledge(taskId: string) {
     const result = acknowledgeFixtureTask(fixture, {
       taskId,
@@ -107,13 +140,83 @@ function App() {
     setNotice("합성 fixture를 읽고 확인했습니다. 원 pointer와 이벤트는 이력에 보존됩니다.");
   }
 
+  useEffect(() => {
+    const media = window.matchMedia(MOBILE_DETAIL_MEDIA_QUERY);
+    const syncViewport = () => setIsMobileDetail(media.matches);
+    syncViewport();
+    media.addEventListener("change", syncViewport);
+    return () => media.removeEventListener("change", syncViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileDialogOpen || !detailRef.current) {
+      return;
+    }
+
+    const backgroundNodes = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-dialog-background]")
+    );
+    const previousBodyOverflow = document.body.style.overflow;
+
+    detailCloseRef.current?.focus();
+    backgroundNodes.forEach((node) => {
+      node.inert = true;
+      node.setAttribute("aria-hidden", "true");
+    });
+    document.body.style.overflow = "hidden";
+
+    function handleDialogKeydown(event: KeyboardEvent) {
+      const dialog = detailRef.current;
+      if (!dialog) {
+        return;
+      }
+
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+        .filter((node) => node.getAttribute("aria-hidden") !== "true" && node.offsetParent !== null);
+      const activeIndex = focusable.indexOf(document.activeElement as HTMLElement);
+      const decision = resolveMobileDialogKey({
+        key: event.key,
+        shiftKey: event.shiftKey,
+        activeIndex,
+        focusableCount: focusable.length
+      });
+
+      if (decision.action === "close") {
+        event.preventDefault();
+        closeDetail();
+      } else if (decision.action === "focus" && typeof decision.index === "number") {
+        event.preventDefault();
+        focusable[decision.index]?.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleDialogKeydown, true);
+    return () => {
+      document.removeEventListener("keydown", handleDialogKeydown, true);
+      backgroundNodes.forEach((node) => {
+        node.inert = false;
+        node.removeAttribute("aria-hidden");
+      });
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [mobileDialogOpen, selectedId]);
+
+  useEffect(() => {
+    if (mobileDialogOpen || !restoreDetailFocusRef.current) {
+      return;
+    }
+
+    restoreDetailFocusRef.current = false;
+    window.requestAnimationFrame(() => detailTriggerRef.current?.focus());
+  }, [mobileDialogOpen]);
+
   return (
     <div className="inbox-app">
-      <a className="inbox-skip-link" href="#inbox-content">
+      <a className="inbox-skip-link" href="#inbox-content" data-dialog-background>
         본문으로 건너뛰기
       </a>
 
-      <header className="inbox-topbar">
+      <header className="inbox-topbar" data-dialog-background>
         <button className="inbox-icon-button" type="button" aria-label="메뉴 열기" title="메뉴">
           <Menu size={19} aria-hidden="true" />
         </button>
@@ -153,7 +256,7 @@ function App() {
         </div>
       </header>
 
-      <section className="inbox-controls" aria-label="보드 필터">
+      <section className="inbox-controls" aria-label="보드 필터" data-dialog-background>
         <label>
           <span>프로젝트</span>
           <select
@@ -220,7 +323,7 @@ function App() {
       </section>
 
       {notice && (
-        <div className="inbox-notice" role="status">
+        <div className="inbox-notice" role="status" data-dialog-background>
           <Check size={15} aria-hidden="true" />
           {notice}
           <button type="button" aria-label="알림 닫기" onClick={() => setNotice("")}>
@@ -230,7 +333,11 @@ function App() {
       )}
 
       <main id="inbox-content" className="inbox-layout">
-        <section className="inbox-workspace" aria-label={view === "active" ? "Owner Action 보드" : "이력과 제외 항목"}>
+        <section
+          className="inbox-workspace"
+          aria-label={view === "active" ? "Owner Action 보드" : "이력과 제외 항목"}
+          data-dialog-background
+        >
           <div className="inbox-scope-row">
             <div>
               <strong>{view === "active" ? `Active target ${selection.eligible.length}건` : `회수 가능한 이력·제외 ${selection.eligible.length}건`}</strong>
@@ -263,7 +370,7 @@ function App() {
               tasks={selection.eligible}
               events={fixture.history}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={selectTask}
               onReset={resetFilters}
             />
           ) : (
@@ -271,7 +378,7 @@ function App() {
               selection={selection}
               limits={limits}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={selectTask}
               onMore={(statusId) =>
                 setLimits((current) => ({ ...current, [statusId]: current[statusId] + DEFAULT_CARD_LIMIT }))
               }
@@ -280,16 +387,27 @@ function App() {
           )}
         </section>
 
+        {mobileDialogOpen && (
+          <div
+            className="inbox-modal-backdrop"
+            aria-hidden="true"
+            onClick={closeDetail}
+          />
+        )}
+
         {selectedTask && (
           <DetailPanel
             task={selectedTask}
-            onClose={() => setSelectedId(null)}
+            isModal={mobileDialogOpen}
+            panelRef={detailRef}
+            closeButtonRef={detailCloseRef}
+            onClose={closeDetail}
             onAcknowledge={() => acknowledge(selectedTask.id)}
           />
         )}
       </main>
 
-      <footer className="inbox-footer">
+      <footer className="inbox-footer" data-dialog-background>
         <span>fixture/read-only adapter · 새로고침 시 합성 상태 초기화</span>
         <span>실제 thread·ERP·worktree·provider truth가 아닙니다</span>
       </footer>
@@ -308,7 +426,7 @@ function Board({
   selection: any;
   limits: Record<string, number>;
   selectedId: string | null;
-  onSelect: (taskId: string) => void;
+  onSelect: (taskId: string, trigger: HTMLButtonElement) => void;
   onMore: (statusId: string) => void;
   onReset: () => void;
 }) {
@@ -338,7 +456,7 @@ function Board({
                   key={task.id}
                   task={task}
                   selected={selectedId === task.id}
-                  onSelect={() => onSelect(task.id)}
+                  onSelect={(trigger) => onSelect(task.id, trigger)}
                 />
               ))}
               {group.total === 0 && <div className="inbox-column-empty">대상 없음</div>}
@@ -355,14 +473,22 @@ function Board({
   );
 }
 
-function TaskCard({ task, selected, onSelect }: { task: any; selected: boolean; onSelect: () => void }) {
+function TaskCard({
+  task,
+  selected,
+  onSelect
+}: {
+  task: any;
+  selected: boolean;
+  onSelect: (trigger: HTMLButtonElement) => void;
+}) {
   return (
     <button
       className={`inbox-task-card ${selected ? "is-selected" : ""}`}
       type="button"
       aria-pressed={selected}
       aria-label={`${task.project}, ${task.title}, ${INBOX_STATUS_LABELS[task.status as keyof typeof INBOX_STATUS_LABELS]}`}
-      onClick={onSelect}
+      onClick={(event) => onSelect(event.currentTarget)}
     >
       <span className="inbox-card-meta">
         <span>{task.project}</span>
@@ -424,10 +550,16 @@ function ProviderRow({ task }: { task: any }) {
 
 function DetailPanel({
   task,
+  isModal,
+  panelRef,
+  closeButtonRef,
   onClose,
   onAcknowledge
 }: {
   task: any;
+  isModal: boolean;
+  panelRef: React.RefObject<HTMLElement | null>;
+  closeButtonRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
   onAcknowledge: () => void;
 }) {
@@ -442,14 +574,29 @@ function DetailPanel({
           ? "이력 상세"
           : statusLabel;
 
+  const headingId = `inbox-detail-heading-${task.id}`;
+
   return (
-    <aside className={`inbox-detail inbox-detail-${task.status}`} aria-label="선택한 TASK 상세">
+    <aside
+      ref={panelRef}
+      className={`inbox-detail inbox-detail-${task.status}`}
+      role={isModal ? "dialog" : undefined}
+      aria-modal={isModal ? true : undefined}
+      aria-labelledby={headingId}
+    >
       <header>
         <div>
           <span className="inbox-detail-kicker">{task.synthetic ? "SYNTHETIC FIXTURE" : "관찰됨"}</span>
-          <h2>{panelTitle}</h2>
+          <h2 id={headingId}>{panelTitle}</h2>
         </div>
-        <button className="inbox-icon-button" type="button" onClick={onClose} aria-label="상세 닫기" title="닫기">
+        <button
+          ref={closeButtonRef}
+          className="inbox-icon-button"
+          type="button"
+          onClick={onClose}
+          aria-label="상세 닫기"
+          title="닫기"
+        >
           <X size={18} aria-hidden="true" />
         </button>
       </header>
@@ -583,7 +730,7 @@ function HistoryView({
   tasks: any[];
   events: any[];
   selectedId: string | null;
-  onSelect: (taskId: string) => void;
+  onSelect: (taskId: string, trigger: HTMLButtonElement) => void;
   onReset: () => void;
 }) {
   if (tasks.length === 0) {
@@ -605,7 +752,7 @@ function HistoryView({
             key={task.id}
             type="button"
             className={selectedId === task.id ? "is-selected" : ""}
-            onClick={() => onSelect(task.id)}
+            onClick={(event) => onSelect(task.id, event.currentTarget)}
           >
             <span>
               <strong>{task.title}</strong>

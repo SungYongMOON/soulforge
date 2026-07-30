@@ -20,6 +20,11 @@
   두 차례 수정한 뒤 `design-qa.md`를 `final result: passed`로 닫았다.
   실제 Codex/ERP state writer, external backend, deployment는 추가하지 않았다.
   (worker: `codex_gpt-5.6`)
+- fresh independent review의 모바일 상세 P2를 후속 보정했다. 760px 이하에서
+  `role="dialog"`·`aria-modal`·accessible name, open focus, Tab/Shift+Tab trap,
+  Escape/닫기, 배경 inert, 원 TASK card focus 복원을 적용하고 1024px 이상
+  비모달 상세는 유지했다. 결정적 keyboard 계약 테스트와 390×844 실제
+  브라우저 재현·재비교를 추가했다. (worker: `codex_gpt-5.6`)
 
 ## 2026-07-30
 

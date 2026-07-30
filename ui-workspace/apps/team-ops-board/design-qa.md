@@ -9,7 +9,9 @@
 - final browser-rendered implementation:
   `evidence/workspace-board-1440x1024-primary-final.png`
 - final same-input comparison:
-  `evidence/design-qa-comparison-final.png`
+  `evidence/design-qa-comparison-iteration-3-mobile-dialog.png`
+- final mobile dialog implementation:
+  `evidence/workspace-board-390x844-mobile-dialog-accessibility.png`
 - route/state: `/`, dark theme, synthetic normal state, blocked TASK selected
 - CSS viewport: 1440 × 1024
 - device pixel ratio: 1
@@ -34,12 +36,15 @@
   `evidence/workspace-board-390x844-mobile-final.png`
 - mobile blocked detail:
   `evidence/workspace-board-390x844-mobile-blocked-detail.png`
+- mobile accessible dialog:
+  `evidence/workspace-board-390x844-mobile-dialog-accessibility.png`
 
 The full-view comparison is sufficient for final typography, layout, token,
 copy, and card/detail inspection because the native desktop capture keeps the
 dense card text and right detail readable. A separate crop was not needed.
 The mobile detail has its own focused screenshot because it changes to a fixed
-overlay.
+modal overlay. The final comparison also includes that 390 × 844 state beside
+the selected source, Orca reference, and unchanged desktop implementation.
 
 ## Findings
 
@@ -70,7 +75,10 @@ No actionable P0/P1/P2 findings remain.
 - Accessibility: semantic headings/regions/buttons/labels, `aria-pressed`
   selection state, skip link, visible 2 px focus ring, reduced-motion handling,
   no horizontal overflow at tested breakpoints, and 44 px minimum visible
-  mobile control height passed.
+  mobile control height passed. At 760 px and below, detail has dialog/modal
+  semantics, a heading-derived accessible name, initial close-button focus,
+  Tab/Shift+Tab trapping, Escape/close dismissal, background inertness, and
+  trigger-card focus restoration. Larger viewports retain the non-modal detail.
 
 ## Comparison history
 
@@ -115,6 +123,46 @@ Evidence: `evidence/design-qa-comparison-final.png`
   acceptance contract.
 - No actionable P0/P1/P2 difference remains.
 
+### Iteration 3 — fresh independent P2 blocked, then passed
+
+Pre-fix evidence: fresh independent review reproduced the 390 × 844 fixed
+overlay with focus retained on the obscured blocked card. Of 27 focusable
+elements, only one was inside the detail while 26 background elements remained
+reachable. The overlay had no dialog/modal semantics or focus management.
+
+Fix:
+
+- centralized the mobile detail boundary at 760 px for the viewport decision
+  and kept the CSS query aligned with that value
+- added `role="dialog"`, `aria-modal="true"`, and heading-based accessible name
+- moved focus to the close button on open
+- added deterministic Tab/Shift+Tab boundary cycling and Escape dismissal
+- applied `inert` and `aria-hidden` to the background while the modal is open
+- restored focus to the exact originating TASK card after Escape or close
+- preserved the 1024 × 768 tablet and desktop detail as non-modal
+
+Post-fix evidence:
+
+- implementation:
+  `evidence/workspace-board-390x844-mobile-dialog-accessibility.png`
+- source/Orca/desktop/mobile comparison:
+  `evidence/design-qa-comparison-iteration-3-mobile-dialog.png`
+- CSS viewport and screenshot pixels: 390 × 844 at DPR 1
+- open state: active element was the dialog close button; the dialog accessible
+  name was `Owner 판단 필요`
+- focus surface: 28 visible focusable elements in the document, one effective
+  focusable inside the dialog, zero effective focusables outside it, five inert
+  background roots
+- actual Tab, Tab, Shift+Tab cycle remained on the only dialog focus target
+- actual Escape and close-button paths both removed the dialog and restored
+  focus to `오로라, 오로라 공급 일정 확정, 막힘`
+- 1024 × 768 check: no dialog role, no `aria-modal`, no inert root, static
+  non-modal detail
+
+The accessibility correction does not introduce a visible P0/P1/P2 drift.
+The final same-input comparison keeps the selected compact visual grammar,
+desktop composition, and mobile detail hierarchy intact.
+
 ## Primary interactions and console
 
 - selected blocked TASK and confirmed blocker reason/next decision persistence
@@ -128,6 +176,10 @@ Evidence: `evidence/design-qa-comparison-final.png`
   minimum visible control height
 - inspected DOM tab order, accessible names and pressed states; exercised the
   skip-link/menu focus ring
+- exercised the 390 × 844 dialog open → Tab/Shift+Tab cycle → Escape/close →
+  originating TASK-card focus restoration path
+- confirmed mobile dialog effective focusables: inside 1, outside 0; tablet
+  non-modal detail: role absent, inert roots 0
 - browser console errors: 0
 - browser console warnings: 0
 
@@ -147,6 +199,8 @@ Evidence: `evidence/design-qa-comparison-final.png`
 - [x] Scale cap, more, search, and filters
 - [x] Empty/error/missing/UNKNOWN/multi-agent states
 - [x] Desktop/tablet/mobile and keyboard/accessibility checks
+- [x] Mobile modal semantics, focus trap, Escape/close, inert background, and
+  trigger focus restoration
 - [x] Final same-input Product Design comparison
 
 final result: passed

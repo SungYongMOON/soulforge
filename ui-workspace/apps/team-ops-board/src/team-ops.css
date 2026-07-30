@@ -647,6 +647,16 @@ button {
   background: #11171b;
 }
 
+.inbox-modal-backdrop {
+  position: fixed;
+  z-index: 49;
+  inset: 0;
+  display: none;
+  padding: 0;
+  border: 0;
+  background: rgba(3, 6, 8, 0.72);
+}
+
 .inbox-detail > header {
   min-height: 56px;
   display: flex;
@@ -1047,6 +1057,7 @@ a:focus-visible {
   }
 }
 
+/* Keep aligned with MOBILE_DETAIL_MEDIA_QUERY in src/core/mobile-detail.mjs. */
 @media (max-width: 760px) {
   .inbox-topbar {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -1153,6 +1164,10 @@ a:focus-visible {
     overflow-y: auto;
     border-color: var(--line-strong);
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+  }
+
+  .inbox-modal-backdrop {
+    display: block;
   }
 
   .inbox-history-list button {
