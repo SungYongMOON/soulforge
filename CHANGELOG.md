@@ -25,6 +25,13 @@
   Escape/닫기, 배경 inert, 원 TASK card focus 복원을 적용하고 1024px 이상
   비모달 상세는 유지했다. 결정적 keyboard 계약 테스트와 390×844 실제
   브라우저 재현·재비교를 추가했다. (worker: `codex_gpt-5.6`)
+- fresh independent re-review의 modal lifecycle P2를 추가 보정했다. 모바일
+  최초 진입의 자동 상세를 제거하고, focus 복원 후보에서 detached·disabled·
+  hidden·inert 대상을 제외했다. 완료 확인으로 원 카드가 제거되면 같은 logical
+  TASK 또는 현재 이력 control·heading·main 순서로 복원해 `BODY` 종착을 막았다.
+  390×844 최초 진입·acknowledged 이력 Escape/닫기·blocked trap과 1024×768
+  비모달 회귀를 실제 브라우저와 결정적 테스트로 재검증했다.
+  (worker: `codex_gpt-5.6`)
 
 ## 2026-07-30
 

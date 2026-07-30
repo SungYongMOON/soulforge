@@ -9,9 +9,9 @@
 - final browser-rendered implementation:
   `evidence/workspace-board-1440x1024-primary-final.png`
 - final same-input comparison:
-  `evidence/design-qa-comparison-iteration-3-mobile-dialog.png`
+  `evidence/design-qa-comparison-iteration-4-modal-lifecycle.png`
 - final mobile dialog implementation:
-  `evidence/workspace-board-390x844-mobile-dialog-accessibility.png`
+  `evidence/workspace-board-390x844-mobile-ack-history-dialog-iteration-4.png`
 - route/state: `/`, dark theme, synthetic normal state, blocked TASK selected
 - CSS viewport: 1440 × 1024
 - device pixel ratio: 1
@@ -38,6 +38,12 @@
   `evidence/workspace-board-390x844-mobile-blocked-detail.png`
 - mobile accessible dialog:
   `evidence/workspace-board-390x844-mobile-dialog-accessibility.png`
+- mobile first entry without an automatic dialog:
+  `evidence/workspace-board-390x844-mobile-first-entry-iteration-4.png`
+- mobile acknowledged history dialog:
+  `evidence/workspace-board-390x844-mobile-ack-history-dialog-iteration-4.png`
+- mobile acknowledged history focus restore:
+  `evidence/workspace-board-390x844-mobile-ack-history-restore-iteration-4.png`
 
 The full-view comparison is sufficient for final typography, layout, token,
 copy, and card/detail inspection because the native desktop capture keeps the
@@ -79,6 +85,9 @@ No actionable P0/P1/P2 findings remain.
   semantics, a heading-derived accessible name, initial close-button focus,
   Tab/Shift+Tab trapping, Escape/close dismissal, background inertness, and
   trigger-card focus restoration. Larger viewports retain the non-modal detail.
+  A detached trigger is rejected; restoration then prefers the same logical
+  task if rendered, followed by the current view control, search, scope heading,
+  and main content. `BODY` is not treated as a successful restoration target.
 
 ## Comparison history
 
@@ -163,6 +172,53 @@ The accessibility correction does not introduce a visible P0/P1/P2 drift.
 The final same-input comparison keeps the selected compact visual grammar,
 desktop composition, and mobile detail hierarchy intact.
 
+### Iteration 4 — fresh lifecycle P2 blocked, then passed
+
+Pre-fix evidence: fresh independent re-review found two lifecycle gaps despite
+the generic blocked-card path passing. The 390 × 844 first entry opened the
+default selected detail without an originating trigger, so Escape/close left
+focus on `BODY`. After `완료·미확인` → `읽고 확인`, the originating card was
+removed from the active DOM; closing the retained history detail attempted to
+focus the detached reference and also landed on `BODY`.
+
+Fix:
+
+- disabled default detail selection only at the shared 760 px mobile boundary;
+  1024 × 768 and desktop keep their default non-modal detail
+- added pure, deterministic focus-candidate and priority-selection helpers
+- reject missing, detached (`isConnected=false`), disabled, hidden, or inert
+  restore candidates
+- restore in priority order to the connected origin, the same rendered logical
+  TASK, the current active/history view control, search, scope heading, or main
+- preserve the acknowledged item as an `이력 상세` modal; when the 60-row
+  history cap means its row is not rendered, restore to the connected
+  `이력·제외` view control rather than `BODY`
+
+Post-fix evidence:
+
+- same-input source/Orca/actual comparison:
+  `evidence/design-qa-comparison-iteration-4-modal-lifecycle.png`
+- first entry:
+  `evidence/workspace-board-390x844-mobile-first-entry-iteration-4.png`
+- acknowledged history dialog:
+  `evidence/workspace-board-390x844-mobile-ack-history-dialog-iteration-4.png`
+- acknowledged history close restore:
+  `evidence/workspace-board-390x844-mobile-ack-history-restore-iteration-4.png`
+- first entry measured 390 × 844, zero dialogs, zero selected cards, and a
+  visible board
+- acknowledged transition retained the named `이력 상세` dialog and original
+  pointer event; both Escape and close-button paths restored to the connected
+  `이력·제외` button (`BUTTON`, not `BODY`)
+- blocked open moved focus to `상세 닫기`; Tab and Shift+Tab stayed trapped,
+  effective outside focusables remained zero with five inert background roots,
+  and Escape restored the exact `fixture-aurora-supply` card
+- 1024 × 768 remained static and non-modal: no dialog role, no `aria-modal`,
+  and zero inert roots
+- browser console errors: 0; warnings: 0
+
+The iteration 4 comparison shows no visual P0/P1/P2 regression in the compact
+graphite grammar, mobile information hierarchy, or acknowledged history state.
+
 ## Primary interactions and console
 
 - selected blocked TASK and confirmed blocker reason/next decision persistence
@@ -178,6 +234,9 @@ desktop composition, and mobile detail hierarchy intact.
   skip-link/menu focus ring
 - exercised the 390 × 844 dialog open → Tab/Shift+Tab cycle → Escape/close →
   originating TASK-card focus restoration path
+- confirmed 390 × 844 first entry does not auto-open a dialog and confirmed
+  acknowledged-card detachment restores Escape/close focus to the connected
+  history view control rather than `BODY`
 - confirmed mobile dialog effective focusables: inside 1, outside 0; tablet
   non-modal detail: role absent, inert roots 0
 - browser console errors: 0
@@ -200,7 +259,7 @@ desktop composition, and mobile detail hierarchy intact.
 - [x] Empty/error/missing/UNKNOWN/multi-agent states
 - [x] Desktop/tablet/mobile and keyboard/accessibility checks
 - [x] Mobile modal semantics, focus trap, Escape/close, inert background, and
-  trigger focus restoration
+  connected logical-target/fallback focus restoration
 - [x] Final same-input Product Design comparison
 
 final result: passed

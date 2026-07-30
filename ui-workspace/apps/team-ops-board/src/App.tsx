@@ -36,6 +36,7 @@ import {
 } from "./core/owner-inbox.mjs";
 import {
   MOBILE_DETAIL_MEDIA_QUERY,
+  pickFocusRestoreIndex,
   resolveMobileDialogKey
 } from "./core/mobile-detail.mjs";
 
@@ -66,18 +67,20 @@ function App() {
   const [responsibility, setResponsibility] = useState("all");
   const [status, setStatus] = useState("all");
   const [fixtureMode, setFixtureMode] = useState<FixtureMode>("normal");
-  const [selectedId, setSelectedId] = useState<string | null>("fixture-aurora-supply");
+  const [isMobileDetail, setIsMobileDetail] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(MOBILE_DETAIL_MEDIA_QUERY).matches
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => isMobileDetail ? null : "fixture-aurora-supply"
+  );
   const [limits, setLimits] = useState<Record<string, number>>(
     Object.fromEntries(INBOX_STATUSES.map((entry: string) => [entry, DEFAULT_CARD_LIMIT]))
   );
   const [notice, setNotice] = useState("");
-  const [isMobileDetail, setIsMobileDetail] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(MOBILE_DETAIL_MEDIA_QUERY).matches
-  );
   const detailRef = useRef<HTMLElement | null>(null);
   const detailCloseRef = useRef<HTMLButtonElement | null>(null);
   const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const restoreDetailFocusRef = useRef(false);
+  const pendingRestoreTaskIdRef = useRef<string | null>(null);
 
   const maxLimit = Math.max(...Object.values(limits));
   const selection = useMemo(
@@ -119,8 +122,8 @@ function App() {
   }
 
   function closeDetail() {
-    if (mobileDialogOpen) {
-      restoreDetailFocusRef.current = true;
+    if (mobileDialogOpen && selectedTask) {
+      pendingRestoreTaskIdRef.current = selectedTask.id;
     }
     setSelectedId(null);
   }
@@ -202,13 +205,49 @@ function App() {
   }, [mobileDialogOpen, selectedId]);
 
   useEffect(() => {
-    if (mobileDialogOpen || !restoreDetailFocusRef.current) {
+    const taskId = pendingRestoreTaskIdRef.current;
+    if (mobileDialogOpen || !taskId) {
       return;
     }
 
-    restoreDetailFocusRef.current = false;
-    window.requestAnimationFrame(() => detailTriggerRef.current?.focus());
-  }, [mobileDialogOpen]);
+    pendingRestoreTaskIdRef.current = null;
+    window.requestAnimationFrame(() => {
+      const logicalTaskTarget = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-task-focus-id]")
+      ).find((node) => node.dataset.taskFocusId === taskId) ?? null;
+      const viewControl =
+        document.querySelector<HTMLElement>(`[data-view-focus="${view}"]`);
+      const candidates = [
+        detailTriggerRef.current,
+        logicalTaskTarget,
+        viewControl,
+        document.querySelector<HTMLElement>('[data-focus-fallback="search"]'),
+        document.querySelector<HTMLElement>('[data-focus-fallback="scope-heading"]'),
+        document.querySelector<HTMLElement>('[data-focus-fallback="main"]')
+      ];
+      const candidateStates = candidates.map((node) => {
+        const style = node ? window.getComputedStyle(node) : null;
+        return {
+          exists: Boolean(node),
+          isConnected: Boolean(node?.isConnected),
+          disabled: Boolean(
+            node && "disabled" in node && (node as HTMLButtonElement | HTMLInputElement).disabled
+          ),
+          hidden: Boolean(
+            node &&
+              (node.hidden ||
+                node.getAttribute("aria-hidden") === "true" ||
+                style?.display === "none" ||
+                style?.visibility === "hidden")
+          ),
+          inert: Boolean(node?.closest("[inert]"))
+        };
+      });
+      const restoreIndex = pickFocusRestoreIndex(candidateStates);
+      const restoreTarget = restoreIndex >= 0 ? candidates[restoreIndex] : null;
+      restoreTarget?.focus({ preventScroll: true });
+    });
+  }, [mobileDialogOpen, view]);
 
   return (
     <div className="inbox-app">
@@ -229,6 +268,7 @@ function App() {
           <span className="sr-only">프로젝트, TASK, Agent 검색</span>
           <input
             type="search"
+            data-focus-fallback="search"
             value={query}
             placeholder="검색 (프로젝트, TASK, Agent)"
             onChange={(event) => setQuery(event.target.value)}
@@ -303,6 +343,7 @@ function App() {
         <div className="inbox-view-switch" aria-label="표시 화면">
           <button
             type="button"
+            data-view-focus="active"
             className={view === "active" ? "is-active" : ""}
             aria-pressed={view === "active"}
             onClick={() => setView("active")}
@@ -312,6 +353,7 @@ function App() {
           </button>
           <button
             type="button"
+            data-view-focus="history"
             className={view === "history" ? "is-active" : ""}
             aria-pressed={view === "history"}
             onClick={() => setView("history")}
@@ -332,7 +374,12 @@ function App() {
         </div>
       )}
 
-      <main id="inbox-content" className="inbox-layout">
+      <main
+        id="inbox-content"
+        className="inbox-layout"
+        data-focus-fallback="main"
+        tabIndex={-1}
+      >
         <section
           className="inbox-workspace"
           aria-label={view === "active" ? "Owner Action 보드" : "이력과 제외 항목"}
@@ -340,7 +387,9 @@ function App() {
         >
           <div className="inbox-scope-row">
             <div>
-              <strong>{view === "active" ? `Active target ${selection.eligible.length}건` : `회수 가능한 이력·제외 ${selection.eligible.length}건`}</strong>
+              <strong data-focus-fallback="scope-heading" tabIndex={-1}>
+                {view === "active" ? `Active target ${selection.eligible.length}건` : `회수 가능한 이력·제외 ${selection.eligible.length}건`}
+              </strong>
               <span>전체 fixture {fixture.projects.length} projects × {fixture.responsibilities.length / fixture.projects.length} responsibilities · {fixture.tasks.length} TASK</span>
             </div>
             <label className="inbox-fixture-mode">
@@ -486,6 +535,7 @@ function TaskCard({
     <button
       className={`inbox-task-card ${selected ? "is-selected" : ""}`}
       type="button"
+      data-task-focus-id={task.id}
       aria-pressed={selected}
       aria-label={`${task.project}, ${task.title}, ${INBOX_STATUS_LABELS[task.status as keyof typeof INBOX_STATUS_LABELS]}`}
       onClick={(event) => onSelect(event.currentTarget)}
@@ -751,6 +801,7 @@ function HistoryView({
           <button
             key={task.id}
             type="button"
+            data-task-focus-id={task.id}
             className={selectedId === task.id ? "is-selected" : ""}
             onClick={(event) => onSelect(task.id, event.currentTarget)}
           >
