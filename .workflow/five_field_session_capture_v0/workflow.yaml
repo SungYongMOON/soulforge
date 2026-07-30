@@ -77,11 +77,18 @@ steps:
 recovery_contract:
   display_name_ko: AI 작업 결과 누락 복구
   feature_state: "OFF"
-  public_implementation_state: dual_writer_fenced_candidate
+  public_implementation_state: phase_e_public_remediation_candidate
   live_activation_state: HOLD
   planner: tools/five_field_cursor_sweep.mjs
   runner: tools/five_field_cursor_runner.mjs
-  runner_cli: node .workflow/five_field_session_capture_v0/tools/five_field_cursor_runner.mjs --input <owner-approved-input.json>
+  metadata_projector: tools/five_field_ledger_metadata_projector.mjs
+  transport_adapter: tools/five_field_transport_adapter.mjs
+  runtime_preflight: tools/five_field_runtime_preflight.mjs
+  automation_builder: tools/five_field_automation_builder.mjs
+  runner_cli: node <absolute-runner-script> --runtime-root <absolute-runner-root> --config-root <absolute-config-root> --runtime-manifest-digest <sha256> --input <absolute-owner-approved-input.json>
+  runner_input_schema: soulforge.five_field_cursor_runner_input.v3
+  supersedes_runner_input_schema: soulforge.five_field_cursor_runner_input.v2
+  legacy_v2_migration: explicit_rebuild_required
   first_live_source_classification: public_only
   private_source_commit_lane: HOLD
   topology:
@@ -98,9 +105,89 @@ recovery_contract:
   forbidden_roots:
     - active_soulforge
     - active_workmeta
+    - active_private_state
     - owner_supplied_codex_worktrees
     - owner_supplied_orca_worktrees
     - installed_automation_control_root
+  metadata_projection:
+    input: owner_injected_stream_or_path
+    real_private_ledger_phase_e: forbidden
+    output_allowlist:
+      - aggregate_counts
+      - identity_and_full_record_digests
+      - public_source_commit_ref
+      - occurred_at
+      - recorded_at
+      - bounded_classification
+      - bounded_status
+      - completeness_and_error_attestation
+    forbidden_output:
+      - raw_line_or_record_body
+      - private_identifier_or_path
+      - url_or_remote_value
+      - userinfo_or_credential
+    temporal_consistency:
+      recorded_at_before_occurred_at: HOLD
+  transport_binding:
+    classes: [local_file, https, ssh]
+    executor: built_in_logical_git_or_owner_injected_test_double
+    logical_fields: [remote_name, ref, transport_class, authority_fingerprint]
+    authority_fingerprint: "sha256:<64-lowercase-hex>"
+    secret_free_git_config_binding:
+      - "remote.<logical>.soulforge-transport-class"
+      - "remote.<logical>.soulforge-authority-fingerprint"
+    git_uses_existing_remote_and_credential_config: true
+    runner_queries_remote_url: false
+    interactive_auth_prompt: forbidden
+    git_failure_output: discarded
+    raw_remote_url_input_or_output: forbidden
+    actual_network_or_credential_access_phase_e: forbidden
+    require_freshness_and_ff: true
+    post_push_inclusion: independently_recomputed
+    uncertain_push_state: UNKNOWN_AFTER_PUSH
+  runtime_preflight:
+    topology: exact_disjoint_siblings
+    sibling_roots:
+      - runner
+      - source
+      - writer_workmeta
+      - writer_private_state
+      - config
+      - locks
+    launch_binding:
+      input_file: canonical_non_reparse_regular_file_inside_config
+      pre_read_cli_binding: required
+      manifest_digest_match: required
+    evidence_required:
+      - canonical_realpath_and_reparse
+      - effective_acl_intent
+      - nas_backup_classification
+      - restore_attestation
+      - single_writer_fencing
+    missing_or_inconsistent_evidence: HOLD
+    actual_root_acl_or_nas_mutation: forbidden
+  automation_candidate_builder:
+    candidate_display_name: "AI 작업 결과 누락 복구 (매일)"
+    legacy_internal_id_preserved: soulforge-five-field-sweep
+    inputs:
+      - injected_current_bytes
+      - full_reviewed_runtime_preflight_input
+      - exact_reviewed_runtime_preflight_receipt
+      - exact_absolute_node_path
+      - exact_absolute_runner_path
+      - exact_absolute_input_path
+      - exact_isolated_cwd
+    preflight_recheck:
+      full_input_rerun: required
+      exact_receipt_equality: required
+      forbidden_root_clear: required
+      forged_pass_summary: HOLD
+      active_or_forbidden_root_candidate: HOLD
+    outputs:
+      - paused_candidate_bytes_and_sha256
+      - rollback_bytes_and_sha256
+    installed_automation_read_write_or_run: forbidden
+    tracked_template_installable: false
   lease_and_fencing:
     mode: exclusive_local_lease
     fields:
@@ -153,6 +240,10 @@ recovery_contract:
     applies_to:
       - cursor_sweep_receipt
       - cursor_runner_receipt
+      - ledger_metadata_projection_receipt
+      - transport_adapter_receipt
+      - runtime_preflight_receipt
+      - automation_builder_receipt
     official_completion: false
     worksession_acceptance: false
     taskdriver_acceptance: false
@@ -207,7 +298,7 @@ recovery_contract:
     - human_owner_automation_update_and_activation_approval
   synthetic_validation:
     roots: os_temp_only
-    remotes: local_bare_only
+    remotes: local_bare_or_injected_mock_only
     live_or_network_mutations: 0
   dry_run_upper_bound_note: "313 is the ledger_records=[] synthetic upper bound, not an actual missing count."
 guard_binding:
@@ -245,3 +336,4 @@ notes:
   - 2026-07-30 public candidate는 최근 24시간/foreground pull 의존을 제거했지만 private cursor와 live automation은 만들거나 활성화하지 않았다.
   - 2026-07-30 Phase B added the public isolated runner and synthetic-only verification surface; installed automation, private cursor, and live writer remain HOLD.
   - 2026-07-30 Phase C hardened the public candidate with separate workmeta-ledger and private-state-cursor writers, exclusive lease/epoch fencing, recursive fail-closed input validation, guarded-root containment, and explicit non-acceptance receipts; all private/live actions remain HOLD.
+  - 2026-07-31 Phase E adds a strict metadata projector, injected local/HTTPS/SSH transport contract, isolated runtime evidence preflight, and deterministic PAUSED automation/rollback builder. Validation is public synthetic only; real ledger, private transport, runtime, ACL/NAS, and installed automation remain HOLD.

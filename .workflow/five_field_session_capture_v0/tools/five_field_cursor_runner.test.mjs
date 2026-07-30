@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   mkdtempSync,
   mkdirSync,
@@ -19,8 +21,11 @@ import {
   RUNNER_INPUT_SCHEMA,
   cursorLogicalPath,
   cursorRevision,
+  inspectNonInteractiveGitEnvironment,
+  localFileAuthorityFingerprint,
   runCursorRunner,
 } from "./five_field_cursor_runner.mjs";
+import { runRuntimePreflight } from "./five_field_runtime_preflight.mjs";
 import {
   AUTOMATION_SELF_LOOP_TRAILER,
   sourceLaneTrailer,
@@ -108,20 +113,29 @@ function initializeWriter(remote, clone, seedFile, content) {
 
 function fixture({ sourceSubjects = ["first public result"], selfLoop = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), "five-field-runner-"));
-  const sourceWork = join(root, "source-work");
-  const sourceSnapshot = join(root, "source-snapshot.git");
-  const ledgerRemote = join(root, "ledger-remote.git");
-  const ledgerClone = join(root, "ledger-clone");
-  const cursorRemote = join(root, "cursor-remote.git");
-  const cursorClone = join(root, "cursor-clone");
-  const runtimeRoot = join(root, "runtime-root");
-  const lockParent = join(root, "lock-parent");
+  const sourceWork = join(root, "fixture-source-work");
+  const sourceSnapshot = join(root, "source");
+  const ledgerWriterRoot = join(root, "writer-workmeta");
+  const ledgerRemote = join(ledgerWriterRoot, "remote.git");
+  const ledgerClone = join(ledgerWriterRoot, "clone");
+  const cursorWriterRoot = join(root, "writer-private-state");
+  const cursorRemote = join(cursorWriterRoot, "remote.git");
+  const cursorClone = join(cursorWriterRoot, "clone");
+  const runtimeRoot = join(root, "runner");
+  const configRoot = join(root, "config");
+  const inputPath = join(configRoot, "input.json");
+  const lockParent = join(root, "locks");
   const lockPath = join(lockParent, "runner.lease.json");
   mkdirSync(runtimeRoot);
+  mkdirSync(configRoot);
+  writeFileSync(inputPath, "{}\n", "utf8");
   mkdirSync(lockParent);
+  mkdirSync(ledgerWriterRoot);
+  mkdirSync(cursorWriterRoot);
   const forbiddenRoots = [
     "active_public_repo",
     "active_workmeta",
+    "active_private_state",
     "codex_worktree",
     "orca_worktree",
     "installed_automation_control",
@@ -178,6 +192,10 @@ function fixture({ sourceSubjects = ["first public result"], selfLoop = false } 
     CURSOR_PATH,
     `${JSON.stringify(remoteCursor, null, 2)}\n`,
   );
+  const ledgerAuthorityFingerprint =
+    localFileAuthorityFingerprint(ledgerRemote);
+  const cursorAuthorityFingerprint =
+    localFileAuthorityFingerprint(cursorRemote);
 
   const commitAuthor = {
     name: "Synthetic Recovery Worker",
@@ -207,7 +225,8 @@ function fixture({ sourceSubjects = ["first public result"], selfLoop = false } 
       binding_id: "synthetic-ledger-writer",
       clone_path: ledgerClone,
       remote: "origin",
-      remote_url: ledgerRemote,
+      transport_class: "local_file",
+      authority_fingerprint: ledgerAuthorityFingerprint,
       ref: WRITER_REF,
       ledger_logical_path: LEDGER_PATH,
       commit_author: { ...commitAuthor },
@@ -218,7 +237,8 @@ function fixture({ sourceSubjects = ["first public result"], selfLoop = false } 
       binding_id: "synthetic-cursor-writer",
       clone_path: cursorClone,
       remote: "origin",
-      remote_url: cursorRemote,
+      transport_class: "local_file",
+      authority_fingerprint: cursorAuthorityFingerprint,
       ref: WRITER_REF,
       commit_author: { ...commitAuthor },
       cursor_commit_message: "synthetic recovery cursor advance",
@@ -238,6 +258,63 @@ function fixture({ sourceSubjects = ["first public result"], selfLoop = false } 
       runtime_root: runtimeRoot,
       forbidden_roots: forbiddenRoots,
     },
+    runtime_preflight: {
+      schema_version: "soulforge.five_field_runtime_preflight_input.v1",
+      roots: {
+        runner: runtimeRoot,
+        source: sourceSnapshot,
+        writer_workmeta: ledgerWriterRoot,
+        writer_private_state: cursorWriterRoot,
+        config: configRoot,
+        locks: lockParent,
+      },
+      launch: {
+        input_path: inputPath,
+      },
+      forbidden_roots: structuredClone(forbiddenRoots),
+      evidence: {
+        acl: {
+          status: "VERIFIED",
+          principal_intent: "dedicated_runner_least_privilege",
+          runner_read_execute: true,
+          source_read_only: true,
+          config_read_only: true,
+          writers_modify: true,
+          locks_modify: true,
+          active_roots_write_denied: true,
+          attestation_digest: `sha256:${"1".repeat(64)}`,
+        },
+        nas: {
+          status: "VERIFIED",
+          classifications: {
+            runner: "regenerable_excluded",
+            source: "regenerable_excluded",
+            writer_workmeta: "backup_recovery_included",
+            writer_private_state: "backup_recovery_included",
+            config: "secret_operational_capture_prohibited",
+            locks: "ephemeral_excluded",
+          },
+          attestation_digest: `sha256:${"2".repeat(64)}`,
+        },
+        restore: {
+          status: "VERIFIED",
+          ledger_restore_tested: true,
+          cursor_restore_tested: true,
+          attestation_digest: `sha256:${"3".repeat(64)}`,
+        },
+        fencing: {
+          status: "VERIFIED",
+          single_writer: true,
+          host_identity_digest: `sha256:${createHash("sha256")
+            .update("host_identity\0synthetic-host")
+            .digest("hex")}`,
+          writer_epoch: 1,
+          stale_recovery_policy:
+            "same_host_dead_pid_expired_owner_approved",
+          attestation_digest: `sha256:${"4".repeat(64)}`,
+        },
+      },
+    },
     source_allowlist: [{
       classification: "public",
       ...SOURCE_TUPLE,
@@ -248,7 +325,8 @@ function fixture({ sourceSubjects = ["first public result"], selfLoop = false } 
       binding_id: "synthetic-ledger-writer",
       clone_path: ledgerClone,
       remote: "origin",
-      remote_url: ledgerRemote,
+      transport_class: "local_file",
+      authority_fingerprint: ledgerAuthorityFingerprint,
       ref: WRITER_REF,
       ledger_logical_path: LEDGER_PATH,
     }],
@@ -257,7 +335,8 @@ function fixture({ sourceSubjects = ["first public result"], selfLoop = false } 
       binding_id: "synthetic-cursor-writer",
       clone_path: cursorClone,
       remote: "origin",
-      remote_url: cursorRemote,
+      transport_class: "local_file",
+      authority_fingerprint: cursorAuthorityFingerprint,
       ref: WRITER_REF,
       cursor_logical_path: CURSOR_PATH,
     }],
@@ -271,6 +350,8 @@ function fixture({ sourceSubjects = ["first public result"], selfLoop = false } 
     cursorRemote,
     cursorClone,
     runtimeRoot,
+    configRoot,
+    inputPath,
     lockParent,
     lockPath,
     forbiddenRoots,
@@ -318,6 +399,7 @@ function assertNoInjectedPath(receipt, f, extra = []) {
     f.cursorRemote,
     f.cursorClone,
     f.runtimeRoot,
+    f.configRoot,
     f.lockParent,
     ...extra,
   ]) {
@@ -397,6 +479,345 @@ function assertNonAcceptance(receipt) {
   assert.equal(receipt.mcp_acceptance, false);
   assert.equal(receipt.claim_ceiling, "operational_evidence_only");
 }
+
+test("all built-in Git execution is non-interactive and redacts failure output", () => {
+  assert.deepEqual(inspectNonInteractiveGitEnvironment({
+    GIT_TERMINAL_PROMPT: "1",
+    GCM_INTERACTIVE: "Always",
+    GIT_ASKPASS: "synthetic-interactive-helper",
+    SSH_ASKPASS: "synthetic-interactive-helper",
+    SSH_ASKPASS_REQUIRE: "force",
+    GIT_SSH_COMMAND: "synthetic-interactive-ssh",
+  }), {
+    terminal_prompt_blocked: true,
+    credential_manager_interactive: false,
+    git_askpass_blocked: true,
+    ssh_askpass_blocked: true,
+    ssh_batch_mode: true,
+    raw_failure_output_discarded: true,
+  });
+});
+
+test("failing Git boundary observes noninteractive env and never leaks process output", () => {
+  const f = fixture();
+  const observation = join(f.root, "synthetic-git-env-observed.txt");
+  const marker = "synthetic-auth-failure-marker";
+  const rejectingHook = join(f.ledgerRemote, "hooks", "pre-receive");
+  writeFileSync(rejectingHook, [
+    "#!/bin/sh",
+    "[ \"$GIT_TERMINAL_PROMPT\" = \"0\" ] || exit 88",
+    "[ \"$GCM_INTERACTIVE\" = \"Never\" ] || exit 89",
+    "[ \"$SSH_ASKPASS_REQUIRE\" = \"never\" ] || exit 90",
+    "printf observed > \"$SYNTHETIC_GIT_ENV_OBSERVATION\"",
+    `printf ${marker}`,
+    `printf ${marker} >&2`,
+    "exit 1",
+    "",
+  ].join("\n"), "utf8");
+  chmodSync(rejectingHook, 0o755);
+  useBuiltInNetworkTransport(f, "https");
+
+  const previousObservation = process.env.SYNTHETIC_GIT_ENV_OBSERVATION;
+  try {
+    process.env.SYNTHETIC_GIT_ENV_OBSERVATION = observation;
+    const receipt = runCursorRunner(f.input);
+    assert.equal(receipt.status, "HOLD");
+    assert.deepEqual(
+      receipt.hold_reasons,
+      ["ledger_output_unknown_after_push"],
+    );
+    assert.equal(readFileSync(observation, "utf8").trim(), "observed");
+    assert.equal(JSON.stringify(receipt).includes(marker), false);
+    assert.equal(receipt.cursor_update.created, false);
+  } finally {
+    if (previousObservation === undefined) {
+      delete process.env.SYNTHETIC_GIT_ENV_OBSERVATION;
+    } else {
+      process.env.SYNTHETIC_GIT_ENV_OBSERVATION = previousObservation;
+    }
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+function runCli(f, input, overrides = {}) {
+  writeFileSync(f.inputPath, `${JSON.stringify(input, null, 2)}\n`, "utf8");
+  const preflight = runRuntimePreflight(input.runtime_preflight);
+  assert.equal(preflight.status, "PASS", JSON.stringify(preflight));
+  return spawnSync(process.execPath, [
+    RUNNER_TOOL,
+    "--runtime-root",
+    overrides.runtimeRoot || f.runtimeRoot,
+    "--config-root",
+    overrides.configRoot || f.configRoot,
+    "--runtime-manifest-digest",
+    overrides.manifestDigest || preflight.manifest_digest,
+    "--input",
+    overrides.inputPath || f.inputPath,
+  ], {
+    encoding: "utf8",
+    windowsHide: true,
+  });
+}
+
+function setNetworkTransportBinding(f, transportClass = "https") {
+  const fingerprint = `sha256:${"d".repeat(64)}`;
+  for (const [writer, allowlist] of [
+    [f.input.ledger_writer, f.input.ledger_writer_allowlist],
+    [f.input.cursor_writer, f.input.cursor_writer_allowlist],
+  ]) {
+    writer.transport_class = transportClass;
+    writer.authority_fingerprint = fingerprint;
+    allowlist[0].transport_class = transportClass;
+    allowlist[0].authority_fingerprint = fingerprint;
+  }
+  return fingerprint;
+}
+
+function useBuiltInNetworkTransport(f, transportClass = "https") {
+  const fingerprint = setNetworkTransportBinding(f, transportClass);
+  for (const clone of [f.ledgerClone, f.cursorClone]) {
+    git(clone, [
+      "config",
+      "remote.origin.soulforge-transport-class",
+      transportClass,
+    ]);
+    git(clone, [
+      "config",
+      "remote.origin.soulforge-authority-fingerprint",
+      fingerprint,
+    ]);
+  }
+}
+
+function useMockNetworkTransport(f, transportClass = "https") {
+  setNetworkTransportBinding(f, transportClass);
+
+  function executor(clone) {
+    return (request) => {
+      if (request.operation === "fetch_fresh_tip") {
+        git(clone, ["fetch", "--no-tags", "--quiet", "origin", WRITER_REF]);
+        return {
+          status: "OK",
+          tip: git(clone, ["rev-parse", "--verify", "FETCH_HEAD"]),
+          authority_binding_verified: true,
+        };
+      }
+      if (request.operation === "push_commit") {
+        const result = spawnSync("git", [
+          "-C",
+          clone,
+          "push",
+          "--porcelain",
+          "origin",
+          `${request.commit}:${WRITER_REF}`,
+        ], {
+          encoding: "utf8",
+          windowsHide: true,
+        });
+        return {
+          status: result.status === 0
+            ? "PUSHED"
+            : "REJECTED_NON_FAST_FORWARD",
+          authority_binding_verified: true,
+        };
+      }
+      git(clone, ["fetch", "--no-tags", "--quiet", "origin", WRITER_REF]);
+      const tip = git(clone, ["rev-parse", "--verify", "FETCH_HEAD"]);
+      const contains = spawnSync("git", [
+        "-C",
+        clone,
+        "merge-base",
+        "--is-ancestor",
+        request.commit,
+        tip,
+      ], {
+        encoding: "utf8",
+        windowsHide: true,
+      }).status === 0;
+      return {
+        status: contains ? "INCLUDED" : "NOT_INCLUDED",
+        tip,
+        authority_binding_verified: true,
+      };
+    };
+  }
+
+  return {
+    [f.input.ledger_writer.binding_id]: executor(f.ledgerClone),
+    [f.input.cursor_writer.binding_id]: executor(f.cursorClone),
+  };
+}
+
+test("HTTPS and SSH use only injected executors and preserve publication order", () => {
+  for (const transportClass of ["https", "ssh"]) {
+    const f = fixture();
+    try {
+      const transportExecutors = useMockNetworkTransport(f, transportClass);
+      const receipt = runCursorRunner(f.input, { transportExecutors });
+      assert.equal(receipt.status, "SUCCESS", JSON.stringify(receipt));
+      assert.deepEqual(receipt.writer_binding, {
+        ledger: {
+          classification: "synthetic",
+          transport_class: transportClass,
+          authority_binding_verified: true,
+        },
+        cursor: {
+          classification: "synthetic",
+          transport_class: transportClass,
+          authority_binding_verified: true,
+        },
+      });
+      assert.deepEqual(receipt.publication_order, [
+        "ledger_push_attempt",
+        "ledger_remote_inclusion_verified",
+        "cursor_commit_created",
+        "cursor_push_attempt",
+        "cursor_remote_inclusion_verified",
+      ]);
+      assertNoInjectedPath(receipt, f);
+      assertNonAcceptance(receipt);
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("network transport without an executor and unknown push outcome HOLD before cursor CAS", () => {
+  const noExecutor = fixture();
+  try {
+    setNetworkTransportBinding(noExecutor);
+    const receipt = runCursorRunner(noExecutor.input);
+    assert.equal(receipt.status, "HOLD");
+    assert.deepEqual(receipt.hold_reasons, ["writer_transport_metadata_missing"]);
+    assert.equal(receipt.lease.acquired, false);
+    assert.equal(existsSync(noExecutor.lockPath), false);
+    assertNoInjectedPath(receipt, noExecutor);
+  } finally {
+    rmSync(noExecutor.root, { recursive: true, force: true });
+  }
+
+  const unknown = fixture();
+  try {
+    const transportExecutors = useMockNetworkTransport(unknown, "ssh");
+    const ledgerId = unknown.input.ledger_writer.binding_id;
+    const baseLedgerExecutor = transportExecutors[ledgerId];
+    transportExecutors[ledgerId] = (request) => request.operation === "push_commit"
+      ? { status: "UNKNOWN_AFTER_PUSH", authority_binding_verified: true }
+      : baseLedgerExecutor(request);
+    const receipt = runCursorRunner(unknown.input, { transportExecutors });
+    assert.equal(receipt.status, "HOLD");
+    assert.ok(receipt.hold_reasons.includes("ledger_output_unknown_after_push"));
+    assert.equal(receipt.cursor_update.created, false);
+    assert.equal(
+      showJson(unknown.cursorRemote, WRITER_REF, CURSOR_PATH)
+        .last_successful_source_commit,
+      unknown.seed,
+    );
+    assertNoInjectedPath(receipt, unknown);
+  } finally {
+    rmSync(unknown.root, { recursive: true, force: true });
+  }
+});
+
+test("built-in HTTPS/SSH executor verifies metadata, inclusion, and push uncertainty", () => {
+  for (const transportClass of ["https", "ssh"]) {
+    const f = fixture();
+    try {
+      useBuiltInNetworkTransport(f, transportClass);
+      const cli = runCli(f, f.input);
+      assert.equal(cli.status, 0, cli.stdout || cli.stderr);
+      const receipt = JSON.parse(cli.stdout);
+      assert.equal(receipt.status, "SUCCESS", JSON.stringify(receipt));
+      assert.equal(receipt.ledger_output.remote_contains_commit, true);
+      assert.equal(receipt.cursor_update.remote_contains_commit, true);
+      assert.equal(
+        receipt.writer_binding.ledger.authority_binding_verified,
+        true,
+      );
+      assert.equal(
+        receipt.writer_binding.cursor.authority_binding_verified,
+        true,
+      );
+      assertNoInjectedPath(receipt, f);
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  }
+
+  const uncertain = fixture();
+  try {
+    useBuiltInNetworkTransport(uncertain, "https");
+    git(uncertain.ledgerClone, [
+      "config",
+      "remote.origin.pushurl",
+      join(uncertain.root, "synthetic-unreachable-remote.git"),
+    ]);
+    const receipt = runCursorRunner(uncertain.input);
+    assert.equal(receipt.status, "HOLD");
+    assert.ok(receipt.hold_reasons.includes("ledger_output_unknown_after_push"));
+    assert.equal(receipt.cursor_update.created, false);
+    assertNoInjectedPath(receipt, uncertain);
+  } finally {
+    rmSync(uncertain.root, { recursive: true, force: true });
+  }
+
+  const raced = fixture();
+  try {
+    useBuiltInNetworkTransport(raced, "ssh");
+    const receipt = runCursorRunner(raced.input, {
+      beforeLedgerPush: () => advanceLedgerRemote(raced),
+    });
+    assert.equal(receipt.status, "HOLD");
+    assert.ok(receipt.hold_reasons.includes(
+      "ledger_output_non_fast_forward_push_failed",
+    ));
+    assert.equal(receipt.cursor_update.created, false);
+    assertNoInjectedPath(receipt, raced);
+  } finally {
+    rmSync(raced.root, { recursive: true, force: true });
+  }
+});
+
+test("v2 input is explicitly superseded and CLI launch binding fails closed", () => {
+  const f = fixture();
+  try {
+    const v2 = structuredClone(f.input);
+    v2.schema_version = "soulforge.five_field_cursor_runner_input.v2";
+    const receipt = runCursorRunner(v2);
+    assert.equal(receipt.status, "HOLD");
+    assert.deepEqual(receipt.hold_reasons, ["input_schema_mismatch"]);
+    assert.equal(receipt.lease.acquired, false);
+
+    const v2Cli = runCli(f, v2);
+    assert.equal(v2Cli.status, 2, v2Cli.stdout || v2Cli.stderr);
+    assert.deepEqual(
+      JSON.parse(v2Cli.stdout).hold_reasons,
+      ["input_schema_mismatch"],
+    );
+
+    const wrongDigest = runCli(f, f.input, {
+      manifestDigest: `sha256:${"f".repeat(64)}`,
+    });
+    assert.equal(wrongDigest.status, 2, wrongDigest.stdout || wrongDigest.stderr);
+    assert.deepEqual(
+      JSON.parse(wrongDigest.stdout).hold_reasons,
+      ["runtime_cli_binding_mismatch"],
+    );
+
+    const outsidePath = join(f.sourceWork, "outside-input.json");
+    writeFileSync(outsidePath, `${JSON.stringify(f.input)}\n`, "utf8");
+    const outside = runCli(f, f.input, { inputPath: outsidePath });
+    assert.equal(outside.status, 1, outside.stdout || outside.stderr);
+    assert.deepEqual(JSON.parse(outside.stdout), {
+      ok: false,
+      error: "cli_input_realpath_invalid",
+    });
+    assert.equal(existsSync(f.lockPath), false);
+    assert.equal(showLedger(f.ledgerRemote).length, 0);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
 
 test("first run appends records, advances the cursor, itemizes self-loops, and preserves active bytes", () => {
   const f = fixture({ sourceSubjects: ["ordinary result"], selfLoop: true });
@@ -709,6 +1130,8 @@ test("exclusive lease and monotonic epoch fence live, stale, expired, and recove
     try {
       writeLease(f, current);
       Object.assign(f.input.lease, inputDelta);
+      f.input.runtime_preflight.evidence.fencing.writer_epoch =
+        f.input.lease.writer_epoch;
       const receipt = runCursorRunner(f.input, { isPidAlive: () => isPidAlive });
       assert.equal(receipt.status, "HOLD", name);
       assert.ok(receipt.hold_reasons.includes(reason), name);
@@ -731,6 +1154,7 @@ test("exclusive lease and monotonic epoch fence live, stale, expired, and recove
       writer_epoch: 2,
       owner_allows_stale_recovery: true,
     });
+    recovered.input.runtime_preflight.evidence.fencing.writer_epoch = 2;
     const receipt = runCursorRunner(recovered.input, {
       isPidAlive: () => false,
     });
@@ -776,9 +1200,11 @@ test("realpath containment rejects forbidden roots, mutual overlap, and reparse 
 
     const overlapped = structuredClone(f.input);
     overlapped.cursor_writer.clone_path = f.ledgerClone;
-    overlapped.cursor_writer.remote_url = f.ledgerRemote;
+    overlapped.cursor_writer.authority_fingerprint =
+      localFileAuthorityFingerprint(f.ledgerRemote);
     overlapped.cursor_writer_allowlist[0].clone_path = f.ledgerClone;
-    overlapped.cursor_writer_allowlist[0].remote_url = f.ledgerRemote;
+    overlapped.cursor_writer_allowlist[0].authority_fingerprint =
+      localFileAuthorityFingerprint(f.ledgerRemote);
     const overlapReceipt = runCursorRunner(overlapped);
     assert.equal(overlapReceipt.status, "HOLD");
     assert.ok(overlapReceipt.hold_reasons.includes("isolation_roots_overlap"));
@@ -833,8 +1259,10 @@ test("both bare remote roots are forbidden-root guarded and cannot be shared bef
 
     git(f.cursorClone, ["remote", "set-url", "origin", f.ledgerRemote]);
     const shared = structuredClone(f.input);
-    shared.cursor_writer.remote_url = f.ledgerRemote;
-    shared.cursor_writer_allowlist[0].remote_url = f.ledgerRemote;
+    shared.cursor_writer.authority_fingerprint =
+      localFileAuthorityFingerprint(f.ledgerRemote);
+    shared.cursor_writer_allowlist[0].authority_fingerprint =
+      localFileAuthorityFingerprint(f.ledgerRemote);
     const sharedReceipt = runCursorRunner(shared);
     assert.equal(sharedReceipt.status, "HOLD");
     assert.ok(sharedReceipt.hold_reasons.includes("isolation_roots_overlap"));
@@ -859,12 +1287,14 @@ test("interleaved stale takeover preserves a newly live lease and permits one re
       writer_epoch: 2,
       owner_allows_stale_recovery: true,
     });
+    winner.input.runtime_preflight.evidence.fencing.writer_epoch = 2;
     const contenderInput = structuredClone(winner.input);
     Object.assign(contenderInput.lease, {
       owner_token: "contending-recoverer",
       pid: 626262,
       writer_epoch: 3,
     });
+    contenderInput.runtime_preflight.evidence.fencing.writer_epoch = 3;
     let contenderReceipt;
     const winnerReceipt = runCursorRunner(winner.input, {
       isPidAlive: () => false,
@@ -899,6 +1329,7 @@ test("interleaved stale takeover preserves a newly live lease and permits one re
       writer_epoch: 2,
       owner_allows_stale_recovery: true,
     });
+    replaced.input.runtime_preflight.evidence.fencing.writer_epoch = 2;
     const newLive = {
       owner_token: "new-live-recoverer",
       pid: 636363,
@@ -982,6 +1413,30 @@ test("recursive input rejection covers forbidden keys, private refs and URLs wit
       assertNonAcceptance(receipt);
       assert.equal(showLedger(f.ledgerRemote).length, 0, name);
     }
+
+    const authorityMismatch = structuredClone(f.input);
+    authorityMismatch.ledger_writer.authority_fingerprint =
+      `sha256:${"e".repeat(64)}`;
+    authorityMismatch.ledger_writer_allowlist[0].authority_fingerprint =
+      authorityMismatch.ledger_writer.authority_fingerprint;
+    const authorityReceipt = runCursorRunner(authorityMismatch);
+    assert.equal(authorityReceipt.status, "HOLD");
+    assert.deepEqual(
+      authorityReceipt.hold_reasons,
+      ["writer_authority_fingerprint_mismatch"],
+    );
+    assert.equal(authorityReceipt.lease.acquired, false);
+
+    const runtimeEvidenceMissing = structuredClone(f.input);
+    runtimeEvidenceMissing.runtime_preflight.evidence.acl.status = "UNKNOWN";
+    const runtimeReceipt = runCursorRunner(runtimeEvidenceMissing);
+    assert.equal(runtimeReceipt.status, "HOLD");
+    assert.deepEqual(
+      runtimeReceipt.hold_reasons,
+      ["runtime_preflight:acl_evidence_missing"],
+    );
+    assert.equal(runtimeReceipt.lease.acquired, false);
+    assert.equal(showLedger(f.ledgerRemote).length, 0);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }
@@ -1009,11 +1464,7 @@ test("missing and mismatched injected worker identity HOLD in API and CLI", () =
       );
       assert.equal(showLedger(f.ledgerRemote).length, 0);
 
-      const cli = spawnSync(process.execPath, [RUNNER_TOOL], {
-        input: JSON.stringify(input),
-        encoding: "utf8",
-        windowsHide: true,
-      });
+      const cli = runCli(f, input);
       assert.equal(cli.status, 2, cli.stdout || cli.stderr);
       const cliReceipt = JSON.parse(cli.stdout);
       assert.equal(cliReceipt.status, "HOLD");
@@ -1078,11 +1529,7 @@ test("secret and path sentinels HOLD without leaking injected values", () => {
       assert.equal(receipt.status, "HOLD");
       assert.equal(JSON.stringify(receipt).includes(sentinel), false);
 
-      const cli = spawnSync(process.execPath, [RUNNER_TOOL], {
-        input: JSON.stringify(input),
-        encoding: "utf8",
-        windowsHide: true,
-      });
+      const cli = runCli(f, input);
       assert.equal(cli.status, 2, cli.stdout || cli.stderr);
       assert.equal(cli.stdout.includes(sentinel), false);
       assert.equal(showLedger(f.ledgerRemote).length, 0);
