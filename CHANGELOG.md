@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-07-31
+
+### AI 작업 결과 누락 복구 Phase E public-synthetic remediation
+
+- public commit `57e93fb3dbabfa4fa4e24bfe062c6e4d6195c75e`를 `main`에 포함했다.
+  metadata projector는 승인된 집계·digest·public commit ref·시각·분류·완전성만
+  투영하고 `recorded_at >= occurred_at`을 강제한다. local/HTTPS/SSH transport는
+  logical remote/ref와 authority fingerprint로 결합하며 raw URL·credential을
+  입력·출력하지 않고 Git 인증을 비대화형으로 고정한다.
+- isolated runtime preflight는 canonical root, active/forbidden-root 비중첩,
+  ACL·NAS·restore·single-writer fencing 증거를 fail-closed로 재검증한다.
+  deterministic builder는 전체 preflight를 다시 확인한 뒤 표시명
+  `AI 작업 결과 누락 복구 (매일)`의 정확한 `PAUSED` candidate와 byte-exact
+  rollback만 생성한다. receipt는 `official_completion=false`, WorkSession·
+  TaskDriver·ERP·MCP acceptance `false`,
+  `claim_ceiling=operational_evidence_only`를 유지한다.
+- fresh Level 3에서 contract/planner 41/41과 runner 19/19를 통과했다.
+  manager 재검증에서 path-policy 5 PASS/Windows symlink 1 SKIP, 동일 provisioned
+  canon validator 136/0/0 PASS를 확인했다. 설치된 legacy automation, 실제 private
+  cursor·ledger coverage, runtime, network는 변경하지 않았고 live activation은
+  `HOLD`다. `313`과 `317`은 각각 합성 빈-ledger 상한 또는 public lineage 범위이며
+  실제 누락 수가 아니다. (worker: `codex_gpt-5.6-sol`)
+
 ## 2026-07-30
 
 ### AI 작업 결과 누락 복구 Phase C public safety remediation
