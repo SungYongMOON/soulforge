@@ -39,6 +39,8 @@ agent/provider badge는 fixture에서 `observed: true`인 값만 보여 준다. 
 - project/responsibility/status/search 필터와 열별 더보기
 - empty, error, missing-data, UNKNOWN, multi-agent 상태
 - desktop, tablet, mobile 반응형과 keyboard focus/accessible name/state
+- 760px 이하 상세는 modal dialog, focus trap, Escape 닫기, 배경 inert,
+  원 trigger focus 복원을 적용하고 그보다 큰 viewport는 비모달 상세를 유지
 
 ## 실행
 
