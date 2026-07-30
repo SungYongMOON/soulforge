@@ -22,6 +22,51 @@ export const AUTOMATION_SELF_LOOP_TRAILER =
 const SHA_RE = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const REF_RE = /^refs\/(?:heads|tags)\/[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/;
 const TOKEN_RE = /^[a-z0-9][a-z0-9._/-]{0,119}$/;
+const PUBLIC_ERROR_CODES = new Set([
+  "baseline_must_be_full_commit_sha",
+  "baseline_not_a_commit",
+  "candidate_target_must_be_full_commit_sha",
+  "candidate_target_not_a_commit",
+  "commit_occurred_at_invalid",
+  "commit_occurred_at_required",
+  "expected_ref_tip_must_be_full_commit_sha",
+  "expected_ref_tip_not_a_commit",
+  "git_command_failed",
+  "git_merge_base_failed",
+  "git_rev_list_failed",
+  "git_rev_parse_failed",
+  "git_show_failed",
+  "git_show_parse_failed",
+  "input_json_invalid",
+  "input_object_required",
+  "input_path_required",
+  "input_read_failed",
+  "internal_cli_error",
+  "internal_planner_error",
+  "recorded_at_invalid",
+  "recorded_at_required",
+  "source_commit_metadata_failed",
+  "source_history_read_failed",
+  "source_ref_invalid",
+  "source_ref_not_a_commit",
+  "source_ref_recheck_failed",
+  "source_revision_resolution_failed",
+  "source_topology_check_failed",
+  "unknown_argument",
+]);
+
+function codedError(code) {
+  const error = new Error(code);
+  error.code = code;
+  return error;
+}
+
+function publicErrorCode(error, fallback = "internal_planner_error") {
+  const candidate = error?.code ?? error?.message;
+  return typeof candidate === "string" && PUBLIC_ERROR_CODES.has(candidate)
+    ? candidate
+    : fallback;
+}
 
 function canonicalize(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
@@ -47,10 +92,10 @@ export function sourceLaneTrailer(source) {
 
 function normalizeIso(value, field) {
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error(`${field}_required`);
+    throw codedError(`${field}_required`);
   }
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.valueOf())) throw new Error(`${field}_invalid`);
+  if (Number.isNaN(parsed.valueOf())) throw codedError(`${field}_invalid`);
   return parsed.toISOString();
 }
 
@@ -61,24 +106,27 @@ function git(repoPath, args) {
     maxBuffer: 8 * 1024 * 1024,
   });
   if (result.status !== 0) {
-    const detail = String(result.stderr || result.stdout || "git_failed").trim()
-      .replace(/\s+/g, " ").slice(0, 240);
-    throw new Error(`git_${args[0]}_failed:${detail}`);
+    const operationCodes = {
+      "rev-parse": "git_rev_parse_failed",
+      "rev-list": "git_rev_list_failed",
+      show: "git_show_failed",
+    };
+    throw codedError(operationCodes[args[0]] ?? "git_command_failed");
   }
   return String(result.stdout).replace(/\r\n/g, "\n");
 }
 
 function resolveCommit(repoPath, value, field) {
-  if (!SHA_RE.test(value)) throw new Error(`${field}_must_be_full_commit_sha`);
+  if (!SHA_RE.test(value)) throw codedError(`${field}_must_be_full_commit_sha`);
   const resolved = git(repoPath, ["rev-parse", "--verify", `${value}^{commit}`]).trim();
-  if (!SHA_RE.test(resolved)) throw new Error(`${field}_not_a_commit`);
+  if (!SHA_RE.test(resolved)) throw codedError(`${field}_not_a_commit`);
   return resolved;
 }
 
 function resolveRef(repoPath, ref) {
-  if (!REF_RE.test(ref)) throw new Error("source_ref_invalid");
+  if (!REF_RE.test(ref)) throw codedError("source_ref_invalid");
   const resolved = git(repoPath, ["rev-parse", "--verify", `${ref}^{commit}`]).trim();
-  if (!SHA_RE.test(resolved)) throw new Error("source_ref_not_a_commit");
+  if (!SHA_RE.test(resolved)) throw codedError("source_ref_not_a_commit");
   return resolved;
 }
 
@@ -89,14 +137,14 @@ function isAncestor(repoPath, older, newer) {
   });
   if (result.status === 0) return true;
   if (result.status === 1) return false;
-  throw new Error(`git_merge_base_failed:${String(result.stderr || "").trim().slice(0, 240)}`);
+  throw codedError("git_merge_base_failed");
 }
 
 function commitMetadata(repoPath, commit) {
   const raw = git(repoPath, ["show", "-s", "--format=%H%x00%cI%x00%B", commit]);
   const first = raw.indexOf("\0");
   const second = raw.indexOf("\0", first + 1);
-  if (first < 0 || second < 0) throw new Error(`git_show_parse_failed:${commit}`);
+  if (first < 0 || second < 0) throw codedError("git_show_parse_failed");
   const sha = raw.slice(0, first).trim();
   const occurredAt = normalizeIso(raw.slice(first + 1, second).trim(), "commit_occurred_at");
   const message = raw.slice(second + 1).replace(/\n+$/, "");
@@ -240,7 +288,7 @@ function hold(receipt, reason) {
  */
 export function planCursorSweep(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
-    throw new Error("input_object_required");
+    throw codedError("input_object_required");
   }
   const receipt = baseReceipt(input);
   const source = input.source || {};
@@ -278,7 +326,7 @@ export function planCursorSweep(input) {
   try {
     recordedAt = normalizeIso(input.recorded_at, "recorded_at");
   } catch (error) {
-    hold(receipt, String(error.message));
+    hold(receipt, publicErrorCode(error));
   }
 
   if (receipt.hold_reasons.length) {
@@ -295,7 +343,7 @@ export function planCursorSweep(input) {
     target = resolveCommit(repoPath, source.candidate_target, "candidate_target");
     refTip = resolveRef(repoPath, source.ref);
   } catch (error) {
-    hold(receipt, String(error.message));
+    hold(receipt, publicErrorCode(error, "source_revision_resolution_failed"));
     receipt.counts.hold = receipt.hold_reasons.length;
     return receipt;
   }
@@ -312,7 +360,7 @@ export function planCursorSweep(input) {
       if (!isAncestor(repoPath, expectedTip, target)) hold(receipt, "non_fast_forward_ref_observation");
     }
   } catch (error) {
-    hold(receipt, String(error.message));
+    hold(receipt, publicErrorCode(error, "source_topology_check_failed"));
   }
 
   if (receipt.hold_reasons.length) {
@@ -320,8 +368,15 @@ export function planCursorSweep(input) {
     return receipt;
   }
 
-  const commits = git(repoPath, ["rev-list", "--reverse", "--topo-order", `${baseline}..${target}`])
-    .trim().split("\n").filter(Boolean);
+  let commits;
+  try {
+    commits = git(repoPath, ["rev-list", "--reverse", "--topo-order", `${baseline}..${target}`])
+      .trim().split("\n").filter(Boolean);
+  } catch (error) {
+    hold(receipt, publicErrorCode(error, "source_history_read_failed"));
+    receipt.counts.hold = receipt.hold_reasons.length;
+    return receipt;
+  }
   receipt.range.commits = commits;
 
   const ledgerById = new Map();
@@ -334,7 +389,13 @@ export function planCursorSweep(input) {
 
   const missingRecords = [];
   for (const commit of commits) {
-    const metadata = commitMetadata(repoPath, commit);
+    let metadata;
+    try {
+      metadata = commitMetadata(repoPath, commit);
+    } catch (error) {
+      hold(receipt, publicErrorCode(error, "source_commit_metadata_failed"));
+      break;
+    }
     if (hasExactSelfLoopMarker(metadata.message, source)) {
       receipt.counts.excluded_self_loop += 1;
       continue;
@@ -376,7 +437,7 @@ export function planCursorSweep(input) {
   try {
     if (resolveRef(repoPath, source.ref) !== target) hold(receipt, "source_ref_moved_during_scan");
   } catch (error) {
-    hold(receipt, String(error.message));
+    hold(receipt, publicErrorCode(error, "source_ref_recheck_failed"));
   }
   const boundary = attestationsComplete(
     input.success_evidence,
@@ -407,13 +468,14 @@ export function planCursorSweep(input) {
 function parseCli(argv) {
   let inputPath = "-";
   for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === "--input" && argv[i + 1]) {
+    if (argv[i] === "--input") {
+      if (!argv[i + 1]) throw codedError("input_path_required");
       inputPath = argv[i + 1];
       i += 1;
     } else if (argv[i] === "--help") {
       return { help: true };
     } else {
-      throw new Error(`unknown_argument:${argv[i]}`);
+      throw codedError("unknown_argument");
     }
   }
   return { inputPath };
@@ -429,15 +491,28 @@ function cli() {
       );
       return;
     }
-    const text = args.inputPath === "-"
-      ? readFileSync(0, "utf8")
-      : readFileSync(resolve(args.inputPath), "utf8");
-    const input = JSON.parse(text.replace(/^\uFEFF/, ""));
+    let text;
+    try {
+      text = args.inputPath === "-"
+        ? readFileSync(0, "utf8")
+        : readFileSync(resolve(args.inputPath), "utf8");
+    } catch {
+      throw codedError("input_read_failed");
+    }
+    let input;
+    try {
+      input = JSON.parse(text.replace(/^\uFEFF/, ""));
+    } catch {
+      throw codedError("input_json_invalid");
+    }
     const receipt = planCursorSweep(input);
     process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
     process.exitCode = receipt.status === "HOLD" ? 2 : 0;
   } catch (error) {
-    process.stdout.write(`${JSON.stringify({ ok: false, error: String(error.message || error) })}\n`);
+    process.stdout.write(`${JSON.stringify({
+      ok: false,
+      error: publicErrorCode(error, "internal_cli_error"),
+    })}\n`);
     process.exitCode = 1;
   }
 }

@@ -14,6 +14,7 @@ import {
 } from "./five_field_cursor_sweep.mjs";
 
 const CAPTURE_TOOL = fileURLToPath(new URL("./five_field_capture.mjs", import.meta.url));
+const CURSOR_TOOL = fileURLToPath(new URL("./five_field_cursor_sweep.mjs", import.meta.url));
 
 function git(repo, args, options = {}) {
   return execFileSync("git", ["-C", repo, ...args], {
@@ -113,6 +114,13 @@ function runCapture(root, payload, extraArgs = []) {
     encoding: "utf8",
     windowsHide: true,
   });
+}
+
+function assertNoHostPath(text, forbidden = []) {
+  for (const value of forbidden) {
+    assert.equal(text.includes(value), false, `public output leaked ${value}`);
+  }
+  assert.doesNotMatch(text, /(?:[A-Za-z]:[\\/]|\/(?:Users|home|tmp)\/)/iu);
 }
 
 test("missed three days are planned oldest-to-newest with separated times", () => {
@@ -318,6 +326,69 @@ test("target/ref mismatch, history rewrite, and non-FF observation each HOLD", (
     assert.ok(nonFf.hold_reasons.includes("non_fast_forward_ref_observation"));
   } finally {
     rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("invalid repository HOLD uses only a stable redacted error code", () => {
+  const root = mkdtempSync(join(tmpdir(), "five-field-redaction-"));
+  try {
+    const missingRepo = join(root, "private-owner-path");
+    const baseline = "1".repeat(40);
+    const target = "2".repeat(40);
+    const receipt = planCursorSweep(inputFor(missingRepo, baseline, target));
+    const serialized = JSON.stringify(receipt);
+    assert.equal(receipt.status, "HOLD");
+    assert.deepEqual(receipt.hold_reasons, ["git_rev_parse_failed"]);
+    assert.equal(receipt.source_cursor.after, baseline);
+    assertNoHostPath(serialized, [root, missingRepo, "private-owner-path"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("CLI missing input never returns an absolute path or raw filesystem error", () => {
+  const root = mkdtempSync(join(tmpdir(), "five-field-cli-redaction-"));
+  try {
+    const missingInput = join(root, "missing-private-input.json");
+    const missingFile = spawnSync(process.execPath, [
+      CURSOR_TOOL,
+      "--input",
+      missingInput,
+    ], {
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    assert.equal(missingFile.status, 1);
+    assert.deepEqual(JSON.parse(missingFile.stdout), {
+      ok: false,
+      error: "input_read_failed",
+    });
+    assertNoHostPath(missingFile.stdout, [root, missingInput, "missing-private-input.json"]);
+
+    const missingValue = spawnSync(process.execPath, [CURSOR_TOOL, "--input"], {
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    assert.equal(missingValue.status, 1);
+    assert.deepEqual(JSON.parse(missingValue.stdout), {
+      ok: false,
+      error: "input_path_required",
+    });
+    assertNoHostPath(missingValue.stdout, [root, process.cwd()]);
+
+    const emptyStdin = spawnSync(process.execPath, [CURSOR_TOOL], {
+      input: "",
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    assert.equal(emptyStdin.status, 1);
+    assert.deepEqual(JSON.parse(emptyStdin.stdout), {
+      ok: false,
+      error: "input_json_invalid",
+    });
+    assertNoHostPath(emptyStdin.stdout, [root, process.cwd()]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
