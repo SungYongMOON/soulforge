@@ -32,6 +32,10 @@ behavior:
     unclassified work, preserves a common intake request before later internal
     assignment or peer routing, and cross-branch communication is a collaboration,
     review, or reclassification request rather than a hierarchical command.
+    Project candidates with unresolved exact identity route to the sibling
+    unassigned-project manager for temporary intake custody only; that route
+    does not create project responsibility lanes and hands custody to the exact
+    project manager after confirmation.
     Non-project SYSTEM, AX, or ERP work preserves its existing owner routing,
     and all non-applicable project-extension packet fields are recorded as
     `not_applicable` rather than inventing a project. Worker threads
@@ -69,6 +73,7 @@ behavior:
     - Codex reads the public company/team common-work contract before classifying COMMON work
     - Codex applies project assignment fields only to confirmed project work and preserves existing owner routing with `not_applicable` project-extension fields for non-project work
     - Codex distinguishes owner directives from peer collaboration, review, and reclassification requests without transferring domain authority
+    - Codex routes unresolved project candidates to temporary unassigned-project custody and hands them to the exact project manager after confirmation
     - Codex records exactly one primary responsibility owner and separates collaborators, independent reviewers, and acceptance or approval authority
     - Codex returns out-of-scope work with a reason and suggested primary owner, and escalates unclear classification
     - Codex distinguishes responsibility owner, executor or agent, independent reviewer, and acceptance or approval authority without assuming four mandatory people

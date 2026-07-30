@@ -105,6 +105,11 @@ tool behavior.
   `request_origin_relationship: common_intake_request` before recording the
   current `request_relationship` as any later internal assignment or peer route. Escalate unclear
   common-versus-project-versus-development classification to the human owner.
+- Route a confirmed project candidate with unresolved project identity to the
+  sibling `[미할당 프로젝트] 업무운영/팀장`. That manager owns temporary intake
+  custody only, does not create project responsibility lanes before identity is
+  confirmed, and hands evidence, open work, TASK refs, decisions, and blockers
+  to the exact project manager after confirmation.
 - Treat communication between COMMON, PROJECTS, AX, ERP, and SYSTEM as a
   collaboration request, review request, or reclassification request, not as a
   hierarchical command. Preserve a human owner directive as a distinct request

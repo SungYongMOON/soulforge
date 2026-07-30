@@ -41,8 +41,12 @@ directory root는 탐색 시작점일 뿐이며 `navigation_authority=none`이�
 `COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`를 따른다. 실제 팀명과 manager
 title은 private stable catalog가 소유한다.
 
-`PROJECTS` 아래 각 project manager는 서로 sibling인 leaf다. project manager를
-`AX DEVELOPMENT`의 child로 두거나 AX 조직 소유자로 해석하지 않는다.
+`PROJECTS` 아래 각 project manager와 하나의 optional
+`미할당 프로젝트 업무운영/팀장` route는 서로 sibling인 leaf다. 미할당 route는
+프로젝트 후보·사전 조사·착수 대기·귀속 미확정 업무의 임시 custody만 소유한다.
+프로젝트 귀속이 확정되면 근거·열린 업무·TASK·결정·blocker를 해당 project
+manager에게 인계하고 authority를 유지하지 않는다. project manager나 미할당
+route를 `AX DEVELOPMENT`의 child로 두거나 AX 조직 소유자로 해석하지 않는다.
 
 `AX DEVELOPMENT` 상세 projection은 AX CEO 한 자리와 정확히 다섯 AX
 responsibility-owner 자리만 보여준다. 이 자리는 프로젝트 팀장 목록을

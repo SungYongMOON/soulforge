@@ -79,6 +79,12 @@ the manager later records the current `request_relationship` as an
 development classification remains unclear, escalate the classification proposal
 to the human owner.
 
+A project candidate whose exact project identity is still unresolved routes to
+the sibling `[미할당 프로젝트] 업무운영/팀장`. That route owns temporary intake
+custody only: it does not create the project's 15 responsibility lanes, and it
+hands evidence, open work, TASK refs, decisions, and blockers to the exact
+project manager when identity is confirmed.
+
 ### Project work assignment and TASK routing
 
 The reusable human-facing contract is

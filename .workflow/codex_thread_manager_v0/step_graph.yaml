@@ -54,6 +54,9 @@ steps:
       common_or_unclassified_work_is_classified_by_common_team_manager: true
       common_intake_request_is_distinct_from_internal_assignment: true
       unclear_common_classification_escalates_to_human_owner: true
+      project_candidate_with_unresolved_identity_routes_to_unassigned_project_manager: true
+      unassigned_project_manager_does_not_own_common_or_development_work: true
+      confirmed_project_identity_routes_to_exact_project_manager: true
       cross_branch_request_is_collaboration_review_or_reclassification_not_command: true
       cross_branch_request_does_not_transfer_domain_authority: true
       human_owner_directive_preserves_owner_authority_ref: true

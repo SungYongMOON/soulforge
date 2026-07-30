@@ -33,6 +33,10 @@
 - 기존 profile은 incumbent로 유지하되 COMMON 분류·조직 간 요청 관계 변경이
   calibration rerun trigger를 충족하므로 새 profile 재보정 전까지
   `rerun_required` 상태로 명시했다.
+- `PROJECTS` 아래에 확정 프로젝트 manager들과 동급인
+  `[미할당 프로젝트] 업무운영/팀장`의 임시 custody 경계를 추가했다. 이 route는
+  프로젝트 후보·사전조사·착수대기·귀속 미확정 업무만 보관하고, identity 확정
+  뒤 근거·열린 업무·TASK·결정·blocker를 exact 프로젝트 manager에게 인계한다.
 
 ### AI 작업 기록 공통계약 v1 후보
 

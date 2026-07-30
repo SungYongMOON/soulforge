@@ -198,6 +198,10 @@ codex_thread_manager_contract:
     common_team_manager_performs_initial_classification_for_common_or_unclassified_work: true
     common_intake_request_is_preserved_before_internal_assignment_or_peer_routing: true
     unclear_common_classification_escalates_to_human_owner: true
+    unassigned_project_manager_handles_only_project_candidates_prestart_and_unresolved_project_identity: true
+    unassigned_project_manager_is_projects_sibling_not_parent: true
+    unassigned_project_manager_does_not_create_project_responsibility_lanes_before_identity_confirmation: true
+    confirmed_project_identity_handoff_transfers_custody_to_exact_project_manager: true
     cross_branch_requests_are_collaboration_review_or_reclassification_not_hierarchical_commands: true
     cross_branch_request_does_not_transfer_domain_authority: true
     human_owner_directive_is_distinct_and_preserves_owner_authority_ref: true
