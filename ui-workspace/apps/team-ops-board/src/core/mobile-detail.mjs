@@ -19,6 +19,18 @@ export function pickFocusRestoreIndex(candidates) {
   return candidates.findIndex(isFocusRestoreCandidate);
 }
 
+export function getMobileDialogFocusCycleKey({
+  open,
+  taskId,
+  taskStatus
+}) {
+  if (!open || !taskId || !taskStatus) {
+    return null;
+  }
+
+  return `${taskId}:${taskStatus}`;
+}
+
 export function resolveMobileDialogKey({
   key,
   shiftKey = false,

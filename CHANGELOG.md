@@ -53,6 +53,12 @@
   390×844 최초 진입·acknowledged 이력 Escape/닫기·blocked trap과 1024×768
   비모달 회귀를 실제 브라우저와 결정적 테스트로 재검증했다.
   (worker: `codex_gpt-5.6`)
+- fresh independent final review의 acknowledgement focus P2를 보정했다.
+  열린 모바일 modal에서 `읽고 확인`이 활성 버튼을 제거해도 TASK 상태가 바뀐
+  commit 뒤 연결된 `상세 닫기`로 focus를 다시 옮긴다. 기존 최초 진입 no-modal,
+  Escape/닫기 logical history 복원, blocked trap·inert·원 카드 복원, 1024px
+  비모달 경계를 유지하고 iteration 5 브라우저·시각 비교 근거를 추가했다.
+  (worker: `codex_gpt-5.6`)
 
 ## 2026-07-30
 

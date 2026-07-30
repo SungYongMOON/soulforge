@@ -9,9 +9,9 @@
 - final browser-rendered implementation:
   `evidence/workspace-board-1440x1024-primary-final.png`
 - final same-input comparison:
-  `evidence/design-qa-comparison-iteration-4-modal-lifecycle.png`
+  `evidence/design-qa-comparison-iteration-5-ack-focus.png`
 - final mobile dialog implementation:
-  `evidence/workspace-board-390x844-mobile-ack-history-dialog-iteration-4.png`
+  `evidence/workspace-board-390x844-mobile-ack-focus-inside-iteration-5.png`
 - route/state: `/`, dark theme, synthetic normal state, blocked TASK selected
 - CSS viewport: 1440 × 1024
 - device pixel ratio: 1
@@ -44,6 +44,10 @@
   `evidence/workspace-board-390x844-mobile-ack-history-dialog-iteration-4.png`
 - mobile acknowledged history focus restore:
   `evidence/workspace-board-390x844-mobile-ack-history-restore-iteration-4.png`
+- mobile first entry recapture:
+  `evidence/workspace-board-390x844-mobile-first-entry-iteration-5.png`
+- mobile acknowledgement post-transition focus:
+  `evidence/workspace-board-390x844-mobile-ack-focus-inside-iteration-5.png`
 
 The full-view comparison is sufficient for final typography, layout, token,
 copy, and card/detail inspection because the native desktop capture keeps the
@@ -85,6 +89,9 @@ No actionable P0/P1/P2 findings remain.
   semantics, a heading-derived accessible name, initial close-button focus,
   Tab/Shift+Tab trapping, Escape/close dismissal, background inertness, and
   trigger-card focus restoration. Larger viewports retain the non-modal detail.
+  When an internal action removes the focused control while the dialog remains
+  open, the committed dialog state deterministically moves focus to its
+  connected, visible close button.
   A detached trigger is rejected; restoration then prefers the same logical
   task if rendered, followed by the current view control, search, scope heading,
   and main content. `BODY` is not treated as a successful restoration target.
@@ -219,6 +226,54 @@ Post-fix evidence:
 The iteration 4 comparison shows no visual P0/P1/P2 regression in the compact
 graphite grammar, mobile information hierarchy, or acknowledged history state.
 
+### Iteration 5 — fresh acknowledgement-focus P2 blocked, then passed
+
+Pre-fix evidence: fresh independent final review reproduced a 390 × 844
+`완료·미확인` modal where activating `읽고 확인` removed the focused action
+button, retained the selected TASK as an `이력 상세` modal, and left
+`document.activeElement` on `BODY`. Escape/close restoration after that point
+already passed and was preserved.
+
+Fix:
+
+- derived the modal focus lifecycle key from open state, selected TASK id, and
+  TASK status so `completed_unread` → `owner_acknowledged` reruns the post-commit
+  focus effect even though the dialog remains open
+- selected the first connected, visible, enabled, non-inert target inside the
+  dialog, preferring `상세 닫기` and retaining the heading as a programmatic
+  fallback
+- added deterministic tests that the acknowledgement status transition changes
+  the focus-cycle key and that a connected close button wins over the heading
+
+Post-fix evidence:
+
+- same-input source/Orca/actual comparison:
+  `evidence/design-qa-comparison-iteration-5-ack-focus.png`
+- first entry:
+  `evidence/workspace-board-390x844-mobile-first-entry-iteration-5.png`
+- acknowledgement transition:
+  `evidence/workspace-board-390x844-mobile-ack-focus-inside-iteration-5.png`
+- immediately after `읽고 확인`, the active element was the connected, visible
+  `상세 닫기` button inside the named `이력 상세` dialog; `BODY=false`,
+  effective outside focusables 0, and horizontal overflow 0
+- subsequent Escape and close-button paths still restored to the connected
+  `이력·제외` control; the blocked path still trapped Tab/Shift+Tab and restored
+  `fixture-aurora-supply`
+- 1024 × 768 remained static and non-modal with no dialog role, no
+  `aria-modal`, no inert roots, and no horizontal overflow
+- browser console errors: 0; warnings: 0
+
+Capture normalization correction: iteration 4 described the first-entry
+evidence as a 390 × 844 screenshot. The measured CSS viewport was 390 × 844,
+but the raw in-app Browser capture was 375 × 812 because the non-modal page
+capture excluded its 15 px scrollbar/frame width and 32 px frame height. The
+iteration 5 first-entry recapture records both values explicitly. The fixed
+modal capture is 390 × 844 raw pixels because body scroll is locked while the
+overlay is open. This capture-surface difference is not a layout overflow.
+
+The iteration 5 comparison shows no visual P0/P1/P2 regression across fonts,
+spacing, colors, assets, copy, icons, responsive hierarchy, or modal state.
+
 ## Primary interactions and console
 
 - selected blocked TASK and confirmed blocker reason/next decision persistence
@@ -237,6 +292,8 @@ graphite grammar, mobile information hierarchy, or acknowledged history state.
 - confirmed 390 × 844 first entry does not auto-open a dialog and confirmed
   acknowledged-card detachment restores Escape/close focus to the connected
   history view control rather than `BODY`
+- confirmed the `읽고 확인` transition itself retains focus inside the still-open
+  dialog on a connected, visible `상세 닫기` target rather than `BODY`
 - confirmed mobile dialog effective focusables: inside 1, outside 0; tablet
   non-modal detail: role absent, inert roots 0
 - browser console errors: 0
@@ -260,6 +317,7 @@ graphite grammar, mobile information hierarchy, or acknowledged history state.
 - [x] Desktop/tablet/mobile and keyboard/accessibility checks
 - [x] Mobile modal semantics, focus trap, Escape/close, inert background, and
   connected logical-target/fallback focus restoration
+- [x] Modal-internal action removal retains post-commit focus inside the dialog
 - [x] Final same-input Product Design comparison
 
 final result: passed
