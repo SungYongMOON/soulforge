@@ -39,6 +39,20 @@
   변경은 없으며 운영 활성화와 실제 NAS include/restore coverage는 별도
   owner gate까지 HOLD한다. (worker: `codex_gpt-5.6-sol`)
 
+### AI 작업 결과 누락 복구 isolated runner candidate
+
+- exact public source tuple과 immutable snapshot, 별도 isolated writer binding을
+  주입받는 public runner를 추가하고 OS 임시 root·local bare remote에서
+  runner 8/8, planner 11/11과 fresh Level 3 `ACCEPT`를 확인했다.
+- ledger output은 non-force push와 fresh remote containment를 통과한 뒤에만
+  cursor CAS로 진행한다. runtime worker identity 주입, receipt redaction,
+  secret/path sentinel과 cursor push 후 `UNKNOWN_AFTER_PUSH` reconciliation을
+  fail-closed 경계로 고정했다.
+- tracked automation candidate는 `PAUSED`이며 설치된 legacy automation은
+  `ACTIVE` 상태 그대로 변경하지 않았다. 실제 cursor·private ledger writer·
+  automation 활성화는 계속 `HOLD`이고, `313`은 빈 레저 합성 dry-run 상한일
+  뿐 실제 누락 수가 아니다. (worker: `codex_gpt-5.6-sol`)
+
 ### AI 작업 결과 누락 복구 cursor candidate
 
 - `five_field_session_capture_v0`에 feature-OFF/public-safe cursor planner와
