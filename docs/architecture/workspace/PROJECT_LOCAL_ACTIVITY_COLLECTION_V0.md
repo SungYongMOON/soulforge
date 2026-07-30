@@ -7,7 +7,7 @@ before another one-project context experiment is attempted.
 
 ```text
 프로젝트 파일 관찰 ────────────┐
-5필드 업무 결과 요약 ─────────┼─> project-local HPP outbox
+AI 작업 결과 ─────────────────┼─> project-local HPP outbox
 Codex-origin relation ─────────┘
                                   └─ later: sole-writer reconciliation
                                             ├─> 파일 이력
@@ -37,13 +37,13 @@ project leader task, 팀장이 직접 수행한 task, child·continuation·verif
 
 | view | current HPP source | event rule |
 | --- | --- | --- |
-| 5필드 업무 결과 요약 | bounded project five-field end-of-task record | one candidate work occurrence; internal `bounded_work` compatibility |
+| AI 작업 결과 | bounded project five-field end-of-task record | one candidate work occurrence; internal `bounded_work` compatibility |
 | 파일 관찰 | exact project workspace observation packet | reconciler later decides 파일 이력 events |
-| Codex-origin relation | relation over the same 5필드 업무 결과 요약 | relation only; no second occurrence |
+| Codex-origin relation | relation over the same AI 작업 결과 | relation only; no second occurrence |
 | HPP 로컬 업무 장부 | explicit `work_id` and attached Codex task refs | append-only 업무 사건; no ERP completion |
 
-계획된 ERP WorkSession/MCP/client-plugin path가 live가 아닌 동안 5필드 업무
-결과 요약이 current-HPP의 실용적 bridge 역할을 한다. 미래 WorkSession owner를
+계획된 ERP WorkSession/MCP/client-plugin path가 live가 아닌 동안 AI 작업 결과가
+current-HPP의 실용적 bridge 역할을 한다. 미래 WorkSession owner를
 대체하거나 H03/H05 acceptance를 만들지는 않는다.
 
 HPP 로컬 업무 장부는 비활성 completion hook에 의존하지 않는다. Project
@@ -85,7 +85,11 @@ _workmeta/<project_code>/
 - Thread title, keyword similarity, or an LLM cannot silently attach work.
   Every task ref must be explicitly bound to one existing `work_id`.
 - File bytes may be streamed only for exact SHA-256 and are never retained.
-- A 5필드 record full-record digest and same-ID conflict check are mandatory.
+- An AI 작업 결과 record full-record digest and same-ID conflict check are mandatory.
+- Legacy rows retain `at` for both clocks and their existing digest. New rows
+  add the exact pair `occurred_at` (source occurrence) and `recorded_at`
+  (first ledger insertion), with `at == recorded_at`; partial pairs or clock
+  alias mismatch are held.
 - Team-PC records remain deferred to the accepted assignment, WorkSession,
   outbox/ack, and Codex client-plugin contract.
 

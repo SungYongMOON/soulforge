@@ -171,6 +171,12 @@ test("apply writes local outbox and reuses the same bounded snapshot without dou
   assert.equal(snapshot.native_occurrence_count, 1);
   assert.equal(snapshot.codex_run_relation_count, 1);
   assert.equal(snapshot.boundaries.same_record_double_counted, false);
+  assert.equal(
+    snapshot.pc_work_projection[0].source_record_digest,
+    "6124aebe5c18284446ea565baf7c07c99edd8e4a56b4f97fae99c1cc62736f98",
+  );
+  assert.equal(snapshot.pc_work_projection[0].occurred_at, "2026-07-26T03:00:00.000Z");
+  assert.equal(snapshot.pc_work_projection[0].recorded_at, "2026-07-26T03:00:00.000Z");
   const inventory = JSON.parse(await readFile(
     path.join(projectRoot, "state", "file_inventory_state.json"),
     "utf8",
@@ -201,6 +207,58 @@ test("apply writes local outbox and reuses the same bounded snapshot without dou
   assert.equal(replay.totals.bounded_work_occurrence_count, 1);
   assert.equal(replay.totals.changed_file_observation_count, 0);
   assert.equal(replay.totals.unchanged_file_observation_count, 1);
+});
+
+test("additive five-field clocks preserve source occurrence and first record time", async (t) => {
+  const fx = await fixture(t);
+  await writeFile(fx.ledger, `${JSON.stringify(fiveField({
+    at: "2026-07-30T03:00:00.000Z",
+    occurred_at: "2026-07-27T01:00:00.000Z",
+    recorded_at: "2026-07-30T03:00:00.000Z",
+  }))}\n`, "utf8");
+  await collectAllProjectLocalActivity({
+    binding: fx.binding,
+    bindingSha256: "2".repeat(64),
+    observedAt: "2026-07-30T04:00:00.000Z",
+    apply: true,
+  });
+  const projectRoot = path.join(fx.state, "projects", "demo_project");
+  const current = JSON.parse(await readFile(path.join(projectRoot, "current.json"), "utf8"));
+  const snapshot = JSON.parse(await readFile(path.join(
+    projectRoot,
+    "outbox",
+    "bounded_work",
+    `${current.bounded_work_snapshot_digest}.json`,
+  ), "utf8"));
+  assert.equal(snapshot.pc_work_projection[0].occurred_at, "2026-07-27T01:00:00.000Z");
+  assert.equal(snapshot.pc_work_projection[0].recorded_at, "2026-07-30T03:00:00.000Z");
+});
+
+test("additive five-field clocks reject partial pairs and legacy alias mismatch", async (t) => {
+  const fx = await fixture(t);
+  await writeFile(fx.ledger, `${JSON.stringify(fiveField({
+    occurred_at: "2026-07-27T01:00:00.000Z",
+  }))}\n`, "utf8");
+  const partial = await collectAllProjectLocalActivity({
+    binding: fx.binding,
+    bindingSha256: "3".repeat(64),
+    observedAt: "2026-07-30T04:00:00.000Z",
+    apply: false,
+  });
+  assert.equal(partial.projects[0].status, "held");
+  assert.equal(partial.projects[0].error_code, "five_field_clock_pair_invalid");
+  await writeFile(fx.ledger, `${JSON.stringify(fiveField({
+    occurred_at: "2026-07-27T01:00:00.000Z",
+    recorded_at: "2026-07-30T03:00:00.000Z",
+  }))}\n`, "utf8");
+  const mismatch = await collectAllProjectLocalActivity({
+    binding: fx.binding,
+    bindingSha256: "3".repeat(64),
+    observedAt: "2026-07-30T04:00:00.000Z",
+    apply: false,
+  });
+  assert.equal(mismatch.projects[0].status, "held");
+  assert.equal(mismatch.projects[0].error_code, "five_field_clock_contract_invalid");
 });
 
 test("file delta records changes and treats disappearance only as a candidate", async (t) => {

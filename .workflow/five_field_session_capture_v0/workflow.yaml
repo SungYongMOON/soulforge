@@ -2,7 +2,7 @@ workflow_id: five_field_session_capture_v0
 kind: workflow
 status: draft
 title: Five-Field Session Capture v0
-summary: Codex/Claude 등 어떤 AI 세션이든 bounded 작업이 끝날 때 자동화 자산 5필드(입력/판단/출력/검증/중단조건)+집계키를 _workmeta 레저에 착지시키는 세션 종료 캡처 절차. 차단형 하네스 훅은 운영 장애와 효용 재검토를 위해 비활성 상태다.
+summary: Codex/Claude 등 어떤 AI 세션이든 bounded AI 작업 결과의 5필드(입력/판단/출력/검증/중단조건)+집계키를 _workmeta 레저에 착지시키고, 공개 Git 누락분은 feature-OFF cursor planner로 결정적으로 식별하는 절차. 차단형 하네스 훅과 자동 복구 실행은 비활성 상태다.
 global_name_ko: "오필드캡처"
 global_name_ko_scope: draft_invocation_alias_candidate
 global_name_ko_note: "Korean invocation-ready alias; no slash, spaces, dash, colon, or path-like symbols."
@@ -41,14 +41,21 @@ inputs:
   - session_ref                   # 세션 식별자(예: codex_20260704_p26014a)
   - worker_label                  # 도구_모델 표기(예: codex_gpt-5.3, claude_fable-5)
   - project_code                  # 과제 코드 또는 system
+optional_inputs:
+  - occurred_at                  # source commit 발생시각(strict UTC)
+  - recorded_at                  # 최초 레저 기록시각(strict UTC)
 outputs:
   - five_field_ledger_record      # _workmeta/<project>/reports/procedure_capture/five_field_log.jsonl 1행
-  - capture_receipt               # CLI stdout JSON(id/ledger/needs_backfill)
+  - capture_receipt               # CLI stdout JSON(id/ledger/needs_backfill/record_digest)
+  - cursor_sweep_receipt          # public-safe feature-OFF 계획 receipt; private cursor write 아님
 boundary_rules:
   - 원문(메일 본문/첨부/문서 본문) 복사 금지 — input_refs 는 포인터(경로/id)만, CLI 가 크기 가드로 거부.
   - secret/token/credential 값 기록 금지.
   - 레저는 _workmeta(private repo) 전용 — public tree 에 5필드 내용 커밋 금지.
   - ERP 업무 레인은 이 워크플로우가 아니라 dev-erp completion_log 자동 캡처(FIVE-FIELD-CAPTURE 슬라이스)가 담당 — 이중 기록 금지.
+  - 신규 레코드는 occurred_at 과 recorded_at 만 additive로 허용하고 at == recorded_at 호환 alias를 유지한다.
+  - cursor planner는 public Git metadata를 읽기만 하며 ledger/cursor/Git/runtime/network를 직접 변경하지 않는다.
+  - source public classification은 planner가 독립 판정하지 않으며 owner-approved caller의 exact tuple+runtime repo_path allowlist attestation으로 제한한다.
 steps:
   - step_id: compose_five_fields
     actor_slot: active_unit
@@ -67,6 +74,29 @@ steps:
     inputs: [five_field_json, session_ref, worker_label, project_code]
     outputs: [five_field_ledger_record, capture_receipt]
     next: { on_success: done, on_fail: stop }
+recovery_contract:
+  display_name_ko: AI 작업 결과 누락 복구
+  feature_state: "OFF"
+  planner: tools/five_field_cursor_sweep.mjs
+  cursor_identity: [repo, ref, source_lane]
+  range: "(last_successful_source_commit, candidate_target]"
+  order: oldest_to_newest
+  self_loop_trailers:
+    - "Soulforge-Automation-Output: ai-work-result-recovery/v1"
+    - "Soulforge-Source-Lane: sha256:<canonical-tuple-digest>"
+  advance_requires:
+    - record_validation_success
+    - output_commit_success
+    - output_push_success
+    - remote_contains_output_commit
+    - source_target_still_approved
+  hold_on:
+    - baseline_not_ancestor
+    - history_rewrite_or_non_fast_forward
+    - source_ref_movement
+    - same_identity_different_full_record_digest
+    - incomplete_success_evidence
+  direct_writes: []
 guard_binding:
   status: disabled_pending_owner_review
   disabled_on: 2026-07-14
@@ -86,15 +116,17 @@ guard_binding:
     - five_field_capture_cli
     - existing_ledgers
     - dev_erp_completion_capture
-    - daily_sweep
+    - cursor_sweep_candidate
 owner_decision_needed:
   - AGENTS.md end-of-task 체크리스트에 이 워크플로우 1줄 편입 여부(canon 변경)
   - post_development_review_gate_v0 마지막 스텝으로 바인딩 여부
   - index.yaml 정식 등록(workflow-check 통과 후)
+  - private cursor owner/path ratification and isolated runner activation
 validation_level: draft_with_local_tool_smoke_check
 registration_policy: owner_requested_registration
 output_state: draft
 notes:
   - Draft workflow built from a real task (2026-07-04 owner request — "평소 Codex 세션 대화에서도 끝나면 남겨지도록").
   - ERP completion_log(업무 레인)와 같은 스키마 계열(soulforge.five_field_capture.v0) — 승격 감지기(request_kind 반복 집계)가 두 레인을 함께 읽는다.
-  - 2026-07-14 owner 요청으로 Codex/Claude Code 차단형 PostToolUse/Stop 배선을 함께 비활성화했다. CLI, 레저, ERP 캡처, 어댑터 스크립트와 일일 sweep 은 보존한다.
+  - 2026-07-14 owner 요청으로 Codex/Claude Code 차단형 PostToolUse/Stop 배선을 함께 비활성화했다. CLI, 기존 레저, ERP 캡처와 어댑터 스크립트는 보존한다.
+  - 2026-07-30 public candidate는 최근 24시간/foreground pull 의존을 제거했지만 private cursor와 live automation은 만들거나 활성화하지 않았다.

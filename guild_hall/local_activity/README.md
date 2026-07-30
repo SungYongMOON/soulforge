@@ -5,7 +5,7 @@ project allowlist:
 
 1. project workspace `파일 관찰` through the existing
    `guild_hall/file_activity` scanner;
-2. `5필드 업무 결과 요약` from the project five-field ledger;
+2. `AI 작업 결과` from the project five-field ledger;
 3. a relation-only Codex-origin view over the same summaries.
 
 별도 `HPP Codex 작업 맥락 수집기`도 제공한다. 이 프로그램은 명시적으로
@@ -15,10 +15,10 @@ task만 하나의 `work_id`를 공유하고, bounded `업무 사건`과 결과·
 추가한다. 이는 향후 ERP WorkSession이나 H05 machine-verifiable
 `실행·검증 영수증`을 대체하지 않는다.
 
-`5필드 업무 결과 요약`과 Codex-origin view는 하나의 `native_occurrence_id`를
+`AI 작업 결과`와 Codex-origin view는 하나의 `native_occurrence_id`를
 공유하며, 서로 다른 업무 사건 두 건으로 세지 않는다.
 
-사람이 보는 데이터 이름은 `5필드 업무 결과 요약`이다. v1 schema, binding key,
+사람이 보는 데이터 이름은 `AI 작업 결과`다. v1 schema, binding key,
 ID, machine-local directory는 호환성을 위해 내부 이름 `bounded_work`를 유지한다.
 이는 AI가 작성한 요약이며 PC 감시, formal WorkSession, 자동 생성된
 `실행·검증 영수증`이 아니다. 더 넓은 데이터 종류는 `실행·검증 증거`이고, 그
@@ -117,10 +117,15 @@ cached by unchanged size/mtime/ctime and may use an owner-bound TTL up to 30
 days; pending or large hashes do not prevent path/size/time observations from
 being retained.
 
-legacy 내부 `bounded_work` packet은 5필드 업무 결과 요약, verification claim,
+legacy 내부 `bounded_work` packet은 AI 작업 결과, verification claim,
 ref, full-record SHA-256을 보존한다. 같은 source ID가 다른 전체 내용을 가지면
 HOLD한다. 이 packet은 candidate projection이며 formal H03 WorkSession, exact
 실행·검증 영수증, P1 acceptance가 아니다.
+
+legacy five-field 행은 `at`을 발생·기록 시각으로 함께 해석해 기존 digest와
+`native_occurrence_id`를 유지한다. 신규 행은 `occurred_at`을 source 발생시각,
+`recorded_at`을 최초 레저 기록시각으로 분리하며 `at == recorded_at`을 호환
+alias로 요구한다. 두 additive clock 중 하나만 있거나 alias가 다르면 HOLD한다.
 
 The CLI lock carries a process identity and owner token. A live owner always
 blocks another run. A dead legacy or current owner lock is atomically

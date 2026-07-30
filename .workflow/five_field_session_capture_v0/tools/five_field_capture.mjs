@@ -8,13 +8,14 @@
 //   기록: node five_field_capture.mjs --project P26-014 --session-ref codex_20260704a --worker codex_gpt-5.3 --json '{...}'
 //         (또는 --json - 로 stdin에서 JSON 읽기)
 //   검사: node five_field_capture.mjs --check --session-ref codex_20260704a   (기록 없으면 exit 2 — 하네스 훅 guard 용)
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, appendFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 
 const SCHEMA = "soulforge.five_field_capture.v0";
 const SLUG_RE = /^[a-z0-9][a-z0-9_\-./]{1,79}$/;
 const PROJECT_RE = /^[A-Za-z0-9][A-Za-z0-9_\-]{1,39}$/;
+const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.:-]{1,119}$/;
 const CAPS = { input_ref: 300, input_refs: 12, judgment: 2000, output: 2000, verification: 600, stop_condition: 300, stop_conditions: 5, total: 12000 };
 
 function parseArgs(argv) {
@@ -51,7 +52,27 @@ function fail(msg, code = 1) {
 
 function clampStr(v, max) { const s = String(v ?? "").trim(); return s.slice(0, max); }
 
-function normalizeRecord(raw, args) {
+function canonicalize(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function fullRecordDigest(record) {
+  return `sha256:${createHash("sha256").update(canonicalize(record)).digest("hex")}`;
+}
+
+function strictUtc(value, label) {
+  const text = String(value ?? "").trim();
+  const parsed = new Date(text);
+  if (!text.endsWith("Z") || !Number.isFinite(parsed.getTime())) fail(`${label}_invalid`);
+  return parsed.toISOString();
+}
+
+function normalizeRecord(raw, args, existing = null) {
   const project = clampStr(args.project ?? raw.project_code ?? "system", 40);
   if (!PROJECT_RE.test(project)) fail("invalid_project_code");
   const requestKind = String(raw.request_kind ?? args["request-kind"] ?? "").trim().toLowerCase();
@@ -60,10 +81,22 @@ function normalizeRecord(raw, args) {
     .map((s) => clampStr(s, CAPS.input_ref)).filter(Boolean).slice(0, CAPS.input_refs);
   const stopConditions = (Array.isArray(raw.stop_conditions) ? raw.stop_conditions : [])
     .map((s) => clampStr(s, CAPS.stop_condition)).filter(Boolean).slice(0, CAPS.stop_conditions);
+  const explicitOccurredAt = args["occurred-at"] ?? raw.occurred_at;
+  const explicitRecordedAt = args["recorded-at"] ?? raw.recorded_at ?? raw.at;
+  const recordedAt = strictUtc(
+    explicitRecordedAt ?? existing?.recorded_at ?? existing?.at ?? new Date().toISOString(),
+    "recorded_at",
+  );
+  const occurredAt = strictUtc(
+    explicitOccurredAt ?? existing?.occurred_at ?? existing?.at ?? recordedAt,
+    "occurred_at",
+  );
   const rec = {
     schema_version: SCHEMA,
     id: "", // 아래에서 결정(내용 해시 — 재실행 멱등)
-    at: new Date().toISOString(),
+    at: recordedAt,
+    occurred_at: occurredAt,
+    recorded_at: recordedAt,
     worker: clampStr(args.worker ?? raw.worker ?? "", 80) || fail("worker_required (예: codex_gpt-5.3, claude_fable-5)"),
     session_ref: clampStr(args["session-ref"] ?? raw.session_ref ?? "", 120) || fail("session_ref_required"),
     project_code: project,
@@ -76,11 +109,16 @@ function normalizeRecord(raw, args) {
     needs_backfill: !(raw.judgment && raw.output) ? 1 : 0,
     data_label: clampStr(args["data-label"] ?? raw.data_label ?? "ai_draft", 40),
   };
-  const serialized = JSON.stringify(rec);
-  if (serialized.length > CAPS.total) fail("record_too_large_raw_body_suspected (원문을 붙이지 말고 포인터만)");
   rec.id = rec.session_ref + ":" + createHash("sha1")
     .update([rec.project_code, rec.request_kind, rec.judgment, rec.output, rec.verification].join("\u0000"))
     .digest("hex").slice(0, 12);
+  const explicitId = clampStr(args.id ?? raw.id, 200);
+  if (explicitId) {
+    if (!ID_RE.test(explicitId)) fail("invalid_record_id");
+    rec.id = explicitId;
+  }
+  const serialized = JSON.stringify(rec);
+  if (serialized.length > CAPS.total) fail("record_too_large_raw_body_suspected (원문을 붙이지 말고 포인터만)");
   return rec;
 }
 
@@ -122,15 +160,56 @@ function main() {
   let raw;
   try { raw = JSON.parse(rawText); } catch (e) { fail("json_parse_error: " + String(e?.message ?? e).slice(0, 120)); }
 
-  const rec = normalizeRecord(raw, args);
+  let rec = normalizeRecord(raw, args);
   const p = ledgerPath(root, rec.project_code);
   mkdirSync(join(p, ".."), { recursive: true });
-  if (existsSync(p) && readFileSync(p, "utf8").includes(`"id":${JSON.stringify(rec.id)}`)) {
-    process.stdout.write(JSON.stringify({ ok: true, skipped: "duplicate", id: rec.id, ledger: p }) + "\n");
-    return;
+  if (existsSync(p)) {
+    const matches = readFileSync(p, "utf8").split(/\r?\n/u).filter(Boolean).map((line) => {
+      try { return JSON.parse(line); } catch { fail("ledger_json_invalid"); }
+    }).filter((record) => record?.id === rec.id);
+    if (matches.length > 1) {
+      const existingDigests = new Set(matches.map(fullRecordDigest));
+      if (existingDigests.size > 1) fail("duplicate_ledger_identity_conflict_hold");
+    }
+    if (matches.length >= 1) {
+      const existing = matches[0];
+      rec = normalizeRecord(raw, args, existing);
+      let candidateForDigest = rec;
+      const callerSuppliedClocks = args["occurred-at"] !== undefined
+        || args["recorded-at"] !== undefined
+        || raw.occurred_at !== undefined
+        || raw.recorded_at !== undefined
+        || raw.at !== undefined;
+      if (
+        !callerSuppliedClocks
+        && !Object.hasOwn(existing, "occurred_at")
+        && !Object.hasOwn(existing, "recorded_at")
+      ) {
+        candidateForDigest = { ...rec };
+        delete candidateForDigest.occurred_at;
+        delete candidateForDigest.recorded_at;
+      }
+      const existingDigest = fullRecordDigest(matches[0]);
+      const candidateDigest = fullRecordDigest(candidateForDigest);
+      if (existingDigest !== candidateDigest) fail("same_identity_different_digest_hold");
+      process.stdout.write(JSON.stringify({
+        ok: true,
+        skipped: "duplicate",
+        id: rec.id,
+        ledger: p,
+        record_digest: candidateDigest,
+      }) + "\n");
+      return;
+    }
   }
   appendFileSync(p, JSON.stringify(rec) + "\n", "utf8");
-  process.stdout.write(JSON.stringify({ ok: true, id: rec.id, ledger: p, needs_backfill: rec.needs_backfill }) + "\n");
+  process.stdout.write(JSON.stringify({
+    ok: true,
+    id: rec.id,
+    ledger: p,
+    needs_backfill: rec.needs_backfill,
+    record_digest: fullRecordDigest(rec),
+  }) + "\n");
 }
 
 main();

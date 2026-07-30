@@ -2,6 +2,21 @@
 
 ## 2026-07-30
 
+### AI 작업 결과 누락 복구 cursor candidate
+
+- `five_field_session_capture_v0`에 feature-OFF/public-safe cursor planner와
+  synthetic tests를 추가했다. exact `{repo,ref,source_lane}`의
+  `(last_successful_source_commit,candidate_target]`을 oldest→newest로 계획하고,
+  history rewrite/non-FF/ref movement와 same-ID/different-full-record를 HOLD한다.
+- 신규 `soulforge.five_field_capture.v0` 행은 source `occurred_at`과 최초 레저
+  `recorded_at`을 분리하며 기존 `at == recorded_at`, schema/path/`bounded_work`
+  이름을 유지한다. legacy 행 digest/native occurrence는 그대로 보존한다.
+- canonical full-record SHA-256은 receipt에 두고 exact self-loop trailer 두 개,
+  validate+commit+push+remote/source-target 증거 경계를 모두 만족해야만 cursor
+  advance를 표현한다. private cursor·ledger·installed automation·scheduler·runtime,
+  foreground/private tree, network/ERP/MCP/team-PC 변경은 없다.
+  (worker: `codex_gpt-5.6-sol`)
+
 ### AI 작업 기록 공통계약 v1 후보
 
 - `soulforge.ai_work_record_event.v1` metadata-only event schema와 pure

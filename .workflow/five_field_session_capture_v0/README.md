@@ -10,6 +10,10 @@
 - location: `.workflow/five_field_session_capture_v0/`
 - package status: `draft` (index.yaml 미등록 — workflow-check 통과 후 owner 결정)
 - CLI smoke check: append/duplicate-skip/check-hit(0)/check-miss(2)/slug-guard 통과 (2026-07-04)
+- **AI 작업 결과 누락 복구**: `five_field_cursor_sweep.mjs` 공개·합성 planner가
+  `{repo, ref, source_lane}`별 `last_successful_source_commit` 뒤부터 승인된 target까지
+  커밋을 오래된 순서로 계획한다. 기능은 **OFF**이며 private cursor·ledger·Git을 직접
+  쓰지 않는다(2026-07-30).
 - blocking hook status: **disabled** (2026-07-14 owner 요청). 운영 장애와 자동화 효용 재검토를 위해 Codex/Claude Code의 PostToolUse 마킹과 Stop 차단 배선을 함께 중지했다.
 - historical Codex hook smoke check: commit sentinel/no-record block, record-after pass, no-commit no-op 통과 (2026-07-05, 현재 비활성)
 
@@ -37,6 +41,11 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs \
 ```
 
 - `--json -` 로 stdin 입력 가능. 재실행 멱등(동일 내용 → duplicate skip).
+- 신규 행은 source 발생시각 `occurred_at`과 첫 레저 기록시각 `recorded_at`을 분리한다.
+  기존 `at`은 `recorded_at`과 같은 호환 alias로 유지한다. legacy 행은 기존 모양과
+  digest를 바꾸지 않고 읽는다.
+- 전체 persisted record를 canonical JSON으로 직렬화한 SHA-256은 receipt에만 남긴다.
+  같은 `id`·같은 digest는 no-op, 같은 `id`·다른 digest는 HOLD한다.
 - worktree 세션은 `_workmeta` 가 안 보이므로 `--repo-root C:/Soulforge` 또는 `SOULFORGE_ROOT` 지정.
 - 원문 복사 금지: input_refs 는 포인터만(항목 300자·12개 제한), 전체 12KB 초과 시 거부.
 
@@ -59,11 +68,17 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
 # exit 0 = 기록 있음, exit 2 = 누락
 ```
 
-- **Codex daily sweep**: Codex automation `soulforge-five-field-sweep`(일일 07:35, 설치본
-  `~/.codex/automations/`, 추적 사본 `codex/automation.soulforge-five-field-sweep.toml`)은
-  hook 누락·미신뢰·다른 PC 지연 push 의 결정적 안전망이다. 최근 24시간 커밋 대비 레저 갭을
-  커밋 메시지·stat 만으로 소급 기록(`ai_backfill`)하고 승격 스캔 리포트와 드레인 지표 3종을
-  갱신한다. gate(`post_development_review_gate_v0`) 스텝 바인딩은 후속(owner 결정 대기).
+- **Cursor sweep candidate**: 추적 automation 사본은 feature-OFF/PAUSED 설계 표면이다.
+  최근 24시간 창과 foreground `pull`에 의존하지 않는다. 정확한 공개 source tuple과
+  승인된 cursor/target을 입력받아 `(cursor, target]`을 oldest→newest로 계획한다.
+  `Soulforge-Automation-Output: ai-work-result-recovery/v1`과 해당 tuple digest의
+  `Soulforge-Source-Lane` trailer가 모두 맞는 커밋만 self-loop로 제외한다.
+- cursor는 모든 레코드 검증, 결과 commit, push, remote 포함 확인과 source target 불변
+  증거가 모두 성공한 경계에서만 target으로 전진한다. 어느 하나라도 실패하면 cursor는
+  그대로다. 이 public candidate는 해당 작업을 실행하거나 private cursor를 만들지 않는다.
+- planner는 source의 공개성을 스스로 판정하지 않는다. owner-approved caller가 logical
+  tuple과 exact runtime `repo_path`를 같은 allowlist row로 제공해야 하며 receipt의
+  public 표시는 이 caller attestation 범위를 넘지 않는다.
 
 ## 다른 PC 설정 (멀티 PC 수집)
 
@@ -75,17 +90,16 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
 | 1 | Codex 5필드 훅 비활성 확인 | Codex 로 Soulforge 작업하는 전 PC | repo 최신화(`github-down`/git pull) 후 `.codex/config.toml`에 5필드 `PostToolUse`/`Stop` 등록이 없는지 확인한다. 사용자 `~/.codex/config.toml`과 `hooks.json`의 중복 등록도 제거하고 Codex 앱 재시작 또는 새 thread에서 Hooks 화면에 두 훅이 없는지 확인한다. |
 | 2 | `_workmeta` push 규율 | 전 PC | 각 PC 의 `_workmeta` 클론이 origin push 가능해야 레저가 모임(작업 후 commit+push — AGENTS 기존 규칙 그대로) |
 | 3 | Claude Code 5필드 훅 비활성 확인 | Claude 쓰는 PC 만 | 프로젝트·사용자 `settings.json`/`hooks.json`에서 5필드 `PostToolUse` 마킹과 `Stop` 차단 등록을 함께 제거하고 Claude Code를 재시작한다. |
-| 4 | 일일 sweep 자동화 | **메인 PC 1대만** (중복 설치 금지) | `codex/automation.soulforge-five-field-sweep.toml` 을 `~/.codex/automations/soulforge-five-field-sweep/automation.toml` 로 복사 후 Codex 앱 재시작 → Automations 패널에서 ACTIVE 확인 |
-
-sweep 은 시작 시 두 저장소를 pull 하므로(프롬프트 0단계) **다른 PC 에서 push 된 커밋도
-소급 대상에 포함**된다 — 즉 다른 PC 는 "커밋을 push 하는 것"만 지키면 수집이 완성된다.
-sweep 을 여러 PC 에 중복 설치하지 말 것(멱등이라 해는 없지만 이중 소급 시도·불필요 부하).
+| 4 | AI 작업 결과 누락 복구 자동화 | 설치하지 않음 | 추적 사본은 PAUSED candidate다. exact private cursor owner/path와 isolated runner가 승인되기 전 설치·활성화·복사 금지 |
 
 ## 경계
 
 - 원문(메일/첨부/문서 본문)·secret 값 기록 금지 — CLI 크기/슬러그 가드.
 - 레저는 `_workmeta`(private) 전용. public tree 에 5필드 내용 커밋 금지.
 - ERP 업무 레인과 이중 기록 금지(위 분담표).
+- cursor planner 입력은 public-safe metadata와 caller-supplied synthetic/private-redacted
+  ledger rows로 제한한다. foreground/private active tree, scheduler, runtime, hook,
+  network를 변경하지 않는다.
 
 ## 다음 (owner 결정 대기)
 

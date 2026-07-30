@@ -262,7 +262,7 @@ function normalizeStringArray(value, label, maximumItems, maximumChars) {
 }
 
 function normalizeFiveFieldRecord(value, expectedProject) {
-  exactObject(value, [
+  const legacyKeys = [
     "schema_version",
     "id",
     "at",
@@ -277,16 +277,44 @@ function normalizeFiveFieldRecord(value, expectedProject) {
     "stop_conditions",
     "needs_backfill",
     "data_label",
-  ], "five_field_record");
+  ];
+  const recordLike = value !== null && typeof value === "object" && !Array.isArray(value);
+  const hasOccurredAt = recordLike && Object.hasOwn(value, "occurred_at");
+  const hasRecordedAt = recordLike && Object.hasOwn(value, "recorded_at");
+  if (hasOccurredAt !== hasRecordedAt) fail("five_field_clock_pair_invalid");
+  exactObject(
+    value,
+    hasOccurredAt ? [...legacyKeys, "occurred_at", "recorded_at"] : legacyKeys,
+    "five_field_record",
+  );
   if (value.schema_version !== FIVE_FIELD_SCHEMA) fail("five_field_schema_invalid");
   if (value.project_code !== expectedProject) fail("five_field_project_mismatch");
-  const occurredAt = new Date(value.at);
-  if (!Number.isFinite(occurredAt.getTime())) fail("five_field_timestamp_invalid");
+  const legacyAt = new Date(value.at);
+  if (!Number.isFinite(legacyAt.getTime())) fail("five_field_timestamp_invalid");
+  let occurredAt = legacyAt;
+  let recordedAt = legacyAt;
+  if (hasOccurredAt) {
+    occurredAt = new Date(value.occurred_at);
+    recordedAt = new Date(value.recorded_at);
+    if (
+      !String(value.occurred_at).endsWith("Z")
+      || !String(value.recorded_at).endsWith("Z")
+      || !Number.isFinite(occurredAt.getTime())
+      || !Number.isFinite(recordedAt.getTime())
+      || value.at !== value.recorded_at
+    ) {
+      fail("five_field_clock_contract_invalid");
+    }
+  }
   if (![0, 1].includes(value.needs_backfill)) fail("five_field_backfill_invalid");
   const normalized = {
     schema_version: FIVE_FIELD_SCHEMA,
     id: safeId(value.id, "five_field_id"),
-    at: occurredAt.toISOString(),
+    at: legacyAt.toISOString(),
+    ...(hasOccurredAt ? {
+      occurred_at: occurredAt.toISOString(),
+      recorded_at: recordedAt.toISOString(),
+    } : {}),
     worker: boundedString(value.worker, "five_field_worker", 80),
     session_ref: boundedString(value.session_ref, "five_field_session_ref", 120),
     project_code: value.project_code,
@@ -371,7 +399,8 @@ async function readBoundedWorkLedger(project) {
     .filter(([recordId]) => !conflictIds.has(recordId))
     .map(([, record]) => record);
   records.sort((left, right) => {
-    const time = left.normalized.at.localeCompare(right.normalized.at);
+    const time = (left.normalized.occurred_at ?? left.normalized.at)
+      .localeCompare(right.normalized.occurred_at ?? right.normalized.at);
     return time || left.full_record_digest.localeCompare(right.full_record_digest);
   });
   return {
@@ -388,7 +417,8 @@ function buildBoundedWorkSnapshot(project, ledger) {
     const nativeOccurrenceId = `bounded_work:${full_record_digest}`;
     return {
       native_occurrence_id: nativeOccurrenceId,
-      occurred_at: normalized.at,
+      occurred_at: normalized.occurred_at ?? normalized.at,
+      recorded_at: normalized.recorded_at ?? normalized.at,
       project_code: normalized.project_code,
       actor_ref: normalized.worker,
       session_ref: normalized.session_ref,
