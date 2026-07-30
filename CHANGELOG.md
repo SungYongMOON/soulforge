@@ -17,6 +17,23 @@
   foreground/private tree, network/ERP/MCP/team-PC 변경은 없다.
   (worker: `codex_gpt-5.6-sol`)
 
+### COMMON 회사·팀 운영 조직과 업무분장
+
+- 기계적으로 안정된 `COMMON` branch id는 유지하고, 사람용 projection에서는
+  회사·팀 운영으로 구분하는 public-safe 조직 계약을 추가했다.
+- 팀 업무운영/팀장 아래 업무접수·분류, Slack·협업공간, 회의·결정기록,
+  자료·지식, 구매·재고·업무환경, 일정·일일업무·후속조치, 공지·대내소통
+  책임과 Slack 공간별 주관·인계 경계를 정의했다.
+- COMMON, PROJECTS, AX, ERP, SYSTEM 사이 요청을 협업·검토·재분류 요청으로
+  구분하고, 사람 owner 지시와 peer 요청을 분리해 domain authority가 이전되지
+  않도록 Codex thread manager 계약과 설치 skill을 동기화했다.
+- 실제 팀명, route 목록, thread id·binding, Slack 채널·권한과 사람 배정은
+  private/local owner surface와 별도 배포·검증 전까지 만들거나 활성화하지
+  않는다. (worker: `codex_gpt-5.6-sol`)
+- 기존 profile은 incumbent로 유지하되 COMMON 분류·조직 간 요청 관계 변경이
+  calibration rerun trigger를 충족하므로 새 profile 재보정 전까지
+  `rerun_required` 상태로 명시했다.
+
 ### AI 작업 기록 공통계약 v1 후보
 
 - `soulforge.ai_work_record_event.v1` metadata-only event schema와 pure

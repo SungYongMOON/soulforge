@@ -15,6 +15,7 @@ steps:
     optional_inputs:
       - active_goal_ref
       - owner_decision_refs
+      - common_team_operations_organization_ref
       - project_work_organization_ref
       - project_work_assignment_request
       - existing_task_thread_refs
@@ -29,6 +30,8 @@ steps:
       - boundary_constraints
       - manager_activation_decision
       - context_lifecycle_plan
+      - request_origin_relationship
+      - request_relationship
       - project_work_assignment_decision
       - scope_acceptance_state
       - primary_owner
@@ -43,10 +46,17 @@ steps:
       - task_gate_state
     rules:
       organization_contract_is_read_before_project_assignment: true
+      common_team_operations_contract_is_read_before_common_assignment: true
       task_engine_authority_is_referenced_not_redefined: true
       project_assignment_extension_applies_only_to_confirmed_project_work: true
       non_project_work_preserves_existing_owner_routing: true
       non_project_project_extension_outputs_are_not_applicable: true
+      common_or_unclassified_work_is_classified_by_common_team_manager: true
+      common_intake_request_is_distinct_from_internal_assignment: true
+      unclear_common_classification_escalates_to_human_owner: true
+      cross_branch_request_is_collaboration_review_or_reclassification_not_command: true
+      cross_branch_request_does_not_transfer_domain_authority: true
+      human_owner_directive_preserves_owner_authority_ref: true
       project_ceo_or_manager_performs_initial_classification: true
       exactly_one_primary_owner_required: true
       collaborators_and_reviewers_are_zero_or_more_and_never_co_primary: true
@@ -71,6 +81,8 @@ steps:
     inputs:
       - declared_thread_goal
       - boundary_constraints
+      - request_origin_relationship
+      - request_relationship
       - project_work_assignment_decision
       - task_thread_routing_decision
       - task_logical_role_plan
@@ -160,6 +172,7 @@ steps:
       - worker_thread_packet_set
     rules:
       project_extension_packet_fields_use_not_applicable_for_non_project_work: true
+      worker_packet_includes_request_origin_current_relationship_and_owner_authority_ref_when_applicable: true
       fresh_manager_prompt_self_contained: true
       worker_prompt_names_title_and_scope: true
       worker_prompt_subagent_first_for_substantive_lane_work: true

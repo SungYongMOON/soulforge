@@ -21,6 +21,7 @@ optional_inputs:
   - active_goal_ref
   - manager_thread_ref
   - active_worker_thread_refs
+  - common_team_operations_organization_ref
   - project_work_organization_ref
   - project_work_assignment_request
   - existing_task_thread_refs
@@ -47,6 +48,8 @@ outputs:
   - boundary_review_note
   - workflow_check_review_packet
   - verifier_independence_note
+  - request_origin_relationship
+  - request_relationship
   - project_work_assignment_decision
   - task_thread_routing_decision
   - task_logical_role_plan
@@ -113,6 +116,8 @@ codex_thread_manager_contract:
     - workflow_check_review_policy
     - conservative_thread_closeout
     - project_work_initial_classification_coordination
+    - common_team_work_initial_classification_coordination
+    - peer_collaboration_review_and_reclassification_request_distinction
     - functional_owner_scope_acceptance_or_reclassification
     - exactly_one_primary_owner_with_collaboration_and_review
     - task_thread_create_or_continue_coordination
@@ -175,12 +180,27 @@ codex_thread_manager_contract:
       - twenty_four_hour_span
       - explicit_user_request
   project_work_assignment_policy:
+    common_team_operations_contract_ref: docs/architecture/guild_hall/COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md
     organization_contract_ref: docs/architecture/guild_hall/PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md
     task_engine_authority_ref: docs/architecture/workspace/PROJECT_TASK_ENGINE_LIFECYCLE_V0.md
     task_engine_authority_is_referenced_not_redefined: true
+    request_relationship_values:
+      - owner_directive
+      - common_intake_request
+      - internal_assignment
+      - peer_collaboration_request
+      - peer_review_request
+      - peer_reclassification_request
     applies_only_to_confirmed_project_work: true
     non_project_work_preserves_existing_owner_routing: true
     non_project_project_extension_fields: not_applicable
+    common_team_work_uses_common_team_operations_contract: true
+    common_team_manager_performs_initial_classification_for_common_or_unclassified_work: true
+    common_intake_request_is_preserved_before_internal_assignment_or_peer_routing: true
+    unclear_common_classification_escalates_to_human_owner: true
+    cross_branch_requests_are_collaboration_review_or_reclassification_not_hierarchical_commands: true
+    cross_branch_request_does_not_transfer_domain_authority: true
+    human_owner_directive_is_distinct_and_preserves_owner_authority_ref: true
     project_ceo_or_manager_performs_initial_classification: true
     functional_owner_accepts_only_in_scope_work: true
     out_of_scope_work_must_not_be_executed_by_receiving_owner: true
@@ -296,6 +316,8 @@ codex_thread_manager_contract:
       fields:
         - title_or_packet_id
         - objective
+        - request_origin_relationship
+        - request_relationship
         - project_work_assignment_decision
         - primary_owner
         - executor_or_agent
@@ -317,6 +339,7 @@ codex_thread_manager_contract:
         - stop_conditions
       non_project_value_policy:
         preserve_existing_owner_routing: true
+        common_team_operations_contract_applies_to_common_work: true
         project_extension_fields: not_applicable
       claim_ceiling_values:
         - observed

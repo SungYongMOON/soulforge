@@ -43,9 +43,16 @@ public-safe 한글 표시명을 사용한다. 프로젝트 코드, 사람 이름
 위 정본의 Task Engine authority를 대체하지 않는다.
 
 이 프로젝트 조직 계약은 프로젝트 귀속이 확인된 업무에만 적용한다. `[SYSTEM]`,
-AX, ERP, COMMON의 비프로젝트 업무는 각 owner의 기존 routing을 유지하며 프로젝트
-조직을 억지로 배정하지 않는다. 공통 위임 패킷을 사용할 때 프로젝트 확장 필드가
-해당되지 않으면 값을 생략해 추정하지 않고 명시적으로 `not_applicable`로 기록한다.
+AX, ERP의 비프로젝트 업무는 각 owner의 기존 routing을 유지하고, `COMMON`의
+회사·팀 운영 업무는 `COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`를 따른다.
+비프로젝트 업무에 프로젝트 조직을 억지로 배정하지 않는다. 공통 위임 패킷을
+사용할 때 프로젝트 확장 필드가 해당되지 않으면 값을 생략해 추정하지 않고
+명시적으로 `not_applicable`로 기록한다.
+
+프로젝트 manager와 COMMON·AX·ERP·SYSTEM manager는 서로 다른 sibling branch의
+owner다. branch를 넘는 메시지는 `협업 요청`, `검토 요청`, `재분류 요청`으로
+구분하며, 요청을 보낸 manager가 수신 branch의 상급자가 되거나 domain authority를
+가져오지 않는다.
 
 ## 사람에게 보이는 조직도
 

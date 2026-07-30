@@ -3,7 +3,7 @@ kind: workflow_profile_policy
 status: active
 validation_level: private_one_worker_pilot_observed
 optimizer_status: completed_public_safe_synthetic_quality_equivalence
-calibration_status: quality_gate_calibrated
+calibration_status: rerun_required_common_team_routing_contract_change
 last_calibration_id: cal_20260710_gpt56_portfolio_001
 calibration_mode: profile_search
 profile_binding_policy:
@@ -83,6 +83,7 @@ selection_rules:
     claiming stronger readiness.
 rerun_triggers:
   - project responsibility classification TASK logical roles or gate policy changes
+  - common team responsibility classification or cross-branch request semantics changes
   - thread tool availability changes
   - manager rollover policy changes
   - worktree worker policy changes
@@ -113,6 +114,9 @@ non_claims:
   - no_live_project_responsibility_assignment_or_task_routing_execution_claim
   - no_iso_or_other_standard_conformity_claim
 notes:
+  - 2026-07-30 COMMON team-routing and cross-branch request relationship changes
+    activated a rerun trigger. The prior profile remains the incumbent but is
+    not newly recalibrated by the bounded functional B/V check.
   - This policy optimizes the model-facing orchestration planning, packet
     shaping, and conservative closeout portion of the workflow on a public-safe
     synthetic fixture.

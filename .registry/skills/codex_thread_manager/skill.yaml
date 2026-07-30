@@ -27,9 +27,14 @@ behavior:
     acceptance criteria remain unchanged. Human owners retain final assignment,
     final acceptance, completion, and external-side-effect approval. Task
     Engine authority remains defined by its architecture canon and is only
-    referenced here. Non-project SYSTEM, AX, ERP, or COMMON work preserves its
-    existing owner routing and records non-applicable project-extension packet
-    fields as `not_applicable` rather than inventing a project. Worker threads
+    referenced here. COMMON work follows the company/team common-work
+    organization contract: the team operations manager classifies common or
+    unclassified work, preserves a common intake request before later internal
+    assignment or peer routing, and cross-branch communication is a collaboration,
+    review, or reclassification request rather than a hierarchical command.
+    Non-project SYSTEM, AX, or ERP work preserves its existing owner routing,
+    and all non-applicable project-extension packet fields are recorded as
+    `not_applicable` rather than inventing a project. Worker threads
     are subagent-first lane controllers:
     substantive
     lane work is delegated to fresh bounded subagents by default, and direct
@@ -61,7 +66,9 @@ behavior:
     - Codex treats explicit skill invocation with an actionable goal as authorization for the declared thread to act as main team lead and create role worker threads by default when thread tools and scope boundaries support that action
     - Codex refreshes structured handoff before worker creation, compact, clear, rollover, cross-PC/overnight continuation, and substantial phase closeout
     - Codex reads the public project organization contract before classifying project work
+    - Codex reads the public company/team common-work contract before classifying COMMON work
     - Codex applies project assignment fields only to confirmed project work and preserves existing owner routing with `not_applicable` project-extension fields for non-project work
+    - Codex distinguishes owner directives from peer collaboration, review, and reclassification requests without transferring domain authority
     - Codex records exactly one primary responsibility owner and separates collaborators, independent reviewers, and acceptance or approval authority
     - Codex returns out-of-scope work with a reason and suggested primary owner, and escalates unclear classification
     - Codex distinguishes responsibility owner, executor or agent, independent reviewer, and acceptance or approval authority without assuming four mandatory people
@@ -92,6 +99,8 @@ execution_requirements:
     - actual_file_state_integration
     - deterministic_validation_routing
     - project_work_responsibility_classification
+    - common_team_work_responsibility_classification
+    - cross_branch_request_relationship_classification
     - task_thread_create_or_continue_routing
     - task_logical_role_and_gate_packet_authoring
   preferred_capabilities:

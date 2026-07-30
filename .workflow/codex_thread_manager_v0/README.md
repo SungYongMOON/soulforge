@@ -56,6 +56,29 @@ safety, or party binding.
 
 ## Routing Rules
 
+### Company/team common work assignment
+
+The reusable human-facing contract is
+`docs/architecture/guild_hall/COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`.
+For COMMON work, the team operations manager classifies common or unclassified
+work first, selects exactly one primary responsibility, and routes confirmed
+project or development work to the matching sibling branch.
+
+Cross-branch communication between COMMON, PROJECTS, AX, ERP, and SYSTEM is
+recorded as a collaboration request, review request, or reclassification
+request, not as a hierarchical command. A human owner directive remains
+distinct and keeps its authority reference. Receiving managers accept in-scope
+work or return it without execution with the reason and a suggested primary
+owner. Request acceptance never transfers domain authority or authorizes an
+external side effect.
+
+A request first received from a team member or common inbox is recorded as a
+`request_origin_relationship: common_intake_request`. Preserve that origin when
+the manager later records the current `request_relationship` as an
+`internal_assignment` or a peer request. If common-versus-project-versus-
+development classification remains unclear, escalate the classification proposal
+to the human owner.
+
 ### Project work assignment and TASK routing
 
 The reusable human-facing contract is
@@ -65,9 +88,10 @@ Task Engine authority remains owned by
 references that boundary and does not redefine it.
 
 This project assignment extension applies only when project scope is confirmed.
-`[SYSTEM]`, AX, ERP, COMMON, and other non-project work keep their existing
-owner routing. Shared packets record inapplicable project-extension fields as
-`not_applicable` instead of inventing a project or project responsibility lane.
+COMMON work follows the company/team common-work contract above. `[SYSTEM]`,
+AX, ERP, and other non-project work keep their existing owner routing. Shared
+packets record inapplicable project-extension fields as `not_applicable`
+instead of inventing a project or project responsibility lane.
 
 - The project CEO or operations manager classifies incoming project work first.
 - Record exactly one primary responsibility owner. Other responsibilities are

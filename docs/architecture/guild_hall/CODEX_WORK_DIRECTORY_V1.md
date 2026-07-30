@@ -36,6 +36,11 @@ directory root는 탐색 시작점일 뿐이며 `navigation_authority=none`이�
 4. `ERP DEVELOPMENT`
 5. `SYSTEM DEVELOPMENT`
 
+`COMMON`은 기계적으로 안정된 branch id다. 사람에게 보이는 projection에서는
+`회사·팀 운영 (COMMON)`으로 표시하고, 구체적인 팀 공통업무 조직과 업무분장은
+`COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`를 따른다. 실제 팀명과 manager
+title은 private stable catalog가 소유한다.
+
 `PROJECTS` 아래 각 project manager는 서로 sibling인 leaf다. project manager를
 `AX DEVELOPMENT`의 child로 두거나 AX 조직 소유자로 해석하지 않는다.
 
@@ -44,16 +49,20 @@ responsibility-owner 자리만 보여준다. 이 자리는 프로젝트 팀장 �
 대체하거나 포함하지 않는다.
 
 `manager_route_id`는 같은 branch 안의 실제 관리 관계에만 쓴다. branch를
-넘는 escalation은 COMMON의 directory curator/common routing route에
-재분류를 요청하는 용도로만 허용하며, project·AX·ERP·SYSTEM의 domain
-authority를 COMMON으로 이전하지 않는다.
+넘는 요청은 `협업 요청`, `검토 요청`, `재분류 요청`으로 구분하며 지휘 명령으로
+해석하지 않는다. COMMON의 directory curator/common routing route에 보내는
+escalation은 재분류 요청일 뿐이고, project·AX·ERP·SYSTEM의 domain authority를
+COMMON으로 이전하지 않는다. 반대로 다른 branch의 manager도 COMMON의 공통업무
+authority를 가져오지 않는다. 사람 owner의 현재 지시는 peer 요청과 별도로
+식별하고 그 authority ref를 보존한다.
 
 ## authority와 projection
 
 한 private stable route catalog가 다음 human projection의 공통 입력이다.
 
 - Soulforge 전체 조직 overview
-- 공통업무와 모든 프로젝트별 팀장을 동급 leaf로 보여주는 프로젝트 전체 조직도
+- 회사·팀 운영과 모든 프로젝트별 팀장을 동급 branch로 보여주는 업무 조직도
+- 회사·팀 운영 manager와 공통 책임 분야를 보여주는 COMMON detail view
 - AX CEO와 다섯 responsibility owner를 보여주는 AX detail view
 
 tree 또는 card 표현은 read-only projection이다. projection이 route를 새로

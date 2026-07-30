@@ -93,6 +93,27 @@ tool behavior.
 
 ## Routing Rules
 
+### Company/team common work assignment
+
+- Read
+  `docs/architecture/guild_hall/COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`
+  before classifying COMMON company/team work.
+- The team operations manager classifies common or unclassified work first,
+  records exactly one primary responsibility owner, and routes confirmed
+  project or development work to the matching sibling branch.
+- Record a team member or common-inbox origin as
+  `request_origin_relationship: common_intake_request` before recording the
+  current `request_relationship` as any later internal assignment or peer route. Escalate unclear
+  common-versus-project-versus-development classification to the human owner.
+- Treat communication between COMMON, PROJECTS, AX, ERP, and SYSTEM as a
+  collaboration request, review request, or reclassification request, not as a
+  hierarchical command. Preserve a human owner directive as a distinct request
+  relationship with its authority ref.
+- A receiving peer owner accepts only in-scope work or returns it without
+  execution with the reason and a suggested primary owner. Cross-branch
+  requests never transfer domain authority or authorize an external side
+  effect.
+
 ### Project work assignment and TASK routing
 
 - Read
@@ -158,13 +179,19 @@ Use the workflow's worker packet policy as the canonical contract. Every worker,
 worktree worker, verifier, judge, or worker-created subagent packet must include:
 
 Apply the project organization extension only when project scope is confirmed.
-For `[SYSTEM]`, AX, ERP, COMMON, or other non-project work, preserve the
-responsible owner's existing routing. Do not invent a project or project
-responsibility lane; record project-extension packet fields as
-`not_applicable` when they do not apply.
+COMMON work follows the company/team common-work contract above. For
+`[SYSTEM]`, AX, ERP, or other non-project work, preserve the responsible
+owner's existing routing. Do not invent a project or project responsibility
+lane; record project-extension packet fields as `not_applicable` when they do
+not apply.
 
 - `title_or_packet_id`: thread title or stable packet id.
 - `objective`: one bounded task goal and lane role.
+- `request_origin_relationship`: the preserved request origin when it differs
+  from the current route, or `not_applicable`.
+- `request_relationship`: owner directive, common intake request, internal assignment, peer
+  collaboration request, peer review request, or peer reclassification request;
+  preserve the owner authority ref when applicable.
 - `project_work_assignment_decision`: scope acceptance, reclassification, or
   unresolved escalation.
 - `primary_owner`: exactly one responsibility owner for routed work.
