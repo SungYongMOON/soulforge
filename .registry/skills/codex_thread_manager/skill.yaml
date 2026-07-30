@@ -36,6 +36,15 @@ behavior:
     unassigned-project manager for temporary intake custody only; that route
     does not create project responsibility lanes and hands custody to the exact
     project manager after confirmation.
+    The approved two-company human projection keeps the Development Team 1
+    operations manager distinct from the Development Team 1 company CEO and
+    keeps the AX product CEO distinct from the AI platform company CEO. Both
+    company CEOs coordinate priorities, integrate results, and escalate
+    blockers only. Human, personnel, budget, purchasing, ordering, external
+    commitment, sending, baseline, and final-acceptance decisions remain with
+    the Owner. Until a separate governance overlay or directory v2 is approved
+    and validated, cross-branch CEO routing is explicit-address only and
+    HOLD/non-routable.
     Non-project SYSTEM, AX, or ERP work preserves its existing owner routing,
     and all non-applicable project-extension packet fields are recorded as
     `not_applicable` rather than inventing a project. Worker threads
@@ -71,6 +80,9 @@ behavior:
     - Codex refreshes structured handoff before worker creation, compact, clear, rollover, cross-PC/overnight continuation, and substantial phase closeout
     - Codex reads the public project organization contract before classifying project work
     - Codex reads the public company/team common-work contract before classifying COMMON work
+    - Codex reads the approved two-company organization contract before CEO coordination
+    - Codex never treats either CEO as a v1 cross-branch parent and keeps automatic CEO routing HOLD/non-routable without a separately approved governance overlay or directory v2
+    - Codex preserves explicit Owner decisions for people, personnel, budget, purchasing, ordering, external commitments, sending, baselines, and final acceptance
     - Codex applies project assignment fields only to confirmed project work and preserves existing owner routing with `not_applicable` project-extension fields for non-project work
     - Codex distinguishes owner directives from peer collaboration, review, and reclassification requests without transferring domain authority
     - Codex routes unresolved project candidates to temporary unassigned-project custody and hands them to the exact project manager after confirmation

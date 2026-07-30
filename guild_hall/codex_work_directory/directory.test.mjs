@@ -338,6 +338,25 @@ test("three projections preserve sibling projects and AX-only hierarchy", () => 
   assert.ok(!ax.includes("SYNTHETIC\\_PROJECT\\_1"));
 });
 
+test("v1 remains a five-branch domain directory without cross-branch CEO parent routes", async () => {
+  const contract = await readFile(
+    new URL("../../docs/architecture/guild_hall/DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md", import.meta.url),
+    "utf8"
+  );
+  assert.match(contract, /HOLD\/non-routable/u);
+  assert.match(contract, /manager_route_id/u);
+  assert.match(contract, /사람 관련 결정·인사·예산·구매·발주·외부 약속·전송·기준선·최종 수락/u);
+  const catalog = catalogFixture();
+  assert.equal(catalog.branches.length, 5);
+  assert.equal((await validateCatalog(catalog)).valid, true);
+  const forbiddenCeoParent = catalogFixture();
+  forbiddenCeoParent.routes.find((item) => item.route_id === "SYNTHETIC_PROJECT_1").manager_route_id =
+    "SYNTHETIC_COMMON_A";
+  const rejected = await validateCatalog(forbiddenCeoParent);
+  assert.equal(rejected.valid, false);
+  assert.ok(rejected.errors.length > 0);
+});
+
 test("public files contain no concrete provider brand, UUID, or absolute local path", async () => {
   const files = [
     "README.md",
@@ -345,7 +364,8 @@ test("public files contain no concrete provider brand, UUID, or absolute local p
     "schema/live_bindings.v1.schema.json",
     "directory.mjs",
     "cli.mjs",
-    "directory.test.mjs"
+    "directory.test.mjs",
+    "../../docs/architecture/guild_hall/DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md"
   ];
   const providerBrandPattern = new RegExp(
     `\\b(?:${["or", "ca"].join("")}|${["ki", "mi"].join("")})\\b`,

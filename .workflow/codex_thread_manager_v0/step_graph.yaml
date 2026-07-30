@@ -47,6 +47,7 @@ steps:
     rules:
       organization_contract_is_read_before_project_assignment: true
       common_team_operations_contract_is_read_before_common_assignment: true
+      two_company_organization_contract_is_read_before_ceo_coordination: true
       task_engine_authority_is_referenced_not_redefined: true
       project_assignment_extension_applies_only_to_confirmed_project_work: true
       non_project_work_preserves_existing_owner_routing: true
@@ -54,6 +55,9 @@ steps:
       common_or_unclassified_work_is_classified_by_common_team_manager: true
       common_intake_request_is_distinct_from_internal_assignment: true
       unclear_common_classification_escalates_to_human_owner: true
+      development1_operations_manager_is_not_company_ceo: true
+      ceo_reserved_human_authority_requires_explicit_owner_decision: true
+      cross_branch_ceo_auto_route_is_hold_without_governance_overlay: true
       project_candidate_with_unresolved_identity_routes_to_unassigned_project_manager: true
       unassigned_project_manager_does_not_own_common_or_development_work: true
       confirmed_project_identity_routes_to_exact_project_manager: true

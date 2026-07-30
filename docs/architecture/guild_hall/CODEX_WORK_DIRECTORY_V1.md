@@ -37,9 +37,11 @@ directory root는 탐색 시작점일 뿐이며 `navigation_authority=none`이�
 5. `SYSTEM DEVELOPMENT`
 
 `COMMON`은 기계적으로 안정된 branch id다. 사람에게 보이는 projection에서는
-`회사·팀 운영 (COMMON)`으로 표시하고, 구체적인 팀 공통업무 조직과 업무분장은
-`COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`를 따른다. 실제 팀명과 manager
-title은 private stable catalog가 소유한다.
+`개발1팀 운영실 (COMMON)`로 표시하고, 구체적인 운영실 업무분장은
+`COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`를 따른다. 두 회사 grouping과
+고객사–공급사 경계는
+`DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`를 따른다. 이는
+v1 route parent나 자동 dispatch authority를 만들지 않는다.
 
 `PROJECTS` 아래 각 project manager와 하나의 optional
 `미할당 프로젝트 업무운영/팀장` route는 서로 sibling인 leaf다. 미할당 route는
@@ -68,9 +70,16 @@ authority를 가져오지 않는다. 사람 owner의 현재 지시는 peer 요�
 - 회사·팀 운영과 모든 프로젝트별 팀장을 동급 branch로 보여주는 업무 조직도
 - 회사·팀 운영 manager와 공통 책임 분야를 보여주는 COMMON detail view
 - AX CEO와 다섯 responsibility owner를 보여주는 AX detail view
+- 한 명의 Owner 아래 개발1팀 실행회사와 개인 AI 기반시스템 개발회사를 묶어
+  보여주는 read-only two-company organization view
 
 tree 또는 card 표현은 read-only projection이다. projection이 route를 새로
 만들거나 authority를 바꾸지 않는다.
+
+두 회사 CEO는 현행 v1의 다섯 branch를 가로지르는 governance 역할이므로
+v1 `manager_route_id`에 넣지 않는다. 승인·검증된 별도 governance overlay 또는
+directory v2가 생기기 전에는 exact task pointer를 사람이 명시한 경우에만
+연결하고 자동 routing은 `HOLD/non-routable`로 둔다.
 
 선택한 manager 아래 current work Kanban은 미래에 같은 data model을 소비할 수
 있는 optional downstream view다. 조직·라우팅 directory는 “누구에게 보낼지”를

@@ -4,13 +4,13 @@
 
 이 문서는 프로젝트에 속하지 않는 팀 공통업무의 조직, 업무분장,
 협업공간 운영과 조직 간 요청 경계를 정의하는 public-safe 운영 계약이다.
-상태는 `canon_candidate`이며, 실제 사람 직책·Slack 권한·안정 route·runtime
+상태는 `canon_entry`이며, 실제 사람 직책·Slack 권한·안정 route·runtime
 binding을 자동으로 만들거나 변경하지 않는다.
 
 기존 stable branch id `COMMON`은 호환성을 위해 유지한다. 사람에게 보이는
-대표 manager 명칭 템플릿은 `[팀명] 업무운영/팀장`으로 사용한다. 실제 팀명과
-route title은 승인된 private stable catalog가 소유한다. 이 명칭은 실제 법인
-대표이사나 회사 전체 경영 authority를 뜻하지 않는다.
+대표 manager 명칭은 `[개발1팀 운영실] 업무운영/팀장`으로 사용한다. 이 역할은
+`개발1팀 회사 CEO` 아래의 운영실장·운영조정자이며 CEO가 아니다. 실제 route
+title과 runtime pointer는 승인된 private/local 주소록이 소유한다.
 
 ## 적용 범위
 
@@ -38,15 +38,15 @@ route title은 승인된 private stable catalog가 소유한다. 이 명칭은 �
 ```text
 Soulforge 탐색 루트 — 조직 authority 없음
 │
-├─ 회사·팀 운영 (`COMMON`)
-│  └─ [팀명] 업무운영/팀장
-│     ├─ [팀명] 업무접수·분류/책임자
-│     ├─ [팀명] Slack·협업공간 운영/책임자
-│     ├─ [팀명] 회의·결정기록/책임자
-│     ├─ [팀명] 자료·지식관리/책임자
-│     ├─ [팀명] 구매·재고·업무환경/책임자
-│     ├─ [팀명] 일정·일일업무·후속조치/책임자
-│     └─ [팀명] 공지·대내소통/책임자
+├─ 개발1팀 회사형 실행조직
+│  ├─ 개발1팀 회사 CEO
+│  └─ 개발1팀 운영실 (`COMMON`)
+│     └─ [개발1팀 운영실] 업무운영/팀장
+│        ├─ 업무기획·포트폴리오
+│        ├─ 인력·역량·온보딩 지원
+│        ├─ 협업·회의·결정·공지
+│        ├─ 자료·지식·표준·업무개선
+│        └─ 경영지원·구매·재고·업무환경
 │
 ├─ 프로젝트 수행 (`PROJECTS`)
 │  ├─ [미할당 프로젝트] 업무운영/팀장
@@ -62,9 +62,10 @@ Soulforge 탐색 루트 — 조직 authority 없음
    └─ [SYSTEM] 기능개발/팀장
 ```
 
-위 branch들은 탐색 루트 아래에서 서로 sibling이다. `[팀명]
-업무운영/팀장`은 AX·ERP·SYSTEM·프로젝트 팀장의 상급자도 하급자도 아니다.
-조직 간에는 필요한 협업·검토·재분류 요청과 결과를 주고받는다.
+기계 directory의 `COMMON`, `PROJECTS`, `AX DEVELOPMENT`, `ERP DEVELOPMENT`,
+`SYSTEM DEVELOPMENT`는 계속 sibling이다. 사람용 회사 grouping은
+`DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`를 따르며 자동 route
+authority를 만들지 않는다.
 
 하위 책임 분야는 업무 분류 surface다. 실제 업무량이 작으면 한 사람이 여러
 책임을 맡을 수 있고, 지속형 manager route나 별도 책임자 스레드는 owner가

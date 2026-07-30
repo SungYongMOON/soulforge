@@ -98,6 +98,15 @@ tool behavior.
 - Read
   `docs/architecture/guild_hall/COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`
   before classifying COMMON company/team work.
+- Read
+  `docs/architecture/guild_hall/DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`
+  before routing work through either company CEO. The Development Team 1
+  operations manager is not the company CEO. Both CEO roles coordinate,
+  integrate, and escalate only; human, personnel, budget, purchasing, external
+  commitment, baseline, and final-acceptance decisions remain with the Owner.
+- Until a separately approved governance overlay or directory v2 is validated,
+  cross-branch CEO routing is explicit-address only and
+  `HOLD/non-routable`; never encode either CEO as a v1 cross-branch parent.
 - The team operations manager classifies common or unclassified work first,
   records exactly one primary responsibility owner, and routes confirmed
   project or development work to the matching sibling branch.

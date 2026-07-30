@@ -2,6 +2,17 @@
 
 ## 2026-07-30
 
+### 개발1팀 실행회사·AI 기반시스템 개발회사 조직모델
+
+- 한 명의 최상위 Owner 아래 `개발1팀 회사형 실행조직`과 별도의
+  `개인 AI 기반시스템 개발회사`를 두는 사람용 조직 계약을 등록했다.
+- 두 CEO는 우선순위 조정·결과 통합·조직 간 조정·blocker 에스컬레이션만
+  담당하며, 사람·인사·예산·구매·발주·외부 약속·전송·기준선·최종 수락은
+  Owner에게 유보한다.
+- 기계 directory의 다섯 sibling branch와 same-branch manager 제약은 유지한다.
+  별도 governance overlay 또는 directory v2가 승인·검증되기 전 두 CEO 자동
+  routing은 `HOLD/non-routable`이다. (worker: `codex_gpt-5.6-sol`)
+
 ### AI 작업 기록 로컬 outbox A2 candidate
 
 - 공통계약 `soulforge.ai_work_record_event.v1`을 재사용해 strict schema →

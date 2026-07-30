@@ -60,6 +60,10 @@ safety, or party binding.
 
 The reusable human-facing contract is
 `docs/architecture/guild_hall/COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`.
+The approved two-company governance projection and CEO authority boundary is
+`docs/architecture/guild_hall/DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`.
+CEO coordination stays explicit-address and `HOLD/non-routable` until a
+separately approved governance overlay or directory v2 is validated.
 For COMMON work, the team operations manager classifies common or unclassified
 work first, selects exactly one primary responsibility, and routes confirmed
 project or development work to the matching sibling branch.

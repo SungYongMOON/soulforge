@@ -101,6 +101,12 @@ read-only snapshot
   accepted assignment 전에는 WorkSession/AgentRun을 열지 않으며 closeout·agent success는
   공식 완료가 아니다. 이 결정은 schema·entity·runtime을 추가하거나 feature-OFF 및
   non-operational claim을 올리지 않는다.
+- organization governance decision(2026-07-30): 한 명의 사람 Owner 아래
+  `개발1팀 회사형 실행조직`과 별도의 `개인 AI 기반시스템 개발회사`를 둔다.
+  사람용 두 회사 projection은 승인됐지만 현행 five-branch domain routing은
+  그대로 유지한다. 두 CEO의 cross-branch 자동 routing은 별도 governance
+  overlay 또는 directory v2 계약·validator·Owner 승인 전까지
+  `HOLD/non-routable`이다.
 - 판단(2026-06-14 갱신): snapshot→작전판 게임루프는 장기 북극성으로 유지하되, 지금 손이 가는 active slice 는 dev-erp 다. 과거 active slice `snapshot_to_operation_board_v0` 는 '다음 후보'로 내린다(스펙은 아래 'Active Slice 001' 절에 보존, 재개 시 참조).
 
 ### Owner-approved adjacent lane — autonomous voice context resolver
