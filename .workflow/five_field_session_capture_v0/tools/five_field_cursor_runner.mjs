@@ -36,15 +36,20 @@ import {
   createTransportAdapter,
 } from "./five_field_transport_adapter.mjs";
 import {
+  RUNTIME_PREFLIGHT_INPUT_SCHEMA,
+  RUNTIME_PREFLIGHT_RECEIPT_SCHEMA,
   runRuntimePreflight,
   runtimeLaunchBindingDigest,
 } from "./five_field_runtime_preflight.mjs";
 
-export const RUNNER_INPUT_SCHEMA = "soulforge.five_field_cursor_runner_input.v3";
-export const RUNNER_RECEIPT_SCHEMA = "soulforge.five_field_cursor_runner_receipt.v3";
+export const RUNNER_V3_INPUT_SCHEMA =
+  "soulforge.five_field_cursor_runner_input.v3";
+export const RUNNER_INPUT_SCHEMA = "soulforge.five_field_cursor_runner_input.v4";
+export const RUNNER_RECEIPT_SCHEMA = "soulforge.five_field_cursor_runner_receipt.v4";
 
 const SHA_RE = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/u;
 const DIGEST_RE = /^sha256:[0-9a-f]{64}$/u;
+const OPAQUE_RANDOM_256_RE = /^[0-9a-f]{64}$/u;
 const REF_RE = /^refs\/heads\/[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/u;
 const TOKEN_RE = /^[a-z0-9][a-z0-9._-]{0,119}$/u;
 const EMAIL_RE = /^[^\s<>@\r\n]+@[^\s<>@\r\n]+$/u;
@@ -70,11 +75,19 @@ const NON_INTERACTIVE_GIT_ENV = Object.freeze({
 const CURSOR_ROOT =
   "guild_hall/state/operations/ai_work_result_recovery/v1/cursors";
 const REQUIRED_FORBIDDEN_ROOT_KINDS = new Set([
-  "active_public_repo",
+  "active_public_root",
   "active_workmeta",
+  "active_private_state",
   "codex_worktree",
   "orca_worktree",
-  "installed_automation_control",
+  "automation_control_root",
+]);
+const FIXED_FALSE_AUTHORITY_FIELDS = Object.freeze([
+  "official_completion",
+  "worksession_acceptance",
+  "taskdriver_acceptance",
+  "erp_acceptance",
+  "mcp_acceptance",
 ]);
 
 class RunnerError extends Error {
@@ -114,7 +127,11 @@ function exactKeys(value, allowed) {
 }
 
 function rejectForbiddenInput(value, key = null) {
-  if (key && FORBIDDEN_INPUT_KEY_RE.test(key)) fail("input_contract_invalid");
+  if (
+    key
+    && FORBIDDEN_INPUT_KEY_RE.test(key)
+    && !(key === "credential" && value === "capture_prohibited")
+  ) fail("input_contract_invalid");
   if (Array.isArray(value)) {
     for (const item of value) rejectForbiddenInput(item);
     return;
@@ -140,6 +157,10 @@ function rejectForbiddenInput(value, key = null) {
     "writer_private_state",
     "config",
     "locks",
+    "active_public_root",
+    "active_workmeta",
+    "active_private_state",
+    "automation_control_root",
   ].includes(key);
   if (!pathKey && ABSOLUTE_PATH_SENTINEL_RE.test(value)) {
     fail("input_boundary_sentinel");
@@ -162,6 +183,7 @@ function assertExactRunnerShape(input) {
     "lease",
     "isolation",
     "runtime_preflight",
+    "automation_binding",
     "source_allowlist",
     "ledger_writer_allowlist",
     "cursor_writer_allowlist",
@@ -216,7 +238,7 @@ function assertExactRunnerShape(input) {
   if (
     !exactKeys(input.ledger_writer.commit_author, ["name", "email"])
     || !exactKeys(input.cursor_writer.commit_author, ["name", "email"])
-  ) fail("input_contract_invalid");
+  ) fail("commit_author_contract_invalid");
   if (!exactKeys(input.lease, [
     "owner_token",
     "pid",
@@ -227,15 +249,25 @@ function assertExactRunnerShape(input) {
     "lock_path",
     "stale_recovery_policy",
     "owner_allows_stale_recovery",
-  ])) fail("input_contract_invalid");
+  ])) fail("lease_contract_invalid");
   if (!exactKeys(input.isolation, ["runtime_root", "forbidden_roots"])) {
-    fail("input_contract_invalid");
+    fail("isolation_contract_invalid");
   }
+  if (!exactKeys(input.runtime_preflight, ["input", "receipt"])) {
+    fail("runtime_preflight_full_projection_required");
+  }
+  if (!exactKeys(input.automation_binding, [
+    "candidate_sha256",
+    "candidate_status",
+    "runtime_manifest_digest",
+    "runtime_evidence_digest",
+    "runtime_launch_binding_digest",
+  ])) fail("automation_binding_contract_invalid");
   if (
     !Array.isArray(input.isolation.forbidden_roots)
     || !input.isolation.forbidden_roots.every((row) =>
       exactKeys(row, ["kind", "path"]))
-  ) fail("input_contract_invalid");
+  ) fail("forbidden_roots_contract_invalid");
   if (
     !Array.isArray(input.source_allowlist)
     || !input.source_allowlist.every((row) => exactKeys(row, [
@@ -245,7 +277,7 @@ function assertExactRunnerShape(input) {
       "source_lane",
       "snapshot_path",
     ]))
-  ) fail("input_contract_invalid");
+  ) fail("source_allowlist_contract_invalid");
   if (
     !Array.isArray(input.ledger_writer_allowlist)
     || !input.ledger_writer_allowlist.every((row) => exactKeys(row, [
@@ -258,7 +290,7 @@ function assertExactRunnerShape(input) {
       "ref",
       "ledger_logical_path",
     ]))
-  ) fail("input_contract_invalid");
+  ) fail("ledger_writer_allowlist_contract_invalid");
   if (
     !Array.isArray(input.cursor_writer_allowlist)
     || !input.cursor_writer_allowlist.every((row) => exactKeys(row, [
@@ -271,7 +303,7 @@ function assertExactRunnerShape(input) {
       "ref",
       "cursor_logical_path",
     ]))
-  ) fail("input_contract_invalid");
+  ) fail("cursor_writer_allowlist_contract_invalid");
   rejectForbiddenInput(input);
 }
 
@@ -408,7 +440,8 @@ function assertRuntimePreflightBinding(
   cursorRemoteRoot,
   isolation,
 ) {
-  const roots = input.runtime_preflight.roots;
+  const preflightInput = input.runtime_preflight.input;
+  const roots = preflightInput.roots;
   const runtimeRoots = {
     runner: exactRealpath(roots.runner, "runtime_runner_root_invalid"),
     source: exactRealpath(roots.source, "runtime_source_root_invalid"),
@@ -442,7 +475,7 @@ function assertRuntimePreflightBinding(
 
   const isolationForbidden = isolation.forbiddenRoots.map((row) =>
     `${row.kind}\0${comparablePath(row.root)}`).sort();
-  const preflightForbidden = input.runtime_preflight.forbidden_roots.map((row) =>
+  const preflightForbidden = preflightInput.forbidden_roots.map((row) =>
     `${row.kind}\0${comparablePath(
       exactRealpath(row.path, "runtime_forbidden_root_invalid"),
     )}`).sort();
@@ -450,13 +483,47 @@ function assertRuntimePreflightBinding(
     fail("runtime_preflight_forbidden_roots_mismatch");
   }
 
-  const fencing = input.runtime_preflight.evidence.fencing;
+  const writerEvidence = preflightInput.evidence.git_authority.writers;
+  const ledgerWriter = input.ledger_writer;
+  const cursorWriter = input.cursor_writer;
+  const expectedLedgerTransport = ledgerWriter.transport_class === "local_file"
+    ? "local"
+    : ledgerWriter.transport_class;
+  const expectedCursorTransport = cursorWriter.transport_class === "local_file"
+    ? "local"
+    : cursorWriter.transport_class;
   if (
-    fencing.writer_epoch !== input.lease.writer_epoch
-    || fencing.stale_recovery_policy !== input.lease.stale_recovery_policy
-    || fencing.host_identity_digest
-      !== sha256(`host_identity\0${input.lease.host_identity}`)
-  ) fail("runtime_preflight_fencing_binding_mismatch");
+    writerEvidence.workmeta.writer_role !== "writer_workmeta"
+    || writerEvidence.workmeta.logical_remote !== ledgerWriter.remote
+    || writerEvidence.workmeta.ref !== ledgerWriter.ref
+    || writerEvidence.workmeta.transport_class !== expectedLedgerTransport
+    || writerEvidence.workmeta.authority_fingerprint
+      !== ledgerWriter.authority_fingerprint
+    || writerEvidence.private_state.writer_role !== "writer_private_state"
+    || writerEvidence.private_state.logical_remote !== cursorWriter.remote
+    || writerEvidence.private_state.ref !== cursorWriter.ref
+    || writerEvidence.private_state.transport_class !== expectedCursorTransport
+    || writerEvidence.private_state.authority_fingerprint
+      !== cursorWriter.authority_fingerprint
+  ) fail("runtime_preflight_writer_authority_binding_mismatch");
+
+  const leasePolicy = preflightInput.evidence.lease_policy;
+  if (
+    leasePolicy.stale_recovery_policy
+      !== input.lease.stale_recovery_policy
+    || leasePolicy.owner_token_class !== "opaque_random_256_v1"
+    || leasePolicy.operational_primary !== true
+    || leasePolicy.first_lease_stale !== false
+    || leasePolicy.host_identity_digest
+      !== sha256(input.lease.host_identity)
+    || leasePolicy.initial_writer_epoch !== input.lease.writer_epoch
+    || leasePolicy.initial_writer_epoch !== Math.max(
+      leasePolicy.restored_writer_epoch,
+      leasePolicy.authority_writer_epoch,
+      leasePolicy.receipt_writer_epoch,
+      0,
+    ) + 1
+  ) fail("runtime_preflight_lease_policy_binding_mismatch");
 }
 
 function safeLogicalPath(value, code) {
@@ -1195,8 +1262,42 @@ function baseReceipt() {
     },
     runtime_preflight: {
       status: "HOLD",
+      exact_receipt_match: false,
       manifest_digest: null,
+      evidence_digest: null,
+      launch_binding_digest: null,
+      forbidden_union_digest: null,
+      reviewed_receipt_digest: null,
+      binding_digest: null,
+      lease_policy: {
+        owner_token_class: "UNKNOWN",
+        first_lease_stale: null,
+        host_identity_digest: null,
+        restored_writer_epoch: null,
+        authority_writer_epoch: null,
+        receipt_writer_epoch: null,
+        initial_writer_epoch: null,
+        ttl_minutes: null,
+        ttl_formula: null,
+        epoch_formula: null,
+      },
+      rechecks: {
+        initial: false,
+        before_ledger_push: false,
+        before_cursor_commit: false,
+        before_cursor_push: false,
+      },
       hold_reasons: ["runtime_preflight_not_run"],
+    },
+    automation_binding: {
+      candidate_sha256: null,
+      candidate_status: "UNKNOWN",
+      matched: false,
+    },
+    reconciliation: {
+      required: false,
+      reason: null,
+      cursor_unchanged: null,
     },
     lease: {
       state: "NOT_ACQUIRED",
@@ -1297,9 +1398,179 @@ function validateWriter(writer, kind) {
   ) fail(`${kind}_author_email_invalid`);
 }
 
+function runtimePreflightNow(options) {
+  const configured = typeof options.preflightNow === "function"
+    ? options.preflightNow()
+    : options.preflightNow;
+  return configured ?? currentTime(options);
+}
+
+function assertFixedFalseAuthority(value, code) {
+  if (
+    FIXED_FALSE_AUTHORITY_FIELDS.some((field) => value?.[field] !== false)
+    || value?.claim_ceiling !== "operational_evidence_only"
+  ) fail(code);
+}
+
+function runtimeAuthorityBindingDigest(input) {
+  return sha256(canonicalize({
+    runtime_preflight: {
+      manifest_digest: input.automation_binding.runtime_manifest_digest,
+      evidence_digest: input.automation_binding.runtime_evidence_digest,
+      launch_binding_digest:
+        input.automation_binding.runtime_launch_binding_digest,
+      forbidden_union_digest:
+        input.runtime_preflight.receipt.forbidden_union_digest,
+    },
+    automation: {
+      candidate_sha256: input.automation_binding.candidate_sha256,
+      candidate_status: input.automation_binding.candidate_status,
+    },
+    roots: input.runtime_preflight.input.roots,
+    guarded_roots: input.runtime_preflight.input.guarded_roots,
+    forbidden_roots: input.runtime_preflight.input.forbidden_roots,
+    worktree_inventory: input.runtime_preflight.input.worktree_inventory,
+    writers: {
+      ledger: {
+        binding_id: input.ledger_writer.binding_id,
+        clone_path: input.ledger_writer.clone_path,
+        remote: input.ledger_writer.remote,
+        transport_class: input.ledger_writer.transport_class,
+        authority_fingerprint: input.ledger_writer.authority_fingerprint,
+        ref: input.ledger_writer.ref,
+        logical_path: input.ledger_writer.ledger_logical_path,
+      },
+      cursor: {
+        binding_id: input.cursor_writer.binding_id,
+        clone_path: input.cursor_writer.clone_path,
+        remote: input.cursor_writer.remote,
+        transport_class: input.cursor_writer.transport_class,
+        authority_fingerprint: input.cursor_writer.authority_fingerprint,
+        ref: input.cursor_writer.ref,
+        logical_path: input.cursor.logical_path,
+      },
+    },
+    lease: {
+      host_identity: input.lease.host_identity,
+      acquired_at: input.lease.acquired_at,
+      expires_at: input.lease.expires_at,
+      owner_token_digest: sha256(input.lease.owner_token),
+      writer_epoch: input.lease.writer_epoch,
+      stale_recovery_policy: input.lease.stale_recovery_policy,
+      owner_allows_stale_recovery:
+        input.lease.owner_allows_stale_recovery,
+    },
+  }));
+}
+
+function assertOneShotLeaseBasis(input) {
+  const lease = input.lease;
+  const policy = input.runtime_preflight.input.evidence.lease_policy;
+  const acquiredAt = normalizeIso(
+    lease.acquired_at,
+    "lease_acquired_at_invalid",
+  );
+  const expiresAt = normalizeIso(
+    lease.expires_at,
+    "lease_expires_at_invalid",
+  );
+  const actualTtlMs =
+    new Date(expiresAt).valueOf() - new Date(acquiredAt).valueOf();
+  if (
+    !OPAQUE_RANDOM_256_RE.test(lease.owner_token || "")
+    || lease.owner_allows_stale_recovery !== false
+    || policy.owner_token_class !== "opaque_random_256_v1"
+    || policy.first_lease_stale !== false
+    || policy.host_identity_digest !== sha256(lease.host_identity)
+    || actualTtlMs !== policy.ttl_minutes * 60_000
+    || lease.writer_epoch !== policy.initial_writer_epoch
+    || policy.initial_writer_epoch !== Math.max(
+      policy.restored_writer_epoch,
+      policy.authority_writer_epoch,
+      policy.receipt_writer_epoch,
+      0,
+    ) + 1
+  ) fail("one_shot_lease_basis_mismatch");
+}
+
+function revalidateRuntimeAuthority(
+  input,
+  options,
+  receipt,
+  checkpoint,
+  expectedBindingDigest = null,
+) {
+  if (
+    !exactKeys(input.runtime_preflight, ["input", "receipt"])
+    || input.runtime_preflight.input?.schema_version
+      !== RUNTIME_PREFLIGHT_INPUT_SCHEMA
+    || input.runtime_preflight.receipt?.schema_version
+      !== RUNTIME_PREFLIGHT_RECEIPT_SCHEMA
+  ) fail("runtime_preflight_full_projection_required");
+  const reviewed = input.runtime_preflight.receipt;
+  if (reviewed.status !== "PASS") fail("runtime_preflight_reviewed_pass_required");
+  assertFixedFalseAuthority(reviewed, "runtime_preflight_authority_invalid");
+
+  const recomputed = runRuntimePreflight(
+    input.runtime_preflight.input,
+    { now: runtimePreflightNow(options) },
+  );
+  if (recomputed.status !== "PASS") {
+    fail(`runtime_preflight_recheck:${recomputed.hold_reasons?.[0]
+      || "failed"}`);
+  }
+  assertFixedFalseAuthority(recomputed, "runtime_preflight_authority_invalid");
+  if (canonicalize(recomputed) !== canonicalize(reviewed)) {
+    fail("runtime_preflight_receipt_mismatch");
+  }
+
+  const binding = input.automation_binding;
+  if (
+    !DIGEST_RE.test(binding.candidate_sha256 || "")
+    || binding.candidate_status !== "PAUSED"
+    || binding.runtime_manifest_digest !== recomputed.manifest_digest
+    || binding.runtime_evidence_digest !== recomputed.evidence_digest
+    || binding.runtime_launch_binding_digest
+      !== recomputed.launch_binding_digest
+  ) fail("automation_runtime_binding_mismatch");
+
+  const bindingDigest = runtimeAuthorityBindingDigest(input);
+  if (expectedBindingDigest && bindingDigest !== expectedBindingDigest) {
+    fail("runtime_authority_binding_drift");
+  }
+  receipt.runtime_preflight = {
+    status: "PASS",
+    exact_receipt_match: true,
+    manifest_digest: recomputed.manifest_digest,
+    evidence_digest: recomputed.evidence_digest,
+    launch_binding_digest: recomputed.launch_binding_digest,
+    forbidden_union_digest: recomputed.forbidden_union_digest,
+    reviewed_receipt_digest: sha256(canonicalize(reviewed)),
+    binding_digest: bindingDigest,
+    lease_policy: {
+      ...recomputed.lease_policy,
+    },
+    rechecks: {
+      ...receipt.runtime_preflight.rechecks,
+      [checkpoint]: true,
+    },
+    hold_reasons: [],
+  };
+  receipt.automation_binding = {
+    candidate_sha256: binding.candidate_sha256,
+    candidate_status: binding.candidate_status,
+    matched: true,
+  };
+  return { recomputed, bindingDigest };
+}
+
 function validateInput(input, receipt, options) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     fail("input_object_required");
+  }
+  if (input.schema_version === RUNNER_V3_INPUT_SCHEMA) {
+    hold(receipt, "runner_v3_explicit_hold");
+    return null;
   }
   assertExactRunnerShape(input);
   if (input.schema_version !== RUNNER_INPUT_SCHEMA) fail("input_schema_mismatch");
@@ -1381,26 +1652,36 @@ function validateInput(input, receipt, options) {
     fail("lease_stale_recovery_authority_invalid");
   }
 
-  const runtimePreflight = runRuntimePreflight(input.runtime_preflight);
-  receipt.runtime_preflight = runtimePreflight;
-  if (runtimePreflight.status !== "PASS") {
-    for (const reason of runtimePreflight.hold_reasons || []) {
-      hold(receipt, `runtime_preflight:${reason}`);
-    }
-    if (receipt.hold_reasons.length === 0) {
-      hold(receipt, "runtime_preflight_failed");
-    }
+  let runtimeAuthority;
+  try {
+    runtimeAuthority = revalidateRuntimeAuthority(
+      input,
+      options,
+      receipt,
+      "initial",
+    );
+  } catch (error) {
+    hold(receipt, error?.code || "runtime_preflight_failed");
+    return null;
+  }
+  const runtimePreflight = runtimeAuthority.recomputed;
+  try {
+    assertOneShotLeaseBasis(input);
+  } catch (error) {
+    hold(receipt, error?.code || "one_shot_lease_basis_mismatch");
     return null;
   }
   if (options.cliRuntimeBinding) {
     const binding = options.cliRuntimeBinding;
-    const roots = input.runtime_preflight.roots;
+    const roots = input.runtime_preflight.input.roots;
     if (
       comparablePath(binding.runtimeRoot) !== comparablePath(roots.runner)
       || comparablePath(binding.configRoot) !== comparablePath(roots.config)
       || comparablePath(binding.inputPath)
-        !== comparablePath(input.runtime_preflight.launch.input_path)
+        !== comparablePath(input.runtime_preflight.input.launch.input_path)
       || binding.manifestDigest !== runtimePreflight.manifest_digest
+      || binding.evidenceDigest !== runtimePreflight.evidence_digest
+      || binding.launchBindingDigest !== runtimePreflight.launch_binding_digest
       || runtimeLaunchBindingDigest({
         runner_root: binding.runtimeRoot,
         config_root: binding.configRoot,
@@ -1494,6 +1775,7 @@ function validateInput(input, receipt, options) {
     ledgerTransport: ledgerTransport.adapter,
     cursorTransport: cursorTransport.adapter,
     isolation,
+    runtimeAuthorityBindingDigest: runtimeAuthority.bindingDigest,
   };
 }
 
@@ -1523,6 +1805,14 @@ function sourceSnapshotUnchanged(sourceRoot, source, evidence) {
     && current.seed === evidence.seed
     && current.target === evidence.target
     && current.tree === evidence.tree;
+}
+
+function finalSourceSnapshotUnchanged(sourceRoot, source, evidence) {
+  try {
+    return sourceSnapshotUnchanged(sourceRoot, source, evidence);
+  } catch {
+    return false;
+  }
 }
 
 function writerPreflight(writerRoot) {
@@ -1584,6 +1874,67 @@ function injectedHold(options, point, receipt) {
   return null;
 }
 
+function runtimeAuthorityCheckpoint(
+  input,
+  options,
+  receipt,
+  validated,
+  checkpoint,
+) {
+  try {
+    revalidateRuntimeAuthority(
+      input,
+      options,
+      receipt,
+      checkpoint,
+      validated.runtimeAuthorityBindingDigest,
+    );
+    return true;
+  } catch (error) {
+    hold(receipt, error?.code || `runtime_preflight_drift:${checkpoint}`);
+    if (
+      receipt.ledger_output.remote_contains_commit
+      && receipt.cursor_update.state !== "VERIFIED_ADVANCED"
+    ) {
+      receipt.reconciliation = {
+        required: true,
+        reason: `authority_drift_after_ledger:${checkpoint}`,
+        cursor_unchanged: true,
+      };
+    }
+    return false;
+  }
+}
+
+function holdForPostLedgerReconciliation(
+  receipt,
+  reason,
+  reconciliationReason,
+  postPushReason = "post_cursor_push_stage_unverified",
+) {
+  if (
+    receipt.ledger_output.remote_contains_commit
+    && receipt.cursor_update.state !== "VERIFIED_ADVANCED"
+  ) {
+    const cursorPushAttempted =
+      receipt.publication_order.includes("cursor_push_attempt");
+    receipt.reconciliation = {
+      required: true,
+      reason: cursorPushAttempted ? postPushReason : reconciliationReason,
+      cursor_unchanged: cursorPushAttempted ? null : true,
+    };
+  }
+  return hold(receipt, reason);
+}
+
+function holdForSourceDrift(receipt, reason, checkpoint) {
+  return holdForPostLedgerReconciliation(
+    receipt,
+    reason,
+    `source_snapshot_drift_after_ledger:${checkpoint}`,
+  );
+}
+
 /**
  * Run one isolated recovery transaction.
  *
@@ -1607,6 +1958,7 @@ function exactCursorState(value) {
 
 function assertCursorFence(cursorState, input, { allowAdvanced = false } = {}) {
   const { source, cursor, lease } = input;
+  const leasePolicy = input.runtime_preflight.input.evidence.lease_policy;
   if (!exactCursorState(cursorState)) fail("cursor_state_contract_invalid");
   if (
     cursorState.repo !== source.repo
@@ -1616,7 +1968,7 @@ function assertCursorFence(cursorState, input, { allowAdvanced = false } = {}) {
   if (allowAdvanced && cursorState.last_successful_source_commit === source.target) {
     if (
       cursorState.sequence !== cursor.expected_sequence + 1
-      || cursorState.writer_epoch < 1
+      || cursorState.writer_epoch !== leasePolicy.initial_writer_epoch
     ) fail("cursor_sequence_mismatch");
     return "advanced";
   }
@@ -1628,6 +1980,9 @@ function assertCursorFence(cursorState, input, { allowAdvanced = false } = {}) {
   }
   if (cursorRevision(cursorState) !== cursor.expected_revision) {
     fail("cursor_compare_and_swap_revision_mismatch");
+  }
+  if (cursorState.writer_epoch !== leasePolicy.restored_writer_epoch) {
+    fail("cursor_restored_writer_epoch_mismatch");
   }
   if (cursorState.writer_epoch >= lease.writer_epoch) fail("writer_epoch_stale");
   return "baseline";
@@ -1757,6 +2112,11 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
     receipt.cursor_update.writer_epoch_after = remoteCursor.writer_epoch;
     receipt.cursor_update.cas_success = true;
     receipt.cursor_update.remote_contains_commit = true;
+    receipt.reconciliation = {
+      required: false,
+      reason: null,
+      cursor_unchanged: true,
+    };
     return receipt;
   }
 
@@ -1792,6 +2152,25 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
         cursor,
       ).state;
       assertCursorFence(cursorFence, input);
+      assertLease(leaseHandle);
+      if (!finalSourceSnapshotUnchanged(
+        sourceRoot,
+        source,
+        sourceEvidence,
+      )) {
+        return holdForSourceDrift(
+          receipt,
+          "source_snapshot_changed_before_ledger_push",
+          "before_ledger_push",
+        );
+      }
+      if (!runtimeAuthorityCheckpoint(
+        input,
+        options,
+        receipt,
+        validated,
+        "before_ledger_push",
+      )) return receipt;
       assertLease(leaseHandle);
       receipt.publication_order.push("ledger_push_attempt");
       const ledgerPush = ledgerTransport.pushCommit(outputCommit);
@@ -1831,6 +2210,7 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
   const afterOutputFault = injectedHold(options, "after_output_push", receipt);
   if (afterOutputFault) return afterOutputFault;
 
+  let cursorStage = "initial_cursor_cas";
   try {
     ({ tip: cursorTip, state: remoteCursor } = currentCursorState(
       cursorWriterRoot,
@@ -1839,9 +2219,17 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
     ));
     assertCursorFence(remoteCursor, input);
     assertLease(leaseHandle);
-    if (!sourceSnapshotUnchanged(sourceRoot, source, sourceEvidence)) {
-      return hold(receipt, "source_snapshot_changed_before_cursor_cas");
+    if (typeof options.beforePostLedgerCursorSourceCheck === "function") {
+      options.beforePostLedgerCursorSourceCheck();
     }
+    if (!finalSourceSnapshotUnchanged(sourceRoot, source, sourceEvidence)) {
+      return holdForSourceDrift(
+        receipt,
+        "source_snapshot_changed_before_cursor_cas",
+        "before_cursor_cas",
+      );
+    }
+    cursorStage = "before_cursor_commit";
     if (typeof options.beforeCursorCommit === "function") {
       options.beforeCursorCommit();
     }
@@ -1852,6 +2240,21 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
       cursor,
     ));
     assertCursorFence(remoteCursor, input);
+    if (!finalSourceSnapshotUnchanged(sourceRoot, source, sourceEvidence)) {
+      return holdForSourceDrift(
+        receipt,
+        "source_snapshot_changed_before_cursor_commit",
+        "before_cursor_commit",
+      );
+    }
+    if (!runtimeAuthorityCheckpoint(
+      input,
+      options,
+      receipt,
+      validated,
+      "before_cursor_commit",
+    )) return receipt;
+    assertLease(leaseHandle);
 
     const advancedCursor = {
       repo: source.repo,
@@ -1885,9 +2288,14 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
       receipt,
     );
     if (afterCursorCommitFault) return afterCursorCommitFault;
-    if (!sourceSnapshotUnchanged(sourceRoot, source, sourceEvidence)) {
-      return hold(receipt, "source_snapshot_changed_before_cursor_push");
+    if (!finalSourceSnapshotUnchanged(sourceRoot, source, sourceEvidence)) {
+      return holdForSourceDrift(
+        receipt,
+        "source_snapshot_changed_before_cursor_push",
+        "pre_hook_before_cursor_push",
+      );
     }
+    cursorStage = "before_cursor_push";
     if (typeof options.beforeCursorPush === "function") {
       options.beforeCursorPush();
     }
@@ -1900,6 +2308,25 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
     assertCursorFence(cursorBeforePush.state, input);
     if (cursorBeforePush.tip !== cursorTip) fail("cursor_non_fast_forward_race");
     assertLease(leaseHandle);
+    if (!finalSourceSnapshotUnchanged(
+      sourceRoot,
+      source,
+      sourceEvidence,
+    )) {
+      return holdForSourceDrift(
+        receipt,
+        "source_snapshot_changed_before_cursor_push",
+        "before_cursor_push",
+      );
+    }
+    if (!runtimeAuthorityCheckpoint(
+      input,
+      options,
+      receipt,
+      validated,
+      "before_cursor_push",
+    )) return receipt;
+    assertLease(leaseHandle);
 
     receipt.publication_order.push("cursor_push_attempt");
     const cursorPush = cursorTransport.pushCommit(cursorCommit);
@@ -1909,11 +2336,13 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
       receipt.cursor_update.state = cursorPush === "UNKNOWN_AFTER_PUSH"
         ? "UNKNOWN_AFTER_PUSH"
         : "UNKNOWN_AFTER_PUSH_ATTEMPT";
-      return hold(
+      return holdForPostLedgerReconciliation(
         receipt,
         cursorPush === "UNKNOWN_AFTER_PUSH"
           ? "cursor_push_outcome_unknown"
           : "cursor_non_fast_forward_push_failed",
+        "post_ledger_cursor_stage_failure:before_cursor_push",
+        "post_cursor_push_outcome_unverified",
       );
     }
     receipt.safety.designated_remote_pushes += 1;
@@ -1929,11 +2358,13 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
       cursorInclusion.status === "INCLUDED"
       && options.faultAt !== "cursor_inclusion_failure";
     if (!receipt.cursor_update.remote_contains_commit) {
-      return hold(
+      return holdForPostLedgerReconciliation(
         receipt,
         cursorInclusion.status === "UNKNOWN_AFTER_PUSH"
           ? "cursor_push_outcome_unknown"
           : "cursor_remote_inclusion_failed",
+        "post_ledger_cursor_stage_failure:before_cursor_push",
+        "post_cursor_push_inclusion_unverified",
       );
     }
     const persistedCursor = parseJsonObject(
@@ -1946,13 +2377,24 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
       || persistedCursor.sequence !== advancedCursor.sequence
       || persistedCursor.writer_epoch !== lease.writer_epoch
       || cursorRevision(persistedCursor) !== receipt.cursor_update.resulting_revision
-    ) return hold(receipt, "cursor_remote_content_verification_failed");
+    ) {
+      return holdForPostLedgerReconciliation(
+        receipt,
+        "cursor_remote_content_verification_failed",
+        "post_ledger_cursor_stage_failure:before_cursor_push",
+        "post_cursor_push_content_unverified",
+      );
+    }
     receipt.publication_order.push("cursor_remote_inclusion_verified");
     receipt.cursor_update.after = source.target;
     receipt.cursor_update.state = "VERIFIED_ADVANCED";
   } catch (error) {
     if (error instanceof CursorRunnerInterruption) throw error;
-    return hold(receipt, error?.code || "cursor_update_failed");
+    return holdForPostLedgerReconciliation(
+      receipt,
+      error?.code || "cursor_update_failed",
+      `post_ledger_cursor_stage_failure:${cursorStage}`,
+    );
   }
 
   try {
@@ -1970,6 +2412,11 @@ function runTransaction(input, options, receipt, validated, leaseHandle) {
   }
 
   receipt.status = "SUCCESS";
+  receipt.reconciliation = {
+    required: false,
+    reason: null,
+    cursor_unchanged: false,
+  };
   return receipt;
 }
 
@@ -2001,12 +2448,16 @@ function parseCli(argv) {
     runtimeRoot: null,
     configRoot: null,
     manifestDigest: null,
+    evidenceDigest: null,
+    launchBindingDigest: null,
   };
   const flags = new Map([
     ["--input", "inputPath"],
     ["--runtime-root", "runtimeRoot"],
     ["--config-root", "configRoot"],
     ["--runtime-manifest-digest", "manifestDigest"],
+    ["--runtime-evidence-digest", "evidenceDigest"],
+    ["--runtime-launch-binding-digest", "launchBindingDigest"],
   ]);
   for (let index = 0; index < argv.length; index += 1) {
     const key = flags.get(argv[index]);
@@ -2025,6 +2476,12 @@ function parseCli(argv) {
   if (!values.configRoot) fail("config_root_required");
   if (!DIGEST_RE.test(values.manifestDigest || "")) {
     fail("runtime_manifest_digest_required");
+  }
+  if (!DIGEST_RE.test(values.evidenceDigest || "")) {
+    fail("runtime_evidence_digest_required");
+  }
+  if (!DIGEST_RE.test(values.launchBindingDigest || "")) {
+    fail("runtime_launch_binding_digest_required");
   }
   return values;
 }
@@ -2066,6 +2523,8 @@ function cliRuntimeBinding(args) {
     configRoot,
     inputPath,
     manifestDigest: args.manifestDigest,
+    evidenceDigest: args.evidenceDigest,
+    launchBindingDigest: args.launchBindingDigest,
   };
 }
 
@@ -2077,6 +2536,8 @@ function publicCliError(error) {
     "runtime_root_required",
     "config_root_required",
     "runtime_manifest_digest_required",
+    "runtime_evidence_digest_required",
+    "runtime_launch_binding_digest_required",
     "cli_binding_invalid",
     "cli_runtime_root_invalid",
     "cli_config_root_invalid",
@@ -2095,6 +2556,8 @@ function cli() {
         + " --runtime-root <runner-dir>"
         + " --config-root <config-dir>"
         + " --runtime-manifest-digest <sha256:digest>"
+        + " --runtime-evidence-digest <sha256:digest>"
+        + " --runtime-launch-binding-digest <sha256:digest>"
         + " --input <json-file>\n"
         + "Runs one injected, isolated public-source recovery transaction.\n",
       );

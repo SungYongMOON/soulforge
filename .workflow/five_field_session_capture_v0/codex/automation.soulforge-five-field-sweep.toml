@@ -1,14 +1,14 @@
 # Builder-only public template. This file is deliberately non-installable:
 # it contains no live cwd, command, input path, target binding, or rollback
 # bytes. Use five_field_automation_builder.mjs with Owner-injected current
-# bytes and a PASS runtime-preflight binding to create an exact PAUSED
+# bytes and a complete reviewed runtime-preflight v2 evidence binding to create an exact PAUSED
 # candidate and byte-exact rollback pair in memory. Installation, execution,
 # scheduling, activation, and rollback remain outside this file's authority.
 version = 1
 id = "soulforge-five-field-sweep"
 kind = "cron"
 name = "AI 작업 결과 누락 복구 (매일)"
-prompt = "[PHASE E BUILDER-ONLY TEMPLATE / LIVE HOLD] This tracked file is not an installable automation definition. It contains no runnable cwd or command. Generate an exact PAUSED candidate and byte-exact rollback pair only through five_field_automation_builder.mjs using Owner-injected current bytes, absolute isolated paths, and a PASS runtime-preflight manifest. Do not install, run, schedule, activate, or roll back from this template. Preserve official_completion=false, worksession_acceptance=false, taskdriver_acceptance=false, erp_acceptance=false, mcp_acceptance=false, and claim_ceiling=operational_evidence_only."
+prompt = "[PHASE G BUILDER-ONLY TEMPLATE / LIVE HOLD] This tracked file is not an installable automation definition. It contains no runnable cwd or command. Generate an exact PAUSED candidate and byte-exact rollback pair only through five_field_automation_builder.mjs using Owner-injected current bytes, absolute isolated paths, and the complete reviewed runtime-preflight v2 input plus exact receipt. Caller PASS summaries are rejected. Bind the evidence, manifest, forbidden-union, launch, and exact candidate digests without creating signature or key authority. Do not install, run, schedule, activate, or roll back from this template. Preserve official_completion=false, worksession_acceptance=false, taskdriver_acceptance=false, erp_acceptance=false, mcp_acceptance=false, and claim_ceiling=operational_evidence_only."
 status = "PAUSED"
 rrule = "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=7;BYMINUTE=35;BYSECOND=0"
 model = "gpt-5.3-codex"

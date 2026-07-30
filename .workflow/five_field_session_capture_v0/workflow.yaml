@@ -77,7 +77,7 @@ steps:
 recovery_contract:
   display_name_ko: AI 작업 결과 누락 복구
   feature_state: "OFF"
-  public_implementation_state: phase_e_public_remediation_candidate
+  public_implementation_state: phase_g_ops_preflight_remediation_candidate
   live_activation_state: HOLD
   planner: tools/five_field_cursor_sweep.mjs
   runner: tools/five_field_cursor_runner.mjs
@@ -85,10 +85,11 @@ recovery_contract:
   transport_adapter: tools/five_field_transport_adapter.mjs
   runtime_preflight: tools/five_field_runtime_preflight.mjs
   automation_builder: tools/five_field_automation_builder.mjs
-  runner_cli: node <absolute-runner-script> --runtime-root <absolute-runner-root> --config-root <absolute-config-root> --runtime-manifest-digest <sha256> --input <absolute-owner-approved-input.json>
-  runner_input_schema: soulforge.five_field_cursor_runner_input.v3
-  supersedes_runner_input_schema: soulforge.five_field_cursor_runner_input.v2
-  legacy_v2_migration: explicit_rebuild_required
+  runner_cli: node <absolute-runner-script> --runtime-root <absolute-runner-root> --config-root <absolute-config-root> --runtime-manifest-digest <sha256> --runtime-evidence-digest <sha256> --runtime-launch-binding-digest <sha256> --input <absolute-owner-approved-input.json>
+  runner_input_schema: soulforge.five_field_cursor_runner_input.v4
+  runner_receipt_schema: soulforge.five_field_cursor_runner_receipt.v4
+  supersedes_runner_input_schema: soulforge.five_field_cursor_runner_input.v3
+  legacy_v3_migration: explicit_rebuild_required
   first_live_source_classification: public_only
   private_source_commit_lane: HOLD
   topology:
@@ -146,6 +147,9 @@ recovery_contract:
     post_push_inclusion: independently_recomputed
     uncertain_push_state: UNKNOWN_AFTER_PUSH
   runtime_preflight:
+    input_schema: soulforge.five_field_runtime_preflight_input.v2
+    receipt_schema: soulforge.five_field_runtime_preflight_receipt.v2
+    previous_v1: explicit_HOLD
     topology: exact_disjoint_siblings
     sibling_roots:
       - runner
@@ -161,12 +165,24 @@ recovery_contract:
     evidence_required:
       - canonical_realpath_and_reparse
       - effective_acl_intent
-      - nas_backup_classification
-      - restore_attestation
-      - single_writer_fencing
+      - complete_fresh_codex_orca_inventory_projection
+      - exact_backup_surface_classification
+      - cross_bound_restore_destination_receipt_manifest_ref_inclusion_sequence_epoch
+      - immutable_sanitized_git_authority_projection
+      - declarative_single_writer_lease_policy
+    mandatory_guarded_roots:
+      - active_public_root
+      - active_workmeta
+      - active_private_state
+      - automation_control_root
+    caller_pass_summary: rejected
+    origin_authenticity_claim: false
     missing_or_inconsistent_evidence: HOLD
     actual_root_acl_or_nas_mutation: forbidden
   automation_candidate_builder:
+    input_schema: soulforge.five_field_automation_builder_input.v2
+    receipt_schema: soulforge.five_field_automation_builder_receipt.v2
+    previous_v1: explicit_HOLD
     candidate_display_name: "AI 작업 결과 누락 복구 (매일)"
     legacy_internal_id_preserved: soulforge-five-field-sweep
     inputs:
@@ -180,6 +196,9 @@ recovery_contract:
     preflight_recheck:
       full_input_rerun: required
       exact_receipt_equality: required
+      evidence_digest_binding: required
+      forbidden_union_digest_binding: required
+      launch_binding_digest_binding: required
       forbidden_root_clear: required
       forged_pass_summary: HOLD
       active_or_forbidden_root_candidate: HOLD
@@ -207,6 +226,11 @@ recovery_contract:
       - ledger_push
       - cursor_commit
       - cursor_push
+    source_snapshot_recheck_at_each_mutation_boundary: required
+    ttl_binding: exact_reviewed_minutes
+    owner_token_class: opaque_random_256_v1
+    first_one_shot_stale_recovery: false
+    initial_writer_epoch: "max(restored_writer_epoch, authority_writer_epoch, receipt_writer_epoch, 0) + 1"
     monotonic:
       - cursor_sequence
       - writer_epoch
@@ -337,3 +361,4 @@ notes:
   - 2026-07-30 Phase B added the public isolated runner and synthetic-only verification surface; installed automation, private cursor, and live writer remain HOLD.
   - 2026-07-30 Phase C hardened the public candidate with separate workmeta-ledger and private-state-cursor writers, exclusive lease/epoch fencing, recursive fail-closed input validation, guarded-root containment, and explicit non-acceptance receipts; all private/live actions remain HOLD.
   - 2026-07-31 Phase E adds a strict metadata projector, injected local/HTTPS/SSH transport contract, isolated runtime evidence preflight, and deterministic PAUSED automation/rollback builder. Validation is public synthetic only; real ledger, private transport, runtime, ACL/NAS, and installed automation remain HOLD.
+  - 2026-07-31 Phase G strengthens the public synthetic preflight with mandatory automation-control and active-root guards, complete Codex/Orca inventory projection, exact backup/restore and sanitized immutable Git-authority evidence, declarative lease policy, and builder-v2/runner-v4 full-evidence digest binding. No signature/key authority is created; live/private/runtime/install/network remains HOLD.

@@ -17,10 +17,12 @@ import {
   runtimeLaunchBindingDigest,
 } from "./five_field_runtime_preflight.mjs";
 
-export const AUTOMATION_BUILDER_INPUT_SCHEMA =
+export const AUTOMATION_BUILDER_V1_INPUT_SCHEMA =
   "soulforge.five_field_automation_builder_input.v1";
+export const AUTOMATION_BUILDER_INPUT_SCHEMA =
+  "soulforge.five_field_automation_builder_input.v2";
 export const AUTOMATION_BUILDER_RECEIPT_SCHEMA =
-  "soulforge.five_field_automation_builder_receipt.v1";
+  "soulforge.five_field_automation_builder_receipt.v2";
 export const GENERATED_AUTOMATION_NAME = "AI 작업 결과 누락 복구 (매일)";
 
 const AUTOMATION_FIELDS = Object.freeze([
@@ -234,6 +236,7 @@ function holdResult(code) {
       rollback_sha256: null,
       runtime_manifest_digest: null,
       runtime_launch_binding_digest: null,
+      runtime_evidence_digest: null,
       candidate_status: "UNKNOWN",
       ...operationalNonAcceptanceReceipt(),
     },
@@ -242,6 +245,9 @@ function holdResult(code) {
 
 export function buildPausedAutomation(input) {
   try {
+    if (input?.schema_version === AUTOMATION_BUILDER_V1_INPUT_SCHEMA) {
+      fail("automation_builder_v1_explicit_hold");
+    }
     exactKeys(input, [
       "schema_version",
       "current_toml_bytes",
@@ -274,8 +280,12 @@ export function buildPausedAutomation(input) {
         "hold_reasons",
         "manifest_digest",
         "launch_binding_digest",
+        "evidence_digest",
+        "forbidden_union_digest",
         "topology",
+        "inventory",
         "evidence",
+        "lease_policy",
         "official_completion",
         "worksession_acceptance",
         "taskdriver_acceptance",
@@ -292,6 +302,10 @@ export function buildPausedAutomation(input) {
       || !DIGEST_RE.test(reviewedPreflight.manifest_digest)
       || typeof reviewedPreflight.launch_binding_digest !== "string"
       || !DIGEST_RE.test(reviewedPreflight.launch_binding_digest)
+      || typeof reviewedPreflight.evidence_digest !== "string"
+      || !DIGEST_RE.test(reviewedPreflight.evidence_digest)
+      || typeof reviewedPreflight.forbidden_union_digest !== "string"
+      || !DIGEST_RE.test(reviewedPreflight.forbidden_union_digest)
     ) fail("runtime_preflight_receipt_invalid");
     const recomputedPreflight = runRuntimePreflight(
       input.runtime_preflight_input,
@@ -303,11 +317,47 @@ export function buildPausedAutomation(input) {
       canonicalize(recomputedPreflight) !== canonicalize(reviewedPreflight)
     ) fail("runtime_preflight_receipt_mismatch");
     if (
-      !Object.values(recomputedPreflight.topology).every((value) =>
+      recomputedPreflight.hold_reasons.length !== 0
+      || !Object.values(recomputedPreflight.topology).every((value) =>
         Array.isArray(value) || value === true)
       || !Object.values(recomputedPreflight.evidence).every(
         (value) => value === "VERIFIED",
       )
+      || recomputedPreflight.inventory.status !== "VERIFIED"
+      || recomputedPreflight.inventory.fresh !== true
+      || recomputedPreflight.inventory.codex_zero
+        !== (recomputedPreflight.inventory.codex_count === 0)
+      || recomputedPreflight.inventory.orca_zero
+        !== (recomputedPreflight.inventory.orca_count === 0)
+      || recomputedPreflight.lease_policy.operational_primary !== true
+      || recomputedPreflight.lease_policy.first_lease_stale !== false
+      || !DIGEST_RE.test(
+        recomputedPreflight.lease_policy.host_identity_digest || "",
+      )
+      || !Number.isSafeInteger(
+        recomputedPreflight.lease_policy.restored_writer_epoch,
+      )
+      || recomputedPreflight.lease_policy.restored_writer_epoch < 0
+      || !Number.isSafeInteger(
+        recomputedPreflight.lease_policy.authority_writer_epoch,
+      )
+      || recomputedPreflight.lease_policy.authority_writer_epoch < 0
+      || !Number.isSafeInteger(
+        recomputedPreflight.lease_policy.receipt_writer_epoch,
+      )
+      || recomputedPreflight.lease_policy.receipt_writer_epoch < 0
+      || recomputedPreflight.lease_policy.initial_writer_epoch !== Math.max(
+        recomputedPreflight.lease_policy.restored_writer_epoch,
+        recomputedPreflight.lease_policy.authority_writer_epoch,
+        recomputedPreflight.lease_policy.receipt_writer_epoch,
+        0,
+      ) + 1
+      || recomputedPreflight.official_completion !== false
+      || recomputedPreflight.worksession_acceptance !== false
+      || recomputedPreflight.taskdriver_acceptance !== false
+      || recomputedPreflight.erp_acceptance !== false
+      || recomputedPreflight.mcp_acceptance !== false
+      || recomputedPreflight.claim_ceiling !== "operational_evidence_only"
     ) fail("runtime_preflight_receipt_invalid");
     exactKeys(input.isolated, [
       "cwd",
@@ -381,13 +431,19 @@ export function buildPausedAutomation(input) {
       JSON.stringify(dirname(isolated.input_path)),
       "--runtime-manifest-digest",
       reviewedPreflight.manifest_digest,
+      "--runtime-evidence-digest",
+      reviewedPreflight.evidence_digest,
+      "--runtime-launch-binding-digest",
+      reviewedPreflight.launch_binding_digest,
       "--input",
       JSON.stringify(isolated.input_path),
     ].join(" ");
     const prompt = [
-      "[PHASE E GENERATED PAUSED CANDIDATE / LIVE HOLD]",
+      "[GENERATED PAUSED CANDIDATE / LIVE HOLD]",
       "Do not install, run, schedule, or activate without the immediately preceding human Owner approval of the exact bytes and bindings.",
       `Runtime manifest: ${reviewedPreflight.manifest_digest}`,
+      `Runtime evidence: ${reviewedPreflight.evidence_digest}`,
+      `Runtime launch binding: ${reviewedPreflight.launch_binding_digest}`,
       "Run exactly one bounded transaction only after that approval:",
       command,
       "Require ledger commit, non-force push, fresh remote inclusion, then cursor CAS/commit/push/inclusion. UNKNOWN_AFTER_PUSH requires reconciliation. Never reset, rebase, force, delete, or rewrite append-only records.",
@@ -420,6 +476,7 @@ export function buildPausedAutomation(input) {
         runtime_manifest_digest:
           reviewedPreflight.manifest_digest,
         runtime_launch_binding_digest: launchBindingDigest,
+        runtime_evidence_digest: reviewedPreflight.evidence_digest,
         candidate_status: "PAUSED",
         ...operationalNonAcceptanceReceipt(),
       },

@@ -343,6 +343,53 @@ explicitly supersedes the Phase C `v2` envelope. There is no implicit migration:
 the reviewed runtime preflight and automation builder. Existing ledger paths,
 record schemas, operation names, and cursor logical paths are unchanged.
 
+## Phase G operations preflight remediation (synthetic only, live HOLD)
+
+Phase G strengthens the safe-evidence boundary without creating a signing key,
+credential, trust anchor, runtime root, or private authority:
+
+- runtime-preflight input/receipt `v2` requires the active public, `_workmeta`,
+  private-state, and installed-automation control roots in the forbidden union;
+- a complete, fresh Codex/Orca inventory binds the approved metadata-only
+  observation source/tool, exact counts, canonical path-digest sets, and their
+  canonical aggregate digest. Absence is never inferred as a zero count;
+- the backup projection distinguishes regenerable clones and execution
+  surfaces, capture-prohibited config/remote/credential/token surfaces, and the
+  authoritative AI 작업 결과 ledger, cursor/authority, and redacted receipt.
+  Unpushed clone state, a cursor that points to a non-included ledger result, or
+  incomplete restore/inclusion/sequence/epoch evidence is `HOLD`. Authority
+  backup receipts, per-writer restore receipts, the latest aggregate receipt,
+  and restore manifest are cross-bound rather than independently shape-checked;
+- each writer Git-authority row binds its role, logical remote/ref, transport
+  class, sanitized configuration digests, and authority fingerprint. Complete
+  immutable/read-only configuration observation, forbidden rewrite/include
+  rules absent, and non-interactive authentication are mandatory;
+- lease policy is declarative only: `owner_with_state` plus
+  operational-primary eligibility, `opaque_random_256_v1`, a 15–120 minute
+  bounded TTL formula, no first-run stale recovery, and
+  `max(restored, authority, receipt, 0) + 1` as the exact initial writer epoch.
+  The runner binds the actual host digest, token class, TTL interval, and epoch
+  to that reviewed policy. The public tool never creates a live token, host
+  identity, or epoch.
+
+Builder input/receipt `v2` and runner input/receipt `v4` explicitly hold their
+previous envelope versions. In particular,
+`soulforge.five_field_cursor_runner_input.v4` replaces `v3`, and
+`soulforge.five_field_automation_builder_input.v2` replaces `v1`; neither
+legacy envelope is migrated implicitly. Both consumers rerun the complete sanitized
+preflight projection and bind its evidence, manifest, forbidden-union, launch,
+and exact PAUSED candidate digests. A caller-supplied PASS summary is
+insufficient. The runner rechecks the same binding before ledger push, cursor
+commit, and cursor push, together with a final source-snapshot approval check;
+evidence or source drift after ledger inclusion preserves the append-only
+result and leaves the cursor unchanged for reconciliation.
+
+These digests provide tamper-evident binding to exact human-approved evidence
+and candidate bytes. They do not authenticate evidence origin or claim live
+readiness. Actual inventory collection, backup/restore authority, private
+transport, runtime/ACL/NAS, installed automation, and ACTIVE approval remain
+separate human Owner gates.
+
 ```text
 official_completion=false
 worksession_acceptance=false
