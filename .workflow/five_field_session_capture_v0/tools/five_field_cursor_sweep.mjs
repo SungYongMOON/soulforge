@@ -22,6 +22,11 @@ export const AUTOMATION_SELF_LOOP_TRAILER =
 const SHA_RE = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const REF_RE = /^refs\/(?:heads|tags)\/[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/;
 const TOKEN_RE = /^[a-z0-9][a-z0-9._/-]{0,119}$/;
+const WORKER_COMPONENT_RE = /^[a-z0-9][a-z0-9._-]{0,79}$/;
+const ABSOLUTE_PATH_SENTINEL_RE =
+  /(?:[A-Za-z]:[\\/]|\\\\[^\\\s]+\\|\/(?:Users|home|tmp|var|etc)\/|file:\/\/)/iu;
+const SECRET_SENTINEL_RE =
+  /(?:ghp_[A-Za-z0-9]{8,}|xoxb-[A-Za-z0-9-]{8,}|AKIA[A-Z0-9]{12,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:password|passwd|api[_ -]?key|access[_ -]?token|refresh[_ -]?token|client[_ -]?secret|authorization|bearer|credential|cookie)\s*[:=]\s*\S+)/iu;
 const PUBLIC_ERROR_CODES = new Set([
   "baseline_must_be_full_commit_sha",
   "baseline_not_a_commit",
@@ -83,6 +88,47 @@ function sha256(value) {
 
 export function canonicalRecordDigest(record) {
   return `sha256:${sha256(canonicalize(record))}`;
+}
+
+export function deriveWorkerIdentity(runtime) {
+  if (!runtime || typeof runtime !== "object" || Array.isArray(runtime)) {
+    return { ok: false, worker: null, reason: "runtime_metadata_required" };
+  }
+  const runtimeComponents = [
+    runtime.tool,
+    runtime.model,
+    runtime.asserted_worker,
+    ...(Array.isArray(runtime.installed_models) ? runtime.installed_models : []),
+  ].filter((value) => value !== undefined);
+  if (runtimeComponents.some(hasMetadataBoundarySentinel)) {
+    return {
+      ok: false,
+      worker: null,
+      reason: "runtime_metadata_boundary_sentinel",
+    };
+  }
+  if (!WORKER_COMPONENT_RE.test(runtime.tool || "")) {
+    return { ok: false, worker: null, reason: "runtime_tool_invalid" };
+  }
+  if (!WORKER_COMPONENT_RE.test(runtime.model || "")) {
+    return { ok: false, worker: null, reason: "runtime_model_invalid" };
+  }
+  if (!Array.isArray(runtime.installed_models) || runtime.installed_models.length === 0) {
+    return { ok: false, worker: null, reason: "runtime_installed_models_required" };
+  }
+  if (!runtime.installed_models.includes(runtime.model)) {
+    return { ok: false, worker: null, reason: "runtime_model_not_installed" };
+  }
+  const worker = `${runtime.tool}_${runtime.model}`;
+  if (runtime.asserted_worker !== undefined && runtime.asserted_worker !== worker) {
+    return { ok: false, worker: null, reason: "runtime_worker_assertion_mismatch" };
+  }
+  return { ok: true, worker, reason: null };
+}
+
+export function hasMetadataBoundarySentinel(value) {
+  return typeof value === "string"
+    && (ABSOLUTE_PATH_SENTINEL_RE.test(value) || SECRET_SENTINEL_RE.test(value));
 }
 
 export function sourceLaneTrailer(source) {
@@ -175,7 +221,7 @@ function makeIdentity(source, commit) {
   return `recovery:${sha256(tuple)}`;
 }
 
-function expectedRecord(source, metadata, recordedAt, existingRecordedAt) {
+function expectedRecord(source, metadata, recordedAt, existingRecordedAt, worker) {
   const stableRecordedAt = existingRecordedAt
     ? normalizeIso(existingRecordedAt, "existing_recorded_at")
     : recordedAt;
@@ -186,7 +232,7 @@ function expectedRecord(source, metadata, recordedAt, existingRecordedAt) {
     at: stableRecordedAt,
     occurred_at: metadata.occurred_at,
     recorded_at: stableRecordedAt,
-    worker: "codex_gpt-5.6-sol",
+    worker,
     session_ref: `cursor_sweep:${metadata.commit}`,
     project_code: "system",
     request_kind: "ai_work_result_recovery",
@@ -222,28 +268,24 @@ function attestationsComplete(evidence, candidateTarget, validatedRecordCount) {
   };
 }
 
-function baseReceipt(input) {
-  const source = input.source || {};
-  const cursor = input.cursor || {};
+function baseReceipt() {
   return {
     schema_version: RECEIPT_SCHEMA,
     feature_state: "OFF",
     operation: "ai_work_result_recovery",
     status: "HOLD",
     source_cursor: {
-      repo: source.repo ?? null,
-      ref: source.ref ?? null,
-      source_lane: source.source_lane ?? null,
-      source_lane_digest: source.repo && source.ref && source.source_lane
-        ? sourceLaneTrailer(source).split(": ", 2)[1]
-        : null,
-      before: cursor.last_successful_source_commit ?? null,
-      candidate_target: source.candidate_target ?? null,
-      after: cursor.last_successful_source_commit ?? null,
+      repo: null,
+      ref: null,
+      source_lane: null,
+      source_lane_digest: null,
+      before: null,
+      candidate_target: null,
+      after: null,
     },
     range: {
-      exclusive: cursor.last_successful_source_commit ?? null,
-      inclusive: source.candidate_target ?? null,
+      exclusive: null,
+      inclusive: null,
       order: "oldest_to_newest",
       commits: [],
       digest: null,
@@ -257,6 +299,8 @@ function baseReceipt(input) {
     },
     records_to_append: [],
     digests: [],
+    worker_identity: null,
+    self_loop_exclusions: [],
     hold_reasons: [],
     advance_boundary: {
       validation_success: false,
@@ -290,16 +334,22 @@ export function planCursorSweep(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw codedError("input_object_required");
   }
-  const receipt = baseReceipt(input);
+  const receipt = baseReceipt();
   const source = input.source || {};
   const cursor = input.cursor || {};
 
   if (input.schema_version !== INPUT_SCHEMA) hold(receipt, "input_schema_mismatch");
   if (input.feature_state !== "OFF") hold(receipt, "feature_must_remain_off");
+  const workerIdentity = deriveWorkerIdentity(input.runtime);
+  if (!workerIdentity.ok) hold(receipt, workerIdentity.reason);
+  receipt.worker_identity = workerIdentity.worker;
   if (source.classification !== "public") hold(receipt, "source_must_be_public");
   if (!TOKEN_RE.test(source.repo || "")) hold(receipt, "source_repo_invalid");
   if (!TOKEN_RE.test(source.source_lane || "")) hold(receipt, "source_lane_invalid");
   if (!REF_RE.test(source.ref || "")) hold(receipt, "source_ref_invalid");
+  if ([source.repo, source.source_lane, source.ref].some(hasMetadataBoundarySentinel)) {
+    hold(receipt, "source_metadata_boundary_sentinel");
+  }
   if (!source.repo_path || typeof source.repo_path !== "string") hold(receipt, "source_repo_path_required");
   if (!Array.isArray(input.source_allowlist)) {
     hold(receipt, "source_allowlist_required");
@@ -334,6 +384,16 @@ export function planCursorSweep(input) {
     return receipt;
   }
 
+  receipt.source_cursor = {
+    repo: source.repo,
+    ref: source.ref,
+    source_lane: source.source_lane,
+    source_lane_digest: sourceLaneTrailer(source).split(": ", 2)[1],
+    before: null,
+    candidate_target: null,
+    after: null,
+  };
+
   const repoPath = resolve(source.repo_path);
   let baseline;
   let target;
@@ -349,6 +409,7 @@ export function planCursorSweep(input) {
   }
   receipt.source_cursor.before = baseline;
   receipt.source_cursor.candidate_target = target;
+  receipt.source_cursor.after = baseline;
   receipt.range.exclusive = baseline;
   receipt.range.inclusive = target;
 
@@ -396,8 +457,16 @@ export function planCursorSweep(input) {
       hold(receipt, publicErrorCode(error, "source_commit_metadata_failed"));
       break;
     }
+    if (hasMetadataBoundarySentinel(metadata.subject)) {
+      hold(receipt, `source_metadata_boundary_sentinel:${metadata.commit}`);
+      continue;
+    }
     if (hasExactSelfLoopMarker(metadata.message, source)) {
       receipt.counts.excluded_self_loop += 1;
+      receipt.self_loop_exclusions.push({
+        commit: metadata.commit,
+        reason: "exact_automation_and_source_lane_trailers",
+      });
       continue;
     }
     const id = makeIdentity(source, metadata.commit);
@@ -415,6 +484,7 @@ export function planCursorSweep(input) {
       metadata,
       recordedAt,
       existing?.recorded_at ?? existing?.at,
+      workerIdentity.worker,
     );
     const expectedDigest = canonicalRecordDigest(expected);
     if (!existing) {

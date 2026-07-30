@@ -77,26 +77,65 @@ steps:
 recovery_contract:
   display_name_ko: AI 작업 결과 누락 복구
   feature_state: "OFF"
+  public_implementation_state: isolated_runner_available
+  live_activation_state: HOLD
   planner: tools/five_field_cursor_sweep.mjs
+  runner: tools/five_field_cursor_runner.mjs
+  runner_cli: node .workflow/five_field_session_capture_v0/tools/five_field_cursor_runner.mjs --input <owner-approved-input.json>
+  first_live_source_classification: public_only
+  private_source_commit_lane: HOLD
+  topology:
+    source: owner_injected_immutable_public_snapshot
+    writer: owner_injected_isolated_private_or_synthetic_clone
+    foreground_discovery: forbidden
+    source_writer_overlap: forbidden
   cursor_identity: [repo, ref, source_lane]
+  cursor_update: full_record_digest_compare_and_swap
+  post_cursor_push_unverified_state: UNKNOWN_AFTER_PUSH
+  post_cursor_push_recovery: fresh_remote_read_and_reconcile
   range: "(last_successful_source_commit, candidate_target]"
   order: oldest_to_newest
+  worker_identity:
+    source: injected_installed_runtime_metadata
+    missing_or_mismatch: HOLD
   self_loop_trailers:
     - "Soulforge-Automation-Output: ai-work-result-recovery/v1"
     - "Soulforge-Source-Lane: sha256:<canonical-tuple-digest>"
+  self_loop_receipt: itemized
   advance_requires:
     - record_validation_success
     - output_commit_success
-    - output_push_success
+    - output_non_force_push_success
     - remote_contains_output_commit
+    - cursor_compare_and_swap_success
+    - cursor_commit_success
+    - cursor_non_force_push_success
+    - remote_contains_cursor_commit
+    - remote_cursor_content_verified
     - source_target_still_approved
   hold_on:
     - baseline_not_ancestor
     - history_rewrite_or_non_fast_forward
     - source_ref_movement
     - same_identity_different_full_record_digest
+    - runtime_identity_missing_or_mismatch
+    - secret_or_absolute_path_sentinel
+    - writer_binding_or_allowlist_mismatch
+    - cursor_compare_and_swap_mismatch
+    - cursor_push_or_remote_inclusion_uncertain
     - incomplete_success_evidence
-  direct_writes: []
+  append_only:
+    records_deleted: 0
+    records_rewritten: 0
+  direct_writes:
+    - owner_allowlisted_isolated_writer_object_database
+    - owner_allowlisted_writer_remote_ref_non_force
+  live_write_gate:
+    - fresh_level_3_actual_diff_verdict
+    - human_owner_private_cursor_target_approval
+    - human_owner_writer_binding_approval
+    - human_owner_automation_update_and_activation_approval
+  dry_run_upper_bound_note: "313 is the ledger_records=[] synthetic upper bound, not an actual missing count."
 guard_binding:
   status: disabled_pending_owner_review
   disabled_on: 2026-07-14
@@ -130,3 +169,4 @@ notes:
   - ERP completion_log(업무 레인)와 같은 스키마 계열(soulforge.five_field_capture.v0) — 승격 감지기(request_kind 반복 집계)가 두 레인을 함께 읽는다.
   - 2026-07-14 owner 요청으로 Codex/Claude Code 차단형 PostToolUse/Stop 배선을 함께 비활성화했다. CLI, 기존 레저, ERP 캡처와 어댑터 스크립트는 보존한다.
   - 2026-07-30 public candidate는 최근 24시간/foreground pull 의존을 제거했지만 private cursor와 live automation은 만들거나 활성화하지 않았다.
+  - 2026-07-30 Phase B added the public isolated runner and synthetic-only verification surface; installed automation, private cursor, and live writer remain HOLD.

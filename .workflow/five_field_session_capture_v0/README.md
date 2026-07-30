@@ -106,3 +106,113 @@ node .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs --chec
 1. AGENTS.md end-of-task 체크리스트 1줄 편입 여부
 2. post_development_review_gate_v0 바인딩 여부
 3. workflow-check 후 index.yaml 정식 등록
+
+## Phase B isolated cursor runner (public implementation, live HOLD)
+
+The public package now contains
+`tools/five_field_cursor_runner.mjs`. This is an injected, fail-closed runner
+for a public source lane and a separate isolated private or synthetic writer
+clone. It does not discover or mutate a foreground checkout.
+
+The runner requires all of the following from an owner-approved caller:
+
+- an exact public `{repo, ref, source_lane}` tuple, seed, approved target, and
+  immutable source snapshot;
+- an exact writer binding, non-force remote/ref, cursor logical path, ledger
+  logical path, and matching source/writer allowlist rows;
+- installed runtime metadata (`tool`, `model`, `installed_models`, and optional
+  asserted worker identity). Missing or mismatched metadata returns `HOLD`;
+- a strict UTC `recorded_at`. Each generated record retains the source commit
+  time as `occurred_at` and uses this creation time as `recorded_at`;
+- a cursor compare-and-swap revision computed from the complete cursor record.
+
+Programmatic and CLI entrypoints:
+
+```text
+runCursorRunner(input, { faultAt, beforeLedgerPush })
+node .workflow/five_field_session_capture_v0/tools/five_field_cursor_runner.mjs --input <json-file|->
+```
+
+`faultAt` and `beforeLedgerPush` are test-only and are not accepted by the CLI.
+The latter creates a deterministic local-bare writer race in tests. The CLI
+prints a redacted receipt and returns `0` for success/already-advanced, `2` for
+`HOLD`, and `1` for a malformed CLI request.
+
+The durable order is:
+
+1. validate the immutable public source snapshot, writer binding, cursor CAS,
+   ledger identities, and full-record digests;
+2. append only missing records, create the ledger-output commit without using
+   the writer worktree as a staging surface, push without force, fetch the
+   remote ref again, and prove remote containment;
+3. re-read the cursor from that remote tip, re-check CAS and the source target,
+   create a separate cursor commit, push without force, fetch again, and verify
+   both remote containment and the persisted cursor content;
+4. leave the cursor unchanged on every failure before step 3. A crash after a
+   ledger push is resumed by duplicate comparison. Existing ledger records are
+   never deleted or rewritten.
+
+After a cursor push attempt, a failed or unavailable inclusion observation is
+not reported as unchanged. The receipt uses `after: null` with
+`state: UNKNOWN_AFTER_PUSH` (or `UNKNOWN_AFTER_PUSH_ATTEMPT`) and requires a
+fresh remote read on the next run. Only remote containment plus persisted
+cursor-content verification produces `VERIFIED_ADVANCED`.
+
+Same identity plus the same canonical full-record digest is a no-op. Same
+identity plus a different digest is `HOLD`. Automation-output commits are
+excluded only when both exact self-loop trailers match, and every exclusion is
+itemized in the receipt. Metadata containing secret or absolute-path sentinels
+is rejected before it can enter a public receipt.
+
+Live boundaries remain closed:
+
+- first-live source is public-only; an `_workmeta` source-commit lane remains
+  `HOLD`;
+- the active `C:\Soulforge`, its nested `_workmeta`, registered Orca
+  worktrees, installed automation, scheduler, and live remote are not runner
+  discovery surfaces;
+- the tracked automation candidate remains `PAUSED`. It is not the installed
+  automation and this package does not update or activate it;
+- private cursor creation, private commit/push, and automation replacement
+  require an immediately preceding human Owner gate plus a fresh independent
+  Level 3 verification of the exact diff and live packet.
+
+The public owner-approval boundary candidate is
+`02beadfdd06a879a6c810fcc3b317f65f3c540eb`. It is not automatically a proven
+`last_successful_source_commit`; real ledger identity/digest comparison or an
+explicit Owner ratification is still required. The observed count `313` came
+from an intentionally empty synthetic ledger over that public range and is
+only a dry-run upper bound, never an actual missing-result count.
+
+### Installed legacy automation and rollback evidence
+
+The read-only observed installed automation on 2026-07-30 remains unchanged:
+
+```text
+id=soulforge-five-field-sweep
+kind=cron
+name=Soulforge 5-Field Sweep (daily)
+status=ACTIVE
+schedule=FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=7;BYMINUTE=35;BYSECOND=0
+model=gpt-5.3-codex
+reasoning_effort=medium
+execution_environment=local
+target=project:local-1018ddaeecab99443b06b78022cb14b7
+working_directory=C:\Soulforge
+created_at=1783212029444
+updated_at=1783212029444
+```
+
+Its exact legacy prompt performs foreground `pull --ff-only`, nested
+`_workmeta pull --rebase`, a recent-24-hour scan, direct capture, and direct
+`_workmeta` commit/push. That prompt is preserved verbatim as the rollback
+snapshot in `codex/automation.soulforge-five-field-sweep.toml`; it is not
+executed by this package.
+
+Activation must atomically retain an owner-approved copy of that complete
+installed TOML, replace only the approved fields with the reviewed runner
+candidate, and keep the candidate `PAUSED` until the first-live dry-run receipt
+is accepted. Rollback restores the saved complete TOML and the pre-run cursor
+record; it never deletes or rewrites an already-pushed append-only ledger
+commit. An exact isolated runner working directory and private writer binding
+are intentionally `UNKNOWN/HOLD` until supplied by the human Owner.

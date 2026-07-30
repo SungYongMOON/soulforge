@@ -1,13 +1,37 @@
+# Public tracked replacement candidate only. The installed automation is not
+# updated by this file and remains outside this package's write authority.
+#
+# READ-ONLY INSTALLED ROLLBACK SNAPSHOT (observed 2026-07-30; verbatim fields)
+# version = 1
+# id = "soulforge-five-field-sweep"
+# kind = "cron"
+# name = "Soulforge 5-Field Sweep (daily)"
+# prompt = "C:\\Soulforge 를 기준 루트로 사용한다(5필드 레저 정본: C:\\Soulforge\\_workmeta). 비밀값·메일 원문·첨부 본문은 읽지 않는다. 코드 수정, 서버 재시작, public repo push 는 하지 않는다.\n\n하루 1회 bounded 5필드 sweep 을 수행한다:\n0. 먼저 두 저장소를 최신화한다: git -C C:\\Soulforge pull --ff-only 와 git -C C:\\Soulforge\\_workmeta pull --rebase — 다른 PC 에서 작업된 커밋까지 sweep 대상에 포함시키기 위함. 충돌/비FF 면 중단·보고.\n1. node .workflow/five_field_session_capture_v0/tools/five_field_promotion_scan.mjs --report --repo-root C:\\Soulforge 를 실행해 승격 신호 리포트를 갱신한다.\n2. 갭 소급: 최근 24시간 커밋(C:\\Soulforge main 과 C:\\Soulforge\\_workmeta, git log --since=24.hours --pretty 와 --stat 요약만, 파일 본문 불필요)을 레저(five_field_log.jsonl 전 과제)의 같은 시간창 행과 대조한다. 레저에 대응 기록이 없는 작업 묶음마다 .workflow/five_field_session_capture_v0/tools/five_field_capture.mjs 로 소급 기록을 남긴다: --session-ref retro_<YYYYMMDD>_<짧은해시> --worker <커밋 표기 codex_*/claude_*, 없으면 unknown_ai> --data-label ai_backfill --request-kind <행위/출처 슬러그 추정>. judgment/output/verification 은 커밋 메시지와 diff --stat 요약에서만 도출한다(원문 미복사, input_refs 는 commit:<hash> 포인터).\n3. 드레인 지표 확인: needs_backfill 행 수, dev_worker_candidate_queue 상태 분포(proposed 적체 경고), 최근 24시간 레저 신규 행 수.\n4. _workmeta 변경분(레저·리포트)은 pull --rebase 후 작업자 표기(codex_<model>)로 commit+push 한다. 충돌 시 중단하고 보고한다.\n5. 짧은 요약 보고: 소급 N건, 승격 후보 목록, 드레인 지표 3개, blocker."
+# status = "ACTIVE"
+# rrule = "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=7;BYMINUTE=35;BYSECOND=0"
+# model = "gpt-5.3-codex"
+# reasoning_effort = "medium"
+# execution_environment = "local"
+# target = { type = "project", project_id = "local-1018ddaeecab99443b06b78022cb14b7" }
+# cwds = ["C:\\Soulforge"]
+# created_at = 1783212029444
+# updated_at = 1783212029444
+#
+# Rollback authority: human Owner only. Restore the saved complete installed
+# TOML and the pre-run cursor record. Never delete or rewrite an append-only
+# ledger commit that already reached the remote.
+
 version = 1
 id = "soulforge-five-field-sweep"
 kind = "cron"
-name = "AI 작업 결과 누락 복구 (feature OFF)"
-prompt = "[FEATURE OFF / PAUSED CANDIDATE] 이 정의를 설치·활성화하거나 foreground/private active tree에서 실행하지 않는다. private cursor owner/path와 isolated runner가 별도 승인된 뒤에만 exact public source tuple {repo, ref, source_lane}, last_successful_source_commit, approved candidate_target, redacted ledger identities를 입력으로 제공한다.\n\n실행 계약:\n1. pull/rebase/stash/reset/force, branch/ref/config/hook 변경, ledger/cursor/runtime/outbox write, commit/push, network/MCP/ERP/team-PC 조작을 하지 않는다.\n2. node .workflow/five_field_session_capture_v0/tools/five_field_cursor_sweep.mjs --input <owner-approved-input.json> 으로 public-safe receipt만 계산한다.\n3. range는 (last_successful_source_commit, candidate_target]이고 git rev-list --reverse --topo-order로 oldest→newest 처리한다. baseline non-ancestor, history rewrite/non-FF, source ref 이동, identity digest conflict는 HOLD한다.\n4. self-loop는 Soulforge-Automation-Output: ai-work-result-recovery/v1 과 exact tuple digest의 Soulforge-Source-Lane trailer가 모두 맞을 때만 제외한다.\n5. cursor advance는 validate+output commit+push+remote contains output commit+approved source target 불변 증거가 전부 있을 때만 receipt에 표현한다. 이 PAUSED public candidate는 private cursor를 쓰거나 live push를 수행하지 않는다.\n6. receipt에는 cursor before/after, ordered range digest, missing/generated/duplicate/HOLD/excluded counts, per-record canonical full-record digests, zero active/private/Git/network mutation을 포함한다."
+name = "Soulforge 5-Field Sweep (daily)"
+prompt = "[PUBLIC IMPLEMENTATION / LIVE HOLD / PAUSED] Do not activate or run this candidate without the immediately preceding human Owner approval of the exact first-live packet. Do not discover or use a foreground checkout, C:\\Soulforge\\_workmeta, private-state, guild_hall/state live data, or registered Orca worktrees as source or writer state.\n\nRequired owner-injected input: exact public {repo, ref, source_lane}; owner-ratified seed and approved target; immutable public source snapshot path; isolated private writer clone, remote/ref, cursor logical path and ledger logical path; exact source/writer allowlist rows; installed runtime tool/model metadata and asserted worker when used; strict UTC recorded_at. No source, cursor, or writer owner-input value is hardcoded by this candidate.\n\nRun exactly one bounded transaction:\nnode .workflow/five_field_session_capture_v0/tools/five_field_cursor_runner.mjs --input <owner-approved-input.json>\n\nThe configured working directory is only the tracked runner code location; it is never an approved source snapshot or writer integration surface. The runner must process (seed, target] oldest-to-newest, exclude only itemized commits with both exact self-loop trailers, treat same identity/same full-record digest as no-op, and HOLD same identity/different digest. It must use non-force push only. A ledger-output commit must validate, push, and pass a fresh remote containment check before cursor CAS. The cursor commit must then push and pass fresh remote containment plus persisted cursor verification. Failures before cursor push leave the cursor at its verified seed. After a successful or uncertain cursor push, an unverified inclusion result is HOLD with cursor state UNKNOWN_AFTER_PUSH and must be reconciled by a fresh remote read on the next run; it must never be reported as unchanged. Any source/ref race, non-FF, runtime mismatch, secret/path sentinel, or CAS mismatch is HOLD. Existing append-only records are never deleted or rewritten.\n\nReport the redacted receipt only: baseline-to-target, missing/appended/duplicate/HOLD, cursor before/after/state and CAS revision, full-record digests, ledger/cursor commit-push-remote-inclusion proof, itemized self-loop exclusions, and active-tree mutations 0. 313 is the intentionally empty-ledger synthetic upper bound, never an actual missing count.\n\nSTOP before private cursor creation, private writer commit/push, installed automation update/activation, or any live action unless the human Owner has approved those exact values immediately beforehand and a fresh independent Level 3 verifier has accepted the exact diff and packet."
 status = "PAUSED"
 rrule = "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=7;BYMINUTE=35;BYSECOND=0"
 model = "gpt-5.3-codex"
 reasoning_effort = "medium"
 execution_environment = "local"
+target = { type = "project", project_id = "local-1018ddaeecab99443b06b78022cb14b7" }
 cwds = ["C:\\Soulforge"]
 created_at = 1783212029444
-updated_at = 1785380400000
+updated_at = 1783212029444

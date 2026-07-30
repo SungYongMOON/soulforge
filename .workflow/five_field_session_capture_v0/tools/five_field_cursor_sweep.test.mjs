@@ -53,6 +53,12 @@ function inputFor(repo, baseline, candidateTarget, extra = {}) {
     schema_version: INPUT_SCHEMA,
     feature_state: "OFF",
     recorded_at: "2026-07-30T03:00:00Z",
+    runtime: {
+      tool: "codex",
+      model: "gpt-5.6-sol",
+      installed_models: ["gpt-5.6-sol"],
+      asserted_worker: "codex_gpt-5.6-sol",
+    },
     source: {
       classification: "public",
       repo: "soulforge-public",
@@ -160,6 +166,7 @@ test("missed three days are planned oldest-to-newest with separated times", () =
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }
+
 });
 
 test("mid-run failure holds cursor and resume deduplicates existing output", () => {
@@ -184,6 +191,30 @@ test("mid-run failure holds cursor and resume deduplicates existing output", () 
     assert.equal(resumed.source_cursor.after, second);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
+  }
+
+  const revisionFixture = fixture();
+  try {
+    const sentinel = "ghp_abcdefgh";
+    const target = commit(
+      revisionFixture.repo,
+      "invalid-revision-sentinel",
+      "safe source subject",
+      "2026-07-29T02:00:00Z",
+    );
+    const input = inputFor(
+      revisionFixture.repo,
+      revisionFixture.baseline,
+      target,
+    );
+    input.source.baseline = sentinel;
+    input.cursor.last_successful_source_commit = sentinel;
+    const receipt = planCursorSweep(input);
+    assert.equal(receipt.status, "HOLD");
+    assert.equal(JSON.stringify(receipt).includes(sentinel), false);
+    assert.equal(receipt.records_to_append.length, 0);
+  } finally {
+    rmSync(revisionFixture.root, { recursive: true, force: true });
   }
 });
 
@@ -339,7 +370,8 @@ test("invalid repository HOLD uses only a stable redacted error code", () => {
     const serialized = JSON.stringify(receipt);
     assert.equal(receipt.status, "HOLD");
     assert.deepEqual(receipt.hold_reasons, ["git_rev_parse_failed"]);
-    assert.equal(receipt.source_cursor.after, baseline);
+    assert.equal(receipt.source_cursor.after, null);
+    assert.equal(serialized.includes(missingRepo), false);
     assertNoHostPath(serialized, [root, missingRepo, "private-owner-path"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -426,10 +458,108 @@ test("only the exact automation trailer is excluded as a self-loop", () => {
     const receipt = planCursorSweep(inputFor(f.repo, f.baseline, selfLoop));
     assert.deepEqual(receipt.range.commits, [similar, incomplete, bodyPair, selfLoop]);
     assert.equal(receipt.counts.excluded_self_loop, 1);
+    assert.deepEqual(receipt.self_loop_exclusions, [{
+      commit: selfLoop,
+      reason: "exact_automation_and_source_lane_trailers",
+    }]);
     assert.equal(receipt.counts.generated, 3);
     assert.ok(receipt.records_to_append[0].input_refs[0].endsWith(`@${similar}`));
     assert.ok(receipt.records_to_append[1].input_refs[0].endsWith(`@${incomplete}`));
     assert.ok(receipt.records_to_append[2].input_refs[0].endsWith(`@${bodyPair}`));
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("runtime-derived worker identity is required and an asserted mismatch HOLDs", () => {
+  const f = fixture();
+  try {
+    const target = commit(f.repo, "worker", "runtime worker", "2026-07-27T01:00:00Z");
+    const valid = planCursorSweep(inputFor(f.repo, f.baseline, target));
+    assert.equal(valid.worker_identity, "codex_gpt-5.6-sol");
+    assert.equal(valid.records_to_append[0].worker, valid.worker_identity);
+
+    const missing = inputFor(f.repo, f.baseline, target);
+    delete missing.runtime;
+    const missingReceipt = planCursorSweep(missing);
+    assert.equal(missingReceipt.status, "HOLD");
+    assert.ok(missingReceipt.hold_reasons.includes("runtime_metadata_required"));
+    assert.equal(missingReceipt.records_to_append.length, 0);
+
+    const mismatch = planCursorSweep({
+      ...inputFor(f.repo, f.baseline, target),
+      runtime: {
+        ...inputFor(f.repo, f.baseline, target).runtime,
+        asserted_worker: "codex_another-model",
+      },
+    });
+    assert.equal(mismatch.status, "HOLD");
+    assert.ok(mismatch.hold_reasons.includes("runtime_worker_assertion_mismatch"));
+    assert.equal(mismatch.records_to_append.length, 0);
+
+    const secretShaped = planCursorSweep({
+      ...inputFor(f.repo, f.baseline, target),
+      runtime: {
+        tool: "xoxb-abcdefgh",
+        model: "gpt-5.6-sol",
+        installed_models: ["gpt-5.6-sol"],
+      },
+    });
+    assert.equal(secretShaped.status, "HOLD");
+    assert.ok(secretShaped.hold_reasons.includes(
+      "runtime_metadata_boundary_sentinel",
+    ));
+    assert.equal(JSON.stringify(secretShaped).includes("xoxb-abcdefgh"), false);
+    assert.equal(secretShaped.records_to_append.length, 0);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+});
+
+test("secret and absolute-path sentinels HOLD without echoing the triggering value", () => {
+  const sentinels = [
+    "access_token=synthetic-secret-value",
+    "local path C:\\synthetic-private\\owner\\record.txt",
+  ];
+  for (const [index, sentinel] of sentinels.entries()) {
+    const f = fixture();
+    try {
+      const target = commit(
+        f.repo,
+        `sentinel-${index}`,
+        sentinel,
+        `2026-07-${27 + index}T01:00:00Z`,
+      );
+      const receipt = planCursorSweep(inputFor(f.repo, f.baseline, target));
+      const serialized = JSON.stringify(receipt);
+      assert.equal(receipt.status, "HOLD");
+      assert.ok(receipt.hold_reasons.some((reason) =>
+        reason.startsWith("source_metadata_boundary_sentinel:")));
+      assert.equal(serialized.includes(sentinel), false);
+      assert.equal(receipt.records_to_append.length, 0);
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  }
+
+  const f = fixture();
+  try {
+    const sentinel = "ghp_abcdefgh";
+    const target = commit(
+      f.repo,
+      "allowlisted-token-sentinel",
+      "safe source subject",
+      "2026-07-29T01:00:00Z",
+    );
+    const input = inputFor(f.repo, f.baseline, target);
+    input.source.repo = sentinel;
+    input.cursor.repo = sentinel;
+    input.source_allowlist[0].repo = sentinel;
+    const receipt = planCursorSweep(input);
+    assert.equal(receipt.status, "HOLD");
+    assert.ok(receipt.hold_reasons.includes("source_metadata_boundary_sentinel"));
+    assert.equal(JSON.stringify(receipt).includes(sentinel), false);
+    assert.equal(receipt.records_to_append.length, 0);
   } finally {
     rmSync(f.root, { recursive: true, force: true });
   }
