@@ -129,6 +129,15 @@ function assertNoHostPath(text, forbidden = []) {
   assert.doesNotMatch(text, /(?:[A-Za-z]:[\\/]|\/(?:Users|home|tmp)\/)/iu);
 }
 
+function assertNonAcceptance(receipt) {
+  assert.equal(receipt.official_completion, false);
+  assert.equal(receipt.worksession_acceptance, false);
+  assert.equal(receipt.taskdriver_acceptance, false);
+  assert.equal(receipt.erp_acceptance, false);
+  assert.equal(receipt.mcp_acceptance, false);
+  assert.equal(receipt.claim_ceiling, "operational_evidence_only");
+}
+
 test("missed three days are planned oldest-to-newest with separated times", () => {
   const f = fixture();
   try {
@@ -142,6 +151,7 @@ test("missed three days are planned oldest-to-newest with separated times", () =
       success_evidence: successEvidence(commits[2], 3),
     });
     assert.equal(receipt.status, "READY_TO_ADVANCE");
+    assertNonAcceptance(receipt);
     assert.deepEqual(receipt.range.commits, commits);
     assert.deepEqual(receipt.counts, {
       missing: 3,
@@ -167,6 +177,53 @@ test("missed three days are planned oldest-to-newest with separated times", () =
     rmSync(f.root, { recursive: true, force: true });
   }
 
+});
+
+test("recursive exact-key and private-boundary rejection is fail-closed and non-leaking", () => {
+  const cases = [
+    ["unknown nested key", (input) => {
+      input.success_evidence.validation.unexpected = "synthetic-boundary-marker";
+    }],
+    ["forbidden raw key", (input) => {
+      input.runtime.raw = "synthetic-boundary-marker";
+    }],
+    ["forbidden credential key", (input) => {
+      input.success_evidence.credential = "synthetic-boundary-marker";
+    }],
+    ["private URL value", (input) => {
+      input.runtime.asserted_worker = "https://private.invalid/synthetic-boundary-marker";
+    }],
+    ["private ref value", (input) => {
+      input.source.ref = "refs/private/synthetic-boundary-marker";
+    }],
+    ["secret-shaped value", (input) => {
+      input.runtime.model = "access_token=synthetic-boundary-marker";
+    }],
+  ];
+  for (const [name, mutate] of cases) {
+    const f = fixture();
+    try {
+      const target = commit(
+        f.repo,
+        "boundary",
+        "boundary result",
+        "2026-07-27T01:00:00Z",
+      );
+      const input = inputFor(f.repo, f.baseline, target, {
+        success_evidence: successEvidence(target),
+      });
+      mutate(input);
+      const receipt = planCursorSweep(input);
+      const serialized = JSON.stringify(receipt);
+      assert.equal(receipt.status, "HOLD", name);
+      assert.deepEqual(receipt.hold_reasons, ["input_contract_invalid"], name);
+      assert.equal(serialized.includes("synthetic-boundary-marker"), false, name);
+      assert.equal(receipt.source_cursor.after, null, name);
+      assertNonAcceptance(receipt);
+    } finally {
+      rmSync(f.root, { recursive: true, force: true });
+    }
+  }
 });
 
 test("mid-run failure holds cursor and resume deduplicates existing output", () => {
@@ -483,7 +540,7 @@ test("runtime-derived worker identity is required and an asserted mismatch HOLDs
     delete missing.runtime;
     const missingReceipt = planCursorSweep(missing);
     assert.equal(missingReceipt.status, "HOLD");
-    assert.ok(missingReceipt.hold_reasons.includes("runtime_metadata_required"));
+    assert.ok(missingReceipt.hold_reasons.includes("input_contract_invalid"));
     assert.equal(missingReceipt.records_to_append.length, 0);
 
     const mismatch = planCursorSweep({
@@ -507,7 +564,7 @@ test("runtime-derived worker identity is required and an asserted mismatch HOLDs
     });
     assert.equal(secretShaped.status, "HOLD");
     assert.ok(secretShaped.hold_reasons.includes(
-      "runtime_metadata_boundary_sentinel",
+      "input_contract_invalid",
     ));
     assert.equal(JSON.stringify(secretShaped).includes("xoxb-abcdefgh"), false);
     assert.equal(secretShaped.records_to_append.length, 0);
@@ -557,7 +614,7 @@ test("secret and absolute-path sentinels HOLD without echoing the triggering val
     input.source_allowlist[0].repo = sentinel;
     const receipt = planCursorSweep(input);
     assert.equal(receipt.status, "HOLD");
-    assert.ok(receipt.hold_reasons.includes("source_metadata_boundary_sentinel"));
+    assert.ok(receipt.hold_reasons.includes("input_contract_invalid"));
     assert.equal(JSON.stringify(receipt).includes(sentinel), false);
     assert.equal(receipt.records_to_append.length, 0);
   } finally {

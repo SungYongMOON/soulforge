@@ -77,7 +77,7 @@ steps:
 recovery_contract:
   display_name_ko: AI 작업 결과 누락 복구
   feature_state: "OFF"
-  public_implementation_state: isolated_runner_available
+  public_implementation_state: dual_writer_fenced_candidate
   live_activation_state: HOLD
   planner: tools/five_field_cursor_sweep.mjs
   runner: tools/five_field_cursor_runner.mjs
@@ -86,11 +86,58 @@ recovery_contract:
   private_source_commit_lane: HOLD
   topology:
     source: owner_injected_immutable_public_snapshot
-    writer: owner_injected_isolated_private_or_synthetic_clone
+    ledger_writer: owner_injected_isolated_writer_workmeta_clone
+    cursor_writer: owner_injected_isolated_writer_private_state_clone
+    ledger_owner: writer-workmeta
+    cursor_owner: private-state_continuity
+    cursor_logical_path_contract: "guild_hall/state/operations/ai_work_result_recovery/v1/cursors/<source_lane_digest>.json"
+    rejected_cursor_path_prefix: "_workmeta/system/bindings/"
     foreground_discovery: forbidden
-    source_writer_overlap: forbidden
+    mutual_root_overlap: forbidden
+    reparse_or_symlink_escape: forbidden
+  forbidden_roots:
+    - active_soulforge
+    - active_workmeta
+    - owner_supplied_codex_worktrees
+    - owner_supplied_orca_worktrees
+    - installed_automation_control_root
+  lease_and_fencing:
+    mode: exclusive_local_lease
+    fields:
+      - owner_token
+      - pid
+      - host_identity
+      - acquired_at
+      - expires_at
+      - writer_epoch
+    live_owner: HOLD
+    stale_recovery_requires:
+      - same_host
+      - dead_pid
+      - expired
+      - explicit_owner_policy
+    recheck_before:
+      - ledger_push
+      - cursor_commit
+      - cursor_push
+    monotonic:
+      - cursor_sequence
+      - writer_epoch
+    stale_epoch_push: forbidden
+  recursive_input_contract:
+    exact_keys_only: true
+    unknown_key: HOLD
+    forbidden_key_families:
+      - raw_chat_payload_body_messages_transcript
+      - credential_token_password_cookie_session
+    forbidden_values:
+      - secret_shaped
+      - absolute_or_private_path
+      - private_url
+      - private_ref
+    hold_receipt_echo_rejected_input: false
   cursor_identity: [repo, ref, source_lane]
-  cursor_update: full_record_digest_compare_and_swap
+  cursor_update: tuple_last_commit_sequence_and_writer_epoch_compare_and_swap
   post_cursor_push_unverified_state: UNKNOWN_AFTER_PUSH
   post_cursor_push_recovery: fresh_remote_read_and_reconcile
   range: "(last_successful_source_commit, candidate_target]"
@@ -102,13 +149,26 @@ recovery_contract:
     - "Soulforge-Automation-Output: ai-work-result-recovery/v1"
     - "Soulforge-Source-Lane: sha256:<canonical-tuple-digest>"
   self_loop_receipt: itemized
+  receipt_claims:
+    applies_to:
+      - cursor_sweep_receipt
+      - cursor_runner_receipt
+    official_completion: false
+    worksession_acceptance: false
+    taskdriver_acceptance: false
+    erp_acceptance: false
+    mcp_acceptance: false
+    claim_ceiling: operational_evidence_only
   advance_requires:
     - record_validation_success
-    - output_commit_success
-    - output_non_force_push_success
-    - remote_contains_output_commit
+    - ledger_commit_success
+    - lease_and_writer_epoch_rechecked_before_ledger_push
+    - ledger_non_force_push_success
+    - remote_contains_ledger_commit
     - cursor_compare_and_swap_success
+    - lease_and_writer_epoch_rechecked_before_cursor_commit
     - cursor_commit_success
+    - lease_and_writer_epoch_rechecked_before_cursor_push
     - cursor_non_force_push_success
     - remote_contains_cursor_commit
     - remote_cursor_content_verified
@@ -120,7 +180,13 @@ recovery_contract:
     - same_identity_different_full_record_digest
     - runtime_identity_missing_or_mismatch
     - secret_or_absolute_path_sentinel
+    - unknown_recursive_key_or_forbidden_content
     - writer_binding_or_allowlist_mismatch
+    - writer_or_guarded_root_overlap
+    - reparse_or_symlink_escape
+    - live_lease_owner
+    - stale_lease_recovery_not_authorized
+    - stale_writer_epoch
     - cursor_compare_and_swap_mismatch
     - cursor_push_or_remote_inclusion_uncertain
     - incomplete_success_evidence
@@ -128,13 +194,21 @@ recovery_contract:
     records_deleted: 0
     records_rewritten: 0
   direct_writes:
-    - owner_allowlisted_isolated_writer_object_database
-    - owner_allowlisted_writer_remote_ref_non_force
+    - owner_allowlisted_isolated_writer_workmeta_object_database
+    - owner_allowlisted_writer_workmeta_remote_ref_non_force
+    - owner_allowlisted_isolated_writer_private_state_object_database
+    - owner_allowlisted_writer_private_state_remote_ref_non_force
+    - owner_allowlisted_exclusive_local_lease
   live_write_gate:
     - fresh_level_3_actual_diff_verdict
     - human_owner_private_cursor_target_approval
-    - human_owner_writer_binding_approval
+    - human_owner_dual_writer_binding_approval
+    - human_owner_lease_and_fencing_policy_approval
     - human_owner_automation_update_and_activation_approval
+  synthetic_validation:
+    roots: os_temp_only
+    remotes: local_bare_only
+    live_or_network_mutations: 0
   dry_run_upper_bound_note: "313 is the ledger_records=[] synthetic upper bound, not an actual missing count."
 guard_binding:
   status: disabled_pending_owner_review
@@ -170,3 +244,4 @@ notes:
   - 2026-07-14 owner 요청으로 Codex/Claude Code 차단형 PostToolUse/Stop 배선을 함께 비활성화했다. CLI, 기존 레저, ERP 캡처와 어댑터 스크립트는 보존한다.
   - 2026-07-30 public candidate는 최근 24시간/foreground pull 의존을 제거했지만 private cursor와 live automation은 만들거나 활성화하지 않았다.
   - 2026-07-30 Phase B added the public isolated runner and synthetic-only verification surface; installed automation, private cursor, and live writer remain HOLD.
+  - 2026-07-30 Phase C hardened the public candidate with separate workmeta-ledger and private-state-cursor writers, exclusive lease/epoch fencing, recursive fail-closed input validation, guarded-root containment, and explicit non-acceptance receipts; all private/live actions remain HOLD.

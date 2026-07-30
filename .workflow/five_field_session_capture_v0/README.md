@@ -184,6 +184,72 @@ explicit Owner ratification is still required. The observed count `313` came
 from an intentionally empty synthetic ledger over that public range and is
 only a dry-run upper bound, never an actual missing-result count.
 
+## Phase C dual-writer and fencing contract (public candidate, live HOLD)
+
+Phase C replaces the Phase B single-writer topology with two owner-injected,
+mutually isolated integration clones:
+
+- `writer-workmeta` owns append-only result-ledger commit, non-force push, and
+  remote-containment proof;
+- `writer-private-state` owns cursor/authority compare-and-swap commit,
+  non-force push, and remote-containment proof;
+- the cursor continuity owner is `private-state`, with the exact logical path
+  `guild_hall/state/operations/ai_work_result_recovery/v1/cursors/<source_lane_digest>.json`;
+- `_workmeta/system/bindings/**` is never a cursor owner path and is rejected.
+
+Ledger publication and its independently recomputed remote inclusion must
+finish before cursor CAS begins. Cursor sequence/revision and `writer_epoch`
+are monotonic. A stale epoch cannot push either repository. An exclusive local
+lease carries an owner token, PID, host identity, acquisition/expiry times, and
+the monotonic writer epoch. A live owner always blocks. Stale recovery is
+allowed only when the lease is expired, the recorded PID is dead on the same
+host, and an explicit Owner policy permits recovery. The runner rechecks the
+lease token and epoch immediately before the ledger push, cursor commit, and
+cursor push.
+
+The caller must supply canonical realpaths for the immutable source snapshot,
+ledger writer, cursor writer, runtime root, and lease/lock root, plus every
+active Codex/Orca worktree and other forbidden root. The runner rejects:
+
+- equality, nesting, or mutual overlap among source, both writers, runtime, and
+  lease/lock roots;
+- equality with or nesting in active `C:\Soulforge`, active `_workmeta`, any
+  owner-supplied Codex/Orca worktree, or the installed-automation control root;
+- a reparse point, symlink, junction, or realpath escape on any guarded path.
+
+All input objects and ledger records use an exact-key recursive contract.
+Unknown keys are rejected at every depth. Keys representing raw/chat/payload,
+body/messages/transcript, credentials, tokens, passwords, cookies, or sessions
+are forbidden, as are secret-shaped values and absolute/private paths, URLs,
+or refs. A `HOLD` receipt never echoes the rejected envelope, private path,
+remote URL, or private ref.
+
+Runner and planner receipts are operational evidence only and explicitly carry:
+
+```text
+official_completion=false
+worksession_acceptance=false
+taskdriver_acceptance=false
+erp_acceptance=false
+mcp_acceptance=false
+claim_ceiling=operational_evidence_only
+```
+
+Phase C validation is synthetic-only: OS-temporary fixtures and local bare Git
+remotes may exercise dual-repository ordering, lease/epoch contention,
+fail/resume, duplicate/conflict, non-fast-forward and inclusion failures,
+post-push reconciliation, and path/content sentinels. It does not read or write
+an actual runtime root, `_workmeta`, `private-state`, installed automation,
+scheduler, or network remote.
+
+The one-shot live packet remains `HOLD` until the human Owner supplies and
+approves both exact writer bindings, the derived cursor digest/path and initial
+record, runtime and lease roots, fencing/recovery policy, writer epoch, immutable
+source seed/target, and the complete installed-automation update and rollback
+snapshot. A fresh independent Level 3 verdict is required immediately before
+any private/live action. The count `313` remains the intentionally empty-ledger
+synthetic upper bound and is never an actual missing-result count.
+
 ### Installed legacy automation and rollback evidence
 
 The read-only observed installed automation on 2026-07-30 remains unchanged:

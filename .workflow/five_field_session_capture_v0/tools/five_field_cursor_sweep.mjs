@@ -27,6 +27,10 @@ const ABSOLUTE_PATH_SENTINEL_RE =
   /(?:[A-Za-z]:[\\/]|\\\\[^\\\s]+\\|\/(?:Users|home|tmp|var|etc)\/|file:\/\/)/iu;
 const SECRET_SENTINEL_RE =
   /(?:ghp_[A-Za-z0-9]{8,}|xoxb-[A-Za-z0-9-]{8,}|AKIA[A-Z0-9]{12,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:password|passwd|api[_ -]?key|access[_ -]?token|refresh[_ -]?token|client[_ -]?secret|authorization|bearer|credential|cookie)\s*[:=]\s*\S+)/iu;
+const FORBIDDEN_INPUT_KEY_RE =
+  /^(?:raw|chat|payload|body|messages?|transcript|credentials?|tokens?|passwords?|cookies?|sessions?)$/iu;
+const PRIVATE_URL_OR_REF_RE =
+  /(?:^(?:https?|ssh|git):\/\/|^git@|^refs\/(?!heads\/|tags\/))/iu;
 const PUBLIC_ERROR_CODES = new Set([
   "baseline_must_be_full_commit_sha",
   "baseline_not_a_commit",
@@ -80,6 +84,116 @@ function canonicalize(value) {
       `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(",")}}`;
   }
   return JSON.stringify(value);
+}
+
+function exactKeys(value, allowed) {
+  return Boolean(value)
+    && typeof value === "object"
+    && !Array.isArray(value)
+    && Object.keys(value).every((key) => allowed.includes(key));
+}
+
+function inputBoundarySafe(value, { allowPath = false } = {}) {
+  if (Array.isArray(value)) return value.every((item) => inputBoundarySafe(item));
+  if (value && typeof value === "object") {
+    return Object.entries(value).every(([key, item]) =>
+      !FORBIDDEN_INPUT_KEY_RE.test(key)
+      && inputBoundarySafe(item, {
+        allowPath: key === "repo_path",
+      }));
+  }
+  if (typeof value !== "string") return true;
+  return !SECRET_SENTINEL_RE.test(value)
+    && (allowPath || !ABSOLUTE_PATH_SENTINEL_RE.test(value))
+    && !PRIVATE_URL_OR_REF_RE.test(value);
+}
+
+function exactPlannerInput(input) {
+  if (!exactKeys(input, [
+    "schema_version",
+    "feature_state",
+    "recorded_at",
+    "runtime",
+    "source",
+    "cursor",
+    "source_allowlist",
+    "ledger_records",
+    "success_evidence",
+  ])) return false;
+  if (!exactKeys(input.runtime, [
+    "tool",
+    "model",
+    "installed_models",
+    "asserted_worker",
+  ])) return false;
+  if (!exactKeys(input.source, [
+    "classification",
+    "repo",
+    "repo_path",
+    "ref",
+    "source_lane",
+    "baseline",
+    "candidate_target",
+    "expected_ref_tip",
+  ])) return false;
+  if (!exactKeys(input.cursor, [
+    "repo",
+    "ref",
+    "source_lane",
+    "last_successful_source_commit",
+  ])) return false;
+  if (
+    !Array.isArray(input.source_allowlist)
+    || !input.source_allowlist.every((row) => exactKeys(row, [
+      "classification",
+      "repo",
+      "repo_path",
+      "ref",
+      "source_lane",
+    ]))
+  ) return false;
+  if (!Array.isArray(input.ledger_records)) return false;
+  if (!input.ledger_records.every((row) => exactKeys(row, [
+    "schema_version",
+    "id",
+    "at",
+    "occurred_at",
+    "recorded_at",
+    "worker",
+    "session_ref",
+    "project_code",
+    "request_kind",
+    "input_refs",
+    "judgment",
+    "output",
+    "verification",
+    "stop_conditions",
+    "needs_backfill",
+    "data_label",
+  ]))) return false;
+  if (input.success_evidence !== undefined) {
+    const evidence = input.success_evidence;
+    if (
+      !exactKeys(evidence, ["validation", "commit", "push"])
+      || (evidence.validation !== undefined && !exactKeys(evidence.validation, [
+        "ok",
+        "commands",
+        "candidate_target",
+        "validated_record_count",
+      ]))
+      || (evidence.commit !== undefined && !exactKeys(evidence.commit, [
+        "ok",
+        "commit",
+      ]))
+      || (evidence.push !== undefined && !exactKeys(evidence.push, [
+        "ok",
+        "remote_contains_commit",
+        "commit",
+        "source_target",
+      ]))
+    ) return false;
+  }
+  return inputBoundarySafe(input);
 }
 
 function sha256(value) {
@@ -274,6 +388,12 @@ function baseReceipt() {
     feature_state: "OFF",
     operation: "ai_work_result_recovery",
     status: "HOLD",
+    official_completion: false,
+    worksession_acceptance: false,
+    taskdriver_acceptance: false,
+    erp_acceptance: false,
+    mcp_acceptance: false,
+    claim_ceiling: "operational_evidence_only",
     source_cursor: {
       repo: null,
       ref: null,
@@ -335,6 +455,11 @@ export function planCursorSweep(input) {
     throw codedError("input_object_required");
   }
   const receipt = baseReceipt();
+  if (!exactPlannerInput(input)) {
+    hold(receipt, "input_contract_invalid");
+    receipt.counts.hold = 1;
+    return receipt;
+  }
   const source = input.source || {};
   const cursor = input.cursor || {};
 
