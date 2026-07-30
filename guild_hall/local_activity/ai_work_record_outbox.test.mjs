@@ -360,7 +360,7 @@ test("synthetic backup and restore include declared surfaces, exclude lock/temp,
   }
 });
 
-test("mutation is synthetic-temp-only and rejects an HPP-like absolute root", async () => {
+test("mutation is synthetic-temp-only and preserves an existing outside-temp sentinel", async (t) => {
   const liveLike = path.resolve(
     os.tmpdir(),
     "nested",
@@ -381,10 +381,37 @@ test("mutation is synthetic-temp-only and rejects an HPP-like absolute root", as
     (error) => assertOutboxCode(error, "synthetic_state_root_required"),
   );
 
-  const outsideTemporaryRoot = path.resolve(
-    process.cwd(),
-    `soulforge-ai-work-record-test-outside-${process.pid}`,
+  const outsideTemporaryRoot = await mkdtemp(
+    path.join(
+      process.cwd(),
+      "soulforge-ai-work-record-test-outside-",
+    ),
   );
+  const outsideSentinel = path.join(outsideTemporaryRoot, "sentinel.txt");
+  const sentinelBytes = "outside-temp sentinel must remain unchanged\n";
+  await writeFile(outsideSentinel, sentinelBytes, "utf8");
+  t.after(async () => {
+    let outsideStat;
+    try {
+      outsideStat = await lstat(outsideTemporaryRoot);
+    } catch (error) {
+      if (error?.code === "ENOENT") return;
+      throw error;
+    }
+    assert.equal(outsideStat.isSymbolicLink(), false);
+    assert.equal(outsideStat.isDirectory(), true);
+    assert.equal(
+      path.dirname(outsideTemporaryRoot),
+      path.resolve(process.cwd()),
+    );
+    assert.equal(
+      path.basename(outsideTemporaryRoot).startsWith(
+        "soulforge-ai-work-record-test-outside-",
+      ),
+      true,
+    );
+    await rm(outsideTemporaryRoot, { recursive: true, force: true });
+  });
   assert.equal(
     path.basename(outsideTemporaryRoot).startsWith(
       "soulforge-ai-work-record-test-",
@@ -401,10 +428,10 @@ test("mutation is synthetic-temp-only and rejects an HPP-like absolute root", as
     }, async () => {}),
     (error) => assertOutboxCode(error, "synthetic_state_root_required"),
   );
-  await assert.rejects(
-    () => lstat(outsideTemporaryRoot),
-    (error) => error?.code === "ENOENT",
-  );
+  const preservedStat = await lstat(outsideTemporaryRoot);
+  assert.equal(preservedStat.isDirectory(), true);
+  assert.equal(await readFile(outsideSentinel, "utf8"), sentinelBytes);
+  assert.deepEqual(await readdir(outsideTemporaryRoot), ["sentinel.txt"]);
 });
 
 test("synthetic writer rejects a pre-existing symlink in its selected path", async (t) => {
@@ -488,6 +515,78 @@ test("strict schema then JS validation then reducer all run before any write", a
     }),
   );
   assert.equal(longAttemptResult.disposition, "local_persisted");
+});
+
+test("maximum-length work ID publishes, replays no-op, and repairs an interrupted first publish", async (t) => {
+  const maximumWorkId = `w${"x".repeat(119)}`;
+  assert.equal(maximumWorkId.length, 120);
+  const event = startEvent({ work_id: maximumWorkId });
+
+  const root = await syntheticRoot(t);
+  const first = await publish(root, event, "max-work-id.0");
+  assert.equal(first.disposition, "local_persisted");
+  assert.equal(first.receipt_state, "local_persisted");
+  const filesAfterFirst = await listFiles(root);
+  assert.equal(
+    filesAfterFirst.some((file) => file.includes("/local_persisted/")),
+    true,
+  );
+  assert.equal(filesAfterFirst.some((file) => file.endsWith(".tmp")), false);
+  for (const file of filesAfterFirst) {
+    for (const component of file.split("/")) {
+      assert.equal(component.length <= 255, true);
+    }
+  }
+
+  const replay = await publish(root, event, "max-work-id.0");
+  assert.equal(replay.disposition, "replayed_local_persisted");
+  assert.deepEqual(await listFiles(root), filesAfterFirst);
+  assert.equal((await readAiWorkRecordHistory({
+    stateRoot: root,
+    projectCode: PROJECT,
+    workId: maximumWorkId,
+  })).length, 1);
+  assert.equal((await listPendingAiWorkRecordEvents({
+    stateRoot: root,
+    projectCode: PROJECT,
+  })).pending_count, 1);
+
+  const crashRoot = await syntheticRoot(t);
+  await assert.rejects(
+    () => publish(
+      crashRoot,
+      event,
+      "max-work-id-crash.0",
+      async (step) => {
+        if (step === "event.target_published") {
+          const error = new Error("synthetic_max_id_crash");
+          error.code = "synthetic_max_id_crash";
+          throw error;
+        }
+      },
+    ),
+    { code: "synthetic_max_id_crash" },
+  );
+  assert.equal((await readAiWorkRecordHistory({
+    stateRoot: crashRoot,
+    projectCode: PROJECT,
+    workId: maximumWorkId,
+  })).length, 1);
+  const repaired = await publish(
+    crashRoot,
+    event,
+    "max-work-id-crash.0",
+  );
+  assert.equal(repaired.disposition, "replayed_local_persisted");
+  assert.equal(repaired.receipt_state, "local_persisted");
+  assert.equal((await listPendingAiWorkRecordEvents({
+    stateRoot: crashRoot,
+    projectCode: PROJECT,
+  })).pending_count, 1);
+  assert.equal(
+    (await listFiles(crashRoot)).some((file) => file.endsWith(".tmp")),
+    false,
+  );
 });
 
 test("full lifecycle is append-only, ordered pending, acked without deletion, and correction-preserving", async (t) => {
@@ -791,12 +890,8 @@ test("temporary write failure cleans temp files; orphan temp is ignored; retry p
     .update(`${attemptId}\u0000event`)
     .digest("hex")
     .slice(0, 32)}`;
-  const eventFile = [
-    String(start.sequence).padStart(16, "0"),
-    start.event_digest.replace(":", "-"),
-  ].join("-") + ".json";
   await writeFile(
-    path.join(eventDir, `.${eventFile}.${token}.tmp`),
+    path.join(eventDir, `.aiwr-${token}.tmp`),
     "synthetic incomplete bytes",
     "utf8",
   );
@@ -982,7 +1077,7 @@ test("a bounded orphan ACK atomic temp stays regenerable and same-ID retry repai
   await mkdir(ackDirectory, { recursive: true });
   const orphan = path.join(
     ackDirectory,
-    `.${ackId}.json.${token}.tmp`,
+    `.aiwr-${token}.tmp`,
   );
   await writeFile(orphan, "synthetic interrupted bytes\n", "utf8");
   assert.equal((await listPendingAiWorkRecordEvents({

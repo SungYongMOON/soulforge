@@ -4,7 +4,7 @@
 | --- | --- |
 | 문서 상태 | `MULTI_SOURCE_INGRESS_LIVE_TIMELINE_INTEGRATION_PENDING` |
 | 계획 기준일 | 2026-07-15 |
-| 최신 CURRENT 관찰 | 2026-07-30T15:39:41+09:00; public-synthetic feature-OFF AI 작업 기록 A2 local outbox candidate와 fresh Level 2+ `ACCEPT`를 관찰했다. 실제 HPP root·binding·writer·NAS policy/runtime은 만들거나 재관찰하지 않았으므로 아래 기존 private 수치는 2026-07-28 마지막 관찰값이며 날짜가 붙은 과거 행은 감사 이력이다 |
+| 최신 CURRENT 관찰 | 2026-07-30T16:03:50+09:00; 이전 AI 작업 기록 A2 fresh Level 2+ `ACCEPT`는 manager second fresh `REVISE`로 supersede됐다. Windows 최대 길이 ID·outside-temp sentinel·CURRENT truth 보정은 public-synthetic feature-OFF candidate이며 새 독립 manager 재검증 전까지 acceptance를 주장하지 않는다. 실제 HPP root·binding·writer·NAS policy/runtime은 만들거나 재관찰하지 않았으므로 아래 기존 private 수치는 2026-07-28 마지막 관찰값이며 날짜가 붙은 과거 행은 감사 이력이다 |
 | 기준 public ref | `main@9df7e57765d818be65f6250da8435826d0a2eea2` (계획 보정 최초 관찰 당시 `origin/main`과 동일; 현재 HEAD 주장 아님) |
 | P1 readiness 재검토 ref | `main@16190bff6c1dd9e101c11a078b97e84f1c1c43ea` (후속 관찰 당시 `origin/main`과 동일; 현재 HEAD 주장 아님); H00 candidate와 H02~H05 public 코드·계약만 후속 대조 |
 | 비교 candidate ref | `codex/task-engine-rag-v1@927b3fb045ebf749077951417463c47f12a549bd` |

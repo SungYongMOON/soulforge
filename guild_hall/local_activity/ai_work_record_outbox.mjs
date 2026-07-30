@@ -49,8 +49,7 @@ const DIGEST = /^sha256:[a-f0-9]{64}$/u;
 const UTC_MILLISECONDS =
   /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}Z$/u;
 const EVENT_FILE = /^(\d{16})-(sha256-[a-f0-9]{64})\.json$/u;
-const ATOMIC_TEMP_FILE =
-  /^\.[A-Za-z0-9_.-]{1,220}\.json\.tmp\.[a-f0-9]{32}\.tmp$/u;
+const ATOMIC_TEMP_FILE = /^\.aiwr-tmp\.[a-f0-9]{32}\.tmp$/u;
 const MAX_JSON_BYTES = 1024 * 1024;
 const IGNORED_DIRECTORY_SYNC_CODES = new Set([
   "EACCES",
@@ -229,7 +228,6 @@ function pendingFileName(event) {
   const recorded = event.recorded_at.replace(/[-:.TZ]/gu, "");
   return [
     recorded,
-    event.work_id,
     sequencePrefix(event.sequence),
     digestFilePart(event.event_digest),
   ].join("-") + ".json";
@@ -286,7 +284,7 @@ async function immutablePublish(target, value, {
   );
   const temporary = path.join(
     directory,
-    `.${path.basename(target)}.${token}.tmp`,
+    `.aiwr-${token}.tmp`,
   );
   let published = false;
   try {
@@ -696,6 +694,68 @@ function retryRecord(event, fence, {
   };
 }
 
+function validateRetryRecord(value, event, {
+  attemptId,
+  attemptedAt,
+}) {
+  const requiredKeys = [
+    "schema_version",
+    "attempt_id",
+    "attempted_at",
+    "disposition",
+    "project_ref",
+    "work_id",
+    "event_id",
+    "event_digest",
+    "sequence",
+    "fencing_token",
+    "metadata_boundary",
+    "official_completion",
+    "retry_digest",
+  ];
+  if (
+    value === null
+    || typeof value !== "object"
+    || Array.isArray(value)
+    || Object.getPrototypeOf(value) !== Object.prototype
+    || Object.keys(value).sort().join(",") !== requiredKeys.sort().join(",")
+    || value.schema_version !== AI_WORK_RECORD_RETRY_SCHEMA
+    || !new Set([
+      "local_persisted",
+      "replayed_local_persisted",
+    ]).has(value.disposition)
+    || value.metadata_boundary !== "metadata_only"
+    || value.official_completion !== false
+  ) {
+    fail("retry_record_invalid");
+  }
+  safeId(value.attempt_id, "attempt_id_invalid");
+  safeTimestamp(value.attempted_at, "attempted_at_invalid");
+  safeProject(value.project_ref);
+  safeId(value.work_id, "retry_work_id_invalid");
+  safeId(value.event_id, "retry_event_id_invalid");
+  safeDigest(value.event_digest);
+  safeSequence(value.sequence);
+  safeId(value.fencing_token, "fencing_token_invalid");
+  safeDigest(value.retry_digest);
+  const { retry_digest: actualDigest, ...digestBasis } = value;
+  if (digestJson(digestBasis) !== actualDigest) {
+    fail("retry_record_digest_mismatch");
+  }
+  if (
+    value.attempt_id !== attemptId
+    || value.attempted_at !== attemptedAt
+    || value.project_ref !== event.project_ref
+    || value.work_id !== event.work_id
+    || value.event_id !== event.event_id
+    || value.event_digest !== event.event_digest
+    || value.sequence !== event.sequence
+  ) {
+    fail("retry_record_event_mismatch");
+  }
+  return value;
+}
+
 export async function inspectAiWorkRecordCandidate({
   stateRoot,
   projectCode,
@@ -794,15 +854,22 @@ export async function appendAiWorkRecordEvent({
   const disposition = eventStatus === "written" && inspection.decision === "accept"
     ? "local_persisted"
     : "replayed_local_persisted";
-  await publish(
-    "retry_index",
-    retryTarget,
-    retryRecord(event, activeFence, {
-      attemptId,
-      attemptedAt,
-      disposition,
-    }),
-  );
+  const priorRetry = inspection.decision === "no_op"
+    ? await readBoundedJson(retryTarget, "retry_record_invalid")
+    : null;
+  if (priorRetry === null) {
+    await publish(
+      "retry_index",
+      retryTarget,
+      retryRecord(event, activeFence, {
+        attemptId,
+        attemptedAt,
+        disposition,
+      }),
+    );
+  } else {
+    validateRetryRecord(priorRetry, event, { attemptId, attemptedAt });
+  }
   return {
     ok: true,
     operation: "publish",
