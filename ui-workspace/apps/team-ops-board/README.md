@@ -41,6 +41,8 @@ agent/provider badge는 fixture에서 `observed: true`인 값만 보여 준다. 
 - desktop, tablet, mobile 반응형과 keyboard focus/accessible name/state
 - 760px 이하에서는 최초 진입 시 상세를 자동으로 열지 않는다. 카드 선택 뒤
   상세를 modal dialog로 열고 focus trap, Escape 닫기, 배경 inert를 적용한다.
+  `읽고 확인`처럼 modal 내부의 활성 control을 제거하는 상태 전이 뒤에는
+  commit된 dialog의 연결된 `상세 닫기`로 focus를 다시 옮긴다.
   닫을 때 원 trigger가 남아 있으면 그 카드로, 확인 전이로 제거되었으면 현재
   이력 화면 control·heading 순서의 안정된 대상으로 focus를 복원한다. 그보다
   큰 viewport는 기본 상세와 비모달 흐름을 유지한다.

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   MOBILE_DETAIL_MAX_WIDTH,
   MOBILE_DETAIL_MEDIA_QUERY,
+  getMobileDialogFocusCycleKey,
   isFocusRestoreCandidate,
   isMobileDetailViewport,
   pickFocusRestoreIndex,
@@ -95,5 +96,47 @@ test("mobile detail: detached trigger 뒤 logical task와 stable control 순으�
       { exists: true, isConnected: true, hidden: true }
     ]),
     -1
+  );
+});
+
+test("mobile detail: 열린 dialog의 task 상태 전이는 내부 focus cycle을 다시 시작한다", () => {
+  const beforeAcknowledge = getMobileDialogFocusCycleKey({
+    open: true,
+    taskId: "fixture-aurora-complete",
+    taskStatus: "completed_unread"
+  });
+  const afterAcknowledge = getMobileDialogFocusCycleKey({
+    open: true,
+    taskId: "fixture-aurora-complete",
+    taskStatus: "owner_acknowledged"
+  });
+
+  assert.equal(beforeAcknowledge, "fixture-aurora-complete:completed_unread");
+  assert.equal(afterAcknowledge, "fixture-aurora-complete:owner_acknowledged");
+  assert.notEqual(afterAcknowledge, beforeAcknowledge);
+  assert.equal(
+    getMobileDialogFocusCycleKey({
+      open: false,
+      taskId: "fixture-aurora-complete",
+      taskStatus: "owner_acknowledged"
+    }),
+    null
+  );
+});
+
+test("mobile detail: transition commit 뒤 연결된 close button을 heading보다 우선한다", () => {
+  assert.equal(
+    pickFocusRestoreIndex([
+      { exists: true, isConnected: true },
+      { exists: true, isConnected: true }
+    ]),
+    0
+  );
+  assert.equal(
+    pickFocusRestoreIndex([
+      { exists: true, isConnected: false },
+      { exists: true, isConnected: true }
+    ]),
+    1
   );
 });

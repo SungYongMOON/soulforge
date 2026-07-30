@@ -35,6 +35,7 @@ import {
   selectInboxTasks
 } from "./core/owner-inbox.mjs";
 import {
+  getMobileDialogFocusCycleKey,
   MOBILE_DETAIL_MEDIA_QUERY,
   pickFocusRestoreIndex,
   resolveMobileDialogKey
@@ -97,6 +98,11 @@ function App() {
   );
   const selectedTask = fixture.tasks.find((task: any) => task.id === selectedId) ?? null;
   const mobileDialogOpen = Boolean(isMobileDetail && selectedTask);
+  const mobileDialogFocusCycleKey = getMobileDialogFocusCycleKey({
+    open: mobileDialogOpen,
+    taskId: selectedTask?.id,
+    taskStatus: selectedTask?.status
+  });
   const responsibilityOptions = useMemo(
     () =>
       Array.from(
@@ -161,12 +167,37 @@ function App() {
     );
     const previousBodyOverflow = document.body.style.overflow;
 
-    detailCloseRef.current?.focus();
     backgroundNodes.forEach((node) => {
       node.inert = true;
       node.setAttribute("aria-hidden", "true");
     });
     document.body.style.overflow = "hidden";
+
+    const dialogFocusCandidates = [
+      detailCloseRef.current,
+      detailRef.current.querySelector<HTMLElement>('[data-dialog-focus-fallback="heading"]')
+    ];
+    const dialogFocusIndex = pickFocusRestoreIndex(
+      dialogFocusCandidates.map((node) => {
+        const style = node ? window.getComputedStyle(node) : null;
+        return {
+          exists: Boolean(node),
+          isConnected: Boolean(node?.isConnected),
+          disabled: Boolean(
+            node && "disabled" in node && (node as HTMLButtonElement).disabled
+          ),
+          hidden: Boolean(
+            node &&
+              (node.hidden ||
+                node.getAttribute("aria-hidden") === "true" ||
+                style?.display === "none" ||
+                style?.visibility === "hidden")
+          ),
+          inert: Boolean(node?.closest("[inert]"))
+        };
+      })
+    );
+    dialogFocusCandidates[dialogFocusIndex]?.focus({ preventScroll: true });
 
     function handleDialogKeydown(event: KeyboardEvent) {
       const dialog = detailRef.current;
@@ -202,7 +233,7 @@ function App() {
       });
       document.body.style.overflow = previousBodyOverflow;
     };
-  }, [mobileDialogOpen, selectedId]);
+  }, [mobileDialogOpen, mobileDialogFocusCycleKey]);
 
   useEffect(() => {
     const taskId = pendingRestoreTaskIdRef.current;
@@ -637,7 +668,13 @@ function DetailPanel({
       <header>
         <div>
           <span className="inbox-detail-kicker">{task.synthetic ? "SYNTHETIC FIXTURE" : "관찰됨"}</span>
-          <h2 id={headingId}>{panelTitle}</h2>
+          <h2
+            id={headingId}
+            data-dialog-focus-fallback="heading"
+            tabIndex={isModal ? -1 : undefined}
+          >
+            {panelTitle}
+          </h2>
         </div>
         <button
           ref={closeButtonRef}
