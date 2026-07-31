@@ -207,21 +207,25 @@ TASK 스레드는 영구 조직이 아니다. 새 결과물이나 다단계 실�
 
 프로젝트 manager가 상급자에게 결과를 보고할 때는 manager 자신의 통합 결과만
 말하지 않고 실제 주관 책임자와 수행 TASK·agent, 협업, 독립 검토, manager
-기여를 분리한다. 보고에는 다음 여덟 항목을 둔다.
+기여를 분리한다. 개발1팀 회사의 별도 내부 캠페인으로
+`COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`가 연결한 공유
+`upward_result_attribution_reporting_policy`의 동일 8필드 shape를 사용하며,
+프로젝트용 별도 schema나 field를 정의하지 않는다.
 
-1. 보고 항목 또는 결과
-2. 실제 `primary responsibility owner` route/title 정확히 1개
-3. 실제 `executor_or_agent` TASK·agent·thread 또는 `미확정`
-4. 실제 확인된 `collaborators` 또는 `없음`·`미확정`
-5. 실제 있었을 때만 `independent reviewer`
-6. 분류·분장·통합·에스컬레이션 중 실제 `manager contribution`
-7. TASK·thread·evidence pointer와 상태
-8. Owner 결정 또는 승인 필요사항
+개발1팀 표면의 `manager_contribution`은 canonical
+`manager_or_ceo_contribution`의 표시명일 뿐이다. 실제 주관 책임자는
+`primary_owner`에 정확히 하나만 기록하고, 수행 TASK·agent·thread는
+`executor_or_agent`, 확인된 협업은 `collaborators`, 실제 fresh 독립검토는
+`independent_reviewers`, TASK·thread·evidence pointer와 상태는
+`source_result_validation_evidence`, Owner 결정·승인 필요사항은
+`owner_decision_or_cross_company_interface`에 기록한다.
 
 manager는 책임자의 실무를 자기 작업처럼 합쳐 보고하지 않고, 책임자 역할명과
 실제 수행 agent를 혼동하지 않는다. self-check와 implementer fork는 독립 검토가
 아니다. 사람 이름·민감정보보다 public-safe route/title과 근거 pointer를
 우선하며, 근거 없는 attribution은 추정하지 않고 `미확정`으로 둔다.
+이 내부 적용은 AI 기반시스템 회사의 개발1팀 직접 공지 금지나 두 회사의
+고객사–공급사 interface를 변경하지 않는다.
 
 ## 합성 업무 라우팅 예시
 

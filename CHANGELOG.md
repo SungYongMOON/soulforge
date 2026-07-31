@@ -2,18 +2,38 @@
 
 ## 2026-07-31
 
+### AI 기반시스템 회사 상향 결과보고 attribution 계약
+
+- AX·ERP·SYSTEM과 향후 AI 기반시스템 회사 지속 책임 route의 상향 결과보고가
+  `report_item_or_result`, 단일 `primary_owner`, `executor_or_agent`,
+  `collaborators`, 실제 독립검토자, manager·CEO의 실제 조정 기여, 근거 pointer,
+  Owner 또는 고객사–공급사 gate를 함께 보존하도록 조직 정본과
+  `codex_thread_manager_v0` workflow·registry skill bridge를 동기화했다.
+- manager·CEO의 하위 실무 self-credit, 자동 attribution 추정, 숨은 reasoning,
+  credential·raw payload 노출을 금지하고, 미관찰 provider·model은 `UNKNOWN`,
+  `PARTIAL`·`HOLD`·실패도 실제 수행 주체와 blocker를 유지하도록 했다.
+  개발1팀 회사는 직접 공지 범위에서 제외하고 고객사–공급사 결과 packet에만
+  같은 shape를 제공한다.
+- canon validator가 8필드, 의미·회사경계 guard, worker result·integration·
+  closeout의 세 wiring guard를 `codex_thread_manager_v0`에 한정해 검증하며,
+  정상 fixture와 누락별 stable reason code 회귀시험을 추가했다.
+  (worker: `UNKNOWN`)
+
 ### 개발1팀 결과보고 attribution 정본 후보
 
-- 팀장 상급 보고에서 실제 주관 책임자 1개, 수행 TASK·agent, 협업, 실제
-  독립검토, 팀장 기여, 근거·상태와 Owner 승인 필요사항을 분리하도록 COMMON
-  정본과 프로젝트 manager mirror를 보강했다.
-- Workspace Board MVP를 public-safe 예시로 기록하고, 책임자 역할과 실제 수행
-  TASK·agent를 혼동하거나 책임자의 실무를 팀장 작업으로 뭉뚱그리거나
-  self-check·implementer fork를 독립검토로 표시하지 않도록
-  `codex_thread_manager_v0` workflow와 canonical skill bridge를 동기화했다.
-- installed personal skill, private route/binding, 실제 thread, 공지, external
-  system은 변경하지 않았다. fresh independent review와 main 통합·공지 전까지
-  상태는 `canon_candidate`다. (worker: `codex_gpt-5.6-sol`)
+- 개발1팀 회사가 자기 COMMON 운영실 manager와 프로젝트 manager에게 적용하는
+  별도 내부 캠페인으로, 공유 8필드 attribution shape를 재사용하도록 두 owner
+  문서와 `codex_thread_manager_v0` workflow·canonical skill bridge를 보강했다.
+  개발1팀의 `manager_contribution`은 canonical
+  `manager_or_ceo_contribution`의 표시명이며 별도 schema나 field가 아니다.
+- Workspace Board MVP를 public-safe 예시로 기록하고, 실제 주관 책임자와 수행
+  TASK·agent, 미확정 협업, fresh verifier, manager의 분류·분장·fresh review
+  gate·통합, 근거 상태, Owner 최종 수락·state writer·deploy `HOLD`를 분리했다.
+- AI 기반시스템 회사의 개발1팀 직접 공지 금지와 두 회사 고객사–공급사
+  interface는 유지했다. installed personal skill, private route/binding, 실제
+  thread, 공지, external system은 변경하지 않았다. fresh independent review와
+  main 통합·공지 전까지 상태는 `canon_candidate`다.
+  (worker: `codex_gpt-5.6-sol`)
 
 ### AI 작업 결과 누락 복구 Phase G 운영 preflight 보강
 

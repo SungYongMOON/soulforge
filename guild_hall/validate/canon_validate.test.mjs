@@ -9,6 +9,43 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 const validatorPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "canon_validate.mjs");
+const attributionFields = [
+  "report_item_or_result",
+  "primary_owner",
+  "executor_or_agent",
+  "collaborators",
+  "independent_reviewers",
+  "manager_or_ceo_contribution",
+  "source_result_validation_evidence",
+  "owner_decision_or_cross_company_interface",
+];
+const attributionSemanticGuards = [
+  "exactly_one_primary_owner_required",
+  "responsibility_executor_reviewer_and_approver_are_distinct_roles",
+  "manager_or_ceo_self_credit_for_subordinate_execution_forbidden",
+  "manager_or_ceo_contribution_limited_to_classification_assignment_integration_or_escalation",
+  "requested_and_observed_model_are_separate",
+  "unobserved_provider_or_model_is_unknown",
+  "independent_reviewers_only_when_observed",
+  "partial_hold_failure_preserve_attribution_and_blocker",
+  "automatic_attribution_inference_forbidden",
+  "hidden_reasoning_forbidden",
+  "credential_and_raw_payload_forbidden",
+  "development1_manager_contribution_is_surface_label_for_manager_or_ceo_contribution",
+];
+const attributionScopeGuards = [
+  "direct_scope_restricted_to_ai_platform_company",
+  "direct_scope_includes_ax_erp_system_and_future_persistent_routes",
+  "development1_uses_cross_company_interface_only",
+  "development1_cross_company_interface_uses_same_attribution_shape",
+  "development1_internal_manager_reporting_is_separate_company_campaign",
+  "development1_internal_manager_reporting_uses_same_attribution_shape",
+];
+const attributionStepGuards = [
+  ["worker_execution_or_rollover_acceptance", "worker_result_summary_preserves_upward_result_attribution_shape"],
+  ["integration_and_validation", "integration_requires_and_preserves_upward_result_attribution_shape"],
+  ["closeout_or_registration_decision", "closeout_requires_upward_result_attribution_shape_and_forbids_manager_self_credit"],
+];
 
 test("canon validator accepts canonical knowledge and class-local knowledge refs", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-knowledge-"));
@@ -411,6 +448,88 @@ test("canon validator: 주석만 있는 index.yaml(null 파싱)은 기존대로 
   }
 });
 
+test("canon validator accepts the codex thread manager upward result attribution contract", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-"));
+  try {
+    await writeCodexThreadManagerFixture(root);
+
+    const result = await runValidator(root);
+
+    assert.equal(result.code, 0);
+    assert.equal(result.report.ok, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("canon validator rejects every missing codex thread manager attribution field with a stable reason code", async () => {
+  for (const field of attributionFields) {
+    const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-field-"));
+    try {
+      await writeCodexThreadManagerFixture(root, { omitField: field });
+
+      const result = await runValidator(root);
+      const issueIds = result.report.errors.map((error) => error.id);
+
+      assert.equal(result.code, 1);
+      assert.equal(issueIds.includes(`codex_thread_manager_attribution_field_missing_${field}`), true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("canon validator rejects every missing codex thread manager attribution semantic guard", async () => {
+  for (const guard of attributionSemanticGuards) {
+    const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-semantic-"));
+    try {
+      await writeCodexThreadManagerFixture(root, { omitSemanticGuard: guard });
+
+      const result = await runValidator(root);
+      const issueIds = result.report.errors.map((error) => error.id);
+
+      assert.equal(result.code, 1);
+      assert.equal(issueIds.includes(`codex_thread_manager_attribution_semantic_guard_missing_${guard}`), true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("canon validator rejects every missing company-scope and Development Team 1 campaign guard", async () => {
+  for (const guard of attributionScopeGuards) {
+    const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-scope-"));
+    try {
+      await writeCodexThreadManagerFixture(root, { omitScopeGuard: guard });
+
+      const result = await runValidator(root);
+      const issueIds = result.report.errors.map((error) => error.id);
+
+      assert.equal(result.code, 1);
+      assert.equal(issueIds.includes(`codex_thread_manager_attribution_scope_guard_missing_${guard}`), true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("canon validator rejects each missing codex thread manager attribution step wiring guard", async () => {
+  for (const [stepId] of attributionStepGuards) {
+    const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-step-"));
+    try {
+      await writeCodexThreadManagerFixture(root, { omitStepGuardFor: stepId });
+
+      const result = await runValidator(root);
+      const issueIds = result.report.errors.map((error) => error.id);
+
+      assert.equal(result.code, 1);
+      assert.equal(issueIds.includes(`codex_thread_manager_attribution_step_wiring_missing_${stepId}`), true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
 async function runValidator(root) {
   try {
     const { stdout } = await execFileAsync(process.execPath, [validatorPath, "--root", root, "--json"], { maxBuffer: 1024 * 1024 });
@@ -460,6 +579,64 @@ async function writeValidFixture(root, overrides = {}) {
     await writeFixture(root, ".registry/classes/knight/knowledge_refs.yaml", refsYaml);
   }
   await writeFixture(root, ".registry/knowledge/frontline_doctrine/knowledge.yaml", knowledgeYaml);
+}
+
+async function writeCodexThreadManagerFixture(root, options = {}) {
+  await writeValidFixture(root);
+  await writeFixture(root, ".workflow/index.yaml", [
+    "entries:",
+    "  - workflow_id: codex_thread_manager_v0",
+    "    path: codex_thread_manager_v0/workflow.yaml",
+    "",
+  ].join("\n"));
+  await writeFixture(root, ".workflow/codex_thread_manager_v0/workflow.yaml", buildAttributionWorkflowYaml(options));
+  await writeFixture(root, ".workflow/codex_thread_manager_v0/step_graph.yaml", buildAttributionStepGraphYaml(options));
+  for (const ref of ["role_slots.yaml", "handoff_rules.yaml", "monster_rules.yaml", "party_compatibility.yaml"]) {
+    await writeFixture(root, `.workflow/codex_thread_manager_v0/${ref}`, "status: active\n");
+  }
+}
+
+function buildAttributionWorkflowYaml({ omitField, omitSemanticGuard, omitScopeGuard } = {}) {
+  return [
+    "workflow_id: codex_thread_manager_v0",
+    "role_slots: role_slots.yaml",
+    "step_graph: step_graph.yaml",
+    "handoff_rules: handoff_rules.yaml",
+    "monster_rules: monster_rules.yaml",
+    "party_compatibility: party_compatibility.yaml",
+    "codex_thread_manager_contract:",
+    "  upward_result_attribution_reporting_policy:",
+    "    fields:",
+    ...attributionFields.filter((field) => field !== omitField).map((field) => `      - ${field}`),
+    "    semantic_guards:",
+    ...attributionSemanticGuards
+      .filter((guard) => guard !== omitSemanticGuard)
+      .map((guard) => `      ${guard}: true`),
+    "    scope_guards:",
+    ...attributionScopeGuards
+      .filter((guard) => guard !== omitScopeGuard)
+      .map((guard) => `      ${guard}: true`),
+    "",
+  ].join("\n");
+}
+
+function buildAttributionStepGraphYaml({ omitStepGuardFor } = {}) {
+  const lines = [
+    "workflow_id: codex_thread_manager_v0",
+    "kind: step_graph",
+    "status: active",
+    "steps:",
+  ];
+  for (const [stepId, guard] of attributionStepGuards) {
+    lines.push(`  - step_id: ${stepId}`, "    rules:");
+    if (stepId !== omitStepGuardFor) {
+      lines.push(`      ${guard}: true`);
+    } else {
+      lines.push("      placeholder: true");
+    }
+  }
+  lines.push("");
+  return lines.join("\n");
 }
 
 async function writePublicMissionDraftFixture(root, { missionYaml }) {

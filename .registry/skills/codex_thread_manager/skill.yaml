@@ -45,18 +45,26 @@ behavior:
     the Owner. Until a separate governance overlay or directory v2 is approved
     and validated, cross-branch CEO routing is explicit-address only and
     HOLD/non-routable.
+    Upward result reports from AX, ERP, SYSTEM, and future persistent AI
+    platform company responsibility routes preserve
+    `report_item_or_result`, exactly one `primary_owner`,
+    `executor_or_agent`, `collaborators`, observed-only
+    `independent_reviewers`, actual `manager_or_ceo_contribution`,
+    `source_result_validation_evidence`, and
+    `owner_decision_or_cross_company_interface`. A manager or CEO does not
+    self-credit subordinate execution. Requested and observed models stay
+    separate, unobserved provider or model values are `UNKNOWN`, and PARTIAL,
+    HOLD, failure, and unknown results retain attribution and blockers.
+    Development Team 1 is outside the AI platform company's direct notice
+    scope and receives the same shape through the customer-supplier interface.
+    Separately, Development Team 1 COMMON operations and project managers use
+    the same canonical shape for internal upward reports through their own
+    company campaign. `manager_contribution` is only a Development Team 1
+    display label for `manager_or_ceo_contribution`, not another field or
+    schema.
     Non-project SYSTEM, AX, or ERP work preserves its existing owner routing,
     and all non-applicable project-extension packet fields are recorded as
     `not_applicable` rather than inventing a project.
-    Managers reporting results to a superior separate the report item, exactly
-    one actual primary responsibility owner, actual executor or agent,
-    confirmed collaborators, an independent reviewer only when one existed,
-    the manager's actual classification, assignment, integration, or
-    escalation contribution, TASK/thread/evidence pointer and status, and any
-    Owner decision or approval need. They do not collapse the responsibility
-    owner's work into manager work, confuse the responsibility title with the
-    executor, infer unconfirmed attribution, or report self-check or an
-    implementer fork as independent review.
     Worker threads
     are subagent-first lane controllers:
     substantive
@@ -92,6 +100,10 @@ behavior:
     - Codex reads the public company/team common-work contract before classifying COMMON work
     - Codex reads the approved two-company organization contract before CEO coordination
     - Codex never treats either CEO as a v1 cross-branch parent and keeps automatic CEO routing HOLD/non-routable without a separately approved governance overlay or directory v2
+    - Codex preserves the eight-field upward result attribution shape for AX, ERP, SYSTEM, and future persistent AI platform company routes without manager or CEO self-credit
+    - Codex uses the same canonical attribution shape for Development Team 1 COMMON and project manager internal upward reports through a separate Development Team 1 company campaign, with `manager_contribution` only as the display label for `manager_or_ceo_contribution`
+    - Codex keeps Development Team 1 outside the AI platform company's direct notice scope and preserves the same shape at the customer-supplier interface
+    - Codex separates requested and observed models, records unobserved provider or model values as UNKNOWN, and keeps actual performers and blockers for PARTIAL, HOLD, failure, and unknown results
     - Codex preserves explicit Owner decisions for people, personnel, budget, purchasing, ordering, external commitments, sending, baselines, and final acceptance
     - Codex applies project assignment fields only to confirmed project work and preserves existing owner routing with `not_applicable` project-extension fields for non-project work
     - Codex distinguishes owner directives from peer collaboration, review, and reclassification requests without transferring domain authority
@@ -101,8 +113,6 @@ behavior:
     - Codex distinguishes responsibility owner, executor or agent, independent reviewer, and acceptance or approval authority without assuming four mandatory people
     - Codex creates a new TASK for a new deliverable, multi-step work, separate Verification, Validation, independent review, or acceptance and continues an existing TASK only when objective, owner, scope, baseline, interface, approval scope, and acceptance criteria match
     - Codex applies start, change, and complete gates and preserves human owner approval for final assignment, final acceptance, completion, and external side effects
-    - Codex result reports to a superior separate the result, exactly one actual primary responsibility owner, actual executor or agent, collaborators, any actual independent reviewer, manager contribution, TASK/thread/evidence pointer and status, and Owner decision or approval needs
-    - Codex does not infer unconfirmed attribution or present a responsibility owner's work, implementer self-check, or implementer fork as manager work or independent review
     - Codex references Task Engine authority canon without redefining or activating it
     - Codex routes non-durable side work to subagents and durable lanes to Codex worker threads
     - Codex uses fresh-context verifier/judge/reviewer lanes for independent acceptance and does not fork or continue the implementer for that judgment
@@ -132,6 +142,7 @@ execution_requirements:
     - cross_branch_request_relationship_classification
     - task_thread_create_or_continue_routing
     - task_logical_role_and_gate_packet_authoring
+    - upward_result_attribution_reporting
   preferred_capabilities:
     - worktree_worker_thread_isolation
     - bounded_subagent_fanout

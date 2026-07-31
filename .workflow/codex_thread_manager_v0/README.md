@@ -40,9 +40,39 @@ safety, or party binding.
 - Project-manager-first work classification, one-primary-owner assignment,
   out-of-scope reclassification, TASK logical roles and start/change/complete
   gates, and new-versus-existing TASK decisions.
-- Superior-facing result reports that separate the actual primary responsibility
-  owner, executor, collaborators, independent reviewer, and manager
-  contribution instead of presenting all work as the manager's own result.
+- Upward result attribution for the AI platform company so a manager's
+  integrated conclusion preserves the actual primary owner, performer,
+  collaborators, observed independent review, manager/CEO contribution,
+  evidence state, and Owner or cross-company gate.
+
+## AI Platform Company Upward Result Attribution
+
+Every upward result report from AX, ERP, SYSTEM, or a future persistent AI
+platform company responsibility route preserves these fields:
+`report_item_or_result`, exactly one `primary_owner`, `executor_or_agent`,
+`collaborators`, observed-only `independent_reviewers`,
+`manager_or_ceo_contribution`, `source_result_validation_evidence`, and
+`owner_decision_or_cross_company_interface`.
+
+Managers and CEOs may claim only the classification, assignment, integration,
+or escalation they actually performed; they do not self-credit subordinate
+execution. Requested and observed models remain separate, and an unobserved
+provider or model is `UNKNOWN`. `PARTIAL`, `HOLD`, failure, and unknown results
+keep the same attribution shape and blocker. Automatic attribution inference,
+hidden reasoning, credentials, raw logs, and raw payloads are forbidden.
+
+Development Team 1 is a separate company and is not in the direct notice scope.
+Customer-supplier result packets use the same shape only at the cross-company
+interface, without transferring AX, ERP, SYSTEM, project, acceptance, or Owner
+authority.
+
+Development Team 1 applies the same canonical eight-field shape to upward
+reports from its COMMON operations manager and project managers through a
+separate internal company campaign. On that Development Team 1 surface,
+`manager_contribution` is only a display label for the canonical
+`manager_or_ceo_contribution` field, not a second field or schema. This internal
+campaign does not make the AI platform company a direct notifier to Development
+Team 1 and does not change the customer-supplier interface.
 
 ## Context Lifecycle
 
@@ -129,26 +159,6 @@ instead of inventing a project or project responsibility lane.
   purchasing, payment, contracting, baseline approval, public release, or
   final acceptance, completion approval, or another external side effect.
 
-### Result report attribution
-
-When a manager reports work results to a superior, the report records:
-
-1. report item or result;
-2. exactly one actual primary responsibility owner route/title;
-3. the actual executor or agent TASK/thread, or `unconfirmed`;
-4. confirmed collaborators, `none`, or `unconfirmed`;
-5. an independent reviewer only when one actually existed;
-6. the manager's actual classification, assignment, integration, or escalation
-   contribution;
-7. TASK/thread/evidence pointer and status; and
-8. Owner decision or approval needs, or `none`.
-
-Do not collapse a responsibility owner's work into manager work, confuse a
-responsibility title with the actual executor, infer unconfirmed attribution,
-or label implementer self-check or an implementer fork as independent review.
-Prefer public-safe route/title and evidence pointers over person names or
-sensitive data.
-
 ### Stable manager directory maintenance
 
 - Stable manager route create, rollover, retire maintenance applies only to
@@ -231,11 +241,13 @@ sensitive data.
 10. Observe thread ids/titles and acceptance results.
 11. Apply the change gate when scope or decision inputs change.
 12. Route bounded result packets between workers when useful.
-13. Integrate worker summaries after checking actual state.
+13. Integrate worker summaries after checking actual state while preserving the
+    eight-field upward result attribution shape and forbidding manager
+    self-credit.
 14. Check the complete gate, then run validators and
     `$soulforge-workflow-check`.
-15. Close out with result-report attribution when reporting to a superior, the
-    claim ceiling, blockers, next action, and knowledge trigger result.
+15. Close out with the attribution shape, claim ceiling, blockers, next action,
+    Owner or cross-company gate, and knowledge trigger result.
 
 ## Party Policy
 
