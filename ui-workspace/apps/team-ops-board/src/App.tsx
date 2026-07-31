@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import antigravityBrandIcon from "@lobehub/icons-static-svg/icons/antigravity-color.svg";
+import codexBrandIcon from "@lobehub/icons-static-svg/icons/codex-color.svg";
+import kimiBrandIcon from "@lobehub/icons-static-svg/icons/kimi-color.svg";
 import {
   AlertCircle,
   ArchiveRestore,
@@ -9,21 +12,18 @@ import {
   ChevronRight,
   CircleHelp,
   CircleUserRound,
-  Code2,
   FileCheck2,
   Filter,
   GitBranch,
   History,
   Info,
   Menu,
-  Moon,
   OctagonAlert,
   Play,
   RotateCcw,
   Search,
   ScanSearch,
   ShieldAlert,
-  Sparkles,
   UsersRound,
   X
 } from "lucide-react";
@@ -606,10 +606,9 @@ function TaskCard({
 }
 
 const providerIconMap = {
-  [PROVIDER_ICON_KEYS.CODEX_GPT]: Code2,
-  [PROVIDER_ICON_KEYS.ANTIGRAVITY_GEMINI]: Sparkles,
-  [PROVIDER_ICON_KEYS.KIMI]: Moon,
-  [PROVIDER_ICON_KEYS.UNKNOWN]: Bot
+  [PROVIDER_ICON_KEYS.CODEX_GPT]: codexBrandIcon,
+  [PROVIDER_ICON_KEYS.ANTIGRAVITY_GEMINI]: antigravityBrandIcon,
+  [PROVIDER_ICON_KEYS.KIMI]: kimiBrandIcon
 } as const;
 
 function ProviderRow({ task }: { task: any }) {
@@ -626,7 +625,7 @@ function ProviderRow({ task }: { task: any }) {
     <span className="inbox-provider-row" aria-label={`관찰된 agent ${task.providers.length}개`}>
       {task.providers.map((entry: any) => {
         const visual = resolveProviderVisual(entry);
-        const ProviderIcon = providerIconMap[visual.iconKey as keyof typeof providerIconMap];
+        const brandIcon = providerIconMap[visual.iconKey as keyof typeof providerIconMap];
         return (
           <span
             className={`inbox-provider-badge inbox-provider-${visual.iconKey}`}
@@ -635,7 +634,16 @@ function ProviderRow({ task }: { task: any }) {
             aria-label={visual.accessibleName}
             title={visual.accessibleName}
           >
-            <ProviderIcon size={12} aria-hidden="true" />
+            {brandIcon ? (
+              <img
+                className="inbox-provider-brand-icon"
+                src={brandIcon}
+                alt=""
+                aria-hidden="true"
+              />
+            ) : (
+              <Bot size={12} aria-hidden="true" />
+            )}
             {visual.label}
           </span>
         );

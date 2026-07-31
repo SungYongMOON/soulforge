@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { buildOwnerInboxFixture } from "./owner-inbox.mjs";
 import {
+  PROVIDER_ASSET_SLUGS,
   PROVIDER_ICON_KEYS,
   buildCompactCardView,
   resolveProviderVisual
@@ -21,6 +22,11 @@ test("provider visual: observed provider별 library icon key를 결정한다", (
     resolveProviderVisual({ agent: "Kimi", provider: "Kimi", observed: true }).iconKey,
     PROVIDER_ICON_KEYS.KIMI
   );
+  assert.deepEqual(PROVIDER_ASSET_SLUGS, {
+    antigravity: "antigravity-color.svg",
+    codex: "codex-color.svg",
+    kimi: "kimi-color.svg"
+  });
 });
 
 test("provider visual: multi-agent는 observed icon을 각각 보존하고 UNKNOWN은 추정하지 않는다", () => {

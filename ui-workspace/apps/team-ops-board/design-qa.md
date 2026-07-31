@@ -7,13 +7,13 @@
 - compact work-tool grammar reference:
   `%TEMP%/codex-clipboard-213e4c44-7fda-4a80-8087-a9f68a82c991.png`
 - final browser-rendered implementation:
-  `evidence/workspace-board-1440x1024-compact-provider-icons-final.png`
+  `evidence/workspace-board-1440x1024-brand-glyphs-final.png`
 - final same-input comparison:
-  `evidence/workspace-board-iteration6-final-full-comparison.png`
+  `evidence/workspace-board-iteration7-final-full-comparison.png`
 - final focused card comparison:
-  `evidence/workspace-board-iteration6-final-card-focus-comparison.png`
+  `evidence/workspace-board-iteration7-final-provider-focus-comparison.png`
 - final mobile dialog implementation:
-  `evidence/workspace-board-390x844-blocked-modal.png`
+  `evidence/workspace-board-390x844-brand-glyphs-modal.png`
 - route/state: `/`, dark theme, synthetic normal state, blocked TASK selected
 - CSS viewport: 1440 × 1024
 - device pixel ratio: 1
@@ -27,7 +27,7 @@
 ## Browser evidence
 
 - primary desktop:
-  `evidence/workspace-board-1440x1024-compact-provider-icons-final.png`
+  `evidence/workspace-board-1440x1024-brand-glyphs-final.png`
 - pre-revision desktop baseline:
   `evidence/workspace-board-1440x1024-before-compact-annotation.png`
 - compact-card initial comparison:
@@ -35,17 +35,17 @@
 - compact-card final comparison:
   `evidence/workspace-board-iteration6-final-full-comparison.png`
 - focused card/provider comparison:
-  `evidence/workspace-board-iteration6-final-card-focus-comparison.png`
+  `evidence/workspace-board-iteration7-final-provider-focus-comparison.png`
 - completed-unread selected:
   `evidence/workspace-board-1440x1024-completed-selected.png`
 - acknowledged history recovery:
   `evidence/workspace-board-1440x1024-acknowledged-history.png`
 - tablet:
-  `evidence/workspace-board-1024x768-compact-detail.png`
+  `evidence/workspace-board-1024x768-brand-glyphs-detail.png`
 - mobile board:
-  `evidence/workspace-board-390x844-compact-board.png`
+  `evidence/workspace-board-390x844-brand-glyphs-board.png`
 - mobile blocked detail:
-  `evidence/workspace-board-390x844-blocked-modal.png`
+  `evidence/workspace-board-390x844-brand-glyphs-modal.png`
 - mobile accessible dialog:
   `evidence/workspace-board-390x844-mobile-dialog-accessibility.png`
 - mobile first entry without an automatic dialog:
@@ -61,9 +61,9 @@
 
 The full-view comparison covers composition, typography, token, copy, and the
 unchanged right detail. The provider glyphs and card density are too small for
-reliable full-view judgment, so iteration 6 also uses a focused card-region
-comparison. The mobile detail has its own focused screenshot because it changes
-to a fixed modal overlay.
+reliable full-view judgment, so iteration 7 uses a focused candidate-versus-
+brand card comparison. The mobile detail has its own focused screenshot because
+it changes to a fixed modal overlay.
 
 ## Findings
 
@@ -82,15 +82,17 @@ No actionable P0/P1/P2 findings remain.
   column treatments preserve the source state semantics without heavy fills.
   `completed_unread` is green and blocked/decision text is red.
 - Image quality and assets: the target contains no required raster product
-  imagery. Standard interface icons use the app's existing Lucide library.
-  The Orca orb and host chrome are reference-environment assets and were not
-  copied into the product.
+  imagery. Standard interface icons use Lucide. Observed provider marks use
+  unmodified MIT `@lobehub/icons-static-svg` brand assets imported through the
+  Vite asset pipeline; no inline/handcrafted SVG, CSS art, emoji, or generic
+  approximation remains. The Orca orb and host chrome are reference-environment
+  assets and were not copied into the product.
 - Copy and content: every displayed entity is labeled synthetic or observed/
   UNKNOWN. The copy does not imply live Codex, ERP, worktree, or provider truth.
-- Icons: one consistent Lucide outline family is used. Observed Codex/GPT,
-  Antigravity/Gemini, and Kimi entries map to `Code2`, `Sparkles`, and `Moon`;
-  multi-agent rows show both observed glyphs. UNKNOWN remains generic `Bot`
-  with explicit non-inference text.
+- Icons: observed Codex/GPT, Antigravity/Gemini, and Kimi entries use Lobe's
+  `codex-color.svg`, `antigravity-color.svg`, and `kimi-color.svg` brand marks.
+  Multi-agent rows show both observed brand glyphs. Only UNKNOWN remains Lucide
+  `Bot`, with explicit non-inference text.
 - States and interactions: active/history, search, project/responsibility/
   status filters, per-column more, detail selection, completed acknowledgement,
   pointer-preserving history recovery, empty, error, missing-data, UNKNOWN, and
@@ -364,6 +366,75 @@ Final mandatory fidelity pass:
 No actionable P0/P1/P2 finding remains after the UNKNOWN icon recapture.
 Browser console errors: 0; warnings: 0.
 
+### Iteration 7 — fresh provider-brand P2, then passed
+
+Fresh non-implementer review of candidate
+`130a568b1f9a6feae8fc7beaba419e1e03ab7430` found one P2: Lucide `Code2`,
+`Sparkles`, and `Moon` were different generic shapes, not actual provider or
+brand glyphs. The labels remained readable, but the icons alone did not
+reliably identify Codex/OpenAI, Antigravity/Gemini, or Kimi. P0/P1 were zero.
+
+Asset/dependency decision:
+
+- repo and installed dependencies contained no local provider brand assets
+- selected exact `@lobehub/icons-static-svg` 1.94.0, an MIT AI/LLM brand-asset
+  package with no runtime dependencies, instead of its roughly 9 MB React
+  component package with four dependencies
+- imported only `codex-color.svg`, `antigravity-color.svg`, and
+  `kimi-color.svg`; Vite bundles only referenced assets
+- retained Lucide `Bot` exclusively for UNKNOWN
+
+Fix:
+
+- replaced the three generic Lucide provider shapes with the corresponding
+  Lobe brand assets at 13 × 13 CSS px
+- preserved visible labels, parent accessible names, title tooltips,
+  decorative-image `alt=""`, observed-only mapping, and multi-agent display
+- changed deterministic mapping keys from `code`/`sparkles`/`moon` to
+  `codex`/`antigravity`/`kimi` and asserted exact asset slugs
+
+Evidence:
+
+- final desktop:
+  `evidence/workspace-board-1440x1024-brand-glyphs-final.png`
+- full selected-source/candidate/final comparison:
+  `evidence/workspace-board-iteration7-final-full-comparison.png`
+- focused Codex, Kimi, multi-agent, and UNKNOWN comparison:
+  `evidence/workspace-board-iteration7-final-provider-focus-comparison.png`
+- tablet detail:
+  `evidence/workspace-board-1024x768-brand-glyphs-detail.png`
+- mobile board and modal:
+  `evidence/workspace-board-390x844-brand-glyphs-board.png`,
+  `evidence/workspace-board-390x844-brand-glyphs-modal.png`
+
+At 1440 × 1024, all 16 compact cards remain visible, average card height is
+98.08 px, positive horizontal overflow is zero, and rendered brand images are
+13 × 13. Browser DOM evidence confirms loaded image assets and accessible
+labels for `codex`, `antigravity`, and `kimi`; the multi-agent TASK renders
+Codex plus Antigravity, while all four UNKNOWN samples retain Lucide `Bot`.
+
+At 1024 × 768, the detail remains non-modal and preserves owner, reviewer,
+pointer, and both multi-agent brand assets. At 390 × 844, first entry opens no
+dialog; completed acknowledgement retains focus inside the connected
+`이력 상세`; Escape restores a connected history control; blocked
+Tab/Shift+Tab remains trapped with zero effective outside focusables and
+Escape restores the exact origin card.
+
+Mandatory fidelity pass:
+
+- fonts/typography: unchanged compact hierarchy and readable visible labels
+- spacing/layout: the 0.64 px average increase from the reviewed 97.44 px
+  baseline is immaterial; 16 cards remain visible and no region overflows
+- colors/tokens: provider brand colors remain legible on graphite badges;
+  semantic column and selected-state colors are unchanged
+- image/assets: exact library brand glyphs, no inline or handcrafted
+  substitutes, no broken assets, and natural/rendered dimensions verified
+- copy/content: provider labels, tooltip/accessibility names, synthetic scope,
+  and UNKNOWN non-inference language are unchanged
+
+Filtered in-app/browser app-origin console errors: 0; warnings: 0. No
+actionable P0/P1/P2 finding remains after the brand-glyph recapture.
+
 ## Primary interactions and console
 
 - selected blocked TASK and confirmed blocker reason/next decision persistence
@@ -387,6 +458,8 @@ Browser console errors: 0; warnings: 0.
 - confirmed compact cards exclude owner/reviewer/timestamp/pointer while the
   selected detail preserves those fields; observed provider icons and labels
   remain distinguishable and accessible
+- confirmed actual Codex, Antigravity, and Kimi brand assets load at natural and
+  rendered dimensions; multi-agent shows both and UNKNOWN alone uses `Bot`
 - measured 1440 × 1024 cards at 97 px average and 16 visible, versus the
   182 px/12-card pre-revision baseline
 - confirmed mobile dialog effective focusables: inside 1, outside 0; tablet
@@ -404,8 +477,8 @@ Browser console errors: 0; warnings: 0.
 
 - [x] Four exact active columns and default exclusions
 - [x] Compact project/responsibility/status/TASK/provider card hierarchy
-- [x] Observed-only provider-specific icons, multi-agent glyphs, and UNKNOWN
-  generic-agent semantics
+- [x] Observed-only provider brand assets, multi-agent glyphs, and UNKNOWN
+  Lucide `Bot` semantics
 - [x] Blocker reason and next decision persistence
 - [x] Completed acknowledgement and pointer-preserving history
 - [x] Scale cap, more, search, and filters

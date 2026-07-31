@@ -1,8 +1,14 @@
 export const PROVIDER_ICON_KEYS = Object.freeze({
-  CODEX_GPT: "code",
-  ANTIGRAVITY_GEMINI: "sparkles",
-  KIMI: "moon",
+  CODEX_GPT: "codex",
+  ANTIGRAVITY_GEMINI: "antigravity",
+  KIMI: "kimi",
   UNKNOWN: "bot"
+});
+
+export const PROVIDER_ASSET_SLUGS = Object.freeze({
+  [PROVIDER_ICON_KEYS.CODEX_GPT]: "codex-color.svg",
+  [PROVIDER_ICON_KEYS.ANTIGRAVITY_GEMINI]: "antigravity-color.svg",
+  [PROVIDER_ICON_KEYS.KIMI]: "kimi-color.svg"
 });
 
 export function resolveProviderVisual(entry) {

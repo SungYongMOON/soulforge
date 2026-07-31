@@ -596,6 +596,13 @@ button {
   line-height: 1;
 }
 
+.inbox-provider-brand-icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  object-fit: contain;
+}
+
 .inbox-multi-badge {
   color: #c7b2ed;
   border-color: rgba(166, 108, 255, 0.35);

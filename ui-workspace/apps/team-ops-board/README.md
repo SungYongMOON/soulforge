@@ -19,10 +19,12 @@ active 보드에서 제외한다. 검색과 `이력·제외` 화면으로 다시
 카드는 프로젝트·책임분야·상태 작은 메타 뒤에 실제 synthetic TASK 제목,
 route, provider만 표시하는 고밀도 접힘 형태다. 책임자·검토자·최근 활동·pointer와
 근거는 선택 시 우측 상세 또는 모바일 dialog에서 보여 준다. agent/provider badge는
-fixture에서 `observed: true`인 값만 보여 주며, Codex/GPT는 Lucide `Code2`,
-Antigravity/Gemini는 `Sparkles`, Kimi는 `Moon` 아이콘으로 구분한다. 관찰되지
-않은 값은 generic `Bot`과 `UNKNOWN · 추정 안 함`으로 표시한다. worktree도 실제
-연결을 표현하도록 지정한 fixture 상세에서만 선택적으로 나타난다.
+fixture에서 `observed: true`인 값만 보여 준다. MIT 라이선스의
+`@lobehub/icons-static-svg` 브랜드 자산에서 Codex/GPT는 `codex-color.svg`,
+Antigravity/Gemini는 `antigravity-color.svg`, Kimi는 `kimi-color.svg`로
+구분한다. 관찰되지 않은 값만 Lucide generic `Bot`과
+`UNKNOWN · 추정 안 함`으로 표시한다. worktree도 실제 연결을 표현하도록 지정한
+fixture 상세에서만 선택적으로 나타난다.
 
 ## 데이터와 안전 경계
 

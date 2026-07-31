@@ -104,6 +104,10 @@
   표시한다. 1440×1024에서 평균 카드 높이를 182px에서 97px로 줄이고 기본
   표시를 12건에서 16건으로 늘렸으며, 기존 상세·모바일 modal focus lifecycle과
   synthetic/read-only 경계를 회귀 검증했다. (worker: `codex_gpt-5.6`)
+- fresh review의 provider 식별 P2를 보정했다. 일반 Lucide 도형 매핑을 제거하고
+  MIT `@lobehub/icons-static-svg`의 실제 Codex·Antigravity·Kimi 브랜드 glyph를
+  정적 asset import로 적용했다. UNKNOWN만 Lucide `Bot`을 유지하고 복수 agent는
+  관찰된 각 브랜드 glyph를 함께 표시한다. (worker: `codex_gpt-5.6`)
 
 ## 2026-07-30
 
