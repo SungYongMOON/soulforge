@@ -2,6 +2,27 @@
 
 ## 2026-07-31
 
+### AI 작업 결과 누락 복구 Phase G 운영 preflight 보강
+
+- public commit `ca63963421e3ac4792dd8aeb34dac518e3a9b5a4`를 `main`에 포함했다.
+  runtime preflight v2는 active public·workmeta·private-state·automation control
+  root와 complete Codex/Orca worktree inventory를 fail-closed로 결속하고,
+  authoritative ledger·cursor·authority·redacted receipt만 backup/restore 포함으로
+  분류한다. runtime clone·lock·temp는 재생성 가능 제외이며 config·remote URL·
+  credential·owner token은 capture 금지다.
+- sanitized Git config·authority evidence와 restore manifest/receipt를 전체 입력에서
+  다시 검증하고, builder v2와 runner v4가 caller PASS summary·불완전 inventory·
+  forged preflight를 거부하도록 보강했다. ledger publication 뒤 HOLD는
+  reconciliation 상태를 명시하며, cursor push 뒤 결과가 불명확하면
+  `cursor_unchanged=null`로 남긴다.
+- fresh Level 3과 최신 main 통합 재검증에서 runner 25/25, non-runner 42/42,
+  path-policy 5 PASS/Windows symlink 1 SKIP, canon 136/0/0을 통과했다.
+  표시명 `AI 작업 결과 누락 복구 (매일)`의 tracked candidate는 계속 `PAUSED`다.
+  실제 private ledger·cursor·runtime·ACL·NAS·installed automation·network는
+  변경하지 않았고 one-shot과 이후 `ACTIVE`는 사람 Owner 승인 전 `HOLD`다.
+  `official_completion=false`; `313`과 `317`은 실제 누락 수가 아니다.
+  (worker: `codex_gpt-5.6-sol`)
+
 ### AI 작업 결과 누락 복구 Phase E public-synthetic remediation
 
 - public commit `57e93fb3dbabfa4fa4e24bfe062c6e4d6195c75e`를 `main`에 포함했다.
