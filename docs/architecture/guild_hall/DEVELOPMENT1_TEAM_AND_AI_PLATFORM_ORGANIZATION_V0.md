@@ -89,6 +89,47 @@ AX의 에이전트 운영 책임과 SYSTEM 실행기반의 경계는 다음처�
 이 경계의 상세 제품 계약은 기존 AX·SYSTEM owner가 소유하며 이 문서에서
 재정의하지 않는다.
 
+## AI 기반시스템 회사 상향 결과보고 attribution 계약
+
+AI 기반시스템 회사의 하위 책임 route가 상급 manager·CEO·Owner에게 업무 결과를
+보고할 때는 통합 결론만 남기지 않고 실제 주관·수행·협업·검토·통합 기여를
+구분한다. 이 계약은 AX·ERP·SYSTEM의 기존 제품 authority와 directory v1
+topology를 바꾸지 않으며, 다음 필드를 모두 보존한다.
+
+1. `report_item_or_result`: 보고 항목·결과와 `PASS`, `PARTIAL`, `HOLD`,
+   `FAILED`, `UNKNOWN` 같은 실제 상태
+2. `primary_owner`: 실제 주관 책임의 exact route/title 정확히 1개
+3. `executor_or_agent`: 실제 수행 agent·모델·TASK·thread. 요청 모델과 실제
+   관찰 모델을 구분하고, provider·모델을 관찰하지 못했으면 `UNKNOWN`
+4. `collaborators`: 주관이 아닌 협업 책임·agent·TASK
+5. `independent_reviewers`: 실제 독립검토가 있었을 때만 기록하는 검토 주체
+6. `manager_or_ceo_contribution`: manager·CEO가 실제 수행한 분류·분장·통합·
+   에스컬레이션
+7. `source_result_validation_evidence`: source·result·validation·evidence의
+   안전한 pointer와 각 상태
+8. `owner_decision_or_cross_company_interface`: Owner 결정·승인 또는
+   고객사–공급사 interface에서 필요한 다음 gate
+
+운영 guard는 다음과 같다.
+
+- CEO·manager는 하위 책임자나 agent의 실무를 자신이 수행한 것처럼 보고하지
+  않는다. 책임 역할, 실제 수행 agent·모델, 독립검토자와 승인자를 섞지 않는다.
+- `primary_owner`는 정확히 1개이며 나머지는 협업 또는 독립검토로 구분한다.
+  manager·CEO 기여는 실제 분류·분장·통합·에스컬레이션으로 제한한다.
+- subagent·CLI·provider worker가 수행했다면 요청 모델과 실제 관찰 모델을
+  분리하고, 안전한 session/result digest 또는 evidence pointer를 남긴다.
+- 자동 추정 attribution, 숨은 reasoning, credential, 원문·raw payload 노출을
+  금지한다. 독립검토가 관찰되지 않았으면 검토자를 만들어내지 않는다.
+- 실패·`PARTIAL`·`HOLD`도 같은 attribution shape와 실제 수행 주체, blocker를
+  보존한다.
+
+직접 적용 범위는 `[AX] 총괄 CEO`와 AX 하위 책임자·manager, `[ERP] 개발 CEO`와
+ERP 하위 실행·관리 route, `[SYSTEM] 기능개발/팀장`과 에이전트 실행기반 route,
+그리고 앞으로 승인되어 생기는 AI 기반시스템 회사 지속형 manager·책임 route다.
+개발1팀 회사는 별도 회사이므로 이 직접 공지 범위에 포함하지 않는다. 다만 두
+회사 사이의 고객사–공급사 결과보고에는 같은 attribution shape를 제공하여
+공급사 주관·수행·검토·통합 기여와 개발1팀 사용수락, Owner 최종판단을 분리한다.
+
 ## 개발1팀 운영실의 다섯 portfolio
 
 현재 COMMON의 일곱 책임은 폐기하지 않고 다음 다섯 사람이 보는 portfolio로

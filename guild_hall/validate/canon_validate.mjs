@@ -39,6 +39,49 @@ const publicMissionDraftSecretKeyPattern =
   /^(?:password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|token|cookie|session|credential|client[_-]?secret|authorization)$/iu;
 const publicMissionDraftSecretValuePattern =
   /\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|session[_-]?cookie|client[_-]?secret|authorization)\s*[:=]\s*["']?(?:Bearer\s+)?[^"'\s]{8,}/iu;
+const codexThreadManagerAttributionFields = [
+  "report_item_or_result",
+  "primary_owner",
+  "executor_or_agent",
+  "collaborators",
+  "independent_reviewers",
+  "manager_or_ceo_contribution",
+  "source_result_validation_evidence",
+  "owner_decision_or_cross_company_interface",
+];
+const codexThreadManagerAttributionSemanticGuards = [
+  "exactly_one_primary_owner_required",
+  "responsibility_executor_reviewer_and_approver_are_distinct_roles",
+  "manager_or_ceo_self_credit_for_subordinate_execution_forbidden",
+  "manager_or_ceo_contribution_limited_to_classification_assignment_integration_or_escalation",
+  "requested_and_observed_model_are_separate",
+  "unobserved_provider_or_model_is_unknown",
+  "independent_reviewers_only_when_observed",
+  "partial_hold_failure_preserve_attribution_and_blocker",
+  "automatic_attribution_inference_forbidden",
+  "hidden_reasoning_forbidden",
+  "credential_and_raw_payload_forbidden",
+];
+const codexThreadManagerAttributionScopeGuards = [
+  "direct_scope_restricted_to_ai_platform_company",
+  "direct_scope_includes_ax_erp_system_and_future_persistent_routes",
+  "development1_uses_cross_company_interface_only",
+  "development1_cross_company_interface_uses_same_attribution_shape",
+];
+const codexThreadManagerAttributionStepGuards = [
+  {
+    stepId: "worker_execution_or_rollover_acceptance",
+    guard: "worker_result_summary_preserves_upward_result_attribution_shape",
+  },
+  {
+    stepId: "integration_and_validation",
+    guard: "integration_requires_and_preserves_upward_result_attribution_shape",
+  },
+  {
+    stepId: "closeout_or_registration_decision",
+    guard: "closeout_requires_upward_result_attribution_shape_and_forbids_manager_self_credit",
+  },
+];
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -424,9 +467,94 @@ async function loadWorkflowCatalog(errors, checked) {
         errors.push(buildIssue("workflow_ref_missing", repoPath, `${key} target is missing: ${relativeRef}`));
       }
     }
+
+    if (workflowId === "codex_thread_manager_v0") {
+      await validateCodexThreadManagerAttribution(document, workflowDir, repoPath, errors, checked);
+    }
   }
 
   return { ids: workflowIds };
+}
+
+async function validateCodexThreadManagerAttribution(document, workflowDir, repoPath, errors, checked) {
+  const policy = document?.codex_thread_manager_contract?.upward_result_attribution_reporting_policy;
+  if (!isPlainObject(policy)) {
+    errors.push(
+      buildIssue(
+        "codex_thread_manager_attribution_policy_missing",
+        repoPath,
+        "codex_thread_manager_contract.upward_result_attribution_reporting_policy must be present",
+      ),
+    );
+  }
+
+  const fields = new Set(arrayValue(policy?.fields).map(stringValue).filter(Boolean));
+  for (const field of codexThreadManagerAttributionFields) {
+    if (!fields.has(field)) {
+      errors.push(
+        buildIssue(
+          `codex_thread_manager_attribution_field_missing_${field}`,
+          repoPath,
+          `upward result attribution fields must include ${field}`,
+        ),
+      );
+    }
+  }
+
+  for (const guard of codexThreadManagerAttributionSemanticGuards) {
+    if (policy?.semantic_guards?.[guard] !== true) {
+      errors.push(
+        buildIssue(
+          `codex_thread_manager_attribution_semantic_guard_missing_${guard}`,
+          repoPath,
+          `upward result attribution semantic_guards.${guard} must be true`,
+        ),
+      );
+    }
+  }
+
+  for (const guard of codexThreadManagerAttributionScopeGuards) {
+    if (policy?.scope_guards?.[guard] !== true) {
+      errors.push(
+        buildIssue(
+          `codex_thread_manager_attribution_scope_guard_missing_${guard}`,
+          repoPath,
+          `upward result attribution scope_guards.${guard} must be true`,
+        ),
+      );
+    }
+  }
+
+  const stepGraphRef = stringValue(document?.step_graph);
+  if (!stepGraphRef) {
+    return;
+  }
+
+  const stepGraphPath = path.join(workflowDir, stepGraphRef);
+  if (!(await fileExists(stepGraphPath))) {
+    return;
+  }
+
+  const stepGraphRepoPath = normalizeRepoPath(path.relative(repoRoot, stepGraphPath));
+  checked.push(stepGraphRepoPath);
+  const stepGraph = await readYamlOrIssue(stepGraphPath, stepGraphRepoPath, errors);
+  if (stepGraph === YAML_READ_FAILED) {
+    return;
+  }
+
+  const steps = arrayValue(stepGraph?.steps);
+  for (const { stepId, guard } of codexThreadManagerAttributionStepGuards) {
+    const step = steps.find((entry) => stringValue(entry?.step_id) === stepId);
+    if (step?.rules?.[guard] !== true) {
+      errors.push(
+        buildIssue(
+          `codex_thread_manager_attribution_step_wiring_missing_${stepId}`,
+          stepGraphRepoPath,
+          `${stepId}.rules.${guard} must be true`,
+        ),
+      );
+    }
+  }
 }
 
 async function loadPartyCatalog(errors, checked, workflowIds) {

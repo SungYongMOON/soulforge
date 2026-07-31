@@ -2,6 +2,23 @@
 
 ## 2026-07-31
 
+### AI 기반시스템 회사 상향 결과보고 attribution 계약
+
+- AX·ERP·SYSTEM과 향후 AI 기반시스템 회사 지속 책임 route의 상향 결과보고가
+  `report_item_or_result`, 단일 `primary_owner`, `executor_or_agent`,
+  `collaborators`, 실제 독립검토자, manager·CEO의 실제 조정 기여, 근거 pointer,
+  Owner 또는 고객사–공급사 gate를 함께 보존하도록 조직 정본과
+  `codex_thread_manager_v0` workflow·registry skill bridge를 동기화했다.
+- manager·CEO의 하위 실무 self-credit, 자동 attribution 추정, 숨은 reasoning,
+  credential·raw payload 노출을 금지하고, 미관찰 provider·model은 `UNKNOWN`,
+  `PARTIAL`·`HOLD`·실패도 실제 수행 주체와 blocker를 유지하도록 했다.
+  개발1팀 회사는 직접 공지 범위에서 제외하고 고객사–공급사 결과 packet에만
+  같은 shape를 제공한다.
+- canon validator가 8필드, 의미·회사경계 guard, worker result·integration·
+  closeout의 세 wiring guard를 `codex_thread_manager_v0`에 한정해 검증하며,
+  정상 fixture와 누락별 stable reason code 회귀시험을 추가했다.
+  (worker: `UNKNOWN`)
+
 ### AI 작업 결과 누락 복구 Phase G 운영 preflight 보강
 
 - public commit `ca63963421e3ac4792dd8aeb34dac518e3a9b5a4`를 `main`에 포함했다.
