@@ -166,6 +166,13 @@ manager에게 적용하는 별도 캠페인이다. 두 manager가 상급자에�
 별도 schema를 정의하지 않는다. 팀장은 책임자가 한 실무를 자기 작업처럼
 뭉뚱그리지 않으며, 책임자 역할명과 실제 수행 agent를 혼동하지 않는다.
 
+내부 캠페인의 허용 수신자는 `[개발1팀 운영실] 업무운영/팀장`과 active·
+`EXACT`로 해석된 프로젝트 manager뿐이며, `[미할당 프로젝트] 업무운영/팀장`도
+active·`EXACT`일 때만 포함한다. 모든 수신 route는 private stable catalog와
+live binding이 각각 `EXACT`로 일치하고 `execution_ready=true`여야 한다.
+하나라도 없거나 불일치하면 공지는 `HOLD`한다. AI 기반시스템 회사 CEO와
+AX·ERP·SYSTEM 제품조직은 이 개발1팀 내부 캠페인의 직접 수신자가 아니다.
+
 사람 이름·민감정보보다 public-safe route/title과 근거 pointer를 우선한다.
 관찰 근거 없이 attribution을 추정하지 않고, 확인되지 않은 값은 `미확정`으로
 남긴다. primary는 정확히 하나이며 나머지 참여는 협업 또는 독립 검토다.

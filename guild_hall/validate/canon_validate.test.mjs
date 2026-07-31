@@ -40,6 +40,24 @@ const attributionScopeGuards = [
   "development1_cross_company_interface_uses_same_attribution_shape",
   "development1_internal_manager_reporting_is_separate_company_campaign",
   "development1_internal_manager_reporting_uses_same_attribution_shape",
+  "development1_internal_campaign_allowed_recipients_fail_closed",
+  "development1_internal_campaign_excluded_direct_recipients_fail_closed",
+  "development1_internal_campaign_requires_active_stable_catalog_live_binding_exact_and_execution_ready",
+];
+const development1RecipientScopeGuards = [
+  ["allowed-recipient", "development1_internal_campaign_allowed_recipients_fail_closed"],
+  ["direct-exclusion", "development1_internal_campaign_excluded_direct_recipients_fail_closed"],
+];
+const development1AllowedRecipientSelectors = [
+  "development1_operations_manager",
+  "active_exact_project_manager",
+  "active_exact_unassigned_project_manager",
+];
+const development1ExcludedDirectRecipientSelectors = [
+  "ai_platform_company_ceo",
+  "ax_product_organization",
+  "erp_product_organization",
+  "system_product_organization",
 ];
 const attributionStepGuards = [
   ["worker_execution_or_rollover_acceptance", "worker_result_summary_preserves_upward_result_attribution_shape"],
@@ -497,7 +515,8 @@ test("canon validator rejects every missing codex thread manager attribution sem
 });
 
 test("canon validator rejects every missing company-scope and Development Team 1 campaign guard", async () => {
-  for (const guard of attributionScopeGuards) {
+  const dedicatedRecipientGuards = new Set(development1RecipientScopeGuards.map(([, guard]) => guard));
+  for (const guard of attributionScopeGuards.filter((entry) => !dedicatedRecipientGuards.has(entry))) {
     const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-scope-"));
     try {
       await writeCodexThreadManagerFixture(root, { omitScopeGuard: guard });
@@ -507,6 +526,53 @@ test("canon validator rejects every missing company-scope and Development Team 1
 
       assert.equal(result.code, 1);
       assert.equal(issueIds.includes(`codex_thread_manager_attribution_scope_guard_missing_${guard}`), true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
+for (const [label, guard] of development1RecipientScopeGuards) {
+  test(`canon validator rejects a missing Development Team 1 ${label} guard with a stable reason code`, async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-recipient-guard-"));
+    try {
+      await writeCodexThreadManagerFixture(root, { omitScopeGuard: guard });
+
+      const result = await runValidator(root);
+      const issueIds = result.report.errors.map((error) => error.id);
+
+      assert.equal(result.code, 1);
+      assert.equal(issueIds.includes(`codex_thread_manager_attribution_scope_guard_missing_${guard}`), true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+}
+
+test("canon validator rejects weakened Development Team 1 recipient policy", async () => {
+  for (const [option, reasonCode] of [
+    [
+      { omitAllowedRecipientSelector: "active_exact_project_manager" },
+      "codex_thread_manager_attribution_development1_allowed_recipients_invalid",
+    ],
+    [
+      { omitExcludedDirectRecipientSelector: "ax_product_organization" },
+      "codex_thread_manager_attribution_development1_excluded_direct_recipients_invalid",
+    ],
+    [
+      { weakenRecipientResolution: true },
+      "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+    ],
+  ]) {
+    const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-recipient-policy-"));
+    try {
+      await writeCodexThreadManagerFixture(root, option);
+
+      const result = await runValidator(root);
+      const issueIds = result.report.errors.map((error) => error.id);
+
+      assert.equal(result.code, 1);
+      assert.equal(issueIds.includes(reasonCode), true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -596,7 +662,14 @@ async function writeCodexThreadManagerFixture(root, options = {}) {
   }
 }
 
-function buildAttributionWorkflowYaml({ omitField, omitSemanticGuard, omitScopeGuard } = {}) {
+function buildAttributionWorkflowYaml({
+  omitField,
+  omitSemanticGuard,
+  omitScopeGuard,
+  omitAllowedRecipientSelector,
+  omitExcludedDirectRecipientSelector,
+  weakenRecipientResolution,
+} = {}) {
   return [
     "workflow_id: codex_thread_manager_v0",
     "role_slots: role_slots.yaml",
@@ -616,6 +689,24 @@ function buildAttributionWorkflowYaml({ omitField, omitSemanticGuard, omitScopeG
     ...attributionScopeGuards
       .filter((guard) => guard !== omitScopeGuard)
       .map((guard) => `      ${guard}: true`),
+    "    development1_internal_campaign_recipient_policy:",
+    "      allowed_recipient_selectors:",
+    ...development1AllowedRecipientSelectors
+      .filter((selector) => selector !== omitAllowedRecipientSelector)
+      .map((selector) => `        - ${selector}`),
+    "      public_display_routes:",
+    '        development1_operations_manager: "[개발1팀 운영실] 업무운영/팀장"',
+    '        unassigned_project_manager: "[미할당 프로젝트] 업무운영/팀장"',
+    "      excluded_direct_recipient_selectors:",
+    ...development1ExcludedDirectRecipientSelectors
+      .filter((selector) => selector !== omitExcludedDirectRecipientSelector)
+      .map((selector) => `        - ${selector}`),
+    "      resolution_requirements:",
+    "        stable_route_lifecycle: active",
+    "        stable_catalog_resolution: EXACT",
+    `        live_binding_resolution: ${weakenRecipientResolution ? "UNKNOWN" : "EXACT"}`,
+    "        execution_ready: true",
+    "        fail_closed_on_missing_or_mismatch: true",
     "",
   ].join("\n");
 }

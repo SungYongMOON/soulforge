@@ -220,6 +220,11 @@ TASK 스레드는 영구 조직이 아니다. 새 결과물이나 다단계 실�
 `source_result_validation_evidence`, Owner 결정·승인 필요사항은
 `owner_decision_or_cross_company_interface`에 기록한다.
 
+내부 캠페인의 프로젝트 수신자는 active stable route가 catalog에서 `EXACT`로
+해석되고 live binding도 `EXACT`이며 `execution_ready=true`인 프로젝트
+manager로 제한한다. `[미할당 프로젝트] 업무운영/팀장`도 같은 조건을 만족할
+때만 포함하고, 조건이 없거나 불일치하면 공지는 `HOLD`한다.
+
 manager는 책임자의 실무를 자기 작업처럼 합쳐 보고하지 않고, 책임자 역할명과
 실제 수행 agent를 혼동하지 않는다. self-check와 implementer fork는 독립 검토가
 아니다. 사람 이름·민감정보보다 public-safe route/title과 근거 pointer를

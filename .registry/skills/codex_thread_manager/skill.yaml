@@ -61,7 +61,13 @@ behavior:
     the same canonical shape for internal upward reports through their own
     company campaign. `manager_contribution` is only a Development Team 1
     display label for `manager_or_ceo_contribution`, not another field or
-    schema.
+    schema. Internal campaign recipients are limited to the Development Team 1
+    operations manager and active, exact project managers, including the
+    unassigned-project manager only when active and exact. Each recipient
+    requires stable-catalog `EXACT`, live-binding `EXACT`, and
+    `execution_ready=true`; otherwise notice is `HOLD`. The AI platform company
+    CEO and AX, ERP, and SYSTEM product organizations are excluded as direct
+    recipients.
     Non-project SYSTEM, AX, or ERP work preserves its existing owner routing,
     and all non-applicable project-extension packet fields are recorded as
     `not_applicable` rather than inventing a project.
@@ -102,6 +108,7 @@ behavior:
     - Codex never treats either CEO as a v1 cross-branch parent and keeps automatic CEO routing HOLD/non-routable without a separately approved governance overlay or directory v2
     - Codex preserves the eight-field upward result attribution shape for AX, ERP, SYSTEM, and future persistent AI platform company routes without manager or CEO self-credit
     - Codex uses the same canonical attribution shape for Development Team 1 COMMON and project manager internal upward reports through a separate Development Team 1 company campaign, with `manager_contribution` only as the display label for `manager_or_ceo_contribution`
+    - Codex fails closed unless each Development Team 1 internal campaign recipient is an allowed active exact manager with stable-catalog EXACT, live-binding EXACT, and `execution_ready=true`, and excludes the AI platform company CEO and AX, ERP, and SYSTEM product organizations as direct recipients
     - Codex keeps Development Team 1 outside the AI platform company's direct notice scope and preserves the same shape at the customer-supplier interface
     - Codex separates requested and observed models, records unobserved provider or model values as UNKNOWN, and keeps actual performers and blockers for PARTIAL, HOLD, failure, and unknown results
     - Codex preserves explicit Owner decisions for people, personnel, budget, purchasing, ordering, external commitments, sending, baselines, and final acceptance

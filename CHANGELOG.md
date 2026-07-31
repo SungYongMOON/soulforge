@@ -19,7 +19,7 @@
   정상 fixture와 누락별 stable reason code 회귀시험을 추가했다.
   (worker: `UNKNOWN`)
 
-### 개발1팀 결과보고 attribution 정본 후보
+### 개발1팀 결과보고 attribution 정본 등록
 
 - 개발1팀 회사가 자기 COMMON 운영실 manager와 프로젝트 manager에게 적용하는
   별도 내부 캠페인으로, 공유 8필드 attribution shape를 재사용하도록 두 owner
@@ -30,9 +30,12 @@
   TASK·agent, 미확정 협업, fresh verifier, manager의 분류·분장·fresh review
   gate·통합, 근거 상태, Owner 최종 수락·state writer·deploy `HOLD`를 분리했다.
 - AI 기반시스템 회사의 개발1팀 직접 공지 금지와 두 회사 고객사–공급사
-  interface는 유지했다. installed personal skill, private route/binding, 실제
-  thread, 공지, external system은 변경하지 않았다. fresh independent review와
-  main 통합·공지 전까지 상태는 `canon_candidate`다.
+  interface는 유지했다. public canon 등록 상태는 `canon_entry`로 기록한다.
+  실제 manager 공지는 허용된 active·`EXACT` route마다 stable catalog와 live
+  binding이 각각 `EXACT`이고 `execution_ready=true`인 경우에만 가능하다.
+  이 등록 시점의 공지 상태는 해당 private 근거가 없어 `HOLD`·미전송이며,
+  installed personal skill, private route/binding, 실제 thread와 external
+  system은 변경하지 않았다.
   (worker: `codex_gpt-5.6-sol`)
 
 ### AI 작업 결과 누락 복구 Phase G 운영 preflight 보강
