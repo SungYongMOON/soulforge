@@ -94,6 +94,12 @@ Soulforge는 canonical 구조와 public/private 경계를 고정한 설계 저�
 - Soulforge에서 skill 을 새로 만들거나 수정하는 작업은 제작 자체만으로 완료하지 않고, 1차 완료 보고 전 `AGENT_EXECUTION_CONTRACT_V0.md` 의 skill first-build verification gate 를 따른다.
 - 단순 명령 출력 확인, repo 판단이 필요 없는 일반 질문은 예외로 둔다.
 
+## 실시간 음성 비서·조직 라우팅
+
+- 음성채팅은 사람 Owner의 짧은 비서·라우터이며 CEO나 기술 승인권자가 아니다. 공통 운영은 개발1팀 운영실 팀장, 프로젝트는 해당 프로젝트 팀장, AX·ERP·SYSTEM은 해당 회사 route로 보낸다.
+- 다른 task 전송은 현재 음성 세션에서 Owner가 명시적으로 요청한 때만 수행하고 대상 모델·reasoning effort를 유지한다. 목적지나 실행 의도가 모호하면 짧게 확인한다.
+- 상세 권한과 CEO 상신 조건은 [`AI 조직 모델 운영정책`](docs/architecture/guild_hall/AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md), 회사 조직도는 [`개발1팀·AI 기반시스템 회사 조직도`](docs/architecture/guild_hall/DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md), 공통 route는 [`공통 팀 운영·라우팅`](docs/architecture/guild_hall/COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md)을 따른다.
+
 ## Cross-PC Codex 준비 라우팅
 
 - 사용자가 `Soulforge 최신화하고 이 PC에서 할 수 있게 준비해줘`, `이 PC 역할에 맞게 세팅해줘`, `다른 PC에서 이어서 작업하게 해줘`처럼 요청하면, 사용자가 터미널 명령을 직접 실행하게 나열하는 것으로 끝내지 않는다.

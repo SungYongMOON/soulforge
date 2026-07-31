@@ -87,6 +87,15 @@
 - 현재 실시간 음성 규칙에 따라 다른 task에 메시지를 보내는 행위는 그 음성
   세션에서 사람 Owner가 명시적으로 요청한 경우에만 수행한다.
 
+조직을 라우팅할 때는 다음 정본을 먼저 확인한다.
+
+- 회사 조직도·보고 관계:
+  [`DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`](DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md)
+- 공통업무 접수·분류·라우팅:
+  [`COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`](COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md)
+- exact Codex task route:
+  [`CODEX_WORK_DIRECTORY_V1.md`](CODEX_WORK_DIRECTORY_V1.md)
+
 ## 프로젝트 책임자 분류
 
 ### 기술 방향·수락 책임자 — `Sol/high`

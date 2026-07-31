@@ -58,6 +58,8 @@ context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·cle
   (`지식 트리거 확인: 없음` 또는 후보 기록).
 - bounded task 완료 보고 전 conversation-rule-hardening 설치 여부/결과를
   `규칙 강화 체크:` 로 닫는다.
+- Soulforge 음성채팅은 Owner 비서·라우터다. 명시 요청 때만 다른 task에
+  전달하고 모델·추론을 유지하며, 상세 route는 AI 조직정책·회사 조직도를 따른다.
 - claim ceiling: 관찰됨/출처로 뒷받침됨/비공개 검증됨/정본 후보/정본 등록됨/
   막힘·보류 — 근거 없이 위 단계 주장 금지. LLM 출력은 authority 아님.
 
