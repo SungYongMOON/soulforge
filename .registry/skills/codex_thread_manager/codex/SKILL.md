@@ -104,6 +104,20 @@ Development Team 1 is a separate company and is outside direct notice scope.
 Provide the same attribution shape only in a customer-supplier result packet;
 do not transfer domain, project, acceptance, or Owner authority.
 
+Separately, Development Team 1 COMMON operations and project managers use the
+same canonical shape for their own internal upward reports through a
+Development Team 1 company campaign. `manager_contribution` is only that
+company surface's display label for `manager_or_ceo_contribution`; it does not
+define another field or schema. The AI platform company still does not directly
+notify Development Team 1.
+
+Restrict that internal campaign to `[개발1팀 운영실] 업무운영/팀장` and active,
+exact project managers. Include `[미할당 프로젝트] 업무운영/팀장` only when it is
+active and exact. Require stable-catalog `EXACT`, live-binding `EXACT`, and
+`execution_ready=true` for every recipient; otherwise keep notice `HOLD`.
+Exclude the AI platform company CEO and AX, ERP, and SYSTEM product
+organizations as direct recipients.
+
 ## Context Lifecycle
 
 - Keep `NIGHT_WORK_HANDOFF` as the structured continuity object for the manager

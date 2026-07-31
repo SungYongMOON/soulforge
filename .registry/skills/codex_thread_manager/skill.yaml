@@ -55,11 +55,23 @@ behavior:
     self-credit subordinate execution. Requested and observed models stay
     separate, unobserved provider or model values are `UNKNOWN`, and PARTIAL,
     HOLD, failure, and unknown results retain attribution and blockers.
-    Development Team 1 is outside direct notice scope and receives the same
-    shape only through the customer-supplier interface.
+    Development Team 1 is outside the AI platform company's direct notice
+    scope and receives the same shape through the customer-supplier interface.
+    Separately, Development Team 1 COMMON operations and project managers use
+    the same canonical shape for internal upward reports through their own
+    company campaign. `manager_contribution` is only a Development Team 1
+    display label for `manager_or_ceo_contribution`, not another field or
+    schema. Internal campaign recipients are limited to the Development Team 1
+    operations manager and active, exact project managers, including the
+    unassigned-project manager only when active and exact. Each recipient
+    requires stable-catalog `EXACT`, live-binding `EXACT`, and
+    `execution_ready=true`; otherwise notice is `HOLD`. The AI platform company
+    CEO and AX, ERP, and SYSTEM product organizations are excluded as direct
+    recipients.
     Non-project SYSTEM, AX, or ERP work preserves its existing owner routing,
     and all non-applicable project-extension packet fields are recorded as
-    `not_applicable` rather than inventing a project. Worker threads
+    `not_applicable` rather than inventing a project.
+    Worker threads
     are subagent-first lane controllers:
     substantive
     lane work is delegated to fresh bounded subagents by default, and direct
@@ -95,7 +107,9 @@ behavior:
     - Codex reads the approved two-company organization contract before CEO coordination
     - Codex never treats either CEO as a v1 cross-branch parent and keeps automatic CEO routing HOLD/non-routable without a separately approved governance overlay or directory v2
     - Codex preserves the eight-field upward result attribution shape for AX, ERP, SYSTEM, and future persistent AI platform company routes without manager or CEO self-credit
-    - Codex uses the same attribution shape for Development Team 1 only through the customer-supplier interface and does not directly notify that separate company
+    - Codex uses the same canonical attribution shape for Development Team 1 COMMON and project manager internal upward reports through a separate Development Team 1 company campaign, with `manager_contribution` only as the display label for `manager_or_ceo_contribution`
+    - Codex fails closed unless each Development Team 1 internal campaign recipient is an allowed active exact manager with stable-catalog EXACT, live-binding EXACT, and `execution_ready=true`, and excludes the AI platform company CEO and AX, ERP, and SYSTEM product organizations as direct recipients
+    - Codex keeps Development Team 1 outside the AI platform company's direct notice scope and preserves the same shape at the customer-supplier interface
     - Codex separates requested and observed models, records unobserved provider or model values as UNKNOWN, and keeps actual performers and blockers for PARTIAL, HOLD, failure, and unknown results
     - Codex preserves explicit Owner decisions for people, personnel, budget, purchasing, ordering, external commitments, sending, baselines, and final acceptance
     - Codex applies project assignment fields only to confirmed project work and preserves existing owner routing with `not_applicable` project-extension fields for non-project work

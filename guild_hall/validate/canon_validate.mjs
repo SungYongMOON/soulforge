@@ -61,12 +61,29 @@ const codexThreadManagerAttributionSemanticGuards = [
   "automatic_attribution_inference_forbidden",
   "hidden_reasoning_forbidden",
   "credential_and_raw_payload_forbidden",
+  "development1_manager_contribution_is_surface_label_for_manager_or_ceo_contribution",
 ];
 const codexThreadManagerAttributionScopeGuards = [
   "direct_scope_restricted_to_ai_platform_company",
   "direct_scope_includes_ax_erp_system_and_future_persistent_routes",
   "development1_uses_cross_company_interface_only",
   "development1_cross_company_interface_uses_same_attribution_shape",
+  "development1_internal_manager_reporting_is_separate_company_campaign",
+  "development1_internal_manager_reporting_uses_same_attribution_shape",
+  "development1_internal_campaign_allowed_recipients_fail_closed",
+  "development1_internal_campaign_excluded_direct_recipients_fail_closed",
+  "development1_internal_campaign_requires_active_stable_catalog_live_binding_exact_and_execution_ready",
+];
+const codexThreadManagerDevelopment1AllowedRecipientSelectors = [
+  "development1_operations_manager",
+  "active_exact_project_manager",
+  "active_exact_unassigned_project_manager",
+];
+const codexThreadManagerDevelopment1ExcludedDirectRecipientSelectors = [
+  "ai_platform_company_ceo",
+  "ax_product_organization",
+  "erp_product_organization",
+  "system_product_organization",
 ];
 const codexThreadManagerAttributionStepGuards = [
   {
@@ -523,6 +540,58 @@ async function validateCodexThreadManagerAttribution(document, workflowDir, repo
         ),
       );
     }
+  }
+
+  const recipientPolicy = policy?.development1_internal_campaign_recipient_policy;
+  if (
+    !hasExactStringSet(
+      recipientPolicy?.allowed_recipient_selectors,
+      codexThreadManagerDevelopment1AllowedRecipientSelectors,
+    ) ||
+    recipientPolicy?.public_display_routes?.development1_operations_manager !==
+      "[개발1팀 운영실] 업무운영/팀장" ||
+    recipientPolicy?.public_display_routes?.unassigned_project_manager !==
+      "[미할당 프로젝트] 업무운영/팀장"
+  ) {
+    errors.push(
+      buildIssue(
+        "codex_thread_manager_attribution_development1_allowed_recipients_invalid",
+        repoPath,
+        "Development Team 1 internal campaign allowed recipients must be exactly the operations manager, active/exact project managers, and the active/exact unassigned-project manager",
+      ),
+    );
+  }
+
+  if (
+    !hasExactStringSet(
+      recipientPolicy?.excluded_direct_recipient_selectors,
+      codexThreadManagerDevelopment1ExcludedDirectRecipientSelectors,
+    )
+  ) {
+    errors.push(
+      buildIssue(
+        "codex_thread_manager_attribution_development1_excluded_direct_recipients_invalid",
+        repoPath,
+        "Development Team 1 internal campaign must exclude the AI platform company CEO and AX, ERP, and SYSTEM product organizations as direct recipients",
+      ),
+    );
+  }
+
+  const resolutionRequirements = recipientPolicy?.resolution_requirements;
+  if (
+    resolutionRequirements?.stable_route_lifecycle !== "active" ||
+    resolutionRequirements?.stable_catalog_resolution !== "EXACT" ||
+    resolutionRequirements?.live_binding_resolution !== "EXACT" ||
+    resolutionRequirements?.execution_ready !== true ||
+    resolutionRequirements?.fail_closed_on_missing_or_mismatch !== true
+  ) {
+    errors.push(
+      buildIssue(
+        "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+        repoPath,
+        "Development Team 1 internal campaign recipients require an active stable route, stable catalog EXACT, live binding EXACT, execution_ready=true, and fail-closed mismatch handling",
+      ),
+    );
   }
 
   const stepGraphRef = stringValue(document?.step_graph);
@@ -1071,6 +1140,12 @@ function stringValue(value) {
 
 function arrayValue(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function hasExactStringSet(value, expected) {
+  const actual = arrayValue(value).map(stringValue).filter(Boolean);
+  const actualSet = new Set(actual);
+  return actual.length === expected.length && actualSet.size === expected.length && expected.every((item) => actualSet.has(item));
 }
 
 function isPlainObject(value) {

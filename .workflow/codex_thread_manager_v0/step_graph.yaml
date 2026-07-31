@@ -315,6 +315,7 @@ steps:
       - owner_decision_refs
     outputs:
       - closeout_report
+      - upward_result_attribution_report
       - next_action
       - knowledge_trigger_check
     rules:

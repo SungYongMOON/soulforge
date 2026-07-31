@@ -149,6 +149,52 @@ TASK에는 다음 논리 역할을 구분한다.
 프로젝트 TASK와 동일하게 시작·변경·완료 gate를 적용한다. 파일 존재, 메시지
 작성, 에이전트 성공만으로 완료를 주장하지 않는다.
 
+## 상급자 결과 보고 attribution
+
+개발1팀 내부 공지는 개발1팀 회사가 자기 COMMON 운영실 manager와 프로젝트
+manager에게 적용하는 별도 캠페인이다. 두 manager가 상급자에게 업무 결과를
+보고할 때는 공유 `codex_thread_manager_v0`의
+`upward_result_attribution_reporting_policy`가 정한 단일 8필드 shape를 그대로
+사용한다. 팀장 자신의 통합 결과만 말하지 않고 실제 업무를 주관한 책임자,
+수행 TASK·agent, 협업, 독립 검토와 팀장 기여를 분리한다.
+
+개발1팀 표면의 `primary responsibility owner`는 canonical `primary_owner`,
+`independent reviewer`는 `independent_reviewers`, `manager_contribution`은
+`manager_or_ceo_contribution`의 표시명이다. TASK·thread·evidence pointer와
+상태는 `source_result_validation_evidence`에, Owner 결정·승인 필요사항은
+`owner_decision_or_cross_company_interface`에 기록한다. 이는 새 필드나
+별도 schema를 정의하지 않는다. 팀장은 책임자가 한 실무를 자기 작업처럼
+뭉뚱그리지 않으며, 책임자 역할명과 실제 수행 agent를 혼동하지 않는다.
+
+내부 캠페인의 허용 수신자는 `[개발1팀 운영실] 업무운영/팀장`과 active·
+`EXACT`로 해석된 프로젝트 manager뿐이며, `[미할당 프로젝트] 업무운영/팀장`도
+active·`EXACT`일 때만 포함한다. 모든 수신 route는 private stable catalog와
+live binding이 각각 `EXACT`로 일치하고 `execution_ready=true`여야 한다.
+하나라도 없거나 불일치하면 공지는 `HOLD`한다. AI 기반시스템 회사 CEO와
+AX·ERP·SYSTEM 제품조직은 이 개발1팀 내부 캠페인의 직접 수신자가 아니다.
+
+사람 이름·민감정보보다 public-safe route/title과 근거 pointer를 우선한다.
+관찰 근거 없이 attribution을 추정하지 않고, 확인되지 않은 값은 `미확정`으로
+남긴다. primary는 정확히 하나이며 나머지 참여는 협업 또는 독립 검토다.
+
+### Public-safe 적용 예시 — Workspace Board
+
+| 보고 필드 | 기록 |
+| --- | --- |
+| `report_item_or_result` | Workspace Board Owner Action Inbox MVP |
+| `primary_owner` (`primary responsibility owner`) | `[개발1팀 운영실] 전략기획·포트폴리오/책임자` |
+| `executor_or_agent` | `[SYSTEM] Workspace Board MVP 구현/TASK` |
+| `collaborators` | 미확정 |
+| `independent_reviewers` (`independent reviewer`) | 구현 TASK·agent·fork가 아닌 fresh verifier |
+| `manager_or_ceo_contribution` (`manager_contribution`) | 업무 분류, 주관·수행 분장, fresh review gate 설정, 결과 통합 |
+| `source_result_validation_evidence` | `[SYSTEM] Workspace Board MVP 구현/TASK`; `CHANGELOG.md`의 `Workspace Board Owner Action Inbox MVP`; 구현 결과와 fresh review 근거를 분리해 기록, Owner 최종 수락 전 |
+| `owner_decision_or_cross_company_interface` | Owner 최종 수락·state writer 연결·deploy는 `HOLD` |
+
+이 예시는 실제 사람 이름, thread id, 로컬 절대 경로, private runtime 값을
+공개하지 않으면서도 주관·수행·검토·통합을 서로 분리하는 보고 형태를 보여준다.
+AI 기반시스템 회사가 개발1팀 manager에게 직접 공지하지 않는 경계와 두 회사의
+고객사–공급사 interface도 변경하지 않는다.
+
 ## 사람 owner 승인 경계
 
 다음은 팀 업무운영/팀장이나 하위 책임자가 자동으로 확정하지 않는다.

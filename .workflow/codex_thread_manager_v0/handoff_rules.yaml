@@ -29,4 +29,4 @@ rules:
   - from: validation_controller
     to: closeout_controller
     condition: validators_run_or_gap_recorded
-    summary: Pass validation results, claim ceiling, registration/default-route posture, blockers, next action, and the preserved upward result attribution shape for closeout. Development Team 1 is outside direct notice scope; provide the same shape only through the customer-supplier interface.
+    summary: Pass validation results, claim ceiling, registration/default-route posture, blockers, next action, and the preserved upward result attribution shape for closeout. Development Team 1 remains outside the AI platform company's direct notice scope; its COMMON and project managers use the same shape for internal upward reports only through a separate Development Team 1 company campaign, while customer-supplier packets preserve the cross-company interface.

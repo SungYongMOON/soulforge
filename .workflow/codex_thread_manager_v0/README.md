@@ -66,6 +66,21 @@ Customer-supplier result packets use the same shape only at the cross-company
 interface, without transferring AX, ERP, SYSTEM, project, acceptance, or Owner
 authority.
 
+Development Team 1 applies the same canonical eight-field shape to upward
+reports from its COMMON operations manager and project managers through a
+separate internal company campaign. On that Development Team 1 surface,
+`manager_contribution` is only a display label for the canonical
+`manager_or_ceo_contribution` field, not a second field or schema. This internal
+campaign does not make the AI platform company a direct notifier to Development
+Team 1 and does not change the customer-supplier interface.
+
+Internal campaign recipients are restricted to the Development Team 1
+operations manager plus active, exact project managers, including the
+unassigned-project manager only when active and exact. Every recipient requires
+stable-catalog `EXACT`, live-binding `EXACT`, and `execution_ready=true`;
+otherwise notice is `HOLD`. The AI platform company CEO and AX, ERP, and SYSTEM
+product organizations are excluded as direct recipients.
+
 ## Context Lifecycle
 
 - Keep `NIGHT_WORK_HANDOFF` as the structured continuity object for the manager

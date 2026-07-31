@@ -31,12 +31,90 @@ const attributionSemanticGuards = [
   "automatic_attribution_inference_forbidden",
   "hidden_reasoning_forbidden",
   "credential_and_raw_payload_forbidden",
+  "development1_manager_contribution_is_surface_label_for_manager_or_ceo_contribution",
 ];
 const attributionScopeGuards = [
   "direct_scope_restricted_to_ai_platform_company",
   "direct_scope_includes_ax_erp_system_and_future_persistent_routes",
   "development1_uses_cross_company_interface_only",
   "development1_cross_company_interface_uses_same_attribution_shape",
+  "development1_internal_manager_reporting_is_separate_company_campaign",
+  "development1_internal_manager_reporting_uses_same_attribution_shape",
+  "development1_internal_campaign_allowed_recipients_fail_closed",
+  "development1_internal_campaign_excluded_direct_recipients_fail_closed",
+  "development1_internal_campaign_requires_active_stable_catalog_live_binding_exact_and_execution_ready",
+];
+const development1RecipientScopeGuards = [
+  ["allowed-recipient", "development1_internal_campaign_allowed_recipients_fail_closed"],
+  ["direct-exclusion", "development1_internal_campaign_excluded_direct_recipients_fail_closed"],
+];
+const development1AllowedRecipientSelectors = [
+  "development1_operations_manager",
+  "active_exact_project_manager",
+  "active_exact_unassigned_project_manager",
+];
+const development1ExcludedDirectRecipientSelectors = [
+  "ai_platform_company_ceo",
+  "ax_product_organization",
+  "erp_product_organization",
+  "system_product_organization",
+];
+const development1RecipientPolicyRegressionCases = [
+  [
+    "missing allowed selector",
+    { omitAllowedRecipientSelector: "active_exact_project_manager" },
+    "codex_thread_manager_attribution_development1_allowed_recipients_invalid",
+  ],
+  [
+    "extra allowed selector",
+    { recipientPolicyMutation: "allowed_extra" },
+    "codex_thread_manager_attribution_development1_allowed_recipients_invalid",
+  ],
+  [
+    "missing direct exclusion",
+    { omitExcludedDirectRecipientSelector: "ax_product_organization" },
+    "codex_thread_manager_attribution_development1_excluded_direct_recipients_invalid",
+  ],
+  [
+    "extra direct exclusion",
+    { recipientPolicyMutation: "excluded_extra" },
+    "codex_thread_manager_attribution_development1_excluded_direct_recipients_invalid",
+  ],
+  [
+    "changed direct exclusion",
+    { recipientPolicyMutation: "excluded_changed" },
+    "codex_thread_manager_attribution_development1_excluded_direct_recipients_invalid",
+  ],
+  [
+    "display route mismatch",
+    { recipientPolicyMutation: "display_route_mismatch" },
+    "codex_thread_manager_attribution_development1_allowed_recipients_invalid",
+  ],
+  [
+    "lifecycle mismatch",
+    { recipientPolicyMutation: "lifecycle_mismatch" },
+    "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+  ],
+  [
+    "stable catalog resolution mismatch",
+    { recipientPolicyMutation: "catalog_resolution_mismatch" },
+    "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+  ],
+  [
+    "live binding resolution mismatch",
+    { recipientPolicyMutation: "live_binding_resolution_mismatch" },
+    "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+  ],
+  [
+    "execution-ready mismatch",
+    { recipientPolicyMutation: "execution_ready_mismatch" },
+    "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+  ],
+  [
+    "fail-closed mismatch",
+    { recipientPolicyMutation: "fail_closed_mismatch" },
+    "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+  ],
 ];
 const attributionStepGuards = [
   ["worker_execution_or_rollover_acceptance", "worker_result_summary_preserves_upward_result_attribution_shape"],
@@ -493,8 +571,9 @@ test("canon validator rejects every missing codex thread manager attribution sem
   }
 });
 
-test("canon validator rejects every missing direct-scope and Development Team 1 cross-company guard", async () => {
-  for (const guard of attributionScopeGuards) {
+test("canon validator rejects every missing company-scope and Development Team 1 campaign guard", async () => {
+  const dedicatedRecipientGuards = new Set(development1RecipientScopeGuards.map(([, guard]) => guard));
+  for (const guard of attributionScopeGuards.filter((entry) => !dedicatedRecipientGuards.has(entry))) {
     const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-scope-"));
     try {
       await writeCodexThreadManagerFixture(root, { omitScopeGuard: guard });
@@ -509,6 +588,40 @@ test("canon validator rejects every missing direct-scope and Development Team 1 
     }
   }
 });
+
+for (const [label, guard] of development1RecipientScopeGuards) {
+  test(`canon validator rejects a missing Development Team 1 ${label} guard with a stable reason code`, async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-recipient-guard-"));
+    try {
+      await writeCodexThreadManagerFixture(root, { omitScopeGuard: guard });
+
+      const result = await runValidator(root);
+      const issueIds = result.report.errors.map((error) => error.id);
+
+      assert.equal(result.code, 1);
+      assert.equal(issueIds.includes(`codex_thread_manager_attribution_scope_guard_missing_${guard}`), true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+}
+
+for (const [label, option, reasonCode] of development1RecipientPolicyRegressionCases) {
+  test(`canon validator rejects Development Team 1 recipient policy ${label} with a stable reason code`, async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-recipient-policy-"));
+    try {
+      await writeCodexThreadManagerFixture(root, option);
+
+      const result = await runValidator(root);
+      const issueIds = result.report.errors.map((error) => error.id);
+
+      assert.equal(result.code, 1);
+      assert.equal(issueIds.includes(reasonCode), true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+}
 
 test("canon validator rejects each missing codex thread manager attribution step wiring guard", async () => {
   for (const [stepId] of attributionStepGuards) {
@@ -593,7 +706,34 @@ async function writeCodexThreadManagerFixture(root, options = {}) {
   }
 }
 
-function buildAttributionWorkflowYaml({ omitField, omitSemanticGuard, omitScopeGuard } = {}) {
+function buildAttributionWorkflowYaml({
+  omitField,
+  omitSemanticGuard,
+  omitScopeGuard,
+  omitAllowedRecipientSelector,
+  omitExcludedDirectRecipientSelector,
+  recipientPolicyMutation,
+} = {}) {
+  const allowedRecipientSelectors = development1AllowedRecipientSelectors.filter(
+    (selector) => selector !== omitAllowedRecipientSelector,
+  );
+  if (recipientPolicyMutation === "allowed_extra") {
+    allowedRecipientSelectors.push("unexpected_internal_recipient");
+  }
+
+  const excludedDirectRecipientSelectors = development1ExcludedDirectRecipientSelectors.filter(
+    (selector) => selector !== omitExcludedDirectRecipientSelector,
+  );
+  if (recipientPolicyMutation === "excluded_extra") {
+    excludedDirectRecipientSelectors.push("unexpected_product_organization");
+  } else if (recipientPolicyMutation === "excluded_changed") {
+    excludedDirectRecipientSelectors.splice(
+      excludedDirectRecipientSelectors.indexOf("ax_product_organization"),
+      1,
+      "ax_product_manager",
+    );
+  }
+
   return [
     "workflow_id: codex_thread_manager_v0",
     "role_slots: role_slots.yaml",
@@ -613,6 +753,22 @@ function buildAttributionWorkflowYaml({ omitField, omitSemanticGuard, omitScopeG
     ...attributionScopeGuards
       .filter((guard) => guard !== omitScopeGuard)
       .map((guard) => `      ${guard}: true`),
+    "    development1_internal_campaign_recipient_policy:",
+    "      allowed_recipient_selectors:",
+    ...allowedRecipientSelectors.map((selector) => `        - ${selector}`),
+    "      public_display_routes:",
+    recipientPolicyMutation === "display_route_mismatch"
+      ? '        development1_operations_manager: "[개발1팀 운영실] 미확정/팀장"'
+      : '        development1_operations_manager: "[개발1팀 운영실] 업무운영/팀장"',
+    '        unassigned_project_manager: "[미할당 프로젝트] 업무운영/팀장"',
+    "      excluded_direct_recipient_selectors:",
+    ...excludedDirectRecipientSelectors.map((selector) => `        - ${selector}`),
+    "      resolution_requirements:",
+    `        stable_route_lifecycle: ${recipientPolicyMutation === "lifecycle_mismatch" ? "retired" : "active"}`,
+    `        stable_catalog_resolution: ${recipientPolicyMutation === "catalog_resolution_mismatch" ? "AMBIGUOUS" : "EXACT"}`,
+    `        live_binding_resolution: ${recipientPolicyMutation === "live_binding_resolution_mismatch" ? "UNKNOWN" : "EXACT"}`,
+    `        execution_ready: ${recipientPolicyMutation === "execution_ready_mismatch" ? "false" : "true"}`,
+    `        fail_closed_on_missing_or_mismatch: ${recipientPolicyMutation === "fail_closed_mismatch" ? "false" : "true"}`,
     "",
   ].join("\n");
 }
