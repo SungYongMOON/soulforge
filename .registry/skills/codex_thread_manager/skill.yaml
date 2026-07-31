@@ -45,6 +45,18 @@ behavior:
     the Owner. Until a separate governance overlay or directory v2 is approved
     and validated, cross-branch CEO routing is explicit-address only and
     HOLD/non-routable.
+    Upward result reports from AX, ERP, SYSTEM, and future persistent AI
+    platform company responsibility routes preserve
+    `report_item_or_result`, exactly one `primary_owner`,
+    `executor_or_agent`, `collaborators`, observed-only
+    `independent_reviewers`, actual `manager_or_ceo_contribution`,
+    `source_result_validation_evidence`, and
+    `owner_decision_or_cross_company_interface`. A manager or CEO does not
+    self-credit subordinate execution. Requested and observed models stay
+    separate, unobserved provider or model values are `UNKNOWN`, and PARTIAL,
+    HOLD, failure, and unknown results retain attribution and blockers.
+    Development Team 1 is outside direct notice scope and receives the same
+    shape only through the customer-supplier interface.
     Non-project SYSTEM, AX, or ERP work preserves its existing owner routing,
     and all non-applicable project-extension packet fields are recorded as
     `not_applicable` rather than inventing a project. Worker threads
@@ -82,6 +94,9 @@ behavior:
     - Codex reads the public company/team common-work contract before classifying COMMON work
     - Codex reads the approved two-company organization contract before CEO coordination
     - Codex never treats either CEO as a v1 cross-branch parent and keeps automatic CEO routing HOLD/non-routable without a separately approved governance overlay or directory v2
+    - Codex preserves the eight-field upward result attribution shape for AX, ERP, SYSTEM, and future persistent AI platform company routes without manager or CEO self-credit
+    - Codex uses the same attribution shape for Development Team 1 only through the customer-supplier interface and does not directly notify that separate company
+    - Codex separates requested and observed models, records unobserved provider or model values as UNKNOWN, and keeps actual performers and blockers for PARTIAL, HOLD, failure, and unknown results
     - Codex preserves explicit Owner decisions for people, personnel, budget, purchasing, ordering, external commitments, sending, baselines, and final acceptance
     - Codex applies project assignment fields only to confirmed project work and preserves existing owner routing with `not_applicable` project-extension fields for non-project work
     - Codex distinguishes owner directives from peer collaboration, review, and reclassification requests without transferring domain authority
@@ -120,6 +135,7 @@ execution_requirements:
     - cross_branch_request_relationship_classification
     - task_thread_create_or_continue_routing
     - task_logical_role_and_gate_packet_authoring
+    - upward_result_attribution_reporting
   preferred_capabilities:
     - worktree_worker_thread_isolation
     - bounded_subagent_fanout

@@ -89,7 +89,7 @@ Soulforge는 canonical 구조와 public/private 경계를 고정한 설계 저�
 - 작업 종료 검증을 반복 실행해야 하면 `.workflow/post_development_review_gate_v0/` 또는 설치된 Codex skill `soulforge-post-development-review-gate` 를 사용한다.
 - 모든 bounded 업무 작업은 완료 보고 전 `AGENT_EXECUTION_CONTRACT_V0.md` 의 end-of-task knowledge trigger check 를 수행해 지식 후보 신호가 있는지 닫는다.
 - 모든 bounded 업무 작업은 완료 보고 전 설치된 Codex skill `conversation-rule-hardening` 을 수행해 대화 중 드러난 반복 실수, 미정 규칙, 색인 후보, 다음번 자동 guard 후보가 있는지 `규칙 강화 체크:` 로 닫는다.
-- (2026-07-05 owner 승인) 모든 bounded 업무 작업은 완료 보고 전 자동화 자산 5필드(입력/판단/출력/검증/중단조건)를 `.workflow/five_field_session_capture_v0` 의 capture CLI 로 `_workmeta` 레저에 남긴다. 기록 주체는 사람 아닌 AI, 원문 미복사(포인터만). 누락분은 일일 sweep 자동화가 커밋 이력에서 소급하며, 반복 request_kind 는 승격 신호가 된다.
+- (2026-07-05 owner 승인) 모든 bounded 업무 작업은 완료 보고 전 AI 작업 결과(입력·판단·출력·검증·중단조건)를 `.workflow/five_field_session_capture_v0` 의 capture CLI 로 `_workmeta` 레저에 남긴다. 기록 주체는 사람 아닌 AI, 원문 미복사(포인터만). 누락분은 AI 작업 결과 누락 복구가 커밋 이력에서 소급하며, 반복 request_kind 는 승격 신호가 된다.
 - 지식 후보 판단은 rubric 을 `AGENTS.md` 에 복제하지 않고 `post_development_review_gate` 에 바인딩한다. `knowledge_access_event_capture_v0` 와 `sourcebound_knowledge_packet_operating_loop_v0` 는 후보 처리 route 이며 최종 판단 authority 가 아니다.
 - Soulforge에서 skill 을 새로 만들거나 수정하는 작업은 제작 자체만으로 완료하지 않고, 1차 완료 보고 전 `AGENT_EXECUTION_CONTRACT_V0.md` 의 skill first-build verification gate 를 따른다.
 - 단순 명령 출력 확인, repo 판단이 필요 없는 일반 질문은 예외로 둔다.

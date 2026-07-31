@@ -2,6 +2,65 @@
 
 ## 2026-07-31
 
+### AI 기반시스템 회사 상향 결과보고 attribution 계약
+
+- AX·ERP·SYSTEM과 향후 AI 기반시스템 회사 지속 책임 route의 상향 결과보고가
+  `report_item_or_result`, 단일 `primary_owner`, `executor_or_agent`,
+  `collaborators`, 실제 독립검토자, manager·CEO의 실제 조정 기여, 근거 pointer,
+  Owner 또는 고객사–공급사 gate를 함께 보존하도록 조직 정본과
+  `codex_thread_manager_v0` workflow·registry skill bridge를 동기화했다.
+- manager·CEO의 하위 실무 self-credit, 자동 attribution 추정, 숨은 reasoning,
+  credential·raw payload 노출을 금지하고, 미관찰 provider·model은 `UNKNOWN`,
+  `PARTIAL`·`HOLD`·실패도 실제 수행 주체와 blocker를 유지하도록 했다.
+  개발1팀 회사는 직접 공지 범위에서 제외하고 고객사–공급사 결과 packet에만
+  같은 shape를 제공한다.
+- canon validator가 8필드, 의미·회사경계 guard, worker result·integration·
+  closeout의 세 wiring guard를 `codex_thread_manager_v0`에 한정해 검증하며,
+  정상 fixture와 누락별 stable reason code 회귀시험을 추가했다.
+  (worker: `UNKNOWN`)
+
+### AI 작업 결과 누락 복구 Phase G 운영 preflight 보강
+
+- public commit `ca63963421e3ac4792dd8aeb34dac518e3a9b5a4`를 `main`에 포함했다.
+  runtime preflight v2는 active public·workmeta·private-state·automation control
+  root와 complete Codex/Orca worktree inventory를 fail-closed로 결속하고,
+  authoritative ledger·cursor·authority·redacted receipt만 backup/restore 포함으로
+  분류한다. runtime clone·lock·temp는 재생성 가능 제외이며 config·remote URL·
+  credential·owner token은 capture 금지다.
+- sanitized Git config·authority evidence와 restore manifest/receipt를 전체 입력에서
+  다시 검증하고, builder v2와 runner v4가 caller PASS summary·불완전 inventory·
+  forged preflight를 거부하도록 보강했다. ledger publication 뒤 HOLD는
+  reconciliation 상태를 명시하며, cursor push 뒤 결과가 불명확하면
+  `cursor_unchanged=null`로 남긴다.
+- fresh Level 3과 최신 main 통합 재검증에서 runner 25/25, non-runner 42/42,
+  path-policy 5 PASS/Windows symlink 1 SKIP, canon 136/0/0을 통과했다.
+  표시명 `AI 작업 결과 누락 복구 (매일)`의 tracked candidate는 계속 `PAUSED`다.
+  실제 private ledger·cursor·runtime·ACL·NAS·installed automation·network는
+  변경하지 않았고 one-shot과 이후 `ACTIVE`는 사람 Owner 승인 전 `HOLD`다.
+  `official_completion=false`; `313`과 `317`은 실제 누락 수가 아니다.
+  (worker: `codex_gpt-5.6-sol`)
+
+### AI 작업 결과 누락 복구 Phase E public-synthetic remediation
+
+- public commit `57e93fb3dbabfa4fa4e24bfe062c6e4d6195c75e`를 `main`에 포함했다.
+  metadata projector는 승인된 집계·digest·public commit ref·시각·분류·완전성만
+  투영하고 `recorded_at >= occurred_at`을 강제한다. local/HTTPS/SSH transport는
+  logical remote/ref와 authority fingerprint로 결합하며 raw URL·credential을
+  입력·출력하지 않고 Git 인증을 비대화형으로 고정한다.
+- isolated runtime preflight는 canonical root, active/forbidden-root 비중첩,
+  ACL·NAS·restore·single-writer fencing 증거를 fail-closed로 재검증한다.
+  deterministic builder는 전체 preflight를 다시 확인한 뒤 표시명
+  `AI 작업 결과 누락 복구 (매일)`의 정확한 `PAUSED` candidate와 byte-exact
+  rollback만 생성한다. receipt는 `official_completion=false`, WorkSession·
+  TaskDriver·ERP·MCP acceptance `false`,
+  `claim_ceiling=operational_evidence_only`를 유지한다.
+- fresh Level 3에서 contract/planner 41/41과 runner 19/19를 통과했다.
+  manager 재검증에서 path-policy 5 PASS/Windows symlink 1 SKIP, 동일 provisioned
+  canon validator 136/0/0 PASS를 확인했다. 설치된 legacy automation, 실제 private
+  cursor·ledger coverage, runtime, network는 변경하지 않았고 live activation은
+  `HOLD`다. `313`과 `317`은 각각 합성 빈-ledger 상한 또는 public lineage 범위이며
+  실제 누락 수가 아니다. (worker: `codex_gpt-5.6-sol`)
+
 ### Workspace Board Owner Action Inbox MVP
 
 - 선택된 Owner Action Inbox 2안을 기존 `team-ops-board`에 dark graphite,

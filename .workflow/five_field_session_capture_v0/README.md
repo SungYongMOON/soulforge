@@ -130,13 +130,17 @@ Programmatic and CLI entrypoints:
 
 ```text
 runCursorRunner(input, { faultAt, beforeLedgerPush })
-node .workflow/five_field_session_capture_v0/tools/five_field_cursor_runner.mjs --input <json-file|->
+node <absolute-runner-script> --runtime-root <absolute-runner-root> \
+  --config-root <absolute-config-root> \
+  --runtime-manifest-digest <sha256:digest> \
+  --input <absolute-owner-approved-input.json>
 ```
 
 `faultAt` and `beforeLedgerPush` are test-only and are not accepted by the CLI.
-The latter creates a deterministic local-bare writer race in tests. The CLI
-prints a redacted receipt and returns `0` for success/already-advanced, `2` for
-`HOLD`, and `1` for a malformed CLI request.
+The latter creates a deterministic local-bare writer race in tests. Stdin and
+an unbound input path are not live CLI surfaces. The CLI prints a redacted
+receipt and returns `0` for success/already-advanced, `2` for `HOLD`, and `1`
+for a malformed CLI request.
 
 The durable order is:
 
@@ -252,28 +256,30 @@ synthetic upper bound and is never an actual missing-result count.
 
 ### Installed legacy automation and rollback evidence
 
-The read-only observed installed automation on 2026-07-30 remains unchanged:
+The read-only observed installed automation remains legacy `ACTIVE` and outside
+this package's read/write authority. Public documentation retains only its
+approved hash and behavioral classification, not its machine-local target,
+working directory, timestamps, or complete prompt:
 
 ```text
 id=soulforge-five-field-sweep
 kind=cron
-name=Soulforge 5-Field Sweep (daily)
+name=<legacy installed display name; replacement required>
+replacement_candidate_name=AI 작업 결과 누락 복구 (매일)
 status=ACTIVE
 schedule=FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU;BYHOUR=7;BYMINUTE=35;BYSECOND=0
 model=gpt-5.3-codex
 reasoning_effort=medium
 execution_environment=local
-target=project:local-1018ddaeecab99443b06b78022cb14b7
-working_directory=C:\Soulforge
-created_at=1783212029444
-updated_at=1783212029444
+sha256=68BBF9931D86C711C6DA7A9615003B67BA830476A7A2EFF76C9E196C0292C449
 ```
 
 Its exact legacy prompt performs foreground `pull --ff-only`, nested
 `_workmeta pull --rebase`, a recent-24-hour scan, direct capture, and direct
-`_workmeta` commit/push. That prompt is preserved verbatim as the rollback
-snapshot in `codex/automation.soulforge-five-field-sweep.toml`; it is not
-executed by this package.
+`_workmeta` commit/push. The complete installed bytes are not copied into this
+public package. A future Owner-approved activation must inject those bytes into
+the deterministic builder without printing them and verify the rollback hash
+before any automation mutation.
 
 Activation must atomically retain an owner-approved copy of that complete
 installed TOML, replace only the approved fields with the reviewed runner
@@ -282,3 +288,118 @@ is accepted. Rollback restores the saved complete TOML and the pre-run cursor
 record; it never deletes or rewrites an already-pushed append-only ledger
 commit. An exact isolated runner working directory and private writer binding
 are intentionally `UNKNOWN/HOLD` until supplied by the human Owner.
+
+## Phase E public remediation surfaces (synthetic only, live HOLD)
+
+Phase E adds four public-safe, injected surfaces. None discovers a live binding
+or authorizes private/runtime/network/automation mutation:
+
+- `tools/five_field_ledger_metadata_projector.mjs` accepts an explicitly
+  injected ledger stream or path at a future approved runtime, but emits only
+  aggregate counts, stable digests, public commit refs, normalized times,
+  bounded classification/status values, and completeness/error attestations.
+  It rejects a `recorded_at` earlier than `occurred_at`.
+  Raw lines, record bodies, private identifiers, paths, URLs, user information,
+  and credentials are never receipt fields.
+- `tools/five_field_transport_adapter.mjs` binds `local_file`, `https`, or
+  `ssh` through a logical remote name/ref, transport class, and `sha256:`
+  authority fingerprint. The CLI-capable Git executor verifies the secret-free
+  local metadata keys `remote.<logical>.soulforge-transport-class` and
+  `remote.<logical>.soulforge-authority-fingerprint`, then lets Git use its
+  existing remote and credential configuration. The runner never queries,
+  accepts, parses, or prints a raw remote URL. Git terminal, credential-manager,
+  askpass, and SSH password prompting are forced off; authentication failures
+  discard process output and resolve to stable redacted evidence. Phase E tests
+  use local bare repositories or injected mocks only; actual network and
+  credential authority remains `HOLD`.
+- `tools/five_field_runtime_preflight.mjs` validates an exact sibling topology
+  for runner, source, the two writer clones, config, and locks. Before the CLI
+  reads its input, the canonical non-reparse input file must be strictly inside
+  the verified config root; the parsed manifest then binds that exact launch
+  path and digest. It also requires fail-closed ACL, backup/restore, and fencing
+  evidence. Missing or inconsistent evidence is `HOLD`; the preflight does not
+  create roots or change ACL/NAS.
+- `tools/five_field_automation_builder.mjs` deterministically returns a
+  `PAUSED` candidate and rollback bytes/hashes to its caller from injected
+  bytes and exact absolute Node/script/input paths. It reruns the complete
+  reviewed runtime-preflight input and requires exact recomputed receipt
+  equality, including forbidden-root clearance, topology, evidence, manifest,
+  and launch binding; a caller-supplied `PASS` summary is insufficient. It
+  neither reads nor writes the installed automation. The tracked TOML is a
+  non-installable builder template and contains no machine-local live path or
+  secret. Generated candidate display names are normalized to
+  `AI 작업 결과 누락 복구 (매일)`; the legacy automation id and internal
+  file/schema/operation names remain unchanged.
+
+The runner consumes the reviewed preflight and transport bindings while
+preserving ledger commit/push/fresh inclusion before cursor CAS, cursor
+publication and persisted-content verification, append-only recovery,
+non-force pushes, and `UNKNOWN_AFTER_PUSH` reconciliation. All Phase E receipts
+remain operational evidence only:
+
+The Phase E runner envelope `soulforge.five_field_cursor_runner_input.v3`
+explicitly supersedes the Phase C `v2` envelope. There is no implicit migration:
+`v2` input is rejected, and an Owner-approved `v3` input must be rebuilt with
+the reviewed runtime preflight and automation builder. Existing ledger paths,
+record schemas, operation names, and cursor logical paths are unchanged.
+
+## Phase G operations preflight remediation (synthetic only, live HOLD)
+
+Phase G strengthens the safe-evidence boundary without creating a signing key,
+credential, trust anchor, runtime root, or private authority:
+
+- runtime-preflight input/receipt `v2` requires the active public, `_workmeta`,
+  private-state, and installed-automation control roots in the forbidden union;
+- a complete, fresh Codex/Orca inventory binds the approved metadata-only
+  observation source/tool, exact counts, canonical path-digest sets, and their
+  canonical aggregate digest. Absence is never inferred as a zero count;
+- the backup projection distinguishes regenerable clones and execution
+  surfaces, capture-prohibited config/remote/credential/token surfaces, and the
+  authoritative AI 작업 결과 ledger, cursor/authority, and redacted receipt.
+  Unpushed clone state, a cursor that points to a non-included ledger result, or
+  incomplete restore/inclusion/sequence/epoch evidence is `HOLD`. Authority
+  backup receipts, per-writer restore receipts, the latest aggregate receipt,
+  and restore manifest are cross-bound rather than independently shape-checked;
+- each writer Git-authority row binds its role, logical remote/ref, transport
+  class, sanitized configuration digests, and authority fingerprint. Complete
+  immutable/read-only configuration observation, forbidden rewrite/include
+  rules absent, and non-interactive authentication are mandatory;
+- lease policy is declarative only: `owner_with_state` plus
+  operational-primary eligibility, `opaque_random_256_v1`, a 15–120 minute
+  bounded TTL formula, no first-run stale recovery, and
+  `max(restored, authority, receipt, 0) + 1` as the exact initial writer epoch.
+  The runner binds the actual host digest, token class, TTL interval, and epoch
+  to that reviewed policy. The public tool never creates a live token, host
+  identity, or epoch.
+
+Builder input/receipt `v2` and runner input/receipt `v4` explicitly hold their
+previous envelope versions. In particular,
+`soulforge.five_field_cursor_runner_input.v4` replaces `v3`, and
+`soulforge.five_field_automation_builder_input.v2` replaces `v1`; neither
+legacy envelope is migrated implicitly. Both consumers rerun the complete sanitized
+preflight projection and bind its evidence, manifest, forbidden-union, launch,
+and exact PAUSED candidate digests. A caller-supplied PASS summary is
+insufficient. The runner rechecks the same binding before ledger push, cursor
+commit, and cursor push, together with a final source-snapshot approval check;
+evidence or source drift after ledger inclusion preserves the append-only
+result and leaves the cursor unchanged for reconciliation.
+
+These digests provide tamper-evident binding to exact human-approved evidence
+and candidate bytes. They do not authenticate evidence origin or claim live
+readiness. Actual inventory collection, backup/restore authority, private
+transport, runtime/ACL/NAS, installed automation, and ACTIVE approval remain
+separate human Owner gates.
+
+```text
+official_completion=false
+worksession_acceptance=false
+taskdriver_acceptance=false
+erp_acceptance=false
+mcp_acceptance=false
+claim_ceiling=operational_evidence_only
+```
+
+The public implementation is synthetic-only. Real ledger projection, private
+writer bindings, actual transport, runtime roots, ACL/NAS evidence, installed
+automation update/run, and scheduled activation require a new human Owner gate
+and a fresh independent Level 3 review of the exact live packet.

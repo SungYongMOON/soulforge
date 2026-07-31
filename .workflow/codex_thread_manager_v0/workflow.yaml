@@ -55,6 +55,7 @@ outputs:
   - task_thread_routing_decision
   - task_logical_role_plan
   - task_gate_state
+  - upward_result_attribution_report
   - closeout_report
 validation_level: private_one_worker_pilot_observed
 registration_policy: owner_requested_registration
@@ -123,6 +124,7 @@ codex_thread_manager_contract:
     - exactly_one_primary_owner_with_collaboration_and_review
     - task_thread_create_or_continue_coordination
     - task_logical_role_and_gate_packet_shape
+    - upward_result_attribution_reporting_policy
   does_not_own:
     - source_truth
     - owner_approval
@@ -239,6 +241,33 @@ codex_thread_manager_contract:
     start_gate_before_execution_or_thread_creation: true
     change_gate_reclassifies_scope_baseline_interface_owner_or_acceptance_change: true
     complete_gate_requires_objective_evidence_and_acceptance: true
+  upward_result_attribution_reporting_policy:
+    fields:
+      - report_item_or_result
+      - primary_owner
+      - executor_or_agent
+      - collaborators
+      - independent_reviewers
+      - manager_or_ceo_contribution
+      - source_result_validation_evidence
+      - owner_decision_or_cross_company_interface
+    semantic_guards:
+      exactly_one_primary_owner_required: true
+      responsibility_executor_reviewer_and_approver_are_distinct_roles: true
+      manager_or_ceo_self_credit_for_subordinate_execution_forbidden: true
+      manager_or_ceo_contribution_limited_to_classification_assignment_integration_or_escalation: true
+      requested_and_observed_model_are_separate: true
+      unobserved_provider_or_model_is_unknown: true
+      independent_reviewers_only_when_observed: true
+      partial_hold_failure_preserve_attribution_and_blocker: true
+      automatic_attribution_inference_forbidden: true
+      hidden_reasoning_forbidden: true
+      credential_and_raw_payload_forbidden: true
+    scope_guards:
+      direct_scope_restricted_to_ai_platform_company: true
+      direct_scope_includes_ax_erp_system_and_future_persistent_routes: true
+      development1_uses_cross_company_interface_only: true
+      development1_cross_company_interface_uses_same_attribution_shape: true
   manager_lifecycle:
     declared_thread_is_main_team_lead: true
     manager_owns_context_lifecycle: true
@@ -401,6 +430,7 @@ non_claims:
   - no_worktree_worker_execution_claim
   - no_party_binding_claim
   - no_live_project_responsibility_assignment_or_task_routing_execution_claim
+  - no_attribution_based_domain_authority_transfer_claim
   - no_iso_or_other_standard_conformity_claim
 notes:
   - "Registration means the public-safe orchestration structure is available in `.workflow/index.yaml`."

@@ -230,6 +230,7 @@ steps:
       worker_thread_id_title_recorded_by_manager: true
       worker_direct_substantive_execution_requires_recorded_no_subagent_exception: true
       acceptance_verifier_created_fresh_or_claim_lowered: true
+      worker_result_summary_preserves_upward_result_attribution_shape: true
       files_not_modified_in_read_only_pilot: true
       registered_manager_create_rollover_or_retire_may_request_local_binding_refresh: true
       binding_refresh_requires_actual_thread_observation: true
@@ -269,6 +270,7 @@ steps:
       change_gate_required_when_objective_requirement_baseline_interface_owner_or_acceptance_changes: true
       verification_and_validation_purpose_criteria_evidence_and_judgment_remain_distinct: true
       complete_gate_requires_objective_evidence_configuration_state_open_risk_and_acceptance: true
+      integration_requires_and_preserves_upward_result_attribution_shape: true
       local_binding_maintenance_is_optional_local_only_and_registered_manager_only: true
       local_binding_maintenance_conveys_no_domain_route_or_default_authority: true
       local_binding_maintenance_has_no_send_dispatch_provider_startup_or_configuration_side_effect: true
@@ -321,6 +323,7 @@ steps:
       party_creation_only_for_multi_workflow_chain: true
       default_route_safety_not_claimed_without_owner_intent: true
       unresolved_assignment_or_failed_start_gate_returns_without_thread_creation: true
+      closeout_requires_upward_result_attribution_shape_and_forbids_manager_self_credit: true
     next: []
 stop_conditions:
   - conflicting_active_goal

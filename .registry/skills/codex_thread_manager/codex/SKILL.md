@@ -74,6 +74,36 @@ tool behavior.
 - If the user invokes only the skill name and the actionable goal is unclear,
   ask one concise question instead of creating a thread.
 
+## AI Platform Company Upward Result Attribution
+
+For upward result reports from AX, ERP, SYSTEM, and future persistent AI
+platform company responsibility routes, preserve all eight fields:
+
+- `report_item_or_result`: the item, result, and actual status.
+- `primary_owner`: exactly one exact responsibility route/title.
+- `executor_or_agent`: the observed agent, model, TASK, or thread; separate the
+  requested model from the observed model and use `UNKNOWN` when a provider or
+  model was not observed.
+- `collaborators`: supporting responsibilities or performers, never co-primary.
+- `independent_reviewers`: only reviewers whose independent review actually
+  occurred.
+- `manager_or_ceo_contribution`: only actual classification, assignment,
+  integration, or escalation.
+- `source_result_validation_evidence`: public-safe source, result, validation,
+  and evidence pointers with state.
+- `owner_decision_or_cross_company_interface`: the remaining Owner decision,
+  approval, or customer-supplier interface gate.
+
+A manager or CEO must not report a subordinate owner or agent's execution as
+their own. Keep responsibility, execution, independent review, and approval
+roles distinct. Preserve the actual performer and blocker for `PARTIAL`,
+`HOLD`, failure, and unknown outcomes. Do not infer attribution automatically
+or include hidden reasoning, credentials, raw logs, or raw payloads.
+
+Development Team 1 is a separate company and is outside direct notice scope.
+Provide the same attribution shape only in a customer-supplier result packet;
+do not transfer domain, project, acceptance, or Owner authority.
+
 ## Context Lifecycle
 
 - Keep `NIGHT_WORK_HANDOFF` as the structured continuity object for the manager
@@ -287,13 +317,14 @@ available and must not rely only on worker narrative.
 13. Apply the change gate when objective, requirements, baseline, interface,
     owner, or acceptance changes.
 14. Integrate worker/subagent results only after checking actual file, status,
-    and thread state.
+    and thread state, and preserve the eight-field upward result attribution
+    shape without manager or CEO self-credit.
 15. Apply the complete gate, then run deterministic validators and
     `$soulforge-workflow-check` before
     readiness, registration, default-route, or production claims.
-16. Close with thread titles/ids when available, manager lifecycle action,
-    validation status, remaining blockers, next action, and
-    `지식 트리거 확인: ...`.
+16. Close with the attribution shape, thread titles/ids when available, manager
+    lifecycle action, validation status, remaining blockers, Owner or
+    cross-company gate, next action, and `지식 트리거 확인: ...`.
 
 ## Naming Rule
 
