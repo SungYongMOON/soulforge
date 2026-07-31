@@ -60,6 +60,14 @@ export function resolveProviderVisual(entry) {
   };
 }
 
+export function selectObservedProviderEntries(task) {
+  if (task?.agentState !== "observed" || !Array.isArray(task.providers)) {
+    return [];
+  }
+
+  return task.providers.filter((entry) => entry?.observed === true);
+}
+
 export function buildCompactCardView(task) {
   return {
     project: task.project,
@@ -67,10 +75,6 @@ export function buildCompactCardView(task) {
     route: task.route || "route 미관찰 · UNKNOWN",
     title: task.title,
     status: task.status,
-    providers:
-      task.agentState === "observed"
-        ? task.providers.filter((entry) => entry.observed).map(resolveProviderVisual)
-        : [],
-    blockerSummary: task.status === "blocked" ? task.blockerReason : null
+    providers: selectObservedProviderEntries(task).map(resolveProviderVisual)
   };
 }

@@ -6,7 +6,8 @@ import {
   PROVIDER_ASSET_SLUGS,
   PROVIDER_ICON_KEYS,
   buildCompactCardView,
-  resolveProviderVisual
+  resolveProviderVisual,
+  selectObservedProviderEntries
 } from "./provider-visual.mjs";
 
 test("provider visual: observed provider별 library icon key를 결정한다", () => {
@@ -43,6 +44,21 @@ test("provider visual: multi-agent는 observed icon을 각각 보존하고 UNKNO
   assert.equal(resolveProviderVisual({ observed: false }).mapped, false);
 });
 
+test("provider visual: mixed observed/unobserved는 observed entry만 렌더링·count한다", () => {
+  const fixture = buildOwnerInboxFixture();
+  const multi = fixture.tasks.find((task) => task.id === "fixture-atlas-multi-agent");
+  const observedProviders = selectObservedProviderEntries(multi);
+
+  assert.equal(multi.providers.length, 3);
+  assert.equal(observedProviders.length, 2);
+  assert.deepEqual(
+    observedProviders.map((entry) => entry.agent),
+    ["Codex", "Antigravity"]
+  );
+  assert.equal(observedProviders.some((entry) => entry.agent === "Kimi"), false);
+  assert.equal(observedProviders.length > 1, true);
+});
+
 test("compact card model: 필수 hierarchy만 포함하고 상세 전용 필드는 중복하지 않는다", () => {
   const fixture = buildOwnerInboxFixture();
   const blocked = fixture.tasks.find((task) => task.id === "fixture-aurora-supply");
@@ -50,14 +66,15 @@ test("compact card model: 필수 hierarchy만 포함하고 상세 전용 필드�
 
   assert.deepEqual(
     Object.keys(compact).sort(),
-    ["blockerSummary", "project", "providers", "responsibility", "route", "status", "title"].sort()
+    ["project", "providers", "responsibility", "route", "status", "title"].sort()
   );
   assert.equal(compact.project, blocked.project);
   assert.equal(compact.responsibility, blocked.responsibility);
   assert.equal(compact.title, blocked.title);
   assert.equal(compact.status, blocked.status);
-  assert.equal(compact.blockerSummary, blocked.blockerReason);
   for (const detailedOnly of [
+    "blockerReason",
+    "blockerSummary",
     "owner",
     "reviewer",
     "lastActivityKst",

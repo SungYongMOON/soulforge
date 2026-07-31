@@ -102,6 +102,7 @@ test("owner inbox: UNKNOWN과 multi-agent fixture는 관찰 의미를 보존한�
   assert.equal(unknown.agentState, "unknown");
   assert.deepEqual(unknown.providers, []);
   assert.equal(multi.agentState, "observed");
-  assert.equal(multi.providers.length, 2);
-  assert.ok(multi.providers.every((provider) => provider.observed));
+  assert.equal(multi.providers.length, 3);
+  assert.equal(multi.providers.filter((provider) => provider.observed).length, 2);
+  assert.equal(multi.providers.filter((provider) => !provider.observed).length, 1);
 });

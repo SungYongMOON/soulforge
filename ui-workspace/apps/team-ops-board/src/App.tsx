@@ -45,7 +45,8 @@ import {
 import {
   PROVIDER_ICON_KEYS,
   buildCompactCardView,
-  resolveProviderVisual
+  resolveProviderVisual,
+  selectObservedProviderEntries
 } from "./core/provider-visual.mjs";
 
 type InboxView = "active" | "history";
@@ -595,12 +596,6 @@ function TaskCard({
       </strong>
       <span className="inbox-card-route">{compact.route}</span>
       <ProviderRow task={task} />
-      {compact.blockerSummary && (
-        <span className="inbox-card-alert">
-          <AlertCircle size={13} aria-hidden="true" />
-          {compact.blockerSummary}
-        </span>
-      )}
     </button>
   );
 }
@@ -612,7 +607,9 @@ const providerIconMap = {
 } as const;
 
 function ProviderRow({ task }: { task: any }) {
-  if (task.agentState !== "observed" || task.providers.length === 0) {
+  const observedProviders = selectObservedProviderEntries(task);
+
+  if (task.agentState !== "observed") {
     return (
       <span className="inbox-agent-unknown" data-provider-icon={PROVIDER_ICON_KEYS.UNKNOWN}>
         <Bot size={12} aria-hidden="true" />
@@ -621,9 +618,13 @@ function ProviderRow({ task }: { task: any }) {
     );
   }
 
+  if (observedProviders.length === 0) {
+    return null;
+  }
+
   return (
-    <span className="inbox-provider-row" aria-label={`관찰된 agent ${task.providers.length}개`}>
-      {task.providers.map((entry: any) => {
+    <span className="inbox-provider-row" aria-label={`관찰된 agent ${observedProviders.length}개`}>
+      {observedProviders.map((entry: any) => {
         const visual = resolveProviderVisual(entry);
         const brandIcon = providerIconMap[visual.iconKey as keyof typeof providerIconMap];
         return (
@@ -648,7 +649,7 @@ function ProviderRow({ task }: { task: any }) {
           </span>
         );
       })}
-      {task.providers.length > 1 && (
+      {observedProviders.length > 1 && (
         <span className="inbox-multi-badge">
           <UsersRound size={12} aria-hidden="true" />
           복수 agent

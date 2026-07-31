@@ -7,13 +7,13 @@
 - compact work-tool grammar reference:
   `%TEMP%/codex-clipboard-213e4c44-7fda-4a80-8087-a9f68a82c991.png`
 - final browser-rendered implementation:
-  `evidence/workspace-board-1440x1024-brand-glyphs-final.png`
+  `evidence/workspace-board-1440x1024-iteration8-compact-detail-only.png`
 - final same-input comparison:
-  `evidence/workspace-board-iteration7-final-full-comparison.png`
+  `evidence/workspace-board-iteration8-final-full-comparison.png`
 - final focused card comparison:
-  `evidence/workspace-board-iteration7-final-provider-focus-comparison.png`
+  `evidence/workspace-board-iteration8-final-compact-focus-comparison.png`
 - final mobile dialog implementation:
-  `evidence/workspace-board-390x844-brand-glyphs-modal.png`
+  `evidence/workspace-board-390x844-iteration8-mixed-modal.png`
 - route/state: `/`, dark theme, synthetic normal state, blocked TASK selected
 - CSS viewport: 1440 × 1024
 - device pixel ratio: 1
@@ -27,7 +27,9 @@
 ## Browser evidence
 
 - primary desktop:
-  `evidence/workspace-board-1440x1024-brand-glyphs-final.png`
+  `evidence/workspace-board-1440x1024-iteration8-compact-detail-only.png`
+- mixed observed/unobserved provider desktop:
+  `evidence/workspace-board-1440x1024-iteration8-mixed-provider.png`
 - pre-revision desktop baseline:
   `evidence/workspace-board-1440x1024-before-compact-annotation.png`
 - compact-card initial comparison:
@@ -35,17 +37,17 @@
 - compact-card final comparison:
   `evidence/workspace-board-iteration6-final-full-comparison.png`
 - focused card/provider comparison:
-  `evidence/workspace-board-iteration7-final-provider-focus-comparison.png`
+  `evidence/workspace-board-iteration8-final-compact-focus-comparison.png`
 - completed-unread selected:
   `evidence/workspace-board-1440x1024-completed-selected.png`
 - acknowledged history recovery:
   `evidence/workspace-board-1440x1024-acknowledged-history.png`
 - tablet:
-  `evidence/workspace-board-1024x768-brand-glyphs-detail.png`
+  `evidence/workspace-board-1024x768-iteration8-mixed-detail.png`
 - mobile board:
   `evidence/workspace-board-390x844-brand-glyphs-board.png`
 - mobile blocked detail:
-  `evidence/workspace-board-390x844-brand-glyphs-modal.png`
+  `evidence/workspace-board-390x844-iteration8-mixed-modal.png`
 - mobile accessible dialog:
   `evidence/workspace-board-390x844-mobile-dialog-accessibility.png`
 - mobile first entry without an automatic dialog:
@@ -59,11 +61,11 @@
 - mobile acknowledgement post-transition focus:
   `evidence/workspace-board-390x844-mobile-ack-focus-inside-iteration-5.png`
 
-The full-view comparison covers composition, typography, token, copy, and the
-unchanged right detail. The provider glyphs and card density are too small for
-reliable full-view judgment, so iteration 7 uses a focused candidate-versus-
-brand card comparison. The mobile detail has its own focused screenshot because
-it changes to a fixed modal overlay.
+The full-view comparison places source 2, the reviewed iteration 7 candidate,
+and iteration 8 in one input. The blocker-card information boundary is too small
+for reliable full-view judgment, so iteration 8 also uses a focused
+candidate-versus-final crop. Mixed provider and mobile modal states have their
+own focused screenshots.
 
 ## Findings
 
@@ -74,7 +76,7 @@ No actionable P0/P1/P2 findings remain.
   than the TASK title, and long text wraps without overlap.
 - Spacing and layout rhythm: four state columns, 1 px dividers, 4–6 px radii,
   restrained fills, minimal shadow, and the right detail panel follow the
-  selected visual grammar. The average card height fell from 182 px to 97 px;
+  selected visual grammar. The average card height fell from 182 px to 93.58 px;
   the same 1440 × 1024 CSS viewport now shows 16 rather than 12 active cards.
   Four visible cards per column plus explicit `더보기` prevents scale-driven
   overflow.
@@ -91,8 +93,10 @@ No actionable P0/P1/P2 findings remain.
   UNKNOWN. The copy does not imply live Codex, ERP, worktree, or provider truth.
 - Icons: observed Codex/GPT, Antigravity/Gemini, and Kimi entries use Lobe's
   `codex-color.svg`, `antigravity-color.svg`, and `kimi-color.svg` brand marks.
-  Multi-agent rows show both observed brand glyphs. Only UNKNOWN remains Lucide
-  `Bot`, with explicit non-inference text.
+  Multi-agent rows show only observed brand glyphs. A mixed fixture's
+  `observed: false` Kimi entry is absent from rendering, count, and multi-agent
+  determination. Only a provider whose task-level observation state is unknown
+  uses Lucide `Bot`, with explicit non-inference text.
 - States and interactions: active/history, search, project/responsibility/
   status filters, per-column more, detail selection, completed acknowledgement,
   pointer-preserving history recovery, empty, error, missing-data, UNKNOWN, and
@@ -435,6 +439,87 @@ Mandatory fidelity pass:
 Filtered in-app/browser app-origin console errors: 0; warnings: 0. No
 actionable P0/P1/P2 finding remains after the brand-glyph recapture.
 
+### Iteration 8 — fresh compact/observed-only P2s, then passed
+
+Fresh non-implementer review of candidate
+`c12e0a4b8cd5cde593967d645e5e8074382612fb` reported three P2s:
+
+- the blocked-card `blockerSummary` duplicated the blocker reason already shown
+  in detail, violating the Owner's strict compact information boundary
+- `ProviderRow` rendered and counted raw `task.providers` rather than the
+  observed-only set used by the compact model
+- the final deterministic and browser results lacked one durable, scoped exit
+  receipt that a later verifier could read without relying on chat history
+
+Fix:
+
+- removed `blockerSummary` from the compact model and card markup and removed
+  its card-only CSS; blocker reason and next decision remain in the right
+  detail/mobile modal
+- added one pure `selectObservedProviderEntries()` boundary and used the same
+  `observedProviders` array for provider rendering, accessible count, and
+  multi-agent badge determination
+- changed the multi-agent synthetic fixture to contain Codex and Antigravity
+  observed entries plus one unobserved Kimi entry; deterministic and browser
+  checks prove the Kimi entry is never rendered or counted
+- added
+  `evidence/workspace-board-iteration8-validation-receipt.md` with exact
+  commands, exit codes, browser assertions, data boundary, and claim ceiling
+
+Post-fix evidence:
+
+- source 2 / reviewed candidate / actual full comparison:
+  `evidence/workspace-board-iteration8-final-full-comparison.png`
+- candidate / actual compact-detail focused comparison:
+  `evidence/workspace-board-iteration8-final-compact-focus-comparison.png`
+- blocked card with detail:
+  `evidence/workspace-board-1440x1024-iteration8-compact-detail-only.png`
+- mixed-provider desktop:
+  `evidence/workspace-board-1440x1024-iteration8-mixed-provider.png`
+- mixed-provider tablet:
+  `evidence/workspace-board-1024x768-iteration8-mixed-detail.png`
+- mixed-provider mobile modal:
+  `evidence/workspace-board-390x844-iteration8-mixed-modal.png`
+
+At 1440 × 1024, the selected blocked card contains only project,
+responsibility/route, status, TASK title, and provider. It does not contain
+`부품 납기 미확정`; the adjacent detail contains that reason and
+`대체 공급안 승인`. All 16 cards remain visible, average card height is
+93.58 px, and horizontal overflow is zero.
+
+The mixed-provider card and detail both expose `관찰된 agent 2개`, render
+Codex and Antigravity, show one multi-agent badge, and contain zero Kimi
+provider badges. The raw synthetic fixture retains one `observed: false` Kimi
+entry specifically as a negative regression case. UNKNOWN fixtures still use
+Lucide `Bot` only when the task-level provider observation state is unknown.
+
+At 1024 × 768, detail remains non-modal and preserves owner, reviewer, pointer,
+and the two observed providers. At 390 × 844, first entry opens no dialog;
+mixed-provider modal focus stays inside with zero effective outside focusables;
+acknowledgement keeps focus on the connected visible close button before
+Escape restores a logical history row; blocked Tab/Shift+Tab remains trapped
+and Escape restores the originating card. `BODY` is never accepted as a
+successful restore target.
+
+Mandatory fidelity pass:
+
+- fonts/typography: unchanged system hierarchy; card copy is shorter and easier
+  to scan without losing the required title/meta/provider hierarchy
+- spacing/layout: removing the duplicate blocker row reduces average height by
+  4.5 px from iteration 7 while retaining the four-column/high-density grammar
+- colors/tokens: graphite and four semantic state treatments are unchanged;
+  detail-only blocker red remains visible after selection
+- image/assets: exact Lobe provider brand glyphs remain unchanged; no
+  handcrafted or approximate assets were introduced
+- copy/content: blocker/next decision is present once in detail, and
+  unobserved provider data is neither displayed nor counted
+- responsiveness/accessibility: desktop/tablet/mobile overflow is zero;
+  non-modal and modal flows, accessible provider count, inert background,
+  focus trap, acknowledgement focus, and restore lifecycle all pass
+
+In-app browser app-origin console errors: 0; warnings: 0. No actionable
+P0/P1/P2 remains after the iteration 8 recapture and same-input comparison.
+
 ## Primary interactions and console
 
 - selected blocked TASK and confirmed blocker reason/next decision persistence
@@ -456,11 +541,14 @@ actionable P0/P1/P2 finding remains after the brand-glyph recapture.
 - confirmed the `읽고 확인` transition itself retains focus inside the still-open
   dialog on a connected, visible `상세 닫기` target rather than `BODY`
 - confirmed compact cards exclude owner/reviewer/timestamp/pointer while the
-  selected detail preserves those fields; observed provider icons and labels
-  remain distinguishable and accessible
+  selected detail preserves those fields; compact cards also exclude blocker
+  reason/next decision, which remain in detail only
+- confirmed mixed provider rendering and count use only `observed: true`
+  entries; one unobserved Kimi fixture entry is absent from card, detail, and
+  multi-agent count
 - confirmed actual Codex, Antigravity, and Kimi brand assets load at natural and
   rendered dimensions; multi-agent shows both and UNKNOWN alone uses `Bot`
-- measured 1440 × 1024 cards at 97 px average and 16 visible, versus the
+- measured 1440 × 1024 cards at 93.58 px average and 16 visible, versus the
   182 px/12-card pre-revision baseline
 - confirmed mobile dialog effective focusables: inside 1, outside 0; tablet
   non-modal detail: role absent, inert roots 0
@@ -476,10 +564,10 @@ actionable P0/P1/P2 finding remains after the brand-glyph recapture.
 ## Implementation checklist
 
 - [x] Four exact active columns and default exclusions
-- [x] Compact project/responsibility/status/TASK/provider card hierarchy
+- [x] Compact project/responsibility/status/TASK/provider-only card hierarchy
 - [x] Observed-only provider brand assets, multi-agent glyphs, and UNKNOWN
   Lucide `Bot` semantics
-- [x] Blocker reason and next decision persistence
+- [x] Detail-only blocker reason and next decision persistence
 - [x] Completed acknowledgement and pointer-preserving history
 - [x] Scale cap, more, search, and filters
 - [x] Empty/error/missing/UNKNOWN/multi-agent states

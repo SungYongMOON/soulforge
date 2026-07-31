@@ -616,27 +616,6 @@ button {
   font-size: 9px;
 }
 
-.inbox-card-alert {
-  display: grid;
-  grid-template-columns: 14px minmax(0, 1fr);
-  gap: 4px;
-  align-items: center;
-  color: var(--red);
-  font-size: 9.5px;
-  font-weight: 700;
-}
-
-.inbox-card-alert > span,
-.inbox-card-alert {
-  min-width: 0;
-}
-
-.inbox-card-alert {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .inbox-column-empty {
   min-height: 82px;
   display: grid;

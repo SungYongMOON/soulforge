@@ -18,8 +18,10 @@ active 보드에서 제외한다. 검색과 `이력·제외` 화면으로 다시
 
 카드는 프로젝트·책임분야·상태 작은 메타 뒤에 실제 synthetic TASK 제목,
 route, provider만 표시하는 고밀도 접힘 형태다. 책임자·검토자·최근 활동·pointer와
-근거는 선택 시 우측 상세 또는 모바일 dialog에서 보여 준다. agent/provider badge는
-fixture에서 `observed: true`인 값만 보여 준다. MIT 라이선스의
+근거·blocker reason·next decision은 선택 시 우측 상세 또는 모바일 dialog에서만
+보여 준다. agent/provider badge는 fixture에서 `observed: true`인 값만 렌더링하고
+count하며, 같은 TASK의 `observed: false` entry는 badge·복수 agent count에서
+제외한다. MIT 라이선스의
 `@lobehub/icons-static-svg` 브랜드 자산에서 Codex/GPT는 `codex-color.svg`,
 Antigravity/Gemini는 `antigravity-color.svg`, Kimi는 `kimi-color.svg`로
 구분한다. 관찰되지 않은 값만 Lucide generic `Bot`과

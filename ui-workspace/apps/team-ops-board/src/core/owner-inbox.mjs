@@ -206,7 +206,8 @@ function specialTasks() {
       agentState: "observed",
       providers: [
         { agent: "Codex", provider: "GPT", observed: true },
-        { agent: "Antigravity", provider: "Gemini", observed: true }
+        { agent: "Antigravity", provider: "Gemini", observed: true },
+        { agent: "Kimi", provider: "Kimi", observed: false }
       ],
       owner: "책임자 F",
       reviewer: "시험평가 검토자",

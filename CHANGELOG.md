@@ -127,6 +127,10 @@
   MIT `@lobehub/icons-static-svg`의 실제 Codex·Antigravity·Kimi 브랜드 glyph를
   정적 asset import로 적용했다. UNKNOWN만 Lucide `Bot`을 유지하고 복수 agent는
   관찰된 각 브랜드 glyph를 함께 표시한다. (worker: `codex_gpt-5.6`)
+- 후속 fresh review의 compact/observed-only P2를 보정했다. blocker reason과
+  next decision을 카드에서 제거해 상세에만 유지하고, mixed provider fixture에서
+  `observed: false` entry가 렌더링·count·복수 agent 판정에 포함되지 않도록 단일
+  observed-provider 선택 경계를 적용했다. (worker: `codex_gpt-5.6`)
 
 ## 2026-07-30
 
