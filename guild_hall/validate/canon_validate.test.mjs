@@ -59,6 +59,63 @@ const development1ExcludedDirectRecipientSelectors = [
   "erp_product_organization",
   "system_product_organization",
 ];
+const development1RecipientPolicyRegressionCases = [
+  [
+    "missing allowed selector",
+    { omitAllowedRecipientSelector: "active_exact_project_manager" },
+    "codex_thread_manager_attribution_development1_allowed_recipients_invalid",
+  ],
+  [
+    "extra allowed selector",
+    { recipientPolicyMutation: "allowed_extra" },
+    "codex_thread_manager_attribution_development1_allowed_recipients_invalid",
+  ],
+  [
+    "missing direct exclusion",
+    { omitExcludedDirectRecipientSelector: "ax_product_organization" },
+    "codex_thread_manager_attribution_development1_excluded_direct_recipients_invalid",
+  ],
+  [
+    "extra direct exclusion",
+    { recipientPolicyMutation: "excluded_extra" },
+    "codex_thread_manager_attribution_development1_excluded_direct_recipients_invalid",
+  ],
+  [
+    "changed direct exclusion",
+    { recipientPolicyMutation: "excluded_changed" },
+    "codex_thread_manager_attribution_development1_excluded_direct_recipients_invalid",
+  ],
+  [
+    "display route mismatch",
+    { recipientPolicyMutation: "display_route_mismatch" },
+    "codex_thread_manager_attribution_development1_allowed_recipients_invalid",
+  ],
+  [
+    "lifecycle mismatch",
+    { recipientPolicyMutation: "lifecycle_mismatch" },
+    "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+  ],
+  [
+    "stable catalog resolution mismatch",
+    { recipientPolicyMutation: "catalog_resolution_mismatch" },
+    "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+  ],
+  [
+    "live binding resolution mismatch",
+    { recipientPolicyMutation: "live_binding_resolution_mismatch" },
+    "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+  ],
+  [
+    "execution-ready mismatch",
+    { recipientPolicyMutation: "execution_ready_mismatch" },
+    "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+  ],
+  [
+    "fail-closed mismatch",
+    { recipientPolicyMutation: "fail_closed_mismatch" },
+    "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
+  ],
+];
 const attributionStepGuards = [
   ["worker_execution_or_rollover_acceptance", "worker_result_summary_preserves_upward_result_attribution_shape"],
   ["integration_and_validation", "integration_requires_and_preserves_upward_result_attribution_shape"],
@@ -549,21 +606,8 @@ for (const [label, guard] of development1RecipientScopeGuards) {
   });
 }
 
-test("canon validator rejects weakened Development Team 1 recipient policy", async () => {
-  for (const [option, reasonCode] of [
-    [
-      { omitAllowedRecipientSelector: "active_exact_project_manager" },
-      "codex_thread_manager_attribution_development1_allowed_recipients_invalid",
-    ],
-    [
-      { omitExcludedDirectRecipientSelector: "ax_product_organization" },
-      "codex_thread_manager_attribution_development1_excluded_direct_recipients_invalid",
-    ],
-    [
-      { weakenRecipientResolution: true },
-      "codex_thread_manager_attribution_development1_recipient_resolution_requirements_invalid",
-    ],
-  ]) {
+for (const [label, option, reasonCode] of development1RecipientPolicyRegressionCases) {
+  test(`canon validator rejects Development Team 1 recipient policy ${label} with a stable reason code`, async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "soulforge-canon-attribution-recipient-policy-"));
     try {
       await writeCodexThreadManagerFixture(root, option);
@@ -576,8 +620,8 @@ test("canon validator rejects weakened Development Team 1 recipient policy", asy
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  }
-});
+  });
+}
 
 test("canon validator rejects each missing codex thread manager attribution step wiring guard", async () => {
   for (const [stepId] of attributionStepGuards) {
@@ -668,8 +712,28 @@ function buildAttributionWorkflowYaml({
   omitScopeGuard,
   omitAllowedRecipientSelector,
   omitExcludedDirectRecipientSelector,
-  weakenRecipientResolution,
+  recipientPolicyMutation,
 } = {}) {
+  const allowedRecipientSelectors = development1AllowedRecipientSelectors.filter(
+    (selector) => selector !== omitAllowedRecipientSelector,
+  );
+  if (recipientPolicyMutation === "allowed_extra") {
+    allowedRecipientSelectors.push("unexpected_internal_recipient");
+  }
+
+  const excludedDirectRecipientSelectors = development1ExcludedDirectRecipientSelectors.filter(
+    (selector) => selector !== omitExcludedDirectRecipientSelector,
+  );
+  if (recipientPolicyMutation === "excluded_extra") {
+    excludedDirectRecipientSelectors.push("unexpected_product_organization");
+  } else if (recipientPolicyMutation === "excluded_changed") {
+    excludedDirectRecipientSelectors.splice(
+      excludedDirectRecipientSelectors.indexOf("ax_product_organization"),
+      1,
+      "ax_product_manager",
+    );
+  }
+
   return [
     "workflow_id: codex_thread_manager_v0",
     "role_slots: role_slots.yaml",
@@ -691,22 +755,20 @@ function buildAttributionWorkflowYaml({
       .map((guard) => `      ${guard}: true`),
     "    development1_internal_campaign_recipient_policy:",
     "      allowed_recipient_selectors:",
-    ...development1AllowedRecipientSelectors
-      .filter((selector) => selector !== omitAllowedRecipientSelector)
-      .map((selector) => `        - ${selector}`),
+    ...allowedRecipientSelectors.map((selector) => `        - ${selector}`),
     "      public_display_routes:",
-    '        development1_operations_manager: "[개발1팀 운영실] 업무운영/팀장"',
+    recipientPolicyMutation === "display_route_mismatch"
+      ? '        development1_operations_manager: "[개발1팀 운영실] 미확정/팀장"'
+      : '        development1_operations_manager: "[개발1팀 운영실] 업무운영/팀장"',
     '        unassigned_project_manager: "[미할당 프로젝트] 업무운영/팀장"',
     "      excluded_direct_recipient_selectors:",
-    ...development1ExcludedDirectRecipientSelectors
-      .filter((selector) => selector !== omitExcludedDirectRecipientSelector)
-      .map((selector) => `        - ${selector}`),
+    ...excludedDirectRecipientSelectors.map((selector) => `        - ${selector}`),
     "      resolution_requirements:",
-    "        stable_route_lifecycle: active",
-    "        stable_catalog_resolution: EXACT",
-    `        live_binding_resolution: ${weakenRecipientResolution ? "UNKNOWN" : "EXACT"}`,
-    "        execution_ready: true",
-    "        fail_closed_on_missing_or_mismatch: true",
+    `        stable_route_lifecycle: ${recipientPolicyMutation === "lifecycle_mismatch" ? "retired" : "active"}`,
+    `        stable_catalog_resolution: ${recipientPolicyMutation === "catalog_resolution_mismatch" ? "AMBIGUOUS" : "EXACT"}`,
+    `        live_binding_resolution: ${recipientPolicyMutation === "live_binding_resolution_mismatch" ? "UNKNOWN" : "EXACT"}`,
+    `        execution_ready: ${recipientPolicyMutation === "execution_ready_mismatch" ? "false" : "true"}`,
+    `        fail_closed_on_missing_or_mismatch: ${recipientPolicyMutation === "fail_closed_mismatch" ? "false" : "true"}`,
     "",
   ].join("\n");
 }
