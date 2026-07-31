@@ -15,6 +15,7 @@
 | `KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md` | Fixes the Google Drive source warehouse, NotebookLM query bookshelf, source catalog, and ontology-candidate vocabulary and placement rules. |
 | `ONTOLOGY_CANON_OPERATING_POLICY_V0.md` | Fixes the approved Google Drive ontology canon package, `.registry/knowledge` execution projection, NotebookLM advisory bookshelf, and NAS disaster-recovery authority split. |
 | `DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md` | Defines the approved two-organization human view under one human Owner while preserving the fixed machine routing branches. |
+| `AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md` | Fixes the approved Codex-native role model/reasoning defaults, Ultra gate, CEO delta-reporting, support-channel boundary, and current `CODEX_NATIVE + NORMAL` activation state. |
 | `COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md` | Defines the public-safe COMMON company/team operations organization, role boundaries, Slack collaboration-space ownership, peer request semantics, and common TASK routing rules. |
 | `DEVELOPMENT1_TEAM_OPERATIONS_WORK_CLASSIFICATION_GUIDE_V0.md` | Records the canon candidate for seven Development Team 1 operations responsibilities, general-work classification, support TASKs, internal-project promotion gates, and replacing the unassigned-project role with a bounded triage state. |
 | `PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md` | Defines the public-safe 15-lane project organization, responsibility assignment boundaries, TASK roles and gates, and new-versus-existing TASK routing rules. |
@@ -96,6 +97,7 @@
 - [`KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md`](KNOWLEDGE_WAREHOUSE_BOOKSHELF_RULES_V0.md)
 - [`ONTOLOGY_CANON_OPERATING_POLICY_V0.md`](ONTOLOGY_CANON_OPERATING_POLICY_V0.md)
 - [`DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`](DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md)
+- [`AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`](AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md)
 - [`COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`](COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md)
 - [`DEVELOPMENT1_TEAM_OPERATIONS_WORK_CLASSIFICATION_GUIDE_V0.md`](DEVELOPMENT1_TEAM_OPERATIONS_WORK_CLASSIFICATION_GUIDE_V0.md)
 - [`PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md`](PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md)

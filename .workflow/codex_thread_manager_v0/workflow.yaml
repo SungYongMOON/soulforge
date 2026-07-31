@@ -23,6 +23,7 @@ optional_inputs:
   - active_worker_thread_refs
   - common_team_operations_organization_ref
   - two_company_organization_governance_ref
+  - ai_organization_model_operating_policy_ref
   - project_work_organization_ref
   - project_work_assignment_request
   - existing_task_thread_refs
@@ -185,6 +186,7 @@ codex_thread_manager_contract:
   project_work_assignment_policy:
     common_team_operations_contract_ref: docs/architecture/guild_hall/COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md
     two_company_organization_contract_ref: docs/architecture/guild_hall/DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md
+    ai_organization_model_operating_policy_ref: docs/architecture/guild_hall/AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md
     organization_contract_ref: docs/architecture/guild_hall/PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md
     task_engine_authority_ref: docs/architecture/workspace/PROJECT_TASK_ENGINE_LIFECYCLE_V0.md
     task_engine_authority_is_referenced_not_redefined: true

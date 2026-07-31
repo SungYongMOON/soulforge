@@ -102,6 +102,11 @@ The reusable human-facing contract is
 `docs/architecture/guild_hall/COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`.
 The approved two-company governance projection and CEO authority boundary is
 `docs/architecture/guild_hall/DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`.
+The approved Codex-native role model/reasoning defaults, Ultra gate, CEO
+delta-reporting boundary, and current activation state are defined by
+`docs/architecture/guild_hall/AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`.
+That policy does not overwrite workflow-specific calibrated profiles; role
+turns and bounded workflow execution turns remain distinct.
 CEO coordination stays explicit-address and `HOLD/non-routable` until a
 separately approved governance overlay or directory v2 is validated.
 For COMMON work, the team operations manager classifies common or unclassified

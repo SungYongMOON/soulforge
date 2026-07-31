@@ -2,6 +2,23 @@
 
 ## 2026-07-31
 
+### AI 조직·모델 운영정책 정본 등록
+
+- 개발1팀 회사와 AI 기반시스템 회사의 실제 업무분장을 기준으로 CEO
+  `Sol/xhigh`, 운영실 팀장 `Sol/high`, 프로젝트 팀장 `Sol/xhigh`, 기술
+  책임자 `Sol/high`, 운영·통제 책임자 `Terra/high~xhigh`, 실제 결과물 TASK
+  `Terra/xhigh`의 Codex-native 기본 profile을 정본으로 등록했다.
+- Ultra를 상시 직책이나 CEO 기본 모델이 아니라 사전 정의된 중대 Gate
+  심의로 고정하고, CEO는 정상 보고마다 깨우지 않으며 현재 상태·변경분·결정
+  안건·증거 pointer만 받도록 했다. 완료·과거 TASK는 profile 적용만을 위해
+  일괄 재호출하지 않는다.
+- GPT Pro·Deep Research·NotebookLM을 모든 모드의 조사·자문 지원 채널로
+  분리했다. 현재 활성 상태는 `CODEX_NATIVE + NORMAL`이며 Kimi·Antigravity
+  등을 통한 외부 LLM 역할 대체와 토큰 부족 overlay는 활성화하지 않았다.
+  기존 workflow별 calibration `profile_policy.yaml`은 보존하고
+  `codex_thread_manager_v0`이 새 조직 모델 운영정책을 별도 참조하게 했다.
+  (worker: `codex_gpt-5.6-sol`)
+
 ### AI 기반시스템 회사 상향 결과보고 attribution 계약
 
 - AX·ERP·SYSTEM과 향후 AI 기반시스템 회사 지속 책임 route의 상향 결과보고가

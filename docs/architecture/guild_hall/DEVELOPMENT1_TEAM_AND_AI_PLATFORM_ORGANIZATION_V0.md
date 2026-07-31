@@ -13,6 +13,12 @@
 default route 또는 automation을 자동 생성·활성화하지 않는다. 기존 프로젝트별
 15개 책임 분야와 실제 프로젝트 TASK도 변경하지 않는다.
 
+역할별 Codex 모델·추론 기본값, Ultra 심의, CEO delta 보고, 외부 조사·자문
+지원 채널과 현재 활성 상태 `CODEX_NATIVE + NORMAL`은
+`AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`를 따른다. 해당 정책은 조직
+authority를 바꾸지 않으며, 외부 LLM 역할 대체와 토큰 부족 overlay는 별도
+Owner 승인 전 비활성이다.
+
 ## 결정 배경과 적용 원칙
 
 기존 Codex work directory는 `COMMON`, `PROJECTS`, `AX DEVELOPMENT`,
