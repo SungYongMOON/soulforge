@@ -203,6 +203,26 @@ TASK 스레드는 영구 조직이 아니다. 새 결과물이나 다단계 실�
 
 수행 종료, 에이전트 성공, 파일 존재만으로 완료를 주장하지 않는다.
 
+## 프로젝트 manager의 상급자 결과 보고
+
+프로젝트 manager가 상급자에게 결과를 보고할 때는 manager 자신의 통합 결과만
+말하지 않고 실제 주관 책임자와 수행 TASK·agent, 협업, 독립 검토, manager
+기여를 분리한다. 보고에는 다음 여덟 항목을 둔다.
+
+1. 보고 항목 또는 결과
+2. 실제 `primary responsibility owner` route/title 정확히 1개
+3. 실제 `executor_or_agent` TASK·agent·thread 또는 `미확정`
+4. 실제 확인된 `collaborators` 또는 `없음`·`미확정`
+5. 실제 있었을 때만 `independent reviewer`
+6. 분류·분장·통합·에스컬레이션 중 실제 `manager contribution`
+7. TASK·thread·evidence pointer와 상태
+8. Owner 결정 또는 승인 필요사항
+
+manager는 책임자의 실무를 자기 작업처럼 합쳐 보고하지 않고, 책임자 역할명과
+실제 수행 agent를 혼동하지 않는다. self-check와 implementer fork는 독립 검토가
+아니다. 사람 이름·민감정보보다 public-safe route/title과 근거 pointer를
+우선하며, 근거 없는 attribution은 추정하지 않고 `미확정`으로 둔다.
+
 ## 합성 업무 라우팅 예시
 
 아래는 규칙을 설명하기 위한 합성 예시이며 실제 프로젝트 담당 확정이 아니다.

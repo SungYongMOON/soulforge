@@ -149,6 +149,46 @@ TASK에는 다음 논리 역할을 구분한다.
 프로젝트 TASK와 동일하게 시작·변경·완료 gate를 적용한다. 파일 존재, 메시지
 작성, 에이전트 성공만으로 완료를 주장하지 않는다.
 
+## 상급자 결과 보고 attribution
+
+팀장이 상급자에게 업무 결과를 보고할 때는 팀장 자신의 통합 결과만 말하지
+않고, 실제 업무를 주관한 책임자와 수행 TASK·agent, 협업, 독립 검토, 팀장
+기여를 구분한다. 팀장은 책임자가 한 실무를 자기 작업처럼 뭉뚱그리지 않으며,
+책임자 역할명과 실제 수행 agent를 혼동하지 않는다.
+
+결과 보고에는 다음 항목을 기록한다.
+
+1. 보고 항목 또는 결과
+2. `primary responsibility owner`: 실제 주관 책임자 route/title 정확히 1개
+3. `executor_or_agent`: 실제 수행 TASK·agent·thread, 미확정이면 `미확정`
+4. `collaborators`: 실제 확인된 협업만 기록하고 없거나 불명확하면
+   `없음` 또는 `미확정`
+5. `independent reviewer`: 실제 있었을 때만 기록하며 수행자의 self-check나
+   implementer fork를 독립 검토로 표시하지 않음
+6. `manager contribution`: 분류·분장·통합·에스컬레이션 중 팀장이 실제 한 일
+7. TASK·thread·evidence pointer와 상태
+8. Owner 결정 또는 승인 필요사항
+
+사람 이름·민감정보보다 public-safe route/title과 근거 pointer를 우선한다.
+관찰 근거 없이 attribution을 추정하지 않고, 확인되지 않은 값은 `미확정`으로
+남긴다. primary는 정확히 하나이며 나머지 참여는 협업 또는 독립 검토다.
+
+### Public-safe 적용 예시 — Workspace Board
+
+| 보고 필드 | 기록 |
+| --- | --- |
+| 보고 항목/결과 | Workspace Board Owner Action Inbox MVP |
+| primary responsibility owner | `[개발1팀 운영실] 전략기획·포트폴리오/책임자` |
+| executor_or_agent | `[SYSTEM] Workspace Board MVP 구현/TASK` |
+| collaborators | 미확정 |
+| independent reviewer | 구현 TASK·agent·fork가 아닌 fresh 검토 lane |
+| manager contribution | 업무 분류, 주관·수행 분장, fresh 검토 gate 설정, 결과 통합 |
+| TASK/thread/evidence pointer와 상태 | `[SYSTEM] Workspace Board MVP 구현/TASK`; `CHANGELOG.md`의 `Workspace Board Owner Action Inbox MVP`; 구현·fresh review 반영, Owner 최종 수락 전 |
+| Owner 결정 또는 승인 필요사항 | 실제 backend·runtime 연결, 배포, 외부 전송, 최종 수락은 Owner 승인 필요 |
+
+이 예시는 실제 사람 이름, thread id, 로컬 절대 경로, private runtime 값을
+공개하지 않으면서도 주관·수행·검토·통합을 서로 분리하는 보고 형태를 보여준다.
+
 ## 사람 owner 승인 경계
 
 다음은 팀 업무운영/팀장이나 하위 책임자가 자동으로 확정하지 않는다.

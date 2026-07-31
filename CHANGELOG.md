@@ -2,6 +2,19 @@
 
 ## 2026-07-31
 
+### 개발1팀 결과보고 attribution 정본 후보
+
+- 팀장 상급 보고에서 실제 주관 책임자 1개, 수행 TASK·agent, 협업, 실제
+  독립검토, 팀장 기여, 근거·상태와 Owner 승인 필요사항을 분리하도록 COMMON
+  정본과 프로젝트 manager mirror를 보강했다.
+- Workspace Board MVP를 public-safe 예시로 기록하고, 책임자 역할과 실제 수행
+  TASK·agent를 혼동하거나 책임자의 실무를 팀장 작업으로 뭉뚱그리거나
+  self-check·implementer fork를 독립검토로 표시하지 않도록
+  `codex_thread_manager_v0` workflow와 canonical skill bridge를 동기화했다.
+- installed personal skill, private route/binding, 실제 thread, 공지, external
+  system은 변경하지 않았다. fresh independent review와 main 통합·공지 전까지
+  상태는 `canon_candidate`다. (worker: `codex_gpt-5.6-sol`)
+
 ### AI 작업 결과 누락 복구 Phase G 운영 preflight 보강
 
 - public commit `ca63963421e3ac4792dd8aeb34dac518e3a9b5a4`를 `main`에 포함했다.

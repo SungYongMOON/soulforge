@@ -313,6 +313,7 @@ steps:
       - owner_decision_refs
     outputs:
       - closeout_report
+      - result_report_attribution
       - next_action
       - knowledge_trigger_check
     rules:
@@ -321,6 +322,12 @@ steps:
       party_creation_only_for_multi_workflow_chain: true
       default_route_safety_not_claimed_without_owner_intent: true
       unresolved_assignment_or_failed_start_gate_returns_without_thread_creation: true
+      superior_result_report_separates_primary_owner_executor_collaborators_reviewer_and_manager_contribution: true
+      superior_result_report_requires_exactly_one_primary_owner: true
+      superior_result_report_requires_result_executor_collaborators_manager_contribution_evidence_status_and_owner_gate: true
+      superior_result_report_includes_independent_reviewer_only_when_present: true
+      manager_self_check_or_implementer_fork_is_not_reported_as_independent_review: true
+      unconfirmed_attribution_is_not_inferred: true
     next: []
 stop_conditions:
   - conflicting_active_goal

@@ -29,4 +29,4 @@ rules:
   - from: validation_controller
     to: closeout_controller
     condition: validators_run_or_gap_recorded
-    summary: Pass validation results, claim ceiling, registration/default-route posture, blockers, and next action.
+    summary: Pass validation results, claim ceiling, registration/default-route posture, blockers, and next action. When the manager reports work results to a superior, also pass the report item or result, exactly one actual primary responsibility owner, actual executor or agent, confirmed collaborators or none/unconfirmed, an independent reviewer only when one actually existed, the manager's actual classification, assignment, integration, or escalation contribution, TASK/thread/evidence pointer and status, and Owner decision or approval needs. Do not collapse the responsibility owner's work into manager work, confuse a responsibility title with the executor, infer unconfirmed attribution, or label self-check or an implementer fork as independent review.

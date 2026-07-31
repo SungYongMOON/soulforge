@@ -68,6 +68,15 @@ tool behavior.
   thread should use subagents to explore, implement, debug, or self-check
   inside that lane and must report the subagents it used or why it did not
   create one. Its self-check is not independent verification of its own output.
+- When reporting work results to a superior, separate the report item, exactly
+  one actual primary responsibility owner, actual executor or agent, confirmed
+  collaborators, an independent reviewer only when one existed, the manager's
+  actual classification, assignment, integration, or escalation contribution,
+  TASK/thread/evidence pointer and status, and Owner decision or approval
+  needs. Do not collapse the responsibility owner's work into manager work,
+  confuse a responsibility title with the executor, infer unconfirmed
+  attribution, or label self-check or an implementer fork as independent
+  review.
 - Worker subagent count is scope-driven, not fixed. The worker may use as many
   bounded subagents as the lane reasonably needs unless the manager packet sets
   a specific limit.
@@ -291,7 +300,12 @@ available and must not rely only on worker narrative.
 15. Apply the complete gate, then run deterministic validators and
     `$soulforge-workflow-check` before
     readiness, registration, default-route, or production claims.
-16. Close with thread titles/ids when available, manager lifecycle action,
+16. When reporting results to a superior, include result-report attribution:
+    report item, exactly one primary responsibility owner, executor or agent,
+    collaborators, an independent reviewer only when one existed, manager
+    contribution, TASK/thread/evidence pointer and status, and Owner
+    decision/approval needs.
+17. Close with thread titles/ids when available, manager lifecycle action,
     validation status, remaining blockers, next action, and
     `지식 트리거 확인: ...`.
 

@@ -47,7 +47,17 @@ behavior:
     HOLD/non-routable.
     Non-project SYSTEM, AX, or ERP work preserves its existing owner routing,
     and all non-applicable project-extension packet fields are recorded as
-    `not_applicable` rather than inventing a project. Worker threads
+    `not_applicable` rather than inventing a project.
+    Managers reporting results to a superior separate the report item, exactly
+    one actual primary responsibility owner, actual executor or agent,
+    confirmed collaborators, an independent reviewer only when one existed,
+    the manager's actual classification, assignment, integration, or
+    escalation contribution, TASK/thread/evidence pointer and status, and any
+    Owner decision or approval need. They do not collapse the responsibility
+    owner's work into manager work, confuse the responsibility title with the
+    executor, infer unconfirmed attribution, or report self-check or an
+    implementer fork as independent review.
+    Worker threads
     are subagent-first lane controllers:
     substantive
     lane work is delegated to fresh bounded subagents by default, and direct
@@ -91,6 +101,8 @@ behavior:
     - Codex distinguishes responsibility owner, executor or agent, independent reviewer, and acceptance or approval authority without assuming four mandatory people
     - Codex creates a new TASK for a new deliverable, multi-step work, separate Verification, Validation, independent review, or acceptance and continues an existing TASK only when objective, owner, scope, baseline, interface, approval scope, and acceptance criteria match
     - Codex applies start, change, and complete gates and preserves human owner approval for final assignment, final acceptance, completion, and external side effects
+    - Codex result reports to a superior separate the result, exactly one actual primary responsibility owner, actual executor or agent, collaborators, any actual independent reviewer, manager contribution, TASK/thread/evidence pointer and status, and Owner decision or approval needs
+    - Codex does not infer unconfirmed attribution or present a responsibility owner's work, implementer self-check, or implementer fork as manager work or independent review
     - Codex references Task Engine authority canon without redefining or activating it
     - Codex routes non-durable side work to subagents and durable lanes to Codex worker threads
     - Codex uses fresh-context verifier/judge/reviewer lanes for independent acceptance and does not fork or continue the implementer for that judgment

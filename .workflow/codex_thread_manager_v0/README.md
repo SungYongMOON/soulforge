@@ -40,6 +40,9 @@ safety, or party binding.
 - Project-manager-first work classification, one-primary-owner assignment,
   out-of-scope reclassification, TASK logical roles and start/change/complete
   gates, and new-versus-existing TASK decisions.
+- Superior-facing result reports that separate the actual primary responsibility
+  owner, executor, collaborators, independent reviewer, and manager
+  contribution instead of presenting all work as the manager's own result.
 
 ## Context Lifecycle
 
@@ -126,6 +129,26 @@ instead of inventing a project or project responsibility lane.
   purchasing, payment, contracting, baseline approval, public release, or
   final acceptance, completion approval, or another external side effect.
 
+### Result report attribution
+
+When a manager reports work results to a superior, the report records:
+
+1. report item or result;
+2. exactly one actual primary responsibility owner route/title;
+3. the actual executor or agent TASK/thread, or `unconfirmed`;
+4. confirmed collaborators, `none`, or `unconfirmed`;
+5. an independent reviewer only when one actually existed;
+6. the manager's actual classification, assignment, integration, or escalation
+   contribution;
+7. TASK/thread/evidence pointer and status; and
+8. Owner decision or approval needs, or `none`.
+
+Do not collapse a responsibility owner's work into manager work, confuse a
+responsibility title with the actual executor, infer unconfirmed attribution,
+or label implementer self-check or an implementer fork as independent review.
+Prefer public-safe route/title and evidence pointers over person names or
+sensitive data.
+
 ### Stable manager directory maintenance
 
 - Stable manager route create, rollover, retire maintenance applies only to
@@ -211,8 +234,8 @@ instead of inventing a project or project responsibility lane.
 13. Integrate worker summaries after checking actual state.
 14. Check the complete gate, then run validators and
     `$soulforge-workflow-check`.
-15. Close out with the claim ceiling, blockers, next action, and knowledge
-   trigger result.
+15. Close out with result-report attribution when reporting to a superior, the
+    claim ceiling, blockers, next action, and knowledge trigger result.
 
 ## Party Policy
 

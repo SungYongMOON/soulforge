@@ -55,6 +55,7 @@ outputs:
   - task_thread_routing_decision
   - task_logical_role_plan
   - task_gate_state
+  - result_report_attribution
   - closeout_report
 validation_level: private_one_worker_pilot_observed
 registration_policy: owner_requested_registration
@@ -123,6 +124,7 @@ codex_thread_manager_contract:
     - exactly_one_primary_owner_with_collaboration_and_review
     - task_thread_create_or_continue_coordination
     - task_logical_role_and_gate_packet_shape
+    - manager_result_report_attribution_policy
   does_not_own:
     - source_truth
     - owner_approval
@@ -239,6 +241,24 @@ codex_thread_manager_contract:
     start_gate_before_execution_or_thread_creation: true
     change_gate_reclassifies_scope_baseline_interface_owner_or_acceptance_change: true
     complete_gate_requires_objective_evidence_and_acceptance: true
+  manager_result_reporting_policy:
+    applies_when: manager_reports_work_results_to_a_superior
+    manager_must_not_collapse_functional_owner_work_into_manager_work: true
+    responsibility_role_and_actual_executor_must_remain_distinct: true
+    exactly_one_primary_responsibility_owner_required: true
+    collaborators_and_reviewers_are_not_co_primary: true
+    attribution_must_not_be_inferred: true
+    unconfirmed_attribution_is_reported_as_unconfirmed: true
+    public_safe_route_title_and_evidence_pointer_preferred_over_person_name_or_sensitive_data: true
+    fields:
+      report_item_or_result: required
+      primary_responsibility_owner: required_exactly_one
+      executor_or_agent: required_or_unconfirmed
+      collaborators: required_as_confirmed_none_or_unconfirmed
+      independent_reviewer: required_when_present
+      manager_contribution: required_from_actual_classification_assignment_integration_or_escalation
+      task_thread_evidence_pointer_and_status: required
+      owner_decision_or_approval_needed: required_or_none
   manager_lifecycle:
     declared_thread_is_main_team_lead: true
     manager_owns_context_lifecycle: true
