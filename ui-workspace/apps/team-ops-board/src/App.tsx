@@ -9,19 +9,21 @@ import {
   ChevronRight,
   CircleHelp,
   CircleUserRound,
-  Clock3,
+  Code2,
   FileCheck2,
   Filter,
   GitBranch,
   History,
   Info,
   Menu,
+  Moon,
   OctagonAlert,
   Play,
   RotateCcw,
   Search,
   ScanSearch,
   ShieldAlert,
+  Sparkles,
   UsersRound,
   X
 } from "lucide-react";
@@ -40,6 +42,11 @@ import {
   pickFocusRestoreIndex,
   resolveMobileDialogKey
 } from "./core/mobile-detail.mjs";
+import {
+  PROVIDER_ICON_KEYS,
+  buildCompactCardView,
+  resolveProviderVisual
+} from "./core/provider-visual.mjs";
 
 type InboxView = "active" | "history";
 type FixtureMode = "normal" | "empty" | "error";
@@ -562,6 +569,10 @@ function TaskCard({
   selected: boolean;
   onSelect: (trigger: HTMLButtonElement) => void;
 }) {
+  const compact = buildCompactCardView(task);
+  const statusLabel =
+    INBOX_STATUS_LABELS[compact.status as keyof typeof INBOX_STATUS_LABELS] ?? compact.status;
+
   return (
     <button
       className={`inbox-task-card ${selected ? "is-selected" : ""}`}
@@ -572,40 +583,40 @@ function TaskCard({
       onClick={(event) => onSelect(event.currentTarget)}
     >
       <span className="inbox-card-meta">
-        <span>{task.project}</span>
-        <span>{task.responsibility || "책임분야 미관찰"}</span>
+        <span>{compact.project}</span>
+        <span>{compact.responsibility}</span>
+        <span className={`inbox-card-status inbox-card-status-${compact.status}`}>
+          {statusLabel}
+        </span>
       </span>
       <strong>
         <FileCheck2 size={15} aria-hidden="true" />
-        {task.title}
+        {compact.title}
       </strong>
-      <span className="inbox-card-route">{task.route || "route 미관찰 · UNKNOWN"}</span>
+      <span className="inbox-card-route">{compact.route}</span>
       <ProviderRow task={task} />
-      <span className="inbox-card-people">
-        <span>책임 {task.owner}</span>
-        <span>검토 {task.reviewer}</span>
-      </span>
-      {task.status === "blocked" && (
+      {compact.blockerSummary && (
         <span className="inbox-card-alert">
           <AlertCircle size={13} aria-hidden="true" />
-          {task.blockerReason}
+          {compact.blockerSummary}
         </span>
       )}
-      {task.status === "completed_unread" && <span className="inbox-complete-chip">완료 미확인</span>}
-      <span className="inbox-card-footer">
-        <Clock3 size={12} aria-hidden="true" />
-        {task.lastActivityKst}
-        <ChevronRight size={13} aria-hidden="true" />
-      </span>
     </button>
   );
 }
 
+const providerIconMap = {
+  [PROVIDER_ICON_KEYS.CODEX_GPT]: Code2,
+  [PROVIDER_ICON_KEYS.ANTIGRAVITY_GEMINI]: Sparkles,
+  [PROVIDER_ICON_KEYS.KIMI]: Moon,
+  [PROVIDER_ICON_KEYS.UNKNOWN]: Bot
+} as const;
+
 function ProviderRow({ task }: { task: any }) {
   if (task.agentState !== "observed" || task.providers.length === 0) {
     return (
-      <span className="inbox-agent-unknown">
-        <AlertCircle size={12} aria-hidden="true" />
+      <span className="inbox-agent-unknown" data-provider-icon={PROVIDER_ICON_KEYS.UNKNOWN}>
+        <Bot size={12} aria-hidden="true" />
         Agent/provider UNKNOWN · 추정 안 함
       </span>
     );
@@ -613,12 +624,22 @@ function ProviderRow({ task }: { task: any }) {
 
   return (
     <span className="inbox-provider-row" aria-label={`관찰된 agent ${task.providers.length}개`}>
-      {task.providers.map((entry: any) => (
-        <span className="inbox-provider-badge" key={`${entry.agent}-${entry.provider}`}>
-          <Bot size={12} aria-hidden="true" />
-          {entry.agent}/{entry.provider}
-        </span>
-      ))}
+      {task.providers.map((entry: any) => {
+        const visual = resolveProviderVisual(entry);
+        const ProviderIcon = providerIconMap[visual.iconKey as keyof typeof providerIconMap];
+        return (
+          <span
+            className={`inbox-provider-badge inbox-provider-${visual.iconKey}`}
+            data-provider-icon={visual.iconKey}
+            key={`${entry.agent}-${entry.provider}`}
+            aria-label={visual.accessibleName}
+            title={visual.accessibleName}
+          >
+            <ProviderIcon size={12} aria-hidden="true" />
+            {visual.label}
+          </span>
+        );
+      })}
       {task.providers.length > 1 && (
         <span className="inbox-multi-badge">
           <UsersRound size={12} aria-hidden="true" />

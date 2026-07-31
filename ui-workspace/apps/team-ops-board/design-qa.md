@@ -7,11 +7,13 @@
 - compact work-tool grammar reference:
   `%TEMP%/codex-clipboard-213e4c44-7fda-4a80-8087-a9f68a82c991.png`
 - final browser-rendered implementation:
-  `evidence/workspace-board-1440x1024-primary-final.png`
+  `evidence/workspace-board-1440x1024-compact-provider-icons-final.png`
 - final same-input comparison:
-  `evidence/design-qa-comparison-iteration-5-ack-focus.png`
+  `evidence/workspace-board-iteration6-final-full-comparison.png`
+- final focused card comparison:
+  `evidence/workspace-board-iteration6-final-card-focus-comparison.png`
 - final mobile dialog implementation:
-  `evidence/workspace-board-390x844-mobile-ack-focus-inside-iteration-5.png`
+  `evidence/workspace-board-390x844-blocked-modal.png`
 - route/state: `/`, dark theme, synthetic normal state, blocked TASK selected
 - CSS viewport: 1440 × 1024
 - device pixel ratio: 1
@@ -25,17 +27,25 @@
 ## Browser evidence
 
 - primary desktop:
-  `evidence/workspace-board-1440x1024-primary-final.png`
+  `evidence/workspace-board-1440x1024-compact-provider-icons-final.png`
+- pre-revision desktop baseline:
+  `evidence/workspace-board-1440x1024-before-compact-annotation.png`
+- compact-card initial comparison:
+  `evidence/workspace-board-iteration6-initial-full-comparison.png`
+- compact-card final comparison:
+  `evidence/workspace-board-iteration6-final-full-comparison.png`
+- focused card/provider comparison:
+  `evidence/workspace-board-iteration6-final-card-focus-comparison.png`
 - completed-unread selected:
   `evidence/workspace-board-1440x1024-completed-selected.png`
 - acknowledged history recovery:
   `evidence/workspace-board-1440x1024-acknowledged-history.png`
 - tablet:
-  `evidence/workspace-board-1024x768-tablet-final.png`
+  `evidence/workspace-board-1024x768-compact-detail.png`
 - mobile board:
-  `evidence/workspace-board-390x844-mobile-final.png`
+  `evidence/workspace-board-390x844-compact-board.png`
 - mobile blocked detail:
-  `evidence/workspace-board-390x844-mobile-blocked-detail.png`
+  `evidence/workspace-board-390x844-blocked-modal.png`
 - mobile accessible dialog:
   `evidence/workspace-board-390x844-mobile-dialog-accessibility.png`
 - mobile first entry without an automatic dialog:
@@ -49,12 +59,11 @@
 - mobile acknowledgement post-transition focus:
   `evidence/workspace-board-390x844-mobile-ack-focus-inside-iteration-5.png`
 
-The full-view comparison is sufficient for final typography, layout, token,
-copy, and card/detail inspection because the native desktop capture keeps the
-dense card text and right detail readable. A separate crop was not needed.
-The mobile detail has its own focused screenshot because it changes to a fixed
-modal overlay. The final comparison also includes that 390 × 844 state beside
-the selected source, Orca reference, and unchanged desktop implementation.
+The full-view comparison covers composition, typography, token, copy, and the
+unchanged right detail. The provider glyphs and card density are too small for
+reliable full-view judgment, so iteration 6 also uses a focused card-region
+comparison. The mobile detail has its own focused screenshot because it changes
+to a fixed modal overlay.
 
 ## Findings
 
@@ -65,8 +74,10 @@ No actionable P0/P1/P2 findings remain.
   than the TASK title, and long text wraps without overlap.
 - Spacing and layout rhythm: four state columns, 1 px dividers, 4–6 px radii,
   restrained fills, minimal shadow, and the right detail panel follow the
-  selected visual grammar. Three visible cards per column plus explicit
-  `더보기` prevents scale-driven overflow.
+  selected visual grammar. The average card height fell from 182 px to 97 px;
+  the same 1440 × 1024 CSS viewport now shows 16 rather than 12 active cards.
+  Four visible cards per column plus explicit `더보기` prevents scale-driven
+  overflow.
 - Colors and visual tokens: graphite surfaces and subtle blue/purple/red/green
   column treatments preserve the source state semantics without heavy fills.
   `completed_unread` is green and blocked/decision text is red.
@@ -76,8 +87,10 @@ No actionable P0/P1/P2 findings remain.
   copied into the product.
 - Copy and content: every displayed entity is labeled synthetic or observed/
   UNKNOWN. The copy does not imply live Codex, ERP, worktree, or provider truth.
-- Icons: one consistent outline icon family is used for navigation, status,
-  task, provider, history, and decision surfaces.
+- Icons: one consistent Lucide outline family is used. Observed Codex/GPT,
+  Antigravity/Gemini, and Kimi entries map to `Code2`, `Sparkles`, and `Moon`;
+  multi-agent rows show both observed glyphs. UNKNOWN remains generic `Bot`
+  with explicit non-inference text.
 - States and interactions: active/history, search, project/responsibility/
   status filters, per-column more, detail selection, completed acknowledgement,
   pointer-preserving history recovery, empty, error, missing-data, UNKNOWN, and
@@ -274,6 +287,83 @@ overlay is open. This capture-surface difference is not a layout overflow.
 The iteration 5 comparison shows no visual P0/P1/P2 regression across fonts,
 spacing, colors, assets, copy, icons, responsive hierarchy, or modal state.
 
+### Iteration 6 — Owner density/provider annotation P2, then passed
+
+Pre-revision evidence:
+
+- browser-rendered baseline:
+  `evidence/workspace-board-1440x1024-before-compact-annotation.png`
+- initial same-input comparison:
+  `evidence/workspace-board-iteration6-initial-full-comparison.png`
+- initial focused comparison:
+  `evidence/workspace-board-iteration6-initial-card-focus-comparison.png`
+
+The 1440 × 1024 baseline displayed 12 cards at an average 182 px height. Owner,
+reviewer, timestamp, completion chip, and footer repeated information already
+available in the right detail. Every observed provider also used the same
+generic bot glyph, so the label had to be read to distinguish providers.
+
+Fix:
+
+- reduced the card to project, responsibility, status, TASK title, route,
+  provider, and a one-line blocked indicator
+- retained owner, reviewer, last activity, blocker/next decision, pointer,
+  evidence, and optional worktree only in the existing right detail/mobile
+  dialog
+- raised the bounded default cap from three to four cards per column
+- mapped existing Lucide icons without a dependency change: Codex/GPT
+  `Code2`, Antigravity/Gemini `Sparkles`, Kimi `Moon`, UNKNOWN `Bot`
+- preserved visible provider text, accessible names/tooltips, multi-provider
+  glyphs, observed-only semantics, and UNKNOWN non-inference copy
+
+The first comparison found one actionable [P2]: UNKNOWN still rendered an
+alert glyph instead of the required generic agent icon. It was corrected to
+Lucide `Bot`, recaptured, and re-compared.
+
+Post-fix evidence:
+
+- final desktop:
+  `evidence/workspace-board-1440x1024-compact-provider-icons-final.png`
+- final same-input comparison:
+  `evidence/workspace-board-iteration6-final-full-comparison.png`
+- final focused comparison:
+  `evidence/workspace-board-iteration6-final-card-focus-comparison.png`
+- tablet detail:
+  `evidence/workspace-board-1024x768-compact-detail.png`
+- mobile board and blocked modal:
+  `evidence/workspace-board-390x844-compact-board.png`,
+  `evidence/workspace-board-390x844-blocked-modal.png`
+
+At the measured 1440 × 1024 CSS viewport, the final capture is 1425 × 1013 raw
+pixels because the in-app browser excludes its scrollbar/frame region. The
+average card height is 97 px (46.7% lower than 182 px), all four columns display
+four cards, and 16 active cards are visible without horizontal overflow.
+
+Provider DOM evidence includes `code`, `sparkles`, `moon`, and `bot` mapping
+keys; the multi-agent TASK renders `code` plus `sparkles`. At 1024 × 768 the
+selected multi-agent card remains collapsed while the non-modal detail contains
+owner, reviewer, pointer, and both provider glyphs. At 390 × 844, first entry
+opens no modal; completed acknowledgement retains connected, visible focus on
+`상세 닫기` inside `이력 상세`; Escape restores a stable connected history
+control; blocked Tab/Shift+Tab stays trapped with zero effective outside
+focusables and Escape restores `fixture-aurora-supply`.
+
+Final mandatory fidelity pass:
+
+- fonts/typography: compact meta remains subordinate to a readable 12.5 px TASK
+  title; no collision or unintended detail duplication
+- spacing/layout: 1 px dividers, compact 5–9 px internal rhythm, four-column
+  composition, and detail proportions remain aligned with the references
+- colors/tokens: graphite surfaces and blue/purple/red/green state semantics
+  are unchanged; selected and focus states remain visible
+- image/asset quality: no raster target asset was substituted; all interface
+  glyphs use the existing Lucide library
+- copy/content: required compact fields remain visible; synthetic, observed,
+  multi-agent, and UNKNOWN semantics remain explicit
+
+No actionable P0/P1/P2 finding remains after the UNKNOWN icon recapture.
+Browser console errors: 0; warnings: 0.
+
 ## Primary interactions and console
 
 - selected blocked TASK and confirmed blocker reason/next decision persistence
@@ -294,6 +384,11 @@ spacing, colors, assets, copy, icons, responsive hierarchy, or modal state.
   history view control rather than `BODY`
 - confirmed the `읽고 확인` transition itself retains focus inside the still-open
   dialog on a connected, visible `상세 닫기` target rather than `BODY`
+- confirmed compact cards exclude owner/reviewer/timestamp/pointer while the
+  selected detail preserves those fields; observed provider icons and labels
+  remain distinguishable and accessible
+- measured 1440 × 1024 cards at 97 px average and 16 visible, versus the
+  182 px/12-card pre-revision baseline
 - confirmed mobile dialog effective focusables: inside 1, outside 0; tablet
   non-modal detail: role absent, inert roots 0
 - browser console errors: 0
@@ -308,8 +403,9 @@ spacing, colors, assets, copy, icons, responsive hierarchy, or modal state.
 ## Implementation checklist
 
 - [x] Four exact active columns and default exclusions
-- [x] Project-first/TASK-title card hierarchy
-- [x] Observed-only provider badges and UNKNOWN semantics
+- [x] Compact project/responsibility/status/TASK/provider card hierarchy
+- [x] Observed-only provider-specific icons, multi-agent glyphs, and UNKNOWN
+  generic-agent semantics
 - [x] Blocker reason and next decision persistence
 - [x] Completed acknowledgement and pointer-preserving history
 - [x] Scale cap, more, search, and filters

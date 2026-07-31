@@ -16,10 +16,13 @@ dark graphite 작업도구 문법을 기존 `team-ops-board` 앱에 적용했다
 `todo`, 미착수, 대기, `owner_acknowledged`, 보관, 개인·시험 표본은 기본
 active 보드에서 제외한다. 검색과 `이력·제외` 화면으로 다시 회수할 수 있다.
 
-카드는 프로젝트 작은 메타 뒤에 실제 synthetic TASK 제목을 크게 표시한다.
-agent/provider badge는 fixture에서 `observed: true`인 값만 보여 준다. 관찰되지
-않은 값은 badge를 만들지 않고 `UNKNOWN · 추정 안 함`으로 표시한다. worktree도
-실제 연결을 표현하도록 지정한 fixture 카드에만 선택적으로 나타난다.
+카드는 프로젝트·책임분야·상태 작은 메타 뒤에 실제 synthetic TASK 제목,
+route, provider만 표시하는 고밀도 접힘 형태다. 책임자·검토자·최근 활동·pointer와
+근거는 선택 시 우측 상세 또는 모바일 dialog에서 보여 준다. agent/provider badge는
+fixture에서 `observed: true`인 값만 보여 주며, Codex/GPT는 Lucide `Code2`,
+Antigravity/Gemini는 `Sparkles`, Kimi는 `Moon` 아이콘으로 구분한다. 관찰되지
+않은 값은 generic `Bot`과 `UNKNOWN · 추정 안 함`으로 표시한다. worktree도 실제
+연결을 표현하도록 지정한 fixture 상세에서만 선택적으로 나타난다.
 
 ## 데이터와 안전 경계
 
@@ -35,7 +38,7 @@ agent/provider badge는 fixture에서 `observed: true`인 값만 보여 준다. 
 ## 규모·상태 표본
 
 - 10 projects × 15 responsibilities × 책임별 2 TASK
-- 기본 active target subset과 열별 3건 표시 상한
+- 기본 active target subset과 열별 4건 표시 상한
 - project/responsibility/status/search 필터와 열별 더보기
 - empty, error, missing-data, UNKNOWN, multi-agent 상태
 - desktop, tablet, mobile 반응형과 keyboard focus/accessible name/state

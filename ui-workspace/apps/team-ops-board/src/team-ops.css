@@ -447,7 +447,7 @@ button {
 
 .inbox-card-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   align-content: start;
 }
 
@@ -455,8 +455,8 @@ button {
   min-width: 0;
   width: 100%;
   display: grid;
-  gap: 8px;
-  padding: 11px;
+  gap: 5px;
+  padding: 8px 9px;
   border: 1px solid var(--line);
   border-left-width: 2px;
   border-radius: 6px;
@@ -509,8 +509,6 @@ button {
 }
 
 .inbox-card-meta,
-.inbox-card-people,
-.inbox-card-footer,
 .inbox-provider-row {
   min-width: 0;
   display: flex;
@@ -520,9 +518,42 @@ button {
 }
 
 .inbox-card-meta {
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9.5px;
+}
+
+.inbox-card-meta > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inbox-card-status {
+  padding: 2px 4px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.inbox-card-status-in_progress {
+  color: var(--blue);
+}
+
+.inbox-card-status-review_needed {
+  color: var(--purple);
+}
+
+.inbox-card-status-blocked {
+  color: var(--red);
+}
+
+.inbox-card-status-completed_unread {
+  color: var(--green);
 }
 
 .inbox-task-card > strong {
@@ -532,8 +563,8 @@ button {
   gap: 6px;
   align-items: start;
   overflow-wrap: anywhere;
-  font-size: 14px;
-  line-height: 1.35;
+  font-size: 12.5px;
+  line-height: 1.25;
 }
 
 .inbox-task-card > strong svg {
@@ -545,8 +576,8 @@ button {
   min-width: 0;
   overflow: hidden;
   color: var(--faint);
-  font-size: 10.5px;
-  line-height: 1.3;
+  font-size: 9.5px;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -556,12 +587,12 @@ button {
   display: inline-flex;
   gap: 4px;
   align-items: center;
-  padding: 3px 5px;
+  padding: 2px 4px;
   border: 1px solid var(--line);
   border-radius: 4px;
   color: #c7d0d5;
   background: #10161a;
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1;
 }
 
@@ -575,17 +606,7 @@ button {
   gap: 4px;
   align-items: center;
   color: #aeb6bb;
-  font-size: 10px;
-}
-
-.inbox-card-people {
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.inbox-card-people span {
-  padding-right: 7px;
-  border-right: 1px solid var(--line);
+  font-size: 9px;
 }
 
 .inbox-card-alert {
@@ -594,30 +615,19 @@ button {
   gap: 4px;
   align-items: center;
   color: var(--red);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
 }
 
-.inbox-complete-chip {
-  width: fit-content;
-  padding: 4px 6px;
-  border: 1px solid rgba(85, 201, 104, 0.35);
-  border-radius: 4px;
-  color: #77d989;
-  background: rgba(31, 99, 44, 0.18);
-  font-size: 9px;
-  font-weight: 700;
+.inbox-card-alert > span,
+.inbox-card-alert {
+  min-width: 0;
 }
 
-.inbox-card-footer {
-  padding-top: 7px;
-  border-top: 1px solid var(--line);
-  color: var(--faint);
-  font-size: 10px;
-}
-
-.inbox-card-footer svg:last-child {
-  margin-left: auto;
+.inbox-card-alert {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .inbox-column-empty {

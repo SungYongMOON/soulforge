@@ -17,7 +17,7 @@ export const INBOX_STATUS_LABELS = {
   excluded: "기본 제외"
 };
 
-export const DEFAULT_CARD_LIMIT = 3;
+export const DEFAULT_CARD_LIMIT = 4;
 
 const PROJECTS = [
   ["P01", "오로라"],

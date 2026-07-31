@@ -97,6 +97,13 @@
   Escape/닫기 logical history 복원, blocked trap·inert·원 카드 복원, 1024px
   비모달 경계를 유지하고 iteration 5 브라우저·시각 비교 근거를 추가했다.
   (worker: `codex_gpt-5.6`)
+- Owner annotation에 따라 기본 카드를 프로젝트·책임분야·상태·TASK·route·
+  provider 중심의 접힘 형태로 압축하고 상세 전용 필드 반복을 제거했다. 기존
+  Lucide에서 Codex/GPT=`Code2`, Antigravity/Gemini=`Sparkles`, Kimi=`Moon`,
+  UNKNOWN=`Bot`을 observed-only로 매핑했으며 복수 agent는 각 glyph를 함께
+  표시한다. 1440×1024에서 평균 카드 높이를 182px에서 97px로 줄이고 기본
+  표시를 12건에서 16건으로 늘렸으며, 기존 상세·모바일 modal focus lifecycle과
+  synthetic/read-only 경계를 회귀 검증했다. (worker: `codex_gpt-5.6`)
 
 ## 2026-07-30
 
