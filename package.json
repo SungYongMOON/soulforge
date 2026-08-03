@@ -8,6 +8,8 @@
     "pets:verify": "node .registry/docs/operations/scripts/sync_codex_pet.mjs verify",
     "pets:remove": "node .registry/docs/operations/scripts/sync_codex_pet.mjs remove",
     "guild-hall:doctor": "node guild_hall/doctor/cli.mjs",
+    "guild-hall:ai-usage-meter": "node guild_hall/ai_usage_meter/cli.mjs",
+    "validate:ai-usage-meter": "node --check guild_hall/ai_usage_meter/usage_meter.mjs && node --check guild_hall/ai_usage_meter/binding_store.mjs && node --check guild_hall/ai_usage_meter/dashboard.mjs && node --check guild_hall/ai_usage_meter/mcp_adapter.mjs && node --check guild_hall/ai_usage_meter/cli.mjs && node --test guild_hall/ai_usage_meter/*.test.mjs",
     "guild-hall:workflow-runner": "node guild_hall/workflow_runner/cli.mjs",
     "validate:workflow-runner": "node --check guild_hall/workflow_runner/cli.mjs && node --test guild_hall/workflow_runner/*.test.mjs",
     "validate:codex-work-directory": "node --check guild_hall/codex_work_directory/directory.mjs && node --check guild_hall/codex_work_directory/cli.mjs && node --test guild_hall/codex_work_directory/directory.test.mjs",

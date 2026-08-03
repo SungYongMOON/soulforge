@@ -1,0 +1,25 @@
+{
+  "schema_version": "soulforge.ai_usage_meter_config.v1",
+  "organization_id": "example-org",
+  "default_team_id": "example-team",
+  "default_project_id": "unassigned",
+  "node_id": "example-node",
+  "service_tier": "standard",
+  "project_bindings": [
+    {
+      "cwd_prefix": "C:/example/workspace/project-a",
+      "project_id": "project-a",
+      "team_id": "team-a"
+    }
+  ],
+  "work_bindings": [
+    {
+      "thread_id": "00000000-0000-0000-0000-000000000001",
+      "turn_id": "00000000-0000-0000-0000-000000000002",
+      "work_id": "work.example.001",
+      "project_id": "project-a",
+      "team_id": "team-a",
+      "role": "executor"
+    }
+  ]
+}

@@ -16,6 +16,7 @@
 | `ONTOLOGY_CANON_OPERATING_POLICY_V0.md` | Fixes the approved Google Drive ontology canon package, `.registry/knowledge` execution projection, NotebookLM advisory bookshelf, and NAS disaster-recovery authority split. |
 | `DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md` | Defines the approved two-organization human view under one human Owner while preserving the fixed machine routing branches. |
 | `AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md` | Fixes the approved Codex-native role model/reasoning defaults, Ultra gate, CEO delta-reporting, support-channel boundary, and current `CODEX_NATIVE + NORMAL` activation state. |
+| `AI_USAGE_METER_V1.md` | Defines the Soulforge-wide local-first Codex token/credit meter, work attribution, privacy boundary, portable team deployment, and MCP adapter contract. |
 | `COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md` | Defines the public-safe COMMON company/team operations organization, role boundaries, Slack collaboration-space ownership, peer request semantics, and common TASK routing rules. |
 | `DEVELOPMENT1_TEAM_OPERATIONS_WORK_CLASSIFICATION_GUIDE_V0.md` | Records the canon candidate for seven Development Team 1 operations responsibilities, general-work classification, support TASKs, internal-project promotion gates, and replacing the unassigned-project role with a bounded triage state. |
 | `PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md` | Defines the public-safe 15-lane project organization, responsibility assignment boundaries, TASK roles and gates, and new-versus-existing TASK routing rules. |
@@ -41,6 +42,7 @@
 | `ASSISTANT_DASHBOARD_V0.md` | project-local deadline/open-action/work ledgers 를 읽는 local-only read-only assistant manager rollup 계약이다. |
 | `doctor/README.md` | bootstrap/readiness doctor 의 owner-local 설명이다. |
 | `../../../guild_hall/assistant_dashboard/README.md` | assistant dashboard JSON composer 구현 surface 설명이다. |
+| `../../../guild_hall/ai_usage_meter/README.md` | Usage-meter commands, hook activation, team deployment, dashboard, CSV, and MCP integration runbook. |
 | `../../../guild_hall/activity/README.md` | activity log append/refresh 구현 surface 설명이다. |
 | `../../../guild_hall/file_activity/README.md` | project file observation/revision과 feature-OFF H04 project-history adapter 경계를 설명한다. |
 | `../../../guild_hall/run_history/README.md` | feature-OFF H05 exact workflow-receipt history adapter와 coverage 경계를 설명한다. |
@@ -98,6 +100,7 @@
 - [`ONTOLOGY_CANON_OPERATING_POLICY_V0.md`](ONTOLOGY_CANON_OPERATING_POLICY_V0.md)
 - [`DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md`](DEVELOPMENT1_TEAM_AND_AI_PLATFORM_ORGANIZATION_V0.md)
 - [`AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`](AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md)
+- [`AI_USAGE_METER_V1.md`](AI_USAGE_METER_V1.md)
 - [`COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md`](COMMON_TEAM_OPERATIONS_AND_ROUTING_V0.md)
 - [`DEVELOPMENT1_TEAM_OPERATIONS_WORK_CLASSIFICATION_GUIDE_V0.md`](DEVELOPMENT1_TEAM_OPERATIONS_WORK_CLASSIFICATION_GUIDE_V0.md)
 - [`PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md`](PROJECT_WORK_ORGANIZATION_AND_TASK_ROUTING_V0.md)

@@ -1,2 +1,3 @@
 # five_field_session_capture_v0 blocking hooks are intentionally disabled.
 # Reactivation requires owner approval and validation against the current Codex hook schema.
+# The separate project-local AI usage meter hooks live in .codex/hooks.json and are non-blocking.

@@ -1,6 +1,6 @@
 {
   "schema": "boot_digest_guard.v0",
-  "updated_at": "2026-07-31T09:00:42.957Z",
+  "updated_at": "2026-08-03T05:01:21.514Z",
   "digest_sha256": "7ae827c8e5ee49e088af743b4c9d56402959d307f16953ca6ce86cb0036d2b7d",
   "sources": {
     "AGENTS.md": {
@@ -12,8 +12,8 @@
       "lines": 304
     },
     "docs/architecture/foundation/DEVELOPMENT_ROADMAP_V0.md": {
-      "sha256": "1d5e3efdff325501d53ba86d71cb46805d2eee73c0d46fed0fd19475c6ec142f",
-      "lines": 773
+      "sha256": "5141ed3ab8116da9a4e7d237d3ec007ae882344e5f5613d054b69cc2abcfc59d",
+      "lines": 781
     },
     "docs/architecture/foundation/PROJECT_MAP_V0.md": {
       "sha256": "59aa2f6605139ff3e9568bb5838715a3d204737a6b69aab1f645f7d2df8d2551",

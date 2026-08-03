@@ -109,6 +109,14 @@ read-only snapshot
   `HOLD/non-routable`이다.
 - 판단(2026-06-14 갱신): snapshot→작전판 게임루프는 장기 북극성으로 유지하되, 지금 손이 가는 active slice 는 dev-erp 다. 과거 active slice `snapshot_to_operation_board_v0` 는 '다음 후보'로 내린다(스펙은 아래 'Active Slice 001' 절에 보존, 재개 시 참조).
 
+### Owner-approved adjacent lane — AI usage meter
+
+- 2026-08-03 owner가 Soulforge 전체, 두 회사 조직, 별도 프로젝트, 향후 팀원 Codex와 MCP에서 공통으로 사용할 AI 사용량 미터기 구축을 승인했다.
+- v1은 `guild_hall/ai_usage_meter/`가 소유하며 Codex session backfill, Stop/SubagentStop 계측, parent-child lineage, `work_id` binding, 버전 고정 rate card, local ledger, JSON/CSV/HTML, MCP query/binding adapter를 제공한다.
+- 원문 prompt, reasoning 내용, tool payload는 수집하지 않으며 일반 ChatGPT 사용량을 Codex 원장에 합치지 않는다. 일반 ChatGPT는 저장소 접근이 필요 없는 조사·전략 작업의 보조 라우팅 선택지다.
+- 이 lane은 품질을 낮추거나 `AGENTS.md`를 감으로 축약하기 전에 실제 비용 원인을 관찰하기 위한 운영 기반이다. dev-ERP active slice를 대체하지 않으며 중앙 집계, 예산 자동 차단, App Server streaming, non-Codex provider adapter는 별도 owner gate다.
+- 정본 계약은 `docs/architecture/guild_hall/AI_USAGE_METER_V1.md`, 실행 runbook은 `guild_hall/ai_usage_meter/README.md`가 소유한다.
+
 ### Owner-approved adjacent lane — autonomous voice context resolver
 
 - 2026-07-13 owner는 24시간 맥미니를 voice processing operational-primary로

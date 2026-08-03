@@ -16,6 +16,8 @@
 - `daily_ledger/`: metadata-only daily work ledger validator and ledger-only worklog draft renderer
 - `local_activity/`: exact-project HPP-local file observation plus bounded PC-work/Codex relation outbox;
   no conversation or operating-system surveillance and no direct `_workmeta`/ERP write
+- `ai_usage_meter/`: Soulforge-wide Codex token/credit collection, parent-child work attribution,
+  local ledger/dashboard/CSV, and portable MCP query/binding adapter; no conversation payload capture
 - `file_activity/`: multi-PC project file observation packets, single-primary logical-file/revision reconciliation,
   monthly metadata receipts/events, checkpoint-only rebuild, bounded life-tree projection helper,
   and feature-OFF H04 project-history adapter
@@ -100,6 +102,8 @@
 - [`docs/architecture/guild_hall/ASSISTANT_DASHBOARD_V0.md`](../docs/architecture/guild_hall/ASSISTANT_DASHBOARD_V0.md)
 - [`docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md`](../docs/architecture/guild_hall/SOULFORGE_ACTIVITY_LOG_V0.md)
 - [`docs/architecture/guild_hall/CODEX_WORK_DIRECTORY_V1.md`](../docs/architecture/guild_hall/CODEX_WORK_DIRECTORY_V1.md)
+- [`docs/architecture/guild_hall/AI_USAGE_METER_V1.md`](../docs/architecture/guild_hall/AI_USAGE_METER_V1.md)
+- [`ai_usage_meter/README.md`](ai_usage_meter/README.md)
 - [`docs/architecture/workspace/VOICE_CAPTURE_MVP_V0.md`](../docs/architecture/workspace/VOICE_CAPTURE_MVP_V0.md)
 - [`docs/architecture/bootstrap/README.md`](../docs/architecture/bootstrap/README.md)
 - [`_workspaces/README.md`](../_workspaces/README.md)
