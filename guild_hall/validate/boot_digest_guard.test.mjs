@@ -4,14 +4,35 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { runGuard, verify, snapshot, sha256, SOURCES, DIGEST_PATH, MANIFEST_PATH } from "./boot_digest_guard.mjs";
+import {
+  runGuard,
+  verify,
+  verifyLeanRoot,
+  snapshot,
+  sha256,
+  SOURCES,
+  DIGEST_PATH,
+  MANIFEST_PATH,
+  ROOT_MIN_LINES,
+  ROOT_MAX_LINES,
+  ROOT_REQUIRED_SNIPPETS
+} from "./boot_digest_guard.mjs";
+
+function leanRootFixture(extraLines = []) {
+  const required = ROOT_REQUIRED_SNIPPETS.map((snippet) => `- ${snippet}`);
+  const padding = Array.from(
+    { length: Math.max(0, ROOT_MIN_LINES - required.length - extraLines.length) },
+    (_, index) => `- padding ${index}`
+  );
+  return [...required, ...padding, ...extraLines].join("\n") + "\n";
+}
 
 function makeFixtureRepo() {
   const root = mkdtempSync(join(tmpdir(), "digest-"));
   mkdirSync(join(root, "docs/architecture/foundation"), { recursive: true });
   for (const rel of SOURCES) {
     mkdirSync(join(root, rel, ".."), { recursive: true });
-    writeFileSync(join(root, rel), `# src ${rel}\nrule line\n`);
+    writeFileSync(join(root, rel), rel === "AGENTS.md" ? leanRootFixture() : `# src ${rel}\nrule line\n`);
   }
   writeFileSync(join(root, DIGEST_PATH), "# digest\n요약 줄\n");
   return root;
@@ -26,7 +47,7 @@ test("B3: 드리프트 가드 — update→OK→원본 변경 시 FAIL→재서�
   assert.equal(runGuard({ root, update: true }).ok, true);
   assert.equal(runGuard({ root }).ok, true);
   // 원본 변경 → 드리프트 검출
-  writeFileSync(join(root, SOURCES[0]), "# src changed\nnew rule!\n");
+  writeFileSync(join(root, SOURCES[0]), leanRootFixture(["- changed"]));
   const drift = runGuard({ root });
   assert.equal(drift.ok, false);
   assert.ok(drift.problems.some((p) => p.includes("드리프트") && p.includes(SOURCES[0])));
@@ -38,6 +59,19 @@ test("B3: 드리프트 가드 — update→OK→원본 변경 시 FAIL→재서�
   const digestChanged = runGuard({ root });
   assert.equal(digestChanged.ok, false);
   assert.ok(digestChanged.problems.some((p) => p.includes("재서명")));
+});
+
+test("B3: Lean Root 줄 범위와 필수 포인터를 fail-closed로 검증", () => {
+  assert.equal(verifyLeanRoot(leanRootFixture()).ok, true);
+
+  const tooShort = ROOT_REQUIRED_SNIPPETS.map((snippet) => `- ${snippet}`).join("\n");
+  assert.ok(verifyLeanRoot(tooShort).problems.some((p) => p.includes("Lean Root 범위")));
+
+  const tooLong = leanRootFixture(Array.from({ length: ROOT_MAX_LINES }, (_, index) => `- extra ${index}`));
+  assert.ok(verifyLeanRoot(tooLong).problems.some((p) => p.includes("Lean Root 범위")));
+
+  const missing = leanRootFixture().replace(ROOT_REQUIRED_SNIPPETS[0], "missing-pointer");
+  assert.ok(verifyLeanRoot(missing).problems.some((p) => p.includes(ROOT_REQUIRED_SNIPPETS[0])));
 });
 
 test("B3: 100줄 상한 + 원본 누락 검출", () => {

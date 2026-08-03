@@ -1,9 +1,9 @@
-# Agent Boot Digest v0 (companion)
+# Agent Boot Digest v0 (expanded companion)
 
-세션 시작용 압축 요약 — **정본 아님.** 정본은 AGENTS.md 와 아래 4문서.
-충돌 시 원본이 이긴다. 드리프트 가드: `node guild_hall/validate/boot_digest_guard.mjs`
-(원본 변경 시 이 파일 재검토 후 `--update`). AGENTS.md 라우팅은 owner 결정
-전까지 변경하지 않는다 (companion 모드).
+루트 `AGENTS.md`보다 자세한 선택형 bootstrap 요약이며 **정본이 아니다.**
+정본은 `AGENTS.md`와 각 항목이 가리키는 owner 문서다. 충돌 시 owner 원문이
+이긴다. 드리프트 가드: `node guild_hall/validate/boot_digest_guard.mjs`
+(원본 변경 시 이 파일의 의미를 재검토한 뒤 `--update`).
 
 ## 1. 연속성 제약 (영구)
 
@@ -56,8 +56,8 @@ context 경계 너머로 넘길 때만 필수(자율 루프 종료·compact·cle
   hold/reject) / L3 full B/V(skill·production-ready·canon 승격·자동화 권한).
 - bounded task 완료 보고 전 knowledge trigger check closeout 필수
   (`지식 트리거 확인: 없음` 또는 후보 기록).
-- bounded task 완료 보고 전 conversation-rule-hardening 설치 여부/결과를
-  `규칙 강화 체크:` 로 닫는다.
+- bounded task 완료 보고 전 반복 실수·미정 규칙·자동 guard 후보를 확인하고
+  결과를 `규칙 강화 체크:` 로 닫는다.
 - Soulforge 음성채팅은 Owner 비서·라우터다. 명시 요청 때만 다른 task에
   전달하고 모델·추론을 유지하며, 상세 route는 AI 조직정책·회사 조직도를 따른다.
 - claim ceiling: 관찰됨/출처로 뒷받침됨/비공개 검증됨/정본 후보/정본 등록됨/

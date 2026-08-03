@@ -2,6 +2,16 @@
 
 ## 2026-08-03
 
+### 루트 AGENTS Lean Router 전환
+
+- 루트 `AGENTS.md`의 상세 정책 복제를 걷어내고 실행 계약, 저장 경계, 조건부 owner 문서, 검증·기록 경로만 남기는 50~80줄 Lean Router로 축소했다.
+- `CLAUDE.md` 포인터와 개인 지침이 참조하는 `실시간 음성 비서·조직 라우팅` 제목은 유지하고, 모델·reasoning effort·조직 라우팅의 운영값은 변경하지 않았다.
+- 선택형 `AGENT_BOOT_DIGEST_V0.md`를 expanded companion으로 재정의해 짧은 루트가 필요할 때만 상세 bootstrap 요약을 읽도록 경계를 분리했다. (worker: `codex_gpt-5.6-sol`)
+- 기존 boot digest guard가 Lean Root의 50~80줄 범위와 안전·owner·조건부 업무·closeout 필수 포인터를 fail-closed로 검사하도록 회귀 가드를 추가했다.
+- 현재 runtime에서 확인되지 않은 rule-hardening skill 설치를 단정하지 않고, 기존 knowledge-access 누락 guard와 `규칙 강화 체크:` 결과 계약으로 표현을 보정했다.
+- 최종 71줄 Root가 실제 model-visible prompt에 포함된 상태에서 Sol/xhigh 단일 실행·reviewer/subagent/retry 0의 6-case read-only canary를 수행했다. 5건은 exact PASS, 외부 업로드 1건은 `HOLD` 대신 같은 비실행 의미의 `PROTECT`였으며 승인 요구·업로드 금지·side effect 0이 일치해 semantic 6/6 PASS로 채택했다.
+- Lean Root의 1차 목적은 `instruction_legibility_and_maintainability`로 고정하며 비용 절감 효과는 아직 미확정이다. 기준 HEAD의 기존 absolute-path 18건 대비 후보는 동일 fingerprint의 13건만 남고 신규 위반은 0건이어서, 기존 debt는 별도 maintenance로 분리한 baseline-equivalence waiver를 적용했다.
+
 ### Soulforge AI 사용량 미터 v1
 
 - Codex session의 누적 token counter를 turn delta로 변환하고 input/cached/cache-write/output/reasoning, 모델 호출, rate-card 기반 계산 크레딧을 기록하는 `guild_hall/ai_usage_meter/`를 추가했다.

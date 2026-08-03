@@ -17,6 +17,25 @@ export const SOURCES = [
   "docs/architecture/foundation/PROJECT_MAP_V0.md"
 ];
 export const MAX_LINES = 100;
+export const ROOT_MIN_LINES = 50;
+export const ROOT_MAX_LINES = 80;
+export const ROOT_REQUIRED_SNIPPETS = [
+  "AGENT_EXECUTION_CONTRACT_V0.md",
+  "DEVELOPMENT_ROADMAP_V0.md",
+  "DOCUMENT_OWNERSHIP.md",
+  "CHANGELOG_POLICY_V0.md",
+  "WORKSPACE_PROJECT_MODEL.md",
+  "CODEX_WORK_DIRECTORY_V1.md",
+  "TASK_ENGINE_AX_WORKSPACE_BUILD_MASTER_PLAN_V0.md",
+  "ONTOLOGY_CANON_OPERATING_POLICY_V0.md",
+  "## 실시간 음성 비서·조직 라우팅",
+  "대상 task의 model·reasoning effort를 유지",
+  "SE_WORKSPACE_FOLDER_NAMING_CONVENTION_V0.md",
+  "private-state/CHANGELOG.md",
+  ".workflow/five_field_session_capture_v0",
+  "guild_hall/knowledge_access/README.md",
+  "규칙 강화 체크:"
+];
 
 export function sha256(text) {
   return createHash("sha256").update(text).digest("hex");
@@ -31,6 +50,19 @@ export function snapshot(root = REPO, sources = SOURCES) {
     out[rel] = { sha256: sha256(t), lines: t.split("\n").length };
   }
   return out;
+}
+
+export function verifyLeanRoot(rootText) {
+  const problems = [];
+  const lines = rootText.split(/\r?\n/);
+  if (lines.at(-1) === "") lines.pop();
+  if (lines.length < ROOT_MIN_LINES || lines.length > ROOT_MAX_LINES) {
+    problems.push(`AGENTS.md ${lines.length}줄 — Lean Root 범위 ${ROOT_MIN_LINES}~${ROOT_MAX_LINES}줄 위반`);
+  }
+  for (const snippet of ROOT_REQUIRED_SNIPPETS) {
+    if (!rootText.includes(snippet)) problems.push(`AGENTS.md 필수 포인터 누락: ${snippet}`);
+  }
+  return { ok: problems.length === 0, problems };
 }
 
 // 반환: { ok, problems[] } — 순수 비교 (테스트 가능)
@@ -54,6 +86,9 @@ export function runGuard({ root = REPO, update = false } = {}) {
   const current = snapshot(root);
   const digestText = existsSync(join(root, DIGEST_PATH)) ? readFileSync(join(root, DIGEST_PATH), "utf-8") : "";
   if (!digestText) return { ok: false, problems: [`다이제스트 없음: ${DIGEST_PATH}`] };
+  const rootText = existsSync(join(root, SOURCES[0])) ? readFileSync(join(root, SOURCES[0]), "utf-8") : "";
+  const leanRoot = verifyLeanRoot(rootText);
+  if (!leanRoot.ok) return leanRoot;
   if (update) {
     const manifest = { schema: "boot_digest_guard.v0", updated_at: new Date().toISOString(), digest_sha256: sha256(digestText), sources: current };
     writeFileSync(join(root, MANIFEST_PATH), JSON.stringify(manifest, null, 2) + "\n");
