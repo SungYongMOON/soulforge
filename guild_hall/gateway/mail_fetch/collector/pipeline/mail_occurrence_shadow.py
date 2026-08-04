@@ -15,6 +15,7 @@ SHADOW_SCHEMA_VERSION = "email.fetch.mail_occurrence_shadow.v1"
 SHADOW_STATE_SCHEMA_VERSION = "email.fetch.mail_occurrence_shadow_state.v1"
 COVERAGE_SCHEMA_VERSION = "soulforge.project_history_coverage_receipt.v1"
 COVERAGE_WRAPPER_SCHEMA_VERSION = "email.fetch.mail_account_coverage_shadow.v1"
+INBOUND_RECONCILIATION_EXPECTED_SOURCE_COUNT = 5
 
 COVERAGE_STATES = (
     "complete_with_events",
@@ -39,6 +40,8 @@ _UTC_MILLISECONDS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _ENTITY_TYPE_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _GAP_CODE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,127}$")
+_PROVIDER_KIND_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+_RECONCILIATION_ALIAS_RE = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 _ABSOLUTE_OR_URI_RE = re.compile(
     r"^(?:[A-Za-z]:[\\/]|\\\\|//|[\\/]|~(?:[\\/]|$)|(?:https?|ftp|file|mailto|urn|data):|[A-Za-z][A-Za-z0-9+.-]*://)",
     re.IGNORECASE,
@@ -165,6 +168,505 @@ def assert_public_safe_mail_metadata(value: Any) -> None:
                 stack.append((f"{path}[{index}]", child))
         elif isinstance(current, str) and _ABSOLUTE_OR_URI_RE.match(current.strip()):
             raise MailOccurrenceShadowError("forbidden_locator_value", path)
+
+
+def _require_nullable_digest(value: Any, field: str) -> Optional[str]:
+    if value is None:
+        return None
+    return _require_digest(value, field)
+
+
+def _require_provider_kind(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not _PROVIDER_KIND_RE.fullmatch(value):
+        raise MailOccurrenceShadowError("invalid_provider_kind", field)
+    return value
+
+
+def _require_reconciliation_alias(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not _RECONCILIATION_ALIAS_RE.fullmatch(value):
+        raise MailOccurrenceShadowError("invalid_reconciliation_alias", field)
+    return value
+
+
+def _sorted_unique_reconciliation_aliases(value: Any, field: str) -> List[str]:
+    if not isinstance(value, list):
+        raise MailOccurrenceShadowError("reconciliation_alias_list_required", field)
+    aliases = [_require_reconciliation_alias(item, field) for item in value]
+    if aliases != sorted(set(aliases), key=lambda item: item.encode("utf-8")):
+        raise MailOccurrenceShadowError("reconciliation_alias_list_not_canonical", field)
+    return aliases
+
+
+def _validate_reconciliation_snapshot(value: Any, field: str) -> Dict[str, str]:
+    if not isinstance(value, Mapping):
+        raise MailOccurrenceShadowError("reconciliation_snapshot_not_object", field)
+    _exact_keys(value, ("snapshot_digest", "captured_at_utc"), field)
+    return {
+        "snapshot_digest": _require_digest(value["snapshot_digest"], f"{field}.snapshot_digest"),
+        "captured_at_utc": _require_utc(value["captured_at_utc"], f"{field}.captured_at_utc"),
+    }
+
+
+def _validate_reconciliation_authority(value: Any) -> tuple[Dict[str, str], List[str]]:
+    expected = (
+        "expected_binding_digest",
+        "observed_binding_digest",
+        "expected_register_digest",
+        "observed_register_digest",
+        "expected_writer_epoch_digest",
+        "observed_writer_epoch_digest",
+        "expected_lease_digest",
+        "observed_lease_digest",
+        "writer_state",
+    )
+    if not isinstance(value, Mapping):
+        raise MailOccurrenceShadowError("reconciliation_authority_not_object", "authority")
+    _exact_keys(value, expected, "authority")
+    authority = {
+        field: _require_digest(value[field], f"authority.{field}")
+        for field in expected
+        if field != "writer_state"
+    }
+    if not isinstance(value["writer_state"], str) or value["writer_state"] not in {
+        "exclusive",
+        "ambiguous",
+        "unknown",
+        "absent",
+    }:
+        raise MailOccurrenceShadowError("writer_state_invalid", "authority.writer_state")
+    authority["writer_state"] = value["writer_state"]
+    holds: List[str] = []
+    if authority["expected_binding_digest"] != authority["observed_binding_digest"]:
+        holds.append("binding_digest_mismatch")
+    if authority["expected_register_digest"] != authority["observed_register_digest"]:
+        holds.append("register_digest_mismatch")
+    if authority["expected_writer_epoch_digest"] != authority["observed_writer_epoch_digest"]:
+        holds.append("writer_epoch_mismatch")
+    if (
+        authority["expected_lease_digest"] != authority["observed_lease_digest"]
+        or authority["writer_state"] != "exclusive"
+    ):
+        holds.append("writer_lease_ambiguous")
+    return authority, holds
+
+
+def _validate_reconciliation_cursor(value: Any) -> tuple[Dict[str, Any], List[str]]:
+    expected = (
+        "baseline_snapshot",
+        "target_snapshot",
+        "observed_target_snapshot",
+        "target_relation",
+        "approved_outage_window",
+    )
+    if not isinstance(value, Mapping):
+        raise MailOccurrenceShadowError("reconciliation_cursor_not_object", "cursor")
+    _exact_keys(value, expected, "cursor")
+    cursor = {
+        "baseline_snapshot": _validate_reconciliation_snapshot(
+            value["baseline_snapshot"], "cursor.baseline_snapshot"
+        ),
+        "target_snapshot": _validate_reconciliation_snapshot(
+            value["target_snapshot"], "cursor.target_snapshot"
+        ),
+        "observed_target_snapshot": _validate_reconciliation_snapshot(
+            value["observed_target_snapshot"], "cursor.observed_target_snapshot"
+        ),
+        "target_relation": value["target_relation"],
+        "approved_outage_window": value["approved_outage_window"],
+    }
+    if cursor["target_relation"] not in {"fast_forward", "non_fast_forward", "unknown"}:
+        raise MailOccurrenceShadowError("target_relation_invalid", "cursor.target_relation")
+    holds: List[str] = []
+    if cursor["target_relation"] != "fast_forward":
+        holds.append("target_non_fast_forward")
+    if cursor["target_snapshot"] != cursor["observed_target_snapshot"]:
+        holds.append("target_drift")
+    outage_window, outage_holds = _validate_approved_outage_window(cursor)
+    cursor["approved_outage_window"] = outage_window
+    holds.extend(outage_holds)
+    return cursor, holds
+
+
+def _validate_approved_outage_window(cursor: Mapping[str, Any]) -> tuple[Dict[str, str], List[str]]:
+    expected = (
+        "interval",
+        "baseline_snapshot_digest",
+        "baseline_captured_at_utc",
+        "target_snapshot_digest",
+        "target_captured_at_utc",
+        "provenance_digest",
+    )
+    value = cursor["approved_outage_window"]
+    if not isinstance(value, Mapping):
+        raise MailOccurrenceShadowError("approved_outage_window_not_object", "cursor.approved_outage_window")
+    _exact_keys(value, expected, "cursor.approved_outage_window")
+    window = {
+        "interval": value["interval"],
+        "baseline_snapshot_digest": _require_digest(
+            value["baseline_snapshot_digest"], "cursor.approved_outage_window.baseline_snapshot_digest"
+        ),
+        "baseline_captured_at_utc": _require_utc(
+            value["baseline_captured_at_utc"], "cursor.approved_outage_window.baseline_captured_at_utc"
+        ),
+        "target_snapshot_digest": _require_digest(
+            value["target_snapshot_digest"], "cursor.approved_outage_window.target_snapshot_digest"
+        ),
+        "target_captured_at_utc": _require_utc(
+            value["target_captured_at_utc"], "cursor.approved_outage_window.target_captured_at_utc"
+        ),
+        "provenance_digest": _require_digest(
+            value["provenance_digest"], "cursor.approved_outage_window.provenance_digest"
+        ),
+    }
+    if window["interval"] != "(baseline,target]":
+        raise MailOccurrenceShadowError("approved_outage_window_interval_invalid", "cursor.approved_outage_window.interval")
+    projection = {key: item for key, item in window.items() if key != "provenance_digest"}
+    holds: List[str] = []
+    if window["provenance_digest"] != _digest(projection):
+        holds.append("outage_window_provenance_mismatch")
+    if (
+        window["baseline_snapshot_digest"] != cursor["baseline_snapshot"]["snapshot_digest"]
+        or window["baseline_captured_at_utc"] != cursor["baseline_snapshot"]["captured_at_utc"]
+        or window["target_snapshot_digest"] != cursor["target_snapshot"]["snapshot_digest"]
+        or window["target_captured_at_utc"] != cursor["target_snapshot"]["captured_at_utc"]
+    ):
+        holds.append("outage_window_provenance_mismatch")
+    if window["baseline_captured_at_utc"] >= window["target_captured_at_utc"]:
+        holds.append("outage_window_non_monotonic")
+    return window, holds
+
+
+def _validate_reconciliation_resume(value: Any, baseline_digest: str) -> tuple[Dict[str, Optional[str]], List[str]]:
+    expected = ("state", "last_committed_receipt_digest", "resume_cursor_digest")
+    if not isinstance(value, Mapping):
+        raise MailOccurrenceShadowError("reconciliation_resume_not_object", "resume")
+    _exact_keys(value, expected, "resume")
+    if value["state"] not in {"not_required", "resume_from_committed_receipt", "crash_uncommitted"}:
+        raise MailOccurrenceShadowError("resume_state_invalid", "resume.state")
+    resume = {
+        "state": value["state"],
+        "last_committed_receipt_digest": _require_nullable_digest(
+            value["last_committed_receipt_digest"], "resume.last_committed_receipt_digest"
+        ),
+        "resume_cursor_digest": _require_nullable_digest(
+            value["resume_cursor_digest"], "resume.resume_cursor_digest"
+        ),
+    }
+    holds: List[str] = []
+    if resume["state"] == "not_required":
+        if resume["last_committed_receipt_digest"] is not None or resume["resume_cursor_digest"] is not None:
+            holds.append("resume_receipt_invalid")
+    elif resume["state"] == "resume_from_committed_receipt":
+        if (
+            resume["last_committed_receipt_digest"] is None
+            or resume["resume_cursor_digest"] != baseline_digest
+        ):
+            holds.append("resume_receipt_invalid")
+    else:
+        holds.append("resume_receipt_invalid")
+    return resume, holds
+
+
+def _validate_reconciliation_atomicity(value: Any) -> tuple[Dict[str, Any], List[str]]:
+    expected = ("capability_state", "operation_order")
+    if not isinstance(value, Mapping):
+        raise MailOccurrenceShadowError("reconciliation_atomicity_not_object", "atomicity")
+    _exact_keys(value, expected, "atomicity")
+    if value["capability_state"] not in {"verified", "unknown", "unavailable"}:
+        raise MailOccurrenceShadowError("atomicity_state_invalid", "atomicity.capability_state")
+    if not isinstance(value["operation_order"], list) or not all(
+        isinstance(item, str) for item in value["operation_order"]
+    ):
+        raise MailOccurrenceShadowError("atomicity_order_invalid", "atomicity.operation_order")
+    atomicity = {
+        "capability_state": value["capability_state"],
+        "operation_order": list(value["operation_order"]),
+    }
+    expected_order = ["append_validate", "receipt_commit", "cursor_advance"]
+    holds = []
+    if atomicity["capability_state"] != "verified" or atomicity["operation_order"] != expected_order:
+        holds.append("atomicity_unproven")
+    return atomicity, holds
+
+
+def _validate_reconciliation_source_record(value: Any, field: str) -> Dict[str, str]:
+    expected = (
+        "source_alias",
+        "identity_digest",
+        "received_at_utc",
+        "revision_digest",
+        "message_digest",
+    )
+    if not isinstance(value, Mapping):
+        raise MailOccurrenceShadowError("source_record_not_object", field)
+    _exact_keys(value, expected, field)
+    return {
+        "source_alias": _require_reconciliation_alias(value["source_alias"], f"{field}.source_alias"),
+        "identity_digest": _require_digest(value["identity_digest"], f"{field}.identity_digest"),
+        "received_at_utc": _require_utc(value["received_at_utc"], f"{field}.received_at_utc"),
+        "revision_digest": _require_digest(value["revision_digest"], f"{field}.revision_digest"),
+        "message_digest": _require_digest(value["message_digest"], f"{field}.message_digest"),
+    }
+
+
+def _validate_reconciliation_ledger_record(value: Any, field: str) -> Dict[str, str]:
+    expected = ("source_alias", "identity_digest", "message_digest", "pointer_digest")
+    if not isinstance(value, Mapping):
+        raise MailOccurrenceShadowError("ledger_record_not_object", field)
+    _exact_keys(value, expected, field)
+    return {
+        "source_alias": _require_reconciliation_alias(value["source_alias"], f"{field}.source_alias"),
+        "identity_digest": _require_digest(value["identity_digest"], f"{field}.identity_digest"),
+        "message_digest": _require_digest(value["message_digest"], f"{field}.message_digest"),
+        "pointer_digest": _require_digest(value["pointer_digest"], f"{field}.pointer_digest"),
+    }
+
+
+def _sorted_hold_codes(values: Iterable[str]) -> List[str]:
+    return sorted(set(values), key=lambda item: item.encode("utf-8"))
+
+
+def build_inbound_reconciliation_shadow(value: Mapping[str, Any]) -> Dict[str, Any]:
+    """Build a metadata-only, feature-OFF reconciliation plan without I/O or authority.
+
+    This intentionally validates only public-safe synthetic metadata.  It does not
+    open a register, mail source, ledger, receipt, credential, path, socket, or
+    shadow store; callers must obtain live proof through a separate private gate.
+    """
+    expected = (
+        "registered_inbound_sources",
+        "roster_coverage",
+        "source_snapshots",
+        "cursor",
+        "authority",
+        "resume",
+        "atomicity",
+    )
+    if not isinstance(value, Mapping):
+        raise MailOccurrenceShadowError("reconciliation_not_object", "reconciliation")
+    _exact_keys(value, expected, "reconciliation")
+    assert_public_safe_mail_metadata(value)
+
+    if not isinstance(value["registered_inbound_sources"], list):
+        raise MailOccurrenceShadowError("registered_sources_not_array", "registered_inbound_sources")
+    registered: List[Dict[str, str]] = []
+    for index, row in enumerate(value["registered_inbound_sources"]):
+        field = f"registered_inbound_sources[{index}]"
+        if not isinstance(row, Mapping):
+            raise MailOccurrenceShadowError("registered_source_not_object", field)
+        _exact_keys(row, ("source_alias", "source_id_digest", "provider_kind"), field)
+        registered.append(
+            {
+                "source_alias": _require_reconciliation_alias(row["source_alias"], f"{field}.source_alias"),
+                "source_id_digest": _require_digest(row["source_id_digest"], f"{field}.source_id_digest"),
+                "provider_kind": _require_provider_kind(row["provider_kind"], f"{field}.provider_kind"),
+            }
+        )
+
+    if not isinstance(value["roster_coverage"], Mapping):
+        raise MailOccurrenceShadowError("roster_coverage_not_object", "roster_coverage")
+    _exact_keys(value["roster_coverage"], ("state", "expected_inbound_aliases", "observed_inbound_aliases"), "roster_coverage")
+    roster_state = value["roster_coverage"]["state"]
+    if roster_state not in {"exact", "mismatch", "unknown"}:
+        raise MailOccurrenceShadowError("roster_coverage_state_invalid", "roster_coverage.state")
+    roster_expected = _sorted_unique_reconciliation_aliases(
+        value["roster_coverage"]["expected_inbound_aliases"], "roster_coverage.expected_inbound_aliases"
+    )
+    roster_observed = _sorted_unique_reconciliation_aliases(
+        value["roster_coverage"]["observed_inbound_aliases"], "roster_coverage.observed_inbound_aliases"
+    )
+
+    authority, authority_holds = _validate_reconciliation_authority(value["authority"])
+    cursor, cursor_holds = _validate_reconciliation_cursor(value["cursor"])
+    resume, resume_holds = _validate_reconciliation_resume(
+        value["resume"], cursor["baseline_snapshot"]["snapshot_digest"]
+    )
+    atomicity, atomicity_holds = _validate_reconciliation_atomicity(value["atomicity"])
+
+    if not isinstance(value["source_snapshots"], list):
+        raise MailOccurrenceShadowError("source_snapshots_not_array", "source_snapshots")
+    snapshots: List[Dict[str, Any]] = []
+    for index, snapshot in enumerate(value["source_snapshots"]):
+        field = f"source_snapshots[{index}]"
+        if not isinstance(snapshot, Mapping):
+            raise MailOccurrenceShadowError("source_snapshot_not_object", field)
+        _exact_keys(snapshot, ("source_alias", "source_records", "ledger_records"), field)
+        source_alias = _require_reconciliation_alias(snapshot["source_alias"], f"{field}.source_alias")
+        if not isinstance(snapshot["source_records"], list) or not isinstance(snapshot["ledger_records"], list):
+            raise MailOccurrenceShadowError("source_snapshot_records_not_array", field)
+        source_records = [
+            _validate_reconciliation_source_record(record, f"{field}.source_records[{record_index}]")
+            for record_index, record in enumerate(snapshot["source_records"])
+        ]
+        ledger_records = [
+            _validate_reconciliation_ledger_record(record, f"{field}.ledger_records[{record_index}]")
+            for record_index, record in enumerate(snapshot["ledger_records"])
+        ]
+        snapshots.append(
+            {
+                "source_alias": source_alias,
+                "source_records": source_records,
+                "ledger_records": ledger_records,
+            }
+        )
+
+    registered_aliases = [row["source_alias"] for row in registered]
+    registered_alias_set = set(registered_aliases)
+    snapshot_aliases = [row["source_alias"] for row in snapshots]
+    snapshot_alias_set = set(snapshot_aliases)
+    global_holds = list(authority_holds + cursor_holds + resume_holds + atomicity_holds)
+    if (
+        len(registered) != INBOUND_RECONCILIATION_EXPECTED_SOURCE_COUNT
+        or len(registered_alias_set) != INBOUND_RECONCILIATION_EXPECTED_SOURCE_COUNT
+        or len({row["source_id_digest"] for row in registered}) != INBOUND_RECONCILIATION_EXPECTED_SOURCE_COUNT
+    ):
+        global_holds.append("registered_source_coverage_mismatch")
+    if (
+        roster_state != "exact"
+        or set(roster_expected) != registered_alias_set
+        or set(roster_observed) != registered_alias_set
+    ):
+        global_holds.append("roster_coverage_mismatch")
+    if (
+        len(snapshots) != INBOUND_RECONCILIATION_EXPECTED_SOURCE_COUNT
+        or len(snapshot_alias_set) != INBOUND_RECONCILIATION_EXPECTED_SOURCE_COUNT
+        or snapshot_alias_set != registered_alias_set
+    ):
+        global_holds.append("source_snapshot_coverage_mismatch")
+    if any(alias not in registered_alias_set for alias in snapshot_aliases):
+        global_holds.append("unknown_source_snapshot")
+
+    source_summaries: List[Dict[str, Any]] = []
+    global_plan: List[Dict[str, str]] = []
+    outage_window = cursor["approved_outage_window"]
+    for snapshot in sorted(snapshots, key=lambda row: row["source_alias"].encode("utf-8")):
+        alias = snapshot["source_alias"]
+        source_holds: List[str] = []
+        source_by_identity: Dict[str, Dict[str, str]] = {}
+        source_exact_duplicates = 0
+        for record in snapshot["source_records"]:
+            if record["source_alias"] != alias:
+                source_holds.append("source_alias_mismatch")
+                continue
+            if record["received_at_utc"] <= outage_window["baseline_captured_at_utc"]:
+                source_holds.append("outage_window_pre_baseline")
+            elif record["received_at_utc"] > outage_window["target_captured_at_utc"]:
+                source_holds.append("outage_window_post_target")
+            existing = source_by_identity.get(record["identity_digest"])
+            if existing is None:
+                source_by_identity[record["identity_digest"]] = record
+            elif (
+                existing["message_digest"] != record["message_digest"]
+                or existing["revision_digest"] != record["revision_digest"]
+            ):
+                source_holds.append("source_revision_conflict")
+            else:
+                source_exact_duplicates += 1
+
+        ledger_by_identity: Dict[str, Dict[str, str]] = {}
+        for record in snapshot["ledger_records"]:
+            if record["source_alias"] != alias:
+                source_holds.append("ledger_alias_mismatch")
+                continue
+            existing = ledger_by_identity.get(record["identity_digest"])
+            if existing is None:
+                ledger_by_identity[record["identity_digest"]] = record
+            elif (
+                existing["message_digest"] != record["message_digest"]
+                or existing["pointer_digest"] != record["pointer_digest"]
+            ):
+                source_holds.append("ledger_identity_ambiguous")
+            else:
+                source_holds.append("ledger_identity_ambiguous")
+
+        if any(identity_digest not in source_by_identity for identity_digest in ledger_by_identity):
+            source_holds.append("ledger_only_identity")
+
+        missing_records: List[Dict[str, str]] = []
+        duplicate_count = source_exact_duplicates
+        for identity_digest, record in source_by_identity.items():
+            ledger = ledger_by_identity.get(identity_digest)
+            if ledger is None:
+                missing_records.append(record)
+            elif ledger["message_digest"] != record["message_digest"]:
+                source_holds.append("identity_digest_conflict")
+            else:
+                duplicate_count += 1
+
+        ordered_missing = sorted(
+            missing_records,
+            key=lambda record: (
+                record["received_at_utc"],
+                record["identity_digest"],
+                record["revision_digest"],
+            ),
+        )
+        before_members = [
+            {"identity_digest": record["identity_digest"], "message_digest": record["message_digest"]}
+            for record in ledger_by_identity.values()
+        ]
+        before_members.sort(key=lambda record: (record["identity_digest"], record["message_digest"]))
+        proposed_members = before_members + [
+            {"identity_digest": record["identity_digest"], "message_digest": record["message_digest"]}
+            for record in ordered_missing
+        ]
+        proposed_members.sort(key=lambda record: (record["identity_digest"], record["message_digest"]))
+        summary_holds = _sorted_hold_codes(global_holds + source_holds)
+        source_summaries.append(
+            {
+                "source_alias": alias,
+                "scanned": len(source_by_identity),
+                "source_count": len(source_by_identity),
+                "ledger_count": len(ledger_by_identity),
+                "missing": len(ordered_missing),
+                "fetched": 0,
+                "duplicate": duplicate_count,
+                "conflict": len(_sorted_hold_codes(source_holds)),
+                "unexplained_missing": len(ordered_missing) if summary_holds else 0,
+                "before_set_digest": _digest(before_members),
+                "proposed_after_set_digest": _digest(before_members if summary_holds else proposed_members),
+                "hold_codes": summary_holds,
+                "replay_plan": [] if summary_holds else deepcopy(ordered_missing),
+            }
+        )
+        if not summary_holds:
+            global_plan.extend(
+                [dict(record, source_alias=alias) for record in ordered_missing]
+            )
+
+    global_holds = _sorted_hold_codes(global_holds)
+    if global_holds or any(summary["hold_codes"] for summary in source_summaries):
+        global_plan = []
+    else:
+        global_plan.sort(
+            key=lambda record: (
+                record["received_at_utc"],
+                record["identity_digest"],
+                record["revision_digest"],
+            )
+        )
+    return {
+        "feature_off": True,
+        "live_replay_authorized": False,
+        "official_completion": False,
+        "network_used": False,
+        "private_writes": 0,
+        "status": "hold" if global_holds or any(row["hold_codes"] for row in source_summaries) else "plan_ready",
+        "registered_source_count": len(registered),
+        "expected_inbound_source_count": INBOUND_RECONCILIATION_EXPECTED_SOURCE_COUNT,
+        "global_hold_codes": global_holds,
+        "authority_digest": _digest(authority),
+        "cursor_digest": _digest(cursor),
+        "resume_boundary": {
+            "state": resume["state"],
+            "last_committed_receipt_digest": resume["last_committed_receipt_digest"],
+            "resume_cursor_digest": resume["resume_cursor_digest"],
+            "operation_order": atomicity["operation_order"],
+            "cursor_advance_authorized": False,
+        },
+        "sources": source_summaries,
+        "replay_plan": global_plan,
+    }
 
 
 def _validate_rfc_message_id(value: Any) -> str:

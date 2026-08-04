@@ -7,12 +7,14 @@ from pathlib import Path
 
 import pytest
 
+from collector.pipeline import mail_occurrence_shadow
 from collector.pipeline.mail_occurrence_shadow import (
     COVERAGE_STATES,
     MailOccurrenceShadowError,
     MailOccurrenceShadowStore,
     assert_public_safe_mail_metadata,
     build_account_coverage,
+    build_inbound_reconciliation_shadow,
     create_coverage_receipt,
     create_mailbox_observation,
     validate_account_coverage,
@@ -26,6 +28,114 @@ WINDOW_END = "2026-07-23T00:00:00.000Z"
 FRESHNESS = "2026-07-23T00:01:00.000Z"
 DIGEST_A = f"sha256:{'a' * 64}"
 DIGEST_B = f"sha256:{'b' * 64}"
+
+
+def _synthetic_digest(label: str) -> str:
+    return f"sha256:{hashlib.sha256(label.encode('utf-8')).hexdigest()}"
+
+
+def _approved_outage_window(baseline: dict[str, str], target: dict[str, str]) -> dict[str, str]:
+    window = {
+        "interval": "(baseline,target]",
+        "baseline_snapshot_digest": baseline["snapshot_digest"],
+        "baseline_captured_at_utc": baseline["captured_at_utc"],
+        "target_snapshot_digest": target["snapshot_digest"],
+        "target_captured_at_utc": target["captured_at_utc"],
+    }
+    canonical = json.dumps(window, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return dict(
+        window,
+        provenance_digest=f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}",
+    )
+
+
+def _reconciliation_input() -> dict:
+    aliases = [f"source-{index:02d}" for index in range(1, 6)]
+    baseline = _synthetic_digest("cursor-baseline")
+    target = _synthetic_digest("cursor-target")
+    return {
+        "registered_inbound_sources": [
+            {
+                "source_alias": alias,
+                "source_id_digest": _synthetic_digest(f"id-{alias}"),
+                "provider_kind": "gmail" if index % 2 else "hiworks",
+            }
+            for index, alias in enumerate(aliases, start=1)
+        ],
+        "roster_coverage": {
+            "state": "exact",
+            "expected_inbound_aliases": aliases,
+            "observed_inbound_aliases": aliases,
+        },
+        "source_snapshots": [
+            {"source_alias": alias, "source_records": [], "ledger_records": []}
+            for alias in aliases
+        ],
+        "cursor": {
+            "baseline_snapshot": {
+                "snapshot_digest": baseline,
+                "captured_at_utc": "2026-07-28T09:30:00Z",
+            },
+            "target_snapshot": {
+                "snapshot_digest": target,
+                "captured_at_utc": "2026-08-05T00:00:00Z",
+            },
+            "observed_target_snapshot": {
+                "snapshot_digest": target,
+                "captured_at_utc": "2026-08-05T00:00:00Z",
+            },
+            "target_relation": "fast_forward",
+            "approved_outage_window": _approved_outage_window(
+                {
+                    "snapshot_digest": baseline,
+                    "captured_at_utc": "2026-07-28T09:30:00Z",
+                },
+                {
+                    "snapshot_digest": target,
+                    "captured_at_utc": "2026-08-05T00:00:00Z",
+                },
+            ),
+        },
+        "authority": {
+            "expected_binding_digest": _synthetic_digest("binding"),
+            "observed_binding_digest": _synthetic_digest("binding"),
+            "expected_register_digest": _synthetic_digest("register"),
+            "observed_register_digest": _synthetic_digest("register"),
+            "expected_writer_epoch_digest": _synthetic_digest("epoch"),
+            "observed_writer_epoch_digest": _synthetic_digest("epoch"),
+            "expected_lease_digest": _synthetic_digest("lease"),
+            "observed_lease_digest": _synthetic_digest("lease"),
+            "writer_state": "exclusive",
+        },
+        "resume": {
+            "state": "not_required",
+            "last_committed_receipt_digest": None,
+            "resume_cursor_digest": None,
+        },
+        "atomicity": {
+            "capability_state": "verified",
+            "operation_order": ["append_validate", "receipt_commit", "cursor_advance"],
+        },
+    }
+
+
+def _source_record(alias: str, label: str, received_at_utc: str) -> dict[str, str]:
+    return {
+        "source_alias": alias,
+        "identity_digest": _synthetic_digest(f"identity-{label}"),
+        "received_at_utc": received_at_utc,
+        "revision_digest": _synthetic_digest(f"revision-{label}"),
+        "message_digest": _synthetic_digest(f"message-{label}"),
+    }
+
+
+def _ledger_record(source: dict[str, str]) -> dict[str, str]:
+    return {
+        "source_alias": source["source_alias"],
+        "identity_digest": source["identity_digest"],
+        "message_digest": source["message_digest"],
+        "pointer_digest": _synthetic_digest(f"pointer-{source['identity_digest']}"),
+    }
 
 
 def _rfc(value: str = "mail-001@example.test") -> dict[str, str]:
@@ -827,3 +937,258 @@ def test_falsey_supplied_exact_ref_is_not_treated_as_missing() -> None:
     )
     assert unmatched["identity_status"] == "unmatched"
     assert unmatched["occurrence_id"].startswith("mail_occurrence_unmatched:")
+
+
+def test_inbound_reconciliation_shadow_exact_coverage_builds_oldest_to_newest_plan() -> None:
+    request = _reconciliation_input()
+    first = _source_record("source-01", "first", "2026-07-29T01:00:00Z")
+    second = _source_record("source-02", "second", "2026-07-30T01:00:00Z")
+    third = _source_record("source-01", "third", "2026-07-31T01:00:00Z")
+    request["source_snapshots"][0]["source_records"] = [third, first]
+    request["source_snapshots"][1]["source_records"] = [second]
+
+    result = build_inbound_reconciliation_shadow(request)
+
+    assert result["status"] == "plan_ready"
+    assert result["feature_off"] is True
+    assert result["live_replay_authorized"] is False
+    assert result["official_completion"] is False
+    assert result["network_used"] is False
+    assert result["private_writes"] == 0
+    assert result["global_hold_codes"] == []
+    assert [item["identity_digest"] for item in result["replay_plan"]] == [
+        first["identity_digest"],
+        second["identity_digest"],
+        third["identity_digest"],
+    ]
+    assert [item["received_at_utc"] for item in result["replay_plan"]] == sorted(
+        item["received_at_utc"] for item in result["replay_plan"]
+    )
+    assert all(source["unexplained_missing"] == 0 for source in result["sources"])
+
+
+def test_inbound_reconciliation_shadow_uses_identity_then_revision_tie_breakers() -> None:
+    request = _reconciliation_input()
+    first = _source_record("source-01", "tie-a", "2026-07-30T01:00:00Z")
+    second = _source_record("source-02", "tie-b", "2026-07-30T01:00:00Z")
+    request["source_snapshots"][0]["source_records"] = [first]
+    request["source_snapshots"][1]["source_records"] = [second]
+
+    result = build_inbound_reconciliation_shadow(request)
+
+    assert result["status"] == "plan_ready"
+    assert [item["identity_digest"] for item in result["replay_plan"]] == sorted(
+        [first["identity_digest"], second["identity_digest"]]
+    )
+
+
+def test_inbound_reconciliation_shadow_exact_duplicates_are_noop_and_digest_conflicts_hold() -> None:
+    request = _reconciliation_input()
+    record = _source_record("source-01", "duplicate", "2026-07-29T01:00:00Z")
+    request["source_snapshots"][0]["source_records"] = [record]
+    request["source_snapshots"][0]["ledger_records"] = [_ledger_record(record)]
+
+    duplicate_result = build_inbound_reconciliation_shadow(request)
+
+    source = duplicate_result["sources"][0]
+    assert duplicate_result["status"] == "plan_ready"
+    assert source["missing"] == 0
+    assert source["duplicate"] == 1
+    assert source["replay_plan"] == []
+
+    conflict = deepcopy(record)
+    conflict["message_digest"] = _synthetic_digest("message-conflict")
+    request["source_snapshots"][0]["source_records"] = [record, conflict]
+    conflict_result = build_inbound_reconciliation_shadow(request)
+
+    assert conflict_result["status"] == "hold"
+    assert conflict_result["replay_plan"] == []
+    assert "source_revision_conflict" in conflict_result["sources"][0]["hold_codes"]
+
+
+def test_inbound_reconciliation_shadow_resume_boundary_and_cursor_order_are_fail_closed() -> None:
+    request = _reconciliation_input()
+    record = _source_record("source-03", "resume", "2026-07-30T01:00:00Z")
+    request["source_snapshots"][2]["source_records"] = [record]
+    baseline = request["cursor"]["baseline_snapshot"]["snapshot_digest"]
+    request["resume"] = {
+        "state": "resume_from_committed_receipt",
+        "last_committed_receipt_digest": _synthetic_digest("receipt-committed"),
+        "resume_cursor_digest": baseline,
+    }
+
+    resumed = build_inbound_reconciliation_shadow(request)
+
+    assert resumed["status"] == "plan_ready"
+    assert resumed["resume_boundary"]["operation_order"] == [
+        "append_validate",
+        "receipt_commit",
+        "cursor_advance",
+    ]
+    assert resumed["resume_boundary"]["cursor_advance_authorized"] is False
+
+    request["resume"]["state"] = "crash_uncommitted"
+    held = build_inbound_reconciliation_shadow(request)
+
+    assert held["status"] == "hold"
+    assert "resume_receipt_invalid" in held["global_hold_codes"]
+    assert held["replay_plan"] == []
+
+
+@pytest.mark.parametrize(
+    "received_at_utc, expected_hold",
+    (
+        ("2026-07-28T09:30:00Z", "outage_window_pre_baseline"),
+        ("2026-08-05T00:00:01Z", "outage_window_post_target"),
+    ),
+)
+def test_inbound_reconciliation_shadow_rejects_records_outside_approved_outage_window(
+    received_at_utc: str, expected_hold: str
+) -> None:
+    request = _reconciliation_input()
+    request["source_snapshots"][0]["source_records"] = [
+        _source_record("source-01", "outside-window", received_at_utc)
+    ]
+
+    result = build_inbound_reconciliation_shadow(request)
+
+    assert result["status"] == "hold"
+    assert result["replay_plan"] == []
+    assert expected_hold in result["sources"][0]["hold_codes"]
+
+
+def test_inbound_reconciliation_shadow_rejects_outage_window_provenance_mismatch() -> None:
+    request = _reconciliation_input()
+    request["cursor"]["approved_outage_window"]["target_snapshot_digest"] = _synthetic_digest(
+        "unapproved-target"
+    )
+
+    result = build_inbound_reconciliation_shadow(request)
+
+    assert result["status"] == "hold"
+    assert result["replay_plan"] == []
+    assert "outage_window_provenance_mismatch" in result["global_hold_codes"]
+
+
+def test_inbound_reconciliation_shadow_rejects_non_monotonic_outage_window() -> None:
+    request = _reconciliation_input()
+    request["cursor"]["approved_outage_window"] = _approved_outage_window(
+        request["cursor"]["target_snapshot"],
+        request["cursor"]["target_snapshot"],
+    )
+
+    result = build_inbound_reconciliation_shadow(request)
+
+    assert result["status"] == "hold"
+    assert result["replay_plan"] == []
+    assert "outage_window_non_monotonic" in result["global_hold_codes"]
+
+
+@pytest.mark.parametrize(
+    "mutate, expected_hold",
+    (
+        (
+            lambda request: request.update({"source_snapshots": []}),
+            "source_snapshot_coverage_mismatch",
+        ),
+        (
+            lambda request: request["source_snapshots"].pop(),
+            "source_snapshot_coverage_mismatch",
+        ),
+        (
+            lambda request: request["source_snapshots"].append(
+                {"source_alias": "source-06", "source_records": [], "ledger_records": []}
+            ),
+            "source_snapshot_coverage_mismatch",
+        ),
+        (
+            lambda request: request["roster_coverage"].update({"state": "unknown"}),
+            "roster_coverage_mismatch",
+        ),
+        (
+            lambda request: request["authority"].update({"writer_state": "ambiguous"}),
+            "writer_lease_ambiguous",
+        ),
+        (
+            lambda request: request["cursor"].update({"target_relation": "non_fast_forward"}),
+            "target_non_fast_forward",
+        ),
+        (
+            lambda request: request["cursor"]["observed_target_snapshot"].update(
+                {"snapshot_digest": _synthetic_digest("target-drift")}
+            ),
+            "target_drift",
+        ),
+    ),
+)
+def test_inbound_reconciliation_shadow_coverage_authority_and_target_uncertainty_hold(
+    mutate, expected_hold: str
+) -> None:
+    request = _reconciliation_input()
+    mutate(request)
+
+    result = build_inbound_reconciliation_shadow(request)
+
+    assert result["status"] == "hold"
+    assert expected_hold in result["global_hold_codes"]
+    assert result["replay_plan"] == []
+    assert result["live_replay_authorized"] is False
+
+
+@pytest.mark.parametrize(
+    "mutate, error",
+    (
+        (
+            lambda request: request["source_snapshots"][0]["source_records"].append(
+                {"source_alias": "source-01", "raw": "synthetic"}
+            ),
+            "forbidden_payload_field",
+        ),
+        (
+            lambda request: request["source_snapshots"][0]["source_records"].append(
+                {"source_alias": "source-01", "attachment_path": "synthetic"}
+            ),
+            "forbidden_attachment_field",
+        ),
+        (
+            lambda request: request["authority"].update({"private_ref": "synthetic"}),
+            "unexpected_fields",
+        ),
+        (
+            lambda request: request["registered_inbound_sources"][0].update(
+                {"source_alias": "person@example.test"}
+            ),
+            "invalid_reconciliation_alias",
+        ),
+        (
+            lambda request: request["cursor"].update({"unknown_key": "synthetic"}),
+            "unexpected_fields",
+        ),
+        (
+            lambda request: request["source_snapshots"][0].update({"secret_hint": "synthetic"}),
+            "forbidden_payload_field",
+        ),
+    ),
+)
+def test_inbound_reconciliation_shadow_rejects_recursive_unsafe_or_unknown_input(
+    mutate, error: str
+) -> None:
+    request = _reconciliation_input()
+    mutate(request)
+
+    with pytest.raises(MailOccurrenceShadowError, match=error):
+        build_inbound_reconciliation_shadow(request)
+
+
+def test_inbound_reconciliation_shadow_is_pure_and_does_not_construct_store(monkeypatch) -> None:
+    request = _reconciliation_input()
+
+    def fail_store(*args, **kwargs):
+        raise AssertionError("store construction is outside the feature-off boundary")
+
+    monkeypatch.setattr(mail_occurrence_shadow, "MailOccurrenceShadowStore", fail_store)
+    result = build_inbound_reconciliation_shadow(request)
+
+    assert result["status"] == "plan_ready"
+    assert result["network_used"] is False
+    assert result["private_writes"] == 0

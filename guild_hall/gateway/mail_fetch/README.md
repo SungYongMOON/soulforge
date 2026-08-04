@@ -39,6 +39,42 @@ POP3 received copy, `cc`는 cross-mailbox identity나 sent coverage의 근거가
 history·official task writer에는 연결되지 않았고, accepted history나 production
 authority를 만들지 않는다.
 
+## Inbound reconciliation shadow (feature OFF, public synthetic)
+
+`collector/pipeline/mail_occurrence_shadow.py` also provides
+`build_inbound_reconciliation_shadow(...)`: a pure, metadata-only planner for
+five registered inbound aliases. It accepts only opaque aliases, SHA-256
+identity/revision/message/pointer digests, UTC timestamps, and redacted
+binding/register/writer/lease/cursor/receipt evidence. It rejects unknown,
+raw, credential, locator, attachment, and payload-shaped input without
+returning the rejected value.
+
+The planner is deliberately feature OFF. Its output always keeps
+`feature_off=true`, `live_replay_authorized=false`,
+`official_completion=false`, `network_used=false`, and `private_writes=0`.
+It neither opens a source, credential, cursor, ledger, receipt, nor shadow
+store, and it is not wired into `team_cli.py`, a collector runner, a scheduler,
+or an installed task.
+
+For synthetic inputs only, exact five-source and roster coverage, matching
+binding/register/writer/lease digests, stable fast-forward target, committed
+resume boundary, and append-validate → receipt-commit → cursor-advance
+capability can produce a deterministic oldest-to-newest missing-only plan. An
+exact-key approved outage-window projection binds the cursor baseline and
+target digest/time with a checked provenance digest. Only source records in the
+deterministic `(baseline,target]` interval are candidates; pre-baseline,
+post-target, non-monotonic, or provenance-mismatched inputs return HOLD with no
+selected replay plan. Any other coverage, target, revision/digest, resume,
+atomicity, or single-writer uncertainty also returns HOLD. An exact identity
+and message digest already in the ledger is a no-op; an identity with a
+different digest or revision is a HOLD.
+
+This contract is not installed-binding provenance, live source↔ledger proof,
+replay authority, or official recovery completion. A future owner-approved
+private integration gate must independently obtain redacted live evidence and
+still pass single-writer, receipt, and change gates before any collector replay
+can be considered.
+
 ## Owner Outlook 보낸메일 source custody
 
 `collector/outlook_sent.py`는 현재 로그인 사용자가 이미 실행한 Outlook의 기본
