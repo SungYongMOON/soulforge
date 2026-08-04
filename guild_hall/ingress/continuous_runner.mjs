@@ -17,6 +17,7 @@ import { hostname } from "node:os";
 import { stageIngressFile } from "./collector.mjs";
 import {
   MAIL_BRIDGE_TIMEOUT_MS,
+  build_feature_off_reconciliation_attestation,
   runMailBridge,
   sanitizedMailFailure,
 } from "./mail_bridge.mjs";
@@ -1622,6 +1623,88 @@ function authorityReceiptFields(binding, authorityContext) {
     writer_authority_digest: authorityContext.summary?.digest ?? null,
     writer_authority_node_id: authorityContext.summary?.nodeId ?? null,
     writer_authority_mode: authorityContext.summary?.mode ?? null,
+  };
+}
+
+const FEATURE_OFF_OPERATIONAL_CONTEXT_SCHEMA = "soulforge.ingress.feature_off_operational_context.v1";
+const FEATURE_OFF_CONTEXT_FIELDS = [
+  "schema_version",
+  "public_synthetic",
+  "binding",
+  "writer",
+  "lease",
+  "receipt",
+  "cursor",
+  "target",
+  "replay",
+];
+const FEATURE_OFF_CONTEXT_ABSENT_FIELDS = ["binding", "writer", "lease", "receipt", "cursor", "target"];
+
+function featureOffPlainRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function featureOffContextInspection(operationalContext) {
+  if (operationalContext === undefined) return { status: "unavailable", holdCodes: [] };
+  if (!featureOffPlainRecord(operationalContext)) {
+    return { status: "rejected", holdCodes: ["ingress_operational_context_rejected"] };
+  }
+  const actual = Object.keys(operationalContext).sort();
+  const expected = [...FEATURE_OFF_CONTEXT_FIELDS].sort();
+  const missing = FEATURE_OFF_CONTEXT_FIELDS.filter((field) => !Object.hasOwn(operationalContext, field));
+  if (missing.length > 0) {
+    return {
+      status: "missing",
+      holdCodes: missing.map((field) => `ingress_${field}_missing`).sort(),
+    };
+  }
+  if (actual.length !== expected.length || actual.some((field, index) => field !== expected[index])
+    || operationalContext.schema_version !== FEATURE_OFF_OPERATIONAL_CONTEXT_SCHEMA
+    || operationalContext.public_synthetic !== true) {
+    return { status: "rejected", holdCodes: ["ingress_operational_context_rejected"] };
+  }
+  const holdCodes = [];
+  for (const field of FEATURE_OFF_CONTEXT_ABSENT_FIELDS) {
+    if (operationalContext[field] === "unavailable") continue;
+    if (operationalContext[field] === "unknown") {
+      holdCodes.push(`ingress_${field}_unknown`);
+      continue;
+    }
+    holdCodes.push(`ingress_${field}_conflict`);
+  }
+  if (operationalContext.replay === "not_authorized") {
+    // Feature-OFF C1 explicitly carries no C2/live replay authority.
+  } else if (operationalContext.replay === "unknown") {
+    holdCodes.push("c2_replay_unknown");
+  } else {
+    holdCodes.push("c2_replay_not_authorized");
+  }
+  return {
+    status: holdCodes.length === 0 ? "unavailable" : holdCodes.some((code) => code.endsWith("_unknown")) ? "unknown" : "conflict",
+    holdCodes: holdCodes.sort(),
+  };
+}
+
+/**
+ * Build a public-synthetic C1 attestation without loading a binding or touching
+ * the continuous runner. Operational state may only be explicitly unavailable.
+ */
+export function projectFeatureOffIngressAttestation({ policy, witnesses, operational_context: operationalContext } = {}) {
+  const mailAttestation = build_feature_off_reconciliation_attestation({ policy, witnesses });
+  const context = featureOffContextInspection(operationalContext);
+  const rejected = mailAttestation.hold_codes.includes("public_synthetic_input_rejected");
+  return {
+    ...mailAttestation,
+    ...(rejected ? {} : { hold_codes: [...mailAttestation.hold_codes, ...context.holdCodes] }),
+    writes_performed: false,
+    network_used: false,
+    runtime_actions_performed: false,
+    scheduler_actions_performed: false,
+    collector_actions_performed: false,
+    writer_actions_performed: false,
+    official_completion: false,
+    live_replay_authorized: false,
+    ingress_context_status: rejected ? "unavailable" : context.status,
   };
 }
 

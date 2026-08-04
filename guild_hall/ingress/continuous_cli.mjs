@@ -1,19 +1,30 @@
 #!/usr/bin/env node
-import { runContinuousIngress } from "./continuous_runner.mjs";
+import {
+  projectFeatureOffIngressAttestation,
+  runContinuousIngress,
+} from "./continuous_runner.mjs";
 
 function parseArgs(tokens) {
   const result = {};
   const seen = new Set();
-  const valueKeys = new Set(["config", "config-digest"]);
+  const valueKeys = new Set([
+    "config",
+    "config-digest",
+    "policy-json",
+    "witnesses-json",
+    "operational-context-json",
+  ]);
   for (let i = 0; i < tokens.length; i += 1) {
     const token = tokens[i];
     if (!token.startsWith("--")) throw new Error("unexpected_argument");
     const key = token.slice(2);
-    if (key !== "apply" && !valueKeys.has(key)) throw new Error("unexpected_argument");
+    if (key !== "apply" && key !== "feature-off-attestation" && !valueKeys.has(key)) {
+      throw new Error("unexpected_argument");
+    }
     if (seen.has(key)) throw new Error("duplicate_argument");
     seen.add(key);
-    if (key === "apply") {
-      result.apply = true;
+    if (key === "apply" || key === "feature-off-attestation") {
+      result[key] = true;
       continue;
     }
     const value = tokens[i + 1];
@@ -24,8 +35,55 @@ function parseArgs(tokens) {
   return result;
 }
 
+function parseFeatureOffJson(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error("feature_off_attestation_input_invalid");
+  }
+}
+
+function safeFeatureOffResult(result) {
+  return {
+    schema_version: result.schema_version,
+    status: result.status,
+    hold_codes: Array.isArray(result.hold_codes) ? result.hold_codes : [],
+    writes_performed: false,
+    network_used: false,
+    runtime_actions_performed: false,
+    scheduler_actions_performed: false,
+    collector_actions_performed: false,
+    writer_actions_performed: false,
+    official_completion: false,
+    live_replay_authorized: false,
+    ingress_context_status: result.ingress_context_status,
+    aggregate: result.aggregate,
+  };
+}
+
 try {
   const args = parseArgs(process.argv.slice(2));
+  if (args["feature-off-attestation"] === true) {
+    if (args.apply === true) throw new Error("feature_off_attestation_apply_forbidden");
+    if (args.config || args["config-digest"]) throw new Error("feature_off_attestation_operational_config_forbidden");
+    if (!args["policy-json"] || !args["witnesses-json"]) {
+      throw new Error("feature_off_attestation_input_required");
+    }
+    const policy = parseFeatureOffJson(args["policy-json"]);
+    const witnesses = parseFeatureOffJson(args["witnesses-json"]);
+    const operationalContext = args["operational-context-json"]
+      ? parseFeatureOffJson(args["operational-context-json"])
+      : undefined;
+    const result = projectFeatureOffIngressAttestation({
+      policy,
+      witnesses,
+      operational_context: operationalContext,
+    });
+    process.stdout.write(`${JSON.stringify(safeFeatureOffResult(result))}\n`);
+  } else {
+    if (args["policy-json"] || args["witnesses-json"] || args["operational-context-json"]) {
+      throw new Error("feature_off_attestation_mode_required");
+    }
   if (!args.config) throw new Error("config_required");
   if (args.apply === true && !args["config-digest"]) {
     throw new Error("continuous_binding_digest_required");
@@ -95,6 +153,7 @@ try {
   }
   process.stdout.write(`${JSON.stringify(safe)}\n`);
   if (result.status === "degraded") process.exitCode = 1;
+  }
 } catch (error) {
   process.stderr.write(`${JSON.stringify({ error: error?.code || error?.message || "continuous_ingress_failed" })}\n`);
   process.exitCode = 2;

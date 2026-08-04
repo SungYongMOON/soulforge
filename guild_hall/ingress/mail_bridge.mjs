@@ -27,6 +27,7 @@ import { comparablePathIdentity as comparable } from "../shared/physical_path_id
 
 export const MAIL_BRIDGE_RESULT_SCHEMA = "soulforge.ingress.mail_bridge_result.v1";
 export const MAIL_BRIDGE_TIMEOUT_MS = 10 * 60 * 1000;
+export const FEATURE_OFF_RECONCILIATION_ATTESTATION_SCHEMA = "soulforge.mail.feature_off_reconciliation_attestation.v2";
 
 const TEAM_REGISTER_SCHEMA = "email.fetch.team_mailbox_register.v1";
 const SAFE_ERROR_CODE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
@@ -48,11 +49,418 @@ const REPO_RELATIVE_PREFIXES = [
   "_workspaces/",
 ];
 const STARTUP_WINDOWS_SYSTEM_ROOT = String(process.env.SystemRoot || process.env.WINDIR || "").trim();
+const FEATURE_OFF_RECONCILIATION_POLICY_SCHEMA = "soulforge.mail.reconciliation_policy.v2";
+const FEATURE_OFF_RECONCILIATION_WITNESS_SCHEMA = "soulforge.mail.reconciliation_witness.v2";
+const FEATURE_OFF_SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const FEATURE_OFF_SHA256 = /^[a-f0-9]{64}$/;
+const FEATURE_OFF_UTC_SECOND = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+const FEATURE_OFF_WITNESS_KINDS = new Set([
+  "cursor_receipt_baseline_target_pair",
+  "authority_snapshot_linkage",
+  "roster_registry_source_ledger_coverage",
+]);
+const FEATURE_OFF_PAIRING_STATES = new Set(["current", "missing", "stale", "mismatch", "unknown"]);
+const FEATURE_OFF_WRITER_STATES = new Set([
+  "exclusive_quiescent",
+  "active",
+  "remote",
+  "ambiguous",
+  "unknown",
+]);
+const FEATURE_OFF_FORBIDDEN_KEY_PARTS = [
+  "raw",
+  "body",
+  "subject",
+  "address",
+  "attachment",
+  "token",
+  "credential",
+  "url",
+  "path",
+  "privateref",
+  "privatereference",
+];
 
 function fail(code) {
   const error = new Error(code);
   error.code = code;
   throw error;
+}
+
+function plainRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function exactKeys(value, keys) {
+  if (!plainRecord(value)) return false;
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return actual.length === expected.length
+    && actual.every((key, index) => key === expected[index]);
+}
+
+function normalizedFeatureOffKey(value) {
+  return typeof value === "string" ? value.toLowerCase().replace(/[^a-z0-9]/g, "") : null;
+}
+
+function featureOffInputContainsForbiddenKey(value) {
+  if (Array.isArray(value)) return value.some((item) => featureOffInputContainsForbiddenKey(item));
+  if (!plainRecord(value)) return false;
+  return Object.entries(value).some(([key, item]) => {
+    const normalized = normalizedFeatureOffKey(key);
+    return normalized === null
+      || FEATURE_OFF_FORBIDDEN_KEY_PARTS.some((part) => normalized.includes(part))
+      || featureOffInputContainsForbiddenKey(item);
+  });
+}
+
+function featureOffSafeIdentifier(value) {
+  return typeof value === "string" && FEATURE_OFF_SAFE_IDENTIFIER.test(value);
+}
+
+function featureOffDigest(value) {
+  return typeof value === "string" && FEATURE_OFF_SHA256.test(value);
+}
+
+function featureOffPositiveInteger(value) {
+  return Number.isSafeInteger(value) && value > 0;
+}
+
+function featureOffNonnegativeInteger(value) {
+  return Number.isSafeInteger(value) && value >= 0;
+}
+
+function featureOffCanonicalUtcSecond(value) {
+  if (typeof value !== "string" || !FEATURE_OFF_UTC_SECOND.test(value)) return false;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return false;
+  return new Date(timestamp).toISOString().replace(".000Z", "Z") === value;
+}
+
+function featureOffHoldResult(holdCodes, aggregate) {
+  return {
+    schema_version: FEATURE_OFF_RECONCILIATION_ATTESTATION_SCHEMA,
+    status: "hold",
+    hold_codes: holdCodes,
+    writes_performed: false,
+    network_used: false,
+    official_completion: false,
+    live_replay_authorized: false,
+    aggregate,
+  };
+}
+
+function featureOffAggregate() {
+  return {
+    expected_inbound_count: 0,
+    registered_inbound_count: 0,
+    unregistered_inbound_count: 0,
+    source_inbound_count: 0,
+    ledger_inbound_count: 0,
+    source_ledger_missing_count: 0,
+    source_ledger_exact_duplicate_noop_count: 0,
+    source_ledger_identity_revision_conflict_count: 0,
+  };
+}
+
+function featureOffRejectedResult() {
+  return featureOffHoldResult(["public_synthetic_input_rejected"], {
+    required_witness_kind_count: 0,
+    observed_required_witness_kind_count: 0,
+    witness_count: 0,
+    ...featureOffAggregate(),
+  });
+}
+
+function validFeatureOffPolicy(policy) {
+  const policyFields = [
+    "schema_version",
+    "policy_id",
+    "public_synthetic",
+    "roster_revision_digest",
+    "expected_inbound_count",
+    "roster_set_digest",
+    "register_set_digest",
+    "empty_normalized_set_digest",
+    "cursor_receipt_baseline_target_pair_digest",
+    "authority_snapshot_linkage_digest",
+    "coverage_snapshot_linkage_digest",
+    "direction",
+    "provider",
+    "query_digest",
+    "source_revision_policy_digest",
+    "approved_window_utc",
+    "provider_target_digest",
+  ];
+  if (!exactKeys(policy, policyFields)
+    || policy.schema_version !== FEATURE_OFF_RECONCILIATION_POLICY_SCHEMA
+    || policy.public_synthetic !== true
+    || !featureOffSafeIdentifier(policy.policy_id)
+    || !featureOffDigest(policy.roster_revision_digest)
+    || !featureOffPositiveInteger(policy.expected_inbound_count)
+    || !featureOffDigest(policy.roster_set_digest)
+    || !featureOffDigest(policy.register_set_digest)
+    || !featureOffDigest(policy.empty_normalized_set_digest)
+    || !featureOffDigest(policy.cursor_receipt_baseline_target_pair_digest)
+    || !featureOffDigest(policy.authority_snapshot_linkage_digest)
+    || !featureOffDigest(policy.coverage_snapshot_linkage_digest)
+    || policy.direction !== "inbound"
+    || !featureOffSafeIdentifier(policy.provider)
+    || !featureOffDigest(policy.query_digest)
+    || !featureOffDigest(policy.source_revision_policy_digest)
+    || !featureOffDigest(policy.provider_target_digest)
+    || !exactKeys(policy.approved_window_utc, ["start", "end"])
+    || !featureOffCanonicalUtcSecond(policy.approved_window_utc.start)
+    || !featureOffCanonicalUtcSecond(policy.approved_window_utc.end)
+    || Date.parse(policy.approved_window_utc.start) >= Date.parse(policy.approved_window_utc.end)) {
+    return false;
+  }
+  return true;
+}
+
+function validFeatureOffWitnessEnvelope(witness, fields) {
+  return exactKeys(witness, ["schema_version", "witness_id", "kind", "public_synthetic", ...fields])
+    && witness.schema_version === FEATURE_OFF_RECONCILIATION_WITNESS_SCHEMA
+    && featureOffSafeIdentifier(witness.witness_id)
+    && FEATURE_OFF_WITNESS_KINDS.has(witness.kind)
+    && witness.public_synthetic === true;
+}
+
+function inspectFeatureOffWitnesses(witnesses, policy) {
+  if (!Array.isArray(witnesses)) return { valid: false };
+  const byKind = new Map();
+  const witnessIds = new Set();
+  for (const witness of witnesses) {
+    if (!plainRecord(witness) || !featureOffSafeIdentifier(witness.witness_id) || witnessIds.has(witness.witness_id)) {
+      return { valid: false };
+    }
+    witnessIds.add(witness.witness_id);
+    let wellFormed = false;
+    if (witness.kind === "cursor_receipt_baseline_target_pair") {
+      wellFormed = validFeatureOffWitnessEnvelope(witness, [
+        "cursor_digest",
+        "last_success_receipt_digest",
+        "baseline_digest",
+        "provider_target_digest",
+        "pre_pairing_digest",
+        "post_pairing_digest",
+        "pairing_digest",
+        "pairing_state",
+      ])
+        && featureOffDigest(witness.cursor_digest)
+        && featureOffDigest(witness.last_success_receipt_digest)
+        && featureOffDigest(witness.baseline_digest)
+        && featureOffDigest(witness.provider_target_digest)
+        && featureOffDigest(witness.pre_pairing_digest)
+        && featureOffDigest(witness.post_pairing_digest)
+        && featureOffDigest(witness.pairing_digest)
+        && FEATURE_OFF_PAIRING_STATES.has(witness.pairing_state);
+    } else if (witness.kind === "authority_snapshot_linkage") {
+      wellFormed = validFeatureOffWitnessEnvelope(witness, [
+        "binding_digest",
+        "release_digest",
+        "register_digest",
+        "pre_lease_digest",
+        "pre_fence_digest",
+        "pre_writer_epoch_digest",
+        "post_lease_digest",
+        "post_fence_digest",
+        "post_writer_epoch_digest",
+        "pre_authority_snapshot_digest",
+        "post_authority_snapshot_digest",
+        "authority_linkage_digest",
+        "authority_state",
+        "writer_state",
+      ])
+        && featureOffDigest(witness.binding_digest)
+        && featureOffDigest(witness.release_digest)
+        && featureOffDigest(witness.register_digest)
+        && featureOffDigest(witness.pre_lease_digest)
+        && featureOffDigest(witness.pre_fence_digest)
+        && featureOffDigest(witness.pre_writer_epoch_digest)
+        && featureOffDigest(witness.post_lease_digest)
+        && featureOffDigest(witness.post_fence_digest)
+        && featureOffDigest(witness.post_writer_epoch_digest)
+        && featureOffDigest(witness.pre_authority_snapshot_digest)
+        && featureOffDigest(witness.post_authority_snapshot_digest)
+        && featureOffDigest(witness.authority_linkage_digest)
+        && FEATURE_OFF_PAIRING_STATES.has(witness.authority_state)
+        && FEATURE_OFF_WRITER_STATES.has(witness.writer_state);
+    } else if (witness.kind === "roster_registry_source_ledger_coverage") {
+      wellFormed = validFeatureOffWitnessEnvelope(witness, [
+        "roster_set_digest",
+        "register_set_digest",
+        "source_set_digest",
+        "ledger_set_digest",
+        "source_revision_policy_digest",
+        "roster_register_intersection_set_digest",
+        "roster_register_difference_set_digest",
+        "source_ledger_intersection_set_digest",
+        "source_ledger_difference_set_digest",
+        "unregistered_set_digest",
+        "expected_inbound_count",
+        "registered_inbound_count",
+        "unregistered_inbound_count",
+        "source_inbound_count",
+        "ledger_inbound_count",
+        "exact_duplicate_noop_count",
+        "identity_revision_conflict_count",
+        "pre_coverage_snapshot_digest",
+        "post_coverage_snapshot_digest",
+        "coverage_linkage_digest",
+        "coverage_state",
+      ])
+        && [
+          "roster_set_digest",
+          "register_set_digest",
+          "source_set_digest",
+          "ledger_set_digest",
+          "source_revision_policy_digest",
+          "roster_register_intersection_set_digest",
+          "roster_register_difference_set_digest",
+          "source_ledger_intersection_set_digest",
+          "source_ledger_difference_set_digest",
+          "unregistered_set_digest",
+          "pre_coverage_snapshot_digest",
+          "post_coverage_snapshot_digest",
+          "coverage_linkage_digest",
+        ].every((field) => featureOffDigest(witness[field]))
+        && [
+          "expected_inbound_count",
+          "registered_inbound_count",
+          "unregistered_inbound_count",
+          "source_inbound_count",
+          "ledger_inbound_count",
+          "exact_duplicate_noop_count",
+          "identity_revision_conflict_count",
+        ].every((field) => featureOffNonnegativeInteger(witness[field]))
+        && FEATURE_OFF_PAIRING_STATES.has(witness.coverage_state);
+    }
+    if (!wellFormed) return { valid: false };
+    if (byKind.has(witness.kind)) return { valid: false };
+    byKind.set(witness.kind, witness);
+  }
+  return { valid: true, byKind, witnessCount: witnesses.length };
+}
+
+function featureOffSemanticHoldCodes(policy, witnessesByKind) {
+  const holdCodes = [];
+  const aggregate = featureOffAggregate();
+  const cursorReceiptTarget = witnessesByKind.get("cursor_receipt_baseline_target_pair");
+  if (cursorReceiptTarget) {
+    if (cursorReceiptTarget.pairing_state !== "current") {
+      holdCodes.push("cursor_receipt_baseline_target_pair_not_current");
+    }
+    if (cursorReceiptTarget.provider_target_digest !== policy.provider_target_digest) {
+      holdCodes.push("cursor_receipt_target_mismatch");
+    }
+    if (cursorReceiptTarget.pre_pairing_digest !== cursorReceiptTarget.post_pairing_digest
+      || cursorReceiptTarget.pre_pairing_digest !== cursorReceiptTarget.pairing_digest
+      || cursorReceiptTarget.pairing_digest !== policy.cursor_receipt_baseline_target_pair_digest) {
+      holdCodes.push("cursor_receipt_baseline_target_pair_mismatch");
+    }
+  }
+  const authority = witnessesByKind.get("authority_snapshot_linkage");
+  if (authority) {
+    if (authority.authority_state !== "current") {
+      holdCodes.push("authority_snapshot_not_current");
+    }
+    if (authority.writer_state !== "exclusive_quiescent") {
+      holdCodes.push("writer_state_not_exclusive_quiescent");
+    }
+    if (authority.pre_lease_digest !== authority.post_lease_digest
+      || authority.pre_fence_digest !== authority.post_fence_digest
+      || authority.pre_writer_epoch_digest !== authority.post_writer_epoch_digest) {
+      holdCodes.push("lease_fence_epoch_snapshot_mismatch");
+    }
+    if (authority.pre_authority_snapshot_digest !== authority.post_authority_snapshot_digest
+      || authority.pre_authority_snapshot_digest !== authority.authority_linkage_digest
+      || authority.authority_linkage_digest !== policy.authority_snapshot_linkage_digest) {
+      holdCodes.push("authority_snapshot_linkage_mismatch");
+    }
+  }
+  const coverage = witnessesByKind.get("roster_registry_source_ledger_coverage");
+  if (coverage) {
+    Object.assign(aggregate, {
+      expected_inbound_count: coverage.expected_inbound_count,
+      registered_inbound_count: coverage.registered_inbound_count,
+      unregistered_inbound_count: coverage.unregistered_inbound_count,
+      source_inbound_count: coverage.source_inbound_count,
+      ledger_inbound_count: coverage.ledger_inbound_count,
+      source_ledger_exact_duplicate_noop_count: coverage.exact_duplicate_noop_count,
+      source_ledger_identity_revision_conflict_count: coverage.identity_revision_conflict_count,
+    });
+    aggregate.source_ledger_missing_count = Math.max(
+      policy.expected_inbound_count - coverage.source_inbound_count,
+      policy.expected_inbound_count - coverage.ledger_inbound_count,
+      0,
+    );
+    if (coverage.coverage_state !== "current") {
+      holdCodes.push("coverage_snapshot_not_current");
+    }
+    if (coverage.pre_coverage_snapshot_digest !== coverage.post_coverage_snapshot_digest
+      || coverage.pre_coverage_snapshot_digest !== coverage.coverage_linkage_digest
+      || coverage.coverage_linkage_digest !== policy.coverage_snapshot_linkage_digest) {
+      holdCodes.push("coverage_snapshot_linkage_mismatch");
+    }
+    if (policy.roster_set_digest !== policy.register_set_digest
+      || coverage.roster_set_digest !== policy.roster_set_digest
+      || coverage.register_set_digest !== policy.register_set_digest
+      || coverage.roster_register_intersection_set_digest !== policy.roster_set_digest
+      || coverage.roster_register_difference_set_digest !== policy.empty_normalized_set_digest) {
+      holdCodes.push("roster_registry_coverage_mismatch");
+    }
+    if (coverage.source_set_digest !== policy.roster_set_digest
+      || coverage.ledger_set_digest !== policy.roster_set_digest
+      || coverage.source_revision_policy_digest !== policy.source_revision_policy_digest
+      || coverage.source_ledger_intersection_set_digest !== policy.roster_set_digest
+      || coverage.source_ledger_difference_set_digest !== policy.empty_normalized_set_digest) {
+      holdCodes.push("source_ledger_coverage_mismatch");
+    }
+    if (coverage.unregistered_set_digest !== policy.empty_normalized_set_digest) {
+      holdCodes.push("unregistered_source_set_not_empty");
+    }
+    if (coverage.unregistered_inbound_count !== 0) {
+      holdCodes.push("unregistered_sources_present");
+    }
+    if ([
+      coverage.expected_inbound_count,
+      coverage.registered_inbound_count,
+      coverage.source_inbound_count,
+      coverage.ledger_inbound_count,
+    ].some((count) => count !== policy.expected_inbound_count)) {
+      holdCodes.push("inbound_coverage_count_mismatch");
+    }
+    if (coverage.identity_revision_conflict_count !== 0) {
+      holdCodes.push("source_ledger_identity_revision_conflict");
+    }
+  }
+  return { holdCodes, aggregate };
+}
+
+/**
+ * Public-synthetic C1 reconciliation evidence projection. This is pure: it
+ * does not load a binding, run a collector, contact a provider, or write state.
+ */
+export function build_feature_off_reconciliation_attestation({ policy, witnesses } = {}) {
+  if (featureOffInputContainsForbiddenKey(policy) || featureOffInputContainsForbiddenKey(witnesses)
+    || !validFeatureOffPolicy(policy)) return featureOffRejectedResult();
+  const inspected = inspectFeatureOffWitnesses(witnesses, policy);
+  if (!inspected.valid) return featureOffRejectedResult();
+  const observedRequiredCount = [...inspected.byKind.keys()]
+    .filter((kind) => FEATURE_OFF_WITNESS_KINDS.has(kind)).length;
+  const aggregate = {
+    required_witness_kind_count: FEATURE_OFF_WITNESS_KINDS.size,
+    observed_required_witness_kind_count: observedRequiredCount,
+    witness_count: inspected.witnessCount,
+  };
+  const holdCodes = ["feature_off_non_operational"];
+  if (observedRequiredCount !== FEATURE_OFF_WITNESS_KINDS.size) {
+    holdCodes.push("required_witnesses_missing");
+  }
+  const semantic = featureOffSemanticHoldCodes(policy, inspected.byKind);
+  holdCodes.push(...semantic.holdCodes);
+  return featureOffHoldResult(holdCodes, { ...aggregate, ...semantic.aggregate });
 }
 
 function inside(root, target) {

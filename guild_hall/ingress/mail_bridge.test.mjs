@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
+  build_feature_off_reconciliation_attestation,
   inspectMailCollectorRelease,
   preflightSecureMailLauncher,
   runMailBridge,
@@ -101,6 +102,207 @@ async function fixture() {
     },
   };
 }
+
+function featureOffPolicy(overrides = {}) {
+  const rosterSetDigest = "b".repeat(64);
+  return {
+    schema_version: "soulforge.mail.reconciliation_policy.v2",
+    policy_id: "synthetic-policy",
+    public_synthetic: true,
+    roster_revision_digest: "a".repeat(64),
+    expected_inbound_count: 3,
+    roster_set_digest: rosterSetDigest,
+    register_set_digest: rosterSetDigest,
+    empty_normalized_set_digest: "c".repeat(64),
+    cursor_receipt_baseline_target_pair_digest: "d".repeat(64),
+    authority_snapshot_linkage_digest: "e".repeat(64),
+    coverage_snapshot_linkage_digest: "f".repeat(64),
+    direction: "inbound",
+    provider: "synthetic-provider",
+    query_digest: "0".repeat(64),
+    source_revision_policy_digest: "1".repeat(64),
+    approved_window_utc: {
+      start: "2026-08-05T00:00:00Z",
+      end: "2026-08-06T00:00:00Z",
+    },
+    provider_target_digest: "2".repeat(64),
+    ...overrides,
+  };
+}
+
+function featureOffWitnesses(policy, overrides = {}) {
+  const rosterSetDigest = policy.roster_set_digest;
+  const emptySetDigest = policy.empty_normalized_set_digest;
+  const witnesses = [
+    {
+      schema_version: "soulforge.mail.reconciliation_witness.v2",
+      witness_id: "cursor-receipt-baseline-target",
+      kind: "cursor_receipt_baseline_target_pair",
+      public_synthetic: true,
+      cursor_digest: "3".repeat(64),
+      last_success_receipt_digest: "4".repeat(64),
+      baseline_digest: "5".repeat(64),
+      provider_target_digest: policy.provider_target_digest,
+      pre_pairing_digest: policy.cursor_receipt_baseline_target_pair_digest,
+      post_pairing_digest: policy.cursor_receipt_baseline_target_pair_digest,
+      pairing_digest: policy.cursor_receipt_baseline_target_pair_digest,
+      pairing_state: "current",
+    },
+    {
+      schema_version: "soulforge.mail.reconciliation_witness.v2",
+      witness_id: "authority-snapshot-linkage",
+      kind: "authority_snapshot_linkage",
+      public_synthetic: true,
+      binding_digest: "6".repeat(64),
+      release_digest: "7".repeat(64),
+      register_digest: "8".repeat(64),
+      pre_lease_digest: "9".repeat(64),
+      pre_fence_digest: "a".repeat(64),
+      pre_writer_epoch_digest: "b".repeat(64),
+      post_lease_digest: "9".repeat(64),
+      post_fence_digest: "a".repeat(64),
+      post_writer_epoch_digest: "b".repeat(64),
+      pre_authority_snapshot_digest: policy.authority_snapshot_linkage_digest,
+      post_authority_snapshot_digest: policy.authority_snapshot_linkage_digest,
+      authority_linkage_digest: policy.authority_snapshot_linkage_digest,
+      authority_state: "current",
+      writer_state: "exclusive_quiescent",
+    },
+    {
+      schema_version: "soulforge.mail.reconciliation_witness.v2",
+      witness_id: "roster-registry-source-ledger-coverage",
+      kind: "roster_registry_source_ledger_coverage",
+      public_synthetic: true,
+      roster_set_digest: rosterSetDigest,
+      register_set_digest: policy.register_set_digest,
+      source_set_digest: rosterSetDigest,
+      ledger_set_digest: rosterSetDigest,
+      source_revision_policy_digest: policy.source_revision_policy_digest,
+      roster_register_intersection_set_digest: rosterSetDigest,
+      roster_register_difference_set_digest: emptySetDigest,
+      source_ledger_intersection_set_digest: rosterSetDigest,
+      source_ledger_difference_set_digest: emptySetDigest,
+      unregistered_set_digest: emptySetDigest,
+      expected_inbound_count: policy.expected_inbound_count,
+      registered_inbound_count: policy.expected_inbound_count,
+      unregistered_inbound_count: 0,
+      source_inbound_count: policy.expected_inbound_count,
+      ledger_inbound_count: policy.expected_inbound_count,
+      exact_duplicate_noop_count: 0,
+      identity_revision_conflict_count: 0,
+      pre_coverage_snapshot_digest: policy.coverage_snapshot_linkage_digest,
+      post_coverage_snapshot_digest: policy.coverage_snapshot_linkage_digest,
+      coverage_linkage_digest: policy.coverage_snapshot_linkage_digest,
+      coverage_state: "current",
+    },
+  ];
+  return overrides(witnesses);
+}
+
+test("feature-OFF reconciliation attestation is public-synthetic, pure, and never grants replay", () => {
+  const policy = featureOffPolicy();
+  const witnesses = featureOffWitnesses(policy, (rows) => rows);
+  const result = build_feature_off_reconciliation_attestation({ policy, witnesses });
+  assert.deepEqual(result, {
+    schema_version: "soulforge.mail.feature_off_reconciliation_attestation.v2",
+    status: "hold",
+    hold_codes: ["feature_off_non_operational"],
+    writes_performed: false,
+    network_used: false,
+    official_completion: false,
+    live_replay_authorized: false,
+    aggregate: {
+      required_witness_kind_count: 3,
+      observed_required_witness_kind_count: 3,
+      witness_count: 3,
+      expected_inbound_count: policy.expected_inbound_count,
+      registered_inbound_count: policy.expected_inbound_count,
+      unregistered_inbound_count: 0,
+      source_inbound_count: policy.expected_inbound_count,
+      ledger_inbound_count: policy.expected_inbound_count,
+      source_ledger_missing_count: 0,
+      source_ledger_exact_duplicate_noop_count: 0,
+      source_ledger_identity_revision_conflict_count: 0,
+    },
+  });
+  assert.equal(JSON.stringify(result).includes(policy.policy_id), false);
+  assert.equal(JSON.stringify(result).includes(witnesses[0].cursor_digest), false);
+});
+
+test("feature-OFF reconciliation attestation holds on evidence mismatch and rejects unsafe input without echo", () => {
+  const policy = featureOffPolicy();
+  const mismatched = featureOffWitnesses(policy, (rows) => {
+    rows[1] = { ...rows[1], post_authority_snapshot_digest: "6".repeat(64) };
+    return rows;
+  });
+  const mismatch = build_feature_off_reconciliation_attestation({ policy, witnesses: mismatched });
+  assert.deepEqual(mismatch.hold_codes, ["feature_off_non_operational", "authority_snapshot_linkage_mismatch"]);
+
+  const rejected = build_feature_off_reconciliation_attestation({
+    policy: { ...policy, private_path: "DO_NOT_ECHO" },
+    witnesses: mismatched,
+  });
+  assert.deepEqual(rejected.hold_codes, ["public_synthetic_input_rejected"]);
+  assert.equal(JSON.stringify(rejected).includes("DO_NOT_ECHO"), false);
+});
+
+test("feature-OFF reconciliation attestation holds on non-quiescent writers and incomplete coverage", () => {
+  const policy = featureOffPolicy();
+  const writerHeld = featureOffWitnesses(policy, (rows) => {
+    rows[1] = { ...rows[1], writer_state: "ambiguous" };
+    return rows;
+  });
+  const writerResult = build_feature_off_reconciliation_attestation({ policy, witnesses: writerHeld });
+  assert.deepEqual(writerResult.hold_codes, [
+    "feature_off_non_operational",
+    "writer_state_not_exclusive_quiescent",
+  ]);
+
+  const sourceMissing = featureOffWitnesses(policy, (rows) => {
+    rows[2] = {
+      ...rows[2],
+      registered_inbound_count: 1,
+      source_inbound_count: 1,
+      ledger_inbound_count: 1,
+    };
+    return rows;
+  });
+  const missingResult = build_feature_off_reconciliation_attestation({ policy, witnesses: sourceMissing });
+  assert.deepEqual(missingResult.hold_codes, ["feature_off_non_operational", "inbound_coverage_count_mismatch"]);
+  assert.deepEqual(missingResult.aggregate, {
+    required_witness_kind_count: 3,
+    observed_required_witness_kind_count: 3,
+    witness_count: 3,
+    expected_inbound_count: policy.expected_inbound_count,
+    registered_inbound_count: 1,
+    unregistered_inbound_count: 0,
+    source_inbound_count: 1,
+    ledger_inbound_count: 1,
+    source_ledger_missing_count: policy.expected_inbound_count - 1,
+    source_ledger_exact_duplicate_noop_count: 0,
+    source_ledger_identity_revision_conflict_count: 0,
+  });
+});
+
+test("feature-OFF reconciliation attestation rejects stale pairing and source-ledger set mismatch", () => {
+  const policy = featureOffPolicy();
+  const stalePairing = featureOffWitnesses(policy, (rows) => {
+    rows[0] = { ...rows[0], pairing_state: "stale" };
+    return rows;
+  });
+  assert.deepEqual(
+    build_feature_off_reconciliation_attestation({ policy, witnesses: stalePairing }).hold_codes,
+    ["feature_off_non_operational", "cursor_receipt_baseline_target_pair_not_current"],
+  );
+  const sourceLedgerMismatch = featureOffWitnesses(policy, (rows) => {
+    rows[2] = { ...rows[2], ledger_set_digest: "7".repeat(64) };
+    return rows;
+  });
+  assert.deepEqual(
+    build_feature_off_reconciliation_attestation({ policy, witnesses: sourceLedgerMismatch }).hold_codes,
+    ["feature_off_non_operational", "source_ledger_coverage_mismatch"],
+  );
+});
 
 test("mail bridge executes captured code/register and a pinned runtime when source paths swap", async () => {
   const f = await fixture();

@@ -26,6 +26,7 @@ import {
   CONTINUOUS_LEASE_SCHEMA,
   loadContinuousBinding,
   plaudSessionCustodyPrefixes,
+  projectFeatureOffIngressAttestation,
   runContinuousIngress as runContinuousIngressImpl,
 } from "./continuous_runner.mjs";
 import { inspectMailCollectorRelease } from "./mail_bridge.mjs";
@@ -152,6 +153,110 @@ async function writeBinding(f, payload) {
 
 function digest(value) {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function featureOffAttestationInput() {
+  const rosterSetDigest = "b".repeat(64);
+  const policy = {
+    schema_version: "soulforge.mail.reconciliation_policy.v2",
+    policy_id: "synthetic-ingress-policy",
+    public_synthetic: true,
+    roster_revision_digest: "a".repeat(64),
+    expected_inbound_count: 3,
+    roster_set_digest: rosterSetDigest,
+    register_set_digest: rosterSetDigest,
+    empty_normalized_set_digest: "c".repeat(64),
+    cursor_receipt_baseline_target_pair_digest: "d".repeat(64),
+    authority_snapshot_linkage_digest: "e".repeat(64),
+    coverage_snapshot_linkage_digest: "f".repeat(64),
+    direction: "inbound",
+    provider: "synthetic-provider",
+    query_digest: "0".repeat(64),
+    source_revision_policy_digest: "1".repeat(64),
+    approved_window_utc: { start: "2026-08-05T00:00:00Z", end: "2026-08-06T00:00:00Z" },
+    provider_target_digest: "2".repeat(64),
+  };
+  return {
+    policy,
+    witnesses: [
+      {
+        schema_version: "soulforge.mail.reconciliation_witness.v2",
+        witness_id: "cursor-receipt-baseline-target",
+        kind: "cursor_receipt_baseline_target_pair",
+        public_synthetic: true,
+        cursor_digest: "3".repeat(64),
+        last_success_receipt_digest: "4".repeat(64),
+        baseline_digest: "5".repeat(64),
+        provider_target_digest: policy.provider_target_digest,
+        pre_pairing_digest: policy.cursor_receipt_baseline_target_pair_digest,
+        post_pairing_digest: policy.cursor_receipt_baseline_target_pair_digest,
+        pairing_digest: policy.cursor_receipt_baseline_target_pair_digest,
+        pairing_state: "current",
+      },
+      {
+        schema_version: "soulforge.mail.reconciliation_witness.v2",
+        witness_id: "authority-snapshot-linkage",
+        kind: "authority_snapshot_linkage",
+        public_synthetic: true,
+        binding_digest: "6".repeat(64),
+        release_digest: "7".repeat(64),
+        register_digest: "8".repeat(64),
+        pre_lease_digest: "9".repeat(64),
+        pre_fence_digest: "a".repeat(64),
+        pre_writer_epoch_digest: "b".repeat(64),
+        post_lease_digest: "9".repeat(64),
+        post_fence_digest: "a".repeat(64),
+        post_writer_epoch_digest: "b".repeat(64),
+        pre_authority_snapshot_digest: policy.authority_snapshot_linkage_digest,
+        post_authority_snapshot_digest: policy.authority_snapshot_linkage_digest,
+        authority_linkage_digest: policy.authority_snapshot_linkage_digest,
+        authority_state: "current",
+        writer_state: "exclusive_quiescent",
+      },
+      {
+        schema_version: "soulforge.mail.reconciliation_witness.v2",
+        witness_id: "roster-registry-source-ledger-coverage",
+        kind: "roster_registry_source_ledger_coverage",
+        public_synthetic: true,
+        roster_set_digest: rosterSetDigest,
+        register_set_digest: policy.register_set_digest,
+        source_set_digest: rosterSetDigest,
+        ledger_set_digest: rosterSetDigest,
+        source_revision_policy_digest: policy.source_revision_policy_digest,
+        roster_register_intersection_set_digest: rosterSetDigest,
+        roster_register_difference_set_digest: policy.empty_normalized_set_digest,
+        source_ledger_intersection_set_digest: rosterSetDigest,
+        source_ledger_difference_set_digest: policy.empty_normalized_set_digest,
+        unregistered_set_digest: policy.empty_normalized_set_digest,
+        expected_inbound_count: policy.expected_inbound_count,
+        registered_inbound_count: policy.expected_inbound_count,
+        unregistered_inbound_count: 0,
+        source_inbound_count: policy.expected_inbound_count,
+        ledger_inbound_count: policy.expected_inbound_count,
+        exact_duplicate_noop_count: 0,
+        identity_revision_conflict_count: 0,
+        pre_coverage_snapshot_digest: policy.coverage_snapshot_linkage_digest,
+        post_coverage_snapshot_digest: policy.coverage_snapshot_linkage_digest,
+        coverage_linkage_digest: policy.coverage_snapshot_linkage_digest,
+        coverage_state: "current",
+      },
+    ],
+  };
+}
+
+function featureOffOperationalContext(overrides = {}) {
+  return {
+    schema_version: "soulforge.ingress.feature_off_operational_context.v1",
+    public_synthetic: true,
+    binding: "unavailable",
+    writer: "unavailable",
+    lease: "unavailable",
+    receipt: "unavailable",
+    cursor: "unavailable",
+    target: "unavailable",
+    replay: "not_authorized",
+    ...overrides,
+  };
 }
 
 async function bindingDigest(path) {
@@ -910,6 +1015,67 @@ test("CLI output is locator-free and apply remains explicit", async () => {
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }
+});
+
+test("feature-OFF ingress attestation never loads a binding or grants C2/replay authority", async () => {
+  const input = featureOffAttestationInput();
+  const result = projectFeatureOffIngressAttestation({
+    ...input,
+    operational_context: featureOffOperationalContext(),
+  });
+  assert.equal(result.status, "hold");
+  assert.deepEqual(result.hold_codes, ["feature_off_non_operational"]);
+  assert.equal(result.writes_performed, false);
+  assert.equal(result.network_used, false);
+  assert.equal(result.runtime_actions_performed, false);
+  assert.equal(result.scheduler_actions_performed, false);
+  assert.equal(result.collector_actions_performed, false);
+  assert.equal(result.writer_actions_performed, false);
+  assert.equal(result.official_completion, false);
+  assert.equal(result.live_replay_authorized, false);
+  assert.equal(result.ingress_context_status, "unavailable");
+
+  const cliArgs = [
+    CLI,
+    "--feature-off-attestation",
+    "--policy-json",
+    JSON.stringify(input.policy),
+    "--witnesses-json",
+    JSON.stringify(input.witnesses),
+  ];
+  const { stdout } = await execFile(process.execPath, cliArgs, { cwd: dirname(CLI) });
+  const cliResult = JSON.parse(stdout);
+  assert.equal(cliResult.status, "hold");
+  assert.equal(cliResult.runtime_actions_performed, false);
+  assert.equal(cliResult.live_replay_authorized, false);
+  assert.equal(stdout.includes(input.policy.policy_id), false);
+  assert.equal(stdout.includes(input.witnesses[0].cursor_digest), false);
+});
+
+test("feature-OFF ingress attestation fails closed for missing, unknown, or conflicting operational context", () => {
+  const input = featureOffAttestationInput();
+  const missing = projectFeatureOffIngressAttestation({
+    ...input,
+    operational_context: { schema_version: "soulforge.ingress.feature_off_operational_context.v1" },
+  });
+  assert.equal(missing.status, "hold");
+  assert.equal(missing.ingress_context_status, "missing");
+  assert.ok(missing.hold_codes.includes("ingress_binding_missing"));
+
+  const unknown = projectFeatureOffIngressAttestation({
+    ...input,
+    operational_context: featureOffOperationalContext({ writer: "unknown" }),
+  });
+  assert.equal(unknown.ingress_context_status, "unknown");
+  assert.ok(unknown.hold_codes.includes("ingress_writer_unknown"));
+
+  const conflicting = projectFeatureOffIngressAttestation({
+    ...input,
+    operational_context: featureOffOperationalContext({ target: "bound", replay: "authorized" }),
+  });
+  assert.equal(conflicting.ingress_context_status, "conflict");
+  assert.ok(conflicting.hold_codes.includes("ingress_target_conflict"));
+  assert.ok(conflicting.hold_codes.includes("c2_replay_not_authorized"));
 });
 
 test("apply requires the externally pinned raw binding digest and rejects mismatches", async () => {

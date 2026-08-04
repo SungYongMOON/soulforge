@@ -22,6 +22,20 @@ _NESTED_CREDENTIAL_FIELD_BY_PROVIDER = {
 HPP_OUTLOOK_SENT_ALLOWED_WINDOWS_KST = "02:00-04:00,12:00-14:00"
 
 
+def build_feature_off_reconciliation_attestation(
+    *,
+    policy: dict[str, Any],
+    witnesses: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Expose the pure feature-OFF attestation without touching team runtime."""
+
+    from collector.ops.reconciliation_attestation import (  # noqa: PLC0415
+        build_feature_off_reconciliation_attestation as build_attestation,
+    )
+
+    return build_attestation(policy=policy, witnesses=witnesses)
+
+
 def _resolve_paths() -> tuple[Path, Path]:
     script_path = Path(__file__).resolve()
     repo_root = script_path.parents[3]

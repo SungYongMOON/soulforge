@@ -263,3 +263,29 @@ scope so two team members receiving the same provider message do not collide.
 
 - [gateway mail fetch docs index](../../../docs/architecture/guild_hall/gateway/mail_fetch/README.md)
 - [GATEWAY_MAIL_FETCH_V0](../../../docs/architecture/workspace/GATEWAY_MAIL_FETCH_V0.md)
+
+## C1B reconciliation attestation (feature OFF)
+
+`collector/ops/reconciliation_attestation.py` builds a pure,
+public-synthetic reconciliation HOLD record. Its v2 policy accepts parameterized
+roster revision and expected inbound count plus opaque normalized roster,
+register, empty-set, cursor/receipt/baseline/target, authority, and coverage
+linkage digests. The three fixed synthetic witnesses bind: (1) cursor,
+last-success receipt, outage baseline, and provider target; (2) binding,
+release, register, lease, fence, and writer epoch; and (3) roster, registry,
+source, and ledger normalized identity/revision set snapshots pinned to the
+source-revision policy digest.
+
+The coverage witness reports only aggregate expected/registered/unregistered,
+source, and ledger counts. It must prove exact equality using opaque full-set
+digests plus canonical intersection and symmetric-difference digests; a single
+row or count can never stand in for absent sources. Any stale or mismatched
+pairing/linkage, roster/register or source/ledger divergence, nonempty
+unregistered set/count, or identity/revision conflict returns HOLD. No aliases,
+live values, or input values are reflected.
+
+Every result remains `hold` with `writes_performed=false`,
+`network_used=false`, `official_completion=false`, and
+`live_replay_authorized=false`. `exclusive_quiescent` is the only writer state
+that can satisfy the synthetic witness; the attestation never authorizes a
+live replay or official completion.
