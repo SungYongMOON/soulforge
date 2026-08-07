@@ -22,6 +22,27 @@ derived later from the same model, but it is neither implemented here nor a
 source of truth. No UI, task board, provider integration, dispatch, write, or
 default route is included.
 
+## Organization governance overlay
+
+`schema/organization_governance_overlay.v1.schema.json` defines the public-safe
+contract for a provider-neutral organization hierarchy and its role bindings.
+The active data is supplied separately from an ignored private metadata-only
+source; the current local candidate path is
+`_workmeta/system/bindings/organization_governance_overlay.v1.json`.
+
+`organization_governance.mjs` validates exact organization and parent IDs,
+company roots, lifecycle, branch membership, role bindings, owner-seeded legacy
+mapping declarations, and the absence of raw/thread/session/secret fields. It
+projects a read-only Board shape without changing a work-directory route.
+`organization-governance-provider.mjs` reads the configured local source on
+each request. Missing, invalid, disabled, or candidate-only input fails closed;
+there is no route, task-state, thread, archive, or external side effect.
+
+The current IDs are validated-private Owner-seeded mappings, not promoted
+public organization canon. `stable_route_id` remains nullable and does not
+confer routing authority. Moving the source to a later file, database, or API
+requires replacing the provider, not the Board UI or hierarchy contract.
+
 ## Contracts
 
 - `schema/route_catalog.v1.schema.json` — public-safe stable roles, scopes,

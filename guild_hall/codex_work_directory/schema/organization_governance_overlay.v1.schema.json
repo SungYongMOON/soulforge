@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/organization-governance-overlay.v1.schema.json",
+  "title": "Soulforge organization governance overlay v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_revision",
+    "effective_at",
+    "updated_at",
+    "authority_state",
+    "disabled",
+    "root_display_label",
+    "organizations",
+    "role_bindings",
+    "metadata_only"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "soulforge.organization_governance_overlay.v1"
+    },
+    "catalog_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "effective_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "authority_state": {
+      "enum": [
+        "candidate",
+        "validated_private"
+      ]
+    },
+    "disabled": {
+      "type": "boolean"
+    },
+    "root_display_label": {
+      "$ref": "#/$defs/displayLabel"
+    },
+    "organizations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/organization"
+      }
+    },
+    "role_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/roleBinding"
+      }
+    },
+    "metadata_only": {
+      "const": true
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,159}$"
+    },
+    "displayLabel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "organization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "organization_id",
+        "parent_organization_id",
+        "organization_kind",
+        "display_label",
+        "display_order",
+        "lifecycle",
+        "member_branch_ids",
+        "owner_authority_ref",
+        "identity_state",
+        "mapping_authority",
+        "legacy_projection_ref"
+      ],
+      "properties": {
+        "organization_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "parent_organization_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "organization_kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,63}$"
+        },
+        "display_label": {
+          "$ref": "#/$defs/displayLabel"
+        },
+        "display_order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lifecycle": {
+          "enum": [
+            "active",
+            "retired"
+          ]
+        },
+        "member_branch_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "common",
+              "projects",
+              "ax_development",
+              "erp_development",
+              "system_development"
+            ]
+          }
+        },
+        "owner_authority_ref": {
+          "$ref": "#/$defs/identifier"
+        },
+        "identity_state": {
+          "enum": [
+            "canonical",
+            "legacy_projection"
+          ]
+        },
+        "mapping_authority": {
+          "enum": [
+            "not_applicable",
+            "owner_seeded"
+          ]
+        },
+        "legacy_projection_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "roleBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role_binding_id",
+        "organization_id",
+        "role_code",
+        "position_code",
+        "rank",
+        "display_order",
+        "stable_route_id",
+        "lifecycle"
+      ],
+      "properties": {
+        "role_binding_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "organization_id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "role_code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "position_code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "display_order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable_route_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/identifier"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "display_label": {
+          "$ref": "#/$defs/displayLabel"
+        },
+        "lifecycle": {
+          "enum": [
+            "active",
+            "retired"
+          ]
+        }
+      }
+    }
+  }
+}
