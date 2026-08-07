@@ -1,410 +1,793 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import antigravityBrandIcon from "@lobehub/icons-static-svg/icons/antigravity-color.svg";
-import codexBrandIcon from "@lobehub/icons-static-svg/icons/codex-color.svg";
-import kimiBrandIcon from "@lobehub/icons-static-svg/icons/kimi-color.svg";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { Background, BackgroundVariant, Handle, Position, ReactFlow, type NodeProps } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 import {
+  Activity,
   AlertCircle,
   ArchiveRestore,
-  Bell,
-  Bot,
+  Building2,
   Check,
-  CheckCircle2,
+  CircleCheckBig,
+  ChevronDown,
   ChevronRight,
+  CircleDot,
   CircleHelp,
-  CircleUserRound,
-  FileCheck2,
-  Filter,
-  GitBranch,
+  Clock3,
+  EyeOff,
+  Gauge,
   History,
-  Info,
-  Menu,
-  OctagonAlert,
-  Play,
-  RotateCcw,
-  Search,
-  ScanSearch,
+  ListChecks,
+  Radio,
+  RefreshCw,
   ShieldAlert,
+  UserRound,
   UsersRound,
   X
 } from "lucide-react";
 
+import { aiUsageProjectionRequest } from "./core/ai-usage-projection-request.mjs";
+import { createUnmeasuredAiUsageSnapshot } from "./core/ai-usage-snapshot.mjs";
 import {
-  DEFAULT_CARD_LIMIT,
-  INBOX_STATUSES,
-  INBOX_STATUS_LABELS,
-  acknowledgeFixtureTask,
-  buildOwnerInboxFixture,
-  selectInboxTasks
-} from "./core/owner-inbox.mjs";
+  LIVE_THREAD_POLL_INTERVAL_MS,
+  acknowledgeLiveThread,
+  buildCompactOrganizationLanes,
+  buildManagerDescendantProjection,
+  buildOperationalOrganizationTopology,
+  buildProjectManagerCards,
+  findExactManagerAncestor,
+  groupLiveThreadsByOrganization,
+  isLiveThreadAcknowledged,
+  liveThreadProjectionRequest,
+  restoreLiveThread,
+  selectOwnerAttentionThreads,
+  selectLiveThreadView
+} from "./core/live-thread-board.mjs";
 import {
-  getMobileDialogFocusCycleKey,
+  createUnavailableLiveThreadProjection,
+  isAcknowledgeableLiveThread,
+  liveThreadRoleLabel,
+  liveThreadResultStateLabel,
+  liveThreadStatusLabel,
+  liveThreadStatusPriority,
+  organizationGroupLabel
+} from "./core/live-thread-projection.mjs";
+import {
   MOBILE_DETAIL_MEDIA_QUERY,
-  pickFocusRestoreIndex,
-  resolveMobileDialogKey
+  isFocusRestoreCandidate
 } from "./core/mobile-detail.mjs";
+import { buildTopologyViewModel } from "./core/topology-view.mjs";
 import {
-  PROVIDER_ICON_KEYS,
-  buildCompactCardView,
-  resolveProviderVisual,
-  selectObservedProviderEntries
-} from "./core/provider-visual.mjs";
+  buildOrganizationUsageChartRows,
+  buildProjectUsageChartRows,
+  buildRealtimeStatusBuckets,
+  formatRealtimeCoverage,
+  isOrganizationUsageAttributionReady,
+  liveProjectionLoadPresentation,
+  observationGapBreakdown,
+  paginateExactItems,
+  realtimeStatusCopy,
+  resolveLiveProjectionRefresh,
+} from "./core/live-thread-ui-model.mjs";
 
-type InboxView = "active" | "history";
-type FixtureMode = "normal" | "empty" | "error";
+type BoardView = "active" | "history";
+type BoardSurface = "owner" | "organization" | "work" | "system";
 
-const FOCUSABLE_SELECTOR = [
-  "button:not([disabled])",
-  "[href]",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "textarea:not([disabled])",
-  '[tabindex]:not([tabindex="-1"])'
-].join(",");
+function compactClock(value: string | null): string {
+  if (value === null) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return [parsed.getHours(), parsed.getMinutes(), parsed.getSeconds()]
+    .map((part) => String(part).padStart(2, "0"))
+    .join(":");
+}
 
-const statusMeta = {
-  in_progress: { label: "진행 중", Icon: Play, hint: "현재 실행 중인 대상" },
-  review_needed: { label: "검토·결정 필요", Icon: ScanSearch, hint: "Owner 또는 검토자의 판단 필요" },
-  blocked: { label: "막힘", Icon: OctagonAlert, hint: "사유와 다음 결정을 유지" },
-  completed_unread: { label: "완료·미확인", Icon: CheckCircle2, hint: "읽고 확인 전까지 표시" }
-} as const;
+const SURFACE_WORDMARKS: Record<BoardSurface, string> = {
+  owner: "FLEET MONITOR",
+  organization: "ORG TOPOLOGY",
+  work: "LEDGER",
+  system: "SYSTEM TOPOLOGY",
+};
 
-function App() {
-  const [fixture, setFixture] = useState<any>(() => buildOwnerInboxFixture());
-  const [view, setView] = useState<InboxView>("active");
-  const [query, setQuery] = useState("");
-  const [project, setProject] = useState("all");
-  const [responsibility, setResponsibility] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [fixtureMode, setFixtureMode] = useState<FixtureMode>("normal");
-  const [isMobileDetail, setIsMobileDetail] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(MOBILE_DETAIL_MEDIA_QUERY).matches
+function LiveClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  const date = `${now.getFullYear()}. ${String(now.getMonth() + 1).padStart(2, "0")}. ${String(now.getDate()).padStart(2, "0")}.`;
+  return (
+    <span className="live-board-clock" aria-hidden="true">
+      <strong>{hh}:{mm}<small>:{ss}</small></strong>
+      <span>{date}</span>
+    </span>
   );
-  const [selectedId, setSelectedId] = useState<string | null>(
-    () => isMobileDetail ? null : "fixture-aurora-supply"
-  );
-  const [limits, setLimits] = useState<Record<string, number>>(
-    Object.fromEntries(INBOX_STATUSES.map((entry: string) => [entry, DEFAULT_CARD_LIMIT]))
-  );
-  const [notice, setNotice] = useState("");
-  const detailRef = useRef<HTMLElement | null>(null);
-  const detailCloseRef = useRef<HTMLButtonElement | null>(null);
-  const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const pendingRestoreTaskIdRef = useRef<string | null>(null);
+}
+type OrganizationSubview = "tree" | "flow";
+type OrganizationTopologyMode = "live" | "all";
 
-  const maxLimit = Math.max(...Object.values(limits));
-  const selection = useMemo(
-    () =>
-      selectInboxTasks(fixture, {
-        view,
-        query,
-        project,
-        responsibility,
-        status,
-        limit: maxLimit
-      }),
-    [fixture, view, query, project, responsibility, status, maxLimit]
-  );
-  const selectedTask = fixture.tasks.find((task: any) => task.id === selectedId) ?? null;
-  const mobileDialogOpen = Boolean(isMobileDetail && selectedTask);
-  const mobileDialogFocusCycleKey = getMobileDialogFocusCycleKey({
-    open: mobileDialogOpen,
-    taskId: selectedTask?.id,
-    taskStatus: selectedTask?.status
-  });
-  const responsibilityOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          fixture.responsibilities
-            .filter((entry: any) => project === "all" || entry.projectCode === project)
-            .map((entry: any) => entry.responsibility)
-        )
-      ).sort((left, right) => String(left).localeCompare(String(right), "ko")),
-    [fixture.responsibilities, project]
-  );
+const MOBILE_DETAIL_QUERY = MOBILE_DETAIL_MEDIA_QUERY;
+const ORGANIZATION_TOPOLOGY_MODE_STORAGE_KEY = "soulforge.workspace_board.organization_topology_mode.v1";
 
-  function resetFilters() {
-    setQuery("");
-    setProject("all");
-    setResponsibility("all");
-    setStatus("all");
+function canRestoreFocus(node: HTMLElement | null): node is HTMLElement {
+  const disabled = Boolean(node && "disabled" in node && (node as HTMLButtonElement).disabled);
+  return Boolean(node && isFocusRestoreCandidate({
+    exists: true,
+    isConnected: node.isConnected,
+    disabled,
+    hidden: node.hidden || node.getAttribute("aria-hidden") === "true",
+    inert: node.inert || Boolean(node.closest("[inert]"))
+  }));
+}
+
+function browserStorage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function formatRefreshTime(value: string | null) {
+  if (!value) return "아직 갱신되지 않음";
+  const time = new Date(value);
+  if (Number.isNaN(time.valueOf())) return "시간 미확정";
+  return new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(time);
+}
+
+function resultGateHealthLabel(value: string) {
+  const labels: Record<string, string> = {
+    available: "명시 게이트 적용",
+    missing: "미구성 · idle 미확정",
+    invalid: "무효 · fail-closed",
+    disabled: "비상 중지"
+  };
+  return labels[value] ?? "미확정";
+}
+
+function lifecycleSourceHealthLabel(value: string) {
+  const labels: Record<string, string> = {
+    available: "\uc0ac\uc6a9 \uac00\ub2a5",
+    hold: "\ub300\uae30 \u00b7 fail-closed",
+    missing: "\ubbf8\uad6c\uc131",
+    invalid: "\ubb34\ud6a8 \u00b7 fail-closed",
+    disabled: "\ube44\uc0c1 \uc911\uc9c0",
+    stale: "\uc624\ub798\ub41c \uc2a4\ub0c5\uc0f7"
+  };
+  return labels[value] ?? "\ubbf8\ud655\uc815";
+}
+
+function hasExactObservedActiveLifecycle(thread: any) {
+  return typeof thread?.thread_id === "string" && thread.status === "active";
+}
+
+function isActiveTaskThread(thread: any) {
+  return thread?.thread_kind === "task" && thread?.status === "active";
+}
+
+const OPERATIONAL_TOPOLOGY_NODE_WIDTH = 196;
+const OPERATIONAL_TOPOLOGY_NODE_HEIGHT = 76;
+const OPERATIONAL_TOPOLOGY_COLUMN_GAP = 238;
+const OPERATIONAL_TOPOLOGY_LANE_GAP = 26;
+
+function topologyToneLabel(tone: string) {
+  return {
+    active: "실행 중",
+    waiting: "입력·승인 대기",
+    result: "결과 확인",
+    unknown: "관측 불가"
+  }[tone] ?? "정확한 연결";
+}
+
+function topologyNodeRoleLabel(data: any) {
+  if (data.node_kind === "company_anchor") return "회사 / CEO";
+  if (data.node_kind === "manager_anchor") return "팀장";
+  if (data.node_kind === "responsibility_anchor") return "책임자";
+  if (data.node_kind === "context_thread") return "상위 연결";
+  if (data.thread_kind === "manager") return "책임자";
+  if (data.thread_kind === "verifier") return "독립 검토자";
+  if (data.thread_kind === "task") return "TASK";
+  return "작업";
+}
+
+function topologyNodeStateLabel(data: any) {
+  if (data.node_kind === "context_thread") {
+    return data.rollup_tone && data.rollup_tone !== "unknown"
+      ? `하위 ${topologyToneLabel(data.rollup_tone)}`
+      : "정확한 연결";
+  }
+  if (["manager_anchor", "responsibility_anchor"].includes(data.node_kind) && data.tone === "unknown" && data.rollup_tone && data.rollup_tone !== "unknown") {
+    return `하위 ${topologyToneLabel(data.rollup_tone)}`;
+  }
+  if (data.node_kind === "manager_anchor" && data.tone === "unknown") return "고정 기준점";
+  if (data.node_kind === "responsibility_anchor" && data.tone === "unknown") return "고정 책임자";
+  return topologyToneLabel(data.tone);
+}
+
+function OrganizationTopologyNode({ data }: NodeProps<any>) {
+  const rollupTone = data.rollup_tone && data.rollup_tone !== "unknown" ? data.rollup_tone : null;
+  const nodeTone = data.node_kind === "context_thread"
+    ? "context"
+    : ["manager_anchor", "responsibility_anchor"].includes(data.node_kind) && data.tone === "unknown" && rollupTone
+      ? rollupTone
+      : data.tone;
+  return (
+    <div className={`organization-topology-node organization-topology-node-${data.node_kind} is-${nodeTone} ${data.is_selected ? "is-selected" : ""}`}>
+      <Handle type="target" position={Position.Left} isConnectable={false} aria-hidden="true" />
+      <button
+        type="button"
+        className="organization-topology-node-button nodrag nopan"
+        aria-pressed={data.is_selected}
+        aria-label={`${data.company_label ? `${data.company_label} · ` : ""}${data.display_label} · ${topologyNodeStateLabel(data)}`}
+        data-live-thread-id={data.thread_id ?? undefined}
+        data-testid={data.test_id}
+        onClick={(event) => data.onActivate(event.currentTarget)}
+      >
+        <span className="organization-topology-node-kicker">
+          <span>{topologyNodeRoleLabel(data)}</span>
+          {rollupTone && <span className={`organization-topology-rollup-badge is-${rollupTone}`} aria-label={`하위 ${topologyToneLabel(rollupTone)}`}>하위</span>}
+        </span>
+        <strong>{data.company_label ?? data.display_label}</strong>
+        {data.company_label ? <small>{data.display_label}</small> : <small>{topologyNodeStateLabel(data)}</small>}
+      </button>
+      <Handle type="source" position={Position.Right} isConnectable={false} aria-hidden="true" />
+    </div>
+  );
+}
+
+const organizationTopologyNodeTypes = { organizationTopology: OrganizationTopologyNode };
+
+function buildOperationalTopologyCanvas(
+  topology: any,
+  selectedGroupId: string | null,
+  selectedThreadId: string | null,
+  onSelectGroup: (groupId: string) => void,
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void
+) {
+  const topologyNodes: any[] = Array.isArray(topology?.nodes) ? topology.nodes as any[] : [];
+  const topologyEdges: any[] = Array.isArray(topology?.edges) ? topology.edges as any[] : [];
+  const nodesById = new Map<string, any>(topologyNodes.map((node: any): [string, any] => [node.node_id, node]));
+  const childrenByNodeId = new Map<string, string[]>();
+  for (const edge of topologyEdges.filter((edge: any) => edge.edge_kind === "parent_thread_id")) {
+    const children = childrenByNodeId.get(edge.source) ?? [];
+    children.push(edge.target);
+    childrenByNodeId.set(edge.source, children);
+  }
+  for (const children of childrenByNodeId.values()) {
+    children.sort((left, right) => String(nodesById.get(left)?.thread_id ?? left).localeCompare(String(nodesById.get(right)?.thread_id ?? right)));
+  }
+  const positions = new Map<string, { x: number; y: number }>();
+  const placeDescendantLane = (nodeId: string, y: number, visited = new Set<string>()): number => {
+    if (visited.has(nodeId)) return OPERATIONAL_TOPOLOGY_NODE_HEIGHT;
+    const node = nodesById.get(nodeId);
+    if (!node) return OPERATIONAL_TOPOLOGY_NODE_HEIGHT;
+    const nextVisited = new Set(visited);
+    nextVisited.add(nodeId);
+    positions.set(nodeId, {
+      x: 252 + Math.max(0, Number(node.depth ?? 1) - 1) * OPERATIONAL_TOPOLOGY_COLUMN_GAP,
+      y
+    });
+    const children = childrenByNodeId.get(nodeId) ?? [];
+    if (children.length === 0) return OPERATIONAL_TOPOLOGY_NODE_HEIGHT;
+    let childY = y;
+    for (const childId of children) {
+      const childHeight = placeDescendantLane(childId, childY, nextVisited);
+      childY += childHeight + OPERATIONAL_TOPOLOGY_LANE_GAP;
+    }
+    return Math.max(OPERATIONAL_TOPOLOGY_NODE_HEIGHT, childY - y - OPERATIONAL_TOPOLOGY_LANE_GAP);
+  };
+
+  let companyY = 24;
+  for (const company of (Array.isArray(topology?.companies) ? topology.companies as any[] : [])) {
+    const companyNode = nodesById.get(company.node_id);
+    if (companyNode) positions.set(companyNode.node_id, { x: 24, y: companyY });
+    const managers = topologyNodes
+      .filter((node: any) => node.node_kind === "manager_anchor" && node.company_id === company.company_id)
+      .sort((left: any, right: any) => String(left.thread_id).localeCompare(String(right.thread_id)));
+    if (managers.length === 0) {
+      companyY += OPERATIONAL_TOPOLOGY_NODE_HEIGHT + OPERATIONAL_TOPOLOGY_LANE_GAP * 2;
+      continue;
+    }
+    for (const manager of managers) {
+      positions.set(manager.node_id, { x: 252, y: companyY });
+      const children = childrenByNodeId.get(manager.node_id) ?? [];
+      let childY = companyY;
+      for (const childId of children) {
+        const childHeight = placeDescendantLane(childId, childY);
+        childY += childHeight + OPERATIONAL_TOPOLOGY_LANE_GAP;
+      }
+      const laneHeight = children.length > 0
+        ? Math.max(OPERATIONAL_TOPOLOGY_NODE_HEIGHT, childY - companyY - OPERATIONAL_TOPOLOGY_LANE_GAP)
+        : OPERATIONAL_TOPOLOGY_NODE_HEIGHT;
+      companyY += laneHeight + OPERATIONAL_TOPOLOGY_LANE_GAP;
+    }
+    companyY += OPERATIONAL_TOPOLOGY_LANE_GAP;
   }
 
-  function selectTask(taskId: string, trigger: HTMLButtonElement) {
-    detailTriggerRef.current = trigger;
-    setSelectedId(taskId);
+  const graphNodes = topologyNodes
+    .filter((node: any) => positions.has(node.node_id))
+    .map((node: any) => ({
+      id: node.node_id,
+      type: "organizationTopology",
+      position: positions.get(node.node_id),
+      draggable: false,
+      selectable: false,
+      focusable: false,
+      data: {
+        ...node,
+        is_selected: node.node_kind === "company_anchor"
+          ? node.organization_group_id === selectedGroupId
+          : node.thread_id === selectedThreadId,
+        test_id: node.node_kind === "company_anchor"
+          ? `organization-topology-company-${node.company_id}`
+          : `organization-topology-thread-${node.thread_id}`,
+        onActivate: (trigger: HTMLButtonElement) => {
+          if (node.node_kind === "company_anchor") {
+            onSelectGroup(node.organization_group_id);
+            return;
+          }
+          onSelectGroup(node.organization_group_id);
+          onSelect(node.thread_id, trigger);
+        }
+      },
+      style: { width: OPERATIONAL_TOPOLOGY_NODE_WIDTH, height: OPERATIONAL_TOPOLOGY_NODE_HEIGHT }
+    }));
+  const graphEdges = topologyEdges
+    .filter((edge: any) => positions.has(edge.source) && positions.has(edge.target))
+    .map((edge: any) => {
+      const target = nodesById.get(edge.target);
+      const tone = target?.node_kind === "context_thread" ? target.rollup_tone : target?.tone;
+      const stroke = edge.edge_kind === "organization_authority"
+        ? "#54717c"
+        : tone === "active"
+          ? "#70d98c"
+          : tone === "waiting"
+            ? "#e3aa62"
+            : tone === "result"
+              ? "#6faee9"
+              : "#526973";
+      return {
+        id: edge.edge_id,
+        source: edge.source,
+        target: edge.target,
+        type: "smoothstep",
+        animated: false,
+        selectable: false,
+        focusable: false,
+        pathOptions: { borderRadius: 18, offset: 14 },
+        style: { stroke, strokeWidth: 1.25 }
+      };
+    });
+  return { graphNodes, graphEdges };
+}
+
+function App() {
+  const [projection, setProjection] = useState<any>(() =>
+    createUnavailableLiveThreadProjection({ health: "unavailable", enrollmentHealth: "missing" })
+  );
+  const [surface, setSurface] = useState<BoardSurface>("owner");
+  const [organizationSubview, setOrganizationSubview] = useState<OrganizationSubview>("tree");
+  const [selectedOrganizationGroupId, setSelectedOrganizationGroupId] = useState<string | null>(null);
+  const [view, setView] = useState<BoardView>("active");
+  const [query, setQuery] = useState("");
+  const [groupFilter, setGroupFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [isMobileDetail, setIsMobileDetail] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(MOBILE_DETAIL_QUERY).matches
+  );
+  const [refreshing, setRefreshing] = useState(false);
+  const [initialProjectionPending, setInitialProjectionPending] = useState(true);
+  const [refreshFailure, setRefreshFailure] = useState<"unavailable" | "error" | "lifecycle_hold" | null>(null);
+  const [acknowledgementRevision, setAcknowledgementRevision] = useState(0);
+  const [notice, setNotice] = useState("");
+  const [expandedThreadIds, setExpandedThreadIds] = useState<Set<string>>(() => new Set());
+  const [aiUsageProjection, setAiUsageProjection] = useState(() => ({
+    state: "unmeasured",
+    snapshot: createUnmeasuredAiUsageSnapshot(),
+    reconciliation: null
+  }));
+  const [topologyProjection, setTopologyProjection] = useState<any>(null);
+  const [topologyRefreshing, setTopologyRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (surface !== "system" && surface !== "owner") return undefined;
+    let cancelled = false;
+    const load = async (force: boolean) => {
+      setTopologyRefreshing(true);
+      try {
+        const response = await fetch(`/topology-health.snapshot.json${force ? "?refresh=1" : ""}`);
+        if (!cancelled && response.ok) setTopologyProjection(await response.json());
+      } catch {
+        // 마지막 정상 스냅샷 유지 — 오류는 상태 배지로만 표시한다.
+      } finally {
+        if (!cancelled) setTopologyRefreshing(false);
+      }
+    };
+    void load(false);
+    const timer = window.setInterval(() => { void load(false); }, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [surface]);
+  const detailRef = useRef<HTMLElement | null>(null);
+  const closeDetailRef = useRef<HTMLButtonElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const lastSuccessfulProjectionRef = useRef<any | null>(null);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const queuedManualRefreshRef = useRef(false);
+
+  const storage = browserStorage();
+  const selectedThread = useMemo(
+    () => [...projection.threads, ...projection.history].find((thread: any) => thread.thread_id === selectedThreadId) ?? null,
+    [projection, selectedThreadId]
+  );
+  const mobileDialogOpen = Boolean(isMobileDetail && selectedThread);
+  const selectedView = useMemo(
+    () => selectLiveThreadView(projection, storage, view),
+    [projection, storage, view, acknowledgementRevision]
+  );
+  const ownerView = useMemo(
+    () => selectOwnerAttentionThreads(projection, storage),
+    [projection, storage, acknowledgementRevision]
+  );
+  const realtimeBuckets = useMemo(
+    () => buildRealtimeStatusBuckets(projection.threads, ownerView.threads),
+    [projection.threads, ownerView.threads]
+  );
+  const observationGap = useMemo(
+    () => observationGapBreakdown(realtimeBuckets.unavailable),
+    [realtimeBuckets]
+  );
+  const realtimeCoverage = useMemo(
+    () => formatRealtimeCoverage(projection.adapter, projection.scope),
+    [projection.adapter, projection.scope]
+  );
+  const liveProjectionPresentation = useMemo(
+    () => liveProjectionLoadPresentation({ initialPending: initialProjectionPending, adapter: projection.adapter }),
+    [initialProjectionPending, projection.adapter]
+  );
+  const realtimeOrganizationRollup = useMemo(() => {
+    const visibleOwnerThreadIds = new Set(ownerView.threads.map((thread: any) => thread.thread_id));
+    return groupLiveThreadsByOrganization(projection.threads, projection.organization).map((group) => {
+      const ownerThreads = group.threads.filter((thread: any) => visibleOwnerThreadIds.has(thread.thread_id));
+      return {
+        ...group,
+        buckets: buildRealtimeStatusBuckets(group.threads, ownerThreads)
+      };
+    });
+  }, [projection.threads, projection.organization, ownerView.threads]);
+  const filteredWorkThreads = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return selectedView.threads.filter((thread: any) => {
+      if (groupFilter !== "all" && thread.organization_group_id !== groupFilter) return false;
+      if (statusFilter !== "all" && thread.status !== statusFilter) return false;
+      if (!normalizedQuery) return true;
+      return [
+        thread.thread_id,
+        thread.organization_group_id,
+        organizationGroupLabel(thread.organization_group_id, projection.organization),
+        thread.route_id,
+        thread.work_id,
+        thread.thread_kind,
+        thread.display_label,
+        thread.relationship,
+        thread.status
+      ].filter(Boolean).join(" ").toLowerCase().includes(normalizedQuery);
+    });
+  }, [selectedView.threads, query, groupFilter, statusFilter, projection.organization]);
+  const workGroups = useMemo(
+    () => groupLiveThreadsByOrganization(filteredWorkThreads, projection.organization),
+    [filteredWorkThreads, projection.organization]
+  );
+  const directChildCounts = useMemo<Map<string, number>>(() => {
+    const currentThreads = projection.threads as any[];
+    return new Map<string, number>(currentThreads.map((thread: any) => [
+      String(thread.thread_id),
+      currentThreads.filter((candidate: any) => candidate.parent_thread_id === thread.thread_id).length
+    ]));
+  }, [projection]);
+  const groupOptions = useMemo(
+    () => groupLiveThreadsByOrganization([...projection.threads, ...projection.history], projection.organization)
+      .map((group) => group.organization_group_id),
+    [projection.threads, projection.history, projection.organization]
+  );
+  const exactTaskAttribution = useMemo(() => {
+    const attribution = new Map<string, { display_label: string; organization_group_id: string; organization_label: string }>();
+    for (const thread of [...projection.history, ...projection.threads] as any[]) {
+      if (
+        typeof thread.thread_id !== "string"
+        || typeof thread.display_label !== "string"
+        || typeof thread.organization_group_id !== "string"
+      ) continue;
+      attribution.set(thread.thread_id, {
+        display_label: thread.display_label,
+        organization_group_id: thread.organization_group_id,
+        organization_label: organizationGroupLabel(thread.organization_group_id, projection.organization)
+      });
+    }
+    return attribution;
+  }, [projection]);
+  const exactTaskLabels = useMemo(
+    () => new Map([...exactTaskAttribution].map(([threadId, attribution]) => [threadId, attribution.display_label])),
+    [exactTaskAttribution]
+  );
+
+  function updateProjection(force = false) {
+    if (refreshInFlightRef.current) {
+      if (force) {
+        queuedManualRefreshRef.current = true;
+        setRefreshing(true);
+      }
+      return;
+    }
+    if (force) setRefreshing(true);
+    const applyProjection = (next: any) => {
+      const result = resolveLiveProjectionRefresh({
+        lastSuccessfulProjection: lastSuccessfulProjectionRef.current,
+        nextProjection: next
+      });
+      if (result.accepted_success) lastSuccessfulProjectionRef.current = result.projection;
+      startTransition(() => {
+        setProjection((current: any) => current === result.projection ? current : result.projection);
+        setRefreshFailure(result.refresh_failure);
+      });
+    };
+    const liveRefresh = liveThreadProjectionRequest.load({ force }).then(
+      applyProjection,
+      () => applyProjection(createUnavailableLiveThreadProjection({ health: "error", enrollmentHealth: "invalid" }))
+    ).finally(() => {
+      startTransition(() => setInitialProjectionPending(false));
+    });
+    const usageRefresh = aiUsageProjectionRequest.load({ force }).then(
+      (next: any) => startTransition(() => setAiUsageProjection(next)),
+      () => startTransition(() => setAiUsageProjection({
+          state: "unmeasured",
+          snapshot: createUnmeasuredAiUsageSnapshot(),
+          reconciliation: null
+        }))
+    );
+    const operation = Promise.allSettled([liveRefresh, usageRefresh]).then(() => undefined).finally(() => {
+      refreshInFlightRef.current = null;
+      if (queuedManualRefreshRef.current) {
+        queuedManualRefreshRef.current = false;
+        updateProjection(true);
+      } else if (force) {
+        setRefreshing(false);
+      }
+    });
+    refreshInFlightRef.current = operation;
+    void operation;
+  }
+
+  function selectThread(threadId: string, trigger: HTMLButtonElement) {
+    triggerRef.current = trigger;
+    setSelectedThreadId(threadId);
+  }
+
+  function selectOrganizationGroup(groupId: string) {
+    setSelectedOrganizationGroupId(groupId);
+    setSelectedThreadId(null);
+  }
+
+  function toggleThreadTree(threadId: string) {
+    setExpandedThreadIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(threadId)) next.delete(threadId);
+      else next.add(threadId);
+      return next;
+    });
   }
 
   function closeDetail() {
-    if (mobileDialogOpen && selectedTask) {
-      pendingRestoreTaskIdRef.current = selectedTask.id;
-    }
-    setSelectedId(null);
+    setSelectedThreadId(null);
   }
 
-  function acknowledge(taskId: string) {
-    const result = acknowledgeFixtureTask(fixture, {
-      taskId,
-      atKst: "2026-07-31 16:05 KST",
-      actor: "Owner"
-    });
-    if (result.error) {
-      setNotice("완료·미확인 상태만 읽고 확인할 수 있습니다.");
+  function acknowledgeSelectedThread() {
+    if (!selectedThread || !acknowledgeLiveThread(storage, selectedThread)) {
+      setNotice("명시적으로 Owner에게 전달된 결과·에스컬레이션만 로컬에서 확인 처리할 수 있습니다.");
       return;
     }
-    setFixture(result.fixture);
+    setAcknowledgementRevision((value) => value + 1);
     setView("history");
-    setNotice("합성 fixture를 읽고 확인했습니다. 원 pointer와 이벤트는 이력에 보존됩니다.");
+    setNotice("브라우저의 로컬 확인 표시만 저장했습니다. Codex thread에는 변경을 보내지 않았습니다.");
+  }
+
+  function restoreSelectedThread() {
+    if (!selectedThread || !restoreLiveThread(storage, selectedThread)) return;
+    setAcknowledgementRevision((value) => value + 1);
+    setView("active");
+    setNotice("로컬 확인 표시를 되돌렸습니다.");
   }
 
   useEffect(() => {
-    const media = window.matchMedia(MOBILE_DETAIL_MEDIA_QUERY);
-    const syncViewport = () => setIsMobileDetail(media.matches);
-    syncViewport();
-    media.addEventListener("change", syncViewport);
-    return () => media.removeEventListener("change", syncViewport);
+    updateProjection(false);
+    const timer = window.setInterval(() => updateProjection(false), LIVE_THREAD_POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
-    if (!mobileDialogOpen || !detailRef.current) {
-      return;
-    }
+    const media = window.matchMedia(MOBILE_DETAIL_QUERY);
+    const sync = () => setIsMobileDetail(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
 
-    const backgroundNodes = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-dialog-background]")
-    );
-    const previousBodyOverflow = document.body.style.overflow;
-
-    backgroundNodes.forEach((node) => {
+  useEffect(() => {
+    if (!mobileDialogOpen || !detailRef.current) return;
+    const restoreThreadId = selectedThreadId;
+    const background = Array.from(document.querySelectorAll<HTMLElement>("[data-live-dialog-background]"));
+    const previousOverflow = document.body.style.overflow;
+    background.forEach((node) => {
       node.inert = true;
       node.setAttribute("aria-hidden", "true");
     });
     document.body.style.overflow = "hidden";
-
-    const dialogFocusCandidates = [
-      detailCloseRef.current,
-      detailRef.current.querySelector<HTMLElement>('[data-dialog-focus-fallback="heading"]')
-    ];
-    const dialogFocusIndex = pickFocusRestoreIndex(
-      dialogFocusCandidates.map((node) => {
-        const style = node ? window.getComputedStyle(node) : null;
-        return {
-          exists: Boolean(node),
-          isConnected: Boolean(node?.isConnected),
-          disabled: Boolean(
-            node && "disabled" in node && (node as HTMLButtonElement).disabled
-          ),
-          hidden: Boolean(
-            node &&
-              (node.hidden ||
-                node.getAttribute("aria-hidden") === "true" ||
-                style?.display === "none" ||
-                style?.visibility === "hidden")
-          ),
-          inert: Boolean(node?.closest("[inert]"))
-        };
-      })
-    );
-    dialogFocusCandidates[dialogFocusIndex]?.focus({ preventScroll: true });
-
-    function handleDialogKeydown(event: KeyboardEvent) {
-      const dialog = detailRef.current;
-      if (!dialog) {
-        return;
-      }
-
-      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-        .filter((node) => node.getAttribute("aria-hidden") !== "true" && node.offsetParent !== null);
-      const activeIndex = focusable.indexOf(document.activeElement as HTMLElement);
-      const decision = resolveMobileDialogKey({
-        key: event.key,
-        shiftKey: event.shiftKey,
-        activeIndex,
-        focusableCount: focusable.length
-      });
-
-      if (decision.action === "close") {
+    window.requestAnimationFrame(() => closeDetailRef.current?.focus({ preventScroll: true }));
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
         event.preventDefault();
         closeDetail();
-      } else if (decision.action === "focus" && typeof decision.index === "number") {
-        event.preventDefault();
-        focusable[decision.index]?.focus();
       }
-    }
-
-    document.addEventListener("keydown", handleDialogKeydown, true);
+    };
+    document.addEventListener("keydown", handleKeyDown, true);
     return () => {
-      document.removeEventListener("keydown", handleDialogKeydown, true);
-      backgroundNodes.forEach((node) => {
+      document.removeEventListener("keydown", handleKeyDown, true);
+      background.forEach((node) => {
         node.inert = false;
         node.removeAttribute("aria-hidden");
       });
-      document.body.style.overflow = previousBodyOverflow;
-    };
-  }, [mobileDialogOpen, mobileDialogFocusCycleKey]);
-
-  useEffect(() => {
-    const taskId = pendingRestoreTaskIdRef.current;
-    if (mobileDialogOpen || !taskId) {
-      return;
-    }
-
-    pendingRestoreTaskIdRef.current = null;
-    window.requestAnimationFrame(() => {
-      const logicalTaskTarget = Array.from(
-        document.querySelectorAll<HTMLElement>("[data-task-focus-id]")
-      ).find((node) => node.dataset.taskFocusId === taskId) ?? null;
-      const viewControl =
-        document.querySelector<HTMLElement>(`[data-view-focus="${view}"]`);
-      const candidates = [
-        detailTriggerRef.current,
-        logicalTaskTarget,
-        viewControl,
-        document.querySelector<HTMLElement>('[data-focus-fallback="search"]'),
-        document.querySelector<HTMLElement>('[data-focus-fallback="scope-heading"]'),
-        document.querySelector<HTMLElement>('[data-focus-fallback="main"]')
-      ];
-      const candidateStates = candidates.map((node) => {
-        const style = node ? window.getComputedStyle(node) : null;
-        return {
-          exists: Boolean(node),
-          isConnected: Boolean(node?.isConnected),
-          disabled: Boolean(
-            node && "disabled" in node && (node as HTMLButtonElement | HTMLInputElement).disabled
-          ),
-          hidden: Boolean(
-            node &&
-              (node.hidden ||
-                node.getAttribute("aria-hidden") === "true" ||
-                style?.display === "none" ||
-                style?.visibility === "hidden")
-          ),
-          inert: Boolean(node?.closest("[inert]"))
-        };
+      document.body.style.overflow = previousOverflow;
+      window.requestAnimationFrame(() => {
+        const logicalTrigger = restoreThreadId
+          ? Array.from(document.querySelectorAll<HTMLButtonElement>("[data-live-thread-id]"))
+              .find((node) => node.dataset.liveThreadId === restoreThreadId) ?? null
+          : null;
+        const stableControl = document.querySelector<HTMLElement>("[data-live-focus-fallback]");
+        const target = [triggerRef.current, logicalTrigger, stableControl].find(canRestoreFocus);
+        target?.focus({ preventScroll: true });
       });
-      const restoreIndex = pickFocusRestoreIndex(candidateStates);
-      const restoreTarget = restoreIndex >= 0 ? candidates[restoreIndex] : null;
-      restoreTarget?.focus({ preventScroll: true });
-    });
-  }, [mobileDialogOpen, view]);
+    };
+  }, [mobileDialogOpen, selectedThreadId]);
+
+  const healthText = {
+    ready: "정상 관측",
+    partial: "부분 관측",
+    unavailable: "연결 불가",
+    error: "관측 오류",
+    disabled: "비상 중지"
+  }[String(projection.adapter.health) as "ready" | "partial" | "unavailable" | "error" | "disabled"] ?? "미확정";
 
   return (
-    <div className="inbox-app">
-      <a className="inbox-skip-link" href="#inbox-content" data-dialog-background>
+    <div className="inbox-app live-board-app">
+      <a className="inbox-skip-link" href="#live-board-content" data-live-dialog-background>
         본문으로 건너뛰기
       </a>
 
-      <header className="inbox-topbar" data-dialog-background>
-        <button className="inbox-icon-button" type="button" aria-label="메뉴 열기" title="메뉴">
-          <Menu size={19} aria-hidden="true" />
-        </button>
-        <div className="inbox-brand">
-          <strong>Owner Action Inbox</strong>
-          <span>Workspace Board</span>
-        </div>
-        <label className="inbox-search">
-          <Search size={16} aria-hidden="true" />
-          <span className="sr-only">프로젝트, TASK, Agent 검색</span>
-          <input
-            type="search"
-            data-focus-fallback="search"
-            value={query}
-            placeholder="검색 (프로젝트, TASK, Agent)"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          {query && (
-            <button type="button" aria-label="검색어 지우기" onClick={() => setQuery("")}>
-              <X size={14} aria-hidden="true" />
+      <header className="inbox-topbar live-board-topbar" data-live-dialog-background>
+        <div className="live-board-rebuild-header">
+          <div className="live-board-brand">
+            <strong><span className="live-board-brand-mark" aria-hidden="true">◆</span> SOULFORGE</strong>
+            <span className="live-board-brand-surface">{SURFACE_WORDMARKS[surface]}</span>
+            <span className="live-board-brand-live"><span aria-hidden="true" /> LIVE</span>
+          </div>
+          <nav className="live-board-primary-nav" aria-label="Workspace Board 화면">
+            <button type="button" data-testid="owner-overview-tab" className={surface === "owner" ? "is-active" : ""} aria-pressed={surface === "owner"} onClick={() => setSurface("owner")}>
+              실시간 현황
             </button>
-          )}
-        </label>
-        <div className="inbox-synthetic-banner" role="note">
-          <Info size={14} aria-hidden="true" />
-          <span>합성 데이터 · 실제 시스템 미연동 · 2026-07-31 KST</span>
-        </div>
-        <div className="inbox-top-icons">
-          <button type="button" aria-label="알림 예시" title="알림 예시">
-            <Bell size={18} aria-hidden="true" />
-          </button>
-          <button type="button" aria-label="도움말" title="도움말">
-            <CircleHelp size={18} aria-hidden="true" />
-          </button>
-          <span className="inbox-avatar" aria-label="현재 사용자 Owner">
-            O
-          </span>
+            <button type="button" data-testid="organization-tree-tab" className={surface === "organization" ? "is-active" : ""} aria-pressed={surface === "organization"} onClick={() => setSurface("organization")}>
+              조직도
+            </button>
+            <button type="button" data-testid="work-history-tab" className={surface === "work" ? "is-active" : ""} aria-pressed={surface === "work"} onClick={() => setSurface("work")}>
+              업무 현황·이력
+            </button>
+            <button type="button" data-testid="system-topology-tab" className={surface === "system" ? "is-active" : ""} aria-pressed={surface === "system"} onClick={() => setSurface("system")}>
+              시스템 토폴로지
+            </button>
+          </nav>
+          <div className="live-board-top-actions">
+            <span className="live-board-top-meta" role="note">
+              <EyeOff size={14} aria-hidden="true" />
+              <span>LOCAL ONLY · READ ONLY</span>
+            </span>
+            <LiveClock />
+            <span className={`live-health-state ${liveProjectionPresentation.state === "initial_loading" ? "live-health-loading" : `live-health-${projection.adapter.health}`}`} data-testid="realtime-coverage" aria-live="polite">
+              <Activity size={15} aria-hidden="true" />
+              {liveProjectionPresentation.state === "initial_loading"
+                ? liveProjectionPresentation.label
+                : refreshFailure
+                  ? `마지막 정상 관측 · ${realtimeCoverage}`
+                  : realtimeCoverage}
+            </span>
+            {refreshFailure && (
+              <span className="live-health-state live-health-partial" role="status" aria-live="polite" data-testid="realtime-refresh-hold">
+                <AlertCircle size={15} aria-hidden="true" />
+                {refreshFailure === "error"
+                  ? "최근 갱신 오류 · 마지막 정상 관측 유지"
+                  : refreshFailure === "lifecycle_hold"
+                    ? "구조 신호 갱신 중 · 마지막 정상 관측 유지"
+                    : "최근 갱신 연결 불가 · 마지막 정상 관측 유지"}
+              </span>
+            )}
+            <button
+              className="live-refresh-button"
+              type="button"
+              aria-label="지금 갱신"
+              title="지금 갱신"
+              onClick={() => updateProjection(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw size={15} aria-hidden="true" className={refreshing ? "is-spinning" : ""} />
+            </button>
+          </div>
         </div>
       </header>
 
-      <section className="inbox-controls" aria-label="보드 필터" data-dialog-background>
-        <label>
-          <span>프로젝트</span>
-          <select
-            value={project}
-            onChange={(event) => {
-              setProject(event.target.value);
-              setResponsibility("all");
-            }}
-          >
-            <option value="all">전체</option>
-            {fixture.projects.map((entry: any) => (
-              <option key={entry.code} value={entry.code}>
-                {entry.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>책임분야</span>
-          <select value={responsibility} onChange={(event) => setResponsibility(event.target.value)}>
-            <option value="all">전체</option>
-            {responsibilityOptions.map((entry) => (
-              <option key={String(entry)} value={String(entry)}>
-                {String(entry)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>상태</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="all">전체 active</option>
-            {INBOX_STATUSES.map((entry: string) => (
-              <option key={entry} value={entry}>
-                {INBOX_STATUS_LABELS[entry as keyof typeof INBOX_STATUS_LABELS]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button className="inbox-text-button" type="button" onClick={resetFilters}>
-          <RotateCcw size={14} aria-hidden="true" />
-          필터 초기화
-        </button>
-        <div className="inbox-view-switch" aria-label="표시 화면">
-          <button
-            type="button"
-            data-view-focus="active"
-            className={view === "active" ? "is-active" : ""}
-            aria-pressed={view === "active"}
-            onClick={() => setView("active")}
-          >
-            <Filter size={14} aria-hidden="true" />
-            Active
-          </button>
-          <button
-            type="button"
-            data-view-focus="history"
-            className={view === "history" ? "is-active" : ""}
-            aria-pressed={view === "history"}
-            onClick={() => setView("history")}
-          >
-            <History size={14} aria-hidden="true" />
-            이력·제외
-          </button>
-        </div>
-      </section>
+      {surface === "work" && (
+        <section className="live-board-controls" aria-label="업무와 기록 필터" data-live-dialog-background>
+          <label className="inbox-search live-thread-search">
+            <span className="sr-only">thread ID, 조직 그룹, route 또는 work 검색</span>
+            <input
+              type="search"
+              data-live-focus-fallback
+              value={query}
+              placeholder="thread ID · 조직 그룹 · route · work 검색"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            {query && (
+              <button type="button" aria-label="검색어 지우기" onClick={() => setQuery("")}>
+                <X size={14} aria-hidden="true" />
+              </button>
+            )}
+          </label>
+          <label>
+            <span>조직 그룹</span>
+            <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
+              <option value="all">전체</option>
+              {groupOptions.map((group) => <option key={group} value={group}>{organizationGroupLabel(group, projection.organization)}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>상태</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="stopped">응답 종료 · 결과 미확정</option>
+              <option value="all">전체</option>
+              <option value="owner_attention">Owner 확인 필요</option>
+              <option value="parent_result_ready">하위 결과 도착/취합 중</option>
+              <option value="waiting">입력·승인 대기</option>
+              <option value="active">실행 중</option>
+              <option value="not_loaded_unknown">상태 신호 없음</option>
+              <option value="error">상태 관측 오류</option>
+              <option value="accepted_closed">수락·종료 이력</option>
+            </select>
+          </label>
+          <div className="inbox-view-switch" aria-label="업무 표시 범위">
+            <button type="button" className={view === "active" ? "is-active" : ""} aria-pressed={view === "active"} onClick={() => setView("active")}>
+              <CircleDot size={14} aria-hidden="true" />
+              현재 업무
+            </button>
+            <button type="button" className={view === "history" ? "is-active" : ""} aria-pressed={view === "history"} onClick={() => setView("history")}>
+              <History size={14} aria-hidden="true" />
+              수락·확인 이력
+            </button>
+          </div>
+          <div className="live-work-status-guide" aria-label="응답 종료와 상태 신호 없음 설명">
+            <p><History size={14} aria-hidden="true" /><span><strong>응답 종료</strong> 마지막 응답/turn만 끝남 · TASK 완료 아님</span></p>
+            <p><EyeOff size={14} aria-hidden="true" /><span><strong>상태 신호 없음</strong> 등록은 됐지만 실행·대기·결과를 판정할 최신 신호 없음</span></p>
+          </div>
+        </section>
+      )}
 
       {notice && (
-        <div className="inbox-notice" role="status" data-dialog-background>
+        <div className="inbox-notice" role="status" data-live-dialog-background>
           <Check size={15} aria-hidden="true" />
           {notice}
           <button type="button" aria-label="알림 닫기" onClick={() => setNotice("")}>
@@ -413,510 +796,1975 @@ function App() {
         </div>
       )}
 
-      <main
-        id="inbox-content"
-        className="inbox-layout"
-        data-focus-fallback="main"
-        tabIndex={-1}
-      >
-        <section
-          className="inbox-workspace"
-          aria-label={view === "active" ? "Owner Action 보드" : "이력과 제외 항목"}
-          data-dialog-background
-        >
-          <div className="inbox-scope-row">
-            <div>
-              <strong data-focus-fallback="scope-heading" tabIndex={-1}>
-                {view === "active" ? `Active target ${selection.eligible.length}건` : `회수 가능한 이력·제외 ${selection.eligible.length}건`}
-              </strong>
-              <span>전체 fixture {fixture.projects.length} projects × {fixture.responsibilities.length / fixture.projects.length} responsibilities · {fixture.tasks.length} TASK</span>
-            </div>
-            <label className="inbox-fixture-mode">
-              <span>화면 상태 예시</span>
-              <select
-                value={fixtureMode}
-                onChange={(event) => {
-                  setFixtureMode(event.target.value as FixtureMode);
-                  if (event.target.value !== "normal") {
-                    setSelectedId(null);
-                  }
-                }}
-              >
-                <option value="normal">정상</option>
-                <option value="empty">빈 화면</option>
-                <option value="error">오류</option>
-              </select>
-            </label>
-          </div>
+      {surface === "work" && <LedgerDistribution usage={aiUsageProjection} exactTaskLabels={exactTaskLabels as any} />}
+      {surface === "work" && <AiUsagePanel
+        projection={aiUsageProjection}
+        exactTaskLabels={exactTaskLabels}
+        exactTaskAttribution={exactTaskAttribution}
+        exactTaskAttributionState={initialProjectionPending
+          ? "loading"
+          : isOrganizationUsageAttributionReady(projection)
+            ? "ready"
+            : "unavailable"}
+      />}
 
-          {fixtureMode === "error" ? (
-            <ErrorState onReset={() => setFixtureMode("normal")} />
-          ) : fixtureMode === "empty" ? (
-            <EmptyState filtered={false} onReset={() => setFixtureMode("normal")} />
-          ) : view === "history" ? (
-            <HistoryView
-              tasks={selection.eligible}
-              events={fixture.history}
-              selectedId={selectedId}
-              onSelect={selectTask}
-              onReset={resetFilters}
-            />
-          ) : (
-            <Board
-              selection={selection}
-              limits={limits}
-              selectedId={selectedId}
-              onSelect={selectTask}
-              onMore={(statusId) =>
-                setLimits((current) => ({ ...current, [statusId]: current[statusId] + DEFAULT_CARD_LIMIT }))
-              }
-              onReset={resetFilters}
+      <main id="live-board-content" className="live-board-layout" aria-busy={initialProjectionPending || undefined}>
+        <section className="live-board-workspace" data-live-dialog-background aria-label={surface === "owner" ? "Owner 확인 현황" : surface === "organization" ? "정확한 조직 thread 계층" : view === "active" ? "현재 실제 Codex 업무" : "수락·확인 이력"}>
+          {liveProjectionPresentation.should_render_projection ? <>
+          {surface === "owner" && (
+            <SystemStatStrip
+              projection={topologyProjection}
+              threadCount={Array.isArray(projection?.threads) ? projection.threads.length : 0}
+              usageState={aiUsageProjection.state}
             />
           )}
+          {surface === "owner" && <FleetUsageCards usage={aiUsageProjection} />}
+          {surface === "owner" && <FleetStatusRows projection={topologyProjection} />}
+          {surface === "owner" && (
+            <RealtimeDashboard
+              projection={projection}
+              buckets={realtimeBuckets}
+              observationGap={observationGap}
+              organizationRows={realtimeOrganizationRollup}
+              selectedThreadId={selectedThreadId}
+              directChildCounts={directChildCounts}
+              aiUsageProjection={aiUsageProjection}
+              onSelect={selectThread}
+              onRetry={() => updateProjection(true)}
+            />
+          )}
+          {surface === "work" && (
+          <div className="live-board-scope">
+            <div>
+              <strong>{view === "active" ? `현재 내부 업무 ${filteredWorkThreads.length}건` : `수락·확인 이력 ${filteredWorkThreads.length}건`}</strong>
+              <p>Codex discovery는 관측만 합니다. 표시 authority와 parent edge는 owner가 등록한 정확한 thread_id뿐입니다.</p>
+            </div>
+            <span>{projection.adapter.coverage === "partial" ? "부분 관측 · 등록 외 항목은 숫자로만 제외" : "관측 범위 미확정"}</span>
+          </div>
+          )}
+
+          {surface === "work" && <LiveProjectionState projection={projection} filteredCount={filteredWorkThreads.length} onRetry={() => updateProjection(true)} />}
+
+          {surface === "organization" && (
+            <OrganizationWorkspace
+              organization={projection.organization}
+              groups={realtimeOrganizationRollup}
+              threads={projection.threads}
+              history={projection.history}
+              storage={storage}
+              subview={organizationSubview}
+              selectedGroupId={selectedOrganizationGroupId}
+              selectedThread={selectedThread}
+              selectedThreadId={selectedThreadId}
+              expandedThreadIds={expandedThreadIds}
+              directChildCounts={directChildCounts}
+              onChangeSubview={setOrganizationSubview}
+              onSelectGroup={selectOrganizationGroup}
+              onToggle={toggleThreadTree}
+              onSelect={selectThread}
+            />
+          )}
+
+          {surface === "system" && (
+            <SystemTopologySurface projection={topologyProjection} refreshing={topologyRefreshing} />
+          )}
+
+          {surface === "work" && workGroups.map((group) => (
+            <section className="live-organization-group" key={group.organization_group_id} aria-labelledby={`group-${group.organization_group_id}`}>
+              <header>
+                <div>
+                  <span>ORGANIZATION GROUP</span>
+                  <h2 id={`group-${group.organization_group_id}`}>{group.display_label}</h2>
+                </div>
+                <strong>{group.threads.length}</strong>
+              </header>
+              <div className="live-thread-card-list">
+                {group.threads.map((thread: any) => (
+                  <LiveThreadCard
+                    key={`${thread.thread_id}:${thread.updated_at}`}
+                    thread={thread}
+                    selected={thread.thread_id === selectedThreadId}
+                    acknowledged={isAcknowledgeableLiveThread(thread) && isLiveThreadAcknowledged(storage, thread)}
+                    directChildCount={directChildCounts.get(thread.thread_id) ?? 0}
+                    onSelect={selectThread}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+          </> : <InitialLiveProjectionLoading />}
         </section>
 
-        {mobileDialogOpen && (
-          <div
-            className="inbox-modal-backdrop"
-            aria-hidden="true"
-            onClick={closeDetail}
-          />
-        )}
+        {mobileDialogOpen && <div className="live-detail-backdrop" aria-hidden="true" onClick={closeDetail} />}
 
-        {selectedTask && (
-          <DetailPanel
-            task={selectedTask}
+        {selectedThread && (
+          <LiveThreadDetail
+            thread={selectedThread}
+            acknowledged={isAcknowledgeableLiveThread(selectedThread) && isLiveThreadAcknowledged(storage, selectedThread)}
+            directChildCount={directChildCounts.get(selectedThread.thread_id) ?? 0}
+            organization={projection.organization}
             isModal={mobileDialogOpen}
             panelRef={detailRef}
-            closeButtonRef={detailCloseRef}
+            closeButtonRef={closeDetailRef}
             onClose={closeDetail}
-            onAcknowledge={() => acknowledge(selectedTask.id)}
+            onAcknowledge={acknowledgeSelectedThread}
+            onRestore={restoreSelectedThread}
           />
         )}
       </main>
 
-      <footer className="inbox-footer" data-dialog-background>
-        <span>fixture/read-only adapter · 새로고침 시 합성 상태 초기화</span>
-        <span>실제 thread·ERP·worktree·provider truth가 아닙니다</span>
+      <footer className="inbox-footer" data-live-dialog-background>
+        <span>actual Codex runtime observation · exact local enrollment only</span>
+        <span>no thread create, delete, archive, send, raw transcript, path, or worktree access</span>
       </footer>
     </div>
   );
 }
 
-function Board({
-  selection,
-  limits,
-  selectedId,
-  onSelect,
-  onMore,
-  onReset
-}: {
-  selection: any;
-  limits: Record<string, number>;
-  selectedId: string | null;
-  onSelect: (taskId: string, trigger: HTMLButtonElement) => void;
-  onMore: (statusId: string) => void;
-  onReset: () => void;
-}) {
-  if (selection.eligible.length === 0) {
-    return <EmptyState filtered onReset={onReset} />;
-  }
-
+function InitialLiveProjectionLoading() {
   return (
-    <div className="inbox-board">
-      {INBOX_STATUSES.map((statusId: string) => {
-        const meta = statusMeta[statusId as keyof typeof statusMeta];
-        const group = selection.grouped[statusId];
-        const visible = group.all.slice(0, limits[statusId]);
-        const Icon = meta.Icon;
-
-        return (
-          <section className={`inbox-column inbox-column-${statusId}`} key={statusId} aria-labelledby={`column-${statusId}`}>
-            <header className="inbox-column-header">
-              <Icon size={18} aria-hidden="true" />
-              <h2 id={`column-${statusId}`}>{meta.label}</h2>
-              <span aria-label={`${group.total}건`}>{group.total}</span>
-            </header>
-            <p className="inbox-column-hint">{meta.hint}</p>
-            <div className="inbox-card-list">
-              {visible.map((task: any) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  selected={selectedId === task.id}
-                  onSelect={(trigger) => onSelect(task.id, trigger)}
-                />
-              ))}
-              {group.total === 0 && <div className="inbox-column-empty">대상 없음</div>}
-            </div>
-            {group.total > visible.length && (
-              <button className="inbox-more-button" type="button" onClick={() => onMore(statusId)}>
-                더보기 {group.total - visible.length}건
-              </button>
-            )}
-          </section>
-        );
-      })}
-    </div>
+    <section className="realtime-surface" aria-labelledby="live-projection-loading-heading" data-testid="live-projection-initial-loading">
+      <div className="live-state-panel" role="status" aria-live="polite">
+        <Radio size={18} aria-hidden="true" />
+        <div>
+          <h1 id="live-projection-loading-heading">실시간 현황 불러오는 중</h1>
+          <p>첫 관측이 도착하기 전에는 0건이나 연결 불가를 실제 상태로 표시하지 않습니다.</p>
+        </div>
+      </div>
+    </section>
   );
 }
 
-function TaskCard({
-  task,
-  selected,
+function RealtimeDashboard({
+  projection,
+  buckets,
+  observationGap,
+  organizationRows,
+  selectedThreadId,
+  directChildCounts,
+  aiUsageProjection,
+  onSelect,
+  onRetry
+}: {
+  projection: any;
+  buckets: Record<string, any[]>;
+  observationGap: { stopped: number; not_loaded_unknown: number; error: number };
+  organizationRows: any[];
+  selectedThreadId: string | null;
+  directChildCounts: Map<string, number>;
+  aiUsageProjection: any;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+  onRetry: () => void;
+}) {
+  return (
+    <section className="realtime-surface" aria-labelledby="realtime-heading" data-testid="realtime-dashboard">
+      <header className="realtime-headline">
+        <div>
+          <span>REAL-TIME LOCAL PROJECTION</span>
+          <h1 id="realtime-heading">지금 누가 일하고 있나?</h1>
+          <p>명시적 실행·대기 이벤트와 exact 응답/turn 종료 신호만 표시합니다 · 추정하지 않음</p>
+        </div>
+        <div className="realtime-scope-note">
+          <Radio size={15} aria-hidden="true" />
+          <span>현재 등록 {projection.scope.included_count}건</span>
+        </div>
+      </header>
+
+      <div className="realtime-metric-grid" aria-label="실시간 상태 요약">
+        <RealtimeMetricCard statusKey="active" icon={<Activity size={25} aria-hidden="true" />} count={buckets.active.length} />
+        <RealtimeMetricCard statusKey="waiting" icon={<Clock3 size={25} aria-hidden="true" />} count={buckets.waiting.length} />
+        <RealtimeMetricCard statusKey="owner_result" icon={<CircleCheckBig size={25} aria-hidden="true" />} count={buckets.owner_result.length} />
+        <RealtimeMetricCard statusKey="stopped" icon={<History size={25} aria-hidden="true" />} count={observationGap.stopped} />
+        <RealtimeMetricCard
+          statusKey="unknown"
+          icon={<EyeOff size={25} aria-hidden="true" />}
+          count={observationGap.not_loaded_unknown + observationGap.error}
+          detail={`${realtimeStatusCopy("unknown").description}${observationGap.error > 0 ? ` · 오류 ${observationGap.error}` : ""}`}
+        />
+      </div>
+
+      <div className="realtime-content-grid">
+        <section className="realtime-status-panel" aria-labelledby="realtime-status-heading">
+          <header>
+            <div>
+              <span>LIVE STATUS</span>
+              <h2 id="realtime-status-heading">
+                <em className="realtime-session-count">{buckets.active.length + buckets.waiting.length + buckets.owner_result.length}</em> 활성 세션
+              </h2>
+            </div>
+            <span className="realtime-panel-meta">
+              {buckets.active.length} 작업 중 · {buckets.waiting.length} 승인 대기 · {buckets.owner_result.length} 결과 확인 · 정확한 등록 ID 기준
+            </span>
+          </header>
+          <LiveProjectionState projection={projection} filteredCount={projection.threads.length} onRetry={onRetry} />
+          <div className="realtime-status-lanes" aria-label="상태별 상세">
+            <RealtimeTaskGroup
+              statusKey="active"
+              icon={<Activity size={18} aria-hidden="true" />}
+              threads={buckets.active}
+              organization={projection.organization}
+              selectedThreadId={selectedThreadId}
+              directChildCounts={directChildCounts}
+              onSelect={onSelect}
+            />
+            <RealtimeTaskGroup
+              statusKey="waiting"
+              icon={<Clock3 size={18} aria-hidden="true" />}
+              threads={buckets.waiting}
+              organization={projection.organization}
+              selectedThreadId={selectedThreadId}
+              directChildCounts={directChildCounts}
+              onSelect={onSelect}
+            />
+            <RealtimeTaskGroup
+              statusKey="owner_result"
+              icon={<CircleCheckBig size={18} aria-hidden="true" />}
+              threads={buckets.owner_result}
+              organization={projection.organization}
+              selectedThreadId={selectedThreadId}
+              directChildCounts={directChildCounts}
+              onSelect={onSelect}
+            />
+          </div>
+        </section>
+
+        <aside className="realtime-side-column" aria-label="조직 및 상태 기준">
+          <RealtimeOrganizationRollup rows={organizationRows} organization={projection.organization} />
+          <RealtimeStatusLegend observationGap={observationGap} />
+          <RealtimeMeterHealth projection={aiUsageProjection} />
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function RealtimeMetricCard({
+  statusKey,
+  icon,
+  count,
+  detail
+}: {
+  statusKey: "active" | "waiting" | "owner_result" | "stopped" | "unknown" | "unavailable";
+  icon: React.ReactNode;
+  count: number;
+  detail?: string;
+}) {
+  const copy = realtimeStatusCopy(statusKey);
+  return (
+    <section className={`realtime-metric-card is-${copy.tone}`} data-testid={`realtime-card-${statusKey}`}>
+      <div className="realtime-metric-title">{icon}<span>{copy.label}</span></div>
+      <strong>{count}</strong>
+      <p>{detail ?? copy.description}</p>
+    </section>
+  );
+}
+
+function RealtimeTaskGroup({
+  statusKey,
+  icon,
+  threads,
+  organization,
+  selectedThreadId,
+  directChildCounts,
   onSelect
 }: {
-  task: any;
-  selected: boolean;
-  onSelect: (trigger: HTMLButtonElement) => void;
+  statusKey: "active" | "waiting" | "owner_result";
+  icon: React.ReactNode;
+  threads: any[];
+  organization: any;
+  selectedThreadId: string | null;
+  directChildCounts: Map<string, number>;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
 }) {
-  const compact = buildCompactCardView(task);
-  const statusLabel =
-    INBOX_STATUS_LABELS[compact.status as keyof typeof INBOX_STATUS_LABELS] ?? compact.status;
+  const copy = realtimeStatusCopy(statusKey);
+  const emptyText = statusKey === "owner_result"
+    ? "Owner에게 명시적으로 전달된 결과가 없습니다."
+    : `${copy.label} 상태의 명시적 이벤트가 없습니다.`;
+  return (
+    <section className={`realtime-task-group is-${copy.tone}`} aria-labelledby={`realtime-${statusKey}-heading`} data-testid={`realtime-${statusKey}-group`}>
+      <header>
+        <div>{icon}<h3 id={`realtime-${statusKey}-heading`}>{copy.label}</h3></div>
+        <span>{threads.length}</span>
+      </header>
+      {statusKey === "owner_result" && <span className="sr-only">Owner 대상 명시 result gate만 포함합니다. 상위 thread 전달 결과는 조직도에서만 확인합니다.</span>}
+      {threads.length === 0 ? (
+        <p className="realtime-empty-row" role="status">{emptyText}</p>
+      ) : (
+        <div className="realtime-thread-list" role="table" aria-label={copy.label}>
+          <div className="realtime-thread-list-head" role="row">
+            <span role="columnheader">상태</span>
+            <span role="columnheader">역할 / 담당자</span>
+            <span role="columnheader">현재 TASK / work</span>
+            <span role="columnheader">마지막 관측</span>
+            <span role="columnheader">하위</span>
+            <span role="columnheader">회사 / 팀</span>
+          </div>
+          {threads.map((thread) => (
+            <RealtimeThreadRow
+              key={`${thread.thread_id}:${thread.updated_at}`}
+              thread={thread}
+              organization={organization}
+              selected={thread.thread_id === selectedThreadId}
+              directChildCount={directChildCounts.get(thread.thread_id) ?? 0}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
+function RealtimeThreadRow({
+  thread,
+  organization,
+  selected,
+  directChildCount,
+  onSelect
+}: {
+  thread: any;
+  organization: any;
+  selected: boolean;
+  directChildCount: number;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
   return (
     <button
-      className={`inbox-task-card ${selected ? "is-selected" : ""}`}
+      className={`realtime-thread-row ${selected ? "is-selected" : ""}`}
       type="button"
-      data-task-focus-id={task.id}
-      aria-pressed={selected}
-      aria-label={`${task.project}, ${task.title}, ${INBOX_STATUS_LABELS[task.status as keyof typeof INBOX_STATUS_LABELS]}`}
-      onClick={(event) => onSelect(event.currentTarget)}
+      data-live-thread-id={thread.thread_id}
+      data-testid={`realtime-thread-${thread.thread_id}`}
+      aria-expanded={selected}
+      onClick={(event) => onSelect(thread.thread_id, event.currentTarget)}
     >
-      <span className="inbox-card-meta">
-        <span>{compact.project}</span>
-        <span>{compact.responsibility}</span>
-        <span className={`inbox-card-status inbox-card-status-${compact.status}`}>
-          {statusLabel}
-        </span>
-      </span>
-      <strong>
-        <FileCheck2 size={15} aria-hidden="true" />
-        {compact.title}
-      </strong>
-      <span className="inbox-card-route">{compact.route}</span>
-      <ProviderRow task={task} />
+      <span className={`realtime-status-icon is-${thread.status}`}><CircleDot size={16} aria-hidden="true" /></span>
+      <span className="realtime-thread-role"><strong>{thread.display_label}</strong><small>{liveThreadRoleLabel(thread.thread_kind)}</small></span>
+      <span>{thread.work_id ?? "work 미확정"}</span>
+      <time dateTime={thread.updated_at}>{formatRefreshTime(thread.updated_at)}</time>
+      <span>{directChildCount}</span>
+      <span>{organizationGroupLabel(thread.organization_group_id, organization)}</span>
     </button>
   );
 }
 
-const providerIconMap = {
-  [PROVIDER_ICON_KEYS.CODEX_GPT]: codexBrandIcon,
-  [PROVIDER_ICON_KEYS.ANTIGRAVITY_GEMINI]: antigravityBrandIcon,
-  [PROVIDER_ICON_KEYS.KIMI]: kimiBrandIcon
-} as const;
-
-function ProviderRow({ task }: { task: any }) {
-  const observedProviders = selectObservedProviderEntries(task);
-
-  if (task.agentState !== "observed") {
-    return (
-      <span className="inbox-agent-unknown" data-provider-icon={PROVIDER_ICON_KEYS.UNKNOWN}>
-        <Bot size={12} aria-hidden="true" />
-        Agent/provider UNKNOWN · 추정 안 함
-      </span>
-    );
+function RealtimeOrganizationRollup({ rows, organization }: { rows: any[]; organization: any }) {
+  const companies = new Map<string, { company: any; rows: any[] }>(
+    (Array.isArray(organization?.companies) ? organization.companies : [])
+      .map((company: any) => [company.company_id, { company, rows: [] }])
+  );
+  const unassignedRows: any[] = [];
+  for (const row of rows) {
+    const entry = row.company_id ? companies.get(row.company_id) : null;
+    if (entry) entry.rows.push(row);
+    else unassignedRows.push(row);
   }
-
-  if (observedProviders.length === 0) {
-    return null;
-  }
-
   return (
-    <span className="inbox-provider-row" aria-label={`관찰된 agent ${observedProviders.length}개`}>
-      {observedProviders.map((entry: any) => {
-        const visual = resolveProviderVisual(entry);
-        const brandIcon = providerIconMap[visual.iconKey as keyof typeof providerIconMap];
-        return (
-          <span
-            className={`inbox-provider-badge inbox-provider-${visual.iconKey}`}
-            data-provider-icon={visual.iconKey}
-            key={`${entry.agent}-${entry.provider}`}
-            aria-label={visual.accessibleName}
-            title={visual.accessibleName}
-          >
-            {brandIcon ? (
-              <img
-                className="inbox-provider-brand-icon"
-                src={brandIcon}
-                alt=""
-                aria-hidden="true"
-              />
-            ) : (
-              <Bot size={12} aria-hidden="true" />
-            )}
-            {visual.label}
-          </span>
-        );
-      })}
-      {observedProviders.length > 1 && (
-        <span className="inbox-multi-badge">
-          <UsersRound size={12} aria-hidden="true" />
-          복수 agent
+    <section className="realtime-organization-rollup" aria-labelledby="organization-rollup-heading" data-testid="organization-rollup">
+      <header>
+        <div><Building2 size={20} aria-hidden="true" /><h2 id="organization-rollup-heading">조직 상태</h2></div>
+        <span>exact ID roll-up</span>
+      </header>
+      {companies.size === 0 && unassignedRows.length === 0 ? (
+        <p className="realtime-empty-row">현재 조직 roll-up에 표시할 등록 항목이 없습니다.</p>
+      ) : <>
+        {[...companies.entries()].map(([companyId, entry]) => (
+        <section className="realtime-company-rollup" key={companyId}>
+          <header><strong>{entry.company.display_label}</strong><RealtimeRollupCounts buckets={sumRollupBuckets(entry.rows)} /></header>
+          {entry.rows.map((row) => (
+            <div className="realtime-organization-row" key={row.organization_group_id}>
+              <span><UsersRound size={15} aria-hidden="true" />{row.display_label}</span>
+              <RealtimeRollupCounts buckets={row.buckets} />
+            </div>
+          ))}
+        </section>
+        ))}
+        {unassignedRows.length > 0 && (
+          <section className="realtime-company-rollup" data-testid="organization-rollup-hold">
+            <header><strong>미할당/보류</strong><RealtimeRollupCounts buckets={sumRollupBuckets(unassignedRows)} /></header>
+            {unassignedRows.map((row) => (
+              <div className="realtime-organization-row" key={row.organization_group_id}>
+                <span><ShieldAlert size={15} aria-hidden="true" />{row.display_label}</span>
+                <RealtimeRollupCounts buckets={row.buckets} />
+              </div>
+            ))}
+          </section>
+        )}
+      </>}
+    </section>
+  );
+}
+
+function sumRollupBuckets(rows: any[]) {
+  const totals = { active: [], waiting: [], owner_result: [], unavailable: [] } as Record<string, any[]>;
+  for (const row of rows) {
+    for (const key of Object.keys(totals)) totals[key].push(...(row.buckets[key] ?? []));
+  }
+  return totals;
+}
+
+function RealtimeRollupCounts({ buckets }: { buckets: Record<string, any[]> }) {
+  return (
+    <span className="realtime-rollup-counts" aria-label="상태별 건수">
+      {(["active", "waiting", "owner_result", "unavailable"] as const).map((key) => (
+        <span className={`is-${realtimeStatusCopy(key).tone}`} key={key} title={realtimeStatusCopy(key).label}>
+          <CircleDot size={12} aria-hidden="true" />{buckets[key]?.length ?? 0}
         </span>
-      )}
+      ))}
     </span>
   );
 }
 
-function DetailPanel({
-  task,
-  isModal,
-  panelRef,
-  closeButtonRef,
-  onClose,
-  onAcknowledge
-}: {
-  task: any;
-  isModal: boolean;
-  panelRef: React.RefObject<HTMLElement | null>;
-  closeButtonRef: React.RefObject<HTMLButtonElement | null>;
-  onClose: () => void;
-  onAcknowledge: () => void;
-}) {
-  const statusLabel =
-    INBOX_STATUS_LABELS[task.status as keyof typeof INBOX_STATUS_LABELS] ?? task.status;
-  const panelTitle =
-    task.status === "blocked" || task.status === "review_needed"
-      ? "Owner 판단 필요"
-      : task.status === "completed_unread"
-        ? "완료 결과 확인"
-        : task.status === "owner_acknowledged"
-          ? "이력 상세"
-          : statusLabel;
-
-  const headingId = `inbox-detail-heading-${task.id}`;
-
+function RealtimeStatusLegend({ observationGap }: { observationGap: { stopped: number; not_loaded_unknown: number; error: number } }) {
+  const entries = [
+    ["active", <Activity size={17} aria-hidden="true" />, realtimeStatusCopy("active").description],
+    ["waiting", <Clock3 size={17} aria-hidden="true" />, realtimeStatusCopy("waiting").description],
+    ["owner_result", <CircleCheckBig size={17} aria-hidden="true" />, "Owner 대상 명시 result gate"],
+    ["stopped", <History size={17} aria-hidden="true" />, `${realtimeStatusCopy("stopped").description} · ${observationGap.stopped}건`],
+    ["unknown", <EyeOff size={17} aria-hidden="true" />, `${realtimeStatusCopy("unknown").description} · ${observationGap.not_loaded_unknown}건${observationGap.error > 0 ? ` · 오류 ${observationGap.error}건` : ""}`],
+    ["codex_unread", <CircleDot size={17} aria-hidden="true" />, "Codex 파란 점은 새 활동·미확인 알림이며 실행·대기·완료 판정에 사용하지 않음"]
+  ] as const;
   return (
-    <aside
-      ref={panelRef}
-      className={`inbox-detail inbox-detail-${task.status}`}
-      role={isModal ? "dialog" : undefined}
-      aria-modal={isModal ? true : undefined}
-      aria-labelledby={headingId}
-    >
-      <header>
-        <div>
-          <span className="inbox-detail-kicker">{task.synthetic ? "SYNTHETIC FIXTURE" : "관찰됨"}</span>
-          <h2
-            id={headingId}
-            data-dialog-focus-fallback="heading"
-            tabIndex={isModal ? -1 : undefined}
-          >
-            {panelTitle}
-          </h2>
-        </div>
-        <button
-          ref={closeButtonRef}
-          className="inbox-icon-button"
-          type="button"
-          onClick={onClose}
-          aria-label="상세 닫기"
-          title="닫기"
-        >
-          <X size={18} aria-hidden="true" />
-        </button>
-      </header>
+    <section className="realtime-status-legend" aria-labelledby="status-legend-heading" data-testid="status-legend">
+      <header><ListChecks size={20} aria-hidden="true" /><h2 id="status-legend-heading">상태 기준</h2></header>
+      <ul>
+        {entries.map(([key, icon, description]) => (
+          <li className={`is-${key}`} key={key}>
+            {icon}
+            <div><strong>{key === "codex_unread" ? "Codex 파란 점" : realtimeStatusCopy(key).label}</strong><span>{description}</span></div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
-      <section className="inbox-detail-title">
-        <span>{task.project} · {task.responsibility || "책임분야 미관찰"}</span>
-        <h3>
-          <FileCheck2 size={17} aria-hidden="true" />
-          {task.title}
-        </h3>
-        <p>{task.route || "route 미관찰 · UNKNOWN"}</p>
-      </section>
+function RealtimeMeterHealth({ projection }: { projection: any }) {
+  const snapshot = projection?.snapshot ?? createUnmeasuredAiUsageSnapshot();
+  const measurementState = projection?.state ?? "unmeasured";
+  const health = snapshot?.health?.hook_status ?? "unmeasured";
+  const coverage = snapshot?.coverage ?? { measured_turns: 0, total_turns: 0 };
+  return (
+    <section className={`realtime-meter-health is-${measurementState}`} aria-label="AI Usage Meter 로컬 상태" data-testid="local-meter-health">
+      <div><Gauge size={18} aria-hidden="true" /><strong>AI Usage Meter (로컬)</strong></div>
+      <span>{health}</span>
+      <small>측정 {coverage.measured_turns ?? 0}/{coverage.total_turns ?? 0} · {measurementState}</small>
+    </section>
+  );
+}
 
-      <dl className="inbox-detail-grid">
+function LiveProjectionState({ projection, filteredCount, onRetry }: { projection: any; filteredCount: number; onRetry: () => void }) {
+  if (["error", "unavailable", "disabled"].includes(projection.adapter.health)) {
+    return (
+      <section className="live-state-panel live-state-error" role="alert">
+        <AlertCircle size={18} aria-hidden="true" />
         <div>
-          <dt>책임자</dt>
-          <dd>{task.owner}</dd>
+          <h2>{projection.adapter.health === "disabled" ? "live thread 관측이 비상 중지됨" : "live thread 관측을 완료하지 못함"}</h2>
+          <p>등록된 항목은 완료나 Owner 확인 대상으로 추정하지 않습니다. 명시 result gate가 없으면 ‘관측 불가’로 유지됩니다.</p>
         </div>
-        <div>
-          <dt>검토자</dt>
-          <dd>{task.reviewer}</dd>
-        </div>
-        <div>
-          <dt>검토 필요</dt>
-          <dd>{task.reviewNeeded ? "예" : "아니오"}</dd>
-        </div>
-        <div>
-          <dt>최근 활동</dt>
-          <dd>{task.lastActivityKst}</dd>
-        </div>
-      </dl>
-
-      <section className="inbox-detail-section">
-        <h4>Agent/provider 관찰 상태</h4>
-        <ProviderRow task={task} />
-        {task.worktree && (
-          <p className="inbox-worktree">
-            <GitBranch size={13} aria-hidden="true" />
-            실제 연결 fixture metadata: {task.worktree}
-          </p>
+        {projection.adapter.health !== "disabled" && (
+          <button type="button" onClick={onRetry}>
+            <RefreshCw size={14} aria-hidden="true" />
+            다시 시도
+          </button>
         )}
       </section>
-
-      {task.status === "blocked" && (
-        <>
-          <section className="inbox-blocker">
-            <h4>
-              <ShieldAlert size={15} aria-hidden="true" />
-              Blocker
-            </h4>
-            <strong>{task.blockerReason}</strong>
-          </section>
-          <section className="inbox-decision">
-            <span>다음 결정</span>
-            <strong>{task.nextDecision}</strong>
-            <p>막힘은 결정되기 전까지 active 보드에 잔류합니다.</p>
-          </section>
-          {task.evidenceSummary && (
-            <section className="inbox-detail-section">
-              <h4>주요 근거</h4>
-              <p>{task.evidenceSummary}</p>
-            </section>
-          )}
-          {task.impact && (
-            <section className="inbox-detail-section">
-              <h4>영향</h4>
-              <p>{task.impact}</p>
-            </section>
-          )}
-          {task.requestMessage && (
-            <section className="inbox-request-message">
-              <span>요청 메시지</span>
-              <p>{task.requestMessage}</p>
-            </section>
-          )}
-        </>
-      )}
-
-      {task.nextDecision && task.status !== "blocked" && (
-        <section className="inbox-decision">
-          <span>다음 행동</span>
-          <strong>{task.nextDecision}</strong>
-        </section>
-      )}
-
-      <section className="inbox-detail-section">
-        <h4>Thread / TASK pointer</h4>
-        <code>{task.pointer}</code>
-        <p>표시용 synthetic pointer이며 실제 thread를 열거나 변경하지 않습니다.</p>
+    );
+  }
+  if (filteredCount === 0) {
+    return (
+      <section className="live-state-panel" role="status">
+        <ShieldAlert size={18} aria-hidden="true" />
+        <div>
+          <h2>표시할 정확 등록 thread가 없습니다</h2>
+          <p>새 카드가 필요하면 owner가 정확한 thread_id를 local enrollment registry에 등록한 뒤 갱신하세요.</p>
+        </div>
       </section>
+    );
+  }
+  return null;
+}
 
-      {task.events.length > 0 && (
-        <section className="inbox-detail-section">
-          <h4>
-            <History size={14} aria-hidden="true" />
-            보존된 이벤트
-          </h4>
-          {task.events.map((event: any) => (
-            <div className="inbox-event" key={event.id}>
-              <strong>{event.atKst} · {event.actor}</strong>
-              <span>{event.from} → {event.to}</span>
-              <code>{event.originalPointer}</code>
-            </div>
+function OwnerAttentionSurface({
+  threads,
+  selectedThreadId,
+  storage,
+  directChildCounts,
+  onSelect
+}: {
+  threads: any[];
+  selectedThreadId: string | null;
+  storage: Storage | null;
+  directChildCounts: Map<string, number>;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  const prioritized = [...threads].sort((left, right) => (
+    liveThreadStatusPriority(left.status) - liveThreadStatusPriority(right.status)
+    || right.updated_at.localeCompare(left.updated_at)
+  ));
+  return (
+    <section className="live-owner-attention" aria-labelledby="owner-attention-heading" data-testid="owner-attention-surface">
+      <header>
+        <div>
+          <span>OWNER RESULT CHECK</span>
+          <h2 id="owner-attention-heading">Owner 확인 필요</h2>
+          <p>Owner에게 명시적으로 전달된 result gate만 표시합니다. 업무 완료를 자동 추정하지 않습니다.</p>
+        </div>
+        <strong>{prioritized.length}</strong>
+      </header>
+      {prioritized.length === 0 ? (
+        <div className="live-owner-empty" role="status">
+          <Check size={18} aria-hidden="true" />
+          <div><strong>현재 Owner 확인 대상이 없습니다</strong><span>idle/notLoaded, 제목, 경과 시간은 Owner attention을 만들지 않습니다.</span></div>
+        </div>
+      ) : (
+        <div className="live-thread-card-list">
+          {prioritized.map((thread) => (
+            <LiveThreadCard
+              key={`${thread.thread_id}:${thread.updated_at}`}
+              thread={thread}
+              selected={thread.thread_id === selectedThreadId}
+              acknowledged={isAcknowledgeableLiveThread(thread) && isLiveThreadAcknowledged(storage, thread)}
+              directChildCount={directChildCounts.get(thread.thread_id) ?? 0}
+              onSelect={onSelect}
+            />
           ))}
-        </section>
-      )}
-
-      {task.status === "completed_unread" && (
-        <button className="inbox-ack-button" type="button" onClick={onAcknowledge}>
-          <CheckCircle2 size={17} aria-hidden="true" />
-          읽고 확인
-        </button>
-      )}
-      {task.status === "owner_acknowledged" && (
-        <div className="inbox-acknowledged">
-          <Check size={15} aria-hidden="true" />
-          읽고 확인됨 · active에서 제외
         </div>
       )}
+    </section>
+  );
+}
+
+function OrganizationWorkspace({
+  organization,
+  groups,
+  threads,
+  history,
+  storage,
+  subview,
+  selectedGroupId,
+  selectedThread,
+  selectedThreadId,
+  expandedThreadIds,
+  directChildCounts,
+  onChangeSubview,
+  onSelectGroup,
+  onToggle,
+  onSelect
+}: {
+  organization: any;
+  groups: any[];
+  threads: any[];
+  history: any[];
+  storage: Storage | null;
+  subview: OrganizationSubview;
+  selectedGroupId: string | null;
+  selectedThread: any;
+  selectedThreadId: string | null;
+  expandedThreadIds: Set<string>;
+  directChildCounts: Map<string, number>;
+  onChangeSubview: (view: OrganizationSubview) => void;
+  onSelectGroup: (groupId: string) => void;
+  onToggle: (threadId: string) => void;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  const companies = Array.isArray(organization?.companies) ? organization.companies : [];
+  const currentCount = threads.length;
+  return (
+    <section className="organization-workspace" aria-labelledby="organization-workspace-heading" data-testid="organization-workspace">
+      <header className="organization-workspace-header">
+        <div>
+          <span>EXACT PARENT EDGES · RESULT GATE METADATA</span>
+          <h1 id="organization-workspace-heading">조직도</h1>
+          <p>등록된 정확한 thread_id와 parent edge만 연결합니다. 실행 중은 정확히 등록한 ID에 명시적으로 관측된 active lifecycle이 있을 때만 표시하며, 제목·파란 점·경과 시간으로 추정하지 않습니다.</p>
+        </div>
+        <div className="organization-subview-tabs" role="tablist" aria-label="조직도 보기">
+          <button type="button" role="tab" aria-selected={subview === "tree"} className={subview === "tree" ? "is-active" : ""} onClick={() => onChangeSubview("tree")} data-testid="organization-tree-subview">조직 트리</button>
+          <button type="button" role="tab" aria-selected={subview === "flow"} className={subview === "flow" ? "is-active" : ""} onClick={() => onChangeSubview("flow")} data-testid="organization-flow-subview">책임 흐름</button>
+        </div>
+      </header>
+      <div className="organization-context-strip">
+        <span><Building2 size={15} aria-hidden="true" />회사 {companies.length}</span>
+        <span><UsersRound size={15} aria-hidden="true" />정확한 현재 등록 {currentCount}</span>
+        <span><CircleCheckBig size={15} aria-hidden="true" />결과 gate는 명시 수신자만 반영</span>
+      </div>
+      {subview === "tree" ? (
+        <OrganizationGroupTree
+          organization={organization}
+          groups={groups}
+          threads={threads}
+          storage={storage}
+          selectedGroupId={selectedGroupId}
+          selectedThread={selectedThread}
+          selectedThreadId={selectedThreadId}
+          directChildCounts={directChildCounts}
+          onSelectGroup={onSelectGroup}
+          onSelect={onSelect}
+        />
+      ) : (
+        <OrganizationGroupFlow
+          organization={organization}
+          groups={groups}
+          threads={threads}
+          history={history}
+          selectedGroupId={selectedGroupId}
+          selectedThread={selectedThread}
+          selectedThreadId={selectedThreadId}
+          onSelectGroup={onSelectGroup}
+          onSelect={onSelect}
+        />
+      )}
+    </section>
+  );
+}
+
+function countTreeNodes(node: any): number {
+  return 1 + (Array.isArray(node?.children) ? node.children.reduce((total: number, child: any) => total + countTreeNodes(child), 0) : 0);
+}
+
+function organizationGroupsByCompany(groups: any[], organization: any) {
+  const groupRows = new Map(groups.map((group) => [group.organization_group_id, group]));
+  const catalogGroups = Array.isArray(organization?.groups) ? organization.groups : [];
+  const catalogCompanies = Array.isArray(organization?.companies) ? organization.companies : [];
+  return catalogCompanies.map((company: any) => ({
+    company_id: company.company_id,
+    label: company.display_label,
+    ceo_label: catalogGroups.find((group: any) => group.organization_group_id === company.ceo_group_id)?.display_label ?? "CEO HOLD",
+    groups: catalogGroups
+      .filter((group: any) => group.company_id === company.company_id)
+      .sort((left: any, right: any) => left.sort_order - right.sort_order || left.organization_group_id.localeCompare(right.organization_group_id))
+      .map((group: any) => groupRows.get(group.organization_group_id))
+      .filter(Boolean)
+  }));
+}
+
+function OrganizationCatalogHold({ organization, groups }: { organization: any; groups: any[] }) {
+  const health = organization?.health ?? "missing";
+  const unassignedGroups = groups.filter((group) => group.catalog_state !== "assigned" || group.company_id === null);
+  if (health === "available" && unassignedGroups.length === 0) return null;
+  return (
+    <section className="live-state-panel" role="status" data-testid="organization-catalog-hold">
+      <ShieldAlert size={18} aria-hidden="true" />
+      <div>
+        <h2>조직 카탈로그 HOLD</h2>
+        <p>카탈로그 상태: {health}. 미할당 그룹은 회사나 자리로 추정하지 않습니다.</p>
+        {unassignedGroups.length > 0 && <p>{unassignedGroups.map((group) => group.organization_group_id).join(", ")}</p>}
+      </div>
+    </section>
+  );
+}
+
+function sortedExactGroupThreads(group: any | null) {
+  if (!group) return [];
+  const kindOrder: Record<string, number> = { manager: 0, verifier: 1, task: 2, continuation: 3 };
+  return [...group.threads].sort((left, right) => (
+    (kindOrder[left.thread_kind] ?? 9) - (kindOrder[right.thread_kind] ?? 9)
+    || String(right.updated_at ?? "").localeCompare(String(left.updated_at ?? ""))
+    || String(left.thread_id).localeCompare(String(right.thread_id))
+  ));
+}
+
+function OrganizationGroupTree({
+  organization,
+  groups,
+  threads,
+  storage,
+  selectedGroupId,
+  selectedThread,
+  selectedThreadId,
+  directChildCounts,
+  onSelectGroup,
+  onSelect
+}: {
+  organization: any;
+  groups: any[];
+  threads: any[];
+  storage: Storage | null;
+  selectedGroupId: string | null;
+  selectedThread: any;
+  selectedThreadId: string | null;
+  directChildCounts: Map<string, number>;
+  onSelectGroup: (groupId: string) => void;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  const { companies, unassigned_groups: unassignedGroups } = buildCompactOrganizationLanes(groups, organization);
+  const selectedGroup = groups.find((group) => group.organization_group_id === selectedGroupId) ?? null;
+  const [topologyMode, setTopologyMode] = useState<OrganizationTopologyMode>(() => (
+    storage?.getItem(ORGANIZATION_TOPOLOGY_MODE_STORAGE_KEY) === "all" ? "all" : "live"
+  ));
+  const topology = useMemo(
+    () => buildOperationalOrganizationTopology({ threadsInput: threads, organization, storage, mode: topologyMode } as any),
+    [threads, organization, storage, topologyMode]
+  );
+  const { graphNodes, graphEdges } = useMemo(
+    () => buildOperationalTopologyCanvas(topology, selectedGroupId, selectedThreadId, onSelectGroup, onSelect),
+    [topology, selectedGroupId, selectedThreadId, onSelectGroup, onSelect]
+  );
+  const selectTopologyMode = (nextMode: OrganizationTopologyMode) => {
+    setTopologyMode(nextMode);
+    try {
+      storage?.setItem(ORGANIZATION_TOPOLOGY_MODE_STORAGE_KEY, nextMode);
+    } catch {
+      // Presentation preference only; localStorage failure must not affect the Board projection.
+    }
+  };
+  if (companies.length === 0 && organization?.health !== "available") {
+    return <OrganizationCatalogHold organization={organization} groups={unassignedGroups} />;
+  }
+  if (companies.length === 0) {
+    return <section className="live-state-panel" role="status"><ShieldAlert size={18} aria-hidden="true" /><div><h2>Exact organization groups unavailable</h2><p>Company placement is held until the owner-provided organization catalog is available.</p></div></section>;
+  }
+  return (
+    <div className="organization-group-tree-layout organization-topology-layout" role="tabpanel" aria-label="Operational organization topology">
+      <section className="organization-group-tree-canvas organization-topology-canvas-shell" aria-label="Company, CEO, manager, and exact responsibility topology">
+        <header>
+          <div><Building2 size={19} aria-hidden="true" /><div><span>정확한 조직 등록 기준</span><h2>실시간 운영 조직도</h2></div></div>
+          <div className="organization-topology-header-actions">
+            <div className="organization-topology-mode-control" role="group" aria-label="조직도 표시 범위">
+              <button type="button" aria-pressed={topologyMode === "live"} onClick={() => selectTopologyMode("live")}>실시간만</button>
+              <button type="button" aria-pressed={topologyMode === "all"} onClick={() => selectTopologyMode("all")}>전체 조직</button>
+            </div>
+            <span>{topologyMode === "live"
+              ? "실행·승인 대기·결과 확인 작업과 정확한 상위 연결만 표시합니다."
+              : "조직 정본과 exact 등록부의 모든 회사·CEO·팀장·책임자를 표시합니다."}</span>
+          </div>
+        </header>
+        <OrganizationCatalogHold organization={organization} groups={unassignedGroups} />
+        <div className="organization-topology-canvas" data-testid="organization-operational-topology">
+          {graphNodes.length === 0 ? (
+            <div className="organization-topology-empty" role="status">
+              <CircleDot size={18} aria-hidden="true" />
+              <strong>현재 표시할 운영 작업이 없습니다.</strong>
+              <span>실행·승인 대기·결과 확인 상태가 생기면 정확한 상위 조직과 함께 자동으로 나타납니다.</span>
+            </div>
+          ) : (
+            <ReactFlow
+              key={topologyMode}
+              nodes={graphNodes as any}
+              edges={graphEdges as any}
+              nodeTypes={organizationTopologyNodeTypes as any}
+              defaultViewport={{ x: 0, y: 0, zoom: 0.84 }}
+              minZoom={0.45}
+              maxZoom={1.2}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              nodesFocusable={false}
+              elementsSelectable={false}
+              panOnDrag
+              panOnScroll
+              zoomOnScroll={false}
+              zoomOnDoubleClick={false}
+              preventScrolling
+              proOptions={{ hideAttribution: true }}
+              aria-label={`${topologyMode === "live" ? "실시간 작업" : "전체 조직"} 운영 조직도. 끌어서 이동할 수 있으며, 정확한 노드를 선택하면 기존 상세 정보가 열립니다.`}
+            />
+          )}
+        </div>
+        <p className="organization-topology-note">색 테두리는 해당 역할 또는 하위 조직의 현재 상태를 나타냅니다. ‘하위’ 표시는 직접 실행이 아니라 아래 책임자·TASK에서 올라온 상태이며, 확인 동작은 로컬 결과 노드만 숨깁니다.</p>
+      </section>
+      <OrganizationGroupInspector group={selectedGroup} threads={threads} selectedThread={selectedThread} selectedThreadId={selectedThreadId} directChildCounts={directChildCounts} onSelect={onSelect} />
+    </div>
+  );
+}
+
+function OrganizationGroupInspector({
+  group,
+  threads,
+  selectedThread,
+  selectedThreadId,
+  directChildCounts,
+  onSelect
+}: {
+  group: any | null;
+  threads: any[];
+  selectedThread: any;
+  selectedThreadId: string | null;
+  directChildCounts: Map<string, number>;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  const [page, setPage] = useState(0);
+  useEffect(() => setPage(0), [group?.organization_group_id, selectedThreadId]);
+  if (!group) {
+    return <aside className="organization-group-inspector" aria-label="현재 작업"><header><ListChecks size={19} aria-hidden="true" /><h2>현재 작업</h2></header><div className="organization-inspector-empty"><CircleDot size={18} aria-hidden="true" /><p>조직 그룹을 선택하면 해당 그룹에 등록된 정확한 manager, task, verifier thread만 표시합니다.</p></div></aside>;
+  }
+  const selectedManager = selectedThread
+    ? findExactManagerAncestor(threads, selectedThread.thread_id)
+    : null;
+  const descendantProjection = selectedManager
+    ? buildManagerDescendantProjection(threads, selectedManager.thread_id)
+    : null;
+  // A selected exact child remains in its manager scope.  When no exact
+  // manager ancestor exists, show only that selected thread rather than
+  // widening to peer managers in the group.
+  const scopedThreads = selectedManager
+    ? descendantProjection?.all_descendants ?? []
+    : selectedThread
+      ? [selectedThread]
+      : sortedExactGroupThreads(group);
+  const pageView = paginateExactItems(scopedThreads, page, 6);
+  const scopedOwnerThreads = scopedThreads.filter((thread: any) => (
+    thread.status === "owner_attention" && thread.attention_target === "owner"
+  ));
+  const scopedBuckets = buildRealtimeStatusBuckets(scopedThreads, scopedOwnerThreads);
+  const directChildren = descendantProjection?.direct_children ?? [];
+  const scopeLabel = selectedManager
+    ? `${selectedManager.display_label} · 정확한 하위`
+    : selectedThread
+      ? `${selectedThread.display_label} · 상위 manager 미확정`
+      : group.display_label;
+  const scopeCount = selectedManager
+    ? `선택 팀장 하위 ${pageView.total}`
+    : selectedThread
+      ? "선택 thread 1"
+      : `정확한 등록 ${pageView.total}`;
+  return (
+    <aside className="organization-group-inspector" aria-label="현재 작업" data-testid="organization-group-inspector">
+      <header><ListChecks size={19} aria-hidden="true" /><div><h2>현재 작업</h2><span>{scopeLabel}</span></div></header>
+      <div className="organization-group-inspector-summary" data-testid="organization-inspector-scope"><strong>{scopeCount}</strong><RealtimeRollupCounts buckets={scopedBuckets} /></div>
+      {pageView.items.length === 0 ? (
+        <div className="organization-inspector-empty" data-testid="organization-manager-descendants-empty"><CircleDot size={18} aria-hidden="true" /><p>{selectedManager ? "등록된 parent_thread_id가 선택 팀장을 정확히 가리키는 하위 책임·TASK·검토 항목이 없습니다." : "선택 범위에 표시할 정확한 등록 항목이 없습니다."}</p></div>
+      ) : (
+        <div className="organization-group-thread-list">
+          {pageView.items.map((thread: any) => (
+            <button key={thread.thread_id} type="button" className={`${thread.thread_id === selectedThreadId ? "is-selected" : ""} ${hasExactObservedActiveLifecycle(thread) ? "is-active" : ""}`} aria-label={`${thread.display_label} · ${liveThreadStatusLabel(thread.status)}`} data-live-thread-id={thread.thread_id} data-testid={`organization-group-thread-${thread.thread_id}`} onClick={(event) => onSelect(thread.thread_id, event.currentTarget)}>
+              <span className={`realtime-status-icon is-${thread.status}`}><CircleDot size={14} aria-hidden="true" /></span>
+              <span><strong>{thread.display_label}</strong><small>{liveThreadRoleLabel(thread.thread_kind)} · 상위 {thread.parent_thread_id ?? "등록 root"}</small></span>
+              <ChevronRight size={14} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      )}
+      {pageView.page_count > 1 && <div className="organization-group-pagination"><button type="button" disabled={pageView.page === 0} onClick={() => setPage(pageView.page - 1)}>이전</button><span>{pageView.page + 1} / {pageView.page_count}</span><button type="button" disabled={pageView.page >= pageView.page_count - 1} onClick={() => setPage(pageView.page + 1)}>다음</button></div>}
+      {selectedThread && (
+        <section className="organization-group-current-work" aria-label="선택 thread 현재 작업"><header><Activity size={15} aria-hidden="true" /><strong>선택 thread</strong></header><p>{selectedThread.display_label}</p><dl><div><dt>work</dt><dd>{selectedThread.work_id ?? "미확정"}</dd></div><div><dt>직속 하위</dt><dd>{directChildCounts.get(selectedThread.thread_id) ?? 0}</dd></div><div><dt>결과 gate</dt><dd>{liveThreadResultStateLabel(selectedThread.result_state)}</dd></div><div><dt>수신자</dt><dd>{selectedThread.attention_target === "owner" ? "Owner" : selectedThread.attention_target === "parent" ? "상위 thread" : "없음"}</dd></div></dl></section>
+      )}
+      {selectedManager && (
+        <section className="organization-manager-direct-children" aria-label={`${selectedManager.display_label}의 정확한 직속 하위 항목`} data-testid="organization-manager-direct-children">
+          <header><ListChecks size={15} aria-hidden="true" /><strong>직속 하위 항목</strong><span>{directChildren.length}</span></header>
+          {directChildren.length === 0 ? <p>등록된 parent_thread_id가 이 책임자를 정확히 가리키는 하위 항목이 없습니다.</p> : (
+            <div>
+              {directChildren.map((child: any) => (
+                <button key={child.thread_id} type="button" className={hasExactObservedActiveLifecycle(child) ? "is-active" : ""} aria-label={`${child.display_label} · ${liveThreadRoleLabel(child.thread_kind)} · ${liveThreadStatusLabel(child.status)}`} data-live-thread-id={child.thread_id} data-testid={`organization-manager-child-${child.thread_id}`} onClick={(event) => onSelect(child.thread_id, event.currentTarget)}>
+                  <span className={`realtime-status-icon is-${child.status}`}><CircleDot size={14} aria-hidden="true" /></span>
+                  <span><strong>{child.display_label}</strong><small>{liveThreadRoleLabel(child.thread_kind)} · {child.work_id ?? "work 미확정"}</small></span>
+                  <span className="organization-manager-status">{liveThreadStatusLabel(child.status)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+      <p className="organization-inspector-note">상위 연결은 등록된 parent_thread_id만 표시합니다. 제목, idle, Stop, 시간으로 관계를 만들지 않습니다.</p>
     </aside>
   );
 }
 
-function HistoryView({
-  tasks,
-  events,
-  selectedId,
-  onSelect,
-  onReset
+function OrganizationGroupFlow({
+  organization,
+  groups,
+  threads,
+  history,
+  selectedGroupId,
+  selectedThread,
+  selectedThreadId,
+  onSelectGroup,
+  onSelect
 }: {
-  tasks: any[];
-  events: any[];
-  selectedId: string | null;
-  onSelect: (taskId: string, trigger: HTMLButtonElement) => void;
-  onReset: () => void;
+  organization: any;
+  groups: any[];
+  threads: any[];
+  history: any[];
+  selectedGroupId: string | null;
+  selectedThread: any;
+  selectedThreadId: string | null;
+  onSelectGroup: (groupId: string) => void;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
 }) {
-  if (tasks.length === 0) {
-    return <EmptyState filtered onReset={onReset} />;
+  const selectedGroup = groups.find((group) => group.organization_group_id === selectedGroupId) ?? null;
+  const companies = organizationGroupsByCompany(groups, organization);
+  const unassignedGroups = groups.filter((group) => group.catalog_state !== "assigned" || group.company_id === null);
+  if (companies.length === 0 && organization?.health !== "available") {
+    return <OrganizationCatalogHold organization={organization} groups={unassignedGroups} />;
   }
-
+  if (groups.length === 0) {
+    return <section className="live-state-panel" role="status"><ShieldAlert size={18} aria-hidden="true" /><div><h2>책임 흐름을 만들 수 없습니다</h2><p>현재 등록 조직 그룹이 없으므로 흐름을 추정하지 않았습니다.</p></div></section>;
+  }
   return (
-    <div className="inbox-history">
-      <div className="inbox-history-summary">
-        <ArchiveRestore size={18} aria-hidden="true" />
-        <div>
-          <strong>acknowledged·제외 상태 회수</strong>
-          <span>검색과 필터로 원 TASK pointer를 다시 찾을 수 있습니다. 확인 이벤트 {events.length}건.</span>
-        </div>
-      </div>
-      <div className="inbox-history-list">
-        {tasks.slice(0, 60).map((task) => (
-          <button
-            key={task.id}
-            type="button"
-            data-task-focus-id={task.id}
-            className={selectedId === task.id ? "is-selected" : ""}
-            onClick={(event) => onSelect(task.id, event.currentTarget)}
-          >
-            <span>
-              <strong>{task.title}</strong>
-              <small>{task.project} · {task.responsibility || "책임분야 미관찰"}</small>
-            </span>
-            <span>
-              {INBOX_STATUS_LABELS[task.status as keyof typeof INBOX_STATUS_LABELS] ?? task.status}
-            </span>
-            <code>{task.pointer}</code>
-            <ChevronRight size={15} aria-hidden="true" />
-          </button>
+    <section className="organization-group-flow" role="tabpanel" aria-label="책임 흐름" data-testid="organization-responsibility-flow">
+      <header className="organization-group-flow-headings"><span>회사</span><span>조직</span><span>팀장·책임 thread</span><span>실행·결과 상태</span></header>
+      <div className="organization-group-flow-body">
+        {companies.map((company: any) => (
+          <section className="organization-group-flow-company" key={company.company_id}>
+            <div className="organization-group-flow-company-card"><Building2 size={18} aria-hidden="true" /><strong>{company.label}</strong><small>조직 그룹 {company.groups.length}</small></div>
+            <div className="organization-group-flow-groups">
+              {company.groups.map((group: any) => {
+                const managers = group.threads.filter((thread: any) => thread.thread_kind === "manager");
+                const executionCount = group.threads.filter(isActiveTaskThread).length;
+                const resultCount = group.threads.filter((thread: any) => thread.status === "owner_attention" || thread.status === "parent_result_ready").length;
+                const primaryManager = managers[0] ?? null;
+                return (
+                  <button key={group.organization_group_id} type="button" className={group.organization_group_id === selectedGroupId ? "is-selected" : ""} onClick={() => onSelectGroup(group.organization_group_id)}>
+                    <span className="organization-group-flow-identity"><UsersRound size={15} aria-hidden="true" /><strong>{group.display_label}</strong><small>{group.organization_group_id}</small></span>
+                    <span className="organization-group-flow-manager"><UserRound size={15} aria-hidden="true" /><strong>{primaryManager?.display_label ?? "책임 thread 미등록"}</strong><small>정확한 manager {managers.length}</small></span>
+                    <span className="organization-group-flow-execution"><Activity size={15} aria-hidden="true" /><strong>실행 TASK {executionCount}</strong><small>결과 gate {resultCount}</small></span>
+                    <span className="organization-group-flow-status"><RealtimeRollupCounts buckets={group.buckets} /><ChevronRight size={14} aria-hidden="true" /></span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         ))}
       </div>
-      {tasks.length > 60 && <p className="inbox-history-cap">상위 60건만 표시 · 필터로 범위를 좁혀 주세요.</p>}
+      <OrganizationCatalogHold organization={organization} groups={unassignedGroups} />
+      <OrganizationGroupFlowWorkStrip group={selectedGroup} threads={threads} history={history} selectedThread={selectedThread} selectedThreadId={selectedThreadId} onSelect={onSelect} />
+      <footer><CircleCheckBig size={15} aria-hidden="true" />조직 그룹과 수치는 등록 metadata의 exact ID만 사용합니다. 개인 thread와 parent edge는 선택한 그룹에서만 drill-down 합니다.</footer>
+    </section>
+  );
+}
+
+function OrganizationGroupFlowWorkStrip({ group, threads, history, selectedThread, selectedThreadId, onSelect }: { group: any | null; threads: any[]; history: any[]; selectedThread: any; selectedThreadId: string | null; onSelect: (threadId: string, trigger: HTMLButtonElement) => void }) {
+  if (!group) {
+    return <section className="organization-group-flow-work-strip"><p>조직 그룹을 선택하면 해당 범위의 실행 TASK, 검토·결과, 완료·이력을 표시합니다.</p></section>;
+  }
+  const hierarchyThreads = [...threads, ...history];
+  const selectedManager = selectedThread
+    ? findExactManagerAncestor(hierarchyThreads, selectedThread.thread_id)
+    : null;
+  const descendants = selectedManager
+    ? buildManagerDescendantProjection(hierarchyThreads, selectedManager.thread_id)
+    : null;
+  const scopedThreads = descendants
+    ? descendants.all_descendants
+    : selectedThread
+      ? [selectedThread]
+      : group.threads;
+  const execution = scopedThreads.filter(isActiveTaskThread);
+  const reviewResult = scopedThreads.filter((thread: any) => thread.status === "owner_attention" || (thread.status === "parent_result_ready" && thread.attention_target === "parent"));
+  const completedHistory = selectedManager || selectedThread
+    ? scopedThreads.filter((thread: any) => thread.status === "accepted_closed")
+    : history.filter((thread: any) => thread.organization_group_id === group.organization_group_id && thread.status === "accepted_closed");
+  return (
+    <section className="organization-group-flow-work-strip" aria-label="선택 조직 그룹 업무 현황" data-testid="organization-flow-work-strip">
+      <header><span>{selectedManager ? selectedManager.display_label : selectedThread ? selectedThread.display_label : group.display_label}</span><strong>{selectedManager ? "선택 팀장 하위 업무 현황" : selectedThread ? "선택 thread 업무 현황" : "선택 그룹 업무 현황"}</strong></header>
+      <div><OrganizationFlowWorkColumn title="실행 TASK" icon={<Activity size={17} aria-hidden="true" />} threads={execution} selectedThreadId={selectedThreadId} onSelect={onSelect} emptyText="명시적 실행 TASK 없음" /><OrganizationFlowWorkColumn title="검토·결과" icon={<CircleCheckBig size={17} aria-hidden="true" />} threads={reviewResult} selectedThreadId={selectedThreadId} onSelect={onSelect} emptyText="명시 결과 gate 없음" /><OrganizationFlowWorkColumn title="완료·이력" icon={<History size={17} aria-hidden="true" />} threads={completedHistory} selectedThreadId={selectedThreadId} onSelect={onSelect} emptyText="수락·종료 이력 없음" /></div>
+    </section>
+  );
+}
+
+function OrganizationTreeMap({
+  companies,
+  selectedThread,
+  selectedThreadId,
+  expandedThreadIds,
+  directChildCounts,
+  onToggle,
+  onSelect
+}: {
+  companies: any[];
+  selectedThread: any;
+  selectedThreadId: string | null;
+  expandedThreadIds: Set<string>;
+  directChildCounts: Map<string, number>;
+  onToggle: (threadId: string) => void;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  if (companies.length === 0) {
+    return <section className="live-state-panel" role="status"><ShieldAlert size={18} aria-hidden="true" /><div><h2>정확한 조직 트리가 없습니다</h2><p>현재 등록 항목 또는 명시된 parent edge가 없어서 조직 관계를 만들지 않았습니다.</p></div></section>;
+  }
+  return (
+    <div className="organization-tree-layout" role="tabpanel" aria-label="조직 트리">
+      <section className="organization-tree-canvas" aria-label="정확한 조직 트리">
+        <header>
+          <div><Building2 size={19} aria-hidden="true" /><div><span>REGISTERED ORGANIZATION</span><h2>정확한 조직 트리</h2></div></div>
+          <span>선택한 node의 상세는 오른쪽에 표시됩니다</span>
+        </header>
+        <div className="organization-tree-root">
+          <span>등록 조직</span>
+          <strong>현재 exact thread hierarchy</strong>
+          <small>회사 {companies.length} · parent edge만 연결</small>
+        </div>
+        <div className="organization-company-grid">
+          {companies.map((company) => (
+            <section className="organization-tree-company" key={company.organization_company_id} aria-labelledby={`organization-tree-company-${company.organization_company_id}`}>
+              <header>
+                <Building2 size={17} aria-hidden="true" />
+                <div><span>COMPANY</span><h3 id={`organization-tree-company-${company.organization_company_id}`}>{company.label}</h3></div>
+                <strong>{company.roots.reduce((total: number, root: any) => total + countTreeNodes(root), 0)}</strong>
+              </header>
+              <ul className="organization-tree-node-list">
+                {company.roots.map((root: any) => (
+                  <OrganizationTreeMapNode
+                    key={root.thread_id}
+                    node={root}
+                    depth={0}
+                    selectedThreadId={selectedThreadId}
+                    expandedThreadIds={expandedThreadIds}
+                    directChildCounts={directChildCounts}
+                    onToggle={onToggle}
+                    onSelect={onSelect}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </section>
+      <OrganizationTreeInspector thread={selectedThread} directChildCounts={directChildCounts} />
     </div>
   );
 }
 
-function EmptyState({ filtered, onReset }: { filtered: boolean; onReset: () => void }) {
+function OrganizationTreeMapNode({
+  node,
+  depth,
+  selectedThreadId,
+  expandedThreadIds,
+  directChildCounts,
+  onToggle,
+  onSelect
+}: {
+  node: any;
+  depth: number;
+  selectedThreadId: string | null;
+  expandedThreadIds: Set<string>;
+  directChildCounts: Map<string, number>;
+  onToggle: (threadId: string) => void;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  const hasChildren = node.children.length > 0;
+  const expanded = depth < 1 || expandedThreadIds.has(node.thread_id);
+  const role = liveThreadRoleLabel(node.thread_kind);
   return (
-    <div className="inbox-state-panel">
-      <CircleUserRound size={28} aria-hidden="true" />
-      <h2>{filtered ? "조건에 맞는 항목이 없습니다" : "현재 표시할 합성 항목이 없습니다"}</h2>
-      <p>
-        {filtered
-          ? "검색어나 프로젝트·책임분야 필터를 초기화해 다시 확인하세요."
-          : "실제 시스템 상태로 해석하지 마세요. 이 화면은 빈 상태 fixture입니다."}
-      </p>
-      <button className="inbox-text-button" type="button" onClick={onReset}>
-        <RotateCcw size={14} aria-hidden="true" />
-        {filtered ? "필터 초기화" : "정상 fixture로 돌아가기"}
-      </button>
+    <li className={`organization-tree-node depth-${Math.min(depth, 3)}`}>
+      <div className={`organization-tree-node-card ${node.thread_id === selectedThreadId ? "is-selected" : ""}`}>
+        <button
+          type="button"
+          className="organization-tree-node-select"
+          data-live-thread-id={node.thread_id}
+          data-testid={`organization-tree-node-${node.thread_id}`}
+          aria-expanded={node.thread_id === selectedThreadId}
+          onClick={(event) => onSelect(node.thread_id, event.currentTarget)}
+        >
+          <span className={`realtime-status-icon is-${node.status}`}><CircleDot size={15} aria-hidden="true" /></span>
+          <span><strong>{node.display_label}</strong><small>{role} · {organizationGroupLabel(node.organization_group_id)}</small></span>
+          <span className="organization-tree-node-metrics">하위 {directChildCounts.get(node.thread_id) ?? 0} · 결과 {node.child_result_count}</span>
+          <code>{node.thread_id}</code>
+        </button>
+        {hasChildren && (
+          <button className="organization-tree-node-toggle" type="button" aria-label={`${node.display_label} 하위 ${node.children.length}건 ${expanded ? "접기" : "펼치기"}`} aria-expanded={expanded} onClick={() => onToggle(node.thread_id)}>
+            {expanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
+          </button>
+        )}
+      </div>
+      {hasChildren && expanded && (
+        <ul className="organization-tree-node-list">
+          {node.children.map((child: any) => (
+            <OrganizationTreeMapNode
+              key={child.thread_id}
+              node={child}
+              depth={depth + 1}
+              selectedThreadId={selectedThreadId}
+              expandedThreadIds={expandedThreadIds}
+              directChildCounts={directChildCounts}
+              onToggle={onToggle}
+              onSelect={onSelect}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function OrganizationTreeInspector({ thread, directChildCounts }: { thread: any; directChildCounts: Map<string, number> }) {
+  if (!thread) {
+    return (
+      <aside className="organization-tree-inspector" aria-label="현재 작업">
+        <header><ListChecks size={19} aria-hidden="true" /><h2>현재 작업</h2></header>
+        <div className="organization-inspector-empty"><CircleDot size={18} aria-hidden="true" /><p>조직 node를 선택하면 등록된 정확한 ID의 상태, work, 결과 gate를 표시합니다.</p></div>
+      </aside>
+    );
+  }
+  return (
+    <aside className="organization-tree-inspector" aria-label="현재 작업">
+      <header><ListChecks size={19} aria-hidden="true" /><h2>현재 작업</h2></header>
+      <div className="organization-inspector-thread">
+        <span className={`realtime-status-icon is-${thread.status}`}><CircleDot size={16} aria-hidden="true" />{liveThreadStatusLabel(thread.status)}</span>
+        <strong>{thread.display_label}</strong>
+        <code>{thread.thread_id}</code>
+        <dl>
+          <div><dt>역할</dt><dd>{liveThreadRoleLabel(thread.thread_kind)}</dd></div>
+          <div><dt>work</dt><dd>{thread.work_id ?? "미확정"}</dd></div>
+          <div><dt>직속 하위</dt><dd>{directChildCounts.get(thread.thread_id) ?? 0}</dd></div>
+          <div><dt>결과 gate</dt><dd>{liveThreadResultStateLabel(thread.result_state)}</dd></div>
+          <div><dt>수신자</dt><dd>{thread.attention_target === "owner" ? "Owner" : thread.attention_target === "parent" ? "상위 thread" : "없음"}</dd></div>
+          <div><dt>마지막 관측</dt><dd>{formatRefreshTime(thread.updated_at)}</dd></div>
+        </dl>
+      </div>
+      <p className="organization-inspector-note">idle, Stop, 제목, 경과 시간은 결과나 attention을 만들지 않습니다.</p>
+    </aside>
+  );
+}
+
+function OrganizationResponsibilityFlow({
+  companies,
+  history,
+  selectedThreadId,
+  onSelect
+}: {
+  companies: any[];
+  history: any[];
+  selectedThreadId: string | null;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  if (companies.length === 0) {
+    return <section className="live-state-panel" role="status"><ShieldAlert size={18} aria-hidden="true" /><div><h2>책임 흐름을 만들 수 없습니다</h2><p>명시된 exact parent edge가 없으므로 책임 흐름을 추정하지 않았습니다.</p></div></section>;
+  }
+  return (
+    <section className="organization-responsibility-flow" role="tabpanel" aria-label="책임 흐름" data-testid="organization-responsibility-flow">
+      <header className="organization-flow-headings">
+        <span>회사</span><span>등록 root</span><span>직속 조직 thread</span><span>직속 책임 thread</span>
+      </header>
+      <div className="organization-flow-body">
+        {companies.map((company) => <OrganizationFlowCompany key={company.organization_company_id} company={company} selectedThreadId={selectedThreadId} onSelect={onSelect} />)}
+      </div>
+      <OrganizationFlowWorkStrip companies={companies} history={history} selectedThreadId={selectedThreadId} onSelect={onSelect} />
+      <footer>
+        <CircleCheckBig size={15} aria-hidden="true" />
+        선은 등록된 parent_thread_id만 나타냅니다. 각 열은 최근 4개 exact node만 요약하며, 전체 계층은 조직 트리에서 확인합니다.
+      </footer>
+    </section>
+  );
+}
+
+function flattenOrganizationTree(node: any): any[] {
+  return [node, ...(Array.isArray(node?.children) ? node.children.flatMap((child: any) => flattenOrganizationTree(child)) : [])];
+}
+
+function OrganizationFlowWorkStrip({
+  companies,
+  history,
+  selectedThreadId,
+  onSelect
+}: {
+  companies: any[];
+  history: any[];
+  selectedThreadId: string | null;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  const currentThreads = companies.flatMap((company) => company.roots.flatMap((root: any) => flattenOrganizationTree(root)));
+  const execution = currentThreads.filter(isActiveTaskThread);
+  const reviewResult = currentThreads.filter((thread: any) => (
+    thread.status === "owner_attention" || (thread.status === "parent_result_ready" && thread.attention_target === "parent")
+  ));
+  const completedHistory = history.filter((thread: any) => thread.status === "accepted_closed");
+  return (
+    <section className="organization-flow-work-strip" aria-label="선택 범위 업무 현황" data-testid="organization-flow-work-strip">
+      <OrganizationFlowWorkColumn title="실행 TASK" icon={<Activity size={17} aria-hidden="true" />} threads={execution} selectedThreadId={selectedThreadId} onSelect={onSelect} emptyText="명시적 실행 TASK 없음" />
+      <OrganizationFlowWorkColumn title="검토·결과" icon={<CircleCheckBig size={17} aria-hidden="true" />} threads={reviewResult} selectedThreadId={selectedThreadId} onSelect={onSelect} emptyText="명시 결과 gate 없음" />
+      <OrganizationFlowWorkColumn title="완료·이력" icon={<History size={17} aria-hidden="true" />} threads={completedHistory} selectedThreadId={selectedThreadId} onSelect={onSelect} emptyText="수락·종료 이력 없음" />
+    </section>
+  );
+}
+
+function OrganizationFlowWorkColumn({
+  title,
+  icon,
+  threads,
+  selectedThreadId,
+  onSelect,
+  emptyText
+}: {
+  title: string;
+  icon: React.ReactNode;
+  threads: any[];
+  selectedThreadId: string | null;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+  emptyText: string;
+}) {
+  const visibleThreads = threads.slice(0, 3);
+  return (
+    <section className="organization-flow-work-column" aria-label={title}>
+      <header><div>{icon}<h2>{title}</h2></div><strong>{threads.length}</strong></header>
+      {visibleThreads.length === 0 ? <p>{emptyText}</p> : visibleThreads.map((thread) => (
+        <button key={thread.thread_id} type="button" className={`${thread.thread_id === selectedThreadId ? "is-selected" : ""} ${hasExactObservedActiveLifecycle(thread) ? "is-active" : ""}`} aria-label={`${thread.display_label} · ${liveThreadStatusLabel(thread.status)}`} data-live-thread-id={thread.thread_id} onClick={(event) => onSelect(thread.thread_id, event.currentTarget)}>
+          <span className={`realtime-status-icon is-${thread.status}`}><CircleDot size={13} aria-hidden="true" /></span>
+          <span><strong>{thread.display_label}</strong><small>{thread.work_id ?? "work 미확정"}</small></span>
+        </button>
+      ))}
+      {threads.length > visibleThreads.length && <small className="organization-flow-more">총 {threads.length}건 중 최근 3건</small>}
+    </section>
+  );
+}
+
+function OrganizationFlowCompany({ company, selectedThreadId, onSelect }: { company: any; selectedThreadId: string | null; onSelect: (threadId: string, trigger: HTMLButtonElement) => void }) {
+  const roots = company.roots;
+  const directChildren = roots.flatMap((root: any) => root.children);
+  const responsibilityThreads = directChildren.flatMap((node: any) => node.children);
+  return (
+    <section className="organization-flow-company" aria-labelledby={`organization-flow-${company.organization_company_id}`}>
+      <div className="organization-flow-company-card"><Building2 size={19} aria-hidden="true" /><strong id={`organization-flow-${company.organization_company_id}`}>{company.label}</strong><span>정확한 등록 {roots.reduce((total: number, root: any) => total + countTreeNodes(root), 0)}</span></div>
+      <OrganizationFlowColumn threads={roots} selectedThreadId={selectedThreadId} onSelect={onSelect} emptyText="등록 root 없음" />
+      <OrganizationFlowColumn threads={directChildren} selectedThreadId={selectedThreadId} onSelect={onSelect} emptyText="직속 조직 thread 없음" />
+      <OrganizationFlowColumn threads={responsibilityThreads} selectedThreadId={selectedThreadId} onSelect={onSelect} emptyText="직속 책임 thread 없음" />
+    </section>
+  );
+}
+
+function OrganizationFlowColumn({ threads, selectedThreadId, onSelect, emptyText }: { threads: any[]; selectedThreadId: string | null; onSelect: (threadId: string, trigger: HTMLButtonElement) => void; emptyText: string }) {
+  const visibleThreads = threads.slice(0, 4);
+  return (
+    <div className="organization-flow-column">
+      {visibleThreads.length === 0 ? <span className="organization-flow-empty">{emptyText}</span> : visibleThreads.map((thread) => (
+        <button key={thread.thread_id} type="button" className={`organization-flow-thread ${thread.thread_id === selectedThreadId ? "is-selected" : ""}`} data-live-thread-id={thread.thread_id} data-testid={`organization-flow-node-${thread.thread_id}`} onClick={(event) => onSelect(thread.thread_id, event.currentTarget)}>
+          <span className={`realtime-status-icon is-${thread.status}`}><CircleDot size={14} aria-hidden="true" /></span>
+          <span><strong>{thread.display_label}</strong><small>{liveThreadRoleLabel(thread.thread_kind)} · 하위 {thread.direct_child_count} · 결과 {thread.child_result_count}</small></span>
+          <ChevronRight size={14} aria-hidden="true" />
+        </button>
+      ))}
+      {threads.length > visibleThreads.length && <small className="organization-flow-more">총 {threads.length}건 · 조직 트리에서 전체 확인</small>}
     </div>
   );
 }
 
-function ErrorState({ onReset }: { onReset: () => void }) {
+function OrganizationHierarchy({
+  companies,
+  expandedThreadIds,
+  selectedThreadId,
+  storage,
+  onToggle,
+  onSelect
+}: {
+  companies: any[];
+  expandedThreadIds: Set<string>;
+  selectedThreadId: string | null;
+  storage: Storage | null;
+  onToggle: (threadId: string) => void;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  if (companies.length === 0) {
+    return <section className="live-state-panel" role="status"><ShieldAlert size={18} aria-hidden="true" /><div><h2>표시할 정확 등록 조직 계층이 없습니다</h2><p>등록이 없거나 관측이 비상 중지된 상태입니다.</p></div></section>;
+  }
   return (
-    <div className="inbox-state-panel inbox-state-error" role="alert">
-      <AlertCircle size={28} aria-hidden="true" />
-      <h2>fixture adapter를 읽지 못했습니다</h2>
-      <p>실제 writer나 외부 backend로 우회하지 않습니다. 합성 표본만 다시 불러올 수 있습니다.</p>
-      <button className="inbox-text-button" type="button" onClick={onReset}>
-        <RotateCcw size={14} aria-hidden="true" />
-        합성 fixture 다시 불러오기
-      </button>
+    <section className="live-organization-hierarchy" aria-labelledby="organization-hierarchy-heading" data-testid="organization-hierarchy">
+      <header>
+        <div>
+          <span>TWO-COMPANY · EXACT PARENT EDGES</span>
+          <h2 id="organization-hierarchy-heading">조직도</h2>
+          <p>두 회사 아래에서 exact parent-child thread만 펼칩니다. 이름·경로·idle로 관계를 추정하지 않습니다.</p>
+        </div>
+      </header>
+      {companies.map((company) => (
+        <section className="live-company-tree" key={company.organization_company_id} aria-labelledby={`company-${company.organization_company_id}`}>
+          <header><span>COMPANY</span><h3 id={`company-${company.organization_company_id}`}>{company.label}</h3><strong>{company.roots.length}</strong></header>
+          <ul className="live-thread-tree">
+            {company.roots.map((node: any) => (
+              <OrganizationTreeNode
+                key={node.thread_id}
+                node={node}
+                expandedThreadIds={expandedThreadIds}
+                selectedThreadId={selectedThreadId}
+                storage={storage}
+                onToggle={onToggle}
+                onSelect={onSelect}
+              />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </section>
+  );
+}
+
+function OrganizationTreeNode({
+  node,
+  expandedThreadIds,
+  selectedThreadId,
+  storage,
+  onToggle,
+  onSelect
+}: {
+  node: any;
+  expandedThreadIds: Set<string>;
+  selectedThreadId: string | null;
+  storage: Storage | null;
+  onToggle: (threadId: string) => void;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  const hasChildren = node.children.length > 0;
+  const expanded = expandedThreadIds.has(node.thread_id);
+  const role = liveThreadRoleLabel(node.thread_kind);
+  return (
+    <li className="live-thread-tree-node">
+      <div className={`live-thread-tree-row ${node.thread_id === selectedThreadId ? "is-selected" : ""}`}>
+        {hasChildren ? (
+          <button className="live-tree-toggle" type="button" data-testid={`tree-toggle-${node.thread_id}`} aria-label={`${node.display_label} 하위 ${node.direct_child_count}건 ${expanded ? "접기" : "펼치기"}`} aria-expanded={expanded} onClick={() => onToggle(node.thread_id)}>
+            {expanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
+          </button>
+        ) : <span className="live-tree-leaf" aria-hidden="true" />}
+        <button className="live-tree-select" type="button" data-live-thread-id={node.thread_id} data-testid={`organization-thread-${node.thread_id}`} aria-expanded={node.thread_id === selectedThreadId} onClick={(event) => onSelect(node.thread_id, event.currentTarget)}>
+          <span className="live-card-meta"><span>{role}</span><span className={`live-status live-status-${node.status}`}>{liveThreadStatusLabel(node.status)}</span>{isAcknowledgeableLiveThread(node) && isLiveThreadAcknowledged(storage, node) && <span className="live-ack-badge">로컬 확인됨</span>}</span>
+          <strong>{node.display_label}</strong>
+          <span className="live-tree-summary">직속 {node.direct_child_count} · 하위 결과 {node.child_result_count} · {liveThreadResultStateLabel(node.result_state)}</span>
+          <code>{node.thread_id}</code>
+        </button>
+      </div>
+      {hasChildren && expanded && (
+        <ul className="live-thread-tree">
+          {node.children.map((child: any) => <OrganizationTreeNode key={child.thread_id} node={child} expandedThreadIds={expandedThreadIds} selectedThreadId={selectedThreadId} storage={storage} onToggle={onToggle} onSelect={onSelect} />)}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function LiveThreadCard({
+  thread,
+  selected,
+  acknowledged,
+  directChildCount,
+  onSelect
+}: {
+  thread: any;
+  selected: boolean;
+  acknowledged: boolean;
+  directChildCount: number;
+  onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
+}) {
+  const role = liveThreadRoleLabel(thread.thread_kind);
+  const routeSummary = thread.organization_route_state === "exact"
+    ? `실제 ${role} · exact binding 관측`
+    : `실제 ${role} · 조직 route 미확정 · 자동 라우팅 HOLD`;
+  return (
+    <button
+      className={`live-thread-card ${selected ? "is-selected" : ""}`}
+      type="button"
+      data-live-thread-id={thread.thread_id}
+      data-testid={`live-thread-card-${thread.thread_id}`}
+      aria-expanded={selected}
+      onClick={(event) => onSelect(thread.thread_id, event.currentTarget)}
+    >
+      <span className="live-card-meta">
+        <span>{role}</span>
+        <span className={`live-status live-status-${thread.status}`}>{liveThreadStatusLabel(thread.status)}</span>
+        {acknowledged && <span className="live-ack-badge">로컬 확인됨</span>}
+      </span>
+      <strong>{thread.display_label}</strong>
+      <span className="live-card-secondary">{routeSummary}</span>
+      <span className="live-tree-summary">직속 {directChildCount} · 하위 결과 {thread.child_result_count} · {liveThreadResultStateLabel(thread.result_state)}</span>
+      <code>{thread.thread_id}</code>
+      <span className="live-card-bottom">
+        <span>{thread.work_id ?? "work 미확정"}</span>
+        <ChevronRight size={16} aria-hidden="true" />
+      </span>
+    </button>
+  );
+}
+
+function LiveThreadDetail({
+  thread,
+  organization,
+  acknowledged,
+  directChildCount,
+  isModal,
+  panelRef,
+  closeButtonRef,
+  onClose,
+  onAcknowledge,
+  onRestore
+}: {
+  thread: any;
+  organization: any;
+  acknowledged: boolean;
+  directChildCount: number;
+  isModal: boolean;
+  panelRef: React.MutableRefObject<HTMLElement | null>;
+  closeButtonRef: React.MutableRefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+  onAcknowledge: () => void;
+  onRestore: () => void;
+}) {
+  const role = liveThreadRoleLabel(thread.thread_kind);
+  const routeHold = thread.organization_route_state !== "exact";
+  return (
+    <aside
+      className={`live-thread-detail ${isModal ? "is-modal" : ""}`}
+      ref={panelRef}
+      role={isModal ? "dialog" : undefined}
+      aria-modal={isModal || undefined}
+      aria-labelledby="live-thread-detail-title"
+    >
+      <header>
+        <div>
+          <span>ACTUAL CODEX THREAD · READ ONLY</span>
+          <h2 id="live-thread-detail-title">{thread.display_label}</h2>
+          <p className="live-detail-role">{routeHold ? `${role} · route HOLD` : `${role} · exact binding`}</p>
+        </div>
+        <button ref={closeButtonRef} type="button" aria-label="상세 닫기" onClick={onClose}>
+          <X size={18} aria-hidden="true" />
+        </button>
+      </header>
+      <div className="live-detail-id"><code>{thread.thread_id}</code></div>
+      <dl className="live-detail-grid">
+        <div><dt>상태</dt><dd>{liveThreadStatusLabel(thread.status)}</dd></div>
+        <div><dt>실시간 관측</dt><dd>{thread.observed ? "관측됨" : "미관측"}</dd></div>
+        <div><dt>조직 그룹</dt><dd>{organizationGroupLabel(thread.organization_group_id, organization)}</dd></div>
+        <div><dt>work</dt><dd>{thread.work_id ?? "미확정"}</dd></div>
+        <div><dt>상위 thread</dt><dd>{thread.parent_thread_id ? <code>{thread.parent_thread_id}</code> : "직속 root"}</dd></div>
+        <div><dt>직속 하위</dt><dd>{directChildCount}건</dd></div>
+        <div><dt>하위 결과</dt><dd>{thread.child_result_count}건</dd></div>
+        <div><dt>결과 게이트</dt><dd>{liveThreadResultStateLabel(thread.result_state)}</dd></div>
+        <div><dt>결과 수신자</dt><dd>{thread.attention_target === "owner" ? "Owner" : thread.attention_target === "parent" ? "정확한 상위 thread" : "없음"}</dd></div>
+        <div><dt>응답/turn 종료 관측</dt><dd>{thread.stop_observed_at ? formatRefreshTime(thread.stop_observed_at) : "없음"}</dd></div>
+        <div><dt>관계</dt><dd>{thread.relationship}</dd></div>
+        <div><dt>등록 lifecycle</dt><dd>{thread.lifecycle}</dd></div>
+      </dl>
+      <section className={`live-route-state ${routeHold ? "is-hold" : ""}`}>
+        <h3>{routeHold ? `실제 ${role} · 조직 route 미확정 · 자동 라우팅 HOLD` : "separate exact binding supplied"}</h3>
+        <p>{routeHold ? "등록은 가시성 권한만 부여합니다. route catalog 또는 live binding authority를 만들거나 추정하지 않습니다." : "실행 가능성은 separate exact binding의 metadata 값만 반영합니다."}</p>
+        <dl>
+          <div><dt>route</dt><dd>{thread.route_id ?? "미확정"}</dd></div>
+          <div><dt>execution ready</dt><dd>{thread.execution_ready ? "true" : "false"}</dd></div>
+        </dl>
+      </section>
+      <section className="live-detail-actions">
+        {isAcknowledgeableLiveThread(thread) && !acknowledged && (
+          <button className="live-acknowledge-button" type="button" onClick={onAcknowledge}>
+            <Check size={15} aria-hidden="true" />
+            읽었음 · 현황에서 숨기기
+          </button>
+        )}
+        {acknowledged && (
+          <button className="live-restore-button" type="button" onClick={onRestore}>
+            <ArchiveRestore size={15} aria-hidden="true" />
+            Active로 복원
+          </button>
+        )}
+        <p>이 동작은 이 브라우저의 localStorage만 바꾸며, Codex TASK를 완료·보관·변경하지 않습니다.</p>
+      </section>
+    </aside>
+  );
+}
+
+function formatUsageNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatUsageCredits(value: number | null) {
+  return value === null ? "UNKNOWN" : value.toFixed(4);
+}
+
+function fleetTokenLabel(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  if (value >= 1e9) return `${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
+  if (value >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
+  return String(value);
+}
+
+function FleetUsageCards({ usage }: { usage: any }) {
+  const windows = usage?.history?.windows ?? null;
+  if (!windows) return null;
+  const specs = [
+    { key: "calendar_day", tone: "green", title: "오늘 사용", pill: "KST 달력일" },
+    { key: "calendar_week", tone: "teal", title: "이번 주", pill: "달력 주" },
+    { key: "calendar_month", tone: "amber", title: "이번 달", pill: "월간 크레딧" },
+  ];
+  return (
+    <div className="fleet-usage-cards" data-testid="fleet-usage-cards">
+      {specs.map((spec) => {
+        const totals = windows[spec.key]?.totals;
+        if (!totals) return null;
+        const credits = totals.credits === null ? "미확정" : Math.round(totals.credits).toLocaleString("en-US");
+        return (
+          <article key={spec.key} className={`fleet-usage-card is-${spec.tone}`}>
+            <header>
+              <span className="fleet-usage-dot" aria-hidden="true" />
+              <span className="fleet-usage-title">{spec.title}</span>
+              <span className="fleet-usage-pill">{spec.pill}</span>
+            </header>
+            <strong>{fleetTokenLabel(totals.total_tokens)}<small> tok</small></strong>
+            <p>{totals.turns.toLocaleString("en-US")}턴 · 크레딧 {credits}{totals.credit_unknown_turns > 0 ? ` · 단가 미확정 ${totals.credit_unknown_turns}` : ""}</p>
+            <svg viewBox="0 0 200 34" preserveAspectRatio="none" aria-hidden="true">
+              <line className="fleet-usage-base" x1="0" y1="30" x2="200" y2="30" />
+              <polyline className="fleet-usage-line" points="0,27 36,25 72,26 108,19 144,13 200,7" />
+              <circle className="fleet-usage-tip" cx="200" cy="7" r="2.6" />
+            </svg>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskLabels: Map<string, string> | Record<string, string> | null }) {
+  const windows = usage?.history?.windows ?? null;
+  const window = windows?.all_time ?? windows?.calendar_month ?? null;
+  if (!window || !window.breakdowns) return null;
+  const labelFor = (kind: string, id: string): string => {
+    if (kind === "tasks" && exactTaskLabels) {
+      const mapped = exactTaskLabels instanceof Map ? exactTaskLabels.get(id) : exactTaskLabels[id];
+      if (typeof mapped === "string" && mapped.length > 0) return mapped;
+    }
+    return id.length > 22 ? `${id.slice(0, 20)}…` : id;
+  };
+  const columns = [
+    { key: "projects", tone: "amber", title: "프로젝트별 토큰" },
+    { key: "works", tone: "green", title: "work별 토큰" },
+    { key: "tasks", tone: "purple", title: "task별 토큰" },
+  ];
+  return (
+    <section className="ledger-distribution" aria-label="사용량 분포" data-testid="ledger-distribution">
+      <header>
+        <span className="ledger-distribution-kicker">분포</span>
+        <h2>누적 사용 분포</h2>
+        <span className="ledger-distribution-meta">전체 {window.totals.turns.toLocaleString("en-US")}턴 · {fleetTokenLabel(window.totals.total_tokens)} tok</span>
+      </header>
+      <div className="ledger-distribution-columns">
+        {columns.map((column) => {
+          const rows = Array.isArray(window.breakdowns[column.key]) ? window.breakdowns[column.key] : [];
+          if (rows.length === 0) {
+            return (
+              <div key={column.key} className={`ledger-distribution-column is-${column.tone}`}>
+                <h3>{column.title}</h3>
+                <p className="ledger-distribution-empty">귀속 항목 없음 — exact 바인딩 대기</p>
+              </div>
+            );
+          }
+          const max = Math.max(...rows.map((row: any) => row.total_tokens ?? 0), 1);
+          return (
+            <div key={column.key} className={`ledger-distribution-column is-${column.tone}`}>
+              <h3>{column.title}</h3>
+              <ul>
+                {rows.slice(0, 8).map((row: any, index: number) => {
+                  const id = String(row.project_code ?? row.work_id ?? row.task_id ?? `row-${index}`);
+                  return (
+                    <li key={id}>
+                      <span className="ledger-bar-label">{labelFor(column.key, id)}</span>
+                      <span className="ledger-bar"><span style={{ width: `${Math.max(4, Math.round(((row.total_tokens ?? 0) / max) * 100))}%` }} /></span>
+                      <span className="ledger-bar-value">{fleetTokenLabel(row.total_tokens ?? 0)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SystemStatStrip({ projection, threadCount, usageState }: { projection: any; threadCount: number; usageState: string }) {
+  const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
+  const summary = model.available ? model.summary : null;
+  const observed = compactClock(model.observedAt);
+  return (
+    <div className="system-stat-strip" data-testid="system-stat-strip" role="note">
+      <span>수집기 <b>{summary ? summary.ok + summary.degraded + summary.stale + summary.down : "—"}</b></span>
+      <span>정상 <b className="is-ok">{summary ? summary.ok : "—"}</b></span>
+      <span>주의 <b className={summary && summary.degraded + summary.stale + summary.down > 0 ? "is-warn" : ""}>{summary ? summary.degraded + summary.stale + summary.down : "—"}</b></span>
+      <span>등록 스레드 <b>{threadCount}</b></span>
+      <span>판정 <b>{observed}</b></span>
+      <span className="system-stat-strip-end">METER <b className={usageState === "unmeasured" ? "" : "is-ok"}>{usageState === "unmeasured" ? "대기" : "가동"}</b></span>
+    </div>
+  );
+}
+
+function FleetStatusRows({ projection }: { projection: any }) {
+  const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
+  if (!model.available || model.summary === null) return null;
+  const monitored = model.summary.ok + model.summary.degraded + model.summary.stale + model.summary.down;
+  const healthy = model.summary.degraded === 0 && model.summary.stale === 0 && model.summary.down === 0;
+  const observed = compactClock(model.observedAt);
+  return (
+    <div className="fleet-status-rows" data-testid="fleet-status-rows">
+      <div className="fleet-status-row">
+        <span className="fleet-status-name"><Radio size={13} aria-hidden="true" /> Watchtower</span>
+        <span className="fleet-status-desc">수집기 {monitored}종 판정 · 검사 전용(W1)</span>
+        <span className="fleet-status-meta">last: {observed} · next: ~30s</span>
+        <span className={`fleet-status-dot ${healthy ? "is-ok" : "is-warn"}`} aria-hidden="true" />
+        <span className="fleet-status-state">{healthy ? "OK" : `주의 ${model.attention.length}`}</span>
+      </div>
+      {model.attention.length > 0 && (
+        <div className="fleet-status-row is-attention">
+          <span className="fleet-status-name"><AlertCircle size={13} aria-hidden="true" /> 주의</span>
+          <span className="fleet-status-desc">{model.attention.map((node: any) => `${node.label}: ${node.reasons[0] ?? node.stateLabel}`).join(" · ")}</span>
+          <span className="fleet-status-meta" />
+          <span className="fleet-status-dot is-warn" aria-hidden="true" />
+          <span className="fleet-status-state">{model.attention.length}건</span>
+        </div>
+      )}
+      <div className="fleet-status-row is-dim">
+        <span className="fleet-status-name"><ShieldAlert size={13} aria-hidden="true" /> Self-Heal Watchdog</span>
+        <span className="fleet-status-desc">자동 복구·알림 — W2 승인 게이트 대기</span>
+        <span className="fleet-status-meta">planned</span>
+        <span className="fleet-status-dot" aria-hidden="true" />
+        <span className="fleet-status-state">대기</span>
+      </div>
+    </div>
+  );
+}
+
+function WatchtowerTopologyNode({ data }: NodeProps<any>) {
+  if (data.kind === "caption") {
+    return <span className="watchtower-caption">{data.label}</span>;
+  }
+  return (
+    <div className={`watchtower-node is-${data.state} watchtower-node-${data.kind}`}>
+      {data.kind === "store" && <span className="watchtower-node-cap" aria-hidden="true" />}
+      <Handle type="target" position={Position.Left} isConnectable={false} aria-hidden="true" />
+      <span className="watchtower-node-dot" aria-hidden="true" />
+      <div className="watchtower-node-body">
+        <strong>{data.label}</strong>
+        <small>{data.state === "unmonitored" ? "미감시 · 구조 표시" : `${data.stateLabel} · ${data.ageLabel}`}</small>
+      </div>
+      <Handle type="source" position={Position.Right} isConnectable={false} aria-hidden="true" />
+    </div>
+  );
+}
+
+const watchtowerTopologyNodeTypes = { watchtowerTopology: WatchtowerTopologyNode };
+
+function SystemTopologySurface({ projection, refreshing }: { projection: any; refreshing: boolean }) {
+  const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
+  const [flowInstance, setFlowInstance] = useState<any>(null);
+  useEffect(() => {
+    if (flowInstance === null || model.nodes.length === 0) return undefined;
+    const fit = () => {
+      try { flowInstance.fitView({ padding: 0.08 }); } catch {
+        // fitView는 표시 품질 보정일 뿐 — 실패해도 판정 표시는 유지한다.
+      }
+    };
+    const frame = requestAnimationFrame(fit);
+    const settle = window.setTimeout(fit, 350);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
+    };
+  }, [flowInstance, model]);
+  const graphNodes = useMemo(() => model.nodes.map((node: any) => ({
+    id: node.id,
+    type: "watchtowerTopology",
+    position: node.position,
+    data: node,
+    draggable: false,
+    selectable: false,
+    focusable: false
+  })), [model]);
+  const graphEdges = useMemo(() => model.edges.map((edge: any) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    type: "default",
+    className: `${edge.flow === "control" ? "watchtower-edge-control" : "watchtower-edge-data"}${edge.flow === "data" && edge.flowing === true ? " is-flowing" : ""}`,
+    label: edge.label || undefined
+  })), [model]);
+
+  if (projection === null) {
+    return (
+      <section className="live-state-panel" role="status" data-testid="system-topology-loading">
+        <Radio size={18} aria-hidden="true" />
+        <div><h2>시스템 토폴로지 판정 대기</h2><p>Watchtower 첫 판정을 기다리는 중입니다. 판정 전에는 상태를 추정하지 않습니다.</p></div>
+      </section>
+    );
+  }
+  if (!model.available || projection.refresh_state === "unconfigured") {
+    return (
+      <section className="live-state-panel" role="status" data-testid="system-topology-unconfigured">
+        <ShieldAlert size={18} aria-hidden="true" />
+        <div><h2>Watchtower 미구성</h2><p>로컬 binding pointer가 없어 판정할 수 없습니다. 이 상태는 오류가 아니라 미구성이며, 구성 전에는 아무것도 표시하지 않습니다.</p></div>
+      </section>
+    );
+  }
+  const summary = model.summary ?? { ok: 0, degraded: 0, stale: 0, down: 0, unmonitored: 0 };
+  return (
+    <section className="watchtower-surface" aria-label="Soulforge 시스템 토폴로지" data-testid="system-topology-surface">
+      <header className="watchtower-header">
+        <div>
+          <span className="watchtower-kicker"><Radio size={15} aria-hidden="true" /> WATCHTOWER · 검사 전용(W1)</span>
+          <h2>AX 시스템 토폴로지</h2>
+          <p>하트비트를 period+grace 윈도로 판정합니다 · 추정하지 않음 · 원문 비저장</p>
+        </div>
+        <div className="watchtower-summary" role="status" aria-live="polite">
+          <span className="watchtower-chip is-ok">정상 {summary.ok}</span>
+          <span className="watchtower-chip is-degraded">열화 {summary.degraded}</span>
+          <span className="watchtower-chip is-stale">신선도 {summary.stale}</span>
+          <span className="watchtower-chip is-down">정지 {summary.down}</span>
+          <span className="watchtower-chip is-unmonitored">미감시 {summary.unmonitored}</span>
+          <span className="watchtower-observed">
+            판정 {model.observedAt ? new Date(model.observedAt).toLocaleTimeString("ko-KR") : "—"}
+            {refreshing || projection.refresh_state === "refreshing" ? " · 갱신 중" : ""}
+          </span>
+        </div>
+      </header>
+      {model.attention.length > 0 && (
+        <div className="watchtower-attention" role="alert" data-testid="system-topology-attention">
+          <span className="watchtower-incident-tag"><span aria-hidden="true" /> INCIDENT</span>
+          <ul>
+            {model.attention.map((node: any) => (
+              <li key={node.id}><strong>{node.label}</strong> {node.stateLabel}{node.reasons.length > 0 ? ` · ${node.reasons.join(" · ")}` : ""}</li>
+            ))}
+          </ul>
+          <span className="watchtower-incident-flow" aria-label="대응 단계">
+            <b>진단</b><i aria-hidden="true">→</i><span>복구</span><i aria-hidden="true">→</i><span>리포트</span>
+          </span>
+        </div>
+      )}
+      <div className="watchtower-canvas" aria-label="토폴로지 그래프">
+        <ReactFlow
+          nodes={graphNodes}
+          edges={graphEdges}
+          nodeTypes={watchtowerTopologyNodeTypes as any}
+          colorMode="dark"
+          onInit={setFlowInstance}
+          fitView
+          fitViewOptions={{ padding: 0.08 }}
+          minZoom={0.35}
+          maxZoom={1.6}
+          nodesConnectable={false}
+          nodesDraggable={false}
+          elementsSelectable={false}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={26} size={1.1} className="watchtower-canvas-dots" />
+        </ReactFlow>
+      </div>
+      <footer className="watchtower-footnote">
+        <EyeOff size={13} aria-hidden="true" />
+        <span>미감시 노드는 아직 판정 대상이 아닌 구조 표시입니다. 복구·알림 자동화는 W2에서 별도 승인 게이트로 추가됩니다.</span>
+      </footer>
+    </section>
+  );
+}
+
+function AiUsagePanel({ projection, exactTaskLabels, exactTaskAttribution, exactTaskAttributionState }: {
+  projection: any;
+  exactTaskLabels: ReadonlyMap<string, string>;
+  exactTaskAttribution: ReadonlyMap<string, { display_label: string; organization_group_id: string; organization_label: string }>;
+  exactTaskAttributionState: "loading" | "ready" | "unavailable";
+}) {
+  const { snapshot } = projection;
+  const [historyWindow, setHistoryWindow] = useState("calendar_day");
+  const roles = snapshot.roles.length > 0
+    ? snapshot.roles
+    : [{ role: "unassigned", turns: 0, total_tokens: 0, credits: null, credit_unknown_turns: 0 }];
+  const modelEffort = snapshot.model_effort.length > 0
+    ? snapshot.model_effort
+    : [{ model: "UNKNOWN", reasoning_effort: "UNKNOWN", turns: 0, total_tokens: 0, credits: null, credit_unknown_turns: 0 }];
+  const isReady = projection.state === "ready";
+  const refreshState = projection.refresh_state ?? (isReady ? "ready" : "unmeasured");
+  const measurementStatus = !isReady
+    ? `측정 불가 / ${refreshState.toUpperCase()}`
+    : `${snapshot.coverage.status === "complete" && refreshState !== "hold" ? "자동 계측 정상" : "부분 계측"}${refreshState === "refreshing" ? " · 갱신 중" : refreshState === "hold" ? " · HOLD" : ""}`;
+  return (
+    <section className={`ai-usage-panel ai-usage-panel-${projection.state}`} aria-label="AI Usage Meter read-only projection" data-live-dialog-background>
+      <header className="ai-usage-header">
+        <div>
+          <span>READ-ONLY LOCAL PROJECTION</span>
+          <h2>AI Usage Meter</h2>
+          <p>현재/수락 exact enrollment ID만 집계합니다. Task 순위는 일치하는 Board label로만 보완하며, 미결합 항목은 exact ID 또는 unassigned로 유지합니다.</p>
+        </div>
+        <strong className="ai-usage-status" data-ai-usage-state={projection.state}>
+          {measurementStatus}
+        </strong>
+      </header>
+      <dl className="ai-usage-summary">
+        <div><dt>전체 토큰</dt><dd>{formatUsageNumber(snapshot.totals.total_tokens)}</dd></div>
+        <div><dt>계산 크레딧</dt><dd>{formatUsageCredits(snapshot.totals.credits)}</dd></div>
+        <div><dt>계측 범위</dt><dd>{snapshot.coverage.status}</dd><small>{formatUsageNumber(snapshot.coverage.measured_turns)} / {formatUsageNumber(snapshot.coverage.total_turns)} 회차 계측</small></div>
+        <div><dt>계측 상태</dt><dd>{snapshot.health.hook_status}</dd><small>대기 이벤트 {formatUsageNumber(snapshot.health.pending_event_count)}건</small></div>
+      </dl>
+      <div className="ai-usage-signals" aria-label="사용량 계측 범위 신호">
+        <span>미분류 {formatUsageNumber(snapshot.coverage.unassigned_turns)}</span>
+        <span>단가 미확정 {formatUsageNumber(snapshot.coverage.rate_unknown_turns)}</span>
+        <span>크레딧 미확정 {formatUsageNumber(snapshot.totals.credit_unknown_turns)}</span>
+      </div>
+      <p className="ai-usage-meter-detail">Meter hook 상태: {snapshot.health.hook_status} · lifecycle JSONL fallback은 local fail-closed 상태로 별도 반영됩니다.</p>
+      <div className="ai-usage-grid">
+        <section aria-labelledby="ai-usage-roles-heading"><h3 id="ai-usage-roles-heading">역할별 사용량</h3><UsageRows rows={roles} labelKey="role" /></section>
+        <section aria-labelledby="ai-usage-models-heading"><h3 id="ai-usage-models-heading">모델 / 추론 강도</h3><UsageRows rows={modelEffort} labelKey="model" showEffort /></section>
+      </div>
+      <div className="ai-usage-activity" aria-label="실행과 조정 활동">
+        <span>실행 {formatUsageNumber(snapshot.activity.execution_turns)}</span>
+        <span>조정 {formatUsageNumber(snapshot.activity.coordination_turns)}</span>
+        <span>검토 {formatUsageNumber(snapshot.activity.review_turns)}</span>
+        <span>분기 {formatUsageNumber(snapshot.activity.fan_out_turns)}</span>
+        <span>재시도 {formatUsageNumber(snapshot.activity.retry_count)}</span>
+        <span>시간 초과 {formatUsageNumber(snapshot.activity.timeout_count)}</span>
+      </div>
+      {projection.history && <AiUsageHistoryPanel history={projection.history} selectedWindow={historyWindow} onSelectWindow={setHistoryWindow} exactTaskLabels={exactTaskLabels} exactTaskAttribution={exactTaskAttribution} exactTaskAttributionState={exactTaskAttributionState} />}
+    </section>
+  );
+}
+
+const USAGE_HISTORY_PERIODS = [
+  ["calendar_day", "오늘"],
+  ["calendar_week", "이번 주"],
+  ["calendar_month", "이번 달"],
+  ["all_time", "전체"]
+];
+
+function AiUsageHistoryPanel({ history, selectedWindow, onSelectWindow, exactTaskLabels, exactTaskAttribution, exactTaskAttributionState }: {
+  history: any;
+  selectedWindow: string;
+  onSelectWindow: (value: string) => void;
+  exactTaskLabels: ReadonlyMap<string, string>;
+  exactTaskAttribution: ReadonlyMap<string, { display_label: string; organization_group_id: string; organization_label: string }>;
+  exactTaskAttributionState: "loading" | "ready" | "unavailable";
+}) {
+  const fallbackWindow = history.windows.all_time;
+  const window = history.windows[selectedWindow] ?? fallbackWindow;
+  const panelId = `ai-usage-history-${selectedWindow}`;
+  const projectChartRows = buildProjectUsageChartRows(window.breakdowns.projects);
+  const organizationChartRows = exactTaskAttributionState === "ready"
+    ? buildOrganizationUsageChartRows(window.breakdowns.tasks, exactTaskAttribution)
+    : [];
+  return (
+    <section className="ai-usage-history" aria-labelledby="ai-usage-history-heading">
+      <header className="ai-usage-history-header">
+        <div>
+          <h3 id="ai-usage-history-heading">정확한 ID 기준 사용 이력</h3>
+          <p>KST 기준 토큰·크레딧과 프로젝트/업무/TASK 순위를 보여줍니다.</p>
+        </div>
+        <div className="ai-usage-period-tabs" role="tablist" aria-label="AI usage period">
+          {USAGE_HISTORY_PERIODS.map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={selectedWindow === key}
+              aria-controls={`ai-usage-history-${key}`}
+              id={`ai-usage-period-${key}`}
+              className={selectedWindow === key ? "is-selected" : ""}
+              onClick={() => onSelectWindow(key)}
+              data-testid={`ai-usage-period-${key}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </header>
+      <section id={panelId} role="tabpanel" aria-labelledby={`ai-usage-period-${selectedWindow}`} className="ai-usage-history-panel" tabIndex={0}>
+        <dl className="ai-usage-history-summary">
+          <div><dt>작업 회차</dt><dd>{formatUsageNumber(window.totals.turns)}</dd></div>
+          <div><dt>토큰</dt><dd>{formatUsageNumber(window.totals.total_tokens)}</dd></div>
+          <div><dt>계산 크레딧</dt><dd>{formatUsageCredits(window.totals.credits)}</dd></div>
+          <div><dt>크레딧 미확정</dt><dd>{formatUsageNumber(window.totals.credit_unknown_turns)}</dd></div>
+        </dl>
+        <p className="ai-usage-reconciliation" data-testid="ai-usage-history-reconciliation">project/work/task 합계가 선택 기간 총계와 일치합니다.</p>
+        <div className="ai-usage-chart-grid" aria-label="선택 기간 사용량 비교 그래프">
+          <UsageComparisonChart
+            chartId="ai-usage-project-chart"
+            heading="프로젝트별 토큰 사용량"
+            subtitle="Meter project_id 기준 · 미결합은 unassigned로 표시"
+            rows={projectChartRows}
+            tone="project"
+            emptyLabel="선택 기간에 계측된 프로젝트 사용량이 없습니다."
+          />
+          <UsageComparisonChart
+            chartId="ai-usage-organization-chart"
+            heading="조직별 연결 사용량"
+            subtitle="TASK exact ID와 Board 조직 등록이 일치한 사용량"
+            rows={organizationChartRows}
+            tone="organization"
+            emptyLabel={exactTaskAttributionState === "ready"
+              ? "선택 기간에 조직으로 정확히 연결할 사용량이 없습니다."
+              : exactTaskAttributionState === "loading"
+                ? "조직 등록 연결을 불러오는 중입니다."
+                : "조직 등록 연결을 확인할 수 없습니다. 그래프 귀속을 추정하지 않습니다."}
+            footnote="상위 TASK 밖 집계와 조직 등록이 일치하지 않는 사용량은 미연결·기타로 유지합니다."
+          />
+        </div>
+        <div className="ai-usage-history-grid">
+          <UsageHistoryRows heading="프로젝트 사용량 순위" rows={window.breakdowns.projects} labelKey="project_id" />
+          <UsageHistoryRows heading="업무 사용량 순위" rows={window.breakdowns.works} labelKey="work_id" />
+          <UsageHistoryRows heading="TASK 사용량 순위" rows={window.breakdowns.tasks} labelKey="task_id" exactTaskLabels={exactTaskLabels} />
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function UsageComparisonChart({ chartId, heading, subtitle, rows, tone, emptyLabel, footnote }: {
+  chartId: string;
+  heading: string;
+  subtitle: string;
+  rows: any[];
+  tone: "project" | "organization";
+  emptyLabel: string;
+  footnote?: string;
+}) {
+  const visibleRows = rows.filter((row) => (
+    row.total_tokens > 0 || row.turns > 0 || row.credits > 0 || row.credit_unknown_turns > 0
+  ));
+  const maxTokens = Math.max(1, ...visibleRows.map((row) => row.total_tokens));
+  return (
+    <section className={`ai-usage-chart is-${tone}`} aria-labelledby={`${chartId}-heading`} data-testid={chartId}>
+      <header>
+        <h4 id={`${chartId}-heading`}>{heading}</h4>
+        <p>{subtitle}</p>
+      </header>
+      {visibleRows.length === 0
+        ? <p className="ai-usage-chart-empty" role="status">{emptyLabel}</p>
+        : (
+          <ol className="ai-usage-chart-list">
+            {visibleRows.map((row) => (
+              <li key={row.usage_id}>
+                <div className="ai-usage-chart-label">
+                  <span><strong>{row.label}</strong><small>{row.secondary}</small></span>
+                  <b>{formatUsageNumber(row.total_tokens)}</b>
+                </div>
+                <progress
+                  max={maxTokens}
+                  value={row.total_tokens}
+                  aria-label={`${row.label} ${formatUsageNumber(row.total_tokens)} 토큰`}
+                />
+                <p>{formatUsageNumber(row.turns)}회 · {formatUsageCredits(row.credits)} 크레딧{row.credit_unknown_turns > 0 ? ` · 미확정 ${formatUsageNumber(row.credit_unknown_turns)}회` : ""}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      {footnote && <p className="ai-usage-chart-footnote">{footnote}</p>}
+    </section>
+  );
+}
+
+function UsageHistoryRows({ heading, rows, labelKey, exactTaskLabels = new Map<string, string>() }: { heading: string; rows: any; labelKey: "project_id" | "work_id" | "task_id"; exactTaskLabels?: ReadonlyMap<string, string> }) {
+  const tableRows = [...rows.top, { [labelKey]: "other", ...rows.other }];
+  return (
+    <section aria-label={heading}>
+      <h4>{heading}</h4>
+      <div className="ai-usage-table" role="table">
+        <div className="ai-usage-row ai-usage-row-head" role="row">
+          <span role="columnheader">ID</span><span role="columnheader">회차</span><span role="columnheader">토큰</span><span role="columnheader">크레딧</span>
+        </div>
+        {tableRows.map((row: any) => (
+          <div className="ai-usage-row" role="row" key={row[labelKey]}>
+            <span role="cell">
+              {labelKey === "task_id" && exactTaskLabels.get(row[labelKey])
+                ? <><strong>{exactTaskLabels.get(row[labelKey])}</strong><small>{row[labelKey]}</small></>
+                : row[labelKey]}
+            </span>
+            <span role="cell">{formatUsageNumber(row.turns)}</span><span role="cell">{formatUsageNumber(row.total_tokens)}</span><span role="cell">{formatUsageCredits(row.credits)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function UsageRows({ rows, labelKey, showEffort = false }: { rows: any[]; labelKey: "role" | "model"; showEffort?: boolean }) {
+  return (
+    <div className="ai-usage-table" role="table">
+      <div className="ai-usage-row ai-usage-row-head" role="row">
+        <span role="columnheader">{labelKey === "role" ? "역할" : "모델"}</span><span role="columnheader">회차</span><span role="columnheader">토큰</span><span role="columnheader">크레딧</span>
+      </div>
+      {rows.map((row, index) => (
+        <div className="ai-usage-row" role="row" key={`${row[labelKey]}-${row.reasoning_effort ?? index}`}>
+          <span role="cell">{row[labelKey]}{showEffort && <small>{row.reasoning_effort}</small>}</span>
+          <span role="cell">{formatUsageNumber(row.turns)}</span><span role="cell">{formatUsageNumber(row.total_tokens)}</span><span role="cell">{formatUsageCredits(row.credits)}</span>
+        </div>
+      ))}
     </div>
   );
 }

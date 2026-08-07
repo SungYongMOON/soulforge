@@ -1,580 +1,211 @@
-# Workspace Board Owner Action Inbox — Design QA
-
-## Comparison target
-
-- source visual truth:
-  `%USERPROFILE%/.codex/generated_images/019fb3de-28df-7f62-932c-b18d7fad9a87/call_8Y9O5SsyGLqvfWQQXOD4h6xG.png`
-- compact work-tool grammar reference:
-  `%TEMP%/codex-clipboard-213e4c44-7fda-4a80-8087-a9f68a82c991.png`
-- final browser-rendered implementation:
-  `evidence/workspace-board-1440x1024-iteration8-compact-detail-only.png`
-- final same-input comparison:
-  `evidence/workspace-board-iteration8-final-full-comparison.png`
-- final focused card comparison:
-  `evidence/workspace-board-iteration8-final-compact-focus-comparison.png`
-- final mobile dialog implementation:
-  `evidence/workspace-board-390x844-iteration8-mixed-modal.png`
-- route/state: `/`, dark theme, synthetic normal state, blocked TASK selected
-- CSS viewport: 1440 × 1024
-- device pixel ratio: 1
-- source pixels: 1487 × 1058, normalized to 1440 × 1024 for comparison
-- implementation screenshot pixels: 1425 × 1013. The in-app browser capture
-  excludes its 15 px scrollbar/frame region while the measured CSS viewport
-  remains 1440 × 1024.
-- density normalization: source resampled once with aspect-preserving near-1:1
-  fit; implementation kept at native DPR 1.
-
-## Browser evidence
-
-- primary desktop:
-  `evidence/workspace-board-1440x1024-iteration8-compact-detail-only.png`
-- mixed observed/unobserved provider desktop:
-  `evidence/workspace-board-1440x1024-iteration8-mixed-provider.png`
-- pre-revision desktop baseline:
-  `evidence/workspace-board-1440x1024-before-compact-annotation.png`
-- compact-card initial comparison:
-  `evidence/workspace-board-iteration6-initial-full-comparison.png`
-- compact-card final comparison:
-  `evidence/workspace-board-iteration6-final-full-comparison.png`
-- focused card/provider comparison:
-  `evidence/workspace-board-iteration8-final-compact-focus-comparison.png`
-- completed-unread selected:
-  `evidence/workspace-board-1440x1024-completed-selected.png`
-- acknowledged history recovery:
-  `evidence/workspace-board-1440x1024-acknowledged-history.png`
-- tablet:
-  `evidence/workspace-board-1024x768-iteration8-mixed-detail.png`
-- mobile board:
-  `evidence/workspace-board-390x844-brand-glyphs-board.png`
-- mobile blocked detail:
-  `evidence/workspace-board-390x844-iteration8-mixed-modal.png`
-- mobile accessible dialog:
-  `evidence/workspace-board-390x844-mobile-dialog-accessibility.png`
-- mobile first entry without an automatic dialog:
-  `evidence/workspace-board-390x844-mobile-first-entry-iteration-4.png`
-- mobile acknowledged history dialog:
-  `evidence/workspace-board-390x844-mobile-ack-history-dialog-iteration-4.png`
-- mobile acknowledged history focus restore:
-  `evidence/workspace-board-390x844-mobile-ack-history-restore-iteration-4.png`
-- mobile first entry recapture:
-  `evidence/workspace-board-390x844-mobile-first-entry-iteration-5.png`
-- mobile acknowledgement post-transition focus:
-  `evidence/workspace-board-390x844-mobile-ack-focus-inside-iteration-5.png`
-
-The full-view comparison places source 2, the reviewed iteration 7 candidate,
-and iteration 8 in one input. The blocker-card information boundary is too small
-for reliable full-view judgment, so iteration 8 also uses a focused
-candidate-versus-final crop. Mixed provider and mobile modal states have their
-own focused screenshots.
-
-## Findings
-
-No actionable P0/P1/P2 findings remain.
-
-- Fonts and typography: the existing Segoe UI/system stack keeps Korean and
-  Latin labels readable at the compact target density. Project meta is smaller
-  than the TASK title, and long text wraps without overlap.
-- Spacing and layout rhythm: four state columns, 1 px dividers, 4–6 px radii,
-  restrained fills, minimal shadow, and the right detail panel follow the
-  selected visual grammar. The average card height fell from 182 px to 93.58 px;
-  the same 1440 × 1024 CSS viewport now shows 16 rather than 12 active cards.
-  Four visible cards per column plus explicit `더보기` prevents scale-driven
-  overflow.
-- Colors and visual tokens: graphite surfaces and subtle blue/purple/red/green
-  column treatments preserve the source state semantics without heavy fills.
-  `completed_unread` is green and blocked/decision text is red.
-- Image quality and assets: the target contains no required raster product
-  imagery. Standard interface icons use Lucide. Observed provider marks use
-  unmodified MIT `@lobehub/icons-static-svg` brand assets imported through the
-  Vite asset pipeline; no inline/handcrafted SVG, CSS art, emoji, or generic
-  approximation remains. The Orca orb and host chrome are reference-environment
-  assets and were not copied into the product.
-- Copy and content: every displayed entity is labeled synthetic or observed/
-  UNKNOWN. The copy does not imply live Codex, ERP, worktree, or provider truth.
-- Icons: observed Codex/GPT, Antigravity/Gemini, and Kimi entries use Lobe's
-  `codex-color.svg`, `antigravity-color.svg`, and `kimi-color.svg` brand marks.
-  Multi-agent rows show only observed brand glyphs. A mixed fixture's
-  `observed: false` Kimi entry is absent from rendering, count, and multi-agent
-  determination. Only a provider whose task-level observation state is unknown
-  uses Lucide `Bot`, with explicit non-inference text.
-- States and interactions: active/history, search, project/responsibility/
-  status filters, per-column more, detail selection, completed acknowledgement,
-  pointer-preserving history recovery, empty, error, missing-data, UNKNOWN, and
-  multi-agent states were exercised.
-- Accessibility: semantic headings/regions/buttons/labels, `aria-pressed`
-  selection state, skip link, visible 2 px focus ring, reduced-motion handling,
-  no horizontal overflow at tested breakpoints, and 44 px minimum visible
-  mobile control height passed. At 760 px and below, detail has dialog/modal
-  semantics, a heading-derived accessible name, initial close-button focus,
-  Tab/Shift+Tab trapping, Escape/close dismissal, background inertness, and
-  trigger-card focus restoration. Larger viewports retain the non-modal detail.
-  When an internal action removes the focused control while the dialog remains
-  open, the committed dialog state deterministically moves focus to its
-  connected, visible close button.
-  A detached trigger is rejected; restoration then prefers the same logical
-  task if rendered, followed by the current view control, search, scope heading,
-  and main content. `BODY` is not treated as a successful restoration target.
-
-## Comparison history
-
-### Iteration 1 — blocked
-
-Evidence: `evidence/design-qa-comparison-iteration-1.png`
-
-- [P1] Card information was materially denser and smaller than the source,
-  weakening scan hierarchy.
-  Fix: reduced the initial per-column limit from four to three, increased TASK
-  title/provider/owner/timestamp sizing, and retained overflow behind `더보기`.
-- [P2] The selected blocked detail headed itself `막힘` instead of the source's
-  decision-oriented `Owner 판단 필요`.
-  Fix: added state-aware detail titles and the source-aligned evidence, impact,
-  and request-message sections.
-- [P2] Mobile visible controls included 29–34 px targets.
-  Fix: raised mobile menu, search, selects, view controls, reset, and more
-  buttons to a 44 px minimum.
-
-### Iteration 2 — blocked
-
-Evidence: `evidence/design-qa-comparison-iteration-2.png`
-
-- The earlier density and detail-hierarchy findings were corrected.
-- [P2] The comparison capture retained a 12 px restored scroll offset, clipping
-  the topbar edge, and the final mobile audit still found 34 px `더보기`
-  controls.
-  Fix: navigated to a fresh local route state for scroll position 0 and raised
-  the remaining input/more targets to 44 px.
-
-### Final comparison — passed
-
-Evidence: `evidence/design-qa-comparison-final.png`
-
-- Source 2, Orca grammar reference, and the browser-rendered MVP are present in
-  one comparison input.
-- Four-column composition, task hierarchy, muted state surfaces, decision
-  detail, and compact work-tool grammar are aligned.
-- Intentional deviations are product-contract driven: the MVP uses
-  project/responsibility/TASK/pointer/provider fields instead of the source's
-  evidence progress bars, and it exposes scale controls required by the
-  acceptance contract.
-- No actionable P0/P1/P2 difference remains.
-
-### Iteration 3 — fresh independent P2 blocked, then passed
-
-Pre-fix evidence: fresh independent review reproduced the 390 × 844 fixed
-overlay with focus retained on the obscured blocked card. Of 27 focusable
-elements, only one was inside the detail while 26 background elements remained
-reachable. The overlay had no dialog/modal semantics or focus management.
-
-Fix:
-
-- centralized the mobile detail boundary at 760 px for the viewport decision
-  and kept the CSS query aligned with that value
-- added `role="dialog"`, `aria-modal="true"`, and heading-based accessible name
-- moved focus to the close button on open
-- added deterministic Tab/Shift+Tab boundary cycling and Escape dismissal
-- applied `inert` and `aria-hidden` to the background while the modal is open
-- restored focus to the exact originating TASK card after Escape or close
-- preserved the 1024 × 768 tablet and desktop detail as non-modal
-
-Post-fix evidence:
-
-- implementation:
-  `evidence/workspace-board-390x844-mobile-dialog-accessibility.png`
-- source/Orca/desktop/mobile comparison:
-  `evidence/design-qa-comparison-iteration-3-mobile-dialog.png`
-- CSS viewport and screenshot pixels: 390 × 844 at DPR 1
-- open state: active element was the dialog close button; the dialog accessible
-  name was `Owner 판단 필요`
-- focus surface: 28 visible focusable elements in the document, one effective
-  focusable inside the dialog, zero effective focusables outside it, five inert
-  background roots
-- actual Tab, Tab, Shift+Tab cycle remained on the only dialog focus target
-- actual Escape and close-button paths both removed the dialog and restored
-  focus to `오로라, 오로라 공급 일정 확정, 막힘`
-- 1024 × 768 check: no dialog role, no `aria-modal`, no inert root, static
-  non-modal detail
-
-The accessibility correction does not introduce a visible P0/P1/P2 drift.
-The final same-input comparison keeps the selected compact visual grammar,
-desktop composition, and mobile detail hierarchy intact.
-
-### Iteration 4 — fresh lifecycle P2 blocked, then passed
-
-Pre-fix evidence: fresh independent re-review found two lifecycle gaps despite
-the generic blocked-card path passing. The 390 × 844 first entry opened the
-default selected detail without an originating trigger, so Escape/close left
-focus on `BODY`. After `완료·미확인` → `읽고 확인`, the originating card was
-removed from the active DOM; closing the retained history detail attempted to
-focus the detached reference and also landed on `BODY`.
-
-Fix:
-
-- disabled default detail selection only at the shared 760 px mobile boundary;
-  1024 × 768 and desktop keep their default non-modal detail
-- added pure, deterministic focus-candidate and priority-selection helpers
-- reject missing, detached (`isConnected=false`), disabled, hidden, or inert
-  restore candidates
-- restore in priority order to the connected origin, the same rendered logical
-  TASK, the current active/history view control, search, scope heading, or main
-- preserve the acknowledged item as an `이력 상세` modal; when the 60-row
-  history cap means its row is not rendered, restore to the connected
-  `이력·제외` view control rather than `BODY`
-
-Post-fix evidence:
-
-- same-input source/Orca/actual comparison:
-  `evidence/design-qa-comparison-iteration-4-modal-lifecycle.png`
-- first entry:
-  `evidence/workspace-board-390x844-mobile-first-entry-iteration-4.png`
-- acknowledged history dialog:
-  `evidence/workspace-board-390x844-mobile-ack-history-dialog-iteration-4.png`
-- acknowledged history close restore:
-  `evidence/workspace-board-390x844-mobile-ack-history-restore-iteration-4.png`
-- first entry measured 390 × 844, zero dialogs, zero selected cards, and a
-  visible board
-- acknowledged transition retained the named `이력 상세` dialog and original
-  pointer event; both Escape and close-button paths restored to the connected
-  `이력·제외` button (`BUTTON`, not `BODY`)
-- blocked open moved focus to `상세 닫기`; Tab and Shift+Tab stayed trapped,
-  effective outside focusables remained zero with five inert background roots,
-  and Escape restored the exact `fixture-aurora-supply` card
-- 1024 × 768 remained static and non-modal: no dialog role, no `aria-modal`,
-  and zero inert roots
-- browser console errors: 0; warnings: 0
-
-The iteration 4 comparison shows no visual P0/P1/P2 regression in the compact
-graphite grammar, mobile information hierarchy, or acknowledged history state.
-
-### Iteration 5 — fresh acknowledgement-focus P2 blocked, then passed
-
-Pre-fix evidence: fresh independent final review reproduced a 390 × 844
-`완료·미확인` modal where activating `읽고 확인` removed the focused action
-button, retained the selected TASK as an `이력 상세` modal, and left
-`document.activeElement` on `BODY`. Escape/close restoration after that point
-already passed and was preserved.
-
-Fix:
-
-- derived the modal focus lifecycle key from open state, selected TASK id, and
-  TASK status so `completed_unread` → `owner_acknowledged` reruns the post-commit
-  focus effect even though the dialog remains open
-- selected the first connected, visible, enabled, non-inert target inside the
-  dialog, preferring `상세 닫기` and retaining the heading as a programmatic
-  fallback
-- added deterministic tests that the acknowledgement status transition changes
-  the focus-cycle key and that a connected close button wins over the heading
-
-Post-fix evidence:
-
-- same-input source/Orca/actual comparison:
-  `evidence/design-qa-comparison-iteration-5-ack-focus.png`
-- first entry:
-  `evidence/workspace-board-390x844-mobile-first-entry-iteration-5.png`
-- acknowledgement transition:
-  `evidence/workspace-board-390x844-mobile-ack-focus-inside-iteration-5.png`
-- immediately after `읽고 확인`, the active element was the connected, visible
-  `상세 닫기` button inside the named `이력 상세` dialog; `BODY=false`,
-  effective outside focusables 0, and horizontal overflow 0
-- subsequent Escape and close-button paths still restored to the connected
-  `이력·제외` control; the blocked path still trapped Tab/Shift+Tab and restored
-  `fixture-aurora-supply`
-- 1024 × 768 remained static and non-modal with no dialog role, no
-  `aria-modal`, no inert roots, and no horizontal overflow
-- browser console errors: 0; warnings: 0
-
-Capture normalization correction: iteration 4 described the first-entry
-evidence as a 390 × 844 screenshot. The measured CSS viewport was 390 × 844,
-but the raw in-app Browser capture was 375 × 812 because the non-modal page
-capture excluded its 15 px scrollbar/frame width and 32 px frame height. The
-iteration 5 first-entry recapture records both values explicitly. The fixed
-modal capture is 390 × 844 raw pixels because body scroll is locked while the
-overlay is open. This capture-surface difference is not a layout overflow.
-
-The iteration 5 comparison shows no visual P0/P1/P2 regression across fonts,
-spacing, colors, assets, copy, icons, responsive hierarchy, or modal state.
-
-### Iteration 6 — Owner density/provider annotation P2, then passed
-
-Pre-revision evidence:
-
-- browser-rendered baseline:
-  `evidence/workspace-board-1440x1024-before-compact-annotation.png`
-- initial same-input comparison:
-  `evidence/workspace-board-iteration6-initial-full-comparison.png`
-- initial focused comparison:
-  `evidence/workspace-board-iteration6-initial-card-focus-comparison.png`
-
-The 1440 × 1024 baseline displayed 12 cards at an average 182 px height. Owner,
-reviewer, timestamp, completion chip, and footer repeated information already
-available in the right detail. Every observed provider also used the same
-generic bot glyph, so the label had to be read to distinguish providers.
-
-Fix:
-
-- reduced the card to project, responsibility, status, TASK title, route,
-  provider, and a one-line blocked indicator
-- retained owner, reviewer, last activity, blocker/next decision, pointer,
-  evidence, and optional worktree only in the existing right detail/mobile
-  dialog
-- raised the bounded default cap from three to four cards per column
-- mapped existing Lucide icons without a dependency change: Codex/GPT
-  `Code2`, Antigravity/Gemini `Sparkles`, Kimi `Moon`, UNKNOWN `Bot`
-- preserved visible provider text, accessible names/tooltips, multi-provider
-  glyphs, observed-only semantics, and UNKNOWN non-inference copy
-
-The first comparison found one actionable [P2]: UNKNOWN still rendered an
-alert glyph instead of the required generic agent icon. It was corrected to
-Lucide `Bot`, recaptured, and re-compared.
-
-Post-fix evidence:
-
-- final desktop:
-  `evidence/workspace-board-1440x1024-compact-provider-icons-final.png`
-- final same-input comparison:
-  `evidence/workspace-board-iteration6-final-full-comparison.png`
-- final focused comparison:
-  `evidence/workspace-board-iteration6-final-card-focus-comparison.png`
-- tablet detail:
-  `evidence/workspace-board-1024x768-compact-detail.png`
-- mobile board and blocked modal:
-  `evidence/workspace-board-390x844-compact-board.png`,
-  `evidence/workspace-board-390x844-blocked-modal.png`
-
-At the measured 1440 × 1024 CSS viewport, the final capture is 1425 × 1013 raw
-pixels because the in-app browser excludes its scrollbar/frame region. The
-average card height is 97 px (46.7% lower than 182 px), all four columns display
-four cards, and 16 active cards are visible without horizontal overflow.
-
-Provider DOM evidence includes `code`, `sparkles`, `moon`, and `bot` mapping
-keys; the multi-agent TASK renders `code` plus `sparkles`. At 1024 × 768 the
-selected multi-agent card remains collapsed while the non-modal detail contains
-owner, reviewer, pointer, and both provider glyphs. At 390 × 844, first entry
-opens no modal; completed acknowledgement retains connected, visible focus on
-`상세 닫기` inside `이력 상세`; Escape restores a stable connected history
-control; blocked Tab/Shift+Tab stays trapped with zero effective outside
-focusables and Escape restores `fixture-aurora-supply`.
-
-Final mandatory fidelity pass:
-
-- fonts/typography: compact meta remains subordinate to a readable 12.5 px TASK
-  title; no collision or unintended detail duplication
-- spacing/layout: 1 px dividers, compact 5–9 px internal rhythm, four-column
-  composition, and detail proportions remain aligned with the references
-- colors/tokens: graphite surfaces and blue/purple/red/green state semantics
-  are unchanged; selected and focus states remain visible
-- image/asset quality: no raster target asset was substituted; all interface
-  glyphs use the existing Lucide library
-- copy/content: required compact fields remain visible; synthetic, observed,
-  multi-agent, and UNKNOWN semantics remain explicit
-
-No actionable P0/P1/P2 finding remains after the UNKNOWN icon recapture.
-Browser console errors: 0; warnings: 0.
-
-### Iteration 7 — fresh provider-brand P2, then passed
-
-Fresh non-implementer review of candidate
-`130a568b1f9a6feae8fc7beaba419e1e03ab7430` found one P2: Lucide `Code2`,
-`Sparkles`, and `Moon` were different generic shapes, not actual provider or
-brand glyphs. The labels remained readable, but the icons alone did not
-reliably identify Codex/OpenAI, Antigravity/Gemini, or Kimi. P0/P1 were zero.
-
-Asset/dependency decision:
-
-- repo and installed dependencies contained no local provider brand assets
-- selected exact `@lobehub/icons-static-svg` 1.94.0, an MIT AI/LLM brand-asset
-  package with no runtime dependencies, instead of its roughly 9 MB React
-  component package with four dependencies
-- imported only `codex-color.svg`, `antigravity-color.svg`, and
-  `kimi-color.svg`; Vite bundles only referenced assets
-- retained Lucide `Bot` exclusively for UNKNOWN
-
-Fix:
-
-- replaced the three generic Lucide provider shapes with the corresponding
-  Lobe brand assets at 13 × 13 CSS px
-- preserved visible labels, parent accessible names, title tooltips,
-  decorative-image `alt=""`, observed-only mapping, and multi-agent display
-- changed deterministic mapping keys from `code`/`sparkles`/`moon` to
-  `codex`/`antigravity`/`kimi` and asserted exact asset slugs
-
-Evidence:
-
-- final desktop:
-  `evidence/workspace-board-1440x1024-brand-glyphs-final.png`
-- full selected-source/candidate/final comparison:
-  `evidence/workspace-board-iteration7-final-full-comparison.png`
-- focused Codex, Kimi, multi-agent, and UNKNOWN comparison:
-  `evidence/workspace-board-iteration7-final-provider-focus-comparison.png`
-- tablet detail:
-  `evidence/workspace-board-1024x768-brand-glyphs-detail.png`
-- mobile board and modal:
-  `evidence/workspace-board-390x844-brand-glyphs-board.png`,
-  `evidence/workspace-board-390x844-brand-glyphs-modal.png`
-
-At 1440 × 1024, all 16 compact cards remain visible, average card height is
-98.08 px, positive horizontal overflow is zero, and rendered brand images are
-13 × 13. Browser DOM evidence confirms loaded image assets and accessible
-labels for `codex`, `antigravity`, and `kimi`; the multi-agent TASK renders
-Codex plus Antigravity, while all four UNKNOWN samples retain Lucide `Bot`.
-
-At 1024 × 768, the detail remains non-modal and preserves owner, reviewer,
-pointer, and both multi-agent brand assets. At 390 × 844, first entry opens no
-dialog; completed acknowledgement retains focus inside the connected
-`이력 상세`; Escape restores a connected history control; blocked
-Tab/Shift+Tab remains trapped with zero effective outside focusables and
-Escape restores the exact origin card.
-
-Mandatory fidelity pass:
-
-- fonts/typography: unchanged compact hierarchy and readable visible labels
-- spacing/layout: the 0.64 px average increase from the reviewed 97.44 px
-  baseline is immaterial; 16 cards remain visible and no region overflows
-- colors/tokens: provider brand colors remain legible on graphite badges;
-  semantic column and selected-state colors are unchanged
-- image/assets: exact library brand glyphs, no inline or handcrafted
-  substitutes, no broken assets, and natural/rendered dimensions verified
-- copy/content: provider labels, tooltip/accessibility names, synthetic scope,
-  and UNKNOWN non-inference language are unchanged
-
-Filtered in-app/browser app-origin console errors: 0; warnings: 0. No
-actionable P0/P1/P2 finding remains after the brand-glyph recapture.
-
-### Iteration 8 — fresh compact/observed-only P2s, then passed
-
-Fresh non-implementer review of candidate
-`c12e0a4b8cd5cde593967d645e5e8074382612fb` reported three P2s:
-
-- the blocked-card `blockerSummary` duplicated the blocker reason already shown
-  in detail, violating the Owner's strict compact information boundary
-- `ProviderRow` rendered and counted raw `task.providers` rather than the
-  observed-only set used by the compact model
-- the final deterministic and browser results lacked one durable, scoped exit
-  receipt that a later verifier could read without relying on chat history
-
-Fix:
-
-- removed `blockerSummary` from the compact model and card markup and removed
-  its card-only CSS; blocker reason and next decision remain in the right
-  detail/mobile modal
-- added one pure `selectObservedProviderEntries()` boundary and used the same
-  `observedProviders` array for provider rendering, accessible count, and
-  multi-agent badge determination
-- changed the multi-agent synthetic fixture to contain Codex and Antigravity
-  observed entries plus one unobserved Kimi entry; deterministic and browser
-  checks prove the Kimi entry is never rendered or counted
-- added
-  `evidence/workspace-board-iteration8-validation-receipt.md` with exact
-  commands, exit codes, browser assertions, data boundary, and claim ceiling
-
-Post-fix evidence:
-
-- source 2 / reviewed candidate / actual full comparison:
-  `evidence/workspace-board-iteration8-final-full-comparison.png`
-- candidate / actual compact-detail focused comparison:
-  `evidence/workspace-board-iteration8-final-compact-focus-comparison.png`
-- blocked card with detail:
-  `evidence/workspace-board-1440x1024-iteration8-compact-detail-only.png`
-- mixed-provider desktop:
-  `evidence/workspace-board-1440x1024-iteration8-mixed-provider.png`
-- mixed-provider tablet:
-  `evidence/workspace-board-1024x768-iteration8-mixed-detail.png`
-- mixed-provider mobile modal:
-  `evidence/workspace-board-390x844-iteration8-mixed-modal.png`
-
-At 1440 × 1024, the selected blocked card contains only project,
-responsibility/route, status, TASK title, and provider. It does not contain
-`부품 납기 미확정`; the adjacent detail contains that reason and
-`대체 공급안 승인`. All 16 cards remain visible, average card height is
-93.58 px, and horizontal overflow is zero.
-
-The mixed-provider card and detail both expose `관찰된 agent 2개`, render
-Codex and Antigravity, show one multi-agent badge, and contain zero Kimi
-provider badges. The raw synthetic fixture retains one `observed: false` Kimi
-entry specifically as a negative regression case. UNKNOWN fixtures still use
-Lucide `Bot` only when the task-level provider observation state is unknown.
-
-At 1024 × 768, detail remains non-modal and preserves owner, reviewer, pointer,
-and the two observed providers. At 390 × 844, first entry opens no dialog;
-mixed-provider modal focus stays inside with zero effective outside focusables;
-acknowledgement keeps focus on the connected visible close button before
-Escape restores a logical history row; blocked Tab/Shift+Tab remains trapped
-and Escape restores the originating card. `BODY` is never accepted as a
-successful restore target.
-
-Mandatory fidelity pass:
-
-- fonts/typography: unchanged system hierarchy; card copy is shorter and easier
-  to scan without losing the required title/meta/provider hierarchy
-- spacing/layout: removing the duplicate blocker row reduces average height by
-  4.5 px from iteration 7 while retaining the four-column/high-density grammar
-- colors/tokens: graphite and four semantic state treatments are unchanged;
-  detail-only blocker red remains visible after selection
-- image/assets: exact Lobe provider brand glyphs remain unchanged; no
-  handcrafted or approximate assets were introduced
-- copy/content: blocker/next decision is present once in detail, and
-  unobserved provider data is neither displayed nor counted
-- responsiveness/accessibility: desktop/tablet/mobile overflow is zero;
-  non-modal and modal flows, accessible provider count, inert background,
-  focus trap, acknowledgement focus, and restore lifecycle all pass
-
-In-app browser app-origin console errors: 0; warnings: 0. No actionable
-P0/P1/P2 remains after the iteration 8 recapture and same-input comparison.
-
-## Primary interactions and console
-
-- selected blocked TASK and confirmed blocker reason/next decision persistence
-- selected completed-unread TASK, activated `읽고 확인`, confirmed active
-  removal and `owner_acknowledged` history event with original pointer
-- searched the acknowledged title and recovered exactly one history item
-- selected empty, error, and normal fixture modes
-- confirmed missing-data, UNKNOWN, and multi-agent fixtures
-- tested 1024 × 768 two-column tablet and 390 × 844 one-column mobile layouts
-- confirmed mobile detail fixed overlay, no horizontal overflow, and 44 px
-  minimum visible control height
-- inspected DOM tab order, accessible names and pressed states; exercised the
-  skip-link/menu focus ring
-- exercised the 390 × 844 dialog open → Tab/Shift+Tab cycle → Escape/close →
-  originating TASK-card focus restoration path
-- confirmed 390 × 844 first entry does not auto-open a dialog and confirmed
-  acknowledged-card detachment restores Escape/close focus to the connected
-  history view control rather than `BODY`
-- confirmed the `읽고 확인` transition itself retains focus inside the still-open
-  dialog on a connected, visible `상세 닫기` target rather than `BODY`
-- confirmed compact cards exclude owner/reviewer/timestamp/pointer while the
-  selected detail preserves those fields; compact cards also exclude blocker
-  reason/next decision, which remain in detail only
-- confirmed mixed provider rendering and count use only `observed: true`
-  entries; one unobserved Kimi fixture entry is absent from card, detail, and
-  multi-agent count
-- confirmed actual Codex, Antigravity, and Kimi brand assets load at natural and
-  rendered dimensions; multi-agent shows both and UNKNOWN alone uses `Bot`
-- measured 1440 × 1024 cards at 93.58 px average and 16 visible, versus the
-  182 px/12-card pre-revision baseline
-- confirmed mobile dialog effective focusables: inside 1, outside 0; tablet
-  non-modal detail: role absent, inert roots 0
-- browser console errors: 0
-- browser console warnings: 0
-
-## Follow-up polish
-
-- [P3] The selected visual uses larger evidence/readiness progress bars. They
-  remain intentionally omitted because the approved MVP's minimum data contract
-  does not define those values and UNKNOWN values must not be inferred.
-
-## Implementation checklist
-
-- [x] Four exact active columns and default exclusions
-- [x] Compact project/responsibility/status/TASK/provider-only card hierarchy
-- [x] Observed-only provider brand assets, multi-agent glyphs, and UNKNOWN
-  Lucide `Bot` semantics
-- [x] Detail-only blocker reason and next decision persistence
-- [x] Completed acknowledgement and pointer-preserving history
-- [x] Scale cap, more, search, and filters
-- [x] Empty/error/missing/UNKNOWN/multi-agent states
-- [x] Desktop/tablet/mobile and keyboard/accessibility checks
-- [x] Mobile modal semantics, focus trap, Escape/close, inert background, and
-  connected logical-target/fallback focus restoration
-- [x] Modal-internal action removal retains post-commit focus inside the dialog
-- [x] Final same-input Product Design comparison
+# Soulforge Workspace Board — Design QA
+
+## 비교 기준
+
+- 원본 시안
+  - `C:/Users/user/.codex/generated_images/019fc80b-487e-7182-9fb0-27ab6c269518/exec-96a78023-51fa-4c7d-9a89-075b5b2c44e4.png` — 실시간 현황
+  - `C:/Users/user/.codex/generated_images/019fc80b-487e-7182-9fb0-27ab6c269518/exec-927ecfca-9358-493e-a1a0-4eaad58948d1.png` — 조직 트리
+  - `C:/Users/user/.codex/generated_images/019fc80b-487e-7182-9fb0-27ab6c269518/exec-99d6e363-af02-4e8a-ba5f-1868fd75d847.png` — 책임 흐름
+- 저장된 브라우저 증거
+  - `evidence/realtime-desktop-1487x1058.png`
+  - `evidence/organization-tree-desktop-1487x1058.png`
+  - `evidence/organization-flow-desktop-1487x1058.png`
+  - `evidence/realtime-mobile-390x844.png`
+  - `evidence/organization-tree-mobile-390x844.png`
+  - `evidence/organization-flow-mobile-390x844.png`
+- 최신 브라우저 대조: 2026-08-04, 로컬 `http://127.0.0.1:4192/`, 실제 exact-ID 등록부와 lifecycle 투영
+
+조직도와 실시간 현황은 각각 원본 시안과 최신 구현을 같은 1487 × 1058 viewport에서 한 번에 나란히 열어 비교했다. 최신 조직도는 `Soulforge → 회사 → CEO → 직속 팀장·조직`을 왼쪽에서 오른쪽으로 읽는 전용 가로 캔버스로 바꿨고, 현재 작업 패널은 별도 영역으로 유지했다.
+
+시안의 정보 구조와 밀도는 유지하되, 예시 인물·예시 수치·더미 TASK는 사용하지 않는다. 화면 값은 로컬 등록부의 정확한 `thread_id`, 명시적 `parent_thread_id`, 실제 lifecycle/결과 게이트, AI Usage Meter의 metadata-only 집계만 사용한다.
+
+## 최신 화면 검증
+
+### 데스크톱
+
+- 관측 viewport: 960 × 1272
+- 문서 가로 overflow: 0
+- 조직도 전용 가로 canvas: client 888px / content 1240px / `overflow-x: auto`
+- 회사 외곽 프레임: 2
+- 두 회사 외곽 프레임: 각각 958 × 378px
+- 정확한 CEO 노드: 2
+- 개발1팀 동급 프로젝트 팀장: 10
+- 중복 `development1_kvds`·`development1_projects` 그룹 카드: 0
+- 선택 KVDS 팀장의 정확한 직속 하위: 16
+  - fresh 책임자 15
+  - 정확한 TASK 1
+- 실시간 상세 열은 `실행 중 → 입력·승인 대기 → 종료·결과 확인` 순서로 같은 행에 배치된다.
+  - 시작 x 좌표: 21 / 322 / 623px
+  - 공통 y 좌표: 444px
+- 실행 중인 카드만 녹색 테두리·좌측 강조선으로 표시된다.
+- 조직도는 회사 외곽 안에서 CEO 다음 오른쪽 직속 계층으로 프로젝트 팀장·개별 조직이 이어진다.
+- 책임 흐름 표는 회사 / 조직 / 팀장·책임 thread / 실행·결과 상태의 4열이며 내부·문서 가로 overflow가 없다.
+
+### 모바일
+
+- 관측 viewport: 390 × 844
+- 문서 가로 overflow: 0
+- 회사 프레임: 1열
+- 프로젝트 팀장: 1열
+- 선택 팀장의 책임자·TASK: 1열
+- 실시간 세 상태 상세: 1열 순차 배치
+- 임시 viewport override는 검증 직후 해제했다.
+
+### 상호작용과 문구
+
+- 기본 화면, 조직도, 업무 현황·이력 전환이 동작한다.
+- 조직도 안의 조직 트리와 책임 흐름 전환이 동작한다.
+- KVDS 팀장을 선택하면 `parent_thread_id`가 정확히 일치하는 하위 항목만 나타난다.
+- `읽었음 · 현황에서 숨기기`는 Owner 대상 결과 카드에만 나타난다.
+- 보조 문구는 이 동작이 현재 브라우저의 `localStorage`만 바꾸고 Codex TASK의 완료·보관·상태를 바꾸지 않는다고 명시한다.
+- 브라우저 console warning/error: 없음.
+
+## 시각 판단
+
+P0/P1/P2 시각 결함은 남아 있지 않다.
+
+- 회사가 바깥 테두리이며 CEO가 그 안의 첫 노드다.
+- 회사·CEO·직속 팀장/조직은 왼쪽에서 오른쪽으로 이어지고, 폭이 부족할 때는 조직도 전용 영역만 가로 스크롤된다.
+- 두 회사는 데스크톱에서 같은 폭과 높이로 정렬된다.
+- KVDS와 다른 프로젝트 팀장은 같은 높이의 동급 계층이다.
+- `KVDS 개발 조직`과 `개발1팀 프로젝트`를 별도 하위 그룹 카드로 다시 그리지 않아 프로젝트 팀장 계층과의 중복을 없앴다. 등록 데이터와 상세 drill-down은 유지한다.
+- 긴 프로젝트 목록은 compact grid와 말줄임을 사용하고, 모바일에서는 1열로 바뀐다.
+- 실시간 상세는 데스크톱 3열, 모바일 1열이며 세 상태 의미를 섞지 않는다.
+- 실제 실행 중인 조직만 녹색으로 강조되어 정지·관측 불가와 즉시 구분된다.
+- 상태 색은 실행 중=녹색, 입력·승인 대기=주황, Owner 결과=파랑, 정지·관측 불가=회색으로 일관된다.
+- 아이콘은 기존 Lucide 라이브러리를 사용하며 임의 SVG·이모지·가짜 자산을 추가하지 않았다.
+
+## 의도된 운영 경계
+
+- 제목, 파란 점, idle, 경과 시간, 비슷한 이름으로 실행·완료·상하 관계를 추정하지 않는다.
+- exact 현재 등록 ID에 명시적 active lifecycle이 있을 때만 `실행 중`이다.
+- Stop/idle은 결과나 Owner 확인을 만들지 않는다.
+- Owner에게 직접 전달된 명시 result gate만 기본 결과 확인 영역에 나타난다. 책임자와 TASK 결과는 상위 thread가 받으며 Owner 기본 현황을 늘리지 않는다.
+- 등록은 Board 가시성만 부여한다. route authority, 실행 권한, ERP 상태 writer를 만들지 않는다.
+- Codex 앱 재시작 뒤 공식 app-server의 한 응답 줄이 128 KiB를 넘는 실제 상황을 재현했고, 유한한 줄 제한을 256 KiB로 조정했다. 150 KiB 응답 회귀 테스트를 추가했으며 raw 필드는 여전히 투영 전에 제거된다.
+
+## 자동 검증
+
+- Board deterministic tests: 109/109 PASS
+- Board typecheck: PASS
+- Board production build: PASS
+- AI Usage Meter deterministic tests: 70/70 PASS
+- 전체 UI workspace done-check: PASS
+- canon validation: 137 checked, 0 errors, 0 warnings
+- `git diff --check`: PASS
+- enrollment registry validate: valid, 75 entries, current 59, emergency disable off
+
+## 2026-08-05 compact organization and detail overlay follow-up
+
+- 1222 × 730 회사 제목줄 후속 검증
+  - 회사 설명 header는 회사 외곽 상단 전체 폭 `906 × 36px`로 이동했다.
+  - CEO node는 회사 외곽 왼쪽에서 `13px` 안쪽(`188 × 76px`)부터 시작한다.
+  - CEO 직속 tier는 CEO 오른쪽에서 시작하며 두 회사 외곽 높이는 각각 `358px`로 동일하다.
+  - 문서 가로 overflow: 0 (`clientWidth 1207px`, `scrollWidth 1207px`)
+- 검증 viewport: 792 × 882
+  - 문서 가로 overflow: 0 (`clientWidth 777px`, `scrollWidth 777px`)
+  - 조직도 전용 가로 canvas: `clientWidth 720px`, `scrollWidth 940px`
+  - `Soulforge 조직` root node: 0
+  - 회사 외곽 frame: 2개, 각각 `908 × 374px`
+  - 회사명 node: 각각 `158 × 72px`
+  - CEO node: 각각 `188 × 76px`
+  - active highlight node: 2
+  - 중복 `development1_kvds` / `development1_projects` group card: 각각 0
+- 실시간 세 열 header는 같은 `y=568px`, 같은 `height=46px`에서 시작한다.
+  - Owner result 설명은 `sr-only` 의미 정보로 유지하며 화면 레이아웃에는 1 × 1px만 차지한다.
+- thread 상세는 `position: fixed`, `360px` 우측 overlay로 열리며 Board 본문 폭 `749px`를 줄이지 않는다.
+- 390 × 844 모바일에서 문서와 조직도 canvas 가로 overflow는 0이다.
+  - 회사명 header는 전체 폭 `296 × 48px`, CEO node는 `276 × 68px`로 쌓인다.
+  - 상세는 backdrop이 있는 `role=dialog`, `aria-modal=true`이며 `354 × 675px`로 열린다.
+  - 조직도에서 KVDS manager를 선택하면 선택 강조만 적용되고 backdrop/detail은 각각 0개라 화면을 막지 않는다.
+- Board deterministic tests: 110/110 PASS
+- Board typecheck: PASS
+- Board production build: PASS
+
+## 판정
+
+구현 및 Design QA: PASS. 가로 조직도·중복 그룹 제거·실시간 3열 delta는 구현자와 분리된 fresh MAX independent reviewer가 ACCEPT했다. live enrollment는 75개 등록, current 59개, 실제 관측 55개, adapter `ready`이며 관측되지 않은 4개는 fail-safe로 추정하지 않는다.
+
+## 2026-08-05 프로젝트별 팀장·책임자 구조 후속 검증
+
+### 비교 증거
+
+- source visual truth: 이 turn의 548 × 882 Browser Comment 1 스크린샷과 “프로젝트별 분리, 작은 팀장 카드, 오른쪽 책임자” Owner 주석
+- rendered implementation:
+  - `evidence/organization-project-hierarchy-desktop-1280x900.png`
+  - `evidence/organization-project-hierarchy-mobile-548x882.png`
+- theme/state: dark, 조직도 → 조직 트리, exact local enrollment
+- density normalization: source 548 × 882px / implementation 548 × 882px, CSS viewport 548 × 882, device scale 1
+- full-view comparison: 회사·CEO·프로젝트 lane과 오른쪽 현재 작업 패널의 전체 비율을 같은 조직 트리 상태로 대조했다.
+- focused comparison: source에서 선택된 `프로젝트` lane과 구현의 프로젝트별 team-lead/responsibility row를 같은 548px 폭으로 대조했다.
+
+### 비교 이력
+
+1. P1: 9개 프로젝트 팀장을 하나의 큰 lane 안에서 동일 카드로 나열해 프로젝트 경계와 직속 책임자 열이 보이지 않았다.
+   - 수정: exact root manager마다 독립 `organization-project-card`를 만들고, 왼쪽 팀장과 오른쪽 직속 책임자 영역을 분리했다.
+2. P2: 첫 반응형 구현에서 548px 팀장 카드의 상태 문구가 세로로 눌렸다.
+   - 수정: 좁은 화면의 팀장·책임자 카드에 명시적 grid area를 적용하고 chevron을 숨겨 두 영역의 가로 흐름을 유지했다.
+3. post-fix evidence:
+   - 1280 × 900: 프로젝트 카드 660 × 80px, 팀장 220 × 64px, 책임자 영역 416 × 64px, 문서·회사 가로 overflow 0.
+   - 548 × 882: 프로젝트 카드 412 × 80px, 팀장 175 × 64px, 책임자 영역 220 × 64px, 문서·카드 가로 overflow 0.
+   - CEO는 첫 회사에서 188 × 76px로 프로젝트 lane 상단과 함께 보이며, 긴 프로젝트 목록의 세로 중앙으로 밀리지 않는다.
+   - 실제 등록 데이터에서 `development1_projects`의 9개 root manager는 모두 exact 직속 책임자 0건이다. UI는 이를 추정해 채우지 않고 각 프로젝트에 `정확한 parent_thread_id로 연결된 직속 책임자가 없습니다.`라고 표시한다.
+   - 같은 동적 projection으로 KVDS의 exact 직속 책임자 15개와 AX의 exact 직속 책임자 5개가 책임자 카드로 표시된다.
+
+### 필수 fidelity surface
+
+- fonts/typography: 기존 Board 글꼴·크기·말줄임을 유지하고 좁은 화면 세로 눌림을 제거했다.
+- spacing/layout rhythm: 프로젝트별 7px border container, 8px row gap, 220px team-lead column과 유동 responsibility column을 사용한다.
+- colors/tokens: 기존 teal border, green active, gray unavailable 상태 토큰을 그대로 재사용한다.
+- image/icon quality: 신규 raster/CSS/SVG 자산은 없고 기존 Lucide `CircleDot`, `UsersRound`, `ChevronRight`만 사용한다.
+- copy/content: 팀장과 책임자를 서로 다른 label로 표시하고, 미등록 관계는 exact `parent_thread_id` 부재로 명시한다.
+
+### 상호작용·회귀
+
+- 조직도 탭 전환과 프로젝트 manager 버튼은 실제 브라우저에서 동작했다.
+- project/responsibility 버튼은 기존 exact thread 선택·상세 범위를 재사용한다.
+- 브라우저 console warning/error: 0.
+- focused live-thread tests: 90/90 PASS.
+- typecheck: PASS.
+- production build: PASS.
+
+P0/P1/P2 잔여 결함: 없음.
+
+final result: passed
+
+## 2026-08-06 operational topology follow-up
+
+### Visual target and evidence
+
+- Reference: `C:/Users/user/AppData/Local/Temp/codex-clipboard-f840a618-92ec-40ac-a0c8-42aaa3b7a957.png`
+- Reference intent: dark topology canvas, compact nodes, visible parent/child connectors, and state-first scanning. The Owner explicitly rejected a free-form radial graph; the accepted layout is a fixed small manager anchor with its first exact responsibility immediately to the right, later responsibilities stacked below, and exact TASK descendants one column farther right.
+- Rendered desktop: `evidence/organization-operational-topology-desktop-1280x900.png`
+- Rendered narrow viewport: `evidence/organization-operational-topology-mobile-548x882.png`
+- Combined comparison: `evidence/organization-operational-topology-comparison.png`
+
+### Browser verification
+
+- Desktop viewport: 1280 x 900. Current exact projection rendered 17 topology nodes and 15 connector edges.
+- Root manager nodes measured 165 x 64 px. The first six observed manager anchors shared x=234 and y positions 311, 397, 482, 568, 654, and 739, confirming fixed size and vertical stacking.
+- Narrow viewport: 548 x 882. Document `clientWidth` and `scrollWidth` both measured 533 px; no document-level horizontal overflow was introduced. The topology remained available inside its fixed-height pan surface.
+- Keyboard traversal retained a visible 2 px outline and the existing inset focus treatment on the organization navigation control.
+- Console errors: 0. One React Flow node-type identity warning was observed after hot reload; the node type map is module-scoped and deterministic build/test output is clean.
+- The current live enrollment had no eligible transient child responsibility/TASK nodes during capture. No dummy production data was added. Deterministic tests cover exact active, waiting, parent-result, Owner-result, acknowledged, stopped, unknown-context, duplicate, cross-group, and cycle boundaries.
+
+### Layout and state acceptance
+
+- Company/CEO and exact root-manager anchors remain compact and stable.
+- Exact transient responsibility nodes occupy the column immediately right of their manager. The first child aligns to the manager row; additional children stack below and increase only that manager lane height, pushing the following manager lane down.
+- Exact TASK descendants use the next right-hand column and the same vertical stacking rule.
+- Connector edges are smooth orthogonal branches (`smoothstep`) rather than a radial or free-form curve graph.
+- Active, waiting/parent-result, and Owner-result states use green, amber, and blue respectively. Acknowledged or closed transient nodes are omitted from the live topology while retained history remains outside the topology projection.
+- Unknown or stopped nodes do not appear as live work. An exact unobserved ancestor is shown neutrally only when it is required to connect an eligible visible descendant.
+
+P0/P1/P2 visual defects: none observed in the captured current state.
+
+- Final Board deterministic suite: 156/156 PASS.
+- Typecheck: PASS.
+- Production build: PASS (1759 modules transformed).
+- Fresh independent re-review after the terminal/acknowledgement ancestor fix: focused 96/96 PASS, ACCEPT.
 
 final result: passed
