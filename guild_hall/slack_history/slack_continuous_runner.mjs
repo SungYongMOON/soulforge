@@ -626,7 +626,7 @@ function rawMessageShape(rawEvent, target) {
   return subtype;
 }
 
-function latestRevisionFor(revisions, workspaceId, channelId, messageTs) {
+function revisionChainFor(revisions, workspaceId, channelId, messageTs) {
   const identity = createSlackMessageIdentity({
     workspace_id: workspaceId,
     channel_id: channelId,
@@ -634,13 +634,64 @@ function latestRevisionFor(revisions, workspaceId, channelId, messageTs) {
   });
   return revisions
     .filter((revision) => revision.message_ref === identity.message_ref)
-    .sort((left, right) => left.revision_ts.localeCompare(right.revision_ts))
-    .at(-1) ?? null;
+    .sort((left, right) => left.revision_ts.localeCompare(right.revision_ts));
+}
+
+const VOLATILE_SLACK_METADATA_KEYS = new Set([
+  "reply_count",
+  "reply_users",
+  "reply_users_count",
+  "latest_reply",
+  "reactions",
+  "pinned_to",
+  "pinned_info",
+  "is_locked",
+  "saved",
+  "subscribed",
+  "last_read",
+  "unread_count",
+]);
+
+function slackIdentityView(value) {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((entry) => slackIdentityView(entry));
+  const retained = {};
+  for (const [key, childValue] of Object.entries(value)) {
+    if (VOLATILE_SLACK_METADATA_KEYS.has(key)) continue;
+    if (key === "thread_ts" && typeof value.ts === "string" && childValue === value.ts) continue;
+    retained[key] = slackIdentityView(childValue);
+  }
+  return retained;
+}
+
+function slackIdentityDigest(rawEvent) {
+  return sha256Canonical(slackIdentityView(rawEvent));
 }
 
 function deliveryFromRecord(record, revisions, attachmentPointers = []) {
   const raw = record.raw_event;
   const subtype = rawMessageShape(raw, "$record.raw_event");
+  const replayDelivery = (retained) => ({
+    event_id: record.event_id,
+    retry_num: record.retry_num,
+    retry_reason: record.retry_reason,
+    received_at: record.received_at,
+    revision: {
+      revision_kind: retained.revision_kind,
+      workspace_id: retained.workspace_id,
+      channel_id: retained.channel_id,
+      message_ts: retained.message_ts,
+      thread_ts: retained.thread_ts,
+      revision_ts: retained.revision_ts,
+      actor: { ...retained.actor },
+      source_metadata_digest: retained.source_metadata_digest,
+      attachment_pointers: attachmentPointers.map((pointer) => ({ ...pointer })),
+      supersedes_revision_ref: retained.supersedes_revision_ref,
+    },
+  });
+  const matchesRetainedDigest = (retained, identityDigest) => retained.source_metadata_digest !== null
+    && (retained.source_metadata_digest === identityDigest
+      || retained.source_metadata_digest === sha256Canonical(raw));
   let messageTs;
   let revisionTs;
   let threadTs;
@@ -652,44 +703,61 @@ function deliveryFromRecord(record, revisions, attachmentPointers = []) {
   if (subtype === null) {
     messageTs = raw.ts;
     threadTs = raw.thread_ts ?? null;
-    const prior = latestRevisionFor(revisions, record.workspace_id, record.channel_id, messageTs);
+    if (threadTs === messageTs) threadTs = null;
+    const chain = revisionChainFor(revisions, record.workspace_id, record.channel_id, messageTs);
+    const latest = chain.at(-1) ?? null;
     const currentEditTs = raw.edited?.ts ?? null;
-    if (currentEditTs !== null && prior !== null) {
+    sourceMetadataDigest = slackIdentityDigest(raw);
+    const replaySource = chain.find((retained) => matchesRetainedDigest(retained, sourceMetadataDigest)) ?? null;
+    if (replaySource !== null) return replayDelivery(replaySource);
+    if (latest !== null) {
+      if (latest.revision_kind === "edit" && latest.revision_ts === currentEditTs) {
+        return replayDelivery(latest);
+      }
+      if (currentEditTs === null) {
+        const initial = chain.find((retained) => retained.supersedes_revision_ref === null) ?? latest;
+        return replayDelivery(initial);
+      }
       revisionTs = currentEditTs;
       user = raw.edited?.user ?? raw.user;
       revisionKind = "edit";
-      supersedesRevisionRef = prior.revision_ref;
-      if (threadTs === null) threadTs = prior.thread_ts;
+      supersedesRevisionRef = latest.revision_ref;
+      if (threadTs === null) threadTs = latest.thread_ts;
     } else {
       revisionTs = raw.ts;
       user = raw.user;
-      revisionKind = threadTs === null || threadTs === messageTs ? "message" : "reply";
-      if (revisionKind === "message") threadTs = null;
+      revisionKind = threadTs === null ? "message" : "reply";
     }
-    sourceMetadataDigest = sha256Canonical(raw);
   } else if (subtype === "message_changed") {
     messageTs = raw.message?.ts;
     revisionTs = raw.message?.edited?.ts;
     threadTs = raw.message?.thread_ts ?? null;
+    if (threadTs === messageTs) threadTs = null;
     user = raw.message?.edited?.user ?? raw.message?.user;
     revisionKind = "edit";
-    sourceMetadataDigest = sha256Canonical(raw);
+    sourceMetadataDigest = slackIdentityDigest(raw);
   } else {
     messageTs = raw.deleted_ts;
     revisionTs = raw.event_ts;
     threadTs = raw.previous_message?.thread_ts ?? null;
+    if (threadTs === messageTs) threadTs = null;
     user = raw.user ?? raw.previous_message?.user;
     revisionKind = subtype === "tombstone" ? "tombstone" : "delete";
     sourceMetadataDigest = null;
   }
 
   if (subtype !== null) {
-    const prior = latestRevisionFor(revisions, record.workspace_id, record.channel_id, messageTs);
-    if (prior === null) {
+    const chain = revisionChainFor(revisions, record.workspace_id, record.channel_id, messageTs);
+    const latest = chain.at(-1) ?? null;
+    if (latest === null) {
       fail("prior_revision_required", "$record.raw_event", "Edit/delete/tombstone requires retained prior evidence");
     }
-    supersedesRevisionRef = prior.revision_ref;
-    if (threadTs === null) threadTs = prior.thread_ts;
+    const replaySource = chain.find((retained) => (sourceMetadataDigest !== null
+      && matchesRetainedDigest(retained, sourceMetadataDigest))
+      || (retained.revision_kind === revisionKind && retained.revision_ts === revisionTs)) ?? null;
+    if (replaySource !== null) return replayDelivery(replaySource);
+    supersedesRevisionRef = latest.revision_ref;
+    if (threadTs === null) threadTs = latest.thread_ts;
   }
   const revisionInput = {
     revision_kind: revisionKind,

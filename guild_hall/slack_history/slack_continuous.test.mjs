@@ -1657,3 +1657,149 @@ test("CLI accepts only dry-run and stdout contains aggregate metadata, not raw o
   assert.equal(refused.status, 1);
   assert.match(refused.stderr, /accepts_only_dry_run/u);
 });
+
+test("re-pulled message that carried edited at first pull replays its retained revision", async () => {
+  const binding = await makeBinding();
+  const editedAtFirstPull = {
+    ...rawMessage({ ts: "1720000200.000100" }),
+    edited: { user: "U00000001", ts: "1720000200.000150" },
+  };
+  const first = await run(binding, [record("EvEditedFirst", editedAtFirstPull)]);
+  assert.equal(first.accepted_count, 1);
+  assert.equal(first.revision_count, 1);
+  const statePath = path.join(binding.data_root, "state", "slack-continuous.json");
+  const initialRef = JSON.parse(await readFile(statePath, "utf8")).revisions[0].revision_ref;
+
+  const second = await run(binding, [
+    record("EvEditedFirst", clone(editedAtFirstPull)),
+    record("EvEditedNew", rawMessage({ ts: "1720000200.000200" }), {
+      received_at: "2026-07-23T01:00:05.000Z",
+    }),
+  ]);
+  assert.equal(second.accepted_count, 2);
+  assert.equal(second.revision_count, 2);
+  const secondState = JSON.parse(await readFile(statePath, "utf8"));
+  const evidence = secondState.cursor.delivery_evidence.find(
+    (entry) => entry.event_id === "EvEditedFirst",
+  );
+  assert.equal(evidence.revision_ref, initialRef);
+  assert.equal(
+    secondState.revisions.filter((revision) => revision.revision_kind === "edit").length,
+    0,
+  );
+});
+
+test("volatile Slack metadata changes replay the retained revision instead of forking identity", async () => {
+  const binding = await makeBinding();
+  const rootTs = "1720000300.000100";
+  const first = await run(binding, [record("EvVolatile1", rawMessage({ ts: rootTs }))]);
+  assert.equal(first.revision_count, 1);
+  const statePath = path.join(binding.data_root, "state", "slack-continuous.json");
+  const initialRef = JSON.parse(await readFile(statePath, "utf8")).revisions[0].revision_ref;
+
+  const withVolatileMetadata = {
+    ...rawMessage({ ts: rootTs, thread_ts: rootTs }),
+    reply_count: 1,
+    reply_users: ["U00000002"],
+    reply_users_count: 1,
+    latest_reply: "1720000300.000200",
+    reactions: [{ name: "eyes", users: ["U00000002"], count: 1 }],
+  };
+  const second = await run(binding, [
+    record("EvVolatile2", withVolatileMetadata),
+    record("EvVolatileReply", rawMessage({
+      ts: "1720000300.000200",
+      user: "U00000002",
+      text: "private reply",
+      thread_ts: rootTs,
+    }), { received_at: "2026-07-23T01:00:06.000Z" }),
+  ]);
+  assert.equal(second.accepted_count, 2);
+  assert.equal(second.revision_count, 2);
+  const secondState = JSON.parse(await readFile(statePath, "utf8"));
+  const evidence = secondState.cursor.delivery_evidence.find(
+    (entry) => entry.event_id === "EvVolatile2",
+  );
+  assert.equal(evidence.revision_ref, initialRef);
+  assert.deepEqual(
+    new Set(secondState.revisions.map((revision) => revision.revision_kind)),
+    new Set(["message", "reply"]),
+  );
+});
+
+test("editing a thread parent keeps thread lineage after the parent gains thread metadata", async () => {
+  const binding = await makeBinding();
+  const rootTs = "1720000400.000100";
+  const replyTs = "1720000400.000200";
+  const reply = () => record("EvThreadReply", rawMessage({
+    ts: replyTs,
+    user: "U00000002",
+    text: "private reply",
+    thread_ts: rootTs,
+  }), { received_at: "2026-07-23T01:00:01.000Z" });
+  const first = await run(binding, [
+    record("EvThreadRoot", rawMessage({ ts: rootTs })),
+    reply(),
+  ]);
+  assert.equal(first.revision_count, 2);
+
+  const editedParent = {
+    ...rawMessage({ ts: rootTs, text: "private edited parent", thread_ts: rootTs }),
+    edited: { user: "U00000001", ts: "1720000400.000300" },
+    reply_count: 1,
+    latest_reply: replyTs,
+  };
+  const second = await run(binding, [
+    record("EvThreadRootEdited", editedParent),
+    reply(),
+    record("EvThreadNew", rawMessage({ ts: "1720000400.000400" }), {
+      received_at: "2026-07-23T01:00:07.000Z",
+    }),
+  ]);
+  assert.equal(second.accepted_count, 3);
+  assert.equal(second.revision_count, 4);
+  const state = JSON.parse(await readFile(
+    path.join(binding.data_root, "state", "slack-continuous.json"),
+    "utf8",
+  ));
+  const edit = state.revisions.find((revision) => revision.revision_kind === "edit");
+  assert.equal(edit.message_ts, rootTs);
+  assert.equal(edit.thread_ts, null);
+});
+
+test("re-delivered delete events replay instead of superseding their own removal", async () => {
+  const binding = await makeBinding();
+  const rootTs = "1720000500.000100";
+  const original = record("EvRemovalRoot", rawMessage({ ts: rootTs }));
+  const removal = record("EvRemovalDelete", {
+    type: "message",
+    subtype: "message_deleted",
+    deleted_ts: rootTs,
+    event_ts: "1720000500.000200",
+    user: "U00000001",
+    previous_message: { user: "U00000001" },
+  }, { received_at: "2026-07-23T01:00:01.000Z" });
+  const first = await run(binding, [original, removal]);
+  assert.equal(first.revision_count, 2);
+
+  const second = await run(binding, [
+    clone(original),
+    clone(removal),
+    record("EvRemovalNew", rawMessage({ ts: "1720000500.000300" }), {
+      received_at: "2026-07-23T01:00:08.000Z",
+    }),
+  ]);
+  assert.equal(second.accepted_count, 3);
+  assert.equal(second.revision_count, 3);
+  const state = JSON.parse(await readFile(
+    path.join(binding.data_root, "state", "slack-continuous.json"),
+    "utf8",
+  ));
+  assert.deepEqual(
+    state.revisions
+      .filter((revision) => revision.message_ts === rootTs)
+      .map((revision) => revision.revision_kind)
+      .sort(),
+    ["delete", "message"],
+  );
+});
