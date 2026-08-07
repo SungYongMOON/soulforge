@@ -1,6 +1,218 @@
 # CHANGELOG
 
+## 2026-08-07 — Watchtower topology health consumer (W1, inspect-only)
+
+- Added `guild_hall/watchtower/`: the first consumer of the heartbeats the
+  collectors already produce. A public-safe topology definition (22 nodes,
+  26 edges) plus a judgment engine that reads local heartbeat/health surfaces
+  through four probe kinds (`jsonl_tail`, `json_file`, `dir_latest_mtime`,
+  `schtask`) and classifies each node with a period+grace two-stage window
+  (ok / degraded / stale / down / unmonitored). Resident supervisors are
+  disambiguated against scheduler state, snapshots are written atomically,
+  and a machine check rejects any snapshot that leaks an absolute path.
+  Real paths and thresholds live only in an untracked local binding reached
+  through a git-ignored pointer; `validate:watchtower` and
+  `guild-hall:watchtower:probe` are wired into the npm surface.
+- Added a `시스템 토폴로지` surface to the Workspace Board: a loopback-only
+  Vite adapter relays the probe as `GET /topology-health.snapshot.json`
+  (20s debounce, 1 MiB bound, path-leak validation) and a React Flow canvas
+  renders per-node health lights, an attention banner, and judgment
+  freshness. First live run reproduced the day's real state exactly
+  (6 ok / 1 degraded — the five-lane ingress mail-partial — / 15
+  unmonitored). W1 is inspect-only by design: self-heal, notification, and
+  scheduled residency remain W2 items behind a separate owner gate.
+- Follow-up on the same day: added an optional per-account mail detail probe
+  (`mail_account_summaries`) so a degraded ingress node names the exact
+  failing account through owner-provided local labels (address-free,
+  e.g. `메일 계정 <label>: auth_failed`) instead of a generic degraded
+  signal, moved the canvas to lane-per-row layout hints carried in the
+  snapshot (`col`/`row`) so each lane flows horizontally without edge
+  crossings, and restyled the surface Orrery-grade: dark React Flow color
+  mode, dotted canvas, state-glow monospace nodes with pulse on
+  degraded/down, animated flowing edges, and reduced-motion fallbacks.
+
+## 2026-08-07 — Voice ASR/label supervisor watchdog trigger
+
+- The voice ASR/label supervisor scheduled task now registers two triggers
+  instead of one: the existing at-logon start plus an indefinite repetition
+  watchdog (default every 15 minutes, `-WatchdogMinutes`). A supervisor killed
+  by console closure or a crash previously stayed down until the next logon —
+  observed as a 19-hour transcription outage on 2026-08-06/07; the watchdog
+  now restarts it within one interval. Duplicate fires remain safe through the
+  scheduler's IgnoreNew policy, the instance lock, and the named mutex.
+- Post-registration attestation now requires exactly two triggers (one plain
+  logon trigger, one time trigger whose repetition interval matches the
+  requested watchdog interval), and the ops contract test pins the watchdog
+  construction instead of forbidding repetition.
+
+## 2026-08-07 — Slack continuous ingress idempotent replay recovery
+
+- Fixed three non-idempotent revision-reconstruction defects in the Slack
+  continuous ingress runner that deterministically poisoned re-pulled channels:
+  a message carrying `edited` at first pull forked into a conflicting edit
+  revision on re-pull (`delivery_retry_conflict`), volatile Slack metadata
+  changes (reply counts, reply users, latest reply, reactions, pins, saves)
+  forked a second initial revision (`message_initial_revision_invalid`), and
+  editing or deleting a thread parent broke lineage because the
+  `thread_ts == message_ts` normalization applied only on the initial path
+  (`thread_lineage_changed`).
+- Re-pulled records now replay their retained revision exactly — matched by a
+  new volatile-field-excluding identity digest, by the legacy full-raw digest
+  for pre-fix state, or by `(revision_kind, revision_ts)` slot — instead of
+  fabricating a divergent revision; replay emission keeps current-run
+  attachment pointers so accepted-page digests stay byte-stable. New revisions
+  are created only for genuinely new content, edits, and removals.
+- Added four regression tests (edited-at-first-pull re-pull, volatile-metadata
+  drift, thread-parent edit after gaining thread metadata, re-delivered
+  delete); the full slack-history harness passes. Two independent adversarial
+  verifiers accepted the change after failing to break legacy-state migration,
+  accepted-page byte replay, and in-page duplicate ordering. Deployed to the
+  HPP runtime snapshot with a runtime-manifest re-pin and attested scheduler
+  re-registration; the five poisoned channels (two weeks stalled at worst)
+  self-recovered in one batch run with 9/9 channels succeeding and zero error
+  codes. Known follow-up: a mid-sweep exact-page replay does not advance the
+  provider cursor (pre-existing design), which can silently stall a resweep;
+  an advance-or-alert guard remains open.
+
+## 2026-08-07 — Hiworks Gmail original-message ingress
+
+- Replaced the owner mailbox's SMTP wrapper forwarding behavior with a
+  non-destructive POP3-to-Gmail API original-message import. The existing UIDL
+  baseline and scheduled-task binding are retained, POP3 deletion remains
+  forbidden, and imported messages request the `INBOX` label while preserving
+  the original RFC 822 content and `Date`-based ordering.
+- Added private OAuth/receipt bindings to the hidden five-minute runner,
+  dependency hash pins, sanitized cycle heartbeat evidence, duplicate-receipt
+  handling, and synthetic regression coverage. The route has passed a live
+  zero-new-message scheduler cycle; first naturally arriving message evidence
+  remains required for an end-to-end automatic-ingress claim.
+
+## 2026-08-06 — Workspace Board exact child auto-enrollment
+
+### Company mailbox local read-only MCP
+
+- Added a stable, append-only, metadata-only heartbeat ledger for each completed
+  continuous-ingress supervisor cycle. It deliberately excludes mail content,
+  addresses, attachments, credentials, and custody paths; monitoring, alerting,
+  and automatic recovery remain a separate AX/SYSTEM-owned consumer concern.
+
+- Added a feature-OFF, loopback-only MCP server that reads the central Hiworks
+  event JSONL only after exact configured mailbox-ID scoping. It exposes bounded
+  status, search, and single-message read tools; send, delete, read-state writes,
+  attachment download, raw headers, custody paths, and attachment URLs remain
+  unavailable.
+- Added deterministic mailbox-isolation, fail-closed malformed-custody, and
+  read-only smoke tests. Public code does not activate a listener, connector,
+  remote endpoint, credential, or mail mutation.
+- Added a secret-free OpenAI Secure MCP Tunnel profile generator and a dedicated
+  local-only authentication header for ChatGPT tunnel traffic. The profile keeps
+  both the OpenAI control-plane key and the MCP token in environment references,
+  targets only loopback endpoints, and refuses relative paths or overwrites.
+- Added regression coverage for tunnel-header authentication, forwarded bearer
+  rejection, loopback-only profile targets, secret omission, and safe profile
+  creation. Added a managed stdio target and a personal Codex-plugin-compatible
+  MCP surface; both expose only `company_mail_status`, `company_mail_search`, and
+  `company_mail_read`, with no public inbound listener or mail mutation
+  capability. Child processes inherit only an OS runtime allowlist plus their
+  exact required mail/tunnel values, and failed tunnel diagnostics do not echo
+  child output. Actual accounts, identifiers, live counts, installation paths,
+  and connection state remain private runtime evidence rather than public canon.
+
+- Added period-aware horizontal usage comparisons to the Work history surface.
+  Project bars preserve the Meter's exact `project_id`; organization bars join
+  only exact TASK IDs to Board enrollment groups, with unmatched and bounded
+  long-tail metrics retained as `미연결·기타`. Direct token, turn, and credit
+  labels remain visible and the compact two-column desktop layout collapses
+  without horizontal overflow on narrower screens.
+- Added a persistent `실시간만 / 전체 조직` topology scope. The live scope
+  removes unrelated fixed managers while retaining every exact ancestor for
+  running, approval-waiting, or result-confirmation work; the full scope keeps
+  every exact current manager through responsibility level by combining the
+  governance hierarchy with enrollment parent edges. Display filtering is local-only and
+  does not change enrollment, organization authority, routes, or lifecycle.
+- Split the prior combined stopped/unknown summary into explicit `응답 종료`
+  and `관측 불가` states. The status legend now also states that the Codex
+  sidebar blue dot is an unread/new-activity UI signal, not lifecycle evidence.
+- Clarified the same work/history states without changing their projection:
+  `응답 종료 · 결과 미확정` means only that the last response/turn ended, while
+  `상태 신호 없음` means an exact enrollment has no fresh signal proving
+  execution, waiting, or result delivery. A compact guide now sits beside the
+  work/history filters, and source failures are labeled `상태 관측 오류`.
+- Added instruction-free, metadata-only child TASK enrollment from exact
+  official app-server parent edges and the Meter's validated fresh
+  `SubagentStart` identities. Both sources use the Board's existing single
+  awaited atomic registry writer; replays are idempotent and raw content is
+  neither retained nor projected.
+- Exact idle children are also enrolled when their parent edge is present, so
+  a short TASK that starts and ends between polls is not lost. This records
+  identity and hierarchy only and never interprets idle as completion.
+- Unknown, malformed, conflicting, stale, terminal, unlinked, or inactive
+  organization identities fail closed without changing existing enrollment.
+  Separate repo-level emergency disables remain available, and partial Codex
+  event coverage is reported as `HOLD` rather than inferred.
+- Stabilized live observation with a validated candidate/last-good double
+  buffer: transient lifecycle reconciliation `HOLD 0/0` snapshots no longer
+  replace a previously available projection. Automatic polling is
+  single-flight and applies accepted snapshots as non-blocking UI transitions,
+  without toggling the manual-refresh busy state.
+- Stop-only children are excluded from the live organization topology. Blue
+  nodes require an explicit result-delivery gate, so a response turn ending is
+  never presented as completion, unread work, acceptance, or Owner attention.
+
+## 2026-08-05 — Workspace Board organization governance source
+
+- Added a public-safe organization hierarchy and role-binding schema, strict
+  validator, and provider-neutral read-only projector under
+  `guild_hall/codex_work_directory/`.
+- Switched the local Workspace Board from a manually maintained catalog
+  authority to the ignored metadata-only governance source at
+  `_workmeta/system/bindings/organization_governance_overlay.v1.json`.
+  Source updates project on refresh without an LLM; invalid or missing input
+  fails closed, manual Board catalog writes are disabled, and explicit local
+  emergency-disable/legacy-HOLD rollback boundaries remain available.
+
+## 2026-08-05
+
+### 조직 TASK 역할 프로필 생성 가드
+
+- 개발1팀·AI 조직의 새 TASK 생성 전에 역할별 정본 프로필을 exact model·reasoning effort로 해석하고, 실제 `create_thread`의 `model`·`thinking` 인자와 일치하는지 검사하는 fail-closed 가드를 추가했다.
+- 전역 기본값·manager·parent 프로필 상속, 인자 누락, 미해결 범위값, 일반 책임자의 Ultra 사용, 역할 변경 fork를 `HOLD`로 차단한다. Ultra는 명시적으로 승인된 중대 Gate에만 허용한다.
+- thread-manager 정본·설치 skill, delegation packet, workflow·step·handoff·monster 규칙과 21개 회귀 사례를 같은 경계로 동기화했다.
+
+### Codex Thread Manager 적용 범위 축소
+
+- `soulforge-codex-thread-manager`는 durable TASK create·fork·continue·rollover·handoff·archive, manager/worker/worktree topology 변경, 또는 다중 durable TASK 조정에만 적용한다.
+- 기존 TASK 조회·상태 확인·한 번의 질문/메시지·단일 전송용 exact-ID 확인·조직 route/authority 검토는 직접 task tool과 해당 정본을 사용하며, workflow load·`NIGHT_WORK_HANDOFF` refresh·worker 생성·Board enrollment를 실행하지 않는다.
+- 정본·설치 skill, 등록 workflow, 회귀 fixture를 같은 경계로 동기화했다.
+
+## 2026-08-04
+
+### Workspace Board dynamic organization catalog
+
+- Replaced fixed Board company/group lanes with a strict ignored local metadata-only organization catalog. Companies, groups, CEO membership, parent groups, display roles, labels, and explicit order now project into the Board without code changes.
+- Missing, invalid, disabled, or unknown current organization membership remains `HOLD`; the Board does not infer a company, hierarchy position, or route. The catalog and enrollment CLIs validate the same exact local membership boundary.
+
+### Workspace Board actual organization projection
+
+- Reworked the local read-only Board around the selected real-time, organization, responsibility-flow, and KST usage-history views while retaining exact-ID enrollment, explicit result gates, metadata-only projection, and local emergency-disable boundaries.
+- Corrected the organization hierarchy to the canon `Owner → outer company frame → exact CEO governance group → subordinate organization groups`. Individual manager, reviewer, and TASK threads remain available only through bounded selected-group drill-down rather than a default dense list.
+
 ## 2026-08-03
+
+### Workspace Board exact enrollment gate
+
+- Development1/AI 조직 TASK create·continue·rollover는 actual exact thread ID 뒤 local Board enrollment CLI, validation, 그리고 가능한 live reconciliation을 거치며, disable·failure는 Board `HOLD`로 분리한다. 실제 ID는 local-only이고 자동 `create_thread` interception은 주장하지 않는다.
+
+### 실제 결과물 TASK 기본 profile 상향
+
+- Owner 지시에 따라 Soulforge 전체 조직·프로젝트의 실제 조사·계산·설계·코드·
+  시험·문서·증거 생성 TASK 기본값을 `gpt-5.6-terra/xhigh`에서
+  `gpt-5.6-terra/max`로 상향했다.
+- `max`를 Ultra와 분리하고, CEO·manager·책임자 판단, 운영·상태 정리, 단순
+  수집·형식화와 독립검토 profile은 변경하지 않았다. 요청 profile과 실제 관찰
+  profile을 구분하며, runtime 미지원·미관찰 상태를 적용 완료로 주장하지 않는다.
+- 완료·과거 TASK는 profile 적용만을 위해 다시 깨우지 않고, 진행 중 실제 결과물
+  TASK는 다음 정상 실행 turn부터 새 기본값을 요청하도록 운영정책을 갱신했다.
 
 ### 루트 AGENTS Lean Router 전환
 
@@ -14,14 +226,23 @@
 
 ### Soulforge AI 사용량 미터 v1
 
-- Codex session의 누적 token counter를 turn delta로 변환하고 input/cached/cache-write/output/reasoning, 모델 호출, rate-card 기반 계산 크레딧을 기록하는 `guild_hall/ai_usage_meter/`를 추가했다.
+- Codex session의 누적 token counter를 turn delta로 변환하고 input/cached/cache-write/output/reasoning, 관찰된 usage 증가 구간 수, rate-card 기반 계산 크레딧을 기록하는 `guild_hall/ai_usage_meter/`를 추가했다. usage 증가 구간 수는 API 요청 수가 아닌 모델 순환의 관찰 하한 proxy로 해석한다.
 - Stop/SubagentStop 비차단 hook, 부모–서브에이전트 lineage, explicit `work_id/project/team/role` binding, replay-safe current event와 revision 보존, 손상 session 격리형 backfill을 구현했다.
 - metadata-only JSON ledger, 주간 filter, 조직·팀·프로젝트·업무·모델·reasoning effort·node·역할·에이전트 집계, local HTML, CSV, MCP summary/detail/binding adapter를 추가했다.
-- 실제 Outlook 7-turn 기준 입력 `40,613,609`, 캐시 입력 `39,543,808`, 출력 `56,362`, 계산 크레딧 `670.294225` 재현과 원문 prompt/reasoning/tool payload 비수집을 검증했다.
+- 과거 Outlook 관찰 token tuple로 구성한 합성 7-turn reference에서 입력 `40,613,609`, 캐시 입력 `39,543,808`, 출력 `56,362`, 계산 크레딧 `670.294225` 재현과 원문 prompt/reasoning/tool payload 비저장을 검증했다. 실제 원본 session replay·역할 귀속은 metadata-only private receipt가 있을 때만 별도 검증으로 보고한다.
 - 독립 adversarial review와 실제 self-metering에서 발견한 cache-write 오과금, exact binding 우선순위, depth 2+ lineage, 부모 continuation 누락, continuation model·source rollover 보강, 진행 중 부모 오귀속, stale self-root 백필 충돌과 강한 완료 snapshot 유실, scoped coverage 덮어쓰기, 월 shard 중복, malformed hook/timestamp, lock 경합 유실, runtime privacy schema, binding lock ownership, CSV formula injection을 회귀 fixture로 고정했다.
 - hook lock 경합은 고유 pending observation으로 내구화하고 다음 성공 실행에서 자동 병합하며, `health/history/`와 dashboard의 hook/pending 상태로 오류가 뒤의 성공에 가려지지 않게 했다.
 - 공식 Plus/Pro/Business token-pricing 전환일인 2026-04-02를 rate-card 경계로 고정하고 GPT-5.5·GPT-5.4 요율과 GPT-5.4 Fast 2배 예외를 추가했다. 경계 이전 기록은 legacy 메시지 요율로 추정하지 않고 `rate_unknown`을 유지한다.
 - 일반 ChatGPT는 사용량 통합 대상이 아니라 저장소 접근이 필요 없는 조사·전략 작업을 Codex 밖으로 라우팅하는 보조 선택지로 경계를 고정했다. (worker: `codex_gpt-5.6-sol`)
+- Pro 검수 경계에 맞춰 `instruction_manifest.v1`, `ai_work_run.v1`, `ai_quality_result.v1`, `ai_tool_event.v1`, `ai_usage_replay_receipt.v1`을 additive metadata-only 증거로 추가했다. CLI에서 지침 source·model-visible prompt의 digest/bytes를 원문 없이 검사하고, 실행·품질·tool·replay receipt를 strict schema로 검증·저장할 수 있게 했다. (worker: `codex_gpt-5.6-sol`)
+- 후속 독립 검수에서 발견한 manifest 관찰시각 replay 충돌, evidence stale-lock 탈취 경쟁, replay receipt 내부 합계 불일치 허용, instruction source 상한의 schema/runtime 불일치를 fail-closed 검증과 회귀 테스트로 보정했다. (worker: `codex_gpt-5.6-sol`)
+- Added an explicit local emergency disable/enable control for the non-blocking lifecycle collector, plus a strict redacted snapshot adapter for the existing read-only Workspace Board. The Board receives aggregate totals, breakdowns, coverage, and operational counts only; it never receives session identifiers/paths, source references, raw prompts, reasoning, tool payloads, or writer authority. (worker: observed profile `UNKNOWN`)
+- Expanded the local-only lifecycle collector to exact Codex `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `PermissionRequest`, and `Stop` receipts. The allowlisted receipt/snapshot surface stores no prompt, message, tool payload, path, cwd, or raw flag; `Stop`/`SubagentStop` remain `observed_at_stop` with `result_pending`, and a separate ignored per-identity projection is opt-in for future local Board correlation rather than live authority. (worker: `codex_gpt-5.6-terra/max`)
+- Resolved repository hook state through the verified non-bare Git common directory so normal and linked worktrees share one local lifecycle ledger and emergency-disable marker. Explicit state-root and environment overrides retain priority; unsafe/unavailable common-root resolution falls back only to local `CODEX_HOME/usage-meter` with a safe health reason. (worker: `codex_gpt-5.6-terra/max`)
+- Added a bounded, metadata-only `lifecycle-reconcile` fallback for Codex managed worktrees where project hooks may not run. It reads only JSONL lifecycle markers, writes a strict ignored `source=jsonl_metadata` coverage/health/staleness snapshot, mirrors compatible exact-ID `result_pending` states into the existing Board v1 projection, honors emergency disable, and never stores or outputs raw prompts, messages, reasoning, tool I/O, cwd, transcript paths, or secrets. (worker: `codex_gpt-5.6-terra/max`)
+- Added a separate strict `soulforge.ai_usage_board_history_snapshot.v1` local sidecar for exact accepted Codex thread IDs. It preserves a scope-matched nested current Board v1 aggregate and adds deterministic `Asia/Seoul` calendar/rolling/all-time windows with reconciled top-N-plus-other project/work/exact-task-ID token, credit, and turn breakdowns. Global history loading is rejected; retries and timeouts remain activity evidence rather than duplicate usage. The Board refresh contract is scoped, debounced, single-flight, nonblocking, timeout-bounded, and last-valid/HOLD on failure. (worker: `codex_gpt-5.6-terra/max`)
+- Fixed scoped JSONL usage collection so explicit `--thread-id` values select exact canonical session files before duplicate collapse. An unrelated global duplicate remains fail-closed, while scoped root/child continuation collection no longer fails or double-counts. (worker: `codex_gpt-5.6-terra/max`)
+- Fixed exact-scope lifecycle reconciliation so an unregistered descendant repeated in multiple accepted ancestor sessions is excluded from the selected projection instead of creating a false lineage conflict. Exact selected children still require one matching parent; missing local sessions remain explicit partial coverage without downgrading a successful collector's hook health; and the actual root/two-child canary remains complete with two confirmed links and four replay-stable usage events. (worker: `codex_gpt-5.6-sol/max`)
 
 ## 2026-07-31
 

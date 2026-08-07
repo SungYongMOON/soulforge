@@ -42,6 +42,11 @@
 - 작업 전 HEAD, `.git/index.lock`, dirty change ownership과 동시 편집 징후를 확인하고 충돌 가능성이 있으면 중단·보고한다.
 - 재사용 하네스와 스크립트는 가능한 표준 Node/CLI로 만들고 특정 agent 환경만의 기능을 정본 의존성으로 만들지 않는다.
 - 관찰하지 않은 명령·결과·권한·모델·상태를 주장하지 않는다. 불확실하면 `UNKNOWN` 또는 `HOLD`로 둔다.
+- 개발1팀 또는 AI 조직 TASK의 create/continue/rollover에서 exact Codex `thread_id`가 실제로 반환되면 `.workflow/codex_thread_manager_v0`의 Workspace Board local enrollment gate를 따른다. owner-provided `organization_group_id`, safe `display_label`, kind·relationship·lifecycle을 쓰고 route/work 값은 known일 때만 쓴다.
+- title, cwd, prefix, similarity, age, idle 또는 parent-only 값으로 thread ID를 추정하지 않으며, actual ID·roster·등록값은 ignored local state에만 두고 tracked 문서·workflow data에는 넣지 않는다.
+- idempotent `register-existing`, `validate`, 그리고 live adapter가 가능한 경우 `reconcile --live`가 통과하기 전에는 Board-visible 또는 enrollment-gate closed를 주장하지 않는다. CLI·registry·adapter의 disable/failure는 TASK 운영과 분리한 Board `HOLD`와 정확한 blocker로 남기며 우회·추측·자동 route를 금지한다.
+- manager rollover는 stable role을 유지하고 compact handoff acceptance 뒤 새 exact ID의 pending enrollment을 CLI rollover로 accepted/current로만 승격하며 prior ID는 history로 보존한다. Codex archive/delete는 자동 수행하지 않고 별도 권한을 요구한다.
+- `idle`/`notLoaded`는 explicit result gate를 대체하는 완료 신호가 아니며 Owner browser acknowledgement는 Board Active card만 localStorage에서 숨길 수 있고 Codex task를 변경하지 않는다. enrollment에는 raw preview/message/prompt/reasoning/tool I/O/content나 secret을 넣지 않으며 이 gate는 `create_thread`의 자동 interception을 주장하지 않는다.
 - 위험도에 맞는 deterministic validator와 실행 계약의 post-development review level을 적용한다. 반복 종료 검증은 `.workflow/post_development_review_gate_v0/` 또는 설치된 `soulforge-post-development-review-gate` skill을 사용한다.
 - 브라우저 연결 복구의 허용·금지 범위는 실행 계약의 `Local browser connection standing approval`을 따른다.
 - `NIGHT_WORK_HANDOFF`는 unresolved forward-state가 context 경계를 넘어야 할 때만 `.registry/skills/long_thread_handoff/codex/SKILL.md`에 따라 사용한다.

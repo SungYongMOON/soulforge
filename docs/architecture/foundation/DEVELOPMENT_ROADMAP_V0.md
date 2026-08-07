@@ -717,6 +717,7 @@ Start condition:
 | 22 | 메일 수집 계정별 owner 메타 → core_mail (개인별 메일 뷰) | 메일 수집 통합 완료(자동 15분+수동 버튼); Codex 원장 스키마에서 owner 필드 위치(신규 컬럼 vs `메일함` 재정의) 확정 | `guild_hall/gateway`, `ui-workspace/apps/dev-erp`, `docs/architecture/workspace` |
 | 23 | 메일 원장 시간 분할 + 증분 스캔 (무한 누적 대비) | owner 가 분할 단위(연/월) 정함; Codex 원장 표준 `soulforge.project_mail_history.private.v1` 변경 조율 | `guild_hall/gateway`, `docs/architecture/workspace`, `_workmeta` |
 | 24 | Rhino x Claude Code 연결 패턴 검토 | engineering co-pilot / SE assistant lane 재개 시 owner 가 Rhino 자동화 연결 필요성을 정함; 공개 영상 source ref 를 먼저 검토 | `.workflow`, `_workmeta/system`, external host setup |
+| 25 | Chat-first·MCP-first connected reasoning workspace | Owner 계정의 ChatGPT plan/model/app 제약을 재확인하고, compact 구현 패킷과 품질 gate 및 첫 read-only Smartsheet 대표 업무를 확정 | `.workflow/external_reasoning_workspace_v0`, `docs/architecture/guild_hall`, `guild_hall/ai_usage_meter`, external ChatGPT app/MCP setup |
 
 후보 10~21 의 출처는 2026-06-12 Fable5 심층 검증이다. 10~17 의 상세 후보
 패킷은 `_workmeta/system/dev_worker_queue/` 에 `status: proposed`
@@ -742,6 +743,27 @@ git 추적 대상으로 무한 성장하고 scan 이 매 수집마다 전건 재
 나중에 검토해 Rhino/3D CAD 자동화 연결 패턴이 Soulforge SE assistant 또는
 engineering co-pilot 확장에 들어갈 수 있는지 판단하는 항목이다. 현 상태는
 아이디어 캡처이며 영상 본문, transcript, 설치 절차 원문은 저장하지 않았다.
+
+추가(2026-08-04, owner 지시): 후보 25 는 Codex가 Chat에서 사용할 app/MCP와
+검증 가능한 데이터 도구를 먼저 개발하고, 저장소·로컬 상태가 필요 없는 조사,
+계산 해석, 요구사항 정리, 대안 비교와 기본설계 초안을 ChatGPT/Deep Research/Pro
+지원 lane으로 옮기는 개발 계획이다. 기존
+`.workflow/external_reasoning_workspace_v0/`를 확장 대상으로 사용하고 같은 목적의
+병렬 workflow를 새로 만들지 않는다.
+
+단계는 (1) 계정별 plan/model/app·privacy 제약과 compact 구현 패킷·품질 gate 고정,
+(2) 기존 Google Drive app 기반 read-only 조사·인계 pilot, (3) server-side 필터·집계·
+근거 포인터를 반환하는 Smartsheet 업무형 read-only MCP pilot, (4) 직접 Codex 대비
+Codex 계산 크레딧·호출 수·추가 질문·재작업·first-pass acceptance 비교,
+(5) 품질 gate를 통과하고 반복 절감 근거가 확인된 system만 Outlook·PLAUD·사내 DB로
+확장하는 순서다. 일반 ChatGPT 토큰은 Usage Meter에 합치지 않고 `direct Codex`와
+`Chat handoff`의 downstream Codex 비용·품질만 비교한다.
+
+첫 완료 기준은 read-only 연결 업무 1종에서 출처 추적성, 저장소 상태 허위 주장 0,
+외부 write 0, 사전 acceptance 통과를 유지하면서 direct Codex 기준선과 비교 가능한
+사용량·재작업 evidence를 남기는 것이다. ChatGPT Work를 비용 우회로로 취급하거나,
+raw transcript/private payload를 넘기거나, write action·default route·조직 authority를
+활성화하는 일은 이 후보의 첫 단계 범위 밖이다.
 
 ## 구체화 규칙
 
