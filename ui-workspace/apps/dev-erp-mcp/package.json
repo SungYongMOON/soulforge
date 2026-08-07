@@ -9,6 +9,11 @@
   },
   "scripts": {
     "start": "node server.mjs",
+    "start:company-mail": "node company_mail_server.mjs",
+    "start:company-mail-stdio": "node company_mail_stdio_server.mjs",
+    "company-mail:runtime-config": "node company_mail_runtime_config_cli.mjs",
+    "company-mail:tunnel-runtime": "node company_mail_tunnel_runtime.mjs",
+    "company-mail:tunnel-profile": "node company_mail_tunnel_profile_cli.mjs",
     "start:project-history": "node project_history_server.mjs",
     "start:ingress": "node ingress_server.mjs",
     "ingress:client": "node ingress_client_cli.mjs",

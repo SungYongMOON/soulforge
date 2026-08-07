@@ -35,6 +35,7 @@ firewall 활성화는 물리 canary 절차에서 별도로 수행한다.
 | 프로세스 | 시작 파일 | 저장 대상 | 현재 상태 |
 | --- | --- | --- | --- |
 | 개인 ERP MCP | `server.mjs` | dev-ERP API/DB와 ERP artifact inbox | 기존 파일럿, 기본 OFF |
+| 회사메일 query-only MCP | `company_mail_stdio_server.mjs` / `company_mail_server.mjs` | 저장 없음; 지정된 mailbox의 Hiworks JSONL event만 조회 | 구현·검증 완료; 승인된 로컬 ChatGPT/Codex 연결만 활성 |
 | copied Project History MCP | `project_history_server.mjs` | 저장 없음; attested standalone ERP copy와 server-bound CSV/XLSX만 읽음 | feature OFF, 합성 및 bounded actual-copy loopback 검증 |
 | HPP evidence ingress MCP | `ingress_server.mjs` | HPP local outbox의 미분류 파일·bounded PC work·run receipt | 구현·합성 검증 완료, private binding 기본 OFF |
 | ingress mTLS gateway | `ingress_mtls_gateway.mjs` | 저장하지 않고 사설 LAN 요청을 loopback ingress로 전달 | 구현·합성 검증 완료, private binding 기본 OFF |
@@ -60,6 +61,52 @@ reverse proxy/tunnel 뒤에 둔다. `/health`만 공개 liveness이며 `/mcp`는
 실제 listen host와 `ERP_MCP_PUBLIC_URL`은 non-loopback 평문을 기본 거부한다. 개인 bearer를
 전달하는 `ERP_MCP_ERP_BASE_URL`도 `http://`이면 loopback만 허용한다. 토큰 회수, 계정 정지,
 업무 접근권한 상실은 아직 쓰지 않은 upload ticket의 저장 권한도 무효화한다.
+
+## 회사메일 query-only MCP
+
+`company_mail_server.mjs`는 중앙 회사메일 event JSONL을 직접 읽는 별도 로컬 서버다. 저장 파일에
+여러 팀원의 mailbox event가 섞여 있어도, 실행 시 지정한 exact mailbox ID와 일치하는 event만
+검색·열람한다. 도구는 `company_mail_status`, `company_mail_search`, `company_mail_read` 세 개뿐이며
+발송·답장·전달·삭제·읽음 변경·첨부 다운로드 기능은 없다. 메일 HTML은 plain text로 축소하며 원본
+HTML, raw header, UIDL, custody/storage path, 첨부 URL과 local path를 반환하지 않는다.
+
+```powershell
+$env:SOULFORGE_COMPANY_MAIL_EVENT_ROOT="<absolute-private-event-root>"
+$env:SOULFORGE_COMPANY_MAIL_MAILBOX_ID="<exact-mailbox-id>"
+$env:SOULFORGE_COMPANY_MAIL_MCP_TOKEN="<ephemeral-random-token-at-least-32-characters>"
+npm.cmd run start:company-mail
+```
+
+기본 bind는 `127.0.0.1:4314`이며 loopback 밖의 listen을 허용하지 않는다. token은 환경변수로만
+주입하고 출력하지 않는다. JSONL의 malformed row나 설정 누락은 fail-closed 처리한다. 이 서버를
+실행하거나 Codex/ChatGPT에 등록하는 일은 각각 별도 승인과 인증 경계가 필요하며 현재 구현만으로
+자동 활성화되지 않는다. 첨부파일은 이름·MIME·크기 descriptor만 조회할 수 있고 실제 bytes 추출은
+별도 구현 범위다.
+
+### ChatGPT Secure MCP Tunnel과 Codex plugin
+
+ChatGPT 웹은 로컬 Codex MCP 설정을 그대로 읽지 않는다. 승인된 운영 경로는 회사메일 MCP를
+`company_mail_stdio_server.mjs`로 실행하고 OpenAI Secure MCP Tunnel 클라이언트가 outbound 연결하는
+방식이다. 이 경로에는 공인 inbound 주소나 로컬 HTTP listener가 필요 없다. stdio server는 MCP를
+연결하기 전에 환경을 OS runtime allowlist로 축소하므로 회사메일 도구가 OpenAI key나 다른 parent
+secret을 상속하지 않는다. tunnel profile은 secret 값을 넣지 않고 환경변수 참조만 유지한다.
+
+OpenAI Platform에서 tunnel ID를 발급받은 뒤, 보호된 Git 비추적 디렉터리에 profile을 생성한다.
+출력 경로는 절대경로여야 하고 기존 파일을 덮어쓰지 않는다. 아래 HTTP profile 생성기는 진단·호환
+경로이며 권장 managed runtime은 stdio target을 사용한다.
+
+```powershell
+npm.cmd run company-mail:tunnel-profile -- generate `
+  --tunnel-id tunnel_<32-lowercase-hex> `
+  --output <absolute-private-path>\company-mail-tunnel.yaml
+```
+
+생성 profile은 `CONTROL_PLANE_API_KEY`와 `SOULFORGE_COMPANY_MAIL_MCP_TOKEN` 환경변수만 참조한다.
+Owner가 승인한 환경에서는 공식 `tunnel-client` managed runtime과 ChatGPT Developer Mode plugin,
+또는 별도 개인 Codex plugin이 같은 stdio target을 사용할 수 있다. 어느 표면에서도 노출 도구는
+`status/search/read` 세 개뿐이며 메일 발송이나 저장소 변경 권한은 생기지 않는다. Codex plugin은
+새 task 또는 앱 reload부터 도구 목록에 반영된다. 실제 계정, tunnel·mailbox ID, live event 수,
+설치 경로와 연결 상태는 public 문서가 아니라 private runtime/evidence plane에서만 기록한다.
 
 ## copied Project History MCP
 
