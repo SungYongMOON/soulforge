@@ -382,7 +382,10 @@ The Windows entrypoints are:
 - `ops/run-continuous-label-supervisor.ps1`: binary/profile attestation,
   process-lifetime lock, and redacted logs
 - `ops/register-continuous-label-supervisor-task.ps1`: dry-run-first scheduled
-  task registration
+  task registration — at-logon start plus an indefinite repetition watchdog
+  (default every 15 minutes) so a killed supervisor restarts without waiting
+  for the next logon; duplicate launches exit through the instance lock and
+  named mutex
 
 ### Semantic shadow labeling
 

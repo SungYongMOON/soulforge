@@ -13,6 +13,7 @@ param(
   [ValidateRange(60, 86400)][int]$PollSeconds = 900,
   [ValidateRange(1, 16)][int]$MaxAsrSessions = 1,
   [ValidateRange(1, 1000)][int]$MaxLabelSessions = 20,
+  [ValidateRange(5, 1440)][int]$WatchdogMinutes = 15,
   [switch]$Register,
   [switch]$Start
 )
@@ -240,22 +241,36 @@ if (-not $PSCmdlet.ShouldProcess($TaskName, "register and optionally start the h
 }
 
 $Action = New-ScheduledTaskAction -Execute $PowerShellExe -Argument $ActionArgumentLine -WorkingDirectory $RuntimeRoot
-$Trigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUser
+$LogonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUser
+$WatchdogTrigger = New-ScheduledTaskTrigger -Once -At ([datetime]::new(2026, 1, 1, 0, 0, 0)) `
+  -RepetitionInterval (New-TimeSpan -Minutes $WatchdogMinutes)
+$WatchdogTrigger.Repetition.StopAtDurationEnd = $false
 $Principal = New-ScheduledTaskPrincipal -UserId $CurrentUser -LogonType Interactive -RunLevel Limited
 $Settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -RestartCount 3 `
   -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable `
   -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
-$null = Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger `
+$null = Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger @($LogonTrigger, $WatchdogTrigger) `
   -Principal $Principal -Settings $Settings `
   -Description "Soulforge HPP hidden voice independent ASR and semantic label supervisor." `
   -Force -ErrorAction Stop
 
 [xml]$RegisteredXml = Export-ScheduledTask -TaskName $TaskName
 $TriggerNodes = @($RegisteredXml.Task.Triggers.ChildNodes)
-$RegistrationValid = $TriggerNodes.Count -eq 1 `
-  -and $TriggerNodes[0].LocalName -eq "LogonTrigger" `
-  -and $null -eq $TriggerNodes[0].SelectSingleNode("./*[local-name()='Repetition']") `
+$LogonNodes = @($TriggerNodes | Where-Object { $_.LocalName -eq "LogonTrigger" })
+$WatchdogNodes = @($TriggerNodes | Where-Object { $_.LocalName -eq "TimeTrigger" })
+$ExpectedWatchdogInterval = [Xml.XmlConvert]::ToString((New-TimeSpan -Minutes $WatchdogMinutes))
+$WatchdogIntervalNode = if ($WatchdogNodes.Count -eq 1) {
+  $WatchdogNodes[0].SelectSingleNode("./*[local-name()='Repetition']/*[local-name()='Interval']")
+} else {
+  $null
+}
+$RegistrationValid = $TriggerNodes.Count -eq 2 `
+  -and $LogonNodes.Count -eq 1 `
+  -and $null -eq $LogonNodes[0].SelectSingleNode("./*[local-name()='Repetition']") `
+  -and $WatchdogNodes.Count -eq 1 `
+  -and $null -ne $WatchdogIntervalNode `
+  -and $WatchdogIntervalNode.InnerText -eq $ExpectedWatchdogInterval `
   -and $RegisteredXml.Task.Settings.MultipleInstancesPolicy -eq "IgnoreNew" `
   -and $RegisteredXml.Task.Actions.Exec.Command -eq $PowerShellExe `
   -and $RegisteredXml.Task.Actions.Exec.Arguments -match '-WindowStyle\s+Hidden'
@@ -266,4 +281,4 @@ if (-not $RegistrationValid) {
 if ($Start) {
   Start-ScheduledTask -TaskName $TaskName
 }
-Write-Output "voice label supervisor task registered: hidden=true at_logon=true started=$([bool]$Start)"
+Write-Output "voice label supervisor task registered: hidden=true at_logon=true watchdog_minutes=$WatchdogMinutes started=$([bool]$Start)"

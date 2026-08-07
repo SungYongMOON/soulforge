@@ -95,7 +95,7 @@ test("supervisor rejects unsafe cadence and non-apply execution", async () => {
   }), { code: "voice_label_supervisor_poll_seconds_invalid" });
 });
 
-test("Windows task contract is one hidden at-logon supervisor with duplicate protection", async (t) => {
+test("Windows task contract is a hidden at-logon supervisor with a repetition watchdog and duplicate protection", async (t) => {
   const [launcher, registrar] = await Promise.all([
     readFile(LAUNCHER, "utf8"),
     readFile(REGISTRAR, "utf8"),
@@ -125,7 +125,13 @@ test("Windows task contract is one hidden at-logon supervisor with duplicate pro
   assert.match(registrar, /Test-UnsafePathItemReparse/);
   assert.match(registrar, /Assert-DisjointPath -Left \$RuntimeRoot -Right \$RepoRoot/);
   assert.doesNotMatch(registrar, /task audit passed/);
-  assert.doesNotMatch(registrar, /RepetitionInterval/);
+  assert.match(registrar, /\$WatchdogMinutes = 15/);
+  assert.match(registrar, /New-ScheduledTaskTrigger -Once/);
+  assert.match(registrar, /-RepetitionInterval \(New-TimeSpan -Minutes \$WatchdogMinutes\)/);
+  assert.match(registrar, /Repetition\.StopAtDurationEnd = \$false/);
+  assert.doesNotMatch(registrar, /RepetitionDuration/);
+  assert.match(registrar, /-Trigger @\(\$LogonTrigger, \$WatchdogTrigger\)/);
+  assert.match(registrar, /TimeTrigger/);
 
   if (process.platform !== "win32") {
     t.skip("PowerShell syntax parser is Windows-only");
