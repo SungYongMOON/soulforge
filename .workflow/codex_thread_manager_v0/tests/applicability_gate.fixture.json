@@ -1,0 +1,53 @@
+{
+  "schema_id": "soulforge.codex_thread_manager_applicability_fixture.v1",
+  "cases": [
+    {
+      "case_id": "N01_one_off_existing_task_question",
+      "prompt": "개발1팀 CEO에게 조직도 정본 위치만 물어봐.",
+      "signal": "one_off_question_or_message_to_existing_task",
+      "expected": "not_applicable"
+    },
+    {
+      "case_id": "N02_existing_task_status",
+      "prompt": "기존 CEO TASK 상태만 확인해줘.",
+      "signal": "existing_task_lookup_list_read_or_status_only",
+      "expected": "not_applicable"
+    },
+    {
+      "case_id": "N03_exact_id_one_send",
+      "prompt": "exact ID를 찾아 기존 TASK에 질문을 한 번 보내줘.",
+      "signal": "exact_task_id_resolution_for_one_send_only",
+      "expected": "not_applicable"
+    },
+    {
+      "case_id": "N04_route_authority_check",
+      "prompt": "이 조직 분장과 CEO 권한 경계가 맞는지만 검토해줘.",
+      "signal": "organization_route_responsibility_or_authority_check_without_lifecycle_action",
+      "expected": "not_applicable"
+    },
+    {
+      "case_id": "P01_create_durable_worker",
+      "prompt": "새 CEO worker TASK를 생성하고 결과를 통합해줘.",
+      "signal": "durable_task_create_fork_continue_rollover_handoff_or_archive",
+      "expected": "applicable"
+    },
+    {
+      "case_id": "P02_rollover_handoff",
+      "prompt": "manager rollover 후 NIGHT_WORK_HANDOFF로 인계해줘.",
+      "signal": "durable_task_create_fork_continue_rollover_handoff_or_archive",
+      "expected": "applicable"
+    },
+    {
+      "case_id": "P03_multi_lane_topology",
+      "prompt": "$soulforge-codex-thread-manager로 구현 TASK와 독립 검증 TASK를 만들고 통합해줘.",
+      "signal": "multiple_durable_task_lane_coordination_or_integration",
+      "expected": "applicable"
+    },
+    {
+      "case_id": "C01_skill_name_only",
+      "prompt": "$soulforge-codex-thread-manager",
+      "signal": "skill_name_only_with_unclear_action_asks_one_concise_question",
+      "expected": "clarify"
+    }
+  ]
+}

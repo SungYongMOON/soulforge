@@ -2,7 +2,7 @@ skill_id: codex_thread_manager
 kind: skill
 status: active
 title: Codex Thread Manager
-summary: Launch the registered `codex_thread_manager_v0` workflow so the declared Codex thread acts as main team lead, manages context lifecycle, coordinates subagent-first role worker threads, and keeps verifier/judge lanes fresh-context while preserving Soulforge handoff and boundary rules.
+summary: Launch the registered `codex_thread_manager_v0` workflow only for durable Codex task lifecycle changes or multi-task orchestration, with bounded worker topology, handoff continuity, and fresh verifier boundaries.
 behavior:
   intent: >
     Provide a Codex-facing bridge for `.workflow/codex_thread_manager_v0`.
@@ -10,9 +10,15 @@ behavior:
     surface selection, manager lifecycle and rollover policy, worker packet
     shape, thread id/title recording, worktree worker boundary routing,
     integration validation, workflow-check closeout, and conservative claim
-    reporting. Explicit invocation with an actionable goal is treated as a
-    thread-orchestration request: the declared/current Codex thread becomes the
-    main team lead, manages handoff/compact/reset lifecycle, and may create
+    reporting. Before loading that workflow, classify applicability. Existing-
+    task lookup, read, or status; exact-ID resolution for one send; a one-off
+    question or message to an existing task; and organization route or
+    authority checking without a lifecycle action use direct task tools and
+    the applicable route canon instead. Direct task-tool use does not itself
+    trigger this skill. Explicit invocation with an actionable lifecycle or
+    orchestration goal is treated as a thread-orchestration request: the
+    declared/current Codex thread becomes the main team lead, manages
+    handoff/compact/reset lifecycle, and may create
     role worker Codex threads when runtime tools and boundaries support that
     action. For confirmed project work, the manager applies the public project
     organization contract, records exactly one primary responsibility owner
@@ -55,6 +61,14 @@ behavior:
     self-credit subordinate execution. Requested and observed models stay
     separate, unobserved provider or model values are `UNKNOWN`, and PARTIAL,
     HOLD, failure, and unknown results retain attribution and blockers.
+    For Development1 and AI-organization TASK creation, the approved role
+    profile is a standing explicit request for that governed TASK. Codex runs
+    `.workflow/codex_thread_manager_v0/role_profile_guard.mjs`, requires exact
+    requested model and reasoning effort, and passes them as the actual
+    `create_thread` model and thinking arguments. Missing or mismatched values,
+    unresolved ranges, default or parent inheritance, and unauthorized Ultra
+    are `HOLD`. Fork is limited to observed same-role same-profile continuity.
+    Profile mismatch state uses only `UNKNOWN`, `MATCH`, or `profile_mismatch`.
     Development Team 1 is outside the AI platform company's direct notice
     scope and receives the same shape through the customer-supplier interface.
     Separately, Development Team 1 COMMON operations and project managers use
@@ -86,21 +100,26 @@ behavior:
     turning local thread tools, raw transcripts, private payloads, or default
     route authority into skill canon.
   use_when:
-    - the user explicitly asks for Soulforge Codex thread management
-    - the user writes "Codex 스레드 매니저", "스레드파일럿", or equivalent wording
-    - the user wants manager, worker, or worktree thread orchestration instead of only subagents
-    - the user asks for durable worker threads, manager rollover, or thread id/title operating rules
-    - the user invokes `$soulforge-codex-thread-manager`
+    - the user asks to create, fork, continue, rollover, hand off, or archive a durable Codex task
+    - the user wants manager, worker, or worktree task topology orchestration instead of only subagents
+    - the user asks to coordinate or integrate multiple durable Codex task lanes
+    - the user invokes `$soulforge-codex-thread-manager` with an actionable lifecycle or orchestration goal
   avoid_when:
     - the task is a normal short request that does not need durable thread orchestration
+    - the request only lists, finds, reads, or checks the status of an existing Codex task
+    - the request only resolves an exact task ID for one send or sends one question or message to an existing task
+    - the request only checks organization routing, responsibility, or authority without changing a task lifecycle
+    - a task tool is used for a one-off existing-task action; tool use alone is not a skill trigger
     - the user wants the older contamination-free subagent handoff pattern owned by `long_thread_handoff_v0`
     - the request would require raw transcript storage, private payload copying, secret inspection, or external side effects without authorization
     - the request would require `.party` binding, default-route switching, or production-ready claims without a separate owner-approved route
   expected_outcome:
-    - Codex reads `.workflow/codex_thread_manager_v0/workflow.yaml`, `step_graph.yaml`, `handoff_rules.yaml`, and `profile_policy.yaml`
+    - Codex applies the skill applicability gate before reading registered workflow files or refreshing `NIGHT_WORK_HANDOFF`
+    - Codex returns `not_applicable` to the direct task-tool and route-canon path for one-off existing-task or route-check requests, without worker creation or Board enrollment
+    - On `applicable`, Codex reads `.workflow/codex_thread_manager_v0/workflow.yaml`, `step_graph.yaml`, `handoff_rules.yaml`, and `profile_policy.yaml`
     - Codex binds the goal, workspace scope, success criteria, stop conditions, public/private boundary, and claim ceiling before creating or continuing threads
     - Codex refreshes `NIGHT_WORK_HANDOFF` before thread creation, manager rollover, compact, clear, or substantial closeout
-    - Codex treats explicit skill invocation with an actionable goal as authorization for the declared thread to act as main team lead and create role worker threads by default when thread tools and scope boundaries support that action
+    - Codex treats explicit skill invocation with an actionable lifecycle or orchestration goal as authorization for the declared thread to act as main team lead and create role worker threads by default when thread tools and scope boundaries support that action
     - Codex refreshes structured handoff before worker creation, compact, clear, rollover, cross-PC/overnight continuation, and substantial phase closeout
     - Codex reads the public project organization contract before classifying project work
     - Codex reads the public company/team common-work contract before classifying COMMON work
@@ -111,6 +130,10 @@ behavior:
     - Codex fails closed unless each Development Team 1 internal campaign recipient is an allowed active exact manager with stable-catalog EXACT, live-binding EXACT, and `execution_ready=true`, and excludes the AI platform company CEO and AX, ERP, and SYSTEM product organizations as direct recipients
     - Codex keeps Development Team 1 outside the AI platform company's direct notice scope and preserves the same shape at the customer-supplier interface
     - Codex separates requested and observed models, records unobserved provider or model values as UNKNOWN, and keeps actual performers and blockers for PARTIAL, HOLD, failure, and unknown results
+    - Codex resolves Development1 and AI-organization role profiles from the approved organization model policy and requires `role_profile_guard.mjs` PASS before governed task creation
+    - Codex packets record exact `requested_model`, `requested_reasoning_effort`, profile source and resolution state, observed profile or `UNKNOWN`, and mismatch state
+    - Codex passes exact requested model and reasoning effort as `create_thread` model and thinking arguments and never inherits the configured default, manager, parent, or Ultra
+    - Codex allows Ultra only for an explicitly authorized major Gate and uses fork only for observed same-role same-profile continuity
     - Codex preserves explicit Owner decisions for people, personnel, budget, purchasing, ordering, external commitments, sending, baselines, and final acceptance
     - Codex applies project assignment fields only to confirmed project work and preserves existing owner routing with `not_applicable` project-extension fields for non-project work
     - Codex distinguishes owner directives from peer collaboration, review, and reclassification requests without transferring domain authority
@@ -149,6 +172,7 @@ execution_requirements:
     - cross_branch_request_relationship_classification
     - task_thread_create_or_continue_routing
     - task_logical_role_and_gate_packet_authoring
+    - governed_role_profile_resolution_and_preflight
     - upward_result_attribution_reporting
   preferred_capabilities:
     - worktree_worker_thread_isolation

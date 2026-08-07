@@ -1,6 +1,17 @@
 ---
 name: soulforge-codex-thread-manager
-description: Use when the user explicitly asks for Soulforge Codex thread management, invokes `$soulforge-codex-thread-manager`, says "Codex 스레드 매니저", "스레드파일럿", manager/worker/worktree thread orchestration, durable worker threads, manager rollover, or wants to coordinate actual Codex threads instead of only using subagents while preserving NIGHT_WORK_HANDOFF and public/private boundaries. Treat explicit invocation with an actionable goal as authorization for the current Codex thread to act as manager and create bounded worker Codex threads when thread tools are available. This is the Codex launcher for the registered `.workflow/codex_thread_manager_v0/` workflow.
+description: >-
+  Use only for durable Soulforge Codex task lifecycle or orchestration: create,
+  fork, continue, rollover, handoff, or archive tasks; coordinate
+  manager/worker/worktree topology; or integrate multiple durable task lanes.
+  Treat explicit invocation with an actionable orchestration goal as
+  authorization for the current Codex task to act as manager and create bounded
+  worker tasks when thread tools are available. Do not use for existing-task
+  lookup/read/status, exact-ID resolution for one send, a one-off question or
+  message to an existing task, or organization route/authority checking alone;
+  use direct task tools and the applicable route canon instead. This is the
+  Codex launcher for the registered `.workflow/codex_thread_manager_v0/`
+  workflow.
 ---
 
 # Soulforge Codex Thread Manager
@@ -32,10 +43,33 @@ This skill is not only a video-derived pattern. It combines:
 Use local Codex runtime tools and Soulforge contracts as authority for exact
 tool behavior.
 
+## Applicability Gate
+
+Apply this gate before reading the registered workflow files, refreshing
+`NIGHT_WORK_HANDOFF`, preparing worker packets, or selecting a topology.
+
+- `applicable`: the requested action creates, forks, continues, rolls over,
+  hands off, archives, or otherwise changes a durable Codex task lifecycle; it
+  creates or changes manager/worker/worktree topology; or it coordinates and
+  integrates multiple durable task lanes.
+- `not_applicable`: the request only lists, finds, reads, or checks the status
+  of an existing task; resolves an exact task ID for one send; asks one
+  question or sends one message to an existing task; or checks organization
+  routing, responsibility, or authority without a lifecycle action.
+- On `not_applicable`, use the direct task tool and the applicable route canon.
+  Do not load this workflow, refresh a handoff, create a worker, or run the
+  Workspace Board enrollment gate. Using a task tool does not itself trigger
+  this skill.
+- Explicit `$soulforge-codex-thread-manager` invocation is actionable only when
+  paired with a lifecycle or orchestration goal. If only the skill name is
+  supplied and the action is unclear, ask one concise question.
+
 ## Core Contract
 
-- Treat explicit invocation of this skill with an actionable goal as an
-  explicit thread-orchestration request.
+- Continue into this contract only after the applicability gate returns
+  `applicable`.
+- Treat explicit invocation of this skill with an actionable lifecycle or
+  orchestration goal as an explicit thread-orchestration request.
 - Act as the main team lead in the declared/current Codex thread by default.
   Own goal declaration, context lifecycle, worker-thread assignment,
   inter-thread routing, integration, validation, and final reporting.
@@ -71,8 +105,40 @@ tool behavior.
 - Worker subagent count is scope-driven, not fixed. The worker may use as many
   bounded subagents as the lane reasonably needs unless the manager packet sets
   a specific limit.
-- If the user invokes only the skill name and the actionable goal is unclear,
-  ask one concise question instead of creating a thread.
+- If the user invokes only the skill name and the lifecycle or orchestration
+  goal is unclear, ask one concise question instead of creating a thread.
+
+## Governed Role Profile Binding
+
+For Development Team 1 or AI-organization TASK creation, the Owner-approved
+role policy in
+`docs/architecture/guild_hall/AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`
+is an explicit model request for that governed TASK. It overrides neither the
+user's global default nor other work; it binds only the TASK being created.
+
+- Classify the logical role and resolve an exact `requested_model` and
+  `requested_reasoning_effort` from that policy. The workflow's own
+  `profile_policy.yaml` calibrates orchestration planning and is never a child
+  role profile.
+- Run `.workflow/codex_thread_manager_v0/role_profile_guard.mjs` immediately
+  before the thread operation. A missing, ambiguous, unsupported, or unresolved
+  range profile is `HOLD`; never fall back to the configured default, current
+  manager, parent TASK, or Ultra.
+- On `create_thread`, pass the guard-approved values as the actual `model` and
+  `thinking` arguments. Omitting either argument is forbidden for governed
+  creation even when the app supports omission.
+- Ultra is allowed only for `major_gate_review` with an explicit Owner or
+  policy-defined major-Gate authorization reference. It is not a standing CEO,
+  manager, responsibility, worker, formatter, or reviewer profile.
+- Use `fork_thread` only when the source TASK's stable role and actually
+  observed profile both match the requested role and profile. A role or profile
+  change requires a fresh `create_thread` because fork has no profile override.
+  Profiles marked fresh, including independent review and major-Gate review,
+  always require fresh creation and never use fork.
+- Record requested and observed profiles separately. Until runtime observation,
+  observed values and `profile_mismatch_state` are `UNKNOWN`. The only mismatch
+  states are `UNKNOWN`, `MATCH`, and `profile_mismatch`; any known field mismatch
+  is `profile_mismatch` and `HOLD`.
 
 ## AI Platform Company Upward Result Attribution
 
@@ -245,6 +311,14 @@ not apply.
 
 - `title_or_packet_id`: thread title or stable packet id.
 - `objective`: one bounded task goal and lane role.
+- `logical_role`, `profile_class`, and `profile_source_ref`: the governed role
+  classification and the AI organization model policy reference.
+- `requested_model`, `requested_reasoning_effort`,
+  `profile_resolution_status`, and `fallback_decision`: exact preflight values;
+  range values and fallback to app defaults are forbidden.
+- `ultra_gate_authorization_or_not_applicable`, `observed_model`,
+  `observed_reasoning_effort`, and `profile_mismatch_state`: the Gate authority
+  and requested-versus-observed receipt boundary.
 - `request_origin_relationship`: the preserved request origin when it differs
   from the current route, or `not_applicable`.
 - `request_relationship`: owner directive, common intake request, internal assignment, peer
@@ -295,6 +369,9 @@ available and must not rely only on worker narrative.
 
 ## Operating Steps
 
+0. Apply the Applicability Gate in this skill. On `not_applicable`, use direct
+   task tools and route canon, then stop without loading the workflow or
+   refreshing `NIGHT_WORK_HANDOFF`.
 1. Read `docs/architecture/foundation/AGENT_EXECUTION_CONTRACT_V0.md`.
 2. Read `.workflow/codex_thread_manager_v0/workflow.yaml`,
    `step_graph.yaml`, `handoff_rules.yaml`, and `profile_policy.yaml`.
@@ -305,15 +382,19 @@ available and must not rely only on worker narrative.
    out-of-scope or unclear work.
 5. Decide whether the work starts a new TASK or continues an existing TASK, and
    check the start gate.
+   For a governed create or fork, resolve the role profile and require
+   `role_profile_guard.mjs` PASS before proceeding.
 6. Refresh `NIGHT_WORK_HANDOFF` before creating threads, compacting, clearing,
    rolling over a manager, or ending a substantial phase.
 7. Choose the team topology: manager thread plus role worker threads by default
    for substantial actionable invocations, worktree worker thread for isolated
    file mutation, fresh manager thread for rollover, same thread for trivial
    preflight or blocked cases, or subagent for non-durable side checks.
-8. Use thread tools when explicit skill invocation, explicit user wording, or
-   durable worker/worktree needs authorize an actual thread lane and the
-   runtime tools are available.
+8. After an `applicable` decision, use thread tools only when an explicit
+   lifecycle/orchestration request or durable worker/worktree need authorizes
+   an actual task lane and the runtime tools are available. For governed
+   `create_thread`, send the exact approved `model` and `thinking`; do not omit
+   them or inherit the configured default.
 9. For worker threads, provide the Delegation Packet Minimum: title, objective,
    context refs, current state, allowed read/write scope, side-effect limits,
    stop conditions, claim ceiling, report shape, subagent-first default, and

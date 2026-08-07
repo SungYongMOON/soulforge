@@ -4,8 +4,14 @@ status: active
 rules:
   - from: thread_manager
     to: checkpoint_curator
-    condition: goal_and_boundary_declared
+    condition: applicability_passed_and_goal_and_boundary_declared
     summary: Pass the bounded goal, workspace and confirmed scope, the request origin relationship and current routing relationship, whether either is an owner directive, common intake request, internal assignment, peer collaboration request, peer review request, or peer reclassification request, the applicable owner authority ref, scope-acceptance state, exactly one primary owner or unresolved escalation, executor or agent, optional collaborators and independent reviewers, acceptance or approval authority, reclassification reason and candidate when returned, new-or-existing TASK decision, start-gate state, success criteria, stop conditions, intended team topology, context lifecycle plan, public/private constraints, and optional stable route catalog, local live binding, and provider-neutral capability refs; preserve the common intake relationship before recording a later internal assignment or peer route, cross-branch peer requests do not create a command hierarchy or transfer domain authority, scope acceptance does not finalize human assignment or authorize an external side effect, and raw transcript, private payload, unneeded source text, or actual provider, account, thread, session, or worktree values are forbidden in tracked workflow data.
+    required_fields:
+      - workspace_board_enrollment_decision
+      - workspace_board_scope_applicability
+      - workspace_board_owner_provided_organization_group_id_local_only
+      - workspace_board_safe_display_label_local_only
+      - workspace_board_exact_thread_id_local_only
   - from: checkpoint_curator
     to: surface_router
     condition: night_work_handoff_refreshed
@@ -14,19 +20,40 @@ rules:
     to: worker_packet_author
     condition: continuation_surface_selected
     summary: Pass the request relationship, preserved owner authority ref when applicable, exactly-one-primary assignment, executor or agent, optional collaborators, independent reviewer, acceptance authority, TASK creation or continuation decision, start-gate result, and whether the next action is subagent, manager plus role worker threads, same-thread, fresh manager, registered-manager retirement, worktree worker, or fresh verifier/judge, with the routing reason, independence requirement, claim ceiling, and read-only stable route resolution. Ambiguous, stale, unknown, retired, or do-not-route resolution never sends.
+    required_fields:
+      - workspace_board_enrollment_decision
+      - workspace_board_enrollment_checkpoint
   - from: worker_packet_author
     to: manager_rollover_controller
     condition: manager_or_worker_packet_prepared
-    summary: Pass self-contained prompts containing title or packet id, project assignment, one primary owner, executor or agent, collaborators, independent reviewer, acceptance authority, TASK create-or-continue decision, gate state, objective, context refs, current state, acceptance criteria, allowed read/write scope, handoff context, stop conditions, execution-contract claim ceiling, compact report shape, subagent-first worker-subagent authority, any count limit or denial, no-subagent exceptions, side-effect limits, conflict protocol, and for verifier/judge lanes the minimal evidence packet plus non-fork independence guard.
+    summary: Pass self-contained prompts containing title or packet id, logical role, exact role profile class and source, requested model and reasoning effort, profile-resolution and fallback state, observed profile or UNKNOWN, mismatch state, Ultra authorization or not-applicable, project assignment, one primary owner, executor or agent, collaborators, independent reviewer, acceptance authority, TASK create-or-continue decision, gate state, objective, context refs, current state, acceptance criteria, allowed read/write scope, handoff context, stop conditions, execution-contract claim ceiling, compact report shape, subagent-first worker-subagent authority, any count limit or denial, no-subagent exceptions, side-effect limits, conflict protocol, and for verifier/judge lanes the minimal evidence packet plus non-fork independence guard. Before governed create, require `role_profile_guard.mjs` PASS and copy the exact requested model and effort into the actual `create_thread` model and thinking arguments; never inherit the configured default, manager, or parent profile.
+    required_fields:
+      - workspace_board_enrollment_packet
+      - workspace_board_thread_kind
+      - workspace_board_relationship
+      - workspace_board_lifecycle
+      - workspace_board_route_and_work_ids_only_when_known
   - from: manager_rollover_controller
     to: integration_controller
     condition: manager_lifecycle_observation_or_worker_result_available
     summary: Pass observed manager lifecycle events and optional local binding maintenance requests only for an exact registered manager route, plus observed thread ids or titles, the full upward result attribution shape (`report_item_or_result`, exactly one `primary_owner`, `executor_or_agent`, `collaborators`, observed-only `independent_reviewers`, actual `manager_or_ceo_contribution`, `source_result_validation_evidence`, and `owner_decision_or_cross_company_interface`), worker status, change-gate events, subagent-use or no-subagent-exception notes, acceptance result, cross-worker packets, blockers, and residual gaps. Separate requested and observed models and use UNKNOWN for an unobserved provider or model. Ephemeral worker or performer threads remain work-context or handoff records and never become stable routes or org owners. A manager or CEO must not self-credit subordinate execution. Do not pass hidden reasoning, raw worker logs, credentials, or raw payloads.
+    required_fields:
+      - workspace_board_enrollment_gate_state
+      - workspace_board_enrollment_validation_result
+      - workspace_board_explicit_result_gate_state
+      - workspace_board_hold_blocker_when_not_passed
+      - workspace_board_actual_ids_local_only
   - from: integration_controller
     to: validation_controller
     condition: actual_state_checked
     summary: Pass integrated state while preserving the full upward result attribution shape, optional local-only binding maintenance result, changed/inspected refs, validator results, verifier independence note, and boundary notes before any readiness claim. PARTIAL, HOLD, failure, and UNKNOWN retain the actual performer and blocker. Binding maintenance conveys no domain, routing, default-route, send, dispatch, provider-startup, or provider-configuration authority; planned, pilot, or blocked bridge state remains execution_ready=false.
+    required_fields:
+      - workspace_board_enrollment_gate_state
+      - workspace_board_enrollment_validation_result
   - from: validation_controller
     to: closeout_controller
     condition: validators_run_or_gap_recorded
     summary: Pass validation results, claim ceiling, registration/default-route posture, blockers, next action, and the preserved upward result attribution shape for closeout. Development Team 1 remains outside the AI platform company's direct notice scope; its COMMON and project managers use the same shape for internal upward reports only through a separate Development Team 1 company campaign, while customer-supplier packets preserve the cross-company interface.
+    required_fields:
+      - workspace_board_enrollment_gate_state
+      - workspace_board_visibility_or_hold_report

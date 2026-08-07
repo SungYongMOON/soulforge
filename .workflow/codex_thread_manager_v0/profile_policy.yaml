@@ -73,8 +73,13 @@ failed_candidate_notes:
     label: gpt-5.5|medium|dwarf|auditor
     reason: missing explicit workflow-check default_route_safe:no closeout field
 selection_rules:
-  - Do not hard-code model, species, class, local runtime paths, or thread tool
-    availability into this reusable workflow package.
+  - Do not hard-code this workflow planner's model, species, class, local runtime
+    paths, or thread tool availability into reusable orchestration logic.
+  - This calibrated profile applies only to thread-manager orchestration planning;
+    never substitute it for a Development1 or AI-organization child role profile.
+  - Governed child creation resolves its role profile from the AI organization
+    operating policy and must pass `role_profile_guard.mjs` before explicit
+    `create_thread` model and thinking arguments are sent.
   - Use the active Codex app thread tools only when they are actually available
     in the current runtime.
   - Prefer worktree workers for file mutation lanes that must not disturb the

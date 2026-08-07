@@ -20,17 +20,42 @@ safety, or party binding.
 - private live pilot evidence:
   `_workmeta/system/reports/post_development_review/20260608_thread_orchestrator_live_pilot_one_worker.yaml`
 
+## Applicability Gate
+
+Apply this gate before loading the workflow package or refreshing
+`NIGHT_WORK_HANDOFF`.
+
+- `applicable`: create, fork, continue, rollover, hand off, or archive a durable
+  Codex task; create or change manager/worker/worktree topology; or coordinate
+  and integrate multiple durable task lanes.
+- `not_applicable`: list, find, read, or check one existing task; resolve its
+  exact ID for one send; ask one question or send one message to it; or check
+  organization routing, responsibility, or authority without a task lifecycle
+  action.
+- The `not_applicable` path uses the direct task tool and applicable route canon.
+  It does not load this workflow, refresh a handoff, create a worker, or run the
+  Workspace Board enrollment gate. Task-tool availability or use alone is not a
+  trigger.
+- Explicit `$soulforge-codex-thread-manager` invocation requires an actionable
+  lifecycle or orchestration goal. A skill-name-only request with no clear
+  action receives one concise clarification question.
+
 ## What It Owns
 
-- Goal and boundary declaration for Codex thread orchestration.
+- Applicability classification before any workflow or handoff cost is incurred.
+- Goal and boundary declaration after durable Codex task orchestration is found
+  applicable.
 - `NIGHT_WORK_HANDOFF` refresh before worker creation, compact, clear, rollover,
   cross-PC/overnight continuation, or substantial closeout.
-- Explicit `$soulforge-codex-thread-manager` invocation with an actionable goal
-  as authorization for the declared thread to act as main team lead and create
-  role worker threads when runtime thread tools are available.
+- Explicit `$soulforge-codex-thread-manager` invocation with an actionable
+  lifecycle or orchestration goal as authorization for the declared thread to
+  act as main team lead and create role worker threads when runtime thread tools
+  are available.
 - Selection among current-thread manager plus worker, same thread, fresh manager
   thread, worktree worker thread, and subagent.
 - Manager lifecycle and rollover policy.
+- Exact local Workspace Board enrollment gates for Development1 and AI-organization
+  TASK create, continue, and rollover after an actual Codex thread ID is returned.
 - Role worker topology, worker prompt packet shape, worker subagent bounds
   policy, no-subagent exception policy, thread id/title recording, and compact
   delegation packet minimum fields.
@@ -94,6 +119,58 @@ product organizations are excluded as direct recipients.
 - Re-anchor long phases with active goal, completed work, constraints,
   blockers, worker state, and next action.
 
+## Workspace Board Exact Enrollment Gate
+
+For a Development1 or AI-organization TASK create, continue, or manager
+rollover, the manager makes an explicit applicability decision. After the actual
+Codex operation returns its exact thread ID, it runs the local Board CLI with
+owner-provided `organization_group_id`, a safe owner-provided `display_label`,
+and the applicable `thread_kind`, `relationship`, and `lifecycle`:
+
+```powershell
+npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- register-existing `
+  --thread-id <exact-returned-thread-id> `
+  --organization-group-id <owner-provided-organization-group-id> `
+  --thread-kind <manager|task|verifier|continuation> `
+  --display-label <safe-display-label> `
+  --relationship <primary|child|review|handoff|continuation|independent> `
+  --lifecycle <pending|accepted|current>
+```
+
+Include `--route-id` or `--work-id` only when the value is actually known. The
+exact returned ID is the only allowed join key: title, cwd, prefix, similarity,
+age, idle state, and parent-only relationships are never enrollment evidence.
+Actual IDs and enrollment values stay in ignored local state, never in tracked
+workflow data or this documentation.
+
+`register-existing` must be idempotent, followed by:
+
+```powershell
+npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- validate
+npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- reconcile --live # when the live adapter is available
+```
+
+The Board is not visible and the enrollment gate is not closed until registration
+and validation pass, plus live reconciliation when the adapter is available. If
+the CLI, local registry, or adapter is disabled or fails, record the exact
+blocker and keep the Board state `HOLD`; the separate TASK operational work may
+continue, but no guessed enrollment or automatic route is allowed. Respect
+`TEAM_OPS_BOARD_LIVE_THREADS_DISABLED=1` and registry `disabled: true`; neither
+may be bypassed.
+
+For manager rollover, retain the stable role, register the new exact ID with
+`pending` lifecycle, and only after the compact handoff is accepted run the CLI
+`rollover` command to promote the new enrollment to `accepted` or `current`.
+The prior enrollment becomes `history`. Do not delete or archive a Codex task
+automatically; archive requires separate authorization.
+
+`idle` and `notLoaded` never mean completed or replace the explicit result gate.
+An Owner browser acknowledgement can hide only the Board's Active card in
+localStorage and never changes a Codex task. Enrollment may contain no raw
+preview, messages, prompts, reasoning, tool I/O, content, or secrets. This is a
+manager-workflow gate; it does not claim to automatically intercept
+`create_thread`.
+
 ## Routing Rules
 
 ### Company/team common work assignment
@@ -107,6 +184,24 @@ delta-reporting boundary, and current activation state are defined by
 `docs/architecture/guild_hall/AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md`.
 That policy does not overwrite workflow-specific calibrated profiles; role
 turns and bounded workflow execution turns remain distinct.
+
+### Governed role profile preflight
+
+Development1 and AI-organization TASK creation must resolve an exact role
+profile from that policy and run `role_profile_guard.mjs` before the thread
+operation. The approved role policy is standing explicit authorization to send
+that TASK's exact profile; it does not alter the user's global default.
+
+For governed `create_thread`, both `model` and `thinking` are mandatory and must
+equal the guard result. Missing, ambiguous, unsupported, or unresolved range
+values are `HOLD`; configured-default, manager, parent, workflow-planner, and
+Ultra fallback are forbidden. Ultra requires an explicit major-Gate authority
+reference. Fork is valid only for observed same-role same-profile continuity;
+a role or profile change uses fresh creation. Profiles marked fresh, including
+independent review and major-Gate review, never use fork. Requested and observed
+profiles remain separate, unobserved actual values stay `UNKNOWN`, and any
+observed mismatch becomes `profile_mismatch` and `HOLD`.
+`profile_mismatch_state` uses only `UNKNOWN`, `MATCH`, or `profile_mismatch`.
 CEO coordination stays explicit-address and `HOLD/non-routable` until a
 separately approved governance overlay or directory v2 is validated.
 For COMMON work, the team operations manager classifies common or unclassified
@@ -220,6 +315,10 @@ instead of inventing a project or project responsibility lane.
 
 ## What It Does Not Own
 
+- Existing-task lookup, list, read, status, exact-ID resolution for one send, or
+  a one-off question/message to an existing task.
+- Standalone organization route, responsibility, or authority checking without
+  a durable task lifecycle action.
 - Stable route source truth or local live binding source truth.
 - Source truth, owner approval, or canon promotion outside this package.
 - Raw transcripts, private payloads, NotebookLM answer bodies, or secrets.
@@ -230,6 +329,8 @@ instead of inventing a project or project responsibility lane.
 
 ## Operating Summary
 
+0. Apply the applicability gate. Exit to direct task tools and route canon on
+   `not_applicable` without loading the workflow or refreshing a handoff.
 1. Bind the goal, workspace scope, boundary, success criteria, and stop
    conditions.
 2. Refresh `NIGHT_WORK_HANDOFF`.
@@ -240,25 +341,27 @@ instead of inventing a project or project responsibility lane.
    out-of-scope or unclear work.
 5. Decide whether the work starts a new TASK or continues an existing TASK, and
    check the start gate.
-6. Plan the thread team topology and context lifecycle.
-7. Choose the continuation surface using the subagent-vs-thread routing rules.
-8. Prepare role worker, worktree worker, or fresh manager packets with bounded
+6. Resolve the governed role profile, run `role_profile_guard.mjs`, and stop on
+   any non-PASS result before creating or forking a TASK.
+7. Plan the thread team topology and context lifecycle.
+8. Choose the continuation surface using the subagent-vs-thread routing rules.
+9. Prepare role worker, worktree worker, or fresh manager packets with bounded
    scope, handoff context, compact report shape, subagent-first bounded
    subagent authority, any count limit or denial, no-subagent exceptions,
    side-effect limits, execution-contract claim ceiling, stop conditions, and
    conflict protocol.
-9. Prepare verifier or judge packets from minimal evidence: objective, changed
+10. Prepare verifier or judge packets from minimal evidence: objective, changed
    refs, acceptance criteria, validators, claims, and risk areas; exclude raw
    transcript and avoid leaking the intended fix except where necessary.
-10. Observe thread ids/titles and acceptance results.
-11. Apply the change gate when scope or decision inputs change.
-12. Route bounded result packets between workers when useful.
-13. Integrate worker summaries after checking actual state while preserving the
+11. Observe thread ids/titles and acceptance results.
+12. Apply the change gate when scope or decision inputs change.
+13. Route bounded result packets between workers when useful.
+14. Integrate worker summaries after checking actual state while preserving the
     eight-field upward result attribution shape and forbidding manager
     self-credit.
-14. Check the complete gate, then run validators and
+15. Check the complete gate, then run validators and
     `$soulforge-workflow-check`.
-15. Close out with the attribution shape, claim ceiling, blockers, next action,
+16. Close out with the attribution shape, claim ceiling, blockers, next action,
     Owner or cross-company gate, and knowledge trigger result.
 
 ## Party Policy

@@ -2,9 +2,12 @@ workflow_id: codex_thread_manager_v0
 kind: monster_rules
 status: active
 rules:
+  - monster_id: one_off_task_tool_use_treated_as_thread_orchestration
+    response: return_not_applicable_and_use_direct_task_tool_or_route_canon
+    summary: Existing-task lookup/read/status, exact-ID resolution for one send, a one-off question or message, and standalone organization route or authority checks do not launch this workflow, refresh handoff, create workers, or enroll the task.
   - monster_id: skill_invocation_treated_as_non_authorization
     response: activate_current_manager_and_create_bounded_worker
-    summary: Explicit `$soulforge-codex-thread-manager` invocation with an actionable goal is a thread-orchestration request; bind scope, refresh handoff, then create a bounded worker when tools are available.
+    summary: Explicit `$soulforge-codex-thread-manager` invocation with an actionable lifecycle or orchestration goal is a thread-orchestration request; bind scope, refresh handoff, then create a bounded worker when tools are available.
   - monster_id: manager_cleared_on_every_phase_change
     response: create_new_worker_keep_manager
     summary: Research, implementation, debugging, review, and documentation lane changes normally replace workers, not the manager.
@@ -35,6 +38,15 @@ rules:
   - monster_id: local_skill_treated_as_canon
     response: keep_runtime_bridge_boundary
     summary: Installed local skills can launch the runtime behavior but do not by themselves create workflow registration, party binding, or default-route authority.
+  - monster_id: governed_child_profile_omitted_from_create_thread
+    response: hold_and_run_role_profile_guard_before_explicit_model_and_thinking_create
+    summary: Development1 and AI-organization task creation never inherits the configured default, manager, or parent profile; resolve the approved role profile and pass exact model and thinking arguments.
+  - monster_id: ordinary_responsibility_created_as_ultra
+    response: hold_unless_major_gate_has_explicit_authorization
+    summary: Ultra is not a standing CEO, manager, responsibility, worker, or reviewer profile and is allowed only for an authorized major Gate.
+  - monster_id: role_or_profile_change_uses_fork
+    response: require_fresh_create_thread_with_profile_preflight
+    summary: Fork is allowed only for observed same-role and same-profile continuity because it cannot bind a new model or reasoning effort.
   - monster_id: production_ready_overclaim
     response: block_claim_without_b_v_and_workflow_check
     summary: Do not claim production readiness, default-route safety, or full rollover support without the required evidence and workflow-check closeout.

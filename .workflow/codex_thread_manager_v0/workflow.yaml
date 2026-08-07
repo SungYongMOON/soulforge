@@ -2,7 +2,7 @@ workflow_id: codex_thread_manager_v0
 kind: workflow
 status: active
 title: Codex Thread Manager v0
-summary: Public-safe workflow for making the declared Codex thread the main team lead that manages context lifecycle and coordinates subagent-first role worker, worktree worker, and rollover manager threads while preserving NIGHT_WORK_HANDOFF continuity, explicit thread titles, bounded worker scopes, fresh-context verifier/judge independence, and conservative claim boundaries.
+summary: Public-safe workflow for durable Codex task lifecycle and multi-task orchestration after an explicit applicability gate, making the declared task the main team lead for bounded role worker, worktree worker, and rollover manager lanes while preserving NIGHT_WORK_HANDOFF continuity, fresh-context verifier/judge independence, and conservative claim boundaries.
 entrypoint: run
 execution_mode: codex_app_thread_orchestration_sequence
 role_slots: role_slots.yaml
@@ -35,7 +35,9 @@ optional_inputs:
   - validation_command_refs
   - owner_decision_refs
   - context_pressure_signal
+  - workspace_board_enrollment_request
 outputs:
+  - thread_manager_applicability_decision
   - declared_thread_goal
   - night_work_handoff
   - thread_team_topology
@@ -56,6 +58,10 @@ outputs:
   - task_thread_routing_decision
   - task_logical_role_plan
   - task_gate_state
+  - workspace_board_enrollment_decision
+  - workspace_board_enrollment_packet
+  - workspace_board_enrollment_gate_state
+  - workspace_board_enrollment_validation_result
   - upward_result_attribution_report
   - closeout_report
 validation_level: private_one_worker_pilot_observed
@@ -88,17 +94,39 @@ skill_routes:
     authority: installed_codex_skill_only
 registry_skill_ref: .registry/skills/codex_thread_manager/skill.yaml
 request_modes:
-  - codex_thread_management
-  - explicit_skill_invocation_manager_worker
+  - durable_codex_task_lifecycle_management
+  - explicit_actionable_skill_invocation_manager_worker
   - manager_worker_thread_orchestration
   - manager_rollover
   - registered_manager_retirement
   - worktree_worker_isolation
   - read_only_worker_pilot
   - bounded_thread_fanout
+applicability_gate:
+  evaluate_before_workflow_package_load_or_handoff_refresh: true
+  applicable_when:
+    - durable_task_create_fork_continue_rollover_handoff_or_archive
+    - manager_worker_or_worktree_topology_change
+    - multiple_durable_task_lane_coordination_or_integration
+  not_applicable_when:
+    - existing_task_lookup_list_read_or_status_only
+    - exact_task_id_resolution_for_one_send_only
+    - one_off_question_or_message_to_existing_task
+    - organization_route_responsibility_or_authority_check_without_lifecycle_action
+  not_applicable_behavior:
+    outcome: not_applicable
+    use_direct_task_tool_and_applicable_route_canon: true
+    workflow_package_load_forbidden: true
+    night_work_handoff_refresh_forbidden: true
+    worker_or_topology_creation_forbidden: true
+    workspace_board_enrollment_forbidden: true
+  direct_task_tool_use_alone_is_not_a_trigger: true
+  explicit_skill_invocation_requires_actionable_lifecycle_or_orchestration_goal: true
+  skill_name_only_with_unclear_action_asks_one_concise_question: true
 codex_thread_manager_contract:
   owns:
-    - explicit_skill_invocation_as_thread_orchestration_request
+    - pre_workflow_applicability_classification
+    - explicit_actionable_lifecycle_or_orchestration_skill_invocation_as_thread_orchestration_request
     - declared_thread_main_team_lead_activation
     - thread_goal_and_scope_binding
     - long_thread_context_lifecycle_policy
@@ -125,8 +153,13 @@ codex_thread_manager_contract:
     - exactly_one_primary_owner_with_collaboration_and_review
     - task_thread_create_or_continue_coordination
     - task_logical_role_and_gate_packet_shape
+    - workspace_board_exact_enrollment_gate_policy
     - upward_result_attribution_reporting_policy
   does_not_own:
+    - standalone_existing_task_lookup_list_read_or_status
+    - standalone_exact_task_id_resolution_for_one_send
+    - one_off_question_or_message_to_existing_task
+    - standalone_organization_route_responsibility_or_authority_check
     - source_truth
     - owner_approval
     - task_engine_architecture_or_assignment_authority
@@ -143,11 +176,14 @@ codex_thread_manager_contract:
     - provider_startup_install_login_or_configuration
     - runtime_session_or_worktree_creation_for_directory_binding
     - native_history_or_thread_api_bridge_guarantee
+    - workspace_board_registry_authority
+    - automatic_thread_operation_interception
     - public_canon_promotion_beyond_this_package
     - production_ready_claim_without_b_v_evidence
   surface_selection:
-    manager_thread_plus_role_workers: default_for_substantial_actionable_skill_invocation_when_thread_tools_are_available
-    current_thread_manager_plus_worker: minimum_thread_topology_for_actionable_skill_invocation
+    selection_allowed_only_after_applicability_pass: true
+    manager_thread_plus_role_workers: default_for_substantial_applicable_lifecycle_or_orchestration_request_when_thread_tools_are_available
+    current_thread_manager_plus_worker: minimum_thread_topology_for_applicable_lifecycle_or_orchestration_request
     same_thread: trivial_preflight_unclear_goal_or_thread_tool_blocked
     fresh_manager_thread: rollover_due_or_mission_boundary_changed
     worker_thread: durable_lane_needs_title_followup_or_independent_history
@@ -227,6 +263,29 @@ codex_thread_manager_contract:
     scope_acceptance_is_not_final_human_assignment_approval: true
     human_owner_retains_final_assignment_external_commitment_purchase_payment_baseline_public_release_final_acceptance_and_completion_approval: true
     task_thread_creation_does_not_authorize_external_side_effects: true
+  role_profile_binding_policy:
+    applies_to_development1_and_ai_organization_task_creation: true
+    authority_ref: docs/architecture/guild_hall/AI_ORGANIZATION_MODEL_OPERATING_POLICY_V0.md
+    deterministic_preflight_ref: role_profile_guard.mjs
+    standing_owner_policy_is_explicit_profile_authorization_for_governed_tasks: true
+    workflow_profile_policy_is_orchestration_calibration_not_child_role_profile: true
+    profile_classification_precedes_thread_creation: true
+    requested_profile_must_be_exact_not_range: true
+    create_thread_payload_requires_explicit_model_and_thinking: true
+    configured_default_parent_or_manager_profile_inheritance_forbidden: true
+    missing_ambiguous_unsupported_or_range_profile_sets_hold: true
+    fallback_to_configured_default_or_ultra_forbidden: true
+    ultra_allowed_only_for_major_gate_with_explicit_authorization_ref: true
+    fork_allowed_only_for_observed_same_role_same_profile_continuity: true
+    fresh_context_profiles_always_forbid_fork: true
+    role_or_profile_change_requires_fresh_create_thread: true
+    requested_and_observed_profiles_remain_separate: true
+    unobserved_actual_profile_is_unknown: true
+    observed_mismatch_sets_profile_mismatch_hold: true
+    profile_mismatch_state_values:
+      - UNKNOWN
+      - MATCH
+      - profile_mismatch
   task_operating_policy:
     logical_roles:
       - responsibility_owner
@@ -243,6 +302,82 @@ codex_thread_manager_contract:
     start_gate_before_execution_or_thread_creation: true
     change_gate_reclassifies_scope_baseline_interface_owner_or_acceptance_change: true
     complete_gate_requires_objective_evidence_and_acceptance: true
+  workspace_board_enrollment_policy:
+    organization_scopes:
+      - development1
+      - ai_organization
+    task_operations:
+      - create
+      - continue
+      - rollover
+    required_packet_fields:
+      - applicability_decision
+      - exact_thread_id_local_only
+      - owner_provided_organization_group_id_local_only
+      - safe_display_label_local_only
+      - thread_kind
+      - relationship
+      - lifecycle
+      - route_id_local_only_when_known
+      - work_id_local_only_when_known
+      - register_existing_status
+      - validate_status
+      - reconcile_live_status_when_available
+      - explicit_result_gate_state
+      - board_visibility_state
+      - hold_blocker_when_not_passed
+    actual_ids_and_enrollment_values_are_local_only_never_tracked: true
+    exact_thread_identity_source: actual_codex_thread_operation_return
+    prohibited_thread_id_inference_signals:
+      - title
+      - cwd
+      - prefix
+      - similarity
+      - age
+      - idle
+      - parent_only
+    local_cli:
+      register_existing_command: "npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- register-existing --thread-id <exact-returned-thread-id> --organization-group-id <owner-provided-organization-group-id> --thread-kind <manager|task|verifier|continuation> --display-label <safe-display-label> --relationship <primary|child|review|handoff|continuation|independent> --lifecycle <pending|accepted|current>"
+      route_id_and_work_id_only_when_known: true
+      register_existing_must_be_idempotent: true
+      validate_command: "npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- validate"
+      reconcile_live_command: "npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- reconcile --live"
+      reconcile_live_required_when_adapter_available: true
+    gate:
+      board_visible_or_enrollment_gate_closed_before_pass_forbidden: true
+      pass_requires_idempotent_register_existing_and_validate: true
+      live_reconcile_must_pass_when_adapter_available: true
+      adapter_disabled_or_failed_sets_board_visibility_hold: true
+      cli_or_registry_disabled_or_failed_sets_board_visibility_hold: true
+      board_hold_preserves_separate_task_operational_work: true
+      hold_requires_exact_blocker_reporting: true
+      guessing_or_automatic_routing_from_hold_forbidden: true
+    manager_rollover:
+      stable_role_identity_retained: true
+      new_exact_thread_id_registered_pending_before_rollover: true
+      compact_handoff_must_be_accepted_before_cli_rollover: true
+      cli_rollover_only_promotes_to_accepted_or_current: true
+      prior_enrollment_becomes_history: true
+      automatic_codex_archive_or_delete_forbidden: true
+      archive_requires_separate_authorization: true
+    result_and_browser_boundary:
+      idle_or_not_loaded_never_means_completed: true
+      explicit_result_gate_required_before_completion_or_browser_acknowledgement: true
+      owner_browser_acknowledgement_hides_only_board_active_in_localstorage: true
+      browser_acknowledgement_never_mutates_codex_task: true
+    privacy_and_disable_boundary:
+      forbidden_enrollment_content:
+        - raw_preview
+        - raw_messages
+        - raw_prompt
+        - hidden_reasoning
+        - raw_tool_io
+        - raw_content
+        - secret
+      live_threads_disable_env: TEAM_OPS_BOARD_LIVE_THREADS_DISABLED=1
+      registry_disabled_true_respected: true
+      disable_bypass_forbidden: true
+      automatic_create_thread_interception_not_claimed: true
   upward_result_attribution_reporting_policy:
     fields:
       - report_item_or_result
@@ -382,6 +517,17 @@ codex_thread_manager_contract:
       fields:
         - title_or_packet_id
         - objective
+        - logical_role
+        - profile_class
+        - profile_source_ref
+        - requested_model
+        - requested_reasoning_effort
+        - profile_resolution_status
+        - fallback_decision
+        - ultra_gate_authorization_or_not_applicable
+        - observed_model
+        - observed_reasoning_effort
+        - profile_mismatch_state
         - request_origin_relationship
         - request_relationship
         - project_work_assignment_decision
@@ -392,6 +538,8 @@ codex_thread_manager_contract:
         - acceptance_or_approval_authority
         - task_thread_routing_decision
         - task_gate_state
+        - workspace_board_enrollment_decision
+        - workspace_board_enrollment_packet_or_not_applicable
         - context_refs
         - current_state
         - acceptance_criteria
@@ -430,6 +578,8 @@ codex_thread_manager_contract:
         - changed_or_inspected_refs
         - commands_run_and_exit_status
         - validators_or_gap
+        - workspace_board_enrollment_gate_state_or_not_applicable
+        - workspace_board_hold_blocker_when_not_passed
         - blockers
         - residual_risks
         - next_action
