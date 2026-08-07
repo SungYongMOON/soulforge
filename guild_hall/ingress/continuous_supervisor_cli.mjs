@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   CONTINUOUS_SUPERVISOR_EVENT_SCHEMA,
+  createSupervisorHeartbeatRecorder,
   runContinuousSupervisor,
   safeSupervisorErrorCode,
 } from "./continuous_supervisor.mjs";
@@ -57,12 +58,16 @@ try {
   pauseMonitor.unref();
 
   try {
+    const recordHeartbeat = createSupervisorHeartbeatRecorder({
+      bindingPath: args.config,
+    });
     await runContinuousSupervisor({
       bindingPath: args.config,
       bindingDigest: args["config-digest"],
       apply: true,
       signal: controller.signal,
       emit: (event) => process.stdout.write(`${JSON.stringify(event)}\n`),
+      recordHeartbeat,
     });
   } finally {
     clearInterval(pauseMonitor);

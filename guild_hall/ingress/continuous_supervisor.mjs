@@ -1,7 +1,12 @@
+import { appendFile, mkdir } from "node:fs/promises";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+
 import { loadContinuousBinding, runContinuousIngress } from "./continuous_runner.mjs";
 
 export const CONTINUOUS_SUPERVISOR_EVENT_SCHEMA = "soulforge.ingress.continuous_supervisor_event.v1";
 export const CONTINUOUS_SUPERVISOR_RESULT_SCHEMA = "soulforge.ingress.continuous_supervisor_result.v1";
+export const CONTINUOUS_SUPERVISOR_HEARTBEAT_SCHEMA = "soulforge.ingress.continuous_supervisor_heartbeat.v1";
 
 const SAFE_CODE = /^[a-z0-9_]{1,128}$/;
 
@@ -79,6 +84,42 @@ function safeCycleSummary(result, cycle) {
   });
 }
 
+export function resolveSupervisorHeartbeatLedger(bindingPath) {
+  if (typeof bindingPath !== "string" || !bindingPath) {
+    fail("continuous_supervisor_binding_required");
+  }
+  const controlRoot = path.resolve(path.dirname(bindingPath));
+  const stateRoot = path.resolve(controlRoot, "state");
+  if (!stateRoot.startsWith(`${controlRoot}${path.sep}`)) {
+    fail("continuous_supervisor_heartbeat_root_escaped");
+  }
+  return path.join(stateRoot, "continuous-supervisor-heartbeats.jsonl");
+}
+
+export function createSupervisorHeartbeatRecorder(options = {}) {
+  const ledgerPath = resolveSupervisorHeartbeatLedger(options.bindingPath);
+  const instanceId = options.instanceId || randomUUID();
+  const now = options.now || (() => new Date());
+
+  return async (cycleEvent) => {
+    if (cycleEvent?.event !== "cycle_completed") {
+      fail("continuous_supervisor_heartbeat_event_invalid");
+    }
+    const heartbeat = {
+      schema_version: CONTINUOUS_SUPERVISOR_HEARTBEAT_SCHEMA,
+      observed_at: now().toISOString(),
+      instance_id: instanceId,
+      cycle: cycleEvent.cycle,
+      status: cycleEvent.status,
+      error_count: cycleEvent.error_count,
+      mail_status: cycleEvent.mail_status,
+    };
+    await mkdir(path.dirname(ledgerPath), { recursive: true });
+    await appendFile(ledgerPath, `${JSON.stringify(heartbeat)}\n`, "utf8");
+    return heartbeat;
+  };
+}
+
 export async function runContinuousSupervisor(options = {}) {
   if (options.apply !== true) fail("continuous_supervisor_apply_required");
   if (typeof options.bindingPath !== "string" || !options.bindingPath) {
@@ -92,6 +133,7 @@ export async function runContinuousSupervisor(options = {}) {
   const runCycleImpl = options.runCycleImpl || runContinuousIngress;
   const delayImpl = options.delayImpl || abortableDelay;
   const emit = options.emit || (() => {});
+  const recordHeartbeat = options.recordHeartbeat || (async () => {});
   const signal = options.signal;
   const maxCycles = options.maxCycles ?? Number.POSITIVE_INFINITY;
   if (!(maxCycles === Number.POSITIVE_INFINITY
@@ -124,7 +166,9 @@ export async function runContinuousSupervisor(options = {}) {
     }
 
     cyclesCompleted += 1;
-    emit(safeCycleSummary(result, cyclesCompleted));
+    const cycleSummary = safeCycleSummary(result, cyclesCompleted);
+    emit(cycleSummary);
+    await recordHeartbeat(cycleSummary);
     if (cyclesCompleted >= maxCycles || signal?.aborted) break;
 
     const completedDelay = await delayImpl(binding.pollIntervalSeconds * 1000, signal);

@@ -169,6 +169,15 @@ runs one cycle, waits `poll_interval_seconds`, and repeats until it receives a
 stop signal. It exits on a fatal cycle error so the OS can perform a bounded
 restart, while degraded lane results remain recorded cycles.
 
+After every completed cycle, the supervisor also appends one metadata-only
+heartbeat to `state/continuous-supervisor-heartbeats.jsonl` beside the private
+binding. Each line contains only its observation time, supervisor instance ID,
+cycle number, aggregate status/error count, and mail-lane status. Mail bodies,
+headers, addresses, attachments, credentials, and custody paths are excluded.
+The stable append-only ledger is a producer surface for a separate monitor; it
+does not itself decide staleness, alert, or perform recovery. A heartbeat write
+failure is fatal so the OS bounded-restart policy can handle the failed process.
+
 Continuous voice custody uses the mirror's incremental mode. Ordinary cycles
 still enumerate allowlisted file metadata for missing/new/change detection, but
 they do not stream-hash unchanged source or custody payloads. New, changed, or

@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
   CONTINUOUS_SUPERVISOR_EVENT_SCHEMA,
+  CONTINUOUS_SUPERVISOR_HEARTBEAT_SCHEMA,
+  createSupervisorHeartbeatRecorder,
+  resolveSupervisorHeartbeatLedger,
   runContinuousSupervisor,
   safeSupervisorErrorCode,
 } from "./continuous_supervisor.mjs";
@@ -97,6 +102,66 @@ test("abort stops the persistent loop between cycles", async () => {
   });
   assert.equal(cycles, 1);
   assert.equal(result.status, "stopped");
+});
+
+test("completed cycles append one metadata-only heartbeat each to a stable ledger", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "soulforge-supervisor-heartbeat-"));
+  const bindingPath = path.join(root, "continuous-binding.json");
+  const ledgerPath = resolveSupervisorHeartbeatLedger(bindingPath);
+  const recordHeartbeat = createSupervisorHeartbeatRecorder({
+    bindingPath,
+    instanceId: "test-instance",
+    now: () => new Date("2026-08-06T00:00:00.000Z"),
+  });
+
+  await runContinuousSupervisor({
+    bindingPath,
+    bindingDigest: DIGEST,
+    apply: true,
+    maxCycles: 2,
+    loadBindingImpl: async () => binding(),
+    runCycleImpl: async () => ({
+      status: "ok",
+      run_id: "must-not-enter-heartbeat",
+      errors: [],
+      writes_performed: 1,
+      mail: { status: "ok", private_subject: "must-not-enter-heartbeat" },
+    }),
+    delayImpl: async () => true,
+    recordHeartbeat,
+  });
+
+  const lines = (await readFile(ledgerPath, "utf8")).trim().split("\n").map(JSON.parse);
+  assert.equal(lines.length, 2);
+  assert.deepEqual(lines.map((line) => line.cycle), [1, 2]);
+  assert.ok(lines.every((line) => line.schema_version === CONTINUOUS_SUPERVISOR_HEARTBEAT_SCHEMA));
+  assert.ok(lines.every((line) => line.observed_at === "2026-08-06T00:00:00.000Z"));
+  assert.ok(lines.every((line) => line.instance_id === "test-instance"));
+  assert.ok(lines.every((line) => line.mail_status === "ok"));
+  const serialized = JSON.stringify(lines);
+  assert.equal(serialized.includes("must-not-enter-heartbeat"), false);
+  assert.deepEqual(Object.keys(lines[0]), [
+    "schema_version",
+    "observed_at",
+    "instance_id",
+    "cycle",
+    "status",
+    "error_count",
+    "mail_status",
+  ]);
+});
+
+test("heartbeat persistence failure terminates the supervisor for bounded OS restart", async () => {
+  const failure = new Error("heartbeat disk unavailable");
+  await assert.rejects(runContinuousSupervisor({
+    bindingPath: "private-binding.json",
+    bindingDigest: DIGEST,
+    apply: true,
+    maxCycles: 1,
+    loadBindingImpl: async () => binding(),
+    runCycleImpl: async () => ({ status: "ok", errors: [], mail: { status: "ok" } }),
+    recordHeartbeat: async () => { throw failure; },
+  }), failure);
 });
 
 test("fatal cycle errors are sanitized, logged once, and terminate for Windows restart", async () => {
