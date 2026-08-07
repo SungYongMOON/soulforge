@@ -197,6 +197,15 @@ function safeRateLimit(input) {
   };
 }
 
+function updateTurnActivity(turn, candidate) {
+  if (!turn || typeof turn !== "object") return;
+  const observedAt = isoOrNull(candidate);
+  if (!observedAt) return;
+  if (!turn.activity_observed_at || observedAt > turn.activity_observed_at) {
+    turn.activity_observed_at = observedAt;
+  }
+}
+
 function finalizeTurn(session, turn, latestUsage, completion = {}) {
   const usage = usageDelta(latestUsage, turn.baseline_usage);
   const completedAt = isoOrNull(completion.completed_at ?? completion.timestamp);
@@ -212,6 +221,11 @@ function finalizeTurn(session, turn, latestUsage, completion = {}) {
     source_file: session.source_file,
     turn_id: turn.turn_id,
     started_at: turn.started_at,
+    // This is an exact-session metadata heartbeat only. It is not prompt,
+    // reasoning, tool, or message content, and terminal turns never retain it.
+    activity_observed_at: completedAt || completion.forced
+      ? null
+      : (turn.activity_observed_at ?? turn.started_at),
     completed_at: completedAt,
     duration_ms: completion.duration_ms === null || completion.duration_ms === undefined
       ? null
@@ -297,6 +311,7 @@ export async function parseCodexSessionFile(filePath, {
       if (turn) {
         turn.model = context.model;
         turn.effort = context.effort;
+        updateTurnActivity(turn, row.timestamp);
       }
       continue;
     }
@@ -304,9 +319,11 @@ export async function parseCodexSessionFile(filePath, {
     if (payload.type === "task_started") {
       const turnId = safeId(payload.turn_id, "turn_id");
       const context = turnContexts.get(turnId) ?? { model: null, effort: null };
+      const startedAt = requiredIso(payload.started_at ?? row.timestamp, "turn_started_at");
       activeTurns.set(turnId, {
         turn_id: turnId,
-        started_at: requiredIso(payload.started_at ?? row.timestamp, "turn_started_at"),
+        started_at: startedAt,
+        activity_observed_at: startedAt,
         context_window: payload.model_context_window === null || payload.model_context_window === undefined
           ? null
           : asInteger(payload.model_context_window, "context_window"),
@@ -324,6 +341,7 @@ export async function parseCodexSessionFile(filePath, {
       latestUsage = normalizeUsage(payload.info.total_token_usage);
       const active = [...activeTurns.values()].at(-1);
       if (active) {
+        updateTurnActivity(active, row.timestamp);
         const currentSum = usageSum(latestUsage);
         if (currentSum > lastObservedUsageSum) active.model_invocation_count += 1;
         lastObservedUsageSum = Math.max(lastObservedUsageSum, currentSum);
@@ -341,6 +359,7 @@ export async function parseCodexSessionFile(filePath, {
     if (payload.type === "sub_agent_activity" && payload.agent_thread_id) {
       const child = safeId(payload.agent_thread_id, "agent_thread_id");
       if (!childThreads.includes(child)) childThreads.push(child);
+      updateTurnActivity([...activeTurns.values()].at(-1), row.timestamp);
       continue;
     }
     if (payload.type === "task_complete") {
@@ -356,6 +375,18 @@ export async function parseCodexSessionFile(filePath, {
   }
 
   if (!session.thread_id) fail("session_meta_missing");
+  // File mtime is metadata-only and tied to this exact session file. It is used
+  // solely while the parsed turn remains active; a completed turn cannot be
+  // revived by later file writes or snapshot regeneration.
+  try {
+    const info = await stat(file);
+    if (info.isFile() && Number.isFinite(info.mtimeMs)) {
+      // A session file can only supply a safe metadata heartbeat for its most
+      // recently observed active turn. Do not infer activity for older,
+      // concurrently-open turns from a shared file timestamp.
+      updateTurnActivity([...activeTurns.values()].at(-1), info.mtimeMs);
+    }
+  } catch {}
   for (const turn of activeTurns.values()) {
     if (!includeActive && !forced.has(turn.turn_id)) continue;
     turns.push(finalizeTurn(session, turn, latestUsage, {

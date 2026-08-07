@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ai_usage_board_history_snapshot.v1.schema.json",
+  "title": "Soulforge AI Usage Board History Snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "timezone",
+    "reference_at",
+    "top_n",
+    "current",
+    "windows"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ai_usage_board_history_snapshot.v1" },
+    "generated_at": { "$ref": "#/$defs/timestamp" },
+    "timezone": { "const": "Asia/Seoul" },
+    "reference_at": { "$ref": "#/$defs/timestamp" },
+    "top_n": { "type": "integer", "minimum": 1, "maximum": 50 },
+    "current": { "$ref": "#/$defs/current" },
+    "windows": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "calendar_day",
+        "calendar_week",
+        "calendar_month",
+        "rolling_24h",
+        "rolling_7d",
+        "rolling_30d",
+        "all_time"
+      ],
+      "properties": {
+        "calendar_day": { "$ref": "#/$defs/window" },
+        "calendar_week": { "$ref": "#/$defs/window" },
+        "calendar_month": { "$ref": "#/$defs/window" },
+        "rolling_24h": { "$ref": "#/$defs/window" },
+        "rolling_7d": { "$ref": "#/$defs/window" },
+        "rolling_30d": { "$ref": "#/$defs/window" },
+        "all_time": { "$ref": "#/$defs/window" }
+      }
+    }
+  },
+  "$defs": {
+    "timestamp": { "type": "string", "format": "date-time" },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["turns", "total_tokens", "credits", "credit_unknown_turns"],
+      "properties": {
+        "turns": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "credits": { "type": "number", "minimum": 0 },
+        "credit_unknown_turns": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$"
+    },
+    "project_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project_id", "turns", "total_tokens", "credits", "credit_unknown_turns"],
+      "properties": {
+        "project_id": { "$ref": "#/$defs/id" },
+        "turns": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "credits": { "type": "number", "minimum": 0 },
+        "credit_unknown_turns": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "work_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["work_id", "turns", "total_tokens", "credits", "credit_unknown_turns"],
+      "properties": {
+        "work_id": { "$ref": "#/$defs/id" },
+        "turns": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "credits": { "type": "number", "minimum": 0 },
+        "credit_unknown_turns": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "task_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "turns", "total_tokens", "credits", "credit_unknown_turns"],
+      "properties": {
+        "task_id": { "$ref": "#/$defs/id" },
+        "turns": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "credits": { "type": "number", "minimum": 0 },
+        "credit_unknown_turns": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "project_breakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["top", "other"],
+      "properties": {
+        "top": { "type": "array", "items": { "$ref": "#/$defs/project_row" } },
+        "other": { "$ref": "#/$defs/metric" }
+      }
+    },
+    "work_breakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["top", "other"],
+      "properties": {
+        "top": { "type": "array", "items": { "$ref": "#/$defs/work_row" } },
+        "other": { "$ref": "#/$defs/metric" }
+      }
+    },
+    "task_breakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["top", "other"],
+      "properties": {
+        "top": { "type": "array", "items": { "$ref": "#/$defs/task_row" } },
+        "other": { "$ref": "#/$defs/metric" }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_at", "end_at", "totals", "breakdowns"],
+      "properties": {
+        "start_at": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] },
+        "end_at": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] },
+        "totals": { "$ref": "#/$defs/metric" },
+        "breakdowns": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["projects", "works", "tasks"],
+          "properties": {
+            "projects": { "$ref": "#/$defs/project_breakdown" },
+            "works": { "$ref": "#/$defs/work_breakdown" },
+            "tasks": { "$ref": "#/$defs/task_breakdown" }
+          }
+        }
+      }
+    },
+    "role_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "turns", "total_tokens", "credits", "credit_unknown_turns"],
+      "properties": {
+        "role": { "type": "string" },
+        "turns": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "credits": { "type": "number", "minimum": 0 },
+        "credit_unknown_turns": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "model_effort_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "reasoning_effort", "turns", "total_tokens", "credits", "credit_unknown_turns"],
+      "properties": {
+        "model": { "type": "string" },
+        "reasoning_effort": { "type": "string" },
+        "turns": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 },
+        "credits": { "type": "number", "minimum": 0 },
+        "credit_unknown_turns": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "current": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "generated_at", "health", "coverage", "totals", "roles", "model_effort", "activity"],
+      "properties": {
+        "schema_version": { "const": "soulforge.ai_usage_board_snapshot.v1" },
+        "generated_at": { "$ref": "#/$defs/timestamp" },
+        "health": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hook_status", "pending_event_count"],
+          "properties": {
+            "hook_status": { "enum": ["ok", "disabled", "hold", "deferred", "unknown"] },
+            "pending_event_count": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "measured_turns", "total_turns", "issue_count", "unassigned_turns", "rate_unknown_turns"],
+          "properties": {
+            "status": { "enum": ["unmeasured", "partial", "complete"] },
+            "measured_turns": { "type": "integer", "minimum": 0 },
+            "total_turns": { "type": "integer", "minimum": 0 },
+            "issue_count": { "type": "integer", "minimum": 0 },
+            "unassigned_turns": { "type": "integer", "minimum": 0 },
+            "rate_unknown_turns": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "totals": { "$ref": "#/$defs/metric" },
+        "roles": { "type": "array", "items": { "$ref": "#/$defs/role_row" } },
+        "model_effort": { "type": "array", "items": { "$ref": "#/$defs/model_effort_row" } },
+        "activity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["execution_turns", "coordination_turns", "review_turns", "fan_out_turns", "retry_count", "timeout_count"],
+          "properties": {
+            "execution_turns": { "type": "integer", "minimum": 0 },
+            "coordination_turns": { "type": "integer", "minimum": 0 },
+            "review_turns": { "type": "integer", "minimum": 0 },
+            "fan_out_turns": { "type": "integer", "minimum": 0 },
+            "retry_count": { "type": "integer", "minimum": 0 },
+            "timeout_count": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}

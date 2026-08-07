@@ -1,15 +1,80 @@
 {
   "description": "Non-blocking, metadata-only Soulforge AI usage meter hooks.",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/guild_hall/ai_usage_meter/cli.mjs\" hook",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& node (Join-Path (git rev-parse --show-toplevel) 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
+            "timeout": 15,
+            "statusMessage": "Recording metadata-only lifecycle receipt"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/guild_hall/ai_usage_meter/cli.mjs\" hook",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& node (Join-Path (git rev-parse --show-toplevel) 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
+            "timeout": 15,
+            "statusMessage": "Recording metadata-only lifecycle receipt"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/guild_hall/ai_usage_meter/cli.mjs\" hook",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& node (Join-Path (git rev-parse --show-toplevel) 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
+            "timeout": 15,
+            "statusMessage": "Recording metadata-only lifecycle receipt"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/guild_hall/ai_usage_meter/cli.mjs\" hook",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& node (Join-Path (git rev-parse --show-toplevel) 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
+            "timeout": 15,
+            "statusMessage": "Recording metadata-only lifecycle receipt"
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/guild_hall/ai_usage_meter/cli.mjs\" hook",
-            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$r=(git rev-parse --show-toplevel); & node (Join-Path $r 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& node (Join-Path (git rev-parse --show-toplevel) 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
             "timeout": 15,
-            "statusMessage": "Recording metadata-only AI usage"
+            "statusMessage": "Recording metadata-only lifecycle receipt"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/guild_hall/ai_usage_meter/cli.mjs\" hook",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& node (Join-Path (git rev-parse --show-toplevel) 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
+            "timeout": 15,
+            "statusMessage": "Recording metadata-only lifecycle receipt"
           }
         ]
       }
@@ -20,9 +85,9 @@
           {
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/guild_hall/ai_usage_meter/cli.mjs\" hook",
-            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$r=(git rev-parse --show-toplevel); & node (Join-Path $r 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& node (Join-Path (git rev-parse --show-toplevel) 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
             "timeout": 15,
-            "statusMessage": "Recording metadata-only AI usage"
+            "statusMessage": "Recording metadata-only lifecycle receipt"
           }
         ]
       }

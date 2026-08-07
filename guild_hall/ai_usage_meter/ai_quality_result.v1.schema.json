@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ai_quality_result.v1.schema.json",
+  "title": "Soulforge AI Quality Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "result_id", "run_id", "work_id", "evaluator_kind", "metric_id", "score", "scale_min", "scale_max", "decision", "evidence_refs", "occurred_at", "metadata_only", "raw_prompt_copied", "raw_reasoning_copied", "raw_tool_payload_copied"],
+  "properties": {
+    "schema_version": { "const": "soulforge.ai_quality_result.v1" },
+    "event_id": { "$ref": "#/$defs/id" },
+    "result_id": { "$ref": "#/$defs/id" },
+    "run_id": { "$ref": "#/$defs/id" },
+    "work_id": { "$ref": "#/$defs/id" },
+    "evaluator_kind": { "enum": ["deterministic", "human", "model"] },
+    "metric_id": { "$ref": "#/$defs/id" },
+    "score": { "type": ["number", "null"] },
+    "scale_min": { "type": "number" },
+    "scale_max": { "type": "number" },
+    "decision": { "enum": ["pass", "fail", "hold", "observed"] },
+    "evidence_refs": { "type": "array", "maxItems": 128, "uniqueItems": true, "items": { "$ref": "#/$defs/ref" } },
+    "occurred_at": { "$ref": "#/$defs/timestamp" },
+    "metadata_only": { "const": true },
+    "raw_prompt_copied": { "const": false },
+    "raw_reasoning_copied": { "const": false },
+    "raw_tool_payload_copied": { "const": false }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$" },
+    "ref": { "type": "string", "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9_.-]{0,119}|sha256:[a-f0-9]{64})$" },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

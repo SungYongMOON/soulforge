@@ -37,3 +37,7 @@ private-state/
 # 달빛조각사 던전 배경(로컬·비공개) — 게임 저작물이라 공개 repo 제외. README만 추적.
 ui-workspace/apps/dev-erp/static/skins/dungeons/
 ui-workspace/apps/dev-erp/static/skins/main.*
+
+# Local-only generated adapter for the read-only Workspace Board usage panel.
+ui-workspace/apps/team-ops-board/public/ai-usage-meter.snapshot.json
+ui-workspace/apps/team-ops-board/public/ai-usage-meter.history.snapshot.json
