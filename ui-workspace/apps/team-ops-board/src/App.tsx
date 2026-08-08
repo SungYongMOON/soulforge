@@ -2333,17 +2333,19 @@ function fleetSparkline(series: number[], width = 200, top = 5, bottom = 30) {
   };
 }
 
-function fleetResetLabel(resetsAtEpochS: number | null): string {
-  if (!Number.isFinite(resetsAtEpochS as number)) return "리셋 미상";
-  const deltaMs = (resetsAtEpochS as number) * 1000 - Date.now();
-  if (deltaMs <= 0) return "리셋 도래";
-  const hours = deltaMs / 3_600_000;
-  if (hours < 24) {
-    const wholeHours = Math.floor(hours);
-    const minutes = Math.floor((deltaMs - wholeHours * 3_600_000) / 60_000);
-    return wholeHours > 0 ? `${wholeHours}h ${minutes}m 후 리셋` : `${minutes}m 후 리셋`;
-  }
-  return `${Math.ceil(hours / 24)}일 후 리셋`;
+// 리셋 시각은 절대시각(KST)과 상대시간을 함께 — 계정마다 리셋 날짜가 달라 비교가 필요하다.
+function fleetResetAtLabel(resetsAtMs: number | null): string {
+  if (resetsAtMs === null || !Number.isFinite(resetsAtMs)) return "리셋 미상";
+  const deltaMs = resetsAtMs - Date.now();
+  if (deltaMs <= 0) return "리셋 경과";
+  const kst = new Date(resetsAtMs + 9 * 3_600_000);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const absolute = `${kst.getUTCMonth() + 1}/${kst.getUTCDate()} ${pad(kst.getUTCHours())}:${pad(kst.getUTCMinutes())}`;
+  let relative;
+  if (deltaMs < 3_600_000) relative = `${Math.floor(deltaMs / 60_000)}m 후`;
+  else if (deltaMs < 24 * 3_600_000) relative = `${Math.floor(deltaMs / 3_600_000)}h ${Math.floor((deltaMs % 3_600_000) / 60_000)}m 후`;
+  else relative = `${Math.round(deltaMs / 86_400_000)}일 후`;
+  return `${absolute} · ${relative}`;
 }
 
 function fleetObservedAgoLabel(observedAt: string): string {
@@ -2393,125 +2395,214 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   const rolling7 = windows.rolling_7d?.totals ?? null;
   const creditPerDay = rolling7 !== null && rolling7.credits > 0 ? Math.round(rolling7.credits / 7).toLocaleString("en-US") : null;
 
-  const cards: any[] = [];
+  // ── 패널 1: 창별 남은 한도 게이지 (계정·창마다 리셋 시점이 다름을 그대로 노출)
+  const limitRows: any[] = [];
+  const severityFor = (percent: number | null, idle: boolean): string => {
+    if (idle || percent === null) return "idle";
+    if (percent >= 85) return "crit";
+    if (percent >= 60) return "warn";
+    return "ok";
+  };
+  // 같은 등급(창)끼리 묶는다: 5시간 창 → 주간 창 → 크레딧. 계정별 리셋 시각 비교가 목적.
+  const claudeOfficial = providers?.limits?.claude ?? null;
+  const claudeRecon = providers?.claude ?? null;
+  const claudeFiveHour = claudeOfficial?.five_hour ?? null;
+  const claudeSevenDay = claudeOfficial?.seven_day ?? null;
+  if (claudeFiveHour !== null) {
+    limitRows.push({
+      key: "claude_five_hour",
+      group: "5시간 창",
+      provider: "Claude",
+      percent: Number(claudeFiveHour.utilization),
+      severity: severityFor(Number(claudeFiveHour.utilization), false),
+      resetLabel: fleetResetAtLabel(claudeFiveHour.resets_at ? Date.parse(claudeFiveHour.resets_at) : null),
+      note: Number.isFinite(claudeRecon?.five_hour?.tokens?.total_with_cache)
+        ? `5h ${fleetTokenLabel(claudeRecon.five_hour.tokens.total_with_cache)} tok · ${Number(claudeRecon.five_hour.turns).toLocaleString("en-US")}턴`
+        : "",
+    });
+  }
   if (rateLimit !== null) {
     const used = Number(rateLimit.used_percent);
     const resetsMs = Number.isFinite(rateLimit.resets_at_epoch_s) ? rateLimit.resets_at_epoch_s * 1000 : null;
-    // 리셋이 지난 관측치는 현재 사용률이 아니다 — 경고 톤을 내리고 이전 창 관측임을 명시한다.
+    // 리셋이 지난 관측치는 현재 사용률이 아니다 — 게이지를 idle로 내리고 재관측 대기로 표시한다.
     const expired = resetsMs !== null && resetsMs <= Date.now();
-    const observedAgo = fleetObservedAgoLabel(rateLimit.observed_at);
-    cards.push({
-      key: "weekly_limit",
-      tone: !expired && used >= 90 ? "red" : "teal",
-      title: "주간 한도",
-      pill: expired ? "리셋 경과 · 재관측 대기" : fleetResetLabel(rateLimit.resets_at_epoch_s),
-      big: `${used >= 100 ? Math.round(used) : used.toFixed(1)}%`,
-      bigSmall: expired ? " 이전 창" : " 사용",
-      sub: `Codex ${rateLimit.plan_type ?? "plan 미상"} · 이번 주 ${week ? `${fleetTokenLabel(week.total_tokens)} tok · ${week.turns.toLocaleString("en-US")}턴` : "—"} · ${observedAgo}`,
-      spark: dailyTokens.slice(-7),
-    });
-  } else if (week !== null) {
-    cards.push({
-      key: "weekly_limit",
-      tone: "teal",
-      title: "이번 주",
-      pill: "한도 미관측",
-      big: fleetTokenLabel(week.total_tokens),
-      bigSmall: " tok",
-      sub: `${week.turns.toLocaleString("en-US")}턴 · ${fleetCreditLabel(week)}`,
-      spark: dailyTokens.slice(-7),
+    limitRows.push({
+      key: "codex_weekly",
+      group: "주간 창",
+      provider: "Codex",
+      percent: expired ? null : used,
+      severity: severityFor(used, expired),
+      resetLabel: expired ? "리셋 경과 · 재관측 대기" : fleetResetAtLabel(resetsMs),
+      note: expired ? `이전 창 ${used.toFixed(0)}% · ${fleetObservedAgoLabel(rateLimit.observed_at)}` : fleetObservedAgoLabel(rateLimit.observed_at),
     });
   }
-  const claudeOfficial = providers?.limits?.claude ?? null;
-  const claudeRecon = providers?.claude ?? null;
-  if (claudeOfficial?.five_hour || claudeRecon?.five_hour) {
-    const utilization = claudeOfficial?.five_hour?.utilization ?? null;
-    const resetsAtMs = claudeOfficial?.five_hour?.resets_at ? Date.parse(claudeOfficial.five_hour.resets_at) : NaN;
-    const weeklyUtilization = claudeOfficial?.seven_day?.utilization ?? null;
-    const tierRaw = claudeRecon?.plan?.organization_rate_limit_tier ?? claudeRecon?.plan?.user_rate_limit_tier ?? null;
-    const tierLabel = tierRaw === null
-      ? "플랜 미상"
-      : String(tierRaw).replace(/^default_claude_/u, "").replace(/_/gu, " ");
-    const reconTokens = claudeRecon?.five_hour?.tokens?.total_tokens;
-    const reconTurns = claudeRecon?.five_hour?.turns;
-    const reconPart = Number.isFinite(reconTokens)
-      ? ` · 5h ${fleetTokenLabel(reconTokens)} tok · ${Number(reconTurns).toLocaleString("en-US")}턴`
-      : "";
-    cards.push({
-      key: "claude_five_hour",
-      tone: utilization !== null && utilization >= 90 ? "red" : "purple",
-      title: "Claude 5시간 창",
-      pill: utilization === null
-        ? "공식 % 미관측"
-        : (Number.isFinite(resetsAtMs) ? fleetResetLabel(Math.round(resetsAtMs / 1000)) : "리셋 미상"),
-      big: utilization === null
-        ? (Number.isFinite(reconTokens) ? fleetTokenLabel(reconTokens) : "—")
-        : `${utilization >= 100 ? Math.round(utilization) : Number(utilization).toFixed(0)}%`,
-      bigSmall: utilization === null ? " tok" : " 사용",
-      sub: `Claude ${tierLabel}${weeklyUtilization !== null ? ` · 주간 ${weeklyUtilization}%` : ""}${reconPart}`,
-      spark: [],
+  if (claudeSevenDay !== null) {
+    limitRows.push({
+      key: "claude_weekly",
+      group: "주간 창",
+      provider: "Claude",
+      percent: Number(claudeSevenDay.utilization),
+      severity: severityFor(Number(claudeSevenDay.utilization), false),
+      resetLabel: fleetResetAtLabel(claudeSevenDay.resets_at ? Date.parse(claudeSevenDay.resets_at) : null),
+      note: "",
     });
   }
   const antigravity = providers?.antigravity ?? null;
   if (antigravity?.credits) {
     const available = antigravity.credits.available;
-    cards.push({
+    limitRows.push({
       key: "antigravity_credits",
-      tone: "amber",
-      title: "Antigravity 크레딧",
-      pill: `${fleetObservedAgoLabel(antigravity.observed_at)}${antigravity.stale ? " · STALE" : ""}`,
-      big: available === null ? "—" : Number(available).toLocaleString("en-US"),
-      bigSmall: " 남음",
-      sub: `Gemini 계열 · 최소 사용단위 ${antigravity.credits.minimum_per_use ?? "—"} · IDE 실행 시에만 갱신`,
-      spark: [],
+      group: "크레딧",
+      provider: "Antigravity",
+      percent: null,
+      severity: "idle",
+      resetLabel: antigravity.stale ? "IDE 실행 시 갱신" : fleetObservedAgoLabel(antigravity.observed_at),
+      note: antigravity.stale
+        ? `현재값 관측 불가 — IDE 마지막 기록 ${fleetObservedAgoLabel(antigravity.observed_at).replace(" 관측", "")}: ${available ?? "—"} 크레딧`
+        : `${available === null ? "—" : Number(available).toLocaleString("en-US")} 크레딧 남음 · 최소 단위 ${antigravity.credits.minimum_per_use ?? "—"}`,
     });
   }
-  if (day !== null) {
-    cards.push({
-      key: "calendar_day",
-      tone: "green",
-      title: "오늘 사용",
-      pill: "CODEX만",
-      big: fleetTokenLabel(day.total_tokens),
-      bigSmall: " tok",
-      sub: `${day.turns.toLocaleString("en-US")}턴 · ${fleetCreditLabel(day)}`,
-      spark: dailyTokens.slice(-14),
+  const codexPlan = rateLimit?.plan_type ?? null;
+  const claudeTierRaw = claudeRecon?.plan?.organization_rate_limit_tier ?? claudeRecon?.plan?.user_rate_limit_tier ?? null;
+  const claudeTier = claudeTierRaw === null ? null : String(claudeTierRaw).replace(/^default_claude_/u, "").replace(/_/gu, " ");
+  const limitFoot = [
+    codexPlan !== null ? `Codex ${codexPlan}` : null,
+    claudeTier !== null ? `Claude ${claudeTier}` : null,
+    "공식 관측값만 표시",
+  ].filter(Boolean).join(" · ");
+
+  // ── 패널 2: 모델별 실사용 (Codex 달력주 원장 + Claude 최근 7일, 캐시 포함 합계)
+  const modelRows: any[] = [];
+  const codexModelTop = windows.calendar_week?.breakdowns?.models?.top ?? [];
+  for (const row of codexModelTop) {
+    if (!Number.isFinite(row?.total_tokens) || row.total_tokens <= 0) continue;
+    modelRows.push({
+      provider: "codex",
+      model: String(row.model_id ?? "").replace(/^gpt-/u, "") || "미상",
+      tokens: row.total_tokens,
     });
   }
-  if (month !== null) {
-    cards.push({
-      key: "calendar_month",
-      tone: "amber",
-      title: "이번 달",
-      pill: "CODEX만",
-      big: fleetTokenLabel(month.total_tokens),
-      bigSmall: " tok",
-      sub: `${fleetCreditLabel(month)}${creditPerDay !== null ? ` · 최근 7일 ${creditPerDay}/일` : ""}`,
-      spark: dailyTokens.slice(-30),
+  const claudeModels = Array.isArray(claudeRecon?.models_7d) ? claudeRecon.models_7d : [];
+  for (const entry of claudeModels) {
+    const tokens = entry?.tokens?.total_with_cache;
+    if (!Number.isFinite(tokens) || tokens <= 0) continue;
+    modelRows.push({
+      provider: "claude",
+      model: String(entry.model ?? "").replace(/^claude-/u, "").replace(/^haiku-4-5-\d+$/u, "haiku-4.5") || "미상",
+      tokens,
     });
   }
-  if (cards.length === 0) return null;
+  modelRows.sort((left, right) => right.tokens - left.tokens);
+  const topModelRows = modelRows.slice(0, 7);
+  const maxModelTokens = Math.max(...topModelRows.map((row) => row.tokens), 1);
+  const codexWeekTotal = week?.total_tokens ?? null;
+  const claudeWeekTotal = claudeRecon?.rolling_7d?.tokens?.total_with_cache ?? null;
+
+  // ── 패널 3: CODEX 원장 총괄 + 40일 추이
+  const totalsRows = [
+    day !== null ? { key: "day", label: "오늘", value: `${fleetTokenLabel(day.total_tokens)} tok`, meta: `${day.turns.toLocaleString("en-US")}턴` } : null,
+    week !== null ? { key: "week", label: "이번 주", value: `${fleetTokenLabel(week.total_tokens)} tok`, meta: `${week.turns.toLocaleString("en-US")}턴` } : null,
+    month !== null ? { key: "month", label: "이번 달", value: `${fleetTokenLabel(month.total_tokens)} tok`, meta: fleetCreditLabel(month) } : null,
+  ].filter(Boolean) as any[];
+  const totalsFoot = creditPerDay !== null ? `최근 7일 크레딧 ${creditPerDay}/일` : "";
+  let totalsArea: { path: string; line: string } | null = null;
+  if (dailyTokens.length >= 2) {
+    const W = 200;
+    const H = 40;
+    const maxDaily = Math.max(...dailyTokens, 1);
+    const step = W / (dailyTokens.length - 1);
+    const points = dailyTokens.map((value: number, index: number) => (
+      `${(index * step).toFixed(1)},${(H - 6 - (Math.max(0, value) / maxDaily) * (H - 12)).toFixed(1)}`
+    ));
+    totalsArea = {
+      line: points.join(" "),
+      path: `M ${points.join(" L ")} L ${W},${H - 2} L 0,${H - 2} Z`,
+    };
+  }
+
+  if (limitRows.length === 0 && topModelRows.length === 0 && totalsRows.length === 0) return null;
   return (
-    <div className="fleet-usage-cards" data-testid="fleet-usage-cards">
-      {cards.map((card) => {
-        const spark = fleetSparkline(card.spark);
-        return (
-          <article key={card.key} className={`fleet-usage-card is-${card.tone}`}>
-            <header>
-              <span className="fleet-usage-dot" aria-hidden="true" />
-              <span className="fleet-usage-title">{card.title}</span>
-              <span className="fleet-usage-pill">{card.pill}</span>
-            </header>
-            <strong>{card.big}<small>{card.bigSmall}</small></strong>
-            <p>{card.sub}</p>
-            <svg viewBox="0 0 200 34" preserveAspectRatio="none" aria-hidden="true">
-              <line className="fleet-usage-base" x1="0" y1="30" x2="200" y2="30" />
-              {spark !== null && <polyline className="fleet-usage-line" points={spark.points} />}
-              {spark !== null && <circle className="fleet-usage-tip" cx={spark.tip.x} cy={spark.tip.y} r="2.6" />}
-            </svg>
-          </article>
-        );
-      })}
+    <div className="fleet-usage-cards is-panels" data-testid="fleet-usage-cards">
+      <article className="fleet-usage-card fleet-panel is-limits">
+        <header>
+          <span className="fleet-usage-dot" aria-hidden="true" />
+          <span className="fleet-usage-title">남은 한도 · 리셋</span>
+          <span className="fleet-usage-pill">계정·창별 공식 관측</span>
+        </header>
+        <ul className="fleet-limit-rows">
+          {["5시간 창", "주간 창", "크레딧"].flatMap((group) => {
+            const rows = limitRows.filter((row) => row.group === group);
+            if (rows.length === 0) return [];
+            return [
+              <li key={`caption-${group}`} className="fleet-limit-caption" aria-hidden="true">{group}</li>,
+              ...rows.map((row) => (
+                <li key={row.key} className={`fleet-limit-row is-${row.severity}`} title={row.note}>
+                  <span className="fleet-limit-name"><b>{row.provider}</b></span>
+                  {row.percent === null ? (
+                    <span className="fleet-limit-note-solo">{row.note}</span>
+                  ) : (
+                    <>
+                      <span className="fleet-gauge" role="img" aria-label={`사용 ${Math.round(row.percent)}%`}>
+                        <span style={{ width: `${Math.min(100, Math.max(2, row.percent))}%` }} />
+                      </span>
+                      <span className="fleet-limit-remain"><b>{Math.max(0, 100 - row.percent).toFixed(0)}%</b><small>남음</small></span>
+                    </>
+                  )}
+                  <span className="fleet-limit-reset">{row.resetLabel}</span>
+                </li>
+              )),
+            ];
+          })}
+        </ul>
+        {limitFoot.length > 0 && <p className="fleet-panel-foot">{limitFoot}</p>}
+      </article>
+      <article className="fleet-usage-card fleet-panel is-models">
+        <header>
+          <span className="fleet-usage-dot" aria-hidden="true" />
+          <span className="fleet-usage-title">모델별 사용</span>
+          <span className="fleet-usage-pill">Codex 주간 · Claude 7일</span>
+        </header>
+        {topModelRows.length === 0 ? (
+          <p className="fleet-panel-empty">모델 사용 관측 없음</p>
+        ) : (
+          <ul className="fleet-model-rows">
+            {topModelRows.map((row) => (
+              <li key={`${row.provider}-${row.model}`}>
+                <span className={`fleet-model-dot is-${row.provider}`} aria-hidden="true" />
+                <span className="fleet-model-name">{row.model}</span>
+                <span className="fleet-model-bar">
+                  <span className={`is-${row.provider}`} style={{ width: `${Math.max(3, Math.round((row.tokens / maxModelTokens) * 100))}%` }} />
+                </span>
+                <span className="fleet-model-value">{fleetTokenLabel(row.tokens)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="fleet-panel-foot">
+          {codexWeekTotal !== null ? `Codex 주간 ${fleetTokenLabel(codexWeekTotal)}` : ""}
+          {codexWeekTotal !== null && Number.isFinite(claudeWeekTotal) ? " · " : ""}
+          {Number.isFinite(claudeWeekTotal) ? `Claude 7일 ${fleetTokenLabel(claudeWeekTotal)} (캐시 포함)` : ""}
+        </p>
+      </article>
+      <article className="fleet-usage-card fleet-panel is-totals">
+        <header>
+          <span className="fleet-usage-dot" aria-hidden="true" />
+          <span className="fleet-usage-title">사용 총괄</span>
+          <span className="fleet-usage-pill">CODEX 원장</span>
+        </header>
+        <ul className="fleet-total-rows">
+          {totalsRows.map((row) => (
+            <li key={row.key}><span>{row.label}</span><b>{row.value}</b><small>{row.meta}</small></li>
+          ))}
+        </ul>
+        {totalsArea !== null && (
+          <svg viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true">
+            <path className="fleet-total-area" d={totalsArea.path} />
+            <polyline className="fleet-total-line" points={totalsArea.line} />
+          </svg>
+        )}
+        {totalsFoot.length > 0 && <p className="fleet-panel-foot">{totalsFoot}</p>}
+      </article>
     </div>
   );
 }

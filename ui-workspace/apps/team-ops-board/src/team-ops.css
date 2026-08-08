@@ -6062,3 +6062,75 @@ a:focus-visible {
 .fleet-usage-card.is-purple .fleet-usage-dot { background: #b294f5; box-shadow: 0 0 6px #b294f5; }
 .fleet-usage-card.is-purple .fleet-usage-line { stroke: #b294f5; }
 .fleet-usage-card.is-purple .fleet-usage-tip { fill: #b294f5; }
+
+/* ── 패널형 Fleet 카드: 창 등급별 잔여 게이지 · 모델별 · 총괄 ── */
+.fleet-usage-cards.is-panels {
+  grid-template-columns: minmax(360px, 1.4fr) minmax(280px, 1.05fr) minmax(250px, 1fr);
+  align-items: stretch;
+}
+@media (max-width: 1100px) { .fleet-usage-cards.is-panels { grid-template-columns: minmax(0, 1fr); } }
+.fleet-panel { gap: 8px; align-content: start; }
+.fleet-panel-foot {
+  margin: 2px 0 0; font-family: Consolas, ui-monospace, monospace;
+  font-size: 9.5px; letter-spacing: 0.08em; color: #55636d;
+}
+.fleet-panel-empty { margin: 8px 0; font-size: 11px; color: #5d6b75; }
+
+.fleet-limit-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.fleet-limit-caption {
+  font-family: Consolas, ui-monospace, monospace; font-size: 9px;
+  letter-spacing: 0.2em; color: #4d5b64; margin-top: 5px;
+}
+.fleet-limit-caption:first-child { margin-top: 0; }
+.fleet-limit-row {
+  display: grid; grid-template-columns: 78px minmax(0, 1fr) 74px 128px;
+  align-items: center; gap: 8px; min-height: 20px;
+}
+.fleet-limit-row.is-idle { opacity: 0.8; }
+.fleet-limit-name b { font-size: 11.5px; color: #cdd7dc; font-weight: 600; }
+.fleet-gauge {
+  position: relative; height: 8px; border-radius: 4px;
+  background: #1a222b; overflow: hidden;
+}
+.fleet-gauge > span { display: block; height: 100%; border-radius: 4px; background: #3f5b52; transition: width 0.4s ease; }
+.fleet-limit-row.is-ok .fleet-gauge > span { background: linear-gradient(90deg, #2f6b48, var(--live-green, #70d98c)); }
+.fleet-limit-row.is-warn .fleet-gauge > span { background: linear-gradient(90deg, #6b5424, var(--live-amber, #f5b849)); }
+.fleet-limit-row.is-crit .fleet-gauge > span { background: linear-gradient(90deg, #6b2a26, var(--live-red, #e9635c)); }
+.fleet-limit-remain { font-family: Consolas, ui-monospace, monospace; text-align: right; white-space: nowrap; }
+.fleet-limit-remain b { font-size: 15px; font-weight: 700; color: #cdd7dc; }
+.fleet-limit-row.is-ok .fleet-limit-remain b { color: var(--live-green, #70d98c); }
+.fleet-limit-row.is-warn .fleet-limit-remain b { color: var(--live-amber, #f5b849); }
+.fleet-limit-row.is-crit .fleet-limit-remain b { color: var(--live-red, #e9635c); }
+.fleet-limit-remain small { margin-left: 3px; font-size: 9px; color: #6b7a85; }
+.fleet-limit-reset {
+  font-family: Consolas, ui-monospace, monospace; font-size: 10px;
+  color: #8a99a3; text-align: right; white-space: nowrap;
+}
+.fleet-limit-note-solo { grid-column: 2 / 4; font-size: 10px; color: #6b7a85; }
+
+.fleet-model-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fleet-model-rows li {
+  display: grid; grid-template-columns: 10px 90px minmax(0, 1fr) 58px;
+  gap: 8px; align-items: center;
+}
+.fleet-model-dot { width: 7px; height: 7px; border-radius: 50%; }
+.fleet-model-dot.is-codex { background: #65d8d0; }
+.fleet-model-dot.is-claude { background: #b294f5; }
+.fleet-model-name {
+  font-family: Consolas, ui-monospace, monospace; font-size: 10.5px; color: #aeb9c0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fleet-model-bar { height: 7px; background: #1a222b; border-radius: 4px; overflow: hidden; }
+.fleet-model-bar > span { display: block; height: 100%; border-radius: 4px; }
+.fleet-model-bar > span.is-codex { background: linear-gradient(90deg, #2b5a55, #65d8d0); }
+.fleet-model-bar > span.is-claude { background: linear-gradient(90deg, #4b3d78, #b294f5); }
+.fleet-model-value { font-family: Consolas, ui-monospace, monospace; font-size: 10.5px; color: #cdd7dc; text-align: right; }
+
+.fleet-total-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fleet-total-rows li { display: grid; grid-template-columns: 54px auto minmax(0, 1fr); align-items: baseline; gap: 8px; }
+.fleet-total-rows span { font-family: Consolas, ui-monospace, monospace; font-size: 10px; color: #8a99a3; }
+.fleet-total-rows b { font-family: Consolas, ui-monospace, monospace; font-size: 14.5px; color: #e8eef2; }
+.fleet-total-rows small { font-family: Consolas, ui-monospace, monospace; font-size: 9.5px; color: #55636d; text-align: right; }
+.fleet-panel.is-totals svg { width: 100%; height: 40px; display: block; }
+.fleet-total-area { fill: rgba(112, 217, 140, 0.12); }
+.fleet-total-line { fill: none; stroke: #79c791; stroke-width: 1.4; }
