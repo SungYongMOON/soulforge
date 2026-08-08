@@ -210,6 +210,8 @@ function antigravityUsageEvent(conversationId, idx, modelId, summary, normalized
 export async function collectAntigravityUsageEvents({
   cliRoot = defaultAntigravityCliRoot(),
   config = {},
+  maxAgeDays = 45,
+  now = Date.now,
 } = {}) {
   const normalizedConfig = normalizeConfig(config);
   const root = path.resolve(cliRoot);
@@ -221,28 +223,27 @@ export async function collectAntigravityUsageEvents({
     conversation_db_count: 0,
     indexed_conversation_count: 0,
     skipped_conversation_count: 0,
+    fallback_conversation_count: 0,
     observed_row_count: 0,
   };
+  const { DatabaseSync } = await loadSqliteModule();
+  // Antigravity 2.0은 구 인덱스에 새 대화를 쓰지 않는다 — 인덱스는 있으면 쓰는 보조 소스일 뿐,
+  // 없거나 비어도 파일 생성시각 폴백으로 수집을 계속한다.
+  let index = new Map();
+  const issues = [];
   try {
     const info = await stat(indexPath);
-    if (!info.isFile()) return empty;
+    if (info.isFile()) index = readConversationIndex(DatabaseSync, indexPath);
   } catch (error) {
-    if (error?.code === "ENOENT") return empty;
-    throw error;
-  }
-  const { DatabaseSync } = await loadSqliteModule();
-  let index;
-  try {
-    index = readConversationIndex(DatabaseSync, indexPath);
-  } catch (error) {
-    return {
-      ...empty,
-      issues: [{
+    if (error?.code !== "ENOENT") {
+      issues.push({
         source_ref: "conversation_summaries",
         code: String(error?.code || error?.message || "antigravity_index_unreadable").slice(0, 120),
-      }],
-    };
+      });
+    }
   }
+  const nowMs = now();
+  const cutoffMs = nowMs - Math.max(1, maxAgeDays) * 86_400_000;
   let entries = [];
   try {
     entries = await readdir(conversationsDir, { withFileTypes: true });
@@ -253,9 +254,9 @@ export async function collectAntigravityUsageEvents({
     .filter((entry) => entry.isFile() && entry.name.endsWith(".db"))
     .map((entry) => entry.name)
     .sort((a, b) => a.localeCompare(b, "en"));
-  const issues = [];
   const events = [];
   let skippedConversationCount = 0;
+  let fallbackConversationCount = 0;
   let observedRowCount = 0;
   for (const name of dbFiles) {
     const conversationId = name.slice(0, -3);
@@ -263,11 +264,33 @@ export async function collectAntigravityUsageEvents({
       skippedConversationCount += 1;
       continue;
     }
-    const summary = index.get(conversationId);
-    if (!summary || summary.started_at === null) {
-      // 인덱스에 없거나 유효한 관측 시각이 없으면 대화 전체를 건너뛴다.
-      skippedConversationCount += 1;
-      continue;
+    let summary = index.get(conversationId) ?? null;
+    if (summary !== null && summary.started_at === null) summary = null;
+    if (summary === null) {
+      // 인덱스 미포함 대화(2.0 경로): DB 파일 시각 중 이른 쪽(min(생성, 수정))을 관측 시각으로 쓴다.
+      // 수집 창 밖이거나 시각을 얻지 못하면 건너뛴다.
+      let fileStats = null;
+      try {
+        fileStats = await stat(path.join(conversationsDir, name));
+      } catch {
+        fileStats = null;
+      }
+      const birthMs = Number.isFinite(fileStats?.birthtimeMs) && fileStats.birthtimeMs > MIN_VALID_EPOCH_MS
+        ? fileStats.birthtimeMs
+        : Infinity;
+      const modifiedMs = Number.isFinite(fileStats?.mtimeMs) && fileStats.mtimeMs > MIN_VALID_EPOCH_MS
+        ? fileStats.mtimeMs
+        : Infinity;
+      const observedMs = Math.min(birthMs, modifiedMs);
+      if (!Number.isFinite(observedMs) || observedMs < cutoffMs || observedMs > nowMs + 60_000) {
+        skippedConversationCount += 1;
+        continue;
+      }
+      fallbackConversationCount += 1;
+      summary = {
+        started_at: new Date(observedMs).toISOString(),
+        project_id: "unassigned",
+      };
     }
     let rows;
     try {
@@ -304,6 +327,7 @@ export async function collectAntigravityUsageEvents({
     conversation_db_count: dbFiles.length,
     indexed_conversation_count: index.size,
     skipped_conversation_count: skippedConversationCount,
+    fallback_conversation_count: fallbackConversationCount,
     observed_row_count: observedRowCount,
   };
 }

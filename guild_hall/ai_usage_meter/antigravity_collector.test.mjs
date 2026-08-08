@@ -82,10 +82,12 @@ test("Antigravity conversation DBs become request-count-only metadata events", a
 
     assert.equal(result.conversation_db_count, 4);
     assert.equal(result.indexed_conversation_count, 3);
-    assert.equal(result.skipped_conversation_count, 2);
-    assert.equal(result.observed_row_count, 3);
+    // 인덱스 미포함(CONV_UNINDEXED)·인덱스 시각 무효(CONV_ZERO)는 파일 시각 폴백으로 수집된다.
+    assert.equal(result.skipped_conversation_count, 0);
+    assert.equal(result.fallback_conversation_count, 2);
+    assert.equal(result.observed_row_count, 5);
     assert.equal(result.issues.length, 0);
-    assert.equal(result.events.length, 3);
+    assert.equal(result.events.length, 5);
 
     const first = result.events.find((event) => event.event_id === `aue-ag-${CONV_A}-0`);
     assert.equal(first.thread_id, CONV_A);
@@ -125,10 +127,25 @@ test("Antigravity conversation DBs become request-count-only metadata events", a
     assert.equal(fallback.project_id, "unassigned");
     assert.equal(fallback.time.started_at, "2026-07-30T12:00:00.000Z");
 
+    const unindexed = result.events.find((event) => event.event_id === `aue-ag-${CONV_UNINDEXED}-0`);
+    assert.equal(unindexed.model.id, "gpt-5.2");
+    assert.equal(unindexed.project_id, "unassigned");
+    // 폴백 시각은 방금 만든 픽스처 파일의 생성/수정 시각 — 최근 1시간 안이어야 한다.
+    assert.ok(Date.now() - Date.parse(unindexed.time.started_at) < 3_600_000);
+
     const serialized = JSON.stringify(result);
     assert.doesNotMatch(serialized, /TITLE-SECRET|PREVIEW-SECRET|conversations|\.db/u);
-    assert.doesNotMatch(serialized, new RegExp(CONV_ZERO, "u"));
-    assert.doesNotMatch(serialized, new RegExp(CONV_UNINDEXED, "u"));
+
+    // 수집 창 밖(미래로 이동한 now 기준 1일 창)이면 폴백 대화는 건너뛴다.
+    const shifted = await collectAntigravityUsageEvents({
+      cliRoot,
+      config: { organization_id: "org-a", default_team_id: "team-a", node_id: "node-a" },
+      maxAgeDays: 1,
+      now: () => Date.now() + 3 * 86_400_000,
+    });
+    assert.equal(shifted.fallback_conversation_count, 0);
+    assert.equal(shifted.skipped_conversation_count, 2);
+    assert.equal(shifted.events.length, 3);
   } finally {
     await rm(cliRoot, { recursive: true, force: true });
   }
@@ -147,6 +164,7 @@ test("Antigravity collection is a clean no-op without the CLI root", async () =>
       conversation_db_count: 0,
       indexed_conversation_count: 0,
       skipped_conversation_count: 0,
+      fallback_conversation_count: 0,
       observed_row_count: 0,
     });
   } finally {
@@ -161,21 +179,22 @@ test("Antigravity CLI dry-run and apply re-runs stay idempotent", async () => {
     await writeAntigravityFixture(cliRoot);
     const dry = await runCli(["collect-antigravity", "--cli-root", cliRoot, "--state-root", stateRoot]);
     assert.equal(dry.mode, "dry_run");
-    assert.equal(dry.event_count, 3);
+    assert.equal(dry.event_count, 5);
+    assert.equal(dry.fallback_conversation_count, 2);
     assert.equal(dry.persistence, null);
     assert.equal((await loadPersistedUsageEvents(stateRoot)).length, 0);
 
     const applied = await runCli([
       "collect-antigravity", "--cli-root", cliRoot, "--state-root", stateRoot, "--apply",
     ]);
-    assert.equal(applied.persistence.created, 3);
+    assert.equal(applied.persistence.created, 5);
     const replayed = await runCli([
       "collect-antigravity", "--cli-root", cliRoot, "--state-root", stateRoot, "--apply",
     ]);
     assert.equal(replayed.persistence.created, 0);
-    assert.equal(replayed.persistence.replayed, 3);
+    assert.equal(replayed.persistence.replayed, 5);
     const persisted = await loadPersistedUsageEvents(stateRoot);
-    assert.equal(persisted.length, 3);
+    assert.equal(persisted.length, 5);
     assert.equal(persisted[0].source.kind, "antigravity_conversation_db");
   } finally {
     await rm(cliRoot, { recursive: true, force: true });

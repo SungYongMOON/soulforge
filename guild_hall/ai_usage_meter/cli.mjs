@@ -490,9 +490,10 @@ async function collectClaudeCommand(options) {
 
 async function collectAntigravityCommand(options) {
   const cliRoot = path.resolve(String(value(options, "cli-root", defaultAntigravityCliRoot())));
+  const maxAgeDays = positiveIntegerOption(options, "max-age-days", 45);
   const stateRoot = value(options, "state-root", null);
   const config = await loadEffectiveConfig(options, { repoRoot: null });
-  const collected = await collectAntigravityUsageEvents({ cliRoot, config });
+  const collected = await collectAntigravityUsageEvents({ cliRoot, config, maxAgeDays });
   const events = filterEvents(collected.events, options);
   let persistence = null;
   if (flag(options, "apply")) {
@@ -505,6 +506,7 @@ async function collectAntigravityCommand(options) {
     conversation_db_count: collected.conversation_db_count,
     indexed_conversation_count: collected.indexed_conversation_count,
     skipped_conversation_count: collected.skipped_conversation_count,
+    fallback_conversation_count: collected.fallback_conversation_count,
     observed_row_count: collected.observed_row_count,
     issue_count: collected.issues.length,
     issues: collected.issues,
@@ -920,7 +922,7 @@ function help() {
       "dashboard: --output <HTML path> (defaults to <state-root>/dashboard.html)",
       "csv: --output <CSV path> [--group-by work]",
       "collect-claude: [--projects-root <Claude projects directory>] [--max-age-days N] [--state-root <path>] [--apply]",
-      "collect-antigravity: [--cli-root <Antigravity CLI directory>] [--state-root <path>] [--apply]",
+      "collect-antigravity: [--cli-root <Antigravity CLI directory>] [--max-age-days N] [--state-root <path>] [--apply]",
       "board-snapshot: --state-root <local state directory> --output <local JSON path> [--thread-id <exact ID> (repeatable)] [--include-provider claude_session_jsonl|antigravity_conversation_db (repeatable)]",
       "board-history-snapshot: --state-root <local state directory> --thread-id <exact ID> (repeatable) --output <local JSON path> [--top-n 1-50] [--reference-at <ISO timestamp>] [--include-provider <source kind> (repeatable)]",
       "lifecycle-snapshot: --state-root <local state directory> [--output <local JSON path>] [--include-identities]",

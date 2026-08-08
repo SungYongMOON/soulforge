@@ -21,6 +21,12 @@
   0건인 이유는 (a) conversation 인덱스가 7/25 이후 stale, (b) hot-WAL
   DB가 immutable 읽기에서 비어 보임 — 완화(mode=ro 전환 또는 파일
   mtime 시간원)는 Owner 결정 게이트로 남김.
+- (같은 날 후속 3) Antigravity 요청 수 실수집 개통: 2.0이 구
+  인덱스(conversation_summaries.db)에 새 대화를 쓰지 않음을 확인하고,
+  인덱스 미포함 대화는 DB 파일 min(생성,수정)시각을 관측 시각으로 쓰는
+  폴백(수집 창 --max-age-days, 기본 45일)을 추가 — 실측 648 이벤트
+  (gemini-3.6-flash 413턴 등 12개 모델)가 원장에 합류. Owner가 관측한
+  "Gemini Flash 3.6 응답"의 계측 경로가 이것으로 닫힘.
 - (같은 날 후속 2) Antigravity 공식 잔여 쿼터 로컬 관측: 실행 중인
   language_server의 로컬 RPC(RetrieveUserQuotaSummary)가 앱 화면과 동일한
   그룹별 잔여율(Gemini/Claude+GPT × 주간·5시간, resetTime)을 무인증으로
