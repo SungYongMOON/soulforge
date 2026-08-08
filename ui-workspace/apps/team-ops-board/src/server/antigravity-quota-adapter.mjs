@@ -2,20 +2,30 @@
 // (RetrieveUserQuotaSummary)에서 그룹별 잔여 쿼터를 읽어 loopback 전용
 // GET /antigravity-quota.snapshot.json 으로 서빙한다. 포트는 고정 파일이 없어
 // agy/language_server 프로세스의 LISTENING 포트를 열거해 응답하는 포트를 캐시한다.
-// 읽기 전용 조회이며 앱이 꺼져 있으면 null을 낸다.
+// 읽기 전용 조회. 한도는 사용 시에만 소모되므로 앱이 꺼져도 마지막 성공 관측을
+// 로컬 캐시(untracked state)로 유지 서빙한다 — observed_at으로 신선도를 판단한다.
 
 import { execFile } from "node:child_process";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import {
+  ANTIGRAVITY_QUOTA_SCHEMA_VERSION,
   buildAntigravityQuotaSnapshot,
   parseAntigravityQuotaResponse,
 } from "../core/antigravity-quota.mjs";
 
 const execFileAsync = promisify(execFile);
+const MODULE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 export const ANTIGRAVITY_QUOTA_SNAPSHOT_PATH = "/antigravity-quota.snapshot.json";
 export const DEFAULT_ANTIGRAVITY_QUOTA_TTL_MS = 120_000;
+export const DEFAULT_ANTIGRAVITY_QUOTA_CACHE_PATH = path.resolve(
+  MODULE_ROOT,
+  "../../../../../guild_hall/state/operations/team_ops_board/antigravity_quota.last.json",
+);
 const RPC_PATH = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary";
 const PROBE_TIMEOUT_MS = 3_000;
 const MAX_CANDIDATE_PORTS = 24;
@@ -57,23 +67,61 @@ async function queryQuota(port, fetchImpl) {
   return parseAntigravityQuotaResponse(await response.json().catch(() => null));
 }
 
+function isPlausibleCachedSnapshot(value) {
+  return typeof value === "object" && value !== null
+    && value.schema_version === ANTIGRAVITY_QUOTA_SCHEMA_VERSION
+    && typeof value.observed_at === "string" && Number.isFinite(Date.parse(value.observed_at))
+    && Array.isArray(value.groups) && value.groups.length > 0;
+}
+
 export function createAntigravityQuotaReader({
   fetchImpl = fetch,
   listPorts = candidatePorts,
   ttlMs = DEFAULT_ANTIGRAVITY_QUOTA_TTL_MS,
+  cachePath = DEFAULT_ANTIGRAVITY_QUOTA_CACHE_PATH,
   now = Date.now,
 } = {}) {
   let inFlight = null;
   let lastAttemptAt = null;
   let lastGood = null;
   let knownPort = null;
+  let cacheChecked = false;
+
+  async function persistCache(snapshot) {
+    if (cachePath === null) return;
+    try {
+      await mkdir(path.dirname(cachePath), { recursive: true });
+      const temporary = `${cachePath}.tmp-${process.pid}`;
+      await writeFile(temporary, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+      await rename(temporary, cachePath);
+    } catch {
+      // 캐시는 편의 기능 — 저장 실패가 관측 서빙을 막지 않는다.
+    }
+  }
+
+  async function loadCacheOnce() {
+    if (cacheChecked || cachePath === null) return;
+    cacheChecked = true;
+    try {
+      const parsed = JSON.parse(await readFile(cachePath, "utf8"));
+      if (isPlausibleCachedSnapshot(parsed)) lastGood = parsed;
+    } catch {
+      // 캐시 없음/손상은 조용히 무시한다.
+    }
+  }
+
+  function accept(groups) {
+    lastGood = buildAntigravityQuotaSnapshot({ groups, observedAtMs: now() });
+    cacheChecked = true;
+    void persistCache(lastGood);
+  }
 
   async function refresh() {
     // 이전에 응답한 포트를 먼저 시도하고, 실패하면 프로세스 포트를 재열거한다.
     if (knownPort !== null) {
       const groups = await queryQuota(knownPort, fetchImpl).catch(() => null);
       if (groups !== null) {
-        lastGood = buildAntigravityQuotaSnapshot({ groups, observedAtMs: now() });
+        accept(groups);
         return;
       }
       knownPort = null;
@@ -83,12 +131,13 @@ export function createAntigravityQuotaReader({
       const groups = await queryQuota(port, fetchImpl).catch(() => null);
       if (groups !== null) {
         knownPort = port;
-        lastGood = buildAntigravityQuotaSnapshot({ groups, observedAtMs: now() });
+        accept(groups);
         return;
       }
     }
-    // 앱 종료 등으로 어떤 포트도 응답하지 않으면 마지막 관측을 버리고 null로 돌아간다.
-    lastGood = null;
+    // 앱이 꺼져 있으면 마지막 성공 관측(메모리, 없으면 디스크 캐시)을 유지한다.
+    // 한도는 사용 시에만 소모되므로 과거 관측은 잔여를 과소평가하는 안전한 방향이다.
+    if (lastGood === null) await loadCacheOnce();
   }
 
   return {

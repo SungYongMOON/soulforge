@@ -2507,16 +2507,34 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
       valueSmall: "여유",
     });
   }
-  // Antigravity 로컬 RPC의 그룹별 공식 잔여 쿼터 — 앱 실행 중에만 관측된다.
-  for (const quotaRow of antigravityQuotaRows(providers?.antigravityQuota ?? null)) {
+  // Antigravity 로컬 RPC의 그룹별 공식 잔여 쿼터 — 앱이 꺼지면 마지막 관측을 유지 표시한다.
+  // 한도는 사용 시에만 소모되므로 과거 관측은 잔여 과소평가 방향(안전)이다.
+  const agQuotaSnapshot = providers?.antigravityQuota ?? null;
+  const agObservedMs = agQuotaSnapshot?.observed_at ? Date.parse(agQuotaSnapshot.observed_at) : NaN;
+  const agStale = Number.isFinite(agObservedMs) && Date.now() - agObservedMs > 10 * 60_000;
+  for (const quotaRow of antigravityQuotaRows(agQuotaSnapshot)) {
     const usedPercent = Math.max(0, 100 - quotaRow.remaining_percent);
+    const resetsMs = quotaRow.resets_at ? Date.parse(quotaRow.resets_at) : null;
+    // 관측 이후 창 리셋이 지났으면(주로 5시간 창) 과거 %는 무의미 — 재관측 대기로 표시.
+    if (agStale && resetsMs !== null && resetsMs <= Date.now()) {
+      limitRows.push({
+        key: `ag_quota_${quotaRow.provider}_${quotaRow.window}`,
+        group: quotaRow.window,
+        provider: quotaRow.provider,
+        percent: null,
+        severity: "idle",
+        resetLabel: "앱 실행 시 재관측",
+        note: `창 리셋 경과 — 마지막 관측 ${fleetObservedAgoLabel(agQuotaSnapshot.observed_at)}`,
+      });
+      continue;
+    }
     limitRows.push({
       key: `ag_quota_${quotaRow.provider}_${quotaRow.window}`,
       group: quotaRow.window,
       provider: quotaRow.provider,
       percent: usedPercent,
-      severity: severityFor(usedPercent, false),
-      resetLabel: fleetResetAtLabel(quotaRow.resets_at ? Date.parse(quotaRow.resets_at) : null),
+      severity: agStale ? "idle" : severityFor(usedPercent, false),
+      resetLabel: `${fleetResetAtLabel(resetsMs)}${agStale ? ` · ${fleetObservedAgoLabel(agQuotaSnapshot.observed_at)}` : ""}`,
       note: "Antigravity 로컬 RPC 공식 잔여 쿼터",
     });
   }
