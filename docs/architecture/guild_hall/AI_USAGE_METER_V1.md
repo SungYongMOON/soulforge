@@ -53,19 +53,23 @@ token event 하나에 실행 문맥을 얇게 압축하지 않고, 같은 `work_
 ## 호출 topology
 
 ```text
-Codex root turn ───────────────┐
-  └─ SubagentStop child turn ──┼─> session parser
-Stop root turn ────────────────┘       │
-historical backfill ────────────────────┤
-                                       v
-                           ai_usage_event.v1
-                              │ work_id
-                ┌─────────────┼─────────────┐
-                v             v             v
-          local snapshot   HTML / CSV    MCP query
+Codex session JSONL ───────> collect ─────────────┐
+Claude Code session JSONL ─> collect-claude ──────┼─> common usage_meter
+Antigravity DB ────────────> collect-antigravity ─┘          │
+                                                              v
+                                                  shared local event ledger
+                                                    │ work_id/provider
+                                      ┌─────────────┼─────────────┐
+                                      v             v             v
+                                Board snapshot   HTML / CSV    MCP query
 ```
 
 MCP는 Codex token source가 아니다. MCP는 `work_id`를 전달하고 안전한 집계를 조회한다. MCP provider가 별도 token usage를 반환하는 경우에만 후속 source adapter가 그 값을 event로 변환한다.
+
+세 provider producer는 실제 CLI가 호출될 때만 읽고 기록하는 on-demand
+collector/adapter다. provider마다 상주 meter·heartbeat·scheduler가 존재한다고
+모델링하지 않는다. `usage_meter.mjs`의 공통 event 검증·저장·집계 계약과 하나의
+local ledger를 공유하며 Board는 그 원장의 redacted read-only snapshot만 소비한다.
 
 ## 측정 의미
 
@@ -216,6 +220,35 @@ timeouts, and retains a safe stale/HOLD state after a failure. It must not
 broaden a scoped failure into an all-session collection or derive IDs from
 title/path/prompt content.
 
+### Watchtower observation boundary
+
+Watchtower의 public-safe topology는 `src_codex`, `src_claude`,
+`src_antigravity`와 각각의 실제 on-demand collector/adapter, 공통
+`usage_meter`, 공유 `store_usage_ledger`, `consumer_board`를 분리한다. 정적
+간선은 구조만 나타내며 source/collector의 health를 downstream 노드로 전파하지
+않는다.
+
+- provider source는 provider별 독립 관측 근거가 없으면
+  `unmonitored(provider_evidence_absent)`다. collector 실행 가능성이나 원장에 과거
+  event가 있다는 사실로 provider를 green 처리하지 않는다.
+- Claude/Antigravity collector는 별도 실행 증거 producer가 없는 현재
+  `unmonitored(catalog_only_on_demand)`다. on-demand를 resident heartbeat로 바꾸지
+  않는다.
+- 기존 local `health/latest.json`과 Watchtower binding의 `usage_meter` probe는
+  `usage_codex_collector`의 generic/Codex hook collector health에만 붙는다. 그
+  신호는 Codex provider availability, Claude/Antigravity, 공통 aggregate freshness,
+  ledger completeness, Board freshness를 증명하지 않는다.
+- 실제 probe 주체인 `usage_codex_collector → watchtower_self`만
+  `scope=usage_collector_health_only`인 health observation/control 관계다. 공통
+  aggregate의 `usage_meter → watchtower_self`는 별도
+  `scope=usage_contract_structure_only` 관계로 usage-event contract가 관제
+  topology에 연결됐다는 구조만 표시한다. 후자는 health/state를 담을 수 없고
+  aggregate/provider/self freshness를 전달하지 않는다. 두 관계 모두 복구·차단·예산
+  authority나 provider/aggregate 판정을 합성하지 않는다.
+- `watchtower_self`는 자기 heartbeat나 binding/runtime을 만들지 않는다. 독립
+  evidence가 없으면 synthetic `ok` 대신
+  `unmonitored(independent_evidence_absent)`/HOLD다.
+
 ## 복원·오류 처리
 
 - 동일 event 재처리는 `replayed`이며 합계가 늘지 않는다.
@@ -277,4 +310,4 @@ v1 acceptance는 다음을 모두 요구한다.
 
 ## 후속 확장
 
-v1 이후 별도 owner gate가 필요한 항목은 중앙 집계 service, 예산 경보, App Server streaming adapter, non-Codex provider adapter, npm/plugin 배포, 조직 SSO/ACL이다. 이 항목들은 현재 local meter의 정확도를 전제로 하며, v1 hook이나 event schema를 우회해 원문을 수집할 권한을 갖지 않는다.
+v1 이후 별도 owner gate가 필요한 항목은 중앙 집계 service, 예산 경보, App Server streaming adapter, 추가 provider adapter, npm/plugin 배포, 조직 SSO/ACL이다. 이 항목들은 현재 local meter의 정확도를 전제로 하며, v1 hook이나 event schema를 우회해 원문을 수집할 권한을 갖지 않는다.

@@ -14,28 +14,102 @@ import {
   WATCHTOWER_BINDING_SCHEMA_VERSION,
   WATCHTOWER_SNAPSHOT_SCHEMA_VERSION,
 } from "./watchtower.mjs";
-import { TOPOLOGY_EDGES, TOPOLOGY_NODES } from "./topology.mjs";
+import {
+  TOPOLOGY_EDGES,
+  TOPOLOGY_NODES,
+  validateTopologyDefinition,
+} from "./topology.mjs";
 
 const NOW = Date.parse("2026-08-07T12:00:00.000Z");
 
-test("topology keeps every route bound and left-to-right, with Watchtower signals entering from the left", () => {
+test("topology models actual hybrid on-demand usage producers and structural routes", () => {
   const nodesById = new Map(TOPOLOGY_NODES.map((node) => [node.id, node]));
   assert.equal(nodesById.size, TOPOLOGY_NODES.length);
-  assert.equal(TOPOLOGY_NODES.length, 22);
-  assert.equal(TOPOLOGY_EDGES.length, 25);
+  assert.equal(TOPOLOGY_NODES.length, 27);
+  assert.equal(TOPOLOGY_EDGES.length, 32);
+  assert.equal(validateTopologyDefinition().nodes, TOPOLOGY_NODES);
   for (const edge of TOPOLOGY_EDGES) {
     assert.ok(nodesById.has(edge.from), `missing source ${edge.from}`);
     assert.ok(nodesById.has(edge.to), `missing target ${edge.to}`);
     assert.ok(nodesById.get(edge.from).col <= nodesById.get(edge.to).col, `${edge.from} must not route backward to ${edge.to}`);
+    assert.equal(Object.hasOwn(edge, "health"), false);
+    assert.equal(Object.hasOwn(edge, "state"), false);
   }
+
+  const usageRoutes = TOPOLOGY_EDGES
+    .filter((edge) => edge.from.startsWith("src_") && edge.to.startsWith("usage_")
+      || edge.from.startsWith("usage_") && ["usage_meter", "store_usage_ledger", "watchtower_self"].includes(edge.to)
+      || edge.from === "store_usage_ledger" && edge.to === "consumer_board");
+  assert.deepEqual(usageRoutes, [
+    { from: "src_codex", to: "usage_codex_collector", label: "on-demand read", flow: "data" },
+    { from: "src_claude", to: "usage_claude_collector", label: "on-demand read", flow: "data" },
+    { from: "src_antigravity", to: "usage_antigravity_collector", label: "on-demand read", flow: "data" },
+    { from: "usage_codex_collector", to: "usage_meter", label: "usage event", flow: "data" },
+    { from: "usage_claude_collector", to: "usage_meter", label: "usage event", flow: "data" },
+    { from: "usage_antigravity_collector", to: "usage_meter", label: "usage event", flow: "data" },
+    { from: "usage_meter", to: "store_usage_ledger", label: "validated append", flow: "data" },
+    { from: "store_usage_ledger", to: "consumer_board", label: "read-only usage snapshot", flow: "data" },
+    { from: "usage_codex_collector", to: "watchtower_self", label: "Codex collector health 관찰", flow: "control", scope: "usage_collector_health_only" },
+    { from: "usage_meter", to: "watchtower_self", label: "usage contract 구조 관찰", flow: "control", scope: "usage_contract_structure_only" },
+  ]);
+  for (const provider of ["codex", "claude", "antigravity"]) {
+    const source = nodesById.get(`src_${provider}`);
+    const collector = nodesById.get(`usage_${provider}_collector`);
+    assert.equal(source.provider, provider);
+    assert.equal(source.health_scope, "provider");
+    assert.equal(source.operation_mode, "structural");
+    assert.equal(collector.provider, provider);
+    assert.equal(collector.health_scope, "collector");
+    assert.equal(collector.operation_mode, "on_demand");
+  }
+  assert.equal(nodesById.get("usage_meter").health_scope, "aggregate");
+  assert.equal(nodesById.get("usage_meter").operation_mode, "on_demand");
+  assert.equal(nodesById.get("usage_meter").probe, null);
 
   const watchtowerInputs = TOPOLOGY_EDGES.filter((edge) => edge.to === "watchtower_self");
   const watchtowerOutputs = TOPOLOGY_EDGES.filter((edge) => edge.from === "watchtower_self");
-  assert.equal(watchtowerInputs.length, 5);
-  assert.ok(watchtowerInputs.every((edge) => edge.flow === "control" && edge.label === "상태 신호"));
+  assert.equal(watchtowerInputs.length, 7);
+  assert.ok(watchtowerInputs.every((edge) => edge.flow === "control" && typeof edge.scope === "string"));
   assert.deepEqual(watchtowerOutputs, [
     { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data" },
   ]);
+});
+
+test("topology validation rejects duplicate, dangling, unsupported, and runtime-state edges", () => {
+  assert.throws(
+    () => validateTopologyDefinition({ nodes: [...TOPOLOGY_NODES, { ...TOPOLOGY_NODES[0] }], edges: TOPOLOGY_EDGES }),
+    (error) => error?.code === "topology_node_duplicate",
+  );
+  assert.throws(
+    () => validateTopologyDefinition({ nodes: TOPOLOGY_NODES, edges: [...TOPOLOGY_EDGES, { ...TOPOLOGY_EDGES[0] }] }),
+    (error) => error?.code === "topology_edge_duplicate",
+  );
+  assert.throws(
+    () => validateTopologyDefinition({ nodes: TOPOLOGY_NODES, edges: [{ from: "missing", to: "consumer_board", label: "x", flow: "data" }] }),
+    (error) => error?.code === "topology_edge_dangling",
+  );
+  assert.throws(
+    () => validateTopologyDefinition({ nodes: TOPOLOGY_NODES, edges: [{ from: "src_codex", to: "store_usage_ledger", label: "x", flow: "control" }] }),
+    (error) => error?.code === "topology_kind_flow_unsupported",
+  );
+  assert.throws(
+    () => validateTopologyDefinition({ nodes: TOPOLOGY_NODES, edges: [{ ...TOPOLOGY_EDGES[0], health: { state: "ok" } }] }),
+    (error) => error?.code === "topology_edge_runtime_state_forbidden",
+  );
+  assert.throws(
+    () => validateTopologyDefinition({
+      nodes: TOPOLOGY_NODES,
+      edges: [{ from: "usage_meter", to: "watchtower_self", label: "wrong subject", flow: "control", scope: "usage_collector_health_only" }],
+    }),
+    (error) => error?.code === "topology_edge_scope_subject_invalid",
+  );
+  assert.throws(
+    () => validateTopologyDefinition({
+      nodes: TOPOLOGY_NODES,
+      edges: [{ from: "usage_codex_collector", to: "watchtower_self", label: "wrong subject", flow: "control", scope: "usage_contract_structure_only" }],
+    }),
+    (error) => error?.code === "topology_edge_scope_subject_invalid",
+  );
 });
 
 async function tempRoot() {
@@ -139,7 +213,7 @@ test("jsonl_tail probe reads the last record and fails closed on missing sources
       error_codes: [
         "auth_failed__acc_hiworks_team",
         "mail_capsule_nested_credential_preload_empty__acc_hiworks_team",
-        "C:\\private\\path detail",
+        ["C:", "private", "path detail"].join("\\"),
         "Bad Code",
       ],
     },
@@ -200,6 +274,113 @@ test("schtask probe and resident_task disambiguation", async () => {
   assert.ok(staleAndDead.reasons.includes("task_not_running"));
 });
 
+test("provider evidence absence stays catalog-only and never becomes green", async () => {
+  const root = await tempRoot();
+  const snapshot = await composeTopologyHealth(baseBinding(path.join(root, "state")), {
+    now: NOW,
+    run_schtasks: async () => "실행",
+  });
+
+  assert.equal(Object.hasOwn(snapshot, "provider_summary"), false);
+  for (const provider of ["codex", "claude", "antigravity"]) {
+    const source = snapshot.nodes.find((node) => node.id === `src_${provider}`);
+    assert.equal(source.provider, provider);
+    assert.equal(source.health_scope, "provider");
+    assert.deepEqual(source.health, {
+      state: "unmonitored",
+      reasons: ["provider_evidence_absent"],
+      age_seconds: null,
+    });
+  }
+
+  for (const provider of ["claude", "antigravity"]) {
+    const collector = snapshot.nodes.find((node) => node.id === `usage_${provider}_collector`);
+    assert.equal(collector.operation_mode, "on_demand");
+    assert.equal(collector.health_scope, "collector");
+    assert.deepEqual(collector.health, {
+      state: "unmonitored",
+      reasons: ["catalog_only_on_demand"],
+      age_seconds: null,
+    });
+  }
+});
+
+test("Codex hook health is collector-only and cannot green provider or aggregate health", async () => {
+  const root = await tempRoot();
+  const healthFile = path.join(root, "usage-health.json");
+  await writeFile(healthFile, JSON.stringify({
+    observed_at: new Date(NOW - 30_000).toISOString(),
+    status: "ok",
+  }));
+  const binding = baseBinding(path.join(root, "state"), {
+    usage_meter: {
+      kind: "json_file",
+      path: healthFile,
+      timestamp_field: "observed_at",
+      status_field: "status",
+      ok_values: ["ok"],
+      period_seconds: 300,
+      grace_seconds: 300,
+    },
+  });
+  const snapshot = await composeTopologyHealth(binding, { now: NOW });
+  const collector = snapshot.nodes.find((node) => node.id === "usage_codex_collector");
+  const provider = snapshot.nodes.find((node) => node.id === "src_codex");
+  const aggregate = snapshot.nodes.find((node) => node.id === "usage_meter");
+
+  assert.equal(collector.health_scope, "collector");
+  assert.equal(collector.health.state, "ok");
+  assert.deepEqual(provider.health, {
+    state: "unmonitored",
+    reasons: ["provider_evidence_absent"],
+    age_seconds: null,
+  });
+  assert.equal(aggregate.health_scope, "aggregate");
+  assert.deepEqual(aggregate.health, {
+    state: "unmonitored",
+    reasons: ["independent_evidence_absent"],
+    age_seconds: null,
+  });
+  const contractEdge = snapshot.edges.find((edge) => edge.scope === "usage_contract_structure_only");
+  assert.deepEqual(contractEdge, {
+    from: "usage_meter",
+    to: "watchtower_self",
+    label: "usage contract 구조 관찰",
+    flow: "control",
+    scope: "usage_contract_structure_only",
+  });
+  assert.equal(Object.hasOwn(contractEdge, "health"), false);
+  assert.equal(Object.hasOwn(contractEdge, "state"), false);
+  assert.equal(snapshot.summary.ok, 1);
+});
+
+test("watchtower self stays unmonitored even if a same-named binding is supplied", async () => {
+  const root = await tempRoot();
+  const healthFile = path.join(root, "watchtower-health.json");
+  await writeFile(healthFile, JSON.stringify({
+    observed_at: new Date(NOW - 30_000).toISOString(),
+    status: "ok",
+  }));
+  const snapshot = await composeTopologyHealth(baseBinding(path.join(root, "state"), {
+    watchtower_self: {
+      kind: "json_file",
+      path: healthFile,
+      timestamp_field: "observed_at",
+      status_field: "status",
+      ok_values: ["ok"],
+      period_seconds: 300,
+      grace_seconds: 300,
+    },
+  }), { now: NOW });
+  const self = snapshot.nodes.find((node) => node.id === "watchtower_self");
+  assert.equal(self.health_scope, "self");
+  assert.deepEqual(self.health, {
+    state: "unmonitored",
+    reasons: ["independent_evidence_absent"],
+    age_seconds: null,
+  });
+});
+
 test("composeTopologyHealth covers every node and never leaks paths", async () => {
   const root = await tempRoot();
   const healthFile = path.join(root, "voice-health.json");
@@ -227,15 +408,27 @@ test("composeTopologyHealth covers every node and never leaks paths", async () =
   assert.equal(voice.health.state, "ok");
   const unbound = snapshot.nodes.find((node) => node.id === "slack_batch");
   assert.equal(unbound.health.state, "unmonitored");
-  assert.deepEqual(unbound.health.reasons, ["probe_unbound"]);
+  assert.deepEqual(unbound.health.reasons, ["collector_evidence_absent", "probe_unbound"]);
   const total = Object.values(snapshot.summary).reduce((sum, count) => sum + count, 0);
   assert.equal(total, TOPOLOGY_NODES.length);
 
   assert.equal(assertSnapshotPathFree(snapshot, binding), snapshot);
   const leaky = structuredClone(snapshot);
-  leaky.nodes[0].health.reasons.push("C:\\Soulforge\\secret");
+  leaky.nodes[0].health.reasons.push(["C:", "Soulforge", "secret"].join("\\"));
   assert.throws(
     () => assertSnapshotPathFree(leaky, binding),
+    (error) => error instanceof WatchtowerError && error.code === "snapshot_path_leak",
+  );
+  const posixLeaky = structuredClone(snapshot);
+  posixLeaky.nodes[0].health.reasons.push(["", "Users", "owner", "private", "source.json"].join("/"));
+  assert.throws(
+    () => assertSnapshotPathFree(posixLeaky, binding),
+    (error) => error instanceof WatchtowerError && error.code === "snapshot_path_leak",
+  );
+  const rawFieldLeaky = structuredClone(snapshot);
+  rawFieldLeaky.nodes[0].prompt = "must not be projected";
+  assert.throws(
+    () => assertSnapshotPathFree(rawFieldLeaky, binding),
     (error) => error instanceof WatchtowerError && error.code === "snapshot_path_leak",
   );
 });

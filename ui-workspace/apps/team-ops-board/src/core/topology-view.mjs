@@ -2,6 +2,14 @@
 // 변환하는 순수 정규화 계층. 프레임워크 비종속(node:test 검증 대상).
 
 export const TOPOLOGY_HEALTH_STATES = Object.freeze(["ok", "degraded", "stale", "down", "unmonitored"]);
+const TOPOLOGY_NODE_KINDS = new Set(["external", "supervisor", "worker", "store", "gate", "consumer"]);
+const TOPOLOGY_EDGE_FLOWS = new Set(["data", "control"]);
+const SUPPORTED_KIND_FLOWS = new Set([
+  "data:external>supervisor", "data:external>worker", "data:supervisor>store",
+  "data:worker>worker", "data:worker>store", "data:worker>consumer",
+  "data:store>worker", "data:store>consumer", "data:gate>store", "data:gate>consumer",
+  "control:worker>gate", "control:supervisor>gate",
+]);
 
 const GROUP_COLUMNS = Object.freeze({
   "외부 소스": 0,
@@ -42,6 +50,11 @@ const REASON_LABELS = Object.freeze({
   source_missing: "신호 파일 없음",
   source_empty: "신호 기록 없음",
   probe_unbound: "판정 미바인딩",
+  provider_evidence_absent: "공급자 관측 근거 없음",
+  collector_evidence_absent: "수집기 관측 근거 없음",
+  catalog_only_on_demand: "필요 시 실행 · 현재 관측 없음",
+  independent_evidence_absent: "독립 관측 근거 없음",
+  structural_only: "구조 관계만 표시",
 });
 
 export function describeTopologyReason(reason) {
@@ -76,13 +89,55 @@ function distributeTopologySteps(count) {
   return Array.from({ length: count }, (_value, index) => 0.28 + (index * 0.44) / (count - 1));
 }
 
+function unavailableTopologyViewModel() {
+  return {
+    available: false,
+    nodes: [],
+    edges: [],
+    summary: null,
+    attention: [],
+    unmonitored: [],
+    observedAt: null,
+  };
+}
+
 export function buildTopologyViewModel(snapshot) {
-  if (snapshot === null || typeof snapshot !== "object" || !Array.isArray(snapshot.nodes)) {
-    return { available: false, nodes: [], edges: [], summary: null, attention: [], observedAt: null };
+  if (snapshot === null || typeof snapshot !== "object"
+    || !Array.isArray(snapshot.nodes) || snapshot.nodes.length === 0
+    || !Array.isArray(snapshot.edges)) return unavailableTopologyViewModel();
+  const snapshotNodeIds = new Set();
+  for (const node of snapshot.nodes) {
+    if (typeof node?.id !== "string" || snapshotNodeIds.has(node.id)
+      || !TOPOLOGY_NODE_KINDS.has(node.kind)
+      || !TOPOLOGY_HEALTH_STATES.includes(node?.health?.state)) {
+      return unavailableTopologyViewModel();
+    }
+    snapshotNodeIds.add(node.id);
+  }
+  const snapshotEdgeIds = new Set();
+  const snapshotNodeById = new Map(snapshot.nodes.map((node) => [node.id, node]));
+  for (const edge of snapshot.edges) {
+    if (typeof edge?.from !== "string" || typeof edge?.to !== "string"
+      || !snapshotNodeIds.has(edge.from) || !snapshotNodeIds.has(edge.to)
+      || !TOPOLOGY_EDGE_FLOWS.has(edge.flow)) return unavailableTopologyViewModel();
+    const kindFlow = `${edge.flow}:${snapshotNodeById.get(edge.from).kind}>${snapshotNodeById.get(edge.to).kind}`;
+    if (!SUPPORTED_KIND_FLOWS.has(kindFlow)) return unavailableTopologyViewModel();
+    const edgeId = `${edge.from}\u0000${edge.to}\u0000${edge.flow}`;
+    if (snapshotEdgeIds.has(edgeId)) return unavailableTopologyViewModel();
+    snapshotEdgeIds.add(edgeId);
   }
   const columnCursor = new Map();
   const nodes = snapshot.nodes.map((node) => {
     const state = TOPOLOGY_HEALTH_STATES.includes(node?.health?.state) ? node.health.state : "unmonitored";
+    const reasons = Array.isArray(node?.health?.reasons)
+      ? node.health.reasons.map((reason) => describeTopologyReason(reason))
+      : [];
+    const textReasons = state === "unmonitored" && reasons.length === 0
+      ? ["관측 근거 없음"]
+      : reasons;
+    const healthObserved = state !== "unmonitored";
+    const stateLabel = STATE_LABELS[state];
+    const ageLabel = describeTopologyAge(node?.health?.age_seconds);
     const column = Number.isFinite(node?.col)
       ? Math.round(node.col)
       : (GROUP_COLUMNS[node.group] ?? 2);
@@ -98,12 +153,18 @@ export function buildTopologyViewModel(snapshot) {
       label: String(node.label),
       kind: String(node.kind ?? "worker"),
       group: String(node.group ?? ""),
+      operationMode: typeof node.operation_mode === "string" ? node.operation_mode : null,
+      provider: typeof node.provider === "string" ? node.provider : null,
+      healthScope: typeof node.health_scope === "string" ? node.health_scope : "node",
       state,
-      stateLabel: STATE_LABELS[state],
-      ageLabel: describeTopologyAge(node?.health?.age_seconds),
-      reasons: Array.isArray(node?.health?.reasons)
-        ? node.health.reasons.map((reason) => describeTopologyReason(reason))
-        : [],
+      stateLabel,
+      ageLabel,
+      reasons: textReasons,
+      healthObserved,
+      healthBasis: healthObserved ? "observed" : "catalog_only",
+      statusText: healthObserved
+        ? `${stateLabel} · ${ageLabel}${textReasons.length > 0 ? ` · ${textReasons.join(" · ")}` : ""}`
+        : `미감시 · ${textReasons.join(" · ")}`,
       position: {
         x: column * TOPOLOGY_COLUMN_GAP,
         y: TOPOLOGY_TOP_GUTTER + row * TOPOLOGY_ROW_GAP,
@@ -138,14 +199,15 @@ export function buildTopologyViewModel(snapshot) {
       };
     });
   const rawEdges = (Array.isArray(snapshot.edges) ? snapshot.edges : [])
-    .filter((edge) => nodeById.has(edge?.from) && nodeById.has(edge?.to))
     .map((edge, index) => {
       return {
         id: `topo-edge-${index}`,
         source: String(edge.from),
         target: String(edge.to),
         label: typeof edge.label === "string" ? edge.label : "",
-        flow: edge.flow === "control" ? "control" : "data",
+        flow: edge.flow,
+        relationKind: "catalog_only",
+        healthObserved: false,
       };
     });
   const inboundByNode = new Map(nodes.map((node) => [node.id, []]));
@@ -213,12 +275,14 @@ export function buildTopologyViewModel(snapshot) {
       const rank = { down: 0, stale: 1, degraded: 2 };
       return rank[left.state] - rank[right.state];
     });
+  const unmonitored = nodes.filter((node) => node.state === "unmonitored");
   return {
     available: true,
     nodes: [...lanes, ...routedNodes],
     edges,
     summary,
     attention,
+    unmonitored,
     observedAt: typeof snapshot.observed_at === "string" ? snapshot.observed_at : null,
   };
 }

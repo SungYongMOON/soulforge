@@ -63,6 +63,34 @@ test("Watchtower topology provides overview controls and focus plus context", ()
   assert.match(css, /\.watchtower-surface \.react-flow__edge\.is-dimmed/u);
 });
 
+test("Watchtower UI labels catalog-only nodes and stale refresh evidence without inferring provider health", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  assert.match(source, /data\?\.healthBasis === "catalog_only"/u);
+  assert.match(source, /typeof data\?\.statusText === "string"/u);
+  assert.match(source, /className="watchtower-node-observation"/u);
+  assert.match(source, /refreshState === "hold" \|\| refreshState === "stale"/u);
+  assert.match(source, /last_success_age_seconds/u);
+  assert.match(source, /last_failure_age_seconds/u);
+  assert.match(source, /구조\/카탈로그 관계는 현재 공급자 성공 또는 독립 관측이 아님/u);
+  assert.equal(source.includes("provider_summary"), false);
+});
+
+test("Fleet Watchtower state and provider polling fail closed without aggregate substitution", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  assert.match(source, /function fleetWatchtowerPresentation/u);
+  assert.match(source, /node\?\.id === "watchtower_self"/u);
+  assert.match(source, /"watchtower_self 없음 · 미감시\/HOLD"/u);
+  assert.match(source, /const healthy = refreshState === "ready"[\s\S]*watchtowerSelf\?\.state === "ok"/u);
+  assert.match(source, /PROVIDER_POLL_TIMEOUT_MS/u);
+  assert.match(source, /new AbortController\(\)/u);
+  assert.match(source, /if \(inFlight !== null\) return inFlight;/u);
+  assert.match(source, /let generation = 0;/u);
+  assert.match(source, /createProviderSnapshots\("refreshing"\)/u);
+  assert.match(source, /refresh_state: complete \? "ready" : "hold"/u);
+  assert.match(source, /fleet-provider-observation-state/u);
+  assert.equal(source.includes("const healthy = model.summary"), false);
+});
+
 test("redistributed topology brand assets retain source and license notices", () => {
   const provenance = readFileSync(join(ASSET_ROOT, "README.md"), "utf8");
   const licenses = readFileSync(join(ASSET_ROOT, "THIRD_PARTY_LICENSES.md"), "utf8");

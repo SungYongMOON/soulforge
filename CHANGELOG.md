@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 2026-08-08 — Workspace Board provider topology observation boundary
+
+- Made generic Watchtower node text distinguish a structural/catalog-only
+  `unmonitored` relation from observed health, including the safe reason rather
+  than relying on color alone. The surface explicitly says that retained
+  `REFRESHING`/`HOLD`/`STALE` topology snapshots do not assert Claude or
+  Antigravity provider success, independent provider evidence, or per-edge
+  receipts, and exposes last-success/last-failure age text. The Fleet row now
+  derives Watchtower state only from exact `watchtower_self` evidence; retained
+  or unmonitored projections remain textual `HOLD` and never aggregate to green.
+- Owner-side provider panes no longer retain prior Claude, Antigravity, or
+  provider-limits payloads after a failed refresh. Polling is bounded,
+  single-flight, generation-guarded, and clears prior values before refresh.
+  Alongside this UI behavior, B1 hardens the existing topology adapter's
+  validation and refresh semantics. No new adapter or plugin, no new schema
+  version, and no credential, network, or runtime surface was added.
+
 ## 2026-08-08 — Workspace Board model-distribution bar correction
 
 - Restored the missing teal fill for `모델별 토큰` rows in the cumulative usage

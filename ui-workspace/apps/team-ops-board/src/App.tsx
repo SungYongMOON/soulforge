@@ -391,6 +391,21 @@ function buildOperationalTopologyCanvas(
   return { graphNodes, graphEdges };
 }
 
+const PROVIDER_POLL_INTERVAL_MS = 30_000;
+const PROVIDER_POLL_TIMEOUT_MS = 12_000;
+
+type ProviderRefreshState = "ready" | "refreshing" | "hold";
+
+function createProviderSnapshots(refreshState: ProviderRefreshState = "hold") {
+  return {
+    claude: null,
+    antigravity: null,
+    antigravityQuota: null,
+    limits: null,
+    refresh_state: refreshState,
+  };
+}
+
 function App() {
   const [projection, setProjection] = useState<any>(() =>
     createUnavailableLiveThreadProjection({ health: "unavailable", enrollmentHealth: "missing" })
@@ -420,7 +435,7 @@ function App() {
   const [topologyProjection, setTopologyProjection] = useState<any>(null);
   const [topologyRefreshing, setTopologyRefreshing] = useState(false);
   const [hostStatsSnapshot, setHostStatsSnapshot] = useState<any>(null);
-  const [providerSnapshots, setProviderSnapshots] = useState<any>({ claude: null, antigravity: null, antigravityQuota: null, limits: null });
+  const [providerSnapshots, setProviderSnapshots] = useState<any>(() => createProviderSnapshots());
 
   useEffect(() => {
     if (surface !== "owner") return undefined;
@@ -444,34 +459,63 @@ function App() {
   useEffect(() => {
     if (surface !== "owner") return undefined;
     let cancelled = false;
+    let generation = 0;
+    let inFlight: Promise<void> | null = null;
+    const controllers = new Set<AbortController>();
+    const publish = (requestGeneration: number, snapshot: any) => {
+      if (!cancelled && requestGeneration === generation) setProviderSnapshots(snapshot);
+    };
     const fetchJson = async (url: string) => {
+      const controller = new AbortController();
+      controllers.add(controller);
+      const timeout = window.setTimeout(() => controller.abort(), PROVIDER_POLL_TIMEOUT_MS);
       try {
-        const response = await fetch(url);
-        return response.ok ? await response.json() : null;
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) return null;
+        return await response.json();
       } catch {
         return null;
+      } finally {
+        window.clearTimeout(timeout);
+        controllers.delete(controller);
       }
     };
-    const load = async () => {
-      const [claude, antigravity, antigravityQuota, limits] = await Promise.all([
+    const load = (): Promise<void> => {
+      if (inFlight !== null) return inFlight;
+      const requestGeneration = ++generation;
+      // A refresh clears prior values before any endpoint can settle out of order.
+      publish(requestGeneration, createProviderSnapshots("refreshing"));
+      const operation = Promise.all([
         fetchJson("/claude-usage.snapshot.json"),
         fetchJson("/antigravity-usage.snapshot.json"),
         fetchJson("/antigravity-quota.snapshot.json"),
         fetchJson("/provider-limits.snapshot.json"),
-      ]);
-      if (cancelled) return;
-      setProviderSnapshots((previous: any) => ({
-        claude: claude ?? previous.claude,
-        antigravity: antigravity ?? previous.antigravity,
-        // 쿼터는 앱 종료 시 실제로 null이 되므로 이전 값을 유지하지 않는다(관측 불가를 정직하게 표시).
-        antigravityQuota,
-        limits: limits ?? previous.limits,
-      }));
+      ]).then(([claude, antigravity, antigravityQuota, limits]) => {
+        const complete = [claude, antigravity, antigravityQuota, limits]
+          .every((snapshot) => snapshot !== null && snapshot !== undefined);
+        publish(requestGeneration, {
+          claude,
+          antigravity,
+          antigravityQuota,
+          limits,
+          refresh_state: complete ? "ready" : "hold",
+        });
+      }).catch(() => {
+        publish(requestGeneration, createProviderSnapshots("hold"));
+      });
+      inFlight = operation;
+      void operation.finally(() => {
+        if (inFlight === operation) inFlight = null;
+      });
+      return operation;
     };
     void load();
-    const timer = window.setInterval(() => { void load(); }, 30_000);
+    const timer = window.setInterval(() => { void load(); }, PROVIDER_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
+      generation += 1;
+      for (const controller of controllers) controller.abort();
+      controllers.clear();
       window.clearInterval(timer);
     };
   }, [surface]);
@@ -483,9 +527,14 @@ function App() {
       setTopologyRefreshing(true);
       try {
         const response = await fetch(`/topology-health.snapshot.json${force ? "?refresh=1" : ""}`);
-        if (!cancelled && response.ok) setTopologyProjection(await response.json());
+        if (!response.ok) throw new Error("topology_projection_unavailable");
+        const nextProjection = await response.json();
+        if (!cancelled) setTopologyProjection(nextProjection);
       } catch {
-        // 마지막 정상 스냅샷 유지 — 오류는 상태 배지로만 표시한다.
+        // A retained display must remain explicitly HOLD, never an implied current success.
+        if (!cancelled) {
+          setTopologyProjection((previous: any) => previous === null ? previous : { ...previous, refresh_state: "hold" });
+        }
       } finally {
         if (!cancelled) setTopologyRefreshing(false);
       }
@@ -2401,6 +2450,11 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   const history = usage?.history ?? null;
   const windows = history?.windows ?? null;
   if (!windows) return null;
+  const providerObservationNote = providers?.refresh_state === "ready"
+    ? null
+    : providers?.refresh_state === "refreshing"
+      ? "공급자 관측 갱신 중 · 이전 Claude·Antigravity 값은 표시하지 않음"
+      : "공급자 관측 HOLD · 현재 응답이 없는 Claude·Antigravity 값은 비워 둠";
   const dailyTokens = Array.isArray(history?.activity?.daily)
     ? history.activity.daily.map((row: any) => row.total_tokens ?? 0)
     : [];
@@ -2649,6 +2703,7 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
           <span className="fleet-usage-title">남은 한도 · 리셋</span>
           <span className="fleet-usage-pill">계정·창별 공식 관측</span>
         </header>
+        {providerObservationNote !== null && <p className="fleet-panel-foot" data-testid="fleet-provider-observation-state">{providerObservationNote}</p>}
         <ul className="fleet-limit-rows">
           {["5시간 창", "주간 창", "크레딧"].flatMap((group) => {
             const rows = limitRows.filter((row) => row.group === group);
@@ -2926,28 +2981,59 @@ function SystemStatStrip({ projection, hostStats, usage, threadCount, usageState
   );
 }
 
+function fleetWatchtowerPresentation(projection: any, model: any) {
+  const refreshState = typeof projection?.refresh_state === "string" ? projection.refresh_state : "hold";
+  const watchtowerSelf = model?.available && Array.isArray(model?.nodes)
+    ? model.nodes.find((node: any) => node?.id === "watchtower_self" && node?.kind !== "lane") ?? null
+    : null;
+  const selfObservationMissing = watchtowerSelf === null
+    || watchtowerSelf.state === "unmonitored"
+    || watchtowerSelf.healthObserved === false;
+  const selfReason = Array.isArray(watchtowerSelf?.reasons) && watchtowerSelf.reasons.length > 0
+    ? ` · ${watchtowerSelf.reasons.join(" · ")}`
+    : "";
+  const selfDescription = watchtowerSelf === null
+    ? "watchtower_self 없음 · 미감시/HOLD"
+    : selfObservationMissing
+      ? `watchtower_self 미감시/HOLD${selfReason}`
+      : `watchtower_self ${watchtowerSelf.stateLabel ?? watchtowerSelf.state}${selfReason}`;
+  const healthy = refreshState === "ready"
+    && !selfObservationMissing
+    && watchtowerSelf?.state === "ok";
+  if (healthy) {
+    return { healthy: true, state: "OK", description: selfDescription, refreshState };
+  }
+  return {
+    healthy: false,
+    state: selfObservationMissing
+      ? "미감시/HOLD"
+      : refreshState !== "ready" ? "HOLD" : watchtowerSelf?.stateLabel ?? "주의",
+    description: `${selfDescription} · refresh ${refreshState.toUpperCase()}`,
+    refreshState,
+  };
+}
+
 function FleetStatusRows({ projection }: { projection: any }) {
   const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
-  if (!model.available || model.summary === null) return null;
-  const monitored = model.summary.ok + model.summary.degraded + model.summary.stale + model.summary.down;
-  const healthy = model.summary.degraded === 0 && model.summary.stale === 0 && model.summary.down === 0;
-  const observed = compactClock(model.observedAt);
+  const presentation = fleetWatchtowerPresentation(projection, model);
+  const observed = model.available ? compactClock(model.observedAt) : "—";
+  const attention = model.available && Array.isArray(model.attention) ? model.attention : [];
   return (
     <div className="fleet-status-rows" data-testid="fleet-status-rows">
       <div className="fleet-status-row">
         <span className="fleet-status-name"><Radio size={13} aria-hidden="true" /> Watchtower</span>
-        <span className="fleet-status-desc">수집기 {monitored}종 판정 · 검사 전용(W1)</span>
-        <span className="fleet-status-meta">last: {observed} · next: ~30s</span>
-        <span className={`fleet-status-dot ${healthy ? "is-ok" : "is-warn"}`} aria-hidden="true" />
-        <span className="fleet-status-state">{healthy ? "OK" : `주의 ${model.attention.length}`}</span>
+        <span className="fleet-status-desc">{presentation.description}</span>
+        <span className="fleet-status-meta">last: {observed} · refresh: {presentation.refreshState.toUpperCase()} · next: ~30s</span>
+        <span className={`fleet-status-dot ${presentation.healthy ? "is-ok" : "is-warn"}`} aria-hidden="true" />
+        <span className="fleet-status-state">{presentation.state}</span>
       </div>
-      {model.attention.length > 0 && (
+      {attention.length > 0 && (
         <div className="fleet-status-row is-attention">
           <span className="fleet-status-name"><AlertCircle size={13} aria-hidden="true" /> 주의</span>
-          <span className="fleet-status-desc">{model.attention.map((node: any) => `${node.label}: ${node.reasons[0] ?? node.stateLabel}`).join(" · ")}</span>
+          <span className="fleet-status-desc">{attention.map((node: any) => `${node.label}: ${node.reasons[0] ?? node.stateLabel}`).join(" · ")}</span>
           <span className="fleet-status-meta" />
           <span className="fleet-status-dot is-warn" aria-hidden="true" />
-          <span className="fleet-status-state">{model.attention.length}건</span>
+          <span className="fleet-status-state">{attention.length}건</span>
         </div>
       )}
       <div className="fleet-status-row is-dim">
@@ -3020,6 +3106,47 @@ function watchtowerShapeLabel(kind: string): string {
   return "장치형";
 }
 
+function watchtowerCatalogOnly(data: any): boolean {
+  return data?.healthBasis === "catalog_only"
+    || data?.catalog_only === true
+    || (data?.kind === "external" && data?.state === "unmonitored");
+}
+
+function watchtowerObservationText(data: any): string {
+  const supplied = typeof data?.statusText === "string" && data.statusText.length > 0
+    ? data.statusText
+    : null;
+  if (data?.state !== "unmonitored") {
+    return supplied ?? `${data?.stateLabel ?? "상태 미상"} · ${data?.ageLabel ?? "연령 미상"}`;
+  }
+  const reason = Array.isArray(data?.reasons) && data.reasons.length > 0
+    ? data.reasons.map((value: unknown) => String(value)).join(", ")
+    : "probe_unbound";
+  const observation = supplied ?? `관측 미구성 · ${reason}`;
+  if (!watchtowerCatalogOnly(data) || observation.includes("구조/카탈로그")) return observation;
+  return `구조/카탈로그 관계 · ${observation}`;
+}
+
+function watchtowerRefreshNotice(refreshState: unknown, refreshing: boolean): string | null {
+  if (refreshing || refreshState === "refreshing") {
+    return "관측 갱신 중: 화면의 보존 스냅샷과 구조/카탈로그 관계는 Claude·Antigravity의 현재 성공·정상 또는 독립적 공급자 증거를 뜻하지 않습니다.";
+  }
+  if (refreshState === "hold" || refreshState === "stale") {
+    return `관측 ${String(refreshState).toUpperCase()}: 보존된 토폴로지 스냅샷은 현재 Claude·Antigravity 공급자 성공·정상, per-edge receipt, 또는 독립적 공급자 증거를 뜻하지 않습니다.`;
+  }
+  return null;
+}
+
+function watchtowerRefreshAgeLabel(value: unknown): string {
+  if (value === null) return "없음";
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) return `${Math.floor(value)}초 전`;
+  return "미상";
+}
+
+function watchtowerRefreshMetadataText(metadata: any): string {
+  return `마지막 성공 ${watchtowerRefreshAgeLabel(metadata?.last_success_age_seconds)} · 마지막 실패 ${watchtowerRefreshAgeLabel(metadata?.last_failure_age_seconds)}`;
+}
+
 function WatchtowerTopologyLane({ data }: NodeProps<any>) {
   return (
     <div
@@ -3037,12 +3164,14 @@ function WatchtowerTopologyNode({ data }: NodeProps<any>) {
   const DeviceIcon = WATCHTOWER_NODE_ICON_BY_ID[data.id] ?? WATCHTOWER_FALLBACK_ICON_BY_KIND[data.kind] ?? Cpu;
   const kindLabel = watchtowerKindLabel(data.kind);
   const shapeLabel = watchtowerShapeLabel(data.kind);
+  const catalogOnly = watchtowerCatalogOnly(data);
+  const observationText = watchtowerObservationText(data);
   const updateNodeInternals = useUpdateNodeInternals();
   useEffect(() => {
     updateNodeInternals(data.id);
   }, [data.id, data.portSignature, updateNodeInternals]);
   return (
-    <div className={`watchtower-node is-${data.state} watchtower-node-${data.kind} ${data.isSelected ? "is-selected" : ""} ${data.isDimmed ? "is-dimmed" : ""}`}>
+    <div className={`watchtower-node is-${data.state} watchtower-node-${data.kind} ${catalogOnly ? "is-catalog-only" : ""} ${data.isSelected ? "is-selected" : ""} ${data.isDimmed ? "is-dimmed" : ""}`}>
       {data.kind === "store" && <span className="watchtower-node-cap" aria-hidden="true" />}
       {data.inputPorts.map((port: any) => (
         <Handle key={port.id} id={port.id} type="target" position={Position.Left} style={{ top: `${port.top}%` }} className="watchtower-port watchtower-port-input" isConnectable={false} aria-hidden="true" />
@@ -3061,8 +3190,8 @@ function WatchtowerTopologyNode({ data }: NodeProps<any>) {
           data.onActivate(data.id);
         }}
         aria-pressed={data.isSelected}
-        aria-label={`${data.label} · ${shapeLabel} · ${kindLabel} · ${data.stateLabel} · 입력 ${data.inputPorts.length}개 · 출력 ${data.outputPorts.length}개`}
-        title={`${shapeLabel} · ${kindLabel} · 입력 왼쪽 / 출력 오른쪽`}
+        aria-label={`${data.label} · ${shapeLabel} · ${kindLabel} · ${observationText}${catalogOnly ? " · 구조/카탈로그 관계는 현재 공급자 성공 또는 독립 관측이 아님" : ""} · 입력 ${data.inputPorts.length}개 · 출력 ${data.outputPorts.length}개`}
+        title={`${shapeLabel} · ${kindLabel} · ${observationText} · 입력 왼쪽 / 출력 오른쪽`}
       >
         <span className={`watchtower-node-icon watchtower-node-icon-${data.kind}`} aria-hidden="true">
           {BrandIcon
@@ -3074,7 +3203,7 @@ function WatchtowerTopologyNode({ data }: NodeProps<any>) {
         <span className="watchtower-node-dot" aria-hidden="true" />
         <span className="watchtower-node-body">
           <strong>{data.label}</strong>
-          <small>{data.state === "unmonitored" ? "미감시 · 구조 표시" : `${data.stateLabel} · ${data.ageLabel}`}</small>
+          <small className="watchtower-node-observation">{observationText}</small>
         </span>
       </button>
       {data.outputPorts.map((port: any) => (
@@ -3099,6 +3228,8 @@ function watchtowerMiniMapColor(node: any): string {
 
 function SystemTopologySurface({ projection, refreshing }: { projection: any; refreshing: boolean }) {
   const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
+  const refreshNotice = watchtowerRefreshNotice(projection?.refresh_state, refreshing);
+  const refreshMetadataText = watchtowerRefreshMetadataText(projection?.refresh_metadata);
   const [flowInstance, setFlowInstance] = useState<any>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const fittedLayoutRef = useRef<string | null>(null);
@@ -3218,8 +3349,15 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
             판정 {model.observedAt ? new Date(model.observedAt).toLocaleTimeString("ko-KR") : "—"}
             {refreshing || projection.refresh_state === "refreshing" ? " · 갱신 중" : ""}
           </span>
+          <span className="watchtower-refresh-ages" data-testid="system-topology-refresh-ages">{refreshMetadataText}</span>
         </div>
       </header>
+      {refreshNotice !== null && (
+        <div className="watchtower-observation-notice" role="status" data-testid="system-topology-observation-boundary">
+          <EyeOff size={15} aria-hidden="true" />
+          <span>{refreshNotice}</span>
+        </div>
+      )}
       {model.attention.length > 0 && (
         <div className="watchtower-attention" role="alert" data-testid="system-topology-attention">
           <span className="watchtower-incident-tag"><span aria-hidden="true" /> INCIDENT</span>
@@ -3245,6 +3383,7 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
         </span>
         <span><b>아이콘</b> 실제 서비스·장치</span>
         <span><b>색</b> 초록 정상 · 주황 주의/열화 · 파랑 구조/미감시 · 빨강 정지</span>
+        <span><b>관측</b> “구조/카탈로그 관계 · 관측 미구성”은 현재 공급자 성공이 아닌 관계 표시</span>
         <span><b>연결</b> 왼쪽 IN → 오른쪽 OUT</span>
         <span className="watchtower-graph-focus" role="status" aria-live="polite">
           {selectedNode ? `${selectedNode.label} 직접 연결 강조` : "노드를 선택하면 직접 연결만 강조"}
@@ -3285,7 +3424,7 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
       </div>
       <footer className="watchtower-footnote">
         <EyeOff size={13} aria-hidden="true" />
-        <span>미감시 노드는 아직 판정 대상이 아닌 구조 표시입니다. 복구·알림 자동화는 W2에서 별도 승인 게이트로 추가됩니다.</span>
+        <span>구조/카탈로그 관계는 현재 상태 관측이나 공급자 성공의 증거가 아닙니다. 간선은 구조 방향만 나타내며 per-edge receipt를 주장하지 않습니다.</span>
       </footer>
     </section>
   );

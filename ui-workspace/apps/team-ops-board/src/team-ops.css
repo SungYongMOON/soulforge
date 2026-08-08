@@ -5614,6 +5614,13 @@ a:focus-visible {
 .watchtower-chip.is-down { border-color: color-mix(in srgb, #ff8d84 60%, transparent); color: #ff8d84; }
 .watchtower-chip.is-unmonitored { border-color: rgb(114 183 255 / 54%); color: #82c0ff; }
 .watchtower-observed { font-size: 11px; color: var(--live-faint, #627983); margin-left: 4px; }
+.watchtower-refresh-ages { font-size: 11px; color: #aab9c0; font-variant-numeric: tabular-nums; }
+.watchtower-observation-notice {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 9px 12px; border: 1px solid #50616b; border-radius: 9px;
+  background: rgb(89 105 115 / 12%); color: #c7d2d7; font-size: 12px; line-height: 1.45;
+}
+.watchtower-observation-notice svg { flex: 0 0 auto; margin-top: 1px; color: #b8c6cc; }
 .watchtower-attention { display: flex; gap: 10px; align-items: flex-start; background: color-mix(in srgb, #ff8d84 9%, transparent); border: 1px solid color-mix(in srgb, #ff8d84 35%, transparent); border-radius: 10px; padding: 10px 14px; font-size: 12.5px; }
 .watchtower-attention svg { flex-shrink: 0; margin-top: 2px; color: #ff8d84; }
 .watchtower-attention ul { margin: 0; padding-left: 16px; display: grid; gap: 3px; }
@@ -5729,6 +5736,18 @@ a:focus-visible {
 .watchtower-node.is-unmonitored .watchtower-node-body strong { color: #b8d5eb; }
 .watchtower-node.is-unmonitored .watchtower-node-body small { color: #83a4ba; }
 .watchtower-node.is-unmonitored .watchtower-node-dot { background: #72b7ff; box-shadow: 0 0 7px rgb(114 183 255 / 75%); }
+.watchtower-node.is-catalog-only {
+  border-color: #60717a;
+  --watchtower-shape-border: #71818a;
+  --watchtower-shape-fill: rgb(30 39 45 / 94%);
+  background: color-mix(in srgb, #1a252b 74%, transparent);
+  box-shadow: inset 0 0 12px rgb(169 184 192 / 5%);
+}
+.watchtower-node.is-catalog-only .watchtower-node-icon { border-color: #71818a; color: #c3cdd1; background: rgb(35 45 52 / 78%); }
+.watchtower-node.is-catalog-only .watchtower-node-dot { background: #aab6bb; box-shadow: none; }
+.watchtower-node.is-catalog-only .watchtower-node-body strong { color: #c8d2d5; }
+.watchtower-node.is-catalog-only .watchtower-node-body small { color: #b1bec3; }
+.watchtower-node-observation { font-variant-numeric: tabular-nums; }
 .watchtower-node-worker { border-radius: 4px; }
 .watchtower-node-supervisor { width: 240px; min-height: 68px; border-width: 3px; border-style: double; border-radius: 999px; }
 .watchtower-node-store { width: 236px; min-height: 72px; border-radius: 4px 4px 22px 22px / 4px 4px 14px 14px; margin-top: 7px; }

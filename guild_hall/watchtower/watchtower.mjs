@@ -318,25 +318,27 @@ export async function composeTopologyHealth(binding, options = {}) {
   for (const node of skeleton.nodes) {
     let health;
     if (node.probe === null) {
-      health = { state: "unmonitored", reasons: [], age_seconds: null };
-    } else if (node.probe === "watchtower_self") {
-      health = { state: "ok", reasons: [], age_seconds: 0 };
+      health = { state: "unmonitored", reasons: [node.unmonitored_reason], age_seconds: null };
     } else {
       const probe = binding.probes[node.probe];
       health = probe === undefined
-        ? { state: "unmonitored", reasons: ["probe_unbound"], age_seconds: null }
+        ? { state: "unmonitored", reasons: [node.unmonitored_reason, "probe_unbound"], age_seconds: null }
         : await runProbe(probe, { now, run_schtasks: runSchtasks });
     }
     summary[health.state] += 1;
-    nodes.push({
+    const projectedNode = {
       id: node.id,
       label: node.label,
       kind: node.kind,
       group: node.group,
+      operation_mode: node.operation_mode,
+      health_scope: node.health_scope,
       col: node.col,
       row: node.row,
       health,
-    });
+    };
+    if (node.provider !== undefined) projectedNode.provider = node.provider;
+    nodes.push(projectedNode);
   }
 
   return {
@@ -351,12 +353,28 @@ export async function composeTopologyHealth(binding, options = {}) {
 export function assertSnapshotPathFree(snapshot, binding) {
   const text = JSON.stringify(snapshot);
   const leaks = [];
-  if (/[A-Za-z]:\\/u.test(text)) leaks.push("absolute_path");
+  if (/[A-Za-z]:\\|\\\\[^\\]|\/(?:Users|home|var|tmp|private|Volumes)\//u.test(text)) leaks.push("absolute_path");
+  const boundPaths = [binding.state_root];
   for (const probe of Object.values(binding.probes)) {
-    if (typeof probe.path === "string" && probe.path.length > 3 && text.includes(probe.path)) {
-      leaks.push("probe_path");
+    if (typeof probe.path === "string") boundPaths.push(probe.path);
+    if (typeof probe.detail?.path === "string") boundPaths.push(probe.detail.path);
+  }
+  if (boundPaths.some((boundPath) => typeof boundPath === "string" && boundPath.length > 3 && text.includes(boundPath))) {
+    leaks.push("probe_path");
+  }
+  const prohibitedKeys = /^(?:prompt|reasoning|tool_(?:input|output)|transcript(?:_path)?|session_path|source_path|cwd)$/u;
+  const visit = (value) => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    if (value === null || typeof value !== "object") return;
+    for (const [key, child] of Object.entries(value)) {
+      if (prohibitedKeys.test(key)) leaks.push("raw_field");
+      visit(child);
     }
   }
+  visit(snapshot);
   if (leaks.length > 0) fail("snapshot_path_leak", [...new Set(leaks)].join(","));
   return snapshot;
 }

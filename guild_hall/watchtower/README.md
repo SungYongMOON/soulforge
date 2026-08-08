@@ -10,6 +10,8 @@
 - 소유: 토폴로지 정의(`topology.mjs`, public-safe 노드·간선), 판정 엔진, probe CLI.
 - 비소유: 하트비트 생산(각 수집기 소유), 자동 복구·알림(W2), 실제 경로·임계값
   (local binding 소유 — 추적되지 않는 로컬 파일).
+- 정적 간선은 구조만 나타낸다. source나 collector가 `ok`여도 연결된 provider·공통
+  meter·원장·Board의 health로 전파하거나 합성하지 않는다.
 - 원문·secret·절대경로는 스냅샷에 들어가지 않는다(`assertSnapshotPathFree`가
   기계 검증).
 
@@ -17,7 +19,7 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `topology.mjs` | Soulforge AX 토폴로지의 public-safe 정의 (노드 22 · 간선 25) |
+| `topology.mjs` | Soulforge AX 토폴로지의 public-safe 정의 (노드 27 · 간선 32)와 fail-closed 정적 검증 |
 | `watchtower.mjs` | binding 검증, probe 4종(jsonl_tail/json_file/dir_latest_mtime/schtask), 판정, 스냅샷 |
 | `cli.mjs` | `probe [--binding <path>\|--pointer <path>] [--json] [--no-write]`, `init-binding --output <path>` |
 | `watchtower.test.mjs` | 합성 판정·경로 미노출·원자 기록 회귀 |
@@ -30,7 +32,43 @@
   `degrade_when`의 수치 초과도 열화(`count_<field>_<value>`).
 - `resident_task`가 지정된 노드는 stale일 때 schtasks 상태로 정지 여부를
   구분한다(`task_not_running` → down).
+- probe가 없는 구조 노드는 이유 코드가 있는 `unmonitored`다. provider source는
+  `provider_evidence_absent`, 실제 on-demand 실행 증거를 받지 않는 collector는
+  `catalog_only_on_demand`, 공통 meter와 Watchtower 자체는
+  `independent_evidence_absent`다. 미감시를 정상으로 칠하지 않는다.
+- `watchtower_self`에는 heartbeat, binding, resident task가 없으며 synthetic `ok`를
+  만들지 않는다. 별도 독립 근거가 생기기 전에는 `unmonitored`/HOLD다.
 - exit code: 0=판정 완료, 2=down 노드 존재, 1=실행 실패.
+
+## AI 사용량 hybrid topology
+
+AI 사용량 lane은 provider별 상주 미터가 아니다. 실제 구현에 맞춰 다음 on-demand
+producer와 하나의 공통 meter/원장을 구조로 표시한다.
+
+```text
+Codex session JSONL ───────> usage_codex_collector ──────┐
+Claude Code session JSONL ─> usage_claude_collector ─────┼─> usage_meter
+Antigravity DB ────────────> usage_antigravity_collector ┘       │
+                                                                  v
+                                                     store_usage_ledger
+                                                                  │
+                                                                  v
+                                                         Workspace Board
+```
+
+- 세 collector는 각각 `collect`, `collect-claude`, `collect-antigravity`의 실제
+  on-demand producer다. scheduler나 상주 provider meter를 뜻하지 않는다.
+- 공통 `usage_meter`는 usage-event 검증·집계 계약이며 provider가 아니다. provider
+  source, provider collector, aggregate는 각각 `health_scope`가 분리된다.
+- 기존 `usage_meter` probe key는 `usage_codex_collector`의 generic/Codex hook collector
+  health에만 붙는다. 이 `ok`는 `src_codex`, Claude/Antigravity, 공통
+  `usage_meter`, 공유 원장이 정상이라는 증거가 아니다.
+- 실제 probe 주체인 `usage_codex_collector → watchtower_self` control 간선만
+  `usage_collector_health_only` scope를 가진다. 공통 aggregate의
+  `usage_meter → watchtower_self`는 별도 `usage_contract_structure_only` scope로
+  usage-event contract의 구조적 관찰 관계만 표시한다. 이 간선은 health/state를
+  담을 수 없고 aggregate/provider/self freshness를 전달하지 않는다. provider 사용
+  가능성·비용 정확도·Board freshness도 이 두 관계로 판정하지 않는다.
 
 ## 로컬 배선 (추적되지 않음)
 
@@ -45,7 +83,7 @@
 - Workspace Board(team-ops-board)의 `시스템 토폴로지` 탭 —
   `src/server/topology-adapter.mjs`가 loopback 전용
   `GET /topology-health.snapshot.json`으로 probe 결과를 중계한다.
-- 수집기·워커의 `상태 신호`는 Watchtower W1의 왼쪽 입력으로 들어가며,
+- 수집기·워커의 node-scoped `상태 관찰` 관계는 Watchtower W1의 왼쪽 입력으로 들어가며,
   Watchtower는 오른쪽으로 `판정 스냅샷`만 내보낸다. 이 간선은 검사·표시
   관계이며 self-heal이나 복구 권한을 뜻하지 않는다.
 
