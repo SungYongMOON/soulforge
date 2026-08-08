@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-08 — Workspace Board model-distribution bar correction
+
+- Restored the missing teal fill for `모델별 토큰` rows in the cumulative usage
+  distribution. Values and proportional widths were already present; the model
+  column alone lacked its visual tone rule. Added a boundary regression covering
+  every declared distribution tone.
+
 ## 2026-08-08 — Workspace Board 시스템 토폴로지 의미·가독성 보강
 
 - Watchtower W1 운영 토폴로지에 입력·감독·연산·저장·판단·출력의

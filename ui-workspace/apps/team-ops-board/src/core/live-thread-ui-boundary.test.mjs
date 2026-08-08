@@ -192,6 +192,18 @@ test("AI usage breakdown rows stay top-aligned when sibling tables have differen
   assert.match(css, /\.ai-usage-grid > section\s*\{[^}]*align-content:\s*start;/su);
 });
 
+test("usage distribution paints every declared column tone", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  const css = readFileSync(CSS_PATH, "utf8");
+  for (const tone of ["amber", "teal", "purple", "green"]) {
+    assert.match(source, new RegExp(`tone: "${tone}"`, "u"));
+    assert.match(
+      css,
+      new RegExp(`\\.ledger-distribution-column\\.is-${tone} \\.ledger-bar > span\\s*\\{[^}]*background:`, "u"),
+    );
+  }
+});
+
 test("AI usage history controls stay on the work surface and expose only exact-ID ranking fields", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const css = readFileSync(CSS_PATH, "utf8");

@@ -173,6 +173,31 @@ P0/P1/P2 잔여 결함: 없음.
 
 final result: passed
 
+## 2026-08-08 model-distribution fill follow-up
+
+### Source and implementation evidence
+
+- Source capture: Owner-provided `1-사진-1.jpg` — 590×1280
+- Fixed implementation: local QA capture `01-mobile-model-bars-fixed.png` — 380×822
+- Browser CSS viewport: 390×844 at device scale 1.5. The browser capture omits surrounding browser chrome, so comparison uses the same visible cumulative-distribution region.
+- The source and fixed implementation were opened together in one comparison input.
+
+### Finding and correction
+
+1. P1 — Every model row contained a numeric value and proportional inline width, but the `teal` distribution tone had no fill selector. The dark track remained visible while the model fill stayed transparent.
+2. Correction — Reused the established Codex teal gradient (`#2b5a55` → `#65d8d0`) for `.ledger-distribution-column.is-teal .ledger-bar > span`.
+3. Regression guard — The UI boundary test now requires a background rule for every declared distribution tone: amber, teal, purple, and green.
+
+### Fidelity and runtime checks
+
+- Typography, spacing, labels, values, row order, tracks, and the existing dark theme remained unchanged.
+- Eight model fills observed with a non-transparent gradient. Widths observed at 100%, 99%, 22%, 9%, 6%, and the 4% minimum for the three smallest rows.
+- Project amber, task purple, and attribution green bars remained unchanged.
+- Browser logs: no Vite, React, or application error observed. Three Chrome-extension message-channel closure errors were present and treated as browser-layer noise, not as page failures.
+- P0/P1/P2 remaining findings: none.
+
+final result: passed
+
 ## 2026-08-06 operational topology follow-up
 
 ### Visual target and evidence

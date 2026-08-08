@@ -6149,6 +6149,7 @@ a:focus-visible {
   text-align: right; font-variant-numeric: tabular-nums;
 }
 .ledger-distribution-column.is-amber .ledger-bar > span { background: linear-gradient(90deg, #b97f1f, var(--live-amber, #f5b849)); }
+.ledger-distribution-column.is-teal .ledger-bar > span { background: linear-gradient(90deg, #2b5a55, #65d8d0); }
 .ledger-distribution-column.is-green .ledger-bar > span { background: linear-gradient(90deg, #2f7a4b, var(--live-green, #70d98c)); }
 .ledger-distribution-column.is-purple .ledger-bar > span { background: linear-gradient(90deg, #6a4fb8, #a68bff); }
 .ledger-distribution-empty { font-size: 11px; color: #5b6a74; }
