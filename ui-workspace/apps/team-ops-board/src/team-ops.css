@@ -5996,3 +5996,69 @@ a:focus-visible {
 .ledger-distribution-column.is-green .ledger-bar > span { background: linear-gradient(90deg, #2f7a4b, var(--live-green, #70d98c)); }
 .ledger-distribution-column.is-purple .ledger-bar > span { background: linear-gradient(90deg, #6a4fb8, #a68bff); }
 .ledger-distribution-empty { font-size: 11px; color: #5b6a74; }
+
+/* usage 출처 명시 — provider 범위 오해 방지 */
+.system-stat-strip-scope { font-size: 9px; letter-spacing: 0.08em; color: #4d5b64; margin-left: 6px; }
+
+/* ── Orrery pass 3: 호스트 스탯 스트립 + 한도 카드 + 활동 빈도 ── */
+.system-stat-strip .strip-spark {
+  width: 44px; height: 12px; margin-left: 5px; vertical-align: -1px;
+}
+.system-stat-strip .strip-spark polyline {
+  fill: none; stroke: #5b8fa3; stroke-width: 1.4;
+}
+.system-stat-strip-end .is-total { color: #e8eef2; }
+.system-stat-strip-end .is-max { color: var(--live-amber, #f5b849); }
+
+.fleet-usage-card.is-red { border-color: rgba(233, 99, 92, 0.45); }
+.fleet-usage-card.is-red .fleet-usage-dot { background: var(--live-red, #e9635c); box-shadow: 0 0 7px var(--live-red, #e9635c); }
+.fleet-usage-card.is-red .fleet-usage-line { stroke: var(--live-red, #e9635c); }
+.fleet-usage-card.is-red .fleet-usage-tip { fill: var(--live-red, #e9635c); }
+.fleet-usage-card.is-red .fleet-usage-pill { border-color: rgba(233, 99, 92, 0.5); color: #f0928d; }
+
+.ledger-activity {
+  background: #0f1318; border: 1px solid #232b34; border-radius: 12px;
+  padding: 16px 18px; margin: 0 20px 4px; display: grid; gap: 12px;
+}
+.ledger-activity > header { display: flex; align-items: baseline; gap: 12px; }
+.ledger-activity > header h2 { margin: 0; font-size: 15px; color: #edf3f0; }
+.ledger-activity-panels {
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px;
+}
+@media (max-width: 860px) {
+  .ledger-activity-panels { grid-template-columns: minmax(0, 1fr); }
+}
+.ledger-activity-panel {
+  background: #0b0f13; border: 1px solid #1c242d; border-radius: 10px;
+  padding: 12px 14px 10px; display: grid; gap: 8px;
+}
+.ledger-activity-panel h3 {
+  margin: 0; display: flex; align-items: baseline; justify-content: space-between;
+  font-family: Consolas, ui-monospace, monospace; font-size: 10.5px;
+  letter-spacing: 0.12em; color: #8a99a3; font-weight: 600;
+}
+.ledger-activity-panel h3 span { font-size: 10px; color: #5d6b75; letter-spacing: 0.06em; }
+.ledger-activity-panel svg { width: 100%; height: 110px; display: block; }
+.ledger-activity-area { fill: rgba(122, 168, 189, 0.16); stroke: none; }
+.ledger-activity-line { fill: none; stroke: #9db9c8; stroke-width: 1.6; }
+.ledger-activity-bars {
+  display: flex; align-items: flex-end; gap: 3px; height: 110px;
+}
+.ledger-activity-bars span {
+  flex: 1 1 0; min-width: 0; border-radius: 2px 2px 0 0;
+  background: linear-gradient(180deg, #4b5d68, #303c45);
+}
+.ledger-activity-bars span:hover { background: linear-gradient(180deg, #74c7b8, #3f6f66); }
+.ledger-activity-axis {
+  display: flex; justify-content: space-between;
+  font-family: Consolas, ui-monospace, monospace; font-size: 9px;
+  letter-spacing: 0.08em; color: #4d5b64;
+}
+.ledger-column-meta {
+  margin-left: 7px; font-size: 9px; letter-spacing: 0.08em;
+  color: #55636d; font-weight: 500;
+}
+.fleet-usage-card.is-purple { border-color: rgba(178, 148, 245, 0.3); }
+.fleet-usage-card.is-purple .fleet-usage-dot { background: #b294f5; box-shadow: 0 0 6px #b294f5; }
+.fleet-usage-card.is-purple .fleet-usage-line { stroke: #b294f5; }
+.fleet-usage-card.is-purple .fleet-usage-tip { fill: #b294f5; }

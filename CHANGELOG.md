@@ -1,5 +1,51 @@
 # CHANGELOG
 
+## 2026-08-08 — Usage history v2 (모델·활동·한도) + Fleet 호스트 스탯
+
+- AI 사용량 미터 board-history sidecar를
+  `soulforge.ai_usage_board_history_snapshot.v2`로 확장: 모든 윈도에
+  `models` breakdown(`model_id`, unknown→`unassigned`)을 추가하고, 루트에
+  `activity`(KST 40일 daily 시리즈 — 마지막 날은 `calendar_day` totals와
+  일치해야 함 + 24칸 hourly 히스토그램 — 합이 all-time totals와 일치해야
+  함)와 `rate_limit`(이벤트가 이미 수집하던 `rate_limit_snapshot` 중 최신
+  관측 + `observed_at`; 로컬 추정치 아님)을 추가했다. 정적 AJV 스키마는
+  `ai_usage_board_history_snapshot.v2.schema.json`으로 개명·동기화, Board
+  코어 미러 검증기도 lockstep 승격 (미터 75/75 · Board 202/202 테스트).
+- Workspace Board Fleet Monitor: 주간 한도 카드가 Codex 텔레메트리의 실제
+  `used_percent`·리셋 카운트다운을 표시(90% 이상 red tone), 오늘/이번 달
+  카드는 40일 daily 시리즈 기반 실데이터 스파크라인으로 전환. 스탯
+  스트립에 호스트 관측(CPU 스파크라인·MEM·드라이브별 DISK·UP —
+  `/host-stats.snapshot.json` loopback 어댑터, fail-closed 코어 뷰모델)과
+  우측 총 사용 토큰·일평균(rolling 30d/30)·일 MAX(40일 daily 최대)를
+  추가했다.
+- 업무 현황·이력 표면에 `활동 빈도` 섹션(일자별 area 차트 + 시간대별
+  0–23시 bar 차트, KST·CODEX 스코프 명시)을 추가하고, 분포 섹션에
+  `모델별 토큰` 열을 추가했다. 분포 열이 `{top, other}` 구조를 배열로
+  기대해 모든 열이 "귀속 항목 없음"으로 비어 보이던 기존 버그를 수정 —
+  실제로는 프로젝트/모델/work/task 귀속이 이미 축적되어 있었다
+  (`unassigned`는 "미귀속"으로 표기).
+- 분포의 `프로젝트별 토큰`을 조직 라벨 기준으로 재구성: 등록부
+  `display_label`의 `[프리픽스]`(AX·SYSTEM·KVDS·저주파 SAS 등)로 task
+  사용량을 재집계하는 표시 전용 뷰이며, 읽을 수 없던 `codex.<uuid>`
+  work열은 제거하고 미터의 저장소 귀속은 `귀속 코드별 (미터 바인딩)`
+  열로 분리했다. Board 어댑터의 history 스냅샷 top-n을 10→50으로 올려
+  등록 스레드 전수가 집계에 들어온다.
+- 멀티 프로바이더 관측 3종을 추가했다(모두 loopback 전용·읽기 전용):
+  `claude-usage`(로컬 세션 기록에서 5시간/일/7일 창과 모델별 토큰을
+  `message.id` 중복 제거로 재구성 — 내용·경로·세션 ID는 파서 단계에서
+  폐기), `antigravity-usage`(IDE 상태 DB의 남은 크레딧을 protobuf
+  이중 디코딩으로 읽고 관측 시각·stale을 명시), `provider-limits`
+  (Codex 최신 세션 텔레메트리의 공식 주간 사용률과, Claude가 스스로
+  보고하는 OAuth usage 창별 공식 사용률 — 토큰 값은 런타임에만 읽고
+  로그·응답에 싣지 않는다). Fleet 카드가 Codex 주간(더 새로운 관측
+  우선)·Claude 5시간(공식 % + 재구성 토큰 병기)·Antigravity 크레딧을
+  나란히 보여준다.
+- 검토에서 확정된 결함 3건 수정: 호스트 스탯 샘플에 마감시한 부재(멈춘
+  statfs가 요청을 무한 점유), 실패 지속 중 TTL 미적용(매 요청
+  재샘플), 만료된 주간창 관측을 현재 사용률처럼 경고 표시(리셋 경과
+  시 톤 강등 + "이전 창" + 관측 시각 명시). 각각 회귀 테스트 고정
+  (Board 232/232).
+
 ## 2026-08-08 — Mail lane per-account error observability
 
 - The team mailbox collector now promotes connector error codes (e.g.

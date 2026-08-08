@@ -56,6 +56,7 @@ import {
   isFocusRestoreCandidate
 } from "./core/mobile-detail.mjs";
 import { buildTopologyViewModel } from "./core/topology-view.mjs";
+import { buildHostStatsViewModel } from "./core/host-stats.mjs";
 import {
   buildOrganizationUsageChartRows,
   buildProjectUsageChartRows,
@@ -395,6 +396,59 @@ function App() {
   }));
   const [topologyProjection, setTopologyProjection] = useState<any>(null);
   const [topologyRefreshing, setTopologyRefreshing] = useState(false);
+  const [hostStatsSnapshot, setHostStatsSnapshot] = useState<any>(null);
+  const [providerSnapshots, setProviderSnapshots] = useState<any>({ claude: null, antigravity: null, limits: null });
+
+  useEffect(() => {
+    if (surface !== "owner") return undefined;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch("/host-stats.snapshot.json");
+        if (!cancelled && response.ok) setHostStatsSnapshot(await response.json());
+      } catch {
+        // 마지막 정상 샘플 유지 — 호스트 스탯은 보조 표시라 오류를 띄우지 않는다.
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => { void load(); }, 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [surface]);
+
+  useEffect(() => {
+    if (surface !== "owner") return undefined;
+    let cancelled = false;
+    const fetchJson = async (url: string) => {
+      try {
+        const response = await fetch(url);
+        return response.ok ? await response.json() : null;
+      } catch {
+        return null;
+      }
+    };
+    const load = async () => {
+      const [claude, antigravity, limits] = await Promise.all([
+        fetchJson("/claude-usage.snapshot.json"),
+        fetchJson("/antigravity-usage.snapshot.json"),
+        fetchJson("/provider-limits.snapshot.json"),
+      ]);
+      if (cancelled) return;
+      setProviderSnapshots((previous: any) => ({
+        claude: claude ?? previous.claude,
+        antigravity: antigravity ?? previous.antigravity,
+        limits: limits ?? previous.limits,
+      }));
+    };
+    void load();
+    const timer = window.setInterval(() => { void load(); }, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [surface]);
 
   useEffect(() => {
     if (surface !== "system" && surface !== "owner") return undefined;
@@ -796,6 +850,7 @@ function App() {
         </div>
       )}
 
+      {surface === "work" && <LedgerActivity usage={aiUsageProjection} />}
       {surface === "work" && <LedgerDistribution usage={aiUsageProjection} exactTaskLabels={exactTaskLabels as any} />}
       {surface === "work" && <AiUsagePanel
         projection={aiUsageProjection}
@@ -814,11 +869,13 @@ function App() {
           {surface === "owner" && (
             <SystemStatStrip
               projection={topologyProjection}
+              hostStats={hostStatsSnapshot}
+              usage={aiUsageProjection}
               threadCount={Array.isArray(projection?.threads) ? projection.threads.length : 0}
               usageState={aiUsageProjection.state}
             />
           )}
-          {surface === "owner" && <FleetUsageCards usage={aiUsageProjection} />}
+          {surface === "owner" && <FleetUsageCards usage={aiUsageProjection} providers={providerSnapshots} />}
           {surface === "owner" && <FleetStatusRows projection={topologyProjection} />}
           {surface === "owner" && (
             <RealtimeDashboard
@@ -2261,33 +2318,196 @@ function fleetTokenLabel(value: number): string {
   return String(value);
 }
 
-function FleetUsageCards({ usage }: { usage: any }) {
-  const windows = usage?.history?.windows ?? null;
+function fleetSparkline(series: number[], width = 200, top = 5, bottom = 30) {
+  const values = (Array.isArray(series) ? series : []).map((value) => (Number.isFinite(value) && value > 0 ? value : 0));
+  if (values.length < 2) return null;
+  const max = Math.max(...values, 1);
+  const step = width / (values.length - 1);
+  const points = values.map((value, index) => ({
+    x: Math.round(index * step * 10) / 10,
+    y: Math.round((bottom - (value / max) * (bottom - top)) * 10) / 10,
+  }));
+  return {
+    points: points.map((point) => `${point.x},${point.y}`).join(" "),
+    tip: points[points.length - 1],
+  };
+}
+
+function fleetResetLabel(resetsAtEpochS: number | null): string {
+  if (!Number.isFinite(resetsAtEpochS as number)) return "리셋 미상";
+  const deltaMs = (resetsAtEpochS as number) * 1000 - Date.now();
+  if (deltaMs <= 0) return "리셋 도래";
+  const hours = deltaMs / 3_600_000;
+  if (hours < 24) {
+    const wholeHours = Math.floor(hours);
+    const minutes = Math.floor((deltaMs - wholeHours * 3_600_000) / 60_000);
+    return wholeHours > 0 ? `${wholeHours}h ${minutes}m 후 리셋` : `${minutes}m 후 리셋`;
+  }
+  return `${Math.ceil(hours / 24)}일 후 리셋`;
+}
+
+function fleetObservedAgoLabel(observedAt: string): string {
+  const ms = Date.parse(observedAt);
+  if (!Number.isFinite(ms)) return "관측 시각 미상";
+  const minutes = Math.max(0, Math.round((Date.now() - ms) / 60_000));
+  if (minutes < 90) return `${minutes}분 전 관측`;
+  if (minutes < 48 * 60) return `${Math.round(minutes / 60)}시간 전 관측`;
+  return `${Math.round(minutes / 1440)}일 전 관측`;
+}
+
+function fleetCreditLabel(totals: any): string {
+  const credits = totals?.credits === null || totals?.credits === undefined
+    ? "미확정"
+    : Math.round(totals.credits).toLocaleString("en-US");
+  const unknown = totals?.credit_unknown_turns > 0 ? ` · 단가 미확정 ${totals.credit_unknown_turns}` : "";
+  return `크레딧 ${credits}${unknown}`;
+}
+
+function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: any }) {
+  const history = usage?.history ?? null;
+  const windows = history?.windows ?? null;
   if (!windows) return null;
-  const specs = [
-    { key: "calendar_day", tone: "green", title: "오늘 사용", pill: "KST 달력일" },
-    { key: "calendar_week", tone: "teal", title: "이번 주", pill: "달력 주" },
-    { key: "calendar_month", tone: "amber", title: "이번 달", pill: "월간 크레딧" },
-  ];
+  const dailyTokens = Array.isArray(history?.activity?.daily)
+    ? history.activity.daily.map((row: any) => row.total_tokens ?? 0)
+    : [];
+  // Codex 공식 %는 미터 이벤트 관측과 최신 세션 텔레메트리 중 더 새로운 쪽을 쓴다.
+  let rateLimit = history?.rate_limit ?? null;
+  const liveCodex = providers?.limits?.codex ?? null;
+  if (liveCodex?.primary) {
+    const liveObservedMs = Date.parse(liveCodex.observed_at ?? "") || 0;
+    const meterObservedMs = rateLimit !== null ? (Date.parse(rateLimit.observed_at) || 0) : 0;
+    if (liveObservedMs >= meterObservedMs) {
+      rateLimit = {
+        limit_id: "codex",
+        plan_type: liveCodex.plan_type ?? rateLimit?.plan_type ?? null,
+        used_percent: liveCodex.primary.used_percent,
+        window_minutes: liveCodex.primary.window_minutes,
+        resets_at_epoch_s: liveCodex.primary.resets_at_epoch_s,
+        observed_at: liveCodex.observed_at ?? new Date().toISOString(),
+      };
+    }
+  }
+  const week = windows.calendar_week?.totals ?? null;
+  const day = windows.calendar_day?.totals ?? null;
+  const month = windows.calendar_month?.totals ?? null;
+  const rolling7 = windows.rolling_7d?.totals ?? null;
+  const creditPerDay = rolling7 !== null && rolling7.credits > 0 ? Math.round(rolling7.credits / 7).toLocaleString("en-US") : null;
+
+  const cards: any[] = [];
+  if (rateLimit !== null) {
+    const used = Number(rateLimit.used_percent);
+    const resetsMs = Number.isFinite(rateLimit.resets_at_epoch_s) ? rateLimit.resets_at_epoch_s * 1000 : null;
+    // 리셋이 지난 관측치는 현재 사용률이 아니다 — 경고 톤을 내리고 이전 창 관측임을 명시한다.
+    const expired = resetsMs !== null && resetsMs <= Date.now();
+    const observedAgo = fleetObservedAgoLabel(rateLimit.observed_at);
+    cards.push({
+      key: "weekly_limit",
+      tone: !expired && used >= 90 ? "red" : "teal",
+      title: "주간 한도",
+      pill: expired ? "리셋 경과 · 재관측 대기" : fleetResetLabel(rateLimit.resets_at_epoch_s),
+      big: `${used >= 100 ? Math.round(used) : used.toFixed(1)}%`,
+      bigSmall: expired ? " 이전 창" : " 사용",
+      sub: `Codex ${rateLimit.plan_type ?? "plan 미상"} · 이번 주 ${week ? `${fleetTokenLabel(week.total_tokens)} tok · ${week.turns.toLocaleString("en-US")}턴` : "—"} · ${observedAgo}`,
+      spark: dailyTokens.slice(-7),
+    });
+  } else if (week !== null) {
+    cards.push({
+      key: "weekly_limit",
+      tone: "teal",
+      title: "이번 주",
+      pill: "한도 미관측",
+      big: fleetTokenLabel(week.total_tokens),
+      bigSmall: " tok",
+      sub: `${week.turns.toLocaleString("en-US")}턴 · ${fleetCreditLabel(week)}`,
+      spark: dailyTokens.slice(-7),
+    });
+  }
+  const claudeOfficial = providers?.limits?.claude ?? null;
+  const claudeRecon = providers?.claude ?? null;
+  if (claudeOfficial?.five_hour || claudeRecon?.five_hour) {
+    const utilization = claudeOfficial?.five_hour?.utilization ?? null;
+    const resetsAtMs = claudeOfficial?.five_hour?.resets_at ? Date.parse(claudeOfficial.five_hour.resets_at) : NaN;
+    const weeklyUtilization = claudeOfficial?.seven_day?.utilization ?? null;
+    const tierRaw = claudeRecon?.plan?.organization_rate_limit_tier ?? claudeRecon?.plan?.user_rate_limit_tier ?? null;
+    const tierLabel = tierRaw === null
+      ? "플랜 미상"
+      : String(tierRaw).replace(/^default_claude_/u, "").replace(/_/gu, " ");
+    const reconTokens = claudeRecon?.five_hour?.tokens?.total_tokens;
+    const reconTurns = claudeRecon?.five_hour?.turns;
+    const reconPart = Number.isFinite(reconTokens)
+      ? ` · 5h ${fleetTokenLabel(reconTokens)} tok · ${Number(reconTurns).toLocaleString("en-US")}턴`
+      : "";
+    cards.push({
+      key: "claude_five_hour",
+      tone: utilization !== null && utilization >= 90 ? "red" : "purple",
+      title: "Claude 5시간 창",
+      pill: utilization === null
+        ? "공식 % 미관측"
+        : (Number.isFinite(resetsAtMs) ? fleetResetLabel(Math.round(resetsAtMs / 1000)) : "리셋 미상"),
+      big: utilization === null
+        ? (Number.isFinite(reconTokens) ? fleetTokenLabel(reconTokens) : "—")
+        : `${utilization >= 100 ? Math.round(utilization) : Number(utilization).toFixed(0)}%`,
+      bigSmall: utilization === null ? " tok" : " 사용",
+      sub: `Claude ${tierLabel}${weeklyUtilization !== null ? ` · 주간 ${weeklyUtilization}%` : ""}${reconPart}`,
+      spark: [],
+    });
+  }
+  const antigravity = providers?.antigravity ?? null;
+  if (antigravity?.credits) {
+    const available = antigravity.credits.available;
+    cards.push({
+      key: "antigravity_credits",
+      tone: "amber",
+      title: "Antigravity 크레딧",
+      pill: `${fleetObservedAgoLabel(antigravity.observed_at)}${antigravity.stale ? " · STALE" : ""}`,
+      big: available === null ? "—" : Number(available).toLocaleString("en-US"),
+      bigSmall: " 남음",
+      sub: `Gemini 계열 · 최소 사용단위 ${antigravity.credits.minimum_per_use ?? "—"} · IDE 실행 시에만 갱신`,
+      spark: [],
+    });
+  }
+  if (day !== null) {
+    cards.push({
+      key: "calendar_day",
+      tone: "green",
+      title: "오늘 사용",
+      pill: "CODEX만",
+      big: fleetTokenLabel(day.total_tokens),
+      bigSmall: " tok",
+      sub: `${day.turns.toLocaleString("en-US")}턴 · ${fleetCreditLabel(day)}`,
+      spark: dailyTokens.slice(-14),
+    });
+  }
+  if (month !== null) {
+    cards.push({
+      key: "calendar_month",
+      tone: "amber",
+      title: "이번 달",
+      pill: "CODEX만",
+      big: fleetTokenLabel(month.total_tokens),
+      bigSmall: " tok",
+      sub: `${fleetCreditLabel(month)}${creditPerDay !== null ? ` · 최근 7일 ${creditPerDay}/일` : ""}`,
+      spark: dailyTokens.slice(-30),
+    });
+  }
+  if (cards.length === 0) return null;
   return (
     <div className="fleet-usage-cards" data-testid="fleet-usage-cards">
-      {specs.map((spec) => {
-        const totals = windows[spec.key]?.totals;
-        if (!totals) return null;
-        const credits = totals.credits === null ? "미확정" : Math.round(totals.credits).toLocaleString("en-US");
+      {cards.map((card) => {
+        const spark = fleetSparkline(card.spark);
         return (
-          <article key={spec.key} className={`fleet-usage-card is-${spec.tone}`}>
+          <article key={card.key} className={`fleet-usage-card is-${card.tone}`}>
             <header>
               <span className="fleet-usage-dot" aria-hidden="true" />
-              <span className="fleet-usage-title">{spec.title}</span>
-              <span className="fleet-usage-pill">{spec.pill}</span>
+              <span className="fleet-usage-title">{card.title}</span>
+              <span className="fleet-usage-pill">{card.pill}</span>
             </header>
-            <strong>{fleetTokenLabel(totals.total_tokens)}<small> tok</small></strong>
-            <p>{totals.turns.toLocaleString("en-US")}턴 · 크레딧 {credits}{totals.credit_unknown_turns > 0 ? ` · 단가 미확정 ${totals.credit_unknown_turns}` : ""}</p>
+            <strong>{card.big}<small>{card.bigSmall}</small></strong>
+            <p>{card.sub}</p>
             <svg viewBox="0 0 200 34" preserveAspectRatio="none" aria-hidden="true">
               <line className="fleet-usage-base" x1="0" y1="30" x2="200" y2="30" />
-              <polyline className="fleet-usage-line" points="0,27 36,25 72,26 108,19 144,13 200,7" />
-              <circle className="fleet-usage-tip" cx="200" cy="7" r="2.6" />
+              {spark !== null && <polyline className="fleet-usage-line" points={spark.points} />}
+              {spark !== null && <circle className="fleet-usage-tip" cx={spark.tip.x} cy={spark.tip.y} r="2.6" />}
             </svg>
           </article>
         );
@@ -2296,21 +2516,102 @@ function FleetUsageCards({ usage }: { usage: any }) {
   );
 }
 
+function LedgerActivity({ usage }: { usage: any }) {
+  const activity = usage?.history?.activity ?? null;
+  if (!activity || !Array.isArray(activity.daily) || activity.daily.length < 2 || !Array.isArray(activity.hourly)) return null;
+  const daily = activity.daily;
+  const hourly = activity.hourly;
+  const dayTokens = daily.map((row: any) => row.total_tokens ?? 0);
+  const totalDailyTokens = dayTokens.reduce((sum: number, value: number) => sum + value, 0);
+  const maxDay = Math.max(...dayTokens, 1);
+  const totalHourTurns = hourly.reduce((sum: number, row: any) => sum + (row.turns ?? 0), 0);
+  const maxHour = Math.max(...hourly.map((row: any) => row.turns ?? 0), 1);
+  const W = 640;
+  const H = 120;
+  const PAD = 6;
+  const step = (W - PAD * 2) / (daily.length - 1);
+  const points = dayTokens.map((value: number, index: number) => (
+    `${(PAD + index * step).toFixed(1)},${(H - 16 - (value / maxDay) * (H - 36)).toFixed(1)}`
+  ));
+  const areaPath = `M ${points.join(" L ")} L ${(PAD + (daily.length - 1) * step).toFixed(1)},${H - 8} L ${PAD},${H - 8} Z`;
+  const dateLabel = (value: string) => value.slice(5).replace("-", "/");
+  return (
+    <section className="ledger-activity" aria-label="활동 빈도" data-testid="ledger-activity">
+      <header>
+        <span className="ledger-distribution-kicker">활동 빈도</span>
+        <h2>최근 일자별 · 시간대별 작업</h2>
+        <span className="ledger-distribution-meta">KST · CODEX만</span>
+      </header>
+      <div className="ledger-activity-panels">
+        <div className="ledger-activity-panel">
+          <h3>일자별 <span>{daily.length}일 · {fleetTokenLabel(totalDailyTokens)} tok</span></h3>
+          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+            <path className="ledger-activity-area" d={areaPath} />
+            <polyline className="ledger-activity-line" points={points.join(" ")} />
+          </svg>
+          <div className="ledger-activity-axis"><span>{dateLabel(daily[0].date)}</span><span>{dateLabel(daily[daily.length - 1].date)}</span></div>
+        </div>
+        <div className="ledger-activity-panel">
+          <h3>시간대별 (0-23시) <span>{totalHourTurns.toLocaleString("en-US")}턴</span></h3>
+          <div className="ledger-activity-bars" role="img" aria-label="시간대별 턴 분포">
+            {hourly.map((row: any) => (
+              <span
+                key={row.hour}
+                title={`${String(row.hour).padStart(2, "0")}시 · ${row.turns.toLocaleString("en-US")}턴`}
+                style={{ height: `${Math.max(3, Math.round(((row.turns ?? 0) / maxHour) * 100))}%` }}
+              />
+            ))}
+          </div>
+          <div className="ledger-activity-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskLabels: Map<string, string> | Record<string, string> | null }) {
   const windows = usage?.history?.windows ?? null;
   const window = windows?.all_time ?? windows?.calendar_month ?? null;
   if (!window || !window.breakdowns) return null;
+  const getLabel = (id: string): string | null => {
+    if (!exactTaskLabels) return null;
+    const mapped = exactTaskLabels instanceof Map ? exactTaskLabels.get(id) : (exactTaskLabels as any)[id];
+    return typeof mapped === "string" && mapped.length > 0 ? mapped : null;
+  };
+  const topRows = (kind: string): any[] => {
+    const group = window.breakdowns[kind];
+    return Array.isArray(group?.top) ? group.top : [];
+  };
+  // 조직 기준 프로젝트: 등록부 display_label의 [프리픽스]로 task 사용량을 재집계한다.
+  // 미터 project_id(저장소 귀속)와 다른, Owner 조직도 언어의 표시 전용 뷰다.
+  const orgTokens = new Map<string, number>();
+  for (const row of topRows("tasks")) {
+    const label = getLabel(String(row.task_id));
+    const prefix = label === null ? "미등록 스레드" : (/^\[([^\]]+)\]/u.exec(label)?.[1] ?? "기타 라벨");
+    orgTokens.set(prefix, (orgTokens.get(prefix) ?? 0) + (row.total_tokens ?? 0));
+  }
+  const tasksOther = window.breakdowns.tasks?.other?.total_tokens ?? 0;
+  if (tasksOther > 0) orgTokens.set("그 외 (상위 밖)", tasksOther);
+  const orgRows = [...orgTokens.entries()]
+    .map(([id, tokens]) => ({ id, total_tokens: tokens }))
+    .sort((left, right) => right.total_tokens - left.total_tokens);
+
+  const displayId = (kind: string, row: any, index: number): string => (
+    String(row.id ?? row.project_id ?? row.model_id ?? row.task_id ?? `row-${index}`)
+  );
   const labelFor = (kind: string, id: string): string => {
-    if (kind === "tasks" && exactTaskLabels) {
-      const mapped = exactTaskLabels instanceof Map ? exactTaskLabels.get(id) : exactTaskLabels[id];
-      if (typeof mapped === "string" && mapped.length > 0) return mapped;
+    if (id === "unassigned") return "미귀속";
+    if (kind === "tasks") {
+      const mapped = getLabel(id);
+      if (mapped !== null) return mapped;
     }
     return id.length > 22 ? `${id.slice(0, 20)}…` : id;
   };
   const columns = [
-    { key: "projects", tone: "amber", title: "프로젝트별 토큰" },
-    { key: "works", tone: "green", title: "work별 토큰" },
-    { key: "tasks", tone: "purple", title: "task별 토큰" },
+    { key: "org", tone: "amber", title: "프로젝트별 토큰", meta: "조직 라벨 기준", rows: orgRows },
+    { key: "models", tone: "teal", title: "모델별 토큰", meta: null, rows: topRows("models") },
+    { key: "tasks", tone: "purple", title: "task별 토큰", meta: null, rows: topRows("tasks") },
+    { key: "projects", tone: "green", title: "귀속 코드별", meta: "미터 바인딩", rows: topRows("projects") },
   ];
   return (
     <section className="ledger-distribution" aria-label="사용량 분포" data-testid="ledger-distribution">
@@ -2321,11 +2622,11 @@ function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskL
       </header>
       <div className="ledger-distribution-columns">
         {columns.map((column) => {
-          const rows = Array.isArray(window.breakdowns[column.key]) ? window.breakdowns[column.key] : [];
+          const rows = column.rows;
           if (rows.length === 0) {
             return (
               <div key={column.key} className={`ledger-distribution-column is-${column.tone}`}>
-                <h3>{column.title}</h3>
+                <h3>{column.title}{column.meta !== null && <span className="ledger-column-meta">{column.meta}</span>}</h3>
                 <p className="ledger-distribution-empty">귀속 항목 없음 — exact 바인딩 대기</p>
               </div>
             );
@@ -2333,13 +2634,13 @@ function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskL
           const max = Math.max(...rows.map((row: any) => row.total_tokens ?? 0), 1);
           return (
             <div key={column.key} className={`ledger-distribution-column is-${column.tone}`}>
-              <h3>{column.title}</h3>
+              <h3>{column.title}{column.meta !== null && <span className="ledger-column-meta">{column.meta}</span>}</h3>
               <ul>
                 {rows.slice(0, 8).map((row: any, index: number) => {
-                  const id = String(row.project_code ?? row.work_id ?? row.task_id ?? `row-${index}`);
+                  const id = displayId(column.key, row, index);
                   return (
                     <li key={id}>
-                      <span className="ledger-bar-label">{labelFor(column.key, id)}</span>
+                      <span className="ledger-bar-label" title={id}>{labelFor(column.key, id)}</span>
                       <span className="ledger-bar"><span style={{ width: `${Math.max(4, Math.round(((row.total_tokens ?? 0) / max) * 100))}%` }} /></span>
                       <span className="ledger-bar-value">{fleetTokenLabel(row.total_tokens ?? 0)}</span>
                     </li>
@@ -2354,18 +2655,43 @@ function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskL
   );
 }
 
-function SystemStatStrip({ projection, threadCount, usageState }: { projection: any; threadCount: number; usageState: string }) {
+function SystemStatStrip({ projection, hostStats, usage, threadCount, usageState }: { projection: any; hostStats: any; usage: any; threadCount: number; usageState: string }) {
   const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
+  const host = useMemo(() => buildHostStatsViewModel(hostStats), [hostStats]);
   const summary = model.available ? model.summary : null;
   const observed = compactClock(model.observedAt);
+  const windows = usage?.history?.windows ?? null;
+  const allTokens = windows?.all_time?.totals?.total_tokens;
+  const rolling30 = windows?.rolling_30d?.totals?.total_tokens;
+  const daily = usage?.history?.activity?.daily;
+  const dayMax = Array.isArray(daily) && daily.length > 0
+    ? Math.max(...daily.map((row: any) => row.total_tokens ?? 0))
+    : null;
   return (
     <div className="system-stat-strip" data-testid="system-stat-strip" role="note">
+      {(host as any).available && (host as any).cells.map((cell: any) => {
+        const spark = Array.isArray(cell.history) && cell.history.length > 1
+          ? fleetSparkline(cell.history, 44, 2, 10)
+          : null;
+        return (
+          <span key={cell.key}>{cell.label} <b>{cell.value}</b>{spark !== null && (
+            <svg className="strip-spark" viewBox="0 0 44 12" preserveAspectRatio="none" aria-hidden="true">
+              <polyline points={spark.points} />
+            </svg>
+          )}</span>
+        );
+      })}
       <span>수집기 <b>{summary ? summary.ok + summary.degraded + summary.stale + summary.down : "—"}</b></span>
-      <span>정상 <b className="is-ok">{summary ? summary.ok : "—"}</b></span>
       <span>주의 <b className={summary && summary.degraded + summary.stale + summary.down > 0 ? "is-warn" : ""}>{summary ? summary.degraded + summary.stale + summary.down : "—"}</b></span>
-      <span>등록 스레드 <b>{threadCount}</b></span>
+      <span>등록 <b>{threadCount}</b></span>
       <span>판정 <b>{observed}</b></span>
-      <span className="system-stat-strip-end">METER <b className={usageState === "unmeasured" ? "" : "is-ok"}>{usageState === "unmeasured" ? "대기" : "가동"}</b></span>
+      <span>METER <b className={usageState === "unmeasured" ? "" : "is-ok"}>{usageState === "unmeasured" ? "대기" : "가동"}</b> <span className="system-stat-strip-scope">CODEX만 · CLAUDE/GEMINI 미계측</span></span>
+      {Number.isFinite(allTokens) && (
+        <span className="system-stat-strip-end">총 사용 토큰 <b className="is-total">{fleetTokenLabel(allTokens)}</b>
+          {Number.isFinite(rolling30) && <> 일평균 <b>{fleetTokenLabel(Math.round((rolling30 as number) / 30))}</b></>}
+          {dayMax !== null && <> 일 MAX <b className="is-max">{fleetTokenLabel(dayMax)}</b></>}
+        </span>
+      )}
     </div>
   );
 }
