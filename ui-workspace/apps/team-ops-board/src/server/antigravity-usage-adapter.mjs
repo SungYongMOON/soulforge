@@ -1,6 +1,7 @@
 // antigravity-usage-adapter.mjs — Antigravity IDE state.vscdb의 잔여 크레딧 스냅샷을 read-only로
 // 읽어 loopback 전용 GET /antigravity-usage.snapshot.json 으로 서빙하는 Vite dev/preview 플러그인.
-// DB는 immutable read-only URI로만 열고(잠금·쓰기 없음), 60초 TTL로 재조회하며 실패 시 null을 낸다.
+// DB는 read-only(mode=ro)로 연다 — IDE 실행 중 WAL 내용을 보기 위해 immutable은 쓰지 않는다
+// (쓰기 없음). 60초 TTL로 재조회하며 실패 시 null을 낸다.
 
 import path from "node:path";
 import { promises as fsPromises } from "node:fs";
@@ -36,9 +37,9 @@ function isLoopbackAddress(address) {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
 
-function toImmutableReadOnlyUri(dbPath) {
+function toReadOnlyUri(dbPath) {
   // Windows 역슬래시 경로를 SQLite file: URI 형태로 정규화한다.
-  return `file:${dbPath.split(path.sep).join("/")}?mode=ro&immutable=1`;
+  return `file:${dbPath.split(path.sep).join("/")}?mode=ro`;
 }
 
 function rawValueToString(raw) {
@@ -68,7 +69,7 @@ export function createAntigravityUsageReader({
     let db = null;
     let raw;
     try {
-      db = new DatabaseSync(toImmutableReadOnlyUri(dbPath), { readOnly: true });
+      db = new DatabaseSync(toReadOnlyUri(dbPath), { readOnly: true });
       const row = db
         .prepare("SELECT value FROM ItemTable WHERE key = ?")
         .get(MODEL_CREDITS_ITEM_KEY);

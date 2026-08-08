@@ -21,6 +21,14 @@
   0건인 이유는 (a) conversation 인덱스가 7/25 이후 stale, (b) hot-WAL
   DB가 immutable 읽기에서 비어 보임 — 완화(mode=ro 전환 또는 파일
   mtime 시간원)는 Owner 결정 게이트로 남김.
+- (같은 날 후속) Owner가 Antigravity 2.0을 실행하며 게이트 승인:
+  AG sqlite 읽기를 immutable 없는 read-only(mode=ro)로 전환해 hot-WAL
+  내용을 보게 했고, `collect-antigravity`를 Board 자동 체인에 연결
+  (새 대화가 생기면 요청 수가 원장에 흐름 — 2.0의 그룹별 공식 잔여
+  %는 로컬에 저장되지 않음을 확인). Claude 공식 창은 OAuth 응답
+  `limits[]`의 scope.model 항목으로 Fable 전용 주간 %를 분리 표시하고,
+  재조회를 2분으로 단축·관측 시각을 패널에 병기, 리셋 표기는 다음
+  갱신일(요일) 중심으로 바꿈.
 
 ## 2026-08-08 — guild_hall 문서 색인 주제별 재편
 

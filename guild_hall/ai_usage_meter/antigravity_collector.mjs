@@ -1,7 +1,8 @@
 // antigravity_collector.mjs — Antigravity CLI 대화 DB(gen_metadata)를 request-count-only
 // soulforge.ai_usage_event.v1 이벤트로 변환한다. 토큰 데이터가 로컬에 없으므로 토큰 필드는 전부 0,
 // token_confidence는 request_count_only, credits는 rate_unknown으로 고정한다.
-// 모든 sqlite는 read-only immutable URI로만 열고 title/preview 컬럼은 절대 읽지 않는다.
+// 모든 sqlite는 read-only(mode=ro)로 연다 — hot-WAL 내용을 보기 위해 immutable은 쓰지 않는다
+// (쓰기 없음, Owner 승인 2026-08-08). title/preview 컬럼은 절대 읽지 않는다.
 
 import { readdir, stat } from "node:fs/promises";
 import os from "node:os";
@@ -41,8 +42,8 @@ export function defaultAntigravityCliRoot(env = process.env) {
   return path.join(os.homedir(), ".gemini", "antigravity-cli");
 }
 
-function toImmutableReadOnlyUri(dbPath) {
-  return `file:${dbPath.split(path.sep).join("/")}?mode=ro&immutable=1`;
+function toReadOnlyUri(dbPath) {
+  return `file:${dbPath.split(path.sep).join("/")}?mode=ro`;
 }
 
 // datetime TEXT("2026-07-25 03:32:05.4959863+00:00") 또는 epoch 숫자를 ISO로 정규화한다.
@@ -94,7 +95,7 @@ export function extractAntigravityModelId(blob) {
 }
 
 function readConversationIndex(DatabaseSync, indexPath) {
-  const db = new DatabaseSync(toImmutableReadOnlyUri(indexPath), { readOnly: true });
+  const db = new DatabaseSync(toReadOnlyUri(indexPath), { readOnly: true });
   try {
     // title/preview는 조회 대상에서 제외한다(메타데이터 전용 경계).
     const rows = db.prepare(
@@ -124,7 +125,7 @@ function readConversationIndex(DatabaseSync, indexPath) {
 }
 
 function readGenerationRows(DatabaseSync, dbPath) {
-  const db = new DatabaseSync(toImmutableReadOnlyUri(dbPath), { readOnly: true });
+  const db = new DatabaseSync(toReadOnlyUri(dbPath), { readOnly: true });
   try {
     return db.prepare("SELECT idx, data FROM gen_metadata ORDER BY idx").all();
   } finally {

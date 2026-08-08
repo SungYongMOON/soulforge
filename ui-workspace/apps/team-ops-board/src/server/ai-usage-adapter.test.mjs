@@ -79,25 +79,25 @@ test("usage refresh runs the Meter pipeline sequentially with only the exact enr
     assert.deepEqual(commands.map((args) => args[0]), [
       "collect",
       "collect-claude",
+      "collect-antigravity",
       "lifecycle-reconcile",
       "board-snapshot",
       "board-history-snapshot"
     ]);
     for (const args of commands) {
-      // collect-claude는 로컬 전사 전량 수집이라 exact 스레드 스코프를 받지 않는다.
-      if (args[0] === "collect-claude") {
+      // 로컬 소유 공급자 수집(claude·antigravity)은 exact 스레드 스코프를 받지 않는다.
+      if (args[0] === "collect-claude" || args[0] === "collect-antigravity") {
         assert.equal(args.includes("--thread-id"), false);
         continue;
       }
       assert.deepEqual(threadIdsFromArgs(args), ["thread-one", "thread-two"]);
       assert.equal(args.includes("--thread-id"), true);
     }
-    assert.equal(commands[2].includes("--max-sessions"), true);
+    assert.equal(commands[3].includes("--max-sessions"), true);
     for (const command of ["board-snapshot", "board-history-snapshot"]) {
       const args = commands.find((entry) => entry[0] === command);
-      const flagIndex = args.indexOf("--include-provider");
-      assert.notEqual(flagIndex, -1);
-      assert.equal(args[flagIndex + 1], "claude_session_jsonl");
+      const providers = args.flatMap((value, index) => (value === "--include-provider" ? [args[index + 1]] : []));
+      assert.deepEqual(providers, ["claude_session_jsonl", "antigravity_conversation_db"]);
     }
     assert.deepEqual(snapshot, expected);
   } finally {

@@ -2334,14 +2334,19 @@ function fleetSparkline(series: number[], width = 200, top = 5, bottom = 30) {
   };
 }
 
-// 리셋 시각은 절대시각(KST)과 상대시간을 함께 — 계정마다 리셋 날짜가 달라 비교가 필요하다.
+// 다음 갱신일(KST·요일)을 앞세우고 상대시간을 병기 — 계정마다 리셋 날짜가 달라 비교가 필요하다.
 function fleetResetAtLabel(resetsAtMs: number | null): string {
   if (resetsAtMs === null || !Number.isFinite(resetsAtMs)) return "리셋 미상";
   const deltaMs = resetsAtMs - Date.now();
   if (deltaMs <= 0) return "리셋 경과";
   const kst = new Date(resetsAtMs + 9 * 3_600_000);
+  const nowKst = new Date(Date.now() + 9 * 3_600_000);
   const pad = (value: number) => String(value).padStart(2, "0");
-  const absolute = `${kst.getUTCMonth() + 1}/${kst.getUTCDate()} ${pad(kst.getUTCHours())}:${pad(kst.getUTCMinutes())}`;
+  const sameDay = kst.getUTCFullYear() === nowKst.getUTCFullYear()
+    && kst.getUTCMonth() === nowKst.getUTCMonth() && kst.getUTCDate() === nowKst.getUTCDate();
+  const weekday = ["일", "월", "화", "수", "목", "금", "토"][kst.getUTCDay()];
+  const dayLabel = sameDay ? "오늘" : `${kst.getUTCMonth() + 1}/${kst.getUTCDate()}(${weekday})`;
+  const absolute = `${dayLabel} ${pad(kst.getUTCHours())}:${pad(kst.getUTCMinutes())}`;
   let relative;
   if (deltaMs < 3_600_000) relative = `${Math.floor(deltaMs / 60_000)}m 후`;
   else if (deltaMs < 24 * 3_600_000) relative = `${Math.floor(deltaMs / 3_600_000)}h ${Math.floor((deltaMs % 3_600_000) / 60_000)}m 후`;
@@ -2516,9 +2521,11 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   const codexPlan = rateLimit?.plan_type ?? null;
   const claudeTierRaw = claudeRecon?.plan?.organization_rate_limit_tier ?? claudeRecon?.plan?.user_rate_limit_tier ?? null;
   const claudeTier = claudeTierRaw === null ? null : String(claudeTierRaw).replace(/^default_claude_/u, "").replace(/_/gu, " ");
+  const claudeObservedAt = typeof claudeOfficial?.observed_at === "string" ? claudeOfficial.observed_at : null;
   const limitFoot = [
     codexPlan !== null ? `Codex ${codexPlan}` : null,
     claudeTier !== null ? `Claude ${claudeTier}` : null,
+    claudeObservedAt !== null ? `Claude ${fleetObservedAgoLabel(claudeObservedAt)}` : null,
     "공식 관측값만 표시",
   ].filter(Boolean).join(" · ");
 

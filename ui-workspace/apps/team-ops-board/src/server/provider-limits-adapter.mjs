@@ -14,8 +14,9 @@ import {
 
 export const PROVIDER_LIMITS_SNAPSHOT_PATH = "/provider-limits.snapshot.json";
 export const DEFAULT_PROVIDER_LIMITS_TTL_MS = 60_000;
-// OAuth usage 엔드포인트는 호출 빈도 제한(429)이 있어 별도의 긴 주기로만 재조회한다.
-export const DEFAULT_CLAUDE_LIMITS_REFRESH_MS = 300_000;
+// OAuth usage 엔드포인트는 호출 빈도 제한(429)이 있어 별도 주기로만 재조회한다.
+// 진행 중 세션이 실시간으로 소모하므로 표시 지연을 줄이기 위해 2분으로 운용한다.
+export const DEFAULT_CLAUDE_LIMITS_REFRESH_MS = 120_000;
 export const DEFAULT_PROVIDER_LIMITS_FETCH_TIMEOUT_MS = 6_000;
 const CODEX_TAIL_BYTES = 262_144;
 

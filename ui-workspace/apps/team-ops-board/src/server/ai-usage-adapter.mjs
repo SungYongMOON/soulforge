@@ -161,17 +161,22 @@ export async function refreshExactScopedUsage({
     ...common,
     args: ["collect-claude", "--apply", "--state-root", resolve(stateRoot), "--max-age-days", "10"]
   });
+  // Antigravity 요청 수 수집 — 대화 인덱스 기반이라 활동이 없으면 조용한 no-op이다.
+  await runCommand({
+    ...common,
+    args: ["collect-antigravity", "--apply", "--state-root", resolve(stateRoot)]
+  });
   await runCommand({
     ...common,
     args: ["lifecycle-reconcile", "--apply", "--state-root", resolve(stateRoot), "--sessions-root", resolve(sessionsRoot), "--max-sessions", String(MAX_EXACT_THREAD_IDS), ...scope]
   });
   await runCommand({
     ...common,
-    args: ["board-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(currentPath), "--include-provider", "claude_session_jsonl", ...scope]
+    args: ["board-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(currentPath), "--include-provider", "claude_session_jsonl", "--include-provider", "antigravity_conversation_db", ...scope]
   });
   await runCommand({
     ...common,
-    args: ["board-history-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(historyPath), "--top-n", "50", "--include-provider", "claude_session_jsonl", ...scope]
+    args: ["board-history-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(historyPath), "--top-n", "50", "--include-provider", "claude_session_jsonl", "--include-provider", "antigravity_conversation_db", ...scope]
   });
   const snapshot = validateBoardUsageHistorySnapshot(JSON.parse(await readFile(historyPath, "utf8")));
   if (snapshot.schema_version !== BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA) throw new Error("ai_usage_history_schema_invalid");
