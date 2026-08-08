@@ -4,6 +4,18 @@ Soulforge 전체에서 Codex 작업의 토큰과 계산 크레딧을 `회사 →
 
 ## 무엇을 측정하는가
 
+세 공급자가 같은 usage-event 원장에 기록된다. `source.kind`와
+`measurement.token_confidence`는 1:1로 고정된다:
+`codex_session_jsonl`→`exact_cumulative_delta`,
+`claude_session_jsonl`→`exact_per_message`(같은 `message.id` 중복 관측을
+제거한 메시지 단위 정확 계측, `collect-claude`),
+`antigravity_conversation_db`→`request_count_only`(토큰 없음, 요청 수만,
+`collect-antigravity`). 크레딧은 Codex rate card 단위로만 계산하며
+비-Codex 이벤트는 통화 혼합을 막기 위해 항상 `rate_unknown`이다.
+Claude 이벤트의 프로젝트 귀속은 세션 작업 폴더의 말단 슬러그에서
+파생되고(`bindings/claude_project_binding.json`으로 재지정 가능), 경로
+원문은 이벤트에 저장하지 않는다.
+
 - Codex session JSONL의 누적 카운터를 turn별 증분으로 변환한다.
 - 입력, 캐시 입력, cache-write 입력, 출력, reasoning 출력과 관찰된 usage 증가 구간 수를 기록한다. 이 구간 수는 실제 API 요청 수가 아니라 모델 순환의 하한 proxy다.
 - 부모와 서브에이전트 session을 연결해 같은 root turn과 `work_id`로 묶는다.
@@ -233,6 +245,12 @@ observation (`limit_id`, nullable `plan_type`, `used_percent`, nullable
 `window_minutes`/`resets_at_epoch_s`, `observed_at`) — observed values only,
 never a locally computed estimate. The static AJV mirror lives in
 `ai_usage_board_history_snapshot.v2.schema.json`.
+
+`--include-provider <source.kind>` (repeatable, on `board-snapshot` and
+`board-history-snapshot`) unions ALL events of that non-Codex provider into
+the scoped set: Codex events stay gated by exact thread IDs, while local-owned
+Claude/Antigravity transcripts are included wholesale. Without the flag the
+behavior is unchanged (Codex exact scope only).
 
 For an exact-thread projection, global meter coverage and tool retry/timeout
 observations are not borrowed into the scoped result because their records are

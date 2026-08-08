@@ -7,6 +7,13 @@ import path from "node:path";
 export const USAGE_EVENT_SCHEMA = "soulforge.ai_usage_event.v1";
 export const USAGE_CONFIG_SCHEMA = "soulforge.ai_usage_meter_config.v1";
 export const RATE_CARD_SCHEMA = "soulforge.ai_usage_rate_card.v1";
+// Every allowed source kind is pinned to exactly one token-confidence label so a
+// provider can never claim a stronger measurement than its collector supports.
+export const USAGE_EVENT_TOKEN_CONFIDENCE_BY_SOURCE_KIND = Object.freeze({
+  codex_session_jsonl: "exact_cumulative_delta",
+  claude_session_jsonl: "exact_per_message",
+  antigravity_conversation_db: "request_count_only",
+});
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 const TARGET_EVENT_MARKERS = [
@@ -593,7 +600,7 @@ function eventId(threadId, turnId) {
   return `aue_${createHash("sha256").update(`codex:${threadId}:${turnId}`).digest("hex")}`;
 }
 
-function validateUsageEvent(event) {
+export function validateUsageEvent(event) {
   exactObject(event, "usage_event", [
     "schema_version", "event_id", "organization_id", "team_id", "project_id", "work_id",
     "thread_id", "turn_id", "parent_thread_id", "root_thread_id", "root_turn_id", "source",
@@ -609,7 +616,9 @@ function validateUsageEvent(event) {
   if (event.parent_thread_id !== null) safeId(event.parent_thread_id, "parent_thread_id");
 
   exactObject(event.source, "usage_event_source", ["kind", "source_ref", "originator"]);
-  if (event.source.kind !== "codex_session_jsonl") fail("usage_event_source_kind_invalid");
+  if (!Object.hasOwn(USAGE_EVENT_TOKEN_CONFIDENCE_BY_SOURCE_KIND, event.source.kind)) {
+    fail("usage_event_source_kind_invalid");
+  }
   boundedString(event.source.source_ref, "usage_event_source_ref");
   nullableText(event.source.originator, "usage_event_source_originator");
 
@@ -698,7 +707,9 @@ function validateUsageEvent(event) {
   if (!new Set(["complete", "active", "observed_at_stop"]).has(event.measurement.status)) {
     fail("usage_event_measurement_status_invalid");
   }
-  if (event.measurement.token_confidence !== "exact_cumulative_delta") fail("usage_event_token_confidence_invalid");
+  if (event.measurement.token_confidence !== USAGE_EVENT_TOKEN_CONFIDENCE_BY_SOURCE_KIND[event.source.kind]) {
+    fail("usage_event_token_confidence_invalid");
+  }
   if (!new Set(["explicit_binding", "derived_lineage"]).has(event.measurement.attribution_confidence)) {
     fail("usage_event_attribution_confidence_invalid");
   }

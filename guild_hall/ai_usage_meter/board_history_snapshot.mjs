@@ -3,7 +3,7 @@ import path from "node:path";
 
 import {
   createBoardUsageSnapshot,
-  filterBoardUsageEventsByThreadIds,
+  filterBoardUsageEvents,
   loadBoardUsageSnapshot,
   validateBoardUsageSnapshot,
 } from "./board_snapshot.mjs";
@@ -611,15 +611,20 @@ export async function loadBoardUsageHistorySnapshot(stateRoot, {
   generatedAt = new Date().toISOString(),
   referenceAt = generatedAt,
   topN = DEFAULT_BOARD_USAGE_HISTORY_TOP_N,
+  includeProviders = null,
 } = {}) {
   const root = path.resolve(stateRoot);
   const normalizedGeneratedAt = normalizedTimestamp(generatedAt, "board_usage_history_generated_at_invalid");
   const exactThreadIds = normalizeExactThreadIds(threadIds);
   const [allEvents, current] = await Promise.all([
     loadPersistedUsageEvents(root),
-    loadBoardUsageSnapshot(root, { generatedAt: normalizedGeneratedAt, threadIds: exactThreadIds }),
+    loadBoardUsageSnapshot(root, {
+      generatedAt: normalizedGeneratedAt,
+      threadIds: exactThreadIds,
+      includeProviders,
+    }),
   ]);
-  const events = filterBoardUsageEventsByThreadIds(allEvents, exactThreadIds);
+  const events = filterBoardUsageEvents(allEvents, { threadIds: exactThreadIds, includeProviders });
   return createBoardUsageHistorySnapshot(events, {
     currentSnapshot: current,
     generatedAt: normalizedGeneratedAt,

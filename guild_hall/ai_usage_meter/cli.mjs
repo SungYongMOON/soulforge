@@ -24,6 +24,15 @@ import {
   summarizeUsageEvents,
 } from "./usage_meter.mjs";
 import {
+  DEFAULT_CLAUDE_MAX_AGE_DAYS,
+  collectClaudeUsageEvents,
+  defaultClaudeProjectsRoot,
+} from "./claude_collector.mjs";
+import {
+  collectAntigravityUsageEvents,
+  defaultAntigravityCliRoot,
+} from "./antigravity_collector.mjs";
+import {
   loadUsageBindingSet,
   mergeUsageBindings,
   upsertUsageBinding,
@@ -445,6 +454,66 @@ async function collectCommand(options) {
   };
 }
 
+async function collectClaudeCommand(options) {
+  const projectsRoot = path.resolve(String(value(options, "projects-root", defaultClaudeProjectsRoot())));
+  const maxAgeDays = positiveIntegerOption(options, "max-age-days", DEFAULT_CLAUDE_MAX_AGE_DAYS);
+  const stateRoot = value(options, "state-root", null);
+  const resolvedStateRoot = stateRoot === null ? null : path.resolve(String(stateRoot));
+  const config = await loadEffectiveConfig(options, { repoRoot: null });
+  const collected = await collectClaudeUsageEvents({
+    projectsRoot,
+    stateRoot: resolvedStateRoot,
+    maxAgeDays,
+    config,
+  });
+  const events = filterEvents(collected.events, options);
+  let persistence = null;
+  if (flag(options, "apply")) {
+    if (resolvedStateRoot === null) fail("state_root_required_for_apply");
+    persistence = await persistUsageEvents(resolvedStateRoot, events);
+  }
+  return {
+    schema_version: "soulforge.ai_usage_meter_collect_claude_result.v1",
+    mode: flag(options, "apply") ? "apply" : "dry_run",
+    max_age_days: maxAgeDays,
+    session_file_count: collected.session_file_count,
+    parsed_session_count: collected.parsed_session_count,
+    issue_count: collected.issues.length,
+    issues: collected.issues,
+    observed_message_count: collected.observed_message_count,
+    duplicate_message_count: collected.duplicate_message_count,
+    event_count: events.length,
+    summary: summarizeUsageEvents(events),
+    persistence,
+  };
+}
+
+async function collectAntigravityCommand(options) {
+  const cliRoot = path.resolve(String(value(options, "cli-root", defaultAntigravityCliRoot())));
+  const stateRoot = value(options, "state-root", null);
+  const config = await loadEffectiveConfig(options, { repoRoot: null });
+  const collected = await collectAntigravityUsageEvents({ cliRoot, config });
+  const events = filterEvents(collected.events, options);
+  let persistence = null;
+  if (flag(options, "apply")) {
+    if (stateRoot === null) fail("state_root_required_for_apply");
+    persistence = await persistUsageEvents(path.resolve(String(stateRoot)), events);
+  }
+  return {
+    schema_version: "soulforge.ai_usage_meter_collect_antigravity_result.v1",
+    mode: flag(options, "apply") ? "apply" : "dry_run",
+    conversation_db_count: collected.conversation_db_count,
+    indexed_conversation_count: collected.indexed_conversation_count,
+    skipped_conversation_count: collected.skipped_conversation_count,
+    observed_row_count: collected.observed_row_count,
+    issue_count: collected.issues.length,
+    issues: collected.issues,
+    event_count: events.length,
+    summary: summarizeUsageEvents(events),
+    persistence,
+  };
+}
+
 async function reportCommand(options) {
   const stateRoot = value(options, "state-root");
   if (!stateRoot) fail("state_root_required");
@@ -511,8 +580,10 @@ async function boardSnapshotCommand(options) {
   if (!stateRoot) fail("state_root_required");
   if (!output) fail("board_snapshot_output_required");
   const threadIds = values(options, "thread-id").map(String);
+  const includeProviders = values(options, "include-provider").map(String);
   const snapshot = await loadBoardUsageSnapshot(path.resolve(String(stateRoot)), {
     threadIds: threadIds.length ? threadIds : null,
+    includeProviders: includeProviders.length ? includeProviders : null,
   });
   await writeBoardUsageSnapshot(path.resolve(String(output)), snapshot);
   return snapshot;
@@ -525,10 +596,12 @@ async function boardHistorySnapshotCommand(options) {
   if (!output) fail("board_history_snapshot_output_required");
   const topN = value(options, "top-n", null);
   const referenceAt = value(options, "reference-at", null);
+  const includeProviders = values(options, "include-provider").map(String);
   const snapshot = await loadBoardUsageHistorySnapshot(path.resolve(String(stateRoot)), {
     threadIds: values(options, "thread-id").map(String),
     topN: topN === null ? undefined : Number(topN),
     referenceAt: referenceAt === null ? undefined : String(referenceAt),
+    includeProviders: includeProviders.length ? includeProviders : null,
   });
   await writeBoardUsageHistorySnapshot(path.resolve(String(output)), snapshot);
   return snapshot;
@@ -815,6 +888,8 @@ function help() {
     name: "Soulforge AI Usage Meter",
     commands: {
       collect: "Parse Codex session JSONL. Dry-run by default; add --apply --state-root <path> to persist metadata-only events.",
+      "collect-claude": "Parse Claude Code session JSONL into per-message metadata-only events. Dry-run by default; add --apply --state-root <path>.",
+      "collect-antigravity": "Read Antigravity conversation DBs into request-count-only metadata events. Dry-run by default; add --apply --state-root <path>.",
       report: "Summarize a persisted local ledger: --state-root <path>.",
       bind: "Bind a Codex thread or turn to a work ID in the local metadata-only store.",
       dashboard: "Write a local, self-contained HTML dashboard from the filtered ledger.",
@@ -844,8 +919,10 @@ function help() {
       "evidence-record: --kind work_run|quality_result|tool_event|replay_receipt --input <JSON path> [--state-root <path> --apply]",
       "dashboard: --output <HTML path> (defaults to <state-root>/dashboard.html)",
       "csv: --output <CSV path> [--group-by work]",
-      "board-snapshot: --state-root <local state directory> --output <local JSON path> [--thread-id <exact ID> (repeatable)]",
-      "board-history-snapshot: --state-root <local state directory> --thread-id <exact ID> (repeatable) --output <local JSON path> [--top-n 1-50] [--reference-at <ISO timestamp>]",
+      "collect-claude: [--projects-root <Claude projects directory>] [--max-age-days N] [--state-root <path>] [--apply]",
+      "collect-antigravity: [--cli-root <Antigravity CLI directory>] [--state-root <path>] [--apply]",
+      "board-snapshot: --state-root <local state directory> --output <local JSON path> [--thread-id <exact ID> (repeatable)] [--include-provider claude_session_jsonl|antigravity_conversation_db (repeatable)]",
+      "board-history-snapshot: --state-root <local state directory> --thread-id <exact ID> (repeatable) --output <local JSON path> [--top-n 1-50] [--reference-at <ISO timestamp>] [--include-provider <source kind> (repeatable)]",
       "lifecycle-snapshot: --state-root <local state directory> [--output <local JSON path>] [--include-identities]",
       "lifecycle-reconcile: [--thread-id <exact ID> (repeatable)] [--max-sessions <1-10000>] [--after-thread-id <exact ID>] [--sessions-root <Codex sessions>] [--state-root <local state>] [--apply]",
       "disable / enable: [--state-root <local state directory>] (defaults to the safe git common-checkout state root)",
@@ -856,6 +933,8 @@ function help() {
 export async function runCli(argv = process.argv.slice(2)) {
   const { command, options } = parseArgs(argv);
   if (command === "collect") return collectCommand(options);
+  if (command === "collect-claude") return collectClaudeCommand(options);
+  if (command === "collect-antigravity") return collectAntigravityCommand(options);
   if (command === "report") return reportCommand(options);
   if (command === "bind") return bindCommand(options);
   if (command === "dashboard") return dashboardCommand(options);

@@ -50,7 +50,27 @@ function totals(snapshot, name) {
   return snapshot.windows[name].totals;
 }
 
-function persistedUsageEvent({ eventId, threadId, turnId, startedAt }) {
+function persistedUsageEvent({ eventId, threadId, turnId, startedAt, sourceKind = "codex_session_jsonl" }) {
+  const tokenConfidence = sourceKind === "claude_session_jsonl"
+    ? "exact_per_message"
+    : sourceKind === "antigravity_conversation_db"
+      ? "request_count_only"
+      : "exact_cumulative_delta";
+  const credits = sourceKind === "codex_session_jsonl"
+    ? {
+      status: "calculated",
+      rate_card_id: "synthetic-card",
+      service_tier: "standard",
+      total: 0.01,
+      components: { uncached_input: 0.005, cached_input: 0, cache_write_input: 0, output: 0.005 },
+    }
+    : {
+      status: "rate_unknown",
+      rate_card_id: "unpriced",
+      service_tier: "standard",
+      total: null,
+      components: null,
+    };
   return {
     schema_version: "soulforge.ai_usage_event.v1",
     event_id: eventId,
@@ -63,7 +83,7 @@ function persistedUsageEvent({ eventId, threadId, turnId, startedAt }) {
     parent_thread_id: null,
     root_thread_id: threadId,
     root_turn_id: turnId,
-    source: { kind: "codex_session_jsonl", source_ref: "synthetic-ref", originator: null },
+    source: { kind: sourceKind, source_ref: "synthetic-ref", originator: null },
     actor: { node_id: "node-a", agent_id: "agent-a", agent_depth: 0, role: "executor" },
     model: { id: "gpt-5.6-terra", reasoning_effort: "max", service_tier: "standard", context_window: null },
     usage: {
@@ -77,16 +97,14 @@ function persistedUsageEvent({ eventId, threadId, turnId, startedAt }) {
       model_invocation_count: 1,
       max_invocation_input_tokens: 5,
     },
-    credits: {
-      status: "calculated",
-      rate_card_id: "synthetic-card",
-      service_tier: "standard",
-      total: 0.01,
-      components: { uncached_input: 0.005, cached_input: 0, cache_write_input: 0, output: 0.005 },
-    },
+    credits,
     time: { started_at: startedAt, completed_at: new Date(Date.parse(startedAt) + 1_000).toISOString(), duration_ms: 1000 },
     rate_limit_snapshot: null,
-    measurement: { status: "complete", token_confidence: "exact_cumulative_delta", attribution_confidence: "explicit_binding" },
+    measurement: {
+      status: "complete",
+      token_confidence: tokenConfidence,
+      attribution_confidence: sourceKind === "codex_session_jsonl" ? "explicit_binding" : "derived_lineage",
+    },
     privacy: { metadata_only: true, prompt_captured: false, reasoning_captured: false, tool_payload_captured: false },
   };
 }
@@ -347,6 +365,75 @@ test("Board usage history loader and CLI require exact accepted thread IDs and e
     ]);
     assert.equal(cliSnapshot.windows.all_time.totals.turns, 1);
     assert.equal(JSON.parse(await readFile(output, "utf8")).windows.all_time.totals.turns, 1);
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("Board usage history include-provider unions provider events while default scope stays codex-only", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-board-usage-history-providers-"));
+  try {
+    await persistUsageEvents(state, [
+      persistedUsageEvent({ eventId: "aue-history-codex", threadId: "task-scope", turnId: "turn-codex", startedAt: "2026-08-03T00:00:00.000Z" }),
+      persistedUsageEvent({
+        eventId: "aue-history-claude",
+        threadId: "claude-session-a",
+        turnId: "msg_claude001",
+        startedAt: "2026-08-03T00:01:00.000Z",
+        sourceKind: "claude_session_jsonl",
+      }),
+      persistedUsageEvent({
+        eventId: "aue-history-ag",
+        threadId: "ag-conversation-a",
+        turnId: "ag-conversation-a.0",
+        startedAt: "2026-08-03T00:02:00.000Z",
+        sourceKind: "antigravity_conversation_db",
+      }),
+    ]);
+
+    const codexOnly = await loadBoardUsageHistorySnapshot(state, {
+      threadIds: ["task-scope"],
+      generatedAt: "2026-08-03T02:00:00.000Z",
+      referenceAt: "2026-08-03T02:00:00.000Z",
+    });
+    assert.equal(codexOnly.windows.all_time.totals.turns, 1);
+    assert.equal(codexOnly.windows.all_time.totals.credit_unknown_turns, 0);
+
+    const withProviders = await loadBoardUsageHistorySnapshot(state, {
+      threadIds: ["task-scope"],
+      generatedAt: "2026-08-03T02:00:00.000Z",
+      referenceAt: "2026-08-03T02:00:00.000Z",
+      includeProviders: ["claude_session_jsonl", "antigravity_conversation_db"],
+    });
+    assert.equal(withProviders.windows.all_time.totals.turns, 3);
+    assert.equal(withProviders.windows.all_time.totals.credit_unknown_turns, 2);
+    assert.equal(withProviders.current.totals.turns, 3);
+    assert.deepEqual(
+      withProviders.windows.all_time.breakdowns.tasks.top.map((row) => row.task_id).sort(),
+      ["ag-conversation-a", "claude-session-a", "task-scope"],
+    );
+
+    const output = path.join(state, "history.providers.snapshot.json");
+    const cliSnapshot = await runCli([
+      "board-history-snapshot",
+      "--state-root", state,
+      "--thread-id", "task-scope",
+      "--include-provider", "claude_session_jsonl",
+      "--include-provider", "antigravity_conversation_db",
+      "--reference-at", "2026-08-03T02:00:00.000Z",
+      "--output", output,
+    ]);
+    assert.equal(cliSnapshot.windows.all_time.totals.turns, 3);
+    assert.equal(JSON.parse(await readFile(output, "utf8")).windows.all_time.totals.turns, 3);
+
+    await assert.rejects(
+      () => loadBoardUsageHistorySnapshot(state, {
+        threadIds: ["task-scope"],
+        generatedAt: "2026-08-03T02:00:00.000Z",
+        includeProviders: ["unknown_provider"],
+      }),
+      (error) => error?.code === "board_snapshot_include_providers_invalid",
+    );
   } finally {
     await rm(state, { recursive: true, force: true });
   }

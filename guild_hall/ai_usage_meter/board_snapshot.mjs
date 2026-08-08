@@ -2,7 +2,10 @@ import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promise
 import path from "node:path";
 
 import { loadEvidenceEvents } from "./evidence_ledger.mjs";
-import { loadPersistedUsageEvents } from "./usage_meter.mjs";
+import {
+  USAGE_EVENT_TOKEN_CONFIDENCE_BY_SOURCE_KIND,
+  loadPersistedUsageEvents,
+} from "./usage_meter.mjs";
 
 export const BOARD_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_snapshot.v1";
 
@@ -228,6 +231,39 @@ export function filterBoardUsageEventsByThreadIds(events, threadIds = null) {
     return threadId;
   }));
   return events.filter((event) => accepted.has(event?.thread_id));
+}
+
+function normalizeIncludeProviders(includeProviders) {
+  if (includeProviders === null || includeProviders === undefined) return null;
+  if (!Array.isArray(includeProviders) || !includeProviders.length) {
+    fail("board_snapshot_include_providers_invalid");
+  }
+  return new Set(includeProviders.map((kind) => {
+    if (typeof kind !== "string" || !Object.hasOwn(USAGE_EVENT_TOKEN_CONFIDENCE_BY_SOURCE_KIND, kind)) {
+      fail("board_snapshot_include_providers_invalid");
+    }
+    return kind;
+  }));
+}
+
+// 최종 집합 = (exact thread ID로 필터한 이벤트, 기존 동작 그대로)
+//            ∪ (source.kind가 includeProviders에 속한 모든 이벤트).
+// includeProviders를 주지 않으면 기존 동작과 완전히 동일하다.
+export function filterBoardUsageEvents(events, { threadIds = null, includeProviders = null } = {}) {
+  const providers = normalizeIncludeProviders(includeProviders);
+  const base = filterBoardUsageEventsByThreadIds(events, threadIds);
+  if (providers === null) return base;
+  if (!Array.isArray(events)) fail("board_snapshot_include_providers_invalid");
+  const selected = new Set(base);
+  const merged = [...base];
+  for (const event of events) {
+    if (selected.has(event)) continue;
+    if (providers.has(event?.source?.kind)) {
+      selected.add(event);
+      merged.push(event);
+    }
+  }
+  return merged;
 }
 
 function isAssigned(value) {
@@ -564,7 +600,11 @@ export function validateBoardUsageSnapshot(snapshot) {
   };
 }
 
-export async function loadBoardUsageSnapshot(stateRoot, { generatedAt, threadIds = null } = {}) {
+export async function loadBoardUsageSnapshot(stateRoot, {
+  generatedAt,
+  threadIds = null,
+  includeProviders = null,
+} = {}) {
   const root = path.resolve(stateRoot);
   const [events, coverage, hookHealth, toolEvents, pendingEventCount] = await Promise.all([
     loadPersistedUsageEvents(root),
@@ -574,7 +614,7 @@ export async function loadBoardUsageSnapshot(stateRoot, { generatedAt, threadIds
     countJsonFiles(path.join(root, "pending")),
   ]);
   const scoped = threadIds !== null && threadIds !== undefined;
-  return createBoardUsageSnapshot(filterBoardUsageEventsByThreadIds(events, threadIds), {
+  return createBoardUsageSnapshot(filterBoardUsageEvents(events, { threadIds, includeProviders }), {
     coverage: scoped ? null : coverage,
     hookHealth,
     pendingEventCount: scoped ? 0 : pendingEventCount,

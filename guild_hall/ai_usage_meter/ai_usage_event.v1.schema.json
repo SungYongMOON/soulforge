@@ -43,7 +43,9 @@
       "additionalProperties": false,
       "required": ["kind", "source_ref", "originator"],
       "properties": {
-        "kind": { "const": "codex_session_jsonl" },
+        "kind": {
+          "enum": ["codex_session_jsonl", "claude_session_jsonl", "antigravity_conversation_db"]
+        },
         "source_ref": { "$ref": "#/$defs/text" },
         "originator": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/text" }] }
       }
@@ -156,7 +158,9 @@
       "required": ["status", "token_confidence", "attribution_confidence"],
       "properties": {
         "status": { "enum": ["complete", "active", "observed_at_stop"] },
-        "token_confidence": { "const": "exact_cumulative_delta" },
+        "token_confidence": {
+          "enum": ["exact_cumulative_delta", "exact_per_message", "request_count_only"]
+        },
         "attribution_confidence": { "enum": ["explicit_binding", "derived_lineage"] }
       }
     },
@@ -172,6 +176,44 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": { "source": { "type": "object", "properties": { "kind": { "const": "codex_session_jsonl" } } } }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "measurement": { "type": "object", "properties": { "token_confidence": { "const": "exact_cumulative_delta" } } }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "source": { "type": "object", "properties": { "kind": { "const": "claude_session_jsonl" } } } }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "measurement": { "type": "object", "properties": { "token_confidence": { "const": "exact_per_message" } } }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": { "source": { "type": "object", "properties": { "kind": { "const": "antigravity_conversation_db" } } } }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "measurement": { "type": "object", "properties": { "token_confidence": { "const": "request_count_only" } } }
+        }
+      }
+    }
+  ],
   "$defs": {
     "id": {
       "type": "string",

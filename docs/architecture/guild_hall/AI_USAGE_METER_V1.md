@@ -178,6 +178,19 @@ deterministic rank order, and the expected time boundaries. Retry/timeout are
 preserved only in the nested current activity counters and never become
 additional usage turns or credits.
 
+The event ledger accepts three provider sources with a pinned
+kind↔confidence pairing: `codex_session_jsonl`/`exact_cumulative_delta`,
+`claude_session_jsonl`/`exact_per_message` (duplicate `message.id`
+observations collapse to one event; project attribution derives from the
+session working-folder leaf slug, overridable via the local
+`bindings/claude_project_binding.json`, and raw paths never enter events),
+and `antigravity_conversation_db`/`request_count_only` (zero-token request
+counts). Non-Codex events always carry `credits.status: "rate_unknown"` so
+Codex-credit sums never mix currencies; any USD estimate is a display-layer
+conversion, never a ledger value. Board snapshot loaders accept
+`--include-provider <kind>` to union local-owned non-Codex events with the
+exact Codex thread scope; without the flag behavior is unchanged.
+
 v2 adds two root fields with the same metadata-only rule. `activity` carries a
 fixed 40-entry KST `daily` series (consecutive dates ending at `reference_at`'s
 date, zero-filled) and a fixed 24-entry KST `hourly` histogram (`hour`, turns,

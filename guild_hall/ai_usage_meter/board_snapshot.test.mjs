@@ -4,7 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createBoardUsageSnapshot, loadBoardUsageSnapshot, writeBoardUsageSnapshot } from "./board_snapshot.mjs";
+import {
+  createBoardUsageSnapshot,
+  filterBoardUsageEvents,
+  loadBoardUsageSnapshot,
+  writeBoardUsageSnapshot,
+} from "./board_snapshot.mjs";
+import { persistUsageEvents } from "./usage_meter.mjs";
 import { normalizeAiUsageSnapshot } from "../../ui-workspace/apps/team-ops-board/src/core/ai-usage-snapshot.mjs";
 
 function event({
@@ -84,6 +90,92 @@ function persistedCompleteEvent() {
     privacy: { metadata_only: true, prompt_captured: false, reasoning_captured: false, tool_payload_captured: false },
   };
 }
+
+function persistedProviderEvent({
+  eventId,
+  threadId,
+  sourceKind = "codex_session_jsonl",
+  tokenConfidence = "exact_cumulative_delta",
+  startedAt = "2026-08-03T11:59:00.000Z",
+}) {
+  const output = persistedCompleteEvent();
+  output.event_id = eventId;
+  output.thread_id = threadId;
+  output.turn_id = `${threadId}-turn`;
+  output.root_thread_id = threadId;
+  output.root_turn_id = `${threadId}-turn`;
+  output.work_id = `work.${threadId}`;
+  output.time = { started_at: startedAt, completed_at: startedAt, duration_ms: null };
+  output.source = { kind: sourceKind, source_ref: threadId, originator: null };
+  output.measurement = {
+    status: "complete",
+    token_confidence: tokenConfidence,
+    attribution_confidence: "derived_lineage",
+  };
+  if (sourceKind !== "codex_session_jsonl") {
+    output.credits = {
+      status: "rate_unknown", rate_card_id: "unpriced", service_tier: "standard", total: null, components: null,
+    };
+  }
+  return output;
+}
+
+test("Board snapshot include-provider unions provider events with exact-thread codex scope", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sf-board-snapshot-providers-"));
+  try {
+    const codexEvent = persistedProviderEvent({ eventId: "aue-provider-codex", threadId: "codex-thread-a" });
+    const claudeEvent = persistedProviderEvent({
+      eventId: "aue-provider-claude",
+      threadId: "claude-session-a",
+      sourceKind: "claude_session_jsonl",
+      tokenConfidence: "exact_per_message",
+    });
+    const antigravityEvent = persistedProviderEvent({
+      eventId: "aue-provider-ag",
+      threadId: "ag-conversation-a",
+      sourceKind: "antigravity_conversation_db",
+      tokenConfidence: "request_count_only",
+    });
+    await persistUsageEvents(root, [codexEvent, claudeEvent, antigravityEvent]);
+
+    const persistedClaude = JSON.parse(await readFile(
+      path.join(root, "events", "2026-08", "aue-provider-claude.json"),
+      "utf8",
+    ));
+    assert.equal(persistedClaude.source.kind, "claude_session_jsonl");
+
+    const scopedOnly = await loadBoardUsageSnapshot(root, {
+      generatedAt: "2026-08-03T12:00:00.000Z",
+      threadIds: ["codex-thread-a"],
+    });
+    assert.equal(scopedOnly.totals.turns, 1);
+
+    const withProviders = await loadBoardUsageSnapshot(root, {
+      generatedAt: "2026-08-03T12:00:00.000Z",
+      threadIds: ["codex-thread-a"],
+      includeProviders: ["claude_session_jsonl", "antigravity_conversation_db"],
+    });
+    assert.equal(withProviders.totals.turns, 3);
+    assert.equal(withProviders.totals.credit_unknown_turns, 2);
+
+    const claudeOnly = filterBoardUsageEvents(
+      [codexEvent, claudeEvent, antigravityEvent],
+      { threadIds: ["codex-thread-a"], includeProviders: ["claude_session_jsonl"] },
+    );
+    assert.deepEqual(claudeOnly.map((event) => event.event_id), ["aue-provider-codex", "aue-provider-claude"]);
+
+    assert.throws(
+      () => filterBoardUsageEvents([codexEvent], { includeProviders: ["not_a_known_provider"] }),
+      (error) => error?.code === "board_snapshot_include_providers_invalid",
+    );
+    assert.throws(
+      () => filterBoardUsageEvents([codexEvent], { includeProviders: [] }),
+      (error) => error?.code === "board_snapshot_include_providers_invalid",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("Board snapshot keeps the synthetic CEO-manager-owner-executor-review topology reconciled", () => {
   const snapshot = createBoardUsageSnapshot([
