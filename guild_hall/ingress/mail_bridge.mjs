@@ -41,6 +41,7 @@ const ALLOWED_CHILD_ERROR_CODES = new Set([
   "mailbox_run_error",
 ]);
 const SAFE_SOURCE_CHILD_ERROR_CODE = /^(?:outlook_sent|source_custody)_[a-z0-9_]+$/;
+const SAFE_MAILBOX_CHILD_ERROR_CODE = /^[a-z][a-z0-9_]{0,47}$/;
 const REPO_RELATIVE_PREFIXES = [
   "guild_hall/",
   "private-state/",
@@ -1098,17 +1099,28 @@ function count(value) {
   return value;
 }
 
+// 자식 오류 row의 mailbox.id를 안전한 별칭([a-z0-9_], 32자 이내)으로 줄인다.
+function childMailboxAlias(row) {
+  const id = row && typeof row === "object" && row.mailbox && typeof row.mailbox === "object"
+    ? row.mailbox.id
+    : null;
+  if (typeof id !== "string" || id.length === 0) return "";
+  const alias = id.toLowerCase().replace(/[^a-z0-9_]/gu, "_").slice(0, 32);
+  return /^[a-z0-9_]+$/u.test(alias) ? alias : "";
+}
+
 function childErrorCodes(value) {
   if (!Array.isArray(value)) fail("mail_bridge_child_output_invalid");
   const codes = [];
   for (const row of value) {
-    const code = row && typeof row === "object" ? row.code : null;
-    codes.push(
-      typeof code === "string"
-        && (ALLOWED_CHILD_ERROR_CODES.has(code) || SAFE_SOURCE_CHILD_ERROR_CODE.test(code))
-        ? code
-        : "mail_child_error",
-    );
+    const rawCode = row && typeof row === "object" ? row.code : null;
+    const accepted = typeof rawCode === "string"
+      && (ALLOWED_CHILD_ERROR_CODES.has(rawCode)
+        || SAFE_SOURCE_CHILD_ERROR_CODE.test(rawCode)
+        || SAFE_MAILBOX_CHILD_ERROR_CODE.test(rawCode));
+    const code = accepted ? rawCode : "mail_child_error";
+    const alias = accepted ? childMailboxAlias(row) : "";
+    codes.push(alias ? `${code}__${alias}` : code);
   }
   return [...new Set(codes)].sort();
 }
@@ -1145,7 +1157,7 @@ function summaryConsistent(summary, preflight) {
     && summary.mailboxes_run <= summary.mailboxes_enabled
     && summary.total_new_events + summary.total_duplicates === summary.total_events
     && (summary.mailboxes_run > 0 || summary.total_events === 0)
-    && (allEnabledRan !== hasMailboxErrors)
+    && (allEnabledRan || hasMailboxErrors)
     && (summary.partial || allEnabledRan)
     && (!summary.partial || summary.mailboxes_run > 0 || hasMailboxErrors);
 }
@@ -1258,7 +1270,7 @@ export async function runMailBridge(binding, options = {}) {
   const partial = summary.partial || exitCode !== 0 || summary.error_codes.length > 0;
   const errorCodes = [...summary.error_codes];
   if (partial && errorCodes.length === 0) {
-    errorCodes.push(exitCode === 0 ? "mail_child_partial" : "mail_child_failed");
+    errorCodes.push(summary.partial ? "mail_child_partial" : "mail_child_failed");
   }
   return {
     schema_version: MAIL_BRIDGE_RESULT_SCHEMA,

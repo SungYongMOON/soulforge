@@ -292,6 +292,12 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
       }
     }
   }
+  // heartbeat record가 안전 코드(error_codes)를 실어 오면 판정 사유로 그대로 노출한다.
+  if (record !== null && Array.isArray(record.error_codes)) {
+    for (const code of record.error_codes) {
+      if (typeof code === "string" && SAFE_ERROR_CODE.test(code)) reasons.push(code);
+    }
+  }
 
   if (probe.detail !== undefined) {
     const details = await collectMailAccountDetails(probe.detail);

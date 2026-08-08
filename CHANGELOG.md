@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2026-08-08 — Mail lane per-account error observability
+
+- The team mailbox collector now promotes connector error codes (e.g.
+  `auth_failed`, `missing_config`) from each account's run result into the
+  team-level `errors[]`, carrying the account alias (`operator_summary`) but
+  never the message body, addresses, or secrets — only codes passing a strict
+  `[a-z][a-z0-9_]{0,47}` gate survive; anything else degrades to
+  `mailbox_source_error`. A run with promoted errors is always `partial`.
+- The mail bridge accepts these promoted codes and suffixes the sanitized
+  account alias (`auth_failed__acc_xxx`), relaxes the summary consistency rule
+  that previously rejected "all accounts ran AND errors exist", and derives the
+  synthetic fallback code from `summary.partial` instead of the child exit code
+  — `mail_child_partial` was unreachable before because the team CLI exits 1 on
+  partial (observed as 726 cycles of generic `mail_child_failed` while a
+  hiworks account was failing auth, 2026-08-07 diagnosis).
+- The five-lane supervisor heartbeat now carries deduplicated safe
+  `error_codes`, and the Watchtower probe surfaces a heartbeat record's
+  `error_codes` verbatim as judgment reasons — a degraded ingress node now
+  reads `auth_failed__acc_xxx` (plus the labeled per-account detail) instead of
+  a generic degraded signal. Verified live: first post-deploy cycle showed the
+  failing account in heartbeat, run receipt, and Watchtower reasons.
+
 ## 2026-08-07 — Watchtower topology health consumer (W1, inspect-only)
 
 - Added `guild_hall/watchtower/`: the first consumer of the heartbeats the

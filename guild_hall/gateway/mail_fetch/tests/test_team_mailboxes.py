@@ -650,6 +650,63 @@ def test_hiworks_mailbox_does_not_load_irrelevant_gmail_nested_credential(
     assert seen[0].hiworks_pop3_password == "synthetic-password"
 
 
+def test_connector_error_codes_promote_to_team_errors_with_account_alias(
+    monkeypatch, tmp_path: Path
+) -> None:
+    register = _write_team_register(
+        tmp_path,
+        [{
+            "id": "acc_hiworks_team",
+            "email": "owner@example.test",
+            "provider": "hiworks",
+            "enabled": True,
+            "env_file": "owner.env",
+        }],
+    )
+    env_text = "HIWORKS_POP3_PASSWORD=synthetic-password\n"
+    env_path = register.parent / "owner.env"
+    env_path.write_text(env_text, encoding="utf-8")
+
+    def failing_run_once(_config: runner.CollectorConfig) -> Dict[str, Any]:
+        return {
+            "partial": False,
+            "total_events": 0,
+            "total_new_events": 0,
+            "total_duplicates": 0,
+            "errors": [
+                {
+                    "source": "hiworks",
+                    "code": "auth_failed",
+                    "message": "POP3 auth failed for owner@example.test",
+                    "retryable": False,
+                },
+                {"source": "hiworks", "code": "auth_failed", "message": "duplicate row"},
+                {"source": "hiworks", "code": "Weird Detail!", "message": "unsafe code"},
+            ],
+        }
+
+    monkeypatch.setattr(runner, "run_once", failing_run_once)
+    summary = run_team_mailboxes(
+        repo_root=tmp_path,
+        register_file=register,
+        credential_texts_by_path={str(env_path): env_text},
+        nested_credential_texts_by_path={},
+    )
+
+    assert summary["partial"] is True
+    assert summary["mailboxes_run"] == 1
+    promoted = [row for row in summary["errors"] if row.get("code") == "auth_failed"]
+    assert len(promoted) == 1
+    assert promoted[0]["mailbox"]["id"] == "acc_hiworks_team"
+    assert promoted[0]["source"] == "hiworks"
+    assert "message" not in promoted[0]
+    fallback = [row for row in summary["errors"] if row.get("code") == "mailbox_source_error"]
+    assert len(fallback) == 1
+    rendered = json.dumps(summary["errors"], ensure_ascii=False)
+    assert "owner@example.test" not in rendered
+    assert "Weird Detail!" not in rendered
+
+
 @pytest.mark.parametrize(
     "row,code,leaked",
     [

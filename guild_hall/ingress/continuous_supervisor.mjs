@@ -64,6 +64,9 @@ function safeCycleSummary(result, cycle) {
     status: result?.status || "unknown",
     run_id: result?.run_id || null,
     error_count: Array.isArray(result?.errors) ? result.errors.length : 0,
+    error_codes: [...new Set((Array.isArray(result?.errors) ? result.errors : [])
+      .map((row) => String(row?.code || ""))
+      .filter((code) => SAFE_CODE.test(code)))].sort(),
     writes_performed: Number.isSafeInteger(result?.writes_performed)
       ? result.writes_performed
       : null,
@@ -112,6 +115,7 @@ export function createSupervisorHeartbeatRecorder(options = {}) {
       cycle: cycleEvent.cycle,
       status: cycleEvent.status,
       error_count: cycleEvent.error_count,
+      error_codes: Array.isArray(cycleEvent.error_codes) ? cycleEvent.error_codes : [],
       mail_status: cycleEvent.mail_status,
     };
     await mkdir(path.dirname(ledgerPath), { recursive: true });

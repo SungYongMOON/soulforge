@@ -121,11 +121,15 @@ test("completed cycles append one metadata-only heartbeat each to a stable ledge
     maxCycles: 2,
     loadBindingImpl: async () => binding(),
     runCycleImpl: async () => ({
-      status: "ok",
+      status: "degraded",
       run_id: "must-not-enter-heartbeat",
-      errors: [],
+      errors: [
+        { binding_id: "mail", code: "auth_failed__acc_hiworks_team" },
+        { binding_id: "mail", code: "auth_failed__acc_hiworks_team" },
+        { binding_id: "mail", code: "Must-Not-Enter-Heartbeat detail" },
+      ],
       writes_performed: 1,
-      mail: { status: "ok", private_subject: "must-not-enter-heartbeat" },
+      mail: { status: "partial", private_subject: "must-not-enter-heartbeat" },
     }),
     delayImpl: async () => true,
     recordHeartbeat,
@@ -137,9 +141,12 @@ test("completed cycles append one metadata-only heartbeat each to a stable ledge
   assert.ok(lines.every((line) => line.schema_version === CONTINUOUS_SUPERVISOR_HEARTBEAT_SCHEMA));
   assert.ok(lines.every((line) => line.observed_at === "2026-08-06T00:00:00.000Z"));
   assert.ok(lines.every((line) => line.instance_id === "test-instance"));
-  assert.ok(lines.every((line) => line.mail_status === "ok"));
+  assert.ok(lines.every((line) => line.mail_status === "partial"));
+  assert.ok(lines.every((line) => line.error_count === 3));
+  lines.forEach((line) => assert.deepEqual(line.error_codes, ["auth_failed__acc_hiworks_team"]));
   const serialized = JSON.stringify(lines);
   assert.equal(serialized.includes("must-not-enter-heartbeat"), false);
+  assert.equal(serialized.includes("Must-Not-Enter-Heartbeat"), false);
   assert.deepEqual(Object.keys(lines[0]), [
     "schema_version",
     "observed_at",
@@ -147,6 +154,7 @@ test("completed cycles append one metadata-only heartbeat each to a stable ledge
     "cycle",
     "status",
     "error_count",
+    "error_codes",
     "mail_status",
   ]);
 });

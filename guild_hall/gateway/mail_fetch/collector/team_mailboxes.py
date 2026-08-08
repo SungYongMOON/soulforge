@@ -33,6 +33,35 @@ def _safe_mailbox_error_code(exc: Exception) -> str:
     ):
         return value
     return value if value in _SAFE_MAILBOX_ERROR_CODES else "mailbox_run_error"
+
+
+_SAFE_CONNECTOR_ERROR_CODE_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
+
+
+def _promoted_result_errors(mailbox: "TeamMailbox", result: Any) -> List[Dict[str, Any]]:
+    # 커넥터 오류코드를 계정 별칭과 함께 team-level errors[]로 승격한다.
+    # 안전 코드([a-z0-9_])만 통과시키고 message·주소·비밀값은 싣지 않는다.
+    rows: List[Dict[str, Any]] = []
+    raw_errors = result.get("errors") if isinstance(result, dict) else None
+    if not isinstance(raw_errors, list):
+        return rows
+    seen = set()
+    for error in raw_errors:
+        if not isinstance(error, dict):
+            continue
+        raw_code = str(error.get("code", "") or "").strip()
+        code = raw_code if _SAFE_CONNECTOR_ERROR_CODE_RE.fullmatch(raw_code) else "mailbox_source_error"
+        raw_source = str(error.get("source", "") or "").strip()
+        source = raw_source if _SAFE_CONNECTOR_ERROR_CODE_RE.fullmatch(raw_source) else ""
+        key = (source, code)
+        if key in seen:
+            continue
+        seen.add(key)
+        row: Dict[str, Any] = {"mailbox": mailbox.operator_summary(), "code": code}
+        if source:
+            row["source"] = source
+        rows.append(row)
+    return rows
 SUPPORTED_PROVIDERS = {"gmail", "hiworks", "outlook_sent"}
 DEFAULT_TEAM_REGISTER_REL = Path("guild_hall/state/gateway/mailbox/state/team_mailboxes.json")
 _REPO_RELATIVE_PREFIXES = (
@@ -267,7 +296,9 @@ def run_team_mailboxes(
             summary["total_events"] += int(result.get("total_events") or 0)
             summary["total_new_events"] += int(result.get("total_new_events") or 0)
             summary["total_duplicates"] += int(result.get("total_duplicates") or 0)
-            summary["partial"] = bool(summary["partial"] or result.get("partial"))
+            result_errors = _promoted_result_errors(mailbox, result)
+            summary["partial"] = bool(summary["partial"] or result.get("partial") or result_errors)
+            summary["errors"].extend(result_errors)
             summary["results"].append(
                 {
                     "mailbox": mailbox.operator_summary(),

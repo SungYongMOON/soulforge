@@ -199,6 +199,43 @@ test("mail bridge preserves safe Outlook custody error codes and redacts arbitra
   }
 });
 
+test("mail bridge promotes connector codes with the account alias and keeps mail_child_partial reachable", async () => {
+  const f = await fixture();
+  try {
+    const child = {
+      ...summary(),
+      partial: true,
+      errors: [
+        {
+          mailbox: { id: "acc_hiworks_team", provider: "hiworks", enabled: true },
+          source: "hiworks",
+          code: "auth_failed",
+        },
+      ],
+    };
+    const promoted = await runMailBridge(f.binding, {
+      executor: async () => ({ exitCode: 1, timedOut: false, stdout: JSON.stringify(child), stderr: "" }),
+    });
+    assert.equal(promoted.status, "partial");
+    assert.deepEqual(promoted.error_codes, ["auth_failed__acc_hiworks_team"]);
+
+    const bare = { ...summary(), partial: true };
+    const partialOnly = await runMailBridge(f.binding, {
+      executor: async () => ({ exitCode: 1, timedOut: false, stdout: JSON.stringify(bare), stderr: "" }),
+    });
+    assert.equal(partialOnly.status, "partial");
+    assert.deepEqual(partialOnly.error_codes, ["mail_child_partial"]);
+
+    const cleanButBadExit = await runMailBridge(f.binding, {
+      executor: async () => ({ exitCode: 3, timedOut: false, stdout: JSON.stringify(summary()), stderr: "" }),
+    });
+    assert.equal(cleanButBadExit.status, "partial");
+    assert.deepEqual(cleanButBadExit.error_codes, ["mail_child_failed"]);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
 test("mail bridge rejects a collector tree that differs from the externally pinned release", async () => {
   const f = await fixture();
   try {
@@ -373,7 +410,10 @@ test("real capsule launcher discovers and preloads a nested password before mail
     assert.equal(result.spawned, true);
     assert.equal(result.mailboxes_enabled, 1);
     assert.equal(result.mailboxes_run, 1);
-    assert.deepEqual(result.error_codes, ["mail_child_failed"]);
+    assert.equal(result.error_codes.length > 0, true);
+    for (const code of result.error_codes) {
+      assert.match(code, /^[a-z][a-z0-9_]*__nested_password$/u);
+    }
     assert.equal(JSON.stringify(result).includes("synthetic-password-must-not-escape"), false);
     await access(nestedCredentialPath);
   } finally {

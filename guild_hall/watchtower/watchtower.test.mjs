@@ -113,12 +113,16 @@ test("jsonl_tail probe reads the last record and fails closed on missing sources
 
   const lines = [
     { observed_at: new Date(NOW - 7_200_000).toISOString(), status: "ok" },
-    { observed_at: new Date(NOW - 120_000).toISOString(), status: "degraded" },
+    {
+      observed_at: new Date(NOW - 120_000).toISOString(),
+      status: "degraded",
+      error_codes: ["auth_failed__acc_hiworks_team", "C:\\private\\path detail", "Bad Code"],
+    },
   ].map((entry) => JSON.stringify(entry)).join("\n");
   await writeFile(file, lines + "\n");
   const result = await runProbe(probe, { now: NOW });
   assert.equal(result.state, "degraded");
-  assert.deepEqual(result.reasons, ["status_degraded"]);
+  assert.deepEqual(result.reasons, ["status_degraded", "auth_failed__acc_hiworks_team"]);
   assert.equal(result.age_seconds, 120);
 });
 
