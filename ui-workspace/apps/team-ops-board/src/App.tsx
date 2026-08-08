@@ -2450,6 +2450,54 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
       note: "",
     });
   }
+  // Anthropic이 모델별 주간 창(예: Opus 전용 한도)을 보고하면 자동으로 행이 된다.
+  for (const modelWindow of claudeOfficial?.model_windows ?? []) {
+    limitRows.push({
+      key: `claude_model_${modelWindow.key}`,
+      group: "주간 창",
+      provider: `Claude·${modelWindow.label}`,
+      percent: Number(modelWindow.utilization),
+      severity: severityFor(Number(modelWindow.utilization), false),
+      resetLabel: fleetResetAtLabel(modelWindow.resets_at ? Date.parse(modelWindow.resets_at) : null),
+      note: "모델별 공식 창",
+    });
+  }
+  // Fable/나머지 남은량 분리 — 공식 모델별 창이 미보고인 동안은 공유 주간 창의 소진을
+  // 원장 7일 토큰 점유율로 분해해 모델별 기여·여유를 보여준다(공식 값 보고 시 위 행이 대체).
+  const claudeLedgerModels = (windows.rolling_7d?.breakdowns?.models?.top ?? [])
+    .filter((row: any) => String(row.model_id ?? "").startsWith("claude") && row.total_tokens > 0);
+  const claudeLedgerTotal = claudeLedgerModels.reduce((sum: number, row: any) => sum + row.total_tokens, 0);
+  if (claudeSevenDay !== null && claudeLedgerTotal > 0 && (claudeOfficial?.model_windows ?? []).length === 0) {
+    const weeklyUsed = Number(claudeSevenDay.utilization);
+    const resetLabel = fleetResetAtLabel(claudeSevenDay.resets_at ? Date.parse(claudeSevenDay.resets_at) : null);
+    const fableTokens = claudeLedgerModels
+      .filter((row: any) => String(row.model_id).startsWith("claude-fable"))
+      .reduce((sum: number, row: any) => sum + row.total_tokens, 0);
+    const fableShare = fableTokens / claudeLedgerTotal;
+    const fableContribution = Math.round(weeklyUsed * fableShare * 10) / 10;
+    const restContribution = Math.round((weeklyUsed - fableContribution) * 10) / 10;
+    const decompositionNote = `공유 주간 창 소진 분해(원장 7일 점유 ${Math.round(fableShare * 100)}% 기준) — Fable 전용 공식 한도는 미보고, 보고되면 자동 대체`;
+    limitRows.push({
+      key: "claude_weekly_fable",
+      group: "주간 창",
+      provider: "Claude·Fable",
+      percent: fableContribution,
+      severity: severityFor(fableContribution, false),
+      resetLabel,
+      note: decompositionNote,
+      valueSmall: "여유",
+    });
+    limitRows.push({
+      key: "claude_weekly_rest",
+      group: "주간 창",
+      provider: "Claude·나머지",
+      percent: restContribution,
+      severity: severityFor(restContribution, false),
+      resetLabel,
+      note: decompositionNote,
+      valueSmall: "여유",
+    });
+  }
   const antigravity = providers?.antigravity ?? null;
   if (antigravity?.credits) {
     const available = antigravity.credits.available;
@@ -2540,7 +2588,7 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
                       <span className="fleet-gauge" role="img" aria-label={`사용 ${Math.round(row.percent)}%`}>
                         <span style={{ width: `${Math.min(100, Math.max(2, row.percent))}%` }} />
                       </span>
-                      <span className="fleet-limit-remain"><b>{Math.max(0, 100 - row.percent).toFixed(0)}%</b><small>남음</small></span>
+                      <span className="fleet-limit-remain"><b>{Math.max(0, 100 - row.percent).toFixed(0)}%</b><small>{row.valueSmall ?? "남음"}</small></span>
                     </>
                   )}
                   <span className="fleet-limit-reset">{row.resetLabel}</span>

@@ -6135,3 +6135,32 @@ a:focus-visible {
 .fleet-panel.is-totals svg { width: 100%; height: 40px; display: block; }
 .fleet-total-area { fill: rgba(112, 217, 140, 0.12); }
 .fleet-total-line { fill: none; stroke: #79c791; stroke-width: 1.4; }
+
+/* Claude 주간 모델 구성 분할 바 (원장 점유율) */
+.fleet-limit-split {
+  display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 4px 8px;
+  align-items: center; margin-top: -2px;
+}
+.fleet-limit-split .fleet-limit-name em {
+  font-style: normal; font-family: Consolas, ui-monospace, monospace;
+  font-size: 10px; color: #8595a0; letter-spacing: 0.06em;
+}
+.fleet-split-track {
+  display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: #1a222b;
+}
+.fleet-split-track > span { display: block; height: 100%; }
+.fleet-split-track > .is-seg-0 { background: #b294f5; }
+.fleet-split-track > .is-seg-1 { background: #7d6fc4; }
+.fleet-split-track > .is-seg-2 { background: #58a6c8; }
+.fleet-split-track > .is-seg-3 { background: #45525c; }
+.fleet-split-legend {
+  grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px 12px;
+  font-family: Consolas, ui-monospace, monospace; font-size: 10px; color: #93a2ac;
+}
+.fleet-split-legend i {
+  display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 4px;
+}
+.fleet-split-legend .is-seg-0 i, .fleet-split-legend span:nth-child(1) i { background: #b294f5; }
+.fleet-split-legend span:nth-child(2) i { background: #7d6fc4; }
+.fleet-split-legend span:nth-child(3) i { background: #58a6c8; }
+.fleet-split-legend span:nth-child(4) i { background: #45525c; }

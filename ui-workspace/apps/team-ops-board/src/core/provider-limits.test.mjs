@@ -29,20 +29,30 @@ test("codex JSONL parser fails closed on garbage and invalid percents", () => {
   assert.equal(parseCodexRateLimitsFromJsonlText(invalid), null);
 });
 
-test("claude oauth normalizer keeps only utilization windows and clamps shape", () => {
+test("claude oauth normalizer keeps utilization windows and scoped model limits", () => {
   const normalized = normalizeClaudeOauthUsage({
     five_hour: { utilization: 89, resets_at: "2026-08-08T04:09:59.932986+00:00" },
     seven_day: { utilization: 18.26, resets_at: "2026-08-14T20:59:59Z" },
-    seven_day_opus: null,
-    limits: { secret_budget: 999 },
+    seven_day_opus: { utilization: 28, resets_at: "2026-08-14T20:59:59Z" },
+    seven_day_sonnet: null,
+    nimbus_quill: { utilization: 0, resets_at: null },
+    limits: [
+      { kind: "session", group: "session", percent: 89, severity: "normal", resets_at: "2026-08-08T04:09:59Z", scope: null },
+      { kind: "weekly_all", group: "weekly", percent: 18.26, resets_at: "2026-08-14T20:59:59Z", scope: null },
+      { kind: "weekly_scoped", group: "weekly", percent: 46, resets_at: "2026-08-14T21:00:00Z", scope: { model: { id: null, display_name: "Fable" }, surface: null } },
+      { kind: "weekly_scoped", group: "weekly", percent: "많이", scope: { model: { display_name: "Broken" } } },
+    ],
     spend: { amount: 12 },
   });
   assert.equal(normalized.five_hour.utilization, 89);
   assert.equal(normalized.five_hour.resets_at, "2026-08-08T04:09:59.932Z");
   assert.equal(normalized.seven_day.utilization, 18.3);
-  assert.equal(normalized.seven_day_opus, null);
-  assert.equal(Object.keys(normalized).length, 4);
-  assert.doesNotMatch(JSON.stringify(normalized), /secret_budget|spend/u);
+  assert.deepEqual(normalized.model_windows, [
+    { key: "weekly_scoped", label: "Fable", utilization: 46, resets_at: "2026-08-14T21:00:00.000Z" },
+    { key: "seven_day_opus", label: "Opus", utilization: 28, resets_at: "2026-08-14T20:59:59.000Z" },
+  ]);
+  assert.equal(Object.keys(normalized).length, 3);
+  assert.doesNotMatch(JSON.stringify(normalized), /spend|nimbus|Broken/u);
 });
 
 test("claude oauth normalizer fails closed when no window is usable", () => {
