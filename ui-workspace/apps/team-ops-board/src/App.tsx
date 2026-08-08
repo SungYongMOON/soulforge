@@ -2564,6 +2564,19 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   const topModelRows = modelRows.slice(0, 7);
   const maxModelTokens = Math.max(...topModelRows.map((row) => row.tokens), 1);
   const claudeUsd = estimateClaudeUsdCost(Array.isArray(claudeRecon?.models_7d) ? claudeRecon.models_7d : null);
+  // AG는 토큰이 원장에 없어(요청 수만) 토큰 목록에서 걸러진다 — 요청 수 줄로 항상 표시한다.
+  const requestModelRows: any[] = [];
+  for (const row of windows.rolling_7d?.breakdowns?.models?.top ?? []) {
+    if (!Number.isFinite(row?.turns) || row.turns <= 0) continue;
+    if ((row.total_tokens ?? 0) > 0) continue;
+    const rawId = String(row.model_id ?? "");
+    if (rawId === "unassigned") continue;
+    requestModelRows.push({ model: rawId.replace(/^gemini-/u, ""), turns: row.turns });
+  }
+  requestModelRows.sort((left, right) => right.turns - left.turns);
+  const topRequestRows = requestModelRows.slice(0, 5);
+  const maxRequestTurns = Math.max(...topRequestRows.map((row) => row.turns), 1);
+  const totalRequestTurns = requestModelRows.reduce((sum, row) => sum + row.turns, 0);
 
   // ── 패널 3: CODEX 원장 총괄 + 40일 추이
   const totalsRows = [
@@ -2645,11 +2658,29 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
             ))}
           </ul>
         )}
+        {topRequestRows.length > 0 && (
+          <>
+            <p className="fleet-model-caption">요청 수 · Antigravity (토큰 미기록)</p>
+            <ul className="fleet-model-rows is-requests">
+              {topRequestRows.map((row) => (
+                <li key={row.model}>
+                  <span className="fleet-model-dot is-gemini" aria-hidden="true" />
+                  <span className="fleet-model-name">{row.model}</span>
+                  <span className="fleet-model-bar">
+                    <span className="is-gemini" style={{ width: `${Math.max(3, Math.round((row.turns / maxRequestTurns) * 100))}%` }} />
+                  </span>
+                  <span className="fleet-model-value">{row.turns.toLocaleString("en-US")}회</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         <p className="fleet-panel-foot">
           {providerTokens.codex > 0 ? `Codex ${fleetTokenLabel(providerTokens.codex)}` : ""}
           {providerTokens.codex > 0 && providerTokens.claude > 0 ? " · " : ""}
           {providerTokens.claude > 0 ? `Claude ${fleetTokenLabel(providerTokens.claude)}` : ""}
           {claudeUsd !== null && claudeUsd.usd > 0 ? ` · Claude 예상 $${claudeUsd.usd.toLocaleString("en-US")}` : ""}
+          {totalRequestTurns > 0 ? ` · AG ${totalRequestTurns.toLocaleString("en-US")}회` : ""}
         </p>
       </article>
       <article className="fleet-usage-card fleet-panel is-totals">

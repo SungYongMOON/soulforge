@@ -6164,3 +6164,12 @@ a:focus-visible {
 .fleet-split-legend span:nth-child(2) i { background: #7d6fc4; }
 .fleet-split-legend span:nth-child(3) i { background: #58a6c8; }
 .fleet-split-legend span:nth-child(4) i { background: #45525c; }
+
+/* AG 요청 수 모델 줄 (토큰 미기록 공급자) */
+.fleet-model-caption {
+  margin: 6px 0 0; font-family: Consolas, ui-monospace, monospace;
+  font-size: 10px; letter-spacing: 0.14em; color: #8595a0;
+  padding-top: 6px; border-top: 1px solid #1c242d;
+}
+.fleet-model-dot.is-gemini { background: #f5b849; }
+.fleet-model-bar > span.is-gemini { background: linear-gradient(90deg, #6b5424, #f5b849); }

@@ -26,7 +26,9 @@
   인덱스 미포함 대화는 DB 파일 min(생성,수정)시각을 관측 시각으로 쓰는
   폴백(수집 창 --max-age-days, 기본 45일)을 추가 — 실측 648 이벤트
   (gemini-3.6-flash 413턴 등 12개 모델)가 원장에 합류. Owner가 관측한
-  "Gemini Flash 3.6 응답"의 계측 경로가 이것으로 닫힘.
+  "Gemini Flash 3.6 응답"의 계측 경로가 이것으로 닫힘. 모델별 패널이
+  토큰>0 필터로 AG를 숨기던 표시 결함을 고쳐 "요청 수 · Antigravity"
+  줄(모델별 N회, 앱 종료와 무관하게 원장 기준 상시 표시)을 추가.
 - (같은 날 후속 2) Antigravity 공식 잔여 쿼터 로컬 관측: 실행 중인
   language_server의 로컬 RPC(RetrieveUserQuotaSummary)가 앱 화면과 동일한
   그룹별 잔여율(Gemini/Claude+GPT × 주간·5시간, resetTime)을 무인증으로
