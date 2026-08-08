@@ -179,7 +179,7 @@ function judgeWindow(ageSeconds, probe) {
   return "stale";
 }
 
-const SAFE_ERROR_CODE = /^[a-z][a-z0-9_]{0,47}$/u;
+const SAFE_ERROR_CODE = /^[a-z][a-z0-9_]{0,127}$/u;
 
 // mail 계정별 요약(logs/last_run_summary.json)을 훑어 실패 계정을 사람 말로
 // 특정한다. 주소·경로·원문은 절대 싣지 않는다 — 라벨(owner 제공) 또는 별칭만.
