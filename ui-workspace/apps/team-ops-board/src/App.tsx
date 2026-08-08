@@ -2432,8 +2432,10 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
       provider: "Codex",
       percent: expired ? null : used,
       severity: severityFor(used, expired),
-      resetLabel: expired ? "리셋 경과 · 재관측 대기" : fleetResetAtLabel(resetsMs),
-      note: expired ? `이전 창 ${used.toFixed(0)}% · ${fleetObservedAgoLabel(rateLimit.observed_at)}` : fleetObservedAgoLabel(rateLimit.observed_at),
+      resetLabel: expired ? "리셋 경과" : fleetResetAtLabel(resetsMs),
+      note: expired
+        ? `이전 창 ${used.toFixed(0)}% (${fleetObservedAgoLabel(rateLimit.observed_at)}) — 새 Codex 턴 실행 시 재관측`
+        : fleetObservedAgoLabel(rateLimit.observed_at),
     });
   }
   if (claudeSevenDay !== null) {
@@ -2776,7 +2778,7 @@ function SystemStatStrip({ projection, hostStats, usage, threadCount, usageState
       <span>주의 <b className={summary && summary.degraded + summary.stale + summary.down > 0 ? "is-warn" : ""}>{summary ? summary.degraded + summary.stale + summary.down : "—"}</b></span>
       <span>등록 <b>{threadCount}</b></span>
       <span>판정 <b>{observed}</b></span>
-      <span>METER <b className={usageState === "unmeasured" ? "" : "is-ok"}>{usageState === "unmeasured" ? "대기" : "가동"}</b> <span className="system-stat-strip-scope">CODEX만 · CLAUDE/GEMINI 미계측</span></span>
+      <span>METER <b className={usageState === "unmeasured" ? "" : "is-ok"}>{usageState === "unmeasured" ? "대기" : "가동"}</b> <span className="system-stat-strip-scope">원장 CODEX · CLAUDE 표시 계측 · GEMINI 크레딧만</span></span>
       {Number.isFinite(allTokens) && (
         <span className="system-stat-strip-end">총 사용 토큰 <b className="is-total">{fleetTokenLabel(allTokens)}</b>
           {Number.isFinite(rolling30) && <> 일평균 <b>{fleetTokenLabel(Math.round((rolling30 as number) / 30))}</b></>}

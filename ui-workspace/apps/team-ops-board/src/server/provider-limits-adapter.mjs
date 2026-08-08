@@ -14,6 +14,8 @@ import {
 
 export const PROVIDER_LIMITS_SNAPSHOT_PATH = "/provider-limits.snapshot.json";
 export const DEFAULT_PROVIDER_LIMITS_TTL_MS = 60_000;
+// OAuth usage 엔드포인트는 호출 빈도 제한(429)이 있어 별도의 긴 주기로만 재조회한다.
+export const DEFAULT_CLAUDE_LIMITS_REFRESH_MS = 300_000;
 export const DEFAULT_PROVIDER_LIMITS_FETCH_TIMEOUT_MS = 6_000;
 const CODEX_TAIL_BYTES = 262_144;
 
@@ -109,22 +111,31 @@ export function createProviderLimitsReader({
   credentialsPath = path.join(os.homedir(), ".claude", ".credentials.json"),
   fetchImpl = fetch,
   ttlMs = DEFAULT_PROVIDER_LIMITS_TTL_MS,
+  claudeRefreshMs = DEFAULT_CLAUDE_LIMITS_REFRESH_MS,
   fetchTimeoutMs = DEFAULT_PROVIDER_LIMITS_FETCH_TIMEOUT_MS,
   now = Date.now,
 } = {}) {
   let inFlight = null;
   let lastAttemptAt = null;
+  // 공급자별 last-good을 따로 유지 — 한쪽 실패(예: OAuth 429)가 다른 쪽 관측을 지우지 않는다.
+  let lastCodex = null;
+  let lastClaude = null;
+  let lastClaudeAttemptAt = null;
   let lastGood = null;
 
   async function refresh() {
-    const [codex, claude] = await Promise.all([
-      readCodexLimits(sessionsRoot).catch(() => null),
-      readClaudeLimits({ credentialsPath, fetchImpl, timeoutMs: fetchTimeoutMs }).catch(() => null),
-    ]);
-    if (codex === null && claude === null) return;
+    const codex = await readCodexLimits(sessionsRoot).catch(() => null);
+    if (codex !== null) lastCodex = codex;
+    const observedNow = now();
+    if (lastClaudeAttemptAt === null || observedNow - lastClaudeAttemptAt >= claudeRefreshMs) {
+      lastClaudeAttemptAt = observedNow;
+      const claude = await readClaudeLimits({ credentialsPath, fetchImpl, timeoutMs: fetchTimeoutMs }).catch(() => null);
+      if (claude !== null) lastClaude = { ...claude, observed_at: new Date(observedNow).toISOString() };
+    }
+    if (lastCodex === null && lastClaude === null) return;
     lastGood = buildProviderLimitsSnapshot({
-      codex,
-      claude,
+      codex: lastCodex,
+      claude: lastClaude,
       observedAtMs: now(),
     });
   }
