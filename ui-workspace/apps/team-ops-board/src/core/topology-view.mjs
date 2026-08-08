@@ -6,11 +6,25 @@ export const TOPOLOGY_HEALTH_STATES = Object.freeze(["ok", "degraded", "stale", 
 const GROUP_COLUMNS = Object.freeze({
   "외부 소스": 0,
   "수집": 1,
-  "관측": 1,
   "게이트": 2,
   "데이터 평면": 2,
-  "소비": 3,
+  "후처리": 3,
+  "관측": 3,
+  "소비": 4,
 });
+
+const COLUMN_LANES = Object.freeze({
+  0: { label: "외부 소스", roleLabel: "INPUT", tone: "input" },
+  1: { label: "수집·연산", roleLabel: "COLLECT", tone: "process" },
+  2: { label: "데이터·판단", roleLabel: "DATA / DECISION", tone: "data" },
+  3: { label: "후처리·판정", roleLabel: "PROCESS / ROUTE", tone: "route" },
+  4: { label: "소비", roleLabel: "OUTPUT", tone: "output" },
+});
+
+const TOPOLOGY_COLUMN_GAP = 440;
+const TOPOLOGY_ROW_GAP = 144;
+const TOPOLOGY_TOP_GUTTER = 96;
+const TOPOLOGY_LANE_WIDTH = 360;
 
 const STATE_LABELS = Object.freeze({
   ok: "정상",
@@ -45,6 +59,23 @@ export function describeTopologyAge(ageSeconds) {
   return `${Math.round(ageSeconds / 3600)}시간 전`;
 }
 
+export function distributeTopologyPorts(count) {
+  if (!Number.isInteger(count) || count <= 0) return [];
+  if (count === 1) return [50];
+  if (count === 2) return [36, 64];
+  if (count === 3) return [28, 50, 72];
+  if (count === 4) return [22, 41, 59, 78];
+  return Array.from({ length: count }, (_value, index) => 18 + (index * 64) / (count - 1));
+}
+
+function distributeTopologySteps(count) {
+  if (count <= 1) return [0.5];
+  if (count === 2) return [0.42, 0.58];
+  if (count === 3) return [0.34, 0.5, 0.66];
+  if (count === 4) return [0.3, 0.43, 0.57, 0.7];
+  return Array.from({ length: count }, (_value, index) => 0.28 + (index * 0.44) / (count - 1));
+}
+
 export function buildTopologyViewModel(snapshot) {
   if (snapshot === null || typeof snapshot !== "object" || !Array.isArray(snapshot.nodes)) {
     return { available: false, nodes: [], edges: [], summary: null, attention: [], observedAt: null };
@@ -52,7 +83,9 @@ export function buildTopologyViewModel(snapshot) {
   const columnCursor = new Map();
   const nodes = snapshot.nodes.map((node) => {
     const state = TOPOLOGY_HEALTH_STATES.includes(node?.health?.state) ? node.health.state : "unmonitored";
-    const column = Number.isFinite(node?.col) ? node.col : (GROUP_COLUMNS[node.group] ?? 2);
+    const column = Number.isFinite(node?.col)
+      ? Math.round(node.col)
+      : (GROUP_COLUMNS[node.group] ?? 2);
     let row;
     if (Number.isFinite(node?.row)) {
       row = node.row;
@@ -71,44 +104,105 @@ export function buildTopologyViewModel(snapshot) {
       reasons: Array.isArray(node?.health?.reasons)
         ? node.health.reasons.map((reason) => describeTopologyReason(reason))
         : [],
-      position: { x: column * 300, y: 64 + row * 100 },
+      position: {
+        x: column * TOPOLOGY_COLUMN_GAP,
+        y: TOPOLOGY_TOP_GUTTER + row * TOPOLOGY_ROW_GAP,
+      },
     };
   });
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
-  const captionColumns = new Map();
-  for (const node of nodes) {
-    const column = Math.round(node.position.x / 300);
-    if (!captionColumns.has(column)) captionColumns.set(column, node.group);
-  }
-  const captions = [...captionColumns.entries()]
-    .filter(([, group]) => group.length > 0)
-    .map(([column, group]) => ({
-      id: `caption-col-${column}`,
-      label: group,
-      kind: "caption",
-      group,
-      state: "caption",
-      stateLabel: "",
-      ageLabel: "",
-      reasons: [],
-      position: { x: column * 300, y: 8 },
-    }));
-  const FLOWING = new Set(["ok", "degraded"]);
-  const edges = (Array.isArray(snapshot.edges) ? snapshot.edges : [])
+  const laneHeight = Math.max(360, ...nodes.map((node) => node.position.y + 94));
+  const lanes = [...new Set(nodes.map((node) => Math.round(node.position.x / TOPOLOGY_COLUMN_GAP)))]
+    .sort((left, right) => left - right)
+    .map((column) => {
+      const lane = COLUMN_LANES[column] ?? {
+        label: `단계 ${column + 1}`,
+        roleLabel: "FLOW",
+        tone: "neutral",
+      };
+      return {
+        id: `lane-col-${column}`,
+        label: lane.label,
+        roleLabel: lane.roleLabel,
+        tone: lane.tone,
+        kind: "lane",
+        group: lane.label,
+        width: TOPOLOGY_LANE_WIDTH,
+        height: laneHeight,
+        column,
+        state: "lane",
+        stateLabel: "",
+        ageLabel: "",
+        reasons: [],
+        position: { x: column * TOPOLOGY_COLUMN_GAP - 64, y: 0 },
+      };
+    });
+  const rawEdges = (Array.isArray(snapshot.edges) ? snapshot.edges : [])
     .filter((edge) => nodeById.has(edge?.from) && nodeById.has(edge?.to))
     .map((edge, index) => {
-      const source = nodeById.get(edge.from);
-      const target = nodeById.get(edge.to);
-      const flowing = FLOWING.has(source.state) || FLOWING.has(target.state);
       return {
         id: `topo-edge-${index}`,
         source: String(edge.from),
         target: String(edge.to),
         label: typeof edge.label === "string" ? edge.label : "",
         flow: edge.flow === "control" ? "control" : "data",
-        flowing,
       };
     });
+  const inboundByNode = new Map(nodes.map((node) => [node.id, []]));
+  const outboundByNode = new Map(nodes.map((node) => [node.id, []]));
+  for (const edge of rawEdges) {
+    inboundByNode.get(edge.target).push(edge);
+    outboundByNode.get(edge.source).push(edge);
+  }
+  const compareByOppositeNode = (side) => (left, right) => {
+    const leftNode = nodeById.get(side === "input" ? left.source : left.target);
+    const rightNode = nodeById.get(side === "input" ? right.source : right.target);
+    return leftNode.position.y - rightNode.position.y
+      || leftNode.position.x - rightNode.position.x
+      || left.id.localeCompare(right.id);
+  };
+  for (const entries of inboundByNode.values()) entries.sort(compareByOppositeNode("input"));
+  for (const entries of outboundByNode.values()) entries.sort(compareByOppositeNode("output"));
+
+  const routeByEdge = new Map();
+  for (const node of nodes) {
+    const inbound = inboundByNode.get(node.id);
+    const outbound = outboundByNode.get(node.id);
+    const inputTops = distributeTopologyPorts(inbound.length);
+    const outputTops = distributeTopologyPorts(outbound.length);
+    const outputSteps = distributeTopologySteps(outbound.length);
+    inbound.forEach((edge, index) => {
+      routeByEdge.set(edge.id, {
+        ...(routeByEdge.get(edge.id) ?? {}),
+        targetHandle: `input-${edge.id}`,
+        targetPortIndex: index,
+        targetPortTop: inputTops[index],
+      });
+    });
+    outbound.forEach((edge, index) => {
+      routeByEdge.set(edge.id, {
+        ...(routeByEdge.get(edge.id) ?? {}),
+        sourceHandle: `output-${edge.id}`,
+        sourcePortIndex: index,
+        sourcePortTop: outputTops[index],
+        stepPosition: outputSteps[index],
+      });
+    });
+  }
+  const routedNodes = nodes.map((node) => ({
+    ...node,
+    inputPorts: inboundByNode.get(node.id).map((edge) => ({
+      id: `input-${edge.id}`,
+      edgeId: edge.id,
+      top: routeByEdge.get(edge.id).targetPortTop,
+    })),
+    outputPorts: outboundByNode.get(node.id).map((edge) => ({
+      id: `output-${edge.id}`,
+      edgeId: edge.id,
+      top: routeByEdge.get(edge.id).sourcePortTop,
+    })),
+  }));
+  const edges = rawEdges.map((edge) => ({ ...edge, ...routeByEdge.get(edge.id) }));
   const summary = Object.fromEntries(TOPOLOGY_HEALTH_STATES.map((state) => [
     state,
     nodes.filter((node) => node.state === state).length,
@@ -121,7 +215,7 @@ export function buildTopologyViewModel(snapshot) {
     });
   return {
     available: true,
-    nodes: [...captions, ...nodes],
+    nodes: [...lanes, ...routedNodes],
     edges,
     summary,
     attention,

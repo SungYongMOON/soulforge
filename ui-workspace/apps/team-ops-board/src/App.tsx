@@ -1,9 +1,10 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
-import { Background, BackgroundVariant, Handle, Position, ReactFlow, type NodeProps } from "@xyflow/react";
+import { Background, BackgroundVariant, Controls, Handle, MarkerType, MiniMap, Position, ReactFlow, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
   Activity,
   AlertCircle,
+  AudioLines,
   ArchiveRestore,
   Building2,
   Check,
@@ -13,17 +14,35 @@ import {
   CircleDot,
   CircleHelp,
   Clock3,
+  Cloud,
+  Cpu,
+  Database,
   EyeOff,
+  FolderOpen,
   Gauge,
   History,
+  Inbox,
   ListChecks,
+  Mail,
+  MessageSquare,
+  Monitor,
+  PanelsTopLeft,
   Radio,
+  RadioTower,
   RefreshCw,
+  ShieldCheck,
   ShieldAlert,
   UserRound,
   UsersRound,
+  Workflow,
   X
 } from "lucide-react";
+
+import codexBrandIconUrl from "@lobehub/icons-static-svg/icons/codex-color.svg";
+import notebookLmBrandIconUrl from "@lobehub/icons-static-svg/icons/notebooklm.svg";
+import oneDriveBrandIconUrl from "./assets/topology/microsoft-onedrive.svg";
+import slackBrandIconUrl from "./assets/topology/slack.svg";
+import { siGmail, siGoogledrive } from "simple-icons";
 
 import { aiUsageProjectionRequest } from "./core/ai-usage-projection-request.mjs";
 import { createUnmeasuredAiUsageSnapshot } from "./core/ai-usage-snapshot.mjs";
@@ -63,11 +82,13 @@ import {
   buildOrganizationUsageChartRows,
   buildProjectUsageChartRows,
   buildRealtimeStatusBuckets,
+  countRealtimeConnectedSessions,
   formatRealtimeCoverage,
   isOrganizationUsageAttributionReady,
   liveProjectionLoadPresentation,
   observationGapBreakdown,
   paginateExactItems,
+  realtimeThreadConnectionPresentation,
   realtimeStatusCopy,
   resolveLiveProjectionRefresh,
 } from "./core/live-thread-ui-model.mjs";
@@ -1051,7 +1072,7 @@ function RealtimeDashboard({
             <div>
               <span>LIVE STATUS</span>
               <h2 id="realtime-status-heading">
-                <em className="realtime-session-count">{buckets.active.length + buckets.waiting.length + buckets.owner_result.length}</em> 활성 세션
+                <em className="realtime-session-count">{countRealtimeConnectedSessions(buckets)}</em> 활성 세션
               </h2>
             </div>
             <span className="realtime-panel-meta">
@@ -1190,6 +1211,7 @@ function RealtimeThreadRow({
   directChildCount: number;
   onSelect: (threadId: string, trigger: HTMLButtonElement) => void;
 }) {
+  const connection = realtimeThreadConnectionPresentation(thread);
   return (
     <button
       className={`realtime-thread-row ${selected ? "is-selected" : ""}`}
@@ -1199,8 +1221,8 @@ function RealtimeThreadRow({
       aria-expanded={selected}
       onClick={(event) => onSelect(thread.thread_id, event.currentTarget)}
     >
-      <span className={`realtime-status-icon is-${thread.status}`}><CircleDot size={16} aria-hidden="true" /></span>
-      <span className="realtime-thread-role"><strong>{thread.display_label}</strong><small>{liveThreadRoleLabel(thread.thread_kind)}</small></span>
+      <span className={`realtime-status-icon is-${connection.tone}`} aria-label={connection.label} title={connection.label}><CircleDot size={16} aria-hidden="true" /></span>
+      <span className="realtime-thread-role"><strong>{thread.display_label}</strong><small>{liveThreadRoleLabel(thread.thread_kind)} · <span className={`realtime-connection-state is-${connection.tone}`}>{connection.label}</span></small></span>
       <span>{thread.work_id ?? "work 미확정"}</span>
       <time dateTime={thread.updated_at}>{formatRefreshTime(thread.updated_at)}</time>
       <span>{directChildCount}</span>
@@ -2939,60 +2961,227 @@ function FleetStatusRows({ projection }: { projection: any }) {
   );
 }
 
-function WatchtowerTopologyNode({ data }: NodeProps<any>) {
-  if (data.kind === "caption") {
-    return <span className="watchtower-caption">{data.label}</span>;
-  }
+const WATCHTOWER_NODE_ICON_BY_ID: Record<string, any> = {
+  src_hiworks: Mail,
+  src_plaud: AudioLines,
+  ingress_supervisor: Inbox,
+  mail_forwarder: Mail,
+  voice_label_worker: AudioLines,
+  slack_batch: MessageSquare,
+  local_activity: FolderOpen,
+  usage_meter: Gauge,
+  watchtower_self: RadioTower,
+  gate_five_field: ShieldCheck,
+  consumer_timeline: Monitor,
+  consumer_board: PanelsTopLeft,
+};
+
+const WATCHTOWER_FALLBACK_ICON_BY_KIND: Record<string, any> = {
+  external: Cloud,
+  supervisor: Workflow,
+  worker: Cpu,
+  store: Database,
+  gate: ShieldCheck,
+  consumer: PanelsTopLeft,
+};
+
+type WatchtowerBrandIcon =
+  | { kind: "url"; url: string; monochrome: boolean }
+  | { kind: "simple"; path: string; hex: string };
+
+function watchtowerBrandIcon(data: any): WatchtowerBrandIcon | null {
+  const id = String(data?.id ?? "").toLowerCase();
+  if (id === "src_gmail") return { kind: "simple", path: siGmail.path, hex: siGmail.hex };
+  if (id === "src_slack") return { kind: "url", url: slackBrandIconUrl, monochrome: false };
+  if (id === "src_onedrive") return { kind: "url", url: oneDriveBrandIconUrl, monochrome: false };
+  if (id === "src_codex") return { kind: "url", url: codexBrandIconUrl, monochrome: false };
+  if (id.includes("notebooklm")) return { kind: "url", url: notebookLmBrandIconUrl, monochrome: true };
+  if (id.includes("google_drive") || id.includes("googledrive")) return { kind: "simple", path: siGoogledrive.path, hex: siGoogledrive.hex };
+  return null;
+}
+
+function watchtowerKindLabel(kind: string): string {
+  if (kind === "external") return "외부 서비스";
+  if (kind === "supervisor") return "감독·수집";
+  if (kind === "worker") return "연산·처리";
+  if (kind === "store") return "데이터 저장";
+  if (kind === "gate") return "판단·검증";
+  if (kind === "consumer") return "출력·소비";
+  return "시스템 장치";
+}
+
+function watchtowerShapeLabel(kind: string): string {
+  if (kind === "external") return "사선형 입력";
+  if (kind === "supervisor") return "캡슐형 감독";
+  if (kind === "worker") return "직사각형 연산";
+  if (kind === "store") return "원통형 저장";
+  if (kind === "gate") return "마름형 판단";
+  if (kind === "consumer") return "출력형 소비";
+  return "장치형";
+}
+
+function WatchtowerTopologyLane({ data }: NodeProps<any>) {
   return (
-    <div className={`watchtower-node is-${data.state} watchtower-node-${data.kind}`}>
-      {data.kind === "store" && <span className="watchtower-node-cap" aria-hidden="true" />}
-      <Handle type="target" position={Position.Left} isConnectable={false} aria-hidden="true" />
-      <span className="watchtower-node-dot" aria-hidden="true" />
-      <div className="watchtower-node-body">
-        <strong>{data.label}</strong>
-        <small>{data.state === "unmonitored" ? "미감시 · 구조 표시" : `${data.stateLabel} · ${data.ageLabel}`}</small>
-      </div>
-      <Handle type="source" position={Position.Right} isConnectable={false} aria-hidden="true" />
+    <div
+      className={`watchtower-lane watchtower-lane-${data.tone}`}
+      style={{ width: data.width, height: data.height }}
+    >
+      <span>{data.roleLabel}</span>
+      <strong>{data.label}</strong>
     </div>
   );
 }
 
-const watchtowerTopologyNodeTypes = { watchtowerTopology: WatchtowerTopologyNode };
+function WatchtowerTopologyNode({ data }: NodeProps<any>) {
+  const BrandIcon = watchtowerBrandIcon(data);
+  const DeviceIcon = WATCHTOWER_NODE_ICON_BY_ID[data.id] ?? WATCHTOWER_FALLBACK_ICON_BY_KIND[data.kind] ?? Cpu;
+  const kindLabel = watchtowerKindLabel(data.kind);
+  const shapeLabel = watchtowerShapeLabel(data.kind);
+  const updateNodeInternals = useUpdateNodeInternals();
+  useEffect(() => {
+    updateNodeInternals(data.id);
+  }, [data.id, data.portSignature, updateNodeInternals]);
+  return (
+    <div className={`watchtower-node is-${data.state} watchtower-node-${data.kind} ${data.isSelected ? "is-selected" : ""} ${data.isDimmed ? "is-dimmed" : ""}`}>
+      {data.kind === "store" && <span className="watchtower-node-cap" aria-hidden="true" />}
+      {data.inputPorts.map((port: any) => (
+        <Handle key={port.id} id={port.id} type="target" position={Position.Left} style={{ top: `${port.top}%` }} className="watchtower-port watchtower-port-input" isConnectable={false} aria-hidden="true" />
+      ))}
+      <button
+        type="button"
+        className="watchtower-node-hit nodrag nopan"
+        onClick={(event) => {
+          event.stopPropagation();
+          data.onActivate(data.id);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.stopPropagation();
+          data.onActivate(data.id);
+        }}
+        aria-pressed={data.isSelected}
+        aria-label={`${data.label} · ${shapeLabel} · ${kindLabel} · ${data.stateLabel} · 입력 ${data.inputPorts.length}개 · 출력 ${data.outputPorts.length}개`}
+        title={`${shapeLabel} · ${kindLabel} · 입력 왼쪽 / 출력 오른쪽`}
+      >
+        <span className={`watchtower-node-icon watchtower-node-icon-${data.kind}`} aria-hidden="true">
+          {BrandIcon
+            ? BrandIcon.kind === "url"
+              ? <img src={BrandIcon.url} alt="" className={BrandIcon.monochrome ? "is-monochrome" : ""} />
+              : <svg className="watchtower-simple-icon" viewBox="0 0 24 24" role="presentation" style={{ color: `#${BrandIcon.hex}` }}><path d={BrandIcon.path} /></svg>
+            : <DeviceIcon size={17} strokeWidth={1.8} />}
+        </span>
+        <span className="watchtower-node-dot" aria-hidden="true" />
+        <span className="watchtower-node-body">
+          <strong>{data.label}</strong>
+          <small>{data.state === "unmonitored" ? "미감시 · 구조 표시" : `${data.stateLabel} · ${data.ageLabel}`}</small>
+        </span>
+      </button>
+      {data.outputPorts.map((port: any) => (
+        <Handle key={port.id} id={port.id} type="source" position={Position.Right} style={{ top: `${port.top}%` }} className="watchtower-port watchtower-port-output" isConnectable={false} aria-hidden="true" />
+      ))}
+    </div>
+  );
+}
+
+const watchtowerTopologyNodeTypes = {
+  watchtowerTopology: WatchtowerTopologyNode,
+  watchtowerLane: WatchtowerTopologyLane,
+};
+
+function watchtowerMiniMapColor(node: any): string {
+  if (node?.data?.kind === "lane") return "transparent";
+  if (node?.data?.state === "ok") return "#70d98c";
+  if (node?.data?.state === "degraded" || node?.data?.state === "stale") return "#f5b849";
+  if (node?.data?.state === "down") return "#ff8d84";
+  return "#72b7ff";
+}
 
 function SystemTopologySurface({ projection, refreshing }: { projection: any; refreshing: boolean }) {
   const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
   const [flowInstance, setFlowInstance] = useState<any>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const fittedLayoutRef = useRef<string | null>(null);
+  const layoutSignature = useMemo(() => model.nodes
+    .filter((node: any) => node.kind !== "lane")
+    .map((node: any) => `${node.id}:${node.position.x}:${node.position.y}:${node.inputPorts.length}:${node.outputPorts.length}`)
+    .join("|"), [model.nodes]);
   useEffect(() => {
-    if (flowInstance === null || model.nodes.length === 0) return undefined;
-    const fit = () => {
-      try { flowInstance.fitView({ padding: 0.08 }); } catch {
-        // fitView는 표시 품질 보정일 뿐 — 실패해도 판정 표시는 유지한다.
+    if (flowInstance === null || layoutSignature.length === 0 || fittedLayoutRef.current === layoutSignature) return undefined;
+    fittedLayoutRef.current = layoutSignature;
+    const openFromInputLane = () => {
+      try { flowInstance.setViewport({ x: 72, y: 22, zoom: 0.82 }, { duration: 180 }); } catch {
+        // 초기 보기 보정 실패는 상태 판정과 무관하다.
       }
     };
-    const frame = requestAnimationFrame(fit);
-    const settle = window.setTimeout(fit, 350);
+    const frame = requestAnimationFrame(openFromInputLane);
     return () => {
       cancelAnimationFrame(frame);
-      window.clearTimeout(settle);
     };
-  }, [flowInstance, model]);
+  }, [flowInstance, layoutSignature]);
+  useEffect(() => {
+    if (selectedNodeId === null) return;
+    if (!model.nodes.some((node: any) => node.id === selectedNodeId && node.kind !== "lane")) {
+      setSelectedNodeId(null);
+    }
+  }, [model, selectedNodeId]);
+  const focusedNodeIds = useMemo(() => {
+    if (selectedNodeId === null) return new Set<string>();
+    const focused = new Set<string>([selectedNodeId]);
+    for (const edge of model.edges) {
+      if (edge.source === selectedNodeId || edge.target === selectedNodeId) {
+        focused.add(edge.source);
+        focused.add(edge.target);
+      }
+    }
+    return focused;
+  }, [model.edges, selectedNodeId]);
+  const selectedNode = selectedNodeId === null
+    ? null
+    : model.nodes.find((node: any) => node.id === selectedNodeId && node.kind !== "lane") ?? null;
   const graphNodes = useMemo(() => model.nodes.map((node: any) => ({
     id: node.id,
-    type: "watchtowerTopology",
+    type: node.kind === "lane" ? "watchtowerLane" : "watchtowerTopology",
     position: node.position,
-    data: node,
+    data: node.kind === "lane"
+      ? node
+      : {
+          ...node,
+          isSelected: selectedNodeId === node.id,
+          isDimmed: selectedNodeId !== null && !focusedNodeIds.has(node.id),
+          onActivate: (nodeId: string) => setSelectedNodeId((current) => current === nodeId ? null : nodeId),
+          portSignature: `${node.inputPorts.map((port: any) => `${port.id}:${port.top}`).join(",")}|${node.outputPorts.map((port: any) => `${port.id}:${port.top}`).join(",")}`,
+        },
+    style: node.kind === "lane" ? { width: node.width, height: node.height } : undefined,
+    zIndex: node.kind === "lane" ? -2 : 2,
     draggable: false,
-    selectable: false,
+    selectable: node.kind !== "lane",
     focusable: false
-  })), [model]);
-  const graphEdges = useMemo(() => model.edges.map((edge: any) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    type: "default",
-    className: `${edge.flow === "control" ? "watchtower-edge-control" : "watchtower-edge-data"}${edge.flow === "data" && edge.flowing === true ? " is-flowing" : ""}`,
-    label: edge.label || undefined
-  })), [model]);
+  })), [focusedNodeIds, model.nodes, selectedNodeId]);
+  const graphEdges = useMemo(() => model.edges.map((edge: any) => {
+    const isFocused = selectedNodeId !== null && (edge.source === selectedNodeId || edge.target === selectedNodeId);
+    return {
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle,
+      targetHandle: edge.targetHandle,
+      type: "smoothstep",
+      pathOptions: {
+        borderRadius: 16,
+        offset: Math.min(64, 32 + (edge.sourcePortIndex + edge.targetPortIndex) * 6),
+        stepPosition: edge.stepPosition,
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 14,
+        height: 14,
+        color: edge.flow === "control" ? "#56a88f" : "#6f8794",
+      },
+      className: `${edge.flow === "control" ? "watchtower-edge-control" : "watchtower-edge-data"}${selectedNodeId !== null ? (isFocused ? " is-focused" : " is-dimmed") : ""}`,
+      label: edge.label || undefined,
+    };
+  }), [model.edges, selectedNodeId]);
 
   if (projection === null) {
     return (
@@ -3040,10 +3229,28 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
             ))}
           </ul>
           <span className="watchtower-incident-flow" aria-label="대응 단계">
-            <b>진단</b><i aria-hidden="true">→</i><span>복구</span><i aria-hidden="true">→</i><span>리포트</span>
+            <b>진단</b><i aria-hidden="true">→</i><span>Owner 승인</span><i aria-hidden="true">→</i><span>W2 복구</span>
           </span>
         </div>
       )}
+      <div className="watchtower-graph-guide">
+        <span className="watchtower-shape-guide" aria-label="장치 도형 범례">
+          <b>도형</b>
+          <span><i className="is-external" />입력</span>
+          <span><i className="is-supervisor" />감독</span>
+          <span><i className="is-worker" />연산</span>
+          <span><i className="is-store" />저장</span>
+          <span><i className="is-gate" />판단</span>
+          <span><i className="is-consumer" />출력</span>
+        </span>
+        <span><b>아이콘</b> 실제 서비스·장치</span>
+        <span><b>색</b> 초록 정상 · 주황 주의/열화 · 파랑 구조/미감시 · 빨강 정지</span>
+        <span><b>연결</b> 왼쪽 IN → 오른쪽 OUT</span>
+        <span className="watchtower-graph-focus" role="status" aria-live="polite">
+          {selectedNode ? `${selectedNode.label} 직접 연결 강조` : "노드를 선택하면 직접 연결만 강조"}
+        </span>
+        {selectedNode && <button type="button" onClick={() => setSelectedNodeId(null)}>전체 보기</button>}
+      </div>
       <div className="watchtower-canvas" aria-label="토폴로지 그래프">
         <ReactFlow
           nodes={graphNodes}
@@ -3051,16 +3258,29 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
           nodeTypes={watchtowerTopologyNodeTypes as any}
           colorMode="dark"
           onInit={setFlowInstance}
-          fitView
-          fitViewOptions={{ padding: 0.08 }}
+          onNodeClick={(_event, node) => {
+            if (node.data?.kind === "lane") return;
+            setSelectedNodeId((current) => current === node.id ? null : node.id);
+          }}
+          onPaneClick={() => setSelectedNodeId(null)}
           minZoom={0.35}
-          maxZoom={1.6}
+          maxZoom={1.7}
           nodesConnectable={false}
           nodesDraggable={false}
-          elementsSelectable={false}
+          elementsSelectable
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={26} size={1.1} className="watchtower-canvas-dots" />
+          <MiniMap
+            ariaLabel="토폴로지 미니맵"
+            nodeColor={watchtowerMiniMapColor}
+            nodeStrokeColor={watchtowerMiniMapColor}
+            nodeBorderRadius={5}
+            maskColor="rgb(6 10 14 / 68%)"
+            pannable
+            zoomable
+          />
+          <Controls aria-label="토폴로지 보기 조절" showInteractive={false} fitViewOptions={{ padding: 0.04, minZoom: 0.35, maxZoom: 0.9 }} />
         </ReactFlow>
       </div>
       <footer className="watchtower-footnote">

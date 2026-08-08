@@ -5,12 +5,14 @@ import {
   buildOrganizationUsageChartRows,
   buildProjectUsageChartRows,
   buildRealtimeStatusBuckets,
+  countRealtimeConnectedSessions,
   countSemanticStatuses,
   formatRealtimeCoverage,
   isOrganizationUsageAttributionReady,
   liveProjectionLoadPresentation,
   observationGapBreakdown,
   paginateExactItems,
+  realtimeThreadConnectionPresentation,
   realtimeStatusCopy,
   resolveLiveProjectionRefresh,
   splitObservationGap
@@ -45,6 +47,23 @@ test("real-time semantic buckets keep an exact Owner response/turn-end confirmat
   assert.deepEqual(buckets.owner_result.map((item) => item.thread_id), ["exact-owner"]);
   assert.deepEqual(buckets.parent_result.map((item) => item.thread_id), ["exact-parent"]);
   assert.deepEqual(splitObservationGap(buckets.unavailable), { stopped: 1, unknown: 1 });
+});
+
+test("live session totals and row indicators keep result gates separate from runtime connection", () => {
+  const buckets = {
+    active: [thread("active", "active")],
+    waiting: [thread("waiting", "waiting")],
+    owner_result: [thread("result", "owner_attention", "owner")]
+  };
+
+  assert.equal(countRealtimeConnectedSessions(buckets), 2);
+  assert.deepEqual(realtimeThreadConnectionPresentation(buckets.active[0]), { tone: "active", label: "연결됨" });
+  assert.deepEqual(realtimeThreadConnectionPresentation(buckets.waiting[0]), { tone: "waiting", label: "응답 대기" });
+  assert.deepEqual(
+    realtimeThreadConnectionPresentation({ ...buckets.owner_result[0], stop_observed_at: "2026-08-03T16:37:29.000Z" }),
+    { tone: "stopped", label: "연결 종료" }
+  );
+  assert.deepEqual(realtimeThreadConnectionPresentation(buckets.owner_result[0]), { tone: "unknown", label: "연결 미확인" });
 });
 
 test("exact organization pages cap dense trees without dropping an exact item", () => {

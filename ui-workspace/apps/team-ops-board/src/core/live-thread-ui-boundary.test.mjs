@@ -44,6 +44,9 @@ test("Owner, organization, and work/history surfaces are explicit and raw idle n
   assert.match(source, /statusKey="unknown"/u);
   assert.match(source, /Codex 파란 점은 새 활동·미확인 알림/u);
   assert.match(source, /Owner에게 명시적으로 전달된 result gate만 표시합니다/u);
+  assert.match(source, /countRealtimeConnectedSessions\(buckets\)/u);
+  assert.match(source, /realtimeThreadConnectionPresentation\(thread\)/u);
+  assert.match(source, /realtime-connection-state/u);
   assert.equal(source.includes("idle_result_check"), false);
   assert.equal(source.includes("결과 확인 필요"), false);
 });

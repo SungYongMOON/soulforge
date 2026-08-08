@@ -8,9 +8,8 @@ export const WATCHTOWER_TOPOLOGY_SCHEMA_VERSION = "soulforge.watchtower.topology
 // probe: binding.probes 의 키 — null 이면 감시 대상 아님(unmonitored)
 // col/row: lane-per-row 레이아웃 힌트 — 같은 lane 은 같은 row 로 흘러 간선 교차를 줄인다.
 export const TOPOLOGY_NODES = Object.freeze([
-  // 외부 소스
+  // 외부 입력 소스
   { id: "src_hiworks", label: "Hiworks 메일", kind: "external", group: "외부 소스", probe: null, col: 0, row: 0 },
-  { id: "src_gmail", label: "Gmail API", kind: "external", group: "외부 소스", probe: null, col: 0, row: 0.9 },
   { id: "src_plaud", label: "PLAUD 음성", kind: "external", group: "외부 소스", probe: null, col: 0, row: 1.8 },
   { id: "src_slack", label: "Slack API", kind: "external", group: "외부 소스", probe: null, col: 0, row: 2.7 },
   { id: "src_onedrive", label: "OneDrive worksite", kind: "external", group: "외부 소스", probe: null, col: 0, row: 3.6 },
@@ -26,7 +25,6 @@ export const TOPOLOGY_NODES = Object.freeze([
     col: 1, row: 0,
   },
   { id: "mail_forwarder", label: "Hiworks→Gmail 수입기", kind: "worker", group: "수집", probe: "mail_forwarder", col: 1, row: 0.9 },
-  { id: "voice_label_worker", label: "음성 ASR·라벨 워커", kind: "supervisor", group: "수집", probe: "voice_label_worker", col: 1, row: 1.8 },
   { id: "slack_batch", label: "Slack 배치 수집기", kind: "worker", group: "수집", probe: "slack_batch", col: 1, row: 2.7 },
   { id: "local_activity", label: "파일·로컬활동 수집기", kind: "worker", group: "수집", probe: "local_activity", col: 1, row: 3.6 },
   { id: "usage_meter", label: "AI 사용량 미터", kind: "worker", group: "관측", probe: "usage_meter", col: 1, row: 4.5 },
@@ -36,16 +34,18 @@ export const TOPOLOGY_NODES = Object.freeze([
   { id: "store_voice_custody", label: "음성 custody", kind: "store", group: "데이터 평면", probe: null, col: 2, row: 1.8 },
   { id: "store_slack_custody", label: "Slack custody", kind: "store", group: "데이터 평면", probe: null, col: 2, row: 2.7 },
   { id: "gate_five_field", label: "five-field 원장 검증", kind: "gate", group: "게이트", probe: null, col: 2, row: 3.5 },
-  { id: "store_activity_outbox", label: "파일·활동 delta outbox", kind: "store", group: "데이터 평면", probe: null, col: 2, row: 4.2 },
   { id: "store_usage_ledger", label: "사용량 원장", kind: "store", group: "데이터 평면", probe: null, col: 2, row: 4.9 },
   { id: "store_workmeta", label: "_workmeta 시간장부", kind: "store", group: "데이터 평면", probe: null, col: 2, row: 5.7 },
 
-  // 감시
-  { id: "watchtower_self", label: "Watchtower (자체 검사·복구)", kind: "supervisor", group: "관측", probe: "watchtower_self", col: 1.4, row: 6.4 },
+  // 후처리·외부 목적지·검사 판정
+  { id: "src_gmail", label: "Gmail API", kind: "consumer", group: "후처리", probe: null, col: 3, row: 0.9 },
+  { id: "voice_label_worker", label: "음성 ASR·라벨 워커", kind: "worker", group: "후처리", probe: "voice_label_worker", col: 3, row: 1.8 },
+  { id: "store_activity_outbox", label: "파일·활동 delta outbox", kind: "store", group: "후처리", probe: null, col: 3, row: 4.2 },
+  { id: "watchtower_self", label: "Watchtower 검사·판정", kind: "supervisor", group: "관측", probe: "watchtower_self", col: 3, row: 6.4 },
 
   // 소비 표면
-  { id: "consumer_timeline", label: "프로젝트 시간장부 shadow", kind: "consumer", group: "소비", probe: null, col: 3, row: 1.4 },
-  { id: "consumer_board", label: "Workspace Board", kind: "consumer", group: "소비", probe: null, col: 3, row: 4.5 },
+  { id: "consumer_timeline", label: "프로젝트 시간장부 shadow", kind: "consumer", group: "소비", probe: null, col: 4, row: 1.4 },
+  { id: "consumer_board", label: "Workspace Board", kind: "consumer", group: "소비", probe: null, col: 4, row: 4.5 },
 ]);
 
 // flow: data(실선 — 실제 데이터 이동) | control(점선 — 검사·검증·제어 신호)
@@ -65,15 +65,15 @@ export const TOPOLOGY_EDGES = Object.freeze([
   { from: "src_codex", to: "usage_meter", label: "lifecycle hook", flow: "control" },
   { from: "usage_meter", to: "store_usage_ledger", label: "turn 귀속", flow: "data" },
   { from: "store_mail_events", to: "consumer_timeline", label: "shadow 투영", flow: "data" },
-  { from: "store_voice_custody", to: "consumer_timeline", label: "발생 라벨", flow: "data" },
+  { from: "voice_label_worker", to: "consumer_timeline", label: "발생 라벨", flow: "data" },
   { from: "store_activity_outbox", to: "consumer_timeline", label: "proxy", flow: "data" },
   { from: "store_workmeta", to: "consumer_board", label: "조직 overlay", flow: "data" },
   { from: "store_usage_ledger", to: "consumer_board", label: "usage 패널", flow: "data" },
-  { from: "watchtower_self", to: "ingress_supervisor", label: "검사·복구", flow: "control" },
-  { from: "watchtower_self", to: "voice_label_worker", label: "검사·복구", flow: "control" },
-  { from: "watchtower_self", to: "slack_batch", label: "검사", flow: "control" },
-  { from: "watchtower_self", to: "local_activity", label: "검사", flow: "control" },
-  { from: "watchtower_self", to: "mail_forwarder", label: "검사", flow: "control" },
+  { from: "ingress_supervisor", to: "watchtower_self", label: "상태 신호", flow: "control" },
+  { from: "voice_label_worker", to: "watchtower_self", label: "상태 신호", flow: "control" },
+  { from: "slack_batch", to: "watchtower_self", label: "상태 신호", flow: "control" },
+  { from: "local_activity", to: "watchtower_self", label: "상태 신호", flow: "control" },
+  { from: "mail_forwarder", to: "watchtower_self", label: "상태 신호", flow: "control" },
   { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data" },
 ]);
 

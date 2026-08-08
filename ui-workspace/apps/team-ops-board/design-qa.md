@@ -209,3 +209,100 @@ P0/P1/P2 visual defects: none observed in the captured current state.
 - Fresh independent re-review after the terminal/acknowledgement ancestor fix: focused 96/96 PASS, ACCEPT.
 
 final result: passed
+
+## 2026-08-08 AX System Topology Design QA
+
+## Source truth
+
+- Existing screen capture: `C:/Users/user/AppData/Local/Temp/codex-clipboard-cc1b66c4-30ec-4362-a45d-afa672336316.png` — 1491×684
+- Shape and topology reference: `C:/Users/user/AppData/Local/Temp/codex-clipboard-d7ba9875-4c7c-496f-a824-68cbc52e2b29.png` — 1072×678
+- Density reference: `C:/Users/user/AppData/Local/Temp/codex-clipboard-85081270-6837-440b-a0d7-af2418597e37.png` — 800×451
+- Reference video: `https://www.youtube.com/watch?v=DcEJSGlc2-o`
+
+## Implementation evidence
+
+- Final initial view: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/15-final-topology-initial.png` — 809×882
+- Final Watchtower focus: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/14-final-watchtower-focused.png` — 809×882
+- Full overview: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/02-revised-topology-full.png` — 1265×1232
+- Focused path: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/03-focused-ingress-path.png` — 1265×1238
+- Tablet override request: 760×900; captured output `04-tablet-760.png` — 1265×1232 after in-app browser display scaling
+- Mobile override request: 480×820; captured output `05-mobile-480.png` — 1265×1232 after in-app browser display scaling
+- State: live Watchtower W1 projection, 22 nodes, selected-path interaction checked against `Five-Lane Ingress 감독`
+
+## Comparison result
+
+The reference and implementation were inspected together in one comparison pass. The implementation preserves the existing Soulforge dark theme while adopting the reference's large graph canvas, restrained lane surfaces, compact nodes, limited semantic colors, and long left-to-right routes.
+
+| Surface | Result | Evidence |
+| --- | --- | --- |
+| Shape | pass | External input parallelogram, supervisor capsule, worker rectangle, store cylinder, decision polygon, and output display silhouette remain distinguishable at overview scale |
+| Spacing | pass | Column gap 440 and row gap 144 preserve cable gutters and keep dense fan-in/fan-out routes separated |
+| Color | pass | Green normal, amber degraded/stale, blue structural/unmonitored, and red down remain independent from device kind |
+| Icons | pass | Lucide device icons, package-backed Gmail/Google Drive/Codex/NotebookLM glyphs, and provenance-recorded Slack/OneDrive glyphs remain aligned |
+| Direction | pass | Every edge owns a distinct source-right OUT and target-left IN port; closed arrowheads mark target direction |
+| Focus | pass | Selecting a node brightens only its direct links and one-hop neighbors; `전체 보기` restores the overview |
+| Accessibility | pass | Semantic buttons, descriptive accessible names, visible focus rings, reduced-motion handling, and labeled zoom/fit controls are implemented; real Enter-key activation toggled the selected Watchtower node |
+| Resilience | partial | The actual 809×882 Codex browser viewport keeps the graph pannable and controls visible; the earlier 760/480 requests were display-scaled, so independent CSS-breakpoint evidence remains UNKNOWN |
+
+## Finding history
+
+1. P1 — Node click was immediately cleared by the graph surface. Fixed by routing selection through React Flow's node event and retaining a separate pane clear action.
+2. P1 — Ports and direction were visually absent. Fixed with persistent left/right ports and closed arrowheads.
+3. P2 — Device role depended on text and a small status dot. Fixed with six outer silhouettes, a compact shape legend, and independent service/device icons.
+4. P2 — Columns and rows were too dense. Fixed with explicit 440×144 layout spacing and wider lane gutters.
+5. P2 — Unmonitored structural nodes and edges blended into the background. Fixed with semantic blue surfaces, higher text contrast, and neutral brighter links.
+6. P1 — Watchtower status inputs were drawn from its right output port. Fixed by reversing the five W1 status-signal edges and assigning every edge a separate left/right port slot.
+7. Browser geometry audit — 22 nodes, 25 paths, 25 input ports, and 25 output ports observed. No input appeared to the right or output to the left. Watchtower measured five left inputs and one right output.
+
+## Remaining severity audit
+
+- P0: none
+- P1: none
+- P2: independent 760/480 CSS-breakpoint evidence remains UNKNOWN; no claim made
+
+final_result: passed for the requested desktop topology; narrow breakpoint evidence explicitly UNKNOWN
+
+## 2026-08-08 mobile shape and connection-state follow-up
+
+### Source truth and implementation evidence
+
+- Source live-status capture: `C:/Users/user/.codex/codex-remote-attachments/019fdfb5-428d-7e71-8534-8062cfcd152c/1F664B6F-EF7C-4912-8F2C-C6B2252DDD98/1-사진-1.jpg` — 590×1280
+- Source selected-gate capture: `C:/Users/user/.codex/codex-remote-attachments/019fdfb5-428d-7e71-8534-8062cfcd152c/1F664B6F-EF7C-4912-8F2C-C6B2252DDD98/2-사진-2.jpg` — 590×1280
+- Fixed live-status capture: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/21-mobile-live-status-matched-fixed.png` — 375×812
+- Fixed selected-gate capture: `C:/Users/user/AppData/Local/Temp/codex-ax-topology-audit-20260808/20-mobile-topology-gate-selected-fixed.png` — 375×812
+- Browser CSS viewport: 390×844, device scale 1. The in-app browser screenshot surface excluded its surrounding chrome and produced a 375×812 PNG; comparisons therefore use the same visible content regions rather than pixel-for-pixel device chrome.
+- State: dark mobile Board, explicit SYSTEM Owner-result row and selected `five-field 원장 검증` gate.
+- Full-view comparison: each source and its fixed implementation were opened together in one comparison input.
+- Focused comparison: the LIVE STATUS count/row indicator and selected diamond wrapper were inspected separately because they are the two reported defects.
+
+### Finding and fix history
+
+1. P1 — The unmonitored status selector painted the gate wrapper blue while `::before`/`::after` also painted the diamond. Selection and hover added a rectangular shadow, producing the visible rectangle behind the diamond.
+   - Fix: pseudo-shape wrappers for external, consumer, and gate nodes now remain transparent and shadowless in base, unmonitored, hover, selected, and keyboard-focus states. The pseudo-shape alone owns border, fill, and focus glow.
+   - Post-fix evidence: selected gate root computed `background: rgba(0,0,0,0)`, `border-width: 0px`, `box-shadow: none`; `::after` retained the blue fill and diamond clip path.
+2. P1 — The headline counted `owner_result` as an active session, so one running thread plus one stopped result appeared as `2 활성 세션`.
+   - Fix: active sessions now count only `active + waiting`. The observed screen reports `1 활성 세션`, while the separate result count remains 1.
+3. P2 — The result row used the result gate's blue icon as if it were connection evidence.
+   - Fix: each row derives a separate connection presentation. The SYSTEM manager's explicit result remains in `결과 확인`, but its row now says `연결 종료` with a slate icon because a stop observation exists. An active runtime turns green and waiting turns amber.
+
+### Required fidelity surfaces
+
+- Fonts and typography: existing Board typography, hierarchy, truncation, and mobile line heights unchanged; the connection label fits the existing role line.
+- Spacing and layout rhythm: no card, lane, graph, or port geometry changed; the corrected gate occupies the same 252×92 model size before React Flow scaling.
+- Colors and visual tokens: blue remains the explicit result/structural tone, but runtime connection uses green, amber, or slate. The diamond's blue fill is clipped to the diamond only.
+- Image quality and asset fidelity: no new image or icon asset; existing device and service icons remain unchanged.
+- Copy and content: `활성 세션` now means active or waiting runtime only. `결과 확인` remains an explicit Owner-targeted result gate and is not silently cleared or reclassified.
+
+### Interaction and regression evidence
+
+- System topology navigation and gate selection worked at the mobile viewport.
+- Selected gate retained left/right ports and one-hop path focus while removing the rectangular background.
+- The SYSTEM row exposed `MANAGER · 연결 종료`; its computed icon and label color were both `rgb(148, 160, 168)`.
+- Browser console errors: 0.
+- Focused tests: 37/37 PASS.
+- Full Board suite: 242/242 PASS.
+- Typecheck: PASS.
+
+P0/P1/P2 remaining findings: none.
+
+final result: passed

@@ -20,6 +20,10 @@ length-bounded; filesystem- or URL-like values are rejected.
 - **Owner 현황**: only an explicit, metadata-only `result_ready` gate whose
   target is `owner`. Root rows, internal responsibility rows, idle, Stop, title,
   age, and LLM interpretation never create Owner attention.
+- **LIVE STATUS 연결 표시**: `활성 세션`은 현재 `active`와 `waiting`만
+  합산한다. 파란 `결과 확인`은 별도 작업 gate이며 연결 여부가 아니다.
+  각 행의 원형 표시와 보조 문구는 실제 실행 관측을 초록(연결),
+  주황(응답 대기), 회색(연결 종료/미확인)으로 따로 표시한다.
 - **조직도**: an exact enrolled `parent_thread_id` topology with two persistent
   display scopes. `실시간만` shows only actionable execution, approval-wait,
   and result-confirmation nodes plus every exact company/CEO/manager ancestor;
@@ -29,6 +33,12 @@ length-bounded; filesystem- or URL-like values are rejected.
 - **업무·기록**: current internal work, parent-targeted result delivery,
   browser-local Owner read receipts, accepted/closed history, and the separate
   AI Usage Meter aggregate entry.
+- **시스템 토폴로지**: Watchtower W1의 local read-only health projection.
+  장치 종류는 입력·감독·연산·저장·판단·출력의 외곽 도형으로, 상태는
+  정상(초록)·열화/신선도(주황)·미감시 구조(파랑)·정지(빨강)로 분리한다.
+  각 간선은 source의 오른쪽 OUT에서 target의 왼쪽 IN으로만 연결되며,
+  노드 선택은 직접 연결된 1-hop 경로만 강조한다. 간선은 구조 방향이며
+  per-edge receipt가 없는 현재 전송 중 상태를 추정하지 않는다.
 - Current registered `manager`, `task`, `verifier`, and `continuation` rows,
   grouped by owner-provided `organization_group_id`; `parent_thread_id` is
   validated for exact parent existence and acyclicity before it reaches the

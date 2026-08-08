@@ -174,6 +174,21 @@ export function realtimeStatusCopy(key) {
   return REALTIME_STATUS_COPY[key] ?? REALTIME_STATUS_COPY.unavailable;
 }
 
+export function realtimeThreadConnectionPresentation(thread) {
+  if (thread?.status === "active") return { tone: "active", label: "연결됨" };
+  if (thread?.status === "waiting") return { tone: "waiting", label: "응답 대기" };
+  if (thread?.status === "stopped" || typeof thread?.stop_observed_at === "string") {
+    return { tone: "stopped", label: "연결 종료" };
+  }
+  return { tone: "unknown", label: "연결 미확인" };
+}
+
+export function countRealtimeConnectedSessions(buckets = {}) {
+  const activeCount = Array.isArray(buckets.active) ? buckets.active.length : 0;
+  const waitingCount = Array.isArray(buckets.waiting) ? buckets.waiting.length : 0;
+  return activeCount + waitingCount;
+}
+
 // Adapter health and structural coverage are deliberately reported separately.
 // A healthy adapter can still have partial exact-ID coverage.
 export function formatRealtimeCoverage(adapterInput, scopeInput) {

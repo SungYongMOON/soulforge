@@ -14,9 +14,29 @@ import {
   WATCHTOWER_BINDING_SCHEMA_VERSION,
   WATCHTOWER_SNAPSHOT_SCHEMA_VERSION,
 } from "./watchtower.mjs";
-import { TOPOLOGY_NODES } from "./topology.mjs";
+import { TOPOLOGY_EDGES, TOPOLOGY_NODES } from "./topology.mjs";
 
 const NOW = Date.parse("2026-08-07T12:00:00.000Z");
+
+test("topology keeps every route bound and left-to-right, with Watchtower signals entering from the left", () => {
+  const nodesById = new Map(TOPOLOGY_NODES.map((node) => [node.id, node]));
+  assert.equal(nodesById.size, TOPOLOGY_NODES.length);
+  assert.equal(TOPOLOGY_NODES.length, 22);
+  assert.equal(TOPOLOGY_EDGES.length, 25);
+  for (const edge of TOPOLOGY_EDGES) {
+    assert.ok(nodesById.has(edge.from), `missing source ${edge.from}`);
+    assert.ok(nodesById.has(edge.to), `missing target ${edge.to}`);
+    assert.ok(nodesById.get(edge.from).col <= nodesById.get(edge.to).col, `${edge.from} must not route backward to ${edge.to}`);
+  }
+
+  const watchtowerInputs = TOPOLOGY_EDGES.filter((edge) => edge.to === "watchtower_self");
+  const watchtowerOutputs = TOPOLOGY_EDGES.filter((edge) => edge.from === "watchtower_self");
+  assert.equal(watchtowerInputs.length, 5);
+  assert.ok(watchtowerInputs.every((edge) => edge.flow === "control" && edge.label === "상태 신호"));
+  assert.deepEqual(watchtowerOutputs, [
+    { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data" },
+  ]);
+});
 
 async function tempRoot() {
   return mkdtemp(path.join(os.tmpdir(), "soulforge-watchtower-"));

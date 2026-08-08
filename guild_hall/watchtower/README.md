@@ -17,7 +17,7 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `topology.mjs` | Soulforge AX 토폴로지의 public-safe 정의 (노드 22 · 간선 26) |
+| `topology.mjs` | Soulforge AX 토폴로지의 public-safe 정의 (노드 22 · 간선 25) |
 | `watchtower.mjs` | binding 검증, probe 4종(jsonl_tail/json_file/dir_latest_mtime/schtask), 판정, 스냅샷 |
 | `cli.mjs` | `probe [--binding <path>\|--pointer <path>] [--json] [--no-write]`, `init-binding --output <path>` |
 | `watchtower.test.mjs` | 합성 판정·경로 미노출·원자 기록 회귀 |
@@ -45,6 +45,9 @@
 - Workspace Board(team-ops-board)의 `시스템 토폴로지` 탭 —
   `src/server/topology-adapter.mjs`가 loopback 전용
   `GET /topology-health.snapshot.json`으로 probe 결과를 중계한다.
+- 수집기·워커의 `상태 신호`는 Watchtower W1의 왼쪽 입력으로 들어가며,
+  Watchtower는 오른쪽으로 `판정 스냅샷`만 내보낸다. 이 간선은 검사·표시
+  관계이며 self-heal이나 복구 권한을 뜻하지 않는다.
 
 ## 검증
 

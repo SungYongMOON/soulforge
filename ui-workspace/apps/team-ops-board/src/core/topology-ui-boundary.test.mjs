@@ -1,0 +1,75 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const APP_PATH = join(dirname(dirname(fileURLToPath(import.meta.url))), "App.tsx");
+const CSS_PATH = join(dirname(dirname(fileURLToPath(import.meta.url))), "team-ops.css");
+const ASSET_ROOT = join(dirname(dirname(fileURLToPath(import.meta.url))), "assets", "topology");
+
+test("Watchtower nodes expose per-edge left inputs and right outputs with directed arrows", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  assert.match(source, /data\.inputPorts\.map[\s\S]*type="target"[\s\S]*position=\{Position\.Left\}/u);
+  assert.match(source, /data\.outputPorts\.map[\s\S]*type="source"[\s\S]*position=\{Position\.Right\}/u);
+  assert.match(source, /sourceHandle:\s*edge\.sourceHandle/u);
+  assert.match(source, /targetHandle:\s*edge\.targetHandle/u);
+  assert.match(source, /style=\{\{ top: `\$\{port\.top\}%` \}\}/u);
+  assert.match(source, /type:\s*MarkerType\.ArrowClosed/u);
+  assert.match(source, /type:\s*"smoothstep"/u);
+});
+
+test("Watchtower topology keeps device identity, state color, and group boundaries separate", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  const css = readFileSync(CSS_PATH, "utf8");
+  assert.match(source, /watchtowerBrandIcon/u);
+  assert.match(source, /siGoogledrive/u);
+  assert.match(source, /siGmail/u);
+  assert.match(source, /slackBrandIconUrl/u);
+  assert.match(source, /notebookLmBrandIconUrl/u);
+  assert.match(source, /watchtowerLane:\s*WatchtowerTopologyLane/u);
+  assert.match(css, /\.watchtower-lane\s*\{/u);
+  assert.match(css, /\.watchtower-node-icon\s*\{/u);
+  assert.match(css, /\.watchtower-node\.is-ok \.watchtower-node-icon/u);
+  assert.match(css, /\.watchtower-node\.is-degraded \.watchtower-node-icon/u);
+  assert.match(css, /\.watchtower-node\.is-unmonitored \.watchtower-node-icon/u);
+  assert.match(css, /\.watchtower-node\.is-unmonitored[\s\S]*border-color:\s*#486f91;/u);
+  assert.match(css, /\.watchtower-node-external::before[\s\S]*skewX\(-11deg\)/u);
+  assert.match(css, /\.watchtower-node-supervisor[\s\S]*border-radius:\s*999px/u);
+  assert.match(css, /\.watchtower-node-worker\s*\{\s*border-radius:\s*4px/u);
+  assert.match(css, /\.watchtower-node-store \.watchtower-node-cap/u);
+  assert.match(css, /\.watchtower-node-gate::before[\s\S]*polygon\(50% 0, 100% 50%, 50% 100%, 0 50%\)/u);
+  assert.match(css, /\.watchtower-node\.watchtower-node-gate[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/u);
+  assert.match(css, /\.watchtower-node\.watchtower-node-external[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/u);
+  assert.match(css, /\.watchtower-node\.watchtower-node-consumer[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/u);
+  assert.match(css, /\.watchtower-node-gate\.is-unmonitored::before\s*\{\s*background:\s*var\(--watchtower-shape-border\);\s*\}/u);
+  assert.match(css, /\.watchtower-node-gate \.watchtower-node-hit:focus-visible\s*\{\s*outline:\s*0;\s*\}/u);
+  assert.match(css, /\.watchtower-node-consumer::before[\s\S]*clip-path/u);
+});
+
+test("Watchtower topology provides overview controls and focus plus context", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  const css = readFileSync(CSS_PATH, "utf8");
+  assert.match(source, /<MiniMap/u);
+  assert.match(source, /<Controls/u);
+  assert.match(source, /selectedNodeId/u);
+  assert.match(source, /data\.onActivate\(data\.id\)/u);
+  assert.match(source, /event\.key !== "Enter" && event\.key !== " "/u);
+  assert.match(source, /직접 연결만 강조/u);
+  assert.match(source, /setViewport\(\{ x: 72, y: 22, zoom: 0\.82 \}/u);
+  assert.match(source, /fittedLayoutRef\.current === layoutSignature/u);
+  assert.match(css, /\.watchtower-node\.is-dimmed/u);
+  assert.match(css, /\.watchtower-node\.is-dimmed:focus-within/u);
+  assert.match(css, /\.watchtower-surface \.react-flow__edge\.is-dimmed/u);
+});
+
+test("redistributed topology brand assets retain source and license notices", () => {
+  const provenance = readFileSync(join(ASSET_ROOT, "README.md"), "utf8");
+  const licenses = readFileSync(join(ASSET_ROOT, "THIRD_PARTY_LICENSES.md"), "utf8");
+  assert.match(provenance, /homarr-labs\/dashboard-icons/u);
+  assert.match(provenance, /microsoft-onedrive\.svg/u);
+  assert.match(provenance, /slack\.svg/u);
+  assert.match(licenses, /Apache License[\s\S]*Version 2\.0/u);
+  assert.match(licenses, /Copyright \(c\) 2024 Bjorn Lammers, Meier Lukas, Thomas Camlong and Homarr Labs/u);
+  assert.match(licenses, /MIT License[\s\S]*Copyright \(c\) 2023 LobeHub/u);
+});
