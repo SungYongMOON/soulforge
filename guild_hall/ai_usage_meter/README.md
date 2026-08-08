@@ -209,19 +209,30 @@ not treat a receipt as a live task or result authority.
 `board-history-snapshot` is a separate local-only contract for a Board that
 already has an accepted set of exact Codex thread IDs. It does not change the
 current Board v1 default UI contract. Its schema is
-`soulforge.ai_usage_board_history_snapshot.v1` and its root fields are
+`soulforge.ai_usage_board_history_snapshot.v2` and its root fields are
 `schema_version`, `generated_at`, `timezone`, `reference_at`, `top_n`,
-`current`, and `windows`. `current` is the same scoped Board v1 aggregate,
-preserving total, role, model/effort, fan-out, retry/timeout, and coverage.
+`current`, `windows`, `activity`, and `rate_limit`. `current` is the same
+scoped Board v1 aggregate, preserving total, role, model/effort, fan-out,
+retry/timeout, and coverage.
 
 `windows` contains deterministic `Asia/Seoul` calendar day/week/month,
 rolling 24-hour/7-day/30-day, and all-time windows. Each window has totals and
-reconciled project/work/task breakdowns as bounded `top` plus `other`; `task_id`
-is the exact Codex thread ID and unknown or unbound values become `unassigned`.
+reconciled project/work/task/model breakdowns as bounded `top` plus `other`;
+`task_id` is the exact Codex thread ID, `model_id` is the safe model ID from
+the event model block, and unknown or unbound values become `unassigned`.
 The strict runtime validator rejects different duplicate event IDs, non-exact
 window boundaries, invalid ranking, and any top-plus-other sum mismatch. It
 does not expose `thread_id`, title, session/source/path, prompt/message,
 reasoning, or tool fields.
+
+`activity` is a fixed 40-day KST daily series (zero-filled, ending at the
+`reference_at` date; last row must equal `calendar_day` totals) plus a fixed
+24-slot KST hourly histogram whose turn/token sums must equal all-time totals.
+`rate_limit` is `null` or the latest event-carried provider rate-limit
+observation (`limit_id`, nullable `plan_type`, `used_percent`, nullable
+`window_minutes`/`resets_at_epoch_s`, `observed_at`) — observed values only,
+never a locally computed estimate. The static AJV mirror lives in
+`ai_usage_board_history_snapshot.v2.schema.json`.
 
 For an exact-thread projection, global meter coverage and tool retry/timeout
 observations are not borrowed into the scoped result because their records are

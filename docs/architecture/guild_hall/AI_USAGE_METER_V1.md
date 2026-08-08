@@ -151,7 +151,7 @@ fallback의 strict versioned snapshot은 Git-ignored `lifecycle/jsonl/current.js
 
 Current-status Board v1 (`soulforge.ai_usage_board_snapshot.v1`) remains the
 default read-only projection. The additive
-`soulforge.ai_usage_board_history_snapshot.v1` sidecar is a separate,
+`soulforge.ai_usage_board_history_snapshot.v2` sidecar is a separate,
 local-only output and never changes that v1 root shape. It nests the same
 scope-matched current snapshot so total, role, model/effort, fan-out,
 retry/timeout, and coverage remain available without a second aggregation
@@ -169,12 +169,26 @@ tool data, and raw evidence are excluded by the strict key validator.
 `windows` is fixed to `Asia/Seoul`: calendar day/week/month use local
 half-open boundaries; rolling 24-hour/7-day/30-day windows end at
 `reference_at`; all-time has null bounds. Each window has total tokens,
-compute credits, turns, and unknown-credit turns plus project/work/task
-breakdowns as deterministic `top_n` rows and `other`. The validator requires
-each `top + other` sum to equal the window total, all-time to equal nested
-current totals, exact replay-only duplicate IDs, deterministic rank order, and
-the expected time boundaries. Retry/timeout are preserved only in the nested
-current activity counters and never become additional usage turns or credits.
+compute credits, turns, and unknown-credit turns plus project/work/task/model
+breakdowns as deterministic `top_n` rows and `other` (`model_id` is the safe
+opaque model ID from the event's model block; unknown maps to `unassigned`).
+The validator requires each `top + other` sum to equal the window total,
+all-time to equal nested current totals, exact replay-only duplicate IDs,
+deterministic rank order, and the expected time boundaries. Retry/timeout are
+preserved only in the nested current activity counters and never become
+additional usage turns or credits.
+
+v2 adds two root fields with the same metadata-only rule. `activity` carries a
+fixed 40-entry KST `daily` series (consecutive dates ending at `reference_at`'s
+date, zero-filled) and a fixed 24-entry KST `hourly` histogram (`hour`, turns,
+total tokens over the full scoped ledger). The validator pins the last daily
+row to equal `calendar_day` totals, bounds the daily sum by all-time totals,
+and requires the hourly sum to equal all-time turns/tokens. `rate_limit` is
+`null` or the latest event-carried `rate_limit_snapshot` (safe `limit_id`,
+nullable safe `plan_type`, `used_percent` 0–1000, nullable window minutes and
+reset epoch seconds) plus `observed_at` from that event's start time — an
+observation of the provider-reported quota window, never a computed local
+estimate.
 For an exact-thread sidecar, global coverage and work-only tool observations are
 not borrowed into that scope: coverage stays partial and retry/timeout remain
 zero until an exact-thread evidence source exists. This avoids inferred or

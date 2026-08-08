@@ -166,7 +166,7 @@ export async function refreshExactScopedUsage({
   });
   await runCommand({
     ...common,
-    args: ["board-history-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(historyPath), ...scope]
+    args: ["board-history-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(historyPath), "--top-n", "50", ...scope]
   });
   const snapshot = validateBoardUsageHistorySnapshot(JSON.parse(await readFile(historyPath, "utf8")));
   if (snapshot.schema_version !== BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA) throw new Error("ai_usage_history_schema_invalid");

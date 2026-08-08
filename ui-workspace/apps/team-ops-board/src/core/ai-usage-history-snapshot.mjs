@@ -3,7 +3,7 @@ import {
   normalizeAiUsageSnapshot
 } from "./ai-usage-snapshot.mjs";
 
-export const AI_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v1";
+export const AI_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v2";
 export const AI_USAGE_HISTORY_TIMEZONE = "Asia/Seoul";
 export const AI_USAGE_PROJECTION_ENVELOPE_SCHEMA = "soulforge.team_ops_board_ai_usage_projection.v1";
 export const AI_USAGE_HISTORY_WINDOWS = Object.freeze([
@@ -16,16 +16,23 @@ export const AI_USAGE_HISTORY_WINDOWS = Object.freeze([
   "all_time"
 ]);
 
-const ROOT_KEYS = ["schema_version", "generated_at", "timezone", "reference_at", "top_n", "current", "windows"];
+const ROOT_KEYS = ["schema_version", "generated_at", "timezone", "reference_at", "top_n", "current", "windows", "activity", "rate_limit"];
 const WINDOW_KEYS = ["start_at", "end_at", "totals", "breakdowns"];
-const BREAKDOWN_KEYS = ["projects", "works", "tasks"];
+const BREAKDOWN_KEYS = ["projects", "works", "tasks", "models"];
 const BREAKDOWN_GROUP_KEYS = ["top", "other"];
 const METRIC_KEYS = ["turns", "total_tokens", "credits", "credit_unknown_turns"];
 const DIMENSIONS = Object.freeze([
   ["projects", "project_id"],
   ["works", "work_id"],
-  ["tasks", "task_id"]
+  ["tasks", "task_id"],
+  ["models", "model_id"]
 ]);
+const ACTIVITY_KEYS = ["daily", "hourly"];
+const DAILY_ROW_KEYS = ["date", ...METRIC_KEYS];
+const HOURLY_ROW_KEYS = ["hour", "turns", "total_tokens"];
+const RATE_LIMIT_KEYS = ["limit_id", "plan_type", "used_percent", "window_minutes", "resets_at_epoch_s", "observed_at"];
+const KST_DATE = /^\d{4}-\d{2}-\d{2}$/u;
+const MAX_DAILY_ROWS = 60;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 const FORBIDDEN_KEY = /(session|path|raw|private|secret|credential|cookie|prompt|reasoning|argument|output|body|source|title|message|tool)/iu;
 const CREDIT_TOLERANCE = 1e-9;
@@ -128,6 +135,57 @@ function window(value, topN) {
   return { start_at: startAt, end_at: endAt, totals, breakdowns };
 }
 
+function activity(value, allTimeTotals) {
+  if (!hasExactKeys(value, ACTIVITY_KEYS) || !Array.isArray(value.daily) || !Array.isArray(value.hourly)) return null;
+  if (value.daily.length < 1 || value.daily.length > MAX_DAILY_ROWS || value.hourly.length !== 24) return null;
+  const daily = [];
+  let priorDate = "";
+  for (const row of value.daily) {
+    if (!hasExactKeys(row, DAILY_ROW_KEYS) || typeof row.date !== "string" || !KST_DATE.test(row.date)) return null;
+    if (row.date <= priorDate) return null;
+    priorDate = row.date;
+    const parsed = metric(Object.fromEntries(METRIC_KEYS.map((key) => [key, row[key]])));
+    if (!parsed) return null;
+    daily.push({ date: row.date, ...parsed });
+  }
+  let hourlyTurns = 0;
+  let hourlyTokens = 0;
+  const hourly = [];
+  for (const [index, row] of value.hourly.entries()) {
+    if (!hasExactKeys(row, HOURLY_ROW_KEYS) || row.hour !== index
+      || !Number.isSafeInteger(row.turns) || row.turns < 0
+      || !Number.isSafeInteger(row.total_tokens) || row.total_tokens < 0) return null;
+    hourlyTurns += row.turns;
+    hourlyTokens += row.total_tokens;
+    hourly.push({ hour: index, turns: row.turns, total_tokens: row.total_tokens });
+  }
+  if (hourlyTurns !== allTimeTotals.turns || hourlyTokens !== allTimeTotals.total_tokens) return null;
+  return { daily, hourly };
+}
+
+function rateLimit(value) {
+  if (value === null) return { value: null };
+  if (!hasExactKeys(value, RATE_LIMIT_KEYS)) return null;
+  if (typeof value.limit_id !== "string" || !SAFE_ID.test(value.limit_id)) return null;
+  if (value.plan_type !== null && (typeof value.plan_type !== "string" || !SAFE_ID.test(value.plan_type))) return null;
+  if (typeof value.used_percent !== "number" || !Number.isFinite(value.used_percent)
+    || value.used_percent < 0 || value.used_percent > 1000) return null;
+  if (value.window_minutes !== null && (!Number.isSafeInteger(value.window_minutes) || value.window_minutes < 0)) return null;
+  if (value.resets_at_epoch_s !== null && (!Number.isSafeInteger(value.resets_at_epoch_s) || value.resets_at_epoch_s < 0)) return null;
+  const observedAt = normalizedTimestamp(value.observed_at);
+  if (observedAt === undefined) return null;
+  return {
+    value: {
+      limit_id: value.limit_id,
+      plan_type: value.plan_type,
+      used_percent: value.used_percent,
+      window_minutes: value.window_minutes,
+      resets_at_epoch_s: value.resets_at_epoch_s,
+      observed_at: observedAt
+    }
+  };
+}
+
 function invalidProjection() {
   return {
     state: "invalid",
@@ -168,6 +226,10 @@ function normalizeHistorySnapshot(input) {
     if (!parsed) return invalidProjection();
     windows[name] = parsed;
   }
+  const parsedActivity = activity(input.activity, windows.all_time.totals);
+  if (!parsedActivity) return invalidProjection();
+  const parsedRateLimit = rateLimit(input.rate_limit);
+  if (!parsedRateLimit) return invalidProjection();
   const nestedTotals = current.snapshot.totals;
   if (
     nestedTotals.credits === null
@@ -187,7 +249,9 @@ function normalizeHistorySnapshot(input) {
       timezone: AI_USAGE_HISTORY_TIMEZONE,
       reference_at: referenceAt,
       top_n: input.top_n,
-      windows
+      windows,
+      activity: parsedActivity,
+      rate_limit: parsedRateLimit.value
     },
     refresh_state: "ready"
   };

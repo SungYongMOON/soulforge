@@ -27,6 +27,7 @@ function event({
   model = "gpt-5.6-terra",
   effort = "max",
   parent = null,
+  rateLimit = null,
 }) {
   return {
     event_id: id,
@@ -41,6 +42,7 @@ function event({
     credits: { total: credit },
     time: { started_at: startedAt },
     source: { source_ref: "raw-session-must-not-appear" },
+    rate_limit_snapshot: rateLimit,
   };
 }
 
@@ -145,7 +147,51 @@ test("Board usage history snapshots use Asia/Seoul calendar and rolling half-ope
   assert.equal(snapshot.current.totals.turns, snapshot.windows.all_time.totals.turns);
   assert.equal(snapshot.current.totals.total_tokens, snapshot.windows.all_time.totals.total_tokens);
   assert.equal(snapshot.current.totals.credits, snapshot.windows.all_time.totals.credits);
+
+  assert.equal(snapshot.windows.all_time.breakdowns.models.top[0].model_id, "gpt-5.6-terra");
+  assert.equal(snapshot.windows.all_time.breakdowns.models.top[0].turns, 6);
+  assert.equal(snapshot.windows.all_time.breakdowns.models.other.turns, 0);
+
+  assert.equal(snapshot.activity.daily.length, 40);
+  assert.equal(snapshot.activity.daily.at(-1).date, "2026-08-03");
+  assert.deepEqual(
+    { ...snapshot.activity.daily.at(-1), date: undefined },
+    { ...totals(snapshot, "calendar_day"), date: undefined },
+  );
+  assert.equal(snapshot.activity.hourly.length, 24);
+  assert.equal(snapshot.activity.hourly.reduce((sum, row) => sum + row.turns, 0), 6);
+  assert.equal(snapshot.activity.hourly.reduce((sum, row) => sum + row.total_tokens, 0), 340);
+  assert.equal(snapshot.activity.hourly[0].turns, 2);
+  assert.equal(snapshot.activity.hourly[12].turns, 2);
+
   assert.doesNotMatch(JSON.stringify(snapshot), /raw-session-must-not-appear|source_ref|thread_id|prompt|message|tool_payload/u);
+});
+
+test("Board usage history exposes the latest rate-limit snapshot with sanitized fields", () => {
+  const snapshot = createBoardUsageHistorySnapshot([
+    event({
+      id: "rate-older", thread: "task-rate-a", startedAt: "2026-08-03T00:00:00.000Z",
+      rateLimit: { limit_id: "codex", used_percent: 42, window_minutes: 10080, resets_at_epoch_s: 1786163319, plan_type: "pro" },
+    }),
+    event({
+      id: "rate-newer", thread: "task-rate-b", startedAt: "2026-08-03T02:00:00.000Z",
+      rateLimit: { limit_id: "codex", used_percent: 99, window_minutes: 10080, resets_at_epoch_s: 1786163319, plan_type: "무단 값" },
+    }),
+    event({ id: "rate-none", thread: "task-rate-c", startedAt: "2026-08-03T03:00:00.000Z" }),
+  ], { generatedAt: "2026-08-03T03:30:00.000Z" });
+  assert.deepEqual(snapshot.rate_limit, {
+    limit_id: "codex",
+    plan_type: null,
+    used_percent: 99,
+    window_minutes: 10080,
+    resets_at_epoch_s: 1786163319,
+    observed_at: "2026-08-03T02:00:00.000Z",
+  });
+
+  const none = createBoardUsageHistorySnapshot([
+    event({ id: "rate-absent", thread: "task-rate-d", startedAt: "2026-08-03T00:00:00.000Z" }),
+  ], { generatedAt: "2026-08-03T01:00:00.000Z" });
+  assert.equal(none.rate_limit, null);
 });
 
 test("Board usage history deduplicates exact replays, normalizes unassigned dimensions, and rejects conflicts", () => {
@@ -202,6 +248,30 @@ test("Board usage history validator enforces top-N reconciliation, fixed boundar
     () => validateBoardUsageHistorySnapshot(badRaw),
     (error) => error?.code === "board_usage_history_snapshot_invalid",
   );
+
+  const badDailyDate = structuredClone(snapshot);
+  badDailyDate.activity.daily[0].date = "1999-01-01";
+  assert.throws(
+    () => validateBoardUsageHistorySnapshot(badDailyDate),
+    (error) => error?.code === "board_usage_history_activity_daily_invalid",
+  );
+
+  const badHourly = structuredClone(snapshot);
+  badHourly.activity.hourly[3].turns += 1;
+  assert.throws(
+    () => validateBoardUsageHistorySnapshot(badHourly),
+    (error) => error?.code === "board_usage_history_activity_hourly_reconciliation_invalid",
+  );
+
+  const badRateLimit = structuredClone(snapshot);
+  badRateLimit.rate_limit = {
+    limit_id: "codex", plan_type: "pro", used_percent: -1, window_minutes: null, resets_at_epoch_s: null,
+    observed_at: "2026-08-03T00:00:00.000Z",
+  };
+  assert.throws(
+    () => validateBoardUsageHistorySnapshot(badRateLimit),
+    (error) => error?.code === "board_usage_history_rate_limit_invalid",
+  );
 });
 
 test("Board usage history writer is atomic and only writes the validated sidecar", async () => {
@@ -222,7 +292,7 @@ test("Board usage history writer is atomic and only writes the validated sidecar
 });
 
 test("Board usage history static schema rejects extra fields while the runtime validator enforces reconciliation", async () => {
-  const schema = JSON.parse(await readFile(new URL("./ai_usage_board_history_snapshot.v1.schema.json", import.meta.url), "utf8"));
+  const schema = JSON.parse(await readFile(new URL("./ai_usage_board_history_snapshot.v2.schema.json", import.meta.url), "utf8"));
   const validate = new Ajv2020({ strict: false, validateFormats: false }).compile(schema);
   const snapshot = createBoardUsageHistorySnapshot([
     event({ id: "history-schema", thread: "task-schema", startedAt: "2026-08-03T00:00:00.000Z" }),

@@ -51,7 +51,8 @@ function historyFixture() {
     breakdowns: {
       projects: breakdown("project_id", "project-a"),
       works: breakdown("work_id", "work-a"),
-      tasks: breakdown("task_id", "task-a")
+      tasks: breakdown("task_id", "task-a"),
+      models: breakdown("model_id", "gpt-5.6-terra")
     }
   });
   return {
@@ -61,7 +62,24 @@ function historyFixture() {
     reference_at: AT,
     top_n: 1,
     current: currentFixture(),
-    windows: Object.fromEntries(AI_USAGE_HISTORY_WINDOWS.map((name) => [name, makeWindow()]))
+    windows: Object.fromEntries(AI_USAGE_HISTORY_WINDOWS.map((name) => [name, makeWindow()])),
+    activity: {
+      daily: [
+        { date: "2026-08-03", turns: 0, total_tokens: 0, credits: 0, credit_unknown_turns: 0 },
+        { date: "2026-08-04", turns: 1, total_tokens: 50, credits: 0.1, credit_unknown_turns: 0 }
+      ],
+      hourly: Array.from({ length: 24 }, (_, hour) => (
+        hour === 10 ? { hour, turns: 1, total_tokens: 50 } : { hour, turns: 0, total_tokens: 0 }
+      ))
+    },
+    rate_limit: {
+      limit_id: "codex",
+      plan_type: "pro",
+      used_percent: 99,
+      window_minutes: 10080,
+      resets_at_epoch_s: 1786163319,
+      observed_at: AT
+    }
   };
 }
 
@@ -71,7 +89,28 @@ test("AI usage history projection accepts strict KST windows and reconciled exac
   assert.equal(projection.state, "ready");
   assert.equal(projection.history?.timezone, "Asia/Seoul");
   assert.equal(projection.history?.windows.all_time.breakdowns.tasks.top[0].task_id, "task-a");
+  assert.equal(projection.history?.windows.all_time.breakdowns.models.top[0].model_id, "gpt-5.6-terra");
   assert.deepEqual(projection.history?.windows.all_time.totals, METRICS);
+  assert.equal(projection.history?.activity.daily.at(-1).date, "2026-08-04");
+  assert.equal(projection.history?.activity.hourly[10].turns, 1);
+  assert.equal(projection.history?.rate_limit?.used_percent, 99);
+  assert.equal(projection.history?.rate_limit?.plan_type, "pro");
+});
+
+test("AI usage history projection rejects unreconciled hourly activity and malformed rate limits", () => {
+  const badHourly = historyFixture();
+  badHourly.activity.hourly[3] = { hour: 3, turns: 5, total_tokens: 0 };
+  assert.equal(normalizeAiUsageHistoryProjection(badHourly).state, "invalid");
+
+  const badRate = historyFixture();
+  badRate.rate_limit = { ...badRate.rate_limit, used_percent: 2000 };
+  assert.equal(normalizeAiUsageHistoryProjection(badRate).state, "invalid");
+
+  const noRate = historyFixture();
+  noRate.rate_limit = null;
+  const projection = normalizeAiUsageHistoryProjection(noRate);
+  assert.equal(projection.state, "ready");
+  assert.equal(projection.history?.rate_limit, null);
 });
 
 test("AI usage history projection rejects non-reconciled or protected history input", () => {

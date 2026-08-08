@@ -9,10 +9,11 @@ import {
 } from "./board_snapshot.mjs";
 import { canonicalJson, loadPersistedUsageEvents } from "./usage_meter.mjs";
 
-export const BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v1";
+export const BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v2";
 export const BOARD_USAGE_HISTORY_TIMEZONE = "Asia/Seoul";
 export const DEFAULT_BOARD_USAGE_HISTORY_TOP_N = 10;
 export const MAX_BOARD_USAGE_HISTORY_TOP_N = 50;
+export const BOARD_USAGE_HISTORY_ACTIVITY_DAILY_DAYS = 40;
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1_000;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
@@ -26,6 +27,8 @@ const ROOT_KEYS = new Set([
   "top_n",
   "current",
   "windows",
+  "activity",
+  "rate_limit",
 ]);
 const WINDOW_NAMES = [
   "calendar_day",
@@ -37,14 +40,22 @@ const WINDOW_NAMES = [
   "all_time",
 ];
 const WINDOW_KEYS = new Set(["start_at", "end_at", "totals", "breakdowns"]);
-const BREAKDOWN_KEYS = new Set(["projects", "works", "tasks"]);
+const BREAKDOWN_KEYS = new Set(["projects", "works", "tasks", "models"]);
 const BREAKDOWN_GROUP_KEYS = new Set(["top", "other"]);
 const METRIC_KEYS = new Set(["turns", "total_tokens", "credits", "credit_unknown_turns"]);
 const DIMENSIONS = [
   ["projects", "project_id"],
   ["works", "work_id"],
   ["tasks", "task_id"],
+  ["models", "model_id"],
 ];
+const ACTIVITY_KEYS = new Set(["daily", "hourly"]);
+const DAILY_ROW_KEYS = new Set(["date", ...METRIC_KEYS]);
+const HOURLY_ROW_KEYS = new Set(["hour", "turns", "total_tokens"]);
+const RATE_LIMIT_KEYS = new Set([
+  "limit_id", "plan_type", "used_percent", "window_minutes", "resets_at_epoch_s", "observed_at",
+]);
+const KST_DATE = /^\d{4}-\d{2}-\d{2}$/u;
 
 function fail(code) {
   const error = new Error(code);
@@ -203,6 +214,7 @@ function eventObservation(event) {
     project_id: safeDimensionId(event?.project_id),
     work_id: safeDimensionId(event?.work_id),
     task_id: safeDimensionId(event?.thread_id),
+    model_id: safeDimensionId(event?.model?.id),
     metrics: {
       turns: 1,
       total_tokens: totalTokens,
@@ -252,6 +264,77 @@ function calendarMonthStart(referenceAt) {
 function nextKstMonthStart(referenceAt) {
   const local = localKstParts(referenceAt);
   return kstMidnight(local.year, local.month + 1, 1);
+}
+
+function kstDateKey(timestamp) {
+  const local = localKstParts(timestamp);
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${local.year}-${pad(local.month + 1)}-${pad(local.day)}`;
+}
+
+function kstHour(timestamp) {
+  return new Date(Date.parse(timestamp) + KST_OFFSET_MS).getUTCHours();
+}
+
+function activityDailyDates(referenceAt) {
+  const dayStart = calendarDayStart(referenceAt);
+  const dates = [];
+  for (let offset = BOARD_USAGE_HISTORY_ACTIVITY_DAILY_DAYS - 1; offset >= 0; offset -= 1) {
+    dates.push(kstDateKey(addKstDays(dayStart, -offset)));
+  }
+  return dates;
+}
+
+function buildActivity(observations, referenceAt) {
+  const dates = activityDailyDates(referenceAt);
+  const daily = new Map(dates.map((date) => [date, emptyMetrics()]));
+  const hourly = Array.from({ length: 24 }, () => ({ turns: 0, total_tokens: 0 }));
+  for (const observation of observations) {
+    const dateKey = kstDateKey(observation.started_at);
+    const bucket = daily.get(dateKey);
+    if (bucket !== undefined) addMetrics(bucket, observation.metrics);
+    const hourBucket = hourly[kstHour(observation.started_at)];
+    hourBucket.turns += observation.metrics.turns;
+    hourBucket.total_tokens += observation.metrics.total_tokens;
+  }
+  return {
+    daily: dates.map((date) => ({ date, ...publicMetrics(daily.get(date)) })),
+    hourly: hourly.map((bucket, hour) => ({ hour, turns: bucket.turns, total_tokens: bucket.total_tokens })),
+  };
+}
+
+function sanitizedRateLimitId(value, fallback) {
+  return typeof value === "string" && SAFE_ID.test(value) ? value : fallback;
+}
+
+function sanitizedRateLimitInteger(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function latestRateLimit(events) {
+  let candidate = null;
+  for (const event of events) {
+    const snapshot = event?.rate_limit_snapshot;
+    if (!isRecord(snapshot)) continue;
+    if (typeof snapshot.used_percent !== "number" || !Number.isFinite(snapshot.used_percent)) continue;
+    const startedAt = event?.time?.started_at;
+    if (typeof startedAt !== "string" || !Number.isFinite(Date.parse(startedAt))) continue;
+    const eventId = typeof event?.event_id === "string" ? event.event_id : "";
+    if (candidate !== null) {
+      const order = Date.parse(startedAt) - Date.parse(candidate.started_at);
+      if (order < 0 || (order === 0 && eventId.localeCompare(candidate.event_id, "en") <= 0)) continue;
+    }
+    candidate = { started_at: startedAt, event_id: eventId, snapshot };
+  }
+  if (candidate === null) return null;
+  return {
+    limit_id: sanitizedRateLimitId(candidate.snapshot.limit_id, "unknown"),
+    plan_type: sanitizedRateLimitId(candidate.snapshot.plan_type, null),
+    used_percent: rounded(Math.min(1000, Math.max(0, candidate.snapshot.used_percent))),
+    window_minutes: sanitizedRateLimitInteger(candidate.snapshot.window_minutes),
+    resets_at_epoch_s: sanitizedRateLimitInteger(candidate.snapshot.resets_at_epoch_s),
+    observed_at: new Date(candidate.started_at).toISOString(),
+  };
 }
 
 function windowDefinitions(referenceAt) {
@@ -375,6 +458,79 @@ function parseWindow(value, expectedStartAt, expectedEndAt, topN) {
   return { start_at: startAt, end_at: endAt, totals, breakdowns };
 }
 
+function parseActivity(value, referenceAt, windows) {
+  if (!hasOnlyKeys(value, ACTIVITY_KEYS) || !Array.isArray(value.daily) || !Array.isArray(value.hourly)) {
+    fail("board_usage_history_activity_invalid");
+  }
+  const expectedDates = activityDailyDates(referenceAt);
+  if (value.daily.length !== expectedDates.length) fail("board_usage_history_activity_daily_invalid");
+  const daily = value.daily.map((row, index) => {
+    if (!hasOnlyKeys(row, DAILY_ROW_KEYS) || typeof row.date !== "string" || !KST_DATE.test(row.date)
+      || row.date !== expectedDates[index]) {
+      fail("board_usage_history_activity_daily_invalid");
+    }
+    return {
+      date: row.date,
+      ...parseMetrics(
+        Object.fromEntries([...METRIC_KEYS].map((key) => [key, row[key]])),
+        "board_usage_history_activity_daily_metric_invalid",
+      ),
+    };
+  });
+  if (!metricsEqual(daily[daily.length - 1], windows.calendar_day.totals)) {
+    fail("board_usage_history_activity_daily_reconciliation_invalid");
+  }
+  const dailySum = sumMetrics(daily);
+  const allTime = windows.all_time.totals;
+  if (dailySum.turns > allTime.turns || dailySum.total_tokens > allTime.total_tokens
+    || dailySum.credit_unknown_turns > allTime.credit_unknown_turns
+    || dailySum.credits > allTime.credits + 1e-9) {
+    fail("board_usage_history_activity_daily_reconciliation_invalid");
+  }
+  if (value.hourly.length !== 24) fail("board_usage_history_activity_hourly_invalid");
+  let hourlyTurns = 0;
+  let hourlyTokens = 0;
+  const hourly = value.hourly.map((row, index) => {
+    if (!hasOnlyKeys(row, HOURLY_ROW_KEYS) || row.hour !== index) fail("board_usage_history_activity_hourly_invalid");
+    const turns = strictCount(row.turns, "board_usage_history_activity_hourly_invalid");
+    const totalTokens = strictCount(row.total_tokens, "board_usage_history_activity_hourly_invalid");
+    hourlyTurns += turns;
+    hourlyTokens += totalTokens;
+    return { hour: index, turns, total_tokens: totalTokens };
+  });
+  if (hourlyTurns !== allTime.turns || hourlyTokens !== allTime.total_tokens) {
+    fail("board_usage_history_activity_hourly_reconciliation_invalid");
+  }
+  return { daily, hourly };
+}
+
+function parseRateLimit(value) {
+  if (value === null) return null;
+  if (!hasOnlyKeys(value, RATE_LIMIT_KEYS)) fail("board_usage_history_rate_limit_invalid");
+  if (typeof value.limit_id !== "string" || !SAFE_ID.test(value.limit_id)) fail("board_usage_history_rate_limit_invalid");
+  if (value.plan_type !== null && (typeof value.plan_type !== "string" || !SAFE_ID.test(value.plan_type))) {
+    fail("board_usage_history_rate_limit_invalid");
+  }
+  if (typeof value.used_percent !== "number" || !Number.isFinite(value.used_percent)
+    || value.used_percent < 0 || value.used_percent > 1000) {
+    fail("board_usage_history_rate_limit_invalid");
+  }
+  if (value.window_minutes !== null && (!Number.isSafeInteger(value.window_minutes) || value.window_minutes < 0)) {
+    fail("board_usage_history_rate_limit_invalid");
+  }
+  if (value.resets_at_epoch_s !== null && (!Number.isSafeInteger(value.resets_at_epoch_s) || value.resets_at_epoch_s < 0)) {
+    fail("board_usage_history_rate_limit_invalid");
+  }
+  return {
+    limit_id: value.limit_id,
+    plan_type: value.plan_type,
+    used_percent: rounded(value.used_percent),
+    window_minutes: value.window_minutes,
+    resets_at_epoch_s: value.resets_at_epoch_s,
+    observed_at: normalizedTimestamp(value.observed_at, "board_usage_history_rate_limit_invalid"),
+  };
+}
+
 export function validateBoardUsageHistorySnapshot(snapshot) {
   if (!hasOnlyKeys(snapshot, ROOT_KEYS) || hasForbiddenKey(snapshot)) {
     fail("board_usage_history_snapshot_invalid");
@@ -395,6 +551,8 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
   if (!metricsEqual(windows.all_time.totals, current.totals)) {
     fail("board_usage_history_all_time_reconciliation_invalid");
   }
+  const activity = parseActivity(snapshot.activity, referenceAt, windows);
+  const rateLimit = parseRateLimit(snapshot.rate_limit);
   return {
     schema_version: BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
     generated_at: generatedAt,
@@ -403,6 +561,8 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
     top_n: topN,
     current,
     windows,
+    activity,
+    rate_limit: rateLimit,
   };
 }
 
@@ -440,6 +600,8 @@ export function createBoardUsageHistorySnapshot(events, {
     windows: Object.fromEntries(windowDefinitions(normalizedReferenceAt).map(([name, startAt, endAt]) => (
       [name, buildWindow(observations, startAt, endAt, normalizedTopN)]
     ))),
+    activity: buildActivity(observations, normalizedReferenceAt),
+    rate_limit: latestRateLimit(uniqueEvents),
   };
   return validateBoardUsageHistorySnapshot(snapshot);
 }
