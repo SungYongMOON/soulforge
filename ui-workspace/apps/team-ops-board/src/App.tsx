@@ -2471,9 +2471,9 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
     "공식 관측값만 표시",
   ].filter(Boolean).join(" · ");
 
-  // ── 패널 2: 모델별 실사용 (Codex 달력주 원장 + Claude 최근 7일, 캐시 포함 합계)
+  // ── 패널 2: 모델별 실사용 — 두 공급자 모두 최근 7일(rolling)로 통일, 캐시 포함 합계
   const modelRows: any[] = [];
-  const codexModelTop = windows.calendar_week?.breakdowns?.models?.top ?? [];
+  const codexModelTop = windows.rolling_7d?.breakdowns?.models?.top ?? [];
   for (const row of codexModelTop) {
     if (!Number.isFinite(row?.total_tokens) || row.total_tokens <= 0) continue;
     modelRows.push({
@@ -2495,7 +2495,7 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   modelRows.sort((left, right) => right.tokens - left.tokens);
   const topModelRows = modelRows.slice(0, 7);
   const maxModelTokens = Math.max(...topModelRows.map((row) => row.tokens), 1);
-  const codexWeekTotal = week?.total_tokens ?? null;
+  const codexWeekTotal = rolling7?.total_tokens ?? null;
   const claudeWeekTotal = claudeRecon?.rolling_7d?.tokens?.total_with_cache ?? null;
 
   // ── 패널 3: CODEX 원장 총괄 + 40일 추이
@@ -2560,7 +2560,7 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
         <header>
           <span className="fleet-usage-dot" aria-hidden="true" />
           <span className="fleet-usage-title">모델별 사용</span>
-          <span className="fleet-usage-pill">Codex 주간 · Claude 7일</span>
+          <span className="fleet-usage-pill">최근 7일 · 캐시 포함</span>
         </header>
         {topModelRows.length === 0 ? (
           <p className="fleet-panel-empty">모델 사용 관측 없음</p>
@@ -2579,9 +2579,9 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
           </ul>
         )}
         <p className="fleet-panel-foot">
-          {codexWeekTotal !== null ? `Codex 주간 ${fleetTokenLabel(codexWeekTotal)}` : ""}
+          {codexWeekTotal !== null ? `Codex ${fleetTokenLabel(codexWeekTotal)}` : ""}
           {codexWeekTotal !== null && Number.isFinite(claudeWeekTotal) ? " · " : ""}
-          {Number.isFinite(claudeWeekTotal) ? `Claude 7일 ${fleetTokenLabel(claudeWeekTotal)} (캐시 포함)` : ""}
+          {Number.isFinite(claudeWeekTotal) ? `Claude ${fleetTokenLabel(claudeWeekTotal)}` : ""}
         </p>
       </article>
       <article className="fleet-usage-card fleet-panel is-totals">
