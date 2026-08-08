@@ -57,6 +57,7 @@ import {
 } from "./core/mobile-detail.mjs";
 import { buildTopologyViewModel } from "./core/topology-view.mjs";
 import { buildHostStatsViewModel } from "./core/host-stats.mjs";
+import { estimateClaudeUsdCost } from "./core/claude-usage.mjs";
 import {
   buildOrganizationUsageChartRows,
   buildProjectUsageChartRows,
@@ -2358,11 +2359,11 @@ function fleetObservedAgoLabel(observedAt: string): string {
 }
 
 function fleetCreditLabel(totals: any): string {
+  // 크레딧은 Codex 단위만 합산된다(Claude/AG 턴은 rate_unknown → 합계 미포함).
   const credits = totals?.credits === null || totals?.credits === undefined
     ? "미확정"
     : Math.round(totals.credits).toLocaleString("en-US");
-  const unknown = totals?.credit_unknown_turns > 0 ? ` · 단가 미확정 ${totals.credit_unknown_turns}` : "";
-  return `크레딧 ${credits}${unknown}`;
+  return `Codex 크레딧 ${credits}`;
 }
 
 function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: any }) {
@@ -2473,32 +2474,24 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
     "공식 관측값만 표시",
   ].filter(Boolean).join(" · ");
 
-  // ── 패널 2: 모델별 실사용 — 두 공급자 모두 최근 7일(rolling)로 통일, 캐시 포함 합계
+  // ── 패널 2: 모델별 실사용 — 원장(rolling 7일) 단일 출처, 공급자는 모델 id로 구분
   const modelRows: any[] = [];
-  const codexModelTop = windows.rolling_7d?.breakdowns?.models?.top ?? [];
-  for (const row of codexModelTop) {
+  const providerTokens = { codex: 0, claude: 0 };
+  for (const row of windows.rolling_7d?.breakdowns?.models?.top ?? []) {
     if (!Number.isFinite(row?.total_tokens) || row.total_tokens <= 0) continue;
+    const rawId = String(row.model_id ?? "");
+    const provider = rawId.startsWith("claude") ? "claude" : "codex";
+    providerTokens[provider] += row.total_tokens;
     modelRows.push({
-      provider: "codex",
-      model: String(row.model_id ?? "").replace(/^gpt-/u, "") || "미상",
+      provider,
+      model: rawId.replace(/^claude-/u, "").replace(/^gpt-/u, "").replace(/^haiku-4-5-\d+$/u, "haiku-4.5") || "미상",
       tokens: row.total_tokens,
-    });
-  }
-  const claudeModels = Array.isArray(claudeRecon?.models_7d) ? claudeRecon.models_7d : [];
-  for (const entry of claudeModels) {
-    const tokens = entry?.tokens?.total_with_cache;
-    if (!Number.isFinite(tokens) || tokens <= 0) continue;
-    modelRows.push({
-      provider: "claude",
-      model: String(entry.model ?? "").replace(/^claude-/u, "").replace(/^haiku-4-5-\d+$/u, "haiku-4.5") || "미상",
-      tokens,
     });
   }
   modelRows.sort((left, right) => right.tokens - left.tokens);
   const topModelRows = modelRows.slice(0, 7);
   const maxModelTokens = Math.max(...topModelRows.map((row) => row.tokens), 1);
-  const codexWeekTotal = rolling7?.total_tokens ?? null;
-  const claudeWeekTotal = claudeRecon?.rolling_7d?.tokens?.total_with_cache ?? null;
+  const claudeUsd = estimateClaudeUsdCost(Array.isArray(claudeRecon?.models_7d) ? claudeRecon.models_7d : null);
 
   // ── 패널 3: CODEX 원장 총괄 + 40일 추이
   const totalsRows = [
@@ -2581,16 +2574,17 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
           </ul>
         )}
         <p className="fleet-panel-foot">
-          {codexWeekTotal !== null ? `Codex ${fleetTokenLabel(codexWeekTotal)}` : ""}
-          {codexWeekTotal !== null && Number.isFinite(claudeWeekTotal) ? " · " : ""}
-          {Number.isFinite(claudeWeekTotal) ? `Claude ${fleetTokenLabel(claudeWeekTotal)}` : ""}
+          {providerTokens.codex > 0 ? `Codex ${fleetTokenLabel(providerTokens.codex)}` : ""}
+          {providerTokens.codex > 0 && providerTokens.claude > 0 ? " · " : ""}
+          {providerTokens.claude > 0 ? `Claude ${fleetTokenLabel(providerTokens.claude)}` : ""}
+          {claudeUsd !== null && claudeUsd.usd > 0 ? ` · Claude 예상 $${claudeUsd.usd.toLocaleString("en-US")}` : ""}
         </p>
       </article>
       <article className="fleet-usage-card fleet-panel is-totals">
         <header>
           <span className="fleet-usage-dot" aria-hidden="true" />
           <span className="fleet-usage-title">사용 총괄</span>
-          <span className="fleet-usage-pill">CODEX 원장</span>
+          <span className="fleet-usage-pill">CODEX+CLAUDE 원장</span>
         </header>
         <ul className="fleet-total-rows">
           {totalsRows.map((row) => (
@@ -2633,7 +2627,7 @@ function LedgerActivity({ usage }: { usage: any }) {
       <header>
         <span className="ledger-distribution-kicker">활동 빈도</span>
         <h2>최근 일자별 · 시간대별 작업</h2>
-        <span className="ledger-distribution-meta">KST · CODEX만</span>
+        <span className="ledger-distribution-meta">KST · CODEX+CLAUDE</span>
       </header>
       <div className="ledger-activity-panels">
         <div className="ledger-activity-panel">
@@ -2680,7 +2674,7 @@ function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskL
   const orgTokens = new Map<string, number>();
   for (const row of topRows("tasks")) {
     const label = getLabel(String(row.task_id));
-    const prefix = label === null ? "미등록 스레드" : (/^\[([^\]]+)\]/u.exec(label)?.[1] ?? "기타 라벨");
+    const prefix = label === null ? "Claude 세션·미등록" : (/^\[([^\]]+)\]/u.exec(label)?.[1] ?? "기타 라벨");
     orgTokens.set(prefix, (orgTokens.get(prefix) ?? 0) + (row.total_tokens ?? 0));
   }
   const tasksOther = window.breakdowns.tasks?.other?.total_tokens ?? 0;
@@ -2778,7 +2772,7 @@ function SystemStatStrip({ projection, hostStats, usage, threadCount, usageState
       <span>주의 <b className={summary && summary.degraded + summary.stale + summary.down > 0 ? "is-warn" : ""}>{summary ? summary.degraded + summary.stale + summary.down : "—"}</b></span>
       <span>등록 <b>{threadCount}</b></span>
       <span>판정 <b>{observed}</b></span>
-      <span>METER <b className={usageState === "unmeasured" ? "" : "is-ok"}>{usageState === "unmeasured" ? "대기" : "가동"}</b> <span className="system-stat-strip-scope">원장 CODEX · CLAUDE 표시 계측 · GEMINI 크레딧만</span></span>
+      <span>METER <b className={usageState === "unmeasured" ? "" : "is-ok"}>{usageState === "unmeasured" ? "대기" : "가동"}</b> <span className="system-stat-strip-scope">원장 CODEX+CLAUDE · GEMINI 크레딧만</span></span>
       {Number.isFinite(allTokens) && (
         <span className="system-stat-strip-end">총 사용 토큰 <b className="is-total">{fleetTokenLabel(allTokens)}</b>
           {Number.isFinite(rolling30) && <> 일평균 <b>{fleetTokenLabel(Math.round((rolling30 as number) / 30))}</b></>}

@@ -78,15 +78,27 @@ test("usage refresh runs the Meter pipeline sequentially with only the exact enr
 
     assert.deepEqual(commands.map((args) => args[0]), [
       "collect",
+      "collect-claude",
       "lifecycle-reconcile",
       "board-snapshot",
       "board-history-snapshot"
     ]);
     for (const args of commands) {
+      // collect-claude는 로컬 전사 전량 수집이라 exact 스레드 스코프를 받지 않는다.
+      if (args[0] === "collect-claude") {
+        assert.equal(args.includes("--thread-id"), false);
+        continue;
+      }
       assert.deepEqual(threadIdsFromArgs(args), ["thread-one", "thread-two"]);
       assert.equal(args.includes("--thread-id"), true);
     }
-    assert.equal(commands[1].includes("--max-sessions"), true);
+    assert.equal(commands[2].includes("--max-sessions"), true);
+    for (const command of ["board-snapshot", "board-history-snapshot"]) {
+      const args = commands.find((entry) => entry[0] === command);
+      const flagIndex = args.indexOf("--include-provider");
+      assert.notEqual(flagIndex, -1);
+      assert.equal(args[flagIndex + 1], "claude_session_jsonl");
+    }
     assert.deepEqual(snapshot, expected);
   } finally {
     await rm(directory, { recursive: true, force: true });

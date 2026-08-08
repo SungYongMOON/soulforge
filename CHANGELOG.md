@@ -1,5 +1,53 @@
 # CHANGELOG
 
+## 2026-08-08 — 미터 다중 공급자 원장 (Claude 편입, AG 요청수 준비)
+
+- usage-event 원장이 세 공급자를 수용한다: `source.kind`와
+  `token_confidence`를 1:1 고정쌍으로 확장(codex=exact_cumulative_delta,
+  claude=exact_per_message, antigravity=request_count_only)하고 정적
+  이벤트 스키마도 lockstep 갱신. `collect-claude`는 세션 전사에서 같은
+  `message.id` 중복 관측(최대 6배 과계상)을 제거해 메시지 단위 정확
+  이벤트를 만들고, 프로젝트 귀속은 작업 폴더 말단 슬러그 파생 +
+  로컬 바인딩 재지정(`bindings/claude_project_binding.json`), 경로
+  원문은 이벤트에 넣지 않는다. 비-Codex 크레딧은 통화 혼합을 막기 위해
+  전부 `rate_unknown`(USD 예상 비용은 표시 계층 환산 전용).
+- Board 스냅샷 로더에 `--include-provider` 도입: Codex는 exact 스레드
+  게이트 유지, 로컬 소유 Claude/AG 전사는 전량 합류. Board 자동 체인에
+  `collect-claude`(10일 창)와 provider 포함 플래그를 연결 — 라이브
+  적용 결과 원장 10,847 이벤트, 오늘 1,178턴·294M tok, 모델별
+  sol 1.31B·fable 360.7M·opus-5 139.3M 병합 표시, Claude 7일 예상
+  $831 병기. 미터 86/86 · Board 233/233.
+- Antigravity 수집기는 파이프라인·테스트 완성 상태로 대기: 실데이터가
+  0건인 이유는 (a) conversation 인덱스가 7/25 이후 stale, (b) hot-WAL
+  DB가 immutable 읽기에서 비어 보임 — 완화(mode=ro 전환 또는 파일
+  mtime 시간원)는 Owner 결정 게이트로 남김.
+
+## 2026-08-08 — guild_hall 문서 색인 주제별 재편
+
+- `docs/architecture/guild_hall/README.md` 의 문서 역할 색인을 평면 63행
+  나열에서 6개 주제 절로 재편했다: 조직·역할·모델 프로파일 / 지식·RAG·
+  온톨로지 / 자동화·야간운영·사용량 / 상태 투영·대시보드 / 메일·알림 계약 /
+  구현 surface README. "무엇을 알아야 하는지"로 먼저 찾고 그 줄의 문서만
+  읽도록 안내 문구를 앞에 두었다.
+- 색인에 빠져 있던 `KNOWLEDGE_ASSISTANT_ACTIVATION_PLAN_V0.md`,
+  `RAG_SOURCE_FAMILY_PROMOTION_POLICY_V0.md`,
+  `DEV_WORKER_NEXT_STEPS_REVIEW_20260517.html` 세 건을 등재했다. 이제
+  `docs/architecture/guild_hall/` 의 모든 문서가 색인에 있다.
+- 표와 거의 같은 내용을 반복하던 하단 `관련 경로` 링크 목록 54행을
+  제거하고 표 자체를 링크로 만들었다. 131행 → 120행.
+- 조직·역할 절에 현재 실제 조직 상태가 문서가 아니라 두 개의 untracked
+  local source(`organization_governance_overlay.v1.json` 조직 골격,
+  `thread_visibility.v1.json` thread 등록)에 있고 서로 자동 동기화되지
+  않는다는 점을 명시했다.
+- `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md` 기본 원칙에
+  `docs/architecture/<group>/*.md` wildcard 가 문서군 선적재를 뜻하지
+  않으며 그 문서군 README 색인을 먼저 읽고 새 문서 추가 시 같은 변경에서
+  색인에 한 줄을 남긴다는 규칙을 추가했다.
+- 운영 영향: `AGENTS.md` 는 변경하지 않았다. 자동 적재 문서가 늘지 않으며,
+  조직·역할·모델 프로파일 문서를 찾을 때 진입점이 색인 한 곳으로 고정된다.
+- 관련 경로: `docs/architecture/guild_hall/README.md`,
+  `docs/architecture/foundation/DOCUMENT_OWNERSHIP.md`
+
 ## 2026-08-08 — Usage history v2 (모델·활동·한도) + Fleet 호스트 스탯
 
 - AI 사용량 미터 board-history sidecar를

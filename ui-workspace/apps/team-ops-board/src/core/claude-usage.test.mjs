@@ -8,6 +8,7 @@ import {
   CLAUDE_USAGE_SCHEMA_VERSION,
   buildClaudeUsageSnapshot,
   buildClaudeUsageViewModel,
+  estimateClaudeUsdCost,
   guardClaudeUsagePrivacy,
   kstDayStartMs,
   parseClaudeUsageLine,
@@ -206,4 +207,14 @@ test("buildClaudeUsageViewModel fails closed when the privacy guard trips", () =
   const view = buildClaudeUsageViewModel(poisoned);
   assert.equal(view.available, false);
   assert.deepEqual(view.windows, []);
+});
+
+test("estimateClaudeUsdCost prices known models and reports unknown ones", () => {
+  const result = estimateClaudeUsdCost([
+    { model: "claude-fable-5", tokens: { input: 1_000_000, output: 100_000, cache_read: 10_000_000, cache_write: 500_000 } },
+    { model: "claude-mystery", tokens: { input: 5, output: 5, cache_read: 0, cache_write: 0 } },
+  ]);
+  assert.equal(result.usd, 35);
+  assert.deepEqual(result.unknown_models, ["claude-mystery"]);
+  assert.equal(estimateClaudeUsdCost(null), null);
 });

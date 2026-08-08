@@ -156,17 +156,22 @@ export async function refreshExactScopedUsage({
     ...common,
     args: ["collect", "--apply", "--state-root", resolve(stateRoot), "--sessions-root", resolve(sessionsRoot), ...scope]
   });
+  // Claude 세션 원장 수집 — 로컬 전사(exact per-message dedup)라 exact 스레드 스코프와 무관하게 수집한다.
+  await runCommand({
+    ...common,
+    args: ["collect-claude", "--apply", "--state-root", resolve(stateRoot), "--max-age-days", "10"]
+  });
   await runCommand({
     ...common,
     args: ["lifecycle-reconcile", "--apply", "--state-root", resolve(stateRoot), "--sessions-root", resolve(sessionsRoot), "--max-sessions", String(MAX_EXACT_THREAD_IDS), ...scope]
   });
   await runCommand({
     ...common,
-    args: ["board-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(currentPath), ...scope]
+    args: ["board-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(currentPath), "--include-provider", "claude_session_jsonl", ...scope]
   });
   await runCommand({
     ...common,
-    args: ["board-history-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(historyPath), "--top-n", "50", ...scope]
+    args: ["board-history-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(historyPath), "--top-n", "50", "--include-provider", "claude_session_jsonl", ...scope]
   });
   const snapshot = validateBoardUsageHistorySnapshot(JSON.parse(await readFile(historyPath, "utf8")));
   if (snapshot.schema_version !== BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA) throw new Error("ai_usage_history_schema_invalid");

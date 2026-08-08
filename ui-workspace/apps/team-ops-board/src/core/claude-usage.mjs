@@ -29,6 +29,38 @@ const SNAPSHOT_ALLOWED_KEYS = new Set([
 ]);
 const PLAN_ALLOWED_KEYS = new Set(["user_rate_limit_tier", "organization_rate_limit_tier"]);
 
+// 표시 전용 USD 예상 비용 — 원장(크레딧)과 섞지 않는다. 공시 API 단가(2026-08 관측,
+// USD/1M tok). cache_write는 1시간 TTL 요율(입력의 2배) 기준 추정치.
+export const CLAUDE_USD_RATE_CARD = Object.freeze({
+  observed: "2026-08",
+  models: Object.freeze({
+    "claude-fable-5": Object.freeze({ input: 10, output: 50, cache_read: 1, cache_write: 20 }),
+    "claude-opus-5": Object.freeze({ input: 5, output: 25, cache_read: 0.5, cache_write: 10 }),
+    "claude-sonnet-5": Object.freeze({ input: 2, output: 10, cache_read: 0.2, cache_write: 4 }),
+    "claude-haiku-4-5-20251001": Object.freeze({ input: 1, output: 5, cache_read: 0.1, cache_write: 2 }),
+  }),
+});
+
+export function estimateClaudeUsdCost(modelEntries) {
+  if (!Array.isArray(modelEntries)) return null;
+  let usd = 0;
+  const unknownModels = [];
+  for (const entry of modelEntries) {
+    const rates = CLAUDE_USD_RATE_CARD.models[entry?.model];
+    const tokens = entry?.tokens;
+    if (!rates || !isPlainObject(tokens)) {
+      if (typeof entry?.model === "string") unknownModels.push(entry.model);
+      continue;
+    }
+    const part = (count, rate) => (Number.isFinite(count) && count > 0 ? (count / 1_000_000) * rate : 0);
+    usd += part(tokens.input, rates.input)
+      + part(tokens.output, rates.output)
+      + part(tokens.cache_read, rates.cache_read)
+      + part(tokens.cache_write, rates.cache_write);
+  }
+  return { usd: Math.round(usd * 100) / 100, unknown_models: unknownModels };
+}
+
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
