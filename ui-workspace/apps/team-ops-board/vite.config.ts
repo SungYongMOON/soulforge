@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { createAiUsageAdapterPlugin } from "./src/server/ai-usage-adapter.mjs";
+import { createAntigravityQuotaAdapterPlugin } from "./src/server/antigravity-quota-adapter.mjs";
 import { createAntigravityUsageAdapterPlugin } from "./src/server/antigravity-usage-adapter.mjs";
 import { createClaudeUsageAdapterPlugin } from "./src/server/claude-usage-adapter.mjs";
 import { createHostStatsAdapterPlugin } from "./src/server/host-stats-adapter.mjs";
@@ -17,6 +18,7 @@ export default defineConfig({
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),
+    createAntigravityQuotaAdapterPlugin(),
     createProviderLimitsAdapterPlugin()
   ],
   server: {

@@ -21,6 +21,15 @@
   0건인 이유는 (a) conversation 인덱스가 7/25 이후 stale, (b) hot-WAL
   DB가 immutable 읽기에서 비어 보임 — 완화(mode=ro 전환 또는 파일
   mtime 시간원)는 Owner 결정 게이트로 남김.
+- (같은 날 후속 2) Antigravity 공식 잔여 쿼터 로컬 관측: 실행 중인
+  language_server의 로컬 RPC(RetrieveUserQuotaSummary)가 앱 화면과 동일한
+  그룹별 잔여율(Gemini/Claude+GPT × 주간·5시간, resetTime)을 무인증으로
+  반환함을 확인 — 외부 API 호출·토큰 취급 없이 프로세스 포트 발견
+  (tasklist/netstat)으로 조회하는 어댑터를 추가하고 남은 한도 패널에
+  AG·Gemini/AG·Claude+GPT 행을 창 그룹별로 합류시켰다(앱 종료 시 행은
+  정직하게 사라짐). 보드 자동 체인의 보조 수집기(claude·antigravity)는
+  best-effort로 강등 — AG 앱이 대화 DB를 점유해 수집이 타임아웃돼도
+  스냅샷 체인이 죽지 않는다(회귀 테스트 고정).
 - (같은 날 후속) Owner가 Antigravity 2.0을 실행하며 게이트 승인:
   AG sqlite 읽기를 immutable 없는 read-only(mode=ro)로 전환해 hot-WAL
   내용을 보게 했고, `collect-antigravity`를 Board 자동 체인에 연결

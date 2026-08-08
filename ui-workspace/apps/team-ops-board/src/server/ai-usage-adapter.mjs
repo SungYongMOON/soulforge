@@ -156,16 +156,16 @@ export async function refreshExactScopedUsage({
     ...common,
     args: ["collect", "--apply", "--state-root", resolve(stateRoot), "--sessions-root", resolve(sessionsRoot), ...scope]
   });
-  // Claude 세션 원장 수집 — 로컬 전사(exact per-message dedup)라 exact 스레드 스코프와 무관하게 수집한다.
+  // 보조 수집기(claude·antigravity)는 best-effort — 원장에 이미 쌓인 데이터로 스냅샷은
+  // 항상 만들 수 있으므로, 수집 실패(예: AG 앱이 DB를 잡아 30초 타임아웃)가 체인을 죽이지 않는다.
   await runCommand({
     ...common,
     args: ["collect-claude", "--apply", "--state-root", resolve(stateRoot), "--max-age-days", "10"]
-  });
-  // Antigravity 요청 수 수집 — 대화 인덱스 기반이라 활동이 없으면 조용한 no-op이다.
+  }).catch(() => {});
   await runCommand({
     ...common,
     args: ["collect-antigravity", "--apply", "--state-root", resolve(stateRoot)]
-  });
+  }).catch(() => {});
   await runCommand({
     ...common,
     args: ["lifecycle-reconcile", "--apply", "--state-root", resolve(stateRoot), "--sessions-root", resolve(sessionsRoot), "--max-sessions", String(MAX_EXACT_THREAD_IDS), ...scope]

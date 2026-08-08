@@ -58,6 +58,7 @@ import {
 import { buildTopologyViewModel } from "./core/topology-view.mjs";
 import { buildHostStatsViewModel } from "./core/host-stats.mjs";
 import { estimateClaudeUsdCost } from "./core/claude-usage.mjs";
+import { antigravityQuotaRows } from "./core/antigravity-quota.mjs";
 import {
   buildOrganizationUsageChartRows,
   buildProjectUsageChartRows,
@@ -398,7 +399,7 @@ function App() {
   const [topologyProjection, setTopologyProjection] = useState<any>(null);
   const [topologyRefreshing, setTopologyRefreshing] = useState(false);
   const [hostStatsSnapshot, setHostStatsSnapshot] = useState<any>(null);
-  const [providerSnapshots, setProviderSnapshots] = useState<any>({ claude: null, antigravity: null, limits: null });
+  const [providerSnapshots, setProviderSnapshots] = useState<any>({ claude: null, antigravity: null, antigravityQuota: null, limits: null });
 
   useEffect(() => {
     if (surface !== "owner") return undefined;
@@ -431,15 +432,18 @@ function App() {
       }
     };
     const load = async () => {
-      const [claude, antigravity, limits] = await Promise.all([
+      const [claude, antigravity, antigravityQuota, limits] = await Promise.all([
         fetchJson("/claude-usage.snapshot.json"),
         fetchJson("/antigravity-usage.snapshot.json"),
+        fetchJson("/antigravity-quota.snapshot.json"),
         fetchJson("/provider-limits.snapshot.json"),
       ]);
       if (cancelled) return;
       setProviderSnapshots((previous: any) => ({
         claude: claude ?? previous.claude,
         antigravity: antigravity ?? previous.antigravity,
+        // 쿼터는 앱 종료 시 실제로 null이 되므로 이전 값을 유지하지 않는다(관측 불가를 정직하게 표시).
+        antigravityQuota,
         limits: limits ?? previous.limits,
       }));
     };
@@ -2501,6 +2505,19 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
       resetLabel,
       note: decompositionNote,
       valueSmall: "여유",
+    });
+  }
+  // Antigravity 로컬 RPC의 그룹별 공식 잔여 쿼터 — 앱 실행 중에만 관측된다.
+  for (const quotaRow of antigravityQuotaRows(providers?.antigravityQuota ?? null)) {
+    const usedPercent = Math.max(0, 100 - quotaRow.remaining_percent);
+    limitRows.push({
+      key: `ag_quota_${quotaRow.provider}_${quotaRow.window}`,
+      group: quotaRow.window,
+      provider: quotaRow.provider,
+      percent: usedPercent,
+      severity: severityFor(usedPercent, false),
+      resetLabel: fleetResetAtLabel(quotaRow.resets_at ? Date.parse(quotaRow.resets_at) : null),
+      note: "Antigravity 로컬 RPC 공식 잔여 쿼터",
     });
   }
   const antigravity = providers?.antigravity ?? null;

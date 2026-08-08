@@ -99,6 +99,27 @@ test("usage refresh runs the Meter pipeline sequentially with only the exact enr
       const providers = args.flatMap((value, index) => (value === "--include-provider" ? [args[index + 1]] : []));
       assert.deepEqual(providers, ["claude_session_jsonl", "antigravity_conversation_db"]);
     }
+
+    // 보조 수집기 실패는 체인을 죽이지 않는다 — AG 앱이 DB를 잡고 있어도 스냅샷은 나와야 한다.
+    const failingCommands = [];
+    const survived = await refreshExactScopedUsage({
+      stateRoot,
+      sessionsRoot,
+      threadIds: ["thread-two", "thread-one"],
+      runCommand: async ({ args }) => {
+        failingCommands.push(args[0]);
+        if (args[0] === "collect-claude" || args[0] === "collect-antigravity") {
+          throw new Error("meter_command_timeout");
+        }
+        if (args[0] === "board-history-snapshot") {
+          const target = outputPath(args);
+          await mkdir(dirname(target), { recursive: true });
+          await writeFile(target, `${JSON.stringify(expected)}\n`, "utf8");
+        }
+      }
+    });
+    assert.deepEqual(survived, expected);
+    assert.equal(failingCommands.includes("board-history-snapshot"), true);
     assert.deepEqual(snapshot, expected);
   } finally {
     await rm(directory, { recursive: true, force: true });
