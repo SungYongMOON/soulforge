@@ -6,10 +6,12 @@ import { fileURLToPath } from "node:url";
 
 import {
   TEAM_OPS_BOARD_RUNTIME_HOST,
+  TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES,
   TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE,
   TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ,
   TEAM_OPS_BOARD_RUNTIME_PIPE,
   TEAM_OPS_BOARD_RUNTIME_PORT,
+  TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES,
   TEAM_OPS_BOARD_RUNTIME_TASK_NAME,
   authorizeRuntimeControl,
   classifyRuntimeObservation,
@@ -452,6 +454,8 @@ test("CLI and failure output remain bounded to public-safe classes", () => {
 
 test("tracked runtime has only the bounded on-demand task surface", async () => {
   const source = await readFile(RUNTIME_SOURCE, "utf8");
+  assert.equal(TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES, 4096);
+  assert.equal(TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES, 128 * 1024);
   assert.doesNotMatch(source, /0\.0\.0\.0|ListenOnLan|firewall|taskkill|Stop-Process|schtasks|autostart|service create/iu);
   assert.doesNotMatch(source, /TEAM_OPS_BOARD_CLAUDE_QUOTA_READ\s*[:=]/u);
   assert.doesNotMatch(source, /console\.(?:log|error)|RedirectStandard|\.out\.log|\.err\.log/u);
@@ -493,6 +497,19 @@ test("tracked runtime has only the bounded on-demand task surface", async () => 
   assert.match(statusSource, /readRuntimeState\(paths\);/u);
   assert.match(statusSource, /readRuntimeLock\(paths\);/u);
   assert.doesNotMatch(statusSource, /readRuntime(?:State|Lock)\(paths\)\.catch/u);
+  const helperInvokeSource = source.slice(
+    source.indexOf("async function invokeScheduledTask"),
+    source.indexOf("export function classifyRuntimeObservation"),
+  );
+  assert.match(
+    helperInvokeSource,
+    /maxBuffer: TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES/u,
+  );
+  assert.doesNotMatch(helperInvokeSource, /stderr|process\.(?:stdout|stderr)\.write/u);
+  assert.equal(
+    source.match(/maxBuffer: TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES/gu)?.length,
+    1,
+  );
   assert.match(source, /socket\.setTimeout\(CONTROL_TIMEOUT_MS/u);
   assert.match(source, /for \(const socket of owner\.sockets\) socket\.destroy\(\)/u);
   assert.match(source, /await previewServer\.close\(\)/u);

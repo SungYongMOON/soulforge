@@ -95,7 +95,9 @@ const STOP_TIMEOUT_MS = 15_000;
 const CONTROL_TIMEOUT_MS = 3_000;
 const HEARTBEAT_INTERVAL_MS = 10_000;
 export const TEAM_OPS_BOARD_RUNTIME_HEARTBEAT_MAX_AGE_MS = 30_000;
-const MAX_RECORD_BYTES = 4096;
+export const TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES = 4096;
+export const TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES = 128 * 1024;
+const MAX_RECORD_BYTES = TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES;
 const execFileAsync = promisify(execFile);
 const SAFE_FAILURE_CLASSES = new Set([
   "allowed_host_unavailable",
@@ -857,7 +859,7 @@ async function invokeScheduledTask(operation, env = process.env) {
     const { stdout } = await execFileAsync(spec.file, spec.args, {
       encoding: "utf8",
       env: createScheduledHelperEnvironment(env),
-      maxBuffer: MAX_RECORD_BYTES,
+      maxBuffer: TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES,
       timeout: START_TIMEOUT_MS,
       windowsHide: true,
     });
