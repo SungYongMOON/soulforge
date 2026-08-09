@@ -171,6 +171,13 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
       operation === "run" ? "Start-ScheduledTask" : "Unregister-ScheduledTask",
     );
     assert.ok(validationAt >= 0 && mutationAt > validationAt);
+    const postMutation = mutationDecoded.slice(mutationAt);
+    assert.doesNotMatch(postMutation, /Get-ScheduledTask/u);
+    assert.match(
+      postMutation,
+      operation === "run" ? /outcome='run_requested'/u : /outcome='unregistered'/u,
+    );
+    assert.match(postMutation, /ConvertTo-Json -Compress/u);
     if (operation === "unregister") {
       const readyCheckAt = mutationDecoded.indexOf("[string]$t.State -ne 'Ready'");
       assert.ok(readyCheckAt >= 0 && mutationAt > readyCheckAt);

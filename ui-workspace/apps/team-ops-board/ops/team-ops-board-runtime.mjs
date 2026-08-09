@@ -217,12 +217,14 @@ export function createScheduledTaskPowerShellSpec(operation, {
   const execute = powershellSingleQuoted(definition.execute);
   const argumentsValue = powershellSingleQuoted(definition.arguments);
   const expectedDigest = powershellSingleQuoted(definition.action_digest);
+  const runtimeSchema = powershellSingleQuoted(TEAM_OPS_BOARD_RUNTIME_SCHEMA);
   const script = [
     "$ErrorActionPreference='Stop'",
     `$n=${taskName}`,
     `$e=${execute}`,
     `$a=${argumentsValue}`,
     `$d=${expectedDigest}`,
+    `$s=${runtimeSchema}`,
     "$p='\\'",
     "$identity=[System.Security.Principal.WindowsIdentity]::GetCurrent()",
     "$owner=$identity.Name",
@@ -246,6 +248,7 @@ export function createScheduledTaskPowerShellSpec(operation, {
       "$actions=@($t.Actions);$triggers=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$principalSid=Resolve-Sid ([string]$t.Principal.UserId)",
       "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or [int]$settings.RestartCount -ne 0){throw 'task_definition_mismatch'}",
       "Start-ScheduledTask -TaskPath $p -TaskName $n",
+      "$o=[pscustomobject]@{schema_version=$s;ok=$true;outcome='run_requested'}",
     );
   } else if (operation === "unregister") {
     script.push(
@@ -253,13 +256,16 @@ export function createScheduledTaskPowerShellSpec(operation, {
       "$actions=@($t.Actions);$triggers=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$principalSid=Resolve-Sid ([string]$t.Principal.UserId)",
       "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or [int]$settings.RestartCount -ne 0){throw 'task_definition_mismatch'}",
       "Unregister-ScheduledTask -TaskPath $p -TaskName $n -Confirm:$false",
+      "$o=[pscustomobject]@{schema_version=$s;ok=$true;outcome='unregistered'}",
     );
   }
-  script.push(
-    "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
-    "if($null -eq $t){$o=[pscustomobject]@{exists=$false;task_state='missing';trigger_count=0;stored_credential_count=0;current_owner_match=$false;run_level_limited=$false;task_path_root=$false;multiple_instances_ignore_new=$false;enabled=$false;unlimited_execution=$false;restart_count=0;watchdog_count=0;action_count=0;action_digest=$null}}else{$actions=@($t.Actions);$triggerObjects=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$restart=[int]$settings.RestartCount;$triggerCount=$triggerObjects.Count;$principalSid=Resolve-Sid ([string]$t.Principal.UserId);$o=[pscustomobject]@{exists=$true;task_state=([string]$t.State).ToLowerInvariant();trigger_count=$triggerCount;stored_credential_count=($(if($logon -eq 'Interactive'){0}else{1}));current_owner_match=($null -ne $principalSid -and $principalSid -eq $ownerSid);run_level_limited=([string]$t.Principal.RunLevel -eq 'Limited');task_path_root=([string]$t.TaskPath -eq $p);multiple_instances_ignore_new=([string]$settings.MultipleInstances -eq 'IgnoreNew');enabled=($settings.Enabled -eq $true);unlimited_execution=([string]$settings.ExecutionTimeLimit -eq 'PT0S');restart_count=$restart;watchdog_count=$(if($restart -eq 0 -and $triggerCount -eq 0){0}else{1});action_count=$actions.Count;action_digest=$(if($actions.Count -eq 1){Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)}else{$null})}}",
-    "[Console]::Out.Write(($o|ConvertTo-Json -Compress))",
-  );
+  if (!new Set(["run", "unregister"]).has(operation)) {
+    script.push(
+      "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
+      "if($null -eq $t){$o=[pscustomobject]@{exists=$false;task_state='missing';trigger_count=0;stored_credential_count=0;current_owner_match=$false;run_level_limited=$false;task_path_root=$false;multiple_instances_ignore_new=$false;enabled=$false;unlimited_execution=$false;restart_count=0;watchdog_count=0;action_count=0;action_digest=$null}}else{$actions=@($t.Actions);$triggerObjects=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$restart=[int]$settings.RestartCount;$triggerCount=$triggerObjects.Count;$principalSid=Resolve-Sid ([string]$t.Principal.UserId);$o=[pscustomobject]@{exists=$true;task_state=([string]$t.State).ToLowerInvariant();trigger_count=$triggerCount;stored_credential_count=($(if($logon -eq 'Interactive'){0}else{1}));current_owner_match=($null -ne $principalSid -and $principalSid -eq $ownerSid);run_level_limited=([string]$t.Principal.RunLevel -eq 'Limited');task_path_root=([string]$t.TaskPath -eq $p);multiple_instances_ignore_new=([string]$settings.MultipleInstances -eq 'IgnoreNew');enabled=($settings.Enabled -eq $true);unlimited_execution=([string]$settings.ExecutionTimeLimit -eq 'PT0S');restart_count=$restart;watchdog_count=$(if($restart -eq 0 -and $triggerCount -eq 0){0}else{1});action_count=$actions.Count;action_digest=$(if($actions.Count -eq 1){Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)}else{$null})}}",
+    );
+  }
+  script.push("[Console]::Out.Write(($o|ConvertTo-Json -Compress))");
   const powershell = path.join(
     path.resolve(systemRoot),
     "System32",
@@ -833,6 +839,15 @@ function validateTaskInspection(value) {
   return value;
 }
 
+function validateTaskMutationReceipt(value, operation) {
+  const expected = operation === "run" ? "run_requested" : "unregistered";
+  if (value?.schema_version !== TEAM_OPS_BOARD_RUNTIME_SCHEMA
+      || value?.ok !== true
+      || value?.outcome !== expected
+      || Object.keys(value).length !== 3) fail("task_unavailable");
+  return value;
+}
+
 async function invokeScheduledTask(operation, env = process.env) {
   if (process.platform !== "win32") fail("runtime_platform_unsupported");
   const spec = createScheduledTaskPowerShellSpec(operation, {
@@ -846,7 +861,10 @@ async function invokeScheduledTask(operation, env = process.env) {
       timeout: START_TIMEOUT_MS,
       windowsHide: true,
     });
-    return validateTaskInspection(JSON.parse(String(stdout)));
+    const parsed = JSON.parse(String(stdout));
+    return new Set(["run", "unregister"]).has(operation)
+      ? validateTaskMutationReceipt(parsed, operation)
+      : validateTaskInspection(parsed);
   } catch {
     fail("task_unavailable");
   }
@@ -1107,7 +1125,8 @@ async function unregisterScheduledRuntime(env = process.env) {
     runtimeOwnership: classifyRuntimeOwnership(state, lock),
     listenerState: await probeLoopbackListener(),
   })) fail("runtime_state_ambiguous");
-  const after = await invokeScheduledTask("unregister", env);
+  await invokeScheduledTask("unregister", env);
+  const after = await invokeScheduledTask("inspect", env);
   if (after.exists) fail("task_definition_mismatch");
   return createPublicScheduledTaskState(after, "stopped");
 }
