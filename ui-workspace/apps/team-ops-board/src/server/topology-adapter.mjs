@@ -4,8 +4,8 @@
 // 로컬 pointer(git-ignored)로 binding을 찾아 CLI stdout(JSON)만 중계한다.
 
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { lstat, readFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
@@ -366,11 +366,34 @@ export async function resolveBindingPath(pointerPath = DEFAULT_POINTER_PATH) {
   return pointer.binding_path;
 }
 
+export async function readBoundTopologySnapshot({
+  pointerPath = DEFAULT_POINTER_PATH,
+  resolveBinding = resolveBindingPath,
+  now = Date.now,
+} = {}) {
+  const bindingPath = await resolveBinding(pointerPath);
+  const binding = JSON.parse(await readFile(bindingPath, "utf8"));
+  if (!isPlainObject(binding) || typeof binding.state_root !== "string" || binding.state_root.length === 0) {
+    throw new Error("topology_binding_invalid");
+  }
+  const snapshotPath = join(binding.state_root, "snapshot", "topology_health.v1.json");
+  const metadata = await lstat(snapshotPath);
+  if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size <= 0 || metadata.size > MAX_SNAPSHOT_BYTES) {
+    throw new Error("topology_snapshot_file_invalid");
+  }
+  const content = await readFile(snapshotPath, "utf8");
+  if (Buffer.byteLength(content, "utf8") > MAX_SNAPSHOT_BYTES) {
+    throw new Error("topology_snapshot_file_invalid");
+  }
+  return validateTopologyHealthSnapshot(JSON.parse(content), { now: now() });
+}
+
 export function createTopologyAdapter({
   readOnlyPilot = false,
   pointerPath = process.env.TEAM_OPS_BOARD_WATCHTOWER_POINTER || DEFAULT_POINTER_PATH,
   runProbe = runWatchtowerProbe,
   resolveBinding = resolveBindingPath,
+  readSnapshot = readBoundTopologySnapshot,
   now = Date.now,
   limits: limitOverrides = {},
 } = {}) {
@@ -386,6 +409,31 @@ export function createTopologyAdapter({
   let lastSuccessAt = null;
   let lastFailureAt = null;
   let lastRefreshFailed = false;
+
+  async function readPilotSnapshot() {
+    const observedNow = now();
+    try {
+      const snapshot = await readSnapshot({ pointerPath, resolveBinding, now });
+      lastGood = snapshot;
+      lastSuccessAt = observedNow;
+      lastRefreshFailed = false;
+      return envelope("stale", snapshot, {
+        ...refreshMetadata(observedNow),
+        snapshot_age_seconds: ageSeconds(parseExactTimestamp(snapshot.observed_at), observedNow),
+        reason: "snapshot_only",
+      });
+    } catch {
+      lastFailureAt = observedNow;
+      lastRefreshFailed = true;
+      return envelope(lastGood === null ? "unconfigured" : "stale", lastGood, {
+        ...refreshMetadata(observedNow),
+        snapshot_age_seconds: lastGood === null
+          ? null
+          : ageSeconds(parseExactTimestamp(lastGood.observed_at), observedNow),
+        reason: lastGood === null ? "snapshot_unavailable" : "snapshot_refresh_failed",
+      });
+    }
+  }
 
   function refreshMetadata(observedNow) {
     return {
@@ -424,7 +472,7 @@ export function createTopologyAdapter({
   return {
     async readProjection({ force = false } = {}) {
       if (readOnlyPilot === true) {
-        return envelope("unconfigured", null, refreshMetadata(now()));
+        return readPilotSnapshot();
       }
       let bindingPath;
       try {

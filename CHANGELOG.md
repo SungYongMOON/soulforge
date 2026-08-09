@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-10 - Team Operations Board read-only topology snapshot
+
+- Read-only pilot topology now reads and strictly validates only the existing
+  protected Watchtower snapshot. Refresh rereads that same snapshot without a
+  probe, subprocess, scheduler query, network request, or write, and exposes it
+  only as stale/HOLD evidence; missing or invalid evidence fails closed.
+
 ## 2026-08-10 - Team Operations Board bounded child supervisor
 
 - Changed the trigger-free on-demand task action into a lifetime controller

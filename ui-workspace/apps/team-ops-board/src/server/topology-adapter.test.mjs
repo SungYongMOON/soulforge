@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   createTopologyAdapter,
+  readBoundTopologySnapshot,
   validateTopologyHealthSnapshot,
 } from "./topology-adapter.mjs";
 
@@ -181,9 +185,10 @@ test("privacy, raw, secret, and path sentinels fail closed", () => {
   }, "topology_snapshot_privacy_sentinel");
 });
 
-test("read-only pilot returns unconfigured without binding reads or Watchtower probes", async () => {
+test("read-only pilot reads a strict existing snapshot without Watchtower probes", async () => {
   let bindingReads = 0;
   let probeCalls = 0;
+  let snapshotReads = 0;
   const adapter = createTopologyAdapter({
     readOnlyPilot: true,
     now: () => NOW,
@@ -195,21 +200,109 @@ test("read-only pilot returns unconfigured without binding reads or Watchtower p
       probeCalls += 1;
       return sampleSnapshot();
     },
+    readSnapshot: async ({ resolveBinding }) => {
+      snapshotReads += 1;
+      await resolveBinding();
+      return sampleSnapshot();
+    },
   });
 
   for (const force of [false, true]) {
-    assert.deepEqual(await adapter.readProjection({ force }), {
-      schema_version: "soulforge.team_ops_board.topology_projection.v1",
-      refresh_state: "unconfigured",
-      refresh_metadata: {
-        last_success_age_seconds: null,
-        last_failure_age_seconds: null,
-      },
-      snapshot: null,
-    });
+    const projection = await adapter.readProjection({ force });
+    assert.equal(projection.refresh_state, "stale");
+    assert.equal(projection.snapshot.schema_version, "soulforge.watchtower.topology_health.v1");
+    assert.equal(projection.refresh_metadata.reason, "snapshot_only");
+    assert.equal(projection.refresh_metadata.snapshot_age_seconds, 0);
   }
-  assert.equal(bindingReads, 0);
+  assert.equal(bindingReads, 2);
+  assert.equal(snapshotReads, 2);
   assert.equal(probeCalls, 0);
+});
+
+test("bound snapshot reader follows the canonical pointer and state-root snapshot contract", async () => {
+  const root = await mkdtemp(join(tmpdir(), "board-topology-"));
+  try {
+    const stateRoot = join(root, "state");
+    const bindingPath = join(root, "binding.json");
+    const pointerPath = join(root, "pointer.json");
+    await mkdir(join(stateRoot, "snapshot"), { recursive: true });
+    await writeFile(bindingPath, JSON.stringify({ state_root: stateRoot }), "utf8");
+    await writeFile(pointerPath, JSON.stringify({ binding_path: bindingPath }), "utf8");
+    await writeFile(
+      join(stateRoot, "snapshot", "topology_health.v1.json"),
+      JSON.stringify(sampleSnapshot()),
+      "utf8",
+    );
+    const snapshot = await readBoundTopologySnapshot({ pointerPath, now: () => NOW });
+    assert.equal(snapshot.schema_version, "soulforge.watchtower.topology_health.v1");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("read-only pilot missing or invalid first snapshot fails closed as unconfigured", async () => {
+  for (const failure of [new Error("missing"), { schema_version: "invalid" }]) {
+    let probes = 0;
+    const adapter = createTopologyAdapter({
+      readOnlyPilot: true,
+      now: () => NOW,
+      readSnapshot: async () => {
+        if (failure instanceof Error) throw failure;
+        return validateTopologyHealthSnapshot(failure, { now: NOW });
+      },
+      runProbe: async () => { probes += 1; return sampleSnapshot(); },
+    });
+    const projection = await adapter.readProjection({ force: true });
+    assert.equal(projection.refresh_state, "unconfigured");
+    assert.equal(projection.snapshot, null);
+    assert.equal(projection.refresh_metadata.reason, "snapshot_unavailable");
+    assert.equal(probes, 0);
+  }
+});
+
+test("read-only pilot failed reread retains last-good only as stale HOLD evidence", async () => {
+  let clock = NOW;
+  let reads = 0;
+  let probes = 0;
+  const adapter = createTopologyAdapter({
+    readOnlyPilot: true,
+    now: () => clock,
+    readSnapshot: async () => {
+      reads += 1;
+      if (reads > 1) throw new Error("snapshot unavailable");
+      return sampleSnapshot();
+    },
+    runProbe: async () => { probes += 1; return sampleSnapshot(); },
+  });
+  const first = await adapter.readProjection();
+  clock += 5_000;
+  const retained = await adapter.readProjection({ force: true });
+  assert.equal(first.refresh_state, "stale");
+  assert.equal(retained.refresh_state, "stale");
+  assert.equal(retained.snapshot, first.snapshot);
+  assert.deepEqual(retained.refresh_metadata, {
+    last_success_age_seconds: 5,
+    last_failure_age_seconds: 0,
+    snapshot_age_seconds: 5,
+    reason: "snapshot_refresh_failed",
+  });
+  assert.equal(probes, 0);
+});
+
+test("non-pilot behavior still resolves binding and runs the probe", async () => {
+  let bindingReads = 0;
+  let probeCalls = 0;
+  let snapshotReads = 0;
+  const adapter = createTopologyAdapter({
+    now: () => NOW,
+    resolveBinding: async () => { bindingReads += 1; return "configured"; },
+    runProbe: async () => { probeCalls += 1; return sampleSnapshot(); },
+    readSnapshot: async () => { snapshotReads += 1; return sampleSnapshot(); },
+  });
+  assert.equal((await adapter.readProjection()).refresh_state, "ready");
+  assert.equal(bindingReads, 1);
+  assert.equal(probeCalls, 1);
+  assert.equal(snapshotReads, 0);
 });
 
 test("failed refresh retains lastGood only as stale with public-safe success and failure ages", async () => {
