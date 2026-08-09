@@ -144,6 +144,12 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
   const decoded = Buffer.from(spec.args[encodedAt + 1], "base64").toString("utf16le");
   assert.match(spec.file, /WindowsPowerShell[\\/]v1\.0[\\/]powershell\.exe$/iu);
   assert.match(decoded, /Register-ScheduledTask/u);
+  assert.match(
+    decoded,
+    /New-ScheduledTask .* -Description 'Soulforge Team Operations Board read-only on-demand runtime'/u,
+  );
+  assert.doesNotMatch(decoded, /Register-ScheduledTask[^;]*-InputObject[^;]*-Description/u);
+  assert.match(decoded, /Register-ScheduledTask[^;]*-InputObject \$definition/u);
   assert.match(decoded, /New-ScheduledTaskPrincipal -UserId \$owner -LogonType Interactive -RunLevel Limited/u);
   assert.match(decoded, /__scheduled_worker/u);
   assert.match(decoded, /team-ops-board-runtime\.mjs/u);

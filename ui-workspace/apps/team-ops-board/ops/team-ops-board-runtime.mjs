@@ -230,8 +230,8 @@ export function createScheduledTaskPowerShellSpec(operation, {
       "$action=New-ScheduledTaskAction -Execute $e -Argument $a",
       "$principal=New-ScheduledTaskPrincipal -UserId $owner -LogonType Interactive -RunLevel Limited",
       "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)",
-      "$definition=New-ScheduledTask -Action $action -Principal $principal -Settings $settings",
-      "$null=Register-ScheduledTask -TaskPath $p -TaskName $n -InputObject $definition -Description 'Soulforge Team Operations Board read-only on-demand runtime'",
+      "$definition=New-ScheduledTask -Action $action -Principal $principal -Settings $settings -Description 'Soulforge Team Operations Board read-only on-demand runtime'",
+      "$null=Register-ScheduledTask -TaskPath $p -TaskName $n -InputObject $definition",
     );
   } else if (operation === "run") {
     script.push(
