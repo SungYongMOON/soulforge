@@ -90,6 +90,14 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(HERE, "..");
 const CONFIG_FILE = path.join(APP_ROOT, "vite.config.ts");
 const DIST_INDEX = path.join(APP_ROOT, "dist", "index.html");
+const RUNTIME_DEPENDENCY_SENTINEL = path.resolve(
+  APP_ROOT,
+  "..",
+  "..",
+  "node_modules",
+  "vite",
+  "package.json",
+);
 const START_TIMEOUT_MS = 30_000;
 const STOP_TIMEOUT_MS = 15_000;
 const CONTROL_TIMEOUT_MS = 3_000;
@@ -97,6 +105,8 @@ const HEARTBEAT_INTERVAL_MS = 10_000;
 export const TEAM_OPS_BOARD_RUNTIME_HEARTBEAT_MAX_AGE_MS = 30_000;
 export const TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES = 4096;
 export const TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES = 128 * 1024;
+export const TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT = 3;
+export const TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL = "PT1M";
 const MAX_RECORD_BYTES = TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES;
 const execFileAsync = promisify(execFile);
 const SAFE_FAILURE_CLASSES = new Set([
@@ -120,6 +130,7 @@ const SAFE_FAILURE_CLASSES = new Set([
   "runtime_worker_absent",
   "runtime_worker_failed",
   "serve_state_unsafe",
+  "termination_capture_failed",
   "task_definition_mismatch",
   "task_intent_unavailable",
   "task_unavailable",
@@ -134,6 +145,156 @@ function fail(code) {
 export function sanitizeRuntimeFailure(error, fallback = "runtime_start_failed") {
   if (error?.code === "EADDRINUSE") return "port_unavailable";
   return SAFE_FAILURE_CLASSES.has(error?.code) ? error.code : fallback;
+}
+
+const DESIRED_STATES = new Set([
+  "running",
+  "stopped",
+  "stop_requested",
+  "recovery_needed",
+]);
+const TERMINATION_CLASSIFICATIONS = new Set([
+  "normal_stop",
+  "handled_error",
+  "native_crash",
+  "external_termination",
+  "dependency_loss",
+  "unknown",
+]);
+
+export function transitionRuntimeDesiredState(current, event, observedAt) {
+  const timestamp = String(observedAt ?? "");
+  if (!Number.isFinite(Date.parse(timestamp))) fail("runtime_state_ambiguous");
+  const epoch = current?.intent_epoch ?? 0;
+  if (!Number.isSafeInteger(epoch) || epoch < 0) fail("runtime_state_ambiguous");
+  const desiredState = current?.desired_state ?? "stopped";
+  if (!DESIRED_STATES.has(desiredState)) fail("runtime_state_ambiguous");
+  if (event === "start") {
+    if (desiredState === "running") return { ...current };
+    return {
+      schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+      desired_state: "running",
+      intent_epoch: epoch + 1,
+      updated_at: timestamp,
+    };
+  }
+  if (event === "request_stop") {
+    if (["stopped", "stop_requested"].includes(desiredState)) return { ...current };
+    return {
+      schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+      desired_state: "stop_requested",
+      intent_epoch: epoch + 1,
+      updated_at: timestamp,
+    };
+  }
+  if (event === "stopped") {
+    if (desiredState === "stopped" && current) return { ...current };
+    return {
+      schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+      desired_state: "stopped",
+      intent_epoch: epoch,
+      updated_at: timestamp,
+    };
+  }
+  if (event === "recovery_needed") {
+    if (desiredState === "recovery_needed") return { ...current };
+    return {
+      schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+      desired_state: "recovery_needed",
+      intent_epoch: epoch,
+      updated_at: timestamp,
+    };
+  }
+  fail("runtime_state_ambiguous");
+}
+
+export function classifyScheduledTaskResult(lastTaskResult) {
+  if (lastTaskResult === null || lastTaskResult === undefined) return "unavailable";
+  if (!Number.isSafeInteger(lastTaskResult)) return "invalid";
+  if (lastTaskResult === 0) return "success";
+  if (lastTaskResult === 267009) return "running";
+  if ([267014, -1073741510].includes(lastTaskResult)) return "terminated";
+  if ([-1073741819, -1073740791].includes(lastTaskResult)) return "native_crash";
+  return "failed";
+}
+
+export function classifyRuntimeTermination({
+  desiredState,
+  runtimeState,
+  lastTaskResultClass,
+  heartbeatAgeMs,
+  dependencyAvailable,
+  dependencyLossBeforeExit = false,
+  workerAliveAtCapture = null,
+  handledFailure = false,
+}) {
+  if (dependencyAvailable === false && dependencyLossBeforeExit === true) {
+    return "dependency_loss";
+  }
+  if (handledFailure === true || runtimeState === "error") return "handled_error";
+  if (desiredState === "stop_requested" && workerAliveAtCapture === true) return "normal_stop";
+  if (desiredState === "stopped" && runtimeState === "absent"
+      && lastTaskResultClass === "success") return "normal_stop";
+  const freshHeartbeat = Number.isFinite(heartbeatAgeMs)
+    && heartbeatAgeMs >= 0
+    && heartbeatAgeMs <= TEAM_OPS_BOARD_RUNTIME_HEARTBEAT_MAX_AGE_MS;
+  if (lastTaskResultClass === "terminated" && freshHeartbeat) return "external_termination";
+  if (lastTaskResultClass === "native_crash" && freshHeartbeat) return "native_crash";
+  return "unknown";
+}
+
+export function createTerminationReceipt({
+  operation,
+  desired,
+  runtimeState,
+  taskState,
+  lastTaskResult,
+  dependencyAvailable,
+  dependencyLossBeforeExit = false,
+  workerAliveAtCapture = null,
+  observedAt,
+}) {
+  const timestamp = String(observedAt ?? "");
+  const observedMs = Date.parse(timestamp);
+  if (!Number.isFinite(observedMs)
+      || !new Set(["pre_stop", "pre_recover", "pre_unregister", "restart_recovery"])
+        .has(operation)) fail("termination_capture_failed");
+  const heartbeatMs = Date.parse(runtimeState?.heartbeat_at ?? "");
+  const heartbeatAgeMs = Number.isFinite(heartbeatMs) && observedMs >= heartbeatMs
+    ? observedMs - heartbeatMs
+    : null;
+  const heartbeat = heartbeatAgeMs === null
+    ? "absent"
+    : heartbeatAgeMs <= TEAM_OPS_BOARD_RUNTIME_HEARTBEAT_MAX_AGE_MS ? "fresh" : "stale";
+  const resultClass = classifyScheduledTaskResult(lastTaskResult);
+  const exitClassification = classifyRuntimeTermination({
+    desiredState: desired?.desired_state ?? "unknown",
+    runtimeState: runtimeState?.state ?? "absent",
+    lastTaskResultClass: resultClass,
+    heartbeatAgeMs,
+    dependencyAvailable,
+    dependencyLossBeforeExit,
+    workerAliveAtCapture,
+    handledFailure: runtimeState?.state === "error",
+  });
+  if (!TERMINATION_CLASSIFICATIONS.has(exitClassification)) fail("termination_capture_failed");
+  return {
+    schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+    receipt_kind: "termination_evidence",
+    operation,
+    observed_at: timestamp,
+    desired_state: desired?.desired_state ?? "unknown",
+    intent_epoch: desired?.intent_epoch ?? null,
+    task_state: new Set(["missing", "ready", "running", "queued", "disabled"])
+      .has(taskState) ? taskState : "unknown",
+    last_result_class: resultClass,
+    runtime_marker: new Set(["starting", "ready", "stopping", "error"])
+      .has(runtimeState?.state) ? runtimeState.state : "absent",
+    heartbeat,
+    exit_classification: exitClassification,
+    dependency_state: dependencyAvailable === true
+      ? "available" : dependencyAvailable === false ? "unavailable" : "unknown",
+  };
 }
 
 export function validateRuntimeLaunchEnvironment(env = process.env) {
@@ -202,7 +363,8 @@ export function createScheduledTaskDefinition({
     multiple_instances: "IgnoreNew",
     enabled: true,
     execution_time_limit: "unlimited",
-    restart_count: 0,
+    restart_count: TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT,
+    restart_interval: TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL,
     watchdog_count: 0,
   };
 }
@@ -240,7 +402,7 @@ export function createScheduledTaskPowerShellSpec(operation, {
       "if($null -ne $existing){throw 'task_definition_mismatch'}",
       "$action=New-ScheduledTaskAction -Execute $e -Argument $a",
       "$principal=New-ScheduledTaskPrincipal -UserId $owner -LogonType Interactive -RunLevel Limited",
-      "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)",
+      "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval ([TimeSpan]::FromMinutes(1))",
       "$definition=New-ScheduledTask -Action $action -Principal $principal -Settings $settings -Description 'Soulforge Team Operations Board read-only on-demand runtime'",
       "$null=Register-ScheduledTask -TaskPath $p -TaskName $n -InputObject $definition",
     );
@@ -248,7 +410,7 @@ export function createScheduledTaskPowerShellSpec(operation, {
     script.push(
       "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
       "$actions=@($t.Actions);$triggers=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$principalSid=Resolve-Sid ([string]$t.Principal.UserId)",
-      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or [int]$settings.RestartCount -ne 0){throw 'task_definition_mismatch'}",
+      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or [int]$settings.RestartCount -ne 3 -or [string]$settings.RestartInterval -ne 'PT1M'){throw 'task_definition_mismatch'}",
       "Start-ScheduledTask -TaskPath $p -TaskName $n",
       "$o=[pscustomobject]@{schema_version=$s;ok=$true;outcome='run_requested'}",
     );
@@ -256,7 +418,7 @@ export function createScheduledTaskPowerShellSpec(operation, {
     script.push(
       "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
       "$actions=@($t.Actions);$triggers=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$principalSid=Resolve-Sid ([string]$t.Principal.UserId)",
-      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or [int]$settings.RestartCount -ne 0){throw 'task_definition_mismatch'}",
+      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or [int]$settings.RestartCount -ne 3 -or [string]$settings.RestartInterval -ne 'PT1M'){throw 'task_definition_mismatch'}",
       "Unregister-ScheduledTask -TaskPath $p -TaskName $n -Confirm:$false",
       "$o=[pscustomobject]@{schema_version=$s;ok=$true;outcome='unregistered'}",
     );
@@ -264,7 +426,8 @@ export function createScheduledTaskPowerShellSpec(operation, {
   if (!new Set(["run", "unregister"]).has(operation)) {
     script.push(
       "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
-      "if($null -eq $t){$o=[pscustomobject]@{exists=$false;task_state='missing';trigger_count=0;stored_credential_count=0;current_owner_match=$false;run_level_limited=$false;task_path_root=$false;multiple_instances_ignore_new=$false;enabled=$false;unlimited_execution=$false;restart_count=0;watchdog_count=0;action_count=0;action_digest=$null}}else{$actions=@($t.Actions);$triggerObjects=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$restart=[int]$settings.RestartCount;$triggerCount=$triggerObjects.Count;$principalSid=Resolve-Sid ([string]$t.Principal.UserId);$o=[pscustomobject]@{exists=$true;task_state=([string]$t.State).ToLowerInvariant();trigger_count=$triggerCount;stored_credential_count=($(if($logon -eq 'Interactive'){0}else{1}));current_owner_match=($null -ne $principalSid -and $principalSid -eq $ownerSid);run_level_limited=([string]$t.Principal.RunLevel -eq 'Limited');task_path_root=([string]$t.TaskPath -eq $p);multiple_instances_ignore_new=([string]$settings.MultipleInstances -eq 'IgnoreNew');enabled=($settings.Enabled -eq $true);unlimited_execution=([string]$settings.ExecutionTimeLimit -eq 'PT0S');restart_count=$restart;watchdog_count=$(if($restart -eq 0 -and $triggerCount -eq 0){0}else{1});action_count=$actions.Count;action_digest=$(if($actions.Count -eq 1){Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)}else{$null})}}",
+      "$info=$(if($null -ne $t){Get-ScheduledTaskInfo -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue}else{$null})",
+      "if($null -eq $t){$o=[pscustomobject]@{exists=$false;task_state='missing';trigger_count=0;stored_credential_count=0;current_owner_match=$false;run_level_limited=$false;task_path_root=$false;multiple_instances_ignore_new=$false;enabled=$false;unlimited_execution=$false;restart_count=0;restart_interval=$null;watchdog_count=0;action_count=0;action_digest=$null;last_task_result=$null}}else{$actions=@($t.Actions);$triggerObjects=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$restart=[int]$settings.RestartCount;$triggerCount=$triggerObjects.Count;$principalSid=Resolve-Sid ([string]$t.Principal.UserId);$o=[pscustomobject]@{exists=$true;task_state=([string]$t.State).ToLowerInvariant();trigger_count=$triggerCount;stored_credential_count=($(if($logon -eq 'Interactive'){0}else{1}));current_owner_match=($null -ne $principalSid -and $principalSid -eq $ownerSid);run_level_limited=([string]$t.Principal.RunLevel -eq 'Limited');task_path_root=([string]$t.TaskPath -eq $p);multiple_instances_ignore_new=([string]$settings.MultipleInstances -eq 'IgnoreNew');enabled=($settings.Enabled -eq $true);unlimited_execution=([string]$settings.ExecutionTimeLimit -eq 'PT0S');restart_count=$restart;restart_interval=([string]$settings.RestartInterval);watchdog_count=$(if($triggerCount -eq 0){0}else{1});action_count=$actions.Count;action_digest=$(if($actions.Count -eq 1){Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)}else{$null});last_task_result=$(if($null -ne $info){[int64]$info.LastTaskResult}else{$null})}}",
     );
   }
   script.push("[Console]::Out.Write(($o|ConvertTo-Json -Compress))");
@@ -300,7 +463,8 @@ export function scheduledTaskInspectionIsExact(inspection, definition = createSc
     && inspection.multiple_instances_ignore_new === true
     && inspection.enabled === true
     && inspection.unlimited_execution === true
-    && inspection.restart_count === 0
+    && inspection.restart_count === TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT
+    && inspection.restart_interval === TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL
     && inspection.watchdog_count === 0
     && inspection.action_count === 1
     && inspection.action_digest === definition.action_digest;
@@ -435,7 +599,7 @@ export function authorizeRuntimeControl(runtimeState, requestValue) {
   if (!runtimeState || requestValue?.run_id !== runtimeState.run_id) {
     return { ok: false, outcome: "identity_mismatch" };
   }
-  if (!new Set(["status", "health", "stop"]).has(requestValue?.action)) {
+  if (!new Set(["status", "health", "stop", "fault"]).has(requestValue?.action)) {
     return { ok: false, outcome: "control_unavailable" };
   }
   return { ok: true, outcome: requestValue.action };
@@ -516,6 +680,8 @@ function runtimePaths(env = process.env) {
     root,
     lock: path.join(root, "runtime.v1.lock"),
     state: path.join(root, "runtime.v1.json"),
+    desired: path.join(root, "desired.v1.json"),
+    terminationReceipt: path.join(root, "termination-receipt.v1.json"),
   };
 }
 
@@ -604,6 +770,88 @@ async function readRuntimeLock(paths) {
     fail("runtime_state_ambiguous");
   }
   return lock;
+}
+
+function isDesiredRecord(value) {
+  return value
+    && value.schema_version === TEAM_OPS_BOARD_RUNTIME_SCHEMA
+    && DESIRED_STATES.has(value.desired_state)
+    && Number.isSafeInteger(value.intent_epoch)
+    && value.intent_epoch >= 0
+    && typeof value.updated_at === "string"
+    && Number.isFinite(Date.parse(value.updated_at));
+}
+
+async function readDesiredState(paths) {
+  const value = await readJsonRecord(paths.desired);
+  if (value === null) return null;
+  if (!isDesiredRecord(value)) fail("runtime_state_ambiguous");
+  return value;
+}
+
+async function writeDesiredState(paths, value) {
+  if (!isDesiredRecord(value)) fail("runtime_state_ambiguous");
+  await writeJsonAtomic(paths.desired, value);
+  const observed = await readDesiredState(paths);
+  if (!observed || observed.desired_state !== value.desired_state
+      || observed.intent_epoch !== value.intent_epoch) fail("runtime_state_ambiguous");
+  return observed;
+}
+
+export function isTerminationReceipt(value) {
+  return value
+    && value.schema_version === TEAM_OPS_BOARD_RUNTIME_SCHEMA
+    && value.receipt_kind === "termination_evidence"
+    && new Set(["pre_stop", "pre_recover", "pre_unregister", "restart_recovery"])
+      .has(value.operation)
+    && typeof value.observed_at === "string"
+    && Number.isFinite(Date.parse(value.observed_at))
+    && ((value.desired_state === "unknown" && value.intent_epoch === null)
+      || (DESIRED_STATES.has(value.desired_state)
+        && Number.isSafeInteger(value.intent_epoch) && value.intent_epoch >= 0))
+    && TERMINATION_CLASSIFICATIONS.has(value.exit_classification)
+    && new Set(["available", "unavailable", "unknown"]).has(value.dependency_state);
+}
+
+async function dependencyAvailable() {
+  try {
+    const [buildInfo, dependencyInfo] = await Promise.all([
+      lstat(DIST_INDEX),
+      lstat(RUNTIME_DEPENDENCY_SENTINEL),
+    ]);
+    return buildInfo.isFile() && !buildInfo.isSymbolicLink()
+      && dependencyInfo.isFile() && !dependencyInfo.isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+async function captureTerminationEvidence(paths, operation, {
+  task = null,
+  desired = null,
+  state = null,
+  workerAliveAtCapture = null,
+} = {}) {
+  try {
+    const receipt = createTerminationReceipt({
+      operation,
+      desired: desired ?? await readDesiredState(paths),
+      runtimeState: state ?? await readRuntimeState(paths),
+      taskState: task?.task_state ?? "unknown",
+      lastTaskResult: task?.last_task_result ?? null,
+      dependencyAvailable: await dependencyAvailable(),
+      workerAliveAtCapture,
+      observedAt: new Date().toISOString(),
+    });
+    await writeJsonAtomic(paths.terminationReceipt, receipt);
+    const observed = await readJsonRecord(paths.terminationReceipt);
+    if (!isTerminationReceipt(observed)
+        || observed.observed_at !== receipt.observed_at
+        || observed.operation !== operation) fail("termination_capture_failed");
+    return observed;
+  } catch {
+    fail("termination_capture_failed");
+  }
 }
 
 function processAlive(pid) {
@@ -833,8 +1081,10 @@ function validateTaskInspection(value) {
       || typeof value.enabled !== "boolean"
       || typeof value.unlimited_execution !== "boolean"
       || !Number.isSafeInteger(value.restart_count)
+      || (value.restart_interval !== null && typeof value.restart_interval !== "string")
       || !Number.isSafeInteger(value.watchdog_count)
       || !Number.isSafeInteger(value.action_count)
+      || (value.last_task_result !== null && !Number.isSafeInteger(value.last_task_result))
       || (value.action_digest !== null && !/^[a-f0-9]{64}$/u.test(value.action_digest))) {
     fail("task_unavailable");
   }
@@ -892,7 +1142,7 @@ export function classifyRuntimeObservation({
   return "hold";
 }
 
-export function createPublicScheduledTaskState(inspection, runtimeHealth) {
+export function createPublicScheduledTaskState(inspection, runtimeHealth, desired = null) {
   const exact = scheduledTaskInspectionIsExact(inspection);
   return {
     schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
@@ -903,6 +1153,9 @@ export function createPublicScheduledTaskState(inspection, runtimeHealth) {
     action_digest: inspection?.action_digest ?? null,
     task_health: !inspection?.exists ? "missing" : exact ? inspection.task_state : "definition_hold",
     runtime_health: runtimeHealth,
+    desired_state: desired?.desired_state ?? "stopped",
+    intent_epoch: desired?.intent_epoch ?? 0,
+    last_result_class: classifyScheduledTaskResult(inspection?.last_task_result),
   };
 }
 
@@ -1062,12 +1315,19 @@ async function registerScheduledRuntime(env = process.env) {
   if (before.exists) fail("task_definition_mismatch");
   const after = await invokeScheduledTask("register", env);
   if (!scheduledTaskInspectionIsExact(after)) fail("task_definition_mismatch");
-  return createPublicScheduledTaskState(after, "stopped");
+  const paths = runtimePaths(env);
+  await ensureNormalDirectory(paths.root);
+  const current = await readDesiredState(paths);
+  const desired = await writeDesiredState(paths, current?.desired_state === "stopped"
+    ? current
+    : transitionRuntimeDesiredState(current, "stopped", new Date().toISOString()));
+  return createPublicScheduledTaskState(after, "stopped", desired);
 }
 
 async function inspectScheduledRuntime(env = process.env) {
   const task = await invokeScheduledTask("inspect", env);
   const paths = runtimePaths(env);
+  const desired = await readDesiredState(paths);
   const state = await readRuntimeState(paths);
   const lock = await readRuntimeLock(paths);
   const ownership = classifyRuntimeOwnership(state, lock);
@@ -1085,7 +1345,12 @@ async function inspectScheduledRuntime(env = process.env) {
     controlReady,
   });
   if (ownership === "stopped" && listenerState !== "absent") fail("runtime_state_ambiguous");
-  return createPublicScheduledTaskState(task, runtimeHealth);
+  const reportedHealth = desired?.desired_state === "running"
+    && task.task_state === "ready"
+    && ["stopped", "runtime_worker_absent"].includes(runtimeHealth)
+    ? "recovery_needed"
+    : runtimeHealth;
+  return createPublicScheduledTaskState(task, reportedHealth, desired);
 }
 
 async function runScheduledRuntime(env = process.env) {
@@ -1094,7 +1359,26 @@ async function runScheduledRuntime(env = process.env) {
   const paths = runtimePaths(env);
   const state = await readRuntimeState(paths);
   const lock = await readRuntimeLock(paths);
-  if (classifyRuntimeOwnership(state, lock) !== "stopped") fail("runtime_already_running");
+  const ownership = classifyRuntimeOwnership(state, lock);
+  if (ownership === "owned" && state?.state === "ready" && processAlive(state.pid)) {
+    return inspectScheduledRuntime(env);
+  }
+  if (ownership !== "stopped") fail("runtime_already_running");
+  if (await probeLoopbackListener() !== "absent") fail("runtime_state_ambiguous");
+  await ensureNormalDirectory(paths.root);
+  let desired = await readDesiredState(paths);
+  if (!desired) {
+    desired = {
+      schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+      desired_state: "stopped",
+      intent_epoch: 0,
+      updated_at: new Date().toISOString(),
+    };
+  } else if (desired.desired_state === "running") {
+    desired = transitionRuntimeDesiredState(desired, "recovery_needed", new Date().toISOString());
+  }
+  desired = transitionRuntimeDesiredState(desired, "start", new Date().toISOString());
+  await writeDesiredState(paths, desired);
   const exactIntent = scheduledQuotaReadRequested(env);
   const intentOwner = exactIntent ? await listenScheduledLaunchIntent(env) : null;
   try {
@@ -1118,19 +1402,22 @@ async function unregisterScheduledRuntime(env = process.env) {
   const paths = runtimePaths(env);
   const state = await readRuntimeState(paths);
   const lock = await readRuntimeLock(paths);
+  const desired = await readDesiredState(paths);
   if (!task.exists && classifyRuntimeOwnership(state, lock) === "stopped"
       && await probeLoopbackListener() === "absent") {
-    return createPublicScheduledTaskState(task, "stopped");
+    return createPublicScheduledTaskState(task, "stopped", desired);
   }
+  if (desired?.desired_state !== "stopped") fail("runtime_state_ambiguous");
   if (!scheduledTaskUnregisterIsSafe({
     inspection: task,
     runtimeOwnership: classifyRuntimeOwnership(state, lock),
     listenerState: await probeLoopbackListener(),
   })) fail("runtime_state_ambiguous");
+  await captureTerminationEvidence(paths, "pre_unregister", { task, desired, state });
   await invokeScheduledTask("unregister", env);
   const after = await invokeScheduledTask("inspect", env);
   if (after.exists) fail("task_definition_mismatch");
-  return createPublicScheduledTaskState(after, "stopped");
+  return createPublicScheduledTaskState(after, "stopped", desired);
 }
 
 async function inspectRuntime(env = process.env, { health = false } = {}) {
@@ -1159,11 +1446,67 @@ async function stopRuntime(env = process.env) {
   if (!(await normalDirectoryIfPresent(paths.root))) return createPublicRuntimeState(null, { ok: true });
   const state = await readRuntimeState(paths);
   const lock = await readRuntimeLock(paths);
+  let desired = await readDesiredState(paths);
   const ownership = classifyRuntimeOwnership(state, lock);
-  if (ownership === "stopped") return createPublicRuntimeState(null, { ok: true });
+  if (ownership === "stopped") {
+    if (!desired || desired.desired_state === "stopped") {
+      return createPublicRuntimeState(null, { ok: true });
+    }
+    desired = transitionRuntimeDesiredState(desired, "request_stop", new Date().toISOString());
+    await writeDesiredState(paths, desired);
+    const task = process.platform === "win32"
+      ? await invokeScheduledTask("inspect", env)
+      : null;
+    await captureTerminationEvidence(paths, "pre_stop", {
+      task,
+      desired,
+      state: null,
+      workerAliveAtCapture: false,
+    });
+    await writeDesiredState(
+      paths,
+      transitionRuntimeDesiredState(desired, "stopped", new Date().toISOString()),
+    );
+    return createPublicRuntimeState(null, { ok: true, outcome: "stopped" });
+  }
   if (ownership !== "owned") fail("runtime_state_ambiguous");
+  const workerAliveAtCapture = processAlive(state.pid);
+  desired = desired ?? {
+    schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+    desired_state: "running",
+    intent_epoch: 0,
+    updated_at: new Date().toISOString(),
+  };
+  desired = transitionRuntimeDesiredState(desired, "request_stop", new Date().toISOString());
+  await writeDesiredState(paths, desired);
+  const task = process.platform === "win32"
+    ? await invokeScheduledTask("inspect", env)
+    : null;
+  await captureTerminationEvidence(paths, "pre_stop", {
+    task,
+    desired,
+    state,
+    workerAliveAtCapture,
+  });
   if (!(await requestOwnedStop(paths, state))) fail("runtime_stop_ambiguous");
+  desired = transitionRuntimeDesiredState(desired, "stopped", new Date().toISOString());
+  await writeDesiredState(paths, desired);
   return createPublicRuntimeState(null, { ok: true, outcome: "stopped" });
+}
+
+async function faultRuntime(env = process.env) {
+  const paths = runtimePaths(env);
+  const desired = await readDesiredState(paths);
+  const state = await readRuntimeState(paths);
+  const lock = await readRuntimeLock(paths);
+  if (desired?.desired_state !== "running"
+      || classifyRuntimeOwnership(state, lock) !== "owned"
+      || state?.state !== "ready") fail("runtime_state_ambiguous");
+  const response = await sendControl({ action: "fault", run_id: state.run_id });
+  if (!response?.ok || response.run_id !== state.run_id || response.outcome !== "faulting") {
+    fail("control_unavailable");
+  }
+  return { schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA, ok: true, outcome: "fault_requested" };
 }
 
 async function recoverRuntime(env = process.env) {
@@ -1185,9 +1528,25 @@ async function recoverRuntime(env = process.env) {
     listenerState: await probeLoopbackListener(),
   });
   if (decision !== "recoverable") fail("runtime_recovery_unsafe");
+  const desired = await readDesiredState(paths);
+  const task = process.platform === "win32"
+    ? await invokeScheduledTask("inspect", env)
+    : null;
+  await captureTerminationEvidence(paths, "pre_recover", {
+    task,
+    desired,
+    state,
+    workerAliveAtCapture: false,
+  });
   await removeOwnedRuntime(paths, state.run_id);
   if (await readJsonRecord(paths.state) || await readJsonRecord(paths.lock)) {
     fail("runtime_recovery_unsafe");
+  }
+  if (desired?.desired_state === "running") {
+    await writeDesiredState(
+      paths,
+      transitionRuntimeDesiredState(desired, "recovery_needed", new Date().toISOString()),
+    );
   }
   return createPublicRuntimeState(null, { ok: true, outcome: "recovered" });
 }
@@ -1312,6 +1671,10 @@ async function runWorker(runId, env = process.env) {
         );
         return { ok: true, outcome: "stopping", run_id: runId };
       }
+      if (authorization.outcome === "fault") {
+        setTimeout(() => process.exit(73), 25);
+        return { ok: true, outcome: "faulting", run_id: runId };
+      }
       const healthy = authorization.outcome === "health"
         ? current.state === "ready" && await headLoopback()
         : null;
@@ -1365,6 +1728,10 @@ async function runWorker(runId, env = process.env) {
 }
 
 async function runScheduledWorker(env = process.env) {
+  const localPaths = runtimePaths(env);
+  await ensureNormalDirectory(localPaths.root);
+  const desired = await readDesiredState(localPaths);
+  if (desired?.desired_state !== "running") return;
   const environment = await deriveScheduledRuntimeEnvironment(env);
   delete environment[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ];
   delete environment[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ];
@@ -1376,8 +1743,21 @@ async function runScheduledWorker(env = process.env) {
   await ensureNormalDirectory(paths.root);
   const existingState = await readRuntimeState(paths);
   const existingLock = await readRuntimeLock(paths);
-  if (classifyRuntimeOwnership(existingState, existingLock) !== "stopped"
-      || await probeLoopbackListener() !== "absent") fail("runtime_already_running");
+  const ownership = classifyRuntimeOwnership(existingState, existingLock);
+  const listenerState = await probeLoopbackListener();
+  if (ownership === "owned" && existingState && !processAlive(existingState.pid)
+      && listenerState === "absent") {
+    const task = await invokeScheduledTask("inspect", process.env);
+    await captureTerminationEvidence(paths, "restart_recovery", {
+      task,
+      desired,
+      state: existingState,
+      workerAliveAtCapture: false,
+    });
+    await removeOwnedRuntime(paths, existingState.run_id);
+  } else if (ownership !== "stopped" || listenerState !== "absent") {
+    fail("runtime_already_running");
+  }
 
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
@@ -1421,6 +1801,7 @@ export function parseRuntimeCommand(argv) {
     "task-register",
     "task-status",
     "task-run",
+    "task-fault",
     "task-stop",
     "task-unregister",
     "status",
@@ -1435,7 +1816,7 @@ export function parseRuntimeCommand(argv) {
 }
 
 function help() {
-  return "usage: node ops/team-ops-board-runtime.mjs <task-register|task-status|task-run|task-stop|task-unregister|status|health|stop|recover>";
+  return "usage: node ops/team-ops-board-runtime.mjs <task-register|task-status|task-run|task-stop|task-fault|task-unregister|status|health|stop|recover>";
 }
 
 async function main() {
@@ -1456,6 +1837,8 @@ async function main() {
         ? await runScheduledRuntime()
         : command === "task-stop"
           ? (await stopRuntime(), await inspectScheduledRuntime())
+          : command === "task-fault"
+            ? await faultRuntime()
           : command === "task-unregister"
             ? await unregisterScheduledRuntime()
             : command === "status"

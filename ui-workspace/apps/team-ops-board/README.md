@@ -371,6 +371,7 @@ node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-regist
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-status
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-run
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-stop
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-fault
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs recover
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-unregister
 ```
@@ -387,19 +388,36 @@ attested scheduled worker over a local run-ID handshake and exists only in
 process memory; unset, blank, and malformed values remain OFF. The intent and
 resulting child flag never enter task arguments, XML, state records, or logs.
 
-The runtime remains fixed to strict loopback `127.0.0.1:4192`, with one
-PC-local metadata-only claim, run-ID-attested control pipe, heartbeat, exact
-health check, and graceful exact stop. `task-status` exposes only trigger and
-stored-credential counts, current-owner match, the action digest, and task/
-runtime health classes. Exact task proof also requires the root task path,
-enabled state, `IgnoreNew`, unlimited execution, and zero restart/watchdog
-configuration. A ready marker with an absent owner or listener is
-`runtime_worker_absent`; a stale heartbeat is HOLD, while a handled worker
-failure remains distinguishable.
-`recover` removes only exact matching stale records after the owner, control
-pipe, and listener are all proven absent; `task-unregister` requires a stopped
-runtime. There is no force kill, service, automatic trigger, elevation,
-firewall, LAN/public bind, or Tailscale configuration mutation.
+The runtime remains fixed to strict loopback `127.0.0.1:4192`. Registration
+leaves it stopped. Only `task-run` atomically records manual Owner intent and a
+monotonic epoch before requesting execution. Duplicate start and stop are
+idempotent. An explicit stop records `stop_requested` before graceful shutdown,
+then records `stopped`, so the task cannot restart it. The task retains zero
+triggers and bounded Scheduler `RestartOnFailure` only while intent remains
+`running`: at most three retries, one minute apart. A reboot therefore never
+starts the Board; stale running intent is reported as `recovery_needed` until a
+new manual start.
+
+Before stop, stale-record recovery, or task removal can delete runtime
+evidence, the wrapper atomically writes one metadata-only termination receipt
+in its existing OS-local runtime root. The receipt contains only desired/task
+state, monotonic epoch, heartbeat freshness, redacted last-result class,
+dependency availability, and one of `normal_stop`, `handled_error`,
+`native_crash`, `external_termination`, `dependency_loss`, or `unknown`.
+Capture failure is HOLD and blocks removal. It contains no task name, process
+identifier, host, path, credential, account, or raw result/error.
+
+The earlier `runtime_worker_absent` evidence established an architecture gap:
+the task had zero restart policy and no desired-state, LastTaskResult, or
+termination-receipt evidence. Its ready marker and last heartbeat excluded a
+normal stop and a handled JavaScript error, but the exact terminating event was
+not captured. That prior root cause remains `UNKNOWN / non-reproduced`; native
+crash, external termination, and dependency loss must not be claimed without
+the new receipt and ordering evidence. `task-fault` is a bounded local
+acceptance-only worker fault used after a natural-survival interval to prove the
+same intent epoch recovers through the approved Scheduler policy. There is no
+force kill, service, automatic trigger, elevation, firewall, LAN/public bind,
+provider call, or Tailscale configuration mutation.
 
 The app-server adapter tests cover handshake/initialization, pagination,
 `useStateDbOnly` fallback, redaction, exact-ID joining, bounded cache/failure

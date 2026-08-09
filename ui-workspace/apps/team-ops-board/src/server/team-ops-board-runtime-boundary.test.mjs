@@ -12,10 +12,14 @@ import {
   TEAM_OPS_BOARD_RUNTIME_PIPE,
   TEAM_OPS_BOARD_RUNTIME_PORT,
   TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES,
+  TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT,
+  TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL,
   TEAM_OPS_BOARD_RUNTIME_TASK_NAME,
   authorizeRuntimeControl,
   classifyRuntimeObservation,
   classifyRuntimeRecovery,
+  classifyRuntimeTermination,
+  classifyScheduledTaskResult,
   classifyRuntimeOwnership,
   closePreviewGracefully,
   createPublicScheduledTaskState,
@@ -27,8 +31,10 @@ import {
   createScheduledLaunchIntentEnvelope,
   createScheduledTaskDefinition,
   createScheduledTaskPowerShellSpec,
+  createTerminationReceipt,
   deriveAllowedHostFromServeStatus,
   parseRuntimeCommand,
+  isTerminationReceipt,
   refreshRuntimeHeartbeat,
   runtimeHeartbeatIsFresh,
   runtimeHealthIsReady,
@@ -37,6 +43,7 @@ import {
   scheduledTaskUnregisterIsSafe,
   scheduledQuotaReadRequested,
   transitionRuntimeState,
+  transitionRuntimeDesiredState,
   validateRuntimeLaunchEnvironment,
 } from "../../ops/team-ops-board-runtime.mjs";
 
@@ -135,7 +142,9 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
   assert.equal(definition.multiple_instances, "IgnoreNew");
   assert.equal(definition.enabled, true);
   assert.equal(definition.execution_time_limit, "unlimited");
-  assert.equal(definition.restart_count, 0);
+  assert.equal(definition.restart_count, 3);
+  assert.equal(definition.restart_count, TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT);
+  assert.equal(definition.restart_interval, TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL);
   assert.equal(definition.watchdog_count, 0);
   assert.match(definition.action_digest, /^[a-f0-9]{64}$/u);
   const spec = createScheduledTaskPowerShellSpec("register", {
@@ -154,6 +163,7 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
   assert.doesNotMatch(decoded, /Register-ScheduledTask[^;]*-InputObject[^;]*-Description/u);
   assert.match(decoded, /Register-ScheduledTask[^;]*-InputObject \$definition/u);
   assert.match(decoded, /New-ScheduledTaskPrincipal -UserId \$owner -LogonType Interactive -RunLevel Limited/u);
+  assert.match(decoded, /-RestartCount 3 -RestartInterval \(\[TimeSpan\]::FromMinutes\(1\)\)/u);
   assert.match(decoded, /Resolve-Sid/u);
   assert.match(decoded, /\$identity\.User\.Value/u);
   assert.match(decoded, /\$principalSid -eq \$ownerSid/u);
@@ -189,6 +199,163 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
     assert.match(mutationDecoded, /ExecutionTimeLimit/u);
     assert.match(mutationDecoded, /RestartCount/u);
   }
+});
+
+test("manual intent is monotonic, idempotent, and reboot-stale intent stays off", () => {
+  const stopped = transitionRuntimeDesiredState(null, "stopped", "2026-08-10T00:00:00.000Z");
+  assert.equal(stopped.desired_state, "stopped");
+  assert.equal(stopped.intent_epoch, 0);
+  const running = transitionRuntimeDesiredState(stopped, "start", "2026-08-10T00:00:01.000Z");
+  assert.equal(running.desired_state, "running");
+  assert.equal(running.intent_epoch, 1);
+  assert.deepEqual(
+    transitionRuntimeDesiredState(running, "start", "2026-08-10T00:00:02.000Z"),
+    running,
+  );
+  const requested = transitionRuntimeDesiredState(
+    running,
+    "request_stop",
+    "2026-08-10T00:00:03.000Z",
+  );
+  assert.equal(requested.desired_state, "stop_requested");
+  assert.equal(requested.intent_epoch, 2);
+  const finalStopped = transitionRuntimeDesiredState(
+    requested,
+    "stopped",
+    "2026-08-10T00:00:04.000Z",
+  );
+  assert.equal(finalStopped.desired_state, "stopped");
+  assert.equal(finalStopped.intent_epoch, 2);
+  const recoveryNeeded = transitionRuntimeDesiredState(
+    running,
+    "recovery_needed",
+    "2026-08-10T00:00:05.000Z",
+  );
+  assert.equal(recoveryNeeded.desired_state, "recovery_needed");
+  assert.equal(recoveryNeeded.intent_epoch, 1);
+});
+
+test("termination receipts distinguish evidence classes without private identifiers", () => {
+  const desired = {
+    schema_version: "soulforge.team_ops_board.runtime.v1",
+    desired_state: "running",
+    intent_epoch: 4,
+    updated_at: "2026-08-10T00:00:00.000Z",
+  };
+  const ready = {
+    state: "ready",
+    heartbeat_at: "2026-08-10T00:00:05.000Z",
+    pid: 4321,
+    run_id: "11111111-1111-4111-8111-111111111111",
+    protected_path: "must-not-project",
+  };
+  assert.equal(classifyScheduledTaskResult(0), "success");
+  assert.equal(classifyScheduledTaskResult(267009), "running");
+  assert.equal(classifyScheduledTaskResult(267014), "terminated");
+  assert.equal(classifyScheduledTaskResult(73), "failed");
+  assert.equal(classifyScheduledTaskResult(-1073741819), "native_crash");
+  assert.equal(classifyRuntimeTermination({
+    desiredState: "stop_requested",
+    runtimeState: "ready",
+    lastTaskResultClass: "running",
+    heartbeatAgeMs: 1_000,
+    dependencyAvailable: true,
+    workerAliveAtCapture: true,
+  }), "normal_stop");
+  assert.equal(classifyRuntimeTermination({
+    desiredState: "running",
+    runtimeState: "error",
+    lastTaskResultClass: "native_crash",
+    heartbeatAgeMs: 1_000,
+    dependencyAvailable: true,
+  }), "handled_error");
+  assert.equal(classifyRuntimeTermination({
+    desiredState: "running",
+    runtimeState: "ready",
+    lastTaskResultClass: "native_crash",
+    heartbeatAgeMs: 1_000,
+    dependencyAvailable: true,
+  }), "native_crash");
+  assert.equal(classifyRuntimeTermination({
+    desiredState: "running",
+    runtimeState: "ready",
+    lastTaskResultClass: "terminated",
+    heartbeatAgeMs: 1_000,
+    dependencyAvailable: true,
+  }), "external_termination");
+  assert.equal(classifyRuntimeTermination({
+    desiredState: "running",
+    runtimeState: "ready",
+    lastTaskResultClass: "unavailable",
+    heartbeatAgeMs: 1_000,
+    dependencyAvailable: false,
+    dependencyLossBeforeExit: true,
+  }), "dependency_loss");
+  assert.equal(classifyRuntimeTermination({
+    desiredState: "running",
+    runtimeState: "ready",
+    lastTaskResultClass: "failed",
+    heartbeatAgeMs: 1_000,
+    dependencyAvailable: true,
+  }), "unknown");
+  assert.equal(classifyRuntimeTermination({
+    desiredState: "stop_requested",
+    runtimeState: "ready",
+    lastTaskResultClass: "running",
+    heartbeatAgeMs: 1_000,
+    dependencyAvailable: true,
+    workerAliveAtCapture: false,
+  }), "unknown");
+  assert.equal(classifyRuntimeTermination({
+    desiredState: "running",
+    runtimeState: "ready",
+    lastTaskResultClass: "unavailable",
+    heartbeatAgeMs: 1_000,
+    dependencyAvailable: false,
+  }), "unknown");
+  assert.equal(classifyRuntimeTermination({
+    desiredState: "running",
+    runtimeState: "ready",
+    lastTaskResultClass: "success",
+    heartbeatAgeMs: 1_000,
+    dependencyAvailable: true,
+  }), "unknown");
+  const receipt = createTerminationReceipt({
+    operation: "restart_recovery",
+    desired,
+    runtimeState: ready,
+    taskState: "ready",
+    lastTaskResult: 267014,
+    dependencyAvailable: true,
+    workerAliveAtCapture: false,
+    observedAt: "2026-08-10T00:00:06.000Z",
+  });
+  assert.equal(receipt.exit_classification, "external_termination");
+  assert.deepEqual(Object.keys(receipt).sort(), [
+    "dependency_state", "desired_state", "exit_classification", "heartbeat",
+    "intent_epoch", "last_result_class", "observed_at", "operation",
+    "receipt_kind", "runtime_marker", "schema_version", "task_state",
+  ]);
+  assert.equal(JSON.stringify(receipt).includes("must-not-project"), false);
+  assert.equal(JSON.stringify(receipt).includes("4321"), false);
+  assert.equal(JSON.stringify(receipt).includes("11111111"), false);
+  const markerless = createTerminationReceipt({
+    operation: "pre_stop",
+    desired: null,
+    runtimeState: ready,
+    taskState: "ready",
+    lastTaskResult: 73,
+    dependencyAvailable: false,
+    workerAliveAtCapture: false,
+    observedAt: "2026-08-10T00:00:06.000Z",
+  });
+  assert.equal(markerless.desired_state, "unknown");
+  assert.equal(markerless.intent_epoch, null);
+  assert.equal(markerless.dependency_state, "unavailable");
+  assert.equal(markerless.exit_classification, "unknown");
+  assert.equal(isTerminationReceipt(JSON.parse(JSON.stringify(markerless))), true);
+  assert.equal(isTerminationReceipt({ ...markerless, desired_state: "stopped" }), false);
+  assert.equal(isTerminationReceipt({ ...markerless, intent_epoch: 0 }), false);
 });
 
 test("scheduled worker derives private bindings in memory and keeps quota OFF", () => {
@@ -283,6 +450,10 @@ test("control requests require the exact attributable run id", () => {
   assert.deepEqual(authorizeRuntimeControl(state, { action: "health", run_id: state.run_id }), {
     ok: true,
     outcome: "health",
+  });
+  assert.deepEqual(authorizeRuntimeControl(state, { action: "fault", run_id: state.run_id }), {
+    ok: true,
+    outcome: "fault",
   });
   assert.deepEqual(authorizeRuntimeControl(state, { action: "stop", run_id: "other" }), {
     ok: false,
@@ -386,7 +557,7 @@ test("stale-owner recovery requires every exact absence proof", () => {
 
 test("CLI and failure output remain bounded to public-safe classes", () => {
   for (const command of [
-    "task-register", "task-status", "task-run", "task-stop", "task-unregister",
+    "task-register", "task-status", "task-run", "task-stop", "task-fault", "task-unregister",
     "status", "health", "stop", "recover", "--help",
   ]) {
     assert.equal(parseRuntimeCommand([command]), command);
@@ -425,10 +596,12 @@ test("CLI and failure output remain bounded to public-safe classes", () => {
     multiple_instances_ignore_new: true,
     enabled: true,
     unlimited_execution: true,
-    restart_count: 0,
+    restart_count: TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT,
+    restart_interval: TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL,
     watchdog_count: 0,
     action_count: 1,
     action_digest: definition.action_digest,
+    last_task_result: 0,
   };
   assert.equal(scheduledTaskInspectionIsExact(inspection), true);
   assert.equal(scheduledTaskUnregisterIsSafe({
@@ -446,7 +619,8 @@ test("CLI and failure output remain bounded to public-safe classes", () => {
   }), false);
   const taskState = createPublicScheduledTaskState(inspection, "stopped");
   assert.deepEqual(Object.keys(taskState).sort(), [
-    "action_digest", "current_owner_match", "ok", "runtime_health", "schema_version",
+    "action_digest", "current_owner_match", "desired_state", "intent_epoch",
+    "last_result_class", "ok", "runtime_health", "schema_version",
     "stored_credential_count", "task_health", "trigger_count",
   ]);
   assert.equal(taskState.ok, false);
@@ -465,6 +639,7 @@ test("tracked runtime has only the bounded on-demand task surface", async () => 
   assert.doesNotMatch(source, /Start-Process|cmd\.exe|\/c\s+start/iu);
   assert.doesNotMatch(source, /Invoke-CimMethod|Win32_Process|bootstrap/iu);
   assert.match(source, /Register-ScheduledTask/u);
+  assert.match(source, /-RestartCount 3 -RestartInterval \(\[TimeSpan\]::FromMinutes\(1\)\)/u);
   assert.match(source, /New-ScheduledTaskPrincipal -UserId \$owner -LogonType Interactive -RunLevel Limited/u);
   assert.doesNotMatch(source, /New-ScheduledTaskTrigger|-Password|RunLevel Highest/u);
   assert.match(source, /Start-ScheduledTask -TaskPath \$p -TaskName \$n/u);
@@ -486,6 +661,14 @@ test("tracked runtime has only the bounded on-demand task surface", async () => 
   assert.match(source, /open\(paths\.lock,\s*"wx"\)/u);
   assert.match(source, /runtime_state_ambiguous/u);
   assert.match(source, /runtime_worker_absent/u);
+  assert.match(source, /termination-receipt\.v1\.json/u);
+  assert.match(source, /desired\.v1\.json/u);
+  assert.match(source, /RUNTIME_DEPENDENCY_SENTINEL/u);
+  assert.match(source, /captureTerminationEvidence\(paths, "pre_unregister"/u);
+  assert.match(source, /captureTerminationEvidence\(paths, "pre_recover"/u);
+  assert.match(source, /captureTerminationEvidence\(paths, "pre_stop"/u);
+  assert.match(source, /captureTerminationEvidence\(paths, "restart_recovery"/u);
+  assert.match(source, /desired\?\.desired_state !== "running"\) return/u);
   assert.match(source, /heartbeat_at/u);
   const workerSource = source.slice(source.indexOf("async function runScheduledWorker"));
   assert.ok(workerSource.indexOf("lockHandle.writeFile") < workerSource.indexOf("writeJsonAtomic(paths.state"));

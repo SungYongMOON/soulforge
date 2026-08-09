@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## 2026-08-10 - Team Operations Board Owner-controlled stay-on runtime
+
+- Added an atomic OS-local desired-state and monotonic intent epoch so the
+  on-demand Board remains normally off, starts only on explicit Owner request,
+  keeps running until explicit stop, and reports stale reboot intent as
+  recovery-needed without adding any trigger or autostart surface.
+- Bounded Scheduler failure recovery to three retries at one-minute intervals
+  while intent is running. Explicit stop is idempotent, records stop intent
+  before shutdown, and prevents restart; the registered task remains
+  interactive, limited, trigger-free, credential-free, and loopback-only.
+- Added a redacted termination receipt before stop, recovery, or unregistration
+  removes evidence. Normal stop, handled error, native crash, external
+  termination, dependency loss, and unknown remain distinct. The previously
+  observed markerless worker loss remains root-cause UNKNOWN/non-reproduced;
+  the confirmed prior gap was missing restart, intent, LastTaskResult, and
+  receipt evidence rather than a proven application failure.
+
 ## 2026-08-10 - Team Operations Board Windows read-only runtime controller
 
 - Replaced the interactive-tool-owned launch path with one explicit Windows
