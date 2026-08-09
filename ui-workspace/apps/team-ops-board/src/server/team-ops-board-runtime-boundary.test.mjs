@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
@@ -9,6 +10,8 @@ import {
   TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES,
   TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE,
   TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ,
+  TEAM_OPS_BOARD_CHILD_RESTART_BACKOFF_MS,
+  TEAM_OPS_BOARD_CHILD_RESTART_LIMIT,
   TEAM_OPS_BOARD_RUNTIME_PIPE,
   TEAM_OPS_BOARD_RUNTIME_PORT,
   TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES,
@@ -19,6 +22,7 @@ import {
   classifyRuntimeObservation,
   classifyRuntimeRecovery,
   classifyRuntimeTermination,
+  classifyBoardChildStartingState,
   classifyScheduledTaskResult,
   classifyRuntimeOwnership,
   closePreviewGracefully,
@@ -32,6 +36,7 @@ import {
   createScheduledTaskDefinition,
   createScheduledTaskPowerShellSpec,
   createTerminationReceipt,
+  decideBoardChildSupervisor,
   deriveAllowedHostFromServeStatus,
   parseRuntimeCommand,
   isTerminationReceipt,
@@ -42,6 +47,7 @@ import {
   scheduledTaskInspectionIsExact,
   scheduledTaskUnregisterIsSafe,
   scheduledQuotaReadRequested,
+  stopControllerOwnedChild,
   transitionRuntimeState,
   transitionRuntimeDesiredState,
   validateRuntimeLaunchEnvironment,
@@ -199,6 +205,86 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
     assert.match(mutationDecoded, /ExecutionTimeLimit/u);
     assert.match(mutationDecoded, /RestartCount/u);
   }
+});
+
+test("scheduled controller bounds Board-child recovery and stop wins", async () => {
+  assert.equal(TEAM_OPS_BOARD_CHILD_RESTART_LIMIT, 3);
+  assert.equal(TEAM_OPS_BOARD_CHILD_RESTART_BACKOFF_MS, 1_000);
+  assert.equal(decideBoardChildSupervisor({
+    desiredState: "running",
+    childExited: false,
+    childReady: true,
+    restartCount: 0,
+  }), "continue");
+  assert.equal(decideBoardChildSupervisor({
+    desiredState: "running",
+    childExited: true,
+    childReady: false,
+    restartCount: 0,
+    restartLimit: 1,
+  }), "restart");
+  assert.equal(decideBoardChildSupervisor({
+    desiredState: "running",
+    childExited: true,
+    childReady: false,
+    restartCount: 1,
+    restartLimit: 1,
+  }), "exhausted");
+  assert.equal(decideBoardChildSupervisor({
+    desiredState: "stop_requested",
+    childExited: true,
+    childReady: false,
+    restartCount: 0,
+  }), "stop");
+
+  const now = Date.parse("2026-08-10T12:00:00.000Z");
+  assert.equal(classifyBoardChildStartingState({
+    state: "starting",
+    started_at: "2026-08-10T11:59:50.000Z",
+  }, { now, startTimeoutMs: 30_000 }), "starting");
+  assert.equal(classifyBoardChildStartingState({
+    state: "starting",
+    started_at: "2026-08-10T11:59:20.000Z",
+  }, { now, startTimeoutMs: 30_000 }), "nonready");
+  assert.equal(classifyBoardChildStartingState({
+    state: "starting",
+    started_at: "invalid",
+  }, { now, startTimeoutMs: 30_000 }), "hold");
+  assert.equal(classifyBoardChildStartingState({
+    state: "starting",
+    started_at: "2026-08-10T12:00:01.000Z",
+  }, { now, startTimeoutMs: 30_000 }), "hold");
+
+  let sendCount = 0;
+  let killCount = 0;
+  const child = new EventEmitter();
+  Object.assign(child, {
+    connected: true,
+    exitCode: null,
+    signalCode: null,
+    send(message) {
+      sendCount += 1;
+      assert.equal(message.action, "controller_stop");
+      setImmediate(() => {
+        child.exitCode = 0;
+        child.emit("exit", 0, null);
+      });
+    },
+    kill() {
+      killCount += 1;
+      return true;
+    },
+  });
+  assert.equal(await stopControllerOwnedChild(child, {
+    state: null,
+    stopTimeoutMs: 50,
+  }), "controller_stop");
+  assert.equal(await stopControllerOwnedChild(child, {
+    state: null,
+    stopTimeoutMs: 50,
+  }), "exited");
+  assert.equal(sendCount, 1);
+  assert.equal(killCount, 0);
 });
 
 test("manual intent is monotonic, idempotent, and reboot-stale intent stays off", () => {
@@ -668,6 +754,12 @@ test("tracked runtime has only the bounded on-demand task surface", async () => 
   assert.match(source, /captureTerminationEvidence\(paths, "pre_recover"/u);
   assert.match(source, /captureTerminationEvidence\(paths, "pre_stop"/u);
   assert.match(source, /captureTerminationEvidence\(paths, "restart_recovery"/u);
+  assert.match(source, /async function runScheduledController/u);
+  assert.match(source, /fork\(fileURLToPath\(import\.meta\.url\), \["__runtime_child"\]/u);
+  assert.match(source, /restartCount \+= 1/u);
+  assert.match(source, /desired\?\.desired_state !== "running"/u);
+  assert.match(source, /await waitForControllerStop\(paths\)/u);
+  assert.doesNotMatch(source, /detached:\s*true/u);
   assert.match(source, /desired\?\.desired_state !== "running"\) return/u);
   assert.match(source, /heartbeat_at/u);
   const workerSource = source.slice(source.indexOf("async function runScheduledWorker"));

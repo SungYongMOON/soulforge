@@ -376,10 +376,11 @@ node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs recover
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-unregister
 ```
 
-At execution time the scheduled worker derives the canonical owner checkout
+At execution time the scheduled controller derives the canonical owner checkout
 from Git's common directory, derives the existing loopback Serve Host from the
 local read-only Serve status JSON, and assembles the Board's existing private
-default bindings in process memory. None of those values enter the task action,
+default bindings in process memory before it owns one Board child. None of
+those values enter the task action,
 task metadata, repository, or logs. Scheduled mode starts from required OS
 variables only and replaces, rather than inherits, every Board binding. Claude
 quota access is OFF by default. An exact
@@ -392,11 +393,13 @@ The runtime remains fixed to strict loopback `127.0.0.1:4192`. Registration
 leaves it stopped. Only `task-run` atomically records manual Owner intent and a
 monotonic epoch before requesting execution. Duplicate start and stop are
 idempotent. An explicit stop records `stop_requested` before graceful shutdown,
-then records `stopped`, so the task cannot restart it. The task retains zero
-triggers and bounded Scheduler `RestartOnFailure` only while intent remains
-`running`: at most three retries, one minute apart. A reboot therefore never
-starts the Board; stale running intent is reported as `recovery_needed` until a
-new manual start.
+then records `stopped`, so the controller cannot restart it. The task retains
+zero triggers. While intent remains `running`, the controller records a
+metadata-only receipt and restarts only its Board child after an unexpected
+exit or non-ready observation, with at most three retries and a one-second
+backoff. Each child owns a new runtime generation and heartbeat. A reboot
+therefore never starts the Board; stale running intent is reported as
+`recovery_needed` until a new manual start.
 
 Before stop, stale-record recovery, or task removal can delete runtime
 evidence, the wrapper atomically writes one metadata-only termination receipt
@@ -418,6 +421,11 @@ acceptance-only worker fault used after a natural-survival interval to prove the
 same intent epoch recovers through the approved Scheduler policy. There is no
 force kill, service, automatic trigger, elevation, firewall, LAN/public bind,
 provider call, or Tailscale configuration mutation.
+
+This controller closes the missing child-lifetime-owner gap without adding a
+service or second watchdog. A controller-process crash remains a documented
+residual risk; the Board does not claim that Task Scheduler's
+`RestartOnFailure` setting alone proves recovery.
 
 The app-server adapter tests cover handshake/initialization, pagination,
 `useStateDbOnly` fallback, redaction, exact-ID joining, bounded cache/failure

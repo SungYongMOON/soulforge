@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-08-10 - Team Operations Board bounded child supervisor
+
+- Changed the trigger-free on-demand task action into a lifetime controller
+  that owns one loopback-only Board child. While explicit Owner intent remains
+  running, an unexpected child exit or non-ready observation records bounded
+  metadata and can create a new child generation with a short, capped retry.
+- Explicit stop records stop intent before gracefully ending the child and
+  controller, so it cannot restart. Provider access, topology writes, startup
+  triggers, services, elevation, firewall, Funnel, and credential handling are
+  unchanged; controller-process failure remains an explicit residual risk.
+
 ## 2026-08-10 - Team Operations Board Owner-controlled stay-on runtime
 
 - Added an atomic OS-local desired-state and monotonic intent epoch so the

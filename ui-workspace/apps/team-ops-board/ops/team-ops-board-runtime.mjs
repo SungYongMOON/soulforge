@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execFile } from "node:child_process";
+import { execFile, fork } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   lstat,
@@ -107,6 +107,10 @@ export const TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES = 4096;
 export const TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES = 128 * 1024;
 export const TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT = 3;
 export const TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL = "PT1M";
+export const TEAM_OPS_BOARD_CHILD_RESTART_LIMIT = 3;
+export const TEAM_OPS_BOARD_CHILD_RESTART_BACKOFF_MS = 1_000;
+const CHILD_HEALTH_POLL_MS = 1_000;
+const CONTROLLER_CHILD_STOP_ACTION = "controller_stop";
 const MAX_RECORD_BYTES = TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES;
 const execFileAsync = promisify(execFile);
 const SAFE_FAILURE_CLASSES = new Set([
@@ -140,6 +144,28 @@ function fail(code) {
   const error = new Error(code);
   error.code = code;
   throw error;
+}
+
+export function decideBoardChildSupervisor({
+  desiredState,
+  childExited,
+  childReady,
+  restartCount,
+  restartLimit = TEAM_OPS_BOARD_CHILD_RESTART_LIMIT,
+}) {
+  if (desiredState !== "running") return "stop";
+  if (!childExited && childReady) return "continue";
+  return restartCount < restartLimit ? "restart" : "exhausted";
+}
+
+export function classifyBoardChildStartingState(state, {
+  now = Date.now(),
+  startTimeoutMs = START_TIMEOUT_MS,
+} = {}) {
+  if (state?.state !== "starting") return "not_starting";
+  const startedAt = Date.parse(state.started_at);
+  if (!Number.isFinite(startedAt) || startedAt > now) return "hold";
+  return now - startedAt > startTimeoutMs ? "nonready" : "starting";
 }
 
 export function sanitizeRuntimeFailure(error, fallback = "runtime_start_failed") {
@@ -1728,17 +1754,26 @@ async function runWorker(runId, env = process.env) {
 }
 
 async function runScheduledWorker(env = process.env) {
+  let controllerStopRequested = false;
+  process.on("message", (message) => {
+    if (message?.schema_version === TEAM_OPS_BOARD_RUNTIME_SCHEMA
+        && message.action === CONTROLLER_CHILD_STOP_ACTION) {
+      controllerStopRequested = true;
+    }
+  });
   const localPaths = runtimePaths(env);
   await ensureNormalDirectory(localPaths.root);
   const desired = await readDesiredState(localPaths);
-  if (desired?.desired_state !== "running") return;
+  if (desired?.desired_state !== "running" || controllerStopRequested) return;
   const environment = await deriveScheduledRuntimeEnvironment(env);
+  if (controllerStopRequested) return;
   delete environment[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ];
   delete environment[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ];
   for (const name of Object.keys(process.env)) delete process.env[name];
   for (const [name, value] of Object.entries(environment)) process.env[name] = value;
   validateRuntimeLaunchEnvironment(process.env);
   await buildDigest();
+  if (controllerStopRequested) return;
   const paths = runtimePaths(process.env);
   await ensureNormalDirectory(paths.root);
   const existingState = await readRuntimeState(paths);
@@ -1790,10 +1825,156 @@ async function runScheduledWorker(env = process.env) {
     await removeOwnedRuntime(paths, runId).catch(() => {});
     throw error;
   }
-  if (await receiveScheduledLaunchIntent(runId)) {
+  if (controllerStopRequested) {
+    await removeOwnedRuntime(paths, runId);
+    return;
+  }
+  const quotaReadRequested = await receiveScheduledLaunchIntent(runId);
+  if (controllerStopRequested) {
+    await removeOwnedRuntime(paths, runId);
+    return;
+  }
+  if (quotaReadRequested) {
     process.env[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ] = "1";
   }
   await runWorker(runId, process.env);
+}
+
+function waitForBoardChildExit(child) {
+  return new Promise((resolve) => {
+    const finish = (code, signal) => resolve({ code, signal });
+    child.once("exit", finish);
+    child.once("error", () => finish(null, "error"));
+  });
+}
+
+export async function stopControllerOwnedChild(child, {
+  state = null,
+  requestOwnedStopFn = async () => false,
+  exitPromise = waitForBoardChildExit(child),
+  stopTimeoutMs = STOP_TIMEOUT_MS,
+} = {}) {
+  if (child.exitCode !== null || child.signalCode !== null) return "exited";
+  if (state && processAlive(state.pid) && await requestOwnedStopFn()) return "owned_stop";
+
+  if (child.connected) {
+    try {
+      child.send({
+        schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+        action: CONTROLLER_CHILD_STOP_ACTION,
+      });
+    } catch {
+      // The bounded fallback remains attributable to this exact child handle.
+    }
+  }
+  if (await Promise.race([
+    exitPromise.then(() => true),
+    wait(stopTimeoutMs).then(() => false),
+  ])) return "controller_stop";
+
+  if (child.exitCode === null && child.signalCode === null && child.kill("SIGTERM")) {
+    if (await Promise.race([
+      exitPromise.then(() => true),
+      wait(stopTimeoutMs).then(() => false),
+    ])) return "owned_fallback";
+  }
+  fail("runtime_stop_ambiguous");
+}
+
+async function observeBoardChild(child, paths) {
+  const exit = waitForBoardChildExit(child);
+  while (child.exitCode === null && child.signalCode === null) {
+    const outcome = await Promise.race([
+      exit.then((value) => ({ kind: "exit", value })),
+      wait(CHILD_HEALTH_POLL_MS).then(() => ({ kind: "poll" })),
+    ]);
+    if (outcome.kind === "exit") return { reason: "exit", ...outcome.value };
+
+    const desired = await readDesiredState(paths);
+    const state = await readRuntimeState(paths);
+    if (desired?.desired_state !== "running") {
+      await stopControllerOwnedChild(child, {
+        state,
+        requestOwnedStopFn: () => requestOwnedStop(paths, state),
+        exitPromise: exit,
+      });
+      return { reason: "stop", ...(await exit) };
+    }
+    const startingState = classifyBoardChildStartingState(state);
+    if (startingState === "hold") fail("runtime_state_ambiguous");
+    if (startingState === "nonready"
+        || state?.state === "error"
+        || (state?.state === "ready"
+          && (!runtimeHeartbeatIsFresh(state) || await probeLoopbackListener() !== "present"))) {
+      const task = await invokeScheduledTask("inspect", process.env);
+      await captureTerminationEvidence(paths, "restart_recovery", {
+        task,
+        desired,
+        state,
+        workerAliveAtCapture: processAlive(state.pid),
+      });
+      if (!(await requestOwnedStop(paths, state))) fail("runtime_stop_ambiguous");
+      return { reason: "nonready", ...(await exit), receiptCaptured: true };
+    }
+  }
+  return { reason: "exit", ...(await exit) };
+}
+
+async function waitForControllerStop(paths) {
+  while ((await readDesiredState(paths))?.desired_state === "running") {
+    await wait(CHILD_HEALTH_POLL_MS);
+  }
+}
+
+async function runScheduledController(env = process.env, {
+  restartLimit = TEAM_OPS_BOARD_CHILD_RESTART_LIMIT,
+  restartBackoffMs = TEAM_OPS_BOARD_CHILD_RESTART_BACKOFF_MS,
+} = {}) {
+  const paths = runtimePaths(env);
+  await ensureNormalDirectory(paths.root);
+  if ((await readDesiredState(paths))?.desired_state !== "running") return;
+
+  const childEnvironment = await deriveScheduledRuntimeEnvironment(env);
+  delete childEnvironment[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ];
+  delete childEnvironment[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ];
+  let restartCount = 0;
+
+  while ((await readDesiredState(paths))?.desired_state === "running") {
+    const child = fork(fileURLToPath(import.meta.url), ["__runtime_child"], {
+      env: childEnvironment,
+      stdio: ["ignore", "ignore", "ignore", "ipc"],
+      windowsHide: true,
+    });
+    const outcome = await observeBoardChild(child, paths);
+    const desired = await readDesiredState(paths);
+    if (outcome.reason === "stop" || desired?.desired_state !== "running") return;
+
+    const state = await readRuntimeState(paths);
+    if (!outcome.receiptCaptured) {
+      const task = await invokeScheduledTask("inspect", env);
+      await captureTerminationEvidence(paths, "restart_recovery", {
+        task,
+        desired,
+        state,
+        workerAliveAtCapture: false,
+      });
+    }
+    if (state) await removeOwnedRuntime(paths, state.run_id);
+
+    const decision = decideBoardChildSupervisor({
+      desiredState: desired?.desired_state,
+      childExited: true,
+      childReady: false,
+      restartCount,
+      restartLimit,
+    });
+    if (decision !== "restart") {
+      await waitForControllerStop(paths);
+      return;
+    }
+    restartCount += 1;
+    await wait(restartBackoffMs);
+  }
 }
 
 export function parseRuntimeCommand(argv) {
@@ -1821,6 +2002,10 @@ function help() {
 
 async function main() {
   if (process.argv[2] === "__scheduled_worker") {
+    await runScheduledController();
+    return;
+  }
+  if (process.argv[2] === "__runtime_child") {
     await runScheduledWorker();
     return;
   }
