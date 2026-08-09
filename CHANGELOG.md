@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-08-09 — Team Operations Board read-only pilot boundary
+
+- Added the explicit `TEAM_OPS_BOARD_READ_ONLY_PILOT=1` fail-closed mode. In
+  pilot mode, Claude provider-limit probes stop before credential or OAuth
+  access, Antigravity quota probes stop before local RPC or cache reads/writes,
+  and auto-enrollment, subagent receipt enrollment, lifecycle reconciliation,
+  and result-gate writes are disabled. Common-ledger Claude provider rows and
+  topology diagnostics remain available as read-only evidence.
+- Unavailable pilot surfaces remain `UNKNOWN`/null and never fabricate
+  zero/green, current, healthy, live, or E2E state. Corrected the three existing
+  `App.tsx` TypeScript errors by aligning the forced reload callback ref and
+  typing both `structuralPaths.direct` edge callbacks.
+- This revision does not activate a collector, runtime, LAN or firewall access,
+  scheduler, authentication, HTTPS, or public exposure.
+
 ## 2026-08-09 — AI usage topology read-only Claude evidence diagnostics
 
 - Added backward-compatible Board history v3 provider rows sourced only from
