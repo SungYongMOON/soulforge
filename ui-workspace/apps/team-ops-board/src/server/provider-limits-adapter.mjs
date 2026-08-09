@@ -11,13 +11,14 @@ import {
   normalizeClaudeOauthUsage,
   parseCodexRateLimitsFromJsonlText,
 } from "../core/provider-limits.mjs";
-import { isTeamOpsBoardReadOnlyPilot } from "../core/team-ops-board-read-only-pilot.mjs";
+import { isTeamOpsBoardClaudeQuotaReadEnabled } from "../core/team-ops-board-read-only-pilot.mjs";
 
 export const PROVIDER_LIMITS_SNAPSHOT_PATH = "/provider-limits.snapshot.json";
 export const DEFAULT_PROVIDER_LIMITS_TTL_MS = 60_000;
 // OAuth usage 엔드포인트는 호출 빈도 제한(429)이 있어 별도 주기로만 재조회한다.
 // 진행 중 세션이 실시간으로 소모하므로 표시 지연을 줄이기 위해 2분으로 운용한다.
 export const DEFAULT_CLAUDE_LIMITS_REFRESH_MS = 120_000;
+export const DEFAULT_CLAUDE_LIMITS_FRESHNESS_MS = 300_000;
 export const DEFAULT_PROVIDER_LIMITS_FETCH_TIMEOUT_MS = 6_000;
 const CODEX_TAIL_BYTES = 262_144;
 
@@ -92,19 +93,99 @@ async function readClaudeOauthToken(credentialsPath) {
   return typeof token === "string" && token.length > 0 ? token : null;
 }
 
+function safeClaudeReadResult(outcome, claude = null) {
+  return { outcome, claude };
+}
+
+export async function requestClaudeLimits({ accessToken, fetchImpl, timeoutMs }) {
+  try {
+    const response = await fetchImpl("https://api.anthropic.com/api/oauth/usage", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "anthropic-beta": "oauth-2025-04-20",
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (response.status === 401 || response.status === 403) return safeClaudeReadResult("auth_failed");
+    if (response.status === 429) return safeClaudeReadResult("rate_limited");
+    if (!response.ok) return safeClaudeReadResult("invalid_response");
+    const claude = normalizeClaudeOauthUsage(await response.json());
+    return claude === null
+      ? safeClaudeReadResult("invalid_response")
+      : safeClaudeReadResult("success", claude);
+  } catch (error) {
+    return error?.name === "TimeoutError" || error?.name === "AbortError"
+      ? safeClaudeReadResult("timeout")
+      : safeClaudeReadResult("invalid_response");
+  }
+}
+
 async function readClaudeLimits({ credentialsPath, fetchImpl, timeoutMs }) {
-  const token = await readClaudeOauthToken(credentialsPath);
-  if (token === null) return null;
-  const response = await fetchImpl("https://api.anthropic.com/api/oauth/usage", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "anthropic-beta": "oauth-2025-04-20",
-      "Content-Type": "application/json",
-    },
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!response.ok) return null;
-  return normalizeClaudeOauthUsage(await response.json());
+  let token;
+  try {
+    token = await readClaudeOauthToken(credentialsPath);
+  } catch {
+    return safeClaudeReadResult("credential_unavailable");
+  }
+  if (token === null) return safeClaudeReadResult("credential_unavailable");
+  return requestClaudeLimits({ accessToken: token, fetchImpl, timeoutMs });
+}
+
+function normalizeClaudeReadResult(value) {
+  if (value?.outcome === "success") {
+    const claude = buildProviderLimitsSnapshot({ claude: value.claude ?? null }).claude;
+    return claude === null ? safeClaudeReadResult("invalid_response") : safeClaudeReadResult("success", claude);
+  }
+  if ([
+    "credential_unavailable",
+    "auth_failed",
+    "rate_limited",
+    "timeout",
+    "invalid_response",
+  ].includes(value?.outcome)) return safeClaudeReadResult(value.outcome);
+  // Preserve the former injected-reader contract for local callers while the
+  // runtime reader itself always returns the classified result above.
+  if (typeof value === "object" && value !== null) {
+    const claude = buildProviderLimitsSnapshot({ claude: value }).claude;
+    return claude === null ? safeClaudeReadResult("invalid_response") : safeClaudeReadResult("success", claude);
+  }
+  return safeClaudeReadResult("invalid_response");
+}
+
+function buildClaudeStatus({ enabled, outcome, attemptedAtMs, lastSuccessAtMs, observedAtMs, freshnessMs }) {
+  if (!enabled) {
+    return {
+      state: "disabled",
+      outcome: "disabled",
+      attempted_at: null,
+      last_success_at: null,
+      freshness: "unknown",
+    };
+  }
+  if (outcome === null || attemptedAtMs === null) {
+    return {
+      state: "unknown",
+      outcome: null,
+      attempted_at: null,
+      last_success_at: null,
+      freshness: "unknown",
+    };
+  }
+  const freshness = lastSuccessAtMs === null
+    ? "unknown"
+    : observedAtMs - lastSuccessAtMs < freshnessMs ? "current" : "stale";
+  const state = outcome === "success"
+    ? freshness === "current" ? "ready" : "stale"
+    : freshness === "stale" ? "stale" : "error";
+  return {
+    state,
+    outcome,
+    attempted_at: new Date(attemptedAtMs).toISOString(),
+    last_success_at: lastSuccessAtMs === null ? null : new Date(lastSuccessAtMs).toISOString(),
+    freshness,
+  };
 }
 
 export function createProviderLimitsReader({
@@ -114,6 +195,7 @@ export function createProviderLimitsReader({
   fetchImpl = fetch,
   ttlMs = DEFAULT_PROVIDER_LIMITS_TTL_MS,
   claudeRefreshMs = DEFAULT_CLAUDE_LIMITS_REFRESH_MS,
+  claudeFreshnessMs = DEFAULT_CLAUDE_LIMITS_FRESHNESS_MS,
   fetchTimeoutMs = DEFAULT_PROVIDER_LIMITS_FETCH_TIMEOUT_MS,
   readCodexLimitsImpl = readCodexLimits,
   readClaudeLimitsImpl = readClaudeLimits,
@@ -125,30 +207,49 @@ export function createProviderLimitsReader({
   let lastCodex = null;
   let lastClaude = null;
   let lastClaudeAttemptAt = null;
-  let lastGood = null;
-  const readOnlyPilot = isTeamOpsBoardReadOnlyPilot(env);
+  let lastClaudeOutcome = null;
+  let lastClaudeSuccessAt = null;
+  let lastSnapshot = null;
+  const claudeReadEnabled = isTeamOpsBoardClaudeQuotaReadEnabled(env);
+  const effectiveClaudeRefreshMs = Math.max(DEFAULT_CLAUDE_LIMITS_REFRESH_MS, claudeRefreshMs);
+  const effectiveClaudeFreshnessMs = Math.max(DEFAULT_CLAUDE_LIMITS_FRESHNESS_MS, claudeFreshnessMs);
 
   async function refresh() {
     const codex = await readCodexLimitsImpl(sessionsRoot).catch(() => null);
     if (codex !== null) lastCodex = codex;
     const observedNow = now();
-    if (!readOnlyPilot && (lastClaudeAttemptAt === null || observedNow - lastClaudeAttemptAt >= claudeRefreshMs)) {
+    if (claudeReadEnabled && (lastClaudeAttemptAt === null || observedNow - lastClaudeAttemptAt >= effectiveClaudeRefreshMs)) {
       lastClaudeAttemptAt = observedNow;
-      const claude = await readClaudeLimitsImpl({ credentialsPath, fetchImpl, timeoutMs: fetchTimeoutMs }).catch(() => null);
-      if (claude !== null) lastClaude = { ...claude, observed_at: new Date(observedNow).toISOString() };
+      const readResult = normalizeClaudeReadResult(
+        await readClaudeLimitsImpl({ credentialsPath, fetchImpl, timeoutMs: fetchTimeoutMs })
+          .catch(() => safeClaudeReadResult("invalid_response")),
+      );
+      lastClaudeOutcome = readResult.outcome;
+      if (readResult.outcome === "success") {
+        lastClaudeSuccessAt = observedNow;
+        lastClaude = { ...readResult.claude, observed_at: new Date(observedNow).toISOString() };
+      }
     }
-    if (lastCodex === null && lastClaude === null) return;
-    lastGood = buildProviderLimitsSnapshot({
+    const snapshotNow = now();
+    lastSnapshot = buildProviderLimitsSnapshot({
       codex: lastCodex,
       claude: lastClaude,
-      observedAtMs: now(),
+      claudeStatus: buildClaudeStatus({
+        enabled: claudeReadEnabled,
+        outcome: lastClaudeOutcome,
+        attemptedAtMs: lastClaudeAttemptAt,
+        lastSuccessAtMs: lastClaudeSuccessAt,
+        observedAtMs: snapshotNow,
+        freshnessMs: effectiveClaudeFreshnessMs,
+      }),
+      observedAtMs: snapshotNow,
     });
   }
 
   return {
     async readSnapshot() {
       const observedNow = now();
-      if (lastAttemptAt !== null && observedNow - lastAttemptAt < ttlMs) return lastGood;
+      if (lastAttemptAt !== null && observedNow - lastAttemptAt < ttlMs) return lastSnapshot;
       if (inFlight === null) {
         lastAttemptAt = observedNow;
         const operation = refresh()
@@ -159,7 +260,7 @@ export function createProviderLimitsReader({
         inFlight = operation;
       }
       await inFlight;
-      return lastGood;
+      return lastSnapshot;
     },
   };
 }

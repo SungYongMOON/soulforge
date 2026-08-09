@@ -4,6 +4,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  PROVIDER_LIMITS_SCHEMA_VERSION,
+  buildClaudeQuotaPresentation,
+  buildProviderLimitsSnapshot,
+  normalizeClaudeQuotaStatus,
   normalizeClaudeOauthUsage,
   parseCodexRateLimitsFromJsonlText,
 } from "./provider-limits.mjs";
@@ -58,4 +62,62 @@ test("claude oauth normalizer keeps utilization windows and scoped model limits"
 test("claude oauth normalizer fails closed when no window is usable", () => {
   assert.equal(normalizeClaudeOauthUsage(null), null);
   assert.equal(normalizeClaudeOauthUsage({ five_hour: { utilization: "high" } }), null);
+});
+
+test("provider limits v2 adds a strict metadata-only Claude status", () => {
+  const snapshot = buildProviderLimitsSnapshot({
+    claude: {
+      five_hour: { utilization: 12.3, resets_at: "2026-08-09T01:00:00Z" },
+      seven_day: null,
+      model_windows: [],
+      observed_at: "2026-08-09T00:00:00Z",
+      account: "must-not-survive",
+    },
+    claudeStatus: {
+      state: "ready",
+      outcome: "success",
+      attempted_at: "2026-08-09T00:00:00Z",
+      last_success_at: "2026-08-09T00:00:00Z",
+      freshness: "current",
+      raw: "must-not-survive",
+    },
+    observedAtMs: Date.parse("2026-08-09T00:00:00Z"),
+  });
+
+  assert.equal(snapshot.schema_version, PROVIDER_LIMITS_SCHEMA_VERSION);
+  assert.deepEqual(Object.keys(snapshot.claude_status), [
+    "state", "outcome", "attempted_at", "last_success_at", "freshness",
+  ]);
+  assert.equal(snapshot.claude.observed_at, "2026-08-09T00:00:00.000Z");
+  assert.doesNotMatch(JSON.stringify(snapshot), /must-not-survive|account|raw/u);
+});
+
+test("missing, legacy, or internally inconsistent Claude status normalizes to UNKNOWN", () => {
+  const unknown = {
+    state: "unknown",
+    outcome: null,
+    attempted_at: null,
+    last_success_at: null,
+    freshness: "unknown",
+  };
+  assert.deepEqual(normalizeClaudeQuotaStatus(null), unknown);
+  assert.deepEqual(normalizeClaudeQuotaStatus({ state: "ready", outcome: "success" }), unknown);
+  assert.deepEqual(buildClaudeQuotaPresentation({
+    schema_version: "soulforge.team_ops_board_provider_limits.v1",
+    claude: {
+      five_hour: { utilization: 41, resets_at: null },
+      seven_day: null,
+      model_windows: [],
+    },
+  }), {
+    claude: {
+      five_hour: { utilization: 41, resets_at: null },
+      seven_day: null,
+      model_windows: [],
+      observed_at: null,
+    },
+    status: unknown,
+    current: false,
+    value_state: "last_known",
+  });
 });

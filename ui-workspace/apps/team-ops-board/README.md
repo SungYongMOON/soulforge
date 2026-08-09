@@ -239,14 +239,23 @@ the existing auto-enrollment, subagent receipt, lifecycle reconciliation, and
 result-gate disables. The result-gate atomic writer also rejects the pilot env,
 including when invoked through its separate CLI.
 
-The pilot does not read Claude credentials or call the Claude provider limit
-endpoint. It does not probe Antigravity's local RPC or read/write its quota
-cache. Those unavailable official observations remain `UNKNOWN`/disabled and
-are never represented as zero usage, available quota, or green health. The
-common Meter ledger's read-only AI usage and Claude provider rows, and the
-Watchtower topology diagnostics, remain read-only projections. This mode does
-not start collectors, authenticate a provider, expose a public service, or
-prove provider health, live execution, E2E behavior, or task completion.
+The pilot keeps Claude official quota reading off unless the same process also
+sets the exact opt-in `TEAM_OPS_BOARD_CLAUDE_QUOTA_READ=1`. That opt-in reuses
+only an existing credential for `GET https://api.anthropic.com/api/oauth/usage`,
+with a 6-second timeout, a minimum 120-second attempt cadence, and no login,
+credential write, response persistence, or provider mutation. Schema v2 adds
+only redacted `claude_status` metadata (`state`, safe `outcome`, attempt and
+last-success times, and source-owned freshness). The normalized last successful
+quota stays in process memory across a failed attempt and is visibly
+`STALE`/error; a new process has no retained value. Missing v2 status, legacy v1,
+and unavailable values remain `UNKNOWN`/disabled and are never fabricated as
+zero or green. The common Meter ledger's Claude usage row remains an independent
+read-only projection and never supplies or replaces official quota values.
+
+The pilot does not probe Antigravity's local RPC or read/write its quota cache.
+This mode does not start collectors, expose a public service, or prove provider
+health, live execution, E2E behavior, or task completion. All other pilot write
+and probe disables remain unchanged.
 
 ## Exact enrollment CLI
 

@@ -1,7 +1,20 @@
 // provider-limits.mjs — 공급자(Codex·Claude)가 스스로 보고한 공식 한도 사용률의
 // 순수 파싱·정규화 계층. 로컬 추정치가 아니라 관측된 공식 값만 다루며, 실패는 null로 닫는다.
 
-export const PROVIDER_LIMITS_SCHEMA_VERSION = "soulforge.team_ops_board_provider_limits.v1";
+export const PROVIDER_LIMITS_SCHEMA_VERSION = "soulforge.team_ops_board_provider_limits.v2";
+export const PROVIDER_LIMITS_SCHEMA_VERSION_V1 = "soulforge.team_ops_board_provider_limits.v1";
+
+const CLAUDE_QUOTA_STATES = new Set(["ready", "stale", "error", "disabled", "unknown"]);
+const CLAUDE_QUOTA_OUTCOMES = new Set([
+  "success",
+  "disabled",
+  "credential_unavailable",
+  "auth_failed",
+  "rate_limited",
+  "timeout",
+  "invalid_response",
+]);
+const CLAUDE_QUOTA_FRESHNESS = new Set(["current", "stale", "unknown"]);
 
 const SAFE_PLAN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 
@@ -127,11 +140,100 @@ export function normalizeClaudeOauthUsage(body) {
   };
 }
 
-export function buildProviderLimitsSnapshot({ codex = null, claude = null, observedAtMs = Date.now() } = {}) {
+function unknownClaudeQuotaStatus() {
+  return {
+    state: "unknown",
+    outcome: null,
+    attempted_at: null,
+    last_success_at: null,
+    freshness: "unknown",
+  };
+}
+
+export function normalizeClaudeQuotaStatus(value) {
+  if (typeof value !== "object" || value === null) return unknownClaudeQuotaStatus();
+  const state = CLAUDE_QUOTA_STATES.has(value.state) ? value.state : "unknown";
+  const outcome = CLAUDE_QUOTA_OUTCOMES.has(value.outcome) ? value.outcome : null;
+  const attemptedAt = isoOrNull(value.attempted_at);
+  const lastSuccessAt = isoOrNull(value.last_success_at);
+  const freshness = CLAUDE_QUOTA_FRESHNESS.has(value.freshness) ? value.freshness : "unknown";
+
+  if (state === "disabled") {
+    return outcome === "disabled"
+      ? { state, outcome, attempted_at: null, last_success_at: null, freshness: "unknown" }
+      : unknownClaudeQuotaStatus();
+  }
+  if (state === "ready") {
+    return outcome === "success" && attemptedAt !== null && lastSuccessAt !== null && freshness === "current"
+      ? { state, outcome, attempted_at: attemptedAt, last_success_at: lastSuccessAt, freshness }
+      : unknownClaudeQuotaStatus();
+  }
+  if (state === "stale") {
+    return outcome !== null && outcome !== "disabled" && lastSuccessAt !== null && freshness === "stale"
+      ? { state, outcome, attempted_at: attemptedAt, last_success_at: lastSuccessAt, freshness }
+      : unknownClaudeQuotaStatus();
+  }
+  if (state === "error") {
+    return outcome !== null && outcome !== "success" && outcome !== "disabled"
+      ? { state, outcome, attempted_at: attemptedAt, last_success_at: lastSuccessAt, freshness }
+      : unknownClaudeQuotaStatus();
+  }
+  return unknownClaudeQuotaStatus();
+}
+
+function normalizedClaudeSnapshotValue(value) {
+  if (typeof value !== "object" || value === null) return null;
+  const fiveHour = claudeWindow(value.five_hour);
+  const sevenDay = claudeWindow(value.seven_day);
+  if (fiveHour === null && sevenDay === null) return null;
+  const modelWindows = [];
+  const seenLabels = new Set();
+  for (const entry of Array.isArray(value.model_windows) ? value.model_windows : []) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const utilization = finitePercent(entry.utilization);
+    const label = safeWindowLabel(entry.label);
+    if (utilization === null || label === null || seenLabels.has(label)) continue;
+    seenLabels.add(label);
+    modelWindows.push({
+      key: typeof entry.key === "string" ? entry.key.slice(0, 40) : "scoped",
+      label,
+      utilization,
+      resets_at: isoOrNull(entry.resets_at),
+    });
+  }
+  return {
+    five_hour: fiveHour,
+    seven_day: sevenDay,
+    model_windows: modelWindows,
+    observed_at: isoOrNull(value.observed_at),
+  };
+}
+
+export function buildClaudeQuotaPresentation(snapshot) {
+  let status = normalizeClaudeQuotaStatus(snapshot?.claude_status);
+  const claude = normalizedClaudeSnapshotValue(snapshot?.claude);
+  if (status.state === "ready" && claude === null) status = unknownClaudeQuotaStatus();
+  const current = status.state === "ready" && status.outcome === "success"
+    && status.freshness === "current" && claude !== null;
+  return {
+    claude,
+    status,
+    current,
+    value_state: current ? "current" : claude === null ? "unavailable" : "last_known",
+  };
+}
+
+export function buildProviderLimitsSnapshot({
+  codex = null,
+  claude = null,
+  claudeStatus = null,
+  observedAtMs = Date.now(),
+} = {}) {
   return {
     schema_version: PROVIDER_LIMITS_SCHEMA_VERSION,
     observed_at: new Date(observedAtMs).toISOString(),
     codex,
-    claude,
+    claude: normalizedClaudeSnapshotValue(claude),
+    claude_status: normalizeClaudeQuotaStatus(claudeStatus),
   };
 }

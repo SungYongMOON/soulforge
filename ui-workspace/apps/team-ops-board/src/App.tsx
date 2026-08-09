@@ -46,6 +46,7 @@ import { siGmail, siGoogledrive } from "simple-icons";
 
 import { aiUsageProjectionRequest } from "./core/ai-usage-projection-request.mjs";
 import { createUnmeasuredAiUsageSnapshot } from "./core/ai-usage-snapshot.mjs";
+import { buildClaudeQuotaPresentation } from "./core/provider-limits.mjs";
 import {
   LIVE_THREAD_POLL_INTERVAL_MS,
   acknowledgeLiveThread,
@@ -2464,12 +2465,12 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   const history = usage?.history ?? null;
   const windows = history?.windows ?? null;
   const claudeEvidence = usage?.provider_evidence?.claude ?? null;
-  if (!windows) return null;
+  const claudeQuota = buildClaudeQuotaPresentation(providers?.limits ?? null);
   const providerObservationNote = providers?.refresh_state === "ready"
     ? null
     : providers?.refresh_state === "refreshing"
-      ? "공식 쿼터 관측 갱신 중 · 이전 값은 표시하지 않음"
-      : "공식 쿼터 관측 HOLD · 현재 응답이 없는 값은 비워 둠";
+      ? "공식 쿼터 관측 갱신 중 · Claude 상태가 값의 최신성을 결정"
+      : "공식 쿼터 관측 HOLD · 누락된 Claude 상태는 UNKNOWN으로 표시";
   const dailyTokens = Array.isArray(history?.activity?.daily)
     ? history.activity.daily.map((row: any) => row.total_tokens ?? 0)
     : [];
@@ -2490,10 +2491,10 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
       };
     }
   }
-  const week = windows.calendar_week?.totals ?? null;
-  const day = windows.calendar_day?.totals ?? null;
-  const month = windows.calendar_month?.totals ?? null;
-  const rolling7 = windows.rolling_7d?.totals ?? null;
+  const week = windows?.calendar_week?.totals ?? null;
+  const day = windows?.calendar_day?.totals ?? null;
+  const month = windows?.calendar_month?.totals ?? null;
+  const rolling7 = windows?.rolling_7d?.totals ?? null;
   const creditPerDay = rolling7 !== null && rolling7.credits > 0 ? Math.round(rolling7.credits / 7).toLocaleString("en-US") : null;
 
   // ── 패널 1: 창별 남은 한도 게이지 (계정·창마다 리셋 시점이 다름을 그대로 노출)
@@ -2505,7 +2506,17 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
     return "ok";
   };
   // 같은 등급(창)끼리 묶는다: 5시간 창 → 주간 창 → 크레딧. 계정별 리셋 시각 비교가 목적.
-  const claudeOfficial = providers?.limits?.claude ?? null;
+  const claudeOfficial = claudeQuota.claude;
+  const claudeStatus = claudeQuota.status;
+  const claudeStateLabel = claudeStatus.state.toUpperCase();
+  const claudeOutcomeLabel = claudeStatus.outcome ?? "unknown";
+  const claudeLastSuccessLabel = claudeStatus.last_success_at === null
+    ? "마지막 성공 UNKNOWN"
+    : `마지막 성공 ${fleetObservedAgoLabel(claudeStatus.last_success_at)}`;
+  const claudeStatusNote = `공식 쿼터 ${claudeStateLabel} · ${claudeOutcomeLabel} · ${claudeLastSuccessLabel}`;
+  const claudeResetLabel = (resetLabel: string): string => claudeQuota.current
+    ? resetLabel
+    : `${claudeStateLabel} · ${claudeLastSuccessLabel} · ${resetLabel}`;
   const claudeFiveHour = claudeOfficial?.five_hour ?? null;
   const claudeSevenDay = claudeOfficial?.seven_day ?? null;
   if (claudeFiveHour !== null) {
@@ -2514,9 +2525,19 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
       group: "5시간 창",
       provider: "Claude",
       percent: Number(claudeFiveHour.utilization),
-      severity: severityFor(Number(claudeFiveHour.utilization), false),
-      resetLabel: fleetResetAtLabel(claudeFiveHour.resets_at ? Date.parse(claudeFiveHour.resets_at) : null),
-      note: "공식 쿼터 관측 — 토큰·상태·라이브·E2E 근거 아님",
+      severity: claudeQuota.current ? severityFor(Number(claudeFiveHour.utilization), false) : "idle",
+      resetLabel: claudeResetLabel(fleetResetAtLabel(claudeFiveHour.resets_at ? Date.parse(claudeFiveHour.resets_at) : null)),
+      note: `${claudeStatusNote} · 토큰·라이브·E2E 근거 아님`,
+    });
+  } else {
+    limitRows.push({
+      key: "claude_official_status",
+      group: "5시간 창",
+      provider: "Claude",
+      percent: null,
+      severity: "idle",
+      resetLabel: claudeLastSuccessLabel,
+      note: `${claudeStatusNote} · 공식 값 UNKNOWN`,
     });
   }
   if (rateLimit !== null) {
@@ -2542,9 +2563,9 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
       group: "주간 창",
       provider: "Claude",
       percent: Number(claudeSevenDay.utilization),
-      severity: severityFor(Number(claudeSevenDay.utilization), false),
-      resetLabel: fleetResetAtLabel(claudeSevenDay.resets_at ? Date.parse(claudeSevenDay.resets_at) : null),
-      note: "",
+      severity: claudeQuota.current ? severityFor(Number(claudeSevenDay.utilization), false) : "idle",
+      resetLabel: claudeResetLabel(fleetResetAtLabel(claudeSevenDay.resets_at ? Date.parse(claudeSevenDay.resets_at) : null)),
+      note: claudeStatusNote,
     });
   }
   // Anthropic이 모델별 주간 창(예: Opus 전용 한도)을 보고하면 자동으로 행이 된다.
@@ -2554,9 +2575,9 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
       group: "주간 창",
       provider: `Claude·${modelWindow.label}`,
       percent: Number(modelWindow.utilization),
-      severity: severityFor(Number(modelWindow.utilization), false),
-      resetLabel: fleetResetAtLabel(modelWindow.resets_at ? Date.parse(modelWindow.resets_at) : null),
-      note: "모델별 공식 창",
+      severity: claudeQuota.current ? severityFor(Number(modelWindow.utilization), false) : "idle",
+      resetLabel: claudeResetLabel(fleetResetAtLabel(modelWindow.resets_at ? Date.parse(modelWindow.resets_at) : null)),
+      note: `모델별 공식 창 · ${claudeStatusNote}`,
     });
   }
   // Antigravity 로컬 RPC의 그룹별 공식 잔여 쿼터 — 앱이 꺼지면 마지막 관측을 유지 표시한다.
@@ -2606,17 +2627,16 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
     });
   }
   const codexPlan = rateLimit?.plan_type ?? null;
-  const claudeObservedAt = typeof claudeOfficial?.observed_at === "string" ? claudeOfficial.observed_at : null;
   const limitFoot = [
     codexPlan !== null ? `Codex ${codexPlan}` : null,
-    claudeObservedAt !== null ? `Claude ${fleetObservedAgoLabel(claudeObservedAt)}` : null,
+    `Claude ${claudeStateLabel} · ${claudeLastSuccessLabel}`,
     "공식 쿼터 관측은 토큰·상태·라이브·E2E 근거가 아님",
   ].filter(Boolean).join(" · ");
 
   // ── 패널 2: 모델별 실사용 — 공통 Meter 원장 단일 출처. 모델 ID는 공급자 귀속 근거가 아니다.
   const modelRows: any[] = [];
   let meterTokens = 0;
-  for (const row of windows.rolling_7d?.breakdowns?.models?.top ?? []) {
+  for (const row of windows?.rolling_7d?.breakdowns?.models?.top ?? []) {
     if (!Number.isFinite(row?.total_tokens) || row.total_tokens <= 0) continue;
     const rawId = String(row.model_id ?? "");
     meterTokens += row.total_tokens;
@@ -2632,7 +2652,7 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   // A token-less model row remains generic Meter evidence; its model ID does
   // not establish a provider.
   const requestModelRows: any[] = [];
-  for (const row of windows.rolling_7d?.breakdowns?.models?.top ?? []) {
+  for (const row of windows?.rolling_7d?.breakdowns?.models?.top ?? []) {
     if (!Number.isFinite(row?.turns) || row.turns <= 0) continue;
     if ((row.total_tokens ?? 0) > 0) continue;
     const rawId = String(row.model_id ?? "");

@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  TEAM_OPS_BOARD_CLAUDE_QUOTA_READ,
   TEAM_OPS_BOARD_READ_ONLY_PILOT,
   createTeamOpsBoardRuntimeEnvironment,
   createTeamOpsBoardTopologyOptions,
+  isTeamOpsBoardClaudeQuotaReadEnabled,
   isTeamOpsBoardReadOnlyPilot,
 } from "./team-ops-board-read-only-pilot.mjs";
 
@@ -21,6 +23,23 @@ test("TEAM_OPS_BOARD_READ_ONLY_PILOT fails closed for absent or unusable environ
   assert.equal(isTeamOpsBoardReadOnlyPilot({}), false);
   assert.equal(isTeamOpsBoardReadOnlyPilot(null), false);
   assert.equal(isTeamOpsBoardReadOnlyPilot(Object.create(null)), false);
+});
+
+test("Claude official quota read is exact opt-in inside the read-only pilot only", () => {
+  assert.equal(TEAM_OPS_BOARD_CLAUDE_QUOTA_READ, "TEAM_OPS_BOARD_CLAUDE_QUOTA_READ");
+  assert.equal(isTeamOpsBoardClaudeQuotaReadEnabled({}), true);
+  assert.equal(isTeamOpsBoardClaudeQuotaReadEnabled({ [TEAM_OPS_BOARD_READ_ONLY_PILOT]: "0" }), true);
+  assert.equal(isTeamOpsBoardClaudeQuotaReadEnabled({
+    [TEAM_OPS_BOARD_READ_ONLY_PILOT]: "1",
+    [TEAM_OPS_BOARD_CLAUDE_QUOTA_READ]: "1",
+  }), true);
+
+  for (const value of [undefined, null, "", "0", "01", "true", "on", " 1", "1 ", 1, true]) {
+    assert.equal(isTeamOpsBoardClaudeQuotaReadEnabled({
+      [TEAM_OPS_BOARD_READ_ONLY_PILOT]: "1",
+      [TEAM_OPS_BOARD_CLAUDE_QUOTA_READ]: value,
+    }), false);
+  }
 });
 
 test("topology options enable read-only mode only for the exact pilot value", () => {

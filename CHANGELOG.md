@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-08-10 — Team Operations Board Claude quota read-only recovery
+
+- Added the exact `TEAM_OPS_BOARD_CLAUDE_QUOTA_READ=1` opt-in for the existing
+  official Claude quota GET while the Board read-only pilot is enabled. The
+  default pilot remains disabled before credential access, non-pilot behavior
+  is unchanged, and the request keeps its 6-second timeout and minimum
+  120-second cadence without login, persistence, or provider mutation.
+- Advanced the provider-limits snapshot to additive schema v2 with redacted
+  Claude attempt, outcome, last-success, and source-owned freshness metadata.
+  Last-good quota stays process-memory-only across a failed attempt; stale,
+  error, disabled, and unknown states remain explicit and never fabricate a
+  current or green value. The official quota panel remains independent of the
+  common Meter ledger and its usage-history windows.
+
 ## 2026-08-09 — Team Operations Board local tailnet Host allowlist
 
 - Added a fail-closed, local-process-environment-only Vite Host allowlist for

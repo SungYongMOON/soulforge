@@ -1,7 +1,12 @@
 export const TEAM_OPS_BOARD_READ_ONLY_PILOT = "TEAM_OPS_BOARD_READ_ONLY_PILOT";
+export const TEAM_OPS_BOARD_CLAUDE_QUOTA_READ = "TEAM_OPS_BOARD_CLAUDE_QUOTA_READ";
 
 export function isTeamOpsBoardReadOnlyPilot(env = process.env) {
   return env?.[TEAM_OPS_BOARD_READ_ONLY_PILOT] === "1";
+}
+
+export function isTeamOpsBoardClaudeQuotaReadEnabled(env = process.env) {
+  return !isTeamOpsBoardReadOnlyPilot(env) || env?.[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ] === "1";
 }
 
 export function createTeamOpsBoardTopologyOptions(env = process.env) {
