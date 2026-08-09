@@ -9,6 +9,7 @@
 
 - 루트 `README.md` 는 저장소 전체 상위 지도만 다룬다.
 - `docs/architecture/foundation/` 는 canonical roots 의 cross-root canon 을 고정한다.
+- 아래 표의 `docs/architecture/<group>/*.md` 같은 wildcard 는 문서군 전체를 선적재하라는 뜻이 아니다. 그 문서군 `README.md` 의 문서 역할 색인을 먼저 읽고 필요한 문서만 연다. 새 문서를 추가하면 같은 변경에서 그 색인에 한 줄을 남긴다.
 - 각 owner 루트가 materialize 되면 해당 루트 바로 아래 `README.md` 와 owner-local 문서가 그 owner의 상세 운영 정본이 된다.
 - `_workspaces/<project_code>/` 아래 문서와 실행 산출물은 local/private owner 영역으로 관리한다.
 
