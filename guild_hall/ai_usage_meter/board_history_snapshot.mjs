@@ -7,19 +7,37 @@ import {
   loadBoardUsageSnapshot,
   validateBoardUsageSnapshot,
 } from "./board_snapshot.mjs";
+import {
+  CLAUDE_COLLECTION_ENVELOPE_SCHEMA,
+  CLAUDE_USAGE_SOURCE_KIND,
+  createClaudeCollectionEnvelope,
+  validateClaudeCollectionEnvelope,
+} from "./claude_collector.mjs";
 import { canonicalJson, loadPersistedUsageEvents } from "./usage_meter.mjs";
 
-export const BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v2";
+export const BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v2";
+export const BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v3";
 export const BOARD_USAGE_HISTORY_TIMEZONE = "Asia/Seoul";
 export const DEFAULT_BOARD_USAGE_HISTORY_TOP_N = 10;
 export const MAX_BOARD_USAGE_HISTORY_TOP_N = 50;
 export const BOARD_USAGE_HISTORY_ACTIVITY_DAILY_DAYS = 40;
+export const BOARD_USAGE_PROVIDER_BY_SOURCE_KIND = Object.freeze({
+  codex_session_jsonl: "codex",
+  [CLAUDE_USAGE_SOURCE_KIND]: "claude",
+  antigravity_conversation_db: "antigravity",
+});
+export const BOARD_USAGE_PROVIDERS = Object.freeze(["codex", "claude", "antigravity"]);
+export const READ_ONLY_BOARD_USAGE_PROJECTION_SCHEMA = "soulforge.ai_usage_board_read_only_projection.v1";
+export const DEFAULT_READ_ONLY_BOARD_USAGE_PROVIDERS = Object.freeze([
+  CLAUDE_USAGE_SOURCE_KIND,
+  "antigravity_conversation_db",
+]);
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1_000;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 const EVENT_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u;
 const FORBIDDEN_KEY = /(session|path|raw|private|secret|credential|cookie|prompt|reasoning|argument|output|body|source|title|message|tool)/iu;
-const ROOT_KEYS = new Set([
+const V2_ROOT_KEYS = new Set([
   "schema_version",
   "generated_at",
   "timezone",
@@ -30,6 +48,7 @@ const ROOT_KEYS = new Set([
   "activity",
   "rate_limit",
 ]);
+const V3_ROOT_KEYS = new Set([...V2_ROOT_KEYS, "provider_rows", "claude_collection"]);
 const WINDOW_NAMES = [
   "calendar_day",
   "calendar_week",
@@ -55,6 +74,14 @@ const HOURLY_ROW_KEYS = new Set(["hour", "turns", "total_tokens"]);
 const RATE_LIMIT_KEYS = new Set([
   "limit_id", "plan_type", "used_percent", "window_minutes", "resets_at_epoch_s", "observed_at",
 ]);
+const PROVIDER_ROW_KEYS = new Set(["provider", "turns", "total_tokens", "latest_usage_at"]);
+const READ_ONLY_PROJECTION_KEYS = new Set(["schema_version", "read_only", "snapshot"]);
+const SAFE_COLLECTION_COUNT_KEYS = new Set([
+  "session_file_count",
+  "parsed_session_count",
+  "observed_message_count",
+  "duplicate_message_count",
+]);
 const KST_DATE = /^\d{4}-\d{2}-\d{2}$/u;
 
 function fail(code) {
@@ -71,11 +98,16 @@ function hasOnlyKeys(value, keys) {
   return isRecord(value) && Object.keys(value).every((key) => keys.has(key));
 }
 
+function hasExactKeys(value, keys) {
+  return hasOnlyKeys(value, keys) && Object.keys(value).length === keys.size;
+}
+
 function hasForbiddenKey(value) {
   if (Array.isArray(value)) return value.some(hasForbiddenKey);
   if (!isRecord(value)) return false;
   return Object.entries(value).some(
-    ([key, child]) => (key !== "reasoning_effort" && FORBIDDEN_KEY.test(key)) || hasForbiddenKey(child),
+    ([key, child]) => (key !== "reasoning_effort" && !SAFE_COLLECTION_COUNT_KEYS.has(key) && FORBIDDEN_KEY.test(key))
+      || hasForbiddenKey(child),
   );
 }
 
@@ -199,6 +231,12 @@ function deduplicateEvents(events) {
   return unique;
 }
 
+function providerForSourceKind(value) {
+  return typeof value === "string" && Object.hasOwn(BOARD_USAGE_PROVIDER_BY_SOURCE_KIND, value)
+    ? BOARD_USAGE_PROVIDER_BY_SOURCE_KIND[value]
+    : null;
+}
+
 function eventObservation(event) {
   const startedAt = normalizedTimestamp(event?.time?.started_at, "board_usage_history_event_time_invalid");
   const totalTokens = Number.isSafeInteger(event?.usage?.total_tokens) && event.usage.total_tokens >= 0
@@ -211,6 +249,7 @@ function eventObservation(event) {
     : null;
   return {
     started_at: startedAt,
+    provider: providerForSourceKind(event?.source?.kind),
     project_id: safeDimensionId(event?.project_id),
     work_id: safeDimensionId(event?.work_id),
     task_id: safeDimensionId(event?.thread_id),
@@ -222,6 +261,53 @@ function eventObservation(event) {
       credit_unknown_turns: credit === null ? 1 : 0,
     },
   };
+}
+
+function buildProviderRows(observations) {
+  const rows = new Map();
+  for (const observation of observations) {
+    if (observation.provider === null) continue;
+    const row = rows.get(observation.provider) ?? {
+      provider: observation.provider,
+      turns: 0,
+      total_tokens: 0,
+      latest_usage_at: observation.started_at,
+    };
+    row.turns += observation.metrics.turns;
+    row.total_tokens += observation.metrics.total_tokens;
+    if (observation.started_at > row.latest_usage_at) row.latest_usage_at = observation.started_at;
+    rows.set(observation.provider, row);
+  }
+  return BOARD_USAGE_PROVIDERS
+    .filter((provider) => rows.has(provider))
+    .map((provider) => rows.get(provider));
+}
+
+function parseProviderRows(value, referenceAt) {
+  if (!Array.isArray(value)) fail("board_usage_history_provider_rows_invalid");
+  const seen = new Set();
+  const rows = value.map((row) => {
+    if (!hasExactKeys(row, PROVIDER_ROW_KEYS) || !BOARD_USAGE_PROVIDERS.includes(row.provider)
+      || !Number.isSafeInteger(row.turns) || row.turns < 1
+      || !Number.isSafeInteger(row.total_tokens) || row.total_tokens < 0) {
+      fail("board_usage_history_provider_rows_invalid");
+    }
+    if (seen.has(row.provider)) fail("board_usage_history_provider_rows_invalid");
+    seen.add(row.provider);
+    const latestUsageAt = normalizedTimestamp(row.latest_usage_at, "board_usage_history_provider_rows_invalid");
+    if (Date.parse(latestUsageAt) > Date.parse(referenceAt)) fail("board_usage_history_provider_rows_invalid");
+    return {
+      provider: row.provider,
+      turns: row.turns,
+      total_tokens: row.total_tokens,
+      latest_usage_at: latestUsageAt,
+    };
+  });
+  const expected = [...rows].sort((left, right) => (
+    BOARD_USAGE_PROVIDERS.indexOf(left.provider) - BOARD_USAGE_PROVIDERS.indexOf(right.provider)
+  ));
+  if (canonicalJson(rows) !== canonicalJson(expected)) fail("board_usage_history_provider_rows_invalid");
+  return rows;
 }
 
 function localKstParts(timestamp) {
@@ -531,13 +617,12 @@ function parseRateLimit(value) {
   };
 }
 
-export function validateBoardUsageHistorySnapshot(snapshot) {
-  if (!hasOnlyKeys(snapshot, ROOT_KEYS) || hasForbiddenKey(snapshot)) {
-    fail("board_usage_history_snapshot_invalid");
-  }
-  if (snapshot.schema_version !== BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA
+function validateHistorySnapshotBase(snapshot, { schemaVersion, rootKeys }) {
+  if (!hasExactKeys(snapshot, rootKeys)) fail("board_usage_history_snapshot_invalid");
+  if (hasForbiddenKey(snapshot)) fail("board_usage_history_snapshot_invalid");
+  if (snapshot.schema_version !== schemaVersion
     || snapshot.timezone !== BOARD_USAGE_HISTORY_TIMEZONE
-    || !hasOnlyKeys(snapshot.windows, new Set(WINDOW_NAMES))) {
+    || !hasExactKeys(snapshot.windows, new Set(WINDOW_NAMES))) {
     fail("board_usage_history_snapshot_invalid");
   }
   const generatedAt = normalizedTimestamp(snapshot.generated_at, "board_usage_history_generated_at_invalid");
@@ -554,7 +639,7 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
   const activity = parseActivity(snapshot.activity, referenceAt, windows);
   const rateLimit = parseRateLimit(snapshot.rate_limit);
   return {
-    schema_version: BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
+    schema_version: schemaVersion,
     generated_at: generatedAt,
     timezone: BOARD_USAGE_HISTORY_TIMEZONE,
     reference_at: referenceAt,
@@ -563,6 +648,35 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
     windows,
     activity,
     rate_limit: rateLimit,
+  };
+}
+
+export function validateBoardUsageHistorySnapshot(snapshot) {
+  if (!isRecord(snapshot)) fail("board_usage_history_snapshot_invalid");
+  if (snapshot.schema_version === BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA) {
+    return validateHistorySnapshotBase(snapshot, {
+      schemaVersion: BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA,
+      rootKeys: V2_ROOT_KEYS,
+    });
+  }
+  if (snapshot.schema_version !== BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA) {
+    fail("board_usage_history_snapshot_invalid");
+  }
+  const base = validateHistorySnapshotBase(snapshot, {
+    schemaVersion: BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
+    rootKeys: V3_ROOT_KEYS,
+  });
+  const providerRows = parseProviderRows(snapshot.provider_rows, base.reference_at);
+  const claudeCollection = validateClaudeCollectionEnvelope(snapshot.claude_collection, {
+    referenceAt: base.reference_at,
+  });
+  if (claudeCollection.schema_version !== CLAUDE_COLLECTION_ENVELOPE_SCHEMA) {
+    fail("board_usage_history_claude_collection_invalid");
+  }
+  return {
+    ...base,
+    provider_rows: providerRows,
+    claude_collection: claudeCollection,
   };
 }
 
@@ -575,6 +689,8 @@ export function createBoardUsageHistorySnapshot(events, {
   generatedAt = new Date().toISOString(),
   referenceAt = generatedAt,
   topN = DEFAULT_BOARD_USAGE_HISTORY_TOP_N,
+  claudeCollection = null,
+  claudeFreshnessThresholdSeconds = undefined,
 } = {}) {
   const normalizedGeneratedAt = normalizedTimestamp(generatedAt, "board_usage_history_generated_at_invalid");
   const normalizedReferenceAt = normalizedTimestamp(referenceAt, "board_usage_history_reference_at_invalid");
@@ -590,6 +706,13 @@ export function createBoardUsageHistorySnapshot(events, {
     })
     : validateBoardUsageSnapshot(currentSnapshot);
   const observations = uniqueEvents.map(eventObservation);
+  const normalizedClaudeCollection = createClaudeCollectionEnvelope(
+    claudeCollection ?? { state: "unknown" },
+    {
+      referenceAt: normalizedReferenceAt,
+      freshnessThresholdSeconds: claudeFreshnessThresholdSeconds,
+    },
+  );
   const snapshot = {
     schema_version: BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
     generated_at: normalizedGeneratedAt,
@@ -602,6 +725,8 @@ export function createBoardUsageHistorySnapshot(events, {
     ))),
     activity: buildActivity(observations, normalizedReferenceAt),
     rate_limit: latestRateLimit(uniqueEvents),
+    provider_rows: buildProviderRows(observations),
+    claude_collection: normalizedClaudeCollection,
   };
   return validateBoardUsageHistorySnapshot(snapshot);
 }
@@ -612,6 +737,8 @@ export async function loadBoardUsageHistorySnapshot(stateRoot, {
   referenceAt = generatedAt,
   topN = DEFAULT_BOARD_USAGE_HISTORY_TOP_N,
   includeProviders = null,
+  claudeCollection = null,
+  claudeFreshnessThresholdSeconds = undefined,
 } = {}) {
   const root = path.resolve(stateRoot);
   const normalizedGeneratedAt = normalizedTimestamp(generatedAt, "board_usage_history_generated_at_invalid");
@@ -630,6 +757,48 @@ export async function loadBoardUsageHistorySnapshot(stateRoot, {
     generatedAt: normalizedGeneratedAt,
     referenceAt,
     topN,
+    claudeCollection,
+    claudeFreshnessThresholdSeconds,
+  });
+}
+
+export function validateReadOnlyBoardUsageProjection(projection) {
+  if (!hasExactKeys(projection, READ_ONLY_PROJECTION_KEYS)
+    || projection.schema_version !== READ_ONLY_BOARD_USAGE_PROJECTION_SCHEMA
+    || projection.read_only !== 1) {
+    fail("board_usage_read_only_projection_invalid");
+  }
+  return {
+    schema_version: READ_ONLY_BOARD_USAGE_PROJECTION_SCHEMA,
+    read_only: 1,
+    snapshot: validateBoardUsageHistorySnapshot(projection.snapshot),
+  };
+}
+
+// This diagnostics-only path reads and validates existing local ledger data.
+// It never invokes collectors, child commands, --apply, or a snapshot writer.
+export async function loadReadOnlyBoardUsageProjection(stateRoot, {
+  threadIds,
+  generatedAt = new Date().toISOString(),
+  referenceAt = generatedAt,
+  topN = DEFAULT_BOARD_USAGE_HISTORY_TOP_N,
+  includeProviders = DEFAULT_READ_ONLY_BOARD_USAGE_PROVIDERS,
+  claudeCollection = null,
+  claudeFreshnessThresholdSeconds = undefined,
+} = {}) {
+  const snapshot = await loadBoardUsageHistorySnapshot(stateRoot, {
+    threadIds,
+    generatedAt,
+    referenceAt,
+    topN,
+    includeProviders,
+    claudeCollection,
+    claudeFreshnessThresholdSeconds,
+  });
+  return validateReadOnlyBoardUsageProjection({
+    schema_version: READ_ONLY_BOARD_USAGE_PROJECTION_SCHEMA,
+    read_only: 1,
+    snapshot,
   });
 }
 

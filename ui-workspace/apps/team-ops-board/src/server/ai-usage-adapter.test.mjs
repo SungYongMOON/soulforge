@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import test from "node:test";
 
 import {
+  AI_USAGE_READ_ONLY_QUERY_KEY,
   AI_USAGE_SNAPSHOT_PATH,
   createAiUsageAdapter,
   createAiUsageAdapterPlugin,
-  outputPath,
-  refreshExactScopedUsage
+  readExactScopedUsageProjection
 } from "./ai-usage-adapter.mjs";
 import {
   createEmptyThreadEnrollmentRegistry,
@@ -21,12 +22,34 @@ import { createBoardUsageHistorySnapshot } from "../../../../../guild_hall/ai_us
 const AT = "2026-08-04T01:00:00.000Z";
 const ENV = { TEAM_OPS_BOARD_AUTO_USAGE_REFRESH: "true" };
 
-function historyFixture() {
-  return createBoardUsageHistorySnapshot([], {
-    generatedAt: AT,
-    referenceAt: AT,
-    topN: 1
-  });
+function readOnlyFixture(events = []) {
+  return {
+    schema_version: "soulforge.ai_usage_board_read_only_projection.v1",
+    read_only: 1,
+    snapshot: createBoardUsageHistorySnapshot(events, {
+      generatedAt: AT,
+      referenceAt: AT,
+      topN: 1
+    })
+  };
+}
+
+function claudeLedgerEvent() {
+  return {
+    event_id: "claude-ledger-event",
+    thread_id: "claude-ledger-thread",
+    project_id: "project-a",
+    work_id: "work-a",
+    team_id: "team-a",
+    parent_thread_id: null,
+    actor: { role: "executor" },
+    model: { id: "gpt-not-provider-evidence", reasoning_effort: "high" },
+    usage: { total_tokens: 50 },
+    credits: { total: null },
+    time: { started_at: "2026-08-04T00:59:00.000Z" },
+    source: { kind: "claude_session_jsonl", source_ref: "must-not-project" },
+    rate_limit_snapshot: null
+  };
 }
 
 function registration(threadId) {
@@ -50,124 +73,72 @@ async function writeRegistry(path, ids) {
   await writeThreadEnrollmentRegistryAtomic(path, registry, { env: ENV });
 }
 
-function threadIdsFromArgs(args) {
-  return args.flatMap((value, index) => value === "--thread-id" ? [args[index + 1]] : []);
-}
-
-test("usage refresh runs the Meter pipeline sequentially with only the exact enrolled ID scope", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "team-ops-usage-pipeline-"));
-  try {
-    const stateRoot = join(directory, "meter-state");
-    const sessionsRoot = join(directory, "codex-sessions");
-    const commands = [];
-    const expected = historyFixture();
-    const snapshot = await refreshExactScopedUsage({
-      stateRoot,
-      sessionsRoot,
-      threadIds: ["thread-two", "thread-one"],
-      runCommand: async ({ args }) => {
-        commands.push(args);
-        if (args[0] === "board-history-snapshot") {
-          const target = outputPath(args);
-          assert.ok(target);
-          await mkdir(dirname(target), { recursive: true });
-          await writeFile(target, `${JSON.stringify(expected)}\n`, "utf8");
-        }
-      }
-    });
-
-    assert.deepEqual(commands.map((args) => args[0]), [
-      "collect",
-      "collect-claude",
-      "collect-antigravity",
-      "lifecycle-reconcile",
-      "board-snapshot",
-      "board-history-snapshot"
-    ]);
-    for (const args of commands) {
-      // 로컬 소유 공급자 수집(claude·antigravity)은 exact 스레드 스코프를 받지 않는다.
-      if (args[0] === "collect-claude" || args[0] === "collect-antigravity") {
-        assert.equal(args.includes("--thread-id"), false);
-        continue;
-      }
-      assert.deepEqual(threadIdsFromArgs(args), ["thread-one", "thread-two"]);
-      assert.equal(args.includes("--thread-id"), true);
+test("read-only usage projection validates only the exact enrolled scope", async () => {
+  const calls = [];
+  const expected = readOnlyFixture([claudeLedgerEvent()]);
+  const projection = await readExactScopedUsageProjection({
+    stateRoot: "safe-meter-state",
+    threadIds: ["thread-two", "thread-one"],
+    now: () => Date.parse(AT),
+    claudeFreshnessThresholdSeconds: 60,
+    loadProjection: async (stateRoot, options) => {
+      calls.push({ stateRoot, options });
+      return expected;
     }
-    assert.equal(commands[3].includes("--max-sessions"), true);
-    for (const command of ["board-snapshot", "board-history-snapshot"]) {
-      const args = commands.find((entry) => entry[0] === command);
-      const providers = args.flatMap((value, index) => (value === "--include-provider" ? [args[index + 1]] : []));
-      assert.deepEqual(providers, ["claude_session_jsonl", "antigravity_conversation_db"]);
-    }
+  });
+  assert.deepEqual(projection, expected);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].options.generatedAt, AT);
+  assert.equal(calls[0].options.referenceAt, AT);
+  assert.equal(calls[0].options.claudeFreshnessThresholdSeconds, 60);
+  assert.deepEqual(calls[0].options.threadIds, ["thread-one", "thread-two"]);
+  assert.deepEqual(projection.snapshot.provider_rows, [
+    { provider: "claude", turns: 1, total_tokens: 50, latest_usage_at: "2026-08-04T00:59:00.000Z" }
+  ]);
+  assert.equal(projection.snapshot.claude_collection.state, "unknown");
 
-    // 보조 수집기 실패는 체인을 죽이지 않는다 — AG 앱이 DB를 잡고 있어도 스냅샷은 나와야 한다.
-    const failingCommands = [];
-    const survived = await refreshExactScopedUsage({
-      stateRoot,
-      sessionsRoot,
-      threadIds: ["thread-two", "thread-one"],
-      runCommand: async ({ args }) => {
-        failingCommands.push(args[0]);
-        if (args[0] === "collect-claude" || args[0] === "collect-antigravity") {
-          throw new Error("meter_command_timeout");
-        }
-        if (args[0] === "board-history-snapshot") {
-          const target = outputPath(args);
-          await mkdir(dirname(target), { recursive: true });
-          await writeFile(target, `${JSON.stringify(expected)}\n`, "utf8");
-        }
-      }
-    });
-    assert.deepEqual(survived, expected);
-    assert.equal(failingCommands.includes("board-history-snapshot"), true);
-    assert.deepEqual(snapshot, expected);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
+  const source = readFileSync(new URL("./ai-usage-adapter.mjs", import.meta.url), "utf8");
+  assert.equal(/node:child_process|\bspawn\b|--apply|collect-/u.test(source), false);
+  assert.equal(/fetch\(/u.test(source), false);
 });
 
-test("usage adapter keeps a validated last-good snapshot during a debounced single-flight refresh", async () => {
+test("usage adapter rereads the existing read-only projection and fails closed on an invalid result", async () => {
   const directory = await mkdtemp(join(tmpdir(), "team-ops-usage-adapter-"));
   try {
     const registryPath = join(directory, "visibility.json");
     await writeRegistry(registryPath, ["thread-two", "thread-one"]);
-    const expected = historyFixture();
     const calls = [];
-    let nowMs = Date.parse(AT);
-    let release;
-    const pending = new Promise((resolve) => { release = resolve; });
     const adapter = createAiUsageAdapter({
       registryPath,
       usageMeterStateRoot: join(directory, "meter-state"),
-      usageSessionsRoot: join(directory, "sessions"),
       env: ENV,
-      now: () => nowMs,
-      limits: { debounceMs: 15_000, initialTimeoutMs: 200, commandTimeoutMs: 200 },
-      refreshUsage: async ({ threadIds }) => {
-        calls.push(threadIds);
-        return calls.length === 1 ? expected : pending;
+      now: () => Date.parse(AT),
+      claudeFreshnessThresholdSeconds: 60,
+      readUsageProjection: async (options) => {
+        calls.push(options);
+        return readOnlyFixture();
       }
     });
 
-    const initial = await adapter.readProjection();
-    assert.equal(initial.refresh_state, "ready");
-    assert.deepEqual(initial.snapshot, expected);
-    assert.deepEqual(calls, [["thread-one", "thread-two"]]);
-
-    nowMs += 15_001;
-    const refreshing = await adapter.readProjection({ force: true });
-    const overlapping = await adapter.readProjection();
-    assert.equal(refreshing.refresh_state, "refreshing");
-    assert.equal(overlapping.refresh_state, "refreshing");
+    const first = await adapter.readProjection();
+    const reread = await adapter.readProjection();
+    assert.equal(first.read_only, 1);
+    assert.equal(reread.read_only, 1);
     assert.equal(calls.length, 2);
-    assert.deepEqual(calls[1], ["thread-one", "thread-two"]);
+    assert.deepEqual(calls[0].threadIds, ["thread-one", "thread-two"]);
+    assert.equal(calls[0].claudeFreshnessThresholdSeconds, 60);
 
-    release(expected);
-    await new Promise((resolve) => setImmediate(resolve));
-    const ready = await adapter.readProjection();
-    assert.equal(ready.refresh_state, "ready");
-    assert.deepEqual(ready.snapshot, expected);
-    assert.equal(JSON.stringify(ready).includes("RAW_"), false);
+    const failed = createAiUsageAdapter({
+      registryPath,
+      usageMeterStateRoot: join(directory, "meter-state"),
+      env: ENV,
+      readUsageProjection: async () => ({ read_only: 0 })
+    });
+    assert.deepEqual(await failed.readProjection(), {
+      schema_version: "soulforge.team_ops_board_ai_usage_projection.v1",
+      refresh_state: "hold",
+      snapshot: null
+    });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -177,11 +148,11 @@ test("usage adapter fails closed when exact enrollment is unavailable", async ()
   const adapter = createAiUsageAdapter({
     registryPath: join(tmpdir(), "RAW_USAGE_MISSING_REGISTRY.json"),
     env: ENV,
-    refreshUsage: async () => {
+    readUsageProjection: async () => {
       throw new Error("must_not_run");
     }
   });
-  const projection = await adapter.readProjection({ force: true });
+  const projection = await adapter.readProjection();
   assert.deepEqual(projection, {
     schema_version: "soulforge.team_ops_board_ai_usage_projection.v1",
     refresh_state: "hold",
@@ -190,7 +161,7 @@ test("usage adapter fails closed when exact enrollment is unavailable", async ()
   assert.equal(JSON.stringify(projection).includes("RAW_USAGE"), false);
 });
 
-test("usage loopback plugin returns the redacted envelope and rejects non-GET requests", async () => {
+test("usage loopback plugin accepts only the local read_only path and returns a redacted envelope", async () => {
   const directory = await mkdtemp(join(tmpdir(), "team-ops-usage-plugin-"));
   try {
     const registryPath = join(directory, "visibility.json");
@@ -199,11 +170,15 @@ test("usage loopback plugin returns the redacted envelope and rejects non-GET re
     const plugin = createAiUsageAdapterPlugin({
       registryPath,
       env: ENV,
-      refreshUsage: async () => historyFixture()
+      readUsageProjection: async () => readOnlyFixture()
     });
     plugin.configureServer({ middlewares: { use: (handler) => { middleware = handler; } } });
 
-    const request = { method: "GET", url: `${AI_USAGE_SNAPSHOT_PATH}?refresh=1`, socket: { remoteAddress: "127.0.0.1" } };
+    const request = {
+      method: "GET",
+      url: `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY_KEY}=1&refresh=1`,
+      socket: { remoteAddress: "127.0.0.1" }
+    };
     const result = await new Promise((resolve) => {
       const response = {
         statusCode: 0,
@@ -215,14 +190,16 @@ test("usage loopback plugin returns the redacted envelope and rejects non-GET re
     });
     assert.equal(result.statusCode, 200);
     assert.equal(result.headers["Cache-Control"], "no-store");
-    assert.equal(JSON.parse(result.body).refresh_state, "ready");
+    assert.equal(JSON.parse(result.body).read_only, 1);
+
+    const missingReadOnly = await new Promise((resolve) => {
+      const response = { statusCode: 0, setHeader() {}, end() { resolve(this.statusCode); } };
+      middleware({ ...request, url: AI_USAGE_SNAPSHOT_PATH }, response, () => resolve(0));
+    });
+    assert.equal(missingReadOnly, 400);
 
     const notAllowed = await new Promise((resolve) => {
-      const response = {
-        statusCode: 0,
-        setHeader() {},
-        end() { resolve(this.statusCode); }
-      };
+      const response = { statusCode: 0, setHeader() {}, end() { resolve(this.statusCode); } };
       middleware({ ...request, method: "POST" }, response, () => resolve(0));
     });
     assert.equal(notAllowed, 405);

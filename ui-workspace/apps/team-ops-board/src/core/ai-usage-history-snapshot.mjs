@@ -3,9 +3,11 @@ import {
   normalizeAiUsageSnapshot
 } from "./ai-usage-snapshot.mjs";
 
-export const AI_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v2";
+export const AI_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v2";
+export const AI_USAGE_HISTORY_SNAPSHOT_SCHEMA = "soulforge.ai_usage_board_history_snapshot.v3";
 export const AI_USAGE_HISTORY_TIMEZONE = "Asia/Seoul";
 export const AI_USAGE_PROJECTION_ENVELOPE_SCHEMA = "soulforge.team_ops_board_ai_usage_projection.v1";
+export const AI_USAGE_READ_ONLY_PROJECTION_SCHEMA = "soulforge.ai_usage_board_read_only_projection.v1";
 export const AI_USAGE_HISTORY_WINDOWS = Object.freeze([
   "calendar_day",
   "calendar_week",
@@ -16,7 +18,8 @@ export const AI_USAGE_HISTORY_WINDOWS = Object.freeze([
   "all_time"
 ]);
 
-const ROOT_KEYS = ["schema_version", "generated_at", "timezone", "reference_at", "top_n", "current", "windows", "activity", "rate_limit"];
+const V2_ROOT_KEYS = ["schema_version", "generated_at", "timezone", "reference_at", "top_n", "current", "windows", "activity", "rate_limit"];
+const V3_ROOT_KEYS = [...V2_ROOT_KEYS, "provider_rows", "claude_collection"];
 const WINDOW_KEYS = ["start_at", "end_at", "totals", "breakdowns"];
 const BREAKDOWN_KEYS = ["projects", "works", "tasks", "models"];
 const BREAKDOWN_GROUP_KEYS = ["top", "other"];
@@ -37,7 +40,42 @@ const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 const FORBIDDEN_KEY = /(session|path|raw|private|secret|credential|cookie|prompt|reasoning|argument|output|body|source|title|message|tool)/iu;
 const CREDIT_TOLERANCE = 1e-9;
 const ENVELOPE_KEYS = ["schema_version", "refresh_state", "snapshot"];
+const READ_ONLY_ENVELOPE_KEYS = ["schema_version", "read_only", "snapshot"];
 const REFRESH_STATES = new Set(["ready", "refreshing", "hold", "unmeasured"]);
+const PROVIDER_ROWS_KEYS = ["provider", "turns", "total_tokens", "latest_usage_at"];
+const PROVIDER_ORDER = ["codex", "claude", "antigravity"];
+const CLAUDE_COLLECTION_KEYS = [
+  "schema_version",
+  "state",
+  "reason",
+  "attempted_at",
+  "freshness_threshold_seconds",
+  "freshness",
+  "counts",
+  "evidence_scope",
+  "claim_scope"
+];
+const CLAUDE_COLLECTION_COUNT_KEYS = [
+  "session_file_count",
+  "parsed_session_count",
+  "observed_message_count",
+  "accepted_event_count",
+  "duplicate_message_count",
+  "issue_count"
+];
+const CLAUDE_COLLECTION_STATES = new Set(["observed", "available_empty", "missing", "partial", "error", "unknown"]);
+const CLAUDE_COLLECTION_FRESHNESS = new Set(["fresh", "stale", "unknown"]);
+const CLAUDE_COLLECTION_REASON_BY_STATE = Object.freeze({
+  observed: new Set(["source_observed"]),
+  available_empty: new Set(["source_accessible_empty"]),
+  missing: new Set(["projects_root_missing"]),
+  partial: new Set(["source_partial"]),
+  error: new Set(["collector_error"]),
+  unknown: new Set(["attempt_unavailable", "attempt_timestamp_untrusted"])
+});
+const CLAUDE_COLLECTION_SCHEMA = "soulforge.ai_usage_claude_collection_projection.v1";
+const CLAUDE_COLLECTION_EVIDENCE_SCOPE = "collector_attempt_source_observation_only";
+const CLAUDE_COLLECTION_CLAIM_SCOPE = "does_not_prove_provider_availability_health_live_e2e_or_aggregate_health_or_completeness";
 
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -53,7 +91,11 @@ function hasForbiddenKey(value) {
   if (Array.isArray(value)) return value.some(hasForbiddenKey);
   if (!isRecord(value)) return false;
   return Object.entries(value).some(
-    ([key, child]) => (key !== "reasoning_effort" && FORBIDDEN_KEY.test(key)) || hasForbiddenKey(child)
+    ([key, child]) => (
+      key !== "reasoning_effort"
+      && !CLAUDE_COLLECTION_COUNT_KEYS.includes(key)
+      && FORBIDDEN_KEY.test(key)
+    ) || hasForbiddenKey(child)
   );
 }
 
@@ -186,27 +228,190 @@ function rateLimit(value) {
   };
 }
 
+function emptyClaudeEvidence() {
+  return {
+    provider: "claude",
+    state: "UNKNOWN",
+    reason: "provider_evidence_unknown",
+    attempted_at: null,
+    freshness_threshold_seconds: null,
+    freshness: "unknown",
+    evidence_scope: null,
+    claim_scope: null,
+    ledger_freshness_threshold_seconds: null,
+    ledger_freshness: "unknown",
+    turns: null,
+    total_tokens: null,
+    latest_usage_at: null,
+    value_state: "masked"
+  };
+}
+
+function providerRows(value, referenceAt) {
+  if (!Array.isArray(value)) return null;
+  const seen = new Set();
+  const parsed = [];
+  for (const row of value) {
+    if (!hasExactKeys(row, PROVIDER_ROWS_KEYS)
+      || !PROVIDER_ORDER.includes(row.provider)
+      || !Number.isSafeInteger(row.turns) || row.turns < 1
+      || !Number.isSafeInteger(row.total_tokens) || row.total_tokens < 0
+      || seen.has(row.provider)) return null;
+    const latestUsageAt = normalizedTimestamp(row.latest_usage_at);
+    if (latestUsageAt === undefined || Date.parse(latestUsageAt) > Date.parse(referenceAt)) return null;
+    seen.add(row.provider);
+    parsed.push({
+      provider: row.provider,
+      turns: row.turns,
+      total_tokens: row.total_tokens,
+      latest_usage_at: latestUsageAt
+    });
+  }
+  const sorted = [...parsed].sort((left, right) => (
+    PROVIDER_ORDER.indexOf(left.provider) - PROVIDER_ORDER.indexOf(right.provider)
+  ));
+  return JSON.stringify(parsed) === JSON.stringify(sorted) ? parsed : null;
+}
+
+function collectionCounts(value) {
+  if (!hasExactKeys(value, CLAUDE_COLLECTION_COUNT_KEYS)) return null;
+  const counts = {};
+  for (const key of CLAUDE_COLLECTION_COUNT_KEYS) {
+    if (!Number.isSafeInteger(value[key]) || value[key] < 0) return null;
+    counts[key] = value[key];
+  }
+  if (counts.parsed_session_count > counts.session_file_count
+    || counts.accepted_event_count > counts.observed_message_count) return null;
+  return counts;
+}
+
+function collectionFreshness(attemptedAt, referenceAt, thresholdSeconds) {
+  if (attemptedAt === null) return "unknown";
+  const ageMs = Date.parse(referenceAt) - Date.parse(attemptedAt);
+  if (!Number.isFinite(ageMs) || ageMs < 0) return "unknown";
+  return ageMs > thresholdSeconds * 1_000 ? "stale" : "fresh";
+}
+
+function ledgerValueFreshness(latestUsageAt, referenceAt, thresholdSeconds) {
+  const ageMs = Date.parse(referenceAt) - Date.parse(latestUsageAt);
+  if (!Number.isFinite(ageMs) || ageMs < 0) return "unknown";
+  return ageMs > thresholdSeconds * 1_000 ? "stale" : "fresh";
+}
+
+function collectionCountsMatchState(state, counts) {
+  if (state === "unknown" || state === "missing") {
+    return CLAUDE_COLLECTION_COUNT_KEYS.every((key) => counts[key] === 0);
+  }
+  if (state === "observed") return counts.accepted_event_count > 0 && counts.issue_count === 0;
+  if (state === "available_empty") return counts.accepted_event_count === 0 && counts.issue_count === 0;
+  if (state === "partial") return counts.issue_count > 0 && (counts.parsed_session_count > 0 || counts.accepted_event_count > 0);
+  return state === "error"
+    && counts.issue_count > 0
+    && counts.parsed_session_count === 0
+    && counts.accepted_event_count === 0;
+}
+
+function claudeCollection(value, referenceAt) {
+  if (!hasExactKeys(value, CLAUDE_COLLECTION_KEYS)
+    || value.schema_version !== CLAUDE_COLLECTION_SCHEMA
+    || !CLAUDE_COLLECTION_STATES.has(value.state)
+    || !CLAUDE_COLLECTION_FRESHNESS.has(value.freshness)
+    || !CLAUDE_COLLECTION_REASON_BY_STATE[value.state].has(value.reason)
+    || value.evidence_scope !== CLAUDE_COLLECTION_EVIDENCE_SCOPE
+    || value.claim_scope !== CLAUDE_COLLECTION_CLAIM_SCOPE
+    || !Number.isSafeInteger(value.freshness_threshold_seconds)
+    || value.freshness_threshold_seconds < 1
+    || value.freshness_threshold_seconds > 604_800) return null;
+  const attemptedAt = normalizedTimestamp(value.attempted_at, true);
+  const counts = collectionCounts(value.counts);
+  if (attemptedAt === undefined || counts === null || !collectionCountsMatchState(value.state, counts)) return null;
+  if ((value.state === "unknown" && (attemptedAt !== null || value.freshness !== "unknown"))
+    || (value.state !== "unknown" && attemptedAt === null)) return null;
+  const freshness = collectionFreshness(attemptedAt, referenceAt, value.freshness_threshold_seconds);
+  if (freshness !== value.freshness
+    || (value.state !== "unknown" && freshness === "unknown")) return null;
+  return {
+    schema_version: CLAUDE_COLLECTION_SCHEMA,
+    state: value.state,
+    reason: value.reason,
+    attempted_at: attemptedAt,
+    freshness_threshold_seconds: value.freshness_threshold_seconds,
+    freshness,
+    counts,
+    evidence_scope: CLAUDE_COLLECTION_EVIDENCE_SCOPE,
+    claim_scope: CLAUDE_COLLECTION_CLAIM_SCOPE
+  };
+}
+
+function claudeEvidence(rows, collection, referenceAt) {
+  const claudeRow = rows.find((row) => row.provider === "claude") ?? null;
+  const base = {
+    provider: "claude",
+    state: collection.state,
+    reason: collection.reason,
+    attempted_at: collection.attempted_at,
+    freshness_threshold_seconds: collection.freshness_threshold_seconds,
+    freshness: collection.freshness,
+    evidence_scope: collection.evidence_scope,
+    claim_scope: collection.claim_scope,
+    ledger_freshness_threshold_seconds: collection.freshness_threshold_seconds,
+    ledger_freshness: "unknown",
+    turns: null,
+    total_tokens: null,
+    latest_usage_at: null,
+    value_state: "masked"
+  };
+  if (claudeRow !== null) {
+    const ledgerFreshness = ledgerValueFreshness(
+      claudeRow.latest_usage_at,
+      referenceAt,
+      collection.freshness_threshold_seconds
+    );
+    if (ledgerFreshness === "unknown") return null;
+    return {
+      ...base,
+      ledger_freshness: ledgerFreshness,
+      turns: claudeRow.turns,
+      total_tokens: claudeRow.total_tokens,
+      latest_usage_at: claudeRow.latest_usage_at,
+      value_state: ledgerFreshness === "fresh" ? "ledger_fresh" : "ledger_stale"
+    };
+  }
+  if (collection.state === "available_empty" && collection.freshness === "fresh") {
+    return { ...base, turns: 0, total_tokens: 0, value_state: "validated_empty" };
+  }
+  return base;
+}
+
 function invalidProjection() {
   return {
     state: "invalid",
     snapshot: createUnmeasuredAiUsageSnapshot(),
     reconciliation: null,
     history: null,
-    refresh_state: "hold"
+    refresh_state: "hold",
+    provider_evidence: { claude: emptyClaudeEvidence() }
   };
 }
 
 function noHistoryProjection(current) {
-  return { ...current, history: null, refresh_state: current.state === "ready" ? "ready" : "unmeasured" };
+  return {
+    ...current,
+    history: null,
+    refresh_state: current.state === "ready" ? "ready" : "unmeasured",
+    provider_evidence: { claude: emptyClaudeEvidence() }
+  };
 }
 
 function normalizeHistorySnapshot(input) {
   const legacy = normalizeAiUsageSnapshot(input);
   if (legacy.state === "ready" || input === null || input === undefined) return noHistoryProjection(legacy);
-  if (!hasExactKeys(input, ROOT_KEYS) || hasForbiddenKey(input)) return invalidProjection();
+  const isV2 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA;
+  const isV3 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_SCHEMA;
+  const rootKeys = isV3 ? V3_ROOT_KEYS : V2_ROOT_KEYS;
+  if ((!isV2 && !isV3) || !hasExactKeys(input, rootKeys) || hasForbiddenKey(input)) return invalidProjection();
   if (
-    input.schema_version !== AI_USAGE_HISTORY_SNAPSHOT_SCHEMA
-    || input.timezone !== AI_USAGE_HISTORY_TIMEZONE
+    input.timezone !== AI_USAGE_HISTORY_TIMEZONE
     || !Number.isSafeInteger(input.top_n)
     || input.top_n < 1
     || input.top_n > 50
@@ -216,7 +421,9 @@ function normalizeHistorySnapshot(input) {
   const generatedAt = normalizedTimestamp(input.generated_at);
   const referenceAt = normalizedTimestamp(input.reference_at);
   const current = normalizeAiUsageSnapshot(input.current);
-  if (generatedAt === undefined || referenceAt === undefined || current.state !== "ready" || current.snapshot.generated_at !== generatedAt) {
+  if (generatedAt === undefined || referenceAt === undefined
+    || Date.parse(generatedAt) > Date.parse(referenceAt)
+    || current.state !== "ready" || current.snapshot.generated_at !== generatedAt) {
     return invalidProjection();
   }
 
@@ -241,23 +448,43 @@ function normalizeHistorySnapshot(input) {
     })
   ) return invalidProjection();
 
+  const history = {
+    schema_version: input.schema_version,
+    generated_at: generatedAt,
+    timezone: AI_USAGE_HISTORY_TIMEZONE,
+    reference_at: referenceAt,
+    top_n: input.top_n,
+    windows,
+    activity: parsedActivity,
+    rate_limit: parsedRateLimit.value
+  };
+  let providerEvidence = { claude: emptyClaudeEvidence() };
+  if (isV3) {
+    const rows = providerRows(input.provider_rows, referenceAt);
+    const collection = claudeCollection(input.claude_collection, referenceAt);
+    if (rows === null || collection === null) return invalidProjection();
+    const evidence = claudeEvidence(rows, collection, referenceAt);
+    if (evidence === null) return invalidProjection();
+    history.provider_rows = rows;
+    history.claude_collection = collection;
+    providerEvidence = { claude: evidence };
+  }
+
   return {
     ...current,
-    history: {
-      schema_version: AI_USAGE_HISTORY_SNAPSHOT_SCHEMA,
-      generated_at: generatedAt,
-      timezone: AI_USAGE_HISTORY_TIMEZONE,
-      reference_at: referenceAt,
-      top_n: input.top_n,
-      windows,
-      activity: parsedActivity,
-      rate_limit: parsedRateLimit.value
-    },
-    refresh_state: "ready"
+    history,
+    refresh_state: "ready",
+    provider_evidence: providerEvidence
   };
 }
 
 export function normalizeAiUsageHistoryProjection(input) {
+  if (hasExactKeys(input, READ_ONLY_ENVELOPE_KEYS)) {
+    if (input.schema_version !== AI_USAGE_READ_ONLY_PROJECTION_SCHEMA || input.read_only !== 1) return invalidProjection();
+    const projection = normalizeHistorySnapshot(input.snapshot);
+    if (projection.state !== "ready") return invalidProjection();
+    return { ...projection, refresh_state: "ready", read_only: 1 };
+  }
   if (!hasExactKeys(input, ENVELOPE_KEYS)) return normalizeHistorySnapshot(input);
   if (input.schema_version !== AI_USAGE_PROJECTION_ENVELOPE_SCHEMA || !REFRESH_STATES.has(input.refresh_state)) {
     return invalidProjection();
@@ -269,7 +496,8 @@ export function normalizeAiUsageHistoryProjection(input) {
       snapshot: createUnmeasuredAiUsageSnapshot(),
       reconciliation: null,
       history: null,
-      refresh_state: input.refresh_state
+      refresh_state: input.refresh_state,
+      provider_evidence: { claude: emptyClaudeEvidence() }
     };
   }
   const projection = normalizeHistorySnapshot(input.snapshot);

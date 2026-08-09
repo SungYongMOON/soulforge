@@ -5652,6 +5652,32 @@ a:focus-visible {
 }
 .watchtower-graph-guide button:hover { border-color: #6a8290; background: #17212a; }
 .watchtower-graph-guide button:focus-visible { outline: 2px solid #72b7ff; outline-offset: 2px; }
+.watchtower-node-inspector {
+  display: grid; gap: 10px; padding: 13px 14px;
+  border: 1px solid #3b5667; border-radius: 10px; background: #0c141b;
+  color: #cbd8de; outline: none;
+}
+.watchtower-node-inspector:focus-visible { box-shadow: 0 0 0 2px rgb(114 183 255 / 48%); }
+.watchtower-node-inspector > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.watchtower-node-inspector > header span { display: block; color: #7fa7bd; font: 700 10px/1.2 Consolas, ui-monospace, monospace; letter-spacing: 0.12em; }
+.watchtower-node-inspector > header h3 { margin: 3px 0 0; color: #e4edf1; font-size: 16px; }
+.watchtower-node-inspector button {
+  border: 1px solid #3b4b57; border-radius: 6px; padding: 4px 8px;
+  background: #111922; color: #c9d6dc; font: inherit; font-size: 12px; cursor: pointer;
+}
+.watchtower-node-inspector button:hover:not(:disabled),
+.watchtower-node-inspector button[aria-pressed="true"] { border-color: #78a8c1; background: #172531; color: #e2edf2; }
+.watchtower-node-inspector button:focus-visible { outline: 2px solid #72b7ff; outline-offset: 2px; }
+.watchtower-node-inspector button:disabled { cursor: wait; opacity: 0.58; }
+.watchtower-inspector-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.watchtower-inspector-evidence { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 14px; margin: 0; }
+.watchtower-inspector-evidence div { min-width: 0; padding: 7px 0; border-top: 1px solid rgb(120 145 159 / 20%); }
+.watchtower-inspector-evidence dt { color: #7f98a6; font-size: 10px; letter-spacing: 0.08em; }
+.watchtower-inspector-evidence dd { margin: 3px 0 0; color: #d2dee3; font: 12px/1.45 Consolas, ui-monospace, monospace; overflow-wrap: anywhere; }
+.watchtower-inspector-paths p { margin: 0 0 7px; color: #94a8b2; font-size: 12px; line-height: 1.45; }
+.watchtower-inspector-paths ol { display: grid; gap: 5px; margin: 0; padding-left: 20px; color: #d1dde2; font: 12px/1.45 Consolas, ui-monospace, monospace; overflow-wrap: anywhere; }
+.watchtower-inspector-empty { color: #8fa1aa; }
+.watchtower-inspector-owner-note { margin: 0; color: #f1c36e; font-size: 12px; font-weight: 650; }
 .watchtower-canvas { height: 920px; border: 1px solid #27323c; border-radius: 12px; overflow: hidden; background: radial-gradient(ellipse 92% 72% at 50% 28%, #121922 0%, #090d12 72%); }
 .watchtower-canvas .react-flow { background: transparent; }
 .watchtower-canvas-dots { opacity: 0.28; }
@@ -6250,6 +6276,26 @@ a:focus-visible {
   margin: 2px 0 0; font-family: Consolas, ui-monospace, monospace;
   font-size: 10.5px; letter-spacing: 0.08em; color: #8a99a3;
 }
+.fleet-claude-ledger-evidence {
+  padding: 6px 8px;
+  border-left: 3px solid #607989;
+  background: rgba(96, 121, 137, 0.08);
+  line-height: 1.45;
+}
+.fleet-claude-ledger-evidence.is-ledger-fresh { color: #9bbbd0; border-left-color: #6f9fbd; }
+.fleet-claude-ledger-evidence.is-stale {
+  color: #f0b35a;
+  border-left-color: #f0a63c;
+  background: rgba(240, 166, 60, 0.13);
+  font-weight: 800;
+}
+.fleet-claude-ledger-evidence.is-empty-proven { color: #b5b8d5; border-left-color: #8589b5; }
+.fleet-claude-ledger-evidence.is-unknown { color: #9ca5aa; border-left-color: #697379; }
+.fleet-claude-collection-attempt {
+  color: #7f8c94;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
 .fleet-panel-empty { margin: 8px 0; font-size: 11px; color: #93a2ac; }
 
 .fleet-limit-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
@@ -6291,6 +6337,7 @@ a:focus-visible {
   gap: 8px; align-items: center;
 }
 .fleet-model-dot { width: 7px; height: 7px; border-radius: 50%; }
+.fleet-model-dot.is-meter { background: #72b7ff; }
 .fleet-model-dot.is-codex { background: #65d8d0; }
 .fleet-model-dot.is-claude { background: #b294f5; }
 .fleet-model-name {
@@ -6299,6 +6346,7 @@ a:focus-visible {
 }
 .fleet-model-bar { height: 7px; background: #1a222b; border-radius: 4px; overflow: hidden; }
 .fleet-model-bar > span { display: block; height: 100%; border-radius: 4px; }
+.fleet-model-bar > span.is-meter { background: linear-gradient(90deg, #314f69, #72b7ff); }
 .fleet-model-bar > span.is-codex { background: linear-gradient(90deg, #2b5a55, #65d8d0); }
 .fleet-model-bar > span.is-claude { background: linear-gradient(90deg, #4b3d78, #b294f5); }
 .fleet-model-value { font-family: Consolas, ui-monospace, monospace; font-size: 10.5px; color: #cdd7dc; text-align: right; }
@@ -6322,6 +6370,10 @@ a:focus-visible {
   .watchtower-graph-focus { width: 100%; margin-left: 0; }
   .watchtower-canvas { height: 700px; }
   .watchtower-surface .react-flow__minimap { width: 112px; height: 78px; }
+  .watchtower-node-inspector > header { align-items: flex-start; }
+  .watchtower-inspector-evidence { grid-template-columns: minmax(0, 1fr); }
+  .watchtower-inspector-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .watchtower-inspector-actions button:first-child { grid-column: 1 / -1; }
 }
 .fleet-limit-split .fleet-limit-name em {
   font-style: normal; font-family: Consolas, ui-monospace, monospace;
@@ -6347,7 +6399,7 @@ a:focus-visible {
 .fleet-split-legend span:nth-child(3) i { background: #58a6c8; }
 .fleet-split-legend span:nth-child(4) i { background: #45525c; }
 
-/* AG 요청 수 모델 줄 (토큰 미기록 공급자) */
+/* Token-less generic Meter rows. */
 .fleet-model-caption {
   margin: 6px 0 0; font-family: Consolas, ui-monospace, monospace;
   font-size: 10px; letter-spacing: 0.14em; color: #8595a0;

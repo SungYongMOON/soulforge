@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   AI_USAGE_PROJECTION_CACHE_TTL_MS,
+  AI_USAGE_READ_ONLY_QUERY,
   AI_USAGE_SNAPSHOT_PATH,
   createAiUsageProjectionRequest
 } from "./ai-usage-projection-request.mjs";
@@ -48,7 +49,7 @@ test("AI usage projection request: fetch is local, credential-free, and redirect
 
   assert.equal((await request.load()).state, "unmeasured");
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].path, AI_USAGE_SNAPSHOT_PATH);
+  assert.equal(calls[0].path, `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY}`);
   assert.equal(calls[0].options.method, "GET");
   assert.equal(calls[0].options.credentials, "omit");
   assert.equal(calls[0].options.mode, "same-origin");
@@ -65,7 +66,10 @@ test("AI usage projection request: explicit refresh invalidates the cached snaps
   await request.load();
   await request.load();
   await request.load({ force: true });
-  assert.deepEqual(calls, [AI_USAGE_SNAPSHOT_PATH, `${AI_USAGE_SNAPSHOT_PATH}?refresh=1`]);
+  assert.deepEqual(calls, [
+    `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY}`,
+    `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY}&refresh=1`
+  ]);
 });
 
 test("AI usage projection request: automatic polling refetches after the bounded cache expires", async () => {
@@ -82,5 +86,8 @@ test("AI usage projection request: automatic polling refetches after the bounded
   clock += 1;
   await request.load();
 
-  assert.deepEqual(calls, [AI_USAGE_SNAPSHOT_PATH, AI_USAGE_SNAPSHOT_PATH]);
+  assert.deepEqual(calls, [
+    `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY}`,
+    `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY}`
+  ]);
 });

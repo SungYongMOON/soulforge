@@ -53,7 +53,7 @@ test("Watchtower topology provides overview controls and focus plus context", ()
   assert.match(source, /<MiniMap/u);
   assert.match(source, /<Controls/u);
   assert.match(source, /selectedNodeId/u);
-  assert.match(source, /data\.onActivate\(data\.id\)/u);
+  assert.match(source, /data\.onActivate\(data\.id,\s*event\.currentTarget\)/u);
   assert.match(source, /event\.key !== "Enter" && event\.key !== " "/u);
   assert.match(source, /직접 연결만 강조/u);
   assert.match(source, /setViewport\(\{ x: 72, y: 22, zoom: 0\.82 \}/u);
@@ -61,6 +61,23 @@ test("Watchtower topology provides overview controls and focus plus context", ()
   assert.match(css, /\.watchtower-node\.is-dimmed/u);
   assert.match(css, /\.watchtower-node\.is-dimmed:focus-within/u);
   assert.match(css, /\.watchtower-surface \.react-flow__edge\.is-dimmed/u);
+});
+
+test("Watchtower selected-node inspector stays read-only and declares structural evidence limits", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  const css = readFileSync(CSS_PATH, "utf8");
+  assert.match(source, /buildTopologyStructuralPaths/u);
+  assert.match(source, /inspectorView/u);
+  assert.match(source, /onRefreshReadOnly/u);
+  assert.match(source, /event\.key !== "Escape"/u);
+  assert.match(source, /Owner 승인 필요/u);
+  assert.match(source, /직접 경로/u);
+  assert.match(source, /전체 구조 경로/u);
+  assert.match(source, /라이브·E2E·receipt를 입증하지 않습니다/u);
+  assert.match(source, /selectedNodeTriggerRef/u);
+  assert.match(source, /inspectorRef\.current\?\.focus/u);
+  assert.match(css, /\.watchtower-node-inspector\s*\{/u);
+  assert.match(css, /\.watchtower-inspector-evidence\s*\{/u);
 });
 
 test("Watchtower UI labels catalog-only nodes and stale refresh evidence without inferring provider health", () => {
@@ -89,6 +106,26 @@ test("Fleet Watchtower state and provider polling fail closed without aggregate 
   assert.match(source, /refresh_state: complete \? "ready" : "hold"/u);
   assert.match(source, /fleet-provider-observation-state/u);
   assert.equal(source.includes("const healthy = model.summary"), false);
+});
+
+test("Claude token presentation consumes normalized provider evidence without model-prefix attribution", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  const css = readFileSync(CSS_PATH, "utf8");
+  assert.match(source, /usage\?\.provider_evidence\?\.claude/u);
+  assert.match(source, /"ledger_fresh", "ledger_stale", "validated_empty"/u);
+  assert.match(source, /Claude 원장 마지막 확인/u);
+  assert.match(source, /STALE · 원장 근거/u);
+  assert.match(source, /data-ledger-freshness/u);
+  assert.match(source, /claude-collection-attempt/u);
+  assert.match(source, /provider health·live·E2E·current 근거 아님/u);
+  assert.match(css, /\.fleet-claude-ledger-evidence\.is-stale/u);
+  assert.equal(source.includes("claudeRecon"), false);
+  assert.equal(source.includes("estimateClaudeUsdCost"), false);
+  assert.equal(source.includes("startsWith(\"claude\")"), false);
+  assert.equal(source.includes("rawId.replace(/^gemini-/"), false);
+  assert.equal(source.includes("요청 수 · Antigravity"), false);
+  assert.equal(source.includes("Claude 세션·미등록"), false);
+  assert.equal(source.includes("/claude-usage.snapshot.json"), false);
 });
 
 test("redistributed topology brand assets retain source and license notices", () => {

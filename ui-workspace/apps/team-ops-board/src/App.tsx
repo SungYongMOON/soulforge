@@ -74,9 +74,8 @@ import {
   MOBILE_DETAIL_MEDIA_QUERY,
   isFocusRestoreCandidate
 } from "./core/mobile-detail.mjs";
-import { buildTopologyViewModel } from "./core/topology-view.mjs";
+import { buildTopologyStructuralPaths, buildTopologyViewModel } from "./core/topology-view.mjs";
 import { buildHostStatsViewModel } from "./core/host-stats.mjs";
-import { estimateClaudeUsdCost } from "./core/claude-usage.mjs";
 import { antigravityQuotaRows } from "./core/antigravity-quota.mjs";
 import {
   buildOrganizationUsageChartRows,
@@ -398,7 +397,6 @@ type ProviderRefreshState = "ready" | "refreshing" | "hold";
 
 function createProviderSnapshots(refreshState: ProviderRefreshState = "hold") {
   return {
-    claude: null,
     antigravity: null,
     antigravityQuota: null,
     limits: null,
@@ -434,6 +432,7 @@ function App() {
   }));
   const [topologyProjection, setTopologyProjection] = useState<any>(null);
   const [topologyRefreshing, setTopologyRefreshing] = useState(false);
+  const topologyRefreshRef = useRef<(force?: boolean) => Promise<void> | void>(() => {});
   const [hostStatsSnapshot, setHostStatsSnapshot] = useState<any>(null);
   const [providerSnapshots, setProviderSnapshots] = useState<any>(() => createProviderSnapshots());
 
@@ -486,15 +485,13 @@ function App() {
       // A refresh clears prior values before any endpoint can settle out of order.
       publish(requestGeneration, createProviderSnapshots("refreshing"));
       const operation = Promise.all([
-        fetchJson("/claude-usage.snapshot.json"),
         fetchJson("/antigravity-usage.snapshot.json"),
         fetchJson("/antigravity-quota.snapshot.json"),
         fetchJson("/provider-limits.snapshot.json"),
-      ]).then(([claude, antigravity, antigravityQuota, limits]) => {
-        const complete = [claude, antigravity, antigravityQuota, limits]
+      ]).then(([antigravity, antigravityQuota, limits]) => {
+        const complete = [antigravity, antigravityQuota, limits]
           .every((snapshot) => snapshot !== null && snapshot !== undefined);
         publish(requestGeneration, {
-          claude,
           antigravity,
           antigravityQuota,
           limits,
@@ -539,10 +536,12 @@ function App() {
         if (!cancelled) setTopologyRefreshing(false);
       }
     };
+    topologyRefreshRef.current = load;
     void load(false);
     const timer = window.setInterval(() => { void load(false); }, 30_000);
     return () => {
       cancelled = true;
+      if (topologyRefreshRef.current === load) topologyRefreshRef.current = () => {};
       window.clearInterval(timer);
     };
   }, [surface]);
@@ -696,6 +695,19 @@ function App() {
     void operation;
   }
 
+  function refreshDiagnostics() {
+    const usageRefresh = aiUsageProjectionRequest.load({ force: true }).then(
+      (next: any) => startTransition(() => setAiUsageProjection(next)),
+      () => startTransition(() => setAiUsageProjection({
+        state: "unmeasured",
+        snapshot: createUnmeasuredAiUsageSnapshot(),
+        reconciliation: null
+      }))
+    );
+    const topologyRefresh = Promise.resolve(topologyRefreshRef.current(true));
+    void Promise.allSettled([usageRefresh, topologyRefresh]);
+  }
+
   function selectThread(threadId: string, trigger: HTMLButtonElement) {
     triggerRef.current = trigger;
     setSelectedThreadId(threadId);
@@ -795,6 +807,8 @@ function App() {
     disabled: "비상 중지"
   }[String(projection.adapter.health) as "ready" | "partial" | "unavailable" | "error" | "disabled"] ?? "미확정";
 
+  const topActionRefreshing = surface === "system" ? topologyRefreshing : refreshing;
+
   return (
     <div className="inbox-app live-board-app">
       <a className="inbox-skip-link" href="#live-board-content" data-live-dialog-background>
@@ -851,10 +865,10 @@ function App() {
               type="button"
               aria-label="지금 갱신"
               title="지금 갱신"
-              onClick={() => updateProjection(true)}
-              disabled={refreshing}
+              onClick={() => surface === "system" ? refreshDiagnostics() : updateProjection(true)}
+              disabled={topActionRefreshing}
             >
-              <RefreshCw size={15} aria-hidden="true" className={refreshing ? "is-spinning" : ""} />
+              <RefreshCw size={15} aria-hidden="true" className={topActionRefreshing ? "is-spinning" : ""} />
             </button>
           </div>
         </div>
@@ -998,7 +1012,7 @@ function App() {
           )}
 
           {surface === "system" && (
-            <SystemTopologySurface projection={topologyProjection} refreshing={topologyRefreshing} />
+            <SystemTopologySurface projection={topologyProjection} refreshing={topologyRefreshing} onRefreshReadOnly={refreshDiagnostics} />
           )}
 
           {surface === "work" && workGroups.map((group) => (
@@ -2439,22 +2453,23 @@ function fleetObservedAgoLabel(observedAt: string): string {
 }
 
 function fleetCreditLabel(totals: any): string {
-  // 크레딧은 Codex 단위만 합산된다(Claude/AG 턴은 rate_unknown → 합계 미포함).
+  // The generic Meter aggregate has no model-prefix provider attribution.
   const credits = totals?.credits === null || totals?.credits === undefined
     ? "미확정"
     : Math.round(totals.credits).toLocaleString("en-US");
-  return `Codex 크레딧 ${credits}`;
+  return `Meter 크레딧 ${credits}`;
 }
 
 function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: any }) {
   const history = usage?.history ?? null;
   const windows = history?.windows ?? null;
+  const claudeEvidence = usage?.provider_evidence?.claude ?? null;
   if (!windows) return null;
   const providerObservationNote = providers?.refresh_state === "ready"
     ? null
     : providers?.refresh_state === "refreshing"
-      ? "공급자 관측 갱신 중 · 이전 Claude·Antigravity 값은 표시하지 않음"
-      : "공급자 관측 HOLD · 현재 응답이 없는 Claude·Antigravity 값은 비워 둠";
+      ? "공식 쿼터 관측 갱신 중 · 이전 값은 표시하지 않음"
+      : "공식 쿼터 관측 HOLD · 현재 응답이 없는 값은 비워 둠";
   const dailyTokens = Array.isArray(history?.activity?.daily)
     ? history.activity.daily.map((row: any) => row.total_tokens ?? 0)
     : [];
@@ -2491,7 +2506,6 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   };
   // 같은 등급(창)끼리 묶는다: 5시간 창 → 주간 창 → 크레딧. 계정별 리셋 시각 비교가 목적.
   const claudeOfficial = providers?.limits?.claude ?? null;
-  const claudeRecon = providers?.claude ?? null;
   const claudeFiveHour = claudeOfficial?.five_hour ?? null;
   const claudeSevenDay = claudeOfficial?.seven_day ?? null;
   if (claudeFiveHour !== null) {
@@ -2502,9 +2516,7 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
       percent: Number(claudeFiveHour.utilization),
       severity: severityFor(Number(claudeFiveHour.utilization), false),
       resetLabel: fleetResetAtLabel(claudeFiveHour.resets_at ? Date.parse(claudeFiveHour.resets_at) : null),
-      note: Number.isFinite(claudeRecon?.five_hour?.tokens?.total_with_cache)
-        ? `5h ${fleetTokenLabel(claudeRecon.five_hour.tokens.total_with_cache)} tok · ${Number(claudeRecon.five_hour.turns).toLocaleString("en-US")}턴`
-        : "",
+      note: "공식 쿼터 관측 — 토큰·상태·라이브·E2E 근거 아님",
     });
   }
   if (rateLimit !== null) {
@@ -2545,42 +2557,6 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
       severity: severityFor(Number(modelWindow.utilization), false),
       resetLabel: fleetResetAtLabel(modelWindow.resets_at ? Date.parse(modelWindow.resets_at) : null),
       note: "모델별 공식 창",
-    });
-  }
-  // Fable/나머지 남은량 분리 — 공식 모델별 창이 미보고인 동안은 공유 주간 창의 소진을
-  // 원장 7일 토큰 점유율로 분해해 모델별 기여·여유를 보여준다(공식 값 보고 시 위 행이 대체).
-  const claudeLedgerModels = (windows.rolling_7d?.breakdowns?.models?.top ?? [])
-    .filter((row: any) => String(row.model_id ?? "").startsWith("claude") && row.total_tokens > 0);
-  const claudeLedgerTotal = claudeLedgerModels.reduce((sum: number, row: any) => sum + row.total_tokens, 0);
-  if (claudeSevenDay !== null && claudeLedgerTotal > 0 && (claudeOfficial?.model_windows ?? []).length === 0) {
-    const weeklyUsed = Number(claudeSevenDay.utilization);
-    const resetLabel = fleetResetAtLabel(claudeSevenDay.resets_at ? Date.parse(claudeSevenDay.resets_at) : null);
-    const fableTokens = claudeLedgerModels
-      .filter((row: any) => String(row.model_id).startsWith("claude-fable"))
-      .reduce((sum: number, row: any) => sum + row.total_tokens, 0);
-    const fableShare = fableTokens / claudeLedgerTotal;
-    const fableContribution = Math.round(weeklyUsed * fableShare * 10) / 10;
-    const restContribution = Math.round((weeklyUsed - fableContribution) * 10) / 10;
-    const decompositionNote = `공유 주간 창 소진 분해(원장 7일 점유 ${Math.round(fableShare * 100)}% 기준) — Fable 전용 공식 한도는 미보고, 보고되면 자동 대체`;
-    limitRows.push({
-      key: "claude_weekly_fable",
-      group: "주간 창",
-      provider: "Claude·Fable",
-      percent: fableContribution,
-      severity: severityFor(fableContribution, false),
-      resetLabel,
-      note: decompositionNote,
-      valueSmall: "여유",
-    });
-    limitRows.push({
-      key: "claude_weekly_rest",
-      group: "주간 창",
-      provider: "Claude·나머지",
-      percent: restContribution,
-      severity: severityFor(restContribution, false),
-      resetLabel,
-      note: decompositionNote,
-      valueSmall: "여유",
     });
   }
   // Antigravity 로컬 RPC의 그룹별 공식 잔여 쿼터 — 앱이 꺼지면 마지막 관측을 유지 표시한다.
@@ -2630,47 +2606,65 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
     });
   }
   const codexPlan = rateLimit?.plan_type ?? null;
-  const claudeTierRaw = claudeRecon?.plan?.organization_rate_limit_tier ?? claudeRecon?.plan?.user_rate_limit_tier ?? null;
-  const claudeTier = claudeTierRaw === null ? null : String(claudeTierRaw).replace(/^default_claude_/u, "").replace(/_/gu, " ");
   const claudeObservedAt = typeof claudeOfficial?.observed_at === "string" ? claudeOfficial.observed_at : null;
   const limitFoot = [
     codexPlan !== null ? `Codex ${codexPlan}` : null,
-    claudeTier !== null ? `Claude ${claudeTier}` : null,
     claudeObservedAt !== null ? `Claude ${fleetObservedAgoLabel(claudeObservedAt)}` : null,
-    "공식 관측값만 표시",
+    "공식 쿼터 관측은 토큰·상태·라이브·E2E 근거가 아님",
   ].filter(Boolean).join(" · ");
 
-  // ── 패널 2: 모델별 실사용 — 원장(rolling 7일) 단일 출처, 공급자는 모델 id로 구분
+  // ── 패널 2: 모델별 실사용 — 공통 Meter 원장 단일 출처. 모델 ID는 공급자 귀속 근거가 아니다.
   const modelRows: any[] = [];
-  const providerTokens = { codex: 0, claude: 0 };
+  let meterTokens = 0;
   for (const row of windows.rolling_7d?.breakdowns?.models?.top ?? []) {
     if (!Number.isFinite(row?.total_tokens) || row.total_tokens <= 0) continue;
     const rawId = String(row.model_id ?? "");
-    const provider = rawId.startsWith("claude") ? "claude" : "codex";
-    providerTokens[provider] += row.total_tokens;
+    meterTokens += row.total_tokens;
     modelRows.push({
-      provider,
-      model: rawId.replace(/^claude-/u, "").replace(/^gpt-/u, "").replace(/^haiku-4-5-\d+$/u, "haiku-4.5") || "미상",
+      provider: "meter",
+      model: rawId || "미상",
       tokens: row.total_tokens,
     });
   }
   modelRows.sort((left, right) => right.tokens - left.tokens);
   const topModelRows = modelRows.slice(0, 7);
   const maxModelTokens = Math.max(...topModelRows.map((row) => row.tokens), 1);
-  const claudeUsd = estimateClaudeUsdCost(Array.isArray(claudeRecon?.models_7d) ? claudeRecon.models_7d : null);
-  // AG는 토큰이 원장에 없어(요청 수만) 토큰 목록에서 걸러진다 — 요청 수 줄로 항상 표시한다.
+  // A token-less model row remains generic Meter evidence; its model ID does
+  // not establish a provider.
   const requestModelRows: any[] = [];
   for (const row of windows.rolling_7d?.breakdowns?.models?.top ?? []) {
     if (!Number.isFinite(row?.turns) || row.turns <= 0) continue;
     if ((row.total_tokens ?? 0) > 0) continue;
     const rawId = String(row.model_id ?? "");
     if (rawId === "unassigned") continue;
-    requestModelRows.push({ model: rawId.replace(/^gemini-/u, ""), turns: row.turns });
+    requestModelRows.push({ model: rawId, turns: row.turns });
   }
   requestModelRows.sort((left, right) => right.turns - left.turns);
   const topRequestRows = requestModelRows.slice(0, 5);
   const maxRequestTurns = Math.max(...topRequestRows.map((row) => row.turns), 1);
   const totalRequestTurns = requestModelRows.reduce((sum, row) => sum + row.turns, 0);
+  const claudeValuesVisible = ["ledger_fresh", "ledger_stale", "validated_empty"].includes(claudeEvidence?.value_state);
+  const claudeLedgerSummary = !claudeValuesVisible
+    ? "Claude 원장 UNKNOWN · 유효한 v3 provider row 없음"
+    : claudeEvidence?.value_state === "validated_empty"
+      ? "Claude 선택 수집 창 0 tok · 접근 가능한 빈 수집 근거"
+      : claudeEvidence?.value_state === "ledger_stale"
+        ? `Claude 원장 마지막 확인 ${fleetTokenLabel(claudeEvidence.total_tokens)} tok · ${Number(claudeEvidence.turns).toLocaleString("en-US")}턴 · 최근 사용 ${fleetObservedAgoLabel(claudeEvidence.latest_usage_at)} · STALE · 원장 근거`
+        : `Claude 원장 ${fleetTokenLabel(claudeEvidence.total_tokens)} tok · ${Number(claudeEvidence.turns).toLocaleString("en-US")}턴 · 최근 사용 ${fleetObservedAgoLabel(claudeEvidence.latest_usage_at)} · 원장 근거`;
+  const claudeLedgerTone = claudeEvidence?.value_state === "ledger_stale"
+    ? "is-stale"
+    : claudeEvidence?.value_state === "ledger_fresh"
+      ? "is-ledger-fresh"
+      : claudeEvidence?.value_state === "validated_empty"
+        ? "is-empty-proven"
+        : "is-unknown";
+  const claudeCollectionAttemptSummary = [
+    `Claude 수집 시도 ${String(claudeEvidence?.state ?? "UNKNOWN").toUpperCase()}`,
+    `사유 ${String(claudeEvidence?.reason ?? "provider_evidence_unknown")}`,
+    `시각 ${typeof claudeEvidence?.attempted_at === "string" ? fleetObservedAgoLabel(claudeEvidence.attempted_at) : "UNKNOWN"}`,
+    `시도 freshness ${String(claudeEvidence?.freshness ?? "unknown").toUpperCase()}`,
+    "provider health·live·E2E·current 근거 아님",
+  ].join(" · ");
 
   // ── 패널 3: CODEX 원장 총괄 + 40일 추이
   const totalsRows = [
@@ -2755,14 +2749,14 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
         )}
         {topRequestRows.length > 0 && (
           <>
-            <p className="fleet-model-caption">요청 수 · Antigravity (토큰 미기록)</p>
+            <p className="fleet-model-caption">요청 수 · 토큰 미기록 Meter 행</p>
             <ul className="fleet-model-rows is-requests">
               {topRequestRows.map((row) => (
                 <li key={row.model}>
-                  <span className="fleet-model-dot is-gemini" aria-hidden="true" />
+                  <span className="fleet-model-dot is-meter" aria-hidden="true" />
                   <span className="fleet-model-name">{row.model}</span>
                   <span className="fleet-model-bar">
-                    <span className="is-gemini" style={{ width: `${Math.max(3, Math.round((row.turns / maxRequestTurns) * 100))}%` }} />
+                    <span className="is-meter" style={{ width: `${Math.max(3, Math.round((row.turns / maxRequestTurns) * 100))}%` }} />
                   </span>
                   <span className="fleet-model-value">{row.turns.toLocaleString("en-US")}회</span>
                 </li>
@@ -2770,19 +2764,15 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
             </ul>
           </>
         )}
-        <p className="fleet-panel-foot">
-          {providerTokens.codex > 0 ? `Codex ${fleetTokenLabel(providerTokens.codex)}` : ""}
-          {providerTokens.codex > 0 && providerTokens.claude > 0 ? " · " : ""}
-          {providerTokens.claude > 0 ? `Claude ${fleetTokenLabel(providerTokens.claude)}` : ""}
-          {claudeUsd !== null && claudeUsd.usd > 0 ? ` · Claude 예상 $${claudeUsd.usd.toLocaleString("en-US")}` : ""}
-          {totalRequestTurns > 0 ? ` · AG ${totalRequestTurns.toLocaleString("en-US")}회` : ""}
-        </p>
+        <p className="fleet-panel-foot">{meterTokens > 0 ? `공통 Meter 원장 ${fleetTokenLabel(meterTokens)}` : ""}{totalRequestTurns > 0 ? ` · 토큰 미기록 요청 ${totalRequestTurns.toLocaleString("en-US")}회` : ""}</p>
+        <p className={`fleet-panel-foot fleet-claude-ledger-evidence ${claudeLedgerTone}`} data-testid="claude-ledger-evidence" data-ledger-freshness={claudeEvidence?.ledger_freshness ?? "unknown"}>{claudeLedgerSummary}</p>
+        <p className="fleet-panel-foot fleet-claude-collection-attempt" data-testid="claude-collection-attempt">{claudeCollectionAttemptSummary}</p>
       </article>
       <article className="fleet-usage-card fleet-panel is-totals">
         <header>
           <span className="fleet-usage-dot" aria-hidden="true" />
           <span className="fleet-usage-title">사용 총괄</span>
-          <span className="fleet-usage-pill">CODEX+CLAUDE 원장</span>
+          <span className="fleet-usage-pill">공통 Meter 원장</span>
         </header>
         <ul className="fleet-total-rows">
           {totalsRows.map((row) => (
@@ -2825,7 +2815,7 @@ function LedgerActivity({ usage }: { usage: any }) {
       <header>
         <span className="ledger-distribution-kicker">활동 빈도</span>
         <h2>최근 일자별 · 시간대별 작업</h2>
-        <span className="ledger-distribution-meta">KST · CODEX+CLAUDE</span>
+        <span className="ledger-distribution-meta">KST · 공통 Meter 원장</span>
       </header>
       <div className="ledger-activity-panels">
         <div className="ledger-activity-panel">
@@ -2872,7 +2862,7 @@ function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskL
   const orgTokens = new Map<string, number>();
   for (const row of topRows("tasks")) {
     const label = getLabel(String(row.task_id));
-    const prefix = label === null ? "Claude 세션·미등록" : (/^\[([^\]]+)\]/u.exec(label)?.[1] ?? "기타 라벨");
+    const prefix = label === null ? "미등록 TASK" : (/^\[([^\]]+)\]/u.exec(label)?.[1] ?? "기타 라벨");
     orgTokens.set(prefix, (orgTokens.get(prefix) ?? 0) + (row.total_tokens ?? 0));
   }
   const tasksOther = window.breakdowns.tasks?.other?.total_tokens ?? 0;
@@ -2970,7 +2960,7 @@ function SystemStatStrip({ projection, hostStats, usage, threadCount, usageState
       <span>주의 <b className={summary && summary.degraded + summary.stale + summary.down > 0 ? "is-warn" : ""}>{summary ? summary.degraded + summary.stale + summary.down : "—"}</b></span>
       <span>등록 <b>{threadCount}</b></span>
       <span>판정 <b>{observed}</b></span>
-      <span>METER <b className={usageState === "unmeasured" ? "" : "is-ok"}>{usageState === "unmeasured" ? "대기" : "가동"}</b> <span className="system-stat-strip-scope">원장 CODEX+CLAUDE · GEMINI 크레딧만</span></span>
+      <span>METER <b className={usageState === "unmeasured" ? "" : "is-ok"}>{usageState === "unmeasured" ? "대기" : "가동"}</b> <span className="system-stat-strip-scope">공통 Meter 원장 · 별도 크레딧 관측</span></span>
       {Number.isFinite(allTokens) && (
         <span className="system-stat-strip-end">총 사용 토큰 <b className="is-total">{fleetTokenLabel(allTokens)}</b>
           {Number.isFinite(rolling30) && <> 일평균 <b>{fleetTokenLabel(Math.round((rolling30 as number) / 30))}</b></>}
@@ -3181,13 +3171,13 @@ function WatchtowerTopologyNode({ data }: NodeProps<any>) {
         className="watchtower-node-hit nodrag nopan"
         onClick={(event) => {
           event.stopPropagation();
-          data.onActivate(data.id);
+          data.onActivate(data.id, event.currentTarget);
         }}
         onKeyDown={(event) => {
           if (event.key !== "Enter" && event.key !== " ") return;
           event.preventDefault();
           event.stopPropagation();
-          data.onActivate(data.id);
+          data.onActivate(data.id, event.currentTarget);
         }}
         aria-pressed={data.isSelected}
         aria-label={`${data.label} · ${shapeLabel} · ${kindLabel} · ${observationText}${catalogOnly ? " · 구조/카탈로그 관계는 현재 공급자 성공 또는 독립 관측이 아님" : ""} · 입력 ${data.inputPorts.length}개 · 출력 ${data.outputPorts.length}개`}
@@ -3226,13 +3216,20 @@ function watchtowerMiniMapColor(node: any): string {
   return "#72b7ff";
 }
 
-function SystemTopologySurface({ projection, refreshing }: { projection: any; refreshing: boolean }) {
+function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
+  projection: any;
+  refreshing: boolean;
+  onRefreshReadOnly: () => void;
+}) {
   const model = useMemo(() => buildTopologyViewModel(projection?.snapshot ?? null), [projection]);
   const refreshNotice = watchtowerRefreshNotice(projection?.refresh_state, refreshing);
   const refreshMetadataText = watchtowerRefreshMetadataText(projection?.refresh_metadata);
   const [flowInstance, setFlowInstance] = useState<any>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [inspectorView, setInspectorView] = useState<"evidence" | "direct" | "all">("evidence");
   const fittedLayoutRef = useRef<string | null>(null);
+  const selectedNodeTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const inspectorRef = useRef<HTMLElement | null>(null);
   const layoutSignature = useMemo(() => model.nodes
     .filter((node: any) => node.kind !== "lane")
     .map((node: any) => `${node.id}:${node.position.x}:${node.position.y}:${node.inputPorts.length}:${node.outputPorts.length}`)
@@ -3256,17 +3253,63 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
       setSelectedNodeId(null);
     }
   }, [model, selectedNodeId]);
+
+  function clearSelectedNode(restoreFocus = true) {
+    const trigger = selectedNodeTriggerRef.current;
+    setSelectedNodeId(null);
+    if (restoreFocus && trigger !== null) {
+      window.requestAnimationFrame(() => trigger.focus({ preventScroll: true }));
+    }
+  }
+
+  function activateTopologyNode(nodeId: string, trigger?: EventTarget | null) {
+    if (trigger instanceof HTMLButtonElement) selectedNodeTriggerRef.current = trigger;
+    setSelectedNodeId((current) => current === nodeId ? null : nodeId);
+  }
+
+  useEffect(() => {
+    if (selectedNodeId === null) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      clearSelectedNode(true);
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [selectedNodeId]);
+
+  useEffect(() => {
+    if (selectedNodeId === null || !window.matchMedia("(max-width: 760px)").matches) return undefined;
+    const frame = window.requestAnimationFrame(() => inspectorRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedNodeId]);
+
+  const structuralPaths = useMemo(
+    () => buildTopologyStructuralPaths(model, selectedNodeId),
+    [model, selectedNodeId]
+  );
   const focusedNodeIds = useMemo(() => {
     if (selectedNodeId === null) return new Set<string>();
     const focused = new Set<string>([selectedNodeId]);
-    for (const edge of model.edges) {
-      if (edge.source === selectedNodeId || edge.target === selectedNodeId) {
-        focused.add(edge.source);
-        focused.add(edge.target);
+    if (inspectorView === "all") {
+      for (const path of structuralPaths.all) {
+        for (const nodeId of path.node_ids) focused.add(nodeId);
+      }
+    } else {
+      for (const edge of structuralPaths.direct) {
+        focused.add(edge.from);
+        focused.add(edge.to);
       }
     }
     return focused;
-  }, [model.edges, selectedNodeId]);
+  }, [inspectorView, selectedNodeId, structuralPaths]);
+  const focusedEdgeIds = useMemo(() => {
+    if (selectedNodeId === null) return new Set<string>();
+    if (inspectorView === "all") {
+      return new Set(structuralPaths.all.flatMap((path) => path.edges.map((edge) => edge.edge_id)));
+    }
+    return new Set(structuralPaths.direct.map((edge) => edge.edge_id));
+  }, [inspectorView, selectedNodeId, structuralPaths]);
   const selectedNode = selectedNodeId === null
     ? null
     : model.nodes.find((node: any) => node.id === selectedNodeId && node.kind !== "lane") ?? null;
@@ -3280,7 +3323,7 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
           ...node,
           isSelected: selectedNodeId === node.id,
           isDimmed: selectedNodeId !== null && !focusedNodeIds.has(node.id),
-          onActivate: (nodeId: string) => setSelectedNodeId((current) => current === nodeId ? null : nodeId),
+          onActivate: activateTopologyNode,
           portSignature: `${node.inputPorts.map((port: any) => `${port.id}:${port.top}`).join(",")}|${node.outputPorts.map((port: any) => `${port.id}:${port.top}`).join(",")}`,
         },
     style: node.kind === "lane" ? { width: node.width, height: node.height } : undefined,
@@ -3290,7 +3333,7 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
     focusable: false
   })), [focusedNodeIds, model.nodes, selectedNodeId]);
   const graphEdges = useMemo(() => model.edges.map((edge: any) => {
-    const isFocused = selectedNodeId !== null && (edge.source === selectedNodeId || edge.target === selectedNodeId);
+    const isFocused = selectedNodeId !== null && focusedEdgeIds.has(edge.id);
     return {
       id: edge.id,
       source: edge.source,
@@ -3312,7 +3355,7 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
       className: `${edge.flow === "control" ? "watchtower-edge-control" : "watchtower-edge-data"}${selectedNodeId !== null ? (isFocused ? " is-focused" : " is-dimmed") : ""}`,
       label: edge.label || undefined,
     };
-  }), [model.edges, selectedNodeId]);
+  }), [focusedEdgeIds, model.edges, selectedNodeId]);
 
   if (projection === null) {
     return (
@@ -3388,7 +3431,7 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
         <span className="watchtower-graph-focus" role="status" aria-live="polite">
           {selectedNode ? `${selectedNode.label} 직접 연결 강조` : "노드를 선택하면 직접 연결만 강조"}
         </span>
-        {selectedNode && <button type="button" onClick={() => setSelectedNodeId(null)}>전체 보기</button>}
+        {selectedNode && <button type="button" onClick={() => clearSelectedNode(true)}>선택 해제</button>}
       </div>
       <div className="watchtower-canvas" aria-label="토폴로지 그래프">
         <ReactFlow
@@ -3399,9 +3442,9 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
           onInit={setFlowInstance}
           onNodeClick={(_event, node) => {
             if (node.data?.kind === "lane") return;
-            setSelectedNodeId((current) => current === node.id ? null : node.id);
+            activateTopologyNode(node.id, _event.target);
           }}
-          onPaneClick={() => setSelectedNodeId(null)}
+          onPaneClick={() => clearSelectedNode(false)}
           minZoom={0.35}
           maxZoom={1.7}
           nodesConnectable={false}
@@ -3422,6 +3465,55 @@ function SystemTopologySurface({ projection, refreshing }: { projection: any; re
           <Controls aria-label="토폴로지 보기 조절" showInteractive={false} fitViewOptions={{ padding: 0.04, minZoom: 0.35, maxZoom: 0.9 }} />
         </ReactFlow>
       </div>
+      {selectedNode && (
+        <aside ref={inspectorRef} className="watchtower-node-inspector" tabIndex={-1} aria-labelledby="watchtower-node-inspector-title" data-testid="system-topology-node-inspector">
+          <header>
+            <div>
+              <span>READ-ONLY DIAGNOSTICS</span>
+              <h3 id="watchtower-node-inspector-title">{selectedNode.label}</h3>
+            </div>
+            <button type="button" onClick={() => clearSelectedNode(true)}>선택 해제</button>
+          </header>
+          <div className="watchtower-inspector-actions" role="group" aria-label="선택 노드 읽기 전용 동작">
+            <button type="button" onClick={onRefreshReadOnly} disabled={refreshing}>읽기 전용 갱신</button>
+            <button type="button" aria-pressed={inspectorView === "evidence"} onClick={() => setInspectorView("evidence")}>근거 보기</button>
+            <button type="button" aria-pressed={inspectorView === "direct"} onClick={() => setInspectorView("direct")}>직접 경로</button>
+            <button type="button" aria-pressed={inspectorView === "all"} onClick={() => setInspectorView("all")}>전체 구조 경로</button>
+          </div>
+          {inspectorView === "evidence" ? (
+            <dl className="watchtower-inspector-evidence">
+              <div><dt>상태</dt><dd>{selectedNode.stateLabel}</dd></div>
+              <div><dt>사유</dt><dd>{selectedNode.reasons.length > 0 ? selectedNode.reasons.join(" · ") : "관측 사유 없음"}</dd></div>
+              <div><dt>근거 범위</dt><dd>{selectedNode.evidenceScope}</dd></div>
+              <div><dt>근거 시각</dt><dd>{selectedNode.evidenceAt ? new Date(selectedNode.evidenceAt).toLocaleString("ko-KR") : "관측 없음"}</dd></div>
+              <div><dt>입증</dt><dd>{selectedNode.proves.join(" · ")}</dd></div>
+              <div><dt>입증하지 않음</dt><dd>{selectedNode.doesNotProve.join(" · ")}</dd></div>
+            </dl>
+          ) : (
+            <section className="watchtower-inspector-paths" aria-label={inspectorView === "direct" ? "직접 구조 경로" : "전체 구조 경로"}>
+              <p>구조 경로는 카탈로그 관계만 보여 주며 라이브·E2E·receipt를 입증하지 않습니다.</p>
+              {inspectorView === "direct" ? (
+                structuralPaths.direct.length === 0 ? <p className="watchtower-inspector-empty">직접 구조 관계 없음</p> : (
+                  <ol>
+                    {structuralPaths.direct.map((edge) => (
+                      <li key={edge.edge_id}>{edge.from} → {edge.to}{edge.label ? ` · ${edge.label}` : ""}</li>
+                    ))}
+                  </ol>
+                )
+              ) : (
+                structuralPaths.all.length === 0 ? <p className="watchtower-inspector-empty">연결된 구조 경로 없음</p> : (
+                  <ol>
+                    {structuralPaths.all.map((path) => (
+                      <li key={path.node_ids.join("-")}>{path.node_ids.join(" → ")}</li>
+                    ))}
+                  </ol>
+                )
+              )}
+            </section>
+          )}
+          <p className="watchtower-inspector-owner-note">Owner 승인 필요</p>
+        </aside>
+      )}
       <footer className="watchtower-footnote">
         <EyeOff size={13} aria-hidden="true" />
         <span>구조/카탈로그 관계는 현재 상태 관측이나 공급자 성공의 증거가 아닙니다. 간선은 구조 방향만 나타내며 per-edge receipt를 주장하지 않습니다.</span>

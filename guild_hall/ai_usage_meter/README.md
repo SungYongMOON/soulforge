@@ -192,11 +192,15 @@ npm.cmd run guild-hall:ai-usage-meter -- lifecycle-snapshot `
 
 ## Workspace Board read-only projection
 
-The existing `team-ops-board` remains a read-only client. It fetches only
-`/ai-usage-meter.snapshot.json` and falls back to `UNMEASURED / UNKNOWN` when
-that local file is absent or invalid. The CLI produces a strict allowlisted
-aggregate: no session IDs, session paths, source references, prompt/reasoning
-content, tool arguments/output, or raw evidence records are copied into it.
+The existing `team-ops-board` remains a read-only client. Its diagnostics
+request is only `/ai-usage-meter.snapshot.json?read_only=1`; an optional
+`refresh=1` means re-read the existing local projection, not collect new data.
+It falls back to `UNMEASURED / UNKNOWN` when the local projection is absent or
+invalid. The projection is strict and allowlisted: no session IDs, session
+paths, source references, prompt/reasoning content, tool arguments/output, or
+raw evidence records are copied into it. A read-only load never invokes a
+collector, command, `--apply`, lifecycle reconciliation, writer, provider
+login, or network operation.
 
 ```powershell
 $meterState = Join-Path (Resolve-Path .).Path 'guild_hall\state\operations\ai_usage_meter'
@@ -220,11 +224,13 @@ not treat a receipt as a live task or result authority.
 
 `board-history-snapshot` is a separate local-only contract for a Board that
 already has an accepted set of exact Codex thread IDs. It does not change the
-current Board v1 default UI contract. Its schema is
-`soulforge.ai_usage_board_history_snapshot.v2` and its root fields are
-`schema_version`, `generated_at`, `timezone`, `reference_at`, `top_n`,
-`current`, `windows`, `activity`, and `rate_limit`. `current` is the same
-scoped Board v1 aggregate, preserving total, role, model/effort, fan-out,
+current Board v1 default UI contract. The current additive schema is
+`soulforge.ai_usage_board_history_snapshot.v3`; existing v2 input remains
+accepted as legacy history, but supplies no provider or Claude evidence. v3
+keeps the v2 root fields (`schema_version`, `generated_at`, `timezone`,
+`reference_at`, `top_n`, `current`, `windows`, `activity`, and `rate_limit`)
+and adds `provider_rows` plus `claude_collection`. `current` is the same scoped
+Board v1 aggregate, preserving total, role, model/effort, fan-out,
 retry/timeout, and coverage.
 
 `windows` contains deterministic `Asia/Seoul` calendar day/week/month,
@@ -243,8 +249,34 @@ reasoning, or tool fields.
 `rate_limit` is `null` or the latest event-carried provider rate-limit
 observation (`limit_id`, nullable `plan_type`, `used_percent`, nullable
 `window_minutes`/`resets_at_epoch_s`, `observed_at`) — observed values only,
-never a locally computed estimate. The static AJV mirror lives in
-`ai_usage_board_history_snapshot.v2.schema.json`.
+never a locally computed estimate. The v2 static AJV mirror remains available;
+the v3 mirror is `ai_usage_board_history_snapshot.v3.schema.json`.
+
+`provider_rows` are compact `{provider, turns, total_tokens, latest_usage_at}`
+rows. Provider attribution comes exclusively from the ledger event
+`source.kind`; a `model_id` prefix, display name, path, or inferred provider is
+not an attribution source. `claude_collection` is a strict redacted ephemeral
+envelope with one of `observed`, `available_empty`, `missing`, `partial`,
+`error`, or `unknown`, an attempt timestamp, an explicit
+`freshness_threshold_seconds`, a freshness result, and safe counts only. It
+proves only a Claude collector attempt/source observation. It never proves
+provider availability, health, live or E2E status, aggregate health, or ledger
+completeness. Aggregate `generated_at` is not Claude collection/value
+freshness. A valid v3 Claude provider row remains last-known ledger evidence
+even when the separate collection attempt is missing, partial, error, stale,
+or unknown. Ledger-value freshness is calculated independently from the row's
+`latest_usage_at` against `reference_at` and the explicit threshold: fresh rows
+render as `원장 근거`, while stale rows retain their last-known value/time with
+a prominent `STALE` label and never become current or green. A fresh collection
+attempt cannot refresh an old ledger row. v2 or a missing/invalid provider row
+remains `UNKNOWN`; only a fresh successful `available_empty` attempt with no
+provider row may display zero for its proven collection window.
+
+`collect-claude` treats collection state `error` as a command failure before
+any apply/persistence step. Automation receives a nonzero exit and, at most,
+the strict redacted collection envelope; raw issues, source references, and
+paths are not returned in the error payload. `missing` and `partial` remain
+distinct successful command results whose state still limits what they prove.
 
 `--include-provider <source.kind>` (repeatable, on `board-snapshot` and
 `board-history-snapshot`) unions ALL events of that non-Codex provider into
@@ -261,23 +293,24 @@ intentional to avoid inferring or double-counting coordination activity.
 ```powershell
 $acceptedThreadIds = @('<exact-thread-id-1>', '<exact-thread-id-2>')
 $meterState = Join-Path (Resolve-Path .).Path 'guild_hall\state\operations\ai_usage_meter'
-$boardCurrent = Join-Path (Resolve-Path .).Path 'ui-workspace\apps\team-ops-board\public\ai-usage-meter.snapshot.json'
-$boardHistory = Join-Path (Resolve-Path .).Path 'ui-workspace\apps\team-ops-board\public\ai-usage-meter.history.snapshot.json'
 $threadArgs = $acceptedThreadIds | ForEach-Object { @('--thread-id', $_) }
 
-npm.cmd run guild-hall:ai-usage-meter -- collect --apply --state-root $meterState @threadArgs
-npm.cmd run guild-hall:ai-usage-meter -- lifecycle-reconcile --apply --state-root $meterState --max-sessions 100 @threadArgs
-npm.cmd run guild-hall:ai-usage-meter -- board-snapshot --state-root $meterState --output $boardCurrent @threadArgs
-npm.cmd run guild-hall:ai-usage-meter -- board-history-snapshot --state-root $meterState --output $boardHistory --top-n 10 @threadArgs
+npm.cmd run guild-hall:ai-usage-meter -- usage-projection `
+  --read-only=1 `
+  --state-root $meterState `
+  --include-provider claude_session_jsonl `
+  @threadArgs
 ```
 
-The Board server must run that sequence automatically after a short debounce,
-with one in-flight refresh per state root and bounded exact IDs (maximum 100 in
-the Board adapter). It must return the previous valid sidecar without blocking
-the UI while refresh runs, use per-stage timeouts, and retain the last valid
-files with a safe stale/HOLD state on error. It must never widen a failed scoped
-refresh to an all-session scan or infer an ID from a title, path, prompt, or
-message.
+The Board diagnostics server directly performs the same bounded, exact-ID
+read-only load. It requires `read_only=1`, validates the existing meter
+ledger/history projection, and may re-read it for a refresh; it does not spawn
+the CLI above. It must never collect, apply, reconcile, write, scan all
+sessions, or infer an ID from a title, path, prompt, or message. A failed,
+unavailable, or untrustworthy projection remains `HOLD`/unknown rather than a
+zero-usage assertion. The separate safe Watchtower read-only refresh may run
+alongside this diagnostics read only path, without strengthening its structural
+topology evidence.
 
 ## Emergency local control
 

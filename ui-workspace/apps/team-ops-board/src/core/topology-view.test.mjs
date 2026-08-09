@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildTopologyStructuralPaths,
   buildTopologyViewModel,
   describeTopologyAge,
   describeTopologyReason,
@@ -73,9 +74,24 @@ test("view model lays out columns and keeps observed health separate from catalo
   assert.deepEqual(model.unmonitored.map((node) => node.id), ["src_hiworks", "gate_five_field"]);
   assert.equal(external.healthObserved, false);
   assert.equal(external.healthBasis, "catalog_only");
+  assert.equal(external.evidenceScope, "structural_catalog_only");
+  assert.deepEqual(external.doesNotProve, ["provider_availability", "provider_health", "live_execution", "end_to_end_execution", "edge_receipt"]);
   assert.equal(external.statusText, "미감시 · 관측 근거 없음");
   assert.equal(collectorA.healthBasis, "observed");
   assert.match(collectorA.statusText, /^열화 · 77초 전 · 상태 신호: degraded$/u);
+});
+
+test("selected-node paths remain structural and enumerate direct plus reachable relationships", () => {
+  const model = buildTopologyViewModel(sampleSnapshot());
+  const paths = buildTopologyStructuralPaths(model, "src_hiworks");
+  assert.deepEqual(paths.direct.map((edge) => edge.edge_id), ["topo-edge-0", "topo-edge-1"]);
+  assert.equal(paths.direct[0].evidence_scope, "structural_catalog_only");
+  assert.deepEqual(paths.direct[0].does_not_prove, ["provider_availability", "provider_health", "live_execution", "end_to_end_execution", "edge_receipt"]);
+  assert.deepEqual(paths.all.map((path) => path.node_ids), [
+    ["src_hiworks", "ingress_supervisor"],
+    ["src_hiworks", "voice_label_worker"]
+  ]);
+  assert.deepEqual(buildTopologyStructuralPaths(model, "missing"), { direct: [], all: [] });
 });
 
 test("port slots remain separated for dense fan-in and fan-out", () => {

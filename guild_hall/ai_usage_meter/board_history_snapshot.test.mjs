@@ -7,13 +7,16 @@ import Ajv2020 from "ajv/dist/2020.js";
 
 import {
   BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
+  BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA,
   createBoardUsageHistorySnapshot,
   loadBoardUsageHistorySnapshot,
+  loadReadOnlyBoardUsageProjection,
   validateBoardUsageHistorySnapshot,
+  validateReadOnlyBoardUsageProjection,
   writeBoardUsageHistorySnapshot,
 } from "./board_history_snapshot.mjs";
 import { runCli } from "./cli.mjs";
-import { persistUsageEvents } from "./usage_meter.mjs";
+import { loadPersistedUsageEvents, persistUsageEvents } from "./usage_meter.mjs";
 
 function event({
   id,
@@ -50,7 +53,14 @@ function totals(snapshot, name) {
   return snapshot.windows[name].totals;
 }
 
-function persistedUsageEvent({ eventId, threadId, turnId, startedAt, sourceKind = "codex_session_jsonl" }) {
+function persistedUsageEvent({
+  eventId,
+  threadId,
+  turnId,
+  startedAt,
+  sourceKind = "codex_session_jsonl",
+  model = "gpt-5.6-terra",
+}) {
   const tokenConfidence = sourceKind === "claude_session_jsonl"
     ? "exact_per_message"
     : sourceKind === "antigravity_conversation_db"
@@ -85,7 +95,7 @@ function persistedUsageEvent({ eventId, threadId, turnId, startedAt, sourceKind 
     root_turn_id: turnId,
     source: { kind: sourceKind, source_ref: "synthetic-ref", originator: null },
     actor: { node_id: "node-a", agent_id: "agent-a", agent_depth: 0, role: "executor" },
-    model: { id: "gpt-5.6-terra", reasoning_effort: "max", service_tier: "standard", context_window: null },
+    model: { id: model, reasoning_effort: "max", service_tier: "standard", context_window: null },
     usage: {
       input_tokens: 5,
       cached_input_tokens: 0,
@@ -182,7 +192,7 @@ test("Board usage history snapshots use Asia/Seoul calendar and rolling half-ope
   assert.equal(snapshot.activity.hourly[0].turns, 2);
   assert.equal(snapshot.activity.hourly[12].turns, 2);
 
-  assert.doesNotMatch(JSON.stringify(snapshot), /raw-session-must-not-appear|source_ref|thread_id|prompt|message|tool_payload/u);
+  assert.doesNotMatch(JSON.stringify(snapshot), /raw-session-must-not-appear|"(?:source_ref|thread_id|prompt|message|tool_payload)"\s*:/u);
 });
 
 test("Board usage history exposes the latest rate-limit snapshot with sanitized fields", () => {
@@ -303,14 +313,14 @@ test("Board usage history writer is atomic and only writes the validated sidecar
     assert.deepEqual(written, snapshot);
     const persisted = await readFile(output, "utf8");
     assert.equal(JSON.parse(persisted).schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA);
-    assert.doesNotMatch(persisted, /source_ref|thread_id|raw-session|prompt|message/u);
+    assert.doesNotMatch(persisted, /raw-session|"(?:source_ref|thread_id|prompt|message)"\s*:/u);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
 test("Board usage history static schema rejects extra fields while the runtime validator enforces reconciliation", async () => {
-  const schema = JSON.parse(await readFile(new URL("./ai_usage_board_history_snapshot.v2.schema.json", import.meta.url), "utf8"));
+  const schema = JSON.parse(await readFile(new URL("./ai_usage_board_history_snapshot.v3.schema.json", import.meta.url), "utf8"));
   const validate = new Ajv2020({ strict: false, validateFormats: false }).compile(schema);
   const snapshot = createBoardUsageHistorySnapshot([
     event({ id: "history-schema", thread: "task-schema", startedAt: "2026-08-03T00:00:00.000Z" }),
@@ -434,6 +444,188 @@ test("Board usage history include-provider unions provider events while default 
       }),
       (error) => error?.code === "board_snapshot_include_providers_invalid",
     );
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("Board history v3 attributes provider rows only from ledger source.kind", () => {
+  const referenceAt = "2026-08-03T02:00:00.000Z";
+  const snapshot = createBoardUsageHistorySnapshot([
+    persistedUsageEvent({
+      eventId: "provider-source-codex", threadId: "task-source-codex", turnId: "turn-source-codex",
+      startedAt: "2026-08-03T00:00:00.000Z", sourceKind: "codex_session_jsonl", model: "claude-prefix-must-not-count",
+    }),
+    persistedUsageEvent({
+      eventId: "provider-source-claude", threadId: "task-source-claude", turnId: "turn-source-claude",
+      startedAt: "2026-08-03T00:01:00.000Z", sourceKind: "claude_session_jsonl", model: "gpt-5.6-terra",
+    }),
+    persistedUsageEvent({
+      eventId: "provider-source-antigravity", threadId: "task-source-antigravity", turnId: "turn-source-antigravity",
+      startedAt: "2026-08-03T00:02:00.000Z", sourceKind: "antigravity_conversation_db", model: "claude-prefix-must-not-count",
+    }),
+    {
+      ...persistedUsageEvent({
+        eventId: "provider-source-unknown", threadId: "task-source-unknown", turnId: "turn-source-unknown",
+        startedAt: "2026-08-03T00:03:00.000Z", sourceKind: "codex_session_jsonl", model: "claude-prefix-must-not-count",
+      }),
+      source: { kind: "unrecognized_source_kind" },
+    },
+  ], {
+    generatedAt: referenceAt,
+    referenceAt,
+    claudeCollection: {
+      state: "observed",
+      attempted_at: "2026-08-03T01:59:00.000Z",
+      counts: {
+        session_file_count: 1,
+        parsed_session_count: 1,
+        observed_message_count: 1,
+        accepted_event_count: 1,
+        duplicate_message_count: 0,
+        issue_count: 0,
+      },
+    },
+  });
+  assert.deepEqual(snapshot.provider_rows, [
+    { provider: "codex", turns: 1, total_tokens: 10, latest_usage_at: "2026-08-03T00:00:00.000Z" },
+    { provider: "claude", turns: 1, total_tokens: 10, latest_usage_at: "2026-08-03T00:01:00.000Z" },
+    { provider: "antigravity", turns: 1, total_tokens: 10, latest_usage_at: "2026-08-03T00:02:00.000Z" },
+  ]);
+  assert.equal(snapshot.claude_collection.freshness, "fresh");
+
+  const futureProviderTimestamp = structuredClone(snapshot);
+  futureProviderTimestamp.provider_rows[1].latest_usage_at = "2026-08-03T02:00:01.000Z";
+  assert.throws(
+    () => validateBoardUsageHistorySnapshot(futureProviderTimestamp),
+    (error) => error?.code === "board_usage_history_provider_rows_invalid",
+  );
+  const privateSentinel = structuredClone(snapshot);
+  privateSentinel.claude_collection.counts.secret = 1;
+  assert.throws(
+    () => validateBoardUsageHistorySnapshot(privateSentinel),
+    (error) => error?.code === "board_usage_history_snapshot_invalid",
+  );
+});
+
+test("Board history v3 carries Claude collection state separately from aggregate generated_at", () => {
+  const eventForClaude = persistedUsageEvent({
+    eventId: "claude-freshness-event", threadId: "claude-freshness-session", turnId: "claude-freshness-turn",
+    startedAt: "2026-08-03T00:00:00.000Z", sourceKind: "claude_session_jsonl",
+  });
+  const stale = createBoardUsageHistorySnapshot([eventForClaude], {
+    generatedAt: "2026-08-03T02:00:00.000Z",
+    referenceAt: "2026-08-03T02:00:00.000Z",
+    claudeFreshnessThresholdSeconds: 60,
+    claudeCollection: {
+      state: "observed",
+      attempted_at: "2026-08-03T00:00:00.000Z",
+      counts: {
+        session_file_count: 1,
+        parsed_session_count: 1,
+        observed_message_count: 1,
+        accepted_event_count: 1,
+        duplicate_message_count: 0,
+        issue_count: 0,
+      },
+    },
+  });
+  assert.equal(stale.generated_at, "2026-08-03T02:00:00.000Z");
+  assert.equal(stale.claude_collection.freshness, "stale");
+  assert.equal(stale.claude_collection.freshness_threshold_seconds, 60);
+
+  const futureAttempt = createBoardUsageHistorySnapshot([eventForClaude], {
+    generatedAt: "2026-08-03T02:00:00.000Z",
+    referenceAt: "2026-08-03T02:00:00.000Z",
+    claudeCollection: {
+      state: "observed",
+      attempted_at: "2026-08-03T02:01:00.000Z",
+      counts: {
+        session_file_count: 1,
+        parsed_session_count: 1,
+        observed_message_count: 1,
+        accepted_event_count: 1,
+        duplicate_message_count: 0,
+        issue_count: 0,
+      },
+    },
+  });
+  assert.equal(futureAttempt.claude_collection.freshness, "unknown");
+  assert.equal(futureAttempt.claude_collection.state, "unknown");
+  assert.equal(futureAttempt.claude_collection.attempted_at, null);
+  assert.equal(futureAttempt.claude_collection.counts.accepted_event_count, 0);
+  assert.equal(futureAttempt.claude_collection.reason, "attempt_timestamp_untrusted");
+  const rejectedFutureAttempt = structuredClone(stale);
+  rejectedFutureAttempt.claude_collection.attempted_at = "2026-08-03T02:01:00.000Z";
+  rejectedFutureAttempt.claude_collection.freshness = "unknown";
+  assert.throws(
+    () => validateBoardUsageHistorySnapshot(rejectedFutureAttempt),
+    (error) => error?.code === "claude_collection_freshness_invalid",
+  );
+  assert.doesNotMatch(JSON.stringify(futureAttempt), /source_ref|raw-session|credential|secret/u);
+});
+
+test("Board history v2 remains accepted without v3 provider evidence", () => {
+  const v3 = createBoardUsageHistorySnapshot([
+    event({ id: "history-v2-compat", thread: "task-v2-compat", startedAt: "2026-08-03T00:00:00.000Z" }),
+  ], { generatedAt: "2026-08-03T01:00:00.000Z" });
+  const v2 = structuredClone(v3);
+  v2.schema_version = BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA;
+  delete v2.provider_rows;
+  delete v2.claude_collection;
+  const accepted = validateBoardUsageHistorySnapshot(v2);
+  assert.equal(accepted.schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA);
+  assert.equal("provider_rows" in accepted, false);
+  assert.equal("claude_collection" in accepted, false);
+});
+
+test("read-only Board usage projection only validates existing ledger data", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-board-usage-read-only-"));
+  try {
+    await persistUsageEvents(state, [
+      persistedUsageEvent({
+        eventId: "read-only-codex", threadId: "task-read-only", turnId: "turn-read-only",
+        startedAt: "2026-08-03T00:00:00.000Z",
+      }),
+      persistedUsageEvent({
+        eventId: "read-only-claude", threadId: "claude-read-only", turnId: "claude-read-only-turn",
+        startedAt: "2026-08-03T00:01:00.000Z", sourceKind: "claude_session_jsonl",
+      }),
+    ]);
+    const persistedBefore = JSON.stringify(await loadPersistedUsageEvents(state));
+    const direct = await loadReadOnlyBoardUsageProjection(state, {
+      threadIds: ["task-read-only"],
+      generatedAt: "2026-08-03T02:00:00.000Z",
+      referenceAt: "2026-08-03T02:00:00.000Z",
+    });
+    assert.equal(direct.read_only, 1);
+    assert.equal(direct.snapshot.schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA);
+    assert.deepEqual(direct.snapshot.provider_rows.find((row) => row.provider === "claude"), {
+      provider: "claude", turns: 1, total_tokens: 10, latest_usage_at: "2026-08-03T00:01:00.000Z",
+    });
+    assert.equal(direct.snapshot.claude_collection.state, "unknown");
+    assert.equal(direct.snapshot.claude_collection.attempted_at, null);
+    assert.deepEqual(validateReadOnlyBoardUsageProjection(direct), direct);
+
+    const cli = await runCli([
+      "usage-projection",
+      "--read-only=1",
+      "--state-root", state,
+      "--thread-id", "task-read-only",
+      "--include-provider", "claude_session_jsonl",
+      "--reference-at", "2026-08-03T02:00:00.000Z",
+    ]);
+    assert.equal(cli.read_only, 1);
+    assert.equal(cli.snapshot.claude_collection.state, "unknown");
+    await assert.rejects(
+      () => runCli(["usage-projection", "--read-only=1", "--state-root", state, "--thread-id", "task-read-only", "--apply"]),
+      (error) => error?.code === "usage_projection_option_invalid",
+    );
+    await assert.rejects(
+      () => runCli(["usage-projection", "--read-only=1", "--state-root", state, "--thread-id", "task-read-only", "--output", path.join(state, "forbidden.json")]),
+      (error) => error?.code === "usage_projection_option_invalid",
+    );
+    assert.equal(JSON.stringify(await loadPersistedUsageEvents(state)), persistedBefore);
   } finally {
     await rm(state, { recursive: true, force: true });
   }

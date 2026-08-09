@@ -1,11 +1,8 @@
-import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 
 import {
-  BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
-  validateBoardUsageHistorySnapshot
+  loadReadOnlyBoardUsageProjection,
+  validateReadOnlyBoardUsageProjection
 } from "../../../../../guild_hall/ai_usage_meter/board_history_snapshot.mjs";
 
 import {
@@ -14,30 +11,15 @@ import {
   readThreadEnrollmentRegistry
 } from "../core/live-thread-enrollment.mjs";
 import { AI_USAGE_PROJECTION_ENVELOPE_SCHEMA } from "../core/ai-usage-history-snapshot.mjs";
-import { defaultCodexSessionsRoot } from "./live-thread-lifecycle-reconcile.mjs";
 
 export const AI_USAGE_SNAPSHOT_PATH = "/ai-usage-meter.snapshot.json";
-export const DEFAULT_AI_USAGE_REFRESH_DEBOUNCE_MS = 15_000;
-export const DEFAULT_AI_USAGE_INITIAL_TIMEOUT_MS = 30_000;
+export const AI_USAGE_READ_ONLY_QUERY_KEY = "read_only";
+// The adapter carries its own explicit diagnostics evidence-age policy to the
+// Meter; it is never derived from the Board refresh/poll cadence.
+export const DEFAULT_CLAUDE_FRESHNESS_THRESHOLD_SECONDS = 15 * 60;
 
-const MODULE_ROOT = dirname(fileURLToPath(import.meta.url));
-const METER_CLI_PATH = resolve(MODULE_ROOT, "../../../../../guild_hall/ai_usage_meter/cli.mjs");
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 const MAX_EXACT_THREAD_IDS = 100;
-const MAX_DEBOUNCE_MS = 60_000;
-const MAX_TIMEOUT_MS = 30_000;
-
-function positiveInteger(value, fallback, maximum) {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) return fallback;
-  return Math.min(parsed, maximum);
-}
-
-function nonNegativeInteger(value, fallback, maximum) {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 0) return fallback;
-  return Math.min(parsed, maximum);
-}
 
 function safeNow(value) {
   const candidate = typeof value === "function" ? value() : value;
@@ -54,25 +36,6 @@ function exactThreadIds(threadIds) {
   return [...ids].sort((left, right) => left.localeCompare(right, "en"));
 }
 
-function scopeArguments(threadIds) {
-  return threadIds.flatMap((threadId) => ["--thread-id", threadId]);
-}
-
-function outputPath(args) {
-  const index = args.indexOf("--output");
-  return index >= 0 && typeof args[index + 1] === "string" ? args[index + 1] : null;
-}
-
-function withTimeout(promise, timeoutMs) {
-  let timer = null;
-  const timeout = new Promise((resolve) => {
-    timer = setTimeout(() => resolve({ status: "timeout" }), timeoutMs);
-  });
-  return Promise.race([promise, timeout]).finally(() => {
-    if (timer !== null) clearTimeout(timer);
-  });
-}
-
 function isLoopbackAddress(address) {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
@@ -85,135 +48,45 @@ function unavailableProjection(refreshState = "hold") {
   };
 }
 
-function snapshotProjection(snapshot, refreshState) {
-  return {
-    schema_version: AI_USAGE_PROJECTION_ENVELOPE_SCHEMA,
-    refresh_state: refreshState,
-    snapshot
-  };
+function claudeFreshnessThreshold(value) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 604_800) {
+    throw new Error("ai_usage_claude_freshness_threshold_invalid");
+  }
+  return value;
 }
 
-export function defaultAiUsageSnapshotPaths(stateRoot) {
-  const root = resolve(stateRoot);
-  return {
-    currentPath: join(root, "board", "current.snapshot.json"),
-    historyPath: join(root, "board", "history.snapshot.json")
-  };
-}
-
-// CLI output is deliberately discarded. Only the Meter's strict, local history
-// snapshot is read back and validated for the loopback endpoint.
-export function runMeterCliCommand({ args, timeoutMs, cwd, spawnImpl = spawn } = {}) {
-  return new Promise((resolvePromise, rejectPromise) => {
-    let settled = false;
-    let timer = null;
-    const finish = (callback, value) => {
-      if (settled) return;
-      settled = true;
-      if (timer !== null) clearTimeout(timer);
-      callback(value);
-    };
-    let child;
-    try {
-      child = spawnImpl(process.execPath, [METER_CLI_PATH, ...args], {
-        cwd,
-        windowsHide: true,
-        stdio: ["ignore", "ignore", "ignore"]
-      });
-    } catch {
-      rejectPromise(new Error("meter_command_spawn_failed"));
-      return;
-    }
-    child.once("error", () => finish(rejectPromise, new Error("meter_command_spawn_failed")));
-    child.once("exit", (code) => {
-      if (code === 0) finish(resolvePromise);
-      else finish(rejectPromise, new Error("meter_command_failed"));
-    });
-    timer = setTimeout(() => {
-      try { child.kill(); } catch {}
-      finish(rejectPromise, new Error("meter_command_timeout"));
-    }, timeoutMs);
-  });
-}
-
-export async function refreshExactScopedUsage({
+// The Board may only read the existing Meter ledger projection. The returned
+// value is the Meter's redacted read-only envelope, not a Board-authored copy.
+export async function readExactScopedUsageProjection({
   stateRoot,
-  sessionsRoot,
   threadIds,
-  currentPath = defaultAiUsageSnapshotPaths(stateRoot).currentPath,
-  historyPath = defaultAiUsageSnapshotPaths(stateRoot).historyPath,
-  commandTimeoutMs = DEFAULT_AI_USAGE_INITIAL_TIMEOUT_MS,
-  cwd = process.cwd(),
-  runCommand = runMeterCliCommand
+  now = Date.now,
+  claudeFreshnessThresholdSeconds = DEFAULT_CLAUDE_FRESHNESS_THRESHOLD_SECONDS,
+  loadProjection = loadReadOnlyBoardUsageProjection
 } = {}) {
   const exactIds = exactThreadIds(threadIds);
-  if (!stateRoot || !sessionsRoot || !exactIds.length || exactIds.length > MAX_EXACT_THREAD_IDS) {
+  if (!stateRoot || !exactIds.length || exactIds.length > MAX_EXACT_THREAD_IDS) {
     throw new Error("ai_usage_exact_scope_invalid");
   }
-  const scope = scopeArguments(exactIds);
-  const common = { timeoutMs: commandTimeoutMs, cwd };
-  await runCommand({
-    ...common,
-    args: ["collect", "--apply", "--state-root", resolve(stateRoot), "--sessions-root", resolve(sessionsRoot), ...scope]
+  const referenceAt = new Date(safeNow(now)).toISOString();
+  const thresholdSeconds = claudeFreshnessThreshold(claudeFreshnessThresholdSeconds);
+  const projection = await loadProjection(resolve(stateRoot), {
+    threadIds: exactIds,
+    generatedAt: referenceAt,
+    referenceAt,
+    claudeFreshnessThresholdSeconds: thresholdSeconds
   });
-  // 보조 수집기(claude·antigravity)는 best-effort — 원장에 이미 쌓인 데이터로 스냅샷은
-  // 항상 만들 수 있으므로, 수집 실패(예: AG 앱이 DB를 잡아 30초 타임아웃)가 체인을 죽이지 않는다.
-  await runCommand({
-    ...common,
-    args: ["collect-claude", "--apply", "--state-root", resolve(stateRoot), "--max-age-days", "10"]
-  }).catch(() => {});
-  await runCommand({
-    ...common,
-    args: ["collect-antigravity", "--apply", "--state-root", resolve(stateRoot)]
-  }).catch(() => {});
-  await runCommand({
-    ...common,
-    args: ["lifecycle-reconcile", "--apply", "--state-root", resolve(stateRoot), "--sessions-root", resolve(sessionsRoot), "--max-sessions", String(MAX_EXACT_THREAD_IDS), ...scope]
-  });
-  await runCommand({
-    ...common,
-    args: ["board-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(currentPath), "--include-provider", "claude_session_jsonl", "--include-provider", "antigravity_conversation_db", ...scope]
-  });
-  await runCommand({
-    ...common,
-    args: ["board-history-snapshot", "--state-root", resolve(stateRoot), "--output", resolve(historyPath), "--top-n", "50", "--include-provider", "claude_session_jsonl", "--include-provider", "antigravity_conversation_db", ...scope]
-  });
-  const snapshot = validateBoardUsageHistorySnapshot(JSON.parse(await readFile(historyPath, "utf8")));
-  if (snapshot.schema_version !== BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA) throw new Error("ai_usage_history_schema_invalid");
-  return snapshot;
+  return validateReadOnlyBoardUsageProjection(projection);
 }
 
 export function createAiUsageAdapter({
   registryPath = process.env.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY || defaultThreadEnrollmentRegistryPath(),
   env = process.env,
   usageMeterStateRoot = process.env.SOULFORGE_AI_USAGE_METER_STATE_ROOT || resolve(dirname(registryPath), "..", "ai_usage_meter"),
-  usageSessionsRoot = defaultCodexSessionsRoot({ env }),
-  autoRefresh = !["0", "false", "no", "off"].includes(String(env?.TEAM_OPS_BOARD_AUTO_USAGE_REFRESH ?? "").trim().toLowerCase()),
-  refreshUsage = refreshExactScopedUsage,
+  readUsageProjection = readExactScopedUsageProjection,
   now = Date.now,
-  cwd = process.cwd(),
-  limits: limitOverrides = {}
+  claudeFreshnessThresholdSeconds = DEFAULT_CLAUDE_FRESHNESS_THRESHOLD_SECONDS
 } = {}) {
-  const debounceMs = nonNegativeInteger(
-    limitOverrides.debounceMs,
-    DEFAULT_AI_USAGE_REFRESH_DEBOUNCE_MS,
-    MAX_DEBOUNCE_MS
-  );
-  const initialTimeoutMs = positiveInteger(
-    limitOverrides.initialTimeoutMs,
-    DEFAULT_AI_USAGE_INITIAL_TIMEOUT_MS,
-    MAX_TIMEOUT_MS
-  );
-  const commandTimeoutMs = positiveInteger(
-    limitOverrides.commandTimeoutMs,
-    DEFAULT_AI_USAGE_INITIAL_TIMEOUT_MS,
-    MAX_TIMEOUT_MS
-  );
-  let inFlight = null;
-  let lastAttemptAt = null;
-  let lastGood = null;
-  let lastFailure = false;
-
   async function enrolledScope() {
     const enrollment = await readThreadEnrollmentRegistry(registryPath);
     if (!enrollment.registry || enrollment.status !== "available" || isLiveThreadEnrollmentDisabled({ registry: enrollment.registry, env })) {
@@ -225,51 +98,20 @@ export function createAiUsageAdapter({
     return ids.length > 0 && ids.length <= MAX_EXACT_THREAD_IDS ? ids : null;
   }
 
-  function begin(scope) {
-    if (inFlight !== null) return inFlight;
-    lastAttemptAt = safeNow(now);
-    const scopeKey = scope.join("\u0000");
-    let operation;
-    operation = Promise.resolve().then(() => refreshUsage({
-      stateRoot: usageMeterStateRoot,
-      sessionsRoot: usageSessionsRoot,
-      threadIds: scope,
-      commandTimeoutMs,
-      cwd
-    })).then((snapshot) => {
-      const accepted = validateBoardUsageHistorySnapshot(snapshot);
-      lastGood = { scopeKey, snapshot: accepted };
-      lastFailure = false;
-      return { status: "ready", scopeKey };
-    }, () => {
-      lastFailure = true;
-      return { status: "hold", scopeKey };
-    }).finally(() => {
-      if (inFlight === operation) inFlight = null;
-    });
-    inFlight = operation;
-    return operation;
-  }
-
   return {
-    async readProjection({ force = false } = {}) {
+    async readProjection() {
       const scope = await enrolledScope().catch(() => null);
-      if (!autoRefresh || scope === null) return unavailableProjection("hold");
-      const scopeKey = scope.join("\u0000");
-      const hasCurrentLastGood = lastGood?.scopeKey === scopeKey;
-      const observedNow = safeNow(now);
-      const due = force || lastAttemptAt === null || observedNow - lastAttemptAt >= debounceMs || !hasCurrentLastGood;
-      if (due) begin(scope);
-
-      if (hasCurrentLastGood) {
-        return snapshotProjection(lastGood.snapshot, inFlight === null ? (lastFailure ? "hold" : "ready") : "refreshing");
+      if (scope === null) return unavailableProjection("hold");
+      try {
+        return validateReadOnlyBoardUsageProjection(await readUsageProjection({
+          stateRoot: usageMeterStateRoot,
+          threadIds: scope,
+          now,
+          claudeFreshnessThresholdSeconds
+        }));
+      } catch {
+        return unavailableProjection("hold");
       }
-      if (inFlight === null) return unavailableProjection("hold");
-      const initial = await withTimeout(inFlight, initialTimeoutMs);
-      if (initial?.status === "ready" && lastGood?.scopeKey === scopeKey) {
-        return snapshotProjection(lastGood.snapshot, "ready");
-      }
-      return unavailableProjection("hold");
     }
   };
 }
@@ -301,7 +143,12 @@ export function createAiUsageAdapterPlugin(options = {}) {
         response.end();
         return;
       }
-      void adapter.readProjection({ force: url.searchParams.get("refresh") === "1" }).then((projection) => {
+      if (url.searchParams.get(AI_USAGE_READ_ONLY_QUERY_KEY) !== "1") {
+        response.statusCode = 400;
+        response.end();
+        return;
+      }
+      void adapter.readProjection().then((projection) => {
         response.statusCode = 200;
         response.setHeader("Content-Type", "application/json; charset=utf-8");
         response.setHeader("Cache-Control", "no-store");
@@ -322,5 +169,3 @@ export function createAiUsageAdapterPlugin(options = {}) {
     configurePreviewServer: configure
   };
 }
-
-export { outputPath };

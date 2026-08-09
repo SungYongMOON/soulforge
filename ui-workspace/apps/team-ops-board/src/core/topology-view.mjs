@@ -57,6 +57,14 @@ const REASON_LABELS = Object.freeze({
   structural_only: "구조 관계만 표시",
 });
 
+const STRUCTURAL_DOES_NOT_PROVE = Object.freeze([
+  "provider_availability",
+  "provider_health",
+  "live_execution",
+  "end_to_end_execution",
+  "edge_receipt"
+]);
+
 export function describeTopologyReason(reason) {
   if (typeof reason !== "string") return "알 수 없는 사유";
   if (REASON_LABELS[reason] !== undefined) return REASON_LABELS[reason];
@@ -99,6 +107,64 @@ function unavailableTopologyViewModel() {
     unmonitored: [],
     observedAt: null,
   };
+}
+
+// These are relationship paths from the published topology graph, never
+// execution traces. Each reachable node gets one shortest structural path so
+// a cyclic catalog cannot turn the inspector into an unbounded traversal.
+export function buildTopologyStructuralPaths(model, selectedNodeId) {
+  if (!model?.available || typeof selectedNodeId !== "string") return { direct: [], all: [] };
+  const nodes = (Array.isArray(model.nodes) ? model.nodes : []).filter((node) => node?.kind !== "lane");
+  if (!nodes.some((node) => node.id === selectedNodeId)) return { direct: [], all: [] };
+  const edges = Array.isArray(model.edges) ? model.edges : [];
+  const direct = edges.filter((edge) => edge.source === selectedNodeId || edge.target === selectedNodeId)
+    .map((edge) => ({
+      edge_id: edge.id,
+      from: edge.source,
+      to: edge.target,
+      flow: edge.flow,
+      label: edge.label,
+      evidence_scope: "structural_catalog_only",
+      proves: ["structural_catalog_relationship_only"],
+      does_not_prove: STRUCTURAL_DOES_NOT_PROVE
+    }));
+  const neighbors = new Map(nodes.map((node) => [node.id, []]));
+  for (const edge of edges) {
+    if (!neighbors.has(edge.source) || !neighbors.has(edge.target)) continue;
+    neighbors.get(edge.source).push({ edge, node_id: edge.target, direction: "outbound" });
+    neighbors.get(edge.target).push({ edge, node_id: edge.source, direction: "inbound" });
+  }
+  for (const links of neighbors.values()) {
+    links.sort((left, right) => left.node_id.localeCompare(right.node_id, "en") || left.edge.id.localeCompare(right.edge.id, "en"));
+  }
+  const visited = new Set([selectedNodeId]);
+  const queue = [{ node_ids: [selectedNodeId], edges: [] }];
+  const all = [];
+  while (queue.length > 0) {
+    const path = queue.shift();
+    const currentId = path.node_ids.at(-1);
+    for (const link of neighbors.get(currentId) ?? []) {
+      if (visited.has(link.node_id)) continue;
+      visited.add(link.node_id);
+      const next = {
+        node_ids: [...path.node_ids, link.node_id],
+        edges: [...path.edges, {
+          edge_id: link.edge.id,
+          from: link.edge.source,
+          to: link.edge.target,
+          flow: link.edge.flow,
+          direction: link.direction,
+          label: link.edge.label
+        }],
+        evidence_scope: "structural_catalog_only",
+        proves: ["structural_catalog_relationship_only"],
+        does_not_prove: STRUCTURAL_DOES_NOT_PROVE
+      };
+      all.push(next);
+      queue.push(next);
+    }
+  }
+  return { direct, all };
 }
 
 export function buildTopologyViewModel(snapshot) {
@@ -162,6 +228,12 @@ export function buildTopologyViewModel(snapshot) {
       reasons: textReasons,
       healthObserved,
       healthBasis: healthObserved ? "observed" : "catalog_only",
+      evidenceScope: healthObserved ? "watchtower_node_health_observation" : "structural_catalog_only",
+      evidenceAt: healthObserved && typeof snapshot.observed_at === "string" ? snapshot.observed_at : null,
+      proves: healthObserved
+        ? ["reported_node_health_observation_at_evidence_time"]
+        : ["structural_catalog_relationship_only"],
+      doesNotProve: STRUCTURAL_DOES_NOT_PROVE,
       statusText: healthObserved
         ? `${stateLabel} · ${ageLabel}${textReasons.length > 0 ? ` · ${textReasons.join(" · ")}` : ""}`
         : `미감시 · ${textReasons.join(" · ")}`,
@@ -208,6 +280,9 @@ export function buildTopologyViewModel(snapshot) {
         flow: edge.flow,
         relationKind: "catalog_only",
         healthObserved: false,
+        evidenceScope: "structural_catalog_only",
+        proves: ["structural_catalog_relationship_only"],
+        doesNotProve: STRUCTURAL_DOES_NOT_PROVE,
       };
     });
   const inboundByNode = new Map(nodes.map((node) => [node.id, []]));

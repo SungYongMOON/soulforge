@@ -333,17 +333,19 @@ controls, exact-ID usage-history controls, and narrow-safe layout boundaries.
 ## AI Usage Meter stays separate
 
 The Board exposes a credential-free same-origin loopback endpoint at
-`/ai-usage-meter.snapshot.json`. On a refresh it resolves the current/accepted
-enrollment registry once, caps the exact safe IDs at 100, and passes that same
-set to the Meter's bounded `collect`, lifecycle reconciliation, current
-snapshot, and KST history-snapshot stages. It never scans a global Meter
-snapshot or derives an ID from a title, path, or transcript.
+`/ai-usage-meter.snapshot.json?read_only=1`. `read_only=1` is mandatory. A
+diagnostics refresh may add `refresh=1`, which only re-reads the local meter
+projection. The adapter resolves the current/accepted enrollment registry once,
+caps the exact safe IDs at 100, and validates only the existing bounded ledger
+projection. It does not spawn a CLI, invoke a collector, command, `--apply`,
+lifecycle reconciliation, writer, provider login, or network operation. It
+never scans a global Meter snapshot or derives an ID from a title, path, or
+transcript.
 
 The endpoint returns only a validated metadata-only aggregate envelope. A
-normal poll is debounced for 15 seconds; the first request waits at most 30
-seconds, while later requests keep the last valid exact-scope snapshot visible
-as `REFRESHING` or `HOLD`. A failed or unavailable exact scope stays
-`UNMEASURED / HOLD`, never a zero-usage assertion.
+failed, missing, invalid, or untrustworthy exact scope is `UNMEASURED / HOLD`,
+never a zero-usage assertion. The selected-node diagnostics refresh uses only
+this path plus the existing safe Watchtower read-only refresh.
 
 The Work surface alone shows the resulting KST day/week/month/all-time
 controls plus project/work/task rankings. It also renders compact horizontal
@@ -360,3 +362,28 @@ prompts, or tool data.
 This Board projection is validated-private local tooling. It is not a route
 resolver, Codex runtime authority, task-status authority, deployment, or
 production control surface.
+
+### Claude ledger evidence and selected-node diagnostics
+
+The Board accepts legacy history v2, but renders its Claude provider evidence
+as `UNKNOWN`. A validated v3 Claude `provider_rows` entry derived only from
+ledger `source.kind` remains visible as last-known ledger evidence regardless
+of the separate collection-attempt state. Its freshness is calculated from
+`latest_usage_at` against `reference_at` and the explicit adapter threshold:
+fresh values say `원장 근거`; stale values retain the last-known value/time but
+show prominent `STALE` and are never green/current. The collection attempt has
+its own state, reason, time, and freshness line and cannot upgrade or erase a
+valid ledger fact. v2 or no valid row stays `UNKNOWN`; zero appears only for a
+fresh successful `available_empty` collection window with no provider row.
+Aggregate generation time and official Claude quota never substitute for
+ledger freshness, token evidence, health, live, or E2E state.
+
+Selecting a topology node opens an inspector that preserves the selected node
+across a safe refresh when it still exists, switches on another node, and closes
+through explicit unselect, pane click, or Escape. It supplies state/reason,
+evidence scope/time, what the evidence proves and does not prove, and direct or
+all structural paths. Structural edges and paths are catalog relationships only:
+they never prove a live service, E2E path, receipt, provider health, or result.
+The only actions are read-only refresh, evidence view, and direct/all path
+views. Mutation guidance is exactly `Owner 승인 필요`; there is no execution
+action. The inspector supports keyboard focus and the mobile layout.

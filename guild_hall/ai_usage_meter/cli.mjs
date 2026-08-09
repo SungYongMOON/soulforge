@@ -27,6 +27,7 @@ import {
   DEFAULT_CLAUDE_MAX_AGE_DAYS,
   collectClaudeUsageEvents,
   defaultClaudeProjectsRoot,
+  validateClaudeCollectionEnvelope,
 } from "./claude_collector.mjs";
 import {
   collectAntigravityUsageEvents,
@@ -60,6 +61,7 @@ import {
 } from "./board_snapshot.mjs";
 import {
   loadBoardUsageHistorySnapshot,
+  loadReadOnlyBoardUsageProjection,
   writeBoardUsageHistorySnapshot,
 } from "./board_history_snapshot.mjs";
 import {
@@ -89,15 +91,41 @@ function fail(code) {
   throw error;
 }
 
+function failWithClaudeCollection(code, collection) {
+  const safeCollection = validateClaudeCollectionEnvelope(collection, {
+    referenceAt: collection?.attempted_at,
+  });
+  if (safeCollection.state !== "error") fail("claude_collection_error_contract_invalid");
+  const error = new Error(code);
+  error.code = code;
+  error.collection = safeCollection;
+  throw error;
+}
+
+function redactedClaudeCollectionFromError(error) {
+  try {
+    const collection = validateClaudeCollectionEnvelope(error?.collection, {
+      referenceAt: error?.collection?.attempted_at,
+    });
+    return collection.state === "error" ? collection : null;
+  } catch {
+    return null;
+  }
+}
+
 function parseArgs(argv) {
   const [command = "help", ...rest] = argv;
   const options = new Map();
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index];
     if (!token.startsWith("--")) fail(`argument_unexpected:${token}`);
-    const name = token.slice(2);
+    const equalsAt = token.indexOf("=");
+    const name = equalsAt > 2 ? token.slice(2, equalsAt) : token.slice(2);
     const next = rest[index + 1];
-    const value = next && !next.startsWith("--") ? (index += 1, next) : true;
+    const value = equalsAt > 2
+      ? token.slice(equalsAt + 1)
+      : next && !next.startsWith("--") ? (index += 1, next) : true;
+    if (name === "") fail(`argument_unexpected:${token}`);
     const existing = options.get(name);
     if (existing === undefined) options.set(name, value);
     else if (Array.isArray(existing)) existing.push(value);
@@ -466,6 +494,9 @@ async function collectClaudeCommand(options) {
     maxAgeDays,
     config,
   });
+  if (collected.collection.state === "error") {
+    failWithClaudeCollection("claude_collection_error", collected.collection);
+  }
   const events = filterEvents(collected.events, options);
   let persistence = null;
   if (flag(options, "apply")) {
@@ -485,6 +516,7 @@ async function collectClaudeCommand(options) {
     event_count: events.length,
     summary: summarizeUsageEvents(events),
     persistence,
+    collection: collected.collection,
   };
 }
 
@@ -607,6 +639,50 @@ async function boardHistorySnapshotCommand(options) {
   });
   await writeBoardUsageHistorySnapshot(path.resolve(String(output)), snapshot);
   return snapshot;
+}
+
+const READ_ONLY_USAGE_PROJECTION_OPTIONS = new Set([
+  "read-only",
+  "state-root",
+  "thread-id",
+  "include-provider",
+  "reference-at",
+  "top-n",
+  "freshness-threshold-seconds",
+]);
+
+function readOnlyUsageProjectionOptions(options) {
+  for (const name of options.keys()) {
+    if (!READ_ONLY_USAGE_PROJECTION_OPTIONS.has(name)) fail("usage_projection_option_invalid");
+  }
+  const readOnly = values(options, "read-only");
+  if (readOnly.length !== 1 || readOnly[0] !== "1") fail("usage_projection_read_only_required");
+  const stateRoot = value(options, "state-root", null);
+  if (typeof stateRoot !== "string" || stateRoot === "") fail("state_root_required");
+  return {
+    stateRoot: path.resolve(stateRoot),
+    threadIds: values(options, "thread-id").map(String),
+    includeProviders: values(options, "include-provider").map(String),
+    referenceAt: value(options, "reference-at", null),
+    topN: value(options, "top-n", null),
+    claudeFreshnessThresholdSeconds: value(options, "freshness-threshold-seconds", null),
+  };
+}
+
+// This command is deliberately a thin, side-effect-free wrapper around the
+// direct read-only loader. It accepts no writer, collector, apply, or command
+// execution options; Board diagnostics should use the direct loader instead.
+async function usageProjectionCommand(options) {
+  const request = readOnlyUsageProjectionOptions(options);
+  return loadReadOnlyBoardUsageProjection(request.stateRoot, {
+    threadIds: request.threadIds,
+    includeProviders: request.includeProviders.length ? request.includeProviders : undefined,
+    referenceAt: request.referenceAt === null ? undefined : String(request.referenceAt),
+    topN: request.topN === null ? undefined : Number(request.topN),
+    claudeFreshnessThresholdSeconds: request.claudeFreshnessThresholdSeconds === null
+      ? undefined
+      : Number(request.claudeFreshnessThresholdSeconds),
+  });
 }
 
 async function lifecycleSnapshotCommand(options) {
@@ -898,6 +974,7 @@ function help() {
       csv: "Write a filtered CSV grouped by organization, team, project, work, model, agent, node, role, or reasoning_effort.",
       "board-snapshot": "Write a redacted local snapshot for the existing read-only Workspace Board.",
       "board-history-snapshot": "Write an exact-thread-scoped usage-history sidecar for the read-only Workspace Board.",
+      "usage-projection": "Read and validate the existing exact-thread usage projection only; requires --read-only=1 and never collects or writes.",
       "lifecycle-snapshot": "Emit a local lifecycle aggregate; add --include-identities only for an ignored local exact-ID projection.",
       "lifecycle-reconcile": "Read bounded Codex JSONL metadata and optionally persist the JSONL lifecycle fallback plus compatible Board projection.",
       disable: "Disable local lifecycle collection for one state root until enable is called.",
@@ -925,6 +1002,7 @@ function help() {
       "collect-antigravity: [--cli-root <Antigravity CLI directory>] [--max-age-days N] [--state-root <path>] [--apply]",
       "board-snapshot: --state-root <local state directory> --output <local JSON path> [--thread-id <exact ID> (repeatable)] [--include-provider claude_session_jsonl|antigravity_conversation_db (repeatable)]",
       "board-history-snapshot: --state-root <local state directory> --thread-id <exact ID> (repeatable) --output <local JSON path> [--top-n 1-50] [--reference-at <ISO timestamp>] [--include-provider <source kind> (repeatable)]",
+      "usage-projection: --read-only=1 --state-root <local state directory> --thread-id <exact ID> (repeatable) [--top-n 1-50] [--reference-at <ISO timestamp>] [--include-provider <source kind> (repeatable)] [--freshness-threshold-seconds 1-604800]",
       "lifecycle-snapshot: --state-root <local state directory> [--output <local JSON path>] [--include-identities]",
       "lifecycle-reconcile: [--thread-id <exact ID> (repeatable)] [--max-sessions <1-10000>] [--after-thread-id <exact ID>] [--sessions-root <Codex sessions>] [--state-root <local state>] [--apply]",
       "disable / enable: [--state-root <local state directory>] (defaults to the safe git common-checkout state root)",
@@ -943,6 +1021,7 @@ export async function runCli(argv = process.argv.slice(2)) {
   if (command === "csv") return csvCommand(options);
   if (command === "board-snapshot") return boardSnapshotCommand(options);
   if (command === "board-history-snapshot") return boardHistorySnapshotCommand(options);
+  if (command === "usage-projection") return usageProjectionCommand(options);
   if (command === "lifecycle-snapshot") return lifecycleSnapshotCommand(options);
   if (command === "lifecycle-reconcile") return lifecycleReconcileCommand(options);
   if (command === "disable") return emergencyControlCommand(options, true);
@@ -960,10 +1039,12 @@ if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
     const result = await runCli();
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } catch (error) {
+    const collection = redactedClaudeCollectionFromError(error);
     process.stderr.write(`${JSON.stringify({
       ok: false,
       error: error?.code || error?.message || "ai_usage_meter_failed",
       error_digest: sha256(String(error?.stack || error?.message || error)),
+      ...(collection === null ? {} : { collection }),
     })}\n`);
     process.exitCode = 1;
   }

@@ -18,10 +18,53 @@ import {
 export const CLAUDE_USAGE_SOURCE_KIND = "claude_session_jsonl";
 export const DEFAULT_CLAUDE_MAX_AGE_DAYS = 45;
 export const CLAUDE_PROJECT_BINDING_FILE = path.join("bindings", "claude_project_binding.json");
+// This is an ephemeral, redacted observation envelope. It is intentionally not
+// a provider-health, live, E2E, aggregate-health, or completeness assertion.
+export const CLAUDE_COLLECTION_ENVELOPE_SCHEMA = "soulforge.ai_usage_claude_collection_projection.v1";
+export const CLAUDE_COLLECTION_STATES = Object.freeze([
+  "observed",
+  "available_empty",
+  "missing",
+  "partial",
+  "error",
+  "unknown",
+]);
+export const CLAUDE_COLLECTION_FRESHNESS_STATES = Object.freeze(["fresh", "stale", "unknown"]);
+export const CLAUDE_COLLECTION_EVIDENCE_SCOPE = "collector_attempt_source_observation_only";
+export const CLAUDE_COLLECTION_CLAIM_SCOPE = "does_not_prove_provider_availability_health_live_e2e_or_aggregate_health_or_completeness";
+export const DEFAULT_CLAUDE_COLLECTION_FRESHNESS_THRESHOLD_SECONDS = 15 * 60;
+export const MAX_CLAUDE_COLLECTION_FRESHNESS_THRESHOLD_SECONDS = 7 * 24 * 60 * 60;
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 const PROJECT_SLUG = /^[a-z0-9][a-z0-9_-]{0,119}$/u;
 const DAY_MS = 24 * 60 * 60 * 1_000;
+const CLAUDE_COLLECTION_COUNT_KEYS = Object.freeze([
+  "session_file_count",
+  "parsed_session_count",
+  "observed_message_count",
+  "accepted_event_count",
+  "duplicate_message_count",
+  "issue_count",
+]);
+const CLAUDE_COLLECTION_ENVELOPE_KEYS = new Set([
+  "schema_version",
+  "state",
+  "reason",
+  "attempted_at",
+  "freshness_threshold_seconds",
+  "freshness",
+  "counts",
+  "evidence_scope",
+  "claim_scope",
+]);
+const CLAUDE_COLLECTION_REASON_BY_STATE = Object.freeze({
+  observed: new Set(["source_observed"]),
+  available_empty: new Set(["source_accessible_empty"]),
+  missing: new Set(["projects_root_missing"]),
+  partial: new Set(["source_partial"]),
+  error: new Set(["collector_error"]),
+  unknown: new Set(["attempt_unavailable", "attempt_timestamp_untrusted"]),
+});
 
 function fail(code) {
   const error = new Error(code);
@@ -43,6 +86,159 @@ function nonnegativeInt(value) {
 function isoOrNull(value) {
   if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) return null;
   return new Date(value).toISOString();
+}
+
+function isoFromEpochOrNull(value) {
+  return Number.isFinite(value) ? new Date(value).toISOString() : null;
+}
+
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(value, keys) {
+  return isRecord(value)
+    && Object.keys(value).sort((left, right) => left.localeCompare(right, "en"))
+      .join("\u0000") === [...keys].sort((left, right) => left.localeCompare(right, "en")).join("\u0000");
+}
+
+function strictNonnegativeInt(value) {
+  return Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function normalizeFreshnessThresholdSeconds(value) {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > MAX_CLAUDE_COLLECTION_FRESHNESS_THRESHOLD_SECONDS) {
+    fail("claude_collection_freshness_threshold_invalid");
+  }
+  return parsed;
+}
+
+function emptyClaudeCollectionCounts() {
+  return Object.fromEntries(CLAUDE_COLLECTION_COUNT_KEYS.map((key) => [key, 0]));
+}
+
+function parseClaudeCollectionCounts(value, code) {
+  if (!hasExactKeys(value, CLAUDE_COLLECTION_COUNT_KEYS)) fail(code);
+  const counts = Object.fromEntries(CLAUDE_COLLECTION_COUNT_KEYS.map((key) => {
+    const parsed = strictNonnegativeInt(value[key]);
+    if (parsed === null) fail(code);
+    return [key, parsed];
+  }));
+  if (counts.parsed_session_count > counts.session_file_count
+    || counts.accepted_event_count > counts.observed_message_count) {
+    fail(code);
+  }
+  return counts;
+}
+
+function claudeCollectionFreshness(attemptedAt, referenceAt, thresholdSeconds) {
+  if (attemptedAt === null || referenceAt === null) return "unknown";
+  const ageMs = Date.parse(referenceAt) - Date.parse(attemptedAt);
+  if (!Number.isFinite(ageMs) || ageMs < 0) return "unknown";
+  return ageMs > thresholdSeconds * 1_000 ? "stale" : "fresh";
+}
+
+function defaultClaudeCollectionReason(state, attemptedAt) {
+  if (state === "unknown" && attemptedAt !== null) return "attempt_timestamp_untrusted";
+  return [...CLAUDE_COLLECTION_REASON_BY_STATE[state]][0];
+}
+
+function collectionStateMatchesCounts(state, counts) {
+  if (state === "unknown" || state === "missing") {
+    return CLAUDE_COLLECTION_COUNT_KEYS.every((key) => counts[key] === 0);
+  }
+  if (state === "observed") {
+    return counts.accepted_event_count > 0 && counts.issue_count === 0;
+  }
+  if (state === "available_empty") {
+    return counts.accepted_event_count === 0 && counts.issue_count === 0;
+  }
+  if (state === "partial") {
+    return counts.issue_count > 0 && (counts.parsed_session_count > 0 || counts.accepted_event_count > 0);
+  }
+  return state === "error"
+    && counts.issue_count > 0
+    && counts.parsed_session_count === 0
+    && counts.accepted_event_count === 0;
+}
+
+// The envelope may cross a local Board boundary, so it has no root path,
+// source reference, raw issue payload, or provider status claim. Its freshness
+// is derived only from an explicit collector-attempt timestamp and threshold.
+export function validateClaudeCollectionEnvelope(value, { referenceAt = null } = {}) {
+  if (!hasExactKeys(value, CLAUDE_COLLECTION_ENVELOPE_KEYS)
+    || value.schema_version !== CLAUDE_COLLECTION_ENVELOPE_SCHEMA
+    || !CLAUDE_COLLECTION_STATES.includes(value.state)
+    || !CLAUDE_COLLECTION_FRESHNESS_STATES.includes(value.freshness)
+    || value.evidence_scope !== CLAUDE_COLLECTION_EVIDENCE_SCOPE
+    || value.claim_scope !== CLAUDE_COLLECTION_CLAIM_SCOPE
+    || !CLAUDE_COLLECTION_REASON_BY_STATE[value.state].has(value.reason)) {
+    fail("claude_collection_envelope_invalid");
+  }
+  const thresholdSeconds = normalizeFreshnessThresholdSeconds(value.freshness_threshold_seconds);
+  const attemptedAt = value.attempted_at === null ? null : isoOrNull(value.attempted_at);
+  if (value.attempted_at !== null && attemptedAt === null) fail("claude_collection_envelope_invalid");
+  const counts = parseClaudeCollectionCounts(value.counts, "claude_collection_envelope_invalid");
+  if (!collectionStateMatchesCounts(value.state, counts)
+    || (value.state === "unknown" && (attemptedAt !== null || value.freshness !== "unknown"))
+    || (value.state !== "unknown" && attemptedAt === null)) {
+    fail("claude_collection_envelope_invalid");
+  }
+  const normalizedReferenceAt = referenceAt === null ? null : isoOrNull(referenceAt);
+  if (referenceAt !== null && normalizedReferenceAt === null) fail("claude_collection_reference_time_invalid");
+  const freshness = claudeCollectionFreshness(attemptedAt, normalizedReferenceAt, thresholdSeconds);
+  if (value.freshness !== freshness
+    || (value.state !== "unknown" && freshness === "unknown")) {
+    fail("claude_collection_freshness_invalid");
+  }
+  return {
+    schema_version: CLAUDE_COLLECTION_ENVELOPE_SCHEMA,
+    state: value.state,
+    reason: value.reason,
+    attempted_at: attemptedAt,
+    freshness_threshold_seconds: thresholdSeconds,
+    freshness: value.freshness,
+    counts,
+    evidence_scope: CLAUDE_COLLECTION_EVIDENCE_SCOPE,
+    claim_scope: CLAUDE_COLLECTION_CLAIM_SCOPE,
+  };
+}
+
+export function createClaudeCollectionEnvelope(input = {}, {
+  referenceAt = new Date().toISOString(),
+  freshnessThresholdSeconds = DEFAULT_CLAUDE_COLLECTION_FRESHNESS_THRESHOLD_SECONDS,
+} = {}) {
+  const thresholdSeconds = normalizeFreshnessThresholdSeconds(freshnessThresholdSeconds);
+  const normalizedReferenceAt = isoOrNull(referenceAt);
+  const requestedState = CLAUDE_COLLECTION_STATES.includes(input?.state) ? input.state : "unknown";
+  const attemptedAt = isoOrNull(input?.attempted_at);
+  const requestedCounts = input?.counts ?? emptyClaudeCollectionCounts();
+  let counts;
+  try {
+    counts = parseClaudeCollectionCounts(requestedCounts, "claude_collection_envelope_invalid");
+  } catch {
+    counts = emptyClaudeCollectionCounts();
+  }
+  const freshness = claudeCollectionFreshness(attemptedAt, normalizedReferenceAt, thresholdSeconds);
+  const state = attemptedAt === null || normalizedReferenceAt === null || freshness === "unknown"
+    || !collectionStateMatchesCounts(requestedState, counts)
+    ? "unknown"
+    : requestedState;
+  const safeAttemptedAt = state === "unknown" ? null : attemptedAt;
+  const safeCounts = state === "unknown" ? emptyClaudeCollectionCounts() : counts;
+  const safeFreshness = claudeCollectionFreshness(safeAttemptedAt, normalizedReferenceAt, thresholdSeconds);
+  return validateClaudeCollectionEnvelope({
+    schema_version: CLAUDE_COLLECTION_ENVELOPE_SCHEMA,
+    state,
+    reason: defaultClaudeCollectionReason(state, attemptedAt),
+    attempted_at: safeAttemptedAt,
+    freshness_threshold_seconds: thresholdSeconds,
+    freshness: safeFreshness,
+    counts: safeCounts,
+    evidence_scope: CLAUDE_COLLECTION_EVIDENCE_SCOPE,
+    claim_scope: CLAUDE_COLLECTION_CLAIM_SCOPE,
+  }, { referenceAt: normalizedReferenceAt });
 }
 
 function sanitizeIdentifier(value) {
@@ -121,6 +317,53 @@ export async function findClaudeSessionFiles(projectsRoot, {
     }
   }
   return files;
+}
+
+async function inspectClaudeProjectsRoot(projectsRoot) {
+  try {
+    const info = await stat(path.resolve(projectsRoot));
+    return info.isDirectory() ? "available" : "error";
+  } catch (error) {
+    return error?.code === "ENOENT" ? "missing" : "error";
+  }
+}
+
+function claudeCollectionResult({
+  events = [],
+  issues = [],
+  sessionFileCount = 0,
+  parsedSessionCount = 0,
+  observedMessageCount = 0,
+  duplicateMessageCount = 0,
+  state = "unknown",
+  attemptedAt = null,
+  freshnessThresholdSeconds = DEFAULT_CLAUDE_COLLECTION_FRESHNESS_THRESHOLD_SECONDS,
+} = {}) {
+  const sortedIssues = [...issues].sort((left, right) => left.source_ref.localeCompare(right.source_ref, "en"));
+  const collection = createClaudeCollectionEnvelope({
+    state,
+    attempted_at: attemptedAt,
+    counts: {
+      session_file_count: sessionFileCount,
+      parsed_session_count: parsedSessionCount,
+      observed_message_count: observedMessageCount,
+      accepted_event_count: events.length,
+      duplicate_message_count: duplicateMessageCount,
+      issue_count: sortedIssues.length,
+    },
+  }, {
+    referenceAt: attemptedAt,
+    freshnessThresholdSeconds,
+  });
+  return {
+    events,
+    issues: sortedIssues,
+    session_file_count: sessionFileCount,
+    parsed_session_count: parsedSessionCount,
+    observed_message_count: observedMessageCount,
+    duplicate_message_count: duplicateMessageCount,
+    collection,
+  };
 }
 
 // 하나의 세션 파일에서 usage가 붙은 assistant 메시지 관측만 추출한다(라인 단위, 원문 미보존).
@@ -265,10 +508,55 @@ export async function collectClaudeUsageEvents({
   maxAgeDays = DEFAULT_CLAUDE_MAX_AGE_DAYS,
   config = {},
   now = Date.now(),
+  freshnessThresholdSeconds = DEFAULT_CLAUDE_COLLECTION_FRESHNESS_THRESHOLD_SECONDS,
 } = {}) {
+  if (!Number.isSafeInteger(maxAgeDays) || maxAgeDays < 1) fail("claude_max_age_days_invalid");
+  const attemptedAt = isoFromEpochOrNull(now);
+  if (attemptedAt === null) {
+    return claudeCollectionResult({
+      state: "unknown",
+      freshnessThresholdSeconds,
+    });
+  }
   const normalizedConfig = normalizeConfig(config);
-  const binding = await loadClaudeProjectBinding(stateRoot);
-  const sessionFiles = await findClaudeSessionFiles(projectsRoot, { maxAgeDays, now });
+  let binding;
+  try {
+    binding = await loadClaudeProjectBinding(stateRoot);
+  } catch (error) {
+    return claudeCollectionResult({
+      issues: [{ source_ref: "collector", code: String(error?.code || "claude_binding_failed").slice(0, 120) }],
+      state: "error",
+      attemptedAt,
+      freshnessThresholdSeconds,
+    });
+  }
+  const rootState = await inspectClaudeProjectsRoot(projectsRoot);
+  if (rootState === "missing") {
+    return claudeCollectionResult({
+      state: "missing",
+      attemptedAt,
+      freshnessThresholdSeconds,
+    });
+  }
+  if (rootState === "error") {
+    return claudeCollectionResult({
+      issues: [{ source_ref: "collector", code: "claude_projects_root_unreadable" }],
+      state: "error",
+      attemptedAt,
+      freshnessThresholdSeconds,
+    });
+  }
+  let sessionFiles;
+  try {
+    sessionFiles = await findClaudeSessionFiles(projectsRoot, { maxAgeDays, now });
+  } catch (error) {
+    return claudeCollectionResult({
+      issues: [{ source_ref: "collector", code: String(error?.code || "claude_projects_root_unreadable").slice(0, 120) }],
+      state: "error",
+      attemptedAt,
+      freshnessThresholdSeconds,
+    });
+  }
   const issues = [];
   const observations = new Map();
   let parsedSessionCount = 0;
@@ -308,7 +596,7 @@ export async function collectClaudeUsageEvents({
       // 재개된 세션이 같은 message id를 복제해도 항상 같은 하나의 이벤트만 남긴다.
       const better = event.usage.total_tokens > existing.usage.total_tokens
         || (event.usage.total_tokens === existing.usage.total_tokens
-          && `${event.time.started_at} ${event.thread_id}` < `${existing.time.started_at} ${existing.thread_id}`);
+          && `${event.time.started_at}\u0000${event.thread_id}` < `${existing.time.started_at}\u0000${existing.thread_id}`);
       if (better) observations.set(event.event_id, event);
     }
   }
@@ -316,12 +604,18 @@ export async function collectClaudeUsageEvents({
     (a.time.started_at ?? "").localeCompare(b.time.started_at ?? "", "en")
     || a.event_id.localeCompare(b.event_id, "en")
   ));
-  return {
+  const state = issues.length === 0
+    ? events.length > 0 ? "observed" : "available_empty"
+    : parsedSessionCount > 0 || events.length > 0 ? "partial" : "error";
+  return claudeCollectionResult({
     events,
-    issues: issues.sort((a, b) => a.source_ref.localeCompare(b.source_ref, "en")),
-    session_file_count: sessionFiles.length,
-    parsed_session_count: parsedSessionCount,
-    observed_message_count: observedMessageCount,
-    duplicate_message_count: duplicateMessageCount,
-  };
+    issues,
+    sessionFileCount: sessionFiles.length,
+    parsedSessionCount,
+    observedMessageCount,
+    duplicateMessageCount,
+    state,
+    attemptedAt,
+    freshnessThresholdSeconds,
+  });
 }

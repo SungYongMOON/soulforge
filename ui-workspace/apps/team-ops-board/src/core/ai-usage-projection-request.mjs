@@ -1,6 +1,7 @@
 import { normalizeAiUsageHistoryProjection } from "./ai-usage-history-snapshot.mjs";
 
 export const AI_USAGE_SNAPSHOT_PATH = "/ai-usage-meter.snapshot.json";
+export const AI_USAGE_READ_ONLY_QUERY = "read_only=1";
 export const AI_USAGE_PROJECTION_CACHE_TTL_MS = 5_000;
 
 function createCancelledConsumerError() {
@@ -40,7 +41,9 @@ function attachConsumer(request, signal) {
 
 async function fetchAiUsageProjection(fetchImpl, { force = false } = {}) {
   try {
-    const path = force ? `${AI_USAGE_SNAPSHOT_PATH}?refresh=1` : AI_USAGE_SNAPSHOT_PATH;
+    const path = force
+      ? `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY}&refresh=1`
+      : `${AI_USAGE_SNAPSHOT_PATH}?${AI_USAGE_READ_ONLY_QUERY}`;
     const response = await fetchImpl(path, {
       method: "GET",
       headers: { Accept: "application/json" },

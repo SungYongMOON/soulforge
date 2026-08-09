@@ -155,11 +155,12 @@ fallback의 strict versioned snapshot은 Git-ignored `lifecycle/jsonl/current.js
 
 Current-status Board v1 (`soulforge.ai_usage_board_snapshot.v1`) remains the
 default read-only projection. The additive
-`soulforge.ai_usage_board_history_snapshot.v2` sidecar is a separate,
+`soulforge.ai_usage_board_history_snapshot.v3` sidecar is a separate,
 local-only output and never changes that v1 root shape. It nests the same
 scope-matched current snapshot so total, role, model/effort, fan-out,
 retry/timeout, and coverage remain available without a second aggregation
-rule.
+rule. v2 remains accepted as a legacy input, but normalizes to unknown
+provider/Claude evidence rather than fabricating it.
 
 The history sidecar requires a non-empty explicit exact thread-ID set at load
 or CLI time. `board-history-snapshot --thread-id <exact ID>` filters the
@@ -195,7 +196,7 @@ conversion, never a ledger value. Board snapshot loaders accept
 `--include-provider <kind>` to union local-owned non-Codex events with the
 exact Codex thread scope; without the flag behavior is unchanged.
 
-v2 adds two root fields with the same metadata-only rule. `activity` carries a
+v2 established two root fields with the same metadata-only rule. `activity` carries a
 fixed 40-entry KST `daily` series (consecutive dates ending at `reference_at`'s
 date, zero-filled) and a fixed 24-entry KST `hourly` histogram (`hour`, turns,
 total tokens over the full scoped ledger). The validator pins the last daily
@@ -206,19 +207,41 @@ nullable safe `plan_type`, `used_percent` 0–1000, nullable window minutes and
 reset epoch seconds) plus `observed_at` from that event's start time — an
 observation of the provider-reported quota window, never a computed local
 estimate.
+
+v3 adds only metadata-safe provider evidence. `provider_rows` contains
+`provider`, `turns`, `total_tokens`, and `latest_usage_at`; its provider is
+derived only from the ledger event `source.kind`. `model_id` prefixes, display
+labels, paths, and UI guesses are prohibited attribution inputs. v3 also adds
+the redacted ephemeral `claude_collection` envelope: state
+`observed`/`available_empty`/`missing`/`partial`/`error`/`unknown`, safe reason
+and counts, attempted-at time, explicit freshness threshold, and a derived
+freshness classification. It proves a collector attempt/source observation
+only, never provider availability, health, live/E2E state, aggregate health,
+or collection completeness. `generated_at` is aggregation time and never
+substitutes for Claude attempt or value freshness. A strict valid Claude
+provider row is last-known ledger evidence even when collection-attempt state
+is missing, partial, error, stale, or unknown. Its value freshness is computed
+separately from `latest_usage_at` against `reference_at` and the explicit
+threshold: fresh renders as `원장 근거`; stale retains the last-known value/time
+with `STALE` and never becomes green or current. A fresh attempt cannot make an
+old row current. v2 or no valid provider row remains `UNKNOWN`; only a fresh
+successful `available_empty` attempt without a provider row may display zero
+for its proven collection window.
 For an exact-thread sidecar, global coverage and work-only tool observations are
 not borrowed into that scope: coverage stays partial and retry/timeout remain
 zero until an exact-thread evidence source exists. This avoids inferred or
 double-counted coordination activity.
 
-Board automation is a local read/refresh consumer, not a meter writer: debounce
-and single-flight per state root, snapshot a bounded accepted exact-ID set,
-then run scoped `collect --apply`, scoped `lifecycle-reconcile --apply`, scoped
-`board-snapshot`, and scoped `board-history-snapshot` in order. It returns the
-last validated local sidecar without blocking the UI, applies per-stage
-timeouts, and retains a safe stale/HOLD state after a failure. It must not
-broaden a scoped failure into an all-session collection or derive IDs from
-title/path/prompt content.
+The selected-node diagnostics path is a local read-only consumer, not a meter
+writer. `usage-projection --read-only=1` and its direct loader validate an
+existing bounded, accepted exact-ID meter ledger/history projection only. They
+reject collector, command, `--apply`, and writer options; they do not invoke a
+provider, network, login, scheduler, binding, or runtime activation. Its
+explicit age threshold is part of the Claude adapter contract and is not
+derived from UI polling or collector scan age. A diagnostics refresh may only
+re-read this projection plus the existing safe Watchtower read-only projection.
+It must retain `HOLD`/unknown for a missing or invalid scope and must not widen
+to an all-session scan or derive IDs from title/path/prompt content.
 
 ### Watchtower observation boundary
 
@@ -264,6 +287,11 @@ Watchtower의 public-safe topology는 `src_codex`, `src_claude`,
 - 손상된 과거 session은 issue로 격리하고 parsed/total session coverage를 함께 보고한다.
 - hook 오류는 `health/latest.json`을 `hold`로 갱신하지만 Codex 응답 완료를 막지 않는다. 동시 실행에서 나중의 성공이 오류를 숨기지 않도록 모든 결과는 `health/history/`에 고유한 원자 기록으로 남긴다.
 - 알려지지 않은 모델은 `rate_unknown`이며 크레딧 합계의 미확인 turn 수에 나타난다.
+- `collect-claude`의 collection state가 `error`이면 apply/persistence 전에
+  `claude_collection_error`로 종료하며 자동화 호출의 exit는 nonzero다. 오류
+  출력에는 strict redacted collection envelope만 선택적으로 포함한다.
+  `missing`과 `partial`은 서로 구분된 결과로 유지하며 성공·완전성·provider
+  health/live/E2E를 뜻하지 않는다.
 - work/quality/tool/manifest/replay receipt는 stable ID 기준으로 재실행하면 `replayed`이며, 같은 ID의 payload가 다르면 conflict로 중단한다. instruction manifest는 같은 chain/prompt identity의 후속 `observed_at`만 달라진 경우 최초 관찰 레코드를 유지하며 replay하고, 그 밖의 필드가 달라지면 conflict다.
 - replay receipt는 `전체 source = 선택 manifest + 제외/HOLD`, `parsed turn = created + updated + replayed + pending + conflict`, turn-bound count 상한, ledger mutation과 before/after digest 변화를 함께 만족해야 valid다.
 - evidence ledger lock은 stale 여부를 추측해 자동 탈취하지 않는다. 제한 시간 안에 기존 lock이 사라지지 않으면 `evidence_ledger_busy`로 fail-closed하고, owner가 writer 부재를 별도로 확인한 뒤 복구한다.

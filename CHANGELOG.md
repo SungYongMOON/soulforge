@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2026-08-09 — AI usage topology read-only Claude evidence diagnostics
+
+- Added backward-compatible Board history v3 provider rows sourced only from
+  ledger `source.kind`, while retaining v2 input with provider evidence masked
+  as unknown. The redacted Claude collection envelope carries only attempted
+  collection/source-observation evidence, explicit freshness rules, and safe
+  counts; it does not claim provider health, availability, live/E2E state,
+  aggregate health, or completeness.
+- Changed the Team Operations Board diagnostics usage refresh to the mandatory
+  read-only projection path. It validates existing scoped meter evidence and
+  does not invoke collection, apply/write work, lifecycle reconciliation,
+  provider login, or network access.
+- Added selected-node inspection for safe evidence, direct/all structural paths,
+  keyboard/mobile close behavior, and explicit non-live/non-receipt boundaries.
+  A valid v3 Claude row now remains visible as last-known ledger evidence while
+  `latest_usage_at` independently determines fresh versus prominent `STALE`;
+  collection-attempt state/reason/time stays separate and cannot make an old
+  row current. v2/no-row remains unknown, and zero still requires a fresh
+  successful empty collection window. `collect-claude` now exits nonzero on a
+  collector error with only redacted safe error evidence. A mutation remains
+  `Owner 승인 필요` rather than an executable Board action.
+
 ## 2026-08-08 — Workspace Board provider topology observation boundary
 
 - Made generic Watchtower node text distinguish a structural/catalog-only

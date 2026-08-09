@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 
 import {
   collectClaudeUsageEvents,
+  createClaudeCollectionEnvelope,
   deriveClaudeProjectSlug,
+  validateClaudeCollectionEnvelope,
 } from "./claude_collector.mjs";
 import { runCli } from "./cli.mjs";
 import {
@@ -211,6 +215,8 @@ test("Claude collect persistence and CLI re-runs stay idempotent", async () => {
     assert.equal(dry.mode, "dry_run");
     assert.equal(dry.event_count, 2);
     assert.equal(dry.persistence, null);
+    assert.equal(dry.collection.state, "observed");
+    assert.equal(dry.collection.counts.accepted_event_count, 2);
     assert.equal(await loadPersistedUsageEvents(stateRoot).then((events) => events.length), 0);
 
     const applied = await runCli([
@@ -285,4 +291,138 @@ test("Claude cwd leaf slug derivation never leaks the full path", () => {
   assert.equal(deriveClaudeProjectSlug(""), "unassigned");
   assert.equal(deriveClaudeProjectSlug(null), "unassigned");
   assert.equal(deriveClaudeProjectSlug([WIN_DRIVE, "tmp", ".claude"].join("/")), "unassigned");
+});
+
+test("Claude collection envelope distinguishes source states and keeps only safe evidence", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sf-claude-envelope-"));
+  const attemptedAt = Date.parse("2026-08-03T02:00:00.000Z");
+  try {
+    const missing = await collectClaudeUsageEvents({
+      projectsRoot: path.join(root, "missing-root"),
+      now: attemptedAt,
+    });
+    const empty = await collectClaudeUsageEvents({ projectsRoot: root, now: attemptedAt });
+    await mkdir(path.join(root, "safe-project"), { recursive: true });
+    await writeFile(
+      path.join(root, "safe-project", "good.jsonl"),
+      `${assistantLine({ timestamp: "2026-08-03T00:00:00.000Z", sessionId: "safe-session", messageId: "safe-message" })}\n`,
+      "utf8",
+    );
+    const observed = await collectClaudeUsageEvents({ projectsRoot: root, now: attemptedAt });
+    await writeFile(
+      path.join(root, "safe-project", ".jsonl"),
+      `${assistantLine({ timestamp: "2026-08-03T00:01:00.000Z", sessionId: null, messageId: "bad-message" })}\n`,
+      "utf8",
+    );
+    const partial = await collectClaudeUsageEvents({ projectsRoot: root, now: attemptedAt });
+    await rm(path.join(root, "safe-project", "good.jsonl"));
+    const error = await collectClaudeUsageEvents({ projectsRoot: root, now: attemptedAt });
+
+    assert.equal(missing.collection.state, "missing");
+    assert.equal(empty.collection.state, "available_empty");
+    assert.equal(observed.collection.state, "observed");
+    assert.equal(partial.collection.state, "partial");
+    assert.equal(error.collection.state, "error");
+    assert.equal(empty.collection.counts.accepted_event_count, 0);
+    assert.equal(observed.collection.counts.accepted_event_count, 1);
+    assert.equal(partial.collection.counts.issue_count, 1);
+    assert.equal(error.collection.counts.parsed_session_count, 0);
+    assert.equal(observed.collection.evidence_scope, "collector_attempt_source_observation_only");
+    assert.equal(
+      observed.collection.claim_scope,
+      "does_not_prove_provider_availability_health_live_e2e_or_aggregate_health_or_completeness",
+    );
+    assert.doesNotMatch(JSON.stringify(observed.collection), /safe-project|good\.jsonl|source_ref|prompt|secret/u);
+
+    const stale = { ...observed.collection, freshness: "stale" };
+    assert.equal(
+      validateClaudeCollectionEnvelope(stale, { referenceAt: "2026-08-03T02:16:00.000Z" }).freshness,
+      "stale",
+    );
+    const future = { ...observed.collection, freshness: "unknown" };
+    assert.throws(
+      () => validateClaudeCollectionEnvelope(future, { referenceAt: "2026-08-03T01:59:00.000Z" }),
+      (errorValue) => errorValue?.code === "claude_collection_freshness_invalid",
+    );
+    const normalizedFuture = createClaudeCollectionEnvelope(future, {
+      referenceAt: "2026-08-03T01:59:00.000Z",
+    });
+    assert.equal(normalizedFuture.state, "unknown");
+    assert.equal(normalizedFuture.attempted_at, null);
+    assert.deepEqual(normalizedFuture.counts, {
+      session_file_count: 0,
+      parsed_session_count: 0,
+      observed_message_count: 0,
+      accepted_event_count: 0,
+      duplicate_message_count: 0,
+      issue_count: 0,
+    });
+    const invalidTimestamp = { ...observed.collection, attempted_at: "not-a-timestamp" };
+    assert.throws(
+      () => validateClaudeCollectionEnvelope(invalidTimestamp, { referenceAt: "2026-08-03T02:00:00.000Z" }),
+      (errorValue) => errorValue?.code === "claude_collection_envelope_invalid",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("collect-claude keeps missing and partial explicit but exits nonzero on collector error", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sf-claude-cli-error-"));
+  const missingRoot = path.join(root, "missing-root");
+  const projectRoot = path.join(root, "safe-project");
+  const goodFile = path.join(projectRoot, "good.jsonl");
+  const stateRoot = path.join(root, "meter-state");
+  try {
+    const missing = await runCli(["collect-claude", "--projects-root", missingRoot]);
+    assert.equal(missing.collection.state, "missing");
+
+    await mkdir(projectRoot, { recursive: true });
+    await writeFile(
+      goodFile,
+      `${assistantLine({ timestamp: new Date().toISOString(), sessionId: "safe-session", messageId: "safe-message" })}\n`,
+      "utf8",
+    );
+    await writeFile(
+      path.join(projectRoot, ".jsonl"),
+      `${assistantLine({ timestamp: new Date().toISOString(), sessionId: null, messageId: "bad-message" })}\n`,
+      "utf8",
+    );
+    const partial = await runCli(["collect-claude", "--projects-root", root]);
+    assert.equal(partial.collection.state, "partial");
+    assert.equal(partial.collection.counts.accepted_event_count, 1);
+
+    await rm(goodFile);
+    await assert.rejects(
+      () => runCli(["collect-claude", "--projects-root", root, "--state-root", stateRoot, "--apply"]),
+      (errorValue) => {
+        assert.equal(errorValue?.code, "claude_collection_error");
+        assert.equal(errorValue?.collection?.state, "error");
+        assert.doesNotMatch(JSON.stringify(errorValue.collection), /safe-project|bad-message|source_ref|prompt|secret|credential|cookie/u);
+        return true;
+      },
+    );
+    assert.equal((await loadPersistedUsageEvents(stateRoot)).length, 0);
+
+    const processResult = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("./cli.mjs", import.meta.url)),
+        "collect-claude", "--projects-root", root,
+        "--state-root", stateRoot,
+        "--apply",
+      ],
+      { encoding: "utf8" },
+    );
+    assert.equal(processResult.status, 1);
+    assert.equal(processResult.stdout, "");
+    const errorPayload = JSON.parse(processResult.stderr);
+    assert.equal(errorPayload.ok, false);
+    assert.equal(errorPayload.error, "claude_collection_error");
+    assert.equal(errorPayload.collection.state, "error");
+    assert.doesNotMatch(JSON.stringify(errorPayload), /safe-project|bad-message|source_ref|prompt|secret|credential|cookie/u);
+    assert.equal((await loadPersistedUsageEvents(stateRoot)).length, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
