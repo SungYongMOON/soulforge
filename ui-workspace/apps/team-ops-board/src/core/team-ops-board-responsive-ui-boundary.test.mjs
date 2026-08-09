@@ -38,3 +38,16 @@ test("responsive rules preserve content, overflow visibility, and accessible tou
   assert.match(css, /\.inbox-skip-link\s*\{[^}]*display:\s*inline-flex;[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;[^}]*box-sizing:\s*border-box;/su);
   assert.match(css, /\.live-state-panel button\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/su);
 });
+
+test("wide iPad and coarse-touch controls retain 44px logical touch targets", () => {
+  const css = readFileSync(RESPONSIVE_CSS_PATH, "utf8");
+  const mediaStart = css.indexOf("@media (min-width: 901px) and (max-width: 1366px) and (min-height: 1024px),");
+
+  assert.notEqual(mediaStart, -1);
+  const iPadTouchRules = css.slice(mediaStart);
+  assert.match(iPadTouchRules, /\(hover:\s*none\)\s+and\s+\(pointer:\s*coarse\)\s*\{/u);
+  assert.match(iPadTouchRules, /\.inbox-skip-link,\s*\.live-board-primary-nav button,\s*\.live-board-top-actions \.live-refresh-button\s*\{[^}]*min-inline-size:\s*44px;[^}]*min-block-size:\s*44px;/su);
+  assert.match(iPadTouchRules, /\.inbox-skip-link\s*\{[^}]*display:\s*inline-flex;[^}]*box-sizing:\s*border-box;/su);
+  assert.doesNotMatch(iPadTouchRules, /(?:^|\})\s*(?:html|body|\*)\s*(?:,|\{)[^}]*overflow(?:-x)?:\s*(?:hidden|clip)/su);
+  assert.doesNotMatch(iPadTouchRules, /display:\s*none/u);
+});

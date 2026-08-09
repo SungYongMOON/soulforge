@@ -84,3 +84,20 @@
     min-height: 44px;
   }
 }
+
+@media (min-width: 901px) and (max-width: 1366px) and (min-height: 1024px),
+  (hover: none) and (pointer: coarse) {
+  .inbox-skip-link,
+  .live-board-primary-nav button,
+  .live-board-top-actions .live-refresh-button {
+    min-inline-size: 44px;
+    min-block-size: 44px;
+  }
+
+  .inbox-skip-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+}

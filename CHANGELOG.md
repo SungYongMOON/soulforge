@@ -27,6 +27,9 @@
   descriptions, metadata, and state labels wrap without horizontal clipping;
   relevant mobile controls retain accessible touch targets while desktop and
   iPad layouts and all provider, quota, and topology semantics remain unchanged.
+- Added a bounded iPad and coarse-touch override for the skip link, Board mode
+  controls, and live refresh control so their visible targets remain at least
+  44 CSS pixels without changing desktop layout or application semantics.
 
 ## 2026-08-10 — Team Operations Board Claude quota read-only recovery
 
