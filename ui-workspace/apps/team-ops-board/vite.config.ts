@@ -9,8 +9,10 @@ import { createLiveThreadAdapterPlugin } from "./src/server/live-thread-adapter.
 import { createProviderLimitsAdapterPlugin } from "./src/server/provider-limits-adapter.mjs";
 import { createTopologyAdapterPlugin } from "./src/server/topology-adapter.mjs";
 import { createTeamOpsBoardRuntimeEnvironment } from "./src/core/team-ops-board-read-only-pilot.mjs";
+import { resolveTeamOpsBoardAllowedHosts } from "./src/server/team-ops-board-allowed-hosts.mjs";
 
 const boardEnvironment = createTeamOpsBoardRuntimeEnvironment();
+const boardAllowedHosts = resolveTeamOpsBoardAllowedHosts();
 
 export default defineConfig({
   plugins: [
@@ -26,10 +28,12 @@ export default defineConfig({
   ],
   server: {
     host: "127.0.0.1",
-    port: 4192
+    port: 4192,
+    allowedHosts: boardAllowedHosts
   },
   preview: {
     host: "127.0.0.1",
-    port: 4193
+    port: 4193,
+    allowedHosts: boardAllowedHosts
   }
 });

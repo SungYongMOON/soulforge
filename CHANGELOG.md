@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-08-09 — Team Operations Board local tailnet Host allowlist
+
+- Added a fail-closed, local-process-environment-only Vite Host allowlist for
+  one canonical lowercase `.ts.net` FQDN. Blank or malformed values leave no
+  custom host exception, and development and preview use the same resolved
+  array.
+- The loopback bind and read-only pilot disables remain unchanged; this adds no
+  network listener, firewall change, runtime activation, or public exposure.
+
 ## 2026-08-09 — Team Operations Board read-only pilot boundary
 
 - Added the explicit `TEAM_OPS_BOARD_READ_ONLY_PILOT=1` fail-closed mode. In

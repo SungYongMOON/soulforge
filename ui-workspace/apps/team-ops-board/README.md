@@ -72,6 +72,20 @@ sends `initialize` then `initialized`, and cursor-paginates `thread/list`. It
 prefers `useStateDbOnly`; a server that rejects that parameter is retried once
 without it.
 
+### Optional local tailnet Host allowlist
+
+Development and preview keep Vite's default Host policy unless the local process
+environment supplies `TEAM_OPS_BOARD_ALLOWED_HOSTS`. It accepts exactly one
+canonical lowercase `.ts.net` FQDN. The value is not normalized or split:
+unset, blank, or malformed input (including a wildcard, IP literal, scheme,
+port, path, multiple values, empty label, uppercase form, or oversize name)
+results in no custom host exception.
+
+This setting changes only Vite Host-header allowance. It does not change the
+loopback bind, expose a network service, or override any read-only pilot
+disable. Keep actual host, account, and device values out of tracked files and
+documentation.
+
 The client is bounded by page, item, protocol-byte, line-byte, timeout, cache,
 and single-flight limits. It builds the response from an allowlist and discards
 all other protocol fields before caching, logging, storage, or browser output.
