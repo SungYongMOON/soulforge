@@ -29,6 +29,8 @@ export const TEAM_OPS_BOARD_RUNTIME_SCHEMA = "soulforge.team_ops_board.runtime.v
 export const TEAM_OPS_BOARD_RUNTIME_HOST = "127.0.0.1";
 export const TEAM_OPS_BOARD_RUNTIME_PORT = 4192;
 export const TEAM_OPS_BOARD_RUNTIME_PIPE = String.raw`\\.\pipe\soulforge-team-ops-board-runtime-v1`;
+export const TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE = String.raw`\\.\pipe\soulforge-team-ops-board-runtime-launch-v1`;
+export const TEAM_OPS_BOARD_RUNTIME_TASK_NAME = "Soulforge-TeamOpsBoard-ReadOnly-v1";
 export const TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ =
   "TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ";
 
@@ -63,6 +65,22 @@ const RUNTIME_ENVIRONMENT_ALLOWLIST = Object.freeze([
   "TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY",
   "TEAM_OPS_BOARD_WATCHTOWER_POINTER",
 ]);
+const SCHEDULED_OS_ENVIRONMENT_ALLOWLIST = Object.freeze([
+  "APPDATA",
+  "ComSpec",
+  "HOME",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "LOCALAPPDATA",
+  "PATH",
+  "PATHEXT",
+  "PROGRAMDATA",
+  "SystemRoot",
+  "TEMP",
+  "TMP",
+  "USERPROFILE",
+  "WINDIR",
+]);
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(HERE, "..");
@@ -71,19 +89,17 @@ const DIST_INDEX = path.join(APP_ROOT, "dist", "index.html");
 const START_TIMEOUT_MS = 30_000;
 const STOP_TIMEOUT_MS = 15_000;
 const CONTROL_TIMEOUT_MS = 3_000;
-const BOOTSTRAP_TIMEOUT_MS = 10_000;
-const MAX_BOOTSTRAP_BYTES = 256 * 1024;
+const HEARTBEAT_INTERVAL_MS = 10_000;
+export const TEAM_OPS_BOARD_RUNTIME_HEARTBEAT_MAX_AGE_MS = 30_000;
 const MAX_RECORD_BYTES = 4096;
 const execFileAsync = promisify(execFile);
 const SAFE_FAILURE_CLASSES = new Set([
   "allowed_host_unavailable",
-  "bootstrap_invalid",
-  "bootstrap_timeout",
-  "bootstrap_unavailable",
   "build_unavailable",
   "control_unavailable",
   "health_failed",
   "identity_mismatch",
+  "owner_root_unavailable",
   "pilot_required",
   "port_unavailable",
   "runtime_already_running",
@@ -95,8 +111,12 @@ const SAFE_FAILURE_CLASSES = new Set([
   "runtime_state_ambiguous",
   "runtime_state_unsafe",
   "runtime_stop_ambiguous",
+  "runtime_worker_absent",
   "runtime_worker_failed",
-  "worker_create_failed",
+  "serve_state_unsafe",
+  "task_definition_mismatch",
+  "task_intent_unavailable",
+  "task_unavailable",
 ]);
 
 function fail(code) {
@@ -125,9 +145,16 @@ export function createRuntimeWorkerEnvironment(env = process.env) {
   for (const name of RUNTIME_ENVIRONMENT_ALLOWLIST) {
     if (typeof env?.[name] === "string") workerEnv[name] = env[name];
   }
-  const quotaReadEnabled = env?.[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ] === "1";
-  if (quotaReadEnabled) workerEnv[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ] = "1";
+  delete workerEnv[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ];
+  delete workerEnv[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ];
+  if (env?.[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ] === "1") {
+    workerEnv[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ] = "1";
+  }
   return workerEnv;
+}
+
+export function scheduledQuotaReadRequested(env = process.env) {
+  return env?.[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ] === "1";
 }
 
 function quoteWindowsCommandArgument(value) {
@@ -145,38 +172,87 @@ function powershellSingleQuoted(value) {
   return `'${text.replaceAll("'", "''")}'`;
 }
 
-export function createRuntimeBootstrapPipe(runId) {
-  if (typeof runId !== "string" || !/^[a-f0-9-]{36}$/u.test(runId)) {
-    fail("bootstrap_invalid");
-  }
-  return String.raw`\\.\pipe\soulforge-team-ops-board-bootstrap-${runId}`;
+function scheduledActionDigest(execute, argumentsValue) {
+  return createHash("sha256")
+    .update(`${execute}\u0000${argumentsValue}`, "utf8")
+    .digest("hex");
 }
 
-export function createWmiWorkerCreationSpec({
-  runId,
-  bootstrapPipe,
+export function createScheduledTaskDefinition({
   nodePath = process.execPath,
   modulePath = fileURLToPath(import.meta.url),
+} = {}) {
+  const argumentsValue = `${quoteWindowsCommandArgument(modulePath)} __scheduled_worker`;
+  return {
+    task_name: TEAM_OPS_BOARD_RUNTIME_TASK_NAME,
+    execute: nodePath,
+    arguments: argumentsValue,
+    action_digest: scheduledActionDigest(nodePath, argumentsValue),
+    trigger_count: 0,
+    stored_credential_count: 0,
+    logon_type: "Interactive",
+    run_level: "Limited",
+    task_path: "root",
+    multiple_instances: "IgnoreNew",
+    enabled: true,
+    execution_time_limit: "unlimited",
+    restart_count: 0,
+    watchdog_count: 0,
+  };
+}
+
+export function createScheduledTaskPowerShellSpec(operation, {
+  definition = createScheduledTaskDefinition(),
   systemRoot = process.env.SystemRoot || process.env.WINDIR,
 } = {}) {
-  if (process.platform !== "win32" && systemRoot === undefined) {
-    fail("runtime_platform_unsupported");
+  if (!new Set(["inspect", "register", "run", "unregister"]).has(operation)) {
+    fail("task_unavailable");
   }
-  if (typeof systemRoot !== "string" || systemRoot.trim() === "") {
-    fail("worker_create_failed");
-  }
-  if (bootstrapPipe !== createRuntimeBootstrapPipe(runId)) fail("bootstrap_invalid");
-  const commandLine = [nodePath, modulePath, "__worker_bootstrap", runId, bootstrapPipe]
-    .map(quoteWindowsCommandArgument)
-    .join(" ");
-  const safeCommandLine = powershellSingleQuoted(commandLine);
+  if (typeof systemRoot !== "string" || systemRoot.trim() === "") fail("task_unavailable");
+  const taskName = powershellSingleQuoted(definition.task_name);
+  const execute = powershellSingleQuoted(definition.execute);
+  const argumentsValue = powershellSingleQuoted(definition.arguments);
+  const expectedDigest = powershellSingleQuoted(definition.action_digest);
   const script = [
     "$ErrorActionPreference='Stop'",
-    `$r=Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=${safeCommandLine}}`,
-    "if(([int]$r.ReturnValue)-ne 0 -or ([int]$r.ProcessId)-lt 1){exit 23}",
-    "$o=[pscustomobject]@{return_value=0;pid=[int]$r.ProcessId}",
+    `$n=${taskName}`,
+    `$e=${execute}`,
+    `$a=${argumentsValue}`,
+    `$d=${expectedDigest}`,
+    "$p='\\'",
+    "$owner=[System.Security.Principal.WindowsIdentity]::GetCurrent().Name",
+    "function Get-Digest([string]$x,[string]$y){$h=[System.Security.Cryptography.SHA256]::Create();try{$b=[Text.Encoding]::UTF8.GetBytes($x+[char]0+$y);return ([BitConverter]::ToString($h.ComputeHash($b))).Replace('-','').ToLowerInvariant()}finally{$h.Dispose()}}",
+  ];
+  if (operation === "register") {
+    script.push(
+      "$existing=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
+      "if($null -ne $existing){throw 'task_definition_mismatch'}",
+      "$action=New-ScheduledTaskAction -Execute $e -Argument $a",
+      "$principal=New-ScheduledTaskPrincipal -UserId $owner -LogonType Interactive -RunLevel Limited",
+      "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero)",
+      "$definition=New-ScheduledTask -Action $action -Principal $principal -Settings $settings",
+      "$null=Register-ScheduledTask -TaskPath $p -TaskName $n -InputObject $definition -Description 'Soulforge Team Operations Board read-only on-demand runtime'",
+    );
+  } else if (operation === "run") {
+    script.push(
+      "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
+      "$actions=@($t.Actions);$logon=[string]$t.Principal.LogonType;$settings=$t.Settings",
+      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or @($t.Triggers).Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or [string]$t.Principal.UserId -ne $owner -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or [int]$settings.RestartCount -ne 0){throw 'task_definition_mismatch'}",
+      "Start-ScheduledTask -TaskPath $p -TaskName $n",
+    );
+  } else if (operation === "unregister") {
+    script.push(
+      "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
+      "$actions=@($t.Actions);$logon=[string]$t.Principal.LogonType;$settings=$t.Settings",
+      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or @($t.Triggers).Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or [string]$t.Principal.UserId -ne $owner -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or [int]$settings.RestartCount -ne 0){throw 'task_definition_mismatch'}",
+      "Unregister-ScheduledTask -TaskPath $p -TaskName $n -Confirm:$false",
+    );
+  }
+  script.push(
+    "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
+    "if($null -eq $t){$o=[pscustomobject]@{exists=$false;task_state='missing';trigger_count=0;stored_credential_count=0;current_owner_match=$false;run_level_limited=$false;task_path_root=$false;multiple_instances_ignore_new=$false;enabled=$false;unlimited_execution=$false;restart_count=0;watchdog_count=0;action_count=0;action_digest=$null}}else{$actions=@($t.Actions);$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$restart=[int]$settings.RestartCount;$triggers=@($t.Triggers).Count;$o=[pscustomobject]@{exists=$true;task_state=([string]$t.State).ToLowerInvariant();trigger_count=$triggers;stored_credential_count=($(if($logon -eq 'Interactive'){0}else{1}));current_owner_match=([string]$t.Principal.UserId -eq $owner);run_level_limited=([string]$t.Principal.RunLevel -eq 'Limited');task_path_root=([string]$t.TaskPath -eq $p);multiple_instances_ignore_new=([string]$settings.MultipleInstances -eq 'IgnoreNew');enabled=($settings.Enabled -eq $true);unlimited_execution=([string]$settings.ExecutionTimeLimit -eq 'PT0S');restart_count=$restart;watchdog_count=$(if($restart -eq 0 -and $triggers -eq 0){0}else{1});action_count=$actions.Count;action_digest=$(if($actions.Count -eq 1){Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)}else{$null})}}",
     "[Console]::Out.Write(($o|ConvertTo-Json -Compress))",
-  ].join(";");
+  );
   const powershell = path.join(
     path.resolve(systemRoot),
     "System32",
@@ -193,8 +269,124 @@ export function createWmiWorkerCreationSpec({
       "-ExecutionPolicy",
       "Bypass",
       "-EncodedCommand",
-      Buffer.from(script, "utf16le").toString("base64"),
+      Buffer.from(script.join(";"), "utf16le").toString("base64"),
     ],
+    env_names: ["SystemRoot", "WINDIR", "TEMP", "TMP"],
+  };
+}
+
+export function scheduledTaskInspectionIsExact(inspection, definition = createScheduledTaskDefinition()) {
+  return inspection?.exists === true
+    && inspection.trigger_count === 0
+    && inspection.stored_credential_count === 0
+    && inspection.current_owner_match === true
+    && inspection.run_level_limited === true
+    && inspection.task_path_root === true
+    && inspection.multiple_instances_ignore_new === true
+    && inspection.enabled === true
+    && inspection.unlimited_execution === true
+    && inspection.restart_count === 0
+    && inspection.watchdog_count === 0
+    && inspection.action_count === 1
+    && inspection.action_digest === definition.action_digest;
+}
+
+export function scheduledTaskUnregisterIsSafe({ inspection, runtimeOwnership, listenerState }) {
+  return scheduledTaskInspectionIsExact(inspection)
+    && inspection.task_state === "ready"
+    && runtimeOwnership === "stopped"
+    && listenerState === "absent";
+}
+
+function anyTrue(value) {
+  if (value === true) return true;
+  if (!value || typeof value !== "object") return false;
+  return Object.values(value).some(anyTrue);
+}
+
+function servedHost(value) {
+  if (typeof value !== "string") return null;
+  const candidate = value.includes("://") ? value : `https://${value}`;
+  try {
+    return new URL(candidate).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function loopbackProxy(value) {
+  if (typeof value !== "string") return false;
+  try {
+    const proxy = new URL(value);
+    return proxy.protocol === "http:"
+      && proxy.hostname === TEAM_OPS_BOARD_RUNTIME_HOST
+      && Number(proxy.port) === TEAM_OPS_BOARD_RUNTIME_PORT;
+  } catch {
+    return false;
+  }
+}
+
+export function deriveAllowedHostFromServeStatus(status) {
+  if (!status || typeof status !== "object" || Array.isArray(status)) fail("serve_state_unsafe");
+  if (anyTrue(status.AllowFunnel)) fail("serve_state_unsafe");
+  const matches = new Set();
+  for (const [origin, site] of Object.entries(status.Web ?? {})) {
+    const host = servedHost(origin);
+    for (const handler of Object.values(site?.Handlers ?? {})) {
+      if (loopbackProxy(handler?.Proxy)) matches.add(host);
+    }
+  }
+  const hosts = [...matches].filter(Boolean);
+  if (hosts.length !== 1) fail("serve_state_unsafe");
+  const allowed = resolveTeamOpsBoardAllowedHosts({ TEAM_OPS_BOARD_ALLOWED_HOSTS: hosts[0] });
+  if (allowed.length !== 1 || allowed[0] !== hosts[0]) fail("serve_state_unsafe");
+  return hosts[0];
+}
+
+export function createScheduledRuntimeEnvironment({
+  baseEnvironment = {},
+  ownerRoot,
+  serveStatus,
+} = {}) {
+  if (typeof ownerRoot !== "string" || !path.isAbsolute(ownerRoot)) fail("owner_root_unavailable");
+  const operationsRoot = path.join(path.resolve(ownerRoot), "guild_hall", "state", "operations");
+  const boardStateRoot = path.join(operationsRoot, "team_ops_board");
+  const usageRoot = path.join(operationsRoot, "ai_usage_meter");
+  const env = {};
+  for (const name of SCHEDULED_OS_ENVIRONMENT_ALLOWLIST) {
+    if (typeof baseEnvironment?.[name] === "string") env[name] = baseEnvironment[name];
+  }
+  Object.assign(env, {
+    TEAM_OPS_BOARD_READ_ONLY_PILOT: "1",
+    TEAM_OPS_BOARD_ALLOWED_HOSTS: deriveAllowedHostFromServeStatus(serveStatus),
+    TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: path.join(boardStateRoot, "thread_visibility.v1.json"),
+    TEAM_OPS_BOARD_THREAD_RESULT_GATE_REGISTRY: path.join(boardStateRoot, "thread_result_gate.v1.json"),
+    SOULFORGE_AI_USAGE_METER_STATE_ROOT: usageRoot,
+    TEAM_OPS_BOARD_LIFECYCLE_SNAPSHOT: path.join(usageRoot, "lifecycle", "current.json"),
+    TEAM_OPS_BOARD_LIFECYCLE_DISABLE_CONTROL: path.join(usageRoot, "control", "emergency-disable.v1.json"),
+    TEAM_OPS_BOARD_WATCHTOWER_POINTER: path.join(operationsRoot, "watchtower", "binding.pointer.json"),
+    TEAM_OPS_BOARD_ORGANIZATION_GOVERNANCE_OVERLAY: path.join(
+      path.resolve(ownerRoot),
+      "_workmeta",
+      "system",
+      "bindings",
+      "organization_governance_overlay.v1.json",
+    ),
+  });
+  delete env[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ];
+  delete env[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ];
+  validateRuntimeLaunchEnvironment(env);
+  return env;
+}
+
+export function createScheduledLaunchIntentEnvelope(runId, env = process.env) {
+  if (typeof runId !== "string" || !/^[a-f0-9-]{36}$/u.test(runId)) {
+    fail("task_intent_unavailable");
+  }
+  return {
+    schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+    run_id: runId,
+    quota_read: scheduledQuotaReadRequested(env),
   };
 }
 
@@ -261,8 +453,25 @@ export function transitionRuntimeState(state, event, failureClass = null) {
   fail("runtime_state_ambiguous");
 }
 
-export function runtimeHealthIsReady(state, control, loopbackHeadOk) {
+export function refreshRuntimeHeartbeat(state, observedAt) {
+  if (state?.state !== "ready"
+      || typeof observedAt !== "string"
+      || !Number.isFinite(Date.parse(observedAt))) fail("runtime_state_ambiguous");
+  return { ...state, heartbeat_at: observedAt };
+}
+
+export function runtimeHeartbeatIsFresh(state, now = Date.now()) {
+  const observedAt = Date.parse(state?.heartbeat_at ?? "");
+  const reference = typeof now === "function" ? now() : now;
+  return Number.isFinite(observedAt)
+    && Number.isFinite(reference)
+    && reference >= observedAt
+    && reference - observedAt <= TEAM_OPS_BOARD_RUNTIME_HEARTBEAT_MAX_AGE_MS;
+}
+
+export function runtimeHealthIsReady(state, control, loopbackHeadOk, now = Date.now()) {
   return state?.state === "ready"
+    && runtimeHeartbeatIsFresh(state, now)
     && control?.ok === true
     && control?.run_id === state.run_id
     && loopbackHeadOk === true;
@@ -356,6 +565,8 @@ function isRuntimeRecord(value) {
     && value.port === TEAM_OPS_BOARD_RUNTIME_PORT
     && typeof value.started_at === "string"
     && Number.isFinite(Date.parse(value.started_at))
+    && (value.heartbeat_at === null
+      || (typeof value.heartbeat_at === "string" && Number.isFinite(Date.parse(value.heartbeat_at))))
     && (value.build_sha256 === null || /^[a-f0-9]{64}$/u.test(value.build_sha256))
     && (value.failure_class === null || SAFE_FAILURE_CLASSES.has(value.failure_class));
 }
@@ -400,7 +611,7 @@ async function buildDigest() {
   }
 }
 
-export function createPublicRuntimeState(state, overrides = {}) {
+export function createPublicRuntimeState(state, overrides = {}, now = Date.now()) {
   const result = {
     schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
     ok: state?.state === "ready",
@@ -414,7 +625,9 @@ export function createPublicRuntimeState(state, overrides = {}) {
     build_sha256: state?.build_sha256 ?? null,
     ...overrides,
   };
-  result.ok = state ? state.state === "ready" : (overrides.ok ?? true);
+  result.ok = state
+    ? state.state === "ready" && runtimeHeartbeatIsFresh(state, now)
+    : (overrides.ok ?? true);
   return result;
 }
 
@@ -464,6 +677,108 @@ function sendControl(payload, timeoutMs = CONTROL_TIMEOUT_MS) {
   });
 }
 
+async function listenScheduledLaunchIntent(env = process.env) {
+  const sockets = new Set();
+  let settle;
+  let rejectCompletion;
+  const completion = new Promise((resolve, reject) => {
+    settle = resolve;
+    rejectCompletion = reject;
+  });
+  const timer = setTimeout(
+    () => rejectCompletion(Object.assign(new Error("task_intent_unavailable"), { code: "task_intent_unavailable" })),
+    START_TIMEOUT_MS,
+  );
+  completion.finally(() => clearTimeout(timer)).catch(() => {});
+  const paths = runtimePaths(env);
+  const server = createServer((socket) => {
+    let bytes = "";
+    let handled = false;
+    sockets.add(socket);
+    socket.setEncoding("utf8");
+    socket.setTimeout(CONTROL_TIMEOUT_MS, () => socket.destroy());
+    socket.once("close", () => sockets.delete(socket));
+    socket.on("data", async (chunk) => {
+      if (handled) return;
+      bytes += chunk;
+      if (bytes.length > MAX_RECORD_BYTES) {
+        handled = true;
+        socket.destroy();
+        return;
+      }
+      const newline = bytes.indexOf("\n");
+      if (newline < 0) return;
+      handled = true;
+      let hello;
+      try {
+        hello = JSON.parse(bytes.slice(0, newline));
+        const state = await readRuntimeState(paths);
+        const lock = await readRuntimeLock(paths);
+        if (hello?.action !== "scheduled_launch"
+            || hello?.run_id !== state?.run_id
+            || hello?.pid !== state?.pid
+            || classifyRuntimeOwnership(state, lock) !== "owned") {
+          fail("task_intent_unavailable");
+        }
+        const envelope = createScheduledLaunchIntentEnvelope(state.run_id, env);
+        socket.end(`${JSON.stringify(envelope)}\n`);
+        settle(envelope);
+      } catch (error) {
+        socket.destroy();
+        rejectCompletion(Object.assign(error, { code: "task_intent_unavailable" }));
+      }
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE, resolve);
+  });
+  return { server, sockets, completion };
+}
+
+async function closeScheduledLaunchIntent(owner) {
+  if (!owner) return;
+  for (const socket of owner.sockets) socket.destroy();
+  await new Promise((resolve) => owner.server.close(() => resolve()));
+}
+
+async function receiveScheduledLaunchIntent(runId) {
+  return new Promise((resolve) => {
+    const socket = createConnection(TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE);
+    let bytes = "";
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.destroy();
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(false), CONTROL_TIMEOUT_MS);
+    socket.setEncoding("utf8");
+    socket.on("connect", () => socket.write(`${JSON.stringify({
+      action: "scheduled_launch",
+      run_id: runId,
+      pid: process.pid,
+    })}\n`));
+    socket.on("data", (chunk) => {
+      bytes += chunk;
+      if (bytes.length > MAX_RECORD_BYTES) return finish(false);
+      const newline = bytes.indexOf("\n");
+      if (newline < 0) return;
+      try {
+        const envelope = JSON.parse(bytes.slice(0, newline));
+        finish(envelope?.schema_version === TEAM_OPS_BOARD_RUNTIME_SCHEMA
+          && envelope?.run_id === runId
+          && envelope?.quota_read === true);
+      } catch {
+        finish(false);
+      }
+    });
+    socket.on("error", () => finish(false));
+  });
+}
+
 function probeControlAvailability(timeoutMs = CONTROL_TIMEOUT_MS) {
   return new Promise((resolve) => {
     const socket = createConnection(TEAM_OPS_BOARD_RUNTIME_PIPE);
@@ -482,222 +797,138 @@ function probeControlAvailability(timeoutMs = CONTROL_TIMEOUT_MS) {
   });
 }
 
-function validateBootstrapEnvironment(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) fail("bootstrap_invalid");
-  const entries = Object.entries(value);
-  if (entries.length > 1024) fail("bootstrap_invalid");
-  for (const [name, entryValue] of entries) {
-    if (name.length < 1 || name.length > 512 || /[\u0000\r\n=]/u.test(name)
-        || typeof entryValue !== "string" || entryValue.includes("\u0000")) {
-      fail("bootstrap_invalid");
-    }
+function minimalHelperEnvironment(env = process.env) {
+  const result = {};
+  for (const name of ["SystemRoot", "WINDIR", "TEMP", "TMP", "PATH", "PATHEXT"]) {
+    if (typeof env?.[name] === "string") result[name] = env[name];
   }
-  return Object.fromEntries(entries);
+  return result;
 }
 
-export function createRuntimeBootstrapEnvelope(runId, workerEnvironment) {
-  createRuntimeBootstrapPipe(runId);
-  return {
-    schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
-    run_id: runId,
-    environment: validateBootstrapEnvironment(workerEnvironment),
-  };
+function validateTaskInspection(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+      || typeof value.exists !== "boolean"
+      || typeof value.task_state !== "string"
+      || !Number.isSafeInteger(value.trigger_count)
+      || !Number.isSafeInteger(value.stored_credential_count)
+      || typeof value.current_owner_match !== "boolean"
+      || typeof value.run_level_limited !== "boolean"
+      || typeof value.task_path_root !== "boolean"
+      || typeof value.multiple_instances_ignore_new !== "boolean"
+      || typeof value.enabled !== "boolean"
+      || typeof value.unlimited_execution !== "boolean"
+      || !Number.isSafeInteger(value.restart_count)
+      || !Number.isSafeInteger(value.watchdog_count)
+      || !Number.isSafeInteger(value.action_count)
+      || (value.action_digest !== null && !/^[a-f0-9]{64}$/u.test(value.action_digest))) {
+    fail("task_unavailable");
+  }
+  return value;
 }
 
-async function listenBootstrap(runId, bootstrapPipe, workerEnvironment) {
-  const payload = `${JSON.stringify(createRuntimeBootstrapEnvelope(runId, workerEnvironment))}\n`;
-  if (Buffer.byteLength(payload) > MAX_BOOTSTRAP_BYTES) fail("bootstrap_invalid");
-
-  const sockets = new Set();
-  let claimedPid = null;
-  let expectedPid = null;
-  let claimedSocket = null;
-  let claimedPhase = null;
-  let settle;
-  let rejectCompletion;
-  const completion = new Promise((resolve, reject) => {
-    settle = resolve;
-    rejectCompletion = reject;
-  });
-  const completionTimer = setTimeout(
-    () => rejectCompletion(Object.assign(new Error("bootstrap_timeout"), { code: "bootstrap_timeout" })),
-    BOOTSTRAP_TIMEOUT_MS,
-  );
-  completion.finally(() => clearTimeout(completionTimer)).catch(() => {});
-  const sendEnvironmentIfAttested = () => {
-    if (!claimedSocket || expectedPid === null || claimedPhase !== "await_pid") return;
-    if (claimedPid !== expectedPid) {
-      claimedSocket.destroy();
-      rejectCompletion(Object.assign(new Error("bootstrap_invalid"), { code: "bootstrap_invalid" }));
-      return;
-    }
-    claimedPhase = "ack";
-    claimedSocket.write(payload);
-  };
-
-  const server = createServer((socket) => {
-    let bytes = "";
-    let phase = "hello";
-    sockets.add(socket);
-    socket.setEncoding("utf8");
-    socket.setTimeout(BOOTSTRAP_TIMEOUT_MS, () => socket.destroy());
-    socket.once("close", () => sockets.delete(socket));
-    socket.on("data", (chunk) => {
-      bytes += chunk;
-      if (Buffer.byteLength(bytes) > MAX_BOOTSTRAP_BYTES) {
-        socket.destroy();
-        return;
-      }
-      let newline;
-      while ((newline = bytes.indexOf("\n")) >= 0) {
-        const line = bytes.slice(0, newline);
-        bytes = bytes.slice(newline + 1);
-        let message;
-        try {
-          message = JSON.parse(line);
-        } catch {
-          socket.destroy();
-          return;
-        }
-        if (phase === "hello") {
-          if (claimedPid !== null
-              || message?.action !== "bootstrap"
-              || message?.run_id !== runId
-              || !Number.isSafeInteger(message?.pid)
-              || message.pid < 1) {
-            socket.destroy();
-            return;
-          }
-          claimedPid = message.pid;
-          claimedSocket = socket;
-          claimedPhase = "await_pid";
-          phase = "await_pid";
-          sendEnvironmentIfAttested();
-          continue;
-        }
-        if (phase !== "await_pid" || claimedPhase !== "ack"
-            || message?.action !== "ack"
-            || message?.run_id !== runId
-            || message?.pid !== claimedPid) {
-          socket.destroy();
-          return;
-        }
-        settle({ pid: claimedPid });
-        socket.end();
-        return;
-      }
-    });
-  });
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(bootstrapPipe, resolve);
-  });
-  return {
-    server,
-    sockets,
-    completion,
-    setExpectedPid(pid) {
-      if (expectedPid !== null || !Number.isSafeInteger(pid) || pid < 1) {
-        fail("bootstrap_invalid");
-      }
-      expectedPid = pid;
-      sendEnvironmentIfAttested();
-    },
-  };
-}
-
-async function closeBootstrap(owner) {
-  if (!owner) return;
-  for (const socket of owner.sockets) socket.destroy();
-  await new Promise((resolve) => owner.server.close(() => resolve()));
-}
-
-async function receiveBootstrapEnvironment(runId, bootstrapPipe) {
-  if (bootstrapPipe !== createRuntimeBootstrapPipe(runId)) fail("bootstrap_invalid");
-  return new Promise((resolve, reject) => {
-    const socket = createConnection(bootstrapPipe);
-    let bytes = "";
-    const timer = setTimeout(
-      () => socket.destroy(Object.assign(new Error("bootstrap_timeout"), { code: "bootstrap_timeout" })),
-      BOOTSTRAP_TIMEOUT_MS,
-    );
-    socket.setEncoding("utf8");
-    socket.on("connect", () => socket.write(`${JSON.stringify({
-      action: "bootstrap",
-      run_id: runId,
-      pid: process.pid,
-    })}\n`));
-    socket.on("data", (chunk) => {
-      bytes += chunk;
-      if (Buffer.byteLength(bytes) > MAX_BOOTSTRAP_BYTES) {
-        socket.destroy(Object.assign(new Error("bootstrap_invalid"), { code: "bootstrap_invalid" }));
-        return;
-      }
-      const newline = bytes.indexOf("\n");
-      if (newline < 0) return;
-      let message;
-      try {
-        message = JSON.parse(bytes.slice(0, newline));
-      } catch {
-        socket.destroy(Object.assign(new Error("bootstrap_invalid"), { code: "bootstrap_invalid" }));
-        return;
-      }
-      if (message?.schema_version !== TEAM_OPS_BOARD_RUNTIME_SCHEMA
-          || message?.run_id !== runId) {
-        socket.destroy(Object.assign(new Error("bootstrap_invalid"), { code: "bootstrap_invalid" }));
-        return;
-      }
-      let environment;
-      try {
-        environment = validateBootstrapEnvironment(message.environment);
-      } catch (error) {
-        socket.destroy(error);
-        return;
-      }
-      socket.write(`${JSON.stringify({ action: "ack", run_id: runId, pid: process.pid })}\n`);
-      clearTimeout(timer);
-      socket.end();
-      resolve(environment);
-    });
-    socket.on("error", (error) => {
-      clearTimeout(timer);
-      reject(Object.assign(error, { code: sanitizeRuntimeFailure(error, "bootstrap_unavailable") }));
-    });
-  });
-}
-
-async function createIndependentWorker(runId, bootstrapPipe, env = process.env) {
-  const spec = createWmiWorkerCreationSpec({
-    runId,
-    bootstrapPipe,
+async function invokeScheduledTask(operation, env = process.env) {
+  if (process.platform !== "win32") fail("runtime_platform_unsupported");
+  const spec = createScheduledTaskPowerShellSpec(operation, {
     systemRoot: env.SystemRoot || env.WINDIR,
   });
-  const helperEnvironment = {};
-  for (const name of ["SystemRoot", "WINDIR", "TEMP", "TMP"]) {
-    if (typeof env[name] === "string") helperEnvironment[name] = env[name];
+  try {
+    const { stdout } = await execFileAsync(spec.file, spec.args, {
+      encoding: "utf8",
+      env: minimalHelperEnvironment(env),
+      maxBuffer: MAX_RECORD_BYTES,
+      timeout: START_TIMEOUT_MS,
+      windowsHide: true,
+    });
+    return validateTaskInspection(JSON.parse(String(stdout)));
+  } catch {
+    fail("task_unavailable");
   }
+}
+
+export function classifyRuntimeObservation({
+  state,
+  ownerAlive,
+  listenerState,
+  controlReady,
+  now = Date.now(),
+}) {
+  if (!state) return "stopped";
+  if (state.state === "error") return "handled_failure";
+  if (state.state === "ready" && (ownerAlive === false || listenerState === "absent")) {
+    return "runtime_worker_absent";
+  }
+  if (state.state === "ready" && !runtimeHeartbeatIsFresh(state, now)) return "hold";
+  if (state.state === "ready" && ownerAlive === true
+      && listenerState === "present" && controlReady === true) return "ready";
+  if (state.state === "starting" && ownerAlive === true) return "starting";
+  if (state.state === "stopping") return "stopping";
+  return "hold";
+}
+
+export function createPublicScheduledTaskState(inspection, runtimeHealth) {
+  const exact = scheduledTaskInspectionIsExact(inspection);
+  return {
+    schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+    ok: exact && runtimeHealth === "ready",
+    trigger_count: inspection?.trigger_count ?? null,
+    stored_credential_count: inspection?.stored_credential_count ?? null,
+    current_owner_match: inspection?.current_owner_match ?? false,
+    action_digest: inspection?.action_digest ?? null,
+    task_health: !inspection?.exists ? "missing" : exact ? inspection.task_state : "definition_hold",
+    runtime_health: runtimeHealth,
+  };
+}
+
+async function resolveOwnerRoot(env = process.env) {
   let stdout;
   try {
-    ({ stdout } = await execFileAsync(spec.file, spec.args, {
+    ({ stdout } = await execFileAsync("git", [
+      "-C", APP_ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir",
+    ], {
       encoding: "utf8",
-      env: helperEnvironment,
+      env: minimalHelperEnvironment(env),
       maxBuffer: MAX_RECORD_BYTES,
-      timeout: BOOTSTRAP_TIMEOUT_MS,
+      timeout: CONTROL_TIMEOUT_MS,
       windowsHide: true,
     }));
   } catch {
-    fail("worker_create_failed");
+    fail("owner_root_unavailable");
   }
-  let result;
+  const commonDirectory = path.resolve(String(stdout).trim());
   try {
-    result = JSON.parse(String(stdout));
+    const info = await lstat(commonDirectory);
+    if (!info.isDirectory() || info.isSymbolicLink()
+        || path.basename(commonDirectory).toLowerCase() !== ".git") {
+      fail("owner_root_unavailable");
+    }
+  } catch (error) {
+    if (error?.code === "owner_root_unavailable") throw error;
+    fail("owner_root_unavailable");
+  }
+  return path.dirname(commonDirectory);
+}
+
+async function readServeStatus(env = process.env) {
+  try {
+    const { stdout } = await execFileAsync("tailscale", ["serve", "status", "--json"], {
+      encoding: "utf8",
+      env: minimalHelperEnvironment(env),
+      maxBuffer: 256 * 1024,
+      timeout: CONTROL_TIMEOUT_MS,
+      windowsHide: true,
+    });
+    return JSON.parse(String(stdout));
   } catch {
-    fail("worker_create_failed");
+    fail("serve_state_unsafe");
   }
-  if (result?.return_value !== 0 || !Number.isSafeInteger(result?.pid) || result.pid < 1) {
-    fail("worker_create_failed");
-  }
-  return result.pid;
+}
+
+async function deriveScheduledRuntimeEnvironment(env = process.env) {
+  return createScheduledRuntimeEnvironment({
+    baseEnvironment: env,
+    ownerRoot: await resolveOwnerRoot(env),
+    serveStatus: await readServeStatus(env),
+  });
 }
 
 function probeLoopbackListener(timeoutMs = 1_000) {
@@ -778,111 +1009,100 @@ async function requestOwnedStop(paths, state) {
   return waitForOwnedRuntimeGone(paths, state.run_id);
 }
 
-async function startRuntime(env = process.env) {
-  if (process.platform !== "win32") fail("runtime_platform_unsupported");
-  validateRuntimeLaunchEnvironment(env);
-  await buildDigest();
+async function waitForScheduledRuntime(env = process.env) {
   const paths = runtimePaths(env);
-  await ensureNormalDirectory(paths.root);
-
-  const existingState = await readRuntimeState(paths);
-  const existingLock = await readRuntimeLock(paths);
-  const existingOwnership = classifyRuntimeOwnership(existingState, existingLock);
-  if (existingOwnership !== "stopped") {
-    if (existingOwnership === "owned" && processAlive(existingState.pid)) {
-      const response = await sendControl({ action: "status", run_id: existingState.run_id }).catch(() => null);
-      if (response?.run_id === existingState.run_id) {
-        fail("runtime_already_running");
-      }
-    }
-    fail("runtime_state_ambiguous");
-  }
-
-  const runId = randomUUID();
-  const startedAt = new Date().toISOString();
-  const bootstrapPipe = createRuntimeBootstrapPipe(runId);
-  let lockHandle;
-  try {
-    lockHandle = await open(paths.lock, "wx");
-  } catch (error) {
-    if (error?.code === "EEXIST") fail("runtime_state_ambiguous");
-    throw error;
-  }
-
-  let bootstrapOwner = null;
-  let createdPid = null;
-  try {
-    bootstrapOwner = await listenBootstrap(
-      runId,
-      bootstrapPipe,
-      createRuntimeWorkerEnvironment(env),
-    );
-    createdPid = await createIndependentWorker(runId, bootstrapPipe, env);
-    bootstrapOwner.setExpectedPid(createdPid);
-    const starting = {
-      schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
-      run_id: runId,
-      pid: createdPid,
-      state: "starting",
-      host: "loopback",
-      port: TEAM_OPS_BOARD_RUNTIME_PORT,
-      started_at: startedAt,
-      build_sha256: null,
-      failure_class: null,
-    };
-    await writeJsonAtomic(paths.state, starting);
-    await lockHandle.writeFile(`${JSON.stringify({
-      schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
-      run_id: runId,
-      pid: createdPid,
-      started_at: startedAt,
-    })}\n`, "utf8");
-    await lockHandle.sync();
-    await lockHandle.close();
-    lockHandle = null;
-    const bootstrapResult = await bootstrapOwner.completion;
-    if (bootstrapResult.pid !== createdPid) fail("bootstrap_invalid");
-    await closeBootstrap(bootstrapOwner);
-    bootstrapOwner = null;
-  } catch (error) {
-    await closeBootstrap(bootstrapOwner).catch(() => {});
-    await lockHandle?.close().catch(() => {});
-    if (createdPid) {
-      const exitDeadline = Date.now() + BOOTSTRAP_TIMEOUT_MS + 2_000;
-      while (processAlive(createdPid) && Date.now() < exitDeadline) await wait(25);
-      if (processAlive(createdPid)) fail("runtime_start_ambiguous");
-    }
-    await removeOwnedRuntime(paths, runId).catch(() => {});
-    await rm(paths.lock, { force: true }).catch(() => {});
-    throw error;
-  }
-
   const deadline = Date.now() + START_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const state = await readRuntimeState(paths);
-    if (state?.run_id !== runId) fail("runtime_state_ambiguous");
-    if (state.state === "error") {
-      const exitDeadline = Date.now() + 2_000;
-      while (processAlive(state.pid) && Date.now() < exitDeadline) await wait(25);
-      if (processAlive(state.pid)) fail("runtime_start_ambiguous");
-      await removeOwnedRuntime(paths, runId);
-      fail(state.failure_class ?? "runtime_start_failed");
-    }
-    if (state.state === "ready") {
-      const control = await sendControl({ action: "health", run_id: runId }).catch(() => null);
-      const healthy = runtimeHealthIsReady(state, control, await headLoopback());
-      if (healthy) return createPublicRuntimeState(state, { health: "ok" });
-    }
-    if (!processAlive(state.pid)) {
-      await removeOwnedRuntime(paths, runId);
-      fail("runtime_start_failed");
+    const state = await readRuntimeState(paths).catch(() => null);
+    const lock = await readRuntimeLock(paths).catch(() => null);
+    if (state && lock && classifyRuntimeOwnership(state, lock) === "owned") {
+      if (state.state === "error") fail(state.failure_class ?? "runtime_start_failed");
+      if (!processAlive(state.pid)) fail("runtime_worker_absent");
+      if (state.state === "ready") {
+        const control = await sendControl({ action: "health", run_id: state.run_id }).catch(() => null);
+        if (runtimeHealthIsReady(state, control, await headLoopback())) {
+          return createPublicRuntimeState(state, { health: "ok" });
+        }
+      }
     }
     await wait(100);
   }
-  const timedOutState = await readRuntimeState(paths);
-  if (!timedOutState || timedOutState.run_id !== runId) fail("runtime_start_ambiguous");
-  if (await requestOwnedStop(paths, timedOutState)) fail("runtime_start_timeout");
-  fail("runtime_start_ambiguous");
+  fail("runtime_start_timeout");
+}
+
+async function registerScheduledRuntime(env = process.env) {
+  const before = await invokeScheduledTask("inspect", env);
+  if (before.exists) fail("task_definition_mismatch");
+  const after = await invokeScheduledTask("register", env);
+  if (!scheduledTaskInspectionIsExact(after)) fail("task_definition_mismatch");
+  return createPublicScheduledTaskState(after, "stopped");
+}
+
+async function inspectScheduledRuntime(env = process.env) {
+  const task = await invokeScheduledTask("inspect", env);
+  const paths = runtimePaths(env);
+  const state = await readRuntimeState(paths);
+  const lock = await readRuntimeLock(paths);
+  const ownership = classifyRuntimeOwnership(state, lock);
+  if (ownership === "ambiguous") fail("runtime_state_ambiguous");
+  let controlReady = false;
+  if (ownership === "owned") {
+    const response = await sendControl({ action: "health", run_id: state.run_id }).catch(() => null);
+    controlReady = response?.ok === true && response.run_id === state.run_id;
+  }
+  const listenerState = await probeLoopbackListener();
+  const runtimeHealth = classifyRuntimeObservation({
+    state,
+    ownerAlive: state ? processAlive(state.pid) : false,
+    listenerState,
+    controlReady,
+  });
+  if (ownership === "stopped" && listenerState !== "absent") fail("runtime_state_ambiguous");
+  return createPublicScheduledTaskState(task, runtimeHealth);
+}
+
+async function runScheduledRuntime(env = process.env) {
+  const task = await invokeScheduledTask("inspect", env);
+  if (!scheduledTaskInspectionIsExact(task)) fail("task_definition_mismatch");
+  const paths = runtimePaths(env);
+  const state = await readRuntimeState(paths);
+  const lock = await readRuntimeLock(paths);
+  if (classifyRuntimeOwnership(state, lock) !== "stopped") fail("runtime_already_running");
+  const exactIntent = scheduledQuotaReadRequested(env);
+  const intentOwner = exactIntent ? await listenScheduledLaunchIntent(env) : null;
+  try {
+    await invokeScheduledTask("run", env);
+    if (intentOwner) await intentOwner.completion;
+  } catch (error) {
+    if (exactIntent) {
+      await waitForScheduledRuntime(env).catch(() => null);
+      await stopRuntime(env).catch(() => null);
+    }
+    throw error;
+  } finally {
+    await closeScheduledLaunchIntent(intentOwner).catch(() => {});
+  }
+  await waitForScheduledRuntime(env);
+  return inspectScheduledRuntime(env);
+}
+
+async function unregisterScheduledRuntime(env = process.env) {
+  const task = await invokeScheduledTask("inspect", env);
+  const paths = runtimePaths(env);
+  const state = await readRuntimeState(paths);
+  const lock = await readRuntimeLock(paths);
+  if (!task.exists && classifyRuntimeOwnership(state, lock) === "stopped"
+      && await probeLoopbackListener() === "absent") {
+    return createPublicScheduledTaskState(task, "stopped");
+  }
+  if (!scheduledTaskUnregisterIsSafe({
+    inspection: task,
+    runtimeOwnership: classifyRuntimeOwnership(state, lock),
+    listenerState: await probeLoopbackListener(),
+  })) fail("runtime_state_ambiguous");
+  const after = await invokeScheduledTask("unregister", env);
+  if (after.exists) fail("task_definition_mismatch");
+  return createPublicScheduledTaskState(after, "stopped");
 }
 
 async function inspectRuntime(env = process.env, { health = false } = {}) {
@@ -893,6 +1113,11 @@ async function inspectRuntime(env = process.env, { health = false } = {}) {
   const ownership = classifyRuntimeOwnership(state, lock);
   if (ownership === "stopped") return createPublicRuntimeState(null, { ok: true });
   if (ownership !== "owned") fail("runtime_state_ambiguous");
+  const listenerState = await probeLoopbackListener();
+  if (state.state === "ready" && (!processAlive(state.pid) || listenerState === "absent")) {
+    fail("runtime_worker_absent");
+  }
+  if (listenerState === "ambiguous") fail("runtime_state_ambiguous");
   if (health && state.state !== "ready") fail("health_failed");
   const response = await sendControl({ action: health ? "health" : "status", run_id: state.run_id }).catch(() => null);
   if (!response || response.run_id !== state.run_id) fail("runtime_state_ambiguous");
@@ -1011,9 +1236,13 @@ async function runWorker(runId, env = process.env) {
   let controlServer = null;
   let shutdownPromise = null;
   let fatalPromise = null;
+  let heartbeatTimer = null;
+  let shuttingDown = false;
   const shutdown = () => {
     if (shutdownPromise) return shutdownPromise;
+    shuttingDown = true;
     shutdownPromise = (async () => {
+      clearInterval(heartbeatTimer);
       const current = await readRuntimeState(paths).catch(() => null);
       if (current?.run_id === runId && ["starting", "ready"].includes(current.state)) {
         await writeJsonAtomic(paths.state, transitionRuntimeState(current, "stop_requested"));
@@ -1026,7 +1255,9 @@ async function runWorker(runId, env = process.env) {
   };
   const recordFatalFailure = (error) => {
     if (fatalPromise) return fatalPromise;
+    shuttingDown = true;
     fatalPromise = (async () => {
+      clearInterval(heartbeatTimer);
       const failureClass = sanitizeRuntimeFailure(error, "runtime_worker_failed");
       const current = await readRuntimeState(paths).catch(() => null);
       if (current?.run_id === runId && current.state === "ready") {
@@ -1068,7 +1299,18 @@ async function runWorker(runId, env = process.env) {
     await writeJsonAtomic(paths.state, {
       ...transitionRuntimeState(startingState, "preview_ready"),
       build_sha256: await buildDigest(),
+      heartbeat_at: new Date().toISOString(),
     });
+    heartbeatTimer = setInterval(async () => {
+      if (shuttingDown) return;
+      const current = await readRuntimeState(paths).catch(() => null);
+      if (!shuttingDown && current?.run_id === runId && current.state === "ready") {
+        await writeJsonAtomic(
+          paths.state,
+          refreshRuntimeHeartbeat(current, new Date().toISOString()),
+        ).catch(() => {});
+      }
+    }, HEARTBEAT_INTERVAL_MS);
     process.once("uncaughtException", (error) => {
       recordFatalFailure(error).then(() => process.exit(1)).catch(() => process.exit(1));
     });
@@ -1078,6 +1320,8 @@ async function runWorker(runId, env = process.env) {
     process.once("SIGINT", () => shutdown().then(() => process.exit(0)).catch(() => process.exit(1)));
     process.once("SIGTERM", () => shutdown().then(() => process.exit(0)).catch(() => process.exit(1)));
   } catch (error) {
+    shuttingDown = true;
+    clearInterval(heartbeatTimer);
     const failureClass = sanitizeRuntimeFailure(error);
     await closePreviewGracefully(previewServer).catch(() => {});
     await closeControlServer(controlServer).catch(() => {});
@@ -1092,27 +1336,83 @@ async function runWorker(runId, env = process.env) {
   }
 }
 
-async function runBootstrapWorker(runId, bootstrapPipe) {
-  const environment = await receiveBootstrapEnvironment(runId, bootstrapPipe);
+async function runScheduledWorker(env = process.env) {
+  const environment = await deriveScheduledRuntimeEnvironment(env);
+  delete environment[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ];
+  delete environment[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ];
   for (const name of Object.keys(process.env)) delete process.env[name];
   for (const [name, value] of Object.entries(environment)) process.env[name] = value;
+  validateRuntimeLaunchEnvironment(process.env);
+  await buildDigest();
+  const paths = runtimePaths(process.env);
+  await ensureNormalDirectory(paths.root);
+  const existingState = await readRuntimeState(paths);
+  const existingLock = await readRuntimeLock(paths);
+  if (classifyRuntimeOwnership(existingState, existingLock) !== "stopped"
+      || await probeLoopbackListener() !== "absent") fail("runtime_already_running");
+
+  const runId = randomUUID();
+  const startedAt = new Date().toISOString();
+  let lockHandle;
+  try {
+    lockHandle = await open(paths.lock, "wx");
+    await lockHandle.writeFile(`${JSON.stringify({
+      schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+      run_id: runId,
+      pid: process.pid,
+      started_at: startedAt,
+    })}\n`, "utf8");
+    await lockHandle.sync();
+    await lockHandle.close();
+    lockHandle = null;
+    await writeJsonAtomic(paths.state, {
+      schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+      run_id: runId,
+      pid: process.pid,
+      state: "starting",
+      host: "loopback",
+      port: TEAM_OPS_BOARD_RUNTIME_PORT,
+      started_at: startedAt,
+      heartbeat_at: null,
+      build_sha256: null,
+      failure_class: null,
+    });
+  } catch (error) {
+    await lockHandle?.close().catch(() => {});
+    await removeOwnedRuntime(paths, runId).catch(() => {});
+    throw error;
+  }
+  if (await receiveScheduledLaunchIntent(runId)) {
+    process.env[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ] = "1";
+  }
   await runWorker(runId, process.env);
 }
 
 export function parseRuntimeCommand(argv) {
-  if (argv.length !== 1 || !new Set(["start", "status", "health", "stop", "recover", "--help"]).has(argv[0])) {
+  if (argv.length !== 1 || !new Set([
+    "task-register",
+    "task-status",
+    "task-run",
+    "task-stop",
+    "task-unregister",
+    "status",
+    "health",
+    "stop",
+    "recover",
+    "--help",
+  ]).has(argv[0])) {
     fail("control_unavailable");
   }
   return argv[0];
 }
 
 function help() {
-  return "usage: node ops/team-ops-board-runtime.mjs <start|status|health|stop|recover>";
+  return "usage: node ops/team-ops-board-runtime.mjs <task-register|task-status|task-run|task-stop|task-unregister|status|health|stop|recover>";
 }
 
 async function main() {
-  if (process.argv[2] === "__worker_bootstrap") {
-    await runBootstrapWorker(process.argv[3], process.argv[4]);
+  if (process.argv[2] === "__scheduled_worker") {
+    await runScheduledWorker();
     return;
   }
   const command = parseRuntimeCommand(process.argv.slice(2));
@@ -1120,9 +1420,17 @@ async function main() {
     process.stdout.write(`${help()}\n`);
     return;
   }
-  const result = command === "start"
-    ? await startRuntime()
-    : command === "status"
+  const result = command === "task-register"
+    ? await registerScheduledRuntime()
+    : command === "task-status"
+      ? await inspectScheduledRuntime()
+      : command === "task-run"
+        ? await runScheduledRuntime()
+        : command === "task-stop"
+          ? (await stopRuntime(), await inspectScheduledRuntime())
+          : command === "task-unregister"
+            ? await unregisterScheduledRuntime()
+            : command === "status"
       ? await inspectRuntime()
       : command === "health"
         ? await inspectRuntime(process.env, { health: true })

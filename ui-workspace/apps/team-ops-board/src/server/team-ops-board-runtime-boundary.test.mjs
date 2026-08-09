@@ -6,22 +6,33 @@ import { fileURLToPath } from "node:url";
 
 import {
   TEAM_OPS_BOARD_RUNTIME_HOST,
+  TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE,
   TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ,
   TEAM_OPS_BOARD_RUNTIME_PIPE,
   TEAM_OPS_BOARD_RUNTIME_PORT,
+  TEAM_OPS_BOARD_RUNTIME_TASK_NAME,
   authorizeRuntimeControl,
+  classifyRuntimeObservation,
   classifyRuntimeRecovery,
   classifyRuntimeOwnership,
   closePreviewGracefully,
+  createPublicScheduledTaskState,
   createPublicRuntimeState,
   createPreviewConfig,
-  createRuntimeBootstrapEnvelope,
-  createRuntimeBootstrapPipe,
   createRuntimeWorkerEnvironment,
-  createWmiWorkerCreationSpec,
+  createScheduledRuntimeEnvironment,
+  createScheduledLaunchIntentEnvelope,
+  createScheduledTaskDefinition,
+  createScheduledTaskPowerShellSpec,
+  deriveAllowedHostFromServeStatus,
   parseRuntimeCommand,
+  refreshRuntimeHeartbeat,
+  runtimeHeartbeatIsFresh,
   runtimeHealthIsReady,
   sanitizeRuntimeFailure,
+  scheduledTaskInspectionIsExact,
+  scheduledTaskUnregisterIsSafe,
+  scheduledQuotaReadRequested,
   transitionRuntimeState,
   validateRuntimeLaunchEnvironment,
 } from "../../ops/team-ops-board-runtime.mjs";
@@ -55,7 +66,7 @@ test("runtime launch requires exact pilot and one parser-approved protected host
   }), { read_only_pilot: true, allowed_host_count: 1 });
 });
 
-test("detached worker maps only exact operator quota intent without mutating its parent", () => {
+test("manual worker maps only exact operator quota intent without mutating its parent", () => {
   const parent = {
     TEAM_OPS_BOARD_READ_ONLY_PILOT: "1",
     TEAM_OPS_BOARD_ALLOWED_HOSTS: "board.example.ts.net",
@@ -106,37 +117,97 @@ test("runtime preview is fixed to strict loopback 4192", () => {
   assert.match(TEAM_OPS_BOARD_RUNTIME_PIPE, /^\\\\\.\\pipe\\/u);
 });
 
-test("WMI creator command is job-independent and contains no protected environment values", () => {
-  const runId = "11111111-1111-4111-8111-111111111111";
-  const bootstrapPipe = createRuntimeBootstrapPipe(runId);
+test("scheduled task is on-demand, interactive, limited, and contains no protected values", () => {
   const syntheticDrive = `${String.fromCharCode(67)}${String.fromCharCode(58)}`;
   const nodePath = path.win32.join(syntheticDrive, "Program Files", "nodejs", "node.exe");
   const modulePath = path.win32.join(syntheticDrive, "public-safe", "team-ops-board-runtime.mjs");
   const systemRoot = path.win32.join(syntheticDrive, "Windows");
-  assert.match(nodePath, /^[A-Z]:\\/u);
-  assert.match(modulePath, /^[A-Z]:\\/u);
-  assert.match(systemRoot, /^[A-Z]:\\/u);
-  const spec = createWmiWorkerCreationSpec({
-    runId,
-    bootstrapPipe,
-    nodePath,
-    modulePath,
+  const definition = createScheduledTaskDefinition({ nodePath, modulePath });
+  assert.equal(definition.task_name, TEAM_OPS_BOARD_RUNTIME_TASK_NAME);
+  assert.equal(definition.trigger_count, 0);
+  assert.equal(definition.stored_credential_count, 0);
+  assert.equal(definition.logon_type, "Interactive");
+  assert.equal(definition.run_level, "Limited");
+  assert.equal(definition.task_path, "root");
+  assert.equal(definition.multiple_instances, "IgnoreNew");
+  assert.equal(definition.enabled, true);
+  assert.equal(definition.execution_time_limit, "unlimited");
+  assert.equal(definition.restart_count, 0);
+  assert.equal(definition.watchdog_count, 0);
+  assert.match(definition.action_digest, /^[a-f0-9]{64}$/u);
+  const spec = createScheduledTaskPowerShellSpec("register", {
+    definition,
     systemRoot,
   });
   const encodedAt = spec.args.indexOf("-EncodedCommand");
   assert.ok(encodedAt >= 0);
   const decoded = Buffer.from(spec.args[encodedAt + 1], "base64").toString("utf16le");
   assert.match(spec.file, /WindowsPowerShell[\\/]v1\.0[\\/]powershell\.exe$/iu);
-  assert.match(decoded, /Invoke-CimMethod -ClassName Win32_Process -MethodName Create/u);
-  assert.match(decoded, /__worker_bootstrap/u);
-  assert.match(decoded, /11111111-1111-4111-8111-111111111111/u);
+  assert.match(decoded, /Register-ScheduledTask/u);
+  assert.match(decoded, /New-ScheduledTaskPrincipal -UserId \$owner -LogonType Interactive -RunLevel Limited/u);
+  assert.match(decoded, /__scheduled_worker/u);
   assert.match(decoded, /team-ops-board-runtime\.mjs/u);
-  assert.match(decoded, /soulforge-team-ops-board-bootstrap/u);
+  assert.doesNotMatch(decoded, /New-ScheduledTaskTrigger|-Password|Highest|SYSTEM/u);
   assert.doesNotMatch(decoded, /protected-host|credential-value|binding-value|account-value/u);
+  for (const operation of ["run", "unregister"]) {
+    const mutationSpec = createScheduledTaskPowerShellSpec(operation, { definition, systemRoot });
+    const mutationDecoded = Buffer.from(
+      mutationSpec.args[mutationSpec.args.indexOf("-EncodedCommand") + 1],
+      "base64",
+    ).toString("utf16le");
+    const validationAt = mutationDecoded.indexOf("task_definition_mismatch");
+    const mutationAt = mutationDecoded.indexOf(
+      operation === "run" ? "Start-ScheduledTask" : "Unregister-ScheduledTask",
+    );
+    assert.ok(validationAt >= 0 && mutationAt > validationAt);
+    if (operation === "unregister") {
+      const readyCheckAt = mutationDecoded.indexOf("[string]$t.State -ne 'Ready'");
+      assert.ok(readyCheckAt >= 0 && mutationAt > readyCheckAt);
+    }
+    assert.match(mutationDecoded, /TaskPath \$p/u);
+    assert.match(mutationDecoded, /MultipleInstances/u);
+    assert.match(mutationDecoded, /ExecutionTimeLimit/u);
+    assert.match(mutationDecoded, /RestartCount/u);
+  }
 });
 
-test("bootstrap envelope is run-id-attested and keeps the filtered environment memory-only", () => {
-  const runId = "11111111-1111-4111-8111-111111111111";
+test("scheduled worker derives private bindings in memory and keeps quota OFF", () => {
+  const syntheticDrive = `${String.fromCharCode(67)}${String.fromCharCode(58)}`;
+  const ownerRoot = path.win32.join(syntheticDrive, "owner-root");
+  const serveStatus = {
+    AllowFunnel: { "board.example.ts.net:443": false },
+    Web: {
+      "board.example.ts.net:443": {
+        Handlers: { "/": { Proxy: "http://127.0.0.1:4192" } },
+      },
+    },
+  };
+  assert.equal(deriveAllowedHostFromServeStatus(serveStatus), "board.example.ts.net");
+  const environment = createScheduledRuntimeEnvironment({
+    ownerRoot,
+    serveStatus,
+    baseEnvironment: {
+      LOCALAPPDATA: path.win32.join(syntheticDrive, "runtime-state"),
+      TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ: "1",
+      TEAM_OPS_BOARD_CLAUDE_QUOTA_READ: "1",
+      TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: "must-be-replaced",
+      TEAM_OPS_BOARD_EXACT_THREAD_BINDINGS: "must-not-inherit",
+      UNRELATED_PASSWORD: "must-not-forward",
+    },
+  });
+  assert.equal(environment.TEAM_OPS_BOARD_READ_ONLY_PILOT, "1");
+  assert.equal(environment.TEAM_OPS_BOARD_ALLOWED_HOSTS, "board.example.ts.net");
+  assert.match(environment.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY, /thread_visibility\.v1\.json$/u);
+  assert.notEqual(environment.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY, "must-be-replaced");
+  assert.equal("TEAM_OPS_BOARD_EXACT_THREAD_BINDINGS" in environment, false);
+  assert.equal("TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ" in environment, false);
+  assert.equal("TEAM_OPS_BOARD_CLAUDE_QUOTA_READ" in environment, false);
+  assert.equal("UNRELATED_PASSWORD" in environment, false);
+  assert.throws(() => deriveAllowedHostFromServeStatus({
+    ...serveStatus,
+    AllowFunnel: { "board.example.ts.net:443": true },
+  }), /serve_state_unsafe/);
+
   const filtered = createRuntimeWorkerEnvironment({
     TEAM_OPS_BOARD_READ_ONLY_PILOT: "1",
     TEAM_OPS_BOARD_ALLOWED_HOSTS: "board.example.ts.net",
@@ -145,16 +216,21 @@ test("bootstrap envelope is run-id-attested and keeps the filtered environment m
     TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: "memory-only",
     UNRELATED_PASSWORD: "must-not-forward",
   });
-  const envelope = createRuntimeBootstrapEnvelope(runId, filtered);
-  assert.equal(envelope.run_id, runId);
-  assert.equal(envelope.environment.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY, "memory-only");
-  assert.equal("UNRELATED_PASSWORD" in envelope.environment, false);
-  assert.equal("TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ" in envelope.environment, false);
-  assert.equal("TEAM_OPS_BOARD_CLAUDE_QUOTA_READ" in envelope.environment, false);
-  assert.throws(
-    () => createRuntimeBootstrapEnvelope("wrong", filtered),
-    /bootstrap_invalid/,
-  );
+  assert.equal(filtered.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY, "memory-only");
+  assert.equal("UNRELATED_PASSWORD" in filtered, false);
+
+  const runId = "11111111-1111-4111-8111-111111111111";
+  assert.equal(scheduledQuotaReadRequested({}), false);
+  assert.equal(scheduledQuotaReadRequested({ TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ: "true" }), false);
+  assert.equal(scheduledQuotaReadRequested({ TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ: "1" }), true);
+  assert.deepEqual(createScheduledLaunchIntentEnvelope(runId, {
+    TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ: "1",
+  }), {
+    schema_version: "soulforge.team_ops_board.runtime.v1",
+    run_id: runId,
+    quota_read: true,
+  });
+  assert.match(TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE, /^\\\\\.\\pipe\\/u);
 });
 
 test("control requests require the exact attributable run id", () => {
@@ -200,10 +276,19 @@ test("synthetic lifecycle keeps ownership, readiness, and stop transitions fail 
 
   const ready = transitionRuntimeState(starting, "preview_ready");
   assert.equal(ready.state, "ready");
-  assert.equal(createPublicRuntimeState(ready).ok, true);
-  assert.equal(runtimeHealthIsReady(ready, { ok: true, run_id: runId }, true), true);
-  assert.equal(runtimeHealthIsReady(ready, { ok: true, run_id: "other" }, true), false);
-  assert.equal(runtimeHealthIsReady(ready, { ok: true, run_id: runId }, false), false);
+  const heartbeat = refreshRuntimeHeartbeat(ready, "2026-08-10T00:00:10.000Z");
+  assert.equal(heartbeat.heartbeat_at, "2026-08-10T00:00:10.000Z");
+  const heartbeatNow = Date.parse("2026-08-10T00:00:20.000Z");
+  assert.equal(createPublicRuntimeState(heartbeat, {}, heartbeatNow).ok, true);
+  assert.equal(createPublicRuntimeState(
+    heartbeat,
+    {},
+    Date.parse("2026-08-10T00:01:00.001Z"),
+  ).ok, false);
+  assert.equal(runtimeHeartbeatIsFresh(heartbeat, heartbeatNow), true);
+  assert.equal(runtimeHealthIsReady(heartbeat, { ok: true, run_id: runId }, true, heartbeatNow), true);
+  assert.equal(runtimeHealthIsReady(heartbeat, { ok: true, run_id: "other" }, true, heartbeatNow), false);
+  assert.equal(runtimeHealthIsReady(heartbeat, { ok: true, run_id: runId }, false, heartbeatNow), false);
 
   const stoppingFromStart = transitionRuntimeState(starting, "stop_requested");
   const stoppingFromReady = transitionRuntimeState(ready, "stop_requested");
@@ -215,6 +300,23 @@ test("synthetic lifecycle keeps ownership, readiness, and stop transitions fail 
   assert.equal(failed.failure_class, "runtime_worker_failed");
   assert.throws(() => transitionRuntimeState(stoppingFromReady, "preview_ready"), /runtime_state_ambiguous/);
   assert.equal(classifyRuntimeOwnership(null, null), "stopped");
+  assert.equal(classifyRuntimeObservation({
+    state: heartbeat, ownerAlive: true, listenerState: "present", controlReady: true,
+    now: heartbeatNow,
+  }), "ready");
+  assert.equal(classifyRuntimeObservation({
+    state: ready, ownerAlive: false, listenerState: "absent", controlReady: false,
+  }), "runtime_worker_absent");
+  assert.equal(classifyRuntimeObservation({
+    state: failed, ownerAlive: false, listenerState: "absent", controlReady: false,
+  }), "handled_failure");
+  assert.equal(classifyRuntimeObservation({
+    state: heartbeat,
+    ownerAlive: true,
+    listenerState: "present",
+    controlReady: true,
+    now: Date.parse("2026-08-10T00:01:00.001Z"),
+  }), "hold");
 });
 
 test("stale-owner recovery requires every exact absence proof", () => {
@@ -238,10 +340,13 @@ test("stale-owner recovery requires every exact absence proof", () => {
 });
 
 test("CLI and failure output remain bounded to public-safe classes", () => {
-  for (const command of ["start", "status", "health", "stop", "recover", "--help"]) {
+  for (const command of [
+    "task-register", "task-status", "task-run", "task-stop", "task-unregister",
+    "status", "health", "stop", "recover", "--help",
+  ]) {
     assert.equal(parseRuntimeCommand([command]), command);
   }
-  assert.throws(() => parseRuntimeCommand(["start", "extra"]), /control_unavailable/);
+  assert.throws(() => parseRuntimeCommand(["task-run", "extra"]), /control_unavailable/);
   assert.equal(sanitizeRuntimeFailure({ code: "EADDRINUSE" }), "port_unavailable");
   assert.equal(sanitizeRuntimeFailure(new Error("protected payload")), "runtime_start_failed");
   const publicState = createPublicRuntimeState({
@@ -262,34 +367,87 @@ test("CLI and failure output remain bounded to public-safe classes", () => {
     "schema_version", "started_at", "state",
   ]);
   assert.equal(JSON.stringify(publicState).includes("must-not-project"), false);
+
+  const definition = createScheduledTaskDefinition();
+  const inspection = {
+    exists: true,
+    task_state: "ready",
+    trigger_count: 0,
+    stored_credential_count: 0,
+    current_owner_match: true,
+    run_level_limited: true,
+    task_path_root: true,
+    multiple_instances_ignore_new: true,
+    enabled: true,
+    unlimited_execution: true,
+    restart_count: 0,
+    watchdog_count: 0,
+    action_count: 1,
+    action_digest: definition.action_digest,
+  };
+  assert.equal(scheduledTaskInspectionIsExact(inspection), true);
+  assert.equal(scheduledTaskUnregisterIsSafe({
+    inspection, runtimeOwnership: "stopped", listenerState: "absent",
+  }), true);
+  for (const taskState of ["unknown", "running", "queued"]) {
+    assert.equal(scheduledTaskUnregisterIsSafe({
+      inspection: { ...inspection, task_state: taskState },
+      runtimeOwnership: "stopped",
+      listenerState: "absent",
+    }), false);
+  }
+  assert.equal(scheduledTaskUnregisterIsSafe({
+    inspection, runtimeOwnership: "owned", listenerState: "present",
+  }), false);
+  const taskState = createPublicScheduledTaskState(inspection, "stopped");
+  assert.deepEqual(Object.keys(taskState).sort(), [
+    "action_digest", "current_owner_match", "ok", "runtime_health", "schema_version",
+    "stored_credential_count", "task_health", "trigger_count",
+  ]);
+  assert.equal(taskState.ok, false);
 });
 
-test("tracked runtime has no exposure, force-kill, persistence, or protected-value logging surface", async () => {
+test("tracked runtime has only the bounded on-demand task surface", async () => {
   const source = await readFile(RUNTIME_SOURCE, "utf8");
   assert.doesNotMatch(source, /0\.0\.0\.0|ListenOnLan|firewall|taskkill|Stop-Process|schtasks|autostart|service create/iu);
-  assert.doesNotMatch(source, /tailscale|funnel/iu);
   assert.doesNotMatch(source, /TEAM_OPS_BOARD_CLAUDE_QUOTA_READ\s*[:=]/u);
   assert.doesNotMatch(source, /console\.(?:log|error)|RedirectStandard|\.out\.log|\.err\.log/u);
   assert.doesNotMatch(source, /\bspawn\s*\(/u);
   assert.doesNotMatch(source, /detached:\s*true/u);
   assert.match(source, /windowsHide:\s*true/u);
   assert.doesNotMatch(source, /Start-Process|cmd\.exe|\/c\s+start/iu);
-  assert.match(source, /Invoke-CimMethod -ClassName Win32_Process -MethodName Create/u);
-  assert.match(source, /receiveBootstrapEnvironment/u);
-  assert.match(source, /message\?\.run_id !== runId/u);
-  assert.match(source, /claimedPid !== expectedPid/u);
-  assert.match(source, /bootstrapOwner\.setExpectedPid\(createdPid\)/u);
+  assert.doesNotMatch(source, /Invoke-CimMethod|Win32_Process|bootstrap/iu);
+  assert.match(source, /Register-ScheduledTask/u);
+  assert.match(source, /New-ScheduledTaskPrincipal -UserId \$owner -LogonType Interactive -RunLevel Limited/u);
+  assert.doesNotMatch(source, /New-ScheduledTaskTrigger|-Password|RunLevel Highest/u);
+  assert.match(source, /Start-ScheduledTask -TaskPath \$p -TaskName \$n/u);
+  assert.match(source, /Unregister-ScheduledTask -TaskPath \$p -TaskName \$n -Confirm:\$false/u);
+  assert.match(source, /\["serve", "status", "--json"\]/u);
   assert.match(source, /RUNTIME_ENVIRONMENT_ALLOWLIST/u);
-  assert.match(source, /if \(quotaReadEnabled\) workerEnv\[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ\] = "1"/u);
-  assert.match(source, /delete workerEnv\[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ\]/u);
-  assert.match(source, /BOOTSTRAP_TIMEOUT_MS \+ 2_000/u);
+  assert.match(source, /if \(env\?\.\[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ\] === "1"\)/u);
+  assert.match(source, /delete environment\[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ\]/u);
+  assert.match(source, /delete environment\[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ\]/u);
+  assert.match(source, /TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE/u);
+  assert.match(source, /listenScheduledLaunchIntent/u);
+  assert.match(source, /receiveScheduledLaunchIntent/u);
   assert.doesNotMatch(
     source,
     /api\.anthropic\.com|api\/oauth\/usage|anthropic-version|x-api-key|bearer/iu,
   );
   assert.match(source, /open\(paths\.lock,\s*"wx"\)/u);
   assert.match(source, /runtime_state_ambiguous/u);
-  assert.match(source, /requestOwnedStop\(paths, timedOutState\)/u);
+  assert.match(source, /runtime_worker_absent/u);
+  assert.match(source, /heartbeat_at/u);
+  const workerSource = source.slice(source.indexOf("async function runScheduledWorker"));
+  assert.ok(workerSource.indexOf("lockHandle.writeFile") < workerSource.indexOf("writeJsonAtomic(paths.state"));
+  assert.doesNotMatch(workerSource, /rm\(paths\.lock/u);
+  const statusSource = source.slice(
+    source.indexOf("async function inspectScheduledRuntime"),
+    source.indexOf("async function runScheduledRuntime"),
+  );
+  assert.match(statusSource, /readRuntimeState\(paths\);/u);
+  assert.match(statusSource, /readRuntimeLock\(paths\);/u);
+  assert.doesNotMatch(statusSource, /readRuntime(?:State|Lock)\(paths\)\.catch/u);
   assert.match(source, /socket\.setTimeout\(CONTROL_TIMEOUT_MS/u);
   assert.match(source, /for \(const socket of owner\.sockets\) socket\.destroy\(\)/u);
   assert.match(source, /await previewServer\.close\(\)/u);

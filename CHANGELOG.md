@@ -2,22 +2,24 @@
 
 ## 2026-08-10 - Team Operations Board Windows read-only runtime controller
 
-- Added an explicit Windows runtime controller for the already-approved Board
-  read-only pilot. It keeps one attributable Vite preview alive independently
-  of an interactive tool cell, binds strictly to `127.0.0.1:4192`, exposes
-  metadata-only health, and closes only the matching run ID through a local
-  control channel.
-- The controller inherits protected bindings only from its prepared parent
-  environment and creates no service, scheduler, autostart, firewall, public or
-  LAN binding, or Tailscale configuration change. Provider access stays OFF by
-  default; only the separate exact runtime operator gate can map the existing
-  Claude quota-read opt-in into the worker, and the controller itself performs
-  no provider request.
-- The Windows worker now starts through a local WMI/CIM process-create request
-  and receives its filtered environment over a one-use, run-ID/PID-attested
-  in-memory pipe, so an interactive tool job ending does not own the Board
-  lifetime. A fail-closed `recover` command removes only matching metadata after
-  the owner, control channel, and loopback listener are all proven absent.
+- Replaced the interactive-tool-owned launch path with one explicit Windows
+  on-demand Scheduled Task for the already-approved read-only Board. The task
+  has no triggers, stored credential, elevation, service, or autostart; it runs
+  only for the current interactive user and stores only the integrated runtime
+  action. Strict loopback `127.0.0.1:4192`, single-instance ownership, exact
+  graceful stop, and fail-closed recovery remain mandatory.
+- The scheduled worker derives its canonical owner root, existing loopback
+  Serve Host, and private default Board bindings only in process memory. No
+  protected value enters task arguments, task metadata, repository files, or
+  logs. Scheduled-mode Claude quota access is OFF by default; its exact operator
+  opt-in crosses only a run-ID-attested in-memory launch channel and is never
+  stored in task arguments, XML, runtime records, or logs. Metadata-only task
+  status reports zero triggers/credentials, owner match, action digest, and
+  task/runtime health classes.
+- Added heartbeat-backed lifecycle evidence so a handled runtime failure stays
+  distinct from a ready marker whose process or listener disappeared. Exact
+  stale-record recovery and task unregistration remain bounded and never force
+  process termination or mutate Tailscale, firewall, LAN, or public exposure.
 
 ## 2026-08-10 - Team Operations Board responsive Fleet status rows
 

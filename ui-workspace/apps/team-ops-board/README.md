@@ -359,36 +359,47 @@ npm.cmd --prefix ui-workspace run team-ops-app:build
 
 ### Windows read-only runtime wrapper
 
-The Board owns a Windows-only runtime controller for an explicitly prepared
-read-only environment. The same parent PowerShell process must assemble the
-approved local bindings and one parser-valid allowed Host in memory before it
-invokes `start`; the controller never resolves, prints, or persists those
-values. `TEAM_OPS_BOARD_READ_ONLY_PILOT=1` is mandatory. The controller does
-not perform a provider request itself and strips inherited Claude quota intent
-by default. Only the separate exact operator gate
-`TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ=1` maps the existing quota-read flag
-into the worker; unset, blank, or any other value remains fail-closed OFF.
+The Board owns one Windows-only, on-demand Scheduled Task for its approved
+read-only runtime. Registration stores only the Node executable, this integrated
+runtime module, and the internal scheduled-worker action. The task has no
+triggers, runs only for the current interactive user without a stored password,
+uses limited privilege, and ignores a second concurrent start. It is not a
+service, logon task, watchdog, or autostart surface.
 
 ```powershell
-node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs start
-node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs status
-node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs health
-node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs stop
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-register
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-status
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-run
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-stop
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs recover
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs task-unregister
 ```
 
-The runtime is fixed to strict loopback `127.0.0.1:4192`. It uses one
-PC-local metadata-only single-instance claim and a run-ID-attested local named
-pipe. On Windows, a local WMI/CIM create request starts the worker outside an
-interactive tool job and a one-use attested bootstrap pipe transfers the
-already-filtered environment in memory only. `stop` asks the exact owner to
-close Vite gracefully; it never performs a broad or forceful process
-termination. `recover` removes only matching metadata after the recorded owner,
-control pipe, and loopback listener are all proven absent. Missing, stale,
-conflicting, or unattributable state otherwise fails closed for operator
-review. The controller creates no service, scheduler, autostart, firewall,
-LAN/public binding, or Tailscale configuration and writes no protected
-environment values or raw error logs.
+At execution time the scheduled worker derives the canonical owner checkout
+from Git's common directory, derives the existing loopback Serve Host from the
+local read-only Serve status JSON, and assembles the Board's existing private
+default bindings in process memory. None of those values enter the task action,
+task metadata, repository, or logs. Scheduled mode starts from required OS
+variables only and replaces, rather than inherits, every Board binding. Claude
+quota access is OFF by default. An exact
+`TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ=1` on `task-run` is transferred to the
+attested scheduled worker over a local run-ID handshake and exists only in
+process memory; unset, blank, and malformed values remain OFF. The intent and
+resulting child flag never enter task arguments, XML, state records, or logs.
+
+The runtime remains fixed to strict loopback `127.0.0.1:4192`, with one
+PC-local metadata-only claim, run-ID-attested control pipe, heartbeat, exact
+health check, and graceful exact stop. `task-status` exposes only trigger and
+stored-credential counts, current-owner match, the action digest, and task/
+runtime health classes. Exact task proof also requires the root task path,
+enabled state, `IgnoreNew`, unlimited execution, and zero restart/watchdog
+configuration. A ready marker with an absent owner or listener is
+`runtime_worker_absent`; a stale heartbeat is HOLD, while a handled worker
+failure remains distinguishable.
+`recover` removes only exact matching stale records after the owner, control
+pipe, and listener are all proven absent; `task-unregister` requires a stopped
+runtime. There is no force kill, service, automatic trigger, elevation,
+firewall, LAN/public bind, or Tailscale configuration mutation.
 
 The app-server adapter tests cover handshake/initialization, pagination,
 `useStateDbOnly` fallback, redaction, exact-ID joining, bounded cache/failure
