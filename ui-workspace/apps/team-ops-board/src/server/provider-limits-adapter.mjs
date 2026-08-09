@@ -11,6 +11,7 @@ import {
   normalizeClaudeOauthUsage,
   parseCodexRateLimitsFromJsonlText,
 } from "../core/provider-limits.mjs";
+import { isTeamOpsBoardReadOnlyPilot } from "../core/team-ops-board-read-only-pilot.mjs";
 
 export const PROVIDER_LIMITS_SNAPSHOT_PATH = "/provider-limits.snapshot.json";
 export const DEFAULT_PROVIDER_LIMITS_TTL_MS = 60_000;
@@ -114,6 +115,8 @@ export function createProviderLimitsReader({
   ttlMs = DEFAULT_PROVIDER_LIMITS_TTL_MS,
   claudeRefreshMs = DEFAULT_CLAUDE_LIMITS_REFRESH_MS,
   fetchTimeoutMs = DEFAULT_PROVIDER_LIMITS_FETCH_TIMEOUT_MS,
+  readCodexLimitsImpl = readCodexLimits,
+  readClaudeLimitsImpl = readClaudeLimits,
   now = Date.now,
 } = {}) {
   let inFlight = null;
@@ -123,14 +126,15 @@ export function createProviderLimitsReader({
   let lastClaude = null;
   let lastClaudeAttemptAt = null;
   let lastGood = null;
+  const readOnlyPilot = isTeamOpsBoardReadOnlyPilot(env);
 
   async function refresh() {
-    const codex = await readCodexLimits(sessionsRoot).catch(() => null);
+    const codex = await readCodexLimitsImpl(sessionsRoot).catch(() => null);
     if (codex !== null) lastCodex = codex;
     const observedNow = now();
-    if (lastClaudeAttemptAt === null || observedNow - lastClaudeAttemptAt >= claudeRefreshMs) {
+    if (!readOnlyPilot && (lastClaudeAttemptAt === null || observedNow - lastClaudeAttemptAt >= claudeRefreshMs)) {
       lastClaudeAttemptAt = observedNow;
-      const claude = await readClaudeLimits({ credentialsPath, fetchImpl, timeoutMs: fetchTimeoutMs }).catch(() => null);
+      const claude = await readClaudeLimitsImpl({ credentialsPath, fetchImpl, timeoutMs: fetchTimeoutMs }).catch(() => null);
       if (claude !== null) lastClaude = { ...claude, observed_at: new Date(observedNow).toISOString() };
     }
     if (lastCodex === null && lastClaude === null) return;

@@ -520,7 +520,7 @@ function App() {
   useEffect(() => {
     if (surface !== "system" && surface !== "owner") return undefined;
     let cancelled = false;
-    const load = async (force: boolean) => {
+    const load = async (force = false) => {
       setTopologyRefreshing(true);
       try {
         const response = await fetch(`/topology-health.snapshot.json${force ? "?refresh=1" : ""}`);
@@ -3308,7 +3308,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
     if (inspectorView === "all") {
       return new Set(structuralPaths.all.flatMap((path) => path.edges.map((edge) => edge.edge_id)));
     }
-    return new Set(structuralPaths.direct.map((edge) => edge.edge_id));
+    return new Set(structuralPaths.direct.map((edge: any) => edge.edge_id));
   }, [inspectorView, selectedNodeId, structuralPaths]);
   const selectedNode = selectedNodeId === null
     ? null
@@ -3495,7 +3495,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
               {inspectorView === "direct" ? (
                 structuralPaths.direct.length === 0 ? <p className="watchtower-inspector-empty">직접 구조 관계 없음</p> : (
                   <ol>
-                    {structuralPaths.direct.map((edge) => (
+                    {structuralPaths.direct.map((edge: any) => (
                       <li key={edge.edge_id}>{edge.from} → {edge.to}{edge.label ? ` · ${edge.label}` : ""}</li>
                     ))}
                   </ol>

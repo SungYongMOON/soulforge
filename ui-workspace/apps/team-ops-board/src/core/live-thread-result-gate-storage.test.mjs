@@ -47,6 +47,11 @@ test("result gate atomic writer leaves no temporary files and emergency environm
       writeThreadResultGateRegistryAtomic(path, empty, { env: { TEAM_OPS_BOARD_RESULT_GATES_DISABLED: "1" } }),
       /thread_result_gate_disabled/u
     );
+    await assert.rejects(
+      writeThreadResultGateRegistryAtomic(join(directory, "pilot_result_gate.v1.json"), empty, { env: { TEAM_OPS_BOARD_READ_ONLY_PILOT: "1" } }),
+      /thread_result_gate_disabled/u
+    );
+    assert.deepEqual(await readdir(directory), ["thread_result_gate.v1.json"]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -89,6 +94,18 @@ test("result gate CLI validates a deterministic start-result lifecycle and dedup
     const validation = spawnSync(process.execPath, [CLI_PATH, "validate", ...shared], { encoding: "utf8", env: process.env });
     assert.equal(validation.status, 0, validation.stderr);
     assert.match(validation.stdout, /"valid": true/u);
+    const pilotAttempt = spawnSync(process.execPath, [
+      CLI_PATH,
+      "emit",
+      ...shared,
+      "--event-id", "event-cli-pilot-blocked",
+      "--thread-id", "thread-cli-result",
+      "--event-type", "accepted",
+      "--target", "owner",
+      "--occurred-at", "2026-08-04T03:30:03.000Z"
+    ], { encoding: "utf8", env: { ...process.env, TEAM_OPS_BOARD_READ_ONLY_PILOT: "1" } });
+    assert.notEqual(pilotAttempt.status, 0);
+    assert.match(pilotAttempt.stderr, /thread_result_gate_disabled/u);
     const loaded = await readThreadResultGateRegistry(resultGatePath, { env: {} });
     assert.equal(loaded.registry.events.length, 2);
     assert.equal(JSON.stringify(loaded.registry).includes("raw"), true);

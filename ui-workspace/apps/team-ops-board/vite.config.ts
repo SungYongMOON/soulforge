@@ -8,18 +8,21 @@ import { createHostStatsAdapterPlugin } from "./src/server/host-stats-adapter.mj
 import { createLiveThreadAdapterPlugin } from "./src/server/live-thread-adapter.mjs";
 import { createProviderLimitsAdapterPlugin } from "./src/server/provider-limits-adapter.mjs";
 import { createTopologyAdapterPlugin } from "./src/server/topology-adapter.mjs";
+import { createTeamOpsBoardRuntimeEnvironment } from "./src/core/team-ops-board-read-only-pilot.mjs";
+
+const boardEnvironment = createTeamOpsBoardRuntimeEnvironment();
 
 export default defineConfig({
   plugins: [
     react(),
-    createLiveThreadAdapterPlugin(),
+    createLiveThreadAdapterPlugin({ env: boardEnvironment }),
     createAiUsageAdapterPlugin(),
     createTopologyAdapterPlugin(),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),
-    createAntigravityQuotaAdapterPlugin(),
-    createProviderLimitsAdapterPlugin()
+    createAntigravityQuotaAdapterPlugin({ env: boardEnvironment }),
+    createProviderLimitsAdapterPlugin({ env: boardEnvironment })
   ],
   server: {
     host: "127.0.0.1",

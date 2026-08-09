@@ -217,6 +217,23 @@ persisted receipt bridge. Missing or partial structural coverage stays visible
 as `HOLD`; this is not a claim that Codex exposes every internal task-creation
 event.
 
+## Read-only pilot
+
+`TEAM_OPS_BOARD_READ_ONLY_PILOT=1` is the single explicit fail-closed pilot
+mode. Only the exact string `1` enables it. Within the Board process it composes
+the existing auto-enrollment, subagent receipt, lifecycle reconciliation, and
+result-gate disables. The result-gate atomic writer also rejects the pilot env,
+including when invoked through its separate CLI.
+
+The pilot does not read Claude credentials or call the Claude provider limit
+endpoint. It does not probe Antigravity's local RPC or read/write its quota
+cache. Those unavailable official observations remain `UNKNOWN`/disabled and
+are never represented as zero usage, available quota, or green health. The
+common Meter ledger's read-only AI usage and Claude provider rows, and the
+Watchtower topology diagnostics, remain read-only projections. This mode does
+not start collectors, authenticate a provider, expose a public service, or
+prove provider health, live execution, E2E behavior, or task completion.
+
 ## Exact enrollment CLI
 
 The CLI is deliberately limited to local registry metadata. It has no Codex

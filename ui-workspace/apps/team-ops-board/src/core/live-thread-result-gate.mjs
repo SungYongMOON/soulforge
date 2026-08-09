@@ -8,6 +8,7 @@ import {
   normalizeThreadResultGateRegistry,
   validateThreadResultGateRegistry
 } from "./live-thread-projection.mjs";
+import { isTeamOpsBoardReadOnlyPilot } from "./team-ops-board-read-only-pilot.mjs";
 
 export {
   createEmptyThreadResultGateRegistry,
@@ -35,6 +36,7 @@ export async function readThreadResultGateRegistry(path, { env = process.env } =
 export async function writeThreadResultGateRegistryAtomic(path, registryInput, { env = process.env, allowDisabled = false } = {}) {
   const registry = normalizeThreadResultGateRegistry(registryInput);
   if (!registry) throw new Error("invalid_result_gate_registry");
+  if (isTeamOpsBoardReadOnlyPilot(env)) throw new Error("thread_result_gate_disabled");
   if (isThreadResultGateDisabled({ registry: null, env })) throw new Error("thread_result_gate_disabled");
   if (registry.disabled && allowDisabled !== true) throw new Error("thread_result_gate_disabled");
   const directory = dirname(path);

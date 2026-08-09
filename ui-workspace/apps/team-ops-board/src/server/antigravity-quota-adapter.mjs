@@ -16,6 +16,7 @@ import {
   buildAntigravityQuotaSnapshot,
   parseAntigravityQuotaResponse,
 } from "../core/antigravity-quota.mjs";
+import { isTeamOpsBoardReadOnlyPilot } from "../core/team-ops-board-read-only-pilot.mjs";
 
 const execFileAsync = promisify(execFile);
 const MODULE_ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -75,6 +76,7 @@ function isPlausibleCachedSnapshot(value) {
 }
 
 export function createAntigravityQuotaReader({
+  env = process.env,
   fetchImpl = fetch,
   listPorts = candidatePorts,
   ttlMs = DEFAULT_ANTIGRAVITY_QUOTA_TTL_MS,
@@ -86,6 +88,7 @@ export function createAntigravityQuotaReader({
   let lastGood = null;
   let knownPort = null;
   let cacheChecked = false;
+  const readOnlyPilot = isTeamOpsBoardReadOnlyPilot(env);
 
   async function persistCache(snapshot) {
     if (cachePath === null) return;
@@ -117,6 +120,7 @@ export function createAntigravityQuotaReader({
   }
 
   async function refresh() {
+    if (readOnlyPilot) return;
     // 이전에 응답한 포트를 먼저 시도하고, 실패하면 프로세스 포트를 재열거한다.
     if (knownPort !== null) {
       const groups = await queryQuota(knownPort, fetchImpl).catch(() => null);
