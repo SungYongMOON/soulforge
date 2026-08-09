@@ -357,6 +357,33 @@ npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run typechec
 npm.cmd --prefix ui-workspace run team-ops-app:build
 ```
 
+### Windows read-only runtime wrapper
+
+The Board owns a Windows-only runtime controller for an explicitly prepared
+read-only environment. The same parent PowerShell process must assemble the
+approved local bindings and one parser-valid allowed Host in memory before it
+invokes `start`; the controller never resolves, prints, or persists those
+values. `TEAM_OPS_BOARD_READ_ONLY_PILOT=1` is mandatory. The controller does
+not perform a provider request itself and strips inherited Claude quota intent
+by default. Only the separate exact operator gate
+`TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ=1` maps the existing quota-read flag
+into the worker; unset, blank, or any other value remains fail-closed OFF.
+
+```powershell
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs start
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs status
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs health
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs stop
+```
+
+The runtime is fixed to strict loopback `127.0.0.1:4192`. It uses one
+PC-local metadata-only single-instance claim and a run-ID-attested local named
+pipe. `stop` asks the exact owner to close Vite gracefully; it never performs a
+broad or forceful process termination. Missing, stale, conflicting, or
+unattributable state fails closed for operator review. The controller creates
+no service, scheduler, autostart, firewall, LAN/public binding, or Tailscale
+configuration and writes no protected environment values or raw error logs.
+
 The app-server adapter tests cover handshake/initialization, pagination,
 `useStateDbOnly` fallback, redaction, exact-ID joining, bounded cache/failure
 behavior, lifecycle source fail-closed behavior, and no prefix fallback.

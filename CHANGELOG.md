@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-08-10 - Team Operations Board Windows read-only runtime controller
+
+- Added an explicit Windows runtime controller for the already-approved Board
+  read-only pilot. It keeps one attributable Vite preview alive independently
+  of an interactive tool cell, binds strictly to `127.0.0.1:4192`, exposes
+  metadata-only health, and closes only the matching run ID through a local
+  control channel.
+- The controller inherits protected bindings only from its prepared parent
+  environment and creates no service, scheduler, autostart, firewall, public or
+  LAN binding, or Tailscale configuration change. Provider access stays OFF by
+  default; only the separate exact runtime operator gate can map the existing
+  Claude quota-read opt-in into the worker, and the controller itself performs
+  no provider request.
+
 ## 2026-08-10 - Team Operations Board responsive Fleet status rows
 
 - Added a bounded narrow-screen override for Fleet status rows so names,
