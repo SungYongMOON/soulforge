@@ -374,15 +374,21 @@ node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs start
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs status
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs health
 node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs stop
+node ui-workspace/apps/team-ops-board/ops/team-ops-board-runtime.mjs recover
 ```
 
 The runtime is fixed to strict loopback `127.0.0.1:4192`. It uses one
 PC-local metadata-only single-instance claim and a run-ID-attested local named
-pipe. `stop` asks the exact owner to close Vite gracefully; it never performs a
-broad or forceful process termination. Missing, stale, conflicting, or
-unattributable state fails closed for operator review. The controller creates
-no service, scheduler, autostart, firewall, LAN/public binding, or Tailscale
-configuration and writes no protected environment values or raw error logs.
+pipe. On Windows, a local WMI/CIM create request starts the worker outside an
+interactive tool job and a one-use attested bootstrap pipe transfers the
+already-filtered environment in memory only. `stop` asks the exact owner to
+close Vite gracefully; it never performs a broad or forceful process
+termination. `recover` removes only matching metadata after the recorded owner,
+control pipe, and loopback listener are all proven absent. Missing, stale,
+conflicting, or unattributable state otherwise fails closed for operator
+review. The controller creates no service, scheduler, autostart, firewall,
+LAN/public binding, or Tailscale configuration and writes no protected
+environment values or raw error logs.
 
 The app-server adapter tests cover handshake/initialization, pagination,
 `useStateDbOnly` fallback, redaction, exact-ID joining, bounded cache/failure

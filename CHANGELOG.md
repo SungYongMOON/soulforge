@@ -13,6 +13,11 @@
   default; only the separate exact runtime operator gate can map the existing
   Claude quota-read opt-in into the worker, and the controller itself performs
   no provider request.
+- The Windows worker now starts through a local WMI/CIM process-create request
+  and receives its filtered environment over a one-use, run-ID/PID-attested
+  in-memory pipe, so an interactive tool job ending does not own the Board
+  lifetime. A fail-closed `recover` command removes only matching metadata after
+  the owner, control channel, and loopback listener are all proven absent.
 
 ## 2026-08-10 - Team Operations Board responsive Fleet status rows
 

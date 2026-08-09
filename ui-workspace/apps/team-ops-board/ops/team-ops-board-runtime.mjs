@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   lstat,
@@ -16,6 +16,7 @@ import { createConnection, createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 
 import {
   TEAM_OPS_BOARD_CLAUDE_QUOTA_READ,
@@ -31,6 +32,38 @@ export const TEAM_OPS_BOARD_RUNTIME_PIPE = String.raw`\\.\pipe\soulforge-team-op
 export const TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ =
   "TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ";
 
+const RUNTIME_ENVIRONMENT_ALLOWLIST = Object.freeze([
+  "APPDATA",
+  "CODEX_HOME",
+  "ComSpec",
+  "HOME",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "LOCALAPPDATA",
+  "PATH",
+  "PATHEXT",
+  "PROGRAMDATA",
+  "SystemRoot",
+  "TEMP",
+  "TMP",
+  "USERPROFILE",
+  "WINDIR",
+  "SOULFORGE_AI_USAGE_METER_STATE_ROOT",
+  "TEAM_OPS_BOARD_ALLOWED_HOSTS",
+  "TEAM_OPS_BOARD_ANTIGRAVITY_STATE_DB",
+  "TEAM_OPS_BOARD_CLAUDE_PROJECTS_ROOT",
+  "TEAM_OPS_BOARD_EXACT_THREAD_BINDINGS",
+  "TEAM_OPS_BOARD_HOST_DISK_ROOTS",
+  "TEAM_OPS_BOARD_LIFECYCLE_DISABLE_CONTROL",
+  "TEAM_OPS_BOARD_LIFECYCLE_SNAPSHOT",
+  "TEAM_OPS_BOARD_ORGANIZATION_CATALOG",
+  "TEAM_OPS_BOARD_ORGANIZATION_GOVERNANCE_OVERLAY",
+  "TEAM_OPS_BOARD_READ_ONLY_PILOT",
+  "TEAM_OPS_BOARD_THREAD_RESULT_GATE_REGISTRY",
+  "TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY",
+  "TEAM_OPS_BOARD_WATCHTOWER_POINTER",
+]);
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(HERE, "..");
 const CONFIG_FILE = path.join(APP_ROOT, "vite.config.ts");
@@ -38,9 +71,15 @@ const DIST_INDEX = path.join(APP_ROOT, "dist", "index.html");
 const START_TIMEOUT_MS = 30_000;
 const STOP_TIMEOUT_MS = 15_000;
 const CONTROL_TIMEOUT_MS = 3_000;
+const BOOTSTRAP_TIMEOUT_MS = 10_000;
+const MAX_BOOTSTRAP_BYTES = 256 * 1024;
 const MAX_RECORD_BYTES = 4096;
+const execFileAsync = promisify(execFile);
 const SAFE_FAILURE_CLASSES = new Set([
   "allowed_host_unavailable",
+  "bootstrap_invalid",
+  "bootstrap_timeout",
+  "bootstrap_unavailable",
   "build_unavailable",
   "control_unavailable",
   "health_failed",
@@ -49,12 +88,15 @@ const SAFE_FAILURE_CLASSES = new Set([
   "port_unavailable",
   "runtime_already_running",
   "runtime_platform_unsupported",
+  "runtime_recovery_unsafe",
   "runtime_start_ambiguous",
   "runtime_start_failed",
   "runtime_start_timeout",
   "runtime_state_ambiguous",
   "runtime_state_unsafe",
   "runtime_stop_ambiguous",
+  "runtime_worker_failed",
+  "worker_create_failed",
 ]);
 
 function fail(code) {
@@ -63,9 +105,9 @@ function fail(code) {
   throw error;
 }
 
-export function sanitizeRuntimeFailure(error) {
+export function sanitizeRuntimeFailure(error, fallback = "runtime_start_failed") {
   if (error?.code === "EADDRINUSE") return "port_unavailable";
-  return SAFE_FAILURE_CLASSES.has(error?.code) ? error.code : "runtime_start_failed";
+  return SAFE_FAILURE_CLASSES.has(error?.code) ? error.code : fallback;
 }
 
 export function validateRuntimeLaunchEnvironment(env = process.env) {
@@ -79,12 +121,95 @@ export function validateRuntimeLaunchEnvironment(env = process.env) {
 }
 
 export function createRuntimeWorkerEnvironment(env = process.env) {
-  const workerEnv = { ...env };
+  const workerEnv = {};
+  for (const name of RUNTIME_ENVIRONMENT_ALLOWLIST) {
+    if (typeof env?.[name] === "string") workerEnv[name] = env[name];
+  }
   const quotaReadEnabled = env?.[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ] === "1";
-  delete workerEnv[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ];
-  delete workerEnv[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ];
   if (quotaReadEnabled) workerEnv[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ] = "1";
   return workerEnv;
+}
+
+function quoteWindowsCommandArgument(value) {
+  const text = String(value);
+  if (text.includes("\u0000") || /[\r\n]/u.test(text)) fail("worker_create_failed");
+  const escaped = text
+    .replace(/(\\*)"/gu, "$1$1\\\"")
+    .replace(/(\\+)$/u, "$1$1");
+  return `"${escaped}"`;
+}
+
+function powershellSingleQuoted(value) {
+  const text = String(value);
+  if (text.includes("\u0000") || /[\r\n]/u.test(text)) fail("worker_create_failed");
+  return `'${text.replaceAll("'", "''")}'`;
+}
+
+export function createRuntimeBootstrapPipe(runId) {
+  if (typeof runId !== "string" || !/^[a-f0-9-]{36}$/u.test(runId)) {
+    fail("bootstrap_invalid");
+  }
+  return String.raw`\\.\pipe\soulforge-team-ops-board-bootstrap-${runId}`;
+}
+
+export function createWmiWorkerCreationSpec({
+  runId,
+  bootstrapPipe,
+  nodePath = process.execPath,
+  modulePath = fileURLToPath(import.meta.url),
+  systemRoot = process.env.SystemRoot || process.env.WINDIR,
+} = {}) {
+  if (process.platform !== "win32" && systemRoot === undefined) {
+    fail("runtime_platform_unsupported");
+  }
+  if (typeof systemRoot !== "string" || systemRoot.trim() === "") {
+    fail("worker_create_failed");
+  }
+  if (bootstrapPipe !== createRuntimeBootstrapPipe(runId)) fail("bootstrap_invalid");
+  const commandLine = [nodePath, modulePath, "__worker_bootstrap", runId, bootstrapPipe]
+    .map(quoteWindowsCommandArgument)
+    .join(" ");
+  const safeCommandLine = powershellSingleQuoted(commandLine);
+  const script = [
+    "$ErrorActionPreference='Stop'",
+    `$r=Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine=${safeCommandLine}}`,
+    "if(([int]$r.ReturnValue)-ne 0 -or ([int]$r.ProcessId)-lt 1){exit 23}",
+    "$o=[pscustomobject]@{return_value=0;pid=[int]$r.ProcessId}",
+    "[Console]::Out.Write(($o|ConvertTo-Json -Compress))",
+  ].join(";");
+  const powershell = path.join(
+    path.resolve(systemRoot),
+    "System32",
+    "WindowsPowerShell",
+    "v1.0",
+    "powershell.exe",
+  );
+  return {
+    file: powershell,
+    args: [
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-EncodedCommand",
+      Buffer.from(script, "utf16le").toString("base64"),
+    ],
+  };
+}
+
+export function classifyRuntimeRecovery({
+  state,
+  lock,
+  ownerAlive,
+  controlAvailable,
+  listenerState,
+}) {
+  if (classifyRuntimeOwnership(state, lock) !== "owned") return "unsafe";
+  if (ownerAlive !== false || controlAvailable !== false || listenerState !== "absent") {
+    return "unsafe";
+  }
+  return "recoverable";
 }
 
 export function createPreviewConfig() {
@@ -126,6 +251,10 @@ export function transitionRuntimeState(state, event, failureClass = null) {
     return { ...state, state: "stopping" };
   }
   if (event === "start_failed" && state.state === "starting"
+      && SAFE_FAILURE_CLASSES.has(failureClass)) {
+    return { ...state, state: "error", failure_class: failureClass };
+  }
+  if (event === "runtime_failed" && state.state === "ready"
       && SAFE_FAILURE_CLASSES.has(failureClass)) {
     return { ...state, state: "error", failure_class: failureClass };
   }
@@ -335,6 +464,261 @@ function sendControl(payload, timeoutMs = CONTROL_TIMEOUT_MS) {
   });
 }
 
+function probeControlAvailability(timeoutMs = CONTROL_TIMEOUT_MS) {
+  return new Promise((resolve) => {
+    const socket = createConnection(TEAM_OPS_BOARD_RUNTIME_PIPE);
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(value);
+    };
+    socket.setTimeout(timeoutMs, () => finish(null));
+    socket.on("connect", () => finish(true));
+    socket.on("error", (error) => finish(
+      ["ENOENT", "ECONNREFUSED"].includes(error?.code) ? false : null,
+    ));
+  });
+}
+
+function validateBootstrapEnvironment(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail("bootstrap_invalid");
+  const entries = Object.entries(value);
+  if (entries.length > 1024) fail("bootstrap_invalid");
+  for (const [name, entryValue] of entries) {
+    if (name.length < 1 || name.length > 512 || /[\u0000\r\n=]/u.test(name)
+        || typeof entryValue !== "string" || entryValue.includes("\u0000")) {
+      fail("bootstrap_invalid");
+    }
+  }
+  return Object.fromEntries(entries);
+}
+
+export function createRuntimeBootstrapEnvelope(runId, workerEnvironment) {
+  createRuntimeBootstrapPipe(runId);
+  return {
+    schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
+    run_id: runId,
+    environment: validateBootstrapEnvironment(workerEnvironment),
+  };
+}
+
+async function listenBootstrap(runId, bootstrapPipe, workerEnvironment) {
+  const payload = `${JSON.stringify(createRuntimeBootstrapEnvelope(runId, workerEnvironment))}\n`;
+  if (Buffer.byteLength(payload) > MAX_BOOTSTRAP_BYTES) fail("bootstrap_invalid");
+
+  const sockets = new Set();
+  let claimedPid = null;
+  let expectedPid = null;
+  let claimedSocket = null;
+  let claimedPhase = null;
+  let settle;
+  let rejectCompletion;
+  const completion = new Promise((resolve, reject) => {
+    settle = resolve;
+    rejectCompletion = reject;
+  });
+  const completionTimer = setTimeout(
+    () => rejectCompletion(Object.assign(new Error("bootstrap_timeout"), { code: "bootstrap_timeout" })),
+    BOOTSTRAP_TIMEOUT_MS,
+  );
+  completion.finally(() => clearTimeout(completionTimer)).catch(() => {});
+  const sendEnvironmentIfAttested = () => {
+    if (!claimedSocket || expectedPid === null || claimedPhase !== "await_pid") return;
+    if (claimedPid !== expectedPid) {
+      claimedSocket.destroy();
+      rejectCompletion(Object.assign(new Error("bootstrap_invalid"), { code: "bootstrap_invalid" }));
+      return;
+    }
+    claimedPhase = "ack";
+    claimedSocket.write(payload);
+  };
+
+  const server = createServer((socket) => {
+    let bytes = "";
+    let phase = "hello";
+    sockets.add(socket);
+    socket.setEncoding("utf8");
+    socket.setTimeout(BOOTSTRAP_TIMEOUT_MS, () => socket.destroy());
+    socket.once("close", () => sockets.delete(socket));
+    socket.on("data", (chunk) => {
+      bytes += chunk;
+      if (Buffer.byteLength(bytes) > MAX_BOOTSTRAP_BYTES) {
+        socket.destroy();
+        return;
+      }
+      let newline;
+      while ((newline = bytes.indexOf("\n")) >= 0) {
+        const line = bytes.slice(0, newline);
+        bytes = bytes.slice(newline + 1);
+        let message;
+        try {
+          message = JSON.parse(line);
+        } catch {
+          socket.destroy();
+          return;
+        }
+        if (phase === "hello") {
+          if (claimedPid !== null
+              || message?.action !== "bootstrap"
+              || message?.run_id !== runId
+              || !Number.isSafeInteger(message?.pid)
+              || message.pid < 1) {
+            socket.destroy();
+            return;
+          }
+          claimedPid = message.pid;
+          claimedSocket = socket;
+          claimedPhase = "await_pid";
+          phase = "await_pid";
+          sendEnvironmentIfAttested();
+          continue;
+        }
+        if (phase !== "await_pid" || claimedPhase !== "ack"
+            || message?.action !== "ack"
+            || message?.run_id !== runId
+            || message?.pid !== claimedPid) {
+          socket.destroy();
+          return;
+        }
+        settle({ pid: claimedPid });
+        socket.end();
+        return;
+      }
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(bootstrapPipe, resolve);
+  });
+  return {
+    server,
+    sockets,
+    completion,
+    setExpectedPid(pid) {
+      if (expectedPid !== null || !Number.isSafeInteger(pid) || pid < 1) {
+        fail("bootstrap_invalid");
+      }
+      expectedPid = pid;
+      sendEnvironmentIfAttested();
+    },
+  };
+}
+
+async function closeBootstrap(owner) {
+  if (!owner) return;
+  for (const socket of owner.sockets) socket.destroy();
+  await new Promise((resolve) => owner.server.close(() => resolve()));
+}
+
+async function receiveBootstrapEnvironment(runId, bootstrapPipe) {
+  if (bootstrapPipe !== createRuntimeBootstrapPipe(runId)) fail("bootstrap_invalid");
+  return new Promise((resolve, reject) => {
+    const socket = createConnection(bootstrapPipe);
+    let bytes = "";
+    const timer = setTimeout(
+      () => socket.destroy(Object.assign(new Error("bootstrap_timeout"), { code: "bootstrap_timeout" })),
+      BOOTSTRAP_TIMEOUT_MS,
+    );
+    socket.setEncoding("utf8");
+    socket.on("connect", () => socket.write(`${JSON.stringify({
+      action: "bootstrap",
+      run_id: runId,
+      pid: process.pid,
+    })}\n`));
+    socket.on("data", (chunk) => {
+      bytes += chunk;
+      if (Buffer.byteLength(bytes) > MAX_BOOTSTRAP_BYTES) {
+        socket.destroy(Object.assign(new Error("bootstrap_invalid"), { code: "bootstrap_invalid" }));
+        return;
+      }
+      const newline = bytes.indexOf("\n");
+      if (newline < 0) return;
+      let message;
+      try {
+        message = JSON.parse(bytes.slice(0, newline));
+      } catch {
+        socket.destroy(Object.assign(new Error("bootstrap_invalid"), { code: "bootstrap_invalid" }));
+        return;
+      }
+      if (message?.schema_version !== TEAM_OPS_BOARD_RUNTIME_SCHEMA
+          || message?.run_id !== runId) {
+        socket.destroy(Object.assign(new Error("bootstrap_invalid"), { code: "bootstrap_invalid" }));
+        return;
+      }
+      let environment;
+      try {
+        environment = validateBootstrapEnvironment(message.environment);
+      } catch (error) {
+        socket.destroy(error);
+        return;
+      }
+      socket.write(`${JSON.stringify({ action: "ack", run_id: runId, pid: process.pid })}\n`);
+      clearTimeout(timer);
+      socket.end();
+      resolve(environment);
+    });
+    socket.on("error", (error) => {
+      clearTimeout(timer);
+      reject(Object.assign(error, { code: sanitizeRuntimeFailure(error, "bootstrap_unavailable") }));
+    });
+  });
+}
+
+async function createIndependentWorker(runId, bootstrapPipe, env = process.env) {
+  const spec = createWmiWorkerCreationSpec({
+    runId,
+    bootstrapPipe,
+    systemRoot: env.SystemRoot || env.WINDIR,
+  });
+  const helperEnvironment = {};
+  for (const name of ["SystemRoot", "WINDIR", "TEMP", "TMP"]) {
+    if (typeof env[name] === "string") helperEnvironment[name] = env[name];
+  }
+  let stdout;
+  try {
+    ({ stdout } = await execFileAsync(spec.file, spec.args, {
+      encoding: "utf8",
+      env: helperEnvironment,
+      maxBuffer: MAX_RECORD_BYTES,
+      timeout: BOOTSTRAP_TIMEOUT_MS,
+      windowsHide: true,
+    }));
+  } catch {
+    fail("worker_create_failed");
+  }
+  let result;
+  try {
+    result = JSON.parse(String(stdout));
+  } catch {
+    fail("worker_create_failed");
+  }
+  if (result?.return_value !== 0 || !Number.isSafeInteger(result?.pid) || result.pid < 1) {
+    fail("worker_create_failed");
+  }
+  return result.pid;
+}
+
+function probeLoopbackListener(timeoutMs = 1_000) {
+  return new Promise((resolve) => {
+    const socket = createConnection({
+      host: TEAM_OPS_BOARD_RUNTIME_HOST,
+      port: TEAM_OPS_BOARD_RUNTIME_PORT,
+    });
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(value);
+    };
+    socket.setTimeout(timeoutMs, () => finish("ambiguous"));
+    socket.on("connect", () => finish("present"));
+    socket.on("error", (error) => finish(error?.code === "ECONNREFUSED" ? "absent" : "ambiguous"));
+  });
+}
+
 async function removeOwnedRecord(filePath, runId) {
   const record = await readJsonRecord(filePath).catch(() => null);
   if (record?.run_id === runId) await rm(filePath, { force: true });
@@ -416,6 +800,7 @@ async function startRuntime(env = process.env) {
 
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
+  const bootstrapPipe = createRuntimeBootstrapPipe(runId);
   let lockHandle;
   try {
     lockHandle = await open(paths.lock, "wx");
@@ -424,19 +809,20 @@ async function startRuntime(env = process.env) {
     throw error;
   }
 
-  let child;
+  let bootstrapOwner = null;
+  let createdPid = null;
   try {
-    child = spawn(process.execPath, [fileURLToPath(import.meta.url), "__worker", runId], {
-      detached: true,
-      windowsHide: true,
-      stdio: "ignore",
-      env: createRuntimeWorkerEnvironment(env),
-    });
-    if (!Number.isSafeInteger(child.pid) || child.pid < 1) fail("runtime_start_failed");
+    bootstrapOwner = await listenBootstrap(
+      runId,
+      bootstrapPipe,
+      createRuntimeWorkerEnvironment(env),
+    );
+    createdPid = await createIndependentWorker(runId, bootstrapPipe, env);
+    bootstrapOwner.setExpectedPid(createdPid);
     const starting = {
       schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
       run_id: runId,
-      pid: child.pid,
+      pid: createdPid,
       state: "starting",
       host: "loopback",
       port: TEAM_OPS_BOARD_RUNTIME_PORT,
@@ -448,16 +834,26 @@ async function startRuntime(env = process.env) {
     await lockHandle.writeFile(`${JSON.stringify({
       schema_version: TEAM_OPS_BOARD_RUNTIME_SCHEMA,
       run_id: runId,
-      pid: child.pid,
+      pid: createdPid,
       started_at: startedAt,
     })}\n`, "utf8");
     await lockHandle.sync();
     await lockHandle.close();
     lockHandle = null;
-    child.unref();
+    const bootstrapResult = await bootstrapOwner.completion;
+    if (bootstrapResult.pid !== createdPid) fail("bootstrap_invalid");
+    await closeBootstrap(bootstrapOwner);
+    bootstrapOwner = null;
   } catch (error) {
+    await closeBootstrap(bootstrapOwner).catch(() => {});
     await lockHandle?.close().catch(() => {});
+    if (createdPid) {
+      const exitDeadline = Date.now() + BOOTSTRAP_TIMEOUT_MS + 2_000;
+      while (processAlive(createdPid) && Date.now() < exitDeadline) await wait(25);
+      if (processAlive(createdPid)) fail("runtime_start_ambiguous");
+    }
     await removeOwnedRuntime(paths, runId).catch(() => {});
+    await rm(paths.lock, { force: true }).catch(() => {});
     throw error;
   }
 
@@ -515,6 +911,32 @@ async function stopRuntime(env = process.env) {
   if (ownership !== "owned") fail("runtime_state_ambiguous");
   if (!(await requestOwnedStop(paths, state))) fail("runtime_stop_ambiguous");
   return createPublicRuntimeState(null, { ok: true, outcome: "stopped" });
+}
+
+async function recoverRuntime(env = process.env) {
+  const paths = runtimePaths(env);
+  if (!(await normalDirectoryIfPresent(paths.root))) {
+    return createPublicRuntimeState(null, { ok: true, outcome: "nothing_to_recover" });
+  }
+  const state = await readRuntimeState(paths);
+  const lock = await readRuntimeLock(paths);
+  if (!state && !lock) {
+    return createPublicRuntimeState(null, { ok: true, outcome: "nothing_to_recover" });
+  }
+  const controlAvailable = await probeControlAvailability();
+  const decision = classifyRuntimeRecovery({
+    state,
+    lock,
+    ownerAlive: state ? processAlive(state.pid) : null,
+    controlAvailable,
+    listenerState: await probeLoopbackListener(),
+  });
+  if (decision !== "recoverable") fail("runtime_recovery_unsafe");
+  await removeOwnedRuntime(paths, state.run_id);
+  if (await readJsonRecord(paths.state) || await readJsonRecord(paths.lock)) {
+    fail("runtime_recovery_unsafe");
+  }
+  return createPublicRuntimeState(null, { ok: true, outcome: "recovered" });
 }
 
 async function listenControl(onRequest) {
@@ -588,6 +1010,7 @@ async function runWorker(runId, env = process.env) {
   let previewServer = null;
   let controlServer = null;
   let shutdownPromise = null;
+  let fatalPromise = null;
   const shutdown = () => {
     if (shutdownPromise) return shutdownPromise;
     shutdownPromise = (async () => {
@@ -600,6 +1023,22 @@ async function runWorker(runId, env = process.env) {
       await removeOwnedRuntime(paths, runId);
     })();
     return shutdownPromise;
+  };
+  const recordFatalFailure = (error) => {
+    if (fatalPromise) return fatalPromise;
+    fatalPromise = (async () => {
+      const failureClass = sanitizeRuntimeFailure(error, "runtime_worker_failed");
+      const current = await readRuntimeState(paths).catch(() => null);
+      if (current?.run_id === runId && current.state === "ready") {
+        await writeJsonAtomic(
+          paths.state,
+          transitionRuntimeState(current, "runtime_failed", failureClass),
+        ).catch(() => {});
+      }
+      if (previewServer) await closePreviewGracefully(previewServer).catch(() => {});
+      await closeControlServer(controlServer).catch(() => {});
+    })();
+    return fatalPromise;
   };
 
   try {
@@ -630,6 +1069,12 @@ async function runWorker(runId, env = process.env) {
       ...transitionRuntimeState(startingState, "preview_ready"),
       build_sha256: await buildDigest(),
     });
+    process.once("uncaughtException", (error) => {
+      recordFatalFailure(error).then(() => process.exit(1)).catch(() => process.exit(1));
+    });
+    process.once("unhandledRejection", (reason) => {
+      recordFatalFailure(reason).then(() => process.exit(1)).catch(() => process.exit(1));
+    });
     process.once("SIGINT", () => shutdown().then(() => process.exit(0)).catch(() => process.exit(1)));
     process.once("SIGTERM", () => shutdown().then(() => process.exit(0)).catch(() => process.exit(1)));
   } catch (error) {
@@ -643,25 +1088,31 @@ async function runWorker(runId, env = process.env) {
         transitionRuntimeState(current, "start_failed", failureClass),
       ).catch(() => {});
     }
-    await removeOwnedRecord(paths.lock, runId).catch(() => {});
     throw Object.assign(new Error(failureClass), { code: failureClass });
   }
 }
 
+async function runBootstrapWorker(runId, bootstrapPipe) {
+  const environment = await receiveBootstrapEnvironment(runId, bootstrapPipe);
+  for (const name of Object.keys(process.env)) delete process.env[name];
+  for (const [name, value] of Object.entries(environment)) process.env[name] = value;
+  await runWorker(runId, process.env);
+}
+
 export function parseRuntimeCommand(argv) {
-  if (argv.length !== 1 || !new Set(["start", "status", "health", "stop", "--help"]).has(argv[0])) {
+  if (argv.length !== 1 || !new Set(["start", "status", "health", "stop", "recover", "--help"]).has(argv[0])) {
     fail("control_unavailable");
   }
   return argv[0];
 }
 
 function help() {
-  return "usage: node ops/team-ops-board-runtime.mjs <start|status|health|stop>";
+  return "usage: node ops/team-ops-board-runtime.mjs <start|status|health|stop|recover>";
 }
 
 async function main() {
-  if (process.argv[2] === "__worker") {
-    await runWorker(process.argv[3]);
+  if (process.argv[2] === "__worker_bootstrap") {
+    await runBootstrapWorker(process.argv[3], process.argv[4]);
     return;
   }
   const command = parseRuntimeCommand(process.argv.slice(2));
@@ -675,7 +1126,9 @@ async function main() {
       ? await inspectRuntime()
       : command === "health"
         ? await inspectRuntime(process.env, { health: true })
-        : await stopRuntime();
+        : command === "stop"
+          ? await stopRuntime()
+          : await recoverRuntime();
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
