@@ -181,6 +181,37 @@ test("privacy, raw, secret, and path sentinels fail closed", () => {
   }, "topology_snapshot_privacy_sentinel");
 });
 
+test("read-only pilot returns unconfigured without binding reads or Watchtower probes", async () => {
+  let bindingReads = 0;
+  let probeCalls = 0;
+  const adapter = createTopologyAdapter({
+    readOnlyPilot: true,
+    now: () => NOW,
+    resolveBinding: async () => {
+      bindingReads += 1;
+      return "configured";
+    },
+    runProbe: async () => {
+      probeCalls += 1;
+      return sampleSnapshot();
+    },
+  });
+
+  for (const force of [false, true]) {
+    assert.deepEqual(await adapter.readProjection({ force }), {
+      schema_version: "soulforge.team_ops_board.topology_projection.v1",
+      refresh_state: "unconfigured",
+      refresh_metadata: {
+        last_success_age_seconds: null,
+        last_failure_age_seconds: null,
+      },
+      snapshot: null,
+    });
+  }
+  assert.equal(bindingReads, 0);
+  assert.equal(probeCalls, 0);
+});
+
 test("failed refresh retains lastGood only as stale with public-safe success and failure ages", async () => {
   let clock = NOW;
   let calls = 0;

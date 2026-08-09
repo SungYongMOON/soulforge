@@ -8,10 +8,14 @@ import { createHostStatsAdapterPlugin } from "./src/server/host-stats-adapter.mj
 import { createLiveThreadAdapterPlugin } from "./src/server/live-thread-adapter.mjs";
 import { createProviderLimitsAdapterPlugin } from "./src/server/provider-limits-adapter.mjs";
 import { createTopologyAdapterPlugin } from "./src/server/topology-adapter.mjs";
-import { createTeamOpsBoardRuntimeEnvironment } from "./src/core/team-ops-board-read-only-pilot.mjs";
+import {
+  createTeamOpsBoardRuntimeEnvironment,
+  createTeamOpsBoardTopologyOptions,
+} from "./src/core/team-ops-board-read-only-pilot.mjs";
 import { resolveTeamOpsBoardAllowedHosts } from "./src/server/team-ops-board-allowed-hosts.mjs";
 
 const boardEnvironment = createTeamOpsBoardRuntimeEnvironment();
+const boardTopologyOptions = createTeamOpsBoardTopologyOptions(boardEnvironment);
 const boardAllowedHosts = resolveTeamOpsBoardAllowedHosts();
 
 export default defineConfig({
@@ -19,7 +23,7 @@ export default defineConfig({
     react(),
     createLiveThreadAdapterPlugin({ env: boardEnvironment }),
     createAiUsageAdapterPlugin(),
-    createTopologyAdapterPlugin(),
+    createTopologyAdapterPlugin(boardTopologyOptions),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),

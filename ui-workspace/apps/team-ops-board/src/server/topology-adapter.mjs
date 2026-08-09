@@ -367,6 +367,7 @@ export async function resolveBindingPath(pointerPath = DEFAULT_POINTER_PATH) {
 }
 
 export function createTopologyAdapter({
+  readOnlyPilot = false,
   pointerPath = process.env.TEAM_OPS_BOARD_WATCHTOWER_POINTER || DEFAULT_POINTER_PATH,
   runProbe = runWatchtowerProbe,
   resolveBinding = resolveBindingPath,
@@ -422,6 +423,9 @@ export function createTopologyAdapter({
 
   return {
     async readProjection({ force = false } = {}) {
+      if (readOnlyPilot === true) {
+        return envelope("unconfigured", null, refreshMetadata(now()));
+      }
       let bindingPath;
       try {
         bindingPath = await resolveBinding(pointerPath);

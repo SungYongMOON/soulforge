@@ -4,6 +4,12 @@ export function isTeamOpsBoardReadOnlyPilot(env = process.env) {
   return env?.[TEAM_OPS_BOARD_READ_ONLY_PILOT] === "1";
 }
 
+export function createTeamOpsBoardTopologyOptions(env = process.env) {
+  return {
+    readOnlyPilot: isTeamOpsBoardReadOnlyPilot(env),
+  };
+}
+
 export function createTeamOpsBoardRuntimeEnvironment(env = process.env) {
   if (!isTeamOpsBoardReadOnlyPilot(env)) return env;
   return {

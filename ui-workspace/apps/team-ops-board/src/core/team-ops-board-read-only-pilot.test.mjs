@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   TEAM_OPS_BOARD_READ_ONLY_PILOT,
   createTeamOpsBoardRuntimeEnvironment,
+  createTeamOpsBoardTopologyOptions,
   isTeamOpsBoardReadOnlyPilot,
 } from "./team-ops-board-read-only-pilot.mjs";
 
@@ -20,6 +21,19 @@ test("TEAM_OPS_BOARD_READ_ONLY_PILOT fails closed for absent or unusable environ
   assert.equal(isTeamOpsBoardReadOnlyPilot({}), false);
   assert.equal(isTeamOpsBoardReadOnlyPilot(null), false);
   assert.equal(isTeamOpsBoardReadOnlyPilot(Object.create(null)), false);
+});
+
+test("topology options enable read-only mode only for the exact pilot value", () => {
+  assert.deepEqual(
+    createTeamOpsBoardTopologyOptions({ [TEAM_OPS_BOARD_READ_ONLY_PILOT]: "1" }),
+    { readOnlyPilot: true },
+  );
+  for (const value of [undefined, null, "", "0", "true", " 1", "1 ", 1, true]) {
+    assert.deepEqual(
+      createTeamOpsBoardTopologyOptions({ [TEAM_OPS_BOARD_READ_ONLY_PILOT]: value }),
+      { readOnlyPilot: false },
+    );
+  }
 });
 
 test("read-only pilot composes existing write disables without mutating its source environment", () => {
