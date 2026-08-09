@@ -1,0 +1,86 @@
+@media (max-width: 900px) {
+  .fleet-status-rows {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .fleet-status-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "name dot state"
+      "description description description"
+      "metadata metadata metadata";
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    column-gap: 8px;
+    row-gap: 6px;
+  }
+
+  .fleet-status-name {
+    grid-area: name;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .fleet-status-desc {
+    grid-area: description;
+    min-width: 0;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .fleet-status-meta {
+    grid-area: metadata;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .fleet-status-dot {
+    grid-area: dot;
+  }
+
+  .fleet-status-state {
+    grid-area: state;
+    min-width: 0;
+    max-width: 100%;
+    justify-self: end;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .live-board-top-actions .live-refresh-button,
+  .live-board-primary-nav button,
+  .organization-subview-tabs button,
+  .organization-topology-mode-control button,
+  .watchtower-graph-guide button,
+  .watchtower-inspector-actions button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .live-board-top-actions .live-refresh-button {
+    width: 44px;
+  }
+
+  .inbox-skip-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+
+  .live-state-panel button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

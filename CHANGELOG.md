@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-10 - Team Operations Board responsive Fleet status rows
+
+- Added a bounded narrow-screen override for Fleet status rows so names,
+  descriptions, metadata, and state labels wrap without horizontal clipping;
+  relevant mobile controls retain accessible touch targets while desktop and
+  iPad layouts and all provider, quota, and topology semantics remain unchanged.
+
 ## 2026-08-10 — Team Operations Board Claude quota read-only recovery
 
 - Added the exact `TEAM_OPS_BOARD_CLAUDE_QUOTA_READ=1` opt-in for the existing
