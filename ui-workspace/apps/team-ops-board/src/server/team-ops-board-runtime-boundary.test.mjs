@@ -203,6 +203,7 @@ test("scheduled worker derives private bindings in memory and keeps quota OFF", 
       TEAM_OPS_BOARD_CLAUDE_QUOTA_READ: "1",
       TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: "must-be-replaced",
       TEAM_OPS_BOARD_EXACT_THREAD_BINDINGS: "must-not-inherit",
+      PSModulePath: "must-not-reach-runtime",
       UNRELATED_PASSWORD: "must-not-forward",
     },
   });
@@ -222,6 +223,7 @@ test("scheduled worker derives private bindings in memory and keeps quota OFF", 
     PATH: "os-path",
     PATHEXT: "os-path-ext",
     PROGRAMDATA: "os-program-data",
+    PSModulePath: "scheduled-tasks-module-path",
     TEAM_OPS_BOARD_ALLOWED_HOSTS: "must-not-forward",
     TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: "must-not-forward",
     ANTHROPIC_API_KEY: "must-not-forward",
@@ -232,9 +234,11 @@ test("scheduled worker derives private bindings in memory and keeps quota OFF", 
   assert.equal(helperEnvironment.PATH, "os-path");
   assert.equal(helperEnvironment.PATHEXT, "os-path-ext");
   assert.equal(helperEnvironment.PROGRAMDATA, "os-program-data");
+  assert.equal(helperEnvironment.PSModulePath, "scheduled-tasks-module-path");
   assert.equal("TEAM_OPS_BOARD_ALLOWED_HOSTS" in helperEnvironment, false);
   assert.equal("TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY" in helperEnvironment, false);
   assert.equal("ANTHROPIC_API_KEY" in helperEnvironment, false);
+  assert.equal("PSModulePath" in environment, false);
   assert.throws(() => deriveAllowedHostFromServeStatus({
     ...serveStatus,
     AllowFunnel: { "board.example.ts.net:443": true },

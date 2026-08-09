@@ -81,6 +81,10 @@ const SCHEDULED_OS_ENVIRONMENT_ALLOWLIST = Object.freeze([
   "USERPROFILE",
   "WINDIR",
 ]);
+const SCHEDULED_HELPER_ENVIRONMENT_ALLOWLIST = Object.freeze([
+  ...SCHEDULED_OS_ENVIRONMENT_ALLOWLIST,
+  "PSModulePath",
+]);
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(HERE, "..");
@@ -802,7 +806,7 @@ function probeControlAvailability(timeoutMs = CONTROL_TIMEOUT_MS) {
 
 export function createScheduledHelperEnvironment(env = process.env) {
   const result = {};
-  for (const name of SCHEDULED_OS_ENVIRONMENT_ALLOWLIST) {
+  for (const name of SCHEDULED_HELPER_ENVIRONMENT_ALLOWLIST) {
     if (typeof env?.[name] === "string") result[name] = env[name];
   }
   return result;
