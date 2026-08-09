@@ -21,6 +21,7 @@ import {
   createPreviewConfig,
   createRuntimeWorkerEnvironment,
   createScheduledRuntimeEnvironment,
+  createScheduledHelperEnvironment,
   createScheduledLaunchIntentEnvelope,
   createScheduledTaskDefinition,
   createScheduledTaskPowerShellSpec,
@@ -151,6 +152,10 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
   assert.doesNotMatch(decoded, /Register-ScheduledTask[^;]*-InputObject[^;]*-Description/u);
   assert.match(decoded, /Register-ScheduledTask[^;]*-InputObject \$definition/u);
   assert.match(decoded, /New-ScheduledTaskPrincipal -UserId \$owner -LogonType Interactive -RunLevel Limited/u);
+  assert.match(decoded, /Resolve-Sid/u);
+  assert.match(decoded, /\$identity\.User\.Value/u);
+  assert.match(decoded, /\$principalSid -eq \$ownerSid/u);
+  assert.match(decoded, /Triggers \| Where-Object \{ \$null -ne \$_ \}/u);
   assert.match(decoded, /__scheduled_worker/u);
   assert.match(decoded, /team-ops-board-runtime\.mjs/u);
   assert.doesNotMatch(decoded, /New-ScheduledTaskTrigger|-Password|Highest|SYSTEM/u);
@@ -209,6 +214,27 @@ test("scheduled worker derives private bindings in memory and keeps quota OFF", 
   assert.equal("TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ" in environment, false);
   assert.equal("TEAM_OPS_BOARD_CLAUDE_QUOTA_READ" in environment, false);
   assert.equal("UNRELATED_PASSWORD" in environment, false);
+
+  const helperEnvironment = createScheduledHelperEnvironment({
+    USERPROFILE: "os-user-profile",
+    APPDATA: "os-app-data",
+    LOCALAPPDATA: "os-local-data",
+    PATH: "os-path",
+    PATHEXT: "os-path-ext",
+    PROGRAMDATA: "os-program-data",
+    TEAM_OPS_BOARD_ALLOWED_HOSTS: "must-not-forward",
+    TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: "must-not-forward",
+    ANTHROPIC_API_KEY: "must-not-forward",
+  });
+  assert.equal(helperEnvironment.USERPROFILE, "os-user-profile");
+  assert.equal(helperEnvironment.APPDATA, "os-app-data");
+  assert.equal(helperEnvironment.LOCALAPPDATA, "os-local-data");
+  assert.equal(helperEnvironment.PATH, "os-path");
+  assert.equal(helperEnvironment.PATHEXT, "os-path-ext");
+  assert.equal(helperEnvironment.PROGRAMDATA, "os-program-data");
+  assert.equal("TEAM_OPS_BOARD_ALLOWED_HOSTS" in helperEnvironment, false);
+  assert.equal("TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY" in helperEnvironment, false);
+  assert.equal("ANTHROPIC_API_KEY" in helperEnvironment, false);
   assert.throws(() => deriveAllowedHostFromServeStatus({
     ...serveStatus,
     AllowFunnel: { "board.example.ts.net:443": true },
@@ -429,6 +455,8 @@ test("tracked runtime has only the bounded on-demand task surface", async () => 
   assert.match(source, /Start-ScheduledTask -TaskPath \$p -TaskName \$n/u);
   assert.match(source, /Unregister-ScheduledTask -TaskPath \$p -TaskName \$n -Confirm:\$false/u);
   assert.match(source, /\["serve", "status", "--json"\]/u);
+  assert.match(source, /createScheduledHelperEnvironment/u);
+  assert.doesNotMatch(source, /@\(\$t\.Triggers\)\.Count/u);
   assert.match(source, /RUNTIME_ENVIRONMENT_ALLOWLIST/u);
   assert.match(source, /if \(env\?\.\[TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ\] === "1"\)/u);
   assert.match(source, /delete environment\[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ\]/u);
