@@ -18,6 +18,9 @@ import {
   TOPOLOGY_EDGES,
   TOPOLOGY_NODES,
   validateTopologyDefinition,
+  edgeDeliveryVerdict,
+  summariseEdgeDelivery,
+  EDGE_DELIVERY_STATES,
 } from "./topology.mjs";
 
 const NOW = Date.parse("2026-08-07T12:00:00.000Z");
@@ -36,10 +39,14 @@ test("topology models actual hybrid on-demand usage producers and structural rou
     assert.equal(Object.hasOwn(edge, "state"), false);
   }
 
+  // 이 단정은 경로만 본다. 전달 근거 필드는 별개 관심사이므로 아래 별도 test 가 검사한다.
   const usageRoutes = TOPOLOGY_EDGES
     .filter((edge) => edge.from.startsWith("src_") && edge.to.startsWith("usage_")
       || edge.from.startsWith("usage_") && ["usage_meter", "store_usage_ledger", "watchtower_self"].includes(edge.to)
-      || edge.from === "store_usage_ledger" && edge.to === "consumer_board");
+      || edge.from === "store_usage_ledger" && edge.to === "consumer_board")
+    .map(({ from, to, label, flow, scope }) => (scope === undefined
+      ? { from, to, label, flow }
+      : { from, to, label, flow, scope }));
   assert.deepEqual(usageRoutes, [
     { from: "src_codex", to: "usage_codex_collector", label: "on-demand read", flow: "data" },
     { from: "src_claude", to: "usage_claude_collector", label: "on-demand read", flow: "data" },
@@ -70,7 +77,7 @@ test("topology models actual hybrid on-demand usage producers and structural rou
   const watchtowerOutputs = TOPOLOGY_EDGES.filter((edge) => edge.from === "watchtower_self");
   assert.equal(watchtowerInputs.length, 7);
   assert.ok(watchtowerInputs.every((edge) => edge.flow === "control" && typeof edge.scope === "string"));
-  assert.deepEqual(watchtowerOutputs, [
+  assert.deepEqual(watchtowerOutputs.map(({ from, to, label, flow }) => ({ from, to, label, flow })), [
     { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data" },
   ]);
 });
@@ -341,6 +348,8 @@ test("Codex hook health is collector-only and cannot green provider or aggregate
     reasons: ["independent_evidence_absent"],
     age_seconds: null,
   });
+  // 스냅샷 간선은 정의상의 전달 근거를 함께 나른다. 보드가 근거 없는 선을 초록으로 그리지
+  // 않으려면 이 필드를 받아야 한다.
   const contractEdge = snapshot.edges.find((edge) => edge.scope === "usage_contract_structure_only");
   assert.deepEqual(contractEdge, {
     from: "usage_meter",
@@ -348,6 +357,8 @@ test("Codex hook health is collector-only and cannot green provider or aggregate
     label: "usage contract 구조 관찰",
     flow: "control",
     scope: "usage_contract_structure_only",
+    receipt: null,
+    unreceipted_reason: "structural_only",
   });
   assert.equal(Object.hasOwn(contractEdge, "health"), false);
   assert.equal(Object.hasOwn(contractEdge, "state"), false);
@@ -498,4 +509,117 @@ test("mail account detail names the failing account without addresses or paths",
     })),
     (error) => error instanceof WatchtowerError && error.code === "probe_detail_invalid",
   );
+});
+
+// 간선 전달 근거 — 노드가 살아 있다는 것과 그 선이 데이터를 옮겼다는 것은 다른 주장이다.
+
+test("every edge declares delivery evidence or an explicit reason for having none", () => {
+  validateTopologyDefinition();
+  for (const edge of TOPOLOGY_EDGES) {
+    const where = `${edge.from}>${edge.to}`;
+    assert.ok(Object.hasOwn(edge, "receipt"), `${where} declares no receipt field`);
+    if (edge.receipt === null) {
+      assert.ok(
+        ["receipt_channel_absent", "probe_observation_only", "structural_only"].includes(edge.unreceipted_reason),
+        `${where} has no valid unreceipted_reason`,
+      );
+    }
+  }
+});
+
+test("edge definition rejects a missing receipt field, a bad reason, and a receipt with a reason", () => {
+  const base = TOPOLOGY_EDGES.filter((edge) => !(edge.from === "src_hiworks" && edge.to === "ingress_supervisor"));
+  const withFirst = (over) => [...base, { from: "src_hiworks", to: "ingress_supervisor", label: "POP3 수집", flow: "data", ...over }];
+
+  assert.throws(
+    () => validateTopologyDefinition({ edges: withFirst({}) }),
+    (error) => error?.code === "topology_edge_receipt_absent",
+  );
+  assert.throws(
+    () => validateTopologyDefinition({ edges: withFirst({ receipt: null, unreceipted_reason: "probably_fine" }) }),
+    (error) => error?.code === "topology_edge_unreceipted_reason_invalid",
+  );
+  assert.throws(
+    () => validateTopologyDefinition({ edges: withFirst({ receipt: "mail_delivery", unreceipted_reason: "receipt_channel_absent" }) }),
+    (error) => error?.code === "topology_edge_receipt_reason_conflict",
+  );
+  // 근거로 probe 를 내세우려면 그 노드에 probe 가 있어야 한다.
+  const noProbe = TOPOLOGY_EDGES
+    .filter((edge) => !(edge.from === "usage_meter" && edge.to === "watchtower_self"))
+    .concat({
+      from: "usage_meter", to: "watchtower_self", label: "usage contract 구조 관찰",
+      flow: "control", scope: "usage_contract_structure_only",
+      receipt: null, unreceipted_reason: "probe_observation_only",
+    });
+  assert.throws(
+    () => validateTopologyDefinition({ edges: noProbe }),
+    (error) => error?.code === "topology_edge_probe_observation_unsupported",
+  );
+  // 유효한 영수증 키는 통과한다.
+  assert.doesNotThrow(() => validateTopologyDefinition({ edges: withFirst({ receipt: "mail_delivery" }) }));
+});
+
+test("delivery verdict applies the same period and grace window as a node probe", () => {
+  const windows = { mail_delivery: { period_seconds: 600, grace_seconds: 300 } };
+  const edge = { from: "a", to: "b", label: "x", flow: "data", receipt: "mail_delivery" };
+  const delivered = (ageSeconds) => ({
+    receipts: { mail_delivery: { outcome: "delivered", observed_at_ms: NOW - ageSeconds * 1000 } },
+    windows, now: NOW,
+  });
+
+  assert.equal(edgeDeliveryVerdict(edge, delivered(0)).state, "delivering");
+  assert.equal(edgeDeliveryVerdict(edge, delivered(600)).state, "delivering");
+  assert.equal(edgeDeliveryVerdict(edge, delivered(601)).state, "late");
+  assert.equal(edgeDeliveryVerdict(edge, delivered(900)).state, "late");
+
+  // 윈도를 벗어난 영수증은 과거의 전달만 증명한다. 이 규칙이 없으면 한 번 성공한 선이 영원히
+  // 초록으로 남는다.
+  const stale = edgeDeliveryVerdict(edge, delivered(901));
+  assert.equal(stale.state, "stale");
+  assert.equal(stale.proves_delivery, false);
+  const threeWeeks = edgeDeliveryVerdict(edge, delivered(21 * 86400));
+  assert.equal(threeWeeks.state, "stale");
+  assert.equal(threeWeeks.proves_delivery, false);
+
+  // 등록됐지만 한 번도 전달되지 않은 상태는 미등록과 구별된다.
+  assert.equal(edgeDeliveryVerdict(edge, { receipts: {}, windows, now: NOW }).state, "registered_no_delivery");
+  assert.equal(
+    edgeDeliveryVerdict(edge, {
+      receipts: { mail_delivery: { outcome: "failed", failure_code: "auth_failed" } }, windows, now: NOW,
+    }).state,
+    "failed",
+  );
+  assert.throws(() => edgeDeliveryVerdict(edge, { receipts: {}, windows: {}, now: NOW }),
+    (error) => error?.code === "edge_delivery_window_absent");
+});
+
+test("delivery verdict ignores node health entirely", () => {
+  // 규칙을 행동으로 검사한다: 노드 상태를 옵션에 밀어넣어도 판정이 달라지지 않아야 한다.
+  const windows = { d: { period_seconds: 600, grace_seconds: 300 } };
+  const edge = { from: "a", to: "b", label: "x", flow: "data", receipt: "d" };
+  const plain = edgeDeliveryVerdict(edge, { receipts: {}, windows, now: NOW });
+  const withNodeHealth = edgeDeliveryVerdict(edge, {
+    receipts: {}, windows, now: NOW,
+    nodeHealth: "ok", fromHealth: "ok", toHealth: "ok", health: { state: "ok" },
+  });
+  assert.deepEqual(withNodeHealth, plain);
+  assert.equal(plain.state, "registered_no_delivery");
+
+  const unreceipted = edgeDeliveryVerdict(
+    { from: "a", to: "b", label: "x", flow: "control", receipt: null, unreceipted_reason: "probe_observation_only" },
+    { receipts: {}, windows: {}, now: NOW },
+  );
+  assert.equal(unreceipted.state, "unreceipted");
+  assert.equal(unreceipted.proves_delivery, false);
+  assert.equal(unreceipted.reason, "probe_observation_only");
+});
+
+test("the current definition claims no proven delivery, because no receipt channel exists yet", () => {
+  const summary = summariseEdgeDelivery(TOPOLOGY_EDGES, { receipts: {}, windows: {}, now: NOW });
+  assert.equal(summary.total, TOPOLOGY_EDGES.length);
+  assert.equal(summary.delivery_proven, 0);
+  assert.equal(summary.delivery_unproven, TOPOLOGY_EDGES.length);
+  assert.equal(summary.counts.unreceipted, TOPOLOGY_EDGES.length);
+  assert.match(summary.claim, /전달이 증명된 것은 없습니다/);
+  for (const state of EDGE_DELIVERY_STATES) assert.ok(Object.hasOwn(summary.counts, state));
 });
