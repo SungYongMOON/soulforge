@@ -2883,7 +2883,7 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
             {providerDaily.map((row: any, index: number) => {
               const date = String(row.date ?? row.day ?? "");
               const details = totalsSeries.map((series) => `${series.label} ${typeof series.values[index] === "number" ? Number(series.values[index]).toLocaleString("en-US") : "사용 불가"}`).join(", ");
-              return <button key={date || index} type="button" aria-label={`${date}, ${details}, 합계 ${totalsCreditChart.totals[index].toLocaleString("en-US")} Meter credit`} onFocus={() => setCreditChartIndex(index)} onBlur={() => setCreditChartIndex(null)} onMouseEnter={() => setCreditChartIndex(index)} onMouseLeave={() => setCreditChartIndex(null)} onKeyDown={(event) => { if (event.key === "Escape") { setCreditChartIndex(null); event.currentTarget.blur(); } }}>
+              return <button key={date || index} type="button" aria-label={`${date}, ${details}, 합계 ${totalsCreditChart.totals[index].toLocaleString("en-US")} Meter credit`} onFocus={() => setCreditChartIndex(index)} onBlur={() => setCreditChartIndex(null)} onMouseEnter={() => setCreditChartIndex(index)} onMouseLeave={(event) => { if (event.currentTarget !== document.activeElement) setCreditChartIndex(null); }} onKeyDown={(event) => { if (event.key === "Escape") { setCreditChartIndex(null); event.currentTarget.blur(); } }}>
                 {date.slice(5)}
               </button>;
             })}

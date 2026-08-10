@@ -215,6 +215,7 @@ test("seven-day usage chart separates provider credits with an accessible legend
   assert.match(source, /fleet-credit-day-controls/u);
   assert.match(source, /event\.key === "Escape"/u);
   assert.match(source, /onFocus=\{\(\) => setCreditChartIndex\(index\)\}/u);
+  assert.match(source, /event\.currentTarget !== document\.activeElement/u);
   assert.match(source, /Meter credit/u);
   assert.match(source, /cache: "no-store"/u);
   assert.match(source, /Claude 공식 한도 \$\{claudeQuota\.current \? "READY" : "HOLD\/UNKNOWN"\}/u);
