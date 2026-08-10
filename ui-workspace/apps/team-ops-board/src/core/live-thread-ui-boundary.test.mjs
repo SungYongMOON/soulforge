@@ -228,6 +228,8 @@ test("thirty-day usage chart separates exact provider tokens with readable respo
   assert.match(source, /totalsFoot = "[^"]*30[^"]*"/u);
   assert.match(css, /height:\s*clamp\(280px,\s*21vw,\s*420px\)/u);
   assert.match(css, /grid-template-columns:\s*repeat\(30,/u);
+  assert.match(css, /\.fleet-usage-card header\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*650;[^}]*color:\s*#c4d5df;/su);
+  assert.match(css, /\.fleet-usage-title\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*700;/su);
   assert.match(source, /pending \? "사용량 불러오는 중"/u);
   assert.match(source, /Meter credit/u);
   assert.match(source, /cache: "no-store"/u);
