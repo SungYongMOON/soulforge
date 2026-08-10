@@ -6252,6 +6252,8 @@ a:focus-visible {
 .provider-credit-claude { color: #ff9f68; stroke: #ff9f68; }
 .provider-credit-antigravity { color: #b69cff; stroke: #b69cff; }
 .provider-credit-empty { color: #93a2ac; font-size: 12px; }
+.ledger-activity-panel svg.fleet-provider-credit-chart.is-ledger { height: 220px; }
+.ledger-activity-panel .fleet-provider-token-chart-wrap.is-ledger { margin-top: 2px; }
 .ledger-activity-bars {
   display: flex; align-items: flex-end; gap: 3px; height: 110px;
 }

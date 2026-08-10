@@ -2499,6 +2499,53 @@ function fleetCreditLabel(totals: any): string {
   return `Meter 크레딧 ${credits}`;
 }
 
+const FLEET_TOKEN_PROVIDERS = [
+  { id: "codex", label: "Codex" },
+  { id: "claude", label: "Claude" },
+  { id: "antigravity", label: "Antigravity/Gemini" },
+];
+
+function fleetAxisTokenLabel(value: number): string {
+  if (value >= 1_000_000_000) return `${Number((value / 1_000_000_000).toFixed(1))}B`;
+  if (value >= 1_000_000) return `${Number((value / 1_000_000).toFixed(1))}M`;
+  if (value >= 1_000) return `${Number((value / 1_000).toFixed(1))}K`;
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function buildProviderTokenChart(providerDaily: any[]) {
+  const series = FLEET_TOKEN_PROVIDERS.map((provider) => ({
+    ...provider,
+    values: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.total_tokens ?? null),
+    unknownTurns: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.token_unknown_turns ?? 0),
+  }));
+  const knownTokens = series.flatMap((item) => item.values.filter((value: any) => typeof value === "number"));
+  if (providerDaily.length !== 30 || knownTokens.length === 0) return { series, chart: null };
+  const width = 1000, height = 220, left = 105, right = 8, top = 12, bottom = 36;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const totals = providerDaily.map((_: any, index: number) => series.reduce((sum, item) => sum + (typeof item.values[index] === "number" ? item.values[index] : 0), 0));
+  const rawMax = Math.max(...totals, 1);
+  const magnitude = 10 ** Math.floor(Math.log10(rawMax));
+  const maxToken = Math.ceil(rawMax / magnitude) * magnitude;
+  const x = (index: number) => left + (index * plotWidth) / 29;
+  const y = (value: number) => top + plotHeight - (value / maxToken) * plotHeight;
+  const cumulative = providerDaily.map(() => 0);
+  const areas = series.map((item) => {
+    const lower = cumulative.slice();
+    const upper = item.values.map((value: any, index: number) => {
+      cumulative[index] += typeof value === "number" ? value : 0;
+      return cumulative[index];
+    });
+    return {
+      id: item.id,
+      path: monotoneAreaPath(
+        upper.map((value: number, index: number) => ({ x: x(index), y: y(value) })),
+        lower.map((value: number, index: number) => ({ x: x(index), y: y(value) })),
+      ),
+    };
+  });
+  return { series, chart: { width, height, left, right, top, bottom, plotWidth, plotHeight, maxToken, totals, areas, x, y } };
+}
+
 function FleetUsageCards({ usage, providers = null, pending = false }: { usage: any; providers?: any; pending?: boolean }) {
   const [creditChartIndex, setCreditChartIndex] = useState<number | null>(null);
   const history = usage?.history ?? null;
@@ -2753,39 +2800,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
   ].filter(Boolean) as any[];
   const totalsFoot = "로컬 세션 사용량 · 최근 30일";
   const providerDaily = Array.isArray(history?.provider_daily) ? history.provider_daily : [];
-  const totalsSeries = [
-    { id: "codex", label: "Codex" },
-    { id: "claude", label: "Claude" },
-    { id: "antigravity", label: "Antigravity/Gemini" },
-  ].map((provider) => ({
-    ...provider,
-    values: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.total_tokens ?? null),
-    unknownTurns: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.token_unknown_turns ?? 0),
-  }));
-  const totalsKnownTokens = totalsSeries.flatMap((series) => series.values.filter((value: any) => typeof value === "number"));
-  let totalsCreditChart: any = null;
-  if (providerDaily.length === 30 && totalsKnownTokens.length > 0) {
-    const width = 1000, height = 220, left = 105, right = 8, top = 12, bottom = 36;
-    const plotWidth = width - left - right, plotHeight = height - top - bottom;
-    const totals = providerDaily.map((_: any, index: number) => totalsSeries.reduce((sum, series) => sum + (typeof series.values[index] === "number" ? series.values[index] : 0), 0));
-    const rawMax = Math.max(...totals, 1);
-    const magnitude = 10 ** Math.floor(Math.log10(rawMax));
-    const maxCredit = Math.ceil(rawMax / magnitude) * magnitude;
-    const x = (index: number) => left + (index * plotWidth) / 29;
-    const y = (value: number) => top + plotHeight - (value / maxCredit) * plotHeight;
-    const cumulative = providerDaily.map(() => 0);
-    const areas = totalsSeries.map((series) => {
-      const lower = cumulative.slice();
-      const upper = series.values.map((value: any, index: number) => {
-        cumulative[index] += typeof value === "number" ? value : 0;
-        return cumulative[index];
-      });
-      const upperPoints = upper.map((value: number, index: number) => ({ x: x(index), y: y(value) }));
-      const lowerPoints = lower.map((value: number, index: number) => ({ x: x(index), y: y(value) }));
-      return { id: series.id, path: monotoneAreaPath(upperPoints, lowerPoints) };
-    });
-    totalsCreditChart = { width, height, left, right, top, bottom, plotWidth, plotHeight, maxCredit, totals, areas, x, y };
-  }
+  const { series: totalsSeries, chart: totalsCreditChart } = buildProviderTokenChart(providerDaily);
 
   if (limitRows.length === 0 && topModelRows.length === 0 && totalsRows.length === 0) return null;
   return (
@@ -2892,9 +2907,9 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
           <div className="fleet-provider-token-chart-wrap">
           <svg className="fleet-provider-credit-chart" viewBox={`0 0 ${totalsCreditChart.width} ${totalsCreditChart.height}`} role="img" aria-label="최근 30일 Codex, Claude Code, Antigravity Gemini 로컬 token 사용량 차트">
             {[0, 0.5, 1].map((ratio) => {
-              const value = totalsCreditChart.maxCredit * ratio;
+              const value = totalsCreditChart.maxToken * ratio;
               const y = totalsCreditChart.y(value);
-              return <g key={ratio}><line className="fleet-credit-grid" x1={totalsCreditChart.left} x2={totalsCreditChart.width - totalsCreditChart.right} y1={y} y2={y} /><text className="fleet-credit-axis-label" x={totalsCreditChart.left - 8} y={y + 4} textAnchor="end">{Math.round(value).toLocaleString("en-US")}</text></g>;
+              return <g key={ratio}><line className="fleet-credit-grid" x1={totalsCreditChart.left} x2={totalsCreditChart.width - totalsCreditChart.right} y1={y} y2={y} /><text className="fleet-credit-axis-label" x={totalsCreditChart.left - 8} y={y + 4} textAnchor="end">{fleetAxisTokenLabel(value)}</text></g>;
             })}
             {totalsCreditChart.areas.map((area: any) => <path key={area.id} className={`fleet-credit-area provider-credit-${area.id}`} d={area.path} />)}
             {providerDaily.map((row: any, index: number) => {
@@ -2936,34 +2951,57 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
   );
 }
 
+function LedgerProviderTokenChart({ providerDaily }: { providerDaily: any[] }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const { series, chart } = buildProviderTokenChart(providerDaily);
+  if (chart === null) return <p className="provider-credit-empty">최근 30일 provider별 정확한 로컬 token 근거가 없습니다.</p>;
+  return (
+    <>
+      <div className="provider-credit-legend" aria-label="Provider별 30일 token 범례">
+        {series.map((item) => <span key={item.id} className={`provider-credit-${item.id}`}>{item.label}</span>)}
+      </div>
+      <div className="fleet-provider-token-chart-wrap is-ledger">
+        <svg className="fleet-provider-credit-chart is-ledger" viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label="최근 30일 Codex, Claude Code, Antigravity Gemini 로컬 token 사용량 차트">
+          {[0, 0.5, 1].map((ratio) => {
+            const value = chart.maxToken * ratio;
+            const y = chart.y(value);
+            return <g key={ratio}><line className="fleet-credit-grid" x1={chart.left} x2={chart.width - chart.right} y1={y} y2={y} /><text className="fleet-credit-axis-label" x={chart.left - 8} y={y + 4} textAnchor="end">{fleetAxisTokenLabel(value)}</text></g>;
+          })}
+          {chart.areas.map((area: any) => <path key={area.id} className={`fleet-credit-area provider-credit-${area.id}`} d={area.path} />)}
+          {providerDaily.map((row: any, index: number) => <text key={row.date} className={`fleet-credit-axis-label fleet-credit-date-label${index % 5 === 0 || index === providerDaily.length - 1 ? " is-major" : ""}${index % 3 === 0 || index === providerDaily.length - 1 ? " is-wide" : ""}`} x={chart.x(index)} y={chart.height - 12} textAnchor="middle">{String(row.date).slice(5)}</text>)}
+          {activeIndex !== null && (() => {
+            const index = activeIndex;
+            const x = chart.x(index);
+            const boxX = Math.min(Math.max(x - 74, chart.left), chart.width - 170);
+            return <g className="fleet-credit-tooltip" role="tooltip">
+              <line x1={x} x2={x} y1={chart.top} y2={chart.top + chart.plotHeight} />
+              <rect x={boxX} y={20} width="164" height="104" rx="7" />
+              <text x={boxX + 10} y={39} className="is-title">{String(providerDaily[index]?.date ?? "")}</text>
+              {series.map((item, rowIndex) => <text key={item.id} x={boxX + 10} y={59 + rowIndex * 17} className={`provider-credit-${item.id}`}>{item.label}: {typeof item.values[index] === "number" ? `${fleetTokenLabel(Number(item.values[index]))} tok` : item.unknownTurns[index] > 0 ? `토큰 미기록 ${item.unknownTurns[index]}회` : "근거 없음"}</text>)}
+              <text x={boxX + 10} y={115}>{series.some((item) => item.unknownTurns[index] > 0) ? "합계(기록분)" : "합계"}: {fleetTokenLabel(chart.totals[index])} tok</text>
+            </g>;
+          })()}
+        </svg>
+        <div className="fleet-token-hit-grid" aria-label="최근 30일 provider token 상세">
+          {providerDaily.map((row: any, index: number) => {
+            const date = String(row.date ?? "");
+            const hasUnknown = series.some((item) => item.unknownTurns[index] > 0);
+            const details = series.map((item) => `${item.label} ${typeof item.values[index] === "number" ? `${fleetTokenLabel(Number(item.values[index]))} tok` : item.unknownTurns[index] > 0 ? `토큰 미기록 ${item.unknownTurns[index]}회` : "근거 없음"}`).join(", ");
+            return <button key={date || index} type="button" aria-label={`${date}, ${details}, ${hasUnknown ? "합계 기록분" : "합계"} ${fleetTokenLabel(chart.totals[index])} tok`} onFocus={() => setActiveIndex(index)} onBlur={() => setActiveIndex(null)} onMouseEnter={() => setActiveIndex(index)} onMouseLeave={(event) => { if (event.currentTarget !== document.activeElement) setActiveIndex(null); }} onKeyDown={(event) => { if (event.key === "Escape") { setActiveIndex(null); event.currentTarget.blur(); } }} />;
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
 function LedgerActivity({ usage }: { usage: any }) {
   const activity = usage?.history?.activity ?? null;
   if (!activity || !Array.isArray(activity.daily) || activity.daily.length < 2 || !Array.isArray(activity.hourly)) return null;
-  const daily = activity.daily;
   const hourly = activity.hourly;
-  const dayTokens = daily.map((row: any) => row.total_tokens ?? 0);
-  const totalDailyTokens = dayTokens.reduce((sum: number, value: number) => sum + value, 0);
-  const maxDay = Math.max(...dayTokens, 1);
   const totalHourTurns = hourly.reduce((sum: number, row: any) => sum + (row.turns ?? 0), 0);
   const maxHour = Math.max(...hourly.map((row: any) => row.turns ?? 0), 1);
-  const W = 640;
-  const H = 120;
-  const PAD = 6;
-  const step = (W - PAD * 2) / (daily.length - 1);
-  const points = dayTokens.map((value: number, index: number) => (
-    `${(PAD + index * step).toFixed(1)},${(H - 16 - (value / maxDay) * (H - 36)).toFixed(1)}`
-  ));
-  const areaPath = `M ${points.join(" L ")} L ${(PAD + (daily.length - 1) * step).toFixed(1)},${H - 8} L ${PAD},${H - 8} Z`;
   const providerDaily = Array.isArray(usage?.history?.provider_daily) ? usage.history.provider_daily : [];
-  const providerSeries = [
-    { id: "codex", label: "Codex" },
-    { id: "claude", label: "Claude" },
-    { id: "antigravity", label: "Antigravity/Gemini" },
-  ].map((provider) => ({ ...provider, values: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.credits ?? null) }));
-  const knownCredits = providerSeries.flatMap((series) => series.values.filter((value: any) => typeof value === "number"));
-  const maxCredit = Math.max(...knownCredits, 1);
-  const creditStep = providerDaily.length > 1 ? (W - PAD * 2) / (providerDaily.length - 1) : 0;
-  const dateLabel = (value: string) => value.slice(5).replace("-", "/");
   return (
     <section className="ledger-activity" aria-label="활동 빈도" data-testid="ledger-activity">
       <header>
@@ -2973,16 +3011,8 @@ function LedgerActivity({ usage }: { usage: any }) {
       </header>
       <div className="ledger-activity-panels">
         <div className="ledger-activity-panel">
-          <h3>Provider별 7일 사용량 <span>Meter credits · 동일 축</span></h3>
-          <div className="provider-credit-legend" aria-label="Provider credit series legend">
-            {providerSeries.map((series) => <span key={series.id} className={`provider-credit-${series.id}`}>{series.label}</span>)}
-          </div>
-          {providerDaily.length === 7 && knownCredits.length > 0 ? (
-            <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="최근 7일 Codex, Claude, Antigravity Gemini Meter credit 비교">
-              {providerSeries.map((series) => <polyline key={series.id} className={`provider-credit-line provider-credit-${series.id}`} points={series.values.map((value: any, index: number) => typeof value === "number" ? `${(PAD + index * creditStep).toFixed(1)},${(H - 16 - (value / maxCredit) * (H - 36)).toFixed(1)}` : null).filter(Boolean).join(" ")} />)}
-            </svg>
-          ) : <p className="provider-credit-empty">Provider별 계산 가능한 credit 근거가 없습니다.</p>}
-          <div className="ledger-activity-axis"><span>{dateLabel(daily[0].date)}</span><span>{dateLabel(daily[daily.length - 1].date)}</span></div>
+          <h3>Provider별 30일 토큰 <span>로컬 집계</span></h3>
+          <LedgerProviderTokenChart providerDaily={providerDaily} />
         </div>
         <div className="ledger-activity-panel">
           <h3>시간대별 (0-23시) <span>{totalHourTurns.toLocaleString("en-US")}턴</span></h3>
@@ -3042,9 +3072,9 @@ function LedgerDistribution({ usage, exactTaskLabels }: { usage: any; exactTaskL
   };
   const columns = [
     { key: "org", tone: "amber", title: "프로젝트별 토큰", meta: "조직 라벨 기준", rows: orgRows },
-    { key: "models", tone: "teal", title: "모델별 토큰", meta: null, rows: topRows("models") },
+    { key: "models", tone: "teal", title: "모델별 토큰", meta: "전체 누적", rows: topRows("models") },
     { key: "tasks", tone: "purple", title: "task별 토큰", meta: null, rows: topRows("tasks") },
-    { key: "projects", tone: "green", title: "귀속 코드별", meta: "미터 바인딩", rows: topRows("projects") },
+    { key: "projects", tone: "green", title: "프로젝트 코드별 토큰", meta: "세션 귀속 기준", rows: topRows("projects") },
   ];
   return (
     <section className="ledger-distribution" aria-label="사용량 분포" data-testid="ledger-distribution">
