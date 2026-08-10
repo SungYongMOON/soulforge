@@ -126,6 +126,23 @@ HTML 기본 경로는 `guild_hall/state/operations/ai_usage_meter/dashboard.html
 
 ## 자동 계측
 
+### Phase B feature-OFF observation contract
+
+Phase B keeps hook delivery and token projection as independent metadata-only
+health lanes. Each lane has its own state, reason, and `source_observed_at`;
+report `generated_at` is aggregation time and never refreshes source freshness.
+Every Stop observation can be classified in memory as exactly `observed`,
+`pending_jsonl`, `unsupported`, or `failed`. These dry-run results are not a
+canonical ledger, completion authority, backfill, provider probe, or runtime
+activation.
+
+Pending JSONL reconciliation is a pure plan: the same stable identity and
+payload digest is a no-op, while a different payload for that identity places
+the entire plan on `HOLD` before any canonical write. An active turn without a
+Stop remains `UNKNOWN`; subagent evidence remains `coverage_partial`. Hook
+manifest drift inspection reports only expected/observed digests and counts and
+does not edit `.codex/hooks.json`.
+
 저장소의 [`.codex/hooks.json`](../../.codex/hooks.json)은 정확히 `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `PermissionRequest`, `Stop`에서 비차단 metadata-only 훅을 실행한다. `TurnStart`, `TurnEnd`, `Waiting`은 설치하지 않는다. 훅 실패는 Codex 답변을 막지 않고 `health/latest.json`에 안전한 reason code만 남긴다. 동시 hook 결과의 감사 이력은 `health/history/<YYYY-MM>/`에 별도 보존된다. usage 원장 잠금이 바쁘면 `deferred`와 `pending/`으로 남고 다음 성공 실행에서 자동 병합된다.
 
 - `SessionStart`/`SubagentStart`는 `started` receipt다.

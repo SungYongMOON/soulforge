@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026-08-10 - AI usage meter Phase B feature-OFF observation
+
+- Added independent hook-delivery and token-projection health, four exact Stop
+  dry-run outcomes, source freshness separate from report generation time, and
+  deterministic pending-JSONL conflict HOLD planning. Hook manifest drift stays
+  digest/count-only; no hook, runtime, provider, network, ledger, or backfill
+  activation was added.
+
 ## 2026-08-10 - Team Operations Board read-only topology snapshot
 
 - Read-only pilot topology now reads and strictly validates only the existing

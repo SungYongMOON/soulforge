@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import Ajv2020 from "ajv/dist/2020.js";
 
 import {
+  buildStopDeliveryReceipt,
+  buildUsageMeterHealthReport,
   buildUsageEvents,
   calculateCredits,
   collectUsageEvents,
@@ -16,11 +18,42 @@ import {
   parseCodexSessionFile,
   persistUsageEvents,
   summarizeUsageEvents,
+  reportHookManifestDrift,
 } from "./usage_meter.mjs";
 import { upsertUsageBinding } from "./binding_store.mjs";
 import { loadLifecycleReceipts } from "./lifecycle_receipt.mjs";
 
 const RATE_CARD = new URL("./rate_card.v1.json", import.meta.url);
+
+test("Phase B health keeps hook delivery, token projection, and source freshness independent", () => {
+  const report = buildUsageMeterHealthReport({
+    generatedAt: "2026-08-10T02:00:00.000Z",
+    hookDelivery: { state: "available", reason: "stop_observed", source_observed_at: "2026-08-10T01:59:00.000Z" },
+    tokenProjection: { state: "unknown", reason: "pending_jsonl", source_observed_at: "2026-08-10T01:00:00.000Z" },
+  });
+  assert.equal(report.generated_at, "2026-08-10T02:00:00.000Z");
+  assert.equal(report.hook_delivery.state, "available");
+  assert.equal(report.token_projection.state, "unknown");
+  assert.equal(report.token_projection.source_observed_at, "2026-08-10T01:00:00.000Z");
+});
+
+test("every Phase B Stop dry-run receipt has one exact delivery outcome", () => {
+  for (const outcome of ["observed", "pending_jsonl", "unsupported", "failed"]) {
+    assert.deepEqual(buildStopDeliveryReceipt({ outcome }), {
+      outcome, observed_at: null, reason: null, persisted: false,
+    });
+  }
+  assert.throws(() => buildStopDeliveryReceipt({ outcome: "complete" }), { code: "stop_delivery_outcome_invalid" });
+});
+
+test("hook manifest drift reports digest and count only", () => {
+  const a = "a".repeat(64);
+  const b = "b".repeat(64);
+  assert.equal(reportHookManifestDrift({ expectedDigest: a, observedDigest: a, expectedCount: 7, observedCount: 7 }).status, "match");
+  const drift = reportHookManifestDrift({ expectedDigest: a, observedDigest: b, expectedCount: 7, observedCount: 6 });
+  assert.equal(drift.status, "drift");
+  assert.deepEqual(Object.keys(drift), ["status", "expected_digest", "observed_digest", "expected_count", "observed_count"]);
+});
 
 function row(timestamp, type, payload) {
   return JSON.stringify({ timestamp, type, payload });

@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
+  buildStopDeliveryReceipt,
   buildUsageEvents,
   collectUsageEvents,
   findCodexSessionFiles,
@@ -836,6 +837,14 @@ async function writeHookHealth(stateRoot, status, detail = null) {
 
 async function hookCommand(options) {
   let stateRoot = defaultHookStateRoot();
+  let stopDeliveryReceipt = null;
+  let isStopDeliveryPath = false;
+  const observeStopDelivery = (outcome, reason = null) => {
+    if (stopDeliveryReceipt === null) {
+      stopDeliveryReceipt = buildStopDeliveryReceipt({ outcome, observedAt: new Date().toISOString(), reason });
+    }
+    return stopDeliveryReceipt;
+  };
   try {
     const repoRoot = await findRepoRoot(process.cwd());
     const rootResolution = await resolveHookStateRoot(options);
@@ -845,6 +854,7 @@ async function hookCommand(options) {
       return {};
     }
     const receipt = createLifecycleReceipt(await readStdinJson());
+    isStopDeliveryPath = receipt.source_event === "Stop" || receipt.source_event === "SubagentStop";
     await persistLifecycleReceipt(stateRoot, receipt);
     if (receipt.source_event !== "Stop" && receipt.source_event !== "SubagentStop") {
       await writeHookHealth(stateRoot, "ok", rootResolution.fallbackReason);
@@ -854,7 +864,10 @@ async function hookCommand(options) {
     const isSubagentStop = receipt.source_event === "SubagentStop";
     const lookupId = isSubagentStop ? receipt.identity.agent_id : receipt.identity.session_id;
     const sessionFile = lookupId ? await findSessionFileById(sessionsRoot, lookupId) : null;
-    if (!sessionFile) fail("hook_session_file_not_found");
+    if (!sessionFile) {
+      observeStopDelivery("unsupported", "hook_session_file_not_found");
+      fail("hook_session_file_not_found");
+    }
     let config = await loadEffectiveConfig(options, { repoRoot });
     config = await dynamicConfig(config, stateRoot);
     const rateCard = await loadRateCard(path.resolve(value(options, "rate-card", DEFAULT_RATE_CARD)));
@@ -947,17 +960,25 @@ async function hookCommand(options) {
     if (!events.length) fail("hook_turn_usage_not_observed");
     const persistence = await persistUsageEvents(stateRoot, events);
     if (persistence.pending) {
+      observeStopDelivery("pending_jsonl", "usage_ledger_busy_pending");
       await writeHookHealth(
         stateRoot,
         "deferred",
         rootResolution.fallbackReason ?? `usage_ledger_busy_pending:${persistence.pending}`,
       );
     } else {
+      observeStopDelivery("observed", "token_projection_observed");
       await writeHookHealth(stateRoot, "ok", rootResolution.fallbackReason);
     }
   } catch (error) {
+    if (isStopDeliveryPath) {
+      observeStopDelivery("failed", typeof error?.code === "string" ? error.code : "hook_failed");
+    }
     await writeHookHealth(stateRoot, "hold", typeof error?.code === "string" ? error.code : "hook_failed");
   }
+  // Phase B receipts are deliberately ephemeral. Hook stdout remains the
+  // backwards-compatible empty object and no new ledger/schema is created.
+  void stopDeliveryReceipt;
   return {};
 }
 

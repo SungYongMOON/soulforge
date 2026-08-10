@@ -5,12 +5,70 @@ import {
   canonicalJson,
   findCodexSessionFiles,
   parseCodexSessionFile,
+  sha256,
 } from "./usage_meter.mjs";
 
 export const JSONL_LIFECYCLE_SNAPSHOT_SCHEMA = "soulforge.ai_usage_jsonl_lifecycle_snapshot.v1";
 export const JSONL_LIFECYCLE_SOURCE = "jsonl_metadata";
 export const DEFAULT_JSONL_LIFECYCLE_MAX_SESSIONS = 200;
 export const DEFAULT_JSONL_LIFECYCLE_MAX_AGE_MS = 5 * 60 * 1_000;
+
+export function planPendingJsonlReconcile({ canonical = [], pending = [] } = {}) {
+  const byIdentity = new Map();
+  let malformedExcludedCount = 0;
+  const safeItem = (item) => item && typeof item === "object"
+    && item.identity && typeof item.identity === "object" && Object.keys(item.identity).length > 0
+    && item.payload && typeof item.payload === "object";
+  for (const item of canonical) {
+    if (!safeItem(item)) {
+      malformedExcludedCount += 1;
+      continue;
+    }
+    const identity = canonicalJson(item.identity);
+    byIdentity.set(identity, canonicalJson(item.payload));
+  }
+  const actions = [];
+  let conflictCount = 0;
+  for (const item of pending) {
+    if (!safeItem(item)) {
+      malformedExcludedCount += 1;
+      continue;
+    }
+    const identity = canonicalJson(item.identity);
+    const digest = canonicalJson(item.payload);
+    const existing = byIdentity.get(identity);
+    if (existing === undefined) {
+      byIdentity.set(identity, digest);
+      actions.push({ identity_digest: sha256(identity), payload_digest: sha256(digest), action: "create" });
+    } else if (existing === digest) {
+      actions.push({ identity_digest: sha256(identity), payload_digest: sha256(digest), action: "noop" });
+    } else {
+      conflictCount += 1;
+      actions.push({ identity_digest: sha256(identity), payload_digest: sha256(digest), action: "conflict" });
+    }
+  }
+  return {
+    status: conflictCount > 0 ? "hold" : "ready",
+    reason_code: conflictCount > 0 ? "jsonl_pending_identity_conflict" : null,
+    conflict_count: conflictCount,
+    malformed_excluded_count: malformedExcludedCount,
+    write_allowed: conflictCount === 0,
+    actions,
+  };
+}
+
+export function jsonlLifecycleCompleteness(snapshot) {
+  const accepted = validateJsonlLifecycleSnapshot(snapshot);
+  const turns = accepted.identities.filter((identity) => identity.identity_kind === "turn");
+  const active = turns.some((identity) => identity.lifecycle_state === "active");
+  const stopped = turns.some((identity) => identity.lifecycle_state === "stopped");
+  const subagent = turns.some((identity) => identity.agent_id !== null || identity.parent_thread_id !== null)
+    || accepted.identities.some((identity) => identity.identity_kind === "agent_link");
+  return {
+    completeness: !active && stopped ? "observed_stop_only" : "unknown",
+    coverage: subagent ? "coverage_partial" : (accepted.coverage.complete ? "coverage_complete" : "coverage_partial"),
+  };
+}
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 const SAFE_CODE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/u;
@@ -562,7 +620,9 @@ export function evaluateJsonlLifecycleStaleness(snapshot, {
   const safeMaxAge = Number.isSafeInteger(maxAgeMs) && maxAgeMs >= 0
     ? maxAgeMs
     : DEFAULT_JSONL_LIFECYCLE_MAX_AGE_MS;
-  const staleness = safeNow - Date.parse(accepted.generated_at) > safeMaxAge ? "stale" : "fresh";
+  const sourceObservedAt = accepted.latest_observed_at;
+  const staleness = sourceObservedAt === null
+    || safeNow - Date.parse(sourceObservedAt) > safeMaxAge ? "stale" : "fresh";
   return validateJsonlLifecycleSnapshot({
     ...accepted,
     health: { ...accepted.health, staleness },

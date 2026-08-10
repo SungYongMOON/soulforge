@@ -8,7 +8,9 @@ import {
   JSONL_LIFECYCLE_SOURCE,
   defaultJsonlLifecycleSnapshotPath,
   evaluateJsonlLifecycleStaleness,
+  jsonlLifecycleCompleteness,
   jsonlLifecycleReceiptInputs,
+  planPendingJsonlReconcile,
   reconcileJsonlLifecycle,
   validateJsonlLifecycleSnapshot,
 } from "./jsonl_lifecycle.mjs";
@@ -18,6 +20,75 @@ import {
   persistLifecycleReceipts,
 } from "./lifecycle_receipt.mjs";
 import { runCli } from "./cli.mjs";
+
+test("Phase B pending JSONL plan is deterministic and holds all writes on divergent identity", () => {
+  const identity = (index) => ({ thread_id: `thread-${index}`, turn_id: `turn-${index}` });
+  const canonical = Array.from({ length: 31 }, (_, index) => ({ identity: identity(index), payload: { state: "stopped" } }));
+  const identical = planPendingJsonlReconcile({ canonical, pending: canonical });
+  assert.equal(identical.status, "ready");
+  assert.equal(identical.actions.every((action) => action.action === "noop"), true);
+  const divergent = canonical.map((item, index) => index === 30 ? { ...item, payload: { state: "active" } } : item);
+  const conflict = planPendingJsonlReconcile({ canonical, pending: divergent });
+  assert.equal(conflict.status, "hold");
+  assert.equal(conflict.conflict_count, 1);
+  assert.equal(conflict.malformed_excluded_count, 0);
+  assert.equal(conflict.write_allowed, false);
+  assert.deepEqual(conflict, planPendingJsonlReconcile({ canonical, pending: divergent }));
+});
+
+test("Phase B pending flush and restart reconcile exactly once while malformed input is excluded", () => {
+  const observation = { identity: { thread_id: "flush-thread", turn_id: "flush-turn" }, payload: { state: "stopped" } };
+  const flushRace = planPendingJsonlReconcile({ canonical: [], pending: [observation, observation] });
+  assert.deepEqual(flushRace.actions.map((action) => action.action), ["create", "noop"]);
+  assert.equal(flushRace.write_allowed, true);
+
+  const restart = planPendingJsonlReconcile({ canonical: [observation], pending: [observation] });
+  assert.deepEqual(restart.actions.map((action) => action.action), ["noop"]);
+  assert.equal(restart.conflict_count, 0);
+
+  const malformed = planPendingJsonlReconcile({
+    canonical: [null],
+    pending: [{ identity: {}, payload: {} }, observation],
+  });
+  assert.equal(malformed.malformed_excluded_count, 2);
+  assert.deepEqual(malformed.actions.map((action) => action.action), ["create"]);
+});
+
+test("Phase B completeness stays unknown without Stop and subagent coverage stays partial", async () => {
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-jsonl-phase-b-active-"));
+  try {
+    await writeSession(sessions, "active-child", [
+      sessionMeta("active-child", { parent: "parent-thread" }),
+      taskStarted("active-turn"),
+    ]);
+    const snapshot = await reconcileJsonlLifecycle({ sessionsRoot: sessions, threadIds: ["active-child"] });
+    assert.deepEqual(jsonlLifecycleCompleteness(snapshot), {
+      completeness: "unknown",
+      coverage: "coverage_partial",
+    });
+  } finally {
+    await rm(sessions, { recursive: true, force: true });
+  }
+});
+
+test("Phase B completeness stays unknown for empty and link-only snapshots", async () => {
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-jsonl-phase-b-no-stop-"));
+  try {
+    const empty = await reconcileJsonlLifecycle({ sessionsRoot: sessions });
+    assert.equal(jsonlLifecycleCompleteness(empty).completeness, "unknown");
+
+    await writeSession(sessions, "link-only-child", [
+      sessionMeta("link-only-child", { parent: "link-only-parent" }),
+    ]);
+    const linkOnly = await reconcileJsonlLifecycle({
+      sessionsRoot: sessions,
+      threadIds: ["link-only-child"],
+    });
+    assert.equal(jsonlLifecycleCompleteness(linkOnly).completeness, "unknown");
+  } finally {
+    await rm(sessions, { recursive: true, force: true });
+  }
+});
 
 const ACTUAL_CANARY_IDS = Object.freeze([
   "019fcb7b-4df2-7cf0-9d07-90fb1a7774fa",

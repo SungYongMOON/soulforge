@@ -127,6 +127,22 @@ guild_hall/state/operations/ai_usage_meter/
 
 ## Lifecycle receipt와 local projection
 
+### Phase B public feature-OFF boundary
+
+Phase B separates `hook_delivery` from `token_projection`; each health lane
+owns an independent state, reason, and source observation timestamp. A report's
+`generated_at` is aggregation time only and MUST NOT advance
+`source_observed_at`. Stop delivery has exactly four dry-run outcomes:
+`observed`, `pending_jsonl`, `unsupported`, and `failed`.
+
+Pending JSONL is reconciled by stable identity plus payload digest. An identical
+observation is a deterministic no-op. A different payload under the same
+identity is a conflict and places the complete plan on `HOLD` before canonical
+writes. Active/no-Stop evidence has unknown completeness, and subagent evidence
+is partial coverage. Manifest drift is read-only digest/count reporting; this
+slice does not change `.codex/hooks.json`, create a canonical ledger, backfill,
+activate runtime/provider/network access, or infer completion.
+
 설치하는 Codex hook event는 아래 일곱 개뿐이다. `TurnStart`, `TurnEnd`, `Waiting` 같은 이름은 설치하거나 추정하지 않는다.
 
 | Codex hook event | receipt lifecycle state | 경계 |

@@ -7,6 +7,66 @@ import path from "node:path";
 export const USAGE_EVENT_SCHEMA = "soulforge.ai_usage_event.v1";
 export const USAGE_CONFIG_SCHEMA = "soulforge.ai_usage_meter_config.v1";
 export const RATE_CARD_SCHEMA = "soulforge.ai_usage_rate_card.v1";
+export const STOP_DELIVERY_OUTCOMES = Object.freeze([
+  "observed", "pending_jsonl", "unsupported", "failed",
+]);
+
+const PHASE_B_HEALTH_STATES = new Set(["available", "unknown", "hold"]);
+
+function phaseBHealthLane(input, lane) {
+  const value = input && typeof input === "object" ? input : {};
+  const state = PHASE_B_HEALTH_STATES.has(value.state) ? value.state : "unknown";
+  const reason = typeof value.reason === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/u.test(value.reason)
+    ? value.reason
+    : (state === "unknown" ? `${lane}_not_observed` : null);
+  const sourceObservedAt = value.source_observed_at === null || value.source_observed_at === undefined
+    ? null
+    : new Date(value.source_observed_at).toISOString();
+  return { state, reason, source_observed_at: sourceObservedAt };
+}
+
+export function buildUsageMeterHealthReport({
+  generatedAt,
+  hookDelivery = null,
+  tokenProjection = null,
+} = {}) {
+  const generated_at = new Date(generatedAt ?? Date.now()).toISOString();
+  return {
+    generated_at,
+    hook_delivery: phaseBHealthLane(hookDelivery, "hook_delivery"),
+    token_projection: phaseBHealthLane(tokenProjection, "token_projection"),
+  };
+}
+
+export function buildStopDeliveryReceipt({ outcome, observedAt = null, reason = null } = {}) {
+  if (!STOP_DELIVERY_OUTCOMES.includes(outcome)) fail("stop_delivery_outcome_invalid");
+  return {
+    outcome,
+    observed_at: observedAt === null ? null : new Date(observedAt).toISOString(),
+    reason: typeof reason === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/u.test(reason) ? reason : null,
+    persisted: false,
+  };
+}
+
+export function reportHookManifestDrift({ expectedDigest, observedDigest, expectedCount, observedCount } = {}) {
+  const digest = (value) => typeof value === "string" && /^[a-f0-9]{64}$/u.test(value) ? value : null;
+  const count = (value) => Number.isSafeInteger(value) && value >= 0 ? value : null;
+  const expected_digest = digest(expectedDigest);
+  const observed_digest = digest(observedDigest);
+  const expected_count = count(expectedCount);
+  const observed_count = count(observedCount);
+  const comparable = expected_digest !== null && observed_digest !== null
+    && expected_count !== null && observed_count !== null;
+  return {
+    status: comparable
+      ? (expected_digest === observed_digest && expected_count === observed_count ? "match" : "drift")
+      : "unknown",
+    expected_digest,
+    observed_digest,
+    expected_count,
+    observed_count,
+  };
+}
 // Every allowed source kind is pinned to exactly one token-confidence label so a
 // provider can never claim a stronger measurement than its collector supports.
 export const USAGE_EVENT_TOKEN_CONFIDENCE_BY_SOURCE_KIND = Object.freeze({
