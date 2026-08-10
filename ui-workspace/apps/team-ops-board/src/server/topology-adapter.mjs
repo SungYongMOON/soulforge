@@ -328,7 +328,9 @@ export function runWatchtowerProbe({
     };
     let child;
     try {
-      child = spawnImpl(process.execPath, [WATCHTOWER_CLI_PATH, "probe", "--binding", bindingPath, "--json"], {
+      // --no-write: 보드는 읽기 표면이다. stdout 만 쓰므로 CLI 가 공유 런타임 스냅샷을 덮어쓸
+      // 이유가 없고, 덮어쓰면 새로고침 한 번이 다른 체크아웃이 서빙 중인 상태를 바꿀 수 있다.
+      child = spawnImpl(process.execPath, [WATCHTOWER_CLI_PATH, "probe", "--binding", bindingPath, "--json", "--no-write"], {
         windowsHide: true,
         stdio: ["ignore", "pipe", "ignore"],
       });
@@ -440,9 +442,12 @@ export function createTopologyAdapter({
         snapshot_age_seconds: ageSeconds(parseExactTimestamp(snapshot.observed_at), observedNow),
         reason: "snapshot_only",
       });
-    } catch {
+    } catch (error) {
       lastFailureAt = observedNow;
       lastRefreshFailed = true;
+      // 이 경로도 사유를 남긴다. reason 은 어느 범주인지만 말하고, 실제로 무엇이 실패했는지는
+      // 이 코드가 말한다. 둘 다 없으면 운영자가 조치를 고를 수 없다.
+      lastFailureCode = safeFailureCode(error);
       return envelope(lastGood === null ? "unconfigured" : "stale", lastGood, {
         ...refreshMetadata(observedNow),
         snapshot_age_seconds: lastGood === null
