@@ -4,7 +4,7 @@ Status: `LANE CONTRACT / AUTHOR-WRITTEN FIXTURES / INDEPENDENT LOCK OWED BY 1V`
 
 동결 crosswalk 에서 `module_abi_binding_artifact_and_module_binding_revision` 을 소유한다. Phase 1-0 공통 계약을 consume-only 로 쓴다.
 
-구현: `kernel/module_binding.mjs` · 시험: `tests/lane_1e_conformance.mjs` (103 통과 / 0 실패)
+구현: `kernel/module_binding.mjs` · 시험: `tests/lane_1e_conformance.mjs` (104 통과 / 0 실패)
 
 ## 1. 문제
 
@@ -92,4 +92,4 @@ Phase 1 은 계약을 합성 fixture 로만 고정하므로 위 항목은 Phase 
 
 `O` 동결 oracle 에 1E case 가 없다. 기대값을 구현과 같은 저자가 썼다. lane 1V 가 이 파일에 대한 **mutation 기반 lock** 을 지며, 그때까지 independently verified 로 부르지 않는다.
 
-`D` 시험 자체가 vacuous 하지 않다는 것을 `1E/harness/self_test` 가 매 실행마다 확인한다 — reject·accept 보조함수가 실제로 no-throw, wrong-code, wrong-class 를 잡아내는지 검사한다. 103 개 전부 첫 실행에 통과했으므로 이 자기검사는 장식이 아니다.
+`D` 시험 자체가 vacuous 하지 않다는 것을 `1E/harness/self_test` 가 매 실행마다 확인한다 — reject·accept 보조함수가 실제로 no-throw, wrong-code, wrong-class 를 잡아내는지 검사한다. 104 개 전부 통과하므로 이 자기검사는 장식이 아니다.

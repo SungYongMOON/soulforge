@@ -4,7 +4,7 @@ Status: `LANE CONTRACT / AUTHOR-WRITTEN FIXTURES / INDEPENDENT LOCK OWED BY 1V`
 
 동결 crosswalk 에서 `snapshot_envelope_state_axes_finding_and_pipeline_contract_fields` 를 소유한다.
 
-구현: `kernel/snapshot.mjs`, `kernel/pipeline.mjs` · 시험: `tests/lane_1a_conformance.mjs` (150 통과 / 0 실패)
+구현: `kernel/snapshot.mjs`, `kernel/pipeline.mjs` · 시험: `tests/lane_1a_conformance.mjs` (151 통과 / 0 실패)
 
 ## 1. 엔진의 일은 하나의 비교다
 

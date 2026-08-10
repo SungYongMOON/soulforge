@@ -45,7 +45,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 
 | lane | field group | 구현 | 계약문 |
 |---|---|---|---|
-| substrate | Phase 1-0 공통 계약 11항목 | `kernel/` 9 모듈 | 동결 bundle |
+| substrate | Phase 1-0 공통 계약 11항목 | `kernel/` 최초 9 모듈 (현재 커널 전체 21) | 동결 bundle |
 | 1A | snapshot envelope · state axes · Finding · Context Request · P5–P8 | `snapshot.mjs`, `pipeline.mjs` | `contracts/lane_1a_snapshot_and_pipeline_v0.md` |
 | 1B | inventory · custody · eligibility · lineage | `custody.mjs`, `lineage.mjs` | `contracts/lane_1b_custody_and_lineage_v0.md` |
 | 1C | typed graph · bounded capsule | `graph.mjs`, `capsule.mjs` | `contracts/lane_1c_graph_and_capsule_v0.md` |
@@ -60,7 +60,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 
 ## 검증
 
-한 번에 전부 (일곱 검사 모두 통과해야 한다):
+한 번에 전부 (여덟 검사 모두 통과해야 한다):
 
 ```
 node guild_hall/engineering_engine/tools/phase_1_integration_check.mjs \
@@ -70,6 +70,12 @@ node guild_hall/engineering_engine/tools/phase_1_integration_check.mjs \
 ```
 
 개별 suite 는 `tests/` 아래에 있다. kernel suite 만 동결 oracle 을 인자로 받는다.
+
+byte manifest 는 추적 소스만 담으며 자기 path base 를 헤더로 선언한다. receipt 는 실행 결과라 매번 바뀌므로 제외한다 — 넣으면 manifest 가 스스로를 무효화한다.
+
+```
+node guild_hall/engineering_engine/tools/emit_manifest.mjs --out topology/engine_manifest.sha256
+```
 
 `P` kernel 은 Phase 1-0 동결 synthetic oracle 의 판정을 그대로 재현한다. 그 oracle 은 독립검증을 거쳤으므로 구현과 채점 기준의 저자가 분리된다.
 

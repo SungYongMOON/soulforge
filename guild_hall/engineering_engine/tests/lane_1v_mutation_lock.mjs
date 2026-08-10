@@ -229,7 +229,11 @@ const created = [];
 const runSuite = (root, suiteName) => {
   const suite = SUITES[suiteName];
   const extra = suite.args ?? [];
-  const r = spawnSync(process.execPath, [join(root, 'tests', suite.file), ...extra], { encoding: 'utf8' });
+  // cwd is the throwaway copy, not wherever this was launched from. A mutation is hostile code
+  // by construction, and at least one of them makes a path resolve against the working
+  // directory — run from the engine tree it wrote a nested state directory into the source.
+  // A mutation must not be able to leave anything outside its own sandbox.
+  const r = spawnSync(process.execPath, [join(root, 'tests', suite.file), ...extra], { encoding: 'utf8', cwd: root });
   return { status: r.status, stderr: (r.stderr ?? '').slice(0, 400) };
 };
 

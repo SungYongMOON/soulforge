@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // phase_1_serial_integration — the single command that decides whether Phase 1 holds.
 //
-// Seven checks, all of which must pass:
+// Eight checks, all of which must pass:
 //   1. every conformance suite passes
 //   2. the mutation lock kills every mutation
 //   3. the frozen Phase 1-0 bundle still matches 13/13 by sha256
 //   4. every frozen field group has exactly one owning lane
 //   5. the committed topology matches a fresh emit from the code
 //   6. a real observed run traversed only edges the topology declares
-//   7. no suite performed a write
+//   7. a full run leaves no residue inside the engine source tree
+//   8. no suite performed a write
 //
 // Checks 5 and 6 are the pair that keeps the topology honest, from both directions. 5 catches
 // a committed artifact drifting from the source. 6 catches the source drifting from what
@@ -189,7 +190,20 @@ if (!observation) {
     `${observation.edges.coverage} edges traversed, ${observation.surfaces.run} surfaces reported, topology 1:1`);
 }
 
-// ---------------------------------------------------------------- 7. no writes
+// ---------------------------------------------------------------- 7. the run left no residue
+// The existing hygiene check looks at tracked files, so it could not see this: a mutation that
+// resolved a path against the working directory wrote a state tree inside the engine source and
+// left it untracked. Checked after everything has run, because that is when residue exists.
+
+const nested = join(ENGINE, 'guild_hall');
+if (existsSync(nested)) {
+  fail('no_residue_in_the_source_tree',
+    'a run left state under guild_hall/engineering_engine/guild_hall; runtime output belongs under the repository-root state plane');
+} else {
+  pass('no_residue_in_the_source_tree', 'the engine source tree is clean after a full run');
+}
+
+// ---------------------------------------------------------------- 8. no writes
 
 if (totalWrites === 0) pass('no_writes', 'every suite reported zero writes');
 else fail('no_writes', `${totalWrites} writes reported`);

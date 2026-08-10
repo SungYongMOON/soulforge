@@ -5,7 +5,7 @@ Status: `CONSUMER-FACING CONTRACT / AUTHOR-WRITTEN FIXTURES`
 이 문서의 대상은 **엔진 출력을 읽는 다른 코드베이스**다. 엔진 내부 구현이 아니라 읽는 쪽이 의존해도 되는 것만 정의한다.
 
 구현: `tools/output_binding.mjs`, `tools/emit_output_index.mjs`
-시험: `tests/output_contract_conformance.mjs` (26 통과 / 0 실패)
+시험: `tests/output_contract_conformance.mjs` (28 통과 / 0 실패)
 
 ## 1. 문제 — 경로를 물면 우연을 문다
 

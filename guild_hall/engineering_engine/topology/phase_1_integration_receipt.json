@@ -6,7 +6,7 @@
     {
       "id": "suites",
       "ok": true,
-      "detail": "10 suites, 840 checks"
+      "detail": "10 suites, 842 checks"
     },
     {
       "id": "mutation_lock",
@@ -32,6 +32,11 @@
       "id": "runtime_observation",
       "ok": true,
       "detail": "85/85 edges traversed, 9 surfaces reported, topology 1:1"
+    },
+    {
+      "id": "no_residue_in_the_source_tree",
+      "ok": true,
+      "detail": "the engine source tree is clean after a full run"
     },
     {
       "id": "no_writes",
@@ -126,12 +131,12 @@
       "lane": "output_contract",
       "verification_strength": "author_written_fixtures",
       "result": "PASS",
-      "pass_count": 26,
+      "pass_count": 28,
       "failure_count": 0,
       "failures": []
     }
   ],
-  "total_conformance_checks": 840,
+  "total_conformance_checks": 842,
   "mutation_lock": {
     "result": "PASS",
     "mutations": 51,
@@ -147,7 +152,7 @@
     "mismatches": []
   },
   "runtime_observation": {
-    "run_id": "run-20260810154123041",
+    "run_id": "run-20260810235908266",
     "surfaces_run": 9,
     "surfaces_without_heartbeat": 3,
     "edge_coverage": "85/85",

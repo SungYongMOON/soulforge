@@ -4,7 +4,7 @@ Status: `SELF-AUTHORED MUTATION LOCK / SEMANTIC INDEPENDENCE UNMET`
 
 구현: `tests/lane_1v_mutation_lock.mjs` · 통합: `tools/phase_1_integration_check.mjs`
 
-현재: **변이 37개 중 37개 kill · 생존 0 · catalogue error 0 · 커널 모듈 16/16 커버**
+현재: **변이 51개 중 51개 kill · 생존 0 · catalogue error 0 · 모듈 21개 커버**
 
 ## 1. 왜 필요했나
 
@@ -63,8 +63,8 @@ Status: `SELF-AUTHORED MUTATION LOCK / SEMANTIC INDEPENDENCE UNMET`
 
 `tools/phase_1_integration_check.mjs` 가 여섯 검사를 한 번에 한다. 전부 통과해야 한다.
 
-1. 모든 conformance suite 통과 — **688 검사**
-2. 변이 lock 전멸 — **37/37**
+1. 모든 conformance suite 통과 — **842 검사**
+2. 변이 lock 전멸 — **51/51**
 3. 동결 Phase 1-0 bundle **13/13** sha256
 4. 동결 field group 6개가 **각각 정확히 한 lane** 소유 (누락·중복·미지 없음)
 5. commit 된 topology 가 코드에서 **새로 emit 한 것과 digest 일치**
