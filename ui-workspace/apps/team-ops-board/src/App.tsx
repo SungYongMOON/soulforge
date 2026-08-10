@@ -2622,9 +2622,10 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
   const agQuotaStatus = agQuotaSnapshot?.schema_version === ANTIGRAVITY_QUOTA_STATUS_SCHEMA_VERSION
     ? agQuotaSnapshot
     : null;
-  const agAppRunning = agQuotaStatus?.app_state === "running";
   const agObservedMs = agQuotaSnapshot?.observed_at ? Date.parse(agQuotaSnapshot.observed_at) : NaN;
   const agStale = Number.isFinite(agObservedMs) && Date.now() - agObservedMs > 10 * 60_000;
+  const agAppRunning = agQuotaStatus?.app_state === "running"
+    || (agQuotaSnapshot?.schema_version === ANTIGRAVITY_QUOTA_SCHEMA_VERSION && !agStale);
   for (const quotaRow of antigravityQuotaRows(agQuotaSnapshot)) {
     const usedPercent = Math.max(0, 100 - quotaRow.remaining_percent);
     const resetsMs = quotaRow.resets_at ? Date.parse(quotaRow.resets_at) : null;
@@ -2649,7 +2650,9 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       severity: quotaSeverityForRemaining(quotaRow.remaining_percent),
       stale: agStale,
       resetLabel: `${fleetResetAtLabel(resetsMs)}${agStale ? ` · ${fleetObservedAgoLabel(agQuotaSnapshot.observed_at)}` : ""}`,
-      note: "Antigravity 로컬 RPC 공식 잔여 쿼터",
+      note: quotaRow.source_kind === "antigravity_windows_uia_receipt"
+        ? "Antigravity 접근성 UI 안전 관측"
+        : "Antigravity 로컬 RPC 공식 잔여 쿼터",
     });
   }
   const antigravity = providers?.antigravity ?? null;
