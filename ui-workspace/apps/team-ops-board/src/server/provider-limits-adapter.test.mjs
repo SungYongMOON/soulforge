@@ -7,9 +7,11 @@ import {
 } from "../core/team-ops-board-read-only-pilot.mjs";
 import {
   DEFAULT_CLAUDE_LIMITS_FRESHNESS_MS,
+  DEFAULT_CLAUDE_FAILURE_COOLDOWN_MS,
   DEFAULT_CLAUDE_LIMITS_REFRESH_MS,
   DEFAULT_PROVIDER_LIMITS_FETCH_TIMEOUT_MS,
   DEFAULT_PROVIDER_LIMITS_TTL_MS,
+  MAX_CLAUDE_FAILURE_COOLDOWN_MS,
   createProviderLimitsReader,
   requestClaudeLimits,
 } from "./provider-limits-adapter.mjs";
@@ -114,9 +116,10 @@ test("pilot Claude quota read requires exact opt-in while non-pilot behavior sta
 
 test("Claude request classifies only safe outcomes without consuming error bodies", async () => {
   const calls = [];
-  const responseFor = (status, body = claudeValue()) => ({
+  const responseFor = (status, body = claudeValue(), retryAfter = null) => ({
     ok: status >= 200 && status < 300,
     status,
+    headers: { get: (name) => name === "retry-after" ? retryAfter : null },
     json: async () => body,
   });
   const request = async (response) => requestClaudeLimits({
@@ -194,7 +197,7 @@ test("reader keeps a 60-second cache, a 120-second Claude cadence, and one in-fl
   assert.equal(refreshed.claude.five_hour.utilization, 2);
 });
 
-test("failure retains process-memory last-good and freshness crosses its source-owned boundary", async () => {
+test("failure immediately marks process-memory last-good stale and cooldown suppresses retries", async () => {
   assert.equal(DEFAULT_CLAUDE_LIMITS_FRESHNESS_MS, 300_000);
   let nowMs = START_MS;
   const results = [
@@ -216,20 +219,22 @@ test("failure retains process-memory last-good and freshness crosses its source-
 
   nowMs += DEFAULT_CLAUDE_LIMITS_REFRESH_MS;
   const failedCurrent = await reader.readSnapshot();
-  assert.equal(failedCurrent.claude_status.state, "error");
+  assert.equal(failedCurrent.claude_status.state, "stale");
   assert.equal(failedCurrent.claude_status.outcome, "rate_limited");
-  assert.equal(failedCurrent.claude_status.freshness, "current");
+  assert.equal(failedCurrent.claude_status.freshness, "stale");
   assert.equal(failedCurrent.claude.five_hour.utilization, 57);
 
-  nowMs = START_MS + DEFAULT_CLAUDE_LIMITS_FRESHNESS_MS - 1;
+  nowMs = START_MS + DEFAULT_CLAUDE_LIMITS_REFRESH_MS + DEFAULT_CLAUDE_FAILURE_COOLDOWN_MS - 1;
   const justCurrent = await reader.readSnapshot();
-  assert.equal(justCurrent.claude_status.freshness, "current");
+  assert.equal(justCurrent.claude_status.freshness, "stale");
+  assert.equal(results.length, 1);
   nowMs += 1;
   const stale = await reader.readSnapshot();
   assert.equal(stale.claude_status.state, "stale");
   assert.equal(stale.claude_status.outcome, "timeout");
   assert.equal(stale.claude_status.freshness, "stale");
   assert.equal(stale.claude.five_hour.utilization, 57);
+  assert.equal(results.length, 0);
 
   const newReader = createProviderLimitsReader({
     env: {},
@@ -241,6 +246,107 @@ test("failure retains process-memory last-good and freshness crosses its source-
   assert.equal(noPersistedLastGood.claude, null);
   assert.equal(noPersistedLastGood.claude_status.state, "error");
   assert.equal(noPersistedLastGood.claude_status.outcome, "credential_unavailable");
+});
+
+test("Retry-After accepts delta-seconds and HTTP-date without reading an error body", async () => {
+  let bodyReads = 0;
+  const response = (value) => ({
+    ok: false,
+    status: 429,
+    headers: { get: (name) => name.toLowerCase() === "retry-after" ? value : null },
+    json: async () => { bodyReads += 1; throw new Error("must not read"); },
+  });
+  const options = { accessToken: "synthetic", timeoutMs: 10, now: () => START_MS };
+  assert.equal((await requestClaudeLimits({ ...options, fetchImpl: async () => response("600") })).retryAfterMs, 600_000);
+  assert.equal((await requestClaudeLimits({ ...options, fetchImpl: async () => response("7200") })).retryAfterMs, MAX_CLAUDE_FAILURE_COOLDOWN_MS);
+  assert.equal((await requestClaudeLimits({ ...options, fetchImpl: async () => response(new Date(START_MS + 900_000).toUTCString()) })).retryAfterMs, 900_000);
+  assert.deepEqual(await requestClaudeLimits({ ...options, fetchImpl: async () => response("invalid") }), {
+    outcome: "rate_limited", claude: null,
+  });
+  assert.equal(bodyReads, 0);
+});
+
+test("exponential failure cooldown observes each boundary and caps at one hour", async () => {
+  let nowMs = START_MS;
+  let reads = 0;
+  const reader = createProviderLimitsReader({
+    env: {}, ttlMs: 0, claudeRefreshMs: 0, now: () => nowMs,
+    readCodexLimitsImpl: async () => null,
+    readClaudeLimitsImpl: async () => { reads += 1; return { outcome: "timeout" }; },
+  });
+  for (const cooldownMs of [300_000, 600_000, 1_200_000, 2_400_000, 3_600_000, 3_600_000]) {
+    await reader.readSnapshot();
+    const afterFailure = reads;
+    nowMs += cooldownMs - 1;
+    await reader.readSnapshot();
+    assert.equal(reads, afterFailure);
+    nowMs += 1;
+  }
+  await reader.readSnapshot();
+  assert.equal(reads, 7);
+});
+
+test("malformed injected Retry-After values fall back to the first five-minute cooldown", async () => {
+  for (const retryAfterMs of [-1, "600000", {}, Number.NaN, Number.POSITIVE_INFINITY]) {
+    let nowMs = START_MS;
+    let reads = 0;
+    const reader = createProviderLimitsReader({
+      env: {}, ttlMs: 0, claudeRefreshMs: 0, now: () => nowMs,
+      readCodexLimitsImpl: async () => null,
+      readClaudeLimitsImpl: async () => {
+        reads += 1;
+        return { outcome: "rate_limited", retryAfterMs };
+      },
+    });
+    await reader.readSnapshot();
+    assert.equal(reads, 1);
+    nowMs += DEFAULT_CLAUDE_FAILURE_COOLDOWN_MS - 1;
+    await reader.readSnapshot();
+    assert.equal(reads, 1);
+    nowMs += 1;
+    await reader.readSnapshot();
+    assert.equal(reads, 2);
+  }
+});
+
+test("failure cooldown is exponential, capped, Retry-After compatible, and success resets it", async () => {
+  let nowMs = START_MS;
+  let reads = 0;
+  const outcomes = [
+    { outcome: "rate_limited", retryAfterMs: 900_000 },
+    { outcome: "timeout" },
+    { outcome: "success", claude: claudeValue(41) },
+    { outcome: "invalid_response" },
+  ];
+  const reader = createProviderLimitsReader({
+    env: {}, ttlMs: 0, claudeRefreshMs: 0, now: () => nowMs,
+    readCodexLimitsImpl: async () => null,
+    readClaudeLimitsImpl: async () => { reads += 1; return outcomes.shift(); },
+  });
+  await Promise.all([reader.readSnapshot(), reader.readSnapshot(), reader.readSnapshot()]);
+  assert.equal(reads, 1);
+  nowMs += 899_999;
+  await reader.readSnapshot();
+  assert.equal(reads, 1);
+  nowMs += 1;
+  await reader.readSnapshot();
+  assert.equal(reads, 2);
+  nowMs += 599_999;
+  await reader.readSnapshot();
+  assert.equal(reads, 2);
+  nowMs += 1;
+  const recovered = await reader.readSnapshot();
+  assert.equal(reads, 3);
+  assert.equal(recovered.claude_status.state, "ready");
+  nowMs += DEFAULT_CLAUDE_LIMITS_REFRESH_MS;
+  await reader.readSnapshot();
+  assert.equal(reads, 4);
+  nowMs += DEFAULT_CLAUDE_FAILURE_COOLDOWN_MS - 1;
+  await reader.readSnapshot();
+  assert.equal(reads, 4);
+  nowMs += 1;
+  await reader.readSnapshot();
+  assert.equal(reads, 5);
 });
 
 test("public snapshot recursively excludes raw, secret, path, account, body, and authorization fields", async () => {

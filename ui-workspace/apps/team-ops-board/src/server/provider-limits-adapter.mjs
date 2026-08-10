@@ -20,6 +20,8 @@ export const DEFAULT_PROVIDER_LIMITS_TTL_MS = 60_000;
 export const DEFAULT_CLAUDE_LIMITS_REFRESH_MS = 120_000;
 export const DEFAULT_CLAUDE_LIMITS_FRESHNESS_MS = 300_000;
 export const DEFAULT_PROVIDER_LIMITS_FETCH_TIMEOUT_MS = 6_000;
+export const DEFAULT_CLAUDE_FAILURE_COOLDOWN_MS = 300_000;
+export const MAX_CLAUDE_FAILURE_COOLDOWN_MS = 3_600_000;
 const CODEX_TAIL_BYTES = 262_144;
 
 function isLoopbackAddress(address) {
@@ -93,11 +95,20 @@ async function readClaudeOauthToken(credentialsPath) {
   return typeof token === "string" && token.length > 0 ? token : null;
 }
 
-function safeClaudeReadResult(outcome, claude = null) {
-  return { outcome, claude };
+function safeClaudeReadResult(outcome, claude = null, retryAfterMs = null) {
+  return retryAfterMs === null ? { outcome, claude } : { outcome, claude, retryAfterMs };
 }
 
-export async function requestClaudeLimits({ accessToken, fetchImpl, timeoutMs }) {
+function parseRetryAfterMs(value, nowMs) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (/^\d+$/u.test(trimmed)) return Math.min(Number(trimmed) * 1_000, MAX_CLAUDE_FAILURE_COOLDOWN_MS);
+  const retryAt = Date.parse(trimmed);
+  if (!Number.isFinite(retryAt)) return null;
+  return Math.min(Math.max(0, retryAt - nowMs), MAX_CLAUDE_FAILURE_COOLDOWN_MS);
+}
+
+export async function requestClaudeLimits({ accessToken, fetchImpl, timeoutMs, now = Date.now }) {
   try {
     const response = await fetchImpl("https://api.anthropic.com/api/oauth/usage", {
       method: "GET",
@@ -109,7 +120,13 @@ export async function requestClaudeLimits({ accessToken, fetchImpl, timeoutMs })
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (response.status === 401 || response.status === 403) return safeClaudeReadResult("auth_failed");
-    if (response.status === 429) return safeClaudeReadResult("rate_limited");
+    if (response.status === 429) {
+      return safeClaudeReadResult(
+        "rate_limited",
+        null,
+        parseRetryAfterMs(response.headers?.get?.("retry-after"), now()),
+      );
+    }
     if (!response.ok) return safeClaudeReadResult("invalid_response");
     const claude = normalizeClaudeOauthUsage(await response.json());
     return claude === null
@@ -144,7 +161,14 @@ function normalizeClaudeReadResult(value) {
     "rate_limited",
     "timeout",
     "invalid_response",
-  ].includes(value?.outcome)) return safeClaudeReadResult(value.outcome);
+  ].includes(value?.outcome)) {
+    const retryAfterMs = typeof value.retryAfterMs === "number"
+      && Number.isFinite(value.retryAfterMs)
+      && value.retryAfterMs >= 0
+      ? Math.min(value.retryAfterMs, MAX_CLAUDE_FAILURE_COOLDOWN_MS)
+      : null;
+    return safeClaudeReadResult(value.outcome, null, retryAfterMs);
+  }
   // Preserve the former injected-reader contract for local callers while the
   // runtime reader itself always returns the classified result above.
   if (typeof value === "object" && value !== null) {
@@ -175,7 +199,7 @@ function buildClaudeStatus({ enabled, outcome, attemptedAtMs, lastSuccessAtMs, o
   }
   const freshness = lastSuccessAtMs === null
     ? "unknown"
-    : observedAtMs - lastSuccessAtMs < freshnessMs ? "current" : "stale";
+    : outcome === "success" && observedAtMs - lastSuccessAtMs < freshnessMs ? "current" : "stale";
   const state = outcome === "success"
     ? freshness === "current" ? "ready" : "stale"
     : freshness === "stale" ? "stale" : "error";
@@ -209,6 +233,8 @@ export function createProviderLimitsReader({
   let lastClaudeAttemptAt = null;
   let lastClaudeOutcome = null;
   let lastClaudeSuccessAt = null;
+  let claudeConsecutiveFailures = 0;
+  let claudeCooldownUntil = null;
   let lastSnapshot = null;
   const claudeReadEnabled = isTeamOpsBoardClaudeQuotaReadEnabled(env);
   const effectiveClaudeRefreshMs = Math.max(DEFAULT_CLAUDE_LIMITS_REFRESH_MS, claudeRefreshMs);
@@ -218,7 +244,9 @@ export function createProviderLimitsReader({
     const codex = await readCodexLimitsImpl(sessionsRoot).catch(() => null);
     if (codex !== null) lastCodex = codex;
     const observedNow = now();
-    if (claudeReadEnabled && (lastClaudeAttemptAt === null || observedNow - lastClaudeAttemptAt >= effectiveClaudeRefreshMs)) {
+    if (claudeReadEnabled
+      && (claudeCooldownUntil === null || observedNow >= claudeCooldownUntil)
+      && (lastClaudeAttemptAt === null || observedNow - lastClaudeAttemptAt >= effectiveClaudeRefreshMs)) {
       lastClaudeAttemptAt = observedNow;
       const readResult = normalizeClaudeReadResult(
         await readClaudeLimitsImpl({ credentialsPath, fetchImpl, timeoutMs: fetchTimeoutMs })
@@ -226,8 +254,20 @@ export function createProviderLimitsReader({
       );
       lastClaudeOutcome = readResult.outcome;
       if (readResult.outcome === "success") {
+        claudeConsecutiveFailures = 0;
+        claudeCooldownUntil = null;
         lastClaudeSuccessAt = observedNow;
         lastClaude = { ...readResult.claude, observed_at: new Date(observedNow).toISOString() };
+      } else {
+        claudeConsecutiveFailures += 1;
+        const exponentialMs = Math.min(
+          DEFAULT_CLAUDE_FAILURE_COOLDOWN_MS * (2 ** (claudeConsecutiveFailures - 1)),
+          MAX_CLAUDE_FAILURE_COOLDOWN_MS,
+        );
+        claudeCooldownUntil = observedNow + Math.min(
+          Math.max(exponentialMs, readResult.retryAfterMs ?? 0),
+          MAX_CLAUDE_FAILURE_COOLDOWN_MS,
+        );
       }
     }
     const snapshotNow = now();

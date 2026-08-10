@@ -247,7 +247,11 @@ credential write, response persistence, or provider mutation. Schema v2 adds
 only redacted `claude_status` metadata (`state`, safe `outcome`, attempt and
 last-success times, and source-owned freshness). The normalized last successful
 quota stays in process memory across a failed attempt and is visibly
-`STALE`/error; a new process has no retained value. Missing v2 status, legacy v1,
+`STALE`/error immediately; a new process has no retained value. Failed reads
+enter a five-minute exponential cooldown capped at one hour; a valid
+`Retry-After` delta or HTTP date may extend that cooldown to the same cap.
+Local polling and cache refreshes share one in-flight read and perform no
+provider GET during cooldown. Missing v2 status, legacy v1,
 and unavailable values remain `UNKNOWN`/disabled and are never fabricated as
 zero or green. The common Meter ledger's Claude usage row remains an independent
 read-only projection and never supplies or replaces official quota values.

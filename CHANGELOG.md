@@ -79,6 +79,11 @@
   error, disabled, and unknown states remain explicit and never fabricate a
   current or green value. The official quota panel remains independent of the
   common Meter ledger and its usage-history windows.
+- Added provider-read failure backoff: five-minute exponential cooldown capped
+  at one hour, compatible with bounded `Retry-After`, with single-flight local
+  refreshes and zero repeated provider GETs during cooldown. A retained
+  last-good value becomes `STALE` immediately; without one the official quota
+  remains unavailable/`UNKNOWN`, never zero or green.
 
 ## 2026-08-09 — Team Operations Board local tailnet Host allowlist
 
