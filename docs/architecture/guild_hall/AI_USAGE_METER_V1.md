@@ -32,6 +32,23 @@ Soulforge는 AI 사용량 계측을 SE 보조 기능이나 특정 회사의 개�
 | U10 | 비기술 사용자 모니터링 | JSON, CSV, self-contained local HTML |
 | U11 | MCP와 연결 | read summary/detail + explicit work binding adapter |
 
+## Additive 실행·품질 증거
+
+token event 하나에 실행 문맥을 얇게 압축하지 않고, 같은 `work_id`로 연결하는 metadata-only event를 분리한다.
+
+| 규격 | 역할 | authority 경계 |
+| --- | --- | --- |
+| `ai_usage_event.v1` | turn token·rate-card 계산·lineage | 사용량 관찰 |
+| `ai_work_run.v1` | task/risk, model/effort, topology, instruction manifest, 비용 포함 범위 | `non_authoritative_measurement_projection` |
+| `ai_quality_result.v1` | deterministic/human/model oracle의 hard gate·점수·HOLD | 업무 완료 권한 없음 |
+| `ai_tool_event.v1` | tool 단계·시간·timeout·retry·preflight 연결 | argument·output 원문 비저장 |
+| `instruction_manifest.v1` | 실제 instruction source의 digest·bytes·model-visible 포함 여부 | source/prompt 원문 비저장 |
+| `ai_usage_replay_receipt.v1` | source manifest, parsed/HOLD, binding·lineage·role count, 계산 합계, ledger digest | actual replay claim의 private 근거 |
+
+`instruction_manifest` probe는 Codex가 만든 model-visible prompt input을 메모리에서 해시·포함 여부 확인에만 사용한다. prompt 내용, 지침 원문, 메일·파일 본문을 manifest나 ledger에 복사하지 않는다. 명시적 allowlist 밖의 instruction source는 digest를 추정하지 않고 `prohibited/unknown`으로 남긴다.
+
+`ai_work_run.v1`의 `model_id`와 `reasoning_effort`는 launcher 요청값이다. provider-effective 값으로 주장하려면 별도 usage/runtime 관찰 근거가 필요하며, 그 근거가 없으면 `requested_only_not_verified` claim ceiling을 유지한다.
+
 ## 호출 topology
 
 ```text
@@ -87,6 +104,11 @@ guild_hall/state/operations/ai_usage_meter/
 ├─ revisions/<event_id>/<digest>.json
 ├─ pending/<event_id>/<observation_id>.json
 ├─ bindings.v1.json
+├─ instruction_manifests/<YYYY-MM>/<manifest_id>.json
+├─ work_runs/<YYYY-MM>/<event_id>.json
+├─ quality_results/<YYYY-MM>/<event_id>.json
+├─ tool_events/<YYYY-MM>/<event_id>.json
+├─ receipts/<YYYY-MM>/<receipt_id>.json
 ├─ current.json
 ├─ dashboard.html
 ├─ health/latest.json
@@ -110,12 +132,16 @@ guild_hall/state/operations/ai_usage_meter/
 - 손상된 과거 session은 issue로 격리하고 parsed/total session coverage를 함께 보고한다.
 - hook 오류는 `health/latest.json`을 `hold`로 갱신하지만 Codex 응답 완료를 막지 않는다. 동시 실행에서 나중의 성공이 오류를 숨기지 않도록 모든 결과는 `health/history/`에 고유한 원자 기록으로 남긴다.
 - 알려지지 않은 모델은 `rate_unknown`이며 크레딧 합계의 미확인 turn 수에 나타난다.
+- work/quality/tool/manifest/replay receipt는 stable ID 기준으로 재실행하면 `replayed`이며, 같은 ID의 payload가 다르면 conflict로 중단한다. instruction manifest는 같은 chain/prompt identity의 후속 `observed_at`만 달라진 경우 최초 관찰 레코드를 유지하며 replay하고, 그 밖의 필드가 달라지면 conflict다.
+- replay receipt는 `전체 source = 선택 manifest + 제외/HOLD`, `parsed turn = created + updated + replayed + pending + conflict`, turn-bound count 상한, ledger mutation과 before/after digest 변화를 함께 만족해야 valid다.
+- evidence ledger lock은 stale 여부를 추측해 자동 탈취하지 않는다. 제한 시간 안에 기존 lock이 사라지지 않으면 `evidence_ledger_busy`로 fail-closed하고, owner가 writer 부재를 별도로 확인한 뒤 복구한다.
 
 ## 검증 기준
 
 v1 acceptance는 다음을 모두 요구한다.
 
-- synthetic와 실제 Outlook 7-turn 사건이 `670.294225`를 재현한다.
+- 과거 Outlook 관찰 토큰 tuple로 구성한 합성 7-turn reference가 `670.294225`를 재현한다.
+- 실제 과거 Outlook session replay와 역할 귀속을 주장하려면 source session 수·digest, parsed turn 수, 제외/HOLD, binding·lineage·role 귀속, 계산 합계를 담은 metadata-only private replay receipt가 있어야 한다.
 - executor child가 depth와 무관하게 책임자 최초 turn을 root로 갖는다.
 - 진행 중 부모가 보이지 않는 자식은 직전 부모 turn으로 오귀속되지 않고, 부모 관찰 뒤 정확한 root로 승격된다.
 - cache-write token은 관찰되지만 계산 크레딧은 `0`이다.
@@ -131,6 +157,8 @@ v1 acceptance는 다음을 모두 요구한다.
 - CSV 자유 문자열은 spreadsheet formula로 실행되지 않게 중화한다.
 - 전수 백필이 문제 session을 명시하고 나머지를 계속 집계한다.
 - 새 PC는 Node, project hook, private config만으로 doctor와 collect를 실행할 수 있다.
+- fresh session A/B에서 cwd·global instruction·model·effort·fixture를 고정하고, 각 variant의 loaded instruction source digest·bytes·prompt digest·truncation 상태를 기록할 수 있다.
+- quality hard gate가 PASS인 후에만 operational executor/reviewer 크레딧을 비교하고 controller·offline oracle·experiment evaluator 비용은 별도 범위로 보고한다.
 
 ## 운영 최적화 원칙
 

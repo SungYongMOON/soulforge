@@ -2,6 +2,17 @@
 
 ## 2026-08-03
 
+### 실제 결과물 TASK 기본 profile 상향
+
+- Owner 지시에 따라 Soulforge 전체 조직·프로젝트의 실제 조사·계산·설계·코드·
+  시험·문서·증거 생성 TASK 기본값을 `gpt-5.6-terra/xhigh`에서
+  `gpt-5.6-terra/max`로 상향했다.
+- `max`를 Ultra와 분리하고, CEO·manager·책임자 판단, 운영·상태 정리, 단순
+  수집·형식화와 독립검토 profile은 변경하지 않았다. 요청 profile과 실제 관찰
+  profile을 구분하며, runtime 미지원·미관찰 상태를 적용 완료로 주장하지 않는다.
+- 완료·과거 TASK는 profile 적용만을 위해 다시 깨우지 않고, 진행 중 실제 결과물
+  TASK는 다음 정상 실행 turn부터 새 기본값을 요청하도록 운영정책을 갱신했다.
+
 ### 루트 AGENTS Lean Router 전환
 
 - 루트 `AGENTS.md`의 상세 정책 복제를 걷어내고 실행 계약, 저장 경계, 조건부 owner 문서, 검증·기록 경로만 남기는 50~80줄 Lean Router로 축소했다.
@@ -14,14 +25,17 @@
 
 ### Soulforge AI 사용량 미터 v1
 
-- Codex session의 누적 token counter를 turn delta로 변환하고 input/cached/cache-write/output/reasoning, 모델 호출, rate-card 기반 계산 크레딧을 기록하는 `guild_hall/ai_usage_meter/`를 추가했다.
+- Codex session의 누적 token counter를 turn delta로 변환하고 input/cached/cache-write/output/reasoning, 관찰된 usage 증가 구간 수, rate-card 기반 계산 크레딧을 기록하는 `guild_hall/ai_usage_meter/`를 추가했다. usage 증가 구간 수는 API 요청 수가 아닌 모델 순환의 관찰 하한 proxy로 해석한다.
 - Stop/SubagentStop 비차단 hook, 부모–서브에이전트 lineage, explicit `work_id/project/team/role` binding, replay-safe current event와 revision 보존, 손상 session 격리형 backfill을 구현했다.
 - metadata-only JSON ledger, 주간 filter, 조직·팀·프로젝트·업무·모델·reasoning effort·node·역할·에이전트 집계, local HTML, CSV, MCP summary/detail/binding adapter를 추가했다.
-- 실제 Outlook 7-turn 기준 입력 `40,613,609`, 캐시 입력 `39,543,808`, 출력 `56,362`, 계산 크레딧 `670.294225` 재현과 원문 prompt/reasoning/tool payload 비수집을 검증했다.
+- 과거 Outlook 관찰 token tuple로 구성한 합성 7-turn reference에서 입력 `40,613,609`, 캐시 입력 `39,543,808`, 출력 `56,362`, 계산 크레딧 `670.294225` 재현과 원문 prompt/reasoning/tool payload 비저장을 검증했다. 실제 원본 session replay·역할 귀속은 metadata-only private receipt가 있을 때만 별도 검증으로 보고한다.
 - 독립 adversarial review와 실제 self-metering에서 발견한 cache-write 오과금, exact binding 우선순위, depth 2+ lineage, 부모 continuation 누락, continuation model·source rollover 보강, 진행 중 부모 오귀속, stale self-root 백필 충돌과 강한 완료 snapshot 유실, scoped coverage 덮어쓰기, 월 shard 중복, malformed hook/timestamp, lock 경합 유실, runtime privacy schema, binding lock ownership, CSV formula injection을 회귀 fixture로 고정했다.
 - hook lock 경합은 고유 pending observation으로 내구화하고 다음 성공 실행에서 자동 병합하며, `health/history/`와 dashboard의 hook/pending 상태로 오류가 뒤의 성공에 가려지지 않게 했다.
 - 공식 Plus/Pro/Business token-pricing 전환일인 2026-04-02를 rate-card 경계로 고정하고 GPT-5.5·GPT-5.4 요율과 GPT-5.4 Fast 2배 예외를 추가했다. 경계 이전 기록은 legacy 메시지 요율로 추정하지 않고 `rate_unknown`을 유지한다.
 - 일반 ChatGPT는 사용량 통합 대상이 아니라 저장소 접근이 필요 없는 조사·전략 작업을 Codex 밖으로 라우팅하는 보조 선택지로 경계를 고정했다. (worker: `codex_gpt-5.6-sol`)
+- Pro 검수 경계에 맞춰 `instruction_manifest.v1`, `ai_work_run.v1`, `ai_quality_result.v1`, `ai_tool_event.v1`, `ai_usage_replay_receipt.v1`을 additive metadata-only 증거로 추가했다. CLI에서 지침 source·model-visible prompt의 digest/bytes를 원문 없이 검사하고, 실행·품질·tool·replay receipt를 strict schema로 검증·저장할 수 있게 했다. (worker: `codex_gpt-5.6-sol`)
+- 후속 독립 검수에서 발견한 manifest 관찰시각 replay 충돌, evidence stale-lock 탈취 경쟁, replay receipt 내부 합계 불일치 허용, instruction source 상한의 schema/runtime 불일치를 fail-closed 검증과 회귀 테스트로 보정했다. (worker: `codex_gpt-5.6-sol`)
+- Added an explicit local emergency disable/enable control for the non-blocking lifecycle collector, plus a strict redacted snapshot adapter for the existing read-only Workspace Board. The Board receives aggregate totals, breakdowns, coverage, and operational counts only; it never receives session identifiers/paths, source references, raw prompts, reasoning, tool payloads, or writer authority. (worker: observed profile `UNKNOWN`)
 
 ## 2026-07-31
 

@@ -4,6 +4,8 @@
 
 - 상태: `canon_entry`
 - Owner 승인일: 2026-07-31
+- Owner 최신 변경일: 2026-08-03 — 실제 결과물 TASK 기본값을
+  `gpt-5.6-terra/max`로 변경
 - 현재 활성 운영: `CODEX_NATIVE + NORMAL`
 - 현재 비활성: 외부 LLM 역할 대체, `TOKEN_CONSTRAINED`
 
@@ -15,7 +17,7 @@
 1. 상류 방향·기준·수락 오류는 후속 TASK 전체를 무효화할 수 있으므로 강한
    모델을 유지한다.
 2. 실제 조사·계산·설계·코드·시험·문서 작성은 기본적으로
-   `Terra/xhigh` TASK가 수행한다.
+   `Terra/max` TASK가 수행한다.
 3. 조직도에 존재하는 모든 계층을 모든 업무에서 호출하지 않는다.
 4. 상위 역할은 더 넓은 범위를 판단하지만 하위 결과물을 반복 작성하지 않는다.
 5. Ultra는 상시 직책이나 CEO 기본 모델이 아니라, 정해진 중대 Gate의 심의
@@ -57,12 +59,19 @@
 | 프로젝트 팀장 | `Sol/xhigh` | 프로젝트 목표·위험·분야 간 통합·TASK Gate |
 | 기술 방향·수락 책임자 | `Sol/high` | 분야 기준·완료조건·기술 결과 수락 |
 | 운영·통제 책임자 | `Terra/high~xhigh` | 절차·상태·자원·이력 통제 |
-| 실제 결과물 TASK | `Terra/xhigh` | 조사·계산·설계·코드·시험·문서와 증거 생성 |
+| 실제 결과물 TASK | `Terra/max` | 조사·계산·설계·코드·시험·문서와 증거 생성 |
 | 운영·상태 정리 TASK | `Terra/high` | 진행·자료·상태·보고 패킷 정리 |
 | 단순 수집·형식화 | `Luna/medium` | 판단권 없는 추출·목록·형식 변환 |
 | 일반 독립 기술검토 | `fresh Sol/high` | 비수행자 관점의 기술 검토 |
 | 일반 독립 운영검토 | `fresh Terra/xhigh` | 비수행자 관점의 절차·증거 검토 |
 | 중대 Gate 심의 | `Ultra` | 정해진 안건의 최고강도 다면 심의 |
+
+`max`는 실제 결과물 TASK의 최대 reasoning effort이며 Ultra 심의와 다르다. CEO·manager·
+책임자의 판단 turn, 운영·상태 정리, 단순 수집·형식화와 독립검토는 실제 결과물
+TASK로 간주하지 않으며 위 표의 기존 profile을 유지한다. 새 실제 결과물 TASK는
+runtime이 지원하면 `gpt-5.6-terra/max`를 요청한다. 기록에서는 요청 모델·reasoning
+effort와 실제 관찰 모델·reasoning effort를 각각 구분하고, runtime에서 실제 모델이나
+effort를 관찰하지 못했으면 해당 관찰값을 `UNKNOWN`으로 둔다.
 
 이 표는 상시 역할의 기본 profile이다. 개별 workflow의 검증된
 `profile_policy.yaml`과 상충할 때는 다음을 구분한다.
@@ -149,7 +158,7 @@
 프로젝트 팀장 Sol/xhigh
 → 주관 분야 책임자 지정
 → 기술책임자 Sol/high가 목표·가정·범위·완료조건·검증기준 정의
-→ TASK Terra/xhigh가 실제 수행과 증거 제출
+→ TASK Terra/max가 실제 수행과 증거 제출
 → 기술책임자 Sol/high가 ACCEPT / REVISE / HOLD
 → 다른 분야·회사·Owner 영향이 없으면 종료
 ```
@@ -159,8 +168,10 @@
 수행하지 않는다.
 
 현재 만들어진 완료·과거 TASK를 profile 적용만을 위해 다시 깨우지 않는다.
-진행 중 TASK는 다음 실제 turn 또는 새 지시에서 `Terra/xhigh`를 적용하고,
-새 TASK는 처음부터 역할 기본값을 사용한다.
+진행 중 실제 결과물 TASK는 다음 정상 실행 turn 또는 새 지시에서 `Terra/max`를
+요청하고, 새 실제 결과물 TASK는 처음부터 `Terra/max`를 기본값으로 사용한다.
+runtime 미지원이나 실제 적용 미관찰을 조용히 다른 profile로 바꾸거나 적용된
+것처럼 보고하지 않는다.
 
 ## Ultra 심의
 

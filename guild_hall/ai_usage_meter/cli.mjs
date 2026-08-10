@@ -27,9 +27,30 @@ import {
   upsertUsageBinding,
 } from "./binding_store.mjs";
 import { writeUsageCsv, writeUsageDashboard } from "./dashboard.mjs";
+import {
+  buildInstructionManifest,
+  persistInstructionManifest,
+  runCodexPromptInput,
+} from "./instruction_manifest.mjs";
+import {
+  evidenceDigest,
+  persistAiQualityResult,
+  persistAiToolEvent,
+  persistAiUsageReplayReceipt,
+  persistAiWorkRun,
+  validateAiQualityResult,
+  validateAiToolEvent,
+  validateAiUsageReplayReceipt,
+  validateAiWorkRun,
+} from "./evidence_ledger.mjs";
+import {
+  loadBoardUsageSnapshot,
+  writeBoardUsageSnapshot,
+} from "./board_snapshot.mjs";
 
 const MODULE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_RATE_CARD = path.join(MODULE_ROOT, "rate_card.v1.json");
+const EMERGENCY_DISABLE_FILE = path.join("control", "emergency-disable.v1.json");
 
 function fail(code) {
   const error = new Error(code);
@@ -100,6 +121,20 @@ async function readStdinJson() {
   }
 }
 
+async function readJsonFile(filePath, code = "json_input_invalid") {
+  let raw;
+  try {
+    raw = await fs.readFile(path.resolve(String(filePath)), "utf8");
+  } catch {
+    fail(`${code}_unreadable`);
+  }
+  try {
+    return JSON.parse(raw.replace(/^\uFEFF/u, ""));
+  } catch {
+    fail(code);
+  }
+}
+
 async function loadEffectiveConfig(options, { hookInput = null, repoRoot = null } = {}) {
   const configPath = value(options, "config", process.env.SOULFORGE_AI_USAGE_METER_CONFIG || null);
   if (configPath) return loadConfig(configPath);
@@ -140,6 +175,125 @@ function filterEvents(events, options) {
 async function dynamicConfig(config, stateRoot) {
   if (!stateRoot) return config;
   return mergeUsageBindings(config, await loadUsageBindingSet(path.resolve(String(stateRoot))));
+}
+
+async function readEmergencyDisable(stateRoot) {
+  const file = path.join(stateRoot, EMERGENCY_DISABLE_FILE);
+  let control;
+  try {
+    control = JSON.parse(await fs.readFile(file, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    fail("emergency_disable_state_invalid");
+  }
+  if (!control || typeof control !== "object" || Array.isArray(control)
+    || Object.keys(control).sort().join("\u0000") !== ["disabled", "schema_version", "updated_at"].join("\u0000")
+    || control.schema_version !== "soulforge.ai_usage_meter_emergency_disable.v1"
+    || control.disabled !== true
+    || typeof control.updated_at !== "string"
+    || !Number.isFinite(Date.parse(control.updated_at))) {
+    fail("emergency_disable_state_invalid");
+  }
+  return true;
+}
+
+async function setEmergencyDisable(stateRoot, disabled) {
+  const file = path.join(stateRoot, EMERGENCY_DISABLE_FILE);
+  if (!disabled) {
+    await fs.rm(file, { force: true });
+    return { enabled: true };
+  }
+  await writeRuntimeJson(file, {
+    schema_version: "soulforge.ai_usage_meter_emergency_disable.v1",
+    disabled: true,
+    updated_at: new Date().toISOString(),
+  });
+  return { enabled: false };
+}
+
+async function emergencyControlCommand(options, disabled) {
+  const stateRoot = value(options, "state-root", null);
+  if (!stateRoot) fail("state_root_required");
+  const root = path.resolve(String(stateRoot));
+  const wasDisabled = await readEmergencyDisable(root);
+  const result = wasDisabled === disabled
+    ? { enabled: !disabled }
+    : await setEmergencyDisable(root, disabled);
+  await writeHookHealth(
+    root,
+    disabled ? "disabled" : "ok",
+    disabled ? "emergency_disable_active" : "emergency_disable_cleared",
+  );
+  return {
+    schema_version: "soulforge.ai_usage_meter_emergency_control_result.v1",
+    enabled: result.enabled,
+    changed: disabled ? !wasDisabled : wasDisabled,
+  };
+}
+
+async function instructionManifestCommand(options) {
+  const cwd = path.resolve(String(value(options, "cwd", process.cwd())));
+  const repoRootOption = value(options, "repo-root", null);
+  const repoRoot = repoRootOption ? path.resolve(String(repoRootOption)) : await findRepoRoot(cwd);
+  const approvedRoots = values(options, "approved-root").map((item) => path.resolve(String(item)));
+  if (!approvedRoots.length) approvedRoots.push(repoRoot || cwd);
+  const modelId = value(options, "model-id", null);
+  const reasoningEffort = value(options, "reasoning-effort", null);
+  const disabledFeatures = values(options, "disable-feature").map(String);
+  const manifest = await buildInstructionManifest({
+    cwd,
+    repoRoot,
+    approvedPublicRoots: approvedRoots,
+    runner: ({ cwd: probeCwd }) => runCodexPromptInput({
+      cwd: probeCwd,
+      modelId: modelId === null ? null : String(modelId),
+      reasoningEffort: reasoningEffort === null ? null : String(reasoningEffort),
+      disabledFeatures,
+    }),
+  });
+  let persistence = null;
+  if (flag(options, "apply")) {
+    const stateRoot = value(options, "state-root", null);
+    if (!stateRoot) fail("state_root_required_for_apply");
+    persistence = await persistInstructionManifest(path.resolve(String(stateRoot)), manifest);
+  }
+  return {
+    schema_version: "soulforge.ai_instruction_manifest_result.v1",
+    mode: flag(options, "apply") ? "apply" : "dry_run",
+    manifest,
+    persistence,
+  };
+}
+
+const EVIDENCE_KINDS = Object.freeze({
+  work_run: { validate: validateAiWorkRun, persist: persistAiWorkRun, identity: "event_id" },
+  quality_result: { validate: validateAiQualityResult, persist: persistAiQualityResult, identity: "event_id" },
+  tool_event: { validate: validateAiToolEvent, persist: persistAiToolEvent, identity: "event_id" },
+  replay_receipt: { validate: validateAiUsageReplayReceipt, persist: persistAiUsageReplayReceipt, identity: "receipt_id" },
+});
+
+async function evidenceRecordCommand(options) {
+  const kind = String(value(options, "kind", ""));
+  const input = value(options, "input", null);
+  const selected = EVIDENCE_KINDS[kind];
+  if (!selected) fail("evidence_kind_invalid");
+  if (!input) fail("evidence_input_required");
+  const record = selected.validate(await readJsonFile(input, "evidence_input_invalid"));
+  let persistence = null;
+  if (flag(options, "apply")) {
+    const stateRoot = value(options, "state-root", null);
+    if (!stateRoot) fail("state_root_required_for_apply");
+    persistence = await selected.persist(path.resolve(String(stateRoot)), record);
+  }
+  return {
+    schema_version: "soulforge.ai_evidence_record_result.v1",
+    mode: flag(options, "apply") ? "apply" : "dry_run",
+    kind,
+    record_id: record[selected.identity],
+    record_digest: evidenceDigest(record),
+    valid: true,
+    persistence,
+  };
 }
 
 async function collectCommand(options) {
@@ -268,6 +422,16 @@ async function dashboardCommand(options) {
   });
 }
 
+async function boardSnapshotCommand(options) {
+  const stateRoot = value(options, "state-root", null);
+  const output = value(options, "output", null);
+  if (!stateRoot) fail("state_root_required");
+  if (!output) fail("board_snapshot_output_required");
+  const snapshot = await loadBoardUsageSnapshot(path.resolve(String(stateRoot)));
+  await writeBoardUsageSnapshot(path.resolve(String(output)), snapshot);
+  return snapshot;
+}
+
 async function csvCommand(options) {
   const stateRoot = value(options, "state-root");
   const output = value(options, "output");
@@ -348,11 +512,19 @@ async function hookCommand(options) {
         ? path.join(fallbackRepoRoot, "guild_hall", "state", "operations", "ai_usage_meter")
         : stateRoot);
     stateRoot = path.resolve(typeof explicitStateRoot === "string" ? explicitStateRoot : fallbackStateRoot);
+    if (await readEmergencyDisable(stateRoot)) {
+      await writeHookHealth(stateRoot, "disabled", "emergency_disable_active");
+      return {};
+    }
     const hook = await readStdinJson();
     const cwd = typeof hook.cwd === "string" ? hook.cwd : process.cwd();
     const repoRoot = await findRepoRoot(cwd);
     if (!explicitStateRoot && !process.env.SOULFORGE_AI_USAGE_METER_STATE_ROOT && repoRoot) {
       stateRoot = path.resolve(repoRoot, "guild_hall", "state", "operations", "ai_usage_meter");
+    }
+    if (await readEmergencyDisable(stateRoot)) {
+      await writeHookHealth(stateRoot, "disabled", "emergency_disable_active");
+      return {};
     }
     const sessionsRoot = path.resolve(value(options, "sessions-root", path.join(defaultCodexRoot(), "sessions")));
     const preferred = hook.hook_event_name === "SubagentStop"
@@ -469,7 +641,12 @@ function help() {
       bind: "Bind a Codex thread or turn to a work ID in the local metadata-only store.",
       dashboard: "Write a local, self-contained HTML dashboard from the filtered ledger.",
       csv: "Write a filtered CSV grouped by organization, team, project, work, model, agent, node, role, or reasoning_effort.",
+      "board-snapshot": "Write a redacted local snapshot for the existing read-only Workspace Board.",
+      disable: "Disable local lifecycle collection for one state root until enable is called.",
+      enable: "Re-enable local lifecycle collection for one state root.",
       doctor: "Check Node, Codex session, and rate-card readiness.",
+      "instruction-manifest": "Probe the effective Codex instruction chain and emit hashes/bytes only; add --apply to persist.",
+      "evidence-record": "Validate a metadata-only work_run, quality_result, tool_event, or replay_receipt JSON; add --apply to persist.",
       hook: "Non-blocking Codex lifecycle hook. Reads hook JSON on stdin.",
     },
     common_options: [
@@ -482,8 +659,12 @@ function help() {
       "--rate-card <rate card JSON>",
       "--service-tier standard|fast",
       "--state-root <local state directory>",
+      "instruction-manifest: [--cwd <path>] [--repo-root <path>] [--approved-root <path> (repeatable)] [--model-id <id>] [--reasoning-effort <effort>] [--disable-feature <feature>] [--apply]",
+      "evidence-record: --kind work_run|quality_result|tool_event|replay_receipt --input <JSON path> [--state-root <path> --apply]",
       "dashboard: --output <HTML path> (defaults to <state-root>/dashboard.html)",
       "csv: --output <CSV path> [--group-by work]",
+      "board-snapshot: --state-root <local state directory> --output <local JSON path>",
+      "disable / enable: --state-root <local state directory>",
     ],
   };
 }
@@ -495,7 +676,12 @@ export async function runCli(argv = process.argv.slice(2)) {
   if (command === "bind") return bindCommand(options);
   if (command === "dashboard") return dashboardCommand(options);
   if (command === "csv") return csvCommand(options);
+  if (command === "board-snapshot") return boardSnapshotCommand(options);
+  if (command === "disable") return emergencyControlCommand(options, true);
+  if (command === "enable") return emergencyControlCommand(options, false);
   if (command === "doctor") return doctorCommand(options);
+  if (command === "instruction-manifest") return instructionManifestCommand(options);
+  if (command === "evidence-record") return evidenceRecordCommand(options);
   if (command === "hook") return hookCommand(options);
   if (command === "help" || command === "--help" || command === "-h") return help();
   fail(`command_unknown:${command}`);

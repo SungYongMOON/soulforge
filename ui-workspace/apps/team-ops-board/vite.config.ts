@@ -1,8 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { createLiveThreadAdapterPlugin } from "./src/server/live-thread-adapter.mjs";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), createLiveThreadAdapterPlugin()],
   server: {
     host: "127.0.0.1",
     port: 4192

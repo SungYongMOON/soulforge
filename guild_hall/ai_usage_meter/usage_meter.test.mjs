@@ -25,7 +25,7 @@ function row(timestamp, type, payload) {
   return JSON.stringify({ timestamp, type, payload });
 }
 
-function sessionMeta({ id, parent = null, timestamp = "2026-08-03T00:00:00.000Z", cwd = "C:\\workspace\\project-a", depth = 0 }) {
+function sessionMeta({ id, parent = null, timestamp = "2026-08-03T00:00:00.000Z", cwd = "fixtures/workspace/project-a", depth = 0 }) {
   return row(timestamp, "session_meta", {
     id,
     session_id: id,
@@ -111,6 +111,31 @@ async function runCli(args, stdin = null) {
   });
 }
 
+async function runWindowsHookCommand(command, stateRoot) {
+  return new Promise((resolve, reject) => {
+    const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
+    const child = spawn("powershell.exe", [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-Command",
+      command,
+    ], {
+      cwd: repoRoot,
+      env: { ...process.env, SOULFORGE_AI_USAGE_METER_STATE_ROOT: stateRoot },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, stdout, stderr }));
+    child.stdin.end("");
+  });
+}
+
 function config(extra = {}) {
   return {
     schema_version: "soulforge.ai_usage_meter_config.v1",
@@ -119,7 +144,7 @@ function config(extra = {}) {
     default_project_id: "unassigned",
     node_id: "node-a",
     service_tier: "standard",
-    project_bindings: [{ cwd_prefix: "C:/workspace/project-a", project_id: "project-a", team_id: "team-a" }],
+    project_bindings: [{ cwd_prefix: "fixtures/workspace/project-a", project_id: "project-a", team_id: "team-a" }],
     work_bindings: [],
     ...extra,
   };
@@ -650,7 +675,7 @@ test("SubagentStop hook reads its parent and persists only the child with root w
     transcript_path: parent,
     agent_id: "hook-child",
     agent_transcript_path: child,
-    cwd: "C:\\workspace\\project-a",
+    cwd: "fixtures/workspace/project-a",
   })}`);
   assert.equal(result.code, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), {});
@@ -671,6 +696,27 @@ test("hook isolates missing and malformed stdin as non-blocking HOLD health", as
     const health = JSON.parse(await readFile(path.join(state, "health", "latest.json"), "utf8"));
     assert.equal(health.status, "hold");
     assert.equal(health.detail, detail);
+  }
+});
+
+test("tracked Windows lifecycle hook command reaches non-blocking health handling", { skip: process.platform !== "win32" }, async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-hook-windows-command-"));
+  try {
+    const hooks = JSON.parse(await readFile(new URL("../../.codex/hooks.json", import.meta.url), "utf8"));
+    const stopCommand = hooks.hooks.Stop[0].hooks[0].commandWindows;
+    const subagentStopCommand = hooks.hooks.SubagentStop[0].hooks[0].commandWindows;
+    assert.equal(stopCommand, subagentStopCommand);
+    assert.equal(stopCommand.includes("$"), false);
+
+    const result = await runWindowsHookCommand(stopCommand, state);
+    assert.equal(result.code, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {});
+    const health = JSON.parse(await readFile(path.join(state, "health", "latest.json"), "utf8"));
+    assert.equal(health.status, "hold");
+    assert.equal(health.detail, "hook_input_missing");
+    assert.equal((await loadPersistedUsageEvents(state)).length, 0);
+  } finally {
+    await rm(state, { recursive: true, force: true });
   }
 });
 
@@ -1020,4 +1066,37 @@ test("ledger lock contention durably queues observations and drains them without
   assert.equal((await loadPersistedUsageEvents(state)).length, 1);
   const pendingEntries = await readdir(path.join(state, "pending"), { recursive: true });
   assert.equal(pendingEntries.some((entry) => String(entry).endsWith(".json")), false);
+});
+
+test("repo-local emergency disable is idempotent, non-blocking, and restores hook health", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-emergency-control-"));
+  try {
+    const disable = await runCli(["disable", "--state-root", state]);
+    assert.equal(disable.code, 0, disable.stderr);
+    assert.deepEqual(JSON.parse(disable.stdout), {
+      schema_version: "soulforge.ai_usage_meter_emergency_control_result.v1",
+      enabled: false,
+      changed: true,
+    });
+    const repeatedDisable = await runCli(["disable", "--state-root", state]);
+    assert.equal(repeatedDisable.code, 0, repeatedDisable.stderr);
+    assert.equal(JSON.parse(repeatedDisable.stdout).changed, false);
+
+    const disabledHook = await runCli(["hook", "--state-root", state], "");
+    assert.equal(disabledHook.code, 0, disabledHook.stderr);
+    assert.deepEqual(JSON.parse(disabledHook.stdout), {});
+    const disabledHealth = JSON.parse(await readFile(path.join(state, "health", "latest.json"), "utf8"));
+    assert.equal(disabledHealth.status, "disabled");
+
+    const enable = await runCli(["enable", "--state-root", state]);
+    assert.equal(enable.code, 0, enable.stderr);
+    assert.equal(JSON.parse(enable.stdout).enabled, true);
+    const repeatedEnable = await runCli(["enable", "--state-root", state]);
+    assert.equal(repeatedEnable.code, 0, repeatedEnable.stderr);
+    assert.equal(JSON.parse(repeatedEnable.stdout).changed, false);
+    const enabledHealth = JSON.parse(await readFile(path.join(state, "health", "latest.json"), "utf8"));
+    assert.equal(enabledHealth.status, "ok");
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
 });
