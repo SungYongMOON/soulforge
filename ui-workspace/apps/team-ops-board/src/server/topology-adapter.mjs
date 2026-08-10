@@ -41,7 +41,12 @@ const NODE_KEYS = new Set([
 ]);
 const HEALTH_KEYS = new Set(["state", "reasons", "age_seconds"]);
 const EDGE_REQUIRED_KEYS = new Set(["from", "to", "label", "flow"]);
-const EDGE_KEYS = new Set([...EDGE_REQUIRED_KEYS, "scope"]);
+// receipt/unreceipted_reason 은 간선이 전달 근거를 가졌는지를 나른다. 화면이 근거 없는 선을
+// 전달로 그리지 않으려면 이 필드가 투영을 통과해야 한다.
+const EDGE_KEYS = new Set([...EDGE_REQUIRED_KEYS, "scope", "receipt", "unreceipted_reason"]);
+const EDGE_UNRECEIPTED_REASON_SET = new Set([
+  "receipt_channel_absent", "probe_observation_only", "structural_only",
+]);
 const NODE_KIND_SET = new Set(TOPOLOGY_NODE_KINDS);
 const HEALTH_STATE_SET = new Set(TOPOLOGY_HEALTH_STATES);
 const EDGE_FLOW_SET = new Set(TOPOLOGY_EDGE_FLOWS);
@@ -271,7 +276,11 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
       || !validText(edge.label, { allowEmpty: true })
       || !EDGE_FLOW_SET.has(edge.flow)
       || (edge.scope !== undefined && (!EDGE_SCOPE_SET.has(edge.scope)
-        || edge.flow !== "control" || edge.to !== "watchtower_self"))) {
+        || edge.flow !== "control" || edge.to !== "watchtower_self"))
+      // 근거가 있다고 주장하려면 키 형식이 맞아야 하고, 없다고 하려면 사유를 대야 한다.
+      || (edge.receipt !== undefined && edge.receipt !== null && !validText(edge.receipt))
+      || (edge.receipt === null && !EDGE_UNRECEIPTED_REASON_SET.has(edge.unreceipted_reason))
+      || (typeof edge.receipt === "string" && edge.unreceipted_reason !== undefined)) {
       throw new Error("topology_snapshot_edge_invalid");
     }
     if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) {
@@ -409,6 +418,15 @@ export function createTopologyAdapter({
   let lastSuccessAt = null;
   let lastFailureAt = null;
   let lastRefreshFailed = false;
+  let lastFailureCode = null;
+
+  // 실패 사유를 코드 형태로만 통과시킨다. 원문 메시지에는 경로가 섞일 수 있으므로 그대로
+  // 투영하지 않는다.
+  const SAFE_FAILURE_CODE = /^[a-z][a-z0-9_]{0,127}$/u;
+  function safeFailureCode(error) {
+    const raw = typeof error?.message === "string" ? error.message : "";
+    return SAFE_FAILURE_CODE.test(raw) ? raw : "refresh_failed_unclassified";
+  }
 
   async function readPilotSnapshot() {
     const observedNow = now();
@@ -439,6 +457,9 @@ export function createTopologyAdapter({
     return {
       last_success_age_seconds: ageSeconds(lastSuccessAt, observedNow),
       last_failure_age_seconds: ageSeconds(lastFailureAt, observedNow),
+      // 사유를 버리면 화면이 stale 이라고만 말하고 왜인지 못 댄다. 그 상태로는 운영자가
+      // 고칠 수도, 무시해도 되는지 판단할 수도 없다.
+      last_failure_code: lastFailureCode,
     };
   }
 
@@ -455,11 +476,13 @@ export function createTopologyAdapter({
         lastGood = validateTopologyHealthSnapshot(snapshot, { now: now() });
         lastSuccessAt = now();
         lastRefreshFailed = false;
+        lastFailureCode = null;
         return "ready";
       })
-      .catch(() => {
+      .catch((error) => {
         lastFailureAt = now();
         lastRefreshFailed = true;
+        lastFailureCode = safeFailureCode(error);
         return "hold";
       })
       .finally(() => {
@@ -482,6 +505,8 @@ export function createTopologyAdapter({
         if (lastGood !== null) {
           lastFailureAt = observedNow;
           lastRefreshFailed = true;
+          // 이 경로도 사유를 남긴다. probe 실패와 pointer 해석 실패는 조치가 다르다.
+          lastFailureCode = "binding_unresolved";
           return envelope("stale", lastGood, refreshMetadata(observedNow));
         }
         return envelope("unconfigured", null, refreshMetadata(observedNow));

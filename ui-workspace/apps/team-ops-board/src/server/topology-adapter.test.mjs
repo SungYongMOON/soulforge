@@ -325,6 +325,7 @@ test("failed refresh retains lastGood only as stale with public-safe success and
   assert.deepEqual(ready.refresh_metadata, {
     last_success_age_seconds: 0,
     last_failure_age_seconds: null,
+    last_failure_code: null,
   });
 
   clock += 30_000;
@@ -339,6 +340,8 @@ test("failed refresh retains lastGood only as stale with public-safe success and
   assert.deepEqual(stale.refresh_metadata, {
     last_success_age_seconds: 30,
     last_failure_age_seconds: 0,
+    // "synthetic failure" 는 코드 형태가 아니므로 원문 대신 분류 불가 코드가 나온다.
+    last_failure_code: "refresh_failed_unclassified",
   });
 
   clock += 5_000;
@@ -347,6 +350,7 @@ test("failed refresh retains lastGood only as stale with public-safe success and
   assert.deepEqual(aged.refresh_metadata, {
     last_success_age_seconds: 35,
     last_failure_age_seconds: 5,
+    last_failure_code: "refresh_failed_unclassified",
   });
 });
 
@@ -362,6 +366,7 @@ test("failed first refresh is hold without a retained snapshot", async () => {
   assert.deepEqual(projection.refresh_metadata, {
     last_success_age_seconds: null,
     last_failure_age_seconds: 0,
+    last_failure_code: "refresh_failed_unclassified",
   });
 });
 
@@ -385,6 +390,8 @@ test("binding resolution failure after success retains lastGood as stale", async
   assert.deepEqual(stale.refresh_metadata, {
     last_success_age_seconds: 10,
     last_failure_age_seconds: 0,
+    // pointer 해석 실패는 probe 실패와 조치가 다르므로 코드도 달라야 한다.
+    last_failure_code: "binding_unresolved",
   });
 });
 
@@ -411,5 +418,7 @@ test("a later success at the same timestamp authoritatively clears stale refresh
   assert.deepEqual(recovered.refresh_metadata, {
     last_success_age_seconds: 0,
     last_failure_age_seconds: 0,
+    // 복구되면 사유가 지워져야 한다. 남아 있으면 화면이 이미 해결된 문제를 계속 보고한다.
+    last_failure_code: null,
   });
 });
