@@ -209,6 +209,8 @@ test("seven-day usage chart separates provider credits with an accessible legend
   const css = readFileSync(CSS_PATH, "utf8");
   assert.match(source, /Meter credits · 동일 축/u);
   assert.match(source, /Provider credit series legend/u);
+  assert.match(source, /사용 총괄 provider credit 범례/u);
+  assert.match(source, /fleet-total-provider-line/u);
   assert.match(source, /Codex, Claude, Antigravity Gemini Meter credit 비교/u);
   for (const provider of ["codex", "claude", "antigravity"]) {
     assert.match(source, new RegExp(`provider-credit-\\$\\{series\\.id\\}`, "u"));

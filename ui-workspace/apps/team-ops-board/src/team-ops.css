@@ -6366,6 +6366,10 @@ a:focus-visible {
 .fleet-panel.is-totals svg { width: 100%; height: 40px; display: block; }
 .fleet-total-area { fill: rgba(112, 217, 140, 0.12); }
 .fleet-total-line { fill: none; stroke: #79c791; stroke-width: 1.4; }
+.fleet-provider-credit-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 10px; }
+.fleet-provider-credit-legend span::before { content: ""; display: inline-block; width: 12px; height: 3px; margin-right: 4px; vertical-align: middle; background: currentColor; }
+.fleet-total-provider-line { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.fleet-provider-credit-empty { margin: 8px 0 0; color: #93a2ac; font-size: 10px; }
 
 /* Claude 주간 모델 구성 분할 바 (원장 점유율) */
 .fleet-limit-split {

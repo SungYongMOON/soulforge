@@ -2724,19 +2724,24 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
     month !== null ? { key: "month", label: "이번 달", value: `${fleetTokenLabel(month.total_tokens)} tok`, meta: fleetCreditLabel(month) } : null,
   ].filter(Boolean) as any[];
   const totalsFoot = creditPerDay !== null ? `최근 7일 크레딧 ${creditPerDay}/일` : "";
-  let totalsArea: { path: string; line: string } | null = null;
-  if (dailyTokens.length >= 2) {
+  const providerDaily = Array.isArray(history?.provider_daily) ? history.provider_daily : [];
+  const totalsSeries = [
+    { id: "codex", label: "Codex" },
+    { id: "claude", label: "Claude" },
+    { id: "antigravity", label: "Antigravity/Gemini" },
+  ].map((provider) => ({ ...provider, values: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.credits ?? null) }));
+  const totalsKnownCredits = totalsSeries.flatMap((series) => series.values.filter((value: any) => typeof value === "number"));
+  let totalsCreditChart: { lines: { id: string; points: string }[] } | null = null;
+  if (providerDaily.length === 7 && totalsKnownCredits.length > 0) {
     const W = 200;
     const H = 40;
-    const maxDaily = Math.max(...dailyTokens, 1);
-    const step = W / (dailyTokens.length - 1);
-    const points = dailyTokens.map((value: number, index: number) => (
-      `${(index * step).toFixed(1)},${(H - 6 - (Math.max(0, value) / maxDaily) * (H - 12)).toFixed(1)}`
-    ));
-    totalsArea = {
-      line: points.join(" "),
-      path: `M ${points.join(" L ")} L ${W},${H - 2} L 0,${H - 2} Z`,
-    };
+    const maxCredit = Math.max(...totalsKnownCredits, 1);
+    const step = W / 6;
+    totalsCreditChart = { lines: totalsSeries.map((series) => ({
+      id: series.id,
+      points: series.values.map((value: any, index: number) => typeof value === "number"
+        ? `${(index * step).toFixed(1)},${(H - 6 - (value / maxCredit) * (H - 12)).toFixed(1)}` : null).filter(Boolean).join(" "),
+    })) };
   }
 
   if (limitRows.length === 0 && topModelRows.length === 0 && totalsRows.length === 0) return null;
@@ -2830,12 +2835,14 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
             <li key={row.key}><span>{row.label}</span><b>{row.value}</b><small>{row.meta}</small></li>
           ))}
         </ul>
-        {totalsArea !== null && (
-          <svg viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true">
-            <path className="fleet-total-area" d={totalsArea.path} />
-            <polyline className="fleet-total-line" points={totalsArea.line} />
+        <div className="fleet-provider-credit-legend" aria-label="사용 총괄 provider credit 범례">
+          {totalsSeries.map((series) => <span key={series.id} className={`provider-credit-${series.id}`}>{series.label}</span>)}
+        </div>
+        {totalsCreditChart !== null ? (
+          <svg viewBox="0 0 200 40" preserveAspectRatio="none" role="img" aria-label="최근 7일 Codex, Claude, Antigravity Gemini Meter credit 동일 축 비교">
+            {totalsCreditChart.lines.map((line) => <polyline key={line.id} className={`fleet-total-provider-line provider-credit-${line.id}`} points={line.points} />)}
           </svg>
-        )}
+        ) : <p className="fleet-provider-credit-empty">Provider별 계산 가능한 credit 근거가 없습니다.</p>}
         {totalsFoot.length > 0 && <p className="fleet-panel-foot">{totalsFoot}</p>}
       </article>
     </div>
