@@ -6086,6 +6086,8 @@ a:focus-visible {
   padding: 14px 16px 12px;
   display: grid;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
 }
 .fleet-usage-card header {
   display: flex; align-items: center; gap: 8px;
@@ -6283,6 +6285,7 @@ a:focus-visible {
 .fleet-panel-foot {
   margin: 2px 0 0; font-family: Consolas, ui-monospace, monospace;
   font-size: 10.5px; letter-spacing: 0.08em; color: #8a99a3;
+  min-width: 0; max-width: 100%; overflow-wrap: anywhere;
 }
 .fleet-claude-ledger-evidence {
   padding: 6px 8px;
@@ -6316,6 +6319,7 @@ a:focus-visible {
 .fleet-limit-row {
   display: grid; grid-template-columns: 78px minmax(0, 1fr) 74px 128px;
   align-items: center; gap: 8px; min-height: 20px;
+  min-width: 0;
 }
 .fleet-limit-row.is-idle { opacity: 0.8; }
 .fleet-limit-row.is-stale { opacity: 0.68; }
@@ -6336,9 +6340,13 @@ a:focus-visible {
 .fleet-limit-remain small { margin-left: 3px; font-size: 10.5px; color: #93a3ad; }
 .fleet-limit-reset {
   font-family: Consolas, ui-monospace, monospace; font-size: 10px;
-  color: #8a99a3; text-align: right; white-space: nowrap;
+  color: #8a99a3; text-align: right; white-space: normal;
+  min-width: 0; max-width: 100%; overflow-wrap: anywhere; line-height: 1.35;
 }
-.fleet-limit-note-solo { grid-column: 2 / 4; font-size: 10px; color: #93a3ad; }
+.fleet-limit-note-solo {
+  grid-column: 2 / 4; min-width: 0; max-width: 100%;
+  font-size: 10px; color: #93a3ad; overflow-wrap: anywhere;
+}
 
 .fleet-model-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .fleet-model-rows li {
