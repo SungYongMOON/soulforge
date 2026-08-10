@@ -8,6 +8,7 @@ import {
   createTopologyAdapter,
   readBoundTopologySnapshot,
   validateTopologyHealthSnapshot,
+  runWatchtowerProbe,
 } from "./topology-adapter.mjs";
 
 const NOW = Date.parse("2026-08-08T06:00:00.000Z");
@@ -285,6 +286,9 @@ test("read-only pilot failed reread retains last-good only as stale HOLD evidenc
     last_failure_age_seconds: 0,
     snapshot_age_seconds: 5,
     reason: "snapshot_refresh_failed",
+    // reason 은 범주만 말한다. 실제로 무엇이 실패했는지는 코드가 말해야 하고, "snapshot
+    // unavailable" 은 코드 형태가 아니므로 분류 불가로 표시된다.
+    last_failure_code: "refresh_failed_unclassified",
   });
   assert.equal(probes, 0);
 });
@@ -421,4 +425,25 @@ test("a later success at the same timestamp authoritatively clears stale refresh
     // 복구되면 사유가 지워져야 한다. 남아 있으면 화면이 이미 해결된 문제를 계속 보고한다.
     last_failure_code: null,
   });
+});
+
+test("the board probes read-only and never writes the shared runtime snapshot", async () => {
+  // 보드는 읽기 표면이다. stdout 만 쓰므로 CLI 가 공유 스냅샷을 덮어쓸 이유가 없고, 덮어쓰면
+  // 새로고침 한 번이 다른 체크아웃이 서빙 중인 상태를 바꿀 수 있다. 이 단정이 없으면 플래그가
+  // 조용히 사라져도 아무 것도 빨개지지 않는다.
+  let capturedArgs = null;
+  const fakeChild = {
+    stdout: { on() {} },
+    once(event, handler) { if (event === "exit") setImmediate(() => handler(1)); },
+    kill() {},
+  };
+  await runWatchtowerProbe({
+    bindingPath: "configured",
+    spawnImpl: (_exe, args) => { capturedArgs = args; return fakeChild; },
+  }).catch(() => {});
+
+  assert.ok(capturedArgs !== null, "spawn was not attempted");
+  assert.ok(capturedArgs.includes("--no-write"), `probe must be read-only, got ${JSON.stringify(capturedArgs)}`);
+  assert.ok(capturedArgs.includes("--json"));
+  assert.equal(capturedArgs.indexOf("probe"), 1);
 });
