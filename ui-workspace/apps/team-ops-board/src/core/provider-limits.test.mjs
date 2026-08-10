@@ -49,6 +49,12 @@ test("sanitized Claude OAuth quota accepts exact 5h, weekly, and Fable windows",
   assert.equal(normalized.fable_weekly.utilization, 87);
   assert.equal(buildClaudeQuotaPresentation({ claude_official: receipt }).current, true);
   assert.equal(buildClaudeQuotaPresentation({ claude_official: normalized }).claude.fable_weekly.utilization, 87);
+  assert.deepEqual(buildClaudeQuotaPresentation({ claude_official: normalized }).claude.model_windows, [{
+    key: "fable_weekly",
+    label: "Fable",
+    utilization: 87,
+    resets_at: "2026-08-17T00:00:00.000Z",
+  }]);
 });
 
 test("malformed or inconsistent quota becomes UNKNOWN/HOLD, never zero/current", () => {

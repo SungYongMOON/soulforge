@@ -167,7 +167,12 @@ export function buildClaudeQuotaPresentation(snapshot) {
       five_hour: official.five_hour,
       seven_day: official.weekly,
       fable_weekly: official.fable_weekly,
-      model_windows: [],
+      model_windows: official.fable_weekly === null ? [] : [{
+        key: "fable_weekly",
+        label: "Fable",
+        utilization: official.fable_weekly.utilization,
+        resets_at: official.fable_weekly.resets_at,
+      }],
       observed_at: official.observed_at,
     },
     status: {

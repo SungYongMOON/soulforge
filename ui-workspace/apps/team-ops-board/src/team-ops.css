@@ -6378,11 +6378,14 @@ a:focus-visible {
 .fleet-credit-area.provider-credit-antigravity { fill: rgba(167, 125, 255, .5); stroke: #ad82ff; }
 .fleet-credit-hit:focus { outline: none; }
 .fleet-credit-hit:focus rect { stroke: #f6fbff; stroke-width: 2; stroke-dasharray: 3 3; }
+.fleet-credit-day-controls { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 2px 12px 0 52px; }
+.fleet-credit-day-controls button { min-height: 28px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #91a4bb; font: 10px Consolas, ui-monospace, monospace; cursor: pointer; }
+.fleet-credit-day-controls button:hover, .fleet-credit-day-controls button:focus-visible { border-color: #8ddbd4; background: rgba(67,224,211,.08); color: #f6fbff; outline: none; }
 .fleet-credit-tooltip > line { stroke: rgba(255,255,255,.7); stroke-dasharray: 3 3; }
 .fleet-credit-tooltip > rect { fill: #151a21; stroke: #566272; }
 .fleet-credit-tooltip text { fill: #f5f8fb; font-size: 10px; }
 .fleet-credit-tooltip text.is-title { font-weight: 700; }
-@media (max-width: 700px) { .fleet-provider-credit-chart { height: 190px; } .fleet-provider-credit-legend { gap: 10px; justify-content: flex-start; } }
+@media (max-width: 700px) { .fleet-provider-credit-chart { height: 190px; } .fleet-provider-credit-legend { gap: 10px; justify-content: flex-start; } .fleet-credit-day-controls { margin-left: 36px; gap: 1px; } }
 .fleet-provider-credit-empty { margin: 8px 0 0; color: #93a2ac; font-size: 10px; }
 
 /* Claude 주간 모델 구성 분할 바 (원장 점유율) */

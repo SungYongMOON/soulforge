@@ -2498,11 +2498,8 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   const windows = history?.windows ?? null;
   const claudeEvidence = usage?.provider_evidence?.claude ?? null;
   const claudeQuota = buildClaudeQuotaPresentation(providers?.limits ?? null);
-  const providerObservationNote = providers?.refresh_state === "ready"
-    ? null
-    : providers?.refresh_state === "refreshing"
-      ? "공식 계정 한도 관측 갱신 중 · 이전 값은 STALE로 유지"
-      : "공식 계정 한도 HOLD · 마지막 안전 관측만 STALE, 나머지는 UNKNOWN";
+  const antigravityQuotaReady = providers?.antigravityQuota?.freshness === "fresh";
+  const providerObservationNote = `Claude 공식 한도 ${claudeQuota.current ? "READY" : "HOLD/UNKNOWN"} · Antigravity ${antigravityQuotaReady ? "READY" : "UNKNOWN/HOLD"}${providers?.refresh_state === "refreshing" ? " · 갱신 중" : ""}`;
   const dailyTokens = Array.isArray(history?.activity?.daily)
     ? history.activity.daily.map((row: any) => row.total_tokens ?? 0)
     : [];
@@ -2851,6 +2848,7 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
           {totalsSeries.map((series) => <span key={series.id} className={`provider-credit-${series.id}`}>{series.label}</span>)}
         </div>
         {totalsCreditChart !== null ? (
+          <>
           <svg className="fleet-provider-credit-chart" viewBox={`0 0 ${totalsCreditChart.width} ${totalsCreditChart.height}`} role="img" aria-label="최근 7일 Codex, Claude, Antigravity Gemini 누적 Meter credit 동일 축 차트">
             {[0, 0.5, 1].map((ratio) => {
               const value = totalsCreditChart.maxCredit * ratio;
@@ -2862,7 +2860,7 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
               const x = totalsCreditChart.x(index);
               const label = String(row.date ?? row.day ?? "");
               const details = totalsSeries.map((series) => `${series.label} ${typeof series.values[index] === "number" ? Number(series.values[index]).toLocaleString("en-US") : "사용 불가"}`).join(", ");
-              return <g key={label || index} className="fleet-credit-hit" role="button" tabIndex={0} aria-label={`${label}, ${details}, 합계 ${totalsCreditChart.totals[index].toLocaleString("en-US")} Meter credit`} onMouseEnter={() => setCreditChartIndex(index)} onMouseLeave={() => setCreditChartIndex(null)} onFocus={() => setCreditChartIndex(index)} onBlur={() => setCreditChartIndex(null)}>
+              return <g key={label || index} className="fleet-credit-hit" aria-hidden="true">
                 <rect x={x - totalsCreditChart.plotWidth / 14} y={totalsCreditChart.top} width={totalsCreditChart.plotWidth / 7} height={totalsCreditChart.plotHeight} fill="transparent" />
                 <text className="fleet-credit-axis-label" x={x} y={totalsCreditChart.height - 12} textAnchor="middle">{label.slice(5)}</text>
               </g>;
@@ -2881,6 +2879,16 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
               </g>;
             })()}
           </svg>
+          <div className="fleet-credit-day-controls" aria-label="최근 7일 Meter credit 상세">
+            {providerDaily.map((row: any, index: number) => {
+              const date = String(row.date ?? row.day ?? "");
+              const details = totalsSeries.map((series) => `${series.label} ${typeof series.values[index] === "number" ? Number(series.values[index]).toLocaleString("en-US") : "사용 불가"}`).join(", ");
+              return <button key={date || index} type="button" aria-label={`${date}, ${details}, 합계 ${totalsCreditChart.totals[index].toLocaleString("en-US")} Meter credit`} onFocus={() => setCreditChartIndex(index)} onBlur={() => setCreditChartIndex(null)} onMouseEnter={() => setCreditChartIndex(index)} onMouseLeave={() => setCreditChartIndex(null)} onKeyDown={(event) => { if (event.key === "Escape") { setCreditChartIndex(null); event.currentTarget.blur(); } }}>
+                {date.slice(5)}
+              </button>;
+            })}
+          </div>
+          </>
         ) : <p className="fleet-provider-credit-empty">Provider별 계산 가능한 credit 근거가 없습니다.</p>}
         {totalsFoot.length > 0 && <p className="fleet-panel-foot">{totalsFoot}</p>}
       </article>

@@ -212,9 +212,13 @@ test("seven-day usage chart separates provider credits with an accessible legend
   assert.match(source, /사용 총괄 provider credit 범례/u);
   assert.match(source, /fleet-credit-area/u);
   assert.match(source, /role="tooltip"/u);
-  assert.match(source, /tabIndex=\{0\}/u);
+  assert.match(source, /fleet-credit-day-controls/u);
+  assert.match(source, /event\.key === "Escape"/u);
+  assert.match(source, /onFocus=\{\(\) => setCreditChartIndex\(index\)\}/u);
   assert.match(source, /Meter credit/u);
   assert.match(source, /cache: "no-store"/u);
+  assert.match(source, /Claude 공식 한도 \$\{claudeQuota\.current \? "READY" : "HOLD\/UNKNOWN"\}/u);
+  assert.match(source, /Antigravity \$\{antigravityQuotaReady \? "READY" : "UNKNOWN\/HOLD"\}/u);
   assert.match(source, /Codex, Claude, Antigravity Gemini Meter credit 비교/u);
   for (const provider of ["codex", "claude", "antigravity"]) {
     assert.match(source, new RegExp(`provider-credit-\\$\\{series\\.id\\}`, "u"));
