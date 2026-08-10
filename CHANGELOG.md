@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-11 — SE engine blueprint catalog candidate
+
+- Added a public-safe, data-only SE engine blueprint catalog and deterministic
+  conformance tests. The candidate is not imported by UI or runtime code and
+  does not activate TaskDriver, ERP writes, provider access, or live bindings.
+
 ## 2026-08-09 — Team Operations Board local tailnet Host allowlist
 
 - Added a fail-closed, local-process-environment-only Vite Host allowlist for
