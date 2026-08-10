@@ -15,6 +15,7 @@ const CLAUDE_QUOTA_OUTCOMES = new Set([
   "invalid_response",
 ]);
 const CLAUDE_QUOTA_FRESHNESS = new Set(["current", "stale", "unknown"]);
+const CLAUDE_QUOTA_SOURCES = new Set(["oauth_usage", "orca_runtime_snapshot", "statusline_snapshot"]);
 
 const SAFE_PLAN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 
@@ -201,12 +202,13 @@ function normalizedClaudeSnapshotValue(value) {
       resets_at: isoOrNull(entry.resets_at),
     });
   }
-  return {
+  const normalized = {
     five_hour: fiveHour,
     seven_day: sevenDay,
     model_windows: modelWindows,
     observed_at: isoOrNull(value.observed_at),
   };
+  return CLAUDE_QUOTA_SOURCES.has(value.source) ? { ...normalized, source: value.source } : normalized;
 }
 
 export function buildClaudeQuotaPresentation(snapshot) {

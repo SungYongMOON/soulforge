@@ -245,9 +245,15 @@ only an existing credential for `GET https://api.anthropic.com/api/oauth/usage`,
 with a 6-second timeout, a minimum 120-second attempt cadence, and no login,
 credential write, response persistence, or provider mutation. Schema v2 adds
 only redacted `claude_status` metadata (`state`, safe `outcome`, attempt and
-last-success times, and source-owned freshness). The normalized last successful
-quota stays in process memory across a failed attempt and is visibly
-`STALE`/error immediately; a new process has no retained value. Failed reads
+last-success times, and source-owned freshness). With the same exact quota
+opt-in, the Board first calls `orca account list --json` with a fixed argument
+vector, no shell, a six-second timeout, and bounded stdout. It retains only the
+Claude rate-limit status/update time and normalized session, weekly, and Fable
+weekly windows; account arrays, usage metadata, stderr, and raw output are
+discarded. Source is `orca_runtime_snapshot`. Pilot mode never falls through to
+the credential/OAuth reader after an Orca failure; outside the pilot the
+existing OAuth read remains a secondary fallback. The normalized last successful quota stays in process
+memory only and failed reads
 enter a five-minute exponential cooldown capped at one hour; a valid
 `Retry-After` delta or HTTP date may extend that cooldown to the same cap.
 Local polling and cache refreshes share one in-flight read and perform no
@@ -256,7 +262,10 @@ and unavailable values remain `UNKNOWN`/disabled and are never fabricated as
 zero or green. The common Meter ledger's Claude usage row remains an independent
 read-only projection and never supplies or replaces official quota values.
 
-The pilot does not probe Antigravity's local RPC or read/write its quota cache.
+The pilot does not probe Antigravity's local RPC or write its quota cache. It
+may read an existing sanitized last-good cache before returning; absence or an
+invalid cache remains `UNKNOWN`. Claude quota creates no durable cache and does
+not force Orca usage refresh, scrape UI, or inspect Orca account records.
 This mode does not start collectors, expose a public service, or prove provider
 health, live execution, E2E behavior, or task completion. All other pilot write
 and probe disables remain unchanged.

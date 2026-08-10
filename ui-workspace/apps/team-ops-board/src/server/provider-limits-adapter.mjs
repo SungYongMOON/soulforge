@@ -2,18 +2,27 @@
 // 공식 한도 사용률을 loopback 전용 GET /provider-limits.snapshot.json 으로 서빙한다.
 // 자격증명 값은 메모리에서만 사용하고 어떤 경로로도 로그·응답에 싣지 않는다.
 
-import { readdir, readFile, stat, open } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { open, readdir, readFile, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 
 import {
   buildProviderLimitsSnapshot,
   normalizeClaudeOauthUsage,
   parseCodexRateLimitsFromJsonlText,
 } from "../core/provider-limits.mjs";
-import { isTeamOpsBoardClaudeQuotaReadEnabled } from "../core/team-ops-board-read-only-pilot.mjs";
+import {
+  TEAM_OPS_BOARD_CLAUDE_QUOTA_READ,
+  isTeamOpsBoardClaudeQuotaReadEnabled,
+  isTeamOpsBoardReadOnlyPilot,
+} from "../core/team-ops-board-read-only-pilot.mjs";
 
 export const PROVIDER_LIMITS_SNAPSHOT_PATH = "/provider-limits.snapshot.json";
+const execFileAsync = promisify(execFile);
+export const DEFAULT_ORCA_ACCOUNT_LIST_TIMEOUT_MS = 6_000;
+export const MAX_ORCA_ACCOUNT_LIST_STDOUT_BYTES = 64 * 1024;
 export const DEFAULT_PROVIDER_LIMITS_TTL_MS = 60_000;
 // OAuth usage 엔드포인트는 호출 빈도 제한(429)이 있어 별도 주기로만 재조회한다.
 // 진행 중 세션이 실시간으로 소모하므로 표시 지연을 줄이기 위해 2분으로 운용한다.
@@ -95,8 +104,9 @@ async function readClaudeOauthToken(credentialsPath) {
   return typeof token === "string" && token.length > 0 ? token : null;
 }
 
-function safeClaudeReadResult(outcome, claude = null, retryAfterMs = null) {
-  return retryAfterMs === null ? { outcome, claude } : { outcome, claude, retryAfterMs };
+function safeClaudeReadResult(outcome, claude = null, retryAfterMs = null, source = null) {
+  const result = retryAfterMs === null ? { outcome, claude } : { outcome, claude, retryAfterMs };
+  return source === null ? result : { ...result, source };
 }
 
 function parseRetryAfterMs(value, nowMs) {
@@ -131,7 +141,7 @@ export async function requestClaudeLimits({ accessToken, fetchImpl, timeoutMs, n
     const claude = normalizeClaudeOauthUsage(await response.json());
     return claude === null
       ? safeClaudeReadResult("invalid_response")
-      : safeClaudeReadResult("success", claude);
+      : safeClaudeReadResult("success", claude, null, "oauth_usage");
   } catch (error) {
     return error?.name === "TimeoutError" || error?.name === "AbortError"
       ? safeClaudeReadResult("timeout")
@@ -153,7 +163,10 @@ async function readClaudeLimits({ credentialsPath, fetchImpl, timeoutMs }) {
 function normalizeClaudeReadResult(value) {
   if (value?.outcome === "success") {
     const claude = buildProviderLimitsSnapshot({ claude: value.claude ?? null }).claude;
-    return claude === null ? safeClaudeReadResult("invalid_response") : safeClaudeReadResult("success", claude);
+    const source = ["oauth_usage", "orca_runtime_snapshot", "statusline_snapshot"].includes(value.source)
+      ? value.source
+      : "statusline_snapshot";
+    return claude === null ? safeClaudeReadResult("invalid_response") : safeClaudeReadResult("success", claude, null, source);
   }
   if ([
     "credential_unavailable",
@@ -173,9 +186,77 @@ function normalizeClaudeReadResult(value) {
   // runtime reader itself always returns the classified result above.
   if (typeof value === "object" && value !== null) {
     const claude = buildProviderLimitsSnapshot({ claude: value }).claude;
-    return claude === null ? safeClaudeReadResult("invalid_response") : safeClaudeReadResult("success", claude);
+    return claude === null ? safeClaudeReadResult("invalid_response") : safeClaudeReadResult("success", claude, null, "statusline_snapshot");
   }
   return safeClaudeReadResult("invalid_response");
+}
+
+function orcaWindow(value, expectedWindowMinutes) {
+  if (typeof value !== "object" || value === null) return null;
+  const utilization = typeof value.usedPercent === "number" && Number.isFinite(value.usedPercent)
+    && value.usedPercent >= 0 && value.usedPercent <= 100
+    ? Math.round(value.usedPercent * 10) / 10
+    : null;
+  if (utilization === null) return null;
+  if (value.windowMinutes !== expectedWindowMinutes) return null;
+  let resetsAt = null;
+  if (value.resetsAt !== null) {
+    if (!Number.isFinite(value.resetsAt) || value.resetsAt < 0) return null;
+    const parsedReset = new Date(value.resetsAt);
+    if (!Number.isFinite(parsedReset.getTime())) return null;
+    resetsAt = parsedReset.toISOString();
+  }
+  return { utilization, resets_at: resetsAt };
+}
+
+export function normalizeOrcaClaudeUsage(value) {
+  if (typeof value !== "object" || value === null || value.status !== "ok") return null;
+  if (typeof value.provider !== "string" || value.provider.toLowerCase() !== "claude") return null;
+  const parsedObservedAt = Number.isFinite(value.updatedAt) && value.updatedAt >= 0
+    ? new Date(value.updatedAt)
+    : null;
+  const observedAt = parsedObservedAt !== null && Number.isFinite(parsedObservedAt.getTime())
+    ? parsedObservedAt.toISOString()
+    : null;
+  const fiveHour = orcaWindow(value.session, 300);
+  const sevenDay = orcaWindow(value.weekly, 10_080);
+  const fable = value.fableWeekly === null ? null : orcaWindow(value.fableWeekly, 10_080);
+  if ((value.session !== null && fiveHour === null)
+    || (value.weekly !== null && sevenDay === null)
+    || (value.fableWeekly !== null && fable === null)) return null;
+  if (observedAt === null || (fiveHour === null && sevenDay === null)) return null;
+  return {
+    five_hour: fiveHour,
+    seven_day: sevenDay,
+    model_windows: fable === null ? [] : [{ key: "fable_weekly", label: "Fable", ...fable }],
+    observed_at: observedAt,
+    source: "orca_runtime_snapshot",
+  };
+}
+
+export async function readClaudeLimitsFromOrca({ execFileImpl = execFileAsync } = {}) {
+  try {
+    const { stdout } = await execFileImpl("orca", ["account", "list", "--json"], {
+      shell: false,
+      timeout: DEFAULT_ORCA_ACCOUNT_LIST_TIMEOUT_MS,
+      maxBuffer: MAX_ORCA_ACCOUNT_LIST_STDOUT_BYTES,
+      windowsHide: true,
+      encoding: "utf8",
+    });
+    if (typeof stdout !== "string" || Buffer.byteLength(stdout, "utf8") > MAX_ORCA_ACCOUNT_LIST_STDOUT_BYTES) {
+      return safeClaudeReadResult("invalid_response");
+    }
+    const parsed = JSON.parse(stdout);
+    if (typeof parsed?.id !== "string" || parsed.ok !== true || typeof parsed?._meta?.runtimeId !== "string") {
+      return safeClaudeReadResult("invalid_response");
+    }
+    const claude = normalizeOrcaClaudeUsage(parsed?.result?.rateLimits?.claude ?? null);
+    return claude === null
+      ? safeClaudeReadResult("invalid_response")
+      : safeClaudeReadResult("success", claude, null, "orca_runtime_snapshot");
+  } catch {
+    return safeClaudeReadResult("invalid_response");
+  }
 }
 
 function buildClaudeStatus({ enabled, outcome, attemptedAtMs, lastSuccessAtMs, observedAtMs, freshnessMs }) {
@@ -222,6 +303,7 @@ export function createProviderLimitsReader({
   claudeFreshnessMs = DEFAULT_CLAUDE_LIMITS_FRESHNESS_MS,
   fetchTimeoutMs = DEFAULT_PROVIDER_LIMITS_FETCH_TIMEOUT_MS,
   readCodexLimitsImpl = readCodexLimits,
+  readOrcaClaudeLimitsImpl = null,
   readClaudeLimitsImpl = readClaudeLimits,
   now = Date.now,
 } = {}) {
@@ -237,6 +319,7 @@ export function createProviderLimitsReader({
   let claudeCooldownUntil = null;
   let lastSnapshot = null;
   const claudeReadEnabled = isTeamOpsBoardClaudeQuotaReadEnabled(env);
+  const readOnlyPilot = isTeamOpsBoardReadOnlyPilot(env);
   const effectiveClaudeRefreshMs = Math.max(DEFAULT_CLAUDE_LIMITS_REFRESH_MS, claudeRefreshMs);
   const effectiveClaudeFreshnessMs = Math.max(DEFAULT_CLAUDE_LIMITS_FRESHNESS_MS, claudeFreshnessMs);
 
@@ -248,16 +331,30 @@ export function createProviderLimitsReader({
       && (claudeCooldownUntil === null || observedNow >= claudeCooldownUntil)
       && (lastClaudeAttemptAt === null || observedNow - lastClaudeAttemptAt >= effectiveClaudeRefreshMs)) {
       lastClaudeAttemptAt = observedNow;
-      const readResult = normalizeClaudeReadResult(
-        await readClaudeLimitsImpl({ credentialsPath, fetchImpl, timeoutMs: fetchTimeoutMs })
-          .catch(() => safeClaudeReadResult("invalid_response")),
-      );
+      let readResult = readOrcaClaudeLimitsImpl === null
+        ? safeClaudeReadResult("invalid_response")
+        : normalizeClaudeReadResult(
+          await readOrcaClaudeLimitsImpl().catch(() => safeClaudeReadResult("invalid_response")),
+        );
+      if (readResult.outcome !== "success" && !readOnlyPilot) {
+        readResult = normalizeClaudeReadResult(
+          await readClaudeLimitsImpl({ credentialsPath, fetchImpl, timeoutMs: fetchTimeoutMs })
+            .catch(() => safeClaudeReadResult("invalid_response")),
+        );
+      }
       lastClaudeOutcome = readResult.outcome;
       if (readResult.outcome === "success") {
         claudeConsecutiveFailures = 0;
         claudeCooldownUntil = null;
-        lastClaudeSuccessAt = observedNow;
-        lastClaude = { ...readResult.claude, observed_at: new Date(observedNow).toISOString() };
+        const sourceObservedAt = Date.parse(readResult.claude?.observed_at);
+        lastClaudeSuccessAt = Number.isFinite(sourceObservedAt) && sourceObservedAt <= observedNow
+          ? sourceObservedAt
+          : observedNow;
+        lastClaude = {
+          ...readResult.claude,
+          observed_at: new Date(lastClaudeSuccessAt).toISOString(),
+          source: readResult.source,
+        };
       } else {
         claudeConsecutiveFailures += 1;
         const exponentialMs = Math.min(
@@ -306,7 +403,11 @@ export function createProviderLimitsReader({
 }
 
 export function createProviderLimitsAdapterPlugin(options = {}) {
-  const reader = createProviderLimitsReader(options);
+  const exactOrcaOptIn = options.env?.[TEAM_OPS_BOARD_CLAUDE_QUOTA_READ] === "1";
+  const reader = createProviderLimitsReader({
+    ...options,
+    readOrcaClaudeLimitsImpl: exactOrcaOptIn ? readClaudeLimitsFromOrca : null,
+  });
   const configure = (server) => {
     server.middlewares.use((request, response, next) => {
       let url;

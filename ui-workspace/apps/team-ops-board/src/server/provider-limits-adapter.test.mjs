@@ -13,6 +13,8 @@ import {
   DEFAULT_PROVIDER_LIMITS_TTL_MS,
   MAX_CLAUDE_FAILURE_COOLDOWN_MS,
   createProviderLimitsReader,
+  normalizeOrcaClaudeUsage,
+  readClaudeLimitsFromOrca,
   requestClaudeLimits,
 } from "./provider-limits-adapter.mjs";
 
@@ -66,7 +68,60 @@ test("read-only pilot leaves Claude provider limits UNKNOWN without credential o
   assert.equal(snapshot.codex.primary.used_percent, 12);
 });
 
-test("pilot Claude quota read requires exact opt-in while non-pilot behavior stays enabled", async () => {
+test("Orca Claude runtime snapshot whitelists exact quota values and strips account fields", async () => {
+  const updatedAt = START_MS + 1_000;
+  const rawClaude = {
+    provider: "claude", status: "ok", updatedAt, error: null,
+    session: { usedPercent: 2, windowMinutes: 300, resetsAt: START_MS + 3_600_000, resetDescription: "ignored" },
+    weekly: { usedPercent: 51, windowMinutes: 10_080, resetsAt: START_MS + 604_800_000, resetDescription: null },
+    fableWeekly: { usedPercent: 87, windowMinutes: 10_080, resetsAt: START_MS + 604_800_000 },
+    usageMetadata: { accountEmail: "must-not-retain" },
+    account: "must-not-retain",
+  };
+  assert.deepEqual(normalizeOrcaClaudeUsage(rawClaude), {
+    five_hour: { utilization: 2, resets_at: "2026-08-09T01:00:00.000Z" },
+    seven_day: { utilization: 51, resets_at: "2026-08-16T00:00:00.000Z" },
+    model_windows: [{ key: "fable_weekly", label: "Fable", utilization: 87, resets_at: "2026-08-16T00:00:00.000Z" }],
+    observed_at: "2026-08-09T00:00:01.000Z",
+    source: "orca_runtime_snapshot",
+  });
+  assert.equal(normalizeOrcaClaudeUsage({ ...rawClaude, session: { ...rawClaude.session, usedPercent: 101 } }), null);
+  assert.equal(normalizeOrcaClaudeUsage({ ...rawClaude, session: { ...rawClaude.session, windowMinutes: 301 } }), null);
+  assert.equal(normalizeOrcaClaudeUsage({ ...rawClaude, session: { ...rawClaude.session, resetsAt: Number.MAX_VALUE } }), null);
+});
+
+test("Orca reader uses exact argv and fails closed on malformed, timeout, and nonzero results", async () => {
+  const calls = [];
+  const valid = JSON.stringify({
+    id: "safe-id", ok: true, _meta: { runtimeId: "runtime" },
+    result: { claude: [{ secret: "ignored" }], codex: [], rateLimits: { claude: {
+      provider: "claude", status: "ok", updatedAt: START_MS,
+      session: { usedPercent: 2, windowMinutes: 300, resetsAt: null },
+      weekly: { usedPercent: 51, windowMinutes: 10_080, resetsAt: null },
+      fableWeekly: { usedPercent: 87, windowMinutes: 10_080, resetsAt: null },
+    } } },
+  });
+  const success = await readClaudeLimitsFromOrca({ execFileImpl: async (...args) => {
+    calls.push(args);
+    return { stdout: valid, stderr: "must-not-consume" };
+  } });
+  assert.equal(success.outcome, "success");
+  assert.equal(success.claude.five_hour.utilization, 2);
+  assert.equal(success.claude.seven_day.utilization, 51);
+  assert.equal(success.claude.model_windows[0].utilization, 87);
+  assert.deepEqual(calls[0][0], "orca");
+  assert.deepEqual(calls[0][1], ["account", "list", "--json"]);
+  assert.equal(calls[0][2].shell, false);
+  assert.equal(JSON.stringify(success).includes("secret"), false);
+  for (const execFileImpl of [
+    async () => ({ stdout: "not-json" }),
+    async () => ({ stdout: JSON.stringify({ ok: false }) }),
+    async () => { const error = new Error("timeout"); error.killed = true; throw error; },
+    async () => { const error = new Error("nonzero"); error.code = 1; throw error; },
+  ]) assert.deepEqual(await readClaudeLimitsFromOrca({ execFileImpl }), { outcome: "invalid_response", claude: null });
+});
+
+test("pilot Claude quota read requires exact opt-in and uses Orca without OAuth fallback", async () => {
   for (const value of [undefined, "", "0", "true", " 1", "1 ", 1, true]) {
     let reads = 0;
     const reader = createProviderLimitsReader({
@@ -86,32 +141,44 @@ test("pilot Claude quota read requires exact opt-in while non-pilot behavior sta
     assert.equal(snapshot.claude_status.state, "disabled");
   }
 
-  for (const env of [
-    { [TEAM_OPS_BOARD_READ_ONLY_PILOT]: "1", [TEAM_OPS_BOARD_CLAUDE_QUOTA_READ]: "1" },
-    {},
-  ]) {
-    let reads = 0;
-    const reader = createProviderLimitsReader({
-      env,
-      now: () => START_MS,
-      readCodexLimitsImpl: async () => null,
-      readClaudeLimitsImpl: async ({ timeoutMs }) => {
-        reads += 1;
-        assert.equal(timeoutMs, DEFAULT_PROVIDER_LIMITS_FETCH_TIMEOUT_MS);
-        return claudeValue(36);
-      },
-    });
-    const snapshot = await reader.readSnapshot();
-    assert.equal(reads, 1);
-    assert.equal(snapshot.claude.five_hour.utilization, 36);
-    assert.deepEqual(snapshot.claude_status, {
-      state: "ready",
-      outcome: "success",
-      attempted_at: "2026-08-09T00:00:00.000Z",
-      last_success_at: "2026-08-09T00:00:00.000Z",
-      freshness: "current",
-    });
-  }
+  let oauthReads = 0;
+  const reader = createProviderLimitsReader({
+    env: { [TEAM_OPS_BOARD_READ_ONLY_PILOT]: "1", [TEAM_OPS_BOARD_CLAUDE_QUOTA_READ]: "1" },
+    now: () => START_MS,
+    readCodexLimitsImpl: async () => null,
+    readOrcaClaudeLimitsImpl: async () => ({ outcome: "success", source: "orca_runtime_snapshot", claude: claudeValue(36) }),
+    readClaudeLimitsImpl: async () => { oauthReads += 1; return claudeValue(99); },
+  });
+  const snapshot = await reader.readSnapshot();
+  assert.equal(oauthReads, 0);
+  assert.equal(snapshot.claude.five_hour.utilization, 36);
+  assert.equal(snapshot.claude.source, "orca_runtime_snapshot");
+
+  const failedOrca = createProviderLimitsReader({
+    env: { [TEAM_OPS_BOARD_READ_ONLY_PILOT]: "1", [TEAM_OPS_BOARD_CLAUDE_QUOTA_READ]: "1" },
+    now: () => START_MS,
+    readCodexLimitsImpl: async () => null,
+    readOrcaClaudeLimitsImpl: async () => ({ outcome: "invalid_response" }),
+    readClaudeLimitsImpl: async () => { oauthReads += 1; return claudeValue(99); },
+  });
+  assert.equal((await failedOrca.readSnapshot()).claude, null);
+  assert.equal(oauthReads, 0);
+});
+
+test("Orca source updatedAt controls freshness instead of Board read time", async () => {
+  const reader = createProviderLimitsReader({
+    env: { [TEAM_OPS_BOARD_READ_ONLY_PILOT]: "1", [TEAM_OPS_BOARD_CLAUDE_QUOTA_READ]: "1" },
+    now: () => START_MS + DEFAULT_CLAUDE_LIMITS_FRESHNESS_MS + 1,
+    readCodexLimitsImpl: async () => null,
+    readOrcaClaudeLimitsImpl: async () => ({
+      outcome: "success", source: "orca_runtime_snapshot",
+      claude: { ...claudeValue(44), observed_at: new Date(START_MS).toISOString() },
+    }),
+  });
+  const snapshot = await reader.readSnapshot();
+  assert.equal(snapshot.claude.observed_at, new Date(START_MS).toISOString());
+  assert.equal(snapshot.claude_status.state, "stale");
+  assert.equal(snapshot.claude_status.freshness, "stale");
 });
 
 test("Claude request classifies only safe outcomes without consuming error bodies", async () => {

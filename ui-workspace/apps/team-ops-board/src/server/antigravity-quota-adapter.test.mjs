@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -31,6 +31,33 @@ test("read-only pilot leaves Antigravity quota UNKNOWN without probing RPC or wr
     assert.equal(portProbes, 0);
     assert.equal(rpcCalls, 0);
     assert.equal(existsSync(cachePath), false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("read-only pilot serves an existing sanitized Antigravity cache without probing or rewriting it", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "team-ops-antigravity-pilot-cache-"));
+  try {
+    let probes = 0;
+    const cachePath = join(directory, "antigravity_quota.last.json");
+    const cached = {
+      schema_version: "soulforge.team_ops_board_antigravity_quota.v1",
+      observed_at: "2026-08-09T00:00:00.000Z",
+      groups: [{ provider: "Antigravity", window: "weekly", remaining_percent: 42, resets_at: null }],
+    };
+    await writeFile(cachePath, JSON.stringify(cached), "utf8");
+    const before = await stat(cachePath);
+    const reader = createAntigravityQuotaReader({
+      env: { [TEAM_OPS_BOARD_READ_ONLY_PILOT]: "1" },
+      cachePath,
+      listPorts: async () => { probes += 1; return []; },
+    });
+
+    assert.deepEqual(await reader.readSnapshot(), cached);
+    const after = await stat(cachePath);
+    assert.equal(probes, 0);
+    assert.equal(after.mtimeMs, before.mtimeMs);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -85,6 +85,16 @@
 
 ## 2026-08-10 — Team Operations Board Claude quota read-only recovery
 
+- Recovered read-only provider quota fallbacks: Antigravity pilot mode now
+  reads an existing sanitized last-good cache before returning while making
+  zero RPC probes and zero cache writes. With the exact quota opt-in, Claude
+  now uses bounded `orca account list --json` output as its primary read-only
+  source, whitelisting only status/update time and normalized session, weekly,
+  and Fable weekly windows. Raw output, stderr, account records, and usage
+  metadata are discarded; there is no durable Claude cache or forced refresh.
+  Pilot mode does not fall through to the credential/OAuth reader after Orca
+  failure; outside the pilot OAuth remains secondary and true absence stays
+  `UNKNOWN`.
 - Added the exact `TEAM_OPS_BOARD_CLAUDE_QUOTA_READ=1` opt-in for the existing
   official Claude quota GET while the Board read-only pilot is enabled. The
   default pilot remains disabled before credential access, non-pilot behavior

@@ -120,7 +120,10 @@ export function createAntigravityQuotaReader({
   }
 
   async function refresh() {
-    if (readOnlyPilot) return;
+    if (readOnlyPilot) {
+      await loadCacheOnce();
+      return;
+    }
     // 이전에 응답한 포트를 먼저 시도하고, 실패하면 프로세스 포트를 재열거한다.
     if (knownPort !== null) {
       const groups = await queryQuota(knownPort, fetchImpl).catch(() => null);
