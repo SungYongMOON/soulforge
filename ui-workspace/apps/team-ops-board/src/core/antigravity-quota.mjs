@@ -9,6 +9,7 @@ const FRESHNESS = new Set(["current", "stale"]);
 const SOURCE_KINDS = new Set([
   "antigravity_sanitized_local_receipt",
   "antigravity_sanitized_loopback_receipt",
+  "antigravity_windows_uia_receipt",
 ]);
 const MAX_GROUPS = 8;
 const MAX_BUCKETS = 8;
@@ -35,6 +36,54 @@ export function quotaSeverityForRemaining(remainingPercent) {
   if (remainingPercent <= 15) return "crit";
   if (remainingPercent <= 40) return "warn";
   return "ok";
+}
+
+const UIA_GROUPS = ["Gemini Models", "Claude and GPT models"];
+const UIA_WEEKLY = "Weekly Limit Remaining";
+const UIA_FIVE_HOUR = "Five Hour Limit Remaining";
+
+function uiaPercentage(value) {
+  const match = /^(100|[1-9]?\d)%$/u.exec(value);
+  return match ? Number(match[1]) / 100 : null;
+}
+
+function uiaReset(value, nowMs) {
+  if (!/^Resets? [^\u0000-\u001f]{1,96}$/u.test(value)) return { valid: false, resetsAt: null };
+  const candidate = value.replace(/^Resets? (?:on )?/u, "").replace(/\bat\b/iu, "");
+  let parsed = Date.parse(candidate);
+  if (!Number.isFinite(parsed)) parsed = Date.parse(`${candidate} ${new Date(nowMs).getUTCFullYear()}`);
+  return {
+    valid: true,
+    resetsAt: Number.isFinite(parsed) && parsed >= nowMs - 60_000 && parsed <= nowMs + 8 * 86_400_000
+      ? new Date(parsed).toISOString()
+      : null,
+  };
+}
+
+export function parseAntigravityAccessibilityNames(names, { nowMs = Date.now() } = {}) {
+  if (!Array.isArray(names) || names.length > 64 || !Number.isFinite(nowMs)) return null;
+  const values = names.map((value) => typeof value === "string" ? value.trim() : "");
+  if (values.some((value) => value === "" || value.length > 120)) return null;
+  const groups = [];
+  let cursor = 0;
+  for (const label of UIA_GROUPS) {
+    if (values[cursor++] !== label || values[cursor++] !== UIA_WEEKLY) return null;
+    const reset = /^Resets? /u.test(values[cursor])
+      ? uiaReset(values[cursor++], nowMs)
+      : { valid: true, resetsAt: null };
+    const weekly = uiaPercentage(values[cursor++]);
+    if (!reset.valid || weekly === null || values[cursor++] !== UIA_FIVE_HOUR) return null;
+    const fiveHour = uiaPercentage(values[cursor++]);
+    if (fiveHour === null) return null;
+    groups.push({
+      label,
+      buckets: [
+        { window: "weekly", remaining_fraction: weekly, resets_at: reset.resetsAt },
+        { window: "5h", remaining_fraction: fiveHour, resets_at: null },
+      ],
+    });
+  }
+  return cursor === values.length ? groups : null;
 }
 
 function safeLabel(value, max = 48) {

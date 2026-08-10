@@ -11,6 +11,7 @@ import {
   buildAntigravityQuotaSnapshot,
   buildAntigravityQuotaStatus,
   normalizeAntigravityQuotaSnapshot,
+  parseAntigravityAccessibilityNames,
   parseAntigravityQuotaResponse,
   staleAntigravityQuotaSnapshot,
 } from "../core/antigravity-quota.mjs";
@@ -22,6 +23,7 @@ const MODULE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 export const ANTIGRAVITY_QUOTA_SNAPSHOT_PATH = "/antigravity-quota.snapshot.json";
 export const DEFAULT_ANTIGRAVITY_QUOTA_TTL_MS = 120_000;
 export const TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH = "TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH";
+export const TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ = "TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ";
 export const DEFAULT_ANTIGRAVITY_QUOTA_CACHE_PATH = path.resolve(
   MODULE_ROOT,
   "../../../../../guild_hall/state/operations/team_ops_board/antigravity_quota.last.json",
@@ -30,6 +32,7 @@ export const DEFAULT_ANTIGRAVITY_QUOTA_CACHE_PATH = path.resolve(
 const RPC_PATH = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary";
 const PROBE_TIMEOUT_MS = 3_000;
 const MAX_CANDIDATE_PORTS = 24;
+const UIA_READER_PATH = path.resolve(MODULE_ROOT, "../../ops/read-antigravity-quota-uia.ps1");
 
 function isLoopbackAddress(address) {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
@@ -37,6 +40,22 @@ function isLoopbackAddress(address) {
 
 export function isAntigravityQuotaLiveRefreshEnabled(env = process.env) {
   return env?.[TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH] === "1";
+}
+
+export function isAntigravityQuotaUiaReadEnabled(env = process.env) {
+  return env?.[TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ] === "1";
+}
+
+async function readQuotaFromWindowsUia({ nowMs = Date.now() } = {}) {
+  if (process.platform !== "win32") return null;
+  const { stdout } = await execFileAsync(
+    "powershell.exe",
+    ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", UIA_READER_PATH],
+    { timeout: 8_000, windowsHide: true, maxBuffer: 16 * 1024 },
+  );
+  let names;
+  try { names = JSON.parse(stdout); } catch { return null; }
+  return parseAntigravityAccessibilityNames(names, { nowMs });
 }
 
 async function agyProcessIds() {
@@ -88,6 +107,7 @@ export function createAntigravityQuotaReader({
   cachePath = DEFAULT_ANTIGRAVITY_QUOTA_CACHE_PATH,
   now = Date.now,
   detectAppRunning = antigravityAppRunning,
+  readUiaQuota = readQuotaFromWindowsUia,
 } = {}) {
   let inFlight = null;
   let lastAttemptAt = null;
@@ -97,6 +117,7 @@ export function createAntigravityQuotaReader({
   let lastStatus = null;
   const readOnlyPilot = isTeamOpsBoardReadOnlyPilot(env);
   const liveRefreshEnabled = !readOnlyPilot && isAntigravityQuotaLiveRefreshEnabled(env);
+  const uiaReadEnabled = isAntigravityQuotaUiaReadEnabled(env);
 
   async function persistCache(snapshot) {
     if (cachePath === null) return;
@@ -126,12 +147,12 @@ export function createAntigravityQuotaReader({
     lastGood = staleSnapshot(lastGood, now());
   }
 
-  function accept(groups) {
+  function accept(groups, sourceKind = "antigravity_sanitized_loopback_receipt") {
     const snapshot = buildAntigravityQuotaSnapshot({
       groups,
       observedAtMs: now(),
       freshness: "current",
-      sourceKind: "antigravity_sanitized_loopback_receipt",
+      sourceKind,
     });
     if (snapshot === null) {
       retainLastGoodAsStale();
@@ -146,6 +167,13 @@ export function createAntigravityQuotaReader({
     // Load before every gate so a Board restart can expose cache-only evidence
     // without RPC, process inspection, or a cache write.
     await loadCacheOnce();
+    if (uiaReadEnabled) {
+      const groups = await readUiaQuota({ nowMs: now() }).catch(() => null);
+      if (groups !== null) {
+        accept(groups, "antigravity_windows_uia_receipt");
+        return;
+      }
+    }
     if (!liveRefreshEnabled) {
       lastStatus = buildAntigravityQuotaStatus({
         appRunning: await detectAppRunning().catch(() => false),

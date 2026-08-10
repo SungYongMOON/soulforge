@@ -472,6 +472,7 @@ test("scheduled worker derives private bindings in memory and keeps quota OFF", 
       UNRELATED_PASSWORD: "must-not-forward",
     },
   });
+  assert.equal(environment.TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ, "1");
   assert.equal(environment.TEAM_OPS_BOARD_READ_ONLY_PILOT, "1");
   assert.equal(environment.TEAM_OPS_BOARD_ALLOWED_HOSTS, "board.example.ts.net");
   assert.match(environment.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY, /thread_visibility\.v1\.json$/u);
