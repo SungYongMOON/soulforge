@@ -49,6 +49,7 @@ const SUITES = {
   lane_1d: { file: 'lane_1d_conformance.mjs', args: [] },
   lane_1e: { file: 'lane_1e_conformance.mjs', args: [] },
   minting: { file: 'minting_conformance.mjs', args: [] },
+  runtime_observation: { file: 'runtime_observation_conformance.mjs', args: [] },
 };
 
 // Each entry disables or weakens exactly one guard. `find` must occur exactly once in its
@@ -162,6 +163,23 @@ const CATALOGUE = [
     find: '  if (hasRequirement && hasArtifact) {', replace: '  if (false) {' },
   { id: 'snapshot/finding_may_cite_nothing', file: 'snapshot.mjs', suite: 'lane_1a',
     find: '  if (!hasSpans && !hasAbsenceRecord) {', replace: '  if (false) {' },
+
+  // ---- heartbeat
+  { id: 'heartbeat/unknown_surface_allowed', file: 'heartbeat.mjs', suite: 'runtime_observation',
+    find: '  if (!HEARTBEAT_SURFACES.includes(surfaceId)) {', replace: '  if (false) {' },
+  { id: 'heartbeat/recent_failure_reported_as_fresh', file: 'heartbeat.mjs', suite: 'runtime_observation',
+    find: "  if (heartbeat.outcome === 'failed') {", replace: '  if (false) {' },
+  { id: 'heartbeat/future_observation_accepted', file: 'heartbeat.mjs', suite: 'runtime_observation',
+    find: '  if (observedMs > now) {', replace: '  if (false) {' },
+
+  // ---- delivery_receipt
+  { id: 'receipt/undeclared_edge_tolerated', file: 'delivery_receipt.mjs', suite: 'runtime_observation',
+    find: '  if (coverage.observed_not_declared.length > 0) {', replace: '  if (false) {' },
+  { id: 'receipt/stale_receipt_still_proves_traversal', file: 'delivery_receipt.mjs', suite: 'runtime_observation',
+    find: '  if (ageSeconds <= window.period_seconds + window.grace_seconds) {',
+    replace: '  if (ageSeconds <= window.period_seconds + window.grace_seconds || true) {' },
+  { id: 'receipt/unlabelled_method_accepted', file: 'delivery_receipt.mjs', suite: 'runtime_observation',
+    find: '  if (!OBSERVATION_METHODS.includes(receipt.observation_method)) {', replace: '  if (false) {' },
 
   // ---- pipeline (1A)
   { id: 'pipeline/engine_may_accept', file: 'pipeline.mjs', suite: 'lane_1a',

@@ -31,7 +31,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 - 등록된 사람 대신 context 수락
 - `accepted_context_generation` 증가
 - ERP task 장부 write
-- 식별자 발급 (`D-P10-03` 미결)
+- 식별자 값 생성 (`D-P10-03` 종결 — 직렬 경계가 값을 공급하고 kernel 은 검증·등록만 한다)
 - public engine 폴더 선택 (종결됨, 이 문서 위치가 그 결과)
 - 실제 project 자료·source 본문·credential 읽기
 
@@ -40,10 +40,6 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 - Phase 1–4 baseline 은 `deterministic_only` 다. Engine runtime 은 학습모델을 호출하지 않고 학습모델 출력을 truth 로 쓰지 않는다.
 - embedding·semantic reranker 는 별도 승인 전까지 authoritative path 밖의 `shadow_only` 후보다.
 - authoritative path 의 retrieval 은 lexical/BM25 와 결정론 filter 로 한정한다.
-
-## local state
-
-engine 의 local runtime state 는 다른 owner 와 같은 규칙을 따라 `guild_hall/state/engineering_engine/` 아래에서만 materialize 하고 Git 으로 추적하지 않는다. 새 state surface 이므로 `guild_hall/backup_controller/README.md` 의 backup/restore 분류와 synthetic restore gate 를 적용한다.
 
 ## Phase 1 구성
 
@@ -56,12 +52,13 @@ engine 의 local runtime state 는 다른 owner 와 같은 규칙을 따라 `gui
 | 1D | MCP 요청·CAS·idempotency | `mcp_contract.mjs` | `contracts/lane_1d_mcp_concurrency_v0.md` |
 | 1E | module ABI · binding · release · rollback | `module_binding.mjs` | `contracts/lane_1e_module_and_release_v0.md` |
 | 1V | 변이 lock | `tests/lane_1v_mutation_lock.mjs` | `contracts/lane_1v_verification_lock_v0.md` |
+| runtime | 하트비트 · 간선별 전달 영수증 | `heartbeat.mjs`, `delivery_receipt.mjs` | `contracts/runtime_observation_v0.md` |
 
 `D-P10-03` 발급 경계는 `kernel/minting.mjs` 가 소유한다.
 
 ## 검증
 
-한 번에 전부 (여섯 검사 모두 통과해야 한다):
+한 번에 전부 (일곱 검사 모두 통과해야 한다):
 
 ```
 node guild_hall/engineering_engine/tools/phase_1_integration_check.mjs \
@@ -85,6 +82,20 @@ node guild_hall/engineering_engine/tools/emit_topology.mjs --out topology/engine
 module edge 는 `kernel/*.mjs` 의 **실제 `import` 문을 파싱**해서 얻는다. 경계는 lane 1D 의 `OPERATIONS` 표에서, 나머지 어휘는 각자를 소유한 모듈에서 읽는다. 손으로 적는 것은 lane↔field group 대응 하나뿐이다.
 
 `D` 통합검사가 commit 된 `topology/engine_topology.json` 을 새 emit 과 digest 대조하므로, 낡은 topology 는 실패로 드러난다. 그림은 자기가 묘사하는 코드와 어긋날 수 있지만 이건 어긋날 수 없다.
+
+## 실제 실행 관측
+
+```
+node guild_hall/engineering_engine/tools/observe_engine_run.mjs --oracle <oracle>
+```
+
+검증 표면을 load observation 훅 아래에서 돌려 **표면별 하트비트**와 **간선별 통과 영수증**을 만든다. 선언(소스 파싱)과 관측(실제 통과)을 대조해 `exercised` · `declared_not_exercised` · `observed_not_declared` 로 분류한다.
+
+`D` `observed_not_declared` 가 하나라도 있으면 통합검사가 실패한다 — 정적 파싱이 못 찾은 연결을 실행이 지났다면 "코드와 1:1" 주장이 거짓이다.
+
+`P` 관측 결과는 `guild_hall/state/engineering_engine/runtime/` 에 쓰고 추적하지 않는다. 한 호스트의 한 시점 측정이므로 commit 하면 주장으로 바뀐다.
+
+`O` `module_load_observation` 은 간선이 **통과됐음**을 증명하고 데이터가 처리됐음을 증명하지 않는다. 이름이 그 한계를 말한다. 상세는 `contracts/runtime_observation_v0.md`.
 
 ## local state
 

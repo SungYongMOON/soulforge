@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 // phase_1_serial_integration — the single command that decides whether Phase 1 holds.
 //
-// Six checks, all of which must pass:
+// Seven checks, all of which must pass:
 //   1. every conformance suite passes
 //   2. the mutation lock kills every mutation
 //   3. the frozen Phase 1-0 bundle still matches 13/13 by sha256
 //   4. every frozen field group has exactly one owning lane
 //   5. the committed topology matches a fresh emit from the code
-//   6. no suite performed a write
+//   6. a real observed run traversed only edges the topology declares
+//   7. no suite performed a write
 //
-// Check 5 is what keeps the topology honest. A committed derived artifact drifts silently;
-// comparing it to a fresh emit turns drift into a failure instead of a stale diagram.
+// Checks 5 and 6 are the pair that keeps the topology honest, from both directions. 5 catches
+// a committed artifact drifting from the source. 6 catches the source drifting from what
+// actually runs: if a real execution takes an edge the static parse never found, the "1:1 with
+// the code" claim is false and this fails rather than reporting a prettier number.
 //
 //   node tools/phase_1_integration_check.mjs --oracle <path> --bundle <dir> --scratch <dir>
 
@@ -53,6 +56,7 @@ const SUITES = [
   ['lane_1d_conformance.mjs', [], '1D', 'author_written_fixtures'],
   ['lane_1e_conformance.mjs', [], '1E', 'author_written_fixtures'],
   ['minting_conformance.mjs', [], 'D-P10-03', 'author_written_fixtures'],
+  ['runtime_observation_conformance.mjs', [], 'runtime_observation', 'author_written_fixtures'],
 ];
 
 const suiteResults = [];
@@ -161,7 +165,29 @@ if (!freshTopology || !committed) {
   pass('topology_matches_code', `${committed.module_count} modules, ${committed.module_edge_count} import edges, digest ${committed.topology_digest.slice(0, 12)}`);
 }
 
-// ---------------------------------------------------------------- 6. no writes
+// ---------------------------------------------------------------- 6. runtime observation
+// Runs the real surfaces under the load observation hook and compares what was traversed
+// against what the source declares. This is the engine's own Expected/Observed comparison
+// applied to itself, so the same rule holds: an undeclared traversal is a fault, and an idle
+// edge is reported rather than smoothed over.
+
+const obs = spawnSync(process.execPath,
+  [join(ENGINE, 'tools', 'observe_engine_run.mjs'), '--oracle', ORACLE], { encoding: 'utf8' });
+let observation = null;
+try { observation = JSON.parse(obs.stdout); } catch { /* reported below */ }
+if (!observation) {
+  fail('runtime_observation', 'the observation run produced no readable summary');
+} else if (observation.edges.topology_is_one_to_one !== true) {
+  fail('runtime_observation',
+    `a run traversed edges the topology does not declare: ${observation.edges.observed_not_declared.join(', ')}`);
+} else if (observation.surfaces.failing.length > 0) {
+  fail('runtime_observation', `surfaces failed under observation: ${observation.surfaces.failing.join(', ')}`);
+} else {
+  pass('runtime_observation',
+    `${observation.edges.coverage} edges traversed, ${observation.surfaces.run} surfaces reported, topology 1:1`);
+}
+
+// ---------------------------------------------------------------- 7. no writes
 
 if (totalWrites === 0) pass('no_writes', 'every suite reported zero writes');
 else fail('no_writes', `${totalWrites} writes reported`);
@@ -185,6 +211,15 @@ const receipt = {
     semantic_independence: mutation.semantic_independence,
   } : null,
   frozen_bundle: { matched: bundleOk, rows: bundleRows, mismatches: bundleMismatches },
+  runtime_observation: observation ? {
+    run_id: observation.run_id,
+    surfaces_run: observation.surfaces.run,
+    surfaces_without_heartbeat: observation.surfaces.counts.absent,
+    edge_coverage: observation.edges.coverage,
+    declared_not_exercised: observation.edges.declared_not_exercised,
+    observed_not_declared: observation.edges.observed_not_declared,
+    topology_is_one_to_one: observation.edges.topology_is_one_to_one,
+  } : null,
   topology: committed ? {
     modules: committed.module_count, import_edges: committed.module_edge_count,
     digest: committed.topology_digest, derived_from: committed.derivation,
@@ -193,7 +228,8 @@ const receipt = {
   honest_limits: [
     'five of six lanes carry author-written fixtures; only the phase_1_0 substrate is judged against the independently reviewed frozen oracle',
     'the mutation lock is self-authored, so a rule wrong identically in code and fixtures survives it',
-    'no actual project material, UI, runtime, MCP execution, ERP writer or learned model was exercised',
+    'no actual project material, UI, MCP execution, ERP writer or learned model was exercised',
+    'a module load observation proves an edge was traversed, not that data was processed',
   ],
   open_owner_decisions: committed?.owner_decisions ?? null,
   writes_performed: totalWrites,

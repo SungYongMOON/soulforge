@@ -122,6 +122,25 @@
       "line_count": 291
     },
     {
+      "module": "delivery_receipt",
+      "exports": [
+        "CODES",
+        "DELIVERY_STATES",
+        "OBSERVATION_METHODS",
+        "OUTCOMES",
+        "REQUIRED_RECEIPT_FIELDS",
+        "assertEdgeKey",
+        "assertTopologyIsOneToOne",
+        "classifyEdgeCoverage",
+        "edgeKey",
+        "judgeEdge",
+        "summariseDelivery",
+        "validateReceipt"
+      ],
+      "export_count": 12,
+      "line_count": 228
+    },
+    {
       "module": "errors",
       "exports": [
         "CODES",
@@ -185,6 +204,24 @@
       "line_count": 185
     },
     {
+      "module": "heartbeat",
+      "exports": [
+        "CODES",
+        "HEARTBEAT_STATES",
+        "HEARTBEAT_SURFACES",
+        "OUTCOMES",
+        "REQUIRED_HEARTBEAT_FIELDS",
+        "assertKnownSurface",
+        "forbidNeighbourInference",
+        "judgeAllSurfaces",
+        "judgeSurface",
+        "validateHeartbeat",
+        "validateWindow"
+      ],
+      "export_count": 11,
+      "line_count": 180
+    },
+    {
       "module": "identity",
       "exports": [
         "PLACEHOLDERS",
@@ -224,18 +261,22 @@
         "CONTRACT_REVISION",
         "CUSTODY_MODE",
         "ContractError",
+        "DELIVERY_STATES",
         "DERIVED_FAMILIES",
         "DISPOSITION",
         "EDGE_SHAPES",
         "EDGE_TYPES",
         "EVIDENCE_CLAIM_CEILING",
         "GAP_TYPE",
+        "HEARTBEAT_STATES",
+        "HEARTBEAT_SURFACES",
         "LICENSE_STATES",
         "MAX_HOPS_CEILING",
         "MINTED_FAMILIES",
         "MINTING_LANE",
         "NODE_TYPES",
         "NON_CAPABILITIES",
+        "OBSERVATION_METHODS",
         "OPEN_LANE_QUESTIONS",
         "OPEN_OWNER_DECISIONS",
         "OPERATIONS",
@@ -250,8 +291,10 @@
         "REQUIRED_ENVELOPE_FIELDS",
         "REQUIRED_EXTRACTION_FIELDS",
         "REQUIRED_FINDING_FIELDS",
+        "REQUIRED_HEARTBEAT_FIELDS",
         "REQUIRED_INVENTORY_FIELDS",
         "REQUIRED_MANIFEST_FIELDS",
+        "REQUIRED_RECEIPT_FIELDS",
         "REQUIRED_REQUEST_FIELDS",
         "REQUIRED_SELECTOR_FIELDS",
         "RESOLUTION",
@@ -272,10 +315,12 @@
         "assertCanonAxisAbsentFromSnapshot",
         "assertCanonCeiling",
         "assertChainStep",
+        "assertEdgeKey",
         "assertEvidenceCeiling",
         "assertEvidenceWithinKnownAt",
         "assertExplicitFieldName",
         "assertIsMintedIdentifier",
+        "assertKnownSurface",
         "assertMintingLaneHeld",
         "assertMissingIsConfirmed",
         "assertNoOrphanClaim",
@@ -289,6 +334,7 @@
         "assertSnapshotImmutable",
         "assertSpanRetained",
         "assertStageDefined",
+        "assertTopologyIsOneToOne",
         "assertWithinSourceAuthority",
         "assertZeroErpDelta",
         "bindingRevision",
@@ -296,6 +342,7 @@
         "candidateHandle",
         "canonicalise",
         "classifyConcurrency",
+        "classifyEdgeCoverage",
         "classifyIdentifierFamily",
         "classifyIntegrity",
         "classifyLegacyMaterial",
@@ -310,6 +357,7 @@
         "convertBetweenAxes",
         "daysInMonth",
         "deterministicReplayFingerprint",
+        "edgeKey",
         "evaluate",
         "evaluateEligibility",
         "evaluateGenerationAdvance",
@@ -318,6 +366,7 @@
         "evaluateP8Write",
         "evaluateReplayability",
         "foldCurrentView",
+        "forbidNeighbourInference",
         "forbidRankArithmetic",
         "inspectActiveEligibility",
         "inspectIdentifierOpacity",
@@ -328,6 +377,9 @@
         "isEvidenceCeiling",
         "isPlaceholder",
         "isWellFormedRef",
+        "judgeAllSurfaces",
+        "judgeEdge",
+        "judgeSurface",
         "mint",
         "parseAbiRange",
         "planModuleTransition",
@@ -349,21 +401,25 @@
         "selectCapsule",
         "sha256Hex",
         "splitProvenance",
+        "summariseDelivery",
         "validateBinding",
         "validateCitedSpan",
         "validateContextRequest",
         "validateEdge",
         "validateExtractionRun",
         "validateFinding",
+        "validateHeartbeat",
         "validateInventoryRecord",
         "validateLineageChain",
         "validateManifest",
+        "validateReceipt",
         "validateRelease",
         "validateSnapshotEnvelope",
-        "validateStateElement"
+        "validateStateElement",
+        "validateWindow"
       ],
-      "export_count": 157,
-      "line_count": 136
+      "export_count": 176,
+      "line_count": 148
     },
     {
       "module": "lineage",
@@ -489,360 +545,542 @@
       "line_count": 303
     }
   ],
-  "module_count": 19,
+  "module_count": 21,
   "module_edges": [
     {
       "from": "authority",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "canonical",
       "to": "contract_config",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "canonical",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "capsule",
       "to": "authority",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "capsule",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "capsule",
       "to": "contract_config",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "capsule",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "capsule",
       "to": "graph",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "ceilings",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "custody",
       "to": "authority",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "custody",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "custody",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "custody",
       "to": "identity",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "delivery_receipt",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "delivery_receipt",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "execution_mode",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "execution_mode",
       "to": "contract_config",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "execution_mode",
       "to": "identity",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "finding",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "finding",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "fingerprint",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "fingerprint",
       "to": "contract_config",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "fingerprint",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "graph",
       "to": "authority",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "graph",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "graph",
       "to": "ceilings",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "graph",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "graph",
       "to": "identity",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "heartbeat",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "heartbeat",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "identity",
       "to": "contract_config",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "authority",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "capsule",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "ceilings",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "contract_config",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "custody",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "index",
+      "to": "delivery_receipt",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "execution_mode",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "finding",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "fingerprint",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "graph",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "index",
+      "to": "heartbeat",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "identity",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "lineage",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "mcp_contract",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "minting",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "module_binding",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "pipeline",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "index",
       "to": "snapshot",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "lineage",
       "to": "authority",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "lineage",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "lineage",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "lineage",
       "to": "identity",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "mcp_contract",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "mcp_contract",
       "to": "contract_config",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "mcp_contract",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "minting",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "minting",
       "to": "identity",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "module_binding",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "module_binding",
       "to": "contract_config",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "module_binding",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "pipeline",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "pipeline",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "pipeline",
       "to": "identity",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "pipeline",
       "to": "mcp_contract",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "pipeline",
       "to": "minting",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "snapshot",
       "to": "canonical",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "snapshot",
       "to": "ceilings",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "snapshot",
       "to": "contract_config",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "snapshot",
       "to": "custody",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "snapshot",
       "to": "errors",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "snapshot",
       "to": "fingerprint",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "snapshot",
       "to": "identity",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "snapshot",
       "to": "minting",
-      "relation": "imports"
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 70,
+  "module_edge_count": 76,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -1184,5 +1422,5 @@
       "note": "the frozen Phase 1-0 contract names P5, P6 and P8 but does not define P7"
     }
   },
-  "topology_digest": "6b4b57bcb7b731e2a0b58393f7c4c7225fd13d1a25d65db3c645b9b11ebf887f"
+  "topology_digest": "81ef7dcbaa631ba008b63704787bdadcc1382940b0ec9cda06a6335e3162c4a7"
 }

@@ -120,6 +120,18 @@ export {
   validateContextRequest, assertZeroErpDelta, evaluateP8Write,
 } from './pipeline.mjs';
 
+// Runtime observation — heartbeats per surface, delivery receipts per edge
+export {
+  HEARTBEAT_SURFACES, HEARTBEAT_STATES, REQUIRED_HEARTBEAT_FIELDS,
+  assertKnownSurface, validateHeartbeat, validateWindow, judgeSurface, judgeAllSurfaces,
+  forbidNeighbourInference,
+} from './heartbeat.mjs';
+export {
+  DELIVERY_STATES, OBSERVATION_METHODS, REQUIRED_RECEIPT_FIELDS,
+  edgeKey, assertEdgeKey, validateReceipt, judgeEdge,
+  classifyEdgeCoverage, assertTopologyIsOneToOne, summariseDelivery,
+} from './delivery_receipt.mjs';
+
 /**
  * What this kernel deliberately does not do. Kept in code so a future caller does not have
  * to infer the boundary from documentation alone.

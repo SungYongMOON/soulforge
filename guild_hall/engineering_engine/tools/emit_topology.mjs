@@ -43,7 +43,14 @@ for (const file of moduleFiles) {
   for (const m of src.matchAll(IMPORT_FROM)) {
     const to = m[1];
     if (to !== name && !edges.some((e) => e.from === name && e.to === to)) {
-      edges.push({ from: name, to, relation: 'imports' });
+      // The edge is declared by the source. Whether it is ever traversed is a separate
+      // question, so the edge also says how that could be observed. A new module gets this
+      // for free — nothing here is maintained by hand.
+      edges.push({
+        from: name, to, relation: 'imports',
+        receipt_channel: 'module_load_observation',
+        evidence_note: 'declared by the source; traversal requires a receipt from an observed run',
+      });
     }
   }
 }

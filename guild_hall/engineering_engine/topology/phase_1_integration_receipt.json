@@ -6,12 +6,12 @@
     {
       "id": "suites",
       "ok": true,
-      "detail": "7 suites, 688 checks"
+      "detail": "8 suites, 771 checks"
     },
     {
       "id": "mutation_lock",
       "ok": true,
-      "detail": "37/37 killed across 16 modules"
+      "detail": "43/43 killed across 18 modules"
     },
     {
       "id": "frozen_bundle",
@@ -26,7 +26,12 @@
     {
       "id": "topology_matches_code",
       "ok": true,
-      "detail": "19 modules, 70 import edges, digest 6b4b57bcb7b7"
+      "detail": "21 modules, 76 import edges, digest 81ef7dcbaa63"
+    },
+    {
+      "id": "runtime_observation",
+      "ok": true,
+      "detail": "76/76 edges traversed, 8 surfaces reported, topology 1:1"
     },
     {
       "id": "no_writes",
@@ -97,16 +102,25 @@
       "pass_count": 48,
       "failure_count": 0,
       "failures": []
+    },
+    {
+      "suite": "runtime_observation_conformance.mjs",
+      "lane": "runtime_observation",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 83,
+      "failure_count": 0,
+      "failures": []
     }
   ],
-  "total_conformance_checks": 688,
+  "total_conformance_checks": 771,
   "mutation_lock": {
     "result": "PASS",
-    "mutations": 37,
-    "killed": 37,
+    "mutations": 43,
+    "killed": 43,
     "survived": 0,
     "catalogue_errors": 0,
-    "modules_covered": 16,
+    "modules_covered": 18,
     "semantic_independence": "UNMET"
   },
   "frozen_bundle": {
@@ -114,10 +128,19 @@
     "rows": 13,
     "mismatches": []
   },
+  "runtime_observation": {
+    "run_id": "run-20260810151234762",
+    "surfaces_run": 8,
+    "surfaces_without_heartbeat": 3,
+    "edge_coverage": "76/76",
+    "declared_not_exercised": [],
+    "observed_not_declared": [],
+    "topology_is_one_to_one": true
+  },
   "topology": {
-    "modules": 19,
-    "import_edges": 70,
-    "digest": "6b4b57bcb7b731e2a0b58393f7c4c7225fd13d1a25d65db3c645b9b11ebf887f",
+    "modules": 21,
+    "import_edges": 76,
+    "digest": "81ef7dcbaa631ba008b63704787bdadcc1382940b0ec9cda06a6335e3162c4a7",
     "derived_from": {
       "module_edges": "parsed from import statements in kernel/*.mjs",
       "boundaries": "read from mcp_contract.OPERATIONS",
@@ -134,12 +157,14 @@
     "1C": "author_written_fixtures",
     "1D": "author_written_fixtures",
     "1E": "author_written_fixtures",
-    "D-P10-03": "author_written_fixtures"
+    "D-P10-03": "author_written_fixtures",
+    "runtime_observation": "author_written_fixtures"
   },
   "honest_limits": [
     "five of six lanes carry author-written fixtures; only the phase_1_0 substrate is judged against the independently reviewed frozen oracle",
     "the mutation lock is self-authored, so a rule wrong identically in code and fixtures survives it",
-    "no actual project material, UI, runtime, MCP execution, ERP writer or learned model was exercised"
+    "no actual project material, UI, MCP execution, ERP writer or learned model was exercised",
+    "a module load observation proves an edge was traversed, not that data was processed"
   ],
   "open_owner_decisions": {
     "closed": [
