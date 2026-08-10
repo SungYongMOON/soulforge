@@ -6318,6 +6318,7 @@ a:focus-visible {
   align-items: center; gap: 8px; min-height: 20px;
 }
 .fleet-limit-row.is-idle { opacity: 0.8; }
+.fleet-limit-row.is-stale { opacity: 0.68; }
 .fleet-limit-name b { font-size: 11.5px; color: #cdd7dc; font-weight: 600; }
 .fleet-gauge {
   position: relative; height: 8px; border-radius: 4px;

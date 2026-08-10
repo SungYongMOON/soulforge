@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 
 import {
   buildAntigravityQuotaSnapshot,
+  buildAntigravityQuotaStatus,
   normalizeAntigravityQuotaSnapshot,
   parseAntigravityQuotaResponse,
   staleAntigravityQuotaSnapshot,
@@ -48,6 +49,10 @@ async function agyProcessIds() {
   return pids;
 }
 
+async function antigravityAppRunning() {
+  return (await agyProcessIds()).size > 0;
+}
+
 async function candidatePorts() {
   const pids = await agyProcessIds();
   if (pids.size === 0) return [];
@@ -82,12 +87,14 @@ export function createAntigravityQuotaReader({
   ttlMs = DEFAULT_ANTIGRAVITY_QUOTA_TTL_MS,
   cachePath = DEFAULT_ANTIGRAVITY_QUOTA_CACHE_PATH,
   now = Date.now,
+  detectAppRunning = antigravityAppRunning,
 } = {}) {
   let inFlight = null;
   let lastAttemptAt = null;
   let lastGood = null;
   let knownPort = null;
   let cacheChecked = false;
+  let lastStatus = null;
   const readOnlyPilot = isTeamOpsBoardReadOnlyPilot(env);
   const liveRefreshEnabled = !readOnlyPilot && isAntigravityQuotaLiveRefreshEnabled(env);
 
@@ -140,6 +147,10 @@ export function createAntigravityQuotaReader({
     // without RPC, process inspection, or a cache write.
     await loadCacheOnce();
     if (!liveRefreshEnabled) {
+      lastStatus = buildAntigravityQuotaStatus({
+        appRunning: await detectAppRunning().catch(() => false),
+        observedAtMs: now(),
+      });
       retainLastGoodAsStale();
       return;
     }
@@ -169,7 +180,7 @@ export function createAntigravityQuotaReader({
     async readSnapshot() {
       await loadCacheOnce();
       const observedNow = now();
-      if (lastAttemptAt !== null && observedNow - lastAttemptAt < ttlMs) return lastGood;
+      if (lastAttemptAt !== null && observedNow - lastAttemptAt < ttlMs) return lastGood ?? lastStatus;
       if (inFlight === null) {
         lastAttemptAt = observedNow;
         const operation = refresh()
@@ -180,7 +191,7 @@ export function createAntigravityQuotaReader({
         inFlight = operation;
       }
       await inFlight;
-      return lastGood;
+      return lastGood ?? lastStatus;
     },
   };
 }

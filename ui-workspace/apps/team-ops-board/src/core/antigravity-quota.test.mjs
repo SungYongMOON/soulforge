@@ -5,10 +5,39 @@ import test from "node:test";
 
 import {
   ANTIGRAVITY_QUOTA_SCHEMA_VERSION,
+  ANTIGRAVITY_QUOTA_STATUS_SCHEMA_VERSION,
   antigravityQuotaRows,
   buildAntigravityQuotaSnapshot,
+  buildAntigravityQuotaStatus,
   parseAntigravityQuotaResponse,
+  quotaSeverityForRemaining,
 } from "./antigravity-quota.mjs";
+
+test("sanitized app status distinguishes running without exposing process details or quota", () => {
+  const status = buildAntigravityQuotaStatus({
+    appRunning: true,
+    observedAtMs: Date.parse("2026-08-10T12:00:00Z"),
+  });
+  assert.deepEqual(status, {
+    schema_version: ANTIGRAVITY_QUOTA_STATUS_SCHEMA_VERSION,
+    observed_at: "2026-08-10T12:00:00.000Z",
+    freshness: "current",
+    app_state: "running",
+    quota_state: "unknown",
+    reason: "app_running_source_unavailable",
+  });
+  assert.doesNotMatch(JSON.stringify(status), /pid|port|path|token|secret|credential/iu);
+  assert.equal("groups" in status, false);
+  assert.equal(buildAntigravityQuotaStatus({ appRunning: "yes" }), null);
+});
+
+test("remaining quota severity thresholds stay independent from freshness", () => {
+  assert.equal(quotaSeverityForRemaining(15), "crit");
+  assert.equal(quotaSeverityForRemaining(16), "warn");
+  assert.equal(quotaSeverityForRemaining(40), "warn");
+  assert.equal(quotaSeverityForRemaining(41), "ok");
+  assert.equal(quotaSeverityForRemaining(null), "idle");
+});
 
 const SAMPLE = {
   response: {

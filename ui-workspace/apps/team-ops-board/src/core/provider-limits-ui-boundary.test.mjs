@@ -61,7 +61,12 @@ test("official Claude quota row is independent of common Meter history and fails
   assert.doesNotMatch(source, /if \(!windows\) return null;/u);
   assert.match(source, /const week = windows\?\.calendar_week/u);
   assert.match(source, /key: "claude_official_status"[\s\S]*percent: null,[\s\S]*severity: "idle"/u);
-  assert.match(source, /severity: claudeQuota\.current \? severityFor[\s\S]*: "idle"/u);
+  assert.match(source, /severity: severityFor\(Number\(claudeFiveHour\.utilization\), false\),[\s\S]*stale: !claudeQuota\.current/u);
+  assert.match(source, /className=\{`fleet-limit-row is-\$\{row\.severity\}\$\{row\.stale \? " is-stale" : ""\}`\}/u);
+  assert.match(source, /data-freshness=\{row\.stale \? "stale" : "current"\}/u);
+  assert.match(source, /Antigravity 2\.0 실행 중 · 안전한 한도 원천 미연결/u);
+  assert.match(source, /schema_version === ANTIGRAVITY_QUOTA_SCHEMA_VERSION[\s\S]*freshness === "current"/u);
+  assert.doesNotMatch(source, /IDE 실행 시 갱신/u);
   assert.match(source, /claudeStatus\.state\.toUpperCase\(\)/u);
   assert.match(source, /마지막 성공 UNKNOWN/u);
   assert.match(source, /usage\?\.provider_evidence\?\.claude/u);

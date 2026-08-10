@@ -77,7 +77,12 @@ import {
 } from "./core/mobile-detail.mjs";
 import { buildTopologyStructuralPaths, buildTopologyViewModel } from "./core/topology-view.mjs";
 import { buildHostStatsViewModel } from "./core/host-stats.mjs";
-import { antigravityQuotaRows } from "./core/antigravity-quota.mjs";
+import {
+  ANTIGRAVITY_QUOTA_SCHEMA_VERSION,
+  ANTIGRAVITY_QUOTA_STATUS_SCHEMA_VERSION,
+  antigravityQuotaRows,
+  quotaSeverityForRemaining,
+} from "./core/antigravity-quota.mjs";
 import {
   buildOrganizationUsageChartRows,
   buildProjectUsageChartRows,
@@ -2499,7 +2504,8 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
   const windows = history?.windows ?? null;
   const claudeEvidence = usage?.provider_evidence?.claude ?? null;
   const claudeQuota = buildClaudeQuotaPresentation(providers?.limits ?? null);
-  const antigravityQuotaReady = providers?.antigravityQuota?.freshness === "fresh";
+  const antigravityQuotaReady = providers?.antigravityQuota?.schema_version === ANTIGRAVITY_QUOTA_SCHEMA_VERSION
+    && providers.antigravityQuota.freshness === "current";
   const providerObservationNote = `Claude 공식 한도 ${claudeQuota.current ? "READY" : "HOLD/UNKNOWN"} · Antigravity ${antigravityQuotaReady ? "READY" : "UNKNOWN/HOLD"}${providers?.refresh_state === "refreshing" ? " · 갱신 중" : ""}`;
   const dailyTokens = Array.isArray(history?.activity?.daily)
     ? history.activity.daily.map((row: any) => row.total_tokens ?? 0)
@@ -2528,12 +2534,9 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
 
   // ── 패널 1: 창별 남은 한도 게이지 (계정·창마다 리셋 시점이 다름을 그대로 노출)
   const limitRows: any[] = [];
-  const severityFor = (percent: number | null, idle: boolean): string => {
-    if (idle || percent === null) return "idle";
-    if (percent >= 85) return "crit";
-    if (percent >= 60) return "warn";
-    return "ok";
-  };
+  const severityFor = (percent: number | null, idle: boolean): string => idle || percent === null
+    ? "idle"
+    : quotaSeverityForRemaining(100 - percent);
   // 같은 등급(창)끼리 묶는다: 5시간 창 → 주간 창 → 크레딧. 계정별 리셋 시각 비교가 목적.
   const claudeOfficial = claudeQuota.claude;
   const claudeStatus = claudeQuota.status;
@@ -2554,7 +2557,8 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       group: "5시간 창",
       provider: "Claude",
       percent: Number(claudeFiveHour.utilization),
-      severity: claudeQuota.current ? severityFor(Number(claudeFiveHour.utilization), false) : "idle",
+      severity: severityFor(Number(claudeFiveHour.utilization), false),
+      stale: !claudeQuota.current,
       resetLabel: claudeResetLabel(fleetResetAtLabel(claudeFiveHour.resets_at ? Date.parse(claudeFiveHour.resets_at) : null)),
       note: `${claudeStatusNote} · 토큰·라이브·E2E 근거 아님`,
     });
@@ -2580,6 +2584,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       provider: "Codex",
       percent: expired ? null : used,
       severity: severityFor(used, expired),
+      stale: false,
       resetLabel: expired ? "리셋 경과" : fleetResetAtLabel(resetsMs),
       note: expired
         ? `이전 창 ${used.toFixed(0)}% (${fleetObservedAgoLabel(rateLimit.observed_at)}) — 새 Codex 턴 실행 시 재관측`
@@ -2592,7 +2597,8 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       group: "주간 창",
       provider: "Claude",
       percent: Number(claudeSevenDay.utilization),
-      severity: claudeQuota.current ? severityFor(Number(claudeSevenDay.utilization), false) : "idle",
+      severity: severityFor(Number(claudeSevenDay.utilization), false),
+      stale: !claudeQuota.current,
       resetLabel: claudeResetLabel(fleetResetAtLabel(claudeSevenDay.resets_at ? Date.parse(claudeSevenDay.resets_at) : null)),
       note: claudeStatusNote,
     });
@@ -2604,7 +2610,8 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       group: "주간 창",
       provider: `Claude·${modelWindow.label}`,
       percent: Number(modelWindow.utilization),
-      severity: claudeQuota.current ? severityFor(Number(modelWindow.utilization), false) : "idle",
+      severity: severityFor(Number(modelWindow.utilization), false),
+      stale: !claudeQuota.current,
       resetLabel: claudeResetLabel(fleetResetAtLabel(modelWindow.resets_at ? Date.parse(modelWindow.resets_at) : null)),
       note: `모델별 공식 창 · ${claudeStatusNote}`,
     });
@@ -2612,6 +2619,10 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
   // Antigravity 로컬 RPC의 그룹별 공식 잔여 쿼터 — 앱이 꺼지면 마지막 관측을 유지 표시한다.
   // 한도는 사용 시에만 소모되므로 과거 관측은 잔여 과소평가 방향(안전)이다.
   const agQuotaSnapshot = providers?.antigravityQuota ?? null;
+  const agQuotaStatus = agQuotaSnapshot?.schema_version === ANTIGRAVITY_QUOTA_STATUS_SCHEMA_VERSION
+    ? agQuotaSnapshot
+    : null;
+  const agAppRunning = agQuotaStatus?.app_state === "running";
   const agObservedMs = agQuotaSnapshot?.observed_at ? Date.parse(agQuotaSnapshot.observed_at) : NaN;
   const agStale = Number.isFinite(agObservedMs) && Date.now() - agObservedMs > 10 * 60_000;
   for (const quotaRow of antigravityQuotaRows(agQuotaSnapshot)) {
@@ -2635,7 +2646,8 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       group: quotaRow.window,
       provider: quotaRow.provider,
       percent: usedPercent,
-      severity: agStale ? "idle" : severityFor(usedPercent, false),
+      severity: quotaSeverityForRemaining(quotaRow.remaining_percent),
+      stale: agStale,
       resetLabel: `${fleetResetAtLabel(resetsMs)}${agStale ? ` · ${fleetObservedAgoLabel(agQuotaSnapshot.observed_at)}` : ""}`,
       note: "Antigravity 로컬 RPC 공식 잔여 쿼터",
     });
@@ -2649,10 +2661,27 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
       provider: "Antigravity",
       percent: null,
       severity: "idle",
-      resetLabel: antigravity.stale ? "IDE 실행 시 갱신" : fleetObservedAgoLabel(antigravity.observed_at),
+      resetLabel: antigravity.stale
+        ? (agAppRunning ? "숫자 한도 원천 미연결" : "앱 미감지 · 레거시 기록")
+        : fleetObservedAgoLabel(antigravity.observed_at),
       note: antigravity.stale
-        ? `현재값 관측 불가 — IDE 마지막 기록 ${fleetObservedAgoLabel(antigravity.observed_at).replace(" 관측", "")}: ${available ?? "—"} 크레딧`
+        ? (agAppRunning
+          ? `Antigravity 2.0 실행 중 · 안전한 한도 원천 미연결 · 레거시 IDE 기록 STALE (${fleetObservedAgoLabel(antigravity.observed_at).replace(" 관측", "")})`
+          : `Antigravity 앱 미감지 · 레거시 IDE 기록 STALE (${fleetObservedAgoLabel(antigravity.observed_at).replace(" 관측", "")})`)
         : `${available === null ? "—" : Number(available).toLocaleString("en-US")} 크레딧 남음 · 최소 단위 ${antigravity.credits.minimum_per_use ?? "—"}`,
+    });
+  } else if (agQuotaStatus !== null) {
+    limitRows.push({
+      key: "antigravity_status",
+      group: "크레딧",
+      provider: "Antigravity",
+      percent: null,
+      severity: "idle",
+      stale: false,
+      resetLabel: agAppRunning ? "숫자 한도 원천 미연결" : "앱 미감지",
+      note: agAppRunning
+        ? "Antigravity 2.0 실행 중 · 안전한 한도 원천 미연결"
+        : "Antigravity 앱 미감지 · 안전한 한도 원천 없음",
     });
   }
   const codexPlan = rateLimit?.plan_type ?? null;
@@ -2774,7 +2803,14 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
             return [
               <li key={`caption-${group}`} className="fleet-limit-caption" aria-hidden="true">{group}</li>,
               ...rows.map((row) => (
-                <li key={row.key} className={`fleet-limit-row is-${row.severity}`} title={row.note}>
+                <li
+                  key={row.key}
+                  className={`fleet-limit-row is-${row.severity}${row.stale ? " is-stale" : ""}`}
+                  data-severity={row.severity}
+                  data-freshness={row.stale ? "stale" : "current"}
+                  aria-label={`${row.provider} · ${row.severity === "crit" ? "위험" : row.severity === "warn" ? "주의" : row.severity === "ok" ? "양호" : "상태 미확인"}${row.stale ? " · STALE" : ""} · ${row.note}`}
+                  title={`${row.stale ? "STALE · " : ""}${row.note}`}
+                >
                   <span className="fleet-limit-name"><b>{row.provider}</b></span>
                   {row.percent === null ? (
                     <span className="fleet-limit-note-solo">{row.note}</span>

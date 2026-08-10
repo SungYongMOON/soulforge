@@ -2,6 +2,7 @@
 // Groups stay dynamic: this layer never invents a fixed provider-window map.
 
 export const ANTIGRAVITY_QUOTA_SCHEMA_VERSION = "soulforge.team_ops_board_antigravity_quota.v1";
+export const ANTIGRAVITY_QUOTA_STATUS_SCHEMA_VERSION = "soulforge.team_ops_board_antigravity_quota_status.v1";
 
 const KNOWN_WINDOWS = new Set(["weekly", "5h"]);
 const FRESHNESS = new Set(["current", "stale"]);
@@ -14,6 +15,26 @@ const MAX_BUCKETS = 8;
 
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function buildAntigravityQuotaStatus({ appRunning = false, observedAtMs = Date.now() } = {}) {
+  if (typeof appRunning !== "boolean" || !Number.isFinite(observedAtMs)) return null;
+  return {
+    schema_version: ANTIGRAVITY_QUOTA_STATUS_SCHEMA_VERSION,
+    observed_at: new Date(observedAtMs).toISOString(),
+    freshness: "current",
+    app_state: appRunning ? "running" : "absent",
+    quota_state: "unknown",
+    reason: appRunning ? "app_running_source_unavailable" : "app_absent",
+  };
+}
+
+export function quotaSeverityForRemaining(remainingPercent) {
+  if (typeof remainingPercent !== "number" || !Number.isFinite(remainingPercent)
+    || remainingPercent < 0 || remainingPercent > 100) return "idle";
+  if (remainingPercent <= 15) return "crit";
+  if (remainingPercent <= 40) return "warn";
+  return "ok";
 }
 
 function safeLabel(value, max = 48) {
