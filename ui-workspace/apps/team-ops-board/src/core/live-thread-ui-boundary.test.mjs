@@ -204,7 +204,7 @@ test("usage distribution paints every declared column tone", () => {
   }
 });
 
-test("fifteen-day usage chart separates exact provider tokens without duplicate visible controls", () => {
+test("thirty-day usage chart separates exact provider tokens with readable responsive controls", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const css = readFileSync(CSS_PATH, "utf8");
   assert.match(source, /Meter credits · 동일 축/u);
@@ -213,20 +213,25 @@ test("fifteen-day usage chart separates exact provider tokens without duplicate 
   assert.match(source, /fleet-credit-area/u);
   assert.match(source, /role="tooltip"/u);
   assert.match(source, /fleet-token-hit-grid/u);
-  assert.match(source, /providerDaily\.length === 15/u);
+  assert.match(source, /providerDaily\.length === 30/u);
+  assert.match(source, /monotoneAreaPath\(upperPoints, lowerPoints\)/u);
+  assert.match(source, /index % 5 === 0/u);
+  assert.match(source, /index % 2 === 0/u);
   assert.match(source, /\.total_tokens \?\? null/u);
   assert.match(source, /\.token_unknown_turns \?\? 0/u);
   assert.match(source, /토큰 미기록 \$\{series\.unknownTurns\[index\]\}회/u);
   assert.match(source, /합계\(기록분\)/u);
   assert.doesNotMatch(source, /fleet-credit-day-controls/u);
-  assert.match(source, /Claude Desktop\/앱 및 계정 전체 token은 안전한 정확 메타데이터가 없어 포함하지 않습니다/u);
   assert.match(source, /event\.key === "Escape"/u);
   assert.match(source, /onFocus=\{\(\) => setCreditChartIndex\(index\)\}/u);
   assert.match(source, /event\.currentTarget !== document\.activeElement/u);
+  assert.match(source, /totalsFoot = "[^"]*30[^"]*"/u);
+  assert.match(css, /height:\s*clamp\(280px,\s*21vw,\s*420px\)/u);
+  assert.match(css, /grid-template-columns:\s*repeat\(30,/u);
   assert.match(source, /pending \? "사용량 불러오는 중"/u);
   assert.match(source, /Meter credit/u);
   assert.match(source, /cache: "no-store"/u);
-  assert.match(source, /Claude 공식 한도 \$\{claudeQuota\.current \? "READY" : "HOLD\/UNKNOWN"\}/u);
+  assert.match(source, /Claude \$\{claudeObservationState\}/u);
   assert.match(source, /Antigravity \$\{antigravityQuotaReady \? "READY" : "UNKNOWN\/HOLD"\}/u);
   assert.match(source, /Codex, Claude, Antigravity Gemini Meter credit 비교/u);
   for (const provider of ["codex", "claude", "antigravity"]) {

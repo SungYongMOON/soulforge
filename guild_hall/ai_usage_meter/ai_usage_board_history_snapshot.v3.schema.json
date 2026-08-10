@@ -33,8 +33,8 @@
     },
     "provider_daily": {
       "type": "array",
-      "minItems": 15,
-      "maxItems": 15,
+      "minItems": 30,
+      "maxItems": 30,
       "items": { "$ref": "#/$defs/provider_daily_row" }
     },
     "claude_collection": { "$ref": "#/$defs/claude_collection" }

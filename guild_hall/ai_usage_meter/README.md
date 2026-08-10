@@ -288,7 +288,7 @@ envelope with one of `observed`, `available_empty`, `missing`, `partial`,
 `freshness_threshold_seconds`, a freshness result, and safe counts only. It
 proves only a Claude collector attempt/source observation. It never proves
 provider availability, health, live or E2E status, aggregate health, or ledger
-freshness. `provider_daily` is a fixed 15-day KST series. Each provider entry
+freshness. `provider_daily` is a fixed 30-day KST series. Each provider entry
 carries nullable exact `total_tokens` separately from nullable Meter `credits`.
 `token_unknown_turns` distinguishes request-count-only events from a date with
 no provider event; neither state is projected as zero exact tokens.

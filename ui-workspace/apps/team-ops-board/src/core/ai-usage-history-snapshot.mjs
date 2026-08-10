@@ -470,7 +470,7 @@ function normalizeHistorySnapshot(input) {
     if (evidence === null) return invalidProjection();
     history.provider_rows = rows;
     if (Object.hasOwn(input, "provider_daily")) {
-      if (!Array.isArray(input.provider_daily) || input.provider_daily.length !== 15) return invalidProjection();
+      if (!Array.isArray(input.provider_daily) || input.provider_daily.length !== 30) return invalidProjection();
       const daily = input.provider_daily.map((row) => {
         if (!hasExactKeys(row, PROVIDER_DAILY_ROW_KEYS) || !KST_DATE.test(row.date)
           || !Array.isArray(row.providers) || row.providers.length !== PROVIDER_ORDER.length) return null;

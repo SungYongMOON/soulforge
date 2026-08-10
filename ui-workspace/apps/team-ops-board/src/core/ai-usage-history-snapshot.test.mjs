@@ -137,12 +137,12 @@ function historyFixture() {
     provider_rows: [
       { provider: "claude", turns: 1, total_tokens: 50, latest_usage_at: "2026-08-04T00:59:00.000Z" }
     ],
-    provider_daily: Array.from({ length: 15 }, (_, index) => ({
-      date: `2026-07-${String(21 + index).padStart(2, "0")}`.replace("2026-07-32", "2026-08-01").replace("2026-07-33", "2026-08-02").replace("2026-07-34", "2026-08-03").replace("2026-07-35", "2026-08-04"),
+    provider_daily: Array.from({ length: 30 }, (_, index) => ({
+      date: new Date(Date.parse("2026-07-06T00:00:00Z") + index * 86_400_000).toISOString().slice(0, 10),
       providers: [
         { provider: "codex", total_tokens: null, token_unknown_turns: 0, credits: null, credit_unknown_turns: 0 },
-        { provider: "claude", total_tokens: index === 14 ? 50 : null, token_unknown_turns: 0, credits: null, credit_unknown_turns: index === 14 ? 1 : 0 },
-        { provider: "antigravity", total_tokens: null, token_unknown_turns: index === 13 ? 3 : 0, credits: null, credit_unknown_turns: 0 },
+        { provider: "claude", total_tokens: index === 29 ? 50 : null, token_unknown_turns: 0, credits: null, credit_unknown_turns: index === 29 ? 1 : 0 },
+        { provider: "antigravity", total_tokens: null, token_unknown_turns: index === 28 ? 3 : 0, credits: null, credit_unknown_turns: 0 },
       ],
     })),
     claude_collection: claudeCollectionFixture()
@@ -156,7 +156,7 @@ test("AI usage history projection accepts strict KST windows and reconciled exac
   assert.equal(projection.history?.timezone, "Asia/Seoul");
   assert.equal(projection.history?.windows.all_time.breakdowns.tasks.top[0].task_id, "task-a");
   assert.equal(projection.history?.windows.all_time.breakdowns.models.top[0].model_id, "gpt-5.6-terra");
-  assert.equal(projection.history?.provider_daily.length, 15);
+  assert.equal(projection.history?.provider_daily.length, 30);
   assert.equal(projection.history?.provider_daily.at(-1).providers[1].total_tokens, 50);
   assert.equal(projection.history?.provider_daily.at(-2).providers[2].token_unknown_turns, 3);
   assert.deepEqual(projection.history?.windows.all_time.totals, METRICS);

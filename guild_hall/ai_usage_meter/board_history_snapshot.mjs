@@ -291,8 +291,8 @@ function buildProviderRows(observations) {
 
 function buildProviderDaily(observations, referenceAt) {
   const end = addKstDays(calendarDayStart(referenceAt), 1);
-  const start = addKstDays(end, -15);
-  const dates = Array.from({ length: 15 }, (_, index) => {
+  const start = addKstDays(end, -30);
+  const dates = Array.from({ length: 30 }, (_, index) => {
     const parts = localKstParts(addKstDays(start, index));
     return `${parts.year}-${String(parts.month + 1).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
   });
@@ -317,7 +317,7 @@ function buildProviderDaily(observations, referenceAt) {
 }
 
 function parseProviderDaily(value) {
-  if (!Array.isArray(value) || value.length !== 15) fail("board_usage_history_provider_daily_invalid");
+  if (!Array.isArray(value) || value.length !== 30) fail("board_usage_history_provider_daily_invalid");
   return value.map((row) => {
     if (!hasExactKeys(row, PROVIDER_DAILY_ROW_KEYS) || !KST_DATE.test(row.date) || !Array.isArray(row.providers)
       || row.providers.length !== BOARD_USAGE_PROVIDERS.length) fail("board_usage_history_provider_daily_invalid");

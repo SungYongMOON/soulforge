@@ -113,11 +113,11 @@ test("Claude token presentation consumes normalized provider evidence without mo
   const css = readFileSync(CSS_PATH, "utf8");
   assert.match(source, /usage\?\.provider_evidence\?\.claude/u);
   assert.match(source, /"ledger_fresh", "ledger_stale", "validated_empty"/u);
-  assert.match(source, /Claude 원장 마지막 확인/u);
-  assert.match(source, /STALE · 원장 근거/u);
+  assert.match(source, /Claude \$\{fleetTokenLabel\(claudeEvidence\.total_tokens\)\} tok/u);
+  assert.match(source, /ledger_stale/u);
   assert.match(source, /data-ledger-freshness/u);
-  assert.match(source, /claude-collection-attempt/u);
-  assert.match(source, /provider health·live·E2E·current 근거 아님/u);
+  assert.doesNotMatch(source, /fleet-claude-collection-attempt/u);
+  assert.doesNotMatch(source, /provider health·live·E2E·current 근거 아님/u);
   assert.match(css, /\.fleet-claude-ledger-evidence\.is-stale/u);
   assert.equal(source.includes("claudeRecon"), false);
   assert.equal(source.includes("estimateClaudeUsdCost"), false);
