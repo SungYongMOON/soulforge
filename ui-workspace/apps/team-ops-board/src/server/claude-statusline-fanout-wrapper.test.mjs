@@ -1,8 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import path from "node:path";
 import { PassThrough } from "node:stream";
 import { runClaudeStatuslineFanoutWrapper } from "./claude-statusline-fanout-wrapper.mjs";
+
+const RECEIPT_PATH = path.resolve("test-fixtures", "provider_quota.receipt.v1.json");
 
 test("status-line wrapper preserves the structured stdin for the existing renderer", async () => {
   const input = Buffer.from('{"rate_limits":{}}');
@@ -16,7 +19,7 @@ test("status-line wrapper preserves the structured stdin for the existing render
     return child;
   };
   const code = await runClaudeStatuslineFanoutWrapper({
-    argv: ["--receipt-path", "C:\\safe\\provider_quota.receipt.v1.json", "--next-command-base64", Buffer.from("existing-renderer").toString("base64url")],
+    argv: ["--receipt-path", RECEIPT_PATH, "--next-command-base64", Buffer.from("existing-renderer").toString("base64url")],
     stdin: [input], stdout: new PassThrough(), spawnImpl,
   });
   assert.equal(code, 0);
