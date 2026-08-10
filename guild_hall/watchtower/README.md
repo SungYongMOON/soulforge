@@ -87,6 +87,16 @@ Antigravity DB ────────────> usage_antigravity_collector
   Watchtower는 오른쪽으로 `판정 스냅샷`만 내보낸다. 이 간선은 검사·표시
   관계이며 self-heal이나 복구 권한을 뜻하지 않는다.
 
+## Board runtime 분리
+
+- Board의 HTTP refresh는 항상 `probe --no-write`로 읽기 전용이다. 정식 Board runtime의 기존
+  5분 producer companion만 별도 `probe --pointer ... --json`을 실행해 로컬 snapshot을 원자적으로
+  갱신한다. 새 scheduler를 만들지 않으며 pointer/binding 부재나 probe 실패는 다음 주기에 재시도되는
+  partial 상태다.
+- snapshot의 `edge_delivery`와 각 edge의 `delivery`가 선언 구조와 윈도 내 전달 영수증을 분리한다.
+  future topology producer도 같은 allowlisted receipt contract를 사용해야 하며 node health로 edge를
+  승격할 수 없다.
+
 ## 검증
 
 ```bash

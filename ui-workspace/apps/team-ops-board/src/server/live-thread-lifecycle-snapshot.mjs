@@ -177,6 +177,9 @@ export function projectLifecycleSnapshotRuntime({
     const threadId = exactEnrolledThreadId(identity, enrolledThreadIds);
     if (!threadId) continue;
     matchedThreadIds.add(threadId);
+    // Input-only evidence is not a running signal and must not erase an older
+    // actionable start/wait/stop observation merely because it is newer.
+    if (!(identity.lifecycle_state in LIFECYCLE_RUNTIME_STATUS)) continue;
     const previous = selectedByThreadId.get(threadId);
     if (!previous || compareLatestIdentity(identity, previous) > 0) {
       selectedByThreadId.set(threadId, identity);

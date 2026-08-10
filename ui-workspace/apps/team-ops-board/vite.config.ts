@@ -1,5 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createAiUsageAdapterPlugin } from "./src/server/ai-usage-adapter.mjs";
 import { createAntigravityQuotaAdapterPlugin } from "./src/server/antigravity-quota-adapter.mjs";
 import { createAntigravityUsageAdapterPlugin } from "./src/server/antigravity-usage-adapter.mjs";
@@ -17,6 +19,18 @@ import { resolveTeamOpsBoardAllowedHosts } from "./src/server/team-ops-board-all
 const boardEnvironment = createTeamOpsBoardRuntimeEnvironment();
 const boardTopologyOptions = createTeamOpsBoardTopologyOptions(boardEnvironment);
 const boardAllowedHosts = resolveTeamOpsBoardAllowedHosts();
+const boardRoot = path.dirname(fileURLToPath(import.meta.url));
+const soulforgeRoot = path.resolve(boardRoot, "../../..");
+const providerQuotaReceiptPath = path.join(
+  soulforgeRoot,
+  "guild_hall",
+  "state",
+  "operations",
+  "provider_quota",
+  "claude",
+  "statusline",
+  "provider_quota.receipt.v1.json",
+);
 
 export default defineConfig({
   plugins: [
@@ -28,7 +42,7 @@ export default defineConfig({
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),
     createAntigravityQuotaAdapterPlugin({ env: boardEnvironment }),
-    createProviderLimitsAdapterPlugin({ env: boardEnvironment })
+    createProviderLimitsAdapterPlugin({ env: boardEnvironment, providerQuotaReceiptPath })
   ],
   server: {
     host: "127.0.0.1",

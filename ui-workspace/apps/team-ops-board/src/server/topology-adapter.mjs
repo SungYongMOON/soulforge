@@ -33,7 +33,7 @@ const MAX_NODES = 500;
 const MAX_EDGES = 2_000;
 const MAX_TEXT_LENGTH = 256;
 const MAX_REASON_COUNT = 64;
-const ROOT_KEYS = new Set(["schema_version", "observed_at", "summary", "nodes", "edges"]);
+const ROOT_KEYS = new Set(["schema_version", "observed_at", "summary", "nodes", "edges", "edge_delivery"]);
 const SUMMARY_KEYS = new Set(TOPOLOGY_HEALTH_STATES);
 const NODE_REQUIRED_KEYS = new Set(["id", "label", "kind", "group", "col", "row", "health"]);
 const NODE_KEYS = new Set([
@@ -41,7 +41,18 @@ const NODE_KEYS = new Set([
 ]);
 const HEALTH_KEYS = new Set(["state", "reasons", "age_seconds"]);
 const EDGE_REQUIRED_KEYS = new Set(["from", "to", "label", "flow"]);
-const EDGE_KEYS = new Set([...EDGE_REQUIRED_KEYS, "scope"]);
+// receipt/unreceipted_reason 은 간선이 전달 근거를 가졌는지를 나른다. 화면이 근거 없는 선을
+// 전달로 그리지 않으려면 이 필드가 투영을 통과해야 한다.
+const EDGE_KEYS = new Set([...EDGE_REQUIRED_KEYS, "scope", "receipt", "unreceipted_reason", "delivery"]);
+const EDGE_UNRECEIPTED_REASON_SET = new Set([
+  "receipt_channel_absent", "probe_observation_only", "structural_only",
+]);
+const EDGE_DELIVERY_STATE_SET = new Set([
+  "delivering", "late", "stale", "failed", "registered_no_delivery", "unreceipted",
+]);
+const EDGE_DELIVERY_SUMMARY_KEYS = new Set([
+  "counts", "total", "delivery_proven", "delivery_unproven", "claim",
+]);
 const NODE_KIND_SET = new Set(TOPOLOGY_NODE_KINDS);
 const HEALTH_STATE_SET = new Set(TOPOLOGY_HEALTH_STATES);
 const EDGE_FLOW_SET = new Set(TOPOLOGY_EDGE_FLOWS);
@@ -265,15 +276,42 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
     if (!nodeIds.has(nodeId)) throw new Error("topology_snapshot_protected_node_missing");
   }
   const edgeIds = new Set();
+  const deliveryCounts = Object.fromEntries([...EDGE_DELIVERY_STATE_SET].map((state) => [state, 0]));
   for (const edge of snapshot.edges) {
+    const delivery = edge?.delivery;
     if (!isPlainObject(edge) || !hasRequiredAllowedKeys(edge, EDGE_REQUIRED_KEYS, EDGE_KEYS)
       || !validText(edge.from) || !validText(edge.to)
       || !validText(edge.label, { allowEmpty: true })
       || !EDGE_FLOW_SET.has(edge.flow)
+      || !Object.hasOwn(edge, "receipt")
       || (edge.scope !== undefined && (!EDGE_SCOPE_SET.has(edge.scope)
-        || edge.flow !== "control" || edge.to !== "watchtower_self"))) {
+        || edge.flow !== "control" || edge.to !== "watchtower_self"))
+      // 근거가 있다고 주장하려면 키 형식이 맞아야 하고, 없다고 하려면 사유를 대야 한다.
+      || (edge.receipt !== undefined && edge.receipt !== null && !validText(edge.receipt))
+      || (edge.receipt === null && !EDGE_UNRECEIPTED_REASON_SET.has(edge.unreceipted_reason))
+      || (typeof edge.receipt === "string" && edge.unreceipted_reason !== undefined)
+      || !isPlainObject(delivery)
+      || !EDGE_DELIVERY_STATE_SET.has(delivery.state)
+      || typeof delivery.proves_delivery !== "boolean"
+      || (delivery.proves_delivery !== (delivery.state === "delivering" || delivery.state === "late"))
+      || (delivery.age_seconds !== undefined && (!Number.isSafeInteger(delivery.age_seconds) || delivery.age_seconds < 0))
+      || (delivery.reason !== undefined && !validText(delivery.reason))) {
       throw new Error("topology_snapshot_edge_invalid");
     }
+    if (edge.receipt === null
+      && (delivery.state !== "unreceipted" || delivery.reason !== edge.unreceipted_reason)) {
+      throw new Error("topology_snapshot_edge_delivery_mismatch");
+    }
+    if (typeof edge.receipt === "string"
+      && (delivery.state === "unreceipted"
+        || ((delivery.state === "delivering" || delivery.state === "late" || delivery.state === "stale")
+          && !Number.isSafeInteger(delivery.age_seconds))
+        || (delivery.state === "registered_no_delivery" && delivery.reason !== "no_receipt_observed")
+        || (delivery.state === "failed" && typeof delivery.reason !== "string")
+        || (delivery.state === "stale" && delivery.reason !== "receipt_outside_window"))) {
+      throw new Error("topology_snapshot_edge_delivery_mismatch");
+    }
+    deliveryCounts[delivery.state] += 1;
     if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) {
       throw new Error("topology_snapshot_edge_dangling");
     }
@@ -293,6 +331,17 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
     const edgeId = `${edge.from}\u0000${edge.to}\u0000${edge.flow}`;
     if (edgeIds.has(edgeId)) throw new Error("topology_snapshot_edge_duplicate");
     edgeIds.add(edgeId);
+  }
+  if (!isPlainObject(snapshot.edge_delivery)
+    || !hasRequiredAllowedKeys(snapshot.edge_delivery, EDGE_DELIVERY_SUMMARY_KEYS, EDGE_DELIVERY_SUMMARY_KEYS)
+    || !isPlainObject(snapshot.edge_delivery.counts)
+    || Object.keys(snapshot.edge_delivery.counts).length !== EDGE_DELIVERY_STATE_SET.size
+    || [...EDGE_DELIVERY_STATE_SET].some((state) => snapshot.edge_delivery.counts[state] !== deliveryCounts[state])
+    || snapshot.edge_delivery.total !== snapshot.edges.length
+    || snapshot.edge_delivery.delivery_proven !== deliveryCounts.delivering + deliveryCounts.late
+    || snapshot.edge_delivery.delivery_unproven !== snapshot.edges.length - snapshot.edge_delivery.delivery_proven
+    || !validText(snapshot.edge_delivery.claim)) {
+    throw new Error("topology_snapshot_edge_delivery_summary_invalid");
   }
   for (const state of TOPOLOGY_HEALTH_STATES) {
     if (!Number.isSafeInteger(snapshot.summary[state]) || snapshot.summary[state] < 0
@@ -319,7 +368,9 @@ export function runWatchtowerProbe({
     };
     let child;
     try {
-      child = spawnImpl(process.execPath, [WATCHTOWER_CLI_PATH, "probe", "--binding", bindingPath, "--json"], {
+      // --no-write: 보드는 읽기 표면이다. stdout 만 쓰므로 CLI 가 공유 런타임 스냅샷을 덮어쓸
+      // 이유가 없고, 덮어쓰면 새로고침 한 번이 다른 체크아웃이 서빙 중인 상태를 바꿀 수 있다.
+      child = spawnImpl(process.execPath, [WATCHTOWER_CLI_PATH, "probe", "--binding", bindingPath, "--json", "--no-write"], {
         windowsHide: true,
         stdio: ["ignore", "pipe", "ignore"],
       });
@@ -409,6 +460,15 @@ export function createTopologyAdapter({
   let lastSuccessAt = null;
   let lastFailureAt = null;
   let lastRefreshFailed = false;
+  let lastFailureCode = null;
+
+  // 실패 사유를 코드 형태로만 통과시킨다. 원문 메시지에는 경로가 섞일 수 있으므로 그대로
+  // 투영하지 않는다.
+  const SAFE_FAILURE_CODE = /^[a-z][a-z0-9_]{0,127}$/u;
+  function safeFailureCode(error) {
+    const raw = typeof error?.message === "string" ? error.message : "";
+    return SAFE_FAILURE_CODE.test(raw) ? raw : "refresh_failed_unclassified";
+  }
 
   async function readPilotSnapshot() {
     const observedNow = now();
@@ -422,9 +482,12 @@ export function createTopologyAdapter({
         snapshot_age_seconds: ageSeconds(parseExactTimestamp(snapshot.observed_at), observedNow),
         reason: "snapshot_only",
       });
-    } catch {
+    } catch (error) {
       lastFailureAt = observedNow;
       lastRefreshFailed = true;
+      // 이 경로도 사유를 남긴다. reason 은 어느 범주인지만 말하고, 실제로 무엇이 실패했는지는
+      // 이 코드가 말한다. 둘 다 없으면 운영자가 조치를 고를 수 없다.
+      lastFailureCode = safeFailureCode(error);
       return envelope(lastGood === null ? "unconfigured" : "stale", lastGood, {
         ...refreshMetadata(observedNow),
         snapshot_age_seconds: lastGood === null
@@ -439,6 +502,9 @@ export function createTopologyAdapter({
     return {
       last_success_age_seconds: ageSeconds(lastSuccessAt, observedNow),
       last_failure_age_seconds: ageSeconds(lastFailureAt, observedNow),
+      // 사유를 버리면 화면이 stale 이라고만 말하고 왜인지 못 댄다. 그 상태로는 운영자가
+      // 고칠 수도, 무시해도 되는지 판단할 수도 없다.
+      last_failure_code: lastFailureCode,
     };
   }
 
@@ -455,11 +521,13 @@ export function createTopologyAdapter({
         lastGood = validateTopologyHealthSnapshot(snapshot, { now: now() });
         lastSuccessAt = now();
         lastRefreshFailed = false;
+        lastFailureCode = null;
         return "ready";
       })
-      .catch(() => {
+      .catch((error) => {
         lastFailureAt = now();
         lastRefreshFailed = true;
+        lastFailureCode = safeFailureCode(error);
         return "hold";
       })
       .finally(() => {
@@ -482,6 +550,8 @@ export function createTopologyAdapter({
         if (lastGood !== null) {
           lastFailureAt = observedNow;
           lastRefreshFailed = true;
+          // 이 경로도 사유를 남긴다. probe 실패와 pointer 해석 실패는 조치가 다르다.
+          lastFailureCode = "binding_unresolved";
           return envelope("stale", lastGood, refreshMetadata(observedNow));
         }
         return envelope("unconfigured", null, refreshMetadata(observedNow));

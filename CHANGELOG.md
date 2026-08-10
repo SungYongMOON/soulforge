@@ -63,7 +63,27 @@
 - Phase 1–4 baseline is `deterministic_only`. No learned model invocation, no
   embedding or reranker on the authoritative path, no runtime, no UI, no ERP
   writer, and no actual project access were added.
+## 2026-08-10 - Board runtime idle persistence and active Codex collection
 
+- Prevented the canonical Windows scheduled runtime from being stopped when
+  workstation idle ends by requiring `IdleSettings.StopOnIdleEnd=false` in the
+  exact task contract and registration surface.
+- Kept the completed-session Codex sweep unchanged, then added a separately
+  isolated `--include-active` collection for exact lifecycle-started session
+  files observed within 15 minutes. One conflicting active session now remains
+  fail-closed without blocking forward collection from other active sessions.
+
+## 2026-08-10 - Board 15-day exact provider token history
+
+- Extended the sanitized Meter provider-day projection from 7 credit-only days
+  to 15 KST days with nullable exact local token totals per provider. The Board
+  chart now uses those token observations only and labels missing local evidence
+  explicitly. Request-count-only events carry an exact unknown-token count and
+  are excluded from token totals; quota percentages, requests, and credits are
+  never converted into token series.
+- Claude coverage remains Claude Code local ledger evidence. Claude Desktop/app
+  and account-wide token totals stay unavailable because the authorized OAuth
+  usage surface supplies quota windows, not exact token usage.
 ## 2026-08-10 - AI usage meter quarantine-aware backfill planner
 
 - Added a deterministic, read-only backfill plan that separates candidate,

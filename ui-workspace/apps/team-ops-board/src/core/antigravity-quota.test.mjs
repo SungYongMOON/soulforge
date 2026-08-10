@@ -5,10 +5,94 @@ import test from "node:test";
 
 import {
   ANTIGRAVITY_QUOTA_SCHEMA_VERSION,
+  ANTIGRAVITY_QUOTA_STATUS_SCHEMA_VERSION,
   antigravityQuotaRows,
   buildAntigravityQuotaSnapshot,
+  buildAntigravityQuotaStatus,
   parseAntigravityQuotaResponse,
+  parseAntigravityAccessibilityNames,
+  quotaSeverityForRemaining,
 } from "./antigravity-quota.mjs";
+
+const ACCESSIBILITY_NAMES = [
+  "Gemini Models",
+  "Weekly Limit Remaining",
+  "Resets 2026-08-14T09:05:32Z",
+  "96%",
+  "Five Hour Limit Remaining",
+  "100%",
+  "Claude and GPT models",
+  "Weekly Limit Remaining",
+  "Resets 2026-08-14T09:05:32Z",
+  "97%",
+  "Five Hour Limit Remaining",
+  "100%",
+];
+
+test("visible accessibility quota sequence produces exactly two sanitized groups", () => {
+  const groups = parseAntigravityAccessibilityNames(ACCESSIBILITY_NAMES, {
+    nowMs: Date.parse("2026-08-10T12:00:00Z"),
+  });
+  assert.deepEqual(groups, [
+    { label: "Gemini Models", buckets: [
+      { window: "weekly", remaining_fraction: 0.96, resets_at: "2026-08-14T09:05:32.000Z" },
+      { window: "5h", remaining_fraction: 1, resets_at: null },
+    ] },
+    { label: "Claude and GPT models", buckets: [
+      { window: "weekly", remaining_fraction: 0.97, resets_at: "2026-08-14T09:05:32.000Z" },
+      { window: "5h", remaining_fraction: 1, resets_at: null },
+    ] },
+  ]);
+  assert.doesNotMatch(JSON.stringify(groups), /csrf|cookie|credential|token|pid|port|path/iu);
+});
+
+test("visible accessibility sequence may omit an inaccessible reset sentence without inventing it", () => {
+  const names = ACCESSIBILITY_NAMES.filter((value) => !value.startsWith("Resets "));
+  const groups = parseAntigravityAccessibilityNames(names, {
+    nowMs: Date.parse("2026-08-10T12:00:00Z"),
+  });
+  assert.equal(groups[0].buckets[0].remaining_fraction, 0.96);
+  assert.equal(groups[0].buckets[0].resets_at, null);
+  assert.equal(groups[1].buckets[0].remaining_fraction, 0.97);
+});
+
+test("accessibility quota sequence fails closed on ambiguity, missing values, and order changes", () => {
+  const options = { nowMs: Date.parse("2026-08-10T12:00:00Z") };
+  assert.equal(parseAntigravityAccessibilityNames([...ACCESSIBILITY_NAMES, ...ACCESSIBILITY_NAMES], options), null);
+  assert.equal(parseAntigravityAccessibilityNames(ACCESSIBILITY_NAMES.slice(0, -1), options), null);
+  const reordered = [...ACCESSIBILITY_NAMES];
+  [reordered[1], reordered[4]] = [reordered[4], reordered[1]];
+  assert.equal(parseAntigravityAccessibilityNames(reordered, options), null);
+  const poisoned = [...ACCESSIBILITY_NAMES];
+  poisoned[3] = "101%";
+  assert.equal(parseAntigravityAccessibilityNames(poisoned, options), null);
+});
+
+test("sanitized app status distinguishes running without exposing process details or quota", () => {
+  const status = buildAntigravityQuotaStatus({
+    appRunning: true,
+    observedAtMs: Date.parse("2026-08-10T12:00:00Z"),
+  });
+  assert.deepEqual(status, {
+    schema_version: ANTIGRAVITY_QUOTA_STATUS_SCHEMA_VERSION,
+    observed_at: "2026-08-10T12:00:00.000Z",
+    freshness: "current",
+    app_state: "running",
+    quota_state: "unknown",
+    reason: "app_running_source_unavailable",
+  });
+  assert.doesNotMatch(JSON.stringify(status), /pid|port|path|token|secret|credential/iu);
+  assert.equal("groups" in status, false);
+  assert.equal(buildAntigravityQuotaStatus({ appRunning: "yes" }), null);
+});
+
+test("remaining quota severity thresholds stay independent from freshness", () => {
+  assert.equal(quotaSeverityForRemaining(15), "crit");
+  assert.equal(quotaSeverityForRemaining(16), "warn");
+  assert.equal(quotaSeverityForRemaining(40), "warn");
+  assert.equal(quotaSeverityForRemaining(41), "ok");
+  assert.equal(quotaSeverityForRemaining(null), "idle");
+});
 
 const SAMPLE = {
   response: {

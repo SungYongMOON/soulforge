@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const SRC_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const MAIN_PATH = join(SRC_ROOT, "main.tsx");
 const RESPONSIVE_CSS_PATH = join(SRC_ROOT, "team-ops-responsive.css");
+const BASE_CSS_PATH = join(SRC_ROOT, "team-ops.css");
 
 test("responsive Board stylesheet loads after the base stylesheet", () => {
   const source = readFileSync(MAIN_PATH, "utf8");
@@ -16,6 +17,14 @@ test("responsive Board stylesheet loads after the base stylesheet", () => {
   assert.notEqual(baseImport, -1);
   assert.notEqual(responsiveImport, -1);
   assert.ok(responsiveImport > baseImport);
+});
+
+test("quota metadata remains contained inside each usage card", () => {
+  const css = readFileSync(BASE_CSS_PATH, "utf8");
+  assert.match(css, /\.fleet-usage-card\s*\{[^}]*min-width:\s*0;[^}]*overflow:\s*hidden;/su);
+  assert.match(css, /\.fleet-limit-row\s*\{[^}]*min-width:\s*0;/su);
+  assert.match(css, /\.fleet-limit-reset\s*\{[^}]*white-space:\s*normal;[^}]*overflow-wrap:\s*anywhere;/su);
+  assert.match(css, /\.fleet-panel-foot\s*\{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere;/su);
 });
 
 test("Fleet status rows use a bounded responsive grid without fixed mobile minimums", () => {

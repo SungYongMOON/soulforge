@@ -5866,6 +5866,8 @@ a:focus-visible {
 }
 .watchtower-edge-data .react-flow__edge-path { stroke: #617986; stroke-width: 1.35; }
 .watchtower-edge-control .react-flow__edge-path { stroke: #56a88f; stroke-width: 1.2; stroke-dasharray: 6 5; }
+.watchtower-surface .react-flow__edge.is-unreceipted { opacity: 0.46; }
+.watchtower-surface .react-flow__edge.is-receipted .react-flow__edge-path { stroke: #58c9a6; stroke-width: 2; }
 .watchtower-edge-control .react-flow__edge-text { fill: #79bda8; }
 .watchtower-surface .react-flow__edge.is-focused .react-flow__edge-path { stroke: #d3e1e7; stroke-width: 2.2; }
 .watchtower-surface .react-flow__edge.is-dimmed { opacity: 0.18; }
@@ -6086,16 +6088,18 @@ a:focus-visible {
   padding: 14px 16px 12px;
   display: grid;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
 }
 .fleet-usage-card header {
   display: flex; align-items: center; gap: 8px;
   font-family: Consolas, ui-monospace, monospace;
-  font-size: 10.5px; letter-spacing: 0.14em; color: #8a99a3;
+  font-size: 13px; font-weight: 650; letter-spacing: 0.1em; color: #c4d5df;
 }
 .fleet-usage-dot { width: 7px; height: 7px; border-radius: 50%; background: #3a444e; }
 .fleet-usage-pill {
   margin-left: auto; border: 1px solid #2a343e; border-radius: 5px;
-  padding: 2px 8px; font-size: 10.5px; letter-spacing: 0.1em; color: #93a3ad;
+  padding: 3px 8px; font-size: 12px; font-weight: 650; letter-spacing: 0.07em; color: #bec9d0;
 }
 .fleet-usage-card strong {
   font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
@@ -6243,6 +6247,15 @@ a:focus-visible {
 .ledger-activity-panel svg { width: 100%; height: 110px; display: block; }
 .ledger-activity-area { fill: rgba(122, 168, 189, 0.16); stroke: none; }
 .ledger-activity-line { fill: none; stroke: #9db9c8; stroke-width: 1.6; }
+.provider-credit-legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 6px 0; font-size: 11px; }
+.provider-credit-legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; margin-right: 5px; vertical-align: middle; background: currentColor; }
+.provider-credit-line { fill: none; stroke-width: 2.4; vector-effect: non-scaling-stroke; }
+.provider-credit-codex { color: #64d8cb; stroke: #64d8cb; }
+.provider-credit-claude { color: #ff9f68; stroke: #ff9f68; }
+.provider-credit-antigravity { color: #b69cff; stroke: #b69cff; }
+.provider-credit-empty { color: #93a2ac; font-size: 12px; }
+.ledger-activity-panel svg.fleet-provider-credit-chart.is-ledger { height: 220px; }
+.ledger-activity-panel .fleet-provider-token-chart-wrap.is-ledger { margin-top: 2px; }
 .ledger-activity-bars {
   display: flex; align-items: flex-end; gap: 3px; height: 110px;
 }
@@ -6267,14 +6280,17 @@ a:focus-visible {
 
 /* ── 패널형 Fleet 카드: 창 등급별 잔여 게이지 · 모델별 · 총괄 ── */
 .fleet-usage-cards.is-panels {
-  grid-template-columns: minmax(360px, 1.4fr) minmax(280px, 1.05fr) minmax(250px, 1fr);
+  grid-template-columns: minmax(360px, 1.2fr) minmax(320px, 1fr);
   align-items: stretch;
 }
 @media (max-width: 1100px) { .fleet-usage-cards.is-panels { grid-template-columns: minmax(0, 1fr); } }
+.fleet-panel.is-totals { grid-column: 1 / -1; }
 .fleet-panel { gap: 8px; align-content: start; }
+.fleet-usage-title { color: #d5e1e8; font-size: 13px; font-weight: 700; }
 .fleet-panel-foot {
   margin: 2px 0 0; font-family: Consolas, ui-monospace, monospace;
-  font-size: 10.5px; letter-spacing: 0.08em; color: #8a99a3;
+  font-size: 12px; line-height: 1.5; font-weight: 550; letter-spacing: 0.045em; color: #aebbc4;
+  min-width: 0; max-width: 100%; overflow-wrap: anywhere;
 }
 .fleet-claude-ledger-evidence {
   padding: 6px 8px;
@@ -6300,7 +6316,7 @@ a:focus-visible {
 
 .fleet-limit-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .fleet-limit-caption {
-  font-family: Consolas, ui-monospace, monospace; font-size: 11px; font-weight: 700;
+  font-family: Consolas, ui-monospace, monospace; font-size: 12px; font-weight: 750;
   letter-spacing: 0.2em; color: #9fb0ba; margin-top: 7px;
   padding-bottom: 2px; border-bottom: 1px solid #1c242d;
 }
@@ -6308,8 +6324,10 @@ a:focus-visible {
 .fleet-limit-row {
   display: grid; grid-template-columns: 78px minmax(0, 1fr) 74px 128px;
   align-items: center; gap: 8px; min-height: 20px;
+  min-width: 0;
 }
 .fleet-limit-row.is-idle { opacity: 0.8; }
+.fleet-limit-row.is-stale { opacity: 0.68; }
 .fleet-limit-name b { font-size: 11.5px; color: #cdd7dc; font-weight: 600; }
 .fleet-gauge {
   position: relative; height: 8px; border-radius: 4px;
@@ -6326,10 +6344,14 @@ a:focus-visible {
 .fleet-limit-row.is-crit .fleet-limit-remain b { color: var(--live-red, #e9635c); }
 .fleet-limit-remain small { margin-left: 3px; font-size: 10.5px; color: #93a3ad; }
 .fleet-limit-reset {
-  font-family: Consolas, ui-monospace, monospace; font-size: 10px;
-  color: #8a99a3; text-align: right; white-space: nowrap;
+  font-family: Consolas, ui-monospace, monospace; font-size: 12px;
+  color: #b0bcc4; font-weight: 550; text-align: right; white-space: normal;
+  min-width: 0; max-width: 100%; overflow-wrap: anywhere; line-height: 1.35;
 }
-.fleet-limit-note-solo { grid-column: 2 / 4; font-size: 10px; color: #93a3ad; }
+.fleet-limit-note-solo {
+  grid-column: 2 / 4; min-width: 0; max-width: 100%;
+  font-size: 12px; line-height: 1.45; color: #aebbc3; overflow-wrap: anywhere;
+}
 
 .fleet-model-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .fleet-model-rows li {
@@ -6341,7 +6363,7 @@ a:focus-visible {
 .fleet-model-dot.is-codex { background: #65d8d0; }
 .fleet-model-dot.is-claude { background: #b294f5; }
 .fleet-model-name {
-  font-family: Consolas, ui-monospace, monospace; font-size: 10.5px; color: #aeb9c0;
+  font-family: Consolas, ui-monospace, monospace; font-size: 12px; color: #c0cbd1;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .fleet-model-bar { height: 7px; background: #1a222b; border-radius: 4px; overflow: hidden; }
@@ -6349,16 +6371,44 @@ a:focus-visible {
 .fleet-model-bar > span.is-meter { background: linear-gradient(90deg, #314f69, #72b7ff); }
 .fleet-model-bar > span.is-codex { background: linear-gradient(90deg, #2b5a55, #65d8d0); }
 .fleet-model-bar > span.is-claude { background: linear-gradient(90deg, #4b3d78, #b294f5); }
-.fleet-model-value { font-family: Consolas, ui-monospace, monospace; font-size: 10.5px; color: #cdd7dc; text-align: right; }
+.fleet-model-value { font-family: Consolas, ui-monospace, monospace; font-size: 12px; color: #d7e0e5; font-weight: 600; text-align: right; }
 
 .fleet-total-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .fleet-total-rows li { display: grid; grid-template-columns: 54px auto minmax(0, 1fr); align-items: baseline; gap: 8px; }
-.fleet-total-rows span { font-family: Consolas, ui-monospace, monospace; font-size: 10px; color: #8a99a3; }
+.fleet-total-rows span { font-family: Consolas, ui-monospace, monospace; font-size: 12px; color: #aebbc3; }
 .fleet-total-rows b { font-family: Consolas, ui-monospace, monospace; font-size: 14.5px; color: #e8eef2; }
-.fleet-total-rows small { font-family: Consolas, ui-monospace, monospace; font-size: 10.5px; color: #8a99a3; text-align: right; }
-.fleet-panel.is-totals svg { width: 100%; height: 40px; display: block; }
+.fleet-total-rows small { font-family: Consolas, ui-monospace, monospace; font-size: 12px; color: #aebbc3; text-align: right; }
+.fleet-panel.is-totals svg { width: 100%; height: clamp(280px, 21vw, 420px); display: block; }
 .fleet-total-area { fill: rgba(112, 217, 140, 0.12); }
 .fleet-total-line { fill: none; stroke: #79c791; stroke-width: 1.4; }
+.fleet-provider-credit-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin: 8px 0 2px; font-size: 12px; font-weight: 650; }
+.fleet-provider-credit-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; border-radius: 50%; background: currentColor; }
+.fleet-provider-credit-chart { display: block; width: 100%; height: clamp(280px, 21vw, 420px); overflow: visible; }
+.fleet-provider-token-chart-wrap { position: relative; width: 100%; }
+.fleet-credit-grid { stroke: rgba(151, 174, 201, .23); stroke-width: 1; stroke-dasharray: 4 5; vector-effect: non-scaling-stroke; }
+.fleet-credit-axis-label { fill: #b2c2d4; font-size: 12px; font-weight: 600; }
+.fleet-credit-date-label { display: none; }
+.fleet-credit-date-label.is-major { display: inline; }
+@media (min-width: 1500px) {
+  .fleet-credit-date-label.is-major { display: none; }
+  .fleet-credit-date-label.is-wide { display: inline; }
+}
+.fleet-credit-area { stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.fleet-credit-area.provider-credit-codex { fill: rgba(50, 205, 196, .42); stroke: #43e0d3; }
+.fleet-credit-area.provider-credit-claude { fill: rgba(255, 158, 74, .48); stroke: #ff9e4a; }
+.fleet-credit-area.provider-credit-antigravity { fill: rgba(167, 125, 255, .5); stroke: #ad82ff; }
+.fleet-credit-hit:focus { outline: none; }
+.fleet-credit-hit:focus rect { stroke: #f6fbff; stroke-width: 2; stroke-dasharray: 3 3; }
+.fleet-token-hit-grid { position: absolute; inset: 12px 0.8% 36px 10.5%; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); }
+.fleet-token-hit-grid button { min-width: 0; border: 0; padding: 0; background: transparent; cursor: crosshair; }
+.fleet-token-hit-grid button:focus-visible { outline: 2px dashed #f6fbff; outline-offset: -3px; }
+.fleet-provider-token-coverage { margin: 4px 0 0; color: #b2c2d4; font: 12px/1.5 Consolas, ui-monospace, monospace; }
+.fleet-credit-tooltip > line { stroke: rgba(255,255,255,.7); stroke-dasharray: 3 3; }
+.fleet-credit-tooltip > rect { fill: #151a21; stroke: #566272; }
+.fleet-credit-tooltip text { fill: #f5f8fb; font-size: 10px; }
+.fleet-credit-tooltip text.is-title { font-weight: 700; }
+@media (max-width: 700px) { .fleet-panel.is-totals svg.fleet-provider-credit-chart { height: 220px; } .fleet-provider-credit-legend { gap: 10px; justify-content: flex-start; } }
+.fleet-provider-credit-empty { margin: 8px 0 0; color: #93a2ac; font-size: 10px; }
 
 /* Claude 주간 모델 구성 분할 바 (원장 점유율) */
 .fleet-limit-split {
@@ -6402,7 +6452,7 @@ a:focus-visible {
 /* Token-less generic Meter rows. */
 .fleet-model-caption {
   margin: 6px 0 0; font-family: Consolas, ui-monospace, monospace;
-  font-size: 10px; letter-spacing: 0.14em; color: #8595a0;
+  font-size: 12px; line-height: 1.45; font-weight: 650; letter-spacing: 0.08em; color: #b2bec6;
   padding-top: 6px; border-top: 1px solid #1c242d;
 }
 .fleet-model-dot.is-gemini { background: #f5b849; }

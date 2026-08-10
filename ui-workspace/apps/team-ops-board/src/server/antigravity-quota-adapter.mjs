@@ -1,9 +1,5 @@
-// antigravity-quota-adapter.mjs — 실행 중인 Antigravity language_server의 로컬 RPC
-// (RetrieveUserQuotaSummary)에서 그룹별 잔여 쿼터를 읽어 loopback 전용
-// GET /antigravity-quota.snapshot.json 으로 서빙한다. 포트는 고정 파일이 없어
-// agy/language_server 프로세스의 LISTENING 포트를 열거해 응답하는 포트를 캐시한다.
-// 읽기 전용 조회. 한도는 사용 시에만 소모되므로 앱이 꺼져도 마지막 성공 관측을
-// 로컬 캐시(untracked state)로 유지 서빙한다 — observed_at으로 신선도를 판단한다.
+// antigravity-quota-adapter.mjs — local-only sanitized quota cache and,
+// under an exact gate, a loopback language-server observation.
 
 import { execFile } from "node:child_process";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -12,9 +8,12 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 import {
-  ANTIGRAVITY_QUOTA_SCHEMA_VERSION,
   buildAntigravityQuotaSnapshot,
+  buildAntigravityQuotaStatus,
+  normalizeAntigravityQuotaSnapshot,
+  parseAntigravityAccessibilityNames,
   parseAntigravityQuotaResponse,
+  staleAntigravityQuotaSnapshot,
 } from "../core/antigravity-quota.mjs";
 import { isTeamOpsBoardReadOnlyPilot } from "../core/team-ops-board-read-only-pilot.mjs";
 
@@ -23,16 +22,40 @@ const MODULE_ROOT = path.dirname(fileURLToPath(import.meta.url));
 
 export const ANTIGRAVITY_QUOTA_SNAPSHOT_PATH = "/antigravity-quota.snapshot.json";
 export const DEFAULT_ANTIGRAVITY_QUOTA_TTL_MS = 120_000;
+export const TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH = "TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH";
+export const TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ = "TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ";
 export const DEFAULT_ANTIGRAVITY_QUOTA_CACHE_PATH = path.resolve(
   MODULE_ROOT,
   "../../../../../guild_hall/state/operations/team_ops_board/antigravity_quota.last.json",
 );
+
 const RPC_PATH = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary";
 const PROBE_TIMEOUT_MS = 3_000;
 const MAX_CANDIDATE_PORTS = 24;
+const UIA_READER_PATH = path.resolve(MODULE_ROOT, "../../ops/read-antigravity-quota-uia.ps1");
 
 function isLoopbackAddress(address) {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
+export function isAntigravityQuotaLiveRefreshEnabled(env = process.env) {
+  return env?.[TEAM_OPS_BOARD_ANTIGRAVITY_QUOTA_LIVE_REFRESH] === "1";
+}
+
+export function isAntigravityQuotaUiaReadEnabled(env = process.env) {
+  return env?.[TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ] === "1";
+}
+
+async function readQuotaFromWindowsUia({ nowMs = Date.now() } = {}) {
+  if (process.platform !== "win32") return null;
+  const { stdout } = await execFileAsync(
+    "powershell.exe",
+    ["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", UIA_READER_PATH],
+    { timeout: 8_000, windowsHide: true, maxBuffer: 16 * 1024 },
+  );
+  let names;
+  try { names = JSON.parse(stdout); } catch { return null; }
+  return parseAntigravityAccessibilityNames(names, { nowMs });
 }
 
 async function agyProcessIds() {
@@ -43,6 +66,10 @@ async function agyProcessIds() {
     if (match) pids.add(match[2]);
   }
   return pids;
+}
+
+async function antigravityAppRunning() {
+  return (await agyProcessIds()).size > 0;
 }
 
 async function candidatePorts() {
@@ -68,11 +95,8 @@ async function queryQuota(port, fetchImpl) {
   return parseAntigravityQuotaResponse(await response.json().catch(() => null));
 }
 
-function isPlausibleCachedSnapshot(value) {
-  return typeof value === "object" && value !== null
-    && value.schema_version === ANTIGRAVITY_QUOTA_SCHEMA_VERSION
-    && typeof value.observed_at === "string" && Number.isFinite(Date.parse(value.observed_at))
-    && Array.isArray(value.groups) && value.groups.length > 0;
+function staleSnapshot(snapshot, nowMs) {
+  return staleAntigravityQuotaSnapshot(snapshot, { nowMs });
 }
 
 export function createAntigravityQuotaReader({
@@ -82,13 +106,18 @@ export function createAntigravityQuotaReader({
   ttlMs = DEFAULT_ANTIGRAVITY_QUOTA_TTL_MS,
   cachePath = DEFAULT_ANTIGRAVITY_QUOTA_CACHE_PATH,
   now = Date.now,
+  detectAppRunning = antigravityAppRunning,
+  readUiaQuota = readQuotaFromWindowsUia,
 } = {}) {
   let inFlight = null;
   let lastAttemptAt = null;
   let lastGood = null;
   let knownPort = null;
   let cacheChecked = false;
+  let lastStatus = null;
   const readOnlyPilot = isTeamOpsBoardReadOnlyPilot(env);
+  const liveRefreshEnabled = !readOnlyPilot && isAntigravityQuotaLiveRefreshEnabled(env);
+  const uiaReadEnabled = isAntigravityQuotaUiaReadEnabled(env);
 
   async function persistCache(snapshot) {
     if (cachePath === null) return;
@@ -98,7 +127,7 @@ export function createAntigravityQuotaReader({
       await writeFile(temporary, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
       await rename(temporary, cachePath);
     } catch {
-      // 캐시는 편의 기능 — 저장 실패가 관측 서빙을 막지 않는다.
+      // Cache persistence is advisory. A failure never changes the public state.
     }
   }
 
@@ -107,21 +136,52 @@ export function createAntigravityQuotaReader({
     cacheChecked = true;
     try {
       const parsed = JSON.parse(await readFile(cachePath, "utf8"));
-      if (isPlausibleCachedSnapshot(parsed)) lastGood = parsed;
+      // A retained local file is last-known evidence, never a live refresh.
+      lastGood = staleSnapshot(parsed, now());
     } catch {
-      // 캐시 없음/손상은 조용히 무시한다.
+      // Missing, malformed, unreadable, or future cache is UNKNOWN/HOLD.
     }
   }
 
-  function accept(groups) {
-    lastGood = buildAntigravityQuotaSnapshot({ groups, observedAtMs: now() });
+  function retainLastGoodAsStale() {
+    lastGood = staleSnapshot(lastGood, now());
+  }
+
+  function accept(groups, sourceKind = "antigravity_sanitized_loopback_receipt") {
+    const snapshot = buildAntigravityQuotaSnapshot({
+      groups,
+      observedAtMs: now(),
+      freshness: "current",
+      sourceKind,
+    });
+    if (snapshot === null) {
+      retainLastGoodAsStale();
+      return;
+    }
+    lastGood = snapshot;
     cacheChecked = true;
-    void persistCache(lastGood);
+    void persistCache(snapshot);
   }
 
   async function refresh() {
-    if (readOnlyPilot) return;
-    // 이전에 응답한 포트를 먼저 시도하고, 실패하면 프로세스 포트를 재열거한다.
+    // Load before every gate so a Board restart can expose cache-only evidence
+    // without RPC, process inspection, or a cache write.
+    await loadCacheOnce();
+    if (uiaReadEnabled) {
+      const groups = await readUiaQuota({ nowMs: now() }).catch(() => null);
+      if (groups !== null) {
+        accept(groups, "antigravity_windows_uia_receipt");
+        return;
+      }
+    }
+    if (!liveRefreshEnabled) {
+      lastStatus = buildAntigravityQuotaStatus({
+        appRunning: await detectAppRunning().catch(() => false),
+        observedAtMs: now(),
+      });
+      retainLastGoodAsStale();
+      return;
+    }
     if (knownPort !== null) {
       const groups = await queryQuota(knownPort, fetchImpl).catch(() => null);
       if (groups !== null) {
@@ -139,26 +199,27 @@ export function createAntigravityQuotaReader({
         return;
       }
     }
-    // 앱이 꺼져 있으면 마지막 성공 관측(메모리, 없으면 디스크 캐시)을 유지한다.
-    // 한도는 사용 시에만 소모되므로 과거 관측은 잔여를 과소평가하는 안전한 방향이다.
-    if (lastGood === null) await loadCacheOnce();
+    // Provider off, Orca off, auth/error, and malformed replies retain only a
+    // timestamped STALE last-good result.
+    retainLastGoodAsStale();
   }
 
   return {
     async readSnapshot() {
+      await loadCacheOnce();
       const observedNow = now();
-      if (lastAttemptAt !== null && observedNow - lastAttemptAt < ttlMs) return lastGood;
+      if (lastAttemptAt !== null && observedNow - lastAttemptAt < ttlMs) return lastGood ?? lastStatus;
       if (inFlight === null) {
         lastAttemptAt = observedNow;
         const operation = refresh()
-          .catch(() => {})
+          .catch(() => { retainLastGoodAsStale(); })
           .finally(() => {
             if (inFlight === operation) inFlight = null;
           });
         inFlight = operation;
       }
       await inFlight;
-      return lastGood;
+      return lastGood ?? lastStatus;
     },
   };
 }

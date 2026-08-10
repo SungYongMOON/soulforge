@@ -31,6 +31,12 @@
       "type": "array",
       "items": { "$ref": "#/$defs/provider_row" }
     },
+    "provider_daily": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/provider_daily_row" }
+    },
     "claude_collection": { "$ref": "#/$defs/claude_collection" }
   },
   "$defs": {
@@ -45,6 +51,31 @@
         "turns": { "type": "integer", "minimum": 1 },
         "total_tokens": { "$ref": "#/$defs/safe_count" },
         "latest_usage_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "provider_daily_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date", "providers"],
+      "properties": {
+        "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "providers": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["provider", "total_tokens", "token_unknown_turns", "credits", "credit_unknown_turns"],
+            "properties": {
+              "provider": { "enum": ["codex", "claude", "antigravity"] },
+              "total_tokens": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/safe_count" }] },
+              "token_unknown_turns": { "$ref": "#/$defs/safe_count" },
+              "credits": { "oneOf": [{ "type": "null" }, { "type": "number", "minimum": 0 }] },
+              "credit_unknown_turns": { "$ref": "#/$defs/safe_count" }
+            }
+          }
+        }
       }
     },
     "claude_collection_counts": {

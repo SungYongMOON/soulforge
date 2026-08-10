@@ -271,6 +271,20 @@ test("lifecycle positives require a fresh turn lease while terminal evidence rem
   assert.equal(serialized.includes("RAW_LIFECYCLE"), false);
 });
 
+test("newer input-only evidence does not erase the latest actionable lifecycle", () => {
+  const source = availableLifecycleSource([
+    receipt("SessionStart", "thread-a", "turn-started", "2026-08-10T00:00:00.000Z"),
+    receipt("UserPromptSubmit", "thread-a", "turn-input", "2026-08-10T00:00:01.000Z"),
+  ], "2026-08-10T00:00:02.000Z");
+  const projected = projectLifecycleSnapshotRuntime({
+    source,
+    enrolledThreadIds: new Set(["thread-a"]),
+    now: () => Date.parse("2026-08-10T00:00:02.000Z"),
+  });
+  assert.equal(projected.runtime_threads[0].status, "active");
+  assert.equal(projected.runtime_threads[0].updated_at, "2026-08-10T00:00:00.000Z");
+});
+
 test("an unenrolled child agent receipt never falls back to its enrolled parent session", () => {
   const source = availableLifecycleSource([createLifecycleReceipt({
     hook_event_name: "SubagentStart",

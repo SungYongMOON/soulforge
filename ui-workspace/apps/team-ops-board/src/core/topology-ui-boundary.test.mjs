@@ -73,7 +73,9 @@ test("Watchtower selected-node inspector stays read-only and declares structural
   assert.match(source, /Owner 승인 필요/u);
   assert.match(source, /직접 경로/u);
   assert.match(source, /전체 구조 경로/u);
-  assert.match(source, /라이브·E2E·receipt를 입증하지 않습니다/u);
+  assert.match(source, /노드 상태만으로 전달을 추정하지 않습니다/u);
+  assert.match(source, /system-topology-edge-evidence/u);
+  assert.match(source, /edge\.deliveryProven \? "is-receipted" : "is-unreceipted"/u);
   assert.match(source, /selectedNodeTriggerRef/u);
   assert.match(source, /inspectorRef\.current\?\.focus/u);
   assert.match(css, /\.watchtower-node-inspector\s*\{/u);
@@ -102,7 +104,7 @@ test("Fleet Watchtower state and provider polling fail closed without aggregate 
   assert.match(source, /new AbortController\(\)/u);
   assert.match(source, /if \(inFlight !== null\) return inFlight;/u);
   assert.match(source, /let generation = 0;/u);
-  assert.match(source, /createProviderSnapshots\("refreshing"\)/u);
+  assert.match(source, /refresh_state: "refreshing"/u);
   assert.match(source, /refresh_state: complete \? "ready" : "hold"/u);
   assert.match(source, /fleet-provider-observation-state/u);
   assert.equal(source.includes("const healthy = model.summary"), false);
@@ -113,11 +115,11 @@ test("Claude token presentation consumes normalized provider evidence without mo
   const css = readFileSync(CSS_PATH, "utf8");
   assert.match(source, /usage\?\.provider_evidence\?\.claude/u);
   assert.match(source, /"ledger_fresh", "ledger_stale", "validated_empty"/u);
-  assert.match(source, /Claude 원장 마지막 확인/u);
-  assert.match(source, /STALE · 원장 근거/u);
+  assert.match(source, /Claude \$\{fleetTokenLabel\(claudeEvidence\.total_tokens\)\} tok/u);
+  assert.match(source, /ledger_stale/u);
   assert.match(source, /data-ledger-freshness/u);
-  assert.match(source, /claude-collection-attempt/u);
-  assert.match(source, /provider health·live·E2E·current 근거 아님/u);
+  assert.doesNotMatch(source, /fleet-claude-collection-attempt/u);
+  assert.doesNotMatch(source, /provider health·live·E2E·current 근거 아님/u);
   assert.match(css, /\.fleet-claude-ledger-evidence\.is-stale/u);
   assert.equal(source.includes("claudeRecon"), false);
   assert.equal(source.includes("estimateClaudeUsdCost"), false);

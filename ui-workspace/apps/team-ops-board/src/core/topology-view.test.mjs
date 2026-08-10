@@ -23,9 +23,9 @@ function sampleSnapshot() {
       { id: "consumer_board", label: "Workspace Board", kind: "consumer", group: "소비", health: { state: "ok", reasons: [], age_seconds: 0 } },
     ],
     edges: [
-      { from: "src_hiworks", to: "ingress_supervisor", label: "POP3 수집", flow: "data" },
-      { from: "src_hiworks", to: "voice_label_worker", label: "수집", flow: "data" },
-      { from: "slack_batch", to: "gate_five_field", label: "검사", flow: "control" },
+      { from: "src_hiworks", to: "ingress_supervisor", label: "POP3 수집", flow: "data", receipt: null, unreceipted_reason: "receipt_channel_absent", delivery: { state: "unreceipted", reason: "receipt_channel_absent", proves_delivery: false } },
+      { from: "src_hiworks", to: "voice_label_worker", label: "수집", flow: "data", receipt: "voice_delivery", delivery: { state: "delivering", age_seconds: 12, proves_delivery: true } },
+      { from: "slack_batch", to: "gate_five_field", label: "검사", flow: "control", receipt: null, unreceipted_reason: "structural_only", delivery: { state: "unreceipted", reason: "structural_only", proves_delivery: false } },
     ],
   };
 }
@@ -62,7 +62,11 @@ test("view model lays out columns and keeps observed health separate from catalo
   assert.equal(model.edges[0].flow, "data");
   assert.equal(model.edges[1].flow, "data");
   assert.equal(model.edges[2].flow, "control");
-  assert.ok(model.edges.every((edge) => edge.relationKind === "catalog_only" && edge.healthObserved === false));
+  assert.equal(model.edges[0].relationKind, "catalog_only");
+  assert.equal(model.edges[1].relationKind, "receipted_delivery");
+  assert.equal(model.edges[1].deliveryProven, true);
+  assert.ok(model.edges.every((edge) => edge.healthObserved === false));
+  assert.deepEqual(model.edgeDelivery, { total: 3, deliveryProven: 1, deliveryUnproven: 2 });
   assert.equal(model.edges[0].sourceHandle, "output-topo-edge-0");
   assert.equal(model.edges[0].targetHandle, "input-topo-edge-0");
   assert.notEqual(model.edges[0].sourceHandle, model.edges[1].sourceHandle);
@@ -86,6 +90,8 @@ test("selected-node paths remain structural and enumerate direct plus reachable 
   const paths = buildTopologyStructuralPaths(model, "src_hiworks");
   assert.deepEqual(paths.direct.map((edge) => edge.edge_id), ["topo-edge-0", "topo-edge-1"]);
   assert.equal(paths.direct[0].evidence_scope, "structural_catalog_only");
+  assert.equal(paths.direct[1].evidence_scope, "watchtower_edge_delivery_receipt");
+  assert.equal(paths.direct[1].delivery_state, "delivering");
   assert.deepEqual(paths.direct[0].does_not_prove, ["provider_availability", "provider_health", "live_execution", "end_to_end_execution", "edge_receipt"]);
   assert.deepEqual(paths.all.map((path) => path.node_ids), [
     ["src_hiworks", "ingress_supervisor"],
@@ -125,6 +131,15 @@ test("unknown states, dangling edges, and unsupported flows fail closed", () => 
   const empty = buildTopologyViewModel(null);
   assert.equal(empty.available, false);
   assert.deepEqual(empty.nodes, []);
+});
+
+test("node health never promotes an unreceipted edge", () => {
+  const snapshot = sampleSnapshot();
+  snapshot.nodes[0].health = { state: "ok", reasons: [], age_seconds: 0 };
+  const edge = buildTopologyViewModel(snapshot).edges[0];
+  assert.equal(edge.deliveryState, "unreceipted");
+  assert.equal(edge.deliveryProven, false);
+  assert.equal(edge.relationKind, "catalog_only");
 });
 
 test("all provider evidence absent remains explicit catalog-only text-ready data", () => {

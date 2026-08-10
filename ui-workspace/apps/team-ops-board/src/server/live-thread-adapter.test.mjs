@@ -1160,7 +1160,7 @@ test("automatic exact lifecycle reconciliation recovers on the next refresh afte
     await new Promise((resolve) => setImmediate(resolve));
     const recovered = await adapter.readProjection({ force: true });
 
-    assert.equal(reconcileCalls, 2);
+    assert.equal(reconcileCalls, 1);
     assert.equal(recovered.scope.lifecycle_source_health, "available");
     assert.equal(recovered.adapter.health, "ready");
     assert.equal(recovered.threads.find((thread) => thread.thread_id === threadId)?.status, "active");
@@ -1169,7 +1169,7 @@ test("automatic exact lifecycle reconciliation recovers on the next refresh afte
   }
 });
 
-test("a fresh validated lifecycle snapshot survives a transient reconcile timeout without falling to 0/0", async () => {
+test("a fresh validated lifecycle snapshot is projected without an in-request reconcile", async () => {
   const directory = await mkdtemp(join(tmpdir(), "team-ops-auto-lifecycle-last-good-"));
   try {
     const threadId = "thread-enrolled-one";
@@ -1183,13 +1183,17 @@ test("a fresh validated lifecycle snapshot survives a transient reconcile timeou
       observedAt: AT
     })], AT);
     const script = await writeFakeAppServer(directory, "normal");
+    let reconcileCalls = 0;
     const adapter = createIsolatedLiveThreadAdapter(directory, {
       registryPath,
       usageMeterStateRoot: lifecycleStateRoot,
       lifecycleStateRoot,
       lifecycleSessionsRoot: join(directory, "configured-codex", "sessions"),
       autoLifecycleReconcile: true,
-      lifecycleReconcileAndPersist: async () => await new Promise(() => {}),
+      lifecycleReconcileAndPersist: async () => {
+        reconcileCalls += 1;
+        return { status: "available" };
+      },
       loadUsageEvents: async () => [],
       spawnSpec: { command: process.execPath, args: [script] },
       cwd: directory,
@@ -1201,6 +1205,7 @@ test("a fresh validated lifecycle snapshot survives a transient reconcile timeou
     const projection = await adapter.readProjection({ force: true });
 
     assert.equal(projection.scope.lifecycle_source_health, "available");
+    assert.equal(reconcileCalls, 0);
     assert.equal(projection.scope.lifecycle_exact_identity_count, 1);
     assert.equal(projection.scope.lifecycle_matched_enrolled_count, 1);
     assert.notEqual(projection.adapter.health, "partial");
@@ -1210,7 +1215,7 @@ test("a fresh validated lifecycle snapshot survives a transient reconcile timeou
   }
 });
 
-test("a post-reconcile emergency disable overrides a pre-reconcile available snapshot", async () => {
+test("a fresh snapshot does not run a reconciler that could race an emergency control write", async () => {
   const directory = await mkdtemp(join(tmpdir(), "team-ops-auto-lifecycle-disable-race-"));
   try {
     const threadId = "thread-enrolled-one";
@@ -1250,15 +1255,15 @@ test("a post-reconcile emergency disable overrides a pre-reconcile available sna
 
     const projection = await adapter.readProjection({ force: true });
 
-    assert.equal(projection.scope.lifecycle_source_health, "disabled");
-    assert.equal(projection.adapter.health, "partial");
-    assert.equal(projection.threads.find((thread) => thread.thread_id === threadId)?.status, "not_loaded_unknown");
+    assert.equal(projection.scope.lifecycle_source_health, "available");
+    assert.equal(projection.adapter.health, "ready");
+    assert.equal(projection.threads.find((thread) => thread.thread_id === threadId)?.status, "active");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
 
-test("an emergency disable created during a reconcile timeout overrides the last-good snapshot", async () => {
+test("a fresh snapshot does not enter the reconcile timeout path", async () => {
   const directory = await mkdtemp(join(tmpdir(), "team-ops-auto-lifecycle-timeout-disable-race-"));
   try {
     const threadId = "thread-enrolled-one";
@@ -1298,9 +1303,9 @@ test("an emergency disable created during a reconcile timeout overrides the last
 
     const projection = await adapter.readProjection({ force: true });
 
-    assert.equal(projection.scope.lifecycle_source_health, "disabled");
-    assert.equal(projection.adapter.health, "partial");
-    assert.equal(projection.threads.find((thread) => thread.thread_id === threadId)?.status, "not_loaded_unknown");
+    assert.equal(projection.scope.lifecycle_source_health, "available");
+    assert.equal(projection.adapter.health, "ready");
+    assert.equal(projection.threads.find((thread) => thread.thread_id === threadId)?.status, "active");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

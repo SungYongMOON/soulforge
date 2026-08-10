@@ -137,6 +137,14 @@ function historyFixture() {
     provider_rows: [
       { provider: "claude", turns: 1, total_tokens: 50, latest_usage_at: "2026-08-04T00:59:00.000Z" }
     ],
+    provider_daily: Array.from({ length: 30 }, (_, index) => ({
+      date: new Date(Date.parse("2026-07-06T00:00:00Z") + index * 86_400_000).toISOString().slice(0, 10),
+      providers: [
+        { provider: "codex", total_tokens: null, token_unknown_turns: 0, credits: null, credit_unknown_turns: 0 },
+        { provider: "claude", total_tokens: index === 29 ? 50 : null, token_unknown_turns: 0, credits: null, credit_unknown_turns: index === 29 ? 1 : 0 },
+        { provider: "antigravity", total_tokens: null, token_unknown_turns: index === 28 ? 3 : 0, credits: null, credit_unknown_turns: 0 },
+      ],
+    })),
     claude_collection: claudeCollectionFixture()
   };
 }
@@ -148,6 +156,9 @@ test("AI usage history projection accepts strict KST windows and reconciled exac
   assert.equal(projection.history?.timezone, "Asia/Seoul");
   assert.equal(projection.history?.windows.all_time.breakdowns.tasks.top[0].task_id, "task-a");
   assert.equal(projection.history?.windows.all_time.breakdowns.models.top[0].model_id, "gpt-5.6-terra");
+  assert.equal(projection.history?.provider_daily.length, 30);
+  assert.equal(projection.history?.provider_daily.at(-1).providers[1].total_tokens, 50);
+  assert.equal(projection.history?.provider_daily.at(-2).providers[2].token_unknown_turns, 3);
   assert.deepEqual(projection.history?.windows.all_time.totals, METRICS);
   assert.equal(projection.history?.activity.daily.at(-1).date, "2026-08-04");
   assert.equal(projection.history?.activity.hourly[10].turns, 1);
@@ -192,6 +203,7 @@ test("v2 history accepts aggregate fields but normalizes Claude provider evidenc
   const v2 = historyFixture();
   v2.schema_version = AI_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA;
   delete v2.provider_rows;
+  delete v2.provider_daily;
   delete v2.claude_collection;
   const projection = normalizeAiUsageHistoryProjection(v2);
   assert.equal(projection.state, "ready");

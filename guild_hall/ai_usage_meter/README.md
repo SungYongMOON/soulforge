@@ -288,8 +288,12 @@ envelope with one of `observed`, `available_empty`, `missing`, `partial`,
 `freshness_threshold_seconds`, a freshness result, and safe counts only. It
 proves only a Claude collector attempt/source observation. It never proves
 provider availability, health, live or E2E status, aggregate health, or ledger
-completeness. Aggregate `generated_at` is not Claude collection/value
-freshness. A valid v3 Claude provider row remains last-known ledger evidence
+freshness. `provider_daily` is a fixed 30-day KST series. Each provider entry
+carries nullable exact `total_tokens` separately from nullable Meter `credits`.
+`token_unknown_turns` distinguishes request-count-only events from a date with
+no provider event; neither state is projected as zero exact tokens.
+Aggregate `generated_at` is not Claude collection/value freshness. A valid v3
+Claude provider row remains last-known ledger evidence
 even when the separate collection attempt is missing, partial, error, stale,
 or unknown. Ledger-value freshness is calculated independently from the row's
 `latest_usage_at` against `reference_at` and the explicit threshold: fresh rows

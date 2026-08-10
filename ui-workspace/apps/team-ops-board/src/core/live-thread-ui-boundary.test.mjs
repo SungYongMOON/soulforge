@@ -204,6 +204,54 @@ test("usage distribution paints every declared column tone", () => {
   }
 });
 
+test("thirty-day usage chart separates exact provider tokens with readable responsive controls", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  const css = readFileSync(CSS_PATH, "utf8");
+  assert.doesNotMatch(source, /Meter credits · 동일 축/u);
+  assert.doesNotMatch(source, /Provider별 계산 가능한 credit 근거가 없습니다/u);
+  assert.match(source, /사용 총괄 provider token 범례/u);
+  assert.match(source, /fleet-credit-area/u);
+  assert.match(source, /role="tooltip"/u);
+  assert.match(source, /fleet-token-hit-grid/u);
+  assert.match(source, /providerDaily\.length !== 30/u);
+  assert.match(source, /function buildProviderTokenChart/u);
+  assert.match(source, /monotoneAreaPath\(/u);
+  assert.match(source, /fleetAxisTokenLabel\(value\)/u);
+  assert.match(source, /index % 5 === 0/u);
+  assert.match(source, /index % 3 === 0/u);
+  assert.match(source, /left = 105/u);
+  assert.match(source, /\.total_tokens \?\? null/u);
+  assert.match(source, /\.token_unknown_turns \?\? 0/u);
+  assert.match(source, /토큰 미기록 \$\{series\.unknownTurns\[index\]\}회/u);
+  assert.match(source, /합계\(기록분\)/u);
+  assert.doesNotMatch(source, /fleet-credit-day-controls/u);
+  assert.match(source, /event\.key === "Escape"/u);
+  assert.match(source, /onFocus=\{\(\) => setCreditChartIndex\(index\)\}/u);
+  assert.match(source, /event\.currentTarget !== document\.activeElement/u);
+  assert.match(source, /totalsFoot = "[^"]*30[^"]*"/u);
+  assert.match(css, /height:\s*clamp\(280px,\s*21vw,\s*420px\)/u);
+  assert.match(css, /grid-template-columns:\s*repeat\(30,/u);
+  assert.match(css, /\.fleet-credit-date-label\.is-major\s*\{\s*display:\s*none;/u);
+  assert.match(css, /\.fleet-credit-date-label\.is-wide\s*\{\s*display:\s*inline;/u);
+  assert.match(source, /provider: "AG 크레딧"/u);
+  assert.match(css, /\.fleet-usage-card header\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*650;[^}]*color:\s*#c4d5df;/su);
+  assert.match(css, /\.fleet-usage-title\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*700;/su);
+  assert.match(source, /pending \? "사용량 불러오는 중"/u);
+  assert.match(source, /cache: "no-store"/u);
+  assert.match(source, /Claude \$\{claudeObservationState\}/u);
+  assert.match(source, /Antigravity \$\{antigravityQuotaReady \? "READY" : "UNKNOWN\/HOLD"\}/u);
+  assert.match(source, /Provider별 30일 토큰/u);
+  assert.match(source, /<LedgerProviderTokenChart providerDaily=\{providerDaily\}/u);
+  assert.match(source, /프로젝트 코드별 토큰/u);
+  assert.match(source, /세션 귀속 기준/u);
+  assert.match(source, /title: "모델별 토큰", meta: "전체 누적"/u);
+  for (const provider of ["codex", "claude", "antigravity"]) {
+    assert.match(source, new RegExp(`provider-credit-\\$\\{series\\.id\\}`, "u"));
+    assert.match(css, new RegExp(`\\.provider-credit-${provider}\\s*\\{[^}]*stroke:`, "u"));
+  }
+  assert.match(css, /\.ledger-activity-panel svg\.fleet-provider-credit-chart\.is-ledger\s*\{\s*height:\s*220px;/u);
+});
+
 test("AI usage history controls stay on the work surface and expose only exact-ID ranking fields", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const css = readFileSync(CSS_PATH, "utf8");
