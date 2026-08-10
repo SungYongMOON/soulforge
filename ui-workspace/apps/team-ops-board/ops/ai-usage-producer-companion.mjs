@@ -25,6 +25,8 @@ export async function runUsageProducerSweep({ repoRoot, stateRoot, threadIds = [
     return { status: "hold", completed: 0 };
   }
   const cli = path.join(repoRoot, "guild_hall", "ai_usage_meter", "cli.mjs");
+  const claudeQuotaCollector = path.join(repoRoot, "ui-workspace", "apps", "team-ops-board", "src", "server", "claude-oauth-usage-collector.mjs");
+  const claudeQuotaRoot = path.join(repoRoot, "guild_hall", "state", "operations", "provider_quota", "claude", "oauth");
   let completed = 0;
   const lifecycleArgs = threadIds.length > 0
     ? [cli, "lifecycle-reconcile", ...threadIds.flatMap((threadId) => ["--thread-id", threadId]), "--state-root", stateRoot, "--apply"]
@@ -33,6 +35,7 @@ export async function runUsageProducerSweep({ repoRoot, stateRoot, threadIds = [
     lifecycleArgs,
     [cli, "collect", "--state-root", stateRoot, "--apply"],
     [cli, "collect-claude", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
+    [claudeQuotaCollector, "--gate-path", path.join(claudeQuotaRoot, "enabled.v1.json"), "--receipt-path", path.join(repoRoot, "guild_hall", "state", "operations", "provider_quota", "claude", "statusline", "provider_quota.receipt.v1.json")],
   ].filter(Boolean)) {
     try {
       await run(process.execPath, args, { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
@@ -41,7 +44,7 @@ export async function runUsageProducerSweep({ repoRoot, stateRoot, threadIds = [
       // Each producer remains fail-closed and the next interval retries it.
     }
   }
-  const expected = lifecycleArgs === null ? 2 : 3;
+  const expected = lifecycleArgs === null ? 3 : 4;
   return { status: completed === expected ? "observed" : "partial", completed };
 }
 

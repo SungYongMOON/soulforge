@@ -49,6 +49,11 @@ const SOURCE_RULES = Object.freeze({
     optional: Object.freeze(["claude_fable_weekly"]),
     minimum_limits: 1,
   }),
+  claude_oauth_usage_sanitized: Object.freeze({
+    expected: Object.freeze(["claude_five_hour", "claude_weekly"]),
+    optional: Object.freeze(["claude_fable_weekly"]),
+    minimum_limits: 2,
+  }),
   antigravity_sanitized_local_receipt: Object.freeze({
     expected: Object.freeze(["antigravity_five_hour", "antigravity_weekly"]),
     optional: Object.freeze([]),
@@ -335,4 +340,27 @@ export function createClaudeStatusLineQuotaSnapshot(statusLineInput, {
     observed_at: observed.iso,
     limits,
   }, { nowMs });
+}
+
+function claudeOauthWindow(value, limitId) {
+  if (!isRecord(value)) return null;
+  const percentage = typeof value.utilization === "number" ? value.utilization : value.used_percentage;
+  if (typeof percentage !== "number" || !Number.isFinite(percentage) || percentage < 0 || percentage > 100) return null;
+  const resetsAt = normalizedIso(value.resets_at, "provider_quota_claude_oauth_incomplete").iso;
+  return { limit_id: limitId, percentage_kind: "used_percentage", percentage, window_minutes: LIMIT_RULES[limitId].windowMinutes, resets_at: resetsAt };
+}
+
+export function createClaudeOauthUsageQuotaSnapshot(input, { observedAt = new Date().toISOString(), nowMs = Date.now() } = {}) {
+  if (!isRecord(input)) return null;
+  const scopedFable = Array.isArray(input.limits) ? input.limits.find((entry) => isRecord(entry)
+    && entry.kind === "weekly_scoped" && isRecord(entry.scope) && isRecord(entry.scope.model)
+    && typeof entry.scope.model.display_name === "string" && entry.scope.model.display_name.trim().toLowerCase() === "fable") : null;
+  const fable = scopedFable === null ? input.fable_weekly ?? input.fable_seven_day ?? input.seven_day_fable : { used_percentage: scopedFable.percent, resets_at: scopedFable.resets_at };
+  const limits = [
+    claudeOauthWindow(input.five_hour, "claude_five_hour"),
+    claudeOauthWindow(input.seven_day, "claude_weekly"),
+    claudeOauthWindow(fable, "claude_fable_weekly"),
+  ].filter((entry) => entry !== null);
+  if (!limits.some((entry) => entry.limit_id === "claude_five_hour") || !limits.some((entry) => entry.limit_id === "claude_weekly")) return null;
+  return createOfficialProviderQuotaSnapshot({ source_kind: "claude_oauth_usage_sanitized", observed_at: observedAt, limits }, { nowMs });
 }

@@ -23,6 +23,7 @@ export const DEFAULT_CLAUDE_QUOTA_FRESHNESS_MS = DEFAULT_PROVIDER_QUOTA_FRESHNES
 const CODEX_TAIL_BYTES = 262_144;
 const CLAUDE_STATUSLINE_SOURCE = "claude_code_statusline_rate_limits";
 const CLAUDE_COMPAT_SOURCE = "claude_orca_compat_receipt";
+const CLAUDE_OAUTH_SOURCE = "claude_oauth_usage_sanitized";
 
 function isLoopbackAddress(address) {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
@@ -115,7 +116,7 @@ function publicLimit(snapshot, limitId) {
 function publicClaudeOfficialProjection(projection) {
   const snapshot = projection?.snapshot;
   if (snapshot === null || snapshot === undefined
-    || ![CLAUDE_STATUSLINE_SOURCE, CLAUDE_COMPAT_SOURCE].includes(snapshot.source_kind)) {
+    || ![CLAUDE_STATUSLINE_SOURCE, CLAUDE_COMPAT_SOURCE, CLAUDE_OAUTH_SOURCE].includes(snapshot.source_kind)) {
     return emptyClaudeOfficialProjection();
   }
   const publicProjection = {
@@ -125,7 +126,7 @@ function publicClaudeOfficialProjection(projection) {
     observed_at: snapshot.observed_at,
     five_hour: publicLimit(snapshot, "claude_five_hour"),
     weekly: publicLimit(snapshot, "claude_weekly"),
-    fable_weekly: snapshot.source_kind === CLAUDE_COMPAT_SOURCE
+    fable_weekly: [CLAUDE_COMPAT_SOURCE, CLAUDE_OAUTH_SOURCE].includes(snapshot.source_kind)
       ? publicLimit(snapshot, "claude_fable_weekly")
       : null,
   };
@@ -152,7 +153,7 @@ async function readClaudeOfficialProjection({ receiptStore, nowMs, freshnessMs }
   if (receiptStore === null) return buildOfficialProviderQuotaProjection({ snapshot: null, nowMs, freshnessMs });
   const cacheOnlyProjection = await receiptStore.readReadOnlyProjection();
   const snapshot = cacheOnlyProjection?.snapshot ?? null;
-  if (snapshot?.source_kind !== CLAUDE_STATUSLINE_SOURCE) return cacheOnlyProjection;
+  if (![CLAUDE_STATUSLINE_SOURCE, CLAUDE_OAUTH_SOURCE].includes(snapshot?.source_kind)) return cacheOnlyProjection;
   // The only CURRENT path is a complete, digest-valid, bounded-age statusline
   // observation. It does not claim a connected or running Claude process.
   return buildOfficialProviderQuotaProjection({

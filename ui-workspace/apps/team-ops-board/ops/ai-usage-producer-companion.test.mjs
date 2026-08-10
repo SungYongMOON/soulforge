@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { runUsageProducerSweep, startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
 
-test("producer sweep refreshes exact lifecycle before the two local usage collectors", async () => {
+test("producer sweep refreshes lifecycle, usage ledgers, then gated Claude quota", async () => {
   const calls = [];
   const result = await runUsageProducerSweep({
     repoRoot: "C:\\safe\\Soulforge",
@@ -12,10 +12,11 @@ test("producer sweep refreshes exact lifecycle before the two local usage collec
     run: async (file, args) => { calls.push({ file, args }); },
   });
   assert.equal(result.status, "observed");
-  assert.deepEqual(calls.map((call) => call.args[1]), ["lifecycle-reconcile", "collect", "collect-claude"]);
+  assert.deepEqual(calls.slice(0, 3).map((call) => call.args[1]), ["lifecycle-reconcile", "collect", "collect-claude"]);
+  assert.match(calls[3].args[0], /claude-oauth-usage-collector\.mjs$/u);
   assert.deepEqual(calls[0].args.filter((arg) => arg === "--thread-id").length, 2);
-  assert.ok(calls.every((call) => call.args.includes("--apply")));
-  assert.ok(calls.every((call) => !call.args.some((arg) => /provider|quota|credential/iu.test(arg))));
+  assert.ok(calls.slice(0, 3).every((call) => call.args.includes("--apply")));
+  assert.ok(calls[3].args.includes("--gate-path"));
 });
 
 test("companion is single-flight and stops without starting another sweep", async () => {
