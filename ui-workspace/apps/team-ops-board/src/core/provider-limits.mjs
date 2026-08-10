@@ -1,25 +1,24 @@
-// provider-limits.mjs — 공급자(Codex·Claude)가 스스로 보고한 공식 한도 사용률의
-// 순수 파싱·정규화 계층. 로컬 추정치가 아니라 관측된 공식 값만 다루며, 실패는 null로 닫는다.
+// provider-limits.mjs — public Board projection for official quota evidence.
+// This is deliberately separate from the AI usage ledger and accepts only the
+// small, sanitized receipt shape emitted by the server adapter.
 
-export const PROVIDER_LIMITS_SCHEMA_VERSION = "soulforge.team_ops_board_provider_limits.v2";
-export const PROVIDER_LIMITS_SCHEMA_VERSION_V1 = "soulforge.team_ops_board_provider_limits.v1";
-
-const CLAUDE_QUOTA_STATES = new Set(["ready", "stale", "error", "disabled", "unknown"]);
-const CLAUDE_QUOTA_OUTCOMES = new Set([
-  "success",
-  "disabled",
-  "credential_unavailable",
-  "auth_failed",
-  "rate_limited",
-  "timeout",
-  "invalid_response",
-]);
-const CLAUDE_QUOTA_FRESHNESS = new Set(["current", "stale", "unknown"]);
+export const PROVIDER_LIMITS_SCHEMA_VERSION = "soulforge.team_ops_board_provider_limits.v3";
+export const PROVIDER_LIMITS_SCHEMA_VERSION_V2 = "soulforge.team_ops_board_provider_limits.v2";
 
 const SAFE_PLAN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
+const CLAUDE_SOURCE_KINDS = new Set([
+  "claude_code_statusline_rate_limits",
+  "claude_orca_compat_receipt",
+]);
+const FRESHNESS = new Set(["fresh", "stale", "unknown"]);
+const CAPTURE_STATUS = new Set(["accepted", "hold"]);
+
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 function finitePercent(value) {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1000
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100
     ? Math.round(value * 10) / 10
     : null;
 }
@@ -35,17 +34,29 @@ function isoOrNull(value) {
 }
 
 function codexWindow(window) {
-  if (typeof window !== "object" || window === null) return null;
+  if (!isRecord(window)) return null;
   const usedPercent = finitePercent(window.used_percent);
   if (usedPercent === null) return null;
   return {
     used_percent: usedPercent,
     window_minutes: safeEpochSeconds(window.window_minutes),
-    resets_at_epoch_s: safeEpochSeconds(window.resets_at),
+    resets_at_epoch_s: safeEpochSeconds(window.resets_at ?? window.resets_at_epoch_s),
   };
 }
 
-// 세션 JSONL 텍스트에서 마지막(최신) rate_limits 관측을 찾는다. 파싱 불가 줄은 건너뛴다.
+function normalizeCodexSnapshot(value) {
+  if (!isRecord(value)) return null;
+  const primary = codexWindow(value.primary);
+  if (primary === null) return null;
+  return {
+    primary,
+    secondary: codexWindow(value.secondary),
+    plan_type: typeof value.plan_type === "string" && SAFE_PLAN.test(value.plan_type) ? value.plan_type : null,
+    observed_at: isoOrNull(value.observed_at),
+  };
+}
+
+// Parse only the public Codex rate-limit fields from a session JSONL line.
 export function parseCodexRateLimitsFromJsonlText(text) {
   if (typeof text !== "string" || text.length === 0) return null;
   const lines = text.split("\n");
@@ -59,181 +70,120 @@ export function parseCodexRateLimitsFromJsonlText(text) {
       continue;
     }
     const limits = parsed?.payload?.rate_limits ?? parsed?.rate_limits ?? null;
-    if (typeof limits !== "object" || limits === null) continue;
-    const primary = codexWindow(limits.primary);
-    if (primary === null) continue;
-    return {
-      primary,
-      secondary: codexWindow(limits.secondary),
-      plan_type: typeof limits.plan_type === "string" && SAFE_PLAN.test(limits.plan_type) ? limits.plan_type : null,
-      observed_at: isoOrNull(parsed?.timestamp),
-    };
+    const normalized = normalizeCodexSnapshot({
+      ...limits,
+      observed_at: parsed?.timestamp,
+    });
+    if (normalized !== null) return normalized;
   }
   return null;
 }
 
-function claudeWindow(window) {
-  if (typeof window !== "object" || window === null) return null;
-  const utilization = finitePercent(window.utilization);
-  if (utilization === null) return null;
+function emptyClaudeOfficialQuota() {
   return {
-    utilization,
-    resets_at: isoOrNull(window.resets_at),
-  };
-}
-
-// 모델별 주간 창 후보 필드 — 계정 상태에 따라 null이었다가 나타난다. 관측되면 그대로 행이 된다.
-const CLAUDE_MODEL_WINDOW_SOURCES = Object.freeze([
-  ["seven_day_opus", "Opus"],
-  ["seven_day_sonnet", "Sonnet"],
-  ["seven_day_cowork", "Cowork"],
-  ["seven_day_omelette", "Omelette"],
-  ["tangelo", "tangelo"],
-  ["iguana_necktie", "iguana_necktie"],
-  ["nimbus_quill", "nimbus_quill"],
-  ["cinder_cove", "cinder_cove"],
-  ["amber_ladder", "amber_ladder"],
-]);
-
-function safeWindowLabel(value) {
-  const cleaned = typeof value === "string" ? value.replace(/[^\w .-]/gu, "").trim().slice(0, 32) : "";
-  return cleaned.length > 0 ? cleaned : null;
-}
-
-// Anthropic OAuth usage 응답에서 사용률 창만 추린다. 그 외 필드(한도 원값·과금)는 싣지 않는다.
-// 모델별 창의 정식 소스는 limits[] 배열의 scope.model 항목(예: weekly_scoped Fable)이다.
-export function normalizeClaudeOauthUsage(body) {
-  if (typeof body !== "object" || body === null) return null;
-  const fiveHour = claudeWindow(body.five_hour);
-  const sevenDay = claudeWindow(body.seven_day);
-  if (fiveHour === null && sevenDay === null) return null;
-  const modelWindows = [];
-  const seenLabels = new Set();
-  const limitEntries = Array.isArray(body.limits) ? body.limits : [];
-  for (const entry of limitEntries) {
-    if (typeof entry !== "object" || entry === null) continue;
-    const model = entry.scope?.model;
-    if (typeof model !== "object" || model === null) continue;
-    const utilization = finitePercent(entry.percent);
-    const label = safeWindowLabel(model.display_name) ?? safeWindowLabel(model.id);
-    if (utilization === null || label === null || seenLabels.has(label)) continue;
-    seenLabels.add(label);
-    modelWindows.push({
-      key: typeof entry.kind === "string" ? entry.kind.slice(0, 40) : "scoped",
-      label,
-      utilization,
-      resets_at: isoOrNull(entry.resets_at),
-    });
-  }
-  // 구형 필드(seven_day_opus 등)는 보조 소스 — limits[]에 같은 라벨이 없을 때만 채운다.
-  for (const [key, label] of CLAUDE_MODEL_WINDOW_SOURCES) {
-    const window = claudeWindow(body[key]);
-    if (window === null || (window.utilization === 0 && window.resets_at === null)) continue;
-    if (seenLabels.has(label)) continue;
-    seenLabels.add(label);
-    modelWindows.push({ key, label, ...window });
-  }
-  return {
-    five_hour: fiveHour,
-    seven_day: sevenDay,
-    model_windows: modelWindows,
-  };
-}
-
-function unknownClaudeQuotaStatus() {
-  return {
-    state: "unknown",
-    outcome: null,
-    attempted_at: null,
-    last_success_at: null,
+    capture_status: "hold",
     freshness: "unknown",
+    source_kind: null,
+    observed_at: null,
+    five_hour: null,
+    weekly: null,
+    fable_weekly: null,
   };
 }
 
-export function normalizeClaudeQuotaStatus(value) {
-  if (typeof value !== "object" || value === null) return unknownClaudeQuotaStatus();
-  const state = CLAUDE_QUOTA_STATES.has(value.state) ? value.state : "unknown";
-  const outcome = CLAUDE_QUOTA_OUTCOMES.has(value.outcome) ? value.outcome : null;
-  const attemptedAt = isoOrNull(value.attempted_at);
-  const lastSuccessAt = isoOrNull(value.last_success_at);
-  const freshness = CLAUDE_QUOTA_FRESHNESS.has(value.freshness) ? value.freshness : "unknown";
-
-  if (state === "disabled") {
-    return outcome === "disabled"
-      ? { state, outcome, attempted_at: null, last_success_at: null, freshness: "unknown" }
-      : unknownClaudeQuotaStatus();
-  }
-  if (state === "ready") {
-    return outcome === "success" && attemptedAt !== null && lastSuccessAt !== null && freshness === "current"
-      ? { state, outcome, attempted_at: attemptedAt, last_success_at: lastSuccessAt, freshness }
-      : unknownClaudeQuotaStatus();
-  }
-  if (state === "stale") {
-    return outcome !== null && outcome !== "disabled" && lastSuccessAt !== null && freshness === "stale"
-      ? { state, outcome, attempted_at: attemptedAt, last_success_at: lastSuccessAt, freshness }
-      : unknownClaudeQuotaStatus();
-  }
-  if (state === "error") {
-    return outcome !== null && outcome !== "success" && outcome !== "disabled"
-      ? { state, outcome, attempted_at: attemptedAt, last_success_at: lastSuccessAt, freshness }
-      : unknownClaudeQuotaStatus();
-  }
-  return unknownClaudeQuotaStatus();
+function normalizedOfficialWindow(value, { expectedId, expectedMinutes, observedAtMs }) {
+  if (!isRecord(value) || value.limit_id !== expectedId
+    || !["used_percentage", "remaining_percentage"].includes(value.percentage_kind)
+    || value.window_minutes !== expectedMinutes) return null;
+  const percentage = finitePercent(value.percentage);
+  const resetsAt = isoOrNull(value.resets_at);
+  const resetMs = resetsAt === null ? NaN : Date.parse(resetsAt);
+  if (percentage === null || !Number.isFinite(resetMs) || resetMs <= observedAtMs) return null;
+  return {
+    utilization: value.percentage_kind === "used_percentage" ? percentage : 100 - percentage,
+    resets_at: resetsAt,
+  };
 }
 
-function normalizedClaudeSnapshotValue(value) {
-  if (typeof value !== "object" || value === null) return null;
-  const fiveHour = claudeWindow(value.five_hour);
-  const sevenDay = claudeWindow(value.seven_day);
-  if (fiveHour === null && sevenDay === null) return null;
-  const modelWindows = [];
-  const seenLabels = new Set();
-  for (const entry of Array.isArray(value.model_windows) ? value.model_windows : []) {
-    if (typeof entry !== "object" || entry === null) continue;
-    const utilization = finitePercent(entry.utilization);
-    const label = safeWindowLabel(entry.label);
-    if (utilization === null || label === null || seenLabels.has(label)) continue;
-    seenLabels.add(label);
-    modelWindows.push({
-      key: typeof entry.key === "string" ? entry.key.slice(0, 40) : "scoped",
-      label,
-      utilization,
-      resets_at: isoOrNull(entry.resets_at),
-    });
-  }
+// The server removes the receipt digest and every other non-display field
+// before this reaches the browser. Revalidate the remaining presentation
+// contract so a malformed loopback response cannot create a green value.
+export function normalizeClaudeOfficialQuota(value) {
+  const empty = emptyClaudeOfficialQuota();
+  if (!isRecord(value) || !CLAUDE_SOURCE_KINDS.has(value.source_kind)
+    || !CAPTURE_STATUS.has(value.capture_status) || !FRESHNESS.has(value.freshness)) return empty;
+  const observedAt = isoOrNull(value.observed_at);
+  const observedAtMs = observedAt === null ? NaN : Date.parse(observedAt);
+  if (!Number.isFinite(observedAtMs)) return empty;
+  const fiveHour = normalizedOfficialWindow(value.five_hour, {
+    expectedId: "claude_five_hour",
+    expectedMinutes: 300,
+    observedAtMs,
+  });
+  const weekly = normalizedOfficialWindow(value.weekly, {
+    expectedId: "claude_weekly",
+    expectedMinutes: 10_080,
+    observedAtMs,
+  });
+  const fableWeekly = value.source_kind === "claude_orca_compat_receipt"
+    ? normalizedOfficialWindow(value.fable_weekly, {
+      expectedId: "claude_fable_weekly",
+      expectedMinutes: 10_080,
+      observedAtMs,
+    })
+    : null;
+  const complete = fiveHour !== null && weekly !== null;
+  const current = complete && value.source_kind === "claude_code_statusline_rate_limits"
+    && value.capture_status === "accepted" && value.freshness === "fresh";
+  const stale = complete && value.capture_status === "hold" && value.freshness === "stale";
+  if (!current && !stale) return empty;
   return {
+    capture_status: current ? "accepted" : "hold",
+    freshness: current ? "fresh" : "stale",
+    source_kind: value.source_kind,
+    observed_at: observedAt,
     five_hour: fiveHour,
-    seven_day: sevenDay,
-    model_windows: modelWindows,
-    observed_at: isoOrNull(value.observed_at),
+    weekly,
+    fable_weekly: fableWeekly,
   };
 }
 
 export function buildClaudeQuotaPresentation(snapshot) {
-  let status = normalizeClaudeQuotaStatus(snapshot?.claude_status);
-  const claude = normalizedClaudeSnapshotValue(snapshot?.claude);
-  if (status.state === "ready" && claude === null) status = unknownClaudeQuotaStatus();
-  const current = status.state === "ready" && status.outcome === "success"
-    && status.freshness === "current" && claude !== null;
+  const official = normalizeClaudeOfficialQuota(snapshot?.claude_official);
+  const current = official.capture_status === "accepted" && official.freshness === "fresh";
+  const state = current ? "ready" : official.freshness === "stale" ? "stale" : "unknown";
   return {
-    claude,
-    status,
+    official,
+    claude: {
+      five_hour: official.five_hour,
+      seven_day: official.weekly,
+      fable_weekly: official.fable_weekly,
+      model_windows: [],
+      observed_at: official.observed_at,
+    },
+    status: {
+      state,
+      outcome: official.source_kind,
+      attempted_at: official.observed_at,
+      last_success_at: official.observed_at,
+      freshness: current ? "current" : official.freshness,
+    },
     current,
-    value_state: current ? "current" : claude === null ? "unavailable" : "last_known",
+    value_state: current ? "current" : state === "stale" ? "last_known" : "unavailable",
   };
 }
 
 export function buildProviderLimitsSnapshot({
   codex = null,
-  claude = null,
-  claudeStatus = null,
+  claudeOfficial = null,
   observedAtMs = Date.now(),
 } = {}) {
+  const observed = new Date(observedAtMs);
+  const observedAt = Number.isFinite(observed.getTime()) ? observed.toISOString() : null;
   return {
     schema_version: PROVIDER_LIMITS_SCHEMA_VERSION,
-    observed_at: new Date(observedAtMs).toISOString(),
-    codex,
-    claude: normalizedClaudeSnapshotValue(claude),
-    claude_status: normalizeClaudeQuotaStatus(claudeStatus),
+    observed_at: observedAt,
+    codex: normalizeCodexSnapshot(codex),
+    claude_official: normalizeClaudeOfficialQuota(claudeOfficial),
   };
 }

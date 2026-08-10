@@ -24,6 +24,7 @@ import {
   isTeamOpsBoardReadOnlyPilot,
 } from "../src/core/team-ops-board-read-only-pilot.mjs";
 import { resolveTeamOpsBoardAllowedHosts } from "../src/server/team-ops-board-allowed-hosts.mjs";
+import { startUsageProducerCompanion } from "./ai-usage-producer-companion.mjs";
 
 export const TEAM_OPS_BOARD_RUNTIME_SCHEMA = "soulforge.team_ops_board.runtime.v1";
 export const TEAM_OPS_BOARD_RUNTIME_HOST = "127.0.0.1";
@@ -88,6 +89,7 @@ const SCHEDULED_HELPER_ENVIRONMENT_ALLOWLIST = Object.freeze([
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(HERE, "..");
+const SOULFORGE_ROOT = path.resolve(APP_ROOT, "../../..");
 const CONFIG_FILE = path.join(APP_ROOT, "vite.config.ts");
 const DIST_INDEX = path.join(APP_ROOT, "dist", "index.html");
 const RUNTIME_DEPENDENCY_SENTINEL = path.resolve(
@@ -1650,12 +1652,14 @@ async function runWorker(runId, env = process.env) {
   let shutdownPromise = null;
   let fatalPromise = null;
   let heartbeatTimer = null;
+  let usageProducerCompanion = null;
   let shuttingDown = false;
   const shutdown = () => {
     if (shutdownPromise) return shutdownPromise;
     shuttingDown = true;
     shutdownPromise = (async () => {
       clearInterval(heartbeatTimer);
+      await usageProducerCompanion?.stop();
       const current = await readRuntimeState(paths).catch(() => null);
       if (current?.run_id === runId && ["starting", "ready"].includes(current.state)) {
         await writeJsonAtomic(paths.state, transitionRuntimeState(current, "stop_requested"));
@@ -1713,6 +1717,10 @@ async function runWorker(runId, env = process.env) {
     const vite = await import("vite");
     previewServer = await vite.preview(createPreviewConfig());
     if (!(await headLoopback())) fail("health_failed");
+    usageProducerCompanion = startUsageProducerCompanion({
+      repoRoot: SOULFORGE_ROOT,
+      stateRoot: workerEnv.SOULFORGE_AI_USAGE_METER_STATE_ROOT,
+    });
     await writeJsonAtomic(paths.state, {
       ...transitionRuntimeState(startingState, "preview_ready"),
       build_sha256: await buildDigest(),

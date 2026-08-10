@@ -102,7 +102,7 @@ test("Fleet Watchtower state and provider polling fail closed without aggregate 
   assert.match(source, /new AbortController\(\)/u);
   assert.match(source, /if \(inFlight !== null\) return inFlight;/u);
   assert.match(source, /let generation = 0;/u);
-  assert.match(source, /createProviderSnapshots\("refreshing"\)/u);
+  assert.match(source, /refresh_state: "refreshing"/u);
   assert.match(source, /refresh_state: complete \? "ready" : "hold"/u);
   assert.match(source, /fleet-provider-observation-state/u);
   assert.equal(source.includes("const healthy = model.summary"), false);

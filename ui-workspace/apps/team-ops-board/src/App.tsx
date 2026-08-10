@@ -405,6 +405,30 @@ function createProviderSnapshots(refreshState: ProviderRefreshState = "hold") {
   };
 }
 
+function retainStaleProviderLimits(snapshot: any) {
+  if (!snapshot || typeof snapshot !== "object") return snapshot;
+  const official = snapshot.claude_official;
+  if (!official || typeof official !== "object") return snapshot;
+  return {
+    ...snapshot,
+    claude_official: {
+      ...official,
+      capture_status: "hold",
+      freshness: "stale",
+    },
+  };
+}
+
+function retainStaleAntigravityQuota(snapshot: any) {
+  if (!snapshot || typeof snapshot !== "object") return snapshot;
+  return { ...snapshot, freshness: "stale" };
+}
+
+function retainStaleAntigravityUsage(snapshot: any) {
+  if (!snapshot || typeof snapshot !== "object") return snapshot;
+  return { ...snapshot, stale: true };
+}
+
 function App() {
   const [projection, setProjection] = useState<any>(() =>
     createUnavailableLiveThreadProjection({ health: "unavailable", enrollmentHealth: "missing" })
@@ -462,8 +486,10 @@ function App() {
     let generation = 0;
     let inFlight: Promise<void> | null = null;
     const controllers = new Set<AbortController>();
-    const publish = (requestGeneration: number, snapshot: any) => {
-      if (!cancelled && requestGeneration === generation) setProviderSnapshots(snapshot);
+    const publish = (requestGeneration: number, update: any) => {
+      if (!cancelled && requestGeneration === generation) {
+        setProviderSnapshots((previous: any) => typeof update === "function" ? update(previous) : update);
+      }
     };
     const fetchJson = async (url: string) => {
       const controller = new AbortController();
@@ -483,8 +509,8 @@ function App() {
     const load = (): Promise<void> => {
       if (inFlight !== null) return inFlight;
       const requestGeneration = ++generation;
-      // A refresh clears prior values before any endpoint can settle out of order.
-      publish(requestGeneration, createProviderSnapshots("refreshing"));
+      // Keep last-known per-provider evidence visible while a refresh is pending.
+      publish(requestGeneration, (previous: any) => ({ ...previous, refresh_state: "refreshing" }));
       const operation = Promise.all([
         fetchJson("/antigravity-usage.snapshot.json"),
         fetchJson("/antigravity-quota.snapshot.json"),
@@ -492,14 +518,19 @@ function App() {
       ]).then(([antigravity, antigravityQuota, limits]) => {
         const complete = [antigravity, antigravityQuota, limits]
           .every((snapshot) => snapshot !== null && snapshot !== undefined);
-        publish(requestGeneration, {
-          antigravity,
-          antigravityQuota,
-          limits,
+        publish(requestGeneration, (previous: any) => ({
+          antigravity: antigravity ?? retainStaleAntigravityUsage(previous?.antigravity ?? null),
+          antigravityQuota: antigravityQuota ?? retainStaleAntigravityQuota(previous?.antigravityQuota ?? null),
+          limits: limits ?? retainStaleProviderLimits(previous?.limits ?? null),
           refresh_state: complete ? "ready" : "hold",
-        });
+        }));
       }).catch(() => {
-        publish(requestGeneration, createProviderSnapshots("hold"));
+        publish(requestGeneration, (previous: any) => ({
+          antigravity: retainStaleAntigravityUsage(previous?.antigravity ?? null),
+          antigravityQuota: retainStaleAntigravityQuota(previous?.antigravityQuota ?? null),
+          limits: retainStaleProviderLimits(previous?.limits ?? null),
+          refresh_state: "hold",
+        }));
       });
       inFlight = operation;
       void operation.finally(() => {
@@ -2469,8 +2500,8 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   const providerObservationNote = providers?.refresh_state === "ready"
     ? null
     : providers?.refresh_state === "refreshing"
-      ? "공식 쿼터 관측 갱신 중 · Claude 상태가 값의 최신성을 결정"
-      : "공식 쿼터 관측 HOLD · 누락된 Claude 상태는 UNKNOWN으로 표시";
+      ? "공식 계정 한도 관측 갱신 중 · 이전 값은 STALE로 유지"
+      : "공식 계정 한도 HOLD · 마지막 안전 관측만 STALE, 나머지는 UNKNOWN";
   const dailyTokens = Array.isArray(history?.activity?.daily)
     ? history.activity.daily.map((row: any) => row.total_tokens ?? 0)
     : [];
@@ -2569,7 +2600,7 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
     });
   }
   // Anthropic이 모델별 주간 창(예: Opus 전용 한도)을 보고하면 자동으로 행이 된다.
-  for (const modelWindow of claudeOfficial?.model_windows ?? []) {
+  for (const modelWindow of (claudeOfficial?.model_windows ?? []) as any[]) {
     limitRows.push({
       key: `claude_model_${modelWindow.key}`,
       group: "주간 창",
