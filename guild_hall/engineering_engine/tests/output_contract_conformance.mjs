@@ -8,7 +8,7 @@
 //   absence is a value, so a fresh checkout renders "no evidence" instead of failing
 //   each artifact states what it proves and what it does not
 
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { copyFileSync, mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { dirname } from 'node:path';
@@ -21,6 +21,7 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, '..');
+const REPO_ROOT = join(ENGINE, '..', '..');
 const results = [];
 const record = (id, ok, note = '') => results.push({ id, ok: ok === true, note });
 
@@ -48,6 +49,14 @@ record('OUT/observations_are_not_tracked',
   'measurements of one host stay host-local');
 record('OUT/tracked_artifact_names_its_repo_path',
   OUTPUT_ARTIFACTS.filter((a) => a.tracked_in_repo).every((a) => typeof a.repo_relative_path === 'string'));
+const nestedRuntimeState = spawnSync('git', [
+  '-C', REPO_ROOT, 'ls-files', '--', 'guild_hall/engineering_engine/guild_hall/state/**',
+], { encoding: 'utf8' });
+record('OUT/no_nested_runtime_state_is_tracked',
+  nestedRuntimeState.status === 0
+    && nestedRuntimeState.stdout.trim().split(/\r?\n/).filter(Boolean)
+      .every((path) => !existsSync(join(REPO_ROOT, path))),
+  'runtime outputs belong under the repository-root ignored state plane, never below the engine source tree');
 
 // ---------------------------------------------------------------- resolution is fail-closed
 
@@ -56,8 +65,12 @@ if (!SCRATCH) {
 } else {
   const root = join(SCRATCH, 'output_contract_conformance');
   const stateDir = join(root, 'guild_hall', 'state', 'engineering_engine');
+  const topologySpec = OUTPUT_ARTIFACTS.find((a) => a.id === 'engine_topology');
+  const topologyPath = join(root, topologySpec.repo_relative_path);
   rmSync(root, { recursive: true, force: true });
   mkdirSync(stateDir, { recursive: true });
+  mkdirSync(dirname(topologyPath), { recursive: true });
+  copyFileSync(join(REPO_ROOT, topologySpec.repo_relative_path), topologyPath);
   const target = pointerPath(root);
 
   record('OUT/no_pointer_falls_back_to_the_declared_default',
@@ -95,7 +108,11 @@ if (!SCRATCH) {
   record('OUT/absence_does_not_fail_the_run', emitted.status === 0,
     'a fresh checkout has no observations, and that is not an error');
   record('OUT/absence_is_reported_as_a_value',
-    index?.resolved === true && index.absent_count === OUTPUT_ARTIFACTS.length && index.present_count === 0);
+    index?.resolved === true && index.absent_count === OUTPUT_ARTIFACTS.length - 1 && index.present_count === 1);
+  const topology = index?.artifacts?.find((a) => a.id === 'engine_topology');
+  record('OUT/tracked_topology_is_present',
+    topology?.present === true && topology.readable === true && /^[0-9a-f]{64}$/.test(topology.sha256 ?? ''),
+    'the tracked topology is resolved from the repository root, not the runtime output root');
   record('OUT/absent_reasons_are_distinguishable',
     new Set((index?.artifacts ?? []).map((a) => a.absent_reason)).size >= 2,
     'a missing tracked file is a different problem from a host that never observed');
