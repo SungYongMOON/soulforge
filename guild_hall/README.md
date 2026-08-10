@@ -3,8 +3,9 @@
 ## 목적
 
 - `guild_hall/` 은 Soulforge 의 cross-project 운영 root 다.
-- 이 루트는 project worksite 자체가 아니라, 여러 프로젝트에 공통으로 걸치는 ingress, notify, assignment, night watch 기능을 모은다.
+- 이 루트는 project worksite 자체가 아니라, 여러 프로젝트에 공통으로 걸치는 기능 owner 를 모은다. ingress, notify, assignment, night watch 운영과 함께 knowledge supply, projection, 그리고 cross-project 결정론 domain engine 계약·kernel 을 포함한다.
 - 실제 local state 는 `guild_hall/state/**` 아래에서만 materialize 하고 Git 으로 추적하지 않는다.
+- 이 문서의 `## 구성` 이 `guild_hall/` 자식의 정본 열거다. `docs/architecture/foundation/TARGET_TREE.md` 의 트리는 canonical root 경계를 보여주는 대표 예시이며 자식 전체를 열거하지 않는다.
 
 ## 구성
 
@@ -32,6 +33,11 @@
   no project binding, accepted-ingress, ERP, MCP, or TaskEngine authority
 - `knowledge_graph/`: metadata-only knowledge graph JSON, HTML preview, and generated Obsidian view helper
 - `rag/`: metadata-only RAG manifest, source-slice cards, decision records, metadata retrieval index, trace/evaluation, and indexed answer helper
+- `engineering_engine/`: cross-project 증거기반 체계공학 판단 engine 의 결정론 kernel 과 계약.
+  Expected/Observed 비교로 Snapshot·Finding·Missing/Unknown·Context Request 후보를 만들고,
+  `rag/`·`knowledge_graph/`·`knowledge_access/`·`knowledge_canon/` 을 adapter 계약으로만 소비한다.
+  Phase 1–4 baseline 은 `deterministic_only` 이며 학습모델을 호출하지 않는다.
+  프로젝트 원문·계약서·source PDF·snapshot payload·secret 은 두지 않는다
 - `healer/`: 24시간 PC self-check 와 activity report writer
 - `shared/`: guild_hall owner 들이 함께 쓰는 repo path / JSON state helper
 - `snapshot/`: UI 와 외부 host 가 읽는 read-only sanitized 상태 projection

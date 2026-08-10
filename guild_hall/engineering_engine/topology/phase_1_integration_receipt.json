@@ -1,0 +1,283 @@
+{
+  "receipt": "phase_1_serial_integration",
+  "contract_revision": "phase_1_0_contract.v0",
+  "result": "PASS",
+  "checks": [
+    {
+      "id": "suites",
+      "ok": true,
+      "detail": "10 suites, 840 checks"
+    },
+    {
+      "id": "mutation_lock",
+      "ok": true,
+      "detail": "51/51 killed across 21 modules"
+    },
+    {
+      "id": "frozen_bundle",
+      "ok": true,
+      "detail": "13/13"
+    },
+    {
+      "id": "field_group_ownership",
+      "ok": true,
+      "detail": "6 groups, one owning lane each"
+    },
+    {
+      "id": "topology_matches_code",
+      "ok": true,
+      "detail": "23 modules, 85 import edges, digest b2cec86b08f6"
+    },
+    {
+      "id": "runtime_observation",
+      "ok": true,
+      "detail": "85/85 edges traversed, 9 surfaces reported, topology 1:1"
+    },
+    {
+      "id": "no_writes",
+      "ok": true,
+      "detail": "every suite reported zero writes"
+    }
+  ],
+  "suites": [
+    {
+      "suite": "kernel_conformance.mjs",
+      "lane": "phase_1_0_substrate",
+      "verification_strength": "frozen_independently_reviewed_oracle",
+      "result": "PASS",
+      "pass_count": 148,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "lane_1a_conformance.mjs",
+      "lane": "1A",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 151,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "lane_1b_conformance.mjs",
+      "lane": "1B",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 119,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "lane_1c_conformance.mjs",
+      "lane": "1C",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 59,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "lane_1d_conformance.mjs",
+      "lane": "1D",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 59,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "lane_1e_conformance.mjs",
+      "lane": "1E",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 104,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "minting_conformance.mjs",
+      "lane": "D-P10-03",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 48,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "runtime_observation_conformance.mjs",
+      "lane": "runtime_observation",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 83,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "end_to_end_engine_run.mjs",
+      "lane": "end_to_end",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 43,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "output_contract_conformance.mjs",
+      "lane": "output_contract",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 26,
+      "failure_count": 0,
+      "failures": []
+    }
+  ],
+  "total_conformance_checks": 840,
+  "mutation_lock": {
+    "result": "PASS",
+    "mutations": 51,
+    "killed": 51,
+    "survived": 0,
+    "catalogue_errors": 0,
+    "modules_covered": 21,
+    "semantic_independence": "UNMET"
+  },
+  "frozen_bundle": {
+    "matched": 13,
+    "rows": 13,
+    "mismatches": []
+  },
+  "runtime_observation": {
+    "run_id": "run-20260810154123041",
+    "surfaces_run": 9,
+    "surfaces_without_heartbeat": 3,
+    "edge_coverage": "85/85",
+    "declared_not_exercised": [],
+    "observed_not_declared": [],
+    "topology_is_one_to_one": true
+  },
+  "topology": {
+    "modules": 23,
+    "import_edges": 85,
+    "digest": "b2cec86b08f69d81b11349e8899931fe320c7c7c49cd14a5c68085513b018ac9",
+    "derived_from": {
+      "module_edges": "parsed from import statements in kernel/*.mjs, assembly/*.mjs, subjects/*.mjs",
+      "areas_covered": [
+        "kernel",
+        "assembly",
+        "subjects"
+      ],
+      "areas_deliberately_excluded": [
+        {
+          "area": "tools",
+          "reason": "cli_entry_points_not_judgement_structure"
+        }
+      ],
+      "boundaries": "read from mcp_contract.OPERATIONS",
+      "everything_else": "read from the module that owns it",
+      "hand_authored": [
+        "lane_field_group_ownership"
+      ]
+    }
+  },
+  "verification_strength_by_lane": {
+    "phase_1_0_substrate": "frozen_independently_reviewed_oracle",
+    "1A": "author_written_fixtures",
+    "1B": "author_written_fixtures",
+    "1C": "author_written_fixtures",
+    "1D": "author_written_fixtures",
+    "1E": "author_written_fixtures",
+    "D-P10-03": "author_written_fixtures",
+    "runtime_observation": "author_written_fixtures",
+    "end_to_end": "author_written_fixtures",
+    "output_contract": "author_written_fixtures"
+  },
+  "honest_limits": [
+    "five of six lanes carry author-written fixtures; only the phase_1_0 substrate is judged against the independently reviewed frozen oracle",
+    "the mutation lock is self-authored, so a rule wrong identically in code and fixtures survives it",
+    "no actual project material, UI, MCP execution, ERP writer or learned model was exercised",
+    "a module load observation proves an edge was traversed, not that data was processed"
+  ],
+  "open_owner_decisions": {
+    "closed": [
+      {
+        "id": "D-P10-01",
+        "decision": "the preserved V1.2 snapshot claim_ceiling field carries evidence axis values"
+      },
+      {
+        "id": "D-P10-02",
+        "decision": "guild_hall/engineering_engine is the engine canonical folder and document owner"
+      },
+      {
+        "id": "D-P10-03",
+        "decision": "a single serialised minting boundary inside the engine issues every permanent identifier; identifiers are opaque; a collision is rejected rather than retried"
+      },
+      {
+        "id": "D-P10-04",
+        "decision": "authority family machine keys adopted as declared"
+      },
+      {
+        "id": "D-P10-05",
+        "decision": "evidence_claim_ceiling seven value set adopted"
+      },
+      {
+        "id": "D-P10-07",
+        "decision": "canonical time carries exactly three fractional digits, fixed"
+      }
+    ],
+    "open": [
+      {
+        "id": "D-P10-06",
+        "affects": "registered human disposition confirmation authority policy",
+        "blocks": "live disposition confirmation"
+      },
+      {
+        "id": "D-P10-08",
+        "affects": "registered human P5 and P8 approver registration policy",
+        "blocks": "live P5 acceptance"
+      }
+    ],
+    "open_lane_questions": [
+      {
+        "lane": "1E",
+        "question": "release artifact store location and owner",
+        "blocks": "first real deployment"
+      },
+      {
+        "lane": "1E",
+        "question": "binding promotion and rollback authority",
+        "blocks": "first real promotion"
+      },
+      {
+        "lane": "1B",
+        "question": "which source surfaces are in scope for inventory",
+        "blocks": "phase_2_real_material"
+      },
+      {
+        "lane": "1A",
+        "question": "high security project isolation threshold",
+        "blocks": "first restricted project"
+      }
+    ],
+    "lane_1a": [
+      "p5_and_p8_registered_human_approver_registration_policy",
+      "whether_self_approval_is_ever_permitted_and_for_whom",
+      "p7_stage_definition_or_removal_from_the_numbering"
+    ],
+    "lane_1b": [
+      "which_source_surfaces_are_in_scope_for_inventory",
+      "retention_withdrawal_authority",
+      "span_retention_store_location_and_owner"
+    ],
+    "lane_1e": [
+      "release_artifact_store_location_and_owner",
+      "binding_promotion_authority",
+      "rollback_authority",
+      "high_security_project_isolation_threshold"
+    ],
+    "undefined_stage": {
+      "state": "UNKNOWN_pending_engine_owner",
+      "note": "the frozen Phase 1-0 contract names P5, P6 and P8 but does not define P7"
+    }
+  },
+  "writes_performed": 0
+}

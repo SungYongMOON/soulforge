@@ -74,6 +74,7 @@
 │   ├── town_crier/
 │   ├── night_watch/
 │   ├── dungeon_assignment/
+│   ├── engineering_engine/
 │   └── state/
 ├── _workspaces/
 │   └── README.md
@@ -91,7 +92,8 @@
 - `.registry/species/<species_id>/species.yaml` 가 species truth 와 `heroes:` inline set 을 함께 가진다.
 - `.registry/skills/`, `.registry/tools/`, `.registry/knowledge/` 는 reusable canon bucket 이며, class/unit/workflow sample 을 뒷받침하는 minimal seed entry 를 가질 수 있다.
 - `.mission/<mission_id>/mission.yaml` 는 held mission plan owner 이고, `readiness.yaml` 는 현재 실행 가능 상태를 기록한다.
-- `guild_hall/` 은 cross-project 운영 루트이고, 실제 local state 는 `guild_hall/state/**` 아래에서만 materialize 한다.
+- `guild_hall/` 은 cross-project 기능 owner 루트이고, 실제 local state 는 `guild_hall/state/**` 아래에서만 materialize 한다.
+- 위 트리의 `guild_hall/` 자식은 **대표 예시**다. 자식 전체의 정본 열거는 `guild_hall/README.md` 의 `## 구성` 이 소유한다. 이 문서는 root 경계를 고정하고, root 내부 자식 목록은 owner-local README 를 따른다.
 
 ## `guild_hall` local operations state
 
@@ -177,7 +179,7 @@ _workmeta/
 | `.workflow/` | independent orchestration canon | workflow 정의, workflow-level profile policy, public-safe calibration archive, sanitized history | project-local raw run dump, private/raw transcript, battle log |
 | `.party/` | independent workflow-chain orchestration template | party workflow-chain/loadout, entry workflow, allowed workflow set, chain-level observations | workflow 내부 step/profile, raw battle log, project-specific operational metrics |
 | `.mission/` | held mission plan owner | mission plan, readiness, public-safe dispatch / resolve metadata | raw run dump, project-local truth |
-| `guild_hall/` | cross-project operations root | gateway, town_crier, night_watch, dungeon_assignment source 와 owner 문서 | local state, mailbox dump, Telegram env, queue state |
+| `guild_hall/` | cross-project 기능 owner root | 운영 owner(gateway, town_crier, night_watch, dungeon_assignment), knowledge supply·projection owner, cross-project 결정론 domain engine 계약·kernel·public-safe fixture, 그리고 각 owner 문서 | local state, mailbox dump, Telegram env, queue state, project payload, 계약 원문, source PDF, snapshot payload, secret |
 | `_workspaces/` | local-only project worksite | `README.md` only | per-project 내용 전체 |
 
 ## 고정 규칙
@@ -186,6 +188,7 @@ _workmeta/
 - `.workflow` 와 `.party` 는 `.registry` 아래로 들어가지 않는다.
 - `.mission` 은 `.workflow`, `.party`, runtime assignment 를 참조해 held mission plan 을 소유한다.
 - `guild_hall` 은 cross-project ingress, notify, night watch, assignment 운영을 소유한다.
+- `guild_hall` 은 추가로 cross-project **결정론 domain engine 계약과 kernel** 을 소유한다. 이 범위에는 project payload, 계약 원문, runtime state, secret 을 두지 않는다.
 - `guild_hall/state/**` 는 local-only state 이다.
 - project candidate root 는 `_workspaces/<project_code>/` direct child 구조를 사용한다.
 - project-side monster record 는 `_workmeta/<project_code>/monsters/` 아래에 둔다.

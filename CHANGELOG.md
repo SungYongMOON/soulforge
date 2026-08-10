@@ -1,5 +1,69 @@
 # CHANGELOG
 
+## 2026-08-10 - SE Engineering Engine Phase 1 lanes complete
+
+- Completed all six Phase 1 lanes under `guild_hall/engineering_engine/`: 1A
+  snapshot envelope, state axes, Finding and Context Request schemas and the
+  P5–P8 boundary contract; 1B source inventory, byte custody, eligibility and
+  knowledge lineage; 1C typed graph projection and bounded Context Capsule; 1D
+  MCP request admission, idempotency, CAS and serialisation; 1E module ABI,
+  project binding, release artifact and rollback; 1V mutation lock. Each lane
+  ships a kernel module, a contract document and a conformance suite with no
+  external dependencies.
+- Closed owner decision `D-P10-03`: a single serialised boundary inside the
+  engine issues every permanent identifier, identifiers are opaque UUIDs, and a
+  collision is rejected rather than retried. A consequence is enforced in code —
+  work that runs in parallel cannot mint, so candidate findings carry a
+  content-derived handle and the identifier is minted at a serialised boundary.
+- Closed owner decision `D-P10-07`: canonical time carries exactly three
+  fractional digits, fixed. Widening it later would silently invalidate every
+  fingerprint already computed.
+- Adopted a single custody mode, `hash_pinned_with_cited_span_retention`: the
+  original stays where its owner keeps it with its byte hash pinned, and only the
+  span that was actually cited is retained immutably. Per-source modes are
+  refused, because a snapshot whose sources carry different replay guarantees has
+  no single answer to whether a conclusion can be reproduced.
+- Added `tools/emit_topology.mjs`, which derives the engine's structure from the
+  engine rather than describing it: module edges are parsed from the actual
+  `import` statements, boundaries are read from the lane 1D operations table, and
+  the remaining vocabularies are read from the modules that own them. The
+  integration check compares the committed topology against a fresh emit, so a
+  stale topology fails instead of misleading.
+- Added `tools/phase_1_integration_check.mjs` as the single Phase 1 gate: every
+  conformance suite passes, the mutation lock kills every mutation, the frozen
+  Phase 1-0 bundle still matches 13/13, each frozen field group has exactly one
+  owning lane, the committed topology matches the code, and no suite writes.
+- Verification strength is recorded per lane rather than averaged. Only the
+  Phase 1-0 substrate is judged against the independently reviewed frozen oracle;
+  the five lane suites carry author-written fixtures, and the mutation lock is
+  self-authored, so semantic independence remains an unmet obligation. The
+  mutation lock found three real coverage holes before it went green.
+- Recorded that the frozen Phase 1-0 contract names `P5`, `P6` and `P8` but does
+  not define `P7`. No stage was invented to fill the numbering; it is carried as
+  an open item.
+- No project material, UI, runtime, MCP execution, ERP writer or learned model
+  was exercised. Phase 1–4 baseline remains `deterministic_only`.
+
+## 2026-08-10 - SE Engineering Engine owner root and deterministic kernel
+
+- Added `guild_hall/engineering_engine/` as the owner of the cross-project
+  evidence-based systems-engineering judgement engine, with its deterministic
+  no-LLM kernel and Phase 1-0 contract implementation. The engine consumes
+  `rag/`, `knowledge_graph/`, `knowledge_access/`, and `knowledge_canon/` through
+  adapter contracts only and copies no provider code.
+- Widened the `guild_hall/` charter in `TARGET_TREE.md` and
+  `DOCUMENT_OWNERSHIP.md` from operations-only to cross-project functional owner,
+  which now explicitly covers knowledge supply, projection, and deterministic
+  domain engine contracts. Project payload, contract bodies, source PDFs,
+  snapshot payload, and secrets remain excluded.
+- Recorded that the `guild_hall/` child enumeration is owned by
+  `guild_hall/README.md`; the foundation tree shows representative children and
+  fixes root boundaries only. This removes a drift where the tree presented seven
+  children as fixed while the root held far more.
+- Phase 1–4 baseline is `deterministic_only`. No learned model invocation, no
+  embedding or reranker on the authoritative path, no runtime, no UI, no ERP
+  writer, and no actual project access were added.
+
 ## 2026-08-10 - AI usage meter quarantine-aware backfill planner
 
 - Added a deterministic, read-only backfill plan that separates candidate,
