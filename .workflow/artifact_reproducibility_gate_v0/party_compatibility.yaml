@@ -1,0 +1,14 @@
+workflow_id: artifact_reproducibility_gate_v0
+kind: party_compatibility
+status: candidate
+party_required: false
+compatible_capabilities:
+  - source_bound_authoring
+  - deterministic_native_publisher
+  - package_structure_inspection
+  - all_surface_visual_review
+  - independent_acceptance_review
+incompatible_patterns:
+  - single_agent_authors_builds_and_accepts_its_own_artifact
+  - runtime_private_payload_persisted_in_public_workflow
+  - output_generated_without_immutable_content_packet

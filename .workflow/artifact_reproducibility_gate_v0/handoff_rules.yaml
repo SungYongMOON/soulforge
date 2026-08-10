@@ -1,0 +1,36 @@
+workflow_id: artifact_reproducibility_gate_v0
+kind: handoff_rules
+status: candidate
+rules:
+  - from: experiment_controller
+    to: semantic_contract_validator
+    requires:
+      - locked fixture manifest
+      - immutable content packet hash
+      - immutable template hash
+      - immutable builder hash or explicit builder-variance test
+  - from: semantic_contract_validator
+    to: deterministic_build_validator
+    requires:
+      - consumed-input evidence
+      - canonical record identity comparison
+      - no-reauthoring verdict
+  - from: deterministic_build_validator
+    to: package_structure_validator
+    requires:
+      - builder and output identity matrix
+      - cold-replay receipt hash
+  - from: package_structure_validator
+    to: independent_visual_validator
+    requires:
+      - native package inventory
+      - format-specific structural findings
+  - from: independent_visual_validator
+    to: receipt_writer
+    requires:
+      - complete-surface render receipt
+      - independent verdict
+forbidden_handoffs:
+  - worker self-check directly to pass receipt
+  - worker-authored prose treated as proof of input consumption
+  - visual pass inferred from static XML validation

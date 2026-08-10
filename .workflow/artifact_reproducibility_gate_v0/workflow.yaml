@@ -1,0 +1,55 @@
+workflow_id: artifact_reproducibility_gate_v0
+revision: "0.1.1"
+kind: workflow
+status: candidate
+title: Artifact Reproducibility Gate v0
+summary: >-
+  Separate semantic authoring, deterministic publication, package integrity, and rendered
+  visual reproducibility so repeated document, presentation, spreadsheet, and drawing runs
+  cannot pass merely because each worker's own shallow check says PASS.
+entrypoint: run
+execution_mode: local_tool_sequence
+role_slots: role_slots.yaml
+step_graph: step_graph.yaml
+handoff_rules: handoff_rules.yaml
+monster_rules: monster_rules.yaml
+party_compatibility: party_compatibility.yaml
+profile_policy: profile_policy.yaml
+inputs:
+  - artifact_reproducibility_fixture_manifest
+  - immutable_semantic_content_packet_ref
+  - immutable_template_ref
+  - immutable_builder_ref
+outputs:
+  - artifact_reproducibility_receipt
+  - blocker_and_remediation_report
+validation_level: deterministic_contract_package_structure_and_render_receipt
+output_state: pilot_executed
+registration_policy: explicit_owner_registration_only
+runtime_readiness:
+  private_failure_fixture_executed: true
+  private_controlled_cold_pair_executed: true
+  synthetic_self_test_executed: true
+  independent_static_verifier_observed: true
+  independent_acceptance_reviewer_observed: false
+  default_route_safe: false
+  production_ready: false
+supported_families:
+  - hwpx
+  - docx
+  - pptx
+  - xlsx
+  - zip_xml_package
+  - generic_binary
+invariants:
+  - semantic_content_packet_is_authored_once_and_hash_bound
+  - publishers_may_not_reauthor_or_invent_content
+  - repeated_builds_use_the_same_template_builder_toolchain_and_prompt_contract_identities
+  - worker_self_checks_are_evidence_not_acceptance
+  - package_structure_and_rendered_visual_gates_are_both_required_for_shareable_artifacts
+  - private_fixture_payloads_never_enter_public_workflow_files
+  - a_failed_gate_is_fail_closed_and_never_relabelled_as_pass_by_summary_text
+notes:
+  - Model and reasoning selection belongs to authoring evaluation, not deterministic publication.
+  - Byte equality is required only where the declared builder promises deterministic packaging.
+  - Visual equivalence is accepted only through an independent render receipt with complete page, slide, or sheet coverage.
