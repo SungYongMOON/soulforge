@@ -4,6 +4,9 @@
 export const TOPOLOGY_HEALTH_STATES = Object.freeze(["ok", "degraded", "stale", "down", "unmonitored"]);
 const TOPOLOGY_NODE_KINDS = new Set(["external", "supervisor", "worker", "store", "gate", "consumer"]);
 const TOPOLOGY_EDGE_FLOWS = new Set(["data", "control"]);
+const TOPOLOGY_EDGE_DELIVERY_STATES = new Set([
+  "delivering", "late", "stale", "failed", "registered_no_delivery", "unreceipted",
+]);
 const SUPPORTED_KIND_FLOWS = new Set([
   "data:external>supervisor", "data:external>worker", "data:supervisor>store",
   "data:worker>worker", "data:worker>store", "data:worker>consumer",
@@ -105,6 +108,7 @@ function unavailableTopologyViewModel() {
     summary: null,
     attention: [],
     unmonitored: [],
+    edgeDelivery: { total: 0, deliveryProven: 0, deliveryUnproven: 0 },
     observedAt: null,
   };
 }
@@ -124,9 +128,11 @@ export function buildTopologyStructuralPaths(model, selectedNodeId) {
       to: edge.target,
       flow: edge.flow,
       label: edge.label,
-      evidence_scope: "structural_catalog_only",
-      proves: ["structural_catalog_relationship_only"],
-      does_not_prove: STRUCTURAL_DOES_NOT_PROVE
+      delivery_state: edge.deliveryState,
+      delivery_reason: edge.deliveryReason,
+      evidence_scope: edge.evidenceScope,
+      proves: edge.proves,
+      does_not_prove: edge.doesNotProve,
     }));
   const neighbors = new Map(nodes.map((node) => [node.id, []]));
   for (const edge of edges) {
@@ -154,10 +160,12 @@ export function buildTopologyStructuralPaths(model, selectedNodeId) {
           to: link.edge.target,
           flow: link.edge.flow,
           direction: link.direction,
-          label: link.edge.label
+          label: link.edge.label,
+          delivery_state: link.edge.deliveryState,
+          delivery_reason: link.edge.deliveryReason,
         }],
-        evidence_scope: "structural_catalog_only",
-        proves: ["structural_catalog_relationship_only"],
+        evidence_scope: link.edge.evidenceScope,
+        proves: link.edge.proves,
         does_not_prove: STRUCTURAL_DOES_NOT_PROVE
       };
       all.push(next);
@@ -183,9 +191,14 @@ export function buildTopologyViewModel(snapshot) {
   const snapshotEdgeIds = new Set();
   const snapshotNodeById = new Map(snapshot.nodes.map((node) => [node.id, node]));
   for (const edge of snapshot.edges) {
+    const delivery = edge?.delivery;
     if (typeof edge?.from !== "string" || typeof edge?.to !== "string"
       || !snapshotNodeIds.has(edge.from) || !snapshotNodeIds.has(edge.to)
-      || !TOPOLOGY_EDGE_FLOWS.has(edge.flow)) return unavailableTopologyViewModel();
+      || !TOPOLOGY_EDGE_FLOWS.has(edge.flow)
+      || delivery === null || typeof delivery !== "object"
+      || !TOPOLOGY_EDGE_DELIVERY_STATES.has(delivery.state)
+      || typeof delivery.proves_delivery !== "boolean"
+      || delivery.proves_delivery !== (delivery.state === "delivering" || delivery.state === "late")) return unavailableTopologyViewModel();
     const kindFlow = `${edge.flow}:${snapshotNodeById.get(edge.from).kind}>${snapshotNodeById.get(edge.to).kind}`;
     if (!SUPPORTED_KIND_FLOWS.has(kindFlow)) return unavailableTopologyViewModel();
     const edgeId = `${edge.from}\u0000${edge.to}\u0000${edge.flow}`;
@@ -272,16 +285,23 @@ export function buildTopologyViewModel(snapshot) {
     });
   const rawEdges = (Array.isArray(snapshot.edges) ? snapshot.edges : [])
     .map((edge, index) => {
+      const deliveryProven = edge.delivery.proves_delivery;
       return {
         id: `topo-edge-${index}`,
         source: String(edge.from),
         target: String(edge.to),
         label: typeof edge.label === "string" ? edge.label : "",
         flow: edge.flow,
-        relationKind: "catalog_only",
+        relationKind: deliveryProven ? "receipted_delivery" : "catalog_only",
+        deliveryState: edge.delivery.state,
+        deliveryReason: typeof edge.delivery.reason === "string" ? edge.delivery.reason : null,
+        deliveryAgeSeconds: Number.isSafeInteger(edge.delivery.age_seconds) ? edge.delivery.age_seconds : null,
+        deliveryProven,
         healthObserved: false,
-        evidenceScope: "structural_catalog_only",
-        proves: ["structural_catalog_relationship_only"],
+        evidenceScope: deliveryProven ? "watchtower_edge_delivery_receipt" : "structural_catalog_only",
+        proves: deliveryProven
+          ? ["structural_catalog_relationship", "bounded_edge_delivery_receipt"]
+          : ["structural_catalog_relationship_only"],
         doesNotProve: STRUCTURAL_DOES_NOT_PROVE,
       };
     });
@@ -351,6 +371,11 @@ export function buildTopologyViewModel(snapshot) {
       return rank[left.state] - rank[right.state];
     });
   const unmonitored = nodes.filter((node) => node.state === "unmonitored");
+  const edgeDelivery = {
+    total: edges.length,
+    deliveryProven: edges.filter((edge) => edge.deliveryProven).length,
+    deliveryUnproven: edges.filter((edge) => !edge.deliveryProven).length,
+  };
   return {
     available: true,
     nodes: [...lanes, ...routedNodes],
@@ -358,6 +383,7 @@ export function buildTopologyViewModel(snapshot) {
     summary,
     attention,
     unmonitored,
+    edgeDelivery,
     observedAt: typeof snapshot.observed_at === "string" ? snapshot.observed_at : null,
   };
 }

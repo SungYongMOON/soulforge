@@ -33,6 +33,13 @@ function sampleSnapshot() {
     schema_version: "soulforge.watchtower.topology_health.v1",
     observed_at: "2026-08-08T06:00:00.000Z",
     summary: { ok: 1, degraded: 0, stale: 0, down: 0, unmonitored: 5 },
+    edge_delivery: {
+      counts: { delivering: 0, late: 0, stale: 0, failed: 0, registered_no_delivery: 0, unreceipted: 4 },
+      total: 4,
+      delivery_proven: 0,
+      delivery_unproven: 4,
+      claim: "표시된 간선 중 현재 전달이 증명된 것은 없습니다",
+    },
     nodes: [
       providerNode("src_codex", "codex"),
       providerNode("src_claude", "claude"),
@@ -77,7 +84,16 @@ function sampleSnapshot() {
       { from: "usage_codex_collector", to: "usage_meter", label: "aggregate output", flow: "data" },
       { from: "usage_codex_collector", to: "watchtower_self", label: "collector health", flow: "control", scope: "usage_collector_health_only" },
       { from: "usage_meter", to: "watchtower_self", label: "contract structure", flow: "control", scope: "usage_contract_structure_only" },
-    ],
+    ].map((edge) => ({
+      ...edge,
+      receipt: null,
+      unreceipted_reason: edge.scope ? "structural_only" : "receipt_channel_absent",
+      delivery: {
+        state: "unreceipted",
+        reason: edge.scope ? "structural_only" : "receipt_channel_absent",
+        proves_delivery: false,
+      },
+    })),
   };
 }
 

@@ -5866,6 +5866,8 @@ a:focus-visible {
 }
 .watchtower-edge-data .react-flow__edge-path { stroke: #617986; stroke-width: 1.35; }
 .watchtower-edge-control .react-flow__edge-path { stroke: #56a88f; stroke-width: 1.2; stroke-dasharray: 6 5; }
+.watchtower-surface .react-flow__edge.is-unreceipted { opacity: 0.46; }
+.watchtower-surface .react-flow__edge.is-receipted .react-flow__edge-path { stroke: #58c9a6; stroke-width: 2; }
 .watchtower-edge-control .react-flow__edge-text { fill: #79bda8; }
 .watchtower-surface .react-flow__edge.is-focused .react-flow__edge-path { stroke: #d3e1e7; stroke-width: 2.2; }
 .watchtower-surface .react-flow__edge.is-dimmed { opacity: 0.18; }

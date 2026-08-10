@@ -46,13 +46,14 @@ export async function loadCurrentThreadIds(registryPath) {
     : [];
 }
 
-export async function runUsageProducerSweep({ repoRoot, stateRoot, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles } = {}) {
+export async function runUsageProducerSweep({ repoRoot, stateRoot, watchtowerPointerPath, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles } = {}) {
   if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(stateRoot ?? "")) {
     return { status: "hold", completed: 0 };
   }
   const cli = path.join(repoRoot, "guild_hall", "ai_usage_meter", "cli.mjs");
   const claudeQuotaCollector = path.join(repoRoot, "ui-workspace", "apps", "team-ops-board", "src", "server", "claude-oauth-usage-collector.mjs");
   const claudeQuotaRoot = path.join(repoRoot, "guild_hall", "state", "operations", "provider_quota", "claude", "oauth");
+  const watchtowerCli = path.join(repoRoot, "guild_hall", "watchtower", "cli.mjs");
   let completed = 0;
   const lifecycleArgs = threadIds.length > 0
     ? [cli, "lifecycle-reconcile", ...threadIds.flatMap((threadId) => ["--thread-id", threadId]), "--state-root", stateRoot, "--apply"]
@@ -62,6 +63,9 @@ export async function runUsageProducerSweep({ repoRoot, stateRoot, threadIds = [
     [cli, "collect", "--state-root", stateRoot, "--apply"],
     [cli, "collect-claude", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
     [claudeQuotaCollector, "--gate-path", path.join(claudeQuotaRoot, "enabled.v1.json"), "--receipt-path", path.join(repoRoot, "guild_hall", "state", "operations", "provider_quota", "claude", "statusline", "provider_quota.receipt.v1.json")],
+    path.isAbsolute(watchtowerPointerPath ?? "")
+      ? [watchtowerCli, "probe", "--pointer", watchtowerPointerPath, "--json"]
+      : null,
   ].filter(Boolean)) {
     try {
       await run(process.execPath, args, { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
@@ -79,7 +83,9 @@ export async function runUsageProducerSweep({ repoRoot, stateRoot, threadIds = [
       // One conflicting active session must not block other exact active sessions.
     }
   }
-  const expected = (lifecycleArgs === null ? 3 : 4) + activeFiles.length;
+  const expected = (lifecycleArgs === null ? 3 : 4)
+    + (path.isAbsolute(watchtowerPointerPath ?? "") ? 1 : 0)
+    + activeFiles.length;
   return { status: completed === expected ? "observed" : "partial", completed };
 }
 
@@ -87,6 +93,7 @@ export function startUsageProducerCompanion({
   repoRoot,
   stateRoot,
   registryPath,
+  watchtowerPointerPath,
   intervalMs = DEFAULT_USAGE_PRODUCER_INTERVAL_MS,
   sweep = runUsageProducerSweep,
   loadThreadIds = loadCurrentThreadIds,
@@ -97,7 +104,7 @@ export function startUsageProducerCompanion({
     if (stopped || inFlight !== null) return inFlight;
     inFlight = Promise.resolve(loadThreadIds(registryPath))
       .catch(() => [])
-      .then((threadIds) => sweep({ repoRoot, stateRoot, threadIds }))
+      .then((threadIds) => sweep({ repoRoot, stateRoot, watchtowerPointerPath, threadIds }))
       .finally(() => { inFlight = null; });
     return inFlight;
   };

@@ -6,7 +6,7 @@ import { readFile, readdir, stat, mkdir, writeFile, rename } from "node:fs/promi
 import { join, dirname } from "node:path";
 import { spawn } from "node:child_process";
 
-import { topologySkeleton } from "./topology.mjs";
+import { edgeDeliveryVerdict, summariseEdgeDelivery, topologySkeleton } from "./topology.mjs";
 
 export const WATCHTOWER_BINDING_SCHEMA_VERSION = "soulforge.watchtower.binding.v1";
 export const WATCHTOWER_SNAPSHOT_SCHEMA_VERSION = "soulforge.watchtower.topology_health.v1";
@@ -312,6 +312,11 @@ export async function composeTopologyHealth(binding, options = {}) {
   const now = Number.isFinite(options.now) ? options.now : Date.now();
   const runSchtasks = typeof options.run_schtasks === "function" ? options.run_schtasks : defaultRunSchtasks;
   const skeleton = topologySkeleton();
+  const deliveryOptions = {
+    receipts: options.receipts ?? {},
+    windows: options.receipt_windows ?? {},
+    now,
+  };
   const nodes = [];
   const summary = Object.fromEntries(HEALTH_STATES.map((state) => [state, 0]));
 
@@ -346,7 +351,11 @@ export async function composeTopologyHealth(binding, options = {}) {
     observed_at: new Date(now).toISOString(),
     summary,
     nodes,
-    edges: skeleton.edges,
+    edges: skeleton.edges.map((edge) => ({
+      ...edge,
+      delivery: edgeDeliveryVerdict(edge, deliveryOptions),
+    })),
+    edge_delivery: summariseEdgeDelivery(skeleton.edges, deliveryOptions),
   };
 }
 

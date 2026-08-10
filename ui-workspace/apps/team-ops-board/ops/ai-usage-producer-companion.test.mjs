@@ -19,6 +19,7 @@ test("producer sweep refreshes lifecycle, usage ledgers, then gated Claude quota
   const result = await runUsageProducerSweep({
     repoRoot: "C:\\safe\\Soulforge",
     stateRoot: "C:\\safe\\state",
+    watchtowerPointerPath: "C:\\safe\\watchtower\\binding.pointer.json",
     threadIds: ["thread-a", "thread-b"],
     loadActiveFiles: async () => ["C:\\safe\\active-a.jsonl", "C:\\safe\\active-b.jsonl"],
     run: async (file, args) => { calls.push({ file, args }); },
@@ -28,9 +29,12 @@ test("producer sweep refreshes lifecycle, usage ledgers, then gated Claude quota
   assert.match(calls[3].args[0], /claude-oauth-usage-collector\.mjs$/u);
   assert.deepEqual(calls[0].args.filter((arg) => arg === "--thread-id").length, 2);
   assert.ok(calls.slice(0, 3).every((call) => call.args.includes("--apply")));
-  assert.equal(calls.length, 6);
-  assert.ok(calls.slice(4).every((call) => call.args.includes("--include-active")));
-  assert.deepEqual(calls.slice(4).map((call) => call.args[call.args.indexOf("--session-file") + 1]), [
+  assert.equal(calls.length, 7);
+  assert.match(calls[4].args[0], /guild_hall[\\/]watchtower[\\/]cli\.mjs$/u);
+  assert.deepEqual(calls[4].args.slice(1), ["probe", "--pointer", "C:\\safe\\watchtower\\binding.pointer.json", "--json"]);
+  assert.equal(calls[4].args.includes("--no-write"), false);
+  assert.ok(calls.slice(5).every((call) => call.args.includes("--include-active")));
+  assert.deepEqual(calls.slice(5).map((call) => call.args[call.args.indexOf("--session-file") + 1]), [
     "C:\\safe\\active-a.jsonl", "C:\\safe\\active-b.jsonl",
   ]);
   assert.ok(calls[3].args.includes("--gate-path"));
@@ -44,9 +48,14 @@ test("companion is single-flight and stops without starting another sweep", asyn
     repoRoot: "C:\\safe\\Soulforge",
     stateRoot: "C:\\safe\\state",
     registryPath: "C:\\safe\\registry.json",
+    watchtowerPointerPath: "C:\\safe\\watchtower\\binding.pointer.json",
     intervalMs: 5,
     loadThreadIds: async () => ["thread-a"],
-    sweep: async () => { calls += 1; await pending; },
+    sweep: async (options) => {
+      assert.equal(options.watchtowerPointerPath, "C:\\safe\\watchtower\\binding.pointer.json");
+      calls += 1;
+      await pending;
+    },
   });
   await new Promise((resolve) => setTimeout(resolve, 15));
   assert.equal(calls, 1);

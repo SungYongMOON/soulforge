@@ -359,9 +359,16 @@ test("Codex hook health is collector-only and cannot green provider or aggregate
     scope: "usage_contract_structure_only",
     receipt: null,
     unreceipted_reason: "structural_only",
+    delivery: {
+      state: "unreceipted",
+      reason: "structural_only",
+      proves_delivery: false,
+    },
   });
   assert.equal(Object.hasOwn(contractEdge, "health"), false);
   assert.equal(Object.hasOwn(contractEdge, "state"), false);
+  assert.equal(snapshot.edge_delivery.delivery_proven, 0);
+  assert.equal(snapshot.edge_delivery.delivery_unproven, TOPOLOGY_EDGES.length);
   assert.equal(snapshot.summary.ok, 1);
 });
 

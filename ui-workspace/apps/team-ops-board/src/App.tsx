@@ -3538,9 +3538,9 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
         type: MarkerType.ArrowClosed,
         width: 14,
         height: 14,
-        color: edge.flow === "control" ? "#56a88f" : "#6f8794",
+        color: edge.deliveryProven ? "#58c9a6" : "#6f8794",
       },
-      className: `${edge.flow === "control" ? "watchtower-edge-control" : "watchtower-edge-data"}${selectedNodeId !== null ? (isFocused ? " is-focused" : " is-dimmed") : ""}`,
+      className: `${edge.flow === "control" ? "watchtower-edge-control" : "watchtower-edge-data"} ${edge.deliveryProven ? "is-receipted" : "is-unreceipted"}${selectedNodeId !== null ? (isFocused ? " is-focused" : " is-dimmed") : ""}`,
       label: edge.label || undefined,
     };
   }), [focusedEdgeIds, model.edges, selectedNodeId]);
@@ -3603,6 +3603,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
         </div>
       )}
       <div className="watchtower-graph-guide">
+        <span data-testid="system-topology-edge-evidence"><b>전달 근거</b> 영수증 관측 {model.edgeDelivery.deliveryProven} · 선언만 {model.edgeDelivery.deliveryUnproven}</span>
         <span className="watchtower-shape-guide" aria-label="장치 도형 범례">
           <b>도형</b>
           <span><i className="is-external" />입력</span>
@@ -3679,12 +3680,12 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
             </dl>
           ) : (
             <section className="watchtower-inspector-paths" aria-label={inspectorView === "direct" ? "직접 구조 경로" : "전체 구조 경로"}>
-              <p>구조 경로는 카탈로그 관계만 보여 주며 라이브·E2E·receipt를 입증하지 않습니다.</p>
+              <p>경로는 선언 구조와 간선별 전달 영수증을 분리합니다. 노드 상태만으로 전달을 추정하지 않습니다.</p>
               {inspectorView === "direct" ? (
                 structuralPaths.direct.length === 0 ? <p className="watchtower-inspector-empty">직접 구조 관계 없음</p> : (
                   <ol>
                     {structuralPaths.direct.map((edge: any) => (
-                      <li key={edge.edge_id}>{edge.from} → {edge.to}{edge.label ? ` · ${edge.label}` : ""}</li>
+                      <li key={edge.edge_id}>{edge.from} → {edge.to}{edge.label ? ` · ${edge.label}` : ""} · {edge.delivery_state}{edge.delivery_reason ? ` (${edge.delivery_reason})` : ""}</li>
                     ))}
                   </ol>
                 )
@@ -3704,7 +3705,7 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
       )}
       <footer className="watchtower-footnote">
         <EyeOff size={13} aria-hidden="true" />
-        <span>구조/카탈로그 관계는 현재 상태 관측이나 공급자 성공의 증거가 아닙니다. 간선은 구조 방향만 나타내며 per-edge receipt를 주장하지 않습니다.</span>
+        <span>노드 관측과 간선 전달은 별도 근거입니다. 흐린 간선은 선언 구조일 뿐이며, 영수증이 있는 간선만 관측 전달로 표시합니다.</span>
       </footer>
     </section>
   );

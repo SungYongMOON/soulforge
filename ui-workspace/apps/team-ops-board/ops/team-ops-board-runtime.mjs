@@ -1725,6 +1725,7 @@ async function runWorker(runId, env = process.env) {
       repoRoot: SOULFORGE_ROOT,
       stateRoot: workerEnv.SOULFORGE_AI_USAGE_METER_STATE_ROOT,
       registryPath: workerEnv.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY,
+      watchtowerPointerPath: workerEnv.TEAM_OPS_BOARD_WATCHTOWER_POINTER,
     });
     await writeJsonAtomic(paths.state, {
       ...transitionRuntimeState(startingState, "preview_ready"),

@@ -73,7 +73,9 @@ test("Watchtower selected-node inspector stays read-only and declares structural
   assert.match(source, /Owner 승인 필요/u);
   assert.match(source, /직접 경로/u);
   assert.match(source, /전체 구조 경로/u);
-  assert.match(source, /라이브·E2E·receipt를 입증하지 않습니다/u);
+  assert.match(source, /노드 상태만으로 전달을 추정하지 않습니다/u);
+  assert.match(source, /system-topology-edge-evidence/u);
+  assert.match(source, /edge\.deliveryProven \? "is-receipted" : "is-unreceipted"/u);
   assert.match(source, /selectedNodeTriggerRef/u);
   assert.match(source, /inspectorRef\.current\?\.focus/u);
   assert.match(css, /\.watchtower-node-inspector\s*\{/u);
