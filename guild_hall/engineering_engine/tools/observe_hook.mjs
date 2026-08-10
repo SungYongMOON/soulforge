@@ -17,12 +17,14 @@ import { appendFileSync } from 'node:fs';
 import process from 'node:process';
 
 const OUT = process.env.SE_ENGINE_OBSERVATION_OUT;
-const KERNEL_MODULE = /[/\\]kernel[/\\]([a-z0-9_]+)\.mjs$/;
+// Same areas the topology emitter declares, so observed and declared stay symmetric. If the
+// hook watched fewer areas than the emitter parses, coverage would look worse than reality.
+const ENGINE_MODULE = /[/\\](?:kernel|assembly|subjects)[/\\]([a-z0-9_]+)\.mjs$/;
 const observed = new Set();
 
-const kernelModuleName = (url) => {
+const engineModuleName = (url) => {
   if (typeof url !== 'string') return null;
-  const match = KERNEL_MODULE.exec(url);
+  const match = ENGINE_MODULE.exec(url);
   return match ? match[1] : null;
 };
 
@@ -30,8 +32,8 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     const result = nextResolve(specifier, context);
     // A test importing the kernel is not a topology edge, so an unnamed parent is skipped.
-    const from = kernelModuleName(context?.parentURL);
-    const to = kernelModuleName(result?.url);
+    const from = engineModuleName(context?.parentURL);
+    const to = engineModuleName(result?.url);
     if (from !== null && to !== null && from !== to) observed.add(`${from}>${to}`);
     return result;
   },

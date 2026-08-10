@@ -42,6 +42,7 @@ export const HEARTBEAT_SURFACES = Object.freeze([
   'lane_1e_conformance',
   'minting_conformance',
   'runtime_observation_conformance',
+  'end_to_end_engine_run',
   'mutation_lock',
   'topology_emit',
   'integration_check',

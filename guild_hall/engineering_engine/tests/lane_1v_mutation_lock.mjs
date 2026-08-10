@@ -50,6 +50,7 @@ const SUITES = {
   lane_1e: { file: 'lane_1e_conformance.mjs', args: [] },
   minting: { file: 'minting_conformance.mjs', args: [] },
   runtime_observation: { file: 'runtime_observation_conformance.mjs', args: [] },
+  end_to_end: { file: 'end_to_end_engine_run.mjs', args: [] },
 };
 
 // Each entry disables or weakens exactly one guard. `find` must occur exactly once in its
@@ -181,6 +182,22 @@ const CATALOGUE = [
   { id: 'receipt/unlabelled_method_accepted', file: 'delivery_receipt.mjs', suite: 'runtime_observation',
     find: '  if (!OBSERVATION_METHODS.includes(receipt.observation_method)) {', replace: '  if (false) {' },
 
+  // ---- subject adapter: the unknown-vs-missing decision
+  { id: 'subject/unknown_downgraded_to_missing', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: '    absence_reportable: reasons.length === 0,', replace: '    absence_reportable: true,' },
+  { id: 'subject/failed_surface_ignored', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: "  if ((failingSurfaces ?? []).length > 0) reasons.push('a_surface_failed');",
+    replace: "  if (false) reasons.push('a_surface_failed');" },
+
+  // ---- assembly
+  { id: 'assembly/satisfied_reported_as_finding', area: 'assembly', file: 'engine_pass.mjs', suite: 'end_to_end',
+    find: '    if (gap.gap_type === GAP_TYPE.SATISFIED) continue;', replace: '    if (false) continue;' },
+  { id: 'assembly/unknown_claims_observed_artifact', area: 'assembly', file: 'engine_pass.mjs', suite: 'end_to_end',
+    find: "      evidence_claim_ceiling: gap.gap_type === GAP_TYPE.UNKNOWN ? 'unknown' : 'observed_artifact',",
+    replace: "      evidence_claim_ceiling: 'observed_artifact'," },
+  { id: 'assembly/context_request_for_everything', area: 'assembly', file: 'engine_pass.mjs', suite: 'end_to_end',
+    find: '  if (unknownFindings.length > 0) {', replace: '  if (findings.length > 0) {' },
+
   // ---- pipeline (1A)
   { id: 'pipeline/engine_may_accept', file: 'pipeline.mjs', suite: 'lane_1a',
     find: "  if (principal?.kind === 'engine' || principal?.kind === 'agent') {",
@@ -208,8 +225,11 @@ try {
   rmSync(workspace, { recursive: true, force: true });
   mkdirSync(workspace, { recursive: true });
   created.push(workspace);
-  cpSync(join(ENGINE, 'kernel'), join(workspace, 'kernel'), { recursive: true });
-  cpSync(join(ENGINE, 'tests'), join(workspace, 'tests'), { recursive: true });
+  // Every area the engine holds code in, or a mutation there would silently have nothing to
+  // break and the catalogue would report a clean sweep over a partial copy.
+  for (const area of ['kernel', 'assembly', 'subjects', 'tests']) {
+    cpSync(join(ENGINE, area), join(workspace, area), { recursive: true });
+  }
 
   // The pristine copy must pass. If it does not, this harness is measuring its own setup
   // rather than the mutations, and every "killed" verdict below would be meaningless.
@@ -234,19 +254,20 @@ try {
   // ---------------------------------------------------------------- mutate
 
   const pristine = new Map();
-  const readPristine = (file) => {
-    if (!pristine.has(file)) pristine.set(file, readFileSync(join(workspace, 'kernel', file), 'utf8'));
-    return pristine.get(file);
+  const readPristine = (area, file) => {
+    const key = `${area}/${file}`;
+    if (!pristine.has(key)) pristine.set(key, readFileSync(join(workspace, area, file), 'utf8'));
+    return pristine.get(key);
   };
 
   const outcomes = [];
   for (const m of CATALOGUE) {
-    const path = join(workspace, 'kernel', m.file);
+    const path = join(workspace, m.area ?? 'kernel', m.file);
     if (!existsSync(path)) {
       outcomes.push({ ...m, outcome: 'catalogue_error', detail: 'kernel file does not exist' });
       continue;
     }
-    const original = readPristine(m.file);
+    const original = readPristine(m.area ?? 'kernel', m.file);
     const occurrences = original.split(m.find).length - 1;
     if (occurrences !== 1) {
       outcomes.push({ id: m.id, file: m.file, suite: m.suite, outcome: 'catalogue_error',
@@ -276,6 +297,7 @@ try {
   for (const c of catalogueErrors) console.error(`CATALOGUE ${c.id}  (${c.file})  ${c.detail}`);
 
   const modulesCovered = [...new Set(CATALOGUE.map((m) => m.file.replace('.mjs', '')))].sort();
+  const areasCovered = [...new Set(CATALOGUE.map((m) => m.area ?? 'kernel'))].sort();
 
   console.log(JSON.stringify({
     slice: 'lane_1v_mutation_lock',
@@ -288,6 +310,7 @@ try {
     survived, catalogue_errors: catalogueErrors,
     modules_covered: modulesCovered,
     modules_covered_count: modulesCovered.length,
+    areas_covered: areasCovered,
     verification_strength: 'self_authored_mutation_lock',
     semantic_independence: 'UNMET',
     semantic_independence_note:

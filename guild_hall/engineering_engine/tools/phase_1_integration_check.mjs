@@ -57,6 +57,7 @@ const SUITES = [
   ['lane_1e_conformance.mjs', [], '1E', 'author_written_fixtures'],
   ['minting_conformance.mjs', [], 'D-P10-03', 'author_written_fixtures'],
   ['runtime_observation_conformance.mjs', [], 'runtime_observation', 'author_written_fixtures'],
+  ['end_to_end_engine_run.mjs', [], 'end_to_end', 'author_written_fixtures'],
 ];
 
 const suiteResults = [];

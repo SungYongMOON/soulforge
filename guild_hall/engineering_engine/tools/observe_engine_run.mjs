@@ -45,6 +45,7 @@ const SURFACES = [
   ['lane_1e_conformance', 'lane_1e_conformance.mjs', []],
   ['minting_conformance', 'minting_conformance.mjs', []],
   ['runtime_observation_conformance', 'runtime_observation_conformance.mjs', []],
+  ['end_to_end_engine_run', 'end_to_end_engine_run.mjs', []],
 ];
 
 const RUN_STARTED_AT = new Date().toISOString();   // canonical: three fractional digits

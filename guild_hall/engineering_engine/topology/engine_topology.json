@@ -3,7 +3,12 @@
   "engine_root": "guild_hall/engineering_engine",
   "contract_revision": "phase_1_0_contract.v0",
   "derivation": {
-    "module_edges": "parsed from import statements in kernel/*.mjs",
+    "module_edges": "parsed from import statements in kernel/*.mjs, assembly/*.mjs, subjects/*.mjs",
+    "areas_covered": [
+      "kernel",
+      "assembly",
+      "subjects"
+    ],
     "boundaries": "read from mcp_contract.OPERATIONS",
     "everything_else": "read from the module that owns it",
     "hand_authored": [
@@ -13,6 +18,7 @@
   "modules": [
     {
       "module": "authority",
+      "area": "kernel",
       "exports": [
         "APPLICABILITY",
         "APPLICABILITY_COMPONENTS",
@@ -29,6 +35,7 @@
     },
     {
       "module": "canonical",
+      "area": "kernel",
       "exports": [
         "canonicalise",
         "compareCodePoints",
@@ -42,6 +49,7 @@
     },
     {
       "module": "capsule",
+      "area": "kernel",
       "exports": [
         "CODES",
         "MAX_HOPS_CEILING",
@@ -59,6 +67,7 @@
     },
     {
       "module": "ceilings",
+      "area": "kernel",
       "exports": [
         "CANON_CLAIM_CEILING",
         "CODES",
@@ -78,6 +87,7 @@
     },
     {
       "module": "contract_config",
+      "area": "kernel",
       "exports": [
         "ADVISORY_FIELDS",
         "ARRAY_ORDER_RULES",
@@ -101,6 +111,7 @@
     },
     {
       "module": "custody",
+      "area": "kernel",
       "exports": [
         "CODES",
         "CUSTODY_MODE",
@@ -123,6 +134,7 @@
     },
     {
       "module": "delivery_receipt",
+      "area": "kernel",
       "exports": [
         "CODES",
         "DELIVERY_STATES",
@@ -142,6 +154,7 @@
     },
     {
       "module": "errors",
+      "area": "kernel",
       "exports": [
         "CODES",
         "ContractError"
@@ -151,6 +164,7 @@
     },
     {
       "module": "execution_mode",
+      "area": "kernel",
       "exports": [
         "ALLOWED_AUTHORITATIVE_RETRIEVAL",
         "BASELINE_PHASE",
@@ -165,6 +179,7 @@
     },
     {
       "module": "finding",
+      "area": "kernel",
       "exports": [
         "CHAIN",
         "CODES",
@@ -179,6 +194,7 @@
     },
     {
       "module": "fingerprint",
+      "area": "kernel",
       "exports": [
         "classifyRerun",
         "deterministicReplayFingerprint",
@@ -191,6 +207,7 @@
     },
     {
       "module": "graph",
+      "area": "kernel",
       "exports": [
         "CODES",
         "EDGE_SHAPES",
@@ -205,6 +222,7 @@
     },
     {
       "module": "heartbeat",
+      "area": "kernel",
       "exports": [
         "CODES",
         "HEARTBEAT_STATES",
@@ -219,10 +237,11 @@
         "validateWindow"
       ],
       "export_count": 11,
-      "line_count": 180
+      "line_count": 181
     },
     {
       "module": "identity",
+      "area": "kernel",
       "exports": [
         "PLACEHOLDERS",
         "RESOLUTION",
@@ -240,6 +259,7 @@
     },
     {
       "module": "index",
+      "area": "kernel",
       "exports": [
         "ALLOWED_AUTHORITATIVE_RETRIEVAL",
         "APPLICABILITY",
@@ -423,6 +443,7 @@
     },
     {
       "module": "lineage",
+      "area": "kernel",
       "exports": [
         "CHAIN_KINDS",
         "CODES",
@@ -439,6 +460,7 @@
     },
     {
       "module": "mcp_contract",
+      "area": "kernel",
       "exports": [
         "CEILINGS",
         "CODES",
@@ -461,6 +483,7 @@
     },
     {
       "module": "minting",
+      "area": "kernel",
       "exports": [
         "CALLER_FAMILIES",
         "CODES",
@@ -483,6 +506,7 @@
     },
     {
       "module": "module_binding",
+      "area": "kernel",
       "exports": [
         "CODES",
         "EXECUTION_MODES",
@@ -503,6 +527,7 @@
     },
     {
       "module": "pipeline",
+      "area": "kernel",
       "exports": [
         "BOUNDARY_EFFECTS",
         "BOUNDARY_LANES",
@@ -524,6 +549,7 @@
     },
     {
       "module": "snapshot",
+      "area": "kernel",
       "exports": [
         "AXIS",
         "CODES",
@@ -543,9 +569,32 @@
       ],
       "export_count": 15,
       "line_count": 303
+    },
+    {
+      "module": "engine_pass",
+      "area": "assembly",
+      "exports": [
+        "CODES",
+        "classifyReplay",
+        "runEnginePass"
+      ],
+      "export_count": 3,
+      "line_count": 162
+    },
+    {
+      "module": "engine_self_topology",
+      "area": "subjects",
+      "exports": [
+        "CODES",
+        "SUBJECT_ID",
+        "buildStates",
+        "observationTrustworthiness"
+      ],
+      "export_count": 4,
+      "line_count": 150
     }
   ],
-  "module_count": 21,
+  "module_count": 23,
   "module_edges": [
     {
       "from": "authority",
@@ -648,6 +697,69 @@
     {
       "from": "delivery_receipt",
       "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_pass",
+      "to": "contract_config",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_pass",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_pass",
+      "to": "fingerprint",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_pass",
+      "to": "minting",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_pass",
+      "to": "pipeline",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_pass",
+      "to": "snapshot",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_self_topology",
+      "to": "custody",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_self_topology",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_self_topology",
+      "to": "snapshot",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -1080,7 +1192,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 76,
+  "module_edge_count": 85,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -1422,5 +1534,5 @@
       "note": "the frozen Phase 1-0 contract names P5, P6 and P8 but does not define P7"
     }
   },
-  "topology_digest": "81ef7dcbaa631ba008b63704787bdadcc1382940b0ec9cda06a6335e3162c4a7"
+  "topology_digest": "b2cec86b08f69d81b11349e8899931fe320c7c7c49cd14a5c68085513b018ac9"
 }

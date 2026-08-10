@@ -19,23 +19,34 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, '..');
-const KERNEL = join(ENGINE, 'kernel');
+// The graph covers every area that holds engine code, not just the kernel. If it covered only
+// the kernel, adding an assembly or a subject adapter would silently fall outside the thing
+// that claims to be 1:1 with the code.
+const AREAS = ['kernel', 'assembly', 'subjects'];
 
 // ---------------------------------------------------------------- module edges, parsed
 
-const moduleFiles = readdirSync(KERNEL).filter((f) => f.endsWith('.mjs')).sort();
-const IMPORT_FROM = /from\s+'\.\/([a-z_0-9]+)\.mjs'/g;
+// Relative imports inside an area ('./x.mjs') and across areas ('../kernel/x.mjs').
+const IMPORT_FROM = /from\s+'(?:\.\.?\/)+(?:[a-z_0-9]+\/)?([a-z_0-9]+)\.mjs'/g;
+
+const sourceFiles = [];
+for (const area of AREAS) {
+  let entries = [];
+  try { entries = readdirSync(join(ENGINE, area)); } catch { continue; }
+  for (const f of entries.filter((f) => f.endsWith('.mjs')).sort()) sourceFiles.push({ area, file: f });
+}
 
 const modules = [];
 const edges = [];
-for (const file of moduleFiles) {
+for (const { area, file } of sourceFiles) {
   const name = file.replace('.mjs', '');
-  const src = readFileSync(join(KERNEL, file), 'utf8');
+  const src = readFileSync(join(ENGINE, area, file), 'utf8');
   const exported = [...src.matchAll(/^export\s+(?:const|function|class)\s+([A-Za-z_][A-Za-z_0-9]*)/gm)].map((m) => m[1]);
   const reExported = [...src.matchAll(/^export\s*\{([^}]*)\}\s*from/gm)]
     .flatMap((m) => m[1].split(',').map((s) => s.trim().split(/\s+as\s+/)[0]).filter(Boolean));
   modules.push({
     module: name,
+    area,
     exports: [...new Set([...exported, ...reExported])].sort(),
     export_count: new Set([...exported, ...reExported]).size,
     line_count: src.split('\n').length,
@@ -82,7 +93,8 @@ const topology = {
   engine_root: 'guild_hall/engineering_engine',
   contract_revision: cfg.CONTRACT_REVISION,
   derivation: {
-    module_edges: 'parsed from import statements in kernel/*.mjs',
+    module_edges: `parsed from import statements in ${AREAS.map((a) => `${a}/*.mjs`).join(', ')}`,
+    areas_covered: AREAS,
     boundaries: 'read from mcp_contract.OPERATIONS',
     everything_else: 'read from the module that owns it',
     hand_authored: ['lane_field_group_ownership'],
