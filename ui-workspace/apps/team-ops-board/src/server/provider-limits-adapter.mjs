@@ -6,10 +6,7 @@ import { open, readdir, readFile, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import {
-  DEFAULT_PROVIDER_QUOTA_FRESHNESS_MS,
-  buildOfficialProviderQuotaProjection,
-} from "../core/provider-quota-snapshot.mjs";
+import { buildOfficialProviderQuotaProjection } from "../core/provider-quota-snapshot.mjs";
 import {
   buildProviderLimitsSnapshot,
   parseCodexRateLimitsFromJsonlText,
@@ -18,7 +15,9 @@ import { createProviderQuotaReceiptStore } from "./provider-quota-receipt-store.
 
 export const PROVIDER_LIMITS_SNAPSHOT_PATH = "/provider-limits.snapshot.json";
 export const DEFAULT_PROVIDER_LIMITS_TTL_MS = 60_000;
-export const DEFAULT_CLAUDE_QUOTA_FRESHNESS_MS = DEFAULT_PROVIDER_QUOTA_FRESHNESS_MS;
+// The owned companion refreshes every five minutes; keep a small scheduling
+// margin so valid evidence does not oscillate to STALE between sweeps.
+export const DEFAULT_CLAUDE_QUOTA_FRESHNESS_MS = 6 * 60_000;
 
 const CODEX_TAIL_BYTES = 262_144;
 const CLAUDE_STATUSLINE_SOURCE = "claude_code_statusline_rate_limits";

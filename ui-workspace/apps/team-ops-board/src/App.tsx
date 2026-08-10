@@ -496,7 +496,7 @@ function App() {
       controllers.add(controller);
       const timeout = window.setTimeout(() => controller.abort(), PROVIDER_POLL_TIMEOUT_MS);
       try {
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetch(url, { signal: controller.signal, cache: "no-store" });
         if (!response.ok) return null;
         return await response.json();
       } catch {
@@ -2493,6 +2493,7 @@ function fleetCreditLabel(totals: any): string {
 }
 
 function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: any }) {
+  const [creditChartIndex, setCreditChartIndex] = useState<number | null>(null);
   const history = usage?.history ?? null;
   const windows = history?.windows ?? null;
   const claudeEvidence = usage?.provider_evidence?.claude ?? null;
@@ -2731,17 +2732,28 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
     { id: "antigravity", label: "Antigravity/Gemini" },
   ].map((provider) => ({ ...provider, values: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.credits ?? null) }));
   const totalsKnownCredits = totalsSeries.flatMap((series) => series.values.filter((value: any) => typeof value === "number"));
-  let totalsCreditChart: { lines: { id: string; points: string }[] } | null = null;
+  let totalsCreditChart: any = null;
   if (providerDaily.length === 7 && totalsKnownCredits.length > 0) {
-    const W = 200;
-    const H = 40;
-    const maxCredit = Math.max(...totalsKnownCredits, 1);
-    const step = W / 6;
-    totalsCreditChart = { lines: totalsSeries.map((series) => ({
-      id: series.id,
-      points: series.values.map((value: any, index: number) => typeof value === "number"
-        ? `${(index * step).toFixed(1)},${(H - 6 - (value / maxCredit) * (H - 12)).toFixed(1)}` : null).filter(Boolean).join(" "),
-    })) };
+    const width = 720, height = 220, left = 52, right = 12, top = 12, bottom = 36;
+    const plotWidth = width - left - right, plotHeight = height - top - bottom;
+    const totals = providerDaily.map((_: any, index: number) => totalsSeries.reduce((sum, series) => sum + (typeof series.values[index] === "number" ? series.values[index] : 0), 0));
+    const rawMax = Math.max(...totals, 1);
+    const magnitude = 10 ** Math.floor(Math.log10(rawMax));
+    const maxCredit = Math.ceil(rawMax / magnitude) * magnitude;
+    const x = (index: number) => left + (index * plotWidth) / 6;
+    const y = (value: number) => top + plotHeight - (value / maxCredit) * plotHeight;
+    const cumulative = providerDaily.map(() => 0);
+    const areas = totalsSeries.map((series) => {
+      const lower = cumulative.slice();
+      const upper = series.values.map((value: any, index: number) => {
+        cumulative[index] += typeof value === "number" ? value : 0;
+        return cumulative[index];
+      });
+      const upperPoints = upper.map((value: number, index: number) => `${x(index)},${y(value)}`);
+      const lowerPoints = lower.map((value: number, index: number) => `${x(index)},${y(value)}`).reverse();
+      return { id: series.id, path: `M ${upperPoints.join(" L ")} L ${lowerPoints.join(" L ")} Z` };
+    });
+    totalsCreditChart = { width, height, left, right, top, bottom, plotWidth, plotHeight, maxCredit, totals, areas, x, y };
   }
 
   if (limitRows.length === 0 && topModelRows.length === 0 && totalsRows.length === 0) return null;
@@ -2839,8 +2851,35 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
           {totalsSeries.map((series) => <span key={series.id} className={`provider-credit-${series.id}`}>{series.label}</span>)}
         </div>
         {totalsCreditChart !== null ? (
-          <svg viewBox="0 0 200 40" preserveAspectRatio="none" role="img" aria-label="최근 7일 Codex, Claude, Antigravity Gemini Meter credit 동일 축 비교">
-            {totalsCreditChart.lines.map((line) => <polyline key={line.id} className={`fleet-total-provider-line provider-credit-${line.id}`} points={line.points} />)}
+          <svg className="fleet-provider-credit-chart" viewBox={`0 0 ${totalsCreditChart.width} ${totalsCreditChart.height}`} role="img" aria-label="최근 7일 Codex, Claude, Antigravity Gemini 누적 Meter credit 동일 축 차트">
+            {[0, 0.5, 1].map((ratio) => {
+              const value = totalsCreditChart.maxCredit * ratio;
+              const y = totalsCreditChart.y(value);
+              return <g key={ratio}><line className="fleet-credit-grid" x1={totalsCreditChart.left} x2={totalsCreditChart.width - totalsCreditChart.right} y1={y} y2={y} /><text className="fleet-credit-axis-label" x={totalsCreditChart.left - 8} y={y + 4} textAnchor="end">{Math.round(value).toLocaleString("en-US")}</text></g>;
+            })}
+            {totalsCreditChart.areas.map((area: any) => <path key={area.id} className={`fleet-credit-area provider-credit-${area.id}`} d={area.path} />)}
+            {providerDaily.map((row: any, index: number) => {
+              const x = totalsCreditChart.x(index);
+              const label = String(row.date ?? row.day ?? "");
+              const details = totalsSeries.map((series) => `${series.label} ${typeof series.values[index] === "number" ? Number(series.values[index]).toLocaleString("en-US") : "사용 불가"}`).join(", ");
+              return <g key={label || index} className="fleet-credit-hit" role="button" tabIndex={0} aria-label={`${label}, ${details}, 합계 ${totalsCreditChart.totals[index].toLocaleString("en-US")} Meter credit`} onMouseEnter={() => setCreditChartIndex(index)} onMouseLeave={() => setCreditChartIndex(null)} onFocus={() => setCreditChartIndex(index)} onBlur={() => setCreditChartIndex(null)}>
+                <rect x={x - totalsCreditChart.plotWidth / 14} y={totalsCreditChart.top} width={totalsCreditChart.plotWidth / 7} height={totalsCreditChart.plotHeight} fill="transparent" />
+                <text className="fleet-credit-axis-label" x={x} y={totalsCreditChart.height - 12} textAnchor="middle">{label.slice(5)}</text>
+              </g>;
+            })}
+            {creditChartIndex !== null && (() => {
+              const index = creditChartIndex;
+              const x = totalsCreditChart.x(index);
+              const boxX = Math.min(Math.max(x - 74, totalsCreditChart.left), totalsCreditChart.width - 170);
+              const date = String(providerDaily[index]?.date ?? providerDaily[index]?.day ?? "");
+              return <g className="fleet-credit-tooltip" role="tooltip">
+                <line x1={x} x2={x} y1={totalsCreditChart.top} y2={totalsCreditChart.top + totalsCreditChart.plotHeight} />
+                <rect x={boxX} y={20} width="164" height="104" rx="7" />
+                <text x={boxX + 10} y={39} className="is-title">{date}</text>
+                {totalsSeries.map((series, rowIndex) => <text key={series.id} x={boxX + 10} y={59 + rowIndex * 17} className={`provider-credit-${series.id}`}>{series.label}: {typeof series.values[index] === "number" ? Number(series.values[index]).toLocaleString("en-US") : "사용 불가"}</text>)}
+                <text x={boxX + 10} y={115}>합계: {totalsCreditChart.totals[index].toLocaleString("en-US")} Meter credit</text>
+              </g>;
+            })()}
           </svg>
         ) : <p className="fleet-provider-credit-empty">Provider별 계산 가능한 credit 근거가 없습니다.</p>}
         {totalsFoot.length > 0 && <p className="fleet-panel-foot">{totalsFoot}</p>}

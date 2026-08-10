@@ -9,6 +9,7 @@ const SAFE_PLAN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$/u;
 const CLAUDE_SOURCE_KINDS = new Set([
   "claude_code_statusline_rate_limits",
   "claude_orca_compat_receipt",
+  "claude_oauth_usage_sanitized",
 ]);
 const FRESHNESS = new Set(["fresh", "stale", "unknown"]);
 const CAPTURE_STATUS = new Set(["accepted", "hold"]);
@@ -92,6 +93,14 @@ function emptyClaudeOfficialQuota() {
 }
 
 function normalizedOfficialWindow(value, { expectedId, expectedMinutes, observedAtMs }) {
+  if (isRecord(value) && value.limit_id === undefined && value.window_minutes === undefined) {
+    const utilization = finitePercent(value.utilization);
+    const resetsAt = isoOrNull(value.resets_at);
+    const resetMs = resetsAt === null ? NaN : Date.parse(resetsAt);
+    return utilization !== null && Number.isFinite(resetMs) && resetMs > observedAtMs
+      ? { utilization, resets_at: resetsAt }
+      : null;
+  }
   if (!isRecord(value) || value.limit_id !== expectedId
     || !["used_percentage", "remaining_percentage"].includes(value.percentage_kind)
     || value.window_minutes !== expectedMinutes) return null;
@@ -125,7 +134,7 @@ export function normalizeClaudeOfficialQuota(value) {
     expectedMinutes: 10_080,
     observedAtMs,
   });
-  const fableWeekly = value.source_kind === "claude_orca_compat_receipt"
+  const fableWeekly = ["claude_orca_compat_receipt", "claude_oauth_usage_sanitized"].includes(value.source_kind)
     ? normalizedOfficialWindow(value.fable_weekly, {
       expectedId: "claude_fable_weekly",
       expectedMinutes: 10_080,
@@ -133,7 +142,7 @@ export function normalizeClaudeOfficialQuota(value) {
     })
     : null;
   const complete = fiveHour !== null && weekly !== null;
-  const current = complete && value.source_kind === "claude_code_statusline_rate_limits"
+  const current = complete && ["claude_code_statusline_rate_limits", "claude_oauth_usage_sanitized"].includes(value.source_kind)
     && value.capture_status === "accepted" && value.freshness === "fresh";
   const stale = complete && value.capture_status === "hold" && value.freshness === "stale";
   if (!current && !stale) return empty;

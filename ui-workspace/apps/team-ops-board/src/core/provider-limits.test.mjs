@@ -39,6 +39,18 @@ test("official Claude status-line quota accepts documented 5h/7d and never infer
   assert.equal(normalized.fable_weekly, null);
 });
 
+test("sanitized Claude OAuth quota accepts exact 5h, weekly, and Fable windows", () => {
+  const receipt = official({
+    source_kind: "claude_oauth_usage_sanitized",
+    fable_weekly: { limit_id: "claude_fable_weekly", percentage_kind: "used_percentage", percentage: 87, window_minutes: 10_080, resets_at: "2026-08-17T00:00:00.000Z" },
+  });
+  const normalized = normalizeClaudeOfficialQuota(receipt);
+  assert.equal(normalized.capture_status, "accepted");
+  assert.equal(normalized.fable_weekly.utilization, 87);
+  assert.equal(buildClaudeQuotaPresentation({ claude_official: receipt }).current, true);
+  assert.equal(buildClaudeQuotaPresentation({ claude_official: normalized }).claude.fable_weekly.utilization, 87);
+});
+
 test("malformed or inconsistent quota becomes UNKNOWN/HOLD, never zero/current", () => {
   const normalized = normalizeClaudeOfficialQuota(official({ weekly: null }));
   assert.equal(normalized.capture_status, "hold");

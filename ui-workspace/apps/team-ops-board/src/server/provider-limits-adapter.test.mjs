@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createOfficialProviderQuotaSnapshot } from "../core/provider-quota-snapshot.mjs";
-import { DEFAULT_PROVIDER_LIMITS_TTL_MS, createProviderLimitsReader } from "./provider-limits-adapter.mjs";
+import { DEFAULT_CLAUDE_QUOTA_FRESHNESS_MS, DEFAULT_PROVIDER_LIMITS_TTL_MS, createProviderLimitsReader } from "./provider-limits-adapter.mjs";
 
 const NOW = Date.parse("2026-08-10T00:00:00.000Z");
+
+test("Claude receipt freshness covers the five-minute owned companion interval", () => {
+  assert.equal(DEFAULT_CLAUDE_QUOTA_FRESHNESS_MS, 6 * 60_000);
+});
 function claudeSnapshot() {
   return createOfficialProviderQuotaSnapshot({
     source_kind: "claude_code_statusline_rate_limits",

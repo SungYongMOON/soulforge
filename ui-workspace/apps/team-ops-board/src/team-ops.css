@@ -6274,10 +6274,11 @@ a:focus-visible {
 
 /* ── 패널형 Fleet 카드: 창 등급별 잔여 게이지 · 모델별 · 총괄 ── */
 .fleet-usage-cards.is-panels {
-  grid-template-columns: minmax(360px, 1.4fr) minmax(280px, 1.05fr) minmax(250px, 1fr);
+  grid-template-columns: minmax(360px, 1.2fr) minmax(320px, 1fr);
   align-items: stretch;
 }
 @media (max-width: 1100px) { .fleet-usage-cards.is-panels { grid-template-columns: minmax(0, 1fr); } }
+.fleet-panel.is-totals { grid-column: 1 / -1; }
 .fleet-panel { gap: 8px; align-content: start; }
 .fleet-panel-foot {
   margin: 2px 0 0; font-family: Consolas, ui-monospace, monospace;
@@ -6363,12 +6364,25 @@ a:focus-visible {
 .fleet-total-rows span { font-family: Consolas, ui-monospace, monospace; font-size: 10px; color: #8a99a3; }
 .fleet-total-rows b { font-family: Consolas, ui-monospace, monospace; font-size: 14.5px; color: #e8eef2; }
 .fleet-total-rows small { font-family: Consolas, ui-monospace, monospace; font-size: 10.5px; color: #8a99a3; text-align: right; }
-.fleet-panel.is-totals svg { width: 100%; height: 40px; display: block; }
+.fleet-panel.is-totals svg { width: 100%; height: 220px; display: block; }
 .fleet-total-area { fill: rgba(112, 217, 140, 0.12); }
 .fleet-total-line { fill: none; stroke: #79c791; stroke-width: 1.4; }
-.fleet-provider-credit-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 10px; }
-.fleet-provider-credit-legend span::before { content: ""; display: inline-block; width: 12px; height: 3px; margin-right: 4px; vertical-align: middle; background: currentColor; }
-.fleet-total-provider-line { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.fleet-provider-credit-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; margin: 14px 0 5px; font-size: 11px; }
+.fleet-provider-credit-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; border-radius: 50%; background: currentColor; }
+.fleet-provider-credit-chart { display: block; width: 100%; height: 220px; overflow: visible; }
+.fleet-credit-grid { stroke: rgba(151, 174, 201, .23); stroke-width: 1; stroke-dasharray: 4 5; vector-effect: non-scaling-stroke; }
+.fleet-credit-axis-label { fill: #91a4bb; font-size: 10px; }
+.fleet-credit-area { stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.fleet-credit-area.provider-credit-codex { fill: rgba(50, 205, 196, .42); stroke: #43e0d3; }
+.fleet-credit-area.provider-credit-claude { fill: rgba(255, 158, 74, .48); stroke: #ff9e4a; }
+.fleet-credit-area.provider-credit-antigravity { fill: rgba(167, 125, 255, .5); stroke: #ad82ff; }
+.fleet-credit-hit:focus { outline: none; }
+.fleet-credit-hit:focus rect { stroke: #f6fbff; stroke-width: 2; stroke-dasharray: 3 3; }
+.fleet-credit-tooltip > line { stroke: rgba(255,255,255,.7); stroke-dasharray: 3 3; }
+.fleet-credit-tooltip > rect { fill: #151a21; stroke: #566272; }
+.fleet-credit-tooltip text { fill: #f5f8fb; font-size: 10px; }
+.fleet-credit-tooltip text.is-title { font-weight: 700; }
+@media (max-width: 700px) { .fleet-provider-credit-chart { height: 190px; } .fleet-provider-credit-legend { gap: 10px; justify-content: flex-start; } }
 .fleet-provider-credit-empty { margin: 8px 0 0; color: #93a2ac; font-size: 10px; }
 
 /* Claude 주간 모델 구성 분할 바 (원장 점유율) */
