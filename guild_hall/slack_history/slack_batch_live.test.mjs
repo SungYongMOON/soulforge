@@ -20,6 +20,10 @@ import {
   preflightSlackBatchLive,
   runSlackBatchLive,
   SlackBatchLiveError,
+  SLACK_BATCH_REDACTED_ATTESTATION_ENTRYPOINT_SHA256,
+  SLACK_BATCH_REDACTED_ATTESTATION_SCHEMA_VERSION,
+  SLACK_BATCH_REDACTED_TRUSTED_EXPECTED_SCHEMA_VERSION,
+  validateRedactedSlackBatchAttestation,
 } from "./slack_batch_live_runner.mjs";
 import {
   SLACK_BATCH_RUNTIME_ENTRYPOINT,
@@ -37,6 +41,8 @@ const TASK_REGISTRAR_PATH = path.join(
 );
 const APP_MANIFEST_PATH = path.join(MODULE_ROOT, "slack_app_manifest.yaml");
 const execFileAsync = promisify(execFile);
+const PLACEHOLDER_HEALTH_PATH = ["C:", "path", "to", "Soulforge"].join("\\");
+const SYNTHETIC_TOKEN_LIKE_VALUE = ["xoxb", "synthetic", "token"].join("-");
 
 function sha256Bytes(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
@@ -45,6 +51,220 @@ function sha256Bytes(bytes) {
 function sha256CanonicalString(value) {
   return sha256Bytes(Buffer.from(JSON.stringify(value), "utf8"));
 }
+
+function redactedAttestationFixture({ sourceCount = 9 } = {}) {
+  const writer = {
+    authority_sha256: sha256CanonicalString("synthetic-writer-authority"),
+    lease_sha256: sha256CanonicalString("synthetic-writer-lease"),
+    epoch: 7,
+    status: "single_writer",
+  };
+  const sources = Array.from({ length: sourceCount }, (_, index) => ({
+    source_sha256: sha256CanonicalString(`synthetic-source-${index}`),
+    binding_sha256: sha256CanonicalString(`synthetic-binding-${index}`),
+    cursor_sha256: sha256CanonicalString(`synthetic-cursor-${index}`),
+    revision_sha256: sha256CanonicalString(`synthetic-revision-${index}`),
+    dedupe_sha256: sha256CanonicalString(`synthetic-dedupe-${index}`),
+    writer_authority_sha256: writer.authority_sha256,
+    writer_lease_sha256: writer.lease_sha256,
+    writer_epoch: writer.epoch,
+    cursor_status: "current",
+    revision_status: "current",
+    dedupe_status: "clean",
+    freshness_status: "fresh",
+    writer_status: "single_writer",
+  })).sort((left, right) => left.source_sha256.localeCompare(right.source_sha256));
+  const attestation = {
+    schema_version: SLACK_BATCH_REDACTED_ATTESTATION_SCHEMA_VERSION,
+    entrypoint_sha256: SLACK_BATCH_REDACTED_ATTESTATION_ENTRYPOINT_SHA256,
+    runner_sha256: sha256CanonicalString("synthetic-runner"),
+    node_sha256: sha256CanonicalString("synthetic-node"),
+    runtime_manifest_sha256: sha256CanonicalString("synthetic-runtime-manifest"),
+    task_sha256: sha256CanonicalString("synthetic-task"),
+    batch_binding_sha256: sha256CanonicalString("synthetic-batch-binding"),
+    immutable_source_sha256: sha256CanonicalString("synthetic-immutable-source"),
+    config_sha256: sha256CanonicalString("synthetic-config"),
+    source_binding_set_sha256: sha256CanonicalString(sources
+      .map((source) => [source.source_sha256, source.binding_sha256])
+      .sort(([left], [right]) => left.localeCompare(right))),
+    apply_argv_projection: null,
+    preflight_argv_projection: null,
+    writer,
+    sources,
+  };
+  const projection = (mode) => [
+    mode,
+    "--entrypoint-sha256", attestation.entrypoint_sha256,
+    "--runner-sha256", attestation.runner_sha256,
+    "--node-sha256", attestation.node_sha256,
+    "--runtime-manifest-sha256", attestation.runtime_manifest_sha256,
+    "--task-sha256", attestation.task_sha256,
+    "--batch-binding-sha256", attestation.batch_binding_sha256,
+    "--immutable-source-sha256", attestation.immutable_source_sha256,
+    "--config-sha256", attestation.config_sha256,
+    "--source-binding-set-sha256", attestation.source_binding_set_sha256,
+  ];
+  attestation.apply_argv_projection = projection("--apply");
+  attestation.preflight_argv_projection = projection("--preflight");
+  return attestation;
+}
+
+function trustedExpectedFor(attestation) {
+  return {
+    schema_version: SLACK_BATCH_REDACTED_TRUSTED_EXPECTED_SCHEMA_VERSION,
+    entrypoint_sha256: attestation.entrypoint_sha256,
+    runner_sha256: attestation.runner_sha256,
+    node_sha256: attestation.node_sha256,
+    runtime_manifest_sha256: attestation.runtime_manifest_sha256,
+    task_sha256: attestation.task_sha256,
+    batch_binding_sha256: attestation.batch_binding_sha256,
+    immutable_source_sha256: attestation.immutable_source_sha256,
+    config_sha256: attestation.config_sha256,
+    source_binding_set_sha256: attestation.source_binding_set_sha256,
+    apply_argv_projection_sha256: sha256CanonicalString(attestation.apply_argv_projection),
+    preflight_argv_projection_sha256: sha256CanonicalString(attestation.preflight_argv_projection),
+    writer_authority_sha256: attestation.writer.authority_sha256,
+    writer_lease_sha256: attestation.writer.lease_sha256,
+    writer_epoch: attestation.writer.epoch,
+    source_authority_set_sha256: sha256CanonicalString(attestation.sources
+      .map((source) => [
+        source.source_sha256,
+        source.writer_authority_sha256,
+        source.writer_lease_sha256,
+        source.writer_epoch,
+      ])
+      .sort(([left], [right]) => left.localeCompare(right))),
+    source_count: attestation.sources.length,
+  };
+}
+
+function cloned(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+test("public synthetic attestation accepts exact redacted nine-source evidence without side effects", () => {
+  const attestation = redactedAttestationFixture();
+  const result = validateRedactedSlackBatchAttestation(attestation, trustedExpectedFor(attestation));
+  assert.equal(result.attestation_status, "PASS");
+  assert.equal(result.configured_source_count, 9);
+  assert.equal(result.passed_source_count, 9);
+  assert.equal(result.held_source_count, 0);
+  assert.deepEqual(result.aggregate_codes, []);
+  assert.equal(result.repository_writes, 0);
+  assert.equal(result.private_writes, 0);
+  assert.equal(result.network_used, false);
+  assert.equal(result.official_live_acceptance, false);
+  assert.equal(result.restart_reconcile_authorized, false);
+  assert.equal(JSON.stringify(result).includes("synthetic-source-"), false);
+});
+
+test("public synthetic attestation requires a separately supplied trusted expected set", () => {
+  const attestation = redactedAttestationFixture();
+  const missing = validateRedactedSlackBatchAttestation(attestation);
+  assert.equal(missing.attestation_status, "HOLD");
+  assert.deepEqual(missing.aggregate_codes, ["trusted_expected_missing"]);
+  assert.equal(missing.held_source_count, 9);
+
+  const invalid = validateRedactedSlackBatchAttestation(attestation, { unexpected: "value" });
+  assert.equal(invalid.attestation_status, "HOLD");
+  assert.deepEqual(invalid.aggregate_codes, ["trusted_expected_invalid"]);
+});
+
+test("public synthetic attestation holds trusted pin mismatches without echoing expected values", () => {
+  const attestation = redactedAttestationFixture();
+  const trustedExpected = trustedExpectedFor(attestation);
+  trustedExpected.runner_sha256 = sha256CanonicalString("synthetic-untrusted-runner");
+  const result = validateRedactedSlackBatchAttestation(attestation, trustedExpected);
+  assert.equal(result.attestation_status, "HOLD");
+  assert.deepEqual(result.aggregate_codes, ["trusted_runner_mismatch"]);
+  assert.equal(JSON.stringify(result).includes("synthetic-untrusted-runner"), false);
+});
+
+test("public synthetic attestation fails closed for an incomplete source set", () => {
+  const attestation = redactedAttestationFixture({ sourceCount: 8 });
+  const result = validateRedactedSlackBatchAttestation(attestation, trustedExpectedFor(attestation));
+  assert.equal(result.attestation_status, "HOLD");
+  assert.deepEqual(result.aggregate_codes, ["source_count_mismatch"]);
+  assert.equal(result.configured_source_count, 8);
+});
+
+test("public synthetic attestation fails closed for an excess source set", () => {
+  const attestation = redactedAttestationFixture({ sourceCount: 10 });
+  const result = validateRedactedSlackBatchAttestation(attestation, trustedExpectedFor(attestation));
+  assert.equal(result.attestation_status, "HOLD");
+  assert.deepEqual(result.aggregate_codes, ["source_count_mismatch"]);
+  assert.equal(result.configured_source_count, 10);
+});
+
+test("public synthetic attestation holds every source when the binding digest set mismatches", () => {
+  const attestation = redactedAttestationFixture();
+  const trustedExpected = trustedExpectedFor(attestation);
+  attestation.sources[0].binding_sha256 = sha256CanonicalString("synthetic-mismatch");
+  const result = validateRedactedSlackBatchAttestation(attestation, trustedExpected);
+  assert.equal(result.attestation_status, "HOLD");
+  assert.deepEqual(result.aggregate_codes, ["binding_digest_mismatch"]);
+  assert.equal(result.held_source_count, 9);
+  assert.deepEqual(result.sources[0].codes, ["binding_digest_mismatch"]);
+});
+
+test("public synthetic attestation rejects a non-equivalent apply/preflight projection", () => {
+  const attestation = redactedAttestationFixture();
+  attestation.preflight_argv_projection[2] = sha256CanonicalString("synthetic-argv-mismatch");
+  assert.throws(
+    () => validateRedactedSlackBatchAttestation(attestation),
+    (error) => error instanceof SlackBatchLiveError && error.code === "synthetic_argv_projection_invalid",
+  );
+});
+
+test("public synthetic attestation holds stale cursor, revision, dedupe, and writer conflicts", () => {
+  const attestation = redactedAttestationFixture();
+  const trustedExpected = trustedExpectedFor(attestation);
+  attestation.sources[0].cursor_status = "stale";
+  attestation.sources[1].revision_status = "conflict";
+  attestation.sources[2].dedupe_status = "conflict";
+  attestation.sources[3].writer_status = "ambiguous";
+  const result = validateRedactedSlackBatchAttestation(attestation, trustedExpected);
+  assert.equal(result.attestation_status, "HOLD");
+  assert.deepEqual(result.sources[0].codes, ["cursor_stale"]);
+  assert.deepEqual(result.sources[1].codes, ["revision_conflict"]);
+  assert.deepEqual(result.sources[2].codes, ["duplicate_conflict"]);
+  assert.deepEqual(result.sources[3].codes, ["writer_ambiguous"]);
+});
+
+test("public synthetic attestation holds all sources when the global writer is ambiguous", () => {
+  const attestation = redactedAttestationFixture();
+  const trustedExpected = trustedExpectedFor(attestation);
+  attestation.writer.status = "ambiguous";
+  const result = validateRedactedSlackBatchAttestation(attestation, trustedExpected);
+  assert.equal(result.attestation_status, "HOLD");
+  assert.equal(result.held_source_count, 9);
+  assert.deepEqual(result.sources[0].codes, ["writer_ambiguous"]);
+});
+
+test("public synthetic attestation rejects duplicate identities and unsafe input without echoing it", () => {
+  const duplicate = redactedAttestationFixture();
+  duplicate.sources[1].source_sha256 = duplicate.sources[0].source_sha256;
+  assert.throws(
+    () => validateRedactedSlackBatchAttestation(duplicate),
+    (error) => error instanceof SlackBatchLiveError && error.code === "synthetic_duplicate_source_identity",
+  );
+
+  for (const unsafe of [
+    { unexpected: "value" },
+    { apply_argv_projection: ["--apply", PLACEHOLDER_HEALTH_PATH] },
+    { config_sha256: SYNTHETIC_TOKEN_LIKE_VALUE },
+  ]) {
+    const attestation = cloned(redactedAttestationFixture());
+    Object.assign(attestation, unsafe);
+    assert.throws(
+      () => validateRedactedSlackBatchAttestation(attestation),
+      (error) => error instanceof SlackBatchLiveError
+        && ["exact_keys_required", "synthetic_path_forbidden", "synthetic_secret_value_forbidden"].includes(error.code)
+        && !error.message.includes(SYNTHETIC_TOKEN_LIKE_VALUE)
+        && !error.message.includes(PLACEHOLDER_HEALTH_PATH),
+    );
+  }
+});
 
 test("owner-managed Slack app manifest grants only the bounded read scopes", async () => {
   const manifest = parseYaml(await readFile(APP_MANIFEST_PATH, "utf8"));

@@ -106,6 +106,31 @@ restores and re-attests the exact prior exported definition; rollback failure
 leaves the task disabled. The scheduler does not change five-lane writer
 authority; Slack remains the H07 communication-history extension.
 
+## Public synthetic binding-attestation contract
+
+`validateRedactedSlackBatchAttestation` is a pure, in-memory contract for
+synthetic evidence only. It accepts only fixed-entrypoint and task/runtime/source
+configuration digests, redacted apply/preflight projections, one writer summary,
+and exactly nine opaque source fingerprints. The two projections must differ only
+by `--apply` versus `--preflight`; cursor, revision, dedupe, freshness, binding,
+and single-writer uncertainty return metadata-only `HOLD` codes. Unknown fields,
+raw arguments, token-like values, absolute/placeholder paths, and non-digest
+identity values are rejected.
+
+A synthetic `PASS` additionally requires a separately supplied trusted expected
+redacted pin/projection set. Missing or malformed expected evidence, or a
+mismatch in entrypoint, task, runner, Node, runtime, binding, source, or writer
+fingerprints, is fail-closed `HOLD`. This public package does not create that
+trusted set: a future authorized integration must source it independently from
+the installed binding without exposing its action arguments, tokens, URLs, or
+private payload.
+
+This contract neither reads an installed task nor proves a private binding or
+live source state. Its output always reports zero writes and no network use,
+`official_live_acceptance=false`, and `restart_reconcile_authorized=false`. A
+synthetic `PASS` is never authority to restart, reconcile, activate, or modify a
+Slack collector.
+
 ## Identity and revision contract
 
 - Workspace/channel identity is `workspace_id + channel_id`.

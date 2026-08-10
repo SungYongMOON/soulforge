@@ -29,6 +29,8 @@ import {
 
 export const SLACK_BATCH_LIVE_BINDING_SCHEMA_VERSION = "soulforge.slack_batch_live.binding.v1";
 export const SLACK_BATCH_LIVE_STATE_SCHEMA_VERSION = "soulforge.slack_batch_live.state.v1";
+export const SLACK_BATCH_REDACTED_ATTESTATION_SCHEMA_VERSION = "soulforge.slack_batch_live.redacted_attestation.v1";
+export const SLACK_BATCH_REDACTED_TRUSTED_EXPECTED_SCHEMA_VERSION = "soulforge.slack_batch_live.redacted_trusted_expected.v1";
 
 const BATCH_FIELDS = Object.freeze([
   "schema_version",
@@ -50,6 +52,107 @@ const BINDING_REF_FIELDS = Object.freeze([
   "max_events",
   "max_pages",
 ]);
+const REDACTED_ATTESTATION_FIELDS = Object.freeze([
+  "schema_version",
+  "entrypoint_sha256",
+  "runner_sha256",
+  "node_sha256",
+  "runtime_manifest_sha256",
+  "task_sha256",
+  "batch_binding_sha256",
+  "immutable_source_sha256",
+  "config_sha256",
+  "source_binding_set_sha256",
+  "apply_argv_projection",
+  "preflight_argv_projection",
+  "writer",
+  "sources",
+]);
+const REDACTED_ATTESTATION_PIN_FIELDS = Object.freeze([
+  "entrypoint_sha256",
+  "runner_sha256",
+  "node_sha256",
+  "runtime_manifest_sha256",
+  "task_sha256",
+  "batch_binding_sha256",
+  "immutable_source_sha256",
+  "config_sha256",
+  "source_binding_set_sha256",
+]);
+const REDACTED_ATTESTATION_WRITER_FIELDS = Object.freeze([
+  "authority_sha256",
+  "lease_sha256",
+  "epoch",
+  "status",
+]);
+const REDACTED_ATTESTATION_SOURCE_FIELDS = Object.freeze([
+  "source_sha256",
+  "binding_sha256",
+  "cursor_sha256",
+  "revision_sha256",
+  "dedupe_sha256",
+  "writer_authority_sha256",
+  "writer_lease_sha256",
+  "writer_epoch",
+  "cursor_status",
+  "revision_status",
+  "dedupe_status",
+  "freshness_status",
+  "writer_status",
+]);
+const REDACTED_TRUSTED_EXPECTED_FIELDS = Object.freeze([
+  "schema_version",
+  "entrypoint_sha256",
+  "runner_sha256",
+  "node_sha256",
+  "runtime_manifest_sha256",
+  "task_sha256",
+  "batch_binding_sha256",
+  "immutable_source_sha256",
+  "config_sha256",
+  "source_binding_set_sha256",
+  "apply_argv_projection_sha256",
+  "preflight_argv_projection_sha256",
+  "writer_authority_sha256",
+  "writer_lease_sha256",
+  "writer_epoch",
+  "source_authority_set_sha256",
+  "source_count",
+]);
+const REDACTED_TRUSTED_EXPECTED_DIGEST_FIELDS = Object.freeze([
+  "entrypoint_sha256",
+  "runner_sha256",
+  "node_sha256",
+  "runtime_manifest_sha256",
+  "task_sha256",
+  "batch_binding_sha256",
+  "immutable_source_sha256",
+  "config_sha256",
+  "source_binding_set_sha256",
+  "apply_argv_projection_sha256",
+  "preflight_argv_projection_sha256",
+  "writer_authority_sha256",
+  "writer_lease_sha256",
+  "source_authority_set_sha256",
+]);
+const REDACTED_ATTESTATION_ARGV_PINS = Object.freeze([
+  ["--entrypoint-sha256", "entrypoint_sha256"],
+  ["--runner-sha256", "runner_sha256"],
+  ["--node-sha256", "node_sha256"],
+  ["--runtime-manifest-sha256", "runtime_manifest_sha256"],
+  ["--task-sha256", "task_sha256"],
+  ["--batch-binding-sha256", "batch_binding_sha256"],
+  ["--immutable-source-sha256", "immutable_source_sha256"],
+  ["--config-sha256", "config_sha256"],
+  ["--source-binding-set-sha256", "source_binding_set_sha256"],
+]);
+const REDACTED_WRITER_STATUSES = new Set(["single_writer", "ambiguous", "missing", "unknown"]);
+const REDACTED_CURSOR_STATUSES = new Set(["current", "stale", "missing", "unknown"]);
+const REDACTED_REVISION_STATUSES = new Set(["current", "conflict", "missing", "unknown"]);
+const REDACTED_DEDUPE_STATUSES = new Set(["clean", "conflict", "missing", "unknown"]);
+const REDACTED_FRESHNESS_STATUSES = new Set(["fresh", "stale", "missing", "unknown"]);
+const REDACTED_ATTESTATION_ENTRYPOINT_REF = "guild_hall/slack_history/slack_batch_live_cli.mjs";
+const REDACTED_ATTESTATION_PLACEHOLDER_HEALTH_PATH = ["C:", "path", "to", "Soulforge"].join("\\");
 const SAFE_REF_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,255}$/u;
 const WORKSPACE_ID_PATTERN = /^T[A-Z0-9]{2,31}$/u;
 const CHANNEL_ID_PATTERN = /^C[A-Z0-9]{2,31}$/u;
@@ -105,6 +208,283 @@ function assertDigest(value, target) {
 
 function sha256Bytes(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+export const SLACK_BATCH_REDACTED_ATTESTATION_ENTRYPOINT_SHA256 = sha256Bytes(
+  REDACTED_ATTESTATION_ENTRYPOINT_REF,
+);
+
+function assertNoRedactedAttestationLeak(value, target) {
+  if (typeof value === "string") {
+    if (TOKEN_VALUE_PATTERN.test(value)) {
+      fail("synthetic_secret_value_forbidden", target, "Token-like values are forbidden");
+    }
+    if (/^(?:[A-Za-z]:[\\/]|\\\\|\/)/u.test(value)
+      || value === REDACTED_ATTESTATION_PLACEHOLDER_HEALTH_PATH) {
+      fail("synthetic_path_forbidden", target, "Paths and placeholder health values are forbidden");
+    }
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+  for (const [key, child] of Object.entries(value)) {
+    if (/(?:token|secret|credential|password|raw|path|argv)/iu.test(key)
+      && key !== "apply_argv_projection" && key !== "preflight_argv_projection") {
+      fail("synthetic_sensitive_field_forbidden", `${target}.${key}`, "Sensitive fields are forbidden");
+    }
+    assertNoRedactedAttestationLeak(child, `${target}.${key}`);
+  }
+}
+
+function assertEnum(value, allowed, target, code) {
+  if (typeof value !== "string" || !allowed.has(value)) {
+    fail(code, target, "Unexpected redacted status");
+  }
+  return value;
+}
+
+function redactedSourceBindingSetSha256(sources) {
+  const canonical = sources
+    .map((source) => [source.source_sha256, source.binding_sha256])
+    .sort(([left], [right]) => left.localeCompare(right));
+  return sha256Bytes(JSON.stringify(canonical));
+}
+
+function redactedSourceAuthoritySetSha256(sources) {
+  const canonical = sources
+    .map((source) => [
+      source.source_sha256,
+      source.writer_authority_sha256,
+      source.writer_lease_sha256,
+      source.writer_epoch,
+    ])
+    .sort(([left], [right]) => left.localeCompare(right));
+  return sha256Bytes(JSON.stringify(canonical));
+}
+
+function trustedExpectedCodes(trustedExpected, attestation) {
+  if (trustedExpected === null || trustedExpected === undefined) {
+    return ["trusted_expected_missing"];
+  }
+  try {
+    exactKeys(trustedExpected, REDACTED_TRUSTED_EXPECTED_FIELDS, "$trusted_expected");
+    if (trustedExpected.schema_version !== SLACK_BATCH_REDACTED_TRUSTED_EXPECTED_SCHEMA_VERSION) {
+      fail("trusted_expected_schema_invalid", "$trusted_expected.schema_version", "Unexpected trusted expected schema");
+    }
+    REDACTED_TRUSTED_EXPECTED_DIGEST_FIELDS.forEach((field) => {
+      assertDigest(trustedExpected[field], `$trusted_expected.${field}`);
+    });
+    for (const field of ["writer_epoch", "source_count"]) {
+      if (!Number.isSafeInteger(trustedExpected[field]) || trustedExpected[field] < 1) {
+        fail("trusted_expected_integer_invalid", `$trusted_expected.${field}`, "Expected a positive integer");
+      }
+    }
+  } catch {
+    return ["trusted_expected_invalid"];
+  }
+  const checks = [
+    ["entrypoint_sha256", attestation.entrypoint_sha256, "trusted_entrypoint_mismatch"],
+    ["task_sha256", attestation.task_sha256, "trusted_task_mismatch"],
+    ["runner_sha256", attestation.runner_sha256, "trusted_runner_mismatch"],
+    ["node_sha256", attestation.node_sha256, "trusted_node_mismatch"],
+    ["runtime_manifest_sha256", attestation.runtime_manifest_sha256, "trusted_runtime_manifest_mismatch"],
+    ["batch_binding_sha256", attestation.batch_binding_sha256, "trusted_binding_mismatch"],
+    ["immutable_source_sha256", attestation.immutable_source_sha256, "trusted_source_mismatch"],
+    ["config_sha256", attestation.config_sha256, "trusted_config_mismatch"],
+    ["source_binding_set_sha256", attestation.source_binding_set_sha256, "trusted_source_mismatch"],
+    ["apply_argv_projection_sha256", sha256Bytes(JSON.stringify(attestation.apply_argv_projection)), "trusted_apply_projection_mismatch"],
+    ["preflight_argv_projection_sha256", sha256Bytes(JSON.stringify(attestation.preflight_argv_projection)), "trusted_preflight_projection_mismatch"],
+    ["writer_authority_sha256", attestation.writer.authority_sha256, "trusted_writer_mismatch"],
+    ["writer_lease_sha256", attestation.writer.lease_sha256, "trusted_writer_mismatch"],
+    ["writer_epoch", attestation.writer.epoch, "trusted_writer_mismatch"],
+    ["source_authority_set_sha256", redactedSourceAuthoritySetSha256(attestation.sources), "trusted_source_authority_mismatch"],
+    ["source_count", attestation.sources.length, "trusted_source_mismatch"],
+  ];
+  return [...new Set(checks
+    .filter(([field, actual]) => trustedExpected[field] !== actual)
+    .map(([, , code]) => code))].sort();
+}
+
+function validateRedactedArgvProjection(projection, mode, attestation, target) {
+  if (!Array.isArray(projection) || projection.length !== 1 + (REDACTED_ATTESTATION_ARGV_PINS.length * 2)) {
+    fail("synthetic_argv_projection_invalid", target, "Expected the exact redacted argv projection");
+  }
+  if (projection[0] !== mode) {
+    fail("synthetic_argv_mode_mismatch", `${target}[0]`, "Unexpected projected mode");
+  }
+  REDACTED_ATTESTATION_ARGV_PINS.forEach(([flag, field], index) => {
+    const flagIndex = 1 + (index * 2);
+    if (projection[flagIndex] !== flag || projection[flagIndex + 1] !== attestation[field]) {
+      fail("synthetic_argv_projection_invalid", `${target}[${flagIndex}]`, "Projection must contain only pinned digests");
+    }
+  });
+}
+
+function statusCode(value, mapping, target, invalidCode) {
+  if (mapping[value] === undefined) {
+    fail(invalidCode, target, "Unexpected redacted status");
+  }
+  return mapping[value];
+}
+
+function sourceHoldCodes(source, writer, bindingSetMatches) {
+  const codes = [];
+  const add = (code) => {
+    if (code !== null && !codes.includes(code)) codes.push(code);
+  };
+  if (!bindingSetMatches) add("binding_digest_mismatch");
+  add(statusCode(source.cursor_status, {
+    current: null,
+    stale: "cursor_stale",
+    missing: "cursor_missing",
+    unknown: "cursor_unknown",
+  }, "$attestation.sources.cursor_status", "synthetic_cursor_status_invalid"));
+  add(statusCode(source.revision_status, {
+    current: null,
+    conflict: "revision_conflict",
+    missing: "revision_missing",
+    unknown: "revision_unknown",
+  }, "$attestation.sources.revision_status", "synthetic_revision_status_invalid"));
+  add(statusCode(source.dedupe_status, {
+    clean: null,
+    conflict: "duplicate_conflict",
+    missing: "dedupe_missing",
+    unknown: "dedupe_unknown",
+  }, "$attestation.sources.dedupe_status", "synthetic_dedupe_status_invalid"));
+  add(statusCode(source.freshness_status, {
+    fresh: null,
+    stale: "freshness_stale",
+    missing: "freshness_missing",
+    unknown: "freshness_unknown",
+  }, "$attestation.sources.freshness_status", "synthetic_freshness_status_invalid"));
+  add(statusCode(source.writer_status, {
+    single_writer: null,
+    ambiguous: "writer_ambiguous",
+    missing: "writer_missing",
+    unknown: "writer_unknown",
+  }, "$attestation.sources.writer_status", "synthetic_writer_status_invalid"));
+  add(statusCode(writer.status, {
+    single_writer: null,
+    ambiguous: "writer_ambiguous",
+    missing: "writer_missing",
+    unknown: "writer_unknown",
+  }, "$attestation.writer.status", "synthetic_writer_status_invalid"));
+  if (source.writer_authority_sha256 !== writer.authority_sha256
+    || source.writer_lease_sha256 !== writer.lease_sha256
+    || source.writer_epoch !== writer.epoch) {
+    add("writer_identity_mismatch");
+  }
+  return codes.sort();
+}
+
+export function validateRedactedSlackBatchAttestation(attestation, trustedExpected = null) {
+  exactKeys(attestation, REDACTED_ATTESTATION_FIELDS, "$attestation");
+  assertNoRedactedAttestationLeak(attestation, "$attestation");
+  if (attestation.schema_version !== SLACK_BATCH_REDACTED_ATTESTATION_SCHEMA_VERSION) {
+    fail("synthetic_attestation_schema_invalid", "$attestation.schema_version", "Unexpected attestation schema version");
+  }
+  REDACTED_ATTESTATION_PIN_FIELDS.forEach((field) => {
+    assertDigest(attestation[field], `$attestation.${field}`);
+  });
+  if (attestation.entrypoint_sha256 !== SLACK_BATCH_REDACTED_ATTESTATION_ENTRYPOINT_SHA256) {
+    fail("synthetic_entrypoint_mismatch", "$attestation.entrypoint_sha256", "Expected the fixed public entrypoint pin");
+  }
+  validateRedactedArgvProjection(
+    attestation.apply_argv_projection,
+    "--apply",
+    attestation,
+    "$attestation.apply_argv_projection",
+  );
+  validateRedactedArgvProjection(
+    attestation.preflight_argv_projection,
+    "--preflight",
+    attestation,
+    "$attestation.preflight_argv_projection",
+  );
+  if (attestation.apply_argv_projection.length !== attestation.preflight_argv_projection.length
+    || attestation.apply_argv_projection.slice(1).some((value, index) => (
+      value !== attestation.preflight_argv_projection[index + 1]
+    ))) {
+    fail("synthetic_apply_preflight_mismatch", "$attestation.preflight_argv_projection", "Only the mode may differ");
+  }
+  exactKeys(attestation.writer, REDACTED_ATTESTATION_WRITER_FIELDS, "$attestation.writer");
+  assertDigest(attestation.writer.authority_sha256, "$attestation.writer.authority_sha256");
+  assertDigest(attestation.writer.lease_sha256, "$attestation.writer.lease_sha256");
+  if (!Number.isSafeInteger(attestation.writer.epoch) || attestation.writer.epoch < 1) {
+    fail("synthetic_writer_epoch_invalid", "$attestation.writer.epoch", "Expected a positive writer epoch");
+  }
+  assertEnum(attestation.writer.status, REDACTED_WRITER_STATUSES, "$attestation.writer.status", "synthetic_writer_status_invalid");
+  if (!Array.isArray(attestation.sources)) {
+    fail("synthetic_sources_array_required", "$attestation.sources", "Expected redacted source records");
+  }
+  const sourceFingerprints = new Set();
+  let previousSourceFingerprint = null;
+  attestation.sources.forEach((source, index) => {
+    const target = `$attestation.sources[${index}]`;
+    exactKeys(source, REDACTED_ATTESTATION_SOURCE_FIELDS, target);
+    [
+      "source_sha256",
+      "binding_sha256",
+      "cursor_sha256",
+      "revision_sha256",
+      "dedupe_sha256",
+      "writer_authority_sha256",
+      "writer_lease_sha256",
+    ].forEach((field) => assertDigest(source[field], `${target}.${field}`));
+    if (!Number.isSafeInteger(source.writer_epoch) || source.writer_epoch < 1) {
+      fail("synthetic_writer_epoch_invalid", `${target}.writer_epoch`, "Expected a positive writer epoch");
+    }
+    assertEnum(source.cursor_status, REDACTED_CURSOR_STATUSES, `${target}.cursor_status`, "synthetic_cursor_status_invalid");
+    assertEnum(source.revision_status, REDACTED_REVISION_STATUSES, `${target}.revision_status`, "synthetic_revision_status_invalid");
+    assertEnum(source.dedupe_status, REDACTED_DEDUPE_STATUSES, `${target}.dedupe_status`, "synthetic_dedupe_status_invalid");
+    assertEnum(source.freshness_status, REDACTED_FRESHNESS_STATUSES, `${target}.freshness_status`, "synthetic_freshness_status_invalid");
+    assertEnum(source.writer_status, REDACTED_WRITER_STATUSES, `${target}.writer_status`, "synthetic_writer_status_invalid");
+    if (sourceFingerprints.has(source.source_sha256)) {
+      fail("synthetic_duplicate_source_identity", `${target}.source_sha256`, "Source fingerprints must be unique");
+    }
+    if (previousSourceFingerprint !== null && previousSourceFingerprint.localeCompare(source.source_sha256) >= 0) {
+      fail("synthetic_source_order_noncanonical", target, "Source records must be canonically ordered");
+    }
+    sourceFingerprints.add(source.source_sha256);
+    previousSourceFingerprint = source.source_sha256;
+  });
+  const bindingSetMatches = redactedSourceBindingSetSha256(attestation.sources)
+    === attestation.source_binding_set_sha256;
+  let sources = attestation.sources.map((source) => {
+    const codes = sourceHoldCodes(source, attestation.writer, bindingSetMatches);
+    return Object.freeze({
+      source_sha256: source.source_sha256,
+      status: codes.length === 0 ? "PASS" : "HOLD",
+      codes,
+    });
+  });
+  const aggregateCodes = [];
+  if (attestation.sources.length !== 9) aggregateCodes.push("source_count_mismatch");
+  if (!bindingSetMatches) aggregateCodes.push("binding_digest_mismatch");
+  const trustedCodes = trustedExpectedCodes(trustedExpected, attestation);
+  if (trustedCodes.length > 0) {
+    aggregateCodes.push(...trustedCodes);
+    sources = sources.map((source) => Object.freeze({
+      ...source,
+      status: "HOLD",
+      codes: [...new Set([...source.codes, ...trustedCodes])].sort(),
+    }));
+  }
+  const heldCount = sources.filter((source) => source.status === "HOLD").length;
+  return Object.freeze({
+    mode: "synthetic_redacted_attestation",
+    attestation_status: aggregateCodes.length === 0 && heldCount === 0 ? "PASS" : "HOLD",
+    configured_source_count: attestation.sources.length,
+    passed_source_count: sources.length - heldCount,
+    held_source_count: heldCount,
+    source_binding_set_sha256: attestation.source_binding_set_sha256,
+    sources,
+    aggregate_codes: aggregateCodes,
+    repository_writes: 0,
+    private_writes: 0,
+    network_used: false,
+    official_live_acceptance: false,
+    restart_reconcile_authorized: false,
+  });
 }
 
 function normalizedPath(value) {
