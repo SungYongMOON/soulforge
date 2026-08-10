@@ -28,13 +28,19 @@ import { fileURLToPath } from 'node:url';
 
 import { buildStates, SUBJECT_ID } from '../subjects/engine_self_topology.mjs';
 import { runEnginePass } from '../assembly/engine_pass.mjs';
+import { resolveOutputRoot } from './output_binding.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, '..');
 const arg = (n, fallback) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : fallback; };
 
-const OBSERVATION = arg('--observation', join(ENGINE, '..', 'state', 'engineering_engine', 'runtime', 'observation_summary.json'));
-const OUT_DIR = resolve(arg('--out', join(ENGINE, '..', 'state', 'engineering_engine', 'snapshots')));
+const resolvedRoot = resolveOutputRoot({ repoRoot: join(ENGINE, '..', '..') });
+if (resolvedRoot.root === null) {
+  console.error(`output root unresolved (${resolvedRoot.source}); refusing to guess where the evidence is`);
+  process.exit(1);
+}
+const OBSERVATION = arg('--observation', join(resolvedRoot.root, 'runtime', 'observation_summary.json'));
+const OUT_DIR = resolve(arg('--out', join(resolvedRoot.root, 'snapshots')));
 const PROJECT_BINDING_REF = arg('--binding-ref', 'pb-engine-self');
 const GENERATION = Number(arg('--generation', '1'));
 

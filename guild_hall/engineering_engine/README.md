@@ -53,6 +53,8 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 | 1E | module ABI · binding · release · rollback | `module_binding.mjs` | `contracts/lane_1e_module_and_release_v0.md` |
 | 1V | 변이 lock | `tests/lane_1v_mutation_lock.mjs` | `contracts/lane_1v_verification_lock_v0.md` |
 | runtime | 하트비트 · 간선별 전달 영수증 | `heartbeat.mjs`, `delivery_receipt.mjs` | `contracts/runtime_observation_v0.md` |
+| assembly | 조립된 1 pass · subject adapter | `assembly/engine_pass.mjs`, `subjects/` | — |
+| output | 소비자용 읽기 계약 | `tools/output_binding.mjs` | `contracts/engine_output_read_contract_v0.md` |
 
 `D-P10-03` 발급 경계는 `kernel/minting.mjs` 가 소유한다.
 
@@ -96,6 +98,24 @@ node guild_hall/engineering_engine/tools/observe_engine_run.mjs --oracle <oracle
 `P` 관측 결과는 `guild_hall/state/engineering_engine/runtime/` 에 쓰고 추적하지 않는다. 한 호스트의 한 시점 측정이므로 commit 하면 주장으로 바뀐다.
 
 `O` `module_load_observation` 은 간선이 **통과됐음**을 증명하고 데이터가 처리됐음을 증명하지 않는다. 이름이 그 한계를 말한다. 상세는 `contracts/runtime_observation_v0.md`.
+
+## 출력을 읽는 쪽으로 (Board 등)
+
+소비자는 **경로가 아니라 pointer** 를 하드코딩한다. 엔진을 돌린 쪽이 worktree 였을 수 있으므로 경로를 물면 우연을 무는 것이다.
+
+```
+guild_hall/state/engineering_engine/output.pointer.json   ← 소비자가 하드코딩 (저장소 상대)
+  → { schema_version, output_root }                       ← host-local 실제 위치
+  → <output_root>/engine_outputs.index.json               ← 소비자가 먼저 읽는 index
+```
+
+`D` **부재는 값이다.** index 가 `present: false` + 구별되는 `absent_reason` 을 준다. 관측은 host-local 이라 fresh checkout 에 없는 것이 정상이며, 파일 읽기 실패로 나타나지 않는다.
+
+`D` 깨진 pointer 는 추측하지 않고 `root: null` + 사유를 준다. 추측한 디렉터리를 읽으면 다른 실행의 증거를 이 실행의 것으로 띄운다.
+
+`D` artifact 4종이 각각 **무엇을 증명하고 무엇을 증명하지 않는지**를 들고 다닌다. 추적되는 것은 `engine_topology` 하나뿐이고 나머지 셋은 한 호스트의 한 시점 측정이다.
+
+`O` 신선도 윈도와 표시 색은 정하지 않는다. 소비자 판단이다. 상세는 `contracts/engine_output_read_contract_v0.md`.
 
 ## local state
 

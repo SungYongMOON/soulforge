@@ -21,6 +21,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { HEARTBEAT_SURFACES, validateHeartbeat, judgeAllSurfaces } from '../kernel/heartbeat.mjs';
+import { resolveOutputRoot } from './output_binding.mjs';
 import { edgeKey, validateReceipt, classifyEdgeCoverage, summariseDelivery } from '../kernel/delivery_receipt.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -31,7 +32,14 @@ const arg = (name, fallback) => {
 };
 
 const ORACLE = arg('--oracle');
-const OUT_DIR = resolve(arg('--out', join(ENGINE, '..', 'state', 'engineering_engine', 'runtime')));
+// Resolved through the pointer, not from where this file happens to sit, so a consumer reading
+// the declared location finds what this run wrote even if it ran from a worktree.
+const resolvedRoot = resolveOutputRoot({ repoRoot: join(ENGINE, '..', '..') });
+if (resolvedRoot.root === null) {
+  console.error(`output root unresolved (${resolvedRoot.source}); refusing to scatter observations`);
+  process.exit(1);
+}
+const OUT_DIR = resolve(arg('--out', join(resolvedRoot.root, 'runtime')));
 const HOOK = pathToFileURL(join(HERE, 'observe_hook.mjs')).href;
 
 // Surface id -> test file. The ids come from the kernel's closed list, so a surface cannot be

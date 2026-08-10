@@ -95,6 +95,12 @@ const topology = {
   derivation: {
     module_edges: `parsed from import statements in ${AREAS.map((a) => `${a}/*.mjs`).join(', ')}`,
     areas_covered: AREAS,
+    // Stated so this reads as a boundary rather than an omission: tools/ holds CLI entry points
+    // and the output binding, not judgement structure. Their edges are only traversed when a
+    // human runs a command, so including them would fill the graph with connections that are
+    // permanently unexercised by the verification surfaces. They are covered by the mutation
+    // lock instead.
+    areas_deliberately_excluded: [{ area: 'tools', reason: 'cli_entry_points_not_judgement_structure' }],
     boundaries: 'read from mcp_contract.OPERATIONS',
     everything_else: 'read from the module that owns it',
     hand_authored: ['lane_field_group_ownership'],

@@ -51,6 +51,7 @@ const SUITES = {
   minting: { file: 'minting_conformance.mjs', args: [] },
   runtime_observation: { file: 'runtime_observation_conformance.mjs', args: [] },
   end_to_end: { file: 'end_to_end_engine_run.mjs', args: [] },
+  output_contract: { file: 'output_contract_conformance.mjs', args: ['--scratch', SCRATCH_ROOT] },
 };
 
 // Each entry disables or weakens exactly one guard. `find` must occur exactly once in its
@@ -182,6 +183,17 @@ const CATALOGUE = [
   { id: 'receipt/unlabelled_method_accepted', file: 'delivery_receipt.mjs', suite: 'runtime_observation',
     find: '  if (!OBSERVATION_METHODS.includes(receipt.observation_method)) {', replace: '  if (false) {' },
 
+  // ---- output binding: fail-closed resolution
+  { id: 'binding/broken_pointer_resolves_to_a_guess', area: 'tools', file: 'output_binding.mjs', suite: 'output_contract',
+    find: "    return { root: null, source: 'pointer_unreadable', pointer_path: pointer };",
+    replace: "    return { root: resolve(join(repoRoot, DEFAULT_OUTPUT_ROOT_RELATIVE)), source: 'pointer_unreadable', pointer_path: pointer };" },
+  { id: 'binding/schema_unchecked', area: 'tools', file: 'output_binding.mjs', suite: 'output_contract',
+    find: "  if (parsed === null || typeof parsed !== 'object' || parsed.schema_version !== POINTER_SCHEMA) {",
+    replace: '  if (false) {' },
+  { id: 'binding/relative_root_resolved_against_cwd', area: 'tools', file: 'output_binding.mjs', suite: 'output_contract',
+    find: '  const root = isAbsolute(parsed.output_root) ? parsed.output_root : resolve(join(repoRoot, parsed.output_root));',
+    replace: '  const root = resolve(parsed.output_root);' },
+
   // ---- subject adapter: the unknown-vs-missing decision
   { id: 'subject/unknown_downgraded_to_missing', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
     find: '    absence_reportable: reasons.length === 0,', replace: '    absence_reportable: true,' },
@@ -227,7 +239,7 @@ try {
   created.push(workspace);
   // Every area the engine holds code in, or a mutation there would silently have nothing to
   // break and the catalogue would report a clean sweep over a partial copy.
-  for (const area of ['kernel', 'assembly', 'subjects', 'tests']) {
+  for (const area of ['kernel', 'assembly', 'subjects', 'tools', 'tests']) {
     cpSync(join(ENGINE, area), join(workspace, area), { recursive: true });
   }
 

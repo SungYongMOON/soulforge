@@ -58,6 +58,7 @@ const SUITES = [
   ['minting_conformance.mjs', [], 'D-P10-03', 'author_written_fixtures'],
   ['runtime_observation_conformance.mjs', [], 'runtime_observation', 'author_written_fixtures'],
   ['end_to_end_engine_run.mjs', [], 'end_to_end', 'author_written_fixtures'],
+  ['output_contract_conformance.mjs', ['--scratch', SCRATCH], 'output_contract', 'author_written_fixtures'],
 ];
 
 const suiteResults = [];

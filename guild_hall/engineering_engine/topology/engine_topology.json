@@ -9,6 +9,12 @@
       "assembly",
       "subjects"
     ],
+    "areas_deliberately_excluded": [
+      {
+        "area": "tools",
+        "reason": "cli_entry_points_not_judgement_structure"
+      }
+    ],
     "boundaries": "read from mcp_contract.OPERATIONS",
     "everything_else": "read from the module that owns it",
     "hand_authored": [

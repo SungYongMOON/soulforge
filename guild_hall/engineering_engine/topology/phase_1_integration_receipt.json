@@ -6,12 +6,12 @@
     {
       "id": "suites",
       "ok": true,
-      "detail": "9 suites, 814 checks"
+      "detail": "10 suites, 840 checks"
     },
     {
       "id": "mutation_lock",
       "ok": true,
-      "detail": "48/48 killed across 20 modules"
+      "detail": "51/51 killed across 21 modules"
     },
     {
       "id": "frozen_bundle",
@@ -120,16 +120,25 @@
       "pass_count": 43,
       "failure_count": 0,
       "failures": []
+    },
+    {
+      "suite": "output_contract_conformance.mjs",
+      "lane": "output_contract",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 26,
+      "failure_count": 0,
+      "failures": []
     }
   ],
-  "total_conformance_checks": 814,
+  "total_conformance_checks": 840,
   "mutation_lock": {
     "result": "PASS",
-    "mutations": 48,
-    "killed": 48,
+    "mutations": 51,
+    "killed": 51,
     "survived": 0,
     "catalogue_errors": 0,
-    "modules_covered": 20,
+    "modules_covered": 21,
     "semantic_independence": "UNMET"
   },
   "frozen_bundle": {
@@ -138,7 +147,7 @@
     "mismatches": []
   },
   "runtime_observation": {
-    "run_id": "run-20260810153003546",
+    "run_id": "run-20260810154123041",
     "surfaces_run": 9,
     "surfaces_without_heartbeat": 3,
     "edge_coverage": "85/85",
@@ -157,6 +166,12 @@
         "assembly",
         "subjects"
       ],
+      "areas_deliberately_excluded": [
+        {
+          "area": "tools",
+          "reason": "cli_entry_points_not_judgement_structure"
+        }
+      ],
       "boundaries": "read from mcp_contract.OPERATIONS",
       "everything_else": "read from the module that owns it",
       "hand_authored": [
@@ -173,7 +188,8 @@
     "1E": "author_written_fixtures",
     "D-P10-03": "author_written_fixtures",
     "runtime_observation": "author_written_fixtures",
-    "end_to_end": "author_written_fixtures"
+    "end_to_end": "author_written_fixtures",
+    "output_contract": "author_written_fixtures"
   },
   "honest_limits": [
     "five of six lanes carry author-written fixtures; only the phase_1_0 substrate is judged against the independently reviewed frozen oracle",
