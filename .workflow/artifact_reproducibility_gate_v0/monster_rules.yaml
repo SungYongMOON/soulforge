@@ -1,0 +1,22 @@
+workflow_id: artifact_reproducibility_gate_v0
+kind: monster_rules
+status: candidate
+monsters:
+  - monster_id: self_reported_pass
+    trigger: worker declares PASS but common validator evidence is absent or contradictory
+    disposition: fail_closed
+  - monster_id: prompt_only_semantics
+    trigger: builder contains hard-coded business content and does not consume the declared packet
+    disposition: fail_authoring_reproducibility
+  - monster_id: moving_builder
+    trigger: nominally identical runs use different builder hashes
+    disposition: invalid_experiment_identity
+  - monster_id: package_only_pass
+    trigger: archive and XML parse but render receipt is absent
+    disposition: structure_pass_visual_hold
+  - monster_id: consecutive_page_break
+    trigger: consecutive or blank page-break paragraphs create a blank-surface risk
+    disposition: visual_review_required
+  - monster_id: format_conversion_source_drift
+    trigger: one generated output becomes another output's source of truth
+    disposition: fail_semantic_lineage

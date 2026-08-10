@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "artifact_reproducibility_fixture_v0",
+  "type": "object",
+  "required": ["schema_version", "fixture_id", "format", "comparison_contract", "candidates"],
+  "properties": {
+    "schema_version": {"const": "artifact_reproducibility_fixture_v0"},
+    "fixture_id": {"type": "string", "minLength": 1},
+    "format": {"enum": ["hwpx", "docx", "pptx", "xlsx", "zip_xml_package", "generic_binary"]},
+    "comparison_contract": {
+      "type": "object",
+      "required": ["same_semantic_packet", "same_template", "same_builder", "same_toolchain", "same_prompt_contract", "byte_deterministic", "visual_receipt_required"],
+      "properties": {
+        "same_semantic_packet": {"type": "boolean"},
+        "same_template": {"type": "boolean"},
+        "same_builder": {"type": "boolean"},
+        "same_toolchain": {"type": "boolean"},
+        "same_prompt_contract": {"type": "boolean"},
+        "byte_deterministic": {"type": "boolean"},
+        "visual_receipt_required": {"type": "boolean"},
+        "minimum_text_similarity": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "candidates": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["candidate_id", "artifact_ref", "semantic_packet_refs", "template_ref", "builder_ref", "toolchain_identity", "prompt_contract_identity", "declared_input_refs"],
+        "properties": {
+          "candidate_id": {"type": "string"},
+          "artifact_ref": {"type": "string"},
+          "semantic_packet_refs": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "template_ref": {"type": "string"},
+          "builder_ref": {"type": "string"},
+          "toolchain_identity": {"type": "string", "minLength": 1},
+          "prompt_contract_identity": {"type": "string", "minLength": 1},
+          "declared_input_refs": {"type": "array", "items": {"type": "string"}},
+          "input_consumption_receipt_ref": {"type": ["string", "null"]},
+          "render_receipt_ref": {"type": ["string", "null"]},
+          "worker_self_check_ref": {"type": ["string", "null"]}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

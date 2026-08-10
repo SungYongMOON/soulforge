@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-11 — Artifact reproducibility gate candidate
+
+- Added a pilot-executed, unregistered artifact reproducibility workflow with
+  strict manifest, native-package, and independent render-receipt validation.
+  It is not a default route and is not production-ready.
+
 ## 2026-08-10 - SE Engineering Engine Phase 1 lanes complete
 
 - Completed all six Phase 1 lanes under `guild_hall/engineering_engine/`: 1A

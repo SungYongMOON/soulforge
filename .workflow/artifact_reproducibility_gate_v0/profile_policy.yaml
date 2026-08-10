@@ -1,0 +1,19 @@
+workflow_id: artifact_reproducibility_gate_v0
+kind: profile_policy
+status: candidate
+policy:
+  authoring_stage:
+    model_selection: workflow_or_owner_controlled
+    reproducibility_measure: semantic_contract_equivalence_not_token_guessing
+  deterministic_build_stage:
+    preferred_executor: fixed_script_or_native_adapter
+    model_optimization_applicable: false
+  package_validation_stage:
+    preferred_executor: deterministic_validator
+    model_optimization_applicable: false
+  visual_validation_stage:
+    independent_context_required: true
+    model_profile: separately_recorded_if_used
+telemetry:
+  exact_token_usage_required_for_model_cost_claim: true
+  unavailable_usage_must_be_reported_as_unknown: true

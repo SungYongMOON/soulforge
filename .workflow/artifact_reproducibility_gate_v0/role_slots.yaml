@@ -1,0 +1,22 @@
+workflow_id: artifact_reproducibility_gate_v0
+kind: role_slots
+status: candidate
+slots:
+  - slot_id: experiment_controller
+    title: Reproducibility Experiment Controller
+    summary: Locks immutable inputs, expected equalities, fixture identities, and stop conditions before workers run.
+  - slot_id: semantic_contract_validator
+    title: Semantic Contract Validator
+    summary: Verifies the approved content packet was consumed and preserved instead of independently re-authored.
+  - slot_id: deterministic_build_validator
+    title: Deterministic Build Validator
+    summary: Compares builder, template, toolchain, output, component, and cold-replay identities.
+  - slot_id: package_structure_validator
+    title: Native Package Structure Validator
+    summary: Checks ZIP/XML/package rules and format-specific structure without relying on application UI.
+  - slot_id: independent_visual_validator
+    title: Independent Visual Validator
+    summary: Reviews complete rendered pages, slides, or sheets from a fresh validation boundary.
+  - slot_id: receipt_writer
+    title: Metadata-Only Receipt Writer
+    summary: Records identities, gates, failures, and remediation without copying private artifact content.

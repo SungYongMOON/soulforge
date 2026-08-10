@@ -1,0 +1,43 @@
+{
+  "schema_version": "artifact_reproducibility_fixture_v0",
+  "fixture_id": "synthetic_artifact_pair_001",
+  "format": "hwpx",
+  "comparison_contract": {
+    "same_semantic_packet": true,
+    "same_template": true,
+    "same_builder": true,
+    "same_toolchain": true,
+    "same_prompt_contract": true,
+    "byte_deterministic": true,
+    "visual_receipt_required": true,
+    "minimum_text_similarity": 0.99
+  },
+  "candidates": [
+    {
+      "candidate_id": "run_01",
+      "artifact_ref": "<runtime-artifact-path>",
+      "semantic_packet_refs": ["<runtime-content-packet-path>"],
+      "template_ref": "<runtime-template-path>",
+      "builder_ref": "<runtime-builder-path>",
+      "toolchain_identity": "sha256:<immutable-toolchain-lock-hash>",
+      "prompt_contract_identity": "sha256:<immutable-prompt-contract-hash>",
+      "declared_input_refs": ["<runtime-content-packet-path>", "<runtime-template-path>"],
+      "input_consumption_receipt_ref": "<runtime-consumption-receipt-path>",
+      "render_receipt_ref": "<runtime-render-receipt-path>",
+      "worker_self_check_ref": "<runtime-worker-self-check-path>"
+    },
+    {
+      "candidate_id": "run_02",
+      "artifact_ref": "<runtime-artifact-path>",
+      "semantic_packet_refs": ["<runtime-content-packet-path>"],
+      "template_ref": "<runtime-template-path>",
+      "builder_ref": "<runtime-builder-path>",
+      "toolchain_identity": "sha256:<immutable-toolchain-lock-hash>",
+      "prompt_contract_identity": "sha256:<immutable-prompt-contract-hash>",
+      "declared_input_refs": ["<runtime-content-packet-path>", "<runtime-template-path>"],
+      "input_consumption_receipt_ref": "<runtime-consumption-receipt-path>",
+      "render_receipt_ref": "<runtime-render-receipt-path>",
+      "worker_self_check_ref": "<runtime-worker-self-check-path>"
+    }
+  ]
+}

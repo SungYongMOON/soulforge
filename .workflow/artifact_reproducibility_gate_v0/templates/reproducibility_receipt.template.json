@@ -1,0 +1,17 @@
+{
+  "schema_version": "artifact_reproducibility_receipt_v0",
+  "fixture_id": "<fixture-id>",
+  "verdict": "pass|fail|review_required",
+  "first_failed_gate": "<gate-or-null>",
+  "gates": {
+    "experiment_identity": "pass|fail",
+    "semantic_authoring": "pass|fail|not_evaluated",
+    "deterministic_build": "pass|fail|not_required",
+    "package_structure": "pass|fail",
+    "rendered_visual": "pass|fail|not_required"
+  },
+  "candidate_metadata": [],
+  "differences": [],
+  "remediation": [],
+  "claim_ceiling": "observed"
+}

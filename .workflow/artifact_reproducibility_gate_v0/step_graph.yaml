@@ -1,0 +1,106 @@
+workflow_id: artifact_reproducibility_gate_v0
+kind: step_graph
+status: candidate
+steps:
+  - step_id: lock_experiment_identity
+    actor_slot: experiment_controller
+    action:
+      kind: immutable_identity_lock
+      artifacts_in:
+        - artifact_reproducibility_fixture_manifest
+      artifacts_out:
+        - locked_experiment_identity
+      required_checks:
+        - candidate_count_is_at_least_two
+        - semantic_packet_template_builder_toolchain_and_prompt_contract_refs_are_hash_bound
+        - comparison_mode_and_expected_equalities_are_explicit
+        - no_worker_may_replace_a_missing_input_with_generated_content
+    next:
+      on_success: validate_semantic_authoring
+      on_fail: write_fail_closed_receipt
+  - step_id: validate_semantic_authoring
+    actor_slot: semantic_contract_validator
+    action:
+      kind: deterministic_semantic_contract_validation
+      artifacts_in:
+        - locked_experiment_identity
+      artifacts_out:
+        - semantic_validation_result
+      required_checks:
+        - declared_input_refs_are_actually_consumed_by_the_builder_or_publisher
+        - immutable_semantic_packet_hashes_match_across_candidates
+        - hwpx_normalized_text_similarity_and_record_id_sets_match_when_applicable
+        - no_worker_authored_requirement_literal_replaces_the_packet
+    next:
+      on_success: validate_build_identity
+      on_fail: write_fail_closed_receipt
+  - step_id: validate_build_identity
+    actor_slot: deterministic_build_validator
+    action:
+      kind: deterministic_build_identity_validation
+      tool_ref: tools/validate_artifact_reproducibility.py
+      artifacts_out:
+        - build_identity_result
+      required_checks:
+        - builder_hashes_match_when_same_builder_is_claimed
+        - template_and_toolchain_hashes_match
+        - output_and_component_hashes_match_when_byte_determinism_is_claimed
+        - repeated_receipt_is_stable
+    next:
+      on_success: validate_package_structure
+      on_fail: write_fail_closed_receipt
+  - step_id: validate_package_structure
+    actor_slot: package_structure_validator
+    action:
+      kind: native_package_structure_validation
+      artifacts_out:
+        - package_structure_result
+      required_checks:
+        - zip_packages_parse_and_required_components_exist
+        - XML_components_parse
+        - HWPX_mimetype_is_first_and_stored
+        - HWPX_page_break_risks_are_reported
+        - PPTX_slide_XLSX_sheet_and_HWPX_section_counts_are_recorded
+    next:
+      on_success: validate_rendered_visuals
+      on_fail: write_fail_closed_receipt
+  - step_id: validate_rendered_visuals
+    actor_slot: independent_visual_validator
+    action:
+      kind: independent_all_surface_render_validation
+      artifacts_out:
+        - rendered_visual_result
+      required_checks:
+        - render_receipt_exists_for_each_candidate_when_visual_gate_is_required
+        - every_page_slide_or_sheet_is_covered
+        - positive_surface_count_matches_reviewed_surface_count
+        - dimensions_clipping_overlap_blank_surface_and_style_drift_checks_are_true
+    next:
+      on_success: write_acceptance_receipt
+      on_fail: write_fail_closed_receipt
+  - step_id: write_acceptance_receipt
+    actor_slot: receipt_writer
+    action:
+      kind: metadata_only_reproducibility_receipt
+      verdict: pass
+    next:
+      on_success: complete
+  - step_id: write_fail_closed_receipt
+    actor_slot: receipt_writer
+    action:
+      kind: metadata_only_reproducibility_receipt
+      verdict: fail_or_review_required
+      records:
+        - first_failed_gate
+        - all_observed_differences
+        - false_positive_worker_self_check_warning
+        - bounded_remediation
+    next:
+      on_success: complete_with_failure
+stop_conditions:
+  - experiment_identity_is_not_hash_bound
+  - candidate_builder_does_not_consume_the_declared_content_packet
+  - worker_self_check_is_the_only_validation
+  - required_native_package_or_render_evidence_is_missing
+  - private_payload_would_enter_public_workflow_canon
+  - pass_claim_would_exceed_observed_evidence
