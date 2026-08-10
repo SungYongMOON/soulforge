@@ -6385,14 +6385,17 @@ a:focus-visible {
 .fleet-credit-axis-label { fill: #b2c2d4; font-size: 12px; font-weight: 600; }
 .fleet-credit-date-label { display: none; }
 .fleet-credit-date-label.is-major { display: inline; }
-@media (min-width: 1500px) { .fleet-credit-date-label.is-wide { display: inline; } }
+@media (min-width: 1500px) {
+  .fleet-credit-date-label.is-major { display: none; }
+  .fleet-credit-date-label.is-wide { display: inline; }
+}
 .fleet-credit-area { stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .fleet-credit-area.provider-credit-codex { fill: rgba(50, 205, 196, .42); stroke: #43e0d3; }
 .fleet-credit-area.provider-credit-claude { fill: rgba(255, 158, 74, .48); stroke: #ff9e4a; }
 .fleet-credit-area.provider-credit-antigravity { fill: rgba(167, 125, 255, .5); stroke: #ad82ff; }
 .fleet-credit-hit:focus { outline: none; }
 .fleet-credit-hit:focus rect { stroke: #f6fbff; stroke-width: 2; stroke-dasharray: 3 3; }
-.fleet-token-hit-grid { position: absolute; inset: 12px 8px 36px 45px; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); }
+.fleet-token-hit-grid { position: absolute; inset: 12px 0.8% 36px 10.5%; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); }
 .fleet-token-hit-grid button { min-width: 0; border: 0; padding: 0; background: transparent; cursor: crosshair; }
 .fleet-token-hit-grid button:focus-visible { outline: 2px dashed #f6fbff; outline-offset: -3px; }
 .fleet-provider-token-coverage { margin: 4px 0 0; color: #b2c2d4; font: 12px/1.5 Consolas, ui-monospace, monospace; }

@@ -216,7 +216,8 @@ test("thirty-day usage chart separates exact provider tokens with readable respo
   assert.match(source, /providerDaily\.length === 30/u);
   assert.match(source, /monotoneAreaPath\(upperPoints, lowerPoints\)/u);
   assert.match(source, /index % 5 === 0/u);
-  assert.match(source, /index % 2 === 0/u);
+  assert.match(source, /index % 3 === 0/u);
+  assert.match(source, /left = 105/u);
   assert.match(source, /\.total_tokens \?\? null/u);
   assert.match(source, /\.token_unknown_turns \?\? 0/u);
   assert.match(source, /토큰 미기록 \$\{series\.unknownTurns\[index\]\}회/u);
@@ -228,6 +229,9 @@ test("thirty-day usage chart separates exact provider tokens with readable respo
   assert.match(source, /totalsFoot = "[^"]*30[^"]*"/u);
   assert.match(css, /height:\s*clamp\(280px,\s*21vw,\s*420px\)/u);
   assert.match(css, /grid-template-columns:\s*repeat\(30,/u);
+  assert.match(css, /\.fleet-credit-date-label\.is-major\s*\{\s*display:\s*none;/u);
+  assert.match(css, /\.fleet-credit-date-label\.is-wide\s*\{\s*display:\s*inline;/u);
+  assert.match(source, /provider: "AG 크레딧"/u);
   assert.match(css, /\.fleet-usage-card header\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*650;[^}]*color:\s*#c4d5df;/su);
   assert.match(css, /\.fleet-usage-title\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*700;/su);
   assert.match(source, /pending \? "사용량 불러오는 중"/u);

@@ -2670,7 +2670,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
     limitRows.push({
       key: "antigravity_credits",
       group: "크레딧",
-      provider: "Antigravity 크레딧",
+      provider: "AG 크레딧",
       percent: null,
       severity: "idle",
       resetLabel: antigravity.stale
@@ -2765,7 +2765,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
   const totalsKnownTokens = totalsSeries.flatMap((series) => series.values.filter((value: any) => typeof value === "number"));
   let totalsCreditChart: any = null;
   if (providerDaily.length === 30 && totalsKnownTokens.length > 0) {
-    const width = 1000, height = 220, left = 45, right = 8, top = 12, bottom = 36;
+    const width = 1000, height = 220, left = 105, right = 8, top = 12, bottom = 36;
     const plotWidth = width - left - right, plotHeight = height - top - bottom;
     const totals = providerDaily.map((_: any, index: number) => totalsSeries.reduce((sum, series) => sum + (typeof series.values[index] === "number" ? series.values[index] : 0), 0));
     const rawMax = Math.max(...totals, 1);
@@ -2902,7 +2902,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
               const label = String(row.date ?? row.day ?? "");
               const details = totalsSeries.map((series) => `${series.label} ${typeof series.values[index] === "number" ? Number(series.values[index]).toLocaleString("en-US") : "사용 불가"}`).join(", ");
               return <g key={label || index} className="fleet-credit-hit" aria-hidden="true">
-                <text className={`fleet-credit-axis-label fleet-credit-date-label${index % 5 === 0 || index === providerDaily.length - 1 ? " is-major" : ""}${index % 2 === 0 ? " is-wide" : ""}`} x={x} y={totalsCreditChart.height - 12} textAnchor="middle">{label.slice(5)}</text>
+                <text className={`fleet-credit-axis-label fleet-credit-date-label${index % 5 === 0 || index === providerDaily.length - 1 ? " is-major" : ""}${index % 3 === 0 || index === providerDaily.length - 1 ? " is-wide" : ""}`} x={x} y={totalsCreditChart.height - 12} textAnchor="middle">{label.slice(5)}</text>
               </g>;
             })}
             {creditChartIndex !== null && (() => {
