@@ -492,6 +492,10 @@ test("Board history v3 attributes provider rows only from ledger source.kind", (
     { provider: "claude", turns: 1, total_tokens: 10, latest_usage_at: "2026-08-03T00:01:00.000Z" },
     { provider: "antigravity", turns: 1, total_tokens: 10, latest_usage_at: "2026-08-03T00:02:00.000Z" },
   ]);
+  assert.equal(snapshot.provider_daily.length, 7);
+  const providerDay = snapshot.provider_daily.find((row) => row.date === "2026-08-03");
+  assert.deepEqual(providerDay.providers.map((row) => row.provider), ["codex", "claude", "antigravity"]);
+  assert.deepEqual(providerDay.providers.map((row) => row.credits), [0.01, null, null]);
   assert.equal(snapshot.claude_collection.freshness, "fresh");
 
   const futureProviderTimestamp = structuredClone(snapshot);
@@ -572,6 +576,7 @@ test("Board history v2 remains accepted without v3 provider evidence", () => {
   const v2 = structuredClone(v3);
   v2.schema_version = BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA;
   delete v2.provider_rows;
+  delete v2.provider_daily;
   delete v2.claude_collection;
   const accepted = validateBoardUsageHistorySnapshot(v2);
   assert.equal(accepted.schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA);

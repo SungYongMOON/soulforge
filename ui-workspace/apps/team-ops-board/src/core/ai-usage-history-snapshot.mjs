@@ -20,6 +20,7 @@ export const AI_USAGE_HISTORY_WINDOWS = Object.freeze([
 
 const V2_ROOT_KEYS = ["schema_version", "generated_at", "timezone", "reference_at", "top_n", "current", "windows", "activity", "rate_limit"];
 const V3_ROOT_KEYS = [...V2_ROOT_KEYS, "provider_rows", "claude_collection"];
+const V3_PROVIDER_DAILY_ROOT_KEYS = [...V3_ROOT_KEYS, "provider_daily"];
 const WINDOW_KEYS = ["start_at", "end_at", "totals", "breakdowns"];
 const BREAKDOWN_KEYS = ["projects", "works", "tasks", "models"];
 const BREAKDOWN_GROUP_KEYS = ["top", "other"];
@@ -44,6 +45,8 @@ const READ_ONLY_ENVELOPE_KEYS = ["schema_version", "read_only", "snapshot"];
 const REFRESH_STATES = new Set(["ready", "refreshing", "hold", "unmeasured"]);
 const PROVIDER_ROWS_KEYS = ["provider", "turns", "total_tokens", "latest_usage_at"];
 const PROVIDER_ORDER = ["codex", "claude", "antigravity"];
+const PROVIDER_DAILY_ROW_KEYS = ["date", "providers"];
+const PROVIDER_DAILY_VALUE_KEYS = ["provider", "credits", "credit_unknown_turns"];
 const CLAUDE_COLLECTION_KEYS = [
   "schema_version",
   "state",
@@ -408,7 +411,7 @@ function normalizeHistorySnapshot(input) {
   if (legacy.state === "ready" || input === null || input === undefined) return noHistoryProjection(legacy);
   const isV2 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA;
   const isV3 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_SCHEMA;
-  const rootKeys = isV3 ? V3_ROOT_KEYS : V2_ROOT_KEYS;
+  const rootKeys = isV3 && Object.hasOwn(input ?? {}, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : isV3 ? V3_ROOT_KEYS : V2_ROOT_KEYS;
   if ((!isV2 && !isV3) || !hasExactKeys(input, rootKeys) || hasForbiddenKey(input)) return invalidProjection();
   if (
     input.timezone !== AI_USAGE_HISTORY_TIMEZONE
@@ -466,6 +469,22 @@ function normalizeHistorySnapshot(input) {
     const evidence = claudeEvidence(rows, collection, referenceAt);
     if (evidence === null) return invalidProjection();
     history.provider_rows = rows;
+    if (Object.hasOwn(input, "provider_daily")) {
+      if (!Array.isArray(input.provider_daily) || input.provider_daily.length !== 7) return invalidProjection();
+      const daily = input.provider_daily.map((row) => {
+        if (!hasExactKeys(row, PROVIDER_DAILY_ROW_KEYS) || !KST_DATE.test(row.date)
+          || !Array.isArray(row.providers) || row.providers.length !== PROVIDER_ORDER.length) return null;
+        const providers = row.providers.map((entry, index) => (
+          hasExactKeys(entry, PROVIDER_DAILY_VALUE_KEYS) && entry.provider === PROVIDER_ORDER[index]
+            && (entry.credits === null || (typeof entry.credits === "number" && Number.isFinite(entry.credits) && entry.credits >= 0))
+            && Number.isSafeInteger(entry.credit_unknown_turns) && entry.credit_unknown_turns >= 0
+            ? { ...entry } : null
+        ));
+        return providers.some((entry) => entry === null) ? null : { date: row.date, providers };
+      });
+      if (daily.some((row) => row === null)) return invalidProjection();
+      history.provider_daily = daily;
+    }
     history.claude_collection = collection;
     providerEvidence = { claude: evidence };
   }

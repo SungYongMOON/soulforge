@@ -2860,6 +2860,15 @@ function LedgerActivity({ usage }: { usage: any }) {
     `${(PAD + index * step).toFixed(1)},${(H - 16 - (value / maxDay) * (H - 36)).toFixed(1)}`
   ));
   const areaPath = `M ${points.join(" L ")} L ${(PAD + (daily.length - 1) * step).toFixed(1)},${H - 8} L ${PAD},${H - 8} Z`;
+  const providerDaily = Array.isArray(usage?.history?.provider_daily) ? usage.history.provider_daily : [];
+  const providerSeries = [
+    { id: "codex", label: "Codex" },
+    { id: "claude", label: "Claude" },
+    { id: "antigravity", label: "Antigravity/Gemini" },
+  ].map((provider) => ({ ...provider, values: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.credits ?? null) }));
+  const knownCredits = providerSeries.flatMap((series) => series.values.filter((value: any) => typeof value === "number"));
+  const maxCredit = Math.max(...knownCredits, 1);
+  const creditStep = providerDaily.length > 1 ? (W - PAD * 2) / (providerDaily.length - 1) : 0;
   const dateLabel = (value: string) => value.slice(5).replace("-", "/");
   return (
     <section className="ledger-activity" aria-label="활동 빈도" data-testid="ledger-activity">
@@ -2870,11 +2879,15 @@ function LedgerActivity({ usage }: { usage: any }) {
       </header>
       <div className="ledger-activity-panels">
         <div className="ledger-activity-panel">
-          <h3>일자별 <span>{daily.length}일 · {fleetTokenLabel(totalDailyTokens)} tok</span></h3>
-          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
-            <path className="ledger-activity-area" d={areaPath} />
-            <polyline className="ledger-activity-line" points={points.join(" ")} />
-          </svg>
+          <h3>Provider별 7일 사용량 <span>Meter credits · 동일 축</span></h3>
+          <div className="provider-credit-legend" aria-label="Provider credit series legend">
+            {providerSeries.map((series) => <span key={series.id} className={`provider-credit-${series.id}`}>{series.label}</span>)}
+          </div>
+          {providerDaily.length === 7 && knownCredits.length > 0 ? (
+            <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="최근 7일 Codex, Claude, Antigravity Gemini Meter credit 비교">
+              {providerSeries.map((series) => <polyline key={series.id} className={`provider-credit-line provider-credit-${series.id}`} points={series.values.map((value: any, index: number) => typeof value === "number" ? `${(PAD + index * creditStep).toFixed(1)},${(H - 16 - (value / maxCredit) * (H - 36)).toFixed(1)}` : null).filter(Boolean).join(" ")} />)}
+            </svg>
+          ) : <p className="provider-credit-empty">Provider별 계산 가능한 credit 근거가 없습니다.</p>}
           <div className="ledger-activity-axis"><span>{dateLabel(daily[0].date)}</span><span>{dateLabel(daily[daily.length - 1].date)}</span></div>
         </div>
         <div className="ledger-activity-panel">

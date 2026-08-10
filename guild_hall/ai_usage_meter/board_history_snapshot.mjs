@@ -49,6 +49,7 @@ const V2_ROOT_KEYS = new Set([
   "rate_limit",
 ]);
 const V3_ROOT_KEYS = new Set([...V2_ROOT_KEYS, "provider_rows", "claude_collection"]);
+const V3_PROVIDER_DAILY_ROOT_KEYS = new Set([...V3_ROOT_KEYS, "provider_daily"]);
 const WINDOW_NAMES = [
   "calendar_day",
   "calendar_week",
@@ -75,6 +76,8 @@ const RATE_LIMIT_KEYS = new Set([
   "limit_id", "plan_type", "used_percent", "window_minutes", "resets_at_epoch_s", "observed_at",
 ]);
 const PROVIDER_ROW_KEYS = new Set(["provider", "turns", "total_tokens", "latest_usage_at"]);
+const PROVIDER_DAILY_ROW_KEYS = new Set(["date", "providers"]);
+const PROVIDER_DAILY_VALUE_KEYS = new Set(["provider", "credits", "credit_unknown_turns"]);
 const READ_ONLY_PROJECTION_KEYS = new Set(["schema_version", "read_only", "snapshot"]);
 const SAFE_COLLECTION_COUNT_KEYS = new Set([
   "session_file_count",
@@ -281,6 +284,41 @@ function buildProviderRows(observations) {
   return BOARD_USAGE_PROVIDERS
     .filter((provider) => rows.has(provider))
     .map((provider) => rows.get(provider));
+}
+
+function buildProviderDaily(observations, referenceAt) {
+  const end = addKstDays(calendarDayStart(referenceAt), 1);
+  const start = addKstDays(end, -7);
+  const dates = Array.from({ length: 7 }, (_, index) => {
+    const parts = localKstParts(addKstDays(start, index));
+    return `${parts.year}-${String(parts.month + 1).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+  });
+  return dates.map((date) => ({
+    date,
+    providers: BOARD_USAGE_PROVIDERS.map((provider) => {
+      const localRows = observations.filter((row) => row.provider === provider
+        && localKstParts(row.started_at).year === Number(date.slice(0, 4))
+        && localKstParts(row.started_at).month + 1 === Number(date.slice(5, 7))
+        && localKstParts(row.started_at).day === Number(date.slice(8, 10)));
+      const unknown = localRows.reduce((sum, row) => sum + row.metrics.credit_unknown_turns, 0);
+      return { provider, credits: localRows.length > 0 && unknown === 0 ? rounded(localRows.reduce((sum, row) => sum + row.metrics.credits, 0)) : null, credit_unknown_turns: unknown };
+    }),
+  }));
+}
+
+function parseProviderDaily(value) {
+  if (!Array.isArray(value) || value.length !== 7) fail("board_usage_history_provider_daily_invalid");
+  return value.map((row) => {
+    if (!hasExactKeys(row, PROVIDER_DAILY_ROW_KEYS) || !KST_DATE.test(row.date) || !Array.isArray(row.providers)
+      || row.providers.length !== BOARD_USAGE_PROVIDERS.length) fail("board_usage_history_provider_daily_invalid");
+    const providers = row.providers.map((entry, index) => {
+      if (!hasExactKeys(entry, PROVIDER_DAILY_VALUE_KEYS) || entry.provider !== BOARD_USAGE_PROVIDERS[index]
+        || !(entry.credits === null || (typeof entry.credits === "number" && Number.isFinite(entry.credits) && entry.credits >= 0))
+        || !Number.isSafeInteger(entry.credit_unknown_turns) || entry.credit_unknown_turns < 0) fail("board_usage_history_provider_daily_invalid");
+      return { ...entry };
+    });
+    return { date: row.date, providers };
+  });
 }
 
 function parseProviderRows(value, referenceAt) {
@@ -664,7 +702,7 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
   }
   const base = validateHistorySnapshotBase(snapshot, {
     schemaVersion: BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
-    rootKeys: V3_ROOT_KEYS,
+    rootKeys: Object.hasOwn(snapshot, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : V3_ROOT_KEYS,
   });
   const providerRows = parseProviderRows(snapshot.provider_rows, base.reference_at);
   const claudeCollection = validateClaudeCollectionEnvelope(snapshot.claude_collection, {
@@ -676,6 +714,7 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
   return {
     ...base,
     provider_rows: providerRows,
+    ...(Object.hasOwn(snapshot, "provider_daily") ? { provider_daily: parseProviderDaily(snapshot.provider_daily) } : {}),
     claude_collection: claudeCollection,
   };
 }
@@ -726,6 +765,7 @@ export function createBoardUsageHistorySnapshot(events, {
     activity: buildActivity(observations, normalizedReferenceAt),
     rate_limit: latestRateLimit(uniqueEvents),
     provider_rows: buildProviderRows(observations),
+    provider_daily: buildProviderDaily(observations, normalizedReferenceAt),
     claude_collection: normalizedClaudeCollection,
   };
   return validateBoardUsageHistorySnapshot(snapshot);

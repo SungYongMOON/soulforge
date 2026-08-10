@@ -204,6 +204,19 @@ test("usage distribution paints every declared column tone", () => {
   }
 });
 
+test("seven-day usage chart separates provider credits with an accessible legend", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  const css = readFileSync(CSS_PATH, "utf8");
+  assert.match(source, /Meter credits · 동일 축/u);
+  assert.match(source, /Provider credit series legend/u);
+  assert.match(source, /Codex, Claude, Antigravity Gemini Meter credit 비교/u);
+  for (const provider of ["codex", "claude", "antigravity"]) {
+    assert.match(source, new RegExp(`provider-credit-\\$\\{series\\.id\\}`, "u"));
+    assert.match(css, new RegExp(`\\.provider-credit-${provider}\\s*\\{[^}]*stroke:`, "u"));
+  }
+  assert.match(source, /Provider별 계산 가능한 credit 근거가 없습니다/u);
+});
+
 test("AI usage history controls stay on the work surface and expose only exact-ID ranking fields", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const css = readFileSync(CSS_PATH, "utf8");

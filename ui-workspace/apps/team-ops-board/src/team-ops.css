@@ -6243,6 +6243,13 @@ a:focus-visible {
 .ledger-activity-panel svg { width: 100%; height: 110px; display: block; }
 .ledger-activity-area { fill: rgba(122, 168, 189, 0.16); stroke: none; }
 .ledger-activity-line { fill: none; stroke: #9db9c8; stroke-width: 1.6; }
+.provider-credit-legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 6px 0; font-size: 11px; }
+.provider-credit-legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; margin-right: 5px; vertical-align: middle; background: currentColor; }
+.provider-credit-line { fill: none; stroke-width: 2.4; vector-effect: non-scaling-stroke; }
+.provider-credit-codex { color: #64d8cb; stroke: #64d8cb; }
+.provider-credit-claude { color: #ff9f68; stroke: #ff9f68; }
+.provider-credit-antigravity { color: #b69cff; stroke: #b69cff; }
+.provider-credit-empty { color: #93a2ac; font-size: 12px; }
 .ledger-activity-bars {
   display: flex; align-items: flex-end; gap: 3px; height: 110px;
 }
