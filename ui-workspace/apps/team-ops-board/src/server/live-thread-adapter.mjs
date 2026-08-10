@@ -53,7 +53,9 @@ export const LIVE_THREAD_SNAPSHOT_PATH = "/codex-threads.snapshot.json";
 
 const DEFAULT_LIMITS = {
   cacheMs: 5_000,
-  timeoutMs: 8_000,
+  // The persisted exact lifecycle source remains authoritative when the
+  // optional app-server observation misses this bounded UI refresh budget.
+  timeoutMs: 5_000,
   pageSize: 20,
   maxPages: 20,
   maxThreads: 400,
@@ -642,7 +644,11 @@ export function createLiveThreadAdapter({
     let enrolledThreadIds = new Set(enrollment.registry.entries
       .filter((entry) => entry.lifecycle === "current" || entry.lifecycle === "accepted")
       .map((entry) => entry.thread_id));
-    if (lifecycleReconciler !== null && currentEnrollmentCount > 0 && !["disabled", "invalid"].includes(lifecycleSource.status)) {
+    // A validated persisted snapshot is the request-path source of truth. The
+    // companion producer refreshes it out of band; reconciling all enrolled
+    // sessions again here makes an otherwise fresh Board request block near
+    // the lifecycle timeout and can race the UI refresh window.
+    if (lifecycleReconciler !== null && currentEnrollmentCount > 0 && !["available", "disabled", "invalid"].includes(lifecycleSource.status)) {
       const lifecycleSourceBeforeReconcile = lifecycleSource;
       const reconciliation = await lifecycleReconciler.reconcile({
         threadIds: enrolledThreadIds,
@@ -752,7 +758,7 @@ export function createLiveThreadAdapter({
       let lineageMalformed = observed.lineageMalformed;
       const lineageUnsafeThreadIds = new Set(observed.lineageUnsafeThreadIds);
       let lineagePartial = observed.partial;
-      if (observed.usedStateDbOnly && observed.threads.some((thread) => (
+      if (lifecycleSource.status !== "available" && observed.usedStateDbOnly && observed.threads.some((thread) => (
         enrolledThreadIds.has(thread.thread_id) && thread.status === "not_loaded_unknown"
       ))) {
         try {

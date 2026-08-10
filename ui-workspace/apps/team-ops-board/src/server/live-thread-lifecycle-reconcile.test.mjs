@@ -8,7 +8,7 @@ import {
 } from "./live-thread-lifecycle-reconcile.mjs";
 
 test("default reconciliation timeout leaves bounded headroom for multi-second full sweeps", () => {
-  assert.equal(DEFAULT_AUTO_LIFECYCLE_RECONCILE_TIMEOUT_MS, 8_000);
+  assert.equal(DEFAULT_AUTO_LIFECYCLE_RECONCILE_TIMEOUT_MS, 10_000);
 });
 
 test("automatic lifecycle reconciliation is bounded, debounced, and single-flight", async () => {

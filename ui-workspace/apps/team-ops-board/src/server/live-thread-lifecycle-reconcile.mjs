@@ -13,10 +13,9 @@ import {
 } from "../../../../../guild_hall/ai_usage_meter/jsonl_lifecycle.mjs";
 
 export const DEFAULT_AUTO_LIFECYCLE_RECONCILE_DEBOUNCE_MS = 15_000;
-// Exact and full bounded sweeps are currently observed between two and six
-// seconds on the Owner's session tree. Leave filesystem headroom while
-// retaining the existing hard 10-second safety ceiling.
-export const DEFAULT_AUTO_LIFECYCLE_RECONCILE_TIMEOUT_MS = 8_000;
+// The current 60-ID enrolled sweep is observed at about 7.7 seconds. Use the
+// existing hard safety ceiling so a valid sweep is not discarded at its edge.
+export const DEFAULT_AUTO_LIFECYCLE_RECONCILE_TIMEOUT_MS = 10_000;
 
 const MAX_AUTO_LIFECYCLE_RECONCILE_DEBOUNCE_MS = 5 * 60 * 1_000;
 const MAX_AUTO_LIFECYCLE_RECONCILE_TIMEOUT_MS = 10_000;
