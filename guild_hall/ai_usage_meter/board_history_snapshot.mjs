@@ -77,7 +77,7 @@ const RATE_LIMIT_KEYS = new Set([
 ]);
 const PROVIDER_ROW_KEYS = new Set(["provider", "turns", "total_tokens", "latest_usage_at"]);
 const PROVIDER_DAILY_ROW_KEYS = new Set(["date", "providers"]);
-const PROVIDER_DAILY_VALUE_KEYS = new Set(["provider", "credits", "credit_unknown_turns"]);
+const PROVIDER_DAILY_VALUE_KEYS = new Set(["provider", "total_tokens", "token_unknown_turns", "credits", "credit_unknown_turns"]);
 const READ_ONLY_PROJECTION_KEYS = new Set(["schema_version", "read_only", "snapshot"]);
 const SAFE_COLLECTION_COUNT_KEYS = new Set([
   "session_file_count",
@@ -250,6 +250,8 @@ function eventObservation(event) {
     && event.credits.total >= 0
     ? event.credits.total
     : null;
+  const tokenIsExact = event?.measurement?.token_confidence === "exact_cumulative_delta"
+    || event?.measurement?.token_confidence === "exact_per_message";
   return {
     started_at: startedAt,
     provider: providerForSourceKind(event?.source?.kind),
@@ -260,6 +262,7 @@ function eventObservation(event) {
     metrics: {
       turns: 1,
       total_tokens: totalTokens,
+      token_unknown_turns: tokenIsExact ? 0 : 1,
       credits: credit ?? 0,
       credit_unknown_turns: credit === null ? 1 : 0,
     },
@@ -288,8 +291,8 @@ function buildProviderRows(observations) {
 
 function buildProviderDaily(observations, referenceAt) {
   const end = addKstDays(calendarDayStart(referenceAt), 1);
-  const start = addKstDays(end, -7);
-  const dates = Array.from({ length: 7 }, (_, index) => {
+  const start = addKstDays(end, -15);
+  const dates = Array.from({ length: 15 }, (_, index) => {
     const parts = localKstParts(addKstDays(start, index));
     return `${parts.year}-${String(parts.month + 1).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
   });
@@ -301,18 +304,27 @@ function buildProviderDaily(observations, referenceAt) {
         && localKstParts(row.started_at).month + 1 === Number(date.slice(5, 7))
         && localKstParts(row.started_at).day === Number(date.slice(8, 10)));
       const unknown = localRows.reduce((sum, row) => sum + row.metrics.credit_unknown_turns, 0);
-      return { provider, credits: localRows.length > 0 && unknown === 0 ? rounded(localRows.reduce((sum, row) => sum + row.metrics.credits, 0)) : null, credit_unknown_turns: unknown };
+      const tokenUnknown = localRows.reduce((sum, row) => sum + row.metrics.token_unknown_turns, 0);
+      return {
+        provider,
+        total_tokens: localRows.length > 0 && tokenUnknown === 0 ? localRows.reduce((sum, row) => sum + row.metrics.total_tokens, 0) : null,
+        token_unknown_turns: tokenUnknown,
+        credits: localRows.length > 0 && unknown === 0 ? rounded(localRows.reduce((sum, row) => sum + row.metrics.credits, 0)) : null,
+        credit_unknown_turns: unknown,
+      };
     }),
   }));
 }
 
 function parseProviderDaily(value) {
-  if (!Array.isArray(value) || value.length !== 7) fail("board_usage_history_provider_daily_invalid");
+  if (!Array.isArray(value) || value.length !== 15) fail("board_usage_history_provider_daily_invalid");
   return value.map((row) => {
     if (!hasExactKeys(row, PROVIDER_DAILY_ROW_KEYS) || !KST_DATE.test(row.date) || !Array.isArray(row.providers)
       || row.providers.length !== BOARD_USAGE_PROVIDERS.length) fail("board_usage_history_provider_daily_invalid");
     const providers = row.providers.map((entry, index) => {
       if (!hasExactKeys(entry, PROVIDER_DAILY_VALUE_KEYS) || entry.provider !== BOARD_USAGE_PROVIDERS[index]
+        || !(entry.total_tokens === null || (Number.isSafeInteger(entry.total_tokens) && entry.total_tokens >= 0))
+        || !Number.isSafeInteger(entry.token_unknown_turns) || entry.token_unknown_turns < 0
         || !(entry.credits === null || (typeof entry.credits === "number" && Number.isFinite(entry.credits) && entry.credits >= 0))
         || !Number.isSafeInteger(entry.credit_unknown_turns) || entry.credit_unknown_turns < 0) fail("board_usage_history_provider_daily_invalid");
       return { ...entry };

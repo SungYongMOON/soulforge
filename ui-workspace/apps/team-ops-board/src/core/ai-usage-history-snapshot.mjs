@@ -46,7 +46,7 @@ const REFRESH_STATES = new Set(["ready", "refreshing", "hold", "unmeasured"]);
 const PROVIDER_ROWS_KEYS = ["provider", "turns", "total_tokens", "latest_usage_at"];
 const PROVIDER_ORDER = ["codex", "claude", "antigravity"];
 const PROVIDER_DAILY_ROW_KEYS = ["date", "providers"];
-const PROVIDER_DAILY_VALUE_KEYS = ["provider", "credits", "credit_unknown_turns"];
+const PROVIDER_DAILY_VALUE_KEYS = ["provider", "total_tokens", "token_unknown_turns", "credits", "credit_unknown_turns"];
 const CLAUDE_COLLECTION_KEYS = [
   "schema_version",
   "state",
@@ -470,12 +470,14 @@ function normalizeHistorySnapshot(input) {
     if (evidence === null) return invalidProjection();
     history.provider_rows = rows;
     if (Object.hasOwn(input, "provider_daily")) {
-      if (!Array.isArray(input.provider_daily) || input.provider_daily.length !== 7) return invalidProjection();
+      if (!Array.isArray(input.provider_daily) || input.provider_daily.length !== 15) return invalidProjection();
       const daily = input.provider_daily.map((row) => {
         if (!hasExactKeys(row, PROVIDER_DAILY_ROW_KEYS) || !KST_DATE.test(row.date)
           || !Array.isArray(row.providers) || row.providers.length !== PROVIDER_ORDER.length) return null;
         const providers = row.providers.map((entry, index) => (
           hasExactKeys(entry, PROVIDER_DAILY_VALUE_KEYS) && entry.provider === PROVIDER_ORDER[index]
+            && (entry.total_tokens === null || (Number.isSafeInteger(entry.total_tokens) && entry.total_tokens >= 0))
+            && Number.isSafeInteger(entry.token_unknown_turns) && entry.token_unknown_turns >= 0
             && (entry.credits === null || (typeof entry.credits === "number" && Number.isFinite(entry.credits) && entry.credits >= 0))
             && Number.isSafeInteger(entry.credit_unknown_turns) && entry.credit_unknown_turns >= 0
             ? { ...entry } : null

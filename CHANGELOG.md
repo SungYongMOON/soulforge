@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-08-10 - Board 15-day exact provider token history
+
+- Extended the sanitized Meter provider-day projection from 7 credit-only days
+  to 15 KST days with nullable exact local token totals per provider. The Board
+  chart now uses those token observations only and labels missing local evidence
+  explicitly. Request-count-only events carry an exact unknown-token count and
+  are excluded from token totals; quota percentages, requests, and credits are
+  never converted into token series.
+- Claude coverage remains Claude Code local ledger evidence. Claude Desktop/app
+  and account-wide token totals stay unavailable because the authorized OAuth
+  usage surface supplies quota windows, not exact token usage.
+
 ## 2026-08-10 - AI usage meter quarantine-aware backfill planner
 
 - Added a deterministic, read-only backfill plan that separates candidate,

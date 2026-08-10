@@ -204,18 +204,26 @@ test("usage distribution paints every declared column tone", () => {
   }
 });
 
-test("seven-day usage chart separates provider credits with an accessible legend", () => {
+test("fifteen-day usage chart separates exact provider tokens without duplicate visible controls", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const css = readFileSync(CSS_PATH, "utf8");
   assert.match(source, /Meter credits · 동일 축/u);
   assert.match(source, /Provider credit series legend/u);
-  assert.match(source, /사용 총괄 provider credit 범례/u);
+  assert.match(source, /사용 총괄 provider token 범례/u);
   assert.match(source, /fleet-credit-area/u);
   assert.match(source, /role="tooltip"/u);
-  assert.match(source, /fleet-credit-day-controls/u);
+  assert.match(source, /fleet-token-hit-grid/u);
+  assert.match(source, /providerDaily\.length === 15/u);
+  assert.match(source, /\.total_tokens \?\? null/u);
+  assert.match(source, /\.token_unknown_turns \?\? 0/u);
+  assert.match(source, /토큰 미기록 \$\{series\.unknownTurns\[index\]\}회/u);
+  assert.match(source, /합계\(기록분\)/u);
+  assert.doesNotMatch(source, /fleet-credit-day-controls/u);
+  assert.match(source, /Claude Desktop\/앱 및 계정 전체 token은 안전한 정확 메타데이터가 없어 포함하지 않습니다/u);
   assert.match(source, /event\.key === "Escape"/u);
   assert.match(source, /onFocus=\{\(\) => setCreditChartIndex\(index\)\}/u);
   assert.match(source, /event\.currentTarget !== document\.activeElement/u);
+  assert.match(source, /pending \? "사용량 불러오는 중"/u);
   assert.match(source, /Meter credit/u);
   assert.match(source, /cache: "no-store"/u);
   assert.match(source, /Claude 공식 한도 \$\{claudeQuota\.current \? "READY" : "HOLD\/UNKNOWN"\}/u);

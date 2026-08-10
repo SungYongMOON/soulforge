@@ -492,10 +492,12 @@ test("Board history v3 attributes provider rows only from ledger source.kind", (
     { provider: "claude", turns: 1, total_tokens: 10, latest_usage_at: "2026-08-03T00:01:00.000Z" },
     { provider: "antigravity", turns: 1, total_tokens: 10, latest_usage_at: "2026-08-03T00:02:00.000Z" },
   ]);
-  assert.equal(snapshot.provider_daily.length, 7);
+  assert.equal(snapshot.provider_daily.length, 15);
   const providerDay = snapshot.provider_daily.find((row) => row.date === "2026-08-03");
   assert.deepEqual(providerDay.providers.map((row) => row.provider), ["codex", "claude", "antigravity"]);
   assert.deepEqual(providerDay.providers.map((row) => row.credits), [0.01, null, null]);
+  assert.deepEqual(providerDay.providers.map((row) => row.total_tokens), [10, 10, null]);
+  assert.deepEqual(providerDay.providers.map((row) => row.token_unknown_turns), [0, 0, 1]);
   assert.equal(snapshot.claude_collection.freshness, "fresh");
 
   const futureProviderTimestamp = structuredClone(snapshot);

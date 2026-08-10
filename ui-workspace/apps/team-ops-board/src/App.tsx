@@ -455,6 +455,7 @@ function App() {
     snapshot: createUnmeasuredAiUsageSnapshot(),
     reconciliation: null
   }));
+  const [aiUsagePending, setAiUsagePending] = useState(true);
   const [topologyProjection, setTopologyProjection] = useState<any>(null);
   const [topologyRefreshing, setTopologyRefreshing] = useState(false);
   const topologyRefreshRef = useRef<(force?: boolean) => Promise<void> | void>(() => {});
@@ -707,12 +708,12 @@ function App() {
       startTransition(() => setInitialProjectionPending(false));
     });
     const usageRefresh = aiUsageProjectionRequest.load({ force }).then(
-      (next: any) => startTransition(() => setAiUsageProjection(next)),
-      () => startTransition(() => setAiUsageProjection({
+      (next: any) => startTransition(() => { setAiUsageProjection(next); setAiUsagePending(false); }),
+      () => startTransition(() => { setAiUsageProjection({
           state: "unmeasured",
           snapshot: createUnmeasuredAiUsageSnapshot(),
           reconciliation: null
-        }))
+        }); setAiUsagePending(false); })
     );
     const operation = Promise.allSettled([liveRefresh, usageRefresh]).then(() => undefined).finally(() => {
       refreshInFlightRef.current = null;
@@ -996,7 +997,7 @@ function App() {
               usageState={aiUsageProjection.state}
             />
           )}
-          {surface === "owner" && <FleetUsageCards usage={aiUsageProjection} providers={providerSnapshots} />}
+          {surface === "owner" && <FleetUsageCards usage={aiUsageProjection} providers={providerSnapshots} pending={aiUsagePending} />}
           {surface === "owner" && <FleetStatusRows projection={topologyProjection} />}
           {surface === "owner" && (
             <RealtimeDashboard
@@ -2492,7 +2493,7 @@ function fleetCreditLabel(totals: any): string {
   return `Meter 크레딧 ${credits}`;
 }
 
-function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: any }) {
+function FleetUsageCards({ usage, providers = null, pending = false }: { usage: any; providers?: any; pending?: boolean }) {
   const [creditChartIndex, setCreditChartIndex] = useState<number | null>(null);
   const history = usage?.history ?? null;
   const windows = history?.windows ?? null;
@@ -2524,7 +2525,6 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
   const day = windows?.calendar_day?.totals ?? null;
   const month = windows?.calendar_month?.totals ?? null;
   const rolling7 = windows?.rolling_7d?.totals ?? null;
-  const creditPerDay = rolling7 !== null && rolling7.credits > 0 ? Math.round(rolling7.credits / 7).toLocaleString("en-US") : null;
 
   // ── 패널 1: 창별 남은 한도 게이지 (계정·창마다 리셋 시점이 다름을 그대로 노출)
   const limitRows: any[] = [];
@@ -2721,23 +2721,27 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
     week !== null ? { key: "week", label: "이번 주", value: `${fleetTokenLabel(week.total_tokens)} tok`, meta: `${week.turns.toLocaleString("en-US")}턴` } : null,
     month !== null ? { key: "month", label: "이번 달", value: `${fleetTokenLabel(month.total_tokens)} tok`, meta: fleetCreditLabel(month) } : null,
   ].filter(Boolean) as any[];
-  const totalsFoot = creditPerDay !== null ? `최근 7일 크레딧 ${creditPerDay}/일` : "";
+  const totalsFoot = "최근 15일 provider 토큰 · Codex/Claude Code/Antigravity 로컬 Meter 범위";
   const providerDaily = Array.isArray(history?.provider_daily) ? history.provider_daily : [];
   const totalsSeries = [
     { id: "codex", label: "Codex" },
     { id: "claude", label: "Claude" },
     { id: "antigravity", label: "Antigravity/Gemini" },
-  ].map((provider) => ({ ...provider, values: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.credits ?? null) }));
-  const totalsKnownCredits = totalsSeries.flatMap((series) => series.values.filter((value: any) => typeof value === "number"));
+  ].map((provider) => ({
+    ...provider,
+    values: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.total_tokens ?? null),
+    unknownTurns: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.token_unknown_turns ?? 0),
+  }));
+  const totalsKnownTokens = totalsSeries.flatMap((series) => series.values.filter((value: any) => typeof value === "number"));
   let totalsCreditChart: any = null;
-  if (providerDaily.length === 7 && totalsKnownCredits.length > 0) {
-    const width = 720, height = 220, left = 52, right = 12, top = 12, bottom = 36;
+  if (providerDaily.length === 15 && totalsKnownTokens.length > 0) {
+    const width = 1000, height = 220, left = 45, right = 8, top = 12, bottom = 36;
     const plotWidth = width - left - right, plotHeight = height - top - bottom;
     const totals = providerDaily.map((_: any, index: number) => totalsSeries.reduce((sum, series) => sum + (typeof series.values[index] === "number" ? series.values[index] : 0), 0));
     const rawMax = Math.max(...totals, 1);
     const magnitude = 10 ** Math.floor(Math.log10(rawMax));
     const maxCredit = Math.ceil(rawMax / magnitude) * magnitude;
-    const x = (index: number) => left + (index * plotWidth) / 6;
+    const x = (index: number) => left + (index * plotWidth) / 14;
     const y = (value: number) => top + plotHeight - (value / maxCredit) * plotHeight;
     const cumulative = providerDaily.map(() => 0);
     const areas = totalsSeries.map((series) => {
@@ -2844,12 +2848,13 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
             <li key={row.key}><span>{row.label}</span><b>{row.value}</b><small>{row.meta}</small></li>
           ))}
         </ul>
-        <div className="fleet-provider-credit-legend" aria-label="사용 총괄 provider credit 범례">
+        <div className="fleet-provider-credit-legend" aria-label="사용 총괄 provider token 범례">
           {totalsSeries.map((series) => <span key={series.id} className={`provider-credit-${series.id}`}>{series.label}</span>)}
         </div>
         {totalsCreditChart !== null ? (
           <>
-          <svg className="fleet-provider-credit-chart" viewBox={`0 0 ${totalsCreditChart.width} ${totalsCreditChart.height}`} role="img" aria-label="최근 7일 Codex, Claude, Antigravity Gemini 누적 Meter credit 동일 축 차트">
+          <div className="fleet-provider-token-chart-wrap">
+          <svg className="fleet-provider-credit-chart" viewBox={`0 0 ${totalsCreditChart.width} ${totalsCreditChart.height}`} role="img" aria-label="최근 15일 Codex, Claude Code, Antigravity Gemini 로컬 Meter token 동일 축 차트">
             {[0, 0.5, 1].map((ratio) => {
               const value = totalsCreditChart.maxCredit * ratio;
               const y = totalsCreditChart.y(value);
@@ -2861,7 +2866,6 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
               const label = String(row.date ?? row.day ?? "");
               const details = totalsSeries.map((series) => `${series.label} ${typeof series.values[index] === "number" ? Number(series.values[index]).toLocaleString("en-US") : "사용 불가"}`).join(", ");
               return <g key={label || index} className="fleet-credit-hit" aria-hidden="true">
-                <rect x={x - totalsCreditChart.plotWidth / 14} y={totalsCreditChart.top} width={totalsCreditChart.plotWidth / 7} height={totalsCreditChart.plotHeight} fill="transparent" />
                 <text className="fleet-credit-axis-label" x={x} y={totalsCreditChart.height - 12} textAnchor="middle">{label.slice(5)}</text>
               </g>;
             })}
@@ -2874,22 +2878,23 @@ function FleetUsageCards({ usage, providers = null }: { usage: any; providers?: 
                 <line x1={x} x2={x} y1={totalsCreditChart.top} y2={totalsCreditChart.top + totalsCreditChart.plotHeight} />
                 <rect x={boxX} y={20} width="164" height="104" rx="7" />
                 <text x={boxX + 10} y={39} className="is-title">{date}</text>
-                {totalsSeries.map((series, rowIndex) => <text key={series.id} x={boxX + 10} y={59 + rowIndex * 17} className={`provider-credit-${series.id}`}>{series.label}: {typeof series.values[index] === "number" ? Number(series.values[index]).toLocaleString("en-US") : "사용 불가"}</text>)}
-                <text x={boxX + 10} y={115}>합계: {totalsCreditChart.totals[index].toLocaleString("en-US")} Meter credit</text>
+                {totalsSeries.map((series, rowIndex) => <text key={series.id} x={boxX + 10} y={59 + rowIndex * 17} className={`provider-credit-${series.id}`}>{series.label}: {typeof series.values[index] === "number" ? `${fleetTokenLabel(Number(series.values[index]))} tok` : series.unknownTurns[index] > 0 ? `토큰 미기록 ${series.unknownTurns[index]}회` : "근거 없음"}</text>)}
+                <text x={boxX + 10} y={115}>{totalsSeries.some((series) => series.unknownTurns[index] > 0) ? "합계(기록분)" : "합계"}: {fleetTokenLabel(totalsCreditChart.totals[index])} tok</text>
               </g>;
             })()}
           </svg>
-          <div className="fleet-credit-day-controls" aria-label="최근 7일 Meter credit 상세">
+          <div className="fleet-token-hit-grid" aria-label="최근 15일 provider token 상세">
             {providerDaily.map((row: any, index: number) => {
               const date = String(row.date ?? row.day ?? "");
-              const details = totalsSeries.map((series) => `${series.label} ${typeof series.values[index] === "number" ? Number(series.values[index]).toLocaleString("en-US") : "사용 불가"}`).join(", ");
-              return <button key={date || index} type="button" aria-label={`${date}, ${details}, 합계 ${totalsCreditChart.totals[index].toLocaleString("en-US")} Meter credit`} onFocus={() => setCreditChartIndex(index)} onBlur={() => setCreditChartIndex(null)} onMouseEnter={() => setCreditChartIndex(index)} onMouseLeave={(event) => { if (event.currentTarget !== document.activeElement) setCreditChartIndex(null); }} onKeyDown={(event) => { if (event.key === "Escape") { setCreditChartIndex(null); event.currentTarget.blur(); } }}>
-                {date.slice(5)}
-              </button>;
+              const hasUnknown = totalsSeries.some((series) => series.unknownTurns[index] > 0);
+              const details = totalsSeries.map((series) => `${series.label} ${typeof series.values[index] === "number" ? `${fleetTokenLabel(Number(series.values[index]))} tok` : series.unknownTurns[index] > 0 ? `토큰 미기록 ${series.unknownTurns[index]}회` : "근거 없음"}`).join(", ");
+              return <button key={date || index} type="button" aria-label={`${date}, ${details}, ${hasUnknown ? "합계 기록분" : "합계"} ${fleetTokenLabel(totalsCreditChart.totals[index])} tok`} onFocus={() => setCreditChartIndex(index)} onBlur={() => setCreditChartIndex(null)} onMouseEnter={() => setCreditChartIndex(index)} onMouseLeave={(event) => { if (event.currentTarget !== document.activeElement) setCreditChartIndex(null); }} onKeyDown={(event) => { if (event.key === "Escape") { setCreditChartIndex(null); event.currentTarget.blur(); } }} />;
             })}
           </div>
+          </div>
           </>
-        ) : <p className="fleet-provider-credit-empty">Provider별 계산 가능한 credit 근거가 없습니다.</p>}
+        ) : <p className="fleet-provider-credit-empty">{pending ? "사용량 불러오는 중" : "최근 15일 provider별 정확한 로컬 token 근거가 없습니다."}</p>}
+        <p className="fleet-provider-token-coverage">범위: Codex 로컬 세션 · Claude Code 로컬 세션 · Antigravity 로컬 이벤트. Claude Desktop/앱 및 계정 전체 token은 안전한 정확 메타데이터가 없어 포함하지 않습니다. OAuth 관측은 쿼터 전용입니다.</p>
         {totalsFoot.length > 0 && <p className="fleet-panel-foot">{totalsFoot}</p>}
       </article>
     </div>
