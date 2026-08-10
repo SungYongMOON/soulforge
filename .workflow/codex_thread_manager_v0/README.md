@@ -31,6 +31,8 @@ safety, or party binding.
 - Selection among current-thread manager plus worker, same thread, fresh manager
   thread, worktree worker thread, and subagent.
 - Manager lifecycle and rollover policy.
+- Exact local Workspace Board enrollment gates for Development1 and AI-organization
+  TASK create, continue, and rollover after an actual Codex thread ID is returned.
 - Role worker topology, worker prompt packet shape, worker subagent bounds
   policy, no-subagent exception policy, thread id/title recording, and compact
   delegation packet minimum fields.
@@ -93,6 +95,58 @@ product organizations are excluded as direct recipients.
   distract than help. Resume from the checkpoint.
 - Re-anchor long phases with active goal, completed work, constraints,
   blockers, worker state, and next action.
+
+## Workspace Board Exact Enrollment Gate
+
+For a Development1 or AI-organization TASK create, continue, or manager
+rollover, the manager makes an explicit applicability decision. After the actual
+Codex operation returns its exact thread ID, it runs the local Board CLI with
+owner-provided `organization_group_id`, a safe owner-provided `display_label`,
+and the applicable `thread_kind`, `relationship`, and `lifecycle`:
+
+```powershell
+npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- register-existing `
+  --thread-id <exact-returned-thread-id> `
+  --organization-group-id <owner-provided-organization-group-id> `
+  --thread-kind <manager|task|verifier|continuation> `
+  --display-label <safe-display-label> `
+  --relationship <primary|child|review|handoff|continuation|independent> `
+  --lifecycle <pending|accepted|current>
+```
+
+Include `--route-id` or `--work-id` only when the value is actually known. The
+exact returned ID is the only allowed join key: title, cwd, prefix, similarity,
+age, idle state, and parent-only relationships are never enrollment evidence.
+Actual IDs and enrollment values stay in ignored local state, never in tracked
+workflow data or this documentation.
+
+`register-existing` must be idempotent, followed by:
+
+```powershell
+npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- validate
+npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- reconcile --live # when the live adapter is available
+```
+
+The Board is not visible and the enrollment gate is not closed until registration
+and validation pass, plus live reconciliation when the adapter is available. If
+the CLI, local registry, or adapter is disabled or fails, record the exact
+blocker and keep the Board state `HOLD`; the separate TASK operational work may
+continue, but no guessed enrollment or automatic route is allowed. Respect
+`TEAM_OPS_BOARD_LIVE_THREADS_DISABLED=1` and registry `disabled: true`; neither
+may be bypassed.
+
+For manager rollover, retain the stable role, register the new exact ID with
+`pending` lifecycle, and only after the compact handoff is accepted run the CLI
+`rollover` command to promote the new enrollment to `accepted` or `current`.
+The prior enrollment becomes `history`. Do not delete or archive a Codex task
+automatically; archive requires separate authorization.
+
+`idle` and `notLoaded` never mean completed or replace the explicit result gate.
+An Owner browser acknowledgement can hide only the Board's Active card in
+localStorage and never changes a Codex task. Enrollment may contain no raw
+preview, messages, prompts, reasoning, tool I/O, content, or secrets. This is a
+manager-workflow gate; it does not claim to automatically intercept
+`create_thread`.
 
 ## Routing Rules
 

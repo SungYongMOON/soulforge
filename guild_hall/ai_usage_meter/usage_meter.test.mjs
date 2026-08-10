@@ -18,6 +18,7 @@ import {
   summarizeUsageEvents,
 } from "./usage_meter.mjs";
 import { upsertUsageBinding } from "./binding_store.mjs";
+import { loadLifecycleReceipts } from "./lifecycle_receipt.mjs";
 
 const RATE_CARD = new URL("./rate_card.v1.json", import.meta.url);
 
@@ -25,7 +26,7 @@ function row(timestamp, type, payload) {
   return JSON.stringify({ timestamp, type, payload });
 }
 
-function sessionMeta({ id, parent = null, timestamp = "2026-08-03T00:00:00.000Z", cwd = "C:\\workspace\\project-a", depth = 0 }) {
+function sessionMeta({ id, parent = null, timestamp = "2026-08-03T00:00:00.000Z", cwd = "workspace/project-a", depth = 0 }) {
   return row(timestamp, "session_meta", {
     id,
     session_id: id,
@@ -94,11 +95,12 @@ async function writeSession(root, name, lines) {
   return file;
 }
 
-async function runCli(args, stdin = null) {
+async function runCli(args, stdin = null, { cwd = null, env = process.env } = {}) {
   return new Promise((resolve, reject) => {
     const cliPath = fileURLToPath(new URL("./cli.mjs", import.meta.url));
     const child = spawn(process.execPath, [cliPath, ...args], {
-      cwd: path.dirname(cliPath),
+      cwd: cwd ?? path.dirname(cliPath),
+      env,
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";
@@ -111,6 +113,54 @@ async function runCli(args, stdin = null) {
   });
 }
 
+async function runCommand(command, args, { cwd, env = process.env } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, stdout, stderr }));
+  });
+}
+
+async function runGit(cwd, args) {
+  const result = await runCommand("git", args, { cwd });
+  assert.equal(result.code, 0, result.stderr);
+  return result.stdout.trim();
+}
+
+async function runWindowsHookCommand(command, stateRoot, stdin = "") {
+  return new Promise((resolve, reject) => {
+    const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
+    const child = spawn("powershell.exe", [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-Command",
+      command,
+    ], {
+      cwd: repoRoot,
+      env: { ...process.env, SOULFORGE_AI_USAGE_METER_STATE_ROOT: stateRoot },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, stdout, stderr }));
+    child.stdin.end(stdin);
+  });
+}
+
 function config(extra = {}) {
   return {
     schema_version: "soulforge.ai_usage_meter_config.v1",
@@ -119,7 +169,7 @@ function config(extra = {}) {
     default_project_id: "unassigned",
     node_id: "node-a",
     service_tier: "standard",
-    project_bindings: [{ cwd_prefix: "C:/workspace/project-a", project_id: "project-a", team_id: "team-a" }],
+    project_bindings: [{ cwd_prefix: "workspace/project-a", project_id: "project-a", team_id: "team-a" }],
     work_bindings: [],
     ...extra,
   };
@@ -650,7 +700,11 @@ test("SubagentStop hook reads its parent and persists only the child with root w
     transcript_path: parent,
     agent_id: "hook-child",
     agent_transcript_path: child,
-    cwd: "C:\\workspace\\project-a",
+    cwd: "workspace/project-a",
+    prompt: "PROMPT-MUST-NOT-BE-STORED",
+    last_assistant_message: "MESSAGE-MUST-NOT-BE-STORED",
+    tool_input: { secret: "TOOL-INPUT-MUST-NOT-BE-STORED" },
+    tool_output: { secret: "TOOL-OUTPUT-MUST-NOT-BE-STORED" },
   })}`);
   assert.equal(result.code, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), {});
@@ -660,10 +714,20 @@ test("SubagentStop hook reads its parent and persists only the child with root w
   assert.equal(persisted[0].root_turn_id, "hook-parent-turn");
   assert.equal(persisted[0].work_id, "hook.work");
   assert.equal(persisted[0].measurement.status, "observed_at_stop");
+  const lifecycle = await loadLifecycleReceipts(state);
+  assert.equal(lifecycle.length, 1);
+  assert.equal(lifecycle[0].source_event, "SubagentStop");
+  assert.equal(lifecycle[0].lifecycle_state, "observed_at_stop");
+  assert.equal(lifecycle[0].result_state, "result_pending");
+  assert.doesNotMatch(JSON.stringify(lifecycle), /PROMPT-MUST|MESSAGE-MUST|TOOL-|workspace|rollout-/u);
 });
 
 test("hook isolates missing and malformed stdin as non-blocking HOLD health", async () => {
-  for (const [input, detail] of [["", "hook_input_missing"], ["{not-json", "hook_input_invalid"]]) {
+  for (const [input, detail] of [
+    ["", "hook_input_missing"],
+    ["{not-json", "hook_input_invalid"],
+    [JSON.stringify({ hook_event_name: "SessionStart", session_id: 42 }), "hook_session_id_invalid"],
+  ]) {
     const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-hook-invalid-"));
     const result = await runCli(["hook", "--state-root", state], input);
     assert.equal(result.code, 0, result.stderr);
@@ -671,6 +735,59 @@ test("hook isolates missing and malformed stdin as non-blocking HOLD health", as
     const health = JSON.parse(await readFile(path.join(state, "health", "latest.json"), "utf8"));
     assert.equal(health.status, "hold");
     assert.equal(health.detail, detail);
+  }
+});
+
+test("tracked lifecycle hook config subscribes only to exact supported events", async () => {
+  const hooks = JSON.parse(await readFile(new URL("../../.codex/hooks.json", import.meta.url), "utf8"));
+  const expectedEvents = [
+    "PermissionRequest", "SessionEnd", "SessionStart", "Stop", "SubagentStart", "SubagentStop", "UserPromptSubmit",
+  ];
+  assert.deepEqual(Object.keys(hooks.hooks).sort(), expectedEvents);
+  const commands = expectedEvents.map((event) => hooks.hooks[event]);
+  assert.equal(commands.every((entries) => Array.isArray(entries) && entries.length === 1), true);
+  const hookCommands = commands.map((entries) => entries[0].hooks[0]);
+  assert.equal(hookCommands.every((entry) => (
+    entry.type === "command"
+    && entry.command === hookCommands[0].command
+    && entry.commandWindows === hookCommands[0].commandWindows
+    && entry.timeout === 15
+    && entry.statusMessage === "Recording metadata-only lifecycle receipt"
+  )), true);
+  assert.match(hookCommands[0].command, /ai_usage_meter\/cli\.mjs" hook$/u);
+  assert.match(hookCommands[0].commandWindows, /Join-Path \(git rev-parse --show-toplevel\) 'guild_hall\/ai_usage_meter\/cli\.mjs'\) hook/u);
+  assert.equal(hookCommands[0].commandWindows.includes("$"), false);
+});
+
+test("tracked Windows lifecycle hook command invokes a disposable metadata-only canary", { skip: process.platform !== "win32" }, async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-hook-windows-command-"));
+  try {
+    const hooks = JSON.parse(await readFile(new URL("../../.codex/hooks.json", import.meta.url), "utf8"));
+    const sessionStartCommand = hooks.hooks.SessionStart[0].hooks[0].commandWindows;
+    const stopCommand = hooks.hooks.Stop[0].hooks[0].commandWindows;
+    const subagentStopCommand = hooks.hooks.SubagentStop[0].hooks[0].commandWindows;
+    assert.equal(sessionStartCommand, stopCommand);
+    assert.equal(stopCommand, subagentStopCommand);
+    assert.equal(stopCommand.includes("$"), false);
+
+    const result = await runWindowsHookCommand(sessionStartCommand, state, JSON.stringify({
+      hook_event_name: "SessionStart",
+      session_id: "windows-hook-canary",
+      prompt: "CANARY-PROMPT-MUST-NOT-BE-STORED",
+      cwd: "private/workspace",
+      transcript_path: "private/session.jsonl",
+    }));
+    assert.equal(result.code, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {});
+    const health = JSON.parse(await readFile(path.join(state, "health", "latest.json"), "utf8"));
+    assert.equal(health.status, "ok");
+    const lifecycle = await loadLifecycleReceipts(state);
+    assert.equal(lifecycle.length, 1);
+    assert.equal(lifecycle[0].source_event, "SessionStart");
+    assert.doesNotMatch(JSON.stringify(lifecycle), /CANARY-PROMPT|private|session\.jsonl/u);
+    assert.equal((await loadPersistedUsageEvents(state)).length, 0);
+  } finally {
+    await rm(state, { recursive: true, force: true });
   }
 });
 
@@ -702,6 +819,59 @@ test("backfill isolates an invalid session and reports the coverage gap", async 
     source_ref: path.basename(bad),
     code: "session_meta_missing",
   }]);
+});
+
+test("scoped collect selects exact thread sources before strict duplicate collapse", async () => {
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-scoped-collect-"));
+  const conflictA = path.join(sessions, "conflict-a");
+  const conflictB = path.join(sessions, "conflict-b");
+  await Promise.all([mkdir(conflictA), mkdir(conflictB)]);
+  await writeSession(sessions, "target-root", [
+    sessionMeta({ id: "target-root" }),
+    taskStarted("target-root-turn"),
+    turnContext("target-root-turn"),
+    tokenCount(usage(1000, 900, 100), "2026-08-03T00:00:03.000Z"),
+    taskComplete("target-root-turn"),
+  ]);
+  await writeSession(sessions, "target-child", [
+    sessionMeta({ id: "target-child", parent: "target-root", depth: 1 }),
+    taskStarted("target-child-turn", "2026-08-03T00:01:01.000Z"),
+    turnContext("target-child-turn", "gpt-5.6-terra", "max", "2026-08-03T00:01:01.100Z"),
+    tokenCount(usage(500, 400, 50), "2026-08-03T00:01:03.000Z"),
+    taskComplete("target-child-turn", "2026-08-03T00:01:05.000Z"),
+  ]);
+  await writeSession(conflictA, "copy-unrelated", [
+    sessionMeta({ id: "unrelated" }),
+    taskStarted("unrelated-turn"),
+    turnContext("unrelated-turn"),
+    tokenCount(usage(100, 50, 10), "2026-08-03T00:02:03.000Z"),
+    taskComplete("unrelated-turn"),
+  ]);
+  await writeSession(conflictB, "copy-unrelated", [
+    sessionMeta({ id: "unrelated", parent: "other-root", depth: 1 }),
+    taskStarted("unrelated-turn"),
+    turnContext("unrelated-turn"),
+    tokenCount(usage(100, 50, 10), "2026-08-03T00:02:03.000Z"),
+    taskComplete("unrelated-turn"),
+  ]);
+
+  const unscoped = await runCli(["collect", "--sessions-root", sessions]);
+  assert.equal(unscoped.code, 1);
+  assert.equal(JSON.parse(unscoped.stderr).error, "usage_event_duplicate_conflict");
+
+  const scoped = await runCli([
+    "collect", "--sessions-root", sessions,
+    "--thread-id", "target-root",
+    "--thread-id", "target-child",
+  ]);
+  assert.equal(scoped.code, 0, scoped.stderr);
+  const result = JSON.parse(scoped.stdout);
+  assert.equal(result.session_file_count, 2);
+  assert.equal(result.event_count, 2);
+  assert.equal(result.duplicate_event_observation_count, 0);
+  assert.equal(result.summary.totals.input_tokens, 1500);
+  assert.equal(result.summary.totals.credits, 0.12075);
+  assert.doesNotMatch(JSON.stringify(result), /unrelated|conflict-a|conflict-b/u);
 });
 
 test("continued rollout files collapse to one monotonic turn event before aggregation", async () => {
@@ -1020,4 +1190,156 @@ test("ledger lock contention durably queues observations and drains them without
   assert.equal((await loadPersistedUsageEvents(state)).length, 1);
   const pendingEntries = await readdir(path.join(state, "pending"), { recursive: true });
   assert.equal(pendingEntries.some((entry) => String(entry).endsWith(".json")), false);
+});
+
+test("repo-local emergency disable is idempotent, non-blocking, and restores hook health", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-emergency-control-"));
+  try {
+    const disable = await runCli(["disable", "--state-root", state]);
+    assert.equal(disable.code, 0, disable.stderr);
+    assert.deepEqual(JSON.parse(disable.stdout), {
+      schema_version: "soulforge.ai_usage_meter_emergency_control_result.v1",
+      enabled: false,
+      changed: true,
+    });
+    const repeatedDisable = await runCli(["disable", "--state-root", state]);
+    assert.equal(repeatedDisable.code, 0, repeatedDisable.stderr);
+    assert.equal(JSON.parse(repeatedDisable.stdout).changed, false);
+
+    const disabledHook = await runCli(["hook", "--state-root", state], JSON.stringify({
+      hook_event_name: "SessionStart",
+      session_id: "disabled-hook-session",
+    }));
+    assert.equal(disabledHook.code, 0, disabledHook.stderr);
+    assert.deepEqual(JSON.parse(disabledHook.stdout), {});
+    const disabledHealth = JSON.parse(await readFile(path.join(state, "health", "latest.json"), "utf8"));
+    assert.equal(disabledHealth.status, "disabled");
+    assert.deepEqual(await loadLifecycleReceipts(state), []);
+
+    const enable = await runCli(["enable", "--state-root", state]);
+    assert.equal(enable.code, 0, enable.stderr);
+    assert.equal(JSON.parse(enable.stdout).enabled, true);
+    const repeatedEnable = await runCli(["enable", "--state-root", state]);
+    assert.equal(repeatedEnable.code, 0, repeatedEnable.stderr);
+    assert.equal(JSON.parse(repeatedEnable.stdout).changed, false);
+    const enabledHealth = JSON.parse(await readFile(path.join(state, "health", "latest.json"), "utf8"));
+    assert.equal(enabledHealth.status, "ok");
+    const enabledHook = await runCli(["hook", "--state-root", state], JSON.stringify({
+      hook_event_name: "SessionStart",
+      session_id: "disabled-hook-session",
+    }));
+    assert.equal(enabledHook.code, 0, enabledHook.stderr);
+    assert.equal((await loadLifecycleReceipts(state)).length, 1);
+  } finally {
+    await rm(state, { recursive: true, force: true });
+  }
+});
+
+test("linked worktree hooks share the canonical common-checkout state root and emergency control", async () => {
+  const fixture = await mkdtemp(path.join(os.tmpdir(), "sf-hook-common-root-"));
+  const main = path.join(fixture, "main");
+  const linked = path.join(fixture, "linked");
+  const codexHome = path.join(fixture, "codex-home");
+  const mainState = path.join(main, "guild_hall", "state", "operations", "ai_usage_meter");
+  const envState = path.join(fixture, "env-override-state");
+  const explicitState = path.join(fixture, "explicit-override-state");
+  const hookEnv = { ...process.env, CODEX_HOME: codexHome };
+  delete hookEnv.SOULFORGE_AI_USAGE_METER_STATE_ROOT;
+  try {
+    await mkdir(main, { recursive: true });
+    await runGit(main, ["init"]);
+    await runGit(main, ["config", "user.email", "meter-test@example.invalid"]);
+    await runGit(main, ["config", "user.name", "Meter Test"]);
+    await writeFile(path.join(main, "seed.txt"), "seed\n", "utf8");
+    await runGit(main, ["add", "seed.txt"]);
+    await runGit(main, ["commit", "-m", "seed"]);
+    await runGit(main, ["worktree", "add", "--detach", linked, "HEAD"]);
+
+    const sharedInput = JSON.stringify({
+      hook_event_name: "SessionStart",
+      session_id: "common-root-shared-session",
+    });
+    const mainHook = await runCli(["hook"], sharedInput, { cwd: main, env: hookEnv });
+    const linkedReplay = await runCli(["hook"], sharedInput, { cwd: linked, env: hookEnv });
+    assert.equal(mainHook.code, 0, mainHook.stderr);
+    assert.equal(linkedReplay.code, 0, linkedReplay.stderr);
+    assert.deepEqual(JSON.parse(mainHook.stdout), {});
+    assert.deepEqual(JSON.parse(linkedReplay.stdout), {});
+    assert.equal((await loadLifecycleReceipts(mainState)).length, 1);
+
+    const linkedOnly = await runCli(["hook"], JSON.stringify({
+      hook_event_name: "SessionStart",
+      session_id: "common-root-linked-session",
+    }), { cwd: linked, env: hookEnv });
+    assert.equal(linkedOnly.code, 0, linkedOnly.stderr);
+    assert.equal((await loadLifecycleReceipts(mainState)).length, 2);
+    const current = JSON.parse(await readFile(path.join(mainState, "lifecycle", "current.json"), "utf8"));
+    assert.equal(current.receipt_count, 2);
+    await assert.rejects(
+      readFile(path.join(linked, "guild_hall", "state", "operations", "ai_usage_meter", "lifecycle", "current.json"), "utf8"),
+      { code: "ENOENT" },
+    );
+
+    const disableFromLinked = await runCli(["disable"], null, { cwd: linked, env: hookEnv });
+    assert.equal(disableFromLinked.code, 0, disableFromLinked.stderr);
+    assert.equal(JSON.parse(disableFromLinked.stdout).enabled, false);
+    const disabledFromMain = await runCli(["hook"], JSON.stringify({
+      hook_event_name: "SessionStart",
+      session_id: "common-root-disabled-session",
+    }), { cwd: main, env: hookEnv });
+    assert.equal(disabledFromMain.code, 0, disabledFromMain.stderr);
+    assert.equal((await loadLifecycleReceipts(mainState)).length, 2);
+    const disabledHealth = JSON.parse(await readFile(path.join(mainState, "health", "latest.json"), "utf8"));
+    assert.equal(disabledHealth.status, "disabled");
+
+    const enableFromMain = await runCli(["enable"], null, { cwd: main, env: hookEnv });
+    assert.equal(enableFromMain.code, 0, enableFromMain.stderr);
+    const resumedFromLinked = await runCli(["hook"], JSON.stringify({
+      hook_event_name: "SessionStart",
+      session_id: "common-root-resumed-session",
+    }), { cwd: linked, env: hookEnv });
+    assert.equal(resumedFromLinked.code, 0, resumedFromLinked.stderr);
+    assert.equal((await loadLifecycleReceipts(mainState)).length, 3);
+
+    const envOverride = { ...hookEnv, SOULFORGE_AI_USAGE_METER_STATE_ROOT: envState };
+    const envHook = await runCli(["hook"], JSON.stringify({
+      hook_event_name: "SessionStart",
+      session_id: "common-root-env-override-session",
+    }), { cwd: linked, env: envOverride });
+    assert.equal(envHook.code, 0, envHook.stderr);
+    assert.equal((await loadLifecycleReceipts(envState)).length, 1);
+    assert.equal((await loadLifecycleReceipts(mainState)).length, 3);
+
+    const explicitHook = await runCli(["hook", "--state-root", explicitState], JSON.stringify({
+      hook_event_name: "SessionStart",
+      session_id: "common-root-explicit-override-session",
+    }), { cwd: linked, env: envOverride });
+    assert.equal(explicitHook.code, 0, explicitHook.stderr);
+    assert.equal((await loadLifecycleReceipts(explicitState)).length, 1);
+    assert.equal((await loadLifecycleReceipts(envState)).length, 1);
+  } finally {
+    await runCommand("git", ["worktree", "remove", "--force", linked], { cwd: main }).catch(() => {});
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
+
+test("hook common-root resolution falls back locally with an explicit health reason", async () => {
+  const fixture = await mkdtemp(path.join(os.tmpdir(), "sf-hook-common-fallback-"));
+  const codexHome = path.join(fixture, "codex-home");
+  const hookEnv = { ...process.env, CODEX_HOME: codexHome };
+  delete hookEnv.SOULFORGE_AI_USAGE_METER_STATE_ROOT;
+  try {
+    const result = await runCli(["hook"], JSON.stringify({
+      hook_event_name: "SessionStart",
+      session_id: "common-root-fallback-session",
+    }), { cwd: fixture, env: hookEnv });
+    assert.equal(result.code, 0, result.stderr);
+    const fallbackState = path.join(codexHome, "usage-meter");
+    assert.equal((await loadLifecycleReceipts(fallbackState)).length, 1);
+    const health = JSON.parse(await readFile(path.join(fallbackState, "health", "latest.json"), "utf8"));
+    assert.equal(health.status, "ok");
+    assert.equal(health.detail, "hook_common_root_unavailable");
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
 });

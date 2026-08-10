@@ -35,6 +35,7 @@ optional_inputs:
   - validation_command_refs
   - owner_decision_refs
   - context_pressure_signal
+  - workspace_board_enrollment_request
 outputs:
   - declared_thread_goal
   - night_work_handoff
@@ -56,6 +57,10 @@ outputs:
   - task_thread_routing_decision
   - task_logical_role_plan
   - task_gate_state
+  - workspace_board_enrollment_decision
+  - workspace_board_enrollment_packet
+  - workspace_board_enrollment_gate_state
+  - workspace_board_enrollment_validation_result
   - upward_result_attribution_report
   - closeout_report
 validation_level: private_one_worker_pilot_observed
@@ -125,6 +130,7 @@ codex_thread_manager_contract:
     - exactly_one_primary_owner_with_collaboration_and_review
     - task_thread_create_or_continue_coordination
     - task_logical_role_and_gate_packet_shape
+    - workspace_board_exact_enrollment_gate_policy
     - upward_result_attribution_reporting_policy
   does_not_own:
     - source_truth
@@ -143,6 +149,8 @@ codex_thread_manager_contract:
     - provider_startup_install_login_or_configuration
     - runtime_session_or_worktree_creation_for_directory_binding
     - native_history_or_thread_api_bridge_guarantee
+    - workspace_board_registry_authority
+    - automatic_thread_operation_interception
     - public_canon_promotion_beyond_this_package
     - production_ready_claim_without_b_v_evidence
   surface_selection:
@@ -243,6 +251,82 @@ codex_thread_manager_contract:
     start_gate_before_execution_or_thread_creation: true
     change_gate_reclassifies_scope_baseline_interface_owner_or_acceptance_change: true
     complete_gate_requires_objective_evidence_and_acceptance: true
+  workspace_board_enrollment_policy:
+    organization_scopes:
+      - development1
+      - ai_organization
+    task_operations:
+      - create
+      - continue
+      - rollover
+    required_packet_fields:
+      - applicability_decision
+      - exact_thread_id_local_only
+      - owner_provided_organization_group_id_local_only
+      - safe_display_label_local_only
+      - thread_kind
+      - relationship
+      - lifecycle
+      - route_id_local_only_when_known
+      - work_id_local_only_when_known
+      - register_existing_status
+      - validate_status
+      - reconcile_live_status_when_available
+      - explicit_result_gate_state
+      - board_visibility_state
+      - hold_blocker_when_not_passed
+    actual_ids_and_enrollment_values_are_local_only_never_tracked: true
+    exact_thread_identity_source: actual_codex_thread_operation_return
+    prohibited_thread_id_inference_signals:
+      - title
+      - cwd
+      - prefix
+      - similarity
+      - age
+      - idle
+      - parent_only
+    local_cli:
+      register_existing_command: "npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- register-existing --thread-id <exact-returned-thread-id> --organization-group-id <owner-provided-organization-group-id> --thread-kind <manager|task|verifier|continuation> --display-label <safe-display-label> --relationship <primary|child|review|handoff|continuation|independent> --lifecycle <pending|accepted|current>"
+      route_id_and_work_id_only_when_known: true
+      register_existing_must_be_idempotent: true
+      validate_command: "npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- validate"
+      reconcile_live_command: "npm.cmd --prefix ui-workspace --workspace @soulforge/team-ops-board run threads:enrollment -- reconcile --live"
+      reconcile_live_required_when_adapter_available: true
+    gate:
+      board_visible_or_enrollment_gate_closed_before_pass_forbidden: true
+      pass_requires_idempotent_register_existing_and_validate: true
+      live_reconcile_must_pass_when_adapter_available: true
+      adapter_disabled_or_failed_sets_board_visibility_hold: true
+      cli_or_registry_disabled_or_failed_sets_board_visibility_hold: true
+      board_hold_preserves_separate_task_operational_work: true
+      hold_requires_exact_blocker_reporting: true
+      guessing_or_automatic_routing_from_hold_forbidden: true
+    manager_rollover:
+      stable_role_identity_retained: true
+      new_exact_thread_id_registered_pending_before_rollover: true
+      compact_handoff_must_be_accepted_before_cli_rollover: true
+      cli_rollover_only_promotes_to_accepted_or_current: true
+      prior_enrollment_becomes_history: true
+      automatic_codex_archive_or_delete_forbidden: true
+      archive_requires_separate_authorization: true
+    result_and_browser_boundary:
+      idle_or_not_loaded_never_means_completed: true
+      explicit_result_gate_required_before_completion_or_browser_acknowledgement: true
+      owner_browser_acknowledgement_hides_only_board_active_in_localstorage: true
+      browser_acknowledgement_never_mutates_codex_task: true
+    privacy_and_disable_boundary:
+      forbidden_enrollment_content:
+        - raw_preview
+        - raw_messages
+        - raw_prompt
+        - hidden_reasoning
+        - raw_tool_io
+        - raw_content
+        - secret
+      live_threads_disable_env: TEAM_OPS_BOARD_LIVE_THREADS_DISABLED=1
+      registry_disabled_true_respected: true
+      disable_bypass_forbidden: true
+      automatic_create_thread_interception_not_claimed: true
   upward_result_attribution_reporting_policy:
     fields:
       - report_item_or_result
@@ -392,6 +476,8 @@ codex_thread_manager_contract:
         - acceptance_or_approval_authority
         - task_thread_routing_decision
         - task_gate_state
+        - workspace_board_enrollment_decision
+        - workspace_board_enrollment_packet_or_not_applicable
         - context_refs
         - current_state
         - acceptance_criteria
@@ -430,6 +516,8 @@ codex_thread_manager_contract:
         - changed_or_inspected_refs
         - commands_run_and_exit_status
         - validators_or_gap
+        - workspace_board_enrollment_gate_state_or_not_applicable
+        - workspace_board_hold_blocker_when_not_passed
         - blockers
         - residual_risks
         - next_action
