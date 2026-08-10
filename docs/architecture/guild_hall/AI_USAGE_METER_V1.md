@@ -25,12 +25,30 @@ Soulforge는 AI 사용량 계측을 SE 보조 기능이나 특정 회사의 개�
 | U3 | 조직·팀·프로젝트·업무·역할별 조회 | config 및 local binding + summary dimensions |
 | U4 | 계산 근거가 재현 가능 | 버전 고정 rate card와 component별 계산 |
 | U5 | 원문·reasoning·tool payload 비수집 | line marker 선별 후 safe field만 event로 투영 |
-| U6 | 훅 실패가 업무를 막지 않음 | Stop/SubagentStop non-blocking health record |
+| U6 | 훅 실패가 업무를 막지 않음 | exact Codex lifecycle receipt + Stop/SubagentStop usage observation, all non-blocking health record |
 | U7 | 재처리·부분 로그에 안전 | stable event ID, replay, monotonic upgrade, revision 보존 |
 | U8 | 과거 로그 하나가 깨져도 전체 수집 | per-session HOLD와 coverage issue count |
 | U9 | 팀원이 자기 Codex에서 사용 | 표준 Node, `CODEX_HOME`, private config, project hook |
 | U10 | 비기술 사용자 모니터링 | JSON, CSV, self-contained local HTML |
 | U11 | MCP와 연결 | read summary/detail + explicit work binding adapter |
+
+## Additive 실행·품질 증거
+
+token event 하나에 실행 문맥을 얇게 압축하지 않고, 같은 `work_id`로 연결하는 metadata-only event를 분리한다.
+
+| 규격 | 역할 | authority 경계 |
+| --- | --- | --- |
+| `ai_usage_event.v1` | turn token·rate-card 계산·lineage | 사용량 관찰 |
+| `ai_work_run.v1` | task/risk, model/effort, topology, instruction manifest, 비용 포함 범위 | `non_authoritative_measurement_projection` |
+| `ai_quality_result.v1` | deterministic/human/model oracle의 hard gate·점수·HOLD | 업무 완료 권한 없음 |
+| `ai_tool_event.v1` | tool 단계·시간·timeout·retry·preflight 연결 | argument·output 원문 비저장 |
+| `instruction_manifest.v1` | 실제 instruction source의 digest·bytes·model-visible 포함 여부 | source/prompt 원문 비저장 |
+| `ai_usage_replay_receipt.v1` | source manifest, parsed/HOLD, binding·lineage·role count, 계산 합계, ledger digest | actual replay claim의 private 근거 |
+| `ai_usage_lifecycle_receipt.v1` | Codex lifecycle의 시작·입력·승인대기·종료 관찰 | local-only metadata projection, 업무 완료·PASS authority 아님 |
+
+`instruction_manifest` probe는 Codex가 만든 model-visible prompt input을 메모리에서 해시·포함 여부 확인에만 사용한다. prompt 내용, 지침 원문, 메일·파일 본문을 manifest나 ledger에 복사하지 않는다. 명시적 allowlist 밖의 instruction source는 digest를 추정하지 않고 `prohibited/unknown`으로 남긴다.
+
+`ai_work_run.v1`의 `model_id`와 `reasoning_effort`는 launcher 요청값이다. provider-effective 값으로 주장하려면 별도 usage/runtime 관찰 근거가 필요하며, 그 근거가 없으면 `requested_only_not_verified` claim ceiling을 유지한다.
 
 ## 호출 topology
 
@@ -87,6 +105,13 @@ guild_hall/state/operations/ai_usage_meter/
 ├─ revisions/<event_id>/<digest>.json
 ├─ pending/<event_id>/<observation_id>.json
 ├─ bindings.v1.json
+├─ instruction_manifests/<YYYY-MM>/<manifest_id>.json
+├─ work_runs/<YYYY-MM>/<event_id>.json
+├─ quality_results/<YYYY-MM>/<event_id>.json
+├─ tool_events/<YYYY-MM>/<event_id>.json
+├─ receipts/<YYYY-MM>/<receipt_id>.json
+├─ lifecycle/receipts/<YYYY-MM>/<receipt_id>.json
+├─ lifecycle/current.json
 ├─ current.json
 ├─ dashboard.html
 ├─ health/latest.json
@@ -94,6 +119,28 @@ guild_hall/state/operations/ai_usage_meter/
 ```
 
 전체 root는 local-only이며 public Git에 포함하지 않는다. central aggregation은 v1에서 활성화하지 않는다. 전사 집계를 추가할 때도 event의 privacy 필드가 통과한 redacted metadata만 허용하고 raw session JSONL은 PC 밖으로 전송하지 않는다.
+
+## Lifecycle receipt와 local projection
+
+설치하는 Codex hook event는 아래 일곱 개뿐이다. `TurnStart`, `TurnEnd`, `Waiting` 같은 이름은 설치하거나 추정하지 않는다.
+
+| Codex hook event | receipt lifecycle state | 경계 |
+| --- | --- | --- |
+| `SessionStart`, `SubagentStart` | `started` | 시작 관찰일 뿐 실행 결과가 아님 |
+| `UserPromptSubmit` | `input_received` | 입력 receipt일 뿐 running 전환이 아님 |
+| `PermissionRequest` | `waiting_on_approval` | 승인 대기 관찰일 뿐 승인·실행 결과가 아님 |
+| `Stop`, `SubagentStop` | `observed_at_stop` + `result_pending` | stop은 PASS·complete가 아님; token 관찰은 JSONL의 별도 authority만 사용 |
+| `SessionEnd` | `ended` + `result_pending` | session 종료 receipt일 뿐 업무 완료·성공 판정이 아님 |
+
+Hook stdin은 `hook_event_name`, `session_id`, `turn_id`, `agent_id`, `agent_type`, `reason`, `permission_mode`, `stop_hook_active`만 allowlist한다. `prompt`, `last_assistant_message`, tool input/output, transcript path, agent transcript path, `cwd`와 기타 원문·secret은 즉시 버리고 receipt, health, snapshot에 저장하지 않는다. malformed/unsupported input은 안전한 reason code의 `health/latest.json` `hold`로만 남기며 hook의 stdout은 항상 `{}`다.
+
+Receipt는 `receipt_id`, source event, lifecycle/result state, allowlisted identity/context, collector clock의 `observed_at`, 그리고 raw content/flag stored count가 모두 `0`인 privacy metadata만 가진다. ID는 allowlisted payload로 결정되므로 같은 hook 재전송은 timestamp가 달라도 최초 receipt를 replay하고 중복 합산하지 않는다.
+
+parent lineage, lifecycle timestamp, usage completion은 hook input에서 만들지 않는다. Stop/SubagentStop usage 관찰은 JSONL의 `session_meta`, `task_started`, `task_complete`, `sub_agent_activity`만 authority로 읽으며, child의 parent는 JSONL `session_meta`에서만 찾는다. 따라서 hook path·cwd·title을 parent/turn/time 추정에 쓰지 않는다.
+
+`lifecycle/current.json`은 Git-ignored local-only per-identity latest projection이다. exact identity는 local state 안에서만 허용되며 `session_id`, `turn_id`, `agent_id`, `agent_type`, `lifecycle_state`, `result_state`, `observed_at`, `source_event` 외 키를 갖지 않는다. `lifecycle-snapshot --state-root <local-state>`의 기본 출력은 aggregate-only이고, exact identity가 필요한 후속 local consumer는 명시적으로 `--include-identities`를 추가한다. 이 snapshot은 현재 App Server가 `notLoaded`인 PC에서 live authority, Task Engine writer, Board enrollment, 업무 완료 signal로 승격되지 않는다.
+
+Hook의 state root는 hook input의 `cwd`나 worktree path에서 추정하지 않는다. explicit `--state-root`, 그 다음 `SOULFORGE_AI_USAGE_METER_STATE_ROOT`를 우선하고, 둘 다 없으면 runtime에서 `git rev-parse --git-common-dir`의 resolved non-bare common `.git` directory를 검증해 canonical main checkout의 `guild_hall/state/operations/ai_usage_meter`를 사용한다. 따라서 normal checkout과 linked worktree는 receipt·emergency disable marker를 하나의 local ledger에서 공유한다. common root가 unavailable, bare, malformed, 또는 unsafe이면 임의 worktree path를 쓰지 않고 `CODEX_HOME/usage-meter`로 fallback하며 health에는 `hook_common_root_*` reason code만 남긴다. 이 runtime path는 receipt 또는 snapshot에 저장하지 않는다.
 
 ## 복원·오류 처리
 
@@ -110,12 +157,16 @@ guild_hall/state/operations/ai_usage_meter/
 - 손상된 과거 session은 issue로 격리하고 parsed/total session coverage를 함께 보고한다.
 - hook 오류는 `health/latest.json`을 `hold`로 갱신하지만 Codex 응답 완료를 막지 않는다. 동시 실행에서 나중의 성공이 오류를 숨기지 않도록 모든 결과는 `health/history/`에 고유한 원자 기록으로 남긴다.
 - 알려지지 않은 모델은 `rate_unknown`이며 크레딧 합계의 미확인 turn 수에 나타난다.
+- work/quality/tool/manifest/replay receipt는 stable ID 기준으로 재실행하면 `replayed`이며, 같은 ID의 payload가 다르면 conflict로 중단한다. instruction manifest는 같은 chain/prompt identity의 후속 `observed_at`만 달라진 경우 최초 관찰 레코드를 유지하며 replay하고, 그 밖의 필드가 달라지면 conflict다.
+- replay receipt는 `전체 source = 선택 manifest + 제외/HOLD`, `parsed turn = created + updated + replayed + pending + conflict`, turn-bound count 상한, ledger mutation과 before/after digest 변화를 함께 만족해야 valid다.
+- evidence ledger lock은 stale 여부를 추측해 자동 탈취하지 않는다. 제한 시간 안에 기존 lock이 사라지지 않으면 `evidence_ledger_busy`로 fail-closed하고, owner가 writer 부재를 별도로 확인한 뒤 복구한다.
 
 ## 검증 기준
 
 v1 acceptance는 다음을 모두 요구한다.
 
-- synthetic와 실제 Outlook 7-turn 사건이 `670.294225`를 재현한다.
+- 과거 Outlook 관찰 토큰 tuple로 구성한 합성 7-turn reference가 `670.294225`를 재현한다.
+- 실제 과거 Outlook session replay와 역할 귀속을 주장하려면 source session 수·digest, parsed turn 수, 제외/HOLD, binding·lineage·role 귀속, 계산 합계를 담은 metadata-only private replay receipt가 있어야 한다.
 - executor child가 depth와 무관하게 책임자 최초 turn을 root로 갖는다.
 - 진행 중 부모가 보이지 않는 자식은 직전 부모 turn으로 오귀속되지 않고, 부모 관찰 뒤 정확한 root로 승격된다.
 - cache-write token은 관찰되지만 계산 크레딧은 `0`이다.
@@ -127,10 +178,15 @@ v1 acceptance는 다음을 모두 요구한다.
 - 부모 continuation 중 오래된 파일에 active turn이 없어도 현재 부모 transcript의 정확한 root로 귀속된다.
 - scoped 재수집 뒤에도 authoritative full coverage snapshot이 유지되고 stale self-root 백필은 ancestor-root를 되돌리지 않으면서 더 강한 완료 측정값을 잃지 않는다.
 - prompt, reasoning content, tool payload가 event·MCP·HTML·CSV에 없다.
+- exact seven-hook lifecycle receipt가 allowlisted field만 저장하고, malformed input은 non-blocking `hold` reason code로 끝난다.
+- 같은 lifecycle receipt ID의 재전송은 collector timestamp가 달라도 replay되어 receipt·snapshot duplicate count가 `0`이다.
+- lifecycle aggregate 기본 출력에는 exact identity가 없고, local-only opt-in identity projection은 strict key allowlist/latest reducer 및 raw content/flag stored count `0`을 만족한다.
 - malformed timestamp와 schema 밖 필드는 원장에 기록되지 않는다.
 - CSV 자유 문자열은 spreadsheet formula로 실행되지 않게 중화한다.
 - 전수 백필이 문제 session을 명시하고 나머지를 계속 집계한다.
 - 새 PC는 Node, project hook, private config만으로 doctor와 collect를 실행할 수 있다.
+- fresh session A/B에서 cwd·global instruction·model·effort·fixture를 고정하고, 각 variant의 loaded instruction source digest·bytes·prompt digest·truncation 상태를 기록할 수 있다.
+- quality hard gate가 PASS인 후에만 operational executor/reviewer 크레딧을 비교하고 controller·offline oracle·experiment evaluator 비용은 별도 범위로 보고한다.
 
 ## 운영 최적화 원칙
 
