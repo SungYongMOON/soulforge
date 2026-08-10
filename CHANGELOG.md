@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2026-08-10 - Board runtime idle persistence and active Codex collection
+
+- Prevented the canonical Windows scheduled runtime from being stopped when
+  workstation idle ends by requiring `IdleSettings.StopOnIdleEnd=false` in the
+  exact task contract and registration surface.
+- Kept the completed-session Codex sweep unchanged, then added a separately
+  isolated `--include-active` collection for exact lifecycle-started session
+  files observed within 15 minutes. One conflicting active session now remains
+  fail-closed without blocking forward collection from other active sessions.
+
 ## 2026-08-10 - Board 15-day exact provider token history
 
 - Extended the sanitized Meter provider-day projection from 7 credit-only days

@@ -391,6 +391,7 @@ export function createScheduledTaskDefinition({
     multiple_instances: "IgnoreNew",
     enabled: true,
     execution_time_limit: "unlimited",
+    stop_on_idle_end: false,
     restart_count: TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT,
     restart_interval: TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL,
     watchdog_count: 0,
@@ -430,7 +431,7 @@ export function createScheduledTaskPowerShellSpec(operation, {
       "if($null -ne $existing){throw 'task_definition_mismatch'}",
       "$action=New-ScheduledTaskAction -Execute $e -Argument $a",
       "$principal=New-ScheduledTaskPrincipal -UserId $owner -LogonType Interactive -RunLevel Limited",
-      "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval ([TimeSpan]::FromMinutes(1))",
+      "$settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -DontStopOnIdleEnd -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval ([TimeSpan]::FromMinutes(1))",
       "$definition=New-ScheduledTask -Action $action -Principal $principal -Settings $settings -Description 'Soulforge Team Operations Board read-only on-demand runtime'",
       "$null=Register-ScheduledTask -TaskPath $p -TaskName $n -InputObject $definition",
     );
@@ -438,7 +439,7 @@ export function createScheduledTaskPowerShellSpec(operation, {
     script.push(
       "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
       "$actions=@($t.Actions);$triggers=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$principalSid=Resolve-Sid ([string]$t.Principal.UserId)",
-      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or [int]$settings.RestartCount -ne 3 -or [string]$settings.RestartInterval -ne 'PT1M'){throw 'task_definition_mismatch'}",
+      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or $settings.IdleSettings.StopOnIdleEnd -ne $false -or [int]$settings.RestartCount -ne 3 -or [string]$settings.RestartInterval -ne 'PT1M'){throw 'task_definition_mismatch'}",
       "Start-ScheduledTask -TaskPath $p -TaskName $n",
       "$o=[pscustomobject]@{schema_version=$s;ok=$true;outcome='run_requested'}",
     );
@@ -446,7 +447,7 @@ export function createScheduledTaskPowerShellSpec(operation, {
     script.push(
       "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
       "$actions=@($t.Actions);$triggers=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$principalSid=Resolve-Sid ([string]$t.Principal.UserId)",
-      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or [int]$settings.RestartCount -ne 3 -or [string]$settings.RestartInterval -ne 'PT1M'){throw 'task_definition_mismatch'}",
+      "if($null -eq $t -or [string]$t.State -ne 'Ready' -or [string]$t.TaskPath -ne $p -or $triggers.Count -ne 0 -or $actions.Count -ne 1 -or (Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)) -ne $d -or $null -eq $principalSid -or $principalSid -ne $ownerSid -or $logon -ne 'Interactive' -or [string]$t.Principal.RunLevel -ne 'Limited' -or [string]$settings.MultipleInstances -ne 'IgnoreNew' -or $settings.Enabled -ne $true -or [string]$settings.ExecutionTimeLimit -ne 'PT0S' -or $settings.IdleSettings.StopOnIdleEnd -ne $false -or [int]$settings.RestartCount -ne 3 -or [string]$settings.RestartInterval -ne 'PT1M'){throw 'task_definition_mismatch'}",
       "Unregister-ScheduledTask -TaskPath $p -TaskName $n -Confirm:$false",
       "$o=[pscustomobject]@{schema_version=$s;ok=$true;outcome='unregistered'}",
     );
@@ -455,7 +456,7 @@ export function createScheduledTaskPowerShellSpec(operation, {
     script.push(
       "$t=Get-ScheduledTask -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue",
       "$info=$(if($null -ne $t){Get-ScheduledTaskInfo -TaskPath $p -TaskName $n -ErrorAction SilentlyContinue}else{$null})",
-      "if($null -eq $t){$o=[pscustomobject]@{exists=$false;task_state='missing';trigger_count=0;stored_credential_count=0;current_owner_match=$false;run_level_limited=$false;task_path_root=$false;multiple_instances_ignore_new=$false;enabled=$false;unlimited_execution=$false;restart_count=0;restart_interval=$null;watchdog_count=0;action_count=0;action_digest=$null;last_task_result=$null}}else{$actions=@($t.Actions);$triggerObjects=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$restart=[int]$settings.RestartCount;$triggerCount=$triggerObjects.Count;$principalSid=Resolve-Sid ([string]$t.Principal.UserId);$o=[pscustomobject]@{exists=$true;task_state=([string]$t.State).ToLowerInvariant();trigger_count=$triggerCount;stored_credential_count=($(if($logon -eq 'Interactive'){0}else{1}));current_owner_match=($null -ne $principalSid -and $principalSid -eq $ownerSid);run_level_limited=([string]$t.Principal.RunLevel -eq 'Limited');task_path_root=([string]$t.TaskPath -eq $p);multiple_instances_ignore_new=([string]$settings.MultipleInstances -eq 'IgnoreNew');enabled=($settings.Enabled -eq $true);unlimited_execution=([string]$settings.ExecutionTimeLimit -eq 'PT0S');restart_count=$restart;restart_interval=([string]$settings.RestartInterval);watchdog_count=$(if($triggerCount -eq 0){0}else{1});action_count=$actions.Count;action_digest=$(if($actions.Count -eq 1){Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)}else{$null});last_task_result=$(if($null -ne $info){[int64]$info.LastTaskResult}else{$null})}}",
+      "if($null -eq $t){$o=[pscustomobject]@{exists=$false;task_state='missing';trigger_count=0;stored_credential_count=0;current_owner_match=$false;run_level_limited=$false;task_path_root=$false;multiple_instances_ignore_new=$false;enabled=$false;unlimited_execution=$false;stop_on_idle_end=$true;restart_count=0;restart_interval=$null;watchdog_count=0;action_count=0;action_digest=$null;last_task_result=$null}}else{$actions=@($t.Actions);$triggerObjects=@($t.Triggers | Where-Object { $null -ne $_ });$logon=[string]$t.Principal.LogonType;$settings=$t.Settings;$restart=[int]$settings.RestartCount;$triggerCount=$triggerObjects.Count;$principalSid=Resolve-Sid ([string]$t.Principal.UserId);$o=[pscustomobject]@{exists=$true;task_state=([string]$t.State).ToLowerInvariant();trigger_count=$triggerCount;stored_credential_count=($(if($logon -eq 'Interactive'){0}else{1}));current_owner_match=($null -ne $principalSid -and $principalSid -eq $ownerSid);run_level_limited=([string]$t.Principal.RunLevel -eq 'Limited');task_path_root=([string]$t.TaskPath -eq $p);multiple_instances_ignore_new=([string]$settings.MultipleInstances -eq 'IgnoreNew');enabled=($settings.Enabled -eq $true);unlimited_execution=([string]$settings.ExecutionTimeLimit -eq 'PT0S');stop_on_idle_end=([bool]$settings.IdleSettings.StopOnIdleEnd);restart_count=$restart;restart_interval=([string]$settings.RestartInterval);watchdog_count=$(if($triggerCount -eq 0){0}else{1});action_count=$actions.Count;action_digest=$(if($actions.Count -eq 1){Get-Digest ([string]$actions[0].Execute) ([string]$actions[0].Arguments)}else{$null});last_task_result=$(if($null -ne $info){[int64]$info.LastTaskResult}else{$null})}}",
     );
   }
   script.push("[Console]::Out.Write(($o|ConvertTo-Json -Compress))");
@@ -491,6 +492,7 @@ export function scheduledTaskInspectionIsExact(inspection, definition = createSc
     && inspection.multiple_instances_ignore_new === true
     && inspection.enabled === true
     && inspection.unlimited_execution === true
+    && inspection.stop_on_idle_end === false
     && inspection.restart_count === TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT
     && inspection.restart_interval === TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL
     && inspection.watchdog_count === 0

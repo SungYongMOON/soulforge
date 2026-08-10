@@ -3,10 +3,36 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import { findCodexSessionFiles } from "../../../../guild_hall/ai_usage_meter/usage_meter.mjs";
+
 const execFileAsync = promisify(execFile);
 export const DEFAULT_USAGE_PRODUCER_INTERVAL_MS = 5 * 60 * 1_000;
+export const ACTIVE_CODEX_SESSION_MAX_AGE_MS = 15 * 60 * 1_000;
 
 const SAFE_THREAD_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,239}$/u;
+
+export function activeCodexSessionIds(lifecycle, { now = Date.now } = {}) {
+  if (!Array.isArray(lifecycle?.identities)) return [];
+  const referenceAt = now();
+  const ids = lifecycle.identities.filter((entry) => {
+    const observedAt = Date.parse(entry?.observed_at);
+    return entry?.lifecycle_state === "started"
+      && Number.isFinite(observedAt)
+      && observedAt <= referenceAt
+      && referenceAt - observedAt <= ACTIVE_CODEX_SESSION_MAX_AGE_MS;
+  }).map((entry) => entry?.session_id);
+  return ids.every((id) => typeof id === "string" && SAFE_THREAD_ID.test(id))
+    ? [...new Set(ids)].sort((left, right) => left.localeCompare(right, "en"))
+    : [];
+}
+
+export async function loadActiveCodexSessionFiles({ stateRoot, sessionsRoot = path.join(process.env.CODEX_HOME || path.join(process.env.USERPROFILE || "", ".codex"), "sessions"), now = Date.now } = {}) {
+  if (!path.isAbsolute(stateRoot ?? "") || !path.isAbsolute(sessionsRoot ?? "")) return [];
+  const lifecycle = JSON.parse(await readFile(path.join(stateRoot, "lifecycle", "current.json"), "utf8"));
+  const activeIds = new Set(activeCodexSessionIds(lifecycle, { now }));
+  return (await findCodexSessionFiles(sessionsRoot))
+    .filter((file) => [...activeIds].some((id) => file.endsWith(`-${id}.jsonl`)));
+}
 
 export async function loadCurrentThreadIds(registryPath) {
   if (!path.isAbsolute(registryPath ?? "")) return [];
@@ -20,7 +46,7 @@ export async function loadCurrentThreadIds(registryPath) {
     : [];
 }
 
-export async function runUsageProducerSweep({ repoRoot, stateRoot, threadIds = [], run = execFileAsync } = {}) {
+export async function runUsageProducerSweep({ repoRoot, stateRoot, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles } = {}) {
   if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(stateRoot ?? "")) {
     return { status: "hold", completed: 0 };
   }
@@ -44,7 +70,16 @@ export async function runUsageProducerSweep({ repoRoot, stateRoot, threadIds = [
       // Each producer remains fail-closed and the next interval retries it.
     }
   }
-  const expected = lifecycleArgs === null ? 3 : 4;
+  const activeFiles = await Promise.resolve(loadActiveFiles({ stateRoot })).catch(() => []);
+  for (const sessionFile of activeFiles) {
+    try {
+      await run(process.execPath, [cli, "collect", "--session-file", sessionFile, "--state-root", stateRoot, "--include-active", "--apply"], { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+      completed += 1;
+    } catch {
+      // One conflicting active session must not block other exact active sessions.
+    }
+  }
+  const expected = (lifecycleArgs === null ? 3 : 4) + activeFiles.length;
   return { status: completed === expected ? "observed" : "partial", completed };
 }
 

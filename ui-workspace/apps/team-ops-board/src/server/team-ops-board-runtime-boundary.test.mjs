@@ -148,6 +148,7 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
   assert.equal(definition.multiple_instances, "IgnoreNew");
   assert.equal(definition.enabled, true);
   assert.equal(definition.execution_time_limit, "unlimited");
+  assert.equal(definition.stop_on_idle_end, false);
   assert.equal(definition.restart_count, 3);
   assert.equal(definition.restart_count, TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT);
   assert.equal(definition.restart_interval, TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL);
@@ -170,6 +171,7 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
   assert.match(decoded, /Register-ScheduledTask[^;]*-InputObject \$definition/u);
   assert.match(decoded, /New-ScheduledTaskPrincipal -UserId \$owner -LogonType Interactive -RunLevel Limited/u);
   assert.match(decoded, /-RestartCount 3 -RestartInterval \(\[TimeSpan\]::FromMinutes\(1\)\)/u);
+  assert.match(decoded, /-DontStopOnIdleEnd/u);
   assert.match(decoded, /Resolve-Sid/u);
   assert.match(decoded, /\$identity\.User\.Value/u);
   assert.match(decoded, /\$principalSid -eq \$ownerSid/u);
@@ -203,6 +205,7 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
     assert.match(mutationDecoded, /TaskPath \$p/u);
     assert.match(mutationDecoded, /MultipleInstances/u);
     assert.match(mutationDecoded, /ExecutionTimeLimit/u);
+    assert.match(mutationDecoded, /IdleSettings\.StopOnIdleEnd/u);
     assert.match(mutationDecoded, /RestartCount/u);
   }
 });
@@ -682,6 +685,7 @@ test("CLI and failure output remain bounded to public-safe classes", () => {
     multiple_instances_ignore_new: true,
     enabled: true,
     unlimited_execution: true,
+    stop_on_idle_end: false,
     restart_count: TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT,
     restart_interval: TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL,
     watchdog_count: 0,
