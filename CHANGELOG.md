@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-08-10 - AI usage meter quarantine-aware backfill planner
+
+- Added a deterministic, read-only backfill plan that separates candidate,
+  replay/no-op, active, conflict, and malformed evidence while binding output to
+  source, canonical, and plan digests. Divergent source or canonical identities
+  remain quarantined without a timestamp- or token-based winner.
+- The planner cannot apply or partially write; hook activation, canonical ledger
+  backfill, provider access, runtime, and scheduler behavior remain unchanged.
+
 ## 2026-08-10 - AI usage meter Phase B feature-OFF observation
 
 - Added independent hook-delivery and token-projection health, four exact Stop

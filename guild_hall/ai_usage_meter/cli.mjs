@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   buildStopDeliveryReceipt,
   buildUsageEvents,
+  collectUsageObservations,
   collectUsageEvents,
   findCodexSessionFiles,
   findSessionFileById,
@@ -19,6 +20,7 @@ import {
   loadRateCard,
   normalizeConfig,
   parseCodexSessionFile,
+  planUsageBackfill,
   persistUsageEvents,
   sessionFileLooksUsable,
   sha256,
@@ -481,6 +483,41 @@ async function collectCommand(options) {
     persistence,
     coverage,
   };
+}
+
+async function backfillPlanCommand(options) {
+  if (flag(options, "apply")) fail("backfill_plan_apply_unsupported");
+  const stateRoot = value(options, "state-root", null);
+  if (!stateRoot) fail("state_root_required");
+  const sessionsRoot = path.resolve(value(options, "sessions-root", path.join(defaultCodexRoot(), "sessions")));
+  const explicitFiles = values(options, "session-file").map((item) => path.resolve(String(item)));
+  const scopedThreadIds = values(options, "thread-id").map(String);
+  const sessionFiles = explicitFiles.length
+    ? explicitFiles
+    : scopedThreadIds.length
+      ? [...new Set((await Promise.all(scopedThreadIds.map((threadId) => (
+        findSessionFilesById(sessionsRoot, threadId)
+      )))).flat())].sort((left, right) => left.localeCompare(right, "en"))
+      : await findCodexSessionFiles(sessionsRoot);
+  const repoRoot = await findRepoRoot(process.cwd());
+  let config = await loadEffectiveConfig(options, { repoRoot });
+  config = await dynamicConfig(config, stateRoot);
+  if (value(options, "service-tier")) config.service_tier = String(value(options, "service-tier"));
+  const rateCard = await loadRateCard(path.resolve(value(options, "rate-card", DEFAULT_RATE_CARD)));
+  const collected = await collectUsageObservations({
+    sessionFiles,
+    config,
+    rateCard,
+    includeActive: true,
+    sourceRoot: sessionsRoot,
+    continueOnError: true,
+  });
+  return planUsageBackfill({
+    observations: filterEvents(collected.observations, options),
+    canonicalEvents: await loadPersistedUsageEvents(path.resolve(String(stateRoot))),
+    malformed: collected.issues,
+    rateCard,
+  });
 }
 
 async function collectClaudeCommand(options) {
@@ -987,6 +1024,7 @@ function help() {
     name: "Soulforge AI Usage Meter",
     commands: {
       collect: "Parse Codex session JSONL. Dry-run by default; add --apply --state-root <path> to persist metadata-only events.",
+      "backfill-plan": "Generate a deterministic quarantine-aware metadata-only plan; never applies or writes.",
       "collect-claude": "Parse Claude Code session JSONL into per-message metadata-only events. Dry-run by default; add --apply --state-root <path>.",
       "collect-antigravity": "Read Antigravity conversation DBs into request-count-only metadata events. Dry-run by default; add --apply --state-root <path>.",
       report: "Summarize a persisted local ledger: --state-root <path>.",
@@ -1021,6 +1059,7 @@ function help() {
       "csv: --output <CSV path> [--group-by work]",
       "collect-claude: [--projects-root <Claude projects directory>] [--max-age-days N] [--state-root <path>] [--apply]",
       "collect-antigravity: [--cli-root <Antigravity CLI directory>] [--max-age-days N] [--state-root <path>] [--apply]",
+      "backfill-plan: --state-root <local state directory> [--from <ISO timestamp>] [--to <ISO timestamp>] (always dry-run)",
       "board-snapshot: --state-root <local state directory> --output <local JSON path> [--thread-id <exact ID> (repeatable)] [--include-provider claude_session_jsonl|antigravity_conversation_db (repeatable)]",
       "board-history-snapshot: --state-root <local state directory> --thread-id <exact ID> (repeatable) --output <local JSON path> [--top-n 1-50] [--reference-at <ISO timestamp>] [--include-provider <source kind> (repeatable)]",
       "usage-projection: --read-only=1 --state-root <local state directory> --thread-id <exact ID> (repeatable) [--top-n 1-50] [--reference-at <ISO timestamp>] [--include-provider <source kind> (repeatable)] [--freshness-threshold-seconds 1-604800]",
@@ -1034,6 +1073,7 @@ function help() {
 export async function runCli(argv = process.argv.slice(2)) {
   const { command, options } = parseArgs(argv);
   if (command === "collect") return collectCommand(options);
+  if (command === "backfill-plan") return backfillPlanCommand(options);
   if (command === "collect-claude") return collectClaudeCommand(options);
   if (command === "collect-antigravity") return collectAntigravityCommand(options);
   if (command === "report") return reportCommand(options);

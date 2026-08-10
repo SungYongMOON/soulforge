@@ -143,6 +143,16 @@ is partial coverage. Manifest drift is read-only digest/count reporting; this
 slice does not change `.codex/hooks.json`, create a canonical ledger, backfill,
 activate runtime/provider/network access, or infer completion.
 
+The additive `soulforge.ai_usage_backfill_plan.v1` contract is read-only and
+quarantine-aware. It deterministically separates candidate, monotonic-update,
+replay/no-op, active, conflict, and malformed counts; binds the result to source,
+canonical, and plan digests; and exposes only digest/count/time/token metadata.
+Source-side or canonical-side divergent duplicates have no automatic winner.
+Malformed rows are excluded and active/no-Stop rows remain `UNKNOWN`.
+`backfill-plan --apply` is unsupported, partial apply is not part of this
+contract, and `apply_allowed` remains false even when the quarantine is empty
+until an exact future Owner one-shot gate is issued.
+
 설치하는 Codex hook event는 아래 일곱 개뿐이다. `TurnStart`, `TurnEnd`, `Waiting` 같은 이름은 설치하거나 추정하지 않는다.
 
 | Codex hook event | receipt lifecycle state | 경계 |

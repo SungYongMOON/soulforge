@@ -16,7 +16,9 @@ import {
   loadPersistedUsageEvents,
   loadRateCard,
   parseCodexSessionFile,
+  planUsageBackfill,
   persistUsageEvents,
+  sha256,
   summarizeUsageEvents,
   reportHookManifestDrift,
 } from "./usage_meter.mjs";
@@ -53,6 +55,127 @@ test("hook manifest drift reports digest and count only", () => {
   const drift = reportHookManifestDrift({ expectedDigest: a, observedDigest: b, expectedCount: 7, observedCount: 6 });
   assert.equal(drift.status, "drift");
   assert.deepEqual(Object.keys(drift), ["status", "expected_digest", "observed_digest", "expected_count", "observed_count"]);
+});
+
+test("quarantine-aware backfill plan is permutation-invariant and never selects a conflict winner", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sf-meter-backfill-plan-"));
+  try {
+    const rateCard = await loadRateCard(RATE_CARD);
+    const file = await writeSession(root, "planner", [
+      sessionMeta({ id: "planner-thread" }),
+      taskStarted("planner-turn"),
+      turnContext("planner-turn"),
+      tokenCount(usage(1000, 200, 100, 25), "2026-08-03T00:00:03.000Z"),
+      taskComplete("planner-turn"),
+    ]);
+    const [base] = await buildUsageEvents({
+      sessionFiles: [file],
+      config: { organization_id: "soulforge", node_id: "test-node" },
+      rateCard,
+      sourceRoot: root,
+    });
+    const conflict = (event, suffix) => ({
+      ...structuredClone(event),
+      source: { ...event.source, originator: `conflict-${suffix}` },
+    });
+    const second = {
+      ...structuredClone(base),
+      event_id: `aue_${sha256("planner-second-event").slice(7)}`,
+      thread_id: "planner-thread-two",
+      turn_id: "planner-turn-two",
+      root_thread_id: "planner-thread-two",
+      root_turn_id: "planner-turn-two",
+    };
+    const active = {
+      ...structuredClone(base),
+      event_id: `aue_${sha256("planner-active-event").slice(7)}`,
+      thread_id: "planner-active-thread",
+      turn_id: "planner-active-turn",
+      root_thread_id: "planner-active-thread",
+      root_turn_id: "planner-active-turn",
+      time: { ...base.time, completed_at: null, duration_ms: null },
+      measurement: { ...base.measurement, status: "active" },
+    };
+    const observations = [
+      base,
+      structuredClone(base),
+      ...Array.from({ length: 6 }, (_, index) => conflict({
+        ...structuredClone(base),
+        event_id: `aue_${sha256("planner-six-way-event").slice(7)}`,
+      }, `six-${index}`)),
+      conflict(second, "two-a"),
+      conflict(second, "two-b"),
+      active,
+    ];
+    const malformed = [
+      { code: "session_meta_missing", source_ref: "malformed-a" },
+      { code: "session_meta_missing", source_ref: "malformed-b" },
+    ];
+    const first = planUsageBackfill({ observations, canonicalEvents: [], malformed, rateCard });
+    const reversed = planUsageBackfill({
+      observations: [...observations].reverse(),
+      canonicalEvents: [],
+      malformed: [...malformed].reverse(),
+      rateCard,
+    });
+    assert.equal(first.plan_digest, reversed.plan_digest);
+    assert.equal(first.counts.candidate_count, 1);
+    assert.equal(first.counts.replay_noop_count, 0);
+    assert.equal(first.counts.same_digest_duplicate_count, 1);
+    assert.equal(first.counts.active_excluded_count, 1);
+    assert.equal(first.counts.conflict_count, 2);
+    assert.equal(first.counts.malformed_count, 2);
+    assert.equal(first.quarantined_groups.every((item) => item.authoritative_winner === false), true);
+    assert.equal(first.apply_allowed, false);
+    assert.equal(first.partial_apply_supported, false);
+    assert.equal(JSON.stringify(first).includes("planner-thread"), false);
+    assert.equal(JSON.stringify(first).includes("malformed-a"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("backfill plan detects canonical conflicts and treats an exact replay as no-op", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "sf-meter-backfill-canonical-"));
+  try {
+    const rateCard = await loadRateCard(RATE_CARD);
+    const file = await writeSession(root, "canonical", [
+      sessionMeta({ id: "canonical-thread" }),
+      taskStarted("canonical-turn"),
+      tokenCount(usage(500, 100, 50), "2026-08-03T00:00:03.000Z"),
+      taskComplete("canonical-turn"),
+    ]);
+    const [base] = await buildUsageEvents({
+      sessionFiles: [file],
+      config: { organization_id: "soulforge", node_id: "test-node" },
+      rateCard,
+      sourceRoot: root,
+    });
+    const replay = planUsageBackfill({ observations: [base], canonicalEvents: [base], rateCard });
+    assert.equal(replay.counts.replay_noop_count, 1);
+    assert.equal(replay.counts.conflict_count, 0);
+    const divergent = {
+      ...structuredClone(base),
+      source: { ...base.source, originator: "canonical-divergent" },
+    };
+    const conflict = planUsageBackfill({
+      observations: [base],
+      canonicalEvents: [base, divergent],
+      rateCard,
+    });
+    assert.equal(conflict.counts.conflict_count, 1);
+    assert.equal(conflict.quarantined_groups[0].reason_code, "canonical_identity_digest_conflict");
+    assert.equal(conflict.apply_allowed, false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("backfill-plan CLI cannot apply or partially write", async () => {
+  const result = await runCli(["backfill-plan", "--apply", "--state-root", "unused-state-root"]);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /backfill_plan_apply_unsupported/u);
+  assert.equal(result.stdout, "");
 });
 
 function row(timestamp, type, payload) {

@@ -972,7 +972,7 @@ function collapseUsageEventObservations(events, { rateCard = null } = {}) {
   };
 }
 
-export async function collectUsageEvents({
+export async function collectUsageObservations({
   sessionFiles,
   config,
   rateCard,
@@ -1003,14 +1003,221 @@ export async function collectUsageEvents({
     }
   }
   const observedEvents = usageEventsFromSessions(sessions, normalizedConfig, rateCard);
+  return {
+    observations: observedEvents,
+    issues: issues.sort((a, b) => a.source_ref.localeCompare(b.source_ref, "en")),
+    parsed_session_count: sessions.length,
+  };
+}
+
+export async function collectUsageEvents(options) {
+  const collected = await collectUsageObservations(options);
+  const rateCard = options?.rateCard ?? null;
+  const observedEvents = collected.observations;
   const collapsed = collapseUsageEventObservations(observedEvents, { rateCard });
   return {
     events: collapsed.events,
-    issues: issues.sort((a, b) => a.source_ref.localeCompare(b.source_ref, "en")),
-    parsed_session_count: sessions.length,
+    issues: collected.issues,
+    parsed_session_count: collected.parsed_session_count,
     observed_event_count: observedEvents.length,
     duplicate_event_observation_count: collapsed.duplicate_count,
   };
+}
+
+function backfillKstBucket(timestamp) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+  const read = (type) => parts.find((part) => part.type === type)?.value;
+  return `${read("year")}-${read("month")}-${read("day")}`;
+}
+
+function safeBackfillIssue(issue) {
+  const code = typeof issue?.code === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/u.test(issue.code)
+    ? issue.code
+    : "session_parse_failed";
+  return {
+    reason_code: code,
+    source_digest: sha256(String(issue?.source_ref ?? "unknown")),
+  };
+}
+
+function backfillEventDigest(event) {
+  return sha256(canonicalJson(event));
+}
+
+function backfillIdentityDigest(event) {
+  return sha256(canonicalJson({ event_id: event.event_id }));
+}
+
+export function planUsageBackfill({
+  observations = [],
+  canonicalEvents = [],
+  malformed = [],
+  rateCard = null,
+} = {}) {
+  if (!Array.isArray(observations) || !Array.isArray(canonicalEvents) || !Array.isArray(malformed)) {
+    fail("backfill_plan_input_invalid");
+  }
+  const acceptedObservations = observations.map((event) => validateUsageEvent(event));
+  const acceptedCanonical = canonicalEvents.map((event) => validateUsageEvent(event));
+  const sourceDigest = sha256(canonicalJson([
+    ...acceptedObservations.map(backfillEventDigest).sort(),
+    ...malformed.map(safeBackfillIssue).map((issue) => canonicalJson(issue)).sort(),
+  ]));
+  const canonicalDigest = sha256(canonicalJson(acceptedCanonical.map(backfillEventDigest).sort()));
+  const canonicalGroups = new Map();
+  for (const event of acceptedCanonical) {
+    const rows = canonicalGroups.get(event.event_id) ?? [];
+    rows.push(event);
+    canonicalGroups.set(event.event_id, rows);
+  }
+  const observationGroups = new Map();
+  let activeCount = 0;
+  for (const event of acceptedObservations) {
+    if (event.measurement.status === "active") {
+      activeCount += 1;
+      continue;
+    }
+    const rows = observationGroups.get(event.event_id) ?? [];
+    rows.push(event);
+    observationGroups.set(event.event_id, rows);
+  }
+
+  const actions = [];
+  const quarantined = malformed.map((issue) => ({
+    quarantine_kind: "malformed",
+    ...safeBackfillIssue(issue),
+    authoritative_winner: false,
+  }));
+  const candidateEvents = [];
+  let candidateCount = 0;
+  let replayNoopCount = 0;
+  let monotonicUpdateCount = 0;
+  let sameDigestDuplicateCount = 0;
+  const ids = new Set([...canonicalGroups.keys(), ...observationGroups.keys()]);
+  for (const eventId of [...ids].sort((left, right) => left.localeCompare(right, "en"))) {
+    const canonicalRows = (canonicalGroups.get(eventId) ?? [])
+      .sort((left, right) => backfillEventDigest(left).localeCompare(backfillEventDigest(right), "en"));
+    const observedRows = (observationGroups.get(eventId) ?? [])
+      .sort((left, right) => backfillEventDigest(left).localeCompare(backfillEventDigest(right), "en"));
+    const identityDigest = sha256(canonicalJson({ event_id: eventId }));
+    const canonicalDistinct = new Map(canonicalRows.map((event) => [backfillEventDigest(event), event]));
+    const observedDistinct = new Map(observedRows.map((event) => [backfillEventDigest(event), event]));
+    sameDigestDuplicateCount += canonicalRows.length - canonicalDistinct.size;
+    sameDigestDuplicateCount += observedRows.length - observedDistinct.size;
+    if (canonicalDistinct.size > 1) {
+      quarantined.push({
+        quarantine_kind: "conflict",
+        reason_code: "canonical_identity_digest_conflict",
+        identity_digest: identityDigest,
+        digest_count: canonicalDistinct.size,
+        digest_matrix_digest: sha256(canonicalJson([...canonicalDistinct.keys()].sort())),
+        authoritative_winner: false,
+      });
+      continue;
+    }
+    if (observedRows.length === 0) continue;
+    let planned;
+    try {
+      planned = collapseUsageEventObservations([...observedDistinct.values()], { rateCard }).events[0];
+    } catch (error) {
+      if ((error?.code || error?.message) !== "usage_event_duplicate_conflict") throw error;
+      const first = observedRows[0];
+      quarantined.push({
+        quarantine_kind: "conflict",
+        reason_code: "source_identity_digest_conflict",
+        identity_digest: identityDigest,
+        source_class: first.source.kind,
+        lifecycle_statuses: [...new Set(observedRows.map((event) => event.measurement.status))].sort(),
+        occurred_available: observedRows.every((event) => Boolean(event.time.started_at)),
+        completed_available: observedRows.every((event) => Boolean(event.time.completed_at)),
+        digest_count: observedDistinct.size,
+        digest_matrix_digest: sha256(canonicalJson([...observedDistinct.keys()].sort())),
+        authoritative_winner: false,
+      });
+      continue;
+    }
+    const canonical = [...canonicalDistinct.values()][0] ?? null;
+    let action = "candidate";
+    if (canonical !== null && canonicalJson(canonical) === canonicalJson(planned)) {
+      action = "replay_noop";
+      replayNoopCount += 1;
+    } else if (canonical !== null) {
+      try {
+        const merged = collapseUsageEventObservations([canonical, planned], { rateCard }).events[0];
+        if (canonicalJson(merged) === canonicalJson(canonical)) {
+          action = "replay_noop";
+          replayNoopCount += 1;
+        } else {
+          action = "monotonic_update";
+          monotonicUpdateCount += 1;
+          candidateEvents.push(merged);
+        }
+      } catch (error) {
+        if ((error?.code || error?.message) !== "usage_event_duplicate_conflict") throw error;
+        quarantined.push({
+          quarantine_kind: "conflict",
+          reason_code: "canonical_source_digest_conflict",
+          identity_digest: identityDigest,
+          digest_count: new Set([backfillEventDigest(canonical), ...observedDistinct.keys()]).size,
+          digest_matrix_digest: sha256(canonicalJson([
+            backfillEventDigest(canonical), ...observedDistinct.keys(),
+          ].sort())),
+          authoritative_winner: false,
+        });
+        continue;
+      }
+    } else {
+      candidateCount += 1;
+      candidateEvents.push(planned);
+    }
+    actions.push({
+      action,
+      identity_digest: backfillIdentityDigest(planned),
+      event_digest: backfillEventDigest(planned),
+      kst_bucket: backfillKstBucket(planned.time.started_at),
+    });
+  }
+  const summary = summarizeUsageEvents(candidateEvents).totals;
+  const occurred = candidateEvents.map((event) => event.time.started_at).filter(Boolean).sort();
+  const completed = candidateEvents.map((event) => event.time.completed_at).filter(Boolean).sort();
+  const sortedQuarantine = quarantined.sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right), "en"));
+  const plan = {
+    schema_version: "soulforge.ai_usage_backfill_plan.v1",
+    mode: "dry_run",
+    source_digest: sourceDigest,
+    canonical_digest: canonicalDigest,
+    counts: {
+      observation_count: acceptedObservations.length,
+      identity_group_count: observationGroups.size,
+      candidate_count: candidateCount,
+      monotonic_update_count: monotonicUpdateCount,
+      replay_noop_count: replayNoopCount,
+      same_digest_duplicate_count: sameDigestDuplicateCount,
+      active_excluded_count: activeCount,
+      conflict_count: sortedQuarantine.filter((item) => item.quarantine_kind === "conflict").length,
+      malformed_count: sortedQuarantine.filter((item) => item.quarantine_kind === "malformed").length,
+    },
+    token_totals: {
+      turns: summary.turns,
+      input_tokens: summary.input_tokens,
+      output_tokens: summary.output_tokens,
+      reasoning_output_tokens: summary.reasoning_output_tokens,
+    },
+    occurred_bounds: { lower: occurred[0] ?? null, upper: occurred.at(-1) ?? null },
+    completed_bounds: { lower: completed[0] ?? null, upper: completed.at(-1) ?? null },
+    completeness: activeCount > 0 ? "unknown" : "observed_stop_only",
+    actions: actions.sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right), "en")),
+    quarantined_groups: sortedQuarantine,
+    partial_apply_supported: false,
+    apply_allowed: false,
+    reason_code: sortedQuarantine.length > 0 ? "backfill_plan_quarantine_present" : "backfill_plan_owner_gate_required",
+  };
+  return { ...plan, plan_digest: sha256(canonicalJson(plan)) };
 }
 
 export async function buildUsageEvents(options) {

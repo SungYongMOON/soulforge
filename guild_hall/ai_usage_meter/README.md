@@ -143,6 +143,16 @@ Stop remains `UNKNOWN`; subagent evidence remains `coverage_partial`. Hook
 manifest drift inspection reports only expected/observed digests and counts and
 does not edit `.codex/hooks.json`.
 
+`backfill-plan` is the feature-OFF, read-only token-recovery planner. It emits
+only stable identity/event digests, candidate/replay/active/conflict/malformed
+counts, token totals and time bounds, plus source, canonical, and plan digests.
+Input order does not change the plan. Divergent source or canonical observations
+are quarantined without selecting a winner; malformed inputs are excluded, and
+active turns keep completeness `UNKNOWN`. The command rejects `--apply`, never
+writes a ledger, and always returns `apply_allowed=false`; a future partial apply
+requires a separate Owner gate bound to the exact quarantine, source, canonical,
+and plan digests.
+
 저장소의 [`.codex/hooks.json`](../../.codex/hooks.json)은 정확히 `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `SubagentStart`, `SubagentStop`, `PermissionRequest`, `Stop`에서 비차단 metadata-only 훅을 실행한다. `TurnStart`, `TurnEnd`, `Waiting`은 설치하지 않는다. 훅 실패는 Codex 답변을 막지 않고 `health/latest.json`에 안전한 reason code만 남긴다. 동시 hook 결과의 감사 이력은 `health/history/<YYYY-MM>/`에 별도 보존된다. usage 원장 잠금이 바쁘면 `deferred`와 `pending/`으로 남고 다음 성공 실행에서 자동 병합된다.
 
 - `SessionStart`/`SubagentStart`는 `started` receipt다.
