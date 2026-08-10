@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/guild_hall/ai_usage_meter/cli.mjs\" hook",
-            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$r=(git rev-parse --show-toplevel); & node (Join-Path $r 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& node (Join-Path (git rev-parse --show-toplevel) 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
             "timeout": 15,
             "statusMessage": "Recording metadata-only AI usage"
           }
@@ -20,7 +20,7 @@
           {
             "type": "command",
             "command": "node \"$(git rev-parse --show-toplevel)/guild_hall/ai_usage_meter/cli.mjs\" hook",
-            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"$r=(git rev-parse --show-toplevel); & node (Join-Path $r 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"& node (Join-Path (git rev-parse --show-toplevel) 'guild_hall/ai_usage_meter/cli.mjs') hook\"",
             "timeout": 15,
             "statusMessage": "Recording metadata-only AI usage"
           }

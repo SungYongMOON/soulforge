@@ -48,6 +48,8 @@ import {
   resolveProviderVisual,
   selectObservedProviderEntries
 } from "./core/provider-visual.mjs";
+import { aiUsageProjectionRequest } from "./core/ai-usage-projection-request.mjs";
+import { createUnmeasuredAiUsageSnapshot } from "./core/ai-usage-snapshot.mjs";
 
 type InboxView = "active" | "history";
 type FixtureMode = "normal" | "empty" | "error";
@@ -86,6 +88,11 @@ function App() {
     Object.fromEntries(INBOX_STATUSES.map((entry: string) => [entry, DEFAULT_CARD_LIMIT]))
   );
   const [notice, setNotice] = useState("");
+  const [aiUsageProjection, setAiUsageProjection] = useState(() => ({
+    state: "unmeasured",
+    snapshot: createUnmeasuredAiUsageSnapshot(),
+    reconciliation: null
+  }));
   const detailRef = useRef<HTMLElement | null>(null);
   const detailCloseRef = useRef<HTMLButtonElement | null>(null);
   const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -163,6 +170,30 @@ function App() {
     syncViewport();
     media.addEventListener("change", syncViewport);
     return () => media.removeEventListener("change", syncViewport);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    void aiUsageProjectionRequest.load({ signal: controller.signal }).then(
+      (projection: any) => {
+        if (!controller.signal.aborted) {
+          setAiUsageProjection(projection);
+        }
+      },
+      () => {
+        if (!controller.signal.aborted) {
+          setAiUsageProjection({
+            state: "unmeasured",
+            snapshot: createUnmeasuredAiUsageSnapshot(),
+            reconciliation: null
+          });
+        }
+      }
+    );
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -413,6 +444,8 @@ function App() {
         </div>
       )}
 
+      <AiUsagePanel projection={aiUsageProjection} />
+
       <main
         id="inbox-content"
         className="inbox-layout"
@@ -499,6 +532,136 @@ function App() {
         <span>fixture/read-only adapter · 새로고침 시 합성 상태 초기화</span>
         <span>실제 thread·ERP·worktree·provider truth가 아닙니다</span>
       </footer>
+    </div>
+  );
+}
+
+function formatUsageNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatUsageCredits(value: number | null) {
+  return value === null ? "UNKNOWN" : value.toFixed(4);
+}
+
+function AiUsagePanel({ projection }: { projection: any }) {
+  const { snapshot } = projection;
+  const roles =
+    snapshot.roles.length > 0
+      ? snapshot.roles
+      : [{ role: "unassigned", turns: 0, total_tokens: 0, credits: null, credit_unknown_turns: 0 }];
+  const modelEffort =
+    snapshot.model_effort.length > 0
+      ? snapshot.model_effort
+      : [
+          {
+            model: "UNKNOWN",
+            reasoning_effort: "UNKNOWN",
+            turns: 0,
+            total_tokens: 0,
+            credits: null,
+            credit_unknown_turns: 0
+          }
+        ];
+  const isReady = projection.state === "ready";
+
+  return (
+    <section
+      className={`ai-usage-panel ai-usage-panel-${projection.state}`}
+      aria-label="AI Usage Meter read-only projection"
+      data-dialog-background
+    >
+      <header className="ai-usage-header">
+        <div>
+          <span>READ-ONLY LOCAL PROJECTION</span>
+          <h2>AI Usage Meter</h2>
+          <p>Metadata-only snapshot. No task, ERP, or usage writer is available here.</p>
+        </div>
+        <strong className="ai-usage-status" data-ai-usage-state={projection.state}>
+          {isReady ? `HOOK ${snapshot.health.hook_status}` : "UNMEASURED / UNKNOWN"}
+        </strong>
+      </header>
+
+      <dl className="ai-usage-summary">
+        <div>
+          <dt>Total tokens</dt>
+          <dd>{formatUsageNumber(snapshot.totals.total_tokens)}</dd>
+        </div>
+        <div>
+          <dt>Credits</dt>
+          <dd>{formatUsageCredits(snapshot.totals.credits)}</dd>
+        </div>
+        <div>
+          <dt>Coverage</dt>
+          <dd>{snapshot.coverage.status}</dd>
+          <small>
+            {formatUsageNumber(snapshot.coverage.measured_turns)} / {formatUsageNumber(snapshot.coverage.total_turns)} measured
+          </small>
+        </div>
+        <div>
+          <dt>Health</dt>
+          <dd>{snapshot.health.hook_status}</dd>
+          <small>{formatUsageNumber(snapshot.health.pending_event_count)} pending events</small>
+        </div>
+      </dl>
+
+      <div className="ai-usage-signals" aria-label="usage coverage signals">
+        <span>unassigned {formatUsageNumber(snapshot.coverage.unassigned_turns)}</span>
+        <span>rate_unknown {formatUsageNumber(snapshot.coverage.rate_unknown_turns)}</span>
+        <span>credit_unknown {formatUsageNumber(snapshot.totals.credit_unknown_turns)}</span>
+      </div>
+
+      <div className="ai-usage-grid">
+        <section aria-labelledby="ai-usage-roles-heading">
+          <h3 id="ai-usage-roles-heading">Role breakdown</h3>
+          <UsageRows rows={roles} labelKey="role" />
+        </section>
+        <section aria-labelledby="ai-usage-models-heading">
+          <h3 id="ai-usage-models-heading">Model / effort</h3>
+          <UsageRows rows={modelEffort} labelKey="model" showEffort />
+        </section>
+      </div>
+
+      <div className="ai-usage-activity" aria-label="execution and coordination activity">
+        <span>execution {formatUsageNumber(snapshot.activity.execution_turns)}</span>
+        <span>coordination {formatUsageNumber(snapshot.activity.coordination_turns)}</span>
+        <span>review {formatUsageNumber(snapshot.activity.review_turns)}</span>
+        <span>fan-out {formatUsageNumber(snapshot.activity.fan_out_turns)}</span>
+        <span>retry {formatUsageNumber(snapshot.activity.retry_count)}</span>
+        <span>timeout {formatUsageNumber(snapshot.activity.timeout_count)}</span>
+      </div>
+    </section>
+  );
+}
+
+function UsageRows({
+  rows,
+  labelKey,
+  showEffort = false
+}: {
+  rows: any[];
+  labelKey: "role" | "model";
+  showEffort?: boolean;
+}) {
+  return (
+    <div className="ai-usage-table" role="table">
+      <div className="ai-usage-row ai-usage-row-head" role="row">
+        <span role="columnheader">{labelKey === "role" ? "Role" : "Model"}</span>
+        <span role="columnheader">Turns</span>
+        <span role="columnheader">Tokens</span>
+        <span role="columnheader">Credits</span>
+      </div>
+      {rows.map((row, index) => (
+        <div className="ai-usage-row" role="row" key={`${row[labelKey]}-${row.reasoning_effort ?? index}`}>
+          <span role="cell">
+            {row[labelKey]}
+            {showEffort && <small>{row.reasoning_effort}</small>}
+          </span>
+          <span role="cell">{formatUsageNumber(row.turns)}</span>
+          <span role="cell">{formatUsageNumber(row.total_tokens)}</span>
+          <span role="cell">{formatUsageCredits(row.credits)}</span>
+        </div>
+      ))}
     </div>
   );
 }

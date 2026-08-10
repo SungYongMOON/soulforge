@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/core/*.test.mjs"
+    "test": "node --test src/core/*.test.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@lobehub/icons-static-svg": "1.94.0",

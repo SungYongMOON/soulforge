@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://soulforge.local/schema/ai_usage_replay_receipt.v1.schema.json",
+  "title": "Soulforge AI Usage Replay Receipt v1",
+  "$comment": "The runtime validator additionally reconciles source coverage, per-turn persistence outcomes, turn-bound counts, and before/after ledger digests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "receipt_id", "observed_at", "parser_digest", "rate_card_digest", "config_digest", "source_manifest_digest", "source_manifest_count", "parsed_turn_count", "excluded_or_held_session_count", "explicit_work_binding_count", "lineage_edge_count", "role_binding_count", "calculated_total", "rate_unknown_turn_count", "ledger_content_digest_before", "ledger_content_digest_after", "created_count", "updated_count", "replayed_count", "pending_count", "conflict_count", "coverage", "event_id_set_digest", "raw_payload_copied"],
+  "properties": {
+    "schema_version": { "const": "soulforge.ai_usage_replay_receipt.v1" },
+    "receipt_id": { "$ref": "#/$defs/id" },
+    "observed_at": { "$ref": "#/$defs/timestamp" },
+    "parser_digest": { "$ref": "#/$defs/digest" },
+    "rate_card_digest": { "$ref": "#/$defs/digest" },
+    "config_digest": { "$ref": "#/$defs/digest" },
+    "source_manifest_digest": { "$ref": "#/$defs/digest" },
+    "source_manifest_count": { "$ref": "#/$defs/count" },
+    "parsed_turn_count": { "$ref": "#/$defs/count" },
+    "excluded_or_held_session_count": { "$ref": "#/$defs/count" },
+    "explicit_work_binding_count": { "$ref": "#/$defs/count" },
+    "lineage_edge_count": { "$ref": "#/$defs/count" },
+    "role_binding_count": { "$ref": "#/$defs/count" },
+    "calculated_total": { "oneOf": [{ "type": "null" }, { "type": "number", "minimum": 0 }] },
+    "rate_unknown_turn_count": { "$ref": "#/$defs/count" },
+    "ledger_content_digest_before": { "$ref": "#/$defs/digest" },
+    "ledger_content_digest_after": { "$ref": "#/$defs/digest" },
+    "created_count": { "$ref": "#/$defs/count" },
+    "updated_count": { "$ref": "#/$defs/count" },
+    "replayed_count": { "$ref": "#/$defs/count" },
+    "pending_count": { "$ref": "#/$defs/count" },
+    "conflict_count": { "$ref": "#/$defs/count" },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_count", "parsed_count", "issue_count", "complete"],
+      "properties": {
+        "source_count": { "$ref": "#/$defs/count" },
+        "parsed_count": { "$ref": "#/$defs/count" },
+        "issue_count": { "$ref": "#/$defs/count" },
+        "complete": { "type": "boolean" }
+      }
+    },
+    "event_id_set_digest": { "$ref": "#/$defs/digest" },
+    "raw_payload_copied": { "const": false }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "count": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

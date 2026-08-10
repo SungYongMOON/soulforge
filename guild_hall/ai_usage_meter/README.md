@@ -5,7 +5,7 @@ Soulforge 전체에서 Codex 작업의 토큰과 계산 크레딧을 `회사 →
 ## 무엇을 측정하는가
 
 - Codex session JSONL의 누적 카운터를 turn별 증분으로 변환한다.
-- 입력, 캐시 입력, cache-write 입력, 출력, reasoning 출력, 모델 호출 수를 기록한다.
+- 입력, 캐시 입력, cache-write 입력, 출력, reasoning 출력과 관찰된 usage 증가 구간 수를 기록한다. 이 구간 수는 실제 API 요청 수가 아니라 모델 순환의 하한 proxy다.
 - 부모와 서브에이전트 session을 연결해 같은 root turn과 `work_id`로 묶는다.
 - 버전이 고정된 rate card로 모델·service tier별 크레딧을 계산한다.
 - cache-write token은 관찰하되 Codex 공식 규칙에 따라 크레딧을 부과하지 않는다.
@@ -45,8 +45,9 @@ npm run guild-hall:ai-usage-meter -- collect
 특정 Codex thread를 실제 업무에 연결:
 
 ```powershell
+$meterState = Join-Path (Resolve-Path .).Path 'guild_hall\state\operations\ai_usage_meter'
 npm run guild-hall:ai-usage-meter -- bind `
-  --state-root C:\Soulforge\guild_hall\state\operations\ai_usage_meter `
+  --state-root $meterState `
   --thread-id <thread-id> `
   --work-id <work-id> `
   --project-id <project-id> `
@@ -54,11 +55,44 @@ npm run guild-hall:ai-usage-meter -- bind `
   --role executor
 ```
 
+실제 로드된 instruction chain을 원문 없이 digest·bytes로 확인:
+
+```powershell
+$repoRoot = (Resolve-Path .).Path
+npm run guild-hall:ai-usage-meter -- instruction-manifest `
+  --cwd $repoRoot `
+  --approved-root $repoRoot `
+  --model-id gpt-5.6-sol `
+  --reasoning-effort xhigh `
+  --disable-feature hooks `
+  --disable-feature multi_agent
+```
+
+`--apply --state-root <local path>`를 추가하면 manifest를 `instruction_manifests/<YYYY-MM>/`에 저장한다. allowlist 밖 source는 읽거나 digest를 추정하지 않고 `prohibited/unknown`으로 남긴다.
+
+실행·품질·tool·actual replay 증거 JSON을 검증한 뒤 저장:
+
+```powershell
+npm run guild-hall:ai-usage-meter -- evidence-record `
+  --kind work_run `
+  --input <metadata-only-json-path>
+
+$meterState = Join-Path (Resolve-Path .).Path 'guild_hall\state\operations\ai_usage_meter'
+npm run guild-hall:ai-usage-meter -- evidence-record `
+  --kind work_run `
+  --input <metadata-only-json-path> `
+  --state-root $meterState `
+  --apply
+```
+
+`kind`는 `work_run`, `quality_result`, `tool_event`, `replay_receipt`를 지원한다. 각 증거는 lifecycle authority가 아닌 계측 projection이며 prompt·reasoning·tool argument/output 원문을 저장하지 않는다.
+
 주간 요약:
 
 ```powershell
+$meterState = Join-Path (Resolve-Path .).Path 'guild_hall\state\operations\ai_usage_meter'
 npm run guild-hall:ai-usage-meter -- report `
-  --state-root C:\Soulforge\guild_hall\state\operations\ai_usage_meter `
+  --state-root $meterState `
   --from 2026-08-03T00:00:00+09:00 `
   --to 2026-08-10T00:00:00+09:00
 ```
@@ -66,12 +100,13 @@ npm run guild-hall:ai-usage-meter -- report `
 사람이 보는 로컬 화면과 CSV:
 
 ```powershell
+$meterState = Join-Path (Resolve-Path .).Path 'guild_hall\state\operations\ai_usage_meter'
 npm run guild-hall:ai-usage-meter -- dashboard `
-  --state-root C:\Soulforge\guild_hall\state\operations\ai_usage_meter
+  --state-root $meterState
 
 npm run guild-hall:ai-usage-meter -- csv `
-  --state-root C:\Soulforge\guild_hall\state\operations\ai_usage_meter `
-  --output C:\Soulforge\guild_hall\state\operations\ai_usage_meter\usage-by-work.csv `
+  --state-root $meterState `
+  --output (Join-Path $meterState 'usage-by-work.csv') `
   --group-by work
 ```
 
@@ -101,6 +136,43 @@ Codex는 프로젝트 훅이 새로 생기거나 바뀌면 신뢰 검토를 요�
 
 경로를 코드에 하드코딩하지 않았으므로 Windows·macOS·Linux의 Node 환경에서 사용할 수 있다. 프로젝트별 `.codex/hooks.json`은 각 저장소에서 별도 신뢰가 필요하다.
 
+## Workspace Board read-only projection
+
+The existing `team-ops-board` remains a read-only client. It fetches only
+`/ai-usage-meter.snapshot.json` and falls back to `UNMEASURED / UNKNOWN` when
+that local file is absent or invalid. The CLI produces a strict allowlisted
+aggregate: no session IDs, session paths, source references, prompt/reasoning
+content, tool arguments/output, or raw evidence records are copied into it.
+
+```powershell
+$meterState = Join-Path (Resolve-Path .).Path 'guild_hall\state\operations\ai_usage_meter'
+$boardSnapshot = Join-Path (Resolve-Path .).Path 'ui-workspace\apps\team-ops-board\public\ai-usage-meter.snapshot.json'
+npm.cmd run guild-hall:ai-usage-meter -- board-snapshot `
+  --state-root $meterState `
+  --output $boardSnapshot
+```
+
+The generated Board asset is local-only and Git-ignored. It exposes totals,
+role and model/effort breakdowns, execution/coordination/review, fan-out,
+retry/timeout, hook health, and coverage. It is not an ERP, Task Engine, or
+usage writer.
+
+## Emergency local control
+
+The repository-local lifecycle collector can be stopped without removing the
+`Stop` or `SubagentStop` hook. The marker is inside the Git-ignored meter state
+root; repeated disable/enable calls are idempotent and the hook remains
+non-blocking.
+
+```powershell
+$meterState = Join-Path (Resolve-Path .).Path 'guild_hall\state\operations\ai_usage_meter'
+npm.cmd run guild-hall:ai-usage-meter -- disable --state-root $meterState
+npm.cmd run guild-hall:ai-usage-meter -- enable --state-root $meterState
+```
+
+`disable` records health `disabled`. `enable` clears the marker and records
+health `ok`; the next lifecycle hook resumes normal metadata-only collection.
+
 ## MCP 연결
 
 [mcp_adapter.mjs](./mcp_adapter.mjs)는 기존 MCP SDK server와 `zod` 인스턴스를 주입받아 세 도구를 등록한다.
@@ -117,15 +189,31 @@ registerUsageMeterMcpTools(server, { stateRoot, z });
 
 MCP 응답에서는 session source 경로와 원문 필드를 제외한다. 중앙 집계가 필요하면 각 PC에서 생성한 redacted usage event 또는 aggregate만 전송하고, 원본 Codex session 파일은 보내지 않는다.
 
+## 실행·품질 증거
+
+token 사용량과 원인을 분리하기 위해 `work_id`로 연결되는 additive event를 사용한다.
+
+- `ai_work_run.v1`: task/risk, model/effort, topology, 지침 manifest, 비용 포함 범위
+- `ai_quality_result.v1`: hard gate·oracle·PASS/FAIL/HOLD
+- `ai_tool_event.v1`: tool 종류·소요 시간·timeout·retry·preflight receipt
+- `instruction_manifest.v1`: loaded source digest·bytes·model-visible 포함 여부
+- `ai_usage_replay_receipt.v1`: actual replay source/parsed/HOLD/binding/lineage/role count·계산 합계·ledger digest
+
+동일 instruction chain/prompt manifest는 관찰 시각만 달라도 최초 레코드를 유지한 채 `replayed`가 된다. replay receipt는 source coverage, turn별 persistence 결과, binding 상한, ledger digest 변화를 서로 대조하며, evidence ledger의 기존 lock은 stale로 추정해 자동 탈취하지 않고 `evidence_ledger_busy`로 닫는다.
+
+work-run의 model/effort는 launcher 요청값이다. provider-effective 관찰 근거가 없으면 실제 적용값으로 승격하지 않고 `requested_only_not_verified`로 해석한다.
+
+instruction probe는 Codex의 model-visible prompt를 메모리에서 확인하지만 그 내용을 manifest에 복사하지 않는다. 비용 비교는 품질 hard gate PASS 후에만 하며, executor/reviewer operational credits와 controller·offline oracle·experiment evaluator 비용을 분리한다.
+
 ## 검증
 
 ```powershell
 npm run validate:ai-usage-meter
 ```
 
-현재 수락 fixture와 실제 read-only 검증은 다음을 포함한다.
+현재 public 수락 fixture와 로컬 검증은 다음을 포함한다.
 
-- Outlook 기준 7 turn: 입력 `40,613,609`, 캐시 입력 `39,543,808`, 출력 `56,362`, 계산 크레딧 `670.294225`
+- 과거 Outlook 관찰 토큰 tuple로 구성한 합성 7-turn reference: 입력 `40,613,609`, 캐시 입력 `39,543,808`, 출력 `56,362`, 계산 크레딧 `670.294225`
 - 부모 책임자 turn과 depth 2 이상 executor 서브에이전트 lineage 연결
 - 진행 중 부모 누락 시 직전 turn 오귀속 방지와 self-root → ancestor-root 승격
 - 누적 snapshot 중복 제거와 turn delta
@@ -142,6 +230,8 @@ npm run validate:ai-usage-meter
 - prompt/reasoning/tool payload 비수집
 - 한 손상 session을 격리한 전수 백필 coverage 보고
 - MCP safe-detail, HTML, formula-safe CSV 출력
+
+위 Outlook public test는 계산식·7-turn 합산·명시 `work_id` grouping과 관찰값의 수치 재현을 검증한다. 실제 과거 session replay, 자동 lineage 복원, 역할별 귀속, 누락·중복 배제는 metadata-only private replay receipt가 있을 때만 별도 검증으로 보고한다. 원문 prompt·메일·reasoning·tool payload는 receipt에 복사하지 않는다.
 
 ## 운영 판단
 

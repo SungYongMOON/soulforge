@@ -32,8 +32,9 @@ fixture 상세에서만 선택적으로 나타난다.
 
 - 모든 프로젝트, 책임분야, TASK, agent/provider, pointer, event는 공개 안전
   synthetic fixture다.
-- 실제 Codex archive/unarchive, ERP writer, 자동 status writer, 외부 backend,
-  network, deployment를 호출하지 않는다.
+- 실제 Codex archive/unarchive, ERP writer, 자동 status writer, 외부/backend,
+  deployment를 호출하지 않는다. 로컬 snapshot에는 credential-free same-origin GET을
+  한 번만 수행한다.
 - `읽고 확인`은 현재 브라우저 메모리의 synthetic `completed_unread`만
   `owner_acknowledged`로 바꾸며, 원 TASK pointer를 fixture history event에
   보존한다. 새로고침하면 초기 fixture로 돌아간다.
@@ -74,3 +75,18 @@ npm.cmd --prefix ui-workspace run team-ops-app:test
 이 결과는 implementer self-check와 browser-rendered design QA를 통과한
 `validated_private` 수준이다. fresh independent acceptance나 production
 연동·배포를 뜻하지 않는다.
+
+## AI Usage Meter projection
+
+- Board makes one credential-free same-origin `GET` for the local
+  `/ai-usage-meter.snapshot.json` metadata-only projection. It adds no Task,
+  ERP, usage writer, or external/backend.
+- `src/core/ai-usage-snapshot.mjs` allowlists the schema. Unknown fields,
+  session/path/raw/private-family keys, and unreconciled role/model aggregates
+  never render their source input; the panel shows `UNMEASURED / UNKNOWN`.
+- `coverage.unassigned_turns` counts turns missing any critical work, project,
+  team, or safe-role attribution. It can exceed the role-row `unassigned` count,
+  but never understate it.
+- A valid snapshot displays totals and credits, role and model/effort breakdowns,
+  execution/coordination/review, fan-out/retry/timeout, coverage, unassigned,
+  and rate_unknown.
