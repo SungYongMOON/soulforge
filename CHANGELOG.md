@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-11 - AI usage producer liveness heartbeats
+
+- Added atomic, sanitized five-minute heartbeats for the Codex collector, Claude collector, and common Meter ledger projection.
+- Watchtower observes each lane independently with a 300-second period and 600-second grace; missing evidence remains UNKNOWN/HOLD unless the owning Board task is explicitly stopped.
+- Usage growth is informational only: unchanged tokens/events render as normal idle, while changed ledger activity renders as collecting and never gates health.
+
 ## 2026-08-11 - Board usage trend by model and provider
 
 - Added a reconciled 30-day KST `model_daily` Meter projection derived from exact

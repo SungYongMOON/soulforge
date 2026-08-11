@@ -39,7 +39,8 @@ const NODE_REQUIRED_KEYS = new Set(["id", "label", "kind", "group", "col", "row"
 const NODE_KEYS = new Set([
   ...NODE_REQUIRED_KEYS, "operation_mode", "provider", "health_scope",
 ]);
-const HEALTH_KEYS = new Set(["state", "reasons", "age_seconds"]);
+const HEALTH_REQUIRED_KEYS = new Set(["state", "reasons", "age_seconds"]);
+const HEALTH_KEYS = new Set([...HEALTH_REQUIRED_KEYS, "activity_state"]);
 const EDGE_REQUIRED_KEYS = new Set(["from", "to", "label", "flow"]);
 // receipt/unreceipted_reason 은 간선이 전달 근거를 가졌는지를 나른다. 화면이 근거 없는 선을
 // 전달로 그리지 않으려면 이 필드가 투영을 통과해야 한다.
@@ -60,7 +61,7 @@ const OPERATION_MODE_SET = new Set(["structural", "on_demand", "scheduled", "res
 const PROVIDER_SET = new Set(["codex", "claude", "antigravity"]);
 const HEALTH_SCOPE_SET = new Set(["node", "provider", "collector", "aggregate", "self"]);
 const EDGE_SCOPE_SET = new Set([
-  "node_health_only", "usage_collector_health_only", "usage_contract_structure_only",
+  "node_health_only", "usage_collector_health_only", "usage_contract_structure_only", "usage_meter_health_only",
 ]);
 const UNMONITORED_REASON_SET = new Set([
   "structural_only",
@@ -69,6 +70,9 @@ const UNMONITORED_REASON_SET = new Set([
   "catalog_only_on_demand",
   "independent_evidence_absent",
   "probe_unbound",
+  "heartbeat_receipt_unavailable",
+  "source_missing",
+  "source_invalid_json",
 ]);
 const PROTECTED_NODE_CONTRACTS = new Map([
   ["src_codex", {
@@ -84,12 +88,16 @@ const PROTECTED_NODE_CONTRACTS = new Map([
     unmonitoredReasons: ["provider_evidence_absent"], observedAllowed: false,
   }],
   ["usage_codex_collector", {
-    kind: "worker", operationMode: "on_demand", provider: "codex", healthScope: "collector",
+    kind: "worker", operationModes: ["on_demand", "scheduled"], provider: "codex", healthScope: "collector",
     unmonitoredReasons: ["collector_evidence_absent", "probe_unbound"], observedAllowed: true,
+  }],
+  ["usage_claude_collector", {
+    kind: "worker", operationModes: ["on_demand", "scheduled"], provider: "claude", healthScope: "collector",
+    unmonitoredReasons: ["collector_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
   }],
   ["usage_meter", {
     kind: "worker", operationMode: "on_demand", provider: null, healthScope: "aggregate",
-    unmonitoredReasons: ["independent_evidence_absent"], observedAllowed: false,
+    unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true,
   }],
   ["watchtower_self", {
     kind: "gate", operationMode: "structural", provider: null, healthScope: "self",
@@ -220,12 +228,13 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
       || (node.operation_mode !== undefined && !OPERATION_MODE_SET.has(node.operation_mode))
       || (node.provider !== undefined && !PROVIDER_SET.has(node.provider))
       || (node.health_scope !== undefined && !HEALTH_SCOPE_SET.has(node.health_scope))
-      || !isPlainObject(node.health) || !hasExactKeys(node.health, HEALTH_KEYS)
+      || !isPlainObject(node.health) || !hasRequiredAllowedKeys(node.health, HEALTH_REQUIRED_KEYS, HEALTH_KEYS)
       || !HEALTH_STATE_SET.has(node.health.state)
       || !Array.isArray(node.health.reasons) || node.health.reasons.length > MAX_REASON_COUNT
       || !node.health.reasons.every((reason) => validText(reason))
       || !(node.health.age_seconds === null
-        || (Number.isFinite(node.health.age_seconds) && node.health.age_seconds >= 0))) {
+        || (Number.isFinite(node.health.age_seconds) && node.health.age_seconds >= 0))
+      || (node.health.activity_state !== undefined && !["idle", "collecting"].includes(node.health.activity_state))) {
       throw new Error("topology_snapshot_node_invalid");
     }
     if (nodeIds.has(node.id)) throw new Error("topology_snapshot_node_duplicate");
@@ -236,16 +245,19 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
     }
     const protectedContract = PROTECTED_NODE_CONTRACTS.get(node.id);
     if (protectedContract !== undefined) {
+      const observedAllowed = protectedContract.observedAllowed
+        && (node.id !== "usage_meter" || snapshot.edges.some((edge) => edge.scope === "usage_meter_health_only"));
       const providerValid = protectedContract.provider === null
         ? !Object.hasOwn(node, "provider")
         : node.provider === protectedContract.provider;
       if (node.kind !== protectedContract.kind
-        || node.operation_mode !== protectedContract.operationMode
+        || !(protectedContract.operationModes ?? [protectedContract.operationMode]).includes(node.operation_mode)
         || node.health_scope !== protectedContract.healthScope
         || !providerValid
-        || (!protectedContract.observedAllowed && node.health.state !== "unmonitored")
-        || (node.health.state === "unmonitored"
-          && !exactStrings(node.health.reasons, protectedContract.unmonitoredReasons))) {
+        || (!observedAllowed && node.health.state !== "unmonitored")
+        || (!observedAllowed && node.health.state === "unmonitored"
+          && (!node.health.reasons.includes(protectedContract.unmonitoredReasons[0])
+            || !node.health.reasons.every((reason) => protectedContract.unmonitoredReasons.includes(reason))))) {
         throw new Error("topology_snapshot_protected_node_invalid");
       }
     }
@@ -273,7 +285,7 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
     summary[node.health.state] += 1;
   }
   for (const nodeId of PROTECTED_NODE_CONTRACTS.keys()) {
-    if (!nodeIds.has(nodeId)) throw new Error("topology_snapshot_protected_node_missing");
+    if (!nodeIds.has(nodeId) && PROTECTED_NODE_CONTRACTS.get(nodeId).migrationOptional !== true) throw new Error("topology_snapshot_protected_node_missing");
   }
   const edgeIds = new Set();
   const deliveryCounts = Object.fromEntries([...EDGE_DELIVERY_STATE_SET].map((state) => [state, 0]));
@@ -319,8 +331,10 @@ export function validateTopologyHealthSnapshot(snapshot, { now = Date.now() } = 
     if ((edge.flow === "control" && edge.to === "watchtower_self" && edge.scope === undefined)
       || (edge.scope === "node_health_only" && sourceNode.health_scope !== "node")
       || (edge.scope === "usage_collector_health_only"
-        && (sourceNode.id !== "usage_codex_collector" || sourceNode.health_scope !== "collector"))
+        && (!["usage_codex_collector", "usage_claude_collector"].includes(sourceNode.id) || sourceNode.health_scope !== "collector"))
       || (edge.scope === "usage_contract_structure_only"
+        && (sourceNode.id !== "usage_meter" || sourceNode.health_scope !== "aggregate"))
+      || (edge.scope === "usage_meter_health_only"
         && (sourceNode.id !== "usage_meter" || sourceNode.health_scope !== "aggregate"))) {
       throw new Error("topology_snapshot_edge_scope_invalid");
     }

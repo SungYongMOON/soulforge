@@ -215,7 +215,11 @@ export function buildTopologyViewModel(snapshot) {
       ? ["관측 근거 없음"]
       : reasons;
     const healthObserved = state !== "unmonitored";
-    const stateLabel = STATE_LABELS[state];
+    const activityState = ["usage_codex_collector", "usage_claude_collector", "usage_meter"].includes(node?.id)
+      && state === "ok" && ["idle", "collecting"].includes(node?.health?.activity_state)
+      ? node.health.activity_state : null;
+    const stateLabel = activityState === "idle" ? "정상 유휴"
+      : activityState === "collecting" ? "정상 수집 중" : STATE_LABELS[state];
     const ageLabel = describeTopologyAge(node?.health?.age_seconds);
     const column = Number.isFinite(node?.col)
       ? Math.round(node.col)
@@ -237,6 +241,7 @@ export function buildTopologyViewModel(snapshot) {
       healthScope: typeof node.health_scope === "string" ? node.health_scope : "node",
       state,
       stateLabel,
+      activityState,
       ageLabel,
       reasons: textReasons,
       healthObserved,

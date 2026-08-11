@@ -256,6 +256,13 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
     }
   } catch (error) {
     const code = error instanceof WatchtowerError ? error.code : "source_missing";
+    if (probe.missing_is_unmonitored === true) {
+      if (typeof probe.resident_task === "string" && typeof runSchtasks === "function") {
+        const state = await schtaskState({ task_name: probe.resident_task }, runSchtasks);
+        if (state === "not_running") return { state: "down", reasons: ["task_not_running", code], age_seconds: null };
+      }
+      return { state: "unmonitored", reasons: ["heartbeat_receipt_unavailable", code], age_seconds: null };
+    }
     return { state: "down", reasons: [code], age_seconds: null };
   }
 
@@ -304,7 +311,9 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
     reasons.push(...details.reasons);
   }
 
-  return { state: reasons.length > 0 ? "degraded" : "ok", reasons, age_seconds: ageSeconds };
+  const activityState = record?.activity_changed === true ? "collecting"
+    : record?.activity_changed === false ? "idle" : null;
+  return { state: reasons.length > 0 ? "degraded" : "ok", reasons, age_seconds: ageSeconds, ...(activityState === null ? {} : { activity_state: activityState }) };
 }
 
 export async function composeTopologyHealth(binding, options = {}) {

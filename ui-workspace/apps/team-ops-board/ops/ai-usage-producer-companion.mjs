@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -10,6 +10,51 @@ export const DEFAULT_USAGE_PRODUCER_INTERVAL_MS = 5 * 60 * 1_000;
 export const ACTIVE_CODEX_SESSION_MAX_AGE_MS = 15 * 60 * 1_000;
 
 const SAFE_THREAD_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,239}$/u;
+const HEARTBEAT_SCHEMA = "soulforge.ai_usage_producer_heartbeat.v1";
+
+function safeErrorCode(error) {
+  try {
+    const childError = JSON.parse(String(error?.stderr ?? ""))?.error;
+    if (typeof childError === "string" && /^[A-Za-z][A-Za-z0-9_.:-]{0,79}$/u.test(childError)) return childError;
+  } catch {}
+  const code = error?.code;
+  if (typeof code === "string" && /^[A-Za-z0-9_.:-]{1,80}$/u.test(code)) return code;
+  if (Number.isSafeInteger(code) && code >= 0 && code <= 255) return `collector_exit_${code}`;
+  return "collector_failed";
+}
+
+async function readHeartbeat(file) {
+  try {
+    const value = JSON.parse(await readFile(file, "utf8"));
+    return value?.schema_version === HEARTBEAT_SCHEMA ? value : null;
+  } catch { return null; }
+}
+
+async function writeHeartbeat(file, value) {
+  await mkdir(path.dirname(file), { recursive: true });
+  const temporary = `${file}.${process.pid}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await rename(temporary, file);
+}
+
+export async function persistProducerHeartbeat({ stateRoot, lane, attemptedAt, succeeded, errorCode = null, activity = null, projectionAt = null, now = () => new Date() } = {}) {
+  const file = path.join(stateRoot, "producer_health", `${lane}.json`);
+  const prior = await readHeartbeat(file);
+  const completedAt = now().toISOString();
+  const value = {
+    schema_version: HEARTBEAT_SCHEMA,
+    lane,
+    status: succeeded ? "ok" : "error",
+    attempted_at: attemptedAt,
+    completed_at: completedAt,
+    last_success_at: succeeded ? completedAt : prior?.last_success_at ?? null,
+    error_codes: succeeded ? [] : [errorCode],
+    activity_changed: typeof activity === "boolean" ? activity : null,
+    projection_at: typeof projectionAt === "string" && Number.isFinite(Date.parse(projectionAt)) ? projectionAt : null,
+  };
+  await writeHeartbeat(file, value);
+  return value;
+}
 
 export function activeCodexSessionIds(lifecycle, { now = Date.now } = {}) {
   if (!Array.isArray(lifecycle?.identities)) return [];
@@ -46,7 +91,7 @@ export async function loadCurrentThreadIds(registryPath) {
     : [];
 }
 
-export async function runUsageProducerSweep({ repoRoot, stateRoot, watchtowerPointerPath, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles } = {}) {
+export async function runUsageProducerSweep({ repoRoot, stateRoot, watchtowerPointerPath, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles, loadSnapshot = async () => JSON.parse(await readFile(path.join(stateRoot, "current.json"), "utf8")), persistHeartbeat = persistProducerHeartbeat, now = () => new Date() } = {}) {
   if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(stateRoot ?? "")) {
     return { status: "hold", completed: 0 };
   }
@@ -55,23 +100,65 @@ export async function runUsageProducerSweep({ repoRoot, stateRoot, watchtowerPoi
   const claudeQuotaRoot = path.join(repoRoot, "guild_hall", "state", "operations", "provider_quota", "claude", "oauth");
   const watchtowerCli = path.join(repoRoot, "guild_hall", "watchtower", "cli.mjs");
   let completed = 0;
+  let projectionCommandSucceeded = false;
+  const attemptedAt = now().toISOString();
+  let priorDigest = null;
+  let priorEventCount = null;
+  try {
+    const priorSnapshot = await loadSnapshot();
+    priorDigest = priorSnapshot?.events_digest ?? null;
+    priorEventCount = Number.isSafeInteger(priorSnapshot?.event_count) ? priorSnapshot.event_count : null;
+  } catch {}
   const lifecycleArgs = threadIds.length > 0
     ? [cli, "lifecycle-reconcile", ...threadIds.flatMap((threadId) => ["--thread-id", threadId]), "--state-root", stateRoot, "--apply"]
     : null;
-  for (const args of [
+  const commands = [
     lifecycleArgs,
     [cli, "collect", "--state-root", stateRoot, "--apply"],
     [cli, "collect-claude", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
     [claudeQuotaCollector, "--gate-path", path.join(claudeQuotaRoot, "enabled.v1.json"), "--receipt-path", path.join(repoRoot, "guild_hall", "state", "operations", "provider_quota", "claude", "statusline", "provider_quota.receipt.v1.json")],
-    path.isAbsolute(watchtowerPointerPath ?? "")
-      ? [watchtowerCli, "probe", "--pointer", watchtowerPointerPath, "--json"]
-      : null,
-  ].filter(Boolean)) {
+  ].filter(Boolean);
+  for (const args of commands) {
+    const command = args[0] === cli ? args[1] : null;
     try {
       await run(process.execPath, args, { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
       completed += 1;
-    } catch {
+      if (command === "collect-claude") {
+        projectionCommandSucceeded = true;
+        await persistHeartbeat({ stateRoot, lane: "claude", attemptedAt, succeeded: true, now });
+      }
+      if (command === "collect") {
+        projectionCommandSucceeded = true;
+        await persistHeartbeat({ stateRoot, lane: "codex", attemptedAt, succeeded: true, now });
+      }
+    } catch (error) {
+      if (command === "collect-claude") await persistHeartbeat({ stateRoot, lane: "claude", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
+      if (command === "collect") {
+        await persistHeartbeat({ stateRoot, lane: "codex", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
+      }
       // Each producer remains fail-closed and the next interval retries it.
+    }
+  }
+  try {
+    const snapshot = await loadSnapshot();
+    if (!projectionCommandSucceeded || snapshot?.schema_version !== "soulforge.ai_usage_meter_snapshot.v1" || !Number.isFinite(Date.parse(snapshot.generated_at))) {
+      throw Object.assign(new Error("ledger_projection_invalid"), { code: "ledger_projection_invalid" });
+    }
+    const activity = priorDigest !== null && typeof snapshot.events_digest === "string"
+      ? snapshot.events_digest !== priorDigest
+      : priorEventCount !== null && Number.isSafeInteger(snapshot.event_count)
+        ? snapshot.event_count !== priorEventCount
+        : null;
+    await persistHeartbeat({ stateRoot, lane: "meter", attemptedAt, succeeded: true, activity, projectionAt: snapshot.generated_at, now });
+  } catch (error) {
+    await persistHeartbeat({ stateRoot, lane: "meter", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
+  }
+  if (path.isAbsolute(watchtowerPointerPath ?? "")) {
+    try {
+      await run(process.execPath, [watchtowerCli, "probe", "--pointer", watchtowerPointerPath, "--json"], { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+      completed += 1;
+    } catch {
+      // Observation failure is isolated from collection and retried next interval.
     }
   }
   const activeFiles = await Promise.resolve(loadActiveFiles({ stateRoot })).catch(() => []);

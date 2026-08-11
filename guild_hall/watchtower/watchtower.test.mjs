@@ -29,7 +29,7 @@ test("topology models actual hybrid on-demand usage producers and structural rou
   const nodesById = new Map(TOPOLOGY_NODES.map((node) => [node.id, node]));
   assert.equal(nodesById.size, TOPOLOGY_NODES.length);
   assert.equal(TOPOLOGY_NODES.length, 27);
-  assert.equal(TOPOLOGY_EDGES.length, 32);
+  assert.equal(TOPOLOGY_EDGES.length, 33);
   assert.equal(validateTopologyDefinition().nodes, TOPOLOGY_NODES);
   for (const edge of TOPOLOGY_EDGES) {
     assert.ok(nodesById.has(edge.from), `missing source ${edge.from}`);
@@ -57,7 +57,8 @@ test("topology models actual hybrid on-demand usage producers and structural rou
     { from: "usage_meter", to: "store_usage_ledger", label: "validated append", flow: "data" },
     { from: "store_usage_ledger", to: "consumer_board", label: "read-only usage snapshot", flow: "data" },
     { from: "usage_codex_collector", to: "watchtower_self", label: "Codex collector health 관찰", flow: "control", scope: "usage_collector_health_only" },
-    { from: "usage_meter", to: "watchtower_self", label: "usage contract 구조 관찰", flow: "control", scope: "usage_contract_structure_only" },
+    { from: "usage_claude_collector", to: "watchtower_self", label: "Claude collector health 관찰", flow: "control", scope: "usage_collector_health_only" },
+    { from: "usage_meter", to: "watchtower_self", label: "usage ledger validation health 관찰", flow: "control", scope: "usage_meter_health_only" },
   ]);
   for (const provider of ["codex", "claude", "antigravity"]) {
     const source = nodesById.get(`src_${provider}`);
@@ -67,15 +68,15 @@ test("topology models actual hybrid on-demand usage producers and structural rou
     assert.equal(source.operation_mode, "structural");
     assert.equal(collector.provider, provider);
     assert.equal(collector.health_scope, "collector");
-    assert.equal(collector.operation_mode, "on_demand");
+    assert.equal(collector.operation_mode, provider === "antigravity" ? "on_demand" : "scheduled");
   }
   assert.equal(nodesById.get("usage_meter").health_scope, "aggregate");
   assert.equal(nodesById.get("usage_meter").operation_mode, "on_demand");
-  assert.equal(nodesById.get("usage_meter").probe, null);
+  assert.equal(nodesById.get("usage_meter").probe, "usage_meter");
 
   const watchtowerInputs = TOPOLOGY_EDGES.filter((edge) => edge.to === "watchtower_self");
   const watchtowerOutputs = TOPOLOGY_EDGES.filter((edge) => edge.from === "watchtower_self");
-  assert.equal(watchtowerInputs.length, 7);
+  assert.equal(watchtowerInputs.length, 8);
   assert.ok(watchtowerInputs.every((edge) => edge.flow === "control" && typeof edge.scope === "string"));
   assert.deepEqual(watchtowerOutputs.map(({ from, to, label, flow }) => ({ from, to, label, flow })), [
     { from: "watchtower_self", to: "consumer_board", label: "판정 스냅샷", flow: "data" },
@@ -196,6 +197,29 @@ test("json_file probe judges fresh, late, stale, status, and numeric degrades", 
   assert.deepEqual(degraded.reasons, ["status_degraded", "count_failed_count_5"]);
 });
 
+test("usage heartbeat is unknown when absent, degrades within grace, and is down only with explicit task stop", async () => {
+  const root = await tempRoot();
+  const file = path.join(root, "usage-heartbeat.json");
+  const probe = {
+    kind: "json_file", path: file, timestamp_field: "last_success_at", status_field: "status",
+    ok_values: ["ok"], period_seconds: 300, grace_seconds: 600,
+    resident_task: "Soulforge-TeamOpsBoard-ReadOnly-v1", missing_is_unmonitored: true,
+  };
+  assert.deepEqual(await runProbe(probe, { now: NOW }), {
+    state: "unmonitored", reasons: ["heartbeat_receipt_unavailable", "source_missing"], age_seconds: null,
+  });
+  assert.deepEqual(await runProbe(probe, { now: NOW, run_schtasks: async () => "Ready" }), {
+    state: "down", reasons: ["task_not_running", "source_missing"], age_seconds: null,
+  });
+  await writeFile(file, JSON.stringify({ last_success_at: new Date(NOW - 600_000).toISOString(), status: "error", error_codes: ["collector_failed"], activity_changed: false }));
+  const degraded = await runProbe(probe, { now: NOW });
+  assert.equal(degraded.state, "degraded");
+  assert.ok(degraded.reasons.includes("collector_failed"));
+  await writeFile(file, JSON.stringify({ last_success_at: new Date(NOW - 901_000).toISOString(), status: "ok", activity_changed: false }));
+  assert.equal((await runProbe(probe, { now: NOW, run_schtasks: async () => "Running" })).state, "stale");
+  assert.equal((await runProbe(probe, { now: NOW, run_schtasks: async () => "Ready" })).state, "down");
+});
+
 test("jsonl_tail probe reads the last record and fails closed on missing sources", async () => {
   const root = await tempRoot();
   const file = path.join(root, "heartbeats.jsonl");
@@ -300,7 +324,7 @@ test("provider evidence absence stays catalog-only and never becomes green", asy
     });
   }
 
-  for (const provider of ["claude", "antigravity"]) {
+  for (const provider of ["antigravity"]) {
     const collector = snapshot.nodes.find((node) => node.id === `usage_${provider}_collector`);
     assert.equal(collector.operation_mode, "on_demand");
     assert.equal(collector.health_scope, "collector");
@@ -312,7 +336,7 @@ test("provider evidence absence stays catalog-only and never becomes green", asy
   }
 });
 
-test("Codex hook health is collector-only and cannot green provider or aggregate health", async () => {
+test("separate producer heartbeats cannot green provider evidence", async () => {
   const root = await tempRoot();
   const healthFile = path.join(root, "usage-health.json");
   await writeFile(healthFile, JSON.stringify({
@@ -320,7 +344,7 @@ test("Codex hook health is collector-only and cannot green provider or aggregate
     status: "ok",
   }));
   const binding = baseBinding(path.join(root, "state"), {
-    usage_meter: {
+    usage_codex_collector: {
       kind: "json_file",
       path: healthFile,
       timestamp_field: "observed_at",
@@ -345,23 +369,23 @@ test("Codex hook health is collector-only and cannot green provider or aggregate
   assert.equal(aggregate.health_scope, "aggregate");
   assert.deepEqual(aggregate.health, {
     state: "unmonitored",
-    reasons: ["independent_evidence_absent"],
+    reasons: ["independent_evidence_absent", "probe_unbound"],
     age_seconds: null,
   });
   // 스냅샷 간선은 정의상의 전달 근거를 함께 나른다. 보드가 근거 없는 선을 초록으로 그리지
   // 않으려면 이 필드를 받아야 한다.
-  const contractEdge = snapshot.edges.find((edge) => edge.scope === "usage_contract_structure_only");
+  const contractEdge = snapshot.edges.find((edge) => edge.scope === "usage_meter_health_only");
   assert.deepEqual(contractEdge, {
     from: "usage_meter",
     to: "watchtower_self",
-    label: "usage contract 구조 관찰",
+    label: "usage ledger validation health 관찰",
     flow: "control",
-    scope: "usage_contract_structure_only",
+    scope: "usage_meter_health_only",
     receipt: null,
-    unreceipted_reason: "structural_only",
+    unreceipted_reason: "probe_observation_only",
     delivery: {
       state: "unreceipted",
-      reason: "structural_only",
+      reason: "probe_observation_only",
       proves_delivery: false,
     },
   });
@@ -554,13 +578,13 @@ test("edge definition rejects a missing receipt field, a bad reason, and a recei
   const noProbe = TOPOLOGY_EDGES
     .filter((edge) => !(edge.from === "usage_meter" && edge.to === "watchtower_self"))
     .concat({
-      from: "usage_meter", to: "watchtower_self", label: "usage contract 구조 관찰",
-      flow: "control", scope: "usage_contract_structure_only",
+      from: "usage_antigravity_collector", to: "watchtower_self", label: "unavailable collector health",
+      flow: "control", scope: "usage_collector_health_only",
       receipt: null, unreceipted_reason: "probe_observation_only",
     });
   assert.throws(
     () => validateTopologyDefinition({ edges: noProbe }),
-    (error) => error?.code === "topology_edge_probe_observation_unsupported",
+    (error) => error?.code === "topology_edge_scope_subject_invalid",
   );
   // 유효한 영수증 키는 통과한다.
   assert.doesNotThrow(() => validateTopologyDefinition({ edges: withFirst({ receipt: "mail_delivery" }) }));

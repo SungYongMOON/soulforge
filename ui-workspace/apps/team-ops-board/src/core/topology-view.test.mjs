@@ -85,6 +85,19 @@ test("view model lays out columns and keeps observed health separate from catalo
   assert.match(collectorA.statusText, /^열화 · 77초 전 · 상태 신호: degraded$/u);
 });
 
+test("usage health labels idle and collecting without changing the health state", () => {
+  const snapshot = sampleSnapshot();
+  const node = snapshot.nodes.find(({ id }) => id === "consumer_board");
+  node.id = "usage_meter";
+  node.health.activity_state = "idle";
+  let usage = buildTopologyViewModel(snapshot).nodes.find(({ id }) => id === "usage_meter");
+  assert.equal(usage.state, "ok");
+  assert.equal(usage.stateLabel, "정상 유휴");
+  node.health.activity_state = "collecting";
+  usage = buildTopologyViewModel(snapshot).nodes.find(({ id }) => id === "usage_meter");
+  assert.equal(usage.stateLabel, "정상 수집 중");
+});
+
 test("selected-node paths remain structural and enumerate direct plus reachable relationships", () => {
   const model = buildTopologyViewModel(sampleSnapshot());
   const paths = buildTopologyStructuralPaths(model, "src_hiworks");

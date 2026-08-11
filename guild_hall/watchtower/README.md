@@ -103,3 +103,17 @@ Antigravity DB ────────────> usage_antigravity_collector
 npm run validate:watchtower
 npm run guild-hall:watchtower:probe
 ```
+
+### AI usage producer heartbeat
+
+- Board의 5분 companion은 ignored state의 `producer_health/{codex,claude,meter}.json`에
+  경로·원문 없는 원자적 heartbeat를 남긴다. period는 300초, grace는 600초다.
+- Codex와 Claude는 각 수집 시도/성공을 독립적으로 기록한다. Meter 성공은 두 수집이
+  끝난 뒤 최종 ledger snapshot의 schema와 생성 시각을 검증한 경우에만 기록한다.
+- `activity_changed=false`는 정상 유휴이며 장애 신호가 아니다. 토큰·event 증가는
+  `activity_changed=true`라는 정보성 활동 표시일 뿐 health 판정에 참여하지 않는다.
+- 첫 heartbeat가 없거나 손상되면 `unmonitored`(UNKNOWN/HOLD)다. last-good 뒤의 실패는
+  grace 안에서 degraded, 900초를 넘으면 stale이며, `down`은 소유 scheduled task가
+  명시적으로 실행 중이 아니라고 확인된 경우에만 쓴다.
+- 이 heartbeat는 collector/Meter control health만 증명한다. data edge는 별도 receipt가
+  없으므로 계속 `unreceipted`이며 provider/account 상태나 완전한 전달을 증명하지 않는다.
