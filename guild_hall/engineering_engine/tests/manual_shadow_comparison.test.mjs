@@ -17,6 +17,7 @@ const HASH = 'a'.repeat(64);
 const NOTEBOOK_BYTES = Buffer.from('private notebook-only export', 'utf8');
 const HYBRID_BYTES = Buffer.from('private hybrid export', 'utf8');
 const DEFAULT_RAW_EXPORTS = { notebook_only: NOTEBOOK_BYTES, hybrid: HYBRID_BYTES };
+const SYNTHETIC_PROJECT_MARKER = ['P', '00', '-', '000'].join('');
 
 const evaluateManualShadowComparison = (packet, options = { rawExportBytes: DEFAULT_RAW_EXPORTS }) =>
   evaluatePure(packet, options);
@@ -371,7 +372,7 @@ test('provider-visible strings cannot hide paths, credentials, project ids, or e
     ['corpus', 'notes', 'api_key=sk-examplecredential123456'],
     ['corpus', 'notes', 'Bearer eyJabcdefghijkl.abcdefghijkl.abcdefgh'],
     ['corpus', 'notes', 'owner@example.invalid'],
-    ['derived_state_pack', 'notes', 'project_code=P26-014'],
+    ['derived_state_pack', 'notes', `project_code=${SYNTHETIC_PROJECT_MARKER}`],
     ['derived_state_pack', 'notes', 'contract_number=REAL-123'],
     ['question_set', 'question', 'oracle_type=correct'],
     ['question_set', 'question', 'gold answer: correct'],

@@ -1,0 +1,27 @@
+{
+  "data_classification": "public_se_sources_only",
+  "contains_actual_project_data": false,
+  "contains_private_data": false,
+  "source_commitments": [
+    {
+      "source_id": "NASA_SE_HDBK_R2",
+      "revision": "NASA/SP-2016-6105 Rev 2",
+      "sha256": "3153ae2e53e29452d5997efafe280a5f05cd21b43a047e988a17e1dd5207a38e"
+    },
+    {
+      "source_id": "NASA_HDBK_1009A",
+      "revision": "Revision A approved 2025-03-12",
+      "sha256": "0433f3e9d7de8999182e2f64584ff3cbbcec507b2152aadd4bc48206f16f2cf9"
+    },
+    {
+      "source_id": "DOD_SE_GUIDEBOOK_2022",
+      "revision": "February 2022",
+      "sha256": "1a4a839253c3580d1e3cec2bc3f0d066182e56cee1cbb9f0d3293d9fb6bffe62"
+    },
+    {
+      "source_id": "DOD_EDS_GUIDEBOOK_C2",
+      "revision": "Change 2 October 2024",
+      "sha256": "e83901401a6dbf230a4bfaa5491762d9cf698618571f4e0957cdcdc8379908e5"
+    }
+  ]
+}

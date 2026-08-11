@@ -3971,7 +3971,7 @@ function EngineeringEngineTopologySurface({ projection }: { projection: any }) {
       </div>
       <div className="watchtower-graph-guide engineering-topology-guide">
         <span><b>형태</b> 기존 입력·감독·연산·저장·판단·출력 도형 유지</span>
-        <span><b>선</b> Engineering Engine 내부 import 105개 · 전달 영수증 아님</span>
+        <span><b>선</b> Engineering Engine 내부 import {model.source.edgeCount}개 · 전달 영수증 아님</span>
         <span className="watchtower-graph-focus" role="status" aria-live="polite">
           {selectedNode ? `${selectedNode.label} 직접 연결 ${directEdges.length}개 강조` : "모듈을 선택하면 직접 연결만 강조"}
         </span>

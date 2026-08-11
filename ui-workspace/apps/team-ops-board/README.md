@@ -480,8 +480,8 @@ a current success. `/topology-health.snapshot.json` and W1 health behavior are
 unchanged.
 
 The federation remains the sole authority for Engineering Engine node and edge
-identity. The classic Engine builder accepts exactly the tracked 26 module nodes
-and 113 provider-local `imports` edges, lays all of them out in five semantic lanes,
+identity. The classic Engine builder accepts exactly the tracked 28 module nodes
+and 123 provider-local `imports` edges, lays all of them out in five semantic lanes,
 and never assigns W1 health or delivery evidence to them. Engine runtime stays
 `UNKNOWN`; runtime authority and repair execution authority stay `false`.
 

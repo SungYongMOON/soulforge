@@ -16,7 +16,7 @@ const ENGINE_LANES = Object.freeze([
     roleLabel: "BOUNDARY",
     label: "계약·권한",
     tone: "input",
-    ids: ["contract_config", "common_se_corpus_projection", "execution_mode", "ceilings", "authority", "identity"],
+    ids: ["contract_config", "common_se_corpus_projection", "se_core_crosswalk_projection", "execution_mode", "ceilings", "authority", "identity"],
   },
   {
     roleLabel: "ASSEMBLE",
@@ -40,13 +40,14 @@ const ENGINE_LANES = Object.freeze([
     roleLabel: "OUTPUT",
     label: "결과·자기 구조",
     tone: "output",
-    ids: ["engine_pass", "engine_self_topology"],
+    ids: ["engine_pass", "engine_self_topology", "se_core_crosswalk_case_run"],
   },
 ]);
 
 const CLASSIC_SHAPE_BY_ID = Object.freeze({
   contract_config: "external",
   common_se_corpus_projection: "external",
+  se_core_crosswalk_projection: "external",
   execution_mode: "external",
   ceilings: "external",
   authority: "gate",
@@ -66,6 +67,7 @@ const CLASSIC_SHAPE_BY_ID = Object.freeze({
   snapshot: "store",
   engine_pass: "consumer",
   engine_self_topology: "consumer",
+  se_core_crosswalk_case_run: "consumer",
 });
 
 const STRUCTURAL_LIMITS = Object.freeze([

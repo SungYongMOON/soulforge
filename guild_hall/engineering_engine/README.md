@@ -1,5 +1,34 @@
 # guild_hall/engineering_engine
 
+## SE-core source-pack and fixed-case evaluation
+
+The public-safe SE-core evaluation seam has three distinct layers:
+
+- `subjects/se_core_crosswalk_projection.mjs` accepts only the exact public
+  corpus membership, an independently reviewed page-to-rule crosswalk, and its
+  review receipt. It emits a candidate common-SE projection and excludes
+  evaluator labels, candidate applications, source bodies, Notebook answers,
+  and project payloads from runtime material.
+- `subjects/se_core_crosswalk_case_run.mjs` transcribes the seven exact pinned
+  synthetic prompts into typed observations and runs the existing Engine and
+  access/binding guards. It is a fixed-case judgment/reference harness, not a
+  general natural-language classifier.
+- `evaluation/se_core_eval_ledger.mjs` owns the metadata-only append ledger for
+  immutable attempts, direct artifact hashes, review links, and Engine row
+  commitments. Raw answers and source bodies remain in the workspace payload
+  plane and are never copied into the ledger.
+
+The two crosswalk CLIs and the ledger CLI default to stdout/read-only behavior.
+An output file is created only through an explicit create-only option. The
+Engine runner invokes no learned model, provider, network, ERP writer, or
+Notebook surface.
+
+The normalized `stale`, `unauthorized`, and `wrong-project` rows preserve their
+actual implementation limits: stale is `gap_unknown` plus a revision-evidence
+guard; unauthorized and wrong-project are access/binding refusal receipts, not
+invented Engine-native gap types. All rows remain
+`external_advisory_candidate` until a separate acceptance route says otherwise.
+
 ## 목적
 
 - `engineering_engine/` 은 Soulforge 의 cross-project 증거기반 체계공학 판단 engine 을 소유한다.

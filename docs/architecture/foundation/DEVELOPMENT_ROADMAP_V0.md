@@ -1,5 +1,20 @@
 # Development Roadmap v0
 
+## Active slice update — SE-core public-synthetic evaluation (2026-08-12)
+
+- The four-source public source pack and closed scorer corpus now pin exact
+  revisions, byte lengths, and SHA-256 values without publishing source bodies.
+- An independently reviewed page-to-rule crosswalk can be compiled into a
+  candidate Engine projection. Evaluator labels and Notebook output remain
+  outside the runtime projection.
+- The fixed seven-case runner exercises typed Engine, revision, ACL, and binding
+  semantics without a learned model, network, provider call, ERP write, or
+  default file write. It is not a general natural-language classifier.
+- Notebook rounds and Engine attempts remain contestants. Raw artifacts stay in
+  `_workspaces/**`; the evaluation ledger stores metadata-only hashes and links.
+  A final same-byte end-to-end comparison remains blocked because provider-side
+  post-ingest byte parity is not observable and the Engine input is structured.
+
 ## 목적
 
 - 이 문서는 Soulforge의 큰 개발 방향과 현재 우선순위를 한곳에 모으는 단일 정본이다.

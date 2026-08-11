@@ -1,0 +1,94 @@
+{
+  "schema_version": "soulforge.se_core_eval.source_pack.public.v1",
+  "pack_id": "SE_CORE_EVAL_V1",
+  "data_classification": "public_se_sources_only",
+  "contains_actual_project_data": false,
+  "contains_private_data": false,
+  "source_count": 4,
+  "sources": [
+    {
+      "source_id": "NASA_SE_HDBK_R2",
+      "authority_family": "general_se_guidance",
+      "title": "NASA Systems Engineering Handbook",
+      "filename": "NASA_SP_2016_6105_Rev2.pdf",
+      "revision": "NASA/SP-2016-6105 Rev 2",
+      "sha256": "3153ae2e53e29452d5997efafe280a5f05cd21b43a047e988a17e1dd5207a38e",
+      "byte_length": 4122125,
+      "official_landing_url": "https://ntrs.nasa.gov/citations/20170001761",
+      "official_artifact_url": "https://ntrs.nasa.gov/api/citations/20170001761/downloads/20170001761.pdf",
+      "rights_basis": "NTRS Distribution Limits: Public; Copyright: Public Use Permitted",
+      "analysis_eligibility": {
+        "engine": "PASS",
+        "notebook_shadow": "PASS",
+        "byte_scope": "exact_unmodified_full_pdf"
+      },
+      "derivative_graphics_republication": {
+        "state": "HOLD",
+        "basis": "UNKNOWN_not_authorized_by_this_pack"
+      }
+    },
+    {
+      "source_id": "NASA_HDBK_1009A",
+      "authority_family": "general_se_guidance",
+      "title": "NASA Systems Modeling Handbook",
+      "filename": "NASA_HDBK_1009A.pdf",
+      "revision": "Revision A approved 2025-03-12",
+      "sha256": "0433f3e9d7de8999182e2f64584ff3cbbcec507b2152aadd4bc48206f16f2cf9",
+      "byte_length": 8147085,
+      "official_landing_url": "https://standards.nasa.gov/standard/NASA/NASA-HDBK-1009",
+      "official_artifact_url": "https://standards.nasa.gov/system/files/tmp/2025-03-12-NASA-HDBK-1009A.pdf",
+      "rights_basis": "Internet Public; PUBLIC: Upload Publicly Available Standard; Approved for public release, distribution unlimited",
+      "analysis_eligibility": {
+        "engine": "PASS",
+        "notebook_shadow": "PASS",
+        "byte_scope": "exact_unmodified_full_pdf"
+      },
+      "derivative_graphics_republication": {
+        "state": "HOLD",
+        "basis": "UNKNOWN_not_authorized_by_this_pack"
+      }
+    },
+    {
+      "source_id": "DOD_SE_GUIDEBOOK_2022",
+      "authority_family": "general_se_guidance",
+      "title": "DoD Systems Engineering Guidebook",
+      "filename": "DoD_Systems_Engineering_Guidebook_Feb2022.pdf",
+      "revision": "February 2022",
+      "sha256": "1a4a839253c3580d1e3cec2bc3f0d066182e56cee1cbb9f0d3293d9fb6bffe62",
+      "byte_length": 4502336,
+      "official_landing_url": "https://www.cto.mil/sea/pg/",
+      "official_artifact_url": "https://www.cto.mil/wp-content/uploads/2024/05/SE-Guidebook-Feb2022.pdf",
+      "rights_basis": "Distribution Statement A; approved for public release; distribution unlimited; DOPSR 22-S-0595",
+      "analysis_eligibility": {
+        "engine": "PASS",
+        "notebook_shadow": "PASS",
+        "byte_scope": "exact_unmodified_full_pdf"
+      },
+      "derivative_graphics_republication": {
+        "state": "HOLD",
+        "basis": "UNKNOWN_not_authorized_by_this_pack"
+      }
+    },
+    {
+      "source_id": "DOD_EDS_GUIDEBOOK_C2",
+      "authority_family": "general_se_guidance",
+      "title": "Engineering of Defense Systems Guidebook",
+      "filename": "DoD_Engineering_of_Defense_Systems_Guidebook_Change2_Oct2024.pdf",
+      "revision": "Change 2 October 2024",
+      "sha256": "e83901401a6dbf230a4bfaa5491762d9cf698618571f4e0957cdcdc8379908e5",
+      "byte_length": 2659791,
+      "official_landing_url": "https://www.cto.mil/sea/pg/",
+      "official_artifact_url": "https://www.cto.mil/wp-content/uploads/2024/10/Eng-Def-Sys-Change2-7October2024-v3.pdf",
+      "rights_basis": "Distribution Statement A; approved for public release; distribution unlimited; DOPSR 22-S-0821",
+      "analysis_eligibility": {
+        "engine": "PASS",
+        "notebook_shadow": "PASS",
+        "byte_scope": "exact_unmodified_full_pdf"
+      },
+      "derivative_graphics_republication": {
+        "state": "HOLD",
+        "basis": "UNKNOWN_not_authorized_by_this_pack"
+      }
+    }
+  ]
+}

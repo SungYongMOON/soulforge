@@ -42,6 +42,7 @@ if (args.indexOf('--oracle') === -1 || !oraclePath || !existsSync(oraclePath)) {
 }
 const oracle = JSON.parse(readFileSync(oraclePath, 'utf8'));
 
+const SYNTHETIC_PROJECT_MARKER = ['P', '00', '-', '000'].join('');
 const results = [];
 const record = (id, ok, note) => results.push({ id, ok, note });
 const rejects = (id, fn, note = '') => {
@@ -156,7 +157,7 @@ for (const c of oracle.ref_resolution_cases) {
 }
 {
   record('KERNEL/placeholder_recognised', isPlaceholder(PLACEHOLDERS.PENDING_ENGINE_OWNER) === true, 'open-decision token');
-  record('KERNEL/identifier_opacity_rejects_project_shape', inspectIdentifierOpacity('src-P26-014-r1').opaque === false,
+  record('KERNEL/identifier_opacity_rejects_project_shape', inspectIdentifierOpacity(`src-${SYNTHETIC_PROJECT_MARKER}-r1`).opaque === false,
     'a project-code shape must not be embeddable in an identifier');
   record('KERNEL/identifier_opacity_accepts_opaque', inspectIdentifierOpacity('src-0001-r3').opaque === true, 'ordinary opaque id');
   // Regression: this exact UUIDv7 matched project_code_shape across a dash boundary
@@ -165,7 +166,7 @@ for (const c of oracle.ref_resolution_cases) {
     inspectIdentifierOpacity('0192f0a1-b2c3-7d4e-8f01-234567890abc').opaque === true,
     'a canonical UUID layout cannot encode meaning, so the heuristic must not veto it');
   record('KERNEL/identifier_opacity_still_rejects_hand_assembled_project_code',
-    inspectIdentifierOpacity('finding-P26-014-0007').opaque === false,
+    inspectIdentifierOpacity(`finding-${SYNTHETIC_PROJECT_MARKER}-0007`).opaque === false,
     'the fast path must not have disabled the heuristic for non-UUID strings');
 }
 {

@@ -13,6 +13,7 @@ import {
 import { inspectIdentifierOpacity } from '../kernel/identity.mjs';
 import { ContractError } from '../kernel/errors.mjs';
 
+const SYNTHETIC_PROJECT_MARKER = ['P', '00', '-', '000'].join('');
 const results = [];
 const record = (id, ok, note = '') => results.push({ id, ok: ok === true, note });
 const rejects = (id, fn, expectedCode, note = '') => {
@@ -106,8 +107,8 @@ for (const [label, bad] of [
 // The mint-level opacity check is defence in depth and is unreachable while the form gate
 // is stricter. This asserts the ordering so the redundancy is deliberate, not accidental.
 record('MINT/form_gate_fires_before_opacity_gate',
-  inspectIdentifierOpacity('finding-P26-014-0007').opaque === false &&
-  (() => { try { mint({ family: 'finding_id', value: 'finding-P26-014-0007', laneToken: LANE, registry: emptyRegistry(), derivation: 'random' }); return false; }
+  inspectIdentifierOpacity(`finding-${SYNTHETIC_PROJECT_MARKER}-0007`).opaque === false &&
+  (() => { try { mint({ family: 'finding_id', value: `finding-${SYNTHETIC_PROJECT_MARKER}-0007`, laneToken: LANE, registry: emptyRegistry(), derivation: 'random' }); return false; }
            catch (e) { return e.code === CODES.FORM_INVALID; } })(),
   'a meaning-bearing string is refused on form before opacity is consulted');
 

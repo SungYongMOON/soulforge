@@ -29,6 +29,11 @@ body, credential, or runtime path belongs in these tracked examples.
 
 - `SE_CORE_EVAL_V1.corpus_manifest.template.json` records source eligibility and
   materialization separately. A public URL alone is not upload permission.
+- `SE_CORE_EVAL_V1.source_pack.public.json` pins the four approved public-source
+  identities, exact revisions, byte lengths, SHA-256 values, and conservative
+  external-use eligibility without containing source bodies.
+- `SE_CORE_EVAL_V1.corpus.public.json` is the closed scorer/Engine source-membership
+  commitment derived from that source pack. It is metadata, not extracted text.
 - `common_se_projection.synthetic.json` is a payload-free synthetic projection
   used to verify the Engine adapter. It is not a real source crosswalk and does
   not prove that the common-SE corpus has been projected.
@@ -47,10 +52,10 @@ before any row becomes ready.
 
 | Candidate | Official revision | Initial disposition |
 |---|---|---|
-| [NASA Systems Engineering Handbook](https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20170001761.pdf) | NASA/SP-2016-6105 Rev 2, 2017-02-17 | public-use candidate; hash still required |
-| [NASA Systems Modeling Handbook](https://standards.nasa.gov/system/files/tmp/2025-03-12-NASA-HDBK-1009A.pdf) | NASA-HDBK-1009A Rev A, 2025-03-12 | public-release candidate; hash still required |
-| [DoD Systems Engineering Guidebook](https://www.cto.mil/wp-content/uploads/2023/06/SE-Guidebook-2022.pdf) | December 2021 guide, officially listed 2022-02-11 | Distribution A candidate; hash still required |
-| [Engineering of Defense Systems Guidebook](https://www.cto.mil/wp-content/uploads/2024/10/Eng-Def-Sys-Change2-7October2024-v3.pdf) | February 2022, Change 2 October 2024 | optional Distribution A candidate; hash still required |
+| [NASA Systems Engineering Handbook](https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20170001761.pdf) | NASA/SP-2016-6105 Rev 2, 2017-02-17 | exact local bytes and SHA-256 pinned in the public source-pack contract; external use remains policy-bound |
+| [NASA Systems Modeling Handbook](https://standards.nasa.gov/system/files/tmp/2025-03-12-NASA-HDBK-1009A.pdf) | NASA-HDBK-1009A Rev A, 2025-03-12 | exact local bytes and SHA-256 pinned in the public source-pack contract; external use remains policy-bound |
+| [DoD Systems Engineering Guidebook](https://www.cto.mil/wp-content/uploads/2024/05/SE-Guidebook-Feb2022.pdf) | February 2022 | exact local bytes and SHA-256 pinned; Distribution A eligibility remains explicit |
+| [Engineering of Defense Systems Guidebook](https://www.cto.mil/wp-content/uploads/2024/10/Eng-Def-Sys-Change2-7October2024-v3.pdf) | February 2022, Change 2 October 2024 | exact local bytes and SHA-256 pinned; optional Distribution A membership remains explicit |
 
 The existing DAPA test-and-evaluation guidebook remains `HOLD` for this external
 comparison even if a local copy exists: public reachability is not enough to
@@ -63,16 +68,20 @@ metadata/link-only unless a separate permission explicitly covers AI use.
    compute their exact SHA-256 values.
 2. Freeze the source membership, seven provider-visible prompts, scoring rubric,
    synthetic case pack, Engine canonical inputs, and evaluator-only gold.
-3. Run the deterministic Engine lane and independently verify its seven frozen
-   reference results.
-4. Confirm Notebook authentication, a dedicated unshared notebook, exact source
+3. Compile an independently reviewed source-page-to-rule crosswalk into the
+   content-addressed Engine projection. Evaluator labels remain outside the
+   runtime projection.
+4. Run the fixed seven-case typed-judgment Engine lane and independently verify
+   its seven reference results. This tests the structured judgment layer, not
+   general natural-language extraction from PDFs.
+5. Confirm Notebook authentication, a dedicated unshared notebook, exact source
    membership, and standalone selected-source-grounded mode. Web, agentic,
    cross-app, and cross-notebook context stay off.
-5. Run `notebook_only` and `hybrid_with_soulforge_state_pack` three times per
+6. Run `notebook_only` and `hybrid_with_soulforge_state_pack` three times per
    case in fresh chats. Hybrid may add exactly one pinned derived-state pack.
-6. A person saves/exports each answer, checks citations, and writes only the
+7. A person saves/exports each answer, checks citations, and writes only the
    normalized review sidecar consumed by the comparison tool.
-7. The deterministic scorer reports exact fractions, safety failures, 3-of-3
+8. The deterministic scorer reports exact fractions, safety failures, 3-of-3
    repeatability, and `PASS` or `FAIL`. Readiness `HOLD` is an operating decision
    outside this scorer. It does not make an adoption
    decision or promote a Notebook result into accepted context or a task.

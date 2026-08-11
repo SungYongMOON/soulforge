@@ -687,9 +687,37 @@
       ],
       "export_count": 7,
       "line_count": 350
+    },
+    {
+      "module": "se_core_crosswalk_case_run",
+      "area": "subjects",
+      "exports": [
+        "ACCEPTED_QUESTION_SET_SHA256",
+        "CASE_POLICY_REVISION",
+        "CODES",
+        "RESULT_CLAIM_CEILING",
+        "canonicalSeCoreCrosswalkEngineResultsJson",
+        "runSeCoreCrosswalkCases"
+      ],
+      "export_count": 6,
+      "line_count": 562
+    },
+    {
+      "module": "se_core_crosswalk_projection",
+      "area": "subjects",
+      "exports": [
+        "CODES",
+        "COMPILER_POLICY_REVISION",
+        "PROJECTION_INSTANT",
+        "PROJECT_BINDING_REF",
+        "canonicalSeCoreCrosswalkProjectionJson",
+        "compileSeCoreCrosswalkProjection"
+      ],
+      "export_count": 6,
+      "line_count": 787
     }
   ],
-  "module_count": 26,
+  "module_count": 28,
   "module_edges": [
     {
       "from": "authority",
@@ -1427,6 +1455,76 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "se_core_crosswalk_case_run",
+      "to": "authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_crosswalk_case_run",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_crosswalk_case_run",
+      "to": "capsule",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_crosswalk_case_run",
+      "to": "common_se_corpus_projection",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_crosswalk_case_run",
+      "to": "engine_pass",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_crosswalk_case_run",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_crosswalk_case_run",
+      "to": "se_core_crosswalk_projection",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_crosswalk_case_run",
+      "to": "snapshot",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_crosswalk_projection",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_crosswalk_projection",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "snapshot",
       "to": "canonical",
       "relation": "imports",
@@ -1483,7 +1581,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 113,
+  "module_edge_count": 123,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -1834,5 +1932,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "0c74fc54f53bcd8c48825b4d0f9799763ab40a349b45dca9ab39e40cb50b58fe"
+  "topology_digest": "3b1333bcd29d315abbcfa35f69e0f42028dd0e96ba9d1ec90263290bf57ce1a2"
 }

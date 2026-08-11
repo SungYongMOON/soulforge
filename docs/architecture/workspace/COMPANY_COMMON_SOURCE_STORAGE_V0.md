@@ -1,5 +1,22 @@
 # Company Common Source Storage v0
 
+## Evaluation ledger rule
+
+Reusable public-source or fully synthetic evaluations may keep raw answers,
+review sidecars, Engine outputs, and comparison artifacts under the owning
+`_workspaces/knowledge/common/company/<source_set_id>/evaluation/` payload
+surface. A metadata-only `evaluation_ledger.jsonl` in that same owner surface
+may pin relative artifact locators, byte hashes, attempt identity, review links,
+and a chained event digest.
+
+The ledger must not copy answer text, source text, prompts, snippets, account or
+Notebook identifiers, actual-project identifiers, credentials, or absolute
+runtime paths. `dataset_index.json` is a rebuildable snapshot of the ledger,
+not an independent truth source. SQLite, if later introduced, is likewise a
+read-only rebuildable projection and cannot become DB-only truth. Same identity
+plus different payload is `HOLD`; retries with the same payload are no-ops;
+distinct attempts remain distinct events even when their payload hashes match.
+
 ## 목적
 
 회사 공통으로 반복 참조하는 원문 파일을 프로젝트 자료나 임시 폴더와 섞지 않고, Soulforge 작업자가 다음번에도 같은 위치와 같은 경계로 보관하게 한다.

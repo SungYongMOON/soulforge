@@ -2,6 +2,21 @@
 
 ## 2026-08-12 - Common-SE Engine and Notebook shadow evaluation prepared
 
+- Materialized a four-source public-safe SE source-pack/corpus contract with
+  exact revisions, byte lengths, and SHA-256 commitments while keeping source
+  bodies and external provider state out of the tracked repository.
+- Added an independently review-gated page-to-rule crosswalk compiler and a
+  fixed seven-case typed Engine/reference runner. Evaluator labels, Notebook
+  outputs, learned-model calls, network calls, ERP writes, and default file
+  writes remain outside the runtime path.
+- Added a metadata-only append ledger interface for immutable Notebook and
+  Engine attempts, direct review/row hashes, linked inputs, and deterministic
+  chain verification. Raw answer bodies remain workspace payloads.
+- Kept comparison claims narrow: Notebook consumes natural-language prompts,
+  while this Engine slice consumes reviewed structured facts. The result tests
+  the deterministic judgment layer and does not claim general PDF question
+  answering, provider-side byte parity, actual-project readiness, or canon.
+
 - Added a read-only `common_se_corpus_projection` subject adapter that converts an
   immutable, exact-revision common-SE rule projection into bounded Engineering
   Engine expected/observed inputs while preserving binding, ACL, authority,

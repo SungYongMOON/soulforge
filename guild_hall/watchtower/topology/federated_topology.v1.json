@@ -1052,6 +1052,106 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.capsule",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::capsule"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.common_se_corpus_projection",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::common_se_corpus_projection"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.engine_pass",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::engine_pass"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.se_core_crosswalk_projection",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::se_core_crosswalk_projection"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_case_run",
+      "id": "engineering_engine::imports.se_core_crosswalk_case_run.snapshot",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_projection",
+      "id": "engineering_engine::imports.se_core_crosswalk_projection.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_crosswalk_projection",
+      "id": "engineering_engine::imports.se_core_crosswalk_projection.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::snapshot",
       "id": "engineering_engine::imports.snapshot.canonical",
       "label": "imports",
@@ -1872,6 +1972,28 @@
       "id": "engineering_engine::registration",
       "kind": "module",
       "label": "registration",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::se_core_crosswalk_case_run",
+      "kind": "module",
+      "label": "se_core_crosswalk_case_run",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::se_core_crosswalk_projection",
+      "kind": "module",
+      "label": "se_core_crosswalk_projection",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -3280,6 +3402,96 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.capsule",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "capsule"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.common_se_corpus_projection",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "common_se_corpus_projection"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.engine_pass",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "engine_pass"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.se_core_crosswalk_projection",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "se_core_crosswalk_projection"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_case_run",
+          "id": "imports.se_core_crosswalk_case_run.snapshot",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_projection",
+          "id": "imports.se_core_crosswalk_projection.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_crosswalk_projection",
+          "id": "imports.se_core_crosswalk_projection.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "snapshot",
           "id": "imports.snapshot.canonical",
           "label": "imports",
@@ -3605,6 +3817,26 @@
         },
         {
           "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "se_core_crosswalk_case_run",
+          "kind": "module",
+          "label": "se_core_crosswalk_case_run",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "se_core_crosswalk_projection",
+          "kind": "module",
+          "label": "se_core_crosswalk_projection",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
           "group": "kernel",
           "id": "snapshot",
           "kind": "module",
@@ -3620,7 +3852,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "be149c02a268fab5766d7b619cb512daca738f29e08129bdcee353877098a58d",
+        "digest": "32cddcefaa60ad5f08eda919ecb002d9da3b66e17e6de5b30866ad5c9b8f3963",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -4577,13 +4809,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "af731c38ea2e2ea7afd7d394bde6d6c80758145b706979285bc9453a1f74c96a",
+  "source_set_digest": "e0c2bc5a1e168a0492cd2d755722e4b4b9ca5bcceab5a5877a330d4cc1231a2e",
   "summary": {
-    "edge_count": 160,
-    "node_count": 64,
+    "edge_count": 170,
+    "node_count": 66,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "741c2790906f70693bdb28005f94ffff077eea58048d52f6d9c65a6d7c18b4c1"
+  "topology_digest": "554891fb74b6dcb73bea330f8efb68f1cf065458df2772eb623aedcc385b4dc1"
 }
