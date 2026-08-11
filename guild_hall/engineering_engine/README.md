@@ -88,6 +88,16 @@ node guild_hall/engineering_engine/tools/emit_manifest.mjs --verify topology/eng
 
 `P` kernel 은 Phase 1-0 동결 synthetic oracle 의 판정을 그대로 재현한다. 그 oracle 은 독립검증을 거쳤으므로 구현과 채점 기준의 저자가 분리된다.
 
+`O` **초록불 자체가 충분하지 않을 수 있다.** 독립 검토가 지적한 다섯 계약 실패는 전부 "검사는 있었는데 약한 형태로 있었다"였고, 다섯 다 통과 상태에서 발견됐다. 지금 고정한 형태는 아래와 같으며 각각 positive control 과 공격 케이스를 함께 가진다.
+
+| 항목 | 약했던 형태 | 지금 요구하는 형태 |
+|---|---|---|
+| receipt map | key 가 있으면 관측으로 읽음 | 실행이 선언한 **정확한 key 집합**과 일치, 영수증마다 자기 edge·run 이름 확인 |
+| capsule 격리 | `graph.nodes` 선택적 | node 집합 **필수**, 모든 traversed·returned ref 가 binding 일치 |
+| P8 gate | 모양과 `passed: true` 신뢰 | record 마다 불변 provenance **재계산**, 네 boundary **재실행** |
+| Context 응답 | response id·binding·generation 만 대조 | 요청·영수증·source·artifact·hash·principal·시각까지 **내용으로** 결속 |
+| O4 두 source | conflict 기록 존재 | 정확한 두 권위 쌍·다른 revision·실제 불일치·양쪽 applicability·baseline governing |
+
 `O` **나머지 다섯 lane 의 fixture 는 구현과 같은 저자가 썼다.** 초록불이 substrate 의 초록불과 같은 무게가 아니다. 변이 lock 이 가드가 실제로 작동하는지는 확인하지만, 규칙 자체가 구현과 fixture 에서 똑같이 틀린 경우는 잡지 못한다. 의미론적 독립검증은 **미완 의무**다.
 
 ## topology — 코드에서 파생한다

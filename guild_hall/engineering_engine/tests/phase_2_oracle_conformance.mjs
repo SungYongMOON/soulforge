@@ -23,6 +23,9 @@ import { AXIS, GAP_TYPE, compareStates } from '../kernel/snapshot.mjs';
 import { PRESENCE } from '../kernel/custody.mjs';
 import { judgeEdge } from '../kernel/delivery_receipt.mjs';
 import { selectCapsule, RANKING_KEYS, assertNoForbiddenIdentifier } from '../kernel/capsule.mjs';
+import {
+  recordSourceConflict, assertTwoSourceAuthorityInvariant, TWO_SOURCE_AUTHORITY_INVARIANT,
+} from '../kernel/authority.mjs';
 import { admitRequest, cacheKey, assertCacheEntryServesRequest } from '../kernel/mcp_contract.mjs';
 import { ContractError } from '../kernel/errors.mjs';
 
@@ -262,6 +265,184 @@ const runCase = (states, seed = 0) => runEnginePass({
   record('O4/conflict_without_sides_is_refused', refusedWithoutClaims instanceof ContractError,
     `code ${refusedWithoutClaims?.code ?? 'none'}`);
 
+  // ---- the exact invariant, and the pairs that are not it
+  //
+  // "A conflict was recorded with both sides retained" is much weaker than what the frozen
+  // exact_input specifies, and every gap between the two is a way to satisfy the assertions
+  // above without holding the property. The invariant names the pair exactly: one
+  // project_contract_baseline, one reviewed_wiki, two revisions, an actual disagreement, both
+  // applicable, baseline governing, loser retained. Each attack below produces a record that
+  // still says `conflict: true`, and each must be refused.
+
+  record('O4/invariant_declares_the_exact_pair',
+    TWO_SOURCE_AUTHORITY_INVARIANT.claim_count === 2
+      && TWO_SOURCE_AUTHORITY_INVARIANT.governing_family === o.exact_input.authority_families[0]
+      && TWO_SOURCE_AUTHORITY_INVARIANT.contesting_family === o.exact_input.authority_families[1],
+    `${TWO_SOURCE_AUTHORITY_INVARIANT.governing_family} vs ${TWO_SOURCE_AUTHORITY_INVARIANT.contesting_family}`);
+
+  {
+    // Positive control, on the record the assembled pass actually produced.
+    let held = null;
+    let error = null;
+    try { held = assertTwoSourceAuthorityInvariant(conflict); } catch (e) { error = e; }
+    record('O4/invariant_positive_control',
+      held?.holds === true && held.governing_authority_family === 'project_contract_baseline',
+      error ? `refused with ${error.code}: ${JSON.stringify(error.detail ?? {})}` : 'two genuinely disagreeing sources');
+  }
+
+  const claim = (over = {}) => ({
+    claim_id: 'claim_baseline', authority_family: 'project_contract_baseline',
+    source_revision_ref: ref('src_baseline'), lineage_ref: 'lineage_baseline',
+    applicability: true, asserted_value: 'the interface review is required at PDR',
+    valid_at: V, known_at: T, ...over,
+  });
+  const wikiClaim = (over = {}) => claim({
+    claim_id: 'claim_wiki', authority_family: 'reviewed_wiki',
+    source_revision_ref: ref('src_wiki'), lineage_ref: 'lineage_wiki',
+    asserted_value: 'the interface review is required at CDR', ...over,
+  });
+
+  // Some attacks are refused when the record is built, others only when the invariant is
+  // applied to a record that was legitimately built. Both are refusals, and this helper does
+  // not care which stage caught it — it cares that nothing concluded the invariant held.
+  const attack = (label, claims, note = '') => {
+    let refusal = null;
+    try { assertTwoSourceAuthorityInvariant(recordSourceConflict(claims)); } catch (e) { refusal = e; }
+    record(`O4/attack/${label}`, refusal instanceof ContractError,
+      refusal ? `${refusal.code}${note ? ` — ${note}` : ''}` : 'NOT REFUSED');
+    return refusal;
+  };
+
+  attack('one_source_substituted_for_two', [
+    claim(),
+    claim({ claim_id: 'claim_baseline_again', asserted_value: 'the interface review is required at CDR' }),
+  ], 'two baseline claims are not a two-authority disagreement');
+  attack('duplicate_source_revision', [
+    claim(),
+    wikiClaim({ source_revision_ref: ref('src_baseline') }),
+  ], 'one revision cannot disagree with itself');
+  attack('same_value_pair', [
+    claim(),
+    wikiClaim({ asserted_value: 'The interface review is required at   PDR ' }),
+  ], 'the same statement in different whitespace and case is agreement, not conflict');
+  attack('two_reviewed_wiki_claims', [
+    wikiClaim({ claim_id: 'wiki_a', source_revision_ref: ref('src_wiki_a') }),
+    wikiClaim({ claim_id: 'wiki_b', source_revision_ref: ref('src_wiki_b'), asserted_value: 'no review is required' }),
+  ], 'no baseline side means nothing governs');
+  attack('equal_authority_pair', [
+    claim({ claim_id: 'base_a', source_revision_ref: ref('src_a') }),
+    claim({ claim_id: 'base_b', source_revision_ref: ref('src_b'), asserted_value: 'the interface review is required at CDR' }),
+  ], 'two claims of the same family cannot resolve by precedence');
+  attack('unknown_applicability', [
+    claim(),
+    wikiClaim({ applicability: 'unknown' }),
+  ], 'an unresolved applicability is not a weaker yes');
+  attack('inapplicable_side', [
+    claim(),
+    wikiClaim({ applicability: false }),
+  ], 'a side that does not apply cannot be the contesting authority');
+  attack('a_pair_of_two_other_families', [
+    claim(),
+    claim({
+      claim_id: 'claim_guidance', authority_family: 'general_se_guidance',
+      source_revision_ref: ref('src_iso'), lineage_ref: 'lineage_iso',
+      asserted_value: 'the interface review is required at SRR',
+    }),
+  ], 'baseline against ISO guidance is a real disagreement and it is not the O4 pair');
+  attack('a_third_party_to_the_pair', [
+    claim(),
+    wikiClaim(),
+    claim({ claim_id: 'claim_procedure', authority_family: 'company_approved_procedure', source_revision_ref: ref('src_proc'), asserted_value: 'the interface review is required at SRR' }),
+  ], 'a third claim changes which pair governs');
+  attack('lineage_dropped', [
+    claim({ lineage_ref: '' }),
+    wikiClaim(),
+  ], 'a side that cannot be re-derived is not preserved');
+
+  // Two guards stand between a bad pair and an O4 pass, and they are separate on purpose:
+  // `recordSourceConflict` refuses to *build* a record that is not a disagreement, and the
+  // invariant refuses to *conclude* from a record that is not the exact pair. A record handed
+  // in from anywhere else never went through the first guard, so the second is exercised here
+  // against records built by hand rather than by the kernel.
+  const built = (claims, over = {}) => ({
+    conflict: true,
+    claim_count: claims.length,
+    retained_claims: claims,
+    retained_claim_ids: claims.map((c) => c.claim_id),
+    retained_authority_families: claims.map((c) => c.authority_family),
+    governing_authority_family: 'project_contract_baseline',
+    outranked_but_inapplicable: [],
+    resolution_reason: 'highest applicable tier',
+    sides_dropped: 0,
+    ...over,
+  });
+  const invariantRefuses = (label, conflictRecord, note = '') => {
+    let refusal = null;
+    try { assertTwoSourceAuthorityInvariant(conflictRecord); } catch (e) { refusal = e; }
+    record(`O4/invariant/${label}`, refusal instanceof ContractError,
+      refusal ? `${refusal.code}${note ? ` — ${note}` : ''}` : 'NOT REFUSED');
+  };
+  const recordRefuses = (label, claims, note = '') => {
+    let refusal = null;
+    try { recordSourceConflict(claims); } catch (e) { refusal = e; }
+    record(`O4/record/${label}`, refusal instanceof ContractError,
+      refusal ? `${refusal.code}${note ? ` — ${note}` : ''}` : 'NOT REFUSED');
+  };
+
+  recordRefuses('duplicate_revision_refused_when_built', [claim(), wikiClaim({ source_revision_ref: ref('src_baseline') })]);
+  recordRefuses('agreement_refused_when_built', [claim(), wikiClaim({ asserted_value: 'the interface review is required at PDR' })]);
+  recordRefuses('duplicate_claim_id_refused_when_built', [claim(), wikiClaim({ claim_id: 'claim_baseline' })]);
+  recordRefuses('missing_lineage_refused_when_built', [claim({ lineage_ref: '' }), wikiClaim()]);
+
+  invariantRefuses('duplicate_revision_in_a_hand_built_record',
+    built([claim(), wikiClaim({ source_revision_ref: ref('src_baseline') })]),
+    'a record that never passed through the builder still has to face the invariant');
+  invariantRefuses('agreement_in_a_hand_built_record',
+    built([claim(), wikiClaim({ asserted_value: 'The interface review is required at PDR' })]));
+  invariantRefuses('missing_lineage_in_a_hand_built_record',
+    built([claim({ lineage_ref: '' }), wikiClaim()]));
+  invariantRefuses('one_side_only', built([claim()]));
+  invariantRefuses('three_sides', built([claim(), wikiClaim(),
+    claim({ claim_id: 'c3', authority_family: 'general_se_guidance', source_revision_ref: ref('src_iso'), asserted_value: 'at SRR' })]));
+  invariantRefuses('a_side_was_dropped', built([claim(), wikiClaim()], { sides_dropped: 1 }));
+  invariantRefuses('not_declared_a_conflict', built([claim(), wikiClaim()], { conflict: false }));
+  invariantRefuses('claim_count_disagrees_with_the_claims', built([claim(), wikiClaim()], { claim_count: 5 }));
+  invariantRefuses('not_a_record_at_all', null);
+
+  {
+    // Positive control for the hand-built path, so the invariant is discriminating rather than
+    // refusing everything that did not come out of the builder.
+    let held = null;
+    try { held = assertTwoSourceAuthorityInvariant(built([claim(), wikiClaim()])); } catch (e) { held = e; }
+    record('O4/invariant/hand_built_valid_pair_holds', held?.holds === true,
+      held?.code ? `refused with ${held.code}` : 'two genuinely disagreeing sources, built by hand');
+  }
+
+  {
+    // The losing claim removed from an otherwise valid record. Built legitimately, then
+    // tampered with, which is exactly the failure O4 exists to catch.
+    const valid = recordSourceConflict([claim(), wikiClaim()]);
+    const loserDropped = {
+      ...valid,
+      retained_claims: valid.retained_claims.filter((c) => c.authority_family !== 'reviewed_wiki'),
+      retained_claim_ids: ['claim_baseline'],
+    };
+    let refusal = null;
+    try { assertTwoSourceAuthorityInvariant(loserDropped); } catch (e) { refusal = e; }
+    record('O4/attack/losing_claim_removed_after_the_fact', refusal instanceof ContractError,
+      refusal ? refusal.code : 'NOT REFUSED');
+
+    const wrongGovernor = { ...valid, governing_authority_family: 'reviewed_wiki' };
+    let governorRefusal = null;
+    try { assertTwoSourceAuthorityInvariant(wrongGovernor); } catch (e) { governorRefusal = e; }
+    record('O4/attack/reviewed_wiki_claimed_to_govern', governorRefusal instanceof ContractError,
+      governorRefusal ? governorRefusal.code : 'NOT REFUSED');
+  }
+
+  forbid('O4', 'a_pair_that_is_not_the_invariant_treated_as_the_invariant',
+    results.filter((x) => x.id.startsWith('O4/attack/') && !x.ok).length > 0,
+    `${results.filter((x) => x.id.startsWith('O4/attack/') && !x.ok).length} attack(s) not refused`);
+
   const recorded = r.gap_counts[GAP_TYPE.CONFLICT] ?? 0;
   record('O4/metric', recorded === 1 && claimIds.length === 2,
     `${o.metric} = ${recorded} with ${claimIds.length} refs, threshold == 1`);
@@ -294,8 +475,17 @@ const runCase = (states, seed = 0) => runEnginePass({
   // outside the window, which is the frozen exact_input: "receipts_cover: both".
   const EDGES = [['alpha', 'bravo'], ['bravo', 'charlie']];
   const topology = { module_edges: EDGES.map(([from, to]) => ({ from, to, relation: 'imports' })), topology_digest: 'd'.repeat(64) };
-  const observation = { run_id: 'run-p2', surfaces: { declared: 8, run: 8, failing: [], counts: {} } };
+  // The observation declares the exact edge key set it produced receipts for. The adapter
+  // refuses to weigh a receipt map it cannot match against that declaration, so the frozen
+  // exact_input ("receipts_cover: both") has to be stated by the run and not just implied by
+  // whatever keys happen to be in the object.
+  const observationCovering = (keys) => ({
+    run_id: 'run-p2',
+    surfaces: { declared: 8, run: 8, failing: [], counts: {} },
+    edges: { exercised_edge_keys: [...keys].sort() },
+  });
   const engineRun = (receipts, seed) => {
+    const observation = observationCovering(Object.keys(receipts));
     const states = buildStates({ topology, receipts, observation, validAt: V, knownAt: T, window, now });
     return {
       states,
@@ -367,6 +557,9 @@ const capsuleSelector = (over = {}) => ({
       capsuleEdge({ edge_id: 'e1', from_ref: seed, to_ref: hop1 }),
       capsuleEdge({ edge_id: 'e2', edge_type: 'extracted_by', from_type: 'source_revision', to_type: 'extraction_run', from_ref: hop1, to_ref: hop2 }),
     ],
+    // Every node the traversal can touch is declared, and declared as alpha. The refusal
+    // under test here is the ACL one, so the binding side is given no way to do the work.
+    nodes: [seed, hop1, hop2].map((r) => ({ ref: r, project_binding_ref: 'pb-alpha' })),
   };
   const denied = new Set(['src_hop1_denied', 'src_hop2_denied']);
   const aclCheck = (r) => !denied.has(typeof r === 'string' ? r : r.entity_id);
@@ -462,6 +655,11 @@ const capsuleSelector = (over = {}) => ({
         edge_id: 'e-bravo', edge_type: 'extracted_by', from_type: 'source_revision', to_type: 'extraction_run',
         from_ref: alphaHop, to_ref: bravoHop, project_binding_ref: 'pb-bravo',
       }),
+    ],
+    nodes: [
+      { ref: seed, project_binding_ref: 'pb-alpha' },
+      { ref: alphaHop, project_binding_ref: 'pb-alpha' },
+      { ref: bravoHop, project_binding_ref: 'pb-bravo' },
     ],
   };
   const alphaCapsule = selectCapsule(capsuleSelector(), mixedGraph, () => true);

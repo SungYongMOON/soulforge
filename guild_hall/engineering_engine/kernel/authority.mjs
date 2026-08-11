@@ -30,6 +30,9 @@ export const CODES = Object.freeze({
   CONFLICT_NEEDS_TWO_SIDES: 'AUTHORITY_CONFLICT_NEEDS_TWO_SIDES',
   CONFLICT_CLAIM_INCOMPLETE: 'AUTHORITY_CONFLICT_CLAIM_INCOMPLETE',
   CONFLICT_SIDE_DROPPED: 'AUTHORITY_CONFLICT_SIDE_DROPPED',
+  CONFLICT_NOT_A_DISAGREEMENT: 'AUTHORITY_CONFLICT_NOT_A_DISAGREEMENT',
+  CONFLICT_SOURCE_NOT_DISTINCT: 'AUTHORITY_CONFLICT_SOURCE_NOT_DISTINCT',
+  TWO_SOURCE_INVARIANT_VIOLATED: 'AUTHORITY_TWO_SOURCE_INVARIANT_VIOLATED',
 });
 
 export const APPLICABILITY = Object.freeze({ YES: true, NO: false, UNKNOWN: 'unknown' });
@@ -106,6 +109,27 @@ export const REQUIRED_SOURCE_CLAIM_FIELDS = Object.freeze([
 ]);
 
 /**
+ * The comparison form of a claim value.
+ *
+ * Two sides "disagree" only if what they assert is actually different. Without a declared
+ * normal form, a trailing space or a capital letter would make one statement look like two,
+ * and a conflict record could then be manufactured from a source quoted twice. Deliberately
+ * shallow: it folds whitespace and case, and nothing else. Anything cleverer would start
+ * deciding that two differently worded requirements mean the same thing, which is a judgement
+ * no deterministic kernel is entitled to make.
+ */
+export function normaliseClaimValue(value) {
+  if (typeof value !== 'string') return JSON.stringify(value ?? null);
+  return value.trim().replace(/\s+/gu, ' ').toLowerCase();
+}
+
+const claimRevisionId = (claim) => {
+  const ref = claim?.source_revision_ref;
+  if (typeof ref === 'string') return ref;
+  return typeof ref?.revision_id === 'string' ? ref.revision_id : null;
+};
+
+/**
  * Records a disagreement between two or more applicable sources.
  *
  * The precedence question and the record question are different, and answering only the
@@ -138,6 +162,33 @@ export function recordSourceConflict(claims) {
       throw new ContractError(CODES.UNREGISTERED_FAMILY,
         `unregistered authority family "${claim.authority_family}"`, { claim_id: claim.claim_id });
     }
+    if (claimRevisionId(claim) === null) {
+      throw new ContractError(CODES.CONFLICT_CLAIM_INCOMPLETE,
+        'a source claim must cite an exact source revision; a side that cannot be traced to a revision cannot be preserved',
+        { claim_id: claim.claim_id });
+    }
+    if (typeof claim.lineage_ref !== 'string' || !claim.lineage_ref) {
+      throw new ContractError(CODES.CONFLICT_CLAIM_INCOMPLETE,
+        'a source claim must carry its lineage ref, or the preserved side cannot be re-derived',
+        { claim_id: claim.claim_id });
+    }
+  }
+
+  // Distinct sides, or it is not a conflict. Two of these were reachable before and both
+  // produce the same false record: a disagreement that never happened.
+  const claimIds = claims.map((c) => c.claim_id);
+  if (new Set(claimIds).size !== claimIds.length) {
+    throw new ContractError(CODES.CONFLICT_SOURCE_NOT_DISTINCT,
+      'the same claim id appears on more than one side; one claim counted twice is not a conflict');
+  }
+  const revisions = claims.map(claimRevisionId);
+  if (new Set(revisions).size !== revisions.length) {
+    throw new ContractError(CODES.CONFLICT_SOURCE_NOT_DISTINCT,
+      'two sides cite the same source revision; a source cannot disagree with itself');
+  }
+  if (new Set(claims.map((c) => normaliseClaimValue(c.asserted_value))).size < 2) {
+    throw new ContractError(CODES.CONFLICT_NOT_A_DISAGREEMENT,
+      'every side asserts the same value, so there is no disagreement to record');
   }
 
   const verdict = resolveAuthority(claims.map((c) => ({ key: c.authority_family, applicable: c.applicability })));
@@ -164,6 +215,110 @@ export function recordSourceConflict(claims) {
     // The record does not resolve the disagreement away. A human reading it can see both
     // the winner and what the other side said.
     sides_dropped: 0,
+  };
+}
+
+/**
+ * The exact two-source authority invariant.
+ *
+ * `recordSourceConflict` answers "is this a conflict record at all". This answers a narrower
+ * and stricter question: is this *the* two-source disagreement the frozen O4 case specifies —
+ * a project contract baseline against a reviewed wiki, both applicable, on two different
+ * source revisions, actually saying different things, with the baseline governing and the
+ * losing side still in the record.
+ *
+ * It exists because "a conflict was recorded" is far weaker than what O4 requires, and every
+ * gap between the two is a way to pass the oracle without holding the property. A single
+ * source quoted twice, two wiki claims, a pair on one revision, a pair that agrees, an
+ * unresolved applicability, the losing side quietly absent: each of those still produces a
+ * record with `conflict: true`, and none of them is a two-source authority disagreement. The
+ * checks are named individually so a failure says which property is missing rather than
+ * inviting a caller to reshape the input until something passes.
+ *
+ * `HOLD` rather than a silent pass is the intended reading of every rejection here: the pair
+ * is not the invariant, so nothing may be concluded from it about precedence.
+ */
+export const TWO_SOURCE_AUTHORITY_INVARIANT = Object.freeze({
+  claim_count: 2,
+  governing_family: 'project_contract_baseline',
+  contesting_family: 'reviewed_wiki',
+});
+
+export function assertTwoSourceAuthorityInvariant(record) {
+  const failed = [];
+  const detail = {};
+
+  if (record === null || typeof record !== 'object' || Array.isArray(record)) {
+    throw new ContractError(CODES.TWO_SOURCE_INVARIANT_VIOLATED,
+      'the two-source invariant needs a conflict record to judge', { failed_checks: ['record_present'] });
+  }
+  const claims = Array.isArray(record.retained_claims) ? record.retained_claims : [];
+
+  if (record.conflict !== true) failed.push('record_states_a_conflict');
+  if (record.sides_dropped !== 0) failed.push('no_side_dropped');
+  // Exactly two. Not "at least two": a third claim changes which pair governs, so a record
+  // holding one is a different question wearing this one's answer.
+  if (record.claim_count !== TWO_SOURCE_AUTHORITY_INVARIANT.claim_count
+      || claims.length !== TWO_SOURCE_AUTHORITY_INVARIANT.claim_count) {
+    failed.push('exactly_two_claims');
+    detail.claim_count = claims.length;
+  }
+
+  if (claims.length === TWO_SOURCE_AUTHORITY_INVARIANT.claim_count) {
+    const [a, b] = claims;
+    if (a.claim_id === b.claim_id || !a.claim_id || !b.claim_id) failed.push('two_distinct_claim_ids');
+
+    // The exact pair of families, as a set. This one rejection covers the one-source
+    // substitution, the two-reviewed_wiki pair, the equal-authority pair and every other pair.
+    const families = [a.authority_family, b.authority_family];
+    const wanted = [TWO_SOURCE_AUTHORITY_INVARIANT.governing_family, TWO_SOURCE_AUTHORITY_INVARIANT.contesting_family];
+    // This is also what keeps the losing side present: a record from which the reviewed_wiki
+    // claim has been removed no longer holds the required pair, so "the loser was dropped" and
+    // "this is not the pair" are one refusal rather than two that could disagree.
+    if ([...families].sort().join('|') !== [...wanted].sort().join('|')) {
+      failed.push('exactly_one_project_contract_baseline_and_one_reviewed_wiki');
+      detail.authority_families = families;
+    }
+    if (families[0] === families[1]) failed.push('the_two_authorities_are_not_equal');
+
+    const revisions = [claimRevisionId(a), claimRevisionId(b)];
+    if (revisions.some((r) => r === null) || revisions[0] === revisions[1]) failed.push('two_distinct_source_revisions');
+
+    if ([a, b].some((c) => typeof c.lineage_ref !== 'string' || !c.lineage_ref)) failed.push('lineage_preserved_for_both');
+
+    // An actual disagreement, in the declared normal form. Two sources that say the same
+    // thing are corroboration, and reporting corroboration as a conflict is its own error.
+    if (normaliseClaimValue(a.asserted_value) === normaliseClaimValue(b.asserted_value)) {
+      failed.push('the_two_claims_actually_disagree');
+    }
+
+    // Known and applicable, both sides. "unknown" is not a weaker yes; a pair whose
+    // applicability is unresolved cannot establish which authority governs at all.
+    for (const c of [a, b]) {
+      if (c.applicability !== true) {
+        failed.push('both_authorities_known_and_applicable');
+        detail.unresolved_applicability_claim_id = c.claim_id ?? null;
+        break;
+      }
+    }
+  }
+
+  if (record.governing_authority_family !== TWO_SOURCE_AUTHORITY_INVARIANT.governing_family) {
+    failed.push('project_contract_baseline_governs');
+    detail.governing_authority_family = record.governing_authority_family ?? null;
+  }
+
+  if (failed.length) {
+    throw new ContractError(CODES.TWO_SOURCE_INVARIANT_VIOLATED,
+      'this is not the exact two-source authority disagreement the invariant requires, so nothing may be concluded from it',
+      { failed_checks: failed, ...detail });
+  }
+  return {
+    invariant: 'exact_two_source_authority_disagreement',
+    holds: true,
+    governing_authority_family: TWO_SOURCE_AUTHORITY_INVARIANT.governing_family,
+    contesting_authority_family: TWO_SOURCE_AUTHORITY_INVARIANT.contesting_family,
+    retained_claim_ids: claims.map((c) => c.claim_id).sort(),
   };
 }
 

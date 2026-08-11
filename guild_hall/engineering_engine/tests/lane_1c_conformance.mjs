@@ -125,11 +125,21 @@ const seed = ref('src-1', 'src-1-r1');
 const mid = ref('srev-1', 'srev-1-r1');
 const leaf = ref('exrun-1', 'exrun-1-r1');
 
+// The node set is part of the projection slice, not an optional extra: it is the only
+// independent witness to which project a node belongs to, and without it every edge's binding
+// claim is self-certifying.
+const alphaNodes = [
+  { ref: seed, project_binding_ref: 'binding-alpha' },
+  { ref: mid, project_binding_ref: 'binding-alpha' },
+  { ref: leaf, project_binding_ref: 'binding-alpha' },
+];
+
 const graph = {
   edges: [
     edge({ edge_id: 'e-hop1', edge_type: 'has_revision', from_type: 'source', from_ref: seed, to_type: 'source_revision', to_ref: mid }),
     edge({ edge_id: 'e-hop2', edge_type: 'extracted_by', from_type: 'source_revision', from_ref: mid, to_type: 'extraction_run', to_ref: leaf, known_at: T(3) }),
   ],
+  nodes: alphaNodes,
 };
 
 const selector = {
@@ -203,6 +213,7 @@ expectThrow('1C/SEL/acl_check_required', () => selectCapsule(selector, graph, nu
       graph.edges[0],
       edge({ ...graph.edges[1], project_binding_ref: 'binding-bravo' }),
     ],
+    nodes: alphaNodes,
   };
   const capsule = selectCapsule(selector, mixed, allowAll);
   const includedIds = capsule.included_refs.map((r) => r.entity_id);
@@ -239,8 +250,69 @@ expectThrow('1C/SEL/acl_check_required', () => selectCapsule(selector, graph, nu
     'a node absent from a declared node set is refused, not assumed in scope');
 }
 expectThrow('1C/BIND/invalid_edge_refuses_the_whole_selection',
-  () => selectCapsule(selector, { edges: [graph.edges[0], { edge_id: 'e-broken' }] }, allowAll),
+  () => selectCapsule(selector, { edges: [graph.edges[0], { edge_id: 'e-broken' }], nodes: alphaNodes }, allowAll),
   'a capsule is not selected over a projection slice holding an edge that fails validation');
+
+// ---------------------------------------------------------------- the node set is mandatory
+//
+// While the node set was optional, omitting it turned every edge binding into its own only
+// witness. These cases are the ones that used to pass: a slice with no node set at all, a node
+// carrying no binding, and an edge whose asserted binding disagrees with the nodes it joins.
+
+expectThrow('1C/BIND/node_set_is_required',
+  () => selectCapsule(selector, { edges: graph.edges }, allowAll),
+  'no node set means no independent witness to which project the material belongs to');
+expectThrow('1C/BIND/node_set_may_not_be_a_non_array',
+  () => selectCapsule(selector, { edges: graph.edges, nodes: {} }, allowAll),
+  'a node set that is not a set of nodes is not a node set');
+expectThrow('1C/BIND/declared_node_needs_a_binding',
+  () => selectCapsule(selector, { edges: graph.edges, nodes: [{ ref: seed }, { ref: mid, project_binding_ref: 'binding-alpha' }] }, allowAll),
+  'an unbound node cannot be checked for cross-project reach');
+expectThrow('1C/BIND/declared_node_binding_must_not_be_empty',
+  () => selectCapsule(selector, { edges: graph.edges, nodes: [{ ref: seed, project_binding_ref: '' }, ...alphaNodes.slice(1)] }, allowAll),
+  'an empty binding is present as a key and says nothing');
+expectThrow('1C/BIND/declared_node_needs_an_exact_ref',
+  () => selectCapsule(selector, { edges: graph.edges, nodes: [{ ref: { entity_id: 'src-1' }, project_binding_ref: 'binding-alpha' }, ...alphaNodes.slice(1)] }, allowAll),
+  'a node identified by entity alone cannot be matched to the revision an edge points at');
+
+{
+  // Forged binding: the edge claims alpha, and the node it points at is declared bravo. The
+  // edge alone would certify itself; the node set is what catches it.
+  const forged = {
+    edges: graph.edges,
+    nodes: [alphaNodes[0], alphaNodes[1], { ref: leaf, project_binding_ref: 'binding-bravo' }],
+  };
+  const capsule = selectCapsule(selector, forged, allowAll);
+  record('1C/BIND/forged_edge_binding_refused',
+    !capsule.included_refs.map((r) => r.entity_id).includes('exrun-1')
+      && capsule.excluded.some((e) => e.reason === 'project_binding_mismatch'),
+    'an alpha-asserted edge cannot vouch for a node the projection declares as bravo');
+  expectOk('1C/BIND/forged_target_absent_from_the_output',
+    () => assertNoForbiddenIdentifier(capsule, ['exrun-1', 'binding-bravo']),
+    'the refused node and the foreign binding survive nowhere in the returned capsule');
+}
+{
+  // Multi-hop: the foreign material is reachable only after one legitimate alpha hop, which is
+  // the shape a seed-only filter misses entirely.
+  const twoHop = {
+    edges: graph.edges,
+    nodes: [alphaNodes[0], alphaNodes[1], { ref: leaf, project_binding_ref: 'binding-bravo' }],
+  };
+  const capsule = selectCapsule(selector, twoHop, allowAll);
+  record('1C/BIND/multi_hop_cross_project_stops_at_hop_one',
+    capsule.included_refs.map((r) => r.entity_id).join(',') === 'srev-1',
+    'hop one is alpha and is kept; hop two is bravo and is not reached');
+}
+{
+  // Positive control: fully bound, and the capsule says so about every ref it returns.
+  const capsule = selectCapsule(selector, graph, allowAll);
+  record('1C/BIND/fully_bound_positive_control',
+    capsule.every_returned_ref_bound_to_the_selector === true
+      && capsule.included_refs.length === 2
+      && capsule.traversed_node_count === 3
+      && !capsule.excluded.some((e) => e.reason.startsWith('project_binding')),
+    `${capsule.included_refs.length} refs returned, ${capsule.traversed_node_count} nodes traversed`);
+}
 {
   const capsule = selectCapsule(selector, graph, allowAll);
   record('1C/SEL/two_hops_reached', capsule.included_refs.map((r) => r.entity_id).includes('exrun-1'), 'two hops are reachable when permitted');
@@ -249,7 +321,7 @@ expectThrow('1C/BIND/invalid_edge_refuses_the_whole_selection',
 }
 {
   // an edge whose applicability is unresolved is excluded with a stated reason
-  const g2 = { edges: [graph.edges[0], edge({ ...graph.edges[1], applicability: 'unknown' })] };
+  const g2 = { edges: [graph.edges[0], edge({ ...graph.edges[1], applicability: 'unknown' })], nodes: alphaNodes };
   const capsule = selectCapsule(selector, g2, allowAll);
   record('1C/SEL/unknown_applicability_excluded_with_reason',
     capsule.excluded.some((e) => e.reason === 'applicability_unknown'), 'unresolved applicability is reported, not hidden');
@@ -261,7 +333,7 @@ expectThrow('1C/BIND/invalid_edge_refuses_the_whole_selection',
     'budget-driven exclusion states its reason');
 }
 {
-  const g3 = { edges: [graph.edges[0], edge({ ...graph.edges[1], edge_type: 'supersedes', from_type: 'source_revision', to_type: 'source_revision' })] };
+  const g3 = { edges: [graph.edges[0], edge({ ...graph.edges[1], edge_type: 'supersedes', from_type: 'source_revision', to_type: 'source_revision' })], nodes: alphaNodes };
   const capsule = selectCapsule(sel({ traversal: { max_hops: 2, allowlisted_edge_types: ['has_revision'] } }), g3, allowAll);
   record('1C/SEL/non_allowlisted_edge_excluded', capsule.excluded.some((e) => e.reason === 'edge_type_not_allowlisted'),
     'an edge type outside the traversal allowlist is excluded with a reason');

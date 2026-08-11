@@ -2,7 +2,7 @@
 
 Status: `SYNTHETIC ONLY / CANDIDATE / NO TRANSPORT / NO LIVE P5`
 
-구현: `kernel/context_receipt.mjs` · 시험: `tests/phase_3_context_receipts.mjs` (92 통과 / 0 실패)
+구현: `kernel/context_receipt.mjs` · 시험: `tests/phase_3_context_receipts.mjs` (137 통과 / 0 실패)
 
 ## 1. 왜 필요했나
 
@@ -56,6 +56,27 @@ source_revision_refs · artifact_revision_refs   (응답 측, exact revision ref
 
 `P` 권위 있는 곳에서 온 답이라도 **accepted context 가 아니다.** `candidate_only === true` · `accepted === false` · `erp_delta === 0`.
 
+### 4.1 candidate 는 자기 교신에 내용으로 묶인다
+
+`O` 이전 판은 candidate 를 response id·binding·generation 세 값으로만 영수증에 맞췄다. 그래서 **요청 B 에 대한 답이 요청 A 의 영수증 쌍에 붙어 통과했다.** source B 를 들고, 다른 내용으로 해시되고, 다른 사람이 말한 답이었는데도 세 값이 우연히 맞으면 그만이었다.
+
+`D` candidate 필수 필드는 20개다. 앞 12개는 candidate 자신이고, 나머지 8개(`context_response_receipt_id` · `in_response_to_receipt_id` · `context_response_content_hash` · `accepted_context_cas_fingerprint` · `artifact_revision_refs` · `principal_ref` · `authority_ref` · `valid_at`)는 **linkage** 다. 전부 실제 교신이 이미 만들어 낸 값이므로, 요구해도 참인 교신에는 비용이 없고 이어붙인 교신에는 전부다.
+
+`D` `validateResponseCandidate(candidate, { responseReceipt, requestReceipt })` 가 대조하는 것:
+
+```text
+request_id · response_id · 두 영수증 id
+project_binding_ref · generation · CAS
+response content hash
+source revision ref 집합 · artifact revision ref 집합 (entity·revision·content·alg 4쌍으로 정확히)
+principal_ref · 등록된 authority_ref
+valid_at · known_at
+```
+
+`D` 두 영수증은 **따로도** 거부할 수 있어야 하므로 각 반쪽이 독립으로 검사한다. 둘 다 받은 경우에만 `linkage_checked: true` 를 낸다.
+
+`P` 응답은 여전히 candidate 다. 이 절은 generation 증가·live P5·transport·writer 활성화를 만들지 않는다.
+
 `D` `assessResponseSufficiency()` 가 두 축을 **따로** 낸다.
 
 - evidence 충분성: 해석 가능한 source revision ref 가 있고 `evidence_claim_ceiling === 'source_sufficient'`. `source_referenced` 는 "ref 가 있다"이지 "주장을 덮는다"가 아니다
@@ -69,12 +90,14 @@ source_revision_refs · artifact_revision_refs   (응답 측, exact revision ref
 
 ```text
 두 영수증이 모두 있고 서로 다른 기록이며 각자 유효
-응답 candidate 가 그 영수증의 것이고 아직 candidate
+응답 candidate 가 두 영수증 모두에 내용으로 묶여 있고 아직 candidate
 셋 다 요청 binding·generation 과 일치
 두 영수증의 CAS 가 관측 fingerprint 와 일치
 선언된 freshness window 안
 evidence 충분 + authority 적용
 ```
+
+`D` `evaluable` 은 **정확한 영수증 두 장과 linkage·sufficiency·applicability 검사가 전부 통과할 때만** 참이다. 하나라도 어긋나면 거짓이며, 통과 결과가 `linkage_verified: true` 로 그 사실을 말한다.
 
 `P` 하나라도 없거나·어긋나거나·오래됐거나·다른 과제면 **멈춘다.** 약해진 상태로 계속 가지 않는다. finding 은 열린 채 남는다.
 
@@ -96,4 +119,4 @@ evidence 충분 + authority 적용
 
 `O` 모든 영수증을 모듈에 **건네준다.** 아무것도 전송하지 않았으므로 실제 교신에 대해 말하는 바가 없다.
 
-`O` 기대값과 규칙의 저자가 같다. 규칙이 구현과 fixture 에서 똑같이 틀리면 이 시험은 통과한다. lane 1V mutation lock 이 6개 변이로 이 모듈의 guard 가 실제로 작동하는지만 확인한다.
+`O` 기대값과 규칙의 저자가 같다. 규칙이 구현과 fixture 에서 똑같이 틀리면 이 시험은 통과한다. lane 1V mutation lock 이 13개 변이로 이 모듈의 guard 가 실제로 작동하는지만 확인한다.

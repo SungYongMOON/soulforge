@@ -130,13 +130,24 @@ evidence (immutable receipt + CAS)
 
 - generation: `generation_advance.to` = 인용 generation = `snapshot.accepted_context_generation`. 어긋나면 stale 로 거부
 - lineage: finding 은 그 snapshot 의 것, disposition event 는 그 finding 의 것, TaskIntent 는 그 snapshot·finding 의 것
-- authority: disposition 은 append-only 이고 등록된 사람이 확인한 것, context/authority gate 3검사 통과
+- authority: disposition 은 append-only 이고 등록된 사람이 확인한 것, context/authority gate 4검사(`context_sufficiency` · `evidence_sufficiency` · `registered_authority` · `applicability`) 통과, 등록된 authority family 지목, 그리고 **이 snapshot** 에 대해 평가된 것
 - gate 순서: `policy_gate.passed === true` 이고 그 gate 가 **이 TaskIntent** 의 것, `task_driver` 가 그 gate 뒤에서 평가된 것
-- project binding: snapshot · task_intent · task_driver · evidence 가 **모두 같은 binding**. 다르면 cross-project 로 거부
+- project binding: 12요소 중 record 10종과 **승인까지 모두 같은 binding**. 다르면 cross-project 로 거부
 - evidence: `immutable === true`, content address 보유, `cas_fingerprint` 가 관측 fingerprint 와 일치
-- 승인: `approver_kind === 'registered_human'`. agent · engine · 모델 승인은 승인이 아니다
+- 승인: `approver_kind === 'registered_human'`, 시각 보유, **이 TaskIntent 를 지목**. agent · engine · 모델 승인은 승인이 아니다
+- disposition: `confirmed_by_registered_human` 뿐 아니라 `confirmed_by_principal_kind === 'registered_human'` 과 지목된 principal id. 플래그만으로는 AI 확인과 구분되지 않는다
 
-`P` 이 함수는 **ERP 를 쓰지 않는다.** 결과는 `gate_evaluation_only: true` · `erp_write_performed: false` · `erp_writes: 0` 이다. 외부 sole writer 권한은 이 엔진에 없다.
+### 8.1.1 모양과 `passed: true` 는 증거가 아니다
+
+`O` 이전 판은 각 고리를 **모양으로** 읽었다. `boundary: 'p5_acceptance'` 는 누구나 적을 수 있는 문자열이고 `passed: true` 는 이 사슬에서 가장 위조하기 쉬운 값이다. 고리 하나하나가 옳아 보이는데 아무도 그것이 실제로 평가된 결과인지 다시 계산하지 않았다.
+
+`D` **불변 provenance 를 record 마다 요구하고 다시 계산한다.** record 10종과 승인은 각각 `provenance { immutable, content_address, project_binding_ref, recorded_at }` 를 나른다. `content_address` 는 그 record 의 내용(자기 provenance 제외)에서 `chainElementContentAddress(name, element)` 로 다시 계산해 대조한다. 기록된 뒤 편집된 고리는 모든 필드가 그대로여도 실패한다. 이름이 재료에 들어가므로 같은 내용이라도 다른 위치의 고리는 같은 주소를 갖지 않는다.
+
+`D` **네 boundary 는 다시 실행한다.** `p5_acceptance` · `generation_advance` · `policy_gate` · `task_driver` 는 record 가 나르는 `recompute_inputs` 로 각 boundary 함수를 다시 돌리고, 기록된 판정이 정확히 재현되는지 canonical form 으로 대조한다. 재현하지 못하는 판정은 결과가 아니라 주장이다. `task_driver` 는 자기 입력이 같은 사슬의 다른 두 고리이므로 별도 입력을 요구하지 않는다.
+
+`D` **evidence 의 CAS 사슬을 계산한다.** `receipt_material` 이 실제로 있어야 하고, 그 내용이 `evidence.content_address` 로 해시되어야 하며, `receipt_ref` 가 서로 일치해야 한다. 뒤에 아무것도 없는 content address 는 아무것도 지시하지 않는다.
+
+`P` 이 함수는 **ERP 를 쓰지 않는다.** 결과는 `gate_evaluation_only: true` · `erp_write_performed: false` · `erp_writes: 0` 이다. 외부 sole writer 권한은 이 엔진에 없다. 위 검사를 전부 통과하는 유일하게 고정된 positive control 도 write 수는 0이다.
 
 ## 9. 열린 항목 — Owner 결정
 

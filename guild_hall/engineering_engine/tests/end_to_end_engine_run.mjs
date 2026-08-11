@@ -60,9 +60,18 @@ const EDGES = [['alpha', 'bravo'], ['bravo', 'charlie'], ['charlie', 'delta']];
 // supplied rather than read, so the same fixture always produces the same verdict.
 const WINDOW = { period_seconds: 3600, grace_seconds: 1800 };
 const NOW = Date.parse(TAKEN_AT);
+// A run has to declare the exact edge key set it produced receipts for, so unless a case is
+// specifically attacking that declaration it states the truth: the keys that are in the map.
+// The cases below that supply their own `edges` block are the ones testing what happens when
+// the declaration and the map disagree.
+const declaring = (observation, receipts) => (observation.edges
+  ? observation
+  : { ...observation, edges: { exercised_edge_keys: Object.keys(receipts).sort() } });
+
 const pass = ({ receipts, observation, seed = 0, generation = 1, window = WINDOW, now = NOW }) => {
   const states = buildStates({
-    topology: topologyOf(EDGES), receipts, observation, validAt: VALID_AT, knownAt: TAKEN_AT,
+    topology: topologyOf(EDGES), receipts, observation: declaring(observation, receipts),
+    validAt: VALID_AT, knownAt: TAKEN_AT,
     window, now,
   });
   return runEnginePass({
@@ -143,13 +152,25 @@ const STALE_AT = new Date(NOW - 1814400 * 1000).toISOString();
     'zero evidence is not evidence that everything is dead');
 }
 
+const trustworthy = {
+  observationRecorded: true, failingSurfaces: [], surfacesRun: 8, surfacesDeclared: 11,
+  receiptKeySetExact: true, edgeReceiptsRecorded: true,
+};
 record('E2E/trust/clean_observation_permits_absence',
-  observationTrustworthiness({ observationRecorded: true, failingSurfaces: [], surfacesRun: 8, surfacesDeclared: 11 }).absence_reportable === true,
+  observationTrustworthiness(trustworthy).absence_reportable === true,
   'positive control');
 for (const [label, input] of [
-  ['no_observation_recorded', { observationRecorded: false, failingSurfaces: [], surfacesRun: 8 }],
-  ['a_surface_failed', { observationRecorded: true, failingSurfaces: ['x'], surfacesRun: 8 }],
-  ['nothing_ran', { observationRecorded: true, failingSurfaces: [], surfacesRun: 0 }],
+  ['no_observation_recorded', { ...trustworthy, observationRecorded: false }],
+  ['a_surface_failed', { ...trustworthy, failingSurfaces: ['x'] }],
+  ['nothing_ran', { ...trustworthy, surfacesRun: 0 }],
+  // The two the previous rule could not express at all. "The receipts object is not empty"
+  // used to stand in for both of them.
+  ['receipt_key_set_does_not_match', { ...trustworthy, receiptKeySetExact: false }],
+  ['no_edge_receipt_recorded', { ...trustworthy, edgeReceiptsRecorded: false }],
+  // Fail closed on omission: a caller that does not state these does not get the benefit of
+  // the doubt, because the whole point is that absence is only reportable when it was checked.
+  ['key_set_claim_omitted', { observationRecorded: true, failingSurfaces: [], surfacesRun: 8, edgeReceiptsRecorded: true }],
+  ['receipt_record_claim_omitted', { observationRecorded: true, failingSurfaces: [], surfacesRun: 8, receiptKeySetExact: true }],
 ]) {
   record(`E2E/trust/blocked/${label}`, observationTrustworthiness(input).absence_reportable === false);
 }
@@ -241,6 +262,114 @@ rejects('E2E/inputs/mint_source_required', () => runEnginePass({ states: { expec
     (r.gap_counts.satisfied ?? 0) === 0 && r.gap_counts[GAP_TYPE.UNKNOWN] === 3);
 }
 
+// ---------------------------------------------------------------- the receipt map is a set
+//
+// The previous rule read "there is at least one key in the receipts object" as "an observation
+// was recorded", and never compared the map to anything. That let three separate records pass
+// as evidence for an edge they were not about: a receipt filed under the wrong key, a receipt
+// from a different run, and a receipt for an edge the topology does not declare. Each of them
+// must leave the edge unknown, and each must also cost the run its right to report the edges
+// it did not reach as confirmed absences.
+
+{
+  // Misfiled: a valid, fresh receipt whose own edge_key names a different connection.
+  const receipts = { 'alpha>bravo': { ...receiptFor(['bravo>charlie'])['bravo>charlie'] } };
+  const states = buildStates({
+    topology: topologyOf(EDGES), receipts, observation: declaring(cleanObservation(), receipts),
+    validAt: VALID_AT, knownAt: TAKEN_AT, window: WINDOW, now: NOW,
+  });
+  record('E2E/receipt_map/misfiled_receipt_is_not_proof',
+    states.receipt_verdicts['alpha>bravo'] === 'misfiled'
+      && states.observed.every((o) => o.presence_state !== PRESENCE.PRESENT),
+    'a record about another edge does not evidence this one however fresh it is');
+  const r = pass({ receipts, observation: cleanObservation() });
+  record('E2E/receipt_map/misfiled_receipt_blocks_absence',
+    (r.gap_counts[GAP_TYPE.MISSING] ?? 0) === 0 && r.gap_counts[GAP_TYPE.UNKNOWN] === 3
+      && (r.gap_counts.satisfied ?? 0) === 0);
+}
+{
+  // A receipt from another run. It attests a real traversal, in an observation this is not.
+  const receipts = receiptFor(['alpha>bravo'], { run_id: 'run-some-other' });
+  const states = buildStates({
+    topology: topologyOf(EDGES), receipts, observation: declaring(cleanObservation(), receipts),
+    validAt: VALID_AT, knownAt: TAKEN_AT, window: WINDOW, now: NOW,
+  });
+  record('E2E/receipt_map/foreign_run_receipt_is_not_proof',
+    states.receipt_verdicts['alpha>bravo'] === 'foreign_run');
+  const r = pass({ receipts, observation: cleanObservation() });
+  record('E2E/receipt_map/foreign_run_receipt_blocks_absence',
+    (r.gap_counts.satisfied ?? 0) === 0 && r.gap_counts[GAP_TYPE.UNKNOWN] === 3);
+}
+{
+  // An unexpected key: a receipt for an edge the topology never declared, sitting alongside a
+  // perfectly good one. The good receipt must stop counting too, because the map it arrived in
+  // is not the map this topology can account for.
+  const receipts = { ...receiptFor(['alpha>bravo']), ...receiptFor(['delta>echo']) };
+  const states = buildStates({
+    topology: topologyOf(EDGES), receipts, observation: declaring(cleanObservation(), receipts),
+    validAt: VALID_AT, knownAt: TAKEN_AT, window: WINDOW, now: NOW,
+  });
+  record('E2E/receipt_map/undeclared_key_reported',
+    states.receipt_key_set.undeclared_by_topology.join(',') === 'delta>echo'
+      && states.receipt_key_set.exact === false);
+  const r = pass({ receipts, observation: cleanObservation() });
+  record('E2E/receipt_map/undeclared_key_blocks_everything',
+    (r.gap_counts.satisfied ?? 0) === 0 && (r.gap_counts[GAP_TYPE.MISSING] ?? 0) === 0
+      && r.gap_counts[GAP_TYPE.UNKNOWN] === 3,
+    'an unexpected receipt never makes a declared edge present, satisfied or absent');
+}
+{
+  // The run claims a key set the map does not hold, in each direction.
+  const receipts = receiptFor(['alpha>bravo']);
+  const overclaimed = pass({
+    receipts,
+    observation: cleanObservation({ edges: { exercised_edge_keys: ['alpha>bravo', 'bravo>charlie'] } }),
+  });
+  record('E2E/receipt_map/run_claims_a_receipt_that_is_absent',
+    (overclaimed.gap_counts.satisfied ?? 0) === 0 && overclaimed.gap_counts[GAP_TYPE.UNKNOWN] === 3);
+  const underclaimed = pass({
+    receipts,
+    observation: cleanObservation({ edges: { exercised_edge_keys: [] } }),
+  });
+  record('E2E/receipt_map/map_holds_a_receipt_the_run_never_claimed',
+    (underclaimed.gap_counts.satisfied ?? 0) === 0 && underclaimed.gap_counts[GAP_TYPE.UNKNOWN] === 3);
+}
+{
+  // A non-empty receipt map with no observation record behind it. This is the exact shape the
+  // old rule accepted as "an observation was recorded".
+  const receipts = receiptFor(['alpha>bravo']);
+  const states = buildStates({
+    topology: topologyOf(EDGES), receipts,
+    observation: { surfaces: { declared: 8, run: 8, failing: [], counts: {} } },
+    validAt: VALID_AT, knownAt: TAKEN_AT, window: WINDOW, now: NOW,
+  });
+  record('E2E/receipt_map/non_empty_map_is_not_a_recorded_observation',
+    states.observation_record.recorded === false
+      && states.observation_record.reasons.includes('observation_names_no_run')
+      && states.observation_record.reasons.includes('observation_declares_no_exercised_edge_key_set')
+      && states.trust.absence_reportable === false,
+    'holding keys is not the same as having recorded a run');
+  record('E2E/receipt_map/unrecorded_observation_yields_no_present',
+    states.observed.every((o) => o.presence_state === PRESENCE.UNKNOWN));
+}
+{
+  // Positive control on the same path: a complete record, an exact key set, fresh receipts.
+  const receipts = receiptFor(['alpha>bravo', 'bravo>charlie', 'charlie>delta']);
+  const states = buildStates({
+    topology: topologyOf(EDGES), receipts, observation: declaring(cleanObservation(), receipts),
+    validAt: VALID_AT, knownAt: TAKEN_AT, window: WINDOW, now: NOW,
+  });
+  const r = pass({ receipts, observation: cleanObservation() });
+  record('E2E/receipt_map/positive_control_exact_set',
+    states.receipt_key_set.exact === true && states.trust.absence_reportable === true
+      && r.gap_counts.satisfied === 3 && r.findings.length === 0,
+    'an exact, fresh, same-run receipt map still proves traversal');
+  const partial = pass({ receipts: receiptFor(['alpha>bravo']), observation: cleanObservation() });
+  record('E2E/receipt_map/positive_control_exact_partial_set',
+    partial.gap_counts.satisfied === 1 && partial.gap_counts[GAP_TYPE.MISSING] === 2,
+    'and a run that exactly declares one exercised edge may still report the other two absent');
+}
+
 rejects('E2E/inputs/window_required',
   () => buildStates({ topology: topologyOf(EDGES), receipts: {}, observation: cleanObservation(), validAt: VALID_AT, knownAt: TAKEN_AT, now: NOW }),
   'SUBJECT_INPUT_INVALID', 'without a declared window "fresh" would mean whatever the caller wanted');
@@ -258,8 +387,9 @@ rejects('E2E/inputs/topology_required',
 // ---------------------------------------------------------------- axes stay separated
 
 {
+  const receipts = receiptFor(['alpha>bravo']);
   const states = buildStates({
-    topology: topologyOf(EDGES), receipts: receiptFor(['alpha>bravo']), observation: cleanObservation(),
+    topology: topologyOf(EDGES), receipts, observation: declaring(cleanObservation(), receipts),
     validAt: VALID_AT, knownAt: TAKEN_AT, window: WINDOW, now: NOW,
   });
   record('E2E/axes/one_expected_per_requirement', states.expected.length === EDGES.length);

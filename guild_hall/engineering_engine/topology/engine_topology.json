@@ -32,14 +32,17 @@
         "CODES",
         "REQUIRED_SOURCE_CLAIM_FIELDS",
         "SCOPE",
+        "TWO_SOURCE_AUTHORITY_INVARIANT",
         "assertSearchScope",
+        "assertTwoSourceAuthorityInvariant",
         "forbidRankArithmetic",
+        "normaliseClaimValue",
         "recordSourceConflict",
         "resolveApplicability",
         "resolveAuthority"
       ],
-      "export_count": 11,
-      "line_count": 191
+      "export_count": 14,
+      "line_count": 346
     },
     {
       "module": "canonical",
@@ -73,7 +76,7 @@
         "selectCapsule"
       ],
       "export_count": 12,
-      "line_count": 348
+      "line_count": 393
     },
     {
       "module": "ceilings",
@@ -114,7 +117,7 @@
         "validateResponseCandidate"
       ],
       "export_count": 13,
-      "line_count": 458
+      "line_count": 587
     },
     {
       "module": "contract_config",
@@ -566,7 +569,10 @@
         "DEFINED_STAGES",
         "OPEN_OWNER_DECISIONS_FOR_THIS_LANE",
         "P7",
+        "P8_CHAIN_RECORD_ELEMENTS",
+        "P8_RECOMPUTED_CHAIN_ELEMENTS",
         "POLICY_GATE_ID",
+        "REQUIRED_CHAIN_PROVENANCE_FIELDS",
         "REQUIRED_CONTEXT_REQUEST_FIELDS",
         "REQUIRED_P8_CHAIN_ELEMENTS",
         "SERIALISED_BOUNDARIES",
@@ -575,6 +581,7 @@
         "assertStageDefined",
         "assertTaskDriverNotActivated",
         "assertZeroErpDelta",
+        "chainElementContentAddress",
         "evaluateGenerationAdvance",
         "evaluateP5Acceptance",
         "evaluateP7TaskDriver",
@@ -582,8 +589,8 @@
         "evaluateTaskDriverPolicyGate",
         "validateContextRequest"
       ],
-      "export_count": 21,
-      "line_count": 570
+      "export_count": 25,
+      "line_count": 828
     },
     {
       "module": "snapshot",
@@ -626,11 +633,13 @@
         "CODES",
         "SUBJECT_ID",
         "buildStates",
+        "classifyReceiptKeySet",
         "judgeReceipt",
-        "observationTrustworthiness"
+        "observationTrustworthiness",
+        "readObservationRecord"
       ],
-      "export_count": 5,
-      "line_count": 222
+      "export_count": 7,
+      "line_count": 350
     }
   ],
   "module_count": 24,
@@ -1197,7 +1206,21 @@
     },
     {
       "from": "pipeline",
+      "to": "authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "pipeline",
       "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "pipeline",
+      "to": "contract_config",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -1280,7 +1303,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 92,
+  "module_edge_count": 94,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -1631,5 +1654,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "e3382dfae5485dcb8dc44282a3f85d4f892146d894f4cc2470de1e22679cfd1c"
+  "topology_digest": "dc606a313e7d8004d467f326c50b995c89a034638121b37523d555257941ff1d"
 }

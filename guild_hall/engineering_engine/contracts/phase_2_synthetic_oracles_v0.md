@@ -3,7 +3,7 @@
 Status: `SPEC FROZEN BEFORE IMPLEMENTATION / PUBLIC SYNTHETIC ONLY`
 
 명세: `fixtures/phase_2_oracle_spec.json` (동결 `fixtures/phase_2_oracle_spec.sha256`)
-시험: `tests/phase_2_oracle_conformance.mjs` (107 통과 / 0 실패 / 금지출력 위반 0)
+시험: `tests/phase_2_oracle_conformance.mjs` (136 통과 / 0 실패 / 금지출력 위반 0)
 
 ## 1. 왜 먼저 동결했나
 
@@ -36,6 +36,17 @@ Status: `SPEC FROZEN BEFORE IMPLEMENTATION / PUBLIC SYNTHETIC ONLY`
 `O` 이전 판의 이 문단은 "exclusion 에 이름이 오르는 것은 정당한 거부 표시"라고 적었다. **그 해석은 동결 명세와 어긋났다.** 정정: exclusion 은 `{ reason, hop, count }` 만 나르고 식별자는 나르지 않는다. 거부한 사실과 개수는 말하되 대상은 말하지 않는다. 조용한 빈 capsule 도 여전히 금지 — 거부는 말로 해야 한다. 시험은 반환 객체 전체를 key 까지 **재귀적으로** 검사한다.
 
 `P` `O4` 는 **두 source** 의 불일치다. Expected 와 Observed 둘 다 보존됐다는 것은 다른 주장이며 이 항목을 대신하지 못한다. 동결 입력이 지정한 `project_contract_baseline` 대 `reviewed_wiki` 를 그대로 만들고, **상위 권위가 이기면서 두 주장·source revision·lineage 가 모두 남는지**를 확인한다. 사슬을 못 남기는 conflict 는 finding 단계에서 거부된다.
+
+`O` "conflict 가 기록됐고 두 side 가 남았다"는 동결 입력이 요구하는 것보다 **훨씬 약하다.** 한 source 를 두 번 인용한 쌍, reviewed_wiki 두 개, 같은 revision, 같은 값, applicability 미해결 — 전부 `conflict: true` 인 기록을 만들고 그 약한 조건은 통과한다. 그중 어느 것도 두 권위의 불일치가 아니다.
+
+`D` 두 겹의 guard 로 정확히 고정한다.
+
+- `recordSourceConflict()` 는 **불일치가 아닌 것을 기록하지 않는다.** 중복 claim_id, 중복 source revision, 정규화 후 같은 asserted value, 누락된 lineage 또는 exact source revision ref 를 거부한다.
+- `assertTwoSourceAuthorityInvariant(record)` 는 **정확한 쌍이 아닌 기록에서 결론을 내지 않는다.** 정확히 두 claim, families = `{project_contract_baseline, reviewed_wiki}`, 서로 다른 revision, 정규화 값의 실제 불일치, 양쪽 applicability = true, lineage 양쪽 보존, `sides_dropped === 0`, 그리고 `project_contract_baseline` 이 governing.
+
+`D` 두 겹인 이유는 builder 를 거치지 않고 손으로 만들어진 기록이 존재할 수 있기 때문이다. 시험은 두 층을 각각 공격한다(`O4/record/*`, `O4/invariant/*`). 거부는 실패한 검사 이름을 그대로 낸다. 어느 거부든 읽는 법은 `HOLD` 다 — 이 쌍은 invariant 가 아니므로 precedence 에 대해 아무것도 말할 수 없다.
+
+`D` 정규화(`normaliseClaimValue`)는 공백과 대소문자만 접는다. 그 이상은 "다르게 쓴 두 요구사항이 같은 뜻"이라는 판단이 되고, 결정론 kernel 이 할 판단이 아니다.
 
 `P` `O7` 은 cache 격리가 **구조적**임을 확인한다. `pb-alpha` 와 `pb-bravo` 의 cache key 가 애초에 다르므로, 사후 필터가 아니라 도달 자체가 불가능하다. capsule 쪽도 같은 규칙을 지며 multi-hop 과 edge/node binding 혼재 케이스를 함께 본다.
 

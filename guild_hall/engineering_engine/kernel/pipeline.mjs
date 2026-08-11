@@ -9,8 +9,11 @@
 // four boundaries would eventually disagree, and the disagreement would surface as a lock
 // that never contends.
 
+import { createHash } from 'node:crypto';
 import { OPERATIONS } from './mcp_contract.mjs';
-import { inspectInstant } from './canonical.mjs';
+import { canonicalise, inspectInstant } from './canonical.mjs';
+import { CANONICAL } from './contract_config.mjs';
+import { AUTHORITY_FAMILIES } from './authority.mjs';
 import { assertIsMintedIdentifier } from './minting.mjs';
 import { ContractError } from './errors.mjs';
 
@@ -389,7 +392,167 @@ export const REQUIRED_P8_CHAIN_ELEMENTS = Object.freeze([
   'evidence',
 ]);
 
+/**
+ * The chain elements that are records rather than scalars, and therefore have to carry their
+ * own immutable provenance. The two scalars are checked separately: they are the binding and
+ * the generation every record has to agree with.
+ */
+export const P8_CHAIN_RECORD_ELEMENTS = Object.freeze(
+  REQUIRED_P8_CHAIN_ELEMENTS.filter((k) => k !== 'project_binding_ref' && k !== 'accepted_context_generation'),
+);
+
+/**
+ * The elements P8 recomputes instead of believing, and the boundary function that decides
+ * each one. A recorded verdict is a claim that a function was run; recomputing it from the
+ * inputs the record carries is the only way to find out whether the claim is true.
+ */
+export const P8_RECOMPUTED_CHAIN_ELEMENTS = Object.freeze([
+  'p5_acceptance', 'generation_advance', 'policy_gate', 'task_driver',
+]);
+
+export const REQUIRED_CHAIN_PROVENANCE_FIELDS = Object.freeze([
+  'immutable', 'content_address', 'project_binding_ref', 'recorded_at',
+]);
+
+const AUTHORITY_KEYS = new Set(AUTHORITY_FAMILIES.map((f) => f.key));
 const HUMAN_APPROVER_KIND = 'registered_human';
+const IS_SHA256_HEX = /^[0-9a-f]{64}$/;
+
+/**
+ * Declares an insertion order for every array inside a value.
+ *
+ * `canonicalise` refuses an array with no declared order rule, which is right for a
+ * fingerprint over accepted inputs: there, the order either carries meaning or it must be
+ * sorted, and guessing would let two different input sets share a fingerprint. A content
+ * address answers a different question — "are these the exact bytes that were recorded" — and
+ * for that, recorded order *is* the content. So the rule is declared rather than inferred.
+ */
+function insertionOrderRulesFor(value, path = '', rules = {}) {
+  if (Array.isArray(value)) {
+    rules[path] = 'insertion_ordered';
+    for (const element of value) insertionOrderRulesFor(element, `${path}[]`, rules);
+  } else if (value !== null && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) {
+      insertionOrderRulesFor(child, path ? `${path}.${key}` : key, rules);
+    }
+  }
+  return rules;
+}
+
+/**
+ * The content address of one recorded chain element.
+ *
+ * Computed over the element as recorded, minus its own provenance block — an address cannot
+ * include itself. The element name is in the material, so the same bytes recorded as two
+ * different links do not share an address.
+ *
+ * This is what makes "immutable" checkable. A record that merely says `immutable: true` is a
+ * record asserting a property about itself; a record whose declared address is recomputed
+ * from its own content either matches or has been edited since it was written.
+ */
+export function chainElementContentAddress(name, element) {
+  const { provenance: _ignored, ...material } = element ?? {};
+  const body = canonicalise(material, insertionOrderRulesFor(material));
+  return createHash(CANONICAL.hashAlgorithm)
+    .update(`soulforge.se_engine.p8_chain_element.v0\n${name}\n${body}`)
+    .digest('hex');
+}
+
+/**
+ * Verifies that one chain element is immutable, addressed, bound and dated — and that the
+ * address it declares is the address its own content produces.
+ */
+function assertChainElementProvenance(name, element, binding) {
+  if (element === null || typeof element !== 'object' || Array.isArray(element)) {
+    throw new ContractError(CODES.WRITE_CHAIN_INCOMPLETE, `chain element "${name}" is not a record`, { element: name });
+  }
+  const provenance = element.provenance;
+  if (provenance === null || typeof provenance !== 'object' || Array.isArray(provenance)) {
+    throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+      `chain element "${name}" carries no provenance, so nothing about it can be checked`, { element: name });
+  }
+  for (const field of REQUIRED_CHAIN_PROVENANCE_FIELDS) {
+    if (!Object.hasOwn(provenance, field)) {
+      throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+        `chain element "${name}" provenance is missing "${field}"`, { element: name, field });
+    }
+  }
+  if (provenance.immutable !== true) {
+    throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+      `chain element "${name}" is not immutable; a rewritable link proves nothing about what happened`, { element: name });
+  }
+  if (!IS_SHA256_HEX.test(provenance.content_address ?? '')) {
+    throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+      `chain element "${name}" declares no content address`, { element: name });
+  }
+  if (provenance.project_binding_ref !== binding) {
+    throw new ContractError(CODES.WRITE_CHAIN_CROSS_PROJECT,
+      `chain element "${name}" was recorded under a different project binding`, { element: name });
+  }
+  if (!inspectInstant(provenance.recorded_at).valid) {
+    throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+      `chain element "${name}" provenance carries no canonical recorded_at`, { element: name });
+  }
+  let recomputed = null;
+  try {
+    recomputed = chainElementContentAddress(name, element);
+  } catch (e) {
+    throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+      `chain element "${name}" cannot be canonically addressed, so its immutability cannot be verified`,
+      { element: name, cause_code: e?.code ?? null });
+  }
+  if (recomputed !== provenance.content_address) {
+    throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+      `chain element "${name}" does not hash to the content address it declares; it was altered after it was recorded`,
+      { element: name });
+  }
+  return recomputed;
+}
+
+/**
+ * The verdict part of a record: everything except the three fields that are *about* the
+ * record rather than part of what the boundary decided.
+ *
+ * `provenance` and `recompute_inputs` are the record's own scaffolding. `project_binding_ref`
+ * is stripped because not every boundary function returns one, while every chain record has to
+ * carry one — it is checked directly, against the chain binding, before this comparison runs,
+ * so removing it here narrows nothing.
+ */
+const recordedVerdictOf = (element) => {
+  const { provenance: _p, recompute_inputs: _r, project_binding_ref: _b, ...verdict } = element;
+  return verdict;
+};
+
+/**
+ * Recomputes a boundary verdict and refuses anything that does not reproduce exactly.
+ *
+ * The comparison is over the canonical form of the whole verdict, not over a handful of
+ * fields, because a spot check tells a forger which fields to keep consistent.
+ */
+function assertRecomputes(name, element, recompute, { requiresInputs = true } = {}) {
+  const inputs = element.recompute_inputs;
+  if (requiresInputs && (inputs === null || typeof inputs !== 'object' || Array.isArray(inputs))) {
+    throw new ContractError(CODES.WRITE_CHAIN_INCOMPLETE,
+      `chain element "${name}" carries no recompute inputs, so its verdict cannot be verified and is not believed`,
+      { element: name });
+  }
+  let produced = null;
+  try {
+    produced = recompute(inputs);
+  } catch (e) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
+      `chain element "${name}" does not recompute: the boundary it claims to record refuses its own inputs`,
+      { element: name, cause_code: e?.code ?? null });
+  }
+  const recorded = recordedVerdictOf(element);
+  const expected = recordedVerdictOf(produced);
+  const rules = { ...insertionOrderRulesFor(recorded), ...insertionOrderRulesFor(expected) };
+  if (canonicalise(recorded, rules) !== canonicalise(expected, rules)) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
+      `chain element "${name}" does not match the verdict its own inputs produce`, { element: name });
+  }
+  return produced;
+}
 
 /**
  * Evaluates a P8 ERP write, and performs none.
@@ -409,6 +572,18 @@ const HUMAN_APPROVER_KIND = 'registered_human';
  * plus one project binding shared by all of them, and immutable receipt/CAS evidence that
  * the state has not moved underneath the request. Anything missing, stale, mismatched,
  * cross-project, AI-approved or unauthorised is refused.
+ *
+ * Three things this gate deliberately refuses to do, because each of them was how a forged
+ * chain used to get through:
+ *
+ * 1. It does not read object shape as evidence. Every record has to carry immutable
+ *    provenance whose content address is recomputed here from the record's own content, so a
+ *    link edited after it was written fails even though every field still looks right.
+ * 2. It does not believe `passed: true`. The P5 acceptance, the generation advance, the
+ *    policy gate and P7 are re-run over the inputs they carry, and the recorded verdict has to
+ *    reproduce exactly. A verdict nobody can recompute is a claim, not a result.
+ * 3. It checks the binding on every element, not on the four that were easiest to reach.
+ *    Partial coverage is what makes a cross-project chain assemblable in the first place.
  */
 export function evaluateP8Write({ principal, approval, chain, submittedFingerprint, observedFingerprint }) {
   assertRegisteredHuman(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN);
@@ -429,6 +604,10 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
       'the writer approved their own write and self approval was not permitted',
       { principal: principal.principal_id });
   }
+  if (!inspectInstant(approval.approved_at).valid) {
+    throw new ContractError(CODES.WRITE_WITHOUT_APPROVAL,
+      'an approval must say when it was given; an undated approval cannot be shown to precede this write');
+  }
 
   if (chain === null || typeof chain !== 'object' || Array.isArray(chain)) {
     throw new ContractError(CODES.WRITE_CHAIN_INCOMPLETE,
@@ -444,19 +623,25 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
   if (typeof binding !== 'string' || !binding) {
     throw new ContractError(CODES.WRITE_CHAIN_INCOMPLETE, 'the chain must name its project binding');
   }
-  // One binding, everywhere. A write assembled from two projects' material is the leak this
-  // check exists for, and it is refused rather than filtered afterwards.
+  // One binding, everywhere, on every record — not on the four that were easiest to reach.
+  // A chain checked in part is a chain with a hole in it, and the hole is where the other
+  // project's material comes in. The approval is in the list because an approval granted for
+  // one project is not an approval for another.
   const bindings = [
-    ['snapshot', chain.snapshot.project_binding_ref],
-    ['task_intent', chain.task_intent.project_binding_ref],
-    ['task_driver', chain.task_driver.project_binding_ref],
-    ['evidence', chain.evidence.project_binding_ref],
+    ...P8_CHAIN_RECORD_ELEMENTS.map((name) => [name, chain[name]?.project_binding_ref]),
+    ['approval', approval.project_binding_ref],
   ];
   const crossProject = bindings.filter(([, v]) => v !== binding).map(([k]) => k);
   if (crossProject.length) {
     throw new ContractError(CODES.WRITE_CHAIN_CROSS_PROJECT,
       'elements of this chain belong to different project bindings', { elements: crossProject });
   }
+
+  // Immutable provenance, on every record, recomputed rather than read. This runs before any
+  // field of any element is trusted, because a link that has been edited since it was written
+  // has nothing to say about what its fields mean.
+  for (const name of P8_CHAIN_RECORD_ELEMENTS) assertChainElementProvenance(name, chain[name], binding);
+  assertChainElementProvenance('approval', approval, binding);
 
   const generation = chain.accepted_context_generation;
   if (!Number.isSafeInteger(generation) || generation < 0) {
@@ -470,6 +655,14 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
       'the generation this write cites is not the generation the advance produced',
       { advanced_to: chain.generation_advance.to ?? null, cited: generation });
   }
+  // The acceptance and the advance are recomputed from the inputs they carry. `boundary:
+  // 'p5_acceptance'` is a label anyone can type; running evaluateP5Acceptance over the
+  // recorded principal and fingerprints is what decides whether a registered human actually
+  // cleared that boundary on this state.
+  assertRecomputes('p5_acceptance', chain.p5_acceptance, (i) => evaluateP5Acceptance(i));
+  // Recomputing the advance also settles where it started from: the boundary refuses anything
+  // but a single step, and the step it produced has to end at the generation this write cites.
+  assertRecomputes('generation_advance', chain.generation_advance, (i) => evaluateGenerationAdvance(i));
   if (chain.snapshot.accepted_context_generation !== generation) {
     throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
       'the snapshot belongs to a different accepted context generation, so this write is stale',
@@ -488,11 +681,33 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
     throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
       'the disposition event is not an append-only event, confirmed by a registered human, for this finding');
   }
-  for (const check of ['context_sufficiency', 'evidence_sufficiency', 'registered_authority']) {
+  // "confirmed_by_registered_human: true" is a boolean the writer of the event chose. The
+  // named principal and its kind are what make it checkable, and an agent or model confirming
+  // a disposition is not a confirmation however the flag is set.
+  if (chain.disposition_event.confirmed_by_principal_kind !== HUMAN_APPROVER_KIND
+      || typeof chain.disposition_event.confirmed_by_principal_id !== 'string'
+      || !chain.disposition_event.confirmed_by_principal_id) {
+    throw new ContractError(CODES.WRITE_APPROVAL_NOT_HUMAN,
+      'the disposition confirmation does not name a registered human principal',
+      { confirmed_by_principal_kind: chain.disposition_event.confirmed_by_principal_kind ?? null });
+  }
+  // Applicability joins the three that were already checked. A context gate can be sufficient
+  // and authoritative and still be about a source that does not govern this project, which is
+  // the one combination the previous three-check list let through.
+  for (const check of ['context_sufficiency', 'evidence_sufficiency', 'registered_authority', 'applicability']) {
     if (chain.context_authority_gate[check] !== true) {
       throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
         'the context and authority gate before P6 did not pass', { check });
     }
+  }
+  if (!AUTHORITY_KEYS.has(chain.context_authority_gate.authority_family)) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
+      'the context and authority gate names no registered authority family',
+      { given: chain.context_authority_gate.authority_family ?? null });
+  }
+  if (chain.context_authority_gate.snapshot_id !== chain.snapshot.snapshot_id) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
+      'the context and authority gate was evaluated against a different snapshot');
   }
   if (chain.task_intent.snapshot_id !== chain.snapshot.snapshot_id
       || chain.task_intent.finding_id !== chain.finding.finding_id) {
@@ -510,6 +725,25 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
       || chain.task_driver.task_intent_id !== chain.task_intent.task_intent_id) {
     throw new ContractError(CODES.WRITE_CHAIN_MISMATCH, 'P7 was not evaluated for this task intent behind its policy gate');
   }
+  // `passed: true` is the single most forgeable field in this chain, so it is not read as
+  // evidence of anything. The gate is re-run over the why, why-now, authority and idempotency
+  // records it carries, against the task intent in this same chain, and P7 is then re-run over
+  // the gate that recomputation produced rather than over the one the caller supplied.
+  const recomputedGate = assertRecomputes('policy_gate', chain.policy_gate,
+    (i) => evaluateTaskDriverPolicyGate({ ...i, taskIntent: chain.task_intent }));
+  // P7 carries no recompute inputs of its own: its inputs are two other links of this same
+  // chain, which have already been verified above.
+  assertRecomputes('task_driver', chain.task_driver,
+    () => evaluateP7TaskDriver({ policyGate: recomputedGate, taskIntent: chain.task_intent, projectBindingRef: binding }),
+    { requiresInputs: false });
+
+  // The approval has to be an approval of *this* intent. A human who approved something else
+  // has approved something else, and an approval that names nothing approves anything.
+  if (approval.task_intent_id !== chain.task_intent.task_intent_id) {
+    throw new ContractError(CODES.WRITE_WITHOUT_APPROVAL,
+      'the approval does not name the task intent this write would create',
+      { approved: approval.task_intent_id ?? null });
+  }
 
   // A candidate is not writable. This is necessary and, on its own, nothing: everything
   // above had to hold before this line is even reached.
@@ -525,6 +759,26 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
       || typeof evidence.content_address !== 'string' || evidence.content_address.length !== 64) {
     throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
       'the write must rest on an immutable receipt with a content address');
+  }
+  // A content address with nothing behind it addresses nothing. The receipt material has to
+  // be present and has to hash to the address the evidence declares, so the "content
+  // addressed" claim is a computation rather than a field name.
+  const receiptMaterial = evidence.receipt_material;
+  if (receiptMaterial === null || typeof receiptMaterial !== 'object' || Array.isArray(receiptMaterial)
+      || receiptMaterial.receipt_ref !== evidence.receipt_ref) {
+    throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+      'the evidence names a receipt but does not carry the receipt material its address is supposed to address');
+  }
+  let receiptAddress = null;
+  try {
+    receiptAddress = chainElementContentAddress('evidence_receipt', receiptMaterial);
+  } catch (e) {
+    throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+      'the receipt material cannot be canonically addressed', { cause_code: e?.code ?? null });
+  }
+  if (receiptAddress !== evidence.content_address) {
+    throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+      'the receipt material does not hash to the content address the evidence declares');
   }
   if (typeof submittedFingerprint !== 'string' || !submittedFingerprint) {
     throw new ContractError(CODES.CAS_MISSING, 'a write must submit the fingerprint the caller believes is current');
@@ -555,6 +809,10 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
       task_intent_ref: chain.task_intent.task_intent_id,
       task_driver_ref: chain.task_driver.gate_id,
     },
+    // Stated so a reader does not have to infer how much was actually checked.
+    chain_elements_verified: [...REQUIRED_P8_CHAIN_ELEMENTS],
+    chain_elements_recomputed: [...P8_RECOMPUTED_CHAIN_ELEMENTS],
+    provenance_verified_for: [...P8_CHAIN_RECORD_ELEMENTS, 'approval'],
     // This engine evaluates the gate. It does not hold the external sole-writer authority,
     // so no ledger entry is produced here and the count says so.
     gate_evaluation_only: true,

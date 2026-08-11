@@ -16,7 +16,8 @@ import {
   validateContextRequest, assertZeroErpDelta, evaluateP8Write, OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
   DEFINED_STAGES, TASK_DRIVER_POLICY_CHECKS, POLICY_GATE_ID,
   evaluateTaskDriverPolicyGate, evaluateP7TaskDriver, assertTaskDriverNotActivated,
-  REQUIRED_P8_CHAIN_ELEMENTS,
+  REQUIRED_P8_CHAIN_ELEMENTS, P8_CHAIN_RECORD_ELEMENTS, P8_RECOMPUTED_CHAIN_ELEMENTS,
+  REQUIRED_CHAIN_PROVENANCE_FIELDS, chainElementContentAddress,
 } from '../kernel/pipeline.mjs';
 import { deterministicReplayFingerprint } from '../kernel/fingerprint.mjs';
 import { FINGERPRINT_INPUT_KEYS } from '../kernel/contract_config.mjs';
@@ -461,39 +462,105 @@ rejects('1A/p6/nonzero_delta_asserted', () => assertZeroErpDelta({ erp_delta: 2 
 // A write is a gate evaluation here and nothing else: this engine holds no external writer
 // authority, so the pass case still reports zero writes. What is being tested is the refusal
 // set, and specifically that no single field is sufficient on its own.
+//
+// The chain is *sealed* rather than written by hand. Every record carries provenance whose
+// content address is computed from the record's own content, which is what makes the
+// immutability claim checkable instead of decorative: change one field of a sealed record and
+// its declared address stops matching. `tampered` below is the whole attack surface in one
+// helper — it edits a link and leaves the old address in place, which is exactly what a forged
+// chain looks like.
 
 const FP = 'b'.repeat(64);
+const RECORDED_AT = '2026-08-03T00:00:00.000Z';
+
+/** Attaches provenance whose content address is the one this content actually produces. */
+const seal = (name, element, over = {}) => {
+  const provenance = {
+    immutable: true, project_binding_ref: 'pb-alpha', recorded_at: RECORDED_AT,
+    content_address: chainElementContentAddress(name, element), ...over,
+  };
+  return { ...element, provenance };
+};
+/** Re-seals after an edit, so the record is internally consistent and only its meaning changed. */
+const resealed = (name, element, over) => seal(name, { ...(({ provenance, ...rest }) => rest)(element), ...over });
+/** Edits a record and leaves its old address in place: an altered link claiming to be original. */
+const tampered = (element, over) => ({ ...element, ...over });
 
 const approvedIntent = { ...taskIntent, candidate_only: false };
 const approvedGate = evaluateTaskDriverPolicyGate({ ...gateOk, taskIntent: approvedIntent });
 const approvedDriver = evaluateP7TaskDriver({ policyGate: approvedGate, taskIntent: approvedIntent, projectBindingRef: 'pb-alpha' });
 
+// The inputs each recomputed boundary is re-run over. They are part of the record, so they are
+// covered by its content address: a forger cannot swap the inputs without breaking the seal,
+// and cannot keep the inputs without reproducing the verdict.
+const p5Inputs = {
+  principal: { kind: 'registered_human', principal_id: 'person-3' },
+  submittedFingerprint: FP, observedFingerprint: FP,
+  acceptedInputSetRef: 'set-1', knownAt: RECORDED_AT,
+};
+const advanceInputs = {
+  principal: { kind: 'registered_human', principal_id: 'person-3' },
+  fromGeneration: 6, toGeneration: 7,
+  submittedFingerprint: FP, observedFingerprint: FP,
+};
+const gateInputs = {
+  why: gateOk.why, whyNow: gateOk.whyNow, authority: gateOk.authority,
+  idempotency: gateOk.idempotency, knownAt: gateOk.knownAt,
+};
+
+const receiptMaterial = {
+  receipt_ref: 'ctx-response-receipt-1',
+  receipt_kind: 'context_response_receipt',
+  context_response_id: 'a3f1c2d4-5e6f-4a7b-8c9d-000000000501',
+  recorded_at: RECORDED_AT,
+};
+const RECEIPT_ADDRESS = chainElementContentAddress('evidence_receipt', receiptMaterial);
+
 const chain = {
   project_binding_ref: 'pb-alpha',
   accepted_context_generation: 7,
-  p5_acceptance: { boundary: 'p5_acceptance', acceptor: 'person-3', accepted_input_set_ref: 'set-1' },
-  generation_advance: { boundary: 'generation_advance', from: 6, to: 7 },
-  snapshot: {
+  p5_acceptance: seal('p5_acceptance', {
+    ...evaluateP5Acceptance(p5Inputs), project_binding_ref: 'pb-alpha', recompute_inputs: p5Inputs,
+  }),
+  generation_advance: seal('generation_advance', {
+    ...evaluateGenerationAdvance(advanceInputs), project_binding_ref: 'pb-alpha', recompute_inputs: advanceInputs,
+  }),
+  snapshot: seal('snapshot', {
     snapshot_id: SNAP_ID, project_binding_ref: 'pb-alpha',
     accepted_context_generation: 7, deterministic_replay_fingerprint: FP,
-  },
-  finding: { finding_id: FIND_ID, snapshot_id: SNAP_ID },
-  disposition_event: { event_id: 'ev-1', finding_id: FIND_ID, append_only: true, confirmed_by_registered_human: true },
-  context_authority_gate: { context_sufficiency: true, evidence_sufficiency: true, registered_authority: true },
-  task_intent: approvedIntent,
-  policy_gate: approvedGate,
-  task_driver: approvedDriver,
-  evidence: {
+  }),
+  finding: seal('finding', { finding_id: FIND_ID, snapshot_id: SNAP_ID, project_binding_ref: 'pb-alpha' }),
+  disposition_event: seal('disposition_event', {
+    event_id: 'ev-1', finding_id: FIND_ID, project_binding_ref: 'pb-alpha',
+    append_only: true, confirmed_by_registered_human: true,
+    confirmed_by_principal_kind: 'registered_human', confirmed_by_principal_id: 'person-4',
+  }),
+  context_authority_gate: seal('context_authority_gate', {
+    snapshot_id: SNAP_ID, project_binding_ref: 'pb-alpha',
+    context_sufficiency: true, evidence_sufficiency: true, registered_authority: true,
+    applicability: true, authority_family: 'project_contract_baseline',
+  }),
+  task_intent: seal('task_intent', approvedIntent),
+  policy_gate: seal('policy_gate', {
+    ...approvedGate, project_binding_ref: 'pb-alpha', recompute_inputs: gateInputs,
+  }),
+  task_driver: seal('task_driver', approvedDriver),
+  evidence: seal('evidence', {
     project_binding_ref: 'pb-alpha', immutable: true,
-    receipt_ref: 'ctx-response-receipt-1', content_address: 'c'.repeat(64), cas_fingerprint: FP,
-  },
+    receipt_ref: 'ctx-response-receipt-1', content_address: RECEIPT_ADDRESS, cas_fingerprint: FP,
+    receipt_material: receiptMaterial,
+  }),
 };
 
-const approval = { approved: true, approver_principal_id: 'person-2', approver_kind: 'registered_human' };
+const approval = seal('approval', {
+  approved: true, approver_principal_id: 'person-2', approver_kind: 'registered_human',
+  approved_at: RECORDED_AT, project_binding_ref: 'pb-alpha', task_intent_id: approvedIntent.task_intent_id,
+});
 const p8ok = { principal: human, approval, chain, submittedFingerprint: FP, observedFingerprint: FP };
 const withChain = (over) => ({ ...p8ok, chain: { ...chain, ...over } });
+const withApproval = (over) => ({ ...p8ok, approval: resealed('approval', approval, over) });
 
-accepts('1A/p8/complete_chain_passes', () => evaluateP8Write(p8ok), 'positive control');
+accepts('1A/p8/complete_chain_passes', () => evaluateP8Write(p8ok), 'one fully pinned valid positive control');
 {
   const r = evaluateP8Write(p8ok);
   record('1A/p8/snapshot_not_rewritten', r.snapshot_rewritten === false,
@@ -506,6 +573,11 @@ accepts('1A/p8/complete_chain_passes', () => evaluateP8Write(p8ok), 'positive co
       && r.backward_lineage.task_driver_ref === P7.gate_id);
   record('1A/p8/gate_only_no_write', r.gate_evaluation_only === true && r.erp_write_performed === false && r.erp_writes === 0,
     'evaluating the gate is not holding the writer authority');
+  record('1A/p8/reports_what_it_verified',
+    r.chain_elements_verified.length === REQUIRED_P8_CHAIN_ELEMENTS.length
+      && r.chain_elements_recomputed.join(',') === P8_RECOMPUTED_CHAIN_ELEMENTS.join(',')
+      && r.provenance_verified_for.includes('approval'),
+    `${r.provenance_verified_for.length} records provenance-checked, ${r.chain_elements_recomputed.length} recomputed`);
 }
 
 // The blocker this section exists for: "it says it is not a candidate" proves nothing.
@@ -513,6 +585,9 @@ rejects('1A/p8/not_a_candidate_is_not_enough',
   () => evaluateP8Write({ principal: human, approval, chain: undefined, submittedFingerprint: FP, observedFingerprint: FP }),
   P.WRITE_CHAIN_INCOMPLETE, 'candidate_only false with no chain behind it is not an approved write');
 record('1A/p8/chain_elements_declared', REQUIRED_P8_CHAIN_ELEMENTS.length === 12);
+record('1A/p8/record_elements_declared', P8_CHAIN_RECORD_ELEMENTS.length === 10,
+  'the ten records; the binding and the generation are the two scalars they all have to agree with');
+record('1A/p8/provenance_fields_declared', REQUIRED_CHAIN_PROVENANCE_FIELDS.length === 4);
 for (const element of REQUIRED_P8_CHAIN_ELEMENTS) {
   rejects(`1A/p8/chain_missing_${element}`, () => {
     const c = { ...chain }; delete c[element];
@@ -522,76 +597,238 @@ for (const element of REQUIRED_P8_CHAIN_ELEMENTS) {
 
 rejects('1A/p8/no_approval', () => evaluateP8Write({ ...p8ok, approval: undefined }), P.WRITE_WITHOUT_APPROVAL);
 rejects('1A/p8/approval_not_granted',
-  () => evaluateP8Write({ ...p8ok, approval: { ...approval, approved: false } }), P.WRITE_WITHOUT_APPROVAL);
+  () => evaluateP8Write(withApproval({ approved: false })), P.WRITE_WITHOUT_APPROVAL);
 rejects('1A/p8/approval_without_an_approver',
   () => evaluateP8Write({ ...p8ok, approval: { approved: true, approver_kind: 'registered_human' } }), P.WRITE_WITHOUT_APPROVAL);
 rejects('1A/p8/ai_approval_refused',
-  () => evaluateP8Write({ ...p8ok, approval: { ...approval, approver_kind: 'agent' } }), P.WRITE_APPROVAL_NOT_HUMAN,
+  () => evaluateP8Write(withApproval({ approver_kind: 'agent' })), P.WRITE_APPROVAL_NOT_HUMAN,
   'a model or agent approving the engine\'s own proposal is not an approval');
 rejects('1A/p8/engine_approval_refused',
-  () => evaluateP8Write({ ...p8ok, approval: { ...approval, approver_kind: 'engine' } }), P.WRITE_APPROVAL_NOT_HUMAN);
+  () => evaluateP8Write(withApproval({ approver_kind: 'engine' })), P.WRITE_APPROVAL_NOT_HUMAN);
 rejects('1A/p8/self_approval_refused_by_default',
-  () => evaluateP8Write({ ...p8ok, approval: { ...approval, approver_principal_id: 'person-1' } }), P.WRITE_WITHOUT_APPROVAL,
+  () => evaluateP8Write(withApproval({ approver_principal_id: 'person-1' })), P.WRITE_WITHOUT_APPROVAL,
   'the writer approving their own write is the default refusal');
 accepts('1A/p8/self_approval_only_when_permitted',
-  () => evaluateP8Write({ ...p8ok, approval: { ...approval, approver_principal_id: 'person-1', self_approval_permitted: true } }),
+  () => evaluateP8Write(withApproval({ approver_principal_id: 'person-1', self_approval_permitted: true })),
   'and whether that is ever permitted is an owner decision');
 rejects('1A/p8/needs_a_human',
   () => evaluateP8Write({ ...p8ok, principal: { kind: 'engine', principal_id: 'e' } }), P.PRINCIPAL_NOT_REGISTERED_HUMAN);
-
-rejects('1A/p8/writing_a_candidate',
-  () => evaluateP8Write(withChain({ task_intent: { ...approvedIntent, candidate_only: true } })), P.WRITE_OF_A_CANDIDATE,
-  'the engine proposed it, nobody approved it, and it would appear in the ledger anyway');
-
-rejects('1A/p8/cross_project_snapshot',
-  () => evaluateP8Write(withChain({ snapshot: { ...chain.snapshot, project_binding_ref: 'pb-bravo' } })),
-  P.WRITE_CHAIN_CROSS_PROJECT, 'a write assembled from two projects is refused, not filtered');
-rejects('1A/p8/cross_project_evidence',
-  () => evaluateP8Write(withChain({ evidence: { ...chain.evidence, project_binding_ref: 'pb-bravo' } })),
+rejects('1A/p8/undated_approval_refused',
+  () => evaluateP8Write({
+    ...p8ok,
+    approval: seal('approval', (({ provenance, approved_at, ...rest }) => rest)(approval)),
+  }), P.WRITE_WITHOUT_APPROVAL, 'an undated approval cannot be shown to precede this write');
+rejects('1A/p8/approval_of_another_intent',
+  () => evaluateP8Write(withApproval({ task_intent_id: 'ti-somewhere-else' })), P.WRITE_WITHOUT_APPROVAL,
+  'a human who approved something else has approved something else');
+rejects('1A/p8/cross_project_approval',
+  () => evaluateP8Write({ ...p8ok, approval: resealed('approval', approval, { project_binding_ref: 'pb-bravo' }) }),
   P.WRITE_CHAIN_CROSS_PROJECT);
 
+rejects('1A/p8/writing_a_candidate',
+  () => evaluateP8Write(withChain({ task_intent: resealed('task_intent', chain.task_intent, { candidate_only: true }) })),
+  P.WRITE_OF_A_CANDIDATE,
+  'the engine proposed it, nobody approved it, and it would appear in the ledger anyway');
+
+// ---- cross-project, on every record rather than the four that used to be checked
+
+for (const element of P8_CHAIN_RECORD_ELEMENTS) {
+  rejects(`1A/p8/cross_project_${element}`,
+    () => evaluateP8Write(withChain({ [element]: resealed(element, chain[element], { project_binding_ref: 'pb-bravo' }) })),
+    P.WRITE_CHAIN_CROSS_PROJECT, 'a write assembled from two projects is refused, not filtered');
+  rejects(`1A/p8/cross_project_provenance_${element}`,
+    () => evaluateP8Write(withChain({
+      [element]: seal(element, (({ provenance, ...rest }) => rest)(chain[element]), { project_binding_ref: 'pb-bravo' }),
+    })),
+    P.WRITE_CHAIN_CROSS_PROJECT, 'a record recorded under another binding is refused even when its own field agrees');
+}
+
+// ---- immutable provenance, recomputed rather than read
+
+for (const element of [...P8_CHAIN_RECORD_ELEMENTS]) {
+  rejects(`1A/p8/provenance_missing_${element}`,
+    () => evaluateP8Write(withChain({ [element]: (({ provenance, ...rest }) => rest)(chain[element]) })),
+    P.WRITE_EVIDENCE_NOT_IMMUTABLE, 'a record with no provenance cannot be checked at all');
+  rejects(`1A/p8/tampered_${element}`,
+    () => evaluateP8Write(withChain({ [element]: tampered(chain[element], { injected_field: 'added after sealing' }) })),
+    P.WRITE_EVIDENCE_NOT_IMMUTABLE, 'an edited record no longer hashes to the address it declares');
+}
+rejects('1A/p8/provenance_not_immutable',
+  () => evaluateP8Write(withChain({
+    snapshot: { ...chain.snapshot, provenance: { ...chain.snapshot.provenance, immutable: false } },
+  })), P.WRITE_EVIDENCE_NOT_IMMUTABLE);
+rejects('1A/p8/provenance_address_absent',
+  () => evaluateP8Write(withChain({
+    snapshot: { ...chain.snapshot, provenance: { ...chain.snapshot.provenance, content_address: 'short' } },
+  })), P.WRITE_EVIDENCE_NOT_IMMUTABLE);
+rejects('1A/p8/provenance_undated',
+  () => evaluateP8Write(withChain({
+    snapshot: { ...chain.snapshot, provenance: { ...chain.snapshot.provenance, recorded_at: 'yesterday' } },
+  })), P.WRITE_EVIDENCE_NOT_IMMUTABLE);
+rejects('1A/p8/provenance_address_forged',
+  () => evaluateP8Write(withChain({
+    snapshot: { ...chain.snapshot, provenance: { ...chain.snapshot.provenance, content_address: 'e'.repeat(64) } },
+  })), P.WRITE_EVIDENCE_NOT_IMMUTABLE,
+  'an address that is a plausible hash but not this content\'s hash');
+{
+  // Two different links with identical content do not share an address, so a record cannot be
+  // moved from one position in the chain into another.
+  const a = chainElementContentAddress('finding', { x: 1 });
+  const b = chainElementContentAddress('snapshot', { x: 1 });
+  record('1A/p8/content_address_is_position_bound', a !== b && /^[0-9a-f]{64}$/.test(a));
+}
+
+// ---- recomputation: "passed: true" is not evidence that anything was evaluated
+
+record('1A/p8/recomputed_elements_declared',
+  P8_RECOMPUTED_CHAIN_ELEMENTS.join(',') === 'p5_acceptance,generation_advance,policy_gate,task_driver');
+for (const element of P8_RECOMPUTED_CHAIN_ELEMENTS.filter((e) => e !== 'task_driver')) {
+  rejects(`1A/p8/recompute_inputs_missing_${element}`,
+    () => evaluateP8Write(withChain({
+      [element]: seal(element, (({ provenance, recompute_inputs, ...rest }) => rest)(chain[element])),
+    })), P.WRITE_CHAIN_INCOMPLETE, 'a verdict nobody can recompute is a claim, not a result');
+}
+rejects('1A/p8/policy_gate_verdict_forged',
+  () => evaluateP8Write(withChain({
+    policy_gate: resealed('policy_gate', chain.policy_gate, {
+      recompute_inputs: { ...gateInputs, authority: { authority_ref: 'a', registered: false, applicability: true } },
+    }),
+  })), P.WRITE_CHAIN_MISMATCH,
+  'the gate says it passed and its own inputs say it could not have');
+rejects('1A/p8/policy_gate_checks_forged',
+  () => evaluateP8Write(withChain({
+    policy_gate: resealed('policy_gate', chain.policy_gate, { idempotency_key: 'a-different-key' }),
+  })), P.WRITE_CHAIN_MISMATCH,
+  'a sealed, internally consistent record that still does not reproduce from its inputs');
+rejects('1A/p8/p5_acceptance_verdict_forged',
+  () => evaluateP8Write(withChain({
+    p5_acceptance: resealed('p5_acceptance', chain.p5_acceptance, { acceptor: 'person-nobody' }),
+  })), P.WRITE_CHAIN_MISMATCH);
+rejects('1A/p8/p5_acceptance_by_an_agent',
+  () => evaluateP8Write(withChain({
+    p5_acceptance: resealed('p5_acceptance', chain.p5_acceptance, {
+      acceptor: 'agent-1',
+      recompute_inputs: { ...p5Inputs, principal: { kind: 'agent', principal_id: 'agent-1' } },
+    }),
+  })), P.WRITE_CHAIN_MISMATCH, 'the engine does not accept context on a human behalf, and P8 re-runs the check');
+rejects('1A/p8/p5_acceptance_cas_moved',
+  () => evaluateP8Write(withChain({
+    p5_acceptance: resealed('p5_acceptance', chain.p5_acceptance, {
+      recompute_inputs: { ...p5Inputs, observedFingerprint: 'f'.repeat(64) },
+    }),
+  })), P.WRITE_CHAIN_MISMATCH, 'an acceptance taken against a state that had already moved');
+rejects('1A/p8/generation_advance_verdict_forged',
+  () => evaluateP8Write(withChain({
+    generation_advance: resealed('generation_advance', chain.generation_advance, {
+      recompute_inputs: { ...advanceInputs, fromGeneration: 5 },
+    }),
+  })), P.WRITE_CHAIN_MISMATCH);
+rejects('1A/p8/task_driver_verdict_forged',
+  () => evaluateP8Write(withChain({
+    task_driver: resealed('task_driver', chain.task_driver, { driver_activated: true }),
+  })), P.WRITE_CHAIN_MISMATCH,
+  'a driver that claims activation does not reproduce, and this engine activates nothing');
+
+// ---- the rest of the chain
+
 rejects('1A/p8/stale_generation',
-  () => evaluateP8Write(withChain({ snapshot: { ...chain.snapshot, accepted_context_generation: 6 } })),
+  () => evaluateP8Write(withChain({ snapshot: resealed('snapshot', chain.snapshot, { accepted_context_generation: 6 }) })),
   P.WRITE_CHAIN_MISMATCH, 'a snapshot from an older generation is stale evidence for this write');
 rejects('1A/p8/generation_not_the_advanced_one',
-  () => evaluateP8Write(withChain({ generation_advance: { boundary: 'generation_advance', from: 5, to: 6 } })),
-  P.WRITE_CHAIN_MISMATCH);
+  () => evaluateP8Write(withChain({
+    generation_advance: seal('generation_advance', {
+      ...evaluateGenerationAdvance({ ...advanceInputs, fromGeneration: 5, toGeneration: 6 }),
+      project_binding_ref: 'pb-alpha',
+      recompute_inputs: { ...advanceInputs, fromGeneration: 5, toGeneration: 6 },
+    }),
+  })), P.WRITE_CHAIN_MISMATCH);
 rejects('1A/p8/acceptance_missing_its_acceptor',
-  () => evaluateP8Write(withChain({ p5_acceptance: { boundary: 'p5_acceptance' } })), P.WRITE_CHAIN_MISMATCH);
+  () => evaluateP8Write(withChain({ p5_acceptance: seal('p5_acceptance', { boundary: 'p5_acceptance', project_binding_ref: 'pb-alpha' }) })),
+  P.WRITE_CHAIN_MISMATCH);
 rejects('1A/p8/finding_from_another_snapshot',
-  () => evaluateP8Write(withChain({ finding: { finding_id: FIND_ID, snapshot_id: 'a3f1c2d4-5e6f-4a7b-8c9d-0000000000ff' } })),
-  P.WRITE_CHAIN_MISMATCH);
+  () => evaluateP8Write(withChain({
+    finding: resealed('finding', chain.finding, { snapshot_id: 'a3f1c2d4-5e6f-4a7b-8c9d-0000000000ff' }),
+  })), P.WRITE_CHAIN_MISMATCH);
 rejects('1A/p8/disposition_not_confirmed_by_a_human',
-  () => evaluateP8Write(withChain({ disposition_event: { ...chain.disposition_event, confirmed_by_registered_human: false } })),
-  P.WRITE_CHAIN_MISMATCH);
+  () => evaluateP8Write(withChain({
+    disposition_event: resealed('disposition_event', chain.disposition_event, { confirmed_by_registered_human: false }),
+  })), P.WRITE_CHAIN_MISMATCH);
 rejects('1A/p8/disposition_not_append_only',
-  () => evaluateP8Write(withChain({ disposition_event: { ...chain.disposition_event, append_only: false } })),
-  P.WRITE_CHAIN_MISMATCH);
-for (const check of ['context_sufficiency', 'evidence_sufficiency', 'registered_authority']) {
+  () => evaluateP8Write(withChain({
+    disposition_event: resealed('disposition_event', chain.disposition_event, { append_only: false }),
+  })), P.WRITE_CHAIN_MISMATCH);
+rejects('1A/p8/disposition_confirmed_by_an_agent',
+  () => evaluateP8Write(withChain({
+    disposition_event: resealed('disposition_event', chain.disposition_event, {
+      confirmed_by_principal_kind: 'agent', confirmed_by_principal_id: 'agent-7',
+    }),
+  })), P.WRITE_APPROVAL_NOT_HUMAN,
+  'the flag says a human confirmed it and the named principal is a model');
+rejects('1A/p8/disposition_confirmer_unnamed',
+  () => evaluateP8Write(withChain({
+    disposition_event: resealed('disposition_event', chain.disposition_event, { confirmed_by_principal_id: '' }),
+  })), P.WRITE_APPROVAL_NOT_HUMAN);
+for (const check of ['context_sufficiency', 'evidence_sufficiency', 'registered_authority', 'applicability']) {
   rejects(`1A/p8/authority_gate_${check}_failed`,
-    () => evaluateP8Write(withChain({ context_authority_gate: { ...chain.context_authority_gate, [check]: false } })),
-    P.WRITE_CHAIN_MISMATCH);
+    () => evaluateP8Write(withChain({
+      context_authority_gate: resealed('context_authority_gate', chain.context_authority_gate, { [check]: false }),
+    })), P.WRITE_CHAIN_MISMATCH);
 }
+rejects('1A/p8/authority_gate_family_unregistered',
+  () => evaluateP8Write(withChain({
+    context_authority_gate: resealed('context_authority_gate', chain.context_authority_gate, { authority_family: 'vendor_blog' }),
+  })), P.WRITE_CHAIN_MISMATCH);
+rejects('1A/p8/authority_gate_for_another_snapshot',
+  () => evaluateP8Write(withChain({
+    context_authority_gate: resealed('context_authority_gate', chain.context_authority_gate, {
+      snapshot_id: 'a3f1c2d4-5e6f-4a7b-8c9d-0000000000ff',
+    }),
+  })), P.WRITE_CHAIN_MISMATCH);
 rejects('1A/p8/intent_not_from_this_finding',
-  () => evaluateP8Write(withChain({ task_intent: { ...approvedIntent, finding_id: 'a3f1c2d4-5e6f-4a7b-8c9d-0000000000aa' } })),
-  P.WRITE_CHAIN_MISMATCH);
+  () => evaluateP8Write(withChain({
+    task_intent: resealed('task_intent', chain.task_intent, { finding_id: 'a3f1c2d4-5e6f-4a7b-8c9d-0000000000aa' }),
+  })), P.WRITE_CHAIN_MISMATCH);
 rejects('1A/p8/policy_gate_not_passed',
-  () => evaluateP8Write(withChain({ policy_gate: { ...approvedGate, passed: false } })), P.WRITE_CHAIN_MISMATCH,
-  'a write cannot rest on a gate that did not pass');
+  () => evaluateP8Write(withChain({ policy_gate: resealed('policy_gate', chain.policy_gate, { passed: false }) })),
+  P.WRITE_CHAIN_MISMATCH, 'a write cannot rest on a gate that did not pass');
 rejects('1A/p8/policy_gate_for_another_intent',
-  () => evaluateP8Write(withChain({ policy_gate: { ...approvedGate, task_intent_id: 'ti-other' } })), P.WRITE_CHAIN_MISMATCH);
+  () => evaluateP8Write(withChain({ policy_gate: resealed('policy_gate', chain.policy_gate, { task_intent_id: 'ti-other' }) })),
+  P.WRITE_CHAIN_MISMATCH);
 rejects('1A/p8/task_driver_missing_its_gate',
-  () => evaluateP8Write(withChain({ task_driver: { ...approvedDriver, policy_gate_id: 'something_else' } })), P.WRITE_CHAIN_MISMATCH);
+  () => evaluateP8Write(withChain({ task_driver: resealed('task_driver', chain.task_driver, { policy_gate_id: 'something_else' }) })),
+  P.WRITE_CHAIN_MISMATCH);
 
 rejects('1A/p8/mutable_evidence',
-  () => evaluateP8Write(withChain({ evidence: { ...chain.evidence, immutable: false } })), P.WRITE_EVIDENCE_NOT_IMMUTABLE);
+  () => evaluateP8Write(withChain({ evidence: resealed('evidence', chain.evidence, { immutable: false }) })),
+  P.WRITE_EVIDENCE_NOT_IMMUTABLE);
 rejects('1A/p8/evidence_without_a_content_address',
-  () => evaluateP8Write(withChain({ evidence: { ...chain.evidence, content_address: 'short' } })), P.WRITE_EVIDENCE_NOT_IMMUTABLE);
+  () => evaluateP8Write(withChain({ evidence: resealed('evidence', chain.evidence, { content_address: 'short' }) })),
+  P.WRITE_EVIDENCE_NOT_IMMUTABLE);
+rejects('1A/p8/evidence_receipt_material_absent',
+  () => evaluateP8Write(withChain({
+    evidence: seal('evidence', (({ provenance, receipt_material, ...rest }) => rest)(chain.evidence)),
+  })), P.WRITE_EVIDENCE_NOT_IMMUTABLE, 'a content address with nothing behind it addresses nothing');
+rejects('1A/p8/evidence_receipt_material_swapped',
+  () => evaluateP8Write(withChain({
+    evidence: resealed('evidence', chain.evidence, {
+      receipt_material: { ...receiptMaterial, context_response_id: 'a3f1c2d4-5e6f-4a7b-8c9d-0000000009ff' },
+    }),
+  })), P.WRITE_EVIDENCE_NOT_IMMUTABLE, 'the material no longer hashes to the address the evidence declares');
+rejects('1A/p8/evidence_receipt_material_names_another_receipt',
+  () => evaluateP8Write(withChain({
+    evidence: resealed('evidence', chain.evidence, {
+      receipt_material: { ...receiptMaterial, receipt_ref: 'some-other-receipt' },
+    }),
+  })), P.WRITE_EVIDENCE_NOT_IMMUTABLE);
 rejects('1A/p8/cas_missing', () => evaluateP8Write({ ...p8ok, submittedFingerprint: undefined }), P.CAS_MISSING);
 rejects('1A/p8/cas_mismatch', () => evaluateP8Write({ ...p8ok, observedFingerprint: 'other' }), P.CAS_MISMATCH);
 rejects('1A/p8/receipt_fingerprint_is_stale',
-  () => evaluateP8Write(withChain({ evidence: { ...chain.evidence, cas_fingerprint: 'd'.repeat(64) } })), P.CAS_MISMATCH,
-  'a receipt taken against a different state is stale evidence for this write');
+  () => evaluateP8Write(withChain({ evidence: resealed('evidence', chain.evidence, { cas_fingerprint: 'd'.repeat(64) }) })),
+  P.CAS_MISMATCH, 'a receipt taken against a different state is stale evidence for this write');
+
+record('1A/p8/no_erp_write_under_any_of_these',
+  evaluateP8Write(p8ok).erp_writes === 0,
+  'the only case that reaches a verdict still performs zero writes');
 
 record('1A/open_items_declared', OPEN_OWNER_DECISIONS_FOR_THIS_LANE.length >= 2 &&
   !OPEN_OWNER_DECISIONS_FOR_THIS_LANE.some((s) => s.includes('p7_stage_definition')),

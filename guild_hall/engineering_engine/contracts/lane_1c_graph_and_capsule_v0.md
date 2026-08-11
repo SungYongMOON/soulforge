@@ -99,9 +99,16 @@ embedding 유사도나 학습 reranker 는 이 자리에 항목이 없다. 이�
 
 `D` traversal 중 `edge.project_binding_ref !== selector.project_binding_ref` 인 edge 는 **읽기 전에** 거부하고 `project_binding_mismatch` 로 기록한다. 사후 필터는 이미 늦다 — 그때는 다른 과제 자료를 읽은 뒤다.
 
-`D` projection slice 가 `graph.nodes` 로 node binding 을 선언하면 traversal 이 닿는 모든 ref 가 그 집합에 있고 selector binding 과 같아야 한다. 선언되지 않은 node 는 `project_binding_unknown` 으로 **거부한다**(fail closed). alpha edge 가 bravo node 를 가리키는 형태가 전형적 누출이므로 edge 와 node 를 따로 본다.
+`D` **`graph.nodes` 는 필수다.** projection slice 는 완전한 node 집합을 선언해야 하고, traversal 이 닿는 모든 ref(seed 포함)가 그 집합에 있으며 selector binding 과 같아야 한다. 선언되지 않은 node 는 `project_binding_unknown` 으로 **거부한다**(fail closed). node 는 각각 정확한 revision ref 와 비어 있지 않은 `project_binding_ref` 를 나른다. 둘 중 하나라도 없으면 선택 전체를 거부한다.
 
-`P` `graph.nodes` 가 없으면 binding 은 edge 가 나른다. seed 는 selector 자신이 지목한 것이므로 구성상 selector binding 에 속한다.
+`O` 이전 판은 node 집합을 **선택적**으로 두고 없으면 "edge 를 믿는다"로 처리했다. 그러면 edge 의 binding 주장에 대한 유일한 증인이 그 edge 자신이 되고, 위조된 edge binding 과 참인 edge binding 이 구분되지 않는다. slice 하나를 node 없이 넘기는 것만으로 cross-project 격리가 검사 대상의 정직성에 의존하게 된다.
+
+`D` 위조는 두 검사가 함께 막고, 어느 하나로도 막지 못한다.
+
+- edge 가 alpha 를 주장하는데 가리키는 node 가 bravo 로 선언된 경우 → node 검사(`admit`)가 거부
+- edge 가 bravo 를 주장하는데 양끝 node 가 alpha 인 경우 → edge 검사가 거부
+
+`D` 반환 직전에 **돌려줄 ref 전부**를 다시 node binding 에 대조한다. 위 검사들이 이미 도달 불가로 만들었어야 하는 지점이며, "이미 그랬어야 한다"가 바로 누출이 사는 자리이므로 남긴다. 통과하면 capsule 이 `every_returned_ref_bound_to_the_selector: true` 와 `traversed_node_count` 를 함께 말한다.
 
 ### 4.5 capsule 은 pointer 를 나른다
 
@@ -143,4 +150,4 @@ domain separation prefix 와 selector contract version 을 hash 재료에 포함
 
 `D` lane 1V 가 1C 에 대한 **독립 locked fixture** 를 만들 의무를 진다. 그때까지 이 lane 을 independently verified 로 부르지 않는다. 시험 출력의 `verification_strength: author_written_fixtures` 가 매 실행마다 이 사실을 함께 보고한다.
 
-현재: 71 검사 통과 / 0 실패. 그중 누출 시험이 hop 별 ACL 적용(`1C/ACL/*`)과 project binding 격리(`1C/BIND/*`)를 직접 확인한다.
+현재: 80 검사 통과 / 0 실패. 그중 누출 시험이 hop 별 ACL 적용(`1C/ACL/*`)과 project binding 격리(`1C/BIND/*`)를 직접 확인한다.

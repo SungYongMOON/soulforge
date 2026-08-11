@@ -97,11 +97,19 @@ const responseReceipt = (over = {}) => ({
   ...over,
 });
 
+// The candidate carries the linkage a real exchange already produced: which request it
+// answers, which receipts attest it, what it hashes to, what it cites, who said it and under
+// what authority. Nothing here is new information; it is the same information stated where it
+// can be compared.
 const responseCandidate = (over = {}) => ({
   context_response_id: RESPONSE_ID,
   context_request_id: REQUEST_ID,
+  context_response_receipt_id: RESPONSE_RECEIPT_ID,
+  in_response_to_receipt_id: REQUEST_RECEIPT_ID,
+  context_response_content_hash: hash('the answer as received'),
   project_binding_ref: BINDING,
   accepted_context_generation: GENERATION,
+  accepted_context_cas_fingerprint: CAS,
   responding_authority_family: 'project_contract_baseline',
   applicability_components: {
     project_binding: true, jurisdiction: true, time_window: true,
@@ -109,6 +117,9 @@ const responseCandidate = (over = {}) => ({
   },
   evidence_claim_ceiling: 'source_sufficient',
   source_revision_refs: [exactRef('src_contract_baseline')],
+  artifact_revision_refs: [exactRef('art_interface_spec')],
+  principal_ref: 'person-3', authority_ref: 'authority-registration-1',
+  valid_at: VALID_AT,
   known_at: ANSWERED_AT,
   candidate_only: true, erp_delta: 0, accepted: false,
   ...over,
@@ -219,7 +230,13 @@ rejects('P3/response/answer_predates_the_question',
 
 accepts('P3/candidate/valid_candidate_passes',
   () => validateResponseCandidate(responseCandidate(), { responseReceipt: responseReceipt() }), 'positive control');
-record('P3/candidate/field_count', REQUIRED_RESPONSE_CANDIDATE_FIELDS.length === 12);
+record('P3/candidate/field_count', REQUIRED_RESPONSE_CANDIDATE_FIELDS.length === 20,
+  `${REQUIRED_RESPONSE_CANDIDATE_FIELDS.length} fields: the twelve of the candidate itself plus eight of linkage`);
+for (const f of REQUIRED_RESPONSE_CANDIDATE_FIELDS) {
+  rejects(`P3/candidate/missing_${f}`, () => {
+    const c = responseCandidate(); delete c[f]; return validateResponseCandidate(c);
+  }, undefined);
+}
 rejects('P3/candidate/an_answer_is_not_accepted_context',
   () => validateResponseCandidate(responseCandidate({ accepted: true })), C.RESPONSE_NOT_CANDIDATE,
   'receiving an answer from an authority does not accept it');
@@ -230,6 +247,114 @@ rejects('P3/candidate/no_erp_delta',
 rejects('P3/candidate/belongs_to_its_receipt',
   () => validateResponseCandidate(responseCandidate({ context_response_id: uuid(97) }), { responseReceipt: responseReceipt() }),
   C.RECEIPT_LINKAGE_BROKEN);
+
+// ---------------------------------------------------------------- the candidate is bound to
+// its exchange, by content
+//
+// The hole this section closes: the candidate used to be checked on its response id, its
+// binding and its generation, and nothing else. So an answer to request B — carrying source B,
+// hashing to something else entirely, from a different principal — passed against the receipt
+// pair for request A, as long as the two exchanges happened to share a response id. Everything
+// the receipts attest is now compared to what the candidate claims.
+
+const EXCHANGE_B = {
+  requestId: uuid(11), requestReceiptId: uuid(12),
+};
+
+accepts('P3/linkage/positive_control_bound_to_both_receipts',
+  () => validateResponseCandidate(responseCandidate(), { responseReceipt: responseReceipt(), requestReceipt: requestReceipt() }),
+  'a candidate whose every linkage field matches both receipts');
+{
+  const r = validateResponseCandidate(responseCandidate(), { responseReceipt: responseReceipt(), requestReceipt: requestReceipt() });
+  record('P3/linkage/reports_that_both_halves_were_checked', r.linkage_checked === true);
+  const half = validateResponseCandidate(responseCandidate(), { responseReceipt: responseReceipt() });
+  record('P3/linkage/one_receipt_is_not_full_linkage', half.linkage_checked === false,
+    'checking against the response receipt alone leaves the request side unproven');
+}
+
+// THE SPLICE: request A with receipt A, and a candidate that answers request B carrying
+// source B. Every individual record is internally valid; the combination is not one exchange.
+rejects('P3/linkage/request_a_receipt_a_with_request_b_candidate',
+  () => assertP5OrchestrationBoundaryEvaluable(boundary({
+    responseCandidate: responseCandidate({
+      context_request_id: EXCHANGE_B.requestId,
+      in_response_to_receipt_id: EXCHANGE_B.requestReceiptId,
+      source_revision_refs: [exactRef('src_exchange_b')],
+    }),
+  })), C.RECEIPT_LINKAGE_BROKEN,
+  'an answer to another question, presented against this question\'s receipts');
+rejects('P3/linkage/candidate_answers_a_different_request',
+  () => validateResponseCandidate(responseCandidate({ context_request_id: EXCHANGE_B.requestId }),
+    { responseReceipt: responseReceipt(), requestReceipt: requestReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+// The two halves are checked separately as well as together, because a caller holding only one
+// receipt still gets a decision, and each half has to be able to refuse on its own.
+rejects('P3/linkage/response_receipt_alone_catches_the_wrong_request',
+  () => validateResponseCandidate(responseCandidate({ context_request_id: EXCHANGE_B.requestId }),
+    { responseReceipt: responseReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+rejects('P3/linkage/request_receipt_alone_catches_the_wrong_request',
+  () => validateResponseCandidate(responseCandidate({ context_request_id: EXCHANGE_B.requestId }),
+    { requestReceipt: requestReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+rejects('P3/linkage/request_receipt_alone_catches_a_cross_project_candidate',
+  () => validateResponseCandidate(responseCandidate({ project_binding_ref: 'pb-bravo' }),
+    { requestReceipt: requestReceipt() }), C.RECEIPT_CROSS_PROJECT);
+rejects('P3/linkage/request_receipt_alone_catches_a_moved_cas',
+  () => validateResponseCandidate(responseCandidate({ accepted_context_cas_fingerprint: hash('moved') }),
+    { requestReceipt: requestReceipt() }), C.RECEIPT_CAS_MISMATCH);
+rejects('P3/linkage/candidate_names_a_different_request_receipt',
+  () => validateResponseCandidate(responseCandidate({ in_response_to_receipt_id: EXCHANGE_B.requestReceiptId }),
+    { responseReceipt: responseReceipt(), requestReceipt: requestReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+rejects('P3/linkage/candidate_names_a_different_response_receipt',
+  () => validateResponseCandidate(responseCandidate({ context_response_receipt_id: uuid(96) }),
+    { responseReceipt: responseReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+rejects('P3/linkage/candidate_content_hash_does_not_match',
+  () => validateResponseCandidate(responseCandidate({ context_response_content_hash: hash('a different answer') }),
+    { responseReceipt: responseReceipt() }), C.RECEIPT_CAS_MISMATCH,
+  'the candidate is not the response revision the receipt pinned');
+rejects('P3/linkage/candidate_cites_other_sources',
+  () => validateResponseCandidate(responseCandidate({ source_revision_refs: [exactRef('src_exchange_b')] }),
+    { responseReceipt: responseReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+rejects('P3/linkage/candidate_cites_another_revision_of_the_same_source',
+  () => validateResponseCandidate(responseCandidate({
+    source_revision_refs: [{ ...exactRef('src_contract_baseline'), revision_id: 'src_contract_baseline-r2' }],
+  }), { responseReceipt: responseReceipt() }), C.RECEIPT_LINKAGE_BROKEN,
+  'the same document at a different revision is different evidence');
+rejects('P3/linkage/candidate_cites_other_artifacts',
+  () => validateResponseCandidate(responseCandidate({ artifact_revision_refs: [exactRef('art_exchange_b')] }),
+    { responseReceipt: responseReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+rejects('P3/linkage/candidate_adds_a_source_the_receipt_never_attested',
+  () => validateResponseCandidate(responseCandidate({
+    source_revision_refs: [exactRef('src_contract_baseline'), exactRef('src_smuggled')],
+  }), { responseReceipt: responseReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+rejects('P3/linkage/candidate_names_another_principal',
+  () => validateResponseCandidate(responseCandidate({ principal_ref: 'person-9' }),
+    { responseReceipt: responseReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+rejects('P3/linkage/candidate_names_another_authority_registration',
+  () => validateResponseCandidate(responseCandidate({ authority_ref: 'authority-registration-9' }),
+    { responseReceipt: responseReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+rejects('P3/linkage/candidate_is_dated_differently',
+  () => validateResponseCandidate(responseCandidate({ known_at: '2026-08-10T09:31:00.000Z' }),
+    { responseReceipt: responseReceipt() }), C.RECEIPT_LINKAGE_BROKEN);
+rejects('P3/linkage/candidate_cas_moved',
+  () => validateResponseCandidate(responseCandidate({ accepted_context_cas_fingerprint: hash('moved') }),
+    { responseReceipt: responseReceipt() }), C.RECEIPT_CAS_MISMATCH);
+rejects('P3/linkage/candidate_content_hash_must_be_a_hash',
+  () => validateResponseCandidate(responseCandidate({ context_response_content_hash: 'not-a-hash' })),
+  C.RECEIPT_FIELD_MISSING);
+rejects('P3/linkage/candidate_needs_a_principal',
+  () => validateResponseCandidate(responseCandidate({ principal_ref: '' })), C.RECEIPT_FIELD_MISSING);
+rejects('P3/linkage/candidate_needs_a_canonical_valid_at',
+  () => validateResponseCandidate(responseCandidate({ valid_at: 'yesterday' })), C.RECEIPT_FIELD_MISSING);
+
+// The P5 boundary is not reachable while any of it is unproven, and it says so in one field.
+{
+  const r = assertP5OrchestrationBoundaryEvaluable(boundary());
+  record('P3/linkage/p5_boundary_states_linkage_verified', r.linkage_verified === true);
+}
+rejects('P3/linkage/p5_not_evaluable_on_a_spliced_source',
+  () => assertP5OrchestrationBoundaryEvaluable(boundary({
+    responseCandidate: responseCandidate({ source_revision_refs: [exactRef('src_exchange_b')] }),
+  })), C.RECEIPT_LINKAGE_BROKEN,
+  'evaluability is false unless every linkage check passes, not only the sufficiency ones');
 
 // ---------------------------------------------------------------- sufficiency and applicability
 
@@ -302,14 +427,18 @@ rejects('P3/p5_boundary/accepted_context_moved',
 // Stale. A response is always at least as recent as the request it answers, so the pair goes
 // stale together; the response-side case that can stand alone is one dated after the instant
 // the run is judging at, which is a receipt claiming to know the future.
+// The candidate travels with its receipts, because a real old exchange is old on every
+// record. Moving only the receipts would test the linkage check, not the freshness one.
 rejects('P3/p5_boundary/stale_pair',
   () => assertP5OrchestrationBoundaryEvaluable(boundary({
     requestReceipt: requestReceipt({ valid_at: '2026-07-01T00:00:00.000Z', known_at: '2026-07-01T00:00:00.000Z' }),
     responseReceipt: responseReceipt({ valid_at: '2026-07-01T00:00:00.000Z', known_at: '2026-07-01T01:00:00.000Z' }),
+    responseCandidate: responseCandidate({ valid_at: '2026-07-01T00:00:00.000Z', known_at: '2026-07-01T01:00:00.000Z' }),
   })), C.RECEIPT_STALE, 'an old exchange proves the exchange, not that the answer still holds');
 rejects('P3/p5_boundary/response_dated_after_the_observation_instant',
   () => assertP5OrchestrationBoundaryEvaluable(boundary({
     responseReceipt: responseReceipt({ known_at: '2026-08-10T10:30:00.000Z' }),
+    responseCandidate: responseCandidate({ known_at: '2026-08-10T10:30:00.000Z' }),
   })), C.RECEIPT_STALE);
 rejects('P3/p5_boundary/window_must_be_declared',
   () => assertP5OrchestrationBoundaryEvaluable(boundary({ freshnessWindow: undefined })), C.RECEIPT_STALE);

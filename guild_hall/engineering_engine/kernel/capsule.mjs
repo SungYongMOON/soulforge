@@ -15,6 +15,14 @@
 // 4. Every edge is validated, and every traversed edge and node has to belong to the
 //    selector's project binding. Filtering by binding after traversal is already too late:
 //    the other project's material has been read by then.
+// 5. The complete node set is mandatory. An edge carries the binding it was *asserted* under,
+//    which is a claim by whoever wrote the edge; a node set carries the binding the material
+//    itself belongs to. When the node set was optional, a projection slice could simply omit
+//    it and every binding claim in the slice became self-certifying — a forged edge binding
+//    was then indistinguishable from a true one, and cross-project isolation rested on the
+//    honesty of the thing being checked. So: no node set, no capsule. Both endpoints of every
+//    traversed edge must be declared, both must agree with the selector, and both must agree
+//    with the binding the edge itself claims.
 
 import { createHash } from 'node:crypto';
 import { canonicalise, compareCodePoints, inspectInstant } from './canonical.mjs';
@@ -33,6 +41,8 @@ export const CODES = Object.freeze({
   ACL_SCOPE_VIOLATION: 'CAPSULE_ACL_SCOPE_VIOLATION',
   PROJECT_BINDING_MISMATCH: 'CAPSULE_PROJECT_BINDING_MISMATCH',
   EDGE_INVALID: 'CAPSULE_EDGE_INVALID',
+  NODE_SET_MISSING: 'CAPSULE_NODE_SET_MISSING',
+  NODE_BINDING_MISSING: 'CAPSULE_NODE_BINDING_MISSING',
 });
 
 /**
@@ -127,9 +137,10 @@ export function compareCandidates(a, b) {
  * Selects a capsule by bounded traversal.
  *
  * @param selector  declared selection procedure, validated before use
- * @param graph     { edges: [...], nodes?: [{ ref, project_binding_ref }] } projection slice.
- *                  Every edge is validated here rather than assumed valid; when the slice
- *                  declares node bindings, every traversed ref must be declared in it.
+ * @param graph     { edges: [...], nodes: [{ ref, project_binding_ref }] } projection slice.
+ *                  Both are required. Every edge is validated here rather than assumed valid,
+ *                  and every ref the traversal touches must be declared in the node set with
+ *                  a binding that matches the selector.
  * @param aclCheck  (ref, hop) => boolean, consulted at EVERY hop
  */
 export function selectCapsule(selector, graph, aclCheck) {
@@ -156,15 +167,27 @@ export function selectCapsule(selector, graph, aclCheck) {
     }
   }
 
-  // Node bindings, when the projection declares them. An edge says which binding it was
-  // asserted under; a node set says which binding the node itself belongs to. Both must agree
-  // with the selector, because an alpha bound edge pointing at a bravo node is exactly the
-  // shape of a cross-project leak.
+  // Node bindings. An edge says which binding it was asserted under; a node set says which
+  // binding the node itself belongs to. Both must agree with the selector, because an alpha
+  // bound edge pointing at a bravo node is exactly the shape of a cross-project leak.
+  //
+  // The node set is required, not optional. Omitting it used to mean "trust the edges", which
+  // makes a forged edge binding unfalsifiable: the only witness to a node's project is the
+  // edge that wants to reach it. A slice that cannot say which project its nodes belong to is
+  // a slice whose isolation cannot be checked, so no capsule is selected over it.
   const declaredNodes = Array.isArray(graph?.nodes) ? graph.nodes : null;
+  if (declaredNodes === null) {
+    throw new ContractError(CODES.NODE_SET_MISSING,
+      'graph.nodes is required; without the complete node set an edge binding is self-certifying and cross-project reach cannot be checked');
+  }
   const nodeBinding = new Map();
-  for (const n of declaredNodes ?? []) {
+  for (const n of declaredNodes) {
     if (!n?.ref?.entity_id || !n?.ref?.revision_id) {
       throw new ContractError(CODES.EDGE_INVALID, 'a declared node must carry an exact revision ref');
+    }
+    if (typeof n.project_binding_ref !== 'string' || !n.project_binding_ref) {
+      throw new ContractError(CODES.NODE_BINDING_MISSING,
+        'a declared node must carry a project_binding_ref; an unbound node cannot be checked for cross-project reach');
     }
     nodeBinding.set(`${n.ref.entity_id}@${n.ref.revision_id}`, n.project_binding_ref);
   }
@@ -180,10 +203,16 @@ export function selectCapsule(selector, graph, aclCheck) {
     exclusions.push({ hop, reason });
   };
 
-  /** Node level binding check. Absent from a declared node set is refused, not assumed. */
+  /**
+   * Node level binding check. Absent from the declared node set is refused, not assumed.
+   *
+   * Two checks together cover the forged binding, and neither covers it alone. This one says
+   * the node itself belongs here; the edge check below says the edge was asserted here. An
+   * edge claiming alpha while pointing at a node the projection declares as bravo fails here;
+   * an edge claiming bravo between two alpha nodes fails there.
+   */
   const nodeBindingVerdict = (ref) => {
-    if (declaredNodes === null) return 'ok';
-    const declared = nodeBinding.get(`${ref.entity_id}@${ref.revision_id}`);
+    const declared = nodeBinding.get(`${ref?.entity_id}@${ref?.revision_id}`);
     if (declared === undefined) return 'project_binding_unknown';
     return declared === selector.project_binding_ref ? 'ok' : 'project_binding_mismatch';
   };
@@ -250,9 +279,25 @@ export function selectCapsule(selector, graph, aclCheck) {
     grouped.set(key, { reason: e.reason, hop: e.hop, count: (grouped.get(key)?.count ?? 0) + 1 });
   }
 
+  // Last line of defence, over the refs that are actually about to be handed back. Everything
+  // above should already have made this unreachable; that is exactly why it is worth keeping,
+  // because "should already" is the assumption a leak lives in. A capsule that cannot prove
+  // every returned ref is bound to the requested project is not returned at all.
+  for (const c of included) {
+    if (nodeBindingVerdict(c.ref) !== 'ok') {
+      throw new ContractError(CODES.PROJECT_BINDING_MISMATCH,
+        'a selected ref is not declared under the requested project binding; the capsule is refused rather than returned',
+        { hop: c.hop });
+    }
+  }
+
   return {
     selector_contract_version: SELECTOR_CONTRACT_VERSION,
     project_binding_ref: selector.project_binding_ref,
+    // Stated so a consumer does not have to infer it: every returned ref, and every node the
+    // traversal touched to reach one, was declared under this binding and no other.
+    every_returned_ref_bound_to_the_selector: true,
+    traversed_node_count: seenNodes.size,
     included_refs: included
       .map((c) => ({ entity_id: c.ref.entity_id, revision_id: c.ref.revision_id, content_id: c.ref.content_id, via_edge_id: c.via_edge_id, hop: c.hop }))
       .sort((a, b) => compareCodePoints(a.revision_id, b.revision_id)),

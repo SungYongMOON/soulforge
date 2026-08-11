@@ -98,16 +98,43 @@ export const REQUIRED_RESPONSE_RECEIPT_FIELDS = Object.freeze([
   'immutable', 'is_acceptance',
 ]);
 
+/**
+ * What a response candidate has to carry.
+ *
+ * The first twelve are the candidate as such. The rest are the linkage, and they are required
+ * for the same reason the receipts are: a candidate that names only its own response id can
+ * be attached to any receipt pair whose response id happens to match, and "happens to match"
+ * is how a request-A receipt ends up certifying a request-B answer. Every field below is one
+ * a valid exchange already produced, so requiring it costs a real exchange nothing and costs
+ * a spliced one everything.
+ */
 export const REQUIRED_RESPONSE_CANDIDATE_FIELDS = Object.freeze([
   'context_response_id', 'context_request_id', 'project_binding_ref',
   'accepted_context_generation',
   'responding_authority_family', 'applicability_components',
   'evidence_claim_ceiling', 'source_revision_refs',
   'known_at', 'candidate_only', 'erp_delta', 'accepted',
+  // linkage: which receipts this candidate is bound to, and by what content
+  'context_response_receipt_id', 'in_response_to_receipt_id',
+  'context_response_content_hash', 'accepted_context_cas_fingerprint',
+  'artifact_revision_refs', 'principal_ref', 'authority_ref', 'valid_at',
 ]);
 
 const AUTHORITY_RANK = new Map(AUTHORITY_FAMILIES.map((f) => [f.key, f.rank]));
 const isHash = (v) => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v);
+
+/**
+ * The comparison form of an exact revision ref list.
+ *
+ * Refs are compared as sets of (entity, revision, content, algorithm), because that tuple is
+ * what makes a citation exact. Order is not part of the claim, so it is sorted away; the
+ * content id is, so it is not. Comparing only entity ids would let a candidate cite a
+ * different revision of the same document than the receipt attests.
+ */
+const refSetKey = (refs) => (Array.isArray(refs) ? refs : [])
+  .map((r) => `${r?.entity_id}|${r?.revision_id}|${r?.content_id}|${r?.content_hash_alg}`)
+  .sort(compareCodePoints)
+  .join('\n');
 
 const requireFields = (object, fields, label) => {
   if (object === null || typeof object !== 'object' || Array.isArray(object)) {
@@ -250,8 +277,17 @@ export function validateContextResponseReceipt(receipt, { requestReceipt } = {})
  * The frozen sequence has a gate whose entire content is "the response remains a context
  * candidate". It exists because the natural mistake is to treat an answer from an authority
  * as an accepted fact. It is not one until a registered human accepts it at P5.
+ *
+ * The second half of this function is the linkage, and it is what makes the candidate
+ * content-addressed to its exchange rather than merely adjacent to it. Checking the response
+ * id alone was the hole: a candidate answering request B, carrying source B, passed against
+ * the receipt pair for request A, because nothing compared the candidate's request, its
+ * sources, its artifacts, its content hash, its principal or its authority to what the
+ * receipts actually attest. Each of those is now compared, in both directions where both
+ * receipts are supplied, so the candidate is bound to one exchange and cannot be re-pointed
+ * at another.
  */
-export function validateResponseCandidate(candidate, { responseReceipt } = {}) {
+export function validateResponseCandidate(candidate, { responseReceipt, requestReceipt } = {}) {
   requireFields(candidate, REQUIRED_RESPONSE_CANDIDATE_FIELDS, 'context response candidate');
   assertIsMintedIdentifier(candidate.context_response_id, 'context_response_id');
   assertIsMintedIdentifier(candidate.context_request_id, 'context_request_id');
@@ -269,12 +305,62 @@ export function validateResponseCandidate(candidate, { responseReceipt } = {}) {
     throw new ContractError(CODES.RECEIPT_FIELD_MISSING,
       `"${candidate.evidence_claim_ceiling}" is not an evidence claim ceiling`);
   }
-  if (!Array.isArray(candidate.source_revision_refs)) {
-    throw new ContractError(CODES.RECEIPT_FIELD_MISSING, 'source_revision_refs must be an array');
+  for (const field of ['source_revision_refs', 'artifact_revision_refs']) {
+    if (!Array.isArray(candidate[field])) {
+      throw new ContractError(CODES.RECEIPT_FIELD_MISSING, `${field} must be an array of exact revision refs`);
+    }
   }
+  for (const field of ['principal_ref', 'authority_ref']) {
+    if (typeof candidate[field] !== 'string' || !candidate[field]) {
+      throw new ContractError(CODES.RECEIPT_FIELD_MISSING, `the response candidate ${field} must be a non-empty string`);
+    }
+  }
+  if (!inspectInstant(candidate.valid_at).valid) {
+    throw new ContractError(CODES.RECEIPT_FIELD_MISSING, 'the response candidate must carry a canonical valid_at');
+  }
+  if (!isHash(candidate.context_response_content_hash)) {
+    throw new ContractError(CODES.RECEIPT_FIELD_MISSING,
+      'the candidate must pin the exact response revision by content hash');
+  }
+  if (!isHash(candidate.accepted_context_cas_fingerprint)) {
+    throw new ContractError(CODES.RECEIPT_FIELD_MISSING,
+      'the candidate must carry the accepted-context CAS fingerprint it was produced against');
+  }
+
   if (responseReceipt !== undefined) {
-    if (candidate.context_response_id !== responseReceipt.context_response_id) {
+    if (candidate.context_response_id !== responseReceipt.context_response_id
+        || candidate.context_response_receipt_id !== responseReceipt.context_response_receipt_id) {
       throw new ContractError(CODES.RECEIPT_LINKAGE_BROKEN, 'the candidate is not the response this receipt attests');
+    }
+    // The request side, read off the receipt rather than off the candidate. This is the check
+    // that fails a request-B answer presented against a request-A receipt.
+    if (candidate.context_request_id !== responseReceipt.in_response_to_context_request_id
+        || candidate.in_response_to_receipt_id !== responseReceipt.in_response_to_receipt_id) {
+      throw new ContractError(CODES.RECEIPT_LINKAGE_BROKEN,
+        'the candidate answers a different request than the one its response receipt attests');
+    }
+    if (candidate.context_response_content_hash !== responseReceipt.context_response_content_hash) {
+      throw new ContractError(CODES.RECEIPT_CAS_MISMATCH,
+        'the candidate content does not hash to what the response receipt pinned');
+    }
+    // The cited material has to be the material the receipt attests, revision for revision.
+    // A candidate carrying another exchange's sources is the same splice by a different route.
+    if (refSetKey(candidate.source_revision_refs) !== refSetKey(responseReceipt.source_revision_refs)) {
+      throw new ContractError(CODES.RECEIPT_LINKAGE_BROKEN,
+        'the candidate cites different source revisions than its response receipt attests');
+    }
+    if (refSetKey(candidate.artifact_revision_refs) !== refSetKey(responseReceipt.artifact_revision_refs)) {
+      throw new ContractError(CODES.RECEIPT_LINKAGE_BROKEN,
+        'the candidate cites different artifact revisions than its response receipt attests');
+    }
+    if (candidate.principal_ref !== responseReceipt.principal_ref
+        || candidate.authority_ref !== responseReceipt.authority_ref) {
+      throw new ContractError(CODES.RECEIPT_LINKAGE_BROKEN,
+        'the candidate names a different principal or authority than the receipt recorded');
+    }
+    if (candidate.valid_at !== responseReceipt.valid_at || candidate.known_at !== responseReceipt.known_at) {
+      throw new ContractError(CODES.RECEIPT_LINKAGE_BROKEN,
+        'the candidate is dated differently from the receipt that attests it');
     }
     if (candidate.project_binding_ref !== responseReceipt.project_binding_ref) {
       throw new ContractError(CODES.RECEIPT_CROSS_PROJECT, 'the candidate belongs to a different project binding than its receipt');
@@ -282,8 +368,38 @@ export function validateResponseCandidate(candidate, { responseReceipt } = {}) {
     if (candidate.accepted_context_generation !== responseReceipt.accepted_context_generation) {
       throw new ContractError(CODES.RECEIPT_GENERATION_MISMATCH, 'the candidate belongs to a different generation than its receipt');
     }
+    if (candidate.accepted_context_cas_fingerprint !== responseReceipt.accepted_context_cas_fingerprint) {
+      throw new ContractError(CODES.RECEIPT_CAS_MISMATCH,
+        'the candidate was produced against a different accepted-context state than its receipt');
+    }
   }
-  return { valid: true, context_response_id: candidate.context_response_id, remains_context_candidate: true };
+
+  if (requestReceipt !== undefined) {
+    if (candidate.context_request_id !== requestReceipt.context_request_id
+        || candidate.in_response_to_receipt_id !== requestReceipt.context_request_receipt_id) {
+      throw new ContractError(CODES.RECEIPT_LINKAGE_BROKEN,
+        'the candidate does not answer the request this request receipt attests');
+    }
+    if (candidate.project_binding_ref !== requestReceipt.project_binding_ref) {
+      throw new ContractError(CODES.RECEIPT_CROSS_PROJECT,
+        'the candidate belongs to a different project binding than the request it answers');
+    }
+    if (candidate.accepted_context_generation !== requestReceipt.accepted_context_generation) {
+      throw new ContractError(CODES.RECEIPT_GENERATION_MISMATCH,
+        'the candidate belongs to a different generation than the request it answers');
+    }
+    if (candidate.accepted_context_cas_fingerprint !== requestReceipt.accepted_context_cas_fingerprint) {
+      throw new ContractError(CODES.RECEIPT_CAS_MISMATCH,
+        'the accepted context moved between the request and this candidate');
+    }
+  }
+
+  return {
+    valid: true,
+    context_response_id: candidate.context_response_id,
+    remains_context_candidate: true,
+    linkage_checked: responseReceipt !== undefined && requestReceipt !== undefined,
+  };
 }
 
 /**
@@ -354,11 +470,21 @@ export function assertP5OrchestrationBoundaryEvaluable({
   }
   validateContextRequestReceipt(requestReceipt);
   validateContextResponseReceipt(responseReceipt, { requestReceipt });
-  validateResponseCandidate(responseCandidate, { responseReceipt });
 
-  // Two distinct receipts, not one record counted twice.
+  // Two distinct receipts, not one record counted twice. Checked before the candidate, because
+  // if the two receipts are one record then there is no pair for a candidate to be bound to
+  // and every linkage complaint downstream would be a symptom rather than the fault.
   if (requestReceipt.context_request_receipt_id === responseReceipt.context_response_receipt_id) {
     throw new ContractError(CODES.RECEIPT_NOT_DISTINCT, 'the request and response receipts are the same record');
+  }
+
+  // Both receipts, not just the response one. The candidate has to be bound to the exact
+  // request that was asked and to the exact response that was recorded; either half alone
+  // leaves a seam a different exchange can be spliced into.
+  const candidateLinkage = validateResponseCandidate(responseCandidate, { responseReceipt, requestReceipt });
+  if (candidateLinkage.linkage_checked !== true) {
+    throw new ContractError(CODES.RECEIPT_LINKAGE_BROKEN,
+      'the candidate was not checked against both receipts, so its linkage is unproven');
   }
 
   for (const [label, value] of [
@@ -433,6 +559,9 @@ export function assertP5OrchestrationBoundaryEvaluable({
     project_binding_ref: projectBindingRef,
     accepted_context_generation: acceptedContextGeneration,
     sufficiency,
+    // Stated so a reader does not have to re-derive it: the candidate was bound to both
+    // receipts by content, not merely found next to them.
+    linkage_verified: true,
     // Stated rather than left to inference: reaching this point is permission to put the
     // question to a registered human, and nothing else.
     remains_context_candidate: true,

@@ -1,5 +1,76 @@
 # CHANGELOG
 
+## 2026-08-11 - SE Engineering Engine Phase 2 second correction pass: five weak guards tightened
+
+An independent review of the previous entry found five contract failures. The
+green evidence behind that entry was real and none of it is weakened here: every
+suite, the mutation lock and the exact Git-blob manifest check still pass. What
+the five findings had in common is that a check existed in a form too weak to
+hold the property it was named after, and that a passing suite could not tell the
+difference.
+
+- Made `engine_self_topology` validate the exact receipt-key set instead of
+  reading a non-empty receipt map as a recorded observation. The observation
+  summary now declares the edge key set it produced receipts for
+  (`edges.exercised_edge_keys`), and the map has to be exactly that set, every
+  key has to be an edge the topology declares, and every receipt has to name its
+  own edge and its own run. An unexpected, misfiled, foreign-run, malformed,
+  stale or failed receipt can no longer make a declared edge `present`,
+  `satisfied` or `absence_confirmed`; it leaves the edge unknown and costs the
+  run its right to report other edges as confirmed absences. A fresh, exact,
+  same-run receipt map still satisfies, and that positive control is asserted.
+- Made the complete node set mandatory in the Context Capsule selector.
+  `graph.nodes` was optional, which made every edge the only witness to its own
+  project binding and left a forged binding indistinguishable from a true one.
+  The selector now refuses an omitted node set, a node without an exact revision
+  ref, and a node without a binding; it refuses undeclared nodes, mixed
+  node/edge bindings and multi-hop cross-project reach; and it re-checks every
+  ref it is about to return before returning it. A fully bound capsule is kept as
+  a positive control.
+- Made the P8 gate fail closed on provenance rather than on object shape. Every
+  chain record and the approval now carry immutable provenance whose content
+  address is recomputed here from the record's own content, so a link edited
+  after it was recorded fails even when every field still looks right. The four
+  boundary verdicts — P5 acceptance, generation advance, the P7 policy gate and
+  the TaskDriver — are re-run from the inputs the records carry and must
+  reproduce exactly, because `passed: true` is a claim rather than a result. The
+  project binding is checked on all ten records plus the approval instead of
+  four; the context/authority gate must also carry applicability, a registered
+  authority family and this snapshot; the disposition confirmation must name a
+  registered human principal rather than only set a flag; and the evidence must
+  carry receipt material that hashes to the content address it declares. Zero
+  ERP writes are preserved and one fully pinned valid chain remains the positive
+  control.
+- Made the Context Response candidate content-addressed to its exchange. It was
+  matched to its receipts on response id, binding and generation alone, so an
+  answer to request B carrying source B passed against the receipt pair for
+  request A. The candidate now also carries and must match the request id, both
+  receipt ids, the response content hash, the CAS fingerprint, the exact source
+  and artifact revision refs, the principal, the registered authority, `valid_at`
+  and `known_at`; each receipt can refuse on its own; and P5 evaluability is
+  false unless both exact receipts and every linkage, sufficiency and
+  applicability check pass. The response remains a context candidate, with no
+  generation advance, live P5, transport or writer activation.
+- Made the O4 two-source authority invariant exact. "A conflict was recorded with
+  both sides retained" also holds for a source quoted twice, two reviewed-wiki
+  claims, one revision, an agreeing pair and an unresolved applicability, none of
+  which is a two-authority disagreement. Two guards now hold it:
+  `recordSourceConflict` refuses to build a record that is not a disagreement,
+  and `assertTwoSourceAuthorityInvariant` refuses to conclude from a record that
+  is not exactly one `project_contract_baseline` against one `reviewed_wiki`, on
+  distinct revisions, actually disagreeing in normalised value, both applicable,
+  lineage preserved on both sides, with the baseline governing. Both layers are
+  attacked separately, and a genuinely disagreeing pair is the positive control.
+- Removed three guards that had become strictly redundant once the checks above
+  were in place, rather than leaving them as coverage that could not fail.
+- Verification after the change: 13 suites, 1305 conformance checks, 0 failures;
+  mutation lock 116/116 killed, 0 survivors, 0 catalogue errors; exact Git-blob
+  manifest 60/60; frozen Phase 1-0 bundle 13/13; runtime observation 1:1 with the
+  topology. No project material, private corpus, credential, source PDF, external
+  service, runtime activation, ERP write, live P5/P8, UI, MCP transport or
+  learned model was exercised, and no actual project identifier appears anywhere
+  in this change.
+
 ## 2026-08-11 - SE Engineering Engine Phase 2 revision: frozen-contract corrections
 
 - Corrected `P7` in `guild_hall/engineering_engine/`. The previous entry recorded

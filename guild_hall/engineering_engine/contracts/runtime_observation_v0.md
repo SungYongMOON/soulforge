@@ -30,6 +30,8 @@ Status: `AUTHOR-WRITTEN FIXTURES / MUTATION-LOCKED / SEMANTIC INDEPENDENCE UNMET
 
 `P` 반대로 idle 간선은 정상이다. 한 번의 실행은 그래프의 부분집합만 지난다. 그래서 `declared_not_exercised` 는 **그 실행에 대한 사실**로 보고하고 결함으로 취급하지 않는다.
 
+`D` observation summary 는 `edges.exercised_edge_keys` 로 **자기가 영수증을 만든 간선 key 집합을 그대로** 선언한다. 개수만 있으면 영수증 map 을 대조할 대상이 없고, 어떤 key 집합이든 그 실행이 만든 것처럼 보인다. subject adapter 는 이 선언과 정확히 일치하지 않는 map 을 증거로 달지 않는다. 상세는 `contracts/lane_1a_snapshot_and_pipeline_v0.md` 가 아니라 `subjects/engine_self_topology.mjs` 의 머리말이 소유한다.
+
 현재: **76/76 간선 통과 관측 · `observed_not_declared` 0**
 
 ## 3. 관측 방법 — 이름이 한계를 말한다

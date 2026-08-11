@@ -158,6 +158,10 @@ const summary = {
     declared: coverage.declared_count,
     observed: coverage.observed_count,
     exercised: coverage.exercised.length,
+    // The exact key set this run wrote receipts for. A count cannot be checked against a
+    // receipt map; a set can, and the subject adapter refuses to weigh a map it cannot match
+    // against the run's own statement of what it recorded.
+    exercised_edge_keys: [...coverage.exercised].sort(),
     coverage: coverage.coverage_ratio_text,
     // Reported, never omitted: an idle edge is a fact about this run, not a defect to hide.
     declared_not_exercised: coverage.declared_not_exercised,
