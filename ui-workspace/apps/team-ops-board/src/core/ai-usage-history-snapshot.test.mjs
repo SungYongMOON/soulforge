@@ -145,6 +145,12 @@ function historyFixture() {
         { provider: "antigravity", total_tokens: null, token_unknown_turns: index === 28 ? 3 : 0, credits: null, credit_unknown_turns: 0 },
       ],
     })),
+    model_daily: Array.from({ length: 30 }, (_, index) => ({
+      date: new Date(Date.parse("2026-07-06T00:00:00Z") + index * 86_400_000).toISOString().slice(0, 10),
+      models: index === 29
+        ? [{ model_id: "claude-opus-5", turns: 1, total_tokens: 50, token_unknown_turns: 0 }]
+        : [],
+    })),
     claude_collection: claudeCollectionFixture()
   };
 }
@@ -159,6 +165,7 @@ test("AI usage history projection accepts strict KST windows and reconciled exac
   assert.equal(projection.history?.provider_daily.length, 30);
   assert.equal(projection.history?.provider_daily.at(-1).providers[1].total_tokens, 50);
   assert.equal(projection.history?.provider_daily.at(-2).providers[2].token_unknown_turns, 3);
+  assert.equal(projection.history?.model_daily.at(-1).models[0].model_id, "claude-opus-5");
   assert.deepEqual(projection.history?.windows.all_time.totals, METRICS);
   assert.equal(projection.history?.activity.daily.at(-1).date, "2026-08-04");
   assert.equal(projection.history?.activity.hourly[10].turns, 1);
@@ -204,6 +211,7 @@ test("v2 history accepts aggregate fields but normalizes Claude provider evidenc
   v2.schema_version = AI_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA;
   delete v2.provider_rows;
   delete v2.provider_daily;
+  delete v2.model_daily;
   delete v2.claude_collection;
   const projection = normalizeAiUsageHistoryProjection(v2);
   assert.equal(projection.state, "ready");

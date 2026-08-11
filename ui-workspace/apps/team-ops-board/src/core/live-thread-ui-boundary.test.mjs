@@ -209,7 +209,7 @@ test("thirty-day usage chart separates exact provider tokens with readable respo
   const css = readFileSync(CSS_PATH, "utf8");
   assert.doesNotMatch(source, /Meter credits · 동일 축/u);
   assert.doesNotMatch(source, /Provider별 계산 가능한 credit 근거가 없습니다/u);
-  assert.match(source, /사용 총괄 provider token 범례/u);
+  assert.equal((source.match(/<UsageTrendChart usage=\{usage\} \/>/gu) ?? []).length, 2);
   assert.match(source, /fleet-credit-area/u);
   assert.match(source, /role="tooltip"/u);
   assert.match(source, /fleet-token-hit-grid/u);
@@ -222,11 +222,11 @@ test("thirty-day usage chart separates exact provider tokens with readable respo
   assert.match(source, /left = 105/u);
   assert.match(source, /\.total_tokens \?\? null/u);
   assert.match(source, /\.token_unknown_turns \?\? 0/u);
-  assert.match(source, /토큰 미기록 \$\{series\.unknownTurns\[index\]\}회/u);
+  assert.match(source, /item\.unknownTurns\[index\] > 0/u);
   assert.match(source, /합계\(기록분\)/u);
   assert.doesNotMatch(source, /fleet-credit-day-controls/u);
   assert.match(source, /event\.key === "Escape"/u);
-  assert.match(source, /onFocus=\{\(\) => setCreditChartIndex\(index\)\}/u);
+  assert.match(source, /onFocus=\{\(\) => setActiveIndex\(index\)\}/u);
   assert.match(source, /event\.currentTarget !== document\.activeElement/u);
   assert.match(source, /totalsFoot = "[^"]*30[^"]*"/u);
   assert.match(css, /height:\s*clamp\(280px,\s*21vw,\s*420px\)/u);
@@ -236,17 +236,16 @@ test("thirty-day usage chart separates exact provider tokens with readable respo
   assert.match(source, /provider: "AG 크레딧"/u);
   assert.match(css, /\.fleet-usage-card header\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*650;[^}]*color:\s*#c4d5df;/su);
   assert.match(css, /\.fleet-usage-title\s*\{[^}]*font-size:\s*13px;[^}]*font-weight:\s*700;/su);
-  assert.match(source, /pending \? "사용량 불러오는 중"/u);
   assert.match(source, /cache: "no-store"/u);
   assert.match(source, /Claude \$\{claudeObservationState\}/u);
   assert.match(source, /Antigravity \$\{antigravityQuotaReady \? "READY" : "UNKNOWN\/HOLD"\}/u);
-  assert.match(source, /Provider별 30일 토큰/u);
-  assert.match(source, /<LedgerProviderTokenChart providerDaily=\{providerDaily\}/u);
+  assert.match(source, /<UsageTrendChart usage=\{usage\}/u);
+  assert.match(source, /buildProviderTokenSeries/u);
   assert.match(source, /프로젝트 코드별 토큰/u);
   assert.match(source, /세션 귀속 기준/u);
   assert.match(source, /title: "모델별 토큰", meta: "전체 누적"/u);
   for (const provider of ["codex", "claude", "antigravity"]) {
-    assert.match(source, new RegExp(`provider-credit-\\$\\{series\\.id\\}`, "u"));
+    assert.match(source, new RegExp(`provider-credit-\\$\\{item\\.id\\}`, "u"));
     assert.match(css, new RegExp(`\\.provider-credit-${provider}\\s*\\{[^}]*stroke:`, "u"));
   }
   assert.match(css, /\.ledger-activity-panel svg\.fleet-provider-credit-chart\.is-ledger\s*\{\s*height:\s*220px;/u);
@@ -294,6 +293,21 @@ test("AI usage history compares project and exact-linked organization totals wit
   assert.match(css, /\.ai-usage-chart progress\s*\{[^}]*appearance:\s*none;/su);
   assert.match(css, /@media \(max-width: 1180px\)[\s\S]*\.ai-usage-chart-grid\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\);/su);
   assert.equal(source.includes("recharts"), false);
+});
+
+test("usage trend defaults to exact model data and exposes accessible provider and legend controls", () => {
+  const source = readFileSync(APP_PATH, "utf8");
+  const css = readFileSync(CSS_PATH, "utf8");
+  assert.match(source, /data-testid="usage-trend-chart"/u);
+  assert.match(source, /useState<"model" \| "provider">\("model"\)/u);
+  assert.match(source, />모델별<\/button>/u);
+  assert.match(source, />제공자별<\/button>/u);
+  assert.match(source, /사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다/u);
+  assert.match(source, /aria-pressed=\{selectedSeries === item\.id\}/u);
+  assert.match(source, /event\.key === "ArrowRight"/u);
+  assert.match(css, /\.usage-trend-legend\s*\{/u);
+  assert.match(css, /\.usage-trend-hit-grid\s*\{/u);
+  assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.usage-trend-header/u);
 });
 
 test("mobile detail restores focus by exact logical thread before using a stable control", () => {

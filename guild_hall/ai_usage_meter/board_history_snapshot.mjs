@@ -50,6 +50,7 @@ const V2_ROOT_KEYS = new Set([
 ]);
 const V3_ROOT_KEYS = new Set([...V2_ROOT_KEYS, "provider_rows", "claude_collection"]);
 const V3_PROVIDER_DAILY_ROOT_KEYS = new Set([...V3_ROOT_KEYS, "provider_daily"]);
+const V3_DAILY_SERIES_ROOT_KEYS = new Set([...V3_PROVIDER_DAILY_ROOT_KEYS, "model_daily"]);
 const WINDOW_NAMES = [
   "calendar_day",
   "calendar_week",
@@ -78,6 +79,8 @@ const RATE_LIMIT_KEYS = new Set([
 const PROVIDER_ROW_KEYS = new Set(["provider", "turns", "total_tokens", "latest_usage_at"]);
 const PROVIDER_DAILY_ROW_KEYS = new Set(["date", "providers"]);
 const PROVIDER_DAILY_VALUE_KEYS = new Set(["provider", "total_tokens", "token_unknown_turns", "credits", "credit_unknown_turns"]);
+const MODEL_DAILY_ROW_KEYS = new Set(["date", "models"]);
+const MODEL_DAILY_VALUE_KEYS = new Set(["model_id", "turns", "total_tokens", "token_unknown_turns"]);
 const READ_ONLY_PROJECTION_KEYS = new Set(["schema_version", "read_only", "snapshot"]);
 const SAFE_COLLECTION_COUNT_KEYS = new Set([
   "session_file_count",
@@ -314,6 +317,51 @@ function buildProviderDaily(observations, referenceAt) {
       };
     }),
   }));
+}
+
+function buildModelDaily(observations, referenceAt) {
+  const end = addKstDays(calendarDayStart(referenceAt), 1);
+  const start = addKstDays(end, -30);
+  const dates = Array.from({ length: 30 }, (_, index) => kstDateKey(addKstDays(start, index)));
+  return dates.map((date) => {
+    const models = new Map();
+    for (const row of observations) {
+      if (kstDateKey(row.started_at) !== date) continue;
+      const value = models.get(row.model_id) ?? { model_id: row.model_id, turns: 0, total_tokens: 0, token_unknown_turns: 0 };
+      value.turns += 1;
+      value.total_tokens += row.metrics.total_tokens;
+      value.token_unknown_turns += row.metrics.token_unknown_turns;
+      models.set(row.model_id, value);
+    }
+    return {
+      date,
+      models: [...models.values()].sort((left, right) => (
+        right.total_tokens - left.total_tokens || left.model_id.localeCompare(right.model_id, "en")
+      )),
+    };
+  });
+}
+
+function parseModelDaily(value) {
+  if (!Array.isArray(value) || value.length !== 30) fail("board_usage_history_model_daily_invalid");
+  let priorDate = "";
+  return value.map((row) => {
+    if (!hasExactKeys(row, MODEL_DAILY_ROW_KEYS) || !KST_DATE.test(row.date) || row.date <= priorDate || !Array.isArray(row.models)) {
+      fail("board_usage_history_model_daily_invalid");
+    }
+    priorDate = row.date;
+    const seen = new Set();
+    const models = row.models.map((entry) => {
+      if (!hasExactKeys(entry, MODEL_DAILY_VALUE_KEYS) || typeof entry.model_id !== "string" || !SAFE_ID.test(entry.model_id)
+        || seen.has(entry.model_id) || !Number.isSafeInteger(entry.turns) || entry.turns < 1
+        || !Number.isSafeInteger(entry.total_tokens) || entry.total_tokens < 0
+        || !Number.isSafeInteger(entry.token_unknown_turns) || entry.token_unknown_turns < 0
+        || entry.token_unknown_turns > entry.turns) fail("board_usage_history_model_daily_invalid");
+      seen.add(entry.model_id);
+      return { ...entry };
+    });
+    return { date: row.date, models };
+  });
 }
 
 function parseProviderDaily(value) {
@@ -714,7 +762,9 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
   }
   const base = validateHistorySnapshotBase(snapshot, {
     schemaVersion: BOARD_USAGE_HISTORY_SNAPSHOT_SCHEMA,
-    rootKeys: Object.hasOwn(snapshot, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : V3_ROOT_KEYS,
+    rootKeys: Object.hasOwn(snapshot, "model_daily")
+      ? V3_DAILY_SERIES_ROOT_KEYS
+      : Object.hasOwn(snapshot, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : V3_ROOT_KEYS,
   });
   const providerRows = parseProviderRows(snapshot.provider_rows, base.reference_at);
   const claudeCollection = validateClaudeCollectionEnvelope(snapshot.claude_collection, {
@@ -723,10 +773,22 @@ export function validateBoardUsageHistorySnapshot(snapshot) {
   if (claudeCollection.schema_version !== CLAUDE_COLLECTION_ENVELOPE_SCHEMA) {
     fail("board_usage_history_claude_collection_invalid");
   }
+  const modelDaily = Object.hasOwn(snapshot, "model_daily") ? parseModelDaily(snapshot.model_daily) : null;
+  if (modelDaily !== null) {
+    const activity = base.activity.daily.slice(-30);
+    for (const [index, day] of modelDaily.entries()) {
+      const turns = day.models.reduce((sum, row) => sum + row.turns, 0);
+      const tokens = day.models.reduce((sum, row) => sum + row.total_tokens, 0);
+      if (day.date !== activity[index]?.date || turns !== activity[index]?.turns || tokens !== activity[index]?.total_tokens) {
+        fail("board_usage_history_model_daily_reconciliation_invalid");
+      }
+    }
+  }
   return {
     ...base,
     provider_rows: providerRows,
     ...(Object.hasOwn(snapshot, "provider_daily") ? { provider_daily: parseProviderDaily(snapshot.provider_daily) } : {}),
+    ...(modelDaily !== null ? { model_daily: modelDaily } : {}),
     claude_collection: claudeCollection,
   };
 }
@@ -778,6 +840,7 @@ export function createBoardUsageHistorySnapshot(events, {
     rate_limit: latestRateLimit(uniqueEvents),
     provider_rows: buildProviderRows(observations),
     provider_daily: buildProviderDaily(observations, normalizedReferenceAt),
+    model_daily: buildModelDaily(observations, normalizedReferenceAt),
     claude_collection: normalizedClaudeCollection,
   };
   return validateBoardUsageHistorySnapshot(snapshot);

@@ -6256,6 +6256,42 @@ a:focus-visible {
 .provider-credit-empty { color: #93a2ac; font-size: 12px; }
 .ledger-activity-panel svg.fleet-provider-credit-chart.is-ledger { height: 220px; }
 .ledger-activity-panel .fleet-provider-token-chart-wrap.is-ledger { margin-top: 2px; }
+.ledger-activity-panel.is-usage-trend { grid-column: 1 / -1; padding: 0; overflow: hidden; }
+.usage-trend { min-width: 0; display: grid; gap: 10px; padding: 18px 20px 14px; }
+.usage-trend-header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
+.usage-trend-header > div:first-child { display: grid; gap: 2px; }
+.usage-trend-header span, .usage-trend-header small { color: #8e9ba8; font-size: 11px; }
+.usage-trend-header strong { color: #f4f8fb; font: 500 28px/1.1 Consolas, ui-monospace, monospace; }
+.usage-trend-tabs { display: inline-flex; padding: 2px; border: 1px solid #3b4148; border-radius: 999px; background: #33373c; }
+.usage-trend-tabs button { min-height: 32px; padding: 0 14px; border: 0; border-radius: 999px; color: #cbd2dc; background: transparent; font: inherit; cursor: pointer; }
+.usage-trend-tabs button[aria-selected="true"] { color: #fff; background: #171b20; box-shadow: 0 0 0 1px #454b53 inset; }
+.usage-trend-tabs button:focus-visible, .usage-trend-legend button:focus-visible, .usage-trend-hit-grid button:focus-visible { outline: 2px solid #8dbffc; outline-offset: 2px; }
+.usage-trend-note { margin: 0; color: #84909c; font-size: 10.5px; line-height: 1.5; }
+.usage-trend-plot { position: relative; min-width: 0; }
+.ledger-activity-panel .usage-trend-plot svg { width: 100%; height: auto; min-height: 220px; overflow: visible; }
+.usage-trend-grid { stroke: #222a33; stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+.usage-trend-axis { fill: #778693; font: 10px Consolas, ui-monospace, monospace; }
+.usage-trend-area { fill: currentColor; fill-opacity: .78; stroke: currentColor; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.usage-trend-hit-grid { position: absolute; inset: 6% 1.2% 13% 5.8%; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); }
+.usage-trend-hit-grid button { min-width: 0; border: 0; padding: 0; background: transparent; cursor: crosshair; }
+.usage-trend-tooltip line { stroke: #a7b5c5; stroke-width: 1; stroke-dasharray: 3 3; }
+.usage-trend-tooltip rect { fill: #11161c; fill-opacity: .97; stroke: #4c5662; }
+.usage-trend-tooltip text { fill: #c7d0da; font: 10px Consolas, ui-monospace, monospace; }
+.usage-trend-tooltip text.is-title { fill: #fff; font-weight: 700; }
+.usage-trend-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; }
+.usage-trend-legend button { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 4px 8px; border: 1px solid transparent; border-radius: 999px; color: #c9d2dc; background: transparent; font: 10.5px Consolas, ui-monospace, monospace; cursor: pointer; }
+.usage-trend-legend button:hover, .usage-trend-legend button[aria-pressed="true"] { border-color: #4c525a; background: #30343a; color: #fff; }
+.usage-trend-legend button.is-muted { opacity: .32; }
+.usage-trend-legend button span { width: 9px; height: 9px; border-radius: 50%; }
+.usage-trend-empty { margin: 0; padding: 24px; color: #8e9ba8; }
+@media (max-width: 700px) {
+  .usage-trend { padding: 14px 12px 12px; }
+  .usage-trend-header { align-items: stretch; flex-direction: column; }
+  .usage-trend-tabs { align-self: flex-start; }
+  .usage-trend-header strong { font-size: 23px; }
+  .ledger-activity-panel .usage-trend-plot svg { min-height: 180px; }
+  .usage-trend-legend { justify-content: flex-start; }
+}
 .ledger-activity-bars {
   display: flex; align-items: flex-end; gap: 3px; height: 110px;
 }

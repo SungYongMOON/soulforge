@@ -2546,8 +2546,101 @@ function buildProviderTokenChart(providerDaily: any[]) {
   return { series, chart: { width, height, left, right, top, bottom, plotWidth, plotHeight, maxToken, totals, areas, x, y } };
 }
 
+const USAGE_TREND_COLORS = ["#d7e9ff", "#64aaf7", "#317fdf", "#23599f", "#c7a8f4", "#945be5", "#6840ae", "#546174"];
+
+function buildModelTokenSeries(modelDaily: any[]) {
+  const totals = new Map<string, number>();
+  for (const day of modelDaily) {
+    for (const row of day.models ?? []) totals.set(row.model_id, (totals.get(row.model_id) ?? 0) + row.total_tokens);
+  }
+  const ordered = [...totals].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "en"));
+  const ids = ordered.slice(0, 7).map(([id]) => id);
+  const hasOther = ordered.length > ids.length;
+  return [...ids.map((id) => ({ id, label: id })), ...(hasOther ? [{ id: "other", label: "기타 모델" }] : [])].map((series) => ({
+    ...series,
+    values: modelDaily.map((day: any) => (day.models ?? []).reduce((sum: number, row: any) => (
+      series.id === "other" ? (ids.includes(row.model_id) ? sum : sum + row.total_tokens) : sum + (row.model_id === series.id ? row.total_tokens : 0)
+    ), 0)),
+    unknownTurns: modelDaily.map((day: any) => (day.models ?? []).reduce((sum: number, row: any) => (
+      series.id === "other" ? (ids.includes(row.model_id) ? sum : sum + row.token_unknown_turns) : sum + (row.model_id === series.id ? row.token_unknown_turns : 0)
+    ), 0)),
+  }));
+}
+
+function buildProviderTokenSeries(providerDaily: any[]) {
+  return FLEET_TOKEN_PROVIDERS.map((provider) => ({
+    ...provider,
+    values: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.total_tokens ?? 0),
+    unknownTurns: providerDaily.map((row: any) => row.providers?.find((entry: any) => entry.provider === provider.id)?.token_unknown_turns ?? 0),
+  }));
+}
+
+function buildUsageTrendChart(days: any[], series: any[]) {
+  if (days.length !== 30 || series.length === 0) return null;
+  const width = 1000, height = 238, left = 58, right = 12, top = 16, bottom = 34;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const totals = days.map((_: any, index: number) => series.reduce((sum: number, item: any) => sum + (item.values[index] ?? 0), 0));
+  const rawMax = Math.max(...totals, 1);
+  const magnitude = 10 ** Math.floor(Math.log10(rawMax));
+  const maxToken = Math.ceil(rawMax / magnitude) * magnitude;
+  const x = (index: number) => left + (index * plotWidth) / 29;
+  const y = (value: number) => top + plotHeight - (value / maxToken) * plotHeight;
+  const cumulative = days.map(() => 0);
+  const areas = series.map((item: any) => {
+    const lower = cumulative.slice();
+    const upper = item.values.map((value: number, index: number) => (cumulative[index] += value));
+    return {
+      id: item.id,
+      stacked: monotoneAreaPath(upper.map((value: number, index: number) => ({ x: x(index), y: y(value) })), lower.map((value: number, index: number) => ({ x: x(index), y: y(value) }))),
+      isolated: monotoneAreaPath(item.values.map((value: number, index: number) => ({ x: x(index), y: y(value) })), days.map((_: any, index: number) => ({ x: x(index), y: y(0) }))),
+    };
+  });
+  return { width, height, left, right, top, bottom, plotWidth, plotHeight, maxToken, totals, areas, x, y };
+}
+
+function UsageTrendChart({ usage }: { usage: any }) {
+  const [view, setView] = useState<"model" | "provider">("model");
+  const [selectedSeries, setSelectedSeries] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const modelDaily = Array.isArray(usage?.history?.model_daily) ? usage.history.model_daily : [];
+  const providerDaily = Array.isArray(usage?.history?.provider_daily) ? usage.history.provider_daily : [];
+  const days = view === "model" ? modelDaily : providerDaily;
+  const series = view === "model" ? buildModelTokenSeries(modelDaily) : buildProviderTokenSeries(providerDaily);
+  const chart = buildUsageTrendChart(days, series);
+  const knownTokens = series.reduce((sum: number, item: any) => sum + item.values.reduce((local: number, value: number) => local + value, 0), 0);
+  const dailyTurns = modelDaily.reduce((sum: number, day: any) => sum + (day.models ?? []).reduce((local: number, row: any) => local + row.turns, 0), 0);
+  const unknownTurns = series.reduce((sum: number, item: any) => sum + item.unknownTurns.reduce((local: number, value: number) => local + value, 0), 0);
+  const chooseView = (next: "model" | "provider") => { setView(next); setSelectedSeries(null); setActiveIndex(null); };
+  if (chart === null) return <p className="usage-trend-empty">최근 30일의 정확한 로컬 토큰 시계열이 없습니다.</p>;
+  return (
+    <div className="usage-trend" data-testid="usage-trend-chart" data-view={view}>
+      <header className="usage-trend-header">
+        <div><span>토큰</span><strong>{formatUsageNumber(knownTokens)}</strong><small>{formatUsageNumber(dailyTurns)}회 · KST 최근 30일</small></div>
+        <div className="usage-trend-tabs" role="tablist" aria-label="사용량 분류">
+          <button type="button" role="tab" aria-selected={view === "model"} onClick={() => chooseView("model")}>모델별</button>
+          <button type="button" role="tab" aria-selected={view === "provider"} onClick={() => chooseView("provider")}>제공자별</button>
+        </div>
+      </header>
+      <p className="usage-trend-note">사용 경로는 현재 원장에 기록되지 않아 표시하지 않습니다.{unknownTurns > 0 ? ` 토큰 미기록 ${formatUsageNumber(unknownTurns)}회는 합계에서 제외됩니다.` : ""}</p>
+      <div className="usage-trend-plot">
+        <svg viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label={`최근 30일 ${view === "model" ? "모델별" : "제공자별"} 로컬 토큰 사용량`}>
+          {[0, 0.5, 1].map((ratio) => { const value = chart.maxToken * ratio; const y = chart.y(value); return <g key={ratio}><line className="usage-trend-grid" x1={chart.left} x2={chart.width - chart.right} y1={y} y2={y} /><text className="usage-trend-axis" x={chart.left - 8} y={y + 4} textAnchor="end">{fleetAxisTokenLabel(value)}</text></g>; })}
+          {chart.areas.filter((area: any) => selectedSeries === null || area.id === selectedSeries).map((area: any, index: number) => <path key={area.id} className="usage-trend-area" style={{ color: USAGE_TREND_COLORS[series.findIndex((item: any) => item.id === area.id) % USAGE_TREND_COLORS.length] }} d={selectedSeries === null ? area.stacked : area.isolated} />)}
+          {days.map((day: any, index: number) => (index % 5 === 0 || index === 29) && <text key={day.date} className="usage-trend-axis" x={chart.x(index)} y={chart.height - 10} textAnchor="middle">{String(day.date).slice(5).replace("-", "/")}</text>)}
+          {activeIndex !== null && (() => { const x = chart.x(activeIndex); const visible = selectedSeries === null ? series : series.filter((item: any) => item.id === selectedSeries); const boxHeight = 48 + visible.length * 17; const boxX = Math.min(Math.max(x - 86, chart.left), chart.width - 190); return <g className="usage-trend-tooltip" role="tooltip"><line x1={x} x2={x} y1={chart.top} y2={chart.top + chart.plotHeight} /><rect x={boxX} y={10} width="184" height={boxHeight} rx="8" /><text x={boxX + 11} y={31} className="is-title">{days[activeIndex]?.date}</text>{visible.map((item: any, rowIndex: number) => <text key={item.id} x={boxX + 11} y={51 + rowIndex * 17} style={{ fill: USAGE_TREND_COLORS[series.indexOf(item) % USAGE_TREND_COLORS.length] }}>{item.label}: {formatUsageNumber(item.values[activeIndex])} tok{item.unknownTurns[activeIndex] > 0 ? ` · 미기록 ${item.unknownTurns[activeIndex]}회` : ""}</text>)}</g>; })()}
+        </svg>
+        <div className="usage-trend-hit-grid" aria-label="날짜별 토큰 상세">
+          {days.map((day: any, index: number) => <button key={day.date} type="button" aria-label={`${day.date}, ${(selectedSeries === null ? series : series.filter((item: any) => item.id === selectedSeries)).map((item: any) => `${item.label} ${formatUsageNumber(item.values[index])} 토큰`).join(", ")}`} onFocus={() => setActiveIndex(index)} onBlur={() => setActiveIndex(null)} onMouseEnter={() => setActiveIndex(index)} onMouseLeave={(event) => { if (event.currentTarget !== document.activeElement) setActiveIndex(null); }} onKeyDown={(event) => { const offset = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0; if (offset !== 0) { event.preventDefault(); const buttons = [...event.currentTarget.parentElement!.querySelectorAll("button")]; (buttons[Math.min(29, Math.max(0, index + offset))] as HTMLButtonElement)?.focus(); } if (event.key === "Escape") { setActiveIndex(null); event.currentTarget.blur(); } }} />)}
+        </div>
+      </div>
+      <div className="usage-trend-legend" aria-label={`${view === "model" ? "모델" : "제공자"} 범례`}>
+        {series.map((item: any, index: number) => <button key={item.id} type="button" aria-pressed={selectedSeries === item.id} className={selectedSeries !== null && selectedSeries !== item.id ? "is-muted" : ""} onClick={() => setSelectedSeries((current) => current === item.id ? null : item.id)}><span style={{ background: USAGE_TREND_COLORS[index % USAGE_TREND_COLORS.length] }} />{item.label}</button>)}
+      </div>
+    </div>
+  );
+}
+
 function FleetUsageCards({ usage, providers = null, pending = false }: { usage: any; providers?: any; pending?: boolean }) {
-  const [creditChartIndex, setCreditChartIndex] = useState<number | null>(null);
   const history = usage?.history ?? null;
   const windows = history?.windows ?? null;
   const claudeEvidence = usage?.provider_evidence?.claude ?? null;
@@ -2799,8 +2892,6 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
     month !== null ? { key: "month", label: "이번 달", value: `${fleetTokenLabel(month.total_tokens)} tok`, meta: fleetCreditLabel(month) } : null,
   ].filter(Boolean) as any[];
   const totalsFoot = "로컬 세션 사용량 · 최근 30일";
-  const providerDaily = Array.isArray(history?.provider_daily) ? history.provider_daily : [];
-  const { series: totalsSeries, chart: totalsCreditChart } = buildProviderTokenChart(providerDaily);
 
   if (limitRows.length === 0 && topModelRows.length === 0 && totalsRows.length === 0) return null;
   return (
@@ -2899,52 +2990,7 @@ function FleetUsageCards({ usage, providers = null, pending = false }: { usage: 
             <li key={row.key}><span>{row.label}</span><b>{row.value}</b><small>{row.meta}</small></li>
           ))}
         </ul>
-        <div className="fleet-provider-credit-legend" aria-label="사용 총괄 provider token 범례">
-          {totalsSeries.map((series) => <span key={series.id} className={`provider-credit-${series.id}`}>{series.label}</span>)}
-        </div>
-        {totalsCreditChart !== null ? (
-          <>
-          <div className="fleet-provider-token-chart-wrap">
-          <svg className="fleet-provider-credit-chart" viewBox={`0 0 ${totalsCreditChart.width} ${totalsCreditChart.height}`} role="img" aria-label="최근 30일 Codex, Claude Code, Antigravity Gemini 로컬 token 사용량 차트">
-            {[0, 0.5, 1].map((ratio) => {
-              const value = totalsCreditChart.maxToken * ratio;
-              const y = totalsCreditChart.y(value);
-              return <g key={ratio}><line className="fleet-credit-grid" x1={totalsCreditChart.left} x2={totalsCreditChart.width - totalsCreditChart.right} y1={y} y2={y} /><text className="fleet-credit-axis-label" x={totalsCreditChart.left - 8} y={y + 4} textAnchor="end">{fleetAxisTokenLabel(value)}</text></g>;
-            })}
-            {totalsCreditChart.areas.map((area: any) => <path key={area.id} className={`fleet-credit-area provider-credit-${area.id}`} d={area.path} />)}
-            {providerDaily.map((row: any, index: number) => {
-              const x = totalsCreditChart.x(index);
-              const label = String(row.date ?? row.day ?? "");
-              const details = totalsSeries.map((series) => `${series.label} ${typeof series.values[index] === "number" ? Number(series.values[index]).toLocaleString("en-US") : "사용 불가"}`).join(", ");
-              return <g key={label || index} className="fleet-credit-hit" aria-hidden="true">
-                <text className={`fleet-credit-axis-label fleet-credit-date-label${index % 5 === 0 || index === providerDaily.length - 1 ? " is-major" : ""}${index % 3 === 0 || index === providerDaily.length - 1 ? " is-wide" : ""}`} x={x} y={totalsCreditChart.height - 12} textAnchor="middle">{label.slice(5)}</text>
-              </g>;
-            })}
-            {creditChartIndex !== null && (() => {
-              const index = creditChartIndex;
-              const x = totalsCreditChart.x(index);
-              const boxX = Math.min(Math.max(x - 74, totalsCreditChart.left), totalsCreditChart.width - 170);
-              const date = String(providerDaily[index]?.date ?? providerDaily[index]?.day ?? "");
-              return <g className="fleet-credit-tooltip" role="tooltip">
-                <line x1={x} x2={x} y1={totalsCreditChart.top} y2={totalsCreditChart.top + totalsCreditChart.plotHeight} />
-                <rect x={boxX} y={20} width="164" height="104" rx="7" />
-                <text x={boxX + 10} y={39} className="is-title">{date}</text>
-                {totalsSeries.map((series, rowIndex) => <text key={series.id} x={boxX + 10} y={59 + rowIndex * 17} className={`provider-credit-${series.id}`}>{series.label}: {typeof series.values[index] === "number" ? `${fleetTokenLabel(Number(series.values[index]))} tok` : series.unknownTurns[index] > 0 ? `토큰 미기록 ${series.unknownTurns[index]}회` : "근거 없음"}</text>)}
-                <text x={boxX + 10} y={115}>{totalsSeries.some((series) => series.unknownTurns[index] > 0) ? "합계(기록분)" : "합계"}: {fleetTokenLabel(totalsCreditChart.totals[index])} tok</text>
-              </g>;
-            })()}
-          </svg>
-          <div className="fleet-token-hit-grid" aria-label="최근 30일 provider token 상세">
-            {providerDaily.map((row: any, index: number) => {
-              const date = String(row.date ?? row.day ?? "");
-              const hasUnknown = totalsSeries.some((series) => series.unknownTurns[index] > 0);
-              const details = totalsSeries.map((series) => `${series.label} ${typeof series.values[index] === "number" ? `${fleetTokenLabel(Number(series.values[index]))} tok` : series.unknownTurns[index] > 0 ? `토큰 미기록 ${series.unknownTurns[index]}회` : "근거 없음"}`).join(", ");
-              return <button key={date || index} type="button" aria-label={`${date}, ${details}, ${hasUnknown ? "합계 기록분" : "합계"} ${fleetTokenLabel(totalsCreditChart.totals[index])} tok`} onFocus={() => setCreditChartIndex(index)} onBlur={() => setCreditChartIndex(null)} onMouseEnter={() => setCreditChartIndex(index)} onMouseLeave={(event) => { if (event.currentTarget !== document.activeElement) setCreditChartIndex(null); }} onKeyDown={(event) => { if (event.key === "Escape") { setCreditChartIndex(null); event.currentTarget.blur(); } }} />;
-            })}
-          </div>
-          </div>
-          </>
-        ) : <p className="fleet-provider-credit-empty">{pending ? "사용량 불러오는 중" : "최근 30일 provider별 정확한 로컬 token 근거가 없습니다."}</p>}
+        <UsageTrendChart usage={usage} />
         {totalsFoot.length > 0 && <p className="fleet-panel-foot">{totalsFoot}</p>}
       </article>
     </div>
@@ -3001,7 +3047,6 @@ function LedgerActivity({ usage }: { usage: any }) {
   const hourly = activity.hourly;
   const totalHourTurns = hourly.reduce((sum: number, row: any) => sum + (row.turns ?? 0), 0);
   const maxHour = Math.max(...hourly.map((row: any) => row.turns ?? 0), 1);
-  const providerDaily = Array.isArray(usage?.history?.provider_daily) ? usage.history.provider_daily : [];
   return (
     <section className="ledger-activity" aria-label="활동 빈도" data-testid="ledger-activity">
       <header>
@@ -3010,9 +3055,8 @@ function LedgerActivity({ usage }: { usage: any }) {
         <span className="ledger-distribution-meta">KST · 공통 Meter 원장</span>
       </header>
       <div className="ledger-activity-panels">
-        <div className="ledger-activity-panel">
-          <h3>Provider별 30일 토큰 <span>로컬 집계</span></h3>
-          <LedgerProviderTokenChart providerDaily={providerDaily} />
+        <div className="ledger-activity-panel is-usage-trend">
+          <UsageTrendChart usage={usage} />
         </div>
         <div className="ledger-activity-panel">
           <h3>시간대별 (0-23시) <span>{totalHourTurns.toLocaleString("en-US")}턴</span></h3>

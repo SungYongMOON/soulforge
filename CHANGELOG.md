@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-08-11 - Board usage trend by model and provider
+
+- Added a reconciled 30-day KST `model_daily` Meter projection derived from exact
+  event timestamps, model IDs, token counts, and token-confidence metadata.
+- Replaced the Ledger's provider-only trend with a responsive model-first chart,
+  a source-backed provider view, selectable keyboard-operable legend series, and
+  exact hover/focus day tooltips. The Board explicitly states that usage path is
+  not recorded instead of inferring Desktop, CLI, extension, cloud, or mobile.
+
 ## 2026-08-10 - SE Engineering Engine Phase 1 lanes complete
 
 - Completed all six Phase 1 lanes under `guild_hall/engineering_engine/`: 1A

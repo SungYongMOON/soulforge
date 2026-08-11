@@ -21,6 +21,7 @@ export const AI_USAGE_HISTORY_WINDOWS = Object.freeze([
 const V2_ROOT_KEYS = ["schema_version", "generated_at", "timezone", "reference_at", "top_n", "current", "windows", "activity", "rate_limit"];
 const V3_ROOT_KEYS = [...V2_ROOT_KEYS, "provider_rows", "claude_collection"];
 const V3_PROVIDER_DAILY_ROOT_KEYS = [...V3_ROOT_KEYS, "provider_daily"];
+const V3_DAILY_SERIES_ROOT_KEYS = [...V3_PROVIDER_DAILY_ROOT_KEYS, "model_daily"];
 const WINDOW_KEYS = ["start_at", "end_at", "totals", "breakdowns"];
 const BREAKDOWN_KEYS = ["projects", "works", "tasks", "models"];
 const BREAKDOWN_GROUP_KEYS = ["top", "other"];
@@ -47,6 +48,8 @@ const PROVIDER_ROWS_KEYS = ["provider", "turns", "total_tokens", "latest_usage_a
 const PROVIDER_ORDER = ["codex", "claude", "antigravity"];
 const PROVIDER_DAILY_ROW_KEYS = ["date", "providers"];
 const PROVIDER_DAILY_VALUE_KEYS = ["provider", "total_tokens", "token_unknown_turns", "credits", "credit_unknown_turns"];
+const MODEL_DAILY_ROW_KEYS = ["date", "models"];
+const MODEL_DAILY_VALUE_KEYS = ["model_id", "turns", "total_tokens", "token_unknown_turns"];
 const CLAUDE_COLLECTION_KEYS = [
   "schema_version",
   "state",
@@ -411,7 +414,9 @@ function normalizeHistorySnapshot(input) {
   if (legacy.state === "ready" || input === null || input === undefined) return noHistoryProjection(legacy);
   const isV2 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA;
   const isV3 = input?.schema_version === AI_USAGE_HISTORY_SNAPSHOT_SCHEMA;
-  const rootKeys = isV3 && Object.hasOwn(input ?? {}, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : isV3 ? V3_ROOT_KEYS : V2_ROOT_KEYS;
+  const rootKeys = isV3 && Object.hasOwn(input ?? {}, "model_daily")
+    ? V3_DAILY_SERIES_ROOT_KEYS
+    : isV3 && Object.hasOwn(input ?? {}, "provider_daily") ? V3_PROVIDER_DAILY_ROOT_KEYS : isV3 ? V3_ROOT_KEYS : V2_ROOT_KEYS;
   if ((!isV2 && !isV3) || !hasExactKeys(input, rootKeys) || hasForbiddenKey(input)) return invalidProjection();
   if (
     input.timezone !== AI_USAGE_HISTORY_TIMEZONE
@@ -486,6 +491,31 @@ function normalizeHistorySnapshot(input) {
       });
       if (daily.some((row) => row === null)) return invalidProjection();
       history.provider_daily = daily;
+    }
+    if (Object.hasOwn(input, "model_daily")) {
+      if (!Array.isArray(input.model_daily) || input.model_daily.length !== 30) return invalidProjection();
+      let priorDate = "";
+      const daily = input.model_daily.map((row) => {
+        if (!hasExactKeys(row, MODEL_DAILY_ROW_KEYS) || !KST_DATE.test(row.date) || row.date <= priorDate || !Array.isArray(row.models)) return null;
+        priorDate = row.date;
+        const seen = new Set();
+        const models = row.models.map((entry) => {
+          if (!hasExactKeys(entry, MODEL_DAILY_VALUE_KEYS) || typeof entry.model_id !== "string" || !SAFE_ID.test(entry.model_id)
+            || seen.has(entry.model_id) || !Number.isSafeInteger(entry.turns) || entry.turns < 1
+            || !Number.isSafeInteger(entry.total_tokens) || entry.total_tokens < 0
+            || !Number.isSafeInteger(entry.token_unknown_turns) || entry.token_unknown_turns < 0
+            || entry.token_unknown_turns > entry.turns) return null;
+          seen.add(entry.model_id);
+          return { ...entry };
+        });
+        return models.some((entry) => entry === null) ? null : { date: row.date, models };
+      });
+      if (daily.some((row) => row === null)) return invalidProjection();
+      const activity = parsedActivity.daily.length >= 30 ? parsedActivity.daily.slice(-30) : null;
+      if (activity !== null && daily.some((day, index) => day.date !== activity[index]?.date
+        || day.models.reduce((sum, row) => sum + row.turns, 0) !== activity[index]?.turns
+        || day.models.reduce((sum, row) => sum + row.total_tokens, 0) !== activity[index]?.total_tokens)) return invalidProjection();
+      history.model_daily = daily;
     }
     history.claude_collection = collection;
     providerEvidence = { claude: evidence };

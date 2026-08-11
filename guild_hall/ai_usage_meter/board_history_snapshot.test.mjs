@@ -144,6 +144,10 @@ test("Board usage history snapshots use Asia/Seoul calendar and rolling half-ope
   assert.equal(snapshot.current.activity.retry_count, 1);
   assert.equal(snapshot.current.activity.timeout_count, 1);
   assert.equal(snapshot.current.totals.turns, 6);
+  assert.equal(snapshot.model_daily.length, 30);
+  assert.deepEqual(snapshot.model_daily.at(-1).models, [{
+    model_id: "gpt-5.6-terra", turns: 2, total_tokens: 70, token_unknown_turns: 2,
+  }]);
   assert.equal(snapshot.windows.calendar_day.start_at, "2026-08-02T15:00:00.000Z");
   assert.equal(snapshot.windows.calendar_day.end_at, "2026-08-03T15:00:00.000Z");
   assert.equal(snapshot.windows.calendar_week.start_at, "2026-08-02T15:00:00.000Z");
@@ -579,6 +583,7 @@ test("Board history v2 remains accepted without v3 provider evidence", () => {
   v2.schema_version = BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA;
   delete v2.provider_rows;
   delete v2.provider_daily;
+  delete v2.model_daily;
   delete v2.claude_collection;
   const accepted = validateBoardUsageHistorySnapshot(v2);
   assert.equal(accepted.schema_version, BOARD_USAGE_HISTORY_SNAPSHOT_V2_SCHEMA);
