@@ -271,3 +271,7 @@ node --check guild_hall/local_activity/ai_work_record_outbox.mjs
 node --check guild_hall/local_activity/ai_work_record_outbox_cli.mjs
 node --test guild_hall/local_activity/local_activity.test.mjs guild_hall/local_activity/codex_work_context.test.mjs guild_hall/local_activity/ai_work_record_outbox.test.mjs
 ```
+
+The Windows scheduler registration uses the runtime-owned hidden VBS launcher
+to preserve the bounded PowerShell collector while preventing an interactive
+console window at each interval.

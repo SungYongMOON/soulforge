@@ -15,6 +15,9 @@
 - Added the same GUI-subsystem launch boundary to the continuous voice ASR and
   labeling supervisor registrar, preserving its exact PowerShell arguments,
   at-logon/watchdog triggers, 15-minute cadence, and existing task settings.
+- Added repository-owned hidden launch boundaries to the remaining periodic
+  Hiworks mail, project-local activity, and Slack batch scheduled tasks without
+  changing their collectors, arguments, cadence, or authority.
 
 ## 2026-08-10 - SE Engineering Engine Phase 1 lanes complete
 

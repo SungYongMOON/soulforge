@@ -59,6 +59,9 @@ HTML 본문을 넣으면 runner 는 `multipart/alternative` 메일로 보내며,
   heartbeat evidence for a future supervisor. The scheduled-task runner pins
   the collector script SHA-256; revalidate and update that pin deliberately
   whenever the collector changes.
+- The five-minute interactive task starts through a repository-owned
+  `wscript.exe //B //NoLogo` launcher so its PowerShell worker remains fully
+  backgrounded without changing the runner arguments or task cadence.
 
 ## Gmail original-message importer
 

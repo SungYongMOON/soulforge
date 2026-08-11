@@ -284,6 +284,10 @@ if ($Preflight.mode -ne "preflight" `
 }
 
 $PowerShellExe = [IO.Path]::GetFullPath((Get-Command powershell.exe -ErrorAction Stop).Source)
+$WScriptExe = Join-Path $env:WINDIR "System32\wscript.exe"
+$HiddenLauncher = Resolve-CanonicalFile -Path (
+  Join-Path $RuntimeRoot "guild_hall\slack_history\ops\run-slack-batch-hidden.vbs"
+)
 $TaskNodeArguments = @(
   $LauncherCommonArguments
   "--apply",
@@ -302,6 +306,19 @@ $CommandScript = "& " `
   }) -join " "
 )
 $ActionArgumentLine = (@(
+  "-NoProfile",
+  "-NonInteractive",
+  "-WindowStyle", "Hidden",
+  "-ExecutionPolicy", "Bypass",
+  "-Command", $CommandScript
+) | ForEach-Object {
+  ConvertTo-TaskArgument -Value ([string]$_)
+}) -join " "
+$HiddenActionArgumentLine = (@(
+  "//B",
+  "//NoLogo",
+  $HiddenLauncher,
+  $PowerShellExe,
   "-NoProfile",
   "-NonInteractive",
   "-WindowStyle", "Hidden",
@@ -354,7 +371,7 @@ $Plan = [ordered]@{
   runtime_manifest_sha256 = $RuntimeManifestSha256
   batch_binding_sha256 = $BatchBindingSha256
   node_sha256 = $NodeSha256
-  action_sha256 = Get-Sha256Text -Value ($PowerShellExe + "`n" + $ActionArgumentLine)
+  action_sha256 = Get-Sha256Text -Value ($WScriptExe + "`n" + $HiddenActionArgumentLine)
   existing_task_sha256 = $ActualExistingTaskSha256
   existing_task_xml_sha256 = $ExistingTaskXmlSha256
 }
@@ -378,8 +395,8 @@ if (-not $PSCmdlet.ShouldProcess(
 }
 
 $Action = New-ScheduledTaskAction `
-  -Execute $PowerShellExe `
-  -Argument $ActionArgumentLine `
+  -Execute $WScriptExe `
+  -Argument $HiddenActionArgumentLine `
   -WorkingDirectory $RuntimeRoot
 $Trigger0200 = New-ScheduledTaskTrigger -Daily -At ([DateTime]::Today.AddHours(2))
 $Trigger1200 = New-ScheduledTaskTrigger -Daily -At ([DateTime]::Today.AddHours(12))
@@ -475,8 +492,8 @@ try {
     -and $RegisteredRunLevelValid `
     -and ($RegisteredPrincipalUserId -eq $CurrentSid `
       -or $RegisteredPrincipalUserId -eq $CurrentUser) `
-    -and $RegisteredCommand -eq $PowerShellExe `
-    -and $RegisteredArguments -eq $ActionArgumentLine `
+    -and $RegisteredCommand -eq $WScriptExe `
+    -and $RegisteredArguments -eq $HiddenActionArgumentLine `
     -and $RegisteredWorkingDirectory -eq $RuntimeRoot
   if (-not $RegistrationValid) {
     throw "registered slack batch task failed exported XML attestation"

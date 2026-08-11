@@ -18,7 +18,9 @@ if ($IntervalMinutes -lt 15 -or $IntervalMinutes -gt 1440) {
 $runtime = [System.IO.Path]::GetFullPath($RuntimeRoot)
 $binding = [System.IO.Path]::GetFullPath($BindingPath)
 $runner = Join-Path $runtime "guild_hall\local_activity\ops\run-hpp-local-activity.ps1"
+$hiddenLauncher = Join-Path $runtime "guild_hall\local_activity\ops\run-hpp-local-activity-hidden.vbs"
 $powerShell = Join-Path $env:WINDIR "System32\WindowsPowerShell\v1.0\powershell.exe"
+$wscript = Join-Path $env:WINDIR "System32\wscript.exe"
 $arguments = @(
     "-NoProfile",
     "-NonInteractive",
@@ -33,8 +35,8 @@ $arguments = @(
 $summary = [ordered]@{
     task_name = $TaskName
     interval_minutes = $IntervalMinutes
-    executable = $powerShell
-    arguments = $arguments
+    executable = $wscript
+    arguments = "//B //NoLogo `"$hiddenLauncher`" `"$powerShell`" $arguments"
     apply = [bool]$Apply
     multiple_instances = "IgnoreNew"
     hidden_window = $true
@@ -44,15 +46,15 @@ if (-not $Apply) {
     exit 0
 }
 
-foreach ($target in @($runner, $binding)) {
+foreach ($target in @($runner, $hiddenLauncher, $binding)) {
     if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
         throw "hpp_local_activity_registration_input_missing"
     }
 }
 
 $action = New-ScheduledTaskAction `
-    -Execute $powerShell `
-    -Argument $arguments `
+    -Execute $wscript `
+    -Argument $summary.arguments `
     -WorkingDirectory $runtime
 $trigger = New-ScheduledTaskTrigger `
     -Once `
@@ -82,6 +84,9 @@ Register-ScheduledTask `
 $registered = Get-ScheduledTask -TaskName $TaskName
 if ($registered.Settings.MultipleInstances -ne "IgnoreNew") {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    throw "hpp_local_activity_registration_attestation_failed"
+}
+if ($registered.Actions.Execute -ne $wscript -or $registered.Actions.Arguments -ne $summary.arguments) {
     throw "hpp_local_activity_registration_attestation_failed"
 }
 $summary | ConvertTo-Json -Depth 4
