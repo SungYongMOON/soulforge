@@ -155,8 +155,12 @@ const topology = {
     lane_1a: pipeline.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
     lane_1b: custody.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
     lane_1e: moduleBinding.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
-    undefined_stage: pipeline.P7,
   },
+
+  // P7 is defined by the frozen plan as the TaskDriver behind a four-check policy gate. It is
+  // reported here as a stage, not as an open question, and it says plainly that no live driver
+  // is switched on.
+  task_driver_stage: pipeline.P7,
 };
 
 // Stable digest: a viewer can show this and say which code it rendered.

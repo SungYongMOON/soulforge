@@ -1,5 +1,64 @@
 # CHANGELOG
 
+## 2026-08-11 - SE Engineering Engine Phase 2 revision: frozen-contract corrections
+
+- Corrected `P7` in `guild_hall/engineering_engine/`. The previous entry recorded
+  that the frozen contract did not define it; that was a reading error, not an
+  open owner decision. `engine_plan_v1_2.md`, `engine_plan_v1_2_1.md` and the
+  frozen `phase_1_0_work_lanes.yaml` `p7_taskdriver` gate all define P7 as the
+  TaskDriver, preceded by a `why` / `why-now` / `authority` / `idempotency`
+  internal policy gate. `pipeline.mjs` now implements the gate as its own
+  function whose result P7 requires, so P7 cannot be reached around it. No live
+  TaskDriver is activated: the verdict is candidate-only with a zero ERP delta.
+- Made `evaluateP8Write` require the whole validated lifecycle chain instead of
+  succeeding on a task intent that had merely stopped calling itself a candidate.
+  Twelve chain elements must be present and must agree with each other:
+  acceptance, generation advance, snapshot, finding, append-only disposition
+  event confirmed by a registered human, the context/authority gate, the P6 task
+  intent, the policy gate, P7, one shared project binding, and immutable
+  receipt/CAS evidence. An approval whose approver is an agent, an engine or a
+  model is refused. The function performs no write and reports zero.
+- Made the Context Capsule selector validate every edge before traversal and
+  require every traversed edge and node to carry the selector's project binding.
+  Cross-binding material is refused on the way in rather than filtered after
+  reading it, and a projection that declares node bindings fails closed on an
+  undeclared node.
+- Stopped capsule exclusions from carrying the identifier they refused. An
+  exclusion is now a closed reason, a hop and a count. The frozen O6 forbids a
+  denied ref anywhere in the capsule payload, and an exclusion list is capsule
+  payload; the previous behaviour handed back exactly what the ACL withheld.
+  Enforcement is recursive over the whole returned object.
+- Stopped the subject adapter from reading the presence of a receipt key as
+  proof of traversal. Each receipt is judged against a declared freshness window
+  first, so a stale, failed or malformed receipt yields `unknown` rather than
+  `present`, and a receipt that could not be believed also costs that run its
+  right to report other edges as confirmed absences.
+- Made conflict findings retain every disagreeing source claim.
+  `recordSourceConflict()` returns the precedence verdict and the retained claims
+  together, and a conflict signalled without its sides is refused. Authority
+  resolution alone loses the lower-tier side, which is the failure the frozen O4
+  case exists to catch.
+- Added the smallest synthetic Phase 3 receipt slice, `kernel/context_receipt.mjs`:
+  immutable Context Request and Context Response receipts, each distinct from the
+  candidate it attests, plus the still-a-candidate response and an evidence
+  sufficiency and authority applicability gate. Both receipts and the validated
+  response candidate are required before the P5 orchestration boundary can even
+  be evaluated; missing, mismatched, stale or cross-project receipts stop the
+  sequence. The four receipt kinds in the engine — topology delivery, MCP
+  idempotency response, context request, context response — are named and kept
+  apart. No transport, no external service, no live P5, no generation advance and
+  no ERP write.
+- Made the byte manifest deterministic against the bytes Git will commit rather
+  than the bytes a checkout happens to hold, and verified the derivation against
+  `git hash-object` on every emit. Added `tests/manifest_blob_integrity.mjs`,
+  which checks the committed manifest against a fresh emit, against Git's clean
+  filter, and against the staged blob bytes; it is part of the integration check.
+  The previous manifest disagreed with the committed content for four files and
+  nothing noticed, because nothing verified it.
+- Phase 1–4 baseline remains `deterministic_only`. No project material, UI,
+  runtime, MCP execution, ERP writer or learned model was exercised, and no
+  actual project identifier appears anywhere in this change.
+
 ## 2026-08-10 - SE Engineering Engine Phase 1 lanes complete
 
 - Completed all six Phase 1 lanes under `guild_hall/engineering_engine/`: 1A

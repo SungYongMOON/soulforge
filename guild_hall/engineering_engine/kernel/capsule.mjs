@@ -8,8 +8,13 @@
 //    set is the classic leak: hop two reaches material the requester may not see.
 // 2. Ranking is deterministic. No embedding, no learned reranker. Ties break on declared
 //    keys so the same inputs always select the same evidence.
-// 3. What was left out is reported with a reason. A capsule that silently drops evidence
-//    is indistinguishable from one where the evidence never existed.
+// 3. What was left out is reported with a reason, and with a reason only. Naming the
+//    refused identifier inside the exclusion hands back exactly what the ACL refused to
+//    disclose, so an exclusion carries a closed reason, the hop and a count. The identifier
+//    does not survive anywhere in the returned object.
+// 4. Every edge is validated, and every traversed edge and node has to belong to the
+//    selector's project binding. Filtering by binding after traversal is already too late:
+//    the other project's material has been read by then.
 
 import { createHash } from 'node:crypto';
 import { canonicalise, compareCodePoints, inspectInstant } from './canonical.mjs';
@@ -26,7 +31,21 @@ export const CODES = Object.freeze({
   RANKING_NOT_DETERMINISTIC: 'CAPSULE_RANKING_NOT_DETERMINISTIC',
   WHOLE_CORPUS_REQUESTED: 'CAPSULE_WHOLE_CORPUS_REQUESTED',
   ACL_SCOPE_VIOLATION: 'CAPSULE_ACL_SCOPE_VIOLATION',
+  PROJECT_BINDING_MISMATCH: 'CAPSULE_PROJECT_BINDING_MISMATCH',
+  EDGE_INVALID: 'CAPSULE_EDGE_INVALID',
 });
+
+/**
+ * Exclusion reasons. Closed, because an exclusion is the only thing a capsule says about
+ * material it refused, and a free-text reason would be the obvious place for the refused
+ * identifier to reappear.
+ */
+export const EXCLUSION_REASONS = Object.freeze([
+  'acl_denied_at_seed', 'acl_denied_at_hop',
+  'project_binding_mismatch', 'project_binding_unknown',
+  'edge_type_not_allowlisted', 'applicability_false', 'applicability_unknown',
+  'top_k_budget',
+]);
 
 export const SELECTOR_CONTRACT_VERSION = 'capsule-selector-v0';
 
@@ -108,7 +127,9 @@ export function compareCandidates(a, b) {
  * Selects a capsule by bounded traversal.
  *
  * @param selector  declared selection procedure, validated before use
- * @param graph     { edges: [...] } already-validated projection slice
+ * @param graph     { edges: [...], nodes?: [{ ref, project_binding_ref }] } projection slice.
+ *                  Every edge is validated here rather than assumed valid; when the slice
+ *                  declares node bindings, every traversed ref must be declared in it.
  * @param aclCheck  (ref, hop) => boolean, consulted at EVERY hop
  */
 export function selectCapsule(selector, graph, aclCheck) {
@@ -120,16 +141,60 @@ export function selectCapsule(selector, graph, aclCheck) {
     throw new ContractError(CODES.ACL_SCOPE_VIOLATION, 'an ACL check must be supplied and is applied at every hop');
   }
 
+  // The projection slice is validated before it is walked. An edge that fails its own
+  // contract cannot be trusted to carry a binding or an authority claim either, so the whole
+  // selection is refused rather than run over a partly checked graph.
+  const edges = Array.isArray(graph?.edges) ? graph.edges : null;
+  if (edges === null) throw new ContractError(CODES.EDGE_INVALID, 'graph.edges must be an array');
+  for (const edge of edges) {
+    try {
+      validateEdge(edge);
+    } catch (e) {
+      throw new ContractError(CODES.EDGE_INVALID,
+        'a capsule cannot be selected over an edge that fails edge validation',
+        { edge_id: edge?.edge_id ?? null, cause_code: e?.code ?? null });
+    }
+  }
+
+  // Node bindings, when the projection declares them. An edge says which binding it was
+  // asserted under; a node set says which binding the node itself belongs to. Both must agree
+  // with the selector, because an alpha bound edge pointing at a bravo node is exactly the
+  // shape of a cross-project leak.
+  const declaredNodes = Array.isArray(graph?.nodes) ? graph.nodes : null;
+  const nodeBinding = new Map();
+  for (const n of declaredNodes ?? []) {
+    if (!n?.ref?.entity_id || !n?.ref?.revision_id) {
+      throw new ContractError(CODES.EDGE_INVALID, 'a declared node must carry an exact revision ref');
+    }
+    nodeBinding.set(`${n.ref.entity_id}@${n.ref.revision_id}`, n.project_binding_ref);
+  }
+
   const allowed = new Set(selector.traversal.allowlisted_edge_types);
   const included = [];
-  const excluded = [];
+  const exclusions = [];
   const seenNodes = new Set();
+  const exclude = (hop, reason) => {
+    if (!EXCLUSION_REASONS.includes(reason)) {
+      throw new ContractError(CODES.EDGE_INVALID, `"${reason}" is not a declared exclusion reason`);
+    }
+    exclusions.push({ hop, reason });
+  };
 
-  const admit = (ref, hop, reasonIfDenied) => {
+  /** Node level binding check. Absent from a declared node set is refused, not assumed. */
+  const nodeBindingVerdict = (ref) => {
+    if (declaredNodes === null) return 'ok';
+    const declared = nodeBinding.get(`${ref.entity_id}@${ref.revision_id}`);
+    if (declared === undefined) return 'project_binding_unknown';
+    return declared === selector.project_binding_ref ? 'ok' : 'project_binding_mismatch';
+  };
+
+  const admit = (ref, hop, deniedReason) => {
     const key = `${ref.entity_id}@${ref.revision_id}`;
     if (seenNodes.has(key)) return false;
+    const binding = nodeBindingVerdict(ref);
+    if (binding !== 'ok') { exclude(hop, binding); return false; }
     // ACL at this hop, not only at the seed
-    if (!aclCheck(ref, hop)) { excluded.push({ ref: key, hop, reason: reasonIfDenied ?? 'acl_denied_at_hop' }); return false; }
+    if (!aclCheck(ref, hop)) { exclude(hop, deniedReason ?? 'acl_denied_at_hop'); return false; }
     seenNodes.add(key);
     return true;
   };
@@ -143,12 +208,15 @@ export function selectCapsule(selector, graph, aclCheck) {
   for (let hop = 1; hop <= selector.traversal.max_hops; hop++) {
     const next = [];
     for (const { ref } of frontier) {
-      for (const edge of graph.edges) {
+      for (const edge of edges) {
         if (edge.from_ref?.entity_id !== ref.entity_id || edge.from_ref?.revision_id !== ref.revision_id) continue;
-        if (!allowed.has(edge.edge_type)) { excluded.push({ ref: edge.edge_id, hop, reason: 'edge_type_not_allowlisted' }); continue; }
+        // The binding is checked before the edge is read for anything else, so material from
+        // another binding is never ranked, counted or pointed at.
+        if (edge.project_binding_ref !== selector.project_binding_ref) { exclude(hop, 'project_binding_mismatch'); continue; }
+        if (!allowed.has(edge.edge_type)) { exclude(hop, 'edge_type_not_allowlisted'); continue; }
         if (edge.applicability !== true) {
           // kept visible as an exclusion reason rather than silently dropped
-          excluded.push({ ref: edge.edge_id, hop, reason: `applicability_${String(edge.applicability)}` });
+          exclude(hop, edge.applicability === APPLICABILITY.UNKNOWN ? 'applicability_unknown' : 'applicability_false');
           continue;
         }
         if (!admit(edge.to_ref, hop)) continue;
@@ -167,25 +235,61 @@ export function selectCapsule(selector, graph, aclCheck) {
 
   const ranked = [...candidates].sort(compareCandidates);
   const kept = ranked.slice(0, selector.budgets.top_k);
-  for (const dropped of ranked.slice(selector.budgets.top_k)) {
-    excluded.push({ ref: `${dropped.ref.entity_id}@${dropped.ref.revision_id}`, hop: dropped.hop, reason: 'top_k_budget' });
-  }
+  for (const dropped of ranked.slice(selector.budgets.top_k)) exclude(dropped.hop, 'top_k_budget');
   if (kept.length > selector.budgets.max_nodes) {
     throw new ContractError(CODES.BUDGET_MISSING, 'selected node count exceeds max_nodes; budgets are inconsistent');
   }
   included.push(...kept);
 
+  // Exclusions are aggregated to (reason, hop, count). A refusal has to be stated, because a
+  // silent empty capsule is indistinguishable from "there was nothing", but stating it must
+  // not return the identifier the refusal was about.
+  const grouped = new Map();
+  for (const e of exclusions) {
+    const key = `${e.reason}|${e.hop}`;
+    grouped.set(key, { reason: e.reason, hop: e.hop, count: (grouped.get(key)?.count ?? 0) + 1 });
+  }
+
   return {
     selector_contract_version: SELECTOR_CONTRACT_VERSION,
+    project_binding_ref: selector.project_binding_ref,
     included_refs: included
       .map((c) => ({ entity_id: c.ref.entity_id, revision_id: c.ref.revision_id, content_id: c.ref.content_id, via_edge_id: c.via_edge_id, hop: c.hop }))
       .sort((a, b) => compareCodePoints(a.revision_id, b.revision_id)),
-    excluded: excluded.sort((a, b) => compareCodePoints(a.ref + a.reason, b.ref + b.reason)),
+    excluded: [...grouped.values()].sort((a, b) => compareCodePoints(`${a.reason}|${a.hop}`, `${b.reason}|${b.hop}`)),
+    excluded_count: exclusions.length,
     // Contradiction, unknown, and missing evidence travel with the capsule. Dropping them
     // would make the capsule look more certain than the evidence is.
     carries_contradiction_and_unknown: true,
     ranking: { method: 'deterministic', keys: [...RANKING_KEYS] },
   };
+}
+
+/**
+ * Fails when any identifier from a forbidden set survives anywhere in a capsule.
+ *
+ * Checked recursively over the whole returned object, keys included. "It is only in the
+ * exclusion list" is still disclosure of the thing the ACL refused to disclose.
+ */
+export function assertNoForbiddenIdentifier(capsule, forbiddenIds) {
+  const forbidden = [...forbiddenIds].filter((f) => typeof f === 'string' && f.length > 0);
+  const found = new Set();
+  const walk = (node) => {
+    if (typeof node === 'string') {
+      for (const f of forbidden) if (node.includes(f)) found.add(f);
+      return;
+    }
+    if (Array.isArray(node)) { for (const v of node) walk(v); return; }
+    if (node !== null && typeof node === 'object') {
+      for (const [k, v] of Object.entries(node)) { walk(k); walk(v); }
+    }
+  };
+  walk(capsule);
+  if (found.size > 0) {
+    throw new ContractError(CODES.ACL_SCOPE_VIOLATION,
+      'a forbidden identifier survived in the capsule output', { count: found.size });
+  }
+  return true;
 }
 
 /**

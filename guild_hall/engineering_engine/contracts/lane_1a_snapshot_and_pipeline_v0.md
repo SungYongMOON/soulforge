@@ -92,15 +92,51 @@ Status: `LANE CONTRACT / AUTHOR-WRITTEN FIXTURES / INDEPENDENT LOCK OWED BY 1V`
 
 `D` `body` · `payload` · `raw_span` · `text` · `file_bytes` 를 실은 request 는 거부한다. request 는 **finding 포인터를 나르고 근거 본문을 나르지 않는다.**
 
-## 8. P7 은 정의하지 않았다 — 발견 사항
+## 8. P7 은 TaskDriver 다 — 정정
 
-`U` **동결 Phase 1-0 계약은 P5 · P6 · P8 을 지목하지만 P7 을 정의하지 않는다.**
+`O` 이전 판은 P7 을 `UNKNOWN_pending_engine_owner` 로 기록했다. **그것은 이 lane 의 읽기 오류였고 Owner 미결 항목이 아니었다.** 동결 입력 세 곳이 P7 을 이미 정의한다.
 
-동결 본문이 서술하는 경로는 `context candidate → request/response receipt → P5 → 새 generation → 새 Snapshot` 이다. 여기에 P7 자리가 없다.
+- `engine_plan_v1_2.md` §1.4 lifecycle: `… → P6 TaskIntent candidate → P7 TaskDriver → P8 sole ERP writer`
+- `engine_plan_v1_2_1.md` §6.2: `… → why / why-now / authority / idempotency internal policy gate → P7 TaskDriver → separately authorized external P8 sole writer`
+- `phase_1_0_work_lanes.yaml` `runtime_lifecycle_sequence`: `gate_id: p7_taskdriver`, `requires: [why_why_now_authority_and_idempotency]`
 
-`D` 이 lane 은 번호를 채우기 위해 단계를 **발명하지 않는다.** `P7.state = 'UNKNOWN_pending_engine_owner'` 로 기록하고 `assertStageDefined('P7')` 은 거부한다. 아무도 명세하지 않은 단계에 여기서 계약을 부여할 수 없다.
+`D` 채택: `P7` 은 **TaskDriver** 이고, 그 앞에 우회 불가능한 `why` · `why-now` · `authority` · `idempotency` 내부 정책 gate 가 선다. V1.2 는 네 검사를 P7 내부 동작으로 서술했고 V1.2.1 은 같은 검사를 별도 gate 로 승격했다. 두 판을 모두 지키기 위해 gate 를 독립 함수로 두고 P7 이 그 결과를 **입력으로 요구**한다. P7 을 직접 호출해도 gate 를 건너뛸 수 없다.
 
-Phase 1 을 막지는 않는다. P5 · P6 · P8 은 완전히 고정됐다.
+| 표면 | 소유 |
+|---|---|
+| `POLICY_GATE_ID` · `TASK_DRIVER_POLICY_CHECKS` | `pipeline.mjs` |
+| `evaluateTaskDriverPolicyGate()` | 네 검사, 실패한 검사 이름을 그대로 보고 |
+| `evaluateP7TaskDriver()` | gate 결과를 요구하고 candidate 판정만 낸다 |
+| `assertTaskDriverNotActivated()` | 판정을 활성화로 읽는 것을 거부 |
+
+`P` **활성화는 하지 않는다.** `P7.activation_state === 'not_activated'`, 판정은 `candidate_only === true` · `driver_activated === false` · `erp_delta === 0` 이다. 단계를 정의한 것이 live driver 를 켜는 권한을 만들지 않는다.
+
+`D` `assertStageDefined()` 는 이제 `P5` · `P6` · `P7` · `P8` 을 받고 그 밖의 단계를 거부한다.
+
+## 8.1 P8 은 사슬 전체를 요구한다
+
+`P` `candidate_only === false` 는 **필요조건이고 충분조건이 아니다.** candidate 를 벗어났다고 선언한 TaskIntent 하나로 write 가 열리면 앞의 모든 gate 가 장식이 된다.
+
+`D` `evaluateP8Write()` 는 아래 12 요소를 모두 요구하고, 서로 같은 사슬의 고리인지까지 대조한다.
+
+```text
+project_binding_ref · accepted_context_generation
+p5_acceptance · generation_advance
+snapshot · finding · disposition_event
+context_authority_gate
+task_intent · policy_gate · task_driver
+evidence (immutable receipt + CAS)
+```
+
+- generation: `generation_advance.to` = 인용 generation = `snapshot.accepted_context_generation`. 어긋나면 stale 로 거부
+- lineage: finding 은 그 snapshot 의 것, disposition event 는 그 finding 의 것, TaskIntent 는 그 snapshot·finding 의 것
+- authority: disposition 은 append-only 이고 등록된 사람이 확인한 것, context/authority gate 3검사 통과
+- gate 순서: `policy_gate.passed === true` 이고 그 gate 가 **이 TaskIntent** 의 것, `task_driver` 가 그 gate 뒤에서 평가된 것
+- project binding: snapshot · task_intent · task_driver · evidence 가 **모두 같은 binding**. 다르면 cross-project 로 거부
+- evidence: `immutable === true`, content address 보유, `cas_fingerprint` 가 관측 fingerprint 와 일치
+- 승인: `approver_kind === 'registered_human'`. agent · engine · 모델 승인은 승인이 아니다
+
+`P` 이 함수는 **ERP 를 쓰지 않는다.** 결과는 `gate_evaluation_only: true` · `erp_write_performed: false` · `erp_writes: 0` 이다. 외부 sole writer 권한은 이 엔진에 없다.
 
 ## 9. 열린 항목 — Owner 결정
 
@@ -108,7 +144,8 @@ Phase 1 을 막지는 않는다. P5 · P6 · P8 은 완전히 고정됐다.
 |---|---|
 | `p5_and_p8_registered_human_approver_registration_policy` (D-P10-08) | 실제 P5 수락 |
 | `whether_self_approval_is_ever_permitted_and_for_whom` | 1인 운영 시 P8 |
-| `p7_stage_definition_or_removal_from_the_numbering` | 문서 일관성 |
+
+`O` 이전 판의 `p7_stage_definition_or_removal_from_the_numbering` 은 **제거했다.** 동결 계획이 이미 정의한 것을 Owner 결정 대기로 올려둔 것이 오류였다.
 
 ## 10. 검증 강도 — 정직한 한계
 

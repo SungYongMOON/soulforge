@@ -18,10 +18,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { runEnginePass } from '../assembly/engine_pass.mjs';
+import { buildStates, SUBJECT_ID } from '../subjects/engine_self_topology.mjs';
 import { AXIS, GAP_TYPE, compareStates } from '../kernel/snapshot.mjs';
 import { PRESENCE } from '../kernel/custody.mjs';
 import { judgeEdge } from '../kernel/delivery_receipt.mjs';
-import { selectCapsule, RANKING_KEYS } from '../kernel/capsule.mjs';
+import { selectCapsule, RANKING_KEYS, assertNoForbiddenIdentifier } from '../kernel/capsule.mjs';
 import { admitRequest, cacheKey, assertCacheEntryServesRequest } from '../kernel/mcp_contract.mjs';
 import { ContractError } from '../kernel/errors.mjs';
 
@@ -158,11 +159,31 @@ const runCase = (states, seed = 0) => runEnginePass({
 }
 
 // ---------------------------------------------------------------- O4 contradictory
+//
+// The frozen input is two *sources* that disagree, one project_contract_baseline and one
+// reviewed_wiki. Expected-versus-Observed is a different disagreement and proving that one
+// is preserved says nothing about this one: the failure mode here is the lower-authority
+// source quietly vanishing once precedence has picked a winner.
 
 {
   const o = specOf('O4_contradictory');
   const expected = expectedEl(1, { authority_family: 'project_contract_baseline' });
   const observed = observedEl(1, PRESENCE.PRESENT);
+
+  const claims = [
+    {
+      claim_id: 'claim_baseline', authority_family: 'project_contract_baseline',
+      source_revision_ref: ref('src_baseline'), lineage_ref: 'lineage_baseline',
+      applicability: true, asserted_value: 'the interface review is required at PDR',
+      valid_at: V, known_at: T,
+    },
+    {
+      claim_id: 'claim_wiki', authority_family: 'reviewed_wiki',
+      source_revision_ref: ref('src_wiki'), lineage_ref: 'lineage_wiki',
+      applicability: true, asserted_value: 'the interface review is required at CDR',
+      valid_at: V, known_at: T,
+    },
+  ];
 
   // The kernel-level comparison, and then the same contradiction driven through the assembled
   // pass. Checking only the first is what let an unreachable verdict class pass unnoticed.
@@ -173,6 +194,7 @@ const runCase = (states, seed = 0) => runEnginePass({
     states: {
       expected: [expected], observed: [observed],
       conflicting_element_ids: [expected.element_id],
+      source_claims: { [expected.element_id]: claims },
       canonical_accepted_input_set: { source_revision_refs: [ref('req_1')], artifact_revision_refs: [ref('art_1')] },
     },
     subjectId: 'phase_2_synthetic', projectBindingRef: 'pb-alpha', generation: 1,
@@ -184,110 +206,213 @@ const runCase = (states, seed = 0) => runEnginePass({
   record('O4/finding_is_a_conflict', r.findings.every((f) => f.gap_type === GAP_TYPE.CONFLICT));
   record('O4/no_context_request', r.contextRequest === o.expected_verdict.context_request);
 
-  const bothSidesPresent = r.snapshot.expected_state_elements.length === 1
+  const conflict = r.findings[0]?.source_conflict ?? null;
+  const families = (conflict?.retained_claims ?? []).map((c) => c.authority_family);
+  const claimIds = (conflict?.retained_claims ?? []).map((c) => c.claim_id);
+  const lineage = (conflict?.retained_claims ?? []).map((c) => c.lineage_ref);
+  const sourceRefs = (conflict?.retained_claims ?? []).map((c) => c.source_revision_ref?.revision_id);
+  const values = (conflict?.retained_claims ?? []).map((c) => c.asserted_value);
+
+  record('O4/two_disagreeing_sources_recorded',
+    conflict?.claim_count === o.exact_input.disagreeing_sources && claimIds.length === 2,
+    `recorded ${claimIds.length} claims`);
+  record('O4/both_authority_families_present',
+    o.exact_input.authority_families.every((f) => families.includes(f)),
+    `families: ${families.join(',')}`);
+  record('O4/both_source_revisions_preserved',
+    sourceRefs.includes('src_baseline-r1') && sourceRefs.includes('src_wiki-r1'));
+  record('O4/both_lineages_preserved',
+    lineage.includes('lineage_baseline') && lineage.includes('lineage_wiki'));
+  record('O4/both_claim_texts_preserved', values.length === 2 && new Set(values).size === 2,
+    'the two sides said different things and both statements survive');
+  record('O4/higher_authority_governs',
+    conflict?.governing_authority_family === 'project_contract_baseline',
+    `governing: ${conflict?.governing_authority_family}`);
+  record('O4/nothing_dropped', conflict?.sides_dropped === 0);
+
+  // Expected/Observed preservation is still checked, but it is a separate claim and is not
+  // allowed to stand in for the two-source one.
+  const bothAxesPresent = r.snapshot.expected_state_elements.length === 1
     && r.snapshot.observed_state_elements.length === 1;
-  record('O4/both_sides_retained_in_the_snapshot', bothSidesPresent);
-  forbid('O4', 'lower_authority_side_dropped', !bothSidesPresent);
+  record('O4/both_axes_retained_in_the_snapshot', bothAxesPresent);
+
+  forbid('O4', 'lower_authority_side_dropped',
+    !families.includes('reviewed_wiki'), `families: ${families.join(',')}`);
+  forbid('O4', 'winner_selected_without_recording_the_conflict',
+    r.findings.length === 0 || !conflict || conflict.conflict !== true);
   forbid('O4', 'satisfied_reported_when_the_sides_disagree', (r.gap_counts.satisfied ?? 0) > 0);
-  forbid('O4', 'winner_selected_without_recording_the_conflict', r.findings.length === 0);
+  forbid('O4', 'evidence_ceiling_that_hides_the_disagreement',
+    r.findings.some((f) => f.evidence_claim_ceiling === 'source_sufficient'),
+    'source_sufficient on a conflict would claim the question is settled');
+
+  // Negative control: a conflict signalled without its sides is refused outright, so the
+  // record cannot be omitted quietly.
+  let refusedWithoutClaims = null;
+  try {
+    runEnginePass({
+      states: {
+        expected: [expected], observed: [observed],
+        conflicting_element_ids: [expected.element_id],
+        canonical_accepted_input_set: { source_revision_refs: [ref('req_1')], artifact_revision_refs: [ref('art_1')] },
+      },
+      subjectId: 'phase_2_synthetic', projectBindingRef: 'pb-alpha', generation: 1,
+      topologyDigest: 'd'.repeat(64), observationRunId: 'run-p2', takenAt: T, validAt: V, mintValue: uuids(250),
+    });
+  } catch (e) { refusedWithoutClaims = e; }
+  record('O4/conflict_without_sides_is_refused', refusedWithoutClaims instanceof ContractError,
+    `code ${refusedWithoutClaims?.code ?? 'none'}`);
+
   const recorded = r.gap_counts[GAP_TYPE.CONFLICT] ?? 0;
-  record('O4/metric', recorded === 1, `${o.metric} = ${recorded}, threshold == 1`);
+  record('O4/metric', recorded === 1 && claimIds.length === 2,
+    `${o.metric} = ${recorded} with ${claimIds.length} refs, threshold == 1`);
 }
 
 // ---------------------------------------------------------------- O5 stale
+//
+// Driven through the real subject adapter, not converted by hand in this file. The previous
+// version computed the presence state here — `proves_traversal ? present : unknown` — and so
+// tested the test. The engine itself was reading "a receipt exists for this edge" as present,
+// which is exactly what the frozen O5 forbids, and no assertion here could see it.
 
 {
   const o = specOf('O5_stale');
   const now = Date.parse(T);
   const window = o.exact_input.window;
-  const receipt = {
-    edge_key: 'alpha>bravo',
-    observed_at: new Date(now - o.exact_input.receipt_age_seconds * 1000).toISOString(),
-    outcome: 'delivered', observation_method: 'module_load_observation', run_id: 'run-p2',
-  };
-  const v = judgeEdge({ edgeKey: 'alpha>bravo', receipt, window, now });
+  const staleAt = new Date(now - o.exact_input.receipt_age_seconds * 1000).toISOString();
+  const receiptFor = (keys, over = {}) => Object.fromEntries(keys.map((k) => [k, {
+    edge_key: k, observed_at: staleAt, outcome: 'delivered',
+    observation_method: 'module_load_observation', run_id: 'run-p2', ...over,
+  }]));
+
+  const v = judgeEdge({ edgeKey: 'alpha>bravo', receipt: receiptFor(['alpha>bravo'])['alpha>bravo'], window, now });
   record('O5/state_is_stale', v.state === o.expected_verdict.edge_delivery_state);
   record('O5/proves_nothing_now', v.proves_traversal === false);
   forbid('O5', 'delivering_or_late_outside_the_window', v.state === 'delivering' || v.state === 'late');
   forbid('O5', 'proves_traversal_on_a_stale_receipt', v.proves_traversal === true);
 
-  // A stale receipt is not evidence of presence. Driven through the pass: if the engine ever
-  // upgraded a stale observation it would show up as satisfied or missing here. The presence
-  // state is the one a subject must derive from a stale receipt, which is unknown.
-  const staleDerivedPresence = v.proves_traversal ? PRESENCE.PRESENT : PRESENCE.UNKNOWN;
-  record('O5/stale_receipt_derives_unknown_presence', staleDerivedPresence === PRESENCE.UNKNOWN,
-    'a subject may not read a stale receipt as present');
-  const r = runCase(statesFor([staleDerivedPresence, staleDerivedPresence]), 300);
+  // The assembled path. Both expected elements are covered by receipts, and both receipts are
+  // outside the window, which is the frozen exact_input: "receipts_cover: both".
+  const EDGES = [['alpha', 'bravo'], ['bravo', 'charlie']];
+  const topology = { module_edges: EDGES.map(([from, to]) => ({ from, to, relation: 'imports' })), topology_digest: 'd'.repeat(64) };
+  const observation = { run_id: 'run-p2', surfaces: { declared: 8, run: 8, failing: [], counts: {} } };
+  const engineRun = (receipts, seed) => {
+    const states = buildStates({ topology, receipts, observation, validAt: V, knownAt: T, window, now });
+    return {
+      states,
+      result: runEnginePass({
+        states, subjectId: SUBJECT_ID, projectBindingRef: 'pb-alpha', generation: 1,
+        topologyDigest: 'd'.repeat(64), observationRunId: 'run-p2', takenAt: T, validAt: V, mintValue: uuids(seed),
+      }),
+    };
+  };
+
+  const stale = engineRun(receiptFor(['alpha>bravo', 'bravo>charlie']), 300);
+  record('O5/adapter_did_not_read_the_receipt_as_present',
+    stale.states.observed.every((e) => e.presence_state === PRESENCE.UNKNOWN),
+    'the subject adapter judged the receipt rather than counting its key');
   const permitted = new Set(o.expected_verdict.gap_types_permitted);
-  const emitted = Object.keys(r.gap_counts).filter((g) => g !== GAP_TYPE.SATISFIED);
+  const emitted = Object.keys(stale.result.gap_counts).filter((g) => g !== GAP_TYPE.SATISFIED);
   record('O5/only_permitted_gap_types', emitted.every((g) => permitted.has(g)), `emitted ${emitted.join(',')}`);
-  forbid('O5', 'satisfied_derived_from_stale_evidence', (r.gap_counts.satisfied ?? 0) > 0);
-  forbid('O5', 'gap_missing_derived_from_stale_evidence', (r.gap_counts[GAP_TYPE.MISSING] ?? 0) > 0);
-  const admitted = v.proves_traversal ? 1 : 0;
+  record('O5/two_unknown_gaps', stale.result.gap_counts[GAP_TYPE.UNKNOWN] === 2);
+  record('O5/snapshot_ceiling_unknown', stale.result.snapshot.claim_ceiling === 'unknown');
+  forbid('O5', 'satisfied_derived_from_stale_evidence', (stale.result.gap_counts.satisfied ?? 0) > 0);
+  forbid('O5', 'gap_missing_derived_from_stale_evidence', (stale.result.gap_counts[GAP_TYPE.MISSING] ?? 0) > 0);
+
+  // Positive control on the same path: an in-window receipt still satisfies, so the rule is
+  // discriminating rather than refusing everything.
+  const inWindowAt = new Date(now - 60 * 1000).toISOString();
+  const fresh = engineRun(receiptFor(['alpha>bravo', 'bravo>charlie'], { observed_at: inWindowAt }), 400);
+  record('O5/positive_control_fresh_receipt_satisfies', fresh.result.gap_counts.satisfied === 2,
+    'a receipt inside the window is still evidence');
+
+  const admitted = v.proves_traversal || (stale.result.gap_counts.satisfied ?? 0) > 0 ? 1 : 0;
   record('O5/metric', admitted === 0, `${o.metric} = ${admitted}, threshold == 0`);
 }
 
 // ---------------------------------------------------------------- O6 unauthorized
+//
+// The frozen forbidden list says a denied ref must not appear "anywhere in the capsule
+// payload, hash or pointer set". An exclusion entry is part of the capsule payload, so
+// naming the denied ref there is disclosure of exactly what the ACL refused. The exclusion
+// still has to be stated — a silent empty capsule is also forbidden — which is why the
+// reason and the count are kept and the identifier is not.
+
+const capsuleRef = (id) => ({ entity_id: id, revision_id: `${id}-r1`, content_id: `${id}-c1`, content_hash_alg: 'sha256' });
+const capsuleEdge = (over) => ({
+  edge_id: 'e', edge_type: 'has_revision', from_type: 'source', to_type: 'source_revision',
+  from_ref: capsuleRef('src_seed'), to_ref: capsuleRef('src_hop1'),
+  authority_family: 'company_approved_procedure', evidence_ref: capsuleRef('ev'),
+  valid_at: V, known_at: T, applicability: true,
+  review_state: 'reviewed', evidence_claim_ceiling: 'source_sufficient',
+  generating_policy_revision: 'graph-policy-v0',
+  project_binding_ref: 'pb-alpha', ...over,
+});
+const capsuleSelector = (over = {}) => ({
+  project_binding_ref: 'pb-alpha', scope: 'project', accepted_context_generation: 1,
+  valid_at: V, known_at: T, acl_filter_revision: 'acl-v1',
+  source_family_filter: ['company_approved_procedure'], seed_refs: [capsuleRef('src_seed')],
+  traversal: { max_hops: 2, allowlisted_edge_types: ['has_revision', 'extracted_by'] },
+  ranking: { method: 'deterministic', keys: [...RANKING_KEYS] },
+  budgets: { top_k: 10, max_nodes: 50, max_edges: 50, max_sources: 20, max_evidence_chars: 4000 },
+  graph_projection_revision: 'proj-r1', ...over,
+});
 
 {
   const o = specOf('O6_unauthorized');
-  const seed = ref('src_seed');
-  const hop1 = ref('src_hop1_denied');
-  const hop2 = ref('src_hop2_denied');
-  const edge = (over) => ({
-    edge_id: 'e', edge_type: 'has_revision', from_type: 'source', to_type: 'source_revision',
-    from_ref: seed, to_ref: hop1, authority_family: 'company_approved_procedure',
-    evidence_ref: ref('ev'), valid_at: V, known_at: T, applicability: true,
-    project_binding_ref: 'pb-alpha', graph_projection_revision: 'proj-r1',
-    scope: 'project', source_family: 'company_approved_procedure',
-    asserted_by: 'extraction_run', confidence_basis: 'deterministic_extraction',
-    supersedes: null, ...over,
-  });
+  const seed = capsuleRef('src_seed');
+  const hop1 = capsuleRef('src_hop1_denied');
+  const hop2 = capsuleRef('src_hop2_denied');
   const graph = {
     edges: [
-      edge({ edge_id: 'e1', from_ref: seed, to_ref: hop1 }),
-      edge({ edge_id: 'e2', edge_type: 'extracted_by', from_type: 'source_revision', to_type: 'extraction_run', from_ref: hop1, to_ref: hop2 }),
+      capsuleEdge({ edge_id: 'e1', from_ref: seed, to_ref: hop1 }),
+      capsuleEdge({ edge_id: 'e2', edge_type: 'extracted_by', from_type: 'source_revision', to_type: 'extraction_run', from_ref: hop1, to_ref: hop2 }),
     ],
-  };
-  const selector = {
-    project_binding_ref: 'pb-alpha', scope: 'project', accepted_context_generation: 1,
-    valid_at: V, known_at: T, acl_filter_revision: 'acl-v1',
-    source_family_filter: ['company_approved_procedure'], seed_refs: [seed],
-    traversal: { max_hops: 2, allowlisted_edge_types: ['has_revision', 'extracted_by'] },
-    ranking: { method: 'deterministic', keys: [...RANKING_KEYS] },
-    budgets: { top_k: 10, max_nodes: 50, max_edges: 50, max_sources: 20, max_evidence_chars: 4000 },
-    graph_projection_revision: 'proj-r1',
   };
   const denied = new Set(['src_hop1_denied', 'src_hop2_denied']);
   const aclCheck = (r) => !denied.has(typeof r === 'string' ? r : r.entity_id);
 
   let capsule = null;
   let threw = null;
-  try { capsule = selectCapsule(selector, graph, aclCheck); } catch (e) { threw = e; }
+  try { capsule = selectCapsule(capsuleSelector(), graph, aclCheck); } catch (e) { threw = e; }
   record('O6/capsule_still_produced', capsule !== null, threw ? `threw ${threw.code}` : '');
 
   const includedIds = (capsule?.included_refs ?? []).map((r) => r.entity_id);
   const exclusionReasons = (capsule?.excluded ?? []).map((e) => e.reason);
-  // Naming a denied ref inside an exclusion is how a denial is stated, so that is not a leak.
-  // A leak is the identifier surviving anywhere else: included refs, ranking, or any payload.
-  const withoutExclusions = JSON.stringify({ ...(capsule ?? {}), excluded: [] });
-  const leaked = [...denied].filter((d) => withoutExclusions.includes(d));
+
+  // The strongest form of the rule, checked recursively over the whole returned object with
+  // its keys: the identifier must not survive in a pointer, a hash input, a ranking entry or
+  // an exclusion payload.
+  let leakError = null;
+  try { assertNoForbiddenIdentifier(capsule ?? {}, [...denied]); } catch (e) { leakError = e; }
 
   record('O6/denied_not_included', includedIds.every((id) => !denied.has(id)));
   record('O6/exclusions_carry_a_reason',
     (capsule?.excluded ?? []).length > 0 && exclusionReasons.every((r) => typeof r === 'string' && r.length > 0),
     `reasons: ${exclusionReasons.join(',')}`);
-  // The strongest form of the rule: the identifier must not survive anywhere in the output,
-  // not in a pointer, a hash input, or an exclusion payload that quotes the material.
+  record('O6/exclusions_carry_a_count',
+    (capsule?.excluded ?? []).every((e) => Number.isInteger(e.count) && e.count > 0),
+    'a refusal states how much was refused without saying what');
+  record('O6/exclusions_hold_no_identifier',
+    (capsule?.excluded ?? []).every((e) => !Object.hasOwn(e, 'ref') && !Object.hasOwn(e, 'entity_id')));
+
   forbid('O6', 'denied_ref_in_included_refs', includedIds.some((id) => denied.has(id)));
-  forbid('O6', 'denied_ref_outside_a_stated_exclusion', leaked.length > 0, `leaked: ${leaked.join(',')}`);
+  forbid('O6', 'denied_ref_anywhere_in_the_returned_object', leakError !== null,
+    leakError ? `${leakError.code}` : '');
   forbid('O6', 'denial_not_stated_at_all',
-    (capsule?.excluded ?? []).length > 0 && !exclusionReasons.some((r) => String(r).startsWith('acl_denied')),
+    !exclusionReasons.some((r) => String(r).startsWith('acl_denied')),
     `reasons: ${exclusionReasons.join(',')}`);
   forbid('O6', 'exclusion_without_a_reason', (capsule?.excluded ?? []).some((e) => !e.reason));
   forbid('O6', 'silent_empty_capsule',
     capsule !== null && includedIds.length === 0 && (capsule.excluded ?? []).length === 0);
-  const unauthorizedPresent = includedIds.filter((id) => denied.has(id)).length;
+
+  // Positive control for the rejection family: with nothing denied, the same graph yields the
+  // material and no acl exclusion, so the rule discriminates rather than always refusing.
+  const permitted = selectCapsule(capsuleSelector(), graph, () => true);
+  record('O6/positive_control_permitted_material_is_returned',
+    permitted.included_refs.map((r) => r.entity_id).includes('src_hop1_denied')
+      && !permitted.excluded.some((e) => String(e.reason).startsWith('acl_denied')));
+
+  const unauthorizedPresent = includedIds.filter((id) => denied.has(id)).length + (leakError ? 1 : 0);
   record('O6/metric', unauthorizedPresent === 0, `${o.metric} = ${unauthorizedPresent}, threshold == 0`);
 }
 
@@ -324,14 +449,61 @@ const runCase = (states, seed = 0) => runEnginePass({
   } catch (e) { cacheError = e; }
   record('O7/cross_project_cache_entry_rejected', cacheError instanceof ContractError);
 
+  // The capsule side of the same rule. Refusing the request envelope is not enough if the
+  // selector will happily walk into another binding once it is inside.
+  const seed = capsuleRef('src_seed');
+  const alphaHop = capsuleRef('src_alpha_hop');
+  const bravoHop = capsuleRef('src_bravo_only');
+  const mixedGraph = {
+    edges: [
+      capsuleEdge({ edge_id: 'e-alpha', from_ref: seed, to_ref: alphaHop }),
+      // Multi-hop: reachable only by traversing an alpha edge first, then a bravo one.
+      capsuleEdge({
+        edge_id: 'e-bravo', edge_type: 'extracted_by', from_type: 'source_revision', to_type: 'extraction_run',
+        from_ref: alphaHop, to_ref: bravoHop, project_binding_ref: 'pb-bravo',
+      }),
+    ],
+  };
+  const alphaCapsule = selectCapsule(capsuleSelector(), mixedGraph, () => true);
+  const alphaIds = alphaCapsule.included_refs.map((r) => r.entity_id);
+  record('O7/multi_hop_foreign_edge_not_traversed', !alphaIds.includes('src_bravo_only'),
+    'a bravo edge at hop two does not put bravo material in an alpha capsule');
+  record('O7/foreign_edge_refusal_stated',
+    alphaCapsule.excluded.some((e) => e.reason === 'project_binding_mismatch'));
+  record('O7/alpha_material_still_returned', alphaIds.includes('src_alpha_hop'),
+    'the refusal is targeted, not a blanket empty result');
+
+  // Mixed binding at the node level: the edge claims alpha, the node says bravo.
+  const mixedNodes = {
+    edges: [capsuleEdge({ edge_id: 'e-alpha', from_ref: seed, to_ref: alphaHop })],
+    nodes: [
+      { ref: seed, project_binding_ref: 'pb-alpha' },
+      { ref: alphaHop, project_binding_ref: 'pb-bravo' },
+    ],
+  };
+  const nodeCapsule = selectCapsule(capsuleSelector(), mixedNodes, () => true);
+  record('O7/foreign_node_behind_a_local_edge_refused',
+    nodeCapsule.included_refs.length === 0
+      && nodeCapsule.excluded.some((e) => e.reason === 'project_binding_mismatch'));
+
+  let capsuleLeak = null;
+  try {
+    assertNoForbiddenIdentifier(alphaCapsule, ['pb-bravo', 'src_bravo_only']);
+    assertNoForbiddenIdentifier(nodeCapsule, ['pb-bravo']);
+  } catch (e) { capsuleLeak = e; }
+  record('O7/no_bravo_identifier_in_an_alpha_capsule', capsuleLeak === null);
+
   const output = JSON.stringify({
     admit: mismatchError?.code ?? null, cache: cacheError?.code ?? null, key: alphaKey,
   });
-  const bravoLeak = ['pb-bravo', 'bravo_secret_ref'].filter((s) => output.includes(s)).length;
+  const bravoLeak = ['pb-bravo', 'bravo_secret_ref'].filter((str) => output.includes(str)).length
+    + (capsuleLeak ? 1 : 0);
   forbid('O7', 'bravo_material_in_an_alpha_result', bravoLeak > 0, `leaked ${bravoLeak}`);
   forbid('O7', 'cross_project_cache_hit_served', cacheError === null);
+  forbid('O7', 'bravo_ref_reachable_by_traversal', alphaIds.includes('src_bravo_only'));
   forbid('O7', 'silent_empty_result_instead_of_a_stated_refusal',
-    mismatchError === null || cacheError === null);
+    mismatchError === null || cacheError === null
+      || !alphaCapsule.excluded.some((e) => e.reason === 'project_binding_mismatch'));
   record('O7/metric', bravoLeak === 0, `${o.metric} = ${bravoLeak}, threshold == 0`);
 }
 

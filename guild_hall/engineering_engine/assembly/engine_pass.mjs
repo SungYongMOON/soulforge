@@ -11,6 +11,7 @@
 // produces is a candidate.
 
 import { compareStates, GAP_TYPE, validateFinding, validateSnapshotEnvelope, assertProvenanceLayersSeparate } from '../kernel/snapshot.mjs';
+import { recordSourceConflict } from '../kernel/authority.mjs';
 import { validateContextRequest } from '../kernel/pipeline.mjs';
 import { acquireMintingLane, mint } from '../kernel/minting.mjs';
 import { deterministicReplayFingerprint, classifyRerun } from '../kernel/fingerprint.mjs';
@@ -42,6 +43,10 @@ export function runEnginePass({
   // the signal, but nothing was passing one, so a whole verdict class was unreachable end to
   // end. The frozen Phase 2 spec is what exposed that.
   const conflicting = new Set(states.conflicting_element_ids ?? []);
+  // Two sources that disagree are two records, and the pass has to carry both. The subject
+  // supplies the claims per element; a conflict signalled without them is refused rather
+  // than reported as a conflict whose sides nobody can inspect.
+  const sourceClaims = states.source_claims ?? {};
   const observedById = new Map(states.observed.map((o) => [o.element_id, o]));
   const gaps = states.expected.map((expected) => {
     const observed = observedById.get(`obs_${expected.element_id}`);
@@ -77,6 +82,9 @@ export function runEnginePass({
       authority_family: gap.expected.authority_family,
       known_at: takenAt,
       disposition_state: 'candidate',
+      ...(gap.gap_type === GAP_TYPE.CONFLICT
+        ? { source_conflict: recordSourceConflict(sourceClaims[gap.expected.element_id] ?? []) }
+        : {}),
       // The citable thing for a missing or unknown gap is the record of the attempt, because
       // the whole point of the finding is that a span could not be produced.
       observation_attempt_ref: `${observationRunId ?? 'unknown_run'}:${gap.expected.element_id}`,

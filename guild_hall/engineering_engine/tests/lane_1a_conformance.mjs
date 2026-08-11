@@ -14,6 +14,9 @@ import {
   REQUIRED_CONTEXT_REQUEST_FIELDS,
   assertStageDefined, assertBoundarySeparation, evaluateP5Acceptance, evaluateGenerationAdvance,
   validateContextRequest, assertZeroErpDelta, evaluateP8Write, OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
+  DEFINED_STAGES, TASK_DRIVER_POLICY_CHECKS, POLICY_GATE_ID,
+  evaluateTaskDriverPolicyGate, evaluateP7TaskDriver, assertTaskDriverNotActivated,
+  REQUIRED_P8_CHAIN_ELEMENTS,
 } from '../kernel/pipeline.mjs';
 import { deterministicReplayFingerprint } from '../kernel/fingerprint.mjs';
 import { FINGERPRINT_INPUT_KEYS } from '../kernel/contract_config.mjs';
@@ -62,11 +65,22 @@ const observedEl = (over = {}) => ({
   presence_state: PRESENCE.PRESENT,
   valid_at: '2026-08-01T00:00:00.000Z', known_at: '2026-08-02T00:00:00.000Z', ...over,
 });
+// A conflict finding has to carry both disagreeing sides, so the default fixture does.
+const sourceConflict = (over = {}) => ({
+  conflict: true, claim_count: 2,
+  retained_claims: [
+    { claim_id: 'c-baseline', authority_family: 'project_contract_baseline', asserted_value: 'A' },
+    { claim_id: 'c-wiki', authority_family: 'reviewed_wiki', asserted_value: 'B' },
+  ],
+  governing_authority_family: 'project_contract_baseline',
+  sides_dropped: 0, ...over,
+});
 const finding = (over = {}) => ({
   finding_id: FIND_ID, snapshot_id: SNAP_ID, gap_type: GAP_TYPE.CONFLICT,
   expected_element_id: 'exp-1', evidence_claim_ceiling: 'source_referenced',
   authority_family: 'project_contract_baseline', known_at: '2026-08-03T00:00:00.000Z',
   disposition_state: 'candidate',
+  source_conflict: sourceConflict(),
   cited_spans: [{ retention_ref: 'ret-1', span_hash: 'b'.repeat(64) }], ...over,
 });
 
@@ -187,6 +201,23 @@ rejects('1A/finding/cites_nothing',
 accepts('1A/finding/absence_record_counts_as_a_citation',
   () => validateFinding(finding({ gap_type: GAP_TYPE.MISSING, observed_presence_state: PRESENCE.ABSENCE_CONFIRMED, cited_spans: [], observation_attempt_ref: 'obs-attempt-1' })),
   'a missing finding cites the attempt, not a source span');
+// A conflict must carry the disagreement, not just the label. Dropping the lower authority
+// side while still calling it a conflict is the silent-loss failure the frozen O4 names.
+rejects('1A/finding/conflict_without_a_record',
+  () => validateFinding(finding({ source_conflict: undefined })), S.CONFLICT_SIDES_NOT_PRESERVED);
+rejects('1A/finding/conflict_with_one_side_only',
+  () => validateFinding(finding({ source_conflict: sourceConflict({ claim_count: 1, retained_claims: [{ claim_id: 'c-baseline', authority_family: 'project_contract_baseline' }] }) })),
+  S.CONFLICT_SIDES_NOT_PRESERVED, 'one retained claim is a verdict, not a conflict record');
+rejects('1A/finding/conflict_admitting_a_dropped_side',
+  () => validateFinding(finding({ source_conflict: sourceConflict({ sides_dropped: 1 }) })),
+  S.CONFLICT_SIDES_NOT_PRESERVED);
+rejects('1A/finding/conflict_without_a_stated_winner',
+  () => validateFinding(finding({ source_conflict: sourceConflict({ governing_authority_family: undefined }) })),
+  S.CONFLICT_SIDES_NOT_PRESERVED, 'picking a winner silently is the other half of the same failure');
+accepts('1A/finding/non_conflict_needs_no_conflict_record',
+  () => validateFinding(finding({ gap_type: GAP_TYPE.UNKNOWN, source_conflict: undefined, evidence_claim_ceiling: 'unknown' })),
+  'positive control: the rule applies to conflicts only');
+
 rejects('1A/finding/missing_gap_from_unknown_presence',
   () => validateFinding(finding({ gap_type: GAP_TYPE.MISSING, observed_presence_state: PRESENCE.UNKNOWN })),
   S.MISSING_WITHOUT_CONFIRMED_ABSENCE);
@@ -270,11 +301,85 @@ for (const [lane, implied] of [
 rejects('1A/boundary/unknown_lane', () => assertBoundarySeparation('p9_something', 'x'), P.BOUNDARY_UNKNOWN);
 rejects('1A/boundary/undeclared_effect', () => assertBoundarySeparation('p5_acceptance', 'delete_project'), P.BOUNDARY_UNKNOWN);
 
-// P7 is not invented.
-record('1A/boundary/p7_is_declared_undefined', P.STAGE_NOT_DEFINED && P7.state === 'UNKNOWN_pending_engine_owner',
-  'the frozen contract names P5, P6 and P8 but not P7');
-rejects('1A/boundary/p7_cannot_be_contracted', () => assertStageDefined('P7'), P.STAGE_NOT_DEFINED);
+// P7 is the TaskDriver, as the frozen plan says, and it sits behind the four-check gate.
+record('1A/boundary/p7_is_the_task_driver',
+  P7.stage === 'P7' && P7.name === 'task_driver' && P7.gate_id === 'p7_taskdriver',
+  'V1.2, V1.2.1 and the frozen work lanes all name P7 as the TaskDriver');
+record('1A/boundary/p7_is_preceded_by_the_policy_gate',
+  P7.preceded_by_gate_id === POLICY_GATE_ID
+    && JSON.stringify(P7.policy_checks) === JSON.stringify(['why', 'why_now', 'authority', 'idempotency']),
+  'the four checks are a gate in front of P7, not an unwritten habit inside it');
+record('1A/boundary/p7_is_not_activated', P7.activation_state === 'not_activated' && P7.erp_delta === 0,
+  'the stage is defined; no live driver is switched on by defining it');
+accepts('1A/boundary/p7_is_a_defined_stage', () => assertStageDefined('P7'), 'positive control');
 accepts('1A/boundary/defined_stage_ok', () => assertStageDefined('P5'), 'positive control');
+rejects('1A/boundary/unknown_stage_refused', () => assertStageDefined('P9'), P.STAGE_NOT_DEFINED,
+  'a stage nobody defined still cannot be contracted');
+record('1A/boundary/defined_stages_are_the_frozen_four',
+  JSON.stringify([...DEFINED_STAGES]) === JSON.stringify(['P5', 'P6', 'P7', 'P8']));
+
+// ---------------------------------------------------------------- the policy gate before P7
+
+const taskIntent = {
+  task_intent_id: 'ti-1', finding_id: FIND_ID, snapshot_id: SNAP_ID,
+  project_binding_ref: 'pb-alpha', candidate_only: true, erp_delta: 0,
+};
+const gateOk = {
+  taskIntent,
+  why: { finding_id: FIND_ID, rationale_ref: 'rationale-1' },
+  whyNow: { trigger_ref: 'trigger-1', triggered_at: '2026-08-03T00:00:00.000Z' },
+  authority: { authority_ref: 'auth-1', registered: true, applicability: true },
+  idempotency: { idempotency_key: 'idem-1', payload_digest: 'a'.repeat(64) },
+  knownAt: '2026-08-03T00:00:00.000Z',
+};
+
+accepts('1A/p7/policy_gate_passes', () => evaluateTaskDriverPolicyGate(gateOk), 'positive control');
+{
+  const g = evaluateTaskDriverPolicyGate(gateOk);
+  record('1A/p7/gate_reports_every_check',
+    TASK_DRIVER_POLICY_CHECKS.every((c) => g.checks[c] === true) && g.passed === true);
+  record('1A/p7/gate_writes_nothing', g.erp_delta === 0);
+}
+rejects('1A/p7/why_must_name_this_finding',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, why: { finding_id: 'a3f1c2d4-5e6f-4a7b-8c9d-00000000dead', rationale_ref: 'r' } }),
+  P.POLICY_CHECK_FAILED, 'a reason belonging to another finding is not this task intent\'s reason');
+rejects('1A/p7/why_now_needs_a_time',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, whyNow: { trigger_ref: 't' } }), P.POLICY_CHECK_FAILED);
+rejects('1A/p7/authority_must_be_registered',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, authority: { authority_ref: 'a', registered: false, applicability: true } }),
+  P.POLICY_CHECK_FAILED);
+rejects('1A/p7/authority_must_apply',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, authority: { authority_ref: 'a', registered: true, applicability: 'unknown' } }),
+  P.POLICY_CHECK_FAILED, 'an authority that does not apply here does not authorise this');
+rejects('1A/p7/idempotency_key_must_promise_a_payload',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, idempotency: { idempotency_key: 'k' } }), P.POLICY_CHECK_FAILED);
+rejects('1A/p7/conflicting_prior_use_refused',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, idempotency: { ...gateOk.idempotency, conflicting_prior_use: true } }),
+  P.POLICY_CHECK_FAILED);
+
+const policyGate = evaluateTaskDriverPolicyGate(gateOk);
+accepts('1A/p7/driver_evaluates_behind_its_gate',
+  () => evaluateP7TaskDriver({ policyGate, taskIntent, projectBindingRef: 'pb-alpha' }), 'positive control');
+{
+  const d = evaluateP7TaskDriver({ policyGate, taskIntent, projectBindingRef: 'pb-alpha' });
+  record('1A/p7/driver_is_candidate_only', d.candidate_only === true && d.erp_delta === 0);
+  record('1A/p7/driver_not_activated', d.driver_activated === false);
+  accepts('1A/p7/non_activation_asserted', () => assertTaskDriverNotActivated(d), 'positive control');
+}
+rejects('1A/p7/gate_cannot_be_skipped',
+  () => evaluateP7TaskDriver({ policyGate: undefined, taskIntent, projectBindingRef: 'pb-alpha' }),
+  P.TASK_DRIVER_NOT_EVALUATED, 'calling P7 directly does not bypass the four checks');
+rejects('1A/p7/failed_gate_cannot_drive',
+  () => evaluateP7TaskDriver({ policyGate: { ...policyGate, passed: false }, taskIntent, projectBindingRef: 'pb-alpha' }),
+  P.TASK_DRIVER_NOT_EVALUATED);
+rejects('1A/p7/gate_for_another_intent',
+  () => evaluateP7TaskDriver({ policyGate, taskIntent: { ...taskIntent, task_intent_id: 'ti-2' }, projectBindingRef: 'pb-alpha' }),
+  P.TASK_DRIVER_NOT_EVALUATED);
+rejects('1A/p7/cross_project_intent',
+  () => evaluateP7TaskDriver({ policyGate, taskIntent, projectBindingRef: 'pb-bravo' }),
+  P.TASK_DRIVER_NOT_EVALUATED, 'a bravo request cannot drive an alpha intent');
+rejects('1A/p7/activated_driver_refused',
+  () => assertTaskDriverNotActivated({ driver_activated: true }), P.TASK_DRIVER_ACTIVATION_REFUSED);
 
 // ---------------------------------------------------------------- P5
 
@@ -352,38 +457,145 @@ accepts('1A/p6/zero_delta_asserted', () => assertZeroErpDelta(request()), 'posit
 rejects('1A/p6/nonzero_delta_asserted', () => assertZeroErpDelta({ erp_delta: 2 }), P.ERP_DELTA_NOT_ZERO);
 
 // ---------------------------------------------------------------- P8 write
+//
+// A write is a gate evaluation here and nothing else: this engine holds no external writer
+// authority, so the pass case still reports zero writes. What is being tested is the refusal
+// set, and specifically that no single field is sufficient on its own.
 
-const approval = { approved: true, approver_principal_id: 'person-2' };
-const p8ok = { principal: human, approval, taskIntent: { candidate_only: false }, submittedFingerprint: 'fp', observedFingerprint: 'fp' };
+const FP = 'b'.repeat(64);
 
-accepts('1A/p8/approved_write_passes', () => evaluateP8Write(p8ok), 'positive control');
+const approvedIntent = { ...taskIntent, candidate_only: false };
+const approvedGate = evaluateTaskDriverPolicyGate({ ...gateOk, taskIntent: approvedIntent });
+const approvedDriver = evaluateP7TaskDriver({ policyGate: approvedGate, taskIntent: approvedIntent, projectBindingRef: 'pb-alpha' });
+
+const chain = {
+  project_binding_ref: 'pb-alpha',
+  accepted_context_generation: 7,
+  p5_acceptance: { boundary: 'p5_acceptance', acceptor: 'person-3', accepted_input_set_ref: 'set-1' },
+  generation_advance: { boundary: 'generation_advance', from: 6, to: 7 },
+  snapshot: {
+    snapshot_id: SNAP_ID, project_binding_ref: 'pb-alpha',
+    accepted_context_generation: 7, deterministic_replay_fingerprint: FP,
+  },
+  finding: { finding_id: FIND_ID, snapshot_id: SNAP_ID },
+  disposition_event: { event_id: 'ev-1', finding_id: FIND_ID, append_only: true, confirmed_by_registered_human: true },
+  context_authority_gate: { context_sufficiency: true, evidence_sufficiency: true, registered_authority: true },
+  task_intent: approvedIntent,
+  policy_gate: approvedGate,
+  task_driver: approvedDriver,
+  evidence: {
+    project_binding_ref: 'pb-alpha', immutable: true,
+    receipt_ref: 'ctx-response-receipt-1', content_address: 'c'.repeat(64), cas_fingerprint: FP,
+  },
+};
+
+const approval = { approved: true, approver_principal_id: 'person-2', approver_kind: 'registered_human' };
+const p8ok = { principal: human, approval, chain, submittedFingerprint: FP, observedFingerprint: FP };
+const withChain = (over) => ({ ...p8ok, chain: { ...chain, ...over } });
+
+accepts('1A/p8/complete_chain_passes', () => evaluateP8Write(p8ok), 'positive control');
 {
   const r = evaluateP8Write(p8ok);
   record('1A/p8/snapshot_not_rewritten', r.snapshot_rewritten === false,
     'the task points back at the immutable snapshot, not the other way round');
   record('1A/p8/backward_lineage_is_the_snapshot_id', r.backward_lineage_ref === 'snapshot_id');
+  record('1A/p8/backward_lineage_names_every_origin',
+    r.backward_lineage.snapshot_id === SNAP_ID && r.backward_lineage.finding_id === FIND_ID
+      && r.backward_lineage.accepted_context_generation === 7
+      && r.backward_lineage.task_intent_ref === approvedIntent.task_intent_id
+      && r.backward_lineage.task_driver_ref === P7.gate_id);
+  record('1A/p8/gate_only_no_write', r.gate_evaluation_only === true && r.erp_write_performed === false && r.erp_writes === 0,
+    'evaluating the gate is not holding the writer authority');
 }
+
+// The blocker this section exists for: "it says it is not a candidate" proves nothing.
+rejects('1A/p8/not_a_candidate_is_not_enough',
+  () => evaluateP8Write({ principal: human, approval, chain: undefined, submittedFingerprint: FP, observedFingerprint: FP }),
+  P.WRITE_CHAIN_INCOMPLETE, 'candidate_only false with no chain behind it is not an approved write');
+record('1A/p8/chain_elements_declared', REQUIRED_P8_CHAIN_ELEMENTS.length === 12);
+for (const element of REQUIRED_P8_CHAIN_ELEMENTS) {
+  rejects(`1A/p8/chain_missing_${element}`, () => {
+    const c = { ...chain }; delete c[element];
+    return evaluateP8Write({ ...p8ok, chain: c });
+  }, P.WRITE_CHAIN_INCOMPLETE);
+}
+
 rejects('1A/p8/no_approval', () => evaluateP8Write({ ...p8ok, approval: undefined }), P.WRITE_WITHOUT_APPROVAL);
 rejects('1A/p8/approval_not_granted',
-  () => evaluateP8Write({ ...p8ok, approval: { approved: false, approver_principal_id: 'person-2' } }), P.WRITE_WITHOUT_APPROVAL);
+  () => evaluateP8Write({ ...p8ok, approval: { ...approval, approved: false } }), P.WRITE_WITHOUT_APPROVAL);
 rejects('1A/p8/approval_without_an_approver',
-  () => evaluateP8Write({ ...p8ok, approval: { approved: true } }), P.WRITE_WITHOUT_APPROVAL);
+  () => evaluateP8Write({ ...p8ok, approval: { approved: true, approver_kind: 'registered_human' } }), P.WRITE_WITHOUT_APPROVAL);
+rejects('1A/p8/ai_approval_refused',
+  () => evaluateP8Write({ ...p8ok, approval: { ...approval, approver_kind: 'agent' } }), P.WRITE_APPROVAL_NOT_HUMAN,
+  'a model or agent approving the engine\'s own proposal is not an approval');
+rejects('1A/p8/engine_approval_refused',
+  () => evaluateP8Write({ ...p8ok, approval: { ...approval, approver_kind: 'engine' } }), P.WRITE_APPROVAL_NOT_HUMAN);
 rejects('1A/p8/self_approval_refused_by_default',
-  () => evaluateP8Write({ ...p8ok, approval: { approved: true, approver_principal_id: 'person-1' } }), P.WRITE_WITHOUT_APPROVAL,
+  () => evaluateP8Write({ ...p8ok, approval: { ...approval, approver_principal_id: 'person-1' } }), P.WRITE_WITHOUT_APPROVAL,
   'the writer approving their own write is the default refusal');
 accepts('1A/p8/self_approval_only_when_permitted',
-  () => evaluateP8Write({ ...p8ok, approval: { approved: true, approver_principal_id: 'person-1', self_approval_permitted: true } }),
+  () => evaluateP8Write({ ...p8ok, approval: { ...approval, approver_principal_id: 'person-1', self_approval_permitted: true } }),
   'and whether that is ever permitted is an owner decision');
-rejects('1A/p8/writing_a_candidate',
-  () => evaluateP8Write({ ...p8ok, taskIntent: { candidate_only: true } }), P.WRITE_OF_A_CANDIDATE,
-  'the engine proposed it, nobody approved it, and it would appear in the ledger anyway');
-rejects('1A/p8/cas_mismatch', () => evaluateP8Write({ ...p8ok, observedFingerprint: 'other' }), P.CAS_MISMATCH);
 rejects('1A/p8/needs_a_human',
   () => evaluateP8Write({ ...p8ok, principal: { kind: 'engine', principal_id: 'e' } }), P.PRINCIPAL_NOT_REGISTERED_HUMAN);
 
-record('1A/open_items_declared', OPEN_OWNER_DECISIONS_FOR_THIS_LANE.length >= 3 &&
-  OPEN_OWNER_DECISIONS_FOR_THIS_LANE.some((s) => s.includes('p7_stage_definition')),
-  'the undefined P7 is recorded as an open item, not filled in');
+rejects('1A/p8/writing_a_candidate',
+  () => evaluateP8Write(withChain({ task_intent: { ...approvedIntent, candidate_only: true } })), P.WRITE_OF_A_CANDIDATE,
+  'the engine proposed it, nobody approved it, and it would appear in the ledger anyway');
+
+rejects('1A/p8/cross_project_snapshot',
+  () => evaluateP8Write(withChain({ snapshot: { ...chain.snapshot, project_binding_ref: 'pb-bravo' } })),
+  P.WRITE_CHAIN_CROSS_PROJECT, 'a write assembled from two projects is refused, not filtered');
+rejects('1A/p8/cross_project_evidence',
+  () => evaluateP8Write(withChain({ evidence: { ...chain.evidence, project_binding_ref: 'pb-bravo' } })),
+  P.WRITE_CHAIN_CROSS_PROJECT);
+
+rejects('1A/p8/stale_generation',
+  () => evaluateP8Write(withChain({ snapshot: { ...chain.snapshot, accepted_context_generation: 6 } })),
+  P.WRITE_CHAIN_MISMATCH, 'a snapshot from an older generation is stale evidence for this write');
+rejects('1A/p8/generation_not_the_advanced_one',
+  () => evaluateP8Write(withChain({ generation_advance: { boundary: 'generation_advance', from: 5, to: 6 } })),
+  P.WRITE_CHAIN_MISMATCH);
+rejects('1A/p8/acceptance_missing_its_acceptor',
+  () => evaluateP8Write(withChain({ p5_acceptance: { boundary: 'p5_acceptance' } })), P.WRITE_CHAIN_MISMATCH);
+rejects('1A/p8/finding_from_another_snapshot',
+  () => evaluateP8Write(withChain({ finding: { finding_id: FIND_ID, snapshot_id: 'a3f1c2d4-5e6f-4a7b-8c9d-0000000000ff' } })),
+  P.WRITE_CHAIN_MISMATCH);
+rejects('1A/p8/disposition_not_confirmed_by_a_human',
+  () => evaluateP8Write(withChain({ disposition_event: { ...chain.disposition_event, confirmed_by_registered_human: false } })),
+  P.WRITE_CHAIN_MISMATCH);
+rejects('1A/p8/disposition_not_append_only',
+  () => evaluateP8Write(withChain({ disposition_event: { ...chain.disposition_event, append_only: false } })),
+  P.WRITE_CHAIN_MISMATCH);
+for (const check of ['context_sufficiency', 'evidence_sufficiency', 'registered_authority']) {
+  rejects(`1A/p8/authority_gate_${check}_failed`,
+    () => evaluateP8Write(withChain({ context_authority_gate: { ...chain.context_authority_gate, [check]: false } })),
+    P.WRITE_CHAIN_MISMATCH);
+}
+rejects('1A/p8/intent_not_from_this_finding',
+  () => evaluateP8Write(withChain({ task_intent: { ...approvedIntent, finding_id: 'a3f1c2d4-5e6f-4a7b-8c9d-0000000000aa' } })),
+  P.WRITE_CHAIN_MISMATCH);
+rejects('1A/p8/policy_gate_not_passed',
+  () => evaluateP8Write(withChain({ policy_gate: { ...approvedGate, passed: false } })), P.WRITE_CHAIN_MISMATCH,
+  'a write cannot rest on a gate that did not pass');
+rejects('1A/p8/policy_gate_for_another_intent',
+  () => evaluateP8Write(withChain({ policy_gate: { ...approvedGate, task_intent_id: 'ti-other' } })), P.WRITE_CHAIN_MISMATCH);
+rejects('1A/p8/task_driver_missing_its_gate',
+  () => evaluateP8Write(withChain({ task_driver: { ...approvedDriver, policy_gate_id: 'something_else' } })), P.WRITE_CHAIN_MISMATCH);
+
+rejects('1A/p8/mutable_evidence',
+  () => evaluateP8Write(withChain({ evidence: { ...chain.evidence, immutable: false } })), P.WRITE_EVIDENCE_NOT_IMMUTABLE);
+rejects('1A/p8/evidence_without_a_content_address',
+  () => evaluateP8Write(withChain({ evidence: { ...chain.evidence, content_address: 'short' } })), P.WRITE_EVIDENCE_NOT_IMMUTABLE);
+rejects('1A/p8/cas_missing', () => evaluateP8Write({ ...p8ok, submittedFingerprint: undefined }), P.CAS_MISSING);
+rejects('1A/p8/cas_mismatch', () => evaluateP8Write({ ...p8ok, observedFingerprint: 'other' }), P.CAS_MISMATCH);
+rejects('1A/p8/receipt_fingerprint_is_stale',
+  () => evaluateP8Write(withChain({ evidence: { ...chain.evidence, cas_fingerprint: 'd'.repeat(64) } })), P.CAS_MISMATCH,
+  'a receipt taken against a different state is stale evidence for this write');
+
+record('1A/open_items_declared', OPEN_OWNER_DECISIONS_FOR_THIS_LANE.length >= 2 &&
+  !OPEN_OWNER_DECISIONS_FOR_THIS_LANE.some((s) => s.includes('p7_stage_definition')),
+  'P7 is no longer an open item; the frozen plan already defined it');
 
 // ---------------------------------------------------------------- report
 
@@ -399,7 +611,7 @@ console.log(JSON.stringify({
   failures: failures.map((f) => ({ id: f.id, note: f.note })),
   verification_strength: 'author_written_fixtures',
   independent_lock_owed_by: 'lane_1V',
-  p7_state: P7.state,
+  p7_stage: { gate_id: P7.gate_id, name: P7.name, activation_state: P7.activation_state },
   open_owner_decisions: OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
   writes_performed: 0,
 }, null, 2));

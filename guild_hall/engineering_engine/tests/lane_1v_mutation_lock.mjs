@@ -53,6 +53,7 @@ const SUITES = {
   end_to_end: { file: 'end_to_end_engine_run.mjs', args: [] },
   output_contract: { file: 'output_contract_conformance.mjs', args: ['--scratch', SCRATCH_ROOT] },
   phase_2: { file: 'phase_2_oracle_conformance.mjs', args: [] },
+  phase_3: { file: 'phase_3_context_receipts.mjs', args: [] },
 };
 
 // Each entry disables or weakens exactly one guard. `find` must occur exactly once in its
@@ -216,6 +217,46 @@ const CATALOGUE = [
   { id: 'assembly/context_request_for_everything', area: 'assembly', file: 'engine_pass.mjs', suite: 'end_to_end',
     find: '  if (unknownFindings.length > 0) {', replace: '  if (findings.length > 0) {' },
 
+  // ---- capsule project isolation and edge validation (1C)
+  { id: 'capsule/edges_not_validated', file: 'capsule.mjs', suite: 'lane_1c',
+    find: '      validateEdge(edge);', replace: '      true;' },
+  { id: 'capsule/project_binding_unchecked', file: 'capsule.mjs', suite: 'lane_1c',
+    find: "        if (edge.project_binding_ref !== selector.project_binding_ref) { exclude(hop, 'project_binding_mismatch'); continue; }",
+    replace: '        if (false) { continue; }' },
+  { id: 'capsule/node_binding_unchecked', file: 'capsule.mjs', suite: 'lane_1c',
+    find: "    if (declaredNodes === null) return 'ok';", replace: "    if (true) return 'ok';" },
+  { id: 'graph/binding_attribute_optional', file: 'graph.mjs', suite: 'lane_1c',
+    find: "  if (typeof edge.project_binding_ref !== 'string' || !edge.project_binding_ref) {",
+    replace: '  if (false) {' },
+
+  // ---- the conflict record, which authority resolution alone throws away
+  { id: 'authority/conflict_record_loses_a_side', file: 'authority.mjs', suite: 'phase_2',
+    find: '    retained_claims: retained,', replace: '    retained_claims: retained.slice(0, 1),' },
+  { id: 'snapshot/conflict_sides_may_be_dropped', file: 'snapshot.mjs', suite: 'lane_1a',
+    find: '    if (!record || !Array.isArray(retained) || retained.length < 2 || record.sides_dropped !== 0) {',
+    replace: '    if (false) {' },
+
+  // ---- context receipts (phase 3)
+  { id: 'context_receipt/receipt_may_claim_acceptance', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '  if (receipt.is_acceptance !== false) {', replace: '  if (false) {' },
+  { id: 'context_receipt/receipt_need_not_be_distinct', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '  if (receipt.context_request_receipt_id === receipt.context_request_id) {', replace: '  if (false) {' },
+  { id: 'context_receipt/stale_receipt_admitted', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (ageSeconds > limit) {', replace: '    if (false) {' },
+  { id: 'context_receipt/cross_project_pair_allowed', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (value !== projectBindingRef) {', replace: '    if (false) {' },
+  { id: 'context_receipt/insufficient_evidence_admitted', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '  if (!sufficiency.evidence_sufficient) {', replace: '  if (false) {' },
+  { id: 'context_receipt/response_may_be_accepted_already', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '  if (candidate.candidate_only !== true || candidate.accepted !== false) {', replace: '  if (false) {' },
+
+  // ---- subject adapter: a receipt is judged, not counted
+  { id: 'subject/receipt_key_read_as_proof', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: '    proves_traversal: verdict.proves_traversal === true,', replace: '    proves_traversal: true,' },
+  { id: 'subject/unbelievable_receipt_ignored', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: "  if (Number.isInteger(unusableReceipts) && unusableReceipts > 0) reasons.push('a_receipt_could_not_be_believed');",
+    replace: "  if (false) reasons.push('a_receipt_could_not_be_believed');" },
+
   // ---- pipeline (1A)
   { id: 'pipeline/engine_may_accept', file: 'pipeline.mjs', suite: 'lane_1a',
     find: "  if (principal?.kind === 'engine' || principal?.kind === 'agent') {",
@@ -225,7 +266,26 @@ const CATALOGUE = [
   { id: 'pipeline/boundary_conflation_allowed', file: 'pipeline.mjs', suite: 'lane_1a',
     find: '  if (effects.does_not.includes(impliedEffect)) {', replace: '  if (false) {' },
   { id: 'pipeline/candidate_may_be_written', file: 'pipeline.mjs', suite: 'lane_1a',
-    find: '  if (taskIntent?.candidate_only === true) {', replace: '  if (false) {' },
+    find: '  if (chain.task_intent.candidate_only !== false) {', replace: '  if (false) {' },
+
+  // ---- the P7 gate and the P8 chain
+  { id: 'pipeline/policy_checks_optional', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (failed.length) {', replace: '  if (false) {' },
+  { id: 'pipeline/p7_gate_skippable', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (!policyGate || policyGate.gate_id !== POLICY_GATE_ID || policyGate.passed !== true) {',
+    replace: '  if (false) {' },
+  { id: 'pipeline/p8_chain_not_required', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  const missing = REQUIRED_P8_CHAIN_ELEMENTS.filter((k) => chain[k] === undefined || chain[k] === null);',
+    replace: '  const missing = [];' },
+  { id: 'pipeline/p8_ai_approval_allowed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (approval.approver_kind !== HUMAN_APPROVER_KIND) {', replace: '  if (false) {' },
+  { id: 'pipeline/p8_cross_project_chain_allowed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (crossProject.length) {', replace: '  if (false) {' },
+  { id: 'pipeline/p8_stale_generation_allowed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (chain.snapshot.accepted_context_generation !== generation) {', replace: '  if (false) {' },
+  { id: 'pipeline/p8_mutable_evidence_allowed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: "  if (evidence.immutable !== true || typeof evidence.receipt_ref !== 'string' || !evidence.receipt_ref",
+    replace: '  if (false && evidence.immutable !== true' },
 ];
 
 // ---------------------------------------------------------------- scratch workspace

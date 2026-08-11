@@ -77,13 +77,31 @@ authority_rank → applicability → revision_recency → ref_lexicographic
 
 embedding 유사도나 학습 reranker 는 이 자리에 항목이 없다. 이것은 누락이 아니라 설계다. `capsule.mjs` 는 `method` 가 `deterministic` 이 아니면 거부한다.
 
-### 4.4 제외된 것은 이유와 함께 보고한다
+### 4.4 제외된 것은 이유와 함께, 이유만 보고한다
 
-`D` 조용히 빠진 evidence 는 애초에 없던 evidence 와 구별되지 않는다. 따라서 모든 제외에 이유를 붙인다.
+`D` 조용히 빠진 evidence 는 애초에 없던 evidence 와 구별되지 않는다. 따라서 모든 제외에 이유를 붙인다. 이유 집합은 닫혀 있다 — 자유 문자열이면 거부된 식별자가 되돌아올 자리가 생긴다.
 
-`acl_denied_at_seed` · `acl_denied_at_hop` · `edge_type_not_allowlisted` · `applicability_unknown` · `applicability_false` · `top_k_budget`
+`acl_denied_at_seed` · `acl_denied_at_hop` · `project_binding_mismatch` · `project_binding_unknown` · `edge_type_not_allowlisted` · `applicability_unknown` · `applicability_false` · `top_k_budget`
+
+`P` **exclusion 은 식별자를 담지 않는다.** 한 항목은 `{ reason, hop, count }` 뿐이다. 이전 판은 `excluded[].ref` 에 거부된 ref 를 그대로 실었고, 그것은 ACL 이 감춘 대상을 exclusion 이라는 이름으로 되돌려주는 것이었다. 동결 O6 의 금지 출력은 "capsule payload · hash · pointer set 어디에도" 이며 exclusion 도 capsule payload 다.
+
+`D` `assertNoForbiddenIdentifier(capsule, ids)` 가 반환 객체 전체를 **key 까지 재귀적으로** 훑어 이 규칙을 집행한다.
+
+`P` 그래도 **거부는 말로 해야 한다.** 조용한 빈 capsule 역시 금지이므로 이유와 개수는 남긴다. 무엇을 얼마나 거부했는지는 말하고, 무엇이었는지는 말하지 않는다.
 
 `P` contradiction, unknown, missing evidence 는 capsule 과 함께 이동한다. 빼면 capsule 이 근거보다 확실해 보인다.
+
+### 4.6 선택 전에 edge 를 검증하고, 매 hop 에서 project binding 을 맞춘다
+
+`P` `project_binding_ref` 는 `REQUIRED_EDGE_ATTRIBUTES` 에 들어간다. scope 를 말하지 않는 edge 는 cross-project 도달을 **검사할 방법 자체가 없다.**
+
+`D` `selectCapsule` 은 walk 전에 `graph.edges` 전부를 `validateEdge` 로 검증한다. 자기 계약을 못 지키는 edge 는 binding 이나 authority 주장도 믿을 수 없으므로 선택 전체를 거부한다.
+
+`D` traversal 중 `edge.project_binding_ref !== selector.project_binding_ref` 인 edge 는 **읽기 전에** 거부하고 `project_binding_mismatch` 로 기록한다. 사후 필터는 이미 늦다 — 그때는 다른 과제 자료를 읽은 뒤다.
+
+`D` projection slice 가 `graph.nodes` 로 node binding 을 선언하면 traversal 이 닿는 모든 ref 가 그 집합에 있고 selector binding 과 같아야 한다. 선언되지 않은 node 는 `project_binding_unknown` 으로 **거부한다**(fail closed). alpha edge 가 bravo node 를 가리키는 형태가 전형적 누출이므로 edge 와 node 를 따로 본다.
+
+`P` `graph.nodes` 가 없으면 binding 은 edge 가 나른다. seed 는 selector 자신이 지목한 것이므로 구성상 selector binding 에 속한다.
 
 ### 4.5 capsule 은 pointer 를 나른다
 
@@ -125,4 +143,4 @@ domain separation prefix 와 selector contract version 을 hash 재료에 포함
 
 `D` lane 1V 가 1C 에 대한 **독립 locked fixture** 를 만들 의무를 진다. 그때까지 이 lane 을 independently verified 로 부르지 않는다. 시험 출력의 `verification_strength: author_written_fixtures` 가 매 실행마다 이 사실을 함께 보고한다.
 
-현재: 59 검사 통과 / 0 실패. 그중 누출 시험 3건(`1C/ACL/*`)이 hop 별 ACL 적용을 직접 확인한다.
+현재: 71 검사 통과 / 0 실패. 그중 누출 시험이 hop 별 ACL 적용(`1C/ACL/*`)과 project binding 격리(`1C/BIND/*`)를 직접 확인한다.

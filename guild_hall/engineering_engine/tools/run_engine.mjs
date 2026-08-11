@@ -64,7 +64,19 @@ const TAKEN_AT = new Date().toISOString();
 const VALID_AT = observation.run_started_at ?? TAKEN_AT;
 const KNOWN_AT = TAKEN_AT;
 
-const states = buildStates({ topology, receipts, observation, validAt: VALID_AT, knownAt: KNOWN_AT });
+// The freshness window travels with the observation that produced the receipts. Inventing
+// one here would let this file decide how old is too old for evidence it did not gather.
+const RECEIPT_WINDOW = observation.receipt_window;
+if (!RECEIPT_WINDOW) {
+  console.error('the observation declares no receipt window; refusing to judge receipts against an invented freshness rule');
+  process.exit(1);
+}
+
+const states = buildStates({
+  topology, receipts, observation,
+  validAt: VALID_AT, knownAt: KNOWN_AT,
+  window: RECEIPT_WINDOW, now: Date.parse(TAKEN_AT),
+});
 
 // ---------------------------------------------------------------- one pass, via the assembly
 // The pass itself lives in assembly/engine_pass.mjs so a test can drive it with a controlled
@@ -92,6 +104,7 @@ const report = {
   gap_counts: result.gap_counts,
   finding_count: result.findings.length,
   observation_trust: states.trust,
+  receipt_verdicts: states.receipt_verdicts,
   context_request: result.contextRequest
     ? { id: result.contextRequest.context_request_id, finding_count: result.contextRequest.finding_ids.length, erp_delta: 0 }
     : null,

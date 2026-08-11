@@ -27,6 +27,9 @@ export const CODES = Object.freeze({
   UNREGISTERED_FAMILY: 'AUTHORITY_UNREGISTERED_FAMILY',
   APPLICABILITY_INVALID: 'AUTHORITY_APPLICABILITY_INVALID',
   RANK_ARITHMETIC: 'AUTHORITY_RANK_ARITHMETIC',
+  CONFLICT_NEEDS_TWO_SIDES: 'AUTHORITY_CONFLICT_NEEDS_TWO_SIDES',
+  CONFLICT_CLAIM_INCOMPLETE: 'AUTHORITY_CONFLICT_CLAIM_INCOMPLETE',
+  CONFLICT_SIDE_DROPPED: 'AUTHORITY_CONFLICT_SIDE_DROPPED',
 });
 
 export const APPLICABILITY = Object.freeze({ YES: true, NO: false, UNKNOWN: 'unknown' });
@@ -94,6 +97,73 @@ export function resolveAuthority(candidates) {
       ? 'a higher tier source exists but does not apply here'
       : 'highest applicable tier',
     outranked_but_inapplicable: outrankedButInapplicable,
+  };
+}
+
+export const REQUIRED_SOURCE_CLAIM_FIELDS = Object.freeze([
+  'claim_id', 'authority_family', 'source_revision_ref', 'lineage_ref',
+  'applicability', 'asserted_value', 'valid_at', 'known_at',
+]);
+
+/**
+ * Records a disagreement between two or more applicable sources.
+ *
+ * The precedence question and the record question are different, and answering only the
+ * first is the failure this exists to stop. Precedence says which claim governs. The record
+ * says what every side actually asserted, on which source revision, through which lineage —
+ * so that a later reader can see the disagreement rather than a tidy single answer that
+ * happens to be the higher tier's.
+ *
+ * Both are returned together, and every supplied claim comes back retained. A conflict
+ * record that lost a side would be indistinguishable from there never having been one.
+ */
+export function recordSourceConflict(claims) {
+  if (!Array.isArray(claims) || claims.length < 2) {
+    throw new ContractError(CODES.CONFLICT_NEEDS_TWO_SIDES,
+      'a conflict is between at least two source claims; one side alone is not a conflict record',
+      { given: Array.isArray(claims) ? claims.length : 0 });
+  }
+  for (const claim of claims) {
+    if (claim === null || typeof claim !== 'object' || Array.isArray(claim)) {
+      throw new ContractError(CODES.CONFLICT_CLAIM_INCOMPLETE, 'a source claim is not an object');
+    }
+    for (const f of REQUIRED_SOURCE_CLAIM_FIELDS) {
+      if (!Object.hasOwn(claim, f)) {
+        throw new ContractError(CODES.CONFLICT_CLAIM_INCOMPLETE,
+          `source claim field "${f}" is missing; an unattributable side cannot be preserved`,
+          { field: f, claim_id: claim.claim_id ?? null });
+      }
+    }
+    if (!RANK.has(claim.authority_family)) {
+      throw new ContractError(CODES.UNREGISTERED_FAMILY,
+        `unregistered authority family "${claim.authority_family}"`, { claim_id: claim.claim_id });
+    }
+  }
+
+  const verdict = resolveAuthority(claims.map((c) => ({ key: c.authority_family, applicable: c.applicability })));
+
+  // Ordered by precedence, then by claim id, so the record is stable without the order
+  // implying that the lower rows were discarded.
+  const retained = [...claims].sort((a, b) => (RANK.get(a.authority_family) - RANK.get(b.authority_family))
+    || (a.claim_id < b.claim_id ? -1 : a.claim_id > b.claim_id ? 1 : 0));
+
+  if (retained.length !== claims.length) {
+    throw new ContractError(CODES.CONFLICT_SIDE_DROPPED, 'a side was lost while building the conflict record');
+  }
+
+  return {
+    conflict: true,
+    claim_count: claims.length,
+    // Every side, verbatim. This is the half that authority resolution alone throws away.
+    retained_claims: retained,
+    retained_claim_ids: retained.map((c) => c.claim_id),
+    retained_authority_families: retained.map((c) => c.authority_family),
+    governing_authority_family: verdict.winner,
+    outranked_but_inapplicable: verdict.outranked_but_inapplicable ?? [],
+    resolution_reason: verdict.reason,
+    // The record does not resolve the disagreement away. A human reading it can see both
+    // the winner and what the other side said.
+    sides_dropped: 0,
   };
 }
 

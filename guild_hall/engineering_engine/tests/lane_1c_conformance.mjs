@@ -15,7 +15,7 @@ import {
   validateEdge, assertNotTruthOwner, projectionDescriptor, EDGE_SHAPES, NODE_TYPES, REQUIRED_EDGE_ATTRIBUTES,
 } from '../kernel/graph.mjs';
 import {
-  selectCapsule, contextCapsuleFingerprint, assertNoRawPayload,
+  selectCapsule, contextCapsuleFingerprint, assertNoRawPayload, assertNoForbiddenIdentifier,
   MAX_HOPS_CEILING, RANKING_KEYS, REQUIRED_BUDGETS,
 } from '../kernel/capsule.mjs';
 import { ContractError } from '../kernel/errors.mjs';
@@ -46,6 +46,7 @@ const baseEdge = {
   review_state: 'reviewed',
   evidence_claim_ceiling: 'source_sufficient',
   generating_policy_revision: 'graph-policy-v0',
+  project_binding_ref: 'binding-alpha',
 };
 const edge = (o) => ({ ...baseEdge, ...o });
 
@@ -53,7 +54,16 @@ const edge = (o) => ({ ...baseEdge, ...o });
 
 expectOk('1C/EDGE/allowed_shape', () => validateEdge(baseEdge), 'a whitelisted shape validates');
 record('1C/EDGE/shapes_declared', EDGE_SHAPES.length >= 15 && NODE_TYPES.length >= 12, `${EDGE_SHAPES.length} shapes, ${NODE_TYPES.length} node types`);
-record('1C/EDGE/attributes_declared', REQUIRED_EDGE_ATTRIBUTES.length === 14, `${REQUIRED_EDGE_ATTRIBUTES.length} required attributes`);
+record('1C/EDGE/attributes_declared', REQUIRED_EDGE_ATTRIBUTES.length === 15, `${REQUIRED_EDGE_ATTRIBUTES.length} required attributes`);
+expectThrow('1C/EDGE/binding_required',
+  () => { const e = edge({}); delete e.project_binding_ref; validateEdge(e); },
+  'an edge with no project binding cannot be checked for cross-project reach and is refused');
+expectThrow('1C/EDGE/binding_must_not_be_empty',
+  () => validateEdge(edge({ project_binding_ref: '' })),
+  'an empty binding is present as a key and says nothing, which is the same hole');
+expectThrow('1C/EDGE/binding_must_be_a_string',
+  () => validateEdge(edge({ project_binding_ref: 7 })),
+  'a binding that is not a name cannot be compared to the selector');
 
 expectThrow('1C/EDGE/shape_not_allowed',
   () => validateEdge(edge({ from_type: 'source', edge_type: 'has_revision', to_type: 'finding' })),
@@ -168,11 +178,69 @@ expectThrow('1C/SEL/acl_check_required', () => selectCapsule(selector, graph, nu
   const denyLeaf = (r) => r.entity_id !== 'exrun-1';
   const capsule = selectCapsule(selector, graph, denyLeaf);
   const includedIds = capsule.included_refs.map((r) => r.entity_id);
-  const deniedAtHop = capsule.excluded.some((e) => e.ref.startsWith('exrun-1') && e.reason === 'acl_denied_at_hop');
+  const deniedAtHop = capsule.excluded.some((e) => e.reason === 'acl_denied_at_hop' && e.hop === 2 && e.count === 1);
   record('1C/ACL/hop2_target_excluded', !includedIds.includes('exrun-1'), 'a hop-2 target the requester may not see is not included');
-  record('1C/ACL/hop2_denial_reported', deniedAtHop, 'the hop-2 denial is reported with a reason rather than silently dropped');
+  record('1C/ACL/hop2_denial_reported', deniedAtHop, 'the hop-2 denial is reported with a reason and a count rather than silently dropped');
   record('1C/ACL/hop1_still_included', includedIds.includes('srev-1'), 'permitted hop-1 material is still selected');
+  // The denial is stated without restating what was denied.
+  expectOk('1C/ACL/denied_identifier_absent_recursively',
+    () => assertNoForbiddenIdentifier(capsule, ['exrun-1']),
+    'the denied identifier survives nowhere in the returned capsule, exclusions included');
+  record('1C/ACL/exclusions_carry_no_ref',
+    capsule.excluded.every((e) => !Object.hasOwn(e, 'ref')),
+    'an exclusion carries a reason, a hop and a count, never the refused identifier');
 }
+
+// ---------------------------------------------------------------- project binding isolation
+//
+// A capsule bound to one project must not reach another's material, and the check has to be
+// on the way in. Filtering afterwards means the other project's edges were already read.
+
+{
+  // hop 2 belongs to another binding: reachable in the graph, refused by the selector.
+  const mixed = {
+    edges: [
+      graph.edges[0],
+      edge({ ...graph.edges[1], project_binding_ref: 'binding-bravo' }),
+    ],
+  };
+  const capsule = selectCapsule(selector, mixed, allowAll);
+  const includedIds = capsule.included_refs.map((r) => r.entity_id);
+  record('1C/BIND/foreign_hop2_edge_not_traversed', !includedIds.includes('exrun-1'),
+    'a hop-2 edge asserted under another binding does not put its target in an alpha capsule');
+  record('1C/BIND/foreign_edge_reported',
+    capsule.excluded.some((e) => e.reason === 'project_binding_mismatch'),
+    'the cross-binding refusal is stated');
+  record('1C/BIND/own_binding_survives', includedIds.includes('srev-1'),
+    'material in the requested binding is still selected');
+  expectOk('1C/BIND/foreign_identifier_absent',
+    () => assertNoForbiddenIdentifier(capsule, ['binding-bravo', 'exrun-1']),
+    'neither the foreign binding nor its target appears anywhere in the capsule');
+}
+{
+  // The node itself belongs to another binding even though the edge claims this one.
+  const declaredNodes = [
+    { ref: seed, project_binding_ref: 'binding-alpha' },
+    { ref: mid, project_binding_ref: 'binding-alpha' },
+    { ref: leaf, project_binding_ref: 'binding-bravo' },
+  ];
+  const capsule = selectCapsule(selector, { ...graph, nodes: declaredNodes }, allowAll);
+  record('1C/BIND/foreign_node_refused',
+    !capsule.included_refs.map((r) => r.entity_id).includes('exrun-1')
+      && capsule.excluded.some((e) => e.reason === 'project_binding_mismatch'),
+    'an alpha-bound edge pointing at a bravo node does not smuggle the node in');
+}
+{
+  // Fail closed: once the projection declares node bindings, an undeclared node is refused
+  // rather than assumed to belong here.
+  const capsule = selectCapsule(selector, { ...graph, nodes: [{ ref: seed, project_binding_ref: 'binding-alpha' }, { ref: mid, project_binding_ref: 'binding-alpha' }] }, allowAll);
+  record('1C/BIND/undeclared_node_refused',
+    capsule.excluded.some((e) => e.reason === 'project_binding_unknown'),
+    'a node absent from a declared node set is refused, not assumed in scope');
+}
+expectThrow('1C/BIND/invalid_edge_refuses_the_whole_selection',
+  () => selectCapsule(selector, { edges: [graph.edges[0], { edge_id: 'e-broken' }] }, allowAll),
+  'a capsule is not selected over a projection slice holding an edge that fails validation');
 {
   const capsule = selectCapsule(selector, graph, allowAll);
   record('1C/SEL/two_hops_reached', capsule.included_refs.map((r) => r.entity_id).includes('exrun-1'), 'two hops are reachable when permitted');
@@ -189,7 +257,7 @@ expectThrow('1C/SEL/acl_check_required', () => selectCapsule(selector, graph, nu
 {
   // top_k budget must report what it dropped
   const capsule = selectCapsule(sel({ budgets: { ...selector.budgets, top_k: 1 } }), graph, allowAll);
-  record('1C/SEL/top_k_drop_reported', capsule.included_refs.length === 1 && capsule.excluded.some((e) => e.reason === 'top_k_budget'),
+  record('1C/SEL/top_k_drop_reported', capsule.included_refs.length === 1 && capsule.excluded.some((e) => e.reason === 'top_k_budget' && e.count === 1),
     'budget-driven exclusion states its reason');
 }
 {

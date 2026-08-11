@@ -30,14 +30,16 @@
         "APPLICABILITY_COMPONENTS",
         "AUTHORITY_FAMILIES",
         "CODES",
+        "REQUIRED_SOURCE_CLAIM_FIELDS",
         "SCOPE",
         "assertSearchScope",
         "forbidRankArithmetic",
+        "recordSourceConflict",
         "resolveApplicability",
         "resolveAuthority"
       ],
-      "export_count": 9,
-      "line_count": 121
+      "export_count": 11,
+      "line_count": 191
     },
     {
       "module": "canonical",
@@ -58,18 +60,20 @@
       "area": "kernel",
       "exports": [
         "CODES",
+        "EXCLUSION_REASONS",
         "MAX_HOPS_CEILING",
         "RANKING_KEYS",
         "REQUIRED_BUDGETS",
         "REQUIRED_SELECTOR_FIELDS",
         "SELECTOR_CONTRACT_VERSION",
+        "assertNoForbiddenIdentifier",
         "assertNoRawPayload",
         "compareCandidates",
         "contextCapsuleFingerprint",
         "selectCapsule"
       ],
-      "export_count": 10,
-      "line_count": 244
+      "export_count": 12,
+      "line_count": 348
     },
     {
       "module": "ceilings",
@@ -90,6 +94,27 @@
       ],
       "export_count": 12,
       "line_count": 87
+    },
+    {
+      "module": "context_receipt",
+      "area": "kernel",
+      "exports": [
+        "CODES",
+        "NON_CAPABILITIES",
+        "RECEIPT_KINDS",
+        "RECEIPT_KIND_OWNERS",
+        "REQUIRED_REQUEST_RECEIPT_FIELDS",
+        "REQUIRED_RESPONSE_CANDIDATE_FIELDS",
+        "REQUIRED_RESPONSE_RECEIPT_FIELDS",
+        "assertNoTransport",
+        "assertP5OrchestrationBoundaryEvaluable",
+        "assessResponseSufficiency",
+        "validateContextRequestReceipt",
+        "validateContextResponseReceipt",
+        "validateResponseCandidate"
+      ],
+      "export_count": 13,
+      "line_count": 458
     },
     {
       "module": "contract_config",
@@ -224,7 +249,7 @@
         "validateEdge"
       ],
       "export_count": 7,
-      "line_count": 185
+      "line_count": 195
     },
     {
       "module": "heartbeat",
@@ -538,20 +563,27 @@
         "BOUNDARY_EFFECTS",
         "BOUNDARY_LANES",
         "CODES",
+        "DEFINED_STAGES",
         "OPEN_OWNER_DECISIONS_FOR_THIS_LANE",
         "P7",
+        "POLICY_GATE_ID",
         "REQUIRED_CONTEXT_REQUEST_FIELDS",
+        "REQUIRED_P8_CHAIN_ELEMENTS",
         "SERIALISED_BOUNDARIES",
+        "TASK_DRIVER_POLICY_CHECKS",
         "assertBoundarySeparation",
         "assertStageDefined",
+        "assertTaskDriverNotActivated",
         "assertZeroErpDelta",
         "evaluateGenerationAdvance",
         "evaluateP5Acceptance",
+        "evaluateP7TaskDriver",
         "evaluateP8Write",
+        "evaluateTaskDriverPolicyGate",
         "validateContextRequest"
       ],
-      "export_count": 14,
-      "line_count": 284
+      "export_count": 21,
+      "line_count": 570
     },
     {
       "module": "snapshot",
@@ -574,7 +606,7 @@
         "validateStateElement"
       ],
       "export_count": 15,
-      "line_count": 303
+      "line_count": 322
     },
     {
       "module": "engine_pass",
@@ -585,7 +617,7 @@
         "runEnginePass"
       ],
       "export_count": 3,
-      "line_count": 172
+      "line_count": 180
     },
     {
       "module": "engine_self_topology",
@@ -594,13 +626,14 @@
         "CODES",
         "SUBJECT_ID",
         "buildStates",
+        "judgeReceipt",
         "observationTrustworthiness"
       ],
-      "export_count": 4,
-      "line_count": 150
+      "export_count": 5,
+      "line_count": 222
     }
   ],
-  "module_count": 23,
+  "module_count": 24,
   "module_edges": [
     {
       "from": "authority",
@@ -666,6 +699,48 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "context_receipt",
+      "to": "authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "ceilings",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "minting",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "custody",
       "to": "authority",
       "relation": "imports",
@@ -703,6 +778,13 @@
     {
       "from": "delivery_receipt",
       "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_pass",
+      "to": "authority",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -752,6 +834,13 @@
     {
       "from": "engine_self_topology",
       "to": "custody",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_self_topology",
+      "to": "delivery_receipt",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -1122,13 +1211,6 @@
     },
     {
       "from": "pipeline",
-      "to": "identity",
-      "relation": "imports",
-      "receipt_channel": "module_load_observation",
-      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
-    },
-    {
-      "from": "pipeline",
       "to": "mcp_contract",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
@@ -1198,7 +1280,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 85,
+  "module_edge_count": 92,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -1521,8 +1603,7 @@
     ],
     "lane_1a": [
       "p5_and_p8_registered_human_approver_registration_policy",
-      "whether_self_approval_is_ever_permitted_and_for_whom",
-      "p7_stage_definition_or_removal_from_the_numbering"
+      "whether_self_approval_is_ever_permitted_and_for_whom"
     ],
     "lane_1b": [
       "which_source_surfaces_are_in_scope_for_inventory",
@@ -1534,11 +1615,21 @@
       "binding_promotion_authority",
       "rollback_authority",
       "high_security_project_isolation_threshold"
-    ],
-    "undefined_stage": {
-      "state": "UNKNOWN_pending_engine_owner",
-      "note": "the frozen Phase 1-0 contract names P5, P6 and P8 but does not define P7"
-    }
+    ]
   },
-  "topology_digest": "b2cec86b08f69d81b11349e8899931fe320c7c7c49cd14a5c68085513b018ac9"
+  "task_driver_stage": {
+    "stage": "P7",
+    "gate_id": "p7_taskdriver",
+    "name": "task_driver",
+    "preceded_by_gate_id": "why_why_now_authority_and_idempotency",
+    "policy_checks": [
+      "why",
+      "why_now",
+      "authority",
+      "idempotency"
+    ],
+    "activation_state": "not_activated",
+    "erp_delta": 0
+  },
+  "topology_digest": "e3382dfae5485dcb8dc44282a3f85d4f892146d894f4cc2470de1e22679cfd1c"
 }

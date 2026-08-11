@@ -56,9 +56,14 @@ const cleanObservation = (over = {}) => ({
 });
 
 const EDGES = [['alpha', 'bravo'], ['bravo', 'charlie'], ['charlie', 'delta']];
-const pass = ({ receipts, observation, seed = 0, generation = 1 }) => {
+// The window the receipts are judged against, and the instant they are judged at. Both are
+// supplied rather than read, so the same fixture always produces the same verdict.
+const WINDOW = { period_seconds: 3600, grace_seconds: 1800 };
+const NOW = Date.parse(TAKEN_AT);
+const pass = ({ receipts, observation, seed = 0, generation = 1, window = WINDOW, now = NOW }) => {
   const states = buildStates({
     topology: topologyOf(EDGES), receipts, observation, validAt: VALID_AT, knownAt: TAKEN_AT,
+    window, now,
   });
   return runEnginePass({
     states, subjectId: SUBJECT_ID, projectBindingRef: 'pb-test', generation,
@@ -66,10 +71,12 @@ const pass = ({ receipts, observation, seed = 0, generation = 1 }) => {
     takenAt: TAKEN_AT, validAt: VALID_AT, mintValue: uuidSource(seed),
   });
 };
-const receiptFor = (keys) => Object.fromEntries(keys.map((k) => [k, {
+const receiptFor = (keys, over = {}) => Object.fromEntries(keys.map((k) => [k, {
   edge_key: k, observed_at: VALID_AT, outcome: 'delivered',
-  observation_method: 'module_load_observation', run_id: 'run-test-1',
+  observation_method: 'module_load_observation', run_id: 'run-test-1', ...over,
 }]));
+// Three weeks old, far outside the window above.
+const STALE_AT = new Date(NOW - 1814400 * 1000).toISOString();
 
 // ---------------------------------------------------------------- everything traversed
 
@@ -190,11 +197,62 @@ for (const [label, input] of [
 rejects('E2E/inputs/states_required', () => runEnginePass({ takenAt: TAKEN_AT, mintValue: uuidSource(0) }), 'ENGINE_PASS_INPUT_MISSING');
 rejects('E2E/inputs/instant_required', () => runEnginePass({ states: { expected: [], observed: [] }, mintValue: uuidSource(0) }), 'ENGINE_PASS_INPUT_MISSING');
 rejects('E2E/inputs/mint_source_required', () => runEnginePass({ states: { expected: [], observed: [] }, takenAt: TAKEN_AT }), 'ENGINE_PASS_INPUT_MISSING');
+// ---------------------------------------------------------------- a receipt is judged, not counted
+//
+// The whole point of the delivery window is that a receipt stops proving anything once it is
+// outside it. That was enforced in the kernel and then thrown away by the adapter, which read
+// "there is a key for this edge" as "present" and produced a satisfied pair from a month-old
+// observation. These cases drive the stale receipt through the assembled pass, which is where
+// the loss actually happened.
+
+{
+  const r = pass({ receipts: receiptFor(['alpha>bravo', 'bravo>charlie', 'charlie>delta'], { observed_at: STALE_AT }), observation: cleanObservation() });
+  record('E2E/stale/nothing_satisfied', (r.gap_counts.satisfied ?? 0) === 0,
+    'a stale receipt does not satisfy the requirement it once evidenced');
+  record('E2E/stale/no_missing_either', (r.gap_counts[GAP_TYPE.MISSING] ?? 0) === 0,
+    'and it is not evidence of absence; something did happen on that edge');
+  record('E2E/stale/all_unknown', r.gap_counts[GAP_TYPE.UNKNOWN] === 3);
+  record('E2E/stale/snapshot_ceiling_unknown', r.snapshot.claim_ceiling === 'unknown');
+  record('E2E/stale/context_request_raised', r.contextRequest !== null && r.contextRequest.erp_delta === 0);
+}
+{
+  // One stale receipt also costs the run its right to report the other edges as absent: a run
+  // holding evidence it cannot believe did not look properly.
+  const receipts = { ...receiptFor(['alpha>bravo'], { observed_at: STALE_AT }) };
+  const r = pass({ receipts, observation: cleanObservation() });
+  record('E2E/stale/unbelievable_receipt_blocks_confirmed_absence',
+    (r.gap_counts[GAP_TYPE.MISSING] ?? 0) === 0 && r.gap_counts[GAP_TYPE.UNKNOWN] === 3);
+}
+{
+  // Positive control for the same path: a fresh receipt still satisfies.
+  const r = pass({ receipts: receiptFor(['alpha>bravo']), observation: cleanObservation() });
+  record('E2E/stale/positive_control_fresh_receipt_satisfies', r.gap_counts.satisfied === 1);
+}
+{
+  // A failed delivery is a receipt too, and it proves nothing about traversal.
+  const r = pass({ receipts: receiptFor(['alpha>bravo'], { outcome: 'failed' }), observation: cleanObservation() });
+  record('E2E/stale/failed_receipt_is_unknown_not_satisfied',
+    (r.gap_counts.satisfied ?? 0) === 0 && r.gap_counts[GAP_TYPE.UNKNOWN] === 3);
+}
+{
+  // A malformed receipt must not abort the pass and must not be believed.
+  const r = pass({ receipts: { 'alpha>bravo': { edge_key: 'alpha>bravo' } }, observation: cleanObservation() });
+  record('E2E/stale/malformed_receipt_is_unknown',
+    (r.gap_counts.satisfied ?? 0) === 0 && r.gap_counts[GAP_TYPE.UNKNOWN] === 3);
+}
+
+rejects('E2E/inputs/window_required',
+  () => buildStates({ topology: topologyOf(EDGES), receipts: {}, observation: cleanObservation(), validAt: VALID_AT, knownAt: TAKEN_AT, now: NOW }),
+  'SUBJECT_INPUT_INVALID', 'without a declared window "fresh" would mean whatever the caller wanted');
+rejects('E2E/inputs/now_required',
+  () => buildStates({ topology: topologyOf(EDGES), receipts: {}, observation: cleanObservation(), validAt: VALID_AT, knownAt: TAKEN_AT, window: WINDOW }),
+  'SUBJECT_INPUT_INVALID', 'the adapter does not read a clock of its own');
+
 rejects('E2E/inputs/receipts_required',
-  () => buildStates({ topology: topologyOf(EDGES), observation: cleanObservation(), validAt: VALID_AT, knownAt: TAKEN_AT }),
+  () => buildStates({ topology: topologyOf(EDGES), observation: cleanObservation(), validAt: VALID_AT, knownAt: TAKEN_AT, window: WINDOW, now: NOW }),
   'SUBJECT_INPUT_INVALID');
 rejects('E2E/inputs/topology_required',
-  () => buildStates({ receipts: {}, observation: cleanObservation(), validAt: VALID_AT, knownAt: TAKEN_AT }),
+  () => buildStates({ receipts: {}, observation: cleanObservation(), validAt: VALID_AT, knownAt: TAKEN_AT, window: WINDOW, now: NOW }),
   'SUBJECT_INPUT_INVALID');
 
 // ---------------------------------------------------------------- axes stay separated
@@ -202,7 +260,7 @@ rejects('E2E/inputs/topology_required',
 {
   const states = buildStates({
     topology: topologyOf(EDGES), receipts: receiptFor(['alpha>bravo']), observation: cleanObservation(),
-    validAt: VALID_AT, knownAt: TAKEN_AT,
+    validAt: VALID_AT, knownAt: TAKEN_AT, window: WINDOW, now: NOW,
   });
   record('E2E/axes/one_expected_per_requirement', states.expected.length === EDGES.length);
   record('E2E/axes/expected_carry_no_artifact',

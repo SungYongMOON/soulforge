@@ -11,7 +11,6 @@
 
 import { OPERATIONS } from './mcp_contract.mjs';
 import { inspectInstant } from './canonical.mjs';
-import { PLACEHOLDERS } from './identity.mjs';
 import { assertIsMintedIdentifier } from './minting.mjs';
 import { ContractError } from './errors.mjs';
 
@@ -30,6 +29,14 @@ export const CODES = Object.freeze({
   WRITE_OF_A_CANDIDATE: 'P8_WRITE_OF_A_CANDIDATE',
   GENERATION_NOT_MONOTONIC: 'PIPELINE_GENERATION_NOT_MONOTONIC',
   STAGE_NOT_DEFINED: 'PIPELINE_STAGE_NOT_DEFINED',
+  POLICY_CHECK_FAILED: 'P7_POLICY_CHECK_FAILED',
+  TASK_DRIVER_NOT_EVALUATED: 'P7_TASK_DRIVER_NOT_EVALUATED',
+  TASK_DRIVER_ACTIVATION_REFUSED: 'P7_TASK_DRIVER_ACTIVATION_REFUSED',
+  WRITE_CHAIN_INCOMPLETE: 'P8_WRITE_CHAIN_INCOMPLETE',
+  WRITE_CHAIN_MISMATCH: 'P8_WRITE_CHAIN_MISMATCH',
+  WRITE_CHAIN_CROSS_PROJECT: 'P8_WRITE_CHAIN_CROSS_PROJECT',
+  WRITE_APPROVAL_NOT_HUMAN: 'P8_WRITE_APPROVAL_NOT_HUMAN',
+  WRITE_EVIDENCE_NOT_IMMUTABLE: 'P8_WRITE_EVIDENCE_NOT_IMMUTABLE',
 });
 
 /** Derived from lane 1D so the two cannot drift. */
@@ -41,6 +48,11 @@ export const SERIALISED_BOUNDARIES = Object.freeze(
 );
 
 export const BOUNDARY_LANES = Object.freeze(SERIALISED_BOUNDARIES.map((b) => b.lane));
+
+/** The four checks the frozen lifecycle puts between P6 and P7, in the frozen order. */
+export const TASK_DRIVER_POLICY_CHECKS = Object.freeze(['why', 'why_now', 'authority', 'idempotency']);
+
+export const POLICY_GATE_ID = 'why_why_now_authority_and_idempotency';
 
 /**
  * What each boundary is allowed to change, and what it explicitly does not.
@@ -72,22 +84,137 @@ export const BOUNDARY_EFFECTS = Object.freeze({
 });
 
 /**
- * P7 is not defined by the frozen Phase 1-0 contract.
+ * P7 is the TaskDriver stage, and it is preceded by an internal policy gate.
  *
- * The frozen text describes the route as context candidate, then a request and response
- * receipt, then P5, then a new generation, then a new snapshot. It names P5, P6 and P8 but
- * never P7. Rather than invent a stage to fill the numbering, this lane records the gap: a
- * stage nobody has specified cannot be given a contract here.
+ * V1.2 3.3, V1.2.1 6.2 and the frozen work-lanes runtime sequence agree on the shape:
+ *
+ *   P6 TaskIntent candidate
+ *   -> why / why-now / authority / idempotency internal policy gate
+ *   -> P7 TaskDriver
+ *   -> separately authorised external P8 sole writer
+ *
+ * V1.2 described the four checks as behaviour inside P7. V1.2.1 promoted them to a separate
+ * gate that cannot be bypassed, without weakening any of them. Both readings are honoured
+ * here by evaluating the gate as its own function whose result P7 requires.
+ *
+ * Nothing in this module activates a live TaskDriver. Evaluating P7 produces a candidate
+ * verdict and an ERP delta of zero; the writer that could act on it is a separate boundary
+ * with a separate approval that this engine does not hold.
  */
 export const P7 = Object.freeze({
-  state: PLACEHOLDERS.PENDING_ENGINE_OWNER,
-  note: 'the frozen Phase 1-0 contract names P5, P6 and P8 but does not define P7',
+  stage: 'P7',
+  gate_id: 'p7_taskdriver',
+  name: 'task_driver',
+  preceded_by_gate_id: POLICY_GATE_ID,
+  policy_checks: [...TASK_DRIVER_POLICY_CHECKS],
+  activation_state: 'not_activated',
+  erp_delta: 0,
 });
 
+export const DEFINED_STAGES = Object.freeze(['P5', 'P6', 'P7', 'P8']);
+
 export function assertStageDefined(stage) {
-  if (stage === 'P7') {
+  if (!DEFINED_STAGES.includes(stage)) {
     throw new ContractError(CODES.STAGE_NOT_DEFINED,
-      'P7 is not defined by the frozen contract, so no contract can be asserted for it here', { stage, state: P7.state });
+      `"${stage}" is not a stage the frozen lifecycle defines`, { stage, defined: [...DEFINED_STAGES] });
+  }
+  return true;
+}
+
+/**
+ * The internal policy gate: why, why-now, authority, idempotency.
+ *
+ * Each check is answered from supplied evidence rather than asserted by the caller. `why`
+ * has to point at the finding the work comes from; `why_now` has to point at a trigger with
+ * a time; `authority` has to name a registered authority that actually applies; and
+ * `idempotency` has to be a key bound to a payload digest, so a retry is distinguishable
+ * from a second, different request wearing the same key.
+ *
+ * A failing check is named. An aggregate "policy gate failed" would let a caller retry
+ * blindly until something passed.
+ */
+export function evaluateTaskDriverPolicyGate({ taskIntent, why, whyNow, authority, idempotency, knownAt }) {
+  const failed = [];
+  if (!taskIntent || typeof taskIntent.task_intent_id !== 'string' || !taskIntent.task_intent_id) {
+    throw new ContractError(CODES.POLICY_CHECK_FAILED, 'the policy gate needs the P6 task intent it is judging');
+  }
+  // why: the reason has to be a finding this intent actually came from
+  if (!why || why.finding_id !== taskIntent.finding_id || typeof why.rationale_ref !== 'string' || !why.rationale_ref) {
+    failed.push('why');
+  }
+  // why-now: a trigger with a canonical instant, not "it is on the list"
+  if (!whyNow || typeof whyNow.trigger_ref !== 'string' || !whyNow.trigger_ref || !inspectInstant(whyNow.triggered_at).valid) {
+    failed.push('why_now');
+  }
+  // authority: registered, and applicable here
+  if (!authority || typeof authority.authority_ref !== 'string' || !authority.authority_ref
+      || authority.registered !== true || authority.applicability !== true) {
+    failed.push('authority');
+  }
+  // idempotency: a key that promises a payload
+  if (!idempotency || typeof idempotency.idempotency_key !== 'string' || !idempotency.idempotency_key
+      || typeof idempotency.payload_digest !== 'string' || idempotency.payload_digest.length !== 64
+      || idempotency.conflicting_prior_use === true) {
+    failed.push('idempotency');
+  }
+  if (!inspectInstant(knownAt).valid) failed.push('known_at');
+
+  if (failed.length) {
+    throw new ContractError(CODES.POLICY_CHECK_FAILED,
+      'the internal policy gate before P7 did not pass every check', { failed_checks: failed });
+  }
+  return {
+    gate_id: POLICY_GATE_ID,
+    task_intent_id: taskIntent.task_intent_id,
+    finding_id: taskIntent.finding_id,
+    checks: Object.fromEntries(TASK_DRIVER_POLICY_CHECKS.map((c) => [c, true])),
+    passed: true,
+    idempotency_key: idempotency.idempotency_key,
+    known_at: knownAt,
+    erp_delta: 0,
+  };
+}
+
+/**
+ * Evaluates P7 for one task intent.
+ *
+ * The policy gate result is required as input, so the gate cannot be skipped by calling P7
+ * directly. The verdict is candidate-only and states that no driver was activated, because
+ * activating one is a separate authority this engine does not hold.
+ */
+export function evaluateP7TaskDriver({ policyGate, taskIntent, projectBindingRef }) {
+  if (!policyGate || policyGate.gate_id !== POLICY_GATE_ID || policyGate.passed !== true) {
+    throw new ContractError(CODES.TASK_DRIVER_NOT_EVALUATED,
+      'P7 requires a passed why / why-now / authority / idempotency gate result as its input');
+  }
+  if (!taskIntent || policyGate.task_intent_id !== taskIntent.task_intent_id) {
+    throw new ContractError(CODES.TASK_DRIVER_NOT_EVALUATED, 'the policy gate result names a different task intent');
+  }
+  if (typeof projectBindingRef !== 'string' || !projectBindingRef || taskIntent.project_binding_ref !== projectBindingRef) {
+    throw new ContractError(CODES.TASK_DRIVER_NOT_EVALUATED, 'the task intent is bound to a different project');
+  }
+  assertZeroErpDelta(taskIntent);
+  return {
+    stage: 'P7',
+    gate_id: P7.gate_id,
+    policy_gate_id: policyGate.gate_id,
+    task_intent_id: taskIntent.task_intent_id,
+    finding_id: taskIntent.finding_id,
+    project_binding_ref: projectBindingRef,
+    idempotency_key: policyGate.idempotency_key,
+    // Candidate-only by construction. P7 decides whether a driver *would* run; running one
+    // is P8's writer, which is external and separately authorised.
+    candidate_only: true,
+    driver_activated: false,
+    erp_delta: 0,
+  };
+}
+
+/** Refuses any attempt to treat an evaluated P7 verdict as an activated driver. */
+export function assertTaskDriverNotActivated(verdict) {
+  if (verdict?.driver_activated === true) {
+    throw new ContractError(CODES.TASK_DRIVER_ACTIVATION_REFUSED,
+      'a live TaskDriver is not activated by this engine; P7 here evaluates a candidate verdict only');
   }
   return true;
 }
@@ -241,43 +368,202 @@ export function assertZeroErpDelta(candidate) {
 }
 
 /**
- * Evaluates a P8 ERP write.
+ * The elements a P8 write has to be able to point at, in the frozen lifecycle order.
  *
- * A write needs an explicit approval from a registered human, and the thing being written
- * must have stopped being a candidate. Writing a candidate is the failure mode this guards:
- * the engine proposed it, nobody approved it, and it appears in the ledger anyway.
+ * Named as a list because the failure this guards is a chain evaluated one link at a time:
+ * each link looked fine on its own and nobody checked that they were links of the same
+ * chain.
  */
-export function evaluateP8Write({ principal, approval, taskIntent, submittedFingerprint, observedFingerprint }) {
+export const REQUIRED_P8_CHAIN_ELEMENTS = Object.freeze([
+  'project_binding_ref',
+  'accepted_context_generation',
+  'p5_acceptance',
+  'generation_advance',
+  'snapshot',
+  'finding',
+  'disposition_event',
+  'context_authority_gate',
+  'task_intent',
+  'policy_gate',
+  'task_driver',
+  'evidence',
+]);
+
+const HUMAN_APPROVER_KIND = 'registered_human';
+
+/**
+ * Evaluates a P8 ERP write, and performs none.
+ *
+ * This is a gate, not a writer. It answers one question: would the frozen lifecycle permit
+ * this write? Nothing in this engine holds the external sole-writer authority, so the result
+ * always reports `erp_write_performed: false`.
+ *
+ * The rule that matters is what it refuses. A task intent that has merely stopped calling
+ * itself a candidate proves nothing; `candidate_only === false` is a necessary condition and
+ * never a sufficient one. The write has to be able to name, and to agree with, every element
+ * of the chain the frozen sequence puts in front of it:
+ *
+ *   accepted context generation -> immutable snapshot -> finding -> disposition event
+ *   -> context/authority gate -> P6 task intent -> policy gate -> P7 task driver
+ *
+ * plus one project binding shared by all of them, and immutable receipt/CAS evidence that
+ * the state has not moved underneath the request. Anything missing, stale, mismatched,
+ * cross-project, AI-approved or unauthorised is refused.
+ */
+export function evaluateP8Write({ principal, approval, chain, submittedFingerprint, observedFingerprint }) {
   assertRegisteredHuman(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN);
+
   if (!approval || approval.approved !== true || !approval.approver_principal_id) {
     throw new ContractError(CODES.WRITE_WITHOUT_APPROVAL,
       'a P8 write requires an explicit approval naming its approver');
+  }
+  // An approval produced by a model, an agent or the engine is not an approval. The engine
+  // may propose; it may not be the thing that says yes to its own proposal.
+  if (approval.approver_kind !== HUMAN_APPROVER_KIND) {
+    throw new ContractError(CODES.WRITE_APPROVAL_NOT_HUMAN,
+      'a P8 approval must come from a registered human; an engine, agent or model approval is not an approval',
+      { approver_kind: approval.approver_kind ?? null });
   }
   if (approval.approver_principal_id === principal.principal_id && approval.self_approval_permitted !== true) {
     throw new ContractError(CODES.WRITE_WITHOUT_APPROVAL,
       'the writer approved their own write and self approval was not permitted',
       { principal: principal.principal_id });
   }
-  if (taskIntent?.candidate_only === true) {
+
+  if (chain === null || typeof chain !== 'object' || Array.isArray(chain)) {
+    throw new ContractError(CODES.WRITE_CHAIN_INCOMPLETE,
+      'a P8 write must supply the validated lifecycle chain it rests on', { required: [...REQUIRED_P8_CHAIN_ELEMENTS] });
+  }
+  const missing = REQUIRED_P8_CHAIN_ELEMENTS.filter((k) => chain[k] === undefined || chain[k] === null);
+  if (missing.length) {
+    throw new ContractError(CODES.WRITE_CHAIN_INCOMPLETE,
+      'the lifecycle chain in front of this write is incomplete', { missing });
+  }
+
+  const binding = chain.project_binding_ref;
+  if (typeof binding !== 'string' || !binding) {
+    throw new ContractError(CODES.WRITE_CHAIN_INCOMPLETE, 'the chain must name its project binding');
+  }
+  // One binding, everywhere. A write assembled from two projects' material is the leak this
+  // check exists for, and it is refused rather than filtered afterwards.
+  const bindings = [
+    ['snapshot', chain.snapshot.project_binding_ref],
+    ['task_intent', chain.task_intent.project_binding_ref],
+    ['task_driver', chain.task_driver.project_binding_ref],
+    ['evidence', chain.evidence.project_binding_ref],
+  ];
+  const crossProject = bindings.filter(([, v]) => v !== binding).map(([k]) => k);
+  if (crossProject.length) {
+    throw new ContractError(CODES.WRITE_CHAIN_CROSS_PROJECT,
+      'elements of this chain belong to different project bindings', { elements: crossProject });
+  }
+
+  const generation = chain.accepted_context_generation;
+  if (!Number.isSafeInteger(generation) || generation < 0) {
+    throw new ContractError(CODES.WRITE_CHAIN_INCOMPLETE, 'accepted_context_generation must be a non-negative safe integer');
+  }
+  if (chain.p5_acceptance.boundary !== 'p5_acceptance' || !chain.p5_acceptance.acceptor) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH, 'the chain does not carry a P5 acceptance by a named acceptor');
+  }
+  if (chain.generation_advance.boundary !== 'generation_advance' || chain.generation_advance.to !== generation) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
+      'the generation this write cites is not the generation the advance produced',
+      { advanced_to: chain.generation_advance.to ?? null, cited: generation });
+  }
+  if (chain.snapshot.accepted_context_generation !== generation) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
+      'the snapshot belongs to a different accepted context generation, so this write is stale',
+      { snapshot_generation: chain.snapshot.accepted_context_generation ?? null, cited: generation });
+  }
+  assertIsMintedIdentifier(chain.snapshot.snapshot_id, 'snapshot_id');
+  assertIsMintedIdentifier(chain.finding.finding_id, 'finding_id');
+
+  // Lineage: every downstream element has to name the same snapshot and the same finding.
+  if (chain.finding.snapshot_id !== chain.snapshot.snapshot_id) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH, 'the finding belongs to a different snapshot');
+  }
+  if (chain.disposition_event.finding_id !== chain.finding.finding_id
+      || chain.disposition_event.append_only !== true
+      || chain.disposition_event.confirmed_by_registered_human !== true) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
+      'the disposition event is not an append-only event, confirmed by a registered human, for this finding');
+  }
+  for (const check of ['context_sufficiency', 'evidence_sufficiency', 'registered_authority']) {
+    if (chain.context_authority_gate[check] !== true) {
+      throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
+        'the context and authority gate before P6 did not pass', { check });
+    }
+  }
+  if (chain.task_intent.snapshot_id !== chain.snapshot.snapshot_id
+      || chain.task_intent.finding_id !== chain.finding.finding_id) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH, 'the task intent does not descend from this snapshot and finding');
+  }
+
+  // The policy gate and P7, in that order, for this exact intent.
+  if (chain.policy_gate.gate_id !== POLICY_GATE_ID || chain.policy_gate.passed !== true
+      || chain.policy_gate.task_intent_id !== chain.task_intent.task_intent_id) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
+      'the why / why-now / authority / idempotency gate did not pass for this task intent');
+  }
+  if (chain.task_driver.gate_id !== P7.gate_id
+      || chain.task_driver.policy_gate_id !== POLICY_GATE_ID
+      || chain.task_driver.task_intent_id !== chain.task_intent.task_intent_id) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH, 'P7 was not evaluated for this task intent behind its policy gate');
+  }
+
+  // A candidate is not writable. This is necessary and, on its own, nothing: everything
+  // above had to hold before this line is even reached.
+  if (chain.task_intent.candidate_only !== false) {
     throw new ContractError(CODES.WRITE_OF_A_CANDIDATE,
       'this task intent is still a candidate; a candidate must be approved before it can be written');
+  }
+
+  // Immutable receipt and CAS evidence. A mutable receipt proves nothing about what was
+  // received, and a fingerprint that has moved means the state was read before it changed.
+  const evidence = chain.evidence;
+  if (evidence.immutable !== true || typeof evidence.receipt_ref !== 'string' || !evidence.receipt_ref
+      || typeof evidence.content_address !== 'string' || evidence.content_address.length !== 64) {
+    throw new ContractError(CODES.WRITE_EVIDENCE_NOT_IMMUTABLE,
+      'the write must rest on an immutable receipt with a content address');
+  }
+  if (typeof submittedFingerprint !== 'string' || !submittedFingerprint) {
+    throw new ContractError(CODES.CAS_MISSING, 'a write must submit the fingerprint the caller believes is current');
   }
   if (submittedFingerprint !== observedFingerprint) {
     throw new ContractError(CODES.CAS_MISMATCH, 'the snapshot moved since the task intent was computed');
   }
+  if (evidence.cas_fingerprint !== observedFingerprint
+      || chain.snapshot.deterministic_replay_fingerprint !== observedFingerprint) {
+    throw new ContractError(CODES.CAS_MISMATCH,
+      'the receipt and the snapshot do not agree with the observed fingerprint, so the evidence is stale');
+  }
+
   return {
     boundary: 'p8_writer',
     writer: principal.principal_id,
     approver: approval.approver_principal_id,
+    project_binding_ref: binding,
+    accepted_context_generation: generation,
     // A snapshot is not rewritten afterwards to carry the resulting task ref; the link is
     // held on the task side, pointing back at the immutable snapshot.
     snapshot_rewritten: false,
     backward_lineage_ref: 'snapshot_id',
+    backward_lineage: {
+      snapshot_id: chain.snapshot.snapshot_id,
+      finding_id: chain.finding.finding_id,
+      accepted_context_generation: generation,
+      task_intent_ref: chain.task_intent.task_intent_id,
+      task_driver_ref: chain.task_driver.gate_id,
+    },
+    // This engine evaluates the gate. It does not hold the external sole-writer authority,
+    // so no ledger entry is produced here and the count says so.
+    gate_evaluation_only: true,
+    erp_write_performed: false,
+    erp_writes: 0,
   };
 }
 
 export const OPEN_OWNER_DECISIONS_FOR_THIS_LANE = Object.freeze([
   'p5_and_p8_registered_human_approver_registration_policy',
   'whether_self_approval_is_ever_permitted_and_for_whom',
-  'p7_stage_definition_or_removal_from_the_numbering',
 ]);

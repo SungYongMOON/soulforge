@@ -2,7 +2,7 @@
 // phase_1_serial_integration — the single command that decides whether Phase 1 holds.
 //
 // Eight checks, all of which must pass:
-//   1. every conformance suite passes
+//   1. every conformance suite passes, including the manifest integrity regression
 //   2. the mutation lock kills every mutation
 //   3. the frozen Phase 1-0 bundle still matches 13/13 by sha256
 //   4. every frozen field group has exactly one owning lane
@@ -61,6 +61,8 @@ const SUITES = [
   ['end_to_end_engine_run.mjs', [], 'end_to_end', 'author_written_fixtures'],
   ['output_contract_conformance.mjs', ['--scratch', SCRATCH], 'output_contract', 'author_written_fixtures'],
   ['phase_2_oracle_conformance.mjs', [], 'phase_2_oracles', 'author_written_spec_frozen_before_implementation'],
+  ['phase_3_context_receipts.mjs', [], 'phase_3_context_receipts', 'author_written_fixtures'],
+  ['manifest_blob_integrity.mjs', [], 'manifest_integrity', 'deterministic_against_git_object_bytes'],
 ];
 
 const suiteResults = [];

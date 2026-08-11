@@ -151,6 +151,9 @@ const summary = {
     claim: heartbeatSummary.claim,
     failing: Object.values(heartbeats).filter((h) => h.outcome === 'failed').map((h) => h.surface_id),
   },
+  // The window the receipts below were judged against travels with them. A consumer that
+  // has to invent a freshness rule will invent a generous one.
+  receipt_window: WINDOWS.default,
   edges: {
     declared: coverage.declared_count,
     observed: coverage.observed_count,

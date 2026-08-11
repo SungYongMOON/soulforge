@@ -19,6 +19,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 ## 구성
 
 - `kernel/`: 결정론 kernel. 학습모델을 호출하지 않고, 공급된 값에 대한 순수 함수만 노출한다
+- 영수증은 4종을 구분해 쓴다: topology delivery(간선 통과) · MCP idempotency 응답(재시도) · Context Request 영수증 · Context Response 영수증. 서로 대신하지 못하며 소유 모듈이 다르다
 - `contracts/`: Phase 1-0 공통 계약과 lane 계약
 - `fixtures/`: 합성 fixture
 - `tests/`: 동결 oracle 대조 conformance
@@ -53,6 +54,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 | 1E | module ABI · binding · release · rollback | `module_binding.mjs` | `contracts/lane_1e_module_and_release_v0.md` |
 | 1V | 변이 lock | `tests/lane_1v_mutation_lock.mjs` | `contracts/lane_1v_verification_lock_v0.md` |
 | runtime | 하트비트 · 간선별 전달 영수증 | `heartbeat.mjs`, `delivery_receipt.mjs` | `contracts/runtime_observation_v0.md` |
+| phase 3 | Context Request/Response 영수증 (합성) | `context_receipt.mjs` | `contracts/phase_3_context_receipts_v0.md` |
 | assembly | 조립된 1 pass · subject adapter | `assembly/engine_pass.mjs`, `subjects/` | — |
 | output | 소비자용 읽기 계약 | `tools/output_binding.mjs` | `contracts/engine_output_read_contract_v0.md` |
 
@@ -75,7 +77,14 @@ byte manifest 는 추적 소스만 담으며 자기 path base 를 헤더로 선�
 
 ```
 node guild_hall/engineering_engine/tools/emit_manifest.mjs --out topology/engine_manifest.sha256
+node guild_hall/engineering_engine/tools/emit_manifest.mjs --verify topology/engine_manifest.sha256
 ```
+
+`P` manifest 행은 **Git 이 저장할 byte** 를 hash 한다. checkout 에 우연히 들어간 줄바꿈이 아니다. text 파일은 clean filter 와 같은 규칙(CRLF→LF)으로 정규화하고, 그 결과가 `git hash-object` 의 답과 일치하는지 매 emit 마다 대조한다. 어긋나면 emit 을 **거부한다** — 저장소가 재현하지 못할 manifest 를 내는 것이 실패보다 나쁘다.
+
+`D` `tests/manifest_blob_integrity.mjs` 가 세 가지를 따로 확인한다: 파일이 최신 emit 과 같은가, 정규화가 Git 의 clean filter 와 같은가, 각 행이 **index 에 staged 된 blob byte** 의 sha256 과 같은가. 통합검사에 들어 있으므로 manifest 가 commit 될 내용과 어긋나면 초록불이 나오지 않는다.
+
+`O` 이 시험은 Phase 2 종료 시점의 실제 결함을 재현한다. commit 된 manifest 가 네 파일에서 commit 된 내용과 달랐고, 통합검사가 manifest 를 **아무도 검증하지 않았기 때문에** 그대로 통과했다.
 
 `P` kernel 은 Phase 1-0 동결 synthetic oracle 의 판정을 그대로 재현한다. 그 oracle 은 독립검증을 거쳤으므로 구현과 채점 기준의 저자가 분리된다.
 
@@ -138,4 +147,4 @@ engine 의 local runtime state 는 다른 owner 와 같은 규칙을 따라 `gui
 
 lane 별 미결 항목은 각 lane 계약문과 `kernel/contract_config.mjs` 의 `OPEN_LANE_QUESTIONS` 에 있다. Phase 1 을 막는 것은 없다.
 
-`O` 동결 Phase 1-0 계약은 `P5`·`P6`·`P8` 을 지목하지만 **`P7` 을 정의하지 않는다.** 번호를 채우기 위해 단계를 발명하지 않고 `pipeline.mjs` 가 `UNKNOWN_pending_engine_owner` 로 기록한다.
+`O` **`P7` 은 TaskDriver 다.** 이전 판이 `UNKNOWN_pending_engine_owner` 로 적은 것은 읽기 오류였고 Owner 미결이 아니었다. `engine_plan_v1_2.md` §1.4, `engine_plan_v1_2_1.md` §6.2, `phase_1_0_work_lanes.yaml` 의 `p7_taskdriver` gate 가 모두 같은 정의를 준다. `pipeline.mjs` 가 `why`·`why-now`·`authority`·`idempotency` 내부 gate 뒤의 TaskDriver 단계로 구현하며, **활성화하지 않는다**(`activation_state: not_activated`, `driver_activated: false`, `erp_delta: 0`). 상세는 `contracts/lane_1a_snapshot_and_pipeline_v0.md` §8.
