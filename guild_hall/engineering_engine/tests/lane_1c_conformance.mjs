@@ -16,7 +16,7 @@ import {
 } from '../kernel/graph.mjs';
 import {
   selectCapsule, contextCapsuleFingerprint, assertNoRawPayload, assertNoForbiddenIdentifier,
-  MAX_HOPS_CEILING, RANKING_KEYS, REQUIRED_BUDGETS,
+  MAX_HOPS_CEILING, RANKING_KEYS, REQUIRED_BUDGETS, EXCLUSION_REASONS,
 } from '../kernel/capsule.mjs';
 import { ContractError } from '../kernel/errors.mjs';
 
@@ -241,13 +241,127 @@ expectThrow('1C/SEL/acl_check_required', () => selectCapsule(selector, graph, nu
       && capsule.excluded.some((e) => e.reason === 'project_binding_mismatch'),
     'an alpha-bound edge pointing at a bravo node does not smuggle the node in');
 }
+// Fail closed, and loudly: once the projection declares node bindings, a node the traversal
+// reaches but the set does not declare refuses the whole selection.
+//
+// This used to be an exclusion. An exclusion is a statement about material whose scope the
+// selector knows and is declining to hand over, and that is not what an undeclared node is:
+// the slice cannot say which project it belongs to, so the isolation claim the capsule carries
+// is unproven for the whole result, not merely for that ref. Omitting it left a capsule that
+// still asserted `every_returned_ref_bound_to_the_selector: true` over a walk that had passed
+// through a node nothing vouched for.
+expectThrow('1C/BIND/undeclared_node_refuses_the_selection',
+  () => selectCapsule(selector, { ...graph, nodes: [{ ref: seed, project_binding_ref: 'binding-alpha' }, { ref: mid, project_binding_ref: 'binding-alpha' }] }, allowAll),
+  'a node absent from a declared node set refuses the capsule, rather than being dropped as an exclusion');
+expectThrow('1C/BIND/undeclared_seed_refuses_the_selection',
+  () => selectCapsule(sel({ seed_refs: [ref('src-elsewhere', 'src-elsewhere-r1')] }), graph, allowAll),
+  'a seed is a traversed node too; an undeclared one puts the whole walk on an unwitnessed footing');
 {
-  // Fail closed: once the projection declares node bindings, an undeclared node is refused
-  // rather than assumed to belong here.
-  const capsule = selectCapsule(selector, { ...graph, nodes: [{ ref: seed, project_binding_ref: 'binding-alpha' }, { ref: mid, project_binding_ref: 'binding-alpha' }] }, allowAll);
-  record('1C/BIND/undeclared_node_refused',
-    capsule.excluded.some((e) => e.reason === 'project_binding_unknown'),
-    'a node absent from a declared node set is refused, not assumed in scope');
+  let error = null;
+  try {
+    selectCapsule(selector, { ...graph, nodes: [{ ref: seed, project_binding_ref: 'binding-alpha' }, { ref: mid, project_binding_ref: 'binding-alpha' }] }, allowAll);
+  } catch (e) { error = e; }
+  record('1C/BIND/undeclared_node_names_no_identifier',
+    error?.code === 'CAPSULE_NODE_NOT_DECLARED'
+      && JSON.stringify(error.detail) === JSON.stringify({ hop: 2 }),
+    'the refusal states the hop and the reason and does not restate the ref it refused');
+}
+record('1C/BIND/unknown_binding_is_no_longer_an_exclusion_reason',
+  !EXCLUSION_REASONS.includes('project_binding_unknown'),
+  'an unwitnessed node is a broken slice, not excluded material, so the reason is gone from the closed list');
+
+// ---------------------------------------------------------------- the complete identity tuple
+//
+// Every one of these passed while refs were keyed on entity_id and revision_id alone. The
+// declared node vouches for bytes; matching on the name let an edge collect that vouching for
+// content the node set had never seen.
+
+{
+  // A forged edge target: same subject revision as the declared leaf, different content id.
+  const forgedTarget = { ...leaf, content_id: 'c-exrun-1-forged' };
+  const forged = {
+    edges: [graph.edges[0], edge({ ...graph.edges[1], to_ref: forgedTarget })],
+    nodes: alphaNodes,
+  };
+  let error = null;
+  try { selectCapsule(selector, forged, allowAll); } catch (e) { error = e; }
+  record('1C/ID/forged_target_content_id_refused',
+    error?.code === 'CAPSULE_NODE_IDENTITY_MISMATCH',
+    'an edge naming the declared subject revision but different bytes contradicts the slice and refuses it');
+}
+{
+  // The same attack, asked the way it actually matters: the forged content id must not reach
+  // the caller. A capsule is not returned at all, so there is nothing for it to appear in.
+  const forgedTarget = { ...leaf, content_id: 'c-exrun-1-forged' };
+  const forged = {
+    edges: [graph.edges[0], edge({ ...graph.edges[1], to_ref: forgedTarget })],
+    nodes: alphaNodes,
+  };
+  let capsule = null;
+  try { capsule = selectCapsule(selector, forged, allowAll); } catch { /* refused, which is the point */ }
+  record('1C/ID/forged_target_content_id_never_reaches_included_refs',
+    capsule === null,
+    'no capsule is produced, so the forged content id cannot appear in included_refs');
+}
+{
+  // A forged edge source: the edge claims to leave the declared mid node but names other bytes.
+  const forgedSource = { ...mid, content_id: 'c-srev-1-forged' };
+  const forged = {
+    edges: [graph.edges[0], edge({ ...graph.edges[1], from_ref: forgedSource })],
+    nodes: alphaNodes,
+  };
+  const capsule = selectCapsule(selector, forged, allowAll);
+  record('1C/ID/forged_source_content_id_is_not_an_edge_out_of_the_node',
+    capsule.included_refs.map((r) => r.entity_id).join(',') === 'srev-1',
+    'an edge leaving different bytes than the admitted node is not an edge out of that node');
+}
+expectThrow('1C/ID/duplicate_node_declaration_refused',
+  () => selectCapsule(selector, { edges: graph.edges, nodes: [...alphaNodes, { ref: leaf, project_binding_ref: 'binding-alpha' }] }, allowAll),
+  'the same subject revision declared twice has no single answer, even when both declarations agree');
+{
+  // The one that mattered: a second declaration of the same logical node under another binding.
+  // With last-write-wins, the bravo row simply replaced the alpha row — or the reverse, purely
+  // on input order — and cross-project isolation turned on the order of an array.
+  let error = null;
+  try {
+    selectCapsule(selector, {
+      edges: graph.edges,
+      nodes: [...alphaNodes, { ref: leaf, project_binding_ref: 'binding-bravo' }],
+    }, allowAll);
+  } catch (e) { error = e; }
+  record('1C/ID/duplicate_node_binding_is_not_last_write_wins',
+    error?.code === 'CAPSULE_NODE_DECLARED_TWICE',
+    'two declarations of one node with different bindings refuse the slice instead of one overwriting the other');
+}
+{
+  // Duplicate logical node differing in content id: the same refusal, and the detail says which.
+  let error = null;
+  try {
+    selectCapsule(selector, {
+      edges: graph.edges,
+      nodes: [...alphaNodes, { ref: { ...leaf, content_id: 'c-exrun-1-other' }, project_binding_ref: 'binding-alpha' }],
+    }, allowAll);
+  } catch (e) { error = e; }
+  record('1C/ID/duplicate_node_content_id_refused',
+    error?.code === 'CAPSULE_NODE_DECLARED_TWICE' && error.detail?.differs_in_content_id === true,
+    'a second declaration naming different bytes is refused and the refusal says the two disagree on content');
+}
+expectThrow('1C/ID/declared_node_needs_the_full_tuple',
+  () => selectCapsule(selector, {
+    edges: graph.edges,
+    nodes: [{ ref: { entity_id: 'src-1', revision_id: 'src-1-r1', content_id: 'c-src-1-r1' }, project_binding_ref: 'binding-alpha' }, ...alphaNodes.slice(1)],
+  }, allowAll),
+  'a node declared without its hash algorithm is not an exact ref and cannot be matched on identity');
+{
+  // Positive control for the whole tuple rule: nothing above narrows the legitimate case.
+  const capsule = selectCapsule(selector, graph, allowAll);
+  record('1C/ID/fully_bound_two_hop_positive_control',
+    capsule.included_refs.length === 2
+      && capsule.traversed_node_count === 3
+      && capsule.every_returned_ref_bound_to_the_selector === true
+      && capsule.included_refs.every((r) => r.content_id === `c-${r.revision_id}`)
+      && capsule.excluded.length === 0,
+    `${capsule.included_refs.length} refs over two hops, every content id the declared one, no exclusions`);
 }
 expectThrow('1C/BIND/invalid_edge_refuses_the_whole_selection',
   () => selectCapsule(selector, { edges: [graph.edges[0], { edge_id: 'e-broken' }], nodes: alphaNodes }, allowAll),

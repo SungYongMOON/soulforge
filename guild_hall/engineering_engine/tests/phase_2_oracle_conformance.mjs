@@ -409,6 +409,93 @@ const runCase = (states, seed = 0) => runEnginePass({
   invariantRefuses('claim_count_disagrees_with_the_claims', built([claim(), wikiClaim()], { claim_count: 5 }));
   invariantRefuses('not_a_record_at_all', null);
 
+  // ---- B-08: a bare string is not a source revision, and a date that does not resolve is
+  // not a time.
+  //
+  // Both of these produced records that satisfied every other check. `source_revision_ref:
+  // 'src_baseline'` was read as a revision id, so two different strings counted as two
+  // different revisions — while neither could be resolved to any bytes, which is the whole
+  // point of citing a revision. And `valid_at` / `known_at` were carried through untouched, so
+  // a pair dated 'yesterday', or known before it was valid, still resolved a precedence
+  // question that is only ever asked at an instant.
+
+  recordRefuses('bare_string_source_ref_refused_when_built',
+    [claim({ source_revision_ref: 'src_baseline' }), wikiClaim()],
+    'a string names nothing that can be resolved back to bytes');
+  recordRefuses('both_sides_bare_string_refused_when_built',
+    [claim({ source_revision_ref: 'src_baseline' }), wikiClaim({ source_revision_ref: 'src_wiki' })],
+    'two different strings are not two different revisions');
+  recordRefuses('partial_ref_refused_when_built',
+    [claim({ source_revision_ref: { entity_id: 'src_baseline', revision_id: 'src_baseline-r1' } }), wikiClaim()],
+    'a ref without a content id is not an exact revision ref');
+  recordRefuses('wrong_hash_algorithm_refused_when_built',
+    [claim({ source_revision_ref: { ...ref('src_baseline'), content_hash_alg: 'md5' } }), wikiClaim()],
+    'a ref outside the declared hash algorithm cannot be checked against the bytes');
+  recordRefuses('non_instant_valid_at_refused_when_built',
+    [claim({ valid_at: 'yesterday' }), wikiClaim()], 'a side that is not dated cannot be placed in a window');
+  recordRefuses('impossible_date_refused_when_built',
+    [claim({ known_at: '2026-02-30T00:00:00.000Z' }), wikiClaim()], 'a date that does not exist is not a time');
+  recordRefuses('known_before_valid_refused_when_built',
+    [claim({ valid_at: T, known_at: V }), wikiClaim()], 'a side known before the fact it asserts was dated');
+  // Sorts *after* a real instant, so the ordering check cannot catch it. Only the shape check can.
+  recordRefuses('unparseable_known_at_refused_when_built',
+    [claim({ known_at: 'zzz-not-a-time' }), wikiClaim()],
+    'a value that is not an instant at all is refused on its shape, not on where it happens to sort');
+
+  invariantRefuses('bare_string_source_ref_in_a_hand_built_record',
+    built([claim({ source_revision_ref: 'src_baseline' }), wikiClaim()]),
+    'the builder is not the only way a record arrives, so the invariant refuses it too');
+  invariantRefuses('both_sides_bare_string_in_a_hand_built_record',
+    built([claim({ source_revision_ref: 'src_baseline' }), wikiClaim({ source_revision_ref: 'src_wiki' })]),
+    'two strings that differ still cite no revision at all');
+  invariantRefuses('partial_ref_in_a_hand_built_record',
+    built([claim({ source_revision_ref: { entity_id: 'src_baseline', revision_id: 'src_baseline-r1' } }), wikiClaim()]));
+  invariantRefuses('non_instant_valid_at_in_a_hand_built_record',
+    built([claim({ valid_at: 'yesterday' }), wikiClaim()]));
+  invariantRefuses('impossible_date_in_a_hand_built_record',
+    built([claim(), wikiClaim({ known_at: '2026-02-30T00:00:00.000Z' })]));
+  invariantRefuses('known_before_valid_in_a_hand_built_record',
+    built([claim(), wikiClaim({ valid_at: T, known_at: V })]));
+  invariantRefuses('unparseable_known_at_in_a_hand_built_record',
+    built([claim({ known_at: 'zzz-not-a-time' }), wikiClaim()]),
+    'sorting after a real instant is not being one');
+
+  {
+    // The refusals name the property that is missing rather than an aggregate, so a caller
+    // cannot reshape the input until something passes without knowing what they changed.
+    let refusal = null;
+    try { assertTwoSourceAuthorityInvariant(built([claim({ source_revision_ref: 'src_baseline' }), wikiClaim()])); } catch (e) { refusal = e; }
+    record('O4/invariant/bare_string_names_the_failed_check',
+      refusal?.detail?.failed_checks?.includes('exact_typed_source_revision_refs') === true
+        && refusal.detail.sides_without_an_exact_ref === 1,
+      refusal ? JSON.stringify(refusal.detail.failed_checks) : 'NOT REFUSED');
+
+    let timeRefusal = null;
+    try { assertTwoSourceAuthorityInvariant(built([claim(), wikiClaim({ valid_at: T, known_at: V })])); } catch (e) { timeRefusal = e; }
+    record('O4/invariant/incoherent_time_names_the_failed_check',
+      timeRefusal?.detail?.failed_checks?.includes('both_sides_dated_coherently') === true
+        && timeRefusal.detail.time_faults?.includes('known_at_precedes_valid_at') === true,
+      timeRefusal ? JSON.stringify(timeRefusal.detail.failed_checks) : 'NOT REFUSED');
+  }
+
+  {
+    // Positive control paired with the two attacks above: the exact baseline-versus-wiki pair,
+    // with exact typed refs and coherent times, still holds — with the baseline governing and
+    // both lineages preserved.
+    const valid = recordSourceConflict([claim(), wikiClaim()]);
+    let held = null;
+    try { held = assertTwoSourceAuthorityInvariant(valid); } catch (e) { held = e; }
+    const lineages = valid.retained_claims.map((c) => c.lineage_ref).sort();
+    record('O4/invariant/exact_typed_refs_positive_control',
+      held?.holds === true
+        && held.governing_authority_family === 'project_contract_baseline'
+        && held.contesting_authority_family === 'reviewed_wiki'
+        && valid.retained_claims.every((c) => c.source_revision_ref?.content_hash_alg === 'sha256')
+        && JSON.stringify(lineages) === JSON.stringify(['lineage_baseline', 'lineage_wiki'])
+        && valid.sides_dropped === 0,
+      held?.code ? `refused with ${held.code}` : 'baseline governs, both lineages preserved, both refs exact');
+  }
+
   {
     // Positive control for the hand-built path, so the invariant is discriminating rather than
     // refusing everything that did not come out of the builder.

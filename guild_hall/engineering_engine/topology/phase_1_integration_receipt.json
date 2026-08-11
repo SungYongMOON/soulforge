@@ -6,12 +6,12 @@
     {
       "id": "suites",
       "ok": true,
-      "detail": "13 suites, 1137 checks"
+      "detail": "13 suites, 1374 checks"
     },
     {
       "id": "mutation_lock",
       "ok": true,
-      "detail": "73/73 killed across 22 modules"
+      "detail": "142/142 killed across 23 modules"
     },
     {
       "id": "frozen_bundle",
@@ -26,12 +26,12 @@
     {
       "id": "topology_matches_code",
       "ok": true,
-      "detail": "24 modules, 92 import edges, digest e3382dfae548"
+      "detail": "25 modules, 105 import edges, digest 31b549320abf"
     },
     {
       "id": "runtime_observation",
       "ok": true,
-      "detail": "86/92 edges traversed, 9 surfaces reported, topology 1:1"
+      "detail": "98/105 edges traversed, 9 surfaces reported, topology 1:1"
     },
     {
       "id": "no_residue_in_the_source_tree",
@@ -59,7 +59,7 @@
       "lane": "1A",
       "verification_strength": "author_written_fixtures",
       "result": "PASS",
-      "pass_count": 215,
+      "pass_count": 314,
       "failure_count": 0,
       "failures": []
     },
@@ -77,7 +77,7 @@
       "lane": "1C",
       "verification_strength": "author_written_fixtures",
       "result": "PASS",
-      "pass_count": 71,
+      "pass_count": 91,
       "failure_count": 0,
       "failures": []
     },
@@ -122,7 +122,7 @@
       "lane": "end_to_end",
       "verification_strength": "author_written_fixtures",
       "result": "PASS",
-      "pass_count": 54,
+      "pass_count": 70,
       "failure_count": 0,
       "failures": []
     },
@@ -140,7 +140,7 @@
       "lane": "phase_2_oracles",
       "verification_strength": "author_written_spec_frozen_before_implementation",
       "result": "PASS",
-      "pass_count": 107,
+      "pass_count": 154,
       "failure_count": 0,
       "failures": []
     },
@@ -149,7 +149,7 @@
       "lane": "phase_3_context_receipts",
       "verification_strength": "author_written_fixtures",
       "result": "PASS",
-      "pass_count": 92,
+      "pass_count": 147,
       "failure_count": 0,
       "failures": []
     },
@@ -163,14 +163,14 @@
       "failures": []
     }
   ],
-  "total_conformance_checks": 1137,
+  "total_conformance_checks": 1374,
   "mutation_lock": {
     "result": "PASS",
-    "mutations": 73,
-    "killed": 73,
+    "mutations": 142,
+    "killed": 142,
     "survived": 0,
     "catalogue_errors": 0,
-    "modules_covered": 22,
+    "modules_covered": 23,
     "semantic_independence": "UNMET"
   },
   "frozen_bundle": {
@@ -179,25 +179,26 @@
     "mismatches": []
   },
   "runtime_observation": {
-    "run_id": "run-20260811043542826",
+    "run_id": "run-20260811064244514",
     "surfaces_run": 9,
     "surfaces_without_heartbeat": 3,
-    "edge_coverage": "86/92",
+    "edge_coverage": "98/105",
     "declared_not_exercised": [
       "context_receipt>authority",
       "context_receipt>canonical",
       "context_receipt>ceilings",
       "context_receipt>errors",
       "context_receipt>identity",
-      "context_receipt>minting"
+      "context_receipt>minting",
+      "context_receipt>registration"
     ],
     "observed_not_declared": [],
     "topology_is_one_to_one": true
   },
   "topology": {
-    "modules": 24,
-    "import_edges": 92,
-    "digest": "e3382dfae5485dcb8dc44282a3f85d4f892146d894f4cc2470de1e22679cfd1c",
+    "modules": 25,
+    "import_edges": 105,
+    "digest": "31b549320abf4b75fd342a0cf0b40552636416085ba8eb5eaa5ab17b14ef4d63",
     "derived_from": {
       "module_edges": "parsed from import statements in kernel/*.mjs, assembly/*.mjs, subjects/*.mjs",
       "areas_covered": [

@@ -1,5 +1,69 @@
 # CHANGELOG
 
+## 2026-08-11 - SE Engineering Engine Phase 2 third correction pass: four fail-open defects closed
+
+A fresh independent Level-3 verifier reproduced nine attacks against the previous
+entry. Every one of them exploited the same shape: a check existed, and the thing
+being checked was allowed to supply the answer. None of the earlier guards is
+weakened here — all thirteen suites, the mutation lock, the exact Git-blob
+manifest check and the frozen Phase 1-0 bundle still pass.
+
+- Closed the Context Capsule node-set defects (five reproduced attacks). A node
+  the traversal reached but `graph.nodes` did not declare was dropped as an
+  exclusion, so a walk that had passed through an unwitnessed node still returned
+  `every_returned_ref_bound_to_the_selector: true`; it now refuses the whole
+  selection. Refs are matched on the complete exact-ref identity tuple, content
+  id included, so an edge naming the declared subject revision but different
+  bytes is a contradiction in the slice rather than a match, and a forged edge
+  target content id can no longer reach `included_refs`. A node set may no longer
+  declare one logical node twice: the previous build overwrote the first entry,
+  so with two declarations under different bindings, cross-project isolation
+  turned on array order. `project_binding_unknown` is gone from the closed
+  exclusion list, because an unwitnessed node is a broken projection rather than
+  excluded material. The fully bound two-hop capsule remains the positive control.
+- Bound P5, the generation advance, the pre-P7 policy gate and the P8 writer to
+  verifiable registration evidence (two reproduced attacks). `kind:
+  'registered_human'` and `authority.registered === true` are fields the caller
+  writes, so a self-declared principal and an `authority_ref` naming nothing that
+  exists both cleared the boundaries the contract is most emphatic about. A new
+  `kernel/registration.mjs` verifies a supplied, content-addressed registration
+  registry: entry addresses and the registry address are recomputed, and the
+  registry address must be the content id of the revision it claims to be. Lookup
+  is scoped to the project, to the authority family where one applies, and to the
+  instant the boundary is cleared. A caller asserting its own `registered` or
+  `applicability` is refused rather than ignored. P8 supplies the one registry
+  every registration in its chain is checked against, so a chain can no longer
+  carry the evidence that vouches for its own acceptor.
+- Bound the P5 orchestration boundary's `authority_ref` to the same evidence (one
+  reproduced attack). Three records sharing one arbitrary nonexistent reference
+  satisfied the old rule, because whoever assembles the three writes all three.
+  The reference now has to resolve in the same registry, project and authority
+  family at the instant of the exchange, and a pair whose two halves name
+  different authorities is refused. Candidate-only behaviour, a generation
+  advance of zero and the exact two-receipt linkage are preserved and asserted.
+- Made the exact two-source authority invariant require exact typed refs and
+  coherent times (one reproduced attack). A bare string was read as a revision
+  id, so two different strings counted as two different revisions while neither
+  could be resolved to any bytes; `valid_at` and `known_at` were not checked at
+  all. Both guard layers now require a fully formed exact revision ref and two
+  canonical instants with `known_at` at or after `valid_at`, and name the failed
+  property. The exact baseline-versus-wiki control still holds, with baseline
+  precedence and both lineages preserved.
+- Verification after the change: 13 suites, 1374 conformance checks, 0 failures;
+  mutation lock 142/142 killed, 0 survivors, 0 catalogue errors; exact Git-blob
+  manifest 62/62; frozen Phase 1-0 bundle 13/13; runtime observation 1:1 with the
+  topology; zero writes. Owner action: none required. `D-P10-08` (who may be
+  registered as a P5/P8 approver) stays open — the kernel verifies supplied
+  evidence and consults no live registry, so what closed is only the state where
+  saying so was enough. No project material, private corpus, credential, source
+  PDF, external service, runtime activation, ERP write, live P5/P8, UI, MCP
+  transport or learned model was exercised.
+- Related paths: `guild_hall/engineering_engine/kernel/`,
+  `guild_hall/engineering_engine/fixtures/registration_evidence.mjs`,
+  `guild_hall/engineering_engine/tests/`,
+  `guild_hall/engineering_engine/contracts/`,
+  `guild_hall/engineering_engine/topology/`.
+
 ## 2026-08-11 - SE Engineering Engine Phase 2 second correction pass: five weak guards tightened
 
 An independent review of the previous entry found five contract failures. The

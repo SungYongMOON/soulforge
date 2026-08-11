@@ -81,7 +81,9 @@ embedding 유사도나 학습 reranker 는 이 자리에 항목이 없다. 이�
 
 `D` 조용히 빠진 evidence 는 애초에 없던 evidence 와 구별되지 않는다. 따라서 모든 제외에 이유를 붙인다. 이유 집합은 닫혀 있다 — 자유 문자열이면 거부된 식별자가 되돌아올 자리가 생긴다.
 
-`acl_denied_at_seed` · `acl_denied_at_hop` · `project_binding_mismatch` · `project_binding_unknown` · `edge_type_not_allowlisted` · `applicability_unknown` · `applicability_false` · `top_k_budget`
+`acl_denied_at_seed` · `acl_denied_at_hop` · `project_binding_mismatch` · `edge_type_not_allowlisted` · `applicability_unknown` · `applicability_false` · `top_k_budget`
+
+`O` 이전 판은 이 목록에 `project_binding_unknown` 을 두었고, 선언되지 않은 node 를 그 이유로 **제외**했다. exclusion 은 "이것은 존재하고 당신은 받지 못한다"는 말이며, 그런 말은 selector 가 범위를 실제로 아는 자료에 대해서만 할 수 있다. 선언되지 않은 node 는 제외 대상이 아니라 증인 집합의 구멍이다. 자세한 것은 4.6 을 따른다.
 
 `P` **exclusion 은 식별자를 담지 않는다.** 한 항목은 `{ reason, hop, count }` 뿐이다. 이전 판은 `excluded[].ref` 에 거부된 ref 를 그대로 실었고, 그것은 ACL 이 감춘 대상을 exclusion 이라는 이름으로 되돌려주는 것이었다. 동결 O6 의 금지 출력은 "capsule payload · hash · pointer set 어디에도" 이며 exclusion 도 capsule payload 다.
 
@@ -99,7 +101,13 @@ embedding 유사도나 학습 reranker 는 이 자리에 항목이 없다. 이�
 
 `D` traversal 중 `edge.project_binding_ref !== selector.project_binding_ref` 인 edge 는 **읽기 전에** 거부하고 `project_binding_mismatch` 로 기록한다. 사후 필터는 이미 늦다 — 그때는 다른 과제 자료를 읽은 뒤다.
 
-`D` **`graph.nodes` 는 필수다.** projection slice 는 완전한 node 집합을 선언해야 하고, traversal 이 닿는 모든 ref(seed 포함)가 그 집합에 있으며 selector binding 과 같아야 한다. 선언되지 않은 node 는 `project_binding_unknown` 으로 **거부한다**(fail closed). node 는 각각 정확한 revision ref 와 비어 있지 않은 `project_binding_ref` 를 나른다. 둘 중 하나라도 없으면 선택 전체를 거부한다.
+`D` **`graph.nodes` 는 필수다.** projection slice 는 완전한 node 집합을 선언해야 하고, traversal 이 닿는 모든 ref(seed 포함)가 그 집합에 있으며 selector binding 과 같아야 한다. node 는 각각 정확한 revision ref 와 비어 있지 않은 `project_binding_ref` 를 나른다. 둘 중 하나라도 없으면 선택 전체를 거부한다.
+
+`D` **선언되지 않은 node 는 선택 전체를 거부한다**(`CAPSULE_NODE_NOT_DECLARED`). 그 ref 하나만 빼는 것으로는 답이 되지 않는다. slice 가 그 node 의 과제를 말하지 못한다는 것은 이 walk 가 증인 없는 지점을 지났다는 뜻이고, 그러면 capsule 이 나르는 격리 주장은 그 ref 하나가 아니라 **반환하는 ref 전부**에 대해 증명되지 않는다. 이전 판은 이것을 exclusion 으로 처리했고, 그 결과 아무도 보증하지 않은 node 를 지나온 walk 가 여전히 `every_returned_ref_bound_to_the_selector: true` 를 주장했다. 거부는 hop 과 사유만 말하고 refused ref 는 말하지 않는다.
+
+`D` **대조는 완전한 exact-ref identity tuple 로 한다** — `entity_id` · `revision_id` · `content_id` · `content_hash_alg` 전부. `entity_id@revision_id` 만으로 key 를 잡으면, 같은 subject revision 을 가리키면서 다른 bytes 를 이름 붙인 edge 가 선언된 node 의 보증을 그대로 가져간다. node 집합은 이름이 아니라 bytes 를 보증한다. 선언된 node 와 같은 subject revision 이면서 content 가 다른 ref 는 slice 자체의 모순이므로 `CAPSULE_NODE_IDENTITY_MISMATCH` 로 거부한다. 같은 이유로 edge 의 `from_ref` 도 tuple 전체로 맞춘다.
+
+`D` **한 logical node 를 두 번 선언할 수 없다**(`CAPSULE_NODE_DECLARED_TWICE`). 이전 판은 map 에 그대로 덮어썼으므로 두 번째 선언이 첫 번째를 지웠고, binding 이 다르면 cross-project 격리가 배열 순서에 좌우됐다. binding 이 다르든 `content_id` 가 다르든 완전히 같든, 같은 subject revision 의 재선언은 slice 에 단일한 답이 없다는 뜻이므로 거부한다.
 
 `O` 이전 판은 node 집합을 **선택적**으로 두고 없으면 "edge 를 믿는다"로 처리했다. 그러면 edge 의 binding 주장에 대한 유일한 증인이 그 edge 자신이 되고, 위조된 edge binding 과 참인 edge binding 이 구분되지 않는다. slice 하나를 node 없이 넘기는 것만으로 cross-project 격리가 검사 대상의 정직성에 의존하게 된다.
 

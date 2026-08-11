@@ -46,7 +46,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 
 | lane | field group | 구현 | 계약문 |
 |---|---|---|---|
-| substrate | Phase 1-0 공통 계약 11항목 | `kernel/` 최초 9 모듈 (현재 커널 전체 21) | 동결 bundle |
+| substrate | Phase 1-0 공통 계약 11항목 | `kernel/` 최초 9 모듈 (현재 커널 전체 22) | 동결 bundle |
 | 1A | snapshot envelope · state axes · Finding · Context Request · P5–P8 | `snapshot.mjs`, `pipeline.mjs` | `contracts/lane_1a_snapshot_and_pipeline_v0.md` |
 | 1B | inventory · custody · eligibility · lineage | `custody.mjs`, `lineage.mjs` | `contracts/lane_1b_custody_and_lineage_v0.md` |
 | 1C | typed graph · bounded capsule | `graph.mjs`, `capsule.mjs` | `contracts/lane_1c_graph_and_capsule_v0.md` |
@@ -97,6 +97,17 @@ node guild_hall/engineering_engine/tools/emit_manifest.mjs --verify topology/eng
 | P8 gate | 모양과 `passed: true` 신뢰 | record 마다 불변 provenance **재계산**, 네 boundary **재실행** |
 | Context 응답 | response id·binding·generation 만 대조 | 요청·영수증·source·artifact·hash·principal·시각까지 **내용으로** 결속 |
 | O4 두 source | conflict 기록 존재 | 정확한 두 권위 쌍·다른 revision·실제 불일치·양쪽 applicability·baseline governing |
+
+`O` **그 다음 독립검토가 같은 형태의 결함 네 개를 더 재현했다.** 전부 "검사는 있었는데 검사받는 쪽이 답을 적는 자리에 있었다"였고, 네 항목 모두 공격 케이스와 positive control 을 함께 고정했다.
+
+| 항목 | 약했던 형태 | 지금 요구하는 형태 |
+|---|---|---|
+| capsule node 대조 (B-03) | 선언되지 않은 node 는 exclusion, key 는 `entity@revision` | 선언되지 않은 node 는 **선택 전체 거부**, 완전한 exact-ref tuple(`content_id` 포함)로 대조, 한 logical node 중복 선언 거부 |
+| P5·P7·P8 등록 (B-06) | `kind: 'registered_human'` · `registered: true` 를 그대로 신뢰 | content-addressed **등록 증거**로 확인, project·authority family·시각 범위 일치, 호출자의 자기 주장은 거부 |
+| P5 orchestration authority (B-07) | `authority_ref` 가 비어 있지 않고 세 기록에서 같기만 하면 통과 | 같은 등록 증거·family·scope 에서 **해소되어야** 통과, candidate 성격·generation 0·두 영수증 linkage 는 그대로 |
+| 두 source 인용 (B-08) | `source_revision_ref` bare string 허용, 시간값 미검사 | **정확한 typed revision ref** 와 양쪽 canonical instant(`known_at >= valid_at`) 요구, 두 겹 guard 모두에서 |
+
+`P` **`D-P10-08` 은 이것으로 닫히지 않는다.** kernel 은 live registry 를 조회하지 않고 공급된 증거의 자기정합성과 범위만 검증한다. 누가 등록될 수 있는지는 여전히 Owner 결정이며, 닫힌 것은 "그렇다고 적기만 하면 통과하던" 상태다.
 
 `O` **나머지 다섯 lane 의 fixture 는 구현과 같은 저자가 썼다.** 초록불이 substrate 의 초록불과 같은 무게가 아니다. 변이 lock 이 가드가 실제로 작동하는지는 확인하지만, 규칙 자체가 구현과 fixture 에서 똑같이 틀린 경우는 잡지 못한다. 의미론적 독립검증은 **미완 의무**다.
 

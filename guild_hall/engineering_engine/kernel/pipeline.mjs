@@ -15,6 +15,7 @@ import { canonicalise, inspectInstant } from './canonical.mjs';
 import { CANONICAL } from './contract_config.mjs';
 import { AUTHORITY_FAMILIES } from './authority.mjs';
 import { assertIsMintedIdentifier } from './minting.mjs';
+import { assertRegisteredSubject, SUBJECT_KINDS } from './registration.mjs';
 import { ContractError } from './errors.mjs';
 
 export const CODES = Object.freeze({
@@ -40,6 +41,7 @@ export const CODES = Object.freeze({
   WRITE_CHAIN_CROSS_PROJECT: 'P8_WRITE_CHAIN_CROSS_PROJECT',
   WRITE_APPROVAL_NOT_HUMAN: 'P8_WRITE_APPROVAL_NOT_HUMAN',
   WRITE_EVIDENCE_NOT_IMMUTABLE: 'P8_WRITE_EVIDENCE_NOT_IMMUTABLE',
+  BOUNDARY_TIME_INVALID: 'PIPELINE_BOUNDARY_TIME_INVALID',
 });
 
 /** Derived from lane 1D so the two cannot drift. */
@@ -136,8 +138,9 @@ export function assertStageDefined(stage) {
  * A failing check is named. An aggregate "policy gate failed" would let a caller retry
  * blindly until something passed.
  */
-export function evaluateTaskDriverPolicyGate({ taskIntent, why, whyNow, authority, idempotency, knownAt }) {
+export function evaluateTaskDriverPolicyGate({ taskIntent, why, whyNow, authority, idempotency, knownAt, registrationRegistry }) {
   const failed = [];
+  const detail = {};
   if (!taskIntent || typeof taskIntent.task_intent_id !== 'string' || !taskIntent.task_intent_id) {
     throw new ContractError(CODES.POLICY_CHECK_FAILED, 'the policy gate needs the P6 task intent it is judging');
   }
@@ -149,10 +152,42 @@ export function evaluateTaskDriverPolicyGate({ taskIntent, why, whyNow, authorit
   if (!whyNow || typeof whyNow.trigger_ref !== 'string' || !whyNow.trigger_ref || !inspectInstant(whyNow.triggered_at).valid) {
     failed.push('why_now');
   }
-  // authority: registered, and applicable here
+  // authority: registered, and in scope here — established from evidence, never from the
+  // caller.
+  //
+  // `registered: true` and `applicability: true` used to be the whole check, and both are
+  // fields whoever is asking for the write types in. An authority_ref naming nothing that
+  // exists cleared this gate as long as the two booleans were set, which made the strongest
+  // precondition on a P8 write the weakest thing in the record. So the two booleans are now
+  // refused outright rather than ignored — a caller asserting them is asserting the thing this
+  // gate exists to determine — and registration is looked up in supplied, content-addressed
+  // registration evidence scoped to this project, this authority family and this instant.
+  // Applicability comes from the same place: the entry either covers this project and family
+  // at `known_at` or it does not.
+  let authorityRegistration = null;
   if (!authority || typeof authority.authority_ref !== 'string' || !authority.authority_ref
-      || authority.registered !== true || authority.applicability !== true) {
+      || typeof authority.authority_family !== 'string' || !authority.authority_family) {
     failed.push('authority');
+  } else if (Object.hasOwn(authority, 'registered') || Object.hasOwn(authority, 'applicability')) {
+    failed.push('authority');
+    detail.authority_failure = 'caller_asserted_its_own_registration_or_applicability';
+  } else if (typeof taskIntent.project_binding_ref !== 'string' || !taskIntent.project_binding_ref) {
+    failed.push('authority');
+    detail.authority_failure = 'task_intent_names_no_project_to_scope_the_registration_to';
+  } else {
+    try {
+      authorityRegistration = assertRegisteredSubject({
+        registry: registrationRegistry,
+        subjectKind: SUBJECT_KINDS.AUTHORITY,
+        subjectId: authority.authority_ref,
+        projectBindingRef: taskIntent.project_binding_ref,
+        authorityFamily: authority.authority_family,
+        at: knownAt,
+      });
+    } catch (e) {
+      failed.push('authority');
+      detail.authority_failure = e.code ?? 'registration_evidence_refused';
+    }
   }
   // idempotency: a key that promises a payload
   if (!idempotency || typeof idempotency.idempotency_key !== 'string' || !idempotency.idempotency_key
@@ -164,7 +199,7 @@ export function evaluateTaskDriverPolicyGate({ taskIntent, why, whyNow, authorit
 
   if (failed.length) {
     throw new ContractError(CODES.POLICY_CHECK_FAILED,
-      'the internal policy gate before P7 did not pass every check', { failed_checks: failed });
+      'the internal policy gate before P7 did not pass every check', { failed_checks: failed, ...detail });
   }
   return {
     gate_id: POLICY_GATE_ID,
@@ -174,6 +209,14 @@ export function evaluateTaskDriverPolicyGate({ taskIntent, why, whyNow, authorit
     passed: true,
     idempotency_key: idempotency.idempotency_key,
     known_at: knownAt,
+    // The evidence the authority check rested on travels with the verdict. A later reader can
+    // see which registration revision was consulted rather than having to trust that one was.
+    authority_registration: {
+      authority_ref: authority.authority_ref,
+      authority_family: authority.authority_family,
+      registry_revision_id: authorityRegistration.registry_revision_id,
+      entry_content_address: authorityRegistration.entry_content_address,
+    },
     erp_delta: 0,
   };
 }
@@ -244,7 +287,14 @@ export function assertBoundarySeparation(performedLane, impliedEffect) {
   return true;
 }
 
-const assertRegisteredHuman = (principal, code) => {
+/**
+ * The shape half: this record is at least claiming to be an identified registered human.
+ *
+ * Necessary and, on its own, worth nothing — `kind: 'registered_human'` is a string the caller
+ * wrote. It stays a separate step because the boundaries want to refuse an engine or an agent
+ * before they go looking for evidence about it.
+ */
+const assertHumanPrincipalShape = (principal, code) => {
   if (!principal || principal.kind !== 'registered_human') {
     throw new ContractError(code,
       'this boundary requires a registered human principal', { kind: principal?.kind ?? null });
@@ -255,19 +305,58 @@ const assertRegisteredHuman = (principal, code) => {
 };
 
 /**
+ * The evidence half: something other than the principal itself says it is registered here.
+ *
+ * This is the check that was missing. A principal declaring `kind: 'registered_human'` cleared
+ * P5, the generation advance and the P8 writer boundary — the three places the contract is most
+ * emphatic that only a registered human may act — because the only thing consulted was the
+ * claim itself. The registration evidence is supplied, content-addressed and pinned to a
+ * revision, so a caller cannot mint a registration by writing one more field.
+ *
+ * The failure is reported under the boundary's own code with the underlying refusal in the
+ * detail: a caller branching on "this boundary refused my principal" should not have to learn
+ * the registration module's vocabulary to do it.
+ */
+const assertHumanRegistered = (principal, code, { registrationRegistry, projectBindingRef, at }) => {
+  assertHumanPrincipalShape(principal, code);
+  try {
+    return assertRegisteredSubject({
+      registry: registrationRegistry,
+      subjectKind: SUBJECT_KINDS.HUMAN,
+      subjectId: principal.principal_id,
+      projectBindingRef,
+      at,
+    });
+  } catch (e) {
+    throw new ContractError(code,
+      'the principal claims to be a registered human, and no verifiable registration evidence places them in this project at this instant',
+      { kind: principal.kind, cause_code: e?.code ?? null });
+  }
+};
+
+/**
  * Evaluates a P5 context acceptance.
  *
  * The engine cannot accept on a human's behalf, and the check is on the observed principal
  * kind rather than on anything the caller asserts about its own authority. Acceptance also
  * carries a compare-and-set on the fingerprint, so a caller cannot accept a context set that
  * has already moved on underneath it.
+ *
+ * "Observed principal kind" was, until now, still a field on the record being judged. The
+ * acceptance therefore also requires registration evidence: the acceptor has to be in a
+ * content-addressed registration registry scoped to this project, valid at this instant. That
+ * does not settle D-P10-08 — who may be registered is still an open owner decision — but it
+ * does mean a self-declared human no longer clears the boundary.
  */
-export function evaluateP5Acceptance({ principal, submittedFingerprint, observedFingerprint, acceptedInputSetRef, knownAt }) {
+export function evaluateP5Acceptance({
+  principal, submittedFingerprint, observedFingerprint, acceptedInputSetRef, knownAt,
+  registrationRegistry, projectBindingRef,
+}) {
   if (principal?.kind === 'engine' || principal?.kind === 'agent') {
     throw new ContractError(CODES.ENGINE_CANNOT_ACCEPT,
       'the engine does not accept context on a human behalf', { kind: principal.kind });
   }
-  assertRegisteredHuman(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN);
+  assertHumanPrincipalShape(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN);
   if (typeof submittedFingerprint !== 'string' || !submittedFingerprint) {
     throw new ContractError(CODES.CAS_MISSING, 'acceptance must submit the fingerprint the caller believes is current');
   }
@@ -279,11 +368,18 @@ export function evaluateP5Acceptance({ principal, submittedFingerprint, observed
   if (!inspectInstant(knownAt).valid) {
     throw new ContractError(CODES.CAS_MISSING, 'acceptance must carry a canonical known_at');
   }
+  const registration = assertHumanRegistered(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN,
+    { registrationRegistry, projectBindingRef, at: knownAt });
   return {
     boundary: 'p5_acceptance',
     accepted_input_set_ref: acceptedInputSetRef,
     acceptor: principal.principal_id,
     known_at: knownAt,
+    // Which evidence cleared the acceptor, so a later reader is not left with a bare name.
+    acceptor_registration: {
+      registry_revision_id: registration.registry_revision_id,
+      entry_content_address: registration.entry_content_address,
+    },
     // Stated rather than left to inference.
     generation_advanced: false,
     binding_promoted: false,
@@ -298,8 +394,18 @@ export function evaluateP5Acceptance({ principal, submittedFingerprint, observed
  * two different accepted context sets share one number, and every snapshot citing that
  * number would become ambiguous.
  */
-export function evaluateGenerationAdvance({ principal, fromGeneration, toGeneration, submittedFingerprint, observedFingerprint }) {
-  assertRegisteredHuman(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN);
+export function evaluateGenerationAdvance({
+  principal, fromGeneration, toGeneration, submittedFingerprint, observedFingerprint,
+  registrationRegistry, projectBindingRef, knownAt,
+}) {
+  assertHumanPrincipalShape(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN);
+  // A registration holds at an instant, so the boundary has to name one. Without it the
+  // evidence check would have to pick a time, and picking one is how a lapsed registration
+  // keeps clearing a gate.
+  if (!inspectInstant(knownAt).valid) {
+    throw new ContractError(CODES.BOUNDARY_TIME_INVALID,
+      'a generation advance must carry a canonical known_at; a registration is only ever verified at an instant');
+  }
   if (!Number.isSafeInteger(fromGeneration) || !Number.isSafeInteger(toGeneration)) {
     throw new ContractError(CODES.GENERATION_NOT_MONOTONIC, 'generations must be safe integers');
   }
@@ -311,7 +417,19 @@ export function evaluateGenerationAdvance({ principal, fromGeneration, toGenerat
   if (submittedFingerprint !== observedFingerprint) {
     throw new ContractError(CODES.CAS_MISMATCH, 'the generation moved since it was read');
   }
-  return { boundary: 'generation_advance', from: fromGeneration, to: toGeneration, context_accepted_here: false };
+  const registration = assertHumanRegistered(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN,
+    { registrationRegistry, projectBindingRef, at: knownAt });
+  return {
+    boundary: 'generation_advance',
+    from: fromGeneration,
+    to: toGeneration,
+    known_at: knownAt,
+    advanced_by_registration: {
+      registry_revision_id: registration.registry_revision_id,
+      entry_content_address: registration.entry_content_address,
+    },
+    context_accepted_here: false,
+  };
 }
 
 export const REQUIRED_CONTEXT_REQUEST_FIELDS = Object.freeze([
@@ -584,9 +702,16 @@ function assertRecomputes(name, element, recompute, { requiresInputs = true } = 
  *    reproduce exactly. A verdict nobody can recompute is a claim, not a result.
  * 3. It checks the binding on every element, not on the four that were easiest to reach.
  *    Partial coverage is what makes a cross-project chain assemblable in the first place.
+ * 4. It does not believe a claim of registration, its own caller's included. The writer, the
+ *    approver, and every registration the recomputed boundaries rest on are verified against
+ *    one registration registry supplied to this gate — not against whatever registry a chain
+ *    element happened to carry in its recompute inputs. A chain that brought its own registry
+ *    would be certifying its own approvers.
  */
-export function evaluateP8Write({ principal, approval, chain, submittedFingerprint, observedFingerprint }) {
-  assertRegisteredHuman(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN);
+export function evaluateP8Write({
+  principal, approval, chain, submittedFingerprint, observedFingerprint, registrationRegistry,
+}) {
+  assertHumanPrincipalShape(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN);
 
   if (!approval || approval.approved !== true || !approval.approver_principal_id) {
     throw new ContractError(CODES.WRITE_WITHOUT_APPROVAL,
@@ -643,6 +768,26 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
   for (const name of P8_CHAIN_RECORD_ELEMENTS) assertChainElementProvenance(name, chain[name], binding);
   assertChainElementProvenance('approval', approval, binding);
 
+  // Registration evidence for the two people this write names, against the registry supplied
+  // to this gate and scoped to this chain's binding. The writer is checked at the moment the
+  // approval was given, because that is the instant the whole chain is anchored to.
+  const writerRegistration = assertHumanRegistered(principal, CODES.PRINCIPAL_NOT_REGISTERED_HUMAN,
+    { registrationRegistry, projectBindingRef: binding, at: approval.approved_at });
+  let approverRegistration = null;
+  try {
+    approverRegistration = assertRegisteredSubject({
+      registry: registrationRegistry,
+      subjectKind: SUBJECT_KINDS.HUMAN,
+      subjectId: approval.approver_principal_id,
+      projectBindingRef: binding,
+      at: approval.approved_at,
+    });
+  } catch (e) {
+    throw new ContractError(CODES.WRITE_APPROVAL_NOT_HUMAN,
+      'the approval names an approver that no verifiable registration evidence places in this project at the moment of approval',
+      { cause_code: e?.code ?? null });
+  }
+
   const generation = chain.accepted_context_generation;
   if (!Number.isSafeInteger(generation) || generation < 0) {
     throw new ContractError(CODES.WRITE_CHAIN_INCOMPLETE, 'accepted_context_generation must be a non-negative safe integer');
@@ -659,10 +804,16 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
   // 'p5_acceptance'` is a label anyone can type; running evaluateP5Acceptance over the
   // recorded principal and fingerprints is what decides whether a registered human actually
   // cleared that boundary on this state.
-  assertRecomputes('p5_acceptance', chain.p5_acceptance, (i) => evaluateP5Acceptance(i));
+  //
+  // The registry and the binding are supplied here rather than taken from the recorded inputs.
+  // A chain carrying its own registration evidence would be a chain vouching for its own
+  // acceptor, which is the same self-certification the node set closed one lane over.
+  assertRecomputes('p5_acceptance', chain.p5_acceptance,
+    (i) => evaluateP5Acceptance({ ...i, registrationRegistry, projectBindingRef: binding }));
   // Recomputing the advance also settles where it started from: the boundary refuses anything
   // but a single step, and the step it produced has to end at the generation this write cites.
-  assertRecomputes('generation_advance', chain.generation_advance, (i) => evaluateGenerationAdvance(i));
+  assertRecomputes('generation_advance', chain.generation_advance,
+    (i) => evaluateGenerationAdvance({ ...i, registrationRegistry, projectBindingRef: binding }));
   if (chain.snapshot.accepted_context_generation !== generation) {
     throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
       'the snapshot belongs to a different accepted context generation, so this write is stale',
@@ -730,7 +881,7 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
   // records it carries, against the task intent in this same chain, and P7 is then re-run over
   // the gate that recomputation produced rather than over the one the caller supplied.
   const recomputedGate = assertRecomputes('policy_gate', chain.policy_gate,
-    (i) => evaluateTaskDriverPolicyGate({ ...i, taskIntent: chain.task_intent }));
+    (i) => evaluateTaskDriverPolicyGate({ ...i, taskIntent: chain.task_intent, registrationRegistry }));
   // P7 carries no recompute inputs of its own: its inputs are two other links of this same
   // chain, which have already been verified above.
   assertRecomputes('task_driver', chain.task_driver,
@@ -813,6 +964,10 @@ export function evaluateP8Write({ principal, approval, chain, submittedFingerpri
     chain_elements_verified: [...REQUIRED_P8_CHAIN_ELEMENTS],
     chain_elements_recomputed: [...P8_RECOMPUTED_CHAIN_ELEMENTS],
     provenance_verified_for: [...P8_CHAIN_RECORD_ELEMENTS, 'approval'],
+    // One registry, named, for every registration this write rests on.
+    registration_registry_revision_id: writerRegistration.registry_revision_id,
+    registration_verified_for: ['writer_principal', 'approver', 'p5_acceptance', 'generation_advance', 'policy_gate_authority'],
+    approver_registration_entry_address: approverRegistration.entry_content_address,
     // This engine evaluates the gate. It does not hold the external sole-writer authority,
     // so no ledger entry is produced here and the count says so.
     gate_evaluation_only: true,

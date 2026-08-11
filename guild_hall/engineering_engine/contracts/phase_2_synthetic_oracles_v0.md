@@ -3,7 +3,7 @@
 Status: `SPEC FROZEN BEFORE IMPLEMENTATION / PUBLIC SYNTHETIC ONLY`
 
 명세: `fixtures/phase_2_oracle_spec.json` (동결 `fixtures/phase_2_oracle_spec.sha256`)
-시험: `tests/phase_2_oracle_conformance.mjs` (136 통과 / 0 실패 / 금지출력 위반 0)
+시험: `tests/phase_2_oracle_conformance.mjs` (154 통과 / 0 실패 / 금지출력 위반 0)
 
 ## 1. 왜 먼저 동결했나
 
@@ -47,6 +47,10 @@ Status: `SPEC FROZEN BEFORE IMPLEMENTATION / PUBLIC SYNTHETIC ONLY`
 `D` 두 겹인 이유는 builder 를 거치지 않고 손으로 만들어진 기록이 존재할 수 있기 때문이다. 시험은 두 층을 각각 공격한다(`O4/record/*`, `O4/invariant/*`). 거부는 실패한 검사 이름을 그대로 낸다. 어느 거부든 읽는 법은 `HOLD` 다 — 이 쌍은 invariant 가 아니므로 precedence 에 대해 아무것도 말할 수 없다.
 
 `D` 정규화(`normaliseClaimValue`)는 공백과 대소문자만 접는다. 그 이상은 "다르게 쓴 두 요구사항이 같은 뜻"이라는 판단이 되고, 결정론 kernel 이 할 판단이 아니다.
+
+`O` 두 겹을 세운 뒤에도 **`source_revision_ref` 는 bare string 을 받았고 시간값은 검사하지 않았다.** 문자열은 revision id 로 읽혔으므로 서로 다른 두 문자열이 서로 다른 두 revision 으로 셈해졌다 — 어느 쪽도 bytes 로 해소할 수 없는데, revision 을 인용하는 이유가 바로 그것이다. `valid_at` / `known_at` 은 그대로 통과했으므로 `'yesterday'` 로 날짜된 쌍이나 valid 보다 먼저 known 인 쌍이 precedence 를 결정했다. precedence 는 언제나 한 시점에서만 물어지는 질문이다.
+
+`D` 정정: 두 겹 모두 **정확한 typed revision ref**(`classifyRef` 가 `ref_resolvable` 을 내는 4필드 tuple)와 **양쪽의 정합한 시간**(canonical instant, `known_at >= valid_at`)을 요구한다. invariant 는 실패한 검사를 `exact_typed_source_revision_refs` · `both_sides_dated_coherently` 로 이름 붙여 낸다. positive control 은 그대로다 — baseline 대 wiki, 정확한 typed ref, 두 lineage 보존, baseline governing.
 
 `P` `O7` 은 cache 격리가 **구조적**임을 확인한다. `pb-alpha` 와 `pb-bravo` 의 cache key 가 애초에 다르므로, 사후 필터가 아니라 도달 자체가 불가능하다. capsule 쪽도 같은 규칙을 지며 multi-hop 과 edge/node binding 혼재 케이스를 함께 본다.
 

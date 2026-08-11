@@ -17,6 +17,8 @@ import {
   assessResponseSufficiency, assertP5OrchestrationBoundaryEvaluable, assertNoTransport, NON_CAPABILITIES,
 } from '../kernel/context_receipt.mjs';
 import { REQUIRED_RECEIPT_FIELDS as TOPOLOGY_RECEIPT_FIELDS } from '../kernel/delivery_receipt.mjs';
+import { CODES as REG } from '../kernel/registration.mjs';
+import { buildRegistrationRegistry, humanEntry, authorityEntry } from '../fixtures/registration_evidence.mjs';
 import { resolveIdempotency } from '../kernel/mcp_contract.mjs';
 import { ContractError } from '../kernel/errors.mjs';
 
@@ -125,10 +127,35 @@ const responseCandidate = (over = {}) => ({
   ...over,
 });
 
+// The authority reference the exchange is conducted under has to resolve to something. Until
+// it did, the three records only had to agree on a string, and whoever assembled them wrote all
+// three. Synthetic evidence, pinned and content-addressed, exactly as the P5 boundary itself
+// requires; it does not settle D-P10-08 any more than the lane 1A fixtures do.
+const REG_FROM = '2026-01-01T00:00:00.000Z';
+const REG_TO = '2026-12-31T00:00:00.000Z';
+const REGISTRY = buildRegistrationRegistry({
+  projectBindingRef: BINDING,
+  entries: [
+    authorityEntry({
+      subjectId: 'authority-registration-1', projectBindingRef: BINDING,
+      authorityFamily: 'project_contract_baseline', validFrom: REG_FROM, validTo: REG_TO,
+    }),
+    humanEntry({ subjectId: 'person-3', projectBindingRef: BINDING, validFrom: REG_FROM, validTo: REG_TO }),
+  ],
+});
+const BRAVO_REGISTRY = buildRegistrationRegistry({
+  projectBindingRef: 'pb-bravo',
+  entries: [authorityEntry({
+    subjectId: 'authority-registration-1', projectBindingRef: 'pb-bravo',
+    authorityFamily: 'project_contract_baseline', validFrom: REG_FROM, validTo: REG_TO,
+  })],
+  revisionId: 'registration-registry-bravo-r1',
+});
+
 const boundary = (over = {}) => ({
   requestReceipt: requestReceipt(), responseReceipt: responseReceipt(), responseCandidate: responseCandidate(),
   projectBindingRef: BINDING, acceptedContextGeneration: GENERATION, observedCasFingerprint: CAS,
-  freshnessWindow: WINDOW, now: NOW,
+  freshnessWindow: WINDOW, now: NOW, registrationRegistry: REGISTRY,
   ...over,
 });
 
@@ -462,6 +489,94 @@ rejects('P3/p5_boundary/inapplicable_authority_stops',
 rejects('P3/p5_boundary/a_receipt_cannot_declare_acceptance',
   () => assertP5OrchestrationBoundaryEvaluable(boundary({ responseReceipt: responseReceipt({ is_acceptance: true }) })),
   C.RECEIPT_CLAIMS_ACCEPTANCE);
+
+// ---------------------------------------------------------------- B-07: the authority_ref
+//
+// The reproduced attack, first. A request receipt, a response receipt and a candidate all
+// naming one arbitrary authority reference used to make P5 evaluable: the three records agreed,
+// every linkage check passed, and nothing asked whether the thing they agreed about exists.
+// Whoever assembles the three writes all three, so the agreement cost the attacker nothing.
+
+{
+  const invented = 'authority-registration-invented';
+  let refusal = null;
+  try {
+    assertP5OrchestrationBoundaryEvaluable(boundary({
+      requestReceipt: requestReceipt({ authority_ref: invented }),
+      responseReceipt: responseReceipt({ authority_ref: invented }),
+      responseCandidate: responseCandidate({ authority_ref: invented }),
+    }));
+  } catch (e) { refusal = e; }
+  record('P3/p5_boundary/shared_nonexistent_authority_ref_is_not_evaluable',
+    refusal?.code === C.AUTHORITY_REF_NOT_REGISTERED,
+    refusal ? `${refusal.code} (cause ${refusal.detail?.cause_code})` : 'NOT REFUSED — three records agreed about nothing');
+  record('P3/p5_boundary/refusal_names_the_registration_cause',
+    refusal?.detail?.cause_code === REG.SUBJECT_NOT_REGISTERED
+      && refusal.detail.authority_family === 'project_contract_baseline',
+    'the refusal says which family it looked under and what the registration check answered');
+}
+rejects('P3/p5_boundary/registration_evidence_is_required',
+  () => assertP5OrchestrationBoundaryEvaluable(boundary({ registrationRegistry: undefined })),
+  C.AUTHORITY_REF_NOT_REGISTERED, 'with no evidence supplied there is nothing to resolve the reference in');
+rejects('P3/p5_boundary/authority_registered_in_another_project',
+  () => assertP5OrchestrationBoundaryEvaluable(boundary({ registrationRegistry: BRAVO_REGISTRY })),
+  C.AUTHORITY_REF_NOT_REGISTERED, 'the same reference registered for another project does not carry into this one');
+rejects('P3/p5_boundary/authority_registered_for_another_family',
+  () => assertP5OrchestrationBoundaryEvaluable(boundary({
+    responseCandidate: responseCandidate({ responding_authority_family: 'reviewed_wiki' }),
+  })),
+  C.AUTHORITY_REF_NOT_REGISTERED, 'the entry covers this reference under the baseline family and does not carry to another');
+rejects('P3/p5_boundary/authority_outside_its_registration_window',
+  () => assertP5OrchestrationBoundaryEvaluable(boundary({
+    requestReceipt: requestReceipt({ valid_at: '2027-03-01T00:00:00.000Z', known_at: '2027-03-01T09:00:00.000Z' }),
+    responseReceipt: responseReceipt({ valid_at: '2027-03-01T00:00:00.000Z', known_at: '2027-03-01T09:30:00.000Z' }),
+    responseCandidate: responseCandidate({ valid_at: '2027-03-01T00:00:00.000Z', known_at: '2027-03-01T09:30:00.000Z' }),
+    now: Date.parse('2027-03-01T09:45:00.000Z'),
+  })),
+  C.AUTHORITY_REF_NOT_REGISTERED, 'a lapsed registration does not make a later exchange evaluable');
+rejects('P3/p5_boundary/forged_registry_entry_refused',
+  () => assertP5OrchestrationBoundaryEvaluable(boundary({
+    requestReceipt: requestReceipt({ authority_ref: 'authority-smuggled' }),
+    responseReceipt: responseReceipt({ authority_ref: 'authority-smuggled' }),
+    responseCandidate: responseCandidate({ authority_ref: 'authority-smuggled' }),
+    registrationRegistry: {
+      ...REGISTRY,
+      entries: [...REGISTRY.entries, authorityEntry({
+        subjectId: 'authority-smuggled', projectBindingRef: BINDING,
+        authorityFamily: 'project_contract_baseline', validFrom: REG_FROM, validTo: REG_TO,
+      })],
+    },
+  })),
+  C.AUTHORITY_REF_NOT_REGISTERED, 'appending an entry breaks the address the registry declares about itself');
+rejects('P3/p5_boundary/two_halves_naming_different_authorities',
+  () => assertP5OrchestrationBoundaryEvaluable(boundary({
+    requestReceipt: requestReceipt({ authority_ref: 'authority-registration-2' }),
+  })),
+  C.RECEIPT_LINKAGE_BROKEN, 'a pair whose halves name different authorities is not one exchange under one authority');
+
+{
+  // The paired positive control. Everything the boundary is supposed to keep is still intact:
+  // it names one registered authority, and it remains an evaluation of whether a question can
+  // be put to a human — no acceptance, no generation advance, no ledger delta, both receipts
+  // linked by content.
+  const r = assertP5OrchestrationBoundaryEvaluable(boundary());
+  record('P3/p5_boundary/registered_authority_positive_control',
+    r.evaluable === true
+      && r.authority_registration.authority_ref === 'authority-registration-1'
+      && r.authority_registration.authority_family === 'project_contract_baseline'
+      && r.authority_registration.registry_revision_id === REGISTRY.registry_revision_ref.revision_id
+      && /^[0-9a-f]{64}$/.test(r.authority_registration.entry_content_address),
+    'the reference resolves in the evidence and the verdict says which entry resolved it');
+  record('P3/p5_boundary/registration_does_not_turn_the_candidate_into_an_acceptance',
+    r.remains_context_candidate === true
+      && r.p5_acceptance_performed === false
+      && r.generation_advanced === false
+      && r.erp_delta === 0
+      && r.linkage_verified === true
+      && r.context_request_receipt_id === REQUEST_RECEIPT_ID
+      && r.context_response_receipt_id === RESPONSE_RECEIPT_ID,
+    'candidate-only, zero generation advance, and the exact two-receipt linkage all survive the new check');
+}
 
 // ---------------------------------------------------------------- what this slice will not do
 

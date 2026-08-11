@@ -4,6 +4,8 @@
 // "guidance plus a template" does not add up to a contract baseline. And a high tier only
 // wins where it actually applies, so applicability is resolved before precedence.
 
+import { inspectInstant, compareCodePoints } from './canonical.mjs';
+import { classifyRef, RESOLUTION } from './identity.mjs';
 import { ContractError } from './errors.mjs';
 
 // Preserved verbatim from the accepted eight tier order. The machine key is the canonical
@@ -123,10 +125,33 @@ export function normaliseClaimValue(value) {
   return value.trim().replace(/\s+/gu, ' ').toLowerCase();
 }
 
+/**
+ * The revision a claim cites, or null when it does not cite one exactly.
+ *
+ * A bare string used to be accepted here and read as a revision id. It is not one: a string
+ * names nothing checkable, carries no content id, and cannot be resolved back to the bytes the
+ * side actually rested on — so a conflict record built from two strings looked complete while
+ * neither side could be re-derived. Two sides "citing different revisions" then meant no more
+ * than two different pieces of text. Only a fully formed exact revision ref counts.
+ */
 const claimRevisionId = (claim) => {
   const ref = claim?.source_revision_ref;
-  if (typeof ref === 'string') return ref;
-  return typeof ref?.revision_id === 'string' ? ref.revision_id : null;
+  return classifyRef(ref, { bytesAvailable: true }) === RESOLUTION.RESOLVABLE ? ref.revision_id : null;
+};
+
+/**
+ * The time semantics both sides of a conflict have to satisfy.
+ *
+ * Returns the failing field, or null. `known_at` before `valid_at` is the one worth naming: it
+ * says the record was known before the fact it asserts was even dated, which is the same
+ * refusal the graph applies to an edge. A side with incoherent times cannot be placed in the
+ * window a precedence question is asked about.
+ */
+const claimTimeFault = (claim) => {
+  for (const t of ['valid_at', 'known_at']) {
+    if (!inspectInstant(claim?.[t]).valid) return t;
+  }
+  return compareCodePoints(claim.known_at, claim.valid_at) < 0 ? 'known_at_precedes_valid_at' : null;
 };
 
 /**
@@ -164,13 +189,19 @@ export function recordSourceConflict(claims) {
     }
     if (claimRevisionId(claim) === null) {
       throw new ContractError(CODES.CONFLICT_CLAIM_INCOMPLETE,
-        'a source claim must cite an exact source revision; a side that cannot be traced to a revision cannot be preserved',
+        'a source claim must cite an exact typed source revision ref; a name, a string or a partial ref cannot be traced back to the bytes the side rested on',
         { claim_id: claim.claim_id });
     }
     if (typeof claim.lineage_ref !== 'string' || !claim.lineage_ref) {
       throw new ContractError(CODES.CONFLICT_CLAIM_INCOMPLETE,
         'a source claim must carry its lineage ref, or the preserved side cannot be re-derived',
         { claim_id: claim.claim_id });
+    }
+    const timeFault = claimTimeFault(claim);
+    if (timeFault !== null) {
+      throw new ContractError(CODES.CONFLICT_CLAIM_INCOMPLETE,
+        'a source claim must be dated coherently, or it cannot be placed in the window the precedence question is asked about',
+        { claim_id: claim.claim_id, time_fault: timeFault });
     }
   }
 
@@ -281,8 +312,26 @@ export function assertTwoSourceAuthorityInvariant(record) {
     }
     if (families[0] === families[1]) failed.push('the_two_authorities_are_not_equal');
 
+    // Exact typed refs on both sides, checked before distinctness. A hand-built record can
+    // carry bare strings that never went through `recordSourceConflict`, and two strings that
+    // differ are not two revisions that differ: nothing about them can be resolved, so the
+    // pair proves nothing about which source actually governs.
+    const exactRefs = [a, b].map((c) => claimRevisionId(c) !== null);
+    if (exactRefs.some((ok) => !ok)) {
+      failed.push('exact_typed_source_revision_refs');
+      detail.sides_without_an_exact_ref = exactRefs.filter((ok) => !ok).length;
+    }
+
     const revisions = [claimRevisionId(a), claimRevisionId(b)];
     if (revisions.some((r) => r === null) || revisions[0] === revisions[1]) failed.push('two_distinct_source_revisions');
+
+    // Coherent times on both sides, for the same reason. A pair whose dates do not resolve
+    // cannot be said to disagree *at a time*, and precedence is only ever asked at one.
+    const timeFaults = [a, b].map((c) => claimTimeFault(c)).filter((f) => f !== null);
+    if (timeFaults.length) {
+      failed.push('both_sides_dated_coherently');
+      detail.time_faults = timeFaults;
+    }
 
     if ([a, b].some((c) => typeof c.lineage_ref !== 'string' || !c.lineage_ref)) failed.push('lineage_preserved_for_both');
 

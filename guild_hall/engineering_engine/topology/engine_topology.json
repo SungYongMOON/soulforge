@@ -42,7 +42,7 @@
         "resolveAuthority"
       ],
       "export_count": 14,
-      "line_count": 346
+      "line_count": 395
     },
     {
       "module": "canonical",
@@ -76,7 +76,7 @@
         "selectCapsule"
       ],
       "export_count": 12,
-      "line_count": 393
+      "line_count": 459
     },
     {
       "module": "ceilings",
@@ -117,7 +117,7 @@
         "validateResponseCandidate"
       ],
       "export_count": 13,
-      "line_count": 587
+      "line_count": 632
     },
     {
       "module": "contract_config",
@@ -281,15 +281,18 @@
         "RESOLUTION",
         "assertNotPlaceholder",
         "classifyRef",
+        "exactRefIdentityKey",
         "inspectIdentifierOpacity",
         "isPlaceholder",
         "isWellFormedRef",
+        "logicalRevisionKey",
         "sameContent",
         "sameEntity",
+        "sameExactRef",
         "sameRevision"
       ],
-      "export_count": 10,
-      "line_count": 107
+      "export_count": 13,
+      "line_count": 150
     },
     {
       "module": "index",
@@ -342,6 +345,7 @@
         "REQUIRED_BUDGETS",
         "REQUIRED_CONTEXT_REQUEST_FIELDS",
         "REQUIRED_EDGE_ATTRIBUTES",
+        "REQUIRED_ENTRY_FIELDS",
         "REQUIRED_ENVELOPE_FIELDS",
         "REQUIRED_EXTRACTION_FIELDS",
         "REQUIRED_FINDING_FIELDS",
@@ -349,6 +353,7 @@
         "REQUIRED_INVENTORY_FIELDS",
         "REQUIRED_MANIFEST_FIELDS",
         "REQUIRED_RECEIPT_FIELDS",
+        "REQUIRED_REGISTRY_FIELDS",
         "REQUIRED_REQUEST_FIELDS",
         "REQUIRED_SELECTOR_FIELDS",
         "RESOLUTION",
@@ -357,6 +362,7 @@
         "SENSITIVITY_STATES",
         "SERIALISED_BOUNDARIES",
         "SNAPSHOT_CLAIM_CEILING_AXIS",
+        "SUBJECT_KINDS",
         "TIME_PRECISION",
         "VERDICT",
         "abiSatisfies",
@@ -377,12 +383,14 @@
         "assertKnownSurface",
         "assertMintingLaneHeld",
         "assertMissingIsConfirmed",
+        "assertNoLiveRegistryAccess",
         "assertNoOrphanClaim",
         "assertNoRawPayload",
         "assertNotPlaceholder",
         "assertNotTruthOwner",
         "assertParallelStageMayNotMint",
         "assertProvenanceLayersSeparate",
+        "assertRegisteredSubject",
         "assertSearchScope",
         "assertSingleCustodyMode",
         "assertSnapshotImmutable",
@@ -419,6 +427,7 @@
         "evaluateP5Acceptance",
         "evaluateP8Write",
         "evaluateReplayability",
+        "exactRefIdentityKey",
         "foldCurrentView",
         "forbidNeighbourInference",
         "forbidRankArithmetic",
@@ -434,6 +443,7 @@
         "judgeAllSurfaces",
         "judgeEdge",
         "judgeSurface",
+        "logicalRevisionKey",
         "mint",
         "parseAbiRange",
         "planModuleTransition",
@@ -444,6 +454,8 @@
         "propagateProvenance",
         "readSnapshotClaimCeiling",
         "recordIdempotency",
+        "registrationEntryContentAddress",
+        "registrationRegistryContentAddress",
         "releaseLane",
         "resolveApplicability",
         "resolveAuthority",
@@ -451,6 +463,7 @@
         "routeDisposition",
         "sameContent",
         "sameEntity",
+        "sameExactRef",
         "sameRevision",
         "selectCapsule",
         "sha256Hex",
@@ -470,10 +483,11 @@
         "validateRelease",
         "validateSnapshotEnvelope",
         "validateStateElement",
-        "validateWindow"
+        "validateWindow",
+        "verifyRegistrationRegistry"
       ],
-      "export_count": 176,
-      "line_count": 148
+      "export_count": 187,
+      "line_count": 160
     },
     {
       "module": "lineage",
@@ -590,7 +604,25 @@
         "validateContextRequest"
       ],
       "export_count": 25,
-      "line_count": 828
+      "line_count": 983
+    },
+    {
+      "module": "registration",
+      "area": "kernel",
+      "exports": [
+        "CODES",
+        "OPEN_OWNER_DECISION",
+        "REQUIRED_ENTRY_FIELDS",
+        "REQUIRED_REGISTRY_FIELDS",
+        "SUBJECT_KINDS",
+        "assertNoLiveRegistryAccess",
+        "assertRegisteredSubject",
+        "registrationEntryContentAddress",
+        "registrationRegistryContentAddress",
+        "verifyRegistrationRegistry"
+      ],
+      "export_count": 10,
+      "line_count": 340
     },
     {
       "module": "snapshot",
@@ -642,11 +674,25 @@
       "line_count": 350
     }
   ],
-  "module_count": 24,
+  "module_count": 25,
   "module_edges": [
     {
       "from": "authority",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "authority",
       "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "authority",
+      "to": "identity",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -701,6 +747,13 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "capsule",
+      "to": "identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "ceilings",
       "to": "errors",
       "relation": "imports",
@@ -745,6 +798,13 @@
     {
       "from": "context_receipt",
       "to": "minting",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "registration",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -1115,6 +1175,13 @@
     },
     {
       "from": "index",
+      "to": "registration",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "index",
       "to": "snapshot",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
@@ -1247,6 +1314,48 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "pipeline",
+      "to": "registration",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "registration",
+      "to": "authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "registration",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "registration",
+      "to": "contract_config",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "registration",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "registration",
+      "to": "identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "snapshot",
       "to": "canonical",
       "relation": "imports",
@@ -1303,7 +1412,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 94,
+  "module_edge_count": 105,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -1654,5 +1763,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "dc606a313e7d8004d467f326c50b995c89a034638121b37523d555257941ff1d"
+  "topology_digest": "31b549320abf4b75fd342a0cf0b40552636416085ba8eb5eaa5ab17b14ef4d63"
 }

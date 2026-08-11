@@ -78,11 +78,17 @@ Status: `LANE CONTRACT / AUTHOR-WRITTEN FIXTURES / INDEPENDENT LOCK OWED BY 1V`
 
 ## 6. P5 · generation · P8
 
-`D` **P5**: 엔진은 사람을 대신해 수락하지 않는다. `kind: 'engine'` 또는 `'agent'` 는 거부한다. 검사는 **관찰된 principal kind** 에 대해 하며 호출자가 자기 권한에 대해 주장한 값을 근거로 하지 않는다. CAS 필수 — 읽은 뒤 움직인 context set 위에 덮어쓰지 않고 거부한다. 결과는 `generation_advanced: false` 를 **명시**한다.
+`D` **P5**: 엔진은 사람을 대신해 수락하지 않는다. `kind: 'engine'` 또는 `'agent'` 는 거부한다. CAS 필수 — 읽은 뒤 움직인 context set 위에 덮어쓰지 않고 거부한다. 결과는 `generation_advanced: false` 를 **명시**한다.
 
-`D` **generation advance**: 정확히 +1. 건너뛰기·되돌리기·정지 모두 거부한다. 되돌릴 수 있으면 **한 번호가 서로 다른 두 context set 을 뜻하게** 되고, 그 번호를 인용한 모든 Snapshot 이 모호해진다.
+`O` 이전 판은 "검사는 관찰된 principal kind 에 대해 한다"고 적었다. **그 kind 자체가 호출자가 쓰는 필드였다.** `kind: 'registered_human'` 이라고 적은 principal 은, 아무도 등록한 적 없는 식별자를 달고도 P5·generation advance·P8 writer 세 경계를 전부 통과했다. 계약이 "등록된 사람만"이라고 가장 강하게 말하는 자리에서 실제로 확인한 것은 그 주장뿐이었다.
 
-`D` **P8**: 명시적 승인 + 승인자 지목 필수. **자기 승인은 기본 거부** — `self_approval_permitted: true` 가 있어야 통과하고, 그것이 애초에 허용되는지는 Owner 결정이다. `candidate_only: true` 인 task intent 는 거부한다: 엔진이 제안했고 아무도 승인하지 않았는데 ledger 에 나타나는 것이 이 검사가 막는 실패다.
+`D` **등록은 증거로 확인한다.** 세 경계는 `registrationRegistry` 를 요구한다. registry 는 content-addressed 이고 자기 revision 에 고정된다 — `registry_content_address` 가 `registry_revision_ref.content_id` 와 같아야 하고, entry 주소 집합과 registry 주소를 kernel 이 다시 계산한다. entry 하나를 붙이거나 고치면 registry 가 선언한 주소가 깨진다. 확인은 project binding 과 시각(`known_at`)까지 범위를 맞춘다. 판정에는 사용한 `registry_revision_id` 와 `entry_content_address` 가 함께 남는다.
+
+`P` 이것은 **D-P10-08 을 닫지 않는다.** 누가 등록될 수 있는지는 여전히 Owner 결정이다. 닫힌 것은 "그렇다고 말하는 것만으로 충분하다"는 상태다. kernel 은 live registry 를 조회하지 않고 공급된 증거만 검증한다 — `kernel/registration.mjs` 가 그 경계를 코드로 선언한다.
+
+`D` **generation advance**: 정확히 +1. 건너뛰기·되돌리기·정지 모두 거부한다. 되돌릴 수 있으면 **한 번호가 서로 다른 두 context set 을 뜻하게** 되고, 그 번호를 인용한 모든 Snapshot 이 모호해진다. P5 와 같은 등록 증거를 요구하며, 등록은 시각에서만 성립하므로 canonical `known_at` 도 함께 요구한다.
+
+`D` **P8**: 명시적 승인 + 승인자 지목 필수. writer principal 과 승인자 모두 이 gate 에 공급된 **하나의** registry 로 확인하며, 확인 시각은 `approved_at` 이다. **자기 승인은 기본 거부** — `self_approval_permitted: true` 가 있어야 통과하고, 그것이 애초에 허용되는지는 Owner 결정이다. `candidate_only: true` 인 task intent 는 거부한다: 엔진이 제안했고 아무도 승인하지 않았는데 ledger 에 나타나는 것이 이 검사가 막는 실패다.
 
 `P` P8 이후 **Snapshot 을 재작성하지 않는다**(`snapshot_rewritten: false`). task 쪽이 불변 Snapshot 을 역방향 참조한다.
 
@@ -110,6 +116,14 @@ Status: `LANE CONTRACT / AUTHOR-WRITTEN FIXTURES / INDEPENDENT LOCK OWED BY 1V`
 | `assertTaskDriverNotActivated()` | 판정을 활성화로 읽는 것을 거부 |
 
 `P` **활성화는 하지 않는다.** `P7.activation_state === 'not_activated'`, 판정은 `candidate_only === true` · `driver_activated === false` · `erp_delta === 0` 이다. 단계를 정의한 것이 live driver 를 켜는 권한을 만들지 않는다.
+
+### 8.0.1 `authority` 검사는 호출자가 답하지 않는다
+
+`O` 이전 판의 `authority` 검사는 `authority.registered === true && authority.applicability === true` 였다. **둘 다 write 를 요청하는 쪽이 적는 필드다.** 존재하지 않는 `authority_ref` 에 `registered: true` 를 붙이면 gate 를 통과했고, 따라서 P7 과 그 위에 선 모든 P8 write 를 통과했다. P8 write 에 대한 가장 강한 전제조건이 사슬에서 가장 약한 값이었다.
+
+`D` 입력은 `{ authority_ref, authority_family }` 두 필드다. `registered` 또는 `applicability` 가 들어오면 **무시하지 않고 거부한다** — 그것을 주장하는 것은 이 gate 가 판단하려는 대상을 주장하는 것이고, 무시하면 호출자가 자기 입력이 아무 효과도 없다는 사실을 모른 채 지나간다. 실패 사유는 `detail.authority_failure` 로 그대로 나온다.
+
+`D` 등록과 적용 가능성은 **같은 등록 증거**에서 나온다. entry 가 이 project binding 과 이 authority family 를 덮고 `known_at` 이 그 유효 구간 안에 있으면 통과하고, 아니면 통과하지 않는다. 판정에는 `authority_registration { authority_ref, authority_family, registry_revision_id, entry_content_address }` 가 남는다.
 
 `D` `assertStageDefined()` 는 이제 `P5` · `P6` · `P7` · `P8` 을 받고 그 밖의 단계를 거부한다.
 
@@ -144,6 +158,8 @@ evidence (immutable receipt + CAS)
 `D` **불변 provenance 를 record 마다 요구하고 다시 계산한다.** record 10종과 승인은 각각 `provenance { immutable, content_address, project_binding_ref, recorded_at }` 를 나른다. `content_address` 는 그 record 의 내용(자기 provenance 제외)에서 `chainElementContentAddress(name, element)` 로 다시 계산해 대조한다. 기록된 뒤 편집된 고리는 모든 필드가 그대로여도 실패한다. 이름이 재료에 들어가므로 같은 내용이라도 다른 위치의 고리는 같은 주소를 갖지 않는다.
 
 `D` **네 boundary 는 다시 실행한다.** `p5_acceptance` · `generation_advance` · `policy_gate` · `task_driver` 는 record 가 나르는 `recompute_inputs` 로 각 boundary 함수를 다시 돌리고, 기록된 판정이 정확히 재현되는지 canonical form 으로 대조한다. 재현하지 못하는 판정은 결과가 아니라 주장이다. `task_driver` 는 자기 입력이 같은 사슬의 다른 두 고리이므로 별도 입력을 요구하지 않는다.
+
+`D` **registration registry 만은 record 에서 읽지 않는다.** P8 에 공급된 registry 를 재실행에 주입하고, 사슬이 `recompute_inputs` 에 실어 온 registry 는 무시한다. 사슬이 자기 acceptor 를 보증하는 증거를 스스로 들고 오면 재계산은 자기 자신과 일치할 뿐 아무것도 증명하지 못한다. 이는 lane 1C 에서 node 집합이 edge 의 자기증명을 막는 것과 같은 형태다.
 
 `D` **evidence 의 CAS 사슬을 계산한다.** `receipt_material` 이 실제로 있어야 하고, 그 내용이 `evidence.content_address` 로 해시되어야 하며, `receipt_ref` 가 서로 일치해야 한다. 뒤에 아무것도 없는 content address 는 아무것도 지시하지 않는다.
 

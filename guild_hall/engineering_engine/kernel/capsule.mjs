@@ -23,11 +23,23 @@
 //    honesty of the thing being checked. So: no node set, no capsule. Both endpoints of every
 //    traversed edge must be declared, both must agree with the selector, and both must agree
 //    with the binding the edge itself claims.
+// 6. A node the traversal reaches but the node set does not declare refuses the whole
+//    selection. It used to be dropped as an exclusion, which reads as "there was material we
+//    would not show you" — but that is not what happened. What happened is that the slice
+//    cannot say which project the node belongs to, so the isolation property this selector
+//    claims is unproven for every ref it returns, not just for that one. An incomplete
+//    witness set is a broken projection, and the answer to a broken projection is no capsule.
+// 7. Refs are matched on the complete exact-ref identity tuple, content id included. Matching
+//    on entity and revision alone let an edge point at "the same node" while naming different
+//    bytes, and the declared node then vouched for content it had never seen. For the same
+//    reason a node set may not declare one logical node twice: a second declaration silently
+//    replaced the first, so whichever binding or content came last won.
 
 import { createHash } from 'node:crypto';
 import { canonicalise, compareCodePoints, inspectInstant } from './canonical.mjs';
 import { CANONICAL } from './contract_config.mjs';
 import { AUTHORITY_FAMILIES, APPLICABILITY } from './authority.mjs';
+import { exactRefIdentityKey, logicalRevisionKey } from './identity.mjs';
 import { validateEdge } from './graph.mjs';
 import { ContractError } from './errors.mjs';
 
@@ -43,6 +55,9 @@ export const CODES = Object.freeze({
   EDGE_INVALID: 'CAPSULE_EDGE_INVALID',
   NODE_SET_MISSING: 'CAPSULE_NODE_SET_MISSING',
   NODE_BINDING_MISSING: 'CAPSULE_NODE_BINDING_MISSING',
+  NODE_NOT_DECLARED: 'CAPSULE_NODE_NOT_DECLARED',
+  NODE_DECLARED_TWICE: 'CAPSULE_NODE_DECLARED_TWICE',
+  NODE_IDENTITY_MISMATCH: 'CAPSULE_NODE_IDENTITY_MISMATCH',
 });
 
 /**
@@ -50,9 +65,13 @@ export const CODES = Object.freeze({
  * material it refused, and a free-text reason would be the obvious place for the refused
  * identifier to reappear.
  */
+// `project_binding_unknown` is deliberately absent. An exclusion says "this exists and you are
+// not getting it", which is a statement the selector can only make about material whose scope
+// it actually knows. A node with no declared binding is not excluded material; it is a hole in
+// the witness set, and it refuses the selection instead (see CODES.NODE_NOT_DECLARED).
 export const EXCLUSION_REASONS = Object.freeze([
   'acl_denied_at_seed', 'acl_denied_at_hop',
-  'project_binding_mismatch', 'project_binding_unknown',
+  'project_binding_mismatch',
   'edge_type_not_allowlisted', 'applicability_false', 'applicability_unknown',
   'top_k_budget',
 ]);
@@ -180,16 +199,34 @@ export function selectCapsule(selector, graph, aclCheck) {
     throw new ContractError(CODES.NODE_SET_MISSING,
       'graph.nodes is required; without the complete node set an edge binding is self-certifying and cross-project reach cannot be checked');
   }
+  //
+  // Keyed on the complete identity tuple, and cross-indexed by the weaker subject-and-revision
+  // key so that a *contradiction* in the slice can be told apart from a simple absence. Both
+  // maps are built with `set` on a key that has been checked for absence first: the previous
+  // build wrote straight into the map, so a second declaration of the same node overwrote the
+  // first and the last binding written won. Two declarations of one node — whether they differ
+  // in binding, in content id, or in nothing at all — mean the slice does not have a single
+  // answer to "which project is this", and a selector cannot pick one on its behalf.
   const nodeBinding = new Map();
+  const nodeByLogicalKey = new Map();
   for (const n of declaredNodes) {
-    if (!n?.ref?.entity_id || !n?.ref?.revision_id) {
-      throw new ContractError(CODES.EDGE_INVALID, 'a declared node must carry an exact revision ref');
+    const key = exactRefIdentityKey(n?.ref);
+    if (key === null) {
+      throw new ContractError(CODES.EDGE_INVALID,
+        'a declared node must carry a complete exact revision ref; a node identified by less than the full tuple cannot be matched to what an edge points at');
     }
     if (typeof n.project_binding_ref !== 'string' || !n.project_binding_ref) {
       throw new ContractError(CODES.NODE_BINDING_MISSING,
         'a declared node must carry a project_binding_ref; an unbound node cannot be checked for cross-project reach');
     }
-    nodeBinding.set(`${n.ref.entity_id}@${n.ref.revision_id}`, n.project_binding_ref);
+    const logical = logicalRevisionKey(n.ref);
+    if (nodeByLogicalKey.has(logical)) {
+      throw new ContractError(CODES.NODE_DECLARED_TWICE,
+        'the node set declares the same subject revision more than once; a repeated declaration has no single binding or content, and taking the last one silently picks a winner',
+        { differs_in_content_id: nodeByLogicalKey.get(logical) !== key });
+    }
+    nodeByLogicalKey.set(logical, key);
+    nodeBinding.set(key, n.project_binding_ref);
   }
 
   const allowed = new Set(selector.traversal.allowlisted_edge_types);
@@ -204,23 +241,45 @@ export function selectCapsule(selector, graph, aclCheck) {
   };
 
   /**
-   * Node level binding check. Absent from the declared node set is refused, not assumed.
+   * Resolves one ref against the declared node set, on the complete identity tuple.
+   *
+   * Three outcomes, and the two failures are different faults rather than degrees of the same
+   * one. A ref whose subject revision is declared but whose content id is not the declared one
+   * is a contradiction *inside* the slice: something is pointing at bytes the witness never
+   * vouched for, which is exactly the shape of a forged endpoint. A ref that is not declared at
+   * all means the witness set is incomplete. Neither can be answered by excluding that one ref,
+   * because both say the slice cannot support the isolation claim the capsule would carry.
+   */
+  const resolveDeclaredNode = (ref, hop) => {
+    const key = exactRefIdentityKey(ref);
+    if (key !== null && nodeBinding.has(key)) return key;
+    const logical = logicalRevisionKey(ref);
+    if (logical !== null && nodeByLogicalKey.has(logical)) {
+      throw new ContractError(CODES.NODE_IDENTITY_MISMATCH,
+        'a traversed ref names the same subject revision as a declared node but different content; the node set vouches for bytes, not for names, so this slice contradicts itself',
+        { hop });
+    }
+    throw new ContractError(CODES.NODE_NOT_DECLARED,
+      'the traversal reached a ref the node set does not declare; an undeclared node has no witness to which project it belongs to, so the whole selection is refused rather than one ref quietly omitted',
+      { hop });
+  };
+
+  /**
+   * Node level binding check, over a key already resolved against the node set.
    *
    * Two checks together cover the forged binding, and neither covers it alone. This one says
    * the node itself belongs here; the edge check below says the edge was asserted here. An
    * edge claiming alpha while pointing at a node the projection declares as bravo fails here;
    * an edge claiming bravo between two alpha nodes fails there.
    */
-  const nodeBindingVerdict = (ref) => {
-    const declared = nodeBinding.get(`${ref?.entity_id}@${ref?.revision_id}`);
-    if (declared === undefined) return 'project_binding_unknown';
-    return declared === selector.project_binding_ref ? 'ok' : 'project_binding_mismatch';
-  };
+  const nodeBindingVerdict = (key) => (nodeBinding.get(key) === selector.project_binding_ref
+    ? 'ok'
+    : 'project_binding_mismatch');
 
   const admit = (ref, hop, deniedReason) => {
-    const key = `${ref.entity_id}@${ref.revision_id}`;
+    const key = resolveDeclaredNode(ref, hop);
     if (seenNodes.has(key)) return false;
-    const binding = nodeBindingVerdict(ref);
+    const binding = nodeBindingVerdict(key);
     if (binding !== 'ok') { exclude(hop, binding); return false; }
     // ACL at this hop, not only at the seed
     if (!aclCheck(ref, hop)) { exclude(hop, deniedReason ?? 'acl_denied_at_hop'); return false; }
@@ -230,6 +289,8 @@ export function selectCapsule(selector, graph, aclCheck) {
 
   let frontier = [];
   for (const ref of selector.seed_refs) {
+    // A seed is a traversed node too. Admitting one the node set does not declare would put the
+    // whole walk on an unwitnessed footing before the first hop.
     if (admit(ref, 0, 'acl_denied_at_seed')) frontier.push({ ref, hop: 0 });
   }
 
@@ -237,8 +298,12 @@ export function selectCapsule(selector, graph, aclCheck) {
   for (let hop = 1; hop <= selector.traversal.max_hops; hop++) {
     const next = [];
     for (const { ref } of frontier) {
+      const fromKey = exactRefIdentityKey(ref);
       for (const edge of edges) {
-        if (edge.from_ref?.entity_id !== ref.entity_id || edge.from_ref?.revision_id !== ref.revision_id) continue;
+        // Matched on the whole tuple. An edge leaving "the same" subject revision but naming
+        // different bytes is not an edge out of this node, and reading it as one was how a
+        // forged endpoint attached itself to a legitimately admitted frontier.
+        if (exactRefIdentityKey(edge.from_ref) !== fromKey) continue;
         // The binding is checked before the edge is read for anything else, so material from
         // another binding is never ranked, counted or pointed at.
         if (edge.project_binding_ref !== selector.project_binding_ref) { exclude(hop, 'project_binding_mismatch'); continue; }
@@ -284,9 +349,10 @@ export function selectCapsule(selector, graph, aclCheck) {
   // because "should already" is the assumption a leak lives in. A capsule that cannot prove
   // every returned ref is bound to the requested project is not returned at all.
   for (const c of included) {
-    if (nodeBindingVerdict(c.ref) !== 'ok') {
+    const key = exactRefIdentityKey(c.ref);
+    if (key === null || !nodeBinding.has(key) || nodeBindingVerdict(key) !== 'ok') {
       throw new ContractError(CODES.PROJECT_BINDING_MISMATCH,
-        'a selected ref is not declared under the requested project binding; the capsule is refused rather than returned',
+        'a selected ref is not declared, on its full identity tuple, under the requested project binding; the capsule is refused rather than returned',
         { hop: c.hop });
     }
   }

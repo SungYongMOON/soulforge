@@ -19,6 +19,8 @@ import {
   REQUIRED_P8_CHAIN_ELEMENTS, P8_CHAIN_RECORD_ELEMENTS, P8_RECOMPUTED_CHAIN_ELEMENTS,
   REQUIRED_CHAIN_PROVENANCE_FIELDS, chainElementContentAddress,
 } from '../kernel/pipeline.mjs';
+import { CODES as REG } from '../kernel/registration.mjs';
+import { buildRegistrationRegistry, humanEntry, authorityEntry } from '../fixtures/registration_evidence.mjs';
 import { deterministicReplayFingerprint } from '../kernel/fingerprint.mjs';
 import { FINGERPRINT_INPUT_KEYS } from '../kernel/contract_config.mjs';
 import { PRESENCE } from '../kernel/custody.mjs';
@@ -319,6 +321,36 @@ rejects('1A/boundary/unknown_stage_refused', () => assertStageDefined('P9'), P.S
 record('1A/boundary/defined_stages_are_the_frozen_four',
   JSON.stringify([...DEFINED_STAGES]) === JSON.stringify(['P5', 'P6', 'P7', 'P8']));
 
+// ---------------------------------------------------------------- registration evidence
+//
+// Three boundaries below used to take registration from the record being judged. They now take
+// it from evidence: a content-addressed registry, pinned to a revision, scoped to one project.
+// Everything in it is synthetic, and none of it settles D-P10-08 — who may be registered is
+// still an open owner decision. What it settles is that saying so is no longer enough.
+
+const WINDOW_FROM = '2026-01-01T00:00:00.000Z';
+const WINDOW_TO = '2026-12-31T00:00:00.000Z';
+const humanIn = (subjectId, projectBindingRef = 'pb-alpha', over = {}) =>
+  humanEntry({ subjectId, projectBindingRef, validFrom: WINDOW_FROM, validTo: WINDOW_TO, ...over });
+
+const REGISTRY = buildRegistrationRegistry({
+  projectBindingRef: 'pb-alpha',
+  entries: [
+    humanIn('person-1'), humanIn('person-2'), humanIn('person-3'),
+    authorityEntry({
+      subjectId: 'auth-1', projectBindingRef: 'pb-alpha',
+      authorityFamily: 'project_contract_baseline', validFrom: WINDOW_FROM, validTo: WINDOW_TO,
+    }),
+  ],
+});
+// A registry for another project, so "scoped to this project" is tested against a registry that
+// is valid in every other respect rather than against a broken one.
+const BRAVO_REGISTRY = buildRegistrationRegistry({
+  projectBindingRef: 'pb-bravo',
+  entries: [humanIn('person-1', 'pb-bravo'), humanIn('person-2', 'pb-bravo'), humanIn('person-3', 'pb-bravo')],
+  revisionId: 'registration-registry-bravo-r1',
+});
+
 // ---------------------------------------------------------------- the policy gate before P7
 
 const taskIntent = {
@@ -329,9 +361,10 @@ const gateOk = {
   taskIntent,
   why: { finding_id: FIND_ID, rationale_ref: 'rationale-1' },
   whyNow: { trigger_ref: 'trigger-1', triggered_at: '2026-08-03T00:00:00.000Z' },
-  authority: { authority_ref: 'auth-1', registered: true, applicability: true },
+  authority: { authority_ref: 'auth-1', authority_family: 'project_contract_baseline' },
   idempotency: { idempotency_key: 'idem-1', payload_digest: 'a'.repeat(64) },
   knownAt: '2026-08-03T00:00:00.000Z',
+  registrationRegistry: REGISTRY,
 };
 
 accepts('1A/p7/policy_gate_passes', () => evaluateTaskDriverPolicyGate(gateOk), 'positive control');
@@ -346,12 +379,88 @@ rejects('1A/p7/why_must_name_this_finding',
   P.POLICY_CHECK_FAILED, 'a reason belonging to another finding is not this task intent\'s reason');
 rejects('1A/p7/why_now_needs_a_time',
   () => evaluateTaskDriverPolicyGate({ ...gateOk, whyNow: { trigger_ref: 't' } }), P.POLICY_CHECK_FAILED);
-rejects('1A/p7/authority_must_be_registered',
-  () => evaluateTaskDriverPolicyGate({ ...gateOk, authority: { authority_ref: 'a', registered: false, applicability: true } }),
-  P.POLICY_CHECK_FAILED);
-rejects('1A/p7/authority_must_apply',
-  () => evaluateTaskDriverPolicyGate({ ...gateOk, authority: { authority_ref: 'a', registered: true, applicability: 'unknown' } }),
-  P.POLICY_CHECK_FAILED, 'an authority that does not apply here does not authorise this');
+
+// B-06: the authority half of the gate, which used to be two booleans the caller wrote.
+//
+// The reproduced attack is the first case: an authority_ref naming nothing that exists, with
+// `registered: true` supplied alongside it, cleared the gate and therefore cleared P7 and every
+// P8 write resting on it. Registration is now looked up in evidence, and a caller asserting its
+// own registration is refused rather than ignored — asserting it is asserting the thing the
+// gate exists to determine.
+rejects('1A/p7/nonexistent_authority_ref_with_caller_supplied_registered',
+  () => evaluateTaskDriverPolicyGate({
+    ...gateOk,
+    authority: { authority_ref: 'auth-does-not-exist', authority_family: 'project_contract_baseline', registered: true, applicability: true },
+  }),
+  P.POLICY_CHECK_FAILED, 'a ref naming nothing, plus the caller saying it is registered, is not a registration');
+rejects('1A/p7/nonexistent_authority_ref_without_any_assertion',
+  () => evaluateTaskDriverPolicyGate({
+    ...gateOk, authority: { authority_ref: 'auth-does-not-exist', authority_family: 'project_contract_baseline' },
+  }),
+  P.POLICY_CHECK_FAILED, 'the ref is refused on the evidence, not on the shape of the claim beside it');
+{
+  let refusal = null;
+  try {
+    evaluateTaskDriverPolicyGate({
+      ...gateOk,
+      authority: { authority_ref: 'auth-1', authority_family: 'project_contract_baseline', registered: true },
+    });
+  } catch (e) { refusal = e; }
+  record('1A/p7/caller_asserted_registration_is_refused_not_ignored',
+    refusal?.detail?.authority_failure === 'caller_asserted_its_own_registration_or_applicability',
+    'even for a ref that IS registered, asserting the verdict is refused and the refusal says why');
+}
+{
+  let refusal = null;
+  try {
+    evaluateTaskDriverPolicyGate({
+      ...gateOk,
+      authority: { authority_ref: 'auth-1', authority_family: 'project_contract_baseline', applicability: true },
+    });
+  } catch (e) { refusal = e; }
+  record('1A/p7/caller_asserted_applicability_is_refused_not_ignored',
+    refusal?.detail?.authority_failure === 'caller_asserted_its_own_registration_or_applicability',
+    'applicability is read from the registration scope, not from a field beside the ref');
+}
+rejects('1A/p7/authority_family_required',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, authority: { authority_ref: 'auth-1' } }),
+  P.POLICY_CHECK_FAILED, 'a registered authority is registered for a family; without one there is nothing to check');
+rejects('1A/p7/authority_registered_for_another_family',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, authority: { authority_ref: 'auth-1', authority_family: 'reviewed_wiki' } }),
+  P.POLICY_CHECK_FAILED, 'the entry covers this ref under the baseline family and does not carry over to another');
+rejects('1A/p7/authority_registration_requires_evidence',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, registrationRegistry: undefined }),
+  P.POLICY_CHECK_FAILED, 'with no evidence supplied there is nothing to establish registration from');
+rejects('1A/p7/authority_registered_in_another_project',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, registrationRegistry: BRAVO_REGISTRY }),
+  P.POLICY_CHECK_FAILED, 'a registry scoped to another project cannot register an authority for this one');
+rejects('1A/p7/authority_outside_its_registration_window',
+  () => evaluateTaskDriverPolicyGate({ ...gateOk, knownAt: '2027-06-01T00:00:00.000Z', whyNow: { trigger_ref: 'trigger-1', triggered_at: '2027-06-01T00:00:00.000Z' } }),
+  P.POLICY_CHECK_FAILED, 'a registration that has lapsed does not authorise anything after it lapsed');
+rejects('1A/p7/tampered_registry_refused',
+  () => evaluateTaskDriverPolicyGate({
+    ...gateOk,
+    registrationRegistry: {
+      ...REGISTRY,
+      entries: [...REGISTRY.entries, authorityEntry({
+        subjectId: 'auth-smuggled', projectBindingRef: 'pb-alpha',
+        authorityFamily: 'project_contract_baseline', validFrom: WINDOW_FROM, validTo: WINDOW_TO,
+      })],
+    },
+  }),
+  P.POLICY_CHECK_FAILED, 'an entry appended after the registry was addressed breaks the address it declares');
+{
+  // Positive control for the whole authority half: the evidence path passes, and the verdict
+  // carries which evidence it rested on rather than a bare boolean.
+  const g = evaluateTaskDriverPolicyGate(gateOk);
+  record('1A/p7/authority_positive_control_names_its_evidence',
+    g.passed === true
+      && g.authority_registration.authority_ref === 'auth-1'
+      && g.authority_registration.authority_family === 'project_contract_baseline'
+      && g.authority_registration.registry_revision_id === REGISTRY.registry_revision_ref.revision_id
+      && /^[0-9a-f]{64}$/.test(g.authority_registration.entry_content_address),
+    'the gate passes on evidence and records the registry revision and entry it used');
+}
 rejects('1A/p7/idempotency_key_must_promise_a_payload',
   () => evaluateTaskDriverPolicyGate({ ...gateOk, idempotency: { idempotency_key: 'k' } }), P.POLICY_CHECK_FAILED);
 rejects('1A/p7/conflicting_prior_use_refused',
@@ -385,7 +494,11 @@ rejects('1A/p7/activated_driver_refused',
 // ---------------------------------------------------------------- P5
 
 const human = { kind: 'registered_human', principal_id: 'person-1' };
-const p5ok = { principal: human, submittedFingerprint: 'fp-1', observedFingerprint: 'fp-1', acceptedInputSetRef: 'set-1', knownAt: '2026-08-03T00:00:00.000Z' };
+const p5ok = {
+  principal: human, submittedFingerprint: 'fp-1', observedFingerprint: 'fp-1',
+  acceptedInputSetRef: 'set-1', knownAt: '2026-08-03T00:00:00.000Z',
+  registrationRegistry: REGISTRY, projectBindingRef: 'pb-alpha',
+};
 
 accepts('1A/p5/registered_human_accepts', () => evaluateP5Acceptance(p5ok), 'positive control');
 {
@@ -393,7 +506,75 @@ accepts('1A/p5/registered_human_accepts', () => evaluateP5Acceptance(p5ok), 'pos
   record('1A/p5/does_not_advance_generation', r.generation_advanced === false);
   record('1A/p5/does_not_promote_binding', r.binding_promoted === false);
   record('1A/p5/does_not_write_erp', r.erp_written === false);
+  record('1A/p5/acceptance_names_the_evidence_that_cleared_the_acceptor',
+    r.acceptor_registration.registry_revision_id === REGISTRY.registry_revision_ref.revision_id
+      && /^[0-9a-f]{64}$/.test(r.acceptor_registration.entry_content_address),
+    'the verdict says which registration revision and entry cleared the acceptor');
 }
+
+// B-06: the reproduced attack. A principal that merely claims `kind: 'registered_human'`, with
+// an identifier nobody has registered, used to clear P5 — the boundary the whole contract is
+// most emphatic that only a registered human may cross.
+rejects('1A/p5/self_declared_human_is_not_a_registered_human',
+  () => evaluateP5Acceptance({ ...p5ok, principal: { kind: 'registered_human', principal_id: 'person-nobody-registered' } }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'claiming the kind is not being in the registry');
+{
+  let refusal = null;
+  try {
+    evaluateP5Acceptance({ ...p5ok, principal: { kind: 'registered_human', principal_id: 'person-nobody-registered' } });
+  } catch (e) { refusal = e; }
+  record('1A/p5/unregistered_principal_refusal_names_its_cause',
+    refusal?.detail?.cause_code === REG.SUBJECT_NOT_REGISTERED,
+    'the boundary reports its own code and carries the underlying refusal in the detail');
+}
+rejects('1A/p5/registration_evidence_is_required',
+  () => evaluateP5Acceptance({ ...p5ok, registrationRegistry: undefined }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'with no evidence supplied there is nothing to establish registration from');
+rejects('1A/p5/registration_in_another_project_does_not_carry_over',
+  () => evaluateP5Acceptance({ ...p5ok, projectBindingRef: 'pb-bravo' }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'an alpha registration cannot clear a bravo acceptance, however well formed it is');
+rejects('1A/p5/registry_scope_must_match_the_boundary',
+  () => evaluateP5Acceptance({ ...p5ok, registrationRegistry: BRAVO_REGISTRY }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'a registry scoped elsewhere is refused even when it holds this person');
+rejects('1A/p5/registration_window_is_enforced',
+  () => evaluateP5Acceptance({ ...p5ok, knownAt: '2025-06-01T00:00:00.000Z' }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'a registration that had not begun does not clear an earlier acceptance');
+rejects('1A/p5/forged_registry_entry_refused',
+  () => evaluateP5Acceptance({
+    ...p5ok,
+    principal: { kind: 'registered_human', principal_id: 'person-smuggled' },
+    registrationRegistry: { ...REGISTRY, entries: [...REGISTRY.entries, humanIn('person-smuggled')] },
+  }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'adding oneself to the registry changes the address the registry declares');
+rejects('1A/p5/declared_entry_addresses_must_be_the_addresses_the_entries_produce',
+  () => evaluateP5Acceptance({
+    ...p5ok,
+    registrationRegistry: {
+      ...REGISTRY,
+      entry_content_addresses: [...REGISTRY.entry_content_addresses.slice(1), 'a'.repeat(64)],
+    },
+  }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN,
+  'the declared address set is checked in its own right; a registry whose index disagrees with its entries is not consistent evidence');
+rejects('1A/p5/registry_address_must_recompute',
+  () => evaluateP5Acceptance({
+    ...p5ok,
+    registrationRegistry: {
+      ...REGISTRY,
+      registry_content_address: 'f'.repeat(64),
+      registry_revision_ref: { ...REGISTRY.registry_revision_ref, content_id: 'f'.repeat(64) },
+    },
+  }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'a declared address consistent with its own pin but not with the entries is still not the address');
+rejects('1A/p5/registry_not_pinned_to_its_revision',
+  () => evaluateP5Acceptance({
+    ...p5ok,
+    registrationRegistry: {
+      ...REGISTRY,
+      registry_revision_ref: { ...REGISTRY.registry_revision_ref, content_id: 'e'.repeat(64) },
+    },
+  }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'a registry whose address is not its revision content id is pinned to no revision');
 rejects('1A/p5/engine_cannot_accept',
   () => evaluateP5Acceptance({ ...p5ok, principal: { kind: 'engine', principal_id: 'eng-1' } }), P.ENGINE_CANNOT_ACCEPT);
 rejects('1A/p5/agent_cannot_accept',
@@ -410,21 +591,35 @@ rejects('1A/p5/known_at_required', () => evaluateP5Acceptance({ ...p5ok, knownAt
 
 // ---------------------------------------------------------------- generation advance
 
-accepts('1A/generation/advances_by_one',
-  () => evaluateGenerationAdvance({ principal: human, fromGeneration: 4, toGeneration: 5, submittedFingerprint: 'g', observedFingerprint: 'g' }),
-  'positive control');
+// The advance is the second boundary the same self-declared principal used to clear, so it
+// takes the same evidence. It also now has to name an instant: a registration holds at a time,
+// and a boundary that picked one on the caller's behalf would keep clearing a lapsed one.
+const advanceOk = {
+  principal: human, fromGeneration: 4, toGeneration: 5,
+  submittedFingerprint: 'g', observedFingerprint: 'g',
+  registrationRegistry: REGISTRY, projectBindingRef: 'pb-alpha', knownAt: '2026-08-03T00:00:00.000Z',
+};
+
+accepts('1A/generation/advances_by_one', () => evaluateGenerationAdvance(advanceOk), 'positive control');
 record('1A/generation/does_not_accept_context',
-  evaluateGenerationAdvance({ principal: human, fromGeneration: 4, toGeneration: 5, submittedFingerprint: 'g', observedFingerprint: 'g' }).context_accepted_here === false);
+  evaluateGenerationAdvance(advanceOk).context_accepted_here === false);
 for (const [label, to] of [['skips', 6], ['rewinds', 3], ['stays', 4]]) {
   rejects(`1A/generation/${label}`,
-    () => evaluateGenerationAdvance({ principal: human, fromGeneration: 4, toGeneration: to, submittedFingerprint: 'g', observedFingerprint: 'g' }),
+    () => evaluateGenerationAdvance({ ...advanceOk, toGeneration: to }),
     P.GENERATION_NOT_MONOTONIC, 'one number must not mean two context sets');
 }
 rejects('1A/generation/cas_mismatch',
-  () => evaluateGenerationAdvance({ principal: human, fromGeneration: 4, toGeneration: 5, submittedFingerprint: 'g', observedFingerprint: 'h' }), P.CAS_MISMATCH);
+  () => evaluateGenerationAdvance({ ...advanceOk, observedFingerprint: 'h' }), P.CAS_MISMATCH);
 rejects('1A/generation/needs_a_human',
-  () => evaluateGenerationAdvance({ principal: { kind: 'engine', principal_id: 'e' }, fromGeneration: 4, toGeneration: 5, submittedFingerprint: 'g', observedFingerprint: 'g' }),
+  () => evaluateGenerationAdvance({ ...advanceOk, principal: { kind: 'engine', principal_id: 'e' } }),
   P.PRINCIPAL_NOT_REGISTERED_HUMAN);
+rejects('1A/generation/self_declared_human_refused',
+  () => evaluateGenerationAdvance({ ...advanceOk, principal: { kind: 'registered_human', principal_id: 'person-nobody-registered' } }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'the advance is a state-advancing boundary and takes the same evidence P5 does');
+rejects('1A/generation/needs_a_canonical_instant',
+  () => evaluateGenerationAdvance({ ...advanceOk, knownAt: 'today' }), P.BOUNDARY_TIME_INVALID);
+record('1A/generation/records_the_registration_that_cleared_it',
+  evaluateGenerationAdvance(advanceOk).advanced_by_registration.registry_revision_id === REGISTRY.registry_revision_ref.revision_id);
 
 // ---------------------------------------------------------------- P6 context request
 
@@ -487,12 +682,16 @@ const resealed = (name, element, over) => seal(name, { ...(({ provenance, ...res
 const tampered = (element, over) => ({ ...element, ...over });
 
 const approvedIntent = { ...taskIntent, candidate_only: false };
-const approvedGate = evaluateTaskDriverPolicyGate({ ...gateOk, taskIntent: approvedIntent });
+const approvedGate = evaluateTaskDriverPolicyGate({ ...gateOk, taskIntent: approvedIntent, registrationRegistry: REGISTRY });
 const approvedDriver = evaluateP7TaskDriver({ policyGate: approvedGate, taskIntent: approvedIntent, projectBindingRef: 'pb-alpha' });
 
 // The inputs each recomputed boundary is re-run over. They are part of the record, so they are
 // covered by its content address: a forger cannot swap the inputs without breaking the seal,
 // and cannot keep the inputs without reproducing the verdict.
+//
+// The registration registry is deliberately NOT among them. P8 supplies its own, so a chain
+// cannot bring the evidence that vouches for its own acceptor; the recompute inputs carry only
+// what the boundary needs besides that.
 const p5Inputs = {
   principal: { kind: 'registered_human', principal_id: 'person-3' },
   submittedFingerprint: FP, observedFingerprint: FP,
@@ -501,7 +700,7 @@ const p5Inputs = {
 const advanceInputs = {
   principal: { kind: 'registered_human', principal_id: 'person-3' },
   fromGeneration: 6, toGeneration: 7,
-  submittedFingerprint: FP, observedFingerprint: FP,
+  submittedFingerprint: FP, observedFingerprint: FP, knownAt: RECORDED_AT,
 };
 const gateInputs = {
   why: gateOk.why, whyNow: gateOk.whyNow, authority: gateOk.authority,
@@ -520,10 +719,12 @@ const chain = {
   project_binding_ref: 'pb-alpha',
   accepted_context_generation: 7,
   p5_acceptance: seal('p5_acceptance', {
-    ...evaluateP5Acceptance(p5Inputs), project_binding_ref: 'pb-alpha', recompute_inputs: p5Inputs,
+    ...evaluateP5Acceptance({ ...p5Inputs, registrationRegistry: REGISTRY, projectBindingRef: 'pb-alpha' }),
+    project_binding_ref: 'pb-alpha', recompute_inputs: p5Inputs,
   }),
   generation_advance: seal('generation_advance', {
-    ...evaluateGenerationAdvance(advanceInputs), project_binding_ref: 'pb-alpha', recompute_inputs: advanceInputs,
+    ...evaluateGenerationAdvance({ ...advanceInputs, registrationRegistry: REGISTRY, projectBindingRef: 'pb-alpha' }),
+    project_binding_ref: 'pb-alpha', recompute_inputs: advanceInputs,
   }),
   snapshot: seal('snapshot', {
     snapshot_id: SNAP_ID, project_binding_ref: 'pb-alpha',
@@ -556,7 +757,10 @@ const approval = seal('approval', {
   approved: true, approver_principal_id: 'person-2', approver_kind: 'registered_human',
   approved_at: RECORDED_AT, project_binding_ref: 'pb-alpha', task_intent_id: approvedIntent.task_intent_id,
 });
-const p8ok = { principal: human, approval, chain, submittedFingerprint: FP, observedFingerprint: FP };
+const p8ok = {
+  principal: human, approval, chain,
+  submittedFingerprint: FP, observedFingerprint: FP, registrationRegistry: REGISTRY,
+};
 const withChain = (over) => ({ ...p8ok, chain: { ...chain, ...over } });
 const withApproval = (over) => ({ ...p8ok, approval: resealed('approval', approval, over) });
 
@@ -737,7 +941,10 @@ rejects('1A/p8/stale_generation',
 rejects('1A/p8/generation_not_the_advanced_one',
   () => evaluateP8Write(withChain({
     generation_advance: seal('generation_advance', {
-      ...evaluateGenerationAdvance({ ...advanceInputs, fromGeneration: 5, toGeneration: 6 }),
+      ...evaluateGenerationAdvance({
+        ...advanceInputs, fromGeneration: 5, toGeneration: 6,
+        registrationRegistry: REGISTRY, projectBindingRef: 'pb-alpha',
+      }),
       project_binding_ref: 'pb-alpha',
       recompute_inputs: { ...advanceInputs, fromGeneration: 5, toGeneration: 6 },
     }),
@@ -825,6 +1032,70 @@ rejects('1A/p8/cas_mismatch', () => evaluateP8Write({ ...p8ok, observedFingerpri
 rejects('1A/p8/receipt_fingerprint_is_stale',
   () => evaluateP8Write(withChain({ evidence: resealed('evidence', chain.evidence, { cas_fingerprint: 'd'.repeat(64) }) })),
   P.CAS_MISMATCH, 'a receipt taken against a different state is stale evidence for this write');
+
+// ---- B-06 at P8: the registration a write rests on, and where it may come from.
+//
+// P8 recomputes four boundaries, and two of them turn on somebody being a registered human. If
+// the chain supplied the registry those recomputations were checked against, a forged chain
+// would be certifying its own acceptor and its own approver — the recomputation would agree
+// with itself and prove nothing. So the registry comes from this gate, and a registry carried
+// inside a recompute input is ignored rather than preferred.
+
+rejects('1A/p8/registration_evidence_is_required',
+  () => evaluateP8Write({ ...p8ok, registrationRegistry: undefined }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'a write with no registration evidence establishes nobody');
+rejects('1A/p8/self_declared_writer_refused',
+  () => evaluateP8Write({ ...p8ok, principal: { kind: 'registered_human', principal_id: 'person-nobody-registered' } }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'the writer claiming the kind is not the writer being registered');
+rejects('1A/p8/self_declared_approver_refused',
+  () => evaluateP8Write(withApproval({ approver_principal_id: 'person-nobody-registered' })),
+  P.WRITE_APPROVAL_NOT_HUMAN, 'an approver nobody registered is not an approver, whatever approver_kind says');
+{
+  let refusal = null;
+  try { evaluateP8Write(withApproval({ approver_principal_id: 'person-nobody-registered' })); } catch (e) { refusal = e; }
+  record('1A/p8/unregistered_approver_refusal_names_its_cause',
+    refusal?.detail?.cause_code === REG.SUBJECT_NOT_REGISTERED,
+    'the P8 code is reported with the registration refusal underneath it');
+}
+rejects('1A/p8/registration_from_another_project_refused',
+  () => evaluateP8Write({ ...p8ok, registrationRegistry: BRAVO_REGISTRY }),
+  P.PRINCIPAL_NOT_REGISTERED_HUMAN, 'the registry has to be scoped to the binding the whole chain agrees on');
+{
+  // The attack the injection exists to stop: a chain whose recompute inputs carry a registry of
+  // the chain's own making, holding an acceptor nobody else registered. The gate's registry is
+  // the one used, so the recomputation refuses the recorded verdict instead of reproducing it.
+  const forgedRegistry = buildRegistrationRegistry({
+    projectBindingRef: 'pb-alpha',
+    entries: [humanIn('person-invented'), humanIn('person-1'), humanIn('person-2')],
+    revisionId: 'registration-registry-forged-r1',
+  });
+  const forgedInputs = { ...p5Inputs, principal: { kind: 'registered_human', principal_id: 'person-invented' } };
+  const forgedChain = withChain({
+    p5_acceptance: seal('p5_acceptance', {
+      ...evaluateP5Acceptance({ ...forgedInputs, registrationRegistry: forgedRegistry, projectBindingRef: 'pb-alpha' }),
+      project_binding_ref: 'pb-alpha',
+      recompute_inputs: { ...forgedInputs, registrationRegistry: forgedRegistry },
+    }),
+  });
+  let refusal = null;
+  try { evaluateP8Write(forgedChain); } catch (e) { refusal = e; }
+  record('1A/p8/chain_may_not_supply_the_registry_that_vouches_for_it',
+    refusal instanceof ContractError,
+    refusal ? refusal.code : 'NOT REFUSED — the chain certified its own acceptor');
+}
+{
+  // Positive control for the whole registration layer at P8: the valid chain still passes, and
+  // the verdict names the one registry every registration in it was checked against.
+  const r = evaluateP8Write(p8ok);
+  record('1A/p8/registration_positive_control',
+    r.registration_registry_revision_id === REGISTRY.registry_revision_ref.revision_id
+      && r.registration_verified_for.includes('writer_principal')
+      && r.registration_verified_for.includes('approver')
+      && r.registration_verified_for.includes('policy_gate_authority')
+      && /^[0-9a-f]{64}$/.test(r.approver_registration_entry_address)
+      && r.erp_writes === 0,
+    'one registry, named, covering the writer, the approver and the recomputed boundaries');
+}
 
 record('1A/p8/no_erp_write_under_any_of_these',
   evaluateP8Write(p8ok).erp_writes === 0,

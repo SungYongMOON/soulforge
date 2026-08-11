@@ -41,6 +41,7 @@ import { inspectInstant, compareCodePoints } from './canonical.mjs';
 import { classifyRef, RESOLUTION } from './identity.mjs';
 import { assertIsMintedIdentifier } from './minting.mjs';
 import { AUTHORITY_FAMILIES, resolveApplicability, APPLICABILITY } from './authority.mjs';
+import { assertRegisteredSubject, SUBJECT_KINDS } from './registration.mjs';
 import { isEvidenceCeiling } from './ceilings.mjs';
 import { ContractError } from './errors.mjs';
 
@@ -58,6 +59,7 @@ export const CODES = Object.freeze({
   RESPONSE_NOT_CANDIDATE: 'CONTEXT_RESPONSE_NOT_CANDIDATE',
   RESPONSE_EVIDENCE_INSUFFICIENT: 'CONTEXT_RESPONSE_EVIDENCE_INSUFFICIENT',
   RESPONSE_AUTHORITY_NOT_APPLICABLE: 'CONTEXT_RESPONSE_AUTHORITY_NOT_APPLICABLE',
+  AUTHORITY_REF_NOT_REGISTERED: 'CONTEXT_AUTHORITY_REF_NOT_REGISTERED',
   P5_BOUNDARY_NOT_EVALUABLE: 'P5_ORCHESTRATION_BOUNDARY_NOT_EVALUABLE',
   TRANSPORT_REFUSED: 'CONTEXT_RECEIPT_TRANSPORT_REFUSED',
 });
@@ -454,11 +456,19 @@ export function assessResponseSufficiency(candidate, { requiredAuthorityFamily =
  *
  * `freshnessWindow` and `now` are supplied, never read from a clock inside this module, so a
  * replay produces the same verdict as the original run.
+ *
+ * `registrationRegistry` is required for the same reason P5 itself requires it. Until now the
+ * `authority_ref` on both receipts and the candidate had to be a non-empty string and had to
+ * match across the three records — which an arbitrary invented value satisfies trivially, since
+ * whoever assembles the three records writes all three. Three records agreeing about a name
+ * nobody has registered is agreement, not authority. The reference is now resolved in the same
+ * content-addressed registration evidence, scoped to the same project and to the authority
+ * family the answer claims to speak for, at the instant the exchange happened.
  */
 export function assertP5OrchestrationBoundaryEvaluable({
   requestReceipt, responseReceipt, responseCandidate,
   projectBindingRef, acceptedContextGeneration, observedCasFingerprint,
-  freshnessWindow, now, requiredAuthorityFamily = null,
+  freshnessWindow, now, requiredAuthorityFamily = null, registrationRegistry,
 }) {
   for (const [name, value] of [
     ['requestReceipt', requestReceipt], ['responseReceipt', responseReceipt], ['responseCandidate', responseCandidate],
@@ -550,6 +560,32 @@ export function assertP5OrchestrationBoundaryEvaluable({
       { reasons: sufficiency.reasons });
   }
 
+  // The authority the answer was given under has to exist.
+  //
+  // One authority across the pair, first: the two receipts are one exchange, and an exchange
+  // whose two halves name different authorities is not one this boundary can resolve — the
+  // registration it would have to check is then ambiguous, and guessing which half governs is
+  // exactly the kind of choice a deterministic kernel does not get to make.
+  if (requestReceipt.authority_ref !== responseReceipt.authority_ref) {
+    throw new ContractError(CODES.RECEIPT_LINKAGE_BROKEN,
+      'the request and the response name different authorities, so this pair is not one exchange under one authority');
+  }
+  let authorityRegistration = null;
+  try {
+    authorityRegistration = assertRegisteredSubject({
+      registry: registrationRegistry,
+      subjectKind: SUBJECT_KINDS.AUTHORITY,
+      subjectId: responseReceipt.authority_ref,
+      projectBindingRef,
+      authorityFamily: responseCandidate.responding_authority_family,
+      at: responseReceipt.known_at,
+    });
+  } catch (e) {
+    throw new ContractError(CODES.AUTHORITY_REF_NOT_REGISTERED,
+      'the authority this answer was given under is not in the registration evidence for this project and family at this instant; three records agreeing on a name is not authority',
+      { authority_family: responseCandidate.responding_authority_family, cause_code: e?.code ?? null });
+  }
+
   return {
     boundary: 'p5_acceptance',
     evaluable: true,
@@ -562,6 +598,14 @@ export function assertP5OrchestrationBoundaryEvaluable({
     // Stated so a reader does not have to re-derive it: the candidate was bound to both
     // receipts by content, not merely found next to them.
     linkage_verified: true,
+    // And which registration evidence resolved the authority the answer speaks under. Naming
+    // it here keeps "an authority answered" from being read off a string in a receipt.
+    authority_registration: {
+      authority_ref: responseReceipt.authority_ref,
+      authority_family: responseCandidate.responding_authority_family,
+      registry_revision_id: authorityRegistration.registry_revision_id,
+      entry_content_address: authorityRegistration.entry_content_address,
+    },
     // Stated rather than left to inference: reaching this point is permission to put the
     // question to a registered human, and nothing else.
     remains_context_candidate: true,

@@ -103,6 +103,16 @@ evidence 충분 + authority 적용
 
 `D` `freshnessWindow` 와 `now` 는 주입한다. 이 모듈은 시계를 읽지 않으므로 replay 가 같은 판정을 낸다.
 
+### 5.1 `authority_ref` 는 존재해야 한다
+
+`O` 이전 판에서 `authority_ref` 는 세 기록에서 **비어 있지 않은 문자열이고 서로 같기만** 하면 됐다. 세 기록을 조립하는 쪽이 셋 다 쓰므로, 아무 값이나 골라 세 번 적으면 그 조건은 공짜로 만족된다. 임의의 존재하지 않는 `authority_ref` 를 공유한 request 영수증·response 영수증·candidate 가 P5 경계를 **평가 가능**으로 만들었다. 세 기록이 어떤 이름에 대해 합의한 것은 합의이지 권위가 아니다.
+
+`D` 경계는 `registrationRegistry` 를 요구하고, `authority_ref` 를 P5 boundary 자체와 **같은 등록 증거·같은 family·같은 scope** 에서 해소한다 — 이 project binding, `responding_authority_family`, 그리고 응답 영수증의 `known_at`. 해소되지 않으면 `CONTEXT_AUTHORITY_REF_NOT_REGISTERED` 로 멈추고 finding 은 열린 채 남는다. 통과 결과에는 `authority_registration { authority_ref, authority_family, registry_revision_id, entry_content_address }` 가 남는다.
+
+`D` 영수증 두 장은 **한 authority 아래의 한 교신**이어야 한다. 양쪽이 서로 다른 `authority_ref` 를 지목하면 어느 쪽 등록을 확인해야 하는지가 모호해지고, 둘 중 하나를 고르는 것은 결정론 kernel 이 할 판단이 아니므로 `CONTEXT_RECEIPT_LINKAGE_BROKEN` 으로 거부한다.
+
+`P` 이 검사는 candidate 성격을 바꾸지 않는다. `remains_context_candidate: true` · `p5_acceptance_performed: false` · `generation_advanced: false` · `erp_delta: 0` · 정확한 두 영수증 linkage 는 그대로다. 그리고 **D-P10-08 은 여전히 열려 있다** — 누가 등록될 수 있는지는 Owner 결정이고, 여기서 닫힌 것은 존재하지 않는 이름이 통하던 상태다.
+
 `P` 통과 결과도 `p5_acceptance_performed: false` · `generation_advanced: false` · `erp_delta: 0` 을 명시한다. 경계에 도달한 것은 등록된 사람에게 물어도 된다는 뜻이고 그 이상이 아니다.
 
 ## 6. 하지 않는 것
@@ -119,4 +129,6 @@ evidence 충분 + authority 적용
 
 `O` 모든 영수증을 모듈에 **건네준다.** 아무것도 전송하지 않았으므로 실제 교신에 대해 말하는 바가 없다.
 
-`O` 기대값과 규칙의 저자가 같다. 규칙이 구현과 fixture 에서 똑같이 틀리면 이 시험은 통과한다. lane 1V mutation lock 이 13개 변이로 이 모듈의 guard 가 실제로 작동하는지만 확인한다.
+`O` 기대값과 규칙의 저자가 같다. 규칙이 구현과 fixture 에서 똑같이 틀리면 이 시험은 통과한다. lane 1V mutation lock 이 이 모듈의 guard 가 실제로 작동하는지만 확인한다.
+
+`O` 등록 증거는 **공급된 증거**다. registry 가 자기 자신과 일치하고 범위 안에 있다는 것까지만 확인하며, 그 registry 가 참인지는 이 엔진이 답하지 않는다. `principal_ref` 는 아직 이 방식으로 묶지 않았다 — 응답 principal 이 반드시 등록된 사람인지는 이 경계가 결정할 문제가 아니며, 필요하다면 별도 Owner 판단으로 연다.
