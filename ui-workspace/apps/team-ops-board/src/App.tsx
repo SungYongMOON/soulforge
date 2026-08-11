@@ -77,6 +77,7 @@ import {
   isFocusRestoreCandidate
 } from "./core/mobile-detail.mjs";
 import { buildTopologyStructuralPaths, buildTopologyViewModel } from "./core/topology-view.mjs";
+import { buildEngineeringClassicTopologyViewModel } from "./core/topology-engine-classic-view.mjs";
 import {
   TOPOLOGY_FEDERATION_DOES_NOT_PROVE_LABELS,
   buildTopologyFederationViewModel,
@@ -1089,12 +1090,14 @@ function App() {
           )}
 
           {surface === "system" && (
-            <UnifiedSystemTopologySurface
-              healthProjection={topologyProjection}
-              federationProjection={topologyFederationProjection}
-              refreshing={topologyRefreshing}
-              onRefreshReadOnly={refreshDiagnostics}
-            />
+            <div className="system-topology-stack" data-testid="system-topology-stack">
+              <SystemTopologySurface
+                projection={topologyProjection}
+                refreshing={topologyRefreshing}
+                onRefreshReadOnly={refreshDiagnostics}
+              />
+              <EngineeringEngineTopologySurface projection={topologyFederationProjection} />
+            </div>
           )}
 
           {surface === "work" && workGroups.map((group) => (
@@ -3426,7 +3429,7 @@ function WatchtowerTopologyLane({ data }: NodeProps<any>) {
 
 function WatchtowerTopologyNode({ data }: NodeProps<any>) {
   const BrandIcon = watchtowerBrandIcon(data);
-  const DeviceIcon = WATCHTOWER_NODE_ICON_BY_ID[data.id] ?? WATCHTOWER_FALLBACK_ICON_BY_KIND[data.kind] ?? Cpu;
+  const DeviceIcon = data.icon ?? WATCHTOWER_NODE_ICON_BY_ID[data.id] ?? WATCHTOWER_FALLBACK_ICON_BY_KIND[data.kind] ?? Cpu;
   const kindLabel = watchtowerKindLabel(data.kind);
   const shapeLabel = watchtowerShapeLabel(data.kind);
   const catalogOnly = watchtowerCatalogOnly(data);
@@ -3793,6 +3796,237 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
       <footer className="watchtower-footnote">
         <EyeOff size={13} aria-hidden="true" />
         <span>노드 관측과 간선 전달은 별도 근거입니다. 흐린 간선은 선언 구조일 뿐이며, 영수증이 있는 간선만 관측 전달로 표시합니다.</span>
+      </footer>
+    </section>
+  );
+}
+
+const ENGINE_NODE_ICON_BY_ID: Record<string, any> = {
+  authority: ShieldCheck,
+  canonical: Database,
+  capsule: ArchiveRestore,
+  ceilings: Gauge,
+  context_receipt: ListChecks,
+  contract_config: ListChecks,
+  custody: ArchiveRestore,
+  delivery_receipt: CircleCheckBig,
+  engine_pass: CircleCheckBig,
+  engine_self_topology: Workflow,
+  errors: AlertCircle,
+  execution_mode: Cpu,
+  finding: CircleHelp,
+  fingerprint: CircleDot,
+  graph: Workflow,
+  heartbeat: Activity,
+  identity: UserRound,
+  index: ListChecks,
+  lineage: History,
+  mcp_contract: Workflow,
+  minting: Gauge,
+  module_binding: ListChecks,
+  pipeline: Workflow,
+  registration: ArchiveRestore,
+  snapshot: Database,
+};
+
+function EngineeringEngineTopologySurface({ projection }: { projection: any }) {
+  const model: any = useMemo(() => buildEngineeringClassicTopologyViewModel(projection), [projection]);
+  const [flowInstance, setFlowInstance] = useState<any>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const fittedLayoutRef = useRef<string | null>(null);
+  const selectedNodeTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const inspectorRef = useRef<HTMLElement | null>(null);
+  const layoutSignature = useMemo(() => model.nodes
+    .filter((node: any) => node.kind !== "lane")
+    .map((node: any) => `${node.id}:${node.position.x}:${node.position.y}:${node.inputPorts.length}:${node.outputPorts.length}`)
+    .join("|"), [model.nodes]);
+
+  useEffect(() => {
+    if (flowInstance === null || layoutSignature.length === 0 || fittedLayoutRef.current === layoutSignature) return undefined;
+    fittedLayoutRef.current = layoutSignature;
+    const frame = window.requestAnimationFrame(() => {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      try { flowInstance.fitView({ padding: 0.05, minZoom: 0.28, maxZoom: 0.82, duration: reducedMotion ? 0 : 180 }); } catch {
+        // 보기 보정 실패는 선언 구조와 무관하다.
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [flowInstance, layoutSignature]);
+
+  useEffect(() => {
+    if (selectedNodeId === null) return;
+    if (!model.nodes.some((node: any) => node.id === selectedNodeId && node.kind !== "lane")) setSelectedNodeId(null);
+  }, [model.nodes, selectedNodeId]);
+
+  function clearSelectedNode(restoreFocus = true) {
+    const trigger = selectedNodeTriggerRef.current;
+    setSelectedNodeId(null);
+    if (restoreFocus && trigger !== null) window.requestAnimationFrame(() => trigger.focus({ preventScroll: true }));
+  }
+
+  function activateNode(nodeId: string, trigger?: EventTarget | null) {
+    if (trigger instanceof HTMLButtonElement) selectedNodeTriggerRef.current = trigger;
+    setSelectedNodeId((current) => current === nodeId ? null : nodeId);
+  }
+
+  useEffect(() => {
+    if (selectedNodeId === null) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      clearSelectedNode(true);
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [selectedNodeId]);
+
+  useEffect(() => {
+    if (selectedNodeId === null || !window.matchMedia("(max-width: 760px)").matches) return undefined;
+    const frame = window.requestAnimationFrame(() => inspectorRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedNodeId]);
+
+  if (projection === null) {
+    return (
+      <section className="live-state-panel" role="status" data-testid="engineering-engine-topology-loading">
+        <Workflow size={18} aria-hidden="true" />
+        <div><h2>Engineering Engine 구조 확인 중</h2><p>검증된 선언 구조를 읽는 중입니다.</p></div>
+      </section>
+    );
+  }
+  if (!model.available) {
+    return (
+      <section className="live-state-panel" role="status" data-testid="engineering-engine-topology-unavailable">
+        <ShieldAlert size={18} aria-hidden="true" />
+        <div><h2>Engineering Engine 구조 표시 보류</h2><p>정본 구조 또는 권한 경계가 맞지 않아 표시하지 않습니다. 사유: {model.reason ?? "unknown"}</p></div>
+      </section>
+    );
+  }
+
+  const directEdges = selectedNodeId === null
+    ? [] : model.edges.filter((edge: any) => edge.source === selectedNodeId || edge.target === selectedNodeId);
+  const focusedEdgeIds = new Set(directEdges.map((edge: any) => edge.id));
+  const focusedNodeIds = new Set<string>(selectedNodeId === null ? [] : [selectedNodeId]);
+  for (const edge of directEdges) {
+    focusedNodeIds.add(edge.source);
+    focusedNodeIds.add(edge.target);
+  }
+  const selectedNode = selectedNodeId === null
+    ? null : model.nodes.find((node: any) => node.id === selectedNodeId && node.kind !== "lane") ?? null;
+  const graphNodes = model.nodes.map((node: any) => ({
+    id: node.id,
+    type: node.kind === "lane" ? "watchtowerLane" : "watchtowerTopology",
+    position: node.position,
+    data: node.kind === "lane" ? node : {
+      ...node,
+      icon: ENGINE_NODE_ICON_BY_ID[node.localId] ?? Cpu,
+      isSelected: selectedNodeId === node.id,
+      isDimmed: selectedNodeId !== null && !focusedNodeIds.has(node.id),
+      onActivate: activateNode,
+      portSignature: `${node.inputPorts.map((port: any) => `${port.id}:${port.top}`).join(",")}|${node.outputPorts.map((port: any) => `${port.id}:${port.top}`).join(",")}`,
+    },
+    style: node.kind === "lane" ? { width: node.width, height: node.height } : undefined,
+    zIndex: node.kind === "lane" ? -2 : 2,
+    draggable: false,
+    selectable: node.kind !== "lane",
+    focusable: false,
+  }));
+  const graphEdges = model.edges.map((edge: any) => {
+    const focused = selectedNodeId !== null && focusedEdgeIds.has(edge.id);
+    return {
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle,
+      targetHandle: edge.targetHandle,
+      type: "smoothstep",
+      pathOptions: {
+        borderRadius: 18,
+        offset: Math.min(72, 34 + (edge.sourcePortIndex + edge.targetPortIndex) * 4),
+        stepPosition: edge.stepPosition,
+      },
+      markerEnd: { type: MarkerType.ArrowClosed, width: 13, height: 13, color: "#8796a0" },
+      className: `watchtower-edge-data engine-topology-edge is-unreceipted${selectedNodeId !== null ? (focused ? " is-focused" : " is-dimmed") : ""}`,
+      label: focused ? edge.label : undefined,
+    };
+  });
+
+  return (
+    <section className={`watchtower-surface engineering-topology-surface${model.state === "stale" ? " is-stale" : ""}`} aria-label="Engineering Engine 선언 토폴로지" data-testid="engineering-engine-topology-surface">
+      <header className="watchtower-header engineering-topology-header">
+        <div>
+          <span className="watchtower-kicker"><Workflow size={15} aria-hidden="true" /> ENGINEERING ENGINE · DECLARED STRUCTURE</span>
+          <h2>Engineering Engine 연결 구조</h2>
+          <p>기존 토폴로지 도형과 레인으로 표시한 검증된 모듈 import 관계 · 접기 없음</p>
+        </div>
+        <div className="engineering-topology-counts" role="status" aria-live="polite">
+          <strong>{model.source.nodeCount} 모듈</strong>
+          <strong>{model.source.edgeCount} 연결</strong>
+          <span>runtime UNKNOWN</span>
+        </div>
+      </header>
+      <div className="engineering-topology-boundary" role="status">
+        <span>선언 구조 전용 · 실행 권한 false · 복구 권한 false</span>
+        <span>{model.gap}</span>
+      </div>
+      <div className="watchtower-graph-guide engineering-topology-guide">
+        <span><b>형태</b> 기존 입력·감독·연산·저장·판단·출력 도형 유지</span>
+        <span><b>선</b> Engineering Engine 내부 import 105개 · 전달 영수증 아님</span>
+        <span className="watchtower-graph-focus" role="status" aria-live="polite">
+          {selectedNode ? `${selectedNode.label} 직접 연결 ${directEdges.length}개 강조` : "모듈을 선택하면 직접 연결만 강조"}
+        </span>
+        {selectedNode && <button type="button" onClick={() => clearSelectedNode(true)}>선택 해제</button>}
+      </div>
+      <div className="watchtower-canvas engineering-topology-canvas" aria-label="Engineering Engine 연결 그래프">
+        <ReactFlow
+          nodes={graphNodes}
+          edges={graphEdges}
+          nodeTypes={watchtowerTopologyNodeTypes as any}
+          colorMode="dark"
+          onInit={setFlowInstance}
+          onNodeClick={(event, node) => {
+            if (node.data?.kind === "lane") return;
+            activateNode(node.id, event.target);
+          }}
+          onPaneClick={() => clearSelectedNode(false)}
+          minZoom={0.26}
+          maxZoom={1.7}
+          nodesConnectable={false}
+          nodesDraggable={false}
+          elementsSelectable
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={26} size={1.1} className="watchtower-canvas-dots" />
+          <MiniMap
+            ariaLabel="Engineering Engine 토폴로지 미니맵"
+            nodeColor={watchtowerMiniMapColor}
+            nodeStrokeColor={watchtowerMiniMapColor}
+            nodeBorderRadius={5}
+            maskColor="rgb(6 10 14 / 68%)"
+            pannable
+            zoomable
+          />
+          <Controls aria-label="Engineering Engine 보기 조절" showInteractive={false} fitViewOptions={{ padding: 0.05, minZoom: 0.26, maxZoom: 0.82 }} />
+        </ReactFlow>
+      </div>
+      {selectedNode && (
+        <aside ref={inspectorRef} className="watchtower-node-inspector engineering-topology-inspector" tabIndex={-1} aria-labelledby="engineering-topology-inspector-title" data-testid="engineering-engine-node-inspector">
+          <header>
+            <div><span>DECLARED MODULE · READ-ONLY</span><h3 id="engineering-topology-inspector-title">{selectedNode.label}</h3></div>
+            <button type="button" onClick={() => clearSelectedNode(true)}>선택 해제</button>
+          </header>
+          <dl className="watchtower-inspector-evidence">
+            <div><dt>정본 ID</dt><dd>{selectedNode.id}</dd></div>
+            <div><dt>선언 종류</dt><dd>{selectedNode.sourceKind} · {selectedNode.group}</dd></div>
+            <div><dt>직접 연결</dt><dd>{directEdges.length}개</dd></div>
+            <div><dt>상태</dt><dd>runtime UNKNOWN · 현재 실행 상태로 승격하지 않음</dd></div>
+            <div><dt>근거 범위</dt><dd>{selectedNode.evidenceScope}</dd></div>
+          </dl>
+        </aside>
+      )}
+      <footer className="watchtower-footnote">
+        <EyeOff size={13} aria-hidden="true" />
+        <span>표시된 선은 같은 Engine provider 안의 선언된 import 관계입니다. Watchtower와 Engine 사이 연결은 정본에 없으므로 만들지 않습니다.</span>
       </footer>
     </section>
   );

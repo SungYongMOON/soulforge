@@ -12,111 +12,85 @@ function appSource() {
   return readFileSync(APP_PATH, "utf8");
 }
 
-function unifiedSurfaceSource() {
+function engineSurfaceSource() {
   const source = appSource();
-  const start = source.indexOf("function UnifiedSystemTopologySurface");
-  const end = source.indexOf("function AiUsagePanel", start);
-  assert.ok(start > 0 && end > start, "unified system topology must exist as one component");
+  const start = source.indexOf("function EngineeringEngineTopologySurface");
+  const end = source.indexOf("const DECLARED_TOPOLOGY_STATE_NOTICE", start);
+  assert.ok(start > 0 && end > start, "classic engine topology surface must exist");
   return source.slice(start, end);
 }
 
-test("System surface keeps both read-only endpoints and renders one unified consumer", () => {
+test("System keeps both read-only endpoints and restores two classic topology surfaces", () => {
   const source = appSource();
-  assert.match(source, /\.\/core\/topology-unified-view\.mjs/u);
   assert.match(source, /fetch\("\/topology-federation\.snapshot\.json", \{ cache: "no-store" \}\)/u);
   assert.match(source, /\/topology-health\.snapshot\.json\$\{force \? "\?refresh=1" : ""\}/u);
-  assert.match(source, /<UnifiedSystemTopologySurface/u);
   const systemStart = source.indexOf('{surface === "system" && (');
   const systemRender = source.slice(systemStart, source.indexOf('{surface === "work"', systemStart));
-  assert.equal((systemRender.match(/TopologySurface/g) ?? []).length, 1);
-  assert.doesNotMatch(systemRender, /<(?:DeclaredTopologyFederationSurface|SystemTopologySurface)\b/u);
+  assert.match(systemRender, /<SystemTopologySurface/u);
+  assert.match(systemRender, /<EngineeringEngineTopologySurface/u);
+  assert.doesNotMatch(systemRender, /<UnifiedSystemTopologySurface/u);
+  assert.match(systemRender, /data-testid="system-topology-stack"/u);
 });
 
-test("unified surface owns exactly one ReactFlow canvas with pan, zoom and minimap", () => {
-  const surface = unifiedSurfaceSource();
+test("engine uses the original ReactFlow node types, minimap, controls and curved directed edges", () => {
+  const surface = engineSurfaceSource();
   assert.equal((surface.match(/<ReactFlow/g) ?? []).length, 1);
+  assert.match(surface, /nodeTypes=\{watchtowerTopologyNodeTypes as any\}/u);
+  assert.match(surface, /type:\s*"smoothstep"/u);
+  assert.match(surface, /type:\s*MarkerType\.ArrowClosed/u);
   assert.match(surface, /<MiniMap/u);
   assert.match(surface, /<Controls/u);
   assert.match(surface, /pannable/u);
   assert.match(surface, /zoomable/u);
-  assert.match(surface, /fitView/u);
-  assert.match(surface, /prefers-reduced-motion: reduce/u);
 });
 
-test("unified surface is federation-first and keeps W1 as an exact optional overlay", () => {
-  const surface = unifiedSurfaceSource();
-  assert.match(surface, /buildUnifiedTopologyViewModel\(federationProjection, healthProjection, expansion\)/u);
-  assert.match(surface, /선언 구조는 federation 정본/u);
-  assert.match(surface, /W1 정확 ID 대응/u);
-  assert.match(surface, /W1 관측 없음 · 선언 구조만 표시/u);
-  assert.match(surface, /현재 상태로 승격하지 않음/u);
-  assert.match(surface, /Engineering·Knowledge·Notebook은 W1 상태를 상속하지 않습니다/u);
+test("engine is fully expanded with no sector or group drill-down", () => {
+  const surface = engineSurfaceSource();
+  assert.doesNotMatch(surface, /toggleUnifiedTopologyExpansion|expansion|is-provider|is-group/u);
+  assert.match(surface, /접기 없음/u);
+  assert.match(surface, /모듈을 선택하면 직접 연결만 강조/u);
 });
 
-test("retained federation state and reason render as an explicit stale boundary", () => {
-  const surface = unifiedSurfaceSource();
-  const css = readFileSync(CSS_PATH, "utf8");
-  assert.match(surface, /model\.state === "stale"/u);
-  assert.match(surface, /data-testid="unified-topology-federation-state"/u);
-  assert.match(surface, /선언 구조 STALE · \$\{model\.reason/u);
-  assert.match(surface, /is-federation-stale/u);
-  assert.match(css, /\.unified-topology-surface\.is-federation-stale/u);
-  assert.match(css, /\.unified-topology-federation-state\.is-stale/u);
+test("engine presents exact source counts, authority boundary and missing cross-provider contract", () => {
+  const surface = engineSurfaceSource();
+  assert.match(surface, /\{model\.source\.nodeCount\} 모듈/u);
+  assert.match(surface, /\{model\.source\.edgeCount\} 연결/u);
+  assert.match(surface, /실행 권한 false · 복구 권한 false/u);
+  assert.match(surface, /\{model\.gap\}/u);
+  assert.match(surface, /Watchtower와 Engine 사이 연결은 정본에 없으므로 만들지 않습니다/u);
 });
 
-test("provider and group accessibility labels never read an undefined health label", () => {
-  const source = appSource();
-  assert.match(source, /const hasHealthStatus = \(data\.healthObserved \|\| data\.healthRetained\)/u);
-  assert.match(source, /const healthAriaLabel = hasHealthStatus/u);
-  assert.match(source, /data\.healthStateLabel \?\? data\.healthState \?\? "관측 상태 미상"/u);
-  assert.match(source, /aria-label=\{`\$\{actionLabel\} · \$\{category\.label\} · \$\{data\.detail\} · \$\{healthAriaLabel\}`\}/u);
+test("Knowledge and Notebook are not rendered in the classic engine surface", () => {
+  const surface = engineSurfaceSource();
+  assert.doesNotMatch(surface, /knowledge_stack|watchtower_notebook_advisory_adapter|Knowledge|Notebook/u);
 });
 
-test("retained W1 evidence stays stale in the node inspector without a live claim", () => {
-  const surface = unifiedSurfaceSource();
-  assert.match(surface, /selectedNode\.healthRetained \? `이전 관측 보존 · 현재 아님/u);
-  assert.match(surface, /: selectedNode\.healthObserved \?/u);
-  assert.match(surface, /selectedNode\.healthStateLabel/u);
-  assert.match(surface, /관측 없음 · 런타임 UNKNOWN/u);
-});
-
-test("unified topology controls preserve 44px pointer targets", () => {
-  const css = readFileSync(CSS_PATH, "utf8");
-  assert.match(css, /\.unified-topology-surface \.react-flow__controls-button\s*\{\s*width:\s*44px;\s*height:\s*44px;/u);
-});
-
-test("authority and cross-provider gaps remain explicit and fail closed", () => {
-  const surface = unifiedSurfaceSource();
-  assert.match(surface, /data-testid="system-topology-unavailable"/u);
-  assert.match(surface, /구조 또는 권한 경계가 안전하지 않아 표시를 중단했습니다/u);
-  assert.match(surface, /data-testid="unified-topology-authority"/u);
-  assert.match(surface, /런타임 권한 false · 복구 실행 권한 false/u);
-  assert.match(surface, /data-testid="unified-topology-cross-provider-gap"/u);
-  assert.match(surface, /공급자 간 연결은 정본에 없으므로 간선을 만들지 않습니다/u);
-});
-
-test("unified controls stay read-only and offer no repair or runtime mutation", () => {
-  const surface = unifiedSurfaceSource();
-  assert.match(surface, /onClick=\{onRefreshReadOnly\}/u);
-  assert.match(surface, /toggleUnifiedTopologyExpansion/u);
-  assert.match(surface, /setSelectedNodeId/u);
+test("engine controls remain read-only and expose no repair or runtime mutation", () => {
+  const surface = engineSurfaceSource();
   for (const forbidden of [
     "XMLHttpRequest", "localStorage", "sessionStorage", "window.open",
     'method: "POST"', 'method: "PUT"', 'method: "PATCH"', 'method: "DELETE"',
-    "재시작", "자동 복구", "적용하기",
+    "자동 복구", "재시작", "적용하기",
   ]) {
-    assert.equal(surface.includes(forbidden), false, `${forbidden} must not appear in the unified surface`);
+    assert.equal(surface.includes(forbidden), false, `${forbidden} must not appear in the engine surface`);
   }
 });
 
-test("category surface and health border/status marker are separate visual channels", () => {
-  const source = appSource();
+test("classic shape, lane and edge styling stays active for Engine", () => {
   const css = readFileSync(CSS_PATH, "utf8");
-  assert.match(source, /is-category-\$\{data\.category\}/u);
-  assert.match(source, /is-health-\$\{data\.healthState\}/u);
-  assert.match(css, /\.unified-topology-node[\s\S]*--unified-category-color/u);
-  assert.match(css, /\.unified-topology-node\.has-health[\s\S]*--unified-health-color/u);
-  assert.match(css, /\.unified-topology-node\.is-health-down\s*\{\s*--unified-health-color:\s*#ff8178/u);
-  const unifiedCss = css.slice(css.indexOf(".unified-topology-surface"));
-  assert.doesNotMatch(unifiedCss, /is-category-[^{]+\{[^}]*#ff(?:8178|8d84)/u);
+  assert.match(css, /\.watchtower-node-external::before/u);
+  assert.match(css, /\.watchtower-node-supervisor/u);
+  assert.match(css, /\.watchtower-node-store/u);
+  assert.match(css, /\.watchtower-node-gate/u);
+  assert.match(css, /\.watchtower-node-consumer/u);
+  assert.match(css, /\.engineering-topology-canvas/u);
+  assert.match(css, /\.engineering-topology-surface \.react-flow__edge\.engine-topology-edge/u);
+});
+
+test("engine inspector states declared structure and runtime UNKNOWN", () => {
+  const surface = engineSurfaceSource();
+  assert.match(surface, /DECLARED MODULE · READ-ONLY/u);
+  assert.match(surface, /runtime UNKNOWN · 현재 실행 상태로 승격하지 않음/u);
+  assert.match(surface, /\{selectedNode\.evidenceScope\}/u);
+  assert.match(surface, /event\.key !== "Escape"/u);
 });

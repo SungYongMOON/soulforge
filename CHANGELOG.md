@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 2026-08-11 - Restore classic topology and expose Engineering Engine connections
+
+- Restored the original five-lane Watchtower topology surface with its existing
+  node shapes, icons, text hierarchy, directed curves, minimap, controls, and
+  read-only inspector instead of the compact provider-sector drill-down.
+- Added a second classic-style Engineering Engine graph that renders all tracked
+  25 modules and 105 provider-local `imports` edges fully expanded in five
+  semantic lanes. Engine health, runtime, and delivery remain UNKNOWN or
+  unobserved; no W1 tone is inherited.
+- Kept both read-only topology endpoints and all federation validators unchanged.
+  The System page intentionally omits Knowledge and Notebook, and states that the
+  Watchtower-to-Engine connection contract is undeclared instead of inventing an
+  edge. Runtime and repair execution authority remain false.
+
 ## 2026-08-11 - Unified AX topology canvas
 
 - Replaced the separate W1 health and declared-federation consumers on the Team

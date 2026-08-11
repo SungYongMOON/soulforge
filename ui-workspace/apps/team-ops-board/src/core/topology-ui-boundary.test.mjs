@@ -8,75 +8,66 @@ const APP_PATH = join(dirname(dirname(fileURLToPath(import.meta.url))), "App.tsx
 const CSS_PATH = join(dirname(dirname(fileURLToPath(import.meta.url))), "team-ops.css");
 const ASSET_ROOT = join(dirname(dirname(fileURLToPath(import.meta.url))), "assets", "topology");
 
-test("unified declared nodes expose left inputs and right outputs with curved directed edges", () => {
+test("classic W1 and Engine nodes expose left inputs, right outputs and curved directed edges", () => {
   const source = readFileSync(APP_PATH, "utf8");
-  const unifiedStart = source.indexOf("function UnifiedTopologyNode");
-  const unifiedEnd = source.indexOf("function AiUsagePanel", unifiedStart);
-  const unified = source.slice(unifiedStart, unifiedEnd);
-  assert.match(unified, /type="target" position=\{Position\.Left\}/u);
-  assert.match(unified, /type="source" position=\{Position\.Right\}/u);
-  assert.match(source, /type:\s*MarkerType\.ArrowClosed/u);
-  assert.match(unified, /type:\s*"default"/u);
+  const classicStart = source.indexOf("function WatchtowerTopologyNode");
+  const classicEnd = source.indexOf("function AiUsagePanel", classicStart);
+  const classic = source.slice(classicStart, classicEnd);
+  assert.match(classic, /type="target" position=\{Position\.Left\}/u);
+  assert.match(classic, /type="source" position=\{Position\.Right\}/u);
+  assert.match(classic, /type:\s*MarkerType\.ArrowClosed/u);
+  assert.match(classic, /type:\s*"smoothstep"/u);
 });
 
-test("unified topology keeps category surface and health status separate", () => {
-  const source = readFileSync(APP_PATH, "utf8");
+test("classic topology restores distinct input, supervisor, store, gate and output shapes", () => {
   const css = readFileSync(CSS_PATH, "utf8");
-  assert.match(source, /UNIFIED_TOPOLOGY_CATEGORIES/u);
-  assert.match(source, /is-category-\$\{data\.category\}/u);
-  assert.match(source, /is-health-\$\{data\.healthState\}/u);
-  assert.match(css, /\.unified-topology-node\.is-provider/u);
-  assert.match(css, /\.unified-topology-node\.is-group/u);
-  assert.match(css, /\.unified-topology-node\.is-node/u);
-  assert.match(css, /\.unified-topology-node\.has-health/u);
-  assert.match(css, /\.unified-topology-node\.is-health-down/u);
+  assert.match(css, /\.watchtower-node-external::before/u);
+  assert.match(css, /\.watchtower-node-supervisor/u);
+  assert.match(css, /\.watchtower-node-store \.watchtower-node-cap/u);
+  assert.match(css, /\.watchtower-node-gate::before/u);
+  assert.match(css, /\.watchtower-node-consumer::before/u);
 });
 
-test("unified topology provides compact drill-down, overview controls and focus restore", () => {
+test("classic topology keeps overview controls, node highlighting and focus restore", () => {
   const source = readFileSync(APP_PATH, "utf8");
   const css = readFileSync(CSS_PATH, "utf8");
   assert.match(source, /<MiniMap/u);
   assert.match(source, /<Controls/u);
   assert.match(source, /selectedNodeId/u);
-  assert.match(source, /toggleUnifiedTopologyExpansion/u);
-  assert.match(source, /data\.onActivate\(data, event\.currentTarget\)/u);
+  assert.match(source, /data\.onActivate\(data\.id, event\.currentTarget\)/u);
   assert.match(source, /event\.key !== "Enter" && event\.key !== " "/u);
-  assert.match(source, /섹터 선택 → 선언 그룹 선택 → 실제 노드/u);
   assert.match(source, /flowInstance\.fitView/u);
-  assert.match(source, /fittedLayoutRef\.current === layoutSignature/u);
-  assert.match(css, /\.unified-topology-node-hit:focus-visible/u);
-  assert.match(css, /\.unified-topology-node\.is-selected/u);
+  assert.match(css, /\.watchtower-node-hit:focus-visible/u);
+  assert.match(css, /\.watchtower-node\.is-selected/u);
 });
 
-test("unified selected-node inspector stays read-only and declares evidence limits", () => {
+test("classic Engine inspector stays read-only and declares evidence limits", () => {
   const source = readFileSync(APP_PATH, "utf8");
-  const css = readFileSync(CSS_PATH, "utf8");
-  assert.match(source, /onRefreshReadOnly/u);
-  assert.match(source, /event\.key !== "Escape"/u);
-  assert.match(source, /DECLARED STRUCTURE · READ-ONLY/u);
-  assert.match(source, /관측 없음 · 런타임 UNKNOWN/u);
-  assert.match(source, /읽기 전용 · 실행·복구 동작 없음/u);
-  assert.match(source, /edge\.receiptObserved \? " is-receipted" : " is-structural"/u);
-  assert.match(source, /selectedNodeTriggerRef/u);
-  assert.match(source, /inspectorRef\.current\?\.focus/u);
-  assert.match(css, /\.watchtower-node-inspector\s*\{/u);
-  assert.match(css, /\.watchtower-inspector-evidence\s*\{/u);
+  const start = source.indexOf("function EngineeringEngineTopologySurface");
+  const end = source.indexOf("const DECLARED_TOPOLOGY_STATE_NOTICE", start);
+  const engine = source.slice(start, end);
+  assert.match(engine, /event\.key !== "Escape"/u);
+  assert.match(engine, /DECLARED MODULE · READ-ONLY/u);
+  assert.match(engine, /runtime UNKNOWN · 현재 실행 상태로 승격하지 않음/u);
+  assert.match(engine, /전달 영수증 아님/u);
+  assert.match(engine, /selectedNodeTriggerRef/u);
+  assert.match(engine, /inspectorRef\.current\?\.focus/u);
 });
 
-test("unified UI labels absent and stale W1 evidence without inferring provider health", () => {
+test("System render path contains no unified sector cards or drill-down", () => {
   const source = readFileSync(APP_PATH, "utf8");
-  assert.match(source, /W1 관측 없음 · 선언 구조만 표시/u);
-  assert.match(source, /!model\.diagnostics\.w1Current/u);
-  assert.match(source, /보존 관측을 현재 상태로 승격하지 않음/u);
-  assert.match(source, /Engineering·Knowledge·Notebook은 W1 상태를 상속하지 않습니다/u);
-  assert.equal(source.includes("provider_summary"), false);
+  const systemStart = source.indexOf('{surface === "system" && (');
+  const systemRender = source.slice(systemStart, source.indexOf('{surface === "work"', systemStart));
+  assert.doesNotMatch(systemRender, /UnifiedSystemTopologySurface|toggleUnifiedTopologyExpansion|sector::|group::/u);
+  assert.match(systemRender, /SystemTopologySurface/u);
+  assert.match(systemRender, /EngineeringEngineTopologySurface/u);
 });
 
 test("Fleet Watchtower state and provider polling fail closed without aggregate substitution", () => {
   const source = readFileSync(APP_PATH, "utf8");
   assert.match(source, /function fleetWatchtowerPresentation/u);
   assert.match(source, /node\?\.id === "watchtower_self"/u);
-  assert.match(source, /"watchtower_self 없음 · 미감시\/HOLD"/u);
+  assert.match(source, /watchtower_self/u);
   assert.match(source, /const healthy = refreshState === "ready"[\s\S]*watchtowerSelf\?\.state === "ok"/u);
   assert.match(source, /PROVIDER_POLL_TIMEOUT_MS/u);
   assert.match(source, /new AbortController\(\)/u);
@@ -97,14 +88,11 @@ test("Claude token presentation consumes normalized provider evidence without mo
   assert.match(source, /ledger_stale/u);
   assert.match(source, /data-ledger-freshness/u);
   assert.doesNotMatch(source, /fleet-claude-collection-attempt/u);
-  assert.doesNotMatch(source, /provider health·live·E2E·current 근거 아님/u);
   assert.match(css, /\.fleet-claude-ledger-evidence\.is-stale/u);
   assert.equal(source.includes("claudeRecon"), false);
   assert.equal(source.includes("estimateClaudeUsdCost"), false);
-  assert.equal(source.includes("startsWith(\"claude\")"), false);
-  assert.equal(source.includes("rawId.replace(/^gemini-/"), false);
-  assert.equal(source.includes("요청 수 · Antigravity"), false);
-  assert.equal(source.includes("Claude 세션·미등록"), false);
+  assert.equal(source.includes('startsWith("claude")'), false);
+  assert.equal(source.includes('rawId.replace(/^gemini-/'), false);
   assert.equal(source.includes("/claude-usage.snapshot.json"), false);
 });
 

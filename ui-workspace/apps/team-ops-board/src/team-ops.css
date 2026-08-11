@@ -5893,6 +5893,34 @@ a:focus-visible {
 .unified-topology-surface .react-flow__controls-button { width: 44px; height: 44px; }
 .watchtower-surface .react-flow__controls-button:hover { background: #1b2731; }
 .watchtower-surface .react-flow__controls-button:focus-visible { outline: 2px solid #72b7ff; outline-offset: -2px; }
+.system-topology-stack { display: grid; gap: 14px; }
+.engineering-topology-surface {
+  border-color: #4a4028;
+  box-shadow: inset 0 1px 0 rgb(227 179 79 / 7%);
+}
+.engineering-topology-surface.is-stale { border-color: #765f2e; }
+.engineering-topology-header .watchtower-kicker { color: #e3b34f; }
+.engineering-topology-counts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 14px; align-items: center; }
+.engineering-topology-counts strong { color: #f0d18a; font-size: 13px; font-variant-numeric: tabular-nums; }
+.engineering-topology-counts span { color: #91a0a8; font: 700 10px/1.2 Consolas, ui-monospace, monospace; letter-spacing: 0.08em; }
+.engineering-topology-boundary {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px;
+  padding: 8px 10px; border: 1px solid #3a3426; border-radius: 8px;
+  background: #11100c; color: #a99b79; font-size: 11px;
+}
+.engineering-topology-guide { border-color: #3c382e; }
+.engineering-topology-canvas { height: 760px; }
+.engineering-topology-surface .watchtower-node-icon {
+  box-shadow: inset 0 1px 0 rgb(227 179 79 / 10%);
+}
+.engineering-topology-surface .watchtower-node.is-catalog-only .watchtower-node-icon { color: #e3b34f; }
+.engineering-topology-surface .react-flow__edge.engine-topology-edge { opacity: 0.66; }
+.engineering-topology-surface .react-flow__edge.engine-topology-edge .react-flow__edge-path { stroke: #7e8f98; stroke-width: 1.15; }
+.engineering-topology-surface .react-flow__edge.engine-topology-edge.is-focused { opacity: 1; }
+.engineering-topology-surface .react-flow__edge.engine-topology-edge.is-focused .react-flow__edge-path { stroke: #e5cf9d; stroke-width: 2.1; }
+.engineering-topology-surface .react-flow__edge.engine-topology-edge.is-dimmed { opacity: 0.1; }
+.engineering-topology-surface .react-flow__controls-button { width: 44px; height: 44px; }
+.engineering-topology-inspector { border-color: #4d432c; }
 @media (prefers-reduced-motion: reduce) {
   .watchtower-node .watchtower-node-dot { animation: none; }
   .watchtower-surface .react-flow__edge.animated .react-flow__edge-path { animation: none; }
