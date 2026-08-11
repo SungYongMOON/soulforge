@@ -249,6 +249,8 @@ test("thirty-day usage chart separates exact provider tokens with readable respo
     assert.match(css, new RegExp(`\\.provider-credit-${provider}\\s*\\{[^}]*stroke:`, "u"));
   }
   assert.match(css, /\.ledger-activity-panel svg\.fleet-provider-credit-chart\.is-ledger\s*\{\s*height:\s*220px;/u);
+  assert.match(css, /\.ledger-activity-panels\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(0,\s*1fr\)/su);
+  assert.doesNotMatch(css, /\.ledger-activity-panel\.is-usage-trend\s*\{[^}]*grid-column:\s*1\s*\/\s*-1/su);
 });
 
 test("AI usage history controls stay on the work surface and expose only exact-ID ranking fields", () => {

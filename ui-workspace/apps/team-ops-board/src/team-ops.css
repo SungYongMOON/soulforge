@@ -6256,7 +6256,7 @@ a:focus-visible {
 .provider-credit-empty { color: #93a2ac; font-size: 12px; }
 .ledger-activity-panel svg.fleet-provider-credit-chart.is-ledger { height: 220px; }
 .ledger-activity-panel .fleet-provider-token-chart-wrap.is-ledger { margin-top: 2px; }
-.ledger-activity-panel.is-usage-trend { grid-column: 1 / -1; padding: 0; overflow: hidden; }
+.ledger-activity-panel.is-usage-trend { min-width: 0; padding: 0; overflow: hidden; }
 .usage-trend { min-width: 0; display: grid; gap: 10px; padding: 18px 20px 14px; }
 .usage-trend-header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
 .usage-trend-header > div:first-child { display: grid; gap: 2px; }
