@@ -52,6 +52,14 @@ const QUERY_RUN_ID = /^(?:(?:notebook_round|engine_reference)_0[1-3])$/;
 const QUERY_ROUND_ID = /^round_0[1-3]$/;
 const QUERY_QUESTION_ID = /^se-q-0[1-7]$/;
 
+function expectedNotebookRunId(roundId) {
+  return `notebook_${roundId}`;
+}
+
+function expectedEngineRunId(attemptIndex) {
+  return `engine_reference_${String(attemptIndex).padStart(2, '0')}`;
+}
+
 class LedgerHold extends Error {
   constructor(code) {
     super(code);
@@ -426,6 +434,7 @@ function buildNotebookSpecs(root, sourceAttestationSha256, attestedSourceNames) 
     'SOURCE_COHORT_REFUSED');
     ensureBoundary(manifest, 'notebook_manifest');
     const runId = safeString(manifest.run_id);
+    guard(runId === expectedNotebookRunId(roundId), 'SOURCE_COHORT_REFUSED');
     const claimCeiling = safeString(manifest.claim_ceiling);
     const questionSetSha256 = hex64(manifest.question_set_canonical_sha256);
     if (sharedQuestionSetSha256 === undefined) sharedQuestionSetSha256 = questionSetSha256;
@@ -626,6 +635,7 @@ function buildEngineSpecs(root, notebookQuestionIds) {
     'SOURCE_COHORT_REFUSED');
     ensureBoundary(manifest.data_boundary, 'engine_manifest');
     const runId = safeString(manifest.run_id);
+    guard(runId === expectedEngineRunId(attemptIndex), 'SOURCE_COHORT_REFUSED');
     guard(manifest.outputs?.engine_results?.file === 'engine_results.json'
       && manifest.outputs?.verification_receipt?.file === 'verification_receipt.json'
       && manifest.outputs.engine_results.byte_length === resultsArtifact.bytes.length
@@ -917,6 +927,14 @@ function validateIdentity(event) {
     guard(ROUND_IDS.includes(identity.round_id), 'LEDGER_EVENT_SHAPE_REFUSED');
   }
   if (Object.hasOwn(identity, 'question_id')) safeString(identity.question_id, QUESTION_ID, 64);
+  if (['notebook_answer', 'review', 'round_summary'].includes(event.event_type)) {
+    guard(identity.run_id === expectedNotebookRunId(identity.round_id),
+      'LEDGER_EVENT_SHAPE_REFUSED');
+  }
+  if (['engine_row', 'engine_run'].includes(event.event_type)) {
+    guard(identity.run_id === expectedEngineRunId(identity.attempt_index),
+      'LEDGER_EVENT_SHAPE_REFUSED');
+  }
 }
 
 function validateInputs(event) {
@@ -1212,13 +1230,14 @@ function validateCompleteCohort(events) {
   const notebookQuestionKeys = [];
   const notebookSharedPins = [];
   const notebookRunIds = [];
-  for (const group of notebookRounds.values()) {
+  for (const [roundId, group] of notebookRounds) {
     guard(group.answers.length === 7 && group.reviews.length === 7 && group.summaries.length === 1,
       'LEDGER_COHORT_REFUSED');
     const summary = group.summaries[0];
     const answerQuestions = group.answers.map((event) => event.identity.question_id).sort();
     const reviewQuestions = group.reviews.map((event) => event.identity.question_id).sort();
-    guard(new Set(answerQuestions).size === 7
+    guard(summary.identity.run_id === expectedNotebookRunId(roundId)
+      && new Set(answerQuestions).size === 7
       && answerQuestions.join('\0') === reviewQuestions.join('\0')
       && [...group.answers, ...group.reviews].every((event) =>
         event.identity.run_id === summary.identity.run_id
@@ -1241,6 +1260,7 @@ function validateCompleteCohort(events) {
     const run = group.runs[0];
     const questions = group.rows.map((event) => event.identity.question_id).sort();
     guard(run.identity.attempt_index === attemptIndex
+      && run.identity.run_id === expectedEngineRunId(attemptIndex)
       && new Set(questions).size === 7
       && group.rows.every((event) => event.identity.run_id === run.identity.run_id),
     'LEDGER_COHORT_REFUSED');

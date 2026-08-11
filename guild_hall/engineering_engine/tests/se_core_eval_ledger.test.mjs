@@ -345,6 +345,25 @@ function recomputeLedger(events) {
   return Buffer.concat(events.map(canonicalBytes));
 }
 
+function reidentifyAndRecomputeLedger(events, predicate, runId) {
+  const changed = structuredClone(events);
+  const remappedIds = new Map();
+  for (const event of changed) {
+    if (!predicate(event)) continue;
+    const priorId = event.event_id;
+    event.identity.run_id = runId;
+    event.event_id = `selev_${domainSha256('soulforge.se_core_eval.event_identity.v1', {
+      event_type: event.event_type,
+      identity: event.identity,
+    })}`;
+    remappedIds.set(priorId, event.event_id);
+  }
+  for (const event of changed) {
+    event.links.event_ids = event.links.event_ids.map((eventId) => remappedIds.get(eventId) ?? eventId);
+  }
+  return recomputeLedger(changed);
+}
+
 function rewriteRoundOneAfterAnswerChange(root) {
   const answerLocator = 'exports/notebook/round_01/se-q-01.md';
   const answer = writeBytes(root, answerLocator, Buffer.from(`${RAW_BODY}\nchanged\n`, 'utf8'));
@@ -502,6 +521,51 @@ test('summary exact-status must canonically equal every linked review exact-stat
   const refused = backfillSeCoreEvalLedger({ root_path: refusedRoot });
   assert.equal(refused.result, 'HOLD');
   assert(refused.report.issues.includes('SOURCE_LINK_MISMATCH'));
+});
+
+test('source-tree run ids are fixed to their round or attempt and remain queryable', () => {
+  const notebookRoot = buildFixture();
+  const manifestLocator = 'exports/notebook/round_01/run_manifest.json';
+  const manifest = readJson(notebookRoot, manifestLocator);
+  manifest.run_id = 'harmless_alias_01';
+  const manifestArtifact = writeJson(notebookRoot, manifestLocator, manifest);
+  const summaryLocator = 'reviews/notebook/round_01/summary.json';
+  const summary = readJson(notebookRoot, summaryLocator);
+  summary.run_id = manifest.run_id;
+  summary.run_manifest.byte_length = manifestArtifact.byte_length;
+  summary.run_manifest.sha256 = manifestArtifact.sha256;
+  writeJson(notebookRoot, summaryLocator, summary);
+  let refused = backfillSeCoreEvalLedger({ root_path: notebookRoot });
+  assert.equal(refused.result, 'HOLD');
+  assert(refused.report.issues.includes('SOURCE_COHORT_REFUSED'));
+
+  const engineRoot = buildFixture();
+  const engineManifestLocator = 'exports/engine/reference_01/run_manifest.json';
+  const engineManifest = readJson(engineRoot, engineManifestLocator);
+  engineManifest.run_id = 'harmless_alias_01';
+  writeJson(engineRoot, engineManifestLocator, engineManifest);
+  refused = backfillSeCoreEvalLedger({ root_path: engineRoot });
+  assert.equal(refused.result, 'HOLD');
+  assert(refused.report.issues.includes('SOURCE_COHORT_REFUSED'));
+});
+
+test('fully reidentified and rehashed ledger aliases are refused', () => {
+  const events = ledgerEvents(build(buildFixture()).ledger_bytes);
+  let refused = validateSeCoreEvalLedger(reidentifyAndRecomputeLedger(
+    events,
+    (event) => event.identity.round_id === 'round_01',
+    'harmless_alias_01',
+  ));
+  assert.equal(refused.result, 'HOLD');
+  assert(refused.issues.includes('LEDGER_EVENT_SHAPE_REFUSED'));
+
+  refused = validateSeCoreEvalLedger(reidentifyAndRecomputeLedger(
+    events,
+    (event) => event.identity.attempt_index === 1,
+    'harmless_alias_01',
+  ));
+  assert.equal(refused.result, 'HOLD');
+  assert(refused.issues.includes('LEDGER_EVENT_SHAPE_REFUSED'));
 });
 
 test('an optional comparison candidate appends one hash-only event over six terminal inputs', () => {
