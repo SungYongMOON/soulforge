@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-08-11 - AX topology federation contract and deterministic declared projection
+
+- Added a strict Watchtower-owned provider-fragment contract and pure federation composer.
+  Each subsystem remains the owner of its declaration; Watchtower namespaces and combines
+  only allowlisted public-safe structure and never promotes it to runtime, delivery, source,
+  answer, approval, or repair-execution authority.
+- Added exact adapters for the existing Watchtower catalog and the generated Engineering
+  Engine topology. The first tracked projection contains 2 providers, 52 declared nodes,
+  and 137 declared edges. Its input byte hashes and full-document digest are deterministic;
+  automatic discovery, project payloads, private paths, NotebookLM answers, account/session
+  data, runtime health, and inferred cross-provider edges are excluded.
+- Added declared-versus-observed exact-set reconciliation so a viewer can surface catalog
+  drift rather than silently treating a drawn line as live evidence. Self-diagnosis is
+  read-only; repair remains candidate-only and execution authority is fixed false.
+- Wired `validate:watchtower` into both root acceptance modes before Team Ops Board. The gate
+  syntax-checks the producer, byte-compares a fresh projection with the tracked artifact,
+  and runs structural, adversarial, adapter, and existing health-probe tests.
+- Bounded verification: Watchtower 28/28 tests pass, generated projection byte check passes
+  at SHA-256 `23e6b9c82f6794b776d61eb54e41136ba20346e20d69bbc79c2c6e62ddd8f22d`,
+  root-step tests 4/4 pass, changed-path policy reports zero violations, and `git diff --check`
+  passes. No live binding, external account, project material, runtime, UI, or repair action
+  was exercised.
+
 ## 2026-08-11 - SE Engineering Engine Phase 2 fourth correction pass: three integration blockers closed
 
 A fresh independent Level-3 verifier replayed 35 attacks against the previous
