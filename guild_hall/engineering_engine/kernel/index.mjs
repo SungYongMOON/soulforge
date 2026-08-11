@@ -22,7 +22,7 @@ export { canonicalise, inspectInstant, isCanonicalInstant, compareCodePoints, da
 // PC-01, PC-02
 export {
   classifyRef, isWellFormedRef, RESOLUTION,
-  sameEntity, sameRevision, sameContent,
+  sameEntity, sameRevision, sameContent, sameExactRef, exactRefIdentityKey, logicalRevisionKey,
   PLACEHOLDERS, isPlaceholder, assertNotPlaceholder, inspectIdentifierOpacity,
 } from './identity.mjs';
 
@@ -37,6 +37,17 @@ export {
   resolveApplicability, resolveAuthority, forbidRankArithmetic,
   SCOPE, assertSearchScope,
 } from './authority.mjs';
+
+// Registration evidence for the boundaries that require a registered human or a registered
+// authority. Verification of supplied, content-addressed evidence — not a live registry, and
+// not a decision about who may be registered, which is still D-P10-08.
+export {
+  SUBJECT_KINDS as REGISTRATION_SUBJECT_KINDS,
+  REQUIRED_ENTRY_FIELDS as REQUIRED_REGISTRATION_ENTRY_FIELDS,
+  REQUIRED_REGISTRY_FIELDS as REQUIRED_REGISTRATION_REGISTRY_FIELDS,
+  registrationEntryContentAddress, registrationRegistryContentAddress,
+  verifyRegistrationRegistry, assertRegisteredSubject, assertNoLiveRegistryAccess,
+} from './registration.mjs';
 
 // PC-05
 export {
@@ -144,4 +155,5 @@ export const NON_CAPABILITIES = Object.freeze([
   'generate identifier values (the serialised boundary supplies them; the kernel validates and registers)',
   'read actual project material, source bodies, or credentials',
   'invoke embedding or semantic reranking on the authoritative path',
+  'consult a live registration registry, or decide who may be registered (D-P10-08 is open; the kernel verifies supplied evidence only)',
 ]);

@@ -155,13 +155,39 @@ const topology = {
     lane_1a: pipeline.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
     lane_1b: custody.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
     lane_1e: moduleBinding.OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
-    undefined_stage: pipeline.P7,
   },
+
+  // P7 is defined by the frozen plan as the TaskDriver behind a four-check policy gate. It is
+  // reported here as a stage, not as an open question, and it says plainly that no live driver
+  // is switched on.
+  task_driver_stage: pipeline.P7,
 };
 
-// Stable digest: a viewer can show this and say which code it rendered.
-const canonicalJson = JSON.stringify(topology, Object.keys(topology).sort());
-topology.topology_digest = createHash('sha256').update(canonicalJson).digest('hex');
+/**
+ * Recursively key-sorted serialisation, so the digest does not depend on property order.
+ *
+ * The previous line was `JSON.stringify(topology, Object.keys(topology).sort())`. The second
+ * argument of `JSON.stringify` is not a key *order* — it is a key *allowlist*, applied at every
+ * depth. Only property names that also happened to be top-level keys of the document survived,
+ * so every module entry and every edge entry serialised as `{}` and the digest covered 1060
+ * bytes of a 38811-byte document. Module names, import edges, export lists and line counts were
+ * all outside it.
+ *
+ * That is what let a committed topology drift from a fresh emit while the integration check's
+ * "topology matches code" still passed on a digest comparison: the one field that had actually
+ * changed was not in the digest. A checker whose green light is narrower than its claim is worse
+ * than no checker, because the claim is what a reader acts on.
+ */
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+// Stable digest over the whole document: a viewer can show this and say which code it rendered.
+topology.topology_digest = createHash('sha256').update(stableStringify(topology)).digest('hex');
 
 const out = process.argv.includes('--out') ? process.argv[process.argv.indexOf('--out') + 1] : null;
 const text = `${JSON.stringify(topology, null, 2)}\n`;

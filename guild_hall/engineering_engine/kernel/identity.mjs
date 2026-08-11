@@ -17,6 +17,13 @@ export const RESOLUTION = Object.freeze({
 
 const nonEmptyString = (v) => typeof v === 'string' && v.length > 0;
 
+// Field separator for the identity keys below. A unit separator rather than a printable
+// character, because an identifier may not contain whitespace or a path fragment (see the
+// opacity rules at the end of this file) but nothing forbids it containing a dash or an at
+// sign — and a separator that can appear inside a field lets two different tuples produce
+// one key.
+const SEPARATOR = '\u001f';
+
 /**
  * Classifies an exact revision ref.
  *
@@ -53,6 +60,42 @@ export const sameRevision = (a, b) => nonEmptyString(a?.revision_id) && a.revisi
  * template), and a revision can be reissued with unchanged bytes.
  */
 export const sameContent = (a, b) => nonEmptyString(a?.content_id) && a.content_id === b?.content_id;
+
+/**
+ * The key of the complete exact-ref identity tuple.
+ *
+ * Returns null for anything that is not a fully formed exact revision ref, so a caller
+ * keying on this cannot accidentally index a malformed ref under a plausible-looking key.
+ *
+ * Every field of PC-02 is in the key, content identity included. Keying on
+ * `entity_id@revision_id` was the shortcut that made a forged ref indistinguishable from a
+ * true one: two refs agreeing on subject and revision but naming different bytes are not the
+ * same reference, and a lookup that folded them together let a caller declare one ref and
+ * then be handed a different one under its authority.
+ */
+export function exactRefIdentityKey(ref) {
+  if (classifyRef(ref, { bytesAvailable: true }) !== RESOLUTION.RESOLVABLE) return null;
+  // Unit separator: no identifier may contain whitespace or a path character (see the opacity
+  // rules below), so a control character cannot be produced by concatenation ambiguity.
+  return REF_REQUIRED_FIELDS.map((f) => ref[f]).join(SEPARATOR);
+}
+
+/**
+ * The key of the subject-and-revision pair only.
+ *
+ * Deliberately weaker than the identity key, and never a substitute for it. It exists so a
+ * caller can detect the one case worth naming separately: two refs that agree on which
+ * revision of which subject they mean but disagree about the bytes. That is a contradiction
+ * in the input, not a second entry, and reporting it as such is more useful than a silent miss.
+ */
+export const logicalRevisionKey = (ref) => (nonEmptyString(ref?.entity_id) && nonEmptyString(ref?.revision_id)
+  ? `${ref.entity_id}${SEPARATOR}${ref.revision_id}`
+  : null);
+
+export const sameExactRef = (a, b) => {
+  const ka = exactRefIdentityKey(a);
+  return ka !== null && ka === exactRefIdentityKey(b);
+};
 
 // ---------------------------------------------------------------- placeholders
 

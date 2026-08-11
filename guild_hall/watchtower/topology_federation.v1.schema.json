@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soulforge.ax_topology.provider.v1",
+  "title": "Soulforge AX topology provider fragment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider_id",
+    "provider_kind",
+    "label",
+    "source",
+    "declared_status",
+    "validation",
+    "capabilities",
+    "authority_boundary",
+    "claim_ceiling",
+    "runtime_state",
+    "payload_state",
+    "blocker_codes",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "schema_version": { "const": "soulforge.ax_topology.provider.v1" },
+    "provider_id": { "$ref": "#/$defs/id" },
+    "provider_kind": {
+      "enum": ["platform", "domain_engine", "knowledge", "workflow", "advisory_workbench"]
+    },
+    "label": { "$ref": "#/$defs/label" },
+    "source": { "$ref": "#/$defs/source" },
+    "declared_status": { "enum": ["active", "candidate", "planned", "hold"] },
+    "validation": { "$ref": "#/$defs/validation" },
+    "capabilities": { "$ref": "#/$defs/capabilities" },
+    "authority_boundary": { "$ref": "#/$defs/authorityBoundary" },
+    "claim_ceiling": {
+      "enum": ["observed", "source_supported", "validated_private", "canon_candidate", "canon_entry", "rejected_or_blocked"]
+    },
+    "runtime_state": { "enum": ["unknown", "not_applicable"] },
+    "payload_state": { "enum": ["none", "metadata_only", "public_safe_contract"] },
+    "blocker_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]{1,95}$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "schema_version", "revision", "digest"],
+      "properties": {
+        "source_id": { "$ref": "#/$defs/id" },
+        "schema_version": { "$ref": "#/$defs/id" },
+        "revision": { "$ref": "#/$defs/id" },
+        "digest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validator_id", "state", "evidence_ref", "source_commit"],
+      "properties": {
+        "validator_id": { "$ref": "#/$defs/id" },
+        "state": { "enum": ["not_run", "passed", "failed", "unknown"] },
+        "evidence_ref": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "maxLength": 240 }
+          ]
+        },
+        "source_commit": {
+          "anyOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+          ]
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observe", "diagnose", "propose_repair", "execute_repair"],
+      "properties": {
+        "observe": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "diagnose": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "propose_repair": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "execute_repair": { "const": false }
+      }
+    },
+    "authorityBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_truth", "answer_authority", "owner_approval_authority", "runtime_mutation"],
+      "properties": {
+        "source_truth": { "const": false },
+        "answer_authority": { "const": false },
+        "owner_approval_authority": { "const": false },
+        "runtime_mutation": { "const": false }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "kind", "layer", "parent_id", "group", "diagnostic_state", "repair_state"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "label": { "$ref": "#/$defs/label" },
+        "kind": {
+          "enum": ["external", "supervisor", "worker", "store", "gate", "consumer", "provider", "domain_engine", "module", "operation", "knowledge", "workbench"]
+        },
+        "layer": { "enum": ["system", "subsystem", "module", "operation", "runtime"] },
+        "parent_id": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/id" }] },
+        "group": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/label" }] },
+        "diagnostic_state": { "enum": ["structural", "validator_backed", "unknown"] },
+        "repair_state": { "enum": ["none", "candidate_only", "owner_approval_required"] }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "label", "relation", "layer", "evidence_mode"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "from": { "$ref": "#/$defs/id" },
+        "to": { "$ref": "#/$defs/id" },
+        "label": { "$ref": "#/$defs/label" },
+        "relation": { "enum": ["data", "control", "contains", "imports", "projects", "advises", "validates", "observes"] },
+        "layer": { "enum": ["system", "subsystem", "module", "operation", "runtime"] },
+        "evidence_mode": { "enum": ["structural_only", "receipt_required"] }
+      }
+    }
+  }
+}

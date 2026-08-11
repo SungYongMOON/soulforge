@@ -30,6 +30,8 @@ Status: `AUTHOR-WRITTEN FIXTURES / MUTATION-LOCKED / SEMANTIC INDEPENDENCE UNMET
 
 `P` 반대로 idle 간선은 정상이다. 한 번의 실행은 그래프의 부분집합만 지난다. 그래서 `declared_not_exercised` 는 **그 실행에 대한 사실**로 보고하고 결함으로 취급하지 않는다.
 
+`D` observation summary 는 `edges.exercised_edge_keys` 로 **자기가 영수증을 만든 간선 key 집합을 그대로** 선언한다. 개수만 있으면 영수증 map 을 대조할 대상이 없고, 어떤 key 집합이든 그 실행이 만든 것처럼 보인다. subject adapter 는 이 선언과 정확히 일치하지 않는 map 을 증거로 달지 않는다. 상세는 `contracts/lane_1a_snapshot_and_pipeline_v0.md` 가 아니라 `subjects/engine_self_topology.mjs` 의 머리말이 소유한다.
+
 현재: **76/76 간선 통과 관측 · `observed_not_declared` 0**
 
 ## 3. 관측 방법 — 이름이 한계를 말한다
@@ -96,6 +98,6 @@ age > period + grace        → stale  (proves_traversal: false)
 
 ## 9. 검증 강도 — 정직한 한계
 
-`O` 기대값을 구현과 같은 저자가 썼다. lane 1V 변이 lock 이 6개 변이로 이 두 모듈의 가드를 덮는다(43/43 kill, 커널 18/18 모듈). 의미론적 독립검증은 여전히 **미완 의무**다.
+`O` 기대값을 구현과 같은 저자가 썼다. lane 1V 변이 lock 이 6개 변이로 이 두 모듈의 가드를 덮는다(전체 51/51 kill, 모듈 21개 커버). 의미론적 독립검증은 여전히 **미완 의무**다.
 
 `O` 그리고 이 문서가 말하는 "실제 runtime" 은 **엔진의 검증 표면 실행**이다. 엔진에는 아직 생산 런타임이 없고, 실제 과제 자료를 처리한 적이 없다.

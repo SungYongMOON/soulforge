@@ -19,6 +19,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 ## 구성
 
 - `kernel/`: 결정론 kernel. 학습모델을 호출하지 않고, 공급된 값에 대한 순수 함수만 노출한다
+- 영수증은 4종을 구분해 쓴다: topology delivery(간선 통과) · MCP idempotency 응답(재시도) · Context Request 영수증 · Context Response 영수증. 서로 대신하지 못하며 소유 모듈이 다르다
 - `contracts/`: Phase 1-0 공통 계약과 lane 계약
 - `fixtures/`: 합성 fixture
 - `tests/`: 동결 oracle 대조 conformance
@@ -45,7 +46,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 
 | lane | field group | 구현 | 계약문 |
 |---|---|---|---|
-| substrate | Phase 1-0 공통 계약 11항목 | `kernel/` 9 모듈 | 동결 bundle |
+| substrate | Phase 1-0 공통 계약 11항목 | `kernel/` 최초 9 모듈 (현재 커널 전체 22) | 동결 bundle |
 | 1A | snapshot envelope · state axes · Finding · Context Request · P5–P8 | `snapshot.mjs`, `pipeline.mjs` | `contracts/lane_1a_snapshot_and_pipeline_v0.md` |
 | 1B | inventory · custody · eligibility · lineage | `custody.mjs`, `lineage.mjs` | `contracts/lane_1b_custody_and_lineage_v0.md` |
 | 1C | typed graph · bounded capsule | `graph.mjs`, `capsule.mjs` | `contracts/lane_1c_graph_and_capsule_v0.md` |
@@ -53,6 +54,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 | 1E | module ABI · binding · release · rollback | `module_binding.mjs` | `contracts/lane_1e_module_and_release_v0.md` |
 | 1V | 변이 lock | `tests/lane_1v_mutation_lock.mjs` | `contracts/lane_1v_verification_lock_v0.md` |
 | runtime | 하트비트 · 간선별 전달 영수증 | `heartbeat.mjs`, `delivery_receipt.mjs` | `contracts/runtime_observation_v0.md` |
+| phase 3 | Context Request/Response 영수증 (합성) | `context_receipt.mjs` | `contracts/phase_3_context_receipts_v0.md` |
 | assembly | 조립된 1 pass · subject adapter | `assembly/engine_pass.mjs`, `subjects/` | — |
 | output | 소비자용 읽기 계약 | `tools/output_binding.mjs` | `contracts/engine_output_read_contract_v0.md` |
 
@@ -60,7 +62,7 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 
 ## 검증
 
-한 번에 전부 (일곱 검사 모두 통과해야 한다):
+한 번에 전부 (여덟 검사 모두 통과해야 한다):
 
 ```
 node guild_hall/engineering_engine/tools/phase_1_integration_check.mjs \
@@ -71,7 +73,49 @@ node guild_hall/engineering_engine/tools/phase_1_integration_check.mjs \
 
 개별 suite 는 `tests/` 아래에 있다. kernel suite 만 동결 oracle 을 인자로 받는다.
 
+byte manifest 는 추적 소스만 담으며 자기 path base 를 헤더로 선언한다. receipt 는 실행 결과라 매번 바뀌므로 제외한다 — 넣으면 manifest 가 스스로를 무효화한다.
+
+```
+node guild_hall/engineering_engine/tools/emit_manifest.mjs --out topology/engine_manifest.sha256
+node guild_hall/engineering_engine/tools/emit_manifest.mjs --verify topology/engine_manifest.sha256
+```
+
+`P` manifest 행은 **Git 이 저장할 byte** 를 hash 한다. checkout 에 우연히 들어간 줄바꿈이 아니다. text 파일은 clean filter 와 같은 규칙(CRLF→LF)으로 정규화하고, 그 결과가 `git hash-object` 의 답과 일치하는지 매 emit 마다 대조한다. 어긋나면 emit 을 **거부한다** — 저장소가 재현하지 못할 manifest 를 내는 것이 실패보다 나쁘다.
+
+`D` `tests/manifest_blob_integrity.mjs` 가 세 가지를 따로 확인한다: 파일이 최신 emit 과 같은가, 정규화가 Git 의 clean filter 와 같은가, 각 행이 **index 에 staged 된 blob byte** 의 sha256 과 같은가. 통합검사에 들어 있으므로 manifest 가 commit 될 내용과 어긋나면 초록불이 나오지 않는다.
+
+`O` 이 시험은 Phase 2 종료 시점의 실제 결함을 재현한다. commit 된 manifest 가 네 파일에서 commit 된 내용과 달랐고, 통합검사가 manifest 를 **아무도 검증하지 않았기 때문에** 그대로 통과했다.
+
 `P` kernel 은 Phase 1-0 동결 synthetic oracle 의 판정을 그대로 재현한다. 그 oracle 은 독립검증을 거쳤으므로 구현과 채점 기준의 저자가 분리된다.
+
+`O` **초록불 자체가 충분하지 않을 수 있다.** 독립 검토가 지적한 다섯 계약 실패는 전부 "검사는 있었는데 약한 형태로 있었다"였고, 다섯 다 통과 상태에서 발견됐다. 지금 고정한 형태는 아래와 같으며 각각 positive control 과 공격 케이스를 함께 가진다.
+
+| 항목 | 약했던 형태 | 지금 요구하는 형태 |
+|---|---|---|
+| receipt map | key 가 있으면 관측으로 읽음 | 실행이 선언한 **정확한 key 집합**과 일치, 영수증마다 자기 edge·run 이름 확인 |
+| capsule 격리 | `graph.nodes` 선택적 | node 집합 **필수**, 모든 traversed·returned ref 가 binding 일치 |
+| P8 gate | 모양과 `passed: true` 신뢰 | record 마다 불변 provenance **재계산**, 네 boundary **재실행** |
+| Context 응답 | response id·binding·generation 만 대조 | 요청·영수증·source·artifact·hash·principal·시각까지 **내용으로** 결속 |
+| O4 두 source | conflict 기록 존재 | 정확한 두 권위 쌍·다른 revision·실제 불일치·양쪽 applicability·baseline governing |
+
+`O` **그 다음 독립검토가 같은 형태의 결함 네 개를 더 재현했다.** 전부 "검사는 있었는데 검사받는 쪽이 답을 적는 자리에 있었다"였고, 네 항목 모두 공격 케이스와 positive control 을 함께 고정했다.
+
+| 항목 | 약했던 형태 | 지금 요구하는 형태 |
+|---|---|---|
+| capsule node 대조 (B-03) | 선언되지 않은 node 는 exclusion, key 는 `entity@revision` | 선언되지 않은 node 는 **선택 전체 거부**, 완전한 exact-ref tuple(`content_id` 포함)로 대조, 한 logical node 중복 선언 거부 |
+| P5·P7·P8 등록 (B-06) | `kind: 'registered_human'` · `registered: true` 를 그대로 신뢰 | content-addressed **등록 증거**로 확인, project·authority family·시각 범위 일치, 호출자의 자기 주장은 거부 |
+| P5 orchestration authority (B-07) | `authority_ref` 가 비어 있지 않고 세 기록에서 같기만 하면 통과 | 같은 등록 증거·family·scope 에서 **해소되어야** 통과, candidate 성격·generation 0·두 영수증 linkage 는 그대로 |
+| 두 source 인용 (B-08) | `source_revision_ref` bare string 허용, 시간값 미검사 | **정확한 typed revision ref** 와 양쪽 canonical instant(`known_at >= valid_at`) 요구, 두 겹 guard 모두에서 |
+
+`O` 다음 독립검토가 35개 공격을 재생해 33개는 막혔고 **통합 지점에서 세 개가 남았다.** 세 개 모두 "각 guard 는 옳은데 그 사이에 틈이 있었다" 였다.
+
+| 항목 | 약했던 형태 | 지금 요구하는 형태 |
+|---|---|---|
+| edge endpoint 해소 (B-03 통합) | traversal 이 닿을 때만 대조 → 위조된 `from_ref` 는 조용히 skip, seed edge 하나면 **성공한 빈 capsule** | 공급된 **모든 edge 의 양 endpoint** 를 walk 전에 node 집합에 해소, 불일치·미선언은 projection 거부 |
+| disposition 확인자 (B-06/P8) | `confirmed_by_registered_human` · kind · id 세 필드를 그대로 신뢰 | gate 가 준 **같은 registry·binding·시각**으로 확인, 시각은 provenance 가 아니라 record 본문의 `confirmed_at` |
+| 파생 topology (blocker 3) | digest 대조뿐이고 그 digest 가 문서의 1/37 만 덮음 | digest 는 문서 전체를, 통합검사는 **byte 동일성**을 확인 |
+
+`P` **`D-P10-08` 은 이것으로 닫히지 않는다.** kernel 은 live registry 를 조회하지 않고 공급된 증거의 자기정합성과 범위만 검증한다. 누가 등록될 수 있는지는 여전히 Owner 결정이며, 닫힌 것은 "그렇다고 적기만 하면 통과하던" 상태다.
 
 `O` **나머지 다섯 lane 의 fixture 는 구현과 같은 저자가 썼다.** 초록불이 substrate 의 초록불과 같은 무게가 아니다. 변이 lock 이 가드가 실제로 작동하는지는 확인하지만, 규칙 자체가 구현과 fixture 에서 똑같이 틀린 경우는 잡지 못한다. 의미론적 독립검증은 **미완 의무**다.
 
@@ -83,7 +127,13 @@ node guild_hall/engineering_engine/tools/emit_topology.mjs --out topology/engine
 
 module edge 는 `kernel/*.mjs` 의 **실제 `import` 문을 파싱**해서 얻는다. 경계는 lane 1D 의 `OPERATIONS` 표에서, 나머지 어휘는 각자를 소유한 모듈에서 읽는다. 손으로 적는 것은 lane↔field group 대응 하나뿐이다.
 
-`D` 통합검사가 commit 된 `topology/engine_topology.json` 을 새 emit 과 digest 대조하므로, 낡은 topology 는 실패로 드러난다. 그림은 자기가 묘사하는 코드와 어긋날 수 있지만 이건 어긋날 수 없다.
+`D` 통합검사가 commit 된 `topology/engine_topology.json` 을 새 emit 과 **byte 단위로** 대조하므로, 낡은 topology 는 실패로 드러난다. 그림은 자기가 묘사하는 코드와 어긋날 수 있지만 이건 어긋날 수 없다.
+
+`O` **이전 판은 digest 만 대조했고, 그 digest 는 문서의 1/37 만 덮고 있었다.** `JSON.stringify(topology, Object.keys(topology).sort())` 의 두 번째 인자는 key 정렬이 아니라 **key allowlist** 이며 모든 깊이에 적용된다. 최상위 key 이름과 겹치지 않는 속성은 전부 사라져 module 항목과 edge 항목이 각각 `{}` 로 직렬화됐고, 38811 byte 문서에서 1060 byte 만 해시됐다. module 이름·import edge·export 목록·line_count 이 전부 digest 밖이었다.
+
+`O` 그래서 commit 된 topology 의 `context_receipt.line_count` 가 소스와 어긋난 채 `topology_matches_code` 가 통과했다. 실제로 바뀐 유일한 필드가 digest 밖에 있었기 때문이다. **주장보다 좁은 초록불은 없느니만 못하다** — 읽는 사람이 행동의 근거로 삼는 것은 주장 쪽이다.
+
+`D` 정정 두 겹: emitter 의 digest 는 재귀 key 정렬 직렬화로 문서 전체를 덮고, 통합검사는 digest 가 아니라 **emit 된 bytes 자체**를 commit 된 파일과 대조한다. 두 번째 겹은 첫 번째가 옳다는 것에 의존하지 않는다. `tests/manifest_blob_integrity.mjs` 가 같은 byte 동일성과 digest 의 실제 적용 범위(중첩 `line_count`·module 이름 변경이 digest 를 움직이는지)를 각각 확인한다.
 
 ## 실제 실행 관측
 
@@ -132,4 +182,4 @@ engine 의 local runtime state 는 다른 owner 와 같은 규칙을 따라 `gui
 
 lane 별 미결 항목은 각 lane 계약문과 `kernel/contract_config.mjs` 의 `OPEN_LANE_QUESTIONS` 에 있다. Phase 1 을 막는 것은 없다.
 
-`O` 동결 Phase 1-0 계약은 `P5`·`P6`·`P8` 을 지목하지만 **`P7` 을 정의하지 않는다.** 번호를 채우기 위해 단계를 발명하지 않고 `pipeline.mjs` 가 `UNKNOWN_pending_engine_owner` 로 기록한다.
+`O` **`P7` 은 TaskDriver 다.** 이전 판이 `UNKNOWN_pending_engine_owner` 로 적은 것은 읽기 오류였고 Owner 미결이 아니었다. `engine_plan_v1_2.md` §1.4, `engine_plan_v1_2_1.md` §6.2, `phase_1_0_work_lanes.yaml` 의 `p7_taskdriver` gate 가 모두 같은 정의를 준다. `pipeline.mjs` 가 `why`·`why-now`·`authority`·`idempotency` 내부 gate 뒤의 TaskDriver 단계로 구현하며, **활성화하지 않는다**(`activation_state: not_activated`, `driver_activated: false`, `erp_delta: 0`). 상세는 `contracts/lane_1a_snapshot_and_pipeline_v0.md` §8.

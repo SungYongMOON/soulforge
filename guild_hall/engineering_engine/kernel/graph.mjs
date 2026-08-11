@@ -26,6 +26,7 @@ export const CODES = Object.freeze({
   EDGE_AUTHORITY_EXCEEDS_EVIDENCE: 'GRAPH_EDGE_AUTHORITY_EXCEEDS_EVIDENCE',
   EDGE_CLAIM_CEILING_INVALID: 'GRAPH_EDGE_CLAIM_CEILING_INVALID',
   EDGE_POLICY_MISSING: 'GRAPH_EDGE_POLICY_MISSING',
+  EDGE_BINDING_MISSING: 'GRAPH_EDGE_BINDING_MISSING',
   GRAPH_AS_TRUTH_OWNER: 'GRAPH_AS_TRUTH_OWNER',
 });
 
@@ -78,6 +79,10 @@ export const REQUIRED_EDGE_ATTRIBUTES = Object.freeze([
   'valid_at', 'known_at',
   'review_state', 'evidence_claim_ceiling',
   'generating_policy_revision',
+  // PC-04.3: every element of the projection is scoped. An edge that does not say which
+  // project binding it belongs to cannot be checked for cross-project reach at all, so the
+  // binding is required rather than inferred from whoever happens to be traversing.
+  'project_binding_ref',
 ]);
 
 /**
@@ -147,6 +152,11 @@ export function validateEdge(edge, { evidenceAuthority = null, evidenceResolvabl
   }
   if (typeof edge.generating_policy_revision !== 'string' || !edge.generating_policy_revision) {
     throw new ContractError(CODES.EDGE_POLICY_MISSING, 'generating_policy_revision is required so the projection can be rebuilt');
+  }
+  if (typeof edge.project_binding_ref !== 'string' || !edge.project_binding_ref) {
+    throw new ContractError(CODES.EDGE_BINDING_MISSING,
+      'project_binding_ref is required; an unscoped edge cannot be checked for cross-project reach',
+      { edge_id: edge.edge_id });
   }
 
   return {

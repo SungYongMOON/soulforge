@@ -30,14 +30,19 @@
         "APPLICABILITY_COMPONENTS",
         "AUTHORITY_FAMILIES",
         "CODES",
+        "REQUIRED_SOURCE_CLAIM_FIELDS",
         "SCOPE",
+        "TWO_SOURCE_AUTHORITY_INVARIANT",
         "assertSearchScope",
+        "assertTwoSourceAuthorityInvariant",
         "forbidRankArithmetic",
+        "normaliseClaimValue",
+        "recordSourceConflict",
         "resolveApplicability",
         "resolveAuthority"
       ],
-      "export_count": 9,
-      "line_count": 121
+      "export_count": 14,
+      "line_count": 395
     },
     {
       "module": "canonical",
@@ -58,18 +63,20 @@
       "area": "kernel",
       "exports": [
         "CODES",
+        "EXCLUSION_REASONS",
         "MAX_HOPS_CEILING",
         "RANKING_KEYS",
         "REQUIRED_BUDGETS",
         "REQUIRED_SELECTOR_FIELDS",
         "SELECTOR_CONTRACT_VERSION",
+        "assertNoForbiddenIdentifier",
         "assertNoRawPayload",
         "compareCandidates",
         "contextCapsuleFingerprint",
         "selectCapsule"
       ],
-      "export_count": 10,
-      "line_count": 244
+      "export_count": 12,
+      "line_count": 494
     },
     {
       "module": "ceilings",
@@ -90,6 +97,27 @@
       ],
       "export_count": 12,
       "line_count": 87
+    },
+    {
+      "module": "context_receipt",
+      "area": "kernel",
+      "exports": [
+        "CODES",
+        "NON_CAPABILITIES",
+        "RECEIPT_KINDS",
+        "RECEIPT_KIND_OWNERS",
+        "REQUIRED_REQUEST_RECEIPT_FIELDS",
+        "REQUIRED_RESPONSE_CANDIDATE_FIELDS",
+        "REQUIRED_RESPONSE_RECEIPT_FIELDS",
+        "assertNoTransport",
+        "assertP5OrchestrationBoundaryEvaluable",
+        "assessResponseSufficiency",
+        "validateContextRequestReceipt",
+        "validateContextResponseReceipt",
+        "validateResponseCandidate"
+      ],
+      "export_count": 13,
+      "line_count": 631
     },
     {
       "module": "contract_config",
@@ -224,7 +252,7 @@
         "validateEdge"
       ],
       "export_count": 7,
-      "line_count": 185
+      "line_count": 195
     },
     {
       "module": "heartbeat",
@@ -253,15 +281,18 @@
         "RESOLUTION",
         "assertNotPlaceholder",
         "classifyRef",
+        "exactRefIdentityKey",
         "inspectIdentifierOpacity",
         "isPlaceholder",
         "isWellFormedRef",
+        "logicalRevisionKey",
         "sameContent",
         "sameEntity",
+        "sameExactRef",
         "sameRevision"
       ],
-      "export_count": 10,
-      "line_count": 107
+      "export_count": 13,
+      "line_count": 150
     },
     {
       "module": "index",
@@ -314,6 +345,7 @@
         "REQUIRED_BUDGETS",
         "REQUIRED_CONTEXT_REQUEST_FIELDS",
         "REQUIRED_EDGE_ATTRIBUTES",
+        "REQUIRED_ENTRY_FIELDS",
         "REQUIRED_ENVELOPE_FIELDS",
         "REQUIRED_EXTRACTION_FIELDS",
         "REQUIRED_FINDING_FIELDS",
@@ -321,6 +353,7 @@
         "REQUIRED_INVENTORY_FIELDS",
         "REQUIRED_MANIFEST_FIELDS",
         "REQUIRED_RECEIPT_FIELDS",
+        "REQUIRED_REGISTRY_FIELDS",
         "REQUIRED_REQUEST_FIELDS",
         "REQUIRED_SELECTOR_FIELDS",
         "RESOLUTION",
@@ -329,6 +362,7 @@
         "SENSITIVITY_STATES",
         "SERIALISED_BOUNDARIES",
         "SNAPSHOT_CLAIM_CEILING_AXIS",
+        "SUBJECT_KINDS",
         "TIME_PRECISION",
         "VERDICT",
         "abiSatisfies",
@@ -349,12 +383,14 @@
         "assertKnownSurface",
         "assertMintingLaneHeld",
         "assertMissingIsConfirmed",
+        "assertNoLiveRegistryAccess",
         "assertNoOrphanClaim",
         "assertNoRawPayload",
         "assertNotPlaceholder",
         "assertNotTruthOwner",
         "assertParallelStageMayNotMint",
         "assertProvenanceLayersSeparate",
+        "assertRegisteredSubject",
         "assertSearchScope",
         "assertSingleCustodyMode",
         "assertSnapshotImmutable",
@@ -391,6 +427,7 @@
         "evaluateP5Acceptance",
         "evaluateP8Write",
         "evaluateReplayability",
+        "exactRefIdentityKey",
         "foldCurrentView",
         "forbidNeighbourInference",
         "forbidRankArithmetic",
@@ -406,6 +443,7 @@
         "judgeAllSurfaces",
         "judgeEdge",
         "judgeSurface",
+        "logicalRevisionKey",
         "mint",
         "parseAbiRange",
         "planModuleTransition",
@@ -416,6 +454,8 @@
         "propagateProvenance",
         "readSnapshotClaimCeiling",
         "recordIdempotency",
+        "registrationEntryContentAddress",
+        "registrationRegistryContentAddress",
         "releaseLane",
         "resolveApplicability",
         "resolveAuthority",
@@ -423,6 +463,7 @@
         "routeDisposition",
         "sameContent",
         "sameEntity",
+        "sameExactRef",
         "sameRevision",
         "selectCapsule",
         "sha256Hex",
@@ -442,10 +483,11 @@
         "validateRelease",
         "validateSnapshotEnvelope",
         "validateStateElement",
-        "validateWindow"
+        "validateWindow",
+        "verifyRegistrationRegistry"
       ],
-      "export_count": 176,
-      "line_count": 148
+      "export_count": 187,
+      "line_count": 160
     },
     {
       "module": "lineage",
@@ -538,20 +580,51 @@
         "BOUNDARY_EFFECTS",
         "BOUNDARY_LANES",
         "CODES",
+        "DEFINED_STAGES",
+        "DISPOSITION_CONFIRMATION_OWNER_DECISION",
         "OPEN_OWNER_DECISIONS_FOR_THIS_LANE",
         "P7",
+        "P8_CHAIN_RECORD_ELEMENTS",
+        "P8_RECOMPUTED_CHAIN_ELEMENTS",
+        "POLICY_GATE_ID",
+        "REQUIRED_CHAIN_PROVENANCE_FIELDS",
         "REQUIRED_CONTEXT_REQUEST_FIELDS",
+        "REQUIRED_P8_CHAIN_ELEMENTS",
         "SERIALISED_BOUNDARIES",
+        "TASK_DRIVER_POLICY_CHECKS",
         "assertBoundarySeparation",
+        "assertNoLiveDispositionConfirmation",
         "assertStageDefined",
+        "assertTaskDriverNotActivated",
         "assertZeroErpDelta",
+        "chainElementContentAddress",
         "evaluateGenerationAdvance",
         "evaluateP5Acceptance",
+        "evaluateP7TaskDriver",
         "evaluateP8Write",
+        "evaluateTaskDriverPolicyGate",
         "validateContextRequest"
       ],
-      "export_count": 14,
-      "line_count": 284
+      "export_count": 27,
+      "line_count": 1048
+    },
+    {
+      "module": "registration",
+      "area": "kernel",
+      "exports": [
+        "CODES",
+        "OPEN_OWNER_DECISION",
+        "REQUIRED_ENTRY_FIELDS",
+        "REQUIRED_REGISTRY_FIELDS",
+        "SUBJECT_KINDS",
+        "assertNoLiveRegistryAccess",
+        "assertRegisteredSubject",
+        "registrationEntryContentAddress",
+        "registrationRegistryContentAddress",
+        "verifyRegistrationRegistry"
+      ],
+      "export_count": 10,
+      "line_count": 340
     },
     {
       "module": "snapshot",
@@ -574,7 +647,7 @@
         "validateStateElement"
       ],
       "export_count": 15,
-      "line_count": 303
+      "line_count": 322
     },
     {
       "module": "engine_pass",
@@ -585,7 +658,7 @@
         "runEnginePass"
       ],
       "export_count": 3,
-      "line_count": 162
+      "line_count": 180
     },
     {
       "module": "engine_self_topology",
@@ -594,17 +667,34 @@
         "CODES",
         "SUBJECT_ID",
         "buildStates",
-        "observationTrustworthiness"
+        "classifyReceiptKeySet",
+        "judgeReceipt",
+        "observationTrustworthiness",
+        "readObservationRecord"
       ],
-      "export_count": 4,
-      "line_count": 150
+      "export_count": 7,
+      "line_count": 350
     }
   ],
-  "module_count": 23,
+  "module_count": 25,
   "module_edges": [
     {
       "from": "authority",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "authority",
       "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "authority",
+      "to": "identity",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -659,8 +749,64 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "capsule",
+      "to": "identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "ceilings",
       "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "ceilings",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "minting",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "context_receipt",
+      "to": "registration",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -703,6 +849,13 @@
     {
       "from": "delivery_receipt",
       "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_pass",
+      "to": "authority",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -752,6 +905,13 @@
     {
       "from": "engine_self_topology",
       "to": "custody",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_self_topology",
+      "to": "delivery_receipt",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -1017,6 +1177,13 @@
     },
     {
       "from": "index",
+      "to": "registration",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "index",
       "to": "snapshot",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
@@ -1108,6 +1275,13 @@
     },
     {
       "from": "pipeline",
+      "to": "authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "pipeline",
       "to": "canonical",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
@@ -1115,14 +1289,14 @@
     },
     {
       "from": "pipeline",
-      "to": "errors",
+      "to": "contract_config",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
       "from": "pipeline",
-      "to": "identity",
+      "to": "errors",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -1137,6 +1311,48 @@
     {
       "from": "pipeline",
       "to": "minting",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "pipeline",
+      "to": "registration",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "registration",
+      "to": "authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "registration",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "registration",
+      "to": "contract_config",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "registration",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "registration",
+      "to": "identity",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -1198,7 +1414,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 85,
+  "module_edge_count": 105,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -1521,8 +1737,7 @@
     ],
     "lane_1a": [
       "p5_and_p8_registered_human_approver_registration_policy",
-      "whether_self_approval_is_ever_permitted_and_for_whom",
-      "p7_stage_definition_or_removal_from_the_numbering"
+      "whether_self_approval_is_ever_permitted_and_for_whom"
     ],
     "lane_1b": [
       "which_source_surfaces_are_in_scope_for_inventory",
@@ -1534,11 +1749,21 @@
       "binding_promotion_authority",
       "rollback_authority",
       "high_security_project_isolation_threshold"
-    ],
-    "undefined_stage": {
-      "state": "UNKNOWN_pending_engine_owner",
-      "note": "the frozen Phase 1-0 contract names P5, P6 and P8 but does not define P7"
-    }
+    ]
   },
-  "topology_digest": "b2cec86b08f69d81b11349e8899931fe320c7c7c49cd14a5c68085513b018ac9"
+  "task_driver_stage": {
+    "stage": "P7",
+    "gate_id": "p7_taskdriver",
+    "name": "task_driver",
+    "preceded_by_gate_id": "why_why_now_authority_and_idempotency",
+    "policy_checks": [
+      "why",
+      "why_now",
+      "authority",
+      "idempotency"
+    ],
+    "activation_state": "not_activated",
+    "erp_delta": 0
+  },
+  "topology_digest": "0352c352488fadb7d5804895ee49341b798f8a1ee3fe0a1d125ed2029fb5f78d"
 }

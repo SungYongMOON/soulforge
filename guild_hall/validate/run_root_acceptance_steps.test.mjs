@@ -28,11 +28,23 @@ test("루트 게이트: 앱 테스트 스텝이 validate·done-check 양 모드�
     ['"backup-controller"', "npm run validate:backup-controller"],
     ['"dev-erp-mcp"', "npm run validate:dev-erp-mcp"],
     ['"codex-work-directory"', "npm run validate:codex-work-directory"],
+    ['"watchtower"', "npm run validate:watchtower"],
   ];
   for (const [stepId, command] of requiredSteps) {
     const occurrences = source.split(stepId).length - 1;
     assert.equal(occurrences, 2, `${stepId} 스텝은 두 모드(validate·done-check)에 각 1회 있어야 함 (현재 ${occurrences})`);
     assert.equal(source.includes(command), true, `${stepId} 스텝 명령 누락: ${command}`);
+  }
+});
+
+test("root gates validate the Watchtower projection before the Team Ops consumer", () => {
+  const blocks = source.match(/(?:validate|"done-check"): \[[\s\S]*?\n  \],/g) ?? [];
+  assert.equal(blocks.length, 2);
+  for (const block of blocks) {
+    const watchtower = block.indexOf('["watchtower", "npm run validate:watchtower"]');
+    const board = block.indexOf('["team-ops-app", "npm run validate:team-ops-app"]');
+    assert.ok(watchtower >= 0, "watchtower step is missing");
+    assert.ok(board > watchtower, "the consumer must follow its topology producer gate");
   }
 });
 

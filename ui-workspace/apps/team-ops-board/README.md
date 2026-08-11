@@ -45,7 +45,9 @@ length-bounded; filesystem- or URL-like values are rejected.
   증거를 뜻하지 않는다. `REFRESHING`, `HOLD`, 또는 `STALE`은 보존된 토폴로지
   snapshot을 표시할 수 있으나, 그 snapshot도 공급자 성공이나 per-edge receipt를
   주장하지 않는다. projection은 마지막 성공/실패의 age를 텍스트로 표시하며,
-  `null` age는 해당 기록이 없음을 뜻한다.
+  `null` age는 해당 기록이 없음을 뜻한다. 같은 화면 아래의 선언 구조 렌즈는
+  별도 근거이며 W1 health와 합쳐지지 않는다(아래 `AX declared-structure
+  federation lens` 참조).
 - Current registered `manager`, `task`, `verifier`, and `continuation` rows,
   grouped by owner-provided `organization_group_id`; `parent_thread_id` is
   validated for exact parent existence and acyclicity before it reaches the
@@ -443,6 +445,60 @@ disable. Frontend tests cover normalization, double-buffered single-flight
 polling, non-blocking refresh transitions, Owner-only
 attention, acknowledgement hide/reappear/restore, exact organization-tree
 controls, exact-ID usage-history controls, and narrow-safe layout boundaries.
+
+## AX declared-structure federation lens
+
+The System surface carries a second, strictly separate lens for the frozen AX
+topology federation contract. It shows declared architecture, never live health.
+
+Vite exposes `GET /topology-federation.snapshot.json` to loopback clients only.
+The adapter reads one fixed tracked repo path:
+
+```text
+guild_hall/watchtower/topology/federated_topology.v1.json
+```
+
+There is no glob, directory discovery, query parameter, or alternate source. The
+adapter re-runs the pure Watchtower federation contract
+(`guild_hall/watchtower/topology_federation.mjs`) on the artifact's own provider
+fragments and then compares the recomposed result against the file: exact v1 root
+keys, `soulforge.ax_topology.federation.v1`, `declared_structure` projection kind,
+the source-set digest, the full topology digest, and the canonical bytes of the
+flattened namespaced node/edge set. A tampered digest, an edited flattened node,
+an invented edge, a fragment claiming `execute_repair` or runtime-mutation
+authority, an unreadable file, and unparsable bytes all fail closed.
+
+The envelope is `ready`, `stale`, or `unavailable` with a safe lowercase reason
+code and no path, message, or stack leakage. A failed re-read retains the last
+validated structure as explicit `stale`; it never presents a retained structure as
+a current success. `/topology-health.snapshot.json` and W1 health behavior are
+unchanged, and the two lenses never share a summary, color, or judgement.
+
+The surface shows every validated provider in the tracked federation artifact,
+with declared status, claim ceiling, validation state and validator,
+`runtime_state`, payload state, node/edge counts, and declared blocker codes.
+Selecting a provider drills into the flattened namespaced nodes and edges filtered
+by that exact `provider_id` and namespace prefix; a node or edge that is not
+namespaced under the selected provider, and an edge whose endpoint is missing from
+that provider's node set, are dropped rather than adopted. Nothing is invented for
+an unknown provider.
+
+Declared structure explicitly does not prove live health, runtime execution,
+delivery receipt, provider availability, or repair execution. Declared status is
+never mapped into W1 health tones and never merged into the health summary. The
+only controls are local provider selection and deselection: this lens performs no
+fetch beyond its one read-only snapshot load, no mutation, no repair execution, no
+account access, and no external call. Diagnostic and repair metadata stay at
+candidate plus `Owner 승인 필요` language.
+
+Tests are deterministic and synthetic and never need the running 4192 service:
+`src/server/topology-federation-adapter.test.mjs` covers artifact validation,
+digest and projection-mismatch rejection, forbidden authority claims, fail-closed
+reads, stale retention, and the loopback/method/path guards;
+`src/core/topology-federation-view.test.mjs` covers the overview, provider
+selection and filtering, no structural-to-live promotion, and fallback;
+`src/core/topology-federation-ui-boundary.test.mjs` covers the UI boundary,
+including that the declared lens borrows no health tone and offers no action.
 
 ## AI Usage Meter stays separate
 

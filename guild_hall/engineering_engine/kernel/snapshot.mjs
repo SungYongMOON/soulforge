@@ -35,6 +35,7 @@ export const CODES = Object.freeze({
   MISSING_WITHOUT_CONFIRMED_ABSENCE: 'GAP_MISSING_WITHOUT_CONFIRMED_ABSENCE',
   FINDING_FIELD_MISSING: 'FINDING_FIELD_MISSING',
   FINDING_CITES_NOTHING: 'FINDING_CITES_NOTHING',
+  CONFLICT_SIDES_NOT_PRESERVED: 'FINDING_CONFLICT_SIDES_NOT_PRESERVED',
   INSTANT_INVALID: 'SNAPSHOT_INSTANT_INVALID',
 });
 
@@ -202,6 +203,24 @@ export function validateFinding(finding) {
   assertEvidenceCeiling(finding.evidence_claim_ceiling);
   assertInstant(finding.known_at, 'known_at');
   assertMissingIsConfirmed(finding.gap_type, finding.observed_presence_state);
+
+  // A conflict finding has to carry the disagreement, not just the label. Without both
+  // sides retained, "the sources disagree" is an assertion nobody can check, and the lower
+  // authority side has effectively been dropped while the record still claims it was not.
+  if (finding.gap_type === GAP_TYPE.CONFLICT) {
+    const record = finding.source_conflict;
+    const retained = record?.retained_claims;
+    if (!record || !Array.isArray(retained) || retained.length < 2 || record.sides_dropped !== 0) {
+      throw new ContractError(CODES.CONFLICT_SIDES_NOT_PRESERVED,
+        'a conflict finding must retain every disagreeing source claim, not only the governing one',
+        { finding_id: finding.finding_id, retained: Array.isArray(retained) ? retained.length : 0 });
+    }
+    if (typeof record.governing_authority_family !== 'string' || !record.governing_authority_family) {
+      throw new ContractError(CODES.CONFLICT_SIDES_NOT_PRESERVED,
+        'a conflict finding must say which authority governs, rather than choosing silently',
+        { finding_id: finding.finding_id });
+    }
+  }
 
   const spans = finding.cited_spans ?? [];
   const hasSpans = Array.isArray(spans) && spans.length > 0;

@@ -8,7 +8,7 @@
 //   absence is a value, so a fresh checkout renders "no evidence" instead of failing
 //   each artifact states what it proves and what it does not
 
-import { copyFileSync, mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { dirname } from 'node:path';
@@ -23,6 +23,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, '..');
 const REPO_ROOT = join(ENGINE, '..', '..');
 const results = [];
+const skipped = [];
 const record = (id, ok, note = '') => results.push({ id, ok: ok === true, note });
 
 const arg = (n) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : undefined; };
@@ -49,14 +50,21 @@ record('OUT/observations_are_not_tracked',
   'measurements of one host stay host-local');
 record('OUT/tracked_artifact_names_its_repo_path',
   OUTPUT_ARTIFACTS.filter((a) => a.tracked_in_repo).every((a) => typeof a.repo_relative_path === 'string'));
+// Repository hygiene, so it can only be judged inside a repository. The mutation lock runs this
+// suite from a throwaway copy of the source, where there is no git tree and no answer to give.
+// Reported as skipped with the reason rather than recorded as a pass, because a check that
+// quietly passes when it could not run is worse than one that is absent.
 const nestedRuntimeState = spawnSync('git', [
   '-C', REPO_ROOT, 'ls-files', '--', 'guild_hall/engineering_engine/guild_hall/state/**',
 ], { encoding: 'utf8' });
-record('OUT/no_nested_runtime_state_is_tracked',
-  nestedRuntimeState.status === 0
-    && nestedRuntimeState.stdout.trim().split(/\r?\n/).filter(Boolean)
+if (nestedRuntimeState.status !== 0) {
+  skipped.push({ id: 'OUT/no_nested_runtime_state_is_tracked', reason: 'not_run_inside_a_git_repository' });
+} else {
+  record('OUT/no_nested_runtime_state_is_tracked',
+    nestedRuntimeState.stdout.trim().split(/\r?\n/).filter(Boolean)
       .every((path) => !existsSync(join(REPO_ROOT, path))),
-  'runtime outputs belong under the repository-root ignored state plane, never below the engine source tree');
+    'runtime outputs belong under the repository-root ignored state plane, never below the engine source tree');
+}
 
 // ---------------------------------------------------------------- resolution is fail-closed
 
@@ -70,7 +78,12 @@ if (!SCRATCH) {
   rmSync(root, { recursive: true, force: true });
   mkdirSync(stateDir, { recursive: true });
   mkdirSync(dirname(topologyPath), { recursive: true });
-  copyFileSync(join(REPO_ROOT, topologySpec.repo_relative_path), topologyPath);
+  // A synthetic stand-in, not a copy of the real artifact. This check only asks whether a
+  // present tracked artifact is detected and digested, so depending on the repository's own
+  // file would couple the suite to a layout it does not test — which is exactly what broke it
+  // when the mutation lock ran it from a throwaway copy.
+  writeFileSync(topologyPath, `${JSON.stringify({ topology_version: 'fixture', module_edges: [] }, null, 2)}
+`, 'utf8');
   const target = pointerPath(root);
 
   record('OUT/no_pointer_falls_back_to_the_declared_default',
@@ -157,6 +170,9 @@ console.log(JSON.stringify({
   pass_count: results.length - failures.length,
   failure_count: failures.length,
   failures: failures.map((f) => ({ id: f.id, note: f.note })),
+  // Surfaced rather than silently dropped: a check that could not run is not a check that passed.
+  skipped_count: skipped.length,
+  skipped,
   verification_strength: 'author_written_fixtures',
   writes_performed: 0,
 }, null, 2));

@@ -15,8 +15,8 @@ import {
   validateEdge, assertNotTruthOwner, projectionDescriptor, EDGE_SHAPES, NODE_TYPES, REQUIRED_EDGE_ATTRIBUTES,
 } from '../kernel/graph.mjs';
 import {
-  selectCapsule, contextCapsuleFingerprint, assertNoRawPayload,
-  MAX_HOPS_CEILING, RANKING_KEYS, REQUIRED_BUDGETS,
+  selectCapsule, contextCapsuleFingerprint, assertNoRawPayload, assertNoForbiddenIdentifier,
+  MAX_HOPS_CEILING, RANKING_KEYS, REQUIRED_BUDGETS, EXCLUSION_REASONS,
 } from '../kernel/capsule.mjs';
 import { ContractError } from '../kernel/errors.mjs';
 
@@ -46,6 +46,7 @@ const baseEdge = {
   review_state: 'reviewed',
   evidence_claim_ceiling: 'source_sufficient',
   generating_policy_revision: 'graph-policy-v0',
+  project_binding_ref: 'binding-alpha',
 };
 const edge = (o) => ({ ...baseEdge, ...o });
 
@@ -53,7 +54,16 @@ const edge = (o) => ({ ...baseEdge, ...o });
 
 expectOk('1C/EDGE/allowed_shape', () => validateEdge(baseEdge), 'a whitelisted shape validates');
 record('1C/EDGE/shapes_declared', EDGE_SHAPES.length >= 15 && NODE_TYPES.length >= 12, `${EDGE_SHAPES.length} shapes, ${NODE_TYPES.length} node types`);
-record('1C/EDGE/attributes_declared', REQUIRED_EDGE_ATTRIBUTES.length === 14, `${REQUIRED_EDGE_ATTRIBUTES.length} required attributes`);
+record('1C/EDGE/attributes_declared', REQUIRED_EDGE_ATTRIBUTES.length === 15, `${REQUIRED_EDGE_ATTRIBUTES.length} required attributes`);
+expectThrow('1C/EDGE/binding_required',
+  () => { const e = edge({}); delete e.project_binding_ref; validateEdge(e); },
+  'an edge with no project binding cannot be checked for cross-project reach and is refused');
+expectThrow('1C/EDGE/binding_must_not_be_empty',
+  () => validateEdge(edge({ project_binding_ref: '' })),
+  'an empty binding is present as a key and says nothing, which is the same hole');
+expectThrow('1C/EDGE/binding_must_be_a_string',
+  () => validateEdge(edge({ project_binding_ref: 7 })),
+  'a binding that is not a name cannot be compared to the selector');
 
 expectThrow('1C/EDGE/shape_not_allowed',
   () => validateEdge(edge({ from_type: 'source', edge_type: 'has_revision', to_type: 'finding' })),
@@ -115,11 +125,21 @@ const seed = ref('src-1', 'src-1-r1');
 const mid = ref('srev-1', 'srev-1-r1');
 const leaf = ref('exrun-1', 'exrun-1-r1');
 
+// The node set is part of the projection slice, not an optional extra: it is the only
+// independent witness to which project a node belongs to, and without it every edge's binding
+// claim is self-certifying.
+const alphaNodes = [
+  { ref: seed, project_binding_ref: 'binding-alpha' },
+  { ref: mid, project_binding_ref: 'binding-alpha' },
+  { ref: leaf, project_binding_ref: 'binding-alpha' },
+];
+
 const graph = {
   edges: [
     edge({ edge_id: 'e-hop1', edge_type: 'has_revision', from_type: 'source', from_ref: seed, to_type: 'source_revision', to_ref: mid }),
     edge({ edge_id: 'e-hop2', edge_type: 'extracted_by', from_type: 'source_revision', from_ref: mid, to_type: 'extraction_run', to_ref: leaf, known_at: T(3) }),
   ],
+  nodes: alphaNodes,
 };
 
 const selector = {
@@ -168,10 +188,359 @@ expectThrow('1C/SEL/acl_check_required', () => selectCapsule(selector, graph, nu
   const denyLeaf = (r) => r.entity_id !== 'exrun-1';
   const capsule = selectCapsule(selector, graph, denyLeaf);
   const includedIds = capsule.included_refs.map((r) => r.entity_id);
-  const deniedAtHop = capsule.excluded.some((e) => e.ref.startsWith('exrun-1') && e.reason === 'acl_denied_at_hop');
+  const deniedAtHop = capsule.excluded.some((e) => e.reason === 'acl_denied_at_hop' && e.hop === 2 && e.count === 1);
   record('1C/ACL/hop2_target_excluded', !includedIds.includes('exrun-1'), 'a hop-2 target the requester may not see is not included');
-  record('1C/ACL/hop2_denial_reported', deniedAtHop, 'the hop-2 denial is reported with a reason rather than silently dropped');
+  record('1C/ACL/hop2_denial_reported', deniedAtHop, 'the hop-2 denial is reported with a reason and a count rather than silently dropped');
   record('1C/ACL/hop1_still_included', includedIds.includes('srev-1'), 'permitted hop-1 material is still selected');
+  // The denial is stated without restating what was denied.
+  expectOk('1C/ACL/denied_identifier_absent_recursively',
+    () => assertNoForbiddenIdentifier(capsule, ['exrun-1']),
+    'the denied identifier survives nowhere in the returned capsule, exclusions included');
+  record('1C/ACL/exclusions_carry_no_ref',
+    capsule.excluded.every((e) => !Object.hasOwn(e, 'ref')),
+    'an exclusion carries a reason, a hop and a count, never the refused identifier');
+}
+
+// ---------------------------------------------------------------- project binding isolation
+//
+// A capsule bound to one project must not reach another's material, and the check has to be
+// on the way in. Filtering afterwards means the other project's edges were already read.
+
+{
+  // hop 2 belongs to another binding: reachable in the graph, refused by the selector.
+  const mixed = {
+    edges: [
+      graph.edges[0],
+      edge({ ...graph.edges[1], project_binding_ref: 'binding-bravo' }),
+    ],
+    nodes: alphaNodes,
+  };
+  const capsule = selectCapsule(selector, mixed, allowAll);
+  const includedIds = capsule.included_refs.map((r) => r.entity_id);
+  record('1C/BIND/foreign_hop2_edge_not_traversed', !includedIds.includes('exrun-1'),
+    'a hop-2 edge asserted under another binding does not put its target in an alpha capsule');
+  record('1C/BIND/foreign_edge_reported',
+    capsule.excluded.some((e) => e.reason === 'project_binding_mismatch'),
+    'the cross-binding refusal is stated');
+  record('1C/BIND/own_binding_survives', includedIds.includes('srev-1'),
+    'material in the requested binding is still selected');
+  expectOk('1C/BIND/foreign_identifier_absent',
+    () => assertNoForbiddenIdentifier(capsule, ['binding-bravo', 'exrun-1']),
+    'neither the foreign binding nor its target appears anywhere in the capsule');
+}
+{
+  // The node itself belongs to another binding even though the edge claims this one.
+  const declaredNodes = [
+    { ref: seed, project_binding_ref: 'binding-alpha' },
+    { ref: mid, project_binding_ref: 'binding-alpha' },
+    { ref: leaf, project_binding_ref: 'binding-bravo' },
+  ];
+  const capsule = selectCapsule(selector, { ...graph, nodes: declaredNodes }, allowAll);
+  record('1C/BIND/foreign_node_refused',
+    !capsule.included_refs.map((r) => r.entity_id).includes('exrun-1')
+      && capsule.excluded.some((e) => e.reason === 'project_binding_mismatch'),
+    'an alpha-bound edge pointing at a bravo node does not smuggle the node in');
+}
+// Fail closed, and loudly: once the projection declares node bindings, a node the traversal
+// reaches but the set does not declare refuses the whole selection.
+//
+// This used to be an exclusion. An exclusion is a statement about material whose scope the
+// selector knows and is declining to hand over, and that is not what an undeclared node is:
+// the slice cannot say which project it belongs to, so the isolation claim the capsule carries
+// is unproven for the whole result, not merely for that ref. Omitting it left a capsule that
+// still asserted `every_returned_ref_bound_to_the_selector: true` over a walk that had passed
+// through a node nothing vouched for.
+expectThrow('1C/BIND/undeclared_node_refuses_the_selection',
+  () => selectCapsule(selector, { ...graph, nodes: [{ ref: seed, project_binding_ref: 'binding-alpha' }, { ref: mid, project_binding_ref: 'binding-alpha' }] }, allowAll),
+  'a node absent from a declared node set refuses the capsule, rather than being dropped as an exclusion');
+expectThrow('1C/BIND/undeclared_seed_refuses_the_selection',
+  () => selectCapsule(sel({ seed_refs: [ref('src-elsewhere', 'src-elsewhere-r1')] }), graph, allowAll),
+  'a seed is a traversed node too; an undeclared one puts the whole walk on an unwitnessed footing');
+{
+  // A seed is the one traversed ref that is not an edge endpoint, so it is the case the
+  // pre-pass cannot reach and the traversal-time resolver still has to answer. A selector
+  // seeded with the declared subject revision but different bytes is the same forgery entering
+  // by the one door the pre-pass does not cover.
+  const forgedSeed = { ...seed, content_id: 'c-src-1-r1-forged' };
+  let error = null;
+  try { selectCapsule(sel({ seed_refs: [forgedSeed] }), graph, allowAll); } catch (e) { error = e; }
+  record('1C/BIND/forged_seed_content_id_refused',
+    error?.code === 'CAPSULE_NODE_IDENTITY_MISMATCH',
+    error ? error.code : 'NOT REFUSED — a forged seed was admitted');
+}
+{
+  let error = null;
+  try {
+    selectCapsule(selector, { ...graph, nodes: [{ ref: seed, project_binding_ref: 'binding-alpha' }, { ref: mid, project_binding_ref: 'binding-alpha' }] }, allowAll);
+  } catch (e) { error = e; }
+  // The refusal locates the fault — which edge, which end, or which hop — and does not restate
+  // the ref it refused. Asserted over the serialised error rather than against one exact detail
+  // shape, so it keeps holding when the fault is located differently.
+  const serialised = `${error?.message ?? ''}${JSON.stringify(error?.detail ?? {})}`;
+  record('1C/BIND/undeclared_node_names_no_identifier',
+    error?.code === 'CAPSULE_NODE_NOT_DECLARED'
+      && !['exrun-1', 'exrun-1-r1', 'c-exrun-1-r1'].some((id) => serialised.includes(id)),
+    'the refusal locates the fault without restating the ref it refused');
+}
+record('1C/BIND/unknown_binding_is_no_longer_an_exclusion_reason',
+  !EXCLUSION_REASONS.includes('project_binding_unknown'),
+  'an unwitnessed node is a broken slice, not excluded material, so the reason is gone from the closed list');
+
+// ---------------------------------------------------------------- the complete identity tuple
+//
+// Every one of these passed while refs were keyed on entity_id and revision_id alone. The
+// declared node vouches for bytes; matching on the name let an edge collect that vouching for
+// content the node set had never seen.
+
+{
+  // A forged edge target: same subject revision as the declared leaf, different content id.
+  const forgedTarget = { ...leaf, content_id: 'c-exrun-1-forged' };
+  const forged = {
+    edges: [graph.edges[0], edge({ ...graph.edges[1], to_ref: forgedTarget })],
+    nodes: alphaNodes,
+  };
+  let error = null;
+  try { selectCapsule(selector, forged, allowAll); } catch (e) { error = e; }
+  record('1C/ID/forged_target_content_id_refused',
+    error?.code === 'CAPSULE_NODE_IDENTITY_MISMATCH',
+    'an edge naming the declared subject revision but different bytes contradicts the slice and refuses it');
+}
+{
+  // The same attack, asked the way it actually matters: the forged content id must not reach
+  // the caller. A capsule is not returned at all, so there is nothing for it to appear in.
+  const forgedTarget = { ...leaf, content_id: 'c-exrun-1-forged' };
+  const forged = {
+    edges: [graph.edges[0], edge({ ...graph.edges[1], to_ref: forgedTarget })],
+    nodes: alphaNodes,
+  };
+  let capsule = null;
+  try { capsule = selectCapsule(selector, forged, allowAll); } catch { /* refused, which is the point */ }
+  record('1C/ID/forged_target_content_id_never_reaches_included_refs',
+    capsule === null,
+    'no capsule is produced, so the forged content id cannot appear in included_refs');
+}
+// ---------------------------------------------------------------- every supplied edge, both ends
+//
+// A forged edge *source* was skipped rather than reported: it did not match the frontier, so the
+// walk moved on in silence. That is fine right up until the forged edge is the only way out of
+// the seed, at which point a self-contradictory projection returned a successful, empty capsule
+// and the caller read it as "there was nothing here". Both endpoints of every supplied edge are
+// now resolved against the node set before the walk starts.
+
+{
+  // The reproduced attack: the hop-1 edge leaves bytes the node set never declared, so the walk
+  // has nowhere to go. This used to return `{ included_refs: [], excluded: [] }` and no error.
+  const forgedSeedEdge = {
+    edges: [edge({ ...graph.edges[0], from_ref: { ...seed, content_id: 'c-src-1-r1-forged' } }), graph.edges[1]],
+    nodes: alphaNodes,
+  };
+  let capsule = null;
+  let error = null;
+  try { capsule = selectCapsule(selector, forgedSeedEdge, allowAll); } catch (e) { error = e; }
+  record('1C/ID/forged_source_on_the_only_seed_edge_is_not_an_empty_capsule',
+    capsule === null && error?.code === 'CAPSULE_NODE_IDENTITY_MISMATCH',
+    capsule
+      ? `returned a capsule with ${capsule.included_refs.length} refs and ${capsule.excluded.length} exclusions instead of refusing`
+      : `${error?.code} — a broken slice and an empty answer are different answers`);
+  record('1C/ID/forged_source_refusal_names_the_edge_and_the_endpoint',
+    error?.detail?.edge_id === 'e-hop1' && error.detail.endpoint === 'from_ref',
+    'the refusal says which edge and which end, and does not restate the ref');
+}
+{
+  // The same forgery one hop further in: previously it was skipped and hop one still returned,
+  // so the capsule looked complete while an edge of its own projection did not resolve.
+  const forgedSource = { ...mid, content_id: 'c-srev-1-forged' };
+  const forged = {
+    edges: [graph.edges[0], edge({ ...graph.edges[1], from_ref: forgedSource })],
+    nodes: alphaNodes,
+  };
+  let error = null;
+  try { selectCapsule(selector, forged, allowAll); } catch (e) { error = e; }
+  record('1C/ID/forged_source_content_id_refuses_the_projection',
+    error?.code === 'CAPSULE_NODE_IDENTITY_MISMATCH' && error.detail?.endpoint === 'from_ref',
+    'an edge leaving different bytes than any declared node is refused, not skipped');
+}
+expectThrow('1C/ID/undeclared_edge_source_refused',
+  () => selectCapsule(selector, {
+    edges: [graph.edges[0], edge({ ...graph.edges[1], from_ref: ref('srev-elsewhere', 'srev-elsewhere-r1') })],
+    nodes: alphaNodes,
+  }, allowAll),
+  'an edge leaving a node the slice never declared cannot be placed in any project');
+expectThrow('1C/ID/undeclared_edge_target_refused',
+  () => selectCapsule(selector, {
+    edges: [graph.edges[0], edge({ ...graph.edges[1], to_ref: ref('exrun-elsewhere', 'exrun-elsewhere-r1') })],
+    nodes: alphaNodes,
+  }, allowAll),
+  'an edge target the slice never declared cannot be placed in any project');
+{
+  // The check covers edges the traversal would never follow. An edge is part of the projection
+  // whether or not this selector walks it, and a slice that cannot place both ends of one of its
+  // own edges is not a slice whose isolation can be checked.
+  const unreachable = edge({
+    edge_id: 'e-unreachable', edge_type: 'supersedes',
+    from_type: 'source_revision', from_ref: ref('srev-orphan', 'srev-orphan-r1'),
+    to_type: 'source_revision', to_ref: mid,
+  });
+  let error = null;
+  try { selectCapsule(selector, { edges: [...graph.edges, unreachable], nodes: alphaNodes }, allowAll); } catch (e) { error = e; }
+  record('1C/ID/untraversed_edge_endpoints_are_still_checked',
+    error?.code === 'CAPSULE_NODE_NOT_DECLARED' && error.detail?.edge_id === 'e-unreachable',
+    'an edge nothing reaches is still an edge this projection asserts');
+}
+{
+  // Positive control for the pre-pass: a policy exclusion still needs a fully declared, fully
+  // bound endpoint, so an excluded node is excluded rather than turning into a refusal.
+  const g = { edges: [graph.edges[0], edge({ ...graph.edges[1], applicability: false })], nodes: alphaNodes };
+  const capsule = selectCapsule(selector, g, allowAll);
+  record('1C/ID/policy_exclusion_survives_the_endpoint_prepass',
+    capsule.included_refs.map((r) => r.entity_id).join(',') === 'srev-1'
+      && capsule.excluded.some((e) => e.reason === 'applicability_false'),
+    'a declared, bound endpoint excluded by policy is still an exclusion, not a broken slice');
+}
+{
+  // And the ACL case, for the same reason: the denied node is declared and bound, so the
+  // refusal belongs in the closed exclusion list rather than refusing the whole selection.
+  const capsule = selectCapsule(selector, graph, (r) => r.entity_id !== 'exrun-1');
+  record('1C/ID/acl_denial_survives_the_endpoint_prepass',
+    capsule.excluded.some((e) => e.reason === 'acl_denied_at_hop')
+      && !capsule.included_refs.some((r) => r.entity_id === 'exrun-1'),
+    'an ACL denial over a fully bound declared node stays an exclusion');
+}
+{
+  // Positive control for the whole pre-pass: the untouched slice still selects both hops.
+  const capsule = selectCapsule(selector, graph, allowAll);
+  record('1C/ID/every_edge_endpoint_declared_positive_control',
+    capsule.included_refs.length === 2 && capsule.excluded.length === 0,
+    'a slice whose every edge endpoint is declared is selected exactly as before');
+}
+expectThrow('1C/ID/duplicate_node_declaration_refused',
+  () => selectCapsule(selector, { edges: graph.edges, nodes: [...alphaNodes, { ref: leaf, project_binding_ref: 'binding-alpha' }] }, allowAll),
+  'the same subject revision declared twice has no single answer, even when both declarations agree');
+{
+  // The one that mattered: a second declaration of the same logical node under another binding.
+  // With last-write-wins, the bravo row simply replaced the alpha row — or the reverse, purely
+  // on input order — and cross-project isolation turned on the order of an array.
+  let error = null;
+  try {
+    selectCapsule(selector, {
+      edges: graph.edges,
+      nodes: [...alphaNodes, { ref: leaf, project_binding_ref: 'binding-bravo' }],
+    }, allowAll);
+  } catch (e) { error = e; }
+  record('1C/ID/duplicate_node_binding_is_not_last_write_wins',
+    error?.code === 'CAPSULE_NODE_DECLARED_TWICE',
+    'two declarations of one node with different bindings refuse the slice instead of one overwriting the other');
+}
+{
+  // Duplicate logical node differing in content id: the same refusal, and the detail says which.
+  let error = null;
+  try {
+    selectCapsule(selector, {
+      edges: graph.edges,
+      nodes: [...alphaNodes, { ref: { ...leaf, content_id: 'c-exrun-1-other' }, project_binding_ref: 'binding-alpha' }],
+    }, allowAll);
+  } catch (e) { error = e; }
+  record('1C/ID/duplicate_node_content_id_refused',
+    error?.code === 'CAPSULE_NODE_DECLARED_TWICE' && error.detail?.differs_in_content_id === true,
+    'a second declaration naming different bytes is refused and the refusal says the two disagree on content');
+}
+expectThrow('1C/ID/declared_node_needs_the_full_tuple',
+  () => selectCapsule(selector, {
+    edges: graph.edges,
+    nodes: [{ ref: { entity_id: 'src-1', revision_id: 'src-1-r1', content_id: 'c-src-1-r1' }, project_binding_ref: 'binding-alpha' }, ...alphaNodes.slice(1)],
+  }, allowAll),
+  'a node declared without its hash algorithm is not an exact ref and cannot be matched on identity');
+{
+  // Positive control for the whole tuple rule: nothing above narrows the legitimate case.
+  const capsule = selectCapsule(selector, graph, allowAll);
+  record('1C/ID/fully_bound_two_hop_positive_control',
+    capsule.included_refs.length === 2
+      && capsule.traversed_node_count === 3
+      && capsule.every_returned_ref_bound_to_the_selector === true
+      && capsule.included_refs.every((r) => r.content_id === `c-${r.revision_id}`)
+      && capsule.excluded.length === 0,
+    `${capsule.included_refs.length} refs over two hops, every content id the declared one, no exclusions`);
+}
+expectThrow('1C/BIND/invalid_edge_refuses_the_whole_selection',
+  () => selectCapsule(selector, { edges: [graph.edges[0], { edge_id: 'e-broken' }], nodes: alphaNodes }, allowAll),
+  'a capsule is not selected over a projection slice holding an edge that fails validation');
+{
+  // Edge validation and the endpoint pre-pass answer different questions, and this case is the
+  // one that keeps them apart: every endpoint here is declared and bound, so the pre-pass has
+  // nothing to say, and the edge is still refused on its own contract. Without it, disabling
+  // edge validation would go unnoticed because the malformed fixture above happens to trip the
+  // endpoint check instead.
+  let error = null;
+  try {
+    selectCapsule(selector, {
+      edges: [graph.edges[0], edge({ ...graph.edges[1], authority_family: 'vendor_blog' })],
+      nodes: alphaNodes,
+    }, allowAll);
+  } catch (e) { error = e; }
+  record('1C/BIND/invalid_edge_with_declared_endpoints_still_refused',
+    error?.code === 'CAPSULE_EDGE_INVALID' && error.detail?.cause_code === 'GRAPH_EDGE_AUTHORITY_UNKNOWN',
+    error ? `${error.code} / ${error.detail?.cause_code}` : 'NOT REFUSED');
+}
+
+// ---------------------------------------------------------------- the node set is mandatory
+//
+// While the node set was optional, omitting it turned every edge binding into its own only
+// witness. These cases are the ones that used to pass: a slice with no node set at all, a node
+// carrying no binding, and an edge whose asserted binding disagrees with the nodes it joins.
+
+expectThrow('1C/BIND/node_set_is_required',
+  () => selectCapsule(selector, { edges: graph.edges }, allowAll),
+  'no node set means no independent witness to which project the material belongs to');
+expectThrow('1C/BIND/node_set_may_not_be_a_non_array',
+  () => selectCapsule(selector, { edges: graph.edges, nodes: {} }, allowAll),
+  'a node set that is not a set of nodes is not a node set');
+expectThrow('1C/BIND/declared_node_needs_a_binding',
+  () => selectCapsule(selector, { edges: graph.edges, nodes: [{ ref: seed }, { ref: mid, project_binding_ref: 'binding-alpha' }] }, allowAll),
+  'an unbound node cannot be checked for cross-project reach');
+expectThrow('1C/BIND/declared_node_binding_must_not_be_empty',
+  () => selectCapsule(selector, { edges: graph.edges, nodes: [{ ref: seed, project_binding_ref: '' }, ...alphaNodes.slice(1)] }, allowAll),
+  'an empty binding is present as a key and says nothing');
+expectThrow('1C/BIND/declared_node_needs_an_exact_ref',
+  () => selectCapsule(selector, { edges: graph.edges, nodes: [{ ref: { entity_id: 'src-1' }, project_binding_ref: 'binding-alpha' }, ...alphaNodes.slice(1)] }, allowAll),
+  'a node identified by entity alone cannot be matched to the revision an edge points at');
+
+{
+  // Forged binding: the edge claims alpha, and the node it points at is declared bravo. The
+  // edge alone would certify itself; the node set is what catches it.
+  const forged = {
+    edges: graph.edges,
+    nodes: [alphaNodes[0], alphaNodes[1], { ref: leaf, project_binding_ref: 'binding-bravo' }],
+  };
+  const capsule = selectCapsule(selector, forged, allowAll);
+  record('1C/BIND/forged_edge_binding_refused',
+    !capsule.included_refs.map((r) => r.entity_id).includes('exrun-1')
+      && capsule.excluded.some((e) => e.reason === 'project_binding_mismatch'),
+    'an alpha-asserted edge cannot vouch for a node the projection declares as bravo');
+  expectOk('1C/BIND/forged_target_absent_from_the_output',
+    () => assertNoForbiddenIdentifier(capsule, ['exrun-1', 'binding-bravo']),
+    'the refused node and the foreign binding survive nowhere in the returned capsule');
+}
+{
+  // Multi-hop: the foreign material is reachable only after one legitimate alpha hop, which is
+  // the shape a seed-only filter misses entirely.
+  const twoHop = {
+    edges: graph.edges,
+    nodes: [alphaNodes[0], alphaNodes[1], { ref: leaf, project_binding_ref: 'binding-bravo' }],
+  };
+  const capsule = selectCapsule(selector, twoHop, allowAll);
+  record('1C/BIND/multi_hop_cross_project_stops_at_hop_one',
+    capsule.included_refs.map((r) => r.entity_id).join(',') === 'srev-1',
+    'hop one is alpha and is kept; hop two is bravo and is not reached');
+}
+{
+  // Positive control: fully bound, and the capsule says so about every ref it returns.
+  const capsule = selectCapsule(selector, graph, allowAll);
+  record('1C/BIND/fully_bound_positive_control',
+    capsule.every_returned_ref_bound_to_the_selector === true
+      && capsule.included_refs.length === 2
+      && capsule.traversed_node_count === 3
+      && !capsule.excluded.some((e) => e.reason.startsWith('project_binding')),
+    `${capsule.included_refs.length} refs returned, ${capsule.traversed_node_count} nodes traversed`);
 }
 {
   const capsule = selectCapsule(selector, graph, allowAll);
@@ -181,7 +550,7 @@ expectThrow('1C/SEL/acl_check_required', () => selectCapsule(selector, graph, nu
 }
 {
   // an edge whose applicability is unresolved is excluded with a stated reason
-  const g2 = { edges: [graph.edges[0], edge({ ...graph.edges[1], applicability: 'unknown' })] };
+  const g2 = { edges: [graph.edges[0], edge({ ...graph.edges[1], applicability: 'unknown' })], nodes: alphaNodes };
   const capsule = selectCapsule(selector, g2, allowAll);
   record('1C/SEL/unknown_applicability_excluded_with_reason',
     capsule.excluded.some((e) => e.reason === 'applicability_unknown'), 'unresolved applicability is reported, not hidden');
@@ -189,11 +558,11 @@ expectThrow('1C/SEL/acl_check_required', () => selectCapsule(selector, graph, nu
 {
   // top_k budget must report what it dropped
   const capsule = selectCapsule(sel({ budgets: { ...selector.budgets, top_k: 1 } }), graph, allowAll);
-  record('1C/SEL/top_k_drop_reported', capsule.included_refs.length === 1 && capsule.excluded.some((e) => e.reason === 'top_k_budget'),
+  record('1C/SEL/top_k_drop_reported', capsule.included_refs.length === 1 && capsule.excluded.some((e) => e.reason === 'top_k_budget' && e.count === 1),
     'budget-driven exclusion states its reason');
 }
 {
-  const g3 = { edges: [graph.edges[0], edge({ ...graph.edges[1], edge_type: 'supersedes', from_type: 'source_revision', to_type: 'source_revision' })] };
+  const g3 = { edges: [graph.edges[0], edge({ ...graph.edges[1], edge_type: 'supersedes', from_type: 'source_revision', to_type: 'source_revision' })], nodes: alphaNodes };
   const capsule = selectCapsule(sel({ traversal: { max_hops: 2, allowlisted_edge_types: ['has_revision'] } }), g3, allowAll);
   record('1C/SEL/non_allowlisted_edge_excluded', capsule.excluded.some((e) => e.reason === 'edge_type_not_allowlisted'),
     'an edge type outside the traversal allowlist is excluded with a reason');

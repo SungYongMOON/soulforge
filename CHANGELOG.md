@@ -42,6 +42,286 @@
 - Added repository-owned hidden launch boundaries to the remaining periodic
   Hiworks mail, project-local activity, and Slack batch scheduled tasks without
   changing their collectors, arguments, cadence, or authority.
+## 2026-08-11 - AX topology federation contract and deterministic declared projection
+
+- Added a strict Watchtower-owned provider-fragment contract and pure federation composer.
+  Each subsystem remains the owner of its declaration; Watchtower namespaces and combines
+  only allowlisted public-safe structure and never promotes it to runtime, delivery, source,
+  answer, approval, or repair-execution authority.
+- Added exact adapters for the existing Watchtower catalog, generated Engineering Engine
+  topology, public RAG·Graph·Wiki owner-contract bundle, and Notebook advisory contract bundle.
+  The tracked projection contains 4 providers, 63 declared nodes, and 152 declared edges.
+  Its input byte hashes and full-document digest are deterministic;
+  automatic discovery, project payloads, private paths, NotebookLM answers, account/session
+  data, runtime health, and inferred cross-provider edges are excluded.
+- Added declared-versus-observed exact-set reconciliation so a viewer can surface catalog
+  drift rather than silently treating a drawn line as live evidence. Self-diagnosis is
+  read-only; repair remains candidate-only and execution authority is fixed false.
+- Wired `validate:watchtower` into both root acceptance modes before Team Ops Board. The gate
+  syntax-checks the producer, byte-compares a fresh projection with the tracked artifact,
+  and runs structural, adversarial, adapter, and existing health-probe tests.
+- Bounded verification: Watchtower 41/41 tests pass, generated projection byte check passes
+  at SHA-256 `900b4574677cdbaf491be51b44496ca546bf9915ff3ba580475e4e9bf0545ac1`,
+  root-step tests 4/4 pass, changed-path policy reports zero violations, and `git diff --check`
+  passes. No live binding, external account, project material, runtime, UI, or repair action
+  was exercised.
+
+## 2026-08-11 - SE Engineering Engine Phase 2 fourth correction pass: three integration blockers closed
+
+A fresh independent Level-3 verifier replayed 35 attacks against the previous
+entry. Thirty-three were refused; the three that were not all had the same shape,
+one level up from the previous pass — each individual guard was correct, and the
+gap was between them. No earlier guard is weakened: all thirteen suites, the
+mutation lock, the exact Git-blob manifest and the frozen Phase 1-0 bundle pass.
+
+- Closed the capsule edge-endpoint gap. Endpoints were resolved against the node
+  set only where the traversal happened to reach them, so an edge whose source
+  named the declared subject revision but different bytes did not match the
+  frontier and was skipped in silence. When that edge was the only way out of the
+  seed, the result was a *successful, empty* capsule — a self-contradictory
+  projection read by the consumer as "there was nothing here". Both endpoints of
+  every supplied edge are now resolved before the walk begins, including edges the
+  traversal would never follow, and a mismatch or an undeclared endpoint refuses
+  the projection. The traversal-time resolver stays for seeds, which are the one
+  traversed ref that is not an edge endpoint. Policy exclusions are untouched: a
+  declared, bound node refused by ACL, applicability, edge type or budget is still
+  an exclusion.
+- Closed the disposition-confirmer self-certification at P8. The acceptor and the
+  approver were bound to registration evidence in the previous entry; the
+  confirmer was still certifying itself with `confirmed_by_registered_human`, a
+  kind and an id, all three written by whoever wrote the event. It is now resolved
+  in the same gate-supplied registry, scoped to the chain's binding, at the
+  confirmation instant. That instant is read from `confirmed_at` in the record
+  body rather than from `provenance.recorded_at`: a content address is computed
+  over the record minus its own provenance, so `recorded_at` was editable without
+  breaking the seal and could have been slid into whatever validity window was
+  needed. The principal-kind check remains alongside the evidence check, because
+  being in the registry does not make an agent a human. D-P10-06 stays open and
+  the verdict says so: this verifies a recorded confirmation and does not become
+  the authority that makes one.
+- Fixed generated-topology drift, and the reason it went unnoticed. The committed
+  topology recorded `context_receipt.line_count` 632 while a fresh emit produced
+  631, and `topology_matches_code` still passed. The cause was the emitter's
+  digest: `JSON.stringify(topology, Object.keys(topology).sort())` treats its
+  second argument as a key *allowlist* applied at every depth, not a key order, so
+  every module and edge entry serialised as `{}` and the digest covered 1060 bytes
+  of a 38811-byte document — module names, import edges, export lists and line
+  counts were all outside it. The digest now covers the whole document via a
+  recursive key-sorted serialisation, and the integration check compares the
+  emitted bytes to the committed file rather than the digest, so the second layer
+  does not depend on the first being right. `manifest_blob_integrity` asserts both
+  the byte equality and that the digest actually moves when a nested field does.
+- Verification after the change: 13 suites, 1401 conformance checks, 0 failures;
+  mutation lock 144/144 killed, 0 survivors, 0 catalogue errors; exact Git-blob
+  manifest 62/62; frozen Phase 1-0 bundle 13/13; topology byte-equal to a fresh
+  emit; runtime observation 1:1 with the topology; zero writes. Owner action: none
+  required. Two items are recorded rather than closed — `confirmed_at` is not
+  ordered against the rest of the chain, and the mutation sandbox cannot run
+  `manifest_blob_integrity`, so emitter mutations are verified by hand. No project
+  material, private corpus, credential, source PDF, external service, runtime
+  activation, ERP write, live P5/P8, UI, MCP transport or learned model was
+  exercised.
+- Related paths: `guild_hall/engineering_engine/kernel/capsule.mjs`,
+  `guild_hall/engineering_engine/kernel/pipeline.mjs`,
+  `guild_hall/engineering_engine/tools/emit_topology.mjs`,
+  `guild_hall/engineering_engine/tools/phase_1_integration_check.mjs`,
+  `guild_hall/engineering_engine/tests/`,
+  `guild_hall/engineering_engine/contracts/`,
+  `guild_hall/engineering_engine/topology/`.
+
+## 2026-08-11 - SE Engineering Engine Phase 2 third correction pass: four fail-open defects closed
+
+A fresh independent Level-3 verifier reproduced nine attacks against the previous
+entry. Every one of them exploited the same shape: a check existed, and the thing
+being checked was allowed to supply the answer. None of the earlier guards is
+weakened here — all thirteen suites, the mutation lock, the exact Git-blob
+manifest check and the frozen Phase 1-0 bundle still pass.
+
+- Closed the Context Capsule node-set defects (five reproduced attacks). A node
+  the traversal reached but `graph.nodes` did not declare was dropped as an
+  exclusion, so a walk that had passed through an unwitnessed node still returned
+  `every_returned_ref_bound_to_the_selector: true`; it now refuses the whole
+  selection. Refs are matched on the complete exact-ref identity tuple, content
+  id included, so an edge naming the declared subject revision but different
+  bytes is a contradiction in the slice rather than a match, and a forged edge
+  target content id can no longer reach `included_refs`. A node set may no longer
+  declare one logical node twice: the previous build overwrote the first entry,
+  so with two declarations under different bindings, cross-project isolation
+  turned on array order. `project_binding_unknown` is gone from the closed
+  exclusion list, because an unwitnessed node is a broken projection rather than
+  excluded material. The fully bound two-hop capsule remains the positive control.
+- Bound P5, the generation advance, the pre-P7 policy gate and the P8 writer to
+  verifiable registration evidence (two reproduced attacks). `kind:
+  'registered_human'` and `authority.registered === true` are fields the caller
+  writes, so a self-declared principal and an `authority_ref` naming nothing that
+  exists both cleared the boundaries the contract is most emphatic about. A new
+  `kernel/registration.mjs` verifies a supplied, content-addressed registration
+  registry: entry addresses and the registry address are recomputed, and the
+  registry address must be the content id of the revision it claims to be. Lookup
+  is scoped to the project, to the authority family where one applies, and to the
+  instant the boundary is cleared. A caller asserting its own `registered` or
+  `applicability` is refused rather than ignored. P8 supplies the one registry
+  every registration in its chain is checked against, so a chain can no longer
+  carry the evidence that vouches for its own acceptor.
+- Bound the P5 orchestration boundary's `authority_ref` to the same evidence (one
+  reproduced attack). Three records sharing one arbitrary nonexistent reference
+  satisfied the old rule, because whoever assembles the three writes all three.
+  The reference now has to resolve in the same registry, project and authority
+  family at the instant of the exchange, and a pair whose two halves name
+  different authorities is refused. Candidate-only behaviour, a generation
+  advance of zero and the exact two-receipt linkage are preserved and asserted.
+- Made the exact two-source authority invariant require exact typed refs and
+  coherent times (one reproduced attack). A bare string was read as a revision
+  id, so two different strings counted as two different revisions while neither
+  could be resolved to any bytes; `valid_at` and `known_at` were not checked at
+  all. Both guard layers now require a fully formed exact revision ref and two
+  canonical instants with `known_at` at or after `valid_at`, and name the failed
+  property. The exact baseline-versus-wiki control still holds, with baseline
+  precedence and both lineages preserved.
+- Verification after the change: 13 suites, 1374 conformance checks, 0 failures;
+  mutation lock 142/142 killed, 0 survivors, 0 catalogue errors; exact Git-blob
+  manifest 62/62; frozen Phase 1-0 bundle 13/13; runtime observation 1:1 with the
+  topology; zero writes. Owner action: none required. `D-P10-08` (who may be
+  registered as a P5/P8 approver) stays open — the kernel verifies supplied
+  evidence and consults no live registry, so what closed is only the state where
+  saying so was enough. No project material, private corpus, credential, source
+  PDF, external service, runtime activation, ERP write, live P5/P8, UI, MCP
+  transport or learned model was exercised.
+- Related paths: `guild_hall/engineering_engine/kernel/`,
+  `guild_hall/engineering_engine/fixtures/registration_evidence.mjs`,
+  `guild_hall/engineering_engine/tests/`,
+  `guild_hall/engineering_engine/contracts/`,
+  `guild_hall/engineering_engine/topology/`.
+
+## 2026-08-11 - SE Engineering Engine Phase 2 second correction pass: five weak guards tightened
+
+An independent review of the previous entry found five contract failures. The
+green evidence behind that entry was real and none of it is weakened here: every
+suite, the mutation lock and the exact Git-blob manifest check still pass. What
+the five findings had in common is that a check existed in a form too weak to
+hold the property it was named after, and that a passing suite could not tell the
+difference.
+
+- Made `engine_self_topology` validate the exact receipt-key set instead of
+  reading a non-empty receipt map as a recorded observation. The observation
+  summary now declares the edge key set it produced receipts for
+  (`edges.exercised_edge_keys`), and the map has to be exactly that set, every
+  key has to be an edge the topology declares, and every receipt has to name its
+  own edge and its own run. An unexpected, misfiled, foreign-run, malformed,
+  stale or failed receipt can no longer make a declared edge `present`,
+  `satisfied` or `absence_confirmed`; it leaves the edge unknown and costs the
+  run its right to report other edges as confirmed absences. A fresh, exact,
+  same-run receipt map still satisfies, and that positive control is asserted.
+- Made the complete node set mandatory in the Context Capsule selector.
+  `graph.nodes` was optional, which made every edge the only witness to its own
+  project binding and left a forged binding indistinguishable from a true one.
+  The selector now refuses an omitted node set, a node without an exact revision
+  ref, and a node without a binding; it refuses undeclared nodes, mixed
+  node/edge bindings and multi-hop cross-project reach; and it re-checks every
+  ref it is about to return before returning it. A fully bound capsule is kept as
+  a positive control.
+- Made the P8 gate fail closed on provenance rather than on object shape. Every
+  chain record and the approval now carry immutable provenance whose content
+  address is recomputed here from the record's own content, so a link edited
+  after it was recorded fails even when every field still looks right. The four
+  boundary verdicts — P5 acceptance, generation advance, the P7 policy gate and
+  the TaskDriver — are re-run from the inputs the records carry and must
+  reproduce exactly, because `passed: true` is a claim rather than a result. The
+  project binding is checked on all ten records plus the approval instead of
+  four; the context/authority gate must also carry applicability, a registered
+  authority family and this snapshot; the disposition confirmation must name a
+  registered human principal rather than only set a flag; and the evidence must
+  carry receipt material that hashes to the content address it declares. Zero
+  ERP writes are preserved and one fully pinned valid chain remains the positive
+  control.
+- Made the Context Response candidate content-addressed to its exchange. It was
+  matched to its receipts on response id, binding and generation alone, so an
+  answer to request B carrying source B passed against the receipt pair for
+  request A. The candidate now also carries and must match the request id, both
+  receipt ids, the response content hash, the CAS fingerprint, the exact source
+  and artifact revision refs, the principal, the registered authority, `valid_at`
+  and `known_at`; each receipt can refuse on its own; and P5 evaluability is
+  false unless both exact receipts and every linkage, sufficiency and
+  applicability check pass. The response remains a context candidate, with no
+  generation advance, live P5, transport or writer activation.
+- Made the O4 two-source authority invariant exact. "A conflict was recorded with
+  both sides retained" also holds for a source quoted twice, two reviewed-wiki
+  claims, one revision, an agreeing pair and an unresolved applicability, none of
+  which is a two-authority disagreement. Two guards now hold it:
+  `recordSourceConflict` refuses to build a record that is not a disagreement,
+  and `assertTwoSourceAuthorityInvariant` refuses to conclude from a record that
+  is not exactly one `project_contract_baseline` against one `reviewed_wiki`, on
+  distinct revisions, actually disagreeing in normalised value, both applicable,
+  lineage preserved on both sides, with the baseline governing. Both layers are
+  attacked separately, and a genuinely disagreeing pair is the positive control.
+- Removed three guards that had become strictly redundant once the checks above
+  were in place, rather than leaving them as coverage that could not fail.
+- Verification after the change: 13 suites, 1305 conformance checks, 0 failures;
+  mutation lock 116/116 killed, 0 survivors, 0 catalogue errors; exact Git-blob
+  manifest 60/60; frozen Phase 1-0 bundle 13/13; runtime observation 1:1 with the
+  topology. No project material, private corpus, credential, source PDF, external
+  service, runtime activation, ERP write, live P5/P8, UI, MCP transport or
+  learned model was exercised, and no actual project identifier appears anywhere
+  in this change.
+
+## 2026-08-11 - SE Engineering Engine Phase 2 revision: frozen-contract corrections
+
+- Corrected `P7` in `guild_hall/engineering_engine/`. The previous entry recorded
+  that the frozen contract did not define it; that was a reading error, not an
+  open owner decision. `engine_plan_v1_2.md`, `engine_plan_v1_2_1.md` and the
+  frozen `phase_1_0_work_lanes.yaml` `p7_taskdriver` gate all define P7 as the
+  TaskDriver, preceded by a `why` / `why-now` / `authority` / `idempotency`
+  internal policy gate. `pipeline.mjs` now implements the gate as its own
+  function whose result P7 requires, so P7 cannot be reached around it. No live
+  TaskDriver is activated: the verdict is candidate-only with a zero ERP delta.
+- Made `evaluateP8Write` require the whole validated lifecycle chain instead of
+  succeeding on a task intent that had merely stopped calling itself a candidate.
+  Twelve chain elements must be present and must agree with each other:
+  acceptance, generation advance, snapshot, finding, append-only disposition
+  event confirmed by a registered human, the context/authority gate, the P6 task
+  intent, the policy gate, P7, one shared project binding, and immutable
+  receipt/CAS evidence. An approval whose approver is an agent, an engine or a
+  model is refused. The function performs no write and reports zero.
+- Made the Context Capsule selector validate every edge before traversal and
+  require every traversed edge and node to carry the selector's project binding.
+  Cross-binding material is refused on the way in rather than filtered after
+  reading it, and a projection that declares node bindings fails closed on an
+  undeclared node.
+- Stopped capsule exclusions from carrying the identifier they refused. An
+  exclusion is now a closed reason, a hop and a count. The frozen O6 forbids a
+  denied ref anywhere in the capsule payload, and an exclusion list is capsule
+  payload; the previous behaviour handed back exactly what the ACL withheld.
+  Enforcement is recursive over the whole returned object.
+- Stopped the subject adapter from reading the presence of a receipt key as
+  proof of traversal. Each receipt is judged against a declared freshness window
+  first, so a stale, failed or malformed receipt yields `unknown` rather than
+  `present`, and a receipt that could not be believed also costs that run its
+  right to report other edges as confirmed absences.
+- Made conflict findings retain every disagreeing source claim.
+  `recordSourceConflict()` returns the precedence verdict and the retained claims
+  together, and a conflict signalled without its sides is refused. Authority
+  resolution alone loses the lower-tier side, which is the failure the frozen O4
+  case exists to catch.
+- Added the smallest synthetic Phase 3 receipt slice, `kernel/context_receipt.mjs`:
+  immutable Context Request and Context Response receipts, each distinct from the
+  candidate it attests, plus the still-a-candidate response and an evidence
+  sufficiency and authority applicability gate. Both receipts and the validated
+  response candidate are required before the P5 orchestration boundary can even
+  be evaluated; missing, mismatched, stale or cross-project receipts stop the
+  sequence. The four receipt kinds in the engine — topology delivery, MCP
+  idempotency response, context request, context response — are named and kept
+  apart. No transport, no external service, no live P5, no generation advance and
+  no ERP write.
+- Made the byte manifest deterministic against the bytes Git will commit rather
+  than the bytes a checkout happens to hold, and verified the derivation against
+  `git hash-object` on every emit. Added `tests/manifest_blob_integrity.mjs`,
+  which checks the committed manifest against a fresh emit, against Git's clean
+  filter, and against the staged blob bytes; it is part of the integration check.
+  The previous manifest disagreed with the committed content for four files and
+  nothing noticed, because nothing verified it.
+- Phase 1–4 baseline remains `deterministic_only`. No project material, UI,
+  runtime, MCP execution, ERP writer or learned model was exercised, and no
+  actual project identifier appears anywhere in this change.
 
 ## 2026-08-10 - SE Engineering Engine Phase 1 lanes complete
 

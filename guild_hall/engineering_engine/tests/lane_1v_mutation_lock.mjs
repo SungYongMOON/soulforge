@@ -52,6 +52,8 @@ const SUITES = {
   runtime_observation: { file: 'runtime_observation_conformance.mjs', args: [] },
   end_to_end: { file: 'end_to_end_engine_run.mjs', args: [] },
   output_contract: { file: 'output_contract_conformance.mjs', args: ['--scratch', SCRATCH_ROOT] },
+  phase_2: { file: 'phase_2_oracle_conformance.mjs', args: [] },
+  phase_3: { file: 'phase_3_context_receipts.mjs', args: [] },
 };
 
 // Each entry disables or weakens exactly one guard. `find` must occur exactly once in its
@@ -183,6 +185,11 @@ const CATALOGUE = [
   { id: 'receipt/unlabelled_method_accepted', file: 'delivery_receipt.mjs', suite: 'runtime_observation',
     find: '  if (!OBSERVATION_METHODS.includes(receipt.observation_method)) {', replace: '  if (false) {' },
 
+  // ---- the conflict signal, which was unreachable end to end until the frozen spec exposed it
+  { id: 'assembly/conflict_signal_ignored', area: 'assembly', file: 'engine_pass.mjs', suite: 'phase_2',
+    find: '      ...compareStates({ expected, observed, conflicts: conflicting.has(expected.element_id) }),',
+    replace: '      ...compareStates({ expected, observed }),' },
+
   // ---- output binding: fail-closed resolution
   { id: 'binding/broken_pointer_resolves_to_a_guess', area: 'tools', file: 'output_binding.mjs', suite: 'output_contract',
     find: "    return { root: null, source: 'pointer_unreadable', pointer_path: pointer };",
@@ -210,6 +217,131 @@ const CATALOGUE = [
   { id: 'assembly/context_request_for_everything', area: 'assembly', file: 'engine_pass.mjs', suite: 'end_to_end',
     find: '  if (unknownFindings.length > 0) {', replace: '  if (findings.length > 0) {' },
 
+  // ---- capsule project isolation and edge validation (1C)
+  { id: 'capsule/edges_not_validated', file: 'capsule.mjs', suite: 'lane_1c',
+    find: '      validateEdge(edge);', replace: '      true;' },
+  { id: 'capsule/project_binding_unchecked', file: 'capsule.mjs', suite: 'lane_1c',
+    find: "        if (edge.project_binding_ref !== selector.project_binding_ref) { exclude(hop, 'project_binding_mismatch'); continue; }",
+    replace: '        if (false) { continue; }' },
+  { id: 'capsule/node_set_optional_again', file: 'capsule.mjs', suite: 'lane_1c',
+    find: '  if (declaredNodes === null) {', replace: '  if (false) {' },
+  { id: 'capsule/node_binding_not_required', file: 'capsule.mjs', suite: 'lane_1c',
+    find: "    if (typeof n.project_binding_ref !== 'string' || !n.project_binding_ref) {",
+    replace: '    if (false) {' },
+  { id: 'capsule/node_binding_unchecked', file: 'capsule.mjs', suite: 'lane_1c',
+    find: "    if (binding !== 'ok') { exclude(hop, binding); return false; }",
+    replace: '    if (false) { return false; }' },
+  { id: 'capsule/undeclared_node_assumed_in_scope', file: 'capsule.mjs', suite: 'lane_1c',
+    find: '    if (key !== null && nodeBinding.has(key)) return key;',
+    replace: '    if (key !== null) return key;' },
+  { id: 'graph/binding_attribute_optional', file: 'graph.mjs', suite: 'lane_1c',
+    find: "  if (typeof edge.project_binding_ref !== 'string' || !edge.project_binding_ref) {",
+    replace: '  if (false) {' },
+
+  // ---- the conflict record, which authority resolution alone throws away
+  { id: 'authority/conflict_record_loses_a_side', file: 'authority.mjs', suite: 'phase_2',
+    find: '    retained_claims: retained,', replace: '    retained_claims: retained.slice(0, 1),' },
+  { id: 'snapshot/conflict_sides_may_be_dropped', file: 'snapshot.mjs', suite: 'lane_1a',
+    find: '    if (!record || !Array.isArray(retained) || retained.length < 2 || record.sides_dropped !== 0) {',
+    replace: '    if (false) {' },
+
+  // ---- context receipts (phase 3)
+  { id: 'context_receipt/receipt_may_claim_acceptance', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '  if (receipt.is_acceptance !== false) {', replace: '  if (false) {' },
+  { id: 'context_receipt/receipt_need_not_be_distinct', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '  if (receipt.context_request_receipt_id === receipt.context_request_id) {', replace: '  if (false) {' },
+  { id: 'context_receipt/stale_receipt_admitted', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (ageSeconds > limit) {', replace: '    if (false) {' },
+  { id: 'context_receipt/cross_project_pair_allowed', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (value !== projectBindingRef) {', replace: '    if (false) {' },
+  { id: 'context_receipt/insufficient_evidence_admitted', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '  if (!sufficiency.evidence_sufficient) {', replace: '  if (false) {' },
+  { id: 'context_receipt/response_may_be_accepted_already', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '  if (candidate.candidate_only !== true || candidate.accepted !== false) {', replace: '  if (false) {' },
+
+  // ---- subject adapter: a receipt is judged, not counted
+  { id: 'subject/receipt_key_read_as_proof', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: '    proves_traversal: verdict.proves_traversal === true,', replace: '    proves_traversal: true,' },
+  { id: 'subject/unbelievable_receipt_ignored', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: "  if (Number.isInteger(unusableReceipts) && unusableReceipts > 0) reasons.push('a_receipt_could_not_be_believed');",
+    replace: "  if (false) reasons.push('a_receipt_could_not_be_believed');" },
+
+  // ---- the exact receipt map (B-02): the map is a set, and each receipt names its own edge
+  { id: 'subject/misfiled_receipt_accepted', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: '  if (receipt.edge_key !== edgeKey) {', replace: '  if (false) {' },
+  { id: 'subject/foreign_run_receipt_accepted', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: '  if (expectedRunId !== null && receipt.run_id !== expectedRunId) {', replace: '  if (false) {' },
+  { id: 'subject/receipt_key_set_not_weighed', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: "  if (receiptKeySetExact !== true) reasons.push('receipt_key_set_does_not_match_the_observation');",
+    replace: "  if (false) reasons.push('receipt_key_set_does_not_match_the_observation');" },
+  { id: 'subject/presence_ignores_the_key_set', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: '    const presence = (verdict.proves_traversal && keySet.exact)',
+    replace: '    const presence = (verdict.proves_traversal)' },
+  { id: 'subject/observation_need_not_name_its_run', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: "  if (typeof observation.run_id !== 'string' || observation.run_id.length === 0) reasons.push('observation_names_no_run');",
+    replace: "  if (false) reasons.push('observation_names_no_run');" },
+  { id: 'subject/exercised_key_set_declaration_optional', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: "  if (!Array.isArray(declared) || declared.some((k) => typeof k !== 'string' || k.length === 0)) {",
+    replace: '  if (false) {' },
+  { id: 'subject/empty_receipt_map_counts_as_a_record', area: 'subjects', file: 'engine_self_topology.mjs', suite: 'end_to_end',
+    find: "  if (edgeReceiptsRecorded !== true) reasons.push('no_edge_receipt_was_recorded');",
+    replace: "  if (false) reasons.push('no_edge_receipt_was_recorded');" },
+
+  // ---- the exact two-source authority invariant (B-08), at both of its guards
+  { id: 'authority/conflict_accepts_agreement', file: 'authority.mjs', suite: 'phase_2',
+    find: '  if (new Set(claims.map((c) => normaliseClaimValue(c.asserted_value))).size < 2) {',
+    replace: '  if (false) {' },
+  { id: 'authority/conflict_accepts_one_revision_twice', file: 'authority.mjs', suite: 'phase_2',
+    find: '  if (new Set(revisions).size !== revisions.length) {', replace: '  if (false) {' },
+  { id: 'authority/conflict_accepts_one_claim_twice', file: 'authority.mjs', suite: 'phase_2',
+    find: '  if (new Set(claimIds).size !== claimIds.length) {', replace: '  if (false) {' },
+  { id: 'authority/invariant_pair_unchecked', file: 'authority.mjs', suite: 'phase_2',
+    find: "    if ([...families].sort().join('|') !== [...wanted].sort().join('|')) {",
+    replace: '    if (false) {' },
+  { id: 'authority/invariant_count_unchecked', file: 'authority.mjs', suite: 'phase_2',
+    find: '  if (record.claim_count !== TWO_SOURCE_AUTHORITY_INVARIANT.claim_count',
+    replace: '  if (false && record.claim_count !== TWO_SOURCE_AUTHORITY_INVARIANT.claim_count' },
+  { id: 'authority/invariant_disagreement_unchecked', file: 'authority.mjs', suite: 'phase_2',
+    find: '    if (normaliseClaimValue(a.asserted_value) === normaliseClaimValue(b.asserted_value)) {',
+    replace: '    if (false) {' },
+  { id: 'authority/invariant_applicability_unchecked', file: 'authority.mjs', suite: 'phase_2',
+    find: '      if (c.applicability !== true) {', replace: '      if (false) {' },
+  { id: 'authority/invariant_governor_unchecked', file: 'authority.mjs', suite: 'phase_2',
+    find: '  if (record.governing_authority_family !== TWO_SOURCE_AUTHORITY_INVARIANT.governing_family) {',
+    replace: '  if (false) {' },
+  { id: 'authority/invariant_lineage_unchecked', file: 'authority.mjs', suite: 'phase_2',
+    find: "    if ([a, b].some((c) => typeof c.lineage_ref !== 'string' || !c.lineage_ref)) failed.push('lineage_preserved_for_both');",
+    replace: "    if (false) failed.push('lineage_preserved_for_both');" },
+  { id: 'authority/invariant_dropped_side_unchecked', file: 'authority.mjs', suite: 'phase_2',
+    find: "  if (record.sides_dropped !== 0) failed.push('no_side_dropped');",
+    replace: "  if (false) failed.push('no_side_dropped');" },
+
+  // ---- the content addressed Context Response linkage (B-07)
+  { id: 'context_receipt/candidate_request_linkage_unchecked', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (candidate.context_request_id !== responseReceipt.in_response_to_context_request_id',
+    replace: '    if (false && candidate.context_request_id !== responseReceipt.in_response_to_context_request_id' },
+  { id: 'context_receipt/candidate_sources_unchecked', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (refSetKey(candidate.source_revision_refs) !== refSetKey(responseReceipt.source_revision_refs)) {',
+    replace: '    if (false) {' },
+  { id: 'context_receipt/candidate_artifacts_unchecked', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (refSetKey(candidate.artifact_revision_refs) !== refSetKey(responseReceipt.artifact_revision_refs)) {',
+    replace: '    if (false) {' },
+  { id: 'context_receipt/candidate_content_hash_unchecked', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (candidate.context_response_content_hash !== responseReceipt.context_response_content_hash) {',
+    replace: '    if (false) {' },
+  { id: 'context_receipt/candidate_principal_unchecked', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (candidate.principal_ref !== responseReceipt.principal_ref',
+    replace: '    if (false && candidate.principal_ref !== responseReceipt.principal_ref' },
+  { id: 'context_receipt/candidate_dates_unchecked', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (candidate.valid_at !== responseReceipt.valid_at || candidate.known_at !== responseReceipt.known_at) {',
+    replace: '    if (false) {' },
+  { id: 'context_receipt/candidate_request_side_unchecked', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '    if (candidate.context_request_id !== requestReceipt.context_request_id',
+    replace: '    if (false && candidate.context_request_id !== requestReceipt.context_request_id' },
+  { id: 'context_receipt/candidate_ref_set_compared_by_entity_only', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '  .map((r) => `${r?.entity_id}|${r?.revision_id}|${r?.content_id}|${r?.content_hash_alg}`)',
+    replace: '  .map((r) => `${r?.entity_id}`)' },
+
   // ---- pipeline (1A)
   { id: 'pipeline/engine_may_accept', file: 'pipeline.mjs', suite: 'lane_1a',
     find: "  if (principal?.kind === 'engine' || principal?.kind === 'agent') {",
@@ -219,7 +351,160 @@ const CATALOGUE = [
   { id: 'pipeline/boundary_conflation_allowed', file: 'pipeline.mjs', suite: 'lane_1a',
     find: '  if (effects.does_not.includes(impliedEffect)) {', replace: '  if (false) {' },
   { id: 'pipeline/candidate_may_be_written', file: 'pipeline.mjs', suite: 'lane_1a',
-    find: '  if (taskIntent?.candidate_only === true) {', replace: '  if (false) {' },
+    find: '  if (chain.task_intent.candidate_only !== false) {', replace: '  if (false) {' },
+
+  // ---- the P7 gate and the P8 chain
+  { id: 'pipeline/policy_checks_optional', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (failed.length) {', replace: '  if (false) {' },
+  { id: 'pipeline/p7_gate_skippable', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (!policyGate || policyGate.gate_id !== POLICY_GATE_ID || policyGate.passed !== true) {',
+    replace: '  if (false) {' },
+  { id: 'pipeline/p8_chain_not_required', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  const missing = REQUIRED_P8_CHAIN_ELEMENTS.filter((k) => chain[k] === undefined || chain[k] === null);',
+    replace: '  const missing = [];' },
+  { id: 'pipeline/p8_ai_approval_allowed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (approval.approver_kind !== HUMAN_APPROVER_KIND) {', replace: '  if (false) {' },
+  { id: 'pipeline/p8_cross_project_chain_allowed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (crossProject.length) {', replace: '  if (false) {' },
+  { id: 'pipeline/p8_stale_generation_allowed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (chain.snapshot.accepted_context_generation !== generation) {', replace: '  if (false) {' },
+  { id: 'pipeline/p8_mutable_evidence_allowed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: "  if (evidence.immutable !== true || typeof evidence.receipt_ref !== 'string' || !evidence.receipt_ref",
+    replace: '  if (false && evidence.immutable !== true' },
+
+  // ---- the fail-closed P8 chain (B-06): provenance recomputed, verdicts re-run
+  { id: 'pipeline/p8_provenance_not_verified', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  for (const name of P8_CHAIN_RECORD_ELEMENTS) assertChainElementProvenance(name, chain[name], binding);',
+    replace: '  for (const name of []) assertChainElementProvenance(name, chain[name], binding);' },
+  { id: 'pipeline/p8_content_address_not_recomputed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (recomputed !== provenance.content_address) {', replace: '  if (false) {' },
+  { id: 'pipeline/p8_provenance_immutability_unchecked', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (provenance.immutable !== true) {', replace: '  if (false) {' },
+  { id: 'pipeline/p8_provenance_binding_unchecked', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (provenance.project_binding_ref !== binding) {', replace: '  if (false) {' },
+  { id: 'pipeline/p8_verdicts_not_recomputed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (canonicalise(recorded, rules) !== canonicalise(expected, rules)) {',
+    replace: '  if (false) {' },
+  { id: 'pipeline/p8_recompute_inputs_optional', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: "  if (requiresInputs && (inputs === null || typeof inputs !== 'object' || Array.isArray(inputs))) {",
+    replace: '  if (false) {' },
+  { id: 'pipeline/p8_binding_checked_on_a_subset', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '    ...P8_CHAIN_RECORD_ELEMENTS.map((name) => [name, chain[name]?.project_binding_ref]),',
+    replace: "    ...['snapshot', 'task_intent', 'task_driver', 'evidence'].map((name) => [name, chain[name]?.project_binding_ref])," },
+  { id: 'pipeline/p8_disposition_confirmer_unchecked', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (chain.disposition_event.confirmed_by_principal_kind !== HUMAN_APPROVER_KIND',
+    replace: '  if (false && chain.disposition_event.confirmed_by_principal_kind !== HUMAN_APPROVER_KIND' },
+  { id: 'pipeline/p8_authority_gate_applicability_dropped', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: "  for (const check of ['context_sufficiency', 'evidence_sufficiency', 'registered_authority', 'applicability']) {",
+    replace: "  for (const check of ['context_sufficiency', 'evidence_sufficiency', 'registered_authority']) {" },
+  { id: 'pipeline/p8_authority_gate_family_unchecked', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (!AUTHORITY_KEYS.has(chain.context_authority_gate.authority_family)) {',
+    replace: '  if (false) {' },
+  { id: 'pipeline/p8_authority_gate_snapshot_unchecked', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (chain.context_authority_gate.snapshot_id !== chain.snapshot.snapshot_id) {',
+    replace: '  if (false) {' },
+  { id: 'pipeline/p8_receipt_material_not_addressed', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (receiptAddress !== evidence.content_address) {', replace: '  if (false) {' },
+  { id: 'pipeline/p8_receipt_material_optional', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: "  if (receiptMaterial === null || typeof receiptMaterial !== 'object' || Array.isArray(receiptMaterial)",
+    replace: '  if (false && receiptMaterial === null' },
+  { id: 'pipeline/p8_approval_may_name_another_intent', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (approval.task_intent_id !== chain.task_intent.task_intent_id) {',
+    replace: '  if (false) {' },
+  { id: 'pipeline/p8_approval_may_be_undated', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (!inspectInstant(approval.approved_at).valid) {', replace: '  if (false) {' },
+
+  // ---- the complete exact-ref identity tuple (B-03)
+  { id: 'identity/identity_key_drops_content_identity', file: 'identity.mjs', suite: 'lane_1c',
+    find: '  return REF_REQUIRED_FIELDS.map((f) => ref[f]).join(SEPARATOR);',
+    replace: '  return [ref.entity_id, ref.revision_id].join(SEPARATOR);' },
+  { id: 'capsule/node_identity_contradiction_ignored', file: 'capsule.mjs', suite: 'lane_1c',
+    find: '    if (logical !== null && nodeByLogicalKey.has(logical)) {', replace: '    if (false) {' },
+  { id: 'capsule/duplicate_node_declaration_is_last_write_wins', file: 'capsule.mjs', suite: 'lane_1c',
+    find: '    if (nodeByLogicalKey.has(logical)) {', replace: '    if (false) {' },
+  // `capsule/edge_source_matched_on_name_only` was here. Once every supplied edge endpoint is
+  // resolved against the node set before the walk, and one logical node may not be declared
+  // twice, the traversal-time tuple comparison can no longer disagree with the weaker one — so
+  // the mutation became unkillable rather than uncovered. It is removed instead of left as
+  // coverage that cannot fail; `capsule/edge_endpoints_not_prechecked` covers the property now.
+
+  // ---- registration evidence (B-06, B-07): the registry verifies, or nothing rests on it
+  { id: 'registration/registry_not_pinned_to_a_revision', file: 'registration.mjs', suite: 'lane_1a',
+    find: '  if (registry.registry_content_address !== registry.registry_revision_ref.content_id) {',
+    replace: '  if (false) {' },
+  { id: 'registration/registry_address_not_recomputed', file: 'registration.mjs', suite: 'lane_1a',
+    find: '  if (recomputed !== registry.registry_content_address) {', replace: '  if (false) {' },
+  { id: 'registration/entry_address_set_unchecked', file: 'registration.mjs', suite: 'lane_1a',
+    find: '  if (sortedComputed.length !== sortedDeclared.length || sortedComputed.some((a, i) => a !== sortedDeclared[i])) {',
+    replace: '  if (false) {' },
+  { id: 'registration/missing_subject_tolerated', file: 'registration.mjs', suite: 'lane_1a',
+    find: '  if (matches.length === 0) {', replace: '  if (false && matches.length === 0) {' },
+  { id: 'registration/validity_window_ignored', file: 'registration.mjs', suite: 'lane_1a',
+    find: '  if (compareCodePoints(at, entry.valid_from) < 0 || compareCodePoints(at, entry.valid_to) > 0) {',
+    replace: '  if (false) {' },
+  { id: 'registration/project_scope_ignored', file: 'registration.mjs', suite: 'lane_1a',
+    find: '  if (!nonEmptyString(projectBindingRef) || verifiedRegistry.project_binding_ref !== projectBindingRef) {',
+    replace: '  if (false) {' },
+  { id: 'registration/authority_family_scope_ignored', file: 'registration.mjs', suite: 'lane_1a',
+    find: '    && (subjectKind !== SUBJECT_KINDS.AUTHORITY || e.authority_family === authorityFamily));',
+    replace: '    && true);' },
+
+  // ---- the boundaries that used to take registration from the record being judged (B-06)
+  { id: 'pipeline/human_registration_evidence_skipped', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: 'const assertHumanRegistered = (principal, code, { registrationRegistry, projectBindingRef, at }) => {',
+    replace: "const assertHumanRegistered = (principal, code, { registrationRegistry, projectBindingRef, at }) => { return { registry_revision_id: 'x', entry_content_address: 'y' };" },
+  { id: 'pipeline/p7_caller_may_assert_its_own_registration', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: "  } else if (Object.hasOwn(authority, 'registered') || Object.hasOwn(authority, 'applicability')) {",
+    replace: '  } else if (false) {' },
+  { id: 'pipeline/p7_authority_registration_failure_ignored', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: "      detail.authority_failure = e.code ?? 'registration_evidence_refused';",
+    replace: '      failed.pop();' },
+  { id: 'pipeline/p7_authority_family_not_scoped', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '        authorityFamily: authority.authority_family,',
+    replace: "        authorityFamily: 'project_contract_baseline'," },
+  { id: 'pipeline/p8_approver_registration_not_checked', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '      subjectId: approval.approver_principal_id,', replace: "      subjectId: 'person-2'," },
+  { id: 'pipeline/p8_chain_may_supply_its_own_registry', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '    (i) => evaluateP5Acceptance({ ...i, registrationRegistry, projectBindingRef: binding }));',
+    replace: '    (i) => evaluateP5Acceptance({ registrationRegistry, projectBindingRef: binding, ...i }));' },
+
+  // ---- the authority reference behind the P5 orchestration boundary (B-07)
+  { id: 'context_receipt/authority_ref_not_resolved', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '      subjectId: responseReceipt.authority_ref,', replace: "      subjectId: 'authority-registration-1'," },
+  { id: 'context_receipt/authority_family_not_scoped', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '      authorityFamily: responseCandidate.responding_authority_family,',
+    replace: "      authorityFamily: 'project_contract_baseline'," },
+  { id: 'context_receipt/authority_registration_time_ignored', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '      at: responseReceipt.known_at,', replace: "      at: '2026-08-10T09:30:00.000Z'," },
+  { id: 'context_receipt/two_halves_may_name_different_authorities', file: 'context_receipt.mjs', suite: 'phase_3',
+    find: '  if (requestReceipt.authority_ref !== responseReceipt.authority_ref) {', replace: '  if (false) {' },
+
+  // ---- exact typed source revision refs and time semantics (B-08)
+  { id: 'authority/bare_string_read_as_a_source_revision', file: 'authority.mjs', suite: 'phase_2',
+    find: "  return classifyRef(ref, { bytesAvailable: true }) === RESOLUTION.RESOLVABLE ? ref.revision_id : null;",
+    replace: "  return typeof ref === 'string' ? ref : (typeof ref?.revision_id === 'string' ? ref.revision_id : null);" },
+  { id: 'authority/claim_instants_unchecked', file: 'authority.mjs', suite: 'phase_2',
+    find: '    if (!inspectInstant(claim?.[t]).valid) return t;', replace: '    if (false) return t;' },
+  { id: 'authority/claim_known_before_valid_allowed', file: 'authority.mjs', suite: 'phase_2',
+    find: "  return compareCodePoints(claim.known_at, claim.valid_at) < 0 ? 'known_at_precedes_valid_at' : null;",
+    replace: '  return null;' },
+  { id: 'authority/invariant_exact_ref_check_removed', file: 'authority.mjs', suite: 'phase_2',
+    find: '    if (exactRefs.some((ok) => !ok)) {', replace: '    if (false) {' },
+  { id: 'authority/invariant_time_check_removed', file: 'authority.mjs', suite: 'phase_2',
+    find: '    if (timeFaults.length) {', replace: '    if (false) {' },
+
+  // ---- every supplied edge endpoint, resolved before the walk (B-03 integration)
+  { id: 'capsule/edge_endpoints_not_prechecked', file: 'capsule.mjs', suite: 'lane_1c',
+    find: "    for (const [end, ref] of [['from_ref', edge.from_ref], ['to_ref', edge.to_ref]]) {",
+    replace: '    for (const [end, ref] of []) {' },
+
+  // ---- the disposition confirmer, which was the last principal certifying itself (B-06)
+  { id: 'pipeline/p8_disposition_confirmer_not_resolved', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '      subjectId: chain.disposition_event.confirmed_by_principal_id,',
+    replace: "      subjectId: 'person-4'," },
+  { id: 'pipeline/p8_confirmation_instant_optional', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (!inspectInstant(chain.disposition_event.confirmed_at).valid) {',
+    replace: '  if (false) {' },
 ];
 
 // ---------------------------------------------------------------- scratch workspace
@@ -229,7 +514,11 @@ const created = [];
 const runSuite = (root, suiteName) => {
   const suite = SUITES[suiteName];
   const extra = suite.args ?? [];
-  const r = spawnSync(process.execPath, [join(root, 'tests', suite.file), ...extra], { encoding: 'utf8' });
+  // cwd is the throwaway copy, not wherever this was launched from. A mutation is hostile code
+  // by construction, and at least one of them makes a path resolve against the working
+  // directory — run from the engine tree it wrote a nested state directory into the source.
+  // A mutation must not be able to leave anything outside its own sandbox.
+  const r = spawnSync(process.execPath, [join(root, 'tests', suite.file), ...extra], { encoding: 'utf8', cwd: root });
   return { status: r.status, stderr: (r.stderr ?? '').slice(0, 400) };
 };
 
@@ -239,7 +528,7 @@ try {
   created.push(workspace);
   // Every area the engine holds code in, or a mutation there would silently have nothing to
   // break and the catalogue would report a clean sweep over a partial copy.
-  for (const area of ['kernel', 'assembly', 'subjects', 'tools', 'tests']) {
+  for (const area of ['kernel', 'assembly', 'subjects', 'tools', 'tests', 'fixtures']) {
     cpSync(join(ENGINE, area), join(workspace, area), { recursive: true });
   }
 

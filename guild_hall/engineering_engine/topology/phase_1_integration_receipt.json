@@ -6,12 +6,12 @@
     {
       "id": "suites",
       "ok": true,
-      "detail": "10 suites, 840 checks"
+      "detail": "13 suites, 1401 checks"
     },
     {
       "id": "mutation_lock",
       "ok": true,
-      "detail": "51/51 killed across 21 modules"
+      "detail": "144/144 killed across 23 modules"
     },
     {
       "id": "frozen_bundle",
@@ -26,12 +26,17 @@
     {
       "id": "topology_matches_code",
       "ok": true,
-      "detail": "23 modules, 85 import edges, digest b2cec86b08f6"
+      "detail": "25 modules, 105 import edges, byte-equal to a fresh emit, digest 0352c352488f"
     },
     {
       "id": "runtime_observation",
       "ok": true,
-      "detail": "85/85 edges traversed, 9 surfaces reported, topology 1:1"
+      "detail": "98/105 edges traversed, 9 surfaces reported, topology 1:1"
+    },
+    {
+      "id": "no_residue_in_the_source_tree",
+      "ok": true,
+      "detail": "the engine source tree is clean after a full run"
     },
     {
       "id": "no_writes",
@@ -54,7 +59,7 @@
       "lane": "1A",
       "verification_strength": "author_written_fixtures",
       "result": "PASS",
-      "pass_count": 151,
+      "pass_count": 327,
       "failure_count": 0,
       "failures": []
     },
@@ -72,7 +77,7 @@
       "lane": "1C",
       "verification_strength": "author_written_fixtures",
       "result": "PASS",
-      "pass_count": 59,
+      "pass_count": 101,
       "failure_count": 0,
       "failures": []
     },
@@ -117,7 +122,7 @@
       "lane": "end_to_end",
       "verification_strength": "author_written_fixtures",
       "result": "PASS",
-      "pass_count": 43,
+      "pass_count": 70,
       "failure_count": 0,
       "failures": []
     },
@@ -126,19 +131,46 @@
       "lane": "output_contract",
       "verification_strength": "author_written_fixtures",
       "result": "PASS",
-      "pass_count": 26,
+      "pass_count": 28,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "phase_2_oracle_conformance.mjs",
+      "lane": "phase_2_oracles",
+      "verification_strength": "author_written_spec_frozen_before_implementation",
+      "result": "PASS",
+      "pass_count": 154,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "phase_3_context_receipts.mjs",
+      "lane": "phase_3_context_receipts",
+      "verification_strength": "author_written_fixtures",
+      "result": "PASS",
+      "pass_count": 147,
+      "failure_count": 0,
+      "failures": []
+    },
+    {
+      "suite": "manifest_blob_integrity.mjs",
+      "lane": "manifest_integrity",
+      "verification_strength": "deterministic_against_git_object_bytes",
+      "result": "PASS",
+      "pass_count": 13,
       "failure_count": 0,
       "failures": []
     }
   ],
-  "total_conformance_checks": 840,
+  "total_conformance_checks": 1401,
   "mutation_lock": {
     "result": "PASS",
-    "mutations": 51,
-    "killed": 51,
+    "mutations": 144,
+    "killed": 144,
     "survived": 0,
     "catalogue_errors": 0,
-    "modules_covered": 21,
+    "modules_covered": 23,
     "semantic_independence": "UNMET"
   },
   "frozen_bundle": {
@@ -147,18 +179,26 @@
     "mismatches": []
   },
   "runtime_observation": {
-    "run_id": "run-20260810154123041",
+    "run_id": "run-20260811071904588",
     "surfaces_run": 9,
     "surfaces_without_heartbeat": 3,
-    "edge_coverage": "85/85",
-    "declared_not_exercised": [],
+    "edge_coverage": "98/105",
+    "declared_not_exercised": [
+      "context_receipt>authority",
+      "context_receipt>canonical",
+      "context_receipt>ceilings",
+      "context_receipt>errors",
+      "context_receipt>identity",
+      "context_receipt>minting",
+      "context_receipt>registration"
+    ],
     "observed_not_declared": [],
     "topology_is_one_to_one": true
   },
   "topology": {
-    "modules": 23,
-    "import_edges": 85,
-    "digest": "b2cec86b08f69d81b11349e8899931fe320c7c7c49cd14a5c68085513b018ac9",
+    "modules": 25,
+    "import_edges": 105,
+    "digest": "0352c352488fadb7d5804895ee49341b798f8a1ee3fe0a1d125ed2029fb5f78d",
     "derived_from": {
       "module_edges": "parsed from import statements in kernel/*.mjs, assembly/*.mjs, subjects/*.mjs",
       "areas_covered": [
@@ -189,7 +229,10 @@
     "D-P10-03": "author_written_fixtures",
     "runtime_observation": "author_written_fixtures",
     "end_to_end": "author_written_fixtures",
-    "output_contract": "author_written_fixtures"
+    "output_contract": "author_written_fixtures",
+    "phase_2_oracles": "author_written_spec_frozen_before_implementation",
+    "phase_3_context_receipts": "author_written_fixtures",
+    "manifest_integrity": "deterministic_against_git_object_bytes"
   },
   "honest_limits": [
     "five of six lanes carry author-written fixtures; only the phase_1_0 substrate is judged against the independently reviewed frozen oracle",
@@ -260,8 +303,7 @@
     ],
     "lane_1a": [
       "p5_and_p8_registered_human_approver_registration_policy",
-      "whether_self_approval_is_ever_permitted_and_for_whom",
-      "p7_stage_definition_or_removal_from_the_numbering"
+      "whether_self_approval_is_ever_permitted_and_for_whom"
     ],
     "lane_1b": [
       "which_source_surfaces_are_in_scope_for_inventory",
@@ -273,11 +315,7 @@
       "binding_promotion_authority",
       "rollback_authority",
       "high_security_project_isolation_threshold"
-    ],
-    "undefined_stage": {
-      "state": "UNKNOWN_pending_engine_owner",
-      "note": "the frozen Phase 1-0 contract names P5, P6 and P8 but does not define P7"
-    }
+    ]
   },
   "writes_performed": 0
 }

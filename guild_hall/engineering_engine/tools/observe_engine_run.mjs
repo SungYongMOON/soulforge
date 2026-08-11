@@ -151,10 +151,17 @@ const summary = {
     claim: heartbeatSummary.claim,
     failing: Object.values(heartbeats).filter((h) => h.outcome === 'failed').map((h) => h.surface_id),
   },
+  // The window the receipts below were judged against travels with them. A consumer that
+  // has to invent a freshness rule will invent a generous one.
+  receipt_window: WINDOWS.default,
   edges: {
     declared: coverage.declared_count,
     observed: coverage.observed_count,
     exercised: coverage.exercised.length,
+    // The exact key set this run wrote receipts for. A count cannot be checked against a
+    // receipt map; a set can, and the subject adapter refuses to weigh a map it cannot match
+    // against the run's own statement of what it recorded.
+    exercised_edge_keys: [...coverage.exercised].sort(),
     coverage: coverage.coverage_ratio_text,
     // Reported, never omitted: an idle edge is a fact about this run, not a defect to hide.
     declared_not_exercised: coverage.declared_not_exercised,

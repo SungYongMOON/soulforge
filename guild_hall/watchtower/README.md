@@ -19,10 +19,31 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `topology.mjs` | Soulforge AX 토폴로지의 public-safe 정의 (노드 27 · 간선 32)와 fail-closed 정적 검증 |
+| `topology.mjs` | Soulforge AX 토폴로지의 public-safe 정의 (노드 27 · 간선 33)와 fail-closed 정적 검증 |
+| `topology_federation.v1.schema.json` | owner별 구조 fragment의 strict public-safe wire contract |
+| `topology_federation.mjs` | fragment 검증, namespace 합성, canonical digest, declared/observed exact-set reconciliation |
+| `topology_provider_adapters.mjs` | allowlist된 Watchtower·Engineering Engine 선언 구조를 fragment로 바꾸는 순수 adapter |
+| `providers/knowledge_stack.mjs` | RAG·Knowledge Graph·Wiki의 공개 owner 계약 bundle을 지식 provider fragment로 변환 |
+| `providers/notebook_advisory.mjs` | Notebook metadata bridge·research workflow·setup 계약을 authority-free HOLD fragment로 변환 |
+| `tools/emit_federated_topology.mjs` | 고정된 tracked source allowlist만 읽어 단일 derived projection을 생성하거나 byte parity를 검사하는 도구 |
+| `topology/federated_topology.v1.json` | UI가 읽을 수 있는 tracked public-safe 선언 구조 projection; runtime truth가 아님 |
 | `watchtower.mjs` | binding 검증, probe 4종(jsonl_tail/json_file/dir_latest_mtime/schtask), 판정, 스냅샷 |
 | `cli.mjs` | `probe [--binding <path>\|--pointer <path>] [--json] [--no-write]`, `init-binding --output <path>` |
 | `watchtower.test.mjs` | 합성 판정·경로 미노출·원자 기록 회귀 |
+
+## Federation 계약
+
+- 각 subsystem이 자기 선언 구조의 owner이고 Watchtower는 이를 복제 정본으로 승격하지 않는다.
+- 현재 producer allowlist는 Watchtower native topology, Engineering Engine generated topology,
+  Knowledge Stack owner-contract bundle, Notebook advisory owner-contract bundle 네 개다.
+  glob·폴더 자동발견·관계 추측은 금지한다.
+- 합성 projection 한 파일만으로 구조를 그릴 수 있지만, 실제 runtime health·freshness·delivery는 local
+  binding의 probe와 receipt가 별도 제공한다. 둘의 exact node/edge set 차이는 reconciliation 결과로 드러낸다.
+- fragment와 projection은 프로젝트 식별자, 실제 경로, payload, source text, NotebookLM answer, account/session,
+  credential을 포함하지 않는다. Notebook advisory provider의 `active`가 아닌 `hold`는 정식 provider ID와
+  외부 실행 권한이 아직 없다는 뜻이며, 계정 연결이나 source-grounded answer readiness를 뜻하지 않는다.
+- `diagnose`와 `propose_repair`는 후보 능력이다. `execute_repair`, source truth, 공식 답변, Owner 승인,
+  runtime mutation 권한은 federation v1에서 항상 `false`이다.
 
 ## 판정 규칙
 

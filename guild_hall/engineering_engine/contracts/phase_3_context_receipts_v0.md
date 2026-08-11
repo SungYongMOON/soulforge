@@ -1,0 +1,134 @@
+# Phase 3 — Context Request / Response 영수증 (합성 전용)
+
+Status: `SYNTHETIC ONLY / CANDIDATE / NO TRANSPORT / NO LIVE P5`
+
+구현: `kernel/context_receipt.mjs` · 시험: `tests/phase_3_context_receipts.mjs` (137 통과 / 0 실패)
+
+## 1. 왜 필요했나
+
+동결 `runtime_lifecycle_sequence` 는 gap 과 사람의 수락 사이에 네 gate 를 둔다.
+
+```text
+context_request_candidate
+→ context_request_receipt      (immutable_transmission_receipt_not_acceptance)
+→ context_response_receipt     (immutable_transmission_receipt_not_acceptance)
+→ response_remains_context_candidate
+→ p5_registered_human_acceptance
+```
+
+`O` 이 중 **가운데 셋이 코드에 없었다.** 엔진에 있던 영수증은 두 종류였고 둘 다 다른 것을 증명한다.
+
+## 2. 영수증 4종 — 서로 대신하지 못한다
+
+| 종류 | 무엇을 증명하나 | 소유 |
+|---|---|---|
+| `topology_delivery_receipt` | 이 엔진의 간선 하나가 어떤 run 에서 통과됐다 | `kernel/delivery_receipt.mjs` |
+| `mcp_idempotency_response` | 같은 key 로 이미 물었고 그때 이렇게 답했다 | `kernel/mcp_contract.mjs` |
+| `context_request_receipt` | 지목된 principal 에게 지목된 질문을 보냈다 | `kernel/context_receipt.mjs` |
+| `context_response_receipt` | 그 principal 이 답했고 답의 exact revision·hash 는 이것이다 | `kernel/context_receipt.mjs` |
+
+`D` idempotency 응답은 **재시도 장치**다. "누가 답했다"의 증거가 아니며 principal·authority·source ref 를 아예 나르지 않는다. delivery 영수증은 **이 엔진 자신에 대한 관측**이다. 어느 쪽도 사람에게 물어본 사실을 대신하지 못한다. 시험이 두 shape 을 서로에게 넣어 거부를 확인한다.
+
+## 3. 두 영수증이 지는 계약
+
+`P` **영수증은 수락이 아니다.** `is_acceptance` 는 반드시 `false` 다. 수락은 등록된 사람이 P5 에서 한다.
+
+`P` **영수증은 대상과 별개 기록이다.** `context_request_receipt_id ≠ context_request_id`, `context_response_receipt_id ≠ context_response_id`. 하나로 합치면 "물었다"와 "물은 것으로 기록됐다"가 같은 사실이 된다.
+
+`P` **불변이다.** 고쳐 쓸 수 있는 영수증은 무엇이 오갔는지 증명하지 않는다.
+
+두 영수증이 함께 나르는 것:
+
+```text
+exact request/response id       (minted, 서로 구별)
+project_binding_ref
+accepted_context_generation
+accepted_context_cas_fingerprint     ← 어느 accepted context 를 상대로 찍혔는가
+principal_ref · authority_ref
+valid_at · known_at
+context_request_content_hash / context_response_content_hash
+source_revision_refs · artifact_revision_refs   (응답 측, exact revision ref)
+```
+
+`D` 응답 영수증은 요청 영수증과 **연결을 증명**한다. `in_response_to_context_request_id` 와 `in_response_to_receipt_id` 가 맞아야 하고, binding·generation·CAS 가 같아야 하며, 답이 질문보다 먼저 알려질 수 없다.
+
+## 4. 응답은 아직 candidate 다
+
+`P` 권위 있는 곳에서 온 답이라도 **accepted context 가 아니다.** `candidate_only === true` · `accepted === false` · `erp_delta === 0`.
+
+### 4.1 candidate 는 자기 교신에 내용으로 묶인다
+
+`O` 이전 판은 candidate 를 response id·binding·generation 세 값으로만 영수증에 맞췄다. 그래서 **요청 B 에 대한 답이 요청 A 의 영수증 쌍에 붙어 통과했다.** source B 를 들고, 다른 내용으로 해시되고, 다른 사람이 말한 답이었는데도 세 값이 우연히 맞으면 그만이었다.
+
+`D` candidate 필수 필드는 20개다. 앞 12개는 candidate 자신이고, 나머지 8개(`context_response_receipt_id` · `in_response_to_receipt_id` · `context_response_content_hash` · `accepted_context_cas_fingerprint` · `artifact_revision_refs` · `principal_ref` · `authority_ref` · `valid_at`)는 **linkage** 다. 전부 실제 교신이 이미 만들어 낸 값이므로, 요구해도 참인 교신에는 비용이 없고 이어붙인 교신에는 전부다.
+
+`D` `validateResponseCandidate(candidate, { responseReceipt, requestReceipt })` 가 대조하는 것:
+
+```text
+request_id · response_id · 두 영수증 id
+project_binding_ref · generation · CAS
+response content hash
+source revision ref 집합 · artifact revision ref 집합 (entity·revision·content·alg 4쌍으로 정확히)
+principal_ref · 등록된 authority_ref
+valid_at · known_at
+```
+
+`D` 두 영수증은 **따로도** 거부할 수 있어야 하므로 각 반쪽이 독립으로 검사한다. 둘 다 받은 경우에만 `linkage_checked: true` 를 낸다.
+
+`P` 응답은 여전히 candidate 다. 이 절은 generation 증가·live P5·transport·writer 활성화를 만들지 않는다.
+
+`D` `assessResponseSufficiency()` 가 두 축을 **따로** 낸다.
+
+- evidence 충분성: 해석 가능한 source revision ref 가 있고 `evidence_claim_ceiling === 'source_sufficient'`. `source_referenced` 는 "ref 가 있다"이지 "주장을 덮는다"가 아니다
+- authority 적용성: 등록된 family 이고 다섯 구성요소 applicability 가 모두 참이며, 질문이 구한 family 보다 낮지 않다
+
+둘을 합치지 않는다. 적용성 완벽한 권위가 인용 없이 답할 수 있고, 빈틈없이 인용한 답이 이 과제를 지배하지 않는 source 에서 올 수 있다.
+
+## 5. P5 orchestration 경계
+
+`D` `assertP5OrchestrationBoundaryEvaluable()` 가 답하는 질문은 **"수락할까"가 아니라 "수락 판단을 올릴 수 있는 상태인가"** 다. 통과 조건은 전부 필요조건이다.
+
+```text
+두 영수증이 모두 있고 서로 다른 기록이며 각자 유효
+응답 candidate 가 두 영수증 모두에 내용으로 묶여 있고 아직 candidate
+셋 다 요청 binding·generation 과 일치
+두 영수증의 CAS 가 관측 fingerprint 와 일치
+선언된 freshness window 안
+evidence 충분 + authority 적용
+```
+
+`D` `evaluable` 은 **정확한 영수증 두 장과 linkage·sufficiency·applicability 검사가 전부 통과할 때만** 참이다. 하나라도 어긋나면 거짓이며, 통과 결과가 `linkage_verified: true` 로 그 사실을 말한다.
+
+`P` 하나라도 없거나·어긋나거나·오래됐거나·다른 과제면 **멈춘다.** 약해진 상태로 계속 가지 않는다. finding 은 열린 채 남는다.
+
+`D` `freshnessWindow` 와 `now` 는 주입한다. 이 모듈은 시계를 읽지 않으므로 replay 가 같은 판정을 낸다.
+
+### 5.1 `authority_ref` 는 존재해야 한다
+
+`O` 이전 판에서 `authority_ref` 는 세 기록에서 **비어 있지 않은 문자열이고 서로 같기만** 하면 됐다. 세 기록을 조립하는 쪽이 셋 다 쓰므로, 아무 값이나 골라 세 번 적으면 그 조건은 공짜로 만족된다. 임의의 존재하지 않는 `authority_ref` 를 공유한 request 영수증·response 영수증·candidate 가 P5 경계를 **평가 가능**으로 만들었다. 세 기록이 어떤 이름에 대해 합의한 것은 합의이지 권위가 아니다.
+
+`D` 경계는 `registrationRegistry` 를 요구하고, `authority_ref` 를 P5 boundary 자체와 **같은 등록 증거·같은 family·같은 scope** 에서 해소한다 — 이 project binding, `responding_authority_family`, 그리고 응답 영수증의 `known_at`. 해소되지 않으면 `CONTEXT_AUTHORITY_REF_NOT_REGISTERED` 로 멈추고 finding 은 열린 채 남는다. 통과 결과에는 `authority_registration { authority_ref, authority_family, registry_revision_id, entry_content_address }` 가 남는다.
+
+`D` 영수증 두 장은 **한 authority 아래의 한 교신**이어야 한다. 양쪽이 서로 다른 `authority_ref` 를 지목하면 어느 쪽 등록을 확인해야 하는지가 모호해지고, 둘 중 하나를 고르는 것은 결정론 kernel 이 할 판단이 아니므로 `CONTEXT_RECEIPT_LINKAGE_BROKEN` 으로 거부한다.
+
+`P` 이 검사는 candidate 성격을 바꾸지 않는다. `remains_context_candidate: true` · `p5_acceptance_performed: false` · `generation_advanced: false` · `erp_delta: 0` · 정확한 두 영수증 linkage 는 그대로다. 그리고 **D-P10-08 은 여전히 열려 있다** — 누가 등록될 수 있는지는 Owner 결정이고, 여기서 닫힌 것은 존재하지 않는 이름이 통하던 상태다.
+
+`P` 통과 결과도 `p5_acceptance_performed: false` · `generation_advanced: false` · `erp_delta: 0` 을 명시한다. 경계에 도달한 것은 등록된 사람에게 물어도 된다는 뜻이고 그 이상이 아니다.
+
+## 6. 하지 않는 것
+
+`NON_CAPABILITIES` 가 코드로 선언한다.
+
+- transport 또는 외부 서비스 호출 (`assertNoTransport()` 가 거부)
+- live P5 수락
+- `accepted_context_generation` 증가
+- ERP write
+- 학습모델 호출
+
+## 7. 정직한 한계
+
+`O` 모든 영수증을 모듈에 **건네준다.** 아무것도 전송하지 않았으므로 실제 교신에 대해 말하는 바가 없다.
+
+`O` 기대값과 규칙의 저자가 같다. 규칙이 구현과 fixture 에서 똑같이 틀리면 이 시험은 통과한다. lane 1V mutation lock 이 이 모듈의 guard 가 실제로 작동하는지만 확인한다.
+
+`O` 등록 증거는 **공급된 증거**다. registry 가 자기 자신과 일치하고 범위 안에 있다는 것까지만 확인하며, 그 registry 가 참인지는 이 엔진이 답하지 않는다. `principal_ref` 는 아직 이 방식으로 묶지 않았다 — 응답 principal 이 반드시 등록된 사람인지는 이 경계가 결정할 문제가 아니며, 필요하다면 별도 Owner 판단으로 연다.

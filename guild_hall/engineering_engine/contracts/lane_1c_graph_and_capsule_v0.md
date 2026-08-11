@@ -77,13 +77,54 @@ authority_rank → applicability → revision_recency → ref_lexicographic
 
 embedding 유사도나 학습 reranker 는 이 자리에 항목이 없다. 이것은 누락이 아니라 설계다. `capsule.mjs` 는 `method` 가 `deterministic` 이 아니면 거부한다.
 
-### 4.4 제외된 것은 이유와 함께 보고한다
+### 4.4 제외된 것은 이유와 함께, 이유만 보고한다
 
-`D` 조용히 빠진 evidence 는 애초에 없던 evidence 와 구별되지 않는다. 따라서 모든 제외에 이유를 붙인다.
+`D` 조용히 빠진 evidence 는 애초에 없던 evidence 와 구별되지 않는다. 따라서 모든 제외에 이유를 붙인다. 이유 집합은 닫혀 있다 — 자유 문자열이면 거부된 식별자가 되돌아올 자리가 생긴다.
 
-`acl_denied_at_seed` · `acl_denied_at_hop` · `edge_type_not_allowlisted` · `applicability_unknown` · `applicability_false` · `top_k_budget`
+`acl_denied_at_seed` · `acl_denied_at_hop` · `project_binding_mismatch` · `edge_type_not_allowlisted` · `applicability_unknown` · `applicability_false` · `top_k_budget`
+
+`O` 이전 판은 이 목록에 `project_binding_unknown` 을 두었고, 선언되지 않은 node 를 그 이유로 **제외**했다. exclusion 은 "이것은 존재하고 당신은 받지 못한다"는 말이며, 그런 말은 selector 가 범위를 실제로 아는 자료에 대해서만 할 수 있다. 선언되지 않은 node 는 제외 대상이 아니라 증인 집합의 구멍이다. 자세한 것은 4.6 을 따른다.
+
+`P` **exclusion 은 식별자를 담지 않는다.** 한 항목은 `{ reason, hop, count }` 뿐이다. 이전 판은 `excluded[].ref` 에 거부된 ref 를 그대로 실었고, 그것은 ACL 이 감춘 대상을 exclusion 이라는 이름으로 되돌려주는 것이었다. 동결 O6 의 금지 출력은 "capsule payload · hash · pointer set 어디에도" 이며 exclusion 도 capsule payload 다.
+
+`D` `assertNoForbiddenIdentifier(capsule, ids)` 가 반환 객체 전체를 **key 까지 재귀적으로** 훑어 이 규칙을 집행한다.
+
+`P` 그래도 **거부는 말로 해야 한다.** 조용한 빈 capsule 역시 금지이므로 이유와 개수는 남긴다. 무엇을 얼마나 거부했는지는 말하고, 무엇이었는지는 말하지 않는다.
 
 `P` contradiction, unknown, missing evidence 는 capsule 과 함께 이동한다. 빼면 capsule 이 근거보다 확실해 보인다.
+
+### 4.6 선택 전에 edge 를 검증하고, 매 hop 에서 project binding 을 맞춘다
+
+`P` `project_binding_ref` 는 `REQUIRED_EDGE_ATTRIBUTES` 에 들어간다. scope 를 말하지 않는 edge 는 cross-project 도달을 **검사할 방법 자체가 없다.**
+
+`D` `selectCapsule` 은 walk 전에 `graph.edges` 전부를 `validateEdge` 로 검증한다. 자기 계약을 못 지키는 edge 는 binding 이나 authority 주장도 믿을 수 없으므로 선택 전체를 거부한다.
+
+`D` traversal 중 `edge.project_binding_ref !== selector.project_binding_ref` 인 edge 는 **읽기 전에** 거부하고 `project_binding_mismatch` 로 기록한다. 사후 필터는 이미 늦다 — 그때는 다른 과제 자료를 읽은 뒤다.
+
+`D` **`graph.nodes` 는 필수다.** projection slice 는 완전한 node 집합을 선언해야 하고, traversal 이 닿는 모든 ref(seed 포함)가 그 집합에 있으며 selector binding 과 같아야 한다. node 는 각각 정확한 revision ref 와 비어 있지 않은 `project_binding_ref` 를 나른다. 둘 중 하나라도 없으면 선택 전체를 거부한다.
+
+`D` **선언되지 않은 node 는 선택 전체를 거부한다**(`CAPSULE_NODE_NOT_DECLARED`). 그 ref 하나만 빼는 것으로는 답이 되지 않는다. slice 가 그 node 의 과제를 말하지 못한다는 것은 이 walk 가 증인 없는 지점을 지났다는 뜻이고, 그러면 capsule 이 나르는 격리 주장은 그 ref 하나가 아니라 **반환하는 ref 전부**에 대해 증명되지 않는다. 이전 판은 이것을 exclusion 으로 처리했고, 그 결과 아무도 보증하지 않은 node 를 지나온 walk 가 여전히 `every_returned_ref_bound_to_the_selector: true` 를 주장했다. 거부는 hop 과 사유만 말하고 refused ref 는 말하지 않는다.
+
+`D` **대조는 완전한 exact-ref identity tuple 로 한다** — `entity_id` · `revision_id` · `content_id` · `content_hash_alg` 전부. `entity_id@revision_id` 만으로 key 를 잡으면, 같은 subject revision 을 가리키면서 다른 bytes 를 이름 붙인 edge 가 선언된 node 의 보증을 그대로 가져간다. node 집합은 이름이 아니라 bytes 를 보증한다. 선언된 node 와 같은 subject revision 이면서 content 가 다른 ref 는 slice 자체의 모순이므로 `CAPSULE_NODE_IDENTITY_MISMATCH` 로 거부한다. 같은 이유로 edge 의 `from_ref` 도 tuple 전체로 맞춘다.
+
+`D` **공급된 모든 edge 의 양 endpoint 를 walk 전에 해소한다.** traversal 이 닿는 자리에서만 대조하면 위조된 `from_ref` 는 frontier 와 맞지 않아 **조용히 건너뛰어진다.** 그 edge 가 seed 에서 나가는 유일한 길이면 결과는 **성공한 빈 capsule** 이고, 호출자는 자기모순인 projection 을 "여긴 아무것도 없었다"로 읽는다. 빈 답과 깨진 slice 는 서로 다른 답이어야 하므로, walk 가 지나간 경로가 아니라 slice 전체를 검사한다.
+
+`D` 이 검사는 traversal 이 절대 따라가지 않을 edge 도 덮는다. edge 는 이 selector 가 따라가든 말든 projection 이 주장하는 것이고, 자기 node 집합에 자기 edge 의 양 끝을 놓지 못하는 slice 는 애초에 격리를 검사할 수 있는 slice 가 아니다.
+
+`P` traversal 시점 해소는 남긴다. seed 는 edge endpoint 가 아니므로 pre-pass 가 닿지 않는 유일한 자리이며, 위조된 seed 는 그 문으로 들어온다.
+
+`P` **정책상 제외는 그대로 제외다.** 선언되어 있고 binding 이 맞는 node 가 ACL·applicability·edge type·top_k 로 걸리면 닫힌 exclusion 목록으로 보고한다. pre-pass 가 거부하는 것은 endpoint 를 node 집합에 **놓을 수 없는** 경우뿐이다.
+
+`D` **한 logical node 를 두 번 선언할 수 없다**(`CAPSULE_NODE_DECLARED_TWICE`). 이전 판은 map 에 그대로 덮어썼으므로 두 번째 선언이 첫 번째를 지웠고, binding 이 다르면 cross-project 격리가 배열 순서에 좌우됐다. binding 이 다르든 `content_id` 가 다르든 완전히 같든, 같은 subject revision 의 재선언은 slice 에 단일한 답이 없다는 뜻이므로 거부한다.
+
+`O` 이전 판은 node 집합을 **선택적**으로 두고 없으면 "edge 를 믿는다"로 처리했다. 그러면 edge 의 binding 주장에 대한 유일한 증인이 그 edge 자신이 되고, 위조된 edge binding 과 참인 edge binding 이 구분되지 않는다. slice 하나를 node 없이 넘기는 것만으로 cross-project 격리가 검사 대상의 정직성에 의존하게 된다.
+
+`D` 위조는 두 검사가 함께 막고, 어느 하나로도 막지 못한다.
+
+- edge 가 alpha 를 주장하는데 가리키는 node 가 bravo 로 선언된 경우 → node 검사(`admit`)가 거부
+- edge 가 bravo 를 주장하는데 양끝 node 가 alpha 인 경우 → edge 검사가 거부
+
+`D` 반환 직전에 **돌려줄 ref 전부**를 다시 node binding 에 대조한다. 위 검사들이 이미 도달 불가로 만들었어야 하는 지점이며, "이미 그랬어야 한다"가 바로 누출이 사는 자리이므로 남긴다. 통과하면 capsule 이 `every_returned_ref_bound_to_the_selector: true` 와 `traversed_node_count` 를 함께 말한다.
 
 ### 4.5 capsule 은 pointer 를 나른다
 
@@ -125,4 +166,4 @@ domain separation prefix 와 selector contract version 을 hash 재료에 포함
 
 `D` lane 1V 가 1C 에 대한 **독립 locked fixture** 를 만들 의무를 진다. 그때까지 이 lane 을 independently verified 로 부르지 않는다. 시험 출력의 `verification_strength: author_written_fixtures` 가 매 실행마다 이 사실을 함께 보고한다.
 
-현재: 59 검사 통과 / 0 실패. 그중 누출 시험 3건(`1C/ACL/*`)이 hop 별 ACL 적용을 직접 확인한다.
+현재: 80 검사 통과 / 0 실패. 그중 누출 시험이 hop 별 ACL 적용(`1C/ACL/*`)과 project binding 격리(`1C/BIND/*`)를 직접 확인한다.

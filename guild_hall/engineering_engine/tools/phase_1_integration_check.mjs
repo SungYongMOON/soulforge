@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // phase_1_serial_integration — the single command that decides whether Phase 1 holds.
 //
-// Seven checks, all of which must pass:
-//   1. every conformance suite passes
+// Eight checks, all of which must pass:
+//   1. every conformance suite passes, including the manifest integrity regression
 //   2. the mutation lock kills every mutation
 //   3. the frozen Phase 1-0 bundle still matches 13/13 by sha256
 //   4. every frozen field group has exactly one owning lane
 //   5. the committed topology matches a fresh emit from the code
 //   6. a real observed run traversed only edges the topology declares
-//   7. no suite performed a write
+//   7. a full run leaves no residue inside the engine source tree
+//   8. no suite performed a write
 //
 // Checks 5 and 6 are the pair that keeps the topology honest, from both directions. 5 catches
 // a committed artifact drifting from the source. 6 catches the source drifting from what
@@ -59,6 +60,9 @@ const SUITES = [
   ['runtime_observation_conformance.mjs', [], 'runtime_observation', 'author_written_fixtures'],
   ['end_to_end_engine_run.mjs', [], 'end_to_end', 'author_written_fixtures'],
   ['output_contract_conformance.mjs', ['--scratch', SCRATCH], 'output_contract', 'author_written_fixtures'],
+  ['phase_2_oracle_conformance.mjs', [], 'phase_2_oracles', 'author_written_spec_frozen_before_implementation'],
+  ['phase_3_context_receipts.mjs', [], 'phase_3_context_receipts', 'author_written_fixtures'],
+  ['manifest_blob_integrity.mjs', [], 'manifest_integrity', 'deterministic_against_git_object_bytes'],
 ];
 
 const suiteResults = [];
@@ -155,16 +159,33 @@ if (!committed) {
 
 // ---------------------------------------------------------------- 5. topology is not stale
 
+// Compared as bytes, not as digests.
+//
+// A digest comparison is only as wide as the digest, and this one was far narrower than it
+// looked: the emitter hashed a filtered projection in which every module and edge entry
+// serialised as `{}`. A committed topology whose `line_count` had drifted from a fresh emit
+// still matched, because the drifted field was not in the digest. The emitter's digest is fixed
+// now, but the comparison here no longer depends on that being true — the whole emitted document
+// has to equal the committed one byte for byte. Together with the manifest check, which verifies
+// the committed file against the bytes Git has staged, that closes the loop from source to blob.
 const fresh = spawnSync(process.execPath, [join(ENGINE, 'tools', 'emit_topology.mjs')], { encoding: 'utf8' });
 let freshTopology = null;
 try { freshTopology = JSON.parse(fresh.stdout); } catch { /* reported below */ }
-if (!freshTopology || !committed) {
+const committedText = existsSync(topologyPath) ? readFileSync(topologyPath, 'utf8') : null;
+if (!freshTopology || !committed || committedText === null) {
   fail('topology_matches_code', 'could not compare');
-} else if (freshTopology.topology_digest !== committed.topology_digest) {
+} else if (fresh.stdout !== committedText) {
+  const freshLines = fresh.stdout.split('\n');
+  const committedLines = committedText.split('\n');
+  const firstDifferent = freshLines.findIndex((line, i) => line !== committedLines[i]);
   fail('topology_matches_code',
-    `committed ${committed.topology_digest?.slice(0, 12)} but the code now emits ${freshTopology.topology_digest?.slice(0, 12)}; re-run tools/emit_topology.mjs`);
+    `the committed topology is not byte-equal to a fresh emit (first difference at line ${firstDifferent + 1}: `
+    + `committed ${JSON.stringify(committedLines[firstDifferent] ?? null)}, fresh ${JSON.stringify(freshLines[firstDifferent] ?? null)}); `
+    + 're-run tools/emit_topology.mjs');
 } else {
-  pass('topology_matches_code', `${committed.module_count} modules, ${committed.module_edge_count} import edges, digest ${committed.topology_digest.slice(0, 12)}`);
+  pass('topology_matches_code',
+    `${committed.module_count} modules, ${committed.module_edge_count} import edges, `
+    + `byte-equal to a fresh emit, digest ${committed.topology_digest.slice(0, 12)}`);
 }
 
 // ---------------------------------------------------------------- 6. runtime observation
@@ -189,7 +210,20 @@ if (!observation) {
     `${observation.edges.coverage} edges traversed, ${observation.surfaces.run} surfaces reported, topology 1:1`);
 }
 
-// ---------------------------------------------------------------- 7. no writes
+// ---------------------------------------------------------------- 7. the run left no residue
+// The existing hygiene check looks at tracked files, so it could not see this: a mutation that
+// resolved a path against the working directory wrote a state tree inside the engine source and
+// left it untracked. Checked after everything has run, because that is when residue exists.
+
+const nested = join(ENGINE, 'guild_hall');
+if (existsSync(nested)) {
+  fail('no_residue_in_the_source_tree',
+    'a run left state under guild_hall/engineering_engine/guild_hall; runtime output belongs under the repository-root state plane');
+} else {
+  pass('no_residue_in_the_source_tree', 'the engine source tree is clean after a full run');
+}
+
+// ---------------------------------------------------------------- 8. no writes
 
 if (totalWrites === 0) pass('no_writes', 'every suite reported zero writes');
 else fail('no_writes', `${totalWrites} writes reported`);
