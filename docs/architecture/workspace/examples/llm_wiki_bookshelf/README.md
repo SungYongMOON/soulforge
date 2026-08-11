@@ -46,3 +46,19 @@ account state, or runtime absolute paths.
   packets.
 - Claim ceilings stay at `observed` or `source_supported` unless a separate
   owner/review route raises them.
+
+## Bundle validation boundary
+
+`guild_hall/rag/bookshelf_bundle_contract.mjs` validates the membership and
+storage metadata available across a metadata source ledger, a NotebookLM packet
+map, and a redacted source-root binding projection. Project, binding,
+ledger-document, approval-packet existence, and immutable hash-bound source
+revision alignment remain explicit `unknown_alignment` facts under v0. It is a
+pure, read-only contract: it does not open source or approval files, resolve a
+physical source root, contact Google Drive or NotebookLM, or grant upload,
+retrieval, canon, or approval authority.
+
+The validator intentionally does not accept the physical source-root binding
+object. That private owner may contain a runtime absolute path. Callers must
+provide only its public-safe identity and permission projection; candidate or
+placeholder entries remain structurally inspectable but are not packet-ready.

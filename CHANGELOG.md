@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2026-08-11 - Metadata-only NotebookLM bookshelf bundle contract
+
+- Added a pure cross-validator for source-ledger, NotebookLM packet-map, and redacted binding membership/storage metadata, with deterministic synthetic adversarial coverage, separate structural/readiness outcomes, and explicit UNKNOWN project/binding/revision/hash alignment.
+- Kept physical source paths, source payloads, accounts, uploads, live queries, canon promotion, and approval authority outside the contract; the canonical RAG validation gate now checks the module and its tests.
+
 ## 2026-08-11 - Local activity outbox validity receipt
 
 - Added an atomic, producer-owned receipt that validates each HPP local-activity current index, compact inventory, and referenced immutable delta/snapshot packets. Watchtower monitors only that exact store scope; unchanged data remains healthy idle and all topology delivery edges remain unreceipted.

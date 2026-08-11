@@ -8,6 +8,16 @@ It builds a derived `rag_manifest_v0` from safe graph/canon metadata, validates
 the manifest boundary, and can generate a small metadata-backed answer with
 citations to graph nodes and source handles.
 
+The pure `bookshelf_bundle_contract.mjs` module checks the source membership,
+declared storage surface, approval state, review state, claim ceiling, and
+non-mutation facts available in a metadata source ledger, NotebookLM packet
+map, and redacted source-root binding projection. It separately reports
+structural validity, packet readiness, conflicts, and the project, binding,
+ledger-document, and immutable hash-bound revision alignments that current v0
+fields cannot prove. It never loads a physical binding, source payload, local
+path, account, notebook, approval packet, or live external service; the CLI
+does not expose this contract in the first slice.
+
 The default manifest/index path is still metadata-only. A separate
 `source-text-index` lane can read owner-approved starter sources under
 `_workspaces/knowledge` and writes its payload artifacts back under that private
