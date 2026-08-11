@@ -82,7 +82,7 @@ Status: `SELF-AUTHORED MUTATION LOCK / SEMANTIC INDEPENDENCE UNMET`
 
 `D` `tools/emit_topology.mjs` 는 engine 을 **서술하지 않고 읽는다.**
 
-- module edge = `kernel/*.mjs` 의 **실제 `import` 문 파싱** (19 모듈, 70 edge)
+- module edge = `kernel/`, `assembly/`, `subjects/` 아래 `.mjs`의 **실제 `import` 문 파싱**. 현재 exact 수량은 파생 topology와 fresh emit byte-equality가 소유하며 이 역사 계약에 고정하지 않는다.
 - 경계 = lane 1D 의 `OPERATIONS` 표
 - lineage chain · graph shape · fingerprint 입력 = 각자를 소유한 모듈
 

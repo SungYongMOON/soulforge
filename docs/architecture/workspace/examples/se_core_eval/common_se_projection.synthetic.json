@@ -1,0 +1,184 @@
+{
+  "schema_version": "soulforge.common_se_corpus_projection.v0",
+  "immutable_derived_projection": true,
+  "is_truth_owner": false,
+  "projection_revision": "common-se-projection-synthetic-r1",
+  "projection_ref": {
+    "entity_id": "common-se-projection-synthetic",
+    "revision_id": "common-se-projection-synthetic-r1",
+    "content_id": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "content_hash_alg": "sha256"
+  },
+  "projection_sha256": "5bf6b00c032d35ea85b9fe3ac1b17ca0af1e5db56f6812938f2901bafad51fbb",
+  "project_binding_kind": "synthetic",
+  "project_binding_ref": "synthetic-se-core-eval-v1",
+  "authority_ceiling": "acquisition_authority_manual",
+  "manifest_ref": {
+    "entity_id": "common-se-manifest-synthetic",
+    "revision_id": "common-se-manifest-synthetic-r1",
+    "content_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "content_hash_alg": "sha256"
+  },
+  "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "nodes": [
+    {
+      "node_type": "rule",
+      "ref": {
+        "entity_id": "se-rule-requirements-traceability",
+        "revision_id": "se-rule-requirements-traceability-r1",
+        "content_id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "content_hash_alg": "sha256"
+      },
+      "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "project_binding_ref": "synthetic-se-core-eval-v1",
+      "authority_family": "acquisition_authority_manual",
+      "applicability": true
+    },
+    {
+      "node_type": "rule",
+      "ref": {
+        "entity_id": "se-rule-verification-planning",
+        "revision_id": "se-rule-verification-planning-r1",
+        "content_id": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "content_hash_alg": "sha256"
+      },
+      "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "project_binding_ref": "synthetic-se-core-eval-v1",
+      "authority_family": "acquisition_authority_manual",
+      "applicability": true
+    },
+    {
+      "node_type": "rule",
+      "ref": {
+        "entity_id": "se-rule-isolated-evaluation-control",
+        "revision_id": "se-rule-isolated-evaluation-control-r1",
+        "content_id": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "content_hash_alg": "sha256"
+      },
+      "content_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+      "project_binding_ref": "synthetic-se-core-eval-v1",
+      "authority_family": "acquisition_authority_manual",
+      "applicability": true
+    },
+    {
+      "node_type": "expected_state_element",
+      "ref": {
+        "entity_id": "expected-requirements-traceability",
+        "revision_id": "expected-requirements-traceability-r1",
+        "content_id": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "content_hash_alg": "sha256"
+      },
+      "content_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "project_binding_ref": "synthetic-se-core-eval-v1",
+      "authority_family": "acquisition_authority_manual",
+      "applicability": true,
+      "state_element": {
+        "element_id": "se_expected_requirements_traceability",
+        "axis": "expected",
+        "requirement_ref": {
+          "entity_id": "expected-requirements-traceability",
+          "revision_id": "expected-requirements-traceability-r1",
+          "content_id": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "content_hash_alg": "sha256"
+        },
+        "authority_family": "acquisition_authority_manual",
+        "applicability": true,
+        "valid_at": "2026-08-12T00:00:00.000Z",
+        "known_at": "2026-08-12T00:00:00.000Z"
+      }
+    },
+    {
+      "node_type": "expected_state_element",
+      "ref": {
+        "entity_id": "expected-verification-plan-inputs",
+        "revision_id": "expected-verification-plan-inputs-r1",
+        "content_id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "content_hash_alg": "sha256"
+      },
+      "content_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "project_binding_ref": "synthetic-se-core-eval-v1",
+      "authority_family": "acquisition_authority_manual",
+      "applicability": true,
+      "state_element": {
+        "element_id": "se_expected_verification_plan_inputs",
+        "axis": "expected",
+        "requirement_ref": {
+          "entity_id": "expected-verification-plan-inputs",
+          "revision_id": "expected-verification-plan-inputs-r1",
+          "content_id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "content_hash_alg": "sha256"
+        },
+        "authority_family": "acquisition_authority_manual",
+        "applicability": true,
+        "valid_at": "2026-08-12T00:00:00.000Z",
+        "known_at": "2026-08-12T00:00:00.000Z"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "common-se-edge-requirements-traceability",
+      "edge_type": "requires",
+      "from_type": "rule",
+      "from_ref": {
+        "entity_id": "se-rule-requirements-traceability",
+        "revision_id": "se-rule-requirements-traceability-r1",
+        "content_id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "content_hash_alg": "sha256"
+      },
+      "to_type": "expected_state_element",
+      "to_ref": {
+        "entity_id": "expected-requirements-traceability",
+        "revision_id": "expected-requirements-traceability-r1",
+        "content_id": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "content_hash_alg": "sha256"
+      },
+      "evidence_ref": {
+        "entity_id": "se-rule-requirements-traceability",
+        "revision_id": "se-rule-requirements-traceability-r1",
+        "content_id": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "content_hash_alg": "sha256"
+      },
+      "authority_family": "acquisition_authority_manual",
+      "applicability": true,
+      "valid_at": "2026-08-12T00:00:00.000Z",
+      "known_at": "2026-08-12T00:00:00.000Z",
+      "review_state": "synthetic_fixture",
+      "evidence_claim_ceiling": "source_referenced",
+      "generating_policy_revision": "common-se-projection-policy-v0",
+      "project_binding_ref": "synthetic-se-core-eval-v1"
+    },
+    {
+      "edge_id": "common-se-edge-verification-planning",
+      "edge_type": "requires",
+      "from_type": "rule",
+      "from_ref": {
+        "entity_id": "se-rule-verification-planning",
+        "revision_id": "se-rule-verification-planning-r1",
+        "content_id": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "content_hash_alg": "sha256"
+      },
+      "to_type": "expected_state_element",
+      "to_ref": {
+        "entity_id": "expected-verification-plan-inputs",
+        "revision_id": "expected-verification-plan-inputs-r1",
+        "content_id": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "content_hash_alg": "sha256"
+      },
+      "evidence_ref": {
+        "entity_id": "se-rule-verification-planning",
+        "revision_id": "se-rule-verification-planning-r1",
+        "content_id": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "content_hash_alg": "sha256"
+      },
+      "authority_family": "acquisition_authority_manual",
+      "applicability": true,
+      "valid_at": "2026-08-12T00:00:00.000Z",
+      "known_at": "2026-08-12T00:00:00.000Z",
+      "review_state": "synthetic_fixture",
+      "evidence_claim_ceiling": "source_referenced",
+      "generating_policy_revision": "common-se-projection-policy-v0",
+      "project_binding_ref": "synthetic-se-core-eval-v1"
+    }
+  ]
+}

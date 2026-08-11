@@ -658,7 +658,20 @@
         "runEnginePass"
       ],
       "export_count": 3,
-      "line_count": 180
+      "line_count": 319
+    },
+    {
+      "module": "common_se_corpus_projection",
+      "area": "subjects",
+      "exports": [
+        "CODES",
+        "PROJECTION_SCHEMA_VERSION",
+        "SELECTOR_SCOPE",
+        "SUBJECT_ID",
+        "buildStatesFromCommonSeProjection"
+      ],
+      "export_count": 5,
+      "line_count": 825
     },
     {
       "module": "engine_self_topology",
@@ -676,7 +689,7 @@
       "line_count": 350
     }
   ],
-  "module_count": 25,
+  "module_count": 26,
   "module_edges": [
     {
       "from": "authority",
@@ -758,6 +771,55 @@
     {
       "from": "ceilings",
       "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "common_se_corpus_projection",
+      "to": "authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "common_se_corpus_projection",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "common_se_corpus_projection",
+      "to": "capsule",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "common_se_corpus_projection",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "common_se_corpus_projection",
+      "to": "graph",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "common_se_corpus_projection",
+      "to": "identity",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "common_se_corpus_projection",
+      "to": "snapshot",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -856,6 +918,13 @@
     {
       "from": "engine_pass",
       "to": "authority",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "engine_pass",
+      "to": "canonical",
       "relation": "imports",
       "receipt_channel": "module_load_observation",
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
@@ -1414,7 +1483,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 105,
+  "module_edge_count": 113,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -1765,5 +1834,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "0352c352488fadb7d5804895ee49341b798f8a1ee3fe0a1d125ed2029fb5f78d"
+  "topology_digest": "0c74fc54f53bcd8c48825b4d0f9799763ab40a349b45dca9ab39e40cb50b58fe"
 }

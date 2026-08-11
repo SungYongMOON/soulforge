@@ -25,18 +25,18 @@ function trackedProjection(overrides = {}) {
   };
 }
 
-test("classic engine view preserves all 25 modules and 105 provider-local import edges", () => {
+test("classic engine view preserves all 26 modules and 113 provider-local import edges", () => {
   const model = buildEngineeringClassicTopologyViewModel(trackedProjection());
   assert.equal(model.available, true);
   assert.deepEqual(model.source, {
-    nodeCount: 25,
-    edgeCount: 105,
+    nodeCount: 26,
+    edgeCount: 113,
     nodeIds: [...model.source.nodeIds].sort(),
     edgeIds: [...model.source.edgeIds].sort(),
   });
   assert.equal(model.nodes.filter((node) => node.kind === "lane").length, 5);
-  assert.equal(model.nodes.filter((node) => node.kind !== "lane").length, 25);
-  assert.equal(model.edges.length, 105);
+  assert.equal(model.nodes.filter((node) => node.kind !== "lane").length, 26);
+  assert.equal(model.edges.length, 113);
   assert.equal(model.edges.every((edge) => edge.source.startsWith("engineering_engine::")
     && edge.target.startsWith("engineering_engine::") && edge.relation === "imports"), true);
 });
@@ -92,7 +92,7 @@ test("authority or provider contract drift fails closed", () => {
   missing.snapshot.nodes = missing.snapshot.nodes.filter((node) => node.provider_id !== "engineering_engine");
   missing.snapshot.edges = missing.snapshot.edges.filter((edge) => edge.provider_id !== "engineering_engine");
   missing.snapshot.summary.provider_count -= 1;
-  missing.snapshot.summary.node_count -= 25;
-  missing.snapshot.summary.edge_count -= 105;
+  missing.snapshot.summary.node_count -= 26;
+  missing.snapshot.summary.edge_count -= 113;
   assert.equal(buildEngineeringClassicTopologyViewModel(missing).reason, "engineering_engine_provider_missing");
 });

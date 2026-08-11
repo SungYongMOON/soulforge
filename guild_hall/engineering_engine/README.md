@@ -23,6 +23,33 @@ engine 이 소비하는 knowledge-supply provider 가 이미 같은 root 에 있
 - `contracts/`: Phase 1-0 공통 계약과 lane 계약
 - `fixtures/`: 합성 fixture
 - `tests/`: 동결 oracle 대조 conformance
+- `evaluation/`: Engine 결과와 외부 advisory 결과를 정규화해 비교하는 순수 평가기. provider 로그인·질의·업로드는 하지 않는다
+
+## 공통 SE 자료와 Gemini Notebook 수동 비교
+
+`subjects/common_se_corpus_projection.mjs` 는 승인된 공통 체계공학 자료에서 별도로 만든
+immutable·content-addressed projection을 기존 Engine의 Expected State 입력으로 바꾸는
+읽기 전용 adapter다. source PDF, RAG/Wiki 본문, Notebook 답변을 읽지 않으며 caller가
+명시한 binding, exact revision/hash, ACL, authority ceiling과 bounded selector만 받는다.
+미관측은 `UNKNOWN`이고 명시적으로 부재가 확인된 경우만 `MISSING`이다.
+
+`evaluation/manual_shadow_comparison.mjs` 는 Engine과 Gemini Notebook / NotebookLM을
+직접 연결하지 않는다. 두 lane에 같은 frozen public-SE corpus와 같은 질문을 제공하고,
+Notebook-only와 synthetic-state-pack을 하나만 추가한 hybrid 결과를 사람이 검토한
+sidecar로 받아 결정론적으로 비교한다. 실제 프로젝트 자료, 계정 정보, raw 답변,
+gold/oracle 노출, 자동 Task·승인·baseline 변경은 모두 범위 밖이다.
+
+현재 public-safe 예시와 source eligibility 표는
+`docs/architecture/workspace/examples/se_core_eval/`에 있다. source가 공개 URL에 있다는
+사실만으로 Engine 투입 또는 외부 AI 업로드를 허용하지 않는다. exact bytes·revision·SHA-256,
+재사용 권리, source membership, evaluator-only gold가 별도 동결되기 전에는 실제 비교를
+실행하거나 준비 완료로 주장하지 않는다.
+
+범위 검증:
+
+```text
+npm run validate:engineering-engine-se-core-eval
+```
 
 ## kernel 이 하지 않는 것
 
@@ -76,8 +103,8 @@ node guild_hall/engineering_engine/tools/phase_1_integration_check.mjs \
 byte manifest 는 추적 소스만 담으며 자기 path base 를 헤더로 선언한다. receipt 는 실행 결과라 매번 바뀌므로 제외한다 — 넣으면 manifest 가 스스로를 무효화한다.
 
 ```
-node guild_hall/engineering_engine/tools/emit_manifest.mjs --out topology/engine_manifest.sha256
-node guild_hall/engineering_engine/tools/emit_manifest.mjs --verify topology/engine_manifest.sha256
+node guild_hall/engineering_engine/tools/emit_manifest.mjs --out guild_hall/engineering_engine/topology/engine_manifest.sha256
+node guild_hall/engineering_engine/tools/emit_manifest.mjs --verify guild_hall/engineering_engine/topology/engine_manifest.sha256
 ```
 
 `P` manifest 행은 **Git 이 저장할 byte** 를 hash 한다. checkout 에 우연히 들어간 줄바꿈이 아니다. text 파일은 clean filter 와 같은 규칙(CRLF→LF)으로 정규화하고, 그 결과가 `git hash-object` 의 답과 일치하는지 매 emit 마다 대조한다. 어긋나면 emit 을 **거부한다** — 저장소가 재현하지 못할 manifest 를 내는 것이 실패보다 나쁘다.
@@ -122,10 +149,10 @@ node guild_hall/engineering_engine/tools/emit_manifest.mjs --verify topology/eng
 ## topology — 코드에서 파생한다
 
 ```
-node guild_hall/engineering_engine/tools/emit_topology.mjs --out topology/engine_topology.json
+node guild_hall/engineering_engine/tools/emit_topology.mjs --out guild_hall/engineering_engine/topology/engine_topology.json
 ```
 
-module edge 는 `kernel/*.mjs` 의 **실제 `import` 문을 파싱**해서 얻는다. 경계는 lane 1D 의 `OPERATIONS` 표에서, 나머지 어휘는 각자를 소유한 모듈에서 읽는다. 손으로 적는 것은 lane↔field group 대응 하나뿐이다.
+module edge 는 `kernel/`, `assembly/`, `subjects/` 아래 `.mjs`의 **실제 `import` 문을 파싱**해서 얻는다. 경계는 lane 1D 의 `OPERATIONS` 표에서, 나머지 어휘는 각자를 소유한 모듈에서 읽는다. 손으로 적는 것은 lane↔field group 대응 하나뿐이다.
 
 `D` 통합검사가 commit 된 `topology/engine_topology.json` 을 새 emit 과 **byte 단위로** 대조하므로, 낡은 topology 는 실패로 드러난다. 그림은 자기가 묘사하는 코드와 어긋날 수 있지만 이건 어긋날 수 없다.
 
