@@ -76,7 +76,7 @@
         "selectCapsule"
       ],
       "export_count": 12,
-      "line_count": 459
+      "line_count": 494
     },
     {
       "module": "ceilings",
@@ -117,7 +117,7 @@
         "validateResponseCandidate"
       ],
       "export_count": 13,
-      "line_count": 632
+      "line_count": 631
     },
     {
       "module": "contract_config",
@@ -581,6 +581,7 @@
         "BOUNDARY_LANES",
         "CODES",
         "DEFINED_STAGES",
+        "DISPOSITION_CONFIRMATION_OWNER_DECISION",
         "OPEN_OWNER_DECISIONS_FOR_THIS_LANE",
         "P7",
         "P8_CHAIN_RECORD_ELEMENTS",
@@ -592,6 +593,7 @@
         "SERIALISED_BOUNDARIES",
         "TASK_DRIVER_POLICY_CHECKS",
         "assertBoundarySeparation",
+        "assertNoLiveDispositionConfirmation",
         "assertStageDefined",
         "assertTaskDriverNotActivated",
         "assertZeroErpDelta",
@@ -603,8 +605,8 @@
         "evaluateTaskDriverPolicyGate",
         "validateContextRequest"
       ],
-      "export_count": 25,
-      "line_count": 983
+      "export_count": 27,
+      "line_count": 1048
     },
     {
       "module": "registration",
@@ -1763,5 +1765,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "31b549320abf4b75fd342a0cf0b40552636416085ba8eb5eaa5ab17b14ef4d63"
+  "topology_digest": "0352c352488fadb7d5804895ee49341b798f8a1ee3fe0a1d125ed2029fb5f78d"
 }

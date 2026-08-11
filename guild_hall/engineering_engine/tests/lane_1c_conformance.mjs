@@ -257,14 +257,30 @@ expectThrow('1C/BIND/undeclared_seed_refuses_the_selection',
   () => selectCapsule(sel({ seed_refs: [ref('src-elsewhere', 'src-elsewhere-r1')] }), graph, allowAll),
   'a seed is a traversed node too; an undeclared one puts the whole walk on an unwitnessed footing');
 {
+  // A seed is the one traversed ref that is not an edge endpoint, so it is the case the
+  // pre-pass cannot reach and the traversal-time resolver still has to answer. A selector
+  // seeded with the declared subject revision but different bytes is the same forgery entering
+  // by the one door the pre-pass does not cover.
+  const forgedSeed = { ...seed, content_id: 'c-src-1-r1-forged' };
+  let error = null;
+  try { selectCapsule(sel({ seed_refs: [forgedSeed] }), graph, allowAll); } catch (e) { error = e; }
+  record('1C/BIND/forged_seed_content_id_refused',
+    error?.code === 'CAPSULE_NODE_IDENTITY_MISMATCH',
+    error ? error.code : 'NOT REFUSED — a forged seed was admitted');
+}
+{
   let error = null;
   try {
     selectCapsule(selector, { ...graph, nodes: [{ ref: seed, project_binding_ref: 'binding-alpha' }, { ref: mid, project_binding_ref: 'binding-alpha' }] }, allowAll);
   } catch (e) { error = e; }
+  // The refusal locates the fault — which edge, which end, or which hop — and does not restate
+  // the ref it refused. Asserted over the serialised error rather than against one exact detail
+  // shape, so it keeps holding when the fault is located differently.
+  const serialised = `${error?.message ?? ''}${JSON.stringify(error?.detail ?? {})}`;
   record('1C/BIND/undeclared_node_names_no_identifier',
     error?.code === 'CAPSULE_NODE_NOT_DECLARED'
-      && JSON.stringify(error.detail) === JSON.stringify({ hop: 2 }),
-    'the refusal states the hop and the reason and does not restate the ref it refused');
+      && !['exrun-1', 'exrun-1-r1', 'c-exrun-1-r1'].some((id) => serialised.includes(id)),
+    'the refusal locates the fault without restating the ref it refused');
 }
 record('1C/BIND/unknown_binding_is_no_longer_an_exclusion_reason',
   !EXCLUSION_REASONS.includes('project_binding_unknown'),
@@ -303,17 +319,99 @@ record('1C/BIND/unknown_binding_is_no_longer_an_exclusion_reason',
     capsule === null,
     'no capsule is produced, so the forged content id cannot appear in included_refs');
 }
+// ---------------------------------------------------------------- every supplied edge, both ends
+//
+// A forged edge *source* was skipped rather than reported: it did not match the frontier, so the
+// walk moved on in silence. That is fine right up until the forged edge is the only way out of
+// the seed, at which point a self-contradictory projection returned a successful, empty capsule
+// and the caller read it as "there was nothing here". Both endpoints of every supplied edge are
+// now resolved against the node set before the walk starts.
+
 {
-  // A forged edge source: the edge claims to leave the declared mid node but names other bytes.
+  // The reproduced attack: the hop-1 edge leaves bytes the node set never declared, so the walk
+  // has nowhere to go. This used to return `{ included_refs: [], excluded: [] }` and no error.
+  const forgedSeedEdge = {
+    edges: [edge({ ...graph.edges[0], from_ref: { ...seed, content_id: 'c-src-1-r1-forged' } }), graph.edges[1]],
+    nodes: alphaNodes,
+  };
+  let capsule = null;
+  let error = null;
+  try { capsule = selectCapsule(selector, forgedSeedEdge, allowAll); } catch (e) { error = e; }
+  record('1C/ID/forged_source_on_the_only_seed_edge_is_not_an_empty_capsule',
+    capsule === null && error?.code === 'CAPSULE_NODE_IDENTITY_MISMATCH',
+    capsule
+      ? `returned a capsule with ${capsule.included_refs.length} refs and ${capsule.excluded.length} exclusions instead of refusing`
+      : `${error?.code} — a broken slice and an empty answer are different answers`);
+  record('1C/ID/forged_source_refusal_names_the_edge_and_the_endpoint',
+    error?.detail?.edge_id === 'e-hop1' && error.detail.endpoint === 'from_ref',
+    'the refusal says which edge and which end, and does not restate the ref');
+}
+{
+  // The same forgery one hop further in: previously it was skipped and hop one still returned,
+  // so the capsule looked complete while an edge of its own projection did not resolve.
   const forgedSource = { ...mid, content_id: 'c-srev-1-forged' };
   const forged = {
     edges: [graph.edges[0], edge({ ...graph.edges[1], from_ref: forgedSource })],
     nodes: alphaNodes,
   };
-  const capsule = selectCapsule(selector, forged, allowAll);
-  record('1C/ID/forged_source_content_id_is_not_an_edge_out_of_the_node',
-    capsule.included_refs.map((r) => r.entity_id).join(',') === 'srev-1',
-    'an edge leaving different bytes than the admitted node is not an edge out of that node');
+  let error = null;
+  try { selectCapsule(selector, forged, allowAll); } catch (e) { error = e; }
+  record('1C/ID/forged_source_content_id_refuses_the_projection',
+    error?.code === 'CAPSULE_NODE_IDENTITY_MISMATCH' && error.detail?.endpoint === 'from_ref',
+    'an edge leaving different bytes than any declared node is refused, not skipped');
+}
+expectThrow('1C/ID/undeclared_edge_source_refused',
+  () => selectCapsule(selector, {
+    edges: [graph.edges[0], edge({ ...graph.edges[1], from_ref: ref('srev-elsewhere', 'srev-elsewhere-r1') })],
+    nodes: alphaNodes,
+  }, allowAll),
+  'an edge leaving a node the slice never declared cannot be placed in any project');
+expectThrow('1C/ID/undeclared_edge_target_refused',
+  () => selectCapsule(selector, {
+    edges: [graph.edges[0], edge({ ...graph.edges[1], to_ref: ref('exrun-elsewhere', 'exrun-elsewhere-r1') })],
+    nodes: alphaNodes,
+  }, allowAll),
+  'an edge target the slice never declared cannot be placed in any project');
+{
+  // The check covers edges the traversal would never follow. An edge is part of the projection
+  // whether or not this selector walks it, and a slice that cannot place both ends of one of its
+  // own edges is not a slice whose isolation can be checked.
+  const unreachable = edge({
+    edge_id: 'e-unreachable', edge_type: 'supersedes',
+    from_type: 'source_revision', from_ref: ref('srev-orphan', 'srev-orphan-r1'),
+    to_type: 'source_revision', to_ref: mid,
+  });
+  let error = null;
+  try { selectCapsule(selector, { edges: [...graph.edges, unreachable], nodes: alphaNodes }, allowAll); } catch (e) { error = e; }
+  record('1C/ID/untraversed_edge_endpoints_are_still_checked',
+    error?.code === 'CAPSULE_NODE_NOT_DECLARED' && error.detail?.edge_id === 'e-unreachable',
+    'an edge nothing reaches is still an edge this projection asserts');
+}
+{
+  // Positive control for the pre-pass: a policy exclusion still needs a fully declared, fully
+  // bound endpoint, so an excluded node is excluded rather than turning into a refusal.
+  const g = { edges: [graph.edges[0], edge({ ...graph.edges[1], applicability: false })], nodes: alphaNodes };
+  const capsule = selectCapsule(selector, g, allowAll);
+  record('1C/ID/policy_exclusion_survives_the_endpoint_prepass',
+    capsule.included_refs.map((r) => r.entity_id).join(',') === 'srev-1'
+      && capsule.excluded.some((e) => e.reason === 'applicability_false'),
+    'a declared, bound endpoint excluded by policy is still an exclusion, not a broken slice');
+}
+{
+  // And the ACL case, for the same reason: the denied node is declared and bound, so the
+  // refusal belongs in the closed exclusion list rather than refusing the whole selection.
+  const capsule = selectCapsule(selector, graph, (r) => r.entity_id !== 'exrun-1');
+  record('1C/ID/acl_denial_survives_the_endpoint_prepass',
+    capsule.excluded.some((e) => e.reason === 'acl_denied_at_hop')
+      && !capsule.included_refs.some((r) => r.entity_id === 'exrun-1'),
+    'an ACL denial over a fully bound declared node stays an exclusion');
+}
+{
+  // Positive control for the whole pre-pass: the untouched slice still selects both hops.
+  const capsule = selectCapsule(selector, graph, allowAll);
+  record('1C/ID/every_edge_endpoint_declared_positive_control',
+    capsule.included_refs.length === 2 && capsule.excluded.length === 0,
+    'a slice whose every edge endpoint is declared is selected exactly as before');
 }
 expectThrow('1C/ID/duplicate_node_declaration_refused',
   () => selectCapsule(selector, { edges: graph.edges, nodes: [...alphaNodes, { ref: leaf, project_binding_ref: 'binding-alpha' }] }, allowAll),
@@ -366,6 +464,23 @@ expectThrow('1C/ID/declared_node_needs_the_full_tuple',
 expectThrow('1C/BIND/invalid_edge_refuses_the_whole_selection',
   () => selectCapsule(selector, { edges: [graph.edges[0], { edge_id: 'e-broken' }], nodes: alphaNodes }, allowAll),
   'a capsule is not selected over a projection slice holding an edge that fails validation');
+{
+  // Edge validation and the endpoint pre-pass answer different questions, and this case is the
+  // one that keeps them apart: every endpoint here is declared and bound, so the pre-pass has
+  // nothing to say, and the edge is still refused on its own contract. Without it, disabling
+  // edge validation would go unnoticed because the malformed fixture above happens to trip the
+  // endpoint check instead.
+  let error = null;
+  try {
+    selectCapsule(selector, {
+      edges: [graph.edges[0], edge({ ...graph.edges[1], authority_family: 'vendor_blog' })],
+      nodes: alphaNodes,
+    }, allowAll);
+  } catch (e) { error = e; }
+  record('1C/BIND/invalid_edge_with_declared_endpoints_still_refused',
+    error?.code === 'CAPSULE_EDGE_INVALID' && error.detail?.cause_code === 'GRAPH_EDGE_AUTHORITY_UNKNOWN',
+    error ? `${error.code} / ${error.detail?.cause_code}` : 'NOT REFUSED');
+}
 
 // ---------------------------------------------------------------- the node set is mandatory
 //

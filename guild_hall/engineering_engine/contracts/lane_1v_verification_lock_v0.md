@@ -4,7 +4,7 @@ Status: `SELF-AUTHORED MUTATION LOCK / SEMANTIC INDEPENDENCE UNMET`
 
 구현: `tests/lane_1v_mutation_lock.mjs` · 통합: `tools/phase_1_integration_check.mjs`
 
-현재: **변이 142개 중 142개 kill · 생존 0 · catalogue error 0 · 모듈 23개 커버**
+현재: **변이 144개 중 144개 kill · 생존 0 · catalogue error 0 · 모듈 23개 커버**
 
 ## 1. 왜 필요했나
 
@@ -50,6 +50,8 @@ Status: `SELF-AUTHORED MUTATION LOCK / SEMANTIC INDEPENDENCE UNMET`
 
 구현과 fixture 에서 **어떤 규칙이 똑같이 틀렸다면**, 그 규칙에 대한 모든 변이는 여전히 kill 되고 공유된 오해는 살아남는다. 변이시험은 "규칙이 작동하지 않는" 오류를 잡고 "규칙 자체가 틀린" 오류는 잡지 못한다.
 
+`O` 이 lock 이 덮지 못하는 표면이 하나 더 있다. `tests/manifest_blob_integrity.mjs` 는 git checkout 과 `topology/` 를 요구하는데 변이 sandbox 는 둘 다 복사하지 않으므로 `SUITES` 에 없다. 따라서 **emitter 와 파생 artifact 검사에 대한 변이는 자동으로 kill 되지 않는다.** topology digest 폭을 좁히는 변이는 손으로 확인했고(좁힌 형태로 되돌리면 `TOPOLOGY/fresh_emit_is_byte_equal_to_the_committed_file` 이 red), 자동화는 미완으로 남긴다.
+
 `D` `semantic_independence: 'UNMET'` 이 매 실행 출력에 실린다. Owner 결정에 따라 이 lane 은 자체 작성 mutation lock 으로 진행하며, **의미론적 독립검증은 미완 의무로 남는다.**
 
 | lane | 검증 강도 |
@@ -63,11 +65,11 @@ Status: `SELF-AUTHORED MUTATION LOCK / SEMANTIC INDEPENDENCE UNMET`
 
 `tools/phase_1_integration_check.mjs` 가 여섯 검사를 한 번에 한다. 전부 통과해야 한다.
 
-1. 모든 conformance suite 통과 — **1374 검사**
-2. 변이 lock 전멸 — **142/142**
+1. 모든 conformance suite 통과 — **1401 검사**
+2. 변이 lock 전멸 — **144/144**
 3. 동결 Phase 1-0 bundle **13/13** sha256
 4. 동결 field group 6개가 **각각 정확히 한 lane** 소유 (누락·중복·미지 없음)
-5. commit 된 topology 가 코드에서 **새로 emit 한 것과 digest 일치**
+5. commit 된 topology 가 코드에서 **새로 emit 한 것과 byte 일치**
 6. 쓰기 **0**
 
 ### 5.1 manifest 는 자기 path base 를 선언한다

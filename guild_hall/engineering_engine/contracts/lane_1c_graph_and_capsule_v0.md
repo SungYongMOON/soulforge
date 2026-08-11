@@ -107,6 +107,14 @@ embedding 유사도나 학습 reranker 는 이 자리에 항목이 없다. 이�
 
 `D` **대조는 완전한 exact-ref identity tuple 로 한다** — `entity_id` · `revision_id` · `content_id` · `content_hash_alg` 전부. `entity_id@revision_id` 만으로 key 를 잡으면, 같은 subject revision 을 가리키면서 다른 bytes 를 이름 붙인 edge 가 선언된 node 의 보증을 그대로 가져간다. node 집합은 이름이 아니라 bytes 를 보증한다. 선언된 node 와 같은 subject revision 이면서 content 가 다른 ref 는 slice 자체의 모순이므로 `CAPSULE_NODE_IDENTITY_MISMATCH` 로 거부한다. 같은 이유로 edge 의 `from_ref` 도 tuple 전체로 맞춘다.
 
+`D` **공급된 모든 edge 의 양 endpoint 를 walk 전에 해소한다.** traversal 이 닿는 자리에서만 대조하면 위조된 `from_ref` 는 frontier 와 맞지 않아 **조용히 건너뛰어진다.** 그 edge 가 seed 에서 나가는 유일한 길이면 결과는 **성공한 빈 capsule** 이고, 호출자는 자기모순인 projection 을 "여긴 아무것도 없었다"로 읽는다. 빈 답과 깨진 slice 는 서로 다른 답이어야 하므로, walk 가 지나간 경로가 아니라 slice 전체를 검사한다.
+
+`D` 이 검사는 traversal 이 절대 따라가지 않을 edge 도 덮는다. edge 는 이 selector 가 따라가든 말든 projection 이 주장하는 것이고, 자기 node 집합에 자기 edge 의 양 끝을 놓지 못하는 slice 는 애초에 격리를 검사할 수 있는 slice 가 아니다.
+
+`P` traversal 시점 해소는 남긴다. seed 는 edge endpoint 가 아니므로 pre-pass 가 닿지 않는 유일한 자리이며, 위조된 seed 는 그 문으로 들어온다.
+
+`P` **정책상 제외는 그대로 제외다.** 선언되어 있고 binding 이 맞는 node 가 ACL·applicability·edge type·top_k 로 걸리면 닫힌 exclusion 목록으로 보고한다. pre-pass 가 거부하는 것은 endpoint 를 node 집합에 **놓을 수 없는** 경우뿐이다.
+
 `D` **한 logical node 를 두 번 선언할 수 없다**(`CAPSULE_NODE_DECLARED_TWICE`). 이전 판은 map 에 그대로 덮어썼으므로 두 번째 선언이 첫 번째를 지웠고, binding 이 다르면 cross-project 격리가 배열 순서에 좌우됐다. binding 이 다르든 `content_id` 가 다르든 완전히 같든, 같은 subject revision 의 재선언은 slice 에 단일한 답이 없다는 뜻이므로 거부한다.
 
 `O` 이전 판은 node 집합을 **선택적**으로 두고 없으면 "edge 를 믿는다"로 처리했다. 그러면 edge 의 binding 주장에 대한 유일한 증인이 그 edge 자신이 되고, 위조된 edge binding 과 참인 edge binding 이 구분되지 않는다. slice 하나를 node 없이 넘기는 것만으로 cross-project 격리가 검사 대상의 정직성에 의존하게 된다.

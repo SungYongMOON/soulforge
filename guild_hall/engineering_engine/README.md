@@ -107,6 +107,14 @@ node guild_hall/engineering_engine/tools/emit_manifest.mjs --verify topology/eng
 | P5 orchestration authority (B-07) | `authority_ref` 가 비어 있지 않고 세 기록에서 같기만 하면 통과 | 같은 등록 증거·family·scope 에서 **해소되어야** 통과, candidate 성격·generation 0·두 영수증 linkage 는 그대로 |
 | 두 source 인용 (B-08) | `source_revision_ref` bare string 허용, 시간값 미검사 | **정확한 typed revision ref** 와 양쪽 canonical instant(`known_at >= valid_at`) 요구, 두 겹 guard 모두에서 |
 
+`O` 다음 독립검토가 35개 공격을 재생해 33개는 막혔고 **통합 지점에서 세 개가 남았다.** 세 개 모두 "각 guard 는 옳은데 그 사이에 틈이 있었다" 였다.
+
+| 항목 | 약했던 형태 | 지금 요구하는 형태 |
+|---|---|---|
+| edge endpoint 해소 (B-03 통합) | traversal 이 닿을 때만 대조 → 위조된 `from_ref` 는 조용히 skip, seed edge 하나면 **성공한 빈 capsule** | 공급된 **모든 edge 의 양 endpoint** 를 walk 전에 node 집합에 해소, 불일치·미선언은 projection 거부 |
+| disposition 확인자 (B-06/P8) | `confirmed_by_registered_human` · kind · id 세 필드를 그대로 신뢰 | gate 가 준 **같은 registry·binding·시각**으로 확인, 시각은 provenance 가 아니라 record 본문의 `confirmed_at` |
+| 파생 topology (blocker 3) | digest 대조뿐이고 그 digest 가 문서의 1/37 만 덮음 | digest 는 문서 전체를, 통합검사는 **byte 동일성**을 확인 |
+
 `P` **`D-P10-08` 은 이것으로 닫히지 않는다.** kernel 은 live registry 를 조회하지 않고 공급된 증거의 자기정합성과 범위만 검증한다. 누가 등록될 수 있는지는 여전히 Owner 결정이며, 닫힌 것은 "그렇다고 적기만 하면 통과하던" 상태다.
 
 `O` **나머지 다섯 lane 의 fixture 는 구현과 같은 저자가 썼다.** 초록불이 substrate 의 초록불과 같은 무게가 아니다. 변이 lock 이 가드가 실제로 작동하는지는 확인하지만, 규칙 자체가 구현과 fixture 에서 똑같이 틀린 경우는 잡지 못한다. 의미론적 독립검증은 **미완 의무**다.
@@ -119,7 +127,13 @@ node guild_hall/engineering_engine/tools/emit_topology.mjs --out topology/engine
 
 module edge 는 `kernel/*.mjs` 의 **실제 `import` 문을 파싱**해서 얻는다. 경계는 lane 1D 의 `OPERATIONS` 표에서, 나머지 어휘는 각자를 소유한 모듈에서 읽는다. 손으로 적는 것은 lane↔field group 대응 하나뿐이다.
 
-`D` 통합검사가 commit 된 `topology/engine_topology.json` 을 새 emit 과 digest 대조하므로, 낡은 topology 는 실패로 드러난다. 그림은 자기가 묘사하는 코드와 어긋날 수 있지만 이건 어긋날 수 없다.
+`D` 통합검사가 commit 된 `topology/engine_topology.json` 을 새 emit 과 **byte 단위로** 대조하므로, 낡은 topology 는 실패로 드러난다. 그림은 자기가 묘사하는 코드와 어긋날 수 있지만 이건 어긋날 수 없다.
+
+`O` **이전 판은 digest 만 대조했고, 그 digest 는 문서의 1/37 만 덮고 있었다.** `JSON.stringify(topology, Object.keys(topology).sort())` 의 두 번째 인자는 key 정렬이 아니라 **key allowlist** 이며 모든 깊이에 적용된다. 최상위 key 이름과 겹치지 않는 속성은 전부 사라져 module 항목과 edge 항목이 각각 `{}` 로 직렬화됐고, 38811 byte 문서에서 1060 byte 만 해시됐다. module 이름·import edge·export 목록·line_count 이 전부 digest 밖이었다.
+
+`O` 그래서 commit 된 topology 의 `context_receipt.line_count` 가 소스와 어긋난 채 `topology_matches_code` 가 통과했다. 실제로 바뀐 유일한 필드가 digest 밖에 있었기 때문이다. **주장보다 좁은 초록불은 없느니만 못하다** — 읽는 사람이 행동의 근거로 삼는 것은 주장 쪽이다.
+
+`D` 정정 두 겹: emitter 의 digest 는 재귀 key 정렬 직렬화로 문서 전체를 덮고, 통합검사는 digest 가 아니라 **emit 된 bytes 자체**를 commit 된 파일과 대조한다. 두 번째 겹은 첫 번째가 옳다는 것에 의존하지 않는다. `tests/manifest_blob_integrity.mjs` 가 같은 byte 동일성과 digest 의 실제 적용 범위(중첩 `line_count`·module 이름 변경이 digest 를 움직이는지)를 각각 확인한다.
 
 ## 실제 실행 관측
 

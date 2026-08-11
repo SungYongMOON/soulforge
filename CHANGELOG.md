@@ -1,5 +1,68 @@
 # CHANGELOG
 
+## 2026-08-11 - SE Engineering Engine Phase 2 fourth correction pass: three integration blockers closed
+
+A fresh independent Level-3 verifier replayed 35 attacks against the previous
+entry. Thirty-three were refused; the three that were not all had the same shape,
+one level up from the previous pass — each individual guard was correct, and the
+gap was between them. No earlier guard is weakened: all thirteen suites, the
+mutation lock, the exact Git-blob manifest and the frozen Phase 1-0 bundle pass.
+
+- Closed the capsule edge-endpoint gap. Endpoints were resolved against the node
+  set only where the traversal happened to reach them, so an edge whose source
+  named the declared subject revision but different bytes did not match the
+  frontier and was skipped in silence. When that edge was the only way out of the
+  seed, the result was a *successful, empty* capsule — a self-contradictory
+  projection read by the consumer as "there was nothing here". Both endpoints of
+  every supplied edge are now resolved before the walk begins, including edges the
+  traversal would never follow, and a mismatch or an undeclared endpoint refuses
+  the projection. The traversal-time resolver stays for seeds, which are the one
+  traversed ref that is not an edge endpoint. Policy exclusions are untouched: a
+  declared, bound node refused by ACL, applicability, edge type or budget is still
+  an exclusion.
+- Closed the disposition-confirmer self-certification at P8. The acceptor and the
+  approver were bound to registration evidence in the previous entry; the
+  confirmer was still certifying itself with `confirmed_by_registered_human`, a
+  kind and an id, all three written by whoever wrote the event. It is now resolved
+  in the same gate-supplied registry, scoped to the chain's binding, at the
+  confirmation instant. That instant is read from `confirmed_at` in the record
+  body rather than from `provenance.recorded_at`: a content address is computed
+  over the record minus its own provenance, so `recorded_at` was editable without
+  breaking the seal and could have been slid into whatever validity window was
+  needed. The principal-kind check remains alongside the evidence check, because
+  being in the registry does not make an agent a human. D-P10-06 stays open and
+  the verdict says so: this verifies a recorded confirmation and does not become
+  the authority that makes one.
+- Fixed generated-topology drift, and the reason it went unnoticed. The committed
+  topology recorded `context_receipt.line_count` 632 while a fresh emit produced
+  631, and `topology_matches_code` still passed. The cause was the emitter's
+  digest: `JSON.stringify(topology, Object.keys(topology).sort())` treats its
+  second argument as a key *allowlist* applied at every depth, not a key order, so
+  every module and edge entry serialised as `{}` and the digest covered 1060 bytes
+  of a 38811-byte document — module names, import edges, export lists and line
+  counts were all outside it. The digest now covers the whole document via a
+  recursive key-sorted serialisation, and the integration check compares the
+  emitted bytes to the committed file rather than the digest, so the second layer
+  does not depend on the first being right. `manifest_blob_integrity` asserts both
+  the byte equality and that the digest actually moves when a nested field does.
+- Verification after the change: 13 suites, 1401 conformance checks, 0 failures;
+  mutation lock 144/144 killed, 0 survivors, 0 catalogue errors; exact Git-blob
+  manifest 62/62; frozen Phase 1-0 bundle 13/13; topology byte-equal to a fresh
+  emit; runtime observation 1:1 with the topology; zero writes. Owner action: none
+  required. Two items are recorded rather than closed — `confirmed_at` is not
+  ordered against the rest of the chain, and the mutation sandbox cannot run
+  `manifest_blob_integrity`, so emitter mutations are verified by hand. No project
+  material, private corpus, credential, source PDF, external service, runtime
+  activation, ERP write, live P5/P8, UI, MCP transport or learned model was
+  exercised.
+- Related paths: `guild_hall/engineering_engine/kernel/capsule.mjs`,
+  `guild_hall/engineering_engine/kernel/pipeline.mjs`,
+  `guild_hall/engineering_engine/tools/emit_topology.mjs`,
+  `guild_hall/engineering_engine/tools/phase_1_integration_check.mjs`,
+  `guild_hall/engineering_engine/tests/`,
+  `guild_hall/engineering_engine/contracts/`,
+  `guild_hall/engineering_engine/topology/`.
+
 ## 2026-08-11 - SE Engineering Engine Phase 2 third correction pass: four fail-open defects closed
 
 A fresh independent Level-3 verifier reproduced nine attacks against the previous

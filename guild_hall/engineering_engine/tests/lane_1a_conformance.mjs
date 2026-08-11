@@ -16,6 +16,7 @@ import {
   validateContextRequest, assertZeroErpDelta, evaluateP8Write, OPEN_OWNER_DECISIONS_FOR_THIS_LANE,
   DEFINED_STAGES, TASK_DRIVER_POLICY_CHECKS, POLICY_GATE_ID,
   evaluateTaskDriverPolicyGate, evaluateP7TaskDriver, assertTaskDriverNotActivated,
+  assertNoLiveDispositionConfirmation, DISPOSITION_CONFIRMATION_OWNER_DECISION,
   REQUIRED_P8_CHAIN_ELEMENTS, P8_CHAIN_RECORD_ELEMENTS, P8_RECOMPUTED_CHAIN_ELEMENTS,
   REQUIRED_CHAIN_PROVENANCE_FIELDS, chainElementContentAddress,
 } from '../kernel/pipeline.mjs';
@@ -336,7 +337,13 @@ const humanIn = (subjectId, projectBindingRef = 'pb-alpha', over = {}) =>
 const REGISTRY = buildRegistrationRegistry({
   projectBindingRef: 'pb-alpha',
   entries: [
-    humanIn('person-1'), humanIn('person-2'), humanIn('person-3'),
+    // person-1 writes, person-2 approves, person-3 accepts and advances, person-4 confirms the
+    // disposition. Every one of them is checked against this registry now; person-4 used to be
+    // the exception, and passed on three fields it wrote about itself.
+    humanIn('person-1'), humanIn('person-2'), humanIn('person-3'), humanIn('person-4'),
+    // Registered, but only from after the chain's confirmation instant, so the validity window
+    // can be attacked without swapping the registry out from under the recomputed boundaries.
+    humanIn('person-5', 'pb-alpha', { validFrom: '2026-09-01T00:00:00.000Z' }),
     authorityEntry({
       subjectId: 'auth-1', projectBindingRef: 'pb-alpha',
       authorityFamily: 'project_contract_baseline', validFrom: WINDOW_FROM, validTo: WINDOW_TO,
@@ -347,7 +354,10 @@ const REGISTRY = buildRegistrationRegistry({
 // is valid in every other respect rather than against a broken one.
 const BRAVO_REGISTRY = buildRegistrationRegistry({
   projectBindingRef: 'pb-bravo',
-  entries: [humanIn('person-1', 'pb-bravo'), humanIn('person-2', 'pb-bravo'), humanIn('person-3', 'pb-bravo')],
+  entries: [
+    humanIn('person-1', 'pb-bravo'), humanIn('person-2', 'pb-bravo'),
+    humanIn('person-3', 'pb-bravo'), humanIn('person-4', 'pb-bravo'),
+  ],
   revisionId: 'registration-registry-bravo-r1',
 });
 
@@ -735,6 +745,9 @@ const chain = {
     event_id: 'ev-1', finding_id: FIND_ID, project_binding_ref: 'pb-alpha',
     append_only: true, confirmed_by_registered_human: true,
     confirmed_by_principal_kind: 'registered_human', confirmed_by_principal_id: 'person-4',
+    // In the record body, not in provenance: the content address is computed over the record
+    // minus its own provenance, so an instant kept there could be moved without breaking the seal.
+    confirmed_at: RECORDED_AT,
   }),
   context_authority_gate: seal('context_authority_gate', {
     snapshot_id: SNAP_ID, project_binding_ref: 'pb-alpha',
@@ -971,6 +984,13 @@ rejects('1A/p8/disposition_confirmed_by_an_agent',
     }),
   })), P.WRITE_APPROVAL_NOT_HUMAN,
   'the flag says a human confirmed it and the named principal is a model');
+rejects('1A/p8/disposition_confirmed_by_an_agent_wearing_a_registered_id',
+  () => evaluateP8Write(withChain({
+    disposition_event: resealed('disposition_event', chain.disposition_event, {
+      confirmed_by_principal_kind: 'agent',
+    }),
+  })), P.WRITE_APPROVAL_NOT_HUMAN,
+  'being in the registry does not make an agent a human; the kind check and the evidence check are different questions');
 rejects('1A/p8/disposition_confirmer_unnamed',
   () => evaluateP8Write(withChain({
     disposition_event: resealed('disposition_event', chain.disposition_event, { confirmed_by_principal_id: '' }),
@@ -1083,6 +1103,131 @@ rejects('1A/p8/registration_from_another_project_refused',
     refusal instanceof ContractError,
     refusal ? refusal.code : 'NOT REFUSED — the chain certified its own acceptor');
 }
+// ---- B-06 at P8, continued: the disposition confirmer.
+//
+// The confirmer was the one principal in the chain still certifying itself. Naming a person and
+// setting `confirmed_by_registered_human: true` made the claim legible; it never made it true,
+// and a confirmer absent from every registry cleared this link on three fields it wrote about
+// itself. It is now resolved in the same gate-supplied registry, scoped to the same binding, at
+// the instant the event was recorded.
+
+rejects('1A/p8/unregistered_disposition_confirmer_refused',
+  () => evaluateP8Write(withChain({
+    disposition_event: resealed('disposition_event', chain.disposition_event, {
+      confirmed_by_principal_id: 'person-nobody-registered',
+    }),
+  })),
+  P.WRITE_APPROVAL_NOT_HUMAN,
+  'a confirmer nobody registered is not a confirmer, however the three fields beside the name are set');
+{
+  let refusal = null;
+  try {
+    evaluateP8Write(withChain({
+      disposition_event: resealed('disposition_event', chain.disposition_event, {
+        confirmed_by_principal_id: 'person-nobody-registered',
+      }),
+    }));
+  } catch (e) { refusal = e; }
+  record('1A/p8/unregistered_confirmer_refusal_names_its_cause',
+    refusal?.detail?.cause_code === REG.SUBJECT_NOT_REGISTERED,
+    'the P8 code is reported with the registration refusal underneath it');
+}
+rejects('1A/p8/confirmer_flags_do_not_substitute_for_evidence',
+  () => evaluateP8Write(withChain({
+    disposition_event: resealed('disposition_event', chain.disposition_event, {
+      confirmed_by_principal_id: 'person-nobody-registered',
+      confirmed_by_registered_human: true,
+      confirmed_by_principal_kind: 'registered_human',
+    }),
+  })),
+  P.WRITE_APPROVAL_NOT_HUMAN,
+  'setting every self-describing field at once is still the record describing itself');
+{
+  // Cross-registry rejection: a registry that is internally valid, holds this exact confirmer,
+  // and is scoped to another project. It is refused because the scope has to be the chain's.
+  let refusal = null;
+  try { evaluateP8Write({ ...p8ok, registrationRegistry: BRAVO_REGISTRY }); } catch (e) { refusal = e; }
+  record('1A/p8/confirmer_from_another_projects_registry_refused',
+    refusal instanceof ContractError,
+    refusal ? refusal.code : 'NOT REFUSED — a bravo registry cleared an alpha chain');
+}
+rejects('1A/p8/confirmer_outside_its_registration_window',
+  () => evaluateP8Write(withChain({
+    disposition_event: resealed('disposition_event', chain.disposition_event, {
+      confirmed_by_principal_id: 'person-5',
+    }),
+  })),
+  P.WRITE_APPROVAL_NOT_HUMAN,
+  'a registration that had not begun when the confirmation happened does not confirm it');
+rejects('1A/p8/disposition_event_must_say_when_it_was_confirmed',
+  () => evaluateP8Write(withChain({
+    disposition_event: seal('disposition_event',
+      (({ provenance, confirmed_at, ...rest }) => rest)(chain.disposition_event)),
+  })),
+  P.WRITE_CHAIN_MISMATCH,
+  'without an instant there is no moment at which to check the confirmer registration');
+{
+  // The confirmation instant lives in the record body, so sliding it to reach a validity window
+  // changes the address the event declares and the immutability check refuses it first. Kept as
+  // its own case because the same value in provenance would have been freely editable.
+  const slid = { ...chain.disposition_event, confirmed_at: '2026-09-15T00:00:00.000Z' };
+  let refusal = null;
+  try { evaluateP8Write(withChain({ disposition_event: slid })); } catch (e) { refusal = e; }
+  record('1A/p8/confirmation_instant_cannot_be_slid_to_reach_a_window',
+    refusal?.code === P.WRITE_EVIDENCE_NOT_IMMUTABLE,
+    refusal ? refusal.code : 'NOT REFUSED — the instant was editable without breaking the seal');
+}
+{
+  // Paired positive control for the window rule, so it is a window rather than a blanket
+  // refusal: person-5 confirming inside their own registration period, honestly re-sealed,
+  // passes. The same confirmer at the chain's own instant is refused two cases above.
+  //
+  // What this deliberately does not assert: that `confirmed_at` is ordered against the rest of
+  // the chain. Nothing here requires the confirmation to precede the approval or follow the
+  // snapshot, so a re-sealed event can carry any instant its confirmer was registered at. That
+  // is a real remaining gap, recorded rather than closed, because deciding which instant a
+  // disposition must sit between is an owner question and not one this pass was given.
+  let error = null;
+  try {
+    evaluateP8Write(withChain({
+      disposition_event: resealed('disposition_event', chain.disposition_event, {
+        confirmed_by_principal_id: 'person-5', confirmed_at: '2026-09-15T00:00:00.000Z',
+      }),
+    }));
+  } catch (e) { error = e; }
+  record('1A/p8/confirmer_inside_their_own_window_passes',
+    error === null,
+    error ? `refused with ${error.code}` : 'a genuinely registered confirmer at a covered instant is accepted');
+}
+{
+  // D-P10-06 is open, and verifying a recorded confirmation is not the same as being allowed to
+  // confirm one. The verdict says so, and the guard refuses the claim outright.
+  const r = evaluateP8Write(p8ok);
+  record('1A/p8/disposition_confirmer_positive_control',
+    r.registration_verified_for.includes('disposition_confirmer')
+      && /^[0-9a-f]{64}$/.test(r.disposition_confirmer_registration_entry_address)
+      && r.disposition_confirmation_verified_against === 'supplied_registration_evidence'
+      && r.live_disposition_confirmation_performed === false
+      && r.disposition_confirmation_owner_decision === DISPOSITION_CONFIRMATION_OWNER_DECISION,
+    'a registered confirmer passes, and the verdict states it was evidence and not live authority');
+  record('1A/p8/confirmer_checked_against_the_same_registry_as_everyone_else',
+    r.registration_registry_revision_id === REGISTRY.registry_revision_ref.revision_id,
+    'one registry for the writer, the approver and the confirmer');
+}
+rejects('1A/p8/live_disposition_confirmation_refused',
+  () => assertNoLiveDispositionConfirmation('confirm the disposition on the owner behalf'),
+  P.WRITE_APPROVAL_NOT_HUMAN,
+  'this engine verifies a recorded confirmation; it does not become the authority that makes one');
+{
+  let refusal = null;
+  try { assertNoLiveDispositionConfirmation('confirm the disposition on the owner behalf'); } catch (e) { refusal = e; }
+  record('1A/p8/live_disposition_refusal_names_the_open_decision',
+    refusal?.detail?.owner_decision === 'D-P10-06'
+      && refusal.detail.still_open === true
+      && refusal.detail.blocks === 'live disposition confirmation',
+    'the refusal says which owner decision would have to close first and what it blocks');
+}
+
 {
   // Positive control for the whole registration layer at P8: the valid chain still passes, and
   // the verdict names the one registry every registration in it was checked against.

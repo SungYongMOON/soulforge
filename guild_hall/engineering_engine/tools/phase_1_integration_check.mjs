@@ -159,16 +159,33 @@ if (!committed) {
 
 // ---------------------------------------------------------------- 5. topology is not stale
 
+// Compared as bytes, not as digests.
+//
+// A digest comparison is only as wide as the digest, and this one was far narrower than it
+// looked: the emitter hashed a filtered projection in which every module and edge entry
+// serialised as `{}`. A committed topology whose `line_count` had drifted from a fresh emit
+// still matched, because the drifted field was not in the digest. The emitter's digest is fixed
+// now, but the comparison here no longer depends on that being true — the whole emitted document
+// has to equal the committed one byte for byte. Together with the manifest check, which verifies
+// the committed file against the bytes Git has staged, that closes the loop from source to blob.
 const fresh = spawnSync(process.execPath, [join(ENGINE, 'tools', 'emit_topology.mjs')], { encoding: 'utf8' });
 let freshTopology = null;
 try { freshTopology = JSON.parse(fresh.stdout); } catch { /* reported below */ }
-if (!freshTopology || !committed) {
+const committedText = existsSync(topologyPath) ? readFileSync(topologyPath, 'utf8') : null;
+if (!freshTopology || !committed || committedText === null) {
   fail('topology_matches_code', 'could not compare');
-} else if (freshTopology.topology_digest !== committed.topology_digest) {
+} else if (fresh.stdout !== committedText) {
+  const freshLines = fresh.stdout.split('\n');
+  const committedLines = committedText.split('\n');
+  const firstDifferent = freshLines.findIndex((line, i) => line !== committedLines[i]);
   fail('topology_matches_code',
-    `committed ${committed.topology_digest?.slice(0, 12)} but the code now emits ${freshTopology.topology_digest?.slice(0, 12)}; re-run tools/emit_topology.mjs`);
+    `the committed topology is not byte-equal to a fresh emit (first difference at line ${firstDifferent + 1}: `
+    + `committed ${JSON.stringify(committedLines[firstDifferent] ?? null)}, fresh ${JSON.stringify(freshLines[firstDifferent] ?? null)}); `
+    + 're-run tools/emit_topology.mjs');
 } else {
-  pass('topology_matches_code', `${committed.module_count} modules, ${committed.module_edge_count} import edges, digest ${committed.topology_digest.slice(0, 12)}`);
+  pass('topology_matches_code',
+    `${committed.module_count} modules, ${committed.module_edge_count} import edges, `
+    + `byte-equal to a fresh emit, digest ${committed.topology_digest.slice(0, 12)}`);
 }
 
 // ---------------------------------------------------------------- 6. runtime observation

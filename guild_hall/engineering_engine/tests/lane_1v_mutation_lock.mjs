@@ -422,9 +422,11 @@ const CATALOGUE = [
     find: '    if (logical !== null && nodeByLogicalKey.has(logical)) {', replace: '    if (false) {' },
   { id: 'capsule/duplicate_node_declaration_is_last_write_wins', file: 'capsule.mjs', suite: 'lane_1c',
     find: '    if (nodeByLogicalKey.has(logical)) {', replace: '    if (false) {' },
-  { id: 'capsule/edge_source_matched_on_name_only', file: 'capsule.mjs', suite: 'lane_1c',
-    find: '        if (exactRefIdentityKey(edge.from_ref) !== fromKey) continue;',
-    replace: '        if (edge.from_ref?.entity_id !== ref.entity_id || edge.from_ref?.revision_id !== ref.revision_id) continue;' },
+  // `capsule/edge_source_matched_on_name_only` was here. Once every supplied edge endpoint is
+  // resolved against the node set before the walk, and one logical node may not be declared
+  // twice, the traversal-time tuple comparison can no longer disagree with the weaker one — so
+  // the mutation became unkillable rather than uncovered. It is removed instead of left as
+  // coverage that cannot fail; `capsule/edge_endpoints_not_prechecked` covers the property now.
 
   // ---- registration evidence (B-06, B-07): the registry verifies, or nothing rests on it
   { id: 'registration/registry_not_pinned_to_a_revision', file: 'registration.mjs', suite: 'lane_1a',
@@ -490,6 +492,19 @@ const CATALOGUE = [
     find: '    if (exactRefs.some((ok) => !ok)) {', replace: '    if (false) {' },
   { id: 'authority/invariant_time_check_removed', file: 'authority.mjs', suite: 'phase_2',
     find: '    if (timeFaults.length) {', replace: '    if (false) {' },
+
+  // ---- every supplied edge endpoint, resolved before the walk (B-03 integration)
+  { id: 'capsule/edge_endpoints_not_prechecked', file: 'capsule.mjs', suite: 'lane_1c',
+    find: "    for (const [end, ref] of [['from_ref', edge.from_ref], ['to_ref', edge.to_ref]]) {",
+    replace: '    for (const [end, ref] of []) {' },
+
+  // ---- the disposition confirmer, which was the last principal certifying itself (B-06)
+  { id: 'pipeline/p8_disposition_confirmer_not_resolved', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '      subjectId: chain.disposition_event.confirmed_by_principal_id,',
+    replace: "      subjectId: 'person-4'," },
+  { id: 'pipeline/p8_confirmation_instant_optional', file: 'pipeline.mjs', suite: 'lane_1a',
+    find: '  if (!inspectInstant(chain.disposition_event.confirmed_at).valid) {',
+    replace: '  if (false) {' },
 ];
 
 // ---------------------------------------------------------------- scratch workspace

@@ -12,7 +12,7 @@
 import { createHash } from 'node:crypto';
 import { OPERATIONS } from './mcp_contract.mjs';
 import { canonicalise, inspectInstant } from './canonical.mjs';
-import { CANONICAL } from './contract_config.mjs';
+import { CANONICAL, OPEN_OWNER_DECISIONS } from './contract_config.mjs';
 import { AUTHORITY_FAMILIES } from './authority.mjs';
 import { assertIsMintedIdentifier } from './minting.mjs';
 import { assertRegisteredSubject, SUBJECT_KINDS } from './registration.mjs';
@@ -254,6 +254,32 @@ export function evaluateP7TaskDriver({ policyGate, taskIntent, projectBindingRef
     driver_activated: false,
     erp_delta: 0,
   };
+}
+
+/**
+ * The owner decision that still governs who may confirm a Finding disposition.
+ *
+ * Verifying a confirmer against supplied registration evidence answers "is this person in the
+ * evidence I was handed". It does not answer "may a disposition be confirmed live, and by
+ * whom", which is D-P10-06 and still open. Keeping the two apart matters because the first
+ * looks enough like the second to be mistaken for it.
+ */
+export const DISPOSITION_CONFIRMATION_OWNER_DECISION = 'D-P10-06';
+
+/**
+ * Refuses any attempt to treat this engine as holding live disposition confirmation authority.
+ *
+ * This kernel has no live confirmation path and is not the place one would be added, so the
+ * refusal is unconditional rather than conditional on the decision state — a guard that opened
+ * itself the moment a list changed would be a guard nobody had decided to open. The open
+ * decision travels in the detail so a caller reading the refusal knows what would have to
+ * happen first, and where.
+ */
+export function assertNoLiveDispositionConfirmation(intent) {
+  const open = OPEN_OWNER_DECISIONS.find((d) => d.id === DISPOSITION_CONFIRMATION_OWNER_DECISION);
+  throw new ContractError(CODES.WRITE_APPROVAL_NOT_HUMAN,
+    `this engine verifies a recorded disposition confirmation against supplied evidence; "${intent}" would make it the authority that confirms one`,
+    { owner_decision: DISPOSITION_CONFIRMATION_OWNER_DECISION, still_open: open !== undefined, blocks: open?.blocks ?? null });
 }
 
 /** Refuses any attempt to treat an evaluated P7 verdict as an activated driver. */
@@ -832,15 +858,45 @@ export function evaluateP8Write({
     throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
       'the disposition event is not an append-only event, confirmed by a registered human, for this finding');
   }
-  // "confirmed_by_registered_human: true" is a boolean the writer of the event chose. The
-  // named principal and its kind are what make it checkable, and an agent or model confirming
-  // a disposition is not a confirmation however the flag is set.
+  // "confirmed_by_registered_human: true" is a boolean the writer of the event chose, and so
+  // are the kind and the id beside it. Naming a principal made the claim *legible*; it never
+  // made it true. A confirmer absent from every registry still cleared this link by writing
+  // three fields, which is the same self-certification the acceptor and the approver no longer
+  // get. So the confirmer is resolved in the registry this gate was given — the one the writer,
+  // the approver and the recomputed boundaries are checked against — scoped to this chain's
+  // binding, at the instant the event was recorded.
+  //
+  // The instant comes from `confirmed_at` on the event itself, not from `provenance.recorded_at`.
+  // The two look interchangeable and are not: a content address is computed over the record
+  // *minus* its own provenance, so `recorded_at` can be edited without breaking the seal — which
+  // would let a caller slide the confirmation into whatever window it needed. `confirmed_at` is
+  // part of the record body, so moving it changes the address the event declares and the
+  // immutability check refuses it first.
   if (chain.disposition_event.confirmed_by_principal_kind !== HUMAN_APPROVER_KIND
       || typeof chain.disposition_event.confirmed_by_principal_id !== 'string'
       || !chain.disposition_event.confirmed_by_principal_id) {
     throw new ContractError(CODES.WRITE_APPROVAL_NOT_HUMAN,
       'the disposition confirmation does not name a registered human principal',
       { confirmed_by_principal_kind: chain.disposition_event.confirmed_by_principal_kind ?? null });
+  }
+  if (!inspectInstant(chain.disposition_event.confirmed_at).valid) {
+    throw new ContractError(CODES.WRITE_CHAIN_MISMATCH,
+      'the disposition event does not say when it was confirmed, so no registration can be checked at the moment the confirmer acted',
+      { element: 'disposition_event' });
+  }
+  let confirmerRegistration = null;
+  try {
+    confirmerRegistration = assertRegisteredSubject({
+      registry: registrationRegistry,
+      subjectKind: SUBJECT_KINDS.HUMAN,
+      subjectId: chain.disposition_event.confirmed_by_principal_id,
+      projectBindingRef: binding,
+      at: chain.disposition_event.confirmed_at,
+    });
+  } catch (e) {
+    throw new ContractError(CODES.WRITE_APPROVAL_NOT_HUMAN,
+      'the disposition confirmation names a confirmer that no verifiable registration evidence places in this project at the moment it says the confirmation happened',
+      { cause_code: e?.code ?? null });
   }
   // Applicability joins the three that were already checked. A context gate can be sufficient
   // and authoritative and still be about a source that does not govern this project, which is
@@ -966,8 +1022,17 @@ export function evaluateP8Write({
     provenance_verified_for: [...P8_CHAIN_RECORD_ELEMENTS, 'approval'],
     // One registry, named, for every registration this write rests on.
     registration_registry_revision_id: writerRegistration.registry_revision_id,
-    registration_verified_for: ['writer_principal', 'approver', 'p5_acceptance', 'generation_advance', 'policy_gate_authority'],
+    registration_verified_for: [
+      'writer_principal', 'approver', 'disposition_confirmer',
+      'p5_acceptance', 'generation_advance', 'policy_gate_authority',
+    ],
     approver_registration_entry_address: approverRegistration.entry_content_address,
+    disposition_confirmer_registration_entry_address: confirmerRegistration.entry_content_address,
+    // The confirmer was checked against evidence that was handed to this gate. That is not the
+    // same as this engine being allowed to confirm a disposition, which is D-P10-06 and open.
+    disposition_confirmation_verified_against: 'supplied_registration_evidence',
+    live_disposition_confirmation_performed: false,
+    disposition_confirmation_owner_decision: DISPOSITION_CONFIRMATION_OWNER_DECISION,
     // This engine evaluates the gate. It does not hold the external sole-writer authority,
     // so no ledger entry is produced here and the count says so.
     gate_evaluation_only: true,

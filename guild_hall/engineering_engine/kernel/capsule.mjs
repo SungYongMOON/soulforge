@@ -34,6 +34,11 @@
 //    bytes, and the declared node then vouched for content it had never seen. For the same
 //    reason a node set may not declare one logical node twice: a second declaration silently
 //    replaced the first, so whichever binding or content came last won.
+// 8. Both endpoints of every supplied edge are resolved against the node set before the walk
+//    begins, not when the walk happens to reach them. Resolving them on the way meant a
+//    contradictory edge was skipped rather than reported, and an edge that was the only way
+//    out of the seed turned a broken projection into a successful, empty capsule. "Nothing
+//    matched" and "this slice does not hold together" are different answers to the caller.
 
 import { createHash } from 'node:crypto';
 import { canonicalise, compareCodePoints, inspectInstant } from './canonical.mjs';
@@ -227,6 +232,36 @@ export function selectCapsule(selector, graph, aclCheck) {
     }
     nodeByLogicalKey.set(logical, key);
     nodeBinding.set(key, n.project_binding_ref);
+  }
+
+  // Every supplied edge, both endpoints, before the walk starts.
+  //
+  // Checking endpoints only where the traversal happens to reach them left a fail-open: an
+  // edge whose `from_ref` named the declared subject revision but different bytes simply did
+  // not match the frontier, so it was skipped in silence. When that edge was the only way out
+  // of the seed, the result was a *successful, empty* capsule — the consumer read "there was
+  // nothing here" from a projection that was in fact self-contradictory. An empty answer and a
+  // broken slice have to be distinguishable, so the slice is checked as a whole rather than
+  // along whichever path the walk took.
+  //
+  // This is also why it covers edges the traversal would never touch. An edge is part of the
+  // projection whether or not this selector follows it, and a slice that cannot place both
+  // ends of one of its own edges in its own node set is not a slice whose isolation can be
+  // checked at all.
+  for (const edge of edges) {
+    for (const [end, ref] of [['from_ref', edge.from_ref], ['to_ref', edge.to_ref]]) {
+      const key = exactRefIdentityKey(ref);
+      if (key !== null && nodeBinding.has(key)) continue;
+      const endpointLogicalKey = logicalRevisionKey(ref);
+      if (endpointLogicalKey !== null && nodeByLogicalKey.has(endpointLogicalKey)) {
+        throw new ContractError(CODES.NODE_IDENTITY_MISMATCH,
+          `an edge ${end} names the same subject revision as a declared node but different content; the node set vouches for bytes, not for names, so this projection contradicts itself`,
+          { edge_id: edge.edge_id, endpoint: end });
+      }
+      throw new ContractError(CODES.NODE_NOT_DECLARED,
+        `an edge ${end} is not in the declared node set; the projection cannot say which project that endpoint belongs to, so no capsule is selected over it`,
+        { edge_id: edge.edge_id, endpoint: end });
+    }
   }
 
   const allowed = new Set(selector.traversal.allowlisted_edge_types);

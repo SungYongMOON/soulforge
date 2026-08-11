@@ -144,7 +144,7 @@ evidence (immutable receipt + CAS)
 
 - generation: `generation_advance.to` = 인용 generation = `snapshot.accepted_context_generation`. 어긋나면 stale 로 거부
 - lineage: finding 은 그 snapshot 의 것, disposition event 는 그 finding 의 것, TaskIntent 는 그 snapshot·finding 의 것
-- authority: disposition 은 append-only 이고 등록된 사람이 확인한 것, context/authority gate 4검사(`context_sufficiency` · `evidence_sufficiency` · `registered_authority` · `applicability`) 통과, 등록된 authority family 지목, 그리고 **이 snapshot** 에 대해 평가된 것
+- authority: disposition 은 append-only 이고 **등록 증거로 확인된** 사람이 확인한 것(아래 8.1.2), context/authority gate 4검사(`context_sufficiency` · `evidence_sufficiency` · `registered_authority` · `applicability`) 통과, 등록된 authority family 지목, 그리고 **이 snapshot** 에 대해 평가된 것
 - gate 순서: `policy_gate.passed === true` 이고 그 gate 가 **이 TaskIntent** 의 것, `task_driver` 가 그 gate 뒤에서 평가된 것
 - project binding: 12요소 중 record 10종과 **승인까지 모두 같은 binding**. 다르면 cross-project 로 거부
 - evidence: `immutable === true`, content address 보유, `cas_fingerprint` 가 관측 fingerprint 와 일치
@@ -165,11 +165,27 @@ evidence (immutable receipt + CAS)
 
 `P` 이 함수는 **ERP 를 쓰지 않는다.** 결과는 `gate_evaluation_only: true` · `erp_write_performed: false` · `erp_writes: 0` 이다. 외부 sole writer 권한은 이 엔진에 없다. 위 검사를 전부 통과하는 유일하게 고정된 positive control 도 write 수는 0이다.
 
+### 8.1.2 disposition 확인자도 스스로를 증명하지 못한다
+
+`O` acceptor 와 승인자가 등록 증거로 바뀐 뒤에도 **확인자만 자기 자신을 증명하고 있었다.** `confirmed_by_registered_human: true` 와 kind, id — 세 필드 모두 event 를 쓰는 쪽이 적는다. 사람 이름을 적게 한 것은 주장을 **읽을 수 있게** 만들었을 뿐 참으로 만들지 않았고, 어느 registry 에도 없는 확인자가 그 세 필드만으로 이 고리를 통과했다.
+
+`D` 확인자는 gate 에 공급된 **같은 registry** 에서, 이 사슬의 binding 으로, 확인 시각에 해소한다. writer·승인자·재실행되는 boundary 들이 대조하는 그 registry 다.
+
+`D` 시각은 `provenance.recorded_at` 이 아니라 record 본문의 **`confirmed_at`** 이다. 둘은 바꿔 써도 될 것처럼 보이지만 아니다 — content address 는 record 에서 **자기 provenance 를 뺀** 값으로 계산하므로 `recorded_at` 은 seal 을 깨지 않고 편집할 수 있고, 그러면 필요한 유효구간으로 확인 시각을 밀어 넣을 수 있다. `confirmed_at` 은 본문이므로 옮기면 event 가 선언한 주소가 바뀌고 불변성 검사가 먼저 거부한다.
+
+`P` kind 검사와 증거 검사는 **다른 질문**이며 둘 다 남는다. registry 에 있다는 것이 agent 를 사람으로 만들지는 않는다.
+
+`P` **이것이 `D-P10-06` 을 닫지 않는다.** 기록된 확인을 증거로 검증하는 것과 확인할 권한을 갖는 것은 다르다. 판정은 `disposition_confirmation_verified_against: 'supplied_registration_evidence'` · `live_disposition_confirmation_performed: false` 를 명시하고, `assertNoLiveDispositionConfirmation()` 이 live 권한 주장을 거부하며 어떤 Owner 결정이 먼저 닫혀야 하는지 말한다.
+
+`O` 남은 틈: `confirmed_at` 은 사슬의 다른 시각들과 **순서 대조를 하지 않는다.** 정직하게 다시 seal 한 event 는 확인자가 등록되어 있던 어느 시각이든 실을 수 있다. disposition 이 어느 두 시각 사이에 있어야 하는지는 Owner 판단이므로 닫지 않고 기록한다.
+
 ## 9. 열린 항목 — Owner 결정
 
 | 항목 | 무엇을 막는가 |
 |---|---|
 | `p5_and_p8_registered_human_approver_registration_policy` (D-P10-08) | 실제 P5 수락 |
+| `registered_human_disposition_confirmation_authority_policy` (D-P10-06) | live disposition 확인 |
+| `disposition_confirmed_at_ordering_against_the_rest_of_the_chain` | 없음 (기록된 잔여 틈) |
 | `whether_self_approval_is_ever_permitted_and_for_whom` | 1인 운영 시 P8 |
 
 `O` 이전 판의 `p7_stage_definition_or_removal_from_the_numbering` 은 **제거했다.** 동결 계획이 이미 정의한 것을 Owner 결정 대기로 올려둔 것이 오류였다.

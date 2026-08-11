@@ -121,6 +121,65 @@ if (toplevel.status !== 0) {
     worktreeMismatch.length ? `unstaged edits in: ${worktreeMismatch.join(', ')}` : '');
 }
 
+// ---------------------------------------------------------------- 4. the topology is not stale
+//
+// The manifest keeps a committed artifact honest about its own bytes. It cannot say whether
+// those bytes are what the code currently produces, and for a *derived* artifact that is the
+// question that matters. The topology drifted from its source while the integration check's
+// digest comparison still passed, because the emitter hashed a filtered projection in which
+// every module and edge entry serialised as `{}` — the drifted field was outside the digest.
+//
+// So both halves are asserted here, in the suite that owns generated-artifact integrity: the
+// committed document has to be byte-equal to a fresh emit, and the digest has to actually cover
+// the document rather than a skeleton of it.
+
+{
+  const TOPOLOGY_PATH = join(ENGINE, 'topology', 'engine_topology.json');
+  const emitted = spawnSync(process.execPath, [join(ENGINE, 'tools', 'emit_topology.mjs')], { cwd: ENGINE, encoding: 'utf8' });
+  const committedText = readFileSync(TOPOLOGY_PATH, 'utf8');
+  record('TOPOLOGY/fresh_emit_is_byte_equal_to_the_committed_file',
+    emitted.status === 0 && emitted.stdout === committedText,
+    emitted.status !== 0
+      ? `emit failed: ${(emitted.stderr ?? '').slice(0, 200)}`
+      : `${emitted.stdout.length} emitted bytes vs ${committedText.length} committed`);
+
+  // The digest has to move when any part of the document moves. Checked on a field that is
+  // nested two levels deep and was provably outside the old digest, because a digest that only
+  // covers the top level looks identical to a correct one from the outside.
+  let coversNestedFields = false;
+  let coversModuleNames = false;
+  try {
+    const committedTopology = JSON.parse(committedText);
+    const digestOf = (doc) => {
+      const stable = (v) => {
+        if (Array.isArray(v)) return `[${v.map(stable).join(',')}]`;
+        if (v !== null && typeof v === 'object') {
+          return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable(v[k])}`).join(',')}}`;
+        }
+        return JSON.stringify(v);
+      };
+      const { topology_digest: _omitted, ...rest } = doc;
+      return createHash('sha256').update(stable({ ...rest })).digest('hex');
+    };
+    const baseline = digestOf(committedTopology);
+    const lineCountMoved = JSON.parse(committedText);
+    lineCountMoved.modules[0].line_count += 1;
+    coversNestedFields = digestOf(lineCountMoved) !== baseline;
+    const nameMoved = JSON.parse(committedText);
+    nameMoved.modules[0].module = `${nameMoved.modules[0].module}_renamed`;
+    coversModuleNames = digestOf(nameMoved) !== baseline;
+    record('TOPOLOGY/committed_digest_is_the_whole_document_digest',
+      baseline === committedTopology.topology_digest,
+      `committed ${String(committedTopology.topology_digest).slice(0, 12)}, recomputed ${baseline.slice(0, 12)}`);
+  } catch (e) {
+    record('TOPOLOGY/committed_digest_is_the_whole_document_digest', false, `could not recompute: ${e.message}`);
+  }
+  record('TOPOLOGY/digest_covers_nested_line_counts', coversNestedFields,
+    'a line_count change must change the digest; under the old replacer-array form it did not');
+  record('TOPOLOGY/digest_covers_module_names', coversModuleNames,
+    'renaming a module must change the digest; under the old form every module entry hashed as {}');
+}
+
 // ---------------------------------------------------------------- report
 
 const failures = results.filter((r) => !r.ok);
