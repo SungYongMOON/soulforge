@@ -387,7 +387,29 @@ difference.
 - Phase 1–4 baseline remains `deterministic_only`. No project material, UI,
   runtime, MCP execution, ERP writer or learned model was exercised, and no
   actual project identifier appears anywhere in this change.
+## 2026-08-11 - Grill Me frontier-round interview update
 
+- Updated the `grill_me` candidate and Codex bridge to map decision dependencies
+  as a design tree, ask the current independent frontier in numbered rounds,
+  and recompute the frontier after each Owner response.
+- Added a fact-versus-decision boundary: discoverable facts are gathered from
+  approved local context, while Owner decisions remain interactive and cannot
+  be delegated or inferred.
+- Preserved the explicit confirmation gate, optional one-at-a-time fallback,
+  no-implementation boundary, compact decision register, and local runtime
+  binding separation.
+
+## 2026-08-11 - Headless HWP-to-HWPX normalization contract
+
+- Expanded `HWP_NORMALIZATION_V0.md` with the official Hancom Automation and
+  security-module pointers, the verified 32-bit `HWPFrame.HwpObject` binding,
+  and the exact hidden `Open`/`SaveAs(HWPX)`/cleanup sequence.
+- Locked normalization to a read-only workspace copy, a run-owned temporary
+  registry value, zero visible HWP windows, exact source/output hashing, HWPX
+  ZIP/XML validation, and fail-closed password/DRM/corruption handling.
+- Separated HWP-to-HWPX normalization from HWPX ZIP/XML editing and from the
+  later PDF full-page visual-QA gate. No reusable production runner, workflow,
+  skill, root routing change, or deployment approval was added.
 ## 2026-08-10 - SE Engineering Engine Phase 1 lanes complete
 
 - Completed all six Phase 1 lanes under `guild_hall/engineering_engine/`: 1A

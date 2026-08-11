@@ -2,9 +2,9 @@ skill_id: grill_me
 kind: skill
 status: candidate
 title: Grill Me
-summary: Pressure-test a plan through a focused decision interview before implementation.
+summary: Pressure-test a plan through dependency-aware frontier rounds before implementation.
 behavior:
-  intent: Surface hidden assumptions, unresolved design choices, and risky tradeoffs in a user-provided plan, then converge on an updated decision record without taking design authority away from the owner.
+  intent: Map a user-provided plan as a dependency-aware design tree, surface the currently answerable decision frontier in focused rounds, and converge on an updated decision record without taking design authority away from the owner.
   use_when:
     - the user asks for `/grill-me`, "grill me", a design interview, or plan pressure-testing
     - an implementation plan, workflow draft, architecture choice, or project direction needs targeted questioning before execution
@@ -14,7 +14,8 @@ behavior:
     - the task is a pure code review, validation run, or final approval gate
     - the interview would require private runtime truth or source material that is not available in the current context
   expected_outcome:
-    - the key decision questions are ranked by leverage and risk
+    - decision dependencies are visible as a design tree and current frontier
+    - independent high-leverage decisions are asked together in numbered rounds
     - owner answers are turned into a compact decision register
     - the plan patch, remaining assumptions, and blocked questions are explicit
 execution_requirements:
@@ -25,12 +26,14 @@ execution_requirements:
   preferred_capabilities:
     - structured_drafting
     - boundary_review
+    - bounded_fact_finding
   preferred_tools:
     - rg
     - markdown_editor
   notes:
-    - "The skill asks one question at a time and stops at owner decision boundaries."
+    - "The skill asks the current independent decision frontier in rounds, recomputes dependencies after each owner response, and supports one-at-a-time questioning when the owner requests it or cognitive load requires it."
+    - "Facts discoverable from approved local context are gathered before questioning; factual lookup never substitutes for owner decisions."
     - "Actual model, runtime context, attached tools, and installed skill name resolve in local runtime bindings."
 notes:
   - "`grill_me` is a candidate Soulforge skill for design-decision interview and plan alignment before implementation."
-  - "This package is a Soulforge implementation of the interview pattern; it does not copy an external product's bundled skill content."
+  - "The frontier-round revision adapts the public design-tree interview concept from mattpocock/skills commit 84fdeffd12f2ee307994d1eb6feb48173b6e0502 while preserving Soulforge owner and execution boundaries; it does not copy the upstream skill verbatim."
