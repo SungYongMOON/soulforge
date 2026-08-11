@@ -100,7 +100,12 @@ test("tracked federation artifact loads from the fixed repo-relative path as a d
   assert.equal(projection.snapshot.schema_version, "soulforge.ax_topology.federation.v1");
   assert.deepEqual(
     projection.snapshot.providers.map((provider) => provider.provider_id),
-    ["engineering_engine", "watchtower"],
+    [
+      "engineering_engine",
+      "knowledge_stack",
+      "watchtower",
+      "watchtower_notebook_advisory_adapter",
+    ],
   );
   assert.equal(projection.snapshot.summary.runtime_authority, false);
   assert.equal(projection.snapshot.summary.repair_execution_authority, false);
