@@ -10,6 +10,10 @@ dist/
 .claude/
 /automations/
 
+# Local crash reports and bounded temporary outputs are never public source.
+/ErrorReports/
+/tmp/
+
 _workspaces/**
 !_workspaces/README.md
 
