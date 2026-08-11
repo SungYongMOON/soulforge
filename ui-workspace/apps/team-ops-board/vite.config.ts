@@ -10,6 +10,7 @@ import { createHostStatsAdapterPlugin } from "./src/server/host-stats-adapter.mj
 import { createLiveThreadAdapterPlugin } from "./src/server/live-thread-adapter.mjs";
 import { createProviderLimitsAdapterPlugin } from "./src/server/provider-limits-adapter.mjs";
 import { createTopologyAdapterPlugin } from "./src/server/topology-adapter.mjs";
+import { createTopologyFederationAdapterPlugin } from "./src/server/topology-federation-adapter.mjs";
 import {
   createTeamOpsBoardRuntimeEnvironment,
   createTeamOpsBoardTopologyOptions,
@@ -38,6 +39,7 @@ export default defineConfig({
     createLiveThreadAdapterPlugin({ env: boardEnvironment }),
     createAiUsageAdapterPlugin(),
     createTopologyAdapterPlugin(boardTopologyOptions),
+    createTopologyFederationAdapterPlugin(),
     createHostStatsAdapterPlugin(),
     createClaudeUsageAdapterPlugin(),
     createAntigravityUsageAdapterPlugin(),

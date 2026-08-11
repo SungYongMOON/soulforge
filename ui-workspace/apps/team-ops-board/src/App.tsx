@@ -77,6 +77,11 @@ import {
   isFocusRestoreCandidate
 } from "./core/mobile-detail.mjs";
 import { buildTopologyStructuralPaths, buildTopologyViewModel } from "./core/topology-view.mjs";
+import {
+  TOPOLOGY_FEDERATION_DOES_NOT_PROVE_LABELS,
+  buildTopologyFederationViewModel,
+  selectTopologyFederationProvider,
+} from "./core/topology-federation-view.mjs";
 import { buildHostStatsViewModel } from "./core/host-stats.mjs";
 import {
   ANTIGRAVITY_QUOTA_SCHEMA_VERSION,
@@ -463,6 +468,7 @@ function App() {
   }));
   const [aiUsagePending, setAiUsagePending] = useState(true);
   const [topologyProjection, setTopologyProjection] = useState<any>(null);
+  const [topologyFederationProjection, setTopologyFederationProjection] = useState<any>(null);
   const [topologyRefreshing, setTopologyRefreshing] = useState(false);
   const topologyRefreshRef = useRef<(force?: boolean) => Promise<void> | void>(() => {});
   const [hostStatsSnapshot, setHostStatsSnapshot] = useState<any>(null);
@@ -582,6 +588,33 @@ function App() {
       cancelled = true;
       if (topologyRefreshRef.current === load) topologyRefreshRef.current = () => {};
       window.clearInterval(timer);
+    };
+  }, [surface]);
+
+  // 선언 구조는 tracked artifact 한 개다. health 처럼 주기 관측할 대상이 아니므로
+  // 표면 진입 시 한 번만 읽고, 실패는 조용한 성공이 아니라 명시 상태로 남긴다.
+  useEffect(() => {
+    if (surface !== "system") return undefined;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch("/topology-federation.snapshot.json", { cache: "no-store" });
+        if (!response.ok) throw new Error("topology_federation_unavailable");
+        const nextProjection = await response.json();
+        if (!cancelled) setTopologyFederationProjection(nextProjection);
+      } catch {
+        if (!cancelled) {
+          setTopologyFederationProjection((previous: any) => (
+            previous?.snapshot
+              ? { ...previous, state: "stale", reason: "federation_fetch_failed" }
+              : { lens: "declared_structure", state: "unavailable", reason: "federation_fetch_failed", snapshot: null }
+          ));
+        }
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
     };
   }, [surface]);
   const detailRef = useRef<HTMLElement | null>(null);
@@ -1051,7 +1084,10 @@ function App() {
           )}
 
           {surface === "system" && (
-            <SystemTopologySurface projection={topologyProjection} refreshing={topologyRefreshing} onRefreshReadOnly={refreshDiagnostics} />
+            <>
+              <SystemTopologySurface projection={topologyProjection} refreshing={topologyRefreshing} onRefreshReadOnly={refreshDiagnostics} />
+              <DeclaredTopologyFederationSurface projection={topologyFederationProjection} />
+            </>
           )}
 
           {surface === "work" && workGroups.map((group) => (
@@ -3706,6 +3742,177 @@ function SystemTopologySurface({ projection, refreshing, onRefreshReadOnly }: {
       <footer className="watchtower-footnote">
         <EyeOff size={13} aria-hidden="true" />
         <span>노드 관측과 간선 전달은 별도 근거입니다. 흐린 간선은 선언 구조일 뿐이며, 영수증이 있는 간선만 관측 전달로 표시합니다.</span>
+      </footer>
+    </section>
+  );
+}
+
+const DECLARED_TOPOLOGY_STATE_NOTICE: Record<string, string> = {
+  stale: "구조 재읽기 실패 · 마지막으로 검증된 선언 구조를 유지합니다. 현재 성공이나 현재 health가 아닙니다.",
+  unavailable: "선언 구조 계약을 읽지 못했습니다. 구조·관계·상태를 추정하지 않습니다.",
+};
+
+// 선언 구조 렌즈. Watchtower W1 live health 렌즈와 같은 화면에 있지만 근거가 다르므로
+// 상태 색·요약·판정을 공유하지 않는다. 여기에는 복구 실행·변경·외부 호출 표면이 없다.
+function DeclaredTopologyFederationSurface({ projection }: { projection: any }) {
+  const model: any = useMemo(() => buildTopologyFederationViewModel(projection), [projection]);
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+  useEffect(() => {
+    if (selectedProviderId === null) return;
+    if (!model.providers.some((provider: any) => provider.id === selectedProviderId)) {
+      setSelectedProviderId(null);
+    }
+  }, [model, selectedProviderId]);
+  const selection: any = useMemo(
+    () => selectTopologyFederationProvider(model, selectedProviderId),
+    [model, selectedProviderId]
+  );
+
+  if (projection === null) {
+    return (
+      <section className="live-state-panel" role="status" data-testid="declared-topology-loading">
+        <Workflow size={18} aria-hidden="true" />
+        <div>
+          <h2>선언 구조 계약 확인 중</h2>
+          <p>tracked federation projection을 읽는 중입니다. 읽기 전에는 구조를 추정하지 않습니다.</p>
+        </div>
+      </section>
+    );
+  }
+  const summary = model.summary;
+  if (!model.available || summary === null) {
+    return (
+      <section className="live-state-panel" role="status" data-testid="declared-topology-unavailable">
+        <ShieldAlert size={18} aria-hidden="true" />
+        <div>
+          <h2>선언 구조 사용 불가</h2>
+          <p>{DECLARED_TOPOLOGY_STATE_NOTICE.unavailable} 사유: {model.reason ?? "unknown"}</p>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="ax-declared" aria-label="AX 선언 구조 federation" data-testid="declared-topology-surface">
+      <header className="ax-declared-header">
+        <div>
+          <span className="ax-declared-kicker"><Workflow size={15} aria-hidden="true" /> AX TOPOLOGY FEDERATION · v1</span>
+          <h2>{model.lensLabel}</h2>
+          <p>
+            각 owner가 선언한 구조 계약만 표시합니다 · 현재 health·실행·전달 영수증이 아닙니다 ·
+            위의 Watchtower W1 판정과 별도 근거입니다
+          </p>
+        </div>
+        <dl className="ax-declared-counts" data-testid="declared-topology-counts">
+          <div><dt>공급자</dt><dd>{summary.providerCount}</dd></div>
+          <div><dt>선언 노드</dt><dd>{summary.nodeCount}</dd></div>
+          <div><dt>선언 간선</dt><dd>{summary.edgeCount}</dd></div>
+          <div><dt>구조 digest</dt><dd>{model.digest?.topologyShort}</dd></div>
+        </dl>
+      </header>
+      <p className="ax-declared-authority" data-testid="declared-topology-authority">
+        런타임 권한 {String(summary.runtimeAuthority)} · 복구 실행 권한 {String(summary.repairExecutionAuthority)} ·
+        이 표면에는 실행·변경 동작이 없습니다
+      </p>
+      {model.state !== "ready" && (
+        <div className="ax-declared-notice" role="status" data-testid="declared-topology-state-notice">
+          <EyeOff size={15} aria-hidden="true" />
+          <span>{DECLARED_TOPOLOGY_STATE_NOTICE[model.state] ?? "선언 구조 상태 미상"}{model.reason ? ` · 사유: ${model.reason}` : ""}</span>
+        </div>
+      )}
+      <div className="ax-declared-providers" role="group" aria-label="선언 공급자 개요" data-testid="declared-topology-provider-overview">
+        {model.providers.map((provider: any) => (
+          <button
+            key={provider.id}
+            type="button"
+            className={`ax-declared-provider${selectedProviderId === provider.id ? " is-selected" : ""}`}
+            aria-pressed={selectedProviderId === provider.id}
+            onClick={() => setSelectedProviderId((current) => current === provider.id ? null : provider.id)}
+          >
+            <span className="ax-declared-provider-head">
+              <strong>{provider.label}</strong>
+              <em>{provider.id} · {provider.kindLabel}</em>
+            </span>
+            <span className="ax-declared-provider-facts">
+              <span>선언 상태 {provider.declaredStatusLabel}</span>
+              <span>주장 한계 {provider.claimCeilingLabel}</span>
+              <span>검증 {provider.validationStateLabel}</span>
+              <span>런타임 {provider.runtimeStateLabel}</span>
+            </span>
+            <span className="ax-declared-provider-counts">
+              노드 {provider.nodeCount} · 간선 {provider.edgeCount} · payload {provider.payloadStateLabel}
+            </span>
+            {provider.blockerCodes.length > 0 && (
+              <span className="ax-declared-provider-blockers">선언 blocker {provider.blockerCodes.join(" · ")}</span>
+            )}
+          </button>
+        ))}
+      </div>
+      {selection === null ? (
+        <p className="ax-declared-empty" data-testid="declared-topology-empty-selection">
+          공급자를 선택하면 그 공급자의 선언 노드·간선만 보여줍니다. 선택 전에는 내부 구조를 표시하지 않습니다.
+        </p>
+      ) : (
+        <section className="ax-declared-detail" aria-label={`${selection.provider.label} 선언 내부 구조`} data-testid="declared-topology-provider-detail">
+          <header>
+            <div>
+              <span>DECLARED STRUCTURE · READ-ONLY</span>
+              <h3>{selection.provider.label}</h3>
+            </div>
+            <button type="button" onClick={() => setSelectedProviderId(null)}>선택 해제</button>
+          </header>
+          <dl className="ax-declared-detail-facts">
+            <div><dt>선언 상태</dt><dd>{selection.provider.declaredStatusLabel}</dd></div>
+            <div><dt>주장 한계</dt><dd>{selection.provider.claimCeilingLabel}</dd></div>
+            <div><dt>구조 검증</dt><dd>{selection.provider.validationStateLabel} · {selection.provider.validatorId}</dd></div>
+            <div><dt>검증 근거 ref</dt><dd>{selection.provider.validationEvidenceRef ?? "근거 ref 없음"}</dd></div>
+            <div><dt>runtime_state</dt><dd>{selection.provider.runtimeState} · {selection.provider.runtimeStateLabel}</dd></div>
+            <div><dt>source</dt><dd>{selection.provider.sourceId} · {selection.provider.sourceRevision} · {selection.provider.sourceDigestShort}</dd></div>
+            <div><dt>선언 능력</dt><dd>관측 {selection.provider.capabilities.observe.join(" · ") || "없음"} / 진단 {selection.provider.capabilities.diagnose.join(" · ") || "없음"} / 복구 제안 후보 {selection.provider.capabilities.proposeRepair.join(" · ") || "없음"}</dd></div>
+            <div><dt>복구 실행</dt><dd>{String(selection.provider.capabilities.executeRepair)} · 복구는 후보이며 Owner 승인 필요</dd></div>
+            <div><dt>선언 규모</dt><dd>노드 {selection.counts.nodes} · 간선 {selection.counts.edges} · 구조 선언 간선 {selection.counts.structuralOnlyEdges} · 영수증 필요 간선 {selection.counts.receiptRequiredEdges}</dd></div>
+            <div><dt>복구 후보 노드</dt><dd>{selection.counts.repairCandidateNodes} · Owner 승인 필요, 실행 동작 없음</dd></div>
+          </dl>
+          <div className="ax-declared-groups" aria-label="선언 그룹 분포">
+            {selection.groups.map((group: any) => (
+              <span key={group.group}>{group.group} {group.nodeCount}</span>
+            ))}
+          </div>
+          <div className="ax-declared-lists">
+            <section aria-label="선언 노드 목록">
+              <h4>선언 노드 {selection.counts.nodes}</h4>
+              <ul>
+                {selection.nodes.map((node: any) => (
+                  <li key={node.id}>
+                    <strong>{node.label}</strong>
+                    <code>{node.id}</code>
+                    <span>{node.kindLabel} · {node.layerLabel} · {node.group ?? "그룹 없음"}</span>
+                    <span>{node.diagnosticStateLabel} · {node.repairStateLabel}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+            <section aria-label="선언 간선 목록">
+              <h4>선언 간선 {selection.counts.edges}</h4>
+              <ul>
+                {selection.edges.map((edge: any) => (
+                  <li key={edge.id}>
+                    <strong>{edge.fromLabel} → {edge.toLabel}</strong>
+                    <code>{edge.id}</code>
+                    <span>{edge.relationLabel} · {edge.layerLabel}{edge.label ? ` · ${edge.label}` : ""}</span>
+                    <span>{edge.evidenceModeLabel}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        </section>
+      )}
+      <footer className="ax-declared-footnote" data-testid="declared-topology-boundary">
+        <EyeOff size={13} aria-hidden="true" />
+        <span>
+          선언 구조가 입증하지 않는 것: {model.doesNotProve.map((key: string) => (TOPOLOGY_FEDERATION_DOES_NOT_PROVE_LABELS as Record<string, string>)[key] ?? key).join(" · ")}.
+          선언 상태는 W1 health 색으로 승격되지 않으며, 복구는 후보 표시와 Owner 승인 문구까지입니다.
+        </span>
       </footer>
     </section>
   );
