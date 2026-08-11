@@ -474,8 +474,8 @@ validated structure as explicit `stale`; it never presents a retained structure 
 a current success. `/topology-health.snapshot.json` and W1 health behavior are
 unchanged, and the two lenses never share a summary, color, or judgement.
 
-The surface shows a provider overview (currently Watchtower and Engineering
-Engine) with declared status, claim ceiling, validation state and validator,
+The surface shows every validated provider in the tracked federation artifact,
+with declared status, claim ceiling, validation state and validator,
 `runtime_state`, payload state, node/edge counts, and declared blocker codes.
 Selecting a provider drills into the flattened namespaced nodes and edges filtered
 by that exact `provider_id` and namespace prefix; a node or edge that is not
