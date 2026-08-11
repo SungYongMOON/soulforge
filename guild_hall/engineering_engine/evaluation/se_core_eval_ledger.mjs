@@ -188,13 +188,13 @@ function safeString(value, pattern = TOKEN, maximum = 128) {
   return value;
 }
 
-function safeQueryIdentifier(value, pattern) {
+function safeQueryIdentifier(value, pattern, { allow_exact_reserved_namespace = false } = {}) {
   guard(typeof value === 'string'
     && value.length > 0
     && value.length <= 64
     && value.normalize('NFC') === value
     && pattern.test(value)
-    && !RESERVED_IDENTIFIER_NAMESPACE.test(value)
+    && (allow_exact_reserved_namespace || !RESERVED_IDENTIFIER_NAMESPACE.test(value))
     && !ABSOLUTE_PATH_VALUE.test(value)
     && !CREDENTIAL_VALUE.test(value)
     && !ACCOUNT_VALUE.test(value)
@@ -1423,7 +1423,11 @@ export function querySeCoreEvalLedger(ledgerBytes, filters = {}) {
       safeString(filters.event_type);
       guard(EVENT_TYPES.includes(filters.event_type), 'QUERY_REFUSED');
     }
-    if (Object.hasOwn(filters, 'run_id')) safeQueryIdentifier(filters.run_id, QUERY_RUN_ID);
+    if (Object.hasOwn(filters, 'run_id')) {
+      safeQueryIdentifier(filters.run_id, QUERY_RUN_ID, {
+        allow_exact_reserved_namespace: true,
+      });
+    }
     if (Object.hasOwn(filters, 'round_id')) safeQueryIdentifier(filters.round_id, QUERY_ROUND_ID);
     if (Object.hasOwn(filters, 'question_id')) {
       safeQueryIdentifier(filters.question_id, QUERY_QUESTION_ID);

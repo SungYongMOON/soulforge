@@ -792,6 +792,17 @@ test('query returns only validated metadata and rejects unsafe filters', () => {
   });
   assert.equal(run.result, 'PASS');
   assert.equal(run.count, 1);
+  const notebookRun = querySeCoreEvalLedger(ledger, {
+    run_id: 'notebook_round_01',
+  });
+  assert.equal(notebookRun.result, 'PASS');
+  assert.equal(notebookRun.count, 15);
+  const notebookSummary = querySeCoreEvalLedger(ledger, {
+    event_type: 'round_summary',
+    run_id: 'notebook_round_01',
+  });
+  assert.equal(notebookSummary.result, 'PASS');
+  assert.equal(notebookSummary.count, 1);
   const round = querySeCoreEvalLedger(ledger, {
     event_type: 'round_summary',
     round_id: 'round_03',
@@ -831,6 +842,12 @@ test('CLI is stdout-only by default and --out is create-only', () => {
   ]);
   assert.equal(queried.exit_code, 0);
   assert.equal(JSON.parse(queried.stdout).count, 7);
+  const notebookQueried = runCli([
+    'node', 'ledger', 'query', '--ledger', out, '--event-type', 'round_summary',
+    '--run-id', 'notebook_round_01',
+  ]);
+  assert.equal(notebookQueried.exit_code, 0);
+  assert.equal(JSON.parse(notebookQueried.stdout).count, 1);
   const probe = 'project_code_cli_probe';
   const rejectedQuery = runCli([
     'node', 'ledger', 'query', '--ledger', out, '--run-id', probe,
