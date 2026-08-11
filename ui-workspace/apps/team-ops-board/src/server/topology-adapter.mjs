@@ -119,6 +119,10 @@ const PROTECTED_NODE_CONTRACTS = new Map([
     kind: "store", operationMode: "structural", provider: null, healthScope: "node",
     unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
   }],
+  ["store_activity_outbox", {
+    kind: "store", operationMode: "structural", provider: null, healthScope: "node",
+    unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
+  }],
   ["consumer_board", {
     kind: "consumer", operationMode: "resident", provider: null, healthScope: "node",
     unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,

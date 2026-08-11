@@ -20,12 +20,14 @@ $NodeExe = if ($NodeExe) {
 }
 $node = [System.IO.Path]::GetFullPath($NodeExe)
 $cli = Join-Path $runtime "guild_hall\local_activity\cli.mjs"
+$storeValidityCli = Join-Path $runtime "guild_hall\local_activity\store_validity_cli.mjs"
 $LogRoot = if ($LogRoot) {
     $LogRoot
 } else {
     Join-Path (Split-Path (Split-Path $binding -Parent) -Parent) "logs"
 }
 $healthPath = Join-Path (Split-Path $LogRoot -Parent) "health.json"
+$storeHealthPath = Join-Path (Split-Path $LogRoot -Parent) "store_activity_outbox.json"
 $startedAt = [DateTime]::UtcNow.ToString("o")
 $priorLastSuccessAt = $null
 try {
@@ -67,8 +69,38 @@ function Write-LocalActivityHealth {
     return $completedAt
 }
 
+function Write-ActivityOutboxHealth {
+    param([string]$Status, [string[]]$ErrorCodes, $Validation)
+    $prior = $null
+    try { $prior = Get-Content -LiteralPath $storeHealthPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop } catch {}
+    $completedAt = [DateTime]::UtcNow.ToString("o")
+    $lastSuccessAt = if ($Status -eq "ok") { $completedAt } elseif ($prior.last_success_at -is [string]) { $prior.last_success_at } else { $null }
+    $priorDigest = if ($prior.validation_digest -is [string]) { $prior.validation_digest } else { $null }
+    $record = [ordered]@{
+        schema_version = "soulforge.hpp_activity_outbox_store_validity.v1"
+        lane = "store_activity_outbox"
+        validation_scope = "local_activity_current_packet_index_validity"
+        status = $Status
+        attempted_at = $startedAt
+        completed_at = $completedAt
+        last_success_at = $lastSuccessAt
+        validation_digest = if ($Validation) { $Validation.validation_digest } else { $priorDigest }
+        validated_count = if ($Validation) { [int]$Validation.validated_count } elseif ($prior.validated_count -is [int]) { $prior.validated_count } else { 0 }
+        activity_changed = if ($Status -eq "ok" -and $priorDigest) { $priorDigest -ne $Validation.validation_digest } else { $null }
+        error_codes = @($ErrorCodes)
+    }
+    $temporary = "{0}.{1}.tmp" -f $storeHealthPath, $PID
+    [System.IO.File]::WriteAllText($temporary, (($record | ConvertTo-Json -Depth 3) + [Environment]::NewLine), [System.Text.UTF8Encoding]::new($false))
+    if (Test-Path -LiteralPath $storeHealthPath -PathType Leaf) {
+        $backup = "{0}.replace-backup" -f $storeHealthPath
+        Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+        [System.IO.File]::Replace($temporary, $storeHealthPath, $backup)
+        Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+    } else { [System.IO.File]::Move($temporary, $storeHealthPath) }
+}
+
 try {
-    foreach ($target in @($node, $cli, $binding)) {
+    foreach ($target in @($node, $cli, $storeValidityCli, $binding)) {
         if (-not (Test-Path -LiteralPath $target -PathType Leaf)) {
             throw "hpp_local_activity_required_file_missing"
         }
@@ -91,6 +123,16 @@ try {
         $ErrorActionPreference = $previousErrorActionPreference
     }
     $exitCode = $LASTEXITCODE
+    try {
+        $storeOutput = & $node $storeValidityCli --binding $binding --binding-sha256 ("sha256:{0}" -f $actualDigest) 2>$null
+        $storeExitCode = $LASTEXITCODE
+        if ($storeExitCode -ne 0) { throw "activity_outbox_store_validation_failed" }
+        $storeValidation = $storeOutput | ConvertFrom-Json -ErrorAction Stop
+        Write-ActivityOutboxHealth -Status "ok" -ErrorCodes @() -Validation $storeValidation
+    }
+    catch {
+        Write-ActivityOutboxHealth -Status "error" -ErrorCodes @("activity_outbox_store_validation_failed") -Validation $null
+    }
     $finishedAt = [DateTime]::UtcNow.ToString("o")
     $record = [ordered]@{
         schema_version = "soulforge.hpp_local_activity_scheduler_log.v1"

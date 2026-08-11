@@ -1,5 +1,12 @@
 # Task Engine + AX Workspace 구축 마스터플랜 V0
 
+> 2026-08-11 CURRENT: the scheduled all-project local-activity producer now
+> publishes an independent atomic receipt after reopening and validating each
+> current index, compact inventory, and referenced immutable delta/snapshot
+> packet. Its stable digest treats no change as healthy idle. This validates
+> only `store_activity_outbox`; provider availability, timeline delivery, and
+> all topology edges remain unproven.
+
 | 항목 | 값 |
 | --- | --- |
 | 문서 상태 | `MULTI_SOURCE_INGRESS_LIVE_TIMELINE_INTEGRATION_PENDING` |

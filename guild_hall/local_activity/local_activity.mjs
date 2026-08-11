@@ -27,6 +27,8 @@ export const FILE_INVENTORY_STATE_SCHEMA =
   "soulforge.hpp_project_file_inventory_state.v1";
 export const FILE_ACTIVITY_DELTA_SCHEMA =
   "soulforge.hpp_project_file_activity_delta.v1";
+export const ACTIVITY_OUTBOX_VALIDATION_SCOPE =
+  "local_activity_current_packet_index_validity";
 
 const FIVE_FIELD_SCHEMA = "soulforge.five_field_capture.v0";
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{1,119}$/u;
@@ -953,6 +955,86 @@ export async function collectAllProjectLocalActivity({
     );
   }
   return batch;
+}
+
+export async function validateActivityOutboxStore(binding) {
+  const normalized = normalizeHppLocalActivityBinding(binding);
+  const identities = [];
+  let validatedCount = 0;
+  for (const project of normalized.projects) {
+    const paths = fileStatePaths(normalized, project);
+    const current = await readJsonIfPresent(paths.current);
+    if (!current || current.schema_version !== "soulforge.hpp_project_local_activity_current.v1"
+      || current.project_code !== project.project_code
+      || !Number.isFinite(Date.parse(current.observed_at))) {
+      fail("activity_outbox_current_invalid");
+    }
+    const inventory = normalizePriorInventory(
+      await readJsonIfPresent(paths.inventory),
+      project,
+      normalized,
+    );
+    if (project.file_activity.enabled && !inventory) {
+      fail("activity_outbox_inventory_missing");
+    }
+    const stable = {
+      project_code: project.project_code,
+      file_inventory_entry_count: current.file_inventory_entry_count,
+      file_inventory_entry_digests: inventory?.entries.map((entry) => entry.entry_digest).sort() ?? [],
+      bounded_work_snapshot_digest: current.bounded_work_snapshot_digest,
+    };
+    if (project.file_activity.enabled) {
+      if (!SHA256.test(String(current.file_activity_delta_digest ?? ""))) {
+        fail("activity_outbox_delta_ref_invalid");
+      }
+      const delta = await readJsonIfPresent(path.join(
+        paths.file_delta_outbox,
+        current.observed_at.slice(0, 7),
+        `${current.file_activity_delta_digest}.json`,
+      ));
+      if (!delta || delta.schema_version !== FILE_ACTIVITY_DELTA_SCHEMA
+        || delta.project_code !== project.project_code
+        || delta.workspace_binding_id !== project.workspace_binding_id
+        || delta.node_id !== normalized.node_id) {
+        fail("activity_outbox_delta_missing");
+      }
+      const { delta_digest: declaredDeltaDigest, ...deltaCore } = delta;
+      if (declaredDeltaDigest !== current.file_activity_delta_digest
+        || digest(deltaCore) !== declaredDeltaDigest) {
+        fail("activity_outbox_delta_digest_invalid");
+      }
+      if (inventory.latest_scan_id !== delta.scan_id
+        || inventory.entry_count !== current.file_inventory_entry_count) {
+        fail("activity_outbox_inventory_ref_invalid");
+      }
+      validatedCount += 2;
+    }
+    if (!SHA256.test(String(current.bounded_work_snapshot_digest ?? ""))) {
+      fail("activity_outbox_snapshot_ref_invalid");
+    }
+    const snapshot = await readJsonIfPresent(path.join(
+      paths.bounded_outbox,
+      `${current.bounded_work_snapshot_digest}.json`,
+    ));
+    if (!snapshot || snapshot.schema_version !== BOUNDED_WORK_SNAPSHOT_SCHEMA
+      || snapshot.project_code !== project.project_code) {
+      fail("activity_outbox_snapshot_missing");
+    }
+    const { snapshot_digest: declaredSnapshotDigest, ...snapshotCore } = snapshot;
+    if (declaredSnapshotDigest !== current.bounded_work_snapshot_digest
+      || digest(snapshotCore) !== declaredSnapshotDigest) {
+      fail("activity_outbox_snapshot_digest_invalid");
+    }
+    validatedCount += 2;
+    identities.push(stable);
+  }
+  identities.sort((left, right) => left.project_code.localeCompare(right.project_code, "en"));
+  return {
+    lane: "store_activity_outbox",
+    validation_scope: ACTIVITY_OUTBOX_VALIDATION_SCOPE,
+    validation_digest: digest(identities),
+    validated_count: validatedCount,
+  };
 }
 
 async function safeFileStat(target, label) {

@@ -185,6 +185,14 @@ same binding digest, uses `IgnoreNew`, and launches PowerShell with a hidden
 window. The Task Scheduler definition itself is not claimed to have
 `Hidden=true`.
 
+After each scheduled attempt, a separate read-only validator reopens every
+project's `current.json`, compact inventory, and referenced immutable
+delta/snapshot packets. It publishes an atomic sanitized
+`store_activity_outbox` receipt with the exact
+`local_activity_current_packet_index_validity` scope. This does not claim
+downstream delivery, and an unchanged stable inventory/snapshot digest is
+healthy idle.
+
 HPP Codex 작업 맥락 수집기 command는 별도 pinned private binding과 JSON
 payload 하나를 쓴다. CLI가 업무 사건의 `event_id`와 KST-normalized
 `occurred_at`을 공급한다.
@@ -265,6 +273,7 @@ empty object and the CLI supplies `work_id=null`.
 ```powershell
 node --check guild_hall/local_activity/local_activity.mjs
 node --check guild_hall/local_activity/cli.mjs
+node --check guild_hall/local_activity/store_validity_cli.mjs
 node --check guild_hall/local_activity/codex_work_context.mjs
 node --check guild_hall/local_activity/codex_work_context_cli.mjs
 node --check guild_hall/local_activity/ai_work_record_outbox.mjs

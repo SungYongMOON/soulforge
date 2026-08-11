@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2026-08-11 - Local activity outbox validity receipt
+
+- Added an atomic, producer-owned receipt that validates each HPP local-activity current index, compact inventory, and referenced immutable delta/snapshot packets. Watchtower monitors only that exact store scope; unchanged data remains healthy idle and all topology delivery edges remain unreceipted.
+
 ## 2026-08-11 - Persisted mail, voice, and Slack store validity receipts
 
 - Added atomic sanitized store receipts for bounded Hiworks event file-set/tail validity, voice custody checkpoint/current/history files plus immutable receipt identity, and per-channel Slack custody state/index validity. Watchtower pins each exact `lane` and `validation_scope` value so misrouted receipts fail closed and none imply full mail JSONL or Slack attachment-byte verification.

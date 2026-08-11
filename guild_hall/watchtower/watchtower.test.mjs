@@ -73,7 +73,7 @@ test("topology models actual hybrid on-demand usage producers and structural rou
   assert.equal(nodesById.get("usage_meter").health_scope, "aggregate");
   assert.equal(nodesById.get("usage_meter").operation_mode, "on_demand");
   assert.equal(nodesById.get("usage_meter").probe, "usage_meter");
-  for (const storeId of ["store_mail_events", "store_voice_custody", "store_slack_custody"]) {
+  for (const storeId of ["store_mail_events", "store_voice_custody", "store_slack_custody", "store_activity_outbox"]) {
     const store = nodesById.get(storeId);
     assert.equal(store.kind, "store");
     assert.equal(store.probe, storeId);

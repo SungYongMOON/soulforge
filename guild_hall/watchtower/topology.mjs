@@ -101,7 +101,7 @@ export const TOPOLOGY_NODES = Object.freeze([
   // 후처리·외부 목적지·공유 원장·검사 판정
   { id: "src_gmail", label: "Gmail API", kind: "consumer", group: "후처리", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 3, row: 0.9 },
   { id: "voice_label_worker", label: "음성 ASR·라벨 워커", kind: "worker", group: "후처리", probe: "voice_label_worker", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "collector_evidence_absent", col: 3, row: 1.8 },
-  { id: "store_activity_outbox", label: "파일·활동 delta outbox", kind: "store", group: "후처리", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 3, row: 4.2 },
+  { id: "store_activity_outbox", label: "파일·활동 delta outbox", kind: "store", group: "후처리", probe: "store_activity_outbox", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 3, row: 4.2 },
   { id: "store_usage_ledger", label: "공유 AI usage-event 원장", kind: "store", group: "데이터 평면", probe: "store_usage_ledger", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 3, row: 5.4 },
   { id: "watchtower_self", label: "Watchtower 검사·판정", kind: "gate", group: "관측", probe: null, operation_mode: "structural", health_scope: "self", unmonitored_reason: "independent_evidence_absent", col: 3, row: 7.2 },
 

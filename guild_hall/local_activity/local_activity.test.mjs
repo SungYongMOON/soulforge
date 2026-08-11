@@ -21,7 +21,31 @@ import {
   HPP_LOCAL_ACTIVITY_BINDING_SCHEMA,
   collectAllProjectLocalActivity,
   normalizeHppLocalActivityBinding,
+  validateActivityOutboxStore,
 } from "./local_activity.mjs";
+
+test("activity outbox validation is stable when only observation clocks advance", async (t) => {
+  const fx = await fixture(t);
+  await collectAllProjectLocalActivity({ binding: fx.binding, bindingSha256: "sha256:test", observedAt: "2026-08-11T10:00:00.000Z", apply: true });
+  const first = await validateActivityOutboxStore(fx.binding);
+  await collectAllProjectLocalActivity({ binding: fx.binding, bindingSha256: "sha256:test", observedAt: "2026-08-11T10:30:00.000Z", apply: true });
+  const second = await validateActivityOutboxStore(fx.binding);
+  assert.equal(first.lane, "store_activity_outbox");
+  assert.equal(first.validation_scope, "local_activity_current_packet_index_validity");
+  assert.equal(first.validation_digest, second.validation_digest);
+  assert.equal(second.validated_count, 4);
+});
+
+test("activity outbox validation rejects a corrupt referenced immutable packet", async (t) => {
+  const fx = await fixture(t);
+  await collectAllProjectLocalActivity({ binding: fx.binding, bindingSha256: "sha256:test", observedAt: "2026-08-11T10:00:00.000Z", apply: true });
+  const current = JSON.parse(await readFile(path.join(fx.state, "projects", "demo_project", "current.json"), "utf8"));
+  const deltaPath = path.join(fx.state, "projects", "demo_project", "outbox", "file_activity_delta", "2026-08", `${current.file_activity_delta_digest}.json`);
+  const delta = JSON.parse(await readFile(deltaPath, "utf8"));
+  delta.changed_observation_count += 1;
+  await writeFile(deltaPath, `${JSON.stringify(delta)}\n`, "utf8");
+  await assert.rejects(() => validateActivityOutboxStore(fx.binding), { code: "activity_outbox_delta_digest_invalid" });
+});
 
 function fiveField(overrides = {}) {
   return {
