@@ -12,6 +12,9 @@
   `wscript.exe //B //NoLogo` launcher so the interactive limited task and its
   five-minute producer companion remain fully backgrounded without changing
   cadence, read-only boundaries, restart policy, or `StopOnIdleEnd=false`.
+- Added the same GUI-subsystem launch boundary to the continuous voice ASR and
+  labeling supervisor registrar, preserving its exact PowerShell arguments,
+  at-logon/watchdog triggers, 15-minute cadence, and existing task settings.
 
 ## 2026-08-10 - SE Engineering Engine Phase 1 lanes complete
 

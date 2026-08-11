@@ -150,10 +150,11 @@ $ProfilePath = [IO.Path]::GetFullPath($ProfilePath)
 $AsrBinRoot = [IO.Path]::GetFullPath($AsrBinRoot)
 $StateRoot = [IO.Path]::GetFullPath($StateRoot)
 $Launcher = [IO.Path]::GetFullPath((Join-Path $RuntimeRoot "guild_hall\voice_capture\ops\run-continuous-label-supervisor.ps1"))
+$HiddenLauncher = [IO.Path]::GetFullPath((Join-Path $RuntimeRoot "guild_hall\voice_capture\ops\run-continuous-label-supervisor-hidden.vbs"))
 foreach ($ProtectedPath in @($RuntimeRoot, $RepoRoot, $VoiceRoot, $ProfilePath, $AsrBinRoot, $StateRoot)) {
   Assert-NoReparsePath -Path $ProtectedPath
 }
-foreach ($RequiredFile in @($Launcher, $ProfilePath, (Join-Path $AsrBinRoot "whisper-cli.exe"))) {
+foreach ($RequiredFile in @($Launcher, $HiddenLauncher, $ProfilePath, (Join-Path $AsrBinRoot "whisper-cli.exe"))) {
   if (-not (Test-Path -LiteralPath $RequiredFile -PathType Leaf)) {
     throw "voice label supervisor required file is missing"
   }
@@ -176,6 +177,7 @@ $VoiceRoot = [IO.Path]::GetFullPath((Get-Item -LiteralPath $VoiceRoot -Force).Fu
 $ProfilePath = [IO.Path]::GetFullPath((Get-Item -LiteralPath $ProfilePath -Force).FullName)
 $AsrBinRoot = [IO.Path]::GetFullPath((Get-Item -LiteralPath $AsrBinRoot -Force).FullName)
 $Launcher = [IO.Path]::GetFullPath((Get-Item -LiteralPath $Launcher -Force).FullName)
+$HiddenLauncher = [IO.Path]::GetFullPath((Get-Item -LiteralPath $HiddenLauncher -Force).FullName)
 $StateRoot = Resolve-PlannedDirectoryPath -Path $StateRoot
 $null = Assert-DisjointPath -Left $RuntimeRoot -Right $RepoRoot
 $ProfileConfigRoot = [IO.Path]::GetFullPath((Join-Path $VoiceRoot "config"))
@@ -191,6 +193,7 @@ foreach ($ProtectedRoot in @($RuntimeRoot, $RepoRoot, $VoiceRoot, $ProfileConfig
 }
 
 $PowerShellExe = [IO.Path]::GetFullPath((Get-Command powershell.exe -ErrorAction Stop).Source)
+$WScriptExe = [IO.Path]::GetFullPath((Join-Path $env:SystemRoot "System32\wscript.exe"))
 $ActionArguments = @(
   "-NoProfile",
   "-NonInteractive",
@@ -209,7 +212,8 @@ $ActionArguments = @(
   "-MaxAsrSessions", $MaxAsrSessions,
   "-MaxLabelSessions", $MaxLabelSessions
 )
-$ActionArgumentLine = ($ActionArguments | ForEach-Object { ConvertTo-TaskArgument -Value ([string]$_) }) -join " "
+$HiddenActionArguments = @("//B", "//NoLogo", $HiddenLauncher, $PowerShellExe) + $ActionArguments
+$ActionArgumentLine = ($HiddenActionArguments | ForEach-Object { ConvertTo-TaskArgument -Value ([string]$_) }) -join " "
 
 $Existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 $TaskFile = Join-Path $env:WINDIR "System32\Tasks\$TaskName"
@@ -240,7 +244,7 @@ if (-not $PSCmdlet.ShouldProcess($TaskName, "register and optionally start the h
   return
 }
 
-$Action = New-ScheduledTaskAction -Execute $PowerShellExe -Argument $ActionArgumentLine -WorkingDirectory $RuntimeRoot
+$Action = New-ScheduledTaskAction -Execute $WScriptExe -Argument $ActionArgumentLine -WorkingDirectory $RuntimeRoot
 $LogonTrigger = New-ScheduledTaskTrigger -AtLogOn -User $CurrentUser
 $WatchdogTrigger = New-ScheduledTaskTrigger -Once -At ([datetime]::new(2026, 1, 1, 0, 0, 0)) `
   -RepetitionInterval (New-TimeSpan -Minutes $WatchdogMinutes)
@@ -272,7 +276,9 @@ $RegistrationValid = $TriggerNodes.Count -eq 2 `
   -and $null -ne $WatchdogIntervalNode `
   -and $WatchdogIntervalNode.InnerText -eq $ExpectedWatchdogInterval `
   -and $RegisteredXml.Task.Settings.MultipleInstancesPolicy -eq "IgnoreNew" `
-  -and $RegisteredXml.Task.Actions.Exec.Command -eq $PowerShellExe `
+  -and $RegisteredXml.Task.Actions.Exec.Command -eq $WScriptExe `
+  -and $RegisteredXml.Task.Actions.Exec.Arguments -match '^//B\s+//NoLogo\s+' `
+  -and $RegisteredXml.Task.Actions.Exec.Arguments -match 'run-continuous-label-supervisor-hidden\.vbs' `
   -and $RegisteredXml.Task.Actions.Exec.Arguments -match '-WindowStyle\s+Hidden'
 if (-not $RegistrationValid) {
   throw "registered voice label supervisor task failed post-registration attestation"

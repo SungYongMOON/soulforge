@@ -12,6 +12,7 @@ import {
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const LAUNCHER = path.join(ROOT, "ops", "run-continuous-label-supervisor.ps1");
+const HIDDEN_LAUNCHER = path.join(ROOT, "ops", "run-continuous-label-supervisor-hidden.vbs");
 const REGISTRAR = path.join(ROOT, "ops", "register-continuous-label-supervisor-task.ps1");
 
 test("supervisor runs bounded cycles and emits metadata-only summaries", async () => {
@@ -96,10 +97,13 @@ test("supervisor rejects unsafe cadence and non-apply execution", async () => {
 });
 
 test("Windows task contract is a hidden at-logon supervisor with a repetition watchdog and duplicate protection", async (t) => {
-  const [launcher, registrar] = await Promise.all([
+  const [launcher, hiddenLauncher, registrar] = await Promise.all([
     readFile(LAUNCHER, "utf8"),
+    readFile(HIDDEN_LAUNCHER, "utf8"),
     readFile(REGISTRAR, "utf8"),
   ]);
+  assert.match(hiddenLauncher, /shell\.Run\(command, 0, True\)/u);
+  assert.doesNotMatch(hiddenLauncher, /cmd\.exe|Start-Process/iu);
   assert.match(launcher, /Local\\Soulforge\.HPP\.VoiceLabel\.Supervisor/);
   assert.match(launcher, /supervisor\.instance\.lock/);
   assert.match(launcher, /\[IO\.FileShare\]::None/);
@@ -118,6 +122,9 @@ test("Windows task contract is a hidden at-logon supervisor with a repetition wa
   assert.match(launcher, /Assert-DisjointPath -Left \$RuntimeRoot -Right \$RepoRoot/);
   assert.match(registrar, /New-ScheduledTaskTrigger -AtLogOn/);
   assert.match(registrar, /-WindowStyle", "Hidden"/);
+  assert.match(registrar, /System32\\wscript\.exe/);
+  assert.match(registrar, /"\/\/B", "\/\/NoLogo", \$HiddenLauncher, \$PowerShellExe/u);
+  assert.match(registrar, /run-continuous-label-supervisor-hidden\.vbs/u);
   assert.match(registrar, /-MultipleInstances IgnoreNew/);
   assert.match(registrar, /-RestartCount 3/);
   assert.match(registrar, /-ExecutionTimeLimit \(\[TimeSpan\]::Zero\)/);

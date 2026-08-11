@@ -381,6 +381,9 @@ The Windows entrypoints are:
 - `continuous_label_supervisor_cli.mjs`: persistent cycle loop
 - `ops/run-continuous-label-supervisor.ps1`: binary/profile attestation,
   process-lifetime lock, and redacted logs
+- `ops/run-continuous-label-supervisor-hidden.vbs`: GUI-subsystem bridge that
+  waits for the exact PowerShell supervisor with window style `0`, preventing
+  an interactive scheduled task from opening Windows Terminal
 - `ops/register-continuous-label-supervisor-task.ps1`: dry-run-first scheduled
   task registration — at-logon start plus an indefinite repetition watchdog
   (default every 15 minutes) so a killed supervisor restarts without waiting
