@@ -8,6 +8,10 @@
   a source-backed provider view, selectable keyboard-operable legend series, and
   exact hover/focus day tooltips. The Board explicitly states that usage path is
   not recorded instead of inferring Desktop, CLI, extension, cloud, or mobile.
+- Moved the on-demand Board scheduled controller behind a repository-owned
+  `wscript.exe //B //NoLogo` launcher so the interactive limited task and its
+  five-minute producer companion remain fully backgrounded without changing
+  cadence, read-only boundaries, restart policy, or `StopOnIdleEnd=false`.
 
 ## 2026-08-10 - SE Engineering Engine Phase 1 lanes complete
 

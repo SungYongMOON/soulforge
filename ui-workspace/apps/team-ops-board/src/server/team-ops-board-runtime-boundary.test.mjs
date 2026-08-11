@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   TEAM_OPS_BOARD_RUNTIME_HOST,
+  TEAM_OPS_BOARD_RUNTIME_HIDDEN_LAUNCHER,
   TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES,
   TEAM_OPS_BOARD_RUNTIME_LAUNCH_PIPE,
   TEAM_OPS_BOARD_RUNTIME_CLAUDE_QUOTA_READ,
@@ -55,6 +56,7 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RUNTIME_SOURCE = path.resolve(HERE, "..", "..", "ops", "team-ops-board-runtime.mjs");
+const HIDDEN_LAUNCHER_SOURCE = path.resolve(HERE, "..", "..", "ops", "team-ops-board-hidden-launcher.vbs");
 
 test("runtime launch requires exact pilot and one parser-approved protected host", () => {
   assert.throws(() => validateRuntimeLaunchEnvironment({}), /pilot_required/);
@@ -138,7 +140,8 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
   const nodePath = path.win32.join(syntheticDrive, "Program Files", "nodejs", "node.exe");
   const modulePath = path.win32.join(syntheticDrive, "public-safe", "team-ops-board-runtime.mjs");
   const systemRoot = path.win32.join(syntheticDrive, "Windows");
-  const definition = createScheduledTaskDefinition({ nodePath, modulePath });
+  const launcherPath = path.win32.join(syntheticDrive, "public-safe", "team-ops-board-hidden-launcher.vbs");
+  const definition = createScheduledTaskDefinition({ nodePath, modulePath, launcherPath, systemRoot });
   assert.equal(definition.task_name, TEAM_OPS_BOARD_RUNTIME_TASK_NAME);
   assert.equal(definition.trigger_count, 0);
   assert.equal(definition.stored_credential_count, 0);
@@ -153,6 +156,10 @@ test("scheduled task is on-demand, interactive, limited, and contains no protect
   assert.equal(definition.restart_count, TEAM_OPS_BOARD_RUNTIME_RESTART_COUNT);
   assert.equal(definition.restart_interval, TEAM_OPS_BOARD_RUNTIME_RESTART_INTERVAL);
   assert.equal(definition.watchdog_count, 0);
+  assert.equal(definition.execute, path.win32.join(systemRoot, "System32", "wscript.exe"));
+  assert.match(definition.arguments, /^\/\/B \/\/NoLogo /u);
+  assert.match(definition.arguments, /team-ops-board-hidden-launcher\.vbs/u);
+  assert.match(definition.arguments, /node\.exe/u);
   assert.match(definition.action_digest, /^[a-f0-9]{64}$/u);
   const spec = createScheduledTaskPowerShellSpec("register", {
     definition,
@@ -719,6 +726,11 @@ test("CLI and failure output remain bounded to public-safe classes", () => {
 
 test("tracked runtime has only the bounded on-demand task surface", async () => {
   const source = await readFile(RUNTIME_SOURCE, "utf8");
+  const hiddenLauncher = await readFile(HIDDEN_LAUNCHER_SOURCE, "utf8");
+  assert.match(TEAM_OPS_BOARD_RUNTIME_HIDDEN_LAUNCHER, /team-ops-board-hidden-launcher\.vbs$/u);
+  assert.match(hiddenLauncher, /shell\.Run\(command, 0, True\)/u);
+  assert.match(hiddenLauncher, /mode <> "__scheduled_worker"/u);
+  assert.doesNotMatch(hiddenLauncher, /cmd\.exe|powershell|Start-Process/iu);
   assert.equal(TEAM_OPS_BOARD_RUNTIME_PUBLIC_RECORD_MAX_BYTES, 4096);
   assert.equal(TEAM_OPS_BOARD_RUNTIME_HELPER_MAX_BUFFER_BYTES, 128 * 1024);
   assert.doesNotMatch(source, /0\.0\.0\.0|ListenOnLan|firewall|taskkill|Stop-Process|schtasks|autostart|service create/iu);

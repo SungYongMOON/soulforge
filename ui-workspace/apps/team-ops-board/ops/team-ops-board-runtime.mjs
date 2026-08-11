@@ -89,6 +89,10 @@ const SCHEDULED_HELPER_ENVIRONMENT_ALLOWLIST = Object.freeze([
 ]);
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+export const TEAM_OPS_BOARD_RUNTIME_HIDDEN_LAUNCHER = path.join(
+  HERE,
+  "team-ops-board-hidden-launcher.vbs",
+);
 const APP_ROOT = path.resolve(HERE, "..");
 const SOULFORGE_ROOT = path.resolve(APP_ROOT, "../../..");
 const CONFIG_FILE = path.join(APP_ROOT, "vite.config.ts");
@@ -377,13 +381,24 @@ function scheduledActionDigest(execute, argumentsValue) {
 export function createScheduledTaskDefinition({
   nodePath = process.execPath,
   modulePath = fileURLToPath(import.meta.url),
+  launcherPath = TEAM_OPS_BOARD_RUNTIME_HIDDEN_LAUNCHER,
+  systemRoot = process.env.SystemRoot || process.env.WINDIR,
 } = {}) {
-  const argumentsValue = `${quoteWindowsCommandArgument(modulePath)} __scheduled_worker`;
+  if (typeof systemRoot !== "string" || systemRoot.trim() === "") fail("task_unavailable");
+  const execute = path.join(path.resolve(systemRoot), "System32", "wscript.exe");
+  const argumentsValue = [
+    "//B",
+    "//NoLogo",
+    quoteWindowsCommandArgument(launcherPath),
+    quoteWindowsCommandArgument(nodePath),
+    quoteWindowsCommandArgument(modulePath),
+    "__scheduled_worker",
+  ].join(" ");
   return {
     task_name: TEAM_OPS_BOARD_RUNTIME_TASK_NAME,
-    execute: nodePath,
+    execute,
     arguments: argumentsValue,
-    action_digest: scheduledActionDigest(nodePath, argumentsValue),
+    action_digest: scheduledActionDigest(execute, argumentsValue),
     trigger_count: 0,
     stored_credential_count: 0,
     logon_type: "Interactive",
