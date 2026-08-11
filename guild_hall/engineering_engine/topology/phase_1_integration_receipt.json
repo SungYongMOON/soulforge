@@ -6,12 +6,12 @@
     {
       "id": "suites",
       "ok": true,
-      "detail": "10 suites, 842 checks"
+      "detail": "11 suites, 928 checks"
     },
     {
       "id": "mutation_lock",
       "ok": true,
-      "detail": "51/51 killed across 21 modules"
+      "detail": "52/52 killed across 21 modules"
     },
     {
       "id": "frozen_bundle",
@@ -134,13 +134,22 @@
       "pass_count": 28,
       "failure_count": 0,
       "failures": []
+    },
+    {
+      "suite": "phase_2_oracle_conformance.mjs",
+      "lane": "phase_2_oracles",
+      "verification_strength": "author_written_spec_frozen_before_implementation",
+      "result": "PASS",
+      "pass_count": 86,
+      "failure_count": 0,
+      "failures": []
     }
   ],
-  "total_conformance_checks": 842,
+  "total_conformance_checks": 928,
   "mutation_lock": {
     "result": "PASS",
-    "mutations": 51,
-    "killed": 51,
+    "mutations": 52,
+    "killed": 52,
     "survived": 0,
     "catalogue_errors": 0,
     "modules_covered": 21,
@@ -152,7 +161,7 @@
     "mismatches": []
   },
   "runtime_observation": {
-    "run_id": "run-20260810235908266",
+    "run_id": "run-20260811003440734",
     "surfaces_run": 9,
     "surfaces_without_heartbeat": 3,
     "edge_coverage": "85/85",
@@ -194,7 +203,8 @@
     "D-P10-03": "author_written_fixtures",
     "runtime_observation": "author_written_fixtures",
     "end_to_end": "author_written_fixtures",
-    "output_contract": "author_written_fixtures"
+    "output_contract": "author_written_fixtures",
+    "phase_2_oracles": "author_written_spec_frozen_before_implementation"
   },
   "honest_limits": [
     "five of six lanes carry author-written fixtures; only the phase_1_0 substrate is judged against the independently reviewed frozen oracle",

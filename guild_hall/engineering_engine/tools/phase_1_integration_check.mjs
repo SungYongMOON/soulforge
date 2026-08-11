@@ -60,6 +60,7 @@ const SUITES = [
   ['runtime_observation_conformance.mjs', [], 'runtime_observation', 'author_written_fixtures'],
   ['end_to_end_engine_run.mjs', [], 'end_to_end', 'author_written_fixtures'],
   ['output_contract_conformance.mjs', ['--scratch', SCRATCH], 'output_contract', 'author_written_fixtures'],
+  ['phase_2_oracle_conformance.mjs', [], 'phase_2_oracles', 'author_written_spec_frozen_before_implementation'],
 ];
 
 const suiteResults = [];

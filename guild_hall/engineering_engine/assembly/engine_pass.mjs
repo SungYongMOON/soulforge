@@ -36,10 +36,20 @@ export function runEnginePass({
   }
 
   // ---- compare
+  //
+  // A subject that can detect a contradiction says so here. Without this the assembled engine
+  // could never report gap_conflict at all: the kernel supports it and compareStates accepts
+  // the signal, but nothing was passing one, so a whole verdict class was unreachable end to
+  // end. The frozen Phase 2 spec is what exposed that.
+  const conflicting = new Set(states.conflicting_element_ids ?? []);
   const observedById = new Map(states.observed.map((o) => [o.element_id, o]));
   const gaps = states.expected.map((expected) => {
     const observed = observedById.get(`obs_${expected.element_id}`);
-    return { expected, observed, ...compareStates({ expected, observed }) };
+    return {
+      expected,
+      observed,
+      ...compareStates({ expected, observed, conflicts: conflicting.has(expected.element_id) }),
+    };
   });
 
   // ---- mint at the serialised boundary, one lane held for the pass

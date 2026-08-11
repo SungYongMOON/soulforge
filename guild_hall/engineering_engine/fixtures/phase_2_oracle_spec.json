@@ -1,0 +1,212 @@
+{
+  "schema_version": "soulforge.engineering_engine.phase_2_oracle_spec.v0",
+  "status": "FROZEN_BEFORE_IMPLEMENTATION",
+  "scope": "public_synthetic_only",
+  "forbidden_in_every_case": [
+    "real project material",
+    "private RAG or Wiki payload",
+    "live runtime",
+    "P5 acceptance",
+    "P8 write",
+    "learned model invocation"
+  ],
+  "freeze_intent": "The expected verdicts are written before the cases are implemented, so an implementation cannot be retrofitted to whatever the code already does. This is the weakest form of independence available to a single author and it is not a substitute for a second author.",
+  "shared_definitions": {
+    "gap_types": ["satisfied", "gap_missing", "gap_unknown", "gap_conflict", "unexpected_observed"],
+    "evidence_ceilings": ["unknown", "observed_artifact", "source_referenced", "source_sufficient", "human_accepted", "contradicted", "not_applicable"],
+    "observation_trust": "absence may be reported as confirmed only when the observation recorded evidence, no surface failed, and at least one surface ran",
+    "forbidden_output_is_absolute": "a forbidden output is a failure of the case regardless of every other assertion passing"
+  },
+
+  "oracles": [
+    {
+      "id": "O1_correct",
+      "intent": "A requirement met by an observed artifact produces no finding.",
+      "exact_input": {
+        "expected_elements": 3,
+        "observed_elements": 3,
+        "receipts_cover": "all three expected elements",
+        "observation_trust": "clean",
+        "conflicts": false
+      },
+      "expected_verdict": {
+        "gap_counts": { "satisfied": 3 },
+        "finding_count": 0,
+        "snapshot_claim_ceiling": "observed_artifact",
+        "context_request": null
+      },
+      "forbidden_output": [
+        "any finding for a satisfied pair",
+        "a context request when nothing was unresolved",
+        "a claim ceiling above observed_artifact"
+      ],
+      "metric": "findings_emitted_for_satisfied_pairs",
+      "threshold": { "operator": "==", "value": 0 }
+    },
+
+    {
+      "id": "O2_missing",
+      "intent": "Confirmed absence is an answer, and it is reported as missing rather than unknown.",
+      "exact_input": {
+        "expected_elements": 3,
+        "receipts_cover": "one of three",
+        "observation_trust": "clean",
+        "unobserved_presence_state": "absence_confirmed"
+      },
+      "expected_verdict": {
+        "gap_counts": { "satisfied": 1, "gap_missing": 2 },
+        "finding_count": 2,
+        "finding_gap_type": "gap_missing",
+        "finding_evidence_ceiling": "observed_artifact",
+        "context_request": null,
+        "every_finding_cites": "observation_attempt_ref"
+      },
+      "forbidden_output": [
+        "gap_unknown for a confirmed absence",
+        "a context request, because a confirmed absence is not a question for a human",
+        "a finding that cites nothing"
+      ],
+      "metric": "confirmed_absences_reported_as_unknown",
+      "threshold": { "operator": "==", "value": 0 }
+    },
+
+    {
+      "id": "O3_unknown",
+      "intent": "An observation that could not be trusted yields unknown, never missing. This is the rule the kernel exists to protect.",
+      "exact_input": {
+        "expected_elements": 3,
+        "receipts_cover": "one of three",
+        "observation_trust": "compromised",
+        "compromise_variants": ["a_surface_failed", "no_observation_recorded", "no_surface_ran"]
+      },
+      "expected_verdict": {
+        "gap_counts": { "satisfied": 1, "gap_unknown": 2 },
+        "finding_gap_type": "gap_unknown",
+        "finding_evidence_ceiling": "unknown",
+        "snapshot_claim_ceiling": "unknown",
+        "context_request": { "produced": true, "candidate_only": true, "erp_delta": 0, "names_only_unknown_findings": true }
+      },
+      "forbidden_output": [
+        "gap_missing anywhere in this case",
+        "an evidence ceiling of observed_artifact on an unknown finding",
+        "a snapshot claim ceiling above unknown",
+        "a context request that names a finding which is not unknown"
+      ],
+      "metric": "false_missing_rate",
+      "threshold": { "operator": "==", "value": 0 }
+    },
+
+    {
+      "id": "O4_contradictory",
+      "intent": "Two applicable sources that disagree are recorded as a conflict; neither side is silently dropped and no winner is picked without saying so.",
+      "exact_input": {
+        "expected_elements": 1,
+        "observed_elements": 1,
+        "conflicts": true,
+        "disagreeing_sources": 2,
+        "authority_families": ["project_contract_baseline", "reviewed_wiki"]
+      },
+      "expected_verdict": {
+        "gap_counts": { "gap_conflict": 1 },
+        "finding_count": 1,
+        "finding_gap_type": "gap_conflict",
+        "both_sides_retained": true,
+        "context_request": null
+      },
+      "forbidden_output": [
+        "dropping the lower authority side from the record",
+        "selecting a winner without recording the conflict",
+        "reporting satisfied when the two sides disagree",
+        "an evidence ceiling that hides the disagreement"
+      ],
+      "metric": "conflicts_recorded_with_both_refs",
+      "threshold": { "operator": "==", "value": 1 }
+    },
+
+    {
+      "id": "O5_stale",
+      "intent": "Evidence outside its freshness window proves a past state and nothing about the present.",
+      "exact_input": {
+        "expected_elements": 2,
+        "receipts_cover": "both",
+        "receipt_age_seconds": 1814400,
+        "window": { "period_seconds": 600, "grace_seconds": 300 }
+      },
+      "expected_verdict": {
+        "edge_delivery_state": "stale",
+        "proves_traversal": false,
+        "treated_as_current_evidence": false,
+        "gap_types_permitted": ["gap_unknown"]
+      },
+      "forbidden_output": [
+        "delivering or late for a receipt outside the window",
+        "proves_traversal true on a stale receipt",
+        "satisfied derived from stale evidence",
+        "gap_missing derived from stale evidence"
+      ],
+      "metric": "stale_evidence_admitted_as_current",
+      "threshold": { "operator": "==", "value": 0 }
+    },
+
+    {
+      "id": "O6_unauthorized",
+      "intent": "Evidence the requester may not see never reaches the output, and its exclusion is stated.",
+      "exact_input": {
+        "seed_refs": 1,
+        "reachable_refs": 3,
+        "acl_denies": "one ref at hop 1 and one ref at hop 2",
+        "max_hops": 2
+      },
+      "expected_verdict": {
+        "included_refs_exclude_denied": true,
+        "exclusions_carry_reason": ["acl_denied_at_seed", "acl_denied_at_hop"],
+        "capsule_still_produced": true
+      },
+      "forbidden_output": [
+        "a denied ref appearing in included_refs",
+        "a denied ref appearing anywhere in the capsule payload, hash or pointer set",
+        "a denied ref appearing in a finding citation",
+        "an exclusion recorded without a reason",
+        "silently returning an empty capsule instead of stating the denial"
+      ],
+      "metric": "unauthorized_refs_present_in_output",
+      "threshold": { "operator": "==", "value": 0 }
+    },
+
+    {
+      "id": "O7_wrong_project",
+      "intent": "A request bound to project A can never surface project B material, and the refusal is loud.",
+      "exact_input": {
+        "request_project": "pb-alpha",
+        "evidence_projects": ["pb-alpha", "pb-bravo"],
+        "cache_seeded_with": "pb-bravo results under a colliding query"
+      },
+      "expected_verdict": {
+        "outcome": "fail_closed",
+        "project_bravo_refs_in_output": 0,
+        "cache_entry_rejected": true,
+        "refusal_reason_stated": true
+      },
+      "forbidden_output": [
+        "any pb-bravo ref, hash, payload or cache entry in a pb-alpha result",
+        "a cross-project cache hit served as if it belonged to the request",
+        "a silent empty result instead of a stated refusal"
+      ],
+      "metric": "cross_project_refs_in_output",
+      "threshold": { "operator": "==", "value": 0 }
+    }
+  ],
+
+  "suite_level_thresholds": {
+    "every_oracle_must_pass": true,
+    "forbidden_output_violations_allowed": 0,
+    "cases_may_not_be_skipped_silently": true,
+    "harness_self_test_required": true
+  },
+
+  "honest_limits": [
+    "these expectations were written by the same author as the engine, and freezing them before implementation is the only independence a single author can create",
+    "a rule that is wrong in the same way in both the spec and the code survives this entirely",
+    "no case here touches real project material, so passing says nothing about behaviour on real data"
+  ]
+}

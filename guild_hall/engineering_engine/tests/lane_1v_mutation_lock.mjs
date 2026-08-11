@@ -52,6 +52,7 @@ const SUITES = {
   runtime_observation: { file: 'runtime_observation_conformance.mjs', args: [] },
   end_to_end: { file: 'end_to_end_engine_run.mjs', args: [] },
   output_contract: { file: 'output_contract_conformance.mjs', args: ['--scratch', SCRATCH_ROOT] },
+  phase_2: { file: 'phase_2_oracle_conformance.mjs', args: [] },
 };
 
 // Each entry disables or weakens exactly one guard. `find` must occur exactly once in its
@@ -183,6 +184,11 @@ const CATALOGUE = [
   { id: 'receipt/unlabelled_method_accepted', file: 'delivery_receipt.mjs', suite: 'runtime_observation',
     find: '  if (!OBSERVATION_METHODS.includes(receipt.observation_method)) {', replace: '  if (false) {' },
 
+  // ---- the conflict signal, which was unreachable end to end until the frozen spec exposed it
+  { id: 'assembly/conflict_signal_ignored', area: 'assembly', file: 'engine_pass.mjs', suite: 'phase_2',
+    find: '      ...compareStates({ expected, observed, conflicts: conflicting.has(expected.element_id) }),',
+    replace: '      ...compareStates({ expected, observed }),' },
+
   // ---- output binding: fail-closed resolution
   { id: 'binding/broken_pointer_resolves_to_a_guess', area: 'tools', file: 'output_binding.mjs', suite: 'output_contract',
     find: "    return { root: null, source: 'pointer_unreadable', pointer_path: pointer };",
@@ -243,7 +249,7 @@ try {
   created.push(workspace);
   // Every area the engine holds code in, or a mutation there would silently have nothing to
   // break and the catalogue would report a clean sweep over a partial copy.
-  for (const area of ['kernel', 'assembly', 'subjects', 'tools', 'tests']) {
+  for (const area of ['kernel', 'assembly', 'subjects', 'tools', 'tests', 'fixtures']) {
     cpSync(join(ENGINE, area), join(workspace, area), { recursive: true });
   }
 

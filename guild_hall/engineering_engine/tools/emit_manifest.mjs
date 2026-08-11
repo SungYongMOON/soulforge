@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, '..');
 
-const INCLUDED_DIRS = ['kernel', 'assembly', 'subjects', 'tools', 'tests', 'contracts', 'topology'];
+const INCLUDED_DIRS = ['kernel', 'assembly', 'subjects', 'tools', 'tests', 'contracts', 'fixtures', 'topology'];
 const INCLUDED_ROOT_FILES = ['README.md'];
 
 // The receipt records the result of a run, so it changes on every run and cannot be part of the
