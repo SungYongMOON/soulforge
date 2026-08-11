@@ -11,6 +11,14 @@ import {
   adaptWatchtowerTopology,
 } from "../topology_provider_adapters.mjs";
 import { canonicalStringify, composeFederatedTopology } from "../topology_federation.mjs";
+import {
+  KNOWLEDGE_STACK_SOURCE_REFS,
+  buildKnowledgeStackTopologyProvider,
+} from "../providers/knowledge_stack.mjs";
+import {
+  NOTEBOOK_ADVISORY_SOURCE_REFS,
+  buildNotebookAdvisoryTopologyProvider,
+} from "../providers/notebook_advisory.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const WATCHTOWER_SOURCE = resolve(REPO_ROOT, "guild_hall/watchtower/topology.mjs");
@@ -57,9 +65,19 @@ function outputPath(ref) {
 function buildFederatedTopologyBytes() {
   const watchtowerBytes = readRequiredSource(WATCHTOWER_SOURCE, "watchtower_topology_source");
   const engineBytes = readRequiredSource(ENGINE_SOURCE, "engineering_engine_topology_source");
+  const knowledgeSources = KNOWLEDGE_STACK_SOURCE_REFS.map((ref) => ({
+    ref,
+    bytes: readRequiredSource(resolve(REPO_ROOT, ref), ref),
+  }));
+  const notebookSources = Object.fromEntries(NOTEBOOK_ADVISORY_SOURCE_REFS.map((ref) => [
+    ref,
+    readRequiredSource(resolve(REPO_ROOT, ref), ref),
+  ]));
   const providers = [
     adaptWatchtowerTopology(topologySkeleton(), watchtowerBytes),
     adaptEngineeringEngineTopology(engineBytes),
+    buildKnowledgeStackTopologyProvider(knowledgeSources),
+    buildNotebookAdvisoryTopologyProvider(notebookSources),
   ];
   return Buffer.from(canonicalStringify(composeFederatedTopology(providers)), "utf8");
 }

@@ -1052,6 +1052,96 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "knowledge_stack::knowledge_access",
+      "id": "knowledge_stack::access_projects_graph",
+      "label": "explicit ledger analysis projection",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "projects",
+      "to": "knowledge_stack::knowledge_graph"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::knowledge_canon",
+      "id": "knowledge_stack::canon_projects_graph",
+      "label": "public canon metadata projection",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "projects",
+      "to": "knowledge_stack::knowledge_graph"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::knowledge_canon",
+      "id": "knowledge_stack::canon_supplies_rag",
+      "label": "safe canon metadata",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "data",
+      "to": "knowledge_stack::rag"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::knowledge_graph",
+      "id": "knowledge_stack::graph_supplies_rag",
+      "label": "safe graph metadata",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "data",
+      "to": "knowledge_stack::rag"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::rag",
+      "id": "knowledge_stack::rag_projects_graph",
+      "label": "metadata-only RAG overlay",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "projects",
+      "to": "knowledge_stack::knowledge_graph"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::rag",
+      "id": "knowledge_stack::rag_records_access",
+      "label": "metadata-only retrieval events",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "data",
+      "to": "knowledge_stack::knowledge_access"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::wiki_cell",
+      "id": "knowledge_stack::wiki_cell_routes_pipeline",
+      "label": "default workflow",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "control",
+      "to": "knowledge_stack::wiki_pipeline"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::wiki_pipeline",
+      "id": "knowledge_stack::wiki_pipeline_advises_rag",
+      "label": "metadata-only refresh handoff",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "advises",
+      "to": "knowledge_stack::rag"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "knowledge_stack::wiki_pipeline",
+      "id": "knowledge_stack::wiki_pipeline_routes_access",
+      "label": "knowledge access capture stage",
+      "layer": "subsystem",
+      "provider_id": "knowledge_stack",
+      "relation": "control",
+      "to": "knowledge_stack::knowledge_access"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "watchtower::gate_five_field",
       "id": "watchtower::edge.gate_five_field.store_activity_outbox.data",
       "label": "delta append",
@@ -1369,6 +1459,56 @@
       "provider_id": "watchtower",
       "relation": "data",
       "to": "watchtower::consumer_board"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "id": "watchtower_notebook_advisory_adapter::boundary_contains_discovery_workflow",
+      "label": "contains discovery workflow",
+      "layer": "operation",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "relation": "contains",
+      "to": "watchtower_notebook_advisory_adapter::discovery_workflow"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "id": "watchtower_notebook_advisory_adapter::boundary_contains_human_review_handoff",
+      "label": "contains human review handoff",
+      "layer": "operation",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "relation": "contains",
+      "to": "watchtower_notebook_advisory_adapter::human_review_handoff"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "id": "watchtower_notebook_advisory_adapter::boundary_contains_metadata_bridge",
+      "label": "contains metadata bridge",
+      "layer": "module",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "relation": "contains",
+      "to": "watchtower_notebook_advisory_adapter::metadata_bridge"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower_notebook_advisory_adapter::discovery_workflow",
+      "id": "watchtower_notebook_advisory_adapter::discovery_advises_human_review",
+      "label": "research delta handoff",
+      "layer": "operation",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "relation": "advises",
+      "to": "watchtower_notebook_advisory_adapter::human_review_handoff"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "watchtower_notebook_advisory_adapter::metadata_bridge",
+      "id": "watchtower_notebook_advisory_adapter::metadata_projects_human_review",
+      "label": "metadata-only advisory handoff",
+      "layer": "operation",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "relation": "projects",
+      "to": "watchtower_notebook_advisory_adapter::human_review_handoff"
     }
   ],
   "nodes": [
@@ -1645,6 +1785,83 @@
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::knowledge_access",
+      "kind": "provider",
+      "label": "Knowledge access",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::knowledge_canon",
+      "kind": "knowledge",
+      "label": "Knowledge canon package",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::knowledge_graph",
+      "kind": "knowledge",
+      "label": "Knowledge graph",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "Knowledge",
+      "id": "knowledge_stack::knowledge_stack",
+      "kind": "provider",
+      "label": "Knowledge stack",
+      "layer": "system",
+      "parent_id": null,
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::rag",
+      "kind": "knowledge",
+      "label": "RAG",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::wiki_cell",
+      "kind": "supervisor",
+      "label": "Knowledge Wiki Cell",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Knowledge",
+      "id": "knowledge_stack::wiki_pipeline",
+      "kind": "operation",
+      "label": "Knowledge Wiki Pipeline",
+      "layer": "subsystem",
+      "parent_id": "knowledge_stack::knowledge_stack",
+      "provider_id": "knowledge_stack",
       "repair_state": "none"
     },
     {
@@ -1942,6 +2159,50 @@
       "layer": "subsystem",
       "parent_id": null,
       "provider_id": "watchtower",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "Notebook advisory",
+      "id": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "kind": "workbench",
+      "label": "Notebook advisory boundary",
+      "layer": "subsystem",
+      "parent_id": null,
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Notebook advisory",
+      "id": "watchtower_notebook_advisory_adapter::discovery_workflow",
+      "kind": "operation",
+      "label": "Dual research discovery workflow",
+      "layer": "operation",
+      "parent_id": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Notebook advisory",
+      "id": "watchtower_notebook_advisory_adapter::human_review_handoff",
+      "kind": "gate",
+      "label": "Human save and export review handoff",
+      "layer": "operation",
+      "parent_id": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "structural",
+      "group": "Notebook advisory",
+      "id": "watchtower_notebook_advisory_adapter::metadata_bridge",
+      "kind": "module",
+      "label": "Notebook metadata bridge",
+      "layer": "module",
+      "parent_id": "watchtower_notebook_advisory_adapter::advisory_boundary",
+      "provider_id": "watchtower_notebook_advisory_adapter",
       "repair_state": "none"
     }
   ],
@@ -3196,6 +3457,203 @@
         "source_truth": false
       },
       "blocker_codes": [
+        "runtime_observation_absent"
+      ],
+      "capabilities": {
+        "diagnose": [
+          "source_bundle_integrity",
+          "structural_validation"
+        ],
+        "execute_repair": false,
+        "observe": [
+          "declared_knowledge_contracts"
+        ],
+        "propose_repair": []
+      },
+      "claim_ceiling": "source_supported",
+      "declared_status": "candidate",
+      "edges": [
+        {
+          "evidence_mode": "structural_only",
+          "from": "knowledge_access",
+          "id": "access_projects_graph",
+          "label": "explicit ledger analysis projection",
+          "layer": "subsystem",
+          "relation": "projects",
+          "to": "knowledge_graph"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "knowledge_canon",
+          "id": "canon_projects_graph",
+          "label": "public canon metadata projection",
+          "layer": "subsystem",
+          "relation": "projects",
+          "to": "knowledge_graph"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "knowledge_canon",
+          "id": "canon_supplies_rag",
+          "label": "safe canon metadata",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "rag"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "knowledge_graph",
+          "id": "graph_supplies_rag",
+          "label": "safe graph metadata",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "rag"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "rag",
+          "id": "rag_projects_graph",
+          "label": "metadata-only RAG overlay",
+          "layer": "subsystem",
+          "relation": "projects",
+          "to": "knowledge_graph"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "rag",
+          "id": "rag_records_access",
+          "label": "metadata-only retrieval events",
+          "layer": "subsystem",
+          "relation": "data",
+          "to": "knowledge_access"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "wiki_cell",
+          "id": "wiki_cell_routes_pipeline",
+          "label": "default workflow",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "wiki_pipeline"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "wiki_pipeline",
+          "id": "wiki_pipeline_advises_rag",
+          "label": "metadata-only refresh handoff",
+          "layer": "subsystem",
+          "relation": "advises",
+          "to": "rag"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "wiki_pipeline",
+          "id": "wiki_pipeline_routes_access",
+          "label": "knowledge access capture stage",
+          "layer": "subsystem",
+          "relation": "control",
+          "to": "knowledge_access"
+        }
+      ],
+      "label": "Soulforge declared knowledge stack",
+      "nodes": [
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "knowledge_access",
+          "kind": "provider",
+          "label": "Knowledge access",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "knowledge_canon",
+          "kind": "knowledge",
+          "label": "Knowledge canon package",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "knowledge_graph",
+          "kind": "knowledge",
+          "label": "Knowledge graph",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "Knowledge",
+          "id": "knowledge_stack",
+          "kind": "provider",
+          "label": "Knowledge stack",
+          "layer": "system",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "rag",
+          "kind": "knowledge",
+          "label": "RAG",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "wiki_cell",
+          "kind": "supervisor",
+          "label": "Knowledge Wiki Cell",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Knowledge",
+          "id": "wiki_pipeline",
+          "kind": "operation",
+          "label": "Knowledge Wiki Pipeline",
+          "layer": "subsystem",
+          "parent_id": "knowledge_stack",
+          "repair_state": "none"
+        }
+      ],
+      "payload_state": "public_safe_contract",
+      "provider_id": "knowledge_stack",
+      "provider_kind": "knowledge",
+      "runtime_state": "unknown",
+      "schema_version": "soulforge.ax_topology.provider.v1",
+      "source": {
+        "digest": "132f17e403ffe759e1eda20e5f03c5331984d0908dce0061ed8c908b2de3d623",
+        "revision": "knowledge_stack_topology.v1",
+        "schema_version": "knowledge_stack_owner_contracts.v1",
+        "source_id": "knowledge_stack_owner_contracts"
+      },
+      "validation": {
+        "evidence_ref": "guild_hall/watchtower/providers/knowledge_stack.mjs",
+        "source_commit": null,
+        "state": "passed",
+        "validator_id": "knowledge_stack_topology_provider.v1"
+      }
+    },
+    {
+      "authority_boundary": {
+        "answer_authority": false,
+        "owner_approval_authority": false,
+        "runtime_mutation": false,
+        "source_truth": false
+      },
+      "blocker_codes": [
         "delivery_receipts_absent",
         "runtime_observation_absent"
       ],
@@ -3791,16 +4249,149 @@
         "state": "passed",
         "validator_id": "watchtower_topology_adapter.v1"
       }
+    },
+    {
+      "authority_boundary": {
+        "answer_authority": false,
+        "owner_approval_authority": false,
+        "runtime_mutation": false,
+        "source_truth": false
+      },
+      "blocker_codes": [
+        "canonical_provider_id_missing"
+      ],
+      "capabilities": {
+        "diagnose": [
+          "authority_boundary",
+          "source_allowlist_integrity"
+        ],
+        "execute_repair": false,
+        "observe": [
+          "advisory_boundary",
+          "declared_structure",
+          "source_contract_digest"
+        ],
+        "propose_repair": []
+      },
+      "claim_ceiling": "source_supported",
+      "declared_status": "hold",
+      "edges": [
+        {
+          "evidence_mode": "structural_only",
+          "from": "advisory_boundary",
+          "id": "boundary_contains_discovery_workflow",
+          "label": "contains discovery workflow",
+          "layer": "operation",
+          "relation": "contains",
+          "to": "discovery_workflow"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "advisory_boundary",
+          "id": "boundary_contains_human_review_handoff",
+          "label": "contains human review handoff",
+          "layer": "operation",
+          "relation": "contains",
+          "to": "human_review_handoff"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "advisory_boundary",
+          "id": "boundary_contains_metadata_bridge",
+          "label": "contains metadata bridge",
+          "layer": "module",
+          "relation": "contains",
+          "to": "metadata_bridge"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "discovery_workflow",
+          "id": "discovery_advises_human_review",
+          "label": "research delta handoff",
+          "layer": "operation",
+          "relation": "advises",
+          "to": "human_review_handoff"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "metadata_bridge",
+          "id": "metadata_projects_human_review",
+          "label": "metadata-only advisory handoff",
+          "layer": "operation",
+          "relation": "projects",
+          "to": "human_review_handoff"
+        }
+      ],
+      "label": "NotebookLM advisory topology adapter",
+      "nodes": [
+        {
+          "diagnostic_state": "validator_backed",
+          "group": "Notebook advisory",
+          "id": "advisory_boundary",
+          "kind": "workbench",
+          "label": "Notebook advisory boundary",
+          "layer": "subsystem",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Notebook advisory",
+          "id": "discovery_workflow",
+          "kind": "operation",
+          "label": "Dual research discovery workflow",
+          "layer": "operation",
+          "parent_id": "advisory_boundary",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Notebook advisory",
+          "id": "human_review_handoff",
+          "kind": "gate",
+          "label": "Human save and export review handoff",
+          "layer": "operation",
+          "parent_id": "advisory_boundary",
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "structural",
+          "group": "Notebook advisory",
+          "id": "metadata_bridge",
+          "kind": "module",
+          "label": "Notebook metadata bridge",
+          "layer": "module",
+          "parent_id": "advisory_boundary",
+          "repair_state": "none"
+        }
+      ],
+      "payload_state": "public_safe_contract",
+      "provider_id": "watchtower_notebook_advisory_adapter",
+      "provider_kind": "advisory_workbench",
+      "runtime_state": "unknown",
+      "schema_version": "soulforge.ax_topology.provider.v1",
+      "source": {
+        "digest": "2b9c527267fcced9d75f604e8b7bfdcce746d8b2d314c23b6cc6ebb6ffd716ae",
+        "revision": "notebook_advisory_adapter.v1",
+        "schema_version": "soulforge.notebook_advisory_sources.v1",
+        "source_id": "watchtower_notebook_advisory_sources"
+      },
+      "validation": {
+        "evidence_ref": "guild_hall/watchtower/providers/notebook_advisory.test.mjs",
+        "source_commit": null,
+        "state": "passed",
+        "validator_id": "watchtower.notebook_advisory_provider.v1"
+      }
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "db54d21e61df08a548b1b635efb04a9db48402e8b32f17fb914d31d3d080c61f",
+  "source_set_digest": "082a4889476cd1e905010db907d5042c9d5da6e840d59a11b0e4fd417f1602e6",
   "summary": {
-    "edge_count": 137,
-    "node_count": 52,
-    "provider_count": 2,
+    "edge_count": 151,
+    "node_count": 63,
+    "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "4555d918039d2a1eb27327e8ec9b25f3b3ecb341cbe8a553dd0322b24b981bf8"
+  "topology_digest": "4e635a319dd9af543c5322a8cd26a932e35098470e61cc6b58dc3eeeb33e9af5"
 }

@@ -6,9 +6,10 @@
   Each subsystem remains the owner of its declaration; Watchtower namespaces and combines
   only allowlisted public-safe structure and never promotes it to runtime, delivery, source,
   answer, approval, or repair-execution authority.
-- Added exact adapters for the existing Watchtower catalog and the generated Engineering
-  Engine topology. The first tracked projection contains 2 providers, 52 declared nodes,
-  and 137 declared edges. Its input byte hashes and full-document digest are deterministic;
+- Added exact adapters for the existing Watchtower catalog, generated Engineering Engine
+  topology, public RAG·Graph·Wiki owner-contract bundle, and Notebook advisory contract bundle.
+  The tracked projection contains 4 providers, 63 declared nodes, and 151 declared edges.
+  Its input byte hashes and full-document digest are deterministic;
   automatic discovery, project payloads, private paths, NotebookLM answers, account/session
   data, runtime health, and inferred cross-provider edges are excluded.
 - Added declared-versus-observed exact-set reconciliation so a viewer can surface catalog
@@ -17,8 +18,8 @@
 - Wired `validate:watchtower` into both root acceptance modes before Team Ops Board. The gate
   syntax-checks the producer, byte-compares a fresh projection with the tracked artifact,
   and runs structural, adversarial, adapter, and existing health-probe tests.
-- Bounded verification: Watchtower 28/28 tests pass, generated projection byte check passes
-  at SHA-256 `23e6b9c82f6794b776d61eb54e41136ba20346e20d69bbc79c2c6e62ddd8f22d`,
+- Bounded verification: Watchtower 41/41 tests pass, generated projection byte check passes
+  at SHA-256 `900b4574677cdbaf491be51b44496ca546bf9915ff3ba580475e4e9bf0545ac1`,
   root-step tests 4/4 pass, changed-path policy reports zero violations, and `git diff --check`
   passes. No live binding, external account, project material, runtime, UI, or repair action
   was exercised.

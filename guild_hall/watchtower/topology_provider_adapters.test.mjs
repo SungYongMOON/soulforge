@@ -76,8 +76,9 @@ test("CLI emits canonical bytes only on stdout by default and --check remains re
   const run = spawnSync(process.execPath, [CLI], { encoding: "utf8" });
   assert.equal(run.status, 0, run.stderr);
   const parsed = JSON.parse(run.stdout);
-  assert.equal(parsed.summary.node_count, 52);
-  assert.equal(parsed.summary.edge_count, 137);
+  assert.equal(parsed.summary.provider_count, 4);
+  assert.equal(parsed.summary.node_count, 63);
+  assert.equal(parsed.summary.edge_count, 151);
   assert.equal(run.stdout, canonicalStringify(parsed));
 
   const scratch = mkdtempSync(join(tmpdir(), "soulforge-federated-topology-"));
@@ -105,9 +106,9 @@ test("CLI never writes without --out and writes only the requested output", () =
     const emitted = spawnSync(process.execPath, [CLI, "--out", output], { encoding: "utf8" });
     assert.equal(emitted.status, 0, emitted.stderr);
     const parsed = JSON.parse(readFileSync(output, "utf8"));
-    assert.equal(parsed.summary.provider_count, 2);
-    assert.equal(parsed.summary.node_count, 52);
-    assert.equal(parsed.summary.edge_count, 137);
+    assert.equal(parsed.summary.provider_count, 4);
+    assert.equal(parsed.summary.node_count, 63);
+    assert.equal(parsed.summary.edge_count, 151);
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
