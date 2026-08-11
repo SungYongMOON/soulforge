@@ -60,8 +60,8 @@
 - Wired `validate:watchtower` into both root acceptance modes before Team Ops Board. The gate
   syntax-checks the producer, byte-compares a fresh projection with the tracked artifact,
   and runs structural, adversarial, adapter, and existing health-probe tests.
-- Bounded verification: Watchtower 41/41 tests pass, generated projection byte check passes
-  at SHA-256 `900b4574677cdbaf491be51b44496ca546bf9915ff3ba580475e4e9bf0545ac1`,
+- Bounded verification: Watchtower 44/44 tests pass, generated projection byte check passes
+  at 138,739 bytes and SHA-256 `453faee9e2bf6435795925661cb84330bca161f7cf9bd83d370b75b54de592ba`,
   root-step tests 4/4 pass, changed-path policy reports zero violations, and `git diff --check`
   passes. No live binding, external account, project material, runtime, UI, or repair action
   was exercised.
