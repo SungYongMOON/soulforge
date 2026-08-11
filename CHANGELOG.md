@@ -1,12 +1,30 @@
 # CHANGELOG
 
+## 2026-08-12 - Common-SE Engine and Notebook shadow evaluation prepared
+
+- Added a read-only `common_se_corpus_projection` subject adapter that converts an
+  immutable, exact-revision common-SE rule projection into bounded Engineering
+  Engine expected/observed inputs while preserving binding, ACL, authority,
+  digest, `UNKNOWN`/`MISSING`, and deterministic replay boundaries.
+- Added a deterministic manual shadow scorer for the fixed seven-oracle matrix:
+  seven Engine references plus 21 Notebook-only and 21 synthetic-hybrid human
+  review sidecars. It performs no provider login, query, upload, Engine run, file
+  write, official acceptance, Task creation, or baseline change.
+- Added public-safe source-eligibility and synthetic projection examples. Public
+  availability is no longer treated as sufficient external-AI reuse permission;
+  exact bytes, revision, SHA-256, and rights remain separate gates. DAPA and ISO
+  source bodies remain excluded/HOLD for the external comparison.
+- Added `validate:engineering-engine-se-core-eval` and included the new evaluation
+  surface in the Engine byte manifest. No actual project data, Notebook answer,
+  account identifier, source upload, runtime activation, or UI activation was added.
+
 ## 2026-08-11 - Restore classic topology and expose Engineering Engine connections
 
 - Restored the original five-lane Watchtower topology surface with its existing
   node shapes, icons, text hierarchy, directed curves, minimap, controls, and
   read-only inspector instead of the compact provider-sector drill-down.
 - Added a second classic-style Engineering Engine graph that renders all tracked
-  25 modules and 105 provider-local `imports` edges fully expanded in five
+  modules and provider-local `imports` edges fully expanded in five
   semantic lanes. Engine health, runtime, and delivery remain UNKNOWN or
   unobserved; no W1 tone is inherited.
 - Kept both read-only topology endpoints and all federation validators unchanged.

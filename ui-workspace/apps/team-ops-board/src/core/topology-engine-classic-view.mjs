@@ -16,7 +16,7 @@ const ENGINE_LANES = Object.freeze([
     roleLabel: "BOUNDARY",
     label: "계약·권한",
     tone: "input",
-    ids: ["contract_config", "execution_mode", "ceilings", "authority", "identity"],
+    ids: ["contract_config", "common_se_corpus_projection", "execution_mode", "ceilings", "authority", "identity"],
   },
   {
     roleLabel: "ASSEMBLE",
@@ -46,6 +46,7 @@ const ENGINE_LANES = Object.freeze([
 
 const CLASSIC_SHAPE_BY_ID = Object.freeze({
   contract_config: "external",
+  common_se_corpus_projection: "external",
   execution_mode: "external",
   ceilings: "external",
   authority: "gate",

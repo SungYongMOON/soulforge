@@ -122,6 +122,76 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.authority",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.capsule",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::capsule"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.graph",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::graph"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.identity",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::identity"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::common_se_corpus_projection",
+      "id": "engineering_engine::imports.common_se_corpus_projection.snapshot",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::snapshot"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::context_receipt",
       "id": "engineering_engine::imports.context_receipt.authority",
       "label": "imports",
@@ -259,6 +329,16 @@
       "provider_id": "engineering_engine",
       "relation": "imports",
       "to": "engineering_engine::authority"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::engine_pass",
+      "id": "engineering_engine::imports.engine_pass.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
     },
     {
       "evidence_mode": "structural_only",
@@ -1568,6 +1648,17 @@
     },
     {
       "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::common_se_corpus_projection",
+      "kind": "module",
+      "label": "common_se_corpus_projection",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
       "group": "kernel",
       "id": "engineering_engine::context_receipt",
       "kind": "module",
@@ -2352,6 +2443,69 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.authority",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.capsule",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "capsule"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.graph",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "graph"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.identity",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "identity"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "common_se_corpus_projection",
+          "id": "imports.common_se_corpus_projection.snapshot",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "snapshot"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "context_receipt",
           "id": "imports.context_receipt.authority",
           "label": "imports",
@@ -2475,6 +2629,15 @@
           "layer": "module",
           "relation": "imports",
           "to": "authority"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "engine_pass",
+          "id": "imports.engine_pass.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
         },
         {
           "evidence_mode": "structural_only",
@@ -3232,6 +3395,16 @@
         },
         {
           "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "common_se_corpus_projection",
+          "kind": "module",
+          "label": "common_se_corpus_projection",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
           "group": "kernel",
           "id": "context_receipt",
           "kind": "module",
@@ -3447,7 +3620,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "8e3dc42b0e567c0f09d6d291a3d149f12d954c0c3aaaea31c2da0f087b5cdcb2",
+        "digest": "be149c02a268fab5766d7b619cb512daca738f29e08129bdcee353877098a58d",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -4404,13 +4577,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "63c56b9b0ba30be52fbe33d226358aef2fc9bf0ac7947c52a605b7f9bfa32f2b",
+  "source_set_digest": "af731c38ea2e2ea7afd7d394bde6d6c80758145b706979285bc9453a1f74c96a",
   "summary": {
-    "edge_count": 152,
-    "node_count": 63,
+    "edge_count": 160,
+    "node_count": 64,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "044d593e750f817c75a7f2683f22bee228eb32d6f3ec8ac20b1f09225b9db5c9"
+  "topology_digest": "741c2790906f70693bdb28005f94ffff077eea58048d52f6d9c65a6d7c18b4c1"
 }

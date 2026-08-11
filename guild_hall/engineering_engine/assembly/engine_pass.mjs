@@ -14,11 +14,114 @@ import { compareStates, GAP_TYPE, validateFinding, validateSnapshotEnvelope, ass
 import { recordSourceConflict } from '../kernel/authority.mjs';
 import { validateContextRequest } from '../kernel/pipeline.mjs';
 import { acquireMintingLane, mint } from '../kernel/minting.mjs';
-import { deterministicReplayFingerprint, classifyRerun } from '../kernel/fingerprint.mjs';
+import { deterministicReplayFingerprint, classifyRerun, sha256Hex } from '../kernel/fingerprint.mjs';
 import { FINGERPRINT_INPUT_KEYS, CONTRACT_REVISION, BASELINE_EXECUTION_MODE } from '../kernel/contract_config.mjs';
+import { canonicalise, compareCodePoints } from '../kernel/canonical.mjs';
 import { ContractError } from '../kernel/errors.mjs';
 
-export const CODES = Object.freeze({ INPUT_MISSING: 'ENGINE_PASS_INPUT_MISSING' });
+export const CODES = Object.freeze({
+  INPUT_MISSING: 'ENGINE_PASS_INPUT_MISSING',
+  CONTEXT_CAPSULE_FINGERPRINT_INVALID: 'ENGINE_PASS_CONTEXT_CAPSULE_FINGERPRINT_INVALID',
+  STATE_SUBJECT_MISMATCH: 'ENGINE_PASS_STATE_SUBJECT_MISMATCH',
+  STATE_PROJECT_BINDING_MISMATCH: 'ENGINE_PASS_STATE_PROJECT_BINDING_MISMATCH',
+  STATE_GENERATION_MISMATCH: 'ENGINE_PASS_STATE_GENERATION_MISMATCH',
+  STATE_SEMANTICS_INVALID: 'ENGINE_PASS_STATE_SEMANTICS_INVALID',
+  STATE_SNAPSHOT_INVALID: 'ENGINE_PASS_STATE_SNAPSHOT_INVALID',
+});
+
+const SHA256 = /^[0-9a-f]{64}$/;
+const COMMON_SE_SUBJECT_ID = 'common_se_corpus_projection';
+const COMMON_SE_MARKER_FIELDS = Object.freeze([
+  'projection_revision', 'projection_sha256', 'manifest_revision', 'manifest_sha256',
+]);
+
+function snapshotEngineStates(root) {
+  const seen = new WeakSet();
+  const walk = (value) => {
+    if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+    if (typeof value === 'number' && Number.isSafeInteger(value)) return value;
+    if (value === null || typeof value !== 'object') {
+      throw new ContractError(CODES.STATE_SNAPSHOT_INVALID,
+        'Engine states must contain only plain own JSON data');
+    }
+    if (seen.has(value)) {
+      throw new ContractError(CODES.STATE_SNAPSHOT_INVALID,
+        'Engine states must be an acyclic, unaliased data tree');
+    }
+    seen.add(value);
+
+    const array = Array.isArray(value);
+    let prototype;
+    let descriptors;
+    try {
+      prototype = Object.getPrototypeOf(value);
+      descriptors = Object.getOwnPropertyDescriptors(value);
+    } catch {
+      throw new ContractError(CODES.STATE_SNAPSHOT_INVALID,
+        'Engine state reflection failed without exposing caller-controlled error text');
+    }
+    if ((array && prototype !== Array.prototype) || (!array && prototype !== Object.prototype)) {
+      throw new ContractError(CODES.STATE_SNAPSHOT_INVALID,
+        'Engine states require plain objects and arrays');
+    }
+
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.some((key) => typeof key !== 'string')) {
+      throw new ContractError(CODES.STATE_SNAPSHOT_INVALID, 'Engine states cannot contain symbol properties');
+    }
+    const dataKeys = array ? keys.filter((key) => key !== 'length') : keys;
+    const arrayLength = array ? descriptors.length?.value : undefined;
+    if (array) {
+      if (!Number.isSafeInteger(arrayLength) || arrayLength < 0
+          || dataKeys.length !== arrayLength
+          || dataKeys.some((key) => !/^(0|[1-9][0-9]*)$/u.test(key) || Number(key) >= arrayLength)) {
+        throw new ContractError(CODES.STATE_SNAPSHOT_INVALID,
+          'Engine state arrays must be dense and carry no named properties');
+      }
+    }
+
+    const snapshot = array ? new Array(arrayLength) : {};
+    for (const key of dataKeys) {
+      const descriptor = descriptors[key];
+      if (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) {
+        throw new ContractError(CODES.STATE_SNAPSHOT_INVALID,
+          'Engine state fields must be own enumerable data properties');
+      }
+      Object.defineProperty(snapshot, key, {
+        value: walk(descriptor.value), enumerable: true, configurable: true, writable: true,
+      });
+    }
+    return snapshot;
+  };
+
+  const snapshot = walk(root);
+  if (snapshot === null || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    throw new ContractError(CODES.STATE_SNAPSHOT_INVALID, 'states must be one plain object');
+  }
+  return snapshot;
+}
+
+function stateElementsFingerprint(states) {
+  if (!Array.isArray(states.expected) || !Array.isArray(states.observed)) {
+    throw new ContractError(CODES.STATE_SEMANTICS_INVALID,
+      'states.expected and states.observed must be explicit arrays');
+  }
+  try {
+    // Canonical strings are compared as complete values instead of joining selected fields
+    // with a separator. Reordering is inert, while any accepted expected/observed semantic
+    // change remains replay relevant even when its artifact revision ref is unchanged.
+    const expected = states.expected.map((element) => canonicalise(element)).sort(compareCodePoints);
+    const observed = states.observed.map((element) => canonicalise(element)).sort(compareCodePoints);
+    const material = canonicalise({ expected, observed }, {
+      expected: 'insertion_ordered',
+      observed: 'insertion_ordered',
+    });
+    return sha256Hex(`soulforge.se_engine.state_elements.v0\n${material}`);
+  } catch {
+    throw new ContractError(CODES.STATE_SEMANTICS_INVALID,
+      'expected and observed state semantics could not be canonicalised');
+  }
+}
 
 /**
  * Runs one pass and returns everything it produced.
@@ -35,6 +138,40 @@ export function runEnginePass({
   for (const [name, value] of [['states', states], ['takenAt', takenAt], ['mintValue', mintValue]]) {
     if (!value) throw new ContractError(CODES.INPUT_MISSING, `${name} is required`);
   }
+  // Snapshot once, before any validation or fingerprinting. Every later comparison and output
+  // reads this copy, so a Proxy cannot present one state to the fingerprint and another to the
+  // snapshot after the hash has been computed.
+  const stateSnapshot = snapshotEngineStates(states);
+  const hasStateSubject = Object.hasOwn(stateSnapshot, 'subject_id');
+  const hasStateBinding = Object.hasOwn(stateSnapshot, 'project_binding_ref');
+  const hasStateGeneration = Object.hasOwn(stateSnapshot, 'accepted_context_generation');
+  const commonSeMarked = subjectId === COMMON_SE_SUBJECT_ID
+    || stateSnapshot.subject_id === COMMON_SE_SUBJECT_ID
+    || COMMON_SE_MARKER_FIELDS.some((field) => Object.hasOwn(stateSnapshot, field));
+
+  if ((hasStateSubject && stateSnapshot.subject_id !== subjectId)
+      || (commonSeMarked && (!hasStateSubject || stateSnapshot.subject_id !== COMMON_SE_SUBJECT_ID
+        || subjectId !== COMMON_SE_SUBJECT_ID))) {
+    throw new ContractError(CODES.STATE_SUBJECT_MISMATCH,
+      'state subject identity must exactly match the caller and common-SE identity cannot be removed or relabelled');
+  }
+  if ((hasStateBinding && stateSnapshot.project_binding_ref !== projectBindingRef)
+      || (commonSeMarked && !hasStateBinding)) {
+    throw new ContractError(CODES.STATE_PROJECT_BINDING_MISMATCH,
+      'state project binding must exactly match the caller');
+  }
+  if ((hasStateGeneration && stateSnapshot.accepted_context_generation !== generation)
+      || (commonSeMarked && !hasStateGeneration)) {
+    throw new ContractError(CODES.STATE_GENERATION_MISMATCH,
+      'state accepted context generation must exactly match the caller');
+  }
+  const contextCapsuleFingerprint = stateSnapshot.context_capsule_fingerprint;
+  if ((commonSeMarked && !SHA256.test(contextCapsuleFingerprint ?? ''))
+      || (contextCapsuleFingerprint !== undefined && !SHA256.test(contextCapsuleFingerprint))) {
+    throw new ContractError(CODES.CONTEXT_CAPSULE_FINGERPRINT_INVALID,
+      'a common-SE subject requires one lowercase SHA-256 context capsule fingerprint');
+  }
+  const canonicalStateElementsFingerprint = stateElementsFingerprint(stateSnapshot);
 
   // ---- compare
   //
@@ -42,13 +179,13 @@ export function runEnginePass({
   // could never report gap_conflict at all: the kernel supports it and compareStates accepts
   // the signal, but nothing was passing one, so a whole verdict class was unreachable end to
   // end. The frozen Phase 2 spec is what exposed that.
-  const conflicting = new Set(states.conflicting_element_ids ?? []);
+  const conflicting = new Set(stateSnapshot.conflicting_element_ids ?? []);
   // Two sources that disagree are two records, and the pass has to carry both. The subject
   // supplies the claims per element; a conflict signalled without them is refused rather
   // than reported as a conflict whose sides nobody can inspect.
-  const sourceClaims = states.source_claims ?? {};
-  const observedById = new Map(states.observed.map((o) => [o.element_id, o]));
-  const gaps = states.expected.map((expected) => {
+  const sourceClaims = stateSnapshot.source_claims ?? {};
+  const observedById = new Map(stateSnapshot.observed.map((o) => [o.element_id, o]));
+  const gaps = stateSnapshot.expected.map((expected) => {
     const observed = observedById.get(`obs_${expected.element_id}`);
     return {
       expected,
@@ -96,7 +233,7 @@ export function runEnginePass({
 
   // ---- snapshot
   const fingerprintInput = {
-    canonical_accepted_input_set: states.canonical_accepted_input_set,
+    canonical_accepted_input_set: stateSnapshot.canonical_accepted_input_set,
     accepted_context_generation: generation,
     project_binding_ref: projectBindingRef,
     replay_relevant_provenance: {
@@ -106,6 +243,8 @@ export function runEnginePass({
       subject_id: subjectId,
       topology_digest: topologyDigest,
       observation_run_id: observationRunId,
+      state_elements_fingerprint: canonicalStateElementsFingerprint,
+      ...(contextCapsuleFingerprint === undefined ? {} : { context_capsule_fingerprint: contextCapsuleFingerprint }),
     },
   };
   const fingerprint = deterministicReplayFingerprint(
@@ -119,8 +258,8 @@ export function runEnginePass({
     taken_at: takenAt,
     deterministic_replay_fingerprint: fingerprint,
     run_observational_provenance: { engine_run_id: `engine-${snapshotId}`, invocation_finished_at: takenAt },
-    expected_state_elements: states.expected,
-    observed_state_elements: states.observed,
+    expected_state_elements: stateSnapshot.expected,
+    observed_state_elements: stateSnapshot.observed,
     findings,
     claim_ceiling: findings.some((f) => f.evidence_claim_ceiling === 'unknown') ? 'unknown' : 'observed_artifact',
     execution_mode: BASELINE_EXECUTION_MODE,
@@ -154,7 +293,7 @@ export function runEnginePass({
   return {
     snapshot, findings, contextRequest, envelope, fingerprint,
     gap_counts: gapCounts,
-    requirements_judged: states.expected.length,
+    requirements_judged: stateSnapshot.expected.length,
     identifiers_issued: issued.size,
     erp_writes: 0,
     learned_model_invocations: 0,

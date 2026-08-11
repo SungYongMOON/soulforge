@@ -1,0 +1,124 @@
+{
+  "schema_version": "soulforge.se_core_eval.corpus_manifest.v1",
+  "purpose": "public-safe common systems-engineering evaluation corpus; no project payload",
+  "project_data_included": false,
+  "eligibility_is_not_materialization": true,
+  "sources": [
+    {
+      "source_key": "dapa_weapon_system_test_eval_guidebook",
+      "authority_family": "acquisition_authority_manual",
+      "declared_revision": "2012-07",
+      "source_sha256": "bd26c9225fc88f68cb705b3fd20cc908c7352f6260dc74499f6892d66d4d4068",
+      "local_materialization": {
+        "state": "UNKNOWN",
+        "reason": "a tracked public template does not assert device-local materialization",
+        "source_body_location_recorded_here": false
+      },
+      "engine_eligibility": {
+        "state": "HOLD",
+        "reason": "official-public availability does not by itself settle reuse and AI-processing applicability"
+      },
+      "notebooklm_eligibility": {
+        "state": "HOLD",
+        "included": false,
+        "reason": "outside-use and AI-upload permission requires Owner or legal confirmation"
+      }
+    },
+    {
+      "source_key": "nasa_systems_engineering_handbook_rev2",
+      "authority_family": "general_se_guidance",
+      "declared_revision": "NASA-SP-2016-6105-Rev2-2017-02-17",
+      "source_sha256": "UNKNOWN_not_materialized",
+      "local_materialization": { "state": "not_materialized" },
+      "engine_eligibility": {
+        "state": "HOLD",
+        "reason": "exact local bytes and SHA-256 are not pinned"
+      },
+      "notebooklm_eligibility": {
+        "state": "HOLD",
+        "included": false,
+        "reason": "public-use basis is identified but exact uploaded bytes are not pinned"
+      }
+    },
+    {
+      "source_key": "nasa_hdbk_1009a",
+      "authority_family": "general_se_guidance",
+      "declared_revision": "NASA-HDBK-1009A-2025-03-12",
+      "source_sha256": "UNKNOWN_not_materialized",
+      "local_materialization": { "state": "not_materialized" },
+      "engine_eligibility": {
+        "state": "HOLD",
+        "reason": "exact local bytes and SHA-256 are not pinned"
+      },
+      "notebooklm_eligibility": {
+        "state": "HOLD",
+        "included": false,
+        "reason": "public-release basis is identified but exact uploaded bytes are not pinned"
+      }
+    },
+    {
+      "source_key": "dod_systems_engineering_guidebook",
+      "authority_family": "general_se_guidance",
+      "declared_revision": "2021-12-issued-2022-02-11",
+      "source_sha256": "UNKNOWN_not_materialized",
+      "local_materialization": { "state": "not_materialized" },
+      "engine_eligibility": {
+        "state": "HOLD",
+        "reason": "Distribution A candidate is identified but exact local bytes and SHA-256 are not pinned"
+      },
+      "notebooklm_eligibility": {
+        "state": "HOLD",
+        "included": false,
+        "reason": "exact uploaded bytes are not pinned"
+      }
+    },
+    {
+      "source_key": "dod_engineering_of_defense_systems_guidebook_change2",
+      "authority_family": "general_se_guidance",
+      "declared_revision": "2022-02-change-2-2024-10",
+      "source_sha256": "UNKNOWN_not_materialized",
+      "local_materialization": { "state": "not_materialized" },
+      "engine_eligibility": {
+        "state": "HOLD",
+        "reason": "Distribution A candidate is identified but exact local bytes and SHA-256 are not pinned"
+      },
+      "notebooklm_eligibility": {
+        "state": "HOLD",
+        "included": false,
+        "reason": "exact uploaded bytes are not pinned"
+      }
+    },
+    {
+      "source_key": "iso_systems_engineering_guidance_metadata",
+      "authority_family": "general_se_guidance",
+      "declared_revision": "UNKNOWN_exact_edition_not_selected",
+      "source_sha256": "UNKNOWN_not_materialized",
+      "local_materialization": { "state": "metadata_only" },
+      "engine_eligibility": {
+        "state": "HOLD",
+        "reason": "exact edition, licensed bytes, and permitted processing scope are unresolved"
+      },
+      "notebooklm_eligibility": {
+        "state": "HOLD",
+        "included": false,
+        "reason": "copyright and AI-processing restrictions are unresolved"
+      }
+    },
+    {
+      "source_key": "incose_guidance",
+      "authority_family": "general_se_guidance",
+      "declared_revision": "UNKNOWN_source_not_selected",
+      "source_sha256": "UNKNOWN_not_materialized",
+      "local_materialization": { "state": "not_materialized" },
+      "engine_eligibility": {
+        "state": "HOLD",
+        "reason": "no exact official source revision is selected"
+      },
+      "notebooklm_eligibility": {
+        "state": "HOLD",
+        "included": false,
+        "reason": "source revision and rights are unresolved"
+      }
+    }
+  ]
+}

@@ -765,6 +765,43 @@ Codex 계산 크레딧·호출 수·추가 질문·재작업·first-pass accepta
 raw transcript/private payload를 넘기거나, write action·default route·조직 authority를
 활성화하는 일은 이 후보의 첫 단계 범위 밖이다.
 
+## SE Engine 공통 지식 외부 shadow 평가 (2026-08-12 Owner 지시)
+
+목적은 실제 프로젝트 자료를 넣기 전에 동일한 공통 체계공학 자료와 완전 합성 case를
+사용해 결정론 Engineering Engine 결과를 Gemini Notebook / NotebookLM의 source-grounded
+advisory 결과와 교차 비교하는 것이다. Notebook을 Engine 내부 provider나 truth owner로
+연결하지 않으며, 이 lane은 Engine 개발·RAG/Wiki 개발과 병렬로 진행할 수 있다.
+
+현재 public slice:
+
+- `guild_hall/engineering_engine/subjects/common_se_corpus_projection.mjs`: exact
+  revision/hash·authority·ACL·bounded selector가 붙은 immutable common-SE projection을
+  기존 Engine Expected State 입력으로 바꾸는 읽기 전용 adapter.
+- `guild_hall/engineering_engine/evaluation/manual_shadow_comparison.mjs`: Engine 7행,
+  Notebook-only 21회, synthetic state pack을 유일한 차이로 둔 hybrid 21회를 사람이
+  검토한 sidecar 기준으로 비교하는 결정론 scorer.
+- `docs/architecture/workspace/examples/se_core_eval/`: public-safe source eligibility와
+  synthetic projection shape. 실제 source body, Notebook answer, 계정·경로·secret,
+  프로젝트 payload는 포함하지 않는다.
+
+실행 순서와 gate:
+
+1. 권리가 확인된 NASA/DoD source의 exact bytes·revision·SHA-256을 private knowledge
+   worksite에서 materialize하고 동일 membership을 동결한다.
+2. seven-question set, fully synthetic case/state pack, rubric, Engine reference와
+   evaluator-only gold를 서로 분리해 동결한다.
+3. Engine adapter와 7개 reference를 독립 검증한다.
+4. Owner가 Notebook 계정·전용 notebook·standalone selected-source-grounded mode를
+   직접 확인한 뒤 동일 source와 질문으로 수동 shadow run을 수행한다. web·agentic·
+   cross-app·cross-notebook context는 섞지 않는다.
+5. 사람이 answer/citation을 검토하고 raw answer가 아닌 normalized sidecar만 scorer에
+   전달한다. 결과의 최대 claim은 `external_advisory_candidate`다.
+
+DAPA guidebook은 로컬 materialization 여부와 별개로 외부 AI 재사용 권리가 확인될 때까지
+`HOLD`다. ISO 본문은 별도 허가 전 metadata/link-only다. 이 slice는 Notebook 로그인,
+source upload, 자동 answer 회수, accepted context, P5/P6/P7/P8, ERP Task, runtime·MCP·UI
+활성화 권한을 부여하지 않는다.
+
 ## 구체화 규칙
 
 큰 방향이 아래 조건을 만족하면 각 개발 항목으로 내려간다.
