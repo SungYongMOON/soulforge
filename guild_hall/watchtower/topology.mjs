@@ -102,12 +102,12 @@ export const TOPOLOGY_NODES = Object.freeze([
   { id: "src_gmail", label: "Gmail API", kind: "consumer", group: "후처리", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 3, row: 0.9 },
   { id: "voice_label_worker", label: "음성 ASR·라벨 워커", kind: "worker", group: "후처리", probe: "voice_label_worker", operation_mode: "scheduled", health_scope: "node", unmonitored_reason: "collector_evidence_absent", col: 3, row: 1.8 },
   { id: "store_activity_outbox", label: "파일·활동 delta outbox", kind: "store", group: "후처리", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 3, row: 4.2 },
-  { id: "store_usage_ledger", label: "공유 AI usage-event 원장", kind: "store", group: "데이터 평면", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 3, row: 5.4 },
+  { id: "store_usage_ledger", label: "공유 AI usage-event 원장", kind: "store", group: "데이터 평면", probe: "store_usage_ledger", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 3, row: 5.4 },
   { id: "watchtower_self", label: "Watchtower 검사·판정", kind: "gate", group: "관측", probe: null, operation_mode: "structural", health_scope: "self", unmonitored_reason: "independent_evidence_absent", col: 3, row: 7.2 },
 
   // 소비 표면
   { id: "consumer_timeline", label: "프로젝트 시간장부 shadow", kind: "consumer", group: "소비", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 4, row: 1.4 },
-  { id: "consumer_board", label: "Workspace Board", kind: "consumer", group: "소비", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 4, row: 5.4 },
+  { id: "consumer_board", label: "Workspace Board", kind: "consumer", group: "소비", probe: "consumer_board", operation_mode: "resident", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 4, row: 5.4 },
 ]);
 
 // flow: data(실선 — 실제 데이터 계약) | control(점선 — 검사·검증·제어 관계)

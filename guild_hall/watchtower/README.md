@@ -106,6 +106,10 @@ npm run guild-hall:watchtower:probe
 
 ### AI usage producer heartbeat
 
+- The final validated ledger also writes an independent `store_usage_ledger` receipt; it cannot green a provider, the Meter lane, or any data edge.
+- The Board consumer uses its controller-owned runtime heartbeat plus exact resident-task state. Watchtower does not call its own Board endpoint as evidence.
+- Local activity uses the scheduler runner's atomic sanitized receipt. A successful no-delta cycle is healthy idle, not failure.
+
 - Board의 5분 companion은 ignored state의 `producer_health/{codex,claude,meter}.json`에
   경로·원문 없는 원자적 heartbeat를 남긴다. period는 300초, grace는 600초다.
 - Codex와 Claude는 각 수집 시도/성공을 독립적으로 기록한다. Meter 성공은 두 수집이

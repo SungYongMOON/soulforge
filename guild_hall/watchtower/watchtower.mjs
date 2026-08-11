@@ -16,6 +16,8 @@ const HEALTH_STATES = ["ok", "degraded", "stale", "down", "unmonitored"];
 const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
 const MAX_DIR_ENTRIES = 4000;
 const TASK_RUNNING_MARKERS = ["실행", "Running"];
+const TASK_READY_MARKERS = ["준비", "Ready"];
+const TASK_DISABLED_MARKERS = ["사용 안 함", "Disabled"];
 
 export class WatchtowerError extends Error {
   constructor(code, message) {
@@ -65,6 +67,22 @@ export function validateWatchtowerBinding(binding) {
     } else if (typeof probe.path !== "string" || probe.path.length === 0) {
       fail("probe_path_invalid", `probe ${key}`);
     }
+    if (probe.resident_task !== undefined && probe.scheduled_task !== undefined) {
+      fail("probe_task_owner_invalid", `probe ${key}`);
+    }
+    for (const field of ["resident_task", "scheduled_task"]) {
+      if (probe[field] !== undefined && (typeof probe[field] !== "string" || probe[field].length === 0)) {
+        fail("probe_task_name_invalid", `probe ${key}.${field}`);
+      }
+    }
+    if (probe.expected_schema_version !== undefined && (typeof probe.expected_schema_version !== "string" || probe.expected_schema_version.length === 0)) {
+      fail("probe_schema_contract_invalid", `probe ${key}`);
+    }
+    for (const field of ["required_fields", "required_string_fields", "required_timestamp_fields", "nullable_timestamp_fields"]) {
+      if (probe[field] !== undefined && (!Array.isArray(probe[field]) || probe[field].some((item) => typeof item !== "string" || item.length === 0))) {
+        fail("probe_schema_contract_invalid", `probe ${key}.${field}`);
+      }
+    }
     for (const field of ["period_seconds", "grace_seconds"]) {
       if (!Number.isSafeInteger(probe[field]) || probe[field] < 0 || probe[field] > 604800) {
         fail("probe_window_invalid", `probe ${key}.${field}`);
@@ -108,7 +126,31 @@ async function readBoundedFile(path) {
 
 async function probeJsonFile(probe) {
   const { text, mtimeMs } = await readBoundedFile(probe.path);
-  const parsed = JSON.parse(text);
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    fail("source_invalid_json", "invalid JSON receipt");
+  }
+  plainObject(parsed, "source_invalid_record");
+  if (typeof probe.expected_schema_version === "string" && parsed.schema_version !== probe.expected_schema_version) {
+    fail("source_schema_invalid", "unexpected receipt schema_version");
+  }
+  for (const field of probe.required_fields ?? []) {
+    if (fieldPath(parsed, field) === undefined) fail("source_required_field_missing", "required receipt field absent");
+  }
+  for (const field of probe.required_string_fields ?? []) {
+    const value = fieldPath(parsed, field);
+    if (typeof value !== "string" || value.length === 0) fail("source_string_invalid", "receipt string field invalid");
+  }
+  for (const field of probe.required_timestamp_fields ?? []) {
+    const value = fieldPath(parsed, field);
+    if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) fail("source_timestamp_invalid", "receipt timestamp invalid");
+  }
+  for (const field of probe.nullable_timestamp_fields ?? []) {
+    const value = fieldPath(parsed, field);
+    if (value !== null && (typeof value !== "string" || !Number.isFinite(Date.parse(value)))) fail("source_timestamp_invalid", "receipt timestamp invalid");
+  }
   return { record: parsed, mtimeMs };
 }
 
@@ -170,7 +212,37 @@ function defaultRunSchtasks(taskName) {
 async function schtaskState(probe, runSchtasks) {
   const text = await runSchtasks(probe.task_name);
   if (text === null) return "query_failed";
-  return TASK_RUNNING_MARKERS.some((marker) => text.includes(marker)) ? "running" : "not_running";
+  if (TASK_RUNNING_MARKERS.some((marker) => text.includes(marker))) return "running";
+  if (TASK_DISABLED_MARKERS.some((marker) => text.includes(marker))) return "disabled";
+  if (TASK_READY_MARKERS.some((marker) => text.includes(marker))) return "ready";
+  return "unknown";
+}
+
+function judgeTaskOwner(state, mode) {
+  if (state === "query_failed" || state === "unknown") {
+    return { state: "unmonitored", reason: "task_state_unknown" };
+  }
+  if (mode === "scheduled") {
+    return state === "disabled"
+      ? { state: "down", reason: "task_disabled" }
+      : { state: "ok", reason: null };
+  }
+  return state === "running"
+    ? { state: "ok", reason: null }
+    : { state: "down", reason: state === "disabled" ? "task_disabled" : "task_not_running" };
+}
+
+async function judgeProbeTaskOwner(probe, runSchtasks) {
+  if (typeof runSchtasks !== "function") return null;
+  if (typeof probe.resident_task === "string") {
+    const state = await schtaskState({ task_name: probe.resident_task }, runSchtasks);
+    return judgeTaskOwner(state, "resident");
+  }
+  if (typeof probe.scheduled_task === "string") {
+    const state = await schtaskState({ task_name: probe.scheduled_task }, runSchtasks);
+    return judgeTaskOwner(state, "scheduled");
+  }
+  return null;
 }
 
 function judgeWindow(ageSeconds, probe) {
@@ -235,9 +307,18 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
 
   if (probe.kind === "schtask") {
     const state = await schtaskState(probe, runSchtasks);
-    if (state === "query_failed") return { state: "down", reasons: ["task_query_failed"], age_seconds: null };
-    if (state === "not_running") return { state: "down", reasons: ["task_not_running"], age_seconds: null };
-    return { state: "ok", reasons: [], age_seconds: 0 };
+    const verdict = judgeTaskOwner(state, probe.operation_mode === "scheduled" ? "scheduled" : "resident");
+    return verdict.state === "ok"
+      ? { state: "ok", reasons: [], age_seconds: 0 }
+      : { state: verdict.state, reasons: [verdict.reason], age_seconds: null };
+  }
+
+  const taskOwner = await judgeProbeTaskOwner(probe, runSchtasks);
+  if (taskOwner?.state === "down") {
+    return { state: "down", reasons: [taskOwner.reason], age_seconds: null };
+  }
+  if (taskOwner?.state === "unmonitored") {
+    return { state: "unmonitored", reasons: [taskOwner.reason], age_seconds: null };
   }
 
   try {
@@ -257,10 +338,6 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
   } catch (error) {
     const code = error instanceof WatchtowerError ? error.code : "source_missing";
     if (probe.missing_is_unmonitored === true) {
-      if (typeof probe.resident_task === "string" && typeof runSchtasks === "function") {
-        const state = await schtaskState({ task_name: probe.resident_task }, runSchtasks);
-        if (state === "not_running") return { state: "down", reasons: ["task_not_running", code], age_seconds: null };
-      }
       return { state: "unmonitored", reasons: ["heartbeat_receipt_unavailable", code], age_seconds: null };
     }
     return { state: "down", reasons: [code], age_seconds: null };
@@ -276,10 +353,6 @@ export async function runProbe(probe, { now, run_schtasks: runSchtasks }) {
   const window = judgeWindow(ageSeconds, probe);
   if (window === "stale") {
     const result = { state: "stale", reasons: ["heartbeat_stale"], age_seconds: ageSeconds };
-    if (typeof probe.resident_task === "string" && typeof runSchtasks === "function") {
-      const state = await schtaskState({ task_name: probe.resident_task }, runSchtasks);
-      if (state === "not_running") return { state: "down", reasons: ["task_not_running", "heartbeat_stale"], age_seconds: ageSeconds };
-    }
     return result;
   }
   if (window === "late") reasons.push("heartbeat_late");

@@ -99,6 +99,18 @@ const PROTECTED_NODE_CONTRACTS = new Map([
     kind: "worker", operationMode: "on_demand", provider: null, healthScope: "aggregate",
     unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true,
   }],
+  ["local_activity", {
+    kind: "worker", operationMode: "scheduled", provider: null, healthScope: "node",
+    unmonitoredReasons: ["collector_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
+  }],
+  ["store_usage_ledger", {
+    kind: "store", operationMode: "structural", provider: null, healthScope: "node",
+    unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
+  }],
+  ["consumer_board", {
+    kind: "consumer", operationMode: "resident", provider: null, healthScope: "node",
+    unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
+  }],
   ["watchtower_self", {
     kind: "gate", operationMode: "structural", provider: null, healthScope: "self",
     unmonitoredReasons: ["independent_evidence_absent"], observedAllowed: false,

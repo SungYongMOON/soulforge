@@ -197,6 +197,39 @@ test("json_file probe judges fresh, late, stale, status, and numeric degrades", 
   assert.deepEqual(degraded.reasons, ["status_degraded", "count_failed_count_5"]);
 });
 
+test("sanitized JSON receipt contracts fail closed on schema and required field defects", async () => {
+  const root = await tempRoot();
+  const file = path.join(root, "receipt.json");
+  const probe = {
+    kind: "json_file", path: file, expected_schema_version: "soulforge.test_health.v1",
+    required_fields: ["attempted_at", "completed_at", "last_success_at", "status"],
+    required_string_fields: ["status"],
+    required_timestamp_fields: ["attempted_at", "completed_at"],
+    nullable_timestamp_fields: ["last_success_at"], timestamp_field: "completed_at",
+    status_field: "status", ok_values: ["ok"], period_seconds: 300, grace_seconds: 300,
+    missing_is_unmonitored: true,
+  };
+  const good = {
+    schema_version: "soulforge.test_health.v1", attempted_at: new Date(NOW - 30_000).toISOString(),
+    completed_at: new Date(NOW - 20_000).toISOString(), last_success_at: null, status: "ok",
+  };
+  await writeFile(file, JSON.stringify(good));
+  assert.equal((await runProbe(probe, { now: NOW })).state, "ok");
+  for (const bad of [
+    { ...good, schema_version: "wrong" },
+    { ...good, attempted_at: "invalid" },
+    { ...good, completed_at: undefined },
+    { ...good, last_success_at: 42 },
+    { ...good, status: undefined },
+    { ...good, status: 42 },
+  ]) {
+    await writeFile(file, JSON.stringify(bad));
+    assert.equal((await runProbe(probe, { now: NOW })).state, "unmonitored");
+  }
+  await writeFile(file, "{");
+  assert.equal((await runProbe(probe, { now: NOW })).state, "unmonitored");
+});
+
 test("usage heartbeat is unknown when absent, degrades within grace, and is down only with explicit task stop", async () => {
   const root = await tempRoot();
   const file = path.join(root, "usage-heartbeat.json");
@@ -209,7 +242,10 @@ test("usage heartbeat is unknown when absent, degrades within grace, and is down
     state: "unmonitored", reasons: ["heartbeat_receipt_unavailable", "source_missing"], age_seconds: null,
   });
   assert.deepEqual(await runProbe(probe, { now: NOW, run_schtasks: async () => "Ready" }), {
-    state: "down", reasons: ["task_not_running", "source_missing"], age_seconds: null,
+    state: "down", reasons: ["task_not_running"], age_seconds: null,
+  });
+  assert.deepEqual(await runProbe(probe, { now: NOW, run_schtasks: async () => null }), {
+    state: "unmonitored", reasons: ["task_state_unknown"], age_seconds: null,
   });
   await writeFile(file, JSON.stringify({ last_success_at: new Date(NOW - 600_000).toISOString(), status: "error", error_codes: ["collector_failed"], activity_changed: false }));
   const degraded = await runProbe(probe, { now: NOW });
@@ -285,7 +321,7 @@ test("schtask probe and resident_task disambiguation", async () => {
   const taskProbe = { kind: "schtask", task_name: "Soulforge-Test", period_seconds: 60, grace_seconds: 0 };
   assert.equal((await runProbe(taskProbe, { now: NOW, run_schtasks: running })).state, "ok");
   assert.equal((await runProbe(taskProbe, { now: NOW, run_schtasks: ready })).state, "down");
-  assert.equal((await runProbe(taskProbe, { now: NOW, run_schtasks: failed })).state, "down");
+  assert.equal((await runProbe(taskProbe, { now: NOW, run_schtasks: failed })).state, "unmonitored");
 
   const root = await tempRoot();
   const file = path.join(root, "health.json");
@@ -303,6 +339,36 @@ test("schtask probe and resident_task disambiguation", async () => {
   const staleAndDead = await runProbe(residentProbe, { now: NOW, run_schtasks: ready });
   assert.equal(staleAndDead.state, "down");
   assert.ok(staleAndDead.reasons.includes("task_not_running"));
+});
+
+test("task ownership judges Ready, Running, Disabled, query failure, and unknown explicitly", async () => {
+  const taskStates = {
+    running: async () => "State: Running",
+    ready: async () => "State: Ready",
+    disabled: async () => "State: Disabled",
+    failed: async () => null,
+    unknown: async () => "State: Unrecognized",
+  };
+  const bare = { kind: "schtask", task_name: "Soulforge-Test", period_seconds: 60, grace_seconds: 0 };
+  for (const [name, expected] of Object.entries({ running: "ok", ready: "down", disabled: "down", failed: "unmonitored", unknown: "unmonitored" })) {
+    assert.equal((await runProbe(bare, { now: NOW, run_schtasks: taskStates[name] })).state, expected, `bare ${name}`);
+  }
+  const scheduled = { ...bare, operation_mode: "scheduled" };
+  for (const [name, expected] of Object.entries({ running: "ok", ready: "ok", disabled: "down", failed: "unmonitored", unknown: "unmonitored" })) {
+    assert.equal((await runProbe(scheduled, { now: NOW, run_schtasks: taskStates[name] })).state, expected, `scheduled ${name}`);
+  }
+
+  const root = await tempRoot();
+  const file = path.join(root, "scheduled-health.json");
+  await writeFile(file, JSON.stringify({ observed_at: new Date(NOW - 7_200_000).toISOString(), status: "ok", activity_changed: false }));
+  const receipt = {
+    kind: "json_file", path: file, timestamp_field: "observed_at", status_field: "status",
+    ok_values: ["ok"], period_seconds: 1800, grace_seconds: 600,
+    scheduled_task: "Soulforge-Test", missing_is_unmonitored: true,
+  };
+  for (const [name, expected] of Object.entries({ running: "stale", ready: "stale", disabled: "down", failed: "unmonitored", unknown: "unmonitored" })) {
+    assert.equal((await runProbe(receipt, { now: NOW, run_schtasks: taskStates[name] })).state, expected, `receipt ${name}`);
+  }
 });
 
 test("provider evidence absence stays catalog-only and never becomes green", async () => {
@@ -353,11 +419,16 @@ test("separate producer heartbeats cannot green provider evidence", async () => 
       period_seconds: 300,
       grace_seconds: 300,
     },
+    store_usage_ledger: {
+      kind: "json_file", path: healthFile, timestamp_field: "observed_at", status_field: "status",
+      ok_values: ["ok"], period_seconds: 300, grace_seconds: 300,
+    },
   });
   const snapshot = await composeTopologyHealth(binding, { now: NOW });
   const collector = snapshot.nodes.find((node) => node.id === "usage_codex_collector");
   const provider = snapshot.nodes.find((node) => node.id === "src_codex");
   const aggregate = snapshot.nodes.find((node) => node.id === "usage_meter");
+  const ledger = snapshot.nodes.find((node) => node.id === "store_usage_ledger");
 
   assert.equal(collector.health_scope, "collector");
   assert.equal(collector.health.state, "ok");
@@ -372,6 +443,8 @@ test("separate producer heartbeats cannot green provider evidence", async () => 
     reasons: ["independent_evidence_absent", "probe_unbound"],
     age_seconds: null,
   });
+  assert.equal(ledger.health.state, "ok");
+  assert.equal(snapshot.edges.every((edge) => edge.delivery.state === "unreceipted" && edge.delivery.proves_delivery === false), true);
   // 스냅샷 간선은 정의상의 전달 근거를 함께 나른다. 보드가 근거 없는 선을 초록으로 그리지
   // 않으려면 이 필드를 받아야 한다.
   const contractEdge = snapshot.edges.find((edge) => edge.scope === "usage_meter_health_only");
@@ -393,7 +466,7 @@ test("separate producer heartbeats cannot green provider evidence", async () => 
   assert.equal(Object.hasOwn(contractEdge, "state"), false);
   assert.equal(snapshot.edge_delivery.delivery_proven, 0);
   assert.equal(snapshot.edge_delivery.delivery_unproven, TOPOLOGY_EDGES.length);
-  assert.equal(snapshot.summary.ok, 1);
+  assert.equal(snapshot.summary.ok, 2);
 });
 
 test("watchtower self stays unmonitored even if a same-named binding is supplied", async () => {

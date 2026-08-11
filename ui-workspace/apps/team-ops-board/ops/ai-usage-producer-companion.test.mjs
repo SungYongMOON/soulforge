@@ -55,7 +55,7 @@ test("producer sweep refreshes lifecycle, usage ledgers, then gated Claude quota
     ...ACTIVE_FILES,
   ]);
   assert.ok(calls[3].args.includes("--gate-path"));
-  assert.deepEqual(heartbeats.map(({ lane, succeeded }) => [lane, succeeded]), [["codex", true], ["claude", true], ["meter", true]]);
+  assert.deepEqual(heartbeats.map(({ lane, succeeded }) => [lane, succeeded]), [["codex", true], ["claude", true], ["meter", true], ["store_usage_ledger", true]]);
 });
 
 test("producer heartbeat retains last-good and never treats idle activity as failure", async (t) => {
@@ -86,6 +86,21 @@ test("Meter heartbeat validates the final ledger independently from a provider f
   });
   assert.equal(heartbeats.find(({ lane }) => lane === "claude").succeeded, false);
   assert.equal(heartbeats.find(({ lane }) => lane === "meter").succeeded, true);
+  assert.equal(heartbeats.find(({ lane }) => lane === "store_usage_ledger").succeeded, true);
+});
+
+test("ledger validation receipt remains independent when the Meter receipt channel fails", async () => {
+  const heartbeats = [];
+  await runUsageProducerSweep({
+    repoRoot: REPO_ROOT, stateRoot: STATE_ROOT, loadActiveFiles: async () => [],
+    loadSnapshot: async () => ({ schema_version: "soulforge.ai_usage_meter_snapshot.v1", generated_at: "2026-08-11T00:00:00.000Z", event_count: 12 }),
+    persistHeartbeat: async (value) => {
+      if (value.lane === "meter") throw new Error("meter receipt unavailable");
+      heartbeats.push(value);
+    },
+    run: async () => {},
+  });
+  assert.equal(heartbeats.find(({ lane }) => lane === "store_usage_ledger").succeeded, true);
 });
 
 test("collector child exit is preserved as a fixed sanitized error code", async () => {

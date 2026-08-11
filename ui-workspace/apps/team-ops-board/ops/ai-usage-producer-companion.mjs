@@ -139,6 +139,7 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
       // Each producer remains fail-closed and the next interval retries it.
     }
   }
+  let projectionResult;
   try {
     const snapshot = await loadSnapshot();
     if (!projectionCommandSucceeded || snapshot?.schema_version !== "soulforge.ai_usage_meter_snapshot.v1" || !Number.isFinite(Date.parse(snapshot.generated_at))) {
@@ -149,9 +150,16 @@ export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, 
       : priorEventCount !== null && Number.isSafeInteger(snapshot.event_count)
         ? snapshot.event_count !== priorEventCount
         : null;
-    await persistHeartbeat({ stateRoot, lane: "meter", attemptedAt, succeeded: true, activity, projectionAt: snapshot.generated_at, now });
+    projectionResult = { succeeded: true, activity, projectionAt: snapshot.generated_at };
   } catch (error) {
-    await persistHeartbeat({ stateRoot, lane: "meter", attemptedAt, succeeded: false, errorCode: safeErrorCode(error), now });
+    projectionResult = { succeeded: false, errorCode: safeErrorCode(error) };
+  }
+  for (const lane of ["meter", "store_usage_ledger"]) {
+    try {
+      await persistHeartbeat({ stateRoot, lane, attemptedAt, ...projectionResult, now });
+    } catch {
+      // Receipt channels are independent; one failed write must not falsify the other lane.
+    }
   }
   if (path.isAbsolute(watchtowerPointerPath ?? "")) {
     try {

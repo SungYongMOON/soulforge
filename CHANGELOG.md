@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-08-11 - Source-owned local topology receipts
+
+- Added independent sanitized validation receipts for the shared usage ledger, the Board scheduled runtime, and the all-project local-activity producer.
+- Watchtower now distinguishes resident from periodic scheduled-task ownership: resident tasks require `Running`, periodic tasks accept `Ready` or `Running`, explicit disable/stop is down, and unknown task state remains UNKNOWN/HOLD.
+- Receipt schema and required timestamps fail closed, unchanged activity remains healthy idle, and all topology edges remain explicitly unreceipted.
+
 ## 2026-08-11 - AI usage producer liveness heartbeats
 
 - Added atomic, sanitized five-minute heartbeats for the Codex collector, Claude collector, and common Meter ledger projection.

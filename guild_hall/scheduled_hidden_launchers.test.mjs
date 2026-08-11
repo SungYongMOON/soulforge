@@ -30,3 +30,17 @@ test("periodic interactive tasks use repository-owned hidden launchers", async (
     assert.match(launcher, /shell\.Run\(command, 0, True\)/);
   }
 });
+
+test("local activity scheduler emits an atomic sanitized producer-owned health receipt", async () => {
+  const runner = await readFile("guild_hall/local_activity/ops/run-hpp-local-activity.ps1", "utf8");
+  assert.match(runner, /soulforge\.hpp_local_activity_health\.v1/);
+  assert.match(runner, /attempted_at\s*=\s*\$startedAt/);
+  assert.match(runner, /completed_at\s*=\s*\$completedAt/);
+  assert.match(runner, /last_success_at\s*=\s*\$LastSuccessAt/);
+  assert.match(runner, /activity_changed\s*=\s*\$null/);
+  assert.match(runner, /\[System\.IO\.File\]::Replace\(\$temporary, \$healthPath, \$replaceBackup\)/);
+  assert.match(runner, /\[System\.IO\.File\]::Move\(\$temporary, \$healthPath\)/);
+  const healthRecord = runner.slice(runner.indexOf("$record = [ordered]@{"), runner.indexOf("$directory = Split-Path $healthPath"));
+  assert.doesNotMatch(healthRecord, /\boutput\b/i);
+  assert.doesNotMatch(runner, /D:[\\/]/i);
+});
