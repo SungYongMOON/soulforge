@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-08-11 - Unified AX topology canvas
+
+- Replaced the separate W1 health and declared-federation consumers on the Team
+  Operations Board System surface with one read-only ReactFlow canvas. The
+  federation remains the only structure, identity, and edge authority; W1 overlays
+  only exact Watchtower node IDs and exact delivery-receipt tuples.
+- Added deterministic compact provider sectors with provider-to-group-to-node
+  drill-down while preserving all tracked 4 providers, 63 nodes, and 152
+  provider-local edges. The UI never invents a cross-provider edge and displays
+  `연결 계약 미선언` as an explicit gap.
+- Separated category surface color from W1 health borders and status markers.
+  Engineering Engine, Knowledge, and Notebook remain runtime UNKNOWN without W1
+  health inheritance, and Notebook stays advisory/HOLD. Runtime or repair authority,
+  a summary mismatch, or a cross-provider edge now fails the unified view closed.
+- Kept non-ready W1 evidence explicitly retained and stale instead of promoting it
+  into current health or proven delivery, and added collision-free expanded layouts,
+  stale federation labeling, and 44px graph controls.
+
 ## 2026-08-11 - Local activity outbox validity receipt
 
 - Added an atomic, producer-owned receipt that validates each HPP local-activity current index, compact inventory, and referenced immutable delta/snapshot packets. Watchtower monitors only that exact store scope; unchanged data remains healthy idle and all topology delivery edges remain unreceipted.

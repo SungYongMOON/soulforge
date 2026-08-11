@@ -82,6 +82,11 @@ import {
   buildTopologyFederationViewModel,
   selectTopologyFederationProvider,
 } from "./core/topology-federation-view.mjs";
+import {
+  UNIFIED_TOPOLOGY_CATEGORIES,
+  buildUnifiedTopologyViewModel,
+  toggleUnifiedTopologyExpansion,
+} from "./core/topology-unified-view.mjs";
 import { buildHostStatsViewModel } from "./core/host-stats.mjs";
 import {
   ANTIGRAVITY_QUOTA_SCHEMA_VERSION,
@@ -1084,10 +1089,12 @@ function App() {
           )}
 
           {surface === "system" && (
-            <>
-              <SystemTopologySurface projection={topologyProjection} refreshing={topologyRefreshing} onRefreshReadOnly={refreshDiagnostics} />
-              <DeclaredTopologyFederationSurface projection={topologyFederationProjection} />
-            </>
+            <UnifiedSystemTopologySurface
+              healthProjection={topologyProjection}
+              federationProjection={topologyFederationProjection}
+              refreshing={topologyRefreshing}
+              onRefreshReadOnly={refreshDiagnostics}
+            />
           )}
 
           {surface === "work" && workGroups.map((group) => (
@@ -3957,6 +3964,297 @@ function DeclaredTopologyFederationSurface({ projection }: { projection: any }) 
           선언 구조가 입증하지 않는 것: {model.doesNotProve.map((key: string) => (TOPOLOGY_FEDERATION_DOES_NOT_PROVE_LABELS as Record<string, string>)[key] ?? key).join(" · ")}.
           선언 상태는 W1 health 색으로 승격되지 않으며, 복구는 후보 표시와 Owner 승인 문구까지입니다.
         </span>
+      </footer>
+    </section>
+  );
+}
+
+function UnifiedTopologyNode({ data }: NodeProps<any>) {
+  const category = (UNIFIED_TOPOLOGY_CATEGORIES as Record<string, { label: string; color: string }>)[data.category]
+    ?? UNIFIED_TOPOLOGY_CATEGORIES.observation;
+  const isDeclaredNode = data.displayKind === "node";
+  const hasHealthStatus = (data.healthObserved || data.healthRetained) && typeof data.healthState === "string";
+  const healthClass = hasHealthStatus
+    ? ` has-health is-health-${data.healthState}${data.healthRetained ? " is-health-retained" : ""}` : " has-no-health";
+  const healthAriaLabel = hasHealthStatus
+    ? data.healthStateLabel ?? data.healthState ?? "관측 상태 미상"
+    : "런타임 미관측";
+  const actionLabel = data.displayKind === "provider"
+    ? `${data.label} 섹터 ${data.expanded ? "접기" : "펼치기"}`
+    : data.displayKind === "group"
+      ? `${data.label} 선언 그룹 ${data.expanded ? "접기" : "펼치기"}`
+      : `${data.label} 선언 노드 상세 보기`;
+  return (
+    <div
+      className={`unified-topology-node is-${data.displayKind} is-category-${data.category}${healthClass}${data.isSelected ? " is-selected" : ""}`}
+      style={{ "--unified-category-color": category.color } as any}
+    >
+      {isDeclaredNode && <Handle type="target" position={Position.Left} className="unified-topology-port" isConnectable={false} aria-hidden="true" />}
+      <button
+        type="button"
+        className="unified-topology-node-hit nodrag nopan"
+        onClick={(event) => {
+          event.stopPropagation();
+          data.onActivate(data, event.currentTarget);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.stopPropagation();
+          data.onActivate(data, event.currentTarget);
+        }}
+        aria-pressed={data.displayKind === "node" ? data.isSelected : data.expanded}
+        aria-label={`${actionLabel} · ${category.label} · ${data.detail} · ${healthAriaLabel}`}
+      >
+        <span className="unified-topology-node-meta">
+          <span className="unified-topology-category-dot" aria-hidden="true" />
+          <span>{data.displayKind === "provider" ? "SECTOR" : data.displayKind === "group" ? "DECLARED GROUP" : category.label}</span>
+        </span>
+        <strong>{data.label}</strong>
+        <small>{data.detail}</small>
+        <span className="unified-topology-runtime">
+          <i aria-hidden="true" />
+          {hasHealthStatus ? data.healthStateLabel ?? data.healthState : "런타임 UNKNOWN"}
+        </span>
+      </button>
+      {isDeclaredNode && <Handle type="source" position={Position.Right} className="unified-topology-port" isConnectable={false} aria-hidden="true" />}
+    </div>
+  );
+}
+
+const unifiedTopologyNodeTypes = { unifiedTopology: UnifiedTopologyNode };
+
+function unifiedTopologyMiniMapColor(node: any): string {
+  const category = node?.data?.category;
+  return (UNIFIED_TOPOLOGY_CATEGORIES as Record<string, { color: string }>)[category]?.color ?? "#7d8b94";
+}
+
+function UnifiedSystemTopologySurface({ healthProjection, federationProjection, refreshing, onRefreshReadOnly }: {
+  healthProjection: any;
+  federationProjection: any;
+  refreshing: boolean;
+  onRefreshReadOnly: () => void;
+}) {
+  const [expansion, setExpansion] = useState<{ providerIds: string[]; groupKeys: string[] }>({ providerIds: [], groupKeys: [] });
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [flowInstance, setFlowInstance] = useState<any>(null);
+  const selectedNodeTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const inspectorRef = useRef<HTMLElement | null>(null);
+  const fittedLayoutRef = useRef<string | null>(null);
+  const model: any = useMemo(
+    () => buildUnifiedTopologyViewModel(federationProjection, healthProjection, expansion),
+    [expansion, federationProjection, healthProjection]
+  );
+  const layoutSignature = useMemo(() => model.nodes
+    .map((node: any) => `${node.id}:${node.position.x}:${node.position.y}`)
+    .join("|"), [model.nodes]);
+
+  useEffect(() => {
+    if (flowInstance === null || layoutSignature.length === 0 || fittedLayoutRef.current === layoutSignature) return undefined;
+    fittedLayoutRef.current = layoutSignature;
+    const frame = window.requestAnimationFrame(() => {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      try { flowInstance.fitView({ padding: 0.14, maxZoom: 0.92, duration: reducedMotion ? 0 : 180 }); } catch {
+        // 보기 보정 실패는 선언 구조나 W1 관측 판정과 무관하다.
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [flowInstance, layoutSignature]);
+
+  useEffect(() => {
+    if (selectedNodeId === null) return;
+    if (!model.nodes.some((node: any) => node.id === selectedNodeId && node.displayKind === "node")) {
+      setSelectedNodeId(null);
+    }
+  }, [model.nodes, selectedNodeId]);
+
+  function clearSelectedNode(restoreFocus = true) {
+    const trigger = selectedNodeTriggerRef.current;
+    setSelectedNodeId(null);
+    if (restoreFocus && trigger !== null) {
+      window.requestAnimationFrame(() => trigger.focus({ preventScroll: true }));
+    }
+  }
+
+  function activateUnifiedNode(data: any, trigger: HTMLButtonElement) {
+    if (data.displayKind === "provider") {
+      setExpansion((current) => toggleUnifiedTopologyExpansion(current, { kind: "provider", providerId: data.providerId }));
+      return;
+    }
+    if (data.displayKind === "group") {
+      setExpansion((current) => toggleUnifiedTopologyExpansion(current, { kind: "group", groupKey: data.groupKey }));
+      return;
+    }
+    selectedNodeTriggerRef.current = trigger;
+    setSelectedNodeId((current) => current === data.id ? null : data.id);
+  }
+
+  useEffect(() => {
+    if (selectedNodeId === null) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      clearSelectedNode(true);
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [selectedNodeId]);
+
+  useEffect(() => {
+    if (selectedNodeId === null || !window.matchMedia("(max-width: 760px)").matches) return undefined;
+    const frame = window.requestAnimationFrame(() => inspectorRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedNodeId]);
+
+  if (federationProjection === null) {
+    return (
+      <section className="live-state-panel" role="status" data-testid="system-topology-loading">
+        <Workflow size={18} aria-hidden="true" />
+        <div><h2>통합 토폴로지 확인 중</h2><p>선언 구조 정본을 읽는 중입니다. 읽기 전에는 구조를 추정하지 않습니다.</p></div>
+      </section>
+    );
+  }
+  if (!model.available) {
+    return (
+      <section className="live-state-panel" role="status" data-testid="system-topology-unavailable">
+        <ShieldAlert size={18} aria-hidden="true" />
+        <div><h2>통합 토폴로지 사용 불가</h2><p>구조 또는 권한 경계가 안전하지 않아 표시를 중단했습니다. 사유: {model.reason ?? "unknown"}</p></div>
+      </section>
+    );
+  }
+
+  const selectedNode = selectedNodeId === null
+    ? null : model.nodes.find((node: any) => node.id === selectedNodeId && node.displayKind === "node") ?? null;
+  const graphNodes = model.nodes.map((node: any) => ({
+    id: node.id,
+    type: "unifiedTopology",
+    position: node.position,
+    data: {
+      ...node,
+      isSelected: node.id === selectedNodeId,
+      onActivate: activateUnifiedNode,
+    },
+    draggable: false,
+    selectable: true,
+    focusable: false,
+    zIndex: node.displayKind === "provider" ? 1 : node.displayKind === "group" ? 2 : 3,
+  }));
+  const graphEdges = model.edges.map((edge: any) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    type: "default",
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: 14,
+      height: 14,
+      color: edge.receiptObserved ? "#63c995" : "#748891",
+    },
+    className: `unified-topology-edge${edge.receiptObserved ? " is-receipted" : " is-structural"}`,
+    label: edge.label || undefined,
+  }));
+  const healthSummary = model.healthSummary ?? { ok: 0, degraded: 0, stale: 0, down: 0, unmonitored: 0 };
+  const federationStale = model.state === "stale";
+  const federationBoundary = federationStale
+    ? `선언 구조 STALE · ${model.reason ?? "snapshot_stale"} · 보존 구조`
+    : "선언 구조 READY";
+  const healthBoundary = !model.diagnostics.w1Available
+    ? "W1 관측 없음 · 선언 구조만 표시"
+    : !model.diagnostics.w1Current
+      ? `W1 ${String(model.healthRefreshState).toUpperCase()} · 보존 관측을 현재 상태로 승격하지 않음`
+      : `W1 정확 ID 대응 ${model.diagnostics.matchedHealthNodeCount}/${model.diagnostics.watchtowerDeclaredNodeCount}`;
+
+  return (
+    <section className={`watchtower-surface unified-topology-surface${federationStale ? " is-federation-stale" : ""}`} aria-label="AX 통합 시스템 토폴로지" data-testid="system-topology-surface">
+      <header className="watchtower-header unified-topology-header">
+        <div>
+          <span className="watchtower-kicker"><Workflow size={15} aria-hidden="true" /> AX UNIFIED TOPOLOGY · READ-ONLY</span>
+          <h2>AX 시스템 토폴로지</h2>
+          <p>선언 구조는 federation 정본 · 상태는 Watchtower W1 정확 일치 노드에만 별도 표시</p>
+        </div>
+        <dl className="unified-topology-counts" data-testid="unified-topology-counts">
+          <div><dt>공급자</dt><dd>{model.source.providerCount}</dd></div>
+          <div><dt>노드</dt><dd>{model.source.nodeCount}</dd></div>
+          <div><dt>간선</dt><dd>{model.source.edgeCount}</dd></div>
+          <div><dt>공급자 간</dt><dd>{model.diagnostics.crossProviderEdgeCount}</dd></div>
+        </dl>
+      </header>
+      <div className="unified-topology-boundaries" role="status" aria-live="polite">
+        <span className={`unified-topology-federation-state${federationStale ? " is-stale" : " is-ready"}`} data-testid="unified-topology-federation-state">{federationBoundary}</span>
+        <span>{healthBoundary}</span>
+        <span className="unified-topology-authority" data-testid="unified-topology-authority">런타임 권한 false · 복구 실행 권한 false</span>
+        <button type="button" onClick={onRefreshReadOnly} disabled={refreshing}>{refreshing ? "읽기 갱신 중" : "W1 읽기 갱신"}</button>
+      </div>
+      <div className="unified-topology-provider-strip" aria-label="통합 토폴로지 섹터 요약">
+        {model.providers.map((provider: any) => (
+          <span key={provider.id} className={`is-category-${provider.category}`}>
+            <i aria-hidden="true" /> {provider.label} {provider.nodeCount}/{provider.edgeCount} · {provider.healthObserved || provider.healthRetained ? provider.runtimeState : "runtime UNKNOWN"}
+          </span>
+        ))}
+      </div>
+      <div className="watchtower-summary unified-topology-health-summary" aria-label="Watchtower W1 상태 요약">
+        <span className="watchtower-chip is-ok">정상 {healthSummary.ok}</span>
+        <span className="watchtower-chip is-degraded">열화 {healthSummary.degraded}</span>
+        <span className="watchtower-chip is-stale">신선도 {healthSummary.stale}</span>
+        <span className="watchtower-chip is-down">정지 {healthSummary.down}</span>
+        <span className="watchtower-chip is-unmonitored">미감시 {healthSummary.unmonitored}</span>
+      </div>
+      <div className="unified-topology-gap" data-testid="unified-topology-cross-provider-gap">
+        <AlertCircle size={15} aria-hidden="true" />
+        <span><strong>{model.diagnostics.gapLabel}</strong> · 공급자 간 연결은 정본에 없으므로 간선을 만들지 않습니다.</span>
+      </div>
+      <div className="unified-topology-guide">
+        <span>섹터 선택 → 선언 그룹 선택 → 실제 노드</span>
+        <span>면 색상은 시스템 종류 · 테두리/점은 W1 상태</span>
+        <span>곡선은 같은 공급자 안의 선언 간선 · 초록 곡선만 정확 영수증 관측</span>
+      </div>
+      <div className="watchtower-canvas unified-topology-canvas" aria-label="통합 토폴로지 그래프">
+        <ReactFlow
+          nodes={graphNodes}
+          edges={graphEdges}
+          nodeTypes={unifiedTopologyNodeTypes as any}
+          colorMode="dark"
+          onInit={setFlowInstance}
+          onPaneClick={() => clearSelectedNode(false)}
+          minZoom={0.24}
+          maxZoom={1.6}
+          nodesConnectable={false}
+          nodesDraggable={false}
+          elementsSelectable
+          proOptions={{ hideAttribution: true }}
+        >
+          <MiniMap
+            ariaLabel="통합 토폴로지 미니맵"
+            nodeColor={unifiedTopologyMiniMapColor}
+            nodeStrokeColor={unifiedTopologyMiniMapColor}
+            nodeBorderRadius={7}
+            maskColor="rgb(6 10 14 / 68%)"
+            pannable
+            zoomable
+          />
+          <Controls aria-label="통합 토폴로지 보기 조절" showInteractive={false} fitViewOptions={{ padding: 0.14, minZoom: 0.24, maxZoom: 0.92 }} />
+        </ReactFlow>
+      </div>
+      {selectedNode && (
+        <aside ref={inspectorRef} className="watchtower-node-inspector unified-topology-inspector" tabIndex={-1} aria-labelledby="unified-topology-inspector-title" data-testid="system-topology-node-inspector">
+          <header>
+            <div><span>DECLARED STRUCTURE · READ-ONLY</span><h3 id="unified-topology-inspector-title">{selectedNode.label}</h3></div>
+            <button type="button" onClick={() => clearSelectedNode(true)}>선택 해제</button>
+          </header>
+          <dl className="watchtower-inspector-evidence">
+            <div><dt>정본 ID</dt><dd>{selectedNode.id}</dd></div>
+            <div><dt>공급자</dt><dd>{selectedNode.providerId}</dd></div>
+            <div><dt>분류</dt><dd>{(UNIFIED_TOPOLOGY_CATEGORIES as Record<string, { label: string }>)[selectedNode.category]?.label}</dd></div>
+            <div><dt>선언 구조</dt><dd>{selectedNode.detail}</dd></div>
+            <div><dt>W1 상태</dt><dd>{selectedNode.healthRetained ? `이전 관측 보존 · 현재 아님 · ${selectedNode.healthStateLabel} · ${selectedNode.healthAgeLabel ?? "시각 미상"}` : selectedNode.healthObserved ? `${selectedNode.healthStateLabel} · ${selectedNode.healthAgeLabel ?? "시각 미상"}` : "관측 없음 · 런타임 UNKNOWN"}</dd></div>
+            <div><dt>관측 근거</dt><dd>{selectedNode.healthEvidenceScope ?? "선언 구조만"}</dd></div>
+          </dl>
+          <p className="watchtower-inspector-owner-note">읽기 전용 · 실행·복구 동작 없음</p>
+        </aside>
+      )}
+      <footer className="watchtower-footnote">
+        <EyeOff size={13} aria-hidden="true" />
+        <span>Engineering·Knowledge·Notebook은 W1 상태를 상속하지 않습니다. Notebook은 violet 자문/HOLD이며 런타임 UNKNOWN입니다.</span>
       </footer>
     </section>
   );

@@ -446,10 +446,13 @@ polling, non-blocking refresh transitions, Owner-only
 attention, acknowledgement hide/reappear/restore, exact organization-tree
 controls, exact-ID usage-history controls, and narrow-safe layout boundaries.
 
-## AX declared-structure federation lens
+## Unified AX topology surface
 
-The System surface carries a second, strictly separate lens for the frozen AX
-topology federation contract. It shows declared architecture, never live health.
+The System surface renders the AX topology federation and the optional Watchtower
+W1 health lens in one ReactFlow canvas. The federation remains the sole authority
+for provider, group, node, and edge identity. W1 can only decorate an exact
+`watchtower::<local_id>` node or an exact `(from, to, flow, label)` edge tuple; it
+cannot add structure, rename a node, or provide health for another provider.
 
 Vite exposes `GET /topology-federation.snapshot.json` to loopback clients only.
 The adapter reads one fixed tracked repo path:
@@ -472,33 +475,40 @@ The envelope is `ready`, `stale`, or `unavailable` with a safe lowercase reason
 code and no path, message, or stack leakage. A failed re-read retains the last
 validated structure as explicit `stale`; it never presents a retained structure as
 a current success. `/topology-health.snapshot.json` and W1 health behavior are
-unchanged, and the two lenses never share a summary, color, or judgement.
+unchanged. Category color stays on node surfaces and the minimap; W1 health is
+limited to borders, status markers, and text so system identity and health never
+conflict.
+When W1 refresh is not `ready`, exact matches remain visible only as retained
+`STALE`/`HOLD` evidence: they do not become current observed health, green nodes,
+or proven delivery. An available W1 graph containing only unmonitored nodes also
+leaves the Watchtower sector runtime `UNKNOWN`.
 
-The surface shows every validated provider in the tracked federation artifact,
-with declared status, claim ceiling, validation state and validator,
-`runtime_state`, payload state, node/edge counts, and declared blocker codes.
-Selecting a provider drills into the flattened namespaced nodes and edges filtered
-by that exact `provider_id` and namespace prefix; a node or edge that is not
-namespaced under the selected provider, and an edge whose endpoint is missing from
-that provider's node set, are dropped rather than adopted. Nothing is invented for
-an unknown provider.
+The default view is four compact provider sectors. A deterministic provider to
+declared-group to node drill-down preserves all 63 source node IDs and all 152
+provider-local edge IDs behind the compact view. Provider summary counts remain
+Watchtower 27/33, Engineering Engine 25/105, Knowledge 7/9, and Notebook advisory
+4/5. The canvas keeps pan, zoom, minimap, keyboard focus, 44px interaction targets,
+reduced-motion behavior, and a read-only inspector.
 
-Declared structure explicitly does not prove live health, runtime execution,
-delivery receipt, provider availability, or repair execution. Declared status is
-never mapped into W1 health tones and never merged into the health summary. The
-only controls are local provider selection and deselection: this lens performs no
-fetch beyond its one read-only snapshot load, no mutation, no repair execution, no
-account access, and no external call. Diagnostic and repair metadata stay at
-candidate plus `Owner 승인 필요` language.
+Cross-provider edges are not supported by the v1 contract and are never inferred.
+The surface shows `연결 계약 미선언` as a gap instead of drawing a line between
+providers. Engineering Engine, Knowledge, and Notebook remain runtime `UNKNOWN`
+with no inherited W1 tone; Notebook remains violet advisory/HOLD. Any federation
+summary mismatch, cross-provider edge, `runtime_authority: true`, or
+`repair_execution_authority: true` refuses the unified projection. There is no
+runtime mutation, repair action, account access, or external call.
 
 Tests are deterministic and synthetic and never need the running 4192 service:
 `src/server/topology-federation-adapter.test.mjs` covers artifact validation,
 digest and projection-mismatch rejection, forbidden authority claims, fail-closed
 reads, stale retention, and the loopback/method/path guards;
-`src/core/topology-federation-view.test.mjs` covers the overview, provider
-selection and filtering, no structural-to-live promotion, and fallback;
-`src/core/topology-federation-ui-boundary.test.mjs` covers the UI boundary,
-including that the declared lens borrows no health tone and offers no action.
+`src/core/topology-federation-view.test.mjs` covers the source projection;
+`src/core/topology-unified-view.test.mjs` covers source totals, deterministic
+collapse/expand, exact W1 node and receipt overlay, missing/fuzzy diagnostics,
+stale/absent W1 behavior, zero invented cross-provider edges, and authority
+refusal; `src/core/topology-federation-ui-boundary.test.mjs` and
+`src/core/topology-ui-boundary.test.mjs` cover the single-canvas read-only UI,
+category/health channel separation, and accessibility boundaries.
 
 ## AI Usage Meter stays separate
 
