@@ -6,6 +6,7 @@ import { ACTIVE_CODEX_SESSION_MAX_AGE_MS, activeCodexSessionIds, persistProducer
 
 const REPO_ROOT = path.resolve("test-fixtures", "repo");
 const STATE_ROOT = path.resolve("test-fixtures", "state");
+const PROJECT_ROOT = path.resolve("test-fixtures", "owner-root");
 const WATCHTOWER_POINTER = path.resolve("test-fixtures", "watchtower", "binding.pointer.json");
 const REGISTRY_PATH = path.resolve("test-fixtures", "registry.json");
 const ACTIVE_FILES = [
@@ -29,6 +30,7 @@ test("producer sweep refreshes lifecycle, usage ledgers, then gated Claude quota
   const heartbeats = [];
   const result = await runUsageProducerSweep({
     repoRoot: REPO_ROOT,
+    projectRoot: PROJECT_ROOT,
     stateRoot: STATE_ROOT,
     watchtowerPointerPath: WATCHTOWER_POINTER,
     threadIds: ["thread-a", "thread-b"],
@@ -42,11 +44,13 @@ test("producer sweep refreshes lifecycle, usage ledgers, then gated Claude quota
   assert.match(calls[3].args[0], /claude-oauth-usage-collector\.mjs$/u);
   assert.deepEqual(calls[0].args.filter((arg) => arg === "--thread-id").length, 2);
   assert.ok(calls.slice(0, 3).every((call) => call.args.includes("--apply")));
+  assert.equal(calls[1].args[calls[1].args.indexOf("--project-root") + 1], PROJECT_ROOT);
   assert.equal(calls.length, 7);
   assert.match(calls[4].args[0], /guild_hall[\\/]watchtower[\\/]cli\.mjs$/u);
   assert.deepEqual(calls[4].args.slice(1), ["probe", "--pointer", WATCHTOWER_POINTER, "--json"]);
   assert.equal(calls[4].args.includes("--no-write"), false);
   assert.ok(calls.slice(5).every((call) => call.args.includes("--include-active")));
+  assert.ok(calls.slice(5).every((call) => call.args[call.args.indexOf("--project-root") + 1] === PROJECT_ROOT));
   assert.deepEqual(calls.slice(5).map((call) => call.args[call.args.indexOf("--session-file") + 1]), [
     ...ACTIVE_FILES,
   ]);

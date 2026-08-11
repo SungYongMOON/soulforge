@@ -262,7 +262,9 @@ async function loadEffectiveConfig(options, { repoRoot = null } = {}) {
     node_id: process.env.SOULFORGE_AI_USAGE_NODE || "local-node",
     service_tier: process.env.SOULFORGE_AI_USAGE_SERVICE_TIER
       || value(options, "service-tier", "standard"),
-    project_bindings: repoRoot ? [{ cwd_prefix: repoRoot, project_id: "soulforge" }] : [],
+    project_bindings: value(options, "project-root")
+      ? [{ cwd_prefix: path.resolve(String(value(options, "project-root"))), project_id: "soulforge" }]
+      : repoRoot ? [{ cwd_prefix: repoRoot, project_id: "soulforge" }] : [],
   });
 }
 

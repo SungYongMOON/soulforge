@@ -182,7 +182,7 @@ function row(timestamp, type, payload) {
   return JSON.stringify({ timestamp, type, payload });
 }
 
-function sessionMeta({ id, parent = null, timestamp = "2026-08-03T00:00:00.000Z", cwd = "workspace/project-a", depth = 0 }) {
+function sessionMeta({ id, parent = null, timestamp = "2026-08-03T00:00:00.000Z", cwd = "workspace/project-a", depth = 0, agentPath = null }) {
   return row(timestamp, "session_meta", {
     id,
     session_id: id,
@@ -190,9 +190,9 @@ function sessionMeta({ id, parent = null, timestamp = "2026-08-03T00:00:00.000Z"
     timestamp,
     cwd,
     originator: "codex_test",
-    agent_path: parent ? `/root/${id}` : null,
+    agent_path: agentPath ?? (parent ? `/root/${id}` : null),
     agent_nickname: null,
-    source: parent ? { subagent: { thread_spawn: { depth } } } : {},
+    source: parent || agentPath ? { subagent: { thread_spawn: { depth } } } : {},
   });
 }
 
@@ -1127,6 +1127,64 @@ test("continued rollout copies enrich missing model metadata without a duplicate
   assert.equal((await loadPersistedUsageEvents(state))[0].model.id, "gpt-5.6-sol");
 });
 
+test("continued rollout copy with a deeper agent path keeps the source-backed shallower event", async () => {
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-rollout-agent-copy-"));
+  const canonical = await writeSession(sessions, "agent-root", [
+    sessionMeta({ id: "agent-copy-session" }),
+    taskStarted("agent-copy-turn"),
+    turnContext("agent-copy-turn", "gpt-5.6-sol", "high"),
+    tokenCount(usage(200, 100, 20), "2026-08-03T00:00:04.000Z"),
+    taskComplete("agent-copy-turn"),
+  ]);
+  const copied = await writeSession(sessions, "agent-child-copy", [
+    sessionMeta({ id: "agent-copy-session", depth: 1, agentPath: "/root/copied-agent" }),
+    taskStarted("agent-copy-turn"),
+    tokenCount(usage(200, 100, 20), "2026-08-03T00:00:04.000Z"),
+    taskComplete("agent-copy-turn"),
+  ]);
+  const result = await collectUsageEvents({
+    sessionFiles: [copied, canonical],
+    config: config(),
+    rateCard: await loadRateCard(RATE_CARD),
+  });
+  assert.equal(result.events.length, 1);
+  assert.equal(result.duplicate_event_observation_count, 1);
+  assert.equal(result.events[0].actor.agent_depth, 0);
+  assert.equal(result.events[0].actor.agent_id, "root");
+  assert.equal(result.events[0].model.id, "gpt-5.6-sol");
+  assert.equal(result.events[0].usage.input_tokens, 200);
+});
+
+test("continued rollout copy with a different known model remains a true conflict", async () => {
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-rollout-agent-disagreement-"));
+  const canonical = await writeSession(sessions, "agent-known-a", [
+    sessionMeta({ id: "agent-disagreement-session" }), taskStarted("agent-disagreement-turn"),
+    turnContext("agent-disagreement-turn", "gpt-5.6-sol", "high"),
+    tokenCount(usage(200, 100, 20), "2026-08-03T00:00:04.000Z"), taskComplete("agent-disagreement-turn"),
+  ]);
+  const disagreement = await writeSession(sessions, "agent-known-b", [
+    sessionMeta({ id: "agent-disagreement-session", depth: 1, agentPath: "/root/other-agent" }), taskStarted("agent-disagreement-turn"),
+    turnContext("agent-disagreement-turn", "gpt-5.4", "high"),
+    tokenCount(usage(200, 100, 20), "2026-08-03T00:00:04.000Z"), taskComplete("agent-disagreement-turn"),
+  ]);
+  const rateCard = await loadRateCard(RATE_CARD);
+  await assert.rejects(() => collectUsageEvents({
+    sessionFiles: [canonical, disagreement], config: config(), rateCard,
+  }), { code: "usage_event_duplicate_conflict" });
+});
+
+test("continuation copy with invalid null credits fails with the stable schema code", async () => {
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-rollout-null-credit-"));
+  const file = await writeSession(sessions, "null-credit", [
+    sessionMeta({ id: "null-credit-session" }), taskStarted("null-credit-turn"),
+    turnContext("null-credit-turn"), tokenCount(usage(10, 5, 1), "2026-08-03T00:00:04.000Z"), taskComplete("null-credit-turn"),
+  ]);
+  const [event] = await buildUsageEvents({ sessionFiles: [file], config: config(), rateCard: await loadRateCard(RATE_CARD) });
+  await assert.rejects(async () => planUsageBackfill({ observations: [{ ...event, credits: null }], canonicalEvents: [] }), {
+    code: "usage_event_credits_invalid",
+  });
+});
+
 test("continued rollout merges richer model metadata with the larger token observation", async () => {
   const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-rollout-composite-"));
   const knownPartial = await writeSession(sessions, "composite-known", [
@@ -1210,6 +1268,53 @@ test("incremental continuation persistence accepts a monotonic source rollover a
   assert.equal(drainedEvent.usage.input_tokens, 200);
   const pendingEntries = await readdir(path.join(queuedState, "pending"), { recursive: true });
   assert.equal(pendingEntries.some((entry) => String(entry).endsWith(".json")), false);
+});
+
+test("persistence accepts only forward project attribution enrichment from the canonical root", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-project-enrichment-"));
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-project-enrichment-session-"));
+  const file = await writeSession(sessions, "project-enrichment", [
+    sessionMeta({ id: "project-enrichment" }), taskStarted("project-enrichment-turn"),
+    turnContext("project-enrichment-turn"),
+    tokenCount(usage(100, 50, 10), "2026-08-03T00:00:03.000Z"), taskComplete("project-enrichment-turn"),
+  ]);
+  const [unassigned] = await buildUsageEvents({
+    sessionFiles: [file], config: config(), rateCard: await loadRateCard(RATE_CARD),
+  });
+  unassigned.project_id = "unassigned";
+  unassigned.measurement.attribution_confidence = "derived_lineage";
+  const assigned = structuredClone(unassigned);
+  assigned.project_id = "soulforge";
+  assert.equal((await persistUsageEvents(state, [unassigned])).created, 1);
+  assert.equal((await persistUsageEvents(state, [assigned])).updated, 1);
+  assert.equal((await loadPersistedUsageEvents(state))[0].project_id, "soulforge");
+  await assert.rejects(persistUsageEvents(state, [unassigned]), { code: "usage_event_conflict" });
+});
+
+test("persistence retains stronger canonical model metadata but rejects token disagreement", async () => {
+  const state = await mkdtemp(path.join(os.tmpdir(), "sf-usage-canonical-model-"));
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "sf-usage-canonical-model-session-"));
+  const file = await writeSession(sessions, "canonical-model", [
+    sessionMeta({ id: "canonical-model" }), taskStarted("canonical-model-turn"),
+    turnContext("canonical-model-turn", "gpt-5.6-sol", "high"),
+    tokenCount(usage(100, 50, 10), "2026-08-03T00:00:03.000Z"), taskComplete("canonical-model-turn"),
+  ]);
+  const [canonical] = await buildUsageEvents({
+    sessionFiles: [file], config: config(), rateCard: await loadRateCard(RATE_CARD),
+  });
+  const weaker = structuredClone(canonical);
+  weaker.model.id = "unknown";
+  weaker.model.reasoning_effort = null;
+  weaker.credits = { ...weaker.credits, status: "rate_unknown", total: null, components: null };
+  weaker.source.source_ref = `${canonical.source.source_ref}.continued`;
+  assert.equal((await persistUsageEvents(state, [canonical])).created, 1);
+  assert.equal((await persistUsageEvents(state, [weaker])).replayed, 1);
+  assert.equal((await loadPersistedUsageEvents(state))[0].model.id, "gpt-5.6-sol");
+  const disagreement = structuredClone(weaker);
+  disagreement.usage.input_tokens += 1;
+  disagreement.usage.uncached_input_tokens += 1;
+  disagreement.usage.total_tokens += 1;
+  await assert.rejects(persistUsageEvents(state, [disagreement]), { code: "usage_event_conflict" });
 });
 
 test("missing or malformed required timestamps become per-session coverage HOLD issues", async () => {

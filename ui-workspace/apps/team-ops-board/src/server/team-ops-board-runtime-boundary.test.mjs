@@ -482,6 +482,7 @@ test("scheduled worker derives private bindings in memory and keeps quota OFF", 
   assert.equal(environment.TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ, "1");
   assert.equal(environment.TEAM_OPS_BOARD_READ_ONLY_PILOT, "1");
   assert.equal(environment.TEAM_OPS_BOARD_ALLOWED_HOSTS, "board.example.ts.net");
+  assert.equal(environment.SOULFORGE_AI_USAGE_PROJECT_ROOT, ownerRoot);
   assert.match(environment.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY, /thread_visibility\.v1\.json$/u);
   assert.notEqual(environment.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY, "must-be-replaced");
   assert.equal("TEAM_OPS_BOARD_EXACT_THREAD_BINDINGS" in environment, false);

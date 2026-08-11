@@ -934,10 +934,62 @@ function mergeUsageEventObservations(existing, next, rateCard) {
     : null;
 }
 
+function mergeContinuationCopyObservation(existing, next) {
+  if (existing.actor.agent_depth === next.actor.agent_depth) return null;
+  const lower = existing.actor.agent_depth < next.actor.agent_depth ? existing : next;
+  const upper = lower === existing ? next : existing;
+  if (lower.model.id === "unknown" && upper.model.id !== "unknown") return null;
+  if (lower.model.reasoning_effort === null && upper.model.reasoning_effort !== null) return null;
+  if (upper.model.id !== "unknown" && upper.model.id !== lower.model.id) return null;
+  if (upper.model.reasoning_effort !== null && upper.model.reasoning_effort !== lower.model.reasoning_effort) return null;
+  const modelEnrichment = lower.model.id !== "unknown" && upper.model.id === "unknown";
+  if (canonicalJson(lower.credits) !== canonicalJson(upper.credits)
+    && !(modelEnrichment && lower.credits?.status === "calculated" && upper.credits?.status === "rate_unknown")) return null;
+  const comparable = (event) => {
+    const value = structuredClone(event);
+    value.source.source_ref = "<continuation-copy>";
+    value.actor.agent_id = "<continuation-copy>";
+    value.actor.agent_depth = 0;
+    value.model.id = "<continuation-copy>";
+    value.model.reasoning_effort = null;
+    value.credits = null;
+    return value;
+  };
+  if (canonicalJson(comparable(existing)) !== canonicalJson(comparable(next))) return null;
+  validateUsageEvent(lower);
+  return lower;
+}
+
+function retainStrongerCanonicalModelObservation(canonical, observed) {
+  if (canonical.model.id === "unknown" || observed.model.id !== "unknown") return null;
+  if (observed.model.reasoning_effort !== null) return null;
+  if (canonical.credits?.status !== "calculated" || observed.credits?.status !== "rate_unknown") return null;
+  if (canonical.source.kind !== observed.source.kind
+    || canonical.source.originator !== observed.source.originator) return null;
+  const comparable = (event) => {
+    const value = structuredClone(event);
+    value.source.source_ref = "<continuation-copy>";
+    value.model.id = "<canonical-model>";
+    value.model.reasoning_effort = null;
+    value.credits = null;
+    return value;
+  };
+  if (canonicalJson(comparable(canonical)) !== canonicalJson(comparable(observed))) return null;
+  validateUsageEvent(canonical);
+  return canonical;
+}
+
 function collapseUsageEventObservations(events, { rateCard = null } = {}) {
   const current = new Map();
   let duplicateCount = 0;
-  for (const event of events) {
+  const ordered = [...events].sort((left, right) => (
+    left.event_id.localeCompare(right.event_id, "en")
+    || left.actor.agent_depth - right.actor.agent_depth
+    || Number(right.model.id !== "unknown") - Number(left.model.id !== "unknown")
+    || Number(right.model.reasoning_effort !== null) - Number(left.model.reasoning_effort !== null)
+    || left.source.source_ref.localeCompare(right.source.source_ref, "en")
+  ));
+  for (const event of ordered) {
     const existing = current.get(event.event_id);
     if (!existing) {
       current.set(event.event_id, event);
@@ -954,6 +1006,11 @@ function collapseUsageEventObservations(events, { rateCard = null } = {}) {
       ?? mergeAncestorPreservingSelfRootUpgrade(event, existing);
     if (lineageMerged) {
       current.set(event.event_id, lineageMerged);
+      continue;
+    }
+    const continuationCopy = mergeContinuationCopyObservation(existing, event);
+    if (continuationCopy) {
+      current.set(event.event_id, continuationCopy);
       continue;
     }
     if (usageEventUpgradeAllowed(existing, event, { allowSourceRefChange: true })) {
@@ -1410,9 +1467,17 @@ function usageEventUpgradeAllowed(existing, next, { allowSourceRefChange = false
     || existing.work_id !== next.work_id
     || existing.actor.role !== next.actor.role
     || existing.measurement.attribution_confidence !== next.measurement.attribution_confidence;
+  const projectAttributionEnriched = existing.project_id === "unassigned"
+    && next.project_id !== "unassigned"
+    && existing.team_id === next.team_id
+    && existing.work_id === next.work_id
+    && existing.actor.role === next.actor.role
+    && existing.measurement.attribution_confidence === "derived_lineage"
+    && next.measurement.attribution_confidence === "derived_lineage";
   if (attributionChanged
     && next.measurement.attribution_confidence !== "explicit_binding"
-    && !lineageEnriched) return false;
+    && !lineageEnriched
+    && !projectAttributionEnriched) return false;
 
   if (existing.time.completed_at !== null && existing.time.completed_at !== next.time.completed_at) return false;
   if (existing.time.duration_ms !== null && existing.time.duration_ms !== next.time.duration_ms) return false;
@@ -1524,6 +1589,8 @@ export async function persistUsageEvents(stateRoot, events) {
       if (usageEventUpgradeAllowed(indexed.event, event)) return event;
       const lineageMerged = mergeAncestorPreservingSelfRootUpgrade(indexed.event, event);
       if (lineageMerged) return lineageMerged;
+      const retainedCanonical = retainStrongerCanonicalModelObservation(indexed.event, event);
+      if (retainedCanonical) return retainedCanonical;
       if (selfRootToAncestorUpgrade(event, indexed.event)
         && usageEventUpgradeAllowed(event, indexed.event)) return indexed.event;
       fail("usage_event_conflict");

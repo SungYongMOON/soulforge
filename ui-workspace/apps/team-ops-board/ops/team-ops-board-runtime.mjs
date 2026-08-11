@@ -52,6 +52,7 @@ const RUNTIME_ENVIRONMENT_ALLOWLIST = Object.freeze([
   "USERPROFILE",
   "WINDIR",
   "SOULFORGE_AI_USAGE_METER_STATE_ROOT",
+  "SOULFORGE_AI_USAGE_PROJECT_ROOT",
   "TEAM_OPS_BOARD_ALLOWED_HOSTS",
   "TEAM_OPS_BOARD_ANTIGRAVITY_STATE_DB",
   "TEAM_OPS_BOARD_ANTIGRAVITY_UIA_READ",
@@ -588,6 +589,7 @@ export function createScheduledRuntimeEnvironment({
     TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY: path.join(boardStateRoot, "thread_visibility.v1.json"),
     TEAM_OPS_BOARD_THREAD_RESULT_GATE_REGISTRY: path.join(boardStateRoot, "thread_result_gate.v1.json"),
     SOULFORGE_AI_USAGE_METER_STATE_ROOT: usageRoot,
+    SOULFORGE_AI_USAGE_PROJECT_ROOT: path.resolve(ownerRoot),
     TEAM_OPS_BOARD_LIFECYCLE_SNAPSHOT: path.join(usageRoot, "lifecycle", "current.json"),
     TEAM_OPS_BOARD_LIFECYCLE_DISABLE_CONTROL: path.join(usageRoot, "control", "emergency-disable.v1.json"),
     TEAM_OPS_BOARD_WATCHTOWER_POINTER: path.join(operationsRoot, "watchtower", "binding.pointer.json"),
@@ -1738,6 +1740,7 @@ async function runWorker(runId, env = process.env) {
     if (!(await headLoopback())) fail("health_failed");
     usageProducerCompanion = startUsageProducerCompanion({
       repoRoot: SOULFORGE_ROOT,
+      projectRoot: workerEnv.SOULFORGE_AI_USAGE_PROJECT_ROOT,
       stateRoot: workerEnv.SOULFORGE_AI_USAGE_METER_STATE_ROOT,
       registryPath: workerEnv.TEAM_OPS_BOARD_THREAD_VISIBILITY_REGISTRY,
       watchtowerPointerPath: workerEnv.TEAM_OPS_BOARD_WATCHTOWER_POINTER,

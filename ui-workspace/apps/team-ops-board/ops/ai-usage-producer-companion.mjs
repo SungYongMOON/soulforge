@@ -91,8 +91,8 @@ export async function loadCurrentThreadIds(registryPath) {
     : [];
 }
 
-export async function runUsageProducerSweep({ repoRoot, stateRoot, watchtowerPointerPath, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles, loadSnapshot = async () => JSON.parse(await readFile(path.join(stateRoot, "current.json"), "utf8")), persistHeartbeat = persistProducerHeartbeat, now = () => new Date() } = {}) {
-  if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(stateRoot ?? "")) {
+export async function runUsageProducerSweep({ repoRoot, projectRoot = repoRoot, stateRoot, watchtowerPointerPath, threadIds = [], run = execFileAsync, loadActiveFiles = loadActiveCodexSessionFiles, loadSnapshot = async () => JSON.parse(await readFile(path.join(stateRoot, "current.json"), "utf8")), persistHeartbeat = persistProducerHeartbeat, now = () => new Date() } = {}) {
+  if (!path.isAbsolute(repoRoot ?? "") || !path.isAbsolute(projectRoot ?? "") || !path.isAbsolute(stateRoot ?? "")) {
     return { status: "hold", completed: 0 };
   }
   const cli = path.join(repoRoot, "guild_hall", "ai_usage_meter", "cli.mjs");
@@ -114,7 +114,7 @@ export async function runUsageProducerSweep({ repoRoot, stateRoot, watchtowerPoi
     : null;
   const commands = [
     lifecycleArgs,
-    [cli, "collect", "--state-root", stateRoot, "--apply"],
+    [cli, "collect", "--project-root", projectRoot, "--state-root", stateRoot, "--apply"],
     [cli, "collect-claude", "--state-root", stateRoot, "--max-age-days", "2", "--apply"],
     [claudeQuotaCollector, "--gate-path", path.join(claudeQuotaRoot, "enabled.v1.json"), "--receipt-path", path.join(repoRoot, "guild_hall", "state", "operations", "provider_quota", "claude", "statusline", "provider_quota.receipt.v1.json")],
   ].filter(Boolean);
@@ -164,7 +164,7 @@ export async function runUsageProducerSweep({ repoRoot, stateRoot, watchtowerPoi
   const activeFiles = await Promise.resolve(loadActiveFiles({ stateRoot })).catch(() => []);
   for (const sessionFile of activeFiles) {
     try {
-      await run(process.execPath, [cli, "collect", "--session-file", sessionFile, "--state-root", stateRoot, "--include-active", "--apply"], { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+      await run(process.execPath, [cli, "collect", "--project-root", projectRoot, "--session-file", sessionFile, "--state-root", stateRoot, "--include-active", "--apply"], { cwd: repoRoot, windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
       completed += 1;
     } catch {
       // One conflicting active session must not block other exact active sessions.
@@ -178,6 +178,7 @@ export async function runUsageProducerSweep({ repoRoot, stateRoot, watchtowerPoi
 
 export function startUsageProducerCompanion({
   repoRoot,
+  projectRoot = repoRoot,
   stateRoot,
   registryPath,
   watchtowerPointerPath,
@@ -191,7 +192,7 @@ export function startUsageProducerCompanion({
     if (stopped || inFlight !== null) return inFlight;
     inFlight = Promise.resolve(loadThreadIds(registryPath))
       .catch(() => [])
-      .then((threadIds) => sweep({ repoRoot, stateRoot, watchtowerPointerPath, threadIds }))
+      .then((threadIds) => sweep({ repoRoot, projectRoot, stateRoot, watchtowerPointerPath, threadIds }))
       .finally(() => { inFlight = null; });
     return inFlight;
   };

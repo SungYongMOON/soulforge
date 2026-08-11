@@ -5,6 +5,7 @@
 - Added atomic, sanitized five-minute heartbeats for the Codex collector, Claude collector, and common Meter ledger projection.
 - Watchtower observes each lane independently with a 300-second period and 600-second grace; missing evidence remains UNKNOWN/HOLD unless the owning Board task is explicitly stopped.
 - Usage growth is informational only: unchanged tokens/events render as normal idle, while changed ledger activity renders as collecting and never gates health.
+- Kept Codex collection attribution stable when the Board runs from an integration worktree by passing the canonical owner root explicitly, and allowed only the forward `unassigned`-to-recorded project enrichment while preserving fail-closed behavior for attribution regressions and payload disagreements.
 
 ## 2026-08-11 - Board usage trend by model and provider
 
