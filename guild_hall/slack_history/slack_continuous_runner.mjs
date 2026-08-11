@@ -905,6 +905,10 @@ function validateLoadedState(state, binding, bindingDigest) {
   return state;
 }
 
+export function validateSlackContinuousState(state, binding, bindingDigest) {
+  return validateLoadedState(state, binding, bindingDigest);
+}
+
 function assertWriterFence(binding, {
   expected_binding_digest: expectedBindingDigest,
   writer_authority_id: writerAuthorityId,

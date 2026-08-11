@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-08-11 - Persisted mail, voice, and Slack store validity receipts
+
+- Added atomic sanitized store receipts for bounded Hiworks event file-set/tail validity, voice custody checkpoint/current/history files plus immutable receipt identity, and per-channel Slack custody state/index validity. Watchtower pins each exact `lane` and `validation_scope` value so misrouted receipts fail closed and none imply full mail JSONL or Slack attachment-byte verification.
+- Kept collection/provider outcomes independent: an unchanged valid store remains healthy idle through a source/auth failure, while missing or corrupt persisted state fails only its store receipt and preserves the prior last-good watermark.
+- Voice activity compares only validated current/history custody identities, not the checkpoint's per-cycle timestamp; ingress store freshness uses the measured 15-minute poll plus bounded validation duration.
+- Bound the three store nodes to Watchtower without inferring provider availability or claiming delivery on any of the 33 still-unreceipted topology edges.
+
 ## 2026-08-11 - Source-owned local topology receipts
 
 - Added independent sanitized validation receipts for the shared usage ledger, the Board scheduled runtime, and the all-project local-activity producer.

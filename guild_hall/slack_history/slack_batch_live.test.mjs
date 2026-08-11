@@ -327,6 +327,70 @@ test("apply preserves per-binding state and stops at the provider end cursor", a
   assert.equal(batchState.schema_version, "soulforge.slack_batch_live.state.v1");
   assert.equal(batchState.result.configured_count, 1);
   assert.equal(batchState.result.repository_writes, 0);
+  const storeHealth = JSON.parse(await readFile(
+    path.join(fixture.stateRoot, "health", "store_slack_custody.json"),
+    "utf8",
+  ));
+  assert.equal(storeHealth.schema_version, "soulforge.slack_history.store_validity.v1");
+  assert.equal(storeHealth.status, "ok");
+  assert.equal(storeHealth.validation_scope, "slack_custody_state_index_validity");
+  assert.equal(storeHealth.activity_changed, null);
+  assert.deepEqual(storeHealth.error_codes, []);
+});
+
+test("provider failure leaves a valid unchanged Slack custody store healthy idle", async () => {
+  const fixture = await createBatchFixture({
+    bindingSpecs: [{ bindingId: "binding-a", workspaceId: "TAAA", channelId: "CAAA" }],
+  });
+  await runSlackBatchLive({
+    ...fixture.options,
+    transport_factory: async ({ binding }) => onePageTransport(binding, []),
+  });
+  const result = await runSlackBatchLive({
+    ...fixture.options,
+    transport_factory: async () => {
+      const error = new Error("provider unavailable");
+      error.code = "provider_unavailable";
+      throw error;
+    },
+  });
+  assert.equal(result.failed_count, 1);
+  const storeHealth = JSON.parse(await readFile(
+    path.join(fixture.stateRoot, "health", "store_slack_custody.json"),
+    "utf8",
+  ));
+  assert.equal(storeHealth.status, "ok");
+  assert.equal(storeHealth.activity_changed, false);
+  assert.deepEqual(storeHealth.error_codes, []);
+});
+
+test("corrupt Slack custody state fails store validation and preserves last-good", async () => {
+  const fixture = await createBatchFixture({
+    bindingSpecs: [{ bindingId: "binding-a", workspaceId: "TAAA", channelId: "CAAA" }],
+  });
+  await runSlackBatchLive({
+    ...fixture.options,
+    transport_factory: async ({ binding }) => onePageTransport(binding, []),
+  });
+  const healthPath = path.join(fixture.stateRoot, "health", "store_slack_custody.json");
+  const before = JSON.parse(await readFile(healthPath, "utf8"));
+  const statePath = path.join(fixture.privateRoot, "channels", "binding-a", "state", "slack-continuous.json");
+  const state = JSON.parse(await readFile(statePath, "utf8"));
+  state.schema_version = "invalid";
+  await writeFile(statePath, `${JSON.stringify(state)}\n`);
+  await runSlackBatchLive({
+    ...fixture.options,
+    transport_factory: async () => {
+      const error = new Error("provider unavailable");
+      error.code = "provider_unavailable";
+      throw error;
+    },
+  });
+  const after = JSON.parse(await readFile(healthPath, "utf8"));
+  assert.equal(after.status, "error");
+  assert.deepEqual(after.error_codes, ["state_schema_invalid"]);
+  assert.equal(after.last_success_at, before.last_success_at);
+  assert.equal(after.validation_digest, before.validation_digest);
 });
 
 test("apply follows a bounded provider cursor across multiple pages", async () => {
@@ -706,9 +770,11 @@ test("PowerShell registrar dry-run emits an attestation without task mutation", 
     "slack_history",
     "slack_batch_live_launcher.mjs",
   );
+  const hiddenLauncherPath = path.join(runtimeRoot, "guild_hall", "slack_history", "ops", "run-slack-batch-hidden.vbs");
   await Promise.all([
     mkdir(path.dirname(bindingPath), { recursive: true }),
     mkdir(path.dirname(launcherPath), { recursive: true }),
+    mkdir(path.dirname(hiddenLauncherPath), { recursive: true }),
   ]);
   const bindingSha256 = await writePinnedJson(bindingPath, {
     schema_version: "soulforge.slack_batch_live.binding.v1",
@@ -731,6 +797,7 @@ test("PowerShell registrar dry-run emits an attestation without task mutation", 
     "})}\\n`);",
     "",
   ].join("\n"), "utf8");
+  await writeFile(hiddenLauncherPath, "' synthetic hidden launcher fixture\r\n", "utf8");
   const harnessPath = path.join(root, "registrar-harness.ps1");
   await writeFile(harnessPath, [
     "Set-StrictMode -Version Latest",
@@ -802,9 +869,11 @@ test("PowerShell registrar removes a newly registered task when XML attestation 
     "slack_history",
     "slack_batch_live_launcher.mjs",
   );
+  const hiddenLauncherPath = path.join(runtimeRoot, "guild_hall", "slack_history", "ops", "run-slack-batch-hidden.vbs");
   await Promise.all([
     mkdir(path.dirname(bindingPath), { recursive: true }),
     mkdir(path.dirname(launcherPath), { recursive: true }),
+    mkdir(path.dirname(hiddenLauncherPath), { recursive: true }),
   ]);
   const bindingSha256 = await writePinnedJson(bindingPath, {
     schema_version: "soulforge.slack_batch_live.binding.v1",
@@ -822,6 +891,7 @@ test("PowerShell registrar removes a newly registered task when XML attestation 
     "})}\\n`);",
     "",
   ].join("\n"), "utf8");
+  await writeFile(hiddenLauncherPath, "' synthetic hidden launcher fixture\r\n", "utf8");
   const harnessPath = path.join(root, "registrar-rollback-harness.ps1");
   await writeFile(harnessPath, [
     "Set-StrictMode -Version Latest",

@@ -21,7 +21,10 @@ import {
   sanitizedMailFailure,
 } from "./mail_bridge.mjs";
 import { acquireWriterLease, validateWriterLease } from "./writer_authority.mjs";
-import { syncCopyOnlyMirror } from "../voice_capture/copy_only_mirror.mjs";
+import {
+  syncCopyOnlyMirror,
+  validateCopyOnlyCustodyStore,
+} from "../voice_capture/copy_only_mirror.mjs";
 import {
   plaudSyncProfileSchemaVersion,
   runPlaudCommand,
@@ -39,6 +42,7 @@ export const CONTINUOUS_HEALTH_SCHEMA_V3 = "soulforge.ingress.continuous_health.
 export const CONTINUOUS_RUN_RECEIPT_SCHEMA = "soulforge.ingress.continuous_run_receipt.v1";
 export const CONTINUOUS_RUN_RECEIPT_SCHEMA_V2 = "soulforge.ingress.continuous_run_receipt.v2";
 export const CONTINUOUS_RUN_RECEIPT_SCHEMA_V3 = "soulforge.ingress.continuous_run_receipt.v3";
+export const INGRESS_STORE_VALIDITY_SCHEMA = "soulforge.ingress.store_validity.v1";
 export const CONTINUOUS_LEASE_SCHEMA = "soulforge.ingress.continuous_lease.v1";
 export const CONTINUOUS_EPOCH_SCHEMA = "soulforge.ingress.continuous_epoch.v1";
 export const CONTINUOUS_QUEUE_ACK_SCHEMA = "soulforge.ingress.continuous_queue_ack.v1";
@@ -1615,6 +1619,108 @@ function healthSchema(binding) {
   return isV2Binding(binding) ? CONTINUOUS_HEALTH_SCHEMA_V2 : CONTINUOUS_HEALTH_SCHEMA;
 }
 
+async function priorStoreValidity(path) {
+  try {
+    const prior = await readJson(path, "store_validity_receipt_invalid");
+    return prior?.schema_version === INGRESS_STORE_VALIDITY_SCHEMA ? prior : null;
+  } catch (error) {
+    if (error?.code === "ENOENT" || error?.code === "store_validity_receipt_invalid") return null;
+    return null;
+  }
+}
+
+async function writeStoreValidity(binding, lane, {
+  attemptedAt, completedAt, succeeded, validationDigest = null, validatedCount = null,
+  errorCodes = [], assertFence = async () => {},
+}) {
+  const target = resolve(binding.dataRoot, "state", "health", `${lane}.json`);
+  const prior = await priorStoreValidity(target);
+  const priorLastSuccess = typeof prior?.last_success_at === "string"
+    && Number.isFinite(Date.parse(prior.last_success_at)) ? prior.last_success_at : null;
+  const record = {
+    schema_version: INGRESS_STORE_VALIDITY_SCHEMA,
+    lane,
+    validation_scope: lane === "store_mail_events"
+      ? "mail_event_tail_set_validity"
+      : "voice_custody_current_history_file_size_receipt_validity",
+    status: succeeded ? "ok" : "error",
+    attempted_at: attemptedAt,
+    completed_at: completedAt,
+    last_success_at: succeeded ? completedAt : priorLastSuccess,
+    error_codes: succeeded ? [] : [...new Set(errorCodes.filter((code) => /^[a-z][a-z0-9_]{0,127}$/u.test(code)))].sort(),
+    activity_changed: succeeded && typeof prior?.validation_digest === "string"
+      ? prior.validation_digest !== validationDigest : null,
+    validation_digest: succeeded ? validationDigest : prior?.validation_digest ?? null,
+    validated_count: succeeded ? validatedCount : prior?.validated_count ?? null,
+  };
+  await atomicJson(binding.dataRoot, target, record, assertFence, {
+    phase: "before_store_validity_publish", artifact: lane, target,
+  });
+  return record;
+}
+
+async function collectMailEventFiles(root, current = root, depth = 0, files = []) {
+  if (depth > 8 || files.length > 2048) fail("mail_store_validation_bounded");
+  for (const entry of await readdir(current, { withFileTypes: true })) {
+    const target = resolve(current, entry.name);
+    if (!inside(root, target)) fail("mail_store_validation_escape");
+    if (entry.isDirectory()) await collectMailEventFiles(root, target, depth + 1, files);
+    else if (entry.isFile() && entry.name.endsWith(".jsonl") && target.includes(`${sep}events${sep}`)) files.push(target);
+  }
+  return files;
+}
+
+async function validateMailEventStore(dataRoot) {
+  const root = resolve(dataRoot, "ingress", "mailbox");
+  await assertNormalDirectory(root, "mail_store_missing");
+  const files = (await collectMailEventFiles(root)).sort((left, right) => left.localeCompare(right, "en"));
+  if (files.length === 0) fail("mail_store_missing");
+  const digest = createHash("sha256");
+  for (const file of files) {
+    const info = await stat(file);
+    if (!info.isFile() || info.size <= 0) fail("mail_store_file_invalid");
+    const tailBytes = Math.min(info.size, 4 * 1024 * 1024);
+    const handle = await open(file, "r");
+    let bytes;
+    try {
+      bytes = Buffer.alloc(tailBytes);
+      await handle.read(bytes, 0, tailBytes, info.size - tailBytes);
+    } finally {
+      await handle.close();
+    }
+    const lines = bytes.toString("utf8").split("\n").map((line) => line.trim()).filter(Boolean);
+    if (lines.length === 0) fail("mail_store_file_invalid");
+    let event;
+    try { event = JSON.parse(lines.at(-1)); } catch { fail("mail_store_event_invalid"); }
+    if (event?.schema_version !== "email.fetch.event.v1"
+      || typeof event.event_id !== "string" || event.event_id.length === 0
+      || typeof event.source !== "string" || event.source.length === 0
+      || typeof event.provider_message_id !== "string" || event.provider_message_id.length === 0
+      || typeof event.ingested_at !== "string" || !Number.isFinite(Date.parse(event.ingested_at))) {
+      fail("mail_store_event_invalid");
+    }
+    digest.update(`${relative(root, file).replaceAll("\\", "/")}\0${info.size}\0${event.event_id}\n`, "utf8");
+  }
+  return { fileCount: files.length, digest: digest.digest("hex") };
+}
+
+async function validateVoiceCustodyStore(binding) {
+  let validated;
+  try {
+    validated = await validateCopyOnlyCustodyStore({
+      destinationRoot: binding.voice.destinationRoot,
+      receiptRoot: binding.voice.receiptRoot,
+      checkpointPath: binding.voice.checkpointPath,
+    });
+  } catch {
+    fail("voice_store_custody_invalid");
+  }
+  return {
+    entryCount: validated.entry_count,
+    digest: validated.checkpoint_digest,
+  };
+}
+
 function authorityReceiptFields(binding, authorityContext) {
   if (!isV2Binding(binding)) return {};
   return {
@@ -1949,6 +2055,40 @@ export async function runContinuousIngress(options = {}) {
       ),
       { phase: "before_health_publish", artifact: "health", target: healthPath },
     );
+    await assertLeaseHeld(binding, leaseContext, now());
+    await validateAllAuthorityLanes(binding, authorityContext, "after_payload", now);
+    const storeValidityFence = (context) => assertFinalRunPublication(
+      binding, leaseContext, authorityContext, now,
+      options.testHooks?.onRunMetadataFence, context,
+    );
+    if (isV2Binding(binding)) {
+      let mailValidation = null;
+      let mailValidationCode = null;
+      try { mailValidation = await validateMailEventStore(binding.dataRoot); }
+      catch (error) { mailValidationCode = error?.code || "mail_store_validation_failed"; }
+      await writeStoreValidity(binding, "store_mail_events", {
+        attemptedAt: startedAt,
+        completedAt,
+        succeeded: mailValidation !== null,
+        validationDigest: mailValidation?.digest ?? null,
+        validatedCount: mailValidation?.fileCount ?? null,
+        errorCodes: mailValidation ? [] : [mailValidationCode],
+        assertFence: storeValidityFence,
+      });
+    }
+    let voiceValidation = null;
+    let voiceValidationCode = null;
+    try { voiceValidation = await validateVoiceCustodyStore(binding); }
+    catch (error) { voiceValidationCode = error?.code || "voice_store_validation_failed"; }
+    await writeStoreValidity(binding, "store_voice_custody", {
+      attemptedAt: startedAt,
+      completedAt,
+      succeeded: voiceValidation !== null,
+      validationDigest: voiceValidation?.digest ?? null,
+      validatedCount: voiceValidation?.entryCount ?? null,
+      errorCodes: voiceValidation ? [] : [voiceValidationCode],
+      assertFence: storeValidityFence,
+    });
     await assertLeaseHeld(binding, leaseContext, now());
     await validateAllAuthorityLanes(binding, authorityContext, "after_payload", now);
     return receipt;

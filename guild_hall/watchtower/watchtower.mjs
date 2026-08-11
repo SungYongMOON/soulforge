@@ -83,6 +83,14 @@ export function validateWatchtowerBinding(binding) {
         fail("probe_schema_contract_invalid", `probe ${key}.${field}`);
       }
     }
+    if (probe.expected_field_values !== undefined) {
+      plainObject(probe.expected_field_values, "probe_schema_contract_invalid");
+      for (const [field, value] of Object.entries(probe.expected_field_values)) {
+        if (typeof field !== "string" || field.length === 0 || typeof value !== "string" || value.length === 0) {
+          fail("probe_schema_contract_invalid", `probe ${key}.expected_field_values`);
+        }
+      }
+    }
     for (const field of ["period_seconds", "grace_seconds"]) {
       if (!Number.isSafeInteger(probe[field]) || probe[field] < 0 || probe[field] > 604800) {
         fail("probe_window_invalid", `probe ${key}.${field}`);
@@ -150,6 +158,9 @@ async function probeJsonFile(probe) {
   for (const field of probe.nullable_timestamp_fields ?? []) {
     const value = fieldPath(parsed, field);
     if (value !== null && (typeof value !== "string" || !Number.isFinite(Date.parse(value)))) fail("source_timestamp_invalid", "receipt timestamp invalid");
+  }
+  for (const [field, expected] of Object.entries(probe.expected_field_values ?? {})) {
+    if (fieldPath(parsed, field) !== expected) fail("source_expected_value_invalid", "receipt fixed field mismatch");
   }
   return { record: parsed, mtimeMs };
 }

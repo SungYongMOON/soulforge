@@ -91,9 +91,9 @@ export const TOPOLOGY_NODES = Object.freeze([
   { id: "usage_antigravity_collector", label: "Antigravity on-demand collector/adapter", kind: "worker", group: "AI 사용량 수집", probe: null, operation_mode: "on_demand", provider: "antigravity", health_scope: "collector", unmonitored_reason: "catalog_only_on_demand", col: 1, row: 6.3 },
 
   // 저장·검증 평면
-  { id: "store_mail_events", label: "메일 event 원장", kind: "store", group: "데이터 평면", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 2, row: 0 },
-  { id: "store_voice_custody", label: "음성 custody", kind: "store", group: "데이터 평면", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 2, row: 1.8 },
-  { id: "store_slack_custody", label: "Slack custody", kind: "store", group: "데이터 평면", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 2, row: 2.7 },
+  { id: "store_mail_events", label: "메일 event 원장", kind: "store", group: "데이터 평면", probe: "store_mail_events", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 0 },
+  { id: "store_voice_custody", label: "음성 custody", kind: "store", group: "데이터 평면", probe: "store_voice_custody", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 1.8 },
+  { id: "store_slack_custody", label: "Slack custody", kind: "store", group: "데이터 평면", probe: "store_slack_custody", operation_mode: "structural", health_scope: "node", unmonitored_reason: "independent_evidence_absent", col: 2, row: 2.7 },
   { id: "gate_five_field", label: "five-field 원장 검증", kind: "gate", group: "게이트", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 2, row: 3.5 },
   { id: "usage_meter", label: "공통 AI Usage Meter", kind: "worker", group: "관측", probe: "usage_meter", operation_mode: "on_demand", health_scope: "aggregate", unmonitored_reason: "independent_evidence_absent", col: 2, row: 5.4 },
   { id: "store_workmeta", label: "_workmeta 시간장부", kind: "store", group: "데이터 평면", probe: null, operation_mode: "structural", health_scope: "node", unmonitored_reason: "structural_only", col: 2, row: 7.2 },

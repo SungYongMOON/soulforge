@@ -1034,6 +1034,15 @@ test("v2 applies all five lanes under one authority snapshot and emits only sani
     const mail = await v2Binding(f, authority);
     await mkdir(join(f.voiceRoot, "sessions"));
     await writeFile(join(f.voiceRoot, "sessions", "voice.bin"), "synthetic-voice");
+    const mailStorePath = join(f.dataRoot, "ingress", "mailbox", "company", "mail", "events", "hiworks", "2026", "2026-08.jsonl");
+    await mkdir(dirname(mailStorePath), { recursive: true });
+    await writeFile(mailStorePath, `${JSON.stringify({
+      schema_version: "email.fetch.event.v1",
+      event_id: "event-1",
+      source: "hiworks",
+      provider_message_id: "message-1",
+      ingested_at: "2026-08-11T00:00:00.000Z",
+    })}\n`);
     mail.payload.voice.enabled = true;
     for (const [lane, root] of Object.entries(f.queues)) {
       await writeFile(join(root, `${lane}.bin`), `synthetic-${lane}`);
@@ -1092,6 +1101,16 @@ test("v2 applies all five lanes under one authority snapshot and emits only sani
     assert.equal(health.erp_enabled, false);
     assert.equal(health.mcp_enabled, false);
     assert.equal(health.project_promoter_enabled, false);
+    const mailStore = JSON.parse(await readFile(join(f.dataRoot, "state", "health", "store_mail_events.json"), "utf8"));
+    assert.equal(mailStore.schema_version, "soulforge.ingress.store_validity.v1");
+    assert.equal(mailStore.status, "ok");
+    assert.equal(mailStore.validation_scope, "mail_event_tail_set_validity");
+    assert.equal(mailStore.activity_changed, null);
+    const voiceStore = JSON.parse(await readFile(join(f.dataRoot, "state", "health", "store_voice_custody.json"), "utf8"));
+    assert.equal(voiceStore.schema_version, "soulforge.ingress.store_validity.v1");
+    assert.equal(voiceStore.status, "ok");
+    assert.equal(voiceStore.validation_scope, "voice_custody_current_history_file_size_receipt_validity");
+    assert.equal(typeof voiceStore.last_success_at, "string");
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }
@@ -1175,6 +1194,15 @@ test("missing credential reference degrades mail without spawning or blocking no
       enabled: queue.lane === "team_files",
     }));
     await writeFile(join(f.queues.team_files, "team.bin"), "team-custody");
+    const mailStorePath = join(f.dataRoot, "ingress", "mailbox", "company", "mail", "events", "hiworks", "2026", "2026-08.jsonl");
+    await mkdir(dirname(mailStorePath), { recursive: true });
+    await writeFile(mailStorePath, `${JSON.stringify({
+      schema_version: "email.fetch.event.v1",
+      event_id: "existing-event",
+      source: "hiworks",
+      provider_message_id: "existing-message",
+      ingested_at: "2026-08-11T00:00:00.000Z",
+    })}\n`);
     await writeBinding(f, mail.payload);
     let calls = 0;
     const result = await runContinuousIngress({
@@ -1192,7 +1220,9 @@ test("missing credential reference degrades mail without spawning or blocking no
     assert.deepEqual(result.mail.error_codes, ["mail_bridge_credential_file_missing_or_unsafe"]);
     assert.equal(result.mail_fetched, false);
     assert.equal(result.queues[0].staged_files, 1);
-    assert.equal((await listFiles(join(f.dataRoot, "ingress", "mailbox"))).length, 0);
+    const storeHealth = JSON.parse(await readFile(join(f.dataRoot, "state", "health", "store_mail_events.json"), "utf8"));
+    assert.equal(storeHealth.status, "ok");
+    assert.deepEqual(storeHealth.error_codes, []);
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }
@@ -1228,7 +1258,7 @@ test("an authority transition is blocked while a continuous payload lease is act
     assert.equal(transitionBlocked, true);
     assert.equal(result.status, "ok");
     assert.equal((await listFiles(f.acks.team_files)).length, 1);
-    assert.equal((await listFiles(join(f.dataRoot, "state", "health"))).length, 1);
+    assert.equal((await listFiles(join(f.dataRoot, "state", "health"))).length, 3);
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

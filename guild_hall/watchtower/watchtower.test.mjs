@@ -73,6 +73,13 @@ test("topology models actual hybrid on-demand usage producers and structural rou
   assert.equal(nodesById.get("usage_meter").health_scope, "aggregate");
   assert.equal(nodesById.get("usage_meter").operation_mode, "on_demand");
   assert.equal(nodesById.get("usage_meter").probe, "usage_meter");
+  for (const storeId of ["store_mail_events", "store_voice_custody", "store_slack_custody"]) {
+    const store = nodesById.get(storeId);
+    assert.equal(store.kind, "store");
+    assert.equal(store.probe, storeId);
+    assert.equal(store.health_scope, "node");
+    assert.equal(store.unmonitored_reason, "independent_evidence_absent");
+  }
 
   const watchtowerInputs = TOPOLOGY_EDGES.filter((edge) => edge.to === "watchtower_self");
   const watchtowerOutputs = TOPOLOGY_EDGES.filter((edge) => edge.from === "watchtower_self");
@@ -204,13 +211,14 @@ test("sanitized JSON receipt contracts fail closed on schema and required field 
     kind: "json_file", path: file, expected_schema_version: "soulforge.test_health.v1",
     required_fields: ["attempted_at", "completed_at", "last_success_at", "status"],
     required_string_fields: ["status"],
+    expected_field_values: { lane: "store_test", validation_scope: "test_validity" },
     required_timestamp_fields: ["attempted_at", "completed_at"],
     nullable_timestamp_fields: ["last_success_at"], timestamp_field: "completed_at",
     status_field: "status", ok_values: ["ok"], period_seconds: 300, grace_seconds: 300,
     missing_is_unmonitored: true,
   };
   const good = {
-    schema_version: "soulforge.test_health.v1", attempted_at: new Date(NOW - 30_000).toISOString(),
+    schema_version: "soulforge.test_health.v1", lane: "store_test", validation_scope: "test_validity", attempted_at: new Date(NOW - 30_000).toISOString(),
     completed_at: new Date(NOW - 20_000).toISOString(), last_success_at: null, status: "ok",
   };
   await writeFile(file, JSON.stringify(good));
@@ -222,6 +230,8 @@ test("sanitized JSON receipt contracts fail closed on schema and required field 
     { ...good, last_success_at: 42 },
     { ...good, status: undefined },
     { ...good, status: 42 },
+    { ...good, lane: "store_other" },
+    { ...good, validation_scope: "wrong_validity" },
   ]) {
     await writeFile(file, JSON.stringify(bad));
     assert.equal((await runProbe(probe, { now: NOW })).state, "unmonitored");

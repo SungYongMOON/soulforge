@@ -460,6 +460,61 @@ async function verifyPreviousCustodyMetadata(destinationRoot, receiptRoot, previ
   return { receiptsWritten, hashedCount, metadataCheckedCount };
 }
 
+export async function validateCopyOnlyCustodyStore({
+  destinationRoot,
+  receiptRoot,
+  checkpointPath,
+}) {
+  for (const [root, code] of [[destinationRoot, "invalid_destination_root"], [receiptRoot, "invalid_receipt_root"]]) {
+    if (typeof root !== "string" || !isAbsolute(root)) fail(code);
+  }
+  if (typeof checkpointPath !== "string" || !isAbsolute(checkpointPath) || !(await exists(checkpointPath))) {
+    fail("checkpoint_missing");
+  }
+  const checkpoint = await readCheckpoint(checkpointPath);
+  if (typeof checkpoint.updated_at !== "string" || !Number.isFinite(Date.parse(checkpoint.updated_at))) {
+    fail("invalid_checkpoint");
+  }
+  const rows = Object.values(checkpoint.files);
+  if (rows.length > 100000) fail("checkpoint_validation_bounded");
+  let entryCount = 0;
+  const validatedIdentities = [];
+  for (const previous of rows) {
+    const history = Array.isArray(previous?.custody_history) ? previous.custody_history : [];
+    for (const entry of [...history, previous]) {
+      const storedPath = resolve(destinationRoot, String(entry?.storage_ref || ""));
+      if (!inside(destinationRoot, storedPath) || !(await exists(storedPath))) fail("checkpoint_custody_missing");
+      await safeStoredMetadata(destinationRoot, storedPath, entry.size);
+      const expectedReceipt = receiptFromCheckpoint(entry);
+      const existing = await readReceiptByIdentity(
+        receiptRoot,
+        expectedReceipt.source_owner_ref,
+        expectedReceipt.source_key,
+        expectedReceipt.sha256,
+      );
+      if (!existing) fail("checkpoint_receipt_missing");
+      const id = receiptId(
+        expectedReceipt.source_owner_ref,
+        expectedReceipt.source_key,
+        expectedReceipt.sha256,
+      );
+      if (!receiptMatches(existing, {
+        schema_version: RECEIPT_SCHEMA,
+        receipt_id: id,
+        ...expectedReceipt,
+      })) fail("existing_receipt_mismatch");
+      validatedIdentities.push(JSON.stringify({ receipt_id: id, ...expectedReceipt }));
+      entryCount += 1;
+    }
+  }
+  return {
+    entry_count: entryCount,
+    checkpoint_digest: createHash("sha256")
+      .update(validatedIdentities.sort((left, right) => left.localeCompare(right, "en")).join("\n"), "utf8")
+      .digest("hex"),
+  };
+}
+
 function checkpointObservedMetadata(previous) {
   return {
     size: Number.isSafeInteger(previous?.source_observed_size)

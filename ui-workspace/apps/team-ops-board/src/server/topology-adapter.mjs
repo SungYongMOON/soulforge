@@ -107,6 +107,18 @@ const PROTECTED_NODE_CONTRACTS = new Map([
     kind: "store", operationMode: "structural", provider: null, healthScope: "node",
     unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
   }],
+  ["store_mail_events", {
+    kind: "store", operationMode: "structural", provider: null, healthScope: "node",
+    unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
+  }],
+  ["store_voice_custody", {
+    kind: "store", operationMode: "structural", provider: null, healthScope: "node",
+    unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
+  }],
+  ["store_slack_custody", {
+    kind: "store", operationMode: "structural", provider: null, healthScope: "node",
+    unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,
+  }],
   ["consumer_board", {
     kind: "consumer", operationMode: "resident", provider: null, healthScope: "node",
     unmonitoredReasons: ["independent_evidence_absent", "probe_unbound"], observedAllowed: true, migrationOptional: true,

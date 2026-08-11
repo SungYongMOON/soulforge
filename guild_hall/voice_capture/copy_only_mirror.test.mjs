@@ -4,7 +4,11 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { stableDigestFile, syncCopyOnlyMirror } from "./copy_only_mirror.mjs";
+import {
+  stableDigestFile,
+  syncCopyOnlyMirror,
+  validateCopyOnlyCustodyStore,
+} from "./copy_only_mirror.mjs";
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "voice-copy-only-"));
@@ -116,12 +120,51 @@ test("new source is copied once and rerun is idempotent", async () => {
   try {
     await writeFile(join(f.source, "sessions", "new.txt"), "voice-new");
     const first = await syncCopyOnlyMirror(options(f));
-    const second = await syncCopyOnlyMirror(options(f));
+    const firstValidity = await validateCopyOnlyCustodyStore({ destinationRoot: f.destination, receiptRoot: f.receipts, checkpointPath: f.checkpoint });
+    const second = await syncCopyOnlyMirror(options(f, { now: () => "2026-07-17T00:15:00.000Z" }));
+    const secondValidity = await validateCopyOnlyCustodyStore({ destinationRoot: f.destination, receiptRoot: f.receipts, checkpointPath: f.checkpoint });
     assert.equal(first.copied_new, 1);
     assert.equal(second.copied_new, 0);
     assert.equal(second.unchanged, 1);
     assert.equal(await readFile(join(f.destination, "live_workspace_capture", "sessions", "new.txt"), "utf8"), "voice-new");
     assert.equal((await readdir(f.receipts)).length, 1);
+    assert.equal(secondValidity.checkpoint_digest, firstValidity.checkpoint_digest);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("custody validation rejects a mismatched immutable receipt", async () => {
+  const f = await fixture();
+  try {
+    await writeFile(join(f.source, "sessions", "receipt.txt"), "voice-receipt");
+    await syncCopyOnlyMirror(options(f));
+    const [receiptName] = await readdir(f.receipts);
+    const receiptPath = join(f.receipts, receiptName);
+    const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+    receipt.captured_at = "2026-07-18T00:00:00.000Z";
+    await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+    await assert.rejects(validateCopyOnlyCustodyStore({
+      destinationRoot: f.destination,
+      receiptRoot: f.receipts,
+      checkpointPath: f.checkpoint,
+    }), { code: "existing_receipt_mismatch" });
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test("custody validation digest changes only when durable custody identity changes", async () => {
+  const f = await fixture();
+  try {
+    await writeFile(join(f.source, "sessions", "first.txt"), "voice-first");
+    await syncCopyOnlyMirror(options(f));
+    const first = await validateCopyOnlyCustodyStore({ destinationRoot: f.destination, receiptRoot: f.receipts, checkpointPath: f.checkpoint });
+    await writeFile(join(f.source, "sessions", "second.txt"), "voice-second");
+    await syncCopyOnlyMirror(options(f, { now: () => "2026-07-17T00:15:00.000Z" }));
+    const second = await validateCopyOnlyCustodyStore({ destinationRoot: f.destination, receiptRoot: f.receipts, checkpointPath: f.checkpoint });
+    assert.notEqual(second.checkpoint_digest, first.checkpoint_digest);
+    assert.equal(second.entry_count, 2);
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

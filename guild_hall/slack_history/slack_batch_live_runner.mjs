@@ -14,10 +14,12 @@ import {
   runSlackContinuousIngress,
   SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V2,
   SLACK_CONTINUOUS_BINDING_SCHEMA_VERSION_V3,
+  validateSlackContinuousState,
   validateSlackContinuousBinding,
 } from "./slack_continuous_runner.mjs";
 import {
   atomicWritePrivateJson,
+  readPrivateJson,
   resolveGuardedPrivatePath,
 } from "./slack_custody.mjs";
 import {
@@ -29,6 +31,7 @@ import {
 
 export const SLACK_BATCH_LIVE_BINDING_SCHEMA_VERSION = "soulforge.slack_batch_live.binding.v1";
 export const SLACK_BATCH_LIVE_STATE_SCHEMA_VERSION = "soulforge.slack_batch_live.state.v1";
+export const SLACK_STORE_VALIDITY_SCHEMA_VERSION = "soulforge.slack_history.store_validity.v1";
 
 const BATCH_FIELDS = Object.freeze([
   "schema_version",
@@ -546,6 +549,71 @@ function baseAggregate(mode, configuredCount) {
   };
 }
 
+async function writeSlackStoreValidity(stateRoot, {
+  attemptedAt, succeeded, validationDigest = null, validatedCount = null,
+  errorCodes = [], now = () => new Date(),
+}) {
+  const prior = await readPrivateJson(stateRoot, ["health", "store_slack_custody.json"]).catch(() => null);
+  const priorLastSuccess = prior?.schema_version === SLACK_STORE_VALIDITY_SCHEMA_VERSION
+    && typeof prior.last_success_at === "string"
+    && Number.isFinite(Date.parse(prior.last_success_at))
+    ? prior.last_success_at : null;
+  const completedAt = now().toISOString();
+  const priorDigest = typeof prior?.validation_digest === "string" ? prior.validation_digest : null;
+  const record = {
+    schema_version: SLACK_STORE_VALIDITY_SCHEMA_VERSION,
+    lane: "store_slack_custody",
+    validation_scope: "slack_custody_state_index_validity",
+    status: succeeded ? "ok" : "error",
+    attempted_at: attemptedAt,
+    completed_at: completedAt,
+    last_success_at: succeeded ? completedAt : priorLastSuccess,
+    error_codes: succeeded ? [] : [...new Set(errorCodes.filter((code) => /^[a-z][a-z0-9_]{0,127}$/u.test(code)))].sort(),
+    activity_changed: succeeded && priorDigest !== null ? priorDigest !== validationDigest : null,
+    validation_digest: succeeded ? validationDigest : (priorDigest ?? null),
+    validated_count: succeeded ? validatedCount
+      : (Number.isSafeInteger(prior?.validated_count) ? prior.validated_count : null),
+  };
+  await atomicWritePrivateJson(stateRoot, ["health", "store_slack_custody.json"], record);
+  return record;
+}
+
+async function validateSlackCustodyStore(prepared) {
+  if (prepared.errors_by_index.size > 0 || prepared.loaded_by_index.size === 0) {
+    throw new SlackBatchLiveError("slack_store_binding_invalid", "$batch.bindings", "Cannot validate all configured custody stores");
+  }
+  const digest = createHash("sha256");
+  let validatedCount = 0;
+  for (const [index, loaded] of [...prepared.loaded_by_index.entries()].sort(([left], [right]) => left - right)) {
+    const state = await readPrivateJson(loaded.binding.data_root, ["state", "slack-continuous.json"]);
+    if (state === null) {
+      throw new SlackBatchLiveError("slack_store_state_missing", `$batch.bindings[${index}]`, "Persisted channel state is missing");
+    }
+    validateSlackContinuousState(state, loaded.binding, loaded.binding_digest);
+    const stateDigest = createHash("sha256").update(JSON.stringify(state), "utf8").digest("hex");
+    digest.update(`${index}\0${stateDigest}\n`, "utf8");
+    validatedCount += 1;
+  }
+  return { validationDigest: digest.digest("hex"), validatedCount };
+}
+
+async function publishSlackStoreValidity(context, prepared, attemptedAt) {
+  try {
+    const validated = await validateSlackCustodyStore(prepared);
+    return writeSlackStoreValidity(context.state_root, {
+      attemptedAt,
+      succeeded: true,
+      ...validated,
+    });
+  } catch (error) {
+    return writeSlackStoreValidity(context.state_root, {
+      attemptedAt,
+      succeeded: false,
+      errorCodes: [safeFailureCode(error)],
+    });
+  }
+}
+
 function observeTransportPages(transport) {
   if (transport === null || typeof transport !== "object"
     || typeof transport.pull !== "function") {
@@ -656,6 +724,7 @@ export async function runSlackBatchLive({
     fail("transport_factory_invalid", "$transport_factory", "Expected an injected transport factory");
   }
   const context = await resolveBatchContext(options);
+  const attemptedAt = new Date().toISOString();
   const aggregate = baseAggregate("apply", context.batch_binding.bindings.length);
   const failures = new Map();
   const prepared = await prepareChannelBindings(context);
@@ -721,7 +790,11 @@ export async function runSlackBatchLive({
         result: aggregate,
       },
     );
+    await publishSlackStoreValidity(context, prepared, attemptedAt);
     return aggregate;
+  } catch (error) {
+    await publishSlackStoreValidity(context, prepared, attemptedAt).catch(() => {});
+    throw error;
   } finally {
     await lease.release();
   }
