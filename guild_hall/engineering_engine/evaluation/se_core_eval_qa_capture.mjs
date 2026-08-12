@@ -18,6 +18,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 const EVENT_SCHEMA = 'soulforge.engineering_engine.se_core_eval_qa_interaction_event.v1';
 const REPORT_SCHEMA = 'soulforge.engineering_engine.se_core_eval_qa_capture_report.v1';
 const QUERY_SCHEMA = 'soulforge.engineering_engine.se_core_eval_qa_capture_query.v1';
+const TARGETS_SCHEMA = 'soulforge.engineering_engine.se_core_eval_qa_capture_targets.v1';
 const CLAIM_CEILING = 'metadata_only_observation_ledger';
 const LEDGER_FILE = 'qa_interaction_ledger.jsonl';
 const LOCK_FILE = 'qa_interaction_ledger.lock';
@@ -30,6 +31,7 @@ const MAX_RAW_BYTES = 32 * 1024 * 1024;
 const MAX_REVIEW_BYTES = 1024 * 1024;
 const MAX_LEDGER_BYTES = 64 * 1024 * 1024;
 const MAX_LEDGER_EVENTS = 100_000;
+const MAX_TARGET_INTERACTIONS = 1_000;
 const SAFE_ID = /^[a-z0-9][a-z0-9._-]{0,95}$/;
 const INTERACTION_ID = /^(?:se-q|historical)-[a-z0-9][a-z0-9._-]{0,82}$/;
 const ATTEMPT_ID = /^(?:attempt|round|retry)-[a-z0-9][a-z0-9._-]{0,84}$/;
@@ -316,6 +318,15 @@ function createOnlyRawFile(root, relativeRef, bytes) {
 
 function ledgerPath(root) {
   return join(root, LEDGER_FILE);
+}
+
+/** The one place a recorded turn's raw location is decided, for writers and for projection. */
+function questionRawRef(interactionId) {
+  return `raw/questions/${interactionId}.md`;
+}
+
+function answerRawRef(interactionId, provider, attemptId) {
+  return `raw/answers/${interactionId}/${provider}/${attemptId}.md`;
 }
 
 function inspectFixedLedgerPath(root, { required }) {
@@ -766,7 +777,7 @@ function recordQuestion(root, request) {
         'IDENTITY_CONFLICT');
       return reportFor('record-question', 'idempotent', ledger.events, ledger.bytes);
     }
-    const ref = `raw/questions/${interactionId}.md`;
+    const ref = questionRawRef(interactionId);
     createOnlyRawFile(root, ref, bytes);
     const appended = appendEvents(root, ledger, [{
       event_type: 'question_recorded',
@@ -801,7 +812,7 @@ function recordAnswer(root, request) {
       guard(sameArtifactBytes(root, existing, bytes), 'IDENTITY_CONFLICT');
       return reportFor('record-answer', 'idempotent', ledger.events, ledger.bytes);
     }
-    const ref = `raw/answers/${interactionId}/${request.provider}/${attemptId}.md`;
+    const ref = answerRawRef(interactionId, request.provider, attemptId);
     createOnlyRawFile(root, ref, bytes);
     const appended = appendEvents(root, ledger, [{
       event_type: 'answer_received',
@@ -1021,6 +1032,79 @@ export function captureQaInteraction(request = {}) {
       operation,
       error instanceof CaptureHold ? error.code : 'CAPTURE_OPERATION_FAILED',
     );
+  }
+}
+
+/** Expand one recorded ref into the file it lands on and every lane created on the way. */
+function refTargets(root, kind, relativeRef) {
+  const parts = safeRelativeRef(relativeRef).split('/');
+  const targets = [];
+  let current = root;
+  for (const segment of parts.slice(0, -1)) {
+    current = join(current, segment);
+    targets.push({ kind: 'raw_lane', path: current });
+  }
+  targets.push({ kind, path: join(current, parts.at(-1)) });
+  return targets;
+}
+
+/**
+ * Every filesystem target one live-capture batch under this root owns, mutates, or creates.
+ *
+ * A caller that claims its own output files before capture runs cannot otherwise tell whether
+ * an output names one of these: a ledger, writer lock, or raw turn file that does not exist
+ * yet looks like a free path right up until capture creates it. The projection is built from
+ * the same root resolution, identifier guards, and refs the recording commands use, so it
+ * cannot drift into a second path schema, and it holds rather than guessing when the root or
+ * any identifier would be refused.
+ */
+export function seCoreEvalQaCaptureTargets(request = {}) {
+  try {
+    exactRequest(request, ['root_path', 'interaction_ids', 'provider', 'attempt_id']);
+    const root = openRoot(request.root_path);
+    guard(Array.isArray(request.interaction_ids)
+      && request.interaction_ids.length > 0
+      && request.interaction_ids.length <= MAX_TARGET_INTERACTIONS,
+    'REQUEST_REFUSED');
+    const interactionIds = request.interaction_ids.map(safeInteractionId);
+    guard(new Set(interactionIds).size === interactionIds.length, 'REQUEST_REFUSED');
+    guard(PROVIDERS.includes(request.provider), 'PROVIDER_REFUSED');
+    const attemptId = safeAttemptId(request.attempt_id);
+    const targets = [
+      { kind: 'evaluation_root', path: root },
+      { kind: 'ledger', path: ledgerPath(root) },
+      { kind: 'writer_lock', path: join(root, LOCK_FILE) },
+    ];
+    for (const interactionId of interactionIds) {
+      targets.push(...refTargets(root, 'raw_question', questionRawRef(interactionId)));
+      targets.push(...refTargets(
+        root, 'raw_answer', answerRawRef(interactionId, request.provider, attemptId),
+      ));
+    }
+    const seen = new Set();
+    const unique = [];
+    for (const target of targets) {
+      if (seen.has(target.path)) continue;
+      seen.add(target.path);
+      unique.push(target);
+    }
+    return {
+      schema_version: TARGETS_SCHEMA,
+      result: 'PASS',
+      claim_ceiling: CLAIM_CEILING,
+      root_path: root,
+      targets: unique,
+      issues: [],
+    };
+  } catch (error) {
+    return {
+      schema_version: TARGETS_SCHEMA,
+      result: 'HOLD',
+      claim_ceiling: CLAIM_CEILING,
+      root_path: null,
+      targets: [],
+      issues: [error instanceof CaptureHold ? error.code : 'CAPTURE_TARGETS_FAILED'],
+    };
   }
 }
 

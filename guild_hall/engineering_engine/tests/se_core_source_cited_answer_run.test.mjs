@@ -2,14 +2,22 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync,
+  existsSync, linkSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { captureQaInteraction } from '../evaluation/se_core_eval_qa_capture.mjs';
 import { ContractError } from '../kernel/errors.mjs';
+import {
+  captureSeCoreSourceCitedAnswerBatch,
+  guardExplicitOutputsOutsideCapture,
+  runSeCoreSourceCitedAnswerCli,
+  withExplicitOutputsClaimed,
+} from '../tools/se_core_source_cited_answer_runner.mjs';
 import {
   canonicalSeCoreCrosswalkProjectionJson,
   compileSeCoreCrosswalkProjection,
@@ -452,4 +460,579 @@ test('pure answer subject has no filesystem, subprocess, network, provider, or l
   assert.doesNotMatch(subject, /from ['"]node:(?:fs|child_process|http|https|net|tls|dns)['"]/u);
   assert.doesNotMatch(subject, /\bfetch\s*\(|\bWebSocket\s*\(|\bXMLHttpRequest\b/u);
   assert.doesNotMatch(subject, /from ['"][^'"]*(?:openai|ollama|notebook(?:lm)?|gemini|anthropic)[^'"]*['"]/iu);
+});
+
+// ------------------------------------------------------------ opt-in ledger capture
+
+const ANSWER_CANARY = 'ENGINE_ANSWER_CANARY_MUST_STAY_OUT_OF_THE_LEDGER';
+
+function evaluationRoot() {
+  return mkdtempSync(join(tmpdir(), 'se-core-engine-capture-'));
+}
+
+/**
+ * A run shaped exactly like the capture seam consumes it.
+ *
+ * The accepted cohort bytes are evaluator-only, so the deterministic capture semantics are
+ * exercised through the seam with the public pinned question set and synthetic answer texts.
+ */
+function captureRun(suffix = '') {
+  return {
+    answers: QUESTIONS.map((row, index) => ({
+      question_id: row.question_id,
+      answer_text: `판정: ${ANSWER_CANARY} 결정론 답변 ${index + 1}.${suffix}`,
+    })),
+  };
+}
+
+function captureInput(root, attemptId, eventTime, run) {
+  const invocation = packet();
+  return {
+    run,
+    questionSetBytes: invocation.questionSetBytes,
+    questionSetSha256: invocation.expectedQuestionSetSha256,
+    capture: { root_path: root, attempt_id: attemptId, event_time: eventTime },
+  };
+}
+
+test('engine capture appends fourteen events, then seven more per distinct attempt', () => {
+  const root = evaluationRoot();
+  try {
+    const first = captureSeCoreSourceCitedAnswerBatch(
+      captureInput(root, 'attempt-01', '2026-08-12T01:00:00Z', captureRun()),
+    );
+    assert.equal(first.result, 'PASS');
+    assert.equal(first.event_count, 14);
+    assert.deepEqual(first.counts, {
+      answer_received: 7, question_recorded: 7, review_recorded: 0,
+    });
+
+    const ledgerPath = join(root, 'qa_interaction_ledger.jsonl');
+    const afterFirst = readFileSync(ledgerPath);
+    const rerun = captureSeCoreSourceCitedAnswerBatch(
+      captureInput(root, 'attempt-01', '2026-08-12T01:00:00Z', captureRun()),
+    );
+    assert.equal(rerun.event_count, 14);
+    assert.deepEqual(readFileSync(ledgerPath), afterFirst);
+
+    const second = captureSeCoreSourceCitedAnswerBatch(
+      captureInput(root, 'attempt-02', '2026-08-12T02:00:00Z', captureRun()),
+    );
+    assert.equal(second.event_count, 21);
+    assert.deepEqual(second.counts, {
+      answer_received: 14, question_recorded: 7, review_recorded: 0,
+    });
+
+    const afterSecond = readFileSync(ledgerPath);
+    assert.throws(
+      () => captureSeCoreSourceCitedAnswerBatch(
+        captureInput(root, 'attempt-02', '2026-08-12T02:00:00Z', captureRun(' drifted')),
+      ),
+      (error) => error instanceof ContractError
+        && error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_CAPTURE_REFUSED'
+        && error.detail.issues.includes('IDENTITY_CONFLICT'),
+    );
+    assert.deepEqual(readFileSync(ledgerPath), afterSecond);
+
+    // Each turn is one exact text, and no answer prose reaches the metadata-only ledger.
+    assert.equal(
+      readFileSync(join(root, 'raw', 'questions', 'se-q-01.md'), 'utf8'),
+      QUESTIONS[0].question,
+    );
+    assert.equal(
+      readFileSync(join(root, 'raw', 'answers', 'se-q-07', 'engine', 'attempt-02.md'), 'utf8')
+        .includes(ANSWER_CANARY),
+      true,
+    );
+    const ledgerText = readFileSync(ledgerPath, 'utf8');
+    assert.equal(ledgerText.includes(ANSWER_CANARY), false);
+    assert.equal(ledgerText.includes(QUESTIONS[0].question), false);
+    assert.equal(JSON.stringify(second).includes(ANSWER_CANARY), false);
+    assert.equal(captureQaInteraction({ root_path: root, command: 'validate' }).result, 'PASS');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('capture refuses an unpinned question set or an open input before touching the ledger', () => {
+  const root = evaluationRoot();
+  try {
+    assert.throws(
+      () => captureSeCoreSourceCitedAnswerBatch({
+        run: captureRun(),
+        // Same pin, different bytes: the compact encoding is not the accepted question set.
+        questionSetBytes: Buffer.from(JSON.stringify({ questions: QUESTIONS }), 'utf8'),
+        questionSetSha256: packet().expectedQuestionSetSha256,
+        capture: { root_path: root, attempt_id: 'attempt-01', event_time: '2026-08-12T01:00:00Z' },
+      }),
+      (error) => error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_CAPTURE_REFUSED',
+    );
+    assert.throws(
+      () => captureSeCoreSourceCitedAnswerBatch({
+        ...captureInput(root, 'attempt-01', '2026-08-12T01:00:00Z', captureRun()),
+        unexpected_field: true,
+      }),
+      (error) => error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_CAPTURE_REFUSED',
+    );
+    assert.throws(
+      () => captureSeCoreSourceCitedAnswerBatch(
+        captureInput(root, 'attempt-01', '2026-08-12T01:00:00Z', {
+          answers: captureRun().answers.slice(0, 6),
+        }),
+      ),
+      (error) => error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_CAPTURE_REFUSED',
+    );
+    assert.equal(existsSync(join(root, 'qa_interaction_ledger.jsonl')), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an unsafe attempt id or event time never yields an answer turn', () => {
+  for (const [issue, attemptId, eventTime] of [
+    ['IDENTIFIER_REFUSED', 'attempt-p26-014', '2026-08-12T01:00:00Z'],
+    ['IDENTIFIER_REFUSED', 'client-847293', '2026-08-12T01:00:00Z'],
+    ['EVENT_TIME_REFUSED', 'attempt-01', '2026-02-31T00:00:00Z'],
+  ]) {
+    const root = evaluationRoot();
+    try {
+      assert.throws(
+        () => captureSeCoreSourceCitedAnswerBatch(
+          captureInput(root, attemptId, eventTime, captureRun()),
+        ),
+        (error) => error instanceof ContractError
+          && error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_CAPTURE_REFUSED'
+          && error.detail.issues.includes(issue),
+      );
+      // The refusal is per turn: no answer is fabricated, and the ledger stays valid.
+      const events = captureQaInteraction({ root_path: root, command: 'query' });
+      assert.equal(events.counts.answer_received, 0);
+      assert.equal(captureQaInteraction({ root_path: root, command: 'validate' }).result, 'PASS');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test('an occupied explicit output refuses before one capture event is appended', () => {
+  const scratch = mkdtempSync(join(tmpdir(), 'se-core-capture-order-'));
+  const root = evaluationRoot();
+  try {
+    const answers = join(scratch, 'answers.json');
+    const receipt = join(scratch, 'receipt.json');
+    const ledgerPath = join(root, 'qa_interaction_ledger.jsonl');
+    const claimed = () => [[answers, Buffer.from('answers\n', 'utf8')],
+      [receipt, Buffer.from('receipt\n', 'utf8')]];
+    let captureCalls = 0;
+    const capture = () => {
+      captureCalls += 1;
+      return captureSeCoreSourceCitedAnswerBatch(
+        captureInput(root, 'attempt-01', '2026-08-12T01:00:00Z', captureRun()),
+      );
+    };
+
+    // Each explicit output is occupied in turn. The claim fails before the mutation runs, and
+    // whatever this run had already claimed is reclaimed rather than left behind empty.
+    for (const occupiedName of ['answers.json', 'receipt.json']) {
+      const occupied = join(scratch, occupiedName);
+      writeFileSync(occupied, 'occupied\n', 'utf8');
+      const occupiedHash = sha(readFileSync(occupied));
+      assert.throws(
+        () => withExplicitOutputsClaimed(claimed(), capture),
+        (error) => error instanceof ContractError
+          && error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_REFUSED',
+      );
+      assert.equal(captureCalls, 0);
+      assert.equal(existsSync(ledgerPath), false);
+      assert.deepEqual(readdirSync(scratch), [occupiedName]);
+      assert.equal(sha(readFileSync(occupied)), occupiedHash);
+      rmSync(occupied);
+    }
+
+    const captured = withExplicitOutputsClaimed(claimed(), capture);
+    assert.equal(captureCalls, 1);
+    assert.equal(captured.event_count, 14);
+    assert.equal(readFileSync(answers, 'utf8'), 'answers\n');
+    assert.equal(readFileSync(receipt, 'utf8'), 'receipt\n');
+    const afterCapture = readFileSync(ledgerPath);
+
+    // The retry finds both outputs occupied, so the idempotent reuse of the same bytes never
+    // reaches the ledger at all.
+    assert.throws(
+      () => withExplicitOutputsClaimed(claimed(), capture),
+      (error) => error instanceof ContractError
+        && error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_REFUSED',
+    );
+    assert.equal(captureCalls, 1);
+    assert.deepEqual(readFileSync(ledgerPath), afterCapture);
+    assert.equal(captureQaInteraction({ root_path: root, command: 'validate' }).result, 'PASS');
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('capture flags are all-or-nothing and absent flags leave the run untouched', (context) => {
+  const invocation = acceptedPacket();
+  if (!invocation) {
+    context.skip('SOULFORGE_SE_CORE_EVAL_ROOT is required for accepted evaluator-only bytes');
+    return;
+  }
+  const scratch = mkdtempSync(join(tmpdir(), 'se-core-capture-cli-'));
+  const root = evaluationRoot();
+  try {
+    const paths = {
+      corpus: join(scratch, 'corpus.json'), crosswalk: join(scratch, 'crosswalk.json'),
+      review: join(scratch, 'review.json'), questions: join(scratch, 'questions.json'),
+    };
+    writeFileSync(paths.corpus, invocation.corpusBytes);
+    writeFileSync(paths.crosswalk, invocation.crosswalkBytes);
+    writeFileSync(paths.review, invocation.reviewReceiptBytes);
+    writeFileSync(paths.questions, invocation.questionSetBytes);
+    const baseArgs = [
+      '--corpus', paths.corpus, '--corpus-sha256', invocation.expectedCorpusSha256,
+      '--crosswalk', paths.crosswalk, '--crosswalk-sha256', invocation.expectedCrosswalkSha256,
+      '--review-receipt', paths.review,
+      '--review-receipt-sha256', invocation.expectedReviewReceiptSha256,
+      '--question-set', paths.questions,
+      '--question-set-sha256', invocation.expectedQuestionSetSha256,
+    ];
+
+    let plainStdout = null;
+    let plainStderr = '';
+    runSeCoreSourceCitedAnswerCli(baseArgs, {
+      stdoutWrite: (value) => { plainStdout = value; },
+      stderrWrite: (value) => { plainStderr += value; },
+    });
+    assert.equal(plainStderr, '');
+    assert.equal(readdirSync(root).length, 0);
+
+    for (const partial of [
+      ['--capture-root', root],
+      ['--capture-root', root, '--capture-attempt-id', 'attempt-01'],
+      ['--capture-attempt-id', 'attempt-01', '--capture-event-time', '2026-08-12T01:00:00Z'],
+    ]) {
+      assert.throws(
+        () => runSeCoreSourceCitedAnswerCli([...baseArgs, ...partial], { stdoutWrite: () => {} }),
+        (error) => error instanceof ContractError
+          && error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_ARGUMENT_INVALID',
+      );
+      assert.equal(readdirSync(root).length, 0);
+    }
+
+    let capturedStdout = null;
+    let capturedStderr = '';
+    runSeCoreSourceCitedAnswerCli([
+      ...baseArgs,
+      '--capture-root', root,
+      '--capture-attempt-id', 'attempt-01',
+      '--capture-event-time', '2026-08-12T01:00:00Z',
+    ], {
+      stdoutWrite: (value) => { capturedStdout = value; },
+      stderrWrite: (value) => { capturedStderr += value; },
+    });
+    assert.equal(capturedStdout, plainStdout);
+    const receipt = JSON.parse(capturedStderr);
+    assert.equal(receipt.result, 'PASS');
+    assert.equal(receipt.event_count, 14);
+    assert.equal(receipt.provider, 'engine');
+    assert.equal(receipt.scope, 'fixed_benchmark');
+    assert.equal(capturedStderr.includes(root), false);
+    assert.equal(captureQaInteraction({ root_path: root, command: 'validate' }).event_count, 14);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the CLI refuses an occupied output before capture and stays idempotent after', (context) => {
+  const invocation = acceptedPacket();
+  if (!invocation) {
+    context.skip('SOULFORGE_SE_CORE_EVAL_ROOT is required for accepted evaluator-only bytes');
+    return;
+  }
+  const scratch = mkdtempSync(join(tmpdir(), 'se-core-capture-order-cli-'));
+  const root = evaluationRoot();
+  try {
+    const paths = {
+      corpus: join(scratch, 'corpus.json'), crosswalk: join(scratch, 'crosswalk.json'),
+      review: join(scratch, 'review.json'), questions: join(scratch, 'questions.json'),
+      answers: join(scratch, 'answers.json'), receipt: join(scratch, 'receipt.json'),
+    };
+    writeFileSync(paths.corpus, invocation.corpusBytes);
+    writeFileSync(paths.crosswalk, invocation.crosswalkBytes);
+    writeFileSync(paths.review, invocation.reviewReceiptBytes);
+    writeFileSync(paths.questions, invocation.questionSetBytes);
+    const captureArgs = [
+      RUNNER, '--corpus', paths.corpus, '--corpus-sha256', invocation.expectedCorpusSha256,
+      '--crosswalk', paths.crosswalk, '--crosswalk-sha256', invocation.expectedCrosswalkSha256,
+      '--review-receipt', paths.review,
+      '--review-receipt-sha256', invocation.expectedReviewReceiptSha256,
+      '--question-set', paths.questions,
+      '--question-set-sha256', invocation.expectedQuestionSetSha256,
+      '--capture-root', root, '--capture-attempt-id', 'attempt-01',
+      '--capture-event-time', '2026-08-12T01:00:00Z',
+    ];
+    const outputArgs = ['--out', paths.answers, '--receipt-out', paths.receipt];
+    const run = (args) => spawnSync(process.execPath, args, { cwd: scratch, encoding: 'utf8' });
+    const ledgerPath = join(root, 'qa_interaction_ledger.jsonl');
+
+    for (const [occupiedKey, reclaimedKey] of [['answers', 'receipt'], ['receipt', 'answers']]) {
+      writeFileSync(paths[occupiedKey], 'occupied\n', 'utf8');
+      const occupiedHash = sha(readFileSync(paths[occupiedKey]));
+      const refused = run([...captureArgs, ...outputArgs]);
+      assert.equal(refused.status, 2);
+      assert.match(refused.stderr, /SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_REFUSED/u);
+      // The refusal is the whole run: no answers on stdout and no capture receipt on stderr.
+      assert.equal(refused.stdout, '');
+      assert.doesNotMatch(refused.stderr, /"result":"PASS"/u);
+      assert.equal(existsSync(ledgerPath), false);
+      assert.equal(readdirSync(root).length, 0);
+      assert.equal(sha(readFileSync(paths[occupiedKey])), occupiedHash);
+      assert.equal(existsSync(paths[reclaimedKey]), false);
+      rmSync(paths[occupiedKey]);
+    }
+
+    const captured = run([...captureArgs, ...outputArgs]);
+    assert.equal(captured.status, 0, captured.stderr);
+    assert.equal(readFileSync(paths.answers, 'utf8'), captured.stdout);
+    assert.equal(JSON.parse(captured.stderr).event_count, 14);
+    const afterCapture = readFileSync(ledgerPath);
+    const answerHash = sha(readFileSync(paths.answers));
+
+    const retried = run([...captureArgs, ...outputArgs]);
+    assert.equal(retried.status, 2);
+    assert.match(retried.stderr, /SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_REFUSED/u);
+    assert.deepEqual(readFileSync(ledgerPath), afterCapture);
+    assert.equal(sha(readFileSync(paths.answers)), answerHash);
+
+    // Without the occupied outputs the same attempt bytes still resume idempotently.
+    const resumed = run(captureArgs);
+    assert.equal(resumed.status, 0, resumed.stderr);
+    assert.equal(JSON.parse(resumed.stderr).event_count, 14);
+    assert.deepEqual(readFileSync(ledgerPath), afterCapture);
+    assert.equal(captureQaInteraction({ root_path: root, command: 'validate' }).result, 'PASS');
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ------------------------------------- explicit output against capture-owned path identity
+
+/** The exact paths one seven-turn engine capture under `root` will own or create. */
+function ownedCapturePaths(root, attemptId = 'attempt-01') {
+  return {
+    ledger: join(root, 'qa_interaction_ledger.jsonl'),
+    writer_lock: join(root, 'qa_interaction_ledger.lock'),
+    raw_question: join(root, 'raw', 'questions', 'se-q-01.md'),
+    raw_answer: join(root, 'raw', 'answers', 'se-q-07', 'engine', `${attemptId}.md`),
+  };
+}
+
+function captureIdentity(root, attemptId = 'attempt-01') {
+  return {
+    root_path: root,
+    interaction_ids: QUESTIONS.map((row) => row.question_id),
+    provider: 'engine',
+    attempt_id: attemptId,
+  };
+}
+
+test('the claim refuses an output aimed at a capture-owned path before any mutation', () => {
+  const root = evaluationRoot();
+  try {
+    const capture = captureIdentity(root);
+    let captureCalls = 0;
+    const mutate = () => {
+      captureCalls += 1;
+      return captureSeCoreSourceCitedAnswerBatch(
+        captureInput(root, 'attempt-01', '2026-08-12T01:00:00Z', captureRun()),
+      );
+    };
+
+    // None of these exist yet, so the create-only claim would create the path, capture would
+    // append to it, and completion would overwrite the result with answer or receipt bytes.
+    for (const target of Object.values(ownedCapturePaths(root))) {
+      assert.throws(
+        () => withExplicitOutputsClaimed(
+          [[target, Buffer.from('claimed\n', 'utf8')]], mutate, capture,
+        ),
+        (error) => error instanceof ContractError
+          && error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_CAPTURE_COLLISION',
+      );
+      assert.equal(captureCalls, 0);
+      assert.equal(existsSync(target), false);
+      assert.deepEqual(readdirSync(root), []);
+    }
+
+    // An output inside the same root that this attempt does not own stays an ordinary output.
+    const exported = join(root, 'exported_answers.json');
+    const captured = withExplicitOutputsClaimed(
+      [[exported, Buffer.from('exported\n', 'utf8')]], mutate, capture,
+    );
+    assert.equal(captureCalls, 1);
+    assert.equal(captured.event_count, 14);
+    assert.equal(readFileSync(exported, 'utf8'), 'exported\n');
+    assert.equal(captureQaInteraction({ root_path: root, command: 'validate' }).result, 'PASS');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an unprojectable capture attempt refuses instead of allowing an unchecked claim', () => {
+  const root = evaluationRoot();
+  try {
+    const outputs = [join(root, '..', 'sibling-output.json')];
+    for (const [issue, capture] of [
+      ['IDENTIFIER_REFUSED', captureIdentity(root, 'attempt-p26-014')],
+      ['EVALUATION_ROOT_REFUSED', captureIdentity(join(root, 'missing'))],
+      ['IDENTIFIER_REFUSED', { ...captureIdentity(root), interaction_ids: ['../escape'] }],
+      ['PROVIDER_REFUSED', { ...captureIdentity(root), provider: 'gemini' }],
+    ]) {
+      assert.throws(
+        () => guardExplicitOutputsOutsideCapture(outputs, capture),
+        (error) => error instanceof ContractError
+          && error.code === 'SE_CORE_SOURCE_CITED_ANSWER_CLI_CAPTURE_REFUSED'
+          && error.detail.issues.includes(issue),
+      );
+    }
+    // A projectable attempt leaves an unrelated output alone and creates nothing itself.
+    guardExplicitOutputsOutsideCapture(outputs, captureIdentity(root));
+    assert.deepEqual(readdirSync(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the real CLI refuses an output or receipt aimed at a capture-owned path', (context) => {
+  const invocation = acceptedPacket();
+  if (!invocation) {
+    context.skip('SOULFORGE_SE_CORE_EVAL_ROOT is required for accepted evaluator-only bytes');
+    return;
+  }
+  const scratch = mkdtempSync(join(tmpdir(), 'se-core-capture-collision-'));
+  const root = evaluationRoot();
+  const plainRoot = evaluationRoot();
+  try {
+    const paths = {
+      corpus: join(scratch, 'corpus.json'), crosswalk: join(scratch, 'crosswalk.json'),
+      review: join(scratch, 'review.json'), questions: join(scratch, 'questions.json'),
+      answers: join(scratch, 'answers.json'), receipt: join(scratch, 'receipt.json'),
+    };
+    writeFileSync(paths.corpus, invocation.corpusBytes);
+    writeFileSync(paths.crosswalk, invocation.crosswalkBytes);
+    writeFileSync(paths.review, invocation.reviewReceiptBytes);
+    writeFileSync(paths.questions, invocation.questionSetBytes);
+    const baseArgs = [
+      RUNNER, '--corpus', paths.corpus, '--corpus-sha256', invocation.expectedCorpusSha256,
+      '--crosswalk', paths.crosswalk, '--crosswalk-sha256', invocation.expectedCrosswalkSha256,
+      '--review-receipt', paths.review,
+      '--review-receipt-sha256', invocation.expectedReviewReceiptSha256,
+      '--question-set', paths.questions,
+      '--question-set-sha256', invocation.expectedQuestionSetSha256,
+    ];
+    const captureArgs = [
+      ...baseArgs, '--capture-root', root, '--capture-attempt-id', 'attempt-01',
+      '--capture-event-time', '2026-08-12T01:00:00Z',
+    ];
+    const run = (args) => spawnSync(process.execPath, args, { cwd: scratch, encoding: 'utf8' });
+    const owned = ownedCapturePaths(root);
+
+    // The reproduced blocker: the ledger, lock, and raw turn paths do not exist yet, so the
+    // claim would create one, capture would append fourteen events to it, and completion would
+    // overwrite them while the run still exited 0 carrying a PASS capture receipt.
+    for (const flag of ['--out', '--receipt-out']) {
+      for (const [kind, target] of Object.entries(owned)) {
+        const refused = run([...captureArgs, flag, target]);
+        assert.equal(refused.status, 2);
+        assert.match(refused.stderr, /SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_CAPTURE_COLLISION/u);
+        assert.match(refused.stderr, new RegExp(`"${kind}"`, 'u'));
+        assert.equal(refused.stdout, '');
+        assert.doesNotMatch(refused.stderr, /"result":"PASS"/u);
+        assert.equal(existsSync(target), false);
+        assert.deepEqual(readdirSync(root), []);
+      }
+    }
+
+    const duplicated = run([...captureArgs, '--out', paths.answers, '--receipt-out', paths.answers]);
+    assert.equal(duplicated.status, 2);
+    assert.match(duplicated.stderr, /SE_CORE_SOURCE_CITED_ANSWER_CLI_ARGUMENT_INVALID/u);
+    assert.equal(existsSync(paths.answers), false);
+    assert.deepEqual(readdirSync(root), []);
+
+    // A capture root reached through a reparse point is the same root. Junction creation is
+    // the unprivileged Windows case; where no reparse point can be created this stays UNKNOWN.
+    const aliasRoot = join(scratch, 'alias-root');
+    let aliased = true;
+    try {
+      symlinkSync(root, aliasRoot, 'junction');
+    } catch {
+      aliased = false;
+    }
+    if (aliased) {
+      const refused = run([...captureArgs, '--out', join(aliasRoot, 'qa_interaction_ledger.jsonl')]);
+      assert.equal(refused.status, 2);
+      assert.match(refused.stderr, /SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_CAPTURE_COLLISION/u);
+      assert.equal(existsSync(owned.ledger), false);
+      assert.deepEqual(readdirSync(root), []);
+    } else {
+      context.diagnostic('UNKNOWN: no reparse point could be created here, alias case unverified');
+    }
+
+    // Outputs outside the owned set still work, and the positive capture is still fourteen.
+    const captured = run([...captureArgs, '--out', paths.answers, '--receipt-out', paths.receipt]);
+    assert.equal(captured.status, 0, captured.stderr);
+    assert.equal(readFileSync(paths.answers, 'utf8'), captured.stdout);
+    assert.equal(JSON.parse(captured.stderr).event_count, 14);
+    const afterCapture = readFileSync(owned.ledger);
+    assert.equal(captureQaInteraction({ root_path: root, command: 'validate' }).result, 'PASS');
+
+    const existingLedger = run([...captureArgs, '--receipt-out', owned.ledger]);
+    assert.equal(existingLedger.status, 2);
+    assert.match(existingLedger.stderr, /SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_CAPTURE_COLLISION/u);
+    assert.deepEqual(readFileSync(owned.ledger), afterCapture);
+
+    const hardLink = join(scratch, 'ledger-hardlink.jsonl');
+    let linked = true;
+    try {
+      linkSync(owned.ledger, hardLink);
+    } catch {
+      linked = false;
+    }
+    if (linked) {
+      const refused = run([...captureArgs, '--out', hardLink]);
+      assert.equal(refused.status, 2);
+      assert.match(
+        refused.stderr,
+        statSync(owned.ledger, { bigint: true }).ino === 0n
+          ? /SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_REFUSED/u
+          : /SE_CORE_SOURCE_CITED_ANSWER_CLI_OUTPUT_CAPTURE_COLLISION/u,
+      );
+      assert.deepEqual(readFileSync(owned.ledger), afterCapture);
+      rmSync(hardLink);
+    } else {
+      context.diagnostic('UNKNOWN: no hard link could be created here, alias case unverified');
+    }
+
+    // The retry is still idempotent, and an unowned path inside the root is still writable.
+    const exported = join(root, 'exported_answers.json');
+    const retried = run([...captureArgs, '--out', exported]);
+    assert.equal(retried.status, 0, retried.stderr);
+    assert.equal(JSON.parse(retried.stderr).event_count, 14);
+    assert.equal(readFileSync(exported, 'utf8'), retried.stdout);
+    assert.deepEqual(readFileSync(owned.ledger), afterCapture);
+    assert.equal(captureQaInteraction({ root_path: root, command: 'validate' }).event_count, 14);
+
+    // With no capture flags there is no owned set, so the same file name is an ordinary output.
+    const plainLedgerName = join(plainRoot, 'qa_interaction_ledger.jsonl');
+    const plain = run([...baseArgs, '--out', plainLedgerName]);
+    assert.equal(plain.status, 0, plain.stderr);
+    assert.equal(plain.stderr, '');
+    assert.equal(readFileSync(plainLedgerName, 'utf8'), plain.stdout);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+    rmSync(plainRoot, { recursive: true, force: true });
+  }
 });

@@ -26,6 +26,7 @@ const CLASSIFICATIONS = Object.freeze([
 ]);
 const HEX64 = /^[0-9a-f]{64}$/;
 const SAFE_TOKEN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/;
+const SAFE_SECTION = /^[A-Za-z0-9][A-Za-z0-9._-]*(?: [A-Za-z0-9][A-Za-z0-9._-]*){0,7}$/;
 const SAFE_LOCATOR = /^[A-Za-z0-9._/-]{1,240}$/;
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
 const MAX_TEXT_BYTES = 1024 * 1024;
@@ -162,6 +163,11 @@ function safeText(value, code = 'SENSITIVE_CONTENT_REFUSED', maximum = MAX_TEXT_
 
 function safeToken(value, code = 'SOURCE_SHAPE_REFUSED') {
   guard(typeof value === 'string' && SAFE_TOKEN.test(value), code);
+  return value;
+}
+
+function safeSection(value, code = 'SOURCE_SHAPE_REFUSED') {
+  guard(typeof value === 'string' && value.length <= 160 && SAFE_SECTION.test(value), code);
   return value;
 }
 
@@ -730,7 +736,7 @@ function boundaryCitation(citation) {
     kind: 'engine_boundary',
     repo_relative_path: repoPath,
     sha256: hex64(citation.sha256, 'SOURCE_SHAPE_REFUSED'),
-    sections: citation.sections.map((section) => safeToken(section)),
+    sections: citation.sections.map((section) => safeSection(section)),
   };
 }
 

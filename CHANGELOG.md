@@ -1,5 +1,75 @@
 # CHANGELOG
 
+## 2026-08-12 - Automatic SE-core evaluation question and answer capture
+
+- Added an all-or-nothing `--capture-root` / `--capture-attempt-id` /
+  `--capture-event-time` opt-in to the fixed-seven source-cited Engine CLI. With
+  no capture flag its stdout and output bytes are unchanged; with all three it
+  records the seven exact question texts and seven answer texts as individual
+  turns through the existing metadata-only QA interaction ledger and prints one
+  redacted receipt on stderr. A capture refusal fails the command instead of
+  claiming the batch was captured, and the Engine still makes no model, network,
+  ERP, or Notebook call.
+- Ordered explicit output against ledger capture in that CLI. Each supplied
+  `--out` and `--receipt-out` is now claimed create-only before any capture
+  event is appended, so a run naming an already occupied output refuses with no
+  recorded turn, no capture artifact, and no receipt, and reclaims whatever it
+  had already claimed instead of leaving an empty or partial file.
+- Bound explicit output to capture identity in that CLI. An `--out` or
+  `--receipt-out` naming a path the exact capture attempt owns — the ledger, the
+  writer lock, a raw question or answer file, or a lane they create — is now
+  refused before either the claim or the capture, because a create-only claim on
+  a capture path that did not exist yet created it, let capture append to it, and
+  then overwrote it while the command still succeeded with a PASS capture
+  receipt. The owned set is projected by the capture contract itself, and
+  comparison resolves reparse points, short names, case variants, and hard links
+  and refuses an identity it cannot resolve. Outputs outside that set, including
+  ordinary outputs inside the same evaluation root, are unchanged.
+- Added a query-only NotebookLM capture module and thin CLI that can run exactly
+  one `nlm notebook query ... --json --timeout` shape without a shell, with a
+  bounded timeout and bounded accepted output bytes. Login, notebook
+  create/delete, source add/sync/import, research start/import, note mutation,
+  and chat deletion are unreachable, and authentication is left entirely to the
+  caller.
+- Required exactly four unique UUID source ids and one freshly minted
+  conversation UUID per question and attempt, and validated the nlm 0.9.10
+  response as a closed six-field object whose `citations` map canonical 1-based
+  numbers to requested source ids and whose `references` are exact
+  `source_id`/`citation_number` records with an optional bounded `cited_text` or
+  `cited_table`. Every citation value and reference source must be one of the
+  four requested ids, every reference number must bind once to the citation
+  mapping and agree with it, and the returned question and conversation must
+  match the submitted ones.
+- Made capture crash-safe: a create-only attempt intent is written before the
+  external query, an unfinished attempt returns UNKNOWN rather than querying
+  twice, a persisted response resumes ledger capture without a second query, and
+  a provider failure keeps the recorded question with a safe failure receipt and
+  no fabricated answer. Both recorded outcomes are resolved before the execute
+  branch is chosen, so an outcome found with no intent, and an attempt recorded
+  as both answered and failed, hold without querying.
+- Made every refusal an honest audit record. After the question turn is
+  appended, each HOLD and UNKNOWN reports whether the external query was
+  attempted, the question hash, and the ledger event count, appended event
+  count, ledger hash, and head hash actually reached.
+- Bounded the reused-conversation scan to the evaluation root: the lane, every
+  interaction directory, and every scanned file are refused if they are a
+  reparse point or resolve outside the root, before anything lists or reads
+  them, and directory count, file count, and file byte length are all bounded.
+- Added a read-only Markdown projection of that prospective QA capture ledger
+  with Korean section labels, a create-only `--out`, and a `--refresh` that
+  replaces a report only when the observed hash and this renderer's own marker
+  both still match, staging the replacement inside the same directory so a
+  refused refresh leaves the existing bytes untouched and no residue behind. The
+  projection is a derived view: the ledger and the hash-bound raw question and
+  answer files stay canonical, and it declares no verdict, score, or winner.
+- Kept raw answers, citations, references, provider stdout, and runtime
+  notebook/source/conversation identifiers inside create-only artifacts under the
+  explicitly supplied private evaluation root. Public files, the metadata-only
+  ledger, and CLI output carry hashes, counts, and closed issue codes only.
+- Kept both providers as contestants. Capture declares no winner, accepts no
+  answer, writes no Task/ERP record, uploads nothing, mutates no source, and
+  leaves the existing historical-import row-pointer `HOLD` unchanged.
+
 ## 2026-08-12 - Enforce metadata-only `_workmeta` writes
 
 - Added a pre-write target guard that rejects generated runtime directories,

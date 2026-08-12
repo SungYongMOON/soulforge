@@ -460,7 +460,7 @@ function fullView() {
         kind: 'engine_boundary',
         repo_relative_path: 'guild_hall/engineering_engine/contracts/boundary.md',
         sha256: 'a'.repeat(64),
-        sections: ['4.4'],
+        sections: ['2', '3 O6_unauthorized'],
       }],
       review: safeReview(questionId, CLASSIFICATIONS[index], index),
     })),
@@ -552,7 +552,7 @@ test('the pure formatter shows public citations for q1-q5 and Engine boundary re
   assert.match(markdown, /Public SE Guide · R1 · 1쪽/);
   assert.match(markdown, /엔진 경계 근거/);
   assert.match(markdown, /guild_hall\/engineering_engine\/contracts\/boundary\.md/);
-  assert.match(markdown, /섹션 4\.4/);
+  assert.match(markdown, /섹션 2, 3 O6_unauthorized/);
   assert.match(markdown, /`\/answers\/5`/);
   assert.match(markdown, /기존 typed Engine 시도 1/);
   assert.match(markdown, /## 전체 이벤트 목록/);

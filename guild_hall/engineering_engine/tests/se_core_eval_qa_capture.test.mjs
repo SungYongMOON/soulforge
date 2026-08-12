@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -13,7 +14,10 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { afterEach } from 'node:test';
-import { captureQaInteraction } from '../evaluation/se_core_eval_qa_capture.mjs';
+import {
+  captureQaInteraction,
+  seCoreEvalQaCaptureTargets,
+} from '../evaluation/se_core_eval_qa_capture.mjs';
 import { runCli } from '../tools/se_core_eval_qa_capture.mjs';
 
 const ROOTS = new Set();
@@ -849,4 +853,89 @@ test('historical import accumulates all seventy question and answer pairs', () =
     question_recorded: 70,
     review_recorded: 0,
   });
+});
+
+test('the owned-target projection covers every path a live capture actually creates', () => {
+  const root = makeRoot();
+  const interactionIds = ['se-q-001', 'se-q-002'];
+  const projected = seCoreEvalQaCaptureTargets({
+    root_path: root,
+    interaction_ids: interactionIds,
+    provider: 'engine',
+    attempt_id: 'attempt-01',
+  });
+  assert.equal(projected.result, 'PASS');
+  assert.deepEqual(projected.issues, []);
+  const pathsOfKind = (kind) => projected.targets
+    .filter((target) => target.kind === kind)
+    .map((target) => target.path);
+  assert.deepEqual(pathsOfKind('ledger'), [join(projected.root_path, 'qa_interaction_ledger.jsonl')]);
+  assert.deepEqual(pathsOfKind('writer_lock'), [join(projected.root_path, 'qa_interaction_ledger.lock')]);
+  assert.deepEqual(
+    pathsOfKind('raw_question'),
+    interactionIds.map((id) => join(projected.root_path, 'raw', 'questions', `${id}.md`)),
+  );
+  assert.deepEqual(
+    pathsOfKind('raw_answer'),
+    interactionIds.map((id) => join(projected.root_path, 'raw', 'answers', id, 'engine', 'attempt-01.md')),
+  );
+
+  invoke(root, 'initialize');
+  for (const id of interactionIds) {
+    assert.equal(invoke(root, 'record-question', {
+      interaction_id: id,
+      scope: 'fixed_benchmark',
+      event_time: '2026-08-12T01:00:00Z',
+      question_bytes: Buffer.from(`question ${id}`, 'utf8'),
+    }).result, 'PASS');
+    assert.equal(invoke(root, 'record-answer', {
+      interaction_id: id,
+      provider: 'engine',
+      attempt_id: 'attempt-01',
+      event_time: '2026-08-12T01:01:00Z',
+      answer_bytes: Buffer.from(`answer ${id}`, 'utf8'),
+    }).result, 'PASS');
+  }
+  assert.equal(invoke(root, 'validate').event_count, 4);
+
+  const owned = new Set(projected.targets.map((target) => target.path.toLowerCase()));
+  const written = [];
+  const walk = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      written.push(path);
+      if (entry.isDirectory()) walk(path);
+    }
+  };
+  walk(projected.root_path);
+  // Nothing the recording commands actually wrote falls outside the projected owned set.
+  assert.deepEqual(written.filter((path) => !owned.has(path.toLowerCase())), []);
+  assert.ok(written.length >= 8);
+});
+
+test('the owned-target projection holds instead of guessing an unsafe attempt', () => {
+  const root = makeRoot();
+  const base = {
+    root_path: root,
+    interaction_ids: ['se-q-001'],
+    provider: 'engine',
+    attempt_id: 'attempt-01',
+  };
+  for (const [issue, override] of [
+    ['EVALUATION_ROOT_REFUSED', { root_path: join(root, 'missing') }],
+    ['EVALUATION_ROOT_REFUSED', { root_path: 'relative/root' }],
+    ['IDENTIFIER_REFUSED', { attempt_id: 'attempt-p26-014' }],
+    ['IDENTIFIER_REFUSED', { attempt_id: 'attempt-01/../../escape' }],
+    ['IDENTIFIER_REFUSED', { interaction_ids: ['se-q-001', '../escape'] }],
+    ['PROVIDER_REFUSED', { provider: 'gemini' }],
+    ['REQUEST_REFUSED', { interaction_ids: [] }],
+    ['REQUEST_REFUSED', { interaction_ids: ['se-q-001', 'se-q-001'] }],
+    ['REQUEST_REFUSED', { extra_field: true }],
+  ]) {
+    const projected = seCoreEvalQaCaptureTargets({ ...base, ...override });
+    assert.equal(projected.result, 'HOLD');
+    assert.deepEqual(projected.issues, [issue]);
+    assert.deepEqual(projected.targets, []);
+    assert.equal(projected.root_path, null);
+  }
 });

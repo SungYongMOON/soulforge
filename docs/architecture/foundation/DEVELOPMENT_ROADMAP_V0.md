@@ -14,6 +14,13 @@
   `_workspaces/**`; the evaluation ledger stores metadata-only hashes and links.
   A final same-byte end-to-end comparison remains blocked because provider-side
   post-ingest byte parity is not observable and the Engine input is structured.
+- Both contestants can now be captured automatically at answer time. The
+  source-cited Engine CLI has an all-or-nothing `--capture-*` opt-in, and a
+  query-only NotebookLM wrapper records its turn through the same metadata-only
+  contract with create-only intent/response evidence and no second query per
+  attempt. Historical row-pointer import stays on `HOLD`, and live NotebookLM
+  execution still needs owner-supplied runtime identifiers plus a fresh Level-3
+  review before any production claim.
 
 ## 목적
 

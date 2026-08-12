@@ -31,11 +31,112 @@ The public-safe SE-core evaluation seam has seven distinct layers:
 - `evaluation/se_core_eval_qa_capture.mjs` appends future question, answer, and
   review turns to a separate metadata-only hash chain while raw text remains in
   explicit workspace files. It never rewrites the closed 70-event ledger.
+- `evaluation/se_core_eval_notebook_query_capture.mjs` runs exactly one
+  NotebookLM command shape — `nlm notebook query <notebook_id> <question>
+  --conversation-id <fresh_uuid> --source-ids <csv> --profile <profile> --json
+  --timeout <seconds>` — and records the turn through the same capture contract.
+  It cannot select login, notebook create/delete, source add/sync/import,
+  research start/import, note mutation, chat deletion, or any other verb, and it
+  never inspects or manages authentication.
+- `evaluation/se_core_eval_qa_human_report.mjs` renders that prospective QA
+  capture ledger as one readable Markdown projection with Korean section labels.
+  It is a derived view, never an authority: the ledger and the hash-bound raw
+  question and answer files stay canonical, and it declares no verdict, score,
+  or winner.
 
 The crosswalk, source-cited answer, and ledger CLIs default to stdout/read-only behavior.
 An output file is created only through an explicit create-only option. The
 Engine runner invokes no learned model, provider, network, ERP writer, or
 Notebook surface.
+
+Both providers can now be captured the moment they answer, so no evaluation turn
+depends on a later manual transcription step.
+
+The source-cited answer CLI takes three all-or-nothing `--capture-*` flags:
+`--capture-root` (an existing absolute private evaluation root),
+`--capture-attempt-id`, and `--capture-event-time` (one strict UTC instant used
+for every event in the batch). With none of them the CLI behaves exactly as
+before, byte for byte. With all three it records the seven exact question texts
+and the seven rendered answer texts as fourteen individual turns and prints one
+redacted receipt on stderr; a later distinct attempt reuses the byte-identical
+questions idempotently and adds only its seven answers. Capture is per turn, not
+per batch: a refusal fails the CLI and no receipt is emitted, and a retry with
+the same bytes resumes idempotently rather than duplicating.
+
+Output and capture are ordered. Every supplied `--out` and `--receipt-out` is
+claimed create-only before the ledger is touched, so a run that names an already
+occupied output refuses with zero capture events appended, no capture artifact
+written, and no receipt printed. A refused run also reclaims the outputs it had
+already claimed, so it leaves no empty or partial file and no existing byte
+changed.
+
+Output and capture are also bound by identity. Before either claim, each output
+is checked against the exact set of paths that capture attempt owns — the
+ledger, the writer lock, the seven raw question files, the seven raw answer
+files, and the lanes they create — projected by the capture contract itself
+rather than restated. A capture path that does not exist yet would otherwise be
+created by the claim, appended to by capture, and overwritten on completion, so
+a collision refuses before anything is created and no receipt is printed.
+Comparison is by lexical path, by physical path once junctions, symlinks, short
+names, and case variants are resolved through the nearest existing ancestor, and
+by device and inode where a hard link exposes it; an identity that cannot be
+resolved refuses rather than being guessed. Outputs outside that owned set are
+unaffected, including ordinary outputs inside the same evaluation root, and a
+run without capture flags has no owned set at all.
+
+The NotebookLM wrapper accepts notebook, source, and profile values only at
+runtime and hard-codes no identifier, title, account, or path. It requires
+exactly four unique UUID source ids for this slice and mints one fresh
+conversation UUID per question and attempt, refusing any conversation already
+recorded under that root. It spawns without a shell using an exact argv
+allowlist and bounds the timeout and the accepted stdout/stderr byte counts.
+
+The current nlm 0.9.10 response is validated as a closed object with exactly
+`answer`, `question`, `conversation_id`, `sources_used`, `citations`, and
+`references`. `citations` is a mapping from a canonical 1-based citation number
+to one source id, and each `references` entry is the exact record `source_id`
+and `citation_number` with an optional `cited_text` or an optional `cited_table`
+of `num_columns` and rows of exactly that width. Every citation value and every
+`reference.source_id` must be one of the exact four requested source ids, every
+reference number must exist in the citation mapping, agree with the source
+recorded there, and be claimed only once, and every nested field, row, and cell
+is bounded plain own data with no extra key. The returned question must match
+the submitted one, and every identifier anywhere in the document must be one of
+the requested values, so a foreign alias that is not even a UUID is refused too.
+
+The default executor spawns `nlm` directly with no shell, so it works only where
+`nlm` is itself a spawnable executable on PATH. Where it is a shell-resolved
+wrapper shim, the caller injects an executor instead of the module relaxing to a
+shell. Tests always inject a fake executor and make no external call.
+
+Crash safety is explicit. A create-only attempt intent is written before the
+external query, so an unfinished attempt found without a recoverable response
+artifact returns UNKNOWN and is never queried again under the same attempt id. A
+complete response artifact resumes ledger capture without a second query. Both
+recorded outcomes are resolved before the execute branch is chosen, so a
+response or failure found with no matching intent, and an attempt recorded as
+both answered and failed, each hold without asking the provider anything. A
+provider failure keeps the recorded question and a safe failure receipt, adds no
+fabricated answer, and echoes no provider output. Raw answers, citations,
+references, and provider stdout live only in create-only private artifacts under
+the supplied evaluation root; CLI stdout and the ledger carry hashes, counts, and
+closed issue codes only.
+
+A refusal is still an audit record. Once the question turn is appended, every
+later HOLD or UNKNOWN reports whether the external query was actually attempted,
+the question hash, and the ledger event count, appended event count, ledger hash,
+and head hash the run really reached. A refusal raised before the question turn
+reports those facts as unset rather than as zero.
+
+The intent scan that refuses a reused conversation stays inside the evaluation
+root. The lane, every interaction directory, and every scanned file are refused
+if they are a symlink, junction, or other reparse point, or if they resolve
+outside the root, before anything lists or reads them, and directory count, file
+count, and each file's byte length are bounded.
+
+Neither provider is truth. Notebook and Engine remain contestants, and capture is
+observation: it declares no winner, accepts no answer, writes no Task/ERP record,
+uploads nothing, mutates no source, and triggers no automatic review.
 
 The human report is Markdown-only. The prospective QA capture ledger starts
 from newly recorded turns. Historical import accepts only a nonempty
