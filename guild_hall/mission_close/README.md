@@ -6,7 +6,7 @@ mission terminal state.
 ## Boundary
 
 - Reads battle events from `_workmeta/<project_code>/log/events/YYYY/MM/battle_events.jsonl`.
-- Requires the referenced run evidence directory at `_workmeta/<project_code>/runs/<run_id>/`.
+- Requires the referenced compact run receipt directory at `_workmeta/<project_code>/runs/<run_id>/`; raw evidence remains in its workspace/worksite pointer target.
 - Writes only terminal pointers and status fields under `.mission/<mission_id>/`.
 - With `--mission-surface private`, writes the same terminal pointers and status fields under
   `_workmeta/<project_code>/missions/<mission_id>/` instead.

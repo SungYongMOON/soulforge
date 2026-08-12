@@ -50,7 +50,7 @@ Compatibility basis must be named as `vendor_declared`, `tool_library_metadata`,
 ## Boundary Rules
 
 - Public canon contains only workflow rules, state semantics, and templates.
-- Project-local packets, model files, downloaded archives, checksums, tool-library metadata, caches, and manifests belong under `_workmeta/<project_code>/runs/<run_id>/...` or another approved private/project-local binding.
+- Project-local packets, model files, downloaded archives, caches, and manifests belong in `_workspaces/<project_code>/...`, `_workspaces/_local/<node_id>/...`, or another approved worksite. `_workmeta/<project_code>/runs/<run_id>/...` may keep only checksums, pointers, status, and compact receipts.
 - Do not place vendor model payloads, raw project files, source document text, simulator outputs, `_workspaces` outputs, runtime absolute paths, credentials, cookies, sessions, or private run truth in `.workflow`.
 - If login, account-bound download, NDA, export-control, license click-through, or secret-backed access is needed, record `blocked` and ask the owner to provide or approve a resulting file path.
 

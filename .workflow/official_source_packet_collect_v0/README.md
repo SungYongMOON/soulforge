@@ -45,7 +45,7 @@ Downstream workflows should consume this packet as a boundary contract:
 ## Boundary Rules
 
 - Public canon contains only workflow rules, state semantics, and templates.
-- Project-local packets, downloads, reused local files, checksums, caches, and manifests belong under `_workmeta/<project_code>/runs/<run_id>/...` or another approved private/project-local binding.
+- Project-local packets, downloads, reused local files, caches, and manifests belong in `_workspaces/<project_code>/...`, `_workspaces/_local/<node_id>/...`, or another approved worksite. `_workmeta/<project_code>/runs/<run_id>/...` may keep only checksums, pointers, status, and compact receipts.
 - Owner-held archive surfaces such as Google Drive may hold initial candidates, source files, working bundles, and canon packages for backup and cross-PC retrieval. The workflow records archive status labels and refs, but archive presence alone is never source truth or canon authority.
 - When the archive policy sets `agent_upload_authority: codex_skill_auto_sync`, an approved Codex skill or Google Drive connector may upload or sync bounded archive files without per-file owner confirmation.
 - Automatic upload/sync must stay inside the declared archive policy and must reject secrets, credentials, unsupported private payloads, and ZIP containers treated as source truth.

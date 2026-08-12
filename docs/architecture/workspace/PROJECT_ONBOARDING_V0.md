@@ -102,7 +102,7 @@ ln -s "$target" "_workspaces/$project_code"
 - 사람용 실험 메모와 온보딩 문서는 `_workmeta/<project_code>/reports/onboarding/` 아래에 둔다.
 - 사람과 Codex 가 같이 진행한 시작 단계 판단, blocker, 다음 액션은 `_workmeta/<project_code>/reports/onboarding/project_start_worklog.md` 에 append 한다.
 - 사용자가 따로 요청하지 않아도 새 시작 행위의 실제 작업 순서와 절차 초안은 `project_start_worklog.md` 와 관련 onboarding note 에 함께 남긴다.
-- 근거 파일, 임시 export, 비교 산출물은 `_workmeta/<project_code>/artifacts/onboarding/` 아래에 둔다.
+- 근거 파일, 임시 export와 비교 산출물은 workspace/worksite에 두고, `_workmeta/<project_code>/artifacts/onboarding/`에는 pointer, hash, status와 compact comparison receipt만 둔다.
 - 위 경로는 모두 owner-only shared metadata 경로이며 public tracked tree 로는 올리지 않는다.
 - tracked 정본 문서에는 실험 결과에서 승격된 규칙만 남기고, 실제 프로젝트별 working note 원문은 남기지 않는다.
 

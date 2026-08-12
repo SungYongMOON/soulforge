@@ -15,7 +15,8 @@ flowchart TD
   B["local bindings"] --> RP["resolved_plan.yaml"]
   MI --> RD["readiness.yaml"]
   MI --> RP
-  MI --> WS["_workmeta/<project_code>/runs/<run_id>/"]
+  MI --> WS["workspace/worksite raw run"]
+  MI --> WM["_workmeta/<project_code>/runs/<run_id>/ compact receipt"]
 ```
 
 ## 핵심 구분
@@ -101,7 +102,7 @@ flowchart LR
 - `.mission/<mission_id>/readiness.yaml` 은 `draft`, `blocked`, `ready`, `running`, `completed`, `failed` 같은 현재 준비 상태와 blocking reason 을 소유한다.
 - current-default v0 에서 `.mission/<mission_id>/readiness.yaml` 은 `terminal_provenance` pointer 로 `closed_via`, `closed_at`, `terminal_result`, `run_id`, `battle_event_id` 를 함께 둘 수 있다.
 - `.mission/<mission_id>/resolved_plan.yaml` 은 current execution plan 의 public-safe resolved view 다.
-- raw execution truth 는 `.mission/` 에 두지 않고 `_workmeta/<project_code>/runs/<run_id>/` 아래에 둔다.
+- raw execution truth와 artifact는 `.mission/`이나 `_workmeta`에 두지 않고 workspace/worksite에 둔다. `_workmeta/<project_code>/runs/<run_id>/`에는 mission이 참조할 compact metadata receipt만 둔다.
 - current-default v0 에서 `mission terminal` 은 `required workflow steps done + mission-level battle_event persisted + no open blocker` 로 해석한다.
 - current-default v0 mail handoff 에서는 first tracked mission draft 를 먼저 만들 수 있으며, 이때 `workflow_id: null` 은 `readiness.yaml` 이 `blocked` 인 동안에만 허용한다.
 

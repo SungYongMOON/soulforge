@@ -126,10 +126,12 @@ _workmeta/
 - assigned execution plan 과 mission-level 배정 owner 는 `_workmeta/` 가 아니라 `.mission/` 이 소유한다.
 - `_workmeta/<project_code>/autohunt/` 는 mailbox routing, party workflow-chain 또는 단일 workflow selection, retry-escalation 같은 자동사냥 운영 정책을 두는 local operating surface 다.
 - runner 는 `_workmeta/<project_code>/` contract, binding, workflow, party 를 읽어 current workflow-chain execution packet 을 만드는 execution role 이며 별도 canonical root 나 required local folder 가 아니다.
-- runner prototype 는 한 예시로 `_workmeta/<project_code>/tools/` 아래 script 형태로 materialize 할 수 있지만, 이 경로 자체를 현행 표준 구현 위치로 고정하지는 않는다.
+- reusable runner 구현은 public-safe code owner 아래에 두고, project-local 실행 스크립트·cache·render·tool profile은 `_workspaces/<project_code>/...` 또는 `_workspaces/_local/<node_id>/...`에 둔다. `_workmeta`에는 실행 코드나 tool runtime을 materialize하지 않는다.
 - `contract.yaml` 은 `.unit/<unit_id>/unit.yaml` 을 `unit_ref` 로 가리키고, binding file 은 `.workflow/<workflow_id>/workflow.yaml` 과 `.party/<party_id>/party.yaml` 을 id 기준으로 연결한다.
 - binding set 은 `workflow_binding.yaml`, `party_binding.yaml`, `appserver_binding.yaml`, `mailbox_binding.yaml` 을 기본으로 두고, 필요하면 `execution_profile_binding.yaml` 과 `skill_execution_binding.yaml` 을 추가해 local runtime execution 을 설명한다.
 - 실행 기록 메타데이터의 정본 owner 는 `_workmeta/<project_code>/runs/<run_id>/` 다.
+- raw transcript, intermediate file, generated code, render, cache와 실제 artifact는 `_workspaces/<project_code>/...`, `_workspaces/_local/<node_id>/...` 또는 owner-approved worksite가 소유한다.
+- `_workmeta` write 전에는 `npm run guard:workmeta-write -- --assert-write-target "<target>"`를 통과해야 하며, directory target은 `--target-kind directory`를 사용한다.
 - `.mission/<mission_id>/mission.yaml` 은 workflow, party workflow-chain, runtime assignment 를 묶은 held execution plan owner 다.
 - binding file 과 appserver/mailbox/execution operating metadata 는 orchestration contract 이며 실행 기록 owner 가 아니다.
 - `autohunt/` 는 run queue 와 routing policy 를 다루지만 실행 기록 owner 가 아니다.

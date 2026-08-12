@@ -8,11 +8,11 @@
 
 ## 한 줄 정의
 
-- current-default v0 에서는 raw `mission_close` 근거는 `_workmeta/<project_code>/runs/<run_id>/` 아래에 두고, owner-facing pointer 는 `.mission/<mission_id>/readiness.yaml` 의 `terminal_provenance` 블록으로 남기는 것을 기본으로 본다.
+- current-default v0 에서는 raw `mission_close` 근거는 workspace/worksite에 두고, `_workmeta/<project_code>/runs/<run_id>/`에는 그 근거의 pointer·hash·status receipt를 둔다. owner-facing pointer는 `.mission/<mission_id>/readiness.yaml`의 `terminal_provenance` 블록으로 남긴다.
 
 ## 경계
 
-- raw evidence owner 는 계속 `_workmeta/<project_code>/runs/<run_id>/` 다.
+- raw evidence owner는 workspace/worksite이며, `_workmeta/<project_code>/runs/<run_id>/`는 compact provenance receipt owner다.
 - `.mission/<mission_id>/readiness.yaml` 은 raw dump owner 가 아니라, terminal 상태를 읽기 위한 owner-facing pointer surface 다.
 - `terminal_provenance` 는 raw truth 를 복제하지 않고, nightly review 와 readiness 확인에 필요한 최소 참조만 남긴다.
 - `project_code` 는 이미 `.mission/<mission_id>/mission.yaml` 에서 resolve 가능하므로 provenance 최소 필드에서 중복 요구하지 않는다.
@@ -46,7 +46,7 @@ terminal_provenance:
 - `closed_via` 로 direct terminal write 와 `mission_close` 경유를 구분할 수 있다.
 - `closed_at` 으로 readiness 시점과 nightly review 시점을 비교할 수 있다.
 - `terminal_result` 로 `.mission` 상태와 battle outcome 이 어긋나는지 볼 수 있다.
-- `run_id` 로 raw run truth owner 를 `_workmeta/<project_code>/runs/<run_id>/` 에서 역추적할 수 있다.
+- `run_id`로 `_workmeta/<project_code>/runs/<run_id>/`의 compact receipt를 찾고, 그 receipt의 pointer로 workspace/worksite raw evidence를 역추적할 수 있다.
 - `battle_event_id` 로 mission-level battle outcome 과 readiness terminal pointer 를 대조할 수 있다.
 
 ## nightly 가 이 pointer 로 보는 것
