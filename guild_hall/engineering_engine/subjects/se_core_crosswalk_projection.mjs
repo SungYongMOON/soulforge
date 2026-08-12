@@ -120,6 +120,7 @@ const SOURCE_CONTRACT = Object.freeze([
   }),
 ]);
 const SOURCE_BY_CROSSWALK_ID = new Map(SOURCE_CONTRACT.map((source) => [source.crosswalk_id, source]));
+const SOURCE_BY_CORPUS_ID = new Map(SOURCE_CONTRACT.map((source) => [source.corpus_id, source]));
 
 const SOURCE_CASE_CONTRACT = Object.freeze({
   'se-q-01': Object.freeze({ kind: 'complete', oracle: 'correct', application: Object.freeze([
@@ -620,6 +621,34 @@ function deepFreeze(value) {
   return value;
 }
 
+function buildSafeGrounding(cases) {
+  return deepFreeze(cases.map((entry) => {
+    if (entry.grounding_kind === 'source_backed_candidate') {
+      return {
+        question_id: entry.question_id,
+        public_sources: entry.source_rules.map((rule) => {
+          const source = SOURCE_BY_CORPUS_ID.get(rule.source_id);
+          return {
+            source_id: rule.source_id,
+            title: source.title,
+            revision: rule.source_revision,
+            original_pdf_sha256: rule.original_pdf_sha256,
+            derived_text_sha256: rule.derived_text_sha256,
+            page_numbers: [...rule.page_numbers],
+            reviewed_paraphrase: rule.paraphrase,
+            candidate_claim_ceiling: rule.candidate_claim_ceiling,
+          };
+        }),
+      };
+    }
+    return {
+      question_id: entry.question_id,
+      engine_contracts: entry.contract_refs.map((ref) => structuredClone(ref)),
+      policy_candidate_claim_ceiling: 'observed',
+    };
+  }));
+}
+
 function buildProjection({ corpusSha256, crosswalkSha256, reviewSha256, corpusCommitments, cases }) {
   const compiledCases = cases.map((entry) => {
     const material = normaliseCaseMaterial(entry);
@@ -744,12 +773,7 @@ function buildProjection({ corpusSha256, crosswalkSha256, reviewSha256, corpusCo
   return deepFreeze(projection);
 }
 
-/**
- * Compile one independently reviewed SE-core crosswalk into the existing common-SE projection
- * interface. Expected hashes are caller-supplied acceptance pins; they grant no authority and
- * are all checked against the exact input bytes.
- */
-export function compileSeCoreCrosswalkProjection(input) {
+function compileValidatedSeCoreCrosswalk(input) {
   assertExactKeys(input, INPUT_FIELDS, CODES.INPUT_INVALID);
   const {
     corpusBytes: corpusInput, crosswalkBytes: crosswalkInput, reviewReceiptBytes: reviewInput,
@@ -775,9 +799,29 @@ export function compileSeCoreCrosswalkProjection(input) {
       'one or more exact corpus, crosswalk, or independent-review byte pins are stale');
   }
   validateReview(review, crosswalkSha256);
-  return buildProjection({
+  const projection = buildProjection({
     corpusSha256, crosswalkSha256, reviewSha256, corpusCommitments, cases,
   });
+  return { projection, cases };
+}
+
+/**
+ * Compile one independently reviewed SE-core crosswalk into the existing common-SE projection
+ * interface. Expected hashes are caller-supplied acceptance pins; they grant no authority and
+ * are all checked against the exact input bytes.
+ */
+export function compileSeCoreCrosswalkProjection(input) {
+  return compileValidatedSeCoreCrosswalk(input).projection;
+}
+
+/**
+ * Compile the unchanged projection and a separately frozen, candidate-only grounding view.
+ * The view contains reviewed public-source citations for q1-q5 and Engine contract citations
+ * for q6-q7. Evaluator labels, case kinds, candidate applications, and rubrics are excluded.
+ */
+export function compileSeCoreCrosswalkProjectionWithSafeGrounding(input) {
+  const { projection, cases } = compileValidatedSeCoreCrosswalk(input);
+  return deepFreeze({ projection, safeGrounding: buildSafeGrounding(cases) });
 }
 
 /** Canonical compact JSON bytes for the emitted projection. */

@@ -40,7 +40,7 @@ const ENGINE_LANES = Object.freeze([
     roleLabel: "OUTPUT",
     label: "결과·자기 구조",
     tone: "output",
-    ids: ["engine_pass", "engine_self_topology", "se_core_crosswalk_case_run"],
+    ids: ["engine_pass", "engine_self_topology", "se_core_crosswalk_case_run", "se_core_source_cited_answer_run"],
   },
 ]);
 
@@ -68,6 +68,7 @@ const CLASSIC_SHAPE_BY_ID = Object.freeze({
   engine_pass: "consumer",
   engine_self_topology: "consumer",
   se_core_crosswalk_case_run: "consumer",
+  se_core_source_cited_answer_run: "consumer",
 });
 
 const STRUCTURAL_LIMITS = Object.freeze([

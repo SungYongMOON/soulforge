@@ -2,6 +2,17 @@
 
 ## 2026-08-12 - Common-SE Engine and Notebook shadow evaluation prepared
 
+- Added a deterministic fixed-seven source-cited answer surface that reuses the
+  observed Engine judgments and attaches only independently reviewed public
+  source/page commitments or Engine-boundary contract references. It invokes no
+  learned model, provider, network, ERP writer, or Notebook surface and does not
+  claim general PDF/RAG question answering.
+- Added a metadata-only QA continuation ledger that anchors the immutable
+  70-event evaluation ledger and records later answer attempts, review links,
+  summaries, and candidate comparisons without copying raw answer text.
+- Added a read-only Markdown evaluation report and a prospective per-turn QA
+  capture ledger so people can inspect verified questions and repeated answers
+  while the original 70-event cohort remains byte-for-byte immutable.
 - Materialized a four-source public-safe SE source-pack/corpus contract with
   exact revisions, byte lengths, and SHA-256 commitments while keeping source
   bodies and external provider state out of the tracked repository.

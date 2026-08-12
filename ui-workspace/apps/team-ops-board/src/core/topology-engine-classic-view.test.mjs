@@ -25,18 +25,18 @@ function trackedProjection(overrides = {}) {
   };
 }
 
-test("classic engine view preserves all 28 modules and 123 provider-local import edges", () => {
+test("classic engine view preserves all 29 modules and 127 provider-local import edges", () => {
   const model = buildEngineeringClassicTopologyViewModel(trackedProjection());
   assert.equal(model.available, true);
   assert.deepEqual(model.source, {
-    nodeCount: 28,
-    edgeCount: 123,
+    nodeCount: 29,
+    edgeCount: 127,
     nodeIds: [...model.source.nodeIds].sort(),
     edgeIds: [...model.source.edgeIds].sort(),
   });
   assert.equal(model.nodes.filter((node) => node.kind === "lane").length, 5);
-  assert.equal(model.nodes.filter((node) => node.kind !== "lane").length, 28);
-  assert.equal(model.edges.length, 123);
+  assert.equal(model.nodes.filter((node) => node.kind !== "lane").length, 29);
+  assert.equal(model.edges.length, 127);
   assert.equal(model.edges.every((edge) => edge.source.startsWith("engineering_engine::")
     && edge.target.startsWith("engineering_engine::") && edge.relation === "imports"), true);
 });
@@ -67,6 +67,7 @@ test("classic engine view uses the original shape vocabulary without inventing l
   const nodes = model.nodes.filter((node) => node.kind !== "lane");
   const crosswalkProjection = nodes.find((node) => node.localId === "se_core_crosswalk_projection");
   const crosswalkCaseRun = nodes.find((node) => node.localId === "se_core_crosswalk_case_run");
+  const sourceCitedAnswerRun = nodes.find((node) => node.localId === "se_core_source_cited_answer_run");
   const boundaryLane = model.nodes.find((node) => node.roleLabel === "BOUNDARY");
   const outputLane = model.nodes.find((node) => node.roleLabel === "OUTPUT");
   assert.deepEqual([...new Set(nodes.map((node) => node.kind))].sort(), [
@@ -78,6 +79,10 @@ test("classic engine view uses the original shape vocabulary without inventing l
   );
   assert.deepEqual(
     { kind: crosswalkCaseRun.kind, laneX: crosswalkCaseRun.position.x },
+    { kind: "consumer", laneX: outputLane.position.x + 64 },
+  );
+  assert.deepEqual(
+    { kind: sourceCitedAnswerRun.kind, laneX: sourceCitedAnswerRun.position.x },
     { kind: "consumer", laneX: outputLane.position.x + 64 },
   );
   assert.equal(nodes.every((node) => node.sourceKind === "module"
@@ -104,7 +109,7 @@ test("authority or provider contract drift fails closed", () => {
   missing.snapshot.nodes = missing.snapshot.nodes.filter((node) => node.provider_id !== "engineering_engine");
   missing.snapshot.edges = missing.snapshot.edges.filter((edge) => edge.provider_id !== "engineering_engine");
   missing.snapshot.summary.provider_count -= 1;
-  missing.snapshot.summary.node_count -= 28;
-  missing.snapshot.summary.edge_count -= 123;
+  missing.snapshot.summary.node_count -= 29;
+  missing.snapshot.summary.edge_count -= 127;
   assert.equal(buildEngineeringClassicTopologyViewModel(missing).reason, "engineering_engine_provider_missing");
 });

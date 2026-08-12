@@ -711,13 +711,29 @@
         "PROJECTION_INSTANT",
         "PROJECT_BINDING_REF",
         "canonicalSeCoreCrosswalkProjectionJson",
-        "compileSeCoreCrosswalkProjection"
+        "compileSeCoreCrosswalkProjection",
+        "compileSeCoreCrosswalkProjectionWithSafeGrounding"
       ],
-      "export_count": 6,
-      "line_count": 787
+      "export_count": 7,
+      "line_count": 831
+    },
+    {
+      "module": "se_core_source_cited_answer_run",
+      "area": "subjects",
+      "exports": [
+        "ACCEPTED_COHORT_PINS",
+        "ANSWER_POLICY_REVISION",
+        "CODES",
+        "STRUCTURAL_LIMIT",
+        "canonicalSeCoreSourceCitedAnswerBatchJson",
+        "canonicalSeCoreSourceCitedAnswerReceiptJson",
+        "runSeCoreSourceCitedAnswerBatch"
+      ],
+      "export_count": 7,
+      "line_count": 394
     }
   ],
-  "module_count": 28,
+  "module_count": 29,
   "module_edges": [
     {
       "from": "authority",
@@ -1525,6 +1541,34 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     },
     {
+      "from": "se_core_source_cited_answer_run",
+      "to": "canonical",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_source_cited_answer_run",
+      "to": "errors",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_source_cited_answer_run",
+      "to": "se_core_crosswalk_case_run",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
+      "from": "se_core_source_cited_answer_run",
+      "to": "se_core_crosswalk_projection",
+      "relation": "imports",
+      "receipt_channel": "module_load_observation",
+      "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
+    },
+    {
       "from": "snapshot",
       "to": "canonical",
       "relation": "imports",
@@ -1581,7 +1625,7 @@
       "evidence_note": "declared by the source; traversal requires a receipt from an observed run"
     }
   ],
-  "module_edge_count": 123,
+  "module_edge_count": 127,
   "lane_field_groups": [
     {
       "lane": "1A",
@@ -1932,5 +1976,5 @@
     "activation_state": "not_activated",
     "erp_delta": 0
   },
-  "topology_digest": "3b1333bcd29d315abbcfa35f69e0f42028dd0e96ba9d1ec90263290bf57ce1a2"
+  "topology_digest": "4ef626a64f8e9ed1ce72adff9dce55f105798c214f3d3161c94e34ef5a2668c8"
 }

@@ -1152,6 +1152,46 @@
     },
     {
       "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_source_cited_answer_run",
+      "id": "engineering_engine::imports.se_core_source_cited_answer_run.canonical",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::canonical"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_source_cited_answer_run",
+      "id": "engineering_engine::imports.se_core_source_cited_answer_run.errors",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::errors"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_source_cited_answer_run",
+      "id": "engineering_engine::imports.se_core_source_cited_answer_run.se_core_crosswalk_case_run",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::se_core_crosswalk_case_run"
+    },
+    {
+      "evidence_mode": "structural_only",
+      "from": "engineering_engine::se_core_source_cited_answer_run",
+      "id": "engineering_engine::imports.se_core_source_cited_answer_run.se_core_crosswalk_projection",
+      "label": "imports",
+      "layer": "module",
+      "provider_id": "engineering_engine",
+      "relation": "imports",
+      "to": "engineering_engine::se_core_crosswalk_projection"
+    },
+    {
+      "evidence_mode": "structural_only",
       "from": "engineering_engine::snapshot",
       "id": "engineering_engine::imports.snapshot.canonical",
       "label": "imports",
@@ -1994,6 +2034,17 @@
       "id": "engineering_engine::se_core_crosswalk_projection",
       "kind": "module",
       "label": "se_core_crosswalk_projection",
+      "layer": "module",
+      "parent_id": null,
+      "provider_id": "engineering_engine",
+      "repair_state": "none"
+    },
+    {
+      "diagnostic_state": "validator_backed",
+      "group": "subjects",
+      "id": "engineering_engine::se_core_source_cited_answer_run",
+      "kind": "module",
+      "label": "se_core_source_cited_answer_run",
       "layer": "module",
       "parent_id": null,
       "provider_id": "engineering_engine",
@@ -3492,6 +3543,42 @@
         },
         {
           "evidence_mode": "structural_only",
+          "from": "se_core_source_cited_answer_run",
+          "id": "imports.se_core_source_cited_answer_run.canonical",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "canonical"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_source_cited_answer_run",
+          "id": "imports.se_core_source_cited_answer_run.errors",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "errors"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_source_cited_answer_run",
+          "id": "imports.se_core_source_cited_answer_run.se_core_crosswalk_case_run",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "se_core_crosswalk_case_run"
+        },
+        {
+          "evidence_mode": "structural_only",
+          "from": "se_core_source_cited_answer_run",
+          "id": "imports.se_core_source_cited_answer_run.se_core_crosswalk_projection",
+          "label": "imports",
+          "layer": "module",
+          "relation": "imports",
+          "to": "se_core_crosswalk_projection"
+        },
+        {
+          "evidence_mode": "structural_only",
           "from": "snapshot",
           "id": "imports.snapshot.canonical",
           "label": "imports",
@@ -3837,6 +3924,16 @@
         },
         {
           "diagnostic_state": "validator_backed",
+          "group": "subjects",
+          "id": "se_core_source_cited_answer_run",
+          "kind": "module",
+          "label": "se_core_source_cited_answer_run",
+          "layer": "module",
+          "parent_id": null,
+          "repair_state": "none"
+        },
+        {
+          "diagnostic_state": "validator_backed",
           "group": "kernel",
           "id": "snapshot",
           "kind": "module",
@@ -3852,7 +3949,7 @@
       "runtime_state": "unknown",
       "schema_version": "soulforge.ax_topology.provider.v1",
       "source": {
-        "digest": "32cddcefaa60ad5f08eda919ecb002d9da3b66e17e6de5b30866ad5c9b8f3963",
+        "digest": "a02484838936c95a3cbae96dabebd08f9e9b08a854d5d83a6eebd9a3de024780",
         "revision": "phase_1_0_contract.v0",
         "schema_version": "engine_topology.v0",
         "source_id": "engineering_engine_topology_source"
@@ -4809,13 +4906,13 @@
     }
   ],
   "schema_version": "soulforge.ax_topology.federation.v1",
-  "source_set_digest": "e0c2bc5a1e168a0492cd2d755722e4b4b9ca5bcceab5a5877a330d4cc1231a2e",
+  "source_set_digest": "b24d86242fb7b4b956f7e2019f21646218382c6efd9530f32553c9ab4b997084",
   "summary": {
-    "edge_count": 170,
-    "node_count": 66,
+    "edge_count": 174,
+    "node_count": 67,
     "provider_count": 4,
     "repair_execution_authority": false,
     "runtime_authority": false
   },
-  "topology_digest": "554891fb74b6dcb73bea330f8efb68f1cf065458df2772eb623aedcc385b4dc1"
+  "topology_digest": "9502e40597d03a1b10e6c7f7a1b25659a49667e602da34d770a397dc64a49f66"
 }

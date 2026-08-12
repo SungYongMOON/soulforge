@@ -2,7 +2,7 @@
 
 ## SE-core source-pack and fixed-case evaluation
 
-The public-safe SE-core evaluation seam has three distinct layers:
+The public-safe SE-core evaluation seam has seven distinct layers:
 
 - `subjects/se_core_crosswalk_projection.mjs` accepts only the exact public
   corpus membership, an independently reviewed page-to-rule crosswalk, and its
@@ -13,15 +13,48 @@ The public-safe SE-core evaluation seam has three distinct layers:
   synthetic prompts into typed observations and runs the existing Engine and
   access/binding guards. It is a fixed-case judgment/reference harness, not a
   general natural-language classifier.
+- `subjects/se_core_source_cited_answer_run.mjs` turns those observed typed
+  judgments into deterministic, human-readable answers and attaches only the
+  independently reviewed public source/page commitments or Engine-boundary
+  contract refs. It does not read evaluator gold, call a model, or perform
+  open-ended PDF retrieval.
 - `evaluation/se_core_eval_ledger.mjs` owns the metadata-only append ledger for
   immutable attempts, direct artifact hashes, review links, and Engine row
   commitments. Raw answers and source bodies remain in the workspace payload
   plane and are never copied into the ledger.
+- `evaluation/se_core_eval_qa_continuation.mjs` anchors that closed 70-event
+  ledger and records later source-cited answer attempts and reviews in a
+  separate metadata-only hash chain. The earlier ledger bytes remain immutable.
+- `evaluation/se_core_eval_human_report.mjs` renders the verified question,
+  answer, review, and Engine-attempt evidence as Markdown for human inspection.
+  It is read-only by default and never treats the report as a new authority.
+- `evaluation/se_core_eval_qa_capture.mjs` appends future question, answer, and
+  review turns to a separate metadata-only hash chain while raw text remains in
+  explicit workspace files. It never rewrites the closed 70-event ledger.
 
-The two crosswalk CLIs and the ledger CLI default to stdout/read-only behavior.
+The crosswalk, source-cited answer, and ledger CLIs default to stdout/read-only behavior.
 An output file is created only through an explicit create-only option. The
 Engine runner invokes no learned model, provider, network, ERP writer, or
 Notebook surface.
+
+The human report is Markdown-only. The prospective QA capture ledger starts
+from newly recorded turns. Historical import accepts only a nonempty
+single-turn `.md` or `.txt` file for the question and for the answer, and it
+refuses a question and answer that resolve to the same physical file. JSON and
+other multi-record container files are refused outright rather than silently
+split or reinterpreted as one turn. There is no row-pointer contract in this
+slice.
+
+The source-cited answer slice is deliberately a fixed seven-question
+structured-judgment experiment. It improves evidence presentation and makes a
+fairer natural-answer review possible, but it is not a general RAG question
+answerer and does not prove provider-effective byte parity with Gemini Notebook.
+Independent review scores public-source citation fidelity only for q1 through
+q5. The access and project-binding cases q6 and q7 are instead scored against
+the pinned Engine boundary contracts. The review ledger stores only hashes,
+closed proposition and violation IDs, and aggregate statuses; answer prose and
+source snippets remain outside the ledger. Byte-identical repeats are recorded
+separately from semantic correctness and independently controlled execution.
 
 The normalized `stale`, `unauthorized`, and `wrong-project` rows preserve their
 actual implementation limits: stale is `gap_unknown` plus a revision-evidence

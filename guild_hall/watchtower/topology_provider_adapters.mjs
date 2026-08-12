@@ -160,7 +160,7 @@ export function adaptEngineeringEngineTopology(exactSourceBytes) {
   if (topology.module_count !== topology.modules?.length || topology.module_edge_count !== topology.module_edges?.length) {
     fail("topology_adapter_engine_declared_count_mismatch");
   }
-  assertExpectedCounts(topology.modules, topology.module_edges, 28, 123, "engineering_engine_topology_source");
+  assertExpectedCounts(topology.modules, topology.module_edges, 29, 127, "engineering_engine_topology_source");
   assertEmbeddedEngineDigest(topology);
 
   const nodes = topology.modules.map((module) => {

@@ -71,9 +71,11 @@ metadata/link-only unless a separate permission explicitly covers AI use.
 3. Compile an independently reviewed source-page-to-rule crosswalk into the
    content-addressed Engine projection. Evaluator labels remain outside the
    runtime projection.
-4. Run the fixed seven-case typed-judgment Engine lane and independently verify
-   its seven reference results. This tests the structured judgment layer, not
-   general natural-language extraction from PDFs.
+4. Run the fixed seven-case typed-judgment Engine lane, render the observed
+   judgments through the deterministic source-cited answer surface, and
+   independently review all seven answers. This tests a fixed structured
+   question set with reviewed source/page commitments, not general
+   natural-language extraction or open-ended retrieval from PDFs.
 5. Confirm Notebook authentication, a dedicated unshared notebook, exact source
    membership, and standalone selected-source-grounded mode. Web, agentic,
    cross-app, and cross-notebook context stay off.
@@ -85,6 +87,25 @@ metadata/link-only unless a separate permission explicitly covers AI use.
    repeatability, and `PASS` or `FAIL`. Readiness `HOLD` is an operating decision
    outside this scorer. It does not make an adoption
    decision or promote a Notebook result into accepted context or a task.
+
+The original 70-event evaluation ledger is a closed immutable cohort. Later
+source-cited Engine answer attempts are recorded in a separately anchored
+continuation ledger so adding a new evaluation layer cannot rewrite the earlier
+Notebook and typed-Engine evidence.
+
+A read-only Markdown renderer presents every verified question, repeated answer,
+review result, typed Engine result, and continuation entry that is actually
+available. A separate prospective QA capture ledger records each future
+question, answer, and review as it occurs while keeping raw text in explicit
+workspace files. Neither surface rewrites the original ledger or declares a
+winner.
+
+For the fixed-seven review, q1 through q5 use the independently accepted public
+source spans as their citation-scoring denominator. Q6 and q7 are access and
+project-binding boundary cases, so public-source citation is not applicable;
+their separate denominator is the pinned Engine contract boundary. Notebook and
+Engine remain comparison contestants rather than gold, and identical answer
+bytes do not by themselves prove semantic quality or independent execution.
 
 Notebook login, notebook creation, source upload, query execution, and answer
 export are deliberately outside the public validator. Until those observations
