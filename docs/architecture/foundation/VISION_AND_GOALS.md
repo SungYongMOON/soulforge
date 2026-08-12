@@ -21,7 +21,7 @@ Soulforge는 단순한 agent catalog 나 workflow 예시 묶음이 아니다. �
 
 - reusable behavior 는 `.registry/skills/`, `.workflow/`, `.party/` 에 남기고
 - 지금 들고 있는 실제 실행 계획은 `.mission/` 이 소유하고
-- 실제 현장 실행 흔적은 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남기는 구조를 목표로 한다.
+- 실제 현장 실행 파일은 workspace/worksite에 남기고, `_workmeta/<project_code>/runs/<run_id>/`에는 compact metadata receipt만 남기는 구조를 목표로 한다.
 
 ## 왜 이 구조가 필요한가
 

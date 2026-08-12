@@ -20,6 +20,8 @@
   - `--scope tracked` 는 과거 tracked debt 전체를 점검하는 audit 모드
   - symlink file entry 는 `lstat` 으로 식별한 뒤 target 을 resolve/read 하지 않고 skip 함
 - `workmeta_payload_policy.mjs`
+  - `npm run guard:workmeta-write -- --assert-write-target "<target>"`는 `_workmeta` 파일 생성 전에 metadata-only 경계를 검사한다. 디렉터리는 `--target-kind directory`를 추가한다.
+  - `npm run validate:workmeta-payload`는 Git ignore 여부와 무관하게 새 runtime residue를 검사하고, 기존 HEAD에 이미 있던 legacy 경로만 grandfather한다.
   - `_workmeta` 안에 HWP/HWPX, Office, PDF, 압축파일, mail raw/archive 확장자 파일이 생기면 차단
   - 파일 내용은 읽지 않고 경로와 확장자만 검사해서 ignored local payload 재생성을 잡음
 - `run_ui_workspace_command.mjs`

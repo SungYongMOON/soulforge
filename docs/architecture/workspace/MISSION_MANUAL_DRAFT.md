@@ -44,7 +44,7 @@ flowchart TD
 5. `mission_check` 로 readiness 를 본다.
 6. `ready` 면 실행하거나 다음 운영층으로 넘긴다.
 7. `blocked` 면 blocker owner 를 기준으로 보정한다.
-8. 실제 실행 흔적은 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남긴다.
+8. 실제 실행 파일은 workspace/worksite에 남기고, `_workmeta/<project_code>/runs/<run_id>/`에는 pointer, hash, status와 compact receipt만 남긴다.
 
 ## 자동 mission 절차
 

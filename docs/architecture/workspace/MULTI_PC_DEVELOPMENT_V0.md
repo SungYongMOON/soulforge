@@ -424,7 +424,7 @@ local_paths:
 - `guild_hall/state/gateway/` 실제 mailbox, intake inbox, event log
 - `guild_hall/state/town_crier/` 실제 queue, send log, telegram env
 - `guild_hall/state/operations/` active total-activity context
-- `_workmeta/<project_code>/runs/`, `battle_log/`, `morning_report/` 같은 local runtime truth
+- `_workmeta/<project_code>/runs/`, `battle_log/`, `morning_report/` 같은 compact runtime metadata와 reporting receipt
 - host-local skill install, local binding, private mailbox dump
 - local NotebookLM auth/session
 - local Telegram bot token/chat id

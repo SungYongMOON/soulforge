@@ -22,7 +22,8 @@ flowchart TD
   AS --> RUN
   PT --> RUN
   CS --> RUN
-  RUN --> RT["runs/&lt;run_id&gt;/ raw truth"]
+  RUN --> RT["workspace/worksite raw execution"]
+  RUN --> RM["_workmeta runs/&lt;run_id&gt;/ compact receipt"]
 ```
 
 ## 시퀀스
@@ -47,7 +48,7 @@ sequenceDiagram
 - canonical skill behavior 와 `execution_requirements` 는 `.registry/skills/<skill_id>/skill.yaml` 이 소유한다.
 - local runtime binding 은 model, reasoning, attached skill package, MCP/tool preference 를 소유한다.
 - installed Codex skill name 과 host-local path resolve 는 local runtime concern 이며 canonical root 가 아니다.
-- raw execution truth 는 언제나 `_workmeta/<project_code>/runs/<run_id>/` 아래에 남긴다.
+- raw execution truth와 artifact는 `_workspaces/<project_code>/...`, `_workspaces/_local/<node_id>/...` 또는 owner-approved worksite에 남긴다. `_workmeta/<project_code>/runs/<run_id>/`에는 pointer, hash, status, compact receipt만 남긴다.
 
 ## resolve 순서
 
@@ -58,7 +59,7 @@ sequenceDiagram
 5. `execution_profile_binding.yaml` 이 `execution_profile_ref` 를 model, reasoning, attached skill name, preferred MCP/tool set 으로 resolve 한다.
 6. sub-agent spawn payload 는 workflow step, resolved unit, resolved Codex skill name, execution profile, input file set 을 합쳐 생성한다.
 7. tracked example 에서는 이 중간 상태를 tracked example bundle 의 `runner/run_packet.yaml` 같은 public-safe packet example 로만 보여줄 수 있다.
-8. 실행 결과와 intermediate truth 는 `runs/<run_id>/` 아래에 남긴다.
+8. 실행 결과와 intermediate truth는 workspace/worksite에 남기고, `_workmeta/<project_code>/runs/<run_id>/`에는 그 위치와 hash를 가리키는 compact receipt만 남긴다.
 
 ## tracked example 과 local materialization
 

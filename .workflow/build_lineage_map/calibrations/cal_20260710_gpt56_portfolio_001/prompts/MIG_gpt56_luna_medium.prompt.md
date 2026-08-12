@@ -27,7 +27,7 @@ outputs:
 notes:
   - This sample models the bounded opening phase of a work procedure workflow rather than a fully materialized delivery pipeline.
   - The opening handoff uses the party's `stabilizer` slot to bound risk before the `investigator` slot drafts the first structure.
-  - Runtime truth and produced artifacts still belong under `_workmeta/<project_code>/runs/<run_id>/`.
+  - Runtime truth and produced artifacts belong in the workspace/worksite; `_workmeta/<project_code>/runs/<run_id>/` keeps only compact receipts.
 
 
 

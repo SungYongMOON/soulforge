@@ -15,6 +15,7 @@
 
 - public repo에는 기능 코드, 구조 문서와 public-safe example만 둔다.
 - `_workmeta/<project_code>/`는 private metadata-only plane이다. 문서·메일·첨부·산출 원문은 `_workspaces/**` 또는 owner-approved shared worksite에 두고 `_workmeta`에는 포인터·해시·상태만 남긴다.
+- `_workmeta`에 파일이나 디렉터리를 만들기 전 `npm run guard:workmeta-write -- --assert-write-target "<target>"`를 실행한다. 디렉터리는 `--target-kind directory`를 추가한다. 거부된 대상은 생성하지 말고 `_workspaces/**` 또는 owner-approved worksite로 바꾼 뒤 `_workmeta`에는 compact metadata receipt만 남긴다.
 - cross-project 보호 상태는 `private-state/`에 두며, 저장 위치나 공개 가능성이 불명확하면 public으로 올리지 않고 private 또는 `HOLD`로 해석한다.
 - `.env`, token, password, cookie, session, credential JSON의 값이나 내용을 읽거나 출력하지 않는다. 필요한 경로와 Owner가 직접 처리할 단계만 안내한다.
 - 삭제·이동·외부 전송·업로드·권한·결제·writer/route 활성화처럼 되돌리기 어려운 행위는 정확한 범위의 명시적 권한 없이는 실행하지 않는다.

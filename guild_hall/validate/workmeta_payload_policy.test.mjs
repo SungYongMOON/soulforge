@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-import { validateWorkmetaPayloadPolicy } from "./workmeta_payload_policy.mjs";
+import { validateWorkmetaPayloadPolicy, validateWorkmetaWriteTarget } from "./workmeta_payload_policy.mjs";
 
 const execFileAsync = promisify(execFile);
 const cliPath = fileURLToPath(new URL("./workmeta_payload_policy.mjs", import.meta.url));
@@ -55,6 +55,63 @@ test("workmeta payload policy passes when _workmeta is absent", async () => {
   assert.equal(report.ok, true);
   assert.equal(report.present, false);
   assert.equal(report.violation_count, 0);
+});
+
+test("write-target guard rejects generated runtime paths before they exist", () => {
+  const repoRoot = path.resolve("synthetic-soulforge-root");
+  const report = validateWorkmetaWriteTarget({
+    repoRoot,
+    targetPath: "_workmeta/demo_project/runs/run_01/artifact_run/build.mjs",
+  });
+
+  assert.equal(report.ok, false);
+  assert.deepEqual(report.violations.map((violation) => violation.id), [
+    "generated_runtime_path_in_workmeta",
+    "non_metadata_file_type_in_workmeta",
+  ]);
+});
+
+test("write-target guard rejects git internals under the metadata repository", () => {
+  const repoRoot = path.resolve("synthetic-soulforge-root");
+  const report = validateWorkmetaWriteTarget({
+    repoRoot,
+    targetPath: "_workmeta/.git/objects",
+    targetKind: "directory",
+  });
+
+  assert.equal(report.ok, false);
+  assert.deepEqual(report.violations.map((violation) => violation.id), ["generated_runtime_path_in_workmeta"]);
+});
+
+test("write-target guard permits compact metadata receipts and workspace artifacts", () => {
+  const repoRoot = path.resolve("synthetic-soulforge-root");
+  const receipt = validateWorkmetaWriteTarget({
+    repoRoot,
+    targetPath: "_workmeta/demo_project/runs/run_01/run_receipt.yaml",
+  });
+  const artifact = validateWorkmetaWriteTarget({
+    repoRoot,
+    targetPath: "_workspaces/demo_project/060_SFR/01_Work/output.hwpx",
+  });
+
+  assert.equal(receipt.ok, true);
+  assert.equal(receipt.applies, true);
+  assert.equal(artifact.ok, true);
+  assert.equal(artifact.applies, false);
+});
+
+test("tree validator flags untracked runtime residue even when gitignore could hide it", async () => {
+  const repoRoot = await mkdtemp(path.join(os.tmpdir(), "soulforge-workmeta-payload-policy-"));
+  await writeSample(repoRoot, "_workmeta/demo_project/runs/run_01/__pycache__/builder.pyc");
+  await writeSample(repoRoot, "_workmeta/demo_project/runs/run_01/visual_qa/page-01.png");
+
+  const report = await validateWorkmetaPayloadPolicy({ repoRoot });
+
+  assert.equal(report.ok, false);
+  assert.deepEqual([...new Set(report.violations.map((violation) => violation.id))].sort(), [
+    "generated_runtime_path_in_workmeta",
+    "non_metadata_file_type_in_workmeta",
+  ]);
 });
 
 test("workmeta payload policy CLI runs when invoked by file path", async () => {

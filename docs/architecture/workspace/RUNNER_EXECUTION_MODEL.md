@@ -26,7 +26,8 @@ flowchart TD
   SB --> RP
   EB --> RP
   RP --> AG["sub-agent spawn payload"]
-  AG --> RAW["runs/<run_id>/ raw truth"]
+  AG --> RAW["workspace/worksite raw execution"]
+  AG --> META["_workmeta runs/<run_id>/ compact receipt"]
 ```
 
 ## 시퀀스
@@ -83,7 +84,7 @@ sequenceDiagram
 6. `skill_execution_binding.yaml` 이 `skill_id -> codex skill name` 을 resolve 한다.
 7. `execution_profile_binding.yaml` 이 local runtime 의 model, reasoning, attached skill names, MCP/tool hint 를 resolve 한다.
 8. runner 는 이 결과를 `run_packet.yaml` 형태로 묶고 sub-agent spawn payload 를 생성한다.
-9. actual execution truth 와 artifacts 는 `runs/<run_id>/` 아래에만 남긴다.
+9. actual execution truth와 artifacts는 workspace/worksite에 남기고, `_workmeta/<project_code>/runs/<run_id>/`에는 pointer, hash, status와 compact receipt만 남긴다.
 
 ## anti-bottleneck packet
 
@@ -105,8 +106,8 @@ packet 이 위 정보를 갖지 못하면 runner 는 실행을 시작하지 않�
 
 - tracked repo 는 `dispatch_request.yaml` 과 `run_packet.yaml` 같은 public-safe packet example 만 둔다.
 - tracked example 의 `runner/` 는 설명용 sample packet 묶음이다.
-- actual local runner implementation 은 한 예시로 dedicated `runner/` folder 대신 `_workmeta/<project_code>/tools/` 아래 prototype script 형태로 존재할 수 있다.
-- actual queue state, actual spawn payload, transcripts, intermediate artifact 는 `_workmeta/<project_code>/runs/<run_id>/` 아래에만 둔다.
+- actual local runner implementation과 project-local scripts는 public-safe code owner 또는 workspace/worksite에 둔다. `_workmeta/<project_code>/tools/`를 실행 코드 위치로 사용하지 않는다.
+- actual queue state, actual spawn payload, transcripts, intermediate artifact는 workspace/worksite에 두고, `_workmeta/<project_code>/runs/<run_id>/`에는 compact metadata receipt만 둔다.
 - runner 는 execution role 이지 top-level canonical root 나 required local folder 이름이 아니다.
 
 ## 경계

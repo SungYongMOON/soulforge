@@ -39,7 +39,7 @@
 | claim ceiling | 주장 한계 | 현재 증거로 말할 수 있는 가장 강한 상태 | 예: `observed`, `source_supported`, `validated_private`, `canon_candidate`, `canon_entry`, `rejected_or_blocked`. |
 | workflow | `.workflow/<workflow_id>/` | 반복 가능한 절차, step graph, handoff, validator route 를 소유하는 orchestration canon | 특정 실행 결과나 raw run truth 를 소유하지 않는다. |
 | party | `.party/<party_id>/` | 여러 workflow 를 연결한 reusable workflow-chain/loadout template | workflow 내부 step 이나 실제 성능 log 를 소유하지 않는다. |
-| mission | `.mission/<mission_id>/` | held mission plan, readiness, dispatch, resolved execution plan 을 소유하는 surface | raw run truth 와 실제 project files 는 `_workmeta` 또는 `_workspaces` 경계에 둔다. |
+| mission | `.mission/<mission_id>/` | held mission plan, readiness, dispatch, resolved execution plan 을 소유하는 surface | raw run truth와 실제 project files는 workspace/worksite에 두고 `_workmeta`에는 compact receipt만 둔다. |
 | promotion | 승격 | 반복 성공, source support, review evidence 를 바탕으로 후보를 skill/workflow/party/knowledge/canon 쪽으로 올리는 일 | 승격은 해당 owner surface, README/schema, changelog, 검증 경로를 함께 맞춰야 한다. |
 | public-safe | 공개 안전 | private payload, raw source body, secret, local runtime 값 없이 공개 repo 에 둘 수 있게 추상화된 상태 | 공개 가능 여부가 애매하면 public 이 아니라 private 으로 해석한다. |
 

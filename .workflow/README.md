@@ -130,7 +130,7 @@ sequenceDiagram
 - party 는 여러 workflow 를 낮은 단계로 펼치지 않도록 묶는 chain/loadout 이며, workflow 내부 step 이나 profile 결과를 복제하지 않는다.
 - workflow creator 는 새 workflow 를 등록할 때 `profile_policy.yaml` 을 draft 로 만들고 `calibrations/` placeholder 를 함께 만든다.
 - profile optimizer 는 등록된 workflow 를 대상으로 subagent quality full matrix 결과를 `calibrations/<calibration_id>/` 에 저장하고, 품질 통과 후보만 CLI telemetry probe 로 측정한 뒤 `profile_policy.yaml` 을 active 추천값으로 갱신한다.
-- held mission assignment 는 `.mission/` 이, project-local raw run 은 `_workmeta/<project_code>/runs/<run_id>/` 가 소유한다.
+- held mission assignment는 `.mission/`이, project-local raw run은 workspace/worksite가 소유한다. `_workmeta/<project_code>/runs/<run_id>/`는 compact receipt만 소유한다.
 - `step_graph.yaml` 의 각 step 는 필요하면 `execution_profile_ref` 를 가질 수 있고, 실제 모델/도구 preset 은 `_workmeta/<project_code>/bindings/execution_profile_binding.yaml` 에서 resolve 한다.
 - `step_graph.yaml` 의 `action.skill_id` 는 `.registry/skills/<skill_id>/skill.yaml` 을 가리키며, local runtime 에서는 `_workmeta/<project_code>/bindings/skill_execution_binding.yaml` 이 installed Codex skill name 을 resolve 할 수 있다.
 - skill authoring 같은 운영 workflow 는 tracked package draft 와 install handoff note 를 만들 수 있지만, 실제 installed mirror sync 는 local operation 절차로 남길 수 있다.

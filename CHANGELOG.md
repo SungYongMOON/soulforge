@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-08-12 - Enforce metadata-only `_workmeta` writes
+
+- Added a pre-write target guard that rejects generated runtime directories,
+  executable/tool files, renders, caches, and raw payloads before they are
+  created under `_workmeta`; compact metadata receipts remain allowed.
+- Expanded the physical `_workmeta` validator to catch new untracked or ignored
+  runtime residue while grandfathering only legacy paths already present in the
+  nested repository HEAD.
+- Corrected active runner, workflow, mission, workspace, and source-collection
+  guidance so raw execution truth and artifacts stay in workspaces or approved
+  worksites and `_workmeta` stores only pointers, hashes, status, and receipts.
+
 ## 2026-08-12 - Common-SE Engine and Notebook shadow evaluation prepared
 
 - Materialized a four-source public-safe SE source-pack/corpus contract with
